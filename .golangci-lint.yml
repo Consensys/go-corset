@@ -1,0 +1,99 @@
+linters:
+  disable-all: true
+  enable:
+    - errcheck
+    - goimports
+    - revive
+    - gosimple
+    - govet
+    - ineffassign
+    - lll
+    - misspell
+    - staticcheck
+    - typecheck
+    - unconvert
+    - unparam
+    - unused
+    - whitespace
+    - wsl
+    #    - godot
+
+    # don't enable:
+    # - gochecknoglobals
+    # - gocognit
+    # - godox
+    # - maligned
+    # - prealloc
+
+# output configuration options
+output:
+  # print lines of code with issue, default is true
+  print-issued-lines: true
+
+  # print linter name in the end of issue text, default is true
+  print-linter-name: true
+
+# golangci.com configuration
+# https://github.com/golangci/golangci/wiki/Configuration
+service:
+  golangci-lint-version: 1.57.1 # use the fixed version to not introduce new linters unexpectedly
+
+linters-settings:
+  errcheck:
+    # report about assignment of errors to blank identifier: `num, _ := strconv.Atoi(numStr)`;
+    # default is false: such cases aren't reported by default.
+    check-blank: true
+
+  govet:
+    # report about shadowed variables
+    check-shadowing: true
+
+  revive:
+    # see https://github.com/mgechev/revive#available-rules for details.
+    ignore-generated-header: true
+    severity: warning
+    confidence: 0.8
+    rules:
+      - name: indent-error-flow
+        severity: warning
+      - name: errorf
+        severity: warning
+      - name: context-as-argument
+        severity: warning
+      - name: exported
+        severity: warning
+      - name: error-naming
+        severity: warning
+      - name: increment-decrement
+        severity: warning
+      - name: receiver-naming
+        severity: warning
+      - name: superfluous-else
+        severity: warning
+      - name: useless-break
+        severity: warning
+      - name: defer
+        severity: warning
+      - name: identical-branches
+        severity: warning
+      - name: early-return
+        severity: warning
+      - name: unnecessary-stmt
+        severity: warning
+      - name: unreachable-code
+        severity: warning
+      - name: confusing-naming
+        severity: warning
+
+  staticcheck:
+    go: "1.22"
+    # https://staticcheck.io/docs/options#checks
+    checks: [ "all" ]
+
+
+issues:
+  exclude-use-default: false # this one is used due to golangci v1 blocking revive linter exported rule, this should be fixed in v2
+
+godot:
+  period: true
+  capital: true

@@ -8,7 +8,8 @@ import (
 func TestEvalConst(t *testing.T) {
 	one := big.NewInt(1)
 	e := Const{one}
-	if e.eval_at() != one {
+
+	if e.evalAt() != one {
 		t.Errorf("evaluation failed")
 	}
 }

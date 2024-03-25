@@ -22,3 +22,15 @@ go.work
 
 # Emacs
 *~
+
+# Binary directory
+bin
+
+# Dependency directories (remove the comment below to include it)
+# vendor/
+
+# GoLand metadata
+*.iml
+.idea
+
+.env
