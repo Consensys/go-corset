@@ -2,9 +2,8 @@ package binfile
 
 import (
 	"encoding/json"
-	//	"fmt"
-	"github.com/Consensys/go-corset/pkg/constraint"
-	"github.com/Consensys/go-corset/pkg/table"
+	// "fmt"
+	// "github.com/Consensys/go-corset/pkg/ast"
 )
 
 // This is very much a Work-In-Progress :)
@@ -58,14 +57,20 @@ type ColumnSet struct {
 }
 
 // =============================================================================
+// Domain
+// =============================================================================
+type JsonDomain = string
+
+// =============================================================================
 // ConstraintSet
 // =============================================================================
 
 type ConstraintSet struct {
-	Columns ColumnSet
-	Constraints []table.Constraint
-	// constants interface{}
-	// computations interface{}
+	//Columns ColumnSet `json:"columns"`
+	Constraints []JsonConstraint `json:"constraints"`
+	//
+	// constants any
+	// computations any
 	// perspectives []string
 	// transformations uint64
 	// auto_constraints uint64
@@ -76,51 +81,11 @@ type ConstraintSet struct {
 // Rust corset tool.
 func ConstraintSetFromJson(bytes []byte) (cs ConstraintSet, err error) {
 	var res ConstraintSet
-	var data map[string]interface{}
+	//var data map[string]interface{}
 	// Unmarshall
-	json_err := json.Unmarshal(bytes, &data)
+	json_err := json.Unmarshal(bytes, &res)
 	//
-	res.Constraints = ConstraintArrayFromJson(data["constraints"])
+	//res.Constraints = ConstraintArrayFromJson(data["constraints"])
 	// For now return directly.
 	return res,json_err
-}
-
-/// Decode an array of constraints from raw JSON.
-func ConstraintArrayFromJson(raw interface{}) []table.Constraint {
-	arr := raw.([]interface{})
-	// Construct output array
-	var res = make([]table.Constraint,len(arr))
-	// Parse each constraint
-	for i := 0; i < len(arr); i++ {
-		res[i] = ConstraintFromJson(arr[i])
-	}
-	return res
-}
-
-// Decode an individual constraint from raw JSON.
-func ConstraintFromJson(raw interface{}) table.Constraint {
-	// Expose enumeration
-	enum := raw.(map[string]interface{})
-	// Match on constraint kind
-	if val, ok := enum["Vanishes"]; ok {
-		return VanishingConstraintFromJson(val)
-	} else {
-		panic("unknown constraint encounted")
-	}
-}
-
-// Decode an vanishing constraint from raw JSON.
-func VanishingConstraintFromJson(raw interface{}) constraint.Vanishing {
-	var c constraint.Vanishing
-	// Expose enumeration
-	data := raw.(map[string]interface{})
-	//
-	c.Handle = data["handle"].(string)
-	c.Domain = DomainFromJson(data["domain"])
-	//
-	return c
-}
-
-func DomainFromJson(raw interface{}) constraint.Domain {
-	return nil
 }
