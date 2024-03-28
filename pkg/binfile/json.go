@@ -1,4 +1,4 @@
-package bin_fmt
+package binfile
 
 import (
 	"encoding/json"

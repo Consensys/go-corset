@@ -4,7 +4,7 @@ package main
 import (
 	"fmt"
 	"os"
-	"github.com/Consensys/go-corset/pkg/bin_fmt"
+	"github.com/Consensys/go-corset/pkg/binfile"
 )
 
 
@@ -16,7 +16,7 @@ func main() {
 	if err != nil {
 		fmt.Println("Error")
 	} else {
-		cs,_ := bin_fmt.ConstraintSetFromJson(bytes)
+		cs,_ := binfile.ConstraintSetFromJson(bytes)
 		// do nothing for now
 		fmt.Println(cs.Constraints)
 	}
