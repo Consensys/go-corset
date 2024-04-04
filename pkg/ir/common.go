@@ -3,7 +3,7 @@ package ir
 import "math/big"
 
 // An n-ary sum
-type Add[T comparable] struct {
+type Add[T any] struct {
 	// Arguments for the addition operation.  At least one
 	// argument is required.
 	arguments []T

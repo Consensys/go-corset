@@ -4,18 +4,43 @@ import (
 	"math/big"
 )
 
-// An Expression in the Arithmetic Intermediate Representation (AIR)
+type Polynomial any // for now
+
+// An Expression in the Arithmetic Intermediate Representation (AIR).
+// Any expression in this form can be lowered into a polynomial.
 type AirExpr interface {
-	// Evaluate this AirExpression at a specific row index within a
-	// given table.
+	// Lower this expression into a minimal polynomial form.
+	LowerToPolynomial() Polynomial
+	// Evaluate this expression in the context of a given table.
 	EvalAt() *big.Int
 }
 
-func (e *Constant) EvalAt() *big.Int {
-	return e.Value
-}
+// ============================================================================
+// Definitions
+// ============================================================================
 
 type AirAdd Add[AirExpr]
+type AirConstant = Constant
+
+// ============================================================================
+// Lowering
+// ============================================================================
+
+func (*AirConstant) LowerToPolynomial() Polynomial {
+	panic("to do")
+}
+
+func (*AirAdd) LowerToPolynomial() Polynomial {
+	panic("to do")
+}
+
+// ============================================================================
+// Evaluation
+// ============================================================================
+
+func (e *AirConstant) EvalAt() *big.Int {
+	return e.Value
+}
 
 func (e *AirAdd) EvalAt() *big.Int {
 	// Evaluate first argument
