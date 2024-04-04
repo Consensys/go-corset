@@ -45,6 +45,18 @@ func TestEvalMul_3(t *testing.T) {
 	CheckEval(t,36,"(* 6 2 3)")
 }
 
+func TestEvalAddMul_1(t *testing.T) {
+	CheckEval(t,22,"(+ (* 4 5) 2)")
+}
+
+func TestEvalAddMul_2(t *testing.T) {
+	CheckEval(t,23,"(+ 3 (* 4 5))")
+}
+
+func TestEvalColumnAccess_1(t *testing.T) {
+	//CheckEval(t,23,"STAMP")
+}
+
 // ===================================================================
 
 func CheckEval(t *testing.T, val int64, str string) {

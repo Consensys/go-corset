@@ -2,14 +2,21 @@ package ir
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
+	"unicode"
 	"github.com/Consensys/go-corset/pkg/sexp"
 )
 
 // An Expression in the Arithmetic Intermediate Representation (AIR).
 // Any expression in this form can be lowered into a polynomial.
 type AirExpr interface {
-	// Evaluate this expression in the context of a given table.
+	// Evaluate this expression in a given tabular context.
+	// Observe that if this expression is *undefined* within this
+	// context then it returns "nil".  An expression can be
+	// undefined for several reasons: firstly, if it accesses a
+	// row which does not exist (e.g. at index -1); secondly, if
+	// it accesses a column which does not exist.
 	EvalAt() *big.Int
 }
 
@@ -21,10 +28,15 @@ type AirAdd Add[AirExpr]
 type AirSub Sub[AirExpr]
 type AirMul Mul[AirExpr]
 type AirConstant = Constant
+type AirColumnAccess = ColumnAccess
 
 // ============================================================================
 // Evaluation
 // ============================================================================
+
+func (e *AirColumnAccess) EvalAt() *big.Int {
+	panic("got here") // todo
+}
 
 func (e *AirConstant) EvalAt() *big.Int {
 	return e.Value
@@ -97,7 +109,7 @@ func SExpListToAir(elements []sexp.SExp) (AirExpr,error) {
 	var err error
 	// Sanity check this list makes sense
 	if len(elements) == 0 || !elements[0].IsSymbol() {
-		return nil,errors.New("invalid sexp.List")
+		return nil,errors.New("Invalid sexp.List")
 	}
 	// Extract operator name
 	name := (elements[0].(*sexp.Symbol)).Value
@@ -116,7 +128,7 @@ func SExpListToAir(elements []sexp.SExp) (AirExpr,error) {
 	case "*":
 		return &AirMul{args},nil
 	default:
-		panic("unknown symbol")
+		panic("Unknown symbol")
 	}
 }
 
@@ -126,5 +138,26 @@ func SExpSymbolToAir(symbol string) (AirExpr,error) {
 	num,ok := num.SetString(symbol,10)
 	if ok { return &AirConstant{num},nil }
 	// Not a number!
-	panic("Parsing SExp.Symbol")
+	if isIdentifier(symbol) {
+		return &AirColumnAccess{symbol,0},nil
+	}
+	// Problem
+	msg := fmt.Sprintf("Invalid symbol: {%s}",symbol)
+	return nil,errors.New(msg)
+}
+
+// Check whether a given identifier is made up from characters, digits
+// or "_" and does not start with a digit.
+func isIdentifier(s string) bool {
+	for i,c := range s {
+		if unicode.IsLetter(c) || c == '_' {
+			// OK
+		} else if i != 0 && unicode.IsNumber(c) {
+			// Also OK
+		} else {
+			// Otherwise, not OK.
+			return false
+		}
+	}
+	return true
 }
