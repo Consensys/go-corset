@@ -9,6 +9,20 @@ type Add[T any] struct {
 	arguments []T
 }
 
+// An n-ary subtraction operator (x - y - z).
+type Sub[T any] struct {
+	// Arguments for the subtraction operation.  At least one
+	// argument is required.
+	arguments []T
+}
+
+// An n-ary product
+type Mul[T any] struct {
+	// Arguments for the multiplication operation.  At least one
+	// argument is required.
+	arguments []T
+}
+
 // A constant value used within an AirExpression tree.
 type Constant struct {
 	Value *big.Int
