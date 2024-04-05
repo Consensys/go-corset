@@ -71,45 +71,18 @@ func LowerMirExprs(exprs []MirExpr) []AirExpr {
 // ============================================================================
 
 func (e *MirAdd) EvalAt(k int, tbl trace.Table) *big.Int {
-	// Evaluate first argument
-	val := e.arguments[0].EvalAt(k,tbl)
-	if val == nil { return nil }
-	// Continue evaluating the rest
-	for i := 1; i < len(e.arguments); i++ {
-		ith := e.arguments[i].EvalAt(k,tbl)
-		if ith == nil { return ith }
-		val.Add(val, ith)
-	}
-	// Done
-	return val
+	fn := func(l *big.Int, r*big.Int) { l.Add(l,r) }
+	return EvalMirExprsAt(k,tbl,e.arguments,fn)
 }
 
 func (e *MirSub) EvalAt(k int, tbl trace.Table) *big.Int {
-	// Evaluate first argument
-	val := e.arguments[0].EvalAt(k,tbl)
-	if val == nil { return nil }
-	// Continue evaluating the rest
-	for i := 1; i < len(e.arguments); i++ {
-		ith := e.arguments[i].EvalAt(k,tbl)
-		if ith == nil { return ith }
-		val.Sub(val, ith)
-	}
-	// Done
-	return val
+	fn := func(l *big.Int, r*big.Int) { l.Sub(l,r) }
+	return EvalMirExprsAt(k,tbl,e.arguments,fn)
 }
 
 func (e *MirMul) EvalAt(k int, tbl trace.Table) *big.Int {
-	// Evaluate first argument
-	val := e.arguments[0].EvalAt(k,tbl)
-	if val == nil { return nil }
-	// Continue evaluating the rest
-	for i := 1; i < len(e.arguments); i++ {
-		ith := e.arguments[i].EvalAt(k,tbl)
-		if ith == nil { return ith }
-		val.Mul(val, ith)
-	}
-	// Done
-	return val
+	fn := func(l *big.Int, r*big.Int) { l.Mul(l,r) }
+	return EvalMirExprsAt(k,tbl,e.arguments,fn)
 }
 
 func (e *MirNormalise) EvalAt(k int, tbl trace.Table) *big.Int {
