@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"unicode"
 	"github.com/Consensys/go-corset/pkg/sexp"
+	"github.com/Consensys/go-corset/pkg/trace"
 )
 
 // An Expression in the Arithmetic Intermediate Representation (AIR).
@@ -17,7 +18,7 @@ type AirExpr interface {
 	// undefined for several reasons: firstly, if it accesses a
 	// row which does not exist (e.g. at index -1); secondly, if
 	// it accesses a column which does not exist.
-	EvalAt() *big.Int
+	EvalAt(int, trace.Table) *big.Int
 }
 
 // ============================================================================
@@ -34,42 +35,50 @@ type AirColumnAccess = ColumnAccess
 // Evaluation
 // ============================================================================
 
-func (e *AirColumnAccess) EvalAt() *big.Int {
-	panic("got here") // todo
+func (e *AirColumnAccess) EvalAt(k int, tbl trace.Table) *big.Int {
+	val,_ := tbl.GetByName(e.Column, k + e.Shift)
+	// We can ignore err as val is always nil when err != nil.
+	// Furthermore, as stated in the documentation for this
+	// method, we return nil upon error.
+	var clone big.Int
+	// Clone original value
+	return clone.Set(val)
 }
 
-func (e *AirConstant) EvalAt() *big.Int {
-	return e.Value
+func (e *AirConstant) EvalAt(k int, tbl trace.Table) *big.Int {
+	var clone big.Int
+	// Clone original value
+	return clone.Set(e.Value)
 }
 
-func (e *AirAdd) EvalAt() *big.Int {
+func (e *AirAdd) EvalAt(k int, tbl trace.Table) *big.Int {
 	// Evaluate first argument
-	val := e.arguments[0].EvalAt()
+	val := e.arguments[0].EvalAt(k,tbl)
 	// Continue evaluating the rest
 	for i := 1; i < len(e.arguments); i++ {
-		val.Add(val, e.arguments[i].EvalAt())
+		val.Add(val, e.arguments[i].EvalAt(k,tbl))
 	}
 	// Done
 	return val
 }
 
-func (e *AirSub) EvalAt() *big.Int {
+func (e *AirSub) EvalAt(k int, tbl trace.Table) *big.Int {
 	// Evaluate first argument
-	val := e.arguments[0].EvalAt()
+	val := e.arguments[0].EvalAt(k,tbl)
 	// Continue evaluating the rest
 	for i := 1; i < len(e.arguments); i++ {
-		val.Sub(val, e.arguments[i].EvalAt())
+		val.Sub(val, e.arguments[i].EvalAt(k,tbl))
 	}
 	// Done
 	return val
 }
 
-func (e *AirMul) EvalAt() *big.Int {
+func (e *AirMul) EvalAt(k int, tbl trace.Table) *big.Int {
 	// Evaluate first argument
-	val := e.arguments[0].EvalAt()
+	val := e.arguments[0].EvalAt(k,tbl)
 	// Continue evaluating the rest
 	for i := 1; i < len(e.arguments); i++ {
-		val.Mul(val, e.arguments[i].EvalAt())
+		val.Mul(val, e.arguments[i].EvalAt(k,tbl))
 	}
 	// Done
 	return val

@@ -1,6 +1,9 @@
 package ir
 
-import "math/big"
+import (
+	"math/big"
+	"github.com/Consensys/go-corset/pkg/trace"
+)
 
 // An MirExpression in the Mid-Level Intermediate Representation (MIR).
 type MirExpr interface {
@@ -10,7 +13,7 @@ type MirExpr interface {
 	// appropriate constraints).
 	LowerToAir() AirExpr
 	// Evaluate this expression in the context of a given table.
-	EvalAt() *big.Int
+	EvalAt(int, trace.Table) *big.Int
 }
 
 // ============================================================================
@@ -47,20 +50,20 @@ func (e *MirConstant) LowerToAir() AirExpr {
 // Evaluation
 // ============================================================================
 
-func (e *MirAdd) EvalAt() *big.Int {
+func (e *MirAdd) EvalAt(k int, tbl trace.Table) *big.Int {
 	// Evaluate first argument
-	sum := e.arguments[0].EvalAt()
+	sum := e.arguments[0].EvalAt(k,tbl)
 	// Continue evaluating the rest
 	for i := 1; i < len(e.arguments); i++ {
-		sum.Add(sum, e.arguments[i].EvalAt())
+		sum.Add(sum, e.arguments[i].EvalAt(k,tbl))
 	}
 	// Done
 	return sum
 }
 
-func (e *MirNormalise) EvalAt() *big.Int {
+func (e *MirNormalise) EvalAt(k int, tbl trace.Table) *big.Int {
 	// Check whether argument evaluates to zero or not.
-	if e.expr.EvalAt().BitLen() == 0 {
+	if e.expr.EvalAt(k,tbl).BitLen() == 0 {
 		return big.NewInt(0)
 	} else {
 		return big.NewInt(1)
