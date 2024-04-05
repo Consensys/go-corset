@@ -57,42 +57,31 @@ func (e *AirConstant) EvalAt(k int, tbl trace.Table) *big.Int {
 }
 
 func (e *AirAdd) EvalAt(k int, tbl trace.Table) *big.Int {
-	// Evaluate first argument
-	val := e.arguments[0].EvalAt(k,tbl)
-	if val == nil { return nil }
-	// Continue evaluating the rest
-	for i := 1; i < len(e.arguments); i++ {
-		ith := e.arguments[i].EvalAt(k,tbl)
-		if ith == nil { return ith }
-		val.Add(val, ith)
-	}
-	// Done
-	return val
+	fn := func(l *big.Int, r*big.Int) { l.Add(l,r) }
+	return EvalAirExprsAt(k,tbl,e.arguments,fn)
 }
 
 func (e *AirSub) EvalAt(k int, tbl trace.Table) *big.Int {
-	// Evaluate first argument
-	val := e.arguments[0].EvalAt(k,tbl)
-	if val == nil { return nil }
-	// Continue evaluating the rest
-	for i := 1; i < len(e.arguments); i++ {
-		ith := e.arguments[i].EvalAt(k,tbl)
-		if ith == nil { return ith }
-		val.Sub(val, ith)
-	}
-	// Done
-	return val
+	fn := func(l *big.Int, r*big.Int) { l.Sub(l,r) }
+	return EvalAirExprsAt(k,tbl,e.arguments,fn)
 }
 
 func (e *AirMul) EvalAt(k int, tbl trace.Table) *big.Int {
+	fn := func(l *big.Int, r*big.Int) { l.Mul(l,r) }
+	return EvalAirExprsAt(k,tbl,e.arguments,fn)
+}
+
+// Evaluate all expressions in a given slice at a given row on the
+// table, and fold their results together using a combinator.
+func EvalAirExprsAt(k int, tbl trace.Table, exprs []AirExpr, fn func(*big.Int,*big.Int)) *big.Int {
 	// Evaluate first argument
-	val := e.arguments[0].EvalAt(k,tbl)
+	val := exprs[0].EvalAt(k,tbl)
 	if val == nil { return nil }
 	// Continue evaluating the rest
-	for i := 1; i < len(e.arguments); i++ {
-		ith := e.arguments[i].EvalAt(k,tbl)
+	for i := 1; i < len(exprs); i++ {
+		ith := exprs[i].EvalAt(k,tbl)
 		if ith == nil { return ith }
-		val.Mul(val, ith)
+		fn(val,ith)
 	}
 	// Done
 	return val
