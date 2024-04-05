@@ -89,6 +89,31 @@ func TestEvalColumnAccess_5(t *testing.T) {
 	CheckTable(t,DataSet_1(),results,"(+ X (* 2 Y))")
 }
 
+func TestEvalShiftAccess_1(t *testing.T) {
+	results := []*big.Int{big.NewInt(2),big.NewInt(3),big.NewInt(4),nil}
+	CheckTable(t,DataSet_1(),results,"(shift X 1)")
+}
+
+func TestEvalShiftAccess_2(t *testing.T) {
+	results := []*big.Int{nil,big.NewInt(1),big.NewInt(2),big.NewInt(3)}
+	CheckTable(t,DataSet_1(),results,"(shift X -1)")
+}
+
+func TestEvalShiftAccess_3(t *testing.T) {
+	results := []*big.Int{big.NewInt(7),big.NewInt(9),big.NewInt(11),nil}
+	CheckTable(t,DataSet_1(),results,"(+ (shift X 1) Y)")
+}
+
+func TestEvalShiftAccess_4(t *testing.T) {
+	results := []*big.Int{big.NewInt(-3),big.NewInt(-3),big.NewInt(-3),nil}
+	CheckTable(t,DataSet_1(),results,"(- (shift X 1) Y)")
+}
+
+func TestEvalShiftAccess_5(t *testing.T) {
+	results := []*big.Int{big.NewInt(10),big.NewInt(18),big.NewInt(28),nil}
+	CheckTable(t,DataSet_1(),results,"(* (shift X 1) Y)")
+}
+
 // ===================================================================
 // Data Sets
 // ===================================================================
@@ -131,7 +156,9 @@ func CheckTable(t *testing.T, tbl trace.Table, data []*big.Int, str string) {
 			// Compute actual evaluation point
 			actual := sexp.EvalAt(i,tbl)
 			// Check evaluation yields expected outcome
-			if actual.Cmp(expected) != 0 {
+			if actual == expected {
+				// handle nil case
+			} else if actual == nil || expected == nil || actual.Cmp(expected) != 0 {
 				msg := fmt.Sprintf("Evaluation failed on row %d: was %s, expected %s",i,actual,expected)
 				t.Errorf(msg)
 			}

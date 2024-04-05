@@ -40,9 +40,14 @@ func (e *AirColumnAccess) EvalAt(k int, tbl trace.Table) *big.Int {
 	// We can ignore err as val is always nil when err != nil.
 	// Furthermore, as stated in the documentation for this
 	// method, we return nil upon error.
-	var clone big.Int
-	// Clone original value
-	return clone.Set(val)
+	if val == nil {
+		// Indicates an out-of-bounds access of some kind.
+		return val
+	} else {
+		var clone big.Int
+		// Clone original value
+		return clone.Set(val)
+	}
 }
 
 func (e *AirConstant) EvalAt(k int, tbl trace.Table) *big.Int {
@@ -54,9 +59,12 @@ func (e *AirConstant) EvalAt(k int, tbl trace.Table) *big.Int {
 func (e *AirAdd) EvalAt(k int, tbl trace.Table) *big.Int {
 	// Evaluate first argument
 	val := e.arguments[0].EvalAt(k,tbl)
+	if val == nil { return nil }
 	// Continue evaluating the rest
 	for i := 1; i < len(e.arguments); i++ {
-		val.Add(val, e.arguments[i].EvalAt(k,tbl))
+		ith := e.arguments[i].EvalAt(k,tbl)
+		if ith == nil { return ith }
+		val.Add(val, ith)
 	}
 	// Done
 	return val
@@ -65,9 +73,12 @@ func (e *AirAdd) EvalAt(k int, tbl trace.Table) *big.Int {
 func (e *AirSub) EvalAt(k int, tbl trace.Table) *big.Int {
 	// Evaluate first argument
 	val := e.arguments[0].EvalAt(k,tbl)
+	if val == nil { return nil }
 	// Continue evaluating the rest
 	for i := 1; i < len(e.arguments); i++ {
-		val.Sub(val, e.arguments[i].EvalAt(k,tbl))
+		ith := e.arguments[i].EvalAt(k,tbl)
+		if ith == nil { return ith }
+		val.Sub(val, ith)
 	}
 	// Done
 	return val
@@ -76,9 +87,12 @@ func (e *AirSub) EvalAt(k int, tbl trace.Table) *big.Int {
 func (e *AirMul) EvalAt(k int, tbl trace.Table) *big.Int {
 	// Evaluate first argument
 	val := e.arguments[0].EvalAt(k,tbl)
+	if val == nil { return nil }
 	// Continue evaluating the rest
 	for i := 1; i < len(e.arguments); i++ {
-		val.Mul(val, e.arguments[i].EvalAt(k,tbl))
+		ith := e.arguments[i].EvalAt(k,tbl)
+		if ith == nil { return ith }
+		val.Mul(val, ith)
 	}
 	// Done
 	return val
@@ -136,9 +150,26 @@ func SExpListToAir(elements []sexp.SExp) (AirExpr,error) {
 		return &AirSub{args},nil
 	case "*":
 		return &AirMul{args},nil
-	default:
-		panic("Unknown symbol")
+	case "shift":
+		if len(args) == 2 {
+			// Extract parameters
+			c,ok1 := args[0].(*AirColumnAccess)
+			n,ok2 := args[1].(*AirConstant)
+			// Sanit check this make sense
+			if ok1 && ok2 && n.Value.IsInt64() {
+				n := int(n.Value.Int64())
+				return &AirColumnAccess{c.Column,c.Shift+n},nil
+			} else if !ok1 {
+				msg := fmt.Sprintf("Shift column malformed: {%s}",args[0])
+				return nil, errors.New(msg)
+			} else {
+				msg := fmt.Sprintf("Shift amount malformed: {%s}",n)
+				return nil, errors.New(msg)
+			}
+		}
 	}
+	// Default fall back
+	return nil, errors.New("unknown symbol encountered")
 }
 
 func SExpSymbolToAir(symbol string) (AirExpr,error) {
