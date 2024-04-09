@@ -3,9 +3,9 @@ package constraint
 type Vanishing struct {
 	Handle string
 	Domain Domain
-	Expr interface{}
+	Expr   any
 }
 
-func (c Vanishing) GetHandle() string {
+func (c *Vanishing) GetHandle() string {
 	return c.Handle
 }

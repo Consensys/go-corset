@@ -1,8 +1,8 @@
 package trace
 
 import (
-	"fmt"
 	"errors"
+	"fmt"
 	"math/big"
 )
 
@@ -12,22 +12,22 @@ type Constraint interface {
 }
 
 type Table interface {
-	// Get the value of a given column by its name.  If the column
+	// GetByName gets the value of a given column by its name.  If the column
 	// does not exist or if the index is out-of-bounds then an
 	// error is returned.
 	//
 	// NOTE: this operation is expected to be slower than
-	// GetByindex as, depending on the underlying data format,
+	// GetByIndex as, depending on the underlying data format,
 	// this may first resolve the name into a physical column
 	// index.
-	GetByName(name string, row int) (*big.Int,error)
+	GetByName(name string, row int) (*big.Int, error)
 
-	// Get the value of a given column by its index. If the column
+	// GetByIndex gets the value of a given column by its index. If the column
 	// does not exist or if the index is out-of-bounds then an
 	// error is returned.
-	GetByIndex(col int, row int)  (*big.Int,error)
+	GetByIndex(col int, row int) (*big.Int, error)
 
-	// Get the number of rows in this table
+	// Height gets the number of rows in this table
 	Height() int
 }
 
@@ -48,27 +48,27 @@ type LazyTable struct {
 func EmptyLazyTable() *LazyTable {
 	p := new(LazyTable)
 	// Initially columns empty
-	p.columns = make([]string,0)
+	p.columns = make([]string, 0)
 	// Initially columns empty
-	p.rows = make([][]*big.Int,0)
+	p.rows = make([][]*big.Int, 0)
 	//
 	return p
 }
 
-// Construct a new LazyTable initialised with a given schema and
+// NewLazyTable constructs a new LazyTable initialised with a given schema and
 // corresponding data.  Observe that this operation can fail if the
 // schema and data are mal-formed.  For example, if data for one or
 // more columns is missing; likewise, if there is data for non-existant
 // columns; finally, if some of the columns have differing height.
-func NewLazyTable(columns []string, data ...[]*big.Int) (*LazyTable,error) {
+func NewLazyTable(columns []string, data ...[]*big.Int) (*LazyTable, error) {
 	if len(columns) != len(data) {
-		return nil,errors.New("Column data does not match schema")
+		return nil, errors.New("Column data does not match schema")
 	} else if len(columns) > 0 {
 		// Sanity check data columns all have same height.
 		n := len(data[0])
-		for _,d := range data {
+		for _, d := range data {
 			if len(d) != n {
-				return nil,errors.New("Column data has differing heights")
+				return nil, errors.New("Column data has differing heights")
 			}
 		}
 	}
@@ -77,13 +77,13 @@ func NewLazyTable(columns []string, data ...[]*big.Int) (*LazyTable,error) {
 	p.columns = columns
 	p.rows = data
 	// Done
-	return p,nil
+	return p, nil
 }
 
-// Add a given column to a lazy table.
+// AddColumn adds a given column to a lazy table.
 func (p *LazyTable) AddColumn(name string, data []*big.Int) {
-	p.columns = append(p.columns,name)
-	p.rows = append(p.rows,data)
+	p.columns = append(p.columns, name)
+	p.rows = append(p.rows, data)
 }
 
 func (p *LazyTable) Height() int {
@@ -94,24 +94,25 @@ func (p *LazyTable) Height() int {
 	}
 }
 
-func (p *LazyTable) GetByName(name string, row int) (*big.Int,error) {
+func (p *LazyTable) GetByName(name string, row int) (*big.Int, error) {
 	// NOTE: Could improve performance here if names were kept in
 	// sorted order.
-	for i,n := range p.columns {
+	for i, n := range p.columns {
 		if n == name {
 			// Matched column
-			return p.GetByIndex(i,row)
+			return p.GetByIndex(i, row)
 		}
 	}
 	// Failed to find column
-	msg := fmt.Sprintf("Invalid column: {%s}",name)
-	return nil,errors.New(msg)
+	msg := fmt.Sprintf("Invalid column: {%s}", name)
+
+	return nil, errors.New(msg)
 }
 
-func (p *LazyTable) GetByIndex(col int, row int) (*big.Int,error) {
+func (p *LazyTable) GetByIndex(col int, row int) (*big.Int, error) {
 	if row < 0 || row >= p.Height() {
-		return nil,errors.New("Column access out-of-bounds")
-	} else {
-		return p.rows[col][row], nil
+		return nil, errors.New("Column access out-of-bounds")
 	}
+
+	return p.rows[col][row], nil
 }

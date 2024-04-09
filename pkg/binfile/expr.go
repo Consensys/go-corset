@@ -6,12 +6,12 @@ import (
 	"github.com/Consensys/go-corset/pkg/ir"
 )
 
-// Corresponds to an optionally typed expression.
+// JsonTypedExpr corresponds to an optionally typed expression.
 type JsonTypedExpr struct {
 	Expr JsonExpr `json:"_e"`
 }
 
-// An enumeration of expression forms.  Exactly one of these fields
+// JsonExpr is an enumeration of expression forms.  Exactly one of these fields
 // must be non-nil.
 type JsonExpr struct {
 	Funcall *JsonExprFuncall
@@ -19,37 +19,38 @@ type JsonExpr struct {
 	Column  *JsonExprColumn
 }
 
-// Corresponds to an (intrinsic) function call with zero or more
+// JsonExprFuncall corresponds to an (intrinsic) function call with zero or more
 // arguments.
 type JsonExprFuncall struct {
 	Func string          `json:"func"`
 	Args []JsonTypedExpr `json:"args"`
 }
 
-// Corresponds to an (unbound) integer constant in the expression
+// JsonExprConst corresponds to an (unbound) integer constant in the expression
 // tree.
 type JsonExprConst struct {
 	BigInt []any
 }
 
+// JsonExprColumn .
 type JsonExprColumn = any // for now
 
 // =============================================================================
 // Translation
 // =============================================================================
 
-// Convert a typed expression extracted from a JSON file into an
+// ToMir converts a typed expression extracted from a JSON file into an
 // expression in the Mid-Level Intermediate Representation.  This
 // should not generate an error provided the original JSON was
 // well-formed.
-func (e JsonTypedExpr) ToMir() ir.MirExpr {
+func (e *JsonTypedExpr) ToMir() ir.MirExpr {
 	if e.Expr.Funcall != nil {
 		return e.Expr.Funcall.ToMir()
 	} else if e.Expr.Const != nil {
 		return e.Expr.Const.ToMir()
-	} else {
-		panic("Unknown JSON expression form encountered")
 	}
+
+	panic("Unknown JSON expression form encountered")
 }
 
 func (e *JsonExprFuncall) ToMir() ir.MirExpr {
@@ -57,6 +58,7 @@ func (e *JsonExprFuncall) ToMir() ir.MirExpr {
 	case "VectorSub":
 		panic("VectorSub")
 	}
+
 	panic("Rest")
 }
 

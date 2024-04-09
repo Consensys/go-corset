@@ -4,9 +4,9 @@ import (
 	"math/big"
 )
 
-// An expression in the High-Level Intermediate Representation (HIR).
+// HirExpr An expression in the High-Level Intermediate Representation (HIR).
 type HirExpr interface {
-	// Lower this expression into the Mid-Level Intermediate
+	// LowerToMir Lower this expression into the Mid-Level Intermediate
 	// Representation.  Observe that a single expression at this
 	// level can expand into *multiple* expressions at the MIR
 	// level.
@@ -29,18 +29,18 @@ type HirList List[HirExpr]
 // ============================================================================
 
 func (e *HirAdd) LowerToMir() []MirExpr {
-	return LowerWithNaryConstructor(e.arguments,func(nargs []MirExpr) MirExpr {
+	return LowerWithNaryConstructor(e.arguments, func(nargs []MirExpr) MirExpr {
 		return &MirAdd{nargs}
 	})
 }
 
-// Lowering a constant is straightforward as it is already in the correct form.
+// LowerToMir Lowering a constant is straightforward as it is already in the correct form.
 func (e *HirConstant) LowerToMir() []MirExpr {
 	return []MirExpr{e}
 }
 
 func (e *HirMul) LowerToMir() []MirExpr {
-	return LowerWithNaryConstructor(e.arguments,func(nargs []MirExpr) MirExpr {
+	return LowerWithNaryConstructor(e.arguments, func(nargs []MirExpr) MirExpr {
 		return &MirMul{nargs}
 	})
 }
@@ -71,8 +71,8 @@ func (e *HirIfZero) LowerToMir() []MirExpr {
 		ts := LowerWithBinaryConstructor(c, t, func(x MirExpr, y MirExpr) MirExpr {
 			one := &MirConstant{big.NewInt(1)}
 			norm_x := &MirNormalise{x}
-			one_minus_norm_x := &MirSub{[]MirExpr{one,norm_x}}
-			return &MirMul{[]MirExpr{one_minus_norm_x,y}}
+			one_minus_norm_x := &MirSub{[]MirExpr{one, norm_x}}
+			return &MirMul{[]MirExpr{one_minus_norm_x, y}}
 		})
 		res = append(res, ts...)
 	}
@@ -80,7 +80,7 @@ func (e *HirIfZero) LowerToMir() []MirExpr {
 	if f != nil {
 		// x * y for false branch
 		fs := LowerWithBinaryConstructor(c, f, func(x MirExpr, y MirExpr) MirExpr {
-			return &MirMul{[]MirExpr{x,y}}
+			return &MirMul{[]MirExpr{x, y}}
 		})
 		res = append(res, fs...)
 	}
@@ -89,7 +89,7 @@ func (e *HirIfZero) LowerToMir() []MirExpr {
 }
 
 func (e *HirSub) LowerToMir() []MirExpr {
-	return LowerWithNaryConstructor(e.arguments,func(nargs []MirExpr) MirExpr {
+	return LowerWithNaryConstructor(e.arguments, func(nargs []MirExpr) MirExpr {
 		return &MirSub{nargs}
 	})
 }
@@ -119,7 +119,7 @@ func LowerWithBinaryConstructor(lhs HirExpr, rhs HirExpr, create BinaryConstruct
 	return res
 }
 
-// Perform the cross-product expansion of an nary HIR expression.
+// LowerWithNaryConstructor Perform the cross-product expansion of an nary HIR expression.
 // This is necessary because each argument of that expression will
 // itself turn into one or more MIR expressions.  For example,
 // consider lowering the following HIR expression:
@@ -141,12 +141,12 @@ func LowerWithBinaryConstructor(lhs HirExpr, rhs HirExpr, create BinaryConstruct
 // product of the left and right ifs).
 func LowerWithNaryConstructor(args []HirExpr, constructor NaryConstructor) []MirExpr {
 	// Accumulator is initially empty
-	acc := make([]MirExpr,len(args))
+	acc := make([]MirExpr, len(args))
 	// Start from the first argument
-	return LowerWithNaryConstructorHelper(0,acc,args,constructor)
+	return LowerWithNaryConstructorHelper(0, acc, args, constructor)
 }
 
-// This manages progress through the cross-product expansion.
+// LowerWithNaryConstructorHelper This manages progress through the cross-product expansion.
 // Specifically, "i" determines how much of args has been lowered thus
 // far, whilst "acc" represents the current array being generated.
 func LowerWithNaryConstructorHelper(i int, acc []MirExpr, args []HirExpr, constructor NaryConstructor) []MirExpr {
@@ -155,17 +155,17 @@ func LowerWithNaryConstructorHelper(i int, acc []MirExpr, args []HirExpr, constr
 		nacc := make([]MirExpr, len(acc))
 		// Clone the slice because it is used as a temporary
 		// working storage during the expansion.
-		copy(nacc,acc)
+		copy(nacc, acc)
 		// Apply the constructor to produce the appropriate
 		// MirExpr.
 		return []MirExpr{constructor(nacc)}
 	} else {
 		// Recursive Case
 		nargs := []MirExpr{}
-		for _,ith := range args[i].LowerToMir() {
+		for _, ith := range args[i].LowerToMir() {
 			acc[i] = ith
-			iths := LowerWithNaryConstructorHelper(i+1,acc,args,constructor)
-			nargs = append(nargs,iths...)
+			iths := LowerWithNaryConstructorHelper(i+1, acc, args, constructor)
+			nargs = append(nargs, iths...)
 		}
 		return nargs
 	}

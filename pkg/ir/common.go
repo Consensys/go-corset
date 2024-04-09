@@ -2,21 +2,21 @@ package ir
 
 import "math/big"
 
-// An n-ary sum
+// Add An n-ary sum
 type Add[T any] struct {
 	// Arguments for the addition operation.  At least one
 	// argument is required.
 	arguments []T
 }
 
-// An n-ary subtraction operator (x - y - z).
+// Sub An n-ary subtraction operator (x - y - z).
 type Sub[T any] struct {
 	// Arguments for the subtraction operation.  At least one
 	// argument is required.
 	arguments []T
 }
 
-// An n-ary product
+// Mul An n-ary product
 type Mul[T any] struct {
 	// Arguments for the multiplication operation.  At least one
 	// argument is required.
@@ -28,17 +28,23 @@ type Constant struct {
 	Value *big.Int
 }
 
-// Represents reading the value held at a given column in the tabular
+// ColumnAccess represents reading the value held at a given column in the tabular
 // context.  Furthermore, the current row maybe shifted up (or down)
 // by a given amount.  For example, consider this table:
 //
-//   +-----+-----+
+//	+-----+-----+
+//
 // k |STAMP| CT  |
-//   +-----+-----+
+//
+//	+-----+-----+
+//
 // 0 |  0  |  9  |
-//   +-----+-----+
+//
+//	+-----+-----+
+//
 // 1 |  1  |  0  |
-//   +-----+-----+
+//
+//	+-----+-----+
 //
 // Suppose we are evaluating a constraint on row k=1 which contains
 // the column accesses "STAMP(0)" and "CT(-1)".  Then, STAMP(0)=1 and
