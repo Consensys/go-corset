@@ -1,6 +1,8 @@
 package ir
 
 import (
+	"errors"
+	"fmt"
 	"math/big"
 	"github.com/Consensys/go-corset/pkg/trace"
 )
@@ -30,6 +32,7 @@ type MirSub Sub[MirExpr]
 type MirMul Mul[MirExpr]
 type MirConstant = Constant
 type MirNormalise Normalise[MirExpr]
+type MirColumnAccess = ColumnAccess
 
 // ============================================================================
 // Lowering
@@ -48,7 +51,12 @@ func (e *MirMul) LowerToAir() AirExpr {
 }
 
 func (e *MirNormalise) LowerToAir() AirExpr {
-	panic("implement me!")
+	panic("Implement MirNormalise.LowerToAir()!")
+}
+
+// Lowering a constant is straightforward as it is already in the correct form.
+func (e *MirColumnAccess) LowerToAir() AirExpr {
+	return e
 }
 
 // Lowering a constant is straightforward as it is already in the correct form.
@@ -108,4 +116,40 @@ func EvalMirExprsAt(k int, tbl trace.Table, exprs []MirExpr, fn func(*big.Int,*b
 	}
 	// Done
 	return val
+}
+
+// ============================================================================
+// Parser
+// ============================================================================
+
+// Parse a string representing an MIR expression formatted using
+// S-expressions.
+func ParseSExpToMir(s string) (MirExpr,error) {
+	parser := NewIrParser[MirExpr]()
+	// Configure parser
+	AddSymbolTranslator(&parser, SExpConstantToMir)
+	AddSymbolTranslator(&parser, SExpColumnToMir)
+	AddListTranslator(&parser, "+", SExpAddToMir)
+	AddListTranslator(&parser, "-", SExpSubToMir)
+	AddListTranslator(&parser, "*", SExpMulToMir)
+	AddListTranslator(&parser, "shift", SExpShiftToMir)
+	AddListTranslator(&parser, "norm", SExpNormToMir)
+	// Parse string
+	return Parse(parser,s)
+}
+
+func SExpConstantToMir(symbol string) (MirExpr,error) { return StringToConstant(symbol) }
+func SExpColumnToMir(symbol string) (MirExpr,error) { return StringToColumnAccess(symbol) }
+func SExpAddToMir(args []MirExpr)(MirExpr,error) { return &MirAdd{args},nil }
+func SExpSubToMir(args []MirExpr)(MirExpr,error) { return &MirSub{args},nil }
+func SExpMulToMir(args []MirExpr)(MirExpr,error) { return &MirMul{args},nil }
+func SExpShiftToMir(args []MirExpr) (MirExpr,error) { return SliceToShiftAccess(args) }
+
+func SExpNormToMir(args []MirExpr) (MirExpr,error) {
+	if len(args) != 1 {
+		msg := fmt.Sprintf("Incorrect number of shift arguments: {%d}",len(args))
+		return nil, errors.New(msg)
+	} else {
+		return &MirNormalise{args[0]}, nil
+	}
 }
