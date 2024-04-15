@@ -114,6 +114,13 @@ func TestEvalShiftAccess_5(t *testing.T) {
 	CheckTable(t,DataSet_1(),results,"(* (shift X 1) Y)")
 }
 
+// NOTE: this test requires #19 before it could pass.
+//
+// func TestEvalNormalise(t *testing.T) {
+// 	results := []*big.Int{big.NewInt(2),big.NewInt(3),big.NewInt(4),nil}
+// 	CheckTable(t,DataSet_1(),results,"(norm X)")
+// }
+
 // ===================================================================
 // Data Sets
 // ===================================================================
@@ -132,36 +139,59 @@ func DataSet_1() trace.Table {
 
 // Check that evaluating a pure expression yields a specific result.
 func CheckPureEval(t *testing.T, val *big.Int, str string) {
-	sexp,err := ParseSExpToAir(str)
+	mir,err := ParseSExpToMir(str)
 	// Construct empty table for the evaluation context.
 	tbl := trace.EmptyLazyTable()
 	//
 	if err != nil {
 		t.Error(err)
-	} else if sexp.EvalAt(0,tbl).Cmp(val) != 0 {
-		t.Errorf("evaluation failed")
+	} else {
+		// Lower
+		air := mir.LowerToAir()
+		// Evaluate
+		if air.EvalAt(0,tbl).Cmp(val) != 0 {
+			t.Errorf("evaluation failed")
+		}
 	}
 }
 
 // Check that evaluating a given (vanishing) constraint on all rows of
 // a table yields the expected results.
 func CheckTable(t *testing.T, tbl trace.Table, data []*big.Int, str string) {
-	sexp,err := ParseSExpToAir(str)
+	// Parse string as MIR
+	mir,err := ParseSExpToMir(str)
+	//
 	if err != nil {
 		t.Error(err)
 	} else if tbl.Height() != len(data) {
 		t.Errorf("incorrect number of data points")
 	} else {
+		// Lower
+		air := mir.LowerToAir()
+		// Evaluate
 		for i,expected := range data {
-			// Compute actual evaluation point
-			actual := sexp.EvalAt(i,tbl)
+			// Compute evaluation point (MIR)
+			mir_actual := mir.EvalAt(i,tbl)
+			// Compute evaluation point (AIR)
+			air_actual := air.EvalAt(i,tbl)
 			// Check evaluation yields expected outcome
-			if actual == expected {
-				// handle nil case
-			} else if actual == nil || expected == nil || actual.Cmp(expected) != 0 {
-				msg := fmt.Sprintf("Evaluation failed on row %d: was %s, expected %s",i,actual,expected)
+			if !Equal(mir_actual,air_actual) {
+				// MIR and AIR evaluation differs.
+				msg := fmt.Sprintf("Evaluation MIR/AIR differs on row %d: %s != %s",i,mir_actual,air_actual)
+				t.Errorf(msg)
+			} else if !Equal(air_actual,expected) {
+				msg := fmt.Sprintf("Evaluation failed on row %d: was %s, expected %s",i,air_actual,expected)
 				t.Errorf(msg)
 			}
 		}
+	}
+}
+
+// Check whether two evaluation points match.
+func Equal(lhs *big.Int, rhs *big.Int) bool {
+	if lhs != rhs && (lhs == nil || rhs == nil || lhs.Cmp(rhs) != 0) {
+		return false
+	} else {
+		return true
 	}
 }
