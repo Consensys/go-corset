@@ -1,6 +1,7 @@
 package ir
 
 import (
+	"errors"
 	"math/big"
 	"github.com/Consensys/go-corset/pkg/trace"
 )
@@ -26,6 +27,40 @@ type AirSub Sub[AirExpr]
 type AirMul Mul[AirExpr]
 type AirConstant = Constant
 type AirColumnAccess = ColumnAccess
+
+// ============================================================================
+// Constraints
+// ============================================================================
+
+
+// On every row of the table, a vanishing constraint must evaluate to
+// zero.  The only exception is when the constraint is undefined
+// (e.g. because it references a non-existent table cell).  In such
+// case, the constraint is ignored.
+type AirVanishingConstraint struct {
+	// A unique identifier for this constraint.  This is primarily
+	// useful for debugging.
+	handle string
+	// The actual constraint itself, namely an expression which
+	// should evaluate to zero.
+	expr AirExpr
+}
+
+func (p* AirVanishingConstraint) GetHandle() string { return p.handle }
+
+func (p* AirVanishingConstraint) Check(tbl trace.Table) error {
+	for k := 0;k<tbl.Height(); k++ {
+		// Determine kth evaluation point
+		kth := p.expr.EvalAt(k, tbl)
+		// Check whether it vanished (or was undefined)
+		if kth != nil && kth.BitLen() != 0 {
+			// Evaluation failure
+			return errors.New("constraint failed")
+		}
+	}
+	// Success!
+	return nil
+}
 
 // ============================================================================
 // Evaluation
