@@ -1,197 +1,178 @@
 package ir
 
 import (
+	"bufio"
+	"encoding/json"
 	"fmt"
 	"math/big"
+	"os"
 	"testing"
 	"github.com/Consensys/go-corset/pkg/trace"
 )
 
+// Determines the (relative) location of the test directory.  That is
+// where the corset test files (lisp) and the corresponding traces
+// (accepts/rejects) are found.
+const TestDir = "../../tests"
+
+// Following definition is to improve readability.
+type Trace = []trace.Column
+
 // ===================================================================
-// Pure Expressions
+// Basic Tests
 // ===================================================================
 
-func TestEvalConst_1(t *testing.T) {
-	CheckPureEval(t, big.NewInt(1), "1")
+func TestEval_Basic_01(t *testing.T) {
+	Check(t,"basic_01")
 }
 
-func TestEvalAdd_1(t *testing.T) {
-	CheckPureEval(t,big.NewInt(1),"(+ 1)")
+func TestEval_Basic_02(t *testing.T) {
+	Check(t,"basic_02")
 }
 
-func TestEvalAdd_2(t *testing.T) {
-	CheckPureEval(t,big.NewInt(3),"(+ 1 2)")
+func TestEval_Basic_03(t *testing.T) {
+	Check(t,"basic_03")
 }
 
-func TestEvalAdd_3(t *testing.T) {
-	CheckPureEval(t,big.NewInt(6),"(+ 1 2 3)")
+func TestEval_Basic_04(t *testing.T) {
+	Check(t,"basic_04")
 }
 
-func TestEvalSub_1(t *testing.T) {
-	CheckPureEval(t,big.NewInt(1),"(- 1)")
+func TestEval_Basic_05(t *testing.T) {
+	Check(t,"basic_05")
 }
 
-func TestEvalSub_2(t *testing.T) {
-	CheckPureEval(t,big.NewInt(4),"(- 6 2)")
-}
-
-func TestEvalSub_3(t *testing.T) {
-	CheckPureEval(t,big.NewInt(3),"(- 6 2 1)")
-}
-
-func TestEvalMul_1(t *testing.T) {
-	CheckPureEval(t,big.NewInt(1),"(* 1)")
-}
-
-func TestEvalMul_2(t *testing.T) {
-	CheckPureEval(t,big.NewInt(12),"(* 6 2)")
-}
-
-func TestEvalMul_3(t *testing.T) {
-	CheckPureEval(t,big.NewInt(36),"(* 6 2 3)")
-}
-
-func TestEvalAddMul_1(t *testing.T) {
-	CheckPureEval(t,big.NewInt(22),"(+ (* 4 5) 2)")
-}
-
-func TestEvalAddMul_2(t *testing.T) {
-	CheckPureEval(t,big.NewInt(23),"(+ 3 (* 4 5))")
+func TestEval_Basic_06(t *testing.T) {
+	Check(t,"basic_06")
 }
 
 // ===================================================================
-// Impure Expressions
+// Shift Tests
 // ===================================================================
 
-func TestEvalColumnAccess_1(t *testing.T) {
-	results := []*big.Int{big.NewInt(1),big.NewInt(2),big.NewInt(3),big.NewInt(4)}
-	CheckTable(t,DataSet_1(),results,"X")
+func TestEval_Shift_01(t *testing.T) {
+	Check(t,"shift_01")
 }
 
-func TestEvalColumnAccess_2(t *testing.T) {
-	results := []*big.Int{big.NewInt(5),big.NewInt(6),big.NewInt(7),big.NewInt(8)}
-	CheckTable(t,DataSet_1(),results,"Y")
+func TestEval_Shift_02(t *testing.T) {
+	Check(t,"shift_02")
 }
 
-func TestEvalColumnAccess_3(t *testing.T) {
-	results := []*big.Int{big.NewInt(6),big.NewInt(8),big.NewInt(10),big.NewInt(12)}
-	CheckTable(t,DataSet_1(),results,"(+ X Y)")
-	CheckTable(t,DataSet_1(),results,"(+ Y X)")
+func TestEval_Shift_03(t *testing.T) {
+	Check(t,"shift_03")
 }
 
-func TestEvalColumnAccess_4(t *testing.T) {
-	results := []*big.Int{big.NewInt(-4),big.NewInt(-4),big.NewInt(-4),big.NewInt(-4)}
-	CheckTable(t,DataSet_1(),results,"(- X Y)")
+func TestEval_Shift_04(t *testing.T) {
+	Check(t,"shift_04")
 }
 
-func TestEvalColumnAccess_5(t *testing.T) {
-	results := []*big.Int{big.NewInt(11),big.NewInt(14),big.NewInt(17),big.NewInt(20)}
-	CheckTable(t,DataSet_1(),results,"(+ X (* 2 Y))")
+func TestEval_Shift_05(t *testing.T) {
+	Check(t,"shift_05")
 }
 
-func TestEvalShiftAccess_1(t *testing.T) {
-	results := []*big.Int{big.NewInt(2),big.NewInt(3),big.NewInt(4),nil}
-	CheckTable(t,DataSet_1(),results,"(shift X 1)")
-}
-
-func TestEvalShiftAccess_2(t *testing.T) {
-	results := []*big.Int{nil,big.NewInt(1),big.NewInt(2),big.NewInt(3)}
-	CheckTable(t,DataSet_1(),results,"(shift X -1)")
-}
-
-func TestEvalShiftAccess_3(t *testing.T) {
-	results := []*big.Int{big.NewInt(7),big.NewInt(9),big.NewInt(11),nil}
-	CheckTable(t,DataSet_1(),results,"(+ (shift X 1) Y)")
-}
-
-func TestEvalShiftAccess_4(t *testing.T) {
-	results := []*big.Int{big.NewInt(-3),big.NewInt(-3),big.NewInt(-3),nil}
-	CheckTable(t,DataSet_1(),results,"(- (shift X 1) Y)")
-}
-
-func TestEvalShiftAccess_5(t *testing.T) {
-	results := []*big.Int{big.NewInt(10),big.NewInt(18),big.NewInt(28),nil}
-	CheckTable(t,DataSet_1(),results,"(* (shift X 1) Y)")
-}
-
-// NOTE: this test requires #19 before it could pass.
-//
-// func TestEvalNormalise(t *testing.T) {
-// 	results := []*big.Int{big.NewInt(2),big.NewInt(3),big.NewInt(4),nil}
-// 	CheckTable(t,DataSet_1(),results,"(norm X)")
-// }
-
-// ===================================================================
-// Data Sets
-// ===================================================================
-
-func DataSet_1() trace.Table {
-	schema := []string{"X","Y"}
-	x_data := []*big.Int{big.NewInt(1),big.NewInt(2),big.NewInt(3),big.NewInt(4)}
-	y_data := []*big.Int{big.NewInt(5),big.NewInt(6),big.NewInt(7),big.NewInt(8)}
-	tbl,_ := trace.NewLazyTable(schema,x_data,y_data)
-	return tbl
+func TestEval_Shift_06(t *testing.T) {
+	Check(t,"shift_06")
 }
 
 // ===================================================================
 // Test Helpers
 // ===================================================================
 
-// Check that evaluating a pure expression yields a specific result.
-func CheckPureEval(t *testing.T, val *big.Int, str string) {
-	mir,err := ParseSExpToMir(str)
-	// Construct empty table for the evaluation context.
-	tbl := trace.EmptyLazyTable()
-	//
-	if err != nil {
-		t.Error(err)
-	} else {
-		// Lower
-		air := mir.LowerToAir()
-		// Evaluate
-		if air.EvalAt(0,tbl).Cmp(val) != 0 {
-			t.Errorf("evaluation failed")
+// For a given set of constraints, check that all traces which we
+// expect to be accepted are accepted, and all traces that we expect
+// to be rejected are rejected.
+func Check(t *testing.T, test string) {
+	constraints := ReadConstraintsFile(test)
+	// Check valid traces are accepted
+	accepts := ReadTracesFile(test,"accepts")
+	CheckTraces(t,test,true,accepts,constraints)
+	// Check invalid traces are rejected
+	rejects := ReadTracesFile(test,"rejects")
+	CheckTraces(t,test,false,rejects,constraints)
+}
+
+// Check a given set of tests have an expected outcome (i.e. are
+// either accepted or rejected) by a given set of constraints.
+func CheckTraces(t *testing.T, test string, expected bool, traces []Trace, constraints []trace.Constraint) {
+	for i,tr := range traces {
+		// Construct table for evaluation
+		tbl := trace.NewLazyTable(tr, constraints)
+		// Check whether constraints hold (or not)
+		err := tbl.Check()
+		// Process output
+		if err != nil && expected {
+			msg := fmt.Sprintf("Trace rejected incorrectly (%s.accepts, row %d): %s",test,i+1,err)
+			t.Errorf(msg)
+		} else if err == nil && !expected {
+			msg := fmt.Sprintf("Trace accepted incorrectly (%s.rejects, row %d)",test,i+1)
+			t.Errorf(msg)
 		}
 	}
 }
 
-// Check that evaluating a given (vanishing) constraint on all rows of
-// a table yields the expected results.
-func CheckTable(t *testing.T, tbl trace.Table, data []*big.Int, str string) {
-	// Parse string as MIR
-	mir,err := ParseSExpToMir(str)
-	//
-	if err != nil {
-		t.Error(err)
-	} else if tbl.Height() != len(data) {
-		t.Errorf("incorrect number of data points")
-	} else {
-		// Lower
-		air := mir.LowerToAir()
-		// Evaluate
-		for i,expected := range data {
-			// Compute evaluation point (MIR)
-			mir_actual := mir.EvalAt(i,tbl)
-			// Compute evaluation point (AIR)
-			air_actual := air.EvalAt(i,tbl)
-			// Check evaluation yields expected outcome
-			if !Equal(mir_actual,air_actual) {
-				// MIR and AIR evaluation differs.
-				msg := fmt.Sprintf("Evaluation MIR/AIR differs on row %d: %s != %s",i,mir_actual,air_actual)
-				t.Errorf(msg)
-			} else if !Equal(air_actual,expected) {
-				msg := fmt.Sprintf("Evaluation failed on row %d: was %s, expected %s",i,air_actual,expected)
-				t.Errorf(msg)
-			}
-		}
+// Read in a sequence of constraints from a given file.  For now, the
+// constraints are always assumed to be vanishing constraints.
+func ReadConstraintsFile(name string) []trace.Constraint {
+	lines := ReadInputFile(name,"lisp")
+	constraints := make([]trace.Constraint,len(lines))
+	// Read constraints line by line
+	for i,line := range lines {
+		air,err := ParseSExpToAir(line)
+		if err != nil { panic("error parsing constraint") }
+		constraints[i] = &AirVanishingConstraint{"tmp",air}
 	}
+	//
+	return constraints
 }
 
-// Check whether two evaluation points match.
-func Equal(lhs *big.Int, rhs *big.Int) bool {
-	if lhs != rhs && (lhs == nil || rhs == nil || lhs.Cmp(rhs) != 0) {
-		return false
-	} else {
-		return true
+// Read a file containing zero or more traces expressed as JSON, where
+// each trace is on a separate line.
+func ReadTracesFile(name string, ext string) []Trace {
+	lines := ReadInputFile(name,ext)
+	traces := make([]Trace,len(lines))
+	// Read constraints line by line
+	for i,line := range lines {
+		// Parse input line as JSON
+		traces[i] = ParseJsonTrace(line,name,ext,i)
 	}
+	return traces
+}
+
+// Parse a trace expressed in JSON notation.  For example, {"X": [0],
+// "Y": [1]} is a trace containing one row of data each for two
+// columns "X" and "Y".
+func ParseJsonTrace(jsn string, test string, ext string, row int) Trace {
+	var data map[string][]*big.Int
+	// Unmarshall
+	json_err := json.Unmarshal([]byte(jsn), &data)
+	if json_err != nil {
+		msg := fmt.Sprintf("%s.%s:%d: %s",test,ext,row+1,json_err)
+		panic(msg)
+	}
+	//
+	var columns Trace = make([]trace.Column,0)
+	//
+	for name,raw := range data {
+		columns = append(columns,trace.NewDataColumn(name,raw))
+	}
+	// Done
+	return columns
+}
+
+// Read an input file as a sequence of lines.
+func ReadInputFile(name string, ext string) []string {
+	name = fmt.Sprintf("%s/%s.%s",TestDir,name,ext)
+	file, err := os.Open(name)
+	if err != nil { panic(err) }
+	defer file.Close()
+	scanner := bufio.NewScanner(file)
+	lines := make([]string,0)
+	// Read file line-by-line
+	for scanner.Scan() {
+		lines = append(lines,scanner.Text())
+	}
+	// Sanity check we read everything
+	if err := scanner.Err(); err != nil { panic(err) }
+	// Done
+	return lines
 }
