@@ -46,6 +46,14 @@ func TestEval_Basic_06(t *testing.T) {
 	Check(t,"basic_06")
 }
 
+func TestEval_Basic_07(t *testing.T) {
+	Check(t,"basic_07")
+}
+
+func TestEval_Basic_08(t *testing.T) {
+	Check(t,"basic_08")
+}
+
 // ===================================================================
 // Shift Tests
 // ===================================================================
