@@ -1,13 +1,13 @@
 package sexp
 
-// An S-Expression is either a List of zero or more S-Expressions, or
+// SExp is an S-Expression is either a List of zero or more S-Expressions, or
 // a Symbol.
 type SExp interface {
-	// Check whether this S-Expression is a list.
+	// IsList checks whether this S-Expression is a list.
 	IsList() bool
-	// Check whether this S-Expression is a symbol.
+	// IsSymbol checks whether this S-Expression is a symbol.
 	IsSymbol() bool
-	// Generate string
+	// String generates a string representation.
 	String() string
 }
 
@@ -15,20 +15,33 @@ type SExp interface {
 // List
 // ===================================================================
 
-// Represents a list of zero or more S-Expressions.
-type List struct { Elements []SExp }
-// A list is a list
-func (*List) IsList() bool { return true }
-// A list is not a symbol
-func (*List) IsSymbol() bool { return false }
-//
+// List represents a list of zero or more S-Expressions.
+type List struct {
+	Elements []SExp
+}
+
+// NOTE: This is used for compile time type checking if the given type satisfies the given interface.
+var _ SExp = (*List)(nil)
+
+// IsList sets that is a list.
+func (l *List) IsList() bool { return true }
+
+// IsSymbol that a List is not a Symbol.
+func (l *List) IsSymbol() bool { return false }
+
 func (l *List) String() string {
-	var s string = "("
+	var s = "("
+
 	for i := 0; i < len(l.Elements); i++ {
-		if i != 0 { s += "," }
+		if i != 0 {
+			s += ","
+		}
+
 		s += l.Elements[i].String()
 	}
+
 	s += ")"
+
 	return s
 }
 
@@ -36,11 +49,18 @@ func (l *List) String() string {
 // Symbol
 // ===================================================================
 
-// A terminating symbol.
-type Symbol struct { Value string }
-// A Symbol is not a List
-func (*Symbol) IsList() bool { return false }
-// A Sybmol is a Symbol
-func (*Symbol) IsSymbol() bool { return true }
-//
-func (p *Symbol) String() string { return p.Value }
+// Symbol represents a terminating symbol.
+type Symbol struct {
+	Value string
+}
+
+// NOTE: This is used for compile time type checking if the given type satisfies the given interface.
+var _ SExp = (*Symbol)(nil)
+
+// IsList sets that A Symbol is not a List.
+func (s *Symbol) IsList() bool { return false }
+
+// IsSymbol sets tha is a Symbol.
+func (s *Symbol) IsSymbol() bool { return true }
+
+func (s *Symbol) String() string { return s.Value }

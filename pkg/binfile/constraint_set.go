@@ -12,59 +12,56 @@ import (
 // ColumnSet
 // =============================================================================
 
-type RegisterID = interface{}
-type Value struct {}
-type Magma = interface{}
+type RegisterID = any
+type Value struct{}
+type Magma = any
 type Kind struct {
 	m string
 	c string
 }
 type Base = string
 type Handle = string
-type Register = interface{}
-type FieldRegister = interface{}
+type Register = any
+type FieldRegister = any
 
+// Column .
 type Column struct {
-    Register int
-    Shift int
-    Padding_value Value
-    Used bool
-    Must_prove bool
-    Kind string
-    T Magma
-    Intrinsic_size_factor string
-    Base Base
-    Gandle Handle
-    Computed bool
+	Register            int    `json:"register"`
+	Shift               int    `json:"shift"`
+	PaddingValue        Value  `json:"padding_value"`
+	Used                bool   `json:"used"`
+	MustProve           bool   `json:"must_prove"`
+	Kind                string `json:"kind"`
+	T                   Magma  `json:"t"`
+	IntrinsicSizeFactor string `json:"intrinsic_size_factor"`
+	Base                Base   `json:"base"`
+	Gandle              Handle `json:"gandle"`
+	Computed            bool   `json:"computed"`
 }
 
+// ColumnSet .
 type ColumnSet struct {
 	// Raw array of column data, including virtial those which are
 	// virtual and/or overlapping with others.
 	Cols []Column `json:"_cols"`
 	// Maps column handles to their index in the Cols array.
-	ColsMap map[Handle]uint  `json:"cols"`
+	ColsMap map[Handle]uint `json:"cols"`
 	// Maps column handles? to their length
-	Effective_len map[string]int
+	EffectiveLen map[string]int
 	// ?
-	min_len map[string]uint
+	MinLen map[string]uint
 	// ?
-	field_registers []FieldRegister
+	FieldRegisters []FieldRegister
 	// ?
-	registers []Register
+	Registers []Register
 	// ?
-	spilling map[string]int
+	Spilling map[string]int
 }
 
-// =============================================================================
-// Domain
-// =============================================================================
+// JsonDomain domain type.
 type JsonDomain = string
 
-// =============================================================================
-// ConstraintSet
-// =============================================================================
-
+// ConstraintSet .
 type ConstraintSet struct {
 	//Columns ColumnSet `json:"columns"`
 	Constraints []JsonConstraint `json:"constraints"`
@@ -76,16 +73,16 @@ type ConstraintSet struct {
 	// auto_constraints uint64
 }
 
-// Read a constraint set from a set of bytes representing its JSON
+// ConstraintSetFromJson reads a constraint set from a set of bytes representing its JSON
 // encoding.  The format for this was (originally) determined by the
 // Rust corset tool.
 func ConstraintSetFromJson(bytes []byte) (cs ConstraintSet, err error) {
 	var res ConstraintSet
-	//var data map[string]interface{}
+	//var data map[string]any
 	// Unmarshall
-	json_err := json.Unmarshal(bytes, &res)
+	jsonErr := json.Unmarshal(bytes, &res)
 	//
 	//res.Constraints = ConstraintArrayFromJson(data["constraints"])
 	// For now return directly.
-	return res,json_err
+	return res, jsonErr
 }
