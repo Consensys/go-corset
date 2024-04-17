@@ -61,7 +61,7 @@ func (e *JsonExprFuncall) ToMir() ir.MirExpr {
 }
 
 func (e *JsonExprConst) ToMir() ir.MirExpr {
-	c := new(ir.Constant)
-	c.Value = big.NewInt(1)
+	c := new(ir.MirConstant)
+	c.Val = big.NewInt(1)
 	return c
 }

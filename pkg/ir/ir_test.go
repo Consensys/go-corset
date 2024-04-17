@@ -101,7 +101,7 @@ func Check(t *testing.T, test string) {
 
 // Check a given set of tests have an expected outcome (i.e. are
 // either accepted or rejected) by a given set of constraints.
-func CheckTraces(t *testing.T, test string, expected bool, traces []Trace, constraints []trace.Constraint) {
+func CheckTraces(t *testing.T, test string, expected bool, traces []Trace, constraints []AirConstraint) {
 	for i,tr := range traces {
 		// Construct table for evaluation
 		tbl := trace.NewLazyTable(tr, constraints)
@@ -120,14 +120,14 @@ func CheckTraces(t *testing.T, test string, expected bool, traces []Trace, const
 
 // Read in a sequence of constraints from a given file.  For now, the
 // constraints are always assumed to be vanishing constraints.
-func ReadConstraintsFile(name string) []trace.Constraint {
+func ReadConstraintsFile(name string) []AirConstraint {
 	lines := ReadInputFile(name,"lisp")
-	constraints := make([]trace.Constraint,len(lines))
+	constraints := make([]AirConstraint,len(lines))
 	// Read constraints line by line
 	for i,line := range lines {
 		air,err := ParseSExpToAir(line)
 		if err != nil { panic("error parsing constraint") }
-		constraints[i] = &AirVanishingConstraint{"tmp",air}
+		constraints[i] = &trace.VanishingConstraint[AirExpr]{Handle: "tmp", Expr: air}
 	}
 	//
 	return constraints

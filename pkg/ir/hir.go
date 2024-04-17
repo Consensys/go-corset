@@ -10,7 +10,7 @@ type HirExpr interface {
 	// Representation.  Observe that a single expression at this
 	// level can expand into *multiple* expressions at the MIR
 	// level.
-	LowerToMir() []MirExpr
+	LowerTo() []MirExpr
 }
 
 // ============================================================================
@@ -20,7 +20,7 @@ type HirExpr interface {
 type HirAdd Add[HirExpr]
 type HirSub Sub[HirExpr]
 type HirMul Mul[HirExpr]
-type HirConstant = Constant
+type HirConstant struct { Value *big.Int }
 type HirIfZero IfZero[HirExpr]
 type HirList List[HirExpr]
 
@@ -28,36 +28,37 @@ type HirList List[HirExpr]
 // Lowering
 // ============================================================================
 
-func (e *HirAdd) LowerToMir() []MirExpr {
+func (e *HirAdd) LowerTo() []MirExpr {
 	return LowerWithNaryConstructor(e.arguments,func(nargs []MirExpr) MirExpr {
 		return &MirAdd{nargs}
 	})
 }
 
 // Lowering a constant is straightforward as it is already in the correct form.
-func (e *HirConstant) LowerToMir() []MirExpr {
-	return []MirExpr{e}
+func (e *HirConstant) LowerTo() []MirExpr {
+	c := MirConstant{e.Value}
+	return []MirExpr{&c}
 }
 
-func (e *HirMul) LowerToMir() []MirExpr {
+func (e *HirMul) LowerTo() []MirExpr {
 	return LowerWithNaryConstructor(e.arguments,func(nargs []MirExpr) MirExpr {
 		return &MirMul{nargs}
 	})
 }
 
 // A list is lowered by eliminating it altogether.
-func (e *HirList) LowerToMir() []MirExpr {
+func (e *HirList) LowerTo() []MirExpr {
 	var res []MirExpr
 	for i := 0; i < len(e.elements); i++ {
 		// Lower ith argument
-		iths := e.elements[i].LowerToMir()
+		iths := e.elements[i].LowerTo()
 		// Append all as one
 		res = append(res, iths...)
 	}
 	return res
 }
 
-func (e *HirIfZero) LowerToMir() []MirExpr {
+func (e *HirIfZero) LowerTo() []MirExpr {
 	var res []MirExpr
 	// Lower required condition
 	c := e.condition
@@ -88,7 +89,7 @@ func (e *HirIfZero) LowerToMir() []MirExpr {
 	return res
 }
 
-func (e *HirSub) LowerToMir() []MirExpr {
+func (e *HirSub) LowerTo() []MirExpr {
 	return LowerWithNaryConstructor(e.arguments,func(nargs []MirExpr) MirExpr {
 		return &MirSub{nargs}
 	})
@@ -105,8 +106,8 @@ type NaryConstructor func([]MirExpr) MirExpr
 func LowerWithBinaryConstructor(lhs HirExpr, rhs HirExpr, create BinaryConstructor) []MirExpr {
 	var res []MirExpr
 	// Lower all three expressions
-	is := lhs.LowerToMir()
-	js := rhs.LowerToMir()
+	is := lhs.LowerTo()
+	js := rhs.LowerTo()
 	// Now construct
 	for i := 0; i < len(is); i++ {
 		for j := 0; j < len(js); j++ {
@@ -162,7 +163,7 @@ func LowerWithNaryConstructorHelper(i int, acc []MirExpr, args []HirExpr, constr
 	} else {
 		// Recursive Case
 		nargs := []MirExpr{}
-		for _,ith := range args[i].LowerToMir() {
+		for _,ith := range args[i].LowerTo() {
 			acc[i] = ith
 			iths := LowerWithNaryConstructorHelper(i+1,acc,args,constructor)
 			nargs = append(nargs,iths...)
