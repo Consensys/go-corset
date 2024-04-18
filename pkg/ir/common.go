@@ -33,16 +33,16 @@ type Mul[T any] struct {
 // ===================================================================
 
 // A constant value used within an expression tree.
-type Constant struct {
-	Value *big.Int
+type Constant interface {
+	Value() *big.Int
 }
 
 // Attempt to parse a string into a constant value.  This will only
 // succeed if the string corresponds to a numeric value.
-func StringToConstant(symbol string) (*Constant,error) {
+func StringToConstant(symbol string) (*big.Int,error) {
 	num := new(big.Int)
 	num,ok := num.SetString(symbol,10)
-	if ok { return &Constant{num},nil }
+	if ok { return num,nil }
 	return nil,errors.New("invalid constant")
 }
 
@@ -65,50 +65,50 @@ func StringToConstant(symbol string) (*Constant,error) {
 // Suppose we are evaluating a constraint on row k=1 which contains
 // the column accesses "STAMP(0)" and "CT(-1)".  Then, STAMP(0)=1 and
 // CT(-1)=9.
-type ColumnAccess struct {
+type ColumnAccess interface {
 	// Column name
-	Column string
+	Column() string
 	// Amount to shift which can be either negative or positive.
-	Shift int
+	Shift() int
 }
 
 // Attempt to parse a string into a column access (with a default
 // shift of 0).  This will only success if the symbol is a valid
 // column name.
-func StringToColumnAccess(symbol string) (*ColumnAccess,error) {
+func StringToColumnAccess(symbol string) (string,int,error) {
 	if ValidColumnName(symbol) {
-		return &ColumnAccess{symbol,0},nil
+		return symbol,0,nil
 	}
-	return nil,errors.New("invalid column access")
+	return "",0,errors.New("invalid column access")
 }
 
 // Convert a slice representing a shift expression "(shift c n)" into
 // a column access for column "c" with shift "n".  This will fail
 // unless there are exactly two arguments, with the first being a
 // column access and the second being a constant.
-func SliceToShiftAccess[T comparable](args []T) (*ColumnAccess,error) {
+func SliceToShiftAccess[T comparable](args []T) (string,int,error) {
 	var msg string
 	// Sanity check sufficient arguments
 	if len(args) != 2 {
 		msg = fmt.Sprintf("Incorrect number of shift arguments: {%d}",len(args))
 	} else {
 		// Extract parameters
-		c,ok1 := any(args[0]).(*ColumnAccess)
-		n,ok2 := any(args[1]).(*Constant)
+		c,ok1 := any(args[0]).(ColumnAccess)
+		n,ok2 := any(args[1]).(Constant)
 		// Sanit check this make sense
-		if ok1 && ok2 && n.Value.IsInt64() {
-			n := int(n.Value.Int64())
-			return &ColumnAccess{c.Column,c.Shift+n},nil
+		if ok1 && ok2 && n.Value().IsInt64() {
+			n := int(n.Value().Int64())
+			return c.Column(),c.Shift()+n,nil
 		} else if !ok1 {
 			msg = fmt.Sprintf("Shift column malformed: {%s}",any(args[0]))
 		} else {
 			msg = fmt.Sprintf("Shift amount malformed: {%s}",n)
 		}
 	}
-	return nil, errors.New(msg)
+	return "", 0, errors.New(msg)
 }
 
-// Check whether a given column name is made up from characters,
+// Check whether a given column name is made up fom characters,
 // digits or "_" and does not start with a digit.
 func ValidColumnName(s string) bool {
 	for i,c := range s {
