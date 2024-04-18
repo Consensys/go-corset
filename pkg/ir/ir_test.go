@@ -101,33 +101,43 @@ func Check(t *testing.T, test string) {
 
 // Check a given set of tests have an expected outcome (i.e. are
 // either accepted or rejected) by a given set of constraints.
-func CheckTraces(t *testing.T, test string, expected bool, traces []Trace, constraints []AirConstraint) {
+func CheckTraces(t *testing.T, test string, expected bool, traces []Trace, constraints []MirConstraint) {
 	for i,tr := range traces {
 		// Construct table for evaluation
-		tbl := trace.NewLazyTable(tr, constraints)
-		// Check whether constraints hold (or not)
-		err := tbl.Check()
-		// Process output
-		if err != nil && expected {
-			msg := fmt.Sprintf("Trace rejected incorrectly (%s.accepts, row %d): %s",test,i+1,err)
-			t.Errorf(msg)
-		} else if err == nil && !expected {
-			msg := fmt.Sprintf("Trace accepted incorrectly (%s.rejects, row %d)",test,i+1)
-			t.Errorf(msg)
-		}
+		mir := trace.NewLazyTable(tr, constraints)
+		air := trace.EmptyLazyTable[AirConstraint]()
+		// Lower MIR => AIR
+		LowerToAir(mir,air)
+		// Check MIR table
+		CheckTrace(t,test,i+1,expected,mir)
+		// Check AIR table
+		CheckTrace(t,test,i+1,expected,air)
+	}
+}
+
+func CheckTrace[C trace.Constraint](t *testing.T, test string, row int, expected bool, tbl trace.Table[C]) {
+	// Check whether constraints hold (or not)
+	err := tbl.Check()
+	// Process output
+	if err != nil && expected {
+		msg := fmt.Sprintf("Trace rejected incorrectly (%s.accepts, row %d): %s",test,row,err)
+		t.Errorf(msg)
+	} else if err == nil && !expected {
+		msg := fmt.Sprintf("Trace accepted incorrectly (%s.rejects, row %d)",test,row)
+		t.Errorf(msg)
 	}
 }
 
 // Read in a sequence of constraints from a given file.  For now, the
 // constraints are always assumed to be vanishing constraints.
-func ReadConstraintsFile(name string) []AirConstraint {
+func ReadConstraintsFile(name string) []MirConstraint {
 	lines := ReadInputFile(name,"lisp")
-	constraints := make([]AirConstraint,len(lines))
+	constraints := make([]MirConstraint,len(lines))
 	// Read constraints line by line
 	for i,line := range lines {
-		air,err := ParseSExpToAir(line)
+		air,err := ParseSExpToMir(line)
 		if err != nil { panic("error parsing constraint") }
-		constraints[i] = &trace.VanishingConstraint[AirExpr]{Handle: "tmp", Expr: air}
+		constraints[i] = &trace.VanishingConstraint[MirExpr]{Handle: "tmp", Expr: air}
 	}
 	//
 	return constraints

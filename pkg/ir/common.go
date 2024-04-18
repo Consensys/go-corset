@@ -108,7 +108,7 @@ func SliceToShiftAccess[T comparable](args []T) (string,int,error) {
 	return "", 0, errors.New(msg)
 }
 
-// Check whether a given column name is made up from characters,
+// Check whether a given column name is made up fom characters,
 // digits or "_" and does not start with a digit.
 func ValidColumnName(s string) bool {
 	for i,c := range s {

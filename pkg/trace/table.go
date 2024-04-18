@@ -32,7 +32,13 @@ type Trace interface {
 type Table[C any] interface {
 	// Check whether all constraints for a given trace evaluate to zero.
 	// If not, produce an error.
-	Check(cs []Constraint, tr Trace) error
+	Check() error
+	// Access Columns
+	Columns() []Column
+	// Access Constraints
+	Constraints() []C
+	// Add a new column to this table.
+	AddColumn(column Column)
 	// Add a new constraint to this table.
 	AddConstraint(constraint C)
 }
@@ -84,15 +90,29 @@ func NewLazyTable[C Constraint](columns []Column, constraints []C) *LazyTable[C]
 func (p *LazyTable[C]) Check() error {
 	for _,c := range p.constraints {
 		err := c.Check(p)
-		if err != nil {
-			return err
-		}
+		if err != nil { return err }
 	}
 	return nil
 }
 
+func (p *LazyTable[C]) Columns() []Column {
+	return p.columns
+}
+
+func (p *LazyTable[C]) Constraints() []C {
+	return p.constraints
+}
+
 func (p *LazyTable[C]) AddConstraint(constraint C) {
 	p.constraints = append(p.constraints,constraint)
+}
+
+func (p *LazyTable[C]) AddColumn(column Column) {
+	p.columns = append(p.columns,column)
+	// Update maximum height
+	if column.Height() > p.height {
+		p.height = column.Height()
+	}
 }
 
 func (p *LazyTable[C]) Height() int {

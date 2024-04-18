@@ -14,14 +14,24 @@ import (
 type MirTable = trace.Table[MirConstraint]
 
 // For now, all constraints are vanishing constraints.
-type MirConstraint = trace.VanishingConstraint[MirExpr]
+type MirConstraint = *trace.VanishingConstraint[MirExpr]
 
 // Lower (or refine) an MIR table into an AIR table.  That means
 // lowering all the columns and constraints, whilst adding additional
 // columns / constraints as necessary to preserve the original
 // semantics.
-func LowerTo(from MirTable, to AirTable) {
-	panic("GOT HERE")
+func LowerToAir(mir MirTable, air AirTable) {
+	for _,col := range mir.Columns() {
+		air.AddColumn(col)
+	}
+	for _,c := range mir.Constraints() {
+		// FIXME: this is broken because its currently
+		// assuming that an AirConstraint is always a
+		// VanishingConstraint.  Eventually this will not be
+		// true.
+		air_expr := c.Expr.LowerTo(air)
+		air.AddConstraint(&trace.VanishingConstraint[AirExpr]{Handle: c.Handle,Expr: air_expr})
+	}
 }
 
 // ============================================================================
@@ -79,7 +89,7 @@ func (e *MirNormalise) LowerTo(tbl AirTable) AirExpr {
 
 // Lowering a constant is straightforward as it is already in the correct form.
 func (e *MirColumnAccess) LowerTo(tbl AirTable) AirExpr {
-	return &AirColumnAccess{e.Column(),e.Shift()}
+	return e
 }
 
 // Lowering a constant is straightforward as it is already in the correct form.
