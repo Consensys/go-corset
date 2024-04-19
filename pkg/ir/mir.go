@@ -84,17 +84,26 @@ func (e *MirMul) LowerTo(tbl AirTable) AirExpr {
 }
 
 func (e *MirNormalise) LowerTo(tbl AirTable) AirExpr {
-	panic("Implement MirNormalise.LowerTo()!")
+	// Lower the expression being normalised
+	ne := e.expr.LowerTo(tbl)
+	// Determine column name and height
+	name := fmt.Sprintf("C/INV[%s]",ne)
+	height := 0
+	// Add computed column
+	tbl.AddColumn(trace.NewComputedColumn(name,height,computeInverse))
+	// Add necessary constraints
+	// TODO!
+	return &AirColumnAccess{name,0}
 }
 
 // Lowering a constant is straightforward as it is already in the correct form.
 func (e *MirColumnAccess) LowerTo(tbl AirTable) AirExpr {
-	return e
+	return &AirColumnAccess{e.Column(),e.Shift()}
 }
 
 // Lowering a constant is straightforward as it is already in the correct form.
 func (e *MirConstant) LowerTo(tbl AirTable) AirExpr {
-	return e
+	return &AirConstant{e.Value()}
 }
 
 // Lower a set of zero or more MIR expressions.
@@ -105,6 +114,11 @@ func LowerMirExprs(exprs []MirExpr,tbl AirTable) []AirExpr {
 		nexprs[i] = exprs[i].LowerTo(tbl)
 	}
 	return nexprs
+}
+
+// Compute the inverse of a given column on a given row.
+func computeInverse(row int) *big.Int {
+	return big.NewInt(int64(row))
 }
 
 // ============================================================================
@@ -194,7 +208,7 @@ func ParseSExpToMir(s string) (MirExpr,error) {
 	AddListTranslator(&parser, "-", SExpSubToMir)
 	AddListTranslator(&parser, "*", SExpMulToMir)
 	AddListTranslator(&parser, "shift", SExpShiftToMir)
-	AddListTranslator(&parser, "norm", SExpNormToMir)
+	AddListTranslator(&parser, "~", SExpNormToMir)
 	// Parse string
 	return Parse(parser,s)
 }

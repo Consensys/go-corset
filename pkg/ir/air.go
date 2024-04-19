@@ -1,6 +1,7 @@
 package ir
 
 import (
+	"fmt"
 	"github.com/Consensys/go-corset/pkg/trace"
 	"math/big"
 )
@@ -28,6 +29,9 @@ type AirExpr interface {
 	// row which does not exist (e.g. at index -1); secondly, if
 	// it accesses a column which does not exist.
 	EvalAt(int, trace.Trace) *big.Int
+
+	// Produce an string representing this as an S-Expression.
+	String() string
 }
 
 type AirAdd Add[AirExpr]
@@ -96,6 +100,48 @@ func EvalAirExprsAt(k int, tbl trace.Trace, exprs []AirExpr, fn func(*big.Int, *
 	}
 	// Done
 	return val
+}
+
+// ============================================================================
+// Stringification
+// ============================================================================
+
+func (e *AirColumnAccess) String() string {
+	if e.Shift() == 0 {
+		return e.Column()
+	} else {
+		return fmt.Sprintf("(shift %s %d)",e.Column(),e.Shift())
+	}
+}
+
+func (e *AirConstant) String() string {
+	return e.Value().String()
+}
+
+func (e *AirAdd) String() string {
+	return AirNaryString("+",e.arguments)
+}
+
+func (e *AirSub) String() string {
+	return AirNaryString("-",e.arguments)
+}
+
+func (e *AirMul) String() string {
+	return AirNaryString("*",e.arguments)
+}
+
+func AirNaryString(operator string, exprs []AirExpr) string {
+	// This should be generalised and moved into common?
+	rs := ""
+	for i,e := range exprs {
+		es := e.String()
+		if i == 0 {
+			rs = es
+		} else {
+			rs = fmt.Sprintf("%s %s %s",rs,operator,es)
+		}
+	}
+	return rs
 }
 
 // ============================================================================
