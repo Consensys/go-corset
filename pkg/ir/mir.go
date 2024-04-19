@@ -84,17 +84,31 @@ func (e *MirMul) LowerTo(tbl AirTable) AirExpr {
 }
 
 func (e *MirNormalise) LowerTo(tbl AirTable) AirExpr {
-	panic("Implement MirNormalise.LowerTo()!")
+	// TODO: constant evaluation
+	// TODO: binary columns don't need normalisation
+	// TODO: don't add columns which already exist.
+	//
+	// Lower the expression being normalised
+	ne := e.expr.LowerTo(tbl)
+	// Determine column name and height
+	name := fmt.Sprintf("C/INV[%s]",ne)
+	// Invert expression
+	ine := &AirInverse{ne}
+	// Add computed column
+	tbl.AddColumn(trace.NewComputedColumn(name,ine))
+	// Add necessary constraints
+	// TODO!
+	return &AirColumnAccess{name,0}
 }
 
 // Lowering a constant is straightforward as it is already in the correct form.
 func (e *MirColumnAccess) LowerTo(tbl AirTable) AirExpr {
-	return e
+	return &AirColumnAccess{e.Column(),e.Shift()}
 }
 
 // Lowering a constant is straightforward as it is already in the correct form.
 func (e *MirConstant) LowerTo(tbl AirTable) AirExpr {
-	return e
+	return &AirConstant{e.Value()}
 }
 
 // Lower a set of zero or more MIR expressions.
@@ -150,11 +164,15 @@ func (e *MirMul) EvalAt(k int, tbl trace.Trace) *big.Int {
 
 func (e *MirNormalise) EvalAt(k int, tbl trace.Trace) *big.Int {
 	// Check whether argument evaluates to zero or not.
-	if e.expr.EvalAt(k,tbl).BitLen() == 0 {
-		return big.NewInt(0)
-	} else {
-		return big.NewInt(1)
-	}
+	val := e.expr.EvalAt(k,tbl)
+	// TODO: following comment out until AirInverse works properly
+	// if val.BitLen() == 0 {
+	// 	return big.NewInt(0)
+	// } else {
+	// 	return big.NewInt(1)
+	// }
+	var nval big.Int
+	return (&nval).Neg(val)
 }
 
 func (e *MirSub) EvalAt(k int, tbl trace.Trace) *big.Int {
@@ -194,7 +212,7 @@ func ParseSExpToMir(s string) (MirExpr,error) {
 	AddListTranslator(&parser, "-", SExpSubToMir)
 	AddListTranslator(&parser, "*", SExpMulToMir)
 	AddListTranslator(&parser, "shift", SExpShiftToMir)
-	AddListTranslator(&parser, "norm", SExpNormToMir)
+	AddListTranslator(&parser, "~", SExpNormToMir)
 	// Parse string
 	return Parse(parser,s)
 }

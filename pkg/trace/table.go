@@ -79,7 +79,7 @@ func NewLazyTable[C Constraint](columns []Column, constraints []C) *LazyTable[C]
 	p.constraints = constraints
 	// initialise height
 	for _,c := range columns {
-		if c.Height() > p.height { p.height = c.Height() }
+		if c.MinHeight() > p.height { p.height = c.MinHeight() }
 	}
 	//
 	return p
@@ -110,8 +110,8 @@ func (p *LazyTable[C]) AddConstraint(constraint C) {
 func (p *LazyTable[C]) AddColumn(column Column) {
 	p.columns = append(p.columns,column)
 	// Update maximum height
-	if column.Height() > p.height {
-		p.height = column.Height()
+	if column.MinHeight() > p.height {
+		p.height = column.MinHeight()
 	}
 }
 
@@ -125,7 +125,7 @@ func (p *LazyTable[C]) GetByName(name string, row int) (*big.Int,error) {
 	for _,c := range p.columns {
 		if name == c.Name() {
 			// Matched column
-			return c.Get(row)
+			return c.Get(row,p)
 		}
 	}
 	// Failed to find column
@@ -137,6 +137,6 @@ func (p *LazyTable[C]) GetByIndex(col int, row int) (*big.Int,error) {
 	if col < 0 || col >= len(p.columns) {
 		return nil,errors.New("Column access out-of-bounds")
 	} else {
-		return p.columns[col].Get(row)
+		return p.columns[col].Get(row,p)
 	}
 }
