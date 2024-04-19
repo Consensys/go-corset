@@ -39,6 +39,9 @@ type AirSub Sub[AirExpr]
 type AirMul Mul[AirExpr]
 type AirConstant struct { Val *big.Int }
 type AirColumnAccess struct { Col string; Amt int}
+// A computation-only expression which computes the multiplicative
+// inverse of a given expression.
+type AirInverse struct { expr AirExpr }
 
 // MirConstant implements Constant interface
 func (e *AirConstant) Value() *big.Int { return e.Val }
@@ -86,6 +89,15 @@ func (e *AirMul) EvalAt(k int, tbl trace.Trace) *big.Int {
 	return EvalAirExprsAt(k, tbl, e.arguments, fn)
 }
 
+func (e *AirInverse) EvalAt(k int, tbl trace.Trace) *big.Int {
+	// FIXME: At this point, we cannot actually compute an inverse
+	// because are not operating on field elements.  Therefore, we
+	// simply return the negative value for now.
+	var ne big.Int
+	// Go syntax huh?
+	return (&ne).Neg(e.expr.EvalAt(k, tbl))
+}
+
 // Evaluate all expressions in a given slice at a given row on the
 // table, and fold their results together using a combinator.
 func EvalAirExprsAt(k int, tbl trace.Trace, exprs []AirExpr, fn func(*big.Int, *big.Int)) *big.Int {
@@ -128,6 +140,10 @@ func (e *AirSub) String() string {
 
 func (e *AirMul) String() string {
 	return AirNaryString("*",e.arguments)
+}
+
+func (e *AirInverse) String() string {
+	return fmt.Sprintf("(~ %s)",e.expr)
 }
 
 func AirNaryString(operator string, exprs []AirExpr) string {

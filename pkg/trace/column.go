@@ -12,9 +12,9 @@ type Column interface {
 	Name() string
 	// Get the value at a given row in this column, or return an
 	// error.
-	Get(row int) (*big.Int,error)
-	// Get the number of rows in this column
-	Height() int
+	Get(row int, tr Trace) (*big.Int,error)
+	// Determine the minimum number of rows in this column.
+	MinHeight() int
 }
 
 // ===================================================================
@@ -43,13 +43,13 @@ func (c *DataColumn) Name() string {
 	return c.name
 }
 
-func (c *DataColumn) Height() int {
+func (c *DataColumn) MinHeight() int {
 	return len(c.data)
 }
 
 // Read the value at a given row in a data column.  This amounts to
 // looking up that value in the array of values which backs it.
-func (c *DataColumn) Get(row int) (*big.Int,error) {
+func (c *DataColumn) Get(row int, tr Trace) (*big.Int,error) {
 	if row < 0 || row >= len(c.data) {
 		return nil,errors.New("data column access out-of-bounds")
 	} else {
@@ -66,41 +66,32 @@ func (c *DataColumn) Get(row int) (*big.Int,error) {
 // values from other columns in a trace in order to calculate their
 // value.  There is an expectation that this computation is not
 // cyclic.
-type ComputedColumn struct {
+type ComputedColumn[E Evaluable] struct {
 	name string
-	// The pre-determined height of a computed column.  This is
-	// typically derived from the height of those columns it
-	// depends upon.  However, compute columns can also have fixed
-	// heights, etc.
-	height int
 	// The computation which accepts a given trace and computes
 	// the value of this column at a given row.
-	fn func(int) *big.Int
+	expr E
 }
 
-func NewComputedColumn(name string, height int, fn func(int) *big.Int) *ComputedColumn {
-	var c ComputedColumn
+func NewComputedColumn[E Evaluable](name string, expr E) *ComputedColumn[E] {
+	var c ComputedColumn[E]
 	c.name = name
-	c.height = height
-	c.fn = fn
+	c.expr = expr
 	return &c
 }
 
 // Read out the name of this column
-func (c *ComputedColumn) Name() string {
+func (c *ComputedColumn[E]) Name() string {
 	return c.name
 }
 
-func (c *ComputedColumn) Height() int {
-	return c.height
+func (c *ComputedColumn[E]) MinHeight() int {
+	return 0
 }
 
 // Read the value at a given row in a data column.  This amounts to
 // looking up that value in the array of values which backs it.
-func (c *ComputedColumn) Get(row int) (*big.Int,error) {
-	if row < 0 || row >= c.height {
-		return nil,errors.New("data column access out-of-bounds")
-	} else {
-		return c.fn(row),nil
-	}
+func (c *ComputedColumn[E]) Get(row int, tr Trace) (*big.Int,error) {
+	// Compute value at given row
+	return c.expr.EvalAt(row,tr), nil
 }

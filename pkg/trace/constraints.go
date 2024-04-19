@@ -16,10 +16,6 @@ type Constraint interface {
 	Check(Trace) error
 }
 
-// ===================================================================
-// Vanishing Constraints
-// ===================================================================
-
 // Captures something which can be evaluated on a given table row to
 // produce an evaluation point.  For example, expressions in the
 // Mid-Level or Arithmetic-Level IR can all be evaluated at rows of a
@@ -33,6 +29,10 @@ type Evaluable interface {
 	// it accesses a column which does not exist.
 	EvalAt(int, Trace) *big.Int
 }
+
+// ===================================================================
+// Vanishing Constraints
+// ===================================================================
 
 // On every row of the table, a vanishing constraint must evaluate to
 // zero.  The only exception is when the constraint is undefined

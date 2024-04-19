@@ -84,13 +84,18 @@ func (e *MirMul) LowerTo(tbl AirTable) AirExpr {
 }
 
 func (e *MirNormalise) LowerTo(tbl AirTable) AirExpr {
+	// TODO: constant evaluation
+	// TODO: binary columns don't need normalisation
+	// TODO: don't add columns which already exist.
+	//
 	// Lower the expression being normalised
 	ne := e.expr.LowerTo(tbl)
 	// Determine column name and height
 	name := fmt.Sprintf("C/INV[%s]",ne)
-	height := 0
+	// Invert expression
+	ine := &AirInverse{ne}
 	// Add computed column
-	tbl.AddColumn(trace.NewComputedColumn(name,height,computeInverse))
+	tbl.AddColumn(trace.NewComputedColumn(name,ine))
 	// Add necessary constraints
 	// TODO!
 	return &AirColumnAccess{name,0}
@@ -114,11 +119,6 @@ func LowerMirExprs(exprs []MirExpr,tbl AirTable) []AirExpr {
 		nexprs[i] = exprs[i].LowerTo(tbl)
 	}
 	return nexprs
-}
-
-// Compute the inverse of a given column on a given row.
-func computeInverse(row int) *big.Int {
-	return big.NewInt(int64(row))
 }
 
 // ============================================================================
@@ -164,11 +164,15 @@ func (e *MirMul) EvalAt(k int, tbl trace.Trace) *big.Int {
 
 func (e *MirNormalise) EvalAt(k int, tbl trace.Trace) *big.Int {
 	// Check whether argument evaluates to zero or not.
-	if e.expr.EvalAt(k,tbl).BitLen() == 0 {
-		return big.NewInt(0)
-	} else {
-		return big.NewInt(1)
-	}
+	val := e.expr.EvalAt(k,tbl)
+	// TODO: following comment out until AirInverse works properly
+	// if val.BitLen() == 0 {
+	// 	return big.NewInt(0)
+	// } else {
+	// 	return big.NewInt(1)
+	// }
+	var nval big.Int
+	return (&nval).Neg(val)
 }
 
 func (e *MirSub) EvalAt(k int, tbl trace.Trace) *big.Int {
