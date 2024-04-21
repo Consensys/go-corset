@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"github.com/Consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/trace"
 )
 
 // ============================================================================

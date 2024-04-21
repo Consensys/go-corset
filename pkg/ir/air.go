@@ -2,7 +2,7 @@ package ir
 
 import (
 	"fmt"
-	"github.com/Consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/trace"
 	"math/big"
 )
 

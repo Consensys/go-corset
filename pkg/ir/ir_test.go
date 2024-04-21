@@ -7,7 +7,7 @@ import (
 	"math/big"
 	"os"
 	"testing"
-	"github.com/Consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/trace"
 )
 
 // Determines the (relative) location of the test directory.  That is

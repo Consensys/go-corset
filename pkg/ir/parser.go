@@ -2,7 +2,7 @@ package ir
 
 import (
 	"errors"
-	"github.com/Consensys/go-corset/pkg/sexp"
+	"github.com/consensys/go-corset/pkg/sexp"
 )
 
 /// A symbol generator is responsible for converting a terminating

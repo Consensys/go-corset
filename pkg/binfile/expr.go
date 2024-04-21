@@ -3,7 +3,7 @@ package binfile
 import (
 	"math/big"
 
-	"github.com/Consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/ir"
 )
 
 // Corresponds to an optionally typed expression.
