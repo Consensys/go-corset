@@ -95,6 +95,18 @@ func TestEval_Norm_01(t *testing.T) {
 	Check(t,"norm_01")
 }
 
+func TestEval_Norm_02(t *testing.T) {
+	Check(t,"norm_02")
+}
+
+func TestEval_Norm_03(t *testing.T) {
+	Check(t,"norm_03")
+}
+
+func TestEval_Norm_04(t *testing.T) {
+	Check(t,"norm_04")
+}
+
 // ===================================================================
 // Test Helpers
 // ===================================================================
