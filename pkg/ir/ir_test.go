@@ -7,7 +7,8 @@ import (
 	"math/big"
 	"os"
 	"testing"
-	"github.com/Consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
 
 // Determines the (relative) location of the test directory.  That is
@@ -148,7 +149,7 @@ func ReadConstraintsFile(name string) []MirConstraint {
 	// Read constraints line by line
 	for i,line := range lines {
 		air,err := ParseSExpToMir(line)
-		if err != nil { panic("error parsing constraint") }
+		if err != nil { panic(err) }
 		constraints[i] = &trace.VanishingConstraint[MirExpr]{Handle: "tmp", Expr: air}
 	}
 	//
@@ -172,9 +173,9 @@ func ReadTracesFile(name string, ext string) []Trace {
 // "Y": [1]} is a trace containing one row of data each for two
 // columns "X" and "Y".
 func ParseJsonTrace(jsn string, test string, ext string, row int) Trace {
-	var data map[string][]*big.Int
+	var raw_data map[string][]*big.Int
 	// Unmarshall
-	json_err := json.Unmarshal([]byte(jsn), &data)
+	json_err := json.Unmarshal([]byte(jsn), &raw_data)
 	if json_err != nil {
 		msg := fmt.Sprintf("%s.%s:%d: %s",test,ext,row+1,json_err)
 		panic(msg)
@@ -182,8 +183,9 @@ func ParseJsonTrace(jsn string, test string, ext string, row int) Trace {
 	//
 	var columns Trace = make([]trace.Column,0)
 	//
-	for name,raw := range data {
-		columns = append(columns,trace.NewDataColumn(name,raw))
+	for name,raw_ints := range raw_data {
+		raw_elements := ToFieldElements(raw_ints)
+		columns = append(columns,trace.NewDataColumn(name,raw_elements))
 	}
 	// Done
 	return columns
@@ -205,4 +207,17 @@ func ReadInputFile(name string, ext string) []string {
 	if err := scanner.Err(); err != nil { panic(err) }
 	// Done
 	return lines
+}
+
+// Convert an array of big integers into an array of field elements.
+func ToFieldElements(ints []*big.Int) []*fr.Element {
+	elements := make([]*fr.Element,len(ints))
+	// Convert each integer in turn
+	for i,v := range ints {
+		element := new(fr.Element)
+		element.SetBigInt(v)
+		elements[i] = element
+	}
+	// Done
+	return elements
 }

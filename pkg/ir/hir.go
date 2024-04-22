@@ -1,7 +1,7 @@
 package ir
 
 import (
-	"math/big"
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
 
 // An expression in the High-Level Intermediate Representation (HIR).
@@ -20,7 +20,7 @@ type HirExpr interface {
 type HirAdd Add[HirExpr]
 type HirSub Sub[HirExpr]
 type HirMul Mul[HirExpr]
-type HirConstant struct { Value *big.Int }
+type HirConstant struct { Value *fr.Element }
 type HirIfZero IfZero[HirExpr]
 type HirList List[HirExpr]
 
@@ -70,9 +70,10 @@ func (e *HirIfZero) LowerTo() []MirExpr {
 	if t != nil {
 		// (1 - NORM(x)) * y for true branch
 		ts := LowerWithBinaryConstructor(c, t, func(x MirExpr, y MirExpr) MirExpr {
-			one := &MirConstant{big.NewInt(1)}
+			one := new(fr.Element)
+			one.SetOne()
 			norm_x := &MirNormalise{x}
-			one_minus_norm_x := &MirSub{[]MirExpr{one,norm_x}}
+			one_minus_norm_x := &MirSub{[]MirExpr{&MirConstant{one},norm_x}}
 			return &MirMul{[]MirExpr{one_minus_norm_x,y}}
 		})
 		res = append(res, ts...)

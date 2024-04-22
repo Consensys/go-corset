@@ -2,7 +2,7 @@ package trace
 
 import (
 	"errors"
-	"math/big"
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
 
 // Describes a given column and provides a mechanism for accessing its
@@ -12,7 +12,7 @@ type Column interface {
 	Name() string
 	// Get the value at a given row in this column, or return an
 	// error.
-	Get(row int, tr Trace) (*big.Int,error)
+	Get(row int, tr Trace) (*fr.Element,error)
 	// Determine the minimum number of rows in this column.
 	MinHeight() int
 }
@@ -28,10 +28,10 @@ type Column interface {
 // given length, etc.
 type DataColumn struct {
 	name string
-	data []*big.Int
+	data []*fr.Element
 }
 
-func NewDataColumn(name string, data []*big.Int) *DataColumn {
+func NewDataColumn(name string, data []*fr.Element) *DataColumn {
 	var c DataColumn
 	c.name = name
 	c.data = data
@@ -49,7 +49,7 @@ func (c *DataColumn) MinHeight() int {
 
 // Read the value at a given row in a data column.  This amounts to
 // looking up that value in the array of values which backs it.
-func (c *DataColumn) Get(row int, tr Trace) (*big.Int,error) {
+func (c *DataColumn) Get(row int, tr Trace) (*fr.Element,error) {
 	if row < 0 || row >= len(c.data) {
 		return nil,errors.New("data column access out-of-bounds")
 	} else {
@@ -91,7 +91,7 @@ func (c *ComputedColumn[E]) MinHeight() int {
 
 // Read the value at a given row in a data column.  This amounts to
 // looking up that value in the array of values which backs it.
-func (c *ComputedColumn[E]) Get(row int, tr Trace) (*big.Int,error) {
+func (c *ComputedColumn[E]) Get(row int, tr Trace) (*fr.Element,error) {
 	// Compute value at given row
 	return c.expr.EvalAt(row,tr), nil
 }

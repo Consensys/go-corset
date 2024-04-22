@@ -3,8 +3,9 @@ package ir
 import (
 	"errors"
 	"fmt"
-	"math/big"
-	"github.com/Consensys/go-corset/pkg/trace"
+	"strconv"
+	"github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
 
 // ============================================================================
@@ -51,18 +52,18 @@ type MirExpr interface {
 	// undefined for several reasons: firstly, if it accesses a
 	// row which does not exist (e.g. at index -1); secondly, if
 	// it accesses a column which does not exist.
-	EvalAt(int, trace.Trace) *big.Int
+	EvalAt(int, trace.Trace) *fr.Element
 }
 
 type MirAdd Add[MirExpr]
 type MirSub Sub[MirExpr]
 type MirMul Mul[MirExpr]
-type MirConstant struct { Val *big.Int }
+type MirConstant struct { Val *fr.Element }
 type MirNormalise Normalise[MirExpr]
 type MirColumnAccess struct { Col string; Amt int}
 
 // MirConstant implements Constant interface
-func (e *MirConstant) Value() *big.Int { return e.Val }
+func (e *MirConstant) Value() *fr.Element { return e.Val }
 // MirColumnAccess implements ColumnAccess interface
 func (e *MirColumnAccess) Column() string { return e.Col }
 func (e *MirColumnAccess) Shift() int { return e.Amt }
@@ -131,7 +132,7 @@ type MirVanishingConstraint = trace.VanishingConstraint[MirExpr]
 // Evaluation
 // ============================================================================
 
-func (e *MirColumnAccess) EvalAt(k int, tbl trace.Trace) *big.Int {
+func (e *MirColumnAccess) EvalAt(k int, tbl trace.Trace) *fr.Element {
 	val, _ := tbl.GetByName(e.Column(), k+e.Shift())
 	// We can ignore err as val is always nil when err != nil.
 	// Furthermore, as stated in the documentation for this
@@ -140,29 +141,29 @@ func (e *MirColumnAccess) EvalAt(k int, tbl trace.Trace) *big.Int {
 		// Indicates an out-of-bounds access of some kind.
 		return val
 	} else {
-		var clone big.Int
+		var clone fr.Element
 		// Clone original value
 		return clone.Set(val)
 	}
 }
 
-func (e *MirConstant) EvalAt(k int, tbl trace.Trace) *big.Int {
-	var clone big.Int
+func (e *MirConstant) EvalAt(k int, tbl trace.Trace) *fr.Element {
+	var clone fr.Element
 	// Clone original value
 	return clone.Set(e.Val)
 }
 
-func (e *MirAdd) EvalAt(k int, tbl trace.Trace) *big.Int {
-	fn := func(l *big.Int, r*big.Int) { l.Add(l,r) }
+func (e *MirAdd) EvalAt(k int, tbl trace.Trace) *fr.Element {
+	fn := func(l *fr.Element, r*fr.Element) { l.Add(l,r) }
 	return EvalMirExprsAt(k,tbl,e.arguments,fn)
 }
 
-func (e *MirMul) EvalAt(k int, tbl trace.Trace) *big.Int {
-	fn := func(l *big.Int, r*big.Int) { l.Mul(l,r) }
+func (e *MirMul) EvalAt(k int, tbl trace.Trace) *fr.Element {
+	fn := func(l *fr.Element, r*fr.Element) { l.Mul(l,r) }
 	return EvalMirExprsAt(k,tbl,e.arguments,fn)
 }
 
-func (e *MirNormalise) EvalAt(k int, tbl trace.Trace) *big.Int {
+func (e *MirNormalise) EvalAt(k int, tbl trace.Trace) *fr.Element {
 	// Check whether argument evaluates to zero or not.
 	val := e.expr.EvalAt(k,tbl)
 	// TODO: following comment out until AirInverse works properly
@@ -171,19 +172,19 @@ func (e *MirNormalise) EvalAt(k int, tbl trace.Trace) *big.Int {
 	// } else {
 	// 	return big.NewInt(1)
 	// }
-	var nval big.Int
+	var nval fr.Element
 	return (&nval).Neg(val)
 }
 
-func (e *MirSub) EvalAt(k int, tbl trace.Trace) *big.Int {
-	fn := func(l *big.Int, r*big.Int) { l.Sub(l,r) }
+func (e *MirSub) EvalAt(k int, tbl trace.Trace) *fr.Element {
+	fn := func(l *fr.Element, r*fr.Element) { l.Sub(l,r) }
 	return EvalMirExprsAt(k,tbl,e.arguments,fn)
 }
 
 
 // Evaluate all expressions in a given slice at a given row on the
 // table, and fold their results together using a combinator.
-func EvalMirExprsAt(k int, tbl trace.Trace, exprs []MirExpr, fn func(*big.Int,*big.Int)) *big.Int {
+func EvalMirExprsAt(k int, tbl trace.Trace, exprs []MirExpr, fn func(*fr.Element,*fr.Element)) *fr.Element {
 	// Evaluate first argument
 	val := exprs[0].EvalAt(k,tbl)
 	if val == nil { return nil }
@@ -208,32 +209,34 @@ func ParseSExpToMir(s string) (MirExpr,error) {
 	// Configure parser
 	AddSymbolTranslator(&parser, SExpConstantToMir)
 	AddSymbolTranslator(&parser, SExpColumnToMir)
-	AddListTranslator(&parser, "+", SExpAddToMir)
-	AddListTranslator(&parser, "-", SExpSubToMir)
-	AddListTranslator(&parser, "*", SExpMulToMir)
-	AddListTranslator(&parser, "shift", SExpShiftToMir)
-	AddListTranslator(&parser, "~", SExpNormToMir)
+	AddRecursiveListTranslator(&parser, "+", SExpAddToMir)
+	AddRecursiveListTranslator(&parser, "-", SExpSubToMir)
+	AddRecursiveListTranslator(&parser, "*", SExpMulToMir)
+	AddBinaryListTranslator(&parser, "shift", SExpShiftToMir)
+	AddRecursiveListTranslator(&parser, "~", SExpNormToMir)
 	// Parse string
 	return Parse(parser,s)
 }
 
 func SExpConstantToMir(symbol string) (MirExpr,error) {
-	c,err := StringToConstant(symbol)
+	num := new(fr.Element)
+	// Attempt to parse
+	c,err := num.SetString(symbol)
+	// Check for errors
 	if err != nil { return nil,err }
+	// Done
 	return &MirConstant{c},nil
 }
-func SExpColumnToMir(symbol string) (MirExpr,error) {
-	c,n,err := StringToColumnAccess(symbol)
-	if err != nil { return nil,err }
-	return &MirColumnAccess{c,n},nil
+func SExpColumnToMir(col string) (MirExpr,error) {
+	return &MirColumnAccess{col,0},nil
 }
 func SExpAddToMir(args []MirExpr)(MirExpr,error) { return &MirAdd{args},nil }
 func SExpSubToMir(args []MirExpr)(MirExpr,error) { return &MirSub{args},nil }
 func SExpMulToMir(args []MirExpr)(MirExpr,error) { return &MirMul{args},nil }
-func SExpShiftToMir(args []MirExpr) (MirExpr,error) {
-	c,n,err := SliceToShiftAccess(args)
-	if err != nil { return nil,err }
-	return &MirColumnAccess{c,n},nil
+func SExpShiftToMir(col string, amt string) (MirExpr,error) {
+	n,err1 := strconv.Atoi(amt)
+	if err1 != nil { return nil,err1 }
+	return &MirColumnAccess{col,n},nil
 }
 
 func SExpNormToMir(args []MirExpr) (MirExpr,error) {

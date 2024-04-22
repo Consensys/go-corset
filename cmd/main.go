@@ -4,7 +4,7 @@ package main
 import (
 	"fmt"
 	"os"
-	"github.com/Consensys/go-corset/pkg/binfile"
+	"github.com/consensys/go-corset/pkg/binfile"
 )
 
 
