@@ -121,6 +121,18 @@ func TestEval_Norm_07(t *testing.T) {
 }
 
 // ===================================================================
+// If-Zero
+// ===================================================================
+
+func TestEval_If_01(t *testing.T) {
+	Check(t,"if_01")
+}
+
+func TestEval_If_02(t *testing.T) {
+	Check(t,"if_02")
+}
+
+// ===================================================================
 // Test Helpers
 // ===================================================================
 
@@ -139,11 +151,14 @@ func Check(t *testing.T, test string) {
 
 // Check a given set of tests have an expected outcome (i.e. are
 // either accepted or rejected) by a given set of constraints.
-func CheckTraces(t *testing.T, test string, expected bool, traces []Trace, constraints []MirConstraint) {
+func CheckTraces(t *testing.T, test string, expected bool, traces []Trace, constraints []HirConstraint) {
 	for i,tr := range traces {
 		// Construct table for evaluation
-		mir := trace.NewLazyTable(tr, constraints)
+		hir := trace.NewLazyTable(tr, constraints)
+		mir := trace.EmptyLazyTable[MirConstraint]()
 		air := trace.EmptyLazyTable[AirConstraint]()
+		// Lower HIR => MIR
+		LowerToMir(hir,mir)
 		// Lower MIR => AIR
 		LowerToAir(mir,air)
 		// Check MIR trace (if applicable)
@@ -189,14 +204,14 @@ func ValidMirTrace[C trace.Constraint](tbl trace.Table[C]) bool {
 
 // Read in a sequence of constraints from a given file.  For now, the
 // constraints are always assumed to be vanishing constraints.
-func ReadConstraintsFile(name string) []MirConstraint {
+func ReadConstraintsFile(name string) []HirConstraint {
 	lines := ReadInputFile(name,"lisp")
-	constraints := make([]MirConstraint,len(lines))
+	constraints := make([]HirConstraint,len(lines))
 	// Read constraints line by line
 	for i,line := range lines {
-		air,err := ParseSExpToMir(line)
+		hir,err := ParseSExpToHir(line)
 		if err != nil { panic(err) }
-		constraints[i] = &trace.VanishingConstraint[MirExpr]{Handle: "tmp", Expr: air}
+		constraints[i] = &HirVanishingConstraint{Handle: "tmp", Expr: hir}
 	}
 	//
 	return constraints
