@@ -87,12 +87,15 @@ func (e *MirMul) LowerTo(tbl AirTable) AirExpr {
 func (e *MirNormalise) LowerTo(tbl AirTable) AirExpr {
 	// Lower the expression being normalised
 	ne := e.expr.LowerTo(tbl)
-	// Determine column name and height
-	name := fmt.Sprintf("C/INV[%s]",ne)
 	// Invert expression
 	ine := &AirInverse{ne}
-	// Add computed column
-	tbl.AddColumn(trace.NewComputedColumn(name,ine))
+	// Determine computed column name
+	name := ine.String()
+	// Add new column (if it does not already exist)
+	if !tbl.HasColumn(name) {
+		// Add computed column
+		tbl.AddColumn(trace.NewComputedColumn(name,ine))
+	}
 	// Add necessary constraints
 	return &AirMul{[]AirExpr{ne,&AirColumnAccess{name,0}}}
 }
