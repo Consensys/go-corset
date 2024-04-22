@@ -142,7 +142,7 @@ func (e *AirMul) String() string {
 }
 
 func (e *AirInverse) String() string {
-	return fmt.Sprintf("(~ %s)",e.expr)
+	return fmt.Sprintf("(inv %s)",e.expr)
 }
 
 func AirNaryString(operator string, exprs []AirExpr) string {

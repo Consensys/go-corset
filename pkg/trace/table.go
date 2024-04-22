@@ -33,6 +33,8 @@ type Table[C any] interface {
 	// Check whether all constraints for a given trace evaluate to zero.
 	// If not, produce an error.
 	Check() error
+	// Check whether a given column already exists
+	HasColumn(string) bool
 	// Access Columns
 	Columns() []Column
 	// Access Constraints
@@ -83,6 +85,15 @@ func NewLazyTable[C Constraint](columns []Column, constraints []C) *LazyTable[C]
 	}
 	//
 	return p
+}
+
+func (p *LazyTable[C]) HasColumn(name string) bool {
+	for _,c := range p.columns {
+		if c.Name() == name {
+			return true
+		}
+	}
+	return false
 }
 
 // Check whether all constraints on the given table evaluate to zero.
