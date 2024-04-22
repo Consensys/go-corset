@@ -95,6 +95,18 @@ func TestEval_Norm_01(t *testing.T) {
 	Check(t,"norm_01")
 }
 
+func TestEval_Norm_02(t *testing.T) {
+	Check(t,"norm_02")
+}
+
+func TestEval_Norm_03(t *testing.T) {
+	Check(t,"norm_03")
+}
+
+func TestEval_Norm_04(t *testing.T) {
+	Check(t,"norm_04")
+}
+
 // ===================================================================
 // Test Helpers
 // ===================================================================
@@ -122,21 +134,21 @@ func CheckTraces(t *testing.T, test string, expected bool, traces []Trace, const
 		// Lower MIR => AIR
 		LowerToAir(mir,air)
 		// Check MIR table
-		CheckTrace(t,test,i+1,expected,mir)
+		CheckTrace(t,"MIR",test,i+1,expected,mir)
 		// Check AIR table
-		CheckTrace(t,test,i+1,expected,air)
+		CheckTrace(t,"AIR",test,i+1,expected,air)
 	}
 }
 
-func CheckTrace[C trace.Constraint](t *testing.T, test string, row int, expected bool, tbl trace.Table[C]) {
+func CheckTrace[C trace.Constraint](t *testing.T, ir string, test string, row int, expected bool, tbl trace.Table[C]) {
 	// Check whether constraints hold (or not)
 	err := tbl.Check()
 	// Process output
 	if err != nil && expected {
-		msg := fmt.Sprintf("Trace rejected incorrectly (%s.accepts, row %d): %s",test,row,err)
+		msg := fmt.Sprintf("Trace rejected incorrectly (%s, %s.accepts, line %d): %s",ir,test,row,err)
 		t.Errorf(msg)
 	} else if err == nil && !expected {
-		msg := fmt.Sprintf("Trace accepted incorrectly (%s.rejects, row %d)",test,row)
+		msg := fmt.Sprintf("Trace accepted incorrectly (%s, %s.rejects, line %d)",ir,test,row)
 		t.Errorf(msg)
 	}
 }

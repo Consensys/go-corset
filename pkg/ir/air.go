@@ -91,12 +91,10 @@ func (e *AirMul) EvalAt(k int, tbl trace.Trace) *fr.Element {
 }
 
 func (e *AirInverse) EvalAt(k int, tbl trace.Trace) *fr.Element {
-	// FIXME: At this point, we cannot actually compute an inverse
-	// because are not operating on field elements.  Therefore, we
-	// simply return the negative value for now.
-	var ne fr.Element
+	inv := new(fr.Element)
+	val := e.expr.EvalAt(k, tbl)
 	// Go syntax huh?
-	return (&ne).Neg(e.expr.EvalAt(k, tbl))
+	return inv.Inverse(val)
 }
 
 // Evaluate all expressions in a given slice at a given row on the
