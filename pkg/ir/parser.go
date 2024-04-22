@@ -2,6 +2,7 @@ package ir
 
 import (
 	"errors"
+	"fmt"
 	"github.com/consensys/go-corset/pkg/sexp"
 )
 
@@ -14,7 +15,11 @@ type SExpSymbolTranslator[T comparable] func(string)(T,error)
 // sequence of zero or more arguments into an expression type T.
 // Observe that the arguments are already translated into the correct
 // form.
-type SExpListTranslator[T comparable] func([]T)(T,error)
+type SExpListTranslator[T comparable] func([]sexp.SExp)(T,error)
+
+type SExpBinaryListTranslator[T comparable] func(string,string)(T,error)
+
+type SExpRecursiveListTranslator[T comparable] func([]T)(T,error)
 
 // A generic mechanism for translating S-Expressions into the various
 // IR forms.
@@ -31,8 +36,38 @@ func NewIrParser[T comparable]() IrParser[T] {
 }
 
 // Add a new list translator to this expression parser.
-func AddListTranslator[T comparable](p *IrParser[T], name string, t SExpListTranslator[T]) {
-	p.lists[name] = t
+func AddRecursiveListTranslator[T comparable](p *IrParser[T], name string, t SExpRecursiveListTranslator[T]) {
+	// Construct a recursive list translator as a wrapper around a generic list translator.
+	p.lists[name] = func(elements []sexp.SExp) (T,error) {
+		var empty T
+		var err error
+		// Translate arguments
+		args := make([]T,len(elements)-1)
+		for i,s := range elements[1:] {
+			args[i],err = parseSExp(p,s)
+			if err != nil { return empty,err }
+		}
+		return t(args)
+	}
+}
+
+func AddBinaryListTranslator[T comparable](p *IrParser[T], name string, t SExpBinaryListTranslator[T]) {
+	p.lists[name] = func(elements []sexp.SExp) (T,error) {
+		var empty T
+		if len(elements) == 3 {
+			lhs,ok1 := any(elements[1]).(*sexp.Symbol)
+			rhs,ok2 := any(elements[2]).(*sexp.Symbol)
+			if ok1 && ok2 {
+				return t(lhs.Value,rhs.Value)
+			} else {
+				msg := fmt.Sprintf("Binary list malformed (%t,%t)",ok1,ok2)
+				return empty,errors.New(msg)
+			}
+		} else {
+			msg := fmt.Sprintf("Incorrect number of arguments: {%d}",len(elements)-1)
+			return empty,errors.New(msg)
+		}
+	}
 }
 
 // Add a new symbol translator to this expression parser.
@@ -50,13 +85,13 @@ func Parse[T comparable](p IrParser[T], s string)(T,error) {
 		return empty,err
 	}
 	// Process S-expression into AIR expression
-	return parseSExp(p, e)
+	return parseSExp(&p, e)
 }
 
 // Translate an S-Expression into an IR expression.  Observe that
 // this can still fail in the event that the given S-Expression does
 // not describe a well-formed AIR expression.
-func parseSExp[T comparable](p IrParser[T], s sexp.SExp) (T,error) {
+func parseSExp[T comparable](p *IrParser[T], s sexp.SExp) (T,error) {
 	switch e := s.(type) {
 	case *sexp.List:
 		return parseSExpList[T](p, e.Elements)
@@ -73,26 +108,19 @@ func parseSExp[T comparable](p IrParser[T], s sexp.SExp) (T,error) {
 // expression of some kind.  This type of expression is determined by
 // the first element of the list.  The remaining elements are treated
 // as arguments which are first recursively translated.
-func parseSExpList[T comparable](p IrParser[T], elements []sexp.SExp) (T,error) {
+func parseSExpList[T comparable](p *IrParser[T], elements []sexp.SExp) (T,error) {
 	var empty T
-	var err error
 	// Sanity check this list makes sense
 	if len(elements) == 0 || !elements[0].IsSymbol() {
 		return empty,errors.New("Invalid sexp.List")
 	}
 	// Extract expression name
 	name := (elements[0].(*sexp.Symbol)).Value
-	// Translate arguments
-	args := make([]T,len(elements)-1)
-	for i,s := range elements[1:] {
-		args[i],err = parseSExp(p,s)
-		if err != nil { return empty,err }
-	}
 	// Lookup appropriate translator
 	t := p.lists[name]
 	// Check whether we found one.
 	if t != nil {
-		return (t)(args)
+		return (t)(elements)
 	} else {
 		// Default fall back
 		return empty, errors.New("unknown list encountered")

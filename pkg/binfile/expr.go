@@ -1,8 +1,6 @@
 package binfile
 
 import (
-	"math/big"
-
 	"github.com/consensys/go-corset/pkg/ir"
 )
 
@@ -61,7 +59,10 @@ func (e *JsonExprFuncall) ToMir() ir.MirExpr {
 }
 
 func (e *JsonExprConst) ToMir() ir.MirExpr {
-	c := new(ir.MirConstant)
-	c.Val = big.NewInt(1)
-	return c
+	// one := new(fr.Element)
+	// one.SetOne()
+	// c := new(ir.MirConstant)
+	// c.Val = one
+	// return c
+	panic("TO DO")
 }

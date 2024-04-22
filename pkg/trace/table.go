@@ -3,7 +3,7 @@ package trace
 import (
 	"fmt"
 	"errors"
-	"math/big"
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
 
 type Trace interface {
@@ -15,11 +15,11 @@ type Trace interface {
 	// GetByindex as, depending on the underlying data format,
 	// this may first resolve the name into a physical column
 	// index.
-	GetByName(name string, row int) (*big.Int,error)
+	GetByName(name string, row int) (*fr.Element,error)
 	// Get the value of a given column by its index. If the column
 	// does not exist or if the index is out-of-bounds then an
 	// error is returned.
-	GetByIndex(col int, row int)  (*big.Int,error)
+	GetByIndex(col int, row int)  (*fr.Element,error)
 	// Determine the height of this table, which is defined as the
 	// height of the largest column.
 	Height() int
@@ -119,7 +119,7 @@ func (p *LazyTable[C]) Height() int {
 	return p.height
 }
 
-func (p *LazyTable[C]) GetByName(name string, row int) (*big.Int,error) {
+func (p *LazyTable[C]) GetByName(name string, row int) (*fr.Element,error) {
 	// NOTE: Could improve performance here if names were kept in
 	// sorted order.
 	for _,c := range p.columns {
@@ -133,7 +133,7 @@ func (p *LazyTable[C]) GetByName(name string, row int) (*big.Int,error) {
 	return nil,errors.New(msg)
 }
 
-func (p *LazyTable[C]) GetByIndex(col int, row int) (*big.Int,error) {
+func (p *LazyTable[C]) GetByIndex(col int, row int) (*fr.Element,error) {
 	if col < 0 || col >= len(p.columns) {
 		return nil,errors.New("Column access out-of-bounds")
 	} else {

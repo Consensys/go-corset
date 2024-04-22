@@ -3,7 +3,7 @@ package trace
 import (
 	"errors"
 	"fmt"
- 	"math/big"
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
 
 // An abstract notion of a constraint which must hold true for a given
@@ -27,7 +27,7 @@ type Evaluable interface {
 	// undefined for several reasons: firstly, if it accesses a
 	// row which does not exist (e.g. at index -1); secondly, if
 	// it accesses a column which does not exist.
-	EvalAt(int, Trace) *big.Int
+	EvalAt(int, Trace) *fr.Element
 }
 
 // ===================================================================
@@ -61,9 +61,9 @@ func (p* VanishingConstraint[T]) Check(tr Trace) error {
 		// Determine kth evaluation point
 		kth := p.Expr.EvalAt(k, tr)
 		// Check whether it vanished (or was undefined)
-		if kth != nil && kth.BitLen() != 0 {
+		if kth != nil && !kth.IsZero() {
 			// Construct useful error message
-			msg := fmt.Sprintf("constraint %s does not vanish (row %d)",p.Handle,k)
+			msg := fmt.Sprintf("constraint %s does not vanish (row %d, %s)",p.Handle,k,kth)
 			// Evaluation failure
 			return errors.New(msg)
 		}
