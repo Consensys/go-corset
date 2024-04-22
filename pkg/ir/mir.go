@@ -85,10 +85,6 @@ func (e *MirMul) LowerTo(tbl AirTable) AirExpr {
 }
 
 func (e *MirNormalise) LowerTo(tbl AirTable) AirExpr {
-	// TODO: constant evaluation
-	// TODO: binary columns don't need normalisation
-	// TODO: don't add columns which already exist.
-	//
 	// Lower the expression being normalised
 	ne := e.expr.LowerTo(tbl)
 	// Determine column name and height
@@ -98,8 +94,7 @@ func (e *MirNormalise) LowerTo(tbl AirTable) AirExpr {
 	// Add computed column
 	tbl.AddColumn(trace.NewComputedColumn(name,ine))
 	// Add necessary constraints
-	// TODO!
-	return &AirColumnAccess{name,0}
+	return &AirMul{[]AirExpr{ne,&AirColumnAccess{name,0}}}
 }
 
 // Lowering a constant is straightforward as it is already in the correct form.
@@ -166,14 +161,10 @@ func (e *MirMul) EvalAt(k int, tbl trace.Trace) *fr.Element {
 func (e *MirNormalise) EvalAt(k int, tbl trace.Trace) *fr.Element {
 	// Check whether argument evaluates to zero or not.
 	val := e.expr.EvalAt(k,tbl)
-	// TODO: following comment out until AirInverse works properly
-	// if val.BitLen() == 0 {
-	// 	return big.NewInt(0)
-	// } else {
-	// 	return big.NewInt(1)
-	// }
-	var nval fr.Element
-	return (&nval).Neg(val)
+	// Normalise value (if necessary)
+	if !val.IsZero() { val.SetOne() }
+	// Done
+	return val
 }
 
 func (e *MirSub) EvalAt(k int, tbl trace.Trace) *fr.Element {
