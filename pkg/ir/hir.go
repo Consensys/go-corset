@@ -42,31 +42,7 @@ func LowerToMir(hir HirTable, mir MirTable) {
 // Constraints
 // ============================================================================
 
-// On every row of the table, a vanishing constraint must evaluate to
-// zero.  The only exception is when the constraint is undefined
-// (e.g. because it references a non-existent table cell).  In such
-// case, the constraint is ignored.  This is parameterised by the type
-// of the constraint expression.  Thus, we can reuse this definition
-// across the various intermediate representations (e.g. Mid-Level IR,
-// Arithmetic IR, etc).
-type HirVanishingConstraint struct {
-	// A unique identifier for this constraint.  This is primarily
-	// useful for debugging.
-	Handle string
-	// The actual constraint itself, namely an expression which
-	// should evaluate to zero.
-	Expr HirExpr
-}
-
-func (p* HirVanishingConstraint) GetHandle() string {
-	return p.Handle
-}
-
-// Check whether a vanishing constraint evaluates to zero on every row
-// of a table.  If so, return nil otherwise return an error.
-func (p* HirVanishingConstraint) Check(tr trace.Trace) error {
-	panic("TO DO")
-}
+type HirVanishingConstraint = trace.VanishingConstraint[HirExpr]
 
 // ============================================================================
 // Expressions
@@ -79,6 +55,13 @@ type HirExpr interface {
 	// level can expand into *multiple* expressions at the MIR
 	// level.
 	LowerTo() []MirExpr
+	// Evaluate this expression in a given tabular context.
+	// Observe that if this expression is *undefined* within this
+	// context then it returns "nil".  An expression can be
+	// undefined for several reasons: firstly, if it accesses a
+	// row which does not exist (e.g. at index -1); secondly, if
+	// it accesses a column which does not exist.
+	EvalAt(int, trace.Trace) *fr.Element
 }
 
 type HirAdd Add[HirExpr]
@@ -95,7 +78,6 @@ func (e *HirConstant) Value() *fr.Element { return e.Val }
 // HirColumnAccess implements ColumnAccess interface
 func (e *HirColumnAccess) Column() string { return e.Col }
 func (e *HirColumnAccess) Shift() int { return e.Amt }
-
 
 // ============================================================================
 // Lowering
@@ -256,6 +238,86 @@ func LowerWithNaryConstructorHelper(i int, acc []MirExpr, args []HirExpr, constr
 		}
 		return nargs
 	}
+}
+
+// ============================================================================
+// Evaluation
+// ============================================================================
+
+func (e *HirColumnAccess) EvalAt(k int, tbl trace.Trace) *fr.Element {
+	val, _ := tbl.GetByName(e.Column(), k+e.Shift())
+	// We can ignore err as val is always nil when err != nil.
+	// Furthermore, as stated in the documentation for this
+	// method, we return nil upon error.
+	if val == nil {
+		// Indicates an out-of-bounds access of some kind.
+		return val
+	} else {
+		var clone fr.Element
+		// Clone original value
+		return clone.Set(val)
+	}
+}
+
+func (e *HirConstant) EvalAt(k int, tbl trace.Trace) *fr.Element {
+	var clone fr.Element
+	// Clone original value
+	return clone.Set(e.Val)
+}
+
+func (e *HirAdd) EvalAt(k int, tbl trace.Trace) *fr.Element {
+	fn := func(l *fr.Element, r*fr.Element) { l.Add(l,r) }
+	return EvalHirExprsAt(k,tbl,e.arguments,fn)
+}
+
+func (e *HirMul) EvalAt(k int, tbl trace.Trace) *fr.Element {
+	fn := func(l *fr.Element, r*fr.Element) { l.Mul(l,r) }
+	return EvalHirExprsAt(k,tbl,e.arguments,fn)
+}
+
+func (e *HirIfZero) EvalAt(k int, tbl trace.Trace) *fr.Element {
+	// Evaluate condition
+	cond := e.condition.EvalAt(k,tbl)
+	// Check whether zero or not
+	if cond.IsZero() && e.trueBranch != nil {
+		return e.trueBranch.EvalAt(k,tbl)
+	} else if !cond.IsZero() && e.falseBranch != nil {
+		return e.falseBranch.EvalAt(k,tbl)
+	} else {
+		// If either true / false branch undefined.
+		return nil
+	}
+}
+
+func (e *HirNormalise) EvalAt(k int, tbl trace.Trace) *fr.Element {
+	// Check whether argument evaluates to zero or not.
+	val := e.expr.EvalAt(k,tbl)
+	// Normalise value (if necessary)
+	if !val.IsZero() { val.SetOne() }
+	// Done
+	return val
+}
+
+func (e *HirSub) EvalAt(k int, tbl trace.Trace) *fr.Element {
+	fn := func(l *fr.Element, r*fr.Element) { l.Sub(l,r) }
+	return EvalHirExprsAt(k,tbl,e.arguments,fn)
+}
+
+
+// Evaluate all expressions in a given slice at a given row on the
+// table, and fold their results together using a combinator.
+func EvalHirExprsAt(k int, tbl trace.Trace, exprs []HirExpr, fn func(*fr.Element,*fr.Element)) *fr.Element {
+	// Evaluate first argument
+	val := exprs[0].EvalAt(k,tbl)
+	if val == nil { return nil }
+	// Continue evaluating the rest
+	for i := 1; i < len(exprs); i++ {
+		ith := exprs[i].EvalAt(k,tbl)
+		if ith == nil { return ith }
+		fn(val,ith)
+	}
+	// Done
+	return val
 }
 
 // ============================================================================

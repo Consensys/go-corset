@@ -161,8 +161,9 @@ func CheckTraces(t *testing.T, test string, expected bool, traces []Trace, const
 		LowerToMir(hir,mir)
 		// Lower MIR => AIR
 		LowerToAir(mir,air)
-		// Check MIR trace (if applicable)
-		if ValidMirTrace(mir) {
+		// Check HIR/MIR trace (if applicable)
+		if ValidHirMirTrace(mir) {
+			CheckTrace(t,"HIR",test,i+1,expected,hir)
 			CheckTrace(t,"MIR",test,i+1,expected,mir)
 		}
 		// Check AIR trace
@@ -193,7 +194,7 @@ func CheckTrace[C trace.Constraint](t *testing.T, ir string, test string, row in
 // For now, we simply say that any trace containing a column whose
 // name suggests it is (or represents) a computed column is not a
 // valid MIR trace.
-func ValidMirTrace[C trace.Constraint](tbl trace.Table[C]) bool {
+func ValidHirMirTrace[C trace.Constraint](tbl trace.Table[C]) bool {
 	for _,col := range tbl.Columns() {
 		if strings.Contains(col.Name(),"(") {
 			return false
