@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"strings"
 	"testing"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
@@ -107,6 +108,18 @@ func TestEval_Norm_04(t *testing.T) {
 	Check(t,"norm_04")
 }
 
+func TestEval_Norm_05(t *testing.T) {
+	Check(t,"norm_05")
+}
+
+func TestEval_Norm_06(t *testing.T) {
+	Check(t,"norm_06")
+}
+
+func TestEval_Norm_07(t *testing.T) {
+	Check(t,"norm_07")
+}
+
 // ===================================================================
 // Test Helpers
 // ===================================================================
@@ -133,9 +146,11 @@ func CheckTraces(t *testing.T, test string, expected bool, traces []Trace, const
 		air := trace.EmptyLazyTable[AirConstraint]()
 		// Lower MIR => AIR
 		LowerToAir(mir,air)
-		// Check MIR table
-		CheckTrace(t,"MIR",test,i+1,expected,mir)
-		// Check AIR table
+		// Check MIR trace (if applicable)
+		if ValidMirTrace(mir) {
+			CheckTrace(t,"MIR",test,i+1,expected,mir)
+		}
+		// Check AIR trace
 		CheckTrace(t,"AIR",test,i+1,expected,air)
 	}
 }
@@ -151,6 +166,25 @@ func CheckTrace[C trace.Constraint](t *testing.T, ir string, test string, row in
 		msg := fmt.Sprintf("Trace accepted incorrectly (%s, %s.rejects, line %d)",ir,test,row)
 		t.Errorf(msg)
 	}
+}
+
+// In some circumstances there are traces which should be considered
+// at the MIR level.  The reason for this is that they contain manual
+// entries for computed columns (e.g. in an effort to prevent a trace
+// from being rejected).  As such, the MIR level does not see those
+// columns and, hence, cannot always know the trace should have been
+// rejected.
+//
+// For now, we simply say that any trace containing a column whose
+// name suggests it is (or represents) a computed column is not a
+// valid MIR trace.
+func ValidMirTrace[C trace.Constraint](tbl trace.Table[C]) bool {
+	for _,col := range tbl.Columns() {
+		if strings.Contains(col.Name(),"(") {
+			return false
+		}
+	}
+	return true
 }
 
 // Read in a sequence of constraints from a given file.  For now, the
