@@ -148,15 +148,11 @@ func (e *AirInverse) String() string {
 func AirNaryString(operator string, exprs []AirExpr) string {
 	// This should be generalised and moved into common?
 	rs := ""
-	for i,e := range exprs {
+	for _,e := range exprs {
 		es := e.String()
-		if i == 0 {
-			rs = es
-		} else {
-			rs = fmt.Sprintf("%s %s %s",rs,operator,es)
-		}
+		rs = fmt.Sprintf("%s %s",rs,es)
 	}
-	return rs
+	return fmt.Sprintf("(%s%s)",operator,rs)
 }
 
 // ============================================================================

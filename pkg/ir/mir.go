@@ -84,20 +84,37 @@ func (e *MirMul) LowerTo(tbl AirTable) AirExpr {
 	return &AirMul{LowerMirExprs(e.arguments,tbl)}
 }
 
-func (e *MirNormalise) LowerTo(tbl AirTable) AirExpr {
+func (p *MirNormalise) LowerTo(tbl AirTable) AirExpr {
 	// Lower the expression being normalised
-	ne := e.expr.LowerTo(tbl)
+	e := p.expr.LowerTo(tbl)
 	// Invert expression
-	ine := &AirInverse{ne}
+	ie := &AirInverse{e}
 	// Determine computed column name
-	name := ine.String()
+	name := ie.String()
 	// Add new column (if it does not already exist)
 	if !tbl.HasColumn(name) {
 		// Add computed column
-		tbl.AddColumn(trace.NewComputedColumn(name,ine))
+		tbl.AddColumn(trace.NewComputedColumn(name,ie))
 	}
-	// Add necessary constraints
-	return &AirMul{[]AirExpr{ne,&AirColumnAccess{name,0}}}
+	one := fr.NewElement(1)
+	// Construct 1/e
+	inv_e := &AirColumnAccess{name,0}
+	// Construct e/e
+	e_inv_e := &AirMul{[]AirExpr{e,inv_e}}
+	// Construct 1 == e/e
+	one_e_e := &AirSub{[]AirExpr{&AirConstant{&one},e_inv_e}}
+	// Construct (e != 0) ==> (1 == e/e)
+	e_implies_one_e_e := &AirMul{[]AirExpr{e,one_e_e}}
+	// Construct (1/e != 0) ==> (1 == e/e)
+	inv_e_implies_one_e_e := &AirMul{[]AirExpr{inv_e,one_e_e}}
+	// Ensure (e != 0) ==> (1 == e/e)
+	l_name := fmt.Sprintf("[%s <=]",ie.String())
+	tbl.AddConstraint(&trace.VanishingConstraint[AirExpr]{Handle: l_name, Expr: e_implies_one_e_e})
+	// Ensure (e/e != 0) ==> (1 == e/e)
+	r_name := fmt.Sprintf("[%s =>]",ie.String())
+	tbl.AddConstraint(&trace.VanishingConstraint[AirExpr]{Handle: r_name, Expr: inv_e_implies_one_e_e})
+	// Done
+	return &AirMul{[]AirExpr{e,&AirColumnAccess{name,0}}}
 }
 
 // Lowering a constant is straightforward as it is already in the correct form.
