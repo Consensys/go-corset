@@ -252,7 +252,7 @@ func SExpShiftToMir(col string, amt string) (MirExpr,error) {
 
 func SExpNormToMir(args []MirExpr) (MirExpr,error) {
 	if len(args) != 1 {
-		msg := fmt.Sprintf("Incorrect number of shift arguments: {%d}",len(args))
+		msg := fmt.Sprintf("Incorrect number of arguments: {%d}",len(args))
 		return nil, errors.New(msg)
 	} else {
 		return &MirNormalise{args[0]}, nil
