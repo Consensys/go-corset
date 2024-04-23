@@ -1,7 +1,7 @@
 package binfile
 
 import (
-	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/mir"
 )
 
 // Corresponds to an optionally typed expression.
@@ -40,7 +40,7 @@ type JsonExprColumn = any // for now
 // expression in the Mid-Level Intermediate Representation.  This
 // should not generate an error provided the original JSON was
 // well-formed.
-func (e JsonTypedExpr) ToMir() ir.MirExpr {
+func (e JsonTypedExpr) ToMir() mir.Expr {
 	if e.Expr.Funcall != nil {
 		return e.Expr.Funcall.ToMir()
 	} else if e.Expr.Const != nil {
@@ -50,7 +50,7 @@ func (e JsonTypedExpr) ToMir() ir.MirExpr {
 	}
 }
 
-func (e *JsonExprFuncall) ToMir() ir.MirExpr {
+func (e *JsonExprFuncall) ToMir() mir.Expr {
 	switch e.Func {
 	case "VectorSub":
 		panic("VectorSub")
@@ -58,7 +58,7 @@ func (e *JsonExprFuncall) ToMir() ir.MirExpr {
 	panic("Rest")
 }
 
-func (e *JsonExprConst) ToMir() ir.MirExpr {
+func (e *JsonExprConst) ToMir() mir.Expr {
 	// one := new(fr.Element)
 	// one.SetOne()
 	// c := new(ir.MirConstant)
