@@ -3,23 +3,23 @@ package mir
 import (
 	"fmt"
 	"github.com/consensys/go-corset/pkg/air"
-	"github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/table"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
 
-func (e *Add) LowerTo(tbl air.Schema) air.Expr {
+func (e *Add) LowerTo(tbl *air.Schema) air.Expr {
 	return &air.Add{Arguments: LowerExprs(e.Arguments,tbl)}
 }
 
-func (e *Sub) LowerTo(tbl air.Schema) air.Expr {
+func (e *Sub) LowerTo(tbl *air.Schema) air.Expr {
 	return &air.Sub{Arguments: LowerExprs(e.Arguments,tbl)}
 }
 
-func (e *Mul) LowerTo(tbl air.Schema) air.Expr {
+func (e *Mul) LowerTo(tbl *air.Schema) air.Expr {
 	return &air.Mul{Arguments: LowerExprs(e.Arguments,tbl)}
 }
 
-func (p *Normalise) LowerTo(tbl air.Schema) air.Expr {
+func (p *Normalise) LowerTo(tbl *air.Schema) air.Expr {
 	// Lower the expression being normalised
 	e := p.Expr.LowerTo(tbl)
 	// Invert expression
@@ -29,7 +29,7 @@ func (p *Normalise) LowerTo(tbl air.Schema) air.Expr {
 	// Add new column (if it does not already exist)
 	if !tbl.HasColumn(name) {
 		// Add computed column
-		tbl.AddColumn(trace.NewComputedColumn(name,ie))
+		tbl.AddColumn(table.NewComputedColumn(name,ie))
 	}
 	one := fr.NewElement(1)
 	// Construct 1/e
@@ -44,26 +44,26 @@ func (p *Normalise) LowerTo(tbl air.Schema) air.Expr {
 	inv_e_implies_one_e_e := &air.Mul{Arguments: []air.Expr{inv_e,one_e_e}}
 	// Ensure (e != 0) ==> (1 == e/e)
 	l_name := fmt.Sprintf("[%s <=]",ie.String())
-	tbl.AddConstraint(&trace.VanishingConstraint[air.Expr]{Handle: l_name, Expr: e_implies_one_e_e})
+	tbl.AddConstraint(&table.VanishingConstraint[air.Expr]{Handle: l_name, Expr: e_implies_one_e_e})
 	// Ensure (e/e != 0) ==> (1 == e/e)
 	r_name := fmt.Sprintf("[%s =>]",ie.String())
-	tbl.AddConstraint(&trace.VanishingConstraint[air.Expr]{Handle: r_name, Expr: inv_e_implies_one_e_e})
+	tbl.AddConstraint(&table.VanishingConstraint[air.Expr]{Handle: r_name, Expr: inv_e_implies_one_e_e})
 	// Done
 	return &air.Mul{Arguments: []air.Expr{e,&air.ColumnAccess{Column: name, Shift: 0}}}
 }
 
 // Lowering a constant is straightforward as it is already in the correct form.
-func (e *ColumnAccess) LowerTo(tbl air.Schema) air.Expr {
+func (e *ColumnAccess) LowerTo(tbl *air.Schema) air.Expr {
 	return &air.ColumnAccess{Column: e.Column, Shift: e.Shift}
 }
 
 // Lowering a constant is straightforward as it is already in the correct form.
-func (e *Constant) LowerTo(tbl air.Schema) air.Expr {
+func (e *Constant) LowerTo(tbl *air.Schema) air.Expr {
 	return &air.Constant{Value: e.Value}
 }
 
 // Lower a set of zero or more MIR expressions.
-func LowerExprs(exprs []Expr,tbl air.Schema) []air.Expr {
+func LowerExprs(exprs []Expr,tbl *air.Schema) []air.Expr {
 	n := len(exprs)
 	nexprs := make([]air.Expr, n)
 	for i := 0; i < n; i++ {

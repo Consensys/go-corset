@@ -2,7 +2,7 @@ package mir
 
 import (
 	"github.com/consensys/go-corset/pkg/air"
-	"github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/table"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
 
@@ -12,14 +12,14 @@ type Expr interface {
 	// Representation.  Essentially, this means eliminating
 	// normalising expressions by introducing new columns into the
 	// given table (with appropriate constraints).
-	LowerTo(air.Schema) air.Expr
+	LowerTo(*air.Schema) air.Expr
 	// Evaluate this expression in a given tabular context.
 	// Observe that if this expression is *undefined* within this
 	// context then it returns "nil".  An expression can be
 	// undefined for several reasons: firstly, if it accesses a
 	// row which does not exist (e.g. at index -1); secondly, if
 	// it accesses a column which does not exist.
-	EvalAt(int, trace.Trace) *fr.Element
+	EvalAt(int, table.Trace) *fr.Element
 }
 
 type Nary struct { Arguments[]Expr }

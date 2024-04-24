@@ -1,7 +1,7 @@
 package mir
 
 import (
-	"github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/table"
 )
 
-type VanishingConstraint = trace.VanishingConstraint[Expr]
+type VanishingConstraint = table.VanishingConstraint[Expr]

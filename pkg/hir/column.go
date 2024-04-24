@@ -1,37 +1,67 @@
 package hir
 
 import (
+	"math/big"
 	"github.com/consensys/go-corset/pkg/mir"
-	"github.com/consensys/go-corset/pkg/trace"
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/go-corset/pkg/table"
 )
 
 type Column interface {
 	// hir.Column is-a Column
-	trace.Column
+	table.Column
 	// Lower this column to an MirColumn
 	LowerTo() mir.Column
 }
 
-type DataColumn trace.DataColumn
+// ===================================================================
+// Column Type
+// ===================================================================
 
-func NewDataColumn(name string, data []*fr.Element) *DataColumn {
-	return (*DataColumn)(trace.NewDataColumn(name,data))
+// Represents a _column type_ which restricts the set of values a
+// column can take on.  For example, a column might be restricted to
+// holding only byte values (i.e. in the range 0..255).
+type Type interface {
+	// Access thie type as a unsigned integer.  If this type is not an
+	// unsigned integer, then this returns nil.
+	AsUint() *Uint
+
+	// Access thie type as a field element.  If this type is not a
+	// field element, then this returns nil.
+	AsField() *Field
 }
 
-func (c *DataColumn) Name() string {
-	return (*trace.DataColumn)(c).Name()
+// ===================================================================
+// Unsigned Integer
+// ===================================================================
+
+// Represents an unsigned integer encoded using a given number of
+// bits.  For example, for the type "u8" then "NumBits" is 8.
+type Uint struct {
+	NumBits int
 }
 
-func (c *DataColumn) MinHeight() int {
-	return (*trace.DataColumn)(c).MinHeight()
+func (p *Uint) AsInt() *Uint {
+	return p
 }
 
-func (c *DataColumn) Get(row int, tr trace.Trace) (*fr.Element,error) {
-	return (*trace.DataColumn)(c).Get(row,tr)
+func (p *Uint) AsField() *Field {
+	return nil
 }
 
-func (c *DataColumn) LowerTo() mir.Column {
-	// FIXME: this is only temporary
-	return (mir.Column)(c)
+// ===================================================================
+// Field Element
+// ===================================================================
+
+// Represents a field (which is normally prime).  Amongst other
+// things, this gives access to the modulus used for this field.
+type Field struct {
+	Modulus *big.Int
+}
+
+func (p *Field) AsInt() *Uint {
+	return nil
+}
+
+func (p *Field) AsField() *Field {
+	return p
 }

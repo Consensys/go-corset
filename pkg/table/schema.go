@@ -1,4 +1,4 @@
-package trace
+package table
 
 // Describes the permitted "layout" of a given trace.  That includes
 // identifying the required columns and the set of constraints which
@@ -6,9 +6,9 @@ package trace
 // computed columns.  A data column is one whose values are expected
 // to be provided by the user, whilst computed columns are derivatives
 // whose values can be computed from the other columns of the trace.
-// A trace of data values is said to be "well-formed" with respect to
-// a schema if: (1) every data column in the schema exists in the
-// trace; (2) every constraint in the schema holds for the trace.
+// A trace of data values is said to be "accepted" by a schema if: (1)
+// every data column in the schema exists in the trace; (2) every
+// constraint in the schema holds for the trace.
 type Schema[C Column, R Constraint]  struct {
 	// Column array (either data or computed).  Columns are stored
 	// such that the dependencies of a column always come before
@@ -38,6 +38,16 @@ func NewSchema[C Column, R Constraint](columns []C, constraints []R) *Schema[C,R
 	p.constraints = constraints
 	//
 	return p
+}
+
+func (p *Schema[C, R]) Accepts(trace Trace) bool {
+	// TODO: check that required columns are present.
+	// TODO: check that each column accepts its data.
+	for _,c := range p.Constraints() {
+		err := c.Check(trace)
+		if err != nil { return false }
+	}
+	return true
 }
 
 // Check whether a given schema has a given column.
