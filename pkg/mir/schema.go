@@ -5,11 +5,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 )
 
-// ============================================================================
-// Table
-// ============================================================================
-
-type Table = trace.Table[Column,Constraint]
+type Schema = trace.Schema[Column,Constraint]
 
 type Column = trace.Column
 
@@ -20,7 +16,7 @@ type Constraint = *trace.VanishingConstraint[Expr]
 // lowering all the columns and constraints, whilst adding additional
 // columns / constraints as necessary to preserve the original
 // semantics.
-func LowerToAir(mirTbl Table, airTbl air.Table) {
+func LowerToAir(mirTbl Schema, airTbl air.Schema) {
 	for _,col := range mirTbl.Columns() {
 		airTbl.AddColumn(col)
 	}

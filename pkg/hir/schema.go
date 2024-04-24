@@ -5,17 +5,13 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 )
 
-// ============================================================================
-// Table
-// ============================================================================
-
-type HirTable = trace.Table[Column,Constraint]
+type Schema = trace.Schema[Column,Constraint]
 
 // Lower (or refine) an HIR table into an MIR table.  That means
 // lowering all the columns and constraints, whilst adding additional
 // columns / constraints as necessary to preserve the original
 // semantics.
-func LowerToMir(hirTbl HirTable, mirTbl mir.Table) {
+func LowerToMir(hirTbl Schema, mirTbl mir.Schema) {
 	// First, lower columns
 	for _,col := range hirTbl.Columns() {
 		mirTbl.AddColumn(col.LowerTo())

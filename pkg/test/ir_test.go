@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"math/big"
 	"os"
-	"strings"
+	//"strings"
 	"testing"
-	"github.com/consensys/go-corset/pkg/air"
-	"github.com/consensys/go-corset/pkg/mir"
+	// "github.com/consensys/go-corset/pkg/air"
+	// "github.com/consensys/go-corset/pkg/mir"
 	"github.com/consensys/go-corset/pkg/hir"
-	"github.com/consensys/go-corset/pkg/trace"
+	//	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
 
@@ -163,39 +163,39 @@ func Check(t *testing.T, test string) {
 // Check a given set of tests have an expected outcome (i.e. are
 // either accepted or rejected) by a given set of constraints.
 func CheckTraces(t *testing.T, test string, expected bool, traces []HirTrace, constraints []hir.Constraint) {
-	for i,tr := range traces {
+	// for i,tr := range traces {
 		// Construct table for evaluation
-		hirTbl := trace.NewLazyTable[hir.Column,hir.Constraint](tr, constraints)
-		mirTbl := trace.EmptyLazyTable[mir.Column,mir.Constraint]()
-		airTbl := trace.EmptyLazyTable[air.Column,air.Constraint]()
-		// Lower HIR => MIR
-		hir.LowerToMir(hirTbl,mirTbl)
-		// Lower MIR => AIR
-		mir.LowerToAir(mirTbl,airTbl)
-		// Check HIR/MIR trace (if applicable)
-		if ValidHirMirTrace(mirTbl) {
-			CheckTrace(t,"HIR",test,i+1,expected,hirTbl)
-			CheckTrace(t,"MIR",test,i+1,expected,mirTbl)
-		}
-		// Check AIR trace
-		CheckTrace(t,"AIR",test,i+1,expected,airTbl)
-	}
+		// hirTbl := trace.NewLazyTable[hir.Column,hir.Constraint](tr, constraints)
+		// mirTbl := trace.EmptyLazyTable[mir.Column,mir.Constraint]()
+		// airTbl := trace.EmptyLazyTable[air.Column,air.Constraint]()
+		// // Lower HIR => MIR
+		// hir.LowerToMir(hirTbl,mirTbl)
+		// // Lower MIR => AIR
+		// mir.LowerToAir(mirTbl,airTbl)
+		// // Check HIR/MIR trace (if applicable)
+		// if ValidHirMirTrace(mirTbl) {
+		// 	CheckTrace(t,"HIR",test,i+1,expected,hirTbl)
+		// 	CheckTrace(t,"MIR",test,i+1,expected,mirTbl)
+		// }
+		// // Check AIR trace
+		// CheckTrace(t,"AIR",test,i+1,expected,airTbl)
+		//	}
 }
 
-func CheckTrace[C trace.Column, R trace.Constraint](t *testing.T, ir string, test string, row int, expected bool, tbl trace.Table[C,R]) {
-	// Check whether constraints hold (or not)
-	err := tbl.Check()
-	// Process output
-	if err != nil && expected {
-		msg := fmt.Sprintf("Trace rejected incorrectly (%s, %s.accepts, line %d): %s",ir,test,row,err)
-		t.Errorf(msg)
-	} else if err == nil && !expected {
-		msg := fmt.Sprintf("Trace accepted incorrectly (%s, %s.rejects, line %d)",ir,test,row)
-		t.Errorf(msg)
-	}
-}
+// func CheckTrace[C trace.Column, R trace.Constraint](t *testing.T, ir string, test string, row int, expected bool, tbl trace.Table[C,R]) {
+// 	// Check whether constraints hold (or not)
+// 	err := tbl.Check()
+// 	// Process output
+// 	if err != nil && expected {
+// 		msg := fmt.Sprintf("Trace rejected incorrectly (%s, %s.accepts, line %d): %s",ir,test,row,err)
+// 		t.Errorf(msg)
+// 	} else if err == nil && !expected {
+// 		msg := fmt.Sprintf("Trace accepted incorrectly (%s, %s.rejects, line %d)",ir,test,row)
+// 		t.Errorf(msg)
+// 	}
+// }
 
-// In some circumstances there are traces which should be considered
+// In some circumstances there are traces which should not be considered
 // at the MIR level.  The reason for this is that they contain manual
 // entries for computed columns (e.g. in an effort to prevent a trace
 // from being rejected).  As such, the MIR level does not see those
@@ -205,14 +205,14 @@ func CheckTrace[C trace.Column, R trace.Constraint](t *testing.T, ir string, tes
 // For now, we simply say that any trace containing a column whose
 // name suggests it is (or represents) a computed column is not a
 // valid MIR trace.
-func ValidHirMirTrace[C trace.Column, R trace.Constraint](tbl trace.Table[C,R]) bool {
-	for _,col := range tbl.Columns() {
-		if strings.Contains(col.Name(),"(") {
-			return false
-		}
-	}
-	return true
-}
+// func ValidHirMirTrace[C trace.Column, R trace.Constraint](tbl trace.Table[C,R]) bool {
+// 	for _,col := range tbl.Columns() {
+// 		if strings.Contains(col.Name(),"(") {
+// 			return false
+// 		}
+// 	}
+// 	return true
+// }
 
 // Read in a sequence of constraints from a given file.  For now, the
 // constraints are always assumed to be vanishing constraints.

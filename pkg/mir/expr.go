@@ -12,7 +12,7 @@ type Expr interface {
 	// Representation.  Essentially, this means eliminating
 	// normalising expressions by introducing new columns into the
 	// given table (with appropriate constraints).
-	LowerTo(air.Table) air.Expr
+	LowerTo(air.Schema) air.Expr
 	// Evaluate this expression in a given tabular context.
 	// Observe that if this expression is *undefined* within this
 	// context then it returns "nil".  An expression can be

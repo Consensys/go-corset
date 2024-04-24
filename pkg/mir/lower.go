@@ -7,19 +7,19 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
 
-func (e *Add) LowerTo(tbl air.Table) air.Expr {
+func (e *Add) LowerTo(tbl air.Schema) air.Expr {
 	return &air.Add{Arguments: LowerExprs(e.Arguments,tbl)}
 }
 
-func (e *Sub) LowerTo(tbl air.Table) air.Expr {
+func (e *Sub) LowerTo(tbl air.Schema) air.Expr {
 	return &air.Sub{Arguments: LowerExprs(e.Arguments,tbl)}
 }
 
-func (e *Mul) LowerTo(tbl air.Table) air.Expr {
+func (e *Mul) LowerTo(tbl air.Schema) air.Expr {
 	return &air.Mul{Arguments: LowerExprs(e.Arguments,tbl)}
 }
 
-func (p *Normalise) LowerTo(tbl air.Table) air.Expr {
+func (p *Normalise) LowerTo(tbl air.Schema) air.Expr {
 	// Lower the expression being normalised
 	e := p.Expr.LowerTo(tbl)
 	// Invert expression
@@ -53,17 +53,17 @@ func (p *Normalise) LowerTo(tbl air.Table) air.Expr {
 }
 
 // Lowering a constant is straightforward as it is already in the correct form.
-func (e *ColumnAccess) LowerTo(tbl air.Table) air.Expr {
+func (e *ColumnAccess) LowerTo(tbl air.Schema) air.Expr {
 	return &air.ColumnAccess{Column: e.Column, Shift: e.Shift}
 }
 
 // Lowering a constant is straightforward as it is already in the correct form.
-func (e *Constant) LowerTo(tbl air.Table) air.Expr {
+func (e *Constant) LowerTo(tbl air.Schema) air.Expr {
 	return &air.Constant{Value: e.Value}
 }
 
 // Lower a set of zero or more MIR expressions.
-func LowerExprs(exprs []Expr,tbl air.Table) []air.Expr {
+func LowerExprs(exprs []Expr,tbl air.Schema) []air.Expr {
 	n := len(exprs)
 	nexprs := make([]air.Expr, n)
 	for i := 0; i < n; i++ {
