@@ -3,7 +3,9 @@ package hir
 import (
 	"errors"
 	"fmt"
+	"math/big"
 	"strconv"
+	"strings"
 	"github.com/consensys/go-corset/pkg/sexp"
 	"github.com/consensys/go-corset/pkg/table"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
@@ -49,7 +51,7 @@ func newExprTranslator() *sexp.Translator[Expr] {
 	p := sexp.NewTranslator[Expr]()
 	// Configure translator
 	p.AddSymbolRule(sexpConstant)
-	p.AddSymbolRule(sexpColumn)
+	p.AddSymbolRule(sexpColumnAccess)
 	p.AddBinaryRule("shift", sexpShift)
 	p.AddRecursiveRule("+", sexpAdd)
 	p.AddRecursiveRule("-", sexpSub)
@@ -63,20 +65,56 @@ func newExprTranslator() *sexp.Translator[Expr] {
 func sexpDeclaration(s sexp.SExp, schema *Schema, p *sexp.Translator[Expr]) error {
 	switch e := s.(type) {
 	case *sexp.List:
-		if e.Len() == 2 && e.MatchSymbols(2,"column") {
-			columnName := e.Elements[1].String()
-			schema.AddColumn(&DataColumn{columnName})
-			return nil
+		if e.Len() >= 2 && e.Len() <= 3 && e.MatchSymbols(2,"column") {
+			return sexpColumn(e.Elements, schema)
 		} else if e.Len() == 3 && e.MatchSymbols(2,"vanishing") {
-			handle := e.Elements[1].String()
-			expr,err := p.Translate(e.Elements[2])
-			if err != nil { return err }
-			schema.AddConstraint(&VanishingConstraint{Handle: handle, Expr: expr})
-			return nil
+			return sexpVanishing(e.Elements, schema, p)
 		}
 	}
 	msg := fmt.Sprintf("Unexpected declaration: %s",s)
 	return errors.New(msg)
+}
+
+// Parse a column declaration
+func sexpColumn(elements []sexp.SExp, schema *Schema) error {
+	columnName := elements[1].String()
+	var columnType Type = &Field{}
+	if len(elements) == 3 {
+		var err error
+		columnType,err = sexpType(elements[2].String())
+		if err != nil { return err }
+	}
+	schema.AddColumn(&DataColumn{columnName, columnType})
+	return nil
+}
+
+// Parse a vanishing declaration
+func sexpVanishing(elements []sexp.SExp, schema *Schema, p *sexp.Translator[Expr]) error {
+	handle := elements[1].String()
+	expr,err := p.Translate(elements[2])
+	if err != nil { return err }
+	schema.AddConstraint(&VanishingConstraint{Handle: handle, Expr: expr})
+	return nil
+}
+
+func sexpType(symbol string) (Type,error) {
+	if strings.HasPrefix(symbol,":u") {
+		n,err := strconv.Atoi(symbol[2:])
+		if err != nil { return nil, err }
+		if n > 16 {
+			msg := fmt.Sprintf("Integer types must fit in 16bits or less: %s",symbol)
+			return nil,errors.New(msg)
+		}
+		var max big.Int
+		// Compute 2^n
+		max.Exp(big.NewInt(2),big.NewInt(int64(n)),nil)
+		// Construct bound
+		num := new(fr.Element)
+		num.SetBigInt(&max)
+		return &Uint{num}, nil
+	}
+	msg := fmt.Sprintf("Unexpected type: %s",symbol)
+	return nil,errors.New(msg)
 }
 
 func sexpConstant(symbol string) (Expr,error) {
@@ -89,7 +127,7 @@ func sexpConstant(symbol string) (Expr,error) {
 	return &Constant{c},nil
 }
 
-func sexpColumn(col string) (Expr,error) {
+func sexpColumnAccess(col string) (Expr,error) {
 	return &ColumnAccess{col,0},nil
 }
 

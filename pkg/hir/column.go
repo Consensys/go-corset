@@ -1,7 +1,8 @@
 package hir
 
 import (
-	"math/big"
+	"errors"
+	"fmt"
 	"github.com/consensys/go-corset/pkg/mir"
 	"github.com/consensys/go-corset/pkg/table"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
@@ -20,6 +21,9 @@ type Column interface {
 
 type DataColumn struct {
 	name string
+	// A constraint on the range of values permitted for
+	// this column.
+	base Type
 }
 
 func (c *DataColumn) Name() string {
@@ -34,9 +38,24 @@ func (c *DataColumn) Get(row int, tr table.Trace) (*fr.Element,error) {
 	return tr.GetByName(c.name,row)
 }
 
+func (c *DataColumn) Accepts(tr table.Trace) error {
+	for i := 0; i < tr.Height(); i++ {
+		val,err := tr.GetByName(c.name,i)
+		if err != nil { return err }
+		if !c.base.Accepts(val) {
+			// Construct useful error message
+			msg := fmt.Sprintf("column %s value out-of-bounds (row %d, %s)",c.name,i,val)
+			// Evaluation failure
+			return errors.New(msg)
+		}
+	}
+	// All good
+	return nil
+}
+
 func (c *DataColumn) LowerTo() mir.Column {
-	// FIXME: this is only temporary.
-	return c
+	// FIXME: we need to add constraints here!
+	return mir.NewDataColumn(c.name)
 }
 
 // ===================================================================
@@ -54,6 +73,9 @@ type Type interface {
 	// Access thie type as a field element.  If this type is not a
 	// field element, then this returns nil.
 	AsField() *Field
+
+	// Check whether a specific value is accepted by this type
+	Accepts(*fr.Element) bool
 }
 
 // ===================================================================
@@ -63,15 +85,19 @@ type Type interface {
 // Represents an unsigned integer encoded using a given number of
 // bits.  For example, for the type "u8" then "NumBits" is 8.
 type Uint struct {
-	NumBits int
+	Bound *fr.Element
 }
 
-func (p *Uint) AsInt() *Uint {
+func (p *Uint) AsUint() *Uint {
 	return p
 }
 
 func (p *Uint) AsField() *Field {
 	return nil
+}
+
+func (p *Uint) Accepts(val *fr.Element) bool {
+	return val.Cmp(p.Bound) < 0
 }
 
 // ===================================================================
@@ -81,13 +107,17 @@ func (p *Uint) AsField() *Field {
 // Represents a field (which is normally prime).  Amongst other
 // things, this gives access to the modulus used for this field.
 type Field struct {
-	Modulus *big.Int
+
 }
 
-func (p *Field) AsInt() *Uint {
+func (p *Field) AsUint() *Uint {
 	return nil
 }
 
 func (p *Field) AsField() *Field {
 	return p
+}
+
+func (p *Field) Accepts(val *fr.Element) bool {
+	return true
 }

@@ -51,3 +51,8 @@ func (c *ComputedColumn) Get(row int, tr table.Trace) (*fr.Element,error) {
 	// Compute value at given row
 	return c.expr.EvalAt(row,tr), nil
 }
+
+func (c *ComputedColumn) Accepts(tr table.Trace) error {
+	// FIXME: does this make sense?
+	return nil
+}
