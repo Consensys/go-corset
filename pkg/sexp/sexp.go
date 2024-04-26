@@ -21,6 +21,8 @@ type List struct { Elements []SExp }
 func (*List) IsList() bool { return true }
 // A list is not a symbol
 func (*List) IsSymbol() bool { return false }
+// Get the number of elements in this list
+func (l *List) Len() int { return len(l.Elements) }
 //
 func (l *List) String() string {
 	var s string = "("
@@ -30,6 +32,25 @@ func (l *List) String() string {
 	}
 	s += ")"
 	return s
+}
+
+/// Matches a list which starts with at least n symbols, of which the
+/// first m match the given strings.
+func (l *List) MatchSymbols(n int, symbols ...string) bool {
+	if len(l.Elements) < n || len(symbols) > n {
+		return false
+	}
+	for i := 0; i < len(symbols); i++ {
+		switch ith := l.Elements[i].(type) {
+		case *Symbol:
+			if ith.Value != symbols[i] {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 // ===================================================================

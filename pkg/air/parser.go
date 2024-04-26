@@ -22,7 +22,7 @@ func ParseSExp(s string) (Expr, error) {
 	p.AddRecursiveRule("*", sexpMulToAir)
 	p.AddBinaryRule("shift", sexpShiftToAir)
 	// Parse string
-	return p.Translate(s)
+	return p.ParseAndTranslate(s)
 }
 
 // ============================================================================

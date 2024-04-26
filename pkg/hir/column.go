@@ -4,6 +4,7 @@ import (
 	"math/big"
 	"github.com/consensys/go-corset/pkg/mir"
 	"github.com/consensys/go-corset/pkg/table"
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
 
 type Column interface {
@@ -11,6 +12,31 @@ type Column interface {
 	table.Column
 	// Lower this column to an MirColumn
 	LowerTo() mir.Column
+}
+
+// ===================================================================
+// Column
+// ===================================================================
+
+type DataColumn struct {
+	name string
+}
+
+func (c *DataColumn) Name() string {
+	return c.name
+}
+
+func (c *DataColumn) Computable() bool {
+	return false
+}
+
+func (c *DataColumn) Get(row int, tr table.Trace) (*fr.Element,error) {
+	return tr.GetByName(c.name,row)
+}
+
+func (c *DataColumn) LowerTo() mir.Column {
+	// FIXME: this is only temporary.
+	return c
 }
 
 // ===================================================================

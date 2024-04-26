@@ -1,1 +1,2 @@
-(- 2 (~ A))
+(column A)
+(vanishing c1 (- 2 (~ A)))

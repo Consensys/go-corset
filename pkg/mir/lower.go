@@ -29,7 +29,7 @@ func (p *Normalise) LowerTo(tbl *air.Schema) air.Expr {
 	// Add new column (if it does not already exist)
 	if !tbl.HasColumn(name) {
 		// Add computed column
-		tbl.AddColumn(table.NewComputedColumn(name,ie))
+		tbl.AddColumn(air.NewComputedColumn(name,ie))
 	}
 	one := fr.NewElement(1)
 	// Construct 1/e

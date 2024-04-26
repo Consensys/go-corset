@@ -50,7 +50,7 @@ func NewTranslator[T comparable]() Translator[T] {
 
 // Translate a given string into a given structured representation T
 // using an appropriately configured.
-func (p *Translator[T]) Translate(s string) (T,error) {
+func (p *Translator[T]) ParseAndTranslate(s string) (T,error) {
 	// Parse string into S-expression form
 	e,err := Parse(s)
 	if err != nil {
@@ -58,10 +58,17 @@ func (p *Translator[T]) Translate(s string) (T,error) {
 		return empty,err
 	}
 	// Process S-expression into AIR expression
-	return parseSExp(p, e)
+	return translateSExp(p, e)
 }
 
-// Add a new list translator to this expression parser.
+// Translate a given string into a given structured representation T
+// using an appropriately configured.
+func (p *Translator[T]) Translate(sexp SExp) (T,error) {
+	// Process S-expression into target expression
+	return translateSExp(p, sexp)
+}
+
+// Add a new list translator to this expression translator
 func (p *Translator[T]) AddRecursiveRule(name string, t RecursiveRule[T]) {
 	// Construct a recursive list translator as a wrapper around a generic list translator.
 	p.lists[name] = func(elements []SExp) (T,error) {
@@ -70,7 +77,7 @@ func (p *Translator[T]) AddRecursiveRule(name string, t RecursiveRule[T]) {
 		// Translate arguments
 		args := make([]T,len(elements)-1)
 		for i,s := range elements[1:] {
-			args[i],err = parseSExp(p,s)
+			args[i],err = translateSExp(p,s)
 			if err != nil { return empty,err }
 		}
 		return t(args)
@@ -96,7 +103,7 @@ func (p *Translator[T]) AddBinaryRule(name string, t BinaryRule[T]) {
 	}
 }
 
-// Add a new symbol translator to this expression parser.
+// Add a new symbol translator to this expression translater.
 func (p *Translator[T]) AddSymbolRule(t SymbolRule[T]) {
 	p.symbols = append(p.symbols,t)
 }
@@ -108,10 +115,10 @@ func (p *Translator[T]) AddSymbolRule(t SymbolRule[T]) {
 // Translate an S-Expression into an IR expression.  Observe that
 // this can still fail in the event that the given S-Expression does
 // not describe a well-formed AIR expression.
-func parseSExp[T comparable](p *Translator[T], s SExp) (T,error) {
+func translateSExp[T comparable](p *Translator[T], s SExp) (T,error) {
 	switch e := s.(type) {
 	case *List:
-		return parseSExpList[T](p, e.Elements)
+		return translateSExpList[T](p, e.Elements)
 	case *Symbol:
 		for i := 0; i!=len(p.symbols); i++ {
 			ir,err := (p.symbols[i])(e.Value)
@@ -125,7 +132,7 @@ func parseSExp[T comparable](p *Translator[T], s SExp) (T,error) {
 // expression of some kind.  This type of expression is determined by
 // the first element of the list.  The remaining elements are treated
 // as arguments which are first recursively translated.
-func parseSExpList[T comparable](p *Translator[T], elements []SExp) (T,error) {
+func translateSExpList[T comparable](p *Translator[T], elements []SExp) (T,error) {
 	var empty T
 	// Sanity check this list makes sense
 	if len(elements) == 0 || !elements[0].IsSymbol() {
