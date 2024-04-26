@@ -1,8 +1,8 @@
 package air
 
 import (
-	"github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/table"
 )
 
 // For now, all constraints are vanishing constraints.
-type Constraint = *trace.VanishingConstraint[Expr]
+type Constraint = *table.VanishingConstraint[Expr]

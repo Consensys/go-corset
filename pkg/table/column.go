@@ -1,4 +1,4 @@
-package trace
+package table
 
 import (
 	"errors"
@@ -15,6 +15,8 @@ type Column interface {
 	Get(row int, tr Trace) (*fr.Element,error)
 	// Determine the minimum number of rows in this column.
 	MinHeight() int
+	// Determine whether this is a computed column or not
+	Computable() bool
 }
 
 // ===================================================================
@@ -87,6 +89,10 @@ func (c *ComputedColumn[E]) Name() string {
 
 func (c *ComputedColumn[E]) MinHeight() int {
 	return 0
+}
+
+func (c *ComputedColumn[E]) Computable() bool {
+	return true
 }
 
 // Read the value at a given row in a data column.  This amounts to

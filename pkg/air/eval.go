@@ -1,11 +1,11 @@
 package air
 
 import (
-	"github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/table"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
 
-func (e *ColumnAccess) EvalAt(k int, tbl trace.Trace) *fr.Element {
+func (e *ColumnAccess) EvalAt(k int, tbl table.Trace) *fr.Element {
 	val, _ := tbl.GetByName(e.Column, k + e.Shift)
 	// We can ignore err as val is always nil when err != nil.
 	// Furthermore, as stated in the documentation for this
@@ -20,28 +20,28 @@ func (e *ColumnAccess) EvalAt(k int, tbl trace.Trace) *fr.Element {
 	}
 }
 
-func (e *Constant) EvalAt(k int, tbl trace.Trace) *fr.Element {
+func (e *Constant) EvalAt(k int, tbl table.Trace) *fr.Element {
 	var clone fr.Element
 	// Clone original value
 	return clone.Set(e.Value)
 }
 
-func (e *Add) EvalAt(k int, tbl trace.Trace) *fr.Element {
+func (e *Add) EvalAt(k int, tbl table.Trace) *fr.Element {
 	fn := func(l *fr.Element, r *fr.Element) { l.Add(l, r) }
 	return EvalExprsAt(k, tbl, e.Arguments, fn)
 }
 
-func (e *Sub) EvalAt(k int, tbl trace.Trace) *fr.Element {
+func (e *Sub) EvalAt(k int, tbl table.Trace) *fr.Element {
 	fn := func(l *fr.Element, r *fr.Element) { l.Sub(l, r) }
 	return EvalExprsAt(k, tbl, e.Arguments, fn)
 }
 
-func (e *Mul) EvalAt(k int, tbl trace.Trace) *fr.Element {
+func (e *Mul) EvalAt(k int, tbl table.Trace) *fr.Element {
 	fn := func(l *fr.Element, r *fr.Element) { l.Mul(l, r) }
 	return EvalExprsAt(k, tbl, e.Arguments, fn)
 }
 
-func (e *Inverse) EvalAt(k int, tbl trace.Trace) *fr.Element {
+func (e *Inverse) EvalAt(k int, tbl table.Trace) *fr.Element {
 	inv := new(fr.Element)
 	val := e.Expr.EvalAt(k, tbl)
 	// Go syntax huh?
@@ -50,7 +50,7 @@ func (e *Inverse) EvalAt(k int, tbl trace.Trace) *fr.Element {
 
 // Evaluate all expressions in a given slice at a given row on the
 // table, and fold their results together using a combinator.
-func EvalExprsAt(k int, tbl trace.Trace, exprs []Expr, fn func(*fr.Element, *fr.Element)) *fr.Element {
+func EvalExprsAt(k int, tbl table.Trace, exprs []Expr, fn func(*fr.Element, *fr.Element)) *fr.Element {
 	// Evaluate first argument
 	val := exprs[0].EvalAt(k, tbl)
 	if val == nil { return nil }

@@ -1,4 +1,4 @@
-package test
+package testA
 
 import (
 	"bufio"
@@ -11,7 +11,7 @@ import (
 	"github.com/consensys/go-corset/pkg/air"
 	"github.com/consensys/go-corset/pkg/mir"
 	"github.com/consensys/go-corset/pkg/hir"
-	"github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/table"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
 
@@ -19,9 +19,6 @@ import (
 // where the corset test files (lisp) and the corresponding traces
 // (accepts/rejects) are found.
 const TestDir = "../../tests"
-
-// Following definition is to improve readability.
-type HirTrace = []hir.Column
 
 // ===================================================================
 // Basic Tests
@@ -151,51 +148,49 @@ func TestEval_Counter(t *testing.T) {
 // expect to be accepted are accepted, and all traces that we expect
 // to be rejected are rejected.
 func Check(t *testing.T, test string) {
-	constraints := ReadConstraintsFile(test)
+	schema := ReadSchemaFile(test)
 	// Check valid traces are accepted
 	accepts := ReadTracesFile(test,"accepts")
-	CheckTraces(t,test,true,accepts,constraints)
+	CheckTraces(t,test,true,accepts,schema)
 	// Check invalid traces are rejected
 	rejects := ReadTracesFile(test,"rejects")
-	CheckTraces(t,test,false,rejects,constraints)
+	CheckTraces(t,test,false,rejects,schema)
 }
 
 // Check a given set of tests have an expected outcome (i.e. are
 // either accepted or rejected) by a given set of constraints.
-func CheckTraces(t *testing.T, test string, expected bool, traces []HirTrace, constraints []hir.Constraint) {
+func CheckTraces(t *testing.T, test string, expected bool, traces []*table.ArrayTrace, hirSchema *hir.Schema) {
 	for i,tr := range traces {
-		// Construct table for evaluation
-		hirTbl := trace.NewLazyTable[hir.Column,hir.Constraint](tr, constraints)
-		mirTbl := trace.EmptyLazyTable[mir.Column,mir.Constraint]()
-		airTbl := trace.EmptyLazyTable[air.Column,air.Constraint]()
+		mirSchema := table.EmptySchema[mir.Column,mir.Constraint]()
+		airSchema := table.EmptySchema[air.Column,air.Constraint]()
 		// Lower HIR => MIR
-		hir.LowerToMir(hirTbl,mirTbl)
+		hir.LowerToMir(hirSchema,mirSchema)
 		// Lower MIR => AIR
-		mir.LowerToAir(mirTbl,airTbl)
+		mir.LowerToAir(mirSchema,airSchema)
 		// Check HIR/MIR trace (if applicable)
-		if ValidHirMirTrace(mirTbl) {
-			CheckTrace(t,"HIR",test,i+1,expected,hirTbl)
-			CheckTrace(t,"MIR",test,i+1,expected,mirTbl)
+		if ValidHirMirTrace(tr) {
+			check(t,"HIR",test,i+1,expected,hirSchema.Accepts(tr))
+			check(t,"MIR",test,i+1,expected,mirSchema.Accepts(tr))
 		}
+		// Perform trace expansion
+		airSchema.ExpandTrace(tr)
 		// Check AIR trace
-		CheckTrace(t,"AIR",test,i+1,expected,airTbl)
+		check(t,"AIR",test,i+1,expected,airSchema.Accepts(tr))
 	}
 }
 
-func CheckTrace[C trace.Column, R trace.Constraint](t *testing.T, ir string, test string, row int, expected bool, tbl trace.Table[C,R]) {
-	// Check whether constraints hold (or not)
-	err := tbl.Check()
-	// Process output
-	if err != nil && expected {
-		msg := fmt.Sprintf("Trace rejected incorrectly (%s, %s.accepts, line %d): %s",ir,test,row,err)
+func check(t *testing.T, ir string, test string, line int, expected bool, accepted bool) {
+	// Process what happened versus what was supposed to happen.
+	if !accepted && expected {
+		msg := fmt.Sprintf("Trace rejected incorrectly (%s, %s.accepts, line %d)",ir,test,line)
 		t.Errorf(msg)
-	} else if err == nil && !expected {
-		msg := fmt.Sprintf("Trace accepted incorrectly (%s, %s.rejects, line %d)",ir,test,row)
+	} else if accepted && !expected {
+		msg := fmt.Sprintf("Trace accepted incorrectly (%s, %s.rejects, line %d)",ir,test,line)
 		t.Errorf(msg)
 	}
 }
 
-// In some circumstances there are traces which should be considered
+// In some circumstances there are traces which should not be considered
 // at the MIR level.  The reason for this is that they contain manual
 // entries for computed columns (e.g. in an effort to prevent a trace
 // from being rejected).  As such, the MIR level does not see those
@@ -204,8 +199,8 @@ func CheckTrace[C trace.Column, R trace.Constraint](t *testing.T, ir string, tes
 //
 // For now, we simply say that any trace containing a column whose
 // name suggests it is (or represents) a computed column is not a
-// valid MIR trace.
-func ValidHirMirTrace[C trace.Column, R trace.Constraint](tbl trace.Table[C,R]) bool {
+// valid MIR table.
+func ValidHirMirTrace(tbl *table.ArrayTrace) bool {
 	for _,col := range tbl.Columns() {
 		if strings.Contains(col.Name(),"(") {
 			return false
@@ -216,24 +211,25 @@ func ValidHirMirTrace[C trace.Column, R trace.Constraint](tbl trace.Table[C,R]) 
 
 // Read in a sequence of constraints from a given file.  For now, the
 // constraints are always assumed to be vanishing constraints.
-func ReadConstraintsFile(name string) []hir.Constraint {
+func ReadSchemaFile(name string) *hir.Schema {
 	lines := ReadInputFile(name,"lisp")
-	constraints := make([]hir.Constraint,len(lines))
+	// Construct (initially empty) schema
+	schema := table.EmptySchema[hir.Column,hir.Constraint]()
 	// Read constraints line by line
-	for i,line := range lines {
+	for _,line := range lines {
 		expr,err := hir.ParseSExp(line)
 		if err != nil { panic(err) }
-		constraints[i] = &hir.VanishingConstraint{Handle: "tmp", Expr: expr}
+		schema.AddConstraint(&hir.VanishingConstraint{Handle: "tmp", Expr: expr})
 	}
-	//
-	return constraints
+	// Done (for now)
+	return schema
 }
 
 // Read a file containing zero or more traces expressed as JSON, where
 // each trace is on a separate line.
-func ReadTracesFile(name string, ext string) []HirTrace {
+func ReadTracesFile(name string, ext string) []*table.ArrayTrace {
 	lines := ReadInputFile(name,ext)
-	traces := make([]HirTrace,len(lines))
+	traces := make([]*table.ArrayTrace,len(lines))
 	// Read constraints line by line
 	for i,line := range lines {
 		// Parse input line as JSON
@@ -245,7 +241,7 @@ func ReadTracesFile(name string, ext string) []HirTrace {
 // Parse a trace expressed in JSON notation.  For example, {"X": [0],
 // "Y": [1]} is a trace containing one row of data each for two
 // columns "X" and "Y".
-func ParseJsonTrace(jsn string, test string, ext string, row int) HirTrace {
+func ParseJsonTrace(jsn string, test string, ext string, row int) *table.ArrayTrace {
 	var raw_data map[string][]*big.Int
 	// Unmarshall
 	json_err := json.Unmarshal([]byte(jsn), &raw_data)
@@ -254,14 +250,16 @@ func ParseJsonTrace(jsn string, test string, ext string, row int) HirTrace {
 		panic(msg)
 	}
 	//
-	var columns HirTrace = make([]hir.Column,0)
+	trace := table.EmptyArrayTrace()
 	//
 	for name,raw_ints := range raw_data {
+		// Translate raw bigints into raw field elements
 		raw_elements := ToFieldElements(raw_ints)
-		columns = append(columns,hir.NewDataColumn(name,raw_elements))
+		// Add new column to the trace
+		trace.AddColumn(name,raw_elements)
 	}
 	// Done
-	return columns
+	return trace
 }
 
 // Read an input file as a sequence of lines.
