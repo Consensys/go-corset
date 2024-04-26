@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"os"
-	//"strings"
+	"strings"
 	"testing"
 	"github.com/consensys/go-corset/pkg/air"
 	"github.com/consensys/go-corset/pkg/mir"
@@ -161,7 +161,6 @@ func Check(t *testing.T, test string) {
 // either accepted or rejected) by a given set of constraints.
 func CheckTraces(t *testing.T, test string, expected bool, traces []*table.ArrayTrace, hirSchema *hir.Schema) {
 	for i,tr := range traces {
-		// Construct table for evaluation
 		mirSchema := table.EmptySchema[mir.Column,mir.Constraint]()
 		airSchema := table.EmptySchema[air.Column,air.Constraint]()
 		// Lower HIR => MIR
@@ -169,10 +168,12 @@ func CheckTraces(t *testing.T, test string, expected bool, traces []*table.Array
 		// Lower MIR => AIR
 		mir.LowerToAir(mirSchema,airSchema)
 		// Check HIR/MIR trace (if applicable)
-		// if ValidHirMirTrace(mirTbl) {
-		// CheckTrace(t,"HIR",test,i+1,expected,hirTbl)
-		// CheckTrace(t,"MIR",test,i+1,expected,mirTbl)
-		// }
+		if ValidHirMirTrace(tr) {
+			check(t,"HIR",test,i+1,expected,hirSchema.Accepts(tr))
+			check(t,"MIR",test,i+1,expected,mirSchema.Accepts(tr))
+		}
+		// Perform trace expansion
+		airSchema.ExpandTrace(tr)
 		// Check AIR trace
 		check(t,"AIR",test,i+1,expected,airSchema.Accepts(tr))
 	}
@@ -199,14 +200,14 @@ func check(t *testing.T, ir string, test string, line int, expected bool, accept
 // For now, we simply say that any trace containing a column whose
 // name suggests it is (or represents) a computed column is not a
 // valid MIR table.
-// func ValidHirMirTrace[C table.Column, R table.Constraint](tbl table.Table[C,R]) bool {
-// 	for _,col := range tbl.Columns() {
-// 		if strings.Contains(col.Name(),"(") {
-// 			return false
-// 		}
-// 	}
-// 	return true
-// }
+func ValidHirMirTrace(tbl *table.ArrayTrace) bool {
+	for _,col := range tbl.Columns() {
+		if strings.Contains(col.Name(),"(") {
+			return false
+		}
+	}
+	return true
+}
 
 // Read in a sequence of constraints from a given file.  For now, the
 // constraints are always assumed to be vanishing constraints.

@@ -1,5 +1,9 @@
 package table
 
+import (
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+)
+
 // Describes the permitted "layout" of a given trace.  That includes
 // identifying the required columns and the set of constraints which
 // must hold over the trace.  Columns can be either data columns, or
@@ -78,5 +82,25 @@ func (p *Schema[C, R]) AddConstraint(constraint R) {
 
 // Append a new column onto the schema.
 func (p *Schema[C, R]) AddColumn(column C) {
+	// TODO: check the column does not already exist?
 	p.columns = append(p.columns,column)
+}
+
+// Expand a given trace according to this schema.  More specifically,
+// that means computing the actual values for any computed columns.
+// Observe that computed columns have to be computed in the correct
+// order.
+func (p *Schema[C, R]) ExpandTrace(tr Trace) {
+	for _,c := range p.columns {
+		if c.Computable() && !tr.HasColumn(c.Name()) {
+			data := make([]*fr.Element,tr.Height())
+			// Expand the trace
+			for i := 0; i<len(data); i++ {
+				// NOTE: at the moment Get cannot return an error anyway
+				data[i], _ = c.Get(i,tr)
+			}
+			// Colunm needs to be expanded.
+			tr.AddColumn(c.Name(),data)
+		}
+	}
 }

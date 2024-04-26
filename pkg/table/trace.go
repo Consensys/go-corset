@@ -9,6 +9,9 @@ import (
 // Describes a set of named data columns.  Columns are not
 // required to have the same height.
 type Trace interface {
+	// Determine the height of this table, which is defined as the
+	// height of the largest column.
+	Height() int
 	// Get the value of a given column by its name.  If the column
 	// does not exist or if the index is out-of-bounds then an
 	// error is returned.
@@ -22,9 +25,10 @@ type Trace interface {
 	// does not exist or if the index is out-of-bounds then an
 	// error is returned.
 	GetByIndex(col int, row int)  (*fr.Element,error)
-	// Determine the height of this table, which is defined as the
-	// height of the largest column.
-	Height() int
+	// Check whether this trace contains data for the given column.
+	HasColumn(name string) bool
+	// Add a new column of data
+	AddColumn(name string, data []*fr.Element)
 }
 
 // ===================================================================
@@ -60,6 +64,8 @@ func (p *ArrayTrace) HasColumn(name string) bool {
 
 // Add a new column of data to this trace.
 func (p *ArrayTrace) AddColumn(name string, data []*fr.Element) {
+	// Sanity check the column does not already exist.
+	if p.HasColumn(name) { panic("column already exists") }
 	// Construct new column
 	column := ArrayTraceColumn{name,data}
 	// Append it
@@ -68,6 +74,11 @@ func (p *ArrayTrace) AddColumn(name string, data []*fr.Element) {
 	if len(data) > p.height {
 		p.height = len(data)
 	}
+}
+
+// Return the set of columns in this trace.
+func (p *ArrayTrace) Columns() []ArrayTraceColumn {
+	return p.columns
 }
 
 func (p *ArrayTrace) Height() int {
@@ -105,6 +116,10 @@ type ArrayTraceColumn struct {
 	name string
 	// Holds the raw data making up this column
 	data []*fr.Element
+}
+
+func (p *ArrayTraceColumn) Name() string {
+	return p.name
 }
 
 func (p *ArrayTraceColumn) Get(row int) (*fr.Element,error) {
