@@ -4,6 +4,18 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
 
+// Describes a given column and provides a mechanism for accessing its
+// values at a given row.
+type Column interface {
+	// Get the name of this column.
+	Name() string
+	// Get the value at a given row in this column, or return an
+	// error.
+	Get(row int, tr Trace) (*fr.Element,error)
+	// Determine whether this is a computed column or not
+	Computable() bool
+}
+
 // Describes the permitted "layout" of a given trace.  That includes
 // identifying the required columns and the set of constraints which
 // must hold over the trace.  Columns can be either data columns, or

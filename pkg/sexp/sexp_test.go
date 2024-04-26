@@ -10,6 +10,10 @@ import (
 // Positive Tests
 // ============================================================================
 
+func TestSexp_0(t *testing.T) {
+	CheckOk(t,nil,"")
+}
+
 func TestSexp_1(t *testing.T) {
 	e1 := List{[]SExp{}}
 	CheckOk(t,&e1,"()")
@@ -67,28 +71,23 @@ func TestSexp_7(t *testing.T) {
 // Negative Tests
 // ============================================================================
 
-// unexpected end of string
-func TestSexp_Err1(t *testing.T) {
-	CheckErr(t,"")
-}
-
 // unexpected end of list
-func TestSexp_Err2(t *testing.T) {
+func TestSexp_Err1(t *testing.T) {
 	CheckErr(t,")")
 }
 
 // unexpected end of list
-func TestSexp_Err3(t *testing.T) {
+func TestSexp_Err2(t *testing.T) {
 	CheckErr(t,"())")
 }
 
 // unexpected end of list
-func TestSexp_Err4(t *testing.T) {
+func TestSexp_Err3(t *testing.T) {
 	CheckErr(t,"(string))")
 }
 
 // unexpected end of list
-func TestSexp_Err5(t *testing.T) {
+func TestSexp_Err4(t *testing.T) {
 	CheckErr(t,"(another string))")
 }
 

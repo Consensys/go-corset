@@ -148,7 +148,14 @@ func TestEval_Counter(t *testing.T) {
 // expect to be accepted are accepted, and all traces that we expect
 // to be rejected are rejected.
 func Check(t *testing.T, test string) {
-	schema := ReadSchemaFile(test)
+	// Read constraints file
+	bytes,err := os.ReadFile(fmt.Sprintf("%s/%s.lisp",TestDir,test))
+	// Check test file read ok
+	if err != nil { t.Fatal(err) }
+	// Parse as a schema
+	schema,err := hir.ParseSchemaSExp(string(bytes))
+	// Check test file parsed ok
+	if err != nil { t.Fatalf("Error parsing %s.lisp: %s\n",test,err) }
 	// Check valid traces are accepted
 	accepts := ReadTracesFile(test,"accepts")
 	CheckTraces(t,test,true,accepts,schema)
@@ -207,22 +214,6 @@ func ValidHirMirTrace(tbl *table.ArrayTrace) bool {
 		}
 	}
 	return true
-}
-
-// Read in a sequence of constraints from a given file.  For now, the
-// constraints are always assumed to be vanishing constraints.
-func ReadSchemaFile(name string) *hir.Schema {
-	lines := ReadInputFile(name,"lisp")
-	// Construct (initially empty) schema
-	schema := table.EmptySchema[hir.Column,hir.Constraint]()
-	// Read constraints line by line
-	for _,line := range lines {
-		expr,err := hir.ParseSExp(line)
-		if err != nil { panic(err) }
-		schema.AddConstraint(&hir.VanishingConstraint{Handle: "tmp", Expr: expr})
-	}
-	// Done (for now)
-	return schema
 }
 
 // Read a file containing zero or more traces expressed as JSON, where

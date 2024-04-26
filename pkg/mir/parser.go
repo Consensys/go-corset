@@ -25,7 +25,7 @@ func ParseSExpToMir(s string) (Expr,error) {
 	p.AddRecursiveRule("~", sexpNormToMir)
 	p.AddBinaryRule("shift", sexpShiftToMir)
 	// Parse string
-	return p.Translate(s)
+	return p.ParseAndTranslate(s)
 }
 
 // ===================================================================
