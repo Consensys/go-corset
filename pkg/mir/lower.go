@@ -3,7 +3,6 @@ package mir
 import (
 	"fmt"
 	"github.com/consensys/go-corset/pkg/air"
-	"github.com/consensys/go-corset/pkg/table"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
 
@@ -44,10 +43,10 @@ func (p *Normalise) LowerTo(tbl *air.Schema) air.Expr {
 	inv_e_implies_one_e_e := &air.Mul{Arguments: []air.Expr{inv_e,one_e_e}}
 	// Ensure (e != 0) ==> (1 == e/e)
 	l_name := fmt.Sprintf("[%s <=]",ie.String())
-	tbl.AddConstraint(&table.VanishingConstraint[air.Expr]{Handle: l_name, Expr: e_implies_one_e_e})
+	tbl.AddConstraint(&air.VanishingConstraint{Handle: l_name, Expr: e_implies_one_e_e})
 	// Ensure (e/e != 0) ==> (1 == e/e)
 	r_name := fmt.Sprintf("[%s =>]",ie.String())
-	tbl.AddConstraint(&table.VanishingConstraint[air.Expr]{Handle: r_name, Expr: inv_e_implies_one_e_e})
+	tbl.AddConstraint(&air.VanishingConstraint{Handle: r_name, Expr: inv_e_implies_one_e_e})
 	// Done
 	return &air.Mul{Arguments: []air.Expr{e,&air.ColumnAccess{Column: name, Shift: 0}}}
 }

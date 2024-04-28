@@ -1,9 +1,9 @@
-package hir
+package mir
 
 import (
 	"errors"
 	"fmt"
-	"github.com/consensys/go-corset/pkg/mir"
+	"github.com/consensys/go-corset/pkg/air"
 	"github.com/consensys/go-corset/pkg/table"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
@@ -12,7 +12,7 @@ type Column interface {
 	// hir.Column is-a Column
 	table.Column
 	// Lower this column to an MirColumn
-	LowerTo() mir.Column
+	LowerTo(*air.Schema) air.Column
 }
 
 // ===================================================================
@@ -24,6 +24,10 @@ type DataColumn struct {
 	// A constraint on the range of values permitted for
 	// this column.
 	base Type
+}
+
+func NewDataColumn(name string, base Type) *DataColumn {
+       return &DataColumn{name,base}
 }
 
 func (c *DataColumn) Name() string {
@@ -53,9 +57,13 @@ func (c *DataColumn) Accepts(tr table.Trace) error {
 	return nil
 }
 
-func (c *DataColumn) LowerTo() mir.Column {
-	// FIXME: we need to add constraints here!
-	return mir.NewDataColumn(c.name)
+func (c *DataColumn) LowerTo(schema *air.Schema) air.Column {
+	if t := c.base.AsUint(); t != nil {
+		// And range constraint
+		schema.AddConstraint(&air.RangeConstraint{Handle: c.name, Bound: t.Bound})
+
+	}
+	return air.NewDataColumn(c.name)
 }
 
 // ===================================================================
@@ -68,11 +76,11 @@ func (c *DataColumn) LowerTo() mir.Column {
 type Type interface {
 	// Access thie type as a unsigned integer.  If this type is not an
 	// unsigned integer, then this returns nil.
-	AsUint() *Uint
+	AsUint() *UintType
 
 	// Access thie type as a field element.  If this type is not a
 	// field element, then this returns nil.
-	AsField() *Field
+	AsField() *FieldType
 
 	// Check whether a specific value is accepted by this type
 	Accepts(*fr.Element) bool
@@ -84,19 +92,19 @@ type Type interface {
 
 // Represents an unsigned integer encoded using a given number of
 // bits.  For example, for the type "u8" then "NumBits" is 8.
-type Uint struct {
+type UintType struct {
 	Bound *fr.Element
 }
 
-func (p *Uint) AsUint() *Uint {
+func (p *UintType) AsUint() *UintType {
 	return p
 }
 
-func (p *Uint) AsField() *Field {
+func (p *UintType) AsField() *FieldType {
 	return nil
 }
 
-func (p *Uint) Accepts(val *fr.Element) bool {
+func (p *UintType) Accepts(val *fr.Element) bool {
 	return val.Cmp(p.Bound) < 0
 }
 
@@ -106,18 +114,18 @@ func (p *Uint) Accepts(val *fr.Element) bool {
 
 // Represents a field (which is normally prime).  Amongst other
 // things, this gives access to the modulus used for this field.
-type Field struct {
+type FieldType struct {
 
 }
 
-func (p *Field) AsUint() *Uint {
+func (p *FieldType) AsUint() *UintType {
 	return nil
 }
 
-func (p *Field) AsField() *Field {
+func (p *FieldType) AsField() *FieldType {
 	return p
 }
 
-func (p *Field) Accepts(val *fr.Element) bool {
+func (p *FieldType) Accepts(val *fr.Element) bool {
 	return true
 }

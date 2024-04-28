@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"strconv"
 	"strings"
+	"github.com/consensys/go-corset/pkg/mir"
 	"github.com/consensys/go-corset/pkg/sexp"
 	"github.com/consensys/go-corset/pkg/table"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
@@ -78,13 +79,13 @@ func sexpDeclaration(s sexp.SExp, schema *Schema, p *sexp.Translator[Expr]) erro
 // Parse a column declaration
 func sexpColumn(elements []sexp.SExp, schema *Schema) error {
 	columnName := elements[1].String()
-	var columnType Type = &Field{}
+	var columnType mir.Type = &mir.FieldType{}
 	if len(elements) == 3 {
 		var err error
 		columnType,err = sexpType(elements[2].String())
 		if err != nil { return err }
 	}
-	schema.AddColumn(&DataColumn{columnName, columnType})
+	schema.AddColumn(NewDataColumn(columnName, columnType))
 	return nil
 }
 
@@ -97,7 +98,7 @@ func sexpVanishing(elements []sexp.SExp, schema *Schema, p *sexp.Translator[Expr
 	return nil
 }
 
-func sexpType(symbol string) (Type,error) {
+func sexpType(symbol string) (mir.Type,error) {
 	if strings.HasPrefix(symbol,":u") {
 		n,err := strconv.Atoi(symbol[2:])
 		if err != nil { return nil, err }
@@ -111,7 +112,7 @@ func sexpType(symbol string) (Type,error) {
 		// Construct bound
 		num := new(fr.Element)
 		num.SetBigInt(&max)
-		return &Uint{num}, nil
+		return &mir.UintType{Bound: num}, nil
 	}
 	msg := fmt.Sprintf("Unexpected type: %s",symbol)
 	return nil,errors.New(msg)
