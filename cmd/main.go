@@ -16,13 +16,11 @@ func main() {
 	if err != nil {
 		fmt.Println("Error")
 	} else {
-		// Parse binary file into JSON form
-		cs,_ := binfile.ConstraintSetFromJson(bytes)
-		// Translate JSON form into MIR
-		for i := 0; i < len(cs.Constraints); i++ {
-			ith := cs.Constraints[i]
-			hir := ith.Vanishes.Expr.ToHir()
-			fmt.Println(hir)
+		// Parse binary file into HIR schema
+		schema,_ := binfile.HirSchemaFromJson(bytes)
+		// Printout constraints
+		for _,c := range schema.Constraints() {
+			fmt.Println(c)
 		}
 	}
 }

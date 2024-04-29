@@ -3,7 +3,8 @@ package binfile
 import (
 	"encoding/json"
 	// "fmt"
-	// "github.com/Consensys/go-corset/pkg/ast"
+	"github.com/consensys/go-corset/pkg/hir"
+	"github.com/consensys/go-corset/pkg/table"
 )
 
 // This is very much a Work-In-Progress :)
@@ -84,11 +85,23 @@ type ConstraintSet struct {
 // Rust corset tool.
 func ConstraintSetFromJson(bytes []byte) (cs ConstraintSet, err error) {
 	var res ConstraintSet
-	//var data map[string]interface{}
 	// Unmarshall
 	json_err := json.Unmarshal(bytes, &res)
-	//
-	//res.Constraints = ConstraintArrayFromJson(data["constraints"])
 	// For now return directly.
 	return res,json_err
+}
+
+func HirSchemaFromJson(bytes []byte) (schema *hir.Schema, err error) {
+	var res ConstraintSet
+	// Unmarshall
+	json_err := json.Unmarshal(bytes, &res)
+	// Construct schema
+	schema = table.EmptySchema[hir.Column,hir.Constraint]()
+	// TODO: Add Columns
+	// Add constraints
+	for _,c := range res.Constraints {
+		schema.AddConstraint(c.ToHir())
+	}
+	// For now return directly.
+	return schema,json_err
 }
