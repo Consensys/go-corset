@@ -58,9 +58,26 @@ func (c *DataColumn) Accepts(tr table.Trace) error {
 }
 
 func (c *DataColumn) LowerTo(schema *air.Schema) air.Column {
+	// Check whether a constraint is implied by the column's type
 	if t := c.base.AsUint(); t != nil {
-		// And range constraint
-		schema.AddConstraint(&air.RangeConstraint{Handle: c.name, Bound: t.Bound})
+		// Yes, a constraint is implied.  Now, decide whether
+		// to use a range constraint or just a vanishing
+		// constraint.
+		if t.HasBound(2) {
+			// u1 => use vanishing constraint X * (X - 1)
+			one := fr.NewElement(1)
+			// Construct X
+			X := &air.ColumnAccess{Column: c.name, Shift: 0}
+			// Construct X-1
+			X_m1 := &air.Sub{Arguments: []air.Expr{X, &air.Constant{Value: &one}}}
+			// Construct X * (X-1)
+			X_X_m1 := &air.Mul{Arguments: []air.Expr{X,X,X_m1}}
+			//
+			schema.AddConstraint(&air.VanishingConstraint{Handle: c.name, Expr: X_X_m1})
+		} else {
+			// u2+ => use range constraint
+			schema.AddConstraint(&air.RangeConstraint{Handle: c.name, Bound: t.Bound})
+		}
 
 	}
 	return air.NewDataColumn(c.name)
@@ -106,6 +123,11 @@ func (p *UintType) AsField() *FieldType {
 
 func (p *UintType) Accepts(val *fr.Element) bool {
 	return val.Cmp(p.Bound) < 0
+}
+
+func (p *UintType) HasBound(bound uint64) bool {
+	var n fr.Element = fr.NewElement(bound)
+	return p.Bound.Cmp(&n) == 0
 }
 
 // ===================================================================
