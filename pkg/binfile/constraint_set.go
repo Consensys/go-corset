@@ -20,7 +20,10 @@ type Kind struct {
 	c string
 }
 type Base = string
-type Handle = string
+type Handle struct {
+	H string  `json:"h"`
+	ID int  `json:"id"`
+}
 type Register = interface{}
 type FieldRegister = interface{}
 

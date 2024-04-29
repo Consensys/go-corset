@@ -6,7 +6,7 @@ import (
 )
 
 func (e *ColumnAccess) EvalAt(k int, tbl table.Trace) *fr.Element {
-	val, _ := tbl.GetByName(e.Column(), k+e.Shift())
+	val, _ := tbl.GetByName(e.Column, k+e.Shift)
 	// We can ignore err as val is always nil when err != nil.
 	// Furthermore, as stated in the documentation for this
 	// method, we return nil upon error.
@@ -28,22 +28,22 @@ func (e *Constant) EvalAt(k int, tbl table.Trace) *fr.Element {
 
 func (e *Add) EvalAt(k int, tbl table.Trace) *fr.Element {
 	fn := func(l *fr.Element, r*fr.Element) { l.Add(l,r) }
-	return EvalExprsAt(k,tbl,e.arguments,fn)
+	return EvalExprsAt(k,tbl,e.Args,fn)
 }
 
 func (e *Mul) EvalAt(k int, tbl table.Trace) *fr.Element {
 	fn := func(l *fr.Element, r*fr.Element) { l.Mul(l,r) }
-	return EvalExprsAt(k,tbl,e.arguments,fn)
+	return EvalExprsAt(k,tbl,e.Args,fn)
 }
 
 func (e *IfZero) EvalAt(k int, tbl table.Trace) *fr.Element {
 	// Evaluate condition
-	cond := e.condition.EvalAt(k,tbl)
+	cond := e.Condition.EvalAt(k,tbl)
 	// Check whether zero or not
-	if cond.IsZero() && e.trueBranch != nil {
-		return e.trueBranch.EvalAt(k,tbl)
-	} else if !cond.IsZero() && e.falseBranch != nil {
-		return e.falseBranch.EvalAt(k,tbl)
+	if cond.IsZero() && e.TrueBranch != nil {
+		return e.TrueBranch.EvalAt(k,tbl)
+	} else if !cond.IsZero() && e.FalseBranch != nil {
+		return e.FalseBranch.EvalAt(k,tbl)
 	} else {
 		// If either true / false branch undefined.
 		return nil
@@ -61,7 +61,7 @@ func (e *Normalise) EvalAt(k int, tbl table.Trace) *fr.Element {
 
 func (e *Sub) EvalAt(k int, tbl table.Trace) *fr.Element {
 	fn := func(l *fr.Element, r*fr.Element) { l.Sub(l,r) }
-	return EvalExprsAt(k,tbl,e.arguments,fn)
+	return EvalExprsAt(k,tbl,e.Args,fn)
 }
 
 

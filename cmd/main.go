@@ -21,8 +21,8 @@ func main() {
 		// Translate JSON form into MIR
 		for i := 0; i < len(cs.Constraints); i++ {
 			ith := cs.Constraints[i]
-			mir := ith.Vanishes.Expr.ToMir()
-			fmt.Println(mir)
+			hir := ith.Vanishes.Expr.ToHir()
+			fmt.Println(hir)
 		}
 	}
 }
