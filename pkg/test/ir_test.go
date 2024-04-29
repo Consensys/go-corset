@@ -148,6 +148,14 @@ func TestEval_Counter(t *testing.T) {
 	Check(t,"counter")
 }
 
+func TestEval_ByteDecomp(t *testing.T) {
+	Check(t,"byte_decomposition")
+}
+
+func TestEval_BitDecomp(t *testing.T) {
+	Check(t,"bit_decomposition")
+}
+
 // ===================================================================
 // Test Helpers
 // ===================================================================

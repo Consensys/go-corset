@@ -1,0 +1,5 @@
+(column CT)
+(column BYTE :u8)
+(column ARG)
+(vanishing heartbeat (if (- 3 CT) (shift CT 1) (- (+ 1 CT) (shift CT 1))))
+(vanishing accumulator (if CT (- ARG BYTE) (- ARG (+ BYTE (* 256 (shift ARG -1))))))
