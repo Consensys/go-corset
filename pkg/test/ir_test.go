@@ -133,11 +133,27 @@ func TestEval_If_02(t *testing.T) {
 }
 
 // ===================================================================
+// Column Types
+// ===================================================================
+
+func TestEval_Type_01(t *testing.T) {
+	Check(t,"type_01")
+}
+
+// ===================================================================
 // Complex Tests
 // ===================================================================
 
 func TestEval_Counter(t *testing.T) {
 	Check(t,"counter")
+}
+
+func TestEval_ByteDecomp(t *testing.T) {
+	Check(t,"byte_decomposition")
+}
+
+func TestEval_BitDecomp(t *testing.T) {
+	Check(t,"bit_decomposition")
 }
 
 // ===================================================================

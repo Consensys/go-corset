@@ -14,6 +14,11 @@ type Column interface {
 	Get(row int, tr Trace) (*fr.Element,error)
 	// Determine whether this is a computed column or not
 	Computable() bool
+	// Check whether or not this column accepts a particular
+	// trace.  A column might reject a trace if the values in that
+	// trace do not meet some specific requirement (e.g. they are
+	// all bytes).
+	Accepts(Trace) error
 }
 
 // Describes the permitted "layout" of a given trace.  That includes
@@ -59,8 +64,12 @@ func NewSchema[C Column, R Constraint](columns []C, constraints []R) *Schema[C,R
 func (p *Schema[C, R]) Accepts(trace Trace) bool {
 	// TODO: check that required columns are present.
 	// TODO: check that each column accepts its data.
+	for _,c := range p.Columns() {
+		err := c.Accepts(trace)
+		if err != nil { return false }
+	}
 	for _,c := range p.Constraints() {
-		err := c.Check(trace)
+		err := c.Accepts(trace)
 		if err != nil { return false }
 	}
 	return true

@@ -11,9 +11,9 @@ import (
 type Constraint interface {
 	// Get the handle for this constraint (i.e. its name).
 	GetHandle() string
-	// Check whether or not this constraint holds on a particular
+	// Check whether or not this constraint accepts a particular
 	// trace.
-	Check(Trace) error
+	Accepts(Trace) error
 }
 
 // Captures something which can be evaluated on a given table row to
@@ -56,7 +56,7 @@ func (p* VanishingConstraint[T]) GetHandle() string {
 
 // Check whether a vanishing constraint evaluates to zero on every row
 // of a table.  If so, return nil otherwise return an error.
-func (p* VanishingConstraint[T]) Check(tr Trace) error {
+func (p* VanishingConstraint[T]) Accepts(tr Trace) error {
 	for k := 0;k<tr.Height(); k++ {
 		// Determine kth evaluation point
 		kth := p.Expr.EvalAt(k, tr)
