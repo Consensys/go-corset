@@ -73,5 +73,5 @@ func (p* VanishingConstraint[T]) Accepts(tr Trace) error {
 }
 
 func (p *VanishingConstraint[T]) String() string {
-	return fmt.Sprintf("(vanishes %s %s)",p.Handle,p.Expr)
+	return fmt.Sprintf("(vanishes %s %s)",p.Handle,any(p.Expr))
 }

@@ -18,7 +18,11 @@ func main() {
 	} else {
 		// Parse binary file into HIR schema
 		schema,_ := binfile.HirSchemaFromJson(bytes)
-		// Printout constraints
+		// Print columns
+		for _,c := range schema.Columns() {
+			fmt.Printf("column %s : %s\n",c.Name(),c.Type())
+		}
+		// Print constraints
 		for _,c := range schema.Constraints() {
 			fmt.Println(c)
 		}

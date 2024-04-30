@@ -2,7 +2,8 @@ package binfile
 
 import (
 	"encoding/json"
-	// "fmt"
+	//"fmt"
+	"github.com/consensys/go-corset/pkg/mir"
 	"github.com/consensys/go-corset/pkg/hir"
 	"github.com/consensys/go-corset/pkg/table"
 )
@@ -13,33 +14,50 @@ import (
 // ColumnSet
 // =============================================================================
 
-type RegisterID = interface{}
-type Value struct {}
-type Magma = interface{}
-type Kind struct {
-	m string
-	c string
-}
-type Base = string
-type Handle struct {
-	H string  `json:"h"`
-	ID int  `json:"id"`
-}
-type Register = interface{}
-type FieldRegister = interface{}
-
 type Column struct {
-    Register int
-    Shift int
-    Padding_value Value
-    Used bool
-    Must_prove bool
-    Kind string
-    T Magma
-    Intrinsic_size_factor string
-    Base Base
-    Gandle Handle
-    Computed bool
+	// The name of this column in the format "module:name".
+	Handle string
+	// The numerical column to which this column is assigned.
+	// Specifically, as a result of perspectives, multiple columns
+	// can be assigned to the same "register".
+	Register int
+	// Indicates the padding value (if given) to use when padding
+	// out a trace for this column.
+	PaddingValue any `json:"padding_value"`
+	// Determines whether the type was marked with "@prove" or
+	// not.  Such types must be established by corset in some way
+	// (e.g. by adding an appropriate constraint).
+	MustProve bool `json:"must_prove"`
+	// Specifies the type that all values of this column are
+	// intended to adhere to.  Observe, however, this is only
+	// guaranteed when MustProve holds.  Otherwise, they are
+	// really just a suggestion for debugging purposes.
+	Type *JsonType `json:"t"`
+	// Indicates some kind of "length multiplier" which is gives
+	// information about the length of this column (e.g. its a
+	// multiple of two).  This seems only relevant for computed
+	// columns.
+	Intrinsic_size_factor string
+	// Indicates this is a computed column.  For binfiles being
+	// compiled without expansion, this should always be false.
+	Computed bool
+	// Provides additional information about whether this column
+	// is computed or not.  A "Commitment" kind indicates a
+	// user-defined columns (i.e is directly filled from trace
+	// files); a "Computed" column is filled by a given function;
+	// an "Expression" kind indicates a column whose values are
+	// computed from an expresion known at compile time.  As for
+	// the Computed field, for binfiles compiled without expansion
+	// the only value should be "Commitment".
+	Kind string
+	// Determines how values of this column should be displayed
+	// (e.g. using hexadecimal notation, etc).  This only for
+	// debugging purposes.
+	Base string
+	// Indicates whether or not this column is used by any
+	// constraints.  Presumably, this is intended to enable the
+	// corset tool to report a warning.
+	Used bool
 }
 
 type ColumnSet struct {
@@ -47,17 +65,17 @@ type ColumnSet struct {
 	// virtual and/or overlapping with others.
 	Cols []Column `json:"_cols"`
 	// Maps column handles to their index in the Cols array.
-	ColsMap map[Handle]uint  `json:"cols"`
+	ColsMap map[string]uint `json:"cols"`
 	// Maps column handles? to their length
-	Effective_len map[string]int
+	EffectiveLen map[string]int `json:"effective_len"`
 	// ?
-	min_len map[string]uint
+	MinLen map[string]uint `json:"min_len"`
 	// ?
-	field_registers []FieldRegister
+	FieldRegisters []any `json:"field_registers"`
 	// ?
-	registers []Register
+	Registers []any `json:"registers"`
 	// ?
-	spilling map[string]int
+	Spilling map[string]int `json:"spilling"`
 }
 
 // =============================================================================
@@ -70,7 +88,7 @@ type JsonDomain = string
 // =============================================================================
 
 type ConstraintSet struct {
-	//Columns ColumnSet `json:"columns"`
+	Columns ColumnSet `json:"columns"`
 	Constraints []JsonConstraint `json:"constraints"`
 	//
 	// constants any
@@ -97,7 +115,23 @@ func HirSchemaFromJson(bytes []byte) (schema *hir.Schema, err error) {
 	json_err := json.Unmarshal(bytes, &res)
 	// Construct schema
 	schema = table.EmptySchema[hir.Column,hir.Constraint]()
-	// TODO: Add Columns
+	// Add Columns
+	for _,c := range res.Columns.Cols {
+		var hType mir.Type
+		// Sanity checks
+		if c.Computed || c.Kind != "Commitment" {
+			panic("invalid JSON column configuration")
+		}
+		// Only types which must be proven should be
+		// translated.  Unproven types are purely cosmetic and
+		// should be ignored.
+		if c.MustProve {
+			hType = c.Type.ToHir()
+		} else {
+			hType = &mir.FieldType{}
+		}
+		schema.AddColumn(hir.NewDataColumn(c.Handle, hType))
+	}
 	// Add constraints
 	for _,c := range res.Constraints {
 		schema.AddConstraint(c.ToHir())

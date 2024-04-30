@@ -3,7 +3,6 @@ package hir
 import (
 	"errors"
 	"fmt"
-	"math/big"
 	"strconv"
 	"strings"
 	"github.com/consensys/go-corset/pkg/mir"
@@ -106,13 +105,7 @@ func sexpType(symbol string) (mir.Type,error) {
 			msg := fmt.Sprintf("Integer types must fit in 16bits or less: %s",symbol)
 			return nil,errors.New(msg)
 		}
-		var max big.Int
-		// Compute 2^n
-		max.Exp(big.NewInt(2),big.NewInt(int64(n)),nil)
-		// Construct bound
-		num := new(fr.Element)
-		num.SetBigInt(&max)
-		return &mir.UintType{Bound: num}, nil
+		return mir.NewUintType(uint(n)), nil
 	}
 	msg := fmt.Sprintf("Unexpected type: %s",symbol)
 	return nil,errors.New(msg)

@@ -7,6 +7,11 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
 
+type Handle struct {
+	H string  `json:"h"`
+	ID int  `json:"id"`
+}
+
 // Corresponds to an optionally typed expression.
 type JsonTypedExpr struct {
 	Expr JsonExpr `json:"_e"`
