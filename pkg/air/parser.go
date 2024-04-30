@@ -2,15 +2,16 @@ package air
 
 import (
 	"strconv"
-	"github.com/consensys/go-corset/pkg/sexp"
+
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/go-corset/pkg/sexp"
 )
 
 // ============================================================================
 // Public
 // ============================================================================
 
-// Parse a string representing an AIR expression formatted using
+// ParseSExp parses a string representing an AIR expression formatted using
 // S-expressions.
 func ParseSExp(s string) (Expr, error) {
 	p := sexp.NewTranslator[Expr]()
@@ -32,15 +33,18 @@ func ParseSExp(s string) (Expr, error) {
 func sexpConstantToAir(symbol string) (Expr, error) {
 	num := new(fr.Element)
 	// Attempt to parse
-	c,err := num.SetString(symbol)
+	c, err := num.SetString(symbol)
 	// Check for errors
-	if err != nil { return nil,err }
+	if err != nil {
+		return nil, err
+	}
+
 	// Done
-	return &Constant{c},nil
+	return &Constant{c}, nil
 }
 
 func sexpColumnToAir(col string) (Expr, error) {
-	return &ColumnAccess{col,0},nil
+	return &ColumnAccess{col, 0}, nil
 }
 
 func sexpAddToAir(args []Expr) (Expr, error) {
@@ -56,7 +60,10 @@ func sexpMulToAir(args []Expr) (Expr, error) {
 }
 
 func sexpShiftToAir(col string, amt string) (Expr, error) {
-	n,err1 := strconv.Atoi(amt)
-	if err1 != nil { return nil,err1 }
-	return &ColumnAccess{col,n},nil
+	n, err1 := strconv.Atoi(amt)
+	if err1 != nil {
+		return nil, err1
+	}
+
+	return &ColumnAccess{col, n}, nil
 }

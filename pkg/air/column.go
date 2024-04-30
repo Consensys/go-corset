@@ -1,14 +1,13 @@
 package air
 
 import (
-	"github.com/consensys/go-corset/pkg/table"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/go-corset/pkg/table"
 )
 
 type Column interface {
 	table.Column
-	// Marker intended to signal that this a column at the lowest
-	// level.
+	// IsAir is a marker intended to signal that this a column at the lowest level.
 	IsAir() bool
 }
 
@@ -17,38 +16,38 @@ type Column interface {
 // ===================================================================
 
 type DataColumn struct {
-       name string
+	name string
 }
 
 func NewDataColumn(name string) *DataColumn {
-       return &DataColumn{name}
+	return &DataColumn{name}
 }
 
 func (c *DataColumn) IsAir() bool {
-       return true
+	return true
 }
 
 func (c *DataColumn) Name() string {
-       return c.name
+	return c.name
 }
 
 func (c *DataColumn) Computable() bool {
-       return false
+	return false
 }
 
-func (c *DataColumn) Get(row int, tr table.Trace) (*fr.Element,error) {
-       return tr.GetByName(c.name,row)
+func (c *DataColumn) Get(row int, tr table.Trace) (*fr.Element, error) {
+	return tr.GetByName(c.name, row)
 }
 
 func (c *DataColumn) Accepts(tr table.Trace) error {
-       return nil
+	return nil
 }
 
 // ===================================================================
 // Computed Column
 // ===================================================================
 
-// Describes a column whose values are computed on-demand, rather than
+// ComputedColumn describes a column whose values are computed on-demand, rather than
 // being stored in a backing array.  Typically computed columns read
 // values from other columns in a trace in order to calculate their
 // value.  There is an expectation that this computation is not
@@ -61,17 +60,17 @@ type ComputedColumn struct {
 }
 
 func NewComputedColumn(name string, expr Expr) *ComputedColumn {
-	var c ComputedColumn
-	c.name = name
-	c.expr = expr
-	return &c
+	return &ComputedColumn{
+		name: name,
+		expr: expr,
+	}
 }
 
 func (c *ComputedColumn) IsAir() bool {
-       return true
+	return true
 }
 
-// Read out the name of this column
+// Name reads out the name of this column.
 func (c *ComputedColumn) Name() string {
 	return c.name
 }
@@ -84,11 +83,11 @@ func (c *ComputedColumn) Computable() bool {
 	return true
 }
 
-// Read the value at a given row in a data column.  This amounts to
+// Get reads the value at a given row in a data column. This amounts to
 // looking up that value in the array of values which backs it.
-func (c *ComputedColumn) Get(row int, tr table.Trace) (*fr.Element,error) {
+func (c *ComputedColumn) Get(row int, tr table.Trace) (*fr.Element, error) {
 	// Compute value at given row
-	return c.expr.EvalAt(row,tr), nil
+	return c.expr.EvalAt(row, tr), nil
 }
 
 func (c *ComputedColumn) Accepts(tr table.Trace) error {

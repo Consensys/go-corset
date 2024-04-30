@@ -1,14 +1,14 @@
 package air
 
 import (
-	"github.com/consensys/go-corset/pkg/table"
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/go-corset/pkg/table"
 )
 
-// An Expression in the Arithmetic Intermediate Representation (AIR).
+// Expr is an Expression in the Arithmetic Intermediate Representation (AIR).
 // Any expression in this form can be lowered into a polynomial.
 type Expr interface {
-	// Evaluate this expression in a given tabular context.
+	// EvalAt evaluates this expression in a given tabular context.
 	// Observe that if this expression is *undefined* within this
 	// context then it returns "nil".  An expression can be
 	// undefined for several reasons: firstly, if it accesses a
@@ -16,7 +16,7 @@ type Expr interface {
 	// it accesses a column which does not exist.
 	EvalAt(int, table.Trace) *fr.Element
 
-	// Produce an string representing this as an S-Expression.
+	// String produces a string representing this as an S-Expression.
 	String() string
 }
 
@@ -32,27 +32,33 @@ type Constant struct {
 	Value *fr.Element
 }
 
-// Represents reading the value held at a given column in the tabular
+// ColumnAccess represents reading the value held at a given column in the tabular
 // context.  Furthermore, the current row maybe shifted up (or down)
 // by a given amount.  For example, consider this table:
 //
-//   +-----+-----+
+//	+-----+-----+
+//
 // k |STAMP| CT  |
-//   +-----+-----+
+//
+//	+-----+-----+
+//
 // 0 |  0  |  9  |
-//   +-----+-----+
+//
+//	+-----+-----+
+//
 // 1 |  1  |  0  |
-//   +-----+-----+
+//
+//	+-----+-----+
 //
 // Suppose we are evaluating a constraint on row k=1 which contains
 // the column accesses "STAMP(0)" and "CT(-1)".  Then, STAMP(0)=1 and
 // CT(-1)=9.
 type ColumnAccess struct {
-	Column string;
-	Shift int
+	Column string
+	Shift  int
 }
 
-// A computation-only expression which computes the multiplicative
+// Inverse is a computation-only expression which computes the multiplicative
 // inverse of a given expression.
 type Inverse struct {
 	Expr Expr

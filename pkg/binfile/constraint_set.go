@@ -3,8 +3,8 @@ package binfile
 import (
 	"encoding/json"
 	//"fmt"
-	"github.com/consensys/go-corset/pkg/mir"
 	"github.com/consensys/go-corset/pkg/hir"
+	"github.com/consensys/go-corset/pkg/mir"
 	"github.com/consensys/go-corset/pkg/table"
 )
 
@@ -14,6 +14,18 @@ import (
 // ColumnSet
 // =============================================================================
 
+type RegisterID = any
+type Value struct{}
+type Magma = any
+type Kind struct {
+	m string
+	c string
+}
+type Base = string
+type Register = any
+type FieldRegister = any
+
+// Column .
 type Column struct {
 	// The name of this column in the format "module:name".
 	Handle string
@@ -37,7 +49,7 @@ type Column struct {
 	// information about the length of this column (e.g. its a
 	// multiple of two).  This seems only relevant for computed
 	// columns.
-	Intrinsic_size_factor string
+	IntrinsicSizeFactor string `json:"intrinsic_size_factor"`
 	// Indicates this is a computed column.  For binfiles being
 	// compiled without expansion, this should always be false.
 	Computed bool
@@ -60,8 +72,9 @@ type Column struct {
 	Used bool
 }
 
+// ColumnSet .
 type ColumnSet struct {
-	// Raw array of column data, including virtial those which are
+	// Raw array of column data, including virtual those which are
 	// virtual and/or overlapping with others.
 	Cols []Column `json:"_cols"`
 	// Maps column handles to their index in the Cols array.
@@ -78,17 +91,12 @@ type ColumnSet struct {
 	Spilling map[string]int `json:"spilling"`
 }
 
-// =============================================================================
-// Domain
-// =============================================================================
+// JsonDomain domain type.
 type JsonDomain = string
 
-// =============================================================================
-// ConstraintSet
-// =============================================================================
-
+// ConstraintSet .
 type ConstraintSet struct {
-	Columns ColumnSet `json:"columns"`
+	Columns     ColumnSet        `json:"columns"`
 	Constraints []JsonConstraint `json:"constraints"`
 	//
 	// constants any
@@ -98,25 +106,25 @@ type ConstraintSet struct {
 	// auto_constraints uint64
 }
 
-// Read a constraint set from a set of bytes representing its JSON
+// ConstraintSetFromJson reads a constraint set from a set of bytes representing its JSON
 // encoding.  The format for this was (originally) determined by the
 // Rust corset tool.
 func ConstraintSetFromJson(bytes []byte) (cs ConstraintSet, err error) {
 	var res ConstraintSet
 	// Unmarshall
-	json_err := json.Unmarshal(bytes, &res)
+	jsonErr := json.Unmarshal(bytes, &res)
 	// For now return directly.
-	return res,json_err
+	return res, jsonErr
 }
 
 func HirSchemaFromJson(bytes []byte) (schema *hir.Schema, err error) {
 	var res ConstraintSet
 	// Unmarshall
-	json_err := json.Unmarshal(bytes, &res)
+	jsonErr := json.Unmarshal(bytes, &res)
 	// Construct schema
-	schema = table.EmptySchema[hir.Column,hir.Constraint]()
+	schema = table.EmptySchema[hir.Column, hir.Constraint]()
 	// Add Columns
-	for _,c := range res.Columns.Cols {
+	for _, c := range res.Columns.Cols {
 		var hType mir.Type
 		// Sanity checks
 		if c.Computed || c.Kind != "Commitment" {
@@ -130,12 +138,14 @@ func HirSchemaFromJson(bytes []byte) (schema *hir.Schema, err error) {
 		} else {
 			hType = &mir.FieldType{}
 		}
+
 		schema.AddColumn(hir.NewDataColumn(c.Handle, hType))
 	}
 	// Add constraints
-	for _,c := range res.Constraints {
+	for _, c := range res.Constraints {
 		schema.AddConstraint(c.ToHir())
 	}
+
 	// For now return directly.
-	return schema,json_err
+	return schema, jsonErr
 }

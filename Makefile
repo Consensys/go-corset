@@ -8,6 +8,8 @@ install:
 	curl -sSfL \
 		"https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh" | \
 		sh -s -- -b ${GOPATH_BIN} v${GOLANGCI_VERSION}
+	# Install cobra-cli command generator.
+	go install github.com/spf13/cobra-cli@latest
 
 .PHONY: all
 all: clean lint test build
@@ -15,7 +17,7 @@ all: clean lint test build
 .PHONY: lint
 lint:
 	@echo ">>> Performing golang code linting.."
-	golangci-lint run --config=.golangci.yml
+	golangci-lint run --config=.golangci-lint.yml
 
 .PHONY: test
 test:
@@ -38,7 +40,7 @@ show-cover:
 
 .PHONY: build
 build:
-	@echo ">>> Building ${PROJECT_NAME} API server..."
+	@echo ">>> Building ${PROJECT_NAME}..."
 	go build -o bin/${PROJECT_NAME} cmd/${PROJECT_NAME}/main.go
 
 .PHONY: clean

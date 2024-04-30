@@ -4,7 +4,7 @@ import (
 	"github.com/consensys/go-corset/pkg/table"
 )
 
-// For now, all constraints are vanishing constraints.
+// Constraint for now, all constraints are vanishing constraints.
 type Constraint = *VanishingConstraint
 
 type VanishingConstraint = table.VanishingConstraint[Expr]

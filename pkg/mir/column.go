@@ -3,16 +3,18 @@ package mir
 import (
 	"errors"
 	"fmt"
+
 	"math/big"
+
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/air"
 	"github.com/consensys/go-corset/pkg/table"
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
 
 type Column interface {
-	// hir.Column is-a Column
+	// hir.Column is-a Column.
 	table.Column
-	// Lower this column to an MirColumn
+	// LowerTo lowers this column to an MirColumn.
 	LowerTo(*air.Schema) air.Column
 }
 
@@ -28,7 +30,7 @@ type DataColumn struct {
 }
 
 func NewDataColumn(name string, base Type) *DataColumn {
-       return &DataColumn{name,base}
+	return &DataColumn{name, base}
 }
 
 func (c *DataColumn) Name() string {
@@ -39,17 +41,20 @@ func (c *DataColumn) Computable() bool {
 	return false
 }
 
-func (c *DataColumn) Get(row int, tr table.Trace) (*fr.Element,error) {
-	return tr.GetByName(c.name,row)
+func (c *DataColumn) Get(row int, tr table.Trace) (*fr.Element, error) {
+	return tr.GetByName(c.name, row)
 }
 
 func (c *DataColumn) Accepts(tr table.Trace) error {
 	for i := 0; i < tr.Height(); i++ {
-		val,err := tr.GetByName(c.name,i)
-		if err != nil { return err }
+		val, err := tr.GetByName(c.name, i)
+		if err != nil {
+			return err
+		}
+
 		if !c.base.Accepts(val) {
 			// Construct useful error message
-			msg := fmt.Sprintf("column %s value out-of-bounds (row %d, %s)",c.name,i,val)
+			msg := fmt.Sprintf("column %s value out-of-bounds (row %d, %s)", c.name, i, val)
 			// Evaluation failure
 			return errors.New(msg)
 		}
@@ -72,7 +77,7 @@ func (c *DataColumn) LowerTo(schema *air.Schema) air.Column {
 			// Construct X-1
 			X_m1 := &air.Sub{Arguments: []air.Expr{X, &air.Constant{Value: &one}}}
 			// Construct X * (X-1)
-			X_X_m1 := &air.Mul{Arguments: []air.Expr{X,X,X_m1}}
+			X_X_m1 := &air.Mul{Arguments: []air.Expr{X, X, X_m1}}
 			//
 			schema.AddConstraint(&air.VanishingConstraint{Handle: c.name, Expr: X_X_m1})
 		} else {
@@ -81,6 +86,7 @@ func (c *DataColumn) LowerTo(schema *air.Schema) air.Column {
 		}
 
 	}
+
 	return air.NewDataColumn(c.name)
 }
 
@@ -88,19 +94,19 @@ func (c *DataColumn) LowerTo(schema *air.Schema) air.Column {
 // Column Type
 // ===================================================================
 
-// Represents a _column type_ which restricts the set of values a
+// Type represents a _column type_ which restricts the set of values a
 // column can take on.  For example, a column might be restricted to
 // holding only byte values (i.e. in the range 0..255).
 type Type interface {
-	// Access thie type as a unsigned integer.  If this type is not an
+	// AsUint accesses this type as an unsigned integer.  If this type is not an
 	// unsigned integer, then this returns nil.
 	AsUint() *UintType
 
-	// Access thie type as a field element.  If this type is not a
+	// AsField accesses this type as a field element.  If this type is not a
 	// field element, then this returns nil.
 	AsField() *FieldType
 
-	// Check whether a specific value is accepted by this type
+	// Accepts checks whether a specific value is accepted by this type
 	Accepts(*fr.Element) bool
 
 	// Produce a string representation of this type.
@@ -111,7 +117,7 @@ type Type interface {
 // Unsigned Integer
 // ===================================================================
 
-// Represents an unsigned integer encoded using a given number of
+// UintType represents an unsigned integer encoded using a given number of
 // bits.  For example, for the type "u8" then "nbits" is 8.
 type UintType struct {
 	// The number of bits this type represents (e.g. 8 for u8,
@@ -122,17 +128,16 @@ type UintType struct {
 	bound *fr.Element
 }
 
-// Construct a new integer type for a given bit width.
+// NewUintType constructs a new integer type for a given bit width.
 func NewUintType(nbits uint) *UintType {
-	var max big.Int
+	var maxBigInt big.Int
 	// Compute 2^n
-	max.Exp(big.NewInt(2),big.NewInt(int64(nbits)),nil)
+	maxBigInt.Exp(big.NewInt(2), big.NewInt(int64(nbits)), nil)
 	// Construct bound
 	bound := new(fr.Element)
-	bound.SetBigInt(&max)
+	bound.SetBigInt(&maxBigInt)
 	return &UintType{nbits, bound}
 }
-
 
 func (p *UintType) AsUint() *UintType {
 	return p
@@ -152,7 +157,7 @@ func (p *UintType) HasBound(bound uint64) bool {
 }
 
 func (p *UintType) String() string {
-	return fmt.Sprintf("u%d",p.nbits);
+	return fmt.Sprintf("u%d", p.nbits)
 }
 
 // ===================================================================
@@ -162,7 +167,6 @@ func (p *UintType) String() string {
 // Represents a field (which is normally prime).  Amongst other
 // things, this gives access to the modulus used for this field.
 type FieldType struct {
-
 }
 
 func (p *FieldType) AsUint() *UintType {
@@ -178,5 +182,5 @@ func (p *FieldType) Accepts(val *fr.Element) bool {
 }
 
 func (p *FieldType) String() string {
-	return "𝔽";
+	return "𝔽"
 }

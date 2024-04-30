@@ -1,9 +1,9 @@
 package mir
 
 import (
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/air"
 	"github.com/consensys/go-corset/pkg/table"
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
 
 // An expression in the Mid-Level Intermediate Representation (MIR).
@@ -22,7 +22,7 @@ type Expr interface {
 	EvalAt(int, table.Trace) *fr.Element
 }
 
-type Nary struct { Arguments[]Expr }
+type Nary struct{ Arguments []Expr }
 type Add Nary
 type Sub Nary
 type Mul Nary
@@ -36,6 +36,6 @@ type Normalise struct {
 }
 
 type ColumnAccess struct {
-	Column string;
-	Shift int
+	Column string
+	Shift  int
 }

@@ -2,6 +2,7 @@ package binfile
 
 import (
 	"fmt"
+
 	"github.com/consensys/go-corset/pkg/mir"
 )
 
@@ -22,7 +23,7 @@ type JsonType struct {
 
 func (e *JsonType) ToHir() mir.Type {
 	// Check whether magma is string
-	if str,ok := e.Magma.(string); ok {
+	if str, ok := e.Magma.(string); ok {
 		switch str {
 		case "Native":
 			return &mir.FieldType{}
@@ -31,7 +32,7 @@ func (e *JsonType) ToHir() mir.Type {
 		case "Binary":
 			return mir.NewUintType(1)
 		default:
-			panic(fmt.Sprintf("Unknown JSON type encountered: %s:%s",e.Magma,e.Conditioning))
+			panic(fmt.Sprintf("Unknown JSON type encountered: %s:%s", e.Magma, e.Conditioning))
 		}
 	}
 	// Try as integer
@@ -42,5 +43,5 @@ func (e *JsonType) ToHir() mir.Type {
 		}
 	}
 	// Fail
-	panic(fmt.Sprintf("Unknown JSON type encountered: %s:%s",e.Magma,e.Conditioning))
+	panic(fmt.Sprintf("Unknown JSON type encountered: %s:%s", e.Magma, e.Conditioning))
 }

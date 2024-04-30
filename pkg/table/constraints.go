@@ -3,25 +3,25 @@ package table
 import (
 	"errors"
 	"fmt"
+
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
 
-// An abstract notion of a constraint which must hold true for a given
+// Constraint is an abstract notion of a constraint which must hold true for a given
 // table.
 type Constraint interface {
-	// Get the handle for this constraint (i.e. its name).
+	// GetHandle gets the handle for this constraint (i.e. its name).
 	GetHandle() string
-	// Check whether or not this constraint accepts a particular
-	// trace.
+	// Accepts checks whether this constraint accepts a particular trace.
 	Accepts(Trace) error
 }
 
-// Captures something which can be evaluated on a given table row to
+// Evaluable captures something which can be evaluated on a given table row to
 // produce an evaluation point.  For example, expressions in the
 // Mid-Level or Arithmetic-Level IR can all be evaluated at rows of a
 // table.
 type Evaluable interface {
-	// Evaluate this expression in a given tabular context.
+	// EvalAt evaluates this expression in a given tabular context.
 	// Observe that if this expression is *undefined* within this
 	// context then it returns "nil".  An expression can be
 	// undefined for several reasons: firstly, if it accesses a
@@ -34,7 +34,7 @@ type Evaluable interface {
 // Vanishing Constraints
 // ===================================================================
 
-// On every row of the table, a vanishing constraint must evaluate to
+// VanishingConstraint on every row of the table, a vanishing constraint must evaluate to
 // zero.  The only exception is when the constraint is undefined
 // (e.g. because it references a non-existent table cell).  In such
 // case, the constraint is ignored.  This is parameterised by the type
@@ -50,28 +50,29 @@ type VanishingConstraint[T Evaluable] struct {
 	Expr T
 }
 
-func (p* VanishingConstraint[T]) GetHandle() string {
+func (p *VanishingConstraint[T]) GetHandle() string {
 	return p.Handle
 }
 
-// Check whether a vanishing constraint evaluates to zero on every row
+// Accepts checks whether a vanishing constraint evaluates to zero on every row
 // of a table.  If so, return nil otherwise return an error.
-func (p* VanishingConstraint[T]) Accepts(tr Trace) error {
-	for k := 0;k<tr.Height(); k++ {
+func (p *VanishingConstraint[T]) Accepts(tr Trace) error {
+	for k := 0; k < tr.Height(); k++ {
 		// Determine kth evaluation point
 		kth := p.Expr.EvalAt(k, tr)
 		// Check whether it vanished (or was undefined)
 		if kth != nil && !kth.IsZero() {
 			// Construct useful error message
-			msg := fmt.Sprintf("constraint %s does not vanish (row %d, %s)",p.Handle,k,kth)
+			msg := fmt.Sprintf("constraint %s does not vanish (row %d, %s)", p.Handle, k, kth)
 			// Evaluation failure
 			return errors.New(msg)
 		}
 	}
+
 	// Success!
 	return nil
 }
 
 func (p *VanishingConstraint[T]) String() string {
-	return fmt.Sprintf("(vanishes %s %s)",p.Handle,any(p.Expr))
+	return fmt.Sprintf("(vanishes %s %s)", p.Handle, any(p.Expr))
 }
