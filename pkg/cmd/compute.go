@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/consensys/go-corset/pkg/binfile"
+
 	"github.com/spf13/cobra"
 )
 
@@ -16,20 +17,20 @@ var computeCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		file := args[0]
 		fmt.Printf("Reading JSON bin file: %s\n", file)
-
 		bytes, err := os.ReadFile(file)
 		if err != nil {
-			panic(err)
-		}
-
-		// Parse binary file into JSON form
-		cs, _ := binfile.ConstraintSetFromJson(bytes)
-
-		// Translate JSON form into MIR
-		for i := 0; i < len(cs.Constraints); i++ {
-			ith := cs.Constraints[i]
-			mir := ith.Vanishes.Expr.ToMir()
-			fmt.Println(mir)
+			fmt.Println("Error")
+		} else {
+			// Parse binary file into HIR schema
+			schema, _ := binfile.HirSchemaFromJson(bytes)
+			// Print columns
+			for _, c := range schema.Columns() {
+				fmt.Printf("column %s : %s\n", c.Name(), c.Type())
+			}
+			// Print constraints
+			for _, c := range schema.Constraints() {
+				fmt.Println(c)
+			}
 		}
 	},
 }

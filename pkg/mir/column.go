@@ -4,15 +4,17 @@ import (
 	"errors"
 	"fmt"
 
+	"math/big"
+
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/air"
 	"github.com/consensys/go-corset/pkg/table"
 )
 
 type Column interface {
-	// hir.Column is-a Column
+	// hir.Column is-a Column.
 	table.Column
-	// Lower this column to an MirColumn
+	// LowerTo lowers this column to an MirColumn.
 	LowerTo(*air.Schema) air.Column
 }
 
@@ -80,7 +82,7 @@ func (c *DataColumn) LowerTo(schema *air.Schema) air.Column {
 			schema.AddConstraint(&air.VanishingConstraint{Handle: c.name, Expr: X_X_m1})
 		} else {
 			// u2+ => use range constraint
-			schema.AddConstraint(&air.RangeConstraint{Handle: c.name, Bound: t.Bound})
+			schema.AddConstraint(&air.RangeConstraint{Handle: c.name, Bound: t.bound})
 		}
 
 	}
@@ -106,6 +108,9 @@ type Type interface {
 
 	// Accepts checks whether a specific value is accepted by this type
 	Accepts(*fr.Element) bool
+
+	// Produce a string representation of this type.
+	String() string
 }
 
 // ===================================================================
@@ -113,9 +118,25 @@ type Type interface {
 // ===================================================================
 
 // UintType represents an unsigned integer encoded using a given number of
-// bits. For example, for the type "u8" then "NumBits" is 8.
+// bits.  For example, for the type "u8" then "nbits" is 8.
 type UintType struct {
-	Bound *fr.Element
+	// The number of bits this type represents (e.g. 8 for u8,
+	// etc).
+	nbits uint
+	// The numeric bound of all values in this type (e.g. 2^8 for
+	// u8, etc).
+	bound *fr.Element
+}
+
+// NewUintType constructs a new integer type for a given bit width.
+func NewUintType(nbits uint) *UintType {
+	var maxBigInt big.Int
+	// Compute 2^n
+	maxBigInt.Exp(big.NewInt(2), big.NewInt(int64(nbits)), nil)
+	// Construct bound
+	bound := new(fr.Element)
+	bound.SetBigInt(&maxBigInt)
+	return &UintType{nbits, bound}
 }
 
 func (p *UintType) AsUint() *UintType {
@@ -127,12 +148,16 @@ func (p *UintType) AsField() *FieldType {
 }
 
 func (p *UintType) Accepts(val *fr.Element) bool {
-	return val.Cmp(p.Bound) < 0
+	return val.Cmp(p.bound) < 0
 }
 
 func (p *UintType) HasBound(bound uint64) bool {
 	var n fr.Element = fr.NewElement(bound)
-	return p.Bound.Cmp(&n) == 0
+	return p.bound.Cmp(&n) == 0
+}
+
+func (p *UintType) String() string {
+	return fmt.Sprintf("u%d", p.nbits)
 }
 
 // ===================================================================
@@ -154,4 +179,8 @@ func (p *FieldType) AsField() *FieldType {
 
 func (p *FieldType) Accepts(val *fr.Element) bool {
 	return true
+}
+
+func (p *FieldType) String() string {
+	return "𝔽"
 }

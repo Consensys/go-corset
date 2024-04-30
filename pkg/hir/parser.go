@@ -3,7 +3,6 @@ package hir
 import (
 	"errors"
 	"fmt"
-	"math/big"
 	"strconv"
 	"strings"
 
@@ -124,19 +123,7 @@ func sexpType(symbol string) (mir.Type, error) {
 			return nil, err
 		}
 
-		if n > 16 {
-			msg := fmt.Sprintf("Integer types must fit in 16bits or less: %s", symbol)
-			return nil, errors.New(msg)
-		}
-
-		var maxBigInt big.Int
-		// Compute 2^n
-		maxBigInt.Exp(big.NewInt(2), big.NewInt(int64(n)), nil)
-		// Construct bound
-		num := new(fr.Element)
-		num.SetBigInt(&maxBigInt)
-
-		return &mir.UintType{Bound: num}, nil
+		return mir.NewUintType(uint(n)), nil
 	}
 
 	return nil, fmt.Errorf("unexpected type: %s", symbol)
@@ -188,8 +175,8 @@ func sexpShift(col string, amt string) (Expr, error) {
 	}
 
 	return &ColumnAccess{
-		Col: col,
-		Amt: n,
+		Column: col,
+		Shift:  n,
 	}, nil
 }
 
@@ -199,5 +186,5 @@ func sexpNorm(args []Expr) (Expr, error) {
 		return nil, errors.New(msg)
 	}
 
-	return &Normalise{expr: args[0]}, nil
+	return &Normalise{Arg: args[0]}, nil
 }

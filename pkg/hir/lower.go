@@ -7,10 +7,8 @@ import (
 
 // LowerTo lowers to Mid-Level Intermediate Representation (MIR).
 func (e *Add) LowerTo() []mir.Expr {
-	return LowerWithNaryConstructor(e.arguments, func(nargs []mir.Expr) mir.Expr {
-		return &mir.Add{
-			Arguments: nargs,
-		}
+	return LowerWithNaryConstructor(e.Args, func(nargs []mir.Expr) mir.Expr {
+		return &mir.Add{nargs}
 	})
 }
 
@@ -22,21 +20,21 @@ func (e *Constant) LowerTo() []mir.Expr {
 
 // LowerTo lowers to Mid-Level Intermediate Representation (MIR).
 func (e *ColumnAccess) LowerTo() []mir.Expr {
-	return []mir.Expr{&mir.ColumnAccess{Column: e.Column(), Shift: e.Shift()}}
+	return []mir.Expr{&mir.ColumnAccess{Column: e.Column, Shift: e.Shift}}
 }
 
 // LowerTo lowers to Mid-Level Intermediate Representation (MIR).
 func (e *Mul) LowerTo() []mir.Expr {
-	return LowerWithNaryConstructor(e.arguments, func(nargs []mir.Expr) mir.Expr {
-		return &mir.Mul{Arguments: nargs}
+	return LowerWithNaryConstructor(e.Args, func(nargs []mir.Expr) mir.Expr {
+		return &mir.Mul{nargs}
 	})
 }
 
 // LowerTo lowers to Mid-Level Intermediate Representation (MIR).
 func (e *Normalise) LowerTo() []mir.Expr {
-	mirEs := e.expr.LowerTo()
-	for i, mirE := range mirEs {
-		mirEs[i] = &mir.Normalise{Expr: mirE}
+	mirEs := e.Arg.LowerTo()
+	for i, mir_e := range mirEs {
+		mirEs[i] = &mir.Normalise{mir_e}
 	}
 
 	return mirEs
@@ -45,10 +43,9 @@ func (e *Normalise) LowerTo() []mir.Expr {
 // LowerTo lowers a list by eliminating it altogether.
 func (e *List) LowerTo() []mir.Expr {
 	var res []mir.Expr
-
-	for i := 0; i < len(e.arguments); i++ {
+	for i := 0; i < len(e.Args); i++ {
 		// Lower ith argument
-		iths := e.arguments[i].LowerTo()
+		iths := e.Args[i].LowerTo()
 		// Append all as one
 		res = append(res, iths...)
 	}
@@ -60,11 +57,11 @@ func (e *List) LowerTo() []mir.Expr {
 func (e *IfZero) LowerTo() []mir.Expr {
 	var res []mir.Expr
 	// Lower required condition
-	c := e.condition
+	c := e.Condition
 	// Lower optional true branch
-	t := e.trueBranch
+	t := e.TrueBranch
 	// Lower optional false branch
-	f := e.falseBranch
+	f := e.FalseBranch
 	// Add constraints arising from true branch
 	if t != nil {
 		// (1 - NORM(x)) * y for true branch
@@ -108,8 +105,8 @@ func (e *IfZero) LowerTo() []mir.Expr {
 
 // LowerTo lowers to Mid-Level Intermediate Representation (MIR).
 func (e *Sub) LowerTo() []mir.Expr {
-	return LowerWithNaryConstructor(e.arguments, func(nargs []mir.Expr) mir.Expr {
-		return &mir.Sub{Arguments: nargs}
+	return LowerWithNaryConstructor(e.Args, func(nargs []mir.Expr) mir.Expr {
+		return &mir.Sub{nargs}
 	})
 }
 
