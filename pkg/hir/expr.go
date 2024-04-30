@@ -45,5 +45,5 @@ type IfZero struct {
 	FalseBranch Expr
 }
 //
-type Normalise struct { expr Expr }
+type Normalise struct { Arg Expr }
 type ColumnAccess struct { Column string; Shift int}

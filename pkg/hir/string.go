@@ -20,6 +20,10 @@ func (e *Add) String() string {
 	return NaryString("+",e.Args)
 }
 
+func (e *List) String() string {
+	return NaryString("begin",e.Args)
+}
+
 func (e *Sub) String() string {
 	return NaryString("-",e.Args)
 }
@@ -29,7 +33,7 @@ func (e *Mul) String() string {
 }
 
 func (e *Normalise) String() string {
-	return fmt.Sprintf("~(%s)",e.expr)
+	return fmt.Sprintf("~(%s)",e.Arg)
 }
 
 func (e *IfZero) String() string {

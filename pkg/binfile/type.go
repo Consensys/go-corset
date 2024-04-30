@@ -28,6 +28,8 @@ func (e *JsonType) ToHir() mir.Type {
 			return &mir.FieldType{}
 		case "Byte":
 			return mir.NewUintType(8)
+		case "Binary":
+			return mir.NewUintType(1)
 		default:
 			panic(fmt.Sprintf("Unknown JSON type encountered: %s:%s",e.Magma,e.Conditioning))
 		}

@@ -23,6 +23,7 @@ type JsonExpr struct {
 	Funcall *JsonExprFuncall
 	Const   *JsonExprConst
 	Column  *JsonExprColumn
+	List []JsonTypedExpr
 }
 
 // Corresponds to an (intrinsic) function call with zero or more
@@ -53,48 +54,18 @@ type JsonExprColumn struct {
 // should not generate an error provided the original JSON was
 // well-formed.
 func (e JsonTypedExpr) ToHir() hir.Expr {
-	if e.Expr.Funcall != nil {
-		return e.Expr.Funcall.ToHir()
+	if e.Expr.Column != nil {
+		return e.Expr.Column.ToHir()
 	} else if e.Expr.Const != nil {
 		return e.Expr.Const.ToHir()
-	} else if e.Expr.Column != nil {
-		return e.Expr.Column.ToHir()
+	} else if e.Expr.Funcall != nil {
+		return e.Expr.Funcall.ToHir()
+	} else if e.Expr.List != nil {
+		// Parse the arguments
+		return ListToHir(e.Expr.List)
 	} else {
 		panic("Unknown JSON expression encountered")
 	}
-}
-
-func (e *JsonExprFuncall) ToHir() hir.Expr {
-	// Parse the arguments
-	args := make([]hir.Expr,len(e.Args))
-	for i := 0; i <len(e.Args); i++ {
-		args[i] = e.Args[i].ToHir()
-	}
-	// Construct appropriate expression
-	switch e.Func {
-	case "VectorAdd","Add":
-		return &hir.Add{Args: args}
-	case "VectorMul","Mul":
-		return &hir.Mul{Args: args}
-	case "VectorSub","Sub":
-		return &hir.Sub{Args: args}
-	case "IfZero":
-		if len(args) == 2 {
-			return &hir.IfZero{Condition: args[0], TrueBranch: args[1], FalseBranch: nil}
-		} else if len(args) == 3 {
-			return &hir.IfZero{Condition: args[0], TrueBranch: args[1], FalseBranch: args[2]}
-		} else { panic("incorrect arguments for IfZero") }
-	case "IfNotZero":
-		if len(args) == 2 {
-			return &hir.IfZero{Condition: args[0], TrueBranch: nil, FalseBranch: args[1]}
-		} else { panic("incorrect arguments for IfZero") }
-	}
-	// Catch anything we've missed
-	panic(fmt.Sprintf("HANDLE %s\n",e.Func))
-}
-
-func (e *JsonExprColumn) ToHir() hir.Expr {
-	return &hir.ColumnAccess{Column: e.Handle.H, Shift: e.Shift}
 }
 
 // Convert a big integer represented as a sequence of unsigned 32bit
@@ -126,4 +97,49 @@ func (e *JsonExprConst) ToHir() hir.Expr {
 	num.SetBigInt(val)
 	// Done!
 	return &hir.Constant{Val: num}
+}
+
+func (e *JsonExprColumn) ToHir() hir.Expr {
+	return &hir.ColumnAccess{Column: e.Handle.H, Shift: e.Shift}
+}
+
+func (e *JsonExprFuncall) ToHir() hir.Expr {
+	// Parse the arguments
+	args := make([]hir.Expr,len(e.Args))
+	for i := 0; i <len(e.Args); i++ {
+		args[i] = e.Args[i].ToHir()
+	}
+	// Construct appropriate expression
+	switch e.Func {
+	case "Normalize":
+		if len(args) == 1 {
+			return &hir.Normalise{Arg: args[0]}
+		} else { panic("incorrect arguments for Normalize") }
+	case "VectorAdd","Add":
+		return &hir.Add{Args: args}
+	case "VectorMul","Mul":
+		return &hir.Mul{Args: args}
+	case "VectorSub","Sub":
+		return &hir.Sub{Args: args}
+	case "IfZero":
+		if len(args) == 2 {
+			return &hir.IfZero{Condition: args[0], TrueBranch: args[1], FalseBranch: nil}
+		} else if len(args) == 3 {
+			return &hir.IfZero{Condition: args[0], TrueBranch: args[1], FalseBranch: args[2]}
+		} else { panic("incorrect arguments for IfZero") }
+	case "IfNotZero":
+		if len(args) == 2 {
+			return &hir.IfZero{Condition: args[0], TrueBranch: nil, FalseBranch: args[1]}
+		} else { panic("incorrect arguments for IfZero") }
+	}
+	// Catch anything we've missed
+	panic(fmt.Sprintf("HANDLE %s\n",e.Func))
+}
+
+func ListToHir(Args []JsonTypedExpr) hir.Expr {
+	args := make([]hir.Expr,len(Args))
+	for i := 0; i <len(Args); i++ {
+		args[i] = Args[i].ToHir()
+	}
+	return &hir.List{Args: args}
 }

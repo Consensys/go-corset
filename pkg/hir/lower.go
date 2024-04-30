@@ -32,7 +32,7 @@ func (e *Mul) LowerTo() []mir.Expr {
 }
 
 func (e *Normalise) LowerTo() []mir.Expr {
-	mir_es := e.expr.LowerTo()
+	mir_es := e.Arg.LowerTo()
 	for i,mir_e := range mir_es {
 		mir_es[i] = &mir.Normalise{mir_e}
 	}

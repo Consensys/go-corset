@@ -50,9 +50,13 @@ func (e *IfZero) EvalAt(k int, tbl table.Trace) *fr.Element {
 	}
 }
 
+func (e *List) EvalAt(k int, tbl table.Trace) *fr.Element {
+	panic("Implement hir.List.EvalAt()")
+}
+
 func (e *Normalise) EvalAt(k int, tbl table.Trace) *fr.Element {
 	// Check whether argument evaluates to zero or not.
-	val := e.expr.EvalAt(k,tbl)
+	val := e.Arg.EvalAt(k,tbl)
 	// Normalise value (if necessary)
 	if !val.IsZero() { val.SetOne() }
 	// Done
