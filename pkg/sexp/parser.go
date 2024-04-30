@@ -23,12 +23,19 @@ type Parser struct {
 	text string
 }
 
+// NewParser constructs a new instance of Parser
+func NewParser(text string) *Parser {
+	return &Parser{
+		text: text,
+	}
+}
+
 // Parse a given string into an S-Expression, or produce an error.
 func (p *Parser) Parse() (SExp, error) {
 	token := p.Next()
 
 	if token == "" {
-		return nil, errors.New("unexpected end-of-string")
+		return nil, nil
 	} else if token == ")" {
 		return nil, errors.New("unexpected end-of-list")
 	} else if token == "(" {

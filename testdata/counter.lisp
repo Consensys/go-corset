@@ -1,0 +1,5 @@
+(column STAMP)
+(column CT)
+(vanishing heartbeat_1 (* (- STAMP (shift STAMP 1)) (- (+ 1 STAMP) (shift STAMP 1))))
+(vanishing heartbeat_2 (* (- STAMP (shift STAMP 1)) (shift CT 1)))
+(vanishing heartbeat_3 (if (- 3 CT) (- (+ 1 STAMP) (shift STAMP 1)) (- (+ 1 CT) (shift CT 1))))

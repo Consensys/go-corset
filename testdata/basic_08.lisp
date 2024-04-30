@@ -1,0 +1,6 @@
+(column X)
+(column Y)
+(column Z)
+(vanishing c1 (* Z (- Z 1)))
+(vanishing c2 (* (- Y Z) (- Y Z 2)))
+(vanishing c3 (* (- X Y) (- X Y 4)))

@@ -1,1 +1,2 @@
-(* X (- X 1))
+(column X)
+(vanishing c1 (* X (- X 1)))

@@ -1,1 +1,2 @@
-(shift X 1)
+(column X)
+(vanishing c1 (shift X 1))

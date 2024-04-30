@@ -6,7 +6,7 @@ type JsonConstraint struct {
 	Vanishes *JsonVanishingConstraint
 }
 
-// JsonVanishingConstraint цorresponds to a constraint whose expression must evaluate to zero
+// JsonVanishingConstraint corresponds to a constraint whose expression must evaluate to zero
 // for every row of the table.
 type JsonVanishingConstraint struct {
 	Handle string        `json:"handle"`

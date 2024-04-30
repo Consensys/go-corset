@@ -46,7 +46,7 @@ linters-settings:
 
   govet:
     # report about shadowed variables
-    check-shadowing: true
+    shadow: true
 
   revive:
     # see https://github.com/mgechev/revive#available-rules for details.
