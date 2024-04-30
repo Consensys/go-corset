@@ -24,9 +24,11 @@ type Expr interface {
 	// row which does not exist (e.g. at index -1); secondly, if
 	// it accesses a column which does not exist.
 	EvalAt(int, table.Trace) *fr.Element
+	// Produce an string representing this as an S-Expression.
+	String() string
 }
 
-type Nary struct { arguments[]Expr }
+type Nary struct { Args[]Expr }
 type Add Nary
 type Sub Nary
 type Mul Nary
@@ -36,18 +38,12 @@ type Constant struct { Val *fr.Element }
 // the (optional false branch otherwise.
 type IfZero struct {
 	// Elements contained within this list.
-	condition Expr
+	Condition Expr
 	// True branch (optional).
-	trueBranch Expr
+	TrueBranch Expr
 	// False branch (optional).
-	falseBranch Expr
+	FalseBranch Expr
 }
 //
-type Normalise struct { expr Expr }
-type ColumnAccess struct { Col string; Amt int}
-
-// Constant implements Constant interface
-func (e *Constant) Value() *fr.Element { return e.Val }
-// ColumnAccess implements ColumnAccess interface
-func (e *ColumnAccess) Column() string { return e.Col }
-func (e *ColumnAccess) Shift() int { return e.Amt }
+type Normalise struct { Arg Expr }
+type ColumnAccess struct { Column string; Shift int}

@@ -11,10 +11,12 @@ import (
 type Schema = table.Schema[Column,Constraint]
 
 type Column interface {
-       // hir.Column is-a Column
-       table.Column
-       // Lower this column to an MirColumn
-       LowerTo() mir.Column
+	// hir.Column is-a Column
+	table.Column
+	// Get the type associated with this column
+	Type() mir.Type
+	// Lower this column to an MirColumn
+	LowerTo() mir.Column
 }
 
 // ===================================================================
@@ -32,6 +34,10 @@ func NewDataColumn(name string, base mir.Type) *DataColumn {
 
 func (c *DataColumn) Name() string {
        return c.name
+}
+
+func (c *DataColumn) Type() mir.Type {
+       return c.base
 }
 
 func (c *DataColumn) Computable() bool {
