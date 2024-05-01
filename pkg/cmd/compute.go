@@ -22,7 +22,11 @@ var computeCmd = &cobra.Command{
 			fmt.Println("Error")
 		} else {
 			// Parse binary file into HIR schema
-			schema, _ := binfile.HirSchemaFromJson(bytes)
+			schema, err := binfile.HirSchemaFromJson(bytes)
+			//
+			if err != nil {
+				panic(err)
+			}
 			// Print columns
 			for _, c := range schema.Columns() {
 				fmt.Printf("column %s : %s\n", c.Name(), c.Type())
@@ -37,14 +41,4 @@ var computeCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(computeCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// computeCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// computeCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

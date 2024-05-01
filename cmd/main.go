@@ -12,11 +12,15 @@ func main() {
 	//
 	fmt.Printf("Reading JSON bin file: %s\n", file)
 	bytes, err := os.ReadFile(file)
+
 	if err != nil {
 		fmt.Println("Error")
 	} else {
 		// Parse binary file into HIR schema
-		schema, _ := binfile.HirSchemaFromJson(bytes)
+		schema, err := binfile.HirSchemaFromJson(bytes)
+		if err != nil {
+			panic(err)
+		}
 		// Print columns
 		for _, c := range schema.Columns() {
 			fmt.Printf("column %s : %s\n", c.Name(), c.Type())

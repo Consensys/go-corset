@@ -35,13 +35,15 @@ type VanishingConstraint struct {
 	Expr Expr
 }
 
+// GetHandle returns the handle associated with this constraint.
 func (p *VanishingConstraint) GetHandle() string {
 	return p.Handle
 }
 
+// IsAir is a marker that indicates this is an AIR column.
 func (p *VanishingConstraint) IsAir() bool { return true }
 
-// Check whether a vanishing constraint evaluates to zero on every row
+// Accepts checks whether a vanishing constraint evaluates to zero on every row
 // of a table.  If so, return nil otherwise return an error.
 func (p *VanishingConstraint) Accepts(tr table.Trace) error {
 	for k := 0; k < tr.Height(); k++ {
@@ -77,10 +79,12 @@ type RangeConstraint struct {
 	Bound *fr.Element
 }
 
+// GetHandle returns the handle associated with this constraint.
 func (p *RangeConstraint) GetHandle() string {
 	return p.Handle
 }
 
+// IsAir is a marker that indicates this is an AIR column.
 func (p *RangeConstraint) IsAir() bool { return true }
 
 // Accepts checks whether a vanishing constraint evaluates to zero on every row

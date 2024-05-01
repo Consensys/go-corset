@@ -2,7 +2,7 @@ package binfile
 
 import (
 	"encoding/json"
-	//"fmt"
+
 	"github.com/consensys/go-corset/pkg/hir"
 	"github.com/consensys/go-corset/pkg/mir"
 	"github.com/consensys/go-corset/pkg/table"
@@ -14,19 +14,7 @@ import (
 // ColumnSet
 // =============================================================================
 
-type RegisterID = any
-type Value struct{}
-type Magma = any
-type Kind struct {
-	m string
-	c string
-}
-type Base = string
-type Register = any
-type FieldRegister = any
-
-// Column .
-type Column struct {
+type column struct {
 	// The name of this column in the format "module:name".
 	Handle string
 	// The numerical column to which this column is assigned.
@@ -44,7 +32,7 @@ type Column struct {
 	// intended to adhere to.  Observe, however, this is only
 	// guaranteed when MustProve holds.  Otherwise, they are
 	// really just a suggestion for debugging purposes.
-	Type *JsonType `json:"t"`
+	Type *jsonType `json:"t"`
 	// Indicates some kind of "length multiplier" which is gives
 	// information about the length of this column (e.g. its a
 	// multiple of two).  This seems only relevant for computed
@@ -72,11 +60,10 @@ type Column struct {
 	Used bool
 }
 
-// ColumnSet .
-type ColumnSet struct {
+type columnSet struct {
 	// Raw array of column data, including virtual those which are
 	// virtual and/or overlapping with others.
-	Cols []Column `json:"_cols"`
+	Cols []column `json:"_cols"`
 	// Maps column handles to their index in the Cols array.
 	ColsMap map[string]uint `json:"cols"`
 	// Maps column handles? to their length
@@ -91,13 +78,10 @@ type ColumnSet struct {
 	Spilling map[string]int `json:"spilling"`
 }
 
-// JsonDomain domain type.
-type JsonDomain = string
-
 // ConstraintSet .
-type ConstraintSet struct {
-	Columns     ColumnSet        `json:"columns"`
-	Constraints []JsonConstraint `json:"constraints"`
+type constraintSet struct {
+	Columns     columnSet        `json:"columns"`
+	Constraints []jsonConstraint `json:"constraints"`
 	//
 	// constants any
 	// computations any
@@ -106,19 +90,10 @@ type ConstraintSet struct {
 	// auto_constraints uint64
 }
 
-// ConstraintSetFromJson reads a constraint set from a set of bytes representing its JSON
-// encoding.  The format for this was (originally) determined by the
-// Rust corset tool.
-func ConstraintSetFromJson(bytes []byte) (cs ConstraintSet, err error) {
-	var res ConstraintSet
-	// Unmarshall
-	jsonErr := json.Unmarshal(bytes, &res)
-	// For now return directly.
-	return res, jsonErr
-}
-
+// HirSchemaFromJson constructs an HIR schema from a set of bytes representing
+// the JSON encoding for a set of constraints / columns.
 func HirSchemaFromJson(bytes []byte) (schema *hir.Schema, err error) {
-	var res ConstraintSet
+	var res constraintSet
 	// Unmarshall
 	jsonErr := json.Unmarshal(bytes, &res)
 	// Construct schema

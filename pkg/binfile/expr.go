@@ -8,42 +8,42 @@ import (
 	"github.com/consensys/go-corset/pkg/hir"
 )
 
-type Handle struct {
+type jsonHandle struct {
 	H  string `json:"h"`
 	ID int    `json:"id"`
 }
 
-// JsonTypedExpr corresponds to an optionally typed expression.
-type JsonTypedExpr struct {
-	Expr JsonExpr `json:"_e"`
+// jsonTypedExpr corresponds to an optionally typed expression.
+type jsonTypedExpr struct {
+	Expr jsonExpr `json:"_e"`
 }
 
-// JsonExpr is an enumeration of expression forms.  Exactly one of these fields
+// jsonExpr is an enumeration of expression forms.  Exactly one of these fields
 // must be non-nil.
-type JsonExpr struct {
-	Funcall *JsonExprFuncall
-	Const   *JsonExprConst
-	Column  *JsonExprColumn
-	List    []JsonTypedExpr
+type jsonExpr struct {
+	Funcall *jsonExprFuncall
+	Const   *jsonExprConst
+	Column  *jsonExprColumn
+	List    []jsonTypedExpr
 }
 
-// JsonExprFuncall corresponds to an (intrinsic) function call with zero or more
+// jsonExprFuncall corresponds to an (intrinsic) function call with zero or more
 // arguments.
-type JsonExprFuncall struct {
+type jsonExprFuncall struct {
 	Func string          `json:"func"`
-	Args []JsonTypedExpr `json:"args"`
+	Args []jsonTypedExpr `json:"args"`
 }
 
-// JsonExprConst corresponds to an (unbound) integer constant in the expression
+// jsonExprConst corresponds to an (unbound) integer constant in the expression
 // tree.
-type JsonExprConst struct {
+type jsonExprConst struct {
 	BigInt []any
 }
 
-type JsonExprColumn struct {
-	Handle    Handle `json:"handle"`
-	Shift     int    `json:"shift"`
-	MustProve bool   `json:"must_prove"`
+type jsonExprColumn struct {
+	Handle    jsonHandle `json:"handle"`
+	Shift     int        `json:"shift"`
+	MustProve bool       `json:"must_prove"`
 }
 
 // =============================================================================
@@ -55,7 +55,7 @@ type JsonExprColumn struct {
 // should not generate an error provided the original JSON was
 // well-formed.
 
-func (e *JsonTypedExpr) ToHir() hir.Expr {
+func (e *jsonTypedExpr) ToHir() hir.Expr {
 	if e.Expr.Column != nil {
 		return e.Expr.Column.ToHir()
 	} else if e.Expr.Const != nil {
@@ -64,7 +64,7 @@ func (e *JsonTypedExpr) ToHir() hir.Expr {
 		return e.Expr.Funcall.ToHir()
 	} else if e.Expr.List != nil {
 		// Parse the arguments
-		return ListToHir(e.Expr.List)
+		return jsonListToHir(e.Expr.List)
 	}
 
 	panic("Unknown JSON expression encountered")
@@ -72,7 +72,7 @@ func (e *JsonTypedExpr) ToHir() hir.Expr {
 
 // ToHir converts a big integer represented as a sequence of unsigned 32bit
 // words into HIR constant expression.
-func (e *JsonExprConst) ToHir() hir.Expr {
+func (e *jsonExprConst) ToHir() hir.Expr {
 	sign := int(e.BigInt[0].(float64))
 	words := e.BigInt[1].([]any)
 	// Begin
@@ -80,6 +80,7 @@ func (e *JsonExprConst) ToHir() hir.Expr {
 	base := big.NewInt(1)
 	// Construct 2^32 = 4294967296
 	var two32, n = big.NewInt(2), big.NewInt(32)
+
 	two32.Exp(two32, n, nil)
 	// Iterate the words
 	for _, w := range words {
@@ -104,11 +105,11 @@ func (e *JsonExprConst) ToHir() hir.Expr {
 	return &hir.Constant{Val: num}
 }
 
-func (e *JsonExprColumn) ToHir() hir.Expr {
+func (e *jsonExprColumn) ToHir() hir.Expr {
 	return &hir.ColumnAccess{Column: e.Handle.H, Shift: e.Shift}
 }
 
-func (e *JsonExprFuncall) ToHir() hir.Expr {
+func (e *jsonExprFuncall) ToHir() hir.Expr {
 	// Parse the arguments
 	args := make([]hir.Expr, len(e.Args))
 	for i := 0; i < len(e.Args); i++ {
@@ -147,7 +148,7 @@ func (e *JsonExprFuncall) ToHir() hir.Expr {
 	panic(fmt.Sprintf("HANDLE %s\n", e.Func))
 }
 
-func ListToHir(Args []JsonTypedExpr) hir.Expr {
+func jsonListToHir(Args []jsonTypedExpr) hir.Expr {
 	args := make([]hir.Expr, len(Args))
 	for i := 0; i < len(Args); i++ {
 		args[i] = Args[i].ToHir()

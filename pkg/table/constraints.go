@@ -50,6 +50,7 @@ type VanishingConstraint[T Evaluable] struct {
 	Expr T
 }
 
+// GetHandle returns the handle associated with this constraint.
 func (p *VanishingConstraint[T]) GetHandle() string {
 	return p.Handle
 }

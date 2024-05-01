@@ -6,7 +6,11 @@ import (
 	"github.com/consensys/go-corset/pkg/table"
 )
 
-// An expression in the Mid-Level Intermediate Representation (MIR).
+// Expr represents an expression in the Mid-Level Intermediate Representation
+// (MIR).  Expressions at this level have a one-2-one correspondance with
+// expressions in the AIR level.  However, some expressions at this level do not
+// exist at the AIR level (e.g. normalise) and are "compiled out" by introducing
+// appropriate computed columns and constraints.
 type Expr interface {
 	// Lower this expression into the Arithmetic Intermediate
 	// Representation.  Essentially, this means eliminating
@@ -22,19 +26,28 @@ type Expr interface {
 	EvalAt(int, table.Trace) *fr.Element
 }
 
-type Nary struct{ Arguments []Expr }
-type Add Nary
-type Sub Nary
-type Mul Nary
+// Add represents the sum over zero or more expressions.
+type Add struct{ Args []Expr }
 
-type Constant struct {
-	Value *fr.Element
-}
+// Sub represents the subtraction over zero or more expressions.
+type Sub struct{ Args []Expr }
 
-type Normalise struct {
-	Expr Expr
-}
+// Mul represents the product over zero or more expressions.
+type Mul struct{ Args []Expr }
 
+// Constant represents a constant value within an expression.
+type Constant struct{ Value *fr.Element }
+
+// Normalise reduces the value of an expression to either zero (if it was zero)
+// or one (otherwise).
+type Normalise struct{ Arg Expr }
+
+// ColumnAccess represents reading the value held at a given column in the
+// tabular context.  Furthermore, the current row maybe shifted up (or down) by
+// a given amount. Suppose we are evaluating a constraint on row k=5 which
+// contains the column accesses "STAMP(0)" and "CT(-1)".  Then, STAMP(0)
+// accesses the STAMP column at row 5, whilst CT(-1) accesses the CT column at
+// row 4.
 type ColumnAccess struct {
 	Column string
 	Shift  int

@@ -197,17 +197,17 @@ func CheckTraces(t *testing.T, test string, expected bool, traces []*table.Array
 		mir.LowerToAir(mirSchema, airSchema)
 		// Check HIR/MIR trace (if applicable)
 		if ValidHirMirTrace(tr) {
-			check(t, "HIR", test, i+1, expected, hirSchema.Accepts(tr))
-			check(t, "MIR", test, i+1, expected, mirSchema.Accepts(tr))
+			checkTrace(t, "HIR", test, i+1, expected, hirSchema.AcceptsTrace(tr))
+			checkTrace(t, "MIR", test, i+1, expected, mirSchema.AcceptsTrace(tr))
 		}
 		// Perform trace expansion
 		airSchema.ExpandTrace(tr)
 		// Check AIR trace
-		check(t, "AIR", test, i+1, expected, airSchema.Accepts(tr))
+		checkTrace(t, "AIR", test, i+1, expected, airSchema.AcceptsTrace(tr))
 	}
 }
 
-func check(t *testing.T, ir string, test string, line int, expected bool, accepted bool) {
+func checkTrace(t *testing.T, ir string, test string, line int, expected bool, accepted bool) {
 	// Process what happened versus what was supposed to happen.
 	if !accepted && expected {
 		msg := fmt.Sprintf("Trace rejected incorrectly (%s, %s.accepts, line %d)", ir, test, line)
@@ -281,10 +281,10 @@ func ParseJsonTrace(jsn string, test string, ext string, row int) *table.ArrayTr
 func ReadInputFile(name string, ext string) []string {
 	name = fmt.Sprintf("%s/%s.%s", TestDir, name, ext)
 	file, err := os.Open(name)
+
 	if err != nil {
 		panic(err)
 	}
-	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
 	lines := make([]string, 0)
@@ -294,6 +294,10 @@ func ReadInputFile(name string, ext string) []string {
 	}
 	// Sanity check we read everything
 	if err := scanner.Err(); err != nil {
+		panic(err)
+	}
+	// Close file as complete
+	if err = file.Close(); err != nil {
 		panic(err)
 	}
 
