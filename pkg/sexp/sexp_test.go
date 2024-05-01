@@ -1,7 +1,6 @@
 package sexp
 
 import (
-	//"fmt"
 	"reflect"
 	"testing"
 )
@@ -15,12 +14,12 @@ func TestSexp_0(t *testing.T) {
 }
 
 func TestSexp_1(t *testing.T) {
-	e1 := List{[]SExp{}}
+	e1 := List{nil}
 	CheckOk(t,&e1,"()")
 }
 
 func TestSexp_2(t *testing.T) {
-	e1 := List{[]SExp{}}
+	e1 := List{nil}
 	e2 := List{[]SExp{&e1}}
 	CheckOk(t,&e2,"(())")
 }
@@ -101,7 +100,7 @@ func CheckOk(t *testing.T, sexp1 SExp, input string) {
 	if err != nil {
 		t.Error(err)
 	} else if !reflect.DeepEqual(sexp1,sexp2) {
-		t.Errorf("{%s} != {%s}",sexp1,sexp2)
+		t.Errorf("%s != %s",sexp1,sexp2)
 	}
 }
 
