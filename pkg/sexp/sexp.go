@@ -20,7 +20,8 @@ type List struct {
 	Elements []SExp
 }
 
-// NOTE: This is used for compile time type checking if the given type satisfies the given interface.
+// NOTE: This is used for compile time type checking if the given type
+// satisfies the given interface.
 var _ SExp = (*List)(nil)
 
 // IsList sets that is a list.
@@ -78,7 +79,8 @@ type Symbol struct {
 	Value string
 }
 
-// NOTE: This is used for compile time type checking if the given type satisfies the given interface.
+// NOTE: This is used for compile time type checking if the given type
+// satisfies the given interface.
 var _ SExp = (*Symbol)(nil)
 
 // IsList sets that A Symbol is not a List.
