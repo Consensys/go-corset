@@ -5,44 +5,50 @@ import (
 	"github.com/consensys/go-corset/pkg/mir"
 )
 
-// LowerTo lowers to Mid-Level Intermediate Representation (MIR).
+// LowerTo lowers a sum expression to the MIR level.  This requires lowering all
+// of the arguments, and then computing "cross-product" of all combinations.
 func (e *Add) LowerTo() []mir.Expr {
-	return LowerWithNaryConstructor(e.Args, func(nargs []mir.Expr) mir.Expr {
-		return &mir.Add{nargs}
+	return lowerWithNaryConstructor(e.Args, func(nargs []mir.Expr) mir.Expr {
+		return &mir.Add{Args: nargs}
 	})
 }
 
-// LowerTo lowering a constant is straightforward as it is already in the correct form.
+// LowerTo lowers a constant to the MIR level.  This is straightforward as it is
+// already in the correct form.
 func (e *Constant) LowerTo() []mir.Expr {
 	c := mir.Constant{Value: e.Val}
 	return []mir.Expr{&c}
 }
 
-// LowerTo lowers to Mid-Level Intermediate Representation (MIR).
+// LowerTo lowers a column access to the MIR level.  This is straightforward as
+// it is already in the correct form.
 func (e *ColumnAccess) LowerTo() []mir.Expr {
 	return []mir.Expr{&mir.ColumnAccess{Column: e.Column, Shift: e.Shift}}
 }
 
-// LowerTo lowers to Mid-Level Intermediate Representation (MIR).
+// LowerTo lowers a product expression to the MIR level.  This requires lowering all
+// of the arguments, and then computing "cross-product" of all combinations.
 func (e *Mul) LowerTo() []mir.Expr {
-	return LowerWithNaryConstructor(e.Args, func(nargs []mir.Expr) mir.Expr {
-		return &mir.Mul{nargs}
+	return lowerWithNaryConstructor(e.Args, func(nargs []mir.Expr) mir.Expr {
+		return &mir.Mul{Args: nargs}
 	})
 }
 
-// LowerTo lowers to Mid-Level Intermediate Representation (MIR).
+// LowerTo lowers a normalise expression to the MIR level by first lowering its
+// argument.
 func (e *Normalise) LowerTo() []mir.Expr {
 	mirEs := e.Arg.LowerTo()
 	for i, mir_e := range mirEs {
-		mirEs[i] = &mir.Normalise{mir_e}
+		mirEs[i] = &mir.Normalise{Arg: mir_e}
 	}
 
 	return mirEs
 }
 
-// LowerTo lowers a list by eliminating it altogether.
+// LowerTo lowers a list to the MIR level by eliminating it altogether.
 func (e *List) LowerTo() []mir.Expr {
 	var res []mir.Expr
+
 	for i := 0; i < len(e.Args); i++ {
 		// Lower ith argument
 		iths := e.Args[i].LowerTo()
@@ -53,7 +59,8 @@ func (e *List) LowerTo() []mir.Expr {
 	return res
 }
 
-// LowerTo lowers to Mid-Level Intermediate Representation (MIR).
+// LowerTo lowers an if expression to the MIR level by "compiling out" the
+// expression using normalisation at the MIR level.
 func (e *IfZero) LowerTo() []mir.Expr {
 	var res []mir.Expr
 	// Lower required condition
@@ -65,20 +72,20 @@ func (e *IfZero) LowerTo() []mir.Expr {
 	// Add constraints arising from true branch
 	if t != nil {
 		// (1 - NORM(x)) * y for true branch
-		ts := LowerWithBinaryConstructor(c, t, func(x mir.Expr, y mir.Expr) mir.Expr {
+		ts := lowerWithBinaryConstructor(c, t, func(x mir.Expr, y mir.Expr) mir.Expr {
 			one := new(fr.Element)
 			one.SetOne()
 
-			normX := &mir.Normalise{Expr: x}
+			normX := &mir.Normalise{Arg: x}
 			oneMinusNormX := &mir.Sub{
-				Arguments: []mir.Expr{
+				Args: []mir.Expr{
 					&mir.Constant{Value: one},
 					normX,
 				},
 			}
 
 			return &mir.Mul{
-				Arguments: []mir.Expr{
+				Args: []mir.Expr{
 					oneMinusNormX,
 					y,
 				},
@@ -90,9 +97,9 @@ func (e *IfZero) LowerTo() []mir.Expr {
 	// Add constraints arising from false branch
 	if f != nil {
 		// x * y for false branch
-		fs := LowerWithBinaryConstructor(c, f, func(x mir.Expr, y mir.Expr) mir.Expr {
+		fs := lowerWithBinaryConstructor(c, f, func(x mir.Expr, y mir.Expr) mir.Expr {
 			return &mir.Mul{
-				Arguments: []mir.Expr{x, y},
+				Args: []mir.Expr{x, y},
 			}
 		})
 
@@ -103,10 +110,11 @@ func (e *IfZero) LowerTo() []mir.Expr {
 	return res
 }
 
-// LowerTo lowers to Mid-Level Intermediate Representation (MIR).
+// LowerTo lowers a subtract expression to the MIR level.  This requires lowering all
+// of the arguments, and then computing "cross-product" of all combinations.
 func (e *Sub) LowerTo() []mir.Expr {
-	return LowerWithNaryConstructor(e.Args, func(nargs []mir.Expr) mir.Expr {
-		return &mir.Sub{nargs}
+	return lowerWithNaryConstructor(e.Args, func(nargs []mir.Expr) mir.Expr {
+		return &mir.Sub{Args: nargs}
 	})
 }
 
@@ -114,11 +122,11 @@ func (e *Sub) LowerTo() []mir.Expr {
 // Helpers
 // ============================================================================
 
-type BinaryConstructor func(mir.Expr, mir.Expr) mir.Expr
-type NaryConstructor func([]mir.Expr) mir.Expr
+type binaryConstructor func(mir.Expr, mir.Expr) mir.Expr
+type naryConstructor func([]mir.Expr) mir.Expr
 
 // LowerWithBinaryConstructor is a generic mechanism for lowering down to a binary expression.
-func LowerWithBinaryConstructor(lhs Expr, rhs Expr, create BinaryConstructor) []mir.Expr {
+func lowerWithBinaryConstructor(lhs Expr, rhs Expr, create binaryConstructor) []mir.Expr {
 	var res []mir.Expr
 	// Lower all three expressions
 	is := lhs.LowerTo()
@@ -157,17 +165,17 @@ func LowerWithBinaryConstructor(lhs Expr, rhs Expr, create BinaryConstructor) []
 //
 // This will expand into *four* MIR expressions (i.e. the cross
 // product of the left and right ifs).
-func LowerWithNaryConstructor(args []Expr, constructor NaryConstructor) []mir.Expr {
+func lowerWithNaryConstructor(args []Expr, constructor naryConstructor) []mir.Expr {
 	// Accumulator is initially empty
 	acc := make([]mir.Expr, len(args))
 	// Start from the first argument
-	return LowerWithNaryConstructorHelper(0, acc, args, constructor)
+	return lowerWithNaryConstructorHelper(0, acc, args, constructor)
 }
 
 // LowerWithNaryConstructorHelper manages progress through the cross-product expansion.
 // Specifically, "i" determines how much of args has been lowered thus
 // far, whilst "acc" represents the current array being generated.
-func LowerWithNaryConstructorHelper(i int, acc []mir.Expr, args []Expr, constructor NaryConstructor) []mir.Expr {
+func lowerWithNaryConstructorHelper(i int, acc []mir.Expr, args []Expr, constructor naryConstructor) []mir.Expr {
 	if i == len(acc) {
 		// Base Case
 		nacc := make([]mir.Expr, len(acc))
@@ -184,7 +192,7 @@ func LowerWithNaryConstructorHelper(i int, acc []mir.Expr, args []Expr, construc
 
 	for _, ith := range args[i].LowerTo() {
 		acc[i] = ith
-		iths := LowerWithNaryConstructorHelper(i+1, acc, args, constructor)
+		iths := lowerWithNaryConstructorHelper(i+1, acc, args, constructor)
 		nargs = append(nargs, iths...)
 	}
 

@@ -6,7 +6,7 @@ import (
 	"github.com/consensys/go-corset/pkg/mir"
 )
 
-type JsonType struct {
+type jsonType struct {
 	// Determines the representation of this type.  For example, a
 	// 8bit unsigned integer.
 	Magma any `json:"m"`
@@ -21,7 +21,7 @@ type JsonType struct {
 // Translation
 // =============================================================================
 
-func (e *JsonType) ToHir() mir.Type {
+func (e *jsonType) ToHir() mir.Type {
 	// Check whether magma is string
 	if str, ok := e.Magma.(string); ok {
 		switch str {

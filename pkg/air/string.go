@@ -17,22 +17,22 @@ func (e *Constant) String() string {
 }
 
 func (e *Add) String() string {
-	return NaryString("+", e.Arguments)
+	return naryString("+", e.Args)
 }
 
 func (e *Sub) String() string {
-	return NaryString("-", e.Arguments)
+	return naryString("-", e.Args)
 }
 
 func (e *Mul) String() string {
-	return NaryString("*", e.Arguments)
+	return naryString("*", e.Args)
 }
 
 func (e *Inverse) String() string {
 	return fmt.Sprintf("(inv %s)", e.Expr)
 }
 
-func NaryString(operator string, exprs []Expr) string {
+func naryString(operator string, exprs []Expr) string {
 	// This should be generalised and moved into common?
 	var rs string
 

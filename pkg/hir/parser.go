@@ -70,8 +70,7 @@ func newExprTranslator() *sexp.Translator[Expr] {
 }
 
 func sexpDeclaration(s sexp.SExp, schema *Schema, p *sexp.Translator[Expr]) error {
-	switch e := s.(type) {
-	case *sexp.List:
+	if e, ok := s.(*sexp.List); ok {
 		if e.Len() >= 2 && e.Len() <= 3 && e.MatchSymbols(2, "column") {
 			return sexpColumn(e.Elements, schema)
 		} else if e.Len() == 3 && e.MatchSymbols(2, "vanishing") {

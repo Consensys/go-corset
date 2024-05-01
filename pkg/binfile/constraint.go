@@ -4,23 +4,23 @@ import "github.com/consensys/go-corset/pkg/hir"
 
 // JsonConstraint аn enumeration of constraint forms.  Exactly one of these fields
 // must be non-nil to signify its form.
-type JsonConstraint struct {
-	Vanishes *JsonVanishingConstraint
+type jsonConstraint struct {
+	Vanishes *jsonVanishingConstraint
 }
 
 // JsonVanishingConstraint corresponds to a constraint whose expression must evaluate to zero
 // for every row of the table.
-type JsonVanishingConstraint struct {
+type jsonVanishingConstraint struct {
 	Handle string        `json:"handle"`
-	Domain JsonDomain    `json:"domain"`
-	Expr   JsonTypedExpr `json:"expr"`
+	Domain string        `json:"domain"`
+	Expr   jsonTypedExpr `json:"expr"`
 }
 
 // =============================================================================
 // Translation
 // =============================================================================
 
-func (e JsonConstraint) ToHir() hir.Constraint {
+func (e jsonConstraint) ToHir() hir.Constraint {
 	if e.Vanishes != nil {
 		// Translate the vanishing expression
 		expr := e.Vanishes.Expr.ToHir()

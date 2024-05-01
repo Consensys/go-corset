@@ -5,7 +5,8 @@ import (
 	"unicode"
 )
 
-// Parse .
+// Parse a given string into an S-expression, or return an error if the string
+// is malformed.
 func Parse(s string) (SExp, error) {
 	p := &Parser{s}
 	// Parse the input
@@ -18,7 +19,8 @@ func Parse(s string) (SExp, error) {
 	return sExp, err
 }
 
-// Parser represents parsing functionality with a string as an input.
+// Parser represents a parser in the process of parsing a given string into one
+// or more S-expressions.
 type Parser struct {
 	text string
 }
