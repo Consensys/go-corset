@@ -68,7 +68,7 @@ func (p *Parser) Next() string {
 	}
 
 	switch p.text[0] {
-	case '(', ')', ',':
+	case '(', ')':
 		// List begin / end
 		token := p.text[0:1]
 		p.text = p.text[1:]
@@ -78,7 +78,31 @@ func (p *Parser) Next() string {
 		// Whitespace
 		p.text = p.text[1:]
 		return p.Next()
+	case ';':
+		// Comment
+		return p.parseComment()
 	}
+	// Symbol
+	return p.parseSymbol()
+}
+
+// Lookahead and see what punctuation is next.
+func (p *Parser) Lookahead(i int) string {
+	if len(p.text) > i {
+		switch p.text[i] {
+		case '(', ')', ';':
+			return p.text[0:1]
+		case ' ', '\n':
+			return p.Lookahead(i + 1)
+		default:
+			return ""
+		}
+	}
+
+	return ""
+}
+
+func (p *Parser) parseSymbol() string {
 	// Parse token
 	i := len(p.text)
 
@@ -95,18 +119,18 @@ func (p *Parser) Next() string {
 	return token
 }
 
-// Lookahead and see what punctuation is next.
-func (p *Parser) Lookahead(i int) string {
-	if len(p.text) > i {
-		switch p.text[i] {
-		case '(', ')':
-			return p.text[0:1]
-		case ' ', '\n':
-			return p.Lookahead(i + 1)
-		default:
-			return ""
+func (p *Parser) parseComment() string {
+	// Parse token
+	i := len(p.text)
+
+	for j, c := range p.text {
+		if c == '\n' {
+			i = j
+			break
 		}
 	}
-
-	return ""
+	// Skipped comment
+	p.text = p.text[i:]
+	// Look for next token
+	return p.Next()
 }
