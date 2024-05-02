@@ -38,6 +38,8 @@ type Schema[C Column, R Constraint] struct {
 	// Constaint array.  For a trace of values to be well-formed
 	// with respect to this schema, each constraint must hold.
 	constraints []R
+	// Property assertions.
+	assertions []Assertion
 }
 
 // EmptySchema is used to construct a fresh schema onto which new columns and
@@ -48,7 +50,9 @@ func EmptySchema[C Column, R Constraint]() *Schema[C, R] {
 	p.columns = make([]C, 0)
 	// Initially empty constraints
 	p.constraints = make([]R, 0)
-	// Initialise height as 0
+	// Initialise empty assertions
+	p.assertions = make([]Assertion, 0)
+	// Done
 	return p
 }
 
