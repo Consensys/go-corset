@@ -3,17 +3,17 @@
 
 ;; In the first row, STAMP is always zero.  This allows for an
 ;; arbitrary amount of padding at the beginning which has no function.
-(vanishing:first first STAMP)
+(vanish:first first STAMP)
 
 ;; STAMP either remains constant, or increments by one.
-(vanishing increment (*
+(vanish increment (*
                       ;; STAMP[k] == STAMP[k+1]
                       (- STAMP (shift STAMP 1))
                       ;; Or, STAMP[k]+1 == STAMP[k+1]
                       (- (+ 1 STAMP) (shift STAMP 1))))
 
 ;; If STAMP changes, counter resets to zero.
-(vanishing reset (*
+(vanish reset (*
                   ;; STAMP[k] == STAMP[k+1]
                   (- STAMP (shift STAMP 1))
                   ;; Or, CT[k+1] == 0
@@ -21,7 +21,7 @@
 
 ;; If STAMP non-zero and reaches end-of-cycle, then stamp increments;
 ;; otherwise, counter increments.
-(vanishing heartbeat
+(vanish heartbeat
            (ifnot STAMP
                   ;; If CT == 3
                   (if (- 3 CT)

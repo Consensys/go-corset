@@ -1,3 +1,3 @@
 (column A)
 (column B)
-(vanishing c1 (ifnot A B))
+(vanish c1 (ifnot A B))

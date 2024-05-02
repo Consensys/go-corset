@@ -1,3 +1,3 @@
 (column X)
 (column Y)
-(vanishing c1 (* (shift X 1) Y))
+(vanish c1 (* (shift X 1) Y))

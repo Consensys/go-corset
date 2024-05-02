@@ -34,13 +34,13 @@ type Evaluable interface {
 // Vanishing Constraints
 // ===================================================================
 
-// VanishingConstraint on every row of the table, a vanishing constraint must evaluate to
-// zero.  The only exception is when the constraint is undefined
-// (e.g. because it references a non-existent table cell).  In such
-// case, the constraint is ignored.  This is parameterised by the type
-// of the constraint expression.  Thus, we can reuse this definition
-// across the various intermediate representations (e.g. Mid-Level IR,
-// Arithmetic IR, etc).
+// VanishingConstraint on every row of the table, a vanishing
+// constraint must evaluate to zero.  The only exception is when the
+// constraint is undefined (e.g. because it references a non-existent
+// table cell).  In such case, the constraint is ignored.  This is
+// parameterised by the type of the constraint expression.  Thus, we
+// can reuse this definition across the various intermediate
+// representations (e.g. Mid-Level IR, Arithmetic IR, etc).
 type VanishingConstraint[T Evaluable] struct {
 	// A unique identifier for this constraint.  This is primarily
 	// useful for debugging.
@@ -110,4 +110,33 @@ func (p *VanishingConstraint[T]) String() string {
 	}
 	//
 	return fmt.Sprintf("(vanishes:last %s %s)", p.Handle, any(p.Expr))
+}
+
+// ===================================================================
+// Property Assertion
+// ===================================================================
+
+// Assertion is similar to a vanishing constraint but is used only for
+// debugging / testing / verification.  Unlike vanishing constraints,
+// property assertions do not represent something that the prover can
+// enforce.  Rather, they represent properties which are expected to
+// hold for every valid trace.  That is, they should be implied by the
+// actual constraints.  Thus, whilst the prover cannot enforce such
+// properties, external tools (such as for formal verification) can
+// attempt to ensure they do indeed always hold.
+type Assertion struct {
+	// A unique identifier for this constraint.  This is primarily
+	// useful for debugging.
+	Handle string
+	// The actual assertion itself, namely an expression which
+	// should hold (i.e. vanish) for every row of a trace.
+	// Observe that this can be any function which is computable
+	// on a given trace --- we are not restricted to expressions
+	// which can be arithmetised.
+	Expr Evaluable
+}
+
+// GetHandle returns the handle associated with this constraint.
+func (p *Assertion) GetHandle() string {
+	return p.Handle
 }

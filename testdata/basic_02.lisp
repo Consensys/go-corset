@@ -1,4 +1,4 @@
 (column X)
 (column Y)
-(vanishing c1 (+ X Y))
-(vanishing c2 (+ Y X))
+(vanish c1 (+ X Y))
+(vanish c2 (+ Y X))

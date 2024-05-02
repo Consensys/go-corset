@@ -1,2 +1,2 @@
 (column X)
-(vanishing heartbeat X)
+(vanish heartbeat X)

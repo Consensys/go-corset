@@ -3,7 +3,7 @@
 (column ARG)
 
 ;; Increment or reset counter
-(vanishing heartbeat
+(vanish heartbeat
            ;; If CT[k] == 3
            (if (- 3 CT)
                ;; Then, CT[k+1] == 0
@@ -12,7 +12,7 @@
                (- (+ 1 CT) (shift CT 1))))
 
 ;; Argument accumulates byte values.
-(vanishing accumulator
+(vanish accumulator
            ;; If CT[k] == 0
            (if CT
                ;; Then, ARG == BYTE

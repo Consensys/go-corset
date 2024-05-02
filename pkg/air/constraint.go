@@ -19,13 +19,13 @@ type Constraint interface {
 // Vanishing Constraint
 // ===================================================================
 
-// VanishingConstraint on every row of the table, a vanishing constraint must evaluate to
-// zero.  The only exception is when the constraint is undefined
-// (e.g. because it references a non-existent table cell).  In such
-// case, the constraint is ignored.  This is parameterised by the type
-// of the constraint expression.  Thus, we can reuse this definition
-// across the various intermediate representations (e.g. Mid-Level IR,
-// Arithmetic IR, etc).
+// VanishingConstraint on every row of the table, a vanishing
+// constraint must evaluate to zero.  The only exception is when the
+// constraint is undefined (e.g. because it references a non-existent
+// table cell).  In such case, the constraint is ignored.  This is
+// parameterised by the type of the constraint expression.  Thus, we
+// can reuse this definition across the various intermediate
+// representations (e.g. Mid-Level IR, Arithmetic IR, etc).
 type VanishingConstraint struct {
 	// A unique identifier for this constraint.  This is primarily
 	// useful for debugging.
