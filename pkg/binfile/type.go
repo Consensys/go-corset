@@ -21,7 +21,7 @@ type jsonType struct {
 // Translation
 // =============================================================================
 
-func (e *jsonType) ToHir() mir.Type {
+func (e *jsonType) toHir() mir.Type {
 	// Check whether magma is string
 	if str, ok := e.Magma.(string); ok {
 		switch str {
