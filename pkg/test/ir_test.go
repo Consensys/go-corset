@@ -62,6 +62,22 @@ func TestEval_Basic_09(t *testing.T) {
 }
 
 // ===================================================================
+// Domain Tests
+// ===================================================================
+
+func TestEval_Domain_01(t *testing.T) {
+	Check(t, "domain_01")
+}
+
+func TestEval_Domain_02(t *testing.T) {
+	Check(t, "domain_02")
+}
+
+func TestEval_Domain_03(t *testing.T) {
+	Check(t, "domain_03")
+}
+
+// ===================================================================
 // Shift Tests
 // ===================================================================
 
@@ -131,6 +147,10 @@ func TestEval_If_01(t *testing.T) {
 
 func TestEval_If_02(t *testing.T) {
 	Check(t, "if_02")
+}
+
+func TestEval_If_03(t *testing.T) {
+	Check(t, "if_03")
 }
 
 // ===================================================================

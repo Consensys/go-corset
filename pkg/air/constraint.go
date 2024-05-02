@@ -30,6 +30,10 @@ type VanishingConstraint struct {
 	// A unique identifier for this constraint.  This is primarily
 	// useful for debugging.
 	Handle string
+	// Indicates (when nil) a global constraint that applies to all rows.
+	// Otherwise, indicates a local constraint which applies to the specific row
+	// given here.
+	Domain *int
 	// The actual constraint itself, namely an expression which
 	// should evaluate to zero.
 	Expr Expr
@@ -46,19 +50,12 @@ func (p *VanishingConstraint) IsAir() bool { return true }
 // Accepts checks whether a vanishing constraint evaluates to zero on every row
 // of a table.  If so, return nil otherwise return an error.
 func (p *VanishingConstraint) Accepts(tr table.Trace) error {
-	for k := 0; k < tr.Height(); k++ {
-		// Determine kth evaluation point
-		kth := p.Expr.EvalAt(k, tr)
-		// Check whether it vanished (or was undefined)
-		if kth != nil && !kth.IsZero() {
-			// Construct useful error message
-			msg := fmt.Sprintf("constraint %s does not vanish (row %d, %s)", p.Handle, k, kth)
-			// Evaluation failure
-			return errors.New(msg)
-		}
+	if p.Domain == nil {
+		// Global Constraint
+		return table.VanishesGlobally(p.Handle, p.Expr, tr)
 	}
-	// Success!
-	return nil
+	// Check specific row
+	return table.VanishesLocally(*p.Domain, p.Handle, p.Expr, tr)
 }
 
 // ===================================================================
