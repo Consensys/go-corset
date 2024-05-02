@@ -74,12 +74,12 @@ func sexpDeclaration(s sexp.SExp, schema *Schema, p *sexp.Translator[Expr]) erro
 	if e, ok := s.(*sexp.List); ok {
 		if e.Len() >= 2 && e.Len() <= 3 && e.MatchSymbols(2, "column") {
 			return sexpColumn(e.Elements, schema)
-		} else if e.Len() == 3 && e.MatchSymbols(2, "vanishing") {
+		} else if e.Len() == 3 && e.MatchSymbols(2, "vanish") {
 			return sexpVanishing(e.Elements, nil, schema, p)
-		} else if e.Len() == 3 && e.MatchSymbols(2, "vanishing:last") {
+		} else if e.Len() == 3 && e.MatchSymbols(2, "vanish:last") {
 			domain := -1
 			return sexpVanishing(e.Elements, &domain, schema, p)
-		} else if e.Len() == 3 && e.MatchSymbols(2, "vanishing:first") {
+		} else if e.Len() == 3 && e.MatchSymbols(2, "vanish:first") {
 			domain := 0
 			return sexpVanishing(e.Elements, &domain, schema, p)
 		}
