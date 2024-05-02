@@ -103,5 +103,11 @@ func VanishesLocally[E Evaluable](k int, handle string, expr E, tr Trace) error 
 }
 
 func (p *VanishingConstraint[T]) String() string {
-	return fmt.Sprintf("(vanishes %s %s)", p.Handle, any(p.Expr))
+	if p.Domain == nil {
+		return fmt.Sprintf("(vanishes %s %s)", p.Handle, any(p.Expr))
+	} else if *p.Domain == 0 {
+		return fmt.Sprintf("(vanishes:first %s %s)", p.Handle, any(p.Expr))
+	}
+	//
+	return fmt.Sprintf("(vanishes:last %s %s)", p.Handle, any(p.Expr))
 }

@@ -109,7 +109,7 @@ func HirSchemaFromJson(bytes []byte) (schema *hir.Schema, err error) {
 		// translated.  Unproven types are purely cosmetic and
 		// should be ignored.
 		if c.MustProve {
-			hType = c.Type.ToHir()
+			hType = c.Type.toHir()
 		} else {
 			hType = &mir.FieldType{}
 		}
@@ -118,7 +118,7 @@ func HirSchemaFromJson(bytes []byte) (schema *hir.Schema, err error) {
 	}
 	// Add constraints
 	for _, c := range res.Constraints {
-		schema.AddConstraint(c.ToHir())
+		schema.AddConstraint(c.toHir())
 	}
 
 	// For now return directly.
