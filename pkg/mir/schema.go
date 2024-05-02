@@ -26,6 +26,6 @@ func LowerToAir(mirSchema *Schema, airSchema *air.Schema) {
 		// VanishingConstraint.  Eventually this will not be
 		// true.
 		air_expr := c.Expr.LowerTo(airSchema)
-		airSchema.AddConstraint(&air.VanishingConstraint{Handle: c.Handle, Expr: air_expr})
+		airSchema.AddConstraint(&air.VanishingConstraint{Handle: c.Handle, Domain: c.Domain, Expr: air_expr})
 	}
 }

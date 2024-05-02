@@ -25,7 +25,7 @@ func LowerToMir(hirSchema *Schema, mirSchema *mir.Schema) {
 		mir_exprs := c.Expr.LowerTo()
 		// Add individual constraints arising
 		for _, mir_expr := range mir_exprs {
-			mirSchema.AddConstraint(&mir.VanishingConstraint{Handle: c.Handle, Expr: mir_expr})
+			mirSchema.AddConstraint(&mir.VanishingConstraint{Handle: c.Handle, Domain: c.Domain, Expr: mir_expr})
 		}
 	}
 }

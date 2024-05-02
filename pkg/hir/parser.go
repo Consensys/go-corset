@@ -65,6 +65,7 @@ func newExprTranslator() *sexp.Translator[Expr] {
 	p.AddRecursiveRule("*", sexpMul)
 	p.AddRecursiveRule("~", sexpNorm)
 	p.AddRecursiveRule("if", sexpIf)
+	p.AddRecursiveRule("ifnot", sexpIfNot)
 
 	return p
 }
@@ -74,7 +75,13 @@ func sexpDeclaration(s sexp.SExp, schema *Schema, p *sexp.Translator[Expr]) erro
 		if e.Len() >= 2 && e.Len() <= 3 && e.MatchSymbols(2, "column") {
 			return sexpColumn(e.Elements, schema)
 		} else if e.Len() == 3 && e.MatchSymbols(2, "vanishing") {
-			return sexpVanishing(e.Elements, schema, p)
+			return sexpVanishing(e.Elements, nil, schema, p)
+		} else if e.Len() == 3 && e.MatchSymbols(2, "vanishing:last") {
+			domain := -1
+			return sexpVanishing(e.Elements, &domain, schema, p)
+		} else if e.Len() == 3 && e.MatchSymbols(2, "vanishing:first") {
+			domain := 0
+			return sexpVanishing(e.Elements, &domain, schema, p)
 		}
 	}
 
@@ -102,7 +109,7 @@ func sexpColumn(elements []sexp.SExp, schema *Schema) error {
 }
 
 // Parse a vanishing declaration
-func sexpVanishing(elements []sexp.SExp, schema *Schema, p *sexp.Translator[Expr]) error {
+func sexpVanishing(elements []sexp.SExp, domain *int, schema *Schema, p *sexp.Translator[Expr]) error {
 	handle := elements[1].String()
 
 	expr, err := p.Translate(elements[2])
@@ -110,7 +117,7 @@ func sexpVanishing(elements []sexp.SExp, schema *Schema, p *sexp.Translator[Expr
 		return err
 	}
 
-	schema.AddConstraint(&VanishingConstraint{Handle: handle, Expr: expr})
+	schema.AddConstraint(&VanishingConstraint{Handle: handle, Domain: domain, Expr: expr})
 
 	return nil
 }
@@ -161,6 +168,14 @@ func sexpIf(args []Expr) (Expr, error) {
 		return &IfZero{args[0], args[1], nil}, nil
 	} else if len(args) == 3 {
 		return &IfZero{args[0], args[1], args[2]}, nil
+	}
+
+	return nil, fmt.Errorf("incorrect number of arguments: {%d}", len(args))
+}
+
+func sexpIfNot(args []Expr) (Expr, error) {
+	if len(args) == 2 {
+		return &IfZero{args[0], nil, args[1]}, nil
 	}
 
 	return nil, fmt.Errorf("incorrect number of arguments: {%d}", len(args))

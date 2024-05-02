@@ -45,6 +45,10 @@ type VanishingConstraint[T Evaluable] struct {
 	// A unique identifier for this constraint.  This is primarily
 	// useful for debugging.
 	Handle string
+	// Indicates (when nil) a global constraint that applies to all rows.
+	// Otherwise, indicates a local constraint which applies to the specific row
+	// given here.
+	Domain *int
 	// The actual constraint itself, namely an expression which
 	// should evaluate to zero.
 	Expr T
@@ -58,19 +62,43 @@ func (p *VanishingConstraint[T]) GetHandle() string {
 // Accepts checks whether a vanishing constraint evaluates to zero on every row
 // of a table.  If so, return nil otherwise return an error.
 func (p *VanishingConstraint[T]) Accepts(tr Trace) error {
+	if p.Domain == nil {
+		// Global Constraint
+		return VanishesGlobally(p.Handle, p.Expr, tr)
+	}
+	// Check specific row
+	return VanishesLocally(*p.Domain, p.Handle, p.Expr, tr)
+}
+
+// VanishesGlobally checks whether a given expression vanishes (i.e. evaluates to
+// zero) for all rows of a trace.  If not, report an appropriate error.
+func VanishesGlobally[E Evaluable](handle string, expr E, tr Trace) error {
 	for k := 0; k < tr.Height(); k++ {
-		// Determine kth evaluation point
-		kth := p.Expr.EvalAt(k, tr)
-		// Check whether it vanished (or was undefined)
-		if kth != nil && !kth.IsZero() {
-			// Construct useful error message
-			msg := fmt.Sprintf("constraint %s does not vanish (row %d, %s)", p.Handle, k, kth)
-			// Evaluation failure
-			return errors.New(msg)
+		if err := VanishesLocally(k, handle, expr, tr); err != nil {
+			return err
 		}
 	}
+	// Success
+	return nil
+}
 
-	// Success!
+// VanishesLocally checks whether a given expression vanishes (i.e. evaluates to zero)
+// on a specific row of a trace. If not, report an appropriate error.
+func VanishesLocally[E Evaluable](k int, handle string, expr E, tr Trace) error {
+	// Negative rows calculated from end of trace.
+	if k < 0 {
+		k += tr.Height()
+	}
+	// Determine kth evaluation point
+	kth := expr.EvalAt(k, tr)
+	// Check whether it vanished (or was undefined)
+	if kth != nil && !kth.IsZero() {
+		// Construct useful error message
+		msg := fmt.Sprintf("constraint %s does not vanish (row %d, %s)", handle, k, kth)
+		// Evaluation failure
+		return errors.New(msg)
+	}
+	// Success
 	return nil
 }
 
