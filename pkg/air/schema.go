@@ -5,10 +5,13 @@ import (
 	"github.com/consensys/go-corset/pkg/table"
 )
 
+// DataColumn captures the essence of a data column at AIR level.
+type DataColumn = *table.DataColumn[*table.FieldType]
+
 // Schema for AIR traces.
 type Schema struct {
 	// The data columns of this schema.
-	dataColumns []*table.DataColumn
+	dataColumns []DataColumn
 	// The computed columns of this schema.
 	computedColumns []*table.ComputedColumn[Expr]
 	// The vanishing constraints of this schema.
@@ -23,7 +26,7 @@ type Schema struct {
 // constraints will be added.
 func EmptySchema() *Schema {
 	p := new(Schema)
-	p.dataColumns = make([]*table.DataColumn, 0)
+	p.dataColumns = make([]DataColumn, 0)
 	p.computedColumns = make([]*table.ComputedColumn[Expr], 0)
 	p.vanishing = make([]*table.VanishingConstraint[Expr], 0)
 	p.ranges = make([]*table.RangeConstraint, 0)
@@ -35,13 +38,13 @@ func EmptySchema() *Schema {
 // HasColumn checks whether a given schema has a given column.
 func (p *Schema) HasColumn(name string) bool {
 	for _, c := range p.dataColumns {
-		if c.Name() == name {
+		if c.Name == name {
 			return true
 		}
 	}
 
 	for _, c := range p.computedColumns {
-		if c.Name() == name {
+		if c.Name == name {
 			return true
 		}
 	}
@@ -51,7 +54,7 @@ func (p *Schema) HasColumn(name string) bool {
 
 // AddDataColumn appends a new data column.
 func (p *Schema) AddDataColumn(name string) {
-	p.dataColumns = append(p.dataColumns, table.NewDataColumn(name))
+	p.dataColumns = append(p.dataColumns, table.NewDataColumn(name, &table.FieldType{}))
 }
 
 // AddComputedColumn appends a new computed column.
@@ -69,23 +72,23 @@ func (p *Schema) AddRangeConstraint(column string, bound *fr.Element) {
 	p.ranges = append(p.ranges, table.NewRangeConstraint(column, bound))
 }
 
-// AcceptsTrace determines whether this schema will accept a given trace.  That
+// Accepts determines whether this schema will accept a given trace.  That
 // is, whether or not the given trace adheres to the schema.  A trace can fail
 // to adhere to the schema for a variety of reasons, such as having a constraint
 // which does not hold.
-func (p *Schema) AcceptsTrace(trace table.Trace) (error, bool) {
+func (p *Schema) Accepts(trace table.Trace) (bool, error) {
 	// Check vanishing constraints
-	err, warning := table.ForallAcceptTrace(trace, p.vanishing)
+	warning, err := table.ForallAcceptTrace(trace, p.vanishing)
 	if err != nil {
-		return err, warning
+		return warning, err
 	}
 	// Check range constraints
-	err, warning = table.ForallAcceptTrace(trace, p.ranges)
+	warning, err = table.ForallAcceptTrace(trace, p.ranges)
 	if err != nil {
-		return err, warning
+		return warning, err
 	}
 
-	return nil, false
+	return false, nil
 }
 
 // ExpandTrace expands a given trace according to this schema.  More
@@ -94,7 +97,7 @@ func (p *Schema) AcceptsTrace(trace table.Trace) (error, bool) {
 // order.
 func (p *Schema) ExpandTrace(tr table.Trace) {
 	for _, c := range p.computedColumns {
-		if !tr.HasColumn(c.Name()) {
+		if !tr.HasColumn(c.Name) {
 			data := make([]*fr.Element, tr.Height())
 			// Expand the trace
 			for i := 0; i < len(data); i++ {
@@ -107,7 +110,7 @@ func (p *Schema) ExpandTrace(tr table.Trace) {
 				}
 			}
 			// Colunm needs to be expanded.
-			tr.AddColumn(c.Name(), data)
+			tr.AddColumn(c.Name, data)
 		}
 	}
 }

@@ -1,104 +1,11 @@
-package mir
+package table
 
 import (
-	"errors"
 	"fmt"
-
 	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/air"
-	"github.com/consensys/go-corset/pkg/table"
 )
-
-// Column captures the essence of a column at the MIR level.  Specifically, an
-// MIR column can be lowered to an AIR column.
-type Column interface {
-	// hir.Column is-a Column.
-	table.Column
-	// // LowerTo lowers this column to an MirColumn.
-	// LowerTo(*air.Schema) air.Column
-}
-
-// DataColumn represents a column of user-provided values.
-type DataColumn struct {
-	name string
-	// A constraint on the range of values permitted for this column.
-	base Type
-}
-
-// NewDataColumn constructs a new data column with a given name and base type.
-func NewDataColumn(name string, base Type) *DataColumn {
-	return &DataColumn{name, base}
-}
-
-// Name returns the name of this column.
-func (c *DataColumn) Name() string {
-	return c.name
-}
-
-// Computable determines whether or not this column can be computed from the
-// existing columns of a trace.  That is, whether or not there is a known
-// expression which determines the values for this column based on others in the
-// trace.  Data columns are not computable.
-func (c *DataColumn) Computable() bool {
-	return false
-}
-
-// Get the value of this column at a given row in a given trace.
-func (c *DataColumn) Get(row int, tr table.Trace) (*fr.Element, error) {
-	return tr.GetByName(c.name, row)
-}
-
-// Accepts determines whether or not this column accepts the given trace.  For a
-// data column, this means ensuring that all elements are value for the columns
-// type.
-func (c *DataColumn) Accepts(tr table.Trace) error {
-	for i := 0; i < tr.Height(); i++ {
-		val, err := tr.GetByName(c.name, i)
-		if err != nil {
-			return err
-		}
-
-		if !c.base.Accept(val) {
-			// Construct useful error message
-			msg := fmt.Sprintf("column %s value out-of-bounds (row %d, %s)", c.name, i, val)
-			// Evaluation failure
-			return errors.New(msg)
-		}
-	}
-	// All good
-	return nil
-}
-
-// LowerTo lowers this datacolumn to the AIR level.  The main effect of this is
-// that, for columns with non-trivial types, we must add appropriate range
-// constraints to the enclosing schema.
-func (c *DataColumn) LowerTo(schema *air.Schema) {
-	// Check whether a constraint is implied by the column's type
-	if t := c.base.AsUint(); t != nil {
-		// Yes, a constraint is implied.  Now, decide whether to use a range
-		// constraint or just a vanishing constraint.
-		if t.HasBound(2) {
-			// u1 => use vanishing constraint X * (X - 1)
-			one := fr.NewElement(1)
-			// Construct X
-			X := &air.ColumnAccess{Column: c.name, Shift: 0}
-			// Construct X-1
-			X_m1 := &air.Sub{Args: []air.Expr{X, &air.Constant{Value: &one}}}
-			// Construct X * (X-1)
-			X_X_m1 := &air.Mul{Args: []air.Expr{X, X, X_m1}}
-			//
-			schema.AddVanishingConstraint(c.name, nil, X_X_m1)
-		} else {
-			// u2+ => use range constraint
-			schema.AddRangeConstraint(c.name, t.bound)
-		}
-	}
-	// Finally, add an (untyped) data column representing this
-	// data column.
-	schema.AddDataColumn(c.name)
-}
 
 // Type represents a _column type_ which restricts the set of values a column
 // can take on.  For example, a column might be restricted to holding only byte
@@ -164,6 +71,11 @@ func (p *UintType) Accept(val *fr.Element) bool {
 func (p *UintType) HasBound(bound uint64) bool {
 	var n fr.Element = fr.NewElement(bound)
 	return p.bound.Cmp(&n) == 0
+}
+
+// Bound determines the actual bound for all values which are in this type.
+func (p *UintType) Bound() *fr.Element {
+	return p.bound
 }
 
 func (p *UintType) String() string {

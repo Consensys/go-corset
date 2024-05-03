@@ -10,7 +10,7 @@ import (
 // Acceptor represents an element which can "accept" a trace, or
 // either reject with an error or report a warning.
 type Acceptor interface {
-	Accepts(Trace) (error, bool)
+	Accepts(Trace) (bool, error)
 }
 
 // Trace describes a set of named columns.  Columns are not required to have the
@@ -38,18 +38,17 @@ type Trace interface {
 	AddColumn(name string, data []*fr.Element)
 }
 
-// ForallAcceptTrace determines whether or not an array of constraints
-// accepts a given trace.  It returns the first error or warning
-// encountered.
-func ForallAcceptTrace[T Acceptor](trace Trace, constraints []T) (error, bool) {
+// ForallAcceptTrace determines whether or not one or more groups of constraints
+// accept a given trace.  It returns the first error or warning encountered.
+func ForallAcceptTrace[T Acceptor](trace Trace, constraints []T) (bool, error) {
 	for _, c := range constraints {
-		err, warning := c.Accepts(trace)
+		warning, err := c.Accepts(trace)
 		if err != nil {
-			return err, warning
+			return warning, err
 		}
 	}
 	//
-	return nil, false
+	return false, nil
 }
 
 // ===================================================================

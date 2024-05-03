@@ -7,14 +7,6 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
 
-// Constraint is an abstract notion of a constraint which must hold true for a given
-// table.
-type Constraint interface {
-	Acceptor
-	// GetHandle gets the handle for this constraint (i.e. its name).
-	GetHandle() string
-}
-
 // Evaluable captures something which can be evaluated on a given table row to
 // produce an evaluation point.  For example, expressions in the
 // Mid-Level or Arithmetic-Level IR can all be evaluated at rows of a
@@ -65,13 +57,13 @@ func (p *VanishingConstraint[T]) GetHandle() string {
 
 // Accepts checks whether a vanishing constraint evaluates to zero on every row
 // of a table.  If so, return nil otherwise return an error.
-func (p *VanishingConstraint[T]) Accepts(tr Trace) (error, bool) {
+func (p *VanishingConstraint[T]) Accepts(tr Trace) (bool, error) {
 	if p.Domain == nil {
 		// Global Constraint
-		return VanishesGlobally(p.Handle, p.Expr, tr), false
+		return false, VanishesGlobally(p.Handle, p.Expr, tr)
 	}
 	// Check specific row
-	return VanishesLocally(*p.Domain, p.Handle, p.Expr, tr), false
+	return false, VanishesLocally(*p.Domain, p.Handle, p.Expr, tr)
 }
 
 // VanishesGlobally checks whether a given expression vanishes (i.e. evaluates to
@@ -149,24 +141,24 @@ func (p *RangeConstraint) IsAir() bool { return true }
 
 // Accepts checks whether a vanishing constraint evaluates to zero on every row
 // of a table. If so, return nil otherwise return an error.
-func (p *RangeConstraint) Accepts(tr Trace) (error, bool) {
+func (p *RangeConstraint) Accepts(tr Trace) (bool, error) {
 	for k := 0; k < tr.Height(); k++ {
 		// Get the value on the kth row
 		kth, err := tr.GetByName(p.Handle, k)
 		// Sanity check column exists!
 		if err != nil {
-			return err, false
+			return false, err
 		}
 		// Perform the bounds check
 		if kth != nil && kth.Cmp(p.Bound) >= 0 {
 			// Construct useful error message
 			msg := fmt.Sprintf("value out-of-bounds (row %d, %s)", kth, p.Handle)
 			// Evaluation failure
-			return errors.New(msg), false
+			return false, errors.New(msg)
 		}
 	}
 	// All good
-	return nil, false
+	return false, nil
 }
 
 // ===================================================================

@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/mir"
 	"github.com/consensys/go-corset/pkg/sexp"
 	"github.com/consensys/go-corset/pkg/table"
 )
@@ -30,7 +29,7 @@ func ParseSchemaSExp(s string) (*Schema, error) {
 	t := newExprTranslator()
 	p := sexp.NewParser(s)
 	// Construct initially empty schema
-	schema := table.EmptySchema[Column, Constraint]()
+	schema := EmptySchema()
 	// Continue parsing string until nothing remains.
 	for {
 		sRest, err := p.Parse()
@@ -92,7 +91,7 @@ func sexpDeclaration(s sexp.SExp, schema *Schema, p *sexp.Translator[Expr]) erro
 func sexpColumn(elements []sexp.SExp, schema *Schema) error {
 	columnName := elements[1].String()
 
-	var columnType mir.Type = &mir.FieldType{}
+	var columnType table.Type = &table.FieldType{}
 
 	if len(elements) == 3 {
 		var err error
@@ -103,7 +102,7 @@ func sexpColumn(elements []sexp.SExp, schema *Schema) error {
 		}
 	}
 
-	schema.AddColumn(NewDataColumn(columnName, columnType))
+	schema.AddDataColumn(columnName, columnType)
 
 	return nil
 }
@@ -117,19 +116,19 @@ func sexpVanishing(elements []sexp.SExp, domain *int, schema *Schema, p *sexp.Tr
 		return err
 	}
 
-	schema.AddConstraint(&VanishingConstraint{Handle: handle, Domain: domain, Expr: expr})
+	schema.AddVanishingConstraint(handle, domain, expr)
 
 	return nil
 }
 
-func sexpType(symbol string) (mir.Type, error) {
+func sexpType(symbol string) (table.Type, error) {
 	if strings.HasPrefix(symbol, ":u") {
 		n, err := strconv.Atoi(symbol[2:])
 		if err != nil {
 			return nil, err
 		}
 
-		return mir.NewUintType(uint(n)), nil
+		return table.NewUintType(uint(n)), nil
 	}
 
 	return nil, fmt.Errorf("unexpected type: %s", symbol)

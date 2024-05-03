@@ -3,7 +3,7 @@ package binfile
 import (
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/mir"
+	"github.com/consensys/go-corset/pkg/table"
 )
 
 type jsonType struct {
@@ -21,16 +21,16 @@ type jsonType struct {
 // Translation
 // =============================================================================
 
-func (e *jsonType) toHir() mir.Type {
+func (e *jsonType) toHir() table.Type {
 	// Check whether magma is string
 	if str, ok := e.Magma.(string); ok {
 		switch str {
 		case "Native":
-			return &mir.FieldType{}
+			return &table.FieldType{}
 		case "Byte":
-			return mir.NewUintType(8)
+			return table.NewUintType(8)
 		case "Binary":
-			return mir.NewUintType(1)
+			return table.NewUintType(1)
 		default:
 			panic(fmt.Sprintf("Unknown JSON type encountered: %s:%s", e.Magma, e.Conditioning))
 		}
@@ -39,7 +39,7 @@ func (e *jsonType) toHir() mir.Type {
 	if intMap, ok := e.Magma.(map[string]any); ok {
 		if val, isInt := intMap["Integer"]; isInt {
 			nbits := uint(val.(float64))
-			return mir.NewUintType(nbits)
+			return table.NewUintType(nbits)
 		}
 	}
 	// Fail
