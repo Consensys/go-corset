@@ -85,7 +85,7 @@ func (c *DataColumn) Accepts(tr table.Trace) error {
 			return err
 		}
 
-		if !c.base.Accepts(val) {
+		if !c.base.Accept(val) {
 			// Construct useful error message
 			msg := fmt.Sprintf("column %s value out-of-bounds (row %d, %s)", c.name, i, val)
 			// Evaluation failure

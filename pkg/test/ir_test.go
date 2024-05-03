@@ -218,7 +218,7 @@ func Check(t *testing.T, test string) {
 func CheckTraces(t *testing.T, test string, expected bool, traces []*table.ArrayTrace, hirSchema *hir.Schema) {
 	for i, tr := range traces {
 		mirSchema := table.EmptySchema[mir.Column, mir.Constraint]()
-		airSchema := table.EmptySchema[air.Column, air.Constraint]()
+		airSchema := air.EmptySchema()
 		// Lower HIR => MIR
 		hir.LowerToMir(hirSchema, mirSchema)
 		// Lower MIR => AIR
@@ -231,7 +231,8 @@ func CheckTraces(t *testing.T, test string, expected bool, traces []*table.Array
 		// Perform trace expansion
 		airSchema.ExpandTrace(tr)
 		// Check AIR trace
-		checkTrace(t, "AIR", test, i+1, expected, airSchema.AcceptsTrace(tr))
+		err, _ := airSchema.AcceptsTrace(tr)
+		checkTrace(t, "AIR", test, i+1, expected, err == nil)
 	}
 }
 

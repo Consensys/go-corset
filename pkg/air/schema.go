@@ -1,8 +1,113 @@
 package air
 
 import (
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/table"
 )
 
-// Schema for AIR constraints and columns.
-type Schema = table.Schema[Column, Constraint]
+// Schema for AIR traces.
+type Schema struct {
+	// The data columns of this schema.
+	dataColumns []*table.DataColumn
+	// The computed columns of this schema.
+	computedColumns []*table.ComputedColumn[Expr]
+	// The vanishing constraints of this schema.
+	vanishing []*table.VanishingConstraint[Expr]
+	// The range constraints of this schema.
+	ranges []*table.RangeConstraint
+	// Property assertions.
+	assertions []*table.Assertion
+}
+
+// EmptySchema is used to construct a fresh schema onto which new columns and
+// constraints will be added.
+func EmptySchema() *Schema {
+	p := new(Schema)
+	p.dataColumns = make([]*table.DataColumn, 0)
+	p.computedColumns = make([]*table.ComputedColumn[Expr], 0)
+	p.vanishing = make([]*table.VanishingConstraint[Expr], 0)
+	p.ranges = make([]*table.RangeConstraint, 0)
+	p.assertions = make([]*table.Assertion, 0)
+	// Done
+	return p
+}
+
+// HasColumn checks whether a given schema has a given column.
+func (p *Schema) HasColumn(name string) bool {
+	for _, c := range p.dataColumns {
+		if c.Name() == name {
+			return true
+		}
+	}
+
+	for _, c := range p.computedColumns {
+		if c.Name() == name {
+			return true
+		}
+	}
+
+	return false
+}
+
+// AddDataColumn appends a new data column.
+func (p *Schema) AddDataColumn(name string) {
+	p.dataColumns = append(p.dataColumns, table.NewDataColumn(name))
+}
+
+// AddComputedColumn appends a new computed column.
+func (p *Schema) AddComputedColumn(name string, expr Expr) {
+	p.computedColumns = append(p.computedColumns, table.NewComputedColumn(name, expr))
+}
+
+// AddVanishingConstraint appends a new vanishing constraint.
+func (p *Schema) AddVanishingConstraint(handle string, domain *int, expr Expr) {
+	p.vanishing = append(p.vanishing, table.NewVanishingConstraint(handle, domain, expr))
+}
+
+// AddRangeConstraint appends a new range constraint.
+func (p *Schema) AddRangeConstraint(column string, bound *fr.Element) {
+	p.ranges = append(p.ranges, table.NewRangeConstraint(column, bound))
+}
+
+// AcceptsTrace determines whether this schema will accept a given trace.  That
+// is, whether or not the given trace adheres to the schema.  A trace can fail
+// to adhere to the schema for a variety of reasons, such as having a constraint
+// which does not hold.
+func (p *Schema) AcceptsTrace(trace table.Trace) (error, bool) {
+	// Check vanishing constraints
+	err, warning := table.ForallAcceptTrace(trace, p.vanishing)
+	if err != nil {
+		return err, warning
+	}
+	// Check range constraints
+	err, warning = table.ForallAcceptTrace(trace, p.ranges)
+	if err != nil {
+		return err, warning
+	}
+
+	return nil, false
+}
+
+// ExpandTrace expands a given trace according to this schema.  More
+// specifically, that means computing the actual values for any computed
+// columns. Observe that computed columns have to be computed in the correct
+// order.
+func (p *Schema) ExpandTrace(tr table.Trace) {
+	for _, c := range p.computedColumns {
+		if !tr.HasColumn(c.Name()) {
+			data := make([]*fr.Element, tr.Height())
+			// Expand the trace
+			for i := 0; i < len(data); i++ {
+				var err error
+				// NOTE: at the moment Get cannot return an error anyway
+				data[i], err = c.Get(i, tr)
+				// FIXME: we need proper error handling
+				if err != nil {
+					panic(err)
+				}
+			}
+			// Colunm needs to be expanded.
+			tr.AddColumn(c.Name(), data)
+		}
+	}
+}

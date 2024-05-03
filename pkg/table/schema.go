@@ -12,8 +12,6 @@ type Column interface {
 	// Get the value at a given row in this column, or return an
 	// error.
 	Get(row int, tr Trace) (*fr.Element, error)
-	// Determine whether this is a computed column or not
-	Computable() bool
 	// Check whether or not this column accepts a particular
 	// trace.  A column might reject a trace if the values in that
 	// trace do not meet some specific requirement (e.g. they are
@@ -81,7 +79,7 @@ func (p *Schema[C, R]) AcceptsTrace(trace Trace) bool {
 	}
 
 	for _, c := range p.Constraints() {
-		err := c.Accepts(trace)
+		err, _ := c.Accepts(trace)
 		if err != nil {
 			return false
 		}
@@ -121,28 +119,4 @@ func (p *Schema[C, R]) AddConstraint(constraint R) {
 func (p *Schema[C, R]) AddColumn(column C) {
 	// TODO: check the column does not already exist?
 	p.columns = append(p.columns, column)
-}
-
-// ExpandTrace expands a given trace according to this schema.  More
-// specifically, that means computing the actual values for any computed
-// columns. Observe that computed columns have to be computed in the correct
-// order.
-func (p *Schema[C, R]) ExpandTrace(tr Trace) {
-	for _, c := range p.columns {
-		if c.Computable() && !tr.HasColumn(c.Name()) {
-			data := make([]*fr.Element, tr.Height())
-			// Expand the trace
-			for i := 0; i < len(data); i++ {
-				var err error
-				// NOTE: at the moment Get cannot return an error anyway
-				data[i], err = c.Get(i, tr)
-				// FIXME: we need proper error handling
-				if err != nil {
-					panic(err)
-				}
-			}
-			// Colunm needs to be expanded.
-			tr.AddColumn(c.Name(), data)
-		}
-	}
 }

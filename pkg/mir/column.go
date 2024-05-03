@@ -16,8 +16,8 @@ import (
 type Column interface {
 	// hir.Column is-a Column.
 	table.Column
-	// LowerTo lowers this column to an MirColumn.
-	LowerTo(*air.Schema) air.Column
+	// // LowerTo lowers this column to an MirColumn.
+	// LowerTo(*air.Schema) air.Column
 }
 
 // DataColumn represents a column of user-provided values.
@@ -60,7 +60,7 @@ func (c *DataColumn) Accepts(tr table.Trace) error {
 			return err
 		}
 
-		if !c.base.Accepts(val) {
+		if !c.base.Accept(val) {
 			// Construct useful error message
 			msg := fmt.Sprintf("column %s value out-of-bounds (row %d, %s)", c.name, i, val)
 			// Evaluation failure
@@ -74,7 +74,7 @@ func (c *DataColumn) Accepts(tr table.Trace) error {
 // LowerTo lowers this datacolumn to the AIR level.  The main effect of this is
 // that, for columns with non-trivial types, we must add appropriate range
 // constraints to the enclosing schema.
-func (c *DataColumn) LowerTo(schema *air.Schema) air.Column {
+func (c *DataColumn) LowerTo(schema *air.Schema) {
 	// Check whether a constraint is implied by the column's type
 	if t := c.base.AsUint(); t != nil {
 		// Yes, a constraint is implied.  Now, decide whether to use a range
@@ -89,14 +89,15 @@ func (c *DataColumn) LowerTo(schema *air.Schema) air.Column {
 			// Construct X * (X-1)
 			X_X_m1 := &air.Mul{Args: []air.Expr{X, X, X_m1}}
 			//
-			schema.AddConstraint(&air.VanishingConstraint{Handle: c.name, Expr: X_X_m1})
+			schema.AddVanishingConstraint(c.name, nil, X_X_m1)
 		} else {
 			// u2+ => use range constraint
-			schema.AddConstraint(&air.RangeConstraint{Handle: c.name, Bound: t.bound})
+			schema.AddRangeConstraint(c.name, t.bound)
 		}
 	}
-
-	return air.NewDataColumn(c.name)
+	// Finally, add an (untyped) data column representing this
+	// data column.
+	schema.AddDataColumn(c.name)
 }
 
 // Type represents a _column type_ which restricts the set of values a column
@@ -111,8 +112,8 @@ type Type interface {
 	// field element, then this returns nil.
 	AsField() *FieldType
 
-	// Accepts checks whether a specific value is accepted by this type
-	Accepts(*fr.Element) bool
+	// Accept checks whether a specific value is accepted by this type
+	Accept(*fr.Element) bool
 
 	// Produce a string representation of this type.
 	String() string
@@ -151,9 +152,9 @@ func (p *UintType) AsField() *FieldType {
 	return nil
 }
 
-// Accepts determines whether a given value is an element of this type.  For
+// Accept determines whether a given value is an element of this type.  For
 // example, 123 is an element of the type u8 whilst 256 is not.
-func (p *UintType) Accepts(val *fr.Element) bool {
+func (p *UintType) Accept(val *fr.Element) bool {
 	return val.Cmp(p.bound) < 0
 }
 
@@ -185,9 +186,9 @@ func (p *FieldType) AsField() *FieldType {
 	return p
 }
 
-// Accepts determines whether a given value is an element of this type.  In
+// Accept determines whether a given value is an element of this type.  In
 // fact, all field elements are members of this type.
-func (p *FieldType) Accepts(val *fr.Element) bool {
+func (p *FieldType) Accept(val *fr.Element) bool {
 	return true
 }
 

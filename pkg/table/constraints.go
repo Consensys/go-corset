@@ -10,10 +10,9 @@ import (
 // Constraint is an abstract notion of a constraint which must hold true for a given
 // table.
 type Constraint interface {
+	Acceptor
 	// GetHandle gets the handle for this constraint (i.e. its name).
 	GetHandle() string
-	// Accepts checks whether this constraint accepts a particular trace.
-	Accepts(Trace) error
 }
 
 // Evaluable captures something which can be evaluated on a given table row to
@@ -54,6 +53,11 @@ type VanishingConstraint[T Evaluable] struct {
 	Expr T
 }
 
+// NewVanishingConstraint constructs a new vanishing constraint!
+func NewVanishingConstraint[T Evaluable](handle string, domain *int, expr T) *VanishingConstraint[T] {
+	return &VanishingConstraint[T]{handle, domain, expr}
+}
+
 // GetHandle returns the handle associated with this constraint.
 func (p *VanishingConstraint[T]) GetHandle() string {
 	return p.Handle
@@ -61,13 +65,13 @@ func (p *VanishingConstraint[T]) GetHandle() string {
 
 // Accepts checks whether a vanishing constraint evaluates to zero on every row
 // of a table.  If so, return nil otherwise return an error.
-func (p *VanishingConstraint[T]) Accepts(tr Trace) error {
+func (p *VanishingConstraint[T]) Accepts(tr Trace) (error, bool) {
 	if p.Domain == nil {
 		// Global Constraint
-		return VanishesGlobally(p.Handle, p.Expr, tr)
+		return VanishesGlobally(p.Handle, p.Expr, tr), false
 	}
 	// Check specific row
-	return VanishesLocally(*p.Domain, p.Handle, p.Expr, tr)
+	return VanishesLocally(*p.Domain, p.Handle, p.Expr, tr), false
 }
 
 // VanishesGlobally checks whether a given expression vanishes (i.e. evaluates to
@@ -110,6 +114,59 @@ func (p *VanishingConstraint[T]) String() string {
 	}
 	//
 	return fmt.Sprintf("(vanishes:last %s %s)", p.Handle, any(p.Expr))
+}
+
+// ===================================================================
+// Range Constraint
+// ===================================================================
+
+// RangeConstraint restricts all values in a given column to be
+// within a range [0..n) for some bound n.  For example, a bound of
+// 256 would restrict all values to be bytes.
+type RangeConstraint struct {
+	// A unique identifier for this constraint.  This is primarily
+	// useful for debugging.
+	Handle string
+	// The actual constraint itself, namely an expression which
+	// should evaluate to zero.  NOTE: an fr.Element is used here
+	// to store the bound simply to make the necessary comparison
+	// against table data more direct.
+	Bound *fr.Element
+}
+
+// NewRangeConstraint constructs a new Range constraint!
+func NewRangeConstraint(column string, bound *fr.Element) *RangeConstraint {
+	return &RangeConstraint{column, bound}
+}
+
+// GetHandle returns the handle associated with this constraint.
+func (p *RangeConstraint) GetHandle() string {
+	return p.Handle
+}
+
+// IsAir is a marker that indicates this is an AIR column.
+func (p *RangeConstraint) IsAir() bool { return true }
+
+// Accepts checks whether a vanishing constraint evaluates to zero on every row
+// of a table. If so, return nil otherwise return an error.
+func (p *RangeConstraint) Accepts(tr Trace) (error, bool) {
+	for k := 0; k < tr.Height(); k++ {
+		// Get the value on the kth row
+		kth, err := tr.GetByName(p.Handle, k)
+		// Sanity check column exists!
+		if err != nil {
+			return err, false
+		}
+		// Perform the bounds check
+		if kth != nil && kth.Cmp(p.Bound) >= 0 {
+			// Construct useful error message
+			msg := fmt.Sprintf("value out-of-bounds (row %d, %s)", kth, p.Handle)
+			// Evaluation failure
+			return errors.New(msg), false
+		}
+	}
+	// All good
+	return nil, false
 }
 
 // ===================================================================

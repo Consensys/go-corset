@@ -34,7 +34,7 @@ func (p *Normalise) LowerTo(tbl *air.Schema) air.Expr {
 	// Add new column (if it does not already exist)
 	if !tbl.HasColumn(name) {
 		// Add computed column
-		tbl.AddColumn(air.NewComputedColumn(name, ie))
+		tbl.AddComputedColumn(name, ie)
 	}
 
 	one := fr.NewElement(1)
@@ -50,10 +50,10 @@ func (p *Normalise) LowerTo(tbl *air.Schema) air.Expr {
 	inv_e_implies_one_e_e := &air.Mul{Args: []air.Expr{inv_e, one_e_e}}
 	// Ensure (e != 0) ==> (1 == e/e)
 	l_name := fmt.Sprintf("[%s <=]", ie.String())
-	tbl.AddConstraint(&air.VanishingConstraint{Handle: l_name, Expr: e_implies_one_e_e})
+	tbl.AddVanishingConstraint(l_name, nil, e_implies_one_e_e)
 	// Ensure (e/e != 0) ==> (1 == e/e)
 	r_name := fmt.Sprintf("[%s =>]", ie.String())
-	tbl.AddConstraint(&air.VanishingConstraint{Handle: r_name, Expr: inv_e_implies_one_e_e})
+	tbl.AddVanishingConstraint(r_name, nil, inv_e_implies_one_e_e)
 	// Done
 	return &air.Mul{Args: []air.Expr{e, &air.ColumnAccess{Column: name, Shift: 0}}}
 }

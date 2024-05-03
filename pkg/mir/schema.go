@@ -17,7 +17,8 @@ type Constraint = *table.VanishingConstraint[Expr]
 // constraints as necessary to preserve the original semantics.
 func LowerToAir(mirSchema *Schema, airSchema *air.Schema) {
 	for _, col := range mirSchema.Columns() {
-		airSchema.AddColumn(col.LowerTo(airSchema))
+		dc := col.(*DataColumn)
+		dc.LowerTo(airSchema)
 	}
 
 	for _, c := range mirSchema.Constraints() {
@@ -26,6 +27,6 @@ func LowerToAir(mirSchema *Schema, airSchema *air.Schema) {
 		// VanishingConstraint.  Eventually this will not be
 		// true.
 		air_expr := c.Expr.LowerTo(airSchema)
-		airSchema.AddConstraint(&air.VanishingConstraint{Handle: c.Handle, Domain: c.Domain, Expr: air_expr})
+		airSchema.AddVanishingConstraint(c.Handle, c.Domain, air_expr)
 	}
 }
