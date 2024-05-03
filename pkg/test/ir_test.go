@@ -10,9 +10,7 @@ import (
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/air"
 	"github.com/consensys/go-corset/pkg/hir"
-	"github.com/consensys/go-corset/pkg/mir"
 	"github.com/consensys/go-corset/pkg/table"
 )
 
@@ -217,25 +215,26 @@ func Check(t *testing.T, test string) {
 // either accepted or rejected) by a given set of constraints.
 func CheckTraces(t *testing.T, test string, expected bool, traces []*table.ArrayTrace, hirSchema *hir.Schema) {
 	for i, tr := range traces {
-		mirSchema := table.EmptySchema[mir.Column, mir.Constraint]()
-		airSchema := table.EmptySchema[air.Column, air.Constraint]()
 		// Lower HIR => MIR
-		hir.LowerToMir(hirSchema, mirSchema)
+		mirSchema := hirSchema.LowerToMir()
 		// Lower MIR => AIR
-		mir.LowerToAir(mirSchema, airSchema)
+		airSchema := mirSchema.LowerToAir()
 		// Check HIR/MIR trace (if applicable)
 		if ValidHirMirTrace(tr) {
-			checkTrace(t, "HIR", test, i+1, expected, hirSchema.AcceptsTrace(tr))
-			checkTrace(t, "MIR", test, i+1, expected, mirSchema.AcceptsTrace(tr))
+			checkTrace(t, tr, "HIR", test, i+1, expected, hirSchema)
+			checkTrace(t, tr, "MIR", test, i+1, expected, mirSchema)
 		}
 		// Perform trace expansion
 		airSchema.ExpandTrace(tr)
 		// Check AIR trace
-		checkTrace(t, "AIR", test, i+1, expected, airSchema.AcceptsTrace(tr))
+		checkTrace(t, tr, "AIR", test, i+1, expected, airSchema)
 	}
 }
 
-func checkTrace(t *testing.T, ir string, test string, line int, expected bool, accepted bool) {
+func checkTrace(t *testing.T, tr table.Trace, ir string, test string, line int, expected bool, schema table.Acceptor) {
+	_, err := schema.Accepts(tr)
+	// Determine whether trace accepted or not.
+	accepted := (err == nil)
 	// Process what happened versus what was supposed to happen.
 	if !accepted && expected {
 		msg := fmt.Sprintf("Trace rejected incorrectly (%s, %s.accepts, line %d)", ir, test, line)

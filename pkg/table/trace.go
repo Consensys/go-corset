@@ -7,6 +7,12 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
 
+// Acceptor represents an element which can "accept" a trace, or
+// either reject with an error or report a warning.
+type Acceptor interface {
+	Accepts(Trace) (bool, error)
+}
+
 // Trace describes a set of named columns.  Columns are not required to have the
 // same height and can be either "data" columns or "computed" columns.
 type Trace interface {
@@ -30,6 +36,19 @@ type Trace interface {
 	HasColumn(name string) bool
 	// Add a new column of data
 	AddColumn(name string, data []*fr.Element)
+}
+
+// ForallAcceptTrace determines whether or not one or more groups of constraints
+// accept a given trace.  It returns the first error or warning encountered.
+func ForallAcceptTrace[T Acceptor](trace Trace, constraints []T) (bool, error) {
+	for _, c := range constraints {
+		warning, err := c.Accepts(trace)
+		if err != nil {
+			return warning, err
+		}
+	}
+	//
+	return false, nil
 }
 
 // ===================================================================

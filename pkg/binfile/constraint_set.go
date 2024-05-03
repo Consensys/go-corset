@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 
 	"github.com/consensys/go-corset/pkg/hir"
-	"github.com/consensys/go-corset/pkg/mir"
 	"github.com/consensys/go-corset/pkg/table"
 )
 
@@ -97,10 +96,10 @@ func HirSchemaFromJson(bytes []byte) (schema *hir.Schema, err error) {
 	// Unmarshall
 	jsonErr := json.Unmarshal(bytes, &res)
 	// Construct schema
-	schema = table.EmptySchema[hir.Column, hir.Constraint]()
+	schema = hir.EmptySchema()
 	// Add Columns
 	for _, c := range res.Columns.Cols {
-		var hType mir.Type
+		var hType table.Type
 		// Sanity checks
 		if c.Computed || c.Kind != "Commitment" {
 			panic("invalid JSON column configuration")
@@ -111,14 +110,14 @@ func HirSchemaFromJson(bytes []byte) (schema *hir.Schema, err error) {
 		if c.MustProve {
 			hType = c.Type.toHir()
 		} else {
-			hType = &mir.FieldType{}
+			hType = &table.FieldType{}
 		}
 
-		schema.AddColumn(hir.NewDataColumn(c.Handle, hType))
+		schema.AddDataColumn(c.Handle, hType)
 	}
 	// Add constraints
 	for _, c := range res.Constraints {
-		schema.AddConstraint(c.toHir())
+		c.addToSchema(schema)
 	}
 
 	// For now return directly.

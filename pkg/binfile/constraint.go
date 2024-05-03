@@ -26,17 +26,17 @@ type jsonVanishingConstraint struct {
 // Translation
 // =============================================================================
 
-func (e jsonConstraint) toHir() hir.Constraint {
-	if e.Vanishes != nil {
-		// Translate the vanishing expression
-		expr := e.Vanishes.Expr.ToHir()
-		// Translate Domain
-		domain := e.Vanishes.Domain.toHir()
-		// Construct the vanishing constraint
-		return &hir.VanishingConstraint{Handle: e.Vanishes.Handle, Domain: domain, Expr: expr}
+func (e jsonConstraint) addToSchema(schema *hir.Schema) {
+	if e.Vanishes == nil {
+		panic("Unknown JSON constraint encountered")
 	}
 
-	panic("Unknown JSON constraint encountered")
+	// Translate the vanishing expression
+	expr := e.Vanishes.Expr.ToHir()
+	// Translate Domain
+	domain := e.Vanishes.Domain.toHir()
+	// Construct the vanishing constraint
+	schema.AddVanishingConstraint(e.Vanishes.Handle, domain, expr)
 }
 
 func (e jsonDomain) toHir() *int {
