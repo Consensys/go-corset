@@ -45,9 +45,3 @@ type ColumnAccess struct {
 	Column string
 	Shift  int
 }
-
-// Inverse is a computation-only expression which computes the multiplicative
-// inverse of a given expression.
-type Inverse struct {
-	Expr Expr
-}

@@ -64,7 +64,7 @@ func (p *Schema) Accepts(trace table.Trace) (bool, error) {
 // lowering all the columns and constraints, whilst adding additional columns /
 // constraints as necessary to preserve the original semantics.
 func (p *Schema) LowerToAir() *air.Schema {
-	airSchema := air.EmptySchema()
+	airSchema := air.EmptySchema[Expr]()
 	// Lower data columns
 	for _, col := range p.dataColumns {
 		lowerColumnToAir(col, airSchema)

@@ -1,4 +1,4 @@
-package air
+package mir
 
 import (
 	"fmt"
@@ -26,6 +26,14 @@ func (e *Sub) String() string {
 
 func (e *Mul) String() string {
 	return naryString("*", e.Args)
+}
+
+func (e *Inverse) String() string {
+	return fmt.Sprintf("(inv %s)", e.Expr)
+}
+
+func (e *Normalise) String() string {
+	return fmt.Sprintf("(~ %s)", e.Arg)
 }
 
 func naryString(operator string, exprs []Expr) string {

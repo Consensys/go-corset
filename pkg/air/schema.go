@@ -8,12 +8,13 @@ import (
 // DataColumn captures the essence of a data column at AIR level.
 type DataColumn = *table.DataColumn[*table.FieldType]
 
-// Schema for AIR traces.
+// Schema for AIR traces which is parameterised on a notion of computation as
+// permissible in computed columns.
 type Schema struct {
 	// The data columns of this schema.
 	dataColumns []DataColumn
 	// The computed columns of this schema.
-	computedColumns []*table.ComputedColumn[Expr]
+	computedColumns []*table.ComputedColumn
 	// The vanishing constraints of this schema.
 	vanishing []*table.VanishingConstraint[Expr]
 	// The range constraints of this schema.
@@ -24,10 +25,10 @@ type Schema struct {
 
 // EmptySchema is used to construct a fresh schema onto which new columns and
 // constraints will be added.
-func EmptySchema() *Schema {
+func EmptySchema[C table.Evaluable]() *Schema {
 	p := new(Schema)
 	p.dataColumns = make([]DataColumn, 0)
-	p.computedColumns = make([]*table.ComputedColumn[Expr], 0)
+	p.computedColumns = make([]*table.ComputedColumn, 0)
 	p.vanishing = make([]*table.VanishingConstraint[Expr], 0)
 	p.ranges = make([]*table.RangeConstraint, 0)
 	p.assertions = make([]*table.Assertion, 0)
@@ -58,7 +59,7 @@ func (p *Schema) AddDataColumn(name string) {
 }
 
 // AddComputedColumn appends a new computed column.
-func (p *Schema) AddComputedColumn(name string, expr Expr) {
+func (p *Schema) AddComputedColumn(name string, expr table.Evaluable) {
 	p.computedColumns = append(p.computedColumns, table.NewComputedColumn(name, expr))
 }
 
