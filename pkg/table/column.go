@@ -50,18 +50,18 @@ func (c *DataColumn[T]) Accepts(tr Trace) (bool, error) {
 // expectation that this computation is acyclic.  Furthermore, computed columns
 // give rise to "trace expansion".  That is where the initial trace provided by
 // the user is expanded by determining the value of all computed columns.
-type ComputedColumn[E Evaluable] struct {
+type ComputedColumn struct {
 	Name string
 	// The computation which accepts a given trace and computes
 	// the value of this column at a given row.
-	Expr E
+	Expr Evaluable
 }
 
 // NewComputedColumn constructs a new computed column with a given name and
 // determining expression.  More specifically, that expression is used to
 // compute the values for this column during trace expansion.
-func NewComputedColumn[E Evaluable](name string, expr E) *ComputedColumn[E] {
-	return &ComputedColumn[E]{
+func NewComputedColumn(name string, expr Evaluable) *ComputedColumn {
+	return &ComputedColumn{
 		Name: name,
 		Expr: expr,
 	}
@@ -69,7 +69,7 @@ func NewComputedColumn[E Evaluable](name string, expr E) *ComputedColumn[E] {
 
 // Get reads the value at a given row in a data column. This amounts to
 // looking up that value in the array of values which backs it.
-func (c *ComputedColumn[E]) Get(row int, tr Trace) (*fr.Element, error) {
+func (c *ComputedColumn) Get(row int, tr Trace) (*fr.Element, error) {
 	// Compute value at given row
 	return c.Expr.EvalAt(row, tr), nil
 }

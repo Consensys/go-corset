@@ -7,6 +7,20 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
 
+// Evaluable captures something which can be evaluated on a given table row to
+// produce an evaluation point.  For example, expressions in the
+// Mid-Level or Arithmetic-Level IR can all be evaluated at rows of a
+// table.
+type Evaluable interface {
+	// EvalAt evaluates this expression in a given tabular context.
+	// Observe that if this expression is *undefined* within this
+	// context then it returns "nil".  An expression can be
+	// undefined for several reasons: firstly, if it accesses a
+	// row which does not exist (e.g. at index -1); secondly, if
+	// it accesses a column which does not exist.
+	EvalAt(int, Trace) *fr.Element
+}
+
 // Acceptor represents an element which can "accept" a trace, or
 // either reject with an error or report a warning.
 type Acceptor interface {

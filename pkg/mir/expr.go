@@ -24,6 +24,8 @@ type Expr interface {
 	// row which does not exist (e.g. at index -1); secondly, if
 	// it accesses a column which does not exist.
 	EvalAt(int, table.Trace) *fr.Element
+	// String produces a string representing this as an S-Expression.
+	String() string
 }
 
 // Add represents the sum over zero or more expressions.
@@ -51,4 +53,11 @@ type Normalise struct{ Arg Expr }
 type ColumnAccess struct {
 	Column string
 	Shift  int
+}
+
+// Inverse is a computation-only expression which computes the multiplicative
+// inverse of a given expression.  More specifically, it is not an instance of
+// mir.Expr as it does not implement lowering.
+type Inverse struct {
+	Expr Expr
 }

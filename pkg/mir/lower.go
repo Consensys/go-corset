@@ -28,7 +28,7 @@ func (p *Normalise) LowerTo(tbl *air.Schema) air.Expr {
 	// Lower the expression being normalised
 	e := p.Arg.LowerTo(tbl)
 	// Invert expression
-	ie := &air.Inverse{Expr: e}
+	ie := &Inverse{Expr: p.Arg}
 	// Determine computed column name
 	name := ie.String()
 	// Add new column (if it does not already exist)
