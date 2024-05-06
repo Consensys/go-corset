@@ -81,6 +81,8 @@ func sexpDeclaration(s sexp.SExp, schema *Schema, p *sexp.Translator[Expr]) erro
 		} else if e.Len() == 3 && e.MatchSymbols(2, "vanish:first") {
 			domain := 0
 			return sexpVanishing(e.Elements, &domain, schema, p)
+		} else if e.Len() == 3 && e.MatchSymbols(2, "assert") {
+			return sexpAssertion(e.Elements, schema, p)
 		}
 	}
 
@@ -103,6 +105,22 @@ func sexpColumn(elements []sexp.SExp, schema *Schema) error {
 	}
 
 	schema.AddDataColumn(columnName, columnType)
+
+	return nil
+}
+
+// Parse a property assertion
+func sexpAssertion(elements []sexp.SExp, schema *Schema, p *sexp.Translator[Expr]) error {
+	handle := elements[1].String()
+
+	expr, err := p.Translate(elements[2])
+	if err != nil {
+		return err
+	}
+	// Add all assertions arising.
+	for _, e := range expr.LowerTo() {
+		schema.AddPropertyAssertion(handle, e)
+	}
 
 	return nil
 }

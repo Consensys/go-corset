@@ -79,9 +79,9 @@ func TestEval_Domain_03(t *testing.T) {
 // Property Tests
 // ===================================================================
 
-// func TestEval_Property_01(t *testing.T) {
-// 	Check(t, "property_01")
-// }
+func TestEval_Property_01(t *testing.T) {
+	Check(t, "property_01")
+}
 
 // ===================================================================
 // Shift Tests
@@ -232,7 +232,7 @@ func CheckTraces(t *testing.T, test string, expected bool, traces []*table.Array
 }
 
 func checkTrace(t *testing.T, tr table.Trace, ir string, test string, line int, expected bool, schema table.Acceptor) {
-	_, err := schema.Accepts(tr)
+	err := schema.Accepts(tr)
 	// Determine whether trace accepted or not.
 	accepted := (err == nil)
 	// Process what happened versus what was supposed to happen.

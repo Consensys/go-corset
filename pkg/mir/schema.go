@@ -13,12 +13,19 @@ type DataColumn = *table.DataColumn[table.Type]
 // level.
 type VanishingConstraint = *table.VanishingConstraint[Expr]
 
+// PropertyAssertion captures the notion of an arbitrary property which should
+// hold for all acceptable traces.  However, such a property is not enforced by
+// the prover.
+type PropertyAssertion = *table.PropertyAssertion[Expr]
+
 // Schema for MIR traces
 type Schema struct {
 	// The data columns of this schema.
 	dataColumns []DataColumn
 	// The vanishing constraints of this schema.
 	vanishing []VanishingConstraint
+	// The property assertions for this schema.
+	assertions []PropertyAssertion
 }
 
 // EmptySchema is used to construct a fresh schema onto which new columns and
@@ -27,6 +34,7 @@ func EmptySchema() *Schema {
 	p := new(Schema)
 	p.dataColumns = make([]DataColumn, 0)
 	p.vanishing = make([]VanishingConstraint, 0)
+	p.assertions = make([]PropertyAssertion, 0)
 	// Done
 	return p
 }
@@ -41,23 +49,33 @@ func (p *Schema) AddVanishingConstraint(handle string, domain *int, expr Expr) {
 	p.vanishing = append(p.vanishing, table.NewVanishingConstraint(handle, domain, expr))
 }
 
+// AddPropertyAssertion appends a new property assertion.
+func (p *Schema) AddPropertyAssertion(handle string, expr Expr) {
+	p.assertions = append(p.assertions, table.NewPropertyAssertion(handle, expr))
+}
+
 // Accepts determines whether this schema will accept a given trace.  That
 // is, whether or not the given trace adheres to the schema.  A trace can fail
 // to adhere to the schema for a variety of reasons, such as having a constraint
 // which does not hold.
-func (p *Schema) Accepts(trace table.Trace) (bool, error) {
+func (p *Schema) Accepts(trace table.Trace) error {
 	// Check (typed) data columns
-	warning, err := table.ForallAcceptTrace(trace, p.dataColumns)
+	err := table.ForallAcceptTrace(trace, p.dataColumns)
 	if err != nil {
-		return warning, err
+		return err
 	}
-	// Check range constraints
-	warning, err = table.ForallAcceptTrace(trace, p.vanishing)
+	// Check vanishing constraints
+	err = table.ForallAcceptTrace(trace, p.vanishing)
 	if err != nil {
-		return warning, err
+		return err
+	}
+	// Check property assertions
+	err = table.ForallAcceptTrace(trace, p.assertions)
+	if err != nil {
+		return err
 	}
 
-	return false, nil
+	return nil
 }
 
 // LowerToAir lowers (or refines) an MIR table into an AIR table.  That means
