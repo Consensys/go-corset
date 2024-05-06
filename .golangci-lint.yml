@@ -82,8 +82,8 @@ linters-settings:
         severity: warning
       - name: unreachable-code
         severity: warning
-      # - name: confusing-naming
-      #   severity: warning
+      - name: confusing-naming
+        severity: warning
 
   staticcheck:
     go: "1.22"

@@ -26,6 +26,8 @@ func (c *DataColumn[T]) Get(row int, tr Trace) (*fr.Element, error) {
 // Accepts determines whether or not this column accepts the given trace.  For a
 // data column, this means ensuring that all elements are value for the columns
 // type.
+//
+//nolint:revive
 func (c *DataColumn[T]) Accepts(tr Trace) (bool, error) {
 	for i := 0; i < tr.Height(); i++ {
 		val, err := tr.GetByName(c.Name, i)
