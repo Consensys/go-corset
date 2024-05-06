@@ -12,7 +12,7 @@ import (
 // ===================================================================
 
 // ZeroTest is a wrapper which converts an Evaluable expression into a Testable
-// expresion.  Specifically, by checking whether or not the given expression
+// constraint.  Specifically, by checking whether or not the given expression
 // vanishes (i.e. evaluates to zero).
 type ZeroTest[E Evaluable] struct {
 	Expr E
@@ -45,8 +45,8 @@ type RowConstraint[T Testable] struct {
 }
 
 // NewRowConstraint constructs a new vanishing constraint!
-func NewRowConstraint[E Evaluable](handle string, domain *int, expr E) *RowConstraint[ZeroTest[E]] {
-	return &RowConstraint[ZeroTest[E]]{handle, domain, ZeroTest[E]{expr}}
+func NewRowConstraint[T Testable](handle string, domain *int, constraint T) *RowConstraint[T] {
+	return &RowConstraint[T]{handle, domain, constraint}
 }
 
 // GetHandle returns the handle associated with this constraint.

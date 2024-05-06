@@ -8,10 +8,34 @@ import (
 // DataColumn captures the essence of a data column at the HIR level.
 type DataColumn = *table.DataColumn[table.Type]
 
+// ZeroArrayTest is a wrapper which converts an array of expressions into a
+// Testable constraint.  Specifically, by checking whether or not the each
+// expression vanishes (i.e. evaluates to zero).
+type ZeroArrayTest struct {
+	Expr Expr
+}
+
+// TestAt determines whether or not every element from a given array of
+// expressions evaluates to zero. Observe that any expressions which are
+// undefined are assumed to hold.
+func (p ZeroArrayTest) TestAt(row int, tr table.Trace) bool {
+	// Evalues expression yielding zero or more values.
+	vals := p.Expr.EvalAllAt(row, tr)
+	// Check each value in turn against zero.
+	for _, val := range vals {
+		if val != nil && !val.IsZero() {
+			// This expression does not evaluat to zero, hence failure.
+			return false
+		}
+	}
+	// Success
+	return true
+}
+
 // VanishingConstraint captures the essence of a vanishing constraint at the HIR
 // level. A vanishing constraint is a row constraint which must evaluate to
 // zero.
-type VanishingConstraint = *table.RowConstraint[table.ZeroTest[Expr]]
+type VanishingConstraint = *table.RowConstraint[ZeroArrayTest]
 
 // PropertyAssertion captures the notion of an arbitrary property which should
 // hold for all acceptable traces.  However, such a property is not enforced by
@@ -56,7 +80,7 @@ func (p *Schema) AddDataColumn(name string, base table.Type) {
 
 // AddVanishingConstraint appends a new vanishing constraint.
 func (p *Schema) AddVanishingConstraint(handle string, domain *int, expr Expr) {
-	p.vanishing = append(p.vanishing, table.NewRowConstraint(handle, domain, expr))
+	p.vanishing = append(p.vanishing, table.NewRowConstraint(handle, domain, ZeroArrayTest{expr}))
 }
 
 // AddPropertyAssertion appends a new property assertion.

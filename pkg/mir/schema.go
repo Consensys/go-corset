@@ -47,7 +47,7 @@ func (p *Schema) AddDataColumn(name string, base table.Type) {
 
 // AddVanishingConstraint appends a new vanishing constraint.
 func (p *Schema) AddVanishingConstraint(handle string, domain *int, expr Expr) {
-	p.vanishing = append(p.vanishing, table.NewRowConstraint(handle, domain, expr))
+	p.vanishing = append(p.vanishing, table.NewRowConstraint(handle, domain, table.ZeroTest[Expr]{Expr: expr}))
 }
 
 // AddPropertyAssertion appends a new property assertion.
