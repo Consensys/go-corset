@@ -21,9 +21,24 @@ type Evaluable interface {
 	EvalAt(int, Trace) *fr.Element
 }
 
-// Acceptor represents an element which can "accept" a trace, or
-// either reject with an error or report a warning.
-type Acceptor interface {
+// Testable captures the notion of a constraint which can be tested on a given
+// row of a given trace.  It is very similar to Evaluable, except that it only
+// indicates success or failure.  The reason for using this interface over
+// Evaluable is that, for historical reasons, constraints at the HIR cannot be
+// Evaluable (i.e. because they return multiple values, rather than a single
+// value).  However, constraints at the HIR level remain testable.
+type Testable interface {
+	// TestAt evaluates this expression in a given tabular context and checks it
+	// against zero. Observe that if this expression is *undefined* within this
+	// context then it returns "nil".  An expression can be undefined for
+	// several reasons: firstly, if it accesses a row which does not exist (e.g.
+	// at index -1); secondly, if it accesses a column which does not exist.
+	TestAt(int, Trace) bool
+}
+
+// Acceptable represents an element which can "accept" a trace, or either reject
+// with an error or report a warning.
+type Acceptable interface {
 	Accepts(Trace) error
 }
 
@@ -54,7 +69,7 @@ type Trace interface {
 
 // ForallAcceptTrace determines whether or not one or more groups of constraints
 // accept a given trace.  It returns the first error or warning encountered.
-func ForallAcceptTrace[T Acceptor](trace Trace, constraints []T) error {
+func ForallAcceptTrace[T Acceptable](trace Trace, constraints []T) error {
 	for _, c := range constraints {
 		err := c.Accepts(trace)
 		if err != nil {

@@ -11,14 +11,27 @@ import (
 // Vanishing Constraints
 // ===================================================================
 
-// VanishingConstraint on every row of the table, a vanishing
-// constraint must evaluate to zero.  The only exception is when the
-// constraint is undefined (e.g. because it references a non-existent
-// table cell).  In such case, the constraint is ignored.  This is
-// parameterised by the type of the constraint expression.  Thus, we
-// can reuse this definition across the various intermediate
+// ZeroTest is a wrapper which converts an Evaluable expression into a Testable
+// expresion.  Specifically, by checking whether or not the given expression
+// vanishes (i.e. evaluates to zero).
+type ZeroTest[E Evaluable] struct {
+	Expr E
+}
+
+// TestAt determines whether or not a given expression evaluates to zero.
+// Observe that if the expression is undefined, then it is assumed to hold.
+func (p ZeroTest[E]) TestAt(row int, tr Trace) bool {
+	val := p.Expr.EvalAt(row, tr)
+	return val == nil || val.IsZero()
+}
+
+// RowConstraint specifies a constraint which should hold on every row of the
+// table.  The only exception is when the constraint is undefined (e.g. because
+// it references a non-existent table cell).  In such case, the constraint is
+// ignored.  This is parameterised by the type of the constraint expression.
+// Thus, we can reuse this definition across the various intermediate
 // representations (e.g. Mid-Level IR, Arithmetic IR, etc).
-type VanishingConstraint[T Evaluable] struct {
+type RowConstraint[T Testable] struct {
 	// A unique identifier for this constraint.  This is primarily
 	// useful for debugging.
 	Handle string
@@ -26,18 +39,18 @@ type VanishingConstraint[T Evaluable] struct {
 	// Otherwise, indicates a local constraint which applies to the specific row
 	// given here.
 	Domain *int
-	// The actual constraint itself, namely an expression which
-	// should evaluate to zero.
-	Expr T
+	// The actual constraint itself (e.g. an expression which
+	// should evaluate to zero, etc)
+	Constraint T
 }
 
-// NewVanishingConstraint constructs a new vanishing constraint!
-func NewVanishingConstraint[T Evaluable](handle string, domain *int, expr T) *VanishingConstraint[T] {
-	return &VanishingConstraint[T]{handle, domain, expr}
+// NewRowConstraint constructs a new vanishing constraint!
+func NewRowConstraint[E Evaluable](handle string, domain *int, expr E) *RowConstraint[ZeroTest[E]] {
+	return &RowConstraint[ZeroTest[E]]{handle, domain, ZeroTest[E]{expr}}
 }
 
 // GetHandle returns the handle associated with this constraint.
-func (p *VanishingConstraint[T]) GetHandle() string {
+func (p *RowConstraint[T]) GetHandle() string {
 	return p.Handle
 }
 
@@ -45,20 +58,20 @@ func (p *VanishingConstraint[T]) GetHandle() string {
 // of a table.  If so, return nil otherwise return an error.
 //
 //nolint:revive
-func (p *VanishingConstraint[T]) Accepts(tr Trace) error {
+func (p *RowConstraint[T]) Accepts(tr Trace) error {
 	if p.Domain == nil {
 		// Global Constraint
-		return VanishesGlobally(p.Handle, p.Expr, tr)
+		return HoldsGlobally(p.Handle, p.Constraint, tr)
 	}
 	// Check specific row
-	return VanishesLocally(*p.Domain, p.Handle, p.Expr, tr)
+	return HoldsLocally(*p.Domain, p.Handle, p.Constraint, tr)
 }
 
-// VanishesGlobally checks whether a given expression vanishes (i.e. evaluates to
+// HoldsGlobally checks whether a given expression vanishes (i.e. evaluates to
 // zero) for all rows of a trace.  If not, report an appropriate error.
-func VanishesGlobally[E Evaluable](handle string, expr E, tr Trace) error {
+func HoldsGlobally[T Testable](handle string, constraint T, tr Trace) error {
 	for k := 0; k < tr.Height(); k++ {
-		if err := VanishesLocally(k, handle, expr, tr); err != nil {
+		if err := HoldsLocally(k, handle, constraint, tr); err != nil {
 			return err
 		}
 	}
@@ -66,19 +79,17 @@ func VanishesGlobally[E Evaluable](handle string, expr E, tr Trace) error {
 	return nil
 }
 
-// VanishesLocally checks whether a given expression vanishes (i.e. evaluates to zero)
-// on a specific row of a trace. If not, report an appropriate error.
-func VanishesLocally[E Evaluable](k int, handle string, expr E, tr Trace) error {
+// HoldsLocally checks whether a given constraint holds (e.g. vanishes) on a
+// specific row of a trace. If not, report an appropriate error.
+func HoldsLocally[T Testable](k int, handle string, constraint T, tr Trace) error {
 	// Negative rows calculated from end of trace.
 	if k < 0 {
 		k += tr.Height()
 	}
-	// Determine kth evaluation point
-	kth := expr.EvalAt(k, tr)
-	// Check whether it vanished (or was undefined)
-	if kth != nil && !kth.IsZero() {
+	// Check whether it holds or not
+	if !constraint.TestAt(k, tr) {
 		// Construct useful error message
-		msg := fmt.Sprintf("constraint %s does not vanish (row %d, %s)", handle, k, kth)
+		msg := fmt.Sprintf("constraint %s does not hold (row %d)", handle, k)
 		// Evaluation failure
 		return errors.New(msg)
 	}
@@ -86,14 +97,14 @@ func VanishesLocally[E Evaluable](k int, handle string, expr E, tr Trace) error 
 	return nil
 }
 
-func (p *VanishingConstraint[T]) String() string {
+func (p *RowConstraint[T]) String() string {
 	if p.Domain == nil {
-		return fmt.Sprintf("(vanishes %s %s)", p.Handle, any(p.Expr))
+		return fmt.Sprintf("(vanishes %s %s)", p.Handle, any(p.Constraint))
 	} else if *p.Domain == 0 {
-		return fmt.Sprintf("(vanishes:first %s %s)", p.Handle, any(p.Expr))
+		return fmt.Sprintf("(vanishes:first %s %s)", p.Handle, any(p.Constraint))
 	}
 	//
-	return fmt.Sprintf("(vanishes:last %s %s)", p.Handle, any(p.Expr))
+	return fmt.Sprintf("(vanishes:last %s %s)", p.Handle, any(p.Constraint))
 }
 
 // ===================================================================

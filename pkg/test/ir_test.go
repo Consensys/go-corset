@@ -221,26 +221,26 @@ func CheckTraces(t *testing.T, test string, expected bool, traces []*table.Array
 		airSchema := mirSchema.LowerToAir()
 		// Check HIR/MIR trace (if applicable)
 		if ValidHirMirTrace(tr) {
-			checkTrace(t, tr, "HIR", test, i+1, expected, hirSchema)
-			checkTrace(t, tr, "MIR", test, i+1, expected, mirSchema)
+			checkTrace(t, tr, traceId{"HIR", test, expected, i + 1}, hirSchema)
+			checkTrace(t, tr, traceId{"MIR", test, expected, i + 1}, mirSchema)
 		}
 		// Perform trace expansion
 		airSchema.ExpandTrace(tr)
 		// Check AIR trace
-		checkTrace(t, tr, "AIR", test, i+1, expected, airSchema)
+		checkTrace(t, tr, traceId{"AIR", test, expected, i + 1}, airSchema)
 	}
 }
 
-func checkTrace(t *testing.T, tr table.Trace, ir string, test string, line int, expected bool, schema table.Acceptor) {
+func checkTrace(t *testing.T, tr table.Trace, id traceId, schema table.Acceptable) {
 	err := schema.Accepts(tr)
 	// Determine whether trace accepted or not.
 	accepted := (err == nil)
 	// Process what happened versus what was supposed to happen.
-	if !accepted && expected {
-		msg := fmt.Sprintf("Trace rejected incorrectly (%s, %s.accepts, line %d)", ir, test, line)
+	if !accepted && id.expected {
+		msg := fmt.Sprintf("Trace rejected incorrectly (%s, %s.accepts, line %d)", id.ir, id.test, id.line)
 		t.Errorf(msg)
-	} else if accepted && !expected {
-		msg := fmt.Sprintf("Trace accepted incorrectly (%s, %s.rejects, line %d)", ir, test, line)
+	} else if accepted && !id.expected {
+		msg := fmt.Sprintf("Trace accepted incorrectly (%s, %s.rejects, line %d)", id.ir, id.test, id.line)
 		t.Errorf(msg)
 	}
 }
@@ -263,6 +263,23 @@ func ValidHirMirTrace(tbl *table.ArrayTrace) bool {
 	}
 
 	return true
+}
+
+// A trace identifier uniquely identifies a specific trace within a given test.
+// This is used to provide debug information about a trace failure.
+// Specifically, so the user knows which line in which file caused the problem.
+type traceId struct {
+	// Identifies the Intermediate Representation tested against.
+	ir string
+	// Identifies the test name.  From this, the test filename can be determined
+	// in conjunction with the expected outcome.
+	test string
+	// Identifiers whether this trace should be accepted (true) or rejected
+	// (false).
+	expected bool
+	// Identifies the line number within the test file that the failing trace
+	// original.
+	line int
 }
 
 // ReadTracesFile reads a file containing zero or more traces expressed as JSON, where
