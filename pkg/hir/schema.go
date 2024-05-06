@@ -9,8 +9,9 @@ import (
 type DataColumn = *table.DataColumn[table.Type]
 
 // VanishingConstraint captures the essence of a vanishing constraint at the HIR
-// level.
-type VanishingConstraint = *table.VanishingConstraint[Expr]
+// level. A vanishing constraint is a row constraint which must evaluate to
+// zero.
+type VanishingConstraint = *table.RowConstraint[table.ZeroTest[Expr]]
 
 // PropertyAssertion captures the notion of an arbitrary property which should
 // hold for all acceptable traces.  However, such a property is not enforced by
@@ -55,7 +56,7 @@ func (p *Schema) AddDataColumn(name string, base table.Type) {
 
 // AddVanishingConstraint appends a new vanishing constraint.
 func (p *Schema) AddVanishingConstraint(handle string, domain *int, expr Expr) {
-	p.vanishing = append(p.vanishing, table.NewVanishingConstraint(handle, domain, expr))
+	p.vanishing = append(p.vanishing, table.NewRowConstraint(handle, domain, expr))
 }
 
 // AddPropertyAssertion appends a new property assertion.
@@ -98,7 +99,7 @@ func (p *Schema) LowerToMir() *mir.Schema {
 	}
 	// Second, lower constraints
 	for _, c := range p.vanishing {
-		mir_exprs := c.Expr.LowerTo()
+		mir_exprs := c.Constraint.Expr.LowerTo()
 		// Add individual constraints arising
 		for _, mir_expr := range mir_exprs {
 			mirSchema.AddVanishingConstraint(c.Handle, c.Domain, mir_expr)
