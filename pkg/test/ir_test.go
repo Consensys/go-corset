@@ -79,9 +79,9 @@ func TestEval_Domain_03(t *testing.T) {
 // Property Tests
 // ===================================================================
 
-// func TestEval_Property_01(t *testing.T) {
-// 	Check(t, "property_01")
-// }
+func TestEval_Property_01(t *testing.T) {
+	Check(t, "property_01")
+}
 
 // ===================================================================
 // Shift Tests

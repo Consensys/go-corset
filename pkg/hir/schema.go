@@ -12,12 +12,19 @@ type DataColumn = *table.DataColumn[table.Type]
 // level.
 type VanishingConstraint = *table.VanishingConstraint[Expr]
 
+// PropertyAssertion captures the notion of an arbitrary property which should
+// hold for all acceptable traces.  However, such a property is not enforced by
+// the prover.
+type PropertyAssertion = mir.PropertyAssertion
+
 // Schema for HIR constraints and columns.
 type Schema struct {
 	// The data columns of this schema.
 	dataColumns []DataColumn
 	// The vanishing constraints of this schema.
 	vanishing []VanishingConstraint
+	// The property assertions for this schema.
+	assertions []PropertyAssertion
 }
 
 // EmptySchema is used to construct a fresh schema onto which new columns and
@@ -26,6 +33,7 @@ func EmptySchema() *Schema {
 	p := new(Schema)
 	p.dataColumns = make([]DataColumn, 0)
 	p.vanishing = make([]VanishingConstraint, 0)
+	p.assertions = make([]PropertyAssertion, 0)
 	// Done
 	return p
 }
@@ -50,6 +58,11 @@ func (p *Schema) AddVanishingConstraint(handle string, domain *int, expr Expr) {
 	p.vanishing = append(p.vanishing, table.NewVanishingConstraint(handle, domain, expr))
 }
 
+// AddPropertyAssertion appends a new property assertion.
+func (p *Schema) AddPropertyAssertion(handle string, expr mir.Expr) {
+	p.assertions = append(p.assertions, table.NewPropertyAssertion[mir.Expr](handle, expr))
+}
+
 // Accepts determines whether this schema will accept a given trace.  That
 // is, whether or not the given trace adheres to the schema.  A trace can fail
 // to adhere to the schema for a variety of reasons, such as having a constraint
@@ -60,8 +73,13 @@ func (p *Schema) Accepts(trace table.Trace) (bool, error) {
 	if err != nil {
 		return warning, err
 	}
-	// Check range constraints
+	// Check vanishing constraints
 	warning, err = table.ForallAcceptTrace(trace, p.vanishing)
+	if err != nil {
+		return warning, err
+	}
+	// Check properties
+	warning, err = table.ForallAcceptTrace(trace, p.assertions)
 	if err != nil {
 		return warning, err
 	}
@@ -85,6 +103,11 @@ func (p *Schema) LowerToMir() *mir.Schema {
 		for _, mir_expr := range mir_exprs {
 			mirSchema.AddVanishingConstraint(c.Handle, c.Domain, mir_expr)
 		}
+	}
+	// Third, copy property assertions.  Observe, these do not require lowering
+	// because they are already MIR-level expressions.
+	for _, c := range p.assertions {
+		mirSchema.AddPropertyAssertion(c.Handle, c.Expr)
 	}
 	//
 	return mirSchema

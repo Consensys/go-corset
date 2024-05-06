@@ -8,6 +8,11 @@ import (
 // DataColumn captures the essence of a data column at AIR level.
 type DataColumn = *table.DataColumn[*table.FieldType]
 
+// PropertyAssertion captures the notion of an arbitrary property which should
+// hold for all acceptable traces.  However, such a property is not enforced by
+// the prover.
+type PropertyAssertion = *table.PropertyAssertion[table.Evaluable]
+
 // Schema for AIR traces which is parameterised on a notion of computation as
 // permissible in computed columns.
 type Schema struct {
@@ -20,7 +25,7 @@ type Schema struct {
 	// The range constraints of this schema.
 	ranges []*table.RangeConstraint
 	// Property assertions.
-	assertions []*table.Assertion
+	assertions []PropertyAssertion
 }
 
 // EmptySchema is used to construct a fresh schema onto which new columns and
@@ -31,7 +36,7 @@ func EmptySchema[C table.Evaluable]() *Schema {
 	p.computedColumns = make([]*table.ComputedColumn, 0)
 	p.vanishing = make([]*table.VanishingConstraint[Expr], 0)
 	p.ranges = make([]*table.RangeConstraint, 0)
-	p.assertions = make([]*table.Assertion, 0)
+	p.assertions = make([]PropertyAssertion, 0)
 	// Done
 	return p
 }
@@ -88,6 +93,9 @@ func (p *Schema) Accepts(trace table.Trace) (bool, error) {
 	if err != nil {
 		return warning, err
 	}
+	// TODO: handle assertions.  These cannot be checked in the same way as for
+	// other constraints at the AIR level because the prover does not support
+	// them.
 
 	return false, nil
 }
