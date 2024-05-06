@@ -23,7 +23,7 @@ type Evaluable interface {
 
 // Acceptor represents an element which can "accept" a trace, or
 // either reject with an error or report a warning.
-type Acceptor interface {
+type Acceptable interface {
 	Accepts(Trace) error
 }
 
@@ -54,7 +54,7 @@ type Trace interface {
 
 // ForallAcceptTrace determines whether or not one or more groups of constraints
 // accept a given trace.  It returns the first error or warning encountered.
-func ForallAcceptTrace[T Acceptor](trace Trace, constraints []T) error {
+func ForallAcceptTrace[T Acceptable](trace Trace, constraints []T) error {
 	for _, c := range constraints {
 		err := c.Accepts(trace)
 		if err != nil {
