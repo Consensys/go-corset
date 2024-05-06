@@ -75,7 +75,7 @@ func (p *Schema) AddComputedColumn(name string, expr table.Evaluable) {
 
 // AddVanishingConstraint appends a new vanishing constraint.
 func (p *Schema) AddVanishingConstraint(handle string, domain *int, expr Expr) {
-	p.vanishing = append(p.vanishing, table.NewRowConstraint(handle, domain, expr))
+	p.vanishing = append(p.vanishing, table.NewRowConstraint(handle, domain, table.ZeroTest[Expr]{Expr: expr}))
 }
 
 // AddRangeConstraint appends a new range constraint.

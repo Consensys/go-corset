@@ -65,6 +65,7 @@ func newExprTranslator() *sexp.Translator[Expr] {
 	p.AddRecursiveRule("~", sexpNorm)
 	p.AddRecursiveRule("if", sexpIf)
 	p.AddRecursiveRule("ifnot", sexpIfNot)
+	p.AddRecursiveRule("begin", sexpBegin)
 
 	return p
 }
@@ -150,6 +151,10 @@ func sexpType(symbol string) (table.Type, error) {
 	}
 
 	return nil, fmt.Errorf("unexpected type: %s", symbol)
+}
+
+func sexpBegin(args []Expr) (Expr, error) {
+	return &List{args}, nil
 }
 
 func sexpConstant(symbol string) (Expr, error) {

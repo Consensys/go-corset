@@ -26,7 +26,7 @@ type Expr interface {
 	// undefined for several reasons: firstly, if it accesses a
 	// row which does not exist (e.g. at index -1); secondly, if
 	// it accesses a column which does not exist.
-	EvalAt(int, table.Trace) *fr.Element
+	EvalAllAt(int, table.Trace) []*fr.Element
 	// String produces a string representing this as an S-Expression.
 	String() string
 }
