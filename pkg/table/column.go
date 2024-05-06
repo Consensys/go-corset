@@ -28,22 +28,22 @@ func (c *DataColumn[T]) Get(row int, tr Trace) (*fr.Element, error) {
 // type.
 //
 //nolint:revive
-func (c *DataColumn[T]) Accepts(tr Trace) (bool, error) {
+func (c *DataColumn[T]) Accepts(tr Trace) error {
 	for i := 0; i < tr.Height(); i++ {
 		val, err := tr.GetByName(c.Name, i)
 		if err != nil {
-			return false, err
+			return err
 		}
 
 		if !c.Type.Accept(val) {
 			// Construct useful error message
 			msg := fmt.Sprintf("column %s value out-of-bounds (row %d, %s)", c.Name, i, val)
 			// Evaluation failure
-			return false, errors.New(msg)
+			return errors.New(msg)
 		}
 	}
 	// All good
-	return false, nil
+	return nil
 }
 
 // ComputedColumn describes a column whose values are computed on-demand, rather

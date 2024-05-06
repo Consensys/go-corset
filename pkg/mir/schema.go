@@ -58,24 +58,24 @@ func (p *Schema) AddPropertyAssertion(handle string, expr Expr) {
 // is, whether or not the given trace adheres to the schema.  A trace can fail
 // to adhere to the schema for a variety of reasons, such as having a constraint
 // which does not hold.
-func (p *Schema) Accepts(trace table.Trace) (bool, error) {
+func (p *Schema) Accepts(trace table.Trace) error {
 	// Check (typed) data columns
-	warning, err := table.ForallAcceptTrace(trace, p.dataColumns)
+	err := table.ForallAcceptTrace(trace, p.dataColumns)
 	if err != nil {
-		return warning, err
+		return err
 	}
 	// Check vanishing constraints
-	warning, err = table.ForallAcceptTrace(trace, p.vanishing)
+	err = table.ForallAcceptTrace(trace, p.vanishing)
 	if err != nil {
-		return warning, err
+		return err
 	}
 	// Check property assertions
-	warning, err = table.ForallAcceptTrace(trace, p.assertions)
+	err = table.ForallAcceptTrace(trace, p.assertions)
 	if err != nil {
-		return warning, err
+		return err
 	}
 
-	return false, nil
+	return nil
 }
 
 // LowerToAir lowers (or refines) an MIR table into an AIR table.  That means

@@ -45,13 +45,13 @@ func (p *VanishingConstraint[T]) GetHandle() string {
 // of a table.  If so, return nil otherwise return an error.
 //
 //nolint:revive
-func (p *VanishingConstraint[T]) Accepts(tr Trace) (bool, error) {
+func (p *VanishingConstraint[T]) Accepts(tr Trace) error {
 	if p.Domain == nil {
 		// Global Constraint
-		return false, VanishesGlobally(p.Handle, p.Expr, tr)
+		return VanishesGlobally(p.Handle, p.Expr, tr)
 	}
 	// Check specific row
-	return false, VanishesLocally(*p.Domain, p.Handle, p.Expr, tr)
+	return VanishesLocally(*p.Domain, p.Handle, p.Expr, tr)
 }
 
 // VanishesGlobally checks whether a given expression vanishes (i.e. evaluates to
@@ -129,24 +129,24 @@ func (p *RangeConstraint) IsAir() bool { return true }
 
 // Accepts checks whether a vanishing constraint evaluates to zero on every row
 // of a table. If so, return nil otherwise return an error.
-func (p *RangeConstraint) Accepts(tr Trace) (bool, error) {
+func (p *RangeConstraint) Accepts(tr Trace) error {
 	for k := 0; k < tr.Height(); k++ {
 		// Get the value on the kth row
 		kth, err := tr.GetByName(p.Handle, k)
 		// Sanity check column exists!
 		if err != nil {
-			return false, err
+			return err
 		}
 		// Perform the bounds check
 		if kth != nil && kth.Cmp(p.Bound) >= 0 {
 			// Construct useful error message
 			msg := fmt.Sprintf("value out-of-bounds (row %d, %s)", kth, p.Handle)
 			// Evaluation failure
-			return false, errors.New(msg)
+			return errors.New(msg)
 		}
 	}
 	// All good
-	return false, nil
+	return nil
 }
 
 // ===================================================================
@@ -188,7 +188,7 @@ func NewPropertyAssertion[E Evaluable](handle string, expr E) *PropertyAssertion
 // of a table. If so, return nil otherwise return an error.
 //
 //nolint:revive
-func (p *PropertyAssertion[E]) Accepts(tr Trace) (bool, error) {
+func (p *PropertyAssertion[E]) Accepts(tr Trace) error {
 	for k := 0; k < tr.Height(); k++ {
 		// Determine kth evaluation point
 		kth := p.Expr.EvalAt(k, tr)
@@ -197,9 +197,9 @@ func (p *PropertyAssertion[E]) Accepts(tr Trace) (bool, error) {
 			// Construct useful error message
 			msg := fmt.Sprintf("property assertion %s does not hold (row %d, %s)", p.Handle, k, kth)
 			// Evaluation failure
-			return false, errors.New(msg)
+			return errors.New(msg)
 		}
 	}
 	// All good
-	return false, nil
+	return nil
 }

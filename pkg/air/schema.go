@@ -82,22 +82,22 @@ func (p *Schema) AddRangeConstraint(column string, bound *fr.Element) {
 // is, whether or not the given trace adheres to the schema.  A trace can fail
 // to adhere to the schema for a variety of reasons, such as having a constraint
 // which does not hold.
-func (p *Schema) Accepts(trace table.Trace) (bool, error) {
+func (p *Schema) Accepts(trace table.Trace) error {
 	// Check vanishing constraints
-	warning, err := table.ForallAcceptTrace(trace, p.vanishing)
+	err := table.ForallAcceptTrace(trace, p.vanishing)
 	if err != nil {
-		return warning, err
+		return err
 	}
 	// Check range constraints
-	warning, err = table.ForallAcceptTrace(trace, p.ranges)
+	err = table.ForallAcceptTrace(trace, p.ranges)
 	if err != nil {
-		return warning, err
+		return err
 	}
 	// TODO: handle assertions.  These cannot be checked in the same way as for
 	// other constraints at the AIR level because the prover does not support
 	// them.
 
-	return false, nil
+	return nil
 }
 
 // ExpandTrace expands a given trace according to this schema.  More
