@@ -43,6 +43,8 @@ func (p *VanishingConstraint[T]) GetHandle() string {
 
 // Accepts checks whether a vanishing constraint evaluates to zero on every row
 // of a table.  If so, return nil otherwise return an error.
+//
+//nolint:revive
 func (p *VanishingConstraint[T]) Accepts(tr Trace) (bool, error) {
 	if p.Domain == nil {
 		// Global Constraint
