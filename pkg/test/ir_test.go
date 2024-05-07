@@ -199,6 +199,10 @@ func TestEval_BitDecomp(t *testing.T) {
 	Check(t, "bit_decomposition")
 }
 
+func TestEval_ByteSorting(t *testing.T) {
+	Check(t, "byte_sorting")
+}
+
 // ===================================================================
 // Test Helpers
 // ===================================================================
