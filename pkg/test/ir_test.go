@@ -203,6 +203,10 @@ func TestEval_ByteSorting(t *testing.T) {
 	Check(t, "byte_sorting")
 }
 
+func TestEval_WordSorting(t *testing.T) {
+	Check(t, "word_sorting")
+}
+
 // ===================================================================
 // Test Helpers
 // ===================================================================
@@ -235,19 +239,21 @@ func Check(t *testing.T, test string) {
 // either accepted or rejected) by a given set of constraints.
 func CheckTraces(t *testing.T, test string, expected bool, traces []*table.ArrayTrace, hirSchema *hir.Schema) {
 	for i, tr := range traces {
-		// Lower HIR => MIR
-		mirSchema := hirSchema.LowerToMir()
-		// Lower MIR => AIR
-		airSchema := mirSchema.LowerToAir()
-		// Check HIR/MIR trace (if applicable)
-		if ValidHirMirTrace(tr) {
-			checkTrace(t, tr, traceId{"HIR", test, expected, i + 1}, hirSchema)
-			checkTrace(t, tr, traceId{"MIR", test, expected, i + 1}, mirSchema)
+		if tr != nil {
+			// Lower HIR => MIR
+			mirSchema := hirSchema.LowerToMir()
+			// Lower MIR => AIR
+			airSchema := mirSchema.LowerToAir()
+			// Check HIR/MIR trace (if applicable)
+			if ValidHirMirTrace(tr) {
+				checkTrace(t, tr, traceId{"HIR", test, expected, i + 1}, hirSchema)
+				checkTrace(t, tr, traceId{"MIR", test, expected, i + 1}, mirSchema)
+			}
+			// Perform trace expansion
+			airSchema.ExpandTrace(tr)
+			// Check AIR trace
+			checkTrace(t, tr, traceId{"AIR", test, expected, i + 1}, airSchema)
 		}
-		// Perform trace expansion
-		airSchema.ExpandTrace(tr)
-		// Check AIR trace
-		checkTrace(t, tr, traceId{"AIR", test, expected, i + 1}, airSchema)
 	}
 }
 
@@ -310,7 +316,9 @@ func ReadTracesFile(name string, ext string) []*table.ArrayTrace {
 	// Read constraints line by line
 	for i, line := range lines {
 		// Parse input line as JSON
-		traces[i] = ParseJsonTrace(line, name, ext, i)
+		if line != "" && !strings.HasPrefix(line, ";;") {
+			traces[i] = ParseJsonTrace(line, name, ext, i)
+		}
 	}
 
 	return traces
