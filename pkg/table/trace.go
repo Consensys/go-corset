@@ -63,6 +63,9 @@ type Trace interface {
 	GetByIndex(col int, row int) (*fr.Element, error)
 	// Check whether this trace contains data for the given column.
 	HasColumn(name string) bool
+	// ColumnByName returns the data of a given column in order that it can be
+	// inspected.  If the given column does not exist, then nil is returned.
+	ColumnByName(name string) []*fr.Element
 	// Add a new column of data
 	AddColumn(name string, data []*fr.Element)
 }
@@ -90,7 +93,7 @@ type ArrayTrace struct {
 	// Holds the maximum height of any column in the trace
 	height int
 	// Holds the name of each column
-	columns []ArrayTraceColumn
+	columns []*ArrayTraceColumn
 }
 
 // EmptyArrayTrace constructs an empty array trace into which column data can be
@@ -98,11 +101,25 @@ type ArrayTrace struct {
 func EmptyArrayTrace() *ArrayTrace {
 	p := new(ArrayTrace)
 	// Initially empty columns
-	p.columns = make([]ArrayTraceColumn, 0)
+	p.columns = make([]*ArrayTraceColumn, 0)
 	// Initialise height as 0
 	p.height = 0
 	// done
 	return p
+}
+
+// Clone creates an identical clone of this trace.
+func (p *ArrayTrace) Clone() *ArrayTrace {
+	clone := new(ArrayTrace)
+	clone.columns = make([]*ArrayTraceColumn, len(p.columns))
+	clone.height = p.height
+	//
+	for i, c := range p.columns {
+		// TODO: can this be avoided?
+		clone.columns[i] = c.Clone()
+	}
+	// done
+	return clone
 }
 
 // HasColumn checks whether the trace has a given column or not.
@@ -125,7 +142,7 @@ func (p *ArrayTrace) AddColumn(name string, data []*fr.Element) {
 	// Construct new column
 	column := ArrayTraceColumn{name, data}
 	// Append it
-	p.columns = append(p.columns, column)
+	p.columns = append(p.columns, &column)
 	// Update maximum height
 	if len(data) > p.height {
 		p.height = len(data)
@@ -133,7 +150,7 @@ func (p *ArrayTrace) AddColumn(name string, data []*fr.Element) {
 }
 
 // Columns returns the set of columns in this trace.
-func (p *ArrayTrace) Columns() []ArrayTraceColumn {
+func (p *ArrayTrace) Columns() []*ArrayTraceColumn {
 	return p.columns
 }
 
@@ -147,16 +164,29 @@ func (p *ArrayTrace) Height() int {
 func (p *ArrayTrace) GetByName(name string, row int) (*fr.Element, error) {
 	// NOTE: Could improve performance here if names were kept in
 	// sorted order.
-	for _, c := range p.columns {
-		if name == c.name {
-			// Matched column
-			return c.Get(row)
-		}
+	c := p.getColumnByName(name)
+	if c != nil {
+		// Matched column
+		return c.Get(row)
 	}
+
 	// Failed to find column
 	msg := fmt.Sprintf("Invalid column: {%s}", name)
 
 	return nil, errors.New(msg)
+}
+
+// ColumnByName looks up a column based on its name.  If the column doesn't
+// exist, then nil is returned.
+func (p *ArrayTrace) ColumnByName(name string) []*fr.Element {
+	for _, c := range p.columns {
+		if name == c.name {
+			// Matched column
+			return c.data
+		}
+	}
+
+	return nil
 }
 
 // GetByIndex returns the value of a given column (as identifier by its index or
@@ -168,6 +198,17 @@ func (p *ArrayTrace) GetByIndex(col int, row int) (*fr.Element, error) {
 	}
 
 	return p.columns[col].Get(row)
+}
+
+func (p *ArrayTrace) getColumnByName(name string) *ArrayTraceColumn {
+	for _, c := range p.columns {
+		if name == c.name {
+			// Matched column
+			return c
+		}
+	}
+
+	return nil
 }
 
 // ===================================================================
@@ -185,6 +226,16 @@ type ArrayTraceColumn struct {
 // Name returns the name of the given column.
 func (p *ArrayTraceColumn) Name() string {
 	return p.name
+}
+
+// Clone an ArrayTraceColumn
+func (p *ArrayTraceColumn) Clone() *ArrayTraceColumn {
+	clone := new(ArrayTraceColumn)
+	clone.name = p.name
+	clone.data = make([]*fr.Element, len(p.data))
+	copy(clone.data, p.data)
+
+	return clone
 }
 
 // Get the value at the given row of this column.

@@ -184,6 +184,26 @@ func TestEval_Type_01(t *testing.T) {
 }
 
 // ===================================================================
+// Permutations
+// ===================================================================
+
+func TestEval_Permute_01(t *testing.T) {
+	Check(t, "permute_01")
+}
+
+func TestEval_Permute_02(t *testing.T) {
+	Check(t, "permute_02")
+}
+
+func TestEval_Permute_03(t *testing.T) {
+	Check(t, "permute_03")
+}
+
+func TestEval_Permute_04(t *testing.T) {
+	Check(t, "permute_04")
+}
+
+// ===================================================================
 // Complex Tests
 // ===================================================================
 
@@ -240,13 +260,19 @@ func Check(t *testing.T, test string) {
 func CheckTraces(t *testing.T, test string, expected bool, traces []*table.ArrayTrace, hirSchema *hir.Schema) {
 	for i, tr := range traces {
 		if tr != nil {
+			// Perform HIR trace expansion
+			hirTrace, err := hirSchema.ExpandTrace(tr.Clone())
+			if err != nil {
+				t.Error(err)
+				continue
+			}
 			// Lower HIR => MIR
 			mirSchema := hirSchema.LowerToMir()
 			// Lower MIR => AIR
 			airSchema := mirSchema.LowerToAir()
 			// Check HIR/MIR trace (if applicable)
 			if ValidHirMirTrace(tr) {
-				checkTrace(t, tr, traceId{"HIR", test, expected, i + 1}, hirSchema)
+				checkTrace(t, hirTrace, traceId{"HIR", test, expected, i + 1}, hirSchema)
 				checkTrace(t, tr, traceId{"MIR", test, expected, i + 1}, mirSchema)
 			}
 			// Perform trace expansion

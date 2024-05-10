@@ -3,10 +3,12 @@ package sexp
 // SExp is an S-Expression is either a List of zero or more S-Expressions, or
 // a Symbol.
 type SExp interface {
-	// IsList checks whether this S-Expression is a list.
-	IsList() bool
-	// IsSymbol checks whether this S-Expression is a symbol.
-	IsSymbol() bool
+	// AsList checks whether this S-Expression is a list and, if
+	// so, returns it.  Otherwise, it returns nil.
+	AsList() *List
+	// AsSymbol checks whether this S-Expression is a symbol and,
+	// if so, returns it.  Otherwise, it returns nil.
+	AsSymbol() *Symbol
 	// String generates a string representation.
 	String() string
 }
@@ -24,14 +26,17 @@ type List struct {
 // satisfies the given interface.
 var _ SExp = (*List)(nil)
 
-// IsList sets that is a list.
-func (l *List) IsList() bool { return true }
+// AsList returns the given list.
+func (l *List) AsList() *List { return l }
 
-// IsSymbol that a List is not a Symbol.
-func (l *List) IsSymbol() bool { return false }
+// AsSymbol returns nil for a list.
+func (l *List) AsSymbol() *Symbol { return nil }
 
 // Len gets the number of elements in this list.
 func (l *List) Len() int { return len(l.Elements) }
+
+// Get the ith element of this list
+func (l *List) Get(i int) SExp { return l.Elements[i] }
 
 func (l *List) String() string {
 	var s = "("
@@ -83,10 +88,10 @@ type Symbol struct {
 // satisfies the given interface.
 var _ SExp = (*Symbol)(nil)
 
-// IsList sets that A Symbol is not a List.
-func (s *Symbol) IsList() bool { return false }
+// AsList returns nil for a symbol.
+func (s *Symbol) AsList() *List { return nil }
 
-// IsSymbol sets tha is a Symbol.
-func (s *Symbol) IsSymbol() bool { return true }
+// AsSymbol returns the given symbol
+func (s *Symbol) AsSymbol() *Symbol { return s }
 
 func (s *Symbol) String() string { return s.Value }

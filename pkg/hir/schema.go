@@ -46,6 +46,8 @@ type PropertyAssertion = mir.PropertyAssertion
 type Schema struct {
 	// The data columns of this schema.
 	dataColumns []DataColumn
+	// The sorted permutations of this schema.
+	permutations []*table.SortedPermutation
 	// The vanishing constraints of this schema.
 	vanishing []VanishingConstraint
 	// The property assertions for this schema.
@@ -57,6 +59,7 @@ type Schema struct {
 func EmptySchema() *Schema {
 	p := new(Schema)
 	p.dataColumns = make([]DataColumn, 0)
+	p.permutations = make([]*table.SortedPermutation, 0)
 	p.vanishing = make([]VanishingConstraint, 0)
 	p.assertions = make([]PropertyAssertion, 0)
 	// Done
@@ -76,6 +79,16 @@ func (p *Schema) Constraints() []VanishingConstraint {
 // AddDataColumn appends a new data column.
 func (p *Schema) AddDataColumn(name string, base table.Type) {
 	p.dataColumns = append(p.dataColumns, table.NewDataColumn(name, base))
+}
+
+// AddPermutationColumns introduces a permutation of one or more
+// existing columns.  Specifically, this introduces one or more
+// computed columns which represent a (sorted) permutation of the
+// source columns.  Each source column is associated with a "sign"
+// which indicates the direction of sorting (i.e. ascending versus
+// descending).
+func (p *Schema) AddPermutationColumns(targets []string, signs []bool, sources []string) {
+	p.permutations = append(p.permutations, table.NewSortedPermutation(targets, signs, sources))
 }
 
 // AddVanishingConstraint appends a new vanishing constraint.
@@ -98,6 +111,11 @@ func (p *Schema) Accepts(trace table.Trace) error {
 	if err != nil {
 		return err
 	}
+	// Check permutations
+	err = table.ForallAcceptTrace(trace, p.permutations)
+	if err != nil {
+		return err
+	}
 	// Check vanishing constraints
 	err = table.ForallAcceptTrace(trace, p.vanishing)
 	if err != nil {
@@ -110,6 +128,19 @@ func (p *Schema) Accepts(trace table.Trace) error {
 	}
 
 	return nil
+}
+
+// ExpandTrace expands a given trace according to this schema.
+func (p *Schema) ExpandTrace(tr table.Trace) (table.Trace, error) {
+	// Expand all the permutation columns
+	for _, perm := range p.permutations {
+		err := perm.ExpandTrace(tr)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return tr, nil
 }
 
 // LowerToMir lowers (or refines) an HIR table into an MIR table.  That means

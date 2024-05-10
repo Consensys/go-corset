@@ -84,6 +84,8 @@ func sexpDeclaration(s sexp.SExp, schema *Schema, p *sexp.Translator[Expr]) erro
 			return sexpVanishing(e.Elements, &domain, schema, p)
 		} else if e.Len() == 3 && e.MatchSymbols(2, "assert") {
 			return sexpAssertion(e.Elements, schema, p)
+		} else if e.Len() == 3 && e.MatchSymbols(1, "permute") {
+			return sexpPermutation(e.Elements, schema)
 		}
 	}
 
@@ -107,6 +109,51 @@ func sexpColumn(elements []sexp.SExp, schema *Schema) error {
 
 	schema.AddDataColumn(columnName, columnType)
 
+	return nil
+}
+
+// Parse a permutation declaration
+func sexpPermutation(elements []sexp.SExp, schema *Schema) error {
+	// Target columns are (sorted) permutations of source columns.
+	sexpTargets := elements[1].AsList()
+	// Source columns.
+	sexpSources := elements[2].AsList()
+	// Convert into appropriate form.
+	targets := make([]string, sexpTargets.Len())
+	sources := make([]string, sexpSources.Len())
+	signs := make([]bool, sexpSources.Len())
+	//
+	for i := 0; i < sexpTargets.Len(); i++ {
+		target := sexpTargets.Get(i).AsSymbol()
+		// Sanity check syntax as expected
+		if target == nil {
+			return fmt.Errorf("expected column name, found: %s", elements[i])
+		}
+		// Copy over
+		targets[i] = target.String()
+	}
+	//
+	for i := 0; i < sexpSources.Len(); i++ {
+		source := sexpSources.Get(i).AsSymbol()
+		// Sanity check syntax as expected
+		if source == nil {
+			return fmt.Errorf("expected column name, found: %s", elements[i])
+		}
+		// Determine source column sign (i.e. sort direction)
+		sortName := source.String()
+		if strings.HasPrefix(sortName, "+") {
+			signs[i] = true
+		} else if strings.HasPrefix(sortName, "-") {
+			signs[i] = false
+		} else {
+			return fmt.Errorf("sort direction (+/-) required, found: %s", sortName)
+		}
+		// Copy over column name
+		sources[i] = sortName[1:]
+	}
+	//
+	schema.AddPermutationColumns(targets, signs, sources)
+	//
 	return nil
 }
 
