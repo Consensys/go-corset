@@ -42,12 +42,28 @@ type Acceptable interface {
 	Accepts(Trace) error
 }
 
+// TraceComputation represents a computation which is applied to a
+// high-level trace in order to expand it to a low-level trace.  This
+// typically involves adding columns, evaluating compute-only
+// expressions, sorting columns, etc.
+type TraceComputation interface {
+	// ExpandTrace expands a given trace to include "computed
+	// columns".  These are columns which do not exist in the
+	// original trace, but are added during trace expansion to
+	// form the final trace.
+	ExpandTrace(Trace) error
+}
+
 // Trace describes a set of named columns.  Columns are not required to have the
 // same height and can be either "data" columns or "computed" columns.
 type Trace interface {
 	// Determine the height of this table, which is defined as the
 	// height of the largest column.
 	Height() int
+	// Get the number of columns in this trace.
+	Width() int
+	// Get the name of the ith column in this trace.
+	ColumnName(int) string
 	// Get the value of a given column by its name.  If the column
 	// does not exist or if the index is out-of-bounds then an
 	// error is returned.
@@ -106,6 +122,16 @@ func EmptyArrayTrace() *ArrayTrace {
 	p.height = 0
 	// done
 	return p
+}
+
+// Width returns the number of columns in this trace.
+func (p *ArrayTrace) Width() int {
+	return len(p.columns)
+}
+
+// ColumnName returns the name of the ith column in this trace.
+func (p *ArrayTrace) ColumnName(index int) string {
+	return p.columns[index].Name()
 }
 
 // Clone creates an identical clone of this trace.

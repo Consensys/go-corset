@@ -78,7 +78,7 @@ func (p *Schema) Constraints() []VanishingConstraint {
 
 // AddDataColumn appends a new data column.
 func (p *Schema) AddDataColumn(name string, base table.Type) {
-	p.dataColumns = append(p.dataColumns, table.NewDataColumn(name, base))
+	p.dataColumns = append(p.dataColumns, table.NewDataColumn(name, base, false))
 }
 
 // AddPermutationColumns introduces a permutation of one or more
@@ -131,16 +131,16 @@ func (p *Schema) Accepts(trace table.Trace) error {
 }
 
 // ExpandTrace expands a given trace according to this schema.
-func (p *Schema) ExpandTrace(tr table.Trace) (table.Trace, error) {
+func (p *Schema) ExpandTrace(tr table.Trace) error {
 	// Expand all the permutation columns
 	for _, perm := range p.permutations {
 		err := perm.ExpandTrace(tr)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 
-	return tr, nil
+	return nil
 }
 
 // LowerToMir lowers (or refines) an HIR table into an MIR table.  That means
@@ -152,7 +152,11 @@ func (p *Schema) LowerToMir() *mir.Schema {
 	for _, col := range p.dataColumns {
 		mirSchema.AddDataColumn(col.Name, col.Type)
 	}
-	// Second, lower constraints
+	// Second, lower permutations
+	for _, col := range p.permutations {
+		mirSchema.AddPermutationColumns(col.Targets, col.Signs, col.Sources)
+	}
+	// Third, lower constraints
 	for _, c := range p.vanishing {
 		mir_exprs := c.Constraint.Expr.LowerTo()
 		// Add individual constraints arising
@@ -160,7 +164,7 @@ func (p *Schema) LowerToMir() *mir.Schema {
 			mirSchema.AddVanishingConstraint(c.Handle, c.Domain, mir_expr)
 		}
 	}
-	// Third, copy property assertions.  Observe, these do not require lowering
+	// Fourth, copy property assertions.  Observe, these do not require lowering
 	// because they are already MIR-level expressions.
 	for _, c := range p.assertions {
 		mirSchema.AddPropertyAssertion(c.Handle, c.Expr)

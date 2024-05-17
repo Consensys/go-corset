@@ -10,13 +10,14 @@ import (
 
 // DataColumn represents a column of user-provided values.
 type DataColumn[T Type] struct {
-	Name string
-	Type T
+	Name      string
+	Type      T
+	Synthetic bool
 }
 
 // NewDataColumn constructs a new data column with a given name.
-func NewDataColumn[T Type](name string, base T) *DataColumn[T] {
-	return &DataColumn[T]{name, base}
+func NewDataColumn[T Type](name string, base T, synthetic bool) *DataColumn[T] {
+	return &DataColumn[T]{name, base, synthetic}
 }
 
 // Get the value of this column at a given row in a given trace.
@@ -77,8 +78,52 @@ func (c *ComputedColumn) Get(row int, tr Trace) (*fr.Element, error) {
 	return c.Expr.EvalAt(row, tr), nil
 }
 
+// ExpandTrace attempts to a new column to the trace which contains the result
+// of evaluating a given expression on each row.  If the column already exists,
+// then an error is flagged.
+func (c *ComputedColumn) ExpandTrace(tr Trace) error {
+	if tr.HasColumn(c.Name) {
+		msg := fmt.Sprintf("Computed column already exists ({%s})", c.Name)
+		return errors.New(msg)
+	}
+
+	data := make([]*fr.Element, tr.Height())
+	// Expand the trace
+	for i := 0; i < len(data); i++ {
+		data[i] = c.Expr.EvalAt(i, tr)
+	}
+	// Colunm needs to be expanded.
+	tr.AddColumn(c.Name, data)
+	// Done
+	return nil
+}
+
 // ===================================================================
-// Sored Permutations
+// Sorted Permutations
+// ===================================================================
+
+// Permutation declares a constraint that one column is a permutation
+// of another.
+type Permutation struct {
+	// The target column
+	Target string
+	// The so columns
+	Source string
+}
+
+// NewPermutation creates a new permutation
+func NewPermutation(target string, source string) *Permutation {
+	return &Permutation{target, source}
+}
+
+// Accepts checks whether a permutation holds between the source and
+// target columns.
+func (p *Permutation) Accepts(tr Trace) error {
+	return IsPermutationOf(p.Target, p.Source, tr)
+}
+
+// ===================================================================
+// Sorted Permutations
 // ===================================================================
 
 // SortedPermutation declares one or more columns as sorted permutations of
@@ -114,21 +159,12 @@ func (p *SortedPermutation) Accepts(tr Trace) error {
 		dstName := p.Targets[i]
 		srcName := p.Sources[i]
 		// Access column data based on column name.
-		dst := tr.ColumnByName(dstName)
-		src := tr.ColumnByName(srcName)
-		// Sanity check whether column exists
-		if dst == nil {
-			msg := fmt.Sprintf("Invalid target column for permutation ({%s})", dstName)
-			return errors.New(msg)
-		} else if src == nil {
-			msg := fmt.Sprintf("Invalid source column for permutation ({%s})", srcName)
-			return errors.New(msg)
-		} else if !util.IsPermutationOf(dst, src) {
-			msg := fmt.Sprintf("Target column (%s) not permutation of source ({%s})", dstName, srcName)
-			return errors.New(msg)
+		err := IsPermutationOf(dstName, srcName, tr)
+		if err != nil {
+			return err
 		}
 
-		cols[i] = dst
+		cols[i] = tr.ColumnByName(dstName)
 	}
 
 	// Check that target columns are sorted lexicographically.
@@ -170,5 +206,26 @@ func (p *SortedPermutation) ExpandTrace(tr Trace) error {
 		tr.AddColumn(col, cols[i])
 	}
 	//
+	return nil
+}
+
+// IsPermutationOf checks whether (or not) one column is a permutation
+// of another in given trace.  The order in which columns are given is
+// not important.
+func IsPermutationOf(target string, source string, tr Trace) error {
+	dst := tr.ColumnByName(target)
+	src := tr.ColumnByName(source)
+	// Sanity check whether column exists
+	if dst == nil {
+		msg := fmt.Sprintf("Invalid target column for permutation ({%s})", target)
+		return errors.New(msg)
+	} else if src == nil {
+		msg := fmt.Sprintf("Invalid source column for permutation ({%s})", source)
+		return errors.New(msg)
+	} else if !util.IsPermutationOf(dst, src) {
+		msg := fmt.Sprintf("Target column (%s) not permutation of source ({%s})", target, source)
+		return errors.New(msg)
+	}
+
 	return nil
 }
