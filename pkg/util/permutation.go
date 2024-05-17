@@ -14,6 +14,9 @@ import (
 // This function operators by cloning both arrays, sorting them and checking
 // they are the same.
 func IsPermutationOf(dst []*fr.Element, src []*fr.Element) bool {
+	if len(dst) != len(src) {
+		return false
+	}
 	// Copy arrays
 	dstCopy := make([]*fr.Element, len(dst))
 	srcCopy := make([]*fr.Element, len(src))
@@ -24,7 +27,13 @@ func IsPermutationOf(dst []*fr.Element, src []*fr.Element) bool {
 	slices.SortFunc(dstCopy, func(l *fr.Element, r *fr.Element) int { return l.Cmp(r) })
 	slices.SortFunc(srcCopy, func(l *fr.Element, r *fr.Element) int { return l.Cmp(r) })
 	// Check they are equal
-	return slices.Equal(dstCopy, srcCopy)
+	for i := 0; i < len(dst); i++ {
+		if dstCopy[i].Cmp(srcCopy[i]) != 0 {
+			return false
+		}
+	}
+	// Match
+	return true
 }
 
 // PermutationSort sorts an array of columns in row-wise fashion.  For
@@ -84,6 +93,8 @@ func AreLexicographicallySorted(cols [][]*fr.Element, signs []bool) bool {
 				return false
 			} else if !signs[j] && c > 0 {
 				return false
+			} else if c != 0 {
+				return true
 			}
 		}
 	}

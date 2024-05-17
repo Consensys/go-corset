@@ -203,6 +203,10 @@ func TestEval_Permute_04(t *testing.T) {
 	Check(t, "permute_04")
 }
 
+func TestEval_Permute_05(t *testing.T) {
+	Check(t, "permute_05")
+}
+
 // ===================================================================
 // Complex Tests
 // ===================================================================
