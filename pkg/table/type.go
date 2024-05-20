@@ -65,12 +65,18 @@ func (p *UintType) Accept(val *fr.Element) bool {
 	return val.Cmp(p.bound) < 0
 }
 
+// BitWidth returns the bitwidth of this type.  For example, the
+// bitwidth of the type u8 is 8.
+func (p *UintType) BitWidth() uint {
+	return p.nbits
+}
+
 // HasBound determines whether this type fits within a given bound.  For
 // example, a u8 fits within a bound of 256 and also 65536.  However, it does
 // not fit within a bound of 255.
-func (p *UintType) HasBound(bound uint64) bool {
-	var n fr.Element = fr.NewElement(bound)
-	return p.bound.Cmp(&n) == 0
+func (p *UintType) HasBound(bound uint) bool {
+	var n fr.Element = fr.NewElement(uint64(bound))
+	return p.bound.Cmp(&n) <= 0
 }
 
 // Bound determines the actual bound for all values which are in this type.
