@@ -183,6 +183,14 @@ func TestEval_Type_01(t *testing.T) {
 	Check(t, "type_01")
 }
 
+func TestEval_Type_02(t *testing.T) {
+	Check(t, "type_02")
+}
+
+func TestEval_Type_03(t *testing.T) {
+	Check(t, "type_03")
+}
+
 // ===================================================================
 // Permutations
 // ===================================================================

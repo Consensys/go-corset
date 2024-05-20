@@ -111,9 +111,12 @@ func (p *RowConstraint[T]) String() string {
 // Range Constraint
 // ===================================================================
 
-// RangeConstraint restricts all values in a given column to be
-// within a range [0..n) for some bound n.  For example, a bound of
-// 256 would restrict all values to be bytes.
+// RangeConstraint restricts all values in a given column to be within
+// a range [0..n) for some bound n.  For example, a bound of 256 would
+// restrict all values to be bytes.  At this time, range constraints
+// are explicitly limited at the arithmetic level to bounds of at most
+// 256 (i.e. to ensuring bytes).  This restriction is somewhat
+// arbitrary and is determined by the underlying prover.
 type RangeConstraint struct {
 	// A unique identifier for this constraint.  This is primarily
 	// useful for debugging.
@@ -127,6 +130,10 @@ type RangeConstraint struct {
 
 // NewRangeConstraint constructs a new Range constraint!
 func NewRangeConstraint(column string, bound *fr.Element) *RangeConstraint {
+	var n fr.Element = fr.NewElement(256)
+	if bound.Cmp(&n) > 0 {
+		panic("Range constraint for bitwidth above 8 not supported")
+	}
 	return &RangeConstraint{column, bound}
 }
 
