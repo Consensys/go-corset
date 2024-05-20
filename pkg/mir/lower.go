@@ -5,6 +5,7 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/air"
+	"github.com/consensys/go-corset/pkg/table"
 )
 
 // LowerTo lowers a sum expression to the AIR level by lowering the arguments.
@@ -33,8 +34,9 @@ func (p *Normalise) LowerTo(tbl *air.Schema) air.Expr {
 	name := ie.String()
 	// Add new column (if it does not already exist)
 	if !tbl.HasColumn(name) {
-		// Add computed column
-		tbl.AddComputedColumn(name, ie)
+		// Add (synthetic) computed column
+		tbl.AddColumn(name, true)
+		tbl.AddComputation(table.NewComputedColumn(name, ie))
 	}
 
 	one := fr.NewElement(1)

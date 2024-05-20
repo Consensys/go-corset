@@ -138,8 +138,8 @@ func (p *RangeConstraint) GetHandle() string {
 // IsAir is a marker that indicates this is an AIR column.
 func (p *RangeConstraint) IsAir() bool { return true }
 
-// Accepts checks whether a vanishing constraint evaluates to zero on every row
-// of a table. If so, return nil otherwise return an error.
+// Accepts checks whether a range constraint evaluates to zero on
+// every row of a table. If so, return nil otherwise return an error.
 func (p *RangeConstraint) Accepts(tr Trace) error {
 	for k := 0; k < tr.Height(); k++ {
 		// Get the value on the kth row

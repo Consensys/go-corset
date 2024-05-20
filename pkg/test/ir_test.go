@@ -184,6 +184,30 @@ func TestEval_Type_01(t *testing.T) {
 }
 
 // ===================================================================
+// Permutations
+// ===================================================================
+
+func TestEval_Permute_01(t *testing.T) {
+	Check(t, "permute_01")
+}
+
+func TestEval_Permute_02(t *testing.T) {
+	Check(t, "permute_02")
+}
+
+func TestEval_Permute_03(t *testing.T) {
+	Check(t, "permute_03")
+}
+
+func TestEval_Permute_04(t *testing.T) {
+	Check(t, "permute_04")
+}
+
+func TestEval_Permute_05(t *testing.T) {
+	Check(t, "permute_05")
+}
+
+// ===================================================================
 // Complex Tests
 // ===================================================================
 
@@ -245,19 +269,43 @@ func CheckTraces(t *testing.T, test string, expected bool, traces []*table.Array
 			// Lower MIR => AIR
 			airSchema := mirSchema.LowerToAir()
 			// Check HIR/MIR trace (if applicable)
-			if ValidHirMirTrace(tr) {
-				checkTrace(t, tr, traceId{"HIR", test, expected, i + 1}, hirSchema)
-				checkTrace(t, tr, traceId{"MIR", test, expected, i + 1}, mirSchema)
+			if airSchema.IsInputTrace(tr) == nil {
+				// This is an unexpanded input trace.
+				checkInputTrace(t, tr, traceId{"HIR", test, expected, i + 1}, hirSchema)
+				checkInputTrace(t, tr, traceId{"MIR", test, expected, i + 1}, mirSchema)
+				checkInputTrace(t, tr, traceId{"AIR", test, expected, i + 1}, airSchema)
+			} else if airSchema.IsOutputTrace(tr) == nil {
+				// This is an already expanded input trace.  Therefore, no need
+				// to perform expansion.
+				checkExpandedTrace(t, tr, traceId{"AIR", test, expected, i + 1}, airSchema)
+			} else {
+				// Trace appears to be malformed.
+				err := airSchema.IsInputTrace(tr)
+
+				if expected {
+					t.Errorf("Trace malformed (%s.accepts, line %d): %s", test, i+1, err)
+				} else {
+					t.Errorf("Trace malformed (%s.rejects, line %d): %s", test, i+1, err)
+				}
 			}
-			// Perform trace expansion
-			airSchema.ExpandTrace(tr)
-			// Check AIR trace
-			checkTrace(t, tr, traceId{"AIR", test, expected, i + 1}, airSchema)
 		}
 	}
 }
 
-func checkTrace(t *testing.T, tr table.Trace, id traceId, schema table.Acceptable) {
+func checkInputTrace(t *testing.T, tr *table.ArrayTrace, id traceId, schema TraceExpander) {
+	// Clone trace (to ensure expansion does not affect subsequent tests)
+	etr := tr.Clone()
+	// Expand trace
+	err := schema.ExpandTrace(etr)
+
+	if err != nil {
+		t.Error(err)
+	} else {
+		checkExpandedTrace(t, etr, id, schema)
+	}
+}
+
+func checkExpandedTrace(t *testing.T, tr table.Trace, id traceId, schema table.Acceptable) {
 	err := schema.Accepts(tr)
 	// Determine whether trace accepted or not.
 	accepted := (err == nil)
@@ -271,24 +319,13 @@ func checkTrace(t *testing.T, tr table.Trace, id traceId, schema table.Acceptabl
 	}
 }
 
-// ValidHirMirTrace In some circumstances there are traces which should not be considered
-// at the MIR level.  The reason for this is that they contain manual
-// entries for computed columns (e.g. in an effort to prevent a trace
-// from being rejected).  As such, the MIR level does not see those
-// columns and, hence, cannot always know the trace should have been
-// rejected.
-//
-// For now, we simply say that any trace containing a column whose
-// name suggests it is (or represents) a computed column is not a
-// valid MIR table.
-func ValidHirMirTrace(tbl *table.ArrayTrace) bool {
-	for _, col := range tbl.Columns() {
-		if strings.Contains(col.Name(), "(") {
-			return false
-		}
-	}
-
-	return true
+type TraceExpander interface {
+	Accepts(table.Trace) error
+	// ExpandTrace expands a given trace to include "computed
+	// columns".  These are columns which do not exist in the
+	// original trace, but are added during trace expansion to
+	// form the final trace.
+	ExpandTrace(table.Trace) error
 }
 
 // A trace identifier uniquely identifies a specific trace within a given test.

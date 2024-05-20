@@ -149,7 +149,7 @@ func translateSExp[T comparable](p *Translator[T], s SExp) (T, error) {
 func translateSExpList[T comparable](p *Translator[T], elements []SExp) (T, error) {
 	var empty T
 	// Sanity check this list makes sense
-	if len(elements) == 0 || !elements[0].IsSymbol() {
+	if len(elements) == 0 || elements[0].AsSymbol() == nil {
 		return empty, errors.New("invalid List")
 	}
 	// Extract expression name

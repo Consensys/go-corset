@@ -23,6 +23,8 @@ type PropertyAssertion = *table.PropertyAssertion[Expr]
 type Schema struct {
 	// The data columns of this schema.
 	dataColumns []DataColumn
+	// The sorted permutations of this schema.
+	permutations []*table.SortedPermutation
 	// The vanishing constraints of this schema.
 	vanishing []VanishingConstraint
 	// The property assertions for this schema.
@@ -34,6 +36,7 @@ type Schema struct {
 func EmptySchema() *Schema {
 	p := new(Schema)
 	p.dataColumns = make([]DataColumn, 0)
+	p.permutations = make([]*table.SortedPermutation, 0)
 	p.vanishing = make([]VanishingConstraint, 0)
 	p.assertions = make([]PropertyAssertion, 0)
 	// Done
@@ -42,7 +45,17 @@ func EmptySchema() *Schema {
 
 // AddDataColumn appends a new data column.
 func (p *Schema) AddDataColumn(name string, base table.Type) {
-	p.dataColumns = append(p.dataColumns, table.NewDataColumn(name, base))
+	p.dataColumns = append(p.dataColumns, table.NewDataColumn(name, base, false))
+}
+
+// AddPermutationColumns introduces a permutation of one or more
+// existing columns.  Specifically, this introduces one or more
+// computed columns which represent a (sorted) permutation of the
+// source columns.  Each source column is associated with a "sign"
+// which indicates the direction of sorting (i.e. ascending versus
+// descending).
+func (p *Schema) AddPermutationColumns(targets []string, signs []bool, sources []string) {
+	p.permutations = append(p.permutations, table.NewSortedPermutation(targets, signs, sources))
 }
 
 // AddVanishingConstraint appends a new vanishing constraint.
@@ -62,6 +75,11 @@ func (p *Schema) AddPropertyAssertion(handle string, expr Expr) {
 func (p *Schema) Accepts(trace table.Trace) error {
 	// Check (typed) data columns
 	err := table.ForallAcceptTrace(trace, p.dataColumns)
+	if err != nil {
+		return err
+	}
+	// Check permutations
+	err = table.ForallAcceptTrace(trace, p.permutations)
 	if err != nil {
 		return err
 	}
@@ -87,6 +105,10 @@ func (p *Schema) LowerToAir() *air.Schema {
 	// Lower data columns
 	for _, col := range p.dataColumns {
 		lowerColumnToAir(col, airSchema)
+	}
+	// Lower permutations columns
+	for _, col := range p.permutations {
+		lowerPermutationToAir(col, airSchema)
 	}
 	// Lower vanishing constraints
 	for _, c := range p.vanishing {
@@ -127,5 +149,36 @@ func lowerColumnToAir(c *table.DataColumn[table.Type], schema *air.Schema) {
 	}
 	// Finally, add an (untyped) data column representing this
 	// data column.
-	schema.AddDataColumn(c.Name)
+	schema.AddColumn(c.Name, false)
+}
+
+// Lower a permutation to the AIR level.  This has quite a few
+// effects.  Firstly, permutation constraints are added for all of the
+// new columns.  Secondly, sorting constraints (and their associated
+// synthetic columns) must also be added.  Finally, a trace
+// computation is required to ensure traces are correctly expanded to
+// meet the requirements of a sorted permutation.
+func lowerPermutationToAir(c *table.SortedPermutation, schema *air.Schema) {
+	ncols := len(c.Targets)
+	// Add individual permutation constraints
+	for i := 0; i < ncols; i++ {
+		schema.AddColumn(c.Targets[i], true)
+		schema.AddPermutationConstraint(c.Targets[i], c.Sources[i])
+	}
+	// Add sorting constraints + columns
+	// Add trace computation
+	schema.AddComputation(c)
+}
+
+// ExpandTrace expands a given trace according to this schema.
+func (p *Schema) ExpandTrace(tr table.Trace) error {
+	// Expand all the permutation columns
+	for _, perm := range p.permutations {
+		err := perm.ExpandTrace(tr)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

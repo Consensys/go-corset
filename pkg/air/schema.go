@@ -1,6 +1,9 @@
 package air
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/table"
 )
@@ -23,14 +26,19 @@ type PropertyAssertion = *table.PropertyAssertion[table.Evaluable]
 type Schema struct {
 	// The data columns of this schema.
 	dataColumns []DataColumn
-	// The computed columns of this schema.
-	computedColumns []*table.ComputedColumn
+	// The permutation columns of this schema.
+	permutations []*table.Permutation
 	// The vanishing constraints of this schema.
 	vanishing []VanishingConstraint
 	// The range constraints of this schema.
 	ranges []*table.RangeConstraint
 	// Property assertions.
 	assertions []PropertyAssertion
+	// The computations used to construct traces which adhere to
+	// this schema.  Such computations are not expressible at the
+	// prover level and, hence, can only be used to pre-process
+	// traces prior to prove generation.
+	computations []table.TraceComputation
 }
 
 // EmptySchema is used to construct a fresh schema onto which new columns and
@@ -38,10 +46,11 @@ type Schema struct {
 func EmptySchema[C table.Evaluable]() *Schema {
 	p := new(Schema)
 	p.dataColumns = make([]DataColumn, 0)
-	p.computedColumns = make([]*table.ComputedColumn, 0)
+	p.permutations = make([]*table.Permutation, 0)
 	p.vanishing = make([]VanishingConstraint, 0)
 	p.ranges = make([]*table.RangeConstraint, 0)
 	p.assertions = make([]PropertyAssertion, 0)
+	p.computations = make([]table.TraceComputation, 0)
 	// Done
 	return p
 }
@@ -54,23 +63,88 @@ func (p *Schema) HasColumn(name string) bool {
 		}
 	}
 
-	for _, c := range p.computedColumns {
-		if c.Name == name {
-			return true
-		}
-	}
-
 	return false
 }
 
-// AddDataColumn appends a new data column.
-func (p *Schema) AddDataColumn(name string) {
-	p.dataColumns = append(p.dataColumns, table.NewDataColumn(name, &table.FieldType{}))
+// IsInputTrace determines whether a given input trace is a suitable
+// input (i.e. not expanded) trace for this schema.  Specifically, the
+// input trace must contain a match column for each non-synthetic
+// column in this trace.
+func (p *Schema) IsInputTrace(tr table.Trace) error {
+	count := 0
+
+	for _, c := range p.dataColumns {
+		if !c.Synthetic && !tr.HasColumn(c.Name) {
+			msg := fmt.Sprintf("Trace missing input column ({%s})", c.Name)
+			return errors.New(msg)
+		} else if c.Synthetic && tr.HasColumn(c.Name) {
+			msg := fmt.Sprintf("Trace has synthetic column ({%s})", c.Name)
+			return errors.New(msg)
+		} else if !c.Synthetic {
+			count = count + 1
+		}
+	}
+	// Check geometry
+	if tr.Width() != count {
+		// Determine the unknown columns for error reporting.
+		unknown := make([]string, 0)
+
+		for i := 0; i < tr.Width(); i++ {
+			n := tr.ColumnName(i)
+			if !p.HasColumn(n) {
+				unknown = append(unknown, n)
+			}
+		}
+
+		msg := fmt.Sprintf("Trace has unknown columns {%s}", unknown)
+
+		return errors.New(msg)
+	}
+	// Done
+	return nil
 }
 
-// AddComputedColumn appends a new computed column.
-func (p *Schema) AddComputedColumn(name string, expr table.Evaluable) {
-	p.computedColumns = append(p.computedColumns, table.NewComputedColumn(name, expr))
+// IsOutputTrace determines whether a given input trace is a suitable
+// output (i.e. expanded) trace for this schema.  Specifically, the
+// output trace must contain a match column for each column in this
+// trace (synthetic or otherwise).
+func (p *Schema) IsOutputTrace(tr table.Trace) error {
+	count := 0
+
+	for _, c := range p.dataColumns {
+		if !tr.HasColumn(c.Name) {
+			msg := fmt.Sprintf("Trace missing input column ({%s})", c.Name)
+			return errors.New(msg)
+		}
+
+		count++
+	}
+	// Check geometry
+	if tr.Width() != count {
+		return errors.New("Trace has unknown columns")
+	}
+	// Done
+	return nil
+}
+
+// AddColumn appends a new data column which is either synthetic or
+// not.  A synthetic column is one which has been introduced by the
+// process of lowering from HIR / MIR to AIR.  That is, it is not a
+// column which was original specified by the user.
+func (p *Schema) AddColumn(name string, synthetic bool) {
+	p.dataColumns = append(p.dataColumns, table.NewDataColumn(name, &table.FieldType{}, synthetic))
+}
+
+// AddComputation appends a new computation to be used during trace
+// expansion for this schema.
+func (p *Schema) AddComputation(c table.TraceComputation) {
+	p.computations = append(p.computations, c)
+}
+
+// AddPermutationConstraint appends a new permutation constraint which
+// ensures that one column is a permutation of another.
+func (p *Schema) AddPermutationConstraint(target string, source string) {
+	p.permutations = append(p.permutations, table.NewPermutation(target, source))
 }
 
 // AddVanishingConstraint appends a new vanishing constraint.
@@ -93,6 +167,11 @@ func (p *Schema) Accepts(trace table.Trace) error {
 	if err != nil {
 		return err
 	}
+	// Check permutation constraints
+	err = table.ForallAcceptTrace(trace, p.permutations)
+	if err != nil {
+		return err
+	}
 	// Check range constraints
 	err = table.ForallAcceptTrace(trace, p.ranges)
 	if err != nil {
@@ -109,22 +188,13 @@ func (p *Schema) Accepts(trace table.Trace) error {
 // specifically, that means computing the actual values for any computed
 // columns. Observe that computed columns have to be computed in the correct
 // order.
-func (p *Schema) ExpandTrace(tr table.Trace) {
-	for _, c := range p.computedColumns {
-		if !tr.HasColumn(c.Name) {
-			data := make([]*fr.Element, tr.Height())
-			// Expand the trace
-			for i := 0; i < len(data); i++ {
-				var err error
-				// NOTE: at the moment Get cannot return an error anyway
-				data[i], err = c.Get(i, tr)
-				// FIXME: we need proper error handling
-				if err != nil {
-					panic(err)
-				}
-			}
-			// Colunm needs to be expanded.
-			tr.AddColumn(c.Name, data)
+func (p *Schema) ExpandTrace(tr table.Trace) error {
+	for _, c := range p.computations {
+		err := c.ExpandTrace(tr)
+		if err != nil {
+			return err
 		}
 	}
+	// Done
+	return nil
 }
