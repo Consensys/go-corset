@@ -3,7 +3,6 @@ package mir
 import (
 	"fmt"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/air"
 	"github.com/consensys/go-corset/pkg/table"
 )
@@ -43,6 +42,19 @@ func EmptySchema() *Schema {
 	p.assertions = make([]PropertyAssertion, 0)
 	// Done
 	return p
+}
+
+// GetColumnByName gets a given data column based on its name.  If no such
+// column exists, it panics.
+func (p *Schema) GetColumnByName(name string) DataColumn {
+	for _, c := range p.dataColumns {
+		if c.Name == name {
+			return c
+		}
+	}
+
+	msg := fmt.Sprintf("unknown column encountered (%s)", name)
+	panic(msg)
 }
 
 // AddDataColumn appends a new data column.
@@ -109,8 +121,8 @@ func (p *Schema) LowerToAir() *air.Schema {
 		lowerColumnToAir(col, airSchema)
 	}
 	// Lower permutations columns
-	for _, col := range p.permutations {
-		lowerPermutationToAir(col, airSchema)
+	for _, perm := range p.permutations {
+		lowerPermutationToAir(perm, p, airSchema)
 	}
 	// Lower vanishing constraints
 	for _, c := range p.vanishing {
@@ -135,76 +147,18 @@ func lowerColumnToAir(c *table.DataColumn[table.Type], schema *air.Schema) {
 		// constraint or just a vanishing constraint.
 		if t.HasBound(2) {
 			// u1 => use vanishing constraint X * (X - 1)
-			addBinaryConstraint(c.Name, schema)
+			air.ApplyBinaryGadget(c.Name, schema)
 		} else if t.HasBound(256) {
 			// u2..8 use range constraints
 			schema.AddRangeConstraint(c.Name, t.Bound())
 		} else {
 			// u9+ use byte decompositions.
-			addBitwidthConstraint(c.Name, t.BitWidth(), schema)
+			air.ApplyBitwidthGadget(c.Name, t.BitWidth(), schema)
 		}
 	}
 	// Finally, add an (untyped) data column representing this
 	// data column.
 	schema.AddColumn(c.Name, false)
-}
-
-// Add a binarity constraint for a given column in the schema which
-// enforces that all values in the given column are either 0 or 1.
-// For a column X, this corresponds to the vanishing constraint X *
-// (X-1) == 0.
-func addBinaryConstraint(col string, schema *air.Schema) {
-	one := fr.NewElement(1)
-	// Construct X
-	X := &air.ColumnAccess{Column: col, Shift: 0}
-	// Construct X-1
-	X_m1 := &air.Sub{Args: []air.Expr{X, &air.Constant{Value: &one}}}
-	// Construct X * (X-1)
-	X_X_m1 := &air.Mul{Args: []air.Expr{X, X, X_m1}}
-	// Done!
-	schema.AddVanishingConstraint(col, nil, X_X_m1)
-}
-
-// Enforce a constraint for a given column in the schema to ensure all
-// values in that column fit within a given number of bits.  This is
-// implemented using a byte decomposition which adds n columns and a
-// vanishing constraint (where n*8 >= nbits).
-func addBitwidthConstraint(col string, nbits uint, schema *air.Schema) {
-	if nbits%8 != 0 {
-		panic("asymetric bitwidth constraints not yet supported")
-	} else if nbits == 0 {
-		panic("zero bitwidth constraint encountered")
-	}
-	// Calculate how many bytes required.
-	n := nbits / 8
-	es := make([]air.Expr, n)
-	fr256 := fr.NewElement(256)
-	coefficient := fr.NewElement(1)
-	// Construct Columns
-	for i := uint(0); i < n; i++ {
-		// Determine name for the ith byte column
-		colName := fmt.Sprintf("%s:%d", col, i)
-		// Create Column + Constraint
-		schema.AddColumn(colName, true)
-		schema.AddRangeConstraint(colName, &fr256)
-		// Create ith term (for final sum)
-		var coeff fr.Element
-		// Clone coefficient
-		coeff.Set(&coefficient)
-
-		Xi := &air.ColumnAccess{Column: colName, Shift: 0}
-		es[i] = &air.Mul{Args: []air.Expr{Xi, &air.Constant{Value: &coeff}}}
-		// Update coefficient
-		coefficient.Mul(&coefficient, &fr256)
-	}
-	// Construct (X:0 * 1) + ... + (X:n * 2^n)
-	sum := &air.Add{Args: es}
-	// Construct X == (X:0 * 1) + ... + (X:n * 2^n)
-	X := &air.ColumnAccess{Column: col, Shift: 0}
-	eq := &air.Sub{Args: []air.Expr{X, sum}}
-	schema.AddVanishingConstraint(col, nil, eq)
-	// Finally, add the necessary byte decomposition computation.
-	schema.AddComputation(table.NewByteDecomposition(col, nbits))
 }
 
 // Lower a permutation to the AIR level.  This has quite a few
@@ -213,16 +167,27 @@ func addBitwidthConstraint(col string, nbits uint, schema *air.Schema) {
 // synthetic columns) must also be added.  Finally, a trace
 // computation is required to ensure traces are correctly expanded to
 // meet the requirements of a sorted permutation.
-func lowerPermutationToAir(c *table.SortedPermutation, schema *air.Schema) {
+func lowerPermutationToAir(c *table.SortedPermutation, mirSchema *Schema, airSchema *air.Schema) {
 	ncols := len(c.Targets)
 	// Add individual permutation constraints
 	for i := 0; i < ncols; i++ {
-		schema.AddColumn(c.Targets[i], true)
-		schema.AddPermutationConstraint(c.Targets[i], c.Sources[i])
+		airSchema.AddColumn(c.Targets[i], true)
+		airSchema.AddPermutationConstraint(c.Targets[i], c.Sources[i])
 	}
-	// Add sorting constraints + columns
 	// Add trace computation
-	schema.AddComputation(c)
+	airSchema.AddComputation(c)
+	// Add sorting constraints + columns
+	if ncols != 1 {
+		panic("todo")
+	}
+	// For a single column sort, its actually a bit easier because we don't
+	// need to implement a multiplexor (i.e. to determine which column is
+	// differs, etc).  Instead, we just need a delta column which ensures
+	// there is a non-negative difference between consecutive rows.  This
+	// also requires bitwidth constraints.
+	bitwidth := mirSchema.GetColumnByName(c.Sources[0]).Type.AsUint().BitWidth()
+	// Add column sorting constraints
+	air.ApplyColumnSortingGadget(c.Targets[0], c.Signs[0], bitwidth, airSchema)
 }
 
 // ExpandTrace expands a given trace according to this schema.

@@ -288,12 +288,13 @@ func CheckTraces(t *testing.T, test string, expected bool, traces []*table.Array
 				checkExpandedTrace(t, tr, traceId{"AIR", test, expected, i + 1}, airSchema)
 			} else {
 				// Trace appears to be malformed.
-				err := airSchema.IsInputTrace(tr)
+				err1 := airSchema.IsInputTrace(tr)
+				err2 := airSchema.IsOutputTrace(tr)
 
 				if expected {
-					t.Errorf("Trace malformed (%s.accepts, line %d): %s", test, i+1, err)
+					t.Errorf("Trace malformed (%s.accepts, line %d): [%s][%s]", test, i+1, err1, err2)
 				} else {
-					t.Errorf("Trace malformed (%s.rejects, line %d): %s", test, i+1, err)
+					t.Errorf("Trace malformed (%s.rejects, line %d): [%s][%s]", test, i+1, err1, err2)
 				}
 			}
 		}
