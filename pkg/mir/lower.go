@@ -1,11 +1,7 @@
 package mir
 
 import (
-	"fmt"
-
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/air"
-	"github.com/consensys/go-corset/pkg/table"
 )
 
 // LowerTo lowers a sum expression to the AIR level by lowering the arguments.
@@ -28,36 +24,11 @@ func (e *Mul) LowerTo(tbl *air.Schema) air.Expr {
 func (p *Normalise) LowerTo(tbl *air.Schema) air.Expr {
 	// Lower the expression being normalised
 	e := p.Arg.LowerTo(tbl)
-	// Invert expression
-	ie := &Inverse{Expr: p.Arg}
-	// Determine computed column name
-	name := ie.String()
-	// Add new column (if it does not already exist)
-	if !tbl.HasColumn(name) {
-		// Add (synthetic) computed column
-		tbl.AddColumn(name, true)
-		tbl.AddComputation(table.NewComputedColumn(name, ie))
-	}
-
-	one := fr.NewElement(1)
-	// Construct 1/e
-	inv_e := &air.ColumnAccess{Column: name, Shift: 0}
-	// Construct e/e
-	e_inv_e := &air.Mul{Args: []air.Expr{e, inv_e}}
-	// Construct 1 == e/e
-	one_e_e := &air.Sub{Args: []air.Expr{&air.Constant{Value: &one}, e_inv_e}}
-	// Construct (e != 0) ==> (1 == e/e)
-	e_implies_one_e_e := &air.Mul{Args: []air.Expr{e, one_e_e}}
-	// Construct (1/e != 0) ==> (1 == e/e)
-	inv_e_implies_one_e_e := &air.Mul{Args: []air.Expr{inv_e, one_e_e}}
-	// Ensure (e != 0) ==> (1 == e/e)
-	l_name := fmt.Sprintf("[%s <=]", ie.String())
-	tbl.AddVanishingConstraint(l_name, nil, e_implies_one_e_e)
-	// Ensure (e/e != 0) ==> (1 == e/e)
-	r_name := fmt.Sprintf("[%s =>]", ie.String())
-	tbl.AddVanishingConstraint(r_name, nil, inv_e_implies_one_e_e)
-	// Done
-	return &air.Mul{Args: []air.Expr{e, &air.ColumnAccess{Column: name, Shift: 0}}}
+	// Construct an expression representing the pseudo multiplicative inverse of
+	// e.
+	ie := air.ApplyPseudoInverseGadget(e, tbl)
+	// Return e * e⁻¹.
+	return e.Mul(ie)
 }
 
 // LowerTo lowers a column access to the AIR level.  This is straightforward as

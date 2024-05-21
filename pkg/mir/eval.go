@@ -38,15 +38,6 @@ func (e *Add) EvalAt(k int, tbl table.Trace) *fr.Element {
 	return evalExprsAt(k, tbl, e.Args, fn)
 }
 
-// EvalAt computes the multiplicative inverse of a given expression at a given
-// row in the table.
-func (e *Inverse) EvalAt(k int, tbl table.Trace) *fr.Element {
-	inv := new(fr.Element)
-	val := e.Expr.EvalAt(k, tbl)
-	// Go syntax huh?
-	return inv.Inverse(val)
-}
-
 // EvalAt evaluates a product at a given row in a trace by first evaluating all of
 // its arguments at that row.
 func (e *Mul) EvalAt(k int, tbl table.Trace) *fr.Element {

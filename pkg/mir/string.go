@@ -28,10 +28,6 @@ func (e *Mul) String() string {
 	return naryString("*", e.Args)
 }
 
-func (e *Inverse) String() string {
-	return fmt.Sprintf("(inv %s)", e.Expr)
-}
-
 func (e *Normalise) String() string {
 	return fmt.Sprintf("(~ %s)", e.Arg)
 }
