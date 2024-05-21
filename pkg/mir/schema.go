@@ -130,7 +130,7 @@ func (p *Schema) LowerToAir() *air.Schema {
 // the enclosing schema.
 func lowerColumnToAir(c *table.DataColumn[table.Type], schema *air.Schema) {
 	// Check whether a constraint is implied by the column's type
-	if t := c.Type.AsUint(); t != nil {
+	if t := c.Type.AsUint(); t != nil && t.Checked() {
 		// Yes, a constraint is implied.  Now, decide whether to use a range
 		// constraint or just a vanishing constraint.
 		if t.HasBound(2) {

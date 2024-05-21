@@ -76,7 +76,8 @@ func (p *Schema) Constraints() []VanishingConstraint {
 	return p.vanishing
 }
 
-// AddDataColumn appends a new data column.
+// AddDataColumn appends a new data column with a given type.  Furthermore, the
+// type is enforced by the system when checking is enabled.
 func (p *Schema) AddDataColumn(name string, base table.Type) {
 	p.dataColumns = append(p.dataColumns, table.NewDataColumn(name, base, false))
 }

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 
 	"github.com/consensys/go-corset/pkg/hir"
-	"github.com/consensys/go-corset/pkg/table"
 )
 
 // This is very much a Work-In-Progress :)
@@ -99,21 +98,12 @@ func HirSchemaFromJson(bytes []byte) (schema *hir.Schema, err error) {
 	schema = hir.EmptySchema()
 	// Add Columns
 	for _, c := range res.Columns.Cols {
-		var hType table.Type
 		// Sanity checks
 		if c.Computed || c.Kind != "Commitment" {
 			panic("invalid JSON column configuration")
 		}
-		// Only types which must be proven should be
-		// translated.  Unproven types are purely cosmetic and
-		// should be ignored.
-		if c.MustProve {
-			hType = c.Type.toHir()
-		} else {
-			hType = &table.FieldType{}
-		}
 
-		schema.AddDataColumn(c.Handle, hType)
+		schema.AddDataColumn(c.Handle, c.Type.toHir(c.MustProve))
 	}
 	// Add constraints
 	for _, c := range res.Constraints {

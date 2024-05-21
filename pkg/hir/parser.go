@@ -193,8 +193,8 @@ func sexpType(symbol string) (table.Type, error) {
 		if err != nil {
 			return nil, err
 		}
-
-		return table.NewUintType(uint(n)), nil
+		// FIXME: check for prove
+		return table.NewUintType(uint(n), true), nil
 	}
 
 	return nil, fmt.Errorf("unexpected type: %s", symbol)
