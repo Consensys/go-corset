@@ -183,6 +183,14 @@ func TestEval_Type_01(t *testing.T) {
 	Check(t, "type_01")
 }
 
+func TestEval_Type_02(t *testing.T) {
+	Check(t, "type_02")
+}
+
+func TestEval_Type_03(t *testing.T) {
+	Check(t, "type_03")
+}
+
 // ===================================================================
 // Permutations
 // ===================================================================
@@ -311,7 +319,7 @@ func checkExpandedTrace(t *testing.T, tr table.Trace, id traceId, schema table.A
 	accepted := (err == nil)
 	// Process what happened versus what was supposed to happen.
 	if !accepted && id.expected {
-		msg := fmt.Sprintf("Trace rejected incorrectly (%s, %s.accepts, line %d)", id.ir, id.test, id.line)
+		msg := fmt.Sprintf("Trace rejected incorrectly (%s, %s.accepts, line %d): %s", id.ir, id.test, id.line, err)
 		t.Errorf(msg)
 	} else if accepted && !id.expected {
 		msg := fmt.Sprintf("Trace accepted incorrectly (%s, %s.rejects, line %d)", id.ir, id.test, id.line)

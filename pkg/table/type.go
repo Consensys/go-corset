@@ -33,10 +33,12 @@ type UintType struct {
 	nbits uint
 	// The numeric bound of all values in this type (e.g. 2^8 for u8, etc).
 	bound *fr.Element
+	// Indicates whether or not this type should be enforced (or not).
+	checked bool
 }
 
 // NewUintType constructs a new integer type for a given bit width.
-func NewUintType(nbits uint) *UintType {
+func NewUintType(nbits uint, checked bool) *UintType {
 	var maxBigInt big.Int
 	// Compute 2^n
 	maxBigInt.Exp(big.NewInt(2), big.NewInt(int64(nbits)), nil)
@@ -44,7 +46,7 @@ func NewUintType(nbits uint) *UintType {
 	bound := new(fr.Element)
 	bound.SetBigInt(&maxBigInt)
 
-	return &UintType{nbits, bound}
+	return &UintType{nbits, bound, checked}
 }
 
 // AsUint accesses this type assuming it is a Uint.  Since this is the case,
@@ -59,18 +61,30 @@ func (p *UintType) AsField() *FieldType {
 	return nil
 }
 
+// Checked identifies whether the type of this column must be enforced using one
+// more constraints and/or columns.
+func (p *UintType) Checked() bool {
+	return p.checked
+}
+
 // Accept determines whether a given value is an element of this type.  For
 // example, 123 is an element of the type u8 whilst 256 is not.
 func (p *UintType) Accept(val *fr.Element) bool {
 	return val.Cmp(p.bound) < 0
 }
 
+// BitWidth returns the bitwidth of this type.  For example, the
+// bitwidth of the type u8 is 8.
+func (p *UintType) BitWidth() uint {
+	return p.nbits
+}
+
 // HasBound determines whether this type fits within a given bound.  For
 // example, a u8 fits within a bound of 256 and also 65536.  However, it does
 // not fit within a bound of 255.
-func (p *UintType) HasBound(bound uint64) bool {
-	var n fr.Element = fr.NewElement(bound)
-	return p.bound.Cmp(&n) == 0
+func (p *UintType) HasBound(bound uint) bool {
+	var n fr.Element = fr.NewElement(uint64(bound))
+	return p.bound.Cmp(&n) <= 0
 }
 
 // Bound determines the actual bound for all values which are in this type.

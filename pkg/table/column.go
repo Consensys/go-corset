@@ -10,8 +10,13 @@ import (
 
 // DataColumn represents a column of user-provided values.
 type DataColumn[T Type] struct {
-	Name      string
-	Type      T
+	Name string
+	// Expected type of values held in this column.  Observe that this type is
+	// enforced only when checking is enabled.  Unchecked typed columns can
+	// still make sense when their values are implied by some other constraint.
+	Type T
+	// Indicates whether or not this column was created by the compiler (i.e. is
+	// synthetic), or was specified by the user (i.e. is natural).
 	Synthetic bool
 }
 

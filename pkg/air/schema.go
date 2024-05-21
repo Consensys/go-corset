@@ -132,6 +132,8 @@ func (p *Schema) IsOutputTrace(tr table.Trace) error {
 // process of lowering from HIR / MIR to AIR.  That is, it is not a
 // column which was original specified by the user.
 func (p *Schema) AddColumn(name string, synthetic bool) {
+	// NOTE: the air level has no ability to enforce the type specified for a
+	// given column.
 	p.dataColumns = append(p.dataColumns, table.NewDataColumn(name, &table.FieldType{}, synthetic))
 }
 
