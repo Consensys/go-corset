@@ -84,13 +84,20 @@ func (p *Mul) Equate(other Expr) Expr { return &Sub{Args: []Expr{p, other}} }
 type Constant struct{ Value *fr.Element }
 
 // NewConstant construct an AIR expression representing a given constant.
-func NewConstant(val *fr.Element) Expr {
+func NewConst(val *fr.Element) Expr {
 	return &Constant{val}
 }
 
-// NewConstantCopy construct an AIR expression representing a given constant,
+// NewConst64 construct an AIR expression representing a given constant from a
+// uint64.
+func NewConst64(val uint64) Expr {
+	element := fr.NewElement(val)
+	return &Constant{&element}
+}
+
+// NewConstCopy construct an AIR expression representing a given constant,
 // and also clones that constant.
-func NewConstantCopy(val *fr.Element) Expr {
+func NewConstCopy(val *fr.Element) Expr {
 	// Create ith term (for final sum)
 	var clone fr.Element
 	// Clone coefficient

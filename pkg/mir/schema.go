@@ -174,20 +174,33 @@ func lowerPermutationToAir(c *table.SortedPermutation, mirSchema *Schema, airSch
 		airSchema.AddColumn(c.Targets[i], true)
 		airSchema.AddPermutationConstraint(c.Targets[i], c.Sources[i])
 	}
-	// Add trace computation
+	// Add the trace computation.
 	airSchema.AddComputation(c)
-	// Add sorting constraints + columns
-	if ncols != 1 {
-		panic("todo")
+	// Add sorting constraints + synthetic columns as necessary.
+	if ncols == 1 {
+		// For a single column sort, its actually a bit easier because we don't
+		// need to implement a multiplexor (i.e. to determine which column is
+		// differs, etc).  Instead, we just need a delta column which ensures
+		// there is a non-negative difference between consecutive rows.  This
+		// also requires bitwidth constraints.
+		bitwidth := mirSchema.GetColumnByName(c.Sources[0]).Type.AsUint().BitWidth()
+		// Add column sorting constraints
+		air.ApplyColumnSortingGadget(c.Targets[0], c.Signs[0], bitwidth, airSchema)
+	} else {
+		// For a multi column sort, its a bit harder as we need additional
+		// logicl to ensure the target columns are lexicographally sorted.
+		bitwidth := uint(0)
+
+		for i := 0; i < ncols; i++ {
+			// Extract bitwidth of ith column
+			ith := mirSchema.GetColumnByName(c.Sources[i]).Type.AsUint().BitWidth()
+			if ith > bitwidth {
+				bitwidth = ith
+			}
+		}
+		// Add lexicographically sorted constraints
+		air.ApplyLexicographicSortingGadget(c.Targets, c.Signs, bitwidth, airSchema)
 	}
-	// For a single column sort, its actually a bit easier because we don't
-	// need to implement a multiplexor (i.e. to determine which column is
-	// differs, etc).  Instead, we just need a delta column which ensures
-	// there is a non-negative difference between consecutive rows.  This
-	// also requires bitwidth constraints.
-	bitwidth := mirSchema.GetColumnByName(c.Sources[0]).Type.AsUint().BitWidth()
-	// Add column sorting constraints
-	air.ApplyColumnSortingGadget(c.Targets[0], c.Signs[0], bitwidth, airSchema)
 }
 
 // ExpandTrace expands a given trace according to this schema.

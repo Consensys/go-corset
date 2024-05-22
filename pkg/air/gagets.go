@@ -2,6 +2,7 @@ package air
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/table"
@@ -24,17 +25,16 @@ func ApplyPseudoInverseGadget(e Expr, tbl *Schema) Expr {
 		tbl.AddComputation(table.NewComputedColumn(name, ie))
 	}
 
-	one := fr.NewElement(1)
 	// Construct 1/e
 	inv_e := NewColumnAccess(name, 0)
 	// Construct e/e
 	e_inv_e := e.Mul(inv_e)
 	// Construct 1 == e/e
-	one_e_e := NewConstant(&one).Equate(e_inv_e)
+	one_e_e := NewConst64(1).Equate(e_inv_e)
 	// Construct (e != 0) ==> (1 == e/e)
-	e_implies_one_e_e := &Mul{Args: []Expr{e, one_e_e}}
+	e_implies_one_e_e := e.Mul(one_e_e)
 	// Construct (1/e != 0) ==> (1 == e/e)
-	inv_e_implies_one_e_e := &Mul{Args: []Expr{inv_e, one_e_e}}
+	inv_e_implies_one_e_e := inv_e.Mul(one_e_e)
 	// Ensure (e != 0) ==> (1 == e/e)
 	l_name := fmt.Sprintf("[%s <=]", ie.String())
 	tbl.AddVanishingConstraint(l_name, nil, e_implies_one_e_e)
@@ -66,13 +66,12 @@ func (e *Inverse) String() string {
 // which enforces that all values in the given column are either 0 or 1. For a
 // column X, this corresponds to the vanishing constraint X * (X-1) == 0.
 func ApplyBinaryGadget(col string, schema *Schema) {
-	one := fr.NewElement(1)
 	// Construct X
-	X := &ColumnAccess{Column: col, Shift: 0}
+	X := NewColumnAccess(col, 0)
 	// Construct X-1
-	X_m1 := &Sub{Args: []Expr{X, &Constant{Value: &one}}}
+	X_m1 := X.Sub(NewConst64(1))
 	// Construct X * (X-1)
-	X_X_m1 := &Mul{Args: []Expr{X, X, X_m1}}
+	X_X_m1 := X.Mul(X_m1)
 	// Done!
 	schema.AddVanishingConstraint(col, nil, X_X_m1)
 }
@@ -82,7 +81,7 @@ func ApplyBinaryGadget(col string, schema *Schema) {
 // n columns and a vanishing constraint (where n*8 >= nbits).
 func ApplyBitwidthGadget(col string, nbits uint, schema *Schema) {
 	if nbits%8 != 0 {
-		panic("asymetric bitwidth constraints not yet supported")
+		panic("asymmetric bitwidth constraints not yet supported")
 	} else if nbits == 0 {
 		panic("zero bitwidth constraint encountered")
 	}
@@ -98,15 +97,15 @@ func ApplyBitwidthGadget(col string, nbits uint, schema *Schema) {
 		// Create Column + Constraint
 		schema.AddColumn(colName, true)
 		schema.AddRangeConstraint(colName, &fr256)
-		es[i] = NewColumnAccess(colName, 0).Mul(NewConstantCopy(&coefficient))
+		es[i] = NewColumnAccess(colName, 0).Mul(NewConstCopy(&coefficient))
 		// Update coefficient
 		coefficient.Mul(&coefficient, &fr256)
 	}
 	// Construct (X:0 * 1) + ... + (X:n * 2^n)
 	sum := &Add{Args: es}
 	// Construct X == (X:0 * 1) + ... + (X:n * 2^n)
-	X := &ColumnAccess{Column: col, Shift: 0}
-	eq := &Sub{Args: []Expr{X, sum}}
+	X := NewColumnAccess(col, 0)
+	eq := X.Equate(sum)
 	schema.AddVanishingConstraint(col, nil, eq)
 	// Finally, add the necessary byte decomposition computation.
 	schema.AddComputation(table.NewByteDecomposition(col, nbits))
@@ -142,4 +141,133 @@ func ApplyColumnSortingGadget(column string, sign bool, bitwidth uint, schema *S
 	// Configure constraint: Delta[k] = X[k] - X[k-1]
 	Dk := NewColumnAccess(deltaName, 0)
 	schema.AddVanishingConstraint(deltaName, nil, Dk.Equate(Xdiff))
+}
+
+// ApplyLexicographicSortingGadget Add sorting constraints for a sequence of one
+// or more columns.  Sorting is done lexicographically starting from the
+// leftmost column.  For example, consider lexicographically sorting two columns
+// X and Y (in that order) in ascending (i.e. positive direction).  Then sorting
+// ensures (X[k-1] < X[k]) or (X[k-1] == X[k] and Y[k-1] <= Y[k]).  The sign for
+// each column determines whether its sorted into ascending (i.e. positive) or
+// descending (i.e. negative) order.
+//
+// To implement this sort, a kind of "bit multiplexing" is used.  Specifically,
+// a bit column is associated with each column being sorted, where exactly one
+// of these bits can be 1.  That bit identifies the leftmost column Ci where
+// Ci[k-1] < C[k].  For all columns Cj where j < i, we must have Cj[k-1] =
+// Cj[k].  If all bits are zero then all columns match their previous row.
+// Finally, a delta column is used in a similar fashion as for the single column
+// case (see above).  The delta value captures the difference Ci[k]-Ci[k-1] to
+// ensure it is positive.  The delta column is constrained to a given bitwidth,
+// with constraints added as necessary to ensure this.
+func ApplyLexicographicSortingGadget(columns []string, signs []bool, bitwidth uint, schema *Schema) {
+	// Check preconditions
+	ncols := len(columns)
+	if ncols != len(signs) {
+		panic("Inconsistent number of columns and signs for lexicographic sort.")
+	}
+	// Construct a unique prefix for this sort.
+	prefix := constructLexicographicSortingPrefix(columns, signs)
+	deltaName := fmt.Sprintf("%s:delta", prefix)
+	// Construct selecto bits.
+	bits := addLexicographicSelectorBits(prefix, ncols, schema)
+	// Add delta column
+	schema.AddColumn(deltaName, true)
+	// Construct delta terms
+	constraint := constructLexicographicDeltaConstraint(deltaName, bits, columns, signs)
+	// Add delta constraint
+	schema.AddVanishingConstraint(deltaName, nil, constraint)
+	// Add necessary bitwidth constraints
+	ApplyBitwidthGadget(deltaName, bitwidth, schema)
+	// FIXME: Add trace expansion computation
+}
+
+// Construct a unique identifier for the given sort.  This should not conflict
+// with the identifier for any other sort.
+func constructLexicographicSortingPrefix(columns []string, signs []bool) string {
+	// Use string builder to try and make this vaguely efficient.
+	var id strings.Builder
+	// Concatenate column names with their signs.
+	for i := 0; i < len(columns); i++ {
+		id.WriteString(columns[i])
+
+		if signs[i] {
+			id.WriteString("+")
+		} else {
+			id.WriteString("-")
+		}
+	}
+	// Done
+	return id.String()
+}
+
+// Add lexicographic selector bits, including the necessary constraints.  Each
+// selector bit is given a binarity constraint to ensure it is always either 1
+// or 0.
+func addLexicographicSelectorBits(prefix string, ncols int, schema *Schema) []string {
+	// Add bits and their binary constraints.
+	bits := AddBitArray(prefix, ncols, schema)
+	// Apply constraints to ensure at most one is set.
+	terms := make([]Expr, ncols)
+	for i := 0; i < ncols; i++ {
+		terms[i] = NewColumnAccess(bits[i], 0)
+	}
+
+	sum := &Add{Args: terms}
+	// (sum = 0) ∨ (sum = 1)
+	constraint := sum.Mul(sum.Equate(NewConst64(1)))
+	//
+	name := fmt.Sprintf("%s:xor", prefix)
+	schema.AddVanishingConstraint(name, nil, constraint)
+	//
+	// FIXME: selector implications.  Bi ==> all j < i. !Bi
+	//
+	return bits
+}
+
+// Construct the lexicographic delta constraint.  This states that the delta
+// column either holds 0 or the difference Ci[k] - Ci[k-1] (adjusted
+// appropriately for the sign) between the ith column whose multiplexor bit is
+// set. This is assumes that multiplexor bits are mutually exclusive (i.e. at
+// most is one).
+func constructLexicographicDeltaConstraint(deltaName string, bits []string, columns []string, signs []bool) Expr {
+	ncols := len(columns)
+	// Construct delta terms
+	terms := make([]Expr, ncols)
+	Dk := NewColumnAccess(deltaName, 0)
+
+	for i := 0; i < ncols; i++ {
+		var Xdiff Expr
+		// Ith bit column (at row k)
+		Bk := NewColumnAccess(bits[i], 0)
+		// Ith column (at row k)
+		Xk := NewColumnAccess(columns[i], 0)
+		// Ith column (at row k-1)
+		Xkm1 := NewColumnAccess(columns[i], -1)
+		if signs[i] {
+			Xdiff = Xk.Sub(Xkm1)
+		} else {
+			Xdiff = Xkm1.Sub(Xk)
+		}
+		// Bk ==> Dk == Xdiff
+		terms[i] = Bk.Mul(Dk.Equate(Xdiff))
+	}
+	// Construct final constraint
+	return &Add{Args: terms}
+}
+
+// AddBitArray adds an array of n bit columns using a given prefix, including
+// the necessary binarity constraints.
+func AddBitArray(prefix string, count int, schema *Schema) []string {
+	bits := make([]string, count)
+	for i := 0; i < count; i++ {
+		// Construct bit column name
+		bits[i] = fmt.Sprintf("%s:%d", prefix, i)
+		// Add (synthetic) column
+		schema.AddColumn(bits[i], true)
+		// Add binarity constraints (i.e. to enfoce that this column is a bit).
+		ApplyBinaryGadget(bits[i], schema)
+	}
+	//
+	return bits
 }
