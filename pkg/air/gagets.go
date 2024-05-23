@@ -8,6 +8,17 @@ import (
 	"github.com/consensys/go-corset/pkg/table"
 )
 
+// Norm constructs an expression representing the normalised value of e.  That is,
+// an expression which is 0 when e is 0, and 1 when e is non-zero.  This is done
+// by introducing a synthetic column to hold the (pseudo) mutliplicative inverse
+// of e.
+func Norm(e Expr, tbl *Schema) Expr {
+	// Construct pseudo multiplicative inverse of e.
+	ie := ApplyPseudoInverseGadget(e, tbl)
+	// Return e * e⁻¹.
+	return e.Mul(ie)
+}
+
 // ApplyPseudoInverseGadget constructs an expression representing the
 // (pseudo) multiplicative inverse of another expression.  Since this cannot be computed
 // directly using arithmetic constraints, it is done by adding a new computed
@@ -54,6 +65,10 @@ type Inverse struct{ Expr Expr }
 func (e *Inverse) EvalAt(k int, tbl table.Trace) *fr.Element {
 	inv := new(fr.Element)
 	val := e.Expr.EvalAt(k, tbl)
+	// Catch undefined case
+	if val == nil {
+		return nil
+	}
 	// Go syntax huh?
 	return inv.Inverse(val)
 }
@@ -170,7 +185,7 @@ func ApplyLexicographicSortingGadget(columns []string, signs []bool, bitwidth ui
 	prefix := constructLexicographicSortingPrefix(columns, signs)
 	deltaName := fmt.Sprintf("%s:delta", prefix)
 	// Construct selecto bits.
-	bits := addLexicographicSelectorBits(prefix, ncols, schema)
+	bits := addLexicographicSelectorBits(prefix, columns, schema)
 	// Add delta column
 	schema.AddColumn(deltaName, true)
 	// Construct delta terms
@@ -203,25 +218,50 @@ func constructLexicographicSortingPrefix(columns []string, signs []bool) string 
 
 // Add lexicographic selector bits, including the necessary constraints.  Each
 // selector bit is given a binarity constraint to ensure it is always either 1
-// or 0.
-func addLexicographicSelectorBits(prefix string, ncols int, schema *Schema) []string {
+// or 0.  A selector bit can only be set if all bits to its left are unset, and
+// there is a strict difference between the two values for its colummn.
+//
+// NOTE: this implementation differs from the original corset which used an
+// additional "Eq" bit to help ensure at most one selector bit was enabled.
+func addLexicographicSelectorBits(prefix string, columns []string, schema *Schema) []string {
+	ncols := len(columns)
 	// Add bits and their binary constraints.
 	bits := AddBitArray(prefix, ncols, schema)
 	// Apply constraints to ensure at most one is set.
 	terms := make([]Expr, ncols)
 	for i := 0; i < ncols; i++ {
 		terms[i] = NewColumnAccess(bits[i], 0)
+		pterms := make([]Expr, i+1)
+		qterms := make([]Expr, i)
+
+		for j := 0; j < i; j++ {
+			pterms[j] = NewColumnAccess(columns[j], 0)
+			qterms[j] = NewColumnAccess(columns[j], 0)
+		}
+		// (∀j<=i.Bj=0) ==> C[k]=C[k-1]
+		pterms[i] = NewColumnAccess(columns[i], 0)
+		pDiff := NewColumnAccess(columns[i], 0).Sub(NewColumnAccess(columns[i], -1))
+		pName := fmt.Sprintf("%s:%d:0", prefix, i)
+		schema.AddVanishingConstraint(pName, nil, NewConst64(1).Sub(&Add{pterms}).Mul(pDiff))
+		// (∀j<i.Bj=0) ∧ Bi=1 ==> C[k]≠C[k-1]
+		qDiff := Norm(NewColumnAccess(columns[i], 0).Sub(NewColumnAccess(columns[i], -1)), schema)
+		qName := fmt.Sprintf("%s:%d:1", prefix, i)
+		constraint := NewConst64(1).Sub(qDiff)
+
+		if i != 0 {
+			constraint = NewConst64(1).Sub(&Add{qterms}).Mul(NewColumnAccess(columns[i], 0).Mul(constraint))
+			schema.AddVanishingConstraint(qName, nil, constraint)
+		}
+
+		schema.AddVanishingConstraint(qName, nil, constraint)
 	}
 
 	sum := &Add{Args: terms}
 	// (sum = 0) ∨ (sum = 1)
 	constraint := sum.Mul(sum.Equate(NewConst64(1)))
-	//
 	name := fmt.Sprintf("%s:xor", prefix)
 	schema.AddVanishingConstraint(name, nil, constraint)
-	//
-	// FIXME: selector implications.  Bi ==> all j < i. !Bi
-	//
+
 	return bits
 }
 
@@ -249,11 +289,11 @@ func constructLexicographicDeltaConstraint(deltaName string, bits []string, colu
 		} else {
 			Xdiff = Xkm1.Sub(Xk)
 		}
-		// Bk ==> Dk == Xdiff
-		terms[i] = Bk.Mul(Dk.Equate(Xdiff))
+		// if Bk then Xdiff
+		terms[i] = Bk.Mul(Xdiff)
 	}
 	// Construct final constraint
-	return &Add{Args: terms}
+	return Dk.Equate(&Add{Args: terms})
 }
 
 // AddBitArray adds an array of n bit columns using a given prefix, including

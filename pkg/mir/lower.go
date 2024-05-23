@@ -24,11 +24,9 @@ func (e *Mul) LowerTo(tbl *air.Schema) air.Expr {
 func (p *Normalise) LowerTo(tbl *air.Schema) air.Expr {
 	// Lower the expression being normalised
 	e := p.Arg.LowerTo(tbl)
-	// Construct an expression representing the pseudo multiplicative inverse of
-	// e.
-	ie := air.ApplyPseudoInverseGadget(e, tbl)
-	// Return e * e⁻¹.
-	return e.Mul(ie)
+	// Construct an expression representing the normalised value of e.  That is,
+	// an expression which is 0 when e is 0, and 1 when e is non-zero.
+	return air.Norm(e, tbl)
 }
 
 // LowerTo lowers a column access to the AIR level.  This is straightforward as
