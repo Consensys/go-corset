@@ -9,12 +9,12 @@ import (
 // value at that row of the column in question or nil is that row is
 // out-of-bounds.
 func (e *ColumnAccess) EvalAt(k int, tbl table.Trace) *fr.Element {
-	val, err := tbl.GetByName(e.Column, k+e.Shift)
-	// We can ignore err as val is always nil when err != nil.
-	// Furthermore, as stated in the documentation for this
-	// method, we return nil upon error.
-	if err != nil || val == nil {
-		// Indicates an out-of-bounds access of some kind.
+	val := tbl.GetByName(e.Column, k+e.Shift)
+	// Sanity check value is not nil
+	if val == nil {
+		// Indicates an out-of-bounds access of some kind.  Note that this is
+		// fine and expected under normal conditions.  For example, when a
+		// constraint accesses a row which doesn't exist (e.g. via a shift).
 		return nil
 	}
 

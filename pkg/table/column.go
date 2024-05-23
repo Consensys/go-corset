@@ -26,7 +26,7 @@ func NewDataColumn[T Type](name string, base T, synthetic bool) *DataColumn[T] {
 }
 
 // Get the value of this column at a given row in a given trace.
-func (c *DataColumn[T]) Get(row int, tr Trace) (*fr.Element, error) {
+func (c *DataColumn[T]) Get(row int, tr Trace) *fr.Element {
 	return tr.GetByName(c.Name, row)
 }
 
@@ -37,10 +37,7 @@ func (c *DataColumn[T]) Get(row int, tr Trace) (*fr.Element, error) {
 //nolint:revive
 func (c *DataColumn[T]) Accepts(tr Trace) error {
 	for i := 0; i < tr.Height(); i++ {
-		val, err := tr.GetByName(c.Name, i)
-		if err != nil {
-			return err
-		}
+		val := tr.GetByName(c.Name, i)
 
 		if !c.Type.Accept(val) {
 			// Construct useful error message
@@ -51,6 +48,10 @@ func (c *DataColumn[T]) Accepts(tr Trace) error {
 	}
 	// All good
 	return nil
+}
+
+func (c *DataColumn[T]) String() string {
+	return c.Name
 }
 
 // ComputedColumn describes a column whose values are computed on-demand, rather
@@ -76,13 +77,6 @@ func NewComputedColumn(name string, expr Evaluable) *ComputedColumn {
 	}
 }
 
-// Get reads the value at a given row in a data column. This amounts to
-// looking up that value in the array of values which backs it.
-func (c *ComputedColumn) Get(row int, tr Trace) (*fr.Element, error) {
-	// Compute value at given row
-	return c.Expr.EvalAt(row, tr), nil
-}
-
 // ExpandTrace attempts to a new column to the trace which contains the result
 // of evaluating a given expression on each row.  If the column already exists,
 // then an error is flagged.
@@ -95,7 +89,13 @@ func (c *ComputedColumn) ExpandTrace(tr Trace) error {
 	data := make([]*fr.Element, tr.Height())
 	// Expand the trace
 	for i := 0; i < len(data); i++ {
-		data[i] = c.Expr.EvalAt(i, tr)
+		val := c.Expr.EvalAt(i, tr)
+		if val != nil {
+			data[i] = val
+		} else {
+			zero := fr.NewElement(0)
+			data[i] = &zero
+		}
 	}
 	// Colunm needs to be expanded.
 	tr.AddColumn(c.Name, data)

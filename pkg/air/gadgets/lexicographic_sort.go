@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/air"
 	"github.com/consensys/go-corset/pkg/table"
 )
@@ -31,6 +32,8 @@ func ApplyLexicographicSortingGadget(columns []string, signs []bool, bitwidth ui
 	if ncols != len(signs) {
 		panic("Inconsistent number of columns and signs for lexicographic sort.")
 	}
+	// Add trace computation
+	schema.AddComputation(&lexicographicSortExpander{columns, signs, bitwidth})
 	// Construct a unique prefix for this sort.
 	prefix := constructLexicographicSortingPrefix(columns, signs)
 	deltaName := fmt.Sprintf("%s:delta", prefix)
@@ -44,8 +47,6 @@ func ApplyLexicographicSortingGadget(columns []string, signs []bool, bitwidth ui
 	schema.AddVanishingConstraint(deltaName, nil, constraint)
 	// Add necessary bitwidth constraints
 	ApplyBitwidthGadget(deltaName, bitwidth, schema)
-	// Add trace computation
-	schema.AddComputation(&lexicographicSortExpander{columns, signs, bitwidth})
 }
 
 // Construct a unique identifier for the given sort.  This should not conflict
@@ -86,22 +87,23 @@ func addLexicographicSelectorBits(prefix string, columns []string, schema *air.S
 		qterms := make([]air.Expr, i)
 
 		for j := 0; j < i; j++ {
-			pterms[j] = air.NewColumnAccess(columns[j], 0)
-			qterms[j] = air.NewColumnAccess(columns[j], 0)
+			pterms[j] = air.NewColumnAccess(bits[j], 0)
+			qterms[j] = air.NewColumnAccess(bits[j], 0)
 		}
 		// (∀j<=i.Bj=0) ==> C[k]=C[k-1]
-		pterms[i] = air.NewColumnAccess(columns[i], 0)
+		pterms[i] = air.NewColumnAccess(bits[i], 0)
 		pDiff := air.NewColumnAccess(columns[i], 0).Sub(air.NewColumnAccess(columns[i], -1))
-		pName := fmt.Sprintf("%s:%d:0", prefix, i)
+		pName := fmt.Sprintf("%s:%d:a", prefix, i)
 		schema.AddVanishingConstraint(pName, nil, air.NewConst64(1).Sub(&air.Add{Args: pterms}).Mul(pDiff))
 		// (∀j<i.Bj=0) ∧ Bi=1 ==> C[k]≠C[k-1]
 		qDiff := Normalise(air.NewColumnAccess(columns[i], 0).Sub(air.NewColumnAccess(columns[i], -1)), schema)
-		qName := fmt.Sprintf("%s:%d:1", prefix, i)
-		constraint := air.NewConst64(1).Sub(qDiff)
+		qName := fmt.Sprintf("%s:%d:b", prefix, i)
+		// bi = 0 || C[k]≠C[k-1]
+		constraint := air.NewColumnAccess(bits[i], 0).Mul(air.NewConst64(1).Sub(qDiff))
 
 		if i != 0 {
-			constraint = air.NewConst64(1).Sub(&air.Add{Args: qterms}).Mul(air.NewColumnAccess(columns[i], 0).Mul(constraint))
-			schema.AddVanishingConstraint(qName, nil, constraint)
+			// (∃j<i.Bj≠0) || bi = 0 || C[k]≠C[k-1]
+			constraint = air.NewConst64(1).Sub(&air.Add{Args: qterms}).Mul(constraint)
 		}
 
 		schema.AddVanishingConstraint(qName, nil, constraint)
@@ -153,6 +155,56 @@ type lexicographicSortExpander struct {
 	bitwidth uint
 }
 
+// Add columns as needed to support the LexicographicSortingGadget.  That
+// includes the delta column, and the bit selectors.
 func (p *lexicographicSortExpander) ExpandTrace(tr table.Trace) error {
-	panic("implement me")
+	zero := fr.NewElement(0)
+	one := fr.NewElement(1)
+	// Exact number of columns involved in the sort
+	ncols := len(p.columns)
+	// Determine how many rows to be constrained.
+	nrows := tr.Height()
+	// Construct a unique prefix for this sort.
+	prefix := constructLexicographicSortingPrefix(p.columns, p.signs)
+	deltaName := fmt.Sprintf("%s:delta", prefix)
+	// Initialise new data columns
+	delta := make([]*fr.Element, nrows)
+	bit := make([][]*fr.Element, ncols)
+
+	for i := 0; i < ncols; i++ {
+		bit[i] = make([]*fr.Element, nrows)
+	}
+
+	for i := 0; i < nrows; i++ {
+		set := false
+		// Initialise delta to zero
+		delta[i] = &zero
+		// Decide which row is the winner (if any)
+		for j := 0; j < ncols; j++ {
+			prev := tr.GetByName(p.columns[j], i-1)
+			curr := tr.GetByName(p.columns[j], i)
+
+			if !set && prev != nil && prev.Cmp(curr) != 0 {
+				var diff fr.Element
+
+				bit[j][i] = &one
+				// Compute curr - prev
+				diff.Set(curr)
+				delta[i] = diff.Sub(&diff, prev)
+				set = true
+			} else {
+				bit[j][i] = &zero
+			}
+		}
+	}
+
+	// Add delta column data
+	tr.AddColumn(deltaName, delta)
+	// Add bit column data
+	for i := 0; i < ncols; i++ {
+		bitName := fmt.Sprintf("%s:%d", prefix, i)
+		tr.AddColumn(bitName, bit[i])
+	}
+	// Done.
+	return nil
 }

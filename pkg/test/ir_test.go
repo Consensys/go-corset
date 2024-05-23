@@ -215,6 +215,10 @@ func TestEval_Permute_05(t *testing.T) {
 	Check(t, "permute_05")
 }
 
+func TestEval_Permute_06(t *testing.T) {
+	Check(t, "permute_06")
+}
+
 // ===================================================================
 // Complex Tests
 // ===================================================================
@@ -320,6 +324,7 @@ func checkExpandedTrace(t *testing.T, tr table.Trace, id traceId, schema table.A
 	accepted := (err == nil)
 	// Process what happened versus what was supposed to happen.
 	if !accepted && id.expected {
+		fmt.Println(tr)
 		msg := fmt.Sprintf("Trace rejected incorrectly (%s, %s.accepts, line %d): %s", id.ir, id.test, id.line, err)
 		t.Errorf(msg)
 	} else if accepted && !id.expected {
