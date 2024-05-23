@@ -2,6 +2,7 @@ package mir
 
 import (
 	"github.com/consensys/go-corset/pkg/air"
+	air_gadgets "github.com/consensys/go-corset/pkg/air/gadgets"
 )
 
 // LowerTo lowers a sum expression to the AIR level by lowering the arguments.
@@ -26,7 +27,7 @@ func (p *Normalise) LowerTo(tbl *air.Schema) air.Expr {
 	e := p.Arg.LowerTo(tbl)
 	// Construct an expression representing the normalised value of e.  That is,
 	// an expression which is 0 when e is 0, and 1 when e is non-zero.
-	return air.Norm(e, tbl)
+	return air_gadgets.Normalise(e, tbl)
 }
 
 // LowerTo lowers a column access to the AIR level.  This is straightforward as

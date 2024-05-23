@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/air"
+	air_gadgets "github.com/consensys/go-corset/pkg/air/gadgets"
 	"github.com/consensys/go-corset/pkg/table"
 )
 
@@ -147,13 +148,13 @@ func lowerColumnToAir(c *table.DataColumn[table.Type], schema *air.Schema) {
 		// constraint or just a vanishing constraint.
 		if t.HasBound(2) {
 			// u1 => use vanishing constraint X * (X - 1)
-			air.ApplyBinaryGadget(c.Name, schema)
+			air_gadgets.ApplyBinaryGadget(c.Name, schema)
 		} else if t.HasBound(256) {
 			// u2..8 use range constraints
 			schema.AddRangeConstraint(c.Name, t.Bound())
 		} else {
 			// u9+ use byte decompositions.
-			air.ApplyBitwidthGadget(c.Name, t.BitWidth(), schema)
+			air_gadgets.ApplyBitwidthGadget(c.Name, t.BitWidth(), schema)
 		}
 	}
 	// Finally, add an (untyped) data column representing this
@@ -185,7 +186,7 @@ func lowerPermutationToAir(c *table.SortedPermutation, mirSchema *Schema, airSch
 		// also requires bitwidth constraints.
 		bitwidth := mirSchema.GetColumnByName(c.Sources[0]).Type.AsUint().BitWidth()
 		// Add column sorting constraints
-		air.ApplyColumnSortingGadget(c.Targets[0], c.Signs[0], bitwidth, airSchema)
+		air_gadgets.ApplyColumnSortGadget(c.Targets[0], c.Signs[0], bitwidth, airSchema)
 	} else {
 		// For a multi column sort, its a bit harder as we need additional
 		// logicl to ensure the target columns are lexicographally sorted.
@@ -199,7 +200,7 @@ func lowerPermutationToAir(c *table.SortedPermutation, mirSchema *Schema, airSch
 			}
 		}
 		// Add lexicographically sorted constraints
-		air.ApplyLexicographicSortingGadget(c.Targets, c.Signs, bitwidth, airSchema)
+		air_gadgets.ApplyLexicographicSortingGadget(c.Targets, c.Signs, bitwidth, airSchema)
 	}
 }
 
