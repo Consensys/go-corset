@@ -219,6 +219,18 @@ func TestEval_Permute_06(t *testing.T) {
 	Check(t, "permute_06")
 }
 
+func TestEval_Permute_07(t *testing.T) {
+	Check(t, "permute_07")
+}
+
+func TestEval_Permute_08(t *testing.T) {
+	Check(t, "permute_08")
+}
+
+func TestEval_Permute_09(t *testing.T) {
+	Check(t, "permute_09")
+}
+
 // ===================================================================
 // Complex Tests
 // ===================================================================
