@@ -189,8 +189,13 @@ func (p *lexicographicSortExpander) ExpandTrace(tr table.Trace) error {
 
 				bit[j][i] = &one
 				// Compute curr - prev
-				diff.Set(curr)
-				delta[i] = diff.Sub(&diff, prev)
+				if p.signs[j] {
+					diff.Set(curr)
+					delta[i] = diff.Sub(&diff, prev)
+				} else {
+					diff.Set(prev)
+					delta[i] = diff.Sub(&diff, curr)
+				}
 				set = true
 			} else {
 				bit[j][i] = &zero
