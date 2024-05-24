@@ -255,6 +255,10 @@ func TestEval_WordSorting(t *testing.T) {
 	Check(t, "word_sorting")
 }
 
+func TestEval_Memory(t *testing.T) {
+	Check(t, "memory")
+}
+
 // ===================================================================
 // Test Helpers
 // ===================================================================
