@@ -150,11 +150,7 @@ func (p *RangeConstraint) IsAir() bool { return true }
 func (p *RangeConstraint) Accepts(tr Trace) error {
 	for k := 0; k < tr.Height(); k++ {
 		// Get the value on the kth row
-		kth, err := tr.GetByName(p.Handle, k)
-		// Sanity check column exists!
-		if err != nil {
-			return err
-		}
+		kth := tr.GetByName(p.Handle, k)
 		// Perform the bounds check
 		if kth != nil && kth.Cmp(p.Bound) >= 0 {
 			// Construct useful error message

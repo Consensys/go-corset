@@ -1,8 +1,8 @@
 package table
 
 import (
-	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
@@ -72,11 +72,11 @@ type Trace interface {
 	// GetByindex as, depending on the underlying data format,
 	// this may first resolve the name into a physical column
 	// index.
-	GetByName(name string, row int) (*fr.Element, error)
+	GetByName(name string, row int) *fr.Element
 	// Get the value of a given column by its index. If the column
 	// does not exist or if the index is out-of-bounds then an
 	// error is returned.
-	GetByIndex(col int, row int) (*fr.Element, error)
+	GetByIndex(col int, row int) *fr.Element
 	// Check whether this trace contains data for the given column.
 	HasColumn(name string) bool
 	// ColumnByName returns the data of a given column in order that it can be
@@ -187,7 +187,7 @@ func (p *ArrayTrace) Height() int {
 
 // GetByName gets the value of a given column (as identified by its name) at a
 // given row.  If the column does not exist, an error is returned.
-func (p *ArrayTrace) GetByName(name string, row int) (*fr.Element, error) {
+func (p *ArrayTrace) GetByName(name string, row int) *fr.Element {
 	// NOTE: Could improve performance here if names were kept in
 	// sorted order.
 	c := p.getColumnByName(name)
@@ -195,11 +195,8 @@ func (p *ArrayTrace) GetByName(name string, row int) (*fr.Element, error) {
 		// Matched column
 		return c.Get(row)
 	}
-
-	// Failed to find column
-	msg := fmt.Sprintf("Invalid column: {%s}", name)
-
-	return nil, errors.New(msg)
+	// Precondition failure
+	panic(fmt.Sprintf("Invalid column: {%s}", name))
 }
 
 // ColumnByName looks up a column based on its name.  If the column doesn't
@@ -218,9 +215,10 @@ func (p *ArrayTrace) ColumnByName(name string) []*fr.Element {
 // GetByIndex returns the value of a given column (as identifier by its index or
 // register) at a given row.  If the column is out-of-bounds an error is
 // returned.
-func (p *ArrayTrace) GetByIndex(col int, row int) (*fr.Element, error) {
+func (p *ArrayTrace) GetByIndex(col int, row int) *fr.Element {
 	if col < 0 || col >= len(p.columns) {
-		return nil, errors.New("Column access out-of-bounds")
+		// Precondition failure
+		panic(fmt.Sprintf("Invalid column: {%d}", col))
 	}
 
 	return p.columns[col].Get(row)
@@ -235,6 +233,40 @@ func (p *ArrayTrace) getColumnByName(name string) *ArrayTraceColumn {
 	}
 
 	return nil
+}
+
+func (p *ArrayTrace) String() string {
+	// Use string builder to try and make this vaguely efficient.
+	var id strings.Builder
+
+	id.WriteString("{")
+
+	for i := 0; i < len(p.columns); i++ {
+		if i != 0 {
+			id.WriteString(",")
+		}
+
+		id.WriteString(p.columns[i].name)
+		id.WriteString("={")
+
+		for j := 0; j < p.height; j++ {
+			jth := p.GetByIndex(i, j)
+
+			if j != 0 {
+				id.WriteString(",")
+			}
+
+			if jth == nil {
+				id.WriteString("_")
+			} else {
+				id.WriteString(jth.String())
+			}
+		}
+		id.WriteString("}")
+	}
+	id.WriteString("}")
+	//
+	return id.String()
 }
 
 // ===================================================================
@@ -265,10 +297,10 @@ func (p *ArrayTraceColumn) Clone() *ArrayTraceColumn {
 }
 
 // Get the value at the given row of this column.
-func (p *ArrayTraceColumn) Get(row int) (*fr.Element, error) {
+func (p *ArrayTraceColumn) Get(row int) *fr.Element {
 	if row < 0 || row >= len(p.data) {
-		return nil, errors.New("Column access out-of-bounds")
+		return nil
 	}
 
-	return p.data[row], nil
+	return p.data[row]
 }

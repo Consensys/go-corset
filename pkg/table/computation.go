@@ -59,16 +59,27 @@ func (p *ByteDecomposition) ExpandTrace(tr Trace) error {
 // Decompose a given element into n bytes in little endian form.  For example,
 // decomposing 41b into 2 bytes gives [0x1b,0x04].
 func decomposeIntoBytes(val *fr.Element, n int) []*fr.Element {
-	// Determine bytes of this value (in big endian form).
-	bytes := val.Bytes()
-	m := len(bytes) - 1
 	// Construct return array
 	elements := make([]*fr.Element, n)
-	// Convert each byte into a field element
-	for i := 0; i < n; i++ {
-		j := m - i
-		ith := fr.NewElement(uint64(bytes[j]))
-		elements[i] = &ith
+
+	if val == nil {
+		// Special case where value being decomposed is actually undefined (i.e.
+		// because its before the start of the table).  In this case, we assume
+		// a default decomposition of zero.
+		for i := 0; i < n; i++ {
+			ith := fr.NewElement(0)
+			elements[i] = &ith
+		}
+	} else {
+		// Determine bytes of this value (in big endian form).
+		bytes := val.Bytes()
+		m := len(bytes) - 1
+		// Convert each byte into a field element
+		for i := 0; i < n; i++ {
+			j := m - i
+			ith := fr.NewElement(uint64(bytes[j]))
+			elements[i] = &ith
+		}
 	}
 	// Done
 	return elements

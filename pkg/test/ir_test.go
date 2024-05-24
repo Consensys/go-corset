@@ -215,6 +215,10 @@ func TestEval_Permute_05(t *testing.T) {
 	Check(t, "permute_05")
 }
 
+func TestEval_Permute_06(t *testing.T) {
+	Check(t, "permute_06")
+}
+
 // ===================================================================
 // Complex Tests
 // ===================================================================
@@ -288,12 +292,13 @@ func CheckTraces(t *testing.T, test string, expected bool, traces []*table.Array
 				checkExpandedTrace(t, tr, traceId{"AIR", test, expected, i + 1}, airSchema)
 			} else {
 				// Trace appears to be malformed.
-				err := airSchema.IsInputTrace(tr)
+				err1 := airSchema.IsInputTrace(tr)
+				err2 := airSchema.IsOutputTrace(tr)
 
 				if expected {
-					t.Errorf("Trace malformed (%s.accepts, line %d): %s", test, i+1, err)
+					t.Errorf("Trace malformed (%s.accepts, line %d): [%s][%s]", test, i+1, err1, err2)
 				} else {
-					t.Errorf("Trace malformed (%s.rejects, line %d): %s", test, i+1, err)
+					t.Errorf("Trace malformed (%s.rejects, line %d): [%s][%s]", test, i+1, err1, err2)
 				}
 			}
 		}
@@ -319,6 +324,7 @@ func checkExpandedTrace(t *testing.T, tr table.Trace, id traceId, schema table.A
 	accepted := (err == nil)
 	// Process what happened versus what was supposed to happen.
 	if !accepted && id.expected {
+		fmt.Println(tr)
 		msg := fmt.Sprintf("Trace rejected incorrectly (%s, %s.accepts, line %d): %s", id.ir, id.test, id.line, err)
 		t.Errorf(msg)
 	} else if accepted && !id.expected {

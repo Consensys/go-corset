@@ -55,6 +55,11 @@ func EmptySchema[C table.Evaluable]() *Schema {
 	return p
 }
 
+// Columns returns the set of data columns.
+func (p *Schema) Columns() []DataColumn {
+	return p.dataColumns
+}
+
 // HasColumn checks whether a given schema has a given column.
 func (p *Schema) HasColumn(name string) bool {
 	for _, c := range p.dataColumns {

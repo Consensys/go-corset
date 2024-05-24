@@ -54,10 +54,3 @@ type ColumnAccess struct {
 	Column string
 	Shift  int
 }
-
-// Inverse is a computation-only expression which computes the multiplicative
-// inverse of a given expression.  More specifically, it is not an instance of
-// mir.Expr as it does not implement lowering.
-type Inverse struct {
-	Expr Expr
-}

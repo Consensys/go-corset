@@ -21,19 +21,102 @@ type Expr interface {
 
 	// String produces a string representing this as an S-Expression.
 	String() string
+
+	// Add two expressions together, producing a third.
+	Add(Expr) Expr
+
+	// Subtract one expression from another
+	Sub(Expr) Expr
+
+	// Multiply two expressions together, producing a third.
+	Mul(Expr) Expr
+
+	// Equate one expression with another
+	Equate(Expr) Expr
 }
 
 // Add represents the sum over zero or more expressions.
 type Add struct{ Args []Expr }
 
+// Add two expressions together, producing a third.
+func (p *Add) Add(other Expr) Expr { return &Add{Args: []Expr{p, other}} }
+
+// Sub (subtract) one expression from another.
+func (p *Add) Sub(other Expr) Expr { return &Sub{Args: []Expr{p, other}} }
+
+// Mul (multiply) two expressions together, producing a third.
+func (p *Add) Mul(other Expr) Expr { return &Mul{Args: []Expr{p, other}} }
+
+// Equate one expression with another (equivalent to subtraction).
+func (p *Add) Equate(other Expr) Expr { return &Sub{Args: []Expr{p, other}} }
+
 // Sub represents the subtraction over zero or more expressions.
 type Sub struct{ Args []Expr }
+
+// Add two expressions together, producing a third.
+func (p *Sub) Add(other Expr) Expr { return &Add{Args: []Expr{p, other}} }
+
+// Sub (subtract) one expression from another.
+func (p *Sub) Sub(other Expr) Expr { return &Sub{Args: []Expr{p, other}} }
+
+// Mul (multiply) two expressions together, producing a third.
+func (p *Sub) Mul(other Expr) Expr { return &Mul{Args: []Expr{p, other}} }
+
+// Equate one expression with another (equivalent to subtraction).
+func (p *Sub) Equate(other Expr) Expr { return &Sub{Args: []Expr{p, other}} }
 
 // Mul represents the product over zero or more expressions.
 type Mul struct{ Args []Expr }
 
+// Add two expressions together, producing a third.
+func (p *Mul) Add(other Expr) Expr { return &Add{Args: []Expr{p, other}} }
+
+// Sub (subtract) one expression from another.
+func (p *Mul) Sub(other Expr) Expr { return &Sub{Args: []Expr{p, other}} }
+
+// Mul (multiply) two expressions together, producing a third.
+func (p *Mul) Mul(other Expr) Expr { return &Mul{Args: []Expr{p, other}} }
+
+// Equate one expression with another (equivalent to subtraction).
+func (p *Mul) Equate(other Expr) Expr { return &Sub{Args: []Expr{p, other}} }
+
 // Constant represents a constant value within an expression.
 type Constant struct{ Value *fr.Element }
+
+// NewConstant construct an AIR expression representing a given constant.
+func NewConst(val *fr.Element) Expr {
+	return &Constant{val}
+}
+
+// NewConst64 construct an AIR expression representing a given constant from a
+// uint64.
+func NewConst64(val uint64) Expr {
+	element := fr.NewElement(val)
+	return &Constant{&element}
+}
+
+// NewConstCopy construct an AIR expression representing a given constant,
+// and also clones that constant.
+func NewConstCopy(val *fr.Element) Expr {
+	// Create ith term (for final sum)
+	var clone fr.Element
+	// Clone coefficient
+	clone.Set(val)
+	// DOne
+	return &Constant{&clone}
+}
+
+// Add two expressions together, producing a third.
+func (p *Constant) Add(other Expr) Expr { return &Add{Args: []Expr{p, other}} }
+
+// Sub (subtract) one expression from another.
+func (p *Constant) Sub(other Expr) Expr { return &Sub{Args: []Expr{p, other}} }
+
+// Mul (multiply) two expressions together, producing a third.
+func (p *Constant) Mul(other Expr) Expr { return &Mul{Args: []Expr{p, other}} }
+
+// Equate one expression with another (equivalent to subtraction).
+func (p *Constant) Equate(other Expr) Expr { return &Sub{Args: []Expr{p, other}} }
 
 // ColumnAccess represents reading the value held at a given column in the
 // tabular context.  Furthermore, the current row maybe shifted up (or down) by
@@ -45,3 +128,21 @@ type ColumnAccess struct {
 	Column string
 	Shift  int
 }
+
+// NewColumnAccess constructs an AIR expression representing the value of a given
+// column on the current row.
+func NewColumnAccess(name string, shift int) Expr {
+	return &ColumnAccess{name, shift}
+}
+
+// Add two expressions together, producing a third.
+func (p *ColumnAccess) Add(other Expr) Expr { return &Add{Args: []Expr{p, other}} }
+
+// Sub (subtract) one expression from another.
+func (p *ColumnAccess) Sub(other Expr) Expr { return &Sub{Args: []Expr{p, other}} }
+
+// Mul (multiply) two expressions together, producing a third.
+func (p *ColumnAccess) Mul(other Expr) Expr { return &Mul{Args: []Expr{p, other}} }
+
+// Equate one expression with another (equivalent to subtraction).
+func (p *ColumnAccess) Equate(other Expr) Expr { return &Sub{Args: []Expr{p, other}} }
