@@ -52,7 +52,7 @@ func (e *Normalise) EvalAt(k int, tbl table.Trace) *fr.Element {
 	// Check whether argument evaluates to zero or not.
 	val := e.Arg.EvalAt(k, tbl)
 	// Normalise value (if necessary)
-	if !val.IsZero() {
+	if val != nil && !val.IsZero() {
 		val.SetOne()
 	}
 	// Done

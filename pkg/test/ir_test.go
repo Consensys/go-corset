@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/hir"
@@ -255,6 +256,10 @@ func TestEval_WordSorting(t *testing.T) {
 	Check(t, "word_sorting")
 }
 
+func TestEval_Memory(t *testing.T) {
+	Check(t, "memory")
+}
+
 // ===================================================================
 // Test Helpers
 // ===================================================================
@@ -336,10 +341,11 @@ func checkExpandedTrace(t *testing.T, tr table.Trace, id traceId, schema table.A
 	accepted := (err == nil)
 	// Process what happened versus what was supposed to happen.
 	if !accepted && id.expected {
-		fmt.Println(tr)
+		printTrace(tr)
 		msg := fmt.Sprintf("Trace rejected incorrectly (%s, %s.accepts, line %d): %s", id.ir, id.test, id.line, err)
 		t.Errorf(msg)
 	} else if accepted && !id.expected {
+		printTrace(tr)
 		msg := fmt.Sprintf("Trace accepted incorrectly (%s, %s.rejects, line %d)", id.ir, id.test, id.line)
 		t.Errorf(msg)
 	}
@@ -452,4 +458,69 @@ func ToFieldElements(ints []*big.Int) []*fr.Element {
 
 	// Done.
 	return elements
+}
+
+// Prints a trace in a more human-friendly fashion.
+func printTrace(tr table.Trace) {
+	n := tr.Width()
+	//
+	rows := make([][]string, n)
+	for i := 0; i < n; i++ {
+		rows[i] = traceColumnData(tr, i)
+	}
+	//
+	widths := traceRowWidths(tr.Height(), rows)
+	//
+	printHorizontalRule(widths)
+	//
+	for _, r := range rows {
+		printTraceRow(r, widths)
+		printHorizontalRule(widths)
+	}
+}
+
+func traceColumnData(tr table.Trace, col int) []string {
+	n := tr.Height()
+	data := make([]string, n+1)
+	data[0] = tr.ColumnName(col)
+
+	for row := 0; row < n; row++ {
+		data[row+1] = tr.GetByIndex(col, row).String()
+	}
+
+	return data
+}
+
+func traceRowWidths(height int, rows [][]string) []int {
+	widths := make([]int, height+1)
+
+	for _, row := range rows {
+		for i, col := range row {
+			w := utf8.RuneCountInString(col)
+			widths[i] = max(w, widths[i])
+		}
+	}
+
+	return widths
+}
+
+func printTraceRow(row []string, widths []int) {
+	for i, col := range row {
+		fmt.Printf(" %*s |", widths[i], col)
+	}
+
+	fmt.Println()
+}
+
+func printHorizontalRule(widths []int) {
+	for _, w := range widths {
+		fmt.Print("-")
+
+		for i := 0; i < w; i++ {
+			fmt.Print("-")
+		}
+		fmt.Print("-+")
+	}
+
+	fmt.Println()
 }
