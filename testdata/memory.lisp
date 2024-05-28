@@ -19,12 +19,17 @@
 ;; Value being Read/Written
 (column VAL :u8)
 ;; Permutation
-(permute (PC' ADDR' RW' VAL') (+PC +ADDR +RW +VAL))
+(permute (ADDR' PC' RW' VAL') (+ADDR +PC +RW +VAL))
 
 ;; PC[0]=0
 (vanish:first heartbeat_1 PC)
 ;; PC[k]=PC[k-1]+1
 (vanish heartbeat_2 (- PC (+ 1 (shift PC -1))))
 
-;; ADDR'[k] != ADDR'[k-1] ==> (RW=1 || VAL=0)
-(vanish first_read (ifnot (- ADDR' (shift ADDR' -1)) (* (- 1 RW) VAL)))
+;; ADDR'[k] != ADDR'[k-1] ==> (RW'[k]=1 || VAL'[k]=0)
+(vanish first_read_1 (ifnot (- ADDR' (shift ADDR' -1)) (* (- 1 RW') VAL')))
+;; (RW'[0]=1 || VAL'[0]=0)
+(vanish:first first_read_2 (* (- 1 RW') VAL'))
+
+;; ADDR'[k] == ADDR'[k-1] ==> (RW=1 || VAL'[k]=VAL'[k-1])
+(vanish next_read (if (- ADDR' (shift ADDR' -1)) (* (- 1 RW') (- VAL' (shift VAL' -1)))))
