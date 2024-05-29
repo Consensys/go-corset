@@ -72,8 +72,8 @@ func (p *Schema) HasColumn(name string) bool {
 }
 
 // IsInputTrace determines whether a given input trace is a suitable
-// input (i.e. not expanded) trace for this schema.  Specifically, the
-// input trace must contain a match column for each non-synthetic
+// input (i.e. non-expanded) trace for this schema.  Specifically, the
+// input trace must contain a matching column for each non-synthetic
 // column in this trace.
 func (p *Schema) IsInputTrace(tr table.Trace) error {
 	count := 0
@@ -111,7 +111,7 @@ func (p *Schema) IsInputTrace(tr table.Trace) error {
 
 // IsOutputTrace determines whether a given input trace is a suitable
 // output (i.e. expanded) trace for this schema.  Specifically, the
-// output trace must contain a match column for each column in this
+// output trace must contain a matching column for each column in this
 // trace (synthetic or otherwise).
 func (p *Schema) IsOutputTrace(tr table.Trace) error {
 	count := 0
@@ -170,17 +170,22 @@ func (p *Schema) AddRangeConstraint(column string, bound *fr.Element) {
 // which does not hold.
 func (p *Schema) Accepts(trace table.Trace) error {
 	// Check vanishing constraints
-	err := table.ForallAcceptTrace(trace, p.vanishing)
+	err := table.ConstraintsAcceptTrace(trace, p.vanishing)
 	if err != nil {
 		return err
 	}
 	// Check permutation constraints
-	err = table.ForallAcceptTrace(trace, p.permutations)
+	err = table.ConstraintsAcceptTrace(trace, p.permutations)
 	if err != nil {
 		return err
 	}
 	// Check range constraints
-	err = table.ForallAcceptTrace(trace, p.ranges)
+	err = table.ConstraintsAcceptTrace(trace, p.ranges)
+	if err != nil {
+		return err
+	}
+	// Check computations
+	err = table.ConstraintsAcceptTrace(trace, p.computations)
 	if err != nil {
 		return err
 	}

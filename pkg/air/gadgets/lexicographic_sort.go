@@ -155,6 +155,25 @@ type lexicographicSortExpander struct {
 	bitwidth uint
 }
 
+// Accepts checks whether a given trace has the necessary columns
+func (p *lexicographicSortExpander) Accepts(tr table.Trace) error {
+	prefix := constructLexicographicSortingPrefix(p.columns, p.signs)
+	deltaName := fmt.Sprintf("%s:delta", prefix)
+	// Check delta column exists
+	if !tr.HasColumn(deltaName) {
+		return fmt.Errorf("Trace missing lexicographic delta column ({%s})", deltaName)
+	}
+	// Check selector columns exist
+	for i := range p.columns {
+		bitName := fmt.Sprintf("%s:%d", prefix, i)
+		if !tr.HasColumn(bitName) {
+			return fmt.Errorf("Trace missing lexicographic selector column ({%s})", bitName)
+		}
+	}
+	//
+	return nil
+}
+
 // Add columns as needed to support the LexicographicSortingGadget.  That
 // includes the delta column, and the bit selectors.
 func (p *lexicographicSortExpander) ExpandTrace(tr table.Trace) error {

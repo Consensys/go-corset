@@ -36,6 +36,11 @@ func (c *DataColumn[T]) Get(row int, tr Trace) *fr.Element {
 //
 //nolint:revive
 func (c *DataColumn[T]) Accepts(tr Trace) error {
+	// Check column in trace!
+	if !tr.HasColumn(c.Name) {
+		return fmt.Errorf("Trace missing data column ({%s})", c.Name)
+	}
+	// Check constraints accepted
 	for i := 0; i < tr.Height(); i++ {
 		val := tr.GetByName(c.Name, i)
 
@@ -75,6 +80,20 @@ func NewComputedColumn(name string, expr Evaluable) *ComputedColumn {
 		Name: name,
 		Expr: expr,
 	}
+}
+
+// Accepts determines whether or not this column accepts the given trace.  For a
+// data column, this means ensuring that all elements are value for the columns
+// type.
+//
+//nolint:revive
+func (c *ComputedColumn) Accepts(tr Trace) error {
+	// Check column in trace!
+	if !tr.HasColumn(c.Name) {
+		return fmt.Errorf("Trace missing computed column ({%s})", c.Name)
+	}
+
+	return nil
 }
 
 // ExpandTrace attempts to a new column to the trace which contains the result
@@ -124,6 +143,13 @@ func NewPermutation(target string, source string) *Permutation {
 // Accepts checks whether a permutation holds between the source and
 // target columns.
 func (p *Permutation) Accepts(tr Trace) error {
+	// Check column in trace!
+	if !tr.HasColumn(p.Target) {
+		return fmt.Errorf("Trace missing permutation target column ({%s})", p.Target)
+	} else if !tr.HasColumn(p.Source) {
+		return fmt.Errorf("Trace missing permutation source column ({%s})", p.Source)
+	}
+
 	return IsPermutationOf(p.Target, p.Source, tr)
 }
 
@@ -156,8 +182,18 @@ func NewSortedPermutation(targets []string, signs []bool, sources []string) *Sor
 func (p *SortedPermutation) Accepts(tr Trace) error {
 	ncols := len(p.Sources)
 	cols := make([][]*fr.Element, ncols)
-	// Check that source columns have the same height?
+	// Check required columns in trace
+	for _, n := range p.Targets {
+		if !tr.HasColumn(n) {
+			return fmt.Errorf("Trace missing permutation target column ({%s})", n)
+		}
+	}
 
+	for _, n := range p.Sources {
+		if !tr.HasColumn(n) {
+			return fmt.Errorf("Trace missing permutation source ({%s})", n)
+		}
+	}
 	// Check that target and source columns exist and are permutations of source
 	// columns.
 	for i := 0; i < ncols; i++ {

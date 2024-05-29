@@ -2,15 +2,12 @@ package testA
 
 import (
 	"bufio"
-	"encoding/json"
 	"fmt"
-	"math/big"
 	"os"
 	"strings"
 	"testing"
 	"unicode/utf8"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/hir"
 	"github.com/consensys/go-corset/pkg/table"
 )
@@ -322,7 +319,7 @@ func CheckTraces(t *testing.T, test string, expected bool, traces []*table.Array
 	}
 }
 
-func checkInputTrace(t *testing.T, tr *table.ArrayTrace, id traceId, schema TraceExpander) {
+func checkInputTrace(t *testing.T, tr *table.ArrayTrace, id traceId, schema table.TraceSchema) {
 	// Clone trace (to ensure expansion does not affect subsequent tests)
 	etr := tr.Clone()
 	// Expand trace
@@ -351,15 +348,6 @@ func checkExpandedTrace(t *testing.T, tr table.Trace, id traceId, schema table.A
 	}
 }
 
-type TraceExpander interface {
-	Accepts(table.Trace) error
-	// ExpandTrace expands a given trace to include "computed
-	// columns".  These are columns which do not exist in the
-	// original trace, but are added during trace expansion to
-	// form the final trace.
-	ExpandTrace(table.Trace) error
-}
-
 // A trace identifier uniquely identifies a specific trace within a given test.
 // This is used to provide debug information about a trace failure.
 // Specifically, so the user knows which line in which file caused the problem.
@@ -386,36 +374,17 @@ func ReadTracesFile(name string, ext string) []*table.ArrayTrace {
 	for i, line := range lines {
 		// Parse input line as JSON
 		if line != "" && !strings.HasPrefix(line, ";;") {
-			traces[i] = ParseJsonTrace(line, name, ext, i)
+			tr, err := table.ParseJsonTrace([]byte(line))
+			if err != nil {
+				msg := fmt.Sprintf("%s.%s:%d: %s", name, ext, i+1, err)
+				panic(msg)
+			}
+
+			traces[i] = tr
 		}
 	}
 
 	return traces
-}
-
-// Parse a trace expressed in JSON notation.  For example, {"X": [0],
-// "Y": [1]} is a trace containing one row of data each for two
-// columns "X" and "Y".
-func ParseJsonTrace(jsn string, test string, ext string, row int) *table.ArrayTrace {
-	var rawData map[string][]*big.Int
-	// Unmarshall
-	jsonErr := json.Unmarshal([]byte(jsn), &rawData)
-	if jsonErr != nil {
-		msg := fmt.Sprintf("%s.%s:%d: %s", test, ext, row+1, jsonErr)
-		panic(msg)
-	}
-
-	trace := table.EmptyArrayTrace()
-
-	for name, rawInts := range rawData {
-		// Translate raw bigints into raw field elements
-		rawElements := ToFieldElements(rawInts)
-		// Add new column to the trace
-		trace.AddColumn(name, rawElements)
-	}
-
-	// Done.
-	return trace
 }
 
 // ReadInputFile reads an input file as a sequence of lines.
@@ -444,20 +413,6 @@ func ReadInputFile(name string, ext string) []string {
 
 	// Done
 	return lines
-}
-
-// ToFieldElements converts an array of big integers into an array of field elements.
-func ToFieldElements(ints []*big.Int) []*fr.Element {
-	elements := make([]*fr.Element, len(ints))
-	// Convert each integer in turn.
-	for i, v := range ints {
-		element := new(fr.Element)
-		element.SetBigInt(v)
-		elements[i] = element
-	}
-
-	// Done.
-	return elements
 }
 
 // Prints a trace in a more human-friendly fashion.

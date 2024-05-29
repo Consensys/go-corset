@@ -5,9 +5,6 @@ import (
 	"github.com/consensys/go-corset/pkg/table"
 )
 
-// DataColumn captures the essence of a data column at the HIR level.
-type DataColumn = *table.DataColumn[table.Type]
-
 // ZeroArrayTest is a wrapper which converts an array of expressions into a
 // Testable constraint.  Specifically, by checking whether or not the each
 // expression vanishes (i.e. evaluates to zero).
@@ -45,7 +42,7 @@ type PropertyAssertion = mir.PropertyAssertion
 // Schema for HIR constraints and columns.
 type Schema struct {
 	// The data columns of this schema.
-	dataColumns []DataColumn
+	dataColumns []*table.DataColumn[table.Type]
 	// The sorted permutations of this schema.
 	permutations []*table.SortedPermutation
 	// The vanishing constraints of this schema.
@@ -58,7 +55,7 @@ type Schema struct {
 // constraints will be added.
 func EmptySchema() *Schema {
 	p := new(Schema)
-	p.dataColumns = make([]DataColumn, 0)
+	p.dataColumns = make([]*table.DataColumn[table.Type], 0)
 	p.permutations = make([]*table.SortedPermutation, 0)
 	p.vanishing = make([]VanishingConstraint, 0)
 	p.assertions = make([]PropertyAssertion, 0)
@@ -66,8 +63,19 @@ func EmptySchema() *Schema {
 	return p
 }
 
+// HasColumn checks whether a given schema has a given column.
+func (p *Schema) HasColumn(name string) bool {
+	for _, c := range p.dataColumns {
+		if (*c).Name == name {
+			return true
+		}
+	}
+
+	return false
+}
+
 // Columns returns the set of (data) columns declared within this schema.
-func (p *Schema) Columns() []DataColumn {
+func (p *Schema) Columns() []*table.DataColumn[table.Type] {
 	return p.dataColumns
 }
 
@@ -108,26 +116,22 @@ func (p *Schema) AddPropertyAssertion(handle string, expr mir.Expr) {
 // which does not hold.
 func (p *Schema) Accepts(trace table.Trace) error {
 	// Check (typed) data columns
-	err := table.ForallAcceptTrace(trace, p.dataColumns)
-	if err != nil {
+	if err := table.ConstraintsAcceptTrace(trace, p.dataColumns); err != nil {
 		return err
 	}
 	// Check permutations
-	err = table.ForallAcceptTrace(trace, p.permutations)
-	if err != nil {
+	if err := table.ConstraintsAcceptTrace(trace, p.permutations); err != nil {
 		return err
 	}
 	// Check vanishing constraints
-	err = table.ForallAcceptTrace(trace, p.vanishing)
-	if err != nil {
+	if err := table.ConstraintsAcceptTrace(trace, p.vanishing); err != nil {
 		return err
 	}
 	// Check properties
-	err = table.ForallAcceptTrace(trace, p.assertions)
-	if err != nil {
+	if err := table.ConstraintsAcceptTrace(trace, p.assertions); err != nil {
 		return err
 	}
-
+	// Done
 	return nil
 }
 
