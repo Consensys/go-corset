@@ -89,26 +89,22 @@ func (p *Schema) AddPropertyAssertion(handle string, expr Expr) {
 // which does not hold.
 func (p *Schema) Accepts(trace table.Trace) error {
 	// Check (typed) data columns
-	err := table.ForallAcceptTrace(trace, p.dataColumns)
-	if err != nil {
+	if err := table.ConstraintsAcceptTrace(trace, p.dataColumns); err != nil {
 		return err
 	}
 	// Check permutations
-	err = table.ForallAcceptTrace(trace, p.permutations)
-	if err != nil {
+	if err := table.ConstraintsAcceptTrace(trace, p.permutations); err != nil {
 		return err
 	}
 	// Check vanishing constraints
-	err = table.ForallAcceptTrace(trace, p.vanishing)
-	if err != nil {
+	if err := table.ConstraintsAcceptTrace(trace, p.vanishing); err != nil {
 		return err
 	}
 	// Check property assertions
-	err = table.ForallAcceptTrace(trace, p.assertions)
-	if err != nil {
+	if err := table.ConstraintsAcceptTrace(trace, p.assertions); err != nil {
 		return err
 	}
-
+	// Done
 	return nil
 }
 

@@ -89,7 +89,7 @@ func HoldsLocally[T Testable](k int, handle string, constraint T, tr Trace) erro
 	// Check whether it holds or not
 	if !constraint.TestAt(k, tr) {
 		// Construct useful error message
-		msg := fmt.Sprintf("constraint %s does not hold (row %d)", handle, k)
+		msg := fmt.Sprintf("constraint \"%s\" does not hold (row %d)", handle, k)
 		// Evaluation failure
 		return errors.New(msg)
 	}

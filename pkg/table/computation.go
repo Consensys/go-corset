@@ -26,6 +26,20 @@ func NewByteDecomposition(target string, width uint) *ByteDecomposition {
 	return &ByteDecomposition{target, width}
 }
 
+// Accepts checks whether a given trace has the necessary columns
+func (p *ByteDecomposition) Accepts(tr Trace) error {
+	n := int(p.BitWidth / 8)
+	//
+	for i := 0; i < n; i++ {
+		colName := fmt.Sprintf("%s:%d", p.Target, i)
+		if !tr.HasColumn(colName) {
+			return fmt.Errorf("Trace missing byte decomposition column ({%s})", colName)
+		}
+	}
+	// Done
+	return nil
+}
+
 // ExpandTrace expands a given trace to include the columns specified by a given
 // ByteDecomposition.  This requires computing the value of each byte column in
 // the decomposition.

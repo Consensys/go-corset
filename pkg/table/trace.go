@@ -1,10 +1,13 @@
 package table
 
 import (
+	"encoding/json"
 	"fmt"
+	"math/big"
 	"strings"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // Evaluable captures something which can be evaluated on a given table row to
@@ -47,6 +50,19 @@ type Acceptable interface {
 // typically involves adding columns, evaluating compute-only
 // expressions, sorting columns, etc.
 type TraceComputation interface {
+	Acceptable
+	// ExpandTrace expands a given trace to include "computed
+	// columns".  These are columns which do not exist in the
+	// original trace, but are added during trace expansion to
+	// form the final trace.
+	ExpandTrace(Trace) error
+}
+
+// TraceSchema represents a schema which can be used to manipulate a trace.
+// Specifically, a schema can determine whether or not a trace is accepted;
+// likewise, a schema can expand a trace according to its internal computation.
+type TraceSchema interface {
+	Accepts(Trace) error
 	// ExpandTrace expands a given trace to include "computed
 	// columns".  These are columns which do not exist in the
 	// original trace, but are added during trace expansion to
@@ -86,9 +102,10 @@ type Trace interface {
 	AddColumn(name string, data []*fr.Element)
 }
 
-// ForallAcceptTrace determines whether or not one or more groups of constraints
-// accept a given trace.  It returns the first error or warning encountered.
-func ForallAcceptTrace[T Acceptable](trace Trace, constraints []T) error {
+// ConstraintsAcceptTrace determines whether or not one or more groups of
+// constraints accept a given trace.  It returns the first error or warning
+// encountered.
+func ConstraintsAcceptTrace[T Acceptable](trace Trace, constraints []T) error {
 	for _, c := range constraints {
 		err := c.Accepts(trace)
 		if err != nil {
@@ -303,4 +320,32 @@ func (p *ArrayTraceColumn) Get(row int) *fr.Element {
 	}
 
 	return p.data[row]
+}
+
+// ===================================================================
+// JSON Parser
+// ===================================================================
+
+// ParseJsonTrace parses a trace expressed in JSON notation.  For example, {"X":
+// [0], "Y": [1]} is a trace containing one row of data each for two columns "X"
+// and "Y".
+func ParseJsonTrace(bytes []byte) (*ArrayTrace, error) {
+	var rawData map[string][]*big.Int
+	// Unmarshall
+	jsonErr := json.Unmarshal(bytes, &rawData)
+	if jsonErr != nil {
+		return nil, jsonErr
+	}
+
+	trace := EmptyArrayTrace()
+
+	for name, rawInts := range rawData {
+		// Translate raw bigints into raw field elements
+		rawElements := util.ToFieldElements(rawInts)
+		// Add new column to the trace
+		trace.AddColumn(name, rawElements)
+	}
+
+	// Done.
+	return trace, nil
 }
