@@ -6,6 +6,7 @@ import (
 	"github.com/consensys/go-corset/pkg/air"
 	air_gadgets "github.com/consensys/go-corset/pkg/air/gadgets"
 	"github.com/consensys/go-corset/pkg/table"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // DataColumn captures the essence of a data column at the MIR level.
@@ -21,12 +22,15 @@ type VanishingConstraint = *table.RowConstraint[table.ZeroTest[Expr]]
 // the prover.
 type PropertyAssertion = *table.PropertyAssertion[Expr]
 
+// Permutation captures the notion of a (sorted) permutation at the MIR level.
+type Permutation = *table.SortedPermutation
+
 // Schema for MIR traces
 type Schema struct {
 	// The data columns of this schema.
 	dataColumns []DataColumn
 	// The sorted permutations of this schema.
-	permutations []*table.SortedPermutation
+	permutations []Permutation
 	// The vanishing constraints of this schema.
 	vanishing []VanishingConstraint
 	// The property assertions for this schema.
@@ -38,7 +42,7 @@ type Schema struct {
 func EmptySchema() *Schema {
 	p := new(Schema)
 	p.dataColumns = make([]DataColumn, 0)
-	p.permutations = make([]*table.SortedPermutation, 0)
+	p.permutations = make([]Permutation, 0)
 	p.vanishing = make([]VanishingConstraint, 0)
 	p.assertions = make([]PropertyAssertion, 0)
 	// Done
@@ -56,6 +60,17 @@ func (p *Schema) GetColumnByName(name string) DataColumn {
 
 	msg := fmt.Sprintf("unknown column encountered (%s)", name)
 	panic(msg)
+}
+
+// Size returns the number of declarations in this schema.
+func (p *Schema) Size() int {
+	return len(p.dataColumns) + len(p.permutations) + len(p.vanishing) + len(p.assertions)
+}
+
+// GetDeclaration returns the ith declaration in this schema.
+func (p *Schema) GetDeclaration(index int) table.Declaration {
+	ith := util.FlatArrayIndexOf_4(index, p.dataColumns, p.permutations, p.vanishing, p.assertions)
+	return ith.(table.Declaration)
 }
 
 // AddDataColumn appends a new data column.
@@ -164,7 +179,7 @@ func lowerColumnToAir(c *table.DataColumn[table.Type], schema *air.Schema) {
 // synthetic columns) must also be added.  Finally, a trace
 // computation is required to ensure traces are correctly expanded to
 // meet the requirements of a sorted permutation.
-func lowerPermutationToAir(c *table.SortedPermutation, mirSchema *Schema, airSchema *air.Schema) {
+func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Schema) {
 	ncols := len(c.Targets)
 	// Add individual permutation constraints
 	for i := 0; i < ncols; i++ {

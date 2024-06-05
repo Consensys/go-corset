@@ -6,6 +6,7 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/table"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // DataColumn captures the essence of a data column at AIR level.
@@ -21,13 +22,17 @@ type VanishingConstraint = *table.RowConstraint[table.ZeroTest[Expr]]
 // the prover.
 type PropertyAssertion = *table.PropertyAssertion[table.Evaluable]
 
+// Permutation captures the notion of a simple column permutation at the AIR
+// level.
+type Permutation = *table.Permutation
+
 // Schema for AIR traces which is parameterised on a notion of computation as
 // permissible in computed columns.
 type Schema struct {
 	// The data columns of this schema.
 	dataColumns []DataColumn
 	// The permutation columns of this schema.
-	permutations []*table.Permutation
+	permutations []Permutation
 	// The vanishing constraints of this schema.
 	vanishing []VanishingConstraint
 	// The range constraints of this schema.
@@ -46,13 +51,26 @@ type Schema struct {
 func EmptySchema[C table.Evaluable]() *Schema {
 	p := new(Schema)
 	p.dataColumns = make([]DataColumn, 0)
-	p.permutations = make([]*table.Permutation, 0)
+	p.permutations = make([]Permutation, 0)
 	p.vanishing = make([]VanishingConstraint, 0)
 	p.ranges = make([]*table.RangeConstraint, 0)
 	p.assertions = make([]PropertyAssertion, 0)
 	p.computations = make([]table.TraceComputation, 0)
 	// Done
 	return p
+}
+
+// Size returns the number of declarations in this schema.
+func (p *Schema) Size() int {
+	return len(p.dataColumns) + len(p.permutations) + len(p.vanishing) +
+		len(p.ranges) + len(p.assertions) + len(p.computations)
+}
+
+// GetDeclaration returns the ith declaration in this schema.
+func (p *Schema) GetDeclaration(index int) table.Declaration {
+	ith := util.FlatArrayIndexOf_6(index, p.dataColumns, p.permutations,
+		p.vanishing, p.ranges, p.assertions, p.computations)
+	return ith.(table.Declaration)
 }
 
 // Columns returns the set of data columns.

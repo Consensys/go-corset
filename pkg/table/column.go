@@ -56,7 +56,11 @@ func (c *DataColumn[T]) Accepts(tr Trace) error {
 }
 
 func (c *DataColumn[T]) String() string {
-	return c.Name
+	if c.Type.AsField() != nil {
+		return fmt.Sprintf("(column %s)", c.Name)
+	}
+
+	return fmt.Sprintf("(column %s :%s)", c.Name, c.Type)
 }
 
 // ComputedColumn describes a column whose values are computed on-demand, rather
@@ -122,6 +126,10 @@ func (c *ComputedColumn) ExpandTrace(tr Trace) error {
 	return nil
 }
 
+func (c *ComputedColumn) String() string {
+	return fmt.Sprintf("(compute %s %s)", c.Name, c.Expr)
+}
+
 // ===================================================================
 // Sorted Permutations
 // ===================================================================
@@ -151,6 +159,10 @@ func (p *Permutation) Accepts(tr Trace) error {
 	}
 
 	return IsPermutationOf(p.Target, p.Source, tr)
+}
+
+func (p *Permutation) String() string {
+	return fmt.Sprintf("(permutation %s %s)", p.Target, p.Source)
 }
 
 // ===================================================================
@@ -248,6 +260,12 @@ func (p *SortedPermutation) ExpandTrace(tr Trace) error {
 	}
 	//
 	return nil
+}
+
+// String returns a string representation of this constraint.  This is primarily
+// used for debugging.
+func (p *SortedPermutation) String() string {
+	return fmt.Sprintf("(sortedpermutation (%s) (%s))", p.Targets, p.Sources)
 }
 
 // IsPermutationOf checks whether (or not) one column is a permutation
