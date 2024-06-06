@@ -271,9 +271,9 @@ func Check(t *testing.T, test string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Parse as a schema
-	schema, err := hir.ParseSchemaSExp(string(bytes))
-	// Check test file parsed ok
+	// Parse terms into an HIR schema
+	schema, err := hir.ParseSchemaString(string(bytes))
+	// Check terms parsed ok
 	if err != nil {
 		t.Fatalf("Error parsing %s.lisp: %s\n", test, err)
 	}

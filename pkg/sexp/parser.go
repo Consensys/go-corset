@@ -1,7 +1,6 @@
 package sexp
 
 import (
-	"errors"
 	"fmt"
 )
 
@@ -13,10 +12,30 @@ func Parse(s string) (SExp, error) {
 	sExp, err := p.Parse()
 	// Sanity check everything was parsed
 	if err == nil && p.index != len(p.text) {
-		return nil, fmt.Errorf("unexpected string remainder: %s", p.text[p.index:])
+		return nil, p.error("unexpected remainder")
 	}
 
 	return sExp, err
+}
+
+// ParseAll parses a given string into zero or more S-expressions, whilst
+// returning an error if the string is malformed.
+func ParseAll(s string) ([]SExp, error) {
+	terms := make([]SExp, 0)
+	p := &Parser{s, 0}
+	// Parse the input
+	for {
+		term, err := p.Parse()
+		// Sanity check everything was parsed
+		if err != nil {
+			return terms, err
+		} else if term == nil {
+			// EOF reached
+			return terms, nil
+		}
+
+		terms = append(terms, term)
+	}
 }
 
 // Parser represents a parser in the process of parsing a given string into one
@@ -43,7 +62,7 @@ func (p *Parser) Parse() (SExp, error) {
 	if token == "" {
 		return nil, nil
 	} else if token == ")" {
-		return nil, errors.New("unexpected end-of-list")
+		return nil, p.error("unexpected end-of-list")
 	} else if token == "(" {
 		var elements []SExp
 
@@ -53,7 +72,7 @@ func (p *Parser) Parse() (SExp, error) {
 			if err != nil {
 				return nil, err
 			} else if element == nil {
-				return nil, errors.New("unexpected end-of-file")
+				return nil, p.error("unexpected end-of-file")
 			}
 			// Continue around!
 			elements = append(elements, element)
@@ -144,4 +163,23 @@ func (p *Parser) parseComment() string {
 	p.index = i
 	// Look for next token
 	return p.Next()
+}
+
+// Construct a parser error at the current position in the input stream.
+func (p *Parser) error(msg string) *ParseError {
+	return &ParseError{p.index, msg}
+}
+
+// ParseError is a structured error which retains the index into the original
+// string where an error occurred, along with an error message.
+type ParseError struct {
+	// Byte index into string being parsed where error arose.
+	Index int
+	// Error message being reported
+	Message string
+}
+
+// Error implements the error interface.
+func (p *ParseError) Error() string {
+	return fmt.Sprintf("%d:%s", p.Index, p.Message)
 }

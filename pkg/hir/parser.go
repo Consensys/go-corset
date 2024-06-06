@@ -23,30 +23,36 @@ func ParseSExp(s string) (Expr, error) {
 	return p.ParseAndTranslate(s)
 }
 
-// ParseSchemaSExp parses a string representing an HIR schema formatted using
-// S-expressions.
-func ParseSchemaSExp(s string) (*Schema, error) {
+// ParseSchemaString parses a sequence of zero or more HIR schema declarations
+// represented as a string.  Internally, this uses sexp.ParseAll and
+// ParseSchemaSExp to do the work.
+func ParseSchemaString(str string) (*Schema, error) {
+	// Parse bytes into an S-Expression
+	terms, err := sexp.ParseAll(str)
+	// Check test file parsed ok
+	if err != nil {
+		return nil, err
+	}
+	// Parse terms into an HIR schema
+	return ParseSchemaSExp(terms)
+}
+
+// ParseSchemaSExp parses a sequence of zero or more HIR schema declarations
+// represented as S-expressions.
+func ParseSchemaSExp(terms []sexp.SExp) (*Schema, error) {
 	t := newExprTranslator()
-	p := sexp.NewParser(s)
 	// Construct initially empty schema
 	schema := EmptySchema()
 	// Continue parsing string until nothing remains.
-	for {
-		sRest, err := p.Parse()
-		// Check for parsing error
-		if err != nil {
-			return nil, err
-		}
-		// Check whether complete
-		if sRest == nil {
-			return schema, nil
-		}
+	for _, term := range terms {
 		// Process declaration
-		err = sexpDeclaration(sRest, schema, t)
-		if err != nil {
-			return nil, err
+		err2 := sexpDeclaration(term, schema, t)
+		if err2 != nil {
+			return nil, err2
 		}
 	}
+	// Done
+	return schema, nil
 }
 
 // ===================================================================
