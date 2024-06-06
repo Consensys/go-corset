@@ -1,13 +1,9 @@
 package sexp
 
-import (
-	"fmt"
-)
-
 // Parse a given string into an S-expression, or return an error if the string
 // is malformed.
 func Parse(s string) (SExp, error) {
-	p := &Parser{s, 0}
+	p := NewParser(s)
 	// Parse the input
 	sExp, err := p.Parse()
 	// Sanity check everything was parsed
@@ -22,7 +18,7 @@ func Parse(s string) (SExp, error) {
 // returning an error if the string is malformed.
 func ParseAll(s string) ([]SExp, error) {
 	terms := make([]SExp, 0)
-	p := &Parser{s, 0}
+	p := NewParser(s)
 	// Parse the input
 	for {
 		term, err := p.Parse()
@@ -42,15 +38,16 @@ func ParseAll(s string) ([]SExp, error) {
 // or more S-expressions.
 type Parser struct {
 	// Text being parsed
-	text string
+	text []rune
 	// Determine current position within text
 	index int
+	//
 }
 
 // NewParser constructs a new instance of Parser
 func NewParser(text string) *Parser {
 	return &Parser{
-		text:  text,
+		text:  []rune(text),
 		index: 0,
 	}
 }
@@ -59,19 +56,21 @@ func NewParser(text string) *Parser {
 func (p *Parser) Parse() (SExp, error) {
 	token := p.Next()
 
-	if token == "" {
+	if token == nil {
 		return nil, nil
-	} else if token == ")" {
+	} else if len(token) == 1 && token[0] == ')' {
+		p.index-- // backup
 		return nil, p.error("unexpected end-of-list")
-	} else if token == "(" {
+	} else if len(token) == 1 && token[0] == '(' {
 		var elements []SExp
 
-		for p.Lookahead(0) != ")" {
+		for c := p.Lookahead(0); c == nil || *c != ')'; c = p.Lookahead(0) {
 			// Parse next element
 			element, err := p.Parse()
 			if err != nil {
 				return nil, err
 			} else if element == nil {
+				p.index-- // backup
 				return nil, p.error("unexpected end-of-file")
 			}
 			// Continue around!
@@ -83,15 +82,15 @@ func (p *Parser) Parse() (SExp, error) {
 		return &List{elements}, nil
 	}
 
-	return &Symbol{token}, nil
+	return &Symbol{string(token)}, nil
 }
 
 // Next extracts the next token from a given string.
-func (p *Parser) Next() string {
+func (p *Parser) Next() []rune {
 	index := p.index
 
 	if index == len(p.text) {
-		return ""
+		return nil
 	}
 
 	switch p.text[index] {
@@ -112,25 +111,25 @@ func (p *Parser) Next() string {
 }
 
 // Lookahead and see what punctuation is next.
-func (p *Parser) Lookahead(i int) string {
+func (p *Parser) Lookahead(i int) *rune {
 	// Compute actual position within text
 	pos := i + p.index
 	// Check what's there
 	if len(p.text) > pos {
 		switch p.text[pos] {
 		case '(', ')', ';':
-			return p.text[pos : pos+1]
+			return &p.text[pos]
 		case ' ', '\n':
 			return p.Lookahead(i + 1)
 		default:
-			return ""
+			return nil
 		}
 	}
 
-	return ""
+	return nil
 }
 
-func (p *Parser) parseSymbol() string {
+func (p *Parser) parseSymbol() []rune {
 	// Parse token
 	i := len(p.text)
 
@@ -148,7 +147,7 @@ func (p *Parser) parseSymbol() string {
 	return token
 }
 
-func (p *Parser) parseComment() string {
+func (p *Parser) parseComment() []rune {
 	// Parse token
 	i := len(p.text)
 
@@ -166,20 +165,7 @@ func (p *Parser) parseComment() string {
 }
 
 // Construct a parser error at the current position in the input stream.
-func (p *Parser) error(msg string) *ParseError {
-	return &ParseError{p.index, msg}
-}
-
-// ParseError is a structured error which retains the index into the original
-// string where an error occurred, along with an error message.
-type ParseError struct {
-	// Byte index into string being parsed where error arose.
-	Index int
-	// Error message being reported
-	Message string
-}
-
-// Error implements the error interface.
-func (p *ParseError) Error() string {
-	return fmt.Sprintf("%d:%s", p.Index, p.Message)
+func (p *Parser) error(msg string) *SyntaxError {
+	span := NewSpan(p.index, p.index+1)
+	return &SyntaxError{span, msg}
 }

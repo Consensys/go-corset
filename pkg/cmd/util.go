@@ -78,8 +78,8 @@ func readSchemaFile(filename string) *hir.Schema {
 		}
 	}
 	// Handle error
-	if e, ok := err.(*sexp.ParseError); ok {
-		printSyntaxError(filename, e.Message, e.Index, e.Index+1, string(bytes))
+	if e, ok := err.(*sexp.SyntaxError); ok {
+		printSyntaxError(filename, e, string(bytes))
 	} else {
 		fmt.Println(err)
 	}
@@ -90,49 +90,18 @@ func readSchemaFile(filename string) *hir.Schema {
 }
 
 // Print a syntax error with appropriate highlighting.
-func printSyntaxError(filename string, msg string, start int, end int, text string) {
-	line, offset, num := findEnclosingLine(start, text)
+func printSyntaxError(filename string, err *sexp.SyntaxError, text string) {
+	span := err.Span()
+	// Construct empty source map in order to determine enclosing line.
+	srcmap := sexp.NewSourceMap[sexp.SExp]([]rune(text))
+	//
+	line := srcmap.FindFirstEnclosingLine(span)
 	// Print error + line number
-	fmt.Printf("%s:%d: %s\n", filename, num, msg)
+	fmt.Printf("%s:%d: %s\n", filename, line.Number(), err.Message())
 	// Print line
-	fmt.Println(line)
+	fmt.Println(line.String())
 	// Print indent (todo: account for tabs)
-	fmt.Print(strings.Repeat(" ", start-offset-1))
+	fmt.Print(strings.Repeat(" ", span.Start()-line.Start()))
 	// Print highlight
-	fmt.Println(strings.Repeat("^", end-start))
-}
-
-// Determine the enclosing line for the given index in a string.
-func findEnclosingLine(index int, text string) (string, int, int) {
-	num := 1
-	start := 0
-	// Handle case where we've reached the end-of-file unexpectedly.  This
-	// essentially means the error is reported at the end of the last physical
-	// line.
-	if index >= len(text) {
-		index = index - 1
-	}
-	// Find the line.
-	for i := 0; i < len(text); i++ {
-		if i == index {
-			end := findEndOfLine(index, text)
-			return text[start:end], start, num
-		} else if text[i] == '\n' {
-			num++
-			start = i + 1
-		}
-	}
-	// Should be impossible
-	panic("unreachable")
-}
-
-// Find the end of the enclosing line
-func findEndOfLine(index int, text string) int {
-	for i := index; i < len(text); i++ {
-		if text[i] == '\n' {
-			return i
-		}
-	}
-	// No end in sight!
-	return len(text)
+	fmt.Println(strings.Repeat("^", span.Length()))
 }
