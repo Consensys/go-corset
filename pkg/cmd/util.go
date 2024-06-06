@@ -51,19 +51,22 @@ func readTraceFile(filename string) *table.ArrayTrace {
 // Parse a constraints schema file using a parser based on the extension of the
 // filename.
 func readSchemaFile(filename string) *hir.Schema {
+	var schema *hir.Schema
+	// Read schema file
 	bytes, err := os.ReadFile(filename)
+	// Handle errors
 	if err == nil {
 		// Check file extension
 		ext := path.Ext(filename)
 		//
 		switch ext {
 		case ".lisp":
-			schema, err := hir.ParseSchemaSExp(string(bytes))
+			schema, err = hir.ParseSchemaSExp(string(bytes))
 			if err == nil {
 				return schema
 			}
 		case ".bin":
-			schema, err := binfile.HirSchemaFromJson(bytes)
+			schema, err = binfile.HirSchemaFromJson(bytes)
 			if err == nil {
 				return schema
 			}

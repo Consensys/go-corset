@@ -2,18 +2,18 @@ package sexp
 
 import (
 	"errors"
-	"unicode"
+	"fmt"
 )
 
 // Parse a given string into an S-expression, or return an error if the string
 // is malformed.
 func Parse(s string) (SExp, error) {
-	p := &Parser{s}
+	p := &Parser{s, 0}
 	// Parse the input
 	sExp, err := p.Parse()
 	// Sanity check everything was parsed
-	if err == nil && p.text != "" {
-		return nil, errors.New("unexpected string remainder")
+	if err == nil && p.index != len(p.text) {
+		return nil, fmt.Errorf("unexpected string remainder: %s", p.text[p.index:])
 	}
 
 	return sExp, err
@@ -22,13 +22,17 @@ func Parse(s string) (SExp, error) {
 // Parser represents a parser in the process of parsing a given string into one
 // or more S-expressions.
 type Parser struct {
+	// Text being parsed
 	text string
+	// Determine current position within text
+	index int
 }
 
 // NewParser constructs a new instance of Parser
 func NewParser(text string) *Parser {
 	return &Parser{
-		text: text,
+		text:  text,
+		index: 0,
 	}
 }
 
@@ -48,6 +52,8 @@ func (p *Parser) Parse() (SExp, error) {
 			element, err := p.Parse()
 			if err != nil {
 				return nil, err
+			} else if element == nil {
+				return nil, errors.New("unexpected end-of-file")
 			}
 			// Continue around!
 			elements = append(elements, element)
@@ -63,20 +69,20 @@ func (p *Parser) Parse() (SExp, error) {
 
 // Next extracts the next token from a given string.
 func (p *Parser) Next() string {
-	if p.text == "" {
+	index := p.index
+
+	if index == len(p.text) {
 		return ""
 	}
 
-	switch p.text[0] {
+	switch p.text[index] {
 	case '(', ')':
 		// List begin / end
-		token := p.text[0:1]
-		p.text = p.text[1:]
-
-		return token
-	case ' ', '\n':
+		p.index = p.index + 1
+		return p.text[index:p.index]
+	case ' ', '\t', '\n':
 		// Whitespace
-		p.text = p.text[1:]
+		p.index = p.index + 1
 		return p.Next()
 	case ';':
 		// Comment
@@ -88,10 +94,13 @@ func (p *Parser) Next() string {
 
 // Lookahead and see what punctuation is next.
 func (p *Parser) Lookahead(i int) string {
-	if len(p.text) > i {
-		switch p.text[i] {
+	// Compute actual position within text
+	pos := i + p.index
+	// Check what's there
+	if len(p.text) > pos {
+		switch p.text[pos] {
 		case '(', ')', ';':
-			return p.text[0:1]
+			return p.text[pos : pos+1]
 		case ' ', '\n':
 			return p.Lookahead(i + 1)
 		default:
@@ -106,15 +115,16 @@ func (p *Parser) parseSymbol() string {
 	// Parse token
 	i := len(p.text)
 
-	for j, c := range p.text {
-		if c == ')' || unicode.IsSpace(c) {
+	for j := p.index; j < i; j++ {
+		c := p.text[j]
+		if c == ')' || c == ' ' || c == '\n' || c == '\t' {
 			i = j
 			break
 		}
 	}
 	// Reached end of token
-	token := p.text[0:i]
-	p.text = p.text[i:]
+	token := p.text[p.index:i]
+	p.index = i
 
 	return token
 }
@@ -123,14 +133,15 @@ func (p *Parser) parseComment() string {
 	// Parse token
 	i := len(p.text)
 
-	for j, c := range p.text {
+	for j := p.index; j < i; j++ {
+		c := p.text[j]
 		if c == '\n' {
 			i = j
 			break
 		}
 	}
-	// Skipped comment
-	p.text = p.text[i:]
+	// Skip comment
+	p.index = i
 	// Look for next token
 	return p.Next()
 }
