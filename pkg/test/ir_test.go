@@ -319,7 +319,7 @@ func CheckTraces(t *testing.T, test string, expected bool, traces []*table.Array
 	}
 }
 
-func checkInputTrace(t *testing.T, tr *table.ArrayTrace, id traceId, schema table.TraceSchema) {
+func checkInputTrace(t *testing.T, tr *table.ArrayTrace, id traceId, schema table.Schema) {
 	// Clone trace (to ensure expansion does not affect subsequent tests)
 	etr := tr.Clone()
 	// Expand trace
@@ -332,7 +332,7 @@ func checkInputTrace(t *testing.T, tr *table.ArrayTrace, id traceId, schema tabl
 	}
 }
 
-func checkExpandedTrace(t *testing.T, tr table.Trace, id traceId, schema table.Acceptable) {
+func checkExpandedTrace(t *testing.T, tr table.Trace, id traceId, schema table.Schema) {
 	err := schema.Accepts(tr)
 	// Determine whether trace accepted or not.
 	accepted := (err == nil)

@@ -7,6 +7,35 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
 
+// Evaluable captures something which can be evaluated on a given table row to
+// produce an evaluation point.  For example, expressions in the
+// Mid-Level or Arithmetic-Level IR can all be evaluated at rows of a
+// table.
+type Evaluable interface {
+	// EvalAt evaluates this expression in a given tabular context.
+	// Observe that if this expression is *undefined* within this
+	// context then it returns "nil".  An expression can be
+	// undefined for several reasons: firstly, if it accesses a
+	// row which does not exist (e.g. at index -1); secondly, if
+	// it accesses a column which does not exist.
+	EvalAt(int, Trace) *fr.Element
+}
+
+// Testable captures the notion of a constraint which can be tested on a given
+// row of a given trace.  It is very similar to Evaluable, except that it only
+// indicates success or failure.  The reason for using this interface over
+// Evaluable is that, for historical reasons, constraints at the HIR cannot be
+// Evaluable (i.e. because they return multiple values, rather than a single
+// value).  However, constraints at the HIR level remain testable.
+type Testable interface {
+	// TestAt evaluates this expression in a given tabular context and checks it
+	// against zero. Observe that if this expression is *undefined* within this
+	// context then it returns "nil".  An expression can be undefined for
+	// several reasons: firstly, if it accesses a row which does not exist (e.g.
+	// at index -1); secondly, if it accesses a column which does not exist.
+	TestAt(int, Trace) bool
+}
+
 // ===================================================================
 // Vanishing Constraints
 // ===================================================================
@@ -23,6 +52,10 @@ type ZeroTest[E Evaluable] struct {
 func (p ZeroTest[E]) TestAt(row int, tr Trace) bool {
 	val := p.Expr.EvalAt(row, tr)
 	return val == nil || val.IsZero()
+}
+
+func (p ZeroTest[E]) String() string {
+	return fmt.Sprintf("%s", any(p.Expr))
 }
 
 // RowConstraint specifies a constraint which should hold on every row of the
@@ -134,6 +167,7 @@ func NewRangeConstraint(column string, bound *fr.Element) *RangeConstraint {
 	if bound.Cmp(&n) > 0 {
 		panic("Range constraint for bitwidth above 8 not supported")
 	}
+
 	return &RangeConstraint{column, bound}
 }
 
@@ -161,6 +195,10 @@ func (p *RangeConstraint) Accepts(tr Trace) error {
 	}
 	// All good
 	return nil
+}
+
+func (p *RangeConstraint) String() string {
+	return fmt.Sprintf("(range %s %s)", p.Handle, p.Bound)
 }
 
 // ===================================================================

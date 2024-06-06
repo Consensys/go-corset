@@ -6,6 +6,19 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
 
+// TraceComputation represents a computation which is applied to a
+// high-level trace in order to expand it to a low-level trace.  This
+// typically involves adding columns, evaluating compute-only
+// expressions, sorting columns, etc.
+type TraceComputation interface {
+	Acceptable
+	// ExpandTrace expands a given trace to include "computed
+	// columns".  These are columns which do not exist in the
+	// original trace, but are added during trace expansion to
+	// form the final trace.
+	ExpandTrace(Trace) error
+}
+
 // ByteDecomposition is part of a range constraint for wide columns (e.g. u32)
 // implemented using a byte decomposition.
 type ByteDecomposition struct {
@@ -68,6 +81,10 @@ func (p *ByteDecomposition) ExpandTrace(tr Trace) error {
 	}
 	// Done
 	return nil
+}
+
+func (p *ByteDecomposition) String() string {
+	return fmt.Sprintf("(decomposition %s %d)", p.Target, p.BitWidth)
 }
 
 // Decompose a given element into n bytes in little endian form.  For example,

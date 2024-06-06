@@ -33,7 +33,7 @@ func (e *Mul) String() string {
 }
 
 func (e *Normalise) String() string {
-	return fmt.Sprintf("~(%s)", e.Arg)
+	return fmt.Sprintf("(~ %s)", e.Arg)
 }
 
 func (e *IfZero) String() string {

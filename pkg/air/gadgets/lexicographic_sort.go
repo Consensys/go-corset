@@ -215,6 +215,7 @@ func (p *lexicographicSortExpander) ExpandTrace(tr table.Trace) error {
 					diff.Set(prev)
 					delta[i] = diff.Sub(&diff, curr)
 				}
+
 				set = true
 			} else {
 				bit[j][i] = &zero
@@ -231,4 +232,10 @@ func (p *lexicographicSortExpander) ExpandTrace(tr table.Trace) error {
 	}
 	// Done.
 	return nil
+}
+
+// String returns a string representation of this constraint.  This is primarily
+// used for debugging.
+func (p *lexicographicSortExpander) String() string {
+	return fmt.Sprintf("(lexer (%s) (%v) :%d))", any(p.columns), p.signs, p.bitwidth)
 }

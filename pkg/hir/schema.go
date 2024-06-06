@@ -3,6 +3,7 @@ package hir
 import (
 	"github.com/consensys/go-corset/pkg/mir"
 	"github.com/consensys/go-corset/pkg/table"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // ZeroArrayTest is a wrapper which converts an array of expressions into a
@@ -29,6 +30,13 @@ func (p ZeroArrayTest) TestAt(row int, tr table.Trace) bool {
 	return true
 }
 
+func (p ZeroArrayTest) String() string {
+	return p.Expr.String()
+}
+
+// DataColumn captures the essence of a data column at AIR level.
+type DataColumn = *table.DataColumn[table.Type]
+
 // VanishingConstraint captures the essence of a vanishing constraint at the HIR
 // level. A vanishing constraint is a row constraint which must evaluate to
 // zero.
@@ -39,12 +47,15 @@ type VanishingConstraint = *table.RowConstraint[ZeroArrayTest]
 // the prover.
 type PropertyAssertion = mir.PropertyAssertion
 
+// Permutation captures the notion of a (sorted) permutation at the HIR level.
+type Permutation = *table.SortedPermutation
+
 // Schema for HIR constraints and columns.
 type Schema struct {
 	// The data columns of this schema.
-	dataColumns []*table.DataColumn[table.Type]
+	dataColumns []DataColumn
 	// The sorted permutations of this schema.
-	permutations []*table.SortedPermutation
+	permutations []Permutation
 	// The vanishing constraints of this schema.
 	vanishing []VanishingConstraint
 	// The property assertions for this schema.
@@ -55,8 +66,8 @@ type Schema struct {
 // constraints will be added.
 func EmptySchema() *Schema {
 	p := new(Schema)
-	p.dataColumns = make([]*table.DataColumn[table.Type], 0)
-	p.permutations = make([]*table.SortedPermutation, 0)
+	p.dataColumns = make([]DataColumn, 0)
+	p.permutations = make([]Permutation, 0)
 	p.vanishing = make([]VanishingConstraint, 0)
 	p.assertions = make([]PropertyAssertion, 0)
 	// Done
@@ -82,6 +93,17 @@ func (p *Schema) Columns() []*table.DataColumn[table.Type] {
 // Constraints returns the set of (vanishing) constraints declared within this schema.
 func (p *Schema) Constraints() []VanishingConstraint {
 	return p.vanishing
+}
+
+// Size returns the number of declarations in this schema.
+func (p *Schema) Size() int {
+	return len(p.dataColumns) + len(p.permutations) + len(p.vanishing) + len(p.assertions)
+}
+
+// GetDeclaration returns the ith declaration in this schema.
+func (p *Schema) GetDeclaration(index int) table.Declaration {
+	ith := util.FlatArrayIndexOf_4(index, p.dataColumns, p.permutations, p.vanishing, p.assertions)
+	return ith.(table.Declaration)
 }
 
 // AddDataColumn appends a new data column with a given type.  Furthermore, the
