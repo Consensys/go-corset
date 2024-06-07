@@ -3,6 +3,7 @@ package testA
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"testing"
@@ -257,6 +258,18 @@ func TestEval_Memory(t *testing.T) {
 	Check(t, "memory")
 }
 
+func TestEval_Add(t *testing.T) {
+	Check(t, "add")
+}
+
+func TestEval_Bin(t *testing.T) {
+	Check(t, "bin")
+}
+
+func TestEval_Wcp(t *testing.T) {
+	Check(t, "wcp")
+}
+
 // ===================================================================
 // Test Helpers
 // ===================================================================
@@ -338,7 +351,7 @@ func checkExpandedTrace(t *testing.T, tr table.Trace, id traceId, schema table.S
 	accepted := (err == nil)
 	// Process what happened versus what was supposed to happen.
 	if !accepted && id.expected {
-		printTrace(tr)
+		//printTrace(tr)
 		msg := fmt.Sprintf("Trace rejected incorrectly (%s, %s.accepts, line %d): %s", id.ir, id.test, id.line, err)
 		t.Errorf(msg)
 	} else if accepted && !id.expected {
@@ -396,23 +409,49 @@ func ReadInputFile(name string, ext string) []string {
 		panic(err)
 	}
 
-	scanner := bufio.NewScanner(file)
+	reader := bufio.NewReaderSize(file, 1024*128)
 	lines := make([]string, 0)
 	// Read file line-by-line
-	for scanner.Scan() {
-		lines = append(lines, scanner.Text())
-	}
-	// Sanity check we read everything
-	if err := scanner.Err(); err != nil {
-		panic(err)
-	}
-	// Close file as complete
-	if err = file.Close(); err != nil {
-		panic(err)
-	}
+	for {
+		// Read the next line
+		line := readLine(reader)
+		// Check whether for EOF
+		if line == nil {
+			if err = file.Close(); err != nil {
+				panic(err)
+			}
 
+			return lines
+		}
+
+		lines = append(lines, *line)
+	}
+}
+
+// Read a single line
+func readLine(reader *bufio.Reader) *string {
+	var (
+		bytes []byte
+		bit   []byte
+		err   error
+	)
+	//
+	cont := true
+	//
+	for cont {
+		bit, cont, err = reader.ReadLine()
+		if err == io.EOF {
+			return nil
+		} else if err != nil {
+			panic(err)
+		}
+
+		bytes = append(bytes, bit...)
+	}
+	// Convert to string
+	str := string(bytes)
 	// Done
-	return lines
+	return &str
 }
 
 // Prints a trace in a more human-friendly fashion.

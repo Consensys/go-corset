@@ -40,7 +40,7 @@ func (e *IfZero) String() string {
 	if e.FalseBranch == nil {
 		return fmt.Sprintf("(if %s %s)", e.Condition, e.TrueBranch)
 	} else if e.TrueBranch == nil {
-		return fmt.Sprintf("(if %s _ %s)", e.Condition, e.FalseBranch)
+		return fmt.Sprintf("(ifnot %s %s)", e.Condition, e.FalseBranch)
 	}
 
 	return fmt.Sprintf("(if %s %s %s)", e.Condition, e.TrueBranch, e.FalseBranch)
