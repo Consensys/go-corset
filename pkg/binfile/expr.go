@@ -135,13 +135,15 @@ func (e *jsonExprFuncall) ToHir() hir.Expr {
 		} else if len(args) == 3 {
 			return &hir.IfZero{Condition: args[0], TrueBranch: args[1], FalseBranch: args[2]}
 		} else {
-			panic("incorrect arguments for IfZero")
+			panic(fmt.Sprintf("incorrect number of arguments for IfZero (%d)", len(args)))
 		}
 	case "IfNotZero":
 		if len(args) == 2 {
 			return &hir.IfZero{Condition: args[0], TrueBranch: nil, FalseBranch: args[1]}
+		} else if len(args) == 3 {
+			return &hir.IfZero{Condition: args[0], TrueBranch: args[2], FalseBranch: args[1]}
 		} else {
-			panic("incorrect arguments for IfZero")
+			panic(fmt.Sprintf("incorrect number of arguments for IfNotZero (%d)", len(args)))
 		}
 	}
 	// Catch anything we've missed
