@@ -132,12 +132,12 @@ func HoldsLocally[T Testable](k int, handle string, constraint T, tr Trace) erro
 
 func (p *RowConstraint[T]) String() string {
 	if p.Domain == nil {
-		return fmt.Sprintf("(vanishes %s %s)", p.Handle, any(p.Constraint))
+		return fmt.Sprintf("(vanish %s %s)", p.Handle, any(p.Constraint))
 	} else if *p.Domain == 0 {
-		return fmt.Sprintf("(vanishes:first %s %s)", p.Handle, any(p.Constraint))
+		return fmt.Sprintf("(vanish:first %s %s)", p.Handle, any(p.Constraint))
 	}
 	//
-	return fmt.Sprintf("(vanishes:last %s %s)", p.Handle, any(p.Constraint))
+	return fmt.Sprintf("(vanish:last %s %s)", p.Handle, any(p.Constraint))
 }
 
 // ===================================================================

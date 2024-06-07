@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strings"
 
 	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/hir"
+	"github.com/consensys/go-corset/pkg/sexp"
 	"github.com/consensys/go-corset/pkg/table"
 	"github.com/spf13/cobra"
 )
@@ -51,19 +53,23 @@ func readTraceFile(filename string) *table.ArrayTrace {
 // Parse a constraints schema file using a parser based on the extension of the
 // filename.
 func readSchemaFile(filename string) *hir.Schema {
+	var schema *hir.Schema
+	// Read schema file
 	bytes, err := os.ReadFile(filename)
+	// Handle errors
 	if err == nil {
 		// Check file extension
 		ext := path.Ext(filename)
 		//
 		switch ext {
 		case ".lisp":
-			schema, err := hir.ParseSchemaSExp(string(bytes))
+			// Parse bytes into an S-Expression
+			schema, err = hir.ParseSchemaString(string(bytes))
 			if err == nil {
 				return schema
 			}
 		case ".bin":
-			schema, err := binfile.HirSchemaFromJson(bytes)
+			schema, err = binfile.HirSchemaFromJson(bytes)
 			if err == nil {
 				return schema
 			}
@@ -72,8 +78,35 @@ func readSchemaFile(filename string) *hir.Schema {
 		}
 	}
 	// Handle error
-	fmt.Println(err)
+	if e, ok := err.(*sexp.SyntaxError); ok {
+		printSyntaxError(filename, e, string(bytes))
+	} else {
+		fmt.Println(err)
+	}
+
 	os.Exit(2)
 	// unreachable
 	return nil
+}
+
+// Print a syntax error with appropriate highlighting.
+func printSyntaxError(filename string, err *sexp.SyntaxError, text string) {
+	span := err.Span()
+	// Construct empty source map in order to determine enclosing line.
+	srcmap := sexp.NewSourceMap[sexp.SExp]([]rune(text))
+	//
+	line := srcmap.FindFirstEnclosingLine(span)
+	// Print error + line number
+	fmt.Printf("%s:%d: %s\n", filename, line.Number(), err.Message())
+	// Print separator line
+	fmt.Println()
+	// Print line
+	fmt.Println(line.String())
+	// Print indent (todo: account for tabs)
+	lineOffset := span.Start() - line.Start()
+	fmt.Print(strings.Repeat(" ", lineOffset))
+	// Calculate length (ensures don't overflow line)
+	length := min(line.Length()-lineOffset, span.Length())
+	// Print highlight
+	fmt.Println(strings.Repeat("^", length))
 }
