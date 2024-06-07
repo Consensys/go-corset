@@ -13,6 +13,11 @@ type SyntaxError struct {
 	msg string
 }
 
+// NewSyntaxError simply constructs a new syntax error.
+func NewSyntaxError(span Span, msg string) *SyntaxError {
+	return &SyntaxError{span, msg}
+}
+
 // Span returns the span of the original text on which this error is reported.
 func (p *SyntaxError) Span() Span {
 	return p.span

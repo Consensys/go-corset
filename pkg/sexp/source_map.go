@@ -1,5 +1,7 @@
 package sexp
 
+import "fmt"
+
 // Span represents a contiguous slice of the original string.  Instead of
 // representing this as a string slice, however, it is useful to retain the
 // physical indices.  This allows us to do certain things, such as determine the
@@ -68,6 +70,11 @@ func (p *Line) Start() int {
 	return p.span.start
 }
 
+// Length returns the number of characters in this line.
+func (p *Line) Length() int {
+	return p.span.Length()
+}
+
 // SourceMap maps terms from an AST to slices of their originating string.  This
 // is important for error handling when we wish to highlight exactly where, in
 // the original source file, a given error has arisen.
@@ -85,6 +92,27 @@ type SourceMap[T comparable] struct {
 func NewSourceMap[T comparable](text []rune) *SourceMap[T] {
 	mapping := make(map[T]Span)
 	return &SourceMap[T]{mapping, text}
+}
+
+// Put registers a new AST item with a given span.  Note, if the item exists
+// already, then it will panic.
+func (p *SourceMap[T]) Put(item T, span Span) {
+	if _, ok := p.mapping[item]; ok {
+		panic(fmt.Sprintf("source map key already exists: %s", any(item)))
+	}
+	// Assign it
+	p.mapping[item] = span
+}
+
+// Get determines the span associated with a given AST item extract from the
+// original text.  Note, if the item is not registered with this source map,
+// then it will panic.
+func (p *SourceMap[T]) Get(item T) Span {
+	if s, ok := p.mapping[item]; ok {
+		return s
+	}
+
+	panic(fmt.Sprintf("invalid source map key: %s", any(item)))
 }
 
 // FindFirstEnclosingLine determines the first line which encloses the start of

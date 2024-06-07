@@ -1,5 +1,7 @@
 package sexp
 
+import "unicode"
+
 // Parse a given string into an S-expression, or return an error if the string
 // is malformed.
 func Parse(s string) (SExp, error) {
@@ -14,11 +16,41 @@ func Parse(s string) (SExp, error) {
 	return sExp, err
 }
 
-// ParseAll parses a given string into zero or more S-expressions, whilst
+// Parser represents a parser in the process of parsing a given string into one
+// or more S-expressions.
+type Parser struct {
+	// Text being parsed
+	text []rune
+	// Determine current position within text
+	index int
+	// Mapping from construct S-Expressions to their spans in the original text.
+	srcmap *SourceMap[SExp]
+}
+
+// NewParser constructs a new instance of Parser
+func NewParser(text string) *Parser {
+	// Convert string into array of runes.  This is necessary to properly handle
+	// unicode.
+	runes := []rune(text)
+	// Construct initial parser.
+	return &Parser{
+		text:   runes,
+		index:  0,
+		srcmap: NewSourceMap[SExp](runes),
+	}
+}
+
+// SourceMap returns the internal source map constructing during parsing.  Using
+// this one can determine, for each SExp, where in the original text it
+// originated.  This is helpful, for example, when reporting syntax errors.
+func (p *Parser) SourceMap() *SourceMap[SExp] {
+	return p.srcmap
+}
+
+// ParseAll parses the input string into zero or more S-expressions, whilst
 // returning an error if the string is malformed.
-func ParseAll(s string) ([]SExp, error) {
+func (p *Parser) ParseAll() ([]SExp, error) {
 	terms := make([]SExp, 0)
-	p := NewParser(s)
 	// Parse the input
 	for {
 		term, err := p.Parse()
@@ -34,26 +66,15 @@ func ParseAll(s string) ([]SExp, error) {
 	}
 }
 
-// Parser represents a parser in the process of parsing a given string into one
-// or more S-expressions.
-type Parser struct {
-	// Text being parsed
-	text []rune
-	// Determine current position within text
-	index int
-	//
-}
-
-// NewParser constructs a new instance of Parser
-func NewParser(text string) *Parser {
-	return &Parser{
-		text:  []rune(text),
-		index: 0,
-	}
-}
-
 // Parse a given string into an S-Expression, or produce an error.
 func (p *Parser) Parse() (SExp, error) {
+	var term SExp
+	// Skip over any whitespace.  This is import to get the correct starting
+	// point for this term.
+	p.SkipWhiteSpace()
+	// Record start of this term
+	start := p.index
+	// Extract next token from the stream
 	token := p.Next()
 
 	if token == nil {
@@ -79,35 +100,57 @@ func (p *Parser) Parse() (SExp, error) {
 		// Consume right-brace
 		p.Next()
 		// Done
-		return &List{elements}, nil
+		term = &List{elements}
+	} else {
+		// Must be a symbol
+		term = &Symbol{string(token)}
 	}
-
-	return &Symbol{string(token)}, nil
+	// Register item in source map
+	p.srcmap.Put(term, NewSpan(start, p.index))
+	// Done
+	return term, nil
 }
 
 // Next extracts the next token from a given string.
 func (p *Parser) Next() []rune {
-	index := p.index
-
-	if index == len(p.text) {
+	// Skip any whitespace and/or comments.
+	p.SkipWhiteSpace()
+	// Catch end-of-file
+	if p.index == len(p.text) {
 		return nil
 	}
-
-	switch p.text[index] {
+	// Check what we have
+	switch p.text[p.index] {
 	case '(', ')':
 		// List begin / end
 		p.index = p.index + 1
-		return p.text[index:p.index]
-	case ' ', '\t', '\n':
-		// Whitespace
-		p.index = p.index + 1
-		return p.Next()
-	case ';':
-		// Comment
-		return p.parseComment()
+		return p.text[p.index-1 : p.index]
 	}
 	// Symbol
 	return p.parseSymbol()
+}
+
+// SkipWhiteSpace skips over any whitespace, including comments.
+func (p *Parser) SkipWhiteSpace() {
+	for p.index < len(p.text) && (unicode.IsSpace(p.text[p.index]) || p.text[p.index] == ';') {
+		// Skip comment
+		if p.text[p.index] == ';' {
+			i := len(p.text)
+			//
+			for j := p.index; j < i; j++ {
+				c := p.text[j]
+				if c == '\n' {
+					i = j + 1
+					break
+				}
+			}
+			// Skip comment
+			p.index = i
+		} else {
+			// skip space
+			p.index++
+		}
+	}
 }
 
 // Lookahead and see what punctuation is next.
@@ -116,13 +159,11 @@ func (p *Parser) Lookahead(i int) *rune {
 	pos := i + p.index
 	// Check what's there
 	if len(p.text) > pos {
-		switch p.text[pos] {
-		case '(', ')', ';':
-			return &p.text[pos]
-		case ' ', '\n':
+		r := p.text[pos]
+		if r == '(' || r == ')' || r == ';' {
+			return &r
+		} else if unicode.IsSpace(r) {
 			return p.Lookahead(i + 1)
-		default:
-			return nil
 		}
 	}
 
@@ -145,23 +186,6 @@ func (p *Parser) parseSymbol() []rune {
 	p.index = i
 
 	return token
-}
-
-func (p *Parser) parseComment() []rune {
-	// Parse token
-	i := len(p.text)
-
-	for j := p.index; j < i; j++ {
-		c := p.text[j]
-		if c == '\n' {
-			i = j
-			break
-		}
-	}
-	// Skip comment
-	p.index = i
-	// Look for next token
-	return p.Next()
 }
 
 // Construct a parser error at the current position in the input stream.
