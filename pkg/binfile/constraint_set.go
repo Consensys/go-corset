@@ -83,7 +83,7 @@ type constraintSet struct {
 	Constraints []jsonConstraint `json:"constraints"`
 	//
 	// constants any
-	// computations any
+	Computations jsonComputationSet `json:"computations"`
 	// perspectives []string
 	// transformations uint64
 	// auto_constraints uint64
@@ -113,7 +113,8 @@ func HirSchemaFromJson(bytes []byte) (schema *hir.Schema, err error) {
 	for _, c := range res.Constraints {
 		c.addToSchema(schema)
 	}
-
+	// Add computations
+	res.Computations.addToSchema(schema)
 	// For now return directly.
 	return schema, jsonErr
 }

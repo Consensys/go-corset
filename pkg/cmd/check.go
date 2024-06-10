@@ -47,9 +47,9 @@ func checkTraceWithLowering(tr *table.ArrayTrace, hirSchema *hir.Schema, raw boo
 	errAIR := checkTrace(tr, airSchema, raw)
 	//
 	if errHIR != nil || errMIR != nil || errAIR != nil {
-		strHIR := errHIR.Error()
-		strMIR := errMIR.Error()
-		strAIR := errAIR.Error()
+		strHIR := toErrorString(errHIR)
+		strMIR := toErrorString(errMIR)
+		strAIR := toErrorString(errAIR)
 		// At least one error encountered.
 		if strHIR == strMIR && strMIR == strAIR {
 			fmt.Println(errHIR)
@@ -74,6 +74,14 @@ func checkTrace(tr *table.ArrayTrace, schema table.Schema, raw bool) error {
 	}
 	// Check whether accepted or not.
 	return schema.Accepts(tr)
+}
+
+func toErrorString(err error) string {
+	if err == nil {
+		return ""
+	}
+
+	return err.Error()
 }
 
 func reportError(err error, ir string) {

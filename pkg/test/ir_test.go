@@ -174,6 +174,11 @@ func TestEval_If_03(t *testing.T) {
 	Check(t, "if_03")
 }
 
+// SEE: #152
+// func TestEval_If_04(t *testing.T) {
+// 	Check(t, "if_04")
+// }
+
 // ===================================================================
 // Column Types
 // ===================================================================
@@ -273,6 +278,11 @@ func TestEval_BinDynamic(t *testing.T) {
 func TestEval_Wcp(t *testing.T) {
 	Check(t, "wcp")
 }
+
+// DISABLED: #152
+// func TestEval_Mxp(t *testing.T) {
+// 	Check(t, "mxp")
+// }
 
 // ===================================================================
 // Test Helpers

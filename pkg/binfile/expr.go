@@ -3,15 +3,19 @@ package binfile
 import (
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/hir"
 )
 
-type jsonHandle struct {
-	H  string `json:"h"`
-	ID int    `json:"id"`
-}
+// type jsonHandle struct {
+// 	H  string `json:"h"`
+// 	ID int    `json:"id"`
+// }
+
+// jsonColumnRef corresponds to a column reference.
+type jsonColumnRef = string
 
 // jsonTypedExpr corresponds to an optionally typed expression.
 type jsonTypedExpr struct {
@@ -41,9 +45,9 @@ type jsonExprConst struct {
 }
 
 type jsonExprColumn struct {
-	Handle    jsonHandle `json:"handle"`
-	Shift     int        `json:"shift"`
-	MustProve bool       `json:"must_prove"`
+	Handle    jsonColumnRef `json:"handle"`
+	Shift     int           `json:"shift"`
+	MustProve bool          `json:"must_prove"`
 }
 
 // =============================================================================
@@ -106,7 +110,8 @@ func (e *jsonExprConst) ToHir() hir.Expr {
 }
 
 func (e *jsonExprColumn) ToHir() hir.Expr {
-	return &hir.ColumnAccess{Column: e.Handle.H, Shift: e.Shift}
+	cref := asColumnRef(e.Handle)
+	return &hir.ColumnAccess{Column: cref, Shift: e.Shift}
 }
 
 func (e *jsonExprFuncall) ToHir() hir.Expr {
@@ -157,4 +162,20 @@ func jsonListToHir(Args []jsonTypedExpr) hir.Expr {
 	}
 
 	return &hir.List{Args: args}
+}
+
+func asColumnRefs(crefs []jsonColumnRef) []string {
+	refs := make([]string, len(crefs))
+	for i := 0; i < len(refs); i++ {
+		refs[i] = asColumnRef(crefs[i])
+	}
+
+	return refs
+}
+
+func asColumnRef(cref jsonColumnRef) string {
+	// Split off the column id (if present)
+	split := strings.Split(cref, "#")
+	// That's it
+	return split[0]
 }
