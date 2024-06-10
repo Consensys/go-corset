@@ -262,8 +262,12 @@ func TestEval_Add(t *testing.T) {
 	Check(t, "add")
 }
 
-func TestEval_Bin(t *testing.T) {
-	Check(t, "bin")
+func TestEval_BinStatic(t *testing.T) {
+	Check(t, "bin-static")
+}
+
+func TestEval_BinDynamic(t *testing.T) {
+	Check(t, "bin-dynamic")
 }
 
 func TestEval_Wcp(t *testing.T) {
