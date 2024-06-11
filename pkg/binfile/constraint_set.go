@@ -2,6 +2,7 @@ package binfile
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/consensys/go-corset/pkg/hir"
 )
@@ -82,7 +83,7 @@ type constraintSet struct {
 	Constraints []jsonConstraint `json:"constraints"`
 	//
 	// constants any
-	// computations any
+	Computations jsonComputationSet `json:"computations"`
 	// perspectives []string
 	// transformations uint64
 	// auto_constraints uint64
@@ -99,17 +100,21 @@ func HirSchemaFromJson(bytes []byte) (schema *hir.Schema, err error) {
 	// Add Columns
 	for _, c := range res.Columns.Cols {
 		// Sanity checks
-		if c.Computed || c.Kind != "Commitment" {
+		if c.Kind == "Computed" {
+			// Ignore.
+		} else if c.Computed {
+			fmt.Printf("COLUMN: %s\n", c.Handle)
 			panic("invalid JSON column configuration")
+		} else {
+			schema.AddDataColumn(c.Handle, c.Type.toHir(c.MustProve))
 		}
-
-		schema.AddDataColumn(c.Handle, c.Type.toHir(c.MustProve))
 	}
 	// Add constraints
 	for _, c := range res.Constraints {
 		c.addToSchema(schema)
 	}
-
+	// Add computations
+	res.Computations.addToSchema(schema)
 	// For now return directly.
 	return schema, jsonErr
 }

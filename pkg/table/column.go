@@ -265,7 +265,30 @@ func (p *SortedPermutation) ExpandTrace(tr Trace) error {
 // String returns a string representation of this constraint.  This is primarily
 // used for debugging.
 func (p *SortedPermutation) String() string {
-	return fmt.Sprintf("(sortedpermutation (%s) (%s))", p.Targets, p.Sources)
+	targets := ""
+	sources := ""
+
+	for i, s := range p.Targets {
+		if i != 0 {
+			targets += " "
+		}
+
+		targets += s
+	}
+
+	for i, s := range p.Sources {
+		if i != 0 {
+			sources += " "
+		}
+
+		if p.Signs[i] {
+			sources += fmt.Sprintf("+%s", s)
+		} else {
+			sources += fmt.Sprintf("-%s", s)
+		}
+	}
+
+	return fmt.Sprintf("(permute (%s) (%s))", targets, sources)
 }
 
 // IsPermutationOf checks whether (or not) one column is a permutation

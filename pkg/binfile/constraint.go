@@ -7,7 +7,8 @@ import (
 // JsonConstraint аn enumeration of constraint forms.  Exactly one of these fields
 // must be non-nil to signify its form.
 type jsonConstraint struct {
-	Vanishes *jsonVanishingConstraint
+	Vanishes    *jsonVanishingConstraint
+	Permutation *jsonPermutationConstraint
 }
 
 type jsonDomain struct {
@@ -22,21 +23,32 @@ type jsonVanishingConstraint struct {
 	Expr   jsonTypedExpr `json:"expr"`
 }
 
+type jsonPermutationConstraint struct {
+	From []string `json:"from"`
+	To   []string `json:"to"`
+}
+
 // =============================================================================
 // Translation
 // =============================================================================
 
 func (e jsonConstraint) addToSchema(schema *hir.Schema) {
-	if e.Vanishes == nil {
+	// NOTE: for permutation constraints, we currently ignore them as they
+	// actually provide no useful information.  They are generated from
+	// "defpermutation" declarations, but lack information about the direction
+	// of sorting (signs).  Instead, we have to extract what we need from
+	// "Sorted" computations.
+	if e.Vanishes != nil {
+		// Translate the vanishing expression
+		expr := e.Vanishes.Expr.ToHir()
+		// Translate Domain
+		domain := e.Vanishes.Domain.toHir()
+		// Construct the vanishing constraint
+		schema.AddVanishingConstraint(e.Vanishes.Handle, domain, expr)
+	} else if e.Permutation == nil {
+		// Catch all
 		panic("Unknown JSON constraint encountered")
 	}
-
-	// Translate the vanishing expression
-	expr := e.Vanishes.Expr.ToHir()
-	// Translate Domain
-	domain := e.Vanishes.Domain.toHir()
-	// Construct the vanishing constraint
-	schema.AddVanishingConstraint(e.Vanishes.Handle, domain, expr)
 }
 
 func (e jsonDomain) toHir() *int {
