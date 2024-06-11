@@ -24,6 +24,11 @@ test:
 	@echo ">>> Running Unit Tests..."
 	go test -v -race ./...
 
+.PHONY: qtest
+qtest:
+	@echo ">>> Running (Quick) Tests..."
+	go test -v -race --run Test_ ./...
+
 .PHONY: test-no-cache
 test-no-cache:
 	@echo ">>> Running Unit Tests without Caching..."
