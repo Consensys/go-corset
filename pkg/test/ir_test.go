@@ -22,39 +22,39 @@ const TestDir = "../../testdata"
 // Basic Tests
 // ===================================================================
 
-func TestEval_Basic_01(t *testing.T) {
+func Test_Basic_01(t *testing.T) {
 	Check(t, "basic_01")
 }
 
-func TestEval_Basic_02(t *testing.T) {
+func Test_Basic_02(t *testing.T) {
 	Check(t, "basic_02")
 }
 
-func TestEval_Basic_03(t *testing.T) {
+func Test_Basic_03(t *testing.T) {
 	Check(t, "basic_03")
 }
 
-func TestEval_Basic_04(t *testing.T) {
+func Test_Basic_04(t *testing.T) {
 	Check(t, "basic_04")
 }
 
-func TestEval_Basic_05(t *testing.T) {
+func Test_Basic_05(t *testing.T) {
 	Check(t, "basic_05")
 }
 
-func TestEval_Basic_06(t *testing.T) {
+func Test_Basic_06(t *testing.T) {
 	Check(t, "basic_06")
 }
 
-func TestEval_Basic_07(t *testing.T) {
+func Test_Basic_07(t *testing.T) {
 	Check(t, "basic_07")
 }
 
-func TestEval_Basic_08(t *testing.T) {
+func Test_Basic_08(t *testing.T) {
 	Check(t, "basic_08")
 }
 
-func TestEval_Basic_09(t *testing.T) {
+func Test_Basic_09(t *testing.T) {
 	Check(t, "basic_09")
 }
 
@@ -62,15 +62,15 @@ func TestEval_Basic_09(t *testing.T) {
 // Domain Tests
 // ===================================================================
 
-func TestEval_Domain_01(t *testing.T) {
+func Test_Domain_01(t *testing.T) {
 	Check(t, "domain_01")
 }
 
-func TestEval_Domain_02(t *testing.T) {
+func Test_Domain_02(t *testing.T) {
 	Check(t, "domain_02")
 }
 
-func TestEval_Domain_03(t *testing.T) {
+func Test_Domain_03(t *testing.T) {
 	Check(t, "domain_03")
 }
 
@@ -78,15 +78,15 @@ func TestEval_Domain_03(t *testing.T) {
 // Block Tests
 // ===================================================================
 
-func TestEval_Block_01(t *testing.T) {
+func Test_Block_01(t *testing.T) {
 	Check(t, "block_01")
 }
 
-func TestEval_Block_02(t *testing.T) {
+func Test_Block_02(t *testing.T) {
 	Check(t, "block_02")
 }
 
-func TestEval_Block_03(t *testing.T) {
+func Test_Block_03(t *testing.T) {
 	Check(t, "block_03")
 }
 
@@ -94,7 +94,7 @@ func TestEval_Block_03(t *testing.T) {
 // Property Tests
 // ===================================================================
 
-func TestEval_Property_01(t *testing.T) {
+func Test_Property_01(t *testing.T) {
 	Check(t, "property_01")
 }
 
@@ -102,27 +102,27 @@ func TestEval_Property_01(t *testing.T) {
 // Shift Tests
 // ===================================================================
 
-func TestEval_Shift_01(t *testing.T) {
+func Test_Shift_01(t *testing.T) {
 	Check(t, "shift_01")
 }
 
-func TestEval_Shift_02(t *testing.T) {
+func Test_Shift_02(t *testing.T) {
 	Check(t, "shift_02")
 }
 
-func TestEval_Shift_03(t *testing.T) {
+func Test_Shift_03(t *testing.T) {
 	Check(t, "shift_03")
 }
 
-func TestEval_Shift_04(t *testing.T) {
+func Test_Shift_04(t *testing.T) {
 	Check(t, "shift_04")
 }
 
-func TestEval_Shift_05(t *testing.T) {
+func Test_Shift_05(t *testing.T) {
 	Check(t, "shift_05")
 }
 
-func TestEval_Shift_06(t *testing.T) {
+func Test_Shift_06(t *testing.T) {
 	Check(t, "shift_06")
 }
 
@@ -130,31 +130,31 @@ func TestEval_Shift_06(t *testing.T) {
 // Normalisation Tests
 // ===================================================================
 
-func TestEval_Norm_01(t *testing.T) {
+func Test_Norm_01(t *testing.T) {
 	Check(t, "norm_01")
 }
 
-func TestEval_Norm_02(t *testing.T) {
+func Test_Norm_02(t *testing.T) {
 	Check(t, "norm_02")
 }
 
-func TestEval_Norm_03(t *testing.T) {
+func Test_Norm_03(t *testing.T) {
 	Check(t, "norm_03")
 }
 
-func TestEval_Norm_04(t *testing.T) {
+func Test_Norm_04(t *testing.T) {
 	Check(t, "norm_04")
 }
 
-func TestEval_Norm_05(t *testing.T) {
+func Test_Norm_05(t *testing.T) {
 	Check(t, "norm_05")
 }
 
-func TestEval_Norm_06(t *testing.T) {
+func Test_Norm_06(t *testing.T) {
 	Check(t, "norm_06")
 }
 
-func TestEval_Norm_07(t *testing.T) {
+func Test_Norm_07(t *testing.T) {
 	Check(t, "norm_07")
 }
 
@@ -162,36 +162,55 @@ func TestEval_Norm_07(t *testing.T) {
 // If-Zero
 // ===================================================================
 
-func TestEval_If_01(t *testing.T) {
+func Test_If_01(t *testing.T) {
 	Check(t, "if_01")
 }
 
-func TestEval_If_02(t *testing.T) {
+func Test_If_02(t *testing.T) {
 	Check(t, "if_02")
 }
 
-func TestEval_If_03(t *testing.T) {
+func Test_If_03(t *testing.T) {
 	Check(t, "if_03")
 }
 
-// SEE: #152
-// func TestEval_If_04(t *testing.T) {
-// 	Check(t, "if_04")
-// }
+func Test_If_04(t *testing.T) {
+	Check(t, "if_04")
+}
+
+func Test_If_05(t *testing.T) {
+	Check(t, "if_05")
+}
+
+func Test_If_06(t *testing.T) {
+	Check(t, "if_06")
+}
+
+func Test_If_07(t *testing.T) {
+	Check(t, "if_07")
+}
+
+func Test_If_08(t *testing.T) {
+	Check(t, "if_08")
+}
+
+func Test_If_09(t *testing.T) {
+	Check(t, "if_09")
+}
 
 // ===================================================================
 // Column Types
 // ===================================================================
 
-func TestEval_Type_01(t *testing.T) {
+func Test_Type_01(t *testing.T) {
 	Check(t, "type_01")
 }
 
-func TestEval_Type_02(t *testing.T) {
+func Test_Type_02(t *testing.T) {
 	Check(t, "type_02")
 }
 
-func TestEval_Type_03(t *testing.T) {
+func Test_Type_03(t *testing.T) {
 	Check(t, "type_03")
 }
 
@@ -199,39 +218,39 @@ func TestEval_Type_03(t *testing.T) {
 // Permutations
 // ===================================================================
 
-func TestEval_Permute_01(t *testing.T) {
+func Test_Permute_01(t *testing.T) {
 	Check(t, "permute_01")
 }
 
-func TestEval_Permute_02(t *testing.T) {
+func Test_Permute_02(t *testing.T) {
 	Check(t, "permute_02")
 }
 
-func TestEval_Permute_03(t *testing.T) {
+func Test_Permute_03(t *testing.T) {
 	Check(t, "permute_03")
 }
 
-func TestEval_Permute_04(t *testing.T) {
+func Test_Permute_04(t *testing.T) {
 	Check(t, "permute_04")
 }
 
-func TestEval_Permute_05(t *testing.T) {
+func Test_Permute_05(t *testing.T) {
 	Check(t, "permute_05")
 }
 
-func TestEval_Permute_06(t *testing.T) {
+func Test_Permute_06(t *testing.T) {
 	Check(t, "permute_06")
 }
 
-func TestEval_Permute_07(t *testing.T) {
+func Test_Permute_07(t *testing.T) {
 	Check(t, "permute_07")
 }
 
-func TestEval_Permute_08(t *testing.T) {
+func Test_Permute_08(t *testing.T) {
 	Check(t, "permute_08")
 }
 
-func TestEval_Permute_09(t *testing.T) {
+func Test_Permute_09(t *testing.T) {
 	Check(t, "permute_09")
 }
 
@@ -239,50 +258,49 @@ func TestEval_Permute_09(t *testing.T) {
 // Complex Tests
 // ===================================================================
 
-func TestEval_Counter(t *testing.T) {
+func Test_Counter(t *testing.T) {
 	Check(t, "counter")
 }
 
-func TestEval_ByteDecomp(t *testing.T) {
+func Test_ByteDecomp(t *testing.T) {
 	Check(t, "byte_decomposition")
 }
 
-func TestEval_BitDecomp(t *testing.T) {
+func Test_BitDecomp(t *testing.T) {
 	Check(t, "bit_decomposition")
 }
 
-func TestEval_ByteSorting(t *testing.T) {
+func Test_ByteSorting(t *testing.T) {
 	Check(t, "byte_sorting")
 }
 
-func TestEval_WordSorting(t *testing.T) {
+func Test_WordSorting(t *testing.T) {
 	Check(t, "word_sorting")
 }
 
-func TestEval_Memory(t *testing.T) {
+func Test_Memory(t *testing.T) {
 	Check(t, "memory")
 }
 
-func TestEval_Add(t *testing.T) {
+func TestSlow_Add(t *testing.T) {
 	Check(t, "add")
 }
 
-func TestEval_BinStatic(t *testing.T) {
+func TestSlow_BinStatic(t *testing.T) {
 	Check(t, "bin-static")
 }
 
-func TestEval_BinDynamic(t *testing.T) {
+func TestSlow_BinDynamic(t *testing.T) {
 	Check(t, "bin-dynamic")
 }
 
-func TestEval_Wcp(t *testing.T) {
+func TestSlow_Wcp(t *testing.T) {
 	Check(t, "wcp")
 }
 
-// DISABLED: #152
-// func TestEval_Mxp(t *testing.T) {
-// 	Check(t, "mxp")
-// }
+func Test_Mxp(t *testing.T) {
+	Check(t, "mxp")
+}
 
 // ===================================================================
 // Test Helpers
