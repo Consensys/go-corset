@@ -219,6 +219,10 @@ func (p *Schema) Accepts(trace table.Trace) error {
 // columns. Observe that computed columns have to be computed in the correct
 // order.
 func (p *Schema) ExpandTrace(tr table.Trace) error {
+	var zero fr.Element = fr.NewElement((0))
+	// Insert initial padding row
+	tr.InsertFront(func(index int) *fr.Element { return &zero })
+	//
 	for _, c := range p.computations {
 		err := c.ExpandTrace(tr)
 		if err != nil {

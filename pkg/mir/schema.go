@@ -3,6 +3,7 @@ package mir
 import (
 	"fmt"
 
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/air"
 	air_gadgets "github.com/consensys/go-corset/pkg/air/gadgets"
 	"github.com/consensys/go-corset/pkg/table"
@@ -217,6 +218,9 @@ func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Sche
 
 // ExpandTrace expands a given trace according to this schema.
 func (p *Schema) ExpandTrace(tr table.Trace) error {
+	var zero fr.Element = fr.NewElement((0))
+	// Insert initial padding row
+	tr.InsertFront(func(index int) *fr.Element { return &zero })
 	// Expand all the permutation columns
 	for _, perm := range p.permutations {
 		err := perm.ExpandTrace(tr)

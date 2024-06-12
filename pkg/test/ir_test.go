@@ -298,7 +298,7 @@ func TestSlow_Wcp(t *testing.T) {
 	Check(t, "wcp")
 }
 
-func Test_Mxp(t *testing.T) {
+func TestSlow_Mxp(t *testing.T) {
 	Check(t, "mxp")
 }
 

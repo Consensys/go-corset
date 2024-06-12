@@ -46,9 +46,9 @@ type Trace interface {
 	// does not exist or if the index is out-of-bounds then an
 	// error is returned.
 	GetByIndex(col int, row int) *fr.Element
-	// Insert a given row at the front of this trace.  Observe that the length
-	// of the row must match the width of this trace, otherwise this will panic.
-	InsertFront(row []*fr.Element)
+	// Insert a given row at the front of this trace using a given mapping
+	// function to initialise each column.
+	InsertFront(mapping func(int) *fr.Element)
 	// Determine the height of this table, which is defined as the
 	// height of the largest column.
 	Height() int
@@ -157,6 +157,8 @@ func (p *ArrayTrace) DuplicateFront(n int) {
 	for _, c := range p.columns {
 		c.DuplicateFront(n)
 	}
+	// Increment height
+	p.height += n
 }
 
 // GetByName gets the value of a given column (as identified by its name) at a
@@ -215,14 +217,12 @@ func (p *ArrayTrace) Height() int {
 }
 
 // InsertFront inserts n duplicates of the first row at the beginning of this trace.
-func (p *ArrayTrace) InsertFront(row []*fr.Element) {
-	if len(row) != p.Width() {
-		panic("row has incompatible geometry")
-	}
-
+func (p *ArrayTrace) InsertFront(mapping func(int) *fr.Element) {
 	for i, c := range p.columns {
-		c.InsertFront(row[i])
+		c.InsertFront(mapping(i))
 	}
+	// Increment height
+	p.height++
 }
 
 func (p *ArrayTrace) String() string {
