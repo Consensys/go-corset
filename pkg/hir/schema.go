@@ -100,6 +100,14 @@ func (p *Schema) Size() int {
 	return len(p.dataColumns) + len(p.permutations) + len(p.vanishing) + len(p.assertions)
 }
 
+// RequiredSpillage returns the minimum amount of spillage required to ensure
+// valid traces are accepted in the presence of arbitrary padding.
+func (p *Schema) RequiredSpillage() uint {
+	// Ensures always at least one row of spillage (referred to as the "initial
+	// padding row")
+	return uint(1)
+}
+
 // GetDeclaration returns the ith declaration in this schema.
 func (p *Schema) GetDeclaration(index int) table.Declaration {
 	ith := util.FlatArrayIndexOf_4(index, p.dataColumns, p.permutations, p.vanishing, p.assertions)
@@ -159,8 +167,6 @@ func (p *Schema) Accepts(trace table.Trace) error {
 
 // ExpandTrace expands a given trace according to this schema.
 func (p *Schema) ExpandTrace(tr table.Trace) error {
-	// Insert initial padding row
-	table.PadTrace(1, tr)
 	// Expand all the permutation columns
 	for _, perm := range p.permutations {
 		err := perm.ExpandTrace(tr)

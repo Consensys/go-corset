@@ -2,6 +2,7 @@ package util
 
 import (
 	//"fmt"
+	"fmt"
 	"slices"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
@@ -14,6 +15,8 @@ import (
 // This function operators by cloning both arrays, sorting them and checking
 // they are the same.
 func IsPermutationOf(dst []*fr.Element, src []*fr.Element) bool {
+	fmt.Printf("PERM: %v ~ %v\n", dst, src)
+
 	if len(dst) != len(src) {
 		return false
 	}

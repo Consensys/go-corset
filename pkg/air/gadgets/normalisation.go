@@ -6,6 +6,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/air"
 	"github.com/consensys/go-corset/pkg/table"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // Normalise constructs an expression representing the normalised value of e.
@@ -72,6 +73,10 @@ func (e *Inverse) EvalAt(k int, tbl table.Trace) *fr.Element {
 	// Go syntax huh?
 	return inv.Inverse(val)
 }
+
+// MaxShift returns max shift in either the negative (left) or positive
+// direction (right).
+func (e *Inverse) MaxShift() util.Pair[uint, uint] { return e.Expr.MaxShift() }
 
 func (e *Inverse) String() string {
 	return fmt.Sprintf("(inv %s)", e.Expr)

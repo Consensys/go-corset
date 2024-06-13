@@ -308,7 +308,7 @@ func TestSlow_Mxp(t *testing.T) {
 
 // Determines the maximum amount of padding to use when testing.  Specifically,
 // every trace is tested with varying amounts of padding upto this value.
-const MAX_PADDING int = 0
+const MAX_PADDING uint = 1
 
 // For a given set of constraints, check that all traces which we
 // expect to be accepted are accepted, and all traces that we expect
@@ -339,21 +339,25 @@ func Check(t *testing.T, test string) {
 func CheckTraces(t *testing.T, test string, expected bool, traces []*table.ArrayTrace, hirSchema *hir.Schema) {
 	for i, tr := range traces {
 		if tr != nil {
-			for padding := 0; padding <= MAX_PADDING; padding++ {
+			for padding := uint(0); padding <= MAX_PADDING; padding++ {
 				// Lower HIR => MIR
 				mirSchema := hirSchema.LowerToMir()
 				// Lower MIR => AIR
 				airSchema := mirSchema.LowerToAir()
+				// Construct trace identifiers
+				hirID := traceId{"HIR", test, expected, i + 1, padding, hirSchema.RequiredSpillage()}
+				mirID := traceId{"MIR", test, expected, i + 1, padding, mirSchema.RequiredSpillage()}
+				airID := traceId{"AIR", test, expected, i + 1, padding, airSchema.RequiredSpillage()}
 				// Check HIR/MIR trace (if applicable)
 				if airSchema.IsInputTrace(tr) == nil {
 					// This is an unexpanded input trace.
-					checkInputTrace(t, tr, traceId{"HIR", test, expected, i + 1, padding}, hirSchema)
-					checkInputTrace(t, tr, traceId{"MIR", test, expected, i + 1, padding}, mirSchema)
-					checkInputTrace(t, tr, traceId{"AIR", test, expected, i + 1, padding}, airSchema)
+					checkInputTrace(t, tr, hirID, hirSchema)
+					checkInputTrace(t, tr, mirID, mirSchema)
+					checkInputTrace(t, tr, airID, airSchema)
 				} else if airSchema.IsOutputTrace(tr) == nil {
 					// This is an already expanded input trace.  Therefore, no need
 					// to perform expansion.
-					checkExpandedTrace(t, tr, traceId{"AIR", test, expected, i + 1, 0}, airSchema)
+					checkExpandedTrace(t, tr, airID, airSchema)
 				} else {
 					// Trace appears to be malformed.
 					err1 := airSchema.IsInputTrace(tr)
@@ -373,6 +377,8 @@ func CheckTraces(t *testing.T, test string, expected bool, traces []*table.Array
 func checkInputTrace(t *testing.T, tr *table.ArrayTrace, id traceId, schema table.Schema) {
 	// Clone trace (to ensure expansion does not affect subsequent tests)
 	etr := tr.Clone()
+	// Apply spillage
+	table.FrontPadWithZeros(schema.RequiredSpillage(), etr)
 	// Expand trace
 	err := schema.ExpandTrace(etr)
 	// Check
@@ -385,7 +391,7 @@ func checkInputTrace(t *testing.T, tr *table.ArrayTrace, id traceId, schema tabl
 
 func checkExpandedTrace(t *testing.T, tr table.Trace, id traceId, schema table.Schema) {
 	// Apply padding
-	table.PadTrace(id.padding, tr)
+	table.FrontPadWithCopies(id.padding, tr)
 	// Check
 	err := schema.Accepts(tr)
 	// Determine whether trace accepted or not.
@@ -393,14 +399,14 @@ func checkExpandedTrace(t *testing.T, tr table.Trace, id traceId, schema table.S
 	// Process what happened versus what was supposed to happen.
 	if !accepted && id.expected {
 		//printTrace(tr)
-		msg := fmt.Sprintf("Trace rejected incorrectly (%s, %s.accepts, %d padding, line %d): %s",
-			id.ir, id.test, id.padding, id.line, err)
+		msg := fmt.Sprintf("Trace rejected incorrectly (%s, %s.accepts, line %d with spillage %d / padding %d): %s",
+			id.ir, id.test, id.line, id.spillage, id.padding, err)
 		t.Errorf(msg)
 	} else if accepted && !id.expected {
 		printTrace(tr)
 
-		msg := fmt.Sprintf("Trace accepted incorrectly (%s, %s.rejects, %d padding, line %d)",
-			id.ir, id.test, id.padding, id.line)
+		msg := fmt.Sprintf("Trace accepted incorrectly (%s, %s.rejects, line %d with spillage %d / padding %d)",
+			id.ir, id.test, id.line, id.spillage, id.padding)
 		t.Errorf(msg)
 	}
 }
@@ -420,8 +426,11 @@ type traceId struct {
 	// Identifies the line number within the test file that the failing trace
 	// original.
 	line int
-	// Identifies how much padding has been added to the original trace.
-	padding int
+	// Identifies how much padding has been added to the expanded trace.
+	padding uint
+	// Determines how much spillage was added to the original trace (prior to
+	// expansion).
+	spillage uint
 }
 
 // ReadTracesFile reads a file containing zero or more traces expressed as JSON, where
@@ -505,7 +514,7 @@ func printTrace(tr table.Trace) {
 	n := tr.Width()
 	//
 	rows := make([][]string, n)
-	for i := 0; i < n; i++ {
+	for i := uint(0); i < n; i++ {
 		rows[i] = traceColumnData(tr, i)
 	}
 	//
@@ -519,19 +528,19 @@ func printTrace(tr table.Trace) {
 	}
 }
 
-func traceColumnData(tr table.Trace, col int) []string {
+func traceColumnData(tr table.Trace, col uint) []string {
 	n := tr.Height()
 	data := make([]string, n+1)
-	data[0] = tr.ColumnName(col)
+	data[0] = tr.ColumnName(int(col))
 
-	for row := 0; row < n; row++ {
-		data[row+1] = tr.GetByIndex(col, row).String()
+	for row := uint(0); row < n; row++ {
+		data[row+1] = tr.GetByIndex(int(col), int(row)).String()
 	}
 
 	return data
 }
 
-func traceRowWidths(height int, rows [][]string) []int {
+func traceRowWidths(height uint, rows [][]string) []int {
 	widths := make([]int, height+1)
 
 	for _, row := range rows {

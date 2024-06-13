@@ -27,7 +27,7 @@ type Trace interface {
 	// duplicates at the beginning of the trace.  This can be used, for example,
 	// to apply padding to an existing trace.  Note it is an error to call this
 	// on an empty trace.
-	DuplicateFront(n int)
+	DuplicateFront(n uint)
 	// ColumnByName returns the data of a given column in order that it can be
 	// inspected.  If the given column does not exist, then nil is returned.
 	ColumnByName(name string) []*fr.Element
@@ -47,13 +47,13 @@ type Trace interface {
 	// error is returned.
 	GetByIndex(col int, row int) *fr.Element
 	// Insert n copies of a given row at the front of this trace using a given
-	// mapping function to initialise each column.  Note, n cannot be negative.
-	InsertFront(n int, mapping func(int) *fr.Element)
+	// mapping function to initialise each column.
+	InsertFront(n uint, mapping func(int) *fr.Element)
 	// Determine the height of this table, which is defined as the
 	// height of the largest column.
-	Height() int
+	Height() uint
 	// Get the number of columns in this trace.
-	Width() int
+	Width() uint
 }
 
 // ConstraintsAcceptTrace determines whether or not one or more groups of
@@ -70,13 +70,18 @@ func ConstraintsAcceptTrace[T Acceptable](trace Trace, constraints []T) error {
 	return nil
 }
 
-// PadTrace adds n rows of padding to the given trace by duplicating the first
-// row n times.  This requires that a first row exists.  Furthermore, we cannot
-// pad a negative number of rows (i.e. when n < 0).
-func PadTrace(n int, tr Trace) {
+// FrontPadWithZeros adds n rows of zeros to the given trace.
+func FrontPadWithZeros(n uint, tr Trace) {
 	var zero fr.Element = fr.NewElement((0))
 	// Insert initial padding row
 	tr.InsertFront(n, func(index int) *fr.Element { return &zero })
+}
+
+// FrontPadWithCopies adds n duplicates of the first row to the front (i.e.
+// beginning) of the trace.  Observe that this necessary requires there is a
+// first row.
+func FrontPadWithCopies(n uint, tr Trace) {
+	tr.DuplicateFront(n)
 }
 
 // ===================================================================
@@ -87,7 +92,7 @@ func PadTrace(n int, tr Trace) {
 // array.
 type ArrayTrace struct {
 	// Holds the maximum height of any column in the trace
-	height int
+	height uint
 	// Holds the name of each column
 	columns []*ArrayTraceColumn
 }
@@ -105,8 +110,8 @@ func EmptyArrayTrace() *ArrayTrace {
 }
 
 // Width returns the number of columns in this trace.
-func (p *ArrayTrace) Width() int {
-	return len(p.columns)
+func (p *ArrayTrace) Width() uint {
+	return uint(len(p.columns))
 }
 
 // ColumnName returns the name of the ith column in this trace.
@@ -150,8 +155,8 @@ func (p *ArrayTrace) AddColumn(name string, data []*fr.Element) {
 	// Append it
 	p.columns = append(p.columns, &column)
 	// Update maximum height
-	if len(data) > p.height {
-		p.height = len(data)
+	if uint(len(data)) > p.height {
+		p.height = uint(len(data))
 	}
 }
 
@@ -162,7 +167,7 @@ func (p *ArrayTrace) Columns() []*ArrayTraceColumn {
 
 // DuplicateFront inserts n duplicates of the first row at the front of this
 // trace.
-func (p *ArrayTrace) DuplicateFront(n int) {
+func (p *ArrayTrace) DuplicateFront(n uint) {
 	for _, c := range p.columns {
 		c.DuplicateFront(n)
 	}
@@ -221,13 +226,13 @@ func (p *ArrayTrace) getColumnByName(name string) *ArrayTraceColumn {
 }
 
 // Height determines the maximum height of any column within this trace.
-func (p *ArrayTrace) Height() int {
+func (p *ArrayTrace) Height() uint {
 	return p.height
 }
 
 // InsertFront inserts n duplicates of a given row at the beginning of this
 // trace.
-func (p *ArrayTrace) InsertFront(n int, mapping func(int) *fr.Element) {
+func (p *ArrayTrace) InsertFront(n uint, mapping func(int) *fr.Element) {
 	for i, c := range p.columns {
 		c.InsertFront(n, mapping(i))
 	}
@@ -249,8 +254,8 @@ func (p *ArrayTrace) String() string {
 		id.WriteString(p.columns[i].name)
 		id.WriteString("={")
 
-		for j := 0; j < p.height; j++ {
-			jth := p.GetByIndex(i, j)
+		for j := uint(0); j < p.height; j++ {
+			jth := p.GetByIndex(i, int(j))
 
 			if j != 0 {
 				id.WriteString(",")
@@ -297,14 +302,14 @@ func (p *ArrayTraceColumn) Clone() *ArrayTraceColumn {
 }
 
 // DuplicateFront the first row of this column n times.
-func (p *ArrayTraceColumn) DuplicateFront(n int) {
-	ndata := make([]*fr.Element, len(p.data)+n)
+func (p *ArrayTraceColumn) DuplicateFront(n uint) {
+	ndata := make([]*fr.Element, uint(len(p.data))+n)
 	// Copy items from existing data over
 	copy(ndata[n:], p.data)
 	// Copy front
 	front := p.data[0]
 	// Duplicate front
-	for i := 0; i < n; i++ {
+	for i := uint(0); i < n; i++ {
 		ndata[i] = front
 	}
 	// Copy over
@@ -321,12 +326,12 @@ func (p *ArrayTraceColumn) Get(row int) *fr.Element {
 }
 
 // InsertFront inserts a given item at the front of this column.
-func (p *ArrayTraceColumn) InsertFront(n int, item *fr.Element) {
-	ndata := make([]*fr.Element, len(p.data)+n)
+func (p *ArrayTraceColumn) InsertFront(n uint, item *fr.Element) {
+	ndata := make([]*fr.Element, uint(len(p.data))+n)
 	// Copy items from existing data over
 	copy(ndata[n:], p.data)
 	// Insert new items
-	for i := 0; i < n; i++ {
+	for i := uint(0); i < n; i++ {
 		ndata[i] = item
 	}
 	// Copy over

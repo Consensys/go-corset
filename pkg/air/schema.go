@@ -89,12 +89,27 @@ func (p *Schema) HasColumn(name string) bool {
 	return false
 }
 
+// RequiredSpillage returns the minimum amount of spillage required to ensure
+// valid traces are accepted in the presence of arbitrary padding.  Spillage can
+// only arise from computations as this is where values outside of the user's
+// control are determined.
+func (p *Schema) RequiredSpillage() uint {
+	// Ensures always at least one row of spillage (referred to as the "initial
+	// padding row")
+	mx := uint(1)
+	// Determine if any more spillage required
+	for _, c := range p.computations {
+		mx = max(mx, c.RequiredSpillage())
+	}
+	return mx
+}
+
 // IsInputTrace determines whether a given input trace is a suitable
 // input (i.e. non-expanded) trace for this schema.  Specifically, the
 // input trace must contain a matching column for each non-synthetic
 // column in this trace.
 func (p *Schema) IsInputTrace(tr table.Trace) error {
-	count := 0
+	count := uint(0)
 
 	for _, c := range p.dataColumns {
 		if !c.Synthetic && !tr.HasColumn(c.Name) {
@@ -112,8 +127,8 @@ func (p *Schema) IsInputTrace(tr table.Trace) error {
 		// Determine the unknown columns for error reporting.
 		unknown := make([]string, 0)
 
-		for i := 0; i < tr.Width(); i++ {
-			n := tr.ColumnName(i)
+		for i := uint(0); i < tr.Width(); i++ {
+			n := tr.ColumnName(int(i))
 			if !p.HasColumn(n) {
 				unknown = append(unknown, n)
 			}
@@ -132,7 +147,7 @@ func (p *Schema) IsInputTrace(tr table.Trace) error {
 // output trace must contain a matching column for each column in this
 // trace (synthetic or otherwise).
 func (p *Schema) IsOutputTrace(tr table.Trace) error {
-	count := 0
+	count := uint(0)
 
 	for _, c := range p.dataColumns {
 		if !tr.HasColumn(c.Name) {
@@ -219,8 +234,6 @@ func (p *Schema) Accepts(trace table.Trace) error {
 // columns. Observe that computed columns have to be computed in the correct
 // order.
 func (p *Schema) ExpandTrace(tr table.Trace) error {
-	// Insert initial padding row
-	table.PadTrace(1, tr)
 	// Execute all computations
 	for _, c := range p.computations {
 		err := c.ExpandTrace(tr)

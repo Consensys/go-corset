@@ -155,6 +155,12 @@ type lexicographicSortExpander struct {
 	bitwidth uint
 }
 
+// RequiredSpillage returns the minimum amount of spillage required to ensure
+// valid traces are accepted in the presence of arbitrary padding.
+func (p *lexicographicSortExpander) RequiredSpillage() uint {
+	return uint(0)
+}
+
 // Accepts checks whether a given trace has the necessary columns
 func (p *lexicographicSortExpander) Accepts(tr table.Trace) error {
 	prefix := constructLexicographicSortingPrefix(p.columns, p.signs)
@@ -194,14 +200,14 @@ func (p *lexicographicSortExpander) ExpandTrace(tr table.Trace) error {
 		bit[i] = make([]*fr.Element, nrows)
 	}
 
-	for i := 0; i < nrows; i++ {
+	for i := uint(0); i < nrows; i++ {
 		set := false
 		// Initialise delta to zero
 		delta[i] = &zero
 		// Decide which row is the winner (if any)
 		for j := 0; j < ncols; j++ {
-			prev := tr.GetByName(p.columns[j], i-1)
-			curr := tr.GetByName(p.columns[j], i)
+			prev := tr.GetByName(p.columns[j], int(i-1))
+			curr := tr.GetByName(p.columns[j], int(i))
 
 			if !set && prev != nil && prev.Cmp(curr) != 0 {
 				var diff fr.Element

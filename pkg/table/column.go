@@ -41,8 +41,8 @@ func (c *DataColumn[T]) Accepts(tr Trace) error {
 		return fmt.Errorf("Trace missing data column ({%s})", c.Name)
 	}
 	// Check constraints accepted
-	for i := 0; i < tr.Height(); i++ {
-		val := tr.GetByName(c.Name, i)
+	for i := uint(0); i < tr.Height(); i++ {
+		val := tr.GetByName(c.Name, int(i))
 
 		if !c.Type.Accept(val) {
 			// Construct useful error message
@@ -70,21 +70,32 @@ func (c *DataColumn[T]) String() string {
 // expectation that this computation is acyclic.  Furthermore, computed columns
 // give rise to "trace expansion".  That is where the initial trace provided by
 // the user is expanded by determining the value of all computed columns.
-type ComputedColumn struct {
+type ComputedColumn[E Computable] struct {
 	Name string
 	// The computation which accepts a given trace and computes
 	// the value of this column at a given row.
-	Expr Evaluable
+	Expr E
 }
 
 // NewComputedColumn constructs a new computed column with a given name and
 // determining expression.  More specifically, that expression is used to
 // compute the values for this column during trace expansion.
-func NewComputedColumn(name string, expr Evaluable) *ComputedColumn {
-	return &ComputedColumn{
+func NewComputedColumn[E Computable](name string, expr E) *ComputedColumn[E] {
+	return &ComputedColumn[E]{
 		Name: name,
 		Expr: expr,
 	}
+}
+
+// RequiredSpillage returns the minimum amount of spillage required to ensure
+// this column can be correctly computed in the presence of arbitrary (front)
+// padding.
+func (c *ComputedColumn[E]) RequiredSpillage() uint {
+	// NOTE: Spillage is only currently considered to be necessary at the front
+	// (i.e. start) of a trace.  This is because padding is always inserted at
+	// the front, never the back.  As such, it is the maximum positive shift
+	// which determines how much spillage is required for this comptuation.
+	return c.Expr.MaxShift().Right
 }
 
 // Accepts determines whether or not this column accepts the given trace.  For a
@@ -92,7 +103,7 @@ func NewComputedColumn(name string, expr Evaluable) *ComputedColumn {
 // type.
 //
 //nolint:revive
-func (c *ComputedColumn) Accepts(tr Trace) error {
+func (c *ComputedColumn[E]) Accepts(tr Trace) error {
 	// Check column in trace!
 	if !tr.HasColumn(c.Name) {
 		return fmt.Errorf("Trace missing computed column ({%s})", c.Name)
@@ -104,7 +115,7 @@ func (c *ComputedColumn) Accepts(tr Trace) error {
 // ExpandTrace attempts to a new column to the trace which contains the result
 // of evaluating a given expression on each row.  If the column already exists,
 // then an error is flagged.
-func (c *ComputedColumn) ExpandTrace(tr Trace) error {
+func (c *ComputedColumn[E]) ExpandTrace(tr Trace) error {
 	if tr.HasColumn(c.Name) {
 		msg := fmt.Sprintf("Computed column already exists ({%s})", c.Name)
 		return errors.New(msg)
@@ -127,8 +138,9 @@ func (c *ComputedColumn) ExpandTrace(tr Trace) error {
 	return nil
 }
 
-func (c *ComputedColumn) String() string {
-	return fmt.Sprintf("(compute %s %s)", c.Name, c.Expr)
+// nolint:revive
+func (c *ComputedColumn[E]) String() string {
+	return fmt.Sprintf("(compute %s %s)", c.Name, any(c.Expr))
 }
 
 // ===================================================================
@@ -147,6 +159,12 @@ type Permutation struct {
 // NewPermutation creates a new permutation
 func NewPermutation(target string, source string) *Permutation {
 	return &Permutation{target, source}
+}
+
+// RequiredSpillage returns the minimum amount of spillage required to ensure
+// valid traces are accepted in the presence of arbitrary padding.
+func (p *Permutation) RequiredSpillage() uint {
+	return uint(0)
 }
 
 // Accepts checks whether a permutation holds between the source and
@@ -188,6 +206,12 @@ func NewSortedPermutation(targets []string, signs []bool, sources []string) *Sor
 	}
 
 	return &SortedPermutation{targets, signs, sources}
+}
+
+// RequiredSpillage returns the minimum amount of spillage required to ensure
+// valid traces are accepted in the presence of arbitrary padding.
+func (p *SortedPermutation) RequiredSpillage() uint {
+	return uint(0)
 }
 
 // Accepts checks whether a sorted permutation holds between the

@@ -24,7 +24,7 @@
 ;; PC[0]=0
 (vanish:first heartbeat_1 PC)
 ;; PC[k]=PC[k-1]+1
-(vanish heartbeat_2 (- PC (+ 1 (shift PC -1))))
+(vanish heartbeat_2 (* PC (- PC (+ 1 (shift PC -1)))))
 
 ;; ADDR'[k] != ADDR'[k-1] ==> (RW'[k]=1 || VAL'[k]=0)
 (vanish first_read_1 (ifnot (- ADDR' (shift ADDR' -1)) (* (- 1 RW') VAL')))
