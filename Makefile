@@ -17,7 +17,7 @@ all: clean lint test build
 .PHONY: lint
 lint:
 	@echo ">>> Performing golang code linting.."
-	golangci-lint run --config=.golangci-lint.yml
+	golangci-lint run
 
 .PHONY: test
 test:
