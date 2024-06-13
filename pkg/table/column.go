@@ -30,7 +30,7 @@ func (c *DataColumn[T]) Get(row int, tr Trace) *fr.Element {
 	return tr.GetByName(c.Name, row)
 }
 
-// Accepts determines whether or not this column accepts the given trace.  For a
+// Accepts determines whether this column accepts the given mmap.  For a
 // data column, this means ensuring that all elements are value for the columns
 // type.
 //
@@ -65,20 +65,20 @@ func (c *DataColumn[T]) String() string {
 
 // ComputedColumn describes a column whose values are computed on-demand, rather
 // than being stored in a data array.  Typically computed columns read values
-// from other columns in a trace in order to calculate their value.  There is an
+// from other columns in a mmap in order to calculate their value.  There is an
 // expectation that this computation is acyclic.  Furthermore, computed columns
-// give rise to "trace expansion".  That is where the initial trace provided by
+// give rise to "mmap expansion".  That is where the initial mmap provided by
 // the user is expanded by determining the value of all computed columns.
 type ComputedColumn struct {
 	Name string
-	// The computation which accepts a given trace and computes
+	// The computation which accepts a given mmap and computes
 	// the value of this column at a given row.
 	Expr Evaluable
 }
 
 // NewComputedColumn constructs a new computed column with a given name and
 // determining expression.  More specifically, that expression is used to
-// compute the values for this column during trace expansion.
+// compute the values for this column during mmap expansion.
 func NewComputedColumn(name string, expr Evaluable) *ComputedColumn {
 	return &ComputedColumn{
 		Name: name,
@@ -100,7 +100,7 @@ func (c *ComputedColumn) Accepts(tr Trace) error {
 	return nil
 }
 
-// ExpandTrace attempts to a new column to the trace which contains the result
+// ExpandTrace attempts to a new column to the mmap which contains the result
 // of evaluating a given expression on each row.  If the column already exists,
 // then an error is flagged.
 func (c *ComputedColumn) ExpandTrace(tr Trace) error {
@@ -110,7 +110,7 @@ func (c *ComputedColumn) ExpandTrace(tr Trace) error {
 	}
 
 	data := make([]*fr.Element, tr.Height())
-	// Expand the trace
+	// Expand the mmap
 	for i := 0; i < len(data); i++ {
 		val := c.Expr.EvalAt(i, tr)
 		if val != nil {
@@ -120,7 +120,7 @@ func (c *ComputedColumn) ExpandTrace(tr Trace) error {
 			data[i] = &zero
 		}
 	}
-	// Colunm needs to be expanded.
+	// Column needs to be expanded.
 	tr.AddColumn(c.Name, data)
 	// Done
 	return nil
@@ -230,7 +230,7 @@ func (p *SortedPermutation) Accepts(tr Trace) error {
 	return errors.New(msg)
 }
 
-// ExpandTrace expands a given trace to include the columns specified by a given
+// ExpandTrace expands a given mmap to include the columns specified by a given
 // SortedPermutation.  This requires copying the data in the source columns, and
 // sorting that data according to the permutation criteria.
 func (p *SortedPermutation) ExpandTrace(tr Trace) error {
@@ -292,7 +292,7 @@ func (p *SortedPermutation) String() string {
 }
 
 // IsPermutationOf checks whether (or not) one column is a permutation
-// of another in given trace.  The order in which columns are given is
+// of another in given mmap.  The order in which columns are given is
 // not important.
 func IsPermutationOf(target string, source string, tr Trace) error {
 	dst := tr.ColumnByName(target)

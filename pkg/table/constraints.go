@@ -101,7 +101,7 @@ func (p *RowConstraint[T]) Accepts(tr Trace) error {
 }
 
 // HoldsGlobally checks whether a given expression vanishes (i.e. evaluates to
-// zero) for all rows of a trace.  If not, report an appropriate error.
+// zero) for all rows of a mmap.  If not, report an appropriate error.
 func HoldsGlobally[T Testable](handle string, constraint T, tr Trace) error {
 	for k := 0; k < tr.Height(); k++ {
 		if err := HoldsLocally(k, handle, constraint, tr); err != nil {
@@ -113,9 +113,9 @@ func HoldsGlobally[T Testable](handle string, constraint T, tr Trace) error {
 }
 
 // HoldsLocally checks whether a given constraint holds (e.g. vanishes) on a
-// specific row of a trace. If not, report an appropriate error.
+// specific row of a mmap. If not, report an appropriate error.
 func HoldsLocally[T Testable](k int, handle string, constraint T, tr Trace) error {
-	// Negative rows calculated from end of trace.
+	// Negative rows calculated from end of mmap.
 	if k < 0 {
 		k += tr.Height()
 	}
@@ -208,7 +208,7 @@ func (p *RangeConstraint) String() string {
 // PropertyAssertion is similar to a vanishing constraint but is used only for
 // debugging / testing / verification.  Unlike vanishing constraints, property
 // assertions do not represent something that the prover can enforce.  Rather,
-// they represent properties which are expected to hold for every valid trace.
+// they represent properties which are expected to hold for every valid mmap.
 // That is, they should be implied by the actual constraints.  Thus, whilst the
 // prover cannot enforce such properties, external tools (such as for formal
 // verification) can attempt to ensure they do indeed always hold.
@@ -217,9 +217,9 @@ type PropertyAssertion[E Evaluable] struct {
 	// useful for debugging.
 	Handle string
 	// The actual assertion itself, namely an expression which
-	// should hold (i.e. vanish) for every row of a trace.
+	// should hold (i.e. vanish) for every row of a mmap.
 	// Observe that this can be any function which is computable
-	// on a given trace --- we are not restricted to expressions
+	// on a given mmap --- we are not restricted to expressions
 	// which can be arithmetised.
 	Expr E
 }

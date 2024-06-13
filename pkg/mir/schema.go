@@ -98,8 +98,8 @@ func (p *Schema) AddPropertyAssertion(handle string, expr Expr) {
 	p.assertions = append(p.assertions, table.NewPropertyAssertion(handle, expr))
 }
 
-// Accepts determines whether this schema will accept a given trace.  That
-// is, whether or not the given trace adheres to the schema.  A trace can fail
+// Accepts determines whether this schema will accept a given mmap.  That
+// is, whether or not the given mmap adheres to the schema.  A mmap can fail
 // to adhere to the schema for a variety of reasons, such as having a constraint
 // which does not hold.
 func (p *Schema) Accepts(trace table.Trace) error {
@@ -176,7 +176,7 @@ func lowerColumnToAir(c *table.DataColumn[table.Type], schema *air.Schema) {
 // Lower a permutation to the AIR level.  This has quite a few
 // effects.  Firstly, permutation constraints are added for all of the
 // new columns.  Secondly, sorting constraints (and their associated
-// synthetic columns) must also be added.  Finally, a trace
+// synthetic columns) must also be added.  Finally, a mmap
 // computation is required to ensure traces are correctly expanded to
 // meet the requirements of a sorted permutation.
 func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Schema) {
@@ -215,7 +215,7 @@ func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Sche
 	}
 }
 
-// ExpandTrace expands a given trace according to this schema.
+// ExpandTrace expands a given mmap according to this schema.
 func (p *Schema) ExpandTrace(tr table.Trace) error {
 	// Expand all the permutation columns
 	for _, perm := range p.permutations {

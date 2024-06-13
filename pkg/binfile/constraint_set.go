@@ -21,7 +21,7 @@ type column struct {
 	// can be assigned to the same "register".
 	Register int
 	// Indicates the padding value (if given) to use when padding
-	// out a trace for this column.
+	// out a mmap for this column.
 	PaddingValue any `json:"padding_value"`
 	// Determines whether the type was marked with "@prove" or
 	// not.  Such types must be established by corset in some way
@@ -42,7 +42,7 @@ type column struct {
 	Computed bool
 	// Provides additional information about whether this column
 	// is computed or not.  A "Commitment" kind indicates a
-	// user-defined columns (i.e is directly filled from trace
+	// user-defined columns (i.e is directly filled from mmap
 	// files); a "Computed" column is filled by a given function;
 	// an "Expression" kind indicates a column whose values are
 	// computed from an expresion known at compile time.  As for

@@ -388,6 +388,7 @@ func checkExpandedTrace(t *testing.T, tr table.Trace, id traceId, schema table.S
 		t.Errorf(msg)
 	} else if accepted && !id.expected {
 		printTrace(tr)
+
 		msg := fmt.Sprintf("Trace accepted incorrectly (%s, %s.rejects, line %d)", id.ir, id.test, id.line)
 		t.Errorf(msg)
 	}

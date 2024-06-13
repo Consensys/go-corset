@@ -12,8 +12,8 @@ import (
 // computeCmd represents the compute command
 var computeCmd = &cobra.Command{
 	Use:   "compute",
-	Short: "Given a set of constraints and a trace file, fill the computed columns.",
-	Long:  `Given a set of constraints and a trace file, fill the computed columns.`,
+	Short: "Given a set of constraints and a mmap file, fill the computed columns.",
+	Long:  `Given a set of constraints and a mmap file, fill the computed columns.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		file := args[0]
 		fmt.Printf("Reading JSON bin file: %s\n", file)

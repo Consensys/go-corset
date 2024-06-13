@@ -10,7 +10,7 @@ import (
 // Expressions at this level are split into those which can be arithmetised and
 // those which cannot.  The latter represent expressions which cannot be
 // expressed within a polynomial but can be computed externally (e.g. during
-// trace expansion).
+// mmap expansion).
 type Expr interface {
 	// EvalAt evaluates this expression in a given tabular context. Observe that
 	// if this expression is *undefined* within this context then it returns

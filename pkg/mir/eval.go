@@ -5,7 +5,7 @@ import (
 	"github.com/consensys/go-corset/pkg/table"
 )
 
-// EvalAt evaluates a column access at a given row in a trace, which returns the
+// EvalAt evaluates a column access at a given row in a mmap, which returns the
 // value at that row of the column in question or nil is that row is
 // out-of-bounds.
 func (e *ColumnAccess) EvalAt(k int, tbl table.Trace) *fr.Element {
@@ -23,7 +23,7 @@ func (e *ColumnAccess) EvalAt(k int, tbl table.Trace) *fr.Element {
 	return clone.Set(val)
 }
 
-// EvalAt evaluates a constant at a given row in a trace, which simply returns
+// EvalAt evaluates a constant at a given row in a mmap, which simply returns
 // that constant.
 func (e *Constant) EvalAt(k int, tbl table.Trace) *fr.Element {
 	var clone fr.Element
@@ -31,7 +31,7 @@ func (e *Constant) EvalAt(k int, tbl table.Trace) *fr.Element {
 	return clone.Set(e.Value)
 }
 
-// EvalAt evaluates a sum at a given row in a trace by first evaluating all of
+// EvalAt evaluates a sum at a given row in a mmap by first evaluating all of
 // its arguments at that row.
 func (e *Add) EvalAt(k int, tbl table.Trace) *fr.Element {
 	fn := func(l *fr.Element, r *fr.Element) { l.Add(l, r) }
@@ -59,7 +59,7 @@ func (e *Normalise) EvalAt(k int, tbl table.Trace) *fr.Element {
 	return val
 }
 
-// EvalAt evaluates a subtraction at a given row in a trace by first evaluating all of
+// EvalAt evaluates a subtraction at a given row in a mmap by first evaluating all of
 // its arguments at that row.
 func (e *Sub) EvalAt(k int, tbl table.Trace) *fr.Element {
 	fn := func(l *fr.Element, r *fr.Element) { l.Sub(l, r) }

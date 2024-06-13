@@ -5,7 +5,7 @@ import (
 	"github.com/consensys/go-corset/pkg/table"
 )
 
-// EvalAllAt evaluates a column access at a given row in a trace, which returns the
+// EvalAllAt evaluates a column access at a given row in a mmap, which returns the
 // value at that row of the column in question or nil is that row is
 // out-of-bounds.
 func (e *ColumnAccess) EvalAllAt(k int, tbl table.Trace) []*fr.Element {
@@ -23,7 +23,7 @@ func (e *ColumnAccess) EvalAllAt(k int, tbl table.Trace) []*fr.Element {
 	return []*fr.Element{clone.Set(val)}
 }
 
-// EvalAllAt evaluates a constant at a given row in a trace, which simply returns
+// EvalAllAt evaluates a constant at a given row in a mmap, which simply returns
 // that constant.
 func (e *Constant) EvalAllAt(k int, tbl table.Trace) []*fr.Element {
 	var clone fr.Element
@@ -31,21 +31,21 @@ func (e *Constant) EvalAllAt(k int, tbl table.Trace) []*fr.Element {
 	return []*fr.Element{clone.Set(e.Val)}
 }
 
-// EvalAllAt evaluates a sum at a given row in a trace by first evaluating all of
+// EvalAllAt evaluates a sum at a given row in a mmap by first evaluating all of
 // its arguments at that row.
 func (e *Add) EvalAllAt(k int, tbl table.Trace) []*fr.Element {
 	fn := func(l *fr.Element, r *fr.Element) { l.Add(l, r) }
 	return evalExprsAt(k, tbl, e.Args, fn)
 }
 
-// EvalAllAt evaluates a product at a given row in a trace by first evaluating all of
+// EvalAllAt evaluates a product at a given row in a mmap by first evaluating all of
 // its arguments at that row.
 func (e *Mul) EvalAllAt(k int, tbl table.Trace) []*fr.Element {
 	fn := func(l *fr.Element, r *fr.Element) { l.Mul(l, r) }
 	return evalExprsAt(k, tbl, e.Args, fn)
 }
 
-// EvalAllAt evaluates a conditional at a given row in a trace by first evaluating
+// EvalAllAt evaluates a conditional at a given row in a mmap by first evaluating
 // its condition at that row.  If that condition is zero then the true branch
 // (if applicable) is evaluated; otherwise if the condition is non-zero then
 // false branch (if applicable) is evaluated).  If the branch to be evaluated is
@@ -66,7 +66,7 @@ func (e *IfZero) EvalAllAt(k int, tbl table.Trace) []*fr.Element {
 	return vals
 }
 
-// EvalAllAt evaluates a list at a given row in a trace by evaluating each of its
+// EvalAllAt evaluates a list at a given row in a mmap by evaluating each of its
 // arguments at that row.
 func (e *List) EvalAllAt(k int, tbl table.Trace) []*fr.Element {
 	vals := make([]*fr.Element, 0)
@@ -95,7 +95,7 @@ func (e *Normalise) EvalAllAt(k int, tbl table.Trace) []*fr.Element {
 	return vals
 }
 
-// EvalAllAt evaluates a subtraction at a given row in a trace by first evaluating all of
+// EvalAllAt evaluates a subtraction at a given row in a mmap by first evaluating all of
 // its arguments at that row.
 func (e *Sub) EvalAllAt(k int, tbl table.Trace) []*fr.Element {
 	fn := func(l *fr.Element, r *fr.Element) { l.Sub(l, r) }
