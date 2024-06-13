@@ -15,7 +15,6 @@ repos:
     rev: v1.57.1
     hooks:
       - id: golangci-lint
-        args: [--config=.golangci-lint.yml]
   - repo: https://github.com/executablebooks/mdformat
     rev: 0.7.17
     hooks:
