@@ -54,6 +54,9 @@ func (p ZeroTest[E]) TestAt(row int, tr Trace) bool {
 	return val == nil || val.IsZero()
 }
 
+// String generates a human-readble string.
+//
+//nolint:revive
 func (p ZeroTest[E]) String() string {
 	return fmt.Sprintf("%s", any(p.Expr))
 }
@@ -130,6 +133,9 @@ func HoldsLocally[T Testable](k int, handle string, constraint T, tr Trace) erro
 	return nil
 }
 
+// String generates a human-readble string.
+//
+//nolint:revive
 func (p *RowConstraint[T]) String() string {
 	if p.Domain == nil {
 		return fmt.Sprintf("(vanish %s %s)", p.Handle, any(p.Constraint))
