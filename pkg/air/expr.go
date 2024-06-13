@@ -83,7 +83,7 @@ func (p *Mul) Equate(other Expr) Expr { return &Sub{Args: []Expr{p, other}} }
 // Constant represents a constant value within an expression.
 type Constant struct{ Value *fr.Element }
 
-// NewConstant construct an AIR expression representing a given constant.
+// NewConst construct an AIR expression representing a given constant.
 func NewConst(val *fr.Element) Expr {
 	return &Constant{val}
 }

@@ -55,6 +55,7 @@ func (c *DataColumn[T]) Accepts(tr Trace) error {
 	return nil
 }
 
+//nolint:revive
 func (c *DataColumn[T]) String() string {
 	if c.Type.AsField() != nil {
 		return fmt.Sprintf("(column %s)", c.Name)

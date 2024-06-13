@@ -8,10 +8,10 @@ import (
 	"github.com/consensys/go-corset/pkg/table"
 )
 
-// Norm constructs an expression representing the normalised value of e.  That is,
-// an expression which is 0 when e is 0, and 1 when e is non-zero.  This is done
-// by introducing a synthetic column to hold the (pseudo) mutliplicative inverse
-// of e.
+// Normalise constructs an expression representing the normalised value of e.
+// That is, an expression which is 0 when e is 0, and 1 when e is non-zero.
+// This is done by introducing a synthetic column to hold the (pseudo)
+// mutliplicative inverse of e.
 func Normalise(e air.Expr, tbl *air.Schema) air.Expr {
 	// Construct pseudo multiplicative inverse of e.
 	ie := ApplyPseudoInverseGadget(e, tbl)

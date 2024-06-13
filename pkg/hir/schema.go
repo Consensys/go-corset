@@ -159,6 +159,8 @@ func (p *Schema) Accepts(trace table.Trace) error {
 
 // ExpandTrace expands a given mmap according to this schema.
 func (p *Schema) ExpandTrace(tr table.Trace) error {
+	// Insert initial padding row
+	table.PadTrace(1, tr)
 	// Expand all the permutation columns
 	for _, perm := range p.permutations {
 		err := perm.ExpandTrace(tr)

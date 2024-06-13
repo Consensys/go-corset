@@ -1,2 +1,3 @@
+(column ST)
 (column A)
-(vanish c1 (- 1 (~ A)))
+(vanish c1 (* ST (- 1 (~ A))))
