@@ -217,6 +217,8 @@ func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Sche
 
 // ExpandTrace expands a given trace according to this schema.
 func (p *Schema) ExpandTrace(tr table.Trace) error {
+	// Insert initial padding row
+	table.PadTrace(1, tr)
 	// Expand all the permutation columns
 	for _, perm := range p.permutations {
 		err := perm.ExpandTrace(tr)

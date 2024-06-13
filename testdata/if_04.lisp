@@ -2,4 +2,4 @@
 (column Y)
 
 (vanish test
-        (- X (if Y 3 16)))
+        (- X (if Y 0 16)))

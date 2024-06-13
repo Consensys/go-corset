@@ -2,7 +2,7 @@
 (column Y)
 
 (vanish test1
-        (- Y (if X 3)))
+        (- X (if Y 0)))
 
 (vanish test2
-        (- Y (ifnot X 16)))
+        (- X (ifnot Y 16)))

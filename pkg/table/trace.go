@@ -19,13 +19,20 @@ type Acceptable interface {
 // Trace describes a set of named columns.  Columns are not required to have the
 // same height and can be either "data" columns or "computed" columns.
 type Trace interface {
-	// Determine the height of this table, which is defined as the
-	// height of the largest column.
-	Height() int
-	// Get the number of columns in this trace.
-	Width() int
+	// Add a new column of data
+	AddColumn(name string, data []*fr.Element)
 	// Get the name of the ith column in this trace.
 	ColumnName(int) string
+	// Duplicate the first row of this trace n times, whilst placing the
+	// duplicates at the beginning of the trace.  This can be used, for example,
+	// to apply padding to an existing trace.  Note it is an error to call this
+	// on an empty trace.
+	DuplicateFront(n int)
+	// ColumnByName returns the data of a given column in order that it can be
+	// inspected.  If the given column does not exist, then nil is returned.
+	ColumnByName(name string) []*fr.Element
+	// Check whether this trace contains data for the given column.
+	HasColumn(name string) bool
 	// Get the value of a given column by its name.  If the column
 	// does not exist or if the index is out-of-bounds then an
 	// error is returned.
@@ -39,13 +46,14 @@ type Trace interface {
 	// does not exist or if the index is out-of-bounds then an
 	// error is returned.
 	GetByIndex(col int, row int) *fr.Element
-	// Check whether this trace contains data for the given column.
-	HasColumn(name string) bool
-	// ColumnByName returns the data of a given column in order that it can be
-	// inspected.  If the given column does not exist, then nil is returned.
-	ColumnByName(name string) []*fr.Element
-	// Add a new column of data
-	AddColumn(name string, data []*fr.Element)
+	// Insert n copies of a given row at the front of this trace using a given
+	// mapping function to initialise each column.  Note, n cannot be negative.
+	InsertFront(n int, mapping func(int) *fr.Element)
+	// Determine the height of this table, which is defined as the
+	// height of the largest column.
+	Height() int
+	// Get the number of columns in this trace.
+	Width() int
 }
 
 // ConstraintsAcceptTrace determines whether or not one or more groups of
@@ -60,6 +68,15 @@ func ConstraintsAcceptTrace[T Acceptable](trace Trace, constraints []T) error {
 	}
 	//
 	return nil
+}
+
+// PadTrace adds n rows of padding to the given trace by duplicating the first
+// row n times.  This requires that a first row exists.  Furthermore, we cannot
+// pad a negative number of rows (i.e. when n < 0).
+func PadTrace(n int, tr Trace) {
+	var zero fr.Element = fr.NewElement((0))
+	// Insert initial padding row
+	tr.InsertFront(n, func(index int) *fr.Element { return &zero })
 }
 
 // ===================================================================
@@ -143,9 +160,14 @@ func (p *ArrayTrace) Columns() []*ArrayTraceColumn {
 	return p.columns
 }
 
-// Height determines the maximum height of any column within this trace.
-func (p *ArrayTrace) Height() int {
-	return p.height
+// DuplicateFront inserts n duplicates of the first row at the front of this
+// trace.
+func (p *ArrayTrace) DuplicateFront(n int) {
+	for _, c := range p.columns {
+		c.DuplicateFront(n)
+	}
+	// Increment height
+	p.height += n
 }
 
 // GetByName gets the value of a given column (as identified by its name) at a
@@ -196,6 +218,21 @@ func (p *ArrayTrace) getColumnByName(name string) *ArrayTraceColumn {
 	}
 
 	return nil
+}
+
+// Height determines the maximum height of any column within this trace.
+func (p *ArrayTrace) Height() int {
+	return p.height
+}
+
+// InsertFront inserts n duplicates of a given row at the beginning of this
+// trace.
+func (p *ArrayTrace) InsertFront(n int, mapping func(int) *fr.Element) {
+	for i, c := range p.columns {
+		c.InsertFront(n, mapping(i))
+	}
+	// Increment height
+	p.height += n
 }
 
 func (p *ArrayTrace) String() string {
@@ -259,6 +296,21 @@ func (p *ArrayTraceColumn) Clone() *ArrayTraceColumn {
 	return clone
 }
 
+// DuplicateFront the first row of this column n times.
+func (p *ArrayTraceColumn) DuplicateFront(n int) {
+	ndata := make([]*fr.Element, len(p.data)+n)
+	// Copy items from existing data over
+	copy(ndata[n:], p.data)
+	// Copy front
+	front := p.data[0]
+	// Duplicate front
+	for i := 0; i < n; i++ {
+		ndata[i] = front
+	}
+	// Copy over
+	p.data = ndata
+}
+
 // Get the value at the given row of this column.
 func (p *ArrayTraceColumn) Get(row int) *fr.Element {
 	if row < 0 || row >= len(p.data) {
@@ -266,6 +318,19 @@ func (p *ArrayTraceColumn) Get(row int) *fr.Element {
 	}
 
 	return p.data[row]
+}
+
+// InsertFront inserts a given item at the front of this column.
+func (p *ArrayTraceColumn) InsertFront(n int, item *fr.Element) {
+	ndata := make([]*fr.Element, len(p.data)+n)
+	// Copy items from existing data over
+	copy(ndata[n:], p.data)
+	// Insert new items
+	for i := 0; i < n; i++ {
+		ndata[i] = item
+	}
+	// Copy over
+	p.data = ndata
 }
 
 // ===================================================================

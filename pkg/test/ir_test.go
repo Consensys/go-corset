@@ -298,13 +298,17 @@ func TestSlow_Wcp(t *testing.T) {
 	Check(t, "wcp")
 }
 
-func Test_Mxp(t *testing.T) {
+func TestSlow_Mxp(t *testing.T) {
 	Check(t, "mxp")
 }
 
 // ===================================================================
 // Test Helpers
 // ===================================================================
+
+// Determines the maximum amount of padding to use when testing.  Specifically,
+// every trace is tested with varying amounts of padding upto this value.
+const MAX_PADDING int = 0
 
 // For a given set of constraints, check that all traces which we
 // expect to be accepted are accepted, and all traces that we expect
@@ -335,29 +339,31 @@ func Check(t *testing.T, test string) {
 func CheckTraces(t *testing.T, test string, expected bool, traces []*table.ArrayTrace, hirSchema *hir.Schema) {
 	for i, tr := range traces {
 		if tr != nil {
-			// Lower HIR => MIR
-			mirSchema := hirSchema.LowerToMir()
-			// Lower MIR => AIR
-			airSchema := mirSchema.LowerToAir()
-			// Check HIR/MIR trace (if applicable)
-			if airSchema.IsInputTrace(tr) == nil {
-				// This is an unexpanded input trace.
-				checkInputTrace(t, tr, traceId{"HIR", test, expected, i + 1}, hirSchema)
-				checkInputTrace(t, tr, traceId{"MIR", test, expected, i + 1}, mirSchema)
-				checkInputTrace(t, tr, traceId{"AIR", test, expected, i + 1}, airSchema)
-			} else if airSchema.IsOutputTrace(tr) == nil {
-				// This is an already expanded input trace.  Therefore, no need
-				// to perform expansion.
-				checkExpandedTrace(t, tr, traceId{"AIR", test, expected, i + 1}, airSchema)
-			} else {
-				// Trace appears to be malformed.
-				err1 := airSchema.IsInputTrace(tr)
-				err2 := airSchema.IsOutputTrace(tr)
-
-				if expected {
-					t.Errorf("Trace malformed (%s.accepts, line %d): [%s][%s]", test, i+1, err1, err2)
+			for padding := 0; padding <= MAX_PADDING; padding++ {
+				// Lower HIR => MIR
+				mirSchema := hirSchema.LowerToMir()
+				// Lower MIR => AIR
+				airSchema := mirSchema.LowerToAir()
+				// Check HIR/MIR trace (if applicable)
+				if airSchema.IsInputTrace(tr) == nil {
+					// This is an unexpanded input trace.
+					checkInputTrace(t, tr, traceId{"HIR", test, expected, i + 1, padding}, hirSchema)
+					checkInputTrace(t, tr, traceId{"MIR", test, expected, i + 1, padding}, mirSchema)
+					checkInputTrace(t, tr, traceId{"AIR", test, expected, i + 1, padding}, airSchema)
+				} else if airSchema.IsOutputTrace(tr) == nil {
+					// This is an already expanded input trace.  Therefore, no need
+					// to perform expansion.
+					checkExpandedTrace(t, tr, traceId{"AIR", test, expected, i + 1, 0}, airSchema)
 				} else {
-					t.Errorf("Trace malformed (%s.rejects, line %d): [%s][%s]", test, i+1, err1, err2)
+					// Trace appears to be malformed.
+					err1 := airSchema.IsInputTrace(tr)
+					err2 := airSchema.IsOutputTrace(tr)
+
+					if expected {
+						t.Errorf("Trace malformed (%s.accepts, line %d): [%s][%s]", test, i+1, err1, err2)
+					} else {
+						t.Errorf("Trace malformed (%s.rejects, line %d): [%s][%s]", test, i+1, err1, err2)
+					}
 				}
 			}
 		}
@@ -369,7 +375,7 @@ func checkInputTrace(t *testing.T, tr *table.ArrayTrace, id traceId, schema tabl
 	etr := tr.Clone()
 	// Expand trace
 	err := schema.ExpandTrace(etr)
-
+	// Check
 	if err != nil {
 		t.Error(err)
 	} else {
@@ -378,17 +384,23 @@ func checkInputTrace(t *testing.T, tr *table.ArrayTrace, id traceId, schema tabl
 }
 
 func checkExpandedTrace(t *testing.T, tr table.Trace, id traceId, schema table.Schema) {
+	// Apply padding
+	table.PadTrace(id.padding, tr)
+	// Check
 	err := schema.Accepts(tr)
 	// Determine whether trace accepted or not.
 	accepted := (err == nil)
 	// Process what happened versus what was supposed to happen.
 	if !accepted && id.expected {
 		//printTrace(tr)
-		msg := fmt.Sprintf("Trace rejected incorrectly (%s, %s.accepts, line %d): %s", id.ir, id.test, id.line, err)
+		msg := fmt.Sprintf("Trace rejected incorrectly (%s, %s.accepts, %d padding, line %d): %s",
+			id.ir, id.test, id.padding, id.line, err)
 		t.Errorf(msg)
 	} else if accepted && !id.expected {
 		printTrace(tr)
-		msg := fmt.Sprintf("Trace accepted incorrectly (%s, %s.rejects, line %d)", id.ir, id.test, id.line)
+
+		msg := fmt.Sprintf("Trace accepted incorrectly (%s, %s.rejects, %d padding, line %d)",
+			id.ir, id.test, id.padding, id.line)
 		t.Errorf(msg)
 	}
 }
@@ -408,6 +420,8 @@ type traceId struct {
 	// Identifies the line number within the test file that the failing trace
 	// original.
 	line int
+	// Identifies how much padding has been added to the original trace.
+	padding int
 }
 
 // ReadTracesFile reads a file containing zero or more traces expressed as JSON, where
