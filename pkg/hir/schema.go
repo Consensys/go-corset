@@ -1,7 +1,6 @@
 package hir
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/mir"
 	"github.com/consensys/go-corset/pkg/table"
 	"github.com/consensys/go-corset/pkg/util"
@@ -160,9 +159,8 @@ func (p *Schema) Accepts(trace table.Trace) error {
 
 // ExpandTrace expands a given trace according to this schema.
 func (p *Schema) ExpandTrace(tr table.Trace) error {
-	var zero fr.Element = fr.NewElement((0))
 	// Insert initial padding row
-	tr.InsertFront(func(index int) *fr.Element { return &zero })
+	table.PadTrace(1, tr)
 	// Expand all the permutation columns
 	for _, perm := range p.permutations {
 		err := perm.ExpandTrace(tr)

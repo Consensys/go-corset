@@ -46,9 +46,9 @@ type Trace interface {
 	// does not exist or if the index is out-of-bounds then an
 	// error is returned.
 	GetByIndex(col int, row int) *fr.Element
-	// Insert a given row at the front of this trace using a given mapping
-	// function to initialise each column.
-	InsertFront(mapping func(int) *fr.Element)
+	// Insert n copies of a given row at the front of this trace using a given
+	// mapping function to initialise each column.  Note, n cannot be negative.
+	InsertFront(n int, mapping func(int) *fr.Element)
 	// Determine the height of this table, which is defined as the
 	// height of the largest column.
 	Height() int
@@ -68,6 +68,15 @@ func ConstraintsAcceptTrace[T Acceptable](trace Trace, constraints []T) error {
 	}
 	//
 	return nil
+}
+
+// PadTrace adds n rows of padding to the given trace by duplicating the first
+// row n times.  This requires that a first row exists.  Furthermore, we cannot
+// pad a negative number of rows (i.e. when n < 0).
+func PadTrace(n int, tr Trace) {
+	var zero fr.Element = fr.NewElement((0))
+	// Insert initial padding row
+	tr.InsertFront(n, func(index int) *fr.Element { return &zero })
 }
 
 // ===================================================================
@@ -216,13 +225,14 @@ func (p *ArrayTrace) Height() int {
 	return p.height
 }
 
-// InsertFront inserts n duplicates of the first row at the beginning of this trace.
-func (p *ArrayTrace) InsertFront(mapping func(int) *fr.Element) {
+// InsertFront inserts n duplicates of a given row at the beginning of this
+// trace.
+func (p *ArrayTrace) InsertFront(n int, mapping func(int) *fr.Element) {
 	for i, c := range p.columns {
-		c.InsertFront(mapping(i))
+		c.InsertFront(n, mapping(i))
 	}
 	// Increment height
-	p.height++
+	p.height += n
 }
 
 func (p *ArrayTrace) String() string {
@@ -311,12 +321,14 @@ func (p *ArrayTraceColumn) Get(row int) *fr.Element {
 }
 
 // InsertFront inserts a given item at the front of this column.
-func (p *ArrayTraceColumn) InsertFront(item *fr.Element) {
-	ndata := make([]*fr.Element, len(p.data)+1)
+func (p *ArrayTraceColumn) InsertFront(n int, item *fr.Element) {
+	ndata := make([]*fr.Element, len(p.data)+n)
 	// Copy items from existing data over
-	copy(ndata[1:], p.data)
-	// Insert new item
-	ndata[0] = item
+	copy(ndata[n:], p.data)
+	// Insert new items
+	for i := 0; i < n; i++ {
+		ndata[i] = item
+	}
 	// Copy over
 	p.data = ndata
 }
