@@ -16,6 +16,22 @@ type Acceptable interface {
 	Accepts(Trace) error
 }
 
+// Column describes an individual column of data within a trace table.
+type Column interface {
+	// Get the name of this column
+	Name() string
+	// Return the height (i.e. number of rows) of this column.
+	Height() uint
+	// Return the data stored in this column.
+	Data() []*fr.Element
+	// Pad this column with n items, either at the front (sign=true) or the back
+	// (sign=false).  Padding is done by duplicating either the first
+	// (sign=true) or last (sign=false) item of the trace n times.  The
+	// appropriate direction of padding is determined by the schema, where the
+	// true meaning of the column is known.
+	Pad(n uint, sign bool)
+}
+
 // Trace describes a set of named columns.  Columns are not required to have the
 // same height and can be either "data" columns or "computed" columns.
 type Trace interface {
@@ -23,11 +39,8 @@ type Trace interface {
 	AddColumn(name string, data []*fr.Element)
 	// Get the name of the ith column in this trace.
 	ColumnName(int) string
-	// Duplicate the first row of this trace n times, whilst placing the
-	// duplicates at the beginning of the trace.  This can be used, for example,
-	// to apply padding to an existing trace.  Note it is an error to call this
-	// on an empty trace.
-	DuplicateFront(n uint)
+	// ColumnByIndex returns the ith column in this trace.
+	ColumnByIndex(uint) Column
 	// ColumnByName returns the data of a given column in order that it can be
 	// inspected.  If the given column does not exist, then nil is returned.
 	ColumnByName(name string) []*fr.Element
@@ -75,13 +88,6 @@ func FrontPadWithZeros(n uint, tr Trace) {
 	var zero fr.Element = fr.NewElement((0))
 	// Insert initial padding row
 	tr.InsertFront(n, func(index int) *fr.Element { return &zero })
-}
-
-// FrontPadWithCopies adds n duplicates of the first row to the front (i.e.
-// beginning) of the trace.  Observe that this necessary requires there is a
-// first row.
-func FrontPadWithCopies(n uint, tr Trace) {
-	tr.DuplicateFront(n)
 }
 
 // ===================================================================
@@ -165,16 +171,6 @@ func (p *ArrayTrace) Columns() []*ArrayTraceColumn {
 	return p.columns
 }
 
-// DuplicateFront inserts n duplicates of the first row at the front of this
-// trace.
-func (p *ArrayTrace) DuplicateFront(n uint) {
-	for _, c := range p.columns {
-		c.DuplicateFront(n)
-	}
-	// Increment height
-	p.height += n
-}
-
 // GetByName gets the value of a given column (as identified by its name) at a
 // given row.  If the column does not exist, an error is returned.
 func (p *ArrayTrace) GetByName(name string, row int) *fr.Element {
@@ -187,6 +183,11 @@ func (p *ArrayTrace) GetByName(name string, row int) *fr.Element {
 	}
 	// Precondition failure
 	panic(fmt.Sprintf("Invalid column: {%s}", name))
+}
+
+// ColumnByIndex looks up a column based on its index.
+func (p *ArrayTrace) ColumnByIndex(index uint) Column {
+	return p.columns[index]
 }
 
 // ColumnByName looks up a column based on its name.  If the column doesn't
@@ -291,6 +292,16 @@ func (p *ArrayTraceColumn) Name() string {
 	return p.name
 }
 
+// Height determines the height of this column.
+func (p *ArrayTraceColumn) Height() uint {
+	return uint(len(p.data))
+}
+
+// Data returns the data for the given column.
+func (p *ArrayTraceColumn) Data() []*fr.Element {
+	return p.data
+}
+
 // Clone an ArrayTraceColumn
 func (p *ArrayTraceColumn) Clone() *ArrayTraceColumn {
 	clone := new(ArrayTraceColumn)
@@ -301,17 +312,36 @@ func (p *ArrayTraceColumn) Clone() *ArrayTraceColumn {
 	return clone
 }
 
-// DuplicateFront the first row of this column n times.
-func (p *ArrayTraceColumn) DuplicateFront(n uint) {
+// Pad this column with n additional items.
+func (p *ArrayTraceColumn) Pad(n uint, sign bool) {
+	// Offset where original data should start
+	var copy_offset uint
+	// Offset where padding values should start
+	var padding_offset uint
+	// Padding value to use
+	var padding_value *fr.Element
+	// Allocate sufficient memory
 	ndata := make([]*fr.Element, uint(len(p.data))+n)
-	// Copy items from existing data over
-	copy(ndata[n:], p.data)
-	// Copy front
-	front := p.data[0]
-	// Duplicate front
-	for i := uint(0); i < n; i++ {
-		ndata[i] = front
+	// Check direction of padding
+	if sign {
+		// Pad at the front
+		copy_offset = n
+		padding_value = p.data[0]
+		padding_offset = 0
+	} else {
+		// Pad at the back
+		copy_offset = 0
+		padding_value = p.data[len(p.data)-1]
+		padding_offset = uint(len(p.data))
 	}
+	// Copy over the data
+	copy(ndata[copy_offset:], p.data)
+	fmt.Printf("DATA1: %v\n", ndata)
+	// Go padding!
+	for i := padding_offset; i < (n + padding_offset); i++ {
+		ndata[i] = padding_value
+	}
+	fmt.Printf("DATA2: %v\n", ndata)
 	// Copy over
 	p.data = ndata
 }

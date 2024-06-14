@@ -150,7 +150,6 @@ func checkTraceWithLoweringDefault(tr *table.ArrayTrace, hirSchema *hir.Schema, 
 }
 
 func checkTrace(tr *table.ArrayTrace, schema table.Schema, cfg checkConfig) error {
-	fmt.Println("---------------------")
 	if cfg.expand {
 		// Clone to prevent interefence with subsequent checks
 		tr = tr.Clone()
@@ -162,13 +161,10 @@ func checkTrace(tr *table.ArrayTrace, schema table.Schema, cfg checkConfig) erro
 			// Apply default inferred spillage
 			table.FrontPadWithZeros(schema.RequiredSpillage(), tr)
 		}
-		fmt.Printf("SPILLED TRACE: %s\n", tr)
 		// Expand trace
 		if err := schema.ExpandTrace(tr); err != nil {
 			return err
 		}
-
-		fmt.Printf("EXPANDED TRACE: %s\n", tr)
 	}
 	// Check whether padding requested
 	if cfg.padding.Left == 0 && cfg.padding.Right == 0 {
@@ -180,8 +176,8 @@ func checkTrace(tr *table.ArrayTrace, schema table.Schema, cfg checkConfig) erro
 		// Prevent interference
 		ptr := tr.Clone()
 		// Apply padding
-		table.FrontPadWithCopies(n, ptr)
-		fmt.Printf("PADDED TRACE: %s\n", ptr)
+		schema.ApplyPadding(n, ptr)
+		fmt.Println(ptr.String())
 		// Check whether accepted or not.
 		if err := schema.Accepts(ptr); err != nil {
 			return err

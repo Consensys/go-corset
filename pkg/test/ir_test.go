@@ -391,7 +391,7 @@ func checkInputTrace(t *testing.T, tr *table.ArrayTrace, id traceId, schema tabl
 
 func checkExpandedTrace(t *testing.T, tr table.Trace, id traceId, schema table.Schema) {
 	// Apply padding
-	table.FrontPadWithCopies(id.padding, tr)
+	schema.ApplyPadding(id.padding, tr)
 	// Check
 	err := schema.Accepts(tr)
 	// Determine whether trace accepted or not.
@@ -403,7 +403,7 @@ func checkExpandedTrace(t *testing.T, tr table.Trace, id traceId, schema table.S
 			id.ir, id.test, id.line, id.spillage, id.padding, err)
 		t.Errorf(msg)
 	} else if accepted && !id.expected {
-		printTrace(tr)
+		//printTrace(tr)
 
 		msg := fmt.Sprintf("Trace accepted incorrectly (%s, %s.rejects, line %d with spillage %d / padding %d)",
 			id.ir, id.test, id.line, id.spillage, id.padding)

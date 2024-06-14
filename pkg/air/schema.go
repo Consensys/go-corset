@@ -101,7 +101,17 @@ func (p *Schema) RequiredSpillage() uint {
 	for _, c := range p.computations {
 		mx = max(mx, c.RequiredSpillage())
 	}
+
 	return mx
+}
+
+// ApplyPadding adds n items of padding to each column of the trace.
+// Padding values are placed either at the front or the back of a given
+// column, depending on their interpretation.
+func (p *Schema) ApplyPadding(n uint, tr table.Trace) {
+	for i := uint(0); i < tr.Width(); i++ {
+		tr.ColumnByIndex(i).Pad(n, true)
+	}
 }
 
 // IsInputTrace determines whether a given input trace is a suitable

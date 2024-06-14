@@ -75,6 +75,15 @@ func (p *Schema) RequiredSpillage() uint {
 	return uint(1)
 }
 
+// ApplyPadding adds n items of padding to each column of the trace.
+// Padding values are placed either at the front or the back of a given
+// column, depending on their interpretation.
+func (p *Schema) ApplyPadding(n uint, tr table.Trace) {
+	for i := uint(0); i < tr.Width(); i++ {
+		tr.ColumnByIndex(i).Pad(n, true)
+	}
+}
+
 // GetDeclaration returns the ith declaration in this schema.
 func (p *Schema) GetDeclaration(index int) table.Declaration {
 	ith := util.FlatArrayIndexOf_4(index, p.dataColumns, p.permutations, p.vanishing, p.assertions)
