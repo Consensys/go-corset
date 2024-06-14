@@ -109,9 +109,10 @@ func (p *Schema) RequiredSpillage() uint {
 // Padding values are placed either at the front or the back of a given
 // column, depending on their interpretation.
 func (p *Schema) ApplyPadding(n uint, tr table.Trace) {
-	for i := uint(0); i < tr.Width(); i++ {
-		tr.ColumnByIndex(i).Pad(n, true)
-	}
+	tr.Pad(n, func(j int) (bool, *fr.Element) {
+		value := tr.GetByIndex(j, 0)
+		return true, value
+	})
 }
 
 // IsInputTrace determines whether a given input trace is a suitable

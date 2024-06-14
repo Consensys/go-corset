@@ -177,7 +177,6 @@ func checkTrace(tr *table.ArrayTrace, schema table.Schema, cfg checkConfig) erro
 		ptr := tr.Clone()
 		// Apply padding
 		schema.ApplyPadding(n, ptr)
-		fmt.Println(ptr.String())
 		// Check whether accepted or not.
 		if err := schema.Accepts(ptr); err != nil {
 			return err

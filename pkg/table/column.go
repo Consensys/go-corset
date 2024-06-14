@@ -242,7 +242,7 @@ func (p *SortedPermutation) Accepts(tr Trace) error {
 			return err
 		}
 
-		cols[i] = tr.ColumnByName(dstName)
+		cols[i] = tr.ColumnByName(dstName).Data()
 	}
 
 	// Check that target columns are sorted lexicographically.
@@ -271,7 +271,7 @@ func (p *SortedPermutation) ExpandTrace(tr Trace) error {
 	for i := 0; i < len(p.Targets); i++ {
 		src := p.Sources[i]
 		// Read column data to initialise permutation.
-		data := tr.ColumnByName(src)
+		data := tr.ColumnByName(src).Data()
 		// Copy column data to initialise permutation.
 		cols[i] = make([]*fr.Element, len(data))
 		copy(cols[i], data)
@@ -320,8 +320,8 @@ func (p *SortedPermutation) String() string {
 // of another in given trace.  The order in which columns are given is
 // not important.
 func IsPermutationOf(target string, source string, tr Trace) error {
-	dst := tr.ColumnByName(target)
-	src := tr.ColumnByName(source)
+	dst := tr.ColumnByName(target).Data()
+	src := tr.ColumnByName(source).Data()
 	// Sanity check whether column exists
 	if dst == nil {
 		msg := fmt.Sprintf("Invalid target column for permutation ({%s})", target)

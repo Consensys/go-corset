@@ -77,7 +77,7 @@ func (p *ByteDecomposition) ExpandTrace(tr Trace) error {
 	// Calculate how many bytes required.
 	n := int(p.BitWidth / 8)
 	// Extract column data to decompose
-	data := tr.ColumnByName(p.Target)
+	data := tr.ColumnByName(p.Target).Data()
 	// Construct byte column data
 	cols := make([][]*fr.Element, n)
 	// Initialise columns
