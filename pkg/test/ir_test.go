@@ -1,4 +1,4 @@
-package testA
+package test
 
 import (
 	"bufio"
