@@ -1,5 +1,31 @@
 package util
 
+import "github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+
+// Equals2d returns true if two 2D arrays are equal.
+func Equals2d(lhs [][]*fr.Element, rhs [][]*fr.Element) bool {
+	if len(lhs) != len(rhs) {
+		return false
+	}
+
+	for i := 0; i < len(lhs); i++ {
+		lhs_i := lhs[i]
+		rhs_i := rhs[i]
+		// Check lengths match
+		if len(lhs_i) != len(rhs_i) {
+			return false
+		}
+		// Check elements match
+		for j := 0; j < len(lhs_i); j++ {
+			if lhs_i[j].Cmp(rhs_i[j]) != 0 {
+				return false
+			}
+		}
+	}
+	//
+	return true
+}
+
 // FlatArrayIndexOf_2 returns the ith element of the flattened form of a 2d
 // array. Consider the array "[[0,7],[4]]".  Then its flattened form is
 // "[0,7,4]" and, for example, the element at index 1 is "7".
