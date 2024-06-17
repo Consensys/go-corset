@@ -16,6 +16,16 @@ type Schema interface {
 
 	// GetDeclaration returns the ith declaration in this schema.
 	GetDeclaration(int) Declaration
+
+	// RequiredSpillage returns the minimum amount of spillage required to
+	// ensure valid traces are accepted in the presence of arbitrary padding.
+	// Note: this is calculated on demand.
+	RequiredSpillage() uint
+
+	// ApplyPadding adds n items of padding to each column of the trace.
+	// Padding values are placed either at the front or the back of a given
+	// column, depending on their interpretation.
+	ApplyPadding(uint, Trace)
 }
 
 // Declaration represents a declared element of a schema.  For example, a column

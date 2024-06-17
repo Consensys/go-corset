@@ -52,7 +52,8 @@ func ApplyBitwidthGadget(col string, nbits uint, schema *air.Schema) {
 	// Construct X == (X:0 * 1) + ... + (X:n * 2^n)
 	X := air.NewColumnAccess(col, 0)
 	eq := X.Equate(sum)
-	schema.AddVanishingConstraint(col, nil, eq)
+	// Construct column name
+	schema.AddVanishingConstraint(fmt.Sprintf("%s:u%d", col, nbits), nil, eq)
 	// Finally, add the necessary byte decomposition computation.
 	schema.AddComputation(table.NewByteDecomposition(col, nbits))
 }

@@ -1,4 +1,5 @@
+(column ST :u16)
 (column X :u16)
 (column Y :u16)
-(permute (A B) (-X -Y))
-(vanish diag_ab (- (shift A 1) B))
+(permute (ST' A B) (+ST -X -Y))
+(vanish diag_ab (* ST' (- (shift A 1) B)))

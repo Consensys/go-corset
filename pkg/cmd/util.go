@@ -24,16 +24,41 @@ func getFlag(cmd *cobra.Command, flag string) bool {
 	return r
 }
 
+// Get an expectedsigned integer, or panic if an error arises.
+func getInt(cmd *cobra.Command, flag string) int {
+	r, err := cmd.Flags().GetInt(flag)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(3)
+	}
+
+	return r
+}
+
+// Get an expected unsigned integer, or panic if an error arises.
+func getUint(cmd *cobra.Command, flag string) uint {
+	r, err := cmd.Flags().GetUint(flag)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(4)
+	}
+
+	return r
+}
+
 // Parse a trace file using a parser based on the extension of the filename.
 func readTraceFile(filename string) *table.ArrayTrace {
+	var trace *table.ArrayTrace
+	// Read data file
 	bytes, err := os.ReadFile(filename)
+	// Check success
 	if err == nil {
 		// Check file extension
 		ext := path.Ext(filename)
 		//
 		switch ext {
 		case ".json":
-			trace, err := table.ParseJsonTrace(bytes)
+			trace, err = table.ParseJsonTrace(bytes)
 			if err == nil {
 				return trace
 			}

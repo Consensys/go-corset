@@ -106,8 +106,8 @@ func (p *RowConstraint[T]) Accepts(tr Trace) error {
 // HoldsGlobally checks whether a given expression vanishes (i.e. evaluates to
 // zero) for all rows of a trace.  If not, report an appropriate error.
 func HoldsGlobally[T Testable](handle string, constraint T, tr Trace) error {
-	for k := 0; k < tr.Height(); k++ {
-		if err := HoldsLocally(k, handle, constraint, tr); err != nil {
+	for k := uint(0); k < tr.Height(); k++ {
+		if err := HoldsLocally(int(k), handle, constraint, tr); err != nil {
 			return err
 		}
 	}
@@ -120,7 +120,7 @@ func HoldsGlobally[T Testable](handle string, constraint T, tr Trace) error {
 func HoldsLocally[T Testable](k int, handle string, constraint T, tr Trace) error {
 	// Negative rows calculated from end of trace.
 	if k < 0 {
-		k += tr.Height()
+		k += int(tr.Height())
 	}
 	// Check whether it holds or not
 	if !constraint.TestAt(k, tr) {
@@ -188,9 +188,9 @@ func (p *RangeConstraint) IsAir() bool { return true }
 // Accepts checks whether a range constraint evaluates to zero on
 // every row of a table. If so, return nil otherwise return an error.
 func (p *RangeConstraint) Accepts(tr Trace) error {
-	for k := 0; k < tr.Height(); k++ {
+	for k := uint(0); k < tr.Height(); k++ {
 		// Get the value on the kth row
-		kth := tr.GetByName(p.Handle, k)
+		kth := tr.GetByName(p.Handle, int(k))
 		// Perform the bounds check
 		if kth != nil && kth.Cmp(p.Bound) >= 0 {
 			// Construct useful error message
@@ -247,9 +247,9 @@ func NewPropertyAssertion[E Evaluable](handle string, expr E) *PropertyAssertion
 //
 //nolint:revive
 func (p *PropertyAssertion[E]) Accepts(tr Trace) error {
-	for k := 0; k < tr.Height(); k++ {
+	for k := uint(0); k < tr.Height(); k++ {
 		// Determine kth evaluation point
-		kth := p.Expr.EvalAt(k, tr)
+		kth := p.Expr.EvalAt(int(k), tr)
 		// Check whether it vanished (or was undefined)
 		if kth != nil && !kth.IsZero() {
 			// Construct useful error message

@@ -1,6 +1,7 @@
 package hir
 
 import (
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/mir"
 	"github.com/consensys/go-corset/pkg/table"
 	"github.com/consensys/go-corset/pkg/util"
@@ -100,6 +101,23 @@ func (p *Schema) Size() int {
 	return len(p.dataColumns) + len(p.permutations) + len(p.vanishing) + len(p.assertions)
 }
 
+// RequiredSpillage returns the minimum amount of spillage required to ensure
+// valid traces are accepted in the presence of arbitrary padding.
+func (p *Schema) RequiredSpillage() uint {
+	// Ensures always at least one row of spillage (referred to as the "initial
+	// padding row")
+	return uint(1)
+}
+
+// ApplyPadding adds n items of padding to each column of the trace.
+// Padding values are placed either at the front or the back of a given
+// column, depending on their interpretation.
+func (p *Schema) ApplyPadding(n uint, tr table.Trace) {
+	tr.Pad(n, func(j int) *fr.Element {
+		return tr.GetByIndex(j, 0)
+	})
+}
+
 // GetDeclaration returns the ith declaration in this schema.
 func (p *Schema) GetDeclaration(index int) table.Declaration {
 	ith := util.FlatArrayIndexOf_4(index, p.dataColumns, p.permutations, p.vanishing, p.assertions)
@@ -159,8 +177,6 @@ func (p *Schema) Accepts(trace table.Trace) error {
 
 // ExpandTrace expands a given trace according to this schema.
 func (p *Schema) ExpandTrace(tr table.Trace) error {
-	// Insert initial padding row
-	table.PadTrace(1, tr)
 	// Expand all the permutation columns
 	for _, perm := range p.permutations {
 		err := perm.ExpandTrace(tr)

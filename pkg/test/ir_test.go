@@ -7,7 +7,6 @@ import (
 	"os"
 	"strings"
 	"testing"
-	"unicode/utf8"
 
 	"github.com/consensys/go-corset/pkg/hir"
 	"github.com/consensys/go-corset/pkg/table"
@@ -124,6 +123,10 @@ func Test_Shift_05(t *testing.T) {
 
 func Test_Shift_06(t *testing.T) {
 	Check(t, "shift_06")
+}
+
+func Test_Shift_07(t *testing.T) {
+	Check(t, "shift_07")
 }
 
 // ===================================================================
@@ -308,7 +311,7 @@ func TestSlow_Mxp(t *testing.T) {
 
 // Determines the maximum amount of padding to use when testing.  Specifically,
 // every trace is tested with varying amounts of padding upto this value.
-const MAX_PADDING int = 0
+const MAX_PADDING uint = 0
 
 // For a given set of constraints, check that all traces which we
 // expect to be accepted are accepted, and all traces that we expect
@@ -339,21 +342,25 @@ func Check(t *testing.T, test string) {
 func CheckTraces(t *testing.T, test string, expected bool, traces []*table.ArrayTrace, hirSchema *hir.Schema) {
 	for i, tr := range traces {
 		if tr != nil {
-			for padding := 0; padding <= MAX_PADDING; padding++ {
+			for padding := uint(0); padding <= MAX_PADDING; padding++ {
 				// Lower HIR => MIR
 				mirSchema := hirSchema.LowerToMir()
 				// Lower MIR => AIR
 				airSchema := mirSchema.LowerToAir()
+				// Construct trace identifiers
+				hirID := traceId{"HIR", test, expected, i + 1, padding, hirSchema.RequiredSpillage()}
+				mirID := traceId{"MIR", test, expected, i + 1, padding, mirSchema.RequiredSpillage()}
+				airID := traceId{"AIR", test, expected, i + 1, padding, airSchema.RequiredSpillage()}
 				// Check HIR/MIR trace (if applicable)
 				if airSchema.IsInputTrace(tr) == nil {
 					// This is an unexpanded input trace.
-					checkInputTrace(t, tr, traceId{"HIR", test, expected, i + 1, padding}, hirSchema)
-					checkInputTrace(t, tr, traceId{"MIR", test, expected, i + 1, padding}, mirSchema)
-					checkInputTrace(t, tr, traceId{"AIR", test, expected, i + 1, padding}, airSchema)
+					checkInputTrace(t, tr, hirID, hirSchema)
+					checkInputTrace(t, tr, mirID, mirSchema)
+					checkInputTrace(t, tr, airID, airSchema)
 				} else if airSchema.IsOutputTrace(tr) == nil {
 					// This is an already expanded input trace.  Therefore, no need
 					// to perform expansion.
-					checkExpandedTrace(t, tr, traceId{"AIR", test, expected, i + 1, 0}, airSchema)
+					checkExpandedTrace(t, tr, airID, airSchema)
 				} else {
 					// Trace appears to be malformed.
 					err1 := airSchema.IsInputTrace(tr)
@@ -373,6 +380,8 @@ func CheckTraces(t *testing.T, test string, expected bool, traces []*table.Array
 func checkInputTrace(t *testing.T, tr *table.ArrayTrace, id traceId, schema table.Schema) {
 	// Clone trace (to ensure expansion does not affect subsequent tests)
 	etr := tr.Clone()
+	// Apply spillage
+	table.FrontPadWithZeros(schema.RequiredSpillage(), etr)
 	// Expand trace
 	err := schema.ExpandTrace(etr)
 	// Check
@@ -385,7 +394,7 @@ func checkInputTrace(t *testing.T, tr *table.ArrayTrace, id traceId, schema tabl
 
 func checkExpandedTrace(t *testing.T, tr table.Trace, id traceId, schema table.Schema) {
 	// Apply padding
-	table.PadTrace(id.padding, tr)
+	schema.ApplyPadding(id.padding, tr)
 	// Check
 	err := schema.Accepts(tr)
 	// Determine whether trace accepted or not.
@@ -393,14 +402,13 @@ func checkExpandedTrace(t *testing.T, tr table.Trace, id traceId, schema table.S
 	// Process what happened versus what was supposed to happen.
 	if !accepted && id.expected {
 		//printTrace(tr)
-		msg := fmt.Sprintf("Trace rejected incorrectly (%s, %s.accepts, %d padding, line %d): %s",
-			id.ir, id.test, id.padding, id.line, err)
+		msg := fmt.Sprintf("Trace rejected incorrectly (%s, %s.accepts, line %d with spillage %d / padding %d): %s",
+			id.ir, id.test, id.line, id.spillage, id.padding, err)
 		t.Errorf(msg)
 	} else if accepted && !id.expected {
-		printTrace(tr)
-
-		msg := fmt.Sprintf("Trace accepted incorrectly (%s, %s.rejects, %d padding, line %d)",
-			id.ir, id.test, id.padding, id.line)
+		//printTrace(tr)
+		msg := fmt.Sprintf("Trace accepted incorrectly (%s, %s.rejects, line %d with spillage %d / padding %d)",
+			id.ir, id.test, id.line, id.spillage, id.padding)
 		t.Errorf(msg)
 	}
 }
@@ -420,8 +428,11 @@ type traceId struct {
 	// Identifies the line number within the test file that the failing trace
 	// original.
 	line int
-	// Identifies how much padding has been added to the original trace.
-	padding int
+	// Identifies how much padding has been added to the expanded trace.
+	padding uint
+	// Determines how much spillage was added to the original trace (prior to
+	// expansion).
+	spillage uint
 }
 
 // ReadTracesFile reads a file containing zero or more traces expressed as JSON, where
@@ -498,69 +509,4 @@ func readLine(reader *bufio.Reader) *string {
 	str := string(bytes)
 	// Done
 	return &str
-}
-
-// Prints a trace in a more human-friendly fashion.
-func printTrace(tr table.Trace) {
-	n := tr.Width()
-	//
-	rows := make([][]string, n)
-	for i := 0; i < n; i++ {
-		rows[i] = traceColumnData(tr, i)
-	}
-	//
-	widths := traceRowWidths(tr.Height(), rows)
-	//
-	printHorizontalRule(widths)
-	//
-	for _, r := range rows {
-		printTraceRow(r, widths)
-		printHorizontalRule(widths)
-	}
-}
-
-func traceColumnData(tr table.Trace, col int) []string {
-	n := tr.Height()
-	data := make([]string, n+1)
-	data[0] = tr.ColumnName(col)
-
-	for row := 0; row < n; row++ {
-		data[row+1] = tr.GetByIndex(col, row).String()
-	}
-
-	return data
-}
-
-func traceRowWidths(height int, rows [][]string) []int {
-	widths := make([]int, height+1)
-
-	for _, row := range rows {
-		for i, col := range row {
-			w := utf8.RuneCountInString(col)
-			widths[i] = max(w, widths[i])
-		}
-	}
-
-	return widths
-}
-
-func printTraceRow(row []string, widths []int) {
-	for i, col := range row {
-		fmt.Printf(" %*s |", widths[i], col)
-	}
-
-	fmt.Println()
-}
-
-func printHorizontalRule(widths []int) {
-	for _, w := range widths {
-		fmt.Print("-")
-
-		for i := 0; i < w; i++ {
-			fmt.Print("-")
-		}
-		fmt.Print("-+")
-	}
-
-	fmt.Println()
 }

@@ -89,12 +89,38 @@ func (p *Schema) HasColumn(name string) bool {
 	return false
 }
 
+// RequiredSpillage returns the minimum amount of spillage required to ensure
+// valid traces are accepted in the presence of arbitrary padding.  Spillage can
+// only arise from computations as this is where values outside of the user's
+// control are determined.
+func (p *Schema) RequiredSpillage() uint {
+	// Ensures always at least one row of spillage (referred to as the "initial
+	// padding row")
+	mx := uint(1)
+	// Determine if any more spillage required
+	for _, c := range p.computations {
+		mx = max(mx, c.RequiredSpillage())
+	}
+
+	return mx
+}
+
+// ApplyPadding adds n items of padding to each column of the trace.
+// Padding values are placed either at the front or the back of a given
+// column, depending on their interpretation.
+func (p *Schema) ApplyPadding(n uint, tr table.Trace) {
+	tr.Pad(n, func(j int) *fr.Element {
+		// Extract front value to use for padding.
+		return tr.GetByIndex(j, 0)
+	})
+}
+
 // IsInputTrace determines whether a given input trace is a suitable
 // input (i.e. non-expanded) trace for this schema.  Specifically, the
 // input trace must contain a matching column for each non-synthetic
 // column in this trace.
 func (p *Schema) IsInputTrace(tr table.Trace) error {
-	count := 0
+	count := uint(0)
 
 	for _, c := range p.dataColumns {
 		if !c.Synthetic && !tr.HasColumn(c.Name) {
@@ -112,8 +138,8 @@ func (p *Schema) IsInputTrace(tr table.Trace) error {
 		// Determine the unknown columns for error reporting.
 		unknown := make([]string, 0)
 
-		for i := 0; i < tr.Width(); i++ {
-			n := tr.ColumnName(i)
+		for i := uint(0); i < tr.Width(); i++ {
+			n := tr.ColumnName(int(i))
 			if !p.HasColumn(n) {
 				unknown = append(unknown, n)
 			}
@@ -132,7 +158,7 @@ func (p *Schema) IsInputTrace(tr table.Trace) error {
 // output trace must contain a matching column for each column in this
 // trace (synthetic or otherwise).
 func (p *Schema) IsOutputTrace(tr table.Trace) error {
-	count := 0
+	count := uint(0)
 
 	for _, c := range p.dataColumns {
 		if !tr.HasColumn(c.Name) {
@@ -153,7 +179,9 @@ func (p *Schema) IsOutputTrace(tr table.Trace) error {
 // AddColumn appends a new data column which is either synthetic or
 // not.  A synthetic column is one which has been introduced by the
 // process of lowering from HIR / MIR to AIR.  That is, it is not a
-// column which was original specified by the user.
+// column which was original specified by the user.  Columns also support a
+// "padding sign", which indicates whether padding should occur at the front
+// (positive sign) or the back (negative sign).
 func (p *Schema) AddColumn(name string, synthetic bool) {
 	// NOTE: the air level has no ability to enforce the type specified for a
 	// given column.
@@ -219,8 +247,6 @@ func (p *Schema) Accepts(trace table.Trace) error {
 // columns. Observe that computed columns have to be computed in the correct
 // order.
 func (p *Schema) ExpandTrace(tr table.Trace) error {
-	// Insert initial padding row
-	table.PadTrace(1, tr)
 	// Execute all computations
 	for _, c := range p.computations {
 		err := c.ExpandTrace(tr)

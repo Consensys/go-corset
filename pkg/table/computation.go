@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // TraceComputation represents a computation which is applied to a
@@ -17,6 +18,22 @@ type TraceComputation interface {
 	// original trace, but are added during trace expansion to
 	// form the final trace.
 	ExpandTrace(Trace) error
+	// RequiredSpillage returns the minimum amount of spillage required to ensure
+	// valid traces are accepted in the presence of arbitrary padding.  Note,
+	// spillage is currently assumed to be required only at the front of a
+	// trace.
+	RequiredSpillage() uint
+}
+
+// Computable is an extension of the Evaluable interface which additionally
+// allows one to determine specifics about the computation needed to ensure it
+// can be correctly computed on a given trace.
+type Computable interface {
+	Evaluable
+
+	// Determine the maximum shift in this expression in either the negative
+	// (left) or positive direction (right).
+	MaxShift() util.Pair[uint, uint]
 }
 
 // ByteDecomposition is part of a range constraint for wide columns (e.g. u32)
@@ -60,7 +77,7 @@ func (p *ByteDecomposition) ExpandTrace(tr Trace) error {
 	// Calculate how many bytes required.
 	n := int(p.BitWidth / 8)
 	// Extract column data to decompose
-	data := tr.ColumnByName(p.Target)
+	data := tr.ColumnByName(p.Target).Data()
 	// Construct byte column data
 	cols := make([][]*fr.Element, n)
 	// Initialise columns
@@ -85,6 +102,12 @@ func (p *ByteDecomposition) ExpandTrace(tr Trace) error {
 
 func (p *ByteDecomposition) String() string {
 	return fmt.Sprintf("(decomposition %s %d)", p.Target, p.BitWidth)
+}
+
+// RequiredSpillage returns the minimum amount of spillage required to ensure
+// valid traces are accepted in the presence of arbitrary padding.
+func (p *ByteDecomposition) RequiredSpillage() uint {
+	return uint(0)
 }
 
 // Decompose a given element into n bytes in little endian form.  For example,

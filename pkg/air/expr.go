@@ -3,6 +3,7 @@ package air
 import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/table"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // Expr represents an expression in the Arithmetic Intermediate Representation
@@ -33,6 +34,10 @@ type Expr interface {
 
 	// Equate one expression with another
 	Equate(Expr) Expr
+
+	// Determine the maximum shift in this expression in either the negative
+	// (left) or positive direction (right).
+	MaxShift() util.Pair[uint, uint]
 }
 
 // Add represents the sum over zero or more expressions.
@@ -50,6 +55,10 @@ func (p *Add) Mul(other Expr) Expr { return &Mul{Args: []Expr{p, other}} }
 // Equate one expression with another (equivalent to subtraction).
 func (p *Add) Equate(other Expr) Expr { return &Sub{Args: []Expr{p, other}} }
 
+// MaxShift returns max shift in either the negative (left) or positive
+// direction (right).
+func (p *Add) MaxShift() util.Pair[uint, uint] { return maxShiftOfArray(p.Args) }
+
 // Sub represents the subtraction over zero or more expressions.
 type Sub struct{ Args []Expr }
 
@@ -65,6 +74,10 @@ func (p *Sub) Mul(other Expr) Expr { return &Mul{Args: []Expr{p, other}} }
 // Equate one expression with another (equivalent to subtraction).
 func (p *Sub) Equate(other Expr) Expr { return &Sub{Args: []Expr{p, other}} }
 
+// MaxShift returns max shift in either the negative (left) or positive
+// direction (right).
+func (p *Sub) MaxShift() util.Pair[uint, uint] { return maxShiftOfArray(p.Args) }
+
 // Mul represents the product over zero or more expressions.
 type Mul struct{ Args []Expr }
 
@@ -79,6 +92,10 @@ func (p *Mul) Mul(other Expr) Expr { return &Mul{Args: []Expr{p, other}} }
 
 // Equate one expression with another (equivalent to subtraction).
 func (p *Mul) Equate(other Expr) Expr { return &Sub{Args: []Expr{p, other}} }
+
+// MaxShift returns max shift in either the negative (left) or positive
+// direction (right).
+func (p *Mul) MaxShift() util.Pair[uint, uint] { return maxShiftOfArray(p.Args) }
 
 // Constant represents a constant value within an expression.
 type Constant struct{ Value *fr.Element }
@@ -118,6 +135,10 @@ func (p *Constant) Mul(other Expr) Expr { return &Mul{Args: []Expr{p, other}} }
 // Equate one expression with another (equivalent to subtraction).
 func (p *Constant) Equate(other Expr) Expr { return &Sub{Args: []Expr{p, other}} }
 
+// MaxShift returns max shift in either the negative (left) or positive
+// direction (right).  A constant has zero shift.
+func (p *Constant) MaxShift() util.Pair[uint, uint] { return util.NewPair[uint, uint](0, 0) }
+
 // ColumnAccess represents reading the value held at a given column in the
 // tabular context.  Furthermore, the current row maybe shifted up (or down) by
 // a given amount. Suppose we are evaluating a constraint on row k=5 which
@@ -146,3 +167,31 @@ func (p *ColumnAccess) Mul(other Expr) Expr { return &Mul{Args: []Expr{p, other}
 
 // Equate one expression with another (equivalent to subtraction).
 func (p *ColumnAccess) Equate(other Expr) Expr { return &Sub{Args: []Expr{p, other}} }
+
+// MaxShift returns max shift in either the negative (left) or positive
+// direction (right).
+func (p *ColumnAccess) MaxShift() util.Pair[uint, uint] {
+	if p.Shift >= 0 {
+		// Positive shift
+		return util.NewPair[uint, uint](0, uint(p.Shift))
+	}
+	// Negative shift
+	return util.NewPair[uint, uint](uint(-p.Shift), 0)
+}
+
+// ==========================================================================
+// Helpers
+// ==========================================================================
+
+func maxShiftOfArray(args []Expr) util.Pair[uint, uint] {
+	neg := uint(0)
+	pos := uint(0)
+
+	for _, e := range args {
+		mx := e.MaxShift()
+		neg = max(neg, mx.Left)
+		pos = max(pos, mx.Right)
+	}
+	// Done
+	return util.NewPair(neg, pos)
+}
