@@ -4,6 +4,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/mir"
 	"github.com/consensys/go-corset/pkg/table"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // ============================================================================
@@ -15,6 +16,7 @@ import (
 // in the AIR level.  For example, an "if" expression at this level will be
 // "compiled out" into one or more expressions at the MIR level.
 type Expr interface {
+	util.Boundable
 	// LowerTo lowers this expression into the Mid-Level Intermediate
 	// Representation.  Observe that a single expression at this
 	// level can expand into *multiple* expressions at the MIR
@@ -34,17 +36,37 @@ type Expr interface {
 // Add represents the sum over zero or more expressions.
 type Add struct{ Args []Expr }
 
+// Bounds returns max shift in either the negative (left) or positive
+// direction (right).
+func (p *Add) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
+
 // Sub represents the subtraction over zero or more expressions.
 type Sub struct{ Args []Expr }
+
+// Bounds returns max shift in either the negative (left) or positive
+// direction (right).
+func (p *Sub) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
 
 // Mul represents the product over zero or more expressions.
 type Mul struct{ Args []Expr }
 
+// Bounds returns max shift in either the negative (left) or positive
+// direction (right).
+func (p *Mul) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
+
 // List represents a block of zero or more expressions.
 type List struct{ Args []Expr }
 
+// Bounds returns max shift in either the negative (left) or positive
+// direction (right).
+func (p *List) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
+
 // Constant represents a constant value within an expression.
 type Constant struct{ Val *fr.Element }
+
+// Bounds returns max shift in either the negative (left) or positive
+// direction (right).  A constant has zero shift.
+func (p *Constant) Bounds() util.Bounds { return util.EMPTY_BOUND }
 
 // IfZero returns the (optional) true branch when the condition evaluates to zero, and
 // the (optional false branch otherwise.
@@ -57,9 +79,33 @@ type IfZero struct {
 	FalseBranch Expr
 }
 
+// Bounds returns max shift in either the negative (left) or positive
+// direction (right).
+func (p *IfZero) Bounds() util.Bounds {
+	c := p.Condition.Bounds()
+	// Get bounds for true branch (if applicable)
+	if p.TrueBranch != nil {
+		tbounds := p.TrueBranch.Bounds()
+		c.Union(&tbounds)
+	}
+	// Get bounds for false branch (if applicable)
+	if p.FalseBranch != nil {
+		fbounds := p.FalseBranch.Bounds()
+		c.Union(&fbounds)
+	}
+	// Done
+	return c
+}
+
 // Normalise reduces the value of an expression to either zero (if it was zero)
 // or one (otherwise).
 type Normalise struct{ Arg Expr }
+
+// Bounds returns max shift in either the negative (left) or positive
+// direction (right).
+func (p *Normalise) Bounds() util.Bounds {
+	return p.Arg.Bounds()
+}
 
 // ColumnAccess represents reading the value held at a given column in the
 // tabular context.  Furthermore, the current row maybe shifted up (or down) by
@@ -70,4 +116,15 @@ type Normalise struct{ Arg Expr }
 type ColumnAccess struct {
 	Column string
 	Shift  int
+}
+
+// Bounds returns max shift in either the negative (left) or positive
+// direction (right).
+func (p *ColumnAccess) Bounds() util.Bounds {
+	if p.Shift >= 0 {
+		// Positive shift
+		return util.NewBounds(0, uint(p.Shift))
+	}
+	// Negative shift
+	return util.NewBounds(uint(-p.Shift), 0)
 }

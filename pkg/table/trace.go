@@ -24,13 +24,15 @@ type Column interface {
 	Height() uint
 	// Return the data stored in this column.
 	Data() []*fr.Element
+	// Return the value to use for padding this column.
+	Padding() *fr.Element
 }
 
 // Trace describes a set of named columns.  Columns are not required to have the
 // same height and can be either "data" columns or "computed" columns.
 type Trace interface {
 	// Add a new column of data
-	AddColumn(name string, data []*fr.Element)
+	AddColumn(name string, data []*fr.Element, padding *fr.Element)
 	// Get the name of the ith column in this trace.
 	ColumnName(int) string
 	// ColumnByIndex returns the ith column in this trace.
@@ -55,7 +57,7 @@ type Trace interface {
 	GetByIndex(col int, row int) *fr.Element
 	// Pad each column in this trace with n items at the front.  An iterator over
 	// the padding values to use for each column must be given.
-	Pad(n uint, signs func(int) *fr.Element)
+	Pad(n uint)
 	// Determine the height of this table, which is defined as the
 	// height of the largest column.
 	Height() uint
@@ -75,13 +77,6 @@ func ConstraintsAcceptTrace[T Acceptable](trace Trace, constraints []T) error {
 	}
 	//
 	return nil
-}
-
-// FrontPadWithZeros adds n rows of zeros to the given trace.
-func FrontPadWithZeros(n uint, tr Trace) {
-	var zero fr.Element = fr.NewElement((0))
-	// Insert initial padding row
-	tr.Pad(n, func(index int) *fr.Element { return &zero })
 }
 
 // ===================================================================
@@ -145,13 +140,13 @@ func (p *ArrayTrace) HasColumn(name string) bool {
 }
 
 // AddColumn adds a new column of data to this trace.
-func (p *ArrayTrace) AddColumn(name string, data []*fr.Element) {
+func (p *ArrayTrace) AddColumn(name string, data []*fr.Element, padding *fr.Element) {
 	// Sanity check the column does not already exist.
 	if p.HasColumn(name) {
 		panic("column already exists")
 	}
 	// Construct new column
-	column := ArrayTraceColumn{name, data}
+	column := ArrayTraceColumn{name, data, padding}
 	// Append it
 	p.columns = append(p.columns, &column)
 	// Update maximum height
@@ -227,9 +222,9 @@ func (p *ArrayTrace) Height() uint {
 
 // Pad each column in this trace with n items at the front.  An iterator over
 // the padding values to use for each column must be given.
-func (p *ArrayTrace) Pad(n uint, padding func(int) *fr.Element) {
-	for i, c := range p.columns {
-		c.Pad(n, padding(i))
+func (p *ArrayTrace) Pad(n uint) {
+	for _, c := range p.columns {
+		c.Pad(n)
 	}
 	// Increment height
 	p.height += n
@@ -279,6 +274,8 @@ type ArrayTraceColumn struct {
 	name string
 	// Holds the raw data making up this column
 	data []*fr.Element
+	// Value to be used when padding this column
+	padding *fr.Element
 }
 
 // Name returns the name of the given column.
@@ -291,6 +288,11 @@ func (p *ArrayTraceColumn) Height() uint {
 	return uint(len(p.data))
 }
 
+// Padding returns the value which will be used for padding this column.
+func (p *ArrayTraceColumn) Padding() *fr.Element {
+	return p.padding
+}
+
 // Data returns the data for the given column.
 func (p *ArrayTraceColumn) Data() []*fr.Element {
 	return p.data
@@ -301,6 +303,7 @@ func (p *ArrayTraceColumn) Clone() *ArrayTraceColumn {
 	clone := new(ArrayTraceColumn)
 	clone.name = p.name
 	clone.data = make([]*fr.Element, len(p.data))
+	clone.padding = p.padding
 	copy(clone.data, p.data)
 
 	return clone
@@ -308,14 +311,14 @@ func (p *ArrayTraceColumn) Clone() *ArrayTraceColumn {
 
 // Pad this column with n copies of a given value, either at the front
 // (sign=true) or the back (sign=false).
-func (p *ArrayTraceColumn) Pad(n uint, value *fr.Element) {
+func (p *ArrayTraceColumn) Pad(n uint) {
 	// Allocate sufficient memory
 	ndata := make([]*fr.Element, uint(len(p.data))+n)
 	// Copy over the data
 	copy(ndata[n:], p.data)
 	// Go padding!
 	for i := uint(0); i < n; i++ {
-		ndata[i] = value
+		ndata[i] = p.padding
 	}
 	// Copy over
 	p.data = ndata
@@ -323,11 +326,11 @@ func (p *ArrayTraceColumn) Pad(n uint, value *fr.Element) {
 
 // Get the value at the given row of this column.
 func (p *ArrayTraceColumn) Get(row int) *fr.Element {
-	if row < 0 || row >= len(p.data) {
-		return nil
+	if row >= 0 && row < len(p.data) {
+		return p.data[row]
 	}
-
-	return p.data[row]
+	// For out-of-bounds access, return padding value.
+	return p.padding
 }
 
 // ===================================================================
@@ -338,6 +341,8 @@ func (p *ArrayTraceColumn) Get(row int) *fr.Element {
 // [0], "Y": [1]} is a trace containing one row of data each for two columns "X"
 // and "Y".
 func ParseJsonTrace(bytes []byte) (*ArrayTrace, error) {
+	var zero fr.Element = fr.NewElement((0))
+
 	var rawData map[string][]*big.Int
 	// Unmarshall
 	jsonErr := json.Unmarshal(bytes, &rawData)
@@ -351,7 +356,7 @@ func ParseJsonTrace(bytes []byte) (*ArrayTrace, error) {
 		// Translate raw bigints into raw field elements
 		rawElements := util.ToFieldElements(rawInts)
 		// Add new column to the trace
-		trace.AddColumn(name, rawElements)
+		trace.AddColumn(name, rawElements, &zero)
 	}
 
 	// Done.

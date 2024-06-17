@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // Evaluable captures something which can be evaluated on a given table row to
@@ -12,6 +13,7 @@ import (
 // Mid-Level or Arithmetic-Level IR can all be evaluated at rows of a
 // table.
 type Evaluable interface {
+	util.Boundable
 	// EvalAt evaluates this expression in a given tabular context.
 	// Observe that if this expression is *undefined* within this
 	// context then it returns "nil".  An expression can be
@@ -28,6 +30,8 @@ type Evaluable interface {
 // Evaluable (i.e. because they return multiple values, rather than a single
 // value).  However, constraints at the HIR level remain testable.
 type Testable interface {
+	util.Boundable
+
 	// TestAt evaluates this expression in a given tabular context and checks it
 	// against zero. Observe that if this expression is *undefined* within this
 	// context then it returns "nil".  An expression can be undefined for
@@ -52,6 +56,11 @@ type ZeroTest[E Evaluable] struct {
 func (p ZeroTest[E]) TestAt(row int, tr Trace) bool {
 	val := p.Expr.EvalAt(row, tr)
 	return val == nil || val.IsZero()
+}
+
+// Bounds determines the bounds for this zero test.
+func (p ZeroTest[E]) Bounds() util.Bounds {
+	return p.Expr.Bounds()
 }
 
 // String generates a human-readble string.
@@ -106,9 +115,15 @@ func (p *RowConstraint[T]) Accepts(tr Trace) error {
 // HoldsGlobally checks whether a given expression vanishes (i.e. evaluates to
 // zero) for all rows of a trace.  If not, report an appropriate error.
 func HoldsGlobally[T Testable](handle string, constraint T, tr Trace) error {
-	for k := uint(0); k < tr.Height(); k++ {
-		if err := HoldsLocally(int(k), handle, constraint, tr); err != nil {
-			return err
+	// Determine well-definedness bounds for this constraint
+	bounds := constraint.Bounds()
+	// Sanity check enough rows
+	if bounds.End < tr.Height() {
+		// Check all in-bounds values
+		for k := bounds.Start; k < (tr.Height() - bounds.End); k++ {
+			if err := HoldsLocally(int(k), handle, constraint, tr); err != nil {
+				return err
+			}
 		}
 	}
 	// Success

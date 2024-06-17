@@ -70,7 +70,7 @@ func (c *DataColumn[T]) String() string {
 // expectation that this computation is acyclic.  Furthermore, computed columns
 // give rise to "trace expansion".  That is where the initial trace provided by
 // the user is expanded by determining the value of all computed columns.
-type ComputedColumn[E Computable] struct {
+type ComputedColumn[E Evaluable] struct {
 	Name string
 	// The computation which accepts a given trace and computes
 	// the value of this column at a given row.
@@ -80,7 +80,7 @@ type ComputedColumn[E Computable] struct {
 // NewComputedColumn constructs a new computed column with a given name and
 // determining expression.  More specifically, that expression is used to
 // compute the values for this column during trace expansion.
-func NewComputedColumn[E Computable](name string, expr E) *ComputedColumn[E] {
+func NewComputedColumn[E Evaluable](name string, expr E) *ComputedColumn[E] {
 	return &ComputedColumn[E]{
 		Name: name,
 		Expr: expr,
@@ -95,7 +95,7 @@ func (c *ComputedColumn[E]) RequiredSpillage() uint {
 	// (i.e. start) of a trace.  This is because padding is always inserted at
 	// the front, never the back.  As such, it is the maximum positive shift
 	// which determines how much spillage is required for this comptuation.
-	return c.Expr.MaxShift().Right
+	return c.Expr.Bounds().End
 }
 
 // Accepts determines whether or not this column accepts the given trace.  For a
@@ -132,8 +132,12 @@ func (c *ComputedColumn[E]) ExpandTrace(tr Trace) error {
 			data[i] = &zero
 		}
 	}
+	// Determine padding value.  A negative row index is used here to ensure
+	// that all columns return their padding value which is then used to compute
+	// the padding value for *this* column.
+	padding := c.Expr.EvalAt(-1, tr)
 	// Colunm needs to be expanded.
-	tr.AddColumn(c.Name, data)
+	tr.AddColumn(c.Name, data, padding)
 	// Done
 	return nil
 }
@@ -280,8 +284,9 @@ func (p *SortedPermutation) ExpandTrace(tr Trace) error {
 	util.PermutationSort(cols, p.Signs)
 	// Physically add the columns
 	for i := 0; i < len(p.Targets); i++ {
-		col := p.Targets[i]
-		tr.AddColumn(col, cols[i])
+		dstColName := p.Targets[i]
+		srcCol := tr.ColumnByName(p.Sources[i])
+		tr.AddColumn(dstColName, cols[i], srcCol.Padding())
 	}
 	//
 	return nil

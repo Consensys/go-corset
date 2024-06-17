@@ -1,2 +1,3 @@
+(column ST)
 (column A)
-(vanish spills (* A (~ (shift A 1))))
+(vanish spills (* ST (* A (~ (shift A 1)))))

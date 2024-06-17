@@ -105,16 +105,6 @@ func (p *Schema) RequiredSpillage() uint {
 	return mx
 }
 
-// ApplyPadding adds n items of padding to each column of the trace.
-// Padding values are placed either at the front or the back of a given
-// column, depending on their interpretation.
-func (p *Schema) ApplyPadding(n uint, tr table.Trace) {
-	tr.Pad(n, func(j int) *fr.Element {
-		// Extract front value to use for padding.
-		return tr.GetByIndex(j, 0)
-	})
-}
-
 // IsInputTrace determines whether a given input trace is a suitable
 // input (i.e. non-expanded) trace for this schema.  Specifically, the
 // input trace must contain a matching column for each non-synthetic

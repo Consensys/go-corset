@@ -1,7 +1,6 @@
 package hir
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/mir"
 	"github.com/consensys/go-corset/pkg/table"
 	"github.com/consensys/go-corset/pkg/util"
@@ -33,6 +32,11 @@ func (p ZeroArrayTest) TestAt(row int, tr table.Trace) bool {
 
 func (p ZeroArrayTest) String() string {
 	return p.Expr.String()
+}
+
+// Bounds determines the bounds for this zero test.
+func (p ZeroArrayTest) Bounds() util.Bounds {
+	return p.Expr.Bounds()
 }
 
 // DataColumn captures the essence of a data column at AIR level.
@@ -107,15 +111,6 @@ func (p *Schema) RequiredSpillage() uint {
 	// Ensures always at least one row of spillage (referred to as the "initial
 	// padding row")
 	return uint(1)
-}
-
-// ApplyPadding adds n items of padding to each column of the trace.
-// Padding values are placed either at the front or the back of a given
-// column, depending on their interpretation.
-func (p *Schema) ApplyPadding(n uint, tr table.Trace) {
-	tr.Pad(n, func(j int) *fr.Element {
-		return tr.GetByIndex(j, 0)
-	})
 }
 
 // GetDeclaration returns the ith declaration in this schema.

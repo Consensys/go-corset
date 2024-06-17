@@ -3,7 +3,6 @@ package mir
 import (
 	"fmt"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/air"
 	air_gadgets "github.com/consensys/go-corset/pkg/air/gadgets"
 	"github.com/consensys/go-corset/pkg/table"
@@ -74,15 +73,6 @@ func (p *Schema) RequiredSpillage() uint {
 	// Ensures always at least one row of spillage (referred to as the "initial
 	// padding row")
 	return uint(1)
-}
-
-// ApplyPadding adds n items of padding to each column of the trace.
-// Padding values are placed either at the front or the back of a given
-// column, depending on their interpretation.
-func (p *Schema) ApplyPadding(n uint, tr table.Trace) {
-	tr.Pad(n, func(j int) *fr.Element {
-		return tr.GetByIndex(j, 0)
-	})
 }
 
 // GetDeclaration returns the ith declaration in this schema.

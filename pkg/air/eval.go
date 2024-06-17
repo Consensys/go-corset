@@ -10,16 +10,8 @@ import (
 // out-of-bounds.
 func (e *ColumnAccess) EvalAt(k int, tbl table.Trace) *fr.Element {
 	val := tbl.GetByName(e.Column, k+e.Shift)
-	// Sanity check value is not nil
-	if val == nil {
-		// Indicates an out-of-bounds access of some kind.  Note that this is
-		// fine and expected under normal conditions.  For example, when a
-		// constraint accesses a row which doesn't exist (e.g. via a shift).
-		return nil
-	}
 
 	var clone fr.Element
-
 	// Clone original value
 	return clone.Set(val)
 }
@@ -65,10 +57,6 @@ func evalExprsAt(k int, tbl table.Trace, exprs []Expr, fn func(*fr.Element, *fr.
 	// Continue evaluating the rest
 	for i := 1; i < len(exprs); i++ {
 		ith := exprs[i].EvalAt(k, tbl)
-		if ith == nil {
-			return ith
-		}
-
 		fn(val, ith)
 	}
 
