@@ -117,10 +117,13 @@ func (p *RowConstraint[T]) Accepts(tr Trace) error {
 func HoldsGlobally[T Testable](handle string, constraint T, tr Trace) error {
 	// Determine well-definedness bounds for this constraint
 	bounds := constraint.Bounds()
-	// Check all in-bounds values
-	for k := bounds.Start; k < (tr.Height() - bounds.End); k++ {
-		if err := HoldsLocally(int(k), handle, constraint, tr); err != nil {
-			return err
+	// Sanity check enough rows
+	if bounds.End < tr.Height() {
+		// Check all in-bounds values
+		for k := bounds.Start; k < (tr.Height() - bounds.End); k++ {
+			if err := HoldsLocally(int(k), handle, constraint, tr); err != nil {
+				return err
+			}
 		}
 	}
 	// Success

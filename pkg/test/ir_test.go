@@ -137,6 +137,18 @@ func Test_Spillage_01(t *testing.T) {
 	Check(t, "spillage_01")
 }
 
+func Test_Spillage_02(t *testing.T) {
+	Check(t, "spillage_02")
+}
+
+func Test_Spillage_03(t *testing.T) {
+	Check(t, "spillage_03")
+}
+
+func Test_Spillage_04(t *testing.T) {
+	Check(t, "spillage_04")
+}
+
 // ===================================================================
 // Normalisation Tests
 // ===================================================================
