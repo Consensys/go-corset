@@ -230,11 +230,11 @@ func (p *lexicographicSortExpander) ExpandTrace(tr table.Trace) error {
 	}
 
 	// Add delta column data
-	tr.AddColumn(deltaName, delta)
+	tr.AddColumn(deltaName, delta, &zero)
 	// Add bit column data
 	for i := 0; i < ncols; i++ {
 		bitName := fmt.Sprintf("%s:%d", prefix, i)
-		tr.AddColumn(bitName, bit[i])
+		tr.AddColumn(bitName, bit[i], &zero)
 	}
 	// Done.
 	return nil

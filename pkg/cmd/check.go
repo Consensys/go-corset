@@ -160,10 +160,10 @@ func checkTrace(tr *table.ArrayTrace, schema table.Schema, cfg checkConfig) (tab
 		// Apply spillage
 		if cfg.spillage >= 0 {
 			// Apply user-specified spillage
-			table.FrontPadWithZeros(uint(cfg.spillage), tr)
+			tr.Pad(uint(cfg.spillage))
 		} else {
 			// Apply default inferred spillage
-			table.FrontPadWithZeros(schema.RequiredSpillage(), tr)
+			tr.Pad(schema.RequiredSpillage())
 		}
 		// Expand trace
 		if err := schema.ExpandTrace(tr); err != nil {
@@ -180,7 +180,7 @@ func checkTrace(tr *table.ArrayTrace, schema table.Schema, cfg checkConfig) (tab
 		// Prevent interference
 		ptr := tr.Clone()
 		// Apply padding
-		schema.ApplyPadding(n, ptr)
+		ptr.Pad(n)
 		// Check whether accepted or not.
 		if err := schema.Accepts(ptr); err != nil {
 			return ptr, err

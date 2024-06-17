@@ -13,6 +13,7 @@ import (
 // expressed within a polynomial but can be computed externally (e.g. during
 // trace expansion).
 type Expr interface {
+	util.Boundable
 	// EvalAt evaluates this expression in a given tabular context. Observe that
 	// if this expression is *undefined* within this context then it returns
 	// "nil".  An expression can be undefined for several reasons: firstly, if
@@ -34,10 +35,6 @@ type Expr interface {
 
 	// Equate one expression with another
 	Equate(Expr) Expr
-
-	// Determine the maximum shift in this expression in either the negative
-	// (left) or positive direction (right).
-	MaxShift() util.Pair[uint, uint]
 }
 
 // Add represents the sum over zero or more expressions.
@@ -55,9 +52,9 @@ func (p *Add) Mul(other Expr) Expr { return &Mul{Args: []Expr{p, other}} }
 // Equate one expression with another (equivalent to subtraction).
 func (p *Add) Equate(other Expr) Expr { return &Sub{Args: []Expr{p, other}} }
 
-// MaxShift returns max shift in either the negative (left) or positive
+// Bounds returns max shift in either the negative (left) or positive
 // direction (right).
-func (p *Add) MaxShift() util.Pair[uint, uint] { return maxShiftOfArray(p.Args) }
+func (p *Add) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
 
 // Sub represents the subtraction over zero or more expressions.
 type Sub struct{ Args []Expr }
@@ -74,9 +71,9 @@ func (p *Sub) Mul(other Expr) Expr { return &Mul{Args: []Expr{p, other}} }
 // Equate one expression with another (equivalent to subtraction).
 func (p *Sub) Equate(other Expr) Expr { return &Sub{Args: []Expr{p, other}} }
 
-// MaxShift returns max shift in either the negative (left) or positive
+// Bounds returns max shift in either the negative (left) or positive
 // direction (right).
-func (p *Sub) MaxShift() util.Pair[uint, uint] { return maxShiftOfArray(p.Args) }
+func (p *Sub) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
 
 // Mul represents the product over zero or more expressions.
 type Mul struct{ Args []Expr }
@@ -93,9 +90,9 @@ func (p *Mul) Mul(other Expr) Expr { return &Mul{Args: []Expr{p, other}} }
 // Equate one expression with another (equivalent to subtraction).
 func (p *Mul) Equate(other Expr) Expr { return &Sub{Args: []Expr{p, other}} }
 
-// MaxShift returns max shift in either the negative (left) or positive
+// Bounds returns max shift in either the negative (left) or positive
 // direction (right).
-func (p *Mul) MaxShift() util.Pair[uint, uint] { return maxShiftOfArray(p.Args) }
+func (p *Mul) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
 
 // Constant represents a constant value within an expression.
 type Constant struct{ Value *fr.Element }
@@ -135,9 +132,9 @@ func (p *Constant) Mul(other Expr) Expr { return &Mul{Args: []Expr{p, other}} }
 // Equate one expression with another (equivalent to subtraction).
 func (p *Constant) Equate(other Expr) Expr { return &Sub{Args: []Expr{p, other}} }
 
-// MaxShift returns max shift in either the negative (left) or positive
+// Bounds returns max shift in either the negative (left) or positive
 // direction (right).  A constant has zero shift.
-func (p *Constant) MaxShift() util.Pair[uint, uint] { return util.NewPair[uint, uint](0, 0) }
+func (p *Constant) Bounds() util.Bounds { return util.EMPTY_BOUND }
 
 // ColumnAccess represents reading the value held at a given column in the
 // tabular context.  Furthermore, the current row maybe shifted up (or down) by
@@ -168,30 +165,13 @@ func (p *ColumnAccess) Mul(other Expr) Expr { return &Mul{Args: []Expr{p, other}
 // Equate one expression with another (equivalent to subtraction).
 func (p *ColumnAccess) Equate(other Expr) Expr { return &Sub{Args: []Expr{p, other}} }
 
-// MaxShift returns max shift in either the negative (left) or positive
+// Bounds returns max shift in either the negative (left) or positive
 // direction (right).
-func (p *ColumnAccess) MaxShift() util.Pair[uint, uint] {
+func (p *ColumnAccess) Bounds() util.Bounds {
 	if p.Shift >= 0 {
 		// Positive shift
-		return util.NewPair[uint, uint](0, uint(p.Shift))
+		return util.NewBounds(0, uint(p.Shift))
 	}
 	// Negative shift
-	return util.NewPair[uint, uint](uint(-p.Shift), 0)
-}
-
-// ==========================================================================
-// Helpers
-// ==========================================================================
-
-func maxShiftOfArray(args []Expr) util.Pair[uint, uint] {
-	neg := uint(0)
-	pos := uint(0)
-
-	for _, e := range args {
-		mx := e.MaxShift()
-		neg = max(neg, mx.Left)
-		pos = max(pos, mx.Right)
-	}
-	// Done
-	return util.NewPair(neg, pos)
+	return util.NewBounds(uint(-p.Shift), 0)
 }

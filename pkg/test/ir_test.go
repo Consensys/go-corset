@@ -130,6 +130,14 @@ func Test_Shift_07(t *testing.T) {
 }
 
 // ===================================================================
+// Spillage Tests
+// ===================================================================
+
+func Test_Spillage_01(t *testing.T) {
+	Check(t, "spillage_01")
+}
+
+// ===================================================================
 // Normalisation Tests
 // ===================================================================
 
@@ -311,7 +319,7 @@ func TestSlow_Mxp(t *testing.T) {
 
 // Determines the maximum amount of padding to use when testing.  Specifically,
 // every trace is tested with varying amounts of padding upto this value.
-const MAX_PADDING uint = 0
+const MAX_PADDING uint = 1
 
 // For a given set of constraints, check that all traces which we
 // expect to be accepted are accepted, and all traces that we expect
@@ -381,7 +389,7 @@ func checkInputTrace(t *testing.T, tr *table.ArrayTrace, id traceId, schema tabl
 	// Clone trace (to ensure expansion does not affect subsequent tests)
 	etr := tr.Clone()
 	// Apply spillage
-	table.FrontPadWithZeros(schema.RequiredSpillage(), etr)
+	etr.Pad(schema.RequiredSpillage())
 	// Expand trace
 	err := schema.ExpandTrace(etr)
 	// Check
@@ -394,7 +402,7 @@ func checkInputTrace(t *testing.T, tr *table.ArrayTrace, id traceId, schema tabl
 
 func checkExpandedTrace(t *testing.T, tr table.Trace, id traceId, schema table.Schema) {
 	// Apply padding
-	schema.ApplyPadding(id.padding, tr)
+	tr.Pad(id.padding)
 	// Check
 	err := schema.Accepts(tr)
 	// Determine whether trace accepted or not.
