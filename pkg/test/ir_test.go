@@ -7,7 +7,6 @@ import (
 	"os"
 	"strings"
 	"testing"
-	"unicode/utf8"
 
 	"github.com/consensys/go-corset/pkg/hir"
 	"github.com/consensys/go-corset/pkg/table"
@@ -124,6 +123,10 @@ func Test_Shift_05(t *testing.T) {
 
 func Test_Shift_06(t *testing.T) {
 	Check(t, "shift_06")
+}
+
+func Test_Shift_07(t *testing.T) {
+	Check(t, "shift_07")
 }
 
 // ===================================================================
@@ -308,7 +311,7 @@ func TestSlow_Mxp(t *testing.T) {
 
 // Determines the maximum amount of padding to use when testing.  Specifically,
 // every trace is tested with varying amounts of padding upto this value.
-const MAX_PADDING uint = 1
+const MAX_PADDING uint = 0
 
 // For a given set of constraints, check that all traces which we
 // expect to be accepted are accepted, and all traces that we expect
@@ -404,7 +407,6 @@ func checkExpandedTrace(t *testing.T, tr table.Trace, id traceId, schema table.S
 		t.Errorf(msg)
 	} else if accepted && !id.expected {
 		//printTrace(tr)
-
 		msg := fmt.Sprintf("Trace accepted incorrectly (%s, %s.rejects, line %d with spillage %d / padding %d)",
 			id.ir, id.test, id.line, id.spillage, id.padding)
 		t.Errorf(msg)
@@ -507,69 +509,4 @@ func readLine(reader *bufio.Reader) *string {
 	str := string(bytes)
 	// Done
 	return &str
-}
-
-// Prints a trace in a more human-friendly fashion.
-func printTrace(tr table.Trace) {
-	n := tr.Width()
-	//
-	rows := make([][]string, n)
-	for i := uint(0); i < n; i++ {
-		rows[i] = traceColumnData(tr, i)
-	}
-	//
-	widths := traceRowWidths(tr.Height(), rows)
-	//
-	printHorizontalRule(widths)
-	//
-	for _, r := range rows {
-		printTraceRow(r, widths)
-		printHorizontalRule(widths)
-	}
-}
-
-func traceColumnData(tr table.Trace, col uint) []string {
-	n := tr.Height()
-	data := make([]string, n+1)
-	data[0] = tr.ColumnName(int(col))
-
-	for row := uint(0); row < n; row++ {
-		data[row+1] = tr.GetByIndex(int(col), int(row)).String()
-	}
-
-	return data
-}
-
-func traceRowWidths(height uint, rows [][]string) []int {
-	widths := make([]int, height+1)
-
-	for _, row := range rows {
-		for i, col := range row {
-			w := utf8.RuneCountInString(col)
-			widths[i] = max(w, widths[i])
-		}
-	}
-
-	return widths
-}
-
-func printTraceRow(row []string, widths []int) {
-	for i, col := range row {
-		fmt.Printf(" %*s |", widths[i], col)
-	}
-
-	fmt.Println()
-}
-
-func printHorizontalRule(widths []int) {
-	for _, w := range widths {
-		fmt.Print("-")
-
-		for i := 0; i < w; i++ {
-			fmt.Print("-")
-		}
-		fmt.Print("-+")
-	}
-
-	fmt.Println()
 }

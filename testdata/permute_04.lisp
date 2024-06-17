@@ -1,3 +1,4 @@
+(column ST :u16)
 (column X :u16)
-(permute (Y) (-X))
-(vanish:first last-row (- Y 5))
+(permute (ST' Y) (+ST -X))
+(vanish:last first-row (- Y 5))

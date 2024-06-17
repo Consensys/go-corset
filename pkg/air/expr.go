@@ -174,10 +174,9 @@ func (p *ColumnAccess) MaxShift() util.Pair[uint, uint] {
 	if p.Shift >= 0 {
 		// Positive shift
 		return util.NewPair[uint, uint](0, uint(p.Shift))
-	} else {
-		// Negative shift
-		return util.NewPair[uint, uint](uint(-p.Shift), 0)
 	}
+	// Negative shift
+	return util.NewPair[uint, uint](uint(-p.Shift), 0)
 }
 
 // ==========================================================================

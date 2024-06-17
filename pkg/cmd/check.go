@@ -30,6 +30,7 @@ var checkCmd = &cobra.Command{
 		cfg.mir = getFlag(cmd, "mir")
 		cfg.hir = getFlag(cmd, "hir")
 		cfg.expand = !getFlag(cmd, "raw")
+		cfg.report = getFlag(cmd, "report")
 		cfg.spillage = getInt(cmd, "spillage")
 		cfg.padding.Right = getUint(cmd, "padding")
 		// TODO: support true ranges
@@ -62,6 +63,9 @@ type checkConfig struct {
 	// not required when a "raw" trace is given which already includes all
 	// implied columns.
 	expand bool
+	// Specifies whether or not to report details of the failure (e.g. for
+	// debugging purposes).
+	report bool
 }
 
 // Check a given trace is consistently accepted (or rejected) at the different
@@ -87,10 +91,10 @@ func checkTraceWithLowering(tr *table.ArrayTrace, schema *hir.Schema, cfg checkC
 }
 
 func checkTraceWithLoweringHir(tr *table.ArrayTrace, hirSchema *hir.Schema, cfg checkConfig) {
-	errHIR := checkTrace(tr, hirSchema, cfg)
+	trHIR, errHIR := checkTrace(tr, hirSchema, cfg)
 	//
 	if errHIR != nil {
-		reportError(errHIR, "HIR")
+		reportError("HIR", trHIR, errHIR, cfg)
 		os.Exit(1)
 	}
 }
@@ -99,10 +103,10 @@ func checkTraceWithLoweringMir(tr *table.ArrayTrace, hirSchema *hir.Schema, cfg 
 	// Lower HIR => MIR
 	mirSchema := hirSchema.LowerToMir()
 	// Check trace
-	errMIR := checkTrace(tr, mirSchema, cfg)
+	trMIR, errMIR := checkTrace(tr, mirSchema, cfg)
 	//
 	if errMIR != nil {
-		reportError(errMIR, "MIR")
+		reportError("MIR", trMIR, errMIR, cfg)
 		os.Exit(1)
 	}
 }
@@ -112,10 +116,10 @@ func checkTraceWithLoweringAir(tr *table.ArrayTrace, hirSchema *hir.Schema, cfg 
 	mirSchema := hirSchema.LowerToMir()
 	// Lower MIR => AIR
 	airSchema := mirSchema.LowerToAir()
-	errAIR := checkTrace(tr, airSchema, cfg)
+	trAIR, errAIR := checkTrace(tr, airSchema, cfg)
 	//
 	if errAIR != nil {
-		reportError(errAIR, "AIR")
+		reportError("AIR", trAIR, errAIR, cfg)
 		os.Exit(1)
 	}
 }
@@ -128,9 +132,9 @@ func checkTraceWithLoweringDefault(tr *table.ArrayTrace, hirSchema *hir.Schema, 
 	// Lower MIR => AIR
 	airSchema := mirSchema.LowerToAir()
 	//
-	errHIR := checkTrace(tr, hirSchema, cfg)
-	errMIR := checkTrace(tr, mirSchema, cfg)
-	errAIR := checkTrace(tr, airSchema, cfg)
+	trHIR, errHIR := checkTrace(tr, hirSchema, cfg)
+	trMIR, errMIR := checkTrace(tr, mirSchema, cfg)
+	trAIR, errAIR := checkTrace(tr, airSchema, cfg)
 	//
 	if errHIR != nil || errMIR != nil || errAIR != nil {
 		strHIR := toErrorString(errHIR)
@@ -140,16 +144,16 @@ func checkTraceWithLoweringDefault(tr *table.ArrayTrace, hirSchema *hir.Schema, 
 		if strHIR == strMIR && strMIR == strAIR {
 			fmt.Println(errHIR)
 		} else {
-			reportError(errHIR, "HIR")
-			reportError(errMIR, "MIR")
-			reportError(errAIR, "AIR")
+			reportError("HIR", trHIR, errHIR, cfg)
+			reportError("MIR", trMIR, errMIR, cfg)
+			reportError("AIR", trAIR, errAIR, cfg)
 		}
 
 		os.Exit(1)
 	}
 }
 
-func checkTrace(tr *table.ArrayTrace, schema table.Schema, cfg checkConfig) error {
+func checkTrace(tr *table.ArrayTrace, schema table.Schema, cfg checkConfig) (table.Trace, error) {
 	if cfg.expand {
 		// Clone to prevent interefence with subsequent checks
 		tr = tr.Clone()
@@ -163,13 +167,13 @@ func checkTrace(tr *table.ArrayTrace, schema table.Schema, cfg checkConfig) erro
 		}
 		// Expand trace
 		if err := schema.ExpandTrace(tr); err != nil {
-			return err
+			return tr, err
 		}
 	}
 	// Check whether padding requested
 	if cfg.padding.Left == 0 && cfg.padding.Right == 0 {
 		// No padding requested.  Therefore, we can avoid a clone in this case.
-		return schema.Accepts(tr)
+		return tr, schema.Accepts(tr)
 	}
 	// Apply padding
 	for n := cfg.padding.Left; n <= cfg.padding.Right; n++ {
@@ -179,11 +183,11 @@ func checkTrace(tr *table.ArrayTrace, schema table.Schema, cfg checkConfig) erro
 		schema.ApplyPadding(n, ptr)
 		// Check whether accepted or not.
 		if err := schema.Accepts(ptr); err != nil {
-			return err
+			return ptr, err
 		}
 	}
 	// Done
-	return nil
+	return nil, nil
 }
 
 func toErrorString(err error) string {
@@ -194,7 +198,11 @@ func toErrorString(err error) string {
 	return err.Error()
 }
 
-func reportError(err error, ir string) {
+func reportError(ir string, tr table.Trace, err error, cfg checkConfig) {
+	if cfg.report {
+		table.PrintTrace(tr)
+	}
+
 	if err != nil {
 		fmt.Printf("%s: %s\n", ir, err)
 	} else {
@@ -204,6 +212,7 @@ func reportError(err error, ir string) {
 
 func init() {
 	rootCmd.AddCommand(checkCmd)
+	checkCmd.Flags().Bool("report", false, "report details of failure for debugging")
 	checkCmd.Flags().Bool("raw", false, "assume input trace already expanded")
 	checkCmd.Flags().Bool("hir", false, "check at HIR level")
 	checkCmd.Flags().Bool("mir", false, "check at MIR level")

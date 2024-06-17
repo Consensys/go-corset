@@ -53,11 +53,9 @@ type Trace interface {
 	// does not exist or if the index is out-of-bounds then an
 	// error is returned.
 	GetByIndex(col int, row int) *fr.Element
-	// Pad each column in this trace with n rows of a given value, either at
-	// the front (sign=true) or the back (sign=false).  An iterator over the
-	// column signs is provided.Padding is done by duplicating either the first
-	// (sign=true) or last (sign=false) item of the trace n times.
-	Pad(n uint, signs func(int) (bool, *fr.Element))
+	// Pad each column in this trace with n items at the front.  An iterator over
+	// the padding values to use for each column must be given.
+	Pad(n uint, signs func(int) *fr.Element)
 	// Determine the height of this table, which is defined as the
 	// height of the largest column.
 	Height() uint
@@ -83,7 +81,7 @@ func ConstraintsAcceptTrace[T Acceptable](trace Trace, constraints []T) error {
 func FrontPadWithZeros(n uint, tr Trace) {
 	var zero fr.Element = fr.NewElement((0))
 	// Insert initial padding row
-	tr.Pad(n, func(index int) (bool, *fr.Element) { return true, &zero })
+	tr.Pad(n, func(index int) *fr.Element { return &zero })
 }
 
 // ===================================================================
@@ -227,14 +225,11 @@ func (p *ArrayTrace) Height() uint {
 	return p.height
 }
 
-// Pad each column in this trace with n items, either at the front
-// (sign=true) or the back (sign=false).  An iterator over the column signs
-// is provided.Padding is done by duplicating either the first (sign=true)
-// or last (sign=false) item of the trace n times.
-func (p *ArrayTrace) Pad(n uint, signs func(int) (bool, *fr.Element)) {
+// Pad each column in this trace with n items at the front.  An iterator over
+// the padding values to use for each column must be given.
+func (p *ArrayTrace) Pad(n uint, padding func(int) *fr.Element) {
 	for i, c := range p.columns {
-		sign, value := signs(i)
-		c.Pad(n, sign, value)
+		c.Pad(n, padding(i))
 	}
 	// Increment height
 	p.height += n
@@ -313,27 +308,13 @@ func (p *ArrayTraceColumn) Clone() *ArrayTraceColumn {
 
 // Pad this column with n copies of a given value, either at the front
 // (sign=true) or the back (sign=false).
-func (p *ArrayTraceColumn) Pad(n uint, sign bool, value *fr.Element) {
-	// Offset where original data should start
-	var copy_offset uint
-	// Offset where padding values should start
-	var padding_offset uint
+func (p *ArrayTraceColumn) Pad(n uint, value *fr.Element) {
 	// Allocate sufficient memory
 	ndata := make([]*fr.Element, uint(len(p.data))+n)
-	// Check direction of padding
-	if sign {
-		// Pad at the front
-		copy_offset = n
-		padding_offset = 0
-	} else {
-		// Pad at the back
-		copy_offset = 0
-		padding_offset = uint(len(p.data))
-	}
 	// Copy over the data
-	copy(ndata[copy_offset:], p.data)
+	copy(ndata[n:], p.data)
 	// Go padding!
-	for i := padding_offset; i < (n + padding_offset); i++ {
+	for i := uint(0); i < n; i++ {
 		ndata[i] = value
 	}
 	// Copy over

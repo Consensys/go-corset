@@ -109,9 +109,9 @@ func (p *Schema) RequiredSpillage() uint {
 // Padding values are placed either at the front or the back of a given
 // column, depending on their interpretation.
 func (p *Schema) ApplyPadding(n uint, tr table.Trace) {
-	tr.Pad(n, func(j int) (bool, *fr.Element) {
-		value := tr.GetByIndex(j, 0)
-		return true, value
+	tr.Pad(n, func(j int) *fr.Element {
+		// Extract front value to use for padding.
+		return tr.GetByIndex(j, 0)
 	})
 }
 
@@ -179,7 +179,9 @@ func (p *Schema) IsOutputTrace(tr table.Trace) error {
 // AddColumn appends a new data column which is either synthetic or
 // not.  A synthetic column is one which has been introduced by the
 // process of lowering from HIR / MIR to AIR.  That is, it is not a
-// column which was original specified by the user.
+// column which was original specified by the user.  Columns also support a
+// "padding sign", which indicates whether padding should occur at the front
+// (positive sign) or the back (negative sign).
 func (p *Schema) AddColumn(name string, synthetic bool) {
 	// NOTE: the air level has no ability to enforce the type specified for a
 	// given column.

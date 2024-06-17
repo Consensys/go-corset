@@ -113,9 +113,8 @@ func (p *Schema) RequiredSpillage() uint {
 // Padding values are placed either at the front or the back of a given
 // column, depending on their interpretation.
 func (p *Schema) ApplyPadding(n uint, tr table.Trace) {
-	tr.Pad(n, func(j int) (bool, *fr.Element) {
-		value := tr.GetByIndex(j, 0)
-		return true, value
+	tr.Pad(n, func(j int) *fr.Element {
+		return tr.GetByIndex(j, 0)
 	})
 }
 

@@ -150,6 +150,10 @@ func (p *hirParser) parseSortedPermutationDeclaration(elements []sexp.SExp) erro
 		if strings.HasPrefix(sortName, "+") {
 			signs[i] = true
 		} else if strings.HasPrefix(sortName, "-") {
+			if i == 0 {
+				return p.translator.SyntaxError(source, "sorted permutation requires ascending first column")
+			}
+
 			signs[i] = false
 		} else {
 			return p.translator.SyntaxError(source, "malformed sort direction")
