@@ -186,8 +186,8 @@ func (p *Schema) AddComputation(c table.TraceComputation) {
 
 // AddPermutationConstraint appends a new permutation constraint which
 // ensures that one column is a permutation of another.
-func (p *Schema) AddPermutationConstraint(target string, source string) {
-	p.permutations = append(p.permutations, table.NewPermutation(target, source))
+func (p *Schema) AddPermutationConstraint(targets []string, sources []string) {
+	p.permutations = append(p.permutations, table.NewPermutation(targets, sources))
 }
 
 // AddVanishingConstraint appends a new vanishing constraint.

@@ -154,15 +154,19 @@ func (c *ComputedColumn[E]) String() string {
 // Permutation declares a constraint that one column is a permutation
 // of another.
 type Permutation struct {
-	// The target column
-	Target string
+	// The target columns
+	Targets []string
 	// The so columns
-	Source string
+	Sources []string
 }
 
 // NewPermutation creates a new permutation
-func NewPermutation(target string, source string) *Permutation {
-	return &Permutation{target, source}
+func NewPermutation(targets []string, sources []string) *Permutation {
+	if len(targets) != len(sources) {
+		panic("differeng number of target / source permutation columns")
+	}
+
+	return &Permutation{targets, sources}
 }
 
 // RequiredSpillage returns the minimum amount of spillage required to ensure
@@ -174,18 +178,44 @@ func (p *Permutation) RequiredSpillage() uint {
 // Accepts checks whether a permutation holds between the source and
 // target columns.
 func (p *Permutation) Accepts(tr Trace) error {
-	// Check column in trace!
-	if !tr.HasColumn(p.Target) {
-		return fmt.Errorf("Trace missing permutation target column ({%s})", p.Target)
-	} else if !tr.HasColumn(p.Source) {
-		return fmt.Errorf("Trace missing permutation source column ({%s})", p.Source)
+	// Sanity check columns well formed.
+	if err := validPermutationColumns(p.Targets, p.Sources, tr); err != nil {
+		return err
 	}
-
-	return IsPermutationOf(p.Target, p.Source, tr)
+	// Slice out data
+	src := sliceMatchingColumns(p.Sources, tr)
+	dst := sliceMatchingColumns(p.Targets, tr)
+	// Sanity check whether column exists
+	if !util.ArePermutationOf(dst, src) {
+		msg := fmt.Sprintf("Target columns (%v) not permutation of source columns ({%v})",
+			p.Targets, p.Sources)
+		return errors.New(msg)
+	}
+	// Success
+	return nil
 }
 
 func (p *Permutation) String() string {
-	return fmt.Sprintf("(permutation %s %s)", p.Target, p.Source)
+	targets := ""
+	sources := ""
+
+	for i, s := range p.Targets {
+		if i != 0 {
+			targets += " "
+		}
+
+		targets += s
+	}
+
+	for i, s := range p.Sources {
+		if i != 0 {
+			sources += " "
+		}
+
+		sources += s
+	}
+
+	return fmt.Sprintf("(permutation (%s) (%s))", targets, sources)
 }
 
 // ===================================================================
@@ -221,41 +251,26 @@ func (p *SortedPermutation) RequiredSpillage() uint {
 // Accepts checks whether a sorted permutation holds between the
 // source and target columns.
 func (p *SortedPermutation) Accepts(tr Trace) error {
-	ncols := len(p.Sources)
-	cols := make([][]*fr.Element, ncols)
-	// Check required columns in trace
-	for _, n := range p.Targets {
-		if !tr.HasColumn(n) {
-			return fmt.Errorf("Trace missing permutation target column ({%s})", n)
-		}
+	// Sanity check columns well formed.
+	if err := validPermutationColumns(p.Targets, p.Sources, tr); err != nil {
+		return err
 	}
-
-	for _, n := range p.Sources {
-		if !tr.HasColumn(n) {
-			return fmt.Errorf("Trace missing permutation source ({%s})", n)
-		}
+	// Slice out data
+	src := sliceMatchingColumns(p.Sources, tr)
+	dst := sliceMatchingColumns(p.Targets, tr)
+	// Sanity check whether column exists
+	if !util.ArePermutationOf(dst, src) {
+		msg := fmt.Sprintf("Target columns (%v) not permutation of source columns ({%v})",
+			p.Targets, p.Sources)
+		return errors.New(msg)
 	}
-	// Check that target and source columns exist and are permutations of source
-	// columns.
-	for i := 0; i < ncols; i++ {
-		dstName := p.Targets[i]
-		srcName := p.Sources[i]
-		// Access column data based on column name.
-		err := IsPermutationOf(dstName, srcName, tr)
-		if err != nil {
-			return err
-		}
-
-		cols[i] = tr.ColumnByName(dstName).Data()
-	}
-
 	// Check that target columns are sorted lexicographically.
-	if util.AreLexicographicallySorted(cols, p.Signs) {
+	if util.AreLexicographicallySorted(dst, p.Signs) {
 		return nil
 	}
-
+	// Error case
 	msg := fmt.Sprintf("Permutation columns not lexicographically sorted ({%s})", p.Targets)
-
+	// Done
 	return errors.New(msg)
 }
 
@@ -321,23 +336,32 @@ func (p *SortedPermutation) String() string {
 	return fmt.Sprintf("(permute (%s) (%s))", targets, sources)
 }
 
-// IsPermutationOf checks whether (or not) one column is a permutation
-// of another in given trace.  The order in which columns are given is
-// not important.
-func IsPermutationOf(target string, source string, tr Trace) error {
-	dst := tr.ColumnByName(target).Data()
-	src := tr.ColumnByName(source).Data()
-	// Sanity check whether column exists
-	if dst == nil {
-		msg := fmt.Sprintf("Invalid target column for permutation ({%s})", target)
-		return errors.New(msg)
-	} else if src == nil {
-		msg := fmt.Sprintf("Invalid source column for permutation ({%s})", source)
-		return errors.New(msg)
-	} else if !util.IsPermutationOf(dst, src) {
-		msg := fmt.Sprintf("Target column (%s) not permutation of source ({%s})", target, source)
-		return errors.New(msg)
+func validPermutationColumns(targets []string, sources []string, tr Trace) error {
+	ncols := len(targets)
+	// Sanity check matching length
+	if len(sources) != ncols {
+		return fmt.Errorf("Number of source and target columns differs")
 	}
-
+	// Check required columns in trace
+	for i := 0; i < ncols; i++ {
+		if !tr.HasColumn(targets[i]) {
+			return fmt.Errorf("Trace missing permutation target column ({%s})", targets[i])
+		} else if !tr.HasColumn(sources[i]) {
+			return fmt.Errorf("Trace missing permutation source ({%s})", sources[i])
+		}
+	}
+	//
 	return nil
+}
+
+func sliceMatchingColumns(names []string, tr Trace) [][]*fr.Element {
+	// Allocate return array
+	cols := make([][]*fr.Element, len(names))
+	// Slice out the data
+	for i, n := range names {
+		nth := tr.ColumnByName(n)
+		cols[i] = nth.Data()
+	}
+	// Done
+	return cols
 }

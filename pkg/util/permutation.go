@@ -8,33 +8,43 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
 
-// IsPermutationOf checks whether or not a given destination column is a valid
-// permutation of a given source column.  This function does not modify either
-// column (though it does allocate an intermediate array).
+// ArePermutationOf checks whether or not a set of given destination columns are
+// a valid permutation of a given set of source columns.  The number of source
+// and target columns must match.  Likewise, they are expected to have the same
+// height. This function does not modify any columns (though it does allocate
+// intermediate arrays).
 //
-// This function operators by cloning both arrays, sorting them and checking
-// they are the same.
-func IsPermutationOf(dst []*fr.Element, src []*fr.Element) bool {
+// This function operators by cloning the arrays, sorting them and checking they
+// are the same.
+func ArePermutationOf(dst [][]*fr.Element, src [][]*fr.Element) bool {
 	if len(dst) != len(src) {
 		return false
 	}
-	// Copy arrays
-	dstCopy := make([]*fr.Element, len(dst))
-	srcCopy := make([]*fr.Element, len(src))
+	// Determine geometry
+	ncols := len(dst)
+	nrows := len(dst[0])
+	// Rotate input arrays
+	dstCopy := rotate(dst, ncols, nrows)
+	srcCopy := rotate(src, ncols, nrows)
+	// Sort rotated arrays
+	slices.SortFunc(dstCopy, permutationFunc)
+	slices.SortFunc(srcCopy, permutationFunc)
+	// Check rotated arrays match
+	return Equals2d(dstCopy, srcCopy)
+}
 
-	copy(dstCopy, dst)
-	copy(srcCopy, src)
-	// Sort arrays
-	slices.SortFunc(dstCopy, func(l *fr.Element, r *fr.Element) int { return l.Cmp(r) })
-	slices.SortFunc(srcCopy, func(l *fr.Element, r *fr.Element) int { return l.Cmp(r) })
-	// Check they are equal
-	for i := 0; i < len(dst); i++ {
-		if dstCopy[i].Cmp(srcCopy[i]) != 0 {
-			return false
+func permutationFunc(lhs []*fr.Element, rhs []*fr.Element) int {
+	for i := 0; i < len(lhs); i++ {
+		// Compare ith elements
+		c := lhs[i].Cmp(rhs[i])
+		// Check whether same
+		if c != 0 {
+			// Positive
+			return c
 		}
 	}
-	// Match
-	return true
+	// Identical
+	return 0
 }
 
 // PermutationSort sorts an array of columns in row-wise fashion.  For
@@ -54,17 +64,8 @@ func IsPermutationOf(dst []*fr.Element, src []*fr.Element) bool {
 func PermutationSort(cols [][]*fr.Element, signs []bool) {
 	n := len(cols[0])
 	m := len(cols)
-	//
-	rows := make([][]*fr.Element, n)
-	// project into row-wise form
-	for i := 0; i < n; i++ {
-		row := make([]*fr.Element, m)
-		for j := 0; j < m; j++ {
-			row[j] = cols[j][i]
-		}
-
-		rows[i] = row
-	}
+	// Rotate input matrix
+	rows := rotate(cols, m, n)
 	// Perform the permutation sort
 	slices.SortFunc(rows, func(l []*fr.Element, r []*fr.Element) int {
 		return permutationSortFunc(l, r, signs)
@@ -119,4 +120,21 @@ func permutationSortFunc(lhs []*fr.Element, rhs []*fr.Element, signs []bool) int
 	}
 	// Identical
 	return 0
+}
+
+// Clone and rotate a 2-dimensional array assuming a given geometry.
+func rotate(src [][]*fr.Element, ncols int, nrows int) [][]*fr.Element {
+	// Copy outer arrays
+	dst := make([][]*fr.Element, nrows)
+	// Copy inner arrays
+	for i := 0; i < nrows; i++ {
+		row := make([]*fr.Element, ncols)
+		for j := 0; j < ncols; j++ {
+			row[j] = src[j][i]
+		}
+
+		dst[i] = row
+	}
+	//
+	return dst
 }

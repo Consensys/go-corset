@@ -192,8 +192,9 @@ func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Sche
 	// Add individual permutation constraints
 	for i := 0; i < ncols; i++ {
 		airSchema.AddColumn(c.Targets[i], true)
-		airSchema.AddPermutationConstraint(c.Targets[i], c.Sources[i])
 	}
+	//
+	airSchema.AddPermutationConstraint(c.Targets, c.Sources)
 	// Add the trace computation.
 	airSchema.AddComputation(c)
 	// Add sorting constraints + synthetic columns as necessary.
