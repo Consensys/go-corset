@@ -200,14 +200,14 @@ func (p *lexicographicSortExpander) ExpandTrace(tr table.Trace) error {
 		bit[i] = make([]*fr.Element, nrows)
 	}
 
-	for i := uint(0); i < nrows; i++ {
+	for i := 0; i < int(nrows); i++ {
 		set := false
 		// Initialise delta to zero
 		delta[i] = &zero
 		// Decide which row is the winner (if any)
 		for j := 0; j < ncols; j++ {
-			prev := tr.GetByName(p.columns[j], int(i-1))
-			curr := tr.GetByName(p.columns[j], int(i))
+			prev := tr.ColumnByName(p.columns[j]).Get(i - 1)
+			curr := tr.ColumnByName(p.columns[j]).Get(i)
 
 			if !set && prev != nil && prev.Cmp(curr) != 0 {
 				var diff fr.Element

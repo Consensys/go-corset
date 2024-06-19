@@ -203,9 +203,9 @@ func (p *RangeConstraint) IsAir() bool { return true }
 // Accepts checks whether a range constraint evaluates to zero on
 // every row of a table. If so, return nil otherwise return an error.
 func (p *RangeConstraint) Accepts(tr Trace) error {
-	for k := uint(0); k < tr.Height(); k++ {
+	for k := 0; k < int(tr.Height()); k++ {
 		// Get the value on the kth row
-		kth := tr.GetByName(p.Handle, int(k))
+		kth := tr.ColumnByName(p.Handle).Get(k)
 		// Perform the bounds check
 		if kth != nil && kth.Cmp(p.Bound) >= 0 {
 			// Construct useful error message

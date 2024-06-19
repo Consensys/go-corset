@@ -25,9 +25,17 @@ func NewDataColumn[T Type](name string, base T, synthetic bool) *DataColumn[T] {
 	return &DataColumn[T]{name, base, synthetic}
 }
 
-// Get the value of this column at a given row in a given trace.
-func (c *DataColumn[T]) Get(row int, tr Trace) *fr.Element {
-	return tr.GetByName(c.Name, row)
+// Width forms part of the ColumnGroup interface, and provides access to the
+// ith column in a group.  Data columns already represent a group of size 1.
+func (c *DataColumn[T]) Width() uint {
+	return 1
+}
+
+// NameOf forms part of the ColumnGroup interface, and provides access to the
+// ith column in a group.  Since a data column represents a group of size 1,
+// there is only ever one name.
+func (c *DataColumn[T]) NameOf(index uint) string {
+	return c.Name
 }
 
 // Accepts determines whether or not this column accepts the given trace.  For a
@@ -36,19 +44,21 @@ func (c *DataColumn[T]) Get(row int, tr Trace) *fr.Element {
 //
 //nolint:revive
 func (c *DataColumn[T]) Accepts(tr Trace) error {
-	// Check column in trace!
-	if !tr.HasColumn(c.Name) {
-		return fmt.Errorf("Trace missing data column ({%s})", c.Name)
-	}
-	// Check constraints accepted
-	for i := uint(0); i < tr.Height(); i++ {
-		val := tr.GetByName(c.Name, int(i))
+	// Only check for non-field types.  This is simply because a column with the
+	// field type always accepts everything.
+	if c.Type.AsField() == nil {
+		// Access corresponding column in trace
+		col := tr.ColumnByName(c.Name)
+		// Check constraints accepted
+		for i := 0; i < int(tr.Height()); i++ {
+			val := col.Get(i)
 
-		if !c.Type.Accept(val) {
-			// Construct useful error message
-			msg := fmt.Sprintf("column %s value out-of-bounds (row %d, %s)", c.Name, i, val)
-			// Evaluation failure
-			return errors.New(msg)
+			if !c.Type.Accept(val) {
+				// Construct useful error message
+				msg := fmt.Sprintf("column %s value out-of-bounds (row %d, %s)", c.Name, i, val)
+				// Evaluation failure
+				return errors.New(msg)
+			}
 		}
 	}
 	// All good

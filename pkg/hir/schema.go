@@ -79,6 +79,22 @@ func EmptySchema() *Schema {
 	return p
 }
 
+// Width returns the number of column groups in this schema.
+func (p *Schema) Width() uint {
+	return uint(len(p.dataColumns) + len(p.permutations))
+}
+
+// ColumnGroup returns information about the ith column group in this schema.
+func (p *Schema) ColumnGroup(i uint) table.ColumnGroup {
+	n := uint(len(p.dataColumns))
+	if i < n {
+		return p.dataColumns[i]
+	} else {
+		//return p.permutations[i-n]
+		panic("to do")
+	}
+}
+
 // HasColumn checks whether a given schema has a given column.
 func (p *Schema) HasColumn(name string) bool {
 	for _, c := range p.dataColumns {

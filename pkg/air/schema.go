@@ -1,9 +1,6 @@
 package air
 
 import (
-	"errors"
-	"fmt"
-
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/table"
 	"github.com/consensys/go-corset/pkg/util"
@@ -29,6 +26,8 @@ type Permutation = *table.Permutation
 // Schema for AIR traces which is parameterised on a notion of computation as
 // permissible in computed columns.
 type Schema struct {
+	// Column names.
+	columns []string
 	// The data columns of this schema.
 	dataColumns []DataColumn
 	// The permutation columns of this schema.
@@ -60,6 +59,16 @@ func EmptySchema[C table.Evaluable]() *Schema {
 	return p
 }
 
+// Width returns the number of column groups in this schema.
+func (p *Schema) Width() uint {
+	return uint(len(p.dataColumns))
+}
+
+// ColumnGroup returns information about the ith column group in this schema.
+func (p *Schema) ColumnGroup(i uint) table.ColumnGroup {
+	return p.dataColumns[i]
+}
+
 // Size returns the number of declarations in this schema.
 func (p *Schema) Size() int {
 	return len(p.dataColumns) + len(p.permutations) + len(p.vanishing) +
@@ -80,8 +89,8 @@ func (p *Schema) Columns() []DataColumn {
 
 // HasColumn checks whether a given schema has a given column.
 func (p *Schema) HasColumn(name string) bool {
-	for _, c := range p.dataColumns {
-		if c.Name == name {
+	for _, c := range p.columns {
+		if c == name {
 			return true
 		}
 	}
@@ -103,67 +112,6 @@ func (p *Schema) RequiredSpillage() uint {
 	}
 
 	return mx
-}
-
-// IsInputTrace determines whether a given input trace is a suitable
-// input (i.e. non-expanded) trace for this schema.  Specifically, the
-// input trace must contain a matching column for each non-synthetic
-// column in this trace.
-func (p *Schema) IsInputTrace(tr table.Trace) error {
-	count := uint(0)
-
-	for _, c := range p.dataColumns {
-		if !c.Synthetic && !tr.HasColumn(c.Name) {
-			msg := fmt.Sprintf("Trace missing input column ({%s})", c.Name)
-			return errors.New(msg)
-		} else if c.Synthetic && tr.HasColumn(c.Name) {
-			msg := fmt.Sprintf("Trace has synthetic column ({%s})", c.Name)
-			return errors.New(msg)
-		} else if !c.Synthetic {
-			count = count + 1
-		}
-	}
-	// Check geometry
-	if tr.Width() != count {
-		// Determine the unknown columns for error reporting.
-		unknown := make([]string, 0)
-
-		for i := uint(0); i < tr.Width(); i++ {
-			n := tr.ColumnName(int(i))
-			if !p.HasColumn(n) {
-				unknown = append(unknown, n)
-			}
-		}
-
-		msg := fmt.Sprintf("Trace has unknown columns {%s}", unknown)
-
-		return errors.New(msg)
-	}
-	// Done
-	return nil
-}
-
-// IsOutputTrace determines whether a given input trace is a suitable
-// output (i.e. expanded) trace for this schema.  Specifically, the
-// output trace must contain a matching column for each column in this
-// trace (synthetic or otherwise).
-func (p *Schema) IsOutputTrace(tr table.Trace) error {
-	count := uint(0)
-
-	for _, c := range p.dataColumns {
-		if !tr.HasColumn(c.Name) {
-			msg := fmt.Sprintf("Trace missing input column ({%s})", c.Name)
-			return errors.New(msg)
-		}
-
-		count++
-	}
-	// Check geometry
-	if tr.Width() != count {
-		return errors.New("Trace has unknown columns")
-	}
-	// Done
-	return nil
 }
 
 // AddColumn appends a new data column which is either synthetic or
