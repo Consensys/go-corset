@@ -79,6 +79,11 @@ func EmptySchema() *Schema {
 	return p
 }
 
+// Column returns information about the ith column in this schema.
+func (p *Schema) Column(i uint) table.ColumnSchema {
+	panic("todo")
+}
+
 // Width returns the number of column groups in this schema.
 func (p *Schema) Width() uint {
 	return uint(len(p.dataColumns) + len(p.permutations))
@@ -97,7 +102,7 @@ func (p *Schema) ColumnGroup(i uint) table.ColumnGroup {
 // HasColumn checks whether a given schema has a given column.
 func (p *Schema) HasColumn(name string) bool {
 	for _, c := range p.dataColumns {
-		if (*c).Name == name {
+		if (*c).Name() == name {
 			return true
 		}
 	}
@@ -205,7 +210,7 @@ func (p *Schema) LowerToMir() *mir.Schema {
 	mirSchema := mir.EmptySchema()
 	// First, lower columns
 	for _, col := range p.dataColumns {
-		mirSchema.AddDataColumn(col.Name, col.Type)
+		mirSchema.AddDataColumn(col.Name(), col.Type)
 	}
 	// Second, lower permutations
 	for _, col := range p.permutations {

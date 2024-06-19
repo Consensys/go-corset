@@ -74,35 +74,14 @@ func (p *ArrayTrace) HasColumn(name string) bool {
 	return false
 }
 
-// Compatible determines whether or not this trace is "input compatible" with a
-// given schema.  Specifically, whether or not this trace can be fed into the
-// schema and expanded into a full trace.  For this to be true, the columns of
-// the trace must exactly match the non-synthetic columns of the schema.
-func (p *ArrayTrace) Compatible(schema Schema) error {
-	index := 0
-	// Check each column described in this schema is present in the trace.
-	for i := uint(0); i < schema.Width(); i++ {
-		group := schema.ColumnGroup(i)
-		if !group.IsSynthetic() {
-			for j := uint(0); j < group.Width(); j++ {
-				// Determine column name
-				schemaName := group.NameOf(j)
-				// Check column exists in this trace
-				if !p.HasColumn(schemaName) {
-					return fmt.Errorf("trace missing input column %s", schemaName)
-				}
-
-				index++
-			}
-		}
-	}
-	// Check perfect match
-	if index == len(p.columns) {
-		// Success
-		return nil
-	}
-	// Error case
-	return fmt.Errorf("trace has %d unknown input column(s)", len(p.columns)-index)
+// AlignInputWith attempts to align this trace with the input columns of a
+// given schema.  This means ensuring the order of columns in this trace matches
+// the order of input columns in the schema. Thus, column indexes used by
+// constraints in the schema can directly access in this trace (i.e. without
+// name lookup). Alignment can fail, however, if there is a mismatch between
+// columns in the trace and those expected by the schema.
+func (p *ArrayTrace) AlignInputWith(schema Schema) error {
+	return alignWith(false, p, schema)
 }
 
 // AlignWith attempts to align this trace with a given schema.  This means
@@ -111,35 +90,47 @@ func (p *ArrayTrace) Compatible(schema Schema) error {
 // this trace (i.e. without name lookup).  Alignment can fail, however, if there
 // is a mismatch between columns in the trace and those expected by the schema.
 func (p *ArrayTrace) AlignWith(schema Schema) error {
-	ncols := len(p.columns)
-	index := 0
+	return alignWith(true, p, schema)
+}
+
+// Alignment algorithm which operates either in unexpanded or expanded mode.  In
+// expanded mode, all columns must be accounted for and will be aligned.  In
+// unexpanded mode, the trace is only expected to contain input (i.e.
+// non-synthetic) columns.  Furthermore, in the schema these are expected to be
+// allocated before synthetic columns.  As such, alignment of these input
+// columns is performed.
+func alignWith(expand bool, p *ArrayTrace, schema Schema) error {
+	ncols := uint(len(p.columns))
+	index := uint(0)
 	// Check each column described in this schema is present in the trace.
 	for i := uint(0); i < schema.Width(); i++ {
 		group := schema.ColumnGroup(i)
-		for j := uint(0); j < group.Width(); j++ {
-			// Determine column name
-			schemaName := group.NameOf(j)
-			// Sanity check column exists
-			if index >= ncols {
-				return fmt.Errorf("trace missing column %s", schemaName)
-			}
-
-			traceName := p.columns[index].name
-			// Check alignment
-			if traceName != schemaName {
-				// Not aligned --- so fix
-				k, ok := p.IndexOf(schemaName)
-				// check exists
-				if !ok {
+		if expand || !group.IsSynthetic() {
+			for j := uint(0); j < group.Width(); j++ {
+				// Determine column name
+				schemaName := group.NameOf(j)
+				// Sanity check column exists
+				if index >= ncols {
 					return fmt.Errorf("trace missing column %s", schemaName)
 				}
-				// Swap columns
-				tmp := p.columns[index]
-				p.columns[index] = p.columns[k]
-				p.columns[k] = tmp
+
+				traceName := p.columns[index].name
+				// Check alignment
+				if traceName != schemaName {
+					// Not aligned --- so fix
+					k, ok := p.IndexOf(schemaName)
+					// check exists
+					if !ok {
+						return fmt.Errorf("trace missing column %s", schemaName)
+					}
+					// Swap columns
+					tmp := p.columns[index]
+					p.columns[index] = p.columns[k]
+					p.columns[k] = tmp
+				}
+				// Continue
+				index++
 			}
-			// Continue
-			index++
 		}
 	}
 	// Check whether all columns matched

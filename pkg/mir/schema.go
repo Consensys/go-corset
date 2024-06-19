@@ -54,6 +54,11 @@ func (p *Schema) Width() uint {
 	return uint(len(p.dataColumns) + len(p.permutations))
 }
 
+// Column returns information about the ith column in this schema.
+func (p *Schema) Column(i uint) table.ColumnSchema {
+	panic("todo")
+}
+
 // ColumnGroup returns information about the ith column group in this schema.
 func (p *Schema) ColumnGroup(i uint) table.ColumnGroup {
 	n := uint(len(p.dataColumns))
@@ -68,7 +73,7 @@ func (p *Schema) ColumnGroup(i uint) table.ColumnGroup {
 // column exists, it panics.
 func (p *Schema) GetColumnByName(name string) DataColumn {
 	for _, c := range p.dataColumns {
-		if c.Name == name {
+		if c.Name() == name {
 			return c
 		}
 	}
@@ -154,11 +159,11 @@ func (p *Schema) LowerToAir() *air.Schema {
 	// Allocate data columns.  This must be done first to ensure alignment is
 	// preserved across lowering.
 	for _, col := range p.dataColumns {
-		airSchema.AddColumn(col.Name, false)
+		airSchema.AddColumn(col.Name(), false)
 	}
 	// Lower checked data columns
-	for _, col := range p.dataColumns {
-		lowerColumnToAir(col, airSchema)
+	for i, col := range p.dataColumns {
+		lowerColumnToAir(uint(i), col, airSchema)
 	}
 	// Lower permutations columns
 	for _, perm := range p.permutations {
@@ -180,20 +185,20 @@ func (p *Schema) LowerToAir() *air.Schema {
 // Lower a datacolumn to the AIR level.  The main effect of this is that, for
 // columns with non-trivial types, we must add appropriate range constraints to
 // the enclosing schema.
-func lowerColumnToAir(c *table.DataColumn[table.Type], schema *air.Schema) {
+func lowerColumnToAir(index uint, c *table.DataColumn[table.Type], schema *air.Schema) {
 	// Check whether a constraint is implied by the column's type
 	if t := c.Type.AsUint(); t != nil && t.Checked() {
 		// Yes, a constraint is implied.  Now, decide whether to use a range
 		// constraint or just a vanishing constraint.
 		if t.HasBound(2) {
 			// u1 => use vanishing constraint X * (X - 1)
-			air_gadgets.ApplyBinaryGadget(c.Name, schema)
+			air_gadgets.ApplyBinaryGadget(index, schema)
 		} else if t.HasBound(256) {
 			// u2..8 use range constraints
-			schema.AddRangeConstraint(c.Name, t.Bound())
+			schema.AddRangeConstraint(index, t.Bound())
 		} else {
 			// u9+ use byte decompositions.
-			air_gadgets.ApplyBitwidthGadget(c.Name, t.BitWidth(), schema)
+			air_gadgets.ApplyBitwidthGadget(index, t.BitWidth(), schema)
 		}
 	}
 }
@@ -206,12 +211,22 @@ func lowerColumnToAir(c *table.DataColumn[table.Type], schema *air.Schema) {
 // meet the requirements of a sorted permutation.
 func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Schema) {
 	ncols := len(c.Targets)
+	//
+	targets := make([]uint, ncols)
+	sources := make([]uint, ncols)
 	// Add individual permutation constraints
 	for i := 0; i < ncols; i++ {
-		airSchema.AddColumn(c.Targets[i], true)
+		var ok bool
+		sources[i], ok = airSchema.IndexOf(c.Sources[i])
+
+		if !ok {
+			panic("missing column")
+		}
+
+		targets[i] = airSchema.AddColumn(c.Targets[i], true)
 	}
 	//
-	airSchema.AddPermutationConstraint(c.Targets, c.Sources)
+	airSchema.AddPermutationConstraint(targets, sources)
 	// Add the trace computation.
 	airSchema.AddComputation(c)
 	// Add sorting constraints + synthetic columns as necessary.
@@ -223,7 +238,7 @@ func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Sche
 		// also requires bitwidth constraints.
 		bitwidth := mirSchema.GetColumnByName(c.Sources[0]).Type.AsUint().BitWidth()
 		// Add column sorting constraints
-		air_gadgets.ApplyColumnSortGadget(c.Targets[0], c.Signs[0], bitwidth, airSchema)
+		air_gadgets.ApplyColumnSortGadget(targets[0], c.Signs[0], bitwidth, airSchema)
 	} else {
 		// For a multi column sort, its a bit harder as we need additional
 		// logicl to ensure the target columns are lexicographally sorted.
@@ -237,7 +252,7 @@ func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Sche
 			}
 		}
 		// Add lexicographically sorted constraints
-		air_gadgets.ApplyLexicographicSortingGadget(c.Targets, c.Signs, bitwidth, airSchema)
+		air_gadgets.ApplyLexicographicSortingGadget(targets, c.Signs, bitwidth, airSchema)
 	}
 }
 

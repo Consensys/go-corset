@@ -30,15 +30,17 @@ func ApplyPseudoInverseGadget(e air.Expr, tbl *air.Schema) air.Expr {
 	ie := &Inverse{Expr: e}
 	// Determine computed column name
 	name := ie.String()
+	//
+	index, ok := tbl.IndexOf(name)
 	// Add new column (if it does not already exist)
-	if !tbl.HasColumn(name) {
+	if !ok {
 		// Add (synthetic) computed column
-		tbl.AddColumn(name, true)
+		index = tbl.AddColumn(name, true)
 		tbl.AddComputation(table.NewComputedColumn(name, ie))
 	}
 
 	// Construct 1/e
-	inv_e := air.NewColumnAccess(name, 0)
+	inv_e := air.NewColumnAccess(index, 0)
 	// Construct e/e
 	e_inv_e := e.Mul(inv_e)
 	// Construct 1 == e/e
@@ -54,7 +56,7 @@ func ApplyPseudoInverseGadget(e air.Expr, tbl *air.Schema) air.Expr {
 	r_name := fmt.Sprintf("[%s =>]", ie.String())
 	tbl.AddVanishingConstraint(r_name, nil, inv_e_implies_one_e_e)
 	// Done
-	return air.NewColumnAccess(name, 0)
+	return air.NewColumnAccess(index, 0)
 }
 
 // Inverse represents a computation which computes the multiplicative
@@ -66,10 +68,6 @@ type Inverse struct{ Expr air.Expr }
 func (e *Inverse) EvalAt(k int, tbl table.Trace) *fr.Element {
 	inv := new(fr.Element)
 	val := e.Expr.EvalAt(k, tbl)
-	// Catch undefined case
-	if val == nil {
-		return nil
-	}
 	// Go syntax huh?
 	return inv.Inverse(val)
 }

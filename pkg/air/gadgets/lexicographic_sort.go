@@ -26,37 +26,38 @@ import (
 // case (see above).  The delta value captures the difference Ci[k]-Ci[k-1] to
 // ensure it is positive.  The delta column is constrained to a given bitwidth,
 // with constraints added as necessary to ensure this.
-func ApplyLexicographicSortingGadget(columns []string, signs []bool, bitwidth uint, schema *air.Schema) {
+func ApplyLexicographicSortingGadget(columns []uint, signs []bool, bitwidth uint, schema *air.Schema) {
 	// Check preconditions
 	ncols := len(columns)
 	if ncols != len(signs) {
 		panic("Inconsistent number of columns and signs for lexicographic sort.")
 	}
-	// Add trace computation
-	schema.AddComputation(&lexicographicSortExpander{columns, signs, bitwidth})
 	// Construct a unique prefix for this sort.
-	prefix := constructLexicographicSortingPrefix(columns, signs)
+	prefix := constructLexicographicSortingPrefix(columns, signs, schema)
+	// Add trace computation
+	schema.AddComputation(&lexicographicSortExpander{prefix, columns, signs, bitwidth})
 	deltaName := fmt.Sprintf("%s:delta", prefix)
 	// Construct selecto bits.
 	bits := addLexicographicSelectorBits(prefix, columns, schema)
 	// Add delta column
-	schema.AddColumn(deltaName, true)
+	deltaIndex := schema.AddColumn(deltaName, true)
 	// Construct delta terms
-	constraint := constructLexicographicDeltaConstraint(deltaName, bits, columns, signs)
+	constraint := constructLexicographicDeltaConstraint(deltaIndex, bits, columns, signs)
 	// Add delta constraint
 	schema.AddVanishingConstraint(deltaName, nil, constraint)
 	// Add necessary bitwidth constraints
-	ApplyBitwidthGadget(deltaName, bitwidth, schema)
+	ApplyBitwidthGadget(deltaIndex, bitwidth, schema)
 }
 
 // Construct a unique identifier for the given sort.  This should not conflict
 // with the identifier for any other sort.
-func constructLexicographicSortingPrefix(columns []string, signs []bool) string {
+func constructLexicographicSortingPrefix(columns []uint, signs []bool, schema *air.Schema) string {
 	// Use string builder to try and make this vaguely efficient.
 	var id strings.Builder
 	// Concatenate column names with their signs.
 	for i := 0; i < len(columns); i++ {
-		id.WriteString(columns[i])
+		ith := schema.Column(columns[i])
+		id.WriteString(ith.Name())
 
 		if signs[i] {
 			id.WriteString("+")
@@ -75,7 +76,7 @@ func constructLexicographicSortingPrefix(columns []string, signs []bool) string 
 //
 // NOTE: this implementation differs from the original corset which used an
 // additional "Eq" bit to help ensure at most one selector bit was enabled.
-func addLexicographicSelectorBits(prefix string, columns []string, schema *air.Schema) []string {
+func addLexicographicSelectorBits(prefix string, columns []uint, schema *air.Schema) []uint {
 	ncols := len(columns)
 	// Add bits and their binary constraints.
 	bits := AddBitArray(prefix, ncols, schema)
@@ -123,11 +124,11 @@ func addLexicographicSelectorBits(prefix string, columns []string, schema *air.S
 // appropriately for the sign) between the ith column whose multiplexor bit is
 // set. This is assumes that multiplexor bits are mutually exclusive (i.e. at
 // most is one).
-func constructLexicographicDeltaConstraint(deltaName string, bits []string, columns []string, signs []bool) air.Expr {
+func constructLexicographicDeltaConstraint(delta uint, bits []uint, columns []uint, signs []bool) air.Expr {
 	ncols := len(columns)
 	// Construct delta terms
 	terms := make([]air.Expr, ncols)
-	Dk := air.NewColumnAccess(deltaName, 0)
+	Dk := air.NewColumnAccess(delta, 0)
 
 	for i := 0; i < ncols; i++ {
 		var Xdiff air.Expr
@@ -150,7 +151,8 @@ func constructLexicographicDeltaConstraint(deltaName string, bits []string, colu
 }
 
 type lexicographicSortExpander struct {
-	columns  []string
+	prefix   string
+	columns  []uint
 	signs    []bool
 	bitwidth uint
 }
@@ -163,15 +165,15 @@ func (p *lexicographicSortExpander) RequiredSpillage() uint {
 
 // Accepts checks whether a given trace has the necessary columns
 func (p *lexicographicSortExpander) Accepts(tr table.Trace) error {
-	prefix := constructLexicographicSortingPrefix(p.columns, p.signs)
-	deltaName := fmt.Sprintf("%s:delta", prefix)
+	//prefix := constructLexicographicSortingPrefix(p.columns, p.signs)
+	deltaName := fmt.Sprintf("%s:delta", p.prefix)
 	// Check delta column exists
 	if !tr.HasColumn(deltaName) {
 		return fmt.Errorf("Trace missing lexicographic delta column ({%s})", deltaName)
 	}
 	// Check selector columns exist
 	for i := range p.columns {
-		bitName := fmt.Sprintf("%s:%d", prefix, i)
+		bitName := fmt.Sprintf("%s:%d", p.prefix, i)
 		if !tr.HasColumn(bitName) {
 			return fmt.Errorf("Trace missing lexicographic selector column ({%s})", bitName)
 		}
@@ -190,8 +192,7 @@ func (p *lexicographicSortExpander) ExpandTrace(tr table.Trace) error {
 	// Determine how many rows to be constrained.
 	nrows := tr.Height()
 	// Construct a unique prefix for this sort.
-	prefix := constructLexicographicSortingPrefix(p.columns, p.signs)
-	deltaName := fmt.Sprintf("%s:delta", prefix)
+	deltaName := fmt.Sprintf("%s:delta", p.prefix)
 	// Initialise new data columns
 	delta := make([]*fr.Element, nrows)
 	bit := make([][]*fr.Element, ncols)
@@ -206,8 +207,8 @@ func (p *lexicographicSortExpander) ExpandTrace(tr table.Trace) error {
 		delta[i] = &zero
 		// Decide which row is the winner (if any)
 		for j := 0; j < ncols; j++ {
-			prev := tr.ColumnByName(p.columns[j]).Get(i - 1)
-			curr := tr.ColumnByName(p.columns[j]).Get(i)
+			prev := tr.ColumnByIndex(p.columns[j]).Get(i - 1)
+			curr := tr.ColumnByIndex(p.columns[j]).Get(i)
 
 			if !set && prev != nil && prev.Cmp(curr) != 0 {
 				var diff fr.Element
@@ -228,12 +229,11 @@ func (p *lexicographicSortExpander) ExpandTrace(tr table.Trace) error {
 			}
 		}
 	}
-
 	// Add delta column data
 	tr.AddColumn(deltaName, delta, &zero)
 	// Add bit column data
 	for i := 0; i < ncols; i++ {
-		bitName := fmt.Sprintf("%s:%d", prefix, i)
+		bitName := fmt.Sprintf("%s:%d", p.prefix, i)
 		tr.AddColumn(bitName, bit[i], &zero)
 	}
 	// Done.
@@ -243,5 +243,5 @@ func (p *lexicographicSortExpander) ExpandTrace(tr table.Trace) error {
 // String returns a string representation of this constraint.  This is primarily
 // used for debugging.
 func (p *lexicographicSortExpander) String() string {
-	return fmt.Sprintf("(lexer (%s) (%v) :%d))", any(p.columns), p.signs, p.bitwidth)
+	return fmt.Sprintf("(lexer (%v) (%v) :%d))", any(p.columns), p.signs, p.bitwidth)
 }

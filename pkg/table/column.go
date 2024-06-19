@@ -10,7 +10,7 @@ import (
 
 // DataColumn represents a column of user-provided values.
 type DataColumn[T Type] struct {
-	Name string
+	name string
 	// Expected type of values held in this column.  Observe that this type is
 	// enforced only when checking is enabled.  Unchecked typed columns can
 	// still make sense when their values are implied by some other constraint.
@@ -25,23 +25,29 @@ func NewDataColumn[T Type](name string, base T, synthetic bool) *DataColumn[T] {
 	return &DataColumn[T]{name, base, synthetic}
 }
 
+// Name forms part of the ColumnSchema interface, and provides access to
+// information about the ith column in a schema.
+func (p *DataColumn[T]) Name() string {
+	return p.name
+}
+
 // Width forms part of the ColumnGroup interface, and determines how many
 // columns are in the group.  Data columns already represent a group of size 1.
-func (c *DataColumn[T]) Width() uint {
+func (p *DataColumn[T]) Width() uint {
 	return 1
 }
 
 // NameOf forms part of the ColumnGroup interface, and provides access to the
 // ith column in a group.  Since a data column represents a group of size 1,
 // there is only ever one name.
-func (c *DataColumn[T]) NameOf(index uint) string {
-	return c.Name
+func (p *DataColumn[T]) NameOf(index uint) string {
+	return p.name
 }
 
 // IsSynthetic forms part of the ColumnGroup interface, and determines whether or
 // not the group (as a whole) is synthetic.
-func (c *DataColumn[T]) IsSynthetic() bool {
-	return c.Synthetic
+func (p *DataColumn[T]) IsSynthetic() bool {
+	return p.Synthetic
 }
 
 // Accepts determines whether or not this column accepts the given trace.  For a
@@ -49,19 +55,19 @@ func (c *DataColumn[T]) IsSynthetic() bool {
 // type.
 //
 //nolint:revive
-func (c *DataColumn[T]) Accepts(tr Trace) error {
+func (p *DataColumn[T]) Accepts(tr Trace) error {
 	// Only check for non-field types.  This is simply because a column with the
 	// field type always accepts everything.
-	if c.Type.AsField() == nil {
+	if p.Type.AsField() == nil {
 		// Access corresponding column in trace
-		col := tr.ColumnByName(c.Name)
+		col := tr.ColumnByName(p.name)
 		// Check constraints accepted
 		for i := 0; i < int(tr.Height()); i++ {
 			val := col.Get(i)
 
-			if !c.Type.Accept(val) {
+			if !p.Type.Accept(val) {
 				// Construct useful error message
-				msg := fmt.Sprintf("column %s value out-of-bounds (row %d, %s)", c.Name, i, val)
+				msg := fmt.Sprintf("column %s value out-of-bounds (row %d, %s)", p.Name(), i, val)
 				// Evaluation failure
 				return errors.New(msg)
 			}
@@ -74,10 +80,10 @@ func (c *DataColumn[T]) Accepts(tr Trace) error {
 //nolint:revive
 func (c *DataColumn[T]) String() string {
 	if c.Type.AsField() != nil {
-		return fmt.Sprintf("(column %s)", c.Name)
+		return fmt.Sprintf("(column %s)", c.Name())
 	}
 
-	return fmt.Sprintf("(column %s :%s)", c.Name, c.Type)
+	return fmt.Sprintf("(column %s :%s)", c.Name(), c.Type)
 }
 
 // ComputedColumn describes a column whose values are computed on-demand, rather
@@ -160,77 +166,6 @@ func (c *ComputedColumn[E]) ExpandTrace(tr Trace) error {
 // nolint:revive
 func (c *ComputedColumn[E]) String() string {
 	return fmt.Sprintf("(compute %s %s)", c.Name, any(c.Expr))
-}
-
-// ===================================================================
-// Permutation
-// ===================================================================
-
-// Permutation declares a constraint that one column is a permutation
-// of another.
-type Permutation struct {
-	// The target columns
-	Targets []string
-	// The so columns
-	Sources []string
-}
-
-// NewPermutation creates a new permutation
-func NewPermutation(targets []string, sources []string) *Permutation {
-	if len(targets) != len(sources) {
-		panic("differeng number of target / source permutation columns")
-	}
-
-	return &Permutation{targets, sources}
-}
-
-// RequiredSpillage returns the minimum amount of spillage required to ensure
-// valid traces are accepted in the presence of arbitrary padding.
-func (p *Permutation) RequiredSpillage() uint {
-	return uint(0)
-}
-
-// Accepts checks whether a permutation holds between the source and
-// target columns.
-func (p *Permutation) Accepts(tr Trace) error {
-	// Sanity check columns well formed.
-	if err := validPermutationColumns(p.Targets, p.Sources, tr); err != nil {
-		return err
-	}
-	// Slice out data
-	src := sliceMatchingColumns(p.Sources, tr)
-	dst := sliceMatchingColumns(p.Targets, tr)
-	// Sanity check whether column exists
-	if !util.ArePermutationOf(dst, src) {
-		msg := fmt.Sprintf("Target columns (%v) not permutation of source columns ({%v})",
-			p.Targets, p.Sources)
-		return errors.New(msg)
-	}
-	// Success
-	return nil
-}
-
-func (p *Permutation) String() string {
-	targets := ""
-	sources := ""
-
-	for i, s := range p.Targets {
-		if i != 0 {
-			targets += " "
-		}
-
-		targets += s
-	}
-
-	for i, s := range p.Sources {
-		if i != 0 {
-			sources += " "
-		}
-
-		sources += s
-	}
-
-	return fmt.Sprintf("(permutation (%s) (%s))", targets, sources)
 }
 
 // ===================================================================

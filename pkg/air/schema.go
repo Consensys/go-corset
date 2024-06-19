@@ -67,6 +67,11 @@ func (p *Schema) ColumnGroup(i uint) table.ColumnGroup {
 	return p.dataColumns[i]
 }
 
+// Column returns information about the ith column in this schema.
+func (p *Schema) Column(i uint) table.ColumnSchema {
+	return p.dataColumns[i]
+}
+
 // Size returns the number of declarations in this schema.
 func (p *Schema) Size() int {
 	return len(p.dataColumns) + len(p.permutations) + len(p.vanishing) +
@@ -88,12 +93,24 @@ func (p *Schema) Columns() []DataColumn {
 // HasColumn checks whether a given schema has a given column.
 func (p *Schema) HasColumn(name string) bool {
 	for _, c := range p.dataColumns {
-		if c.Name == name {
+		if c.Name() == name {
 			return true
 		}
 	}
 
 	return false
+}
+
+// IndexOf determines the column index for a given column in this schema, or
+// returns false indicating an error.
+func (p *Schema) IndexOf(name string) (uint, bool) {
+	for i, c := range p.dataColumns {
+		if c.Name() == name {
+			return uint(i), true
+		}
+	}
+
+	return 0, false
 }
 
 // RequiredSpillage returns the minimum amount of spillage required to ensure
@@ -118,10 +135,12 @@ func (p *Schema) RequiredSpillage() uint {
 // column which was original specified by the user.  Columns also support a
 // "padding sign", which indicates whether padding should occur at the front
 // (positive sign) or the back (negative sign).
-func (p *Schema) AddColumn(name string, synthetic bool) {
+func (p *Schema) AddColumn(name string, synthetic bool) uint {
 	// NOTE: the air level has no ability to enforce the type specified for a
 	// given column.
 	p.dataColumns = append(p.dataColumns, table.NewDataColumn(name, &table.FieldType{}, synthetic))
+	// Calculate column index
+	return uint(len(p.dataColumns) - 1)
 }
 
 // AddComputation appends a new computation to be used during trace
@@ -132,7 +151,7 @@ func (p *Schema) AddComputation(c table.TraceComputation) {
 
 // AddPermutationConstraint appends a new permutation constraint which
 // ensures that one column is a permutation of another.
-func (p *Schema) AddPermutationConstraint(targets []string, sources []string) {
+func (p *Schema) AddPermutationConstraint(targets []uint, sources []uint) {
 	p.permutations = append(p.permutations, table.NewPermutation(targets, sources))
 }
 
@@ -142,7 +161,7 @@ func (p *Schema) AddVanishingConstraint(handle string, domain *int, expr Expr) {
 }
 
 // AddRangeConstraint appends a new range constraint.
-func (p *Schema) AddRangeConstraint(column string, bound *fr.Element) {
+func (p *Schema) AddRangeConstraint(column uint, bound *fr.Element) {
 	p.ranges = append(p.ranges, table.NewRangeConstraint(column, bound))
 }
 

@@ -172,9 +172,8 @@ func (p *RowConstraint[T]) String() string {
 // 256 (i.e. to ensuring bytes).  This restriction is somewhat
 // arbitrary and is determined by the underlying prover.
 type RangeConstraint struct {
-	// A unique identifier for this constraint.  This is primarily
-	// useful for debugging.
-	Handle string
+	// Column index to be constrained.
+	Column uint
 	// The actual constraint itself, namely an expression which
 	// should evaluate to zero.  NOTE: an fr.Element is used here
 	// to store the bound simply to make the necessary comparison
@@ -183,7 +182,7 @@ type RangeConstraint struct {
 }
 
 // NewRangeConstraint constructs a new Range constraint!
-func NewRangeConstraint(column string, bound *fr.Element) *RangeConstraint {
+func NewRangeConstraint(column uint, bound *fr.Element) *RangeConstraint {
 	var n fr.Element = fr.NewElement(256)
 	if bound.Cmp(&n) > 0 {
 		panic("Range constraint for bitwidth above 8 not supported")
@@ -192,24 +191,21 @@ func NewRangeConstraint(column string, bound *fr.Element) *RangeConstraint {
 	return &RangeConstraint{column, bound}
 }
 
-// GetHandle returns the handle associated with this constraint.
-func (p *RangeConstraint) GetHandle() string {
-	return p.Handle
-}
-
 // IsAir is a marker that indicates this is an AIR column.
 func (p *RangeConstraint) IsAir() bool { return true }
 
 // Accepts checks whether a range constraint evaluates to zero on
 // every row of a table. If so, return nil otherwise return an error.
 func (p *RangeConstraint) Accepts(tr Trace) error {
+	column := tr.ColumnByIndex(p.Column)
 	for k := 0; k < int(tr.Height()); k++ {
 		// Get the value on the kth row
-		kth := tr.ColumnByName(p.Handle).Get(k)
+		kth := column.Get(k)
 		// Perform the bounds check
 		if kth != nil && kth.Cmp(p.Bound) >= 0 {
+			name := column.Name()
 			// Construct useful error message
-			msg := fmt.Sprintf("value out-of-bounds (row %d, %s)", kth, p.Handle)
+			msg := fmt.Sprintf("value out-of-bounds (row %d, %s)", kth, name)
 			// Evaluation failure
 			return errors.New(msg)
 		}
@@ -219,7 +215,86 @@ func (p *RangeConstraint) Accepts(tr Trace) error {
 }
 
 func (p *RangeConstraint) String() string {
-	return fmt.Sprintf("(range %s %s)", p.Handle, p.Bound)
+	return fmt.Sprintf("(range #%d %s)", p.Column, p.Bound)
+}
+
+// ===================================================================
+// Permutation
+// ===================================================================
+
+// Permutation declares a constraint that one column is a permutation
+// of another.
+type Permutation struct {
+	// The target columns
+	Targets []uint
+	// The source columns
+	Sources []uint
+}
+
+// NewPermutation creates a new permutation
+func NewPermutation(targets []uint, sources []uint) *Permutation {
+	if len(targets) != len(sources) {
+		panic("differeng number of target / source permutation columns")
+	}
+
+	return &Permutation{targets, sources}
+}
+
+// RequiredSpillage returns the minimum amount of spillage required to ensure
+// valid traces are accepted in the presence of arbitrary padding.
+func (p *Permutation) RequiredSpillage() uint {
+	return uint(0)
+}
+
+// Accepts checks whether a permutation holds between the source and
+// target columns.
+func (p *Permutation) Accepts(tr Trace) error {
+	// Slice out data
+	src := sliceColumns(p.Sources, tr)
+	dst := sliceColumns(p.Targets, tr)
+	// Sanity check whether column exists
+	if !util.ArePermutationOf(dst, src) {
+		msg := fmt.Sprintf("Target columns (%v) not permutation of source columns ({%v})",
+			p.Targets, p.Sources)
+		return errors.New(msg)
+	}
+	// Success
+	return nil
+}
+
+func (p *Permutation) String() string {
+	targets := ""
+	sources := ""
+
+	for i, s := range p.Targets {
+		if i != 0 {
+			targets += " "
+		}
+
+		targets += fmt.Sprintf("%d", s)
+	}
+
+	for i, s := range p.Sources {
+		if i != 0 {
+			sources += " "
+		}
+
+		sources += fmt.Sprintf("%d", s)
+	}
+
+	return fmt.Sprintf("(permutation (%s) (%s))", targets, sources)
+}
+
+func sliceColumns(columns []uint, tr Trace) [][]*fr.Element {
+	// Allocate return array
+	cols := make([][]*fr.Element, len(columns))
+	// Slice out the data
+	for i, n := range columns {
+		nth := tr.ColumnByIndex(n)
+		cols[i] = nth.Data()
+	}
+	// Done
+	return cols
 }
 
 // ===================================================================

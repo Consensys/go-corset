@@ -372,7 +372,7 @@ func CheckTraces(t *testing.T, test string, expected bool, traces []*table.Array
 				mirID := traceId{"MIR", test, expected, i + 1, padding, mirSchema.RequiredSpillage()}
 				airID := traceId{"AIR", test, expected, i + 1, padding, airSchema.RequiredSpillage()}
 				// Check whether trace is input compatible with schema
-				if err := tr.Compatible(hirSchema); err != nil {
+				if err := tr.AlignInputWith(hirSchema); err != nil {
 					// Alignment failed.  So, attempt alignment as expanded
 					// trace instead.
 					if err := tr.AlignWith(airSchema); err != nil {
@@ -424,7 +424,7 @@ func checkExpandedTrace(t *testing.T, tr table.Trace, id traceId, schema table.S
 	accepted := (err == nil)
 	// Process what happened versus what was supposed to happen.
 	if !accepted && id.expected {
-		//printTrace(tr)
+		table.PrintTrace(tr)
 		msg := fmt.Sprintf("Trace rejected incorrectly (%s, %s.accepts, line %d with spillage %d / padding %d): %s",
 			id.ir, id.test, id.line, id.spillage, id.padding, err)
 		t.Errorf(msg)

@@ -27,6 +27,9 @@ type Schema interface {
 
 	// Access information about the ith column group in this schema.
 	ColumnGroup(uint) ColumnGroup
+
+	// Access information about the ith column in this schema.
+	Column(uint) ColumnSchema
 }
 
 // ColumnGroup represents a group of related columns in the schema.  For
@@ -41,6 +44,12 @@ type ColumnGroup interface {
 
 	// Determines whether or not this column group is synthetic.
 	IsSynthetic() bool
+}
+
+// ColumnSchema provides information about a specific column in the schema.
+type ColumnSchema interface {
+	// Returns the name of this column
+	Name() string
 }
 
 // Declaration represents a declared element of a schema.  For example, a column

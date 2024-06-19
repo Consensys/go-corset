@@ -143,14 +143,14 @@ func (p *Constant) Bounds() util.Bounds { return util.EMPTY_BOUND }
 // accesses the STAMP column at row 5, whilst CT(-1) accesses the CT column at
 // row 4.
 type ColumnAccess struct {
-	Column string
+	Column uint
 	Shift  int
 }
 
 // NewColumnAccess constructs an AIR expression representing the value of a given
 // column on the current row.
-func NewColumnAccess(name string, shift int) Expr {
-	return &ColumnAccess{name, shift}
+func NewColumnAccess(column uint, shift int) Expr {
+	return &ColumnAccess{column, shift}
 }
 
 // Add two expressions together, producing a third.

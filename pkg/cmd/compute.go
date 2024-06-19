@@ -29,7 +29,7 @@ var computeCmd = &cobra.Command{
 			}
 			// Print columns
 			for _, c := range schema.Columns() {
-				fmt.Printf("column %s : %s\n", c.Name, c.Type)
+				fmt.Printf("column %s : %s\n", c.Name(), c.Type)
 			}
 			// Print constraints
 			for _, c := range schema.Constraints() {

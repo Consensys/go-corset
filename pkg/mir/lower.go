@@ -33,7 +33,12 @@ func (p *Normalise) LowerTo(tbl *air.Schema) air.Expr {
 // LowerTo lowers a column access to the AIR level.  This is straightforward as
 // it is already in the correct form.
 func (e *ColumnAccess) LowerTo(tbl *air.Schema) air.Expr {
-	return &air.ColumnAccess{Column: e.Column, Shift: e.Shift}
+	index, ok := tbl.IndexOf(e.Column)
+	if !ok {
+		panic("unknown column")
+	}
+
+	return &air.ColumnAccess{Column: index, Shift: e.Shift}
 }
 
 // LowerTo lowers a constant to the AIR level.  This is straightforward as it is
