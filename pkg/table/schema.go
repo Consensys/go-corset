@@ -38,6 +38,9 @@ type ColumnGroup interface {
 
 	// Returns the name of the ith column in this group.
 	NameOf(uint) string
+
+	// Determines whether or not this column group is synthetic.
+	IsSynthetic() bool
 }
 
 // Declaration represents a declared element of a schema.  For example, a column

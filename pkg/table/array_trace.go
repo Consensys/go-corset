@@ -38,6 +38,17 @@ func (p *ArrayTrace) ColumnName(index int) string {
 	return p.columns[index].Name()
 }
 
+// IndexOf returns the index of the given name in this trace.
+func (p *ArrayTrace) IndexOf(name string) (uint, bool) {
+	for i, c := range p.columns {
+		if c.name == name {
+			return uint(i), true
+		}
+	}
+	// Column does not exist
+	return 0, false
+}
+
 // Clone creates an identical clone of this trace.
 func (p *ArrayTrace) Clone() *ArrayTrace {
 	clone := new(ArrayTrace)
@@ -63,12 +74,44 @@ func (p *ArrayTrace) HasColumn(name string) bool {
 	return false
 }
 
+// Compatible determines whether or not this trace is "input compatible" with a
+// given schema.  Specifically, whether or not this trace can be fed into the
+// schema and expanded into a full trace.  For this to be true, the columns of
+// the trace must exactly match the non-synthetic columns of the schema.
+func (p *ArrayTrace) Compatible(schema Schema) error {
+	index := 0
+	// Check each column described in this schema is present in the trace.
+	for i := uint(0); i < schema.Width(); i++ {
+		group := schema.ColumnGroup(i)
+		if !group.IsSynthetic() {
+			for j := uint(0); j < group.Width(); j++ {
+				// Determine column name
+				schemaName := group.NameOf(j)
+				// Check column exists in this trace
+				if !p.HasColumn(schemaName) {
+					return fmt.Errorf("trace missing input column %s", schemaName)
+				}
+
+				index++
+			}
+		}
+	}
+	// Check perfect match
+	if index == len(p.columns) {
+		// Success
+		return nil
+	}
+	// Error case
+	return fmt.Errorf("trace has %d unknown input column(s)", len(p.columns)-index)
+}
+
 // AlignWith attempts to align this trace with a given schema.  This means
 // ensuring the order of columns in this trace matches the order in the schema.
 // Thus, column indexes used by constraints in the schema can directly access in
 // this trace (i.e. without name lookup).  Alignment can fail, however, if there
 // is a mismatch between columns in the trace and those expected by the schema.
 func (p *ArrayTrace) AlignWith(schema Schema) error {
+	ncols := len(p.columns)
 	index := 0
 	// Check each column described in this schema is present in the trace.
 	for i := uint(0); i < schema.Width(); i++ {
@@ -76,23 +119,38 @@ func (p *ArrayTrace) AlignWith(schema Schema) error {
 		for j := uint(0); j < group.Width(); j++ {
 			// Determine column name
 			schemaName := group.NameOf(j)
+			// Sanity check column exists
+			if index >= ncols {
+				return fmt.Errorf("trace missing column %s", schemaName)
+			}
+
 			traceName := p.columns[index].name
 			// Check alignment
 			if traceName != schemaName {
-				// Not yet aligned.
-				return fmt.Errorf("Column %s incorrectly aligns with %s", traceName, schemaName)
+				// Not aligned --- so fix
+				k, ok := p.IndexOf(schemaName)
+				// check exists
+				if !ok {
+					return fmt.Errorf("trace missing column %s", schemaName)
+				}
+				// Swap columns
+				tmp := p.columns[index]
+				p.columns[index] = p.columns[k]
+				p.columns[k] = tmp
 			}
 			// Continue
 			index++
 		}
 	}
 	// Check whether all columns matched
-	if index == len(p.columns) {
+	if index == ncols {
 		// Yes, alignment complete.
 		return nil
 	}
-	// Error case
-	return fmt.Errorf("incorrect number of columns")
+	// Error Case.
+	unknowns := p.columns[index:]
+	//
+	return fmt.Errorf("trace contains unknown columns: %v", unknowns)
 }
 
 // AddColumn adds a new column of data to this trace.

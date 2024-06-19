@@ -98,7 +98,6 @@ func ParseJsonTrace(bytes []byte) (*ArrayTrace, error) {
 		// Add new column to the trace
 		trace.AddColumn(name, rawElements, &zero)
 	}
-
 	// Done.
 	return trace, nil
 }

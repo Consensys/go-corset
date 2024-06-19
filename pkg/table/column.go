@@ -25,8 +25,8 @@ func NewDataColumn[T Type](name string, base T, synthetic bool) *DataColumn[T] {
 	return &DataColumn[T]{name, base, synthetic}
 }
 
-// Width forms part of the ColumnGroup interface, and provides access to the
-// ith column in a group.  Data columns already represent a group of size 1.
+// Width forms part of the ColumnGroup interface, and determines how many
+// columns are in the group.  Data columns already represent a group of size 1.
 func (c *DataColumn[T]) Width() uint {
 	return 1
 }
@@ -36,6 +36,12 @@ func (c *DataColumn[T]) Width() uint {
 // there is only ever one name.
 func (c *DataColumn[T]) NameOf(index uint) string {
 	return c.Name
+}
+
+// IsSynthetic forms part of the ColumnGroup interface, and determines whether or
+// not the group (as a whole) is synthetic.
+func (c *DataColumn[T]) IsSynthetic() bool {
+	return c.Synthetic
 }
 
 // Accepts determines whether or not this column accepts the given trace.  For a
@@ -127,8 +133,7 @@ func (c *ComputedColumn[E]) Accepts(tr Trace) error {
 // then an error is flagged.
 func (c *ComputedColumn[E]) ExpandTrace(tr Trace) error {
 	if tr.HasColumn(c.Name) {
-		msg := fmt.Sprintf("Computed column already exists ({%s})", c.Name)
-		return errors.New(msg)
+		return fmt.Errorf("Computed column already exists ({%s})", c.Name)
 	}
 
 	data := make([]*fr.Element, tr.Height())
@@ -158,7 +163,7 @@ func (c *ComputedColumn[E]) String() string {
 }
 
 // ===================================================================
-// Sorted Permutations
+// Permutation
 // ===================================================================
 
 // Permutation declares a constraint that one column is a permutation
@@ -250,6 +255,27 @@ func NewSortedPermutation(targets []string, signs []bool, sources []string) *Sor
 	}
 
 	return &SortedPermutation{targets, signs, sources}
+}
+
+// Width forms part of the ColumnGroup interface, and provides access to the
+// ith column in a group.  Sorted permutations have define one or more new
+// columns.
+func (p *SortedPermutation) Width() uint {
+	return uint(len(p.Targets))
+}
+
+// NameOf forms part of the ColumnGroup interface, and provides access to the
+// ith column in a group.  Since a data column represents a group of size 1,
+// there is only ever one name.
+func (p *SortedPermutation) NameOf(index uint) string {
+	return p.Targets[index]
+}
+
+// IsSynthetic forms part of the ColumnGroup interface which determines whether
+// or not the group (as a whole) is synthetic.  Sorted permutation columns are
+// always synthetic.
+func (p *SortedPermutation) IsSynthetic() bool {
+	return true
 }
 
 // RequiredSpillage returns the minimum amount of spillage required to ensure

@@ -26,8 +26,6 @@ type Permutation = *table.Permutation
 // Schema for AIR traces which is parameterised on a notion of computation as
 // permissible in computed columns.
 type Schema struct {
-	// Column names.
-	columns []string
 	// The data columns of this schema.
 	dataColumns []DataColumn
 	// The permutation columns of this schema.
@@ -89,8 +87,8 @@ func (p *Schema) Columns() []DataColumn {
 
 // HasColumn checks whether a given schema has a given column.
 func (p *Schema) HasColumn(name string) bool {
-	for _, c := range p.columns {
-		if c == name {
+	for _, c := range p.dataColumns {
+		if c.Name == name {
 			return true
 		}
 	}

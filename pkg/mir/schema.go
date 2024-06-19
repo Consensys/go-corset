@@ -60,8 +60,7 @@ func (p *Schema) ColumnGroup(i uint) table.ColumnGroup {
 	if i < n {
 		return p.dataColumns[i]
 	} else {
-		//return p.permutations[i-n]
-		panic("to do")
+		return p.permutations[i-n]
 	}
 }
 
@@ -152,7 +151,12 @@ func (p *Schema) Accepts(trace table.Trace) error {
 // constraints as necessary to preserve the original semantics.
 func (p *Schema) LowerToAir() *air.Schema {
 	airSchema := air.EmptySchema[Expr]()
-	// Lower data columns
+	// Allocate data columns.  This must be done first to ensure alignment is
+	// preserved across lowering.
+	for _, col := range p.dataColumns {
+		airSchema.AddColumn(col.Name, false)
+	}
+	// Lower checked data columns
 	for _, col := range p.dataColumns {
 		lowerColumnToAir(col, airSchema)
 	}
@@ -192,9 +196,6 @@ func lowerColumnToAir(c *table.DataColumn[table.Type], schema *air.Schema) {
 			air_gadgets.ApplyBitwidthGadget(c.Name, t.BitWidth(), schema)
 		}
 	}
-	// Finally, add an (untyped) data column representing this
-	// data column.
-	schema.AddColumn(c.Name, false)
 }
 
 // Lower a permutation to the AIR level.  This has quite a few

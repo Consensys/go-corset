@@ -90,8 +90,7 @@ func (p *Schema) ColumnGroup(i uint) table.ColumnGroup {
 	if i < n {
 		return p.dataColumns[i]
 	} else {
-		//return p.permutations[i-n]
-		panic("to do")
+		return p.permutations[i-n]
 	}
 }
 
