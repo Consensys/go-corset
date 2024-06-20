@@ -2,14 +2,14 @@ package hir
 
 import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/table"
+	"github.com/consensys/go-corset/pkg/trace"
 )
 
 // EvalAllAt evaluates a column access at a given row in a trace, which returns the
 // value at that row of the column in question or nil is that row is
 // out-of-bounds.
-func (e *ColumnAccess) EvalAllAt(k int, tbl table.Trace) []*fr.Element {
-	val := tbl.ColumnByName(e.Column).Get(k + e.Shift)
+func (e *ColumnAccess) EvalAllAt(k int, tr trace.Trace) []*fr.Element {
+	val := tr.ColumnByName(e.Column).Get(k + e.Shift)
 
 	var clone fr.Element
 	// Clone original value
@@ -18,7 +18,7 @@ func (e *ColumnAccess) EvalAllAt(k int, tbl table.Trace) []*fr.Element {
 
 // EvalAllAt evaluates a constant at a given row in a trace, which simply returns
 // that constant.
-func (e *Constant) EvalAllAt(k int, tbl table.Trace) []*fr.Element {
+func (e *Constant) EvalAllAt(k int, tr trace.Trace) []*fr.Element {
 	var clone fr.Element
 	// Clone original value
 	return []*fr.Element{clone.Set(e.Val)}
@@ -26,16 +26,16 @@ func (e *Constant) EvalAllAt(k int, tbl table.Trace) []*fr.Element {
 
 // EvalAllAt evaluates a sum at a given row in a trace by first evaluating all of
 // its arguments at that row.
-func (e *Add) EvalAllAt(k int, tbl table.Trace) []*fr.Element {
+func (e *Add) EvalAllAt(k int, tr trace.Trace) []*fr.Element {
 	fn := func(l *fr.Element, r *fr.Element) { l.Add(l, r) }
-	return evalExprsAt(k, tbl, e.Args, fn)
+	return evalExprsAt(k, tr, e.Args, fn)
 }
 
 // EvalAllAt evaluates a product at a given row in a trace by first evaluating all of
 // its arguments at that row.
-func (e *Mul) EvalAllAt(k int, tbl table.Trace) []*fr.Element {
+func (e *Mul) EvalAllAt(k int, tr trace.Trace) []*fr.Element {
 	fn := func(l *fr.Element, r *fr.Element) { l.Mul(l, r) }
-	return evalExprsAt(k, tbl, e.Args, fn)
+	return evalExprsAt(k, tr, e.Args, fn)
 }
 
 // EvalAllAt evaluates a conditional at a given row in a trace by first evaluating
@@ -43,16 +43,16 @@ func (e *Mul) EvalAllAt(k int, tbl table.Trace) []*fr.Element {
 // (if applicable) is evaluated; otherwise if the condition is non-zero then
 // false branch (if applicable) is evaluated).  If the branch to be evaluated is
 // missing (i.e. nil), then nil is returned.
-func (e *IfZero) EvalAllAt(k int, tbl table.Trace) []*fr.Element {
+func (e *IfZero) EvalAllAt(k int, tr trace.Trace) []*fr.Element {
 	vals := make([]*fr.Element, 0)
 	// Evaluate condition
-	conditions := e.Condition.EvalAllAt(k, tbl)
+	conditions := e.Condition.EvalAllAt(k, tr)
 	// Check all results
 	for _, cond := range conditions {
 		if cond.IsZero() && e.TrueBranch != nil {
-			vals = append(vals, e.TrueBranch.EvalAllAt(k, tbl)...)
+			vals = append(vals, e.TrueBranch.EvalAllAt(k, tr)...)
 		} else if !cond.IsZero() && e.FalseBranch != nil {
-			vals = append(vals, e.FalseBranch.EvalAllAt(k, tbl)...)
+			vals = append(vals, e.FalseBranch.EvalAllAt(k, tr)...)
 		}
 	}
 
@@ -61,11 +61,11 @@ func (e *IfZero) EvalAllAt(k int, tbl table.Trace) []*fr.Element {
 
 // EvalAllAt evaluates a list at a given row in a trace by evaluating each of its
 // arguments at that row.
-func (e *List) EvalAllAt(k int, tbl table.Trace) []*fr.Element {
+func (e *List) EvalAllAt(k int, tr trace.Trace) []*fr.Element {
 	vals := make([]*fr.Element, 0)
 
 	for _, e := range e.Args {
-		vs := e.EvalAllAt(k, tbl)
+		vs := e.EvalAllAt(k, tr)
 		vals = append(vals, vs...)
 	}
 
@@ -75,9 +75,9 @@ func (e *List) EvalAllAt(k int, tbl table.Trace) []*fr.Element {
 // EvalAllAt evaluates the normalisation of some expression by first evaluating
 // that expression.  Then, zero is returned if the result is zero; otherwise one
 // is returned.
-func (e *Normalise) EvalAllAt(k int, tbl table.Trace) []*fr.Element {
+func (e *Normalise) EvalAllAt(k int, tr trace.Trace) []*fr.Element {
 	// Check whether argument evaluates to zero or not.
-	vals := e.Arg.EvalAllAt(k, tbl)
+	vals := e.Arg.EvalAllAt(k, tr)
 	// Normalise values (as necessary)
 	for _, e := range vals {
 		if !e.IsZero() {
@@ -90,20 +90,20 @@ func (e *Normalise) EvalAllAt(k int, tbl table.Trace) []*fr.Element {
 
 // EvalAllAt evaluates a subtraction at a given row in a trace by first evaluating all of
 // its arguments at that row.
-func (e *Sub) EvalAllAt(k int, tbl table.Trace) []*fr.Element {
+func (e *Sub) EvalAllAt(k int, tr trace.Trace) []*fr.Element {
 	fn := func(l *fr.Element, r *fr.Element) { l.Sub(l, r) }
-	return evalExprsAt(k, tbl, e.Args, fn)
+	return evalExprsAt(k, tr, e.Args, fn)
 }
 
 // EvalExprsAt evaluates all expressions in a given slice at a given row on the
 // table, and fold their results together using a combinator.
-func evalExprsAt(k int, tbl table.Trace, exprs []Expr, fn func(*fr.Element, *fr.Element)) []*fr.Element {
+func evalExprsAt(k int, tr trace.Trace, exprs []Expr, fn func(*fr.Element, *fr.Element)) []*fr.Element {
 	// Evaluate first argument.
-	vals := exprs[0].EvalAllAt(k, tbl)
+	vals := exprs[0].EvalAllAt(k, tr)
 
 	// Continue evaluating the rest.
 	for i := 1; i < len(exprs); i++ {
-		vs := exprs[i].EvalAllAt(k, tbl)
+		vs := exprs[i].EvalAllAt(k, tr)
 		vals = evalExprsAtApply(vals, vs, fn)
 	}
 

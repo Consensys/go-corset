@@ -2,7 +2,8 @@ package hir
 
 import (
 	"github.com/consensys/go-corset/pkg/mir"
-	"github.com/consensys/go-corset/pkg/table"
+	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
 
@@ -16,7 +17,7 @@ type ZeroArrayTest struct {
 // TestAt determines whether or not every element from a given array of
 // expressions evaluates to zero. Observe that any expressions which are
 // undefined are assumed to hold.
-func (p ZeroArrayTest) TestAt(row int, tr table.Trace) bool {
+func (p ZeroArrayTest) TestAt(row int, tr trace.Trace) bool {
 	// Evalues expression yielding zero or more values.
 	vals := p.Expr.EvalAllAt(row, tr)
 	// Check each value in turn against zero.
@@ -40,20 +41,20 @@ func (p ZeroArrayTest) Bounds() util.Bounds {
 }
 
 // DataColumn captures the essence of a data column at AIR level.
-type DataColumn = *table.DataColumn[table.Type]
+type DataColumn = *schema.DataColumn[schema.Type]
 
 // VanishingConstraint captures the essence of a vanishing constraint at the HIR
 // level. A vanishing constraint is a row constraint which must evaluate to
 // zero.
-type VanishingConstraint = *table.RowConstraint[ZeroArrayTest]
+type VanishingConstraint = *schema.RowConstraint[ZeroArrayTest]
 
 // PropertyAssertion captures the notion of an arbitrary property which should
 // hold for all acceptable traces.  However, such a property is not enforced by
 // the prover.
-type PropertyAssertion = *table.PropertyAssertion[ZeroArrayTest]
+type PropertyAssertion = *schema.PropertyAssertion[ZeroArrayTest]
 
 // Permutation captures the notion of a (sorted) permutation at the HIR level.
-type Permutation = *table.SortedPermutation
+type Permutation = *schema.SortedPermutation
 
 // Schema for HIR constraints and columns.
 type Schema struct {
@@ -80,7 +81,7 @@ func EmptySchema() *Schema {
 }
 
 // Column returns information about the ith column in this schema.
-func (p *Schema) Column(i uint) table.ColumnSchema {
+func (p *Schema) Column(i uint) schema.ColumnSchema {
 	panic("todo")
 }
 
@@ -90,7 +91,7 @@ func (p *Schema) Width() uint {
 }
 
 // ColumnGroup returns information about the ith column group in this schema.
-func (p *Schema) ColumnGroup(i uint) table.ColumnGroup {
+func (p *Schema) ColumnGroup(i uint) schema.ColumnGroup {
 	n := uint(len(p.dataColumns))
 	if i < n {
 		return p.dataColumns[i]
@@ -131,7 +132,7 @@ func (p *Schema) HasColumn(name string) bool {
 }
 
 // Columns returns the set of (data) columns declared within this schema.
-func (p *Schema) Columns() []*table.DataColumn[table.Type] {
+func (p *Schema) Columns() []*schema.DataColumn[schema.Type] {
 	return p.dataColumns
 }
 
@@ -154,15 +155,15 @@ func (p *Schema) RequiredSpillage() uint {
 }
 
 // GetDeclaration returns the ith declaration in this schema.
-func (p *Schema) GetDeclaration(index int) table.Declaration {
+func (p *Schema) GetDeclaration(index int) schema.Declaration {
 	ith := util.FlatArrayIndexOf_4(index, p.dataColumns, p.permutations, p.vanishing, p.assertions)
-	return ith.(table.Declaration)
+	return ith.(schema.Declaration)
 }
 
 // AddDataColumn appends a new data column with a given type.  Furthermore, the
 // type is enforced by the system when checking is enabled.
-func (p *Schema) AddDataColumn(name string, base table.Type) {
-	p.dataColumns = append(p.dataColumns, table.NewDataColumn(name, base, false))
+func (p *Schema) AddDataColumn(name string, base schema.Type) {
+	p.dataColumns = append(p.dataColumns, schema.NewDataColumn(name, base, false))
 }
 
 // AddPermutationColumns introduces a permutation of one or more
@@ -172,38 +173,38 @@ func (p *Schema) AddDataColumn(name string, base table.Type) {
 // which indicates the direction of sorting (i.e. ascending versus
 // descending).
 func (p *Schema) AddPermutationColumns(targets []string, signs []bool, sources []string) {
-	p.permutations = append(p.permutations, table.NewSortedPermutation(targets, signs, sources))
+	p.permutations = append(p.permutations, schema.NewSortedPermutation(targets, signs, sources))
 }
 
 // AddVanishingConstraint appends a new vanishing constraint.
 func (p *Schema) AddVanishingConstraint(handle string, domain *int, expr Expr) {
-	p.vanishing = append(p.vanishing, table.NewRowConstraint(handle, domain, ZeroArrayTest{expr}))
+	p.vanishing = append(p.vanishing, schema.NewRowConstraint(handle, domain, ZeroArrayTest{expr}))
 }
 
 // AddPropertyAssertion appends a new property assertion.
 func (p *Schema) AddPropertyAssertion(handle string, property Expr) {
-	p.assertions = append(p.assertions, table.NewPropertyAssertion[ZeroArrayTest](handle, ZeroArrayTest{property}))
+	p.assertions = append(p.assertions, schema.NewPropertyAssertion[ZeroArrayTest](handle, ZeroArrayTest{property}))
 }
 
 // Accepts determines whether this schema will accept a given trace.  That
 // is, whether or not the given trace adheres to the schema.  A trace can fail
 // to adhere to the schema for a variety of reasons, such as having a constraint
 // which does not hold.
-func (p *Schema) Accepts(trace table.Trace) error {
+func (p *Schema) Accepts(trace trace.Trace) error {
 	// Check (typed) data columns
-	if err := table.ConstraintsAcceptTrace(trace, p.dataColumns); err != nil {
+	if err := schema.ConstraintsAcceptTrace(trace, p.dataColumns); err != nil {
 		return err
 	}
 	// Check permutations
-	if err := table.ConstraintsAcceptTrace(trace, p.permutations); err != nil {
+	if err := schema.ConstraintsAcceptTrace(trace, p.permutations); err != nil {
 		return err
 	}
 	// Check vanishing constraints
-	if err := table.ConstraintsAcceptTrace(trace, p.vanishing); err != nil {
+	if err := schema.ConstraintsAcceptTrace(trace, p.vanishing); err != nil {
 		return err
 	}
 	// Check properties
-	if err := table.ConstraintsAcceptTrace(trace, p.assertions); err != nil {
+	if err := schema.ConstraintsAcceptTrace(trace, p.assertions); err != nil {
 		return err
 	}
 	// Done
@@ -211,7 +212,7 @@ func (p *Schema) Accepts(trace table.Trace) error {
 }
 
 // ExpandTrace expands a given trace according to this schema.
-func (p *Schema) ExpandTrace(tr table.Trace) error {
+func (p *Schema) ExpandTrace(tr trace.Trace) error {
 	// Expand all the permutation columns
 	for _, perm := range p.permutations {
 		err := perm.ExpandTrace(tr)
@@ -223,7 +224,7 @@ func (p *Schema) ExpandTrace(tr table.Trace) error {
 	return nil
 }
 
-// LowerToMir lowers (or refines) an HIR table into an MIR table.  That means
+// LowerToMir lowers (or refines) an HIR table into an MIR schema.  That means
 // lowering all the columns and constraints, whilst adding additional columns /
 // constraints as necessary to preserve the original semantics.
 func (p *Schema) LowerToMir() *mir.Schema {

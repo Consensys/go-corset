@@ -9,7 +9,8 @@ import (
 	"testing"
 
 	"github.com/consensys/go-corset/pkg/hir"
-	"github.com/consensys/go-corset/pkg/table"
+	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/trace"
 )
 
 // Determines the (relative) location of the test directory.  That is
@@ -359,7 +360,7 @@ func Check(t *testing.T, test string) {
 
 // Check a given set of tests have an expected outcome (i.e. are
 // either accepted or rejected) by a given set of constraints.
-func CheckTraces(t *testing.T, test string, expected bool, traces []*table.ArrayTrace, hirSchema *hir.Schema) {
+func CheckTraces(t *testing.T, test string, expected bool, traces []*trace.ArrayTrace, hirSchema *hir.Schema) {
 	for i, tr := range traces {
 		if tr != nil {
 			for padding := uint(0); padding <= MAX_PADDING; padding++ {
@@ -372,10 +373,10 @@ func CheckTraces(t *testing.T, test string, expected bool, traces []*table.Array
 				mirID := traceId{"MIR", test, expected, i + 1, padding, mirSchema.RequiredSpillage()}
 				airID := traceId{"AIR", test, expected, i + 1, padding, airSchema.RequiredSpillage()}
 				// Check whether trace is input compatible with schema
-				if err := tr.AlignInputWith(hirSchema); err != nil {
+				if err := sc.AlignInputs(tr, hirSchema); err != nil {
 					// Alignment failed.  So, attempt alignment as expanded
 					// trace instead.
-					if err := tr.AlignWith(airSchema); err != nil {
+					if err := sc.Align(tr, airSchema); err != nil {
 						// Still failed, hence trace must be malformed in some way
 						if expected {
 							t.Errorf("Trace malformed (%s.accepts, line %d): [%s]", test, i+1, err)
@@ -397,7 +398,7 @@ func CheckTraces(t *testing.T, test string, expected bool, traces []*table.Array
 	}
 }
 
-func checkInputTrace(t *testing.T, tr *table.ArrayTrace, id traceId, schema table.Schema) {
+func checkInputTrace(t *testing.T, tr *trace.ArrayTrace, id traceId, schema sc.Schema) {
 	// Clone trace (to ensure expansion does not affect subsequent tests)
 	etr := tr.Clone()
 	// Apply spillage
@@ -407,7 +408,7 @@ func checkInputTrace(t *testing.T, tr *table.ArrayTrace, id traceId, schema tabl
 	// Check
 	if err != nil {
 		t.Error(err)
-	} else if err := etr.AlignWith(schema); err != nil {
+	} else if err := sc.Align(etr, schema); err != nil {
 		// Alignment problem
 		t.Error(err)
 	} else {
@@ -415,7 +416,7 @@ func checkInputTrace(t *testing.T, tr *table.ArrayTrace, id traceId, schema tabl
 	}
 }
 
-func checkExpandedTrace(t *testing.T, tr table.Trace, id traceId, schema table.Schema) {
+func checkExpandedTrace(t *testing.T, tr trace.Trace, id traceId, schema sc.Schema) {
 	// Apply padding
 	tr.Pad(id.padding)
 	// Check
@@ -460,14 +461,14 @@ type traceId struct {
 
 // ReadTracesFile reads a file containing zero or more traces expressed as JSON, where
 // each trace is on a separate line.
-func ReadTracesFile(name string, ext string) []*table.ArrayTrace {
+func ReadTracesFile(name string, ext string) []*trace.ArrayTrace {
 	lines := ReadInputFile(name, ext)
-	traces := make([]*table.ArrayTrace, len(lines))
+	traces := make([]*trace.ArrayTrace, len(lines))
 	// Read constraints line by line
 	for i, line := range lines {
 		// Parse input line as JSON
 		if line != "" && !strings.HasPrefix(line, ";;") {
-			tr, err := table.ParseJsonTrace([]byte(line))
+			tr, err := trace.ParseJsonTrace([]byte(line))
 			if err != nil {
 				msg := fmt.Sprintf("%s.%s:%d: %s", name, ext, i+1, err)
 				panic(msg)

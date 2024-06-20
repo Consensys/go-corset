@@ -1,10 +1,11 @@
-package table
+package schema
 
 import (
 	"errors"
 	"fmt"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
 
@@ -55,7 +56,7 @@ func (p *DataColumn[T]) IsSynthetic() bool {
 // type.
 //
 //nolint:revive
-func (p *DataColumn[T]) Accepts(tr Trace) error {
+func (p *DataColumn[T]) Accepts(tr tr.Trace) error {
 	// Only check for non-field types.  This is simply because a column with the
 	// field type always accepts everything.
 	if p.Type.AsField() == nil {
@@ -125,10 +126,10 @@ func (c *ComputedColumn[E]) RequiredSpillage() uint {
 // type.
 //
 //nolint:revive
-func (c *ComputedColumn[E]) Accepts(tr Trace) error {
+func (c *ComputedColumn[E]) Accepts(tr tr.Trace) error {
 	// Check column in trace!
 	if !tr.HasColumn(c.Name) {
-		return fmt.Errorf("Trace missing computed column ({%s})", c.Name)
+		return fmt.Errorf("tr.Trace missing computed column ({%s})", c.Name)
 	}
 
 	return nil
@@ -137,7 +138,7 @@ func (c *ComputedColumn[E]) Accepts(tr Trace) error {
 // ExpandTrace attempts to a new column to the trace which contains the result
 // of evaluating a given expression on each row.  If the column already exists,
 // then an error is flagged.
-func (c *ComputedColumn[E]) ExpandTrace(tr Trace) error {
+func (c *ComputedColumn[E]) ExpandTrace(tr tr.Trace) error {
 	if tr.HasColumn(c.Name) {
 		return fmt.Errorf("Computed column already exists ({%s})", c.Name)
 	}
@@ -221,7 +222,7 @@ func (p *SortedPermutation) RequiredSpillage() uint {
 
 // Accepts checks whether a sorted permutation holds between the
 // source and target columns.
-func (p *SortedPermutation) Accepts(tr Trace) error {
+func (p *SortedPermutation) Accepts(tr tr.Trace) error {
 	// Sanity check columns well formed.
 	if err := validPermutationColumns(p.Targets, p.Sources, tr); err != nil {
 		return err
@@ -248,7 +249,7 @@ func (p *SortedPermutation) Accepts(tr Trace) error {
 // ExpandTrace expands a given trace to include the columns specified by a given
 // SortedPermutation.  This requires copying the data in the source columns, and
 // sorting that data according to the permutation criteria.
-func (p *SortedPermutation) ExpandTrace(tr Trace) error {
+func (p *SortedPermutation) ExpandTrace(tr tr.Trace) error {
 	// Ensure target columns don't exist
 	for _, col := range p.Targets {
 		if tr.HasColumn(col) {
@@ -307,7 +308,7 @@ func (p *SortedPermutation) String() string {
 	return fmt.Sprintf("(permute (%s) (%s))", targets, sources)
 }
 
-func validPermutationColumns(targets []string, sources []string, tr Trace) error {
+func validPermutationColumns(targets []string, sources []string, tr tr.Trace) error {
 	ncols := len(targets)
 	// Sanity check matching length
 	if len(sources) != ncols {
@@ -316,16 +317,16 @@ func validPermutationColumns(targets []string, sources []string, tr Trace) error
 	// Check required columns in trace
 	for i := 0; i < ncols; i++ {
 		if !tr.HasColumn(targets[i]) {
-			return fmt.Errorf("Trace missing permutation target column ({%s})", targets[i])
+			return fmt.Errorf("tr.Trace missing permutation target column ({%s})", targets[i])
 		} else if !tr.HasColumn(sources[i]) {
-			return fmt.Errorf("Trace missing permutation source ({%s})", sources[i])
+			return fmt.Errorf("tr.Trace missing permutation source ({%s})", sources[i])
 		}
 	}
 	//
 	return nil
 }
 
-func sliceMatchingColumns(names []string, tr Trace) [][]*fr.Element {
+func sliceMatchingColumns(names []string, tr tr.Trace) [][]*fr.Element {
 	// Allocate return array
 	cols := make([][]*fr.Element, len(names))
 	// Slice out the data

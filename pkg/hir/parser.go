@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/sexp"
-	"github.com/consensys/go-corset/pkg/table"
 )
 
 // ===================================================================
@@ -102,7 +102,7 @@ func (p *hirParser) parseColumnDeclaration(l *sexp.List) error {
 		return p.translator.SyntaxError(l, "duplicate column declaration")
 	}
 	// Default to field type
-	var columnType table.Type = &table.FieldType{}
+	var columnType schema.Type = &schema.FieldType{}
 	// Parse type (if applicable)
 	if len(l.Elements) == 3 {
 		var err error
@@ -195,7 +195,7 @@ func (p *hirParser) parseVanishingDeclaration(elements []sexp.SExp, domain *int)
 	return nil
 }
 
-func (p *hirParser) parseType(term sexp.SExp) (table.Type, error) {
+func (p *hirParser) parseType(term sexp.SExp) (schema.Type, error) {
 	symbol := term.AsSymbol()
 	if symbol == nil {
 		return nil, p.translator.SyntaxError(term, "malformed column")
@@ -208,7 +208,7 @@ func (p *hirParser) parseType(term sexp.SExp) (table.Type, error) {
 			return nil, err
 		}
 		// TODO: support @prove
-		return table.NewUintType(uint(n), true), nil
+		return schema.NewUintType(uint(n), true), nil
 	}
 	// Error
 	return nil, p.translator.SyntaxError(symbol, "unknown type")

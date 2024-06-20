@@ -6,7 +6,7 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/air"
-	"github.com/consensys/go-corset/pkg/table"
+	"github.com/consensys/go-corset/pkg/trace"
 )
 
 // ApplyLexicographicSortingGadget Add sorting constraints for a sequence of one
@@ -164,7 +164,7 @@ func (p *lexicographicSortExpander) RequiredSpillage() uint {
 }
 
 // Accepts checks whether a given trace has the necessary columns
-func (p *lexicographicSortExpander) Accepts(tr table.Trace) error {
+func (p *lexicographicSortExpander) Accepts(tr trace.Trace) error {
 	//prefix := constructLexicographicSortingPrefix(p.columns, p.signs)
 	deltaName := fmt.Sprintf("%s:delta", p.prefix)
 	// Check delta column exists
@@ -184,7 +184,7 @@ func (p *lexicographicSortExpander) Accepts(tr table.Trace) error {
 
 // Add columns as needed to support the LexicographicSortingGadget.  That
 // includes the delta column, and the bit selectors.
-func (p *lexicographicSortExpander) ExpandTrace(tr table.Trace) error {
+func (p *lexicographicSortExpander) ExpandTrace(tr trace.Trace) error {
 	zero := fr.NewElement(0)
 	one := fr.NewElement(1)
 	// Exact number of columns involved in the sort

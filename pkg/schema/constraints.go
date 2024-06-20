@@ -1,10 +1,11 @@
-package table
+package schema
 
 import (
 	"errors"
 	"fmt"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
 
@@ -20,7 +21,7 @@ type Evaluable interface {
 	// undefined for several reasons: firstly, if it accesses a
 	// row which does not exist (e.g. at index -1); secondly, if
 	// it accesses a column which does not exist.
-	EvalAt(int, Trace) *fr.Element
+	EvalAt(int, tr.Trace) *fr.Element
 }
 
 // Testable captures the notion of a constraint which can be tested on a given
@@ -37,7 +38,7 @@ type Testable interface {
 	// context then it returns "nil".  An expression can be undefined for
 	// several reasons: firstly, if it accesses a row which does not exist (e.g.
 	// at index -1); secondly, if it accesses a column which does not exist.
-	TestAt(int, Trace) bool
+	TestAt(int, tr.Trace) bool
 }
 
 // ===================================================================
@@ -53,7 +54,7 @@ type ZeroTest[E Evaluable] struct {
 
 // TestAt determines whether or not a given expression evaluates to zero.
 // Observe that if the expression is undefined, then it is assumed not to hold.
-func (p ZeroTest[E]) TestAt(row int, tr Trace) bool {
+func (p ZeroTest[E]) TestAt(row int, tr tr.Trace) bool {
 	val := p.Expr.EvalAt(row, tr)
 	return val != nil && val.IsZero()
 }
@@ -103,7 +104,7 @@ func (p *RowConstraint[T]) GetHandle() string {
 // of a table.  If so, return nil otherwise return an error.
 //
 //nolint:revive
-func (p *RowConstraint[T]) Accepts(tr Trace) error {
+func (p *RowConstraint[T]) Accepts(tr tr.Trace) error {
 	if p.Domain == nil {
 		// Global Constraint
 		return HoldsGlobally(p.Handle, p.Constraint, tr)
@@ -114,7 +115,7 @@ func (p *RowConstraint[T]) Accepts(tr Trace) error {
 
 // HoldsGlobally checks whether a given expression vanishes (i.e. evaluates to
 // zero) for all rows of a trace.  If not, report an appropriate error.
-func HoldsGlobally[T Testable](handle string, constraint T, tr Trace) error {
+func HoldsGlobally[T Testable](handle string, constraint T, tr tr.Trace) error {
 	// Determine well-definedness bounds for this constraint
 	bounds := constraint.Bounds()
 	// Sanity check enough rows
@@ -132,7 +133,7 @@ func HoldsGlobally[T Testable](handle string, constraint T, tr Trace) error {
 
 // HoldsLocally checks whether a given constraint holds (e.g. vanishes) on a
 // specific row of a trace. If not, report an appropriate error.
-func HoldsLocally[T Testable](k int, handle string, constraint T, tr Trace) error {
+func HoldsLocally[T Testable](k int, handle string, constraint T, tr tr.Trace) error {
 	// Negative rows calculated from end of trace.
 	if k < 0 {
 		k += int(tr.Height())
@@ -196,7 +197,7 @@ func (p *RangeConstraint) IsAir() bool { return true }
 
 // Accepts checks whether a range constraint evaluates to zero on
 // every row of a table. If so, return nil otherwise return an error.
-func (p *RangeConstraint) Accepts(tr Trace) error {
+func (p *RangeConstraint) Accepts(tr tr.Trace) error {
 	column := tr.ColumnByIndex(p.Column)
 	for k := 0; k < int(tr.Height()); k++ {
 		// Get the value on the kth row
@@ -248,7 +249,7 @@ func (p *Permutation) RequiredSpillage() uint {
 
 // Accepts checks whether a permutation holds between the source and
 // target columns.
-func (p *Permutation) Accepts(tr Trace) error {
+func (p *Permutation) Accepts(tr tr.Trace) error {
 	// Slice out data
 	src := sliceColumns(p.Sources, tr)
 	dst := sliceColumns(p.Targets, tr)
@@ -285,7 +286,7 @@ func (p *Permutation) String() string {
 	return fmt.Sprintf("(permutation (%s) (%s))", targets, sources)
 }
 
-func sliceColumns(columns []uint, tr Trace) [][]*fr.Element {
+func sliceColumns(columns []uint, tr tr.Trace) [][]*fr.Element {
 	// Allocate return array
 	cols := make([][]*fr.Element, len(columns))
 	// Slice out the data
@@ -336,7 +337,7 @@ func (p *PropertyAssertion[T]) GetHandle() string {
 // of a table. If so, return nil otherwise return an error.
 //
 //nolint:revive
-func (p *PropertyAssertion[T]) Accepts(tr Trace) error {
+func (p *PropertyAssertion[T]) Accepts(tr tr.Trace) error {
 	for k := uint(0); k < tr.Height(); k++ {
 		// Check whether property holds (or was undefined)
 		if !p.Property.TestAt(int(k), tr) {

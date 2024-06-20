@@ -1,9 +1,10 @@
-package table
+package schema
 
 import (
 	"fmt"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	tr "github.com/consensys/go-corset/pkg/trace"
 )
 
 // TraceComputation represents a computation which is applied to a
@@ -16,7 +17,7 @@ type TraceComputation interface {
 	// columns".  These are columns which do not exist in the
 	// original trace, but are added during trace expansion to
 	// form the final trace.
-	ExpandTrace(Trace) error
+	ExpandTrace(tr.Trace) error
 	// RequiredSpillage returns the minimum amount of spillage required to ensure
 	// valid traces are accepted in the presence of arbitrary padding.  Note,
 	// spillage is currently assumed to be required only at the front of a
@@ -45,13 +46,13 @@ func NewByteDecomposition(target string, width uint) *ByteDecomposition {
 }
 
 // Accepts checks whether a given trace has the necessary columns
-func (p *ByteDecomposition) Accepts(tr Trace) error {
+func (p *ByteDecomposition) Accepts(tr tr.Trace) error {
 	n := int(p.BitWidth / 8)
 	//
 	for i := 0; i < n; i++ {
 		colName := fmt.Sprintf("%s:%d", p.Target, i)
 		if !tr.HasColumn(colName) {
-			return fmt.Errorf("Trace missing byte decomposition column ({%s})", colName)
+			return fmt.Errorf("tr.Trace missing byte decomposition column ({%s})", colName)
 		}
 	}
 	// Done
@@ -61,7 +62,7 @@ func (p *ByteDecomposition) Accepts(tr Trace) error {
 // ExpandTrace expands a given trace to include the columns specified by a given
 // ByteDecomposition.  This requires computing the value of each byte column in
 // the decomposition.
-func (p *ByteDecomposition) ExpandTrace(tr Trace) error {
+func (p *ByteDecomposition) ExpandTrace(tr tr.Trace) error {
 	// Calculate how many bytes required.
 	n := int(p.BitWidth / 8)
 	// Identify target column

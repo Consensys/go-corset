@@ -3,7 +3,7 @@ package binfile
 import (
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/table"
+	"github.com/consensys/go-corset/pkg/schema"
 )
 
 type jsonType struct {
@@ -21,16 +21,16 @@ type jsonType struct {
 // Translation
 // =============================================================================
 
-func (e *jsonType) toHir(checked bool) table.Type {
+func (e *jsonType) toHir(checked bool) schema.Type {
 	// Check whether magma is string
 	if str, ok := e.Magma.(string); ok {
 		switch str {
 		case "Native":
-			return &table.FieldType{}
+			return &schema.FieldType{}
 		case "Byte":
-			return table.NewUintType(8, checked)
+			return schema.NewUintType(8, checked)
 		case "Binary":
-			return table.NewUintType(1, checked)
+			return schema.NewUintType(1, checked)
 		default:
 			panic(fmt.Sprintf("Unknown JSON type encountered: %s:%s", e.Magma, e.Conditioning))
 		}
@@ -39,7 +39,7 @@ func (e *jsonType) toHir(checked bool) table.Type {
 	if intMap, ok := e.Magma.(map[string]any); ok {
 		if val, isInt := intMap["Integer"]; isInt {
 			nbits := uint(val.(float64))
-			return table.NewUintType(nbits, checked)
+			return schema.NewUintType(nbits, checked)
 		}
 	}
 	// Fail

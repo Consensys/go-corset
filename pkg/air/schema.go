@@ -2,26 +2,27 @@ package air
 
 import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/table"
+	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
 
 // DataColumn captures the essence of a data column at AIR level.
-type DataColumn = *table.DataColumn[*table.FieldType]
+type DataColumn = *schema.DataColumn[*schema.FieldType]
 
 // VanishingConstraint captures the essence of a vanishing constraint at the HIR
 // level.  A vanishing constraint is a row constraint which must evaluate to
 // zero.
-type VanishingConstraint = *table.RowConstraint[table.ZeroTest[Expr]]
+type VanishingConstraint = *schema.RowConstraint[schema.ZeroTest[Expr]]
 
 // PropertyAssertion captures the notion of an arbitrary property which should
 // hold for all acceptable traces.  However, such a property is not enforced by
 // the prover.
-type PropertyAssertion = *table.PropertyAssertion[table.ZeroTest[table.Evaluable]]
+type PropertyAssertion = *schema.PropertyAssertion[schema.ZeroTest[schema.Evaluable]]
 
 // Permutation captures the notion of a simple column permutation at the AIR
 // level.
-type Permutation = *table.Permutation
+type Permutation = *schema.Permutation
 
 // Schema for AIR traces which is parameterised on a notion of computation as
 // permissible in computed columns.
@@ -33,26 +34,26 @@ type Schema struct {
 	// The vanishing constraints of this schema.
 	vanishing []VanishingConstraint
 	// The range constraints of this schema.
-	ranges []*table.RangeConstraint
+	ranges []*schema.RangeConstraint
 	// Property assertions.
 	assertions []PropertyAssertion
 	// The computations used to construct traces which adhere to
 	// this schema.  Such computations are not expressible at the
 	// prover level and, hence, can only be used to pre-process
 	// traces prior to prove generation.
-	computations []table.TraceComputation
+	computations []schema.TraceComputation
 }
 
 // EmptySchema is used to construct a fresh schema onto which new columns and
 // constraints will be added.
-func EmptySchema[C table.Evaluable]() *Schema {
+func EmptySchema[C schema.Evaluable]() *Schema {
 	p := new(Schema)
 	p.dataColumns = make([]DataColumn, 0)
 	p.permutations = make([]Permutation, 0)
 	p.vanishing = make([]VanishingConstraint, 0)
-	p.ranges = make([]*table.RangeConstraint, 0)
+	p.ranges = make([]*schema.RangeConstraint, 0)
 	p.assertions = make([]PropertyAssertion, 0)
-	p.computations = make([]table.TraceComputation, 0)
+	p.computations = make([]schema.TraceComputation, 0)
 	// Done
 	return p
 }
@@ -63,12 +64,12 @@ func (p *Schema) Width() uint {
 }
 
 // ColumnGroup returns information about the ith column group in this schema.
-func (p *Schema) ColumnGroup(i uint) table.ColumnGroup {
+func (p *Schema) ColumnGroup(i uint) schema.ColumnGroup {
 	return p.dataColumns[i]
 }
 
 // Column returns information about the ith column in this schema.
-func (p *Schema) Column(i uint) table.ColumnSchema {
+func (p *Schema) Column(i uint) schema.ColumnSchema {
 	return p.dataColumns[i]
 }
 
@@ -79,10 +80,10 @@ func (p *Schema) Size() int {
 }
 
 // GetDeclaration returns the ith declaration in this schema.
-func (p *Schema) GetDeclaration(index int) table.Declaration {
+func (p *Schema) GetDeclaration(index int) schema.Declaration {
 	ith := util.FlatArrayIndexOf_6(index, p.dataColumns, p.permutations,
 		p.vanishing, p.ranges, p.assertions, p.computations)
-	return ith.(table.Declaration)
+	return ith.(schema.Declaration)
 }
 
 // Columns returns the set of data columns.
@@ -138,55 +139,55 @@ func (p *Schema) RequiredSpillage() uint {
 func (p *Schema) AddColumn(name string, synthetic bool) uint {
 	// NOTE: the air level has no ability to enforce the type specified for a
 	// given column.
-	p.dataColumns = append(p.dataColumns, table.NewDataColumn(name, &table.FieldType{}, synthetic))
+	p.dataColumns = append(p.dataColumns, schema.NewDataColumn(name, &schema.FieldType{}, synthetic))
 	// Calculate column index
 	return uint(len(p.dataColumns) - 1)
 }
 
 // AddComputation appends a new computation to be used during trace
 // expansion for this schema.
-func (p *Schema) AddComputation(c table.TraceComputation) {
+func (p *Schema) AddComputation(c schema.TraceComputation) {
 	p.computations = append(p.computations, c)
 }
 
 // AddPermutationConstraint appends a new permutation constraint which
 // ensures that one column is a permutation of another.
 func (p *Schema) AddPermutationConstraint(targets []uint, sources []uint) {
-	p.permutations = append(p.permutations, table.NewPermutation(targets, sources))
+	p.permutations = append(p.permutations, schema.NewPermutation(targets, sources))
 }
 
 // AddVanishingConstraint appends a new vanishing constraint.
 func (p *Schema) AddVanishingConstraint(handle string, domain *int, expr Expr) {
-	p.vanishing = append(p.vanishing, table.NewRowConstraint(handle, domain, table.ZeroTest[Expr]{Expr: expr}))
+	p.vanishing = append(p.vanishing, schema.NewRowConstraint(handle, domain, schema.ZeroTest[Expr]{Expr: expr}))
 }
 
 // AddRangeConstraint appends a new range constraint.
 func (p *Schema) AddRangeConstraint(column uint, bound *fr.Element) {
-	p.ranges = append(p.ranges, table.NewRangeConstraint(column, bound))
+	p.ranges = append(p.ranges, schema.NewRangeConstraint(column, bound))
 }
 
 // Accepts determines whether this schema will accept a given trace.  That
 // is, whether or not the given trace adheres to the schema.  A trace can fail
 // to adhere to the schema for a variety of reasons, such as having a constraint
 // which does not hold.
-func (p *Schema) Accepts(trace table.Trace) error {
+func (p *Schema) Accepts(trace trace.Trace) error {
 	// Check vanishing constraints
-	err := table.ConstraintsAcceptTrace(trace, p.vanishing)
+	err := schema.ConstraintsAcceptTrace(trace, p.vanishing)
 	if err != nil {
 		return err
 	}
 	// Check permutation constraints
-	err = table.ConstraintsAcceptTrace(trace, p.permutations)
+	err = schema.ConstraintsAcceptTrace(trace, p.permutations)
 	if err != nil {
 		return err
 	}
 	// Check range constraints
-	err = table.ConstraintsAcceptTrace(trace, p.ranges)
+	err = schema.ConstraintsAcceptTrace(trace, p.ranges)
 	if err != nil {
 		return err
 	}
 	// Check computations
-	err = table.ConstraintsAcceptTrace(trace, p.computations)
+	err = schema.ConstraintsAcceptTrace(trace, p.computations)
 	if err != nil {
 		return err
 	}
@@ -201,7 +202,7 @@ func (p *Schema) Accepts(trace table.Trace) error {
 // specifically, that means computing the actual values for any computed
 // columns. Observe that computed columns have to be computed in the correct
 // order.
-func (p *Schema) ExpandTrace(tr table.Trace) error {
+func (p *Schema) ExpandTrace(tr trace.Trace) error {
 	// Execute all computations
 	for _, c := range p.computations {
 		err := c.ExpandTrace(tr)

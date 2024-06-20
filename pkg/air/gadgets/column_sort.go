@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/air"
-	"github.com/consensys/go-corset/pkg/table"
+	sc "github.com/consensys/go-corset/pkg/schema"
 )
 
 // ApplyColumnSortGadget adds sorting constraints for a column where the
@@ -37,7 +37,7 @@ func ApplyColumnSortGadget(column uint, sign bool, bitwidth uint, schema *air.Sc
 	// Add delta column
 	deltaIndex := schema.AddColumn(deltaName, true)
 	// Add diff computation
-	schema.AddComputation(table.NewComputedColumn(deltaName, Xdiff))
+	schema.AddComputation(sc.NewComputedColumn(deltaName, Xdiff))
 	// Add necessary bitwidth constraints
 	ApplyBitwidthGadget(deltaIndex, bitwidth, schema)
 	// Configure constraint: Delta[k] = X[k] - X[k-1]

@@ -7,7 +7,7 @@ import (
 	"github.com/consensys/go-corset/pkg/air"
 	"github.com/consensys/go-corset/pkg/hir"
 	"github.com/consensys/go-corset/pkg/mir"
-	"github.com/consensys/go-corset/pkg/table"
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/spf13/cobra"
 )
 
@@ -44,7 +44,7 @@ var debugCmd = &cobra.Command{
 }
 
 // Print out all declarations included in a given
-func printSchema(schema table.Schema, stats bool) {
+func printSchema(schema schema.Schema, stats bool) {
 	dataColumns := 0
 	permutations := 0
 	vanishing := 0
@@ -76,7 +76,7 @@ func printSchema(schema table.Schema, stats bool) {
 	}
 }
 
-func isDataColumn(d table.Declaration) bool {
+func isDataColumn(d schema.Declaration) bool {
 	if _, ok := d.(air.DataColumn); ok {
 		return true
 	} else if _, ok := d.(mir.DataColumn); ok {
@@ -88,7 +88,7 @@ func isDataColumn(d table.Declaration) bool {
 	return false
 }
 
-func isPermutation(d table.Declaration) bool {
+func isPermutation(d schema.Declaration) bool {
 	if _, ok := d.(air.Permutation); ok {
 		return true
 	} else if _, ok := d.(mir.Permutation); ok {
@@ -100,7 +100,7 @@ func isPermutation(d table.Declaration) bool {
 	return false
 }
 
-func isVanishing(d table.Declaration) bool {
+func isVanishing(d schema.Declaration) bool {
 	if _, ok := d.(air.VanishingConstraint); ok {
 		return true
 	} else if _, ok := d.(mir.VanishingConstraint); ok {
@@ -112,8 +112,8 @@ func isVanishing(d table.Declaration) bool {
 	return false
 }
 
-func isRange(d table.Declaration) bool {
-	if _, ok := d.(*table.RangeConstraint); ok {
+func isRange(d schema.Declaration) bool {
+	if _, ok := d.(*schema.RangeConstraint); ok {
 		return true
 	}
 

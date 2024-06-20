@@ -5,7 +5,7 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/air"
-	"github.com/consensys/go-corset/pkg/table"
+	sc "github.com/consensys/go-corset/pkg/schema"
 )
 
 // ApplyBinaryGadget adds a binarity constraint for a given column in the schema
@@ -59,7 +59,7 @@ func ApplyBitwidthGadget(column uint, nbits uint, schema *air.Schema) {
 	// Construct column name
 	schema.AddVanishingConstraint(fmt.Sprintf("%s:u%d", name, nbits), nil, eq)
 	// Finally, add the necessary byte decomposition computation.
-	schema.AddComputation(table.NewByteDecomposition(name, nbits))
+	schema.AddComputation(sc.NewByteDecomposition(name, nbits))
 }
 
 // AddBitArray adds an array of n bit columns using a given prefix, including
