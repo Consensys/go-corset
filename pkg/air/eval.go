@@ -10,7 +10,6 @@ import (
 // out-of-bounds.
 func (e *ColumnAccess) EvalAt(k int, tbl table.Trace) *fr.Element {
 	val := tbl.ColumnByIndex(e.Column).Get(k + e.Shift)
-
 	var clone fr.Element
 	// Clone original value
 	return clone.Set(val)

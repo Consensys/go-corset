@@ -20,7 +20,7 @@ type VanishingConstraint = *table.RowConstraint[table.ZeroTest[Expr]]
 // PropertyAssertion captures the notion of an arbitrary property which should
 // hold for all acceptable traces.  However, such a property is not enforced by
 // the prover.
-type PropertyAssertion = *table.PropertyAssertion[Expr]
+type PropertyAssertion = *table.PropertyAssertion[table.ZeroTest[Expr]]
 
 // Permutation captures the notion of a (sorted) permutation at the MIR level.
 type Permutation = *table.SortedPermutation
@@ -64,9 +64,29 @@ func (p *Schema) ColumnGroup(i uint) table.ColumnGroup {
 	n := uint(len(p.dataColumns))
 	if i < n {
 		return p.dataColumns[i]
-	} else {
-		return p.permutations[i-n]
 	}
+
+	return p.permutations[i-n]
+}
+
+// ColumnIndex determines the column index for a given column in this schema, or
+// returns false indicating an error.
+func (p *Schema) ColumnIndex(name string) (uint, bool) {
+	index := uint(0)
+
+	for i := uint(0); i < p.Width(); i++ {
+		ith := p.ColumnGroup(i)
+		for j := uint(0); j < ith.Width(); j++ {
+			if ith.NameOf(j) == name {
+				// hit
+				return index, true
+			}
+
+			index++
+		}
+	}
+	// miss
+	return 0, false
 }
 
 // GetColumnByName gets a given data column based on its name.  If no such
@@ -123,7 +143,8 @@ func (p *Schema) AddVanishingConstraint(handle string, domain *int, expr Expr) {
 
 // AddPropertyAssertion appends a new property assertion.
 func (p *Schema) AddPropertyAssertion(handle string, expr Expr) {
-	p.assertions = append(p.assertions, table.NewPropertyAssertion(handle, expr))
+	test := table.ZeroTest[Expr]{Expr: expr}
+	p.assertions = append(p.assertions, table.NewPropertyAssertion(handle, test))
 }
 
 // Accepts determines whether this schema will accept a given trace.  That
@@ -156,10 +177,25 @@ func (p *Schema) Accepts(trace table.Trace) error {
 // constraints as necessary to preserve the original semantics.
 func (p *Schema) LowerToAir() *air.Schema {
 	airSchema := air.EmptySchema[Expr]()
-	// Allocate data columns.  This must be done first to ensure alignment is
-	// preserved across lowering.
-	for _, col := range p.dataColumns {
-		airSchema.AddColumn(col.Name(), false)
+	// Allocate data and permutation columns.  This must be done first to ensure
+	// alignment is preserved across lowering.
+	index := uint(0)
+
+	for i := uint(0); i < p.Width(); i++ {
+		ith := p.ColumnGroup(i)
+		for j := uint(0); j < ith.Width(); j++ {
+			col := ith.NameOf(j)
+			airSchema.AddColumn(col, ith.IsSynthetic())
+
+			index++
+		}
+	}
+	// Add computations. Again this has to be done first for things to work.
+	// Essentially to reflect the fact that these columns have been added above
+	// before others.  Realistically, the overall design of this process is a
+	// bit broken right now.
+	for _, perm := range p.permutations {
+		airSchema.AddComputation(perm)
 	}
 	// Lower checked data columns
 	for i, col := range p.dataColumns {
@@ -216,19 +252,17 @@ func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Sche
 	sources := make([]uint, ncols)
 	// Add individual permutation constraints
 	for i := 0; i < ncols; i++ {
-		var ok bool
-		sources[i], ok = airSchema.IndexOf(c.Sources[i])
+		var ok1, ok2 bool
+		// TODO: REPLACE
+		sources[i], ok1 = airSchema.ColumnIndex(c.Sources[i])
+		targets[i], ok2 = airSchema.ColumnIndex(c.Targets[i])
 
-		if !ok {
+		if !ok1 || !ok2 {
 			panic("missing column")
 		}
-
-		targets[i] = airSchema.AddColumn(c.Targets[i], true)
 	}
 	//
 	airSchema.AddPermutationConstraint(targets, sources)
-	// Add the trace computation.
-	airSchema.AddComputation(c)
 	// Add sorting constraints + synthetic columns as necessary.
 	if ncols == 1 {
 		// For a single column sort, its actually a bit easier because we don't

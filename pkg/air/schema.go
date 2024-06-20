@@ -17,7 +17,7 @@ type VanishingConstraint = *table.RowConstraint[table.ZeroTest[Expr]]
 // PropertyAssertion captures the notion of an arbitrary property which should
 // hold for all acceptable traces.  However, such a property is not enforced by
 // the prover.
-type PropertyAssertion = *table.PropertyAssertion[table.Evaluable]
+type PropertyAssertion = *table.PropertyAssertion[table.ZeroTest[table.Evaluable]]
 
 // Permutation captures the notion of a simple column permutation at the AIR
 // level.
@@ -101,9 +101,9 @@ func (p *Schema) HasColumn(name string) bool {
 	return false
 }
 
-// IndexOf determines the column index for a given column in this schema, or
+// ColumnIndex determines the column index for a given column in this schema, or
 // returns false indicating an error.
-func (p *Schema) IndexOf(name string) (uint, bool) {
+func (p *Schema) ColumnIndex(name string) (uint, bool) {
 	for i, c := range p.dataColumns {
 		if c.Name() == name {
 			return uint(i), true

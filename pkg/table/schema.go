@@ -25,6 +25,10 @@ type Schema interface {
 	// Determine the number of column groups in this schema.
 	Width() uint
 
+	// Determine the index of a named column in this schema, or return false if
+	// no matching column exists.
+	ColumnIndex(string) (uint, bool)
+
 	// Access information about the ith column group in this schema.
 	ColumnGroup(uint) ColumnGroup
 

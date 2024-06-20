@@ -424,7 +424,7 @@ func checkExpandedTrace(t *testing.T, tr table.Trace, id traceId, schema table.S
 	accepted := (err == nil)
 	// Process what happened versus what was supposed to happen.
 	if !accepted && id.expected {
-		table.PrintTrace(tr)
+		//table.PrintTrace(tr)
 		msg := fmt.Sprintf("Trace rejected incorrectly (%s, %s.accepts, line %d with spillage %d / padding %d): %s",
 			id.ir, id.test, id.line, id.spillage, id.padding, err)
 		t.Errorf(msg)

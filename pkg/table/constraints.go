@@ -52,10 +52,10 @@ type ZeroTest[E Evaluable] struct {
 }
 
 // TestAt determines whether or not a given expression evaluates to zero.
-// Observe that if the expression is undefined, then it is assumed to hold.
+// Observe that if the expression is undefined, then it is assumed not to hold.
 func (p ZeroTest[E]) TestAt(row int, tr Trace) bool {
 	val := p.Expr.EvalAt(row, tr)
-	return val == nil || val.IsZero()
+	return val != nil && val.IsZero()
 }
 
 // Bounds determines the bounds for this zero test.
@@ -308,7 +308,7 @@ func sliceColumns(columns []uint, tr Trace) [][]*fr.Element {
 // That is, they should be implied by the actual constraints.  Thus, whilst the
 // prover cannot enforce such properties, external tools (such as for formal
 // verification) can attempt to ensure they do indeed always hold.
-type PropertyAssertion[E Evaluable] struct {
+type PropertyAssertion[T Testable] struct {
 	// A unique identifier for this constraint.  This is primarily
 	// useful for debugging.
 	Handle string
@@ -317,33 +317,31 @@ type PropertyAssertion[E Evaluable] struct {
 	// Observe that this can be any function which is computable
 	// on a given trace --- we are not restricted to expressions
 	// which can be arithmetised.
-	Expr E
+	Property T
+}
+
+// NewPropertyAssertion constructs a new property assertion!
+func NewPropertyAssertion[T Testable](handle string, property T) *PropertyAssertion[T] {
+	return &PropertyAssertion[T]{handle, property}
 }
 
 // GetHandle returns the handle associated with this constraint.
 //
 //nolint:revive
-func (p *PropertyAssertion[E]) GetHandle() string {
+func (p *PropertyAssertion[T]) GetHandle() string {
 	return p.Handle
-}
-
-// NewPropertyAssertion constructs a new property assertion!
-func NewPropertyAssertion[E Evaluable](handle string, expr E) *PropertyAssertion[E] {
-	return &PropertyAssertion[E]{handle, expr}
 }
 
 // Accepts checks whether a vanishing constraint evaluates to zero on every row
 // of a table. If so, return nil otherwise return an error.
 //
 //nolint:revive
-func (p *PropertyAssertion[E]) Accepts(tr Trace) error {
+func (p *PropertyAssertion[T]) Accepts(tr Trace) error {
 	for k := uint(0); k < tr.Height(); k++ {
-		// Determine kth evaluation point
-		kth := p.Expr.EvalAt(int(k), tr)
-		// Check whether it vanished (or was undefined)
-		if kth != nil && !kth.IsZero() {
+		// Check whether property holds (or was undefined)
+		if !p.Property.TestAt(int(k), tr) {
 			// Construct useful error message
-			msg := fmt.Sprintf("property assertion %s does not hold (row %d, %s)", p.Handle, k, kth)
+			msg := fmt.Sprintf("property assertion %s does not hold (row %d)", p.Handle, k)
 			// Evaluation failure
 			return errors.New(msg)
 		}

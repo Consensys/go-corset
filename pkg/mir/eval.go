@@ -9,7 +9,7 @@ import (
 // value at that row of the column in question or nil is that row is
 // out-of-bounds.
 func (e *ColumnAccess) EvalAt(k int, tbl table.Trace) *fr.Element {
-	val := tbl.ColumnByName(e.Column).Get(k + e.Shift)
+	val := tbl.ColumnByIndex(e.Column).Get(k + e.Shift)
 
 	var clone fr.Element
 	// Clone original value

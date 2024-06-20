@@ -30,8 +30,8 @@ func ApplyPseudoInverseGadget(e air.Expr, tbl *air.Schema) air.Expr {
 	ie := &Inverse{Expr: e}
 	// Determine computed column name
 	name := ie.String()
-	//
-	index, ok := tbl.IndexOf(name)
+	// Look up column
+	index, ok := tbl.ColumnIndex(name)
 	// Add new column (if it does not already exist)
 	if !ok {
 		// Add (synthetic) computed column
