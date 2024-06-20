@@ -94,9 +94,9 @@ func (p *Schema) ColumnGroup(i uint) table.ColumnGroup {
 	n := uint(len(p.dataColumns))
 	if i < n {
 		return p.dataColumns[i]
-	} else {
-		return p.permutations[i-n]
 	}
+
+	return p.permutations[i-n]
 }
 
 // ColumnIndex determines the column index for a given column in this schema, or
