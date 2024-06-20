@@ -26,18 +26,19 @@ func PrintTrace(tr Trace) {
 
 func traceColumnData(tr Trace, col uint) []string {
 	n := tr.Height()
-	data := make([]string, n+1)
-	data[0] = tr.ColumnName(int(col))
+	data := make([]string, n+2)
+	data[0] = fmt.Sprintf("#%d", col)
+	data[1] = tr.ColumnByIndex(col).Name()
 
-	for row := uint(0); row < n; row++ {
-		data[row+1] = tr.GetByIndex(int(col), int(row)).String()
+	for row := 0; row < int(n); row++ {
+		data[row+2] = tr.ColumnByIndex(col).Get(row).String()
 	}
 
 	return data
 }
 
 func traceRowWidths(height uint, rows [][]string) []int {
-	widths := make([]int, height+1)
+	widths := make([]int, height+2)
 
 	for _, row := range rows {
 		for i, col := range row {

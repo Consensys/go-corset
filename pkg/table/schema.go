@@ -21,6 +21,39 @@ type Schema interface {
 	// ensure valid traces are accepted in the presence of arbitrary padding.
 	// Note: this is calculated on demand.
 	RequiredSpillage() uint
+
+	// Determine the number of column groups in this schema.
+	Width() uint
+
+	// Determine the index of a named column in this schema, or return false if
+	// no matching column exists.
+	ColumnIndex(string) (uint, bool)
+
+	// Access information about the ith column group in this schema.
+	ColumnGroup(uint) ColumnGroup
+
+	// Access information about the ith column in this schema.
+	Column(uint) ColumnSchema
+}
+
+// ColumnGroup represents a group of related columns in the schema.  For
+// example, a single data column is (for now) always a column group of size 1.
+// Likewise, an array of size n is a column group of size n, etc.
+type ColumnGroup interface {
+	// Return the number of columns in this group.
+	Width() uint
+
+	// Returns the name of the ith column in this group.
+	NameOf(uint) string
+
+	// Determines whether or not this column group is synthetic.
+	IsSynthetic() bool
+}
+
+// ColumnSchema provides information about a specific column in the schema.
+type ColumnSchema interface {
+	// Returns the name of this column
+	Name() string
 }
 
 // Declaration represents a declared element of a schema.  For example, a column

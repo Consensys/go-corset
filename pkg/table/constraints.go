@@ -52,10 +52,10 @@ type ZeroTest[E Evaluable] struct {
 }
 
 // TestAt determines whether or not a given expression evaluates to zero.
-// Observe that if the expression is undefined, then it is assumed to hold.
+// Observe that if the expression is undefined, then it is assumed not to hold.
 func (p ZeroTest[E]) TestAt(row int, tr Trace) bool {
 	val := p.Expr.EvalAt(row, tr)
-	return val == nil || val.IsZero()
+	return val != nil && val.IsZero()
 }
 
 // Bounds determines the bounds for this zero test.
@@ -172,9 +172,8 @@ func (p *RowConstraint[T]) String() string {
 // 256 (i.e. to ensuring bytes).  This restriction is somewhat
 // arbitrary and is determined by the underlying prover.
 type RangeConstraint struct {
-	// A unique identifier for this constraint.  This is primarily
-	// useful for debugging.
-	Handle string
+	// Column index to be constrained.
+	Column uint
 	// The actual constraint itself, namely an expression which
 	// should evaluate to zero.  NOTE: an fr.Element is used here
 	// to store the bound simply to make the necessary comparison
@@ -183,7 +182,7 @@ type RangeConstraint struct {
 }
 
 // NewRangeConstraint constructs a new Range constraint!
-func NewRangeConstraint(column string, bound *fr.Element) *RangeConstraint {
+func NewRangeConstraint(column uint, bound *fr.Element) *RangeConstraint {
 	var n fr.Element = fr.NewElement(256)
 	if bound.Cmp(&n) > 0 {
 		panic("Range constraint for bitwidth above 8 not supported")
@@ -192,24 +191,21 @@ func NewRangeConstraint(column string, bound *fr.Element) *RangeConstraint {
 	return &RangeConstraint{column, bound}
 }
 
-// GetHandle returns the handle associated with this constraint.
-func (p *RangeConstraint) GetHandle() string {
-	return p.Handle
-}
-
 // IsAir is a marker that indicates this is an AIR column.
 func (p *RangeConstraint) IsAir() bool { return true }
 
 // Accepts checks whether a range constraint evaluates to zero on
 // every row of a table. If so, return nil otherwise return an error.
 func (p *RangeConstraint) Accepts(tr Trace) error {
-	for k := uint(0); k < tr.Height(); k++ {
+	column := tr.ColumnByIndex(p.Column)
+	for k := 0; k < int(tr.Height()); k++ {
 		// Get the value on the kth row
-		kth := tr.GetByName(p.Handle, int(k))
+		kth := column.Get(k)
 		// Perform the bounds check
 		if kth != nil && kth.Cmp(p.Bound) >= 0 {
+			name := column.Name()
 			// Construct useful error message
-			msg := fmt.Sprintf("value out-of-bounds (row %d, %s)", kth, p.Handle)
+			msg := fmt.Sprintf("value out-of-bounds (row %d, %s)", kth, name)
 			// Evaluation failure
 			return errors.New(msg)
 		}
@@ -219,7 +215,86 @@ func (p *RangeConstraint) Accepts(tr Trace) error {
 }
 
 func (p *RangeConstraint) String() string {
-	return fmt.Sprintf("(range %s %s)", p.Handle, p.Bound)
+	return fmt.Sprintf("(range #%d %s)", p.Column, p.Bound)
+}
+
+// ===================================================================
+// Permutation
+// ===================================================================
+
+// Permutation declares a constraint that one column is a permutation
+// of another.
+type Permutation struct {
+	// The target columns
+	Targets []uint
+	// The source columns
+	Sources []uint
+}
+
+// NewPermutation creates a new permutation
+func NewPermutation(targets []uint, sources []uint) *Permutation {
+	if len(targets) != len(sources) {
+		panic("differeng number of target / source permutation columns")
+	}
+
+	return &Permutation{targets, sources}
+}
+
+// RequiredSpillage returns the minimum amount of spillage required to ensure
+// valid traces are accepted in the presence of arbitrary padding.
+func (p *Permutation) RequiredSpillage() uint {
+	return uint(0)
+}
+
+// Accepts checks whether a permutation holds between the source and
+// target columns.
+func (p *Permutation) Accepts(tr Trace) error {
+	// Slice out data
+	src := sliceColumns(p.Sources, tr)
+	dst := sliceColumns(p.Targets, tr)
+	// Sanity check whether column exists
+	if !util.ArePermutationOf(dst, src) {
+		msg := fmt.Sprintf("Target columns (%v) not permutation of source columns ({%v})",
+			p.Targets, p.Sources)
+		return errors.New(msg)
+	}
+	// Success
+	return nil
+}
+
+func (p *Permutation) String() string {
+	targets := ""
+	sources := ""
+
+	for i, s := range p.Targets {
+		if i != 0 {
+			targets += " "
+		}
+
+		targets += fmt.Sprintf("%d", s)
+	}
+
+	for i, s := range p.Sources {
+		if i != 0 {
+			sources += " "
+		}
+
+		sources += fmt.Sprintf("%d", s)
+	}
+
+	return fmt.Sprintf("(permutation (%s) (%s))", targets, sources)
+}
+
+func sliceColumns(columns []uint, tr Trace) [][]*fr.Element {
+	// Allocate return array
+	cols := make([][]*fr.Element, len(columns))
+	// Slice out the data
+	for i, n := range columns {
+		nth := tr.ColumnByIndex(n)
+		cols[i] = nth.Data()
+	}
+	// Done
+	return cols
 }
 
 // ===================================================================
@@ -233,7 +308,7 @@ func (p *RangeConstraint) String() string {
 // That is, they should be implied by the actual constraints.  Thus, whilst the
 // prover cannot enforce such properties, external tools (such as for formal
 // verification) can attempt to ensure they do indeed always hold.
-type PropertyAssertion[E Evaluable] struct {
+type PropertyAssertion[T Testable] struct {
 	// A unique identifier for this constraint.  This is primarily
 	// useful for debugging.
 	Handle string
@@ -242,33 +317,31 @@ type PropertyAssertion[E Evaluable] struct {
 	// Observe that this can be any function which is computable
 	// on a given trace --- we are not restricted to expressions
 	// which can be arithmetised.
-	Expr E
+	Property T
+}
+
+// NewPropertyAssertion constructs a new property assertion!
+func NewPropertyAssertion[T Testable](handle string, property T) *PropertyAssertion[T] {
+	return &PropertyAssertion[T]{handle, property}
 }
 
 // GetHandle returns the handle associated with this constraint.
 //
 //nolint:revive
-func (p *PropertyAssertion[E]) GetHandle() string {
+func (p *PropertyAssertion[T]) GetHandle() string {
 	return p.Handle
-}
-
-// NewPropertyAssertion constructs a new property assertion!
-func NewPropertyAssertion[E Evaluable](handle string, expr E) *PropertyAssertion[E] {
-	return &PropertyAssertion[E]{handle, expr}
 }
 
 // Accepts checks whether a vanishing constraint evaluates to zero on every row
 // of a table. If so, return nil otherwise return an error.
 //
 //nolint:revive
-func (p *PropertyAssertion[E]) Accepts(tr Trace) error {
+func (p *PropertyAssertion[T]) Accepts(tr Trace) error {
 	for k := uint(0); k < tr.Height(); k++ {
-		// Determine kth evaluation point
-		kth := p.Expr.EvalAt(int(k), tr)
-		// Check whether it vanished (or was undefined)
-		if kth != nil && !kth.IsZero() {
+		// Check whether property holds (or was undefined)
+		if !p.Property.TestAt(int(k), tr) {
 			// Construct useful error message
-			msg := fmt.Sprintf("property assertion %s does not hold (row %d, %s)", p.Handle, k, kth)
+			msg := fmt.Sprintf("property assertion %s does not hold (row %d)", p.Handle, k)
 			// Evaluation failure
 			return errors.New(msg)
 		}

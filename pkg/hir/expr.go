@@ -21,7 +21,7 @@ type Expr interface {
 	// Representation.  Observe that a single expression at this
 	// level can expand into *multiple* expressions at the MIR
 	// level.
-	LowerTo() []mir.Expr
+	LowerTo(*mir.Schema) []mir.Expr
 	// EvalAt evaluates this expression in a given tabular context.
 	// Observe that if this expression is *undefined* within this
 	// context then it returns "nil".  An expression can be

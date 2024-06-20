@@ -175,10 +175,8 @@ func (p *hirParser) parseAssertionDeclaration(elements []sexp.SExp) error {
 	if err != nil {
 		return err
 	}
-	// Add all assertions arising.
-	for _, e := range expr.LowerTo() {
-		p.schema.AddPropertyAssertion(handle, e)
-	}
+	// Add assertion.
+	p.schema.AddPropertyAssertion(handle, expr)
 
 	return nil
 }

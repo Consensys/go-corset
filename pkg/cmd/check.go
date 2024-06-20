@@ -165,10 +165,18 @@ func checkTrace(tr *table.ArrayTrace, schema table.Schema, cfg checkConfig) (tab
 			// Apply default inferred spillage
 			tr.Pad(schema.RequiredSpillage())
 		}
+		// Perform Input Alignment
+		if err := tr.AlignInputWith(schema); err != nil {
+			return tr, err
+		}
 		// Expand trace
 		if err := schema.ExpandTrace(tr); err != nil {
 			return tr, err
 		}
+	}
+	// Perform Alignment
+	if err := tr.AlignWith(schema); err != nil {
+		return tr, err
 	}
 	// Check whether padding requested
 	if cfg.padding.Left == 0 && cfg.padding.Right == 0 {

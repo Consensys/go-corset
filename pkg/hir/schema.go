@@ -50,7 +50,7 @@ type VanishingConstraint = *table.RowConstraint[ZeroArrayTest]
 // PropertyAssertion captures the notion of an arbitrary property which should
 // hold for all acceptable traces.  However, such a property is not enforced by
 // the prover.
-type PropertyAssertion = mir.PropertyAssertion
+type PropertyAssertion = *table.PropertyAssertion[ZeroArrayTest]
 
 // Permutation captures the notion of a (sorted) permutation at the HIR level.
 type Permutation = *table.SortedPermutation
@@ -79,10 +79,50 @@ func EmptySchema() *Schema {
 	return p
 }
 
+// Column returns information about the ith column in this schema.
+func (p *Schema) Column(i uint) table.ColumnSchema {
+	panic("todo")
+}
+
+// Width returns the number of column groups in this schema.
+func (p *Schema) Width() uint {
+	return uint(len(p.dataColumns) + len(p.permutations))
+}
+
+// ColumnGroup returns information about the ith column group in this schema.
+func (p *Schema) ColumnGroup(i uint) table.ColumnGroup {
+	n := uint(len(p.dataColumns))
+	if i < n {
+		return p.dataColumns[i]
+	}
+
+	return p.permutations[i-n]
+}
+
+// ColumnIndex determines the column index for a given column in this schema, or
+// returns false indicating an error.
+func (p *Schema) ColumnIndex(name string) (uint, bool) {
+	index := uint(0)
+
+	for i := uint(0); i < p.Width(); i++ {
+		ith := p.ColumnGroup(i)
+		for j := uint(0); j < ith.Width(); j++ {
+			if ith.NameOf(j) == name {
+				// hit
+				return index, true
+			}
+
+			index++
+		}
+	}
+	// miss
+	return 0, false
+}
+
 // HasColumn checks whether a given schema has a given column.
 func (p *Schema) HasColumn(name string) bool {
 	for _, c := range p.dataColumns {
-		if (*c).Name == name {
+		if (*c).Name() == name {
 			return true
 		}
 	}
@@ -141,8 +181,8 @@ func (p *Schema) AddVanishingConstraint(handle string, domain *int, expr Expr) {
 }
 
 // AddPropertyAssertion appends a new property assertion.
-func (p *Schema) AddPropertyAssertion(handle string, expr mir.Expr) {
-	p.assertions = append(p.assertions, table.NewPropertyAssertion[mir.Expr](handle, expr))
+func (p *Schema) AddPropertyAssertion(handle string, property Expr) {
+	p.assertions = append(p.assertions, table.NewPropertyAssertion[ZeroArrayTest](handle, ZeroArrayTest{property}))
 }
 
 // Accepts determines whether this schema will accept a given trace.  That
@@ -190,7 +230,7 @@ func (p *Schema) LowerToMir() *mir.Schema {
 	mirSchema := mir.EmptySchema()
 	// First, lower columns
 	for _, col := range p.dataColumns {
-		mirSchema.AddDataColumn(col.Name, col.Type)
+		mirSchema.AddDataColumn(col.Name(), col.Type)
 	}
 	// Second, lower permutations
 	for _, col := range p.permutations {
@@ -198,7 +238,7 @@ func (p *Schema) LowerToMir() *mir.Schema {
 	}
 	// Third, lower constraints
 	for _, c := range p.vanishing {
-		mir_exprs := c.Constraint.Expr.LowerTo()
+		mir_exprs := c.Constraint.Expr.LowerTo(mirSchema)
 		// Add individual constraints arising
 		for _, mir_expr := range mir_exprs {
 			mirSchema.AddVanishingConstraint(c.Handle, c.Domain, mir_expr)
@@ -207,7 +247,10 @@ func (p *Schema) LowerToMir() *mir.Schema {
 	// Fourth, copy property assertions.  Observe, these do not require lowering
 	// because they are already MIR-level expressions.
 	for _, c := range p.assertions {
-		mirSchema.AddPropertyAssertion(c.Handle, c.Expr)
+		properties := c.Property.Expr.LowerTo(mirSchema)
+		for _, p := range properties {
+			mirSchema.AddPropertyAssertion(c.Handle, p)
+		}
 	}
 	//
 	return mirSchema

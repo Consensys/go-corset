@@ -371,26 +371,26 @@ func CheckTraces(t *testing.T, test string, expected bool, traces []*table.Array
 				hirID := traceId{"HIR", test, expected, i + 1, padding, hirSchema.RequiredSpillage()}
 				mirID := traceId{"MIR", test, expected, i + 1, padding, mirSchema.RequiredSpillage()}
 				airID := traceId{"AIR", test, expected, i + 1, padding, airSchema.RequiredSpillage()}
-				// Check HIR/MIR trace (if applicable)
-				if airSchema.IsInputTrace(tr) == nil {
-					// This is an unexpanded input trace.
+				// Check whether trace is input compatible with schema
+				if err := tr.AlignInputWith(hirSchema); err != nil {
+					// Alignment failed.  So, attempt alignment as expanded
+					// trace instead.
+					if err := tr.AlignWith(airSchema); err != nil {
+						// Still failed, hence trace must be malformed in some way
+						if expected {
+							t.Errorf("Trace malformed (%s.accepts, line %d): [%s]", test, i+1, err)
+						} else {
+							t.Errorf("Trace malformed (%s.rejects, line %d): [%s]", test, i+1, err)
+						}
+					} else {
+						// Aligned as expanded trace
+						checkExpandedTrace(t, tr, airID, airSchema)
+					}
+				} else {
+					// Aligned as unexpanded trace.
 					checkInputTrace(t, tr, hirID, hirSchema)
 					checkInputTrace(t, tr, mirID, mirSchema)
 					checkInputTrace(t, tr, airID, airSchema)
-				} else if airSchema.IsOutputTrace(tr) == nil {
-					// This is an already expanded input trace.  Therefore, no need
-					// to perform expansion.
-					checkExpandedTrace(t, tr, airID, airSchema)
-				} else {
-					// Trace appears to be malformed.
-					err1 := airSchema.IsInputTrace(tr)
-					err2 := airSchema.IsOutputTrace(tr)
-
-					if expected {
-						t.Errorf("Trace malformed (%s.accepts, line %d): [%s][%s]", test, i+1, err1, err2)
-					} else {
-						t.Errorf("Trace malformed (%s.rejects, line %d): [%s][%s]", test, i+1, err1, err2)
-					}
 				}
 			}
 		}
@@ -407,6 +407,9 @@ func checkInputTrace(t *testing.T, tr *table.ArrayTrace, id traceId, schema tabl
 	// Check
 	if err != nil {
 		t.Error(err)
+	} else if err := etr.AlignWith(schema); err != nil {
+		// Alignment problem
+		t.Error(err)
 	} else {
 		checkExpandedTrace(t, etr, id, schema)
 	}
@@ -421,7 +424,7 @@ func checkExpandedTrace(t *testing.T, tr table.Trace, id traceId, schema table.S
 	accepted := (err == nil)
 	// Process what happened versus what was supposed to happen.
 	if !accepted && id.expected {
-		//printTrace(tr)
+		//table.PrintTrace(tr)
 		msg := fmt.Sprintf("Trace rejected incorrectly (%s, %s.accepts, line %d with spillage %d / padding %d): %s",
 			id.ir, id.test, id.line, id.spillage, id.padding, err)
 		t.Errorf(msg)

@@ -10,7 +10,7 @@ import (
 
 // DataColumn represents a column of user-provided values.
 type DataColumn[T Type] struct {
-	Name string
+	name string
 	// Expected type of values held in this column.  Observe that this type is
 	// enforced only when checking is enabled.  Unchecked typed columns can
 	// still make sense when their values are implied by some other constraint.
@@ -25,9 +25,29 @@ func NewDataColumn[T Type](name string, base T, synthetic bool) *DataColumn[T] {
 	return &DataColumn[T]{name, base, synthetic}
 }
 
-// Get the value of this column at a given row in a given trace.
-func (c *DataColumn[T]) Get(row int, tr Trace) *fr.Element {
-	return tr.GetByName(c.Name, row)
+// Name forms part of the ColumnSchema interface, and provides access to
+// information about the ith column in a schema.
+func (p *DataColumn[T]) Name() string {
+	return p.name
+}
+
+// Width forms part of the ColumnGroup interface, and determines how many
+// columns are in the group.  Data columns already represent a group of size 1.
+func (p *DataColumn[T]) Width() uint {
+	return 1
+}
+
+// NameOf forms part of the ColumnGroup interface, and provides access to the
+// ith column in a group.  Since a data column represents a group of size 1,
+// there is only ever one name.
+func (p *DataColumn[T]) NameOf(index uint) string {
+	return p.name
+}
+
+// IsSynthetic forms part of the ColumnGroup interface, and determines whether or
+// not the group (as a whole) is synthetic.
+func (p *DataColumn[T]) IsSynthetic() bool {
+	return p.Synthetic
 }
 
 // Accepts determines whether or not this column accepts the given trace.  For a
@@ -35,20 +55,22 @@ func (c *DataColumn[T]) Get(row int, tr Trace) *fr.Element {
 // type.
 //
 //nolint:revive
-func (c *DataColumn[T]) Accepts(tr Trace) error {
-	// Check column in trace!
-	if !tr.HasColumn(c.Name) {
-		return fmt.Errorf("Trace missing data column ({%s})", c.Name)
-	}
-	// Check constraints accepted
-	for i := uint(0); i < tr.Height(); i++ {
-		val := tr.GetByName(c.Name, int(i))
+func (p *DataColumn[T]) Accepts(tr Trace) error {
+	// Only check for non-field types.  This is simply because a column with the
+	// field type always accepts everything.
+	if p.Type.AsField() == nil {
+		// Access corresponding column in trace
+		col := tr.ColumnByName(p.name)
+		// Check constraints accepted
+		for i := 0; i < int(tr.Height()); i++ {
+			val := col.Get(i)
 
-		if !c.Type.Accept(val) {
-			// Construct useful error message
-			msg := fmt.Sprintf("column %s value out-of-bounds (row %d, %s)", c.Name, i, val)
-			// Evaluation failure
-			return errors.New(msg)
+			if !p.Type.Accept(val) {
+				// Construct useful error message
+				msg := fmt.Sprintf("column %s value out-of-bounds (row %d, %s)", p.Name(), i, val)
+				// Evaluation failure
+				return errors.New(msg)
+			}
 		}
 	}
 	// All good
@@ -58,10 +80,10 @@ func (c *DataColumn[T]) Accepts(tr Trace) error {
 //nolint:revive
 func (c *DataColumn[T]) String() string {
 	if c.Type.AsField() != nil {
-		return fmt.Sprintf("(column %s)", c.Name)
+		return fmt.Sprintf("(column %s)", c.Name())
 	}
 
-	return fmt.Sprintf("(column %s :%s)", c.Name, c.Type)
+	return fmt.Sprintf("(column %s :%s)", c.Name(), c.Type)
 }
 
 // ComputedColumn describes a column whose values are computed on-demand, rather
@@ -117,8 +139,7 @@ func (c *ComputedColumn[E]) Accepts(tr Trace) error {
 // then an error is flagged.
 func (c *ComputedColumn[E]) ExpandTrace(tr Trace) error {
 	if tr.HasColumn(c.Name) {
-		msg := fmt.Sprintf("Computed column already exists ({%s})", c.Name)
-		return errors.New(msg)
+		return fmt.Errorf("Computed column already exists ({%s})", c.Name)
 	}
 
 	data := make([]*fr.Element, tr.Height())
@@ -151,77 +172,6 @@ func (c *ComputedColumn[E]) String() string {
 // Sorted Permutations
 // ===================================================================
 
-// Permutation declares a constraint that one column is a permutation
-// of another.
-type Permutation struct {
-	// The target columns
-	Targets []string
-	// The so columns
-	Sources []string
-}
-
-// NewPermutation creates a new permutation
-func NewPermutation(targets []string, sources []string) *Permutation {
-	if len(targets) != len(sources) {
-		panic("differeng number of target / source permutation columns")
-	}
-
-	return &Permutation{targets, sources}
-}
-
-// RequiredSpillage returns the minimum amount of spillage required to ensure
-// valid traces are accepted in the presence of arbitrary padding.
-func (p *Permutation) RequiredSpillage() uint {
-	return uint(0)
-}
-
-// Accepts checks whether a permutation holds between the source and
-// target columns.
-func (p *Permutation) Accepts(tr Trace) error {
-	// Sanity check columns well formed.
-	if err := validPermutationColumns(p.Targets, p.Sources, tr); err != nil {
-		return err
-	}
-	// Slice out data
-	src := sliceMatchingColumns(p.Sources, tr)
-	dst := sliceMatchingColumns(p.Targets, tr)
-	// Sanity check whether column exists
-	if !util.ArePermutationOf(dst, src) {
-		msg := fmt.Sprintf("Target columns (%v) not permutation of source columns ({%v})",
-			p.Targets, p.Sources)
-		return errors.New(msg)
-	}
-	// Success
-	return nil
-}
-
-func (p *Permutation) String() string {
-	targets := ""
-	sources := ""
-
-	for i, s := range p.Targets {
-		if i != 0 {
-			targets += " "
-		}
-
-		targets += s
-	}
-
-	for i, s := range p.Sources {
-		if i != 0 {
-			sources += " "
-		}
-
-		sources += s
-	}
-
-	return fmt.Sprintf("(permutation (%s) (%s))", targets, sources)
-}
-
-// ===================================================================
-// Sorted Permutations
-// ===================================================================
-
 // SortedPermutation declares one or more columns as sorted permutations of
 // existing columns.
 type SortedPermutation struct {
@@ -240,6 +190,27 @@ func NewSortedPermutation(targets []string, signs []bool, sources []string) *Sor
 	}
 
 	return &SortedPermutation{targets, signs, sources}
+}
+
+// Width forms part of the ColumnGroup interface, and provides access to the
+// ith column in a group.  Sorted permutations have define one or more new
+// columns.
+func (p *SortedPermutation) Width() uint {
+	return uint(len(p.Targets))
+}
+
+// NameOf forms part of the ColumnGroup interface, and provides access to the
+// ith column in a group.  Since a data column represents a group of size 1,
+// there is only ever one name.
+func (p *SortedPermutation) NameOf(index uint) string {
+	return p.Targets[index]
+}
+
+// IsSynthetic forms part of the ColumnGroup interface which determines whether
+// or not the group (as a whole) is synthetic.  Sorted permutation columns are
+// always synthetic.
+func (p *SortedPermutation) IsSynthetic() bool {
+	return true
 }
 
 // RequiredSpillage returns the minimum amount of spillage required to ensure

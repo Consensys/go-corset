@@ -73,7 +73,7 @@ func (p *Normalise) Bounds() util.Bounds { return p.Arg.Bounds() }
 // accesses the STAMP column at row 5, whilst CT(-1) accesses the CT column at
 // row 4.
 type ColumnAccess struct {
-	Column string
+	Column uint
 	Shift  int
 }
 

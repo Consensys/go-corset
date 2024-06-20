@@ -6,10 +6,10 @@ import (
 
 func (e *ColumnAccess) String() string {
 	if e.Shift == 0 {
-		return e.Column
+		return fmt.Sprintf("#%d", e.Column)
 	}
 
-	return fmt.Sprintf("(shift %s %d)", e.Column, e.Shift)
+	return fmt.Sprintf("(shift #%d %d)", e.Column, e.Shift)
 }
 
 func (e *Constant) String() string {

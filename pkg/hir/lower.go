@@ -10,58 +10,58 @@ import (
 // LowerTo lowers a sum expression to the MIR level.  This requires expanding
 // the arguments, then lowering them.  Furthermore, conditionals are "lifted" to
 // the top.
-func (e *Add) LowerTo() []mir.Expr {
-	return lowerTo(e)
+func (e *Add) LowerTo(schema *mir.Schema) []mir.Expr {
+	return lowerTo(e, schema)
 }
 
 // LowerTo lowers a constant to the MIR level.   This requires expanding the
 // arguments, then lowering them.  Furthermore, conditionals are "lifted" to the
 // top.
-func (e *Constant) LowerTo() []mir.Expr {
-	return lowerTo(e)
+func (e *Constant) LowerTo(schema *mir.Schema) []mir.Expr {
+	return lowerTo(e, schema)
 }
 
 // LowerTo lowers a column access to the MIR level.  This requires expanding
 // the arguments, then lowering them.  Furthermore, conditionals are "lifted" to
 // the top.
-func (e *ColumnAccess) LowerTo() []mir.Expr {
-	return lowerTo(e)
+func (e *ColumnAccess) LowerTo(schema *mir.Schema) []mir.Expr {
+	return lowerTo(e, schema)
 }
 
 // LowerTo lowers a product expression to the MIR level.  This requires expanding
 // the arguments, then lowering them.  Furthermore, conditionals are "lifted" to
 // the top.
-func (e *Mul) LowerTo() []mir.Expr {
-	return lowerTo(e)
+func (e *Mul) LowerTo(schema *mir.Schema) []mir.Expr {
+	return lowerTo(e, schema)
 }
 
 // LowerTo lowers a list expression to the MIR level by eliminating it
 // altogether.  This still requires expanding the arguments, then lowering them.
 // Furthermore, conditionals are "lifted" to the top..
-func (e *List) LowerTo() []mir.Expr {
-	return lowerTo(e)
+func (e *List) LowerTo(schema *mir.Schema) []mir.Expr {
+	return lowerTo(e, schema)
 }
 
 // LowerTo lowers a normalise expression to the MIR level.  This requires
 // expanding the arguments, then lowering them.  Furthermore, conditionals are
 // "lifted" to the top..
-func (e *Normalise) LowerTo() []mir.Expr {
-	return lowerTo(e)
+func (e *Normalise) LowerTo(schema *mir.Schema) []mir.Expr {
+	return lowerTo(e, schema)
 }
 
 // LowerTo lowers an if expression to the MIR level by "compiling out" the
 // expression using normalisation at the MIR level.  This also requires
 // expanding the arguments, then lowering them.  Furthermore, conditionals are
 // "lifted" to the top.
-func (e *IfZero) LowerTo() []mir.Expr {
-	return lowerTo(e)
+func (e *IfZero) LowerTo(schema *mir.Schema) []mir.Expr {
+	return lowerTo(e, schema)
 }
 
 // LowerTo lowers a subtract expression to the MIR level. This also requires
 // expanding the arguments, then lowering them.  Furthermore, conditionals are
 // "lifted" to the top.
-func (e *Sub) LowerTo() []mir.Expr {
-	return lowerTo(e)
+func (e *Sub) LowerTo(schema *mir.Schema) []mir.Expr {
+	return lowerTo(e, schema)
 }
 
 // ============================================================================
@@ -71,15 +71,15 @@ func (e *Sub) LowerTo() []mir.Expr {
 // Lowers a given expression to the MIR level.  The expression is first expanded
 // into one or more target expressions. Furthermore, conditions must be "lifted"
 // to the root.
-func lowerTo(e Expr) []mir.Expr {
+func lowerTo(e Expr, schema *mir.Schema) []mir.Expr {
 	// First expand expression
 	es := expand(e)
 	// Now lower each one (carefully)
 	mes := make([]mir.Expr, len(es))
 	//
 	for i, e := range es {
-		c := lowerCondition(e)
-		b := lowerBody(e)
+		c := lowerCondition(e, schema)
+		b := lowerBody(e, schema)
 		mes[i] = mul2(c, b)
 	}
 	// Done
@@ -89,30 +89,30 @@ func lowerTo(e Expr) []mir.Expr {
 // Lower the "condition" of an expression.  Every expression can be view as a
 // conditional constraint of the form "if c then e", where "c" is the condition.
 // This is allowed to return nil if the body is unconditional.
-func lowerCondition(e Expr) mir.Expr {
+func lowerCondition(e Expr, schema *mir.Schema) mir.Expr {
 	if p, ok := e.(*Add); ok {
-		return lowerConditions(p.Args)
+		return lowerConditions(p.Args, schema)
 	} else if _, ok := e.(*Constant); ok {
 		return nil
 	} else if _, ok := e.(*ColumnAccess); ok {
 		return nil
 	} else if p, ok := e.(*Mul); ok {
-		return lowerConditions(p.Args)
+		return lowerConditions(p.Args, schema)
 	} else if p, ok := e.(*Normalise); ok {
-		return lowerCondition(p.Arg)
+		return lowerCondition(p.Arg, schema)
 	} else if p, ok := e.(*IfZero); ok {
-		return lowerIfZeroCondition(p)
+		return lowerIfZeroCondition(p, schema)
 	} else if p, ok := e.(*Sub); ok {
-		return lowerConditions(p.Args)
+		return lowerConditions(p.Args, schema)
 	}
 	// Should be unreachable
 	panic(fmt.Sprintf("unknown expression: %s", e.String()))
 }
 
-func lowerConditions(es []Expr) mir.Expr {
+func lowerConditions(es []Expr, schema *mir.Schema) mir.Expr {
 	var r mir.Expr = nil
 	for _, e := range es {
-		r = mul2(r, lowerCondition(e))
+		r = mul2(r, lowerCondition(e, schema))
 	}
 
 	return r
@@ -120,11 +120,11 @@ func lowerConditions(es []Expr) mir.Expr {
 
 // Lowering conditional expressions is slightly more complex than others, so it
 // gets a case of its own.
-func lowerIfZeroCondition(e *IfZero) mir.Expr {
+func lowerIfZeroCondition(e *IfZero, schema *mir.Schema) mir.Expr {
 	var bc mir.Expr
 	// Lower condition
-	cc := lowerCondition(e.Condition)
-	cb := lowerBody(e.Condition)
+	cc := lowerCondition(e.Condition, schema)
+	cb := lowerBody(e.Condition, schema)
 	// Add conditions arising
 	if e.TrueBranch != nil && e.FalseBranch != nil {
 		// Expansion should ensure this case does not exist.  This is necessary
@@ -145,10 +145,10 @@ func lowerIfZeroCondition(e *IfZero) mir.Expr {
 
 		cb = oneMinusNormBody
 		// Lower conditional's arising from body
-		bc = lowerCondition(e.TrueBranch)
+		bc = lowerCondition(e.TrueBranch, schema)
 	} else {
 		// Lower conditional's arising from body
-		bc = lowerCondition(e.FalseBranch)
+		bc = lowerCondition(e.FalseBranch, schema)
 	}
 	//
 	return mul3(cc, cb, bc)
@@ -157,39 +157,44 @@ func lowerIfZeroCondition(e *IfZero) mir.Expr {
 // Translate the "body" of an expression.  Every expression can be view as a
 // conditional constraint of the form "if c then e", where "e" is the
 // constraint.
-func lowerBody(e Expr) mir.Expr {
+func lowerBody(e Expr, schema *mir.Schema) mir.Expr {
 	if p, ok := e.(*Add); ok {
-		return &mir.Add{Args: lowerBodies(p.Args)}
+		return &mir.Add{Args: lowerBodies(p.Args, schema)}
 	} else if p, ok := e.(*Constant); ok {
 		return &mir.Constant{Value: p.Val}
 	} else if p, ok := e.(*ColumnAccess); ok {
-		return &mir.ColumnAccess{Column: p.Column, Shift: p.Shift}
+		if index, ok := schema.ColumnIndex(p.Column); ok {
+			return &mir.ColumnAccess{Column: index, Shift: p.Shift}
+		}
+		// Should be unreachable as all columns should have been vetted earlier
+		// in the pipeline.
+		panic(fmt.Sprintf("invalid column access for %s", p.Column))
 	} else if p, ok := e.(*Mul); ok {
-		return &mir.Mul{Args: lowerBodies(p.Args)}
+		return &mir.Mul{Args: lowerBodies(p.Args, schema)}
 	} else if p, ok := e.(*Normalise); ok {
-		return &mir.Normalise{Arg: lowerBody(p.Arg)}
+		return &mir.Normalise{Arg: lowerBody(p.Arg, schema)}
 	} else if p, ok := e.(*IfZero); ok {
 		if p.TrueBranch != nil && p.FalseBranch != nil {
 			// Expansion should ensure this case does not exist.  This is necessary
 			// to ensure exactly one expression is generated from this expression.
 			panic(fmt.Sprintf("unexpanded expression (%s)", e.String()))
 		} else if p.TrueBranch != nil {
-			return lowerBody(p.TrueBranch)
+			return lowerBody(p.TrueBranch, schema)
 		}
 		// Done
-		return lowerBody(p.FalseBranch)
+		return lowerBody(p.FalseBranch, schema)
 	} else if p, ok := e.(*Sub); ok {
-		return &mir.Sub{Args: lowerBodies(p.Args)}
+		return &mir.Sub{Args: lowerBodies(p.Args, schema)}
 	}
 	// Should be unreachable
 	panic(fmt.Sprintf("unknown expression: %s", e.String()))
 }
 
 // Lower a vector of expanded expressions to the MIR level.
-func lowerBodies(es []Expr) []mir.Expr {
+func lowerBodies(es []Expr, schema *mir.Schema) []mir.Expr {
 	rs := make([]mir.Expr, len(es))
 	for i, e := range es {
-		rs[i] = lowerBody(e)
+		rs[i] = lowerBody(e, schema)
 	}
 
 	return rs

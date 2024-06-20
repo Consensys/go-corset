@@ -20,7 +20,7 @@ type VanishingConstraint = *table.RowConstraint[table.ZeroTest[Expr]]
 // PropertyAssertion captures the notion of an arbitrary property which should
 // hold for all acceptable traces.  However, such a property is not enforced by
 // the prover.
-type PropertyAssertion = *table.PropertyAssertion[Expr]
+type PropertyAssertion = *table.PropertyAssertion[table.ZeroTest[Expr]]
 
 // Permutation captures the notion of a (sorted) permutation at the MIR level.
 type Permutation = *table.SortedPermutation
@@ -49,11 +49,51 @@ func EmptySchema() *Schema {
 	return p
 }
 
+// Width returns the number of column groups in this schema.
+func (p *Schema) Width() uint {
+	return uint(len(p.dataColumns) + len(p.permutations))
+}
+
+// Column returns information about the ith column in this schema.
+func (p *Schema) Column(i uint) table.ColumnSchema {
+	panic("todo")
+}
+
+// ColumnGroup returns information about the ith column group in this schema.
+func (p *Schema) ColumnGroup(i uint) table.ColumnGroup {
+	n := uint(len(p.dataColumns))
+	if i < n {
+		return p.dataColumns[i]
+	}
+
+	return p.permutations[i-n]
+}
+
+// ColumnIndex determines the column index for a given column in this schema, or
+// returns false indicating an error.
+func (p *Schema) ColumnIndex(name string) (uint, bool) {
+	index := uint(0)
+
+	for i := uint(0); i < p.Width(); i++ {
+		ith := p.ColumnGroup(i)
+		for j := uint(0); j < ith.Width(); j++ {
+			if ith.NameOf(j) == name {
+				// hit
+				return index, true
+			}
+
+			index++
+		}
+	}
+	// miss
+	return 0, false
+}
+
 // GetColumnByName gets a given data column based on its name.  If no such
 // column exists, it panics.
 func (p *Schema) GetColumnByName(name string) DataColumn {
 	for _, c := range p.dataColumns {
-		if c.Name == name {
+		if c.Name() == name {
 			return c
 		}
 	}
@@ -103,7 +143,8 @@ func (p *Schema) AddVanishingConstraint(handle string, domain *int, expr Expr) {
 
 // AddPropertyAssertion appends a new property assertion.
 func (p *Schema) AddPropertyAssertion(handle string, expr Expr) {
-	p.assertions = append(p.assertions, table.NewPropertyAssertion(handle, expr))
+	test := table.ZeroTest[Expr]{Expr: expr}
+	p.assertions = append(p.assertions, table.NewPropertyAssertion(handle, test))
 }
 
 // Accepts determines whether this schema will accept a given trace.  That
@@ -136,9 +177,29 @@ func (p *Schema) Accepts(trace table.Trace) error {
 // constraints as necessary to preserve the original semantics.
 func (p *Schema) LowerToAir() *air.Schema {
 	airSchema := air.EmptySchema[Expr]()
-	// Lower data columns
-	for _, col := range p.dataColumns {
-		lowerColumnToAir(col, airSchema)
+	// Allocate data and permutation columns.  This must be done first to ensure
+	// alignment is preserved across lowering.
+	index := uint(0)
+
+	for i := uint(0); i < p.Width(); i++ {
+		ith := p.ColumnGroup(i)
+		for j := uint(0); j < ith.Width(); j++ {
+			col := ith.NameOf(j)
+			airSchema.AddColumn(col, ith.IsSynthetic())
+
+			index++
+		}
+	}
+	// Add computations. Again this has to be done first for things to work.
+	// Essentially to reflect the fact that these columns have been added above
+	// before others.  Realistically, the overall design of this process is a
+	// bit broken right now.
+	for _, perm := range p.permutations {
+		airSchema.AddComputation(perm)
+	}
+	// Lower checked data columns
+	for i, col := range p.dataColumns {
+		lowerColumnToAir(uint(i), col, airSchema)
 	}
 	// Lower permutations columns
 	for _, perm := range p.permutations {
@@ -160,25 +221,22 @@ func (p *Schema) LowerToAir() *air.Schema {
 // Lower a datacolumn to the AIR level.  The main effect of this is that, for
 // columns with non-trivial types, we must add appropriate range constraints to
 // the enclosing schema.
-func lowerColumnToAir(c *table.DataColumn[table.Type], schema *air.Schema) {
+func lowerColumnToAir(index uint, c *table.DataColumn[table.Type], schema *air.Schema) {
 	// Check whether a constraint is implied by the column's type
 	if t := c.Type.AsUint(); t != nil && t.Checked() {
 		// Yes, a constraint is implied.  Now, decide whether to use a range
 		// constraint or just a vanishing constraint.
 		if t.HasBound(2) {
 			// u1 => use vanishing constraint X * (X - 1)
-			air_gadgets.ApplyBinaryGadget(c.Name, schema)
+			air_gadgets.ApplyBinaryGadget(index, schema)
 		} else if t.HasBound(256) {
 			// u2..8 use range constraints
-			schema.AddRangeConstraint(c.Name, t.Bound())
+			schema.AddRangeConstraint(index, t.Bound())
 		} else {
 			// u9+ use byte decompositions.
-			air_gadgets.ApplyBitwidthGadget(c.Name, t.BitWidth(), schema)
+			air_gadgets.ApplyBitwidthGadget(index, t.BitWidth(), schema)
 		}
 	}
-	// Finally, add an (untyped) data column representing this
-	// data column.
-	schema.AddColumn(c.Name, false)
 }
 
 // Lower a permutation to the AIR level.  This has quite a few
@@ -189,14 +247,22 @@ func lowerColumnToAir(c *table.DataColumn[table.Type], schema *air.Schema) {
 // meet the requirements of a sorted permutation.
 func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Schema) {
 	ncols := len(c.Targets)
+	//
+	targets := make([]uint, ncols)
+	sources := make([]uint, ncols)
 	// Add individual permutation constraints
 	for i := 0; i < ncols; i++ {
-		airSchema.AddColumn(c.Targets[i], true)
+		var ok1, ok2 bool
+		// TODO: REPLACE
+		sources[i], ok1 = airSchema.ColumnIndex(c.Sources[i])
+		targets[i], ok2 = airSchema.ColumnIndex(c.Targets[i])
+
+		if !ok1 || !ok2 {
+			panic("missing column")
+		}
 	}
 	//
-	airSchema.AddPermutationConstraint(c.Targets, c.Sources)
-	// Add the trace computation.
-	airSchema.AddComputation(c)
+	airSchema.AddPermutationConstraint(targets, sources)
 	// Add sorting constraints + synthetic columns as necessary.
 	if ncols == 1 {
 		// For a single column sort, its actually a bit easier because we don't
@@ -206,7 +272,7 @@ func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Sche
 		// also requires bitwidth constraints.
 		bitwidth := mirSchema.GetColumnByName(c.Sources[0]).Type.AsUint().BitWidth()
 		// Add column sorting constraints
-		air_gadgets.ApplyColumnSortGadget(c.Targets[0], c.Signs[0], bitwidth, airSchema)
+		air_gadgets.ApplyColumnSortGadget(targets[0], c.Signs[0], bitwidth, airSchema)
 	} else {
 		// For a multi column sort, its a bit harder as we need additional
 		// logicl to ensure the target columns are lexicographally sorted.
@@ -220,7 +286,7 @@ func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Sche
 			}
 		}
 		// Add lexicographically sorted constraints
-		air_gadgets.ApplyLexicographicSortingGadget(c.Targets, c.Signs, bitwidth, airSchema)
+		air_gadgets.ApplyLexicographicSortingGadget(targets, c.Signs, bitwidth, airSchema)
 	}
 }
 

@@ -1,9 +1,6 @@
 package air
 
 import (
-	"errors"
-	"fmt"
-
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/table"
 	"github.com/consensys/go-corset/pkg/util"
@@ -20,7 +17,7 @@ type VanishingConstraint = *table.RowConstraint[table.ZeroTest[Expr]]
 // PropertyAssertion captures the notion of an arbitrary property which should
 // hold for all acceptable traces.  However, such a property is not enforced by
 // the prover.
-type PropertyAssertion = *table.PropertyAssertion[table.Evaluable]
+type PropertyAssertion = *table.PropertyAssertion[table.ZeroTest[table.Evaluable]]
 
 // Permutation captures the notion of a simple column permutation at the AIR
 // level.
@@ -60,6 +57,21 @@ func EmptySchema[C table.Evaluable]() *Schema {
 	return p
 }
 
+// Width returns the number of column groups in this schema.
+func (p *Schema) Width() uint {
+	return uint(len(p.dataColumns))
+}
+
+// ColumnGroup returns information about the ith column group in this schema.
+func (p *Schema) ColumnGroup(i uint) table.ColumnGroup {
+	return p.dataColumns[i]
+}
+
+// Column returns information about the ith column in this schema.
+func (p *Schema) Column(i uint) table.ColumnSchema {
+	return p.dataColumns[i]
+}
+
 // Size returns the number of declarations in this schema.
 func (p *Schema) Size() int {
 	return len(p.dataColumns) + len(p.permutations) + len(p.vanishing) +
@@ -81,12 +93,24 @@ func (p *Schema) Columns() []DataColumn {
 // HasColumn checks whether a given schema has a given column.
 func (p *Schema) HasColumn(name string) bool {
 	for _, c := range p.dataColumns {
-		if c.Name == name {
+		if c.Name() == name {
 			return true
 		}
 	}
 
 	return false
+}
+
+// ColumnIndex determines the column index for a given column in this schema, or
+// returns false indicating an error.
+func (p *Schema) ColumnIndex(name string) (uint, bool) {
+	for i, c := range p.dataColumns {
+		if c.Name() == name {
+			return uint(i), true
+		}
+	}
+
+	return 0, false
 }
 
 // RequiredSpillage returns the minimum amount of spillage required to ensure
@@ -105,77 +129,18 @@ func (p *Schema) RequiredSpillage() uint {
 	return mx
 }
 
-// IsInputTrace determines whether a given input trace is a suitable
-// input (i.e. non-expanded) trace for this schema.  Specifically, the
-// input trace must contain a matching column for each non-synthetic
-// column in this trace.
-func (p *Schema) IsInputTrace(tr table.Trace) error {
-	count := uint(0)
-
-	for _, c := range p.dataColumns {
-		if !c.Synthetic && !tr.HasColumn(c.Name) {
-			msg := fmt.Sprintf("Trace missing input column ({%s})", c.Name)
-			return errors.New(msg)
-		} else if c.Synthetic && tr.HasColumn(c.Name) {
-			msg := fmt.Sprintf("Trace has synthetic column ({%s})", c.Name)
-			return errors.New(msg)
-		} else if !c.Synthetic {
-			count = count + 1
-		}
-	}
-	// Check geometry
-	if tr.Width() != count {
-		// Determine the unknown columns for error reporting.
-		unknown := make([]string, 0)
-
-		for i := uint(0); i < tr.Width(); i++ {
-			n := tr.ColumnName(int(i))
-			if !p.HasColumn(n) {
-				unknown = append(unknown, n)
-			}
-		}
-
-		msg := fmt.Sprintf("Trace has unknown columns {%s}", unknown)
-
-		return errors.New(msg)
-	}
-	// Done
-	return nil
-}
-
-// IsOutputTrace determines whether a given input trace is a suitable
-// output (i.e. expanded) trace for this schema.  Specifically, the
-// output trace must contain a matching column for each column in this
-// trace (synthetic or otherwise).
-func (p *Schema) IsOutputTrace(tr table.Trace) error {
-	count := uint(0)
-
-	for _, c := range p.dataColumns {
-		if !tr.HasColumn(c.Name) {
-			msg := fmt.Sprintf("Trace missing input column ({%s})", c.Name)
-			return errors.New(msg)
-		}
-
-		count++
-	}
-	// Check geometry
-	if tr.Width() != count {
-		return errors.New("Trace has unknown columns")
-	}
-	// Done
-	return nil
-}
-
 // AddColumn appends a new data column which is either synthetic or
 // not.  A synthetic column is one which has been introduced by the
 // process of lowering from HIR / MIR to AIR.  That is, it is not a
 // column which was original specified by the user.  Columns also support a
 // "padding sign", which indicates whether padding should occur at the front
 // (positive sign) or the back (negative sign).
-func (p *Schema) AddColumn(name string, synthetic bool) {
+func (p *Schema) AddColumn(name string, synthetic bool) uint {
 	// NOTE: the air level has no ability to enforce the type specified for a
 	// given column.
 	p.dataColumns = append(p.dataColumns, table.NewDataColumn(name, &table.FieldType{}, synthetic))
+	// Calculate column index
+	return uint(len(p.dataColumns) - 1)
 }
 
 // AddComputation appends a new computation to be used during trace
@@ -186,7 +151,7 @@ func (p *Schema) AddComputation(c table.TraceComputation) {
 
 // AddPermutationConstraint appends a new permutation constraint which
 // ensures that one column is a permutation of another.
-func (p *Schema) AddPermutationConstraint(targets []string, sources []string) {
+func (p *Schema) AddPermutationConstraint(targets []uint, sources []uint) {
 	p.permutations = append(p.permutations, table.NewPermutation(targets, sources))
 }
 
@@ -196,7 +161,7 @@ func (p *Schema) AddVanishingConstraint(handle string, domain *int, expr Expr) {
 }
 
 // AddRangeConstraint appends a new range constraint.
-func (p *Schema) AddRangeConstraint(column string, bound *fr.Element) {
+func (p *Schema) AddRangeConstraint(column uint, bound *fr.Element) {
 	p.ranges = append(p.ranges, table.NewRangeConstraint(column, bound))
 }
 
