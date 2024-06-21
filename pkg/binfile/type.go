@@ -21,16 +21,16 @@ type jsonType struct {
 // Translation
 // =============================================================================
 
-func (e *jsonType) toHir(checked bool) schema.Type {
+func (e *jsonType) toHir() schema.Type {
 	// Check whether magma is string
 	if str, ok := e.Magma.(string); ok {
 		switch str {
 		case "Native":
 			return &schema.FieldType{}
 		case "Byte":
-			return schema.NewUintType(8, checked)
+			return schema.NewUintType(8)
 		case "Binary":
-			return schema.NewUintType(1, checked)
+			return schema.NewUintType(1)
 		default:
 			panic(fmt.Sprintf("Unknown JSON type encountered: %s:%s", e.Magma, e.Conditioning))
 		}
@@ -39,7 +39,7 @@ func (e *jsonType) toHir(checked bool) schema.Type {
 	if intMap, ok := e.Magma.(map[string]any); ok {
 		if val, isInt := intMap["Integer"]; isInt {
 			nbits := uint(val.(float64))
-			return schema.NewUintType(nbits, checked)
+			return schema.NewUintType(nbits)
 		}
 	}
 	// Fail

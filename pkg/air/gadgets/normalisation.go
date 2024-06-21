@@ -6,13 +6,14 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/air"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/assignment"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
 
 // Normalise constructs an expression representing the normalised value of e.
 // That is, an expression which is 0 when e is 0, and 1 when e is non-zero.
-// This is done by introducing a synthetic column to hold the (pseudo)
+// This is done by introducing a computed column to hold the (pseudo)
 // mutliplicative inverse of e.
 func Normalise(e air.Expr, schema *air.Schema) air.Expr {
 	// Construct pseudo multiplicative inverse of e.
@@ -32,12 +33,11 @@ func ApplyPseudoInverseGadget(e air.Expr, schema *air.Schema) air.Expr {
 	// Determine computed column name
 	name := ie.String()
 	// Look up column
-	index, ok := schema.ColumnIndex(name)
+	index, ok := sc.ColumnIndexOf(schema, name)
 	// Add new column (if it does not already exist)
 	if !ok {
-		// Add (synthetic) computed column
-		index = schema.AddColumn(name, true)
-		schema.AddComputation(sc.NewComputedColumn(name, ie))
+		// Add computed column
+		index = schema.AddAssignment(assignment.NewComputedColumn(name, ie))
 	}
 
 	// Construct 1/e

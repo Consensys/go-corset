@@ -1,8 +1,9 @@
 package hir
 
 import (
-	"github.com/consensys/go-corset/pkg/mir"
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/assignment"
+	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
@@ -41,12 +42,12 @@ func (p ZeroArrayTest) Bounds() util.Bounds {
 }
 
 // DataColumn captures the essence of a data column at AIR level.
-type DataColumn = *schema.DataColumn[schema.Type]
+type DataColumn = *assignment.DataColumn
 
 // VanishingConstraint captures the essence of a vanishing constraint at the HIR
 // level. A vanishing constraint is a row constraint which must evaluate to
 // zero.
-type VanishingConstraint = *schema.RowConstraint[ZeroArrayTest]
+type VanishingConstraint = *constraint.VanishingConstraint[ZeroArrayTest]
 
 // PropertyAssertion captures the notion of an arbitrary property which should
 // hold for all acceptable traces.  However, such a property is not enforced by
@@ -54,16 +55,17 @@ type VanishingConstraint = *schema.RowConstraint[ZeroArrayTest]
 type PropertyAssertion = *schema.PropertyAssertion[ZeroArrayTest]
 
 // Permutation captures the notion of a (sorted) permutation at the HIR level.
-type Permutation = *schema.SortedPermutation
+type Permutation = *assignment.SortedPermutation
 
 // Schema for HIR constraints and columns.
 type Schema struct {
 	// The data columns of this schema.
-	dataColumns []DataColumn
+	inputs []schema.Declaration
 	// The sorted permutations of this schema.
-	permutations []Permutation
-	// The vanishing constraints of this schema.
-	vanishing []VanishingConstraint
+	assignments []schema.Assignment
+	// Constraints of this schema, which are either vanishing, lookup or type
+	// constraints.
+	constraints []schema.Constraint
 	// The property assertions for this schema.
 	assertions []PropertyAssertion
 }
@@ -72,98 +74,18 @@ type Schema struct {
 // constraints will be added.
 func EmptySchema() *Schema {
 	p := new(Schema)
-	p.dataColumns = make([]DataColumn, 0)
-	p.permutations = make([]Permutation, 0)
-	p.vanishing = make([]VanishingConstraint, 0)
+	p.inputs = make([]schema.Declaration, 0)
+	p.assignments = make([]schema.Assignment, 0)
+	p.constraints = make([]schema.Constraint, 0)
 	p.assertions = make([]PropertyAssertion, 0)
 	// Done
 	return p
 }
 
-// Column returns information about the ith column in this schema.
-func (p *Schema) Column(i uint) schema.ColumnSchema {
-	panic("todo")
-}
-
-// Width returns the number of column groups in this schema.
-func (p *Schema) Width() uint {
-	return uint(len(p.dataColumns) + len(p.permutations))
-}
-
-// ColumnGroup returns information about the ith column group in this schema.
-func (p *Schema) ColumnGroup(i uint) schema.ColumnGroup {
-	n := uint(len(p.dataColumns))
-	if i < n {
-		return p.dataColumns[i]
-	}
-
-	return p.permutations[i-n]
-}
-
-// ColumnIndex determines the column index for a given column in this schema, or
-// returns false indicating an error.
-func (p *Schema) ColumnIndex(name string) (uint, bool) {
-	index := uint(0)
-
-	for i := uint(0); i < p.Width(); i++ {
-		ith := p.ColumnGroup(i)
-		for j := uint(0); j < ith.Width(); j++ {
-			if ith.NameOf(j) == name {
-				// hit
-				return index, true
-			}
-
-			index++
-		}
-	}
-	// miss
-	return 0, false
-}
-
-// HasColumn checks whether a given schema has a given column.
-func (p *Schema) HasColumn(name string) bool {
-	for _, c := range p.dataColumns {
-		if (*c).Name() == name {
-			return true
-		}
-	}
-
-	return false
-}
-
-// Columns returns the set of (data) columns declared within this schema.
-func (p *Schema) Columns() []*schema.DataColumn[schema.Type] {
-	return p.dataColumns
-}
-
-// Constraints returns the set of (vanishing) constraints declared within this schema.
-func (p *Schema) Constraints() []VanishingConstraint {
-	return p.vanishing
-}
-
-// Size returns the number of declarations in this schema.
-func (p *Schema) Size() int {
-	return len(p.dataColumns) + len(p.permutations) + len(p.vanishing) + len(p.assertions)
-}
-
-// RequiredSpillage returns the minimum amount of spillage required to ensure
-// valid traces are accepted in the presence of arbitrary padding.
-func (p *Schema) RequiredSpillage() uint {
-	// Ensures always at least one row of spillage (referred to as the "initial
-	// padding row")
-	return uint(1)
-}
-
-// GetDeclaration returns the ith declaration in this schema.
-func (p *Schema) GetDeclaration(index int) schema.Declaration {
-	ith := util.FlatArrayIndexOf_4(index, p.dataColumns, p.permutations, p.vanishing, p.assertions)
-	return ith.(schema.Declaration)
-}
-
 // AddDataColumn appends a new data column with a given type.  Furthermore, the
 // type is enforced by the system when checking is enabled.
 func (p *Schema) AddDataColumn(name string, base schema.Type) {
-	p.dataColumns = append(p.dataColumns, schema.NewDataColumn(name, base, false))
+	p.inputs = append(p.inputs, assignment.NewDataColumn(name, base))
 }
 
 // AddPermutationColumns introduces a permutation of one or more
@@ -172,13 +94,21 @@ func (p *Schema) AddDataColumn(name string, base schema.Type) {
 // source columns.  Each source column is associated with a "sign"
 // which indicates the direction of sorting (i.e. ascending versus
 // descending).
-func (p *Schema) AddPermutationColumns(targets []string, signs []bool, sources []string) {
-	p.permutations = append(p.permutations, schema.NewSortedPermutation(targets, signs, sources))
+func (p *Schema) AddPermutationColumns(targets []schema.Column, signs []bool, sources []string) {
+	p.assignments = append(p.assignments, assignment.NewSortedPermutation(targets, signs, sources))
 }
 
 // AddVanishingConstraint appends a new vanishing constraint.
 func (p *Schema) AddVanishingConstraint(handle string, domain *int, expr Expr) {
-	p.vanishing = append(p.vanishing, schema.NewRowConstraint(handle, domain, ZeroArrayTest{expr}))
+	p.constraints = append(p.constraints, constraint.NewVanishingConstraint(handle, domain, ZeroArrayTest{expr}))
+}
+
+// AddTypeConstraint appends a new range constraint.
+func (p *Schema) AddTypeConstraint(target string, t schema.Type) {
+	// Check whether is a field type, as these can actually be ignored.
+	if t.AsField() == nil {
+		p.constraints = append(p.constraints, constraint.NewTypeConstraint(target, t))
+	}
 }
 
 // AddPropertyAssertion appends a new property assertion.
@@ -186,73 +116,43 @@ func (p *Schema) AddPropertyAssertion(handle string, property Expr) {
 	p.assertions = append(p.assertions, schema.NewPropertyAssertion[ZeroArrayTest](handle, ZeroArrayTest{property}))
 }
 
-// Accepts determines whether this schema will accept a given trace.  That
-// is, whether or not the given trace adheres to the schema.  A trace can fail
-// to adhere to the schema for a variety of reasons, such as having a constraint
-// which does not hold.
-func (p *Schema) Accepts(trace trace.Trace) error {
-	// Check (typed) data columns
-	if err := schema.ConstraintsAcceptTrace(trace, p.dataColumns); err != nil {
-		return err
-	}
-	// Check permutations
-	if err := schema.ConstraintsAcceptTrace(trace, p.permutations); err != nil {
-		return err
-	}
-	// Check vanishing constraints
-	if err := schema.ConstraintsAcceptTrace(trace, p.vanishing); err != nil {
-		return err
-	}
-	// Check properties
-	if err := schema.ConstraintsAcceptTrace(trace, p.assertions); err != nil {
-		return err
-	}
-	// Done
-	return nil
+// ============================================================================
+// Schema Interface
+// ============================================================================
+
+// Inputs returns an array over the input declarations of this schema.  That is,
+// the subset of declarations whose trace values must be provided by the user.
+func (p *Schema) Inputs() util.Iterator[schema.Declaration] {
+	return util.NewArrayIterator(p.inputs)
 }
 
-// ExpandTrace expands a given trace according to this schema.
-func (p *Schema) ExpandTrace(tr trace.Trace) error {
-	// Expand all the permutation columns
-	for _, perm := range p.permutations {
-		err := perm.ExpandTrace(tr)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+// Assignments returns an array over the assignments of this schema.  That
+// is, the subset of declarations whose trace values can be computed from
+// the inputs.
+func (p *Schema) Assignments() util.Iterator[schema.Assignment] {
+	return util.NewArrayIterator(p.assignments)
 }
 
-// LowerToMir lowers (or refines) an HIR table into an MIR schema.  That means
-// lowering all the columns and constraints, whilst adding additional columns /
-// constraints as necessary to preserve the original semantics.
-func (p *Schema) LowerToMir() *mir.Schema {
-	mirSchema := mir.EmptySchema()
-	// First, lower columns
-	for _, col := range p.dataColumns {
-		mirSchema.AddDataColumn(col.Name(), col.Type)
-	}
-	// Second, lower permutations
-	for _, col := range p.permutations {
-		mirSchema.AddPermutationColumns(col.Targets, col.Signs, col.Sources)
-	}
-	// Third, lower constraints
-	for _, c := range p.vanishing {
-		mir_exprs := c.Constraint.Expr.LowerTo(mirSchema)
-		// Add individual constraints arising
-		for _, mir_expr := range mir_exprs {
-			mirSchema.AddVanishingConstraint(c.Handle, c.Domain, mir_expr)
-		}
-	}
-	// Fourth, copy property assertions.  Observe, these do not require lowering
-	// because they are already MIR-level expressions.
-	for _, c := range p.assertions {
-		properties := c.Property.Expr.LowerTo(mirSchema)
-		for _, p := range properties {
-			mirSchema.AddPropertyAssertion(c.Handle, p)
-		}
-	}
+// Columns returns an array over the underlying columns of this schema.
+// Specifically, the index of a column in this array is its column index.
+func (p *Schema) Columns() util.Iterator[schema.Column] {
+	is := util.NewFlattenIterator[schema.Declaration, schema.Column](p.Inputs(),
+		func(d schema.Declaration) util.Iterator[schema.Column] { return d.Columns() })
+	ps := util.NewFlattenIterator[schema.Assignment, schema.Column](p.Assignments(),
+		func(d schema.Assignment) util.Iterator[schema.Column] { return d.Columns() })
 	//
-	return mirSchema
+	return is.Append(ps)
+}
+
+// Constraints returns an array over the underlying constraints of this
+// schema.
+func (p *Schema) Constraints() util.Iterator[schema.Constraint] {
+	return util.NewArrayIterator(p.constraints)
+}
+
+// Declarations returns an array over the column declarations of this
+// schema.
+func (p *Schema) Declarations() util.Iterator[schema.Declaration] {
+	ps := util.NewCastIterator[schema.Assignment, schema.Declaration](p.Assignments())
+	return p.Inputs().Append(ps)
 }

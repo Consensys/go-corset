@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/consensys/go-corset/pkg/hir"
+	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 )
@@ -369,9 +370,9 @@ func CheckTraces(t *testing.T, test string, expected bool, traces []*trace.Array
 				// Lower MIR => AIR
 				airSchema := mirSchema.LowerToAir()
 				// Construct trace identifiers
-				hirID := traceId{"HIR", test, expected, i + 1, padding, hirSchema.RequiredSpillage()}
-				mirID := traceId{"MIR", test, expected, i + 1, padding, mirSchema.RequiredSpillage()}
-				airID := traceId{"AIR", test, expected, i + 1, padding, airSchema.RequiredSpillage()}
+				hirID := traceId{"HIR", test, expected, i + 1, padding, schema.RequiredSpillage(hirSchema)}
+				mirID := traceId{"MIR", test, expected, i + 1, padding, schema.RequiredSpillage(mirSchema)}
+				airID := traceId{"AIR", test, expected, i + 1, padding, schema.RequiredSpillage(airSchema)}
 				// Check whether trace is input compatible with schema
 				if err := sc.AlignInputs(tr, hirSchema); err != nil {
 					// Alignment failed.  So, attempt alignment as expanded
@@ -402,9 +403,9 @@ func checkInputTrace(t *testing.T, tr *trace.ArrayTrace, id traceId, schema sc.S
 	// Clone trace (to ensure expansion does not affect subsequent tests)
 	etr := tr.Clone()
 	// Apply spillage
-	etr.Pad(schema.RequiredSpillage())
+	etr.Pad(id.spillage)
 	// Expand trace
-	err := schema.ExpandTrace(etr)
+	err := sc.ExpandTrace(schema, etr)
 	// Check
 	if err != nil {
 		t.Error(err)
@@ -420,7 +421,7 @@ func checkExpandedTrace(t *testing.T, tr trace.Trace, id traceId, schema sc.Sche
 	// Apply padding
 	tr.Pad(id.padding)
 	// Check
-	err := schema.Accepts(tr)
+	err := sc.Accepts(schema, tr)
 	// Determine whether trace accepted or not.
 	accepted := (err == nil)
 	// Process what happened versus what was supposed to happen.

@@ -28,19 +28,20 @@ func Align(p tr.Trace, schema Schema) error {
 // Alignment algorithm which operates either in unexpanded or expanded mode.  In
 // expanded mode, all columns must be accounted for and will be aligned.  In
 // unexpanded mode, the trace is only expected to contain input (i.e.
-// non-synthetic) columns.  Furthermore, in the schema these are expected to be
-// allocated before synthetic columns.  As such, alignment of these input
+// non-computed) columns.  Furthermore, in the schema these are expected to be
+// allocated before computed columns.  As such, alignment of these input
 // columns is performed.
 func alignWith(expand bool, p tr.Trace, schema Schema) error {
 	ncols := p.Width()
 	index := uint(0)
 	// Check each column described in this schema is present in the trace.
-	for i := uint(0); i < schema.Width(); i++ {
-		group := schema.ColumnGroup(i)
-		if expand || !group.IsSynthetic() {
-			for j := uint(0); j < group.Width(); j++ {
+	for i := schema.Declarations(); i.HasNext(); {
+		ith := i.Next()
+		if expand || !ith.IsComputed() {
+			for j := ith.Columns(); j.HasNext(); {
+				jth := j.Next()
 				// Determine column name
-				schemaName := group.NameOf(j)
+				schemaName := jth.Name()
 				// Sanity check column exists
 				if index >= ncols {
 					return fmt.Errorf("trace missing column %s", schemaName)

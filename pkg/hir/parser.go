@@ -7,6 +7,7 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
+	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/sexp"
 )
 
@@ -82,7 +83,7 @@ func (p *hirParser) parseDeclaration(s sexp.SExp) error {
 		} else if e.Len() == 3 && e.MatchSymbols(2, "assert") {
 			return p.parseAssertionDeclaration(e.Elements)
 		} else if e.Len() == 3 && e.MatchSymbols(1, "permute") {
-			return p.parseSortedPermutationDeclaration(e.Elements)
+			return p.parseSortedPermutationDeclaration(e)
 		}
 	}
 	// Error
@@ -98,11 +99,11 @@ func (p *hirParser) parseColumnDeclaration(l *sexp.List) error {
 	// Extract column name
 	columnName := l.Elements[1].String()
 	// Sanity check doesn't already exist
-	if p.schema.HasColumn(columnName) {
+	if sc.HasColumn(p.schema, columnName) {
 		return p.translator.SyntaxError(l, "duplicate column declaration")
 	}
 	// Default to field type
-	var columnType schema.Type = &schema.FieldType{}
+	var columnType sc.Type = &sc.FieldType{}
 	// Parse type (if applicable)
 	if len(l.Elements) == 3 {
 		var err error
@@ -114,36 +115,34 @@ func (p *hirParser) parseColumnDeclaration(l *sexp.List) error {
 	}
 	// Register column in Schema
 	p.schema.AddDataColumn(columnName, columnType)
+	p.schema.AddTypeConstraint(columnName, columnType)
 
 	return nil
 }
 
 // Parse a sorted permutation declaration
-func (p *hirParser) parseSortedPermutationDeclaration(elements []sexp.SExp) error {
+func (p *hirParser) parseSortedPermutationDeclaration(l *sexp.List) error {
 	// Target columns are (sorted) permutations of source columns.
-	sexpTargets := elements[1].AsList()
+	sexpTargets := l.Elements[1].AsList()
 	// Source columns.
-	sexpSources := elements[2].AsList()
+	sexpSources := l.Elements[2].AsList()
 	// Convert into appropriate form.
-	targets := make([]string, sexpTargets.Len())
+	targets := make([]schema.Column, sexpTargets.Len())
 	sources := make([]string, sexpSources.Len())
 	signs := make([]bool, sexpSources.Len())
 	//
-	for i := 0; i < sexpTargets.Len(); i++ {
-		target := sexpTargets.Get(i).AsSymbol()
-		// Sanity check syntax as expected
-		if target == nil {
-			return p.translator.SyntaxError(sexpTargets.Get(i), "malformed column")
-		}
-		// Copy over
-		targets[i] = target.String()
+	if sexpTargets.Len() != sexpSources.Len() {
+		return p.translator.SyntaxError(l, "sorted permutation requires matching number of source and target columns")
 	}
 	//
 	for i := 0; i < sexpSources.Len(); i++ {
 		source := sexpSources.Get(i).AsSymbol()
+		target := sexpTargets.Get(i).AsSymbol()
 		// Sanity check syntax as expected
 		if source == nil {
 			return p.translator.SyntaxError(sexpSources.Get(i), "malformed column")
+		} else if target == nil {
+			return p.translator.SyntaxError(sexpTargets.Get(i), "malformed column")
 		}
 		// Determine source column sign (i.e. sort direction)
 		sortName := source.String()
@@ -160,6 +159,8 @@ func (p *hirParser) parseSortedPermutationDeclaration(elements []sexp.SExp) erro
 		}
 		// Copy over column name
 		sources[i] = sortName[1:]
+		// FIXME: determine source column type
+		targets[i] = schema.NewColumn(target.String(), &schema.FieldType{})
 	}
 	//
 	p.schema.AddPermutationColumns(targets, signs, sources)
@@ -195,7 +196,7 @@ func (p *hirParser) parseVanishingDeclaration(elements []sexp.SExp, domain *int)
 	return nil
 }
 
-func (p *hirParser) parseType(term sexp.SExp) (schema.Type, error) {
+func (p *hirParser) parseType(term sexp.SExp) (sc.Type, error) {
 	symbol := term.AsSymbol()
 	if symbol == nil {
 		return nil, p.translator.SyntaxError(term, "malformed column")
@@ -207,8 +208,8 @@ func (p *hirParser) parseType(term sexp.SExp) (schema.Type, error) {
 		if err != nil {
 			return nil, err
 		}
-		// TODO: support @prove
-		return schema.NewUintType(uint(n), true), nil
+		// Done
+		return sc.NewUintType(uint(n)), nil
 	}
 	// Error
 	return nil, p.translator.SyntaxError(symbol, "unknown type")

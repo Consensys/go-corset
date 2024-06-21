@@ -5,7 +5,57 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/mir"
+	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/constraint"
 )
+
+// LowerToMir lowers (or refines) an HIR table into an MIR schema.  That means
+// lowering all the columns and constraints, whilst adding additional columns /
+// constraints as necessary to preserve the original semantics.
+func (p *Schema) LowerToMir() *mir.Schema {
+	mirSchema := mir.EmptySchema()
+	// First, lower columns
+	for _, input := range p.inputs {
+		col := input.(DataColumn)
+		mirSchema.AddDataColumn(col.Name(), col.Type())
+	}
+	// Second, lower permutations
+	for _, asn := range p.assignments {
+		col := asn.(Permutation)
+		mirSchema.AddPermutationColumns(col.Targets(), col.Signs, col.Sources)
+	}
+	// Third, lower constraints
+	for _, c := range p.constraints {
+		lowerConstraintToMir(c, mirSchema)
+	}
+	// Fourth, copy property assertions.  Observe, these do not require lowering
+	// because they are already MIR-level expressions.
+	for _, c := range p.assertions {
+		properties := c.Property.Expr.LowerTo(mirSchema)
+		for _, p := range properties {
+			mirSchema.AddPropertyAssertion(c.Handle, p)
+		}
+	}
+	//
+	return mirSchema
+}
+
+func lowerConstraintToMir(c sc.Constraint, schema *mir.Schema) {
+	// Check what kind of constraint we have
+	if v, ok := c.(VanishingConstraint); ok {
+		mir_exprs := v.Constraint.Expr.LowerTo(schema)
+		// Add individual constraints arising
+		for _, mir_expr := range mir_exprs {
+			schema.AddVanishingConstraint(v.Handle, v.Domain, mir_expr)
+		}
+	} else if v, ok := c.(*constraint.TypeConstraint); ok {
+		schema.AddTypeConstraint(v.Target(), v.Type())
+	} else {
+		// Should be unreachable as no other constraint types can be added to a
+		// schema.
+		panic("unreachable")
+	}
+}
 
 // LowerTo lowers a sum expression to the MIR level.  This requires expanding
 // the arguments, then lowering them.  Furthermore, conditionals are "lifted" to
@@ -163,7 +213,7 @@ func lowerBody(e Expr, schema *mir.Schema) mir.Expr {
 	} else if p, ok := e.(*Constant); ok {
 		return &mir.Constant{Value: p.Val}
 	} else if p, ok := e.(*ColumnAccess); ok {
-		if index, ok := schema.ColumnIndex(p.Column); ok {
+		if index, ok := sc.ColumnIndexOf(schema, p.Column); ok {
 			return &mir.ColumnAccess{Column: index, Shift: p.Shift}
 		}
 		// Should be unreachable as all columns should have been vetted earlier

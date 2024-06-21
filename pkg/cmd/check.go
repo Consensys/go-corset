@@ -164,14 +164,14 @@ func checkTrace(tr *trace.ArrayTrace, schema sc.Schema, cfg checkConfig) (trace.
 			tr.Pad(uint(cfg.spillage))
 		} else {
 			// Apply default inferred spillage
-			tr.Pad(schema.RequiredSpillage())
+			tr.Pad(sc.RequiredSpillage(schema))
 		}
 		// Perform Input Alignment
 		if err := sc.AlignInputs(tr, schema); err != nil {
 			return tr, err
 		}
 		// Expand trace
-		if err := schema.ExpandTrace(tr); err != nil {
+		if err := sc.ExpandTrace(schema, tr); err != nil {
 			return tr, err
 		}
 	}
@@ -182,7 +182,7 @@ func checkTrace(tr *trace.ArrayTrace, schema sc.Schema, cfg checkConfig) (trace.
 	// Check whether padding requested
 	if cfg.padding.Left == 0 && cfg.padding.Right == 0 {
 		// No padding requested.  Therefore, we can avoid a clone in this case.
-		return tr, schema.Accepts(tr)
+		return tr, sc.Accepts(schema, tr)
 	}
 	// Apply padding
 	for n := cfg.padding.Left; n <= cfg.padding.Right; n++ {
@@ -191,7 +191,7 @@ func checkTrace(tr *trace.ArrayTrace, schema sc.Schema, cfg checkConfig) (trace.
 		// Apply padding
 		ptr.Pad(n)
 		// Check whether accepted or not.
-		if err := schema.Accepts(ptr); err != nil {
+		if err := sc.Accepts(schema, ptr); err != nil {
 			return ptr, err
 		}
 	}

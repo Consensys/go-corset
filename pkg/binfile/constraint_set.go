@@ -106,7 +106,12 @@ func HirSchemaFromJson(bytes []byte) (schema *hir.Schema, err error) {
 			fmt.Printf("COLUMN: %s\n", c.Handle)
 			panic("invalid JSON column configuration")
 		} else {
-			schema.AddDataColumn(c.Handle, c.Type.toHir(c.MustProve))
+			t := c.Type.toHir()
+			schema.AddDataColumn(c.Handle, t)
+			// Check whether a type constraint required or not.
+			if c.MustProve {
+				schema.AddTypeConstraint(c.Handle, t)
+			}
 		}
 	}
 	// Add constraints
