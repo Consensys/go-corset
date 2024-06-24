@@ -5,17 +5,19 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/air"
-	"github.com/consensys/go-corset/pkg/table"
+	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/assignment"
+	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
 
 // Normalise constructs an expression representing the normalised value of e.
 // That is, an expression which is 0 when e is 0, and 1 when e is non-zero.
-// This is done by introducing a synthetic column to hold the (pseudo)
+// This is done by introducing a computed column to hold the (pseudo)
 // mutliplicative inverse of e.
-func Normalise(e air.Expr, tbl *air.Schema) air.Expr {
+func Normalise(e air.Expr, schema *air.Schema) air.Expr {
 	// Construct pseudo multiplicative inverse of e.
-	ie := ApplyPseudoInverseGadget(e, tbl)
+	ie := ApplyPseudoInverseGadget(e, schema)
 	// Return e * e⁻¹.
 	return e.Mul(ie)
 }
@@ -25,18 +27,17 @@ func Normalise(e air.Expr, tbl *air.Schema) air.Expr {
 // directly using arithmetic constraints, it is done by adding a new computed
 // column which holds the multiplicative inverse.  Constraints are also added to
 // ensure it really holds the inverted value.
-func ApplyPseudoInverseGadget(e air.Expr, tbl *air.Schema) air.Expr {
+func ApplyPseudoInverseGadget(e air.Expr, schema *air.Schema) air.Expr {
 	// Construct inverse computation
 	ie := &Inverse{Expr: e}
 	// Determine computed column name
 	name := ie.String()
 	// Look up column
-	index, ok := tbl.ColumnIndex(name)
+	index, ok := sc.ColumnIndexOf(schema, name)
 	// Add new column (if it does not already exist)
 	if !ok {
-		// Add (synthetic) computed column
-		index = tbl.AddColumn(name, true)
-		tbl.AddComputation(table.NewComputedColumn(name, ie))
+		// Add computed column
+		index = schema.AddAssignment(assignment.NewComputedColumn(name, ie))
 	}
 
 	// Construct 1/e
@@ -51,10 +52,10 @@ func ApplyPseudoInverseGadget(e air.Expr, tbl *air.Schema) air.Expr {
 	inv_e_implies_one_e_e := inv_e.Mul(one_e_e)
 	// Ensure (e != 0) ==> (1 == e/e)
 	l_name := fmt.Sprintf("[%s <=]", ie.String())
-	tbl.AddVanishingConstraint(l_name, nil, e_implies_one_e_e)
+	schema.AddVanishingConstraint(l_name, nil, e_implies_one_e_e)
 	// Ensure (e/e != 0) ==> (1 == e/e)
 	r_name := fmt.Sprintf("[%s =>]", ie.String())
-	tbl.AddVanishingConstraint(r_name, nil, inv_e_implies_one_e_e)
+	schema.AddVanishingConstraint(r_name, nil, inv_e_implies_one_e_e)
 	// Done
 	return air.NewColumnAccess(index, 0)
 }
@@ -65,7 +66,7 @@ type Inverse struct{ Expr air.Expr }
 
 // EvalAt computes the multiplicative inverse of a given expression at a given
 // row in the table.
-func (e *Inverse) EvalAt(k int, tbl table.Trace) *fr.Element {
+func (e *Inverse) EvalAt(k int, tbl tr.Trace) *fr.Element {
 	inv := new(fr.Element)
 	val := e.Expr.EvalAt(k, tbl)
 	// Go syntax huh?

@@ -28,12 +28,13 @@ var computeCmd = &cobra.Command{
 				panic(err)
 			}
 			// Print columns
-			for _, c := range schema.Columns() {
-				fmt.Printf("column %s : %s\n", c.Name(), c.Type)
+			for i := schema.Columns(); i.HasNext(); {
+				ith := i.Next()
+				fmt.Printf("column %s : %s\n", ith.Name(), ith.Type())
 			}
 			// Print constraints
-			for _, c := range schema.Constraints() {
-				fmt.Println(c)
+			for i := schema.Constraints(); i.HasNext(); {
+				fmt.Println(i.Next())
 			}
 		}
 	},

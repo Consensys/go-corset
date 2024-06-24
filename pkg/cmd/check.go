@@ -5,7 +5,8 @@ import (
 	"os"
 
 	"github.com/consensys/go-corset/pkg/hir"
-	"github.com/consensys/go-corset/pkg/table"
+	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/spf13/cobra"
 )
@@ -18,7 +19,7 @@ var checkCmd = &cobra.Command{
 	Traces can be given either as JSON or binary lt files.
 	Constraints can be given either as lisp or bin files.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		var trace *table.ArrayTrace
+		var trace *trace.ArrayTrace
 		var hirSchema *hir.Schema
 		var cfg checkConfig
 
@@ -70,7 +71,7 @@ type checkConfig struct {
 
 // Check a given trace is consistently accepted (or rejected) at the different
 // IR levels.
-func checkTraceWithLowering(tr *table.ArrayTrace, schema *hir.Schema, cfg checkConfig) {
+func checkTraceWithLowering(tr *trace.ArrayTrace, schema *hir.Schema, cfg checkConfig) {
 	if !cfg.hir && !cfg.mir && !cfg.air {
 		// Process together
 		checkTraceWithLoweringDefault(tr, schema, cfg)
@@ -90,7 +91,7 @@ func checkTraceWithLowering(tr *table.ArrayTrace, schema *hir.Schema, cfg checkC
 	}
 }
 
-func checkTraceWithLoweringHir(tr *table.ArrayTrace, hirSchema *hir.Schema, cfg checkConfig) {
+func checkTraceWithLoweringHir(tr *trace.ArrayTrace, hirSchema *hir.Schema, cfg checkConfig) {
 	trHIR, errHIR := checkTrace(tr, hirSchema, cfg)
 	//
 	if errHIR != nil {
@@ -99,7 +100,7 @@ func checkTraceWithLoweringHir(tr *table.ArrayTrace, hirSchema *hir.Schema, cfg 
 	}
 }
 
-func checkTraceWithLoweringMir(tr *table.ArrayTrace, hirSchema *hir.Schema, cfg checkConfig) {
+func checkTraceWithLoweringMir(tr *trace.ArrayTrace, hirSchema *hir.Schema, cfg checkConfig) {
 	// Lower HIR => MIR
 	mirSchema := hirSchema.LowerToMir()
 	// Check trace
@@ -111,7 +112,7 @@ func checkTraceWithLoweringMir(tr *table.ArrayTrace, hirSchema *hir.Schema, cfg 
 	}
 }
 
-func checkTraceWithLoweringAir(tr *table.ArrayTrace, hirSchema *hir.Schema, cfg checkConfig) {
+func checkTraceWithLoweringAir(tr *trace.ArrayTrace, hirSchema *hir.Schema, cfg checkConfig) {
 	// Lower HIR => MIR
 	mirSchema := hirSchema.LowerToMir()
 	// Lower MIR => AIR
@@ -126,7 +127,7 @@ func checkTraceWithLoweringAir(tr *table.ArrayTrace, hirSchema *hir.Schema, cfg 
 
 // The default check allows one to compare all levels against each other and
 // look for any discrepenacies.
-func checkTraceWithLoweringDefault(tr *table.ArrayTrace, hirSchema *hir.Schema, cfg checkConfig) {
+func checkTraceWithLoweringDefault(tr *trace.ArrayTrace, hirSchema *hir.Schema, cfg checkConfig) {
 	// Lower HIR => MIR
 	mirSchema := hirSchema.LowerToMir()
 	// Lower MIR => AIR
@@ -153,7 +154,7 @@ func checkTraceWithLoweringDefault(tr *table.ArrayTrace, hirSchema *hir.Schema, 
 	}
 }
 
-func checkTrace(tr *table.ArrayTrace, schema table.Schema, cfg checkConfig) (table.Trace, error) {
+func checkTrace(tr *trace.ArrayTrace, schema sc.Schema, cfg checkConfig) (trace.Trace, error) {
 	if cfg.expand {
 		// Clone to prevent interefence with subsequent checks
 		tr = tr.Clone()
@@ -163,25 +164,25 @@ func checkTrace(tr *table.ArrayTrace, schema table.Schema, cfg checkConfig) (tab
 			tr.Pad(uint(cfg.spillage))
 		} else {
 			// Apply default inferred spillage
-			tr.Pad(schema.RequiredSpillage())
+			tr.Pad(sc.RequiredSpillage(schema))
 		}
 		// Perform Input Alignment
-		if err := tr.AlignInputWith(schema); err != nil {
+		if err := sc.AlignInputs(tr, schema); err != nil {
 			return tr, err
 		}
 		// Expand trace
-		if err := schema.ExpandTrace(tr); err != nil {
+		if err := sc.ExpandTrace(schema, tr); err != nil {
 			return tr, err
 		}
 	}
 	// Perform Alignment
-	if err := tr.AlignWith(schema); err != nil {
+	if err := sc.Align(tr, schema); err != nil {
 		return tr, err
 	}
 	// Check whether padding requested
 	if cfg.padding.Left == 0 && cfg.padding.Right == 0 {
 		// No padding requested.  Therefore, we can avoid a clone in this case.
-		return tr, schema.Accepts(tr)
+		return tr, sc.Accepts(schema, tr)
 	}
 	// Apply padding
 	for n := cfg.padding.Left; n <= cfg.padding.Right; n++ {
@@ -190,7 +191,7 @@ func checkTrace(tr *table.ArrayTrace, schema table.Schema, cfg checkConfig) (tab
 		// Apply padding
 		ptr.Pad(n)
 		// Check whether accepted or not.
-		if err := schema.Accepts(ptr); err != nil {
+		if err := sc.Accepts(schema, ptr); err != nil {
 			return ptr, err
 		}
 	}
@@ -206,9 +207,9 @@ func toErrorString(err error) string {
 	return err.Error()
 }
 
-func reportError(ir string, tr table.Trace, err error, cfg checkConfig) {
+func reportError(ir string, tr trace.Trace, err error, cfg checkConfig) {
 	if cfg.report {
-		table.PrintTrace(tr)
+		trace.PrintTrace(tr)
 	}
 
 	if err != nil {

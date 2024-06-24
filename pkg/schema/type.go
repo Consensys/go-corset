@@ -1,4 +1,4 @@
-package table
+package schema
 
 import (
 	"fmt"
@@ -33,12 +33,10 @@ type UintType struct {
 	nbits uint
 	// The numeric bound of all values in this type (e.g. 2^8 for u8, etc).
 	bound *fr.Element
-	// Indicates whether or not this type should be enforced (or not).
-	checked bool
 }
 
 // NewUintType constructs a new integer type for a given bit width.
-func NewUintType(nbits uint, checked bool) *UintType {
+func NewUintType(nbits uint) *UintType {
 	var maxBigInt big.Int
 	// Compute 2^n
 	maxBigInt.Exp(big.NewInt(2), big.NewInt(int64(nbits)), nil)
@@ -46,7 +44,7 @@ func NewUintType(nbits uint, checked bool) *UintType {
 	bound := new(fr.Element)
 	bound.SetBigInt(&maxBigInt)
 
-	return &UintType{nbits, bound, checked}
+	return &UintType{nbits, bound}
 }
 
 // AsUint accesses this type assuming it is a Uint.  Since this is the case,
@@ -59,12 +57,6 @@ func (p *UintType) AsUint() *UintType {
 // case, this returns nil.
 func (p *UintType) AsField() *FieldType {
 	return nil
-}
-
-// Checked identifies whether the type of this column must be enforced using one
-// more constraints and/or columns.
-func (p *UintType) Checked() bool {
-	return p.checked
 }
 
 // Accept determines whether a given value is an element of this type.  For

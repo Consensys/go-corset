@@ -1,7 +1,6 @@
-package table
+package trace
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
@@ -38,8 +37,9 @@ func (p *ArrayTrace) ColumnName(index int) string {
 	return p.columns[index].Name()
 }
 
-// IndexOf returns the index of the given name in this trace.
-func (p *ArrayTrace) IndexOf(name string) (uint, bool) {
+// ColumnIndex returns the column index of the column with the given name in
+// this trace, or returns false if no such column exists.
+func (p *ArrayTrace) ColumnIndex(name string) (uint, bool) {
 	for i, c := range p.columns {
 		if c.name == name {
 			return uint(i), true
@@ -72,76 +72,6 @@ func (p *ArrayTrace) HasColumn(name string) bool {
 	}
 
 	return false
-}
-
-// AlignInputWith attempts to align this trace with the input columns of a
-// given schema.  This means ensuring the order of columns in this trace matches
-// the order of input columns in the schema. Thus, column indexes used by
-// constraints in the schema can directly access in this trace (i.e. without
-// name lookup). Alignment can fail, however, if there is a mismatch between
-// columns in the trace and those expected by the schema.
-func (p *ArrayTrace) AlignInputWith(schema Schema) error {
-	return alignWith(false, p, schema)
-}
-
-// AlignWith attempts to align this trace with a given schema.  This means
-// ensuring the order of columns in this trace matches the order in the schema.
-// Thus, column indexes used by constraints in the schema can directly access in
-// this trace (i.e. without name lookup).  Alignment can fail, however, if there
-// is a mismatch between columns in the trace and those expected by the schema.
-func (p *ArrayTrace) AlignWith(schema Schema) error {
-	return alignWith(true, p, schema)
-}
-
-// Alignment algorithm which operates either in unexpanded or expanded mode.  In
-// expanded mode, all columns must be accounted for and will be aligned.  In
-// unexpanded mode, the trace is only expected to contain input (i.e.
-// non-synthetic) columns.  Furthermore, in the schema these are expected to be
-// allocated before synthetic columns.  As such, alignment of these input
-// columns is performed.
-func alignWith(expand bool, p *ArrayTrace, schema Schema) error {
-	ncols := uint(len(p.columns))
-	index := uint(0)
-	// Check each column described in this schema is present in the trace.
-	for i := uint(0); i < schema.Width(); i++ {
-		group := schema.ColumnGroup(i)
-		if expand || !group.IsSynthetic() {
-			for j := uint(0); j < group.Width(); j++ {
-				// Determine column name
-				schemaName := group.NameOf(j)
-				// Sanity check column exists
-				if index >= ncols {
-					return fmt.Errorf("trace missing column %s", schemaName)
-				}
-
-				traceName := p.columns[index].name
-				// Check alignment
-				if traceName != schemaName {
-					// Not aligned --- so fix
-					k, ok := p.IndexOf(schemaName)
-					// check exists
-					if !ok {
-						return fmt.Errorf("trace missing column %s", schemaName)
-					}
-					// Swap columns
-					tmp := p.columns[index]
-					p.columns[index] = p.columns[k]
-					p.columns[k] = tmp
-				}
-				// Continue
-				index++
-			}
-		}
-	}
-	// Check whether all columns matched
-	if index == ncols {
-		// Yes, alignment complete.
-		return nil
-	}
-	// Error Case.
-	unknowns := p.columns[index:]
-	//
-	return fmt.Errorf("trace contains unknown columns: %v", unknowns)
 }
 
 // AddColumn adds a new column of data to this trace.
@@ -196,6 +126,14 @@ func (p *ArrayTrace) Pad(n uint) {
 	}
 	// Increment height
 	p.height += n
+}
+
+// Swap the order of two columns in this trace.  This is needed, in
+// particular, for alignment.
+func (p *ArrayTrace) Swap(l uint, r uint) {
+	tmp := p.columns[l]
+	p.columns[l] = p.columns[r]
+	p.columns[r] = tmp
 }
 
 func (p *ArrayTrace) String() string {

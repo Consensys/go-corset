@@ -1,73 +1,74 @@
-package table
+package assignment
 
 import (
 	"fmt"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/go-corset/pkg/schema"
+	tr "github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/util"
 )
-
-// TraceComputation represents a computation which is applied to a
-// high-level trace in order to expand it to a low-level trace.  This
-// typically involves adding columns, evaluating compute-only
-// expressions, sorting columns, etc.
-type TraceComputation interface {
-	Acceptable
-	// ExpandTrace expands a given trace to include "computed
-	// columns".  These are columns which do not exist in the
-	// original trace, but are added during trace expansion to
-	// form the final trace.
-	ExpandTrace(Trace) error
-	// RequiredSpillage returns the minimum amount of spillage required to ensure
-	// valid traces are accepted in the presence of arbitrary padding.  Note,
-	// spillage is currently assumed to be required only at the front of a
-	// trace.
-	RequiredSpillage() uint
-}
 
 // ByteDecomposition is part of a range constraint for wide columns (e.g. u32)
 // implemented using a byte decomposition.
 type ByteDecomposition struct {
-	// The target column being decomposed
-	Target string
-	// The bitwidth of the target column
-	BitWidth uint
+	// The source column being decomposed
+	source string
+	// Target columns needed for decomposition
+	targets []schema.Column
 }
 
 // NewByteDecomposition creates a new sorted permutation
-func NewByteDecomposition(target string, width uint) *ByteDecomposition {
-	if width%8 != 0 {
-		panic("asymetric byte decomposition not yet supported")
-	} else if width == 0 {
+func NewByteDecomposition(source string, width uint) *ByteDecomposition {
+	if width == 0 {
 		panic("zero byte decomposition encountered")
 	}
+	// Define type of bytes
+	U8 := schema.NewUintType(8)
+	// Construct target names
+	targets := make([]schema.Column, width)
 
-	return &ByteDecomposition{target, width}
-}
-
-// Accepts checks whether a given trace has the necessary columns
-func (p *ByteDecomposition) Accepts(tr Trace) error {
-	n := int(p.BitWidth / 8)
-	//
-	for i := 0; i < n; i++ {
-		colName := fmt.Sprintf("%s:%d", p.Target, i)
-		if !tr.HasColumn(colName) {
-			return fmt.Errorf("Trace missing byte decomposition column ({%s})", colName)
-		}
+	for i := uint(0); i < width; i++ {
+		name := fmt.Sprintf("%s:%d", source, i)
+		targets[i] = schema.NewColumn(name, U8)
 	}
 	// Done
-	return nil
+	return &ByteDecomposition{source, targets}
 }
+
+func (p *ByteDecomposition) String() string {
+	return fmt.Sprintf("(decomposition %s %d)", p.source, len(p.targets))
+}
+
+// ============================================================================
+// Declaration Interface
+// ============================================================================
+
+// Columns returns the columns declared by this byte decomposition (in the order
+// of declaration).
+func (p *ByteDecomposition) Columns() util.Iterator[schema.Column] {
+	return util.NewArrayIterator[schema.Column](p.targets)
+}
+
+// IsComputed Determines whether or not this declaration is computed.
+func (p *ByteDecomposition) IsComputed() bool {
+	return true
+}
+
+// ============================================================================
+// Assignment Interface
+// ============================================================================
 
 // ExpandTrace expands a given trace to include the columns specified by a given
 // ByteDecomposition.  This requires computing the value of each byte column in
 // the decomposition.
-func (p *ByteDecomposition) ExpandTrace(tr Trace) error {
+func (p *ByteDecomposition) ExpandTrace(tr tr.Trace) error {
 	// Calculate how many bytes required.
-	n := int(p.BitWidth / 8)
+	n := len(p.targets)
 	// Identify target column
-	target := tr.ColumnByName(p.Target)
+	target := tr.ColumnByName(p.source)
 	// Extract column data to decompose
-	data := tr.ColumnByName(p.Target).Data()
+	data := tr.ColumnByName(p.source).Data()
 	// Construct byte column data
 	cols := make([][]*fr.Element, n)
 	// Initialise columns
@@ -85,15 +86,11 @@ func (p *ByteDecomposition) ExpandTrace(tr Trace) error {
 	padding := decomposeIntoBytes(target.Padding(), n)
 	// Finally, add byte columns to trace
 	for i := 0; i < n; i++ {
-		col := fmt.Sprintf("%s:%d", p.Target, i)
+		col := fmt.Sprintf("%s:%d", p.source, i)
 		tr.AddColumn(col, cols[i], padding[i])
 	}
 	// Done
 	return nil
-}
-
-func (p *ByteDecomposition) String() string {
-	return fmt.Sprintf("(decomposition %s %d)", p.Target, p.BitWidth)
 }
 
 // RequiredSpillage returns the minimum amount of spillage required to ensure
