@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/hir"
+	sc "github.com/consensys/go-corset/pkg/schema"
 )
 
 // This is very much a Work-In-Progress :)
@@ -110,8 +111,12 @@ func HirSchemaFromJson(bytes []byte) (schema *hir.Schema, err error) {
 			schema.AddDataColumn(c.Handle, t)
 			// Check whether a type constraint required or not.
 			if c.MustProve {
-				//schema.AddTypeConstraint(c.Handle, t)
-				panic("fix binfile parser")
+				cid, ok := sc.ColumnIndexOf(schema, c.Handle)
+				if !ok {
+					panic(fmt.Sprintf("unknown column %s", c.Handle))
+				}
+
+				schema.AddTypeConstraint(cid, t)
 			}
 		}
 	}

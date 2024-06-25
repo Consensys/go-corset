@@ -7,6 +7,7 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/hir"
+	sc "github.com/consensys/go-corset/pkg/schema"
 )
 
 // type jsonHandle struct {
@@ -59,16 +60,16 @@ type jsonExprColumn struct {
 // should not generate an error provided the original JSON was
 // well-formed.
 
-func (e *jsonTypedExpr) ToHir() hir.Expr {
+func (e *jsonTypedExpr) ToHir(schema *hir.Schema) hir.Expr {
 	if e.Expr.Column != nil {
-		return e.Expr.Column.ToHir()
+		return e.Expr.Column.ToHir(schema)
 	} else if e.Expr.Const != nil {
-		return e.Expr.Const.ToHir()
+		return e.Expr.Const.ToHir(schema)
 	} else if e.Expr.Funcall != nil {
-		return e.Expr.Funcall.ToHir()
+		return e.Expr.Funcall.ToHir(schema)
 	} else if e.Expr.List != nil {
 		// Parse the arguments
-		return jsonListToHir(e.Expr.List)
+		return jsonListToHir(e.Expr.List, schema)
 	}
 
 	panic("Unknown JSON expression encountered")
@@ -76,7 +77,7 @@ func (e *jsonTypedExpr) ToHir() hir.Expr {
 
 // ToHir converts a big integer represented as a sequence of unsigned 32bit
 // words into HIR constant expression.
-func (e *jsonExprConst) ToHir() hir.Expr {
+func (e *jsonExprConst) ToHir(schema *hir.Schema) hir.Expr {
 	sign := int(e.BigInt[0].(float64))
 	words := e.BigInt[1].([]any)
 	// Begin
@@ -109,17 +110,22 @@ func (e *jsonExprConst) ToHir() hir.Expr {
 	return &hir.Constant{Val: num}
 }
 
-func (e *jsonExprColumn) ToHir() hir.Expr {
-	// cref := asColumnRef(e.Handle)
-	// return &hir.ColumnAccess{Column: cref, Shift: e.Shift}
-	panic("update binfile parser")
+func (e *jsonExprColumn) ToHir(schema *hir.Schema) hir.Expr {
+	cref := asColumnRef(e.Handle)
+	cid, ok := sc.ColumnIndexOf(schema, cref)
+
+	if !ok {
+		panic(fmt.Sprintf("unknown column %s", cref))
+	}
+
+	return &hir.ColumnAccess{Column: cid, Shift: e.Shift}
 }
 
-func (e *jsonExprFuncall) ToHir() hir.Expr {
+func (e *jsonExprFuncall) ToHir(schema *hir.Schema) hir.Expr {
 	// Parse the arguments
 	args := make([]hir.Expr, len(e.Args))
 	for i := 0; i < len(e.Args); i++ {
-		args[i] = e.Args[i].ToHir()
+		args[i] = e.Args[i].ToHir(schema)
 	}
 	// Construct appropriate expression
 	switch e.Func {
@@ -156,10 +162,10 @@ func (e *jsonExprFuncall) ToHir() hir.Expr {
 	panic(fmt.Sprintf("HANDLE %s\n", e.Func))
 }
 
-func jsonListToHir(Args []jsonTypedExpr) hir.Expr {
+func jsonListToHir(Args []jsonTypedExpr, schema *hir.Schema) hir.Expr {
 	args := make([]hir.Expr, len(Args))
 	for i := 0; i < len(Args); i++ {
-		args[i] = Args[i].ToHir()
+		args[i] = Args[i].ToHir(schema)
 	}
 
 	return &hir.List{Args: args}
