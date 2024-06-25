@@ -22,7 +22,7 @@ func (p *Schema) LowerToMir() *mir.Schema {
 	// Second, lower permutations
 	for _, asn := range p.assignments {
 		col := asn.(Permutation)
-		mirSchema.AddPermutationColumns(col.Targets(), col.Signs, col.Sources)
+		mirSchema.AddPermutationColumns(col.Targets(), col.Signs(), col.Sources())
 	}
 	// Third, lower constraints
 	for _, c := range p.constraints {
@@ -43,10 +43,10 @@ func (p *Schema) LowerToMir() *mir.Schema {
 func lowerConstraintToMir(c sc.Constraint, schema *mir.Schema) {
 	// Check what kind of constraint we have
 	if v, ok := c.(VanishingConstraint); ok {
-		mir_exprs := v.Constraint.Expr.LowerTo(schema)
+		mir_exprs := v.Constraint().Expr.LowerTo(schema)
 		// Add individual constraints arising
 		for _, mir_expr := range mir_exprs {
-			schema.AddVanishingConstraint(v.Handle, v.Domain, mir_expr)
+			schema.AddVanishingConstraint(v.Handle(), v.Domain(), mir_expr)
 		}
 	} else if v, ok := c.(*constraint.TypeConstraint); ok {
 		schema.AddTypeConstraint(v.Target(), v.Type())
@@ -213,12 +213,7 @@ func lowerBody(e Expr, schema *mir.Schema) mir.Expr {
 	} else if p, ok := e.(*Constant); ok {
 		return &mir.Constant{Value: p.Val}
 	} else if p, ok := e.(*ColumnAccess); ok {
-		if index, ok := sc.ColumnIndexOf(schema, p.Column); ok {
-			return &mir.ColumnAccess{Column: index, Shift: p.Shift}
-		}
-		// Should be unreachable as all columns should have been vetted earlier
-		// in the pipeline.
-		panic(fmt.Sprintf("invalid column access for %s", p.Column))
+		return &mir.ColumnAccess{Column: p.Column, Shift: p.Shift}
 	} else if p, ok := e.(*Mul); ok {
 		return &mir.Mul{Args: lowerBodies(p.Args, schema)}
 	} else if p, ok := e.(*Normalise); ok {

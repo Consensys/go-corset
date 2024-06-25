@@ -13,7 +13,7 @@ import (
 // choose the best underlying implementation as needed.
 type TypeConstraint struct {
 	// Column to be constrained.
-	column string
+	column uint
 	// The actual constraint itself, namely an expression which
 	// should evaluate to zero.  NOTE: an fr.Element is used here
 	// to store the bound simply to make the necessary comparison
@@ -22,12 +22,12 @@ type TypeConstraint struct {
 }
 
 // NewTypeConstraint constructs a new Range constraint!
-func NewTypeConstraint(column string, expected schema.Type) *TypeConstraint {
+func NewTypeConstraint(column uint, expected schema.Type) *TypeConstraint {
 	return &TypeConstraint{column, expected}
 }
 
 // Target returns the target column for this constraint.
-func (p *TypeConstraint) Target() string {
+func (p *TypeConstraint) Target() uint {
 	return p.column
 }
 
@@ -39,7 +39,7 @@ func (p *TypeConstraint) Type() schema.Type {
 // Accepts checks whether a range constraint evaluates to zero on
 // every row of a table. If so, return nil otherwise return an error.
 func (p *TypeConstraint) Accepts(tr trace.Trace) error {
-	column := tr.ColumnByName(p.column)
+	column := tr.ColumnByIndex(p.column)
 	for k := 0; k < int(tr.Height()); k++ {
 		// Get the value on the kth row
 		kth := column.Get(k)
@@ -57,5 +57,5 @@ func (p *TypeConstraint) Accepts(tr trace.Trace) error {
 }
 
 func (p *TypeConstraint) String() string {
-	return fmt.Sprintf("(type %s %s)", p.column, p.expected.String())
+	return fmt.Sprintf("(type %d %s)", p.column, p.expected.String())
 }

@@ -1,6 +1,8 @@
 package binfile
 
 import (
+	"fmt"
+
 	"github.com/consensys/go-corset/pkg/hir"
 	sc "github.com/consensys/go-corset/pkg/schema"
 )
@@ -26,14 +28,31 @@ type jsonSortedComputation struct {
 func (e jsonComputationSet) addToSchema(schema *hir.Schema) {
 	for _, c := range e.Computations {
 		if c.Sorted != nil {
-			refs := asColumnRefs(c.Sorted.Tos)
-			sources := asColumnRefs(c.Sorted.Froms)
+			targetRefs := asColumnRefs(c.Sorted.Tos)
+			sourceRefs := asColumnRefs(c.Sorted.Froms)
+			// Sanity check assumptions
+			if len(sourceRefs) != len(targetRefs) {
+				panic("differing number of source / target columns in sorted permutation")
+			}
+			// Convert source refs into column indexes
+			sources := make([]uint, len(sourceRefs))
 			// Convert target refs into columns
-			targets := make([]sc.Column, len(refs))
+			targets := make([]sc.Column, len(targetRefs))
+			//
+			for i, r := range targetRefs {
+				cid, ok := sc.ColumnIndexOf(schema, sourceRefs[i])
+				// Sanity check source column exists
+				if !ok {
+					panic(fmt.Sprintf("unknown column %s", sourceRefs[i]))
+				}
+				// Determine type of source column
+				ith := schema.Columns().Nth(cid).Type()
+				// Sanity check we have a sensible type here.
+				if ith.AsUint() == nil {
+					panic(fmt.Sprintf("source column %s has field type", sourceRefs[i]))
+				}
 
-			for i, r := range refs {
-				// TODO: correctly determine type
-				ith := &sc.FieldType{}
+				sources[i] = cid
 				targets[i] = sc.NewColumn(r, ith)
 			}
 			// Finally, add the permutation column

@@ -16,12 +16,12 @@ import (
 // arbitrary and is determined by the underlying prover.
 type RangeConstraint struct {
 	// Column index to be constrained.
-	Column uint
+	column uint
 	// The actual constraint itself, namely an expression which
 	// should evaluate to zero.  NOTE: an fr.Element is used here
 	// to store the bound simply to make the necessary comparison
 	// against table data more direct.
-	Bound *fr.Element
+	bound *fr.Element
 }
 
 // NewRangeConstraint constructs a new Range constraint!
@@ -37,12 +37,12 @@ func NewRangeConstraint(column uint, bound *fr.Element) *RangeConstraint {
 // Accepts checks whether a range constraint evaluates to zero on
 // every row of a table. If so, return nil otherwise return an error.
 func (p *RangeConstraint) Accepts(tr trace.Trace) error {
-	column := tr.ColumnByIndex(p.Column)
+	column := tr.ColumnByIndex(p.column)
 	for k := 0; k < int(tr.Height()); k++ {
 		// Get the value on the kth row
 		kth := column.Get(k)
 		// Perform the bounds check
-		if kth != nil && kth.Cmp(p.Bound) >= 0 {
+		if kth != nil && kth.Cmp(p.bound) >= 0 {
 			name := column.Name()
 			// Construct useful error message
 			msg := fmt.Sprintf("value out-of-bounds (row %d, %s)", kth, name)
@@ -55,5 +55,5 @@ func (p *RangeConstraint) Accepts(tr trace.Trace) error {
 }
 
 func (p *RangeConstraint) String() string {
-	return fmt.Sprintf("(range #%d %s)", p.Column, p.Bound)
+	return fmt.Sprintf("(range #%d %s)", p.column, p.bound)
 }

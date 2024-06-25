@@ -59,7 +59,7 @@ func (p *Schema) AddDataColumn(name string, base schema.Type) {
 // source columns.  Each source column is associated with a "sign"
 // which indicates the direction of sorting (i.e. ascending versus
 // descending).
-func (p *Schema) AddPermutationColumns(targets []schema.Column, signs []bool, sources []string) {
+func (p *Schema) AddPermutationColumns(targets []schema.Column, signs []bool, sources []uint) {
 	p.assignments = append(p.assignments, assignment.NewSortedPermutation(targets, signs, sources))
 }
 
@@ -70,7 +70,7 @@ func (p *Schema) AddVanishingConstraint(handle string, domain *int, expr Expr) {
 }
 
 // AddTypeConstraint appends a new range constraint.
-func (p *Schema) AddTypeConstraint(target string, t schema.Type) {
+func (p *Schema) AddTypeConstraint(target uint, t schema.Type) {
 	// Check whether is a field type, as these can actually be ignored.
 	if t.AsField() == nil {
 		p.constraints = append(p.constraints, constraint.NewTypeConstraint(target, t))

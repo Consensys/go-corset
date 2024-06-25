@@ -40,7 +40,7 @@ func (e jsonConstraint) addToSchema(schema *hir.Schema) {
 	// "Sorted" computations.
 	if e.Vanishes != nil {
 		// Translate the vanishing expression
-		expr := e.Vanishes.Expr.ToHir()
+		expr := e.Vanishes.Expr.ToHir(schema)
 		// Translate Domain
 		domain := e.Vanishes.Domain.toHir()
 		// Construct the vanishing constraint
