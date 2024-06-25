@@ -3,7 +3,6 @@ package mir
 import (
 	"github.com/consensys/go-corset/pkg/air"
 	air_gadgets "github.com/consensys/go-corset/pkg/air/gadgets"
-	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
 )
@@ -76,20 +75,18 @@ func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Sche
 	ncols := len(c_targets)
 	//
 	targets := make([]uint, ncols)
-	sources := make([]uint, ncols)
 	// Add individual permutation constraints
 	for i := 0; i < ncols; i++ {
-		var ok1, ok2 bool
-		// TODO: REPLACE
-		sources[i], ok1 = sc.ColumnIndexOf(airSchema, c.Sources[i])
-		targets[i], ok2 = sc.ColumnIndexOf(airSchema, c_targets[i].Name())
+		var ok bool
+		// TODO: how best to avoid this lookup?
+		targets[i], ok = sc.ColumnIndexOf(airSchema, c_targets[i].Name())
 
-		if !ok1 || !ok2 {
-			panic("missing column")
+		if !ok {
+			panic("internal failure")
 		}
 	}
 	//
-	airSchema.AddPermutationConstraint(targets, sources)
+	airSchema.AddPermutationConstraint(targets, c.Sources())
 	// Add sorting constraints + computed columns as necessary.
 	if ncols == 1 {
 		// For a single column sort, its actually a bit easier because we don't
@@ -97,9 +94,9 @@ func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Sche
 		// differs, etc).  Instead, we just need a delta column which ensures
 		// there is a non-negative difference between consecutive rows.  This
 		// also requires bitwidth constraints.
-		bitwidth := schema.ColumnByName(mirSchema, c.Sources[0]).Type().AsUint().BitWidth()
+		bitwidth := mirSchema.Columns().Nth(c.Sources()[0]).Type().AsUint().BitWidth()
 		// Add column sorting constraints
-		air_gadgets.ApplyColumnSortGadget(targets[0], c.Signs[0], bitwidth, airSchema)
+		air_gadgets.ApplyColumnSortGadget(targets[0], c.Signs()[0], bitwidth, airSchema)
 	} else {
 		// For a multi column sort, its a bit harder as we need additional
 		// logicl to ensure the target columns are lexicographally sorted.
@@ -107,13 +104,13 @@ func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Sche
 
 		for i := 0; i < ncols; i++ {
 			// Extract bitwidth of ith column
-			ith := schema.ColumnByName(mirSchema, c.Sources[i]).Type().AsUint().BitWidth()
+			ith := mirSchema.Columns().Nth(c.Sources()[i]).Type().AsUint().BitWidth()
 			if ith > bitwidth {
 				bitwidth = ith
 			}
 		}
 		// Add lexicographically sorted constraints
-		air_gadgets.ApplyLexicographicSortingGadget(targets, c.Signs, bitwidth, airSchema)
+		air_gadgets.ApplyLexicographicSortingGadget(targets, c.Signs(), bitwidth, airSchema)
 	}
 }
 

@@ -94,7 +94,7 @@ func (p *Schema) AddDataColumn(name string, base schema.Type) {
 // source columns.  Each source column is associated with a "sign"
 // which indicates the direction of sorting (i.e. ascending versus
 // descending).
-func (p *Schema) AddPermutationColumns(targets []schema.Column, signs []bool, sources []string) {
+func (p *Schema) AddPermutationColumns(targets []schema.Column, signs []bool, sources []uint) {
 	p.assignments = append(p.assignments, assignment.NewSortedPermutation(targets, signs, sources))
 }
 

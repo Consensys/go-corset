@@ -22,7 +22,7 @@ func (p *Schema) LowerToMir() *mir.Schema {
 	// Second, lower permutations
 	for _, asn := range p.assignments {
 		col := asn.(Permutation)
-		mirSchema.AddPermutationColumns(col.Targets(), col.Signs, col.Sources)
+		mirSchema.AddPermutationColumns(col.Targets(), col.Signs(), col.Sources())
 	}
 	// Third, lower constraints
 	for _, c := range p.constraints {

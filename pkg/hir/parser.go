@@ -143,7 +143,7 @@ func (p *hirParser) parseSortedPermutationDeclaration(l *sexp.List) error {
 	sexpSources := l.Elements[2].AsList()
 	// Convert into appropriate form.
 	targets := make([]schema.Column, sexpTargets.Len())
-	sources := make([]string, sexpSources.Len())
+	sources := make([]uint, sexpSources.Len())
 	signs := make([]bool, sexpSources.Len())
 	//
 	if sexpTargets.Len() != sexpSources.Len() {
@@ -172,22 +172,26 @@ func (p *hirParser) parseSortedPermutationDeclaration(l *sexp.List) error {
 		} else {
 			return p.translator.SyntaxError(source, "malformed sort direction")
 		}
-		// Copy over column name
-		sources[i] = sortName[1:]
-		// FIXME: determine source column type
-		targets[i] = schema.NewColumn(target.String(), &schema.FieldType{})
-		// Sanity check that source column exists
-		if !p.env.HasColumn(p.module, sources[i]) {
-			// No, it doesn't.
-			return p.translator.SyntaxError(sexpSources.Get(i), fmt.Sprintf("unknown column %s", sources[i]))
+
+		sourceName := sortName[1:]
+		targetName := target.String()
+		// Determine index for source column
+		sourceIndex, ok := p.env.LookupColumn(p.module, sourceName)
+		if !ok {
+			// Column doesn't exist!
+			return p.translator.SyntaxError(sexpSources.Get(i), fmt.Sprintf("unknown column %s", sourceName))
 		}
 		// Sanity check that target column *doesn't* exist.
-		if p.env.HasColumn(p.module, targets[i].Name()) {
+		if p.env.HasColumn(p.module, targetName) {
 			// No, it doesn't.
-			return p.translator.SyntaxError(sexpTargets.Get(i), fmt.Sprintf("duplicate column %s", targets[i].Name()))
+			return p.translator.SyntaxError(sexpTargets.Get(i), fmt.Sprintf("duplicate column %s", targetName))
 		}
+		// Copy over column name
+		sources[i] = sourceIndex
+		// FIXME: determine source column type
+		targets[i] = schema.NewColumn(targetName, &schema.FieldType{})
 		// Finally, register target column
-		p.env.RegisterColumn(p.module, targets[i].Name())
+		p.env.RegisterColumn(p.module, targetName)
 	}
 	//
 	p.schema.AddPermutationColumns(targets, signs, sources)

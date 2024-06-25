@@ -15,18 +15,29 @@ type SortedPermutation struct {
 	// The new (sorted) columns
 	targets []schema.Column
 	// The sorting criteria
-	Signs []bool
+	signs []bool
 	// The existing columns
-	Sources []string
+	sources []uint
 }
 
 // NewSortedPermutation creates a new sorted permutation
-func NewSortedPermutation(targets []schema.Column, signs []bool, sources []string) *SortedPermutation {
+func NewSortedPermutation(targets []schema.Column, signs []bool, sources []uint) *SortedPermutation {
 	if len(targets) != len(signs) || len(signs) != len(sources) {
 		panic("target and source column widths must match")
 	}
 
 	return &SortedPermutation{targets, signs, sources}
+}
+
+// Sources returns the columns used by this sorted permutation to define the new
+// (sorted) columns.
+func (p *SortedPermutation) Sources() []uint {
+	return p.sources
+}
+
+// Signs returns the sorting direction for each column defined by this sorted permutation.
+func (p *SortedPermutation) Signs() []bool {
+	return p.signs
 }
 
 // Targets returns the columns declared by this sorted permutation (in the order
@@ -52,15 +63,15 @@ func (p *SortedPermutation) String() string {
 		index++
 	}
 
-	for i, s := range p.Sources {
+	for i, s := range p.sources {
 		if i != 0 {
 			sources += " "
 		}
 
-		if p.Signs[i] {
-			sources += fmt.Sprintf("+%s", s)
+		if p.signs[i] {
+			sources += fmt.Sprintf("+#%d", s)
 		} else {
-			sources += fmt.Sprintf("-%s", s)
+			sources += fmt.Sprintf("-#%d", s)
 		}
 	}
 
@@ -103,24 +114,24 @@ func (p *SortedPermutation) ExpandTrace(tr tr.Trace) error {
 		}
 	}
 
-	cols := make([][]*fr.Element, len(p.Sources))
+	cols := make([][]*fr.Element, len(p.sources))
 	// Construct target columns
-	for i := 0; i < len(p.Sources); i++ {
-		src := p.Sources[i]
+	for i := 0; i < len(p.sources); i++ {
+		src := p.sources[i]
 		// Read column data to initialise permutation.
-		data := tr.ColumnByName(src).Data()
+		data := tr.ColumnByIndex(src).Data()
 		// Copy column data to initialise permutation.
 		cols[i] = make([]*fr.Element, len(data))
 		copy(cols[i], data)
 	}
 	// Sort target columns
-	util.PermutationSort(cols, p.Signs)
+	util.PermutationSort(cols, p.signs)
 	// Physically add the columns
 	index := 0
 
 	for i := p.Columns(); i.HasNext(); {
 		dstColName := i.Next().Name()
-		srcCol := tr.ColumnByName(p.Sources[index])
+		srcCol := tr.ColumnByIndex(p.sources[index])
 		tr.AddColumn(dstColName, cols[index], srcCol.Padding())
 
 		index++
