@@ -13,9 +13,9 @@ import (
 // of another.
 type PermutationConstraint struct {
 	// The target columns
-	Targets []uint
+	targets []uint
 	// The source columns
-	Sources []uint
+	sources []uint
 }
 
 // NewPermutationConstraint creates a new permutation
@@ -37,12 +37,12 @@ func (p *PermutationConstraint) RequiredSpillage() uint {
 // target columns.
 func (p *PermutationConstraint) Accepts(tr trace.Trace) error {
 	// Slice out data
-	src := sliceColumns(p.Sources, tr)
-	dst := sliceColumns(p.Targets, tr)
+	src := sliceColumns(p.sources, tr)
+	dst := sliceColumns(p.targets, tr)
 	// Sanity check whether column exists
 	if !util.ArePermutationOf(dst, src) {
 		msg := fmt.Sprintf("Target columns (%v) not permutation of source columns ({%v})",
-			p.Targets, p.Sources)
+			p.targets, p.sources)
 		return errors.New(msg)
 	}
 	// Success
@@ -53,7 +53,7 @@ func (p *PermutationConstraint) String() string {
 	targets := ""
 	sources := ""
 
-	for i, s := range p.Targets {
+	for i, s := range p.targets {
 		if i != 0 {
 			targets += " "
 		}
@@ -61,7 +61,7 @@ func (p *PermutationConstraint) String() string {
 		targets += fmt.Sprintf("%d", s)
 	}
 
-	for i, s := range p.Sources {
+	for i, s := range p.sources {
 		if i != 0 {
 			sources += " "
 		}

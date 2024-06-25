@@ -13,13 +13,13 @@ import (
 // implemented using a byte decomposition.
 type ByteDecomposition struct {
 	// The source column being decomposed
-	source string
+	source uint
 	// Target columns needed for decomposition
 	targets []schema.Column
 }
 
 // NewByteDecomposition creates a new sorted permutation
-func NewByteDecomposition(source string, width uint) *ByteDecomposition {
+func NewByteDecomposition(prefix string, source uint, width uint) *ByteDecomposition {
 	if width == 0 {
 		panic("zero byte decomposition encountered")
 	}
@@ -29,7 +29,7 @@ func NewByteDecomposition(source string, width uint) *ByteDecomposition {
 	targets := make([]schema.Column, width)
 
 	for i := uint(0); i < width; i++ {
-		name := fmt.Sprintf("%s:%d", source, i)
+		name := fmt.Sprintf("%s:%d", prefix, i)
 		targets[i] = schema.NewColumn(name, U8)
 	}
 	// Done
@@ -37,7 +37,7 @@ func NewByteDecomposition(source string, width uint) *ByteDecomposition {
 }
 
 func (p *ByteDecomposition) String() string {
-	return fmt.Sprintf("(decomposition %s %d)", p.source, len(p.targets))
+	return fmt.Sprintf("(decomposition #%d %d)", p.source, len(p.targets))
 }
 
 // ============================================================================
@@ -66,9 +66,9 @@ func (p *ByteDecomposition) ExpandTrace(tr tr.Trace) error {
 	// Calculate how many bytes required.
 	n := len(p.targets)
 	// Identify target column
-	target := tr.ColumnByName(p.source)
+	target := tr.ColumnByIndex(p.source)
 	// Extract column data to decompose
-	data := tr.ColumnByName(p.source).Data()
+	data := tr.ColumnByIndex(p.source).Data()
 	// Construct byte column data
 	cols := make([][]*fr.Element, n)
 	// Initialise columns
@@ -86,8 +86,7 @@ func (p *ByteDecomposition) ExpandTrace(tr tr.Trace) error {
 	padding := decomposeIntoBytes(target.Padding(), n)
 	// Finally, add byte columns to trace
 	for i := 0; i < n; i++ {
-		col := fmt.Sprintf("%s:%d", p.source, i)
-		tr.AddColumn(col, cols[i], padding[i])
+		tr.AddColumn(p.targets[i].Name(), cols[i], padding[i])
 	}
 	// Done
 	return nil

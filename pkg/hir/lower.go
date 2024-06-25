@@ -43,10 +43,10 @@ func (p *Schema) LowerToMir() *mir.Schema {
 func lowerConstraintToMir(c sc.Constraint, schema *mir.Schema) {
 	// Check what kind of constraint we have
 	if v, ok := c.(VanishingConstraint); ok {
-		mir_exprs := v.Constraint.Expr.LowerTo(schema)
+		mir_exprs := v.Constraint().Expr.LowerTo(schema)
 		// Add individual constraints arising
 		for _, mir_expr := range mir_exprs {
-			schema.AddVanishingConstraint(v.Handle, v.Domain, mir_expr)
+			schema.AddVanishingConstraint(v.Handle(), v.Domain(), mir_expr)
 		}
 	} else if v, ok := c.(*constraint.TypeConstraint); ok {
 		schema.AddTypeConstraint(v.Target(), v.Type())

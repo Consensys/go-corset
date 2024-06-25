@@ -41,8 +41,8 @@ func (p *Schema) LowerToAir() *air.Schema {
 func lowerConstraintToAir(c sc.Constraint, schema *air.Schema) {
 	// Check what kind of constraint we have
 	if v, ok := c.(VanishingConstraint); ok {
-		air_expr := v.Constraint.Expr.LowerTo(schema)
-		schema.AddVanishingConstraint(v.Handle, v.Domain, air_expr)
+		air_expr := v.Constraint().Expr.LowerTo(schema)
+		schema.AddVanishingConstraint(v.Handle(), v.Domain(), air_expr)
 	} else if v, ok := c.(*constraint.TypeConstraint); ok {
 		if t := v.Type().AsUint(); t != nil {
 			index, ok := sc.ColumnIndexOf(schema, v.Target())

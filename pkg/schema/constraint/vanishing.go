@@ -44,14 +44,14 @@ func (p ZeroTest[E]) String() string {
 type VanishingConstraint[T schema.Testable] struct {
 	// A unique identifier for this constraint.  This is primarily
 	// useful for debugging.
-	Handle string
+	handle string
 	// Indicates (when nil) a global constraint that applies to all rows.
 	// Otherwise, indicates a local constraint which applies to the specific row
 	// given here.
-	Domain *int
+	domain *int
 	// The actual constraint itself (e.g. an expression which
 	// should evaluate to zero, etc)
-	Constraint T
+	constraint T
 }
 
 // NewVanishingConstraint constructs a new vanishing constraint!
@@ -59,9 +59,21 @@ func NewVanishingConstraint[T schema.Testable](handle string, domain *int, const
 	return &VanishingConstraint[T]{handle, domain, constraint}
 }
 
-// GetHandle returns the handle associated with this constraint.
-func (p *VanishingConstraint[T]) GetHandle() string {
-	return p.Handle
+// Handle returns the handle associated with this constraint.
+func (p *VanishingConstraint[T]) Handle() string {
+	return p.handle
+}
+
+// Constraint returns the vanishing expression itself.
+func (p *VanishingConstraint[T]) Constraint() T {
+	return p.constraint
+}
+
+// Domain returns the domain of this constraint.  If the domain is nil, then
+// this is a global constraint.  Otherwise this signals a local constraint which
+// applies to a specific row (e.g. the first or last).
+func (p *VanishingConstraint[T]) Domain() *int {
+	return p.domain
 }
 
 // Accepts checks whether a vanishing constraint evaluates to zero on every row
@@ -69,12 +81,12 @@ func (p *VanishingConstraint[T]) GetHandle() string {
 //
 //nolint:revive
 func (p *VanishingConstraint[T]) Accepts(tr trace.Trace) error {
-	if p.Domain == nil {
+	if p.domain == nil {
 		// Global Constraint
-		return HoldsGlobally(p.Handle, p.Constraint, tr)
+		return HoldsGlobally(p.handle, p.constraint, tr)
 	}
 	// Check specific row
-	return HoldsLocally(*p.Domain, p.Handle, p.Constraint, tr)
+	return HoldsLocally(*p.domain, p.handle, p.constraint, tr)
 }
 
 // HoldsGlobally checks whether a given expression vanishes (i.e. evaluates to
@@ -117,11 +129,11 @@ func HoldsLocally[T schema.Testable](k int, handle string, constraint T, tr trac
 //
 //nolint:revive
 func (p *VanishingConstraint[T]) String() string {
-	if p.Domain == nil {
-		return fmt.Sprintf("(vanish %s %s)", p.Handle, any(p.Constraint))
-	} else if *p.Domain == 0 {
-		return fmt.Sprintf("(vanish:first %s %s)", p.Handle, any(p.Constraint))
+	if p.domain == nil {
+		return fmt.Sprintf("(vanish %s %s)", p.handle, any(p.constraint))
+	} else if *p.domain == 0 {
+		return fmt.Sprintf("(vanish:first %s %s)", p.handle, any(p.constraint))
 	}
 	//
-	return fmt.Sprintf("(vanish:last %s %s)", p.Handle, any(p.Constraint))
+	return fmt.Sprintf("(vanish:last %s %s)", p.handle, any(p.constraint))
 }
