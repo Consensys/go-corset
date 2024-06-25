@@ -7,7 +7,7 @@ import (
 // SymbolRule is a symbol generator is responsible for converting a terminating
 // expression (i.e. a symbol) into an expression type T.  For
 // example, a number or a column access.
-type SymbolRule[T comparable] func(string) (T, error)
+type SymbolRule[T comparable] func(string) (T, bool, error)
 
 // ListRule is a list translator is responsible converting a list with a given
 // sequence of zero or more arguments into an expression type T.
@@ -154,7 +154,7 @@ func (p *Translator[T]) SyntaxError(s SExp, msg string) error {
 
 // Translate an S-Expression into an IR expression.  Observe that
 // this can still fail in the event that the given S-Expression does
-// not describe a well-formed AIR expression.
+// not describe a well-formed IR expression.
 func translateSExp[T comparable](p *Translator[T], s SExp) (T, error) {
 	var empty T
 
@@ -163,9 +163,12 @@ func translateSExp[T comparable](p *Translator[T], s SExp) (T, error) {
 		return translateSExpList[T](p, e)
 	case *Symbol:
 		for i := 0; i != len(p.symbols); i++ {
-			ir, err := (p.symbols[i])(e.Value)
-			if err == nil {
-				return ir, err
+			ir, ok, err := (p.symbols[i])(e.Value)
+			if ok && err != nil {
+				// Transform into syntax error
+				return empty, p.SyntaxError(s, err.Error())
+			} else if ok {
+				return ir, nil
 			}
 		}
 	}

@@ -45,22 +45,17 @@ func lowerConstraintToAir(c sc.Constraint, schema *air.Schema) {
 		schema.AddVanishingConstraint(v.Handle(), v.Domain(), air_expr)
 	} else if v, ok := c.(*constraint.TypeConstraint); ok {
 		if t := v.Type().AsUint(); t != nil {
-			index, ok := sc.ColumnIndexOf(schema, v.Target())
-			// Sanity check
-			if !ok {
-				panic("Cannot find column")
-			}
 			// Yes, a constraint is implied.  Now, decide whether to use a range
 			// constraint or just a vanishing constraint.
 			if t.HasBound(2) {
 				// u1 => use vanishing constraint X * (X - 1)
-				air_gadgets.ApplyBinaryGadget(index, schema)
+				air_gadgets.ApplyBinaryGadget(v.Target(), schema)
 			} else if t.HasBound(256) {
 				// u2..8 use range constraints
-				schema.AddRangeConstraint(index, t.Bound())
+				schema.AddRangeConstraint(v.Target(), t.Bound())
 			} else {
 				// u9+ use byte decompositions.
-				air_gadgets.ApplyBitwidthGadget(index, t.BitWidth(), schema)
+				air_gadgets.ApplyBitwidthGadget(v.Target(), t.BitWidth(), schema)
 			}
 		}
 	} else {

@@ -110,8 +110,9 @@ func (e *jsonExprConst) ToHir() hir.Expr {
 }
 
 func (e *jsonExprColumn) ToHir() hir.Expr {
-	cref := asColumnRef(e.Handle)
-	return &hir.ColumnAccess{Column: cref, Shift: e.Shift}
+	// cref := asColumnRef(e.Handle)
+	// return &hir.ColumnAccess{Column: cref, Shift: e.Shift}
+	panic("update binfile parser")
 }
 
 func (e *jsonExprFuncall) ToHir() hir.Expr {

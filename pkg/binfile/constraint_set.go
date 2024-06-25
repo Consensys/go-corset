@@ -110,7 +110,8 @@ func HirSchemaFromJson(bytes []byte) (schema *hir.Schema, err error) {
 			schema.AddDataColumn(c.Handle, t)
 			// Check whether a type constraint required or not.
 			if c.MustProve {
-				schema.AddTypeConstraint(c.Handle, t)
+				//schema.AddTypeConstraint(c.Handle, t)
+				panic("fix binfile parser")
 			}
 		}
 	}

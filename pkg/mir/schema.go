@@ -70,7 +70,7 @@ func (p *Schema) AddVanishingConstraint(handle string, domain *int, expr Expr) {
 }
 
 // AddTypeConstraint appends a new range constraint.
-func (p *Schema) AddTypeConstraint(target string, t schema.Type) {
+func (p *Schema) AddTypeConstraint(target uint, t schema.Type) {
 	// Check whether is a field type, as these can actually be ignored.
 	if t.AsField() == nil {
 		p.constraints = append(p.constraints, constraint.NewTypeConstraint(target, t))

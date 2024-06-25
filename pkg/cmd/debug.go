@@ -19,7 +19,6 @@ var debugCmd = &cobra.Command{
 			fmt.Println(cmd.UsageString())
 			os.Exit(1)
 		}
-		stats := getFlag(cmd, "stats")
 		hir := getFlag(cmd, "hir")
 		mir := getFlag(cmd, "mir")
 		air := getFlag(cmd, "air")
@@ -29,19 +28,19 @@ var debugCmd = &cobra.Command{
 		airSchema := mirSchema.LowerToAir()
 		// Print constraints
 		if hir {
-			printSchema(hirSchema, stats)
+			printSchema(hirSchema)
 		}
 		if mir {
-			printSchema(mirSchema, stats)
+			printSchema(mirSchema)
 		}
 		if air {
-			printSchema(airSchema, stats)
+			printSchema(airSchema)
 		}
 	},
 }
 
 // Print out all declarations included in a given
-func printSchema(schema schema.Schema, stats bool) {
+func printSchema(schema schema.Schema) {
 	panic("todo")
 }
 

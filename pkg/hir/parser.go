@@ -2,8 +2,10 @@ package hir
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
@@ -49,23 +51,34 @@ type hirParser struct {
 	translator *sexp.Translator[Expr]
 	// Schema being constructed
 	schema *Schema
+	// Current module being parsed.
+	module uint
+	// Environment used during parsing to resolve column names into column
+	// indices.
+	env *Environment
 }
 
 func newHirParser(srcmap *sexp.SourceMap[sexp.SExp]) *hirParser {
 	p := sexp.NewTranslator[Expr](srcmap)
+	// Initialise empty environment
+	env := EmptyEnvironment()
+	// Register top-level module (aka the prelude)
+	prelude := env.RegisterModule("")
+	// Construct parser
+	parser := &hirParser{p, EmptySchema(), prelude, env}
 	// Configure translator
-	p.AddSymbolRule(sexpConstant)
-	p.AddSymbolRule(sexpColumnAccess)
-	p.AddBinaryRule("shift", sexpShift)
-	p.AddRecursiveRule("+", sexpAdd)
-	p.AddRecursiveRule("-", sexpSub)
-	p.AddRecursiveRule("*", sexpMul)
-	p.AddRecursiveRule("~", sexpNorm)
-	p.AddRecursiveRule("if", sexpIf)
-	p.AddRecursiveRule("ifnot", sexpIfNot)
-	p.AddRecursiveRule("begin", sexpBegin)
+	p.AddSymbolRule(constantParserRule)
+	p.AddSymbolRule(columnAccessParserRule(parser))
+	p.AddBinaryRule("shift", shiftParserRule(parser))
+	p.AddRecursiveRule("+", addParserRule)
+	p.AddRecursiveRule("-", subParserRule)
+	p.AddRecursiveRule("*", mulParserRule)
+	p.AddRecursiveRule("~", normParserRule)
+	p.AddRecursiveRule("if", ifParserRule)
+	p.AddRecursiveRule("ifnot", ifNotParserRule)
+	p.AddRecursiveRule("begin", beginParserRule)
 	//
-	return &hirParser{p, EmptySchema()}
+	return parser
 }
 
 func (p *hirParser) parseDeclaration(s sexp.SExp) error {
@@ -99,9 +112,11 @@ func (p *hirParser) parseColumnDeclaration(l *sexp.List) error {
 	// Extract column name
 	columnName := l.Elements[1].String()
 	// Sanity check doesn't already exist
-	if sc.HasColumn(p.schema, columnName) {
+	if p.env.HasColumn(p.module, columnName) {
 		return p.translator.SyntaxError(l, "duplicate column declaration")
 	}
+	// Register column
+	cid := p.env.RegisterColumn(p.module, columnName)
 	// Default to field type
 	var columnType sc.Type = &sc.FieldType{}
 	// Parse type (if applicable)
@@ -115,7 +130,7 @@ func (p *hirParser) parseColumnDeclaration(l *sexp.List) error {
 	}
 	// Register column in Schema
 	p.schema.AddDataColumn(columnName, columnType)
-	p.schema.AddTypeConstraint(columnName, columnType)
+	p.schema.AddTypeConstraint(cid, columnType)
 
 	return nil
 }
@@ -161,6 +176,18 @@ func (p *hirParser) parseSortedPermutationDeclaration(l *sexp.List) error {
 		sources[i] = sortName[1:]
 		// FIXME: determine source column type
 		targets[i] = schema.NewColumn(target.String(), &schema.FieldType{})
+		// Sanity check that source column exists
+		if !p.env.HasColumn(p.module, sources[i]) {
+			// No, it doesn't.
+			return p.translator.SyntaxError(sexpSources.Get(i), fmt.Sprintf("unknown column %s", sources[i]))
+		}
+		// Sanity check that target column *doesn't* exist.
+		if p.env.HasColumn(p.module, targets[i].Name()) {
+			// No, it doesn't.
+			return p.translator.SyntaxError(sexpTargets.Get(i), fmt.Sprintf("duplicate column %s", targets[i].Name()))
+		}
+		// Finally, register target column
+		p.env.RegisterColumn(p.module, targets[i].Name())
 	}
 	//
 	p.schema.AddPermutationColumns(targets, signs, sources)
@@ -215,39 +242,57 @@ func (p *hirParser) parseType(term sexp.SExp) (sc.Type, error) {
 	return nil, p.translator.SyntaxError(symbol, "unknown type")
 }
 
-func sexpBegin(args []Expr) (Expr, error) {
+func beginParserRule(args []Expr) (Expr, error) {
 	return &List{args}, nil
 }
 
-func sexpConstant(symbol string) (Expr, error) {
-	num := new(fr.Element)
-	// Attempt to parse
-	c, err := num.SetString(symbol)
-	// Check for errors
-	if err != nil {
-		return nil, err
+func constantParserRule(symbol string) (Expr, bool, error) {
+	if symbol[0] >= '0' && symbol[0] < '9' {
+		num := new(fr.Element)
+		// Attempt to parse
+		c, err := num.SetString(symbol)
+		// Check for errors
+		if err != nil {
+			return nil, true, err
+		}
+		// Done
+		return &Constant{Val: c}, true, nil
 	}
-	// Done
-	return &Constant{Val: c}, nil
+	// Not applicable
+	return nil, false, nil
 }
 
-func sexpColumnAccess(col string) (Expr, error) {
-	return &ColumnAccess{col, 0}, nil
+func columnAccessParserRule(parser *hirParser) func(col string) (Expr, bool, error) {
+	// Returns a closure over the parser.
+	return func(col string) (Expr, bool, error) {
+		// Sanity check what we have
+		if !unicode.IsLetter(rune(col[0])) {
+			return nil, false, nil
+		}
+		// Look up column in the environment
+		i, ok := parser.env.LookupColumn(parser.module, col)
+		// Check column was found
+		if !ok {
+			return nil, true, fmt.Errorf("unknown column %s", col)
+		}
+		// Done
+		return &ColumnAccess{i, 0}, true, nil
+	}
 }
 
-func sexpAdd(args []Expr) (Expr, error) {
+func addParserRule(args []Expr) (Expr, error) {
 	return &Add{args}, nil
 }
 
-func sexpSub(args []Expr) (Expr, error) {
+func subParserRule(args []Expr) (Expr, error) {
 	return &Sub{args}, nil
 }
 
-func sexpMul(args []Expr) (Expr, error) {
+func mulParserRule(args []Expr) (Expr, error) {
 	return &Mul{args}, nil
 }
 
-func sexpIf(args []Expr) (Expr, error) {
+func ifParserRule(args []Expr) (Expr, error) {
 	if len(args) == 2 {
 		return &IfZero{args[0], args[1], nil}, nil
 	} else if len(args) == 3 {
@@ -257,7 +302,7 @@ func sexpIf(args []Expr) (Expr, error) {
 	return nil, errors.New("incorrect number of arguments")
 }
 
-func sexpIfNot(args []Expr) (Expr, error) {
+func ifNotParserRule(args []Expr) (Expr, error) {
 	if len(args) == 2 {
 		return &IfZero{args[0], nil, args[1]}, nil
 	}
@@ -265,20 +310,29 @@ func sexpIfNot(args []Expr) (Expr, error) {
 	return nil, errors.New("incorrect number of arguments")
 }
 
-func sexpShift(col string, amt string) (Expr, error) {
-	n, err := strconv.Atoi(amt)
+func shiftParserRule(parser *hirParser) func(string, string) (Expr, error) {
+	// Returns a closure over the parser.
+	return func(col string, amt string) (Expr, error) {
+		n, err := strconv.Atoi(amt)
 
-	if err != nil {
-		return nil, err
+		if err != nil {
+			return nil, err
+		}
+		// Look up column in the environment
+		i, ok := parser.env.LookupColumn(parser.module, col)
+		// Check column was found
+		if !ok {
+			return nil, fmt.Errorf("unknown column %s", col)
+		}
+		// Done
+		return &ColumnAccess{
+			Column: i,
+			Shift:  n,
+		}, nil
 	}
-
-	return &ColumnAccess{
-		Column: col,
-		Shift:  n,
-	}, nil
 }
 
-func sexpNorm(args []Expr) (Expr, error) {
+func normParserRule(args []Expr) (Expr, error) {
 	if len(args) != 1 {
 		return nil, errors.New("incorrect number of arguments")
 	}
