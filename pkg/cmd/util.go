@@ -10,6 +10,7 @@ import (
 	"github.com/consensys/go-corset/pkg/hir"
 	"github.com/consensys/go-corset/pkg/sexp"
 	"github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/trace/json"
 	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/spf13/cobra"
 )
@@ -45,6 +46,40 @@ func getUint(cmd *cobra.Command, flag string) uint {
 	}
 
 	return r
+}
+
+// Get an expected string, or panic if an error arises.
+func getString(cmd *cobra.Command, flag string) string {
+	r, err := cmd.Flags().GetString(flag)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(4)
+	}
+
+	return r
+}
+
+// Write a given trace file to disk
+func writeTraceFile(filename string, tr trace.Trace) {
+	var err error
+	// Check file extension
+	ext := path.Ext(filename)
+	//
+	switch ext {
+	case ".json":
+		js := json.ToJsonString(tr)
+		//
+		if err := os.WriteFile(filename, []byte(js), 0644); err == nil {
+			return
+		}
+	case ".lt":
+
+	default:
+		err = fmt.Errorf("Unknown trace file format: %s", ext)
+	}
+	// Handle error
+	fmt.Println(err)
+	os.Exit(4)
 }
 
 // Parse a trace file using a parser based on the extension of the filename.

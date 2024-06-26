@@ -38,6 +38,8 @@ func FromBytes(data []byte) (trace.Trace, error) {
 		nbytes := ith.Width() * ith.Height()
 		// Construct appropriate slice
 		ith.SetBytes(data[offset : offset+nbytes])
+		// Update byte offset
+		offset += nbytes
 	}
 	// Done
 	return trace.NewArrayTrace(columns)

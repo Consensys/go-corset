@@ -1,7 +1,6 @@
 package trace
 
 import (
-	"errors"
 	"strings"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
@@ -31,11 +30,11 @@ func EmptyArrayTrace() *ArrayTrace {
 // NewArrayTrace constructs a new trace from a given array of columns.
 func NewArrayTrace(columns []Column) (*ArrayTrace, error) {
 	height := columns[0].Height()
-	for _, c := range columns {
-		if c.Height() != height {
-			return nil, errors.New("trace columns have different heights")
-		}
-	}
+	// for _, c := range columns {
+	// 	if c.Height() != height {
+	// 		return nil, errors.New("trace columns have different heights")
+	// 	}
+	// }
 	//
 	return &ArrayTrace{height, columns}, nil
 }
