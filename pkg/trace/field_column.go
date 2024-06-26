@@ -86,7 +86,17 @@ func (p *FieldColumn) Pad(n uint) {
 }
 
 // Write the raw bytes of this column to a given writer, returning an error
-// if this failed (for some reason).
+// if this failed (for some reason).  Observe that this always writes data in
+// 32byte chunks.
 func (p *FieldColumn) Write(w io.Writer) error {
-	panic("TODO")
+	for _, e := range p.data {
+		// Read exactly 32 bytes
+		bytes := e.Bytes()
+		// Write them out
+		if _, err := w.Write(bytes[:]); err != nil {
+			return err
+		}
+	}
+	//
+	return nil
 }

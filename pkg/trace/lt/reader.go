@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/trace"
 )
 
@@ -69,6 +70,8 @@ func readColumnHeader(buf *bytes.Reader) (*trace.BytesColumn, error) {
 	if err := binary.Read(buf, binary.BigEndian, &length); err != nil {
 		return nil, err
 	}
+	// Default padding
+	zero := fr.NewElement(0)
 	// Done
-	return trace.NewBytesColumn(string(name), bytesPerElement, uint(length), nil), nil
+	return trace.NewBytesColumn(string(name), bytesPerElement, uint(length), nil, &zero), nil
 }
