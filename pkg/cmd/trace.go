@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -24,8 +25,12 @@ var traceCmd = &cobra.Command{
 		// Parse trace
 		trace := readTraceFile(args[0])
 		list := getFlag(cmd, "list")
+		filter := getString(cmd, "filter")
 		output := getString(cmd, "out")
 		//
+		if filter != "" {
+			trace = filterColumns(trace, filter)
+		}
 		if list {
 			listColumns(trace)
 		}
@@ -34,6 +39,21 @@ var traceCmd = &cobra.Command{
 			writeTraceFile(output, trace)
 		}
 	},
+}
+
+// Construct a new trace containing only those columns from the original who
+// name begins with the given prefix.
+func filterColumns(tr trace.Trace, prefix string) trace.Trace {
+	ntr := trace.EmptyArrayTrace()
+	//
+	for i := uint(0); i < tr.Width(); i++ {
+		ith := tr.ColumnByIndex(i)
+		if strings.HasPrefix(ith.Name(), prefix) {
+			ntr.Add(ith)
+		}
+	}
+	// Done
+	return ntr
 }
 
 func listColumns(tr trace.Trace) {
@@ -55,4 +75,5 @@ func init() {
 	rootCmd.AddCommand(traceCmd)
 	traceCmd.Flags().BoolP("list", "l", false, "detail the columns in the trace file")
 	traceCmd.Flags().StringP("out", "o", "", "Specify output file to write trace")
+	traceCmd.Flags().StringP("filter", "f", "", "Filter columns beginning with prefix")
 }

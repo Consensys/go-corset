@@ -10,8 +10,8 @@ import (
 )
 
 // ToBytes writes a given trace file as an array of bytes.
-func ToBytes(columns []trace.Column) ([]byte, error) {
-	buf, err := ToBytesBuffer(columns)
+func ToBytes(tr trace.Trace) ([]byte, error) {
+	buf, err := ToBytesBuffer(tr)
 	if err != nil {
 		return nil, err
 	}
@@ -20,9 +20,9 @@ func ToBytes(columns []trace.Column) ([]byte, error) {
 }
 
 // ToBytesBuffer writes a given trace file into a byte buffer.
-func ToBytesBuffer(columns []trace.Column) (*bytes.Buffer, error) {
+func ToBytesBuffer(tr trace.Trace) (*bytes.Buffer, error) {
 	var buf bytes.Buffer
-	if err := WriteBytes(columns, &buf); err != nil {
+	if err := WriteBytes(tr, &buf); err != nil {
 		return nil, err
 	}
 
@@ -30,14 +30,15 @@ func ToBytesBuffer(columns []trace.Column) (*bytes.Buffer, error) {
 }
 
 // WriteBytes a given trace file to an io.Writer.
-func WriteBytes(cols []trace.Column, buf io.Writer) error {
-	ncols := uint32(len(cols))
+func WriteBytes(tr trace.Trace, buf io.Writer) error {
+	ncols := tr.Width()
 	// Write column count
-	if err := binary.Write(buf, binary.BigEndian, ncols); err != nil {
+	if err := binary.Write(buf, binary.BigEndian, uint32(ncols)); err != nil {
 		return err
 	}
 	// Write header information
-	for _, col := range cols {
+	for i := uint(0); i < ncols; i++ {
+		col := tr.ColumnByIndex(i)
 		// Write name length
 		nameBytes := []byte(col.Name())
 		nameLen := uint16(len(nameBytes))
@@ -60,7 +61,8 @@ func WriteBytes(cols []trace.Column, buf io.Writer) error {
 		}
 	}
 	// Write column data information
-	for _, col := range cols {
+	for i := uint(0); i < ncols; i++ {
+		col := tr.ColumnByIndex(i)
 		if err := col.Write(buf); err != nil {
 			return err
 		}

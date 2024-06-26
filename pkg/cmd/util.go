@@ -62,6 +62,8 @@ func getString(cmd *cobra.Command, flag string) string {
 // Write a given trace file to disk
 func writeTraceFile(filename string, tr trace.Trace) {
 	var err error
+
+	var bytes []byte
 	// Check file extension
 	ext := path.Ext(filename)
 	//
@@ -69,11 +71,17 @@ func writeTraceFile(filename string, tr trace.Trace) {
 	case ".json":
 		js := json.ToJsonString(tr)
 		//
-		if err := os.WriteFile(filename, []byte(js), 0644); err == nil {
+		if err = os.WriteFile(filename, []byte(js), 0644); err == nil {
 			return
 		}
 	case ".lt":
-
+		bytes, err = lt.ToBytes(tr)
+		//
+		if err == nil {
+			if err = os.WriteFile(filename, bytes, 0644); err == nil {
+				return
+			}
+		}
 	default:
 		err = fmt.Errorf("Unknown trace file format: %s", ext)
 	}

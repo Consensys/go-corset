@@ -104,6 +104,20 @@ func (p *ArrayTrace) Clone() Trace {
 	return clone
 }
 
+// Add adds a new column of data to this trace.
+func (p *ArrayTrace) Add(column Column) {
+	// Sanity check the column does not already exist.
+	if p.HasColumn(column.Name()) {
+		panic("column already exists")
+	}
+	// Append it
+	p.columns = append(p.columns, column)
+	// Update maximum height
+	if column.Height() > p.height {
+		p.height = column.Height()
+	}
+}
+
 // AddColumn adds a new column of data to this trace.
 func (p *ArrayTrace) AddColumn(name string, data []*fr.Element, padding *fr.Element) {
 	// Sanity check the column does not already exist.
