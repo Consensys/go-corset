@@ -28,10 +28,10 @@ func traceColumnData(tr Trace, col uint) []string {
 	n := tr.Height()
 	data := make([]string, n+2)
 	data[0] = fmt.Sprintf("#%d", col)
-	data[1] = tr.ColumnByIndex(col).Name()
+	data[1] = tr.Column(col).Name()
 
 	for row := 0; row < int(n); row++ {
-		data[row+2] = tr.ColumnByIndex(col).Get(row).String()
+		data[row+2] = tr.Column(col).Get(row).String()
 	}
 
 	return data

@@ -12,6 +12,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/trace/json"
 )
 
 // Determines the (relative) location of the test directory.  That is
@@ -469,7 +470,7 @@ func ReadTracesFile(name string, ext string) []*trace.ArrayTrace {
 	for i, line := range lines {
 		// Parse input line as JSON
 		if line != "" && !strings.HasPrefix(line, ";;") {
-			tr, err := trace.ParseJsonTrace([]byte(line))
+			tr, err := json.FromBytes([]byte(line))
 			if err != nil {
 				msg := fmt.Sprintf("%s.%s:%d: %s", name, ext, i+1, err)
 				panic(msg)

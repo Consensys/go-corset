@@ -21,6 +21,11 @@ type FieldColumn struct {
 	padding *fr.Element
 }
 
+// NewFieldColumn constructs a FieldColumn with the give name, data and padding.
+func NewFieldColumn(name string, data []*fr.Element, padding *fr.Element) *FieldColumn {
+	return &FieldColumn{name, data, padding}
+}
+
 // Name returns the name of the given column.
 func (p *FieldColumn) Name() string {
 	return p.name
@@ -86,7 +91,17 @@ func (p *FieldColumn) Pad(n uint) {
 }
 
 // Write the raw bytes of this column to a given writer, returning an error
-// if this failed (for some reason).
+// if this failed (for some reason).  Observe that this always writes data in
+// 32byte chunks.
 func (p *FieldColumn) Write(w io.Writer) error {
-	panic("TODO")
+	for _, e := range p.data {
+		// Read exactly 32 bytes
+		bytes := e.Bytes()
+		// Write them out
+		if _, err := w.Write(bytes[:]); err != nil {
+			return err
+		}
+	}
+	//
+	return nil
 }

@@ -5,6 +5,7 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/trace"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
@@ -119,7 +120,7 @@ func (p *SortedPermutation) ExpandTrace(tr tr.Trace) error {
 	for i := 0; i < len(p.sources); i++ {
 		src := p.sources[i]
 		// Read column data to initialise permutation.
-		data := tr.ColumnByIndex(src).Data()
+		data := tr.Column(src).Data()
 		// Copy column data to initialise permutation.
 		cols[i] = make([]*fr.Element, len(data))
 		copy(cols[i], data)
@@ -131,8 +132,8 @@ func (p *SortedPermutation) ExpandTrace(tr tr.Trace) error {
 
 	for i := p.Columns(); i.HasNext(); {
 		dstColName := i.Next().Name()
-		srcCol := tr.ColumnByIndex(p.sources[index])
-		tr.AddColumn(dstColName, cols[index], srcCol.Padding())
+		srcCol := tr.Column(p.sources[index])
+		tr.Add(trace.NewFieldColumn(dstColName, cols[index], srcCol.Padding()))
 
 		index++
 	}

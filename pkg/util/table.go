@@ -51,7 +51,14 @@ func (p *TablePrinter) Print() {
 	for i := 0; i < len(p.rows); i++ {
 		row := p.rows[i]
 		for j, col := range row {
-			fmt.Printf(" %*s |", p.widths[j], col)
+			jth := col
+			jth_width := p.widths[j]
+
+			if uint(len(col)) > jth_width {
+				jth = col[0:jth_width]
+			}
+
+			fmt.Printf(" %*s |", jth_width, jth)
 		}
 
 		fmt.Println()

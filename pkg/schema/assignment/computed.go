@@ -6,7 +6,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
-	tr "github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
 
@@ -75,7 +75,7 @@ func (p *ComputedColumn[E]) RequiredSpillage() uint {
 // ExpandTrace attempts to a new column to the trace which contains the result
 // of evaluating a given expression on each row.  If the column already exists,
 // then an error is flagged.
-func (p *ComputedColumn[E]) ExpandTrace(tr tr.Trace) error {
+func (p *ComputedColumn[E]) ExpandTrace(tr trace.Trace) error {
 	if tr.HasColumn(p.name) {
 		return fmt.Errorf("Computed column already exists ({%s})", p.name)
 	}
@@ -96,7 +96,7 @@ func (p *ComputedColumn[E]) ExpandTrace(tr tr.Trace) error {
 	// the padding value for *this* column.
 	padding := p.expr.EvalAt(-1, tr)
 	// Colunm needs to be expanded.
-	tr.AddColumn(p.name, data, padding)
+	tr.Add(trace.NewFieldColumn(p.name, data, padding))
 	// Done
 	return nil
 }

@@ -20,11 +20,13 @@ type BytesColumn struct {
 	length uint
 	// The data stored in this column (as bytes).
 	bytes []byte
+	// Value to be used when padding this column
+	padding *fr.Element
 }
 
 // NewBytesColumn constructs a new BytesColumn from its constituent parts.
-func NewBytesColumn(name string, width uint8, length uint, bytes []byte) *BytesColumn {
-	return &BytesColumn{name, width, length, bytes}
+func NewBytesColumn(name string, width uint8, length uint, bytes []byte, padding *fr.Element) *BytesColumn {
+	return &BytesColumn{name, width, length, bytes, padding}
 }
 
 // Name returns the name of this column
@@ -44,7 +46,7 @@ func (p *BytesColumn) Height() uint {
 
 // Padding returns the value which will be used for padding this column.
 func (p *BytesColumn) Padding() *fr.Element {
-	panic("todo")
+	return p.padding
 }
 
 // Get the ith row of this column as a field element.
@@ -64,6 +66,7 @@ func (p *BytesColumn) Clone() Column {
 	clone.name = p.name
 	clone.length = p.length
 	clone.width = p.width
+	clone.padding = p.padding
 	// NOTE: the following is as we never actually mutate the underlying bytes
 	// array.
 	clone.bytes = p.bytes
@@ -98,7 +101,30 @@ func (p *BytesColumn) Data() []*fr.Element {
 
 // Pad this column with n copies of the column's padding value.
 func (p *BytesColumn) Pad(n uint) {
-	panic("TODO")
+	// Computing padding length (in bytes)
+	padding_len := n * uint(p.width)
+	// Access bytes to use for padding
+	padding_bytes := p.padding.Bytes()
+	padded_bytes := make([]byte, padding_len+uint(len(p.bytes)))
+	// Append padding
+	offset := 0
+
+	for i := uint(0); i < n; i++ {
+		// Calculate starting position within the 32byte array, remembering that
+		// padding_bytes is stored in _big endian_ format meaning
+		// padding_bytes[0] is the _most significant_ byte.
+		start := 32 - p.width
+		// Copy over least significant bytes
+		for j := start; j < 32; j++ {
+			padded_bytes[offset] = padding_bytes[j]
+			offset++
+		}
+	}
+	// Copy over original data
+	copy(padded_bytes[padding_len:], p.bytes)
+	// Done
+	p.bytes = padded_bytes
+	p.length += n
 }
 
 // Write the raw bytes of this column to a given writer, returning an error

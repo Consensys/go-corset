@@ -67,22 +67,9 @@ func (p *ArrayTrace) Columns() []Column {
 	return p.columns
 }
 
-// ColumnByIndex looks up a column based on its index.
-func (p *ArrayTrace) ColumnByIndex(index uint) Column {
+// Column looks up a column based on its index.
+func (p *ArrayTrace) Column(index uint) Column {
 	return p.columns[index]
-}
-
-// ColumnByName looks up a column based on its name.  If the column doesn't
-// exist, then nil is returned.
-func (p *ArrayTrace) ColumnByName(name string) Column {
-	for _, c := range p.columns {
-		if name == c.Name() {
-			// Matched column
-			return c
-		}
-	}
-
-	return nil
 }
 
 // HasColumn checks whether the trace has a given named column (or not).
@@ -120,18 +107,7 @@ func (p *ArrayTrace) Add(column Column) {
 
 // AddColumn adds a new column of data to this trace.
 func (p *ArrayTrace) AddColumn(name string, data []*fr.Element, padding *fr.Element) {
-	// Sanity check the column does not already exist.
-	if p.HasColumn(name) {
-		panic("column already exists")
-	}
-	// Construct new column
-	column := FieldColumn{name, data, padding}
-	// Append it
-	p.columns = append(p.columns, &column)
-	// Update maximum height
-	if uint(len(data)) > p.height {
-		p.height = uint(len(data))
-	}
+	p.Add(&FieldColumn{name, data, padding})
 }
 
 // Height determines the maximum height of any column within this trace.

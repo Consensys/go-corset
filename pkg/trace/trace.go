@@ -1,12 +1,9 @@
 package trace
 
 import (
-	"encoding/json"
 	"io"
-	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/util"
 )
 
 // Column describes an individual column of data within a trace table.
@@ -38,14 +35,11 @@ type Column interface {
 // same height and can be either "data" columns or "computed" columns.
 type Trace interface {
 	// Add a new column of data
-	AddColumn(name string, data []*fr.Element, padding *fr.Element)
+	Add(Column)
 	// Clone creates an identical clone of this trace.
 	Clone() Trace
-	// ColumnByIndex returns the ith column in this trace.
-	ColumnByIndex(uint) Column
-	// ColumnByName returns the data of a given column in order that it can be
-	// inspected.  If the given column does not exist, then nil is returned.
-	ColumnByName(name string) Column
+	// Column returns the ith column in this trace.
+	Column(uint) Column
 	// Determine the index of a particular column in this trace, or return false
 	// if no such column exists.
 	ColumnIndex(name string) (uint, bool)
@@ -61,33 +55,4 @@ type Trace interface {
 	Swap(uint, uint)
 	// Get the number of columns in this trace.
 	Width() uint
-}
-
-// ===================================================================
-// JSON Parser
-// ===================================================================
-
-// ParseJsonTrace parses a trace expressed in JSON notation.  For example, {"X":
-// [0], "Y": [1]} is a trace containing one row of data each for two columns "X"
-// and "Y".
-func ParseJsonTrace(bytes []byte) (*ArrayTrace, error) {
-	var zero fr.Element = fr.NewElement((0))
-
-	var rawData map[string][]*big.Int
-	// Unmarshall
-	jsonErr := json.Unmarshal(bytes, &rawData)
-	if jsonErr != nil {
-		return nil, jsonErr
-	}
-
-	trace := EmptyArrayTrace()
-
-	for name, rawInts := range rawData {
-		// Translate raw bigints into raw field elements
-		rawElements := util.ToFieldElements(rawInts)
-		// Add new column to the trace
-		trace.AddColumn(name, rawElements, &zero)
-	}
-	// Done.
-	return trace, nil
 }

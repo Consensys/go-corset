@@ -5,7 +5,7 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
-	tr "github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
 
@@ -62,13 +62,13 @@ func (p *ByteDecomposition) IsComputed() bool {
 // ExpandTrace expands a given trace to include the columns specified by a given
 // ByteDecomposition.  This requires computing the value of each byte column in
 // the decomposition.
-func (p *ByteDecomposition) ExpandTrace(tr tr.Trace) error {
+func (p *ByteDecomposition) ExpandTrace(tr trace.Trace) error {
 	// Calculate how many bytes required.
 	n := len(p.targets)
 	// Identify target column
-	target := tr.ColumnByIndex(p.source)
+	target := tr.Column(p.source)
 	// Extract column data to decompose
-	data := tr.ColumnByIndex(p.source).Data()
+	data := tr.Column(p.source).Data()
 	// Construct byte column data
 	cols := make([][]*fr.Element, n)
 	// Initialise columns
@@ -86,7 +86,7 @@ func (p *ByteDecomposition) ExpandTrace(tr tr.Trace) error {
 	padding := decomposeIntoBytes(target.Padding(), n)
 	// Finally, add byte columns to trace
 	for i := 0; i < n; i++ {
-		tr.AddColumn(p.targets[i].Name(), cols[i], padding[i])
+		tr.Add(trace.NewFieldColumn(p.targets[i].Name(), cols[i], padding[i]))
 	}
 	// Done
 	return nil
