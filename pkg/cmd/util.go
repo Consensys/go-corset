@@ -10,6 +10,8 @@ import (
 	"github.com/consensys/go-corset/pkg/hir"
 	"github.com/consensys/go-corset/pkg/sexp"
 	"github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/trace/json"
+	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/spf13/cobra"
 )
 
@@ -46,9 +48,51 @@ func getUint(cmd *cobra.Command, flag string) uint {
 	return r
 }
 
+// Get an expected string, or panic if an error arises.
+func getString(cmd *cobra.Command, flag string) string {
+	r, err := cmd.Flags().GetString(flag)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(4)
+	}
+
+	return r
+}
+
+// Write a given trace file to disk
+func writeTraceFile(filename string, tr trace.Trace) {
+	var err error
+
+	var bytes []byte
+	// Check file extension
+	ext := path.Ext(filename)
+	//
+	switch ext {
+	case ".json":
+		js := json.ToJsonString(tr)
+		//
+		if err = os.WriteFile(filename, []byte(js), 0644); err == nil {
+			return
+		}
+	case ".lt":
+		bytes, err = lt.ToBytes(tr)
+		//
+		if err == nil {
+			if err = os.WriteFile(filename, bytes, 0644); err == nil {
+				return
+			}
+		}
+	default:
+		err = fmt.Errorf("Unknown trace file format: %s", ext)
+	}
+	// Handle error
+	fmt.Println(err)
+	os.Exit(4)
+}
+
 // Parse a trace file using a parser based on the extension of the filename.
-func readTraceFile(filename string) *trace.ArrayTrace {
-	var tr *trace.ArrayTrace
+func readTraceFile(filename string) trace.Trace {
+	var tr trace.Trace
 	// Read data file
 	bytes, err := os.ReadFile(filename)
 	// Check success
@@ -63,7 +107,10 @@ func readTraceFile(filename string) *trace.ArrayTrace {
 				return tr
 			}
 		case ".lt":
-			panic("Support for lt trace files not implemented (yet).")
+			tr, err = lt.FromBytes(bytes)
+			if err == nil {
+				return tr
+			}
 		default:
 			err = fmt.Errorf("Unknown trace file format: %s", ext)
 		}
