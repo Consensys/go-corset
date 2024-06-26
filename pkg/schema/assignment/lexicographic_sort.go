@@ -85,8 +85,8 @@ func (p *LexicographicSort) ExpandTrace(tr trace.Trace) error {
 		delta[i] = &zero
 		// Decide which row is the winner (if any)
 		for j := 0; j < ncols; j++ {
-			prev := tr.ColumnByIndex(p.sources[j]).Get(i - 1)
-			curr := tr.ColumnByIndex(p.sources[j]).Get(i)
+			prev := tr.Column(p.sources[j]).Get(i - 1)
+			curr := tr.Column(p.sources[j]).Get(i)
 
 			if !set && prev != nil && prev.Cmp(curr) != 0 {
 				var diff fr.Element
@@ -108,11 +108,11 @@ func (p *LexicographicSort) ExpandTrace(tr trace.Trace) error {
 		}
 	}
 	// Add delta column data
-	tr.AddColumn(p.targets[0].Name(), delta, &zero)
+	tr.Add(trace.NewFieldColumn(p.targets[0].Name(), delta, &zero))
 	// Add bit column data
 	for i := 0; i < ncols; i++ {
 		bitName := p.targets[1+i].Name()
-		tr.AddColumn(bitName, bit[i], &zero)
+		tr.Add(trace.NewFieldColumn(bitName, bit[i], &zero))
 	}
 	// Done.
 	return nil

@@ -17,7 +17,7 @@ func ToJsonString(tr trace.Trace) string {
 			builder.WriteString(", ")
 		}
 
-		ith := tr.ColumnByIndex(i)
+		ith := tr.Column(i)
 
 		builder.WriteString("\"")
 		builder.WriteString(ith.Name())

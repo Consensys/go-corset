@@ -102,7 +102,7 @@ func readTraceFile(filename string) trace.Trace {
 		//
 		switch ext {
 		case ".json":
-			tr, err = trace.ParseJsonTrace(bytes)
+			tr, err = json.FromBytes(bytes)
 			if err == nil {
 				return tr
 			}

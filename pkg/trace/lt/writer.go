@@ -38,7 +38,7 @@ func WriteBytes(tr trace.Trace, buf io.Writer) error {
 	}
 	// Write header information
 	for i := uint(0); i < ncols; i++ {
-		col := tr.ColumnByIndex(i)
+		col := tr.Column(i)
 		// Write name length
 		nameBytes := []byte(col.Name())
 		nameLen := uint16(len(nameBytes))
@@ -62,7 +62,7 @@ func WriteBytes(tr trace.Trace, buf io.Writer) error {
 	}
 	// Write column data information
 	for i := uint(0); i < ncols; i++ {
-		col := tr.ColumnByIndex(i)
+		col := tr.Column(i)
 		if err := col.Write(buf); err != nil {
 			return err
 		}

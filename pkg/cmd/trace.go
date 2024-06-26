@@ -60,7 +60,7 @@ func filterColumns(tr trace.Trace, prefix string) trace.Trace {
 	ntr := trace.EmptyArrayTrace()
 	//
 	for i := uint(0); i < tr.Width(); i++ {
-		ith := tr.ColumnByIndex(i)
+		ith := tr.Column(i)
 		if strings.HasPrefix(ith.Name(), prefix) {
 			ntr.Add(ith)
 		}
@@ -73,7 +73,7 @@ func listColumns(tr trace.Trace) {
 	tbl := util.NewTablePrinter(3, tr.Width())
 
 	for i := uint(0); i < tr.Width(); i++ {
-		ith := tr.ColumnByIndex(i)
+		ith := tr.Column(i)
 		elems := fmt.Sprintf("%d rows", ith.Height())
 		bytes := fmt.Sprintf("%d bytes", ith.Width()*ith.Height())
 		tbl.SetRow(i, ith.Name(), elems, bytes)
@@ -93,7 +93,7 @@ func printTrace(start uint, end uint, max_width uint, tr trace.Trace) {
 	}
 
 	for i := uint(0); i < tr.Width(); i++ {
-		ith := tr.ColumnByIndex(i)
+		ith := tr.Column(i)
 		tbl.Set(0, i+1, ith.Name())
 
 		if start < ith.Height() {

@@ -1,8 +1,6 @@
 package schema
 
 import (
-	"fmt"
-
 	tr "github.com/consensys/go-corset/pkg/trace"
 )
 
@@ -68,27 +66,4 @@ func ColumnIndexOf(schema Schema, name string) (uint, bool) {
 	return schema.Columns().Find(func(c Column) bool {
 		return c.Name() == name
 	})
-}
-
-// ColumnByName returns the column with the matching name, or panics if no such
-// column exists.
-func ColumnByName(schema Schema, name string) Column {
-	var col Column
-	// Attempt to determine the index of this column
-	_, ok := schema.Columns().Find(func(c Column) bool {
-		col = c
-		return c.Name() == name
-	})
-	// If we found it, then done.
-	if ok {
-		return col
-	}
-	// Otherwise panic.
-	panic(fmt.Sprintf("unknown column %s", name))
-}
-
-// HasColumn checks whether a column of the given name is declared within the schema.
-func HasColumn(schema Schema, name string) bool {
-	_, ok := ColumnIndexOf(schema, name)
-	return ok
 }

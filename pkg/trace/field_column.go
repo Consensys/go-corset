@@ -21,6 +21,11 @@ type FieldColumn struct {
 	padding *fr.Element
 }
 
+// NewFieldColumn constructs a FieldColumn with the give name, data and padding.
+func NewFieldColumn(name string, data []*fr.Element, padding *fr.Element) *FieldColumn {
+	return &FieldColumn{name, data, padding}
+}
+
 // Name returns the name of the given column.
 func (p *FieldColumn) Name() string {
 	return p.name
