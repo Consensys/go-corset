@@ -10,6 +10,7 @@ import (
 	"github.com/consensys/go-corset/pkg/hir"
 	"github.com/consensys/go-corset/pkg/sexp"
 	"github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/spf13/cobra"
 )
 
@@ -47,8 +48,8 @@ func getUint(cmd *cobra.Command, flag string) uint {
 }
 
 // Parse a trace file using a parser based on the extension of the filename.
-func readTraceFile(filename string) *trace.ArrayTrace {
-	var tr *trace.ArrayTrace
+func readTraceFile(filename string) trace.Trace {
+	var tr trace.Trace
 	// Read data file
 	bytes, err := os.ReadFile(filename)
 	// Check success
@@ -63,7 +64,10 @@ func readTraceFile(filename string) *trace.ArrayTrace {
 				return tr
 			}
 		case ".lt":
-			panic("Support for lt trace files not implemented (yet).")
+			tr, err = lt.FromBytes(bytes)
+			if err == nil {
+				return tr
+			}
 		default:
 			err = fmt.Errorf("Unknown trace file format: %s", ext)
 		}

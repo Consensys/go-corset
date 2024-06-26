@@ -19,7 +19,6 @@ var checkCmd = &cobra.Command{
 	Traces can be given either as JSON or binary lt files.
 	Constraints can be given either as lisp or bin files.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		var trace *trace.ArrayTrace
 		var hirSchema *hir.Schema
 		var cfg checkConfig
 
@@ -37,7 +36,7 @@ var checkCmd = &cobra.Command{
 		// TODO: support true ranges
 		cfg.padding.Left = cfg.padding.Right
 		// Parse trace
-		trace = readTraceFile(args[0])
+		trace := readTraceFile(args[0])
 		// Parse constraints
 		hirSchema = readSchemaFile(args[1])
 		// Go!
@@ -71,7 +70,7 @@ type checkConfig struct {
 
 // Check a given trace is consistently accepted (or rejected) at the different
 // IR levels.
-func checkTraceWithLowering(tr *trace.ArrayTrace, schema *hir.Schema, cfg checkConfig) {
+func checkTraceWithLowering(tr trace.Trace, schema *hir.Schema, cfg checkConfig) {
 	if !cfg.hir && !cfg.mir && !cfg.air {
 		// Process together
 		checkTraceWithLoweringDefault(tr, schema, cfg)
@@ -91,7 +90,7 @@ func checkTraceWithLowering(tr *trace.ArrayTrace, schema *hir.Schema, cfg checkC
 	}
 }
 
-func checkTraceWithLoweringHir(tr *trace.ArrayTrace, hirSchema *hir.Schema, cfg checkConfig) {
+func checkTraceWithLoweringHir(tr trace.Trace, hirSchema *hir.Schema, cfg checkConfig) {
 	trHIR, errHIR := checkTrace(tr, hirSchema, cfg)
 	//
 	if errHIR != nil {
@@ -100,7 +99,7 @@ func checkTraceWithLoweringHir(tr *trace.ArrayTrace, hirSchema *hir.Schema, cfg 
 	}
 }
 
-func checkTraceWithLoweringMir(tr *trace.ArrayTrace, hirSchema *hir.Schema, cfg checkConfig) {
+func checkTraceWithLoweringMir(tr trace.Trace, hirSchema *hir.Schema, cfg checkConfig) {
 	// Lower HIR => MIR
 	mirSchema := hirSchema.LowerToMir()
 	// Check trace
@@ -112,7 +111,7 @@ func checkTraceWithLoweringMir(tr *trace.ArrayTrace, hirSchema *hir.Schema, cfg 
 	}
 }
 
-func checkTraceWithLoweringAir(tr *trace.ArrayTrace, hirSchema *hir.Schema, cfg checkConfig) {
+func checkTraceWithLoweringAir(tr trace.Trace, hirSchema *hir.Schema, cfg checkConfig) {
 	// Lower HIR => MIR
 	mirSchema := hirSchema.LowerToMir()
 	// Lower MIR => AIR
@@ -127,7 +126,7 @@ func checkTraceWithLoweringAir(tr *trace.ArrayTrace, hirSchema *hir.Schema, cfg 
 
 // The default check allows one to compare all levels against each other and
 // look for any discrepenacies.
-func checkTraceWithLoweringDefault(tr *trace.ArrayTrace, hirSchema *hir.Schema, cfg checkConfig) {
+func checkTraceWithLoweringDefault(tr trace.Trace, hirSchema *hir.Schema, cfg checkConfig) {
 	// Lower HIR => MIR
 	mirSchema := hirSchema.LowerToMir()
 	// Lower MIR => AIR
@@ -154,7 +153,7 @@ func checkTraceWithLoweringDefault(tr *trace.ArrayTrace, hirSchema *hir.Schema, 
 	}
 }
 
-func checkTrace(tr *trace.ArrayTrace, schema sc.Schema, cfg checkConfig) (trace.Trace, error) {
+func checkTrace(tr trace.Trace, schema sc.Schema, cfg checkConfig) (trace.Trace, error) {
 	if cfg.expand {
 		// Clone to prevent interefence with subsequent checks
 		tr = tr.Clone()

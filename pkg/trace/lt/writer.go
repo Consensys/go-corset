@@ -5,11 +5,13 @@ import (
 	"encoding/binary"
 	"io"
 	"log"
+
+	"github.com/consensys/go-corset/pkg/trace"
 )
 
 // ToBytes writes a given trace file as an array of bytes.
-func ToBytes(tr TraceFile) ([]byte, error) {
-	buf, err := ToBytesBuffer(tr)
+func ToBytes(columns []trace.Column) ([]byte, error) {
+	buf, err := ToBytesBuffer(columns)
 	if err != nil {
 		return nil, err
 	}
@@ -18,18 +20,17 @@ func ToBytes(tr TraceFile) ([]byte, error) {
 }
 
 // ToBytesBuffer writes a given trace file into a byte buffer.
-func ToBytesBuffer(tr TraceFile) (*bytes.Buffer, error) {
+func ToBytesBuffer(columns []trace.Column) (*bytes.Buffer, error) {
 	var buf bytes.Buffer
-	if err := Write(tr, &buf); err != nil {
+	if err := WriteBytes(columns, &buf); err != nil {
 		return nil, err
 	}
 
 	return &buf, nil
 }
 
-// Write a given trace file to an io.Writer.
-func Write(tr TraceFile, buf io.Writer) error {
-	cols := tr.columns
+// WriteBytes a given trace file to an io.Writer.
+func WriteBytes(cols []trace.Column, buf io.Writer) error {
 	ncols := uint32(len(cols))
 	// Write column count
 	if err := binary.Write(buf, binary.BigEndian, ncols); err != nil {
@@ -38,7 +39,7 @@ func Write(tr TraceFile, buf io.Writer) error {
 	// Write header information
 	for _, col := range cols {
 		// Write name length
-		nameBytes := []byte(col.name)
+		nameBytes := []byte(col.Name())
 		nameLen := uint16(len(nameBytes))
 
 		if err := binary.Write(buf, binary.BigEndian, nameLen); err != nil {
@@ -50,7 +51,7 @@ func Write(tr TraceFile, buf io.Writer) error {
 			log.Fatal(err)
 		}
 		// Write bytes per element
-		if err := binary.Write(buf, binary.BigEndian, col.bytesPerElement); err != nil {
+		if err := binary.Write(buf, binary.BigEndian, uint8(col.Width())); err != nil {
 			log.Fatal(err)
 		}
 		// Write Data length
@@ -60,8 +61,7 @@ func Write(tr TraceFile, buf io.Writer) error {
 	}
 	// Write column data information
 	for _, col := range cols {
-		_, err := buf.Write(col.bytes)
-		if err != nil {
+		if err := col.Write(buf); err != nil {
 			return err
 		}
 	}
