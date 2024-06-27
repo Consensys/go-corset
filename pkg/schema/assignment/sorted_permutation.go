@@ -108,9 +108,12 @@ func (p *SortedPermutation) RequiredSpillage() uint {
 // SortedPermutation.  This requires copying the data in the source columns, and
 // sorting that data according to the permutation criteria.
 func (p *SortedPermutation) ExpandTrace(tr tr.Trace) error {
+	columns := tr.Columns()
 	// Ensure target columns don't exist
 	for i := p.Columns(); i.HasNext(); {
-		if tr.HasColumn(i.Next().Name()) {
+		name := i.Next().Name()
+		// Sanity check no column already exists with this name.
+		if tr.Columns().Has(func(c trace.Column) bool { return c.Name() == name }) {
 			panic("target column already exists")
 		}
 	}
@@ -120,7 +123,7 @@ func (p *SortedPermutation) ExpandTrace(tr tr.Trace) error {
 	for i := 0; i < len(p.sources); i++ {
 		src := p.sources[i]
 		// Read column data to initialise permutation.
-		data := tr.Column(src).Data()
+		data := columns.Get(src).Data()
 		// Copy column data to initialise permutation.
 		cols[i] = make([]*fr.Element, len(data))
 		copy(cols[i], data)
@@ -131,9 +134,10 @@ func (p *SortedPermutation) ExpandTrace(tr tr.Trace) error {
 	index := 0
 
 	for i := p.Columns(); i.HasNext(); {
-		dstColName := i.Next().Name()
-		srcCol := tr.Column(p.sources[index])
-		tr.Add(trace.NewFieldColumn(dstColName, cols[index], srcCol.Padding()))
+		ith := i.Next()
+		dstColName := ith.Name()
+		srcCol := tr.Columns().Get(p.sources[index])
+		columns.Add(trace.NewFieldColumn(ith.Module(), dstColName, cols[index], srcCol.Padding()))
 
 		index++
 	}

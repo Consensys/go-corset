@@ -65,6 +65,7 @@ func (p *LexicographicSort) RequiredSpillage() uint {
 // ExpandTrace adds columns as needed to support the LexicographicSortingGadget.
 // That includes the delta column, and the bit selectors.
 func (p *LexicographicSort) ExpandTrace(tr trace.Trace) error {
+	columns := tr.Columns()
 	zero := fr.NewElement(0)
 	one := fr.NewElement(1)
 	// Exact number of columns involved in the sort
@@ -85,8 +86,8 @@ func (p *LexicographicSort) ExpandTrace(tr trace.Trace) error {
 		delta[i] = &zero
 		// Decide which row is the winner (if any)
 		for j := 0; j < ncols; j++ {
-			prev := tr.Column(p.sources[j]).Get(i - 1)
-			curr := tr.Column(p.sources[j]).Get(i)
+			prev := columns.Get(p.sources[j]).Get(i - 1)
+			curr := columns.Get(p.sources[j]).Get(i)
 
 			if !set && prev != nil && prev.Cmp(curr) != 0 {
 				var diff fr.Element
@@ -108,11 +109,12 @@ func (p *LexicographicSort) ExpandTrace(tr trace.Trace) error {
 		}
 	}
 	// Add delta column data
-	tr.Add(trace.NewFieldColumn(p.targets[0].Name(), delta, &zero))
+	first := p.targets[0]
+	columns.Add(trace.NewFieldColumn(first.Module(), first.Name(), delta, &zero))
 	// Add bit column data
 	for i := 0; i < ncols; i++ {
-		bitName := p.targets[1+i].Name()
-		tr.Add(trace.NewFieldColumn(bitName, bit[i], &zero))
+		ith := p.targets[1+i]
+		columns.Add(trace.NewFieldColumn(ith.Module(), ith.Name(), bit[i], &zero))
 	}
 	// Done.
 	return nil

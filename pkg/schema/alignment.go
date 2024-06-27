@@ -32,7 +32,8 @@ func Align(p tr.Trace, schema Schema) error {
 // allocated before computed columns.  As such, alignment of these input
 // columns is performed.
 func alignWith(expand bool, p tr.Trace, schema Schema) error {
-	ncols := p.Width()
+	columns := p.Columns()
+	ncols := p.Columns().Len()
 	index := uint(0)
 	// Check each column described in this schema is present in the trace.
 	for i := schema.Declarations(); i.HasNext(); {
@@ -47,7 +48,7 @@ func alignWith(expand bool, p tr.Trace, schema Schema) error {
 					return fmt.Errorf("trace missing column %s", schemaName)
 				}
 
-				traceName := p.Column(index).Name()
+				traceName := columns.Get(index).Name()
 				// Check alignment
 				if traceName != schemaName {
 					// Not aligned --- so fix
@@ -57,7 +58,7 @@ func alignWith(expand bool, p tr.Trace, schema Schema) error {
 						return fmt.Errorf("trace missing column %s", schemaName)
 					}
 					// Swap columns
-					p.Swap(index, k)
+					columns.Swap(index, k)
 				}
 				// Continue
 				index++
@@ -74,7 +75,7 @@ func alignWith(expand bool, p tr.Trace, schema Schema) error {
 	unknowns := make([]string, n)
 	// Determine names of unknown columns.
 	for i := index; i < ncols; i++ {
-		unknowns[i-index] = p.Column(i).Name()
+		unknowns[i-index] = columns.Get(i).Name()
 	}
 	//
 	return fmt.Errorf("trace contains unknown columns: %v", unknowns)

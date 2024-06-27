@@ -9,15 +9,17 @@ import (
 // ToJsonString converts a trace into a JSON string.
 func ToJsonString(tr trace.Trace) string {
 	var builder strings.Builder
+
+	columns := tr.Columns()
 	//
 	builder.WriteString("{")
 	//
-	for i := uint(0); i < tr.Width(); i++ {
+	for i := uint(0); i < columns.Len(); i++ {
 		if i != 0 {
 			builder.WriteString(", ")
 		}
 
-		ith := tr.Column(i)
+		ith := columns.Get(i)
 
 		builder.WriteString("\"")
 		builder.WriteString(ith.Name())

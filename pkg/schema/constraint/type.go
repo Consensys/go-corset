@@ -39,7 +39,7 @@ func (p *TypeConstraint) Type() schema.Type {
 // Accepts checks whether a range constraint evaluates to zero on
 // every row of a table. If so, return nil otherwise return an error.
 func (p *TypeConstraint) Accepts(tr trace.Trace) error {
-	column := tr.Column(p.column)
+	column := tr.Columns().Get(p.column)
 	for k := 0; k < int(tr.Height()); k++ {
 		// Get the value on the kth row
 		kth := column.Get(k)

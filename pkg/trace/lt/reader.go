@@ -73,5 +73,6 @@ func readColumnHeader(buf *bytes.Reader) (*trace.BytesColumn, error) {
 	// Default padding
 	zero := fr.NewElement(0)
 	// Done
-	return trace.NewBytesColumn(string(name), bytesPerElement, uint(length), nil, &zero), nil
+	// FIXME: module index should not always be zero!
+	return trace.NewBytesColumn(0, string(name), bytesPerElement, uint(length), nil, &zero), nil
 }

@@ -24,7 +24,7 @@ var traceCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		// Parse trace
-		trace := readTraceFile(args[0])
+		tr := readTraceFile(args[0])
 		list := getFlag(cmd, "list")
 		print := getFlag(cmd, "print")
 		padding := getUint(cmd, "pad")
@@ -35,21 +35,21 @@ var traceCmd = &cobra.Command{
 		output := getString(cmd, "out")
 		//
 		if filter != "" {
-			trace = filterColumns(trace, filter)
+			tr = filterColumns(tr, filter)
 		}
 		if padding != 0 {
-			trace.Pad(padding)
+			trace.PadColumns(tr, padding)
 		}
 		if list {
-			listColumns(trace)
+			listColumns(tr)
 		}
 		//
 		if output != "" {
-			writeTraceFile(output, trace)
+			writeTraceFile(output, tr)
 		}
 
 		if print {
-			printTrace(start, end, max_width, trace)
+			printTrace(start, end, max_width, tr)
 		}
 	},
 }
@@ -59,10 +59,10 @@ var traceCmd = &cobra.Command{
 func filterColumns(tr trace.Trace, prefix string) trace.Trace {
 	ntr := trace.EmptyArrayTrace()
 	//
-	for i := uint(0); i < tr.Width(); i++ {
-		ith := tr.Column(i)
+	for i := tr.Columns().Iter(); i.HasNext(); {
+		ith := i.Next()
 		if strings.HasPrefix(ith.Name(), prefix) {
-			ntr.Add(ith)
+			ntr.Columns().Add(ith)
 		}
 	}
 	// Done
@@ -70,10 +70,11 @@ func filterColumns(tr trace.Trace, prefix string) trace.Trace {
 }
 
 func listColumns(tr trace.Trace) {
-	tbl := util.NewTablePrinter(3, tr.Width())
+	n := tr.Columns().Len()
+	tbl := util.NewTablePrinter(3, n)
 
-	for i := uint(0); i < tr.Width(); i++ {
-		ith := tr.Column(i)
+	for i := uint(0); i < n; i++ {
+		ith := tr.Columns().Get(i)
 		elems := fmt.Sprintf("%d rows", ith.Height())
 		bytes := fmt.Sprintf("%d bytes", ith.Width()*ith.Height())
 		tbl.SetRow(i, ith.Name(), elems, bytes)
@@ -85,15 +86,17 @@ func listColumns(tr trace.Trace) {
 }
 
 func printTrace(start uint, end uint, max_width uint, tr trace.Trace) {
+	cols := tr.Columns()
+	n := cols.Len()
 	height := min(tr.Height(), end) - start
-	tbl := util.NewTablePrinter(1+height, 1+tr.Width())
+	tbl := util.NewTablePrinter(1+height, 1+n)
 
 	for j := uint(0); j < height; j++ {
 		tbl.Set(j+1, 0, fmt.Sprintf("#%d", j+start))
 	}
 
-	for i := uint(0); i < tr.Width(); i++ {
-		ith := tr.Column(i)
+	for i := uint(0); i < n; i++ {
+		ith := cols.Get(i)
 		tbl.Set(0, i+1, ith.Name())
 
 		if start < ith.Height() {

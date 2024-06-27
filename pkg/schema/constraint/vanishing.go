@@ -85,20 +85,29 @@ func (p *VanishingConstraint[T]) Accepts(tr trace.Trace) error {
 		// Global Constraint
 		return HoldsGlobally(p.handle, p.constraint, tr)
 	}
+	// Local constraint
+	var start uint
+	if *p.domain < 0 {
+		// Negative rows calculated from end of trace.
+		start = tr.Height() + uint(*p.domain)
+	} else {
+		start = uint(*p.domain)
+	}
 	// Check specific row
-	return HoldsLocally(*p.domain, p.handle, p.constraint, tr)
+	return HoldsLocally(start, p.handle, p.constraint, tr)
 }
 
 // HoldsGlobally checks whether a given expression vanishes (i.e. evaluates to
 // zero) for all rows of a trace.  If not, report an appropriate error.
 func HoldsGlobally[T schema.Testable](handle string, constraint T, tr trace.Trace) error {
+	n := tr.Height()
 	// Determine well-definedness bounds for this constraint
 	bounds := constraint.Bounds()
 	// Sanity check enough rows
-	if bounds.End < tr.Height() {
+	if bounds.End < n {
 		// Check all in-bounds values
-		for k := bounds.Start; k < (tr.Height() - bounds.End); k++ {
-			if err := HoldsLocally(int(k), handle, constraint, tr); err != nil {
+		for k := bounds.Start; k < (n - bounds.End); k++ {
+			if err := HoldsLocally(k, handle, constraint, tr); err != nil {
 				return err
 			}
 		}
@@ -109,13 +118,9 @@ func HoldsGlobally[T schema.Testable](handle string, constraint T, tr trace.Trac
 
 // HoldsLocally checks whether a given constraint holds (e.g. vanishes) on a
 // specific row of a trace. If not, report an appropriate error.
-func HoldsLocally[T schema.Testable](k int, handle string, constraint T, tr trace.Trace) error {
-	// Negative rows calculated from end of trace.
-	if k < 0 {
-		k += int(tr.Height())
-	}
+func HoldsLocally[T schema.Testable](k uint, handle string, constraint T, tr trace.Trace) error {
 	// Check whether it holds or not
-	if !constraint.TestAt(k, tr) {
+	if !constraint.TestAt(int(k), tr) {
 		// Construct useful error message
 		msg := fmt.Sprintf("constraint \"%s\" does not hold (row %d)", handle, k)
 		// Evaluation failure

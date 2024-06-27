@@ -22,14 +22,16 @@ func FromBytes(bytes []byte) (*trace.ArrayTrace, error) {
 		return nil, jsonErr
 	}
 
-	trace := trace.EmptyArrayTrace()
+	tr := trace.EmptyArrayTrace()
+	columns := tr.Columns()
 
 	for name, rawInts := range rawData {
 		// Translate raw bigints into raw field elements
 		rawElements := util.ToFieldElements(rawInts)
 		// Add new column to the trace
-		trace.AddColumn(name, rawElements, &zero)
+		// FIXME: module index should not always be zero!
+		columns.Add(trace.NewFieldColumn(0, name, rawElements, &zero))
 	}
 	// Done.
-	return trace, nil
+	return tr, nil
 }

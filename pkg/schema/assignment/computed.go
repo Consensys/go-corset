@@ -17,7 +17,8 @@ import (
 // give rise to "trace expansion".  That is where the initial trace provided by
 // the user is expanded by determining the value of all computed columns.
 type ComputedColumn[E sc.Evaluable] struct {
-	name string
+	module uint
+	name   string
 	// The computation which accepts a given trace and computes
 	// the value of this column at a given row.
 	expr E
@@ -27,7 +28,8 @@ type ComputedColumn[E sc.Evaluable] struct {
 // determining expression.  More specifically, that expression is used to
 // compute the values for this column during trace expansion.
 func NewComputedColumn[E sc.Evaluable](name string, expr E) *ComputedColumn[E] {
-	return &ComputedColumn[E]{name, expr}
+	// FIXME: module index should not always be zero!
+	return &ComputedColumn[E]{0, name, expr}
 }
 
 // nolint:revive
@@ -76,7 +78,9 @@ func (p *ComputedColumn[E]) RequiredSpillage() uint {
 // of evaluating a given expression on each row.  If the column already exists,
 // then an error is flagged.
 func (p *ComputedColumn[E]) ExpandTrace(tr trace.Trace) error {
-	if tr.HasColumn(p.name) {
+	columns := tr.Columns()
+	// Check whether a column already exists with the given name.
+	if tr.Columns().Has(func(c trace.Column) bool { return c.Name() == p.name }) {
 		return fmt.Errorf("Computed column already exists ({%s})", p.name)
 	}
 
@@ -96,7 +100,7 @@ func (p *ComputedColumn[E]) ExpandTrace(tr trace.Trace) error {
 	// the padding value for *this* column.
 	padding := p.expr.EvalAt(-1, tr)
 	// Colunm needs to be expanded.
-	tr.Add(trace.NewFieldColumn(p.name, data, padding))
+	columns.Add(trace.NewFieldColumn(p.module, p.name, data, padding))
 	// Done
 	return nil
 }

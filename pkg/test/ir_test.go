@@ -404,7 +404,7 @@ func checkInputTrace(t *testing.T, tr *trace.ArrayTrace, id traceId, schema sc.S
 	// Clone trace (to ensure expansion does not affect subsequent tests)
 	etr := tr.Clone()
 	// Apply spillage
-	etr.Pad(id.spillage)
+	trace.PadColumns(etr, id.spillage)
 	// Expand trace
 	err := sc.ExpandTrace(schema, etr)
 	// Check
@@ -420,7 +420,7 @@ func checkInputTrace(t *testing.T, tr *trace.ArrayTrace, id traceId, schema sc.S
 
 func checkExpandedTrace(t *testing.T, tr trace.Trace, id traceId, schema sc.Schema) {
 	// Apply padding
-	tr.Pad(id.padding)
+	trace.PadColumns(tr, id.padding)
 	// Check
 	err := sc.Accepts(schema, tr)
 	// Determine whether trace accepted or not.

@@ -31,14 +31,15 @@ func ToBytesBuffer(tr trace.Trace) (*bytes.Buffer, error) {
 
 // WriteBytes a given trace file to an io.Writer.
 func WriteBytes(tr trace.Trace, buf io.Writer) error {
-	ncols := tr.Width()
+	columns := tr.Columns()
+	ncols := columns.Len()
 	// Write column count
 	if err := binary.Write(buf, binary.BigEndian, uint32(ncols)); err != nil {
 		return err
 	}
 	// Write header information
 	for i := uint(0); i < ncols; i++ {
-		col := tr.Column(i)
+		col := columns.Get(i)
 		// Write name length
 		nameBytes := []byte(col.Name())
 		nameLen := uint16(len(nameBytes))
@@ -62,7 +63,7 @@ func WriteBytes(tr trace.Trace, buf io.Writer) error {
 	}
 	// Write column data information
 	for i := uint(0); i < ncols; i++ {
-		col := tr.Column(i)
+		col := columns.Get(i)
 		if err := col.Write(buf); err != nil {
 			return err
 		}
