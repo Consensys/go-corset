@@ -207,7 +207,7 @@ func toErrorString(err error) string {
 }
 
 func reportError(ir string, tr trace.Trace, err error, cfg checkConfig) {
-	if cfg.report {
+	if cfg.report && tr != nil {
 		trace.PrintTrace(tr)
 	}
 

@@ -146,7 +146,7 @@ func readSchemaFile(filename string) *hir.Schema {
 				return schema
 			}
 		default:
-			err = fmt.Errorf("Unknown trace file format: %s\n", ext)
+			err = fmt.Errorf("Unknown schema file format: %s\n", ext)
 		}
 	}
 	// Handle error
@@ -181,4 +181,17 @@ func printSyntaxError(filename string, err *sexp.SyntaxError, text string) {
 	length := min(line.Length()-lineOffset, span.Length())
 	// Print highlight
 	fmt.Println(strings.Repeat("^", length))
+}
+
+// QualifiedColumnName returns a fully qualified column name based on its column
+// index.
+func QualifiedColumnName(cid uint, tr trace.Trace) string {
+	col := tr.Columns().Get(cid)
+	mod := tr.Modules().Get(col.Module())
+	// Check whether qualification required
+	if mod.Name() != "" {
+		return fmt.Sprintf("%s.%s", mod.Name(), col.Name())
+	}
+	// Prelude module
+	return col.Name()
 }

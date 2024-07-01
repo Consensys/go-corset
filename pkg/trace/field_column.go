@@ -1,9 +1,7 @@
 package trace
 
 import (
-	"fmt"
 	"io"
-	"strings"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
@@ -15,7 +13,6 @@ import (
 // use quite a lot of memory.  In particular, when there are many different
 // field elements which have smallish values then this requires excess data.
 type FieldColumn struct {
-	// Index of the module which contains this column
 	module uint
 	// Holds the name of this column
 	name string
@@ -28,6 +25,11 @@ type FieldColumn struct {
 // NewFieldColumn constructs a FieldColumn with the give name, data and padding.
 func NewFieldColumn(module uint, name string, data []*fr.Element, padding *fr.Element) *FieldColumn {
 	return &FieldColumn{module, name, data, padding}
+}
+
+// Module returns the enclosing module of this column
+func (p *FieldColumn) Module() uint {
+	return p.module
 }
 
 // Name returns the name of the given column.
@@ -108,19 +110,4 @@ func (p *FieldColumn) Write(w io.Writer) error {
 	}
 	//
 	return nil
-}
-
-func (p *FieldColumn) String() string {
-	var builder strings.Builder
-
-	builder.WriteString("(")
-	builder.WriteString(fmt.Sprintf("%d", p.module))
-	builder.WriteString(".")
-	builder.WriteString(p.name)
-	builder.WriteString(":")
-	builder.WriteString(p.padding.String())
-	builder.WriteString(":")
-	builder.WriteString(fmt.Sprintf("%v", p.data))
-	// Done
-	return builder.String()
 }

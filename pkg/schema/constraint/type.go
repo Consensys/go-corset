@@ -40,7 +40,10 @@ func (p *TypeConstraint) Type() schema.Type {
 // every row of a table. If so, return nil otherwise return an error.
 func (p *TypeConstraint) Accepts(tr trace.Trace) error {
 	column := tr.Columns().Get(p.column)
-	for k := 0; k < int(tr.Height()); k++ {
+	// Determine height of enclosing module
+	height := tr.Modules().Get(column.Module()).Height()
+	// Iterate every row
+	for k := 0; k < int(height); k++ {
 		// Get the value on the kth row
 		kth := column.Get(k)
 		// Perform the type check

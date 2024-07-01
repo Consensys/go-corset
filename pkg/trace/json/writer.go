@@ -1,6 +1,7 @@
 package json
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/trace"
@@ -15,14 +16,21 @@ func ToJsonString(tr trace.Trace) string {
 	builder.WriteString("{")
 	//
 	for i := uint(0); i < columns.Len(); i++ {
+		ith := columns.Get(i)
+		mod := tr.Modules().Get(ith.Module())
+		// Determine fully qualified column name
+		name := ith.Name()
+		// Prepend module name (if applicable)
+		if mod.Name() != "" {
+			name = fmt.Sprintf("%s.%s", mod.Name(), name)
+		}
+		//
 		if i != 0 {
 			builder.WriteString(", ")
 		}
-
-		ith := columns.Get(i)
-
+		//
 		builder.WriteString("\"")
-		builder.WriteString(ith.Name())
+		builder.WriteString(name)
 		builder.WriteString("\": [")
 
 		for j := 0; j < int(ith.Height()); j++ {

@@ -14,6 +14,9 @@ import (
 // columns.  Specifically, a delta column is required along with one selector
 // column (binary) for each source column.
 type LexicographicSort struct {
+	// Module in which source and target columns to be located.  All target and
+	// source columns should be contained within this module.
+	module uint
 	// The target columns to be filled.  The first entry is for the delta
 	// column, and the remaining n entries are for the selector columns.
 	targets []schema.Column
@@ -33,8 +36,8 @@ func NewLexicographicSort(prefix string, sources []uint, signs []bool, bitwidth 
 		ithName := fmt.Sprintf("%s:%d", prefix, i)
 		targets[1+i] = schema.NewColumn(ithName, schema.NewUintType(1))
 	}
-	// Done
-	return &LexicographicSort{targets, sources, signs, bitwidth}
+	// FIXME: determine correct module index
+	return &LexicographicSort{0, targets, sources, signs, bitwidth}
 }
 
 // ============================================================================
@@ -71,7 +74,7 @@ func (p *LexicographicSort) ExpandTrace(tr trace.Trace) error {
 	// Exact number of columns involved in the sort
 	ncols := len(p.sources)
 	// Determine how many rows to be constrained.
-	nrows := tr.Height()
+	nrows := tr.Modules().Get(p.module).Height()
 	// Initialise new data columns
 	delta := make([]*fr.Element, nrows)
 	bit := make([][]*fr.Element, ncols)

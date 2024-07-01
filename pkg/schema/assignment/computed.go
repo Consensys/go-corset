@@ -17,8 +17,10 @@ import (
 // give rise to "trace expansion".  That is where the initial trace provided by
 // the user is expanded by determining the value of all computed columns.
 type ComputedColumn[E sc.Evaluable] struct {
+	// Module in which to locate new column
 	module uint
-	name   string
+	// Name of the new column
+	name string
 	// The computation which accepts a given trace and computes
 	// the value of this column at a given row.
 	expr E
@@ -80,11 +82,11 @@ func (p *ComputedColumn[E]) RequiredSpillage() uint {
 func (p *ComputedColumn[E]) ExpandTrace(tr trace.Trace) error {
 	columns := tr.Columns()
 	// Check whether a column already exists with the given name.
-	if tr.Columns().Has(func(c trace.Column) bool { return c.Name() == p.name }) {
+	if tr.Columns().HasColumn(p.name) {
 		return fmt.Errorf("Computed column already exists ({%s})", p.name)
 	}
 
-	data := make([]*fr.Element, tr.Height())
+	data := make([]*fr.Element, tr.Modules().Get(p.module).Height())
 	// Expand the trace
 	for i := 0; i < len(data); i++ {
 		val := p.expr.EvalAt(i, tr)

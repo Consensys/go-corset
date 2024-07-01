@@ -33,7 +33,7 @@ var traceCmd = &cobra.Command{
 		max_width := getUint(cmd, "max-width")
 		filter := getString(cmd, "filter")
 		output := getString(cmd, "out")
-		//
+		// construct filters
 		if filter != "" {
 			tr = filterColumns(tr, filter)
 		}
@@ -57,16 +57,36 @@ var traceCmd = &cobra.Command{
 // Construct a new trace containing only those columns from the original who
 // name begins with the given prefix.
 func filterColumns(tr trace.Trace, prefix string) trace.Trace {
-	ntr := trace.EmptyArrayTrace()
-	//
-	for i := tr.Columns().Iter(); i.HasNext(); {
-		ith := i.Next()
-		if strings.HasPrefix(ith.Name(), prefix) {
-			ntr.Columns().Add(ith)
+	n := tr.Columns().Len()
+	builder := trace.NewBuilder()
+	// Initialise modules in the builder to ensure module indices are preserved
+	// across traces.
+	for i := uint(0); i < n; i++ {
+		ith := tr.Columns().Get(i)
+		name := tr.Modules().Get(ith.Module()).Name()
+
+		if !builder.HasModule(name) {
+			if _, err := builder.Register(name, ith.Height()); err != nil {
+				panic(err)
+			}
+		}
+	}
+	// Now create the columns.
+	for i := uint(0); i < n; i++ {
+		qName := QualifiedColumnName(i, tr)
+		//
+		if strings.HasPrefix(qName, prefix) {
+			ith := tr.Columns().Get(i)
+
+			err := builder.Add(qName, ith.Padding(), ith.Data())
+			// Sanity check
+			if err != nil {
+				panic(err)
+			}
 		}
 	}
 	// Done
-	return ntr
+	return builder.Build()
 }
 
 func listColumns(tr trace.Trace) {
@@ -77,7 +97,7 @@ func listColumns(tr trace.Trace) {
 		ith := tr.Columns().Get(i)
 		elems := fmt.Sprintf("%d rows", ith.Height())
 		bytes := fmt.Sprintf("%d bytes", ith.Width()*ith.Height())
-		tbl.SetRow(i, ith.Name(), elems, bytes)
+		tbl.SetRow(i, QualifiedColumnName(i, tr), elems, bytes)
 	}
 
 	//
@@ -87,8 +107,8 @@ func listColumns(tr trace.Trace) {
 
 func printTrace(start uint, end uint, max_width uint, tr trace.Trace) {
 	cols := tr.Columns()
-	n := cols.Len()
-	height := min(tr.Height(), end) - start
+	n := tr.Columns().Len()
+	height := min(trace.MaxHeight(tr), end) - start
 	tbl := util.NewTablePrinter(1+height, 1+n)
 
 	for j := uint(0); j < height; j++ {
@@ -97,7 +117,7 @@ func printTrace(start uint, end uint, max_width uint, tr trace.Trace) {
 
 	for i := uint(0); i < n; i++ {
 		ith := cols.Get(i)
-		tbl.Set(0, i+1, ith.Name())
+		tbl.Set(0, i+1, QualifiedColumnName(i, tr))
 
 		if start < ith.Height() {
 			ith_height := min(ith.Height(), end) - start
@@ -106,7 +126,6 @@ func printTrace(start uint, end uint, max_width uint, tr trace.Trace) {
 			}
 		}
 	}
-
 	//
 	tbl.SetMaxWidth(max_width)
 	tbl.Print()

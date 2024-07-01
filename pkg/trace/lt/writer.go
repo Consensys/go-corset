@@ -3,6 +3,7 @@ package lt
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"log"
 
@@ -32,6 +33,7 @@ func ToBytesBuffer(tr trace.Trace) (*bytes.Buffer, error) {
 // WriteBytes a given trace file to an io.Writer.
 func WriteBytes(tr trace.Trace, buf io.Writer) error {
 	columns := tr.Columns()
+	modules := tr.Modules()
 	ncols := columns.Len()
 	// Write column count
 	if err := binary.Write(buf, binary.BigEndian, uint32(ncols)); err != nil {
@@ -40,8 +42,14 @@ func WriteBytes(tr trace.Trace, buf io.Writer) error {
 	// Write header information
 	for i := uint(0); i < ncols; i++ {
 		col := columns.Get(i)
+		mod := modules.Get(col.Module())
+		name := col.Name()
+		// Prepend module name (if applicable)
+		if mod.Name() != "" {
+			name = fmt.Sprintf("%s.%s", mod.Name(), name)
+		}
 		// Write name length
-		nameBytes := []byte(col.Name())
+		nameBytes := []byte(name)
 		nameLen := uint16(len(nameBytes))
 
 		if err := binary.Write(buf, binary.BigEndian, nameLen); err != nil {

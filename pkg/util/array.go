@@ -6,8 +6,6 @@ package util
 type Array[T any] interface {
 	// Add a given element to this array, returning the index of the new item.
 	Add(T) uint
-	// Clone the given array
-	Clone() Array[T]
 	// Find the first element matching a given predicate, returning its index.
 	// Otherwise, returns false when no such element exists.
 	Find(Predicate[T]) (uint, bool)
