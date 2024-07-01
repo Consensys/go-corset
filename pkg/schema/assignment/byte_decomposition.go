@@ -63,12 +63,13 @@ func (p *ByteDecomposition) IsComputed() bool {
 // ByteDecomposition.  This requires computing the value of each byte column in
 // the decomposition.
 func (p *ByteDecomposition) ExpandTrace(tr trace.Trace) error {
+	columns := tr.Columns()
 	// Calculate how many bytes required.
 	n := len(p.targets)
 	// Identify target column
-	target := tr.Column(p.source)
+	target := columns.Get(p.source)
 	// Extract column data to decompose
-	data := tr.Column(p.source).Data()
+	data := columns.Get(p.source).Data()
 	// Construct byte column data
 	cols := make([][]*fr.Element, n)
 	// Initialise columns
@@ -86,7 +87,8 @@ func (p *ByteDecomposition) ExpandTrace(tr trace.Trace) error {
 	padding := decomposeIntoBytes(target.Padding(), n)
 	// Finally, add byte columns to trace
 	for i := 0; i < n; i++ {
-		tr.Add(trace.NewFieldColumn(p.targets[i].Name(), cols[i], padding[i]))
+		ith := p.targets[i]
+		columns.Add(trace.NewFieldColumn(ith.Module(), ith.Name(), cols[i], padding[i]))
 	}
 	// Done
 	return nil

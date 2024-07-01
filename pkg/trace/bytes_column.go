@@ -11,7 +11,8 @@ import (
 // in this column is potentially slower than for a FieldColumn, as the raw bytes
 // must be converted into a field element.
 type BytesColumn struct {
-	name string
+	module uint
+	name   string
 	// Determines how many bytes each field element takes.  For the BLS12-377
 	// curve, this should be 32.  In the future, when other curves are
 	// supported, this could be less.
@@ -25,8 +26,14 @@ type BytesColumn struct {
 }
 
 // NewBytesColumn constructs a new BytesColumn from its constituent parts.
-func NewBytesColumn(name string, width uint8, length uint, bytes []byte, padding *fr.Element) *BytesColumn {
-	return &BytesColumn{name, width, length, bytes, padding}
+func NewBytesColumn(module uint, name string, width uint8, length uint,
+	bytes []byte, padding *fr.Element) *BytesColumn {
+	return &BytesColumn{module, name, width, length, bytes, padding}
+}
+
+// Module returns the enclosing module of this column
+func (p *BytesColumn) Module() uint {
+	return p.module
 }
 
 // Name returns the name of this column

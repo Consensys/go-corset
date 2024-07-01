@@ -103,6 +103,8 @@ type Testable interface {
 // Column represents a specific column in the schema that, ultimately, will
 // correspond 1:1 with a column in the trace.
 type Column struct {
+	// Returns the index of the module which contains this column
+	module uint
 	// Returns the name of this column
 	name string
 	// Returns the expected type of data in this column
@@ -111,7 +113,13 @@ type Column struct {
 
 // NewColumn constructs a new column
 func NewColumn(name string, datatype Type) Column {
-	return Column{name, datatype}
+	// FIXME: module index should not always be zero!
+	return Column{0, name, datatype}
+}
+
+// Module returns the index of the module which contains this column
+func (p Column) Module() uint {
+	return p.module
 }
 
 // Name returns the name of this column

@@ -12,7 +12,7 @@ import (
 // FromBytes parses a trace expressed in JSON notation.  For example, {"X":
 // [0], "Y": [1]} is a trace containing one row of data each for two columns "X"
 // and "Y".
-func FromBytes(bytes []byte) (*trace.ArrayTrace, error) {
+func FromBytes(bytes []byte) (trace.Trace, error) {
 	var zero fr.Element = fr.NewElement((0))
 
 	var rawData map[string][]*big.Int
@@ -22,14 +22,16 @@ func FromBytes(bytes []byte) (*trace.ArrayTrace, error) {
 		return nil, jsonErr
 	}
 
-	trace := trace.EmptyArrayTrace()
+	builder := trace.NewBuilder()
 
 	for name, rawInts := range rawData {
 		// Translate raw bigints into raw field elements
 		rawElements := util.ToFieldElements(rawInts)
-		// Add new column to the trace
-		trace.AddColumn(name, rawElements, &zero)
+		// Add column and sanity check for errors
+		if err := builder.Add(name, &zero, rawElements); err != nil {
+			return nil, err
+		}
 	}
 	// Done.
-	return trace, nil
+	return builder.Build(), nil
 }

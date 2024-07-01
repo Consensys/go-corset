@@ -7,14 +7,15 @@ import (
 
 // PrintTrace prints a trace in a more human-friendly fashion.
 func PrintTrace(tr Trace) {
-	n := tr.Width()
+	n := tr.Columns().Len()
+	m := MaxHeight(tr)
 	//
 	rows := make([][]string, n)
 	for i := uint(0); i < n; i++ {
 		rows[i] = traceColumnData(tr, i)
 	}
 	//
-	widths := traceRowWidths(tr.Height(), rows)
+	widths := traceRowWidths(m, rows)
 	//
 	printHorizontalRule(widths)
 	//
@@ -25,13 +26,14 @@ func PrintTrace(tr Trace) {
 }
 
 func traceColumnData(tr Trace, col uint) []string {
-	n := tr.Height()
+	columns := tr.Columns()
+	n := MaxHeight(tr)
 	data := make([]string, n+2)
 	data[0] = fmt.Sprintf("#%d", col)
-	data[1] = tr.Column(col).Name()
+	data[1] = columns.Get(col).Name()
 
 	for row := 0; row < int(n); row++ {
-		data[row+2] = tr.Column(col).Get(row).String()
+		data[row+2] = columns.Get(col).Get(row).String()
 	}
 
 	return data

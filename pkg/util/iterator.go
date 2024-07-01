@@ -36,13 +36,13 @@ type Iterator[T any] interface {
 // Append Iterator
 // ===============================================================
 
-type appendIterator[T comparable] struct {
+type appendIterator[T any] struct {
 	left  Iterator[T]
 	right Iterator[T]
 }
 
 // NewAppendIterator construct an iterator over an array of items.
-func NewAppendIterator[T comparable](left Iterator[T], right Iterator[T]) Iterator[T] {
+func NewAppendIterator[T any](left Iterator[T], right Iterator[T]) Iterator[T] {
 	return &appendIterator[T]{left, right}
 }
 
@@ -75,6 +75,8 @@ func (p *appendIterator[T]) Append(iter Iterator[T]) Iterator[T] {
 // Clone creates a copy of this iterator at the given cursor position.
 // Modifying the clone (i.e. by calling Next) iterator will not modify the
 // original.
+//
+//nolint:revive
 func (p *appendIterator[T]) Clone() Iterator[T] {
 	return NewAppendIterator[T](p.left.Clone(), p.right.Clone())
 }
@@ -118,13 +120,13 @@ func (p *appendIterator[T]) Nth(n uint) T {
 // ===============================================================
 
 // ArrayIterator provides an iterator implementation for an Array.
-type arrayIterator[T comparable] struct {
+type arrayIterator[T any] struct {
 	items []T
 	index uint
 }
 
 // NewArrayIterator construct an iterator over an array of items.
-func NewArrayIterator[T comparable](items []T) Iterator[T] {
+func NewArrayIterator[T any](items []T) Iterator[T] {
 	return &arrayIterator[T]{items, 0}
 }
 
@@ -401,13 +403,13 @@ func (p *flattenIterator[S, T]) Nth(n uint) T {
 // Unit Iterator
 // ===============================================================
 
-type unitIterator[T comparable] struct {
+type unitIterator[T any] struct {
 	item  T
 	index uint
 }
 
 // NewUnitIterator construct an iterator over an array of items.
-func NewUnitIterator[T comparable](item T) *unitIterator[T] {
+func NewUnitIterator[T any](item T) *unitIterator[T] {
 	return &unitIterator[T]{item, 0}
 }
 
@@ -497,7 +499,7 @@ type BaseIterator[T any] interface {
 	Next() T
 }
 
-func baseFind[T comparable, S BaseIterator[T]](iter S, predicate Predicate[T]) (uint, bool) {
+func baseFind[T any, S BaseIterator[T]](iter S, predicate Predicate[T]) (uint, bool) {
 	index := uint(0)
 
 	for i := iter; i.HasNext(); {
@@ -511,7 +513,7 @@ func baseFind[T comparable, S BaseIterator[T]](iter S, predicate Predicate[T]) (
 	return 0, false
 }
 
-func baseNth[T comparable, S BaseIterator[T]](iter S, n uint) T {
+func baseNth[T any, S BaseIterator[T]](iter S, n uint) T {
 	index := uint(0)
 
 	for i := iter; i.HasNext(); {

@@ -160,10 +160,10 @@ func checkTrace(tr trace.Trace, schema sc.Schema, cfg checkConfig) (trace.Trace,
 		// Apply spillage
 		if cfg.spillage >= 0 {
 			// Apply user-specified spillage
-			tr.Pad(uint(cfg.spillage))
+			trace.PadColumns(tr, uint(cfg.spillage))
 		} else {
 			// Apply default inferred spillage
-			tr.Pad(sc.RequiredSpillage(schema))
+			trace.PadColumns(tr, sc.RequiredSpillage(schema))
 		}
 		// Perform Input Alignment
 		if err := sc.AlignInputs(tr, schema); err != nil {
@@ -188,7 +188,7 @@ func checkTrace(tr trace.Trace, schema sc.Schema, cfg checkConfig) (trace.Trace,
 		// Prevent interference
 		ptr := tr.Clone()
 		// Apply padding
-		ptr.Pad(n)
+		trace.PadColumns(ptr, n)
 		// Check whether accepted or not.
 		if err := sc.Accepts(schema, ptr); err != nil {
 			return ptr, err
@@ -207,7 +207,7 @@ func toErrorString(err error) string {
 }
 
 func reportError(ir string, tr trace.Trace, err error, cfg checkConfig) {
-	if cfg.report {
+	if cfg.report && tr != nil {
 		trace.PrintTrace(tr)
 	}
 

@@ -11,6 +11,7 @@ import (
 // FromBytes parses a byte array representing a given LT trace file into an
 // columns, or produces an error if the original file was malformed in some way.
 func FromBytes(data []byte) (trace.Trace, error) {
+	var zero fr.Element = fr.NewElement((0))
 	// Construct new bytes.Reader
 	buf := bytes.NewReader(data)
 	// Read Number of BytesColumns
@@ -18,60 +19,93 @@ func FromBytes(data []byte) (trace.Trace, error) {
 	if err := binary.Read(buf, binary.BigEndian, &ncols); err != nil {
 		return nil, err
 	}
+	// Construct empty environment
+	builder := trace.NewBuilder()
+	headers := make([]columnHeader, ncols)
 	// Read column headers
-	columns := make([]trace.Column, ncols)
-
 	for i := uint32(0); i < ncols; i++ {
-		var err error
-		columns[i], err = readColumnHeader(buf)
-		// Sanity check whether an error occurred
+		header, err := readColumnHeader(buf)
+		// Read column
 		if err != nil {
-			// Return what we can anyway.
+			// Handle error
 			return nil, err
 		}
+		// Assign header
+		headers[i] = header
 	}
 	// Determine byte slices
 	offset := uint(len(data) - buf.Len())
 
-	for i := uint32(0); i < ncols; i++ {
-		ith := columns[i].(*trace.BytesColumn)
+	for i := uint(0); i < uint(ncols); i++ {
+		ith := headers[i]
 		// Calculate length (in bytes) of this column
-		nbytes := ith.Width() * ith.Height()
+		nbytes := ith.width * ith.length
+		// Read column data
+		elements := readColumnData(ith, data[offset:offset+nbytes])
 		// Construct appropriate slice
-		ith.SetBytes(data[offset : offset+nbytes])
+		if err := builder.Add(ith.name, &zero, elements); err != nil {
+			return nil, err
+		}
 		// Update byte offset
 		offset += nbytes
 	}
 	// Done
-	return trace.NewArrayTrace(columns)
+	return builder.Build(), nil
+}
+
+type columnHeader struct {
+	name   string
+	length uint
+	width  uint
 }
 
 // Read the meta-data for a specific column in this trace file.
-func readColumnHeader(buf *bytes.Reader) (*trace.BytesColumn, error) {
+func readColumnHeader(buf *bytes.Reader) (columnHeader, error) {
+	var header columnHeader
+	// Qualified column name length
 	var nameLen uint16
 	// Read column name length
 	if err := binary.Read(buf, binary.BigEndian, &nameLen); err != nil {
-		return nil, err
+		return header, err
 	}
 	// Read column name bytes
 	name := make([]byte, nameLen)
 	if _, err := buf.Read(name); err != nil {
-		return nil, err
+		return header, err
 	}
 
 	// Read bytes per element
 	var bytesPerElement uint8
 	if err := binary.Read(buf, binary.BigEndian, &bytesPerElement); err != nil {
-		return nil, err
+		return header, err
 	}
 
 	// Read column length
 	var length uint32
 	if err := binary.Read(buf, binary.BigEndian, &length); err != nil {
-		return nil, err
+		return header, err
 	}
-	// Default padding
-	zero := fr.NewElement(0)
+	// Height is length
+	header.length = uint(length)
+	header.name = string(name)
+	header.width = uint(bytesPerElement)
+	// Add new column
+	return header, nil
+}
+
+func readColumnData(header columnHeader, bytes []byte) []*fr.Element {
+	data := make([]*fr.Element, header.length)
+	offset := uint(0)
+
+	for i := uint(0); i < header.length; i++ {
+		var ith fr.Element
+		// Calculate position of next element
+		next := offset + header.width
+		// Construct ith field element
+		data[i] = ith.SetBytes(bytes[offset:next])
+		// Move offset to next element
+		offset = next
+	}
 	// Done
-	return trace.NewBytesColumn(string(name), bytesPerElement, uint(length), nil, &zero), nil
+	return data
 }

@@ -77,7 +77,7 @@ func sliceColumns(columns []uint, tr trace.Trace) [][]*fr.Element {
 	cols := make([][]*fr.Element, len(columns))
 	// Slice out the data
 	for i, n := range columns {
-		nth := tr.Column(n)
+		nth := tr.Columns().Get(n)
 		cols[i] = nth.Data()
 	}
 	// Done

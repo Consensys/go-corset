@@ -13,6 +13,7 @@ import (
 // use quite a lot of memory.  In particular, when there are many different
 // field elements which have smallish values then this requires excess data.
 type FieldColumn struct {
+	module uint
 	// Holds the name of this column
 	name string
 	// Holds the raw data making up this column
@@ -22,8 +23,13 @@ type FieldColumn struct {
 }
 
 // NewFieldColumn constructs a FieldColumn with the give name, data and padding.
-func NewFieldColumn(name string, data []*fr.Element, padding *fr.Element) *FieldColumn {
-	return &FieldColumn{name, data, padding}
+func NewFieldColumn(module uint, name string, data []*fr.Element, padding *fr.Element) *FieldColumn {
+	return &FieldColumn{module, name, data, padding}
+}
+
+// Module returns the enclosing module of this column
+func (p *FieldColumn) Module() uint {
+	return p.module
 }
 
 // Name returns the name of the given column.

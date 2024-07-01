@@ -45,6 +45,9 @@ type VanishingConstraint[T schema.Testable] struct {
 	// A unique identifier for this constraint.  This is primarily
 	// useful for debugging.
 	handle string
+	// Enclosing module for this assertion.  This restricts the constraint to
+	// access only columns from within this module.
+	module uint
 	// Indicates (when nil) a global constraint that applies to all rows.
 	// Otherwise, indicates a local constraint which applies to the specific row
 	// given here.
@@ -56,7 +59,8 @@ type VanishingConstraint[T schema.Testable] struct {
 
 // NewVanishingConstraint constructs a new vanishing constraint!
 func NewVanishingConstraint[T schema.Testable](handle string, domain *int, constraint T) *VanishingConstraint[T] {
-	return &VanishingConstraint[T]{handle, domain, constraint}
+	// FIXME: determine correct module index
+	return &VanishingConstraint[T]{handle, 0, domain, constraint}
 }
 
 // Handle returns the handle associated with this constraint.
@@ -83,22 +87,35 @@ func (p *VanishingConstraint[T]) Domain() *int {
 func (p *VanishingConstraint[T]) Accepts(tr trace.Trace) error {
 	if p.domain == nil {
 		// Global Constraint
-		return HoldsGlobally(p.handle, p.constraint, tr)
+		return HoldsGlobally(p.handle, p.module, p.constraint, tr)
+	}
+	// Local constraint
+	var start uint
+	// Handle negative domains
+	if *p.domain < 0 {
+		// Determine height of enclosing module
+		height := tr.Modules().Get(p.module).Height()
+		// Negative rows calculated from end of trace.
+		start = height + uint(*p.domain)
+	} else {
+		start = uint(*p.domain)
 	}
 	// Check specific row
-	return HoldsLocally(*p.domain, p.handle, p.constraint, tr)
+	return HoldsLocally(start, p.handle, p.constraint, tr)
 }
 
 // HoldsGlobally checks whether a given expression vanishes (i.e. evaluates to
 // zero) for all rows of a trace.  If not, report an appropriate error.
-func HoldsGlobally[T schema.Testable](handle string, constraint T, tr trace.Trace) error {
+func HoldsGlobally[T schema.Testable](handle string, module uint, constraint T, tr trace.Trace) error {
+	// Determine height of enclosing module
+	height := tr.Modules().Get(module).Height()
 	// Determine well-definedness bounds for this constraint
 	bounds := constraint.Bounds()
 	// Sanity check enough rows
-	if bounds.End < tr.Height() {
+	if bounds.End < height {
 		// Check all in-bounds values
-		for k := bounds.Start; k < (tr.Height() - bounds.End); k++ {
-			if err := HoldsLocally(int(k), handle, constraint, tr); err != nil {
+		for k := bounds.Start; k < (height - bounds.End); k++ {
+			if err := HoldsLocally(k, handle, constraint, tr); err != nil {
 				return err
 			}
 		}
@@ -109,13 +126,9 @@ func HoldsGlobally[T schema.Testable](handle string, constraint T, tr trace.Trac
 
 // HoldsLocally checks whether a given constraint holds (e.g. vanishes) on a
 // specific row of a trace. If not, report an appropriate error.
-func HoldsLocally[T schema.Testable](k int, handle string, constraint T, tr trace.Trace) error {
-	// Negative rows calculated from end of trace.
-	if k < 0 {
-		k += int(tr.Height())
-	}
+func HoldsLocally[T schema.Testable](k uint, handle string, constraint T, tr trace.Trace) error {
 	// Check whether it holds or not
-	if !constraint.TestAt(k, tr) {
+	if !constraint.TestAt(int(k), tr) {
 		// Construct useful error message
 		msg := fmt.Sprintf("constraint \"%s\" does not hold (row %d)", handle, k)
 		// Evaluation failure

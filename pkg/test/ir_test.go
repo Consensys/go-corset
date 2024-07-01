@@ -362,7 +362,7 @@ func Check(t *testing.T, test string) {
 
 // Check a given set of tests have an expected outcome (i.e. are
 // either accepted or rejected) by a given set of constraints.
-func CheckTraces(t *testing.T, test string, expected bool, traces []*trace.ArrayTrace, hirSchema *hir.Schema) {
+func CheckTraces(t *testing.T, test string, expected bool, traces []trace.Trace, hirSchema *hir.Schema) {
 	for i, tr := range traces {
 		if tr != nil {
 			for padding := uint(0); padding <= MAX_PADDING; padding++ {
@@ -400,11 +400,11 @@ func CheckTraces(t *testing.T, test string, expected bool, traces []*trace.Array
 	}
 }
 
-func checkInputTrace(t *testing.T, tr *trace.ArrayTrace, id traceId, schema sc.Schema) {
+func checkInputTrace(t *testing.T, tr trace.Trace, id traceId, schema sc.Schema) {
 	// Clone trace (to ensure expansion does not affect subsequent tests)
 	etr := tr.Clone()
 	// Apply spillage
-	etr.Pad(id.spillage)
+	trace.PadColumns(etr, id.spillage)
 	// Expand trace
 	err := sc.ExpandTrace(schema, etr)
 	// Check
@@ -420,7 +420,7 @@ func checkInputTrace(t *testing.T, tr *trace.ArrayTrace, id traceId, schema sc.S
 
 func checkExpandedTrace(t *testing.T, tr trace.Trace, id traceId, schema sc.Schema) {
 	// Apply padding
-	tr.Pad(id.padding)
+	trace.PadColumns(tr, id.padding)
 	// Check
 	err := sc.Accepts(schema, tr)
 	// Determine whether trace accepted or not.
@@ -463,9 +463,9 @@ type traceId struct {
 
 // ReadTracesFile reads a file containing zero or more traces expressed as JSON, where
 // each trace is on a separate line.
-func ReadTracesFile(name string, ext string) []*trace.ArrayTrace {
+func ReadTracesFile(name string, ext string) []trace.Trace {
 	lines := ReadInputFile(name, ext)
-	traces := make([]*trace.ArrayTrace, len(lines))
+	traces := make([]trace.Trace, len(lines))
 	// Read constraints line by line
 	for i, line := range lines {
 		// Parse input line as JSON

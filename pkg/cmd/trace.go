@@ -24,7 +24,7 @@ var traceCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		// Parse trace
-		trace := readTraceFile(args[0])
+		tr := readTraceFile(args[0])
 		list := getFlag(cmd, "list")
 		print := getFlag(cmd, "print")
 		padding := getUint(cmd, "pad")
@@ -33,23 +33,23 @@ var traceCmd = &cobra.Command{
 		max_width := getUint(cmd, "max-width")
 		filter := getString(cmd, "filter")
 		output := getString(cmd, "out")
-		//
+		// construct filters
 		if filter != "" {
-			trace = filterColumns(trace, filter)
+			tr = filterColumns(tr, filter)
 		}
 		if padding != 0 {
-			trace.Pad(padding)
+			trace.PadColumns(tr, padding)
 		}
 		if list {
-			listColumns(trace)
+			listColumns(tr)
 		}
 		//
 		if output != "" {
-			writeTraceFile(output, trace)
+			writeTraceFile(output, tr)
 		}
 
 		if print {
-			printTrace(start, end, max_width, trace)
+			printTrace(start, end, max_width, tr)
 		}
 	},
 }
@@ -57,26 +57,47 @@ var traceCmd = &cobra.Command{
 // Construct a new trace containing only those columns from the original who
 // name begins with the given prefix.
 func filterColumns(tr trace.Trace, prefix string) trace.Trace {
-	ntr := trace.EmptyArrayTrace()
-	//
-	for i := uint(0); i < tr.Width(); i++ {
-		ith := tr.Column(i)
-		if strings.HasPrefix(ith.Name(), prefix) {
-			ntr.Add(ith)
+	n := tr.Columns().Len()
+	builder := trace.NewBuilder()
+	// Initialise modules in the builder to ensure module indices are preserved
+	// across traces.
+	for i := uint(0); i < n; i++ {
+		ith := tr.Columns().Get(i)
+		name := tr.Modules().Get(ith.Module()).Name()
+
+		if !builder.HasModule(name) {
+			if _, err := builder.Register(name, ith.Height()); err != nil {
+				panic(err)
+			}
+		}
+	}
+	// Now create the columns.
+	for i := uint(0); i < n; i++ {
+		qName := QualifiedColumnName(i, tr)
+		//
+		if strings.HasPrefix(qName, prefix) {
+			ith := tr.Columns().Get(i)
+
+			err := builder.Add(qName, ith.Padding(), ith.Data())
+			// Sanity check
+			if err != nil {
+				panic(err)
+			}
 		}
 	}
 	// Done
-	return ntr
+	return builder.Build()
 }
 
 func listColumns(tr trace.Trace) {
-	tbl := util.NewTablePrinter(3, tr.Width())
+	n := tr.Columns().Len()
+	tbl := util.NewTablePrinter(3, n)
 
-	for i := uint(0); i < tr.Width(); i++ {
-		ith := tr.Column(i)
+	for i := uint(0); i < n; i++ {
+		ith := tr.Columns().Get(i)
 		elems := fmt.Sprintf("%d rows", ith.Height())
 		bytes := fmt.Sprintf("%d bytes", ith.Width()*ith.Height())
-		tbl.SetRow(i, ith.Name(), elems, bytes)
+		tbl.SetRow(i, QualifiedColumnName(i, tr), elems, bytes)
 	}
 
 	//
@@ -85,16 +106,18 @@ func listColumns(tr trace.Trace) {
 }
 
 func printTrace(start uint, end uint, max_width uint, tr trace.Trace) {
-	height := min(tr.Height(), end) - start
-	tbl := util.NewTablePrinter(1+height, 1+tr.Width())
+	cols := tr.Columns()
+	n := tr.Columns().Len()
+	height := min(trace.MaxHeight(tr), end) - start
+	tbl := util.NewTablePrinter(1+height, 1+n)
 
 	for j := uint(0); j < height; j++ {
 		tbl.Set(j+1, 0, fmt.Sprintf("#%d", j+start))
 	}
 
-	for i := uint(0); i < tr.Width(); i++ {
-		ith := tr.Column(i)
-		tbl.Set(0, i+1, ith.Name())
+	for i := uint(0); i < n; i++ {
+		ith := cols.Get(i)
+		tbl.Set(0, i+1, QualifiedColumnName(i, tr))
 
 		if start < ith.Height() {
 			ith_height := min(ith.Height(), end) - start
@@ -103,7 +126,6 @@ func printTrace(start uint, end uint, max_width uint, tr trace.Trace) {
 			}
 		}
 	}
-
 	//
 	tbl.SetMaxWidth(max_width)
 	tbl.Print()

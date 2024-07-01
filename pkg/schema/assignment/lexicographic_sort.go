@@ -14,6 +14,9 @@ import (
 // columns.  Specifically, a delta column is required along with one selector
 // column (binary) for each source column.
 type LexicographicSort struct {
+	// Module in which source and target columns to be located.  All target and
+	// source columns should be contained within this module.
+	module uint
 	// The target columns to be filled.  The first entry is for the delta
 	// column, and the remaining n entries are for the selector columns.
 	targets []schema.Column
@@ -33,8 +36,8 @@ func NewLexicographicSort(prefix string, sources []uint, signs []bool, bitwidth 
 		ithName := fmt.Sprintf("%s:%d", prefix, i)
 		targets[1+i] = schema.NewColumn(ithName, schema.NewUintType(1))
 	}
-	// Done
-	return &LexicographicSort{targets, sources, signs, bitwidth}
+	// FIXME: determine correct module index
+	return &LexicographicSort{0, targets, sources, signs, bitwidth}
 }
 
 // ============================================================================
@@ -65,12 +68,13 @@ func (p *LexicographicSort) RequiredSpillage() uint {
 // ExpandTrace adds columns as needed to support the LexicographicSortingGadget.
 // That includes the delta column, and the bit selectors.
 func (p *LexicographicSort) ExpandTrace(tr trace.Trace) error {
+	columns := tr.Columns()
 	zero := fr.NewElement(0)
 	one := fr.NewElement(1)
 	// Exact number of columns involved in the sort
 	ncols := len(p.sources)
 	// Determine how many rows to be constrained.
-	nrows := tr.Height()
+	nrows := tr.Modules().Get(p.module).Height()
 	// Initialise new data columns
 	delta := make([]*fr.Element, nrows)
 	bit := make([][]*fr.Element, ncols)
@@ -85,8 +89,8 @@ func (p *LexicographicSort) ExpandTrace(tr trace.Trace) error {
 		delta[i] = &zero
 		// Decide which row is the winner (if any)
 		for j := 0; j < ncols; j++ {
-			prev := tr.Column(p.sources[j]).Get(i - 1)
-			curr := tr.Column(p.sources[j]).Get(i)
+			prev := columns.Get(p.sources[j]).Get(i - 1)
+			curr := columns.Get(p.sources[j]).Get(i)
 
 			if !set && prev != nil && prev.Cmp(curr) != 0 {
 				var diff fr.Element
@@ -108,11 +112,12 @@ func (p *LexicographicSort) ExpandTrace(tr trace.Trace) error {
 		}
 	}
 	// Add delta column data
-	tr.Add(trace.NewFieldColumn(p.targets[0].Name(), delta, &zero))
+	first := p.targets[0]
+	columns.Add(trace.NewFieldColumn(first.Module(), first.Name(), delta, &zero))
 	// Add bit column data
 	for i := 0; i < ncols; i++ {
-		bitName := p.targets[1+i].Name()
-		tr.Add(trace.NewFieldColumn(bitName, bit[i], &zero))
+		ith := p.targets[1+i]
+		columns.Add(trace.NewFieldColumn(ith.Module(), ith.Name(), bit[i], &zero))
 	}
 	// Done.
 	return nil
