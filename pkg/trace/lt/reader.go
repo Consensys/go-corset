@@ -24,7 +24,7 @@ func FromBytes(data []byte) (trace.Trace, error) {
 	headers := make([]columnHeader, ncols)
 	// Read column headers
 	for i := uint32(0); i < ncols; i++ {
-		header, err := readColumnHeader(buf, builder)
+		header, err := readColumnHeader(buf)
 		// Read column
 		if err != nil {
 			// Handle error
@@ -60,8 +60,9 @@ type columnHeader struct {
 }
 
 // Read the meta-data for a specific column in this trace file.
-func readColumnHeader(buf *bytes.Reader, builder *trace.Builder) (columnHeader, error) {
+func readColumnHeader(buf *bytes.Reader) (columnHeader, error) {
 	var header columnHeader
+	// Qualified column name length
 	var nameLen uint16
 	// Read column name length
 	if err := binary.Read(buf, binary.BigEndian, &nameLen); err != nil {

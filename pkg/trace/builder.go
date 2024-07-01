@@ -14,7 +14,7 @@ import (
 // height).
 type Builder struct {
 	// Set of known modules
-	modules []ArrayTraceModule
+	modules []Module
 	// Mapping from name to module index
 	modmap map[string]uint
 	//  Set of known columns
@@ -24,7 +24,7 @@ type Builder struct {
 // NewBuilder constructs an empty builder which can then be used to build a new
 // trace.
 func NewBuilder() *Builder {
-	modules := make([]ArrayTraceModule, 0)
+	modules := make([]Module, 0)
 	modmap := make(map[string]uint, 0)
 	columns := make([]Column, 0)
 	// Initially empty environment
@@ -77,7 +77,7 @@ func (p *Builder) Register(name string, height uint) (uint, error) {
 	mid := uint(len(p.modules))
 	cols := make([]uint, 0)
 	// Create new module
-	p.modules = append(p.modules, ArrayTraceModule{name, cols, height})
+	p.modules = append(p.modules, Module{name, cols, height})
 	// Update cache
 	p.modmap[name] = mid
 	//
@@ -115,7 +115,7 @@ func (p *Builder) registerColumn(col Column) error {
 	// Register new column
 	cid := uint(len(p.columns))
 	p.columns = append(p.columns, col)
-	p.modules[mid].RegisterColumn(cid)
+	p.modules[mid].registerColumn(cid)
 	// Done
 	return nil
 }

@@ -26,7 +26,8 @@ type BytesColumn struct {
 }
 
 // NewBytesColumn constructs a new BytesColumn from its constituent parts.
-func NewBytesColumn(module uint, name string, width uint8, length uint, bytes []byte, padding *fr.Element) *BytesColumn {
+func NewBytesColumn(module uint, name string, width uint8, length uint,
+	bytes []byte, padding *fr.Element) *BytesColumn {
 	return &BytesColumn{module, name, width, length, bytes, padding}
 }
 

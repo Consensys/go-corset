@@ -14,13 +14,13 @@ type ArrayTrace struct {
 	// Holds the complete set of modules in this trace.  The index of each
 	// module in this array uniquely identifies it, and is referred to as the
 	// "module index".
-	modules []ArrayTraceModule
+	modules []Module
 }
 
 // Columns returns the set of columns in this trace.  Observe that mutating
 // the returned array will mutate the trace.
 func (p *ArrayTrace) Columns() ColumnSet {
-	return ArrayTraceColumnSet{p}
+	return arrayTraceColumnSet{p}
 }
 
 // ColumnIndex returns the column index of the column with the given name in
@@ -46,8 +46,12 @@ func (p *ArrayTrace) HasColumn(name string) bool {
 func (p *ArrayTrace) Clone() Trace {
 	clone := new(ArrayTrace)
 	clone.columns = make([]Column, len(p.columns))
-	clone.modules = make([]ArrayTraceModule, len(p.modules))
-	copy(clone.modules, p.modules)
+	clone.modules = make([]Module, len(p.modules))
+	// Clone modules
+	for i, m := range p.modules {
+		clone.modules[i] = m.Copy()
+	}
+	// Clone columns
 	for i, c := range p.columns {
 		clone.columns[i] = c.Clone()
 	}
@@ -58,7 +62,7 @@ func (p *ArrayTrace) Clone() Trace {
 // Modules returns the set of modules in this trace.  Observe that mutating the
 // returned array will mutate the trace.
 func (p *ArrayTrace) Modules() ModuleSet {
-	return ArrayTraceModuleSet{p}
+	return arrayTraceModuleSet{p}
 }
 
 func (p *ArrayTrace) String() string {
@@ -98,54 +102,18 @@ func (p *ArrayTrace) String() string {
 }
 
 // ============================================================================
-// ArrayTraceModule
+// arrayTraceColumnSet
 // ============================================================================
 
-// ArrayTraceModule describes an individual module within the trace table, and
-// permits actions on the columns of this module as a whole.
-type ArrayTraceModule struct {
-	// Name of this module.
-	name string
-	// Determine the columns contained in this module by their column index.
-	columns []uint
-	// Height (in rows) of this module.  Specifically, every column in this
-	// module must have this height.
-	height uint
-}
-
-func (p *ArrayTraceModule) RegisterColumn(cid uint) {
-	p.columns = append(p.columns, cid)
-}
-
-// Name of this module.
-func (p *ArrayTraceModule) Name() string {
-	return p.name
-}
-
-// Columns identifies the columns contained in this module by their column index.
-func (p *ArrayTraceModule) Columns() []uint {
-	return p.columns
-}
-
-// Height (in rows) of this module.  Specifically, every column in this
-// module must have this height.
-func (p *ArrayTraceModule) Height() uint {
-	return p.height
-}
-
-// ============================================================================
-// ArrayTraceColumnSet
-// ============================================================================
-
-// ArrayTraceColumnSet is an implementation of ColumnSet which maintains key
+// arrayTraceColumnSet is an implementation of ColumnSet which maintains key
 // invariants within an ArrayTrace.
-type ArrayTraceColumnSet struct {
+type arrayTraceColumnSet struct {
 	trace *ArrayTrace
 }
 
 // Add a new column to this column set.
-func (p ArrayTraceColumnSet) Add(column Column) uint {
-	m := p.trace.modules[column.Module()]
+func (p arrayTraceColumnSet) Add(column Column) uint {
+	m := &p.trace.modules[column.Module()]
 	// Sanity check height
 	if column.Height() != m.Height() {
 		panic("invalid column height")
@@ -154,18 +122,18 @@ func (p ArrayTraceColumnSet) Add(column Column) uint {
 	index := uint(len(p.trace.columns))
 	p.trace.columns = append(p.trace.columns, column)
 	// Register column with enclosing module
-	m.RegisterColumn(index)
+	m.registerColumn(index)
 	// Done
 	return index
 }
 
 // Get returns the ith column in this column set.
-func (p ArrayTraceColumnSet) Get(index uint) Column {
+func (p arrayTraceColumnSet) Get(index uint) Column {
 	return p.trace.columns[index]
 }
 
 // HasColumn checks whether a given column exists in this column set (or not).
-func (p ArrayTraceColumnSet) HasColumn(name string) bool {
+func (p arrayTraceColumnSet) HasColumn(name string) bool {
 	for _, c := range p.trace.columns {
 		if c.Name() == name {
 			return true
@@ -176,12 +144,12 @@ func (p ArrayTraceColumnSet) HasColumn(name string) bool {
 }
 
 // Len returns the number of items in this array.
-func (p ArrayTraceColumnSet) Len() uint {
+func (p arrayTraceColumnSet) Len() uint {
 	return uint(len(p.trace.columns))
 }
 
 // Swap two columns in this column set.
-func (p ArrayTraceColumnSet) Swap(l uint, r uint) {
+func (p arrayTraceColumnSet) Swap(l uint, r uint) {
 	cols := p.trace.columns
 	lth := cols[l]
 	cols[l] = cols[r]
@@ -189,31 +157,32 @@ func (p ArrayTraceColumnSet) Swap(l uint, r uint) {
 }
 
 // ============================================================================
-// ArrayTraceModuleSet
+// arrayTraceModuleSet
 // ============================================================================
 
-type ArrayTraceModuleSet struct {
+type arrayTraceModuleSet struct {
 	trace *ArrayTrace
 }
 
-func (p ArrayTraceModuleSet) Add(name string, height uint) uint {
+func (p arrayTraceModuleSet) Add(name string, height uint) uint {
 	index := len(p.trace.modules)
 	columns := make([]uint, 0)
-	p.trace.modules = append(p.trace.modules, ArrayTraceModule{name, columns, height})
+	p.trace.modules = append(p.trace.modules, Module{name, columns, height})
+	// Return module index
 	return uint(index)
 }
 
-func (p ArrayTraceModuleSet) Get(index uint) Module {
+func (p arrayTraceModuleSet) Get(index uint) *Module {
 	return &p.trace.modules[index]
 }
 
 // Len returns the number of items in this array.
-func (p ArrayTraceModuleSet) Len() uint {
+func (p arrayTraceModuleSet) Len() uint {
 	return uint(len(p.trace.modules))
 }
 
-func (p ArrayTraceModuleSet) Pad(index uint, n uint) {
-	var m *ArrayTraceModule = &p.trace.modules[index]
+func (p arrayTraceModuleSet) Pad(index uint, n uint) {
+	var m *Module = &p.trace.modules[index]
 	m.height += n
 	//
 	for i := range m.columns {

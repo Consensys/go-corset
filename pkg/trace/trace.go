@@ -67,21 +67,55 @@ type ModuleSet interface {
 	// index.
 	Add(string, uint) uint
 	// Get the ith module in this set.
-	Get(uint) Module
+	Get(uint) *Module
 	// Pad the ith module in this set with n items at the front of each column
 	Pad(mid uint, n uint)
 	// Returns the number of items in this array.
 	Len() uint
 }
 
-// Module describes an individual module within the trace table, and permits
-// actions on the columns of this module as a whole.
-type Module interface {
+// Module describes an individual module within the trace table, and
+// permits actions on the columns of this module as a whole.
+type Module struct {
 	// Name of this module.
-	Name() string
+	name string
 	// Determine the columns contained in this module by their column index.
-	Columns() []uint
+	columns []uint
 	// Height (in rows) of this module.  Specifically, every column in this
 	// module must have this height.
-	Height() uint
+	height uint
+}
+
+// Name of this module.
+func (p *Module) Name() string {
+	return p.name
+}
+
+// Columns identifies the columns contained in this module by their column index.
+func (p *Module) Columns() []uint {
+	return p.columns
+}
+
+// Copy creates a copy of this module, such that mutations to the copy will not
+// affect the original.
+func (p *Module) Copy() Module {
+	var clone Module
+	clone.name = p.name
+	clone.height = p.height
+	clone.columns = make([]uint, len(p.columns))
+	// Copy column indices
+	copy(clone.columns, p.columns)
+	// Done
+	return clone
+}
+
+// Height (in rows) of this module.  Specifically, every column in this
+// module must have this height.
+func (p *Module) Height() uint {
+	return p.height
+}
+
+// Register a new columnd contained within this module.
+func (p *Module) registerColumn(cid uint) {
+	p.columns = append(p.columns, cid)
 }

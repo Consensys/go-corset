@@ -39,6 +39,7 @@ func NewRangeConstraint(column uint, bound *fr.Element) *RangeConstraint {
 func (p *RangeConstraint) Accepts(tr trace.Trace) error {
 	column := tr.Columns().Get(p.column)
 	height := tr.Modules().Get(column.Module()).Height()
+	// Iterate all rows of the module
 	for k := 0; k < int(height); k++ {
 		// Get the value on the kth row
 		kth := column.Get(k)
