@@ -2,6 +2,8 @@ package trace
 
 import (
 	"strings"
+
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // ArrayTrace provides an implementation of Trace which stores columns as an
@@ -21,25 +23,6 @@ type ArrayTrace struct {
 // the returned array will mutate the trace.
 func (p *ArrayTrace) Columns() ColumnSet {
 	return arrayTraceColumnSet{p}
-}
-
-// ColumnIndex returns the column index of the column with the given name in
-// this trace, or returns false if no such column exists.
-func (p *ArrayTrace) ColumnIndex(name string) (uint, bool) {
-	for i := 0; i < len(p.columns); i++ {
-		c := p.columns[i]
-		if c.Name() == name {
-			return uint(i), true
-		}
-	}
-	// Column does not exist
-	return 0, false
-}
-
-// HasColumn checks whether the trace has a given named column (or not).
-func (p *ArrayTrace) HasColumn(name string) bool {
-	_, ok := p.ColumnIndex(name)
-	return ok
 }
 
 // Clone creates an identical clone of this trace.
@@ -76,6 +59,12 @@ func (p *ArrayTrace) String() string {
 
 		if i != 0 {
 			id.WriteString(",")
+		}
+
+		modName := p.modules[ith.Module()].Name()
+		if modName != "" {
+			id.WriteString(modName)
+			id.WriteString(".")
 		}
 
 		id.WriteString(ith.Name())
@@ -143,6 +132,19 @@ func (p arrayTraceColumnSet) HasColumn(name string) bool {
 	return false
 }
 
+// IndexOf returns the column index of the column with the given name in
+// this trace, or returns false if no such column exists.
+func (p arrayTraceColumnSet) IndexOf(module uint, name string) (uint, bool) {
+	for i := 0; i < len(p.trace.columns); i++ {
+		c := p.trace.columns[i]
+		if c.Module() == module && c.Name() == name {
+			return uint(i), true
+		}
+	}
+	// Column does not exist
+	return 0, false
+}
+
 // Len returns the number of items in this array.
 func (p arrayTraceColumnSet) Len() uint {
 	return uint(len(p.trace.columns))
@@ -150,10 +152,27 @@ func (p arrayTraceColumnSet) Len() uint {
 
 // Swap two columns in this column set.
 func (p arrayTraceColumnSet) Swap(l uint, r uint) {
+	if l == r {
+		panic("invalid column swap")
+	}
+
 	cols := p.trace.columns
+	modules := p.trace.modules
 	lth := cols[l]
-	cols[l] = cols[r]
+	rth := cols[r]
+	cols[l] = rth
 	cols[r] = lth
+	// Update modules notion of which columns they own.  Observe that this only
+	// makes sense when the modules for each column differ.  Otherwise, this
+	// leads to broken results.
+	if lth.Module() != rth.Module() {
+		// Extract modules being swapped
+		lthmod := &modules[lth.Module()]
+		rthmod := &modules[rth.Module()]
+		// Update their columns caches
+		util.ReplaceFirstOrPanic(lthmod.columns, l, r)
+		util.ReplaceFirstOrPanic(rthmod.columns, r, l)
+	}
 }
 
 // ============================================================================
@@ -181,11 +200,41 @@ func (p arrayTraceModuleSet) Len() uint {
 	return uint(len(p.trace.modules))
 }
 
+// IndexOf returns the module index of the module with the given name in
+// this trace, or returns false if no such module exists.
+func (p arrayTraceModuleSet) IndexOf(name string) (uint, bool) {
+	for i := 0; i < len(p.trace.modules); i++ {
+		m := p.trace.modules[i]
+		if m.Name() == name {
+			return uint(i), true
+		}
+	}
+	// MOdule does not exist
+	return 0, false
+}
+
+func (p arrayTraceModuleSet) Swap(l uint, r uint) {
+	// Swap the modules
+	lth := p.trace.modules[l]
+	rth := p.trace.modules[r]
+	p.trace.modules[l] = rth
+	p.trace.modules[r] = lth
+	// Update enclosed columns
+	p.reseatColumns(r, lth.columns)
+	p.reseatColumns(l, rth.columns)
+}
+
 func (p arrayTraceModuleSet) Pad(index uint, n uint) {
 	var m *Module = &p.trace.modules[index]
 	m.height += n
 	//
-	for i := range m.columns {
-		p.trace.columns[i].Pad(n)
+	for _, c := range m.columns {
+		p.trace.columns[c].Pad(n)
+	}
+}
+
+func (p arrayTraceModuleSet) reseatColumns(mid uint, columns []uint) {
+	for _, c := range columns {
+		p.trace.columns[c].Reseat(mid)
 	}
 }

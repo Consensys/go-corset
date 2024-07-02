@@ -1,6 +1,9 @@
 package hir
 
 import (
+	"fmt"
+
+	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/assignment"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
@@ -65,14 +68,16 @@ type Permutation = *assignment.SortedPermutation
 
 // Schema for HIR constraints and columns.
 type Schema struct {
-	// The data columns of this sc.
+	// The modules of the schema
+	modules []sc.Module
+	// The data columns of this schema.
 	inputs []sc.Declaration
-	// The sorted permutations of this sc.
+	// The sorted permutations of this schema.
 	assignments []sc.Assignment
 	// Constraints of this schema, which are either vanishing, lookup or type
 	// constraints.
 	constraints []sc.Constraint
-	// The property assertions for this sc.
+	// The property assertions for this schema.
 	assertions []PropertyAssertion
 }
 
@@ -80,6 +85,7 @@ type Schema struct {
 // constraints will be added.
 func EmptySchema() *Schema {
 	p := new(Schema)
+	p.modules = make([]sc.Module, 0)
 	p.inputs = make([]sc.Declaration, 0)
 	p.assignments = make([]sc.Assignment, 0)
 	p.constraints = make([]sc.Constraint, 0)
@@ -88,10 +94,22 @@ func EmptySchema() *Schema {
 	return p
 }
 
+// AddModule adds a new module to this schema, returning its module index.
+func (p *Schema) AddModule(name string) uint {
+	mid := uint(len(p.modules))
+	p.modules = append(p.modules, sc.NewModule(name))
+
+	return mid
+}
+
 // AddDataColumn appends a new data column with a given type.  Furthermore, the
 // type is enforced by the system when checking is enabled.
-func (p *Schema) AddDataColumn(name string, base sc.Type) {
-	p.inputs = append(p.inputs, assignment.NewDataColumn(name, base))
+func (p *Schema) AddDataColumn(module uint, name string, base sc.Type) {
+	if module >= uint(len(p.modules)) {
+		panic(fmt.Sprintf("invalid module index (%d)", module))
+	}
+
+	p.inputs = append(p.inputs, assignment.NewDataColumn(module, name, base))
 }
 
 // AddPermutationColumns introduces a permutation of one or more
@@ -100,12 +118,20 @@ func (p *Schema) AddDataColumn(name string, base sc.Type) {
 // source columns.  Each source column is associated with a "sign"
 // which indicates the direction of sorting (i.e. ascending versus
 // descending).
-func (p *Schema) AddPermutationColumns(targets []sc.Column, signs []bool, sources []uint) {
-	p.assignments = append(p.assignments, assignment.NewSortedPermutation(targets, signs, sources))
+func (p *Schema) AddPermutationColumns(module uint, targets []sc.Column, signs []bool, sources []uint) {
+	if module >= uint(len(p.modules)) {
+		panic(fmt.Sprintf("invalid module index (%d)", module))
+	}
+
+	p.assignments = append(p.assignments, assignment.NewSortedPermutation(module, targets, signs, sources))
 }
 
 // AddVanishingConstraint appends a new vanishing constraint.
 func (p *Schema) AddVanishingConstraint(handle string, module uint, domain *int, expr Expr) {
+	if module >= uint(len(p.modules)) {
+		panic(fmt.Sprintf("invalid module index (%d)", module))
+	}
+
 	p.constraints = append(p.constraints, constraint.NewVanishingConstraint(handle, module, domain, ZeroArrayTest{expr}))
 }
 
@@ -118,8 +144,8 @@ func (p *Schema) AddTypeConstraint(target uint, t sc.Type) {
 }
 
 // AddPropertyAssertion appends a new property assertion.
-func (p *Schema) AddPropertyAssertion(handle string, property Expr) {
-	p.assertions = append(p.assertions, sc.NewPropertyAssertion[ZeroArrayTest](handle, ZeroArrayTest{property}))
+func (p *Schema) AddPropertyAssertion(module uint, handle string, property Expr) {
+	p.assertions = append(p.assertions, sc.NewPropertyAssertion[ZeroArrayTest](module, handle, ZeroArrayTest{property}))
 }
 
 // ============================================================================
@@ -161,4 +187,10 @@ func (p *Schema) Constraints() util.Iterator[sc.Constraint] {
 func (p *Schema) Declarations() util.Iterator[sc.Declaration] {
 	ps := util.NewCastIterator[sc.Assignment, sc.Declaration](p.Assignments())
 	return p.Inputs().Append(ps)
+}
+
+// Modules returns an iterator over the declared set of modules within this
+// schema.
+func (p *Schema) Modules() util.Iterator[schema.Module] {
+	return util.NewArrayIterator(p.modules)
 }

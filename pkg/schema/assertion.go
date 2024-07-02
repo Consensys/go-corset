@@ -20,7 +20,7 @@ type PropertyAssertion[T Testable] struct {
 	Handle string
 	// Enclosing module for this assertion.  This restricts the asserted
 	// property to access only columns from within this module.
-	module uint
+	Module uint
 	// The actual assertion itself, namely an expression which
 	// should hold (i.e. vanish) for every row of a trace.
 	// Observe that this can be any function which is computable
@@ -30,9 +30,8 @@ type PropertyAssertion[T Testable] struct {
 }
 
 // NewPropertyAssertion constructs a new property assertion!
-func NewPropertyAssertion[T Testable](handle string, property T) *PropertyAssertion[T] {
-	// FIXME: determine correct module index
-	return &PropertyAssertion[T]{handle, 0, property}
+func NewPropertyAssertion[T Testable](module uint, handle string, property T) *PropertyAssertion[T] {
+	return &PropertyAssertion[T]{handle, module, property}
 }
 
 // GetHandle returns the handle associated with this constraint.
@@ -48,7 +47,7 @@ func (p *PropertyAssertion[T]) GetHandle() string {
 //nolint:revive
 func (p *PropertyAssertion[T]) Accepts(tr tr.Trace) error {
 	// Determine height of enclosing module
-	height := tr.Modules().Get(p.module).Height()
+	height := tr.Modules().Get(p.Module).Height()
 	// Iterate every row in the module
 	for k := uint(0); k < height; k++ {
 		// Check whether property holds (or was undefined)

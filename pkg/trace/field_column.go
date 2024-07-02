@@ -73,6 +73,7 @@ func (p *FieldColumn) Get(row int) *fr.Element {
 // Clone an FieldColumn
 func (p *FieldColumn) Clone() Column {
 	clone := new(FieldColumn)
+	clone.module = p.module
 	clone.name = p.name
 	clone.padding = p.padding
 	// NOTE: the following is as we never actually mutate the underlying bytes
@@ -94,6 +95,12 @@ func (p *FieldColumn) Pad(n uint) {
 	}
 	// Copy over
 	p.data = ndata
+}
+
+// Reseat updates the module index of this column (e.g. as a result of a
+// realignment).
+func (p *FieldColumn) Reseat(mid uint) {
+	p.module = mid
 }
 
 // Write the raw bytes of this column to a given writer, returning an error

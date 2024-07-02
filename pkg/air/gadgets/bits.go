@@ -44,7 +44,7 @@ func ApplyBitwidthGadget(col uint, nbits uint, schema *air.Schema) {
 	name := column.Name()
 	coefficient := fr.NewElement(1)
 	// Add decomposition assignment
-	index := schema.AddAssignment(assignment.NewByteDecomposition(name, col, n))
+	index := schema.AddAssignment(assignment.NewByteDecomposition(name, column.Module(), col, n))
 	// Construct Columns
 	for i := uint(0); i < n; i++ {
 		// Create Column + Constraint

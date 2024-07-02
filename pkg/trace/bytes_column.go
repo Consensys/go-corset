@@ -70,6 +70,7 @@ func (p *BytesColumn) Get(i int) *fr.Element {
 // Clone an BytesColumn
 func (p *BytesColumn) Clone() Column {
 	clone := new(BytesColumn)
+	clone.module = p.module
 	clone.name = p.name
 	clone.length = p.length
 	clone.width = p.width
@@ -132,6 +133,12 @@ func (p *BytesColumn) Pad(n uint) {
 	// Done
 	p.bytes = padded_bytes
 	p.length += n
+}
+
+// Reseat updates the module index of this column (e.g. as a result of a
+// realignment).
+func (p *BytesColumn) Reseat(mid uint) {
+	p.module = mid
 }
 
 // Write the raw bytes of this column to a given writer, returning an error

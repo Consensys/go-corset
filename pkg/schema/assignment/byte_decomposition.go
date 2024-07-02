@@ -19,7 +19,7 @@ type ByteDecomposition struct {
 }
 
 // NewByteDecomposition creates a new sorted permutation
-func NewByteDecomposition(prefix string, source uint, width uint) *ByteDecomposition {
+func NewByteDecomposition(prefix string, module uint, source uint, width uint) *ByteDecomposition {
 	if width == 0 {
 		panic("zero byte decomposition encountered")
 	}
@@ -30,7 +30,7 @@ func NewByteDecomposition(prefix string, source uint, width uint) *ByteDecomposi
 
 	for i := uint(0); i < width; i++ {
 		name := fmt.Sprintf("%s:%d", prefix, i)
-		targets[i] = schema.NewColumn(name, U8)
+		targets[i] = schema.NewColumn(module, name, U8)
 	}
 	// Done
 	return &ByteDecomposition{source, targets}

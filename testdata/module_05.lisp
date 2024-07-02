@@ -1,0 +1,6 @@
+(module m1)
+(column X)
+(module m2)
+(column X)
+(column Y)
+(vanish heartbeat (* X Y))

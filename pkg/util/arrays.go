@@ -1,6 +1,25 @@
 package util
 
-import "github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+import (
+	"fmt"
+
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+)
+
+// ReplaceFirstOrPanic replaces the first occurrence of a given item (from) in an
+// array with another item (to).  If not match is found, then this will panic.
+// In otherwords, we are expecting a match.
+func ReplaceFirstOrPanic[T comparable](columns []T, from T, to T) {
+	for i, c := range columns {
+		if c == from {
+			// Success
+			columns[i] = to
+			return
+		}
+	}
+	// Failure
+	panic(fmt.Sprintf("invalid replace (item %s not found)", any(from)))
+}
 
 // Equals2d returns true if two 2D arrays are equal.
 func Equals2d(lhs [][]*fr.Element, rhs [][]*fr.Element) bool {

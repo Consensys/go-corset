@@ -3,11 +3,9 @@ package binfile
 import (
 	"fmt"
 	"math/big"
-	"strings"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/hir"
-	sc "github.com/consensys/go-corset/pkg/schema"
 )
 
 // type jsonHandle struct {
@@ -112,11 +110,7 @@ func (e *jsonExprConst) ToHir(schema *hir.Schema) hir.Expr {
 
 func (e *jsonExprColumn) ToHir(schema *hir.Schema) hir.Expr {
 	cref := asColumnRef(e.Handle)
-	cid, ok := sc.ColumnIndexOf(schema, cref)
-
-	if !ok {
-		panic(fmt.Sprintf("unknown column %s", cref))
-	}
+	_, cid := cref.resolve(schema)
 
 	return &hir.ColumnAccess{Column: cid, Shift: e.Shift}
 }
@@ -169,20 +163,4 @@ func jsonListToHir(Args []jsonTypedExpr, schema *hir.Schema) hir.Expr {
 	}
 
 	return &hir.List{Args: args}
-}
-
-func asColumnRefs(crefs []jsonColumnRef) []string {
-	refs := make([]string, len(crefs))
-	for i := 0; i < len(refs); i++ {
-		refs[i] = asColumnRef(crefs[i])
-	}
-
-	return refs
-}
-
-func asColumnRef(cref jsonColumnRef) string {
-	// Split off the column id (if present)
-	split := strings.Split(cref, "#")
-	// That's it
-	return split[0]
 }

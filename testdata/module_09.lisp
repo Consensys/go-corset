@@ -1,0 +1,7 @@
+(column A)
+(column B)
+(module m1)
+(column A)
+(column B)
+(vanish eq (- A B))
+(assert lem (- A B))

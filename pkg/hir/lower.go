@@ -14,26 +14,30 @@ import (
 // constraints as necessary to preserve the original semantics.
 func (p *Schema) LowerToMir() *mir.Schema {
 	mirSchema := mir.EmptySchema()
-	// First, lower columns
+	// Copy modules
+	for _, mod := range p.modules {
+		mirSchema.AddModule(mod.Name())
+	}
+	// Lower columns
 	for _, input := range p.inputs {
 		col := input.(DataColumn)
-		mirSchema.AddDataColumn(col.Name(), col.Type())
+		mirSchema.AddDataColumn(col.Module(), col.Name(), col.Type())
 	}
-	// Second, lower permutations
+	// Lower permutations
 	for _, asn := range p.assignments {
 		col := asn.(Permutation)
-		mirSchema.AddPermutationColumns(col.Targets(), col.Signs(), col.Sources())
+		mirSchema.AddPermutationColumns(col.Module(), col.Targets(), col.Signs(), col.Sources())
 	}
-	// Third, lower constraints
+	// Lower constraints
 	for _, c := range p.constraints {
 		lowerConstraintToMir(c, mirSchema)
 	}
-	// Fourth, copy property assertions.  Observe, these do not require lowering
+	// Copy property assertions.  Observe, these do not require lowering
 	// because they are already MIR-level expressions.
 	for _, c := range p.assertions {
 		properties := c.Property.Expr.LowerTo(mirSchema)
 		for _, p := range properties {
-			mirSchema.AddPropertyAssertion(c.Handle, p)
+			mirSchema.AddPropertyAssertion(c.Module, c.Handle, p)
 		}
 	}
 	//

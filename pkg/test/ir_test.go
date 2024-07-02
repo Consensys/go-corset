@@ -241,6 +241,44 @@ func Test_Type_03(t *testing.T) {
 }
 
 // ===================================================================
+// Modules
+// ===================================================================
+
+func Test_Module_01(t *testing.T) {
+	Check(t, "module_01")
+}
+
+func Test_Module_02(t *testing.T) {
+	Check(t, "module_02")
+}
+
+func Test_Module_03(t *testing.T) {
+	Check(t, "module_03")
+}
+
+func Test_Module_04(t *testing.T) {
+	Check(t, "module_04")
+}
+
+func Test_Module_05(t *testing.T) {
+	Check(t, "module_05")
+}
+
+func Test_Module_06(t *testing.T) {
+	Check(t, "module_06")
+}
+
+func Test_Module_07(t *testing.T) {
+	Check(t, "module_07")
+}
+func Test_Module_08(t *testing.T) {
+	Check(t, "module_08")
+}
+func Test_Module_09(t *testing.T) {
+	Check(t, "module_09")
+}
+
+// ===================================================================
 // Permutations
 // ===================================================================
 
