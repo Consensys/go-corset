@@ -11,17 +11,19 @@ import (
 // ApplyBinaryGadget adds a binarity constraint for a given column in the schema
 // which enforces that all values in the given column are either 0 or 1. For a
 // column X, this corresponds to the vanishing constraint X * (X-1) == 0.
-func ApplyBinaryGadget(column uint, schema *air.Schema) {
+func ApplyBinaryGadget(col uint, schema *air.Schema) {
+	// Identify target column
+	column := schema.Columns().Nth(col)
 	// Determine column name
-	name := schema.Columns().Nth(column).Name()
+	name := column.Name()
 	// Construct X
-	X := air.NewColumnAccess(column, 0)
+	X := air.NewColumnAccess(col, 0)
 	// Construct X-1
 	X_m1 := X.Sub(air.NewConst64(1))
 	// Construct X * (X-1)
 	X_X_m1 := X.Mul(X_m1)
 	// Done!
-	schema.AddVanishingConstraint(fmt.Sprintf("%s:u1", name), nil, X_X_m1)
+	schema.AddVanishingConstraint(fmt.Sprintf("%s:u1", name), column.Module(), nil, X_X_m1)
 }
 
 // ApplyBitwidthGadget ensures all values in a given column fit within a given
@@ -33,11 +35,13 @@ func ApplyBitwidthGadget(col uint, nbits uint, schema *air.Schema) {
 	} else if nbits == 0 {
 		panic("zero bitwidth constraint encountered")
 	}
+	// Identify target column
+	column := schema.Columns().Nth(col)
 	// Calculate how many bytes required.
 	n := nbits / 8
 	es := make([]air.Expr, n)
 	fr256 := fr.NewElement(256)
-	name := schema.Columns().Nth(col).Name()
+	name := column.Name()
 	coefficient := fr.NewElement(1)
 	// Add decomposition assignment
 	index := schema.AddAssignment(assignment.NewByteDecomposition(name, col, n))
@@ -56,5 +60,5 @@ func ApplyBitwidthGadget(col uint, nbits uint, schema *air.Schema) {
 	X := air.NewColumnAccess(col, 0)
 	eq := X.Equate(sum)
 	// Construct column name
-	schema.AddVanishingConstraint(fmt.Sprintf("%s:u%d", name, nbits), nil, eq)
+	schema.AddVanishingConstraint(fmt.Sprintf("%s:u%d", name, nbits), column.Module(), nil, eq)
 }

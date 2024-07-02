@@ -71,9 +71,9 @@ func (p *Schema) AddPermutationConstraint(targets []uint, sources []uint) {
 }
 
 // AddVanishingConstraint appends a new vanishing constraint.
-func (p *Schema) AddVanishingConstraint(handle string, domain *int, expr Expr) {
+func (p *Schema) AddVanishingConstraint(handle string, module uint, domain *int, expr Expr) {
 	p.constraints = append(p.constraints,
-		constraint.NewVanishingConstraint(handle, domain, constraint.ZeroTest[Expr]{Expr: expr}))
+		constraint.NewVanishingConstraint(handle, module, domain, constraint.ZeroTest[Expr]{Expr: expr}))
 }
 
 // AddRangeConstraint appends a new range constraint.

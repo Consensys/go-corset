@@ -20,8 +20,10 @@ import (
 // computation.
 func ApplyColumnSortGadget(col uint, sign bool, bitwidth uint, schema *air.Schema) {
 	var deltaName string
+	// Identify target column
+	column := schema.Columns().Nth(col)
 	// Determine column name
-	name := schema.Columns().Nth(col).Name()
+	name := column.Name()
 	// Configure computation
 	Xk := air.NewColumnAccess(col, 0)
 	Xkm1 := air.NewColumnAccess(col, -1)
@@ -40,5 +42,5 @@ func ApplyColumnSortGadget(col uint, sign bool, bitwidth uint, schema *air.Schem
 	ApplyBitwidthGadget(deltaIndex, bitwidth, schema)
 	// Configure constraint: Delta[k] = X[k] - X[k-1]
 	Dk := air.NewColumnAccess(deltaIndex, 0)
-	schema.AddVanishingConstraint(deltaName, nil, Dk.Equate(Xdiff))
+	schema.AddVanishingConstraint(deltaName, column.Module(), nil, Dk.Equate(Xdiff))
 }

@@ -1,8 +1,11 @@
 package air
 
 import (
+	"math"
+
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/schema"
+	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
 )
 
@@ -14,12 +17,7 @@ import (
 // trace expansion).
 type Expr interface {
 	util.Boundable
-	// EvalAt evaluates this expression in a given tabular context. Observe that
-	// if this expression is *undefined* within this context then it returns
-	// "nil".  An expression can be undefined for several reasons: firstly, if
-	// it accesses a row which does not exist (e.g. at index -1); secondly, if
-	// it accesses a column which does not exist.
-	EvalAt(int, trace.Trace) *fr.Element
+	schema.Evaluable
 
 	// String produces a string representing this as an S-Expression.
 	String() string
@@ -37,8 +35,18 @@ type Expr interface {
 	Equate(Expr) Expr
 }
 
+// ============================================================================
+// Addition
+// ============================================================================
+
 // Add represents the sum over zero or more expressions.
 type Add struct{ Args []Expr }
+
+// Context determines the evaluation context (i.e. enclosing module) for this
+// expression.
+func (p *Add) Context(schema sc.Schema) (uint, bool) {
+	return sc.JoinContexts[Expr](p.Args, schema)
+}
 
 // Add two expressions together, producing a third.
 func (p *Add) Add(other Expr) Expr { return &Add{Args: []Expr{p, other}} }
@@ -56,8 +64,18 @@ func (p *Add) Equate(other Expr) Expr { return &Sub{Args: []Expr{p, other}} }
 // direction (right).
 func (p *Add) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
 
+// ============================================================================
+// Subtraction
+// ============================================================================
+
 // Sub represents the subtraction over zero or more expressions.
 type Sub struct{ Args []Expr }
+
+// Context determines the evaluation context (i.e. enclosing module) for this
+// expression.
+func (p *Sub) Context(schema sc.Schema) (uint, bool) {
+	return sc.JoinContexts[Expr](p.Args, schema)
+}
 
 // Add two expressions together, producing a third.
 func (p *Sub) Add(other Expr) Expr { return &Add{Args: []Expr{p, other}} }
@@ -75,8 +93,18 @@ func (p *Sub) Equate(other Expr) Expr { return &Sub{Args: []Expr{p, other}} }
 // direction (right).
 func (p *Sub) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
 
+// ============================================================================
+// Multiplication
+// ============================================================================
+
 // Mul represents the product over zero or more expressions.
 type Mul struct{ Args []Expr }
+
+// Context determines the evaluation context (i.e. enclosing module) for this
+// expression.
+func (p *Mul) Context(schema sc.Schema) (uint, bool) {
+	return sc.JoinContexts[Expr](p.Args, schema)
+}
 
 // Add two expressions together, producing a third.
 func (p *Mul) Add(other Expr) Expr { return &Add{Args: []Expr{p, other}} }
@@ -93,6 +121,10 @@ func (p *Mul) Equate(other Expr) Expr { return &Sub{Args: []Expr{p, other}} }
 // Bounds returns max shift in either the negative (left) or positive
 // direction (right).
 func (p *Mul) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
+
+// ============================================================================
+// Constant
+// ============================================================================
 
 // Constant represents a constant value within an expression.
 type Constant struct{ Value *fr.Element }
@@ -118,6 +150,12 @@ func NewConstCopy(val *fr.Element) Expr {
 	clone.Set(val)
 	// DOne
 	return &Constant{&clone}
+}
+
+// Context determines the evaluation context (i.e. enclosing module) for this
+// expression.
+func (p *Constant) Context(schema sc.Schema) (uint, bool) {
+	return math.MaxUint, true
 }
 
 // Add two expressions together, producing a third.
@@ -151,6 +189,12 @@ type ColumnAccess struct {
 // column on the current row.
 func NewColumnAccess(column uint, shift int) Expr {
 	return &ColumnAccess{column, shift}
+}
+
+// Context determines the evaluation context (i.e. enclosing module) for this
+// expression.
+func (p *ColumnAccess) Context(schema sc.Schema) (uint, bool) {
+	return schema.Columns().Nth(p.Column).Module(), true
 }
 
 // Add two expressions together, producing a third.
