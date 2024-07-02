@@ -224,7 +224,7 @@ func (p *hirParser) parseAssertionDeclaration(elements []sexp.SExp) error {
 		return err
 	}
 	// Add assertion.
-	p.env.schema.AddPropertyAssertion(handle, expr)
+	p.env.schema.AddPropertyAssertion(p.module, handle, expr)
 
 	return nil
 }

@@ -29,9 +29,8 @@ type ComputedColumn[E sc.Evaluable] struct {
 // NewComputedColumn constructs a new computed column with a given name and
 // determining expression.  More specifically, that expression is used to
 // compute the values for this column during trace expansion.
-func NewComputedColumn[E sc.Evaluable](name string, expr E) *ComputedColumn[E] {
-	// FIXME: module index should not always be zero!
-	return &ComputedColumn[E]{0, name, expr}
+func NewComputedColumn[E sc.Evaluable](module uint, name string, expr E) *ComputedColumn[E] {
+	return &ComputedColumn[E]{module, name, expr}
 }
 
 // nolint:revive

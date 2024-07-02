@@ -39,7 +39,7 @@ func ApplyPseudoInverseGadget(e air.Expr, schema *air.Schema) air.Expr {
 	// Add new column (if it does not already exist)
 	if !ok {
 		// Add computed column
-		index = schema.AddAssignment(assignment.NewComputedColumn(name, ie))
+		index = schema.AddAssignment(assignment.NewComputedColumn(module, name, ie))
 	}
 
 	// Construct 1/e

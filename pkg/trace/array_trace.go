@@ -2,6 +2,8 @@ package trace
 
 import (
 	"strings"
+
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // ArrayTrace provides an implementation of Trace which stores columns as an
@@ -150,10 +152,27 @@ func (p arrayTraceColumnSet) Len() uint {
 
 // Swap two columns in this column set.
 func (p arrayTraceColumnSet) Swap(l uint, r uint) {
+	if l == r {
+		panic("invalid column swap")
+	}
+
 	cols := p.trace.columns
+	modules := p.trace.modules
 	lth := cols[l]
-	cols[l] = cols[r]
+	rth := cols[r]
+	cols[l] = rth
 	cols[r] = lth
+	// Update modules notion of which columns they own.  Observe that this only
+	// makes sense when the modules for each column differ.  Otherwise, this
+	// leads to broken results.
+	if lth.Module() != rth.Module() {
+		// Extract modules being swapped
+		lthmod := &modules[lth.Module()]
+		rthmod := &modules[rth.Module()]
+		// Update their columns caches
+		util.ReplaceFirstOrPanic(lthmod.columns, l, r)
+		util.ReplaceFirstOrPanic(rthmod.columns, r, l)
+	}
 }
 
 // ============================================================================
@@ -209,8 +228,8 @@ func (p arrayTraceModuleSet) Pad(index uint, n uint) {
 	var m *Module = &p.trace.modules[index]
 	m.height += n
 	//
-	for i := range m.columns {
-		p.trace.columns[i].Pad(n)
+	for _, c := range m.columns {
+		p.trace.columns[c].Pad(n)
 	}
 }
 
