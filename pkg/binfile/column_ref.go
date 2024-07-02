@@ -50,5 +50,6 @@ func asColumnRef(handle string) ColumnRef {
 	split_1 := strings.Split(split[1], "#")
 	module := split[0]
 	column := split_1[0]
+
 	return ColumnRef{module, column}
 }

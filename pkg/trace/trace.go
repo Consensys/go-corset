@@ -13,9 +13,6 @@ type Trace interface {
 	Columns() ColumnSet
 	// Clone creates an identical clone of this trace.
 	Clone() Trace
-	// Determine the index of a particular column in this trace, or return false
-	// if no such column exists.
-	ColumnIndex(module uint, name string) (uint, bool)
 	// Access the modules of this trace.
 	Modules() ModuleSet
 }
@@ -28,6 +25,8 @@ type ColumnSet interface {
 	Get(uint) Column
 	// Check whether or not a column with the given name already exists.
 	HasColumn(string) bool
+	// Determine index of given column, or return false if this fails.
+	IndexOf(module uint, column string) (uint, bool)
 	// Returns the number of items in this array.
 	Len() uint
 	// Swap two columns in this column set
@@ -54,6 +53,9 @@ type Column interface {
 	Padding() *fr.Element
 	// Pad this column with n copies of the column's padding value.
 	Pad(n uint)
+	// Reseat updates the module index of this column (e.g. as a result of a
+	// realignment).
+	Reseat(mid uint)
 	// Return the width (i.e. number of bytes per element) of this column.
 	Width() uint
 	// Write the raw bytes of this column to a given writer, returning an error
@@ -68,10 +70,14 @@ type ModuleSet interface {
 	Add(string, uint) uint
 	// Get the ith module in this set.
 	Get(uint) *Module
-	// Pad the ith module in this set with n items at the front of each column
-	Pad(mid uint, n uint)
+	// Determine index of given module, or return false if this fails.
+	IndexOf(string) (uint, bool)
 	// Returns the number of items in this array.
 	Len() uint
+	// Pad the ith module in this set with n items at the front of each column
+	Pad(mid uint, n uint)
+	// Swap order of modules.  Note columns are updated accordingly.
+	Swap(uint, uint)
 }
 
 // Module describes an individual module within the trace table, and

@@ -97,6 +97,12 @@ func (p *FieldColumn) Pad(n uint) {
 	p.data = ndata
 }
 
+// Reseat updates the module index of this column (e.g. as a result of a
+// realignment).
+func (p *FieldColumn) Reseat(mid uint) {
+	p.module = mid
+}
+
 // Write the raw bytes of this column to a given writer, returning an error
 // if this failed (for some reason).  Observe that this always writes data in
 // 32byte chunks.

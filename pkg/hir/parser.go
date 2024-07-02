@@ -237,9 +237,8 @@ func (p *hirParser) parseVanishingDeclaration(elements []sexp.SExp, domain *int)
 	if err != nil {
 		return err
 	}
-	// TODO: support module syntax
-	module := uint(0)
-	p.env.schema.AddVanishingConstraint(handle, module, domain, expr)
+
+	p.env.schema.AddVanishingConstraint(handle, p.module, domain, expr)
 
 	return nil
 }

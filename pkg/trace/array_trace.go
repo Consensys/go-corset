@@ -23,19 +23,6 @@ func (p *ArrayTrace) Columns() ColumnSet {
 	return arrayTraceColumnSet{p}
 }
 
-// ColumnIndex returns the column index of the column with the given name in
-// this trace, or returns false if no such column exists.
-func (p *ArrayTrace) ColumnIndex(module uint, name string) (uint, bool) {
-	for i := 0; i < len(p.columns); i++ {
-		c := p.columns[i]
-		if c.Module() == module && c.Name() == name {
-			return uint(i), true
-		}
-	}
-	// Column does not exist
-	return 0, false
-}
-
 // Clone creates an identical clone of this trace.
 func (p *ArrayTrace) Clone() Trace {
 	clone := new(ArrayTrace)
@@ -77,6 +64,7 @@ func (p *ArrayTrace) String() string {
 			id.WriteString(modName)
 			id.WriteString(".")
 		}
+
 		id.WriteString(ith.Name())
 		id.WriteString("={")
 
@@ -142,6 +130,19 @@ func (p arrayTraceColumnSet) HasColumn(name string) bool {
 	return false
 }
 
+// IndexOf returns the column index of the column with the given name in
+// this trace, or returns false if no such column exists.
+func (p arrayTraceColumnSet) IndexOf(module uint, name string) (uint, bool) {
+	for i := 0; i < len(p.trace.columns); i++ {
+		c := p.trace.columns[i]
+		if c.Module() == module && c.Name() == name {
+			return uint(i), true
+		}
+	}
+	// Column does not exist
+	return 0, false
+}
+
 // Len returns the number of items in this array.
 func (p arrayTraceColumnSet) Len() uint {
 	return uint(len(p.trace.columns))
@@ -180,11 +181,41 @@ func (p arrayTraceModuleSet) Len() uint {
 	return uint(len(p.trace.modules))
 }
 
+// IndexOf returns the module index of the module with the given name in
+// this trace, or returns false if no such module exists.
+func (p arrayTraceModuleSet) IndexOf(name string) (uint, bool) {
+	for i := 0; i < len(p.trace.modules); i++ {
+		m := p.trace.modules[i]
+		if m.Name() == name {
+			return uint(i), true
+		}
+	}
+	// MOdule does not exist
+	return 0, false
+}
+
+func (p arrayTraceModuleSet) Swap(l uint, r uint) {
+	// Swap the modules
+	lth := p.trace.modules[l]
+	rth := p.trace.modules[r]
+	p.trace.modules[l] = rth
+	p.trace.modules[r] = lth
+	// Update enclosed columns
+	p.reseatColumns(r, lth.columns)
+	p.reseatColumns(l, rth.columns)
+}
+
 func (p arrayTraceModuleSet) Pad(index uint, n uint) {
 	var m *Module = &p.trace.modules[index]
 	m.height += n
 	//
 	for i := range m.columns {
 		p.trace.columns[i].Pad(n)
+	}
+}
+
+func (p arrayTraceModuleSet) reseatColumns(mid uint, columns []uint) {
+	for _, c := range columns {
+		p.trace.columns[c].Reseat(mid)
 	}
 }

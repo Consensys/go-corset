@@ -36,6 +36,7 @@ func NewLexicographicSort(prefix string, module uint, sources []uint, signs []bo
 		ithName := fmt.Sprintf("%s:%d", prefix, i)
 		targets[1+i] = schema.NewColumn(module, ithName, schema.NewUintType(1))
 	}
+
 	return &LexicographicSort{module, targets, sources, signs, bitwidth}
 }
 

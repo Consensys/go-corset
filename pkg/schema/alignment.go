@@ -42,7 +42,24 @@ func alignWith(expand bool, p tr.Trace, schema Schema) error {
 		traceMod := p.Modules().Get(modIndex)
 
 		if schemaMod.Name() != traceMod.Name() {
-			panic(fmt.Sprintf("modules '%s' and '%s' misaligned (index %d)", schemaMod.Name(), traceMod.Name(), modIndex))
+			// Not aligned --- so fix
+			k, ok := p.Modules().IndexOf(schemaMod.Name())
+			// Check module exists
+			if !ok {
+				// This situation can occur when a module is declared in the
+				// schema, but which has no column declarations (hence, by
+				// definition, it would be missing from the trace).  Commonly,
+				// this happens when no columns are declared in the prelude,
+				// because schema's constructed by the builder always have a
+				// prelude module.  In such a situation, its reasonable to
+				// create an empty module as this is of no real consequence.
+				k = p.Modules().Add(schemaMod.Name(), 0)
+			} else if k < modIndex {
+				// Sanity check
+				panic("internal failure")
+			}
+			// Swap modules
+			p.Modules().Swap(modIndex, k)
 		}
 
 		modIndex++
@@ -69,13 +86,13 @@ func alignWith(expand bool, p tr.Trace, schema Schema) error {
 				// Check alignment
 				if traceCol.Name() != schemaCol.Name() || traceMod.Name() != schemaMod.Name() {
 					// Not aligned --- so fix
-					k, ok := p.ColumnIndex(schemaCol.Module(), schemaCol.Name())
+					k, ok := p.Columns().IndexOf(schemaCol.Module(), schemaCol.Name())
 					// check exists
 					if !ok {
 						return fmt.Errorf("trace missing column %s.%s", schemaMod.Name(), schemaCol.Name())
 					}
 					// Swap columns
-					columns.Swap(modIndex, k)
+					columns.Swap(colIndex, k)
 				}
 				// Continue
 				colIndex++

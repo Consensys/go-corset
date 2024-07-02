@@ -135,6 +135,12 @@ func (p *BytesColumn) Pad(n uint) {
 	p.length += n
 }
 
+// Reseat updates the module index of this column (e.g. as a result of a
+// realignment).
+func (p *BytesColumn) Reseat(mid uint) {
+	p.module = mid
+}
+
 // Write the raw bytes of this column to a given writer, returning an error
 // if this failed (for some reason).
 func (p *BytesColumn) Write(w io.Writer) error {
