@@ -2,6 +2,7 @@ package binfile
 
 import (
 	"github.com/consensys/go-corset/pkg/hir"
+	sc "github.com/consensys/go-corset/pkg/schema"
 )
 
 // JsonConstraint аn enumeration of constraint forms.  Exactly one of these fields
@@ -43,8 +44,10 @@ func (e jsonConstraint) addToSchema(schema *hir.Schema) {
 		expr := e.Vanishes.Expr.ToHir(schema)
 		// Translate Domain
 		domain := e.Vanishes.Domain.toHir()
+		// Determine enclosing module
+		module := sc.DetermineEnclosingModuleOfExpression(expr, schema)
 		// Construct the vanishing constraint
-		schema.AddVanishingConstraint(e.Vanishes.Handle, domain, expr)
+		schema.AddVanishingConstraint(e.Vanishes.Handle, module, domain, expr)
 	} else if e.Permutation == nil {
 		// Catch all
 		panic("Unknown JSON constraint encountered")

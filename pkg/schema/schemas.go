@@ -1,8 +1,72 @@
 package schema
 
 import (
+	"math"
+
 	tr "github.com/consensys/go-corset/pkg/trace"
 )
+
+// JoinContexts combines one or more contexts together.  There are a number of
+// scenarios.  The simple path is when each expression has the same evaluation
+// context (in which case this is returned).  Its also possible one or more
+// expressions have no evaluation context (signaled by math.MaxUint) and this
+// can be ignored. Finally, we might have two expressions with conflicting
+// evaluation contexts, and this clearly signals an error.
+func JoinContexts[E Contextual](args []E, schema Schema) (uint, bool) {
+	var ctx uint = math.MaxUint
+	//
+	for _, e := range args {
+		c, b := e.Context(schema)
+		if !b {
+			// Indicates conflict detected upstream, therefore propagate this
+			// down.
+			return 0, false
+		} else if ctx == math.MaxUint {
+			// No evaluation context determined yet, therefore can overwrite
+			// with whatever we got.  Observe that this might still actually
+			ctx = c
+		} else if c != ctx && c != math.MaxUint {
+			// This indicates a conflict is detected, therefore we must
+			// propagate this down.
+			return 0, false
+		}
+	}
+	// If we get here, then no conflicts were detected.
+	return ctx, true
+}
+
+// DetermineEnclosingModuleOfExpression determines (and checks) the enclosing
+// module for a given expression.  The expectation is that there is a single
+// enclosing module, and this function will panic if that does not hold.
+func DetermineEnclosingModuleOfExpression[E Contextual](expr E, schema Schema) uint {
+	if mid, ok := expr.Context(schema); ok {
+		return mid
+	}
+	//
+	panic("expression has no evaluation context")
+}
+
+// DetermineEnclosingModuleOfColumns determines (and checks) the enclosing module for a
+// given set of columns.  The expectation is that there is a single enclosing
+// module, and this function will panic if that does not hold.
+func DetermineEnclosingModuleOfColumns(cols []uint, schema Schema) uint {
+	// First, determine module of first column.
+	mid := schema.Columns().Nth(cols[0]).Module()
+	// Second, check other columns in the same module.
+	//
+	// NOTE: this could potentially be made more efficient by checking the
+	// columns of the module for the first column.
+	for i := 1; i < len(cols); i++ {
+		col := cols[i]
+		if mid != schema.Columns().Nth(col).Module() {
+			// This is an internal failure which should be prevented by upstream
+			// checking (e.g. in the parser).
+			panic("columns have different enclosing module")
+		}
+	}
+	// Done
+	return mid
+}
 
 // RequiredSpillage returns the minimum amount of spillage required to ensure
 // valid traces are accepted in the presence of arbitrary padding.  Spillage can

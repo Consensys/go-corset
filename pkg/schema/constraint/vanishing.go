@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/schema"
+	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
@@ -26,6 +27,12 @@ func (p ZeroTest[E]) TestAt(row int, tr trace.Trace) bool {
 // Bounds determines the bounds for this zero test.
 func (p ZeroTest[E]) Bounds() util.Bounds {
 	return p.Expr.Bounds()
+}
+
+// Context determines the evaluation context (i.e. enclosing module) for this
+// expression.
+func (p ZeroTest[E]) Context(schema sc.Schema) (uint, bool) {
+	return p.Expr.Context(schema)
 }
 
 // String generates a human-readble string.
@@ -58,9 +65,9 @@ type VanishingConstraint[T schema.Testable] struct {
 }
 
 // NewVanishingConstraint constructs a new vanishing constraint!
-func NewVanishingConstraint[T schema.Testable](handle string, domain *int, constraint T) *VanishingConstraint[T] {
-	// FIXME: determine correct module index
-	return &VanishingConstraint[T]{handle, 0, domain, constraint}
+func NewVanishingConstraint[T schema.Testable](handle string, module uint,
+	domain *int, constraint T) *VanishingConstraint[T] {
+	return &VanishingConstraint[T]{handle, module, domain, constraint}
 }
 
 // Handle returns the handle associated with this constraint.
@@ -78,6 +85,13 @@ func (p *VanishingConstraint[T]) Constraint() T {
 // applies to a specific row (e.g. the first or last).
 func (p *VanishingConstraint[T]) Domain() *int {
 	return p.domain
+}
+
+// Module returns the enclosing module for this constraint, a.k.a the evaluation
+// context.  Every constraint must be situated within exactly one module in
+// order to be well-formed.
+func (p *VanishingConstraint[T]) Module() uint {
+	return p.module
 }
 
 // Accepts checks whether a vanishing constraint evaluates to zero on every row

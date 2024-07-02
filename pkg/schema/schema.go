@@ -28,6 +28,17 @@ type Schema interface {
 	Declarations() util.Iterator[Declaration]
 }
 
+// Declaration represents an element which declares one (or more) columns in the
+// schema.  For example, a single data column is (for now) always a column group
+// of size 1. Likewise, an array of size n is a column group of size n, etc.
+type Declaration interface {
+	// Return the declared columns (in the order of declaration).
+	Columns() util.Iterator[Column]
+
+	// Determines whether or not this declaration is computed.
+	IsComputed() bool
+}
+
 // Assignment represents a schema element which declares one or more columns
 // whose values are "assigned" from the results of a computation.  An assignment
 // is a column group which, additionally, can provide information about the
@@ -53,15 +64,21 @@ type Constraint interface {
 	Accepts(tr.Trace) error
 }
 
-// Declaration represents an element which declares one (or more) columns in the
-// schema.  For example, a single data column is (for now) always a column group
-// of size 1. Likewise, an array of size n is a column group of size n, etc.
-type Declaration interface {
-	// Return the declared columns (in the order of declaration).
-	Columns() util.Iterator[Column]
-
-	// Determines whether or not this declaration is computed.
-	IsComputed() bool
+// Contextual captures something which requires an evaluation context (i.e. a
+// single enclosing module) in order to make sense.  For example, expressions
+// require a single context.  This interface is separated from Evaluable (and
+// Testable) because HIR expressions do not implement Evaluable.
+type Contextual interface {
+	// Context returns the evaluation context (i.e. enclosing module) for this
+	// constraint.  Every testable constraint must have a single evaluation
+	// context.  This function therefore attempts to determine what that is, or
+	// return false to signal an error. There are several failure modes which
+	// need to be considered.  Firstly, if the expression has no enclosing
+	// module (e.g. because it is a constant expression) then it will return
+	// 'math.MaxUint` to signal this.  Secondly, if the expression has multiple
+	// (i.e. conflicting) enclosing modules then it will return false to signal
+	// this.
+	Context(Schema) (uint, bool)
 }
 
 // Evaluable captures something which can be evaluated on a given table row to
@@ -70,6 +87,7 @@ type Declaration interface {
 // table.
 type Evaluable interface {
 	util.Boundable
+	Contextual
 	// EvalAt evaluates this expression in a given tabular context.
 	// Observe that if this expression is *undefined* within this
 	// context then it returns "nil".  An expression can be
@@ -87,6 +105,7 @@ type Evaluable interface {
 // value).  However, constraints at the HIR level remain testable.
 type Testable interface {
 	util.Boundable
+	Contextual
 
 	// TestAt evaluates this expression in a given tabular context and checks it
 	// against zero. Observe that if this expression is *undefined* within this
