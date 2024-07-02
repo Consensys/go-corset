@@ -33,49 +33,66 @@ func Align(p tr.Trace, schema Schema) error {
 // columns is performed.
 func alignWith(expand bool, p tr.Trace, schema Schema) error {
 	columns := p.Columns()
+	modules := p.Modules()
 	ncols := p.Columns().Len()
-	index := uint(0)
-	// Check each column described in this schema is present in the trace.
+	modIndex := uint(0)
+	// Check alignment of modules
+	for i := schema.Modules(); i.HasNext(); {
+		schemaMod := i.Next()
+		traceMod := p.Modules().Get(modIndex)
+
+		if schemaMod.Name() != traceMod.Name() {
+			panic(fmt.Sprintf("modules '%s' and '%s' misaligned (index %d)", schemaMod.Name(), traceMod.Name(), modIndex))
+		}
+
+		modIndex++
+	}
+	//
+	colIndex := uint(0)
+	// Check alignment of columns.  Observe that we don't currently care whether
+	// modules are aligned.  That is because modules don't really serve any
+	// significant purpose.  However, this might change at some point.
 	for i := schema.Declarations(); i.HasNext(); {
 		ith := i.Next()
 		if expand || !ith.IsComputed() {
 			for j := ith.Columns(); j.HasNext(); {
-				jth := j.Next()
-				// Determine column name
-				schemaName := jth.Name()
+				// Extract schema column & module
+				schemaCol := j.Next()
+				schemaMod := schema.Modules().Nth(schemaCol.Module())
 				// Sanity check column exists
-				if index >= ncols {
-					return fmt.Errorf("trace missing column %s", schemaName)
+				if colIndex >= ncols {
+					return fmt.Errorf("trace missing column %s.%s (too few columns)", schemaMod.Name(), schemaCol.Name())
 				}
-
-				traceName := columns.Get(index).Name()
+				// Extract trace column and module
+				traceCol := columns.Get(colIndex)
+				traceMod := modules.Get(traceCol.Module())
 				// Check alignment
-				if traceName != schemaName {
+				if traceCol.Name() != schemaCol.Name() || traceMod.Name() != schemaMod.Name() {
 					// Not aligned --- so fix
-					k, ok := p.ColumnIndex(schemaName)
+					k, ok := p.ColumnIndex(schemaCol.Module(), schemaCol.Name())
 					// check exists
 					if !ok {
-						return fmt.Errorf("trace missing column %s", schemaName)
+						return fmt.Errorf("trace missing column %s.%s", schemaMod.Name(), schemaCol.Name())
 					}
 					// Swap columns
-					columns.Swap(index, k)
+					columns.Swap(modIndex, k)
 				}
 				// Continue
-				index++
+				colIndex++
 			}
 		}
 	}
 	// Check whether all columns matched
-	if index == ncols {
+	if colIndex == ncols {
 		// Yes, alignment complete.
 		return nil
 	}
 	// Error Case.
-	n := ncols - index
+	n := ncols - colIndex
 	unknowns := make([]string, n)
 	// Determine names of unknown columns.
-	for i := index; i < ncols; i++ {
-		unknowns[i-index] = columns.Get(i).Name()
+	for i := colIndex; i < ncols; i++ {
+		unknowns[i-colIndex] = columns.Get(i).Name()
 	}
 	//
 	return fmt.Errorf("trace contains unknown columns: %v", unknowns)

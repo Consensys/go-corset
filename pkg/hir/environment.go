@@ -1,6 +1,10 @@
 package hir
 
-import "fmt"
+import (
+	"fmt"
+
+	sc "github.com/consensys/go-corset/pkg/schema"
+)
 
 // ===================================================================
 // Environment
@@ -21,14 +25,17 @@ type Environment struct {
 	modules map[string]uint
 	// Maps column references to their column indices.
 	columns map[columnRef]uint
+	// Schema being constructed
+	schema *Schema
 }
 
 // EmptyEnvironment constructs an empty environment.
 func EmptyEnvironment() *Environment {
 	modules := make(map[string]uint)
 	columns := make(map[columnRef]uint)
-
-	return &Environment{modules, columns}
+	schema := EmptySchema()
+	//
+	return &Environment{modules, columns, schema}
 }
 
 // RegisterModule registers a new module within this environment.  Observe that
@@ -37,25 +44,42 @@ func (p *Environment) RegisterModule(module string) uint {
 	if p.HasModule(module) {
 		panic(fmt.Sprintf("module %s already exists", module))
 	}
-
-	mid := uint(len(p.modules))
+	// Update schema
+	mid := p.schema.AddModule(module)
+	// Update cache
 	p.modules[module] = mid
-
+	// Done
 	return mid
 }
 
-// RegisterColumn registesr a new column within a given module.  Observe that
+// AddDataColumn registers a new column within a given module.  Observe that
 // this will panic if the column already exists.
-func (p *Environment) RegisterColumn(module uint, column string) uint {
+func (p *Environment) AddDataColumn(module uint, column string, datatype sc.Type) uint {
 	if p.HasColumn(module, column) {
 		panic(fmt.Sprintf("column %d:%s already exists", module, column))
 	}
-
+	// Update schema
+	p.schema.AddDataColumn(module, column, datatype)
+	// Update cache
 	cid := uint(len(p.columns))
 	cref := columnRef{module, column}
 	p.columns[cref] = cid
-
+	// Done
 	return cid
+}
+
+// AddPermutationColumns registers a new permutation within a given module.  Observe that
+// this will panic if any of the target columns already exists, or the source
+// columns don't exist.
+func (p *Environment) AddPermutationColumns(module uint, targets []sc.Column, signs []bool, sources []uint) {
+	// Update schema
+	p.schema.AddPermutationColumns(module, targets, signs, sources)
+	// Update cache
+	for _, col := range targets {
+		cid := uint(len(p.columns))
+		cref := columnRef{module, col.Name()}
+		p.columns[cref] = cid
+	}
 }
 
 // LookupModule determines the module index for a given named module, or return

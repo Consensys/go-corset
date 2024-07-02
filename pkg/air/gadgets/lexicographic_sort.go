@@ -37,7 +37,7 @@ func ApplyLexicographicSortingGadget(columns []uint, signs []bool, bitwidth uint
 	// Construct a unique prefix for this sort.
 	prefix := constructLexicographicSortingPrefix(columns, signs, schema)
 	// Add trace computation
-	deltaIndex := schema.AddAssignment(assignment.NewLexicographicSort(prefix, columns, signs, bitwidth))
+	deltaIndex := schema.AddAssignment(assignment.NewLexicographicSort(prefix, module, columns, signs, bitwidth))
 	// Construct selecto bits.
 	addLexicographicSelectorBits(prefix, module, deltaIndex, columns, schema)
 	// Construct delta terms

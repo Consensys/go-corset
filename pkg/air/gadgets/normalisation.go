@@ -35,7 +35,7 @@ func ApplyPseudoInverseGadget(e air.Expr, schema *air.Schema) air.Expr {
 	// Determine computed column name
 	name := ie.String()
 	// Look up column
-	index, ok := sc.ColumnIndexOf(schema, name)
+	index, ok := sc.ColumnIndexOf(schema, module, name)
 	// Add new column (if it does not already exist)
 	if !ok {
 		// Add computed column

@@ -51,7 +51,7 @@ func (p *ComputedColumn[E]) Name() string {
 // Columns returns the columns declared by this computed column.
 func (p *ComputedColumn[E]) Columns() util.Iterator[schema.Column] {
 	// TODO: figure out appropriate type for computed column
-	column := schema.NewColumn(p.name, &schema.FieldType{})
+	column := schema.NewColumn(p.module, p.name, &schema.FieldType{})
 	return util.NewUnitIterator[schema.Column](column)
 }
 

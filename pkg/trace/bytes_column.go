@@ -70,6 +70,7 @@ func (p *BytesColumn) Get(i int) *fr.Element {
 // Clone an BytesColumn
 func (p *BytesColumn) Clone() Column {
 	clone := new(BytesColumn)
+	clone.module = p.module
 	clone.name = p.name
 	clone.length = p.length
 	clone.width = p.width

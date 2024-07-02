@@ -1,6 +1,8 @@
 package air
 
 import (
+	"fmt"
+
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/assignment"
@@ -19,6 +21,8 @@ type PropertyAssertion = *schema.PropertyAssertion[constraint.ZeroTest[schema.Ev
 // Schema for AIR traces which is parameterised on a notion of computation as
 // permissible in computed columns.
 type Schema struct {
+	// The modules of the schema
+	modules []schema.Module
 	// The set of data columns corresponding to the inputs of this schema.
 	inputs []schema.Declaration
 	// Assignments defines the set of column declarations whose trace values are
@@ -36,6 +40,7 @@ type Schema struct {
 // constraints will be added.
 func EmptySchema[C schema.Evaluable]() *Schema {
 	p := new(Schema)
+	p.modules = make([]schema.Module, 0)
 	p.inputs = make([]schema.Declaration, 0)
 	p.assignments = make([]schema.Assignment, 0)
 	p.constraints = make([]schema.Constraint, 0)
@@ -44,12 +49,24 @@ func EmptySchema[C schema.Evaluable]() *Schema {
 	return p
 }
 
+// AddModule adds a new module to this schema, returning its module index.
+func (p *Schema) AddModule(name string) uint {
+	mid := uint(len(p.modules))
+	p.modules = append(p.modules, schema.NewModule(name))
+
+	return mid
+}
+
 // AddColumn appends a new data column whose values must be provided by the
 // user.
-func (p *Schema) AddColumn(name string, datatype schema.Type) uint {
+func (p *Schema) AddColumn(module uint, name string, datatype schema.Type) uint {
+	if module >= uint(len(p.modules)) {
+		panic(fmt.Sprintf("invalid module index (%d)", module))
+	}
+
 	// NOTE: the air level has no ability to enforce the type specified for a
 	// given column.
-	p.inputs = append(p.inputs, assignment.NewDataColumn(name, datatype))
+	p.inputs = append(p.inputs, assignment.NewDataColumn(module, name, datatype))
 	// Calculate column index
 	return uint(len(p.inputs) - 1)
 }
@@ -67,11 +84,16 @@ func (p *Schema) AddAssignment(c schema.Assignment) uint {
 // AddPermutationConstraint appends a new permutation constraint which
 // ensures that one column is a permutation of another.
 func (p *Schema) AddPermutationConstraint(targets []uint, sources []uint) {
+	// TODO: sanity target and source columns are in the same module.
 	p.constraints = append(p.constraints, constraint.NewPermutationConstraint(targets, sources))
 }
 
 // AddVanishingConstraint appends a new vanishing constraint.
 func (p *Schema) AddVanishingConstraint(handle string, module uint, domain *int, expr Expr) {
+	if module >= uint(len(p.modules)) {
+		panic(fmt.Sprintf("invalid module index (%d)", module))
+	}
+	// TODO: sanity check expression enclosed by module
 	p.constraints = append(p.constraints,
 		constraint.NewVanishingConstraint(handle, module, domain, constraint.ZeroTest[Expr]{Expr: expr}))
 }
@@ -120,4 +142,10 @@ func (p *Schema) Constraints() util.Iterator[schema.Constraint] {
 func (p *Schema) Declarations() util.Iterator[schema.Declaration] {
 	ps := util.NewCastIterator[schema.Assignment, schema.Declaration](p.Assignments())
 	return p.Inputs().Append(ps)
+}
+
+// Modules returns an iterator over the declared set of modules within this
+// schema.
+func (p *Schema) Modules() util.Iterator[schema.Module] {
+	return util.NewArrayIterator(p.modules)
 }

@@ -27,17 +27,16 @@ type LexicographicSort struct {
 }
 
 // NewLexicographicSort constructs a new LexicographicSorting assignment.
-func NewLexicographicSort(prefix string, sources []uint, signs []bool, bitwidth uint) *LexicographicSort {
+func NewLexicographicSort(prefix string, module uint, sources []uint, signs []bool, bitwidth uint) *LexicographicSort {
 	targets := make([]schema.Column, len(sources)+1)
 	// Create delta column
-	targets[0] = schema.NewColumn(fmt.Sprintf("%s:delta", prefix), schema.NewUintType(bitwidth))
+	targets[0] = schema.NewColumn(module, fmt.Sprintf("%s:delta", prefix), schema.NewUintType(bitwidth))
 	// Create selector columns
 	for i := range sources {
 		ithName := fmt.Sprintf("%s:%d", prefix, i)
-		targets[1+i] = schema.NewColumn(ithName, schema.NewUintType(1))
+		targets[1+i] = schema.NewColumn(module, ithName, schema.NewUintType(1))
 	}
-	// FIXME: determine correct module index
-	return &LexicographicSort{0, targets, sources, signs, bitwidth}
+	return &LexicographicSort{module, targets, sources, signs, bitwidth}
 }
 
 // ============================================================================

@@ -10,27 +10,31 @@ import (
 
 // Schema represents a schema which can be used to manipulate a trace.
 type Schema interface {
-	// Assignments returns an array over the assignments of this schema.  That
+	// Assignments returns an iterator over the assignments of this schema.  That
 	// is, the subset of declarations whose trace values can be computed from
 	// the inputs.
 	Assignments() util.Iterator[Assignment]
 
-	// Columns returns an array over the underlying columns of this schema.
+	// Columns returns an iterator over the underlying columns of this schema.
 	// Specifically, the index of a column in this array is its column index.
 	Columns() util.Iterator[Column]
 
-	// Constraints returns an array over the underlying constraints of this
+	// Constraints returns an iterator over the underlying constraints of this
 	// schema.
 	Constraints() util.Iterator[Constraint]
 
-	// Declarations returns an array over the column declarations of this
+	// Declarations returns an iterator over the column declarations of this
 	// schema.
 	Declarations() util.Iterator[Declaration]
+
+	// Modules returns an iterator over the declared set of modules within this
+	// schema.
+	Modules() util.Iterator[Module]
 }
 
 // Declaration represents an element which declares one (or more) columns in the
 // schema.  For example, a single data column is (for now) always a column group
-// of size 1. Likewise, an array of size n is a column group of size n, etc.
+// of size 1. Likewise, an iterator of size n is a column group of size n, etc.
 type Declaration interface {
 	// Return the declared columns (in the order of declaration).
 	Columns() util.Iterator[Column]
@@ -131,9 +135,8 @@ type Column struct {
 }
 
 // NewColumn constructs a new column
-func NewColumn(name string, datatype Type) Column {
-	// FIXME: module index should not always be zero!
-	return Column{0, name, datatype}
+func NewColumn(module uint, name string, datatype Type) Column {
+	return Column{module, name, datatype}
 }
 
 // Module returns the index of the module which contains this column
@@ -153,4 +156,28 @@ func (p Column) Type() Type {
 
 func (p Column) String() string {
 	return fmt.Sprintf("%s:%s", p.name, p.datatype.String())
+}
+
+// ============================================================================
+// Module
+// ============================================================================
+
+// Module represents a specific module in the schema that groups columns
+// together.  Modules don't serve a huge function in a schema at this time.
+// They could, however, be used to iterate over the things they contain (e.g.
+// their columns, their constraints, etc).  Potentially, they might also do
+// things like identify input / output columns, etc.
+type Module struct {
+	// Returns the name of this column
+	name string
+}
+
+// NewModule constructs a new column
+func NewModule(name string) Module {
+	return Module{name}
+}
+
+// Name returns the name of this module
+func (p *Module) Name() string {
+	return p.name
 }

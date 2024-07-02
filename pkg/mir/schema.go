@@ -1,6 +1,8 @@
 package mir
 
 import (
+	"fmt"
+
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/assignment"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
@@ -25,6 +27,8 @@ type Permutation = *assignment.SortedPermutation
 
 // Schema for MIR traces
 type Schema struct {
+	// The modules of the schema
+	modules []schema.Module
 	// The data columns of this schema.
 	inputs []schema.Declaration
 	// The sorted permutations of this schema.
@@ -40,6 +44,7 @@ type Schema struct {
 // constraints will be added.
 func EmptySchema() *Schema {
 	p := new(Schema)
+	p.modules = make([]schema.Module, 0)
 	p.inputs = make([]schema.Declaration, 0)
 	p.assignments = make([]schema.Assignment, 0)
 	p.constraints = make([]schema.Constraint, 0)
@@ -48,9 +53,21 @@ func EmptySchema() *Schema {
 	return p
 }
 
+// AddModule adds a new module to this schema, returning its module index.
+func (p *Schema) AddModule(name string) uint {
+	mid := uint(len(p.modules))
+	p.modules = append(p.modules, schema.NewModule(name))
+
+	return mid
+}
+
 // AddDataColumn appends a new data column.
-func (p *Schema) AddDataColumn(name string, base schema.Type) {
-	p.inputs = append(p.inputs, assignment.NewDataColumn(name, base))
+func (p *Schema) AddDataColumn(module uint, name string, base schema.Type) {
+	if module >= uint(len(p.modules)) {
+		panic(fmt.Sprintf("invalid module index (%d)", module))
+	}
+
+	p.inputs = append(p.inputs, assignment.NewDataColumn(module, name, base))
 }
 
 // AddPermutationColumns introduces a permutation of one or more
@@ -59,12 +76,20 @@ func (p *Schema) AddDataColumn(name string, base schema.Type) {
 // source columns.  Each source column is associated with a "sign"
 // which indicates the direction of sorting (i.e. ascending versus
 // descending).
-func (p *Schema) AddPermutationColumns(targets []schema.Column, signs []bool, sources []uint) {
-	p.assignments = append(p.assignments, assignment.NewSortedPermutation(targets, signs, sources))
+func (p *Schema) AddPermutationColumns(module uint, targets []schema.Column, signs []bool, sources []uint) {
+	if module >= uint(len(p.modules)) {
+		panic(fmt.Sprintf("invalid module index (%d)", module))
+	}
+
+	p.assignments = append(p.assignments, assignment.NewSortedPermutation(module, targets, signs, sources))
 }
 
 // AddVanishingConstraint appends a new vanishing constraint.
 func (p *Schema) AddVanishingConstraint(handle string, module uint, domain *int, expr Expr) {
+	if module >= uint(len(p.modules)) {
+		panic(fmt.Sprintf("invalid module index (%d)", module))
+	}
+
 	p.constraints = append(p.constraints,
 		constraint.NewVanishingConstraint(handle, module, domain, constraint.ZeroTest[Expr]{Expr: expr}))
 }
@@ -122,4 +147,10 @@ func (p *Schema) Constraints() util.Iterator[schema.Constraint] {
 func (p *Schema) Declarations() util.Iterator[schema.Declaration] {
 	ps := util.NewCastIterator[schema.Assignment, schema.Declaration](p.Assignments())
 	return p.Inputs().Append(ps)
+}
+
+// Modules returns an iterator over the declared set of modules within this
+// schema.
+func (p *Schema) Modules() util.Iterator[schema.Module] {
+	return util.NewArrayIterator(p.modules)
 }

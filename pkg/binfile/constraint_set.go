@@ -107,16 +107,19 @@ func HirSchemaFromJson(bytes []byte) (schema *hir.Schema, err error) {
 			fmt.Printf("COLUMN: %s\n", c.Handle)
 			panic("invalid JSON column configuration")
 		} else {
-			t := c.Type.toHir()
-			schema.AddDataColumn(c.Handle, t)
+			cref := asColumnRef(c.Handle)
+			mid := registerModule(schema, cref.module)
+			col_type := c.Type.toHir()
+			// Add column for this
+			schema.AddDataColumn(mid, cref.column, col_type)
 			// Check whether a type constraint required or not.
 			if c.MustProve {
-				cid, ok := sc.ColumnIndexOf(schema, c.Handle)
+				cid, ok := sc.ColumnIndexOf(schema, mid, cref.column)
 				if !ok {
 					panic(fmt.Sprintf("unknown column %s", c.Handle))
 				}
 
-				schema.AddTypeConstraint(cid, t)
+				schema.AddTypeConstraint(cid, col_type)
 			}
 		}
 	}
@@ -128,4 +131,19 @@ func HirSchemaFromJson(bytes []byte) (schema *hir.Schema, err error) {
 	res.Computations.addToSchema(schema)
 	// For now return directly.
 	return schema, jsonErr
+}
+
+// Register a module within the schema.  If the module already exists, then
+// simply return its existing index.
+func registerModule(schema *hir.Schema, module string) uint {
+	// Attempt to find existing module with same name
+	mid, ok := schema.Modules().Find(func(m sc.Module) bool {
+		return m.Name() == module
+	})
+	// Check whether search successful, or not.
+	if ok {
+		return mid
+	}
+	// Not successful, so create new one.
+	return schema.AddModule(module)
 }

@@ -39,7 +39,7 @@ func ParseSchemaString(str string) (*Schema, error) {
 		}
 	}
 	// Done
-	return p.schema, nil
+	return p.env.schema, nil
 }
 
 // ===================================================================
@@ -49,8 +49,6 @@ func ParseSchemaString(str string) (*Schema, error) {
 type hirParser struct {
 	// Translator used for recursive expressions.
 	translator *sexp.Translator[Expr]
-	// Schema being constructed
-	schema *Schema
 	// Current module being parsed.
 	module uint
 	// Environment used during parsing to resolve column names into column
@@ -65,7 +63,7 @@ func newHirParser(srcmap *sexp.SourceMap[sexp.SExp]) *hirParser {
 	// Register top-level module (aka the prelude)
 	prelude := env.RegisterModule("")
 	// Construct parser
-	parser := &hirParser{p, EmptySchema(), prelude, env}
+	parser := &hirParser{p, prelude, env}
 	// Configure translator
 	p.AddSymbolRule(constantParserRule)
 	p.AddSymbolRule(columnAccessParserRule(parser))
@@ -83,7 +81,9 @@ func newHirParser(srcmap *sexp.SourceMap[sexp.SExp]) *hirParser {
 
 func (p *hirParser) parseDeclaration(s sexp.SExp) error {
 	if e, ok := s.(*sexp.List); ok {
-		if e.MatchSymbols(2, "column") {
+		if e.MatchSymbols(2, "module") {
+			return p.parseModuleDeclaration(e)
+		} else if e.MatchSymbols(2, "column") {
 			return p.parseColumnDeclaration(e)
 		} else if e.Len() == 3 && e.MatchSymbols(2, "vanish") {
 			return p.parseVanishingDeclaration(e.Elements, nil)
@@ -104,6 +104,26 @@ func (p *hirParser) parseDeclaration(s sexp.SExp) error {
 }
 
 // Parse a column declaration
+func (p *hirParser) parseModuleDeclaration(l *sexp.List) error {
+	// Sanity check declaration
+	if len(l.Elements) > 2 {
+		return p.translator.SyntaxError(l, "malformed module declaration")
+	}
+	// Extract column name
+	moduleName := l.Elements[1].String()
+	// Sanity check doesn't already exist
+	if p.env.HasModule(moduleName) {
+		return p.translator.SyntaxError(l, "duplicate module declaration")
+	}
+	// Register module
+	mid := p.env.RegisterModule(moduleName)
+	// Set current module
+	p.module = mid
+	//
+	return nil
+}
+
+// Parse a column declaration
 func (p *hirParser) parseColumnDeclaration(l *sexp.List) error {
 	// Sanity check declaration
 	if len(l.Elements) > 3 {
@@ -115,8 +135,6 @@ func (p *hirParser) parseColumnDeclaration(l *sexp.List) error {
 	if p.env.HasColumn(p.module, columnName) {
 		return p.translator.SyntaxError(l, "duplicate column declaration")
 	}
-	// Register column
-	cid := p.env.RegisterColumn(p.module, columnName)
 	// Default to field type
 	var columnType sc.Type = &sc.FieldType{}
 	// Parse type (if applicable)
@@ -128,9 +146,9 @@ func (p *hirParser) parseColumnDeclaration(l *sexp.List) error {
 			return err
 		}
 	}
-	// Register column in Schema
-	p.schema.AddDataColumn(columnName, columnType)
-	p.schema.AddTypeConstraint(cid, columnType)
+	// Register column
+	cid := p.env.AddDataColumn(p.module, columnName, columnType)
+	p.env.schema.AddTypeConstraint(cid, columnType)
 
 	return nil
 }
@@ -189,12 +207,10 @@ func (p *hirParser) parseSortedPermutationDeclaration(l *sexp.List) error {
 		// Copy over column name
 		sources[i] = sourceIndex
 		// FIXME: determine source column type
-		targets[i] = schema.NewColumn(targetName, &schema.FieldType{})
-		// Finally, register target column
-		p.env.RegisterColumn(p.module, targetName)
+		targets[i] = schema.NewColumn(p.module, targetName, &schema.FieldType{})
 	}
 	//
-	p.schema.AddPermutationColumns(targets, signs, sources)
+	p.env.AddPermutationColumns(p.module, targets, signs, sources)
 	//
 	return nil
 }
@@ -208,7 +224,7 @@ func (p *hirParser) parseAssertionDeclaration(elements []sexp.SExp) error {
 		return err
 	}
 	// Add assertion.
-	p.schema.AddPropertyAssertion(handle, expr)
+	p.env.schema.AddPropertyAssertion(handle, expr)
 
 	return nil
 }
@@ -223,7 +239,7 @@ func (p *hirParser) parseVanishingDeclaration(elements []sexp.SExp, domain *int)
 	}
 	// TODO: support module syntax
 	module := uint(0)
-	p.schema.AddVanishingConstraint(handle, module, domain, expr)
+	p.env.schema.AddVanishingConstraint(handle, module, domain, expr)
 
 	return nil
 }

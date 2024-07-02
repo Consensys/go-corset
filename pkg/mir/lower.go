@@ -12,10 +12,14 @@ import (
 // constraints as necessary to preserve the original semantics.
 func (p *Schema) LowerToAir() *air.Schema {
 	airSchema := air.EmptySchema[Expr]()
+	// Copy modules
+	for _, mod := range p.modules {
+		airSchema.AddModule(mod.Name())
+	}
 	// Add data columns.
 	for _, c := range p.inputs {
 		col := c.(DataColumn)
-		airSchema.AddColumn(col.Name(), col.Type())
+		airSchema.AddColumn(col.Module(), col.Name(), col.Type())
 	}
 	// Add Assignments. Again this has to be done first for things to work.
 	// Essentially to reflect the fact that these columns have been added above
@@ -79,7 +83,7 @@ func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Sche
 	for i := 0; i < ncols; i++ {
 		var ok bool
 		// TODO: how best to avoid this lookup?
-		targets[i], ok = sc.ColumnIndexOf(airSchema, c_targets[i].Name())
+		targets[i], ok = sc.ColumnIndexOf(airSchema, c.Module(), c_targets[i].Name())
 
 		if !ok {
 			panic("internal failure")

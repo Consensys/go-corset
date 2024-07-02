@@ -9,6 +9,9 @@ import (
 
 // DataColumn represents a column of user-provided values.
 type DataColumn struct {
+	// Module where this data column is located.
+	module uint
+	// Name of this datacolumn
 	name string
 	// Expected type of values held in this column.  Observe that this should be
 	// true for the input columns for any valid trace and, furthermore, every
@@ -17,12 +20,16 @@ type DataColumn struct {
 }
 
 // NewDataColumn constructs a new data column with a given name.
-func NewDataColumn(name string, base schema.Type) *DataColumn {
-	return &DataColumn{name, base}
+func NewDataColumn(module uint, name string, base schema.Type) *DataColumn {
+	return &DataColumn{module, name, base}
 }
 
-// Name forms part of the ColumnSchema interface, and provides access to
-// information about the ith column in a schema.
+// Module identifies the module which encloses this column.
+func (p *DataColumn) Module() uint {
+	return p.module
+}
+
+// Name provides access to information about the ith column in a schema.
 func (p *DataColumn) Name() string {
 	return p.name
 }
@@ -47,7 +54,7 @@ func (c *DataColumn) String() string {
 
 // Columns returns the columns declared by this computed column.
 func (p *DataColumn) Columns() util.Iterator[schema.Column] {
-	column := schema.NewColumn(p.name, p.datatype)
+	column := schema.NewColumn(p.module, p.name, p.datatype)
 	return util.NewUnitIterator[schema.Column](column)
 }
 

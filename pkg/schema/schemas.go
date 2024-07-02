@@ -126,8 +126,8 @@ func Accepts(schema Schema, trace tr.Trace) error {
 
 // ColumnIndexOf returns the column index of the column with the given name, or
 // returns false if no matching column exists.
-func ColumnIndexOf(schema Schema, name string) (uint, bool) {
+func ColumnIndexOf(schema Schema, module uint, name string) (uint, bool) {
 	return schema.Columns().Find(func(c Column) bool {
-		return c.Name() == name
+		return c.Module() == module && c.Name() == name
 	})
 }

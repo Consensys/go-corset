@@ -13,6 +13,7 @@ import (
 // SortedPermutation declares one or more columns as sorted permutations of
 // existing columns.
 type SortedPermutation struct {
+	module uint
 	// The new (sorted) columns
 	targets []schema.Column
 	// The sorting criteria
@@ -22,12 +23,23 @@ type SortedPermutation struct {
 }
 
 // NewSortedPermutation creates a new sorted permutation
-func NewSortedPermutation(targets []schema.Column, signs []bool, sources []uint) *SortedPermutation {
+func NewSortedPermutation(module uint, targets []schema.Column, signs []bool, sources []uint) *SortedPermutation {
 	if len(targets) != len(signs) || len(signs) != len(sources) {
 		panic("target and source column widths must match")
 	}
+	// Check modules
+	for _, c := range targets {
+		if c.Module() != module {
+			panic("inconsistent target modules")
+		}
+	}
 
-	return &SortedPermutation{targets, signs, sources}
+	return &SortedPermutation{module, targets, signs, sources}
+}
+
+// Module returns the module which encloses this sorted permutation.
+func (p *SortedPermutation) Module() uint {
+	return p.module
 }
 
 // Sources returns the columns used by this sorted permutation to define the new

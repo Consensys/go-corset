@@ -15,7 +15,7 @@ type Trace interface {
 	Clone() Trace
 	// Determine the index of a particular column in this trace, or return false
 	// if no such column exists.
-	ColumnIndex(name string) (uint, bool)
+	ColumnIndex(module uint, name string) (uint, bool)
 	// Access the modules of this trace.
 	Modules() ModuleSet
 }

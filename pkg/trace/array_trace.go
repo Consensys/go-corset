@@ -25,21 +25,15 @@ func (p *ArrayTrace) Columns() ColumnSet {
 
 // ColumnIndex returns the column index of the column with the given name in
 // this trace, or returns false if no such column exists.
-func (p *ArrayTrace) ColumnIndex(name string) (uint, bool) {
+func (p *ArrayTrace) ColumnIndex(module uint, name string) (uint, bool) {
 	for i := 0; i < len(p.columns); i++ {
 		c := p.columns[i]
-		if c.Name() == name {
+		if c.Module() == module && c.Name() == name {
 			return uint(i), true
 		}
 	}
 	// Column does not exist
 	return 0, false
-}
-
-// HasColumn checks whether the trace has a given named column (or not).
-func (p *ArrayTrace) HasColumn(name string) bool {
-	_, ok := p.ColumnIndex(name)
-	return ok
 }
 
 // Clone creates an identical clone of this trace.
@@ -78,6 +72,11 @@ func (p *ArrayTrace) String() string {
 			id.WriteString(",")
 		}
 
+		modName := p.modules[ith.Module()].Name()
+		if modName != "" {
+			id.WriteString(modName)
+			id.WriteString(".")
+		}
 		id.WriteString(ith.Name())
 		id.WriteString("={")
 

@@ -40,17 +40,14 @@ func (p *Builder) Build() Trace {
 // splits the qualified column name and (if necessary) registers a new module
 // with the given height.
 func (p *Builder) Add(name string, padding *fr.Element, data []*fr.Element) error {
+	var err error
 	// Split qualified column name
 	modname, colname := p.splitQualifiedColumnName(name)
 	// Lookup module
 	mid, ok := p.modmap[modname]
-	// Determine module identifier (if not already found)
+	// Register module (if not located)
 	if !ok {
-		mid = uint(len(p.modules))
-	}
-	// Register module
-	if !ok {
-		if _, err := p.Register(modname, uint(len(data))); err != nil {
+		if mid, err = p.Register(modname, uint(len(data))); err != nil {
 			// Should be unreachable.
 			return err
 		}
