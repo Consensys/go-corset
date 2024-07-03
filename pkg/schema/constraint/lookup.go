@@ -119,3 +119,27 @@ func evalExprsAt[E schema.Evaluable](k int, sources []E, tr trace.Trace) []*fr.E
 	// Done
 	return vals
 }
+
+//nolint:revive
+func (p *LookupConstraint[E]) String() string {
+	sources := ""
+	targets := ""
+	// Iterate source expressions
+	for i := 0; i < len(p.sources); i++ {
+		if i == 0 {
+			sources = fmt.Sprintf("%s", any(p.sources[i]))
+		} else {
+			sources = fmt.Sprintf("%s %s", sources, any(p.sources[i]))
+		}
+	}
+	// Iterate source expressions
+	for i := 0; i < len(p.targets); i++ {
+		if i == 0 {
+			targets = fmt.Sprintf("%s", any(p.targets[i]))
+		} else {
+			targets = fmt.Sprintf("%s %s", targets, any(p.targets[i]))
+		}
+	}
+	// Done
+	return fmt.Sprintf("(lookup %s (%s) (%s))", p.handle, targets, sources)
+}

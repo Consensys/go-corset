@@ -41,7 +41,13 @@ var debugCmd = &cobra.Command{
 
 // Print out all declarations included in a given
 func printSchema(schema schema.Schema) {
-	panic("todo")
+	for i := schema.Declarations(); i.HasNext(); {
+		fmt.Println(i.Next())
+	}
+
+	for i := schema.Constraints(); i.HasNext(); {
+		fmt.Println(i.Next())
+	}
 }
 
 func init() {

@@ -71,6 +71,8 @@ func NewVanishingConstraint[T schema.Testable](handle string, module uint,
 }
 
 // Handle returns the handle associated with this constraint.
+//
+//nolint:revive
 func (p *VanishingConstraint[T]) Handle() string {
 	return p.handle
 }

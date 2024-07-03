@@ -1,0 +1,5 @@
+(column A)
+(column B)
+(column X)
+(column Y)
+(lookup test (X Y) (A (* B 3)))
