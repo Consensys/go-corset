@@ -1,8 +1,12 @@
 package constraint
 
 import (
+	"fmt"
+
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // LookupConstraint (sometimes also called an inclusion constraint) constrains
@@ -22,6 +26,10 @@ import (
 // makes sense.
 type LookupConstraint[E schema.Evaluable] struct {
 	handle string
+	// Enclosing module for source columns.
+	source uint
+	// Enclosing module for target columns.
+	target uint
 	// Source rows represent the subset of rows.
 	sources []E
 	// Target rows represent the set of rows.
@@ -29,12 +37,13 @@ type LookupConstraint[E schema.Evaluable] struct {
 }
 
 // NewLookupConstraint creates a new lookup constraint with a given handle.
-func NewLookupConstraint[E schema.Evaluable](handle string, sources []E, targets []E) *LookupConstraint[E] {
+func NewLookupConstraint[E schema.Evaluable](handle string, source uint, target uint,
+	sources []E, targets []E) *LookupConstraint[E] {
 	if len(targets) != len(sources) {
 		panic("differeng number of target / source lookup columns")
 	}
 
-	return &LookupConstraint[E]{handle, sources, targets}
+	return &LookupConstraint[E]{handle, source, target, sources, targets}
 }
 
 // Handle returns the handle for this lookup constraint which is simply an
@@ -43,6 +52,16 @@ func NewLookupConstraint[E schema.Evaluable](handle string, sources []E, targets
 //nolint:revive
 func (p *LookupConstraint[E]) Handle() string {
 	return p.handle
+}
+
+// SourceModule returns the module in which all source columns are located.
+func (p *LookupConstraint[E]) SourceModule() uint {
+	return p.source
+}
+
+// TargetModule returns the module in which all target columns are located.
+func (p *LookupConstraint[E]) TargetModule() uint {
+	return p.target
 }
 
 // Sources returns the source expressions which are used to lookup into the
@@ -59,6 +78,44 @@ func (p *LookupConstraint[E]) Targets() []E {
 
 // Accepts checks whether a lookup constraint into the target columns holds for
 // all rows of the source columns.
+//
+//nolint:revive
 func (p *LookupConstraint[E]) Accepts(tr trace.Trace) error {
-	panic("TODO")
+	// Determine height of enclosing module for source columns
+	src_height := tr.Modules().Get(p.source).Height()
+	tgt_height := tr.Modules().Get(p.target).Height()
+	// Go through every row of the source columns checking they are present in
+	// the target columns.
+	//
+	// NOTE: performance could be improved here by pre-evaluating and sorting
+	// the target columns to give O(log n) lookups, or using hash map to give
+	// O(1) checks.
+	for i := 0; i < int(src_height); i++ {
+		ith := evalExprsAt(i, p.sources, tr)
+		matched := false
+
+		for j := 0; j < int(tgt_height); j++ {
+			jth := evalExprsAt(j, p.targets, tr)
+			if util.Equals(ith, jth) {
+				matched = true
+				break
+			}
+		}
+
+		if !matched {
+			return fmt.Errorf("lookup \"%s\" failed (row %d, %v)", p.handle, i, ith)
+		}
+	}
+	//
+	return nil
+}
+
+func evalExprsAt[E schema.Evaluable](k int, sources []E, tr trace.Trace) []*fr.Element {
+	vals := make([]*fr.Element, len(sources))
+	// Evaluate each expression in turn
+	for i := 0; i < len(sources); i++ {
+		vals[i] = sources[i].EvalAt(k, tr)
+	}
+	// Done
+	return vals
 }

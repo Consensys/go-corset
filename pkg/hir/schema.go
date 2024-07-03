@@ -78,22 +78,16 @@ func (p *Schema) AddDataColumn(module uint, name string, base sc.Type) {
 }
 
 // AddLookupConstraint appends a new lookup constraint.
-func (p *Schema) AddLookupConstraint(handle string, sources []Expr, targets []Expr) {
+func (p *Schema) AddLookupConstraint(handle string, source uint, target uint, sources []UnitExpr, targets []UnitExpr) {
 	if len(targets) != len(sources) {
 		panic("differeng number of target / source lookup columns")
 	}
-	// TODO: sanity source columns are in the same module, and likewise target
-	// columns (though they don't have to be in the same column together).
-	from := make([]UnitExpr, len(sources))
-	into := make([]UnitExpr, len(targets))
-	// Convert general expressions into unit expressions.
-	for i := 0; i < len(from); i++ {
-		from[i] = UnitExpr{sources[i]}
-		into[i] = UnitExpr{targets[i]}
-	}
+	// TODO: sanity source columns are in the source module, and likewise target
+	// columns are in the target module (though source != target is permitted).
+
 	// Finally add constraint
 	p.constraints = append(p.constraints,
-		constraint.NewLookupConstraint(handle, from, into))
+		constraint.NewLookupConstraint(handle, source, target, sources, targets))
 }
 
 // AddPermutationColumns introduces a permutation of one or more

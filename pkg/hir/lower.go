@@ -74,7 +74,7 @@ func lowerLookupConstraint(c LookupConstraint, schema *mir.Schema) {
 		into[i] = lowerUnitTo(targets[i], schema)
 	}
 	//
-	schema.AddLookupConstraint(c.Handle(), from, into)
+	schema.AddLookupConstraint(c.Handle(), c.SourceModule(), c.TargetModule(), from, into)
 }
 
 // Lower an expression which is expected to lower into a single expression.
@@ -82,6 +82,7 @@ func lowerLookupConstraint(c LookupConstraint, schema *mir.Schema) {
 // into a single expression).
 func lowerUnitTo(e UnitExpr, schema *mir.Schema) mir.Expr {
 	exprs := lowerTo(e.expr, schema)
+
 	if len(exprs) != 1 {
 		panic("invalid unitary expression")
 	}

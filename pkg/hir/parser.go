@@ -97,6 +97,8 @@ func (p *hirParser) parseDeclaration(s sexp.SExp) error {
 			return p.parseAssertionDeclaration(e.Elements)
 		} else if e.Len() == 3 && e.MatchSymbols(1, "permute") {
 			return p.parseSortedPermutationDeclaration(e)
+		} else if e.Len() == 4 && e.MatchSymbols(1, "lookup") {
+			return p.parseLookupDeclaration(e)
 		}
 	}
 	// Error
@@ -215,6 +217,61 @@ func (p *hirParser) parseSortedPermutationDeclaration(l *sexp.List) error {
 	return nil
 }
 
+// Parse a lookup declaration
+func (p *hirParser) parseLookupDeclaration(l *sexp.List) error {
+	handle := l.Elements[1].String()
+	// Target columns are (sorted) permutations of source columns.
+	sexpTargets := l.Elements[2].AsList()
+	// Source columns.
+	sexpSources := l.Elements[3].AsList()
+	// Sanity check number of target colunms matches number of source columns.
+	if sexpTargets.Len() != sexpSources.Len() {
+		return p.translator.SyntaxError(l, "lookup constraint requires matching number of source and target columns")
+	}
+	// Sanity check expressions have unitary form.
+	for i := 0; i < sexpTargets.Len(); i++ {
+		// Sanity check source and target expressions do not contain expression
+		// forms which are not permitted within a unitary expression.
+		if err := p.checkUnitExpr(sexpTargets.Get(i)); err != nil {
+			return err
+		}
+
+		if err := p.checkUnitExpr(sexpSources.Get(i)); err != nil {
+			return err
+		}
+	}
+	// Proceed with translation
+	targets := make([]UnitExpr, sexpTargets.Len())
+	sources := make([]UnitExpr, sexpSources.Len())
+	// Parse source / target expressions
+	for i := 0; i < len(targets); i++ {
+		target, err1 := p.translator.Translate(sexpTargets.Get(i))
+		source, err2 := p.translator.Translate(sexpSources.Get(i))
+
+		if err1 != nil {
+			return err1
+		} else if err2 != nil {
+			return err2
+		}
+		// Done
+		targets[i] = UnitExpr{target}
+		sources[i] = UnitExpr{source}
+	}
+	// Sanity check enclosing source and target modules
+	source, err1 := schema.DetermineEnclosingModuleOfExpressions(sources, p.env.schema)
+	target, err2 := schema.DetermineEnclosingModuleOfExpressions(targets, p.env.schema)
+	// Propagate errors
+	if err1 != nil {
+		return p.translator.SyntaxError(sexpSources.Get(int(source)), err1.Error())
+	} else if err2 != nil {
+		return p.translator.SyntaxError(sexpTargets.Get(int(target)), err2.Error())
+	}
+	// Finally add constraint
+	p.env.schema.AddLookupConstraint(handle, source, target, sources, targets)
+	// DOne
+	return nil
+}
+
 // Parse a property assertion
 func (p *hirParser) parseAssertionDeclaration(elements []sexp.SExp) error {
 	handle := elements[1].String()
@@ -260,6 +317,34 @@ func (p *hirParser) parseType(term sexp.SExp) (sc.Type, error) {
 	}
 	// Error
 	return nil, p.translator.SyntaxError(symbol, "unknown type")
+}
+
+// Check that a given expression conforms to the requirements of a unitary
+// expression.  That is, it cannot contain an "if", "ifnot" or "begin"
+// expression form.
+func (p *hirParser) checkUnitExpr(term sexp.SExp) error {
+	l := term.AsList()
+
+	if l != nil && l.Len() > 0 {
+		if head := l.Get(0).AsSymbol(); head != nil {
+			switch head.Value {
+			case "if":
+				fallthrough
+			case "ifnot":
+				fallthrough
+			case "begin":
+				return p.translator.SyntaxError(term, "not permitted in lookup")
+			}
+		}
+		// Check arguments
+		for i := 0; i < l.Len(); i++ {
+			if err := p.checkUnitExpr(l.Get(i)); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 func beginParserRule(args []Expr) (Expr, error) {

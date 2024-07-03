@@ -69,7 +69,13 @@ type UnitExpr struct {
 // value at that row of the column in question or nil is that row is
 // out-of-bounds.
 func (e UnitExpr) EvalAt(k int, tr trace.Trace) *fr.Element {
-	panic("got here")
+	vals := e.expr.EvalAllAt(k, tr)
+	// Check we got exactly one thing
+	if len(vals) == 1 {
+		return vals[0]
+	}
+	// Fail
+	panic("invalid unitary expression")
 }
 
 // Bounds returns max shift in either the negative (left) or positive

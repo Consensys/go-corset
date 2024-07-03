@@ -75,14 +75,14 @@ func (p *Schema) AddDataColumn(module uint, name string, base schema.Type) {
 }
 
 // AddLookupConstraint appends a new lookup constraint.
-func (p *Schema) AddLookupConstraint(handle string, sources []Expr, targets []Expr) {
+func (p *Schema) AddLookupConstraint(handle string, source uint, target uint, sources []Expr, targets []Expr) {
 	if len(targets) != len(sources) {
 		panic("differeng number of target / source lookup columns")
 	}
 	// TODO: sanity source columns are in the same module, and likewise target
 	// columns (though they don't have to be in the same column together).
 	p.constraints = append(p.constraints,
-		constraint.NewLookupConstraint(handle, sources, targets))
+		constraint.NewLookupConstraint(handle, source, target, sources, targets))
 }
 
 // AddPermutationColumns introduces a permutation of one or more

@@ -87,7 +87,7 @@ func (p *Schema) AddAssignment(c schema.Assignment) uint {
 }
 
 // AddLookupConstraint appends a new lookup constraint.
-func (p *Schema) AddLookupConstraint(handle string, sources []uint, targets []uint) {
+func (p *Schema) AddLookupConstraint(handle string, source uint, target uint, sources []uint, targets []uint) {
 	if len(targets) != len(sources) {
 		panic("differeng number of target / source lookup columns")
 	}
@@ -102,7 +102,7 @@ func (p *Schema) AddLookupConstraint(handle string, sources []uint, targets []ui
 	}
 	//
 	p.constraints = append(p.constraints,
-		constraint.NewLookupConstraint(handle, from, into))
+		constraint.NewLookupConstraint(handle, source, target, from, into))
 }
 
 // AddPermutationConstraint appends a new permutation constraint which
