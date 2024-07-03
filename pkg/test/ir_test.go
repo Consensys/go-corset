@@ -319,6 +319,34 @@ func Test_Permute_09(t *testing.T) {
 }
 
 // ===================================================================
+// Lookups
+// ===================================================================
+
+func Test_Lookup_01(t *testing.T) {
+	Check(t, "lookup_01")
+}
+
+func Test_Lookup_02(t *testing.T) {
+	Check(t, "lookup_02")
+}
+
+func Test_Lookup_03(t *testing.T) {
+	Check(t, "lookup_03")
+}
+
+func Test_Lookup_04(t *testing.T) {
+	Check(t, "lookup_04")
+}
+
+func Test_Lookup_05(t *testing.T) {
+	Check(t, "lookup_05")
+}
+
+func Test_Lookup_06(t *testing.T) {
+	Check(t, "lookup_06")
+}
+
+// ===================================================================
 // Complex Tests
 // ===================================================================
 

@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"errors"
 	"math"
 
 	tr "github.com/consensys/go-corset/pkg/trace"
@@ -39,11 +40,40 @@ func JoinContexts[E Contextual](args []E, schema Schema) (uint, bool) {
 // module for a given expression.  The expectation is that there is a single
 // enclosing module, and this function will panic if that does not hold.
 func DetermineEnclosingModuleOfExpression[E Contextual](expr E, schema Schema) uint {
-	if mid, ok := expr.Context(schema); ok {
+	if mid, ok := expr.Context(schema); ok && mid != math.MaxUint {
 		return mid
 	}
 	//
 	panic("expression has no evaluation context")
+}
+
+// DetermineEnclosingModuleOfExpressions determines (and checks) the enclosing
+// module for a given set of expressions.  The expectation is that there is a single
+// enclosing module, and this function will panic if that does not hold.
+func DetermineEnclosingModuleOfExpressions[E Contextual](exprs []E, schema Schema) (uint, error) {
+	// Sanity check input
+	if len(exprs) == 0 {
+		panic("cannot determine enclosing module for empty expression array")
+	}
+	// Determine first
+	mid, ok := exprs[0].Context(schema)
+	// Sanity check this made sense
+	if !ok {
+		return 0, errors.New("conflicting enclosing modules")
+	}
+	// Check rest against this
+	for i := 1; i < len(exprs); i++ {
+		m, ok := exprs[i].Context(schema)
+		if !ok {
+			return uint(i), errors.New("conflicting enclosing modules")
+		} else if mid == math.MaxUint {
+			mid = m
+		} else if m != math.MaxUint && m != mid {
+			return uint(i), errors.New("conflicting enclosing modules")
+		}
+	}
+	// success
+	return mid, nil
 }
 
 // DetermineEnclosingModuleOfColumns determines (and checks) the enclosing module for a

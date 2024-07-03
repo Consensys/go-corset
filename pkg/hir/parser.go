@@ -54,6 +54,10 @@ type hirParser struct {
 	// Environment used during parsing to resolve column names into column
 	// indices.
 	env *Environment
+	// Global is used exclusively when parsing expressions to signal whether or
+	// not qualified column accesses are permitted (i.e. which include a
+	// module).
+	global bool
 }
 
 func newHirParser(srcmap *sexp.SourceMap[sexp.SExp]) *hirParser {
@@ -63,7 +67,7 @@ func newHirParser(srcmap *sexp.SourceMap[sexp.SExp]) *hirParser {
 	// Register top-level module (aka the prelude)
 	prelude := env.RegisterModule("")
 	// Construct parser
-	parser := &hirParser{p, prelude, env}
+	parser := &hirParser{p, prelude, env, false}
 	// Configure translator
 	p.AddSymbolRule(constantParserRule)
 	p.AddSymbolRule(columnAccessParserRule(parser))
@@ -97,6 +101,8 @@ func (p *hirParser) parseDeclaration(s sexp.SExp) error {
 			return p.parseAssertionDeclaration(e.Elements)
 		} else if e.Len() == 3 && e.MatchSymbols(1, "permute") {
 			return p.parseSortedPermutationDeclaration(e)
+		} else if e.Len() == 4 && e.MatchSymbols(1, "lookup") {
+			return p.parseLookupDeclaration(e)
 		}
 	}
 	// Error
@@ -215,10 +221,71 @@ func (p *hirParser) parseSortedPermutationDeclaration(l *sexp.List) error {
 	return nil
 }
 
+// Parse a lookup declaration
+func (p *hirParser) parseLookupDeclaration(l *sexp.List) error {
+	handle := l.Elements[1].String()
+	// Target columns are (sorted) permutations of source columns.
+	sexpTargets := l.Elements[2].AsList()
+	// Source columns.
+	sexpSources := l.Elements[3].AsList()
+	// Sanity check number of target colunms matches number of source columns.
+	if sexpTargets.Len() != sexpSources.Len() {
+		return p.translator.SyntaxError(l, "lookup constraint requires matching number of source and target columns")
+	}
+	// Sanity check expressions have unitary form.
+	for i := 0; i < sexpTargets.Len(); i++ {
+		// Sanity check source and target expressions do not contain expression
+		// forms which are not permitted within a unitary expression.
+		if err := p.checkUnitExpr(sexpTargets.Get(i)); err != nil {
+			return err
+		}
+
+		if err := p.checkUnitExpr(sexpSources.Get(i)); err != nil {
+			return err
+		}
+	}
+	// Proceed with translation
+	targets := make([]UnitExpr, sexpTargets.Len())
+	sources := make([]UnitExpr, sexpSources.Len())
+	// Lookup expressions are permitted to make fully qualified accesses.  This
+	// is because inter-module lookups are supported.
+	p.global = true
+	// Parse source / target expressions
+	for i := 0; i < len(targets); i++ {
+		target, err1 := p.translator.Translate(sexpTargets.Get(i))
+		source, err2 := p.translator.Translate(sexpSources.Get(i))
+
+		if err1 != nil {
+			return err1
+		} else if err2 != nil {
+			return err2
+		}
+		// Done
+		targets[i] = UnitExpr{target}
+		sources[i] = UnitExpr{source}
+	}
+	// Sanity check enclosing source and target modules
+	source, err1 := schema.DetermineEnclosingModuleOfExpressions(sources, p.env.schema)
+	target, err2 := schema.DetermineEnclosingModuleOfExpressions(targets, p.env.schema)
+	// Propagate errors
+	if err1 != nil {
+		return p.translator.SyntaxError(sexpSources.Get(int(source)), err1.Error())
+	} else if err2 != nil {
+		return p.translator.SyntaxError(sexpTargets.Get(int(target)), err2.Error())
+	}
+	// Finally add constraint
+	p.env.schema.AddLookupConstraint(handle, source, target, sources, targets)
+	// DOne
+	return nil
+}
+
 // Parse a property assertion
 func (p *hirParser) parseAssertionDeclaration(elements []sexp.SExp) error {
 	handle := elements[1].String()
-
+	// Property assertions do not have global scope, hence qualified column
+	// accesses are not permitted.
+	p.global = false
+	// Translate
 	expr, err := p.translator.Translate(elements[2])
 	if err != nil {
 		return err
@@ -232,7 +299,10 @@ func (p *hirParser) parseAssertionDeclaration(elements []sexp.SExp) error {
 // Parse a vanishing declaration
 func (p *hirParser) parseVanishingDeclaration(elements []sexp.SExp, domain *int) error {
 	handle := elements[1].String()
-
+	// Vanishing constraints do not have global scope, hence qualified column
+	// accesses are not permitted.
+	p.global = false
+	// Translate
 	expr, err := p.translator.Translate(elements[2])
 	if err != nil {
 		return err
@@ -262,6 +332,34 @@ func (p *hirParser) parseType(term sexp.SExp) (sc.Type, error) {
 	return nil, p.translator.SyntaxError(symbol, "unknown type")
 }
 
+// Check that a given expression conforms to the requirements of a unitary
+// expression.  That is, it cannot contain an "if", "ifnot" or "begin"
+// expression form.
+func (p *hirParser) checkUnitExpr(term sexp.SExp) error {
+	l := term.AsList()
+
+	if l != nil && l.Len() > 0 {
+		if head := l.Get(0).AsSymbol(); head != nil {
+			switch head.Value {
+			case "if":
+				fallthrough
+			case "ifnot":
+				fallthrough
+			case "begin":
+				return p.translator.SyntaxError(term, "not permitted in lookup")
+			}
+		}
+		// Check arguments
+		for i := 0; i < l.Len(); i++ {
+			if err := p.checkUnitExpr(l.Get(i)); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
 func beginParserRule(args []Expr) (Expr, error) {
 	return &List{args}, nil
 }
@@ -285,18 +383,38 @@ func constantParserRule(symbol string) (Expr, bool, error) {
 func columnAccessParserRule(parser *hirParser) func(col string) (Expr, bool, error) {
 	// Returns a closure over the parser.
 	return func(col string) (Expr, bool, error) {
+		var ok bool
 		// Sanity check what we have
 		if !unicode.IsLetter(rune(col[0])) {
 			return nil, false, nil
 		}
-		// Look up column in the environment
-		i, ok := parser.env.LookupColumn(parser.module, col)
+		// Handle qualified accesses (where permitted)
+		module := parser.module
+		colname := col
+		// Attempt to split column name into module / column pair.
+		split := strings.Split(col, ".")
+		if parser.global && len(split) == 2 {
+			// Lookup module
+			if module, ok = parser.env.LookupModule(split[0]); !ok {
+				return nil, true, errors.New("unknown module")
+			}
+
+			colname = split[1]
+		} else if len(split) > 2 {
+			return nil, true, errors.New("malformed column access")
+		} else if len(split) == 2 {
+			return nil, true, errors.New("qualified column access not permitted here")
+		}
+		// Now lookup column in the appropriate module.
+		var cid uint
+		// Look up column in the environment using local scope.
+		cid, ok = parser.env.LookupColumn(module, colname)
 		// Check column was found
 		if !ok {
-			return nil, true, fmt.Errorf("unknown column %s", col)
+			return nil, true, errors.New("unknown column")
 		}
 		// Done
-		return &ColumnAccess{i, 0}, true, nil
+		return &ColumnAccess{cid, 0}, true, nil
 	}
 }
 

@@ -46,7 +46,9 @@ func (p *Schema) LowerToMir() *mir.Schema {
 
 func lowerConstraintToMir(c sc.Constraint, schema *mir.Schema) {
 	// Check what kind of constraint we have
-	if v, ok := c.(VanishingConstraint); ok {
+	if v, ok := c.(LookupConstraint); ok {
+		lowerLookupConstraint(v, schema)
+	} else if v, ok := c.(VanishingConstraint); ok {
 		mir_exprs := v.Constraint().Expr.LowerTo(schema)
 		// Add individual constraints arising
 		for _, mir_expr := range mir_exprs {
@@ -59,6 +61,33 @@ func lowerConstraintToMir(c sc.Constraint, schema *mir.Schema) {
 		// schema.
 		panic("unreachable")
 	}
+}
+
+func lowerLookupConstraint(c LookupConstraint, schema *mir.Schema) {
+	sources := c.Sources()
+	targets := c.Targets()
+	from := make([]mir.Expr, len(sources))
+	into := make([]mir.Expr, len(targets))
+	// Convert general expressions into unit expressions.
+	for i := 0; i < len(from); i++ {
+		from[i] = lowerUnitTo(sources[i], schema)
+		into[i] = lowerUnitTo(targets[i], schema)
+	}
+	//
+	schema.AddLookupConstraint(c.Handle(), c.SourceModule(), c.TargetModule(), from, into)
+}
+
+// Lower an expression which is expected to lower into a single expression.
+// This will panic if the unit expression is malformed (i.e. does not lower
+// into a single expression).
+func lowerUnitTo(e UnitExpr, schema *mir.Schema) mir.Expr {
+	exprs := lowerTo(e.expr, schema)
+
+	if len(exprs) != 1 {
+		panic("invalid unitary expression")
+	}
+
+	return exprs[0]
 }
 
 // LowerTo lowers a sum expression to the MIR level.  This requires expanding
@@ -119,7 +148,7 @@ func (e *Sub) LowerTo(schema *mir.Schema) []mir.Expr {
 }
 
 // ============================================================================
-// expandedLowerTo
+// lowerTo
 // ============================================================================
 
 // Lowers a given expression to the MIR level.  The expression is first expanded

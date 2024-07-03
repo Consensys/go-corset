@@ -43,7 +43,9 @@ func (p *Schema) LowerToAir() *air.Schema {
 // Lower a constraint to the AIR level.
 func lowerConstraintToAir(c sc.Constraint, schema *air.Schema) {
 	// Check what kind of constraint we have
-	if v, ok := c.(VanishingConstraint); ok {
+	if v, ok := c.(LookupConstraint); ok {
+		lowerLookupConstraintToAir(v, schema)
+	} else if v, ok := c.(VanishingConstraint); ok {
 		air_expr := v.Constraint().Expr.LowerTo(schema)
 		schema.AddVanishingConstraint(v.Handle(), v.Module(), v.Domain(), air_expr)
 	} else if v, ok := c.(*constraint.TypeConstraint); ok {
@@ -66,6 +68,28 @@ func lowerConstraintToAir(c sc.Constraint, schema *air.Schema) {
 		// schema.
 		panic("unreachable")
 	}
+}
+
+// Lower a lookup constraint to the AIR level.  The challenge here is that a
+// lookup constraint at the AIR level cannot use arbitrary expressions; rather,
+// it can only access columns directly.  Therefore, whenever a general
+// expression is encountered, we must generate a computed column to hold the
+// value of that expression, along with appropriate constraints to enforce the
+// expected value.
+func lowerLookupConstraintToAir(c LookupConstraint, schema *air.Schema) {
+	targets := make([]uint, len(c.Targets()))
+	sources := make([]uint, len(c.Sources()))
+	//
+	for i := 0; i < len(targets); i++ {
+		// Lower source and target expressions
+		target := c.Targets()[i].LowerTo(schema)
+		source := c.Sources()[i].LowerTo(schema)
+		// Expand them
+		targets[i] = air_gadgets.Expand(target, schema)
+		sources[i] = air_gadgets.Expand(source, schema)
+	}
+	// finally add the constraint
+	schema.AddLookupConstraint(c.Handle(), c.SourceModule(), c.TargetModule(), sources, targets)
 }
 
 // Lower a permutation to the AIR level.  This has quite a few

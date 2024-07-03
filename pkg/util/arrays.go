@@ -21,6 +21,22 @@ func ReplaceFirstOrPanic[T comparable](columns []T, from T, to T) {
 	panic(fmt.Sprintf("invalid replace (item %s not found)", any(from)))
 }
 
+// Equals returns true if both arrays contain equivalent elements.
+func Equals(lhs []*fr.Element, rhs []*fr.Element) bool {
+	if len(lhs) != len(rhs) {
+		return false
+	}
+
+	for i := 0; i < len(lhs); i++ {
+		// Check lengths match
+		if lhs[i].Cmp(rhs[i]) != 0 {
+			return false
+		}
+	}
+	//
+	return true
+}
+
 // Equals2d returns true if two 2D arrays are equal.
 func Equals2d(lhs [][]*fr.Element, rhs [][]*fr.Element) bool {
 	if len(lhs) != len(rhs) {
