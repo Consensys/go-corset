@@ -326,6 +326,14 @@ func Test_Lookup_01(t *testing.T) {
 	Check(t, "lookup_01")
 }
 
+func Test_Lookup_02(t *testing.T) {
+	Check(t, "lookup_02")
+}
+
+func Test_Lookup_03(t *testing.T) {
+	Check(t, "lookup_03")
+}
+
 // ===================================================================
 // Complex Tests
 // ===================================================================

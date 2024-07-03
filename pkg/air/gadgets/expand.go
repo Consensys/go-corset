@@ -1,6 +1,12 @@
 package gadgets
 
-import "github.com/consensys/go-corset/pkg/air"
+import (
+	"fmt"
+
+	"github.com/consensys/go-corset/pkg/air"
+	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/assignment"
+)
 
 // Expand converts an arbitrary expression into a specific column index.  In
 // general, this means adding a computed column to hold the value of the
@@ -13,6 +19,24 @@ func Expand(e air.Expr, schema *air.Schema) uint {
 		// Optimisation possible
 		return ca.Column
 	}
-	// No optimisation, therefore expand the column
-	panic("todo")
+	// No optimisation, therefore expand using a computedcolumn
+	module := sc.DetermineEnclosingModuleOfExpression(e, schema)
+	// Determine computed column name
+	name := e.String()
+	// Look up column
+	index, ok := sc.ColumnIndexOf(schema, module, name)
+	// Add new column (if it does not already exist)
+	if !ok {
+		// Add computed column
+		index = schema.AddAssignment(assignment.NewComputedColumn(module, name, e))
+	}
+	// Construct v == [e]
+	v := air.NewColumnAccess(index, 0)
+	// Construct 1 == e/e
+	eq_e_v := v.Equate(e)
+	// Ensure (e - v) == 0, where v is value of computed column.
+	c_name := fmt.Sprintf("[%s]", e.String())
+	schema.AddVanishingConstraint(c_name, module, nil, eq_e_v)
+	//
+	return index
 }

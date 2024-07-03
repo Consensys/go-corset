@@ -1,7 +1,6 @@
-(module m1)
+(column A)
+(column B)
 (column X)
-
-(module m2)
 (column Y)
-;;
-(lookup test (Y) (m1.X))
+;; Inclusion A,B into X,Y
+(lookup test (X Y) (A B))
