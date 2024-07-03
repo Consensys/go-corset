@@ -90,18 +90,14 @@ func (p *Schema) AddLookupConstraint(handle string, source uint, target uint, so
 		constraint.NewLookupConstraint(handle, source, target, sources, targets))
 }
 
-// AddPermutationColumns introduces a permutation of one or more
-// existing columns.  Specifically, this introduces one or more
-// computed columns which represent a (sorted) permutation of the
-// source columns.  Each source column is associated with a "sign"
-// which indicates the direction of sorting (i.e. ascending versus
-// descending).
-func (p *Schema) AddPermutationColumns(module uint, targets []sc.Column, signs []bool, sources []uint) {
-	if module >= uint(len(p.modules)) {
-		panic(fmt.Sprintf("invalid module index (%d)", module))
-	}
+// AddAssignment appends a new assignment (i.e. set of computed columns) to be
+// used during trace expansion for this schema.  Computed columns are introduced
+// by the process of lowering from HIR / MIR to AIR.
+func (p *Schema) AddAssignment(c schema.Assignment) uint {
+	index := p.Columns().Count()
+	p.assignments = append(p.assignments, c)
 
-	p.assignments = append(p.assignments, assignment.NewSortedPermutation(module, targets, signs, sources))
+	return index
 }
 
 // AddVanishingConstraint appends a new vanishing constraint.

@@ -81,10 +81,10 @@ func (p *ComputedColumn[E]) RequiredSpillage() uint {
 func (p *ComputedColumn[E]) ExpandTrace(tr trace.Trace) error {
 	columns := tr.Columns()
 	// Check whether a column already exists with the given name.
-	if tr.Columns().HasColumn(p.name) {
-		return fmt.Errorf("Computed column already exists ({%s})", p.name)
+	if columns.HasColumn(p.name) {
+		return fmt.Errorf("column already exists ({%s})", p.name)
 	}
-
+	// Make space for computed data
 	data := make([]*fr.Element, tr.Modules().Get(p.module).Height())
 	// Expand the trace
 	for i := 0; i < len(data); i++ {

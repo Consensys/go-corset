@@ -5,6 +5,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/hir"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/assignment"
 )
 
 type jsonComputationSet struct {
@@ -58,8 +59,8 @@ func (e jsonComputationSet) addToSchema(schema *hir.Schema) {
 				sources[i] = src_cid
 				targets[i] = sc.NewColumn(ith.Module(), targetRef.column, ith.Type())
 			}
-			// Finally, add the permutation column
-			schema.AddPermutationColumns(module, targets, c.Sorted.Signs, sources)
+			// Finally, add the sorted permutation assignment
+			schema.AddAssignment(assignment.NewSortedPermutation(module, targets, c.Sorted.Signs, sources))
 		}
 	}
 }

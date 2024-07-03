@@ -10,6 +10,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/assignment"
 	"github.com/consensys/go-corset/pkg/sexp"
 )
 
@@ -103,6 +104,8 @@ func (p *hirParser) parseDeclaration(s sexp.SExp) error {
 			return p.parseSortedPermutationDeclaration(e)
 		} else if e.Len() == 4 && e.MatchSymbols(1, "lookup") {
 			return p.parseLookupDeclaration(e)
+		} else if e.Len() == 3 && e.MatchSymbols(1, "interleave") {
+			return p.parseInterleavingDeclaration(e)
 		}
 	}
 	// Error
@@ -216,7 +219,8 @@ func (p *hirParser) parseSortedPermutationDeclaration(l *sexp.List) error {
 		targets[i] = schema.NewColumn(p.module, targetName, &schema.FieldType{})
 	}
 	//
-	p.env.AddPermutationColumns(p.module, targets, signs, sources)
+	//p.env.AddPermutationColumns(p.module, targets, signs, sources)
+	p.env.AddAssignment(assignment.NewSortedPermutation(p.module, targets, signs, sources))
 	//
 	return nil
 }
@@ -275,7 +279,46 @@ func (p *hirParser) parseLookupDeclaration(l *sexp.List) error {
 	}
 	// Finally add constraint
 	p.env.schema.AddLookupConstraint(handle, source, target, sources, targets)
-	// DOne
+	// Done
+	return nil
+}
+
+// Parse am interleaving declaration
+func (p *hirParser) parseInterleavingDeclaration(l *sexp.List) error {
+	// Target columns are (sorted) permutations of source columns.
+	sexpTarget := l.Elements[1].AsSymbol()
+	// Source columns.
+	sexpSources := l.Elements[2].AsList()
+	// Sanity checks.
+	if sexpTarget == nil {
+		return p.translator.SyntaxError(l, "column name expected")
+	} else if sexpSources == nil {
+		return p.translator.SyntaxError(l, "source column list expected")
+	}
+	// Construct and check source columns
+	sources := make([]uint, sexpSources.Len())
+
+	for i := 0; i < sexpSources.Len(); i++ {
+		ith := sexpSources.Get(i)
+		col := ith.AsSymbol()
+		// Sanity check a symbol was found
+		if col == nil {
+			return p.translator.SyntaxError(ith, "column name expected")
+		}
+		// Attempt to lookup the column
+		cid, ok := p.env.LookupColumn(p.module, col.Value)
+		// Check it exists
+		if !ok {
+			return p.translator.SyntaxError(ith, "unknown column")
+		}
+		// Assign
+		sources[i] = cid
+	}
+	// FIXME: determine target column type
+	target := schema.NewColumn(p.module, sexpTarget.Value, &schema.FieldType{})
+	// Add assignment
+	p.env.AddAssignment(assignment.NewInterleaving(p.module, target, sources))
+	// Done
 	return nil
 }
 
