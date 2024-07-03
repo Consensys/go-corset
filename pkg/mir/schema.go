@@ -12,6 +12,10 @@ import (
 // DataColumn captures the essence of a data column at the MIR level.
 type DataColumn = *assignment.DataColumn
 
+// LookupConstraint captures the essence of a lookup constraint at the HIR
+// level.
+type LookupConstraint = *constraint.LookupConstraint[Expr]
+
 // VanishingConstraint captures the essence of a vanishing constraint at the MIR
 // level. A vanishing constraint is a row constraint which must evaluate to
 // zero.
@@ -68,6 +72,17 @@ func (p *Schema) AddDataColumn(module uint, name string, base schema.Type) {
 	}
 
 	p.inputs = append(p.inputs, assignment.NewDataColumn(module, name, base))
+}
+
+// AddLookupConstraint appends a new lookup constraint.
+func (p *Schema) AddLookupConstraint(handle string, sources []Expr, targets []Expr) {
+	if len(targets) != len(sources) {
+		panic("differeng number of target / source lookup columns")
+	}
+	// TODO: sanity source columns are in the same module, and likewise target
+	// columns (though they don't have to be in the same column together).
+	p.constraints = append(p.constraints,
+		constraint.NewLookupConstraint(handle, sources, targets))
 }
 
 // AddPermutationColumns introduces a permutation of one or more

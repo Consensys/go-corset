@@ -43,7 +43,9 @@ func (p *Schema) LowerToAir() *air.Schema {
 // Lower a constraint to the AIR level.
 func lowerConstraintToAir(c sc.Constraint, schema *air.Schema) {
 	// Check what kind of constraint we have
-	if v, ok := c.(VanishingConstraint); ok {
+	if v, ok := c.(LookupConstraint); ok {
+		lowerLookupConstraintToAir(v, schema)
+	} else if v, ok := c.(VanishingConstraint); ok {
 		air_expr := v.Constraint().Expr.LowerTo(schema)
 		schema.AddVanishingConstraint(v.Handle(), v.Module(), v.Domain(), air_expr)
 	} else if v, ok := c.(*constraint.TypeConstraint); ok {
@@ -66,6 +68,10 @@ func lowerConstraintToAir(c sc.Constraint, schema *air.Schema) {
 		// schema.
 		panic("unreachable")
 	}
+}
+
+func lowerLookupConstraintToAir(c sc.Constraint, schema *air.Schema) {
+	panic("todo)")
 }
 
 // Lower a permutation to the AIR level.  This has quite a few

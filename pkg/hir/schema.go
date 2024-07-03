@@ -7,48 +7,8 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/assignment"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
-	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
-
-// ZeroArrayTest is a wrapper which converts an array of expressions into a
-// Testable constraint.  Specifically, by checking whether or not the each
-// expression vanishes (i.e. evaluates to zero).
-type ZeroArrayTest struct {
-	Expr Expr
-}
-
-// TestAt determines whether or not every element from a given array of
-// expressions evaluates to zero. Observe that any expressions which are
-// undefined are assumed to hold.
-func (p ZeroArrayTest) TestAt(row int, tr trace.Trace) bool {
-	// Evalues expression yielding zero or more values.
-	vals := p.Expr.EvalAllAt(row, tr)
-	// Check each value in turn against zero.
-	for _, val := range vals {
-		if val != nil && !val.IsZero() {
-			// This expression does not evaluat to zero, hence failure.
-			return false
-		}
-	}
-	// Success
-	return true
-}
-
-func (p ZeroArrayTest) String() string {
-	return p.Expr.String()
-}
-
-// Bounds determines the bounds for this zero test.
-func (p ZeroArrayTest) Bounds() util.Bounds {
-	return p.Expr.Bounds()
-}
-
-// Context determines the evaluation context (i.e. enclosing module) for this
-// expression.
-func (p ZeroArrayTest) Context(schema sc.Schema) (uint, bool) {
-	panic("todo")
-}
 
 // DataColumn captures the essence of a data column at AIR level.
 type DataColumn = *assignment.DataColumn
@@ -57,6 +17,11 @@ type DataColumn = *assignment.DataColumn
 // level. A vanishing constraint is a row constraint which must evaluate to
 // zero.
 type VanishingConstraint = *constraint.VanishingConstraint[ZeroArrayTest]
+
+// LookupConstraint captures the essence of a lookup constraint at the HIR
+// level.  To make this work, the UnitExpr adaptor is required, and this means
+// certain expression forms cannot be permitted (e.g. the use of lists).
+type LookupConstraint = *constraint.LookupConstraint[UnitExpr]
 
 // PropertyAssertion captures the notion of an arbitrary property which should
 // hold for all acceptable traces.  However, such a property is not enforced by
@@ -110,6 +75,25 @@ func (p *Schema) AddDataColumn(module uint, name string, base sc.Type) {
 	}
 
 	p.inputs = append(p.inputs, assignment.NewDataColumn(module, name, base))
+}
+
+// AddLookupConstraint appends a new lookup constraint.
+func (p *Schema) AddLookupConstraint(handle string, sources []Expr, targets []Expr) {
+	if len(targets) != len(sources) {
+		panic("differeng number of target / source lookup columns")
+	}
+	// TODO: sanity source columns are in the same module, and likewise target
+	// columns (though they don't have to be in the same column together).
+	from := make([]UnitExpr, len(sources))
+	into := make([]UnitExpr, len(targets))
+	// Convert general expressions into unit expressions.
+	for i := 0; i < len(from); i++ {
+		from[i] = UnitExpr{sources[i]}
+		into[i] = UnitExpr{targets[i]}
+	}
+	// Finally add constraint
+	p.constraints = append(p.constraints,
+		constraint.NewLookupConstraint(handle, from, into))
 }
 
 // AddPermutationColumns introduces a permutation of one or more

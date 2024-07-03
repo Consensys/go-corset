@@ -13,6 +13,11 @@ import (
 // DataColumn captures the essence of a data column at AIR level.
 type DataColumn = *assignment.DataColumn
 
+// LookupConstraint captures the essence of a lookup constraint at the HIR
+// level.  At the AIR level, lookup constraints are only permitted between
+// columns (i.e. not arbitrary expressions).
+type LookupConstraint = *constraint.LookupConstraint[*ColumnAccess]
+
 // PropertyAssertion captures the notion of an arbitrary property which should
 // hold for all acceptable traces.  However, such a property is not enforced by
 // the prover.
@@ -79,6 +84,25 @@ func (p *Schema) AddAssignment(c schema.Assignment) uint {
 	p.assignments = append(p.assignments, c)
 
 	return index
+}
+
+// AddLookupConstraint appends a new lookup constraint.
+func (p *Schema) AddLookupConstraint(handle string, sources []uint, targets []uint) {
+	if len(targets) != len(sources) {
+		panic("differeng number of target / source lookup columns")
+	}
+	// TODO: sanity source columns are in the same module, and likewise target
+	// columns (though they don't have to be in the same column together).
+	from := make([]Expr, len(sources))
+	into := make([]Expr, len(targets))
+	// Construct column accesses from column indices.
+	for i := 0; i < len(from); i++ {
+		from[i] = NewColumnAccess(sources[i], 0)
+		into[i] = NewColumnAccess(targets[i], 0)
+	}
+	//
+	p.constraints = append(p.constraints,
+		constraint.NewLookupConstraint(handle, from, into))
 }
 
 // AddPermutationConstraint appends a new permutation constraint which
