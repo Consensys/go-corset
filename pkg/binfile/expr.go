@@ -164,3 +164,12 @@ func jsonListToHir(Args []jsonTypedExpr, schema *hir.Schema) hir.Expr {
 
 	return &hir.List{Args: args}
 }
+
+func jsonExprsToHirUnit(Args []jsonTypedExpr, schema *hir.Schema) []hir.UnitExpr {
+	args := make([]hir.UnitExpr, len(Args))
+	for i := 0; i < len(Args); i++ {
+		args[i] = hir.NewUnitExpr(Args[i].ToHir(schema))
+	}
+
+	return args
+}

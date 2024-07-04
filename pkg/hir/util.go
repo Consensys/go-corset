@@ -65,6 +65,15 @@ type UnitExpr struct {
 	expr Expr
 }
 
+// NewUnitExpr constructs a unit wrapper around an HIR expression.  In essence,
+// this introduces a runtime check that the given expression only every reduces
+// to a single value.  Evaluation of this expression will panic if that
+// condition does not hold.  The intention is that this error is checked for
+// upstream (e.g. as part of the compiler front end).
+func NewUnitExpr(expr Expr) UnitExpr {
+	return UnitExpr{expr}
+}
+
 // EvalAt evaluates a column access at a given row in a trace, which returns the
 // value at that row of the column in question or nil is that row is
 // out-of-bounds.
