@@ -10,6 +10,7 @@ import (
 type jsonConstraint struct {
 	Vanishes    *jsonVanishingConstraint
 	Permutation *jsonPermutationConstraint
+	Lookup      *jsonLookupConstraint
 }
 
 type jsonDomain struct {
@@ -27,6 +28,12 @@ type jsonVanishingConstraint struct {
 type jsonPermutationConstraint struct {
 	From []string `json:"from"`
 	To   []string `json:"to"`
+}
+
+type jsonLookupConstraint struct {
+	Handle string          `json:"handle"`
+	From   []jsonTypedExpr `json:"included"`
+	To     []jsonTypedExpr `json:"including"`
 }
 
 // =============================================================================
@@ -48,6 +55,19 @@ func (e jsonConstraint) addToSchema(schema *hir.Schema) {
 		module, multiplier := sc.DetermineEnclosingModuleOfExpression(expr, schema)
 		// Construct the vanishing constraint
 		schema.AddVanishingConstraint(e.Vanishes.Handle, module, multiplier, domain, expr)
+	} else if e.Lookup != nil {
+		sources := jsonExprsToHirUnit(e.Lookup.From, schema)
+		targets := jsonExprsToHirUnit(e.Lookup.To, schema)
+		source, source_multiplier, err1 := sc.DetermineEnclosingModuleOfExpressions(sources, schema)
+		target, target_multiplier, err2 := sc.DetermineEnclosingModuleOfExpressions(targets, schema)
+		// Error check
+		if err1 != nil {
+			panic(err1.Error)
+		} else if err2 != nil {
+			panic(err2.Error)
+		}
+		// Add constraint
+		schema.AddLookupConstraint(e.Lookup.Handle, source, source_multiplier, target, target_multiplier, sources, targets)
 	} else if e.Permutation == nil {
 		// Catch all
 		panic("Unknown JSON constraint encountered")
