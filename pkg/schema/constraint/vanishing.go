@@ -31,7 +31,7 @@ func (p ZeroTest[E]) Bounds() util.Bounds {
 
 // Context determines the evaluation context (i.e. enclosing module) for this
 // expression.
-func (p ZeroTest[E]) Context(schema sc.Schema) (uint, uint, bool) {
+func (p ZeroTest[E]) Context(schema sc.Schema) (schema.EvalContext, bool) {
 	return p.Expr.Context(schema)
 }
 

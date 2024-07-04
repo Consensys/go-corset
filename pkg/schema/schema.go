@@ -2,6 +2,7 @@ package schema
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	tr "github.com/consensys/go-corset/pkg/trace"
@@ -68,25 +69,6 @@ type Constraint interface {
 	Accepts(tr.Trace) error
 }
 
-// Contextual captures something which requires an evaluation context (i.e. a
-// single enclosing module) in order to make sense.  For example, expressions
-// require a single context.  This interface is separated from Evaluable (and
-// Testable) because HIR expressions do not implement Evaluable.
-type Contextual interface {
-	// Context returns the evaluation context (i.e. enclosing module + length
-	// multiplier) for this constraint.  Every expression must have a single
-	// evaluation context.  This function therefore attempts to determine what
-	// that is, or return false to signal an error. There are several failure
-	// modes which need to be considered.  Firstly, if the expression has no
-	// enclosing module (e.g. because it is a constant expression) then it will
-	// return 'math.MaxUint` to signal this.  Secondly, if the expression has
-	// multiple (i.e. conflicting) enclosing modules then it will return false
-	// to signal this.  Likewise, the expression could have a single enclosing
-	// module but multiple conflicting length multipliers, in which case it also
-	// returns false.
-	Context(Schema) (uint, uint, bool)
-}
-
 // Evaluable captures something which can be evaluated on a given table row to
 // produce an evaluation point.  For example, expressions in the
 // Mid-Level or Arithmetic-Level IR can all be evaluated at rows of a
@@ -121,6 +103,79 @@ type Testable interface {
 	TestAt(int, tr.Trace) bool
 }
 
+// EvalContext represents the evaluation context in which an expression can be
+// evaluated.  Firstly, every expression must have a single enclosing module
+// (i.e. all columns accessed by the expression are in that module); secondly,
+// the length multiplier for all columns accessed by the expression must be the
+// same.  Constant expressions are something of an anomily here since they have
+// neither an enclosing module, nor a length modifier.  Instead, we consider
+// that constant expressions are evaluated in the empty --- or void --- context.
+// This is something like a bottom type which is contained within all other
+// contexts.
+//
+// NOTE: Whilst the evaluation context provides a general abstraction, there are
+// a number of restrictions imposed on it in practice which limit its use.
+// These restrictions arise from what is and is not supported by the underlying
+// constraint system (i.e. the prover).  Example restrictions imposed include:
+// multipliers must be powers of 2.  Likewise, non-normal expressions (i.e those
+// with a multipler > 1) can only be used in a fairly limited number of
+// situtions (e.g. lookups).
+type EvalContext struct {
+	// Identifies the module in which this evaluation context exists.  The empty
+	// module is given by the maximum index (math.MaxUint).
+	Module uint
+	// Identifies the length multiplier required to complete this context.  In
+	// essence, length multiplies divide up a given module into several disjoint
+	// "subregions", such than every expression exists only in one of them.
+	Multiplier uint
+}
+
+// VoidContext returns the void (or empty) context.  This is the bottom type in
+// the lattice, and is the context contained in all other contexts.  It is
+// needed, for example, as the context for constant expressions.
+func VoidContext() EvalContext {
+	return EvalContext{math.MaxUint, 0}
+}
+
+// IsVoid checks whether this context is the void context (or not).
+func (p *EvalContext) IsVoid() bool {
+	return p.Module == math.MaxUint
+}
+
+// Join returns the least upper bound of the two contexts, or false if this does
+// not exist (i.e. the two context's are in conflict).
+func (p *EvalContext) Join(other EvalContext) (EvalContext, bool) {
+	if p.IsVoid() {
+		return other, true
+	} else if other.IsVoid() {
+		return *p, true
+	} else if *p != other {
+		// Conflicting contexts
+		return VoidContext(), false
+	}
+	// Matching contexts
+	return *p, true
+}
+
+// Contextual captures something which requires an evaluation context (i.e. a
+// single enclosing module) in order to make sense.  For example, expressions
+// require a single context.  This interface is separated from Evaluable (and
+// Testable) because HIR expressions do not implement Evaluable.
+type Contextual interface {
+	// Context returns the evaluation context (i.e. enclosing module + length
+	// multiplier) for this constraint.  Every expression must have a single
+	// evaluation context.  This function therefore attempts to determine what
+	// that is, or return false to signal an error. There are several failure
+	// modes which need to be considered.  Firstly, if the expression has no
+	// enclosing module (e.g. because it is a constant expression) then it will
+	// return 'math.MaxUint` to signal this.  Secondly, if the expression has
+	// multiple (i.e. conflicting) enclosing modules then it will return false
+	// to signal this.  Likewise, the expression could have a single enclosing
+	// module but multiple conflicting length multipliers, in which case it also
+	// returns false.
+	Context(Schema) (EvalContext, bool)
+}
+
 // ============================================================================
 // Column
 // ============================================================================
@@ -130,18 +185,24 @@ type Testable interface {
 type Column struct {
 	// Returns the index of the module which contains this column
 	module uint
-	// Returns the name of this column
-	name string
-	// Length multiplier.  This is used to the column'ss actual height as a
+	// Length multiplier.  This is used to the column's actual height as a
 	// multipler of the enclosing module's height.
 	multiplier uint
+	// Returns the name of this column
+	name string
 	// Returns the expected type of data in this column
 	datatype Type
 }
 
 // NewColumn constructs a new column
 func NewColumn(module uint, name string, multiplier uint, datatype Type) Column {
-	return Column{module, name, multiplier, datatype}
+	return Column{module, multiplier, name, datatype}
+}
+
+// Context returns the evaluation context for this column access, which is
+// determined by the column itself.
+func (p Column) Context() EvalContext {
+	return EvalContext{p.module, p.multiplier}
 }
 
 // Module returns the index of the module which contains this column

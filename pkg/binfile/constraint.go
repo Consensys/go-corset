@@ -52,9 +52,9 @@ func (e jsonConstraint) addToSchema(schema *hir.Schema) {
 		// Translate Domain
 		domain := e.Vanishes.Domain.toHir()
 		// Determine enclosing module
-		module, multiplier := sc.DetermineEnclosingModuleOfExpression(expr, schema)
+		ctx := sc.DetermineEnclosingModuleOfExpression(expr, schema)
 		// Construct the vanishing constraint
-		schema.AddVanishingConstraint(e.Vanishes.Handle, module, multiplier, domain, expr)
+		schema.AddVanishingConstraint(e.Vanishes.Handle, ctx.Module, ctx.Multiplier, domain, expr)
 	} else if e.Lookup != nil {
 		sources := jsonExprsToHirUnit(e.Lookup.From, schema)
 		targets := jsonExprsToHirUnit(e.Lookup.To, schema)

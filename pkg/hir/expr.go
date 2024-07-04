@@ -1,10 +1,9 @@
 package hir
 
 import (
-	"math"
-
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/mir"
+	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -50,7 +49,7 @@ func (p *Add) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
 
 // Context determines the evaluation context (i.e. enclosing module) for this
 // expression.
-func (p *Add) Context(schema sc.Schema) (uint, uint, bool) {
+func (p *Add) Context(schema sc.Schema) (schema.EvalContext, bool) {
 	return sc.JoinContexts[Expr](p.Args, schema)
 }
 
@@ -67,7 +66,7 @@ func (p *Sub) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
 
 // Context determines the evaluation context (i.e. enclosing module) for this
 // expression.
-func (p *Sub) Context(schema sc.Schema) (uint, uint, bool) {
+func (p *Sub) Context(schema sc.Schema) (schema.EvalContext, bool) {
 	return sc.JoinContexts[Expr](p.Args, schema)
 }
 
@@ -84,7 +83,7 @@ func (p *Mul) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
 
 // Context determines the evaluation context (i.e. enclosing module) for this
 // expression.
-func (p *Mul) Context(schema sc.Schema) (uint, uint, bool) {
+func (p *Mul) Context(schema sc.Schema) (schema.EvalContext, bool) {
 	return sc.JoinContexts[Expr](p.Args, schema)
 }
 
@@ -101,7 +100,7 @@ func (p *List) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
 
 // Context determines the evaluation context (i.e. enclosing module) for this
 // expression.
-func (p *List) Context(schema sc.Schema) (uint, uint, bool) {
+func (p *List) Context(schema sc.Schema) (schema.EvalContext, bool) {
 	return sc.JoinContexts[Expr](p.Args, schema)
 }
 
@@ -118,8 +117,8 @@ func (p *Constant) Bounds() util.Bounds { return util.EMPTY_BOUND }
 
 // Context determines the evaluation context (i.e. enclosing module) for this
 // expression.
-func (p *Constant) Context(schema sc.Schema) (uint, uint, bool) {
-	return math.MaxUint, math.MaxUint, true
+func (p *Constant) Context(schema sc.Schema) (schema.EvalContext, bool) {
+	return sc.VoidContext(), true
 }
 
 // ============================================================================
@@ -157,7 +156,7 @@ func (p *IfZero) Bounds() util.Bounds {
 
 // Context determines the evaluation context (i.e. enclosing module) for this
 // expression.
-func (p *IfZero) Context(schema sc.Schema) (uint, uint, bool) {
+func (p *IfZero) Context(schema sc.Schema) (schema.EvalContext, bool) {
 	if p.TrueBranch != nil && p.FalseBranch != nil {
 		args := []Expr{p.Condition, p.TrueBranch, p.FalseBranch}
 		return sc.JoinContexts[Expr](args, schema)
@@ -188,7 +187,7 @@ func (p *Normalise) Bounds() util.Bounds {
 
 // Context determines the evaluation context (i.e. enclosing module) for this
 // expression.
-func (p *Normalise) Context(schema sc.Schema) (uint, uint, bool) {
+func (p *Normalise) Context(schema sc.Schema) (schema.EvalContext, bool) {
 	return p.Arg.Context(schema)
 }
 
@@ -220,7 +219,7 @@ func (p *ColumnAccess) Bounds() util.Bounds {
 
 // Context determines the evaluation context (i.e. enclosing module) for this
 // expression.
-func (p *ColumnAccess) Context(schema sc.Schema) (uint, uint, bool) {
+func (p *ColumnAccess) Context(schema sc.Schema) (schema.EvalContext, bool) {
 	col := schema.Columns().Nth(p.Column)
-	return col.Module(), col.LengthMultiplier(), true
+	return col.Context(), true
 }

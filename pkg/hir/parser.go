@@ -372,8 +372,8 @@ func (p *hirParser) parseVanishingDeclaration(elements []sexp.SExp, domain *int)
 	// the evaluation context is inconsistent (and, since we know the enclosing
 	// module is consistent, then this should only happen if the length
 	// multipliers are inconsistent).
-	_, multiplier := schema.DetermineEnclosingModuleOfExpression(expr, p.env.schema)
-	p.env.schema.AddVanishingConstraint(handle, p.module, multiplier, domain, expr)
+	ctx := schema.DetermineEnclosingModuleOfExpression(expr, p.env.schema)
+	p.env.schema.AddVanishingConstraint(handle, p.module, ctx.Multiplier, domain, expr)
 
 	return nil
 }

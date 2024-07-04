@@ -1,8 +1,6 @@
 package air
 
 import (
-	"math"
-
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
@@ -44,7 +42,7 @@ type Add struct{ Args []Expr }
 
 // Context determines the evaluation context (i.e. enclosing module) for this
 // expression.
-func (p *Add) Context(schema sc.Schema) (uint, uint, bool) {
+func (p *Add) Context(schema sc.Schema) (schema.EvalContext, bool) {
 	return sc.JoinContexts[Expr](p.Args, schema)
 }
 
@@ -73,7 +71,7 @@ type Sub struct{ Args []Expr }
 
 // Context determines the evaluation context (i.e. enclosing module) for this
 // expression.
-func (p *Sub) Context(schema sc.Schema) (uint, uint, bool) {
+func (p *Sub) Context(schema sc.Schema) (schema.EvalContext, bool) {
 	return sc.JoinContexts[Expr](p.Args, schema)
 }
 
@@ -102,7 +100,7 @@ type Mul struct{ Args []Expr }
 
 // Context determines the evaluation context (i.e. enclosing module) for this
 // expression.
-func (p *Mul) Context(schema sc.Schema) (uint, uint, bool) {
+func (p *Mul) Context(schema sc.Schema) (schema.EvalContext, bool) {
 	return sc.JoinContexts[Expr](p.Args, schema)
 }
 
@@ -154,8 +152,8 @@ func NewConstCopy(val *fr.Element) Expr {
 
 // Context determines the evaluation context (i.e. enclosing module) for this
 // expression.
-func (p *Constant) Context(schema sc.Schema) (uint, uint, bool) {
-	return math.MaxUint, math.MaxUint, true
+func (p *Constant) Context(schema sc.Schema) (schema.EvalContext, bool) {
+	return sc.VoidContext(), true
 }
 
 // Add two expressions together, producing a third.
@@ -193,9 +191,9 @@ func NewColumnAccess(column uint, shift int) Expr {
 
 // Context determines the evaluation context (i.e. enclosing module) for this
 // expression.
-func (p *ColumnAccess) Context(schema sc.Schema) (uint, uint, bool) {
+func (p *ColumnAccess) Context(schema sc.Schema) (schema.EvalContext, bool) {
 	col := schema.Columns().Nth(p.Column)
-	return col.Module(), col.LengthMultiplier(), true
+	return col.Context(), true
 }
 
 // Add two expressions together, producing a third.

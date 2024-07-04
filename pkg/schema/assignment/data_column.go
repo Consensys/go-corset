@@ -42,10 +42,10 @@ func (p *DataColumn) Type() schema.Type {
 //nolint:revive
 func (c *DataColumn) String() string {
 	if c.datatype.AsField() != nil {
-		return fmt.Sprintf("(column %s)", c.Name())
+		return fmt.Sprintf("(column #%d.%s)", c.Module(), c.Name())
 	}
 
-	return fmt.Sprintf("(column %s :%s)", c.Name(), c.datatype)
+	return fmt.Sprintf("(column #%d.%s :%s)", c.Module(), c.Name(), c.datatype)
 }
 
 // ============================================================================
