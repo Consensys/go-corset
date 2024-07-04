@@ -354,6 +354,18 @@ func Test_Interleave_01(t *testing.T) {
 	Check(t, "interleave_01")
 }
 
+func Test_Interleave_02(t *testing.T) {
+	Check(t, "interleave_02")
+}
+
+func Test_Interleave_03(t *testing.T) {
+	Check(t, "interleave_03")
+}
+
+func Test_Interleave_04(t *testing.T) {
+	Check(t, "interleave_04")
+}
+
 // ===================================================================
 // Complex Tests
 // ===================================================================

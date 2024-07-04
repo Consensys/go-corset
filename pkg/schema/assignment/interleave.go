@@ -94,10 +94,11 @@ func (p *Interleaving) ExpandTrace(tr tr.Trace) error {
 	data := make([]*fr.Element, height*width)
 	// Offset just gives the column index
 	offset := uint(0)
-	//
 	// Copy interleaved data
-	for i := uint(0); i < columns.Len(); i++ {
-		col := columns.Get(i)
+	for i := uint(0); i < width; i++ {
+		// Lookup source column
+		col := tr.Columns().Get(p.sources[i])
+		// Copy over
 		for j := uint(0); j < height; j++ {
 			data[offset+(j*width)] = col.Get(int(j))
 		}
@@ -108,7 +109,7 @@ func (p *Interleaving) ExpandTrace(tr tr.Trace) error {
 	// column in the interleaving.
 	padding := columns.Get(0).Padding()
 	// Colunm needs to be expanded.
-	columns.Add(trace.NewFieldColumn(p.module, p.target.Name(), width, data, padding))
+	columns.Add(trace.NewFieldColumn(p.module, p.target.Name(), multiplier*width, data, padding))
 	//
 	return nil
 }

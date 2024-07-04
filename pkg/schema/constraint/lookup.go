@@ -88,8 +88,8 @@ func (p *LookupConstraint[E]) Targets() []E {
 //nolint:revive
 func (p *LookupConstraint[E]) Accepts(tr trace.Trace) error {
 	// Determine height of enclosing module for source columns
-	src_height := tr.Modules().Get(p.source).Height()
-	tgt_height := tr.Modules().Get(p.target).Height()
+	src_height := tr.Modules().Get(p.source).Height() * p.source_multiplier
+	tgt_height := tr.Modules().Get(p.target).Height() * p.target_multiplier
 	// Go through every row of the source columns checking they are present in
 	// the target columns.
 	//
