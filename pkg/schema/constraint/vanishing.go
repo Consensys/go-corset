@@ -31,7 +31,7 @@ func (p ZeroTest[E]) Bounds() util.Bounds {
 
 // Context determines the evaluation context (i.e. enclosing module) for this
 // expression.
-func (p ZeroTest[E]) Context(schema sc.Schema) (uint, bool) {
+func (p ZeroTest[E]) Context(schema sc.Schema) (uint, uint, bool) {
 	return p.Expr.Context(schema)
 }
 
@@ -55,6 +55,9 @@ type VanishingConstraint[T schema.Testable] struct {
 	// Enclosing module for this assertion.  This restricts the constraint to
 	// access only columns from within this module.
 	module uint
+	// Length multiplier.  This is used to the column's actual height as a
+	// multipler of the enclosing module's height.
+	multiplier uint
 	// Indicates (when nil) a global constraint that applies to all rows.
 	// Otherwise, indicates a local constraint which applies to the specific row
 	// given here.
@@ -65,9 +68,9 @@ type VanishingConstraint[T schema.Testable] struct {
 }
 
 // NewVanishingConstraint constructs a new vanishing constraint!
-func NewVanishingConstraint[T schema.Testable](handle string, module uint,
+func NewVanishingConstraint[T schema.Testable](handle string, module uint, multiplier uint,
 	domain *int, constraint T) *VanishingConstraint[T] {
-	return &VanishingConstraint[T]{handle, module, domain, constraint}
+	return &VanishingConstraint[T]{handle, module, multiplier, domain, constraint}
 }
 
 // Handle returns the handle associated with this constraint.
@@ -96,6 +99,13 @@ func (p *VanishingConstraint[T]) Module() uint {
 	return p.module
 }
 
+// LengthMultiplier returns the length multiplier used by this vanishing
+// constraint.  This should match the evaluation context of the vanishing
+// expression.
+func (p *VanishingConstraint[T]) LengthMultiplier() uint {
+	return p.multiplier
+}
+
 // Accepts checks whether a vanishing constraint evaluates to zero on every row
 // of a table.  If so, return nil otherwise return an error.
 //
@@ -103,7 +113,7 @@ func (p *VanishingConstraint[T]) Module() uint {
 func (p *VanishingConstraint[T]) Accepts(tr trace.Trace) error {
 	if p.domain == nil {
 		// Global Constraint
-		return HoldsGlobally(p.handle, p.module, p.constraint, tr)
+		return HoldsGlobally(p.handle, p.module, p.multiplier, p.constraint, tr)
 	}
 	// Local constraint
 	var start uint
@@ -122,9 +132,9 @@ func (p *VanishingConstraint[T]) Accepts(tr trace.Trace) error {
 
 // HoldsGlobally checks whether a given expression vanishes (i.e. evaluates to
 // zero) for all rows of a trace.  If not, report an appropriate error.
-func HoldsGlobally[T schema.Testable](handle string, module uint, constraint T, tr trace.Trace) error {
+func HoldsGlobally[T schema.Testable](handle string, module uint, multiplier uint, constraint T, tr trace.Trace) error {
 	// Determine height of enclosing module
-	height := tr.Modules().Get(module).Height()
+	height := tr.Modules().Get(module).Height() * multiplier
 	// Determine well-definedness bounds for this constraint
 	bounds := constraint.Bounds()
 	// Sanity check enough rows

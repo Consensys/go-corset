@@ -45,9 +45,9 @@ func (e jsonConstraint) addToSchema(schema *hir.Schema) {
 		// Translate Domain
 		domain := e.Vanishes.Domain.toHir()
 		// Determine enclosing module
-		module := sc.DetermineEnclosingModuleOfExpression(expr, schema)
+		module, multiplier := sc.DetermineEnclosingModuleOfExpression(expr, schema)
 		// Construct the vanishing constraint
-		schema.AddVanishingConstraint(e.Vanishes.Handle, module, domain, expr)
+		schema.AddVanishingConstraint(e.Vanishes.Handle, module, multiplier, domain, expr)
 	} else if e.Permutation == nil {
 		// Catch all
 		panic("Unknown JSON constraint encountered")

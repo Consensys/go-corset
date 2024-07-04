@@ -20,7 +20,7 @@ func Expand(e air.Expr, schema *air.Schema) uint {
 		return ca.Column
 	}
 	// No optimisation, therefore expand using a computedcolumn
-	module := sc.DetermineEnclosingModuleOfExpression(e, schema)
+	module, multiplier := sc.DetermineEnclosingModuleOfExpression(e, schema)
 	// Determine computed column name
 	name := e.String()
 	// Look up column
@@ -28,7 +28,7 @@ func Expand(e air.Expr, schema *air.Schema) uint {
 	// Add new column (if it does not already exist)
 	if !ok {
 		// Add computed column
-		index = schema.AddAssignment(assignment.NewComputedColumn(module, name, e))
+		index = schema.AddAssignment(assignment.NewComputedColumn(module, name, multiplier, e))
 	}
 	// Construct v == [e]
 	v := air.NewColumnAccess(index, 0)
@@ -36,7 +36,7 @@ func Expand(e air.Expr, schema *air.Schema) uint {
 	eq_e_v := v.Equate(e)
 	// Ensure (e - v) == 0, where v is value of computed column.
 	c_name := fmt.Sprintf("[%s]", e.String())
-	schema.AddVanishingConstraint(c_name, module, nil, eq_e_v)
+	schema.AddVanishingConstraint(c_name, module, multiplier, nil, eq_e_v)
 	//
 	return index
 }

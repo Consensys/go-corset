@@ -51,7 +51,7 @@ func lowerConstraintToMir(c sc.Constraint, schema *mir.Schema) {
 		mir_exprs := v.Constraint().Expr.LowerTo(schema)
 		// Add individual constraints arising
 		for _, mir_expr := range mir_exprs {
-			schema.AddVanishingConstraint(v.Handle(), v.Module(), v.Domain(), mir_expr)
+			schema.AddVanishingConstraint(v.Handle(), v.Module(), v.LengthMultiplier(), v.Domain(), mir_expr)
 		}
 	} else if v, ok := c.(*constraint.TypeConstraint); ok {
 		schema.AddTypeConstraint(v.Target(), v.Type())
@@ -73,7 +73,9 @@ func lowerLookupConstraint(c LookupConstraint, schema *mir.Schema) {
 		into[i] = lowerUnitTo(targets[i], schema)
 	}
 	//
-	schema.AddLookupConstraint(c.Handle(), c.SourceModule(), c.TargetModule(), from, into)
+	src_mod, src_mul := c.SourceContext()
+	dst_mod, dst_mul := c.TargetContext()
+	schema.AddLookupConstraint(c.Handle(), src_mod, src_mul, dst_mod, dst_mul, from, into)
 }
 
 // Lower an expression which is expected to lower into a single expression.

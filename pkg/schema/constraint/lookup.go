@@ -28,8 +28,14 @@ type LookupConstraint[E schema.Evaluable] struct {
 	handle string
 	// Enclosing module for source columns.
 	source uint
+	// Length multiplier partly determines the evaluation context for source
+	// expressions.
+	source_multiplier uint
 	// Enclosing module for target columns.
 	target uint
+	// Length multiplier partly determines the evaluation context for target
+	// expressions.
+	target_multiplier uint
 	// Source rows represent the subset of rows.
 	sources []E
 	// Target rows represent the set of rows.
@@ -37,13 +43,13 @@ type LookupConstraint[E schema.Evaluable] struct {
 }
 
 // NewLookupConstraint creates a new lookup constraint with a given handle.
-func NewLookupConstraint[E schema.Evaluable](handle string, source uint, target uint,
-	sources []E, targets []E) *LookupConstraint[E] {
+func NewLookupConstraint[E schema.Evaluable](handle string, source uint, source_multiplier uint,
+	target uint, target_multiplier uint, sources []E, targets []E) *LookupConstraint[E] {
 	if len(targets) != len(sources) {
 		panic("differeng number of target / source lookup columns")
 	}
 
-	return &LookupConstraint[E]{handle, source, target, sources, targets}
+	return &LookupConstraint[E]{handle, source, source_multiplier, target, target_multiplier, sources, targets}
 }
 
 // Handle returns the handle for this lookup constraint which is simply an
@@ -54,14 +60,14 @@ func (p *LookupConstraint[E]) Handle() string {
 	return p.handle
 }
 
-// SourceModule returns the module in which all source columns are located.
-func (p *LookupConstraint[E]) SourceModule() uint {
-	return p.source
+// SourceContext returns the module in which all source columns are located.
+func (p *LookupConstraint[E]) SourceContext() (uint, uint) {
+	return p.source, p.source_multiplier
 }
 
-// TargetModule returns the module in which all target columns are located.
-func (p *LookupConstraint[E]) TargetModule() uint {
-	return p.target
+// TargetContext returns the module in which all target columns are located.
+func (p *LookupConstraint[E]) TargetContext() (uint, uint) {
+	return p.target, p.target_multiplier
 }
 
 // Sources returns the source expressions which are used to lookup into the

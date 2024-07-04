@@ -52,8 +52,9 @@ func (p *Builder) Add(name string, padding *fr.Element, data []*fr.Element) erro
 			return err
 		}
 	}
-	// register new column
-	return p.registerColumn(NewFieldColumn(mid, colname, data, padding))
+	// Register new column.  Observe that user-provided columns always have a
+	// factor of 1.
+	return p.registerColumn(NewFieldColumn(mid, colname, 1, data, padding))
 }
 
 // HasModule checks whether a given module has already been registered with this

@@ -1,6 +1,7 @@
 package trace
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/util"
@@ -103,9 +104,10 @@ type arrayTraceColumnSet struct {
 // Add a new column to this column set.
 func (p arrayTraceColumnSet) Add(column Column) uint {
 	m := &p.trace.modules[column.Module()]
-	// Sanity check height
-	if column.Height() != m.Height() {
-		panic("invalid column height")
+	// Sanity check effective height
+	if column.Height() != (column.LengthMultiplier() * m.Height()) {
+		panic(fmt.Sprintf("invalid column height for %s: %d vs %d*%d", column.Name(),
+			column.Height(), m.Height(), column.LengthMultiplier()))
 	}
 	// Proceed
 	index := uint(len(p.trace.columns))

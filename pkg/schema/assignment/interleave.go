@@ -24,7 +24,12 @@ type Interleaving struct {
 }
 
 // NewInterleaving constructs a new interleaving assignment.
-func NewInterleaving(module uint, target schema.Column, sources []uint) *Interleaving {
+func NewInterleaving(module uint, name string, multiplier uint, sources []uint) *Interleaving {
+	// Update multiplier
+	multiplier = multiplier * uint(len(sources))
+	// Fixme: determine interleaving type
+	target := schema.NewColumn(module, name, multiplier, &schema.FieldType{})
+
 	return &Interleaving{module, target, sources}
 }
 
@@ -79,9 +84,12 @@ func (p *Interleaving) ExpandTrace(tr tr.Trace) error {
 	}
 	// Determine interleaving width
 	width := uint(len(p.sources))
+	// Following division should always produce whole value because the length
+	// multiplier already includes the width as a factor.
+	multiplier := p.target.LengthMultiplier() / width
 	// Determine module height (as this can be used to determine the height of
 	// the interleaved column)
-	height := tr.Modules().Get(p.module).Height()
+	height := tr.Modules().Get(p.module).Height() * multiplier
 	// Construct empty array
 	data := make([]*fr.Element, height*width)
 	// Offset just gives the column index
@@ -90,10 +98,6 @@ func (p *Interleaving) ExpandTrace(tr tr.Trace) error {
 	// Copy interleaved data
 	for i := uint(0); i < columns.Len(); i++ {
 		col := columns.Get(i)
-		if height != col.Height() {
-			panic("???")
-		}
-
 		for j := uint(0); j < height; j++ {
 			data[offset+(j*width)] = col.Get(int(j))
 		}
@@ -104,7 +108,7 @@ func (p *Interleaving) ExpandTrace(tr tr.Trace) error {
 	// column in the interleaving.
 	padding := columns.Get(0).Padding()
 	// Colunm needs to be expanded.
-	columns.Add(trace.NewFieldColumn(p.module, p.target.Name(), data, padding))
+	columns.Add(trace.NewFieldColumn(p.module, p.target.Name(), width, data, padding))
 	//
 	return nil
 }

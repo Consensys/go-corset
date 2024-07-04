@@ -27,6 +27,8 @@ type jsonSortedComputation struct {
 // =============================================================================
 
 func (e jsonComputationSet) addToSchema(schema *hir.Schema) {
+	var multiplier uint
+	//
 	for _, c := range e.Computations {
 		if c.Sorted != nil {
 			targetRefs := asColumnRefs(c.Sorted.Tos)
@@ -54,13 +56,17 @@ func (e jsonComputationSet) addToSchema(schema *hir.Schema) {
 				// Sanity check we have a sensible type here.
 				if ith.Type().AsUint() == nil {
 					panic(fmt.Sprintf("source column %s has field type", sourceRefs[i]))
+				} else if i == 0 {
+					multiplier = ith.LengthMultiplier()
+				} else if multiplier != ith.LengthMultiplier() {
+					panic(fmt.Sprintf("source column %s has inconsistent length multiplier", sourceRefs[i]))
 				}
 
 				sources[i] = src_cid
-				targets[i] = sc.NewColumn(ith.Module(), targetRef.column, ith.Type())
+				targets[i] = sc.NewColumn(ith.Module(), targetRef.column, multiplier, ith.Type())
 			}
 			// Finally, add the sorted permutation assignment
-			schema.AddAssignment(assignment.NewSortedPermutation(module, targets, c.Sorted.Signs, sources))
+			schema.AddAssignment(assignment.NewSortedPermutation(module, multiplier, targets, c.Sorted.Signs, sources))
 		}
 	}
 }

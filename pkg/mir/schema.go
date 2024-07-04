@@ -88,24 +88,25 @@ func (p *Schema) AddAssignment(c schema.Assignment) uint {
 }
 
 // AddLookupConstraint appends a new lookup constraint.
-func (p *Schema) AddLookupConstraint(handle string, source uint, target uint, sources []Expr, targets []Expr) {
+func (p *Schema) AddLookupConstraint(handle string, source uint, source_context uint, target uint,
+	target_context uint, sources []Expr, targets []Expr) {
 	if len(targets) != len(sources) {
 		panic("differeng number of target / source lookup columns")
 	}
 	// TODO: sanity source columns are in the same module, and likewise target
 	// columns (though they don't have to be in the same column together).
 	p.constraints = append(p.constraints,
-		constraint.NewLookupConstraint(handle, source, target, sources, targets))
+		constraint.NewLookupConstraint(handle, source, source_context, target, target_context, sources, targets))
 }
 
 // AddVanishingConstraint appends a new vanishing constraint.
-func (p *Schema) AddVanishingConstraint(handle string, module uint, domain *int, expr Expr) {
+func (p *Schema) AddVanishingConstraint(handle string, module uint, multiplier uint, domain *int, expr Expr) {
 	if module >= uint(len(p.modules)) {
 		panic(fmt.Sprintf("invalid module index (%d)", module))
 	}
 
 	p.constraints = append(p.constraints,
-		constraint.NewVanishingConstraint(handle, module, domain, constraint.ZeroTest[Expr]{Expr: expr}))
+		constraint.NewVanishingConstraint(handle, module, multiplier, domain, constraint.ZeroTest[Expr]{Expr: expr}))
 }
 
 // AddTypeConstraint appends a new range constraint.

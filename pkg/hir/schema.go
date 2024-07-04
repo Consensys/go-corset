@@ -78,7 +78,8 @@ func (p *Schema) AddDataColumn(module uint, name string, base sc.Type) {
 }
 
 // AddLookupConstraint appends a new lookup constraint.
-func (p *Schema) AddLookupConstraint(handle string, source uint, target uint, sources []UnitExpr, targets []UnitExpr) {
+func (p *Schema) AddLookupConstraint(handle string, source uint, source_multiplier uint, target uint,
+	target_multiplier uint, sources []UnitExpr, targets []UnitExpr) {
 	if len(targets) != len(sources) {
 		panic("differeng number of target / source lookup columns")
 	}
@@ -87,7 +88,7 @@ func (p *Schema) AddLookupConstraint(handle string, source uint, target uint, so
 
 	// Finally add constraint
 	p.constraints = append(p.constraints,
-		constraint.NewLookupConstraint(handle, source, target, sources, targets))
+		constraint.NewLookupConstraint(handle, source, source_multiplier, target, target_multiplier, sources, targets))
 }
 
 // AddAssignment appends a new assignment (i.e. set of computed columns) to be
@@ -101,12 +102,13 @@ func (p *Schema) AddAssignment(c schema.Assignment) uint {
 }
 
 // AddVanishingConstraint appends a new vanishing constraint.
-func (p *Schema) AddVanishingConstraint(handle string, module uint, domain *int, expr Expr) {
+func (p *Schema) AddVanishingConstraint(handle string, module uint, multiplier uint, domain *int, expr Expr) {
 	if module >= uint(len(p.modules)) {
 		panic(fmt.Sprintf("invalid module index (%d)", module))
 	}
 
-	p.constraints = append(p.constraints, constraint.NewVanishingConstraint(handle, module, domain, ZeroArrayTest{expr}))
+	p.constraints = append(p.constraints,
+		constraint.NewVanishingConstraint(handle, module, multiplier, domain, ZeroArrayTest{expr}))
 }
 
 // AddTypeConstraint appends a new range constraint.

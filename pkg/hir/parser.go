@@ -164,6 +164,7 @@ func (p *hirParser) parseColumnDeclaration(l *sexp.List) error {
 
 // Parse a sorted permutation declaration
 func (p *hirParser) parseSortedPermutationDeclaration(l *sexp.List) error {
+	var multiplier uint
 	// Target columns are (sorted) permutations of source columns.
 	sexpTargets := l.Elements[1].AsList()
 	// Source columns.
@@ -213,14 +214,23 @@ func (p *hirParser) parseSortedPermutationDeclaration(l *sexp.List) error {
 			// No, it doesn't.
 			return p.translator.SyntaxError(sexpTargets.Get(i), fmt.Sprintf("duplicate column %s", targetName))
 		}
+		// Check multiplier calculation
+		sourceCol := p.env.schema.Columns().Nth(sourceIndex)
+		if i == 0 {
+			// First time around, multiplier is determine by the first source column.
+			multiplier = sourceCol.LengthMultiplier()
+		} else if sourceCol.LengthMultiplier() != multiplier {
+			// In all other cases, multiplier must match that of first source column.
+			return p.translator.SyntaxError(sexpSources.Get(i), "inconsistent length multiplier")
+		}
 		// Copy over column name
 		sources[i] = sourceIndex
 		// FIXME: determine source column type
-		targets[i] = schema.NewColumn(p.module, targetName, &schema.FieldType{})
+		targets[i] = schema.NewColumn(p.module, targetName, multiplier, &schema.FieldType{})
 	}
 	//
 	//p.env.AddPermutationColumns(p.module, targets, signs, sources)
-	p.env.AddAssignment(assignment.NewSortedPermutation(p.module, targets, signs, sources))
+	p.env.AddAssignment(assignment.NewSortedPermutation(p.module, multiplier, targets, signs, sources))
 	//
 	return nil
 }
@@ -269,8 +279,8 @@ func (p *hirParser) parseLookupDeclaration(l *sexp.List) error {
 		sources[i] = UnitExpr{source}
 	}
 	// Sanity check enclosing source and target modules
-	source, err1 := schema.DetermineEnclosingModuleOfExpressions(sources, p.env.schema)
-	target, err2 := schema.DetermineEnclosingModuleOfExpressions(targets, p.env.schema)
+	source, src_multiplier, err1 := schema.DetermineEnclosingModuleOfExpressions(sources, p.env.schema)
+	target, target_multiplier, err2 := schema.DetermineEnclosingModuleOfExpressions(targets, p.env.schema)
 	// Propagate errors
 	if err1 != nil {
 		return p.translator.SyntaxError(sexpSources.Get(int(source)), err1.Error())
@@ -278,13 +288,14 @@ func (p *hirParser) parseLookupDeclaration(l *sexp.List) error {
 		return p.translator.SyntaxError(sexpTargets.Get(int(target)), err2.Error())
 	}
 	// Finally add constraint
-	p.env.schema.AddLookupConstraint(handle, source, target, sources, targets)
+	p.env.schema.AddLookupConstraint(handle, source, src_multiplier, target, target_multiplier, sources, targets)
 	// Done
 	return nil
 }
 
 // Parse am interleaving declaration
 func (p *hirParser) parseInterleavingDeclaration(l *sexp.List) error {
+	var multiplier uint
 	// Target columns are (sorted) permutations of source columns.
 	sexpTarget := l.Elements[1].AsSymbol()
 	// Source columns.
@@ -311,13 +322,20 @@ func (p *hirParser) parseInterleavingDeclaration(l *sexp.List) error {
 		if !ok {
 			return p.translator.SyntaxError(ith, "unknown column")
 		}
+		// Check multiplier calculation
+		sourceCol := p.env.schema.Columns().Nth(cid)
+		if i == 0 {
+			// First time around, multiplier is determine by the first source column.
+			multiplier = sourceCol.LengthMultiplier()
+		} else if sourceCol.LengthMultiplier() != multiplier {
+			// In all other cases, multiplier must match that of first source column.
+			return p.translator.SyntaxError(sexpSources.Get(i), "inconsistent length multiplier")
+		}
 		// Assign
 		sources[i] = cid
 	}
-	// FIXME: determine target column type
-	target := schema.NewColumn(p.module, sexpTarget.Value, &schema.FieldType{})
 	// Add assignment
-	p.env.AddAssignment(assignment.NewInterleaving(p.module, target, sources))
+	p.env.AddAssignment(assignment.NewInterleaving(p.module, sexpTarget.Value, multiplier, sources))
 	// Done
 	return nil
 }
@@ -350,8 +368,12 @@ func (p *hirParser) parseVanishingDeclaration(elements []sexp.SExp, domain *int)
 	if err != nil {
 		return err
 	}
-
-	p.env.schema.AddVanishingConstraint(handle, p.module, domain, expr)
+	// TODO: improve error reporting here, since the following will just panic if
+	// the evaluation context is inconsistent (and, since we know the enclosing
+	// module is consistent, then this should only happen if the length
+	// multipliers are inconsistent).
+	_, multiplier := schema.DetermineEnclosingModuleOfExpression(expr, p.env.schema)
+	p.env.schema.AddVanishingConstraint(handle, p.module, multiplier, domain, expr)
 
 	return nil
 }

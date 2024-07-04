@@ -17,10 +17,7 @@ import (
 // give rise to "trace expansion".  That is where the initial trace provided by
 // the user is expanded by determining the value of all computed columns.
 type ComputedColumn[E sc.Evaluable] struct {
-	// Module in which to locate new column
-	module uint
-	// Name of the new column
-	name string
+	target schema.Column
 	// The computation which accepts a given trace and computes
 	// the value of this column at a given row.
 	expr E
@@ -29,18 +26,20 @@ type ComputedColumn[E sc.Evaluable] struct {
 // NewComputedColumn constructs a new computed column with a given name and
 // determining expression.  More specifically, that expression is used to
 // compute the values for this column during trace expansion.
-func NewComputedColumn[E sc.Evaluable](module uint, name string, expr E) *ComputedColumn[E] {
-	return &ComputedColumn[E]{module, name, expr}
+func NewComputedColumn[E sc.Evaluable](module uint, name string, multiplier uint, expr E) *ComputedColumn[E] {
+	// FIXME: Determine computed columns type?
+	column := schema.NewColumn(module, name, multiplier, &schema.FieldType{})
+	return &ComputedColumn[E]{column, expr}
 }
 
 // nolint:revive
 func (p *ComputedColumn[E]) String() string {
-	return fmt.Sprintf("(compute %s %s)", p.name, any(p.expr))
+	return fmt.Sprintf("(compute %s %s)", p.Name(), any(p.expr))
 }
 
 // Name returns the name of this computed column.
 func (p *ComputedColumn[E]) Name() string {
-	return p.name
+	return p.target.Name()
 }
 
 // ============================================================================
@@ -50,8 +49,7 @@ func (p *ComputedColumn[E]) Name() string {
 // Columns returns the columns declared by this computed column.
 func (p *ComputedColumn[E]) Columns() util.Iterator[schema.Column] {
 	// TODO: figure out appropriate type for computed column
-	column := schema.NewColumn(p.module, p.name, &schema.FieldType{})
-	return util.NewUnitIterator[schema.Column](column)
+	return util.NewUnitIterator[schema.Column](p.target)
 }
 
 // IsComputed Determines whether or not this declaration is computed (which it
@@ -81,11 +79,15 @@ func (p *ComputedColumn[E]) RequiredSpillage() uint {
 func (p *ComputedColumn[E]) ExpandTrace(tr trace.Trace) error {
 	columns := tr.Columns()
 	// Check whether a column already exists with the given name.
-	if columns.HasColumn(p.name) {
-		return fmt.Errorf("column already exists ({%s})", p.name)
+	if columns.HasColumn(p.Name()) {
+		return fmt.Errorf("column already exists ({%s})", p.Name())
 	}
+	// Extract length multipiler
+	multiplier := p.target.LengthMultiplier()
+	// Determine multiplied height
+	height := tr.Modules().Get(p.target.Module()).Height() * multiplier
 	// Make space for computed data
-	data := make([]*fr.Element, tr.Modules().Get(p.module).Height())
+	data := make([]*fr.Element, height)
 	// Expand the trace
 	for i := 0; i < len(data); i++ {
 		val := p.expr.EvalAt(i, tr)
@@ -101,7 +103,7 @@ func (p *ComputedColumn[E]) ExpandTrace(tr trace.Trace) error {
 	// the padding value for *this* column.
 	padding := p.expr.EvalAt(-1, tr)
 	// Colunm needs to be expanded.
-	columns.Add(trace.NewFieldColumn(p.module, p.name, data, padding))
+	columns.Add(trace.NewFieldColumn(p.target.Module(), p.Name(), multiplier, data, padding))
 	// Done
 	return nil
 }
