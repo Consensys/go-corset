@@ -17,6 +17,8 @@ type LexicographicSort struct {
 	// Module in which source and target columns to be located.  All target and
 	// source columns should be contained within this module.
 	module uint
+	// Length multiplier for all columns in this gadget
+	multiplier uint
 	// The target columns to be filled.  The first entry is for the delta
 	// column, and the remaining n entries are for the selector columns.
 	targets []schema.Column
@@ -27,17 +29,19 @@ type LexicographicSort struct {
 }
 
 // NewLexicographicSort constructs a new LexicographicSorting assignment.
-func NewLexicographicSort(prefix string, module uint, sources []uint, signs []bool, bitwidth uint) *LexicographicSort {
+func NewLexicographicSort(prefix string, module uint, multiplier uint,
+	sources []uint, signs []bool, bitwidth uint) *LexicographicSort {
+	//
 	targets := make([]schema.Column, len(sources)+1)
 	// Create delta column
-	targets[0] = schema.NewColumn(module, fmt.Sprintf("%s:delta", prefix), schema.NewUintType(bitwidth))
+	targets[0] = schema.NewColumn(module, fmt.Sprintf("%s:delta", prefix), multiplier, schema.NewUintType(bitwidth))
 	// Create selector columns
 	for i := range sources {
 		ithName := fmt.Sprintf("%s:%d", prefix, i)
-		targets[1+i] = schema.NewColumn(module, ithName, schema.NewUintType(1))
+		targets[1+i] = schema.NewColumn(module, ithName, multiplier, schema.NewUintType(1))
 	}
 
-	return &LexicographicSort{module, targets, sources, signs, bitwidth}
+	return &LexicographicSort{module, multiplier, targets, sources, signs, bitwidth}
 }
 
 // ============================================================================
@@ -73,8 +77,10 @@ func (p *LexicographicSort) ExpandTrace(tr trace.Trace) error {
 	one := fr.NewElement(1)
 	// Exact number of columns involved in the sort
 	ncols := len(p.sources)
+	//
+	multiplier := p.multiplier
 	// Determine how many rows to be constrained.
-	nrows := tr.Modules().Get(p.module).Height()
+	nrows := tr.Modules().Get(p.module).Height() * multiplier
 	// Initialise new data columns
 	delta := make([]*fr.Element, nrows)
 	bit := make([][]*fr.Element, ncols)
@@ -113,11 +119,11 @@ func (p *LexicographicSort) ExpandTrace(tr trace.Trace) error {
 	}
 	// Add delta column data
 	first := p.targets[0]
-	columns.Add(trace.NewFieldColumn(first.Module(), first.Name(), delta, &zero))
+	columns.Add(trace.NewFieldColumn(first.Module(), first.Name(), multiplier, delta, &zero))
 	// Add bit column data
 	for i := 0; i < ncols; i++ {
 		ith := p.targets[1+i]
-		columns.Add(trace.NewFieldColumn(ith.Module(), ith.Name(), bit[i], &zero))
+		columns.Add(trace.NewFieldColumn(ith.Module(), ith.Name(), multiplier, bit[i], &zero))
 	}
 	// Done.
 	return nil

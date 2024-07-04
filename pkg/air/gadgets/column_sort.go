@@ -37,10 +37,11 @@ func ApplyColumnSortGadget(col uint, sign bool, bitwidth uint, schema *air.Schem
 		deltaName = fmt.Sprintf("-%s", name)
 	}
 	// Add delta assignment
-	deltaIndex := schema.AddAssignment(assignment.NewComputedColumn(column.Module(), deltaName, Xdiff))
+	deltaIndex := schema.AddAssignment(
+		assignment.NewComputedColumn(column.Module(), deltaName, column.LengthMultiplier(), Xdiff))
 	// Add necessary bitwidth constraints
 	ApplyBitwidthGadget(deltaIndex, bitwidth, schema)
 	// Configure constraint: Delta[k] = X[k] - X[k-1]
 	Dk := air.NewColumnAccess(deltaIndex, 0)
-	schema.AddVanishingConstraint(deltaName, column.Module(), nil, Dk.Equate(Xdiff))
+	schema.AddVanishingConstraint(deltaName, column.Module(), column.LengthMultiplier(), nil, Dk.Equate(Xdiff))
 }

@@ -19,7 +19,7 @@ type ByteDecomposition struct {
 }
 
 // NewByteDecomposition creates a new sorted permutation
-func NewByteDecomposition(prefix string, module uint, source uint, width uint) *ByteDecomposition {
+func NewByteDecomposition(prefix string, module uint, multiplier uint, source uint, width uint) *ByteDecomposition {
 	if width == 0 {
 		panic("zero byte decomposition encountered")
 	}
@@ -30,7 +30,7 @@ func NewByteDecomposition(prefix string, module uint, source uint, width uint) *
 
 	for i := uint(0); i < width; i++ {
 		name := fmt.Sprintf("%s:%d", prefix, i)
-		targets[i] = schema.NewColumn(module, name, U8)
+		targets[i] = schema.NewColumn(module, name, multiplier, U8)
 	}
 	// Done
 	return &ByteDecomposition{source, targets}
@@ -66,10 +66,10 @@ func (p *ByteDecomposition) ExpandTrace(tr trace.Trace) error {
 	columns := tr.Columns()
 	// Calculate how many bytes required.
 	n := len(p.targets)
-	// Identify target column
-	target := columns.Get(p.source)
+	// Identify source column
+	source := columns.Get(p.source)
 	// Extract column data to decompose
-	data := columns.Get(p.source).Data()
+	data := source.Data()
 	// Construct byte column data
 	cols := make([][]*fr.Element, n)
 	// Initialise columns
@@ -84,11 +84,11 @@ func (p *ByteDecomposition) ExpandTrace(tr trace.Trace) error {
 		}
 	}
 	// Determine padding values
-	padding := decomposeIntoBytes(target.Padding(), n)
+	padding := decomposeIntoBytes(source.Padding(), n)
 	// Finally, add byte columns to trace
 	for i := 0; i < n; i++ {
 		ith := p.targets[i]
-		columns.Add(trace.NewFieldColumn(ith.Module(), ith.Name(), cols[i], padding[i]))
+		columns.Add(trace.NewFieldColumn(ith.Module(), ith.Name(), ith.LengthMultiplier(), cols[i], padding[i]))
 	}
 	// Done
 	return nil

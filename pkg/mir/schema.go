@@ -29,6 +29,9 @@ type PropertyAssertion = *schema.PropertyAssertion[constraint.ZeroTest[Expr]]
 // Permutation captures the notion of a (sorted) permutation at the MIR level.
 type Permutation = *assignment.SortedPermutation
 
+// Interleaving captures the notion of an interleaving at the MIR level.
+type Interleaving = *assignment.Interleaving
+
 // Schema for MIR traces
 type Schema struct {
 	// The modules of the schema
@@ -74,39 +77,36 @@ func (p *Schema) AddDataColumn(module uint, name string, base schema.Type) {
 	p.inputs = append(p.inputs, assignment.NewDataColumn(module, name, base))
 }
 
+// AddAssignment appends a new assignment (i.e. set of computed columns) to be
+// used during trace expansion for this schema.  Computed columns are introduced
+// by the process of lowering from HIR / MIR to AIR.
+func (p *Schema) AddAssignment(c schema.Assignment) uint {
+	index := p.Columns().Count()
+	p.assignments = append(p.assignments, c)
+
+	return index
+}
+
 // AddLookupConstraint appends a new lookup constraint.
-func (p *Schema) AddLookupConstraint(handle string, source uint, target uint, sources []Expr, targets []Expr) {
+func (p *Schema) AddLookupConstraint(handle string, source uint, source_context uint, target uint,
+	target_context uint, sources []Expr, targets []Expr) {
 	if len(targets) != len(sources) {
 		panic("differeng number of target / source lookup columns")
 	}
 	// TODO: sanity source columns are in the same module, and likewise target
 	// columns (though they don't have to be in the same column together).
 	p.constraints = append(p.constraints,
-		constraint.NewLookupConstraint(handle, source, target, sources, targets))
-}
-
-// AddPermutationColumns introduces a permutation of one or more
-// existing columns.  Specifically, this introduces one or more
-// computed columns which represent a (sorted) permutation of the
-// source columns.  Each source column is associated with a "sign"
-// which indicates the direction of sorting (i.e. ascending versus
-// descending).
-func (p *Schema) AddPermutationColumns(module uint, targets []schema.Column, signs []bool, sources []uint) {
-	if module >= uint(len(p.modules)) {
-		panic(fmt.Sprintf("invalid module index (%d)", module))
-	}
-
-	p.assignments = append(p.assignments, assignment.NewSortedPermutation(module, targets, signs, sources))
+		constraint.NewLookupConstraint(handle, source, source_context, target, target_context, sources, targets))
 }
 
 // AddVanishingConstraint appends a new vanishing constraint.
-func (p *Schema) AddVanishingConstraint(handle string, module uint, domain *int, expr Expr) {
+func (p *Schema) AddVanishingConstraint(handle string, module uint, multiplier uint, domain *int, expr Expr) {
 	if module >= uint(len(p.modules)) {
 		panic(fmt.Sprintf("invalid module index (%d)", module))
 	}
 
 	p.constraints = append(p.constraints,
-		constraint.NewVanishingConstraint(handle, module, domain, constraint.ZeroTest[Expr]{Expr: expr}))
+		constraint.NewVanishingConstraint(handle, module, multiplier, domain, constraint.ZeroTest[Expr]{Expr: expr}))
 }
 
 // AddTypeConstraint appends a new range constraint.

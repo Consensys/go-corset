@@ -16,6 +16,8 @@ type FieldColumn struct {
 	module uint
 	// Holds the name of this column
 	name string
+	// Length multiplier (i.e. of the data array)
+	multiplier uint
 	// Holds the raw data making up this column
 	data []*fr.Element
 	// Value to be used when padding this column
@@ -23,8 +25,13 @@ type FieldColumn struct {
 }
 
 // NewFieldColumn constructs a FieldColumn with the give name, data and padding.
-func NewFieldColumn(module uint, name string, data []*fr.Element, padding *fr.Element) *FieldColumn {
-	return &FieldColumn{module, name, data, padding}
+func NewFieldColumn(module uint, name string, multiplier uint, data []*fr.Element, padding *fr.Element) *FieldColumn {
+	// Sanity check data length
+	if uint(len(data))%multiplier != 0 {
+		panic("data length has incorrect multiplier")
+	}
+	// Done
+	return &FieldColumn{module, name, multiplier, data, padding}
 }
 
 // Module returns the enclosing module of this column
@@ -46,6 +53,13 @@ func (p *FieldColumn) Width() uint {
 // Height determines the height of this column.
 func (p *FieldColumn) Height() uint {
 	return uint(len(p.data))
+}
+
+// LengthMultiplier is a multiplier which must be a factor of the height.  For
+// example, if the factor is 2 then the height must always be a multiple of 2,
+// etc.  This affects padding also, as we must pad to this factor.
+func (p *FieldColumn) LengthMultiplier() uint {
+	return p.multiplier
 }
 
 // Padding returns the value which will be used for padding this column.
@@ -75,6 +89,7 @@ func (p *FieldColumn) Clone() Column {
 	clone := new(FieldColumn)
 	clone.module = p.module
 	clone.name = p.name
+	clone.multiplier = p.multiplier
 	clone.padding = p.padding
 	// NOTE: the following is as we never actually mutate the underlying bytes
 	// array.
@@ -85,6 +100,8 @@ func (p *FieldColumn) Clone() Column {
 
 // Pad this column with n copies of the column's padding value.
 func (p *FieldColumn) Pad(n uint) {
+	// Apply the length multiplier
+	n = n * p.multiplier
 	// Allocate sufficient memory
 	ndata := make([]*fr.Element, uint(len(p.data))+n)
 	// Copy over the data

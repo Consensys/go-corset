@@ -54,7 +54,8 @@ func (c *DataColumn) String() string {
 
 // Columns returns the columns declared by this computed column.
 func (p *DataColumn) Columns() util.Iterator[schema.Column] {
-	column := schema.NewColumn(p.module, p.name, p.datatype)
+	// Datacolumns always have a multiplier of 1.
+	column := schema.NewColumn(p.module, p.name, 1, p.datatype)
 	return util.NewUnitIterator[schema.Column](column)
 }
 

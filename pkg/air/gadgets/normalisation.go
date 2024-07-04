@@ -29,7 +29,7 @@ func Normalise(e air.Expr, schema *air.Schema) air.Expr {
 // ensure it really holds the inverted value.
 func ApplyPseudoInverseGadget(e air.Expr, schema *air.Schema) air.Expr {
 	// Determine enclosing module.
-	module := sc.DetermineEnclosingModuleOfExpression(e, schema)
+	module, multiplier := sc.DetermineEnclosingModuleOfExpression(e, schema)
 	// Construct inverse computation
 	ie := &Inverse{Expr: e}
 	// Determine computed column name
@@ -39,7 +39,7 @@ func ApplyPseudoInverseGadget(e air.Expr, schema *air.Schema) air.Expr {
 	// Add new column (if it does not already exist)
 	if !ok {
 		// Add computed column
-		index = schema.AddAssignment(assignment.NewComputedColumn(module, name, ie))
+		index = schema.AddAssignment(assignment.NewComputedColumn(module, name, multiplier, ie))
 	}
 
 	// Construct 1/e
@@ -54,10 +54,10 @@ func ApplyPseudoInverseGadget(e air.Expr, schema *air.Schema) air.Expr {
 	inv_e_implies_one_e_e := inv_e.Mul(one_e_e)
 	// Ensure (e != 0) ==> (1 == e/e)
 	l_name := fmt.Sprintf("[%s <=]", ie.String())
-	schema.AddVanishingConstraint(l_name, module, nil, e_implies_one_e_e)
+	schema.AddVanishingConstraint(l_name, module, multiplier, nil, e_implies_one_e_e)
 	// Ensure (e/e != 0) ==> (1 == e/e)
 	r_name := fmt.Sprintf("[%s =>]", ie.String())
-	schema.AddVanishingConstraint(r_name, module, nil, inv_e_implies_one_e_e)
+	schema.AddVanishingConstraint(r_name, module, multiplier, nil, inv_e_implies_one_e_e)
 	// Done
 	return air.NewColumnAccess(index, 0)
 }
@@ -81,7 +81,7 @@ func (e *Inverse) Bounds() util.Bounds { return e.Expr.Bounds() }
 
 // Context determines the evaluation context (i.e. enclosing module) for this
 // expression.
-func (e *Inverse) Context(schema sc.Schema) (uint, bool) {
+func (e *Inverse) Context(schema sc.Schema) (uint, uint, bool) {
 	return e.Expr.Context(schema)
 }
 

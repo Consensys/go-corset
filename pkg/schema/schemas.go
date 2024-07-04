@@ -7,41 +7,44 @@ import (
 	tr "github.com/consensys/go-corset/pkg/trace"
 )
 
-// JoinContexts combines one or more contexts together.  There are a number of
-// scenarios.  The simple path is when each expression has the same evaluation
-// context (in which case this is returned).  Its also possible one or more
-// expressions have no evaluation context (signaled by math.MaxUint) and this
-// can be ignored. Finally, we might have two expressions with conflicting
+// JoinContexts combines one or more evaluation contexts together.  There are a
+// number of scenarios.  The simple path is when each expression has the same
+// evaluation context (in which case this is returned).  Its also possible one
+// or more expressions have no evaluation context (signaled by math.MaxUint) and
+// this can be ignored. Finally, we might have two expressions with conflicting
 // evaluation contexts, and this clearly signals an error.
-func JoinContexts[E Contextual](args []E, schema Schema) (uint, bool) {
-	var ctx uint = math.MaxUint
+func JoinContexts[E Contextual](args []E, schema Schema) (uint, uint, bool) {
+	var mid uint = math.MaxUint
+
+	var multiplier = uint(1)
 	//
 	for _, e := range args {
-		c, b := e.Context(schema)
+		c, m, b := e.Context(schema)
 		if !b {
 			// Indicates conflict detected upstream, therefore propagate this
 			// down.
-			return 0, false
-		} else if ctx == math.MaxUint {
+			return 0, 0, false
+		} else if mid == math.MaxUint {
 			// No evaluation context determined yet, therefore can overwrite
 			// with whatever we got.  Observe that this might still actually
-			ctx = c
-		} else if c != ctx && c != math.MaxUint {
+			mid = c
+			multiplier = m
+		} else if c != math.MaxUint && (c != mid || m != multiplier) {
 			// This indicates a conflict is detected, therefore we must
 			// propagate this down.
-			return 0, false
+			return 0, 0, false
 		}
 	}
 	// If we get here, then no conflicts were detected.
-	return ctx, true
+	return mid, multiplier, true
 }
 
 // DetermineEnclosingModuleOfExpression determines (and checks) the enclosing
 // module for a given expression.  The expectation is that there is a single
 // enclosing module, and this function will panic if that does not hold.
-func DetermineEnclosingModuleOfExpression[E Contextual](expr E, schema Schema) uint {
-	if mid, ok := expr.Context(schema); ok && mid != math.MaxUint {
-		return mid
+func DetermineEnclosingModuleOfExpression[E Contextual](expr E, schema Schema) (uint, uint) {
+	if mid, multiplier, ok := expr.Context(schema); ok && mid != math.MaxUint {
+		return mid, multiplier
 	}
 	//
 	panic("expression has no evaluation context")
@@ -50,52 +53,58 @@ func DetermineEnclosingModuleOfExpression[E Contextual](expr E, schema Schema) u
 // DetermineEnclosingModuleOfExpressions determines (and checks) the enclosing
 // module for a given set of expressions.  The expectation is that there is a single
 // enclosing module, and this function will panic if that does not hold.
-func DetermineEnclosingModuleOfExpressions[E Contextual](exprs []E, schema Schema) (uint, error) {
+func DetermineEnclosingModuleOfExpressions[E Contextual](exprs []E, schema Schema) (uint, uint, error) {
 	// Sanity check input
 	if len(exprs) == 0 {
 		panic("cannot determine enclosing module for empty expression array")
 	}
 	// Determine first
-	mid, ok := exprs[0].Context(schema)
+	mid, multiplier, ok := exprs[0].Context(schema)
 	// Sanity check this made sense
 	if !ok {
-		return 0, errors.New("conflicting enclosing modules")
+		return 0, 0, errors.New("conflicting enclosing modules")
 	}
 	// Check rest against this
 	for i := 1; i < len(exprs); i++ {
-		m, ok := exprs[i].Context(schema)
+		m, f, ok := exprs[i].Context(schema)
 		if !ok {
-			return uint(i), errors.New("conflicting enclosing modules")
+			return uint(i), 0, errors.New("conflicting enclosing modules")
 		} else if mid == math.MaxUint {
 			mid = m
 		} else if m != math.MaxUint && m != mid {
-			return uint(i), errors.New("conflicting enclosing modules")
+			return uint(i), 0, errors.New("conflicting enclosing modules")
+		} else if m != math.MaxUint && f != multiplier {
+			return uint(i), 0, errors.New("conflicting length multipliers")
 		}
 	}
 	// success
-	return mid, nil
+	return mid, multiplier, nil
 }
 
 // DetermineEnclosingModuleOfColumns determines (and checks) the enclosing module for a
 // given set of columns.  The expectation is that there is a single enclosing
 // module, and this function will panic if that does not hold.
-func DetermineEnclosingModuleOfColumns(cols []uint, schema Schema) uint {
+func DetermineEnclosingModuleOfColumns(cols []uint, schema Schema) (uint, uint) {
+	head := schema.Columns().Nth(cols[0])
 	// First, determine module of first column.
-	mid := schema.Columns().Nth(cols[0]).Module()
+	mid := head.Module()
+	multiplier := head.LengthMultiplier()
 	// Second, check other columns in the same module.
 	//
 	// NOTE: this could potentially be made more efficient by checking the
 	// columns of the module for the first column.
 	for i := 1; i < len(cols); i++ {
-		col := cols[i]
-		if mid != schema.Columns().Nth(col).Module() {
+		col := schema.Columns().Nth(cols[i])
+		if mid != col.Module() {
 			// This is an internal failure which should be prevented by upstream
 			// checking (e.g. in the parser).
 			panic("columns have different enclosing module")
+		} else if multiplier != col.LengthMultiplier() {
+			panic("columns have different length multipliers")
 		}
 	}
 	// Done
-	return mid
+	return mid, multiplier
 }
 
 // RequiredSpillage returns the minimum amount of spillage required to ensure

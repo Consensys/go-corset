@@ -3,6 +3,7 @@ package hir
 import (
 	"fmt"
 
+	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 )
 
@@ -68,17 +69,18 @@ func (p *Environment) AddDataColumn(module uint, column string, datatype sc.Type
 	return cid
 }
 
-// AddPermutationColumns registers a new permutation within a given module.  Observe that
-// this will panic if any of the target columns already exists, or the source
-// columns don't exist.
-func (p *Environment) AddPermutationColumns(module uint, targets []sc.Column, signs []bool, sources []uint) {
+// AddAssignment appends a new assignment (i.e. set of computed columns) to be
+// used during trace expansion for this schema.  Computed columns are introduced
+// by the process of lowering from HIR / MIR to AIR.
+func (p *Environment) AddAssignment(decl schema.Assignment) {
 	// Update schema
-	p.schema.AddPermutationColumns(module, targets, signs, sources)
+	index := p.schema.AddAssignment(decl)
 	// Update cache
-	for _, col := range targets {
-		cid := uint(len(p.columns))
-		cref := columnRef{module, col.Name()}
-		p.columns[cref] = cid
+	for i := decl.Columns(); i.HasNext(); {
+		ith := i.Next()
+		cref := columnRef{ith.Module(), ith.Name()}
+		p.columns[cref] = index
+		index++
 	}
 }
 

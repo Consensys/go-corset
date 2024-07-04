@@ -44,7 +44,7 @@ type Add struct{ Args []Expr }
 
 // Context determines the evaluation context (i.e. enclosing module) for this
 // expression.
-func (p *Add) Context(schema sc.Schema) (uint, bool) {
+func (p *Add) Context(schema sc.Schema) (uint, uint, bool) {
 	return sc.JoinContexts[Expr](p.Args, schema)
 }
 
@@ -73,7 +73,7 @@ type Sub struct{ Args []Expr }
 
 // Context determines the evaluation context (i.e. enclosing module) for this
 // expression.
-func (p *Sub) Context(schema sc.Schema) (uint, bool) {
+func (p *Sub) Context(schema sc.Schema) (uint, uint, bool) {
 	return sc.JoinContexts[Expr](p.Args, schema)
 }
 
@@ -102,7 +102,7 @@ type Mul struct{ Args []Expr }
 
 // Context determines the evaluation context (i.e. enclosing module) for this
 // expression.
-func (p *Mul) Context(schema sc.Schema) (uint, bool) {
+func (p *Mul) Context(schema sc.Schema) (uint, uint, bool) {
 	return sc.JoinContexts[Expr](p.Args, schema)
 }
 
@@ -154,8 +154,8 @@ func NewConstCopy(val *fr.Element) Expr {
 
 // Context determines the evaluation context (i.e. enclosing module) for this
 // expression.
-func (p *Constant) Context(schema sc.Schema) (uint, bool) {
-	return math.MaxUint, true
+func (p *Constant) Context(schema sc.Schema) (uint, uint, bool) {
+	return math.MaxUint, math.MaxUint, true
 }
 
 // Add two expressions together, producing a third.
@@ -193,8 +193,9 @@ func NewColumnAccess(column uint, shift int) Expr {
 
 // Context determines the evaluation context (i.e. enclosing module) for this
 // expression.
-func (p *ColumnAccess) Context(schema sc.Schema) (uint, bool) {
-	return schema.Columns().Nth(p.Column).Module(), true
+func (p *ColumnAccess) Context(schema sc.Schema) (uint, uint, bool) {
+	col := schema.Columns().Nth(p.Column)
+	return col.Module(), col.LengthMultiplier(), true
 }
 
 // Add two expressions together, producing a third.

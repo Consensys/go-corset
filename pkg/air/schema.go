@@ -87,7 +87,8 @@ func (p *Schema) AddAssignment(c schema.Assignment) uint {
 }
 
 // AddLookupConstraint appends a new lookup constraint.
-func (p *Schema) AddLookupConstraint(handle string, source uint, target uint, sources []uint, targets []uint) {
+func (p *Schema) AddLookupConstraint(handle string, source uint, source_multiplier uint,
+	target uint, target_multiplier uint, sources []uint, targets []uint) {
 	if len(targets) != len(sources) {
 		panic("differeng number of target / source lookup columns")
 	}
@@ -102,7 +103,7 @@ func (p *Schema) AddLookupConstraint(handle string, source uint, target uint, so
 	}
 	//
 	p.constraints = append(p.constraints,
-		constraint.NewLookupConstraint(handle, source, target, from, into))
+		constraint.NewLookupConstraint(handle, source, source_multiplier, target, target_multiplier, from, into))
 }
 
 // AddPermutationConstraint appends a new permutation constraint which
@@ -113,13 +114,13 @@ func (p *Schema) AddPermutationConstraint(targets []uint, sources []uint) {
 }
 
 // AddVanishingConstraint appends a new vanishing constraint.
-func (p *Schema) AddVanishingConstraint(handle string, module uint, domain *int, expr Expr) {
+func (p *Schema) AddVanishingConstraint(handle string, module uint, multiplier uint, domain *int, expr Expr) {
 	if module >= uint(len(p.modules)) {
 		panic(fmt.Sprintf("invalid module index (%d)", module))
 	}
 	// TODO: sanity check expression enclosed by module
 	p.constraints = append(p.constraints,
-		constraint.NewVanishingConstraint(handle, module, domain, constraint.ZeroTest[Expr]{Expr: expr}))
+		constraint.NewVanishingConstraint(handle, module, multiplier, domain, constraint.ZeroTest[Expr]{Expr: expr}))
 }
 
 // AddRangeConstraint appends a new range constraint.

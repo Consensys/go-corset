@@ -25,12 +25,12 @@ func (p *Schema) LowerToAir() *air.Schema {
 	// Essentially to reflect the fact that these columns have been added above
 	// before others.  Realistically, the overall design of this process is a
 	// bit broken right now.
-	for _, perm := range p.assignments {
-		airSchema.AddAssignment(perm.(Permutation))
+	for _, assign := range p.assignments {
+		airSchema.AddAssignment(assign)
 	}
-	// Lower permutations columns
-	for _, perm := range p.assignments {
-		lowerPermutationToAir(perm.(Permutation), p, airSchema)
+	// Now, lower assignments.
+	for _, assign := range p.assignments {
+		lowerAssignmentToAir(assign, p, airSchema)
 	}
 	// Lower vanishing constraints
 	for _, c := range p.constraints {
@@ -40,6 +40,19 @@ func (p *Schema) LowerToAir() *air.Schema {
 	return airSchema
 }
 
+// Lower an assignment to the AIR level.
+func lowerAssignmentToAir(c sc.Assignment, mirSchema *Schema, airSchema *air.Schema) {
+	if v, ok := c.(Permutation); ok {
+		lowerPermutationToAir(v, mirSchema, airSchema)
+	} else if _, ok := c.(Interleaving); ok {
+		// Nothing to do for interleaving constraints, as they can be passed
+		// directly down to the AIR level
+		return
+	} else {
+		panic("unknown assignment")
+	}
+}
+
 // Lower a constraint to the AIR level.
 func lowerConstraintToAir(c sc.Constraint, schema *air.Schema) {
 	// Check what kind of constraint we have
@@ -47,7 +60,7 @@ func lowerConstraintToAir(c sc.Constraint, schema *air.Schema) {
 		lowerLookupConstraintToAir(v, schema)
 	} else if v, ok := c.(VanishingConstraint); ok {
 		air_expr := v.Constraint().Expr.LowerTo(schema)
-		schema.AddVanishingConstraint(v.Handle(), v.Module(), v.Domain(), air_expr)
+		schema.AddVanishingConstraint(v.Handle(), v.Module(), v.LengthMultiplier(), v.Domain(), air_expr)
 	} else if v, ok := c.(*constraint.TypeConstraint); ok {
 		if t := v.Type().AsUint(); t != nil {
 			// Yes, a constraint is implied.  Now, decide whether to use a range
@@ -89,7 +102,9 @@ func lowerLookupConstraintToAir(c LookupConstraint, schema *air.Schema) {
 		sources[i] = air_gadgets.Expand(source, schema)
 	}
 	// finally add the constraint
-	schema.AddLookupConstraint(c.Handle(), c.SourceModule(), c.TargetModule(), sources, targets)
+	src_mod, src_mul := c.SourceContext()
+	dst_mod, dst_mul := c.TargetContext()
+	schema.AddLookupConstraint(c.Handle(), src_mod, src_mul, dst_mod, dst_mul, sources, targets)
 }
 
 // Lower a permutation to the AIR level.  This has quite a few

@@ -14,6 +14,8 @@ import (
 // existing columns.
 type SortedPermutation struct {
 	module uint
+	// Length multiplier
+	multiplier uint
 	// The new (sorted) columns
 	targets []schema.Column
 	// The sorting criteria
@@ -23,7 +25,8 @@ type SortedPermutation struct {
 }
 
 // NewSortedPermutation creates a new sorted permutation
-func NewSortedPermutation(module uint, targets []schema.Column, signs []bool, sources []uint) *SortedPermutation {
+func NewSortedPermutation(module uint, multiplier uint, targets []schema.Column,
+	signs []bool, sources []uint) *SortedPermutation {
 	if len(targets) != len(signs) || len(signs) != len(sources) {
 		panic("target and source column widths must match")
 	}
@@ -31,10 +34,12 @@ func NewSortedPermutation(module uint, targets []schema.Column, signs []bool, so
 	for _, c := range targets {
 		if c.Module() != module {
 			panic("inconsistent target modules")
+		} else if c.LengthMultiplier() != multiplier {
+			panic("inconsistent length multipliers for target columns")
 		}
 	}
 
-	return &SortedPermutation{module, targets, signs, sources}
+	return &SortedPermutation{module, multiplier, targets, signs, sources}
 }
 
 // Module returns the module which encloses this sorted permutation.
@@ -125,8 +130,8 @@ func (p *SortedPermutation) ExpandTrace(tr tr.Trace) error {
 	for i := p.Columns(); i.HasNext(); {
 		name := i.Next().Name()
 		// Sanity check no column already exists with this name.
-		if tr.Columns().HasColumn(name) {
-			panic("target column already exists")
+		if columns.HasColumn(name) {
+			return fmt.Errorf("column already exists ({%s})", name)
 		}
 	}
 
@@ -145,13 +150,11 @@ func (p *SortedPermutation) ExpandTrace(tr tr.Trace) error {
 	// Physically add the columns
 	index := 0
 
-	for i := p.Columns(); i.HasNext(); {
+	for i := p.Columns(); i.HasNext(); index++ {
 		ith := i.Next()
 		dstColName := ith.Name()
 		srcCol := tr.Columns().Get(p.sources[index])
-		columns.Add(trace.NewFieldColumn(ith.Module(), dstColName, cols[index], srcCol.Padding()))
-
-		index++
+		columns.Add(trace.NewFieldColumn(ith.Module(), dstColName, p.multiplier, cols[index], srcCol.Padding()))
 	}
 	//
 	return nil
