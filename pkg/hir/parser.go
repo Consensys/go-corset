@@ -3,6 +3,7 @@ package hir
 import (
 	"errors"
 	"fmt"
+	"math/big"
 	"strconv"
 	"strings"
 	"unicode"
@@ -77,6 +78,7 @@ func newHirParser(srcmap *sexp.SourceMap[sexp.SExp]) *hirParser {
 	p.AddRecursiveRule("-", subParserRule)
 	p.AddRecursiveRule("*", mulParserRule)
 	p.AddRecursiveRule("~", normParserRule)
+	p.AddRecursiveRule("^", powParserRule)
 	p.AddRecursiveRule("if", ifParserRule)
 	p.AddRecursiveRule("ifnot", ifNotParserRule)
 	p.AddRecursiveRule("begin", beginParserRule)
@@ -541,6 +543,25 @@ func shiftParserRule(parser *hirParser) func(string, string) (Expr, error) {
 			Shift:  n,
 		}, nil
 	}
+}
+
+func powParserRule(args []Expr) (Expr, error) {
+	var k big.Int
+
+	if len(args) != 2 {
+		return nil, errors.New("incorrect number of arguments")
+	}
+
+	c, ok := args[1].(*Constant)
+	if !ok {
+		return nil, errors.New("expected constant power")
+	} else if !c.Val.IsUint64() {
+		return nil, errors.New("constant power too large")
+	}
+	// Convert power to uint64
+	c.Val.BigInt(&k)
+	// Done
+	return &Exp{Arg: args[0], Pow: k.Uint64()}, nil
 }
 
 func normParserRule(args []Expr) (Expr, error) {

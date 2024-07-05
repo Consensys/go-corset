@@ -32,6 +32,10 @@ func (e *Normalise) String() string {
 	return fmt.Sprintf("(~ %s)", e.Arg)
 }
 
+func (e *Exp) String() string {
+	return fmt.Sprintf("(^ %s %d)", e.Arg, e.Pow)
+}
+
 func naryString(operator string, exprs []Expr) string {
 	// This should be generalised and moved into common?
 	var rs string

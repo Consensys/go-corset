@@ -32,6 +32,10 @@ func (e *Mul) String() string {
 	return naryString("*", e.Args)
 }
 
+func (e *Exp) String() string {
+	return fmt.Sprintf("(^ %s %d)", e.Arg, e.Pow)
+}
+
 func (e *Normalise) String() string {
 	return fmt.Sprintf("(~ %s)", e.Arg)
 }

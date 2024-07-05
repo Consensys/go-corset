@@ -170,6 +170,22 @@ func (e *Mul) LowerTo(schema *air.Schema) air.Expr {
 	return &air.Mul{Args: lowerExprs(e.Args, schema)}
 }
 
+// LowerTo lowers an exponent expression to the AIR level by lowering the
+// argument, and then constructing a multiplication.  This is because the AIR
+// level does not support an explicit exponent operator.
+func (e *Exp) LowerTo(schema *air.Schema) air.Expr {
+	// Lower the expression being raised
+	le := e.Arg.LowerTo(schema)
+	// Multiply it out k times
+	es := make([]air.Expr, e.Pow)
+	//
+	for i := uint64(0); i < e.Pow; i++ {
+		es[i] = le
+	}
+	// Done
+	return &air.Mul{Args: es}
+}
+
 // LowerTo lowers a normalise expression to the AIR level by "compiling it out"
 // using a computed column.
 func (p *Normalise) LowerTo(schema *air.Schema) air.Expr {

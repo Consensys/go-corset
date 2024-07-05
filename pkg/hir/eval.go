@@ -3,6 +3,7 @@ package hir
 import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // EvalAllAt evaluates a column access at a given row in a trace, which returns the
@@ -36,6 +37,17 @@ func (e *Add) EvalAllAt(k int, tr trace.Trace) []*fr.Element {
 func (e *Mul) EvalAllAt(k int, tr trace.Trace) []*fr.Element {
 	fn := func(l *fr.Element, r *fr.Element) { l.Mul(l, r) }
 	return evalExprsAt(k, tr, e.Args, fn)
+}
+
+// EvalAllAt evaluates a product at a given row in a trace by first evaluating all of
+// its arguments at that row.
+func (e *Exp) EvalAllAt(k int, tr trace.Trace) []*fr.Element {
+	vals := e.Arg.EvalAllAt(k, tr)
+	for _, v := range vals {
+		util.Pow(v, e.Pow)
+	}
+
+	return vals
 }
 
 // EvalAllAt evaluates a conditional at a given row in a trace by first evaluating

@@ -3,6 +3,7 @@ package mir
 import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // EvalAt evaluates a column access at a given row in a trace, which returns the
@@ -36,6 +37,17 @@ func (e *Add) EvalAt(k int, tr trace.Trace) *fr.Element {
 func (e *Mul) EvalAt(k int, tr trace.Trace) *fr.Element {
 	fn := func(l *fr.Element, r *fr.Element) { l.Mul(l, r) }
 	return evalExprsAt(k, tr, e.Args, fn)
+}
+
+// EvalAt evaluates a product at a given row in a trace by first evaluating all of
+// its arguments at that row.
+func (e *Exp) EvalAt(k int, tr trace.Trace) *fr.Element {
+	// Check whether argument evaluates to zero or not.
+	val := e.Arg.EvalAt(k, tr)
+	// Compute exponent
+	util.Pow(val, e.Pow)
+	// Done
+	return val
 }
 
 // EvalAt evaluates the normalisation of some expression by first evaluating

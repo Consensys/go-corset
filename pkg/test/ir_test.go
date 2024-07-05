@@ -60,6 +60,10 @@ func Test_Basic_09(t *testing.T) {
 	Check(t, "basic_09")
 }
 
+func Test_Basic_10(t *testing.T) {
+	Check(t, "basic_10")
+}
+
 // ===================================================================
 // Domain Tests
 // ===================================================================
@@ -420,12 +424,14 @@ func TestSlow_Mxp(t *testing.T) {
 
 // Determines the maximum amount of padding to use when testing.  Specifically,
 // every trace is tested with varying amounts of padding upto this value.
-const MAX_PADDING uint = 1
+const MAX_PADDING uint = 5
 
 // For a given set of constraints, check that all traces which we
 // expect to be accepted are accepted, and all traces that we expect
 // to be rejected are rejected.
 func Check(t *testing.T, test string) {
+	// Enable testing each trace in parallel
+	t.Parallel()
 	// Read constraints file
 	bytes, err := os.ReadFile(fmt.Sprintf("%s/%s.lisp", TestDir, test))
 	// Check test file read ok
