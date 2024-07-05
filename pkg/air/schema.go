@@ -7,6 +7,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/assignment"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
+	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
 
@@ -64,14 +65,14 @@ func (p *Schema) AddModule(name string) uint {
 
 // AddColumn appends a new data column whose values must be provided by the
 // user.
-func (p *Schema) AddColumn(module uint, name string, datatype schema.Type) uint {
-	if module >= uint(len(p.modules)) {
-		panic(fmt.Sprintf("invalid module index (%d)", module))
+func (p *Schema) AddColumn(context trace.Context, name string, datatype schema.Type) uint {
+	if context.Module() >= uint(len(p.modules)) {
+		panic(fmt.Sprintf("invalid module index (%d)", context.Module()))
 	}
 
 	// NOTE: the air level has no ability to enforce the type specified for a
 	// given column.
-	p.inputs = append(p.inputs, assignment.NewDataColumn(module, name, datatype))
+	p.inputs = append(p.inputs, assignment.NewDataColumn(context, name, datatype))
 	// Calculate column index
 	return uint(len(p.inputs) - 1)
 }
@@ -87,8 +88,8 @@ func (p *Schema) AddAssignment(c schema.Assignment) uint {
 }
 
 // AddLookupConstraint appends a new lookup constraint.
-func (p *Schema) AddLookupConstraint(handle string, source uint, source_multiplier uint,
-	target uint, target_multiplier uint, sources []uint, targets []uint) {
+func (p *Schema) AddLookupConstraint(handle string, source trace.Context,
+	target trace.Context, sources []uint, targets []uint) {
 	if len(targets) != len(sources) {
 		panic("differeng number of target / source lookup columns")
 	}
@@ -103,7 +104,7 @@ func (p *Schema) AddLookupConstraint(handle string, source uint, source_multipli
 	}
 	//
 	p.constraints = append(p.constraints,
-		constraint.NewLookupConstraint(handle, source, source_multiplier, target, target_multiplier, from, into))
+		constraint.NewLookupConstraint(handle, source, target, from, into))
 }
 
 // AddPermutationConstraint appends a new permutation constraint which
@@ -114,13 +115,13 @@ func (p *Schema) AddPermutationConstraint(targets []uint, sources []uint) {
 }
 
 // AddVanishingConstraint appends a new vanishing constraint.
-func (p *Schema) AddVanishingConstraint(handle string, module uint, multiplier uint, domain *int, expr Expr) {
-	if module >= uint(len(p.modules)) {
-		panic(fmt.Sprintf("invalid module index (%d)", module))
+func (p *Schema) AddVanishingConstraint(handle string, context trace.Context, domain *int, expr Expr) {
+	if context.Module() >= uint(len(p.modules)) {
+		panic(fmt.Sprintf("invalid module index (%d)", context.Module()))
 	}
 	// TODO: sanity check expression enclosed by module
 	p.constraints = append(p.constraints,
-		constraint.NewVanishingConstraint(handle, module, multiplier, domain, constraint.ZeroTest[Expr]{Expr: expr}))
+		constraint.NewVanishingConstraint(handle, context, domain, constraint.ZeroTest[Expr]{Expr: expr}))
 }
 
 // AddRangeConstraint appends a new range constraint.

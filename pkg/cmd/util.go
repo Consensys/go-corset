@@ -187,7 +187,7 @@ func printSyntaxError(filename string, err *sexp.SyntaxError, text string) {
 // index.
 func QualifiedColumnName(cid uint, tr trace.Trace) string {
 	col := tr.Columns().Get(cid)
-	mod := tr.Modules().Get(col.Module())
+	mod := tr.Modules().Get(col.Context().Module())
 	// Check whether qualification required
 	if mod.Name() != "" {
 		return fmt.Sprintf("%s.%s", mod.Name(), col.Name())

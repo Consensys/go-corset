@@ -13,9 +13,8 @@ import (
 // SortedPermutation declares one or more columns as sorted permutations of
 // existing columns.
 type SortedPermutation struct {
-	module uint
-	// Length multiplier
-	multiplier uint
+	// Context where this data column is located.
+	context trace.Context
 	// The new (sorted) columns
 	targets []schema.Column
 	// The sorting criteria
@@ -25,26 +24,24 @@ type SortedPermutation struct {
 }
 
 // NewSortedPermutation creates a new sorted permutation
-func NewSortedPermutation(module uint, multiplier uint, targets []schema.Column,
+func NewSortedPermutation(context tr.Context, targets []schema.Column,
 	signs []bool, sources []uint) *SortedPermutation {
 	if len(targets) != len(signs) || len(signs) != len(sources) {
 		panic("target and source column widths must match")
 	}
 	// Check modules
 	for _, c := range targets {
-		if c.Module() != module {
-			panic("inconsistent target modules")
-		} else if c.LengthMultiplier() != multiplier {
-			panic("inconsistent length multipliers for target columns")
+		if c.Context() != context {
+			panic("inconsistent evaluation contexts")
 		}
 	}
 
-	return &SortedPermutation{module, multiplier, targets, signs, sources}
+	return &SortedPermutation{context, targets, signs, sources}
 }
 
 // Module returns the module which encloses this sorted permutation.
 func (p *SortedPermutation) Module() uint {
-	return p.module
+	return p.context.Module()
 }
 
 // Sources returns the columns used by this sorted permutation to define the new
@@ -154,7 +151,7 @@ func (p *SortedPermutation) ExpandTrace(tr tr.Trace) error {
 		ith := i.Next()
 		dstColName := ith.Name()
 		srcCol := tr.Columns().Get(p.sources[index])
-		columns.Add(trace.NewFieldColumn(ith.Module(), dstColName, p.multiplier, cols[index], srcCol.Padding()))
+		columns.Add(trace.NewFieldColumn(ith.Context(), dstColName, cols[index], srcCol.Padding()))
 	}
 	//
 	return nil

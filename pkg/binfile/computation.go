@@ -6,6 +6,7 @@ import (
 	"github.com/consensys/go-corset/pkg/hir"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/assignment"
+	"github.com/consensys/go-corset/pkg/trace"
 )
 
 type jsonComputationSet struct {
@@ -27,7 +28,6 @@ type jsonSortedComputation struct {
 // =============================================================================
 
 func (e jsonComputationSet) addToSchema(schema *hir.Schema) {
-	var multiplier uint
 	//
 	for _, c := range e.Computations {
 		if c.Sorted != nil {
@@ -44,6 +44,8 @@ func (e jsonComputationSet) addToSchema(schema *hir.Schema) {
 			// Convert target refs into columns
 			targets := make([]sc.Column, len(targetRefs))
 			//
+			ctx := trace.VoidContext()
+			//
 			for i, targetRef := range targetRefs {
 				src_cid, src_mid := sourceRefs[i].resolve(schema)
 				_, dst_mid := targetRef.resolve(schema)
@@ -53,20 +55,21 @@ func (e jsonComputationSet) addToSchema(schema *hir.Schema) {
 				}
 				// Determine type of source column
 				ith := schema.Columns().Nth(src_cid)
+				ctx = ctx.Join(ith.Context())
 				// Sanity check we have a sensible type here.
 				if ith.Type().AsUint() == nil {
 					panic(fmt.Sprintf("source column %s has field type", sourceRefs[i]))
-				} else if i == 0 {
-					multiplier = ith.LengthMultiplier()
-				} else if multiplier != ith.LengthMultiplier() {
-					panic(fmt.Sprintf("source column %s has inconsistent length multiplier", sourceRefs[i]))
+				} else if ctx.IsConflicted() {
+					panic(fmt.Sprintf("source column %s has conflicted evaluation context", sourceRefs[i]))
+				} else if ctx.IsVoid() {
+					panic(fmt.Sprintf("source column %s has void evaluation context", sourceRefs[i]))
 				}
 
 				sources[i] = src_cid
-				targets[i] = sc.NewColumn(ith.Module(), targetRef.column, multiplier, ith.Type())
+				targets[i] = sc.NewColumn(ctx, targetRef.column, ith.Type())
 			}
 			// Finally, add the sorted permutation assignment
-			schema.AddAssignment(assignment.NewSortedPermutation(module, multiplier, targets, c.Sorted.Signs, sources))
+			schema.AddAssignment(assignment.NewSortedPermutation(ctx, targets, c.Sorted.Signs, sources))
 		}
 	}
 }

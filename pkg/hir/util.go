@@ -46,7 +46,7 @@ func (p ZeroArrayTest) Bounds() util.Bounds {
 
 // Context determines the evaluation context (i.e. enclosing module) for this
 // expression.
-func (p ZeroArrayTest) Context(schema sc.Schema) (sc.EvalContext, bool) {
+func (p ZeroArrayTest) Context(schema sc.Schema) trace.Context {
 	return p.Expr.Context(schema)
 }
 
@@ -95,6 +95,6 @@ func (e UnitExpr) Bounds() util.Bounds {
 
 // Context determines the evaluation context (i.e. enclosing module) for this
 // expression.
-func (e UnitExpr) Context(schema sc.Schema) (sc.EvalContext, bool) {
+func (e UnitExpr) Context(schema sc.Schema) trace.Context {
 	return e.expr.Context(schema)
 }

@@ -5,6 +5,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/trace"
 )
 
 // ===================================================================
@@ -41,7 +42,7 @@ func EmptyEnvironment() *Environment {
 
 // RegisterModule registers a new module within this environment.  Observe that
 // this will panic if the module already exists.
-func (p *Environment) RegisterModule(module string) uint {
+func (p *Environment) RegisterModule(module string) trace.Context {
 	if p.HasModule(module) {
 		panic(fmt.Sprintf("module %s already exists", module))
 	}
@@ -50,20 +51,20 @@ func (p *Environment) RegisterModule(module string) uint {
 	// Update cache
 	p.modules[module] = mid
 	// Done
-	return mid
+	return trace.NewContext(mid, 1)
 }
 
 // AddDataColumn registers a new column within a given module.  Observe that
 // this will panic if the column already exists.
-func (p *Environment) AddDataColumn(module uint, column string, datatype sc.Type) uint {
-	if p.HasColumn(module, column) {
-		panic(fmt.Sprintf("column %d:%s already exists", module, column))
+func (p *Environment) AddDataColumn(context trace.Context, column string, datatype sc.Type) uint {
+	if p.HasColumn(context, column) {
+		panic(fmt.Sprintf("column %d:%s already exists", context.Module(), column))
 	}
 	// Update schema
-	p.schema.AddDataColumn(module, column, datatype)
+	p.schema.AddDataColumn(context, column, datatype)
 	// Update cache
 	cid := uint(len(p.columns))
-	cref := columnRef{module, column}
+	cref := columnRef{context.Module(), column}
 	p.columns[cref] = cid
 	// Done
 	return cid
@@ -78,7 +79,7 @@ func (p *Environment) AddAssignment(decl schema.Assignment) {
 	// Update cache
 	for i := decl.Columns(); i.HasNext(); {
 		ith := i.Next()
-		cref := columnRef{ith.Module(), ith.Name()}
+		cref := columnRef{ith.Context().Module(), ith.Name()}
 		p.columns[cref] = index
 		index++
 	}
@@ -86,15 +87,15 @@ func (p *Environment) AddAssignment(decl schema.Assignment) {
 
 // LookupModule determines the module index for a given named module, or return
 // false if no such module exists.
-func (p *Environment) LookupModule(module string) (uint, bool) {
+func (p *Environment) LookupModule(module string) (trace.Context, bool) {
 	mid, ok := p.modules[module]
-	return mid, ok
+	return trace.NewContext(mid, 1), ok
 }
 
 // LookupColumn determines the column index for a given named column in a given
 // module, or return false if no such column exists.
-func (p *Environment) LookupColumn(module uint, column string) (uint, bool) {
-	cref := columnRef{module, column}
+func (p *Environment) LookupColumn(context trace.Context, column string) (uint, bool) {
+	cref := columnRef{context.Module(), column}
 	cid, ok := p.columns[cref]
 
 	return cid, ok
@@ -108,8 +109,8 @@ func (p *Environment) HasModule(module string) bool {
 }
 
 // HasColumn checks whether a given module has a given column, or not.
-func (p *Environment) HasColumn(module uint, column string) bool {
-	_, ok := p.LookupColumn(module, column)
+func (p *Environment) HasColumn(context trace.Context, column string) bool {
+	_, ok := p.LookupColumn(context, column)
 	// Discard column index
 	return ok
 }

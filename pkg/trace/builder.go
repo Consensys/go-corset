@@ -52,9 +52,12 @@ func (p *Builder) Add(name string, padding *fr.Element, data []*fr.Element) erro
 			return err
 		}
 	}
-	// Register new column.  Observe that user-provided columns always have a
-	// factor of 1.
-	return p.registerColumn(NewFieldColumn(mid, colname, 1, data, padding))
+	// We assume (for now) that user-provided columns always have a length
+	// multiplier of 1.  In general, this will be true.  However, in situations
+	// where we are importing expanded traces, then this might not be true.
+	context := NewContext(mid, 1)
+	// Register new column.
+	return p.registerColumn(NewFieldColumn(context, colname, data, padding))
 }
 
 // HasModule checks whether a given module has already been registered with this
@@ -98,7 +101,7 @@ func (p *Builder) splitQualifiedColumnName(name string) (string, string) {
 // if the column's module does not exist, or if the column's height does not
 // match that of its enclosing module.
 func (p *Builder) registerColumn(col Column) error {
-	mid := col.Module()
+	mid := col.Context().Module()
 	// Sanity check module exists
 	if mid >= uint(len(p.modules)) {
 		return errors.New("column has invalid enclosing module index")

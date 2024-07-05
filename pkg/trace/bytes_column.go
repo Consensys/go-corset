@@ -11,16 +11,16 @@ import (
 // in this column is potentially slower than for a FieldColumn, as the raw bytes
 // must be converted into a field element.
 type BytesColumn struct {
-	module uint
-	name   string
+	// Evaluation context of this column
+	context Context
+	// Holds the name of this column
+	name string
 	// Determines how many bytes each field element takes.  For the BLS12-377
 	// curve, this should be 32.  In the future, when other curves are
 	// supported, this could be less.
 	width uint8
 	// The number of data elements in this column.
 	length uint
-	// Length multiplier (i.e. of length)
-	multiplier uint
 	// The data stored in this column (as bytes).
 	bytes []byte
 	// Value to be used when padding this column
@@ -28,19 +28,19 @@ type BytesColumn struct {
 }
 
 // NewBytesColumn constructs a new BytesColumn from its constituent parts.
-func NewBytesColumn(module uint, name string, width uint8, length uint, multiplier uint,
+func NewBytesColumn(context Context, name string, width uint8, length uint,
 	bytes []byte, padding *fr.Element) *BytesColumn {
 	// Sanity check data length
-	if length%multiplier != 0 {
+	if length%context.LengthMultiplier() != 0 {
 		panic("data length has incorrect multiplier")
 	}
 
-	return &BytesColumn{module, name, width, length, multiplier, bytes, padding}
+	return &BytesColumn{context, name, width, length, bytes, padding}
 }
 
-// Module returns the enclosing module of this column
-func (p *BytesColumn) Module() uint {
-	return p.module
+// Context returns the evaluation context this column provides.
+func (p *BytesColumn) Context() Context {
+	return p.context
 }
 
 // Name returns the name of this column
@@ -56,14 +56,6 @@ func (p *BytesColumn) Width() uint {
 // Height returns the number of rows in this column.
 func (p *BytesColumn) Height() uint {
 	return p.length
-}
-
-// LengthMultiplier is a multiplier of the enclosing module's height used to
-// determine this column's height. For example, if the multiplier is 2 then the
-// height of this column must always be a multiple of 2, etc.  This affects
-// padding also, as we must pad to this multiplier.
-func (p *BytesColumn) LengthMultiplier() uint {
-	return p.multiplier
 }
 
 // Padding returns the value which will be used for padding this column.
@@ -85,11 +77,10 @@ func (p *BytesColumn) Get(i int) *fr.Element {
 // Clone an BytesColumn
 func (p *BytesColumn) Clone() Column {
 	clone := new(BytesColumn)
-	clone.module = p.module
+	clone.context = p.context
 	clone.name = p.name
 	clone.length = p.length
 	clone.width = p.width
-	clone.multiplier = p.multiplier
 	clone.padding = p.padding
 	// NOTE: the following is as we never actually mutate the underlying bytes
 	// array.
@@ -126,7 +117,7 @@ func (p *BytesColumn) Data() []*fr.Element {
 // Pad this column with n copies of the column's padding value.
 func (p *BytesColumn) Pad(n uint) {
 	// Apply the length multiplier
-	n = n * p.multiplier
+	n = n * p.context.LengthMultiplier()
 	// Computing padding length (in bytes)
 	padding_len := n * uint(p.width)
 	// Access bytes to use for padding
@@ -156,7 +147,7 @@ func (p *BytesColumn) Pad(n uint) {
 // Reseat updates the module index of this column (e.g. as a result of a
 // realignment).
 func (p *BytesColumn) Reseat(mid uint) {
-	p.module = mid
+	p.context = NewContext(mid, p.context.LengthMultiplier())
 }
 
 // Write the raw bytes of this column to a given writer, returning an error

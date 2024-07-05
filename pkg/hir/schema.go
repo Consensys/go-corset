@@ -3,10 +3,10 @@ package hir
 import (
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/assignment"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
+	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
 
@@ -69,17 +69,17 @@ func (p *Schema) AddModule(name string) uint {
 
 // AddDataColumn appends a new data column with a given type.  Furthermore, the
 // type is enforced by the system when checking is enabled.
-func (p *Schema) AddDataColumn(module uint, name string, base sc.Type) {
-	if module >= uint(len(p.modules)) {
-		panic(fmt.Sprintf("invalid module index (%d)", module))
+func (p *Schema) AddDataColumn(context trace.Context, name string, base sc.Type) {
+	if context.Module() >= uint(len(p.modules)) {
+		panic(fmt.Sprintf("invalid module index (%d)", context.Module()))
 	}
 
-	p.inputs = append(p.inputs, assignment.NewDataColumn(module, name, base))
+	p.inputs = append(p.inputs, assignment.NewDataColumn(context, name, base))
 }
 
 // AddLookupConstraint appends a new lookup constraint.
-func (p *Schema) AddLookupConstraint(handle string, source uint, source_multiplier uint, target uint,
-	target_multiplier uint, sources []UnitExpr, targets []UnitExpr) {
+func (p *Schema) AddLookupConstraint(handle string, source trace.Context, target trace.Context,
+	sources []UnitExpr, targets []UnitExpr) {
 	if len(targets) != len(sources) {
 		panic("differeng number of target / source lookup columns")
 	}
@@ -88,13 +88,13 @@ func (p *Schema) AddLookupConstraint(handle string, source uint, source_multipli
 
 	// Finally add constraint
 	p.constraints = append(p.constraints,
-		constraint.NewLookupConstraint(handle, source, source_multiplier, target, target_multiplier, sources, targets))
+		constraint.NewLookupConstraint(handle, source, target, sources, targets))
 }
 
 // AddAssignment appends a new assignment (i.e. set of computed columns) to be
 // used during trace expansion for this schema.  Computed columns are introduced
 // by the process of lowering from HIR / MIR to AIR.
-func (p *Schema) AddAssignment(c schema.Assignment) uint {
+func (p *Schema) AddAssignment(c sc.Assignment) uint {
 	index := p.Columns().Count()
 	p.assignments = append(p.assignments, c)
 
@@ -102,13 +102,13 @@ func (p *Schema) AddAssignment(c schema.Assignment) uint {
 }
 
 // AddVanishingConstraint appends a new vanishing constraint.
-func (p *Schema) AddVanishingConstraint(handle string, module uint, multiplier uint, domain *int, expr Expr) {
-	if module >= uint(len(p.modules)) {
-		panic(fmt.Sprintf("invalid module index (%d)", module))
+func (p *Schema) AddVanishingConstraint(handle string, context trace.Context, domain *int, expr Expr) {
+	if context.Module() >= uint(len(p.modules)) {
+		panic(fmt.Sprintf("invalid module index (%d)", context.Module()))
 	}
 
 	p.constraints = append(p.constraints,
-		constraint.NewVanishingConstraint(handle, module, multiplier, domain, ZeroArrayTest{expr}))
+		constraint.NewVanishingConstraint(handle, context, domain, ZeroArrayTest{expr}))
 }
 
 // AddTypeConstraint appends a new range constraint.
@@ -167,6 +167,6 @@ func (p *Schema) Declarations() util.Iterator[sc.Declaration] {
 
 // Modules returns an iterator over the declared set of modules within this
 // schema.
-func (p *Schema) Modules() util.Iterator[schema.Module] {
+func (p *Schema) Modules() util.Iterator[sc.Module] {
 	return util.NewArrayIterator(p.modules)
 }

@@ -63,7 +63,7 @@ func filterColumns(tr trace.Trace, prefix string) trace.Trace {
 	// across traces.
 	for i := uint(0); i < n; i++ {
 		ith := tr.Columns().Get(i)
-		name := tr.Modules().Get(ith.Module()).Name()
+		name := tr.Modules().Get(ith.Context().Module()).Name()
 
 		if !builder.HasModule(name) {
 			if _, err := builder.Register(name, ith.Height()); err != nil {

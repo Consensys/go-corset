@@ -1,102 +1,40 @@
 package schema
 
 import (
-	"errors"
-
 	tr "github.com/consensys/go-corset/pkg/trace"
 )
 
-// JoinContexts combines one or more evaluation contexts together.  There are a
-// number of scenarios.  The simple path is when each expression has the same
-// evaluation context (in which case this is returned).  Its also possible one
-// or more expressions have no evaluation context (signaled by math.MaxUint) and
-// this can be ignored. Finally, we might have two expressions with conflicting
-// evaluation contexts, and this clearly signals an error.
-func JoinContexts[E Contextual](args []E, schema Schema) (EvalContext, bool) {
-	var ok bool
-
-	ctx := VoidContext()
+// JoinContexts combines one or more evaluation contexts together.  If all
+// expressions have the void context, then this is returned.  Likewise, if any
+// expression has a conflicting context then this is returned.  Finally, if any
+// two expressions have conflicting contexts between them, then the conflicting
+// context is returned.  Otherwise, the common context to all expressions is
+// returned.
+func JoinContexts[E Contextual](args []E, schema Schema) tr.Context {
+	ctx := tr.VoidContext()
 	//
 	for _, e := range args {
-		c, b := e.Context(schema)
-		if !b {
-			// Indicates conflict detected upstream, therefore propagate this
-			// down.
-			return VoidContext(), false
-		}
-		// Joint contexts
-		if ctx, ok = ctx.Join(c); !ok {
-			return VoidContext(), false
-		}
+		ctx = ctx.Join(e.Context(schema))
 	}
 	// If we get here, then no conflicts were detected.
-	return ctx, true
+	return ctx
 }
 
-// DetermineEnclosingModuleOfExpression determines (and checks) the enclosing
-// module for a given expression.  The expectation is that there is a single
-// enclosing module, and this function will panic if that does not hold.
-func DetermineEnclosingModuleOfExpression[E Contextual](expr E, schema Schema) EvalContext {
-	if ctx, ok := expr.Context(schema); ok && !ctx.IsVoid() {
-		return ctx
-	}
+// ContextOfColumns determines the enclosing context for a given set of columns.
+// If all columns have the void context, then this is returned.  Likewise,
+// if any column has a conflicting context then this is returned.  Finally,
+// if any two columns have conflicting contexts between them, then the
+// conflicting context is returned.  Otherwise, the common context to all
+// columns is returned.
+func ContextOfColumns(cols []uint, schema Schema) tr.Context {
+	ctx := tr.VoidContext()
 	//
-	panic("expression has no evaluation context")
-}
-
-// DetermineEnclosingModuleOfExpressions determines (and checks) the enclosing
-// module for a given set of expressions.  The expectation is that there is a single
-// enclosing module, and this function will panic if that does not hold.
-func DetermineEnclosingModuleOfExpressions[E Contextual](exprs []E, schema Schema) (uint, uint, error) {
-	// Sanity check input
-	if len(exprs) == 0 {
-		panic("cannot determine enclosing module for empty expression array")
-	}
-	// Determine first
-	ctx, ok := exprs[0].Context(schema)
-	// Sanity check this made sense
-	if !ok {
-		return 0, 0, errors.New("conflicting enclosing modules")
-	}
-	// Check rest against this
-	for i := 1; i < len(exprs); i++ {
-		c, ok := exprs[i].Context(schema)
-		if !ok {
-			return uint(i), 0, errors.New("conflicting evaluation context")
-		}
-
-		if ctx, ok = ctx.Join(c); !ok {
-			return uint(i), 0, errors.New("conflicting evaluation context")
-		}
-	}
-	// success
-	return ctx.Module, ctx.Multiplier, nil
-}
-
-// DetermineEnclosingModuleOfColumns determines (and checks) the enclosing module for a
-// given set of columns.  The expectation is that there is a single enclosing
-// module, and this function will panic if that does not hold.
-func DetermineEnclosingModuleOfColumns(cols []uint, schema Schema) (uint, uint) {
-	head := schema.Columns().Nth(cols[0])
-	// First, determine module of first column.
-	mid := head.Module()
-	multiplier := head.LengthMultiplier()
-	// Second, check other columns in the same module.
-	//
-	// NOTE: this could potentially be made more efficient by checking the
-	// columns of the module for the first column.
-	for i := 1; i < len(cols); i++ {
+	for i := 0; i < len(cols); i++ {
 		col := schema.Columns().Nth(cols[i])
-		if mid != col.Module() {
-			// This is an internal failure which should be prevented by upstream
-			// checking (e.g. in the parser).
-			panic("columns have different enclosing module")
-		} else if multiplier != col.LengthMultiplier() {
-			panic("columns have different length multipliers")
-		}
+		ctx = ctx.Join(col.Context())
 	}
 	// Done
-	return mid, multiplier
+	return ctx
 }
 
 // RequiredSpillage returns the minimum amount of spillage required to ensure
@@ -159,6 +97,6 @@ func Accepts(schema Schema, trace tr.Trace) error {
 // returns false if no matching column exists.
 func ColumnIndexOf(schema Schema, module uint, name string) (uint, bool) {
 	return schema.Columns().Find(func(c Column) bool {
-		return c.Module() == module && c.Name() == name
+		return c.Context().Module() == module && c.Name() == name
 	})
 }

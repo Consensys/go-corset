@@ -6,6 +6,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/hir"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/trace"
 )
 
 // This is very much a Work-In-Progress :)
@@ -109,9 +110,11 @@ func HirSchemaFromJson(bytes []byte) (schema *hir.Schema, err error) {
 		} else {
 			cref := asColumnRef(c.Handle)
 			mid := registerModule(schema, cref.module)
+			// NOTE: assumption here that length multiplier is always one.
+			ctx := trace.NewContext(mid, 1)
 			col_type := c.Type.toHir()
 			// Add column for this
-			schema.AddDataColumn(mid, cref.column, col_type)
+			schema.AddDataColumn(ctx, cref.column, col_type)
 			// Check whether a type constraint required or not.
 			if c.MustProve {
 				cid, ok := sc.ColumnIndexOf(schema, mid, cref.column)

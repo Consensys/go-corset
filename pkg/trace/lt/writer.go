@@ -42,7 +42,7 @@ func WriteBytes(tr trace.Trace, buf io.Writer) error {
 	// Write header information
 	for i := uint(0); i < ncols; i++ {
 		col := columns.Get(i)
-		mod := modules.Get(col.Module())
+		mod := modules.Get(col.Context().Module())
 		name := col.Name()
 		// Prepend module name (if applicable)
 		if mod.Name() != "" {

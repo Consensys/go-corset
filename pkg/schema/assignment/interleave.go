@@ -15,8 +15,6 @@ import (
 // a trace X=[1,2], Y=[3,4].  Then, the interleaved column Z has the values
 // Z=[1,3,2,4].
 type Interleaving struct {
-	// Module where this interleaving is located.
-	module uint
 	// The new (interleaved) column
 	target schema.Column
 	// The source columns
@@ -24,18 +22,18 @@ type Interleaving struct {
 }
 
 // NewInterleaving constructs a new interleaving assignment.
-func NewInterleaving(module uint, name string, multiplier uint, sources []uint) *Interleaving {
+func NewInterleaving(context tr.Context, name string, sources []uint) *Interleaving {
 	// Update multiplier
-	multiplier = multiplier * uint(len(sources))
+	context = context.Multiply(uint(len(sources)))
 	// Fixme: determine interleaving type
-	target := schema.NewColumn(module, name, multiplier, &schema.FieldType{})
+	target := schema.NewColumn(context, name, &schema.FieldType{})
 
-	return &Interleaving{module, target, sources}
+	return &Interleaving{target, sources}
 }
 
 // Module returns the module which encloses this interleaving.
 func (p *Interleaving) Module() uint {
-	return p.module
+	return p.target.Context().Module()
 }
 
 // Sources returns the columns used by this interleaving to define the new
@@ -74,6 +72,7 @@ func (p *Interleaving) RequiredSpillage() uint {
 // the interleaved column.
 func (p *Interleaving) ExpandTrace(tr tr.Trace) error {
 	columns := tr.Columns()
+	ctx := p.target.Context()
 	// Ensure target column doesn't exist
 	for i := p.Columns(); i.HasNext(); {
 		name := i.Next().Name()
@@ -86,10 +85,10 @@ func (p *Interleaving) ExpandTrace(tr tr.Trace) error {
 	width := uint(len(p.sources))
 	// Following division should always produce whole value because the length
 	// multiplier already includes the width as a factor.
-	multiplier := p.target.LengthMultiplier() / width
+	multiplier := ctx.LengthMultiplier() / width
 	// Determine module height (as this can be used to determine the height of
 	// the interleaved column)
-	height := tr.Modules().Get(p.module).Height() * multiplier
+	height := tr.Modules().Get(ctx.Module()).Height() * multiplier
 	// Construct empty array
 	data := make([]*fr.Element, height*width)
 	// Offset just gives the column index
@@ -109,7 +108,7 @@ func (p *Interleaving) ExpandTrace(tr tr.Trace) error {
 	// column in the interleaving.
 	padding := columns.Get(0).Padding()
 	// Colunm needs to be expanded.
-	columns.Add(trace.NewFieldColumn(p.module, p.target.Name(), multiplier*width, data, padding))
+	columns.Add(trace.NewFieldColumn(ctx, p.target.Name(), data, padding))
 	//
 	return nil
 }

@@ -17,7 +17,7 @@ func ToJsonString(tr trace.Trace) string {
 	//
 	for i := uint(0); i < columns.Len(); i++ {
 		ith := columns.Get(i)
-		mod := tr.Modules().Get(ith.Module())
+		mod := tr.Modules().Get(ith.Context().Module())
 		// Determine fully qualified column name
 		name := ith.Name()
 		// Prepend module name (if applicable)

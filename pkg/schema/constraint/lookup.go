@@ -26,16 +26,10 @@ import (
 // makes sense.
 type LookupConstraint[E schema.Evaluable] struct {
 	handle string
-	// Enclosing module for source columns.
-	source uint
-	// Length multiplier partly determines the evaluation context for source
-	// expressions.
-	source_multiplier uint
-	// Enclosing module for target columns.
-	target uint
-	// Length multiplier partly determines the evaluation context for target
-	// expressions.
-	target_multiplier uint
+	// Evaluation context for source columns.
+	source trace.Context
+	// Evaluation context for target columns.
+	target trace.Context
 	// Source rows represent the subset of rows.
 	sources []E
 	// Target rows represent the set of rows.
@@ -43,13 +37,13 @@ type LookupConstraint[E schema.Evaluable] struct {
 }
 
 // NewLookupConstraint creates a new lookup constraint with a given handle.
-func NewLookupConstraint[E schema.Evaluable](handle string, source uint, source_multiplier uint,
-	target uint, target_multiplier uint, sources []E, targets []E) *LookupConstraint[E] {
+func NewLookupConstraint[E schema.Evaluable](handle string, source trace.Context,
+	target trace.Context, sources []E, targets []E) *LookupConstraint[E] {
 	if len(targets) != len(sources) {
 		panic("differeng number of target / source lookup columns")
 	}
 
-	return &LookupConstraint[E]{handle, source, source_multiplier, target, target_multiplier, sources, targets}
+	return &LookupConstraint[E]{handle, source, target, sources, targets}
 }
 
 // Handle returns the handle for this lookup constraint which is simply an
@@ -60,14 +54,14 @@ func (p *LookupConstraint[E]) Handle() string {
 	return p.handle
 }
 
-// SourceContext returns the module in which all source columns are located.
-func (p *LookupConstraint[E]) SourceContext() (uint, uint) {
-	return p.source, p.source_multiplier
+// SourceContext returns the contezt in which all target expressions are evaluated.
+func (p *LookupConstraint[E]) SourceContext() trace.Context {
+	return p.source
 }
 
-// TargetContext returns the module in which all target columns are located.
-func (p *LookupConstraint[E]) TargetContext() (uint, uint) {
-	return p.target, p.target_multiplier
+// TargetContext returns the contezt in which all target expressions are evaluated.
+func (p *LookupConstraint[E]) TargetContext() trace.Context {
+	return p.target
 }
 
 // Sources returns the source expressions which are used to lookup into the
@@ -88,8 +82,8 @@ func (p *LookupConstraint[E]) Targets() []E {
 //nolint:revive
 func (p *LookupConstraint[E]) Accepts(tr trace.Trace) error {
 	// Determine height of enclosing module for source columns
-	src_height := tr.Modules().Get(p.source).Height() * p.source_multiplier
-	tgt_height := tr.Modules().Get(p.target).Height() * p.target_multiplier
+	src_height := tr.Modules().Get(p.source.Module()).Height() * p.source.LengthMultiplier()
+	tgt_height := tr.Modules().Get(p.target.Module()).Height() * p.target.LengthMultiplier()
 	// Go through every row of the source columns checking they are present in
 	// the target columns.
 	//
