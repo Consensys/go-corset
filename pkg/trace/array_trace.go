@@ -62,7 +62,7 @@ func (p *ArrayTrace) String() string {
 			id.WriteString(",")
 		}
 
-		modName := p.modules[ith.Module()].Name()
+		modName := p.modules[ith.Context().Module()].Name()
 		if modName != "" {
 			id.WriteString(modName)
 			id.WriteString(".")
@@ -103,11 +103,12 @@ type arrayTraceColumnSet struct {
 
 // Add a new column to this column set.
 func (p arrayTraceColumnSet) Add(column Column) uint {
-	m := &p.trace.modules[column.Module()]
+	ctx := column.Context()
+	m := &p.trace.modules[ctx.Module()]
 	// Sanity check effective height
-	if column.Height() != (column.LengthMultiplier() * m.Height()) {
+	if column.Height() != (ctx.LengthMultiplier() * m.Height()) {
 		panic(fmt.Sprintf("invalid column height for %s: %d vs %d*%d", column.Name(),
-			column.Height(), m.Height(), column.LengthMultiplier()))
+			column.Height(), m.Height(), ctx.LengthMultiplier()))
 	}
 	// Proceed
 	index := uint(len(p.trace.columns))
@@ -139,7 +140,7 @@ func (p arrayTraceColumnSet) HasColumn(name string) bool {
 func (p arrayTraceColumnSet) IndexOf(module uint, name string) (uint, bool) {
 	for i := 0; i < len(p.trace.columns); i++ {
 		c := p.trace.columns[i]
-		if c.Module() == module && c.Name() == name {
+		if c.Context().Module() == module && c.Name() == name {
 			return uint(i), true
 		}
 	}
@@ -167,10 +168,10 @@ func (p arrayTraceColumnSet) Swap(l uint, r uint) {
 	// Update modules notion of which columns they own.  Observe that this only
 	// makes sense when the modules for each column differ.  Otherwise, this
 	// leads to broken results.
-	if lth.Module() != rth.Module() {
+	if lth.Context().Module() != rth.Context().Module() {
 		// Extract modules being swapped
-		lthmod := &modules[lth.Module()]
-		rthmod := &modules[rth.Module()]
+		lthmod := &modules[lth.Context().Module()]
+		rthmod := &modules[rth.Context().Module()]
 		// Update their columns caches
 		util.ReplaceFirstOrPanic(lthmod.columns, l, r)
 		util.ReplaceFirstOrPanic(rthmod.columns, r, l)

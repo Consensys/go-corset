@@ -45,13 +45,12 @@ type Column interface {
 	Get(row int) *fr.Element
 	// Return the height (i.e. number of rows) of this column.
 	Height() uint
-	// Returns the length multiplier (which must be a factor of the height). For
-	// example, if the multiplier is 2 then the height must always be a multiple
-	// of 2, etc.  This affects padding also, as we must pad to this multiplier,
-	// etc.
-	LengthMultiplier() uint
-	// Get the module index of the enclosing module.
-	Module() uint
+	// Returns the evaluation context for this column.  That identifies the
+	// enclosing module, and then length multiplier (which must be a factor of
+	// the height). For example, if the multiplier is 2 then the height must
+	// always be a multiple of 2, etc.  This affects padding also, as we must
+	// pad to this multiplier, etc.
+	Context() Context
 	// Get the name of this column
 	Name() string
 	// Return the value to use for padding this column.

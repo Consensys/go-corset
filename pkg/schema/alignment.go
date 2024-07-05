@@ -75,18 +75,18 @@ func alignWith(expand bool, p tr.Trace, schema Schema) error {
 			for j := ith.Columns(); j.HasNext(); {
 				// Extract schema column & module
 				schemaCol := j.Next()
-				schemaMod := schema.Modules().Nth(schemaCol.Module())
+				schemaMod := schema.Modules().Nth(schemaCol.Context().Module())
 				// Sanity check column exists
 				if colIndex >= ncols {
 					return fmt.Errorf("trace missing column %s.%s (too few columns)", schemaMod.Name(), schemaCol.Name())
 				}
 				// Extract trace column and module
 				traceCol := columns.Get(colIndex)
-				traceMod := modules.Get(traceCol.Module())
+				traceMod := modules.Get(traceCol.Context().Module())
 				// Check alignment
 				if traceCol.Name() != schemaCol.Name() || traceMod.Name() != schemaMod.Name() {
 					// Not aligned --- so fix
-					k, ok := p.Columns().IndexOf(schemaCol.Module(), schemaCol.Name())
+					k, ok := p.Columns().IndexOf(schemaCol.Context().Module(), schemaCol.Name())
 					// check exists
 					if !ok {
 						return fmt.Errorf("trace missing column %s.%s", schemaMod.Name(), schemaCol.Name())

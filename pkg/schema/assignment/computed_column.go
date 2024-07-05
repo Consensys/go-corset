@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -17,7 +16,7 @@ import (
 // give rise to "trace expansion".  That is where the initial trace provided by
 // the user is expanded by determining the value of all computed columns.
 type ComputedColumn[E sc.Evaluable] struct {
-	target schema.Column
+	target sc.Column
 	// The computation which accepts a given trace and computes
 	// the value of this column at a given row.
 	expr E
@@ -26,9 +25,9 @@ type ComputedColumn[E sc.Evaluable] struct {
 // NewComputedColumn constructs a new computed column with a given name and
 // determining expression.  More specifically, that expression is used to
 // compute the values for this column during trace expansion.
-func NewComputedColumn[E sc.Evaluable](module uint, name string, multiplier uint, expr E) *ComputedColumn[E] {
+func NewComputedColumn[E sc.Evaluable](context trace.Context, name string, expr E) *ComputedColumn[E] {
 	// FIXME: Determine computed columns type?
-	column := schema.NewColumn(module, name, multiplier, &schema.FieldType{})
+	column := sc.NewColumn(context, name, &sc.FieldType{})
 	return &ComputedColumn[E]{column, expr}
 }
 
@@ -47,9 +46,9 @@ func (p *ComputedColumn[E]) Name() string {
 // ============================================================================
 
 // Columns returns the columns declared by this computed column.
-func (p *ComputedColumn[E]) Columns() util.Iterator[schema.Column] {
+func (p *ComputedColumn[E]) Columns() util.Iterator[sc.Column] {
 	// TODO: figure out appropriate type for computed column
-	return util.NewUnitIterator[schema.Column](p.target)
+	return util.NewUnitIterator[sc.Column](p.target)
 }
 
 // IsComputed Determines whether or not this declaration is computed (which it
@@ -83,9 +82,9 @@ func (p *ComputedColumn[E]) ExpandTrace(tr trace.Trace) error {
 		return fmt.Errorf("column already exists ({%s})", p.Name())
 	}
 	// Extract length multipiler
-	multiplier := p.target.LengthMultiplier()
+	multiplier := p.target.Context().LengthMultiplier()
 	// Determine multiplied height
-	height := tr.Modules().Get(p.target.Module()).Height() * multiplier
+	height := tr.Modules().Get(p.target.Context().Module()).Height() * multiplier
 	// Make space for computed data
 	data := make([]*fr.Element, height)
 	// Expand the trace
@@ -103,7 +102,7 @@ func (p *ComputedColumn[E]) ExpandTrace(tr trace.Trace) error {
 	// the padding value for *this* column.
 	padding := p.expr.EvalAt(-1, tr)
 	// Colunm needs to be expanded.
-	columns.Add(trace.NewFieldColumn(p.target.Module(), p.Name(), multiplier, data, padding))
+	columns.Add(trace.NewFieldColumn(p.target.Context(), p.Name(), data, padding))
 	// Done
 	return nil
 }

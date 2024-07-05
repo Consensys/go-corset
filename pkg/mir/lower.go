@@ -19,7 +19,7 @@ func (p *Schema) LowerToAir() *air.Schema {
 	// Add data columns.
 	for _, c := range p.inputs {
 		col := c.(DataColumn)
-		airSchema.AddColumn(col.Module(), col.Name(), col.Type())
+		airSchema.AddColumn(col.Context(), col.Name(), col.Type())
 	}
 	// Add Assignments. Again this has to be done first for things to work.
 	// Essentially to reflect the fact that these columns have been added above
@@ -60,7 +60,7 @@ func lowerConstraintToAir(c sc.Constraint, schema *air.Schema) {
 		lowerLookupConstraintToAir(v, schema)
 	} else if v, ok := c.(VanishingConstraint); ok {
 		air_expr := v.Constraint().Expr.LowerTo(schema)
-		schema.AddVanishingConstraint(v.Handle(), v.Module(), v.LengthMultiplier(), v.Domain(), air_expr)
+		schema.AddVanishingConstraint(v.Handle(), v.Context(), v.Domain(), air_expr)
 	} else if v, ok := c.(*constraint.TypeConstraint); ok {
 		if t := v.Type().AsUint(); t != nil {
 			// Yes, a constraint is implied.  Now, decide whether to use a range
@@ -102,9 +102,7 @@ func lowerLookupConstraintToAir(c LookupConstraint, schema *air.Schema) {
 		sources[i] = air_gadgets.Expand(source, schema)
 	}
 	// finally add the constraint
-	src_mod, src_mul := c.SourceContext()
-	dst_mod, dst_mul := c.TargetContext()
-	schema.AddLookupConstraint(c.Handle(), src_mod, src_mul, dst_mod, dst_mul, sources, targets)
+	schema.AddLookupConstraint(c.Handle(), c.SourceContext(), c.TargetContext(), sources, targets)
 }
 
 // Lower a permutation to the AIR level.  This has quite a few

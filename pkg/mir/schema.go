@@ -6,6 +6,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/assignment"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
+	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
 
@@ -69,12 +70,12 @@ func (p *Schema) AddModule(name string) uint {
 }
 
 // AddDataColumn appends a new data column.
-func (p *Schema) AddDataColumn(module uint, name string, base schema.Type) {
-	if module >= uint(len(p.modules)) {
-		panic(fmt.Sprintf("invalid module index (%d)", module))
+func (p *Schema) AddDataColumn(context trace.Context, name string, base schema.Type) {
+	if context.Module() >= uint(len(p.modules)) {
+		panic(fmt.Sprintf("invalid module index (%d)", context.Module()))
 	}
 
-	p.inputs = append(p.inputs, assignment.NewDataColumn(module, name, base))
+	p.inputs = append(p.inputs, assignment.NewDataColumn(context, name, base))
 }
 
 // AddAssignment appends a new assignment (i.e. set of computed columns) to be
@@ -88,25 +89,25 @@ func (p *Schema) AddAssignment(c schema.Assignment) uint {
 }
 
 // AddLookupConstraint appends a new lookup constraint.
-func (p *Schema) AddLookupConstraint(handle string, source uint, source_context uint, target uint,
-	target_context uint, sources []Expr, targets []Expr) {
+func (p *Schema) AddLookupConstraint(handle string, source trace.Context, target trace.Context,
+	sources []Expr, targets []Expr) {
 	if len(targets) != len(sources) {
 		panic("differeng number of target / source lookup columns")
 	}
 	// TODO: sanity source columns are in the same module, and likewise target
 	// columns (though they don't have to be in the same column together).
 	p.constraints = append(p.constraints,
-		constraint.NewLookupConstraint(handle, source, source_context, target, target_context, sources, targets))
+		constraint.NewLookupConstraint(handle, source, target, sources, targets))
 }
 
 // AddVanishingConstraint appends a new vanishing constraint.
-func (p *Schema) AddVanishingConstraint(handle string, module uint, multiplier uint, domain *int, expr Expr) {
-	if module >= uint(len(p.modules)) {
-		panic(fmt.Sprintf("invalid module index (%d)", module))
+func (p *Schema) AddVanishingConstraint(handle string, context trace.Context, domain *int, expr Expr) {
+	if context.Module() >= uint(len(p.modules)) {
+		panic(fmt.Sprintf("invalid module index (%d)", context.Module()))
 	}
 
 	p.constraints = append(p.constraints,
-		constraint.NewVanishingConstraint(handle, module, multiplier, domain, constraint.ZeroTest[Expr]{Expr: expr}))
+		constraint.NewVanishingConstraint(handle, context, domain, constraint.ZeroTest[Expr]{Expr: expr}))
 }
 
 // AddTypeConstraint appends a new range constraint.

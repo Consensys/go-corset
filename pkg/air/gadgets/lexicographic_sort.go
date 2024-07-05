@@ -7,6 +7,7 @@ import (
 	"github.com/consensys/go-corset/pkg/air"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/assignment"
+	"github.com/consensys/go-corset/pkg/trace"
 )
 
 // ApplyLexicographicSortingGadget Add sorting constraints for a sequence of one
@@ -33,19 +34,19 @@ func ApplyLexicographicSortingGadget(columns []uint, signs []bool, bitwidth uint
 		panic("Inconsistent number of columns and signs for lexicographic sort.")
 	}
 	// Determine enclosing module for this gadget.
-	module, multiplier := sc.DetermineEnclosingModuleOfColumns(columns, schema)
+	ctx := sc.ContextOfColumns(columns, schema)
 	// Construct a unique prefix for this sort.
 	prefix := constructLexicographicSortingPrefix(columns, signs, schema)
 	// Add trace computation
 	deltaIndex := schema.AddAssignment(
-		assignment.NewLexicographicSort(prefix, module, multiplier, columns, signs, bitwidth))
+		assignment.NewLexicographicSort(prefix, ctx, columns, signs, bitwidth))
 	// Construct selecto bits.
-	addLexicographicSelectorBits(prefix, module, multiplier, deltaIndex, columns, schema)
+	addLexicographicSelectorBits(prefix, ctx, deltaIndex, columns, schema)
 	// Construct delta terms
 	constraint := constructLexicographicDeltaConstraint(deltaIndex, columns, signs)
 	// Add delta constraint
 	deltaName := fmt.Sprintf("%s:delta", prefix)
-	schema.AddVanishingConstraint(deltaName, module, multiplier, nil, constraint)
+	schema.AddVanishingConstraint(deltaName, ctx, nil, constraint)
 	// Add necessary bitwidth constraints
 	ApplyBitwidthGadget(deltaIndex, bitwidth, schema)
 }
@@ -77,7 +78,7 @@ func constructLexicographicSortingPrefix(columns []uint, signs []bool, schema *a
 //
 // NOTE: this implementation differs from the original corset which used an
 // additional "Eq" bit to help ensure at most one selector bit was enabled.
-func addLexicographicSelectorBits(prefix string, module uint, multiplier uint,
+func addLexicographicSelectorBits(prefix string, context trace.Context,
 	deltaIndex uint, columns []uint, schema *air.Schema) {
 	ncols := uint(len(columns))
 	// Calculate column index of first selector bit
@@ -102,7 +103,7 @@ func addLexicographicSelectorBits(prefix string, module uint, multiplier uint,
 		pterms[i] = air.NewColumnAccess(bitIndex+i, 0)
 		pDiff := air.NewColumnAccess(columns[i], 0).Sub(air.NewColumnAccess(columns[i], -1))
 		pName := fmt.Sprintf("%s:%d:a", prefix, i)
-		schema.AddVanishingConstraint(pName, module, multiplier,
+		schema.AddVanishingConstraint(pName, context,
 			nil, air.NewConst64(1).Sub(&air.Add{Args: pterms}).Mul(pDiff))
 		// (∀j<i.Bj=0) ∧ Bi=1 ==> C[k]≠C[k-1]
 		qDiff := Normalise(air.NewColumnAccess(columns[i], 0).Sub(air.NewColumnAccess(columns[i], -1)), schema)
@@ -115,14 +116,14 @@ func addLexicographicSelectorBits(prefix string, module uint, multiplier uint,
 			constraint = air.NewConst64(1).Sub(&air.Add{Args: qterms}).Mul(constraint)
 		}
 
-		schema.AddVanishingConstraint(qName, module, multiplier, nil, constraint)
+		schema.AddVanishingConstraint(qName, context, nil, constraint)
 	}
 
 	sum := &air.Add{Args: terms}
 	// (sum = 0) ∨ (sum = 1)
 	constraint := sum.Mul(sum.Equate(air.NewConst64(1)))
 	name := fmt.Sprintf("%s:xor", prefix)
-	schema.AddVanishingConstraint(name, module, multiplier, nil, constraint)
+	schema.AddVanishingConstraint(name, context, nil, constraint)
 }
 
 // Construct the lexicographic delta constraint.  This states that the delta

@@ -68,25 +68,6 @@ type Constraint interface {
 	Accepts(tr.Trace) error
 }
 
-// Contextual captures something which requires an evaluation context (i.e. a
-// single enclosing module) in order to make sense.  For example, expressions
-// require a single context.  This interface is separated from Evaluable (and
-// Testable) because HIR expressions do not implement Evaluable.
-type Contextual interface {
-	// Context returns the evaluation context (i.e. enclosing module + length
-	// multiplier) for this constraint.  Every expression must have a single
-	// evaluation context.  This function therefore attempts to determine what
-	// that is, or return false to signal an error. There are several failure
-	// modes which need to be considered.  Firstly, if the expression has no
-	// enclosing module (e.g. because it is a constant expression) then it will
-	// return 'math.MaxUint` to signal this.  Secondly, if the expression has
-	// multiple (i.e. conflicting) enclosing modules then it will return false
-	// to signal this.  Likewise, the expression could have a single enclosing
-	// module but multiple conflicting length multipliers, in which case it also
-	// returns false.
-	Context(Schema) (uint, uint, bool)
-}
-
 // Evaluable captures something which can be evaluated on a given table row to
 // produce an evaluation point.  For example, expressions in the
 // Mid-Level or Arithmetic-Level IR can all be evaluated at rows of a
@@ -121,6 +102,25 @@ type Testable interface {
 	TestAt(int, tr.Trace) bool
 }
 
+// Contextual captures something which requires an evaluation context (i.e. a
+// single enclosing module) in order to make sense.  For example, expressions
+// require a single context.  This interface is separated from Evaluable (and
+// Testable) because HIR expressions do not implement Evaluable.
+type Contextual interface {
+	// Context returns the evaluation context (i.e. enclosing module + length
+	// multiplier) for this constraint.  Every expression must have a single
+	// evaluation context.  This function therefore attempts to determine what
+	// that is, or return false to signal an error. There are several failure
+	// modes which need to be considered.  Firstly, if the expression has no
+	// enclosing module (e.g. because it is a constant expression) then it will
+	// return 'math.MaxUint` to signal this.  Secondly, if the expression has
+	// multiple (i.e. conflicting) enclosing modules then it will return false
+	// to signal this.  Likewise, the expression could have a single enclosing
+	// module but multiple conflicting length multipliers, in which case it also
+	// returns false.
+	Context(Schema) tr.Context
+}
+
 // ============================================================================
 // Column
 // ============================================================================
@@ -128,36 +128,28 @@ type Testable interface {
 // Column represents a specific column in the schema that, ultimately, will
 // correspond 1:1 with a column in the trace.
 type Column struct {
-	// Returns the index of the module which contains this column
-	module uint
+	// Evaluation context of this column.
+	context tr.Context
 	// Returns the name of this column
 	name string
-	// Length multiplier.  This is used to the column'ss actual height as a
-	// multipler of the enclosing module's height.
-	multiplier uint
 	// Returns the expected type of data in this column
 	datatype Type
 }
 
 // NewColumn constructs a new column
-func NewColumn(module uint, name string, multiplier uint, datatype Type) Column {
-	return Column{module, name, multiplier, datatype}
+func NewColumn(context tr.Context, name string, datatype Type) Column {
+	return Column{context, name, datatype}
 }
 
-// Module returns the index of the module which contains this column
-func (p Column) Module() uint {
-	return p.module
+// Context returns the evaluation context for this column access, which is
+// determined by the column itself.
+func (p Column) Context() tr.Context {
+	return p.context
 }
 
 // Name returns the name of this column
 func (p Column) Name() string {
 	return p.name
-}
-
-// LengthMultiplier is needed to the column's actual height as a
-// multipler of the enclosing module's height.
-func (p Column) LengthMultiplier() uint {
-	return p.multiplier
 }
 
 // Type returns the expected type of data in this column

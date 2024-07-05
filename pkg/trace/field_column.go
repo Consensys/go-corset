@@ -13,11 +13,10 @@ import (
 // use quite a lot of memory.  In particular, when there are many different
 // field elements which have smallish values then this requires excess data.
 type FieldColumn struct {
-	module uint
+	// Evaluation context of this column
+	context Context
 	// Holds the name of this column
 	name string
-	// Length multiplier (i.e. of the data array)
-	multiplier uint
 	// Holds the raw data making up this column
 	data []*fr.Element
 	// Value to be used when padding this column
@@ -25,18 +24,18 @@ type FieldColumn struct {
 }
 
 // NewFieldColumn constructs a FieldColumn with the give name, data and padding.
-func NewFieldColumn(module uint, name string, multiplier uint, data []*fr.Element, padding *fr.Element) *FieldColumn {
+func NewFieldColumn(context Context, name string, data []*fr.Element, padding *fr.Element) *FieldColumn {
 	// Sanity check data length
-	if uint(len(data))%multiplier != 0 {
+	if uint(len(data))%context.LengthMultiplier() != 0 {
 		panic("data length has incorrect multiplier")
 	}
 	// Done
-	return &FieldColumn{module, name, multiplier, data, padding}
+	return &FieldColumn{context, name, data, padding}
 }
 
-// Module returns the enclosing module of this column
-func (p *FieldColumn) Module() uint {
-	return p.module
+// Context returns the evaluation context this column provides.
+func (p *FieldColumn) Context() Context {
+	return p.context
 }
 
 // Name returns the name of the given column.
@@ -53,13 +52,6 @@ func (p *FieldColumn) Width() uint {
 // Height determines the height of this column.
 func (p *FieldColumn) Height() uint {
 	return uint(len(p.data))
-}
-
-// LengthMultiplier is a multiplier which must be a factor of the height.  For
-// example, if the factor is 2 then the height must always be a multiple of 2,
-// etc.  This affects padding also, as we must pad to this factor.
-func (p *FieldColumn) LengthMultiplier() uint {
-	return p.multiplier
 }
 
 // Padding returns the value which will be used for padding this column.
@@ -87,9 +79,8 @@ func (p *FieldColumn) Get(row int) *fr.Element {
 // Clone an FieldColumn
 func (p *FieldColumn) Clone() Column {
 	clone := new(FieldColumn)
-	clone.module = p.module
+	clone.context = p.context
 	clone.name = p.name
-	clone.multiplier = p.multiplier
 	clone.padding = p.padding
 	// NOTE: the following is as we never actually mutate the underlying bytes
 	// array.
@@ -101,7 +92,7 @@ func (p *FieldColumn) Clone() Column {
 // Pad this column with n copies of the column's padding value.
 func (p *FieldColumn) Pad(n uint) {
 	// Apply the length multiplier
-	n = n * p.multiplier
+	n = n * p.context.LengthMultiplier()
 	// Allocate sufficient memory
 	ndata := make([]*fr.Element, uint(len(p.data))+n)
 	// Copy over the data
@@ -117,7 +108,7 @@ func (p *FieldColumn) Pad(n uint) {
 // Reseat updates the module index of this column (e.g. as a result of a
 // realignment).
 func (p *FieldColumn) Reseat(mid uint) {
-	p.module = mid
+	p.context = NewContext(mid, p.context.LengthMultiplier())
 }
 
 // Write the raw bytes of this column to a given writer, returning an error

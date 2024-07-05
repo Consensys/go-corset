@@ -19,7 +19,7 @@ type ByteDecomposition struct {
 }
 
 // NewByteDecomposition creates a new sorted permutation
-func NewByteDecomposition(prefix string, module uint, multiplier uint, source uint, width uint) *ByteDecomposition {
+func NewByteDecomposition(prefix string, context trace.Context, source uint, width uint) *ByteDecomposition {
 	if width == 0 {
 		panic("zero byte decomposition encountered")
 	}
@@ -30,7 +30,7 @@ func NewByteDecomposition(prefix string, module uint, multiplier uint, source ui
 
 	for i := uint(0); i < width; i++ {
 		name := fmt.Sprintf("%s:%d", prefix, i)
-		targets[i] = schema.NewColumn(module, name, multiplier, U8)
+		targets[i] = schema.NewColumn(context, name, U8)
 	}
 	// Done
 	return &ByteDecomposition{source, targets}
@@ -88,7 +88,7 @@ func (p *ByteDecomposition) ExpandTrace(tr trace.Trace) error {
 	// Finally, add byte columns to trace
 	for i := 0; i < n; i++ {
 		ith := p.targets[i]
-		columns.Add(trace.NewFieldColumn(ith.Module(), ith.Name(), ith.LengthMultiplier(), cols[i], padding[i]))
+		columns.Add(trace.NewFieldColumn(ith.Context(), ith.Name(), cols[i], padding[i]))
 	}
 	// Done
 	return nil

@@ -1,6 +1,8 @@
 package binfile
 
 import (
+	"fmt"
+
 	"github.com/consensys/go-corset/pkg/hir"
 	sc "github.com/consensys/go-corset/pkg/schema"
 )
@@ -52,22 +54,22 @@ func (e jsonConstraint) addToSchema(schema *hir.Schema) {
 		// Translate Domain
 		domain := e.Vanishes.Domain.toHir()
 		// Determine enclosing module
-		module, multiplier := sc.DetermineEnclosingModuleOfExpression(expr, schema)
+		ctx := expr.Context(schema)
 		// Construct the vanishing constraint
-		schema.AddVanishingConstraint(e.Vanishes.Handle, module, multiplier, domain, expr)
+		schema.AddVanishingConstraint(e.Vanishes.Handle, ctx, domain, expr)
 	} else if e.Lookup != nil {
 		sources := jsonExprsToHirUnit(e.Lookup.From, schema)
 		targets := jsonExprsToHirUnit(e.Lookup.To, schema)
-		source, source_multiplier, err1 := sc.DetermineEnclosingModuleOfExpressions(sources, schema)
-		target, target_multiplier, err2 := sc.DetermineEnclosingModuleOfExpressions(targets, schema)
+		sourceCtx := sc.JoinContexts(sources, schema)
+		targetCtx := sc.JoinContexts(targets, schema)
 		// Error check
-		if err1 != nil {
-			panic(err1.Error)
-		} else if err2 != nil {
-			panic(err2.Error)
+		if sourceCtx.IsConflicted() || sourceCtx.IsVoid() {
+			panic(fmt.Sprintf("lookup %s has conflicting source evaluation context", e.Lookup.Handle))
+		} else if targetCtx.IsConflicted() || targetCtx.IsVoid() {
+			panic(fmt.Sprintf("lookup %s has conflicting target evaluation context", e.Lookup.Handle))
 		}
 		// Add constraint
-		schema.AddLookupConstraint(e.Lookup.Handle, source, source_multiplier, target, target_multiplier, sources, targets)
+		schema.AddLookupConstraint(e.Lookup.Handle, sourceCtx, targetCtx, sources, targets)
 	} else if e.Permutation == nil {
 		// Catch all
 		panic("Unknown JSON constraint encountered")

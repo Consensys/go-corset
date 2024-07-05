@@ -23,7 +23,7 @@ func ApplyBinaryGadget(col uint, schema *air.Schema) {
 	// Construct X * (X-1)
 	X_X_m1 := X.Mul(X_m1)
 	// Done!
-	schema.AddVanishingConstraint(fmt.Sprintf("%s:u1", name), column.Module(), column.LengthMultiplier(), nil, X_X_m1)
+	schema.AddVanishingConstraint(fmt.Sprintf("%s:u1", name), column.Context(), nil, X_X_m1)
 }
 
 // ApplyBitwidthGadget ensures all values in a given column fit within a given
@@ -45,7 +45,7 @@ func ApplyBitwidthGadget(col uint, nbits uint, schema *air.Schema) {
 	coefficient := fr.NewElement(1)
 	// Add decomposition assignment
 	index := schema.AddAssignment(
-		assignment.NewByteDecomposition(name, column.Module(), column.LengthMultiplier(), col, n))
+		assignment.NewByteDecomposition(name, column.Context(), col, n))
 	// Construct Columns
 	for i := uint(0); i < n; i++ {
 		// Create Column + Constraint
@@ -61,5 +61,5 @@ func ApplyBitwidthGadget(col uint, nbits uint, schema *air.Schema) {
 	X := air.NewColumnAccess(col, 0)
 	eq := X.Equate(sum)
 	// Construct column name
-	schema.AddVanishingConstraint(fmt.Sprintf("%s:u%d", name, nbits), column.Module(), column.LengthMultiplier(), nil, eq)
+	schema.AddVanishingConstraint(fmt.Sprintf("%s:u%d", name, nbits), column.Context(), nil, eq)
 }

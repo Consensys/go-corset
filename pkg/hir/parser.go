@@ -8,10 +8,10 @@ import (
 	"unicode"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/assignment"
 	"github.com/consensys/go-corset/pkg/sexp"
+	"github.com/consensys/go-corset/pkg/trace"
 )
 
 // ===================================================================
@@ -51,7 +51,7 @@ type hirParser struct {
 	// Translator used for recursive expressions.
 	translator *sexp.Translator[Expr]
 	// Current module being parsed.
-	module uint
+	module trace.Context
 	// Environment used during parsing to resolve column names into column
 	// indices.
 	env *Environment
@@ -164,19 +164,20 @@ func (p *hirParser) parseColumnDeclaration(l *sexp.List) error {
 
 // Parse a sorted permutation declaration
 func (p *hirParser) parseSortedPermutationDeclaration(l *sexp.List) error {
-	var multiplier uint
 	// Target columns are (sorted) permutations of source columns.
 	sexpTargets := l.Elements[1].AsList()
 	// Source columns.
 	sexpSources := l.Elements[2].AsList()
 	// Convert into appropriate form.
-	targets := make([]schema.Column, sexpTargets.Len())
+	targets := make([]sc.Column, sexpTargets.Len())
 	sources := make([]uint, sexpSources.Len())
 	signs := make([]bool, sexpSources.Len())
 	//
 	if sexpTargets.Len() != sexpSources.Len() {
 		return p.translator.SyntaxError(l, "sorted permutation requires matching number of source and target columns")
 	}
+	// initialise context
+	ctx := trace.VoidContext()
 	//
 	for i := 0; i < sexpSources.Len(); i++ {
 		source := sexpSources.Get(i).AsSymbol()
@@ -214,23 +215,22 @@ func (p *hirParser) parseSortedPermutationDeclaration(l *sexp.List) error {
 			// No, it doesn't.
 			return p.translator.SyntaxError(sexpTargets.Get(i), fmt.Sprintf("duplicate column %s", targetName))
 		}
-		// Check multiplier calculation
+		// Check source context
 		sourceCol := p.env.schema.Columns().Nth(sourceIndex)
-		if i == 0 {
-			// First time around, multiplier is determine by the first source column.
-			multiplier = sourceCol.LengthMultiplier()
-		} else if sourceCol.LengthMultiplier() != multiplier {
-			// In all other cases, multiplier must match that of first source column.
-			return p.translator.SyntaxError(sexpSources.Get(i), "inconsistent length multiplier")
+		ctx = ctx.Join(sourceCol.Context())
+		// Sanity check we have a sensible type here.
+		if ctx.IsConflicted() {
+			panic(fmt.Sprintf("source column %s has conflicted evaluation context", sexpSources.Get(i)))
+		} else if ctx.IsVoid() {
+			panic(fmt.Sprintf("source column %s has void evaluation context", sexpSources.Get(i)))
 		}
 		// Copy over column name
 		sources[i] = sourceIndex
 		// FIXME: determine source column type
-		targets[i] = schema.NewColumn(p.module, targetName, multiplier, &schema.FieldType{})
+		targets[i] = sc.NewColumn(ctx, targetName, &sc.FieldType{})
 	}
 	//
-	//p.env.AddPermutationColumns(p.module, targets, signs, sources)
-	p.env.AddAssignment(assignment.NewSortedPermutation(p.module, multiplier, targets, signs, sources))
+	p.env.AddAssignment(assignment.NewSortedPermutation(ctx, targets, signs, sources))
 	//
 	return nil
 }
@@ -279,23 +279,26 @@ func (p *hirParser) parseLookupDeclaration(l *sexp.List) error {
 		sources[i] = UnitExpr{source}
 	}
 	// Sanity check enclosing source and target modules
-	source, src_multiplier, err1 := schema.DetermineEnclosingModuleOfExpressions(sources, p.env.schema)
-	target, target_multiplier, err2 := schema.DetermineEnclosingModuleOfExpressions(targets, p.env.schema)
+	sourceCtx := sc.JoinContexts(sources, p.env.schema)
+	targetCtx := sc.JoinContexts(targets, p.env.schema)
 	// Propagate errors
-	if err1 != nil {
-		return p.translator.SyntaxError(sexpSources.Get(int(source)), err1.Error())
-	} else if err2 != nil {
-		return p.translator.SyntaxError(sexpTargets.Get(int(target)), err2.Error())
+	if sourceCtx.IsConflicted() {
+		return p.translator.SyntaxError(sexpSources, "conflicting evaluation context")
+	} else if targetCtx.IsConflicted() {
+		return p.translator.SyntaxError(sexpTargets, "conflicting evaluation context")
+	} else if sourceCtx.IsVoid() {
+		return p.translator.SyntaxError(sexpSources, "empty evaluation context")
+	} else if targetCtx.IsVoid() {
+		return p.translator.SyntaxError(sexpTargets, "empty evaluation context")
 	}
 	// Finally add constraint
-	p.env.schema.AddLookupConstraint(handle, source, src_multiplier, target, target_multiplier, sources, targets)
+	p.env.schema.AddLookupConstraint(handle, sourceCtx, targetCtx, sources, targets)
 	// Done
 	return nil
 }
 
 // Parse am interleaving declaration
 func (p *hirParser) parseInterleavingDeclaration(l *sexp.List) error {
-	var multiplier uint
 	// Target columns are (sorted) permutations of source columns.
 	sexpTarget := l.Elements[1].AsSymbol()
 	// Source columns.
@@ -308,6 +311,7 @@ func (p *hirParser) parseInterleavingDeclaration(l *sexp.List) error {
 	}
 	// Construct and check source columns
 	sources := make([]uint, sexpSources.Len())
+	ctx := trace.VoidContext()
 
 	for i := 0; i < sexpSources.Len(); i++ {
 		ith := sexpSources.Get(i)
@@ -324,18 +328,18 @@ func (p *hirParser) parseInterleavingDeclaration(l *sexp.List) error {
 		}
 		// Check multiplier calculation
 		sourceCol := p.env.schema.Columns().Nth(cid)
-		if i == 0 {
-			// First time around, multiplier is determine by the first source column.
-			multiplier = sourceCol.LengthMultiplier()
-		} else if sourceCol.LengthMultiplier() != multiplier {
-			// In all other cases, multiplier must match that of first source column.
-			return p.translator.SyntaxError(sexpSources.Get(i), "inconsistent length multiplier")
+		ctx = ctx.Join(sourceCol.Context())
+		// Sanity check we have a sensible context here.
+		if ctx.IsConflicted() {
+			panic(fmt.Sprintf("source column %s has conflicted evaluation context", sexpSources.Get(i)))
+		} else if ctx.IsVoid() {
+			panic(fmt.Sprintf("source column %s has void evaluation context", sexpSources.Get(i)))
 		}
 		// Assign
 		sources[i] = cid
 	}
 	// Add assignment
-	p.env.AddAssignment(assignment.NewInterleaving(p.module, sexpTarget.Value, multiplier, sources))
+	p.env.AddAssignment(assignment.NewInterleaving(ctx, sexpTarget.Value, sources))
 	// Done
 	return nil
 }
@@ -352,7 +356,7 @@ func (p *hirParser) parseAssertionDeclaration(elements []sexp.SExp) error {
 		return err
 	}
 	// Add assertion.
-	p.env.schema.AddPropertyAssertion(p.module, handle, expr)
+	p.env.schema.AddPropertyAssertion(p.module.Module(), handle, expr)
 
 	return nil
 }
@@ -368,12 +372,16 @@ func (p *hirParser) parseVanishingDeclaration(elements []sexp.SExp, domain *int)
 	if err != nil {
 		return err
 	}
-	// TODO: improve error reporting here, since the following will just panic if
-	// the evaluation context is inconsistent (and, since we know the enclosing
-	// module is consistent, then this should only happen if the length
-	// multipliers are inconsistent).
-	_, multiplier := schema.DetermineEnclosingModuleOfExpression(expr, p.env.schema)
-	p.env.schema.AddVanishingConstraint(handle, p.module, multiplier, domain, expr)
+	// Determine evaluation context of expression.
+	ctx := expr.Context(p.env.schema)
+	// Sanity check we have a sensible context here.
+	if ctx.IsConflicted() {
+		panic(fmt.Sprintf("source column %s has conflicted evaluation context", elements[2]))
+	} else if ctx.IsVoid() {
+		panic(fmt.Sprintf("source column %s has void evaluation context", elements[2]))
+	}
+
+	p.env.schema.AddVanishingConstraint(handle, ctx, domain, expr)
 
 	return nil
 }
@@ -454,13 +462,13 @@ func columnAccessParserRule(parser *hirParser) func(col string) (Expr, bool, err
 			return nil, false, nil
 		}
 		// Handle qualified accesses (where permitted)
-		module := parser.module
+		context := parser.module
 		colname := col
 		// Attempt to split column name into module / column pair.
 		split := strings.Split(col, ".")
 		if parser.global && len(split) == 2 {
 			// Lookup module
-			if module, ok = parser.env.LookupModule(split[0]); !ok {
+			if context, ok = parser.env.LookupModule(split[0]); !ok {
 				return nil, true, errors.New("unknown module")
 			}
 
@@ -473,7 +481,7 @@ func columnAccessParserRule(parser *hirParser) func(col string) (Expr, bool, err
 		// Now lookup column in the appropriate module.
 		var cid uint
 		// Look up column in the environment using local scope.
-		cid, ok = parser.env.LookupColumn(module, colname)
+		cid, ok = parser.env.LookupColumn(context, colname)
 		// Check column was found
 		if !ok {
 			return nil, true, errors.New("unknown column")

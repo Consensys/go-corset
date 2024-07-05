@@ -1,12 +1,10 @@
 package mir
 
 import (
-	"math"
-
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/air"
-	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
 
@@ -17,7 +15,7 @@ import (
 // appropriate computed columns and constraints.
 type Expr interface {
 	util.Boundable
-	schema.Evaluable
+	sc.Evaluable
 	// Lower this expression into the Arithmetic Intermediate
 	// Representation.  Essentially, this means eliminating
 	// normalising expressions by introducing new columns into the
@@ -40,7 +38,7 @@ func (p *Add) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
 
 // Context determines the evaluation context (i.e. enclosing module) for this
 // expression.
-func (p *Add) Context(schema sc.Schema) (uint, uint, bool) {
+func (p *Add) Context(schema sc.Schema) trace.Context {
 	return sc.JoinContexts[Expr](p.Args, schema)
 }
 
@@ -57,7 +55,7 @@ func (p *Sub) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
 
 // Context determines the evaluation context (i.e. enclosing module) for this
 // expression.
-func (p *Sub) Context(schema sc.Schema) (uint, uint, bool) {
+func (p *Sub) Context(schema sc.Schema) trace.Context {
 	return sc.JoinContexts[Expr](p.Args, schema)
 }
 
@@ -74,7 +72,7 @@ func (p *Mul) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
 
 // Context determines the evaluation context (i.e. enclosing module) for this
 // expression.
-func (p *Mul) Context(schema sc.Schema) (uint, uint, bool) {
+func (p *Mul) Context(schema sc.Schema) trace.Context {
 	return sc.JoinContexts[Expr](p.Args, schema)
 }
 
@@ -91,8 +89,8 @@ func (p *Constant) Bounds() util.Bounds { return util.EMPTY_BOUND }
 
 // Context determines the evaluation context (i.e. enclosing module) for this
 // expression.
-func (p *Constant) Context(schema sc.Schema) (uint, uint, bool) {
-	return math.MaxUint, math.MaxUint, true
+func (p *Constant) Context(schema sc.Schema) trace.Context {
+	return trace.VoidContext()
 }
 
 // ============================================================================
@@ -109,7 +107,7 @@ func (p *Normalise) Bounds() util.Bounds { return p.Arg.Bounds() }
 
 // Context determines the evaluation context (i.e. enclosing module) for this
 // expression.
-func (p *Normalise) Context(schema sc.Schema) (uint, uint, bool) {
+func (p *Normalise) Context(schema sc.Schema) trace.Context {
 	return p.Arg.Context(schema)
 }
 
@@ -141,7 +139,7 @@ func (p *ColumnAccess) Bounds() util.Bounds {
 
 // Context determines the evaluation context (i.e. enclosing module) for this
 // expression.
-func (p *ColumnAccess) Context(schema sc.Schema) (uint, uint, bool) {
+func (p *ColumnAccess) Context(schema sc.Schema) trace.Context {
 	col := schema.Columns().Nth(p.Column)
-	return col.Module(), col.LengthMultiplier(), true
+	return col.Context()
 }
