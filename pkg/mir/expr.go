@@ -77,6 +77,26 @@ func (p *Mul) Context(schema sc.Schema) trace.Context {
 }
 
 // ============================================================================
+// Exponentiation
+// ============================================================================
+
+// Exp represents the a given value taken to a power.
+type Exp struct {
+	Arg Expr
+	Pow uint64
+}
+
+// Bounds returns max shift in either the negative (left) or positive
+// direction (right).
+func (p *Exp) Bounds() util.Bounds { return p.Arg.Bounds() }
+
+// Context determines the evaluation context (i.e. enclosing module) for this
+// expression.
+func (p *Exp) Context(schema sc.Schema) trace.Context {
+	return p.Arg.Context(schema)
+}
+
+// ============================================================================
 // Constant
 // ============================================================================
 

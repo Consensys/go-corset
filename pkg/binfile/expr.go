@@ -135,6 +135,24 @@ func (e *jsonExprFuncall) ToHir(schema *hir.Schema) hir.Expr {
 		return &hir.Mul{Args: args}
 	case "VectorSub", "Sub":
 		return &hir.Sub{Args: args}
+	case "Exp":
+		if len(args) != 2 {
+			panic(fmt.Sprintf("incorrect number of arguments for Exp (%d)", len(args)))
+		}
+
+		c, ok := args[1].(*hir.Constant)
+
+		if !ok {
+			panic(fmt.Sprintf("constant power expected for Exp, got %s", args[1].String()))
+		} else if !c.Val.IsUint64() {
+			panic("constant power too large for Exp")
+		}
+
+		var k big.Int
+		// Convert power to uint64
+		c.Val.BigInt(&k)
+		// Done
+		return &hir.Exp{Arg: args[0], Pow: k.Uint64()}
 	case "IfZero":
 		if len(args) == 2 {
 			return &hir.IfZero{Condition: args[0], TrueBranch: args[1], FalseBranch: nil}

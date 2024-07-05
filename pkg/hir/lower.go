@@ -110,6 +110,13 @@ func (e *ColumnAccess) LowerTo(schema *mir.Schema) []mir.Expr {
 	return lowerTo(e, schema)
 }
 
+// LowerTo lowers an exponent expression to the MIR level.  This requires expanding
+// the argument andn lowering it.  Furthermore, conditionals are "lifted" to
+// the top.
+func (e *Exp) LowerTo(schema *mir.Schema) []mir.Expr {
+	return lowerTo(e, schema)
+}
+
 // LowerTo lowers a product expression to the MIR level.  This requires expanding
 // the arguments, then lowering them.  Furthermore, conditionals are "lifted" to
 // the top.
@@ -182,6 +189,8 @@ func lowerCondition(e Expr, schema *mir.Schema) mir.Expr {
 		return lowerConditions(p.Args, schema)
 	} else if p, ok := e.(*Normalise); ok {
 		return lowerCondition(p.Arg, schema)
+	} else if p, ok := e.(*Exp); ok {
+		return lowerCondition(p.Arg, schema)
 	} else if p, ok := e.(*IfZero); ok {
 		return lowerIfZeroCondition(p, schema)
 	} else if p, ok := e.(*Sub); ok {
@@ -248,6 +257,8 @@ func lowerBody(e Expr, schema *mir.Schema) mir.Expr {
 		return &mir.ColumnAccess{Column: p.Column, Shift: p.Shift}
 	} else if p, ok := e.(*Mul); ok {
 		return &mir.Mul{Args: lowerBodies(p.Args, schema)}
+	} else if p, ok := e.(*Exp); ok {
+		return &mir.Exp{Arg: lowerBody(p.Arg, schema), Pow: p.Pow}
 	} else if p, ok := e.(*Normalise); ok {
 		return &mir.Normalise{Arg: lowerBody(p.Arg, schema)}
 	} else if p, ok := e.(*IfZero); ok {
@@ -304,6 +315,13 @@ func expand(e Expr) []Expr {
 		ees := make([]Expr, 0)
 		for _, arg := range p.Args {
 			ees = append(ees, expand(arg)...)
+		}
+
+		return ees
+	} else if p, ok := e.(*Exp); ok {
+		ees := expand(p.Arg)
+		for i, ee := range ees {
+			ees[i] = &Exp{ee, p.Pow}
 		}
 
 		return ees
