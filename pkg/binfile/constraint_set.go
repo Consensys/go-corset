@@ -126,12 +126,13 @@ func HirSchemaFromJson(bytes []byte) (schema *hir.Schema, err error) {
 			}
 		}
 	}
+	// Add computations
+	res.Computations.addToSchema(schema)
 	// Add constraints
 	for _, c := range res.Constraints {
 		c.addToSchema(schema)
 	}
-	// Add computations
-	res.Computations.addToSchema(schema)
+
 	// For now return directly.
 	return schema, jsonErr
 }

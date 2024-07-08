@@ -34,7 +34,7 @@ func (e jsonComputationSet) addToSchema(schema *hir.Schema) {
 			targetRefs := asColumnRefs(c.Sorted.Tos)
 			sourceRefs := asColumnRefs(c.Sorted.Froms)
 			// Resolve enclosing module
-			module, _ := targetRefs[0].resolve(schema)
+			module, _ := sourceRefs[0].resolve(schema)
 			// Sanity check assumptions
 			if len(sourceRefs) != len(targetRefs) {
 				panic("differing number of source / target columns in sorted permutation")
@@ -47,10 +47,9 @@ func (e jsonComputationSet) addToSchema(schema *hir.Schema) {
 			ctx := trace.VoidContext()
 			//
 			for i, targetRef := range targetRefs {
-				src_cid, src_mid := sourceRefs[i].resolve(schema)
-				_, dst_mid := targetRef.resolve(schema)
+				src_mid, src_cid := sourceRefs[i].resolve(schema)
 				// Sanity check enclosing modules match
-				if src_mid != dst_mid || src_mid != module {
+				if src_mid != module {
 					panic("inconsistent enclosing module for sorted permutation")
 				}
 				// Determine type of source column
