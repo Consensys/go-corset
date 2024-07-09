@@ -32,16 +32,11 @@ func asColumn(handle string) uint {
 	return uint(column)
 }
 
-func asRegister(handle string, columns []column) uint {
-	column := asColumn(handle)
-	return columns[column].Register
-}
-
-func asRegisters(handles []string, columns []column) []uint {
-	regs := make([]uint, len(handles))
-	for i := 0; i < len(regs); i++ {
-		regs[i] = asRegister(handles[i], columns)
+func asColumns(handles []string) []uint {
+	cols := make([]uint, len(handles))
+	for i := 0; i < len(cols); i++ {
+		cols[i] = asColumn(handles[i])
 	}
 
-	return regs
+	return cols
 }

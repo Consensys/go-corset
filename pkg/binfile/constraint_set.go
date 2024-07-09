@@ -64,6 +64,10 @@ type column struct {
 type register struct {
 	// The name of this register in the format "module:name".
 	Handle string `json:"handle"`
+	// Indicates this is a computed column.  For binfiles being
+	// compiled without expansion, this identifies columns defined by sorted
+	// permutations.
+	Computed bool
 	// Specifies the type that all values of this column are
 	// intended to adhere to.  Observe, however, this is only
 	// guaranteed when MustProve holds.  Otherwise, they are
@@ -118,47 +122,112 @@ func HirSchemaFromJson(bytes []byte) (schema *hir.Schema, err error) {
 	jsonErr := json.Unmarshal(bytes, &res)
 	// Construct schema
 	schema = hir.EmptySchema()
+	// Transfer column info
+	transferColumnInfo(&res.Columns)
+	// Allocate registers
+	colmap := allocateRegisters(&res, schema)
+	// Double check allocation is correct
+	checkAllocation(&res.Columns, colmap, schema)
+	// Finally, add constraints
+	for _, c := range res.Constraints {
+		c.addToSchema(colmap, schema)
+	}
+
+	// For now return directly.
+	return schema, jsonErr
+}
+
+// This transfers over some information from columns to registers.  It may seem
+// a slightly odd thing to do, but it simply allows us to separate processing of
+// columns from processing of registers.
+func transferColumnInfo(cs *columnSet) {
 	// Move key data from columns to registers
-	for _, c := range res.Columns.Cols {
+	for _, c := range cs.Cols {
 		// Sanity checks
 		if c.Kind == "Computed" {
-			// Ignore.
+			cs.Registers[c.Register].Computed = true
 		} else if c.Computed {
 			fmt.Printf("COLUMN: %s\n", c.Handle)
 			panic("invalid JSON column configuration")
 		} else if c.MustProve {
 			// Copy over must-prove info.
-			res.Columns.Registers[c.Register].MustProve = true
+			cs.Registers[c.Register].MustProve = true
 		}
 	}
-	// Add registers
-	for _, c := range res.Columns.Registers {
-		handle := asHandle(c.Handle)
-		mid := registerModule(schema, handle.module)
-		// NOTE: assumption here that length multiplier is always one.
-		ctx := trace.NewContext(mid, 1)
-		col_type := c.Type.toHir()
-		// Add column for this
-		schema.AddDataColumn(ctx, handle.column, col_type)
-		// Check whether a type constraint required or not.
-		if c.MustProve {
+}
+
+// Allocate all registers as columns in the given schema, whilst producing a
+// "column mapping".  The mapping goes from binfile column indices to schema
+// column indices.
+func allocateRegisters(cs *constraintSet, schema *hir.Schema) map[uint]uint {
+	colmap := make(map[uint]uint)
+	//
+	for _, c := range cs.Columns.Registers {
+		// Computed columns are ignored because they are added separately from
+		// computations (see below).
+		if !c.Computed {
+			handle := asHandle(c.Handle)
+			mid := registerModule(schema, handle.module)
+			// NOTE: assumption here that length multiplier is always one.
+			ctx := trace.NewContext(mid, 1)
+			col_type := c.Type.toHir()
+			// Add column for this
+			cid := schema.AddDataColumn(ctx, handle.column, col_type)
+			// Check whether a type constraint required or not.
+			if c.MustProve {
+				schema.AddTypeConstraint(cid, col_type)
+			}
+		}
+	}
+	// Build preliminary column map
+	for i, col := range cs.Columns.Cols {
+		// Determine register ID
+		reg := cs.Columns.Registers[col.Register]
+		//
+		if !reg.Computed {
+			// Extract register handle
+			handle := asHandle(reg.Handle)
+			// Determine enclosing module
+			mid := registerModule(schema, handle.module)
+			// Lookup register in schema
 			cid, ok := sc.ColumnIndexOf(schema, mid, handle.column)
+			// Handle error case
 			if !ok {
-				panic(fmt.Sprintf("unknown column %s", c.Handle))
+				panic(fmt.Sprintf("unknown column %s.%s", handle.module, handle.column))
 			}
 
-			schema.AddTypeConstraint(cid, col_type)
+			colmap[uint(i)] = cid
 		}
 	}
-	// Add computations
-	res.Computations.addToSchema(res.Columns.Cols, schema)
-	// Add constraints
-	for _, c := range res.Constraints {
-		c.addToSchema(res.Columns.Cols, schema)
-	}
+	// Add computations (and finalise column map)
+	cs.Computations.addToSchema(cs.Columns.Cols, colmap, schema)
+	//
+	return colmap
+}
 
-	// For now return directly.
-	return schema, jsonErr
+// Double check the allocation was made correctly.  This step is strictly
+// unnecessary, but provides a useful safety net given the complexity and
+// significance of getting the allocation right.
+func checkAllocation(cs *columnSet, colmap map[uint]uint, schema *hir.Schema) {
+	for i, col := range cs.Cols {
+		// Determine register ID
+		reg := cs.Registers[col.Register]
+		// Extract register handle
+		handle := asHandle(reg.Handle)
+		// Check it all lines up.
+		cid, ok := colmap[uint(i)]
+		// Sanity check
+		if !ok {
+			panic(fmt.Sprintf("unallocated column %s.%s", handle.module, handle.column))
+		}
+
+		sc_col := schema.Columns().Nth(cid)
+		sc_mod := schema.Modules().Nth(sc_col.Context().Module())
+		// Perform the check
+		if sc_mod.Name() != handle.module || sc_col.Name() != handle.column {
+			panic(fmt.Sprintf("invalid allocation %s.%s != %s.%s", handle.module, handle.column, sc_mod.Name(), sc_col.Name()))
+		}
+	}
 }
 
 // Register a module within the schema.  If the module already exists, then

@@ -69,12 +69,15 @@ func (p *Schema) AddModule(name string) uint {
 
 // AddDataColumn appends a new data column with a given type.  Furthermore, the
 // type is enforced by the system when checking is enabled.
-func (p *Schema) AddDataColumn(context trace.Context, name string, base sc.Type) {
+func (p *Schema) AddDataColumn(context trace.Context, name string, base sc.Type) uint {
 	if context.Module() >= uint(len(p.modules)) {
 		panic(fmt.Sprintf("invalid module index (%d)", context.Module()))
 	}
 
+	cid := uint(len(p.inputs))
 	p.inputs = append(p.inputs, assignment.NewDataColumn(context, name, base))
+
+	return cid
 }
 
 // AddLookupConstraint appends a new lookup constraint.
