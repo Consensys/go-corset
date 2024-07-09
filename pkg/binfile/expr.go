@@ -58,16 +58,16 @@ type jsonExprColumn struct {
 // should not generate an error provided the original JSON was
 // well-formed.
 
-func (e *jsonTypedExpr) ToHir(schema *hir.Schema) hir.Expr {
+func (e *jsonTypedExpr) ToHir(columns []column, schema *hir.Schema) hir.Expr {
 	if e.Expr.Column != nil {
-		return e.Expr.Column.ToHir(schema)
+		return e.Expr.Column.ToHir(columns, schema)
 	} else if e.Expr.Const != nil {
 		return e.Expr.Const.ToHir(schema)
 	} else if e.Expr.Funcall != nil {
-		return e.Expr.Funcall.ToHir(schema)
+		return e.Expr.Funcall.ToHir(columns, schema)
 	} else if e.Expr.List != nil {
 		// Parse the arguments
-		return jsonListToHir(e.Expr.List, schema)
+		return jsonListToHir(e.Expr.List, columns, schema)
 	}
 
 	panic("Unknown JSON expression encountered")
@@ -108,18 +108,18 @@ func (e *jsonExprConst) ToHir(schema *hir.Schema) hir.Expr {
 	return &hir.Constant{Val: num}
 }
 
-func (e *jsonExprColumn) ToHir(schema *hir.Schema) hir.Expr {
-	cref := asColumnRef(e.Handle)
-	_, cid := cref.resolve(schema)
-
+func (e *jsonExprColumn) ToHir(columns []column, schema *hir.Schema) hir.Expr {
+	// cref := asColumnRef(e.Handle)
+	// _, cid := cref.resolve(schema)
+	cid := asRegister(e.Handle, columns)
 	return &hir.ColumnAccess{Column: cid, Shift: e.Shift}
 }
 
-func (e *jsonExprFuncall) ToHir(schema *hir.Schema) hir.Expr {
+func (e *jsonExprFuncall) ToHir(columns []column, schema *hir.Schema) hir.Expr {
 	// Parse the arguments
 	args := make([]hir.Expr, len(e.Args))
 	for i := 0; i < len(e.Args); i++ {
-		args[i] = e.Args[i].ToHir(schema)
+		args[i] = e.Args[i].ToHir(columns, schema)
 	}
 	// Construct appropriate expression
 	switch e.Func {
@@ -174,19 +174,19 @@ func (e *jsonExprFuncall) ToHir(schema *hir.Schema) hir.Expr {
 	panic(fmt.Sprintf("HANDLE %s\n", e.Func))
 }
 
-func jsonListToHir(Args []jsonTypedExpr, schema *hir.Schema) hir.Expr {
+func jsonListToHir(Args []jsonTypedExpr, columns []column, schema *hir.Schema) hir.Expr {
 	args := make([]hir.Expr, len(Args))
 	for i := 0; i < len(Args); i++ {
-		args[i] = Args[i].ToHir(schema)
+		args[i] = Args[i].ToHir(columns, schema)
 	}
 
 	return &hir.List{Args: args}
 }
 
-func jsonExprsToHirUnit(Args []jsonTypedExpr, schema *hir.Schema) []hir.UnitExpr {
+func jsonExprsToHirUnit(Args []jsonTypedExpr, columns []column, schema *hir.Schema) []hir.UnitExpr {
 	args := make([]hir.UnitExpr, len(Args))
 	for i := 0; i < len(Args); i++ {
-		args[i] = hir.NewUnitExpr(Args[i].ToHir(schema))
+		args[i] = hir.NewUnitExpr(Args[i].ToHir(columns, schema))
 	}
 
 	return args

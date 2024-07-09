@@ -21,7 +21,7 @@ type column struct {
 	// The numerical column to which this column is assigned.
 	// Specifically, as a result of perspectives, multiple columns
 	// can be assigned to the same "register".
-	Register int
+	Register uint
 	// Indicates the padding value (if given) to use when padding
 	// out a trace for this column.
 	PaddingValue any `json:"padding_value"`
@@ -61,6 +61,25 @@ type column struct {
 	Used bool
 }
 
+type register struct {
+	// The name of this register in the format "module:name".
+	Handle string `json:"handle"`
+	// Specifies the type that all values of this column are
+	// intended to adhere to.  Observe, however, this is only
+	// guaranteed when MustProve holds.  Otherwise, they are
+	// really just a suggestion for debugging purposes.
+	Type *jsonType `json:"magma"`
+	// Width specifies (I believe) the number of field elements (exo-columns)
+	// required for this register.  For our purposes here, this should always be
+	// 1.
+	Width uint `json:"width"`
+	// MustProve indicates whether or not this register should have its type
+	// enforced using a range constraint.  Observe this field is not present in
+	// the original binfile format.  Instead, this field is determined from
+	// parsing the binfile format.
+	MustProve bool
+}
+
 type columnSet struct {
 	// Raw array of column data, including virtual those which are
 	// virtual and/or overlapping with others.
@@ -74,7 +93,7 @@ type columnSet struct {
 	// ?
 	FieldRegisters []any `json:"field_registers"`
 	// ?
-	Registers []any `json:"registers"`
+	Registers []register `json:"registers"`
 	// ?
 	Spilling map[string]int `json:"spilling"`
 }
@@ -99,7 +118,7 @@ func HirSchemaFromJson(bytes []byte) (schema *hir.Schema, err error) {
 	jsonErr := json.Unmarshal(bytes, &res)
 	// Construct schema
 	schema = hir.EmptySchema()
-	// Add Columns
+	// Move key data from columns to registers
 	for _, c := range res.Columns.Cols {
 		// Sanity checks
 		if c.Kind == "Computed" {
@@ -107,30 +126,35 @@ func HirSchemaFromJson(bytes []byte) (schema *hir.Schema, err error) {
 		} else if c.Computed {
 			fmt.Printf("COLUMN: %s\n", c.Handle)
 			panic("invalid JSON column configuration")
-		} else {
-			cref := asColumnRef(c.Handle)
-			mid := registerModule(schema, cref.module)
-			// NOTE: assumption here that length multiplier is always one.
-			ctx := trace.NewContext(mid, 1)
-			col_type := c.Type.toHir()
-			// Add column for this
-			schema.AddDataColumn(ctx, cref.column, col_type)
-			// Check whether a type constraint required or not.
-			if c.MustProve {
-				cid, ok := sc.ColumnIndexOf(schema, mid, cref.column)
-				if !ok {
-					panic(fmt.Sprintf("unknown column %s", c.Handle))
-				}
-
-				schema.AddTypeConstraint(cid, col_type)
+		} else if c.MustProve {
+			// Copy over must-prove info.
+			res.Columns.Registers[c.Register].MustProve = true
+		}
+	}
+	// Add registers
+	for _, c := range res.Columns.Registers {
+		handle := asHandle(c.Handle)
+		mid := registerModule(schema, handle.module)
+		// NOTE: assumption here that length multiplier is always one.
+		ctx := trace.NewContext(mid, 1)
+		col_type := c.Type.toHir()
+		// Add column for this
+		schema.AddDataColumn(ctx, handle.column, col_type)
+		// Check whether a type constraint required or not.
+		if c.MustProve {
+			cid, ok := sc.ColumnIndexOf(schema, mid, handle.column)
+			if !ok {
+				panic(fmt.Sprintf("unknown column %s", c.Handle))
 			}
+
+			schema.AddTypeConstraint(cid, col_type)
 		}
 	}
 	// Add computations
-	res.Computations.addToSchema(schema)
+	res.Computations.addToSchema(res.Columns.Cols, schema)
 	// Add constraints
 	for _, c := range res.Constraints {
-		c.addToSchema(schema)
+		c.addToSchema(res.Columns.Cols, schema)
 	}
 
 	// For now return directly.

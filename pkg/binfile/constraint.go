@@ -42,7 +42,7 @@ type jsonLookupConstraint struct {
 // Translation
 // =============================================================================
 
-func (e jsonConstraint) addToSchema(schema *hir.Schema) {
+func (e jsonConstraint) addToSchema(columns []column, schema *hir.Schema) {
 	// NOTE: for permutation constraints, we currently ignore them as they
 	// actually provide no useful information.  They are generated from
 	// "defpermutation" declarations, but lack information about the direction
@@ -50,7 +50,7 @@ func (e jsonConstraint) addToSchema(schema *hir.Schema) {
 	// "Sorted" computations.
 	if e.Vanishes != nil {
 		// Translate the vanishing expression
-		expr := e.Vanishes.Expr.ToHir(schema)
+		expr := e.Vanishes.Expr.ToHir(columns, schema)
 		// Translate Domain
 		domain := e.Vanishes.Domain.toHir()
 		// Determine enclosing module
@@ -58,8 +58,8 @@ func (e jsonConstraint) addToSchema(schema *hir.Schema) {
 		// Construct the vanishing constraint
 		schema.AddVanishingConstraint(e.Vanishes.Handle, ctx, domain, expr)
 	} else if e.Lookup != nil {
-		sources := jsonExprsToHirUnit(e.Lookup.From, schema)
-		targets := jsonExprsToHirUnit(e.Lookup.To, schema)
+		sources := jsonExprsToHirUnit(e.Lookup.From, columns, schema)
+		targets := jsonExprsToHirUnit(e.Lookup.To, columns, schema)
 		sourceCtx := sc.JoinContexts(sources, schema)
 		targetCtx := sc.JoinContexts(targets, schema)
 		// Error check

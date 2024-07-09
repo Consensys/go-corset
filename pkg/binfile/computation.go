@@ -27,14 +27,14 @@ type jsonSortedComputation struct {
 // Translation
 // =============================================================================
 
-func (e jsonComputationSet) addToSchema(schema *hir.Schema) {
+func (e jsonComputationSet) addToSchema(columns []column, schema *hir.Schema) {
 	//
 	for _, c := range e.Computations {
 		if c.Sorted != nil {
-			targetRefs := asColumnRefs(c.Sorted.Tos)
-			sourceRefs := asColumnRefs(c.Sorted.Froms)
+			targetRefs := asRegisters(c.Sorted.Tos, columns)
+			sourceRefs := asRegisters(c.Sorted.Froms, columns)
 			// Resolve enclosing module
-			module, _ := sourceRefs[0].resolve(schema)
+			module := schema.Columns().Nth(sourceRefs[0]).Context().Module()
 			// Sanity check assumptions
 			if len(sourceRefs) != len(targetRefs) {
 				panic("differing number of source / target columns in sorted permutation")
@@ -46,26 +46,30 @@ func (e jsonComputationSet) addToSchema(schema *hir.Schema) {
 			//
 			ctx := trace.VoidContext()
 			//
-			for i, targetRef := range targetRefs {
-				src_mid, src_cid := sourceRefs[i].resolve(schema)
-				// Sanity check enclosing modules match
-				if src_mid != module {
-					panic("inconsistent enclosing module for sorted permutation")
-				}
+			for i, dst_cid := range targetRefs {
+				src_cid := sourceRefs[i]
 				// Determine type of source column
-				ith := schema.Columns().Nth(src_cid)
-				ctx = ctx.Join(ith.Context())
+				src_col := schema.Columns().Nth(src_cid)
+				dst_col := schema.Columns().Nth(dst_cid)
+				// Sanity check enclosing modules match
+				if src_col.Context().Module() != module {
+					panic("inconsistent enclosing module for sorted permutation (source)")
+				} else if dst_col.Context().Module() != module {
+					panic("inconsistent enclosing module for sorted permutation (target)")
+				}
+
+				ctx = ctx.Join(src_col.Context())
 				// Sanity check we have a sensible type here.
-				if ith.Type().AsUint() == nil {
-					panic(fmt.Sprintf("source column %s has field type", sourceRefs[i]))
+				if src_col.Type().AsUint() == nil {
+					panic(fmt.Sprintf("source column %s has field type", src_col.Name()))
 				} else if ctx.IsConflicted() {
-					panic(fmt.Sprintf("source column %s has conflicted evaluation context", sourceRefs[i]))
+					panic(fmt.Sprintf("source column %s has conflicted evaluation context", src_col.Name()))
 				} else if ctx.IsVoid() {
-					panic(fmt.Sprintf("source column %s has void evaluation context", sourceRefs[i]))
+					panic(fmt.Sprintf("source column %s has void evaluation context", src_col.Name()))
 				}
 
 				sources[i] = src_cid
-				targets[i] = sc.NewColumn(ctx, targetRef.column, ith.Type())
+				targets[i] = sc.NewColumn(ctx, dst_col.Name(), src_col.Type())
 			}
 			// Finally, add the sorted permutation assignment
 			schema.AddAssignment(assignment.NewSortedPermutation(ctx, targets, c.Sorted.Signs, sources))
