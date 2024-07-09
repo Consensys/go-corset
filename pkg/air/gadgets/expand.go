@@ -6,6 +6,7 @@ import (
 	"github.com/consensys/go-corset/pkg/air"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/assignment"
+	"github.com/consensys/go-corset/pkg/trace"
 )
 
 // Expand converts an arbitrary expression into a specific column index.  In
@@ -13,14 +14,12 @@ import (
 // arbitrary expression and returning its index.  However, this can be optimised
 // in the case the given expression is a direct column access by simply
 // returning the accessed column index.
-func Expand(e air.Expr, schema *air.Schema) uint {
+func Expand(ctx trace.Context, e air.Expr, schema *air.Schema) uint {
 	//
 	if ca, ok := e.(*air.ColumnAccess); ok && ca.Shift == 0 {
 		// Optimisation possible
 		return ca.Column
 	}
-	// No optimisation, therefore expand using a computedcolumn
-	ctx := e.Context(schema)
 	// Determine computed column name
 	name := e.String()
 	// Look up column
