@@ -245,6 +245,30 @@ func Test_Type_03(t *testing.T) {
 }
 
 // ===================================================================
+// Constant Propagation
+// ===================================================================
+
+func Test_Constant_01(t *testing.T) {
+	Check(t, "constant_01")
+}
+
+func Test_Constant_02(t *testing.T) {
+	Check(t, "constant_02")
+}
+
+func Test_Constant_03(t *testing.T) {
+	Check(t, "constant_03")
+}
+
+func Test_Constant_04(t *testing.T) {
+	Check(t, "constant_04")
+}
+
+func Test_Constant_05(t *testing.T) {
+	Check(t, "constant_05")
+}
+
+// ===================================================================
 // Modules
 // ===================================================================
 

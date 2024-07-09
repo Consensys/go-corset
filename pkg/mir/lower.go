@@ -1,6 +1,8 @@
 package mir
 
 import (
+	"fmt"
+
 	"github.com/consensys/go-corset/pkg/air"
 	air_gadgets "github.com/consensys/go-corset/pkg/air/gadgets"
 	sc "github.com/consensys/go-corset/pkg/schema"
@@ -59,7 +61,7 @@ func lowerConstraintToAir(c sc.Constraint, schema *air.Schema) {
 	if v, ok := c.(LookupConstraint); ok {
 		lowerLookupConstraintToAir(v, schema)
 	} else if v, ok := c.(VanishingConstraint); ok {
-		air_expr := v.Constraint().Expr.LowerTo(schema)
+		air_expr := lowerExprTo(v.Constraint().Expr, schema)
 		schema.AddVanishingConstraint(v.Handle(), v.Context(), v.Domain(), air_expr)
 	} else if v, ok := c.(*constraint.TypeConstraint); ok {
 		if t := v.Type().AsUint(); t != nil {
@@ -95,8 +97,8 @@ func lowerLookupConstraintToAir(c LookupConstraint, schema *air.Schema) {
 	//
 	for i := 0; i < len(targets); i++ {
 		// Lower source and target expressions
-		target := c.Targets()[i].LowerTo(schema)
-		source := c.Sources()[i].LowerTo(schema)
+		target := lowerExprTo(c.Targets()[i], schema)
+		source := lowerExprTo(c.Sources()[i], schema)
 		// Expand them
 		targets[i] = air_gadgets.Expand(target, schema)
 		sources[i] = air_gadgets.Expand(source, schema)
@@ -155,27 +157,49 @@ func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Sche
 	}
 }
 
-// LowerTo lowers a sum expression to the AIR level by lowering the arguments.
-func (e *Add) LowerTo(schema *air.Schema) air.Expr {
-	return &air.Add{Args: lowerExprs(e.Args, schema)}
+// Lower an expression into the Arithmetic Intermediate Representation.
+// Essentially, this means eliminating normalising expressions by introducing
+// new columns into the given table (with appropriate constraints).  This first
+// performs constant propagation to ensure lowering is as efficient as possible.
+func lowerExprTo(e1 Expr, schema *air.Schema) air.Expr {
+	// Apply constant propagation
+	e2 := applyConstantPropagation(e1)
+	// Lower properly
+	return lowerExprToInner(e2, schema)
 }
 
-// LowerTo lowers a subtract expression to the AIR level by lowering the arguments.
-func (e *Sub) LowerTo(schema *air.Schema) air.Expr {
-	return &air.Sub{Args: lowerExprs(e.Args, schema)}
-}
-
-// LowerTo lowers a product expression to the AIR level by lowering the arguments.
-func (e *Mul) LowerTo(schema *air.Schema) air.Expr {
-	return &air.Mul{Args: lowerExprs(e.Args, schema)}
+// Inner form is used for recursive calls and does not repeat the constant
+// propagation phase.
+func lowerExprToInner(e Expr, schema *air.Schema) air.Expr {
+	if p, ok := e.(*Add); ok {
+		return &air.Add{Args: lowerExprs(p.Args, schema)}
+	} else if p, ok := e.(*Constant); ok {
+		return &air.Constant{Value: p.Value}
+	} else if p, ok := e.(*ColumnAccess); ok {
+		return &air.ColumnAccess{Column: p.Column, Shift: p.Shift}
+	} else if p, ok := e.(*Mul); ok {
+		return &air.Mul{Args: lowerExprs(p.Args, schema)}
+	} else if p, ok := e.(*Exp); ok {
+		return lowerExpTo(p, schema)
+	} else if p, ok := e.(*Normalise); ok {
+		// Lower the expression being normalised
+		e := lowerExprToInner(p.Arg, schema)
+		// Construct an expression representing the normalised value of e.  That is,
+		// an expression which is 0 when e is 0, and 1 when e is non-zero.
+		return air_gadgets.Normalise(e, schema)
+	} else if p, ok := e.(*Sub); ok {
+		return &air.Sub{Args: lowerExprs(p.Args, schema)}
+	}
+	// Should be unreachable
+	panic(fmt.Sprintf("unknown expression: %s", e.String()))
 }
 
 // LowerTo lowers an exponent expression to the AIR level by lowering the
 // argument, and then constructing a multiplication.  This is because the AIR
 // level does not support an explicit exponent operator.
-func (e *Exp) LowerTo(schema *air.Schema) air.Expr {
+func lowerExpTo(e *Exp, schema *air.Schema) air.Expr {
 	// Lower the expression being raised
-	le := e.Arg.LowerTo(schema)
+	le := lowerExprToInner(e.Arg, schema)
 	// Multiply it out k times
 	es := make([]air.Expr, e.Pow)
 	//
@@ -186,35 +210,13 @@ func (e *Exp) LowerTo(schema *air.Schema) air.Expr {
 	return &air.Mul{Args: es}
 }
 
-// LowerTo lowers a normalise expression to the AIR level by "compiling it out"
-// using a computed column.
-func (p *Normalise) LowerTo(schema *air.Schema) air.Expr {
-	// Lower the expression being normalised
-	e := p.Arg.LowerTo(schema)
-	// Construct an expression representing the normalised value of e.  That is,
-	// an expression which is 0 when e is 0, and 1 when e is non-zero.
-	return air_gadgets.Normalise(e, schema)
-}
-
-// LowerTo lowers a column access to the AIR level.  This is straightforward as
-// it is already in the correct form.
-func (e *ColumnAccess) LowerTo(schema *air.Schema) air.Expr {
-	return &air.ColumnAccess{Column: e.Column, Shift: e.Shift}
-}
-
-// LowerTo lowers a constant to the AIR level.  This is straightforward as it is
-// already in the correct form.
-func (e *Constant) LowerTo(schema *air.Schema) air.Expr {
-	return &air.Constant{Value: e.Value}
-}
-
 // Lower a set of zero or more MIR expressions.
 func lowerExprs(exprs []Expr, schema *air.Schema) []air.Expr {
 	n := len(exprs)
 	nexprs := make([]air.Expr, n)
 
 	for i := 0; i < n; i++ {
-		nexprs[i] = exprs[i].LowerTo(schema)
+		nexprs[i] = lowerExprToInner(exprs[i], schema)
 	}
 
 	return nexprs

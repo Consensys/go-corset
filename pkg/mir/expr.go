@@ -2,7 +2,6 @@ package mir
 
 import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/air"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -16,11 +15,6 @@ import (
 type Expr interface {
 	util.Boundable
 	sc.Evaluable
-	// Lower this expression into the Arithmetic Intermediate
-	// Representation.  Essentially, this means eliminating
-	// normalising expressions by introducing new columns into the
-	// given table (with appropriate constraints).
-	LowerTo(*air.Schema) air.Expr
 	// String produces a string representing this as an S-Expression.
 	String() string
 }
