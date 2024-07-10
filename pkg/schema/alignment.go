@@ -30,7 +30,10 @@ func Align(p tr.Trace, schema Schema) error {
 // unexpanded mode, the trace is only expected to contain input (i.e.
 // non-computed) columns.  Furthermore, in the schema these are expected to be
 // allocated before computed columns.  As such, alignment of these input
-// columns is performed.
+// columns is performed.  Finally, it is worth noting that alignment can succeed
+// when there are more trace columns than schema columns.  In such case, the
+// common columns are aligned at the beginning of the index space, whilst the
+// remainder come at the end.
 func alignWith(expand bool, p tr.Trace, schema Schema) error {
 	columns := p.Columns()
 	modules := p.Modules()
@@ -76,9 +79,10 @@ func alignWith(expand bool, p tr.Trace, schema Schema) error {
 				// Extract schema column & module
 				schemaCol := j.Next()
 				schemaMod := schema.Modules().Nth(schemaCol.Context().Module())
+				schemaQualifiedCol := QualifiedColumnName(schemaMod.Name(), schemaCol.Name())
 				// Sanity check column exists
 				if colIndex >= ncols {
-					return fmt.Errorf("trace missing column %s.%s (too few columns)", schemaMod.Name(), schemaCol.Name())
+					return fmt.Errorf("missing column %s (too few columns)", schemaQualifiedCol)
 				}
 				// Extract trace column and module
 				traceCol := columns.Get(colIndex)
@@ -89,7 +93,7 @@ func alignWith(expand bool, p tr.Trace, schema Schema) error {
 					k, ok := p.Columns().IndexOf(schemaCol.Context().Module(), schemaCol.Name())
 					// check exists
 					if !ok {
-						return fmt.Errorf("trace missing column %s.%s", schemaMod.Name(), schemaCol.Name())
+						return fmt.Errorf("missing column %s", schemaQualifiedCol)
 					}
 					// Swap columns
 					columns.Swap(colIndex, k)
@@ -99,18 +103,15 @@ func alignWith(expand bool, p tr.Trace, schema Schema) error {
 			}
 		}
 	}
-	// Check whether all columns matched
-	if colIndex == ncols {
-		// Yes, alignment complete.
-		return nil
+	// Alignment complete.
+	return nil
+}
+
+// QualifiedColumnName returns the fully qualified name of a given column.
+func QualifiedColumnName(module string, column string) string {
+	if module == "" {
+		return column
 	}
-	// Error Case.
-	n := ncols - colIndex
-	unknowns := make([]string, n)
-	// Determine names of unknown columns.
-	for i := colIndex; i < ncols; i++ {
-		unknowns[i-colIndex] = columns.Get(i).Name()
-	}
-	//
-	return fmt.Errorf("trace contains unknown columns: %v", unknowns)
+
+	return fmt.Sprintf("%s.%s", module, column)
 }

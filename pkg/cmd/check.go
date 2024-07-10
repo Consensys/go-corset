@@ -32,6 +32,7 @@ var checkCmd = &cobra.Command{
 		cfg.expand = !getFlag(cmd, "raw")
 		cfg.report = getFlag(cmd, "report")
 		cfg.spillage = getInt(cmd, "spillage")
+		cfg.strict = !getFlag(cmd, "warn")
 		cfg.padding.Right = getUint(cmd, "padding")
 		// TODO: support true ranges
 		cfg.padding.Left = cfg.padding.Right
@@ -59,6 +60,10 @@ type checkConfig struct {
 	spillage int
 	// Determines how much padding to use
 	padding util.Pair[uint, uint]
+	// Specified whether strict checking is performed or not.  This is enabled
+	// by default, and ensures the tool fails with an error in any unexpected or
+	// unusual case.
+	strict bool
 	// Specifies whether or not to perform trace expansion.  Trace expansion is
 	// not required when a "raw" trace is given which already includes all
 	// implied columns.
@@ -166,7 +171,7 @@ func checkTrace(tr trace.Trace, schema sc.Schema, cfg checkConfig) (trace.Trace,
 			trace.PadColumns(tr, sc.RequiredSpillage(schema))
 		}
 		// Perform Input Alignment
-		if err := sc.AlignInputs(tr, schema); err != nil {
+		if err := performAlignment(true, tr, schema, cfg); err != nil {
 			return tr, err
 		}
 		// Expand trace
@@ -175,7 +180,7 @@ func checkTrace(tr trace.Trace, schema sc.Schema, cfg checkConfig) (trace.Trace,
 		}
 	}
 	// Perform Alignment
-	if err := sc.Align(tr, schema); err != nil {
+	if err := performAlignment(false, tr, schema, cfg); err != nil {
 		return tr, err
 	}
 	// Check whether padding requested
@@ -196,6 +201,41 @@ func checkTrace(tr trace.Trace, schema sc.Schema, cfg checkConfig) (trace.Trace,
 	}
 	// Done
 	return nil, nil
+}
+
+// Run the alignment algorithm with optional checks determined by the configuration.
+func performAlignment(inputs bool, tr trace.Trace, schema sc.Schema, cfg checkConfig) error {
+	var err error
+
+	var nSchemaCols uint
+	// Determine number of trace columns
+	nTraceCols := tr.Columns().Len()
+
+	if inputs {
+		nSchemaCols = schema.InputColumns().Count()
+		err = sc.AlignInputs(tr, schema)
+	} else {
+		nSchemaCols = schema.Columns().Count()
+		err = sc.Align(tr, schema)
+	}
+	// Sanity check error
+	if err != nil {
+		return err
+	} else if cfg.strict && nSchemaCols != nTraceCols {
+		col := tr.Columns().Get(nSchemaCols)
+		mod := tr.Modules().Get(col.Context().Module())
+		// Return error
+		return fmt.Errorf("unknown trace column %s", sc.QualifiedColumnName(mod.Name(), col.Name()))
+	} else if nSchemaCols != nTraceCols {
+		// Log warning
+		for i := nSchemaCols; i < nTraceCols; i++ {
+			col := tr.Columns().Get(i)
+			mod := tr.Modules().Get(col.Context().Module())
+			fmt.Printf("[WARNING] unknown trace column %s\n", sc.QualifiedColumnName(mod.Name(), col.Name()))
+		}
+	}
+
+	return nil
 }
 
 func toErrorString(err error) string {
@@ -225,6 +265,8 @@ func init() {
 	checkCmd.Flags().Bool("hir", false, "check at HIR level")
 	checkCmd.Flags().Bool("mir", false, "check at MIR level")
 	checkCmd.Flags().Bool("air", false, "check at AIR level")
+	checkCmd.Flags().Bool("warn", false, "report warnings instead of failing for certain errors"+
+		"(e.g. unknown columns in the trace)")
 	checkCmd.Flags().Uint("padding", 0, "specify amount of (front) padding to apply")
 	checkCmd.Flags().Int("spillage", -1,
 		"specify amount of splillage to account for (where -1 indicates this should be inferred)")
