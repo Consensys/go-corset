@@ -153,6 +153,12 @@ func (p arrayTraceColumnSet) Len() uint {
 	return uint(len(p.trace.columns))
 }
 
+// Trim reduce the number of columns to n by removing columns from
+// the end.
+func (p arrayTraceColumnSet) Trim(n uint) {
+	p.trace.columns = p.trace.columns[:n]
+}
+
 // Swap two columns in this column set.
 func (p arrayTraceColumnSet) Swap(l uint, r uint) {
 	if l == r {

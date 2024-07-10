@@ -233,6 +233,10 @@ func performAlignment(inputs bool, tr trace.Trace, schema sc.Schema, cfg checkCo
 			mod := tr.Modules().Get(col.Context().Module())
 			fmt.Printf("[WARNING] unknown trace column %s\n", sc.QualifiedColumnName(mod.Name(), col.Name()))
 		}
+		// Finally, remove the unknown columns.  This is important as,
+		// otherwise, the column indices they occupy will clash with computed
+		// columns which are added during lowering.
+		tr.Columns().Trim(nSchemaCols)
 	}
 
 	return nil

@@ -31,6 +31,9 @@ type ColumnSet interface {
 	Len() uint
 	// Swap two columns in this column set
 	Swap(uint, uint)
+	// Reduce the number of columns to a given length by removing columns from
+	// the end.
+	Trim(uint)
 }
 
 // Column describes an individual column of data within a trace table.
