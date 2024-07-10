@@ -27,45 +27,70 @@ type jsonSortedComputation struct {
 // Translation
 // =============================================================================
 
-func (e jsonComputationSet) addToSchema(schema *hir.Schema) {
+// Iterate through the sorted permutations, allocating them as assignments.
+// This is slightly tricky because we must also update the colmap allocation.  I
+// believe this could fail the presence of sorted permutations of sorted
+// permutations.  In such case, it can be resolved using a more complex
+// allocation algorithm which considers the source dependencies.
+func (e jsonComputationSet) addToSchema(columns []column, colmap map[uint]uint, schema *hir.Schema) {
+	// Determine first allocation index
+	index := schema.Columns().Count()
 	//
 	for _, c := range e.Computations {
 		if c.Sorted != nil {
-			targetRefs := asColumnRefs(c.Sorted.Tos)
-			sourceRefs := asColumnRefs(c.Sorted.Froms)
+			targetIDs := asColumns(c.Sorted.Tos)
+			sourceIDs := asColumns(c.Sorted.Froms)
+			handle := asHandle(columns[sourceIDs[0]].Handle)
 			// Resolve enclosing module
-			module, _ := sourceRefs[0].resolve(schema)
+			mid, ok := schema.Modules().Find(func(m sc.Module) bool {
+				return m.Name() == handle.module
+			})
 			// Sanity check assumptions
-			if len(sourceRefs) != len(targetRefs) {
+			if !ok {
+				panic(fmt.Sprintf("unknown module %s", handle.module))
+			} else if len(sourceIDs) != len(targetIDs) {
 				panic("differing number of source / target columns in sorted permutation")
 			}
 			// Convert source refs into column indexes
-			sources := make([]uint, len(sourceRefs))
+			sources := make([]uint, len(sourceIDs))
 			// Convert target refs into columns
-			targets := make([]sc.Column, len(targetRefs))
+			targets := make([]sc.Column, len(targetIDs))
 			//
 			ctx := trace.VoidContext()
 			//
-			for i, targetRef := range targetRefs {
-				src_mid, src_cid := sourceRefs[i].resolve(schema)
-				// Sanity check enclosing modules match
-				if src_mid != module {
-					panic("inconsistent enclosing module for sorted permutation")
+			for i, target_id := range targetIDs {
+				source_id := sourceIDs[i]
+				// Extract binfile info about target column
+				dst_col := columns[target_id]
+				dst_hnd := asHandle(dst_col.Handle)
+				// Determine schema column index for ith source column.
+				src_cid, ok := colmap[source_id]
+				if !ok {
+					h := asHandle(columns[source_id].Handle)
+					panic(fmt.Sprintf("unallocated source column %s.%s", h.module, h.column))
 				}
-				// Determine type of source column
-				ith := schema.Columns().Nth(src_cid)
-				ctx = ctx.Join(ith.Context())
+				// Extract schema info about source column
+				src_col := schema.Columns().Nth(src_cid)
+				// Sanity check enclosing modules match
+				if src_col.Context().Module() != mid {
+					panic("inconsistent enclosing module for sorted permutation (source)")
+				}
+
+				ctx = ctx.Join(src_col.Context())
 				// Sanity check we have a sensible type here.
-				if ith.Type().AsUint() == nil {
-					panic(fmt.Sprintf("source column %s has field type", sourceRefs[i]))
+				if src_col.Type().AsUint() == nil {
+					panic(fmt.Sprintf("source column %s has field type", src_col.Name()))
 				} else if ctx.IsConflicted() {
-					panic(fmt.Sprintf("source column %s has conflicted evaluation context", sourceRefs[i]))
+					panic(fmt.Sprintf("source column %s has conflicted evaluation context", src_col.Name()))
 				} else if ctx.IsVoid() {
-					panic(fmt.Sprintf("source column %s has void evaluation context", sourceRefs[i]))
+					panic(fmt.Sprintf("source column %s has void evaluation context", src_col.Name()))
 				}
 
 				sources[i] = src_cid
-				targets[i] = sc.NewColumn(ctx, targetRef.column, ith.Type())
+				targets[i] = sc.NewColumn(ctx, dst_hnd.column, src_col.Type())
+				// Update allocation information.
+				colmap[target_id] = index
+				index++
 			}
 			// Finally, add the sorted permutation assignment
 			schema.AddAssignment(assignment.NewSortedPermutation(ctx, targets, c.Sorted.Signs, sources))
