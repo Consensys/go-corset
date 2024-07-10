@@ -133,10 +133,13 @@ func (p *Schema) AddRangeConstraint(column uint, bound *fr.Element) {
 // Schema Interface
 // ============================================================================
 
-// Inputs returns an array over the input declarations of this schema.  That is,
-// the subset of declarations whose trace values must be provided by the user.
-func (p *Schema) Inputs() util.Iterator[schema.Declaration] {
-	return util.NewArrayIterator(p.inputs)
+// InputColumns returns an array over the input columns of this schema.  That
+// is, the subset of columns whose trace values must be provided by the
+// user.
+func (p *Schema) InputColumns() util.Iterator[schema.Column] {
+	inputs := util.NewArrayIterator(p.inputs)
+	return util.NewFlattenIterator[schema.Declaration, schema.Column](inputs,
+		func(d schema.Declaration) util.Iterator[schema.Column] { return d.Columns() })
 }
 
 // Assignments returns an array over the assignments of this schema.  That
@@ -149,7 +152,8 @@ func (p *Schema) Assignments() util.Iterator[schema.Assignment] {
 // Columns returns an array over the underlying columns of this schema.
 // Specifically, the index of a column in this array is its column index.
 func (p *Schema) Columns() util.Iterator[schema.Column] {
-	is := util.NewFlattenIterator[schema.Declaration, schema.Column](p.Inputs(),
+	inputs := util.NewArrayIterator(p.inputs)
+	is := util.NewFlattenIterator[schema.Declaration, schema.Column](inputs,
 		func(d schema.Declaration) util.Iterator[schema.Column] { return d.Columns() })
 	ps := util.NewFlattenIterator[schema.Assignment, schema.Column](p.Assignments(),
 		func(d schema.Assignment) util.Iterator[schema.Column] { return d.Columns() })
@@ -166,8 +170,10 @@ func (p *Schema) Constraints() util.Iterator[schema.Constraint] {
 // Declarations returns an array over the column declarations of this
 // schema.
 func (p *Schema) Declarations() util.Iterator[schema.Declaration] {
+	inputs := util.NewArrayIterator(p.inputs)
 	ps := util.NewCastIterator[schema.Assignment, schema.Declaration](p.Assignments())
-	return p.Inputs().Append(ps)
+
+	return inputs.Append(ps)
 }
 
 // Modules returns an iterator over the declared set of modules within this

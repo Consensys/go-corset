@@ -3,6 +3,7 @@ package hir
 import (
 	"fmt"
 
+	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/assignment"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
@@ -131,10 +132,13 @@ func (p *Schema) AddPropertyAssertion(module uint, handle string, property Expr)
 // Schema Interface
 // ============================================================================
 
-// Inputs returns an array over the input declarations of this sc.  That is,
-// the subset of declarations whose trace values must be provided by the user.
-func (p *Schema) Inputs() util.Iterator[sc.Declaration] {
-	return util.NewArrayIterator(p.inputs)
+// InputColumns returns an array over the input columns of this schema.  That
+// is, the subset of columns whose trace values must be provided by the
+// user.
+func (p *Schema) InputColumns() util.Iterator[sc.Column] {
+	inputs := util.NewArrayIterator(p.inputs)
+	return util.NewFlattenIterator[schema.Declaration, schema.Column](inputs,
+		func(d schema.Declaration) util.Iterator[schema.Column] { return d.Columns() })
 }
 
 // Assignments returns an array over the assignments of this sc.  That
@@ -147,7 +151,8 @@ func (p *Schema) Assignments() util.Iterator[sc.Assignment] {
 // Columns returns an array over the underlying columns of this sc.
 // Specifically, the index of a column in this array is its column index.
 func (p *Schema) Columns() util.Iterator[sc.Column] {
-	is := util.NewFlattenIterator[sc.Declaration, sc.Column](p.Inputs(),
+	inputs := util.NewArrayIterator(p.inputs)
+	is := util.NewFlattenIterator[sc.Declaration, sc.Column](inputs,
 		func(d sc.Declaration) util.Iterator[sc.Column] { return d.Columns() })
 	ps := util.NewFlattenIterator[sc.Assignment, sc.Column](p.Assignments(),
 		func(d sc.Assignment) util.Iterator[sc.Column] { return d.Columns() })
@@ -164,8 +169,10 @@ func (p *Schema) Constraints() util.Iterator[sc.Constraint] {
 // Declarations returns an array over the column declarations of this
 // sc.
 func (p *Schema) Declarations() util.Iterator[sc.Declaration] {
+	inputs := util.NewArrayIterator(p.inputs)
 	ps := util.NewCastIterator[sc.Assignment, sc.Declaration](p.Assignments())
-	return p.Inputs().Append(ps)
+
+	return inputs.Append(ps)
 }
 
 // Modules returns an iterator over the declared set of modules within this

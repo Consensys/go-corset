@@ -27,6 +27,9 @@ type Schema interface {
 	// schema.
 	Declarations() util.Iterator[Declaration]
 
+	// Iterator over the input (i.e. non-computed) columns of the schema.
+	InputColumns() util.Iterator[Column]
+
 	// Modules returns an iterator over the declared set of modules within this
 	// schema.
 	Modules() util.Iterator[Module]

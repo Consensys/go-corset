@@ -154,6 +154,11 @@ func checkTraceWithLoweringDefault(tr trace.Trace, hirSchema *hir.Schema, cfg ch
 }
 
 func checkTrace(tr trace.Trace, schema sc.Schema, cfg checkConfig) (trace.Trace, error) {
+	// Determine the number of expected input columns.
+	nSchemaInputs := schema.InputColumns().Count()
+	// Determine the number of expected columns.
+	nSchemaCols := schema.Columns().Count()
+
 	if cfg.expand {
 		// Clone to prevent interefence with subsequent checks
 		tr = tr.Clone()
@@ -168,6 +173,11 @@ func checkTrace(tr trace.Trace, schema sc.Schema, cfg checkConfig) (trace.Trace,
 		// Perform Input Alignment
 		if err := sc.AlignInputs(tr, schema); err != nil {
 			return tr, err
+		} else if nSchemaInputs != tr.Columns().Len() {
+			col := tr.Columns().Get(nSchemaInputs)
+			mod := tr.Modules().Get(col.Context().Module())
+
+			return tr, fmt.Errorf("unknown trace column: %s", sc.QualifiedColumnName(mod.Name(), col.Name()))
 		}
 		// Expand trace
 		if err := sc.ExpandTrace(schema, tr); err != nil {
@@ -177,6 +187,11 @@ func checkTrace(tr trace.Trace, schema sc.Schema, cfg checkConfig) (trace.Trace,
 	// Perform Alignment
 	if err := sc.Align(tr, schema); err != nil {
 		return tr, err
+	} else if nSchemaCols != tr.Columns().Len() {
+		col := tr.Columns().Get(nSchemaCols)
+		mod := tr.Modules().Get(col.Context().Module())
+
+		return tr, fmt.Errorf("unknown (expanded) trace column: %s", sc.QualifiedColumnName(mod.Name(), col.Name()))
 	}
 	// Check whether padding requested
 	if cfg.padding.Left == 0 && cfg.padding.Right == 0 {

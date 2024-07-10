@@ -487,8 +487,15 @@ func Check(t *testing.T, test string) {
 // Check a given set of tests have an expected outcome (i.e. are
 // either accepted or rejected) by a given set of constraints.
 func CheckTraces(t *testing.T, test string, expected bool, traces []trace.Trace, hirSchema *hir.Schema) {
+	filename := getTestFileName(test, expected)
+	// Determine the number of expected input columns.
+	nSchemaInputs := hirSchema.InputColumns().Count()
+
+	//
 	for i, tr := range traces {
 		if tr != nil {
+			nTraceCols := tr.Columns().Len()
+			//
 			for padding := uint(0); padding <= MAX_PADDING; padding++ {
 				// Lower HIR => MIR
 				mirSchema := hirSchema.LowerToMir()
@@ -499,16 +506,21 @@ func CheckTraces(t *testing.T, test string, expected bool, traces []trace.Trace,
 				mirID := traceId{"MIR", test, expected, i + 1, padding, schema.RequiredSpillage(mirSchema)}
 				airID := traceId{"AIR", test, expected, i + 1, padding, schema.RequiredSpillage(airSchema)}
 				// Check whether trace is input compatible with schema
-				if err := sc.AlignInputs(tr, hirSchema); err != nil {
-					// Alignment failed.  So, attempt alignment as expanded
-					// trace instead.
-					if err := sc.Align(tr, airSchema); err != nil {
-						// Still failed, hence trace must be malformed in some way
-						if expected {
-							t.Errorf("Trace malformed (%s.accepts, line %d): [%s]", test, i+1, err)
+				if err := sc.AlignInputs(tr, hirSchema); err != nil || nSchemaInputs != nTraceCols {
+					nSchemaCols := airSchema.Columns().Count()
+					// Alignment failed.  So, attempt alignment as expanded trace instead.
+					if err := sc.Align(tr, airSchema); err != nil || nSchemaCols != nTraceCols {
+						var msg string
+						// Still failed, hence trace must be malformed in some way.
+						if err != nil {
+							msg = err.Error()
 						} else {
-							t.Errorf("Trace malformed (%s.rejects, line %d): [%s]", test, i+1, err)
+							col := tr.Columns().Get(nSchemaCols)
+							mod := tr.Modules().Get(col.Context().Module())
+							msg = fmt.Sprintf("unknown column %s", schema.QualifiedColumnName(mod.Name(), col.Name()))
 						}
+
+						t.Errorf("Malformed (expanded) trace (%s, line %d): %s", filename, i+1, msg)
 					} else {
 						// Aligned as expanded trace
 						checkExpandedTrace(t, tr, airID, airSchema)
@@ -522,6 +534,14 @@ func CheckTraces(t *testing.T, test string, expected bool, traces []trace.Trace,
 			}
 		}
 	}
+}
+
+func getTestFileName(test string, expected bool) string {
+	if expected {
+		return fmt.Sprintf("%s.accepts", test)
+	}
+
+	return fmt.Sprintf("%s.rejects", test)
 }
 
 func checkInputTrace(t *testing.T, tr trace.Trace, id traceId, schema sc.Schema) {
