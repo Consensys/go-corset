@@ -32,6 +32,7 @@ var checkCmd = &cobra.Command{
 		cfg.expand = !getFlag(cmd, "raw")
 		cfg.report = getFlag(cmd, "report")
 		cfg.spillage = getInt(cmd, "spillage")
+		cfg.strict = !getFlag(cmd, "warn")
 		cfg.padding.Right = getUint(cmd, "padding")
 		// TODO: support true ranges
 		cfg.padding.Left = cfg.padding.Right
@@ -59,6 +60,10 @@ type checkConfig struct {
 	spillage int
 	// Determines how much padding to use
 	padding util.Pair[uint, uint]
+	// Specified whether strict checking is performed or not.  This is enabled
+	// by default, and ensures the tool fails with an error in any unexpected or
+	// unusual case.
+	strict bool
 	// Specifies whether or not to perform trace expansion.  Trace expansion is
 	// not required when a "raw" trace is given which already includes all
 	// implied columns.
@@ -176,8 +181,12 @@ func checkTrace(tr trace.Trace, schema sc.Schema, cfg checkConfig) (trace.Trace,
 		} else if nSchemaInputs != tr.Columns().Len() {
 			col := tr.Columns().Get(nSchemaInputs)
 			mod := tr.Modules().Get(col.Context().Module())
-
-			return tr, fmt.Errorf("unknown trace column: %s", sc.QualifiedColumnName(mod.Name(), col.Name()))
+			// Choose error or warning
+			if cfg.strict {
+				return tr, fmt.Errorf("unknown trace column: %s", sc.QualifiedColumnName(mod.Name(), col.Name()))
+			}
+			// Log warning
+			fmt.Printf("[WARNING] unknown trace column: %s\n", sc.QualifiedColumnName(mod.Name(), col.Name()))
 		}
 		// Expand trace
 		if err := sc.ExpandTrace(schema, tr); err != nil {
@@ -187,11 +196,15 @@ func checkTrace(tr trace.Trace, schema sc.Schema, cfg checkConfig) (trace.Trace,
 	// Perform Alignment
 	if err := sc.Align(tr, schema); err != nil {
 		return tr, err
-	} else if nSchemaCols != tr.Columns().Len() {
+	} else if cfg.strict && nSchemaCols != tr.Columns().Len() {
 		col := tr.Columns().Get(nSchemaCols)
 		mod := tr.Modules().Get(col.Context().Module())
-
-		return tr, fmt.Errorf("unknown (expanded) trace column: %s", sc.QualifiedColumnName(mod.Name(), col.Name()))
+		// Choose error or warning
+		if cfg.strict {
+			return tr, fmt.Errorf("unknown (expanded) trace column: %s", sc.QualifiedColumnName(mod.Name(), col.Name()))
+		}
+		// Log warning
+		fmt.Printf("[WARNING] unknown trace column: %s\n", sc.QualifiedColumnName(mod.Name(), col.Name()))
 	}
 	// Check whether padding requested
 	if cfg.padding.Left == 0 && cfg.padding.Right == 0 {
@@ -240,6 +253,8 @@ func init() {
 	checkCmd.Flags().Bool("hir", false, "check at HIR level")
 	checkCmd.Flags().Bool("mir", false, "check at MIR level")
 	checkCmd.Flags().Bool("air", false, "check at AIR level")
+	checkCmd.Flags().Bool("warn", false, "report warnings instead of failing for certain errors"+
+		"(e.g. unknown columns in the trace)")
 	checkCmd.Flags().Uint("padding", 0, "specify amount of (front) padding to apply")
 	checkCmd.Flags().Int("spillage", -1,
 		"specify amount of splillage to account for (where -1 indicates this should be inferred)")
