@@ -33,6 +33,7 @@ var checkCmd = &cobra.Command{
 		cfg.report = getFlag(cmd, "report")
 		cfg.spillage = getInt(cmd, "spillage")
 		cfg.strict = !getFlag(cmd, "warn")
+		cfg.quiet = getFlag(cmd, "quiet")
 		cfg.padding.Right = getUint(cmd, "padding")
 		// TODO: support true ranges
 		cfg.padding.Left = cfg.padding.Right
@@ -60,6 +61,8 @@ type checkConfig struct {
 	spillage int
 	// Determines how much padding to use
 	padding util.Pair[uint, uint]
+	// Suppress output (e.g. warnings)
+	quiet bool
 	// Specified whether strict checking is performed or not.  This is enabled
 	// by default, and ensures the tool fails with an error in any unexpected or
 	// unusual case.
@@ -235,10 +238,12 @@ func performAlignment(inputs bool, tr trace.Trace, schema sc.Schema, cfg checkCo
 		return fmt.Errorf("unknown trace column %s", sc.QualifiedColumnName(mod.Name(), col.Name()))
 	} else if nSchemaCols != nTraceCols {
 		// Log warning
-		for i := nSchemaCols; i < nTraceCols; i++ {
-			col := tr.Columns().Get(i)
-			mod := tr.Modules().Get(col.Context().Module())
-			fmt.Printf("[WARNING] unknown trace column %s\n", sc.QualifiedColumnName(mod.Name(), col.Name()))
+		if !cfg.quiet {
+			for i := nSchemaCols; i < nTraceCols; i++ {
+				col := tr.Columns().Get(i)
+				mod := tr.Modules().Get(col.Context().Module())
+				fmt.Printf("[WARNING] unknown trace column %s\n", sc.QualifiedColumnName(mod.Name(), col.Name()))
+			}
 		}
 		// Finally, remove the unknown columns.  This is important as,
 		// otherwise, the column indices they occupy will clash with computed
@@ -276,8 +281,9 @@ func init() {
 	checkCmd.Flags().Bool("hir", false, "check at HIR level")
 	checkCmd.Flags().Bool("mir", false, "check at MIR level")
 	checkCmd.Flags().Bool("air", false, "check at AIR level")
-	checkCmd.Flags().Bool("warn", false, "report warnings instead of failing for certain errors"+
+	checkCmd.Flags().BoolP("warn", "w", false, "report warnings instead of failing for certain errors"+
 		"(e.g. unknown columns in the trace)")
+	checkCmd.Flags().BoolP("quiet", "q", false, "suppress output (e.g. warnings)")
 	checkCmd.Flags().Uint("padding", 0, "specify amount of (front) padding to apply")
 	checkCmd.Flags().Int("spillage", -1,
 		"specify amount of splillage to account for (where -1 indicates this should be inferred)")
