@@ -124,17 +124,6 @@ func (p arrayTraceColumnSet) Get(index uint) Column {
 	return p.trace.columns[index]
 }
 
-// HasColumn checks whether a given column exists in this column set (or not).
-func (p arrayTraceColumnSet) HasColumn(name string) bool {
-	for _, c := range p.trace.columns {
-		if c.Name() == name {
-			return true
-		}
-	}
-	// Not found
-	return false
-}
-
 // IndexOf returns the column index of the column with the given name in
 // this trace, or returns false if no such column exists.
 func (p arrayTraceColumnSet) IndexOf(module uint, name string) (uint, bool) {

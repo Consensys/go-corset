@@ -23,8 +23,6 @@ type ColumnSet interface {
 	Add(column Column) uint
 	// Get the ith module in this set.
 	Get(uint) Column
-	// Check whether or not a column with the given name already exists.
-	HasColumn(string) bool
 	// Determine index of given column, or return false if this fails.
 	IndexOf(module uint, column string) (uint, bool)
 	// Returns the number of items in this array.
