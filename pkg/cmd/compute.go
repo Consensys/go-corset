@@ -1,11 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-	"os"
-
-	"github.com/consensys/go-corset/pkg/binfile"
-
 	"github.com/spf13/cobra"
 )
 
@@ -15,28 +10,7 @@ var computeCmd = &cobra.Command{
 	Short: "Given a set of constraints and a trace file, fill the computed columns.",
 	Long:  `Given a set of constraints and a trace file, fill the computed columns.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		file := args[0]
-		fmt.Printf("Reading JSON bin file: %s\n", file)
-		bytes, err := os.ReadFile(file)
-		if err != nil {
-			fmt.Println("Error")
-		} else {
-			// Parse binary file into HIR schema
-			schema, err := binfile.HirSchemaFromJson(bytes)
-			//
-			if err != nil {
-				panic(err)
-			}
-			// Print columns
-			for i := schema.Columns(); i.HasNext(); {
-				ith := i.Next()
-				fmt.Printf("column %s : %s\n", ith.Name(), ith.Type())
-			}
-			// Print constraints
-			for i := schema.Constraints(); i.HasNext(); {
-				fmt.Println(i.Next())
-			}
-		}
+		panic("todo")
 	},
 }
 

@@ -1,9 +1,9 @@
 package constraint
 
 import (
+	"encoding/binary"
 	"fmt"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -84,40 +84,43 @@ func (p *LookupConstraint[E]) Accepts(tr trace.Trace) error {
 	// Determine height of enclosing module for source columns
 	src_height := tr.Modules().Get(p.source.Module()).Height() * p.source.LengthMultiplier()
 	tgt_height := tr.Modules().Get(p.target.Module()).Height() * p.target.LengthMultiplier()
-	// Go through every row of the source columns checking they are present in
-	// the target columns.
 	//
-	// NOTE: performance could be improved here by pre-evaluating and sorting
-	// the target columns to give O(log n) lookups, or using hash map to give
-	// O(1) checks.
+	rows := util.NewHashSet[util.BytesKey](tgt_height)
+	// Add all target columns to the set
+	for i := 0; i < int(tgt_height); i++ {
+		ith_bytes := evalExprsAt(i, p.targets, tr)
+		rows.Insert(util.NewBytesKey(ith_bytes))
+	}
+	// Check all source columns are contained
 	for i := 0; i < int(src_height); i++ {
-		ith := evalExprsAt(i, p.sources, tr)
-		matched := false
-
-		for j := 0; j < int(tgt_height); j++ {
-			jth := evalExprsAt(j, p.targets, tr)
-			if util.Equals(ith, jth) {
-				matched = true
-				break
-			}
-		}
-
-		if !matched {
-			return fmt.Errorf("lookup \"%s\" failed (row %d, %v)", p.handle, i, ith)
+		ith_bytes := evalExprsAt(i, p.sources, tr)
+		// Check whether contained.
+		if !rows.Contains(util.NewBytesKey(ith_bytes)) {
+			return fmt.Errorf("lookup \"%s\" failed (row %d)", p.handle, i)
 		}
 	}
 	//
 	return nil
 }
 
-func evalExprsAt[E schema.Evaluable](k int, sources []E, tr trace.Trace) []*fr.Element {
-	vals := make([]*fr.Element, len(sources))
+func evalExprsAt[E schema.Evaluable](k int, sources []E, tr trace.Trace) []byte {
+	// Each fr.Element is 4 x 64bit words.
+	bytes := make([]byte, 32*len(sources))
+	// Slice provides an access window for writing
+	slice := bytes
 	// Evaluate each expression in turn
 	for i := 0; i < len(sources); i++ {
-		vals[i] = sources[i].EvalAt(k, tr)
+		ith := sources[i].EvalAt(k, tr)
+		// Copy over each element
+		binary.BigEndian.PutUint64(slice, ith[0])
+		binary.BigEndian.PutUint64(slice[8:], ith[1])
+		binary.BigEndian.PutUint64(slice[16:], ith[2])
+		binary.BigEndian.PutUint64(slice[24:], ith[3])
+		// Move slice over
+		slice = slice[32:]
 	}
 	// Done
-	return vals
+	return bytes
 }
 
 //nolint:revive
