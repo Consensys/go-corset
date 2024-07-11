@@ -15,6 +15,9 @@ import (
 // in the case the given expression is a direct column access by simply
 // returning the accessed column index.
 func Expand(ctx trace.Context, e air.Expr, schema *air.Schema) uint {
+	if ctx.IsVoid() || ctx.IsConflicted() {
+		panic("conflicting (or void) context")
+	}
 	//
 	if ca, ok := e.(*air.ColumnAccess); ok && ca.Shift == 0 {
 		// Optimisation possible

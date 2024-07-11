@@ -77,8 +77,8 @@ func (p *Interleaving) ExpandTrace(tr tr.Trace) error {
 	for i := p.Columns(); i.HasNext(); {
 		name := i.Next().Name()
 		// Sanity check no column already exists with this name.
-		if columns.HasColumn(name) {
-			return fmt.Errorf("column already exists ({%s})", name)
+		if _, ok := columns.IndexOf(ctx.Module(), name); ok {
+			return fmt.Errorf("interleaved column already exists ({%s})", name)
 		}
 	}
 	// Determine interleaving width

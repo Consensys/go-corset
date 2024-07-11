@@ -30,6 +30,10 @@ func Normalise(e air.Expr, schema *air.Schema) air.Expr {
 func ApplyPseudoInverseGadget(e air.Expr, schema *air.Schema) air.Expr {
 	// Determine enclosing module.
 	ctx := e.Context(schema)
+	// Sanity check
+	if ctx.IsVoid() || ctx.IsConflicted() {
+		panic("conflicting (or void) context")
+	}
 	// Construct inverse computation
 	ie := &Inverse{Expr: e}
 	// Determine computed column name

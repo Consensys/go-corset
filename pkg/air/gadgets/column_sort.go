@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/air"
+	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/assignment"
 )
 
@@ -36,9 +37,13 @@ func ApplyColumnSortGadget(col uint, sign bool, bitwidth uint, schema *air.Schem
 		Xdiff = Xkm1.Sub(Xk)
 		deltaName = fmt.Sprintf("-%s", name)
 	}
-	// Add delta assignment
-	deltaIndex := schema.AddAssignment(
-		assignment.NewComputedColumn(column.Context(), deltaName, Xdiff))
+	// Look up column
+	deltaIndex, ok := sc.ColumnIndexOf(schema, column.Context().Module(), deltaName)
+	// Add new column (if it does not already exist)
+	if !ok {
+		deltaIndex = schema.AddAssignment(
+			assignment.NewComputedColumn(column.Context(), deltaName, Xdiff))
+	}
 	// Add necessary bitwidth constraints
 	ApplyBitwidthGadget(deltaIndex, bitwidth, schema)
 	// Configure constraint: Delta[k] = X[k] - X[k-1]

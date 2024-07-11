@@ -127,8 +127,8 @@ func (p *SortedPermutation) ExpandTrace(tr tr.Trace) error {
 	for i := p.Columns(); i.HasNext(); {
 		name := i.Next().Name()
 		// Sanity check no column already exists with this name.
-		if columns.HasColumn(name) {
-			return fmt.Errorf("column already exists ({%s})", name)
+		if _, ok := columns.IndexOf(p.context.Module(), name); ok {
+			return fmt.Errorf("permutation column already exists ({%s})", name)
 		}
 	}
 

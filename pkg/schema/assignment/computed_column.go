@@ -26,8 +26,8 @@ type ComputedColumn[E sc.Evaluable] struct {
 // determining expression.  More specifically, that expression is used to
 // compute the values for this column during trace expansion.
 func NewComputedColumn[E sc.Evaluable](context trace.Context, name string, expr E) *ComputedColumn[E] {
-	// FIXME: Determine computed columns type?
 	column := sc.NewColumn(context, name, &sc.FieldType{})
+	// FIXME: Determine computed columns type?
 	return &ComputedColumn[E]{column, expr}
 }
 
@@ -78,8 +78,9 @@ func (p *ComputedColumn[E]) RequiredSpillage() uint {
 func (p *ComputedColumn[E]) ExpandTrace(tr trace.Trace) error {
 	columns := tr.Columns()
 	// Check whether a column already exists with the given name.
-	if columns.HasColumn(p.Name()) {
-		return fmt.Errorf("column already exists ({%s})", p.Name())
+	if _, ok := columns.IndexOf(p.target.Context().Module(), p.Name()); ok {
+		mod := tr.Modules().Get(p.target.Context().Module())
+		return fmt.Errorf("computed column already exists ({%s.%s})", mod.Name(), p.Name())
 	}
 	// Extract length multipiler
 	multiplier := p.target.Context().LengthMultiplier()
