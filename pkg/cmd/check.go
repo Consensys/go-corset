@@ -179,28 +179,35 @@ func checkTrace(tr trace.Trace, schema sc.Schema, cfg checkConfig) (trace.Trace,
 			return tr, err
 		}
 	}
+
 	// Perform Alignment
 	if err := performAlignment(false, tr, schema, cfg); err != nil {
 		return tr, err
 	}
-	// Check whether padding requested
-	if cfg.padding.Left == 0 && cfg.padding.Right == 0 {
-		// No padding requested.  Therefore, we can avoid a clone in this case.
-		return tr, sc.Accepts(schema, tr)
-	}
-	// Apply padding
+
+	// Apply padding (as necessary)
 	for n := cfg.padding.Left; n <= cfg.padding.Right; n++ {
-		// Prevent interference
-		ptr := tr.Clone()
-		// Apply padding
-		trace.PadColumns(ptr, n)
-		// Check whether accepted or not.
-		if err := sc.Accepts(schema, ptr); err != nil {
+		if ptr, err := padAndCheckTrace(n, tr, schema); err != nil {
 			return ptr, err
 		}
 	}
 	// Done
 	return nil, nil
+}
+
+func padAndCheckTrace(n uint, tr trace.Trace, schema sc.Schema) (trace.Trace, error) {
+	var ptr trace.Trace = tr
+	// Apply padding (if applicable)
+	if n != 0 {
+		// Prevent interference
+		ptr := tr.Clone()
+		// Apply padding
+		trace.PadColumns(ptr, n)
+	}
+	// Check whether accepted or not.
+	err := sc.Accepts(schema, ptr)
+	// Done
+	return ptr, err
 }
 
 // Run the alignment algorithm with optional checks determined by the configuration.

@@ -123,6 +123,7 @@ func (p *VanishingConstraint[T]) Accepts(tr trace.Trace) error {
 func HoldsGlobally[T sc.Testable](handle string, ctx trace.Context, constraint T, tr trace.Trace) error {
 	// Determine height of enclosing module
 	height := tr.Modules().Get(ctx.Module()).Height() * ctx.LengthMultiplier()
+	//
 	// Determine well-definedness bounds for this constraint
 	bounds := constraint.Bounds()
 	// Sanity check enough rows
