@@ -78,7 +78,14 @@ func sliceColumns(columns []uint, tr trace.Trace) [][]*fr.Element {
 	// Slice out the data
 	for i, n := range columns {
 		nth := tr.Columns().Get(n)
-		cols[i] = nth.Data()
+		// Copy column data to initialise permutation.
+		copy := make([]*fr.Element, nth.Height())
+		//
+		for j := 0; j < int(nth.Height()); j++ {
+			copy[j] = nth.Get(j)
+		}
+		// Copy over
+		cols[i] = copy
 	}
 	// Done
 	return cols

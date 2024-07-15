@@ -68,17 +68,15 @@ func (p *ByteDecomposition) ExpandTrace(tr trace.Trace) error {
 	n := len(p.targets)
 	// Identify source column
 	source := columns.Get(p.source)
-	// Extract column data to decompose
-	data := source.Data()
 	// Construct byte column data
 	cols := make([][]*fr.Element, n)
 	// Initialise columns
 	for i := 0; i < n; i++ {
-		cols[i] = make([]*fr.Element, len(data))
+		cols[i] = make([]*fr.Element, source.Height())
 	}
 	// Decompose each row of each column
-	for i := 0; i < len(data); i = i + 1 {
-		ith := decomposeIntoBytes(data[i], n)
+	for i := 0; i < int(source.Height()); i = i + 1 {
+		ith := decomposeIntoBytes(source.Get(i), n)
 		for j := 0; j < n; j++ {
 			cols[j][i] = ith[j]
 		}

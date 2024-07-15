@@ -137,10 +137,15 @@ func (p *SortedPermutation) ExpandTrace(tr tr.Trace) error {
 	for i := 0; i < len(p.sources); i++ {
 		src := p.sources[i]
 		// Read column data to initialise permutation.
-		data := columns.Get(src).Data()
+		col := columns.Get(src)
 		// Copy column data to initialise permutation.
-		cols[i] = make([]*fr.Element, len(data))
-		copy(cols[i], data)
+		copy := make([]*fr.Element, col.Height())
+		//
+		for j := 0; j < int(col.Height()); j++ {
+			copy[j] = col.Get(j)
+		}
+		// Copy over
+		cols[i] = copy
 	}
 	// Sort target columns
 	util.PermutationSort(cols, p.signs)

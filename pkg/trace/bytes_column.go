@@ -96,24 +96,6 @@ func (p *BytesColumn) SetBytes(bytes []byte) {
 	p.bytes = bytes
 }
 
-// Data constructs an array of field elements from this column.
-func (p *BytesColumn) Data() []*fr.Element {
-	data := make([]*fr.Element, p.length)
-	offset := uint(0)
-
-	for i := uint(0); i < p.length; i++ {
-		var ith fr.Element
-		// Calculate position of next element
-		next := offset + uint(p.width)
-		// Construct ith field element
-		data[i] = ith.SetBytes(p.bytes[offset:next])
-		// Move offset to next element
-		offset = next
-	}
-	// Done
-	return data
-}
-
 // Pad this column with n copies of the column's padding value.
 func (p *BytesColumn) Pad(n uint) {
 	// Apply the length multiplier

@@ -59,11 +59,6 @@ func (p *FieldColumn) Padding() *fr.Element {
 	return p.padding
 }
 
-// Data returns the data for the given column.
-func (p *FieldColumn) Data() []*fr.Element {
-	return p.data
-}
-
 // Get the value at a given row in this column.  If the row is
 // out-of-bounds, then the column's padding value is returned instead.
 // Thus, this function always succeeds.
