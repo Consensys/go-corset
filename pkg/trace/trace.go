@@ -38,8 +38,6 @@ type ColumnSet interface {
 type Column interface {
 	// Clone this column
 	Clone() Column
-	// Return the raw data stored in this column.
-	Data() []*fr.Element
 	// Get the value at a given row in this column.  If the row is
 	// out-of-bounds, then the column's padding value is returned instead.
 	// Thus, this function always succeeds.

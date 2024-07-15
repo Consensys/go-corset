@@ -6,8 +6,10 @@ import (
 	"os"
 	"strings"
 
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+
 	"github.com/spf13/cobra"
 )
 
@@ -77,8 +79,14 @@ func filterColumns(tr trace.Trace, prefix string) trace.Trace {
 		//
 		if strings.HasPrefix(qName, prefix) {
 			ith := tr.Columns().Get(i)
+			// Copy column data
+			data := make([]*fr.Element, ith.Height())
+			//
+			for j := 0; j < int(ith.Height()); j++ {
+				data[j] = ith.Get(j)
+			}
 
-			err := builder.Add(qName, ith.Padding(), ith.Data())
+			err := builder.Add(qName, ith.Padding(), data)
 			// Sanity check
 			if err != nil {
 				panic(err)
