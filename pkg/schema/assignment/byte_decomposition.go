@@ -69,16 +69,17 @@ func (p *ByteDecomposition) ExpandTrace(tr trace.Trace) error {
 	// Identify source column
 	source := columns.Get(p.source)
 	// Construct byte column data
-	cols := make([][]*fr.Element, n)
+	cols := make([]*util.FieldArray, n)
 	// Initialise columns
 	for i := 0; i < n; i++ {
-		cols[i] = make([]*fr.Element, source.Height())
+		// Construct a byte column for ith byte
+		cols[i] = util.NewFieldArray(source.Height(), 1)
 	}
 	// Decompose each row of each column
-	for i := 0; i < int(source.Height()); i = i + 1 {
-		ith := decomposeIntoBytes(source.Get(i), n)
+	for i := uint(0); i < source.Height(); i = i + 1 {
+		ith := decomposeIntoBytes(source.Get(int(i)), n)
 		for j := 0; j < n; j++ {
-			cols[j][i] = ith[j]
+			cols[j].Set(i, ith[j])
 		}
 	}
 	// Determine padding values
@@ -86,7 +87,7 @@ func (p *ByteDecomposition) ExpandTrace(tr trace.Trace) error {
 	// Finally, add byte columns to trace
 	for i := 0; i < n; i++ {
 		ith := p.targets[i]
-		columns.Add(trace.NewFieldColumn(ith.Context(), ith.Name(), cols[i], padding[i]))
+		columns.Add(ith.Context(), ith.Name(), cols[i], padding[i])
 	}
 	// Done
 	return nil

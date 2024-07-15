@@ -3,9 +3,7 @@ package assignment
 import (
 	"fmt"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/trace"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
@@ -73,12 +71,16 @@ func (p *Interleaving) RequiredSpillage() uint {
 func (p *Interleaving) ExpandTrace(tr tr.Trace) error {
 	columns := tr.Columns()
 	ctx := p.target.Context()
+	// Byte width records the largest width of any column.
+	byte_width := uint(0)
 	// Ensure target column doesn't exist
 	for i := p.Columns(); i.HasNext(); {
-		name := i.Next().Name()
+		ith := i.Next()
+		// Update byte width
+		byte_width = max(byte_width, ith.Type().ByteWidth())
 		// Sanity check no column already exists with this name.
-		if _, ok := columns.IndexOf(ctx.Module(), name); ok {
-			return fmt.Errorf("interleaved column already exists ({%s})", name)
+		if _, ok := columns.IndexOf(ctx.Module(), ith.Name()); ok {
+			return fmt.Errorf("interleaved column already exists ({%s})", ith.Name())
 		}
 	}
 	// Determine interleaving width
@@ -90,7 +92,7 @@ func (p *Interleaving) ExpandTrace(tr tr.Trace) error {
 	// the interleaved column)
 	height := tr.Modules().Get(ctx.Module()).Height() * multiplier
 	// Construct empty array
-	data := make([]*fr.Element, height*width)
+	data := util.NewFieldArray(height*width, uint8(byte_width))
 	// Offset just gives the column index
 	offset := uint(0)
 	// Copy interleaved data
@@ -99,7 +101,7 @@ func (p *Interleaving) ExpandTrace(tr tr.Trace) error {
 		col := tr.Columns().Get(p.sources[i])
 		// Copy over
 		for j := uint(0); j < height; j++ {
-			data[offset+(j*width)] = col.Get(int(j))
+			data.Set(offset+(j*width), col.Get(int(j)))
 		}
 
 		offset++
@@ -108,7 +110,7 @@ func (p *Interleaving) ExpandTrace(tr tr.Trace) error {
 	// column in the interleaving.
 	padding := columns.Get(0).Padding()
 	// Colunm needs to be expanded.
-	columns.Add(trace.NewFieldColumn(ctx, p.target.Name(), data, padding))
+	columns.Add(ctx, p.target.Name(), data, padding)
 	//
 	return nil
 }

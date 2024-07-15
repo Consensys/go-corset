@@ -87,15 +87,15 @@ func (p *ComputedColumn[E]) ExpandTrace(tr trace.Trace) error {
 	// Determine multiplied height
 	height := tr.Modules().Get(p.target.Context().Module()).Height() * multiplier
 	// Make space for computed data
-	data := make([]*fr.Element, height)
+	data := util.NewFieldArray(height, 32)
 	// Expand the trace
-	for i := 0; i < len(data); i++ {
-		val := p.expr.EvalAt(i, tr)
+	for i := uint(0); i < data.Len(); i++ {
+		val := p.expr.EvalAt(int(i), tr)
 		if val != nil {
-			data[i] = val
+			data.Set(i, val)
 		} else {
 			zero := fr.NewElement(0)
-			data[i] = &zero
+			data.Set(i, &zero)
 		}
 	}
 	// Determine padding value.  A negative row index is used here to ensure
@@ -103,7 +103,7 @@ func (p *ComputedColumn[E]) ExpandTrace(tr trace.Trace) error {
 	// the padding value for *this* column.
 	padding := p.expr.EvalAt(-1, tr)
 	// Colunm needs to be expanded.
-	columns.Add(trace.NewFieldColumn(p.target.Context(), p.Name(), data, padding))
+	columns.Add(p.target.Context(), p.Name(), data, padding)
 	// Done
 	return nil
 }

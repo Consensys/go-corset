@@ -22,6 +22,9 @@ type Type interface {
 	// Accept checks whether a specific value is accepted by this type
 	Accept(*fr.Element) bool
 
+	// Return the number of bytes required represent any element of this type.
+	ByteWidth() uint
+
 	// Produce a string representation of this type.
 	String() string
 }
@@ -57,6 +60,19 @@ func (p *UintType) AsUint() *UintType {
 // case, this returns nil.
 func (p *UintType) AsField() *FieldType {
 	return nil
+}
+
+// ByteWidth returns the number of bytes required represent any element of this
+// type.
+func (p *UintType) ByteWidth() uint {
+	m := p.nbits / 8
+	n := p.nbits % 8
+	// Check for even division
+	if n == 0 {
+		return m
+	}
+	//
+	return m + 1
 }
 
 // Accept determines whether a given value is an element of this type.  For
@@ -102,6 +118,12 @@ func (p *FieldType) AsUint() *UintType {
 // this just returns itself.
 func (p *FieldType) AsField() *FieldType {
 	return p
+}
+
+// ByteWidth returns the number of bytes required represent any element of this
+// type.
+func (p *FieldType) ByteWidth() uint {
+	return 32
 }
 
 // Accept determines whether a given value is an element of this type.  In
