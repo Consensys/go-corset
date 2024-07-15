@@ -177,6 +177,10 @@ func checkTrace(tr trace.Trace, schema sc.Schema, cfg checkConfig) (trace.Trace,
 		if err := performAlignment(true, tr, schema, cfg); err != nil {
 			return tr, err
 		}
+		// Validate trace
+		if err := validationCheck(tr, schema); err != nil {
+			return tr, err
+		}
 		// Expand trace
 		if err := sc.ExpandTrace(schema, tr); err != nil {
 			return tr, err
@@ -251,6 +255,34 @@ func performAlignment(inputs bool, tr trace.Trace, schema sc.Schema, cfg checkCo
 		tr.Columns().Trim(nSchemaCols)
 	}
 
+	return nil
+}
+
+// Validate that values held in trace columns match the expected type.  This is
+// really a sanity check that the trace is not malformed.
+func validationCheck(tr trace.Trace, schema sc.Schema) error {
+	nTraceCols := tr.Columns().Len()
+	schemaCols := schema.Columns()
+	// Check each column in turn
+	for i := uint(0); i < nTraceCols; i++ {
+		// Extract ith column
+		col := tr.Columns().Get(i)
+		// Extract schema for ith column
+		scCol := schemaCols.Next()
+		// Determine enclosing module
+		mod := schema.Modules().Nth(scCol.Context().Module())
+		// Extract type for ith column
+		colType := scCol.Type()
+		// Check elements
+		for j := 0; j < int(col.Height()); j++ {
+			jth := col.Get(j)
+			if !colType.Accept(jth) {
+				qualColName := sc.QualifiedColumnName(mod.Name(), col.Name())
+				return fmt.Errorf("row %d of column %s is out-of-bounds (%s)", j, qualColName, jth)
+			}
+		}
+	}
+	// Done
 	return nil
 }
 
