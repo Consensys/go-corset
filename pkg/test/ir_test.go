@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/consensys/go-corset/pkg/air"
 	"github.com/consensys/go-corset/pkg/hir"
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
@@ -488,48 +489,35 @@ func Check(t *testing.T, test string) {
 // either accepted or rejected) by a given set of constraints.
 func CheckTraces(t *testing.T, test string, expected bool, traces []trace.Trace, hirSchema *hir.Schema) {
 	filename := getTestFileName(test, expected)
-	// Determine the number of expected input columns.
-	nSchemaInputs := hirSchema.InputColumns().Count()
-
 	//
 	for i, tr := range traces {
 		if tr != nil {
-			nTraceCols := tr.Columns().Len()
+			// Lower HIR => MIR
+			mirSchema := hirSchema.LowerToMir()
+			// Lower MIR => AIR
+			airSchema := mirSchema.LowerToAir()
+			// Align trace with schema, and check whether expanded or not.
+			expanded, err := performAlignment(tr, hirSchema, airSchema)
 			//
-			for padding := uint(0); padding <= MAX_PADDING; padding++ {
-				// Lower HIR => MIR
-				mirSchema := hirSchema.LowerToMir()
-				// Lower MIR => AIR
-				airSchema := mirSchema.LowerToAir()
-				// Construct trace identifiers
-				hirID := traceId{"HIR", test, expected, i + 1, padding, schema.RequiredSpillage(hirSchema)}
-				mirID := traceId{"MIR", test, expected, i + 1, padding, schema.RequiredSpillage(mirSchema)}
-				airID := traceId{"AIR", test, expected, i + 1, padding, schema.RequiredSpillage(airSchema)}
-				// Check whether trace is input compatible with schema
-				if err := sc.AlignInputs(tr, hirSchema); err != nil || nSchemaInputs != nTraceCols {
-					nSchemaCols := airSchema.Columns().Count()
-					// Alignment failed.  So, attempt alignment as expanded trace instead.
-					if err := sc.Align(tr, airSchema); err != nil || nSchemaCols != nTraceCols {
-						var msg string
-						// Still failed, hence trace must be malformed in some way.
-						if err != nil {
-							msg = err.Error()
-						} else {
-							col := tr.Columns().Get(nSchemaCols)
-							mod := tr.Modules().Get(col.Context().Module())
-							msg = fmt.Sprintf("unknown column %s", schema.QualifiedColumnName(mod.Name(), col.Name()))
-						}
-
-						t.Errorf("Malformed (expanded) trace (%s, line %d): %s", filename, i+1, msg)
-					} else {
+			if err != nil {
+				t.Errorf("%s (%s, line %d)", err.Error(), filename, i+1)
+			} else {
+				//
+				for padding := uint(0); padding <= MAX_PADDING; padding++ {
+					// Construct trace identifiers
+					hirID := traceId{"HIR", test, expected, i + 1, padding, schema.RequiredSpillage(hirSchema)}
+					mirID := traceId{"MIR", test, expected, i + 1, padding, schema.RequiredSpillage(mirSchema)}
+					airID := traceId{"AIR", test, expected, i + 1, padding, schema.RequiredSpillage(airSchema)}
+					//
+					if expanded {
 						// Aligned as expanded trace
 						checkExpandedTrace(t, tr, airID, airSchema)
+					} else {
+						// Aligned as unexpanded trace.
+						checkInputTrace(t, tr, hirID, hirSchema)
+						checkInputTrace(t, tr, mirID, mirSchema)
+						checkInputTrace(t, tr, airID, airSchema)
 					}
-				} else {
-					// Aligned as unexpanded trace.
-					checkInputTrace(t, tr, hirID, hirSchema)
-					checkInputTrace(t, tr, mirID, mirSchema)
-					checkInputTrace(t, tr, airID, airSchema)
 				}
 			}
 		}
@@ -542,6 +530,35 @@ func getTestFileName(test string, expected bool) string {
 	}
 
 	return fmt.Sprintf("%s.rejects", test)
+}
+
+// Align input trace against either the top-level schema, or the bottom-level
+// schema.  If the former aligns, then we have an unexpanded trace.  Otherwise,
+// we have an expanded trace.
+func performAlignment(tr trace.Trace, hirSchema *hir.Schema, airSchema *air.Schema) (bool, error) {
+	// Determine number of trace columns
+	nTraceCols := tr.Columns().Len()
+	// Determine the number of expected input columns.
+	nSchemaInputs := hirSchema.InputColumns().Count()
+	// Check whether trace is input compatible with schema
+	if err := sc.AlignInputs(tr, hirSchema); err != nil || nSchemaInputs != nTraceCols {
+		nSchemaCols := airSchema.Columns().Count()
+		// Alignment failed.  So, attempt alignment as expanded trace instead.
+		if err := sc.Align(tr, airSchema); err != nil || nSchemaCols != nTraceCols {
+			// Still failed, hence trace must be malformed in some way.
+			if err == nil {
+				col := tr.Columns().Get(nSchemaCols)
+				mod := tr.Modules().Get(col.Context().Module())
+				err = fmt.Errorf("unknown column %s", schema.QualifiedColumnName(mod.Name(), col.Name()))
+			}
+
+			return false, err
+		}
+
+		return true, nil
+	}
+
+	return false, nil
 }
 
 func checkInputTrace(t *testing.T, tr trace.Trace, id traceId, schema sc.Schema) {
