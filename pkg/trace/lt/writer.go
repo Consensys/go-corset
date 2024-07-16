@@ -42,6 +42,7 @@ func WriteBytes(tr trace.Trace, buf io.Writer) error {
 	// Write header information
 	for i := uint(0); i < ncols; i++ {
 		col := columns.Get(i)
+		data := col.Data()
 		mod := modules.Get(col.Context().Module())
 		name := col.Name()
 		// Prepend module name (if applicable)
@@ -61,18 +62,18 @@ func WriteBytes(tr trace.Trace, buf io.Writer) error {
 			log.Fatal(err)
 		}
 		// Write bytes per element
-		if err := binary.Write(buf, binary.BigEndian, uint8(col.Width())); err != nil {
+		if err := binary.Write(buf, binary.BigEndian, uint8(data.ByteWidth())); err != nil {
 			log.Fatal(err)
 		}
 		// Write Data length
-		if err := binary.Write(buf, binary.BigEndian, uint32(col.Height())); err != nil {
+		if err := binary.Write(buf, binary.BigEndian, uint32(data.Len())); err != nil {
 			log.Fatal(err)
 		}
 	}
 	// Write column data information
 	for i := uint(0); i < ncols; i++ {
 		col := columns.Get(i)
-		if err := col.Write(buf); err != nil {
+		if err := col.Data().Write(buf); err != nil {
 			return err
 		}
 	}

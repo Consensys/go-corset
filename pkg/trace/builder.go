@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // Builder is a helper utility for constructing new traces.  It simplifies
@@ -18,7 +19,7 @@ type Builder struct {
 	// Mapping from name to module index
 	modmap map[string]uint
 	//  Set of known columns
-	columns []Column
+	columns []*ArrayTraceColumn
 }
 
 // NewBuilder constructs an empty builder which can then be used to build a new
@@ -26,7 +27,7 @@ type Builder struct {
 func NewBuilder() *Builder {
 	modules := make([]Module, 0)
 	modmap := make(map[string]uint, 0)
-	columns := make([]Column, 0)
+	columns := make([]*ArrayTraceColumn, 0)
 	// Initially empty environment
 	return &Builder{modules, modmap, columns}
 }
@@ -39,7 +40,7 @@ func (p *Builder) Build() Trace {
 // Add a new column to this trace based on a fully qualified column name.  This
 // splits the qualified column name and (if necessary) registers a new module
 // with the given height.
-func (p *Builder) Add(name string, padding *fr.Element, data []*fr.Element) error {
+func (p *Builder) Add(name string, padding *fr.Element, data util.FrArray) error {
 	var err error
 	// Split qualified column name
 	modname, colname := p.splitQualifiedColumnName(name)
@@ -47,7 +48,7 @@ func (p *Builder) Add(name string, padding *fr.Element, data []*fr.Element) erro
 	mid, ok := p.modmap[modname]
 	// Register module (if not located)
 	if !ok {
-		if mid, err = p.Register(modname, uint(len(data))); err != nil {
+		if mid, err = p.Register(modname, data.Len()); err != nil {
 			// Should be unreachable.
 			return err
 		}
@@ -57,7 +58,7 @@ func (p *Builder) Add(name string, padding *fr.Element, data []*fr.Element) erro
 	// where we are importing expanded traces, then this might not be true.
 	context := NewContext(mid, 1)
 	// Register new column.
-	return p.registerColumn(NewFieldColumn(context, colname, data, padding))
+	return p.registerColumn(NewArrayTraceColumn(context, colname, data, padding))
 }
 
 // HasModule checks whether a given module has already been registered with this
@@ -100,7 +101,7 @@ func (p *Builder) splitQualifiedColumnName(name string) (string, string) {
 // RegisterColumn registers a new column with this builder.  An error can arise
 // if the column's module does not exist, or if the column's height does not
 // match that of its enclosing module.
-func (p *Builder) registerColumn(col Column) error {
+func (p *Builder) registerColumn(col *ArrayTraceColumn) error {
 	mid := col.Context().Module()
 	// Sanity check module exists
 	if mid >= uint(len(p.modules)) {

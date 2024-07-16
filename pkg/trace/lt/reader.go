@@ -6,6 +6,7 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // FromBytes parses a byte array representing a given LT trace file into an
@@ -93,8 +94,8 @@ func readColumnHeader(buf *bytes.Reader) (columnHeader, error) {
 	return header, nil
 }
 
-func readColumnData(header columnHeader, bytes []byte) []*fr.Element {
-	data := make([]*fr.Element, header.length)
+func readColumnData(header columnHeader, bytes []byte) util.FrArray {
+	data := util.NewFrArray(header.length, header.width)
 	offset := uint(0)
 
 	for i := uint(0); i < header.length; i++ {
@@ -102,7 +103,7 @@ func readColumnData(header columnHeader, bytes []byte) []*fr.Element {
 		// Calculate position of next element
 		next := offset + header.width
 		// Construct ith field element
-		data[i] = ith.SetBytes(bytes[offset:next])
+		data.Set(i, ith.SetBytes(bytes[offset:next]))
 		// Move offset to next element
 		offset = next
 	}

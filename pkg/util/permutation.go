@@ -16,13 +16,13 @@ import (
 //
 // This function operators by cloning the arrays, sorting them and checking they
 // are the same.
-func ArePermutationOf(dst [][]*fr.Element, src [][]*fr.Element) bool {
+func ArePermutationOf[T Array[*fr.Element]](dst []T, src []T) bool {
 	if len(dst) != len(src) {
 		return false
 	}
 	// Determine geometry
 	ncols := len(dst)
-	nrows := len(dst[0])
+	nrows := dst[0].Len()
 	// Rotate input arrays
 	dstCopy := rotate(dst, ncols, nrows)
 	srcCopy := rotate(src, ncols, nrows)
@@ -61,8 +61,8 @@ func permutationFunc(lhs []*fr.Element, rhs []*fr.Element) int {
 // NOTE: the current implementation is not intended to be particularly
 // efficient.  In particular, would be better to do the sort directly
 // on the columns array without projecting into the row-wise form.
-func PermutationSort(cols [][]*fr.Element, signs []bool) {
-	n := len(cols[0])
+func PermutationSort[T Array[*fr.Element]](cols []T, signs []bool) {
+	n := cols[0].Len()
 	m := len(cols)
 	// Rotate input matrix
 	rows := rotate(cols, m, n)
@@ -71,10 +71,10 @@ func PermutationSort(cols [][]*fr.Element, signs []bool) {
 		return permutationSortFunc(l, r, signs)
 	})
 	// Project back
-	for i := 0; i < n; i++ {
+	for i := uint(0); i < n; i++ {
 		row := rows[i]
 		for j := 0; j < m; j++ {
-			cols[j][i] = row[j]
+			cols[j].Set(i, row[j])
 		}
 	}
 }
@@ -123,14 +123,14 @@ func permutationSortFunc(lhs []*fr.Element, rhs []*fr.Element, signs []bool) int
 }
 
 // Clone and rotate a 2-dimensional array assuming a given geometry.
-func rotate(src [][]*fr.Element, ncols int, nrows int) [][]*fr.Element {
+func rotate[T Array[*fr.Element]](src []T, ncols int, nrows uint) [][]*fr.Element {
 	// Copy outer arrays
 	dst := make([][]*fr.Element, nrows)
 	// Copy inner arrays
-	for i := 0; i < nrows; i++ {
+	for i := uint(0); i < nrows; i++ {
 		row := make([]*fr.Element, ncols)
 		for j := 0; j < ncols; j++ {
-			row[j] = src[j][i]
+			row[j] = src[j].Get(i)
 		}
 
 		dst[i] = row

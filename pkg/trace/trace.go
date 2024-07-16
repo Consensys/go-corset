@@ -1,9 +1,8 @@
 package trace
 
 import (
-	"io"
-
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // Trace describes a set of named columns.  Columns are not required to have the
@@ -20,7 +19,7 @@ type Trace interface {
 // ColumnSet provides an interface to the declared columns within this trace.
 type ColumnSet interface {
 	// Add a new column to this column set.
-	Add(column Column) uint
+	Add(ctx Context, name string, data util.FrArray, padding *fr.Element) uint
 	// Get the ith module in this set.
 	Get(uint) Column
 	// Determine index of given column, or return false if this fails.
@@ -36,12 +35,12 @@ type ColumnSet interface {
 
 // Column describes an individual column of data within a trace table.
 type Column interface {
-	// Clone this column
-	Clone() Column
 	// Get the value at a given row in this column.  If the row is
 	// out-of-bounds, then the column's padding value is returned instead.
 	// Thus, this function always succeeds.
 	Get(row int) *fr.Element
+	// Access the underlying data array for this column
+	Data() util.FrArray
 	// Return the height (i.e. number of rows) of this column.
 	Height() uint
 	// Returns the evaluation context for this column.  That identifies the
@@ -54,16 +53,6 @@ type Column interface {
 	Name() string
 	// Return the value to use for padding this column.
 	Padding() *fr.Element
-	// Pad this column with n copies of the column's padding value.
-	Pad(n uint)
-	// Reseat updates the module index of this column (e.g. as a result of a
-	// realignment).
-	Reseat(mid uint)
-	// Return the width (i.e. number of bytes per element) of this column.
-	Width() uint
-	// Write the raw bytes of this column to a given writer, returning an error
-	// if this failed (for some reason).
-	Write(io.Writer) error
 }
 
 // ModuleSet provides an interface to the declared moules within this trace.

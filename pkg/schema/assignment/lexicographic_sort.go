@@ -80,48 +80,55 @@ func (p *LexicographicSort) ExpandTrace(tr trace.Trace) error {
 	// Determine how many rows to be constrained.
 	nrows := tr.Modules().Get(p.context.Module()).Height() * multiplier
 	// Initialise new data columns
-	delta := make([]*fr.Element, nrows)
-	bit := make([][]*fr.Element, ncols)
+	bit := make([]util.FrArray, ncols)
+	// Byte width records the largest width of any column.
+	byte_width := uint(0)
 
 	for i := 0; i < ncols; i++ {
-		bit[i] = make([]*fr.Element, nrows)
+		// TODO: following can be optimised to use a single bit per element,
+		// rather than an entire byte.
+		bit[i] = util.NewFrArray(nrows, 1)
+		ith := columns.Get(p.sources[i])
+		byte_width = max(byte_width, ith.Data().ByteWidth())
 	}
 
-	for i := 0; i < int(nrows); i++ {
+	delta := util.NewFrArray(nrows, byte_width)
+
+	for i := uint(0); i < nrows; i++ {
 		set := false
 		// Initialise delta to zero
-		delta[i] = &zero
+		delta.Set(i, &zero)
 		// Decide which row is the winner (if any)
 		for j := 0; j < ncols; j++ {
-			prev := columns.Get(p.sources[j]).Get(i - 1)
-			curr := columns.Get(p.sources[j]).Get(i)
+			prev := columns.Get(p.sources[j]).Get(int(i - 1))
+			curr := columns.Get(p.sources[j]).Get(int(i))
 
 			if !set && prev != nil && prev.Cmp(curr) != 0 {
 				var diff fr.Element
 
-				bit[j][i] = &one
+				bit[j].Set(i, &one)
 				// Compute curr - prev
 				if p.signs[j] {
 					diff.Set(curr)
-					delta[i] = diff.Sub(&diff, prev)
+					delta.Set(i, diff.Sub(&diff, prev))
 				} else {
 					diff.Set(prev)
-					delta[i] = diff.Sub(&diff, curr)
+					delta.Set(i, diff.Sub(&diff, curr))
 				}
 
 				set = true
 			} else {
-				bit[j][i] = &zero
+				bit[j].Set(i, &zero)
 			}
 		}
 	}
 	// Add delta column data
 	first := p.targets[0]
-	columns.Add(trace.NewFieldColumn(first.Context(), first.Name(), delta, &zero))
+	columns.Add(first.Context(), first.Name(), delta, &zero)
 	// Add bit column data
 	for i := 0; i < ncols; i++ {
 		ith := p.targets[1+i]
-		columns.Add(trace.NewFieldColumn(ith.Context(), ith.Name(), bit[i], &zero))
+		columns.Add(ith.Context(), ith.Name(), bit[i], &zero)
 	}
 	// Done.
 	return nil

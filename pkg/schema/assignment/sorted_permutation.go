@@ -3,7 +3,6 @@ package assignment
 import (
 	"fmt"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	tr "github.com/consensys/go-corset/pkg/trace"
@@ -132,20 +131,14 @@ func (p *SortedPermutation) ExpandTrace(tr tr.Trace) error {
 		}
 	}
 
-	cols := make([][]*fr.Element, len(p.sources))
+	cols := make([]util.FrArray, len(p.sources))
 	// Construct target columns
 	for i := 0; i < len(p.sources); i++ {
 		src := p.sources[i]
-		// Read column data to initialise permutation.
-		col := columns.Get(src)
-		// Copy column data to initialise permutation.
-		copy := make([]*fr.Element, col.Height())
-		//
-		for j := 0; j < int(col.Height()); j++ {
-			copy[j] = col.Get(j)
-		}
-		// Copy over
-		cols[i] = copy
+		// Read column data
+		data := columns.Get(src).Data()
+		// Clone it to initialise permutation.
+		cols[i] = data.Clone()
 	}
 	// Sort target columns
 	util.PermutationSort(cols, p.signs)
@@ -156,7 +149,7 @@ func (p *SortedPermutation) ExpandTrace(tr tr.Trace) error {
 		ith := i.Next()
 		dstColName := ith.Name()
 		srcCol := tr.Columns().Get(p.sources[index])
-		columns.Add(trace.NewFieldColumn(ith.Context(), dstColName, cols[index], srcCol.Padding()))
+		columns.Add(ith.Context(), dstColName, cols[index], srcCol.Padding())
 	}
 	//
 	return nil

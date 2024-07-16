@@ -6,7 +6,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 
@@ -80,12 +79,7 @@ func filterColumns(tr trace.Trace, prefix string) trace.Trace {
 		if strings.HasPrefix(qName, prefix) {
 			ith := tr.Columns().Get(i)
 			// Copy column data
-			data := make([]*fr.Element, ith.Height())
-			//
-			for j := 0; j < int(ith.Height()); j++ {
-				data[j] = ith.Get(j)
-			}
-
+			data := ith.Data().Clone()
 			err := builder.Add(qName, ith.Padding(), data)
 			// Sanity check
 			if err != nil {
@@ -102,9 +96,9 @@ func listColumns(tr trace.Trace) {
 	tbl := util.NewTablePrinter(3, n)
 
 	for i := uint(0); i < n; i++ {
-		ith := tr.Columns().Get(i)
-		elems := fmt.Sprintf("%d rows", ith.Height())
-		bytes := fmt.Sprintf("%d bytes", ith.Width()*ith.Height())
+		ith := tr.Columns().Get(i).Data()
+		elems := fmt.Sprintf("%d rows", ith.Len())
+		bytes := fmt.Sprintf("(%d*%d) = %d bytes", ith.Len(), ith.ByteWidth(), ith.ByteWidth()*ith.Len())
 		tbl.SetRow(i, QualifiedColumnName(i, tr), elems, bytes)
 	}
 
