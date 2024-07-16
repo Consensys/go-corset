@@ -3,7 +3,6 @@ package assignment
 import (
 	"fmt"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	tr "github.com/consensys/go-corset/pkg/trace"
@@ -132,7 +131,7 @@ func (p *SortedPermutation) ExpandTrace(tr tr.Trace) error {
 		}
 	}
 
-	cols := make([]util.Array[*fr.Element], len(p.sources))
+	cols := make([]util.FrArray, len(p.sources))
 	// Construct target columns
 	for i := 0; i < len(p.sources); i++ {
 		src := p.sources[i]

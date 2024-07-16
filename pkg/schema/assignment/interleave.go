@@ -92,7 +92,7 @@ func (p *Interleaving) ExpandTrace(tr tr.Trace) error {
 	// the interleaved column)
 	height := tr.Modules().Get(ctx.Module()).Height() * multiplier
 	// Construct empty array
-	data := util.NewFieldArray(height*width, uint8(byte_width))
+	data := util.NewFrArray(height*width, byte_width)
 	// Offset just gives the column index
 	offset := uint(0)
 	// Copy interleaved data

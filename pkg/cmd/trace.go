@@ -98,7 +98,7 @@ func listColumns(tr trace.Trace) {
 	for i := uint(0); i < n; i++ {
 		ith := tr.Columns().Get(i).Data()
 		elems := fmt.Sprintf("%d rows", ith.Len())
-		bytes := fmt.Sprintf("%d bytes", ith.ByteWidth()*ith.Len())
+		bytes := fmt.Sprintf("(%d*%d) = %d bytes", ith.Len(), ith.ByteWidth(), ith.ByteWidth()*ith.Len())
 		tbl.SetRow(i, QualifiedColumnName(i, tr), elems, bytes)
 	}
 

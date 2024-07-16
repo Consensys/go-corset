@@ -19,7 +19,7 @@ type Trace interface {
 // ColumnSet provides an interface to the declared columns within this trace.
 type ColumnSet interface {
 	// Add a new column to this column set.
-	Add(ctx Context, name string, data util.Array[*fr.Element], padding *fr.Element) uint
+	Add(ctx Context, name string, data util.FrArray, padding *fr.Element) uint
 	// Get the ith module in this set.
 	Get(uint) Column
 	// Determine index of given column, or return false if this fails.
@@ -40,7 +40,7 @@ type Column interface {
 	// Thus, this function always succeeds.
 	Get(row int) *fr.Element
 	// Access the underlying data array for this column
-	Data() util.Array[*fr.Element]
+	Data() util.FrArray
 	// Return the height (i.e. number of rows) of this column.
 	Height() uint
 	// Returns the evaluation context for this column.  That identifies the

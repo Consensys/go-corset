@@ -40,7 +40,7 @@ func (p *Builder) Build() Trace {
 // Add a new column to this trace based on a fully qualified column name.  This
 // splits the qualified column name and (if necessary) registers a new module
 // with the given height.
-func (p *Builder) Add(name string, padding *fr.Element, data util.Array[*fr.Element]) error {
+func (p *Builder) Add(name string, padding *fr.Element, data util.FrArray) error {
 	var err error
 	// Split qualified column name
 	modname, colname := p.splitQualifiedColumnName(name)

@@ -80,19 +80,19 @@ func (p *LexicographicSort) ExpandTrace(tr trace.Trace) error {
 	// Determine how many rows to be constrained.
 	nrows := tr.Modules().Get(p.context.Module()).Height() * multiplier
 	// Initialise new data columns
-	bit := make([]*util.FieldArray, ncols)
+	bit := make([]util.FrArray, ncols)
 	// Byte width records the largest width of any column.
 	byte_width := uint(0)
 
 	for i := 0; i < ncols; i++ {
 		// TODO: following can be optimised to use a single bit per element,
 		// rather than an entire byte.
-		bit[i] = util.NewFieldArray(nrows, 1)
+		bit[i] = util.NewFrArray(nrows, 1)
 		ith := columns.Get(p.sources[i])
 		byte_width = max(byte_width, ith.Data().ByteWidth())
 	}
 
-	delta := util.NewFieldArray(nrows, uint8(byte_width))
+	delta := util.NewFrArray(nrows, byte_width)
 
 	for i := uint(0); i < nrows; i++ {
 		set := false

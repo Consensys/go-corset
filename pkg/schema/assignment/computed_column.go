@@ -87,7 +87,7 @@ func (p *ComputedColumn[E]) ExpandTrace(tr trace.Trace) error {
 	// Determine multiplied height
 	height := tr.Modules().Get(p.target.Context().Module()).Height() * multiplier
 	// Make space for computed data
-	data := util.NewFieldArray(height, 32)
+	data := util.NewFrArray(height, 32)
 	// Expand the trace
 	for i := uint(0); i < data.Len(); i++ {
 		val := p.expr.EvalAt(int(i), tr)

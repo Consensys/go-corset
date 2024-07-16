@@ -103,7 +103,7 @@ type arrayTraceColumnSet struct {
 }
 
 // Add a new column to this column set.
-func (p arrayTraceColumnSet) Add(ctx Context, name string, data util.Array[*fr.Element], padding *fr.Element) uint {
+func (p arrayTraceColumnSet) Add(ctx Context, name string, data util.FrArray, padding *fr.Element) uint {
 	m := &p.trace.modules[ctx.Module()]
 	// Sanity check effective height
 	if data.Len() != (ctx.LengthMultiplier() * m.Height()) {
@@ -253,13 +253,13 @@ type ArrayTraceColumn struct {
 	// Holds the name of this column
 	name string
 	// Holds the raw data making up this column
-	data util.Array[*fr.Element]
+	data util.FrArray
 	// Value to be used when padding this column
 	padding *fr.Element
 }
 
 // NewArrayTraceColumn constructs a ArrayTraceColumn with the give name, data and padding.
-func NewArrayTraceColumn(context Context, name string, data util.Array[*fr.Element],
+func NewArrayTraceColumn(context Context, name string, data util.FrArray,
 	padding *fr.Element) *ArrayTraceColumn {
 	// Sanity check data length
 	if data.Len()%context.LengthMultiplier() != 0 {
@@ -290,7 +290,7 @@ func (p *ArrayTraceColumn) Padding() *fr.Element {
 }
 
 // Data provides access to the underlying data of this column
-func (p *ArrayTraceColumn) Data() util.Array[*fr.Element] {
+func (p *ArrayTraceColumn) Data() util.FrArray {
 	return p.data
 }
 

@@ -162,6 +162,7 @@ func checkTraceWithLoweringDefault(tr trace.Trace, hirSchema *hir.Schema, cfg ch
 }
 
 func checkTrace(tr trace.Trace, schema sc.Schema, cfg checkConfig) (trace.Trace, error) {
+	//
 	if cfg.expand {
 		// Clone to prevent interefence with subsequent checks
 		tr = tr.Clone()
@@ -186,12 +187,10 @@ func checkTrace(tr trace.Trace, schema sc.Schema, cfg checkConfig) (trace.Trace,
 			return tr, err
 		}
 	}
-
 	// Perform Alignment
 	if err := performAlignment(false, tr, schema, cfg); err != nil {
 		return tr, err
 	}
-
 	// Apply padding (as necessary)
 	for n := cfg.padding.Left; n <= cfg.padding.Right; n++ {
 		if ptr, err := padAndCheckTrace(n, tr, schema); err != nil {

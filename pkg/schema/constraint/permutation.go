@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
@@ -72,9 +71,9 @@ func (p *PermutationConstraint) String() string {
 	return fmt.Sprintf("(permutation (%s) (%s))", targets, sources)
 }
 
-func sliceColumns(columns []uint, tr trace.Trace) []util.Array[*fr.Element] {
+func sliceColumns(columns []uint, tr trace.Trace) []util.FrArray {
 	// Allocate return array
-	cols := make([]util.Array[*fr.Element], len(columns))
+	cols := make([]util.FrArray, len(columns))
 	// Slice out the data
 	for i, n := range columns {
 		nth := tr.Columns().Get(n)

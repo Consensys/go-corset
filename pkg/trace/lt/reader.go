@@ -94,8 +94,8 @@ func readColumnHeader(buf *bytes.Reader) (columnHeader, error) {
 	return header, nil
 }
 
-func readColumnData(header columnHeader, bytes []byte) *util.FieldArray {
-	data := util.NewFieldArray(header.length, uint8(header.width))
+func readColumnData(header columnHeader, bytes []byte) util.FrArray {
+	data := util.NewFrArray(header.length, header.width)
 	offset := uint(0)
 
 	for i := uint(0); i < header.length; i++ {
