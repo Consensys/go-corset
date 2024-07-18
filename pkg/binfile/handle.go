@@ -16,7 +16,7 @@ type Handle struct {
 }
 
 func asHandle(handle string) Handle {
-	split := strings.Split(handle, ":")
+	split := strings.Split(handle, ".")
 	// Easy
 	return Handle{split[0], split[1]}
 }
