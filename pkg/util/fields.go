@@ -1,6 +1,8 @@
 package util
 
 import (
+	"encoding/binary"
+
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
 
@@ -24,4 +26,17 @@ func Pow(val *fr.Element, n uint64) {
 			val.Square(val)
 		}
 	}
+}
+
+// FrElementToBytes converts a given field element into a slice of 32 bytes.
+func FrElementToBytes(element *fr.Element) [32]byte {
+	// Each fr.Element is 4 x 64bit words.
+	var bytes [32]byte
+	// Copy over each element
+	binary.BigEndian.PutUint64(bytes[:], element[0])
+	binary.BigEndian.PutUint64(bytes[8:], element[1])
+	binary.BigEndian.PutUint64(bytes[16:], element[2])
+	binary.BigEndian.PutUint64(bytes[24:], element[3])
+	// Done
+	return bytes
 }
