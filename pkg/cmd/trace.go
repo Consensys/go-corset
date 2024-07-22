@@ -26,6 +26,7 @@ var traceCmd = &cobra.Command{
 		// Parse trace
 		tr := readTraceFile(args[0])
 		list := getFlag(cmd, "list")
+		stats := getFlag(cmd, "stats")
 		print := getFlag(cmd, "print")
 		padding := getUint(cmd, "pad")
 		start := getUint(cmd, "start")
@@ -43,6 +44,9 @@ var traceCmd = &cobra.Command{
 		if list {
 			listColumns(tr)
 		}
+		if stats {
+			summaryStats(tr)
+		}
 		//
 		if output != "" {
 			writeTraceFile(output, tr)
@@ -57,6 +61,7 @@ var traceCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(traceCmd)
 	traceCmd.Flags().BoolP("list", "l", false, "list only the columns in the trace file")
+	traceCmd.Flags().Bool("stats", false, "print summary information about the trace file")
 	traceCmd.Flags().BoolP("print", "p", false, "print entire trace file")
 	traceCmd.Flags().Uint("pad", 0, "add a given number of padding rows (to each module)")
 	traceCmd.Flags().UintP("start", "s", 0, "filter out rows below this")
@@ -150,8 +155,22 @@ func listColumns(tr trace.Trace) {
 	tbl.Print()
 }
 
+func summaryStats(tr trace.Trace) {
+	m := uint(len(trSummarisers))
+	tbl := util.NewTablePrinter(2, m)
+	// Go!
+	for i := uint(0); i < m; i++ {
+		ith := trSummarisers[i]
+		summary := ith.summary(tr)
+		tbl.SetRow(i, ith.name, summary)
+	}
+	//
+	tbl.SetMaxWidth(64)
+	tbl.Print()
+}
+
 // ============================================================================
-// Column Reports
+// Column Summarisers
 // ============================================================================
 
 // ColSummariser abstracts the notion of a function which summarises the
@@ -190,4 +209,37 @@ func uniqueSummariser(col trace.Column) string {
 	}
 	// Done
 	return fmt.Sprintf("%d elements", elems.Size())
+}
+
+// ============================================================================
+// Trace Summarisers
+// ============================================================================
+
+type traceSummariser struct {
+	name    string
+	summary func(trace.Trace) string
+}
+
+var trSummarisers []traceSummariser = []traceSummariser{
+	trWidthSummariser(1, 8),
+	trWidthSummariser(9, 16),
+	trWidthSummariser(17, 32),
+	trWidthSummariser(33, 128),
+	trWidthSummariser(129, 256),
+}
+
+func trWidthSummariser(lowWidth uint, highWidth uint) traceSummariser {
+	return traceSummariser{
+		name: fmt.Sprintf("# Columns (%d..%d bits)", lowWidth, highWidth),
+		summary: func(tr trace.Trace) string {
+			count := 0
+			for i := uint(0); i < tr.Columns().Len(); i++ {
+				ithWidth := tr.Columns().Get(i).Data().ByteWidth() * 8
+				if ithWidth >= lowWidth && ithWidth <= highWidth {
+					count++
+				}
+			}
+			return fmt.Sprintf("%d", count)
+		},
+	}
 }
