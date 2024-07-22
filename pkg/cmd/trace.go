@@ -134,7 +134,7 @@ func printTrace(start uint, end uint, max_width uint, tr trace.Trace) {
 
 func listColumns(tr trace.Trace) {
 	// Determine number of columns
-	m := 1 + uint(len(summarisers))
+	m := 1 + uint(len(colSummarisers))
 	// Determine number of rows
 	n := tr.Columns().Len()
 	// Go!
@@ -145,8 +145,8 @@ func listColumns(tr trace.Trace) {
 		row := make([]string, m)
 		row[0] = QualifiedColumnName(i, tr)
 		// Add summarises
-		for j := 0; j < len(summarisers); j++ {
-			row[j+1] = summarisers[j].summary(ith)
+		for j := 0; j < len(colSummarisers); j++ {
+			row[j+1] = colSummarisers[j].summary(ith)
 		}
 		tbl.SetRow(i, row...)
 	}
@@ -180,7 +180,7 @@ type ColSummariser struct {
 	summary func(trace.Column) string
 }
 
-var summarisers []ColSummariser = []ColSummariser{
+var colSummarisers []ColSummariser = []ColSummariser{
 	{"count", rowSummariser},
 	{"width", widthSummariser},
 	{"bytes", bytesSummariser},

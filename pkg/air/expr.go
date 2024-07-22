@@ -185,7 +185,7 @@ type ColumnAccess struct {
 
 // NewColumnAccess constructs an AIR expression representing the value of a given
 // column on the current row.
-func NewColumnAccess(column uint, shift int) Expr {
+func NewColumnAccess(column uint, shift int) *ColumnAccess {
 	return &ColumnAccess{column, shift}
 }
 
