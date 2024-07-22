@@ -8,7 +8,6 @@ import (
 
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
-
 	"github.com/spf13/cobra"
 )
 
@@ -55,6 +54,18 @@ var traceCmd = &cobra.Command{
 	},
 }
 
+func init() {
+	rootCmd.AddCommand(traceCmd)
+	traceCmd.Flags().BoolP("list", "l", false, "list only the columns in the trace file")
+	traceCmd.Flags().BoolP("print", "p", false, "print entire trace file")
+	traceCmd.Flags().Uint("pad", 0, "add a given number of padding rows (to each module)")
+	traceCmd.Flags().UintP("start", "s", 0, "filter out rows below this")
+	traceCmd.Flags().UintP("end", "e", math.MaxUint, "filter out this and all following rows")
+	traceCmd.Flags().Uint("max-width", 32, "specify maximum display width for a column")
+	traceCmd.Flags().StringP("out", "o", "", "Specify output file to write trace")
+	traceCmd.Flags().StringP("filter", "f", "", "Filter columns beginning with prefix")
+}
+
 // Construct a new trace containing only those columns from the original who
 // name begins with the given prefix.
 func filterColumns(tr trace.Trace, prefix string) trace.Trace {
@@ -90,23 +101,6 @@ func filterColumns(tr trace.Trace, prefix string) trace.Trace {
 	// Done
 	return builder.Build()
 }
-
-func listColumns(tr trace.Trace) {
-	n := tr.Columns().Len()
-	tbl := util.NewTablePrinter(3, n)
-
-	for i := uint(0); i < n; i++ {
-		ith := tr.Columns().Get(i).Data()
-		elems := fmt.Sprintf("%d rows", ith.Len())
-		bytes := fmt.Sprintf("(%d*%d) = %d bytes", ith.Len(), ith.ByteWidth(), ith.ByteWidth()*ith.Len())
-		tbl.SetRow(i, QualifiedColumnName(i, tr), elems, bytes)
-	}
-
-	//
-	tbl.SetMaxWidth(64)
-	tbl.Print()
-}
-
 func printTrace(start uint, end uint, max_width uint, tr trace.Trace) {
 	cols := tr.Columns()
 	n := tr.Columns().Len()
@@ -133,14 +127,67 @@ func printTrace(start uint, end uint, max_width uint, tr trace.Trace) {
 	tbl.Print()
 }
 
-func init() {
-	rootCmd.AddCommand(traceCmd)
-	traceCmd.Flags().BoolP("list", "l", false, "list only the columns in the trace file")
-	traceCmd.Flags().BoolP("print", "p", false, "print entire trace file")
-	traceCmd.Flags().Uint("pad", 0, "add a given number of padding rows (to each module)")
-	traceCmd.Flags().UintP("start", "s", 0, "filter out rows below this")
-	traceCmd.Flags().UintP("end", "e", math.MaxUint, "filter out this and all following rows")
-	traceCmd.Flags().Uint("max-width", 32, "specify maximum display width for a column")
-	traceCmd.Flags().StringP("out", "o", "", "Specify output file to write trace")
-	traceCmd.Flags().StringP("filter", "f", "", "Filter columns beginning with prefix")
+func listColumns(tr trace.Trace) {
+	// Determine number of columns
+	m := 1 + uint(len(summarisers))
+	// Determine number of rows
+	n := tr.Columns().Len()
+	// Go!
+	tbl := util.NewTablePrinter(m, n)
+
+	for i := uint(0); i < n; i++ {
+		ith := tr.Columns().Get(i)
+		row := make([]string, m)
+		row[0] = QualifiedColumnName(i, tr)
+		// Add summarises
+		for j := 0; j < len(summarisers); j++ {
+			row[j+1] = summarisers[j].summary(ith)
+		}
+		tbl.SetRow(i, row...)
+	}
+	//
+	tbl.SetMaxWidth(64)
+	tbl.Print()
+}
+
+// ============================================================================
+// Column Reports
+// ============================================================================
+
+// ColSummariser abstracts the notion of a function which summarises the
+// contents of a given column.
+type ColSummariser struct {
+	name    string
+	summary func(trace.Column) string
+}
+
+var summarisers []ColSummariser = []ColSummariser{
+	{"count", rowSummariser},
+	{"width", widthSummariser},
+	{"bytes", bytesSummariser},
+	{"unique", uniqueSummariser},
+}
+
+func rowSummariser(col trace.Column) string {
+	return fmt.Sprintf("%d rows", col.Data().Len())
+}
+
+func widthSummariser(col trace.Column) string {
+	return fmt.Sprintf("%d bits", col.Data().ByteWidth()*8)
+}
+
+func bytesSummariser(col trace.Column) string {
+	return fmt.Sprintf("%d bytes", col.Data().Len()*col.Data().ByteWidth())
+}
+
+func uniqueSummariser(col trace.Column) string {
+	data := col.Data()
+	elems := util.NewHashSet[util.BytesKey](data.Len() / 2)
+	// Add all the elements
+	for i := uint(0); i < data.Len(); i++ {
+		bytes := util.FrElementToBytes(data.Get(i))
+		elems.Insert(util.NewBytesKey(bytes[:]))
+	}
+	// Done
+	return fmt.Sprintf("%d elements", elems.Size())
 }
