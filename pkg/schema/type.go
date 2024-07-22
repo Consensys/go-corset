@@ -14,17 +14,15 @@ type Type interface {
 	// AsUint accesses this type as an unsigned integer.  If this type is not an
 	// unsigned integer, then this returns nil.
 	AsUint() *UintType
-
 	// AsField accesses this type as a field element.  If this type is not a
 	// field element, then this returns nil.
 	AsField() *FieldType
-
 	// Accept checks whether a specific value is accepted by this type
 	Accept(*fr.Element) bool
-
 	// Return the number of bytes required represent any element of this type.
 	ByteWidth() uint
-
+	// Return the minimum number of bits required represent any element of this type.
+	BitWidth() uint
 	// Produce a string representation of this type.
 	String() string
 }
@@ -124,6 +122,12 @@ func (p *FieldType) AsField() *FieldType {
 // type.
 func (p *FieldType) ByteWidth() uint {
 	return 32
+}
+
+// BitWidth returns the bitwidth of this type.  For example, the
+// bitwidth of the type u8 is 8.
+func (p *FieldType) BitWidth() uint {
+	return p.ByteWidth() * 8
 }
 
 // Accept determines whether a given value is an element of this type.  In
