@@ -167,43 +167,43 @@ func lowerTo(e Expr, schema *mir.Schema) []mir.Expr {
 	mes := make([]mir.Expr, len(es))
 	//
 	for i, e := range es {
-		c := lowerCondition(e, schema)
-		b := lowerBody(e, schema)
+		c := extractCondition(e, schema)
+		b := extractBody(e, schema)
 		mes[i] = mul2(c, b)
 	}
 	// Done
 	return mes
 }
 
-// Lower the "condition" of an expression.  Every expression can be view as a
+// Extract the "condition" of an expression.  Every expression can be view as a
 // conditional constraint of the form "if c then e", where "c" is the condition.
 // This is allowed to return nil if the body is unconditional.
-func lowerCondition(e Expr, schema *mir.Schema) mir.Expr {
+func extractCondition(e Expr, schema *mir.Schema) mir.Expr {
 	if p, ok := e.(*Add); ok {
-		return lowerConditions(p.Args, schema)
+		return extractConditions(p.Args, schema)
 	} else if _, ok := e.(*Constant); ok {
 		return nil
 	} else if _, ok := e.(*ColumnAccess); ok {
 		return nil
 	} else if p, ok := e.(*Mul); ok {
-		return lowerConditions(p.Args, schema)
+		return extractConditions(p.Args, schema)
 	} else if p, ok := e.(*Normalise); ok {
-		return lowerCondition(p.Arg, schema)
+		return extractCondition(p.Arg, schema)
 	} else if p, ok := e.(*Exp); ok {
-		return lowerCondition(p.Arg, schema)
+		return extractCondition(p.Arg, schema)
 	} else if p, ok := e.(*IfZero); ok {
 		return lowerIfZeroCondition(p, schema)
 	} else if p, ok := e.(*Sub); ok {
-		return lowerConditions(p.Args, schema)
+		return extractConditions(p.Args, schema)
 	}
 	// Should be unreachable
 	panic(fmt.Sprintf("unknown expression: %s", e.String()))
 }
 
-func lowerConditions(es []Expr, schema *mir.Schema) mir.Expr {
+func extractConditions(es []Expr, schema *mir.Schema) mir.Expr {
 	var r mir.Expr = nil
 	for _, e := range es {
-		r = mul2(r, lowerCondition(e, schema))
+		r = mul2(r, extractCondition(e, schema))
 	}
 
 	return r
@@ -214,8 +214,8 @@ func lowerConditions(es []Expr, schema *mir.Schema) mir.Expr {
 func lowerIfZeroCondition(e *IfZero, schema *mir.Schema) mir.Expr {
 	var bc mir.Expr
 	// Lower condition
-	cc := lowerCondition(e.Condition, schema)
-	cb := lowerBody(e.Condition, schema)
+	cc := extractCondition(e.Condition, schema)
+	cb := extractBody(e.Condition, schema)
 	// Add conditions arising
 	if e.TrueBranch != nil && e.FalseBranch != nil {
 		// Expansion should ensure this case does not exist.  This is necessary
@@ -236,10 +236,10 @@ func lowerIfZeroCondition(e *IfZero, schema *mir.Schema) mir.Expr {
 
 		cb = oneMinusNormBody
 		// Lower conditional's arising from body
-		bc = lowerCondition(e.TrueBranch, schema)
+		bc = extractCondition(e.TrueBranch, schema)
 	} else {
 		// Lower conditional's arising from body
-		bc = lowerCondition(e.FalseBranch, schema)
+		bc = extractCondition(e.FalseBranch, schema)
 	}
 	//
 	return mul3(cc, cb, bc)
@@ -248,41 +248,41 @@ func lowerIfZeroCondition(e *IfZero, schema *mir.Schema) mir.Expr {
 // Translate the "body" of an expression.  Every expression can be view as a
 // conditional constraint of the form "if c then e", where "e" is the
 // constraint.
-func lowerBody(e Expr, schema *mir.Schema) mir.Expr {
+func extractBody(e Expr, schema *mir.Schema) mir.Expr {
 	if p, ok := e.(*Add); ok {
-		return &mir.Add{Args: lowerBodies(p.Args, schema)}
+		return &mir.Add{Args: extractBodies(p.Args, schema)}
 	} else if p, ok := e.(*Constant); ok {
 		return &mir.Constant{Value: p.Val}
 	} else if p, ok := e.(*ColumnAccess); ok {
 		return &mir.ColumnAccess{Column: p.Column, Shift: p.Shift}
 	} else if p, ok := e.(*Mul); ok {
-		return &mir.Mul{Args: lowerBodies(p.Args, schema)}
+		return &mir.Mul{Args: extractBodies(p.Args, schema)}
 	} else if p, ok := e.(*Exp); ok {
-		return &mir.Exp{Arg: lowerBody(p.Arg, schema), Pow: p.Pow}
+		return &mir.Exp{Arg: extractBody(p.Arg, schema), Pow: p.Pow}
 	} else if p, ok := e.(*Normalise); ok {
-		return &mir.Normalise{Arg: lowerBody(p.Arg, schema)}
+		return &mir.Normalise{Arg: extractBody(p.Arg, schema)}
 	} else if p, ok := e.(*IfZero); ok {
 		if p.TrueBranch != nil && p.FalseBranch != nil {
 			// Expansion should ensure this case does not exist.  This is necessary
 			// to ensure exactly one expression is generated from this expression.
 			panic(fmt.Sprintf("unexpanded expression (%s)", e.String()))
 		} else if p.TrueBranch != nil {
-			return lowerBody(p.TrueBranch, schema)
+			return extractBody(p.TrueBranch, schema)
 		}
 		// Done
-		return lowerBody(p.FalseBranch, schema)
+		return extractBody(p.FalseBranch, schema)
 	} else if p, ok := e.(*Sub); ok {
-		return &mir.Sub{Args: lowerBodies(p.Args, schema)}
+		return &mir.Sub{Args: extractBodies(p.Args, schema)}
 	}
 	// Should be unreachable
 	panic(fmt.Sprintf("unknown expression: %s", e.String()))
 }
 
-// Lower a vector of expanded expressions to the MIR level.
-func lowerBodies(es []Expr, schema *mir.Schema) []mir.Expr {
+// Extract a vector of expanded expressions to the MIR level.
+func extractBodies(es []Expr, schema *mir.Schema) []mir.Expr {
 	rs := make([]mir.Expr, len(es))
 	for i, e := range es {
-		rs[i] = lowerBody(e, schema)
+		rs[i] = extractBody(e, schema)
 	}
 
 	return rs
