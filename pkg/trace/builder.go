@@ -18,7 +18,7 @@ type Builder struct {
 	modules []Module
 	// Mapping from name to module index
 	modmap map[string]uint
-	//  Set of known columns
+	// Set of known columns
 	columns []*ArrayTraceColumn
 }
 

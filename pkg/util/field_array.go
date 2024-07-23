@@ -38,7 +38,7 @@ type FrArray = Array[*fr.Element]
 func NewFrArray(height uint, width uint) FrArray {
 	switch width {
 	case 1, 2:
-		return NewFrByteArray(height, uint8(width))
+		return NewIndexArray(height, width*8)
 	default:
 		return NewFrElementArray(height)
 	}
@@ -231,6 +231,123 @@ func (p *FrElementArray) Write(w io.Writer) error {
 	for _, e := range p.elements {
 		// Read exactly 32 bytes
 		bytes := e.Bytes()
+		// Write them out
+		if _, err := w.Write(bytes[:]); err != nil {
+			return err
+		}
+	}
+	//
+	return nil
+}
+
+// ----------------------------------------------------------------------------
+
+// FrIndexArray implements an array of field elements using an index to pool
+// identical elements.  Specificially, an array of all elements upto a certain
+// bound is used as the index.
+type FrIndexArray struct {
+	// Elements in this array, where each is an index into the pool.
+	elements []uint16
+	// Determines how many bits are required to hold an element of this array.
+	bitwidth uint
+}
+
+var pool16bit []fr.Element
+
+// Initialise the index pool.
+func initPool() {
+	if pool16bit == nil {
+		// Construct empty array
+		pool16bit = make([]fr.Element, 65536)
+		// Initialise array
+		for i := uint(0); i < 65536; i++ {
+			pool16bit[i] = fr.NewElement(uint64(i))
+		}
+	}
+}
+
+// NewIndexArray constructs a new field array with a given capacity.
+func NewIndexArray(height uint, bitwidth uint) *FrIndexArray {
+	// Ensure pool initialised
+	initPool()
+	// Sanity check pool makes sense
+	if bitwidth > 16 {
+		panic("invalid bitwidth for index array")
+	}
+	// Create empty array
+	elements := make([]uint16, height)
+	// Done
+	return &FrIndexArray{elements, bitwidth}
+}
+
+// Len returns the number of elements in this field array.
+func (p *FrIndexArray) Len() uint {
+	return uint(len(p.elements))
+}
+
+// ByteWidth returns the width of elements in this array.
+func (p *FrIndexArray) ByteWidth() uint {
+	bw := p.bitwidth / 8
+	if p.bitwidth%8 != 0 {
+		bw++
+	}
+
+	return bw
+}
+
+// Get returns the field element at the given index in this array.
+func (p *FrIndexArray) Get(index uint) *fr.Element {
+	i := p.elements[index]
+	return &pool16bit[i]
+}
+
+// Set sets the field element at the given index in this array, overwriting the
+// original value.
+func (p *FrIndexArray) Set(index uint, element *fr.Element) {
+	val := element.Uint64()
+
+	if !element.IsUint64() || val >= 65536 {
+		panic("field element out-of-bounds")
+	}
+
+	p.elements[index] = uint16(val)
+}
+
+// Clone makes clones of this array producing an otherwise identical copy.
+func (p *FrIndexArray) Clone() Array[*fr.Element] {
+	// Allocate sufficient memory
+	ndata := make([]uint16, len(p.elements))
+	// Copy over the data
+	copy(ndata, p.elements)
+	//
+	return &FrIndexArray{ndata, p.bitwidth}
+}
+
+// PadFront (i.e. insert at the beginning) this array with n copies of the given padding value.
+func (p *FrIndexArray) PadFront(n uint, padding *fr.Element) Array[*fr.Element] {
+	// Extract padding index
+	val := padding.Uint64()
+	if !padding.IsUint64() || val >= 65536 {
+		panic("field element out-of-bounds")
+	}
+	// Allocate sufficient memory
+	nelements := make([]uint16, uint(len(p.elements))+n)
+	// Copy over the data
+	copy(nelements[n:], p.elements)
+	// Go padding!
+	for i := uint(0); i < n; i++ {
+		nelements[i] = uint16(val)
+	}
+	// Copy over
+	return &FrIndexArray{nelements, p.bitwidth}
+}
+
+// Write the raw bytes of this column to a given writer, returning an error
+// if this failed (for some reason).
+func (p *FrIndexArray) Write(w io.Writer) error {
+	for _, i := range p.elements {
+		// Read exactly 32 bytes
+		bytes := pool16bit[i].Bytes()
 		// Write them out
 		if _, err := w.Write(bytes[:]); err != nil {
 			return err

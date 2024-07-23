@@ -12,6 +12,7 @@ import (
 // FromBytes parses a byte array representing a given LT trace file into an
 // columns, or produces an error if the original file was malformed in some way.
 func FromBytes(data []byte) (trace.Trace, error) {
+	//
 	var zero fr.Element = fr.NewElement((0))
 	// Construct new bytes.Reader
 	buf := bytes.NewReader(data)
@@ -95,7 +96,9 @@ func readColumnHeader(buf *bytes.Reader) (columnHeader, error) {
 }
 
 func readColumnData(header columnHeader, bytes []byte) util.FrArray {
+	// Construct array
 	data := util.NewFrArray(header.length, header.width)
+	// Assign elements
 	offset := uint(0)
 
 	for i := uint(0); i < header.length; i++ {
