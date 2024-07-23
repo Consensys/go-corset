@@ -356,3 +356,91 @@ func (p *FrIndexArray) Write(w io.Writer) error {
 	//
 	return nil
 }
+
+// ----------------------------------------------------------------------------
+
+// FrPoolArray implements an array of field elements using an index to pool
+// identical elements.  Specificially, an array of all elements upto a certain
+// bound is used as the index.
+type FrPoolArray[K any] struct {
+	pool FrPool[K]
+	// Elements in this array, where each is an index into the pool.
+	elements []K
+	// Determines how many bits are required to hold an element of this array.
+	bitwidth uint
+}
+
+// NewMapArray constructs a new field array with a given capacity.
+func NewMapArray[K any](height uint, bitwidth uint, pool FrPool[K]) *FrPoolArray[K] {
+	// Create empty array
+	elements := make([]K, height)
+	// Done
+	return &FrPoolArray[K]{pool, elements, bitwidth}
+}
+
+// Len returns the number of elements in this field array.
+func (p *FrPoolArray[K]) Len() uint {
+	return uint(len(p.elements))
+}
+
+// ByteWidth returns the width of elements in this array.
+func (p *FrPoolArray[K]) ByteWidth() uint {
+	bw := p.bitwidth / 8
+	if p.bitwidth%8 != 0 {
+		bw++
+	}
+
+	return bw
+}
+
+// Get returns the field element at the given index in this array.
+func (p *FrPoolArray[K]) Get(index uint) *fr.Element {
+	key := p.elements[index]
+	return p.pool.Get(key)
+}
+
+// Set sets the field element at the given index in this array, overwriting the
+// original value.
+func (p *FrPoolArray[K]) Set(index uint, element *fr.Element) {
+	p.elements[index] = p.pool.Put(element)
+}
+
+// Clone makes clones of this array producing an otherwise identical copy.
+func (p *FrPoolArray[K]) Clone() Array[*fr.Element] {
+	// Allocate sufficient memory
+	ndata := make([]K, len(p.elements))
+	// Copy over the data
+	copy(ndata, p.elements)
+	//
+	return &FrPoolArray[K]{p.pool, ndata, p.bitwidth}
+}
+
+// PadFront (i.e. insert at the beginning) this array with n copies of the given padding value.
+func (p *FrPoolArray[K]) PadFront(n uint, padding *fr.Element) Array[*fr.Element] {
+	key := p.pool.Put(padding)
+	// Allocate sufficient memory
+	nelements := make([]K, uint(len(p.elements))+n)
+	// Copy over the data
+	copy(nelements[n:], p.elements)
+	// Go padding!
+	for i := uint(0); i < n; i++ {
+		nelements[i] = key
+	}
+	// Copy over
+	return &FrPoolArray[K]{p.pool, nelements, p.bitwidth}
+}
+
+// Write the raw bytes of this column to a given writer, returning an error
+// if this failed (for some reason).
+func (p *FrPoolArray[K]) Write(w io.Writer) error {
+	for _, i := range p.elements {
+		// Read exactly 32 bytes
+		bytes := p.pool.Get(i).Bytes()
+		// Write them out
+		if _, err := w.Write(bytes[:]); err != nil {
+			return err
+		}
+	}
+	//
+	return nil
+}
