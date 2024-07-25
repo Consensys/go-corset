@@ -97,7 +97,7 @@ func readColumnHeader(buf *bytes.Reader) (columnHeader, error) {
 
 func readColumnData(header columnHeader, bytes []byte) util.FrArray {
 	// Construct array
-	data := util.NewFrArray(header.length, header.width)
+	data := util.NewFrArray(header.length, header.width*8)
 	// Assign elements
 	offset := uint(0)
 

@@ -27,7 +27,7 @@ func FromBytes(bytes []byte) (trace.Trace, error) {
 	for name, rawInts := range rawData {
 		// Translate raw bigints into raw field elements
 		// TODO: support native field widths in column name.
-		rawElements := util.FrArrayFromBigInts(32, rawInts)
+		rawElements := util.FrArrayFromBigInts(256, rawInts)
 		// Add column and sanity check for errors
 		if err := builder.Add(name, &zero, rawElements); err != nil {
 			return nil, err

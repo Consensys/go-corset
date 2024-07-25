@@ -192,7 +192,7 @@ func extractCondition(e Expr, schema *mir.Schema) mir.Expr {
 	} else if p, ok := e.(*Exp); ok {
 		return extractCondition(p.Arg, schema)
 	} else if p, ok := e.(*IfZero); ok {
-		return lowerIfZeroCondition(p, schema)
+		return extractIfZeroCondition(p, schema)
 	} else if p, ok := e.(*Sub); ok {
 		return extractConditions(p.Args, schema)
 	}
@@ -209,9 +209,9 @@ func extractConditions(es []Expr, schema *mir.Schema) mir.Expr {
 	return r
 }
 
-// Lowering conditional expressions is slightly more complex than others, so it
-// gets a case of its own.
-func lowerIfZeroCondition(e *IfZero, schema *mir.Schema) mir.Expr {
+// Extracting from conditional expressions is slightly more complex than others,
+// so it gets a case of its own.
+func extractIfZeroCondition(e *IfZero, schema *mir.Schema) mir.Expr {
 	var bc mir.Expr
 	// Lower condition
 	cc := extractCondition(e.Condition, schema)
