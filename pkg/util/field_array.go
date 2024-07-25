@@ -47,7 +47,9 @@ func NewFrArray(height uint, bitWidth uint) FrArray {
 		var pool FrIndexPool[uint16] = NewFrIndexPool[uint16]()
 		return NewFrPoolArray[uint16](height, bitWidth, pool)
 	default:
-		return NewFrElementArray(height, bitWidth)
+		// return NewFrElementArray(height, bitWidth)
+		var pool FrMapPool = NewFrMapPool(bitWidth)
+		return NewFrPoolArray[uint32](height, bitWidth, pool)
 	}
 }
 
@@ -75,14 +77,14 @@ func FrArrayFromBigInts(bitWidth uint, ints []*big.Int) FrArray {
 // etc.
 type FrElementArray struct {
 	// The data stored in this column (as bytes).
-	elements []*fr.Element
+	elements []fr.Element
 	// Maximum number of bits required to store an element of this array.
 	bitwidth uint
 }
 
 // NewFrElementArray constructs a new field array with a given capacity.
 func NewFrElementArray(height uint, bitwidth uint) *FrElementArray {
-	elements := make([]*fr.Element, height)
+	elements := make([]fr.Element, height)
 	return &FrElementArray{elements, bitwidth}
 }
 
@@ -98,19 +100,19 @@ func (p *FrElementArray) BitWidth() uint {
 
 // Get returns the field element at the given index in this array.
 func (p *FrElementArray) Get(index uint) *fr.Element {
-	return p.elements[index]
+	return &p.elements[index]
 }
 
 // Set sets the field element at the given index in this array, overwriting the
 // original value.
 func (p *FrElementArray) Set(index uint, element *fr.Element) {
-	p.elements[index] = element
+	p.elements[index] = *element
 }
 
 // Clone makes clones of this array producing an otherwise identical copy.
 func (p *FrElementArray) Clone() Array[*fr.Element] {
 	// Allocate sufficient memory
-	ndata := make([]*fr.Element, uint(len(p.elements)))
+	ndata := make([]fr.Element, uint(len(p.elements)))
 	// Copy over the data
 	copy(ndata, p.elements)
 	//
@@ -120,12 +122,12 @@ func (p *FrElementArray) Clone() Array[*fr.Element] {
 // PadFront (i.e. insert at the beginning) this array with n copies of the given padding value.
 func (p *FrElementArray) PadFront(n uint, padding *fr.Element) Array[*fr.Element] {
 	// Allocate sufficient memory
-	ndata := make([]*fr.Element, uint(len(p.elements))+n)
+	ndata := make([]fr.Element, uint(len(p.elements))+n)
 	// Copy over the data
 	copy(ndata[n:], p.elements)
 	// Go padding!
 	for i := uint(0); i < n; i++ {
-		ndata[i] = padding
+		ndata[i] = *padding
 	}
 	// Copy over
 	return &FrElementArray{ndata, p.bitwidth}
@@ -190,6 +192,7 @@ func (p *FrPoolArray[K, P]) Set(index uint, element *fr.Element) {
 }
 
 // Clone makes clones of this array producing an otherwise identical copy.
+// nolint: revive
 func (p *FrPoolArray[K, P]) Clone() Array[*fr.Element] {
 	// Allocate sufficient memory
 	ndata := make([]K, len(p.elements))

@@ -16,10 +16,70 @@ type FrPool[K any] interface {
 	Get(K) *fr.Element
 }
 
-// FrSmallPoolIndex provides a simple charactirisation of types which can be
-// used to lookup into indexed pools.
-type FrSmallPoolIndex interface {
-	uint8 | uint16
+// ----------------------------------------------------------------------------
+
+// FrMapPool is a pool implementation indexed using a map and backed using a
+// dynamically sized array.
+type FrMapPool struct {
+	bitwidth uint
+}
+
+// NewFrMapPool constructs a new pool which uses map to index items.
+func NewFrMapPool(bitwidth uint) FrMapPool {
+	initMapPool()
+	return FrMapPool{bitwidth}
+}
+
+// Get looks up the given item in the pool.
+func (p FrMapPool) Get(index uint32) *fr.Element {
+	poolMapLock.RLock()
+	item := &poolMapArray[index]
+	poolMapLock.RUnlock()
+
+	return item
+}
+
+// Put allocates an item into the pool, returning its index.
+func (p FrMapPool) Put(element *fr.Element) uint32 {
+	// Lock items
+	poolMapLock.Lock()
+	index, ok := poolMapIndex[*element]
+	//
+	if !ok {
+		len := uint32(len(poolMapArray))
+		index = poolMapSize
+		// Update index
+		poolMapIndex[*element] = index
+		//
+		if index == len {
+			// capacity reached, so double it.
+			tmp := make([]fr.Element, len*5)
+			copy(tmp, poolMapArray)
+			poolMapArray = tmp
+		}
+		//
+		poolMapArray[index] = *element
+		poolMapSize++
+	}
+	// Done
+	poolMapLock.Unlock()
+	//
+	return index
+}
+
+var poolMapLock sync.RWMutex
+var poolMapIndex map[[4]uint64]uint32
+var poolMapArray []fr.Element
+var poolMapSize uint32
+
+func initMapPool() {
+	poolMapLock.Lock()
+	if poolMapIndex == nil {
+		// Initial capacity for 500 elements
+		poolMapIndex = make(map[[4]uint64]uint32, 1000)
+		poolMapArray = make([]fr.Element, 1000)
+	}
+	poolMapLock.Unlock()
 }
 
 // ----------------------------------------------------------------------------
@@ -31,7 +91,7 @@ type FrBitPool struct{}
 
 // NewFrBitPool constructs a new pool which uses a single bit for indexing.
 func NewFrBitPool() FrBitPool {
-	initPool()
+	initPool16()
 	//
 	return FrBitPool{}
 }
@@ -63,12 +123,12 @@ func (p FrBitPool) Put(element *fr.Element) bool {
 
 // FrIndexPool is a pool implementation which is backed by an array of a fixed
 // size.
-type FrIndexPool[K FrSmallPoolIndex] struct{}
+type FrIndexPool[K uint8 | uint16] struct{}
 
 // NewFrIndexPool constructs a new pool which uses a given key type for
 // indexing.
-func NewFrIndexPool[K FrSmallPoolIndex]() FrIndexPool[K] {
-	initPool()
+func NewFrIndexPool[K uint8 | uint16]() FrIndexPool[K] {
+	initPool16()
 	//
 	return FrIndexPool[K]{}
 }
@@ -96,7 +156,7 @@ var pool16init sync.Once
 var pool16bit []fr.Element
 
 // Initialise the index pool.
-func initPool() {
+func initPool16() {
 	// Singleton pattern for initialisation.
 	pool16init.Do(func() {
 		// Construct empty array
