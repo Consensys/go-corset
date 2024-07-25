@@ -43,6 +43,8 @@ type Schema struct {
 	constraints []schema.Constraint
 	// Property assertions.
 	assertions []PropertyAssertion
+	// Cache list of columns declared in inputs and assignments.
+	column_cache []schema.Column
 }
 
 // EmptySchema is used to construct a fresh schema onto which new columns and
@@ -54,6 +56,7 @@ func EmptySchema[C schema.Evaluable]() *Schema {
 	p.assignments = make([]schema.Assignment, 0)
 	p.constraints = make([]schema.Constraint, 0)
 	p.assertions = make([]PropertyAssertion, 0)
+	p.column_cache = make([]schema.Column, 0)
 	// Done
 	return p
 }
@@ -73,9 +76,14 @@ func (p *Schema) AddColumn(context trace.Context, name string, datatype schema.T
 		panic(fmt.Sprintf("invalid module index (%d)", context.Module()))
 	}
 
+	col := assignment.NewDataColumn(context, name, datatype)
 	// NOTE: the air level has no ability to enforce the type specified for a
 	// given column.
-	p.inputs = append(p.inputs, assignment.NewDataColumn(context, name, datatype))
+	p.inputs = append(p.inputs, col)
+	// Update column cache
+	for c := col.Columns(); c.HasNext(); {
+		p.column_cache = append(p.column_cache, c.Next())
+	}
 	// Calculate column index
 	return uint(len(p.inputs) - 1)
 }
@@ -86,6 +94,10 @@ func (p *Schema) AddColumn(context trace.Context, name string, datatype schema.T
 func (p *Schema) AddAssignment(c schema.Assignment) uint {
 	index := p.Columns().Count()
 	p.assignments = append(p.assignments, c)
+	// Update column cache
+	for c := c.Columns(); c.HasNext(); {
+		p.column_cache = append(p.column_cache, c.Next())
+	}
 
 	return index
 }
@@ -156,13 +168,7 @@ func (p *Schema) Assignments() util.Iterator[schema.Assignment] {
 // Columns returns an array over the underlying columns of this schema.
 // Specifically, the index of a column in this array is its column index.
 func (p *Schema) Columns() util.Iterator[schema.Column] {
-	inputs := util.NewArrayIterator(p.inputs)
-	is := util.NewFlattenIterator[schema.Declaration, schema.Column](inputs,
-		func(d schema.Declaration) util.Iterator[schema.Column] { return d.Columns() })
-	ps := util.NewFlattenIterator[schema.Assignment, schema.Column](p.Assignments(),
-		func(d schema.Assignment) util.Iterator[schema.Column] { return d.Columns() })
-	//
-	return is.Append(ps)
+	return util.NewArrayIterator(p.column_cache)
 }
 
 // Constraints returns an array over the underlying constraints of this

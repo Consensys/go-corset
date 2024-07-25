@@ -45,6 +45,8 @@ type Schema struct {
 	constraints []sc.Constraint
 	// The property assertions for this schema.
 	assertions []PropertyAssertion
+	// Cache list of columns declared in inputs and assignments.
+	column_cache []sc.Column
 }
 
 // EmptySchema is used to construct a fresh schema onto which new columns and
@@ -56,6 +58,7 @@ func EmptySchema() *Schema {
 	p.assignments = make([]sc.Assignment, 0)
 	p.constraints = make([]sc.Constraint, 0)
 	p.assertions = make([]PropertyAssertion, 0)
+	p.column_cache = make([]sc.Column, 0)
 	// Done
 	return p
 }
@@ -76,7 +79,12 @@ func (p *Schema) AddDataColumn(context trace.Context, name string, base sc.Type)
 	}
 
 	cid := uint(len(p.inputs))
-	p.inputs = append(p.inputs, assignment.NewDataColumn(context, name, base))
+	col := assignment.NewDataColumn(context, name, base)
+	p.inputs = append(p.inputs, col)
+	// Update column cache
+	for c := col.Columns(); c.HasNext(); {
+		p.column_cache = append(p.column_cache, c.Next())
+	}
 
 	return cid
 }
@@ -101,7 +109,11 @@ func (p *Schema) AddLookupConstraint(handle string, source trace.Context, target
 func (p *Schema) AddAssignment(c sc.Assignment) uint {
 	index := p.Columns().Count()
 	p.assignments = append(p.assignments, c)
-
+	// Update column cache
+	for c := c.Columns(); c.HasNext(); {
+		p.column_cache = append(p.column_cache, c.Next())
+	}
+	// Done
 	return index
 }
 
@@ -151,13 +163,7 @@ func (p *Schema) Assignments() util.Iterator[sc.Assignment] {
 // Columns returns an array over the underlying columns of this sc.
 // Specifically, the index of a column in this array is its column index.
 func (p *Schema) Columns() util.Iterator[sc.Column] {
-	inputs := util.NewArrayIterator(p.inputs)
-	is := util.NewFlattenIterator[sc.Declaration, sc.Column](inputs,
-		func(d sc.Declaration) util.Iterator[sc.Column] { return d.Columns() })
-	ps := util.NewFlattenIterator[sc.Assignment, sc.Column](p.Assignments(),
-		func(d sc.Assignment) util.Iterator[sc.Column] { return d.Columns() })
-	//
-	return is.Append(ps)
+	return util.NewArrayIterator(p.column_cache)
 }
 
 // Constraints returns an array over the underlying constraints of this
