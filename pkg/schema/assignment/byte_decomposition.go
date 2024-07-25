@@ -73,7 +73,7 @@ func (p *ByteDecomposition) ExpandTrace(tr trace.Trace) error {
 	// Initialise columns
 	for i := 0; i < n; i++ {
 		// Construct a byte column for ith byte
-		cols[i] = util.NewFrArray(source.Height(), 1)
+		cols[i] = util.NewFrArray(source.Height(), 8)
 	}
 	// Decompose each row of each column
 	for i := uint(0); i < source.Height(); i = i + 1 {

@@ -61,8 +61,13 @@ func WriteBytes(tr trace.Trace, buf io.Writer) error {
 		if n != int(nameLen) || err != nil {
 			log.Fatal(err)
 		}
+		// Determine number of bytes required to hold element of this column.
+		byteWidth := data.BitWidth() / 8
+		if data.BitWidth()%8 != 0 {
+			byteWidth++
+		}
 		// Write bytes per element
-		if err := binary.Write(buf, binary.BigEndian, uint8(data.ByteWidth())); err != nil {
+		if err := binary.Write(buf, binary.BigEndian, uint8(byteWidth)); err != nil {
 			log.Fatal(err)
 		}
 		// Write Data length

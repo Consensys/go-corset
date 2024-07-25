@@ -82,17 +82,17 @@ func (p *LexicographicSort) ExpandTrace(tr trace.Trace) error {
 	// Initialise new data columns
 	bit := make([]util.FrArray, ncols)
 	// Byte width records the largest width of any column.
-	byte_width := uint(0)
+	bit_width := uint(0)
 
 	for i := 0; i < ncols; i++ {
 		// TODO: following can be optimised to use a single bit per element,
 		// rather than an entire byte.
 		bit[i] = util.NewFrArray(nrows, 1)
 		ith := columns.Get(p.sources[i])
-		byte_width = max(byte_width, ith.Data().ByteWidth())
+		bit_width = max(bit_width, ith.Data().BitWidth())
 	}
 
-	delta := util.NewFrArray(nrows, byte_width)
+	delta := util.NewFrArray(nrows, bit_width)
 
 	for i := uint(0); i < nrows; i++ {
 		set := false

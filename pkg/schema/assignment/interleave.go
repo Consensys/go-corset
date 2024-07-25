@@ -72,12 +72,12 @@ func (p *Interleaving) ExpandTrace(tr tr.Trace) error {
 	columns := tr.Columns()
 	ctx := p.target.Context()
 	// Byte width records the largest width of any column.
-	byte_width := uint(0)
+	bit_width := uint(0)
 	// Ensure target column doesn't exist
 	for i := p.Columns(); i.HasNext(); {
 		ith := i.Next()
 		// Update byte width
-		byte_width = max(byte_width, ith.Type().ByteWidth())
+		bit_width = max(bit_width, ith.Type().BitWidth())
 		// Sanity check no column already exists with this name.
 		if _, ok := columns.IndexOf(ctx.Module(), ith.Name()); ok {
 			return fmt.Errorf("interleaved column already exists ({%s})", ith.Name())
@@ -92,7 +92,7 @@ func (p *Interleaving) ExpandTrace(tr tr.Trace) error {
 	// the interleaved column)
 	height := tr.Modules().Get(ctx.Module()).Height() * multiplier
 	// Construct empty array
-	data := util.NewFrArray(height*width, byte_width)
+	data := util.NewFrArray(height*width, bit_width)
 	// Offset just gives the column index
 	offset := uint(0)
 	// Copy interleaved data

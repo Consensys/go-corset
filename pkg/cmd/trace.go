@@ -192,11 +192,18 @@ func rowSummariser(col trace.Column) string {
 }
 
 func widthSummariser(col trace.Column) string {
-	return fmt.Sprintf("%d bits", col.Data().ByteWidth()*8)
+	return fmt.Sprintf("%d bits", col.Data().BitWidth())
 }
 
 func bytesSummariser(col trace.Column) string {
-	return fmt.Sprintf("%d bytes", col.Data().Len()*col.Data().ByteWidth())
+	bitwidth := col.Data().BitWidth()
+	byteWidth := bitwidth / 8
+	// Determine proper bytewidth
+	if bitwidth%8 != 0 {
+		byteWidth++
+	}
+
+	return fmt.Sprintf("%d bytes", col.Data().Len()*byteWidth)
 }
 
 func uniqueSummariser(col trace.Column) string {
@@ -234,7 +241,7 @@ func trWidthSummariser(lowWidth uint, highWidth uint) traceSummariser {
 		summary: func(tr trace.Trace) string {
 			count := 0
 			for i := uint(0); i < tr.Columns().Len(); i++ {
-				ithWidth := tr.Columns().Get(i).Data().ByteWidth() * 8
+				ithWidth := tr.Columns().Get(i).Data().BitWidth()
 				if ithWidth >= lowWidth && ithWidth <= highWidth {
 					count++
 				}
