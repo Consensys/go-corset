@@ -33,10 +33,10 @@ func ArePermutationOf[T Array[*fr.Element]](dst []T, src []T) bool {
 	return Equals2d(dstCopy, srcCopy)
 }
 
-func permutationFunc(lhs []*fr.Element, rhs []*fr.Element) int {
+func permutationFunc(lhs []fr.Element, rhs []fr.Element) int {
 	for i := 0; i < len(lhs); i++ {
 		// Compare ith elements
-		c := lhs[i].Cmp(rhs[i])
+		c := lhs[i].Cmp(&rhs[i])
 		// Check whether same
 		if c != 0 {
 			// Positive
@@ -67,14 +67,14 @@ func PermutationSort[T Array[*fr.Element]](cols []T, signs []bool) {
 	// Rotate input matrix
 	rows := rotate(cols, m, n)
 	// Perform the permutation sort
-	slices.SortFunc(rows, func(l []*fr.Element, r []*fr.Element) int {
+	slices.SortFunc(rows, func(l []fr.Element, r []fr.Element) int {
 		return permutationSortFunc(l, r, signs)
 	})
 	// Project back
 	for i := uint(0); i < n; i++ {
 		row := rows[i]
 		for j := 0; j < m; j++ {
-			cols[j].Set(i, row[j])
+			cols[j].Set(i, &row[j])
 		}
 	}
 }
@@ -82,14 +82,14 @@ func PermutationSort[T Array[*fr.Element]](cols []T, signs []bool) {
 // AreLexicographicallySorted checks whether one or more columns are
 // lexicographically sorted according to the given signs.  This operation does
 // not modify or clone either array.
-func AreLexicographicallySorted(cols [][]*fr.Element, signs []bool) bool {
+func AreLexicographicallySorted(cols [][]fr.Element, signs []bool) bool {
 	ncols := len(cols)
 	nrows := len(cols[0])
 
 	for i := 1; i < nrows; i++ {
 		for j := 0; j < ncols; j++ {
 			// Compare ith elements
-			c := cols[j][i].Cmp(cols[j][i-1])
+			c := cols[j][i].Cmp(&cols[j][i-1])
 			// Check whether same
 			if signs[j] && c < 0 {
 				return false
@@ -104,10 +104,10 @@ func AreLexicographicallySorted(cols [][]*fr.Element, signs []bool) bool {
 	return true
 }
 
-func permutationSortFunc(lhs []*fr.Element, rhs []*fr.Element, signs []bool) int {
+func permutationSortFunc(lhs []fr.Element, rhs []fr.Element, signs []bool) int {
 	for i := 0; i < len(lhs); i++ {
 		// Compare ith elements
-		c := lhs[i].Cmp(rhs[i])
+		c := lhs[i].Cmp(&rhs[i])
 		// Check whether same
 		if c != 0 {
 			if signs[i] {
@@ -123,14 +123,14 @@ func permutationSortFunc(lhs []*fr.Element, rhs []*fr.Element, signs []bool) int
 }
 
 // Clone and rotate a 2-dimensional array assuming a given geometry.
-func rotate[T Array[*fr.Element]](src []T, ncols int, nrows uint) [][]*fr.Element {
+func rotate[T Array[*fr.Element]](src []T, ncols int, nrows uint) [][]fr.Element {
 	// Copy outer arrays
-	dst := make([][]*fr.Element, nrows)
+	dst := make([][]fr.Element, nrows)
 	// Copy inner arrays
 	for i := uint(0); i < nrows; i++ {
-		row := make([]*fr.Element, ncols)
+		row := make([]fr.Element, ncols)
 		for j := 0; j < ncols; j++ {
-			row[j] = src[j].Get(i)
+			row[j] = *src[j].Get(i)
 		}
 
 		dst[i] = row

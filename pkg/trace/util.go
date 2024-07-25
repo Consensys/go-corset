@@ -1,5 +1,7 @@
 package trace
 
+import "strings"
+
 // PadColumns pads every column in a given trace with a given amount of padding.
 func PadColumns(tr Trace, padding uint) {
 	modules := tr.Modules()
@@ -20,4 +22,20 @@ func MaxHeight(tr Trace) uint {
 	}
 	// Done
 	return h
+}
+
+// QualifiedColumnNamesToCommaSeparatedString produces a suitable string for use
+// in error messages from a list of one or more column identifies.
+func QualifiedColumnNamesToCommaSeparatedString(columns []uint, trace Trace) string {
+	var names strings.Builder
+
+	for i, c := range columns {
+		if i != 0 {
+			names.WriteString(",")
+		}
+
+		names.WriteString(trace.Columns().Get(c).Name())
+	}
+	// Done
+	return names.String()
 }
