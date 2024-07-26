@@ -50,6 +50,13 @@ func (p ZeroArrayTest) Context(schema sc.Schema) trace.Context {
 	return p.Expr.Context(schema)
 }
 
+// RequiredColumns returns the set of columns on which this term depends.
+// That is, columns whose values may be accessed when evaluating this term
+// on a given trace.
+func (p ZeroArrayTest) RequiredColumns() *util.SortedSet[uint] {
+	return p.Expr.RequiredColumns()
+}
+
 // ============================================================================
 // UnitExpr
 // ============================================================================
@@ -97,4 +104,11 @@ func (e UnitExpr) Bounds() util.Bounds {
 // expression.
 func (e UnitExpr) Context(schema sc.Schema) trace.Context {
 	return e.expr.Context(schema)
+}
+
+// RequiredColumns returns the set of columns on which this term depends.
+// That is, columns whose values may be accessed when evaluating this term
+// on a given trace.
+func (e UnitExpr) RequiredColumns() *util.SortedSet[uint] {
+	return e.expr.RequiredColumns()
 }

@@ -99,6 +99,12 @@ func (p *ByteDecomposition) RequiredSpillage() uint {
 	return uint(0)
 }
 
+// Dependencies returns the set of columns that this assignment depends upon.
+// That can include both input columns, as well as other computed columns.
+func (p *ByteDecomposition) Dependencies() []uint {
+	return []uint{p.source}
+}
+
 // Decompose a given element into n bytes in little endian form.  For example,
 // decomposing 41b into 2 bytes gives [0x1b,0x04].
 func decomposeIntoBytes(val *fr.Element, n int) []*fr.Element {

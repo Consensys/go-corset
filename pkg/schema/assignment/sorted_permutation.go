@@ -154,3 +154,9 @@ func (p *SortedPermutation) ExpandTrace(tr tr.Trace) error {
 	//
 	return nil
 }
+
+// Dependencies returns the set of columns that this assignment depends upon.
+// That can include both input columns, as well as other computed columns.
+func (p *SortedPermutation) Dependencies() []uint {
+	return p.sources
+}

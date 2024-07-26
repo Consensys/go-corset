@@ -63,6 +63,10 @@ type Assignment interface {
 	// spillage is currently assumed to be required only at the front of a
 	// trace.
 	RequiredSpillage() uint
+
+	// Returns the set of columns that this assignment depends upon.  That can
+	// include both input columns, as well as other computed columns.
+	Dependencies() []uint
 }
 
 // Constraint represents an element which can "accept" a trace, or either reject
@@ -122,6 +126,11 @@ type Contextual interface {
 	// module but multiple conflicting length multipliers, in which case it also
 	// returns false.
 	Context(Schema) tr.Context
+
+	// RequiredColumns returns the set of columns on which this term depends.
+	// That is, columns whose values may be accessed when evaluating this term
+	// on a given trace.
+	RequiredColumns() *util.SortedSet[uint]
 }
 
 // ============================================================================

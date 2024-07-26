@@ -10,37 +10,37 @@ import (
 )
 
 func Test_HashSet_01(t *testing.T) {
-	items := []uint64{1, 2, 3, 4, 3, 2, 1}
+	items := []uint{1, 2, 3, 4, 3, 2, 1}
 	check_HashSet(t, items)
 }
 
 func Test_HashSet_02(t *testing.T) {
-	items := generateRandomInputs(10, 32)
+	items := GenerateRandomInputs(10, 32)
 	check_HashSet(t, items)
 }
 
 func Test_HashSet_03(t *testing.T) {
-	items := generateRandomInputs(100, 32)
+	items := GenerateRandomInputs(100, 32)
 	check_HashSet(t, items)
 }
 
 func Test_HashSet_04(t *testing.T) {
-	items := generateRandomInputs(1000, 32)
+	items := GenerateRandomInputs(1000, 32)
 	check_HashSet(t, items)
 }
 
 func Test_HashSet_05(t *testing.T) {
-	items := generateRandomInputs(100000, 32)
+	items := GenerateRandomInputs(100000, 32)
 	check_HashSet(t, items)
 }
 
 func Test_HashSet_08(t *testing.T) {
-	items := generateRandomInputs(100000, 64)
+	items := GenerateRandomInputs(100000, 64)
 	check_HashSet(t, items)
 }
 
 func Test_HashSet_09(t *testing.T) {
-	items := generateRandomInputs(100000, 128)
+	items := GenerateRandomInputs(100000, 128)
 	check_HashSet(t, items)
 }
 
@@ -48,7 +48,7 @@ func Test_HashSet_09(t *testing.T) {
 // Test Helpers
 // ===================================================================
 
-func check_HashSet(t *testing.T, items []uint64) {
+func check_HashSet(t *testing.T, items []uint) {
 	set := util.NewHashSet[testKey](0)
 	dups := uint(0)
 	// Insert items
@@ -86,11 +86,12 @@ func check_HashSet(t *testing.T, items []uint64) {
 	}
 }
 
-func generateRandomInputs(n, m uint) []uint64 {
-	items := make([]uint64, n)
+// GenerateRandomInputs generates n random inputs in the range 0..m.
+func GenerateRandomInputs(n, m uint) []uint {
+	items := make([]uint, n)
 
 	for i := uint(0); i < n; i++ {
-		items[i] = uint64(rand.UintN(m))
+		items[i] = rand.UintN(m)
 	}
 
 	return items
@@ -100,7 +101,7 @@ func generateRandomInputs(n, m uint) []uint64 {
 // relatively limited spread of hash values.  This helps to ensure that we get
 // some collisions.
 type testKey struct {
-	value uint64
+	value uint
 }
 
 // Equals compares two Uint64Keys to check whether they represent the same
@@ -112,7 +113,7 @@ func (p testKey) Equals(other testKey) bool {
 // Hash generates a 64-bit hashcode from the underlying value.
 func (p testKey) Hash() uint64 {
 	// This is a deliberate act to limit the qualitfy of this hash function.
-	return p.value % 16
+	return uint64(p.value % 16)
 }
 
 func (p testKey) String() string {
