@@ -84,6 +84,7 @@ func (p *HashSet[T]) Contains(item T) bool {
 	return false
 }
 
+//nolint:revive
 func (p *HashSet[T]) String() string {
 	var r strings.Builder
 	//

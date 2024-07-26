@@ -38,7 +38,7 @@ func Equals(lhs []*fr.Element, rhs []*fr.Element) bool {
 }
 
 // Equals2d returns true if two 2D arrays are equal.
-func Equals2d(lhs [][]*fr.Element, rhs [][]*fr.Element) bool {
+func Equals2d(lhs [][]fr.Element, rhs [][]fr.Element) bool {
 	if len(lhs) != len(rhs) {
 		return false
 	}
@@ -52,7 +52,7 @@ func Equals2d(lhs [][]*fr.Element, rhs [][]*fr.Element) bool {
 		}
 		// Check elements match
 		for j := 0; j < len(lhs_i); j++ {
-			if lhs_i[j].Cmp(rhs_i[j]) != 0 {
+			if lhs_i[j].Cmp(&rhs_i[j]) != 0 {
 				return false
 			}
 		}

@@ -39,13 +39,18 @@ func (p *PermutationConstraint) Accepts(tr trace.Trace) error {
 	src := sliceColumns(p.sources, tr)
 	dst := sliceColumns(p.targets, tr)
 	// Sanity check whether column exists
-	if !util.ArePermutationOf(dst, src) {
-		msg := fmt.Sprintf("Target columns (%v) not permutation of source columns ({%v})",
-			p.targets, p.sources)
-		return errors.New(msg)
+	if util.ArePermutationOf(dst, src) {
+		// Success
+		return nil
 	}
-	// Success
-	return nil
+	// Prepare suitable error message
+	src_names := trace.QualifiedColumnNamesToCommaSeparatedString(p.sources, tr)
+	dst_names := trace.QualifiedColumnNamesToCommaSeparatedString(p.targets, tr)
+	//
+	msg := fmt.Sprintf("Target columns (%s) not permutation of source columns (%s)",
+		dst_names, src_names)
+	// Done
+	return errors.New(msg)
 }
 
 func (p *PermutationConstraint) String() string {
