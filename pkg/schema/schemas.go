@@ -80,17 +80,30 @@ func ExpandTrace(schema Schema, trace tr.Trace) error {
 //
 //nolint:revive
 func Accepts(schema Schema, trace tr.Trace) error {
+	var err error
+	// Determine how many constraints
+	n := schema.Constraints().Count()
+	// Construct a communication channel for errors.
+	c := make(chan error, 100)
 	// Check each constraint in turn
 	for i := schema.Constraints(); i.HasNext(); {
 		// Get ith constraint
 		ith := i.Next()
-		// Check it holds (or report an error)
-		if err := ith.Accepts(trace); err != nil {
-			return err
+		// Launch checker for constraint
+		go func() {
+			// Send outcome back
+			c <- ith.Accepts(trace)
+		}()
+	}
+	// Read responses back from each constraint.
+	for i := uint(0); i < n; i++ {
+		// Read from channel
+		if e := <-c; e != nil {
+			err = e
 		}
 	}
 	// Success
-	return nil
+	return err
 }
 
 // ColumnIndexOf returns the column index of the column with the given name, or
