@@ -107,3 +107,9 @@ func (p *ComputedColumn[E]) ExpandTrace(tr trace.Trace) error {
 	// Done
 	return nil
 }
+
+// Dependencies returns the set of columns that this assignment depends upon.
+// That can include both input columns, as well as other computed columns.
+func (p *ComputedColumn[E]) Dependencies() []uint {
+	return *p.expr.RequiredColumns()
+}

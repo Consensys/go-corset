@@ -134,6 +134,12 @@ func (p *LexicographicSort) ExpandTrace(tr trace.Trace) error {
 	return nil
 }
 
+// Dependencies returns the set of columns that this assignment depends upon.
+// That can include both input columns, as well as other computed columns.
+func (p *LexicographicSort) Dependencies() []uint {
+	return p.sources
+}
+
 // String returns a string representation of this constraint.  This is primarily
 // used for debugging.
 func (p *LexicographicSort) String() string {

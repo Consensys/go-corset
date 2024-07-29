@@ -89,6 +89,13 @@ func (e *Inverse) Context(schema sc.Schema) tr.Context {
 	return e.Expr.Context(schema)
 }
 
+// RequiredColumns returns the set of columns on which this term depends.
+// That is, columns whose values may be accessed when evaluating this term
+// on a given trace.
+func (e *Inverse) RequiredColumns() *util.SortedSet[uint] {
+	return e.Expr.RequiredColumns()
+}
+
 func (e *Inverse) String() string {
 	return fmt.Sprintf("(inv %s)", e.Expr)
 }

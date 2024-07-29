@@ -59,6 +59,8 @@ func (p *HashSet[T]) MaxBucket() uint {
 
 // Insert a new item into this map, returning true if it was already contained
 // and false otherwise.
+//
+//nolint:revive
 func (p *HashSet[T]) Insert(item T) bool {
 	var b1 bucket[T]
 	// Compute item's hashcode
@@ -74,6 +76,8 @@ func (p *HashSet[T]) Insert(item T) bool {
 }
 
 // Contains checks whether the given item is contained within this map, or not.
+//
+//nolint:revive
 func (p *HashSet[T]) Contains(item T) bool {
 	hash := item.Hash()
 

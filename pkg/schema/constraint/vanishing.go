@@ -34,6 +34,13 @@ func (p ZeroTest[E]) Context(schema sc.Schema) trace.Context {
 	return p.Expr.Context(schema)
 }
 
+// RequiredColumns returns the set of columns on which this term depends.
+// That is, columns whose values may be accessed when evaluating this term
+// on a given trace.
+func (p ZeroTest[E]) RequiredColumns() *util.SortedSet[uint] {
+	return p.Expr.RequiredColumns()
+}
+
 // String generates a human-readble string.
 //
 //nolint:revive

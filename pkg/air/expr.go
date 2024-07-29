@@ -46,6 +46,15 @@ func (p *Add) Context(schema sc.Schema) trace.Context {
 	return sc.JoinContexts[Expr](p.Args, schema)
 }
 
+// RequiredColumns returns the set of columns on which this term depends.
+// That is, columns whose values may be accessed when evaluating this term
+// on a given trace.
+func (p *Add) RequiredColumns() *util.SortedSet[uint] {
+	return util.UnionSortedSets(p.Args, func(e Expr) *util.SortedSet[uint] {
+		return e.RequiredColumns()
+	})
+}
+
 // Add two expressions together, producing a third.
 func (p *Add) Add(other Expr) Expr { return &Add{Args: []Expr{p, other}} }
 
@@ -75,6 +84,15 @@ func (p *Sub) Context(schema sc.Schema) trace.Context {
 	return sc.JoinContexts[Expr](p.Args, schema)
 }
 
+// RequiredColumns returns the set of columns on which this term depends.
+// That is, columns whose values may be accessed when evaluating this term
+// on a given trace.
+func (p *Sub) RequiredColumns() *util.SortedSet[uint] {
+	return util.UnionSortedSets(p.Args, func(e Expr) *util.SortedSet[uint] {
+		return e.RequiredColumns()
+	})
+}
+
 // Add two expressions together, producing a third.
 func (p *Sub) Add(other Expr) Expr { return &Add{Args: []Expr{p, other}} }
 
@@ -102,6 +120,15 @@ type Mul struct{ Args []Expr }
 // expression.
 func (p *Mul) Context(schema sc.Schema) trace.Context {
 	return sc.JoinContexts[Expr](p.Args, schema)
+}
+
+// RequiredColumns returns the set of columns on which this term depends.
+// That is, columns whose values may be accessed when evaluating this term
+// on a given trace.
+func (p *Mul) RequiredColumns() *util.SortedSet[uint] {
+	return util.UnionSortedSets(p.Args, func(e Expr) *util.SortedSet[uint] {
+		return e.RequiredColumns()
+	})
 }
 
 // Add two expressions together, producing a third.
@@ -156,6 +183,13 @@ func (p *Constant) Context(schema sc.Schema) trace.Context {
 	return trace.VoidContext()
 }
 
+// RequiredColumns returns the set of columns on which this term depends.
+// That is, columns whose values may be accessed when evaluating this term
+// on a given trace.
+func (p *Constant) RequiredColumns() *util.SortedSet[uint] {
+	return util.NewSortedSet[uint]()
+}
+
 // Add two expressions together, producing a third.
 func (p *Constant) Add(other Expr) Expr { return &Add{Args: []Expr{p, other}} }
 
@@ -194,6 +228,16 @@ func NewColumnAccess(column uint, shift int) *ColumnAccess {
 func (p *ColumnAccess) Context(schema sc.Schema) trace.Context {
 	col := schema.Columns().Nth(p.Column)
 	return col.Context()
+}
+
+// RequiredColumns returns the set of columns on which this term depends.
+// That is, columns whose values may be accessed when evaluating this term
+// on a given trace.
+func (p *ColumnAccess) RequiredColumns() *util.SortedSet[uint] {
+	r := util.NewSortedSet[uint]()
+	r.Insert(p.Column)
+	// Done
+	return r
 }
 
 // Add two expressions together, producing a third.

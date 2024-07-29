@@ -52,6 +52,15 @@ func (p *Add) Context(schema sc.Schema) trace.Context {
 	return sc.JoinContexts[Expr](p.Args, schema)
 }
 
+// RequiredColumns returns the set of columns on which this term depends.
+// That is, columns whose values may be accessed when evaluating this term
+// on a given trace.
+func (p *Add) RequiredColumns() *util.SortedSet[uint] {
+	return util.UnionSortedSets(p.Args, func(e Expr) *util.SortedSet[uint] {
+		return e.RequiredColumns()
+	})
+}
+
 // ============================================================================
 // Subtraction
 // ============================================================================
@@ -69,6 +78,15 @@ func (p *Sub) Context(schema sc.Schema) trace.Context {
 	return sc.JoinContexts[Expr](p.Args, schema)
 }
 
+// RequiredColumns returns the set of columns on which this term depends.
+// That is, columns whose values may be accessed when evaluating this term
+// on a given trace.
+func (p *Sub) RequiredColumns() *util.SortedSet[uint] {
+	return util.UnionSortedSets(p.Args, func(e Expr) *util.SortedSet[uint] {
+		return e.RequiredColumns()
+	})
+}
+
 // ============================================================================
 // Multiplication
 // ============================================================================
@@ -84,6 +102,15 @@ func (p *Mul) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
 // expression.
 func (p *Mul) Context(schema sc.Schema) trace.Context {
 	return sc.JoinContexts[Expr](p.Args, schema)
+}
+
+// RequiredColumns returns the set of columns on which this term depends.
+// That is, columns whose values may be accessed when evaluating this term
+// on a given trace.
+func (p *Mul) RequiredColumns() *util.SortedSet[uint] {
+	return util.UnionSortedSets(p.Args, func(e Expr) *util.SortedSet[uint] {
+		return e.RequiredColumns()
+	})
 }
 
 // ============================================================================
@@ -106,6 +133,13 @@ func (p *Exp) Context(schema sc.Schema) trace.Context {
 	return p.Arg.Context(schema)
 }
 
+// RequiredColumns returns the set of columns on which this term depends.
+// That is, columns whose values may be accessed when evaluating this term
+// on a given trace.
+func (p *Exp) RequiredColumns() *util.SortedSet[uint] {
+	return p.Arg.RequiredColumns()
+}
+
 // ============================================================================
 // List
 // ============================================================================
@@ -123,6 +157,15 @@ func (p *List) Context(schema sc.Schema) trace.Context {
 	return sc.JoinContexts[Expr](p.Args, schema)
 }
 
+// RequiredColumns returns the set of columns on which this term depends.
+// That is, columns whose values may be accessed when evaluating this term
+// on a given trace.
+func (p *List) RequiredColumns() *util.SortedSet[uint] {
+	return util.UnionSortedSets(p.Args, func(e Expr) *util.SortedSet[uint] {
+		return e.RequiredColumns()
+	})
+}
+
 // ============================================================================
 // Constant
 // ============================================================================
@@ -138,6 +181,13 @@ func (p *Constant) Bounds() util.Bounds { return util.EMPTY_BOUND }
 // expression.
 func (p *Constant) Context(schema sc.Schema) trace.Context {
 	return trace.VoidContext()
+}
+
+// RequiredColumns returns the set of columns on which this term depends.
+// That is, columns whose values may be accessed when evaluating this term
+// on a given trace.
+func (p *Constant) RequiredColumns() *util.SortedSet[uint] {
+	return util.NewSortedSet[uint]()
 }
 
 // ============================================================================
@@ -190,6 +240,23 @@ func (p *IfZero) Context(schema sc.Schema) trace.Context {
 	return sc.JoinContexts[Expr](args, schema)
 }
 
+// RequiredColumns returns the set of columns on which this term depends.
+// That is, columns whose values may be accessed when evaluating this term
+// on a given trace.
+func (p *IfZero) RequiredColumns() *util.SortedSet[uint] {
+	set := p.Condition.RequiredColumns()
+	// Include true branch (if applicable)
+	if p.TrueBranch != nil {
+		set.InsertSorted(p.TrueBranch.RequiredColumns())
+	}
+	// Include false branch (if applicable)
+	if p.FalseBranch != nil {
+		set.InsertSorted(p.FalseBranch.RequiredColumns())
+	}
+	// Done
+	return set
+}
+
 // ============================================================================
 // Normalise
 // ============================================================================
@@ -208,6 +275,13 @@ func (p *Normalise) Bounds() util.Bounds {
 // expression.
 func (p *Normalise) Context(schema sc.Schema) trace.Context {
 	return p.Arg.Context(schema)
+}
+
+// RequiredColumns returns the set of columns on which this term depends.
+// That is, columns whose values may be accessed when evaluating this term
+// on a given trace.
+func (p *Normalise) RequiredColumns() *util.SortedSet[uint] {
+	return p.Arg.RequiredColumns()
 }
 
 // ============================================================================
@@ -241,4 +315,14 @@ func (p *ColumnAccess) Bounds() util.Bounds {
 func (p *ColumnAccess) Context(schema sc.Schema) trace.Context {
 	col := schema.Columns().Nth(p.Column)
 	return col.Context()
+}
+
+// RequiredColumns returns the set of columns on which this term depends.
+// That is, columns whose values may be accessed when evaluating this term
+// on a given trace.
+func (p *ColumnAccess) RequiredColumns() *util.SortedSet[uint] {
+	r := util.NewSortedSet[uint]()
+	r.Insert(p.Column)
+	// Done
+	return r
 }
