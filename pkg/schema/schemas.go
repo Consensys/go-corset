@@ -1,10 +1,7 @@
 package schema
 
 import (
-	"fmt"
-
 	tr "github.com/consensys/go-corset/pkg/trace"
-	"github.com/consensys/go-corset/pkg/util"
 )
 
 // JoinContexts combines one or more evaluation contexts together.  If all
@@ -64,19 +61,30 @@ func RequiredSpillage(schema Schema) uint {
 // Observe that assignments have to be computed in the correct order.
 func ExpandTrace(schema Schema, trace tr.Trace) error {
 	index := schema.InputColumns().Count()
-	m := schema.Assignments().Count()
-	batchjobs := make([]expandTraceJob, m)
+	//m := schema.Assignments().Count()
+	//batchjobs := make([]expandTraceJob, m)
 	// Compute each assignment in turn
 	for i, j := schema.Assignments(), uint(0); i.HasNext(); j++ {
 		// Get ith assignment
 		ith := i.Next()
 		// Compute ith assignment(s)
-		batchjobs[j] = expandTraceJob{index, ith, trace}
+		//batchjobs[j] = expandTraceJob{index, ith, trace}
+		cols, err := ith.ComputeColumns(trace)
+		// Check error
+		if err != nil {
+			return err
+		}
+		// Add all columns
+		for k := 0; k < len(cols); k++ {
+			kth := cols[k]
+			trace.Columns().Add(kth.Context(), kth.Name(), kth.Data(), kth.Padding())
+		}
 		// Update index
 		index += ith.Columns().Count()
 	}
 	//
-	return util.ParExec[expandTraceJob](batchjobs)
+	//	return util.ParExec[expandTraceJob](batchjobs)
+	return nil
 }
 
 // Accepts determines whether this schema will accept a given trace.  That
@@ -118,49 +126,4 @@ func ColumnIndexOf(schema Schema, module uint, name string) (uint, bool) {
 	return schema.Columns().Find(func(c Column) bool {
 		return c.Context().Module() == module && c.Name() == name
 	})
-}
-
-// ----------------------------------------------------------------------------
-
-// ExpandTraceJob represents a unit of work which can be parallelised during
-// trace expansion. N Specifically, the unit of work is a single assignment.  In
-// the terminology of ParExec, an assignment is a batch of jobs, each of which
-// assigns values to a given column.
-type expandTraceJob struct {
-	// Index of first column in the assignment
-	index uint
-	// Assignment itself being computed
-	assignment Assignment
-	// Trace being expanded
-	trace tr.Trace
-}
-
-// Jobs returns the underlying jobs that this "trace job" computes.
-// Specifically, it identifies the columns that the trace job completes.
-func (p expandTraceJob) Jobs() []uint {
-	n := p.assignment.Columns().Count()
-	cols := make([]uint, n)
-	// TODO: this is really a hack for now.  I think we should use some kind of
-	// range iterator.
-	for i := uint(0); i < n; i++ {
-		cols[i] = p.index + i
-	}
-
-	return cols
-}
-
-// Dependencies returns the columns that this batch job depends upon.  That is
-// the set of source columns (if any) required before this job can be completed.
-func (p expandTraceJob) Dependencies() []uint {
-	return p.assignment.Dependencies()
-}
-
-// Run computes the coumns values for a given assignment.
-func (p expandTraceJob) Run() error {
-	n := p.trace.Columns().Len()
-	if n != p.index {
-		panic(fmt.Sprintf("internal failure (%d trace columns, versus index %d)", n, p.index))
-	}
-	//
-	return p.assignment.ExpandTrace(p.trace)
 }

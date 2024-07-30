@@ -72,15 +72,15 @@ func (p *ComputedColumn[E]) RequiredSpillage() uint {
 	return p.expr.Bounds().End
 }
 
-// ExpandTrace attempts to a new column to the trace which contains the result
-// of evaluating a given expression on each row.  If the column already exists,
-// then an error is flagged.
-func (p *ComputedColumn[E]) ExpandTrace(tr trace.Trace) error {
+// ComputeColumns computes the values of columns defined by this assignment.
+// Specifically, this creates a new column which contains the result of
+// evaluating a given expression on each row.
+func (p *ComputedColumn[E]) ComputeColumns(tr trace.Trace) ([]*trace.Column, error) {
 	columns := tr.Columns()
 	// Check whether a column already exists with the given name.
 	if _, ok := columns.IndexOf(p.target.Context().Module(), p.Name()); ok {
 		mod := tr.Modules().Get(p.target.Context().Module())
-		return fmt.Errorf("computed column already exists ({%s.%s})", mod.Name(), p.Name())
+		return nil, fmt.Errorf("computed column already exists ({%s.%s})", mod.Name(), p.Name())
 	}
 	// Extract length multipiler
 	multiplier := p.target.Context().LengthMultiplier()
@@ -102,10 +102,10 @@ func (p *ComputedColumn[E]) ExpandTrace(tr trace.Trace) error {
 	// that all columns return their padding value which is then used to compute
 	// the padding value for *this* column.
 	padding := p.expr.EvalAt(-1, tr)
-	// Colunm needs to be expanded.
-	columns.Add(p.target.Context(), p.Name(), data, padding)
+	// Construct column
+	col := trace.NewColumn(p.target.Context(), p.Name(), data, padding)
 	// Done
-	return nil
+	return []*trace.Column{col}, nil
 }
 
 // Dependencies returns the set of columns that this assignment depends upon.

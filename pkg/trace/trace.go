@@ -21,7 +21,7 @@ type ColumnSet interface {
 	// Add a new column to this column set.
 	Add(ctx Context, name string, data util.FrArray, padding *fr.Element) uint
 	// Get the ith module in this set.
-	Get(uint) Column
+	Get(uint) *Column
 	// Determine index of given column, or return false if this fails.
 	IndexOf(module uint, column string) (uint, bool)
 	// Returns the number of items in this array.
@@ -31,28 +31,6 @@ type ColumnSet interface {
 	// Reduce the number of columns to a given length by removing columns from
 	// the end.
 	Trim(uint)
-}
-
-// Column describes an individual column of data within a trace table.
-type Column interface {
-	// Get the value at a given row in this column.  If the row is
-	// out-of-bounds, then the column's padding value is returned instead.
-	// Thus, this function always succeeds.
-	Get(row int) *fr.Element
-	// Access the underlying data array for this column
-	Data() util.FrArray
-	// Return the height (i.e. number of rows) of this column.
-	Height() uint
-	// Returns the evaluation context for this column.  That identifies the
-	// enclosing module, and then length multiplier (which must be a factor of
-	// the height). For example, if the multiplier is 2 then the height must
-	// always be a multiple of 2, etc.  This affects padding also, as we must
-	// pad to this multiplier, etc.
-	Context() Context
-	// Get the name of this column
-	Name() string
-	// Return the value to use for padding this column.
-	Padding() *fr.Element
 }
 
 // ModuleSet provides an interface to the declared moules within this trace.
@@ -71,6 +49,83 @@ type ModuleSet interface {
 	// Swap order of modules.  Note columns are updated accordingly.
 	Swap(uint, uint)
 }
+
+// ----------------------------------------------------------------------------
+
+// Column describes an individual column of data within a trace table.
+type Column struct {
+	// Evaluation context of this column
+	context Context
+	// Holds the name of this column
+	name string
+	// Holds the raw data making up this column
+	data util.FrArray
+	// Value to be used when padding this column
+	padding *fr.Element
+}
+
+// NewColumn constructs a ArrayTraceColumn with the give name, data and padding.
+func NewColumn(context Context, name string, data util.FrArray,
+	padding *fr.Element) *Column {
+	// Sanity check data length
+	if data.Len()%context.LengthMultiplier() != 0 {
+		panic("data length has incorrect multiplier")
+	}
+	// Done
+	return &Column{context, name, data, padding}
+}
+
+// Context returns the evaluation context this column provides.
+func (p *Column) Context() Context {
+	return p.context
+}
+
+// Name returns the name of the given column.
+func (p *Column) Name() string {
+	return p.name
+}
+
+// Height determines the height of this column.
+func (p *Column) Height() uint {
+	return p.data.Len()
+}
+
+// Padding returns the value which will be used for padding this column.
+func (p *Column) Padding() *fr.Element {
+	return p.padding
+}
+
+// Data provides access to the underlying data of this column
+func (p *Column) Data() util.FrArray {
+	return p.data
+}
+
+// Get the value at a given row in this column.  If the row is
+// out-of-bounds, then the column's padding value is returned instead.
+// Thus, this function always succeeds.
+func (p *Column) Get(row int) *fr.Element {
+	if row < 0 || uint(row) >= p.data.Len() {
+		// out-of-bounds access
+		return p.padding
+	}
+	// in-bounds access
+	return p.data.Get(uint(row))
+}
+
+func (p *Column) pad(n uint) {
+	// Apply the length multiplier
+	n = n * p.context.LengthMultiplier()
+	// Pad front of array
+	p.data = p.data.PadFront(n, p.padding)
+}
+
+// Reseat updates the module index of this column (e.g. as a result of a
+// realignment).
+func (p *Column) reseat(mid uint) {
+	p.context = NewContext(mid, p.context.LengthMultiplier())
+}
+
+// ----------------------------------------------------------------------------
 
 // Module describes an individual module within the trace table, and
 // permits actions on the columns of this module as a whole.

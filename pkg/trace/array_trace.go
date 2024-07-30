@@ -14,7 +14,7 @@ type ArrayTrace struct {
 	// Holds the complete set of columns in this trace.  The index of each
 	// column in this array uniquely identifies it, and is referred to as the
 	// "column index".
-	columns []*ArrayTraceColumn
+	columns []*Column
 	// Holds the complete set of modules in this trace.  The index of each
 	// module in this array uniquely identifies it, and is referred to as the
 	// "module index".
@@ -30,7 +30,7 @@ func (p *ArrayTrace) Columns() ColumnSet {
 // Clone creates an identical clone of this trace.
 func (p *ArrayTrace) Clone() Trace {
 	clone := new(ArrayTrace)
-	clone.columns = make([]*ArrayTraceColumn, len(p.columns))
+	clone.columns = make([]*Column, len(p.columns))
 	clone.modules = make([]Module, len(p.modules))
 	// Clone modules
 	for i, m := range p.modules {
@@ -38,7 +38,7 @@ func (p *ArrayTrace) Clone() Trace {
 	}
 	// Clone columns
 	for i, c := range p.columns {
-		clone.columns[i] = NewArrayTraceColumn(c.context, c.name, c.data.Clone(), c.padding)
+		clone.columns[i] = NewColumn(c.context, c.name, c.data.Clone(), c.padding)
 	}
 	// done
 	return clone
@@ -112,7 +112,7 @@ func (p arrayTraceColumnSet) Add(ctx Context, name string, data util.FrArray, pa
 	}
 	// Proceed
 	index := uint(len(p.trace.columns))
-	p.trace.columns = append(p.trace.columns, NewArrayTraceColumn(ctx, name, data, padding))
+	p.trace.columns = append(p.trace.columns, NewColumn(ctx, name, data, padding))
 	// Register column with enclosing module
 	m.registerColumn(index)
 	// Done
@@ -120,7 +120,7 @@ func (p arrayTraceColumnSet) Add(ctx Context, name string, data util.FrArray, pa
 }
 
 // Get returns the ith column in this column set.
-func (p arrayTraceColumnSet) Get(index uint) Column {
+func (p arrayTraceColumnSet) Get(index uint) *Column {
 	return p.trace.columns[index]
 }
 
@@ -235,86 +235,4 @@ func (p arrayTraceModuleSet) reseatColumns(mid uint, columns []uint) {
 	for _, c := range columns {
 		p.trace.columns[c].reseat(mid)
 	}
-}
-
-// ============================================================================
-// ArrayTraceColumn
-// ============================================================================
-
-// ArrayTraceColumn represents a column of data within a trace where each row is
-// stored directly as a field element.  This is the simplest form of column,
-// which provides the fastest Get operation (i.e. because it just reads the
-// field element out directly).  However, at the same time, it can potentially
-// use quite a lot of memory.  In particular, when there are many different
-// field elements which have smallish values then this requires excess data.
-type ArrayTraceColumn struct {
-	// Evaluation context of this column
-	context Context
-	// Holds the name of this column
-	name string
-	// Holds the raw data making up this column
-	data util.FrArray
-	// Value to be used when padding this column
-	padding *fr.Element
-}
-
-// NewArrayTraceColumn constructs a ArrayTraceColumn with the give name, data and padding.
-func NewArrayTraceColumn(context Context, name string, data util.FrArray,
-	padding *fr.Element) *ArrayTraceColumn {
-	// Sanity check data length
-	if data.Len()%context.LengthMultiplier() != 0 {
-		panic("data length has incorrect multiplier")
-	}
-	// Done
-	return &ArrayTraceColumn{context, name, data, padding}
-}
-
-// Context returns the evaluation context this column provides.
-func (p *ArrayTraceColumn) Context() Context {
-	return p.context
-}
-
-// Name returns the name of the given column.
-func (p *ArrayTraceColumn) Name() string {
-	return p.name
-}
-
-// Height determines the height of this column.
-func (p *ArrayTraceColumn) Height() uint {
-	return p.data.Len()
-}
-
-// Padding returns the value which will be used for padding this column.
-func (p *ArrayTraceColumn) Padding() *fr.Element {
-	return p.padding
-}
-
-// Data provides access to the underlying data of this column
-func (p *ArrayTraceColumn) Data() util.FrArray {
-	return p.data
-}
-
-// Get the value at a given row in this column.  If the row is
-// out-of-bounds, then the column's padding value is returned instead.
-// Thus, this function always succeeds.
-func (p *ArrayTraceColumn) Get(row int) *fr.Element {
-	if row < 0 || uint(row) >= p.data.Len() {
-		// out-of-bounds access
-		return p.padding
-	}
-	// in-bounds access
-	return p.data.Get(uint(row))
-}
-
-func (p *ArrayTraceColumn) pad(n uint) {
-	// Apply the length multiplier
-	n = n * p.context.LengthMultiplier()
-	// Pad front of array
-	p.data = p.data.PadFront(n, p.padding)
-}
-
-// Reseat updates the module index of this column (e.g. as a result of a
-// realignment).
-func (p *ArrayTraceColumn) reseat(mid uint) {
-	p.context = NewContext(mid, p.context.LengthMultiplier())
 }

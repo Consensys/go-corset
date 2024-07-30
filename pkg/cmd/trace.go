@@ -177,7 +177,7 @@ func summaryStats(tr trace.Trace) {
 // contents of a given column.
 type ColSummariser struct {
 	name    string
-	summary func(trace.Column) string
+	summary func(*trace.Column) string
 }
 
 var colSummarisers []ColSummariser = []ColSummariser{
@@ -187,15 +187,15 @@ var colSummarisers []ColSummariser = []ColSummariser{
 	{"unique", uniqueSummariser},
 }
 
-func rowSummariser(col trace.Column) string {
+func rowSummariser(col *trace.Column) string {
 	return fmt.Sprintf("%d rows", col.Data().Len())
 }
 
-func widthSummariser(col trace.Column) string {
+func widthSummariser(col *trace.Column) string {
 	return fmt.Sprintf("%d bits", col.Data().BitWidth())
 }
 
-func bytesSummariser(col trace.Column) string {
+func bytesSummariser(col *trace.Column) string {
 	bitwidth := col.Data().BitWidth()
 	byteWidth := bitwidth / 8
 	// Determine proper bytewidth
@@ -206,7 +206,7 @@ func bytesSummariser(col trace.Column) string {
 	return fmt.Sprintf("%d bytes", col.Data().Len()*byteWidth)
 }
 
-func uniqueSummariser(col trace.Column) string {
+func uniqueSummariser(col *trace.Column) string {
 	data := col.Data()
 	elems := util.NewHashSet[util.BytesKey](data.Len() / 2)
 	// Add all the elements

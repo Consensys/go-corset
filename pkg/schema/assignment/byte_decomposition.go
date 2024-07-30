@@ -59,38 +59,35 @@ func (p *ByteDecomposition) IsComputed() bool {
 // Assignment Interface
 // ============================================================================
 
-// ExpandTrace expands a given trace to include the columns specified by a given
-// ByteDecomposition.  This requires computing the value of each byte column in
-// the decomposition.
-func (p *ByteDecomposition) ExpandTrace(tr trace.Trace) error {
+// ComputeColumns computes the values of columns defined by this assignment.
+// This requires computing the value of each byte column in the decomposition.
+func (p *ByteDecomposition) ComputeColumns(tr trace.Trace) ([]*trace.Column, error) {
 	columns := tr.Columns()
 	// Calculate how many bytes required.
 	n := len(p.targets)
 	// Identify source column
 	source := columns.Get(p.source)
+	// Determine padding values
+	padding := decomposeIntoBytes(source.Padding(), n)
 	// Construct byte column data
-	cols := make([]util.FrArray, n)
+	cols := make([]*trace.Column, n)
 	// Initialise columns
 	for i := 0; i < n; i++ {
+		ith := p.targets[i]
+		// Construct a byte array for ith byte
+		data := util.NewFrArray(source.Height(), 8)
 		// Construct a byte column for ith byte
-		cols[i] = util.NewFrArray(source.Height(), 8)
+		cols[i] = trace.NewColumn(ith.Context(), ith.Name(), data, padding[i])
 	}
 	// Decompose each row of each column
 	for i := uint(0); i < source.Height(); i = i + 1 {
 		ith := decomposeIntoBytes(source.Get(int(i)), n)
 		for j := 0; j < n; j++ {
-			cols[j].Set(i, ith[j])
+			cols[j].Data().Set(i, ith[j])
 		}
 	}
-	// Determine padding values
-	padding := decomposeIntoBytes(source.Padding(), n)
-	// Finally, add byte columns to trace
-	for i := 0; i < n; i++ {
-		ith := p.targets[i]
-		columns.Add(ith.Context(), ith.Name(), cols[i], padding[i])
-	}
 	// Done
-	return nil
+	return cols, nil
 }
 
 // RequiredSpillage returns the minimum amount of spillage required to ensure

@@ -117,42 +117,42 @@ func (p *SortedPermutation) RequiredSpillage() uint {
 	return uint(0)
 }
 
-// ExpandTrace expands a given trace to include the columns specified by a given
-// SortedPermutation.  This requires copying the data in the source columns, and
-// sorting that data according to the permutation criteria.
-func (p *SortedPermutation) ExpandTrace(tr tr.Trace) error {
+// ComputeColumns computes the values of columns defined by this assignment.
+// This requires copying the data in the source columns, and sorting that data
+// according to the permutation criteria.
+func (p *SortedPermutation) ComputeColumns(tr trace.Trace) ([]*trace.Column, error) {
 	columns := tr.Columns()
 	// Ensure target columns don't exist
 	for i := p.Columns(); i.HasNext(); {
 		name := i.Next().Name()
 		// Sanity check no column already exists with this name.
 		if _, ok := columns.IndexOf(p.context.Module(), name); ok {
-			return fmt.Errorf("permutation column already exists ({%s})", name)
+			return nil, fmt.Errorf("permutation column already exists ({%s})", name)
 		}
 	}
 
-	cols := make([]util.FrArray, len(p.sources))
+	data := make([]util.FrArray, len(p.sources))
 	// Construct target columns
 	for i := 0; i < len(p.sources); i++ {
 		src := p.sources[i]
 		// Read column data
-		data := columns.Get(src).Data()
+		src_data := columns.Get(src).Data()
 		// Clone it to initialise permutation.
-		cols[i] = data.Clone()
+		data[i] = src_data.Clone()
 	}
 	// Sort target columns
-	util.PermutationSort(cols, p.signs)
-	// Physically add the columns
-	index := 0
-
-	for i := p.Columns(); i.HasNext(); index++ {
-		ith := i.Next()
+	util.PermutationSort(data, p.signs)
+	// Physically construct the columns
+	cols := make([]*trace.Column, len(p.sources))
+	//
+	for i, iter := 0, p.Columns(); iter.HasNext(); i++ {
+		ith := iter.Next()
 		dstColName := ith.Name()
-		srcCol := tr.Columns().Get(p.sources[index])
-		columns.Add(ith.Context(), dstColName, cols[index], srcCol.Padding())
+		srcCol := tr.Columns().Get(p.sources[i])
+		cols[i] = trace.NewColumn(ith.Context(), dstColName, data[i], srcCol.Padding())
 	}
 	//
-	return nil
+	return cols, nil
 }
 
 // Dependencies returns the set of columns that this assignment depends upon.

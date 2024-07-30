@@ -19,7 +19,7 @@ type Builder struct {
 	// Mapping from name to module index
 	modmap map[string]uint
 	// Set of known columns
-	columns []*ArrayTraceColumn
+	columns []*Column
 }
 
 // NewBuilder constructs an empty builder which can then be used to build a new
@@ -27,7 +27,7 @@ type Builder struct {
 func NewBuilder() *Builder {
 	modules := make([]Module, 0)
 	modmap := make(map[string]uint, 0)
-	columns := make([]*ArrayTraceColumn, 0)
+	columns := make([]*Column, 0)
 	// Initially empty environment
 	return &Builder{modules, modmap, columns}
 }
@@ -58,7 +58,7 @@ func (p *Builder) Add(name string, padding *fr.Element, data util.FrArray) error
 	// where we are importing expanded traces, then this might not be true.
 	context := NewContext(mid, 1)
 	// Register new column.
-	return p.registerColumn(NewArrayTraceColumn(context, colname, data, padding))
+	return p.registerColumn(NewColumn(context, colname, data, padding))
 }
 
 // HasModule checks whether a given module has already been registered with this
@@ -101,7 +101,7 @@ func (p *Builder) splitQualifiedColumnName(name string) (string, string) {
 // RegisterColumn registers a new column with this builder.  An error can arise
 // if the column's module does not exist, or if the column's height does not
 // match that of its enclosing module.
-func (p *Builder) registerColumn(col *ArrayTraceColumn) error {
+func (p *Builder) registerColumn(col *Column) error {
 	mid := col.Context().Module()
 	// Sanity check module exists
 	if mid >= uint(len(p.modules)) {
