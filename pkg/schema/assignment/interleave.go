@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/trace"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
@@ -65,10 +66,10 @@ func (p *Interleaving) RequiredSpillage() uint {
 	return uint(0)
 }
 
-// ExpandTrace expands a given trace to include the columns specified by a given
-// Interleaving.  This requires copying the data in the source columns to create
-// the interleaved column.
-func (p *Interleaving) ExpandTrace(tr tr.Trace) error {
+// ComputeColumns computes the values of columns defined by this assignment.
+// This requires copying the data in the source columns to create the
+// interleaved column.
+func (p *Interleaving) ComputeColumns(tr trace.Trace) ([]*trace.Column, error) {
 	columns := tr.Columns()
 	ctx := p.target.Context()
 	// Byte width records the largest width of any column.
@@ -80,7 +81,7 @@ func (p *Interleaving) ExpandTrace(tr tr.Trace) error {
 		bit_width = max(bit_width, ith.Type().BitWidth())
 		// Sanity check no column already exists with this name.
 		if _, ok := columns.IndexOf(ctx.Module(), ith.Name()); ok {
-			return fmt.Errorf("interleaved column already exists ({%s})", ith.Name())
+			return nil, fmt.Errorf("interleaved column already exists ({%s})", ith.Name())
 		}
 	}
 	// Determine interleaving width
@@ -110,9 +111,9 @@ func (p *Interleaving) ExpandTrace(tr tr.Trace) error {
 	// column in the interleaving.
 	padding := columns.Get(0).Padding()
 	// Colunm needs to be expanded.
-	columns.Add(ctx, p.target.Name(), data, padding)
+	col := trace.NewColumn(ctx, p.target.Name(), data, padding)
 	//
-	return nil
+	return []*trace.Column{col}, nil
 }
 
 // Dependencies returns the set of columns that this assignment depends upon.

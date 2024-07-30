@@ -67,46 +67,49 @@ func (p *LexicographicSort) RequiredSpillage() uint {
 	return uint(0)
 }
 
-// ExpandTrace adds columns as needed to support the LexicographicSortingGadget.
-// That includes the delta column, and the bit selectors.
-func (p *LexicographicSort) ExpandTrace(tr trace.Trace) error {
+// ComputeColumns computes the values of columns defined as needed to support
+// the LexicographicSortingGadget. That includes the delta column, and the bit
+// selectors.
+func (p *LexicographicSort) ComputeColumns(tr trace.Trace) ([]*trace.Column, error) {
 	columns := tr.Columns()
 	zero := fr.NewElement(0)
 	one := fr.NewElement(1)
+	first := p.targets[0]
 	// Exact number of columns involved in the sort
-	ncols := len(p.sources)
+	nbits := len(p.sources)
 	//
 	multiplier := p.context.LengthMultiplier()
 	// Determine how many rows to be constrained.
 	nrows := tr.Modules().Get(p.context.Module()).Height() * multiplier
 	// Initialise new data columns
-	bit := make([]util.FrArray, ncols)
+	cols := make([]*trace.Column, nbits+1)
 	// Byte width records the largest width of any column.
 	bit_width := uint(0)
-
-	for i := 0; i < ncols; i++ {
-		// TODO: following can be optimised to use a single bit per element,
-		// rather than an entire byte.
-		bit[i] = util.NewFrArray(nrows, 1)
-		ith := columns.Get(p.sources[i])
-		bit_width = max(bit_width, ith.Data().BitWidth())
-	}
-
+	//
 	delta := util.NewFrArray(nrows, bit_width)
+	cols[0] = trace.NewColumn(first.Context(), first.Name(), delta, &zero)
+	//
+	for i := 0; i < nbits; i++ {
+		target := p.targets[1+i]
+		source := columns.Get(p.sources[i])
+		data := util.NewFrArray(nrows, 1)
+		cols[i+1] = trace.NewColumn(target.Context(), target.Name(), data, &zero)
+		bit_width = max(bit_width, source.Data().BitWidth())
+	}
 
 	for i := uint(0); i < nrows; i++ {
 		set := false
 		// Initialise delta to zero
 		delta.Set(i, &zero)
 		// Decide which row is the winner (if any)
-		for j := 0; j < ncols; j++ {
+		for j := 0; j < nbits; j++ {
 			prev := columns.Get(p.sources[j]).Get(int(i - 1))
 			curr := columns.Get(p.sources[j]).Get(int(i))
 
 			if !set && prev != nil && prev.Cmp(curr) != 0 {
 				var diff fr.Element
 
-				bit[j].Set(i, &one)
+				cols[j+1].Data().Set(i, &one)
 				// Compute curr - prev
 				if p.signs[j] {
 					diff.Set(curr)
@@ -118,20 +121,12 @@ func (p *LexicographicSort) ExpandTrace(tr trace.Trace) error {
 
 				set = true
 			} else {
-				bit[j].Set(i, &zero)
+				cols[j+1].Data().Set(i, &zero)
 			}
 		}
 	}
-	// Add delta column data
-	first := p.targets[0]
-	columns.Add(first.Context(), first.Name(), delta, &zero)
-	// Add bit column data
-	for i := 0; i < ncols; i++ {
-		ith := p.targets[1+i]
-		columns.Add(ith.Context(), ith.Name(), bit[i], &zero)
-	}
 	// Done.
-	return nil
+	return cols, nil
 }
 
 // Dependencies returns the set of columns that this assignment depends upon.
