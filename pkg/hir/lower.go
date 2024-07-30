@@ -34,9 +34,9 @@ func (p *Schema) LowerToMir() *mir.Schema {
 	// Copy property assertions.  Observe, these do not require lowering
 	// because they are already MIR-level expressions.
 	for _, c := range p.assertions {
-		properties := c.Property.Expr.LowerTo(mirSchema)
+		properties := c.Property().Expr.LowerTo(mirSchema)
 		for _, p := range properties {
-			mirSchema.AddPropertyAssertion(c.Module, c.Handle, p)
+			mirSchema.AddPropertyAssertion(c.Handle(), c.Context(), p)
 		}
 	}
 	//

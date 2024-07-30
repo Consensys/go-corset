@@ -75,17 +75,9 @@ func (p *ComputedColumn[E]) RequiredSpillage() uint {
 // ComputeColumns computes the values of columns defined by this assignment.
 // Specifically, this creates a new column which contains the result of
 // evaluating a given expression on each row.
-func (p *ComputedColumn[E]) ComputeColumns(tr trace.Trace) ([]*trace.Column, error) {
-	columns := tr.Columns()
-	// Check whether a column already exists with the given name.
-	if _, ok := columns.IndexOf(p.target.Context().Module(), p.Name()); ok {
-		mod := tr.Modules().Get(p.target.Context().Module())
-		return nil, fmt.Errorf("computed column already exists ({%s.%s})", mod.Name(), p.Name())
-	}
-	// Extract length multipiler
-	multiplier := p.target.Context().LengthMultiplier()
+func (p *ComputedColumn[E]) ComputeColumns(tr trace.Trace) ([]trace.ArrayColumn, error) {
 	// Determine multiplied height
-	height := tr.Modules().Get(p.target.Context().Module()).Height() * multiplier
+	height := tr.Height(p.target.Context())
 	// Make space for computed data
 	data := util.NewFrArray(height, 256)
 	// Expand the trace
@@ -103,9 +95,9 @@ func (p *ComputedColumn[E]) ComputeColumns(tr trace.Trace) ([]*trace.Column, err
 	// the padding value for *this* column.
 	padding := p.expr.EvalAt(-1, tr)
 	// Construct column
-	col := trace.NewColumn(p.target.Context(), p.Name(), data, padding)
+	col := trace.NewArrayColumn(p.target.Context(), p.Name(), data, padding)
 	// Done
-	return []*trace.Column{col}, nil
+	return []trace.ArrayColumn{col}, nil
 }
 
 // Dependencies returns the set of columns that this assignment depends upon.

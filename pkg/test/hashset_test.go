@@ -34,12 +34,12 @@ func Test_HashSet_05(t *testing.T) {
 	check_HashSet(t, items)
 }
 
-func Test_HashSet_08(t *testing.T) {
+func TestSlow_HashSet_08(t *testing.T) {
 	items := GenerateRandomInputs(100000, 64)
 	check_HashSet(t, items)
 }
 
-func Test_HashSet_09(t *testing.T) {
+func TestSlow_HashSet_09(t *testing.T) {
 	items := GenerateRandomInputs(100000, 128)
 	check_HashSet(t, items)
 }

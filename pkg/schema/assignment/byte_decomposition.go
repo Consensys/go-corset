@@ -61,26 +61,27 @@ func (p *ByteDecomposition) IsComputed() bool {
 
 // ComputeColumns computes the values of columns defined by this assignment.
 // This requires computing the value of each byte column in the decomposition.
-func (p *ByteDecomposition) ComputeColumns(tr trace.Trace) ([]*trace.Column, error) {
-	columns := tr.Columns()
+func (p *ByteDecomposition) ComputeColumns(tr trace.Trace) ([]trace.ArrayColumn, error) {
 	// Calculate how many bytes required.
 	n := len(p.targets)
 	// Identify source column
-	source := columns.Get(p.source)
+	source := tr.Column(p.source)
+	// Determine height of column
+	height := tr.Height(source.Context())
 	// Determine padding values
 	padding := decomposeIntoBytes(source.Padding(), n)
 	// Construct byte column data
-	cols := make([]*trace.Column, n)
+	cols := make([]trace.ArrayColumn, n)
 	// Initialise columns
 	for i := 0; i < n; i++ {
 		ith := p.targets[i]
 		// Construct a byte array for ith byte
-		data := util.NewFrArray(source.Height(), 8)
+		data := util.NewFrArray(height, 8)
 		// Construct a byte column for ith byte
-		cols[i] = trace.NewColumn(ith.Context(), ith.Name(), data, padding[i])
+		cols[i] = trace.NewArrayColumn(ith.Context(), ith.Name(), data, padding[i])
 	}
 	// Decompose each row of each column
-	for i := uint(0); i < source.Height(); i = i + 1 {
+	for i := uint(0); i < height; i = i + 1 {
 		ith := decomposeIntoBytes(source.Get(int(i)), n)
 		for j := 0; j < n; j++ {
 			cols[j].Data().Set(i, ith[j])

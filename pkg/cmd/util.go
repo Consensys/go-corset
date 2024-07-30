@@ -60,7 +60,7 @@ func getString(cmd *cobra.Command, flag string) string {
 }
 
 // Write a given trace file to disk
-func writeTraceFile(filename string, tr trace.Trace) {
+func writeTraceFile(filename string, columns []trace.RawColumn) {
 	var err error
 
 	var bytes []byte
@@ -69,13 +69,13 @@ func writeTraceFile(filename string, tr trace.Trace) {
 	//
 	switch ext {
 	case ".json":
-		js := json.ToJsonString(tr)
+		js := json.ToJsonString(columns)
 		//
 		if err = os.WriteFile(filename, []byte(js), 0644); err == nil {
 			return
 		}
 	case ".lt":
-		bytes, err = lt.ToBytes(tr)
+		bytes, err = lt.ToBytes(columns)
 		//
 		if err == nil {
 			if err = os.WriteFile(filename, bytes, 0644); err == nil {
@@ -91,8 +91,8 @@ func writeTraceFile(filename string, tr trace.Trace) {
 }
 
 // Parse a trace file using a parser based on the extension of the filename.
-func readTraceFile(filename string) trace.Trace {
-	var tr trace.Trace
+func readTraceFile(filename string) []trace.RawColumn {
+	var tr []trace.RawColumn
 	// Read data file
 	bytes, err := os.ReadFile(filename)
 	// Check success
@@ -183,15 +183,12 @@ func printSyntaxError(filename string, err *sexp.SyntaxError, text string) {
 	fmt.Println(strings.Repeat("^", length))
 }
 
-// QualifiedColumnName returns a fully qualified column name based on its column
-// index.
-func QualifiedColumnName(cid uint, tr trace.Trace) string {
-	col := tr.Columns().Get(cid)
-	mod := tr.Modules().Get(col.Context().Module())
-	// Check whether qualification required
-	if mod.Name() != "" {
-		return fmt.Sprintf("%s.%s", mod.Name(), col.Name())
+func maxHeightColumns(cols []trace.RawColumn) uint {
+	h := uint(0)
+	// Iterate over modules
+	for _, col := range cols {
+		h = max(h, col.Data.Len())
 	}
-	// Prelude module
-	return col.Name()
+	// Done
+	return h
 }

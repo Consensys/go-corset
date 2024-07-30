@@ -37,12 +37,12 @@ var checkCmd = &cobra.Command{
 		cfg.padding.Right = getUint(cmd, "padding")
 		// TODO: support true ranges
 		cfg.padding.Left = cfg.padding.Right
-		// Parse trace
-		trace := readTraceFile(args[0])
 		// Parse constraints
 		hirSchema = readSchemaFile(args[1])
+		// Parse trace file
+		columns := readTraceFile(args[0])
 		// Go!
-		checkTraceWithLowering(trace, hirSchema, cfg)
+		checkTraceWithLowering(columns, hirSchema, cfg)
 	},
 }
 
@@ -78,28 +78,28 @@ type checkConfig struct {
 
 // Check a given trace is consistently accepted (or rejected) at the different
 // IR levels.
-func checkTraceWithLowering(tr trace.Trace, schema *hir.Schema, cfg checkConfig) {
+func checkTraceWithLowering(cols []trace.RawColumn, schema *hir.Schema, cfg checkConfig) {
 	if !cfg.hir && !cfg.mir && !cfg.air {
 		// Process together
-		checkTraceWithLoweringDefault(tr, schema, cfg)
+		checkTraceWithLoweringDefault(cols, schema, cfg)
 	} else {
 		// Process individually
 		if cfg.hir {
-			checkTraceWithLoweringHir(tr, schema, cfg)
+			checkTraceWithLoweringHir(cols, schema, cfg)
 		}
 
 		if cfg.mir {
-			checkTraceWithLoweringMir(tr, schema, cfg)
+			checkTraceWithLoweringMir(cols, schema, cfg)
 		}
 
 		if cfg.air {
-			checkTraceWithLoweringAir(tr, schema, cfg)
+			checkTraceWithLoweringAir(cols, schema, cfg)
 		}
 	}
 }
 
-func checkTraceWithLoweringHir(tr trace.Trace, hirSchema *hir.Schema, cfg checkConfig) {
-	trHIR, errHIR := checkTrace(tr, hirSchema, cfg)
+func checkTraceWithLoweringHir(cols []trace.RawColumn, hirSchema *hir.Schema, cfg checkConfig) {
+	trHIR, errHIR := checkTrace(cols, hirSchema, cfg)
 	//
 	if errHIR != nil {
 		reportError("HIR", trHIR, errHIR, cfg)
@@ -107,11 +107,11 @@ func checkTraceWithLoweringHir(tr trace.Trace, hirSchema *hir.Schema, cfg checkC
 	}
 }
 
-func checkTraceWithLoweringMir(tr trace.Trace, hirSchema *hir.Schema, cfg checkConfig) {
+func checkTraceWithLoweringMir(cols []trace.RawColumn, hirSchema *hir.Schema, cfg checkConfig) {
 	// Lower HIR => MIR
 	mirSchema := hirSchema.LowerToMir()
 	// Check trace
-	trMIR, errMIR := checkTrace(tr, mirSchema, cfg)
+	trMIR, errMIR := checkTrace(cols, mirSchema, cfg)
 	//
 	if errMIR != nil {
 		reportError("MIR", trMIR, errMIR, cfg)
@@ -119,12 +119,12 @@ func checkTraceWithLoweringMir(tr trace.Trace, hirSchema *hir.Schema, cfg checkC
 	}
 }
 
-func checkTraceWithLoweringAir(tr trace.Trace, hirSchema *hir.Schema, cfg checkConfig) {
+func checkTraceWithLoweringAir(cols []trace.RawColumn, hirSchema *hir.Schema, cfg checkConfig) {
 	// Lower HIR => MIR
 	mirSchema := hirSchema.LowerToMir()
 	// Lower MIR => AIR
 	airSchema := mirSchema.LowerToAir()
-	trAIR, errAIR := checkTrace(tr, airSchema, cfg)
+	trAIR, errAIR := checkTrace(cols, airSchema, cfg)
 	//
 	if errAIR != nil {
 		reportError("AIR", trAIR, errAIR, cfg)
@@ -134,15 +134,15 @@ func checkTraceWithLoweringAir(tr trace.Trace, hirSchema *hir.Schema, cfg checkC
 
 // The default check allows one to compare all levels against each other and
 // look for any discrepenacies.
-func checkTraceWithLoweringDefault(tr trace.Trace, hirSchema *hir.Schema, cfg checkConfig) {
+func checkTraceWithLoweringDefault(cols []trace.RawColumn, hirSchema *hir.Schema, cfg checkConfig) {
 	// Lower HIR => MIR
 	mirSchema := hirSchema.LowerToMir()
 	// Lower MIR => AIR
 	airSchema := mirSchema.LowerToAir()
 	//
-	trHIR, errHIR := checkTrace(tr, hirSchema, cfg)
-	trMIR, errMIR := checkTrace(tr, mirSchema, cfg)
-	trAIR, errAIR := checkTrace(tr, airSchema, cfg)
+	trHIR, errHIR := checkTrace(cols, hirSchema, cfg)
+	trMIR, errMIR := checkTrace(cols, mirSchema, cfg)
+	trAIR, errAIR := checkTrace(cols, airSchema, cfg)
 	//
 	if errHIR != nil || errMIR != nil || errAIR != nil {
 		strHIR := toErrorString(errHIR)
@@ -161,111 +161,35 @@ func checkTraceWithLoweringDefault(tr trace.Trace, hirSchema *hir.Schema, cfg ch
 	}
 }
 
-func checkTrace(tr trace.Trace, schema sc.Schema, cfg checkConfig) (trace.Trace, error) {
+func checkTrace(cols []trace.RawColumn, schema sc.Schema, cfg checkConfig) (trace.Trace, error) {
 	//
-	if cfg.expand {
-		// Clone to prevent interefence with subsequent checks
-		tr = tr.Clone()
-		// Apply spillage
-		if cfg.spillage >= 0 {
-			// Apply user-specified spillage
-			trace.PadColumns(tr, uint(cfg.spillage))
-		} else {
-			// Apply default inferred spillage
-			trace.PadColumns(tr, sc.RequiredSpillage(schema))
-		}
-		// Perform Input Alignment
-		if err := performAlignment(true, tr, schema, cfg); err != nil {
+	for n := cfg.padding.Left; n <= cfg.padding.Right; n++ {
+		tr, err := sc.BuildTrace(schema, cols, cfg.expand, n)
+		// Check for errors
+		if err != nil {
 			return tr, err
 		}
-		// Validate trace
+		// Validate trace.  Observe that this is only done for
 		if err := validationCheck(tr, schema); err != nil {
 			return tr, err
 		}
-		// Expand trace
-		if err := sc.ExpandTrace(schema, tr); err != nil {
+		// Apply padding (as necessary)
+		if err := sc.Accepts(schema, tr); err != nil {
 			return tr, err
-		}
-	}
-	// Perform Alignment
-	if err := performAlignment(false, tr, schema, cfg); err != nil {
-		return tr, err
-	}
-	// Apply padding (as necessary)
-	for n := cfg.padding.Left; n <= cfg.padding.Right; n++ {
-		if ptr, err := padAndCheckTrace(n, tr, schema); err != nil {
-			return ptr, err
 		}
 	}
 	// Done
 	return nil, nil
 }
 
-func padAndCheckTrace(n uint, tr trace.Trace, schema sc.Schema) (trace.Trace, error) {
-	var ptr trace.Trace = tr
-	// Apply padding (if applicable)
-	if n != 0 {
-		// Prevent interference
-		ptr := tr.Clone()
-		// Apply padding
-		trace.PadColumns(ptr, n)
-	}
-	// Check whether accepted or not.
-	err := sc.Accepts(schema, ptr)
-	// Done
-	return ptr, err
-}
-
-// Run the alignment algorithm with optional checks determined by the configuration.
-func performAlignment(inputs bool, tr trace.Trace, schema sc.Schema, cfg checkConfig) error {
-	var err error
-
-	var nSchemaCols uint
-	// Determine number of trace columns
-	nTraceCols := tr.Columns().Len()
-
-	if inputs {
-		nSchemaCols = schema.InputColumns().Count()
-		err = sc.AlignInputs(tr, schema)
-	} else {
-		nSchemaCols = schema.Columns().Count()
-		err = sc.Align(tr, schema)
-	}
-	// Sanity check error
-	if err != nil {
-		return err
-	} else if cfg.strict && nSchemaCols != nTraceCols {
-		col := tr.Columns().Get(nSchemaCols)
-		mod := tr.Modules().Get(col.Context().Module())
-		// Return error
-		return fmt.Errorf("unknown trace column %s", sc.QualifiedColumnName(mod.Name(), col.Name()))
-	} else if nSchemaCols != nTraceCols {
-		// Log warning
-		if !cfg.quiet {
-			for i := nSchemaCols; i < nTraceCols; i++ {
-				col := tr.Columns().Get(i)
-				mod := tr.Modules().Get(col.Context().Module())
-				fmt.Printf("[WARNING] unknown trace column %s\n", sc.QualifiedColumnName(mod.Name(), col.Name()))
-			}
-		}
-		// Finally, remove the unknown columns.  This is important as,
-		// otherwise, the column indices they occupy will clash with computed
-		// columns which are added during lowering.
-		tr.Columns().Trim(nSchemaCols)
-	}
-
-	return nil
-}
-
 // Validate that values held in trace columns match the expected type.  This is
 // really a sanity check that the trace is not malformed.
 func validationCheck(tr trace.Trace, schema sc.Schema) error {
-	nTraceCols := tr.Columns().Len()
 	schemaCols := schema.Columns()
 	// Check each column in turn
-	for i := uint(0); i < nTraceCols; i++ {
+	for i := uint(0); i < tr.Width(); i++ {
 		// Extract ith column
-		col := tr.Columns().Get(i)
+		col := tr.Column(i)
 		// Extract schema for ith column
 		scCol := schemaCols.Next()
 		// Determine enclosing module
@@ -273,10 +197,10 @@ func validationCheck(tr trace.Trace, schema sc.Schema) error {
 		// Extract type for ith column
 		colType := scCol.Type()
 		// Check elements
-		for j := 0; j < int(col.Height()); j++ {
+		for j := 0; j < int(tr.Height(scCol.Context())); j++ {
 			jth := col.Get(j)
 			if !colType.Accept(jth) {
-				qualColName := sc.QualifiedColumnName(mod.Name(), col.Name())
+				qualColName := trace.QualifiedColumnName(mod.Name(), col.Name())
 				return fmt.Errorf("row %d of column %s is out-of-bounds (%s)", j, qualColName, jth)
 			}
 		}

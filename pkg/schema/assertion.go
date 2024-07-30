@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/consensys/go-corset/pkg/trace"
 	tr "github.com/consensys/go-corset/pkg/trace"
 )
 
@@ -17,28 +18,42 @@ import (
 type PropertyAssertion[T Testable] struct {
 	// A unique identifier for this constraint.  This is primarily
 	// useful for debugging.
-	Handle string
+	handle string
 	// Enclosing module for this assertion.  This restricts the asserted
 	// property to access only columns from within this module.
-	Module uint
+	context trace.Context
 	// The actual assertion itself, namely an expression which
 	// should hold (i.e. vanish) for every row of a trace.
 	// Observe that this can be any function which is computable
 	// on a given trace --- we are not restricted to expressions
 	// which can be arithmetised.
-	Property T
+	property T
 }
 
 // NewPropertyAssertion constructs a new property assertion!
-func NewPropertyAssertion[T Testable](module uint, handle string, property T) *PropertyAssertion[T] {
-	return &PropertyAssertion[T]{handle, module, property}
+func NewPropertyAssertion[T Testable](handle string, ctx trace.Context, property T) *PropertyAssertion[T] {
+	return &PropertyAssertion[T]{handle, ctx, property}
 }
 
-// GetHandle returns the handle associated with this constraint.
+// Handle returns the handle associated with this constraint.
 //
 //nolint:revive
-func (p *PropertyAssertion[T]) GetHandle() string {
-	return p.Handle
+func (p *PropertyAssertion[T]) Handle() string {
+	return p.handle
+}
+
+// Context returns the handle associated with this constraint.
+//
+//nolint:revive
+func (p *PropertyAssertion[T]) Context() trace.Context {
+	return p.context
+}
+
+// Property returns the handle associated with this constraint.
+//
+//nolint:revive
+func (p *PropertyAssertion[T]) Property() T {
+	return p.property
 }
 
 // Accepts checks whether a vanishing constraint evaluates to zero on every row
@@ -47,13 +62,13 @@ func (p *PropertyAssertion[T]) GetHandle() string {
 //nolint:revive
 func (p *PropertyAssertion[T]) Accepts(tr tr.Trace) error {
 	// Determine height of enclosing module
-	height := tr.Modules().Get(p.Module).Height()
+	height := tr.Height(p.context)
 	// Iterate every row in the module
 	for k := uint(0); k < height; k++ {
 		// Check whether property holds (or was undefined)
-		if !p.Property.TestAt(int(k), tr) {
+		if !p.property.TestAt(int(k), tr) {
 			// Construct useful error message
-			msg := fmt.Sprintf("property assertion %s does not hold (row %d)", p.Handle, k)
+			msg := fmt.Sprintf("property assertion %s does not hold (row %d)", p.handle, k)
 			// Evaluation failure
 			return errors.New(msg)
 		}

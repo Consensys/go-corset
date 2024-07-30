@@ -115,7 +115,7 @@ func (p *VanishingConstraint[T]) Accepts(tr trace.Trace) error {
 	// Handle negative domains
 	if *p.domain < 0 {
 		// Determine height of enclosing module
-		height := tr.Modules().Get(p.context.Module()).Height() * p.context.LengthMultiplier()
+		height := tr.Height(p.context)
 		// Negative rows calculated from end of trace.
 		start = height + uint(*p.domain)
 	} else {
@@ -129,8 +129,7 @@ func (p *VanishingConstraint[T]) Accepts(tr trace.Trace) error {
 // zero) for all rows of a trace.  If not, report an appropriate error.
 func HoldsGlobally[T sc.Testable](handle string, ctx trace.Context, constraint T, tr trace.Trace) error {
 	// Determine height of enclosing module
-	height := tr.Modules().Get(ctx.Module()).Height() * ctx.LengthMultiplier()
-	//
+	height := tr.Height(ctx)
 	// Determine well-definedness bounds for this constraint
 	bounds := constraint.Bounds()
 	// Sanity check enough rows

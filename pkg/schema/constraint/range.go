@@ -37,8 +37,8 @@ func NewRangeConstraint(column uint, bound *fr.Element) *RangeConstraint {
 // Accepts checks whether a range constraint evaluates to zero on
 // every row of a table. If so, return nil otherwise return an error.
 func (p *RangeConstraint) Accepts(tr trace.Trace) error {
-	column := tr.Columns().Get(p.column)
-	height := column.Height()
+	column := tr.Column(p.column)
+	height := tr.Height(column.Context())
 	// Iterate all rows of the module
 	for k := 0; k < int(height); k++ {
 		// Get the value on the kth row
