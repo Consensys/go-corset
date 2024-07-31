@@ -519,7 +519,7 @@ func CheckTraces(t *testing.T, test string, expected bool, expand bool,
 
 func checkTrace(t *testing.T, inputs []trace.RawColumn, expand bool, id traceId, schema sc.Schema) {
 	// Construct the trace
-	tr, errs := sc.NewTraceBuilder(schema).Expand(expand).Padding(id.padding).Build(inputs)
+	tr, errs := sc.NewTraceBuilder(schema).Expand(expand).Padding(id.padding).Parallel(true).Build(inputs)
 	// Sanity check construction
 	if len(errs) > 0 {
 		for _, err := range errs {
