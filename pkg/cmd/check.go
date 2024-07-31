@@ -35,6 +35,7 @@ var checkCmd = &cobra.Command{
 		cfg.strict = !getFlag(cmd, "warn")
 		cfg.quiet = getFlag(cmd, "quiet")
 		cfg.padding.Right = getUint(cmd, "padding")
+		cfg.parallelExpansion = !getFlag(cmd, "sequential")
 		// TODO: support true ranges
 		cfg.padding.Left = cfg.padding.Right
 		// Parse constraints
@@ -74,6 +75,8 @@ type checkConfig struct {
 	// Specifies whether or not to report details of the failure (e.g. for
 	// debugging purposes).
 	report bool
+	// Perform trace expansion in parallel (or not)
+	parallelExpansion bool
 }
 
 // Check a given trace is consistently accepted (or rejected) at the different
@@ -153,7 +156,7 @@ func checkTraceWithLoweringDefault(cols []trace.RawColumn, hirSchema *hir.Schema
 }
 
 func checkTrace(cols []trace.RawColumn, schema sc.Schema, cfg checkConfig) (trace.Trace, []error) {
-	builder := sc.NewTraceBuilder(schema).Expand(cfg.expand)
+	builder := sc.NewTraceBuilder(schema).Expand(cfg.expand).Parallel(cfg.parallelExpansion)
 	//
 	for n := cfg.padding.Left; n <= cfg.padding.Right; n++ {
 		tr, errs := builder.Padding(n).Build(cols)
@@ -239,6 +242,7 @@ func init() {
 	checkCmd.Flags().BoolP("warn", "w", false, "report warnings instead of failing for certain errors"+
 		"(e.g. unknown columns in the trace)")
 	checkCmd.Flags().BoolP("quiet", "q", false, "suppress output (e.g. warnings)")
+	checkCmd.Flags().Bool("sequential", false, "perform sequential trace expansion")
 	checkCmd.Flags().Uint("padding", 0, "specify amount of (front) padding to apply")
 	checkCmd.Flags().Int("spillage", -1,
 		"specify amount of splillage to account for (where -1 indicates this should be inferred)")

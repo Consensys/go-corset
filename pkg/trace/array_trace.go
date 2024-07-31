@@ -147,6 +147,11 @@ func EmptyArrayModule(name string) ArrayModule {
 	return ArrayModule{name, math.MaxUint}
 }
 
+// Name returns the name of this module.
+func (p ArrayModule) Name() string {
+	return p.name
+}
+
 // ----------------------------------------------------------------------------
 
 // ArrayColumn describes an individual column of data within a trace table.
