@@ -59,7 +59,7 @@ type Assignment interface {
 	// assignment depends must exist (e.g. are either inputs or have been
 	// computed already).  Computed columns do not exist in the original trace,
 	// but are added during trace expansion to form the final trace.
-	ComputeColumns(tr.Trace) ([]*trace.Column, error)
+	ComputeColumns(tr.Trace) ([]trace.ArrayColumn, error)
 	// RequiredSpillage returns the minimum amount of spillage required to ensure
 	// valid traces are accepted in the presence of arbitrary padding.  Note,
 	// spillage is currently assumed to be required only at the front of a

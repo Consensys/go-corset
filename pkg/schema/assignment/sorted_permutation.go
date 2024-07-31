@@ -120,36 +120,26 @@ func (p *SortedPermutation) RequiredSpillage() uint {
 // ComputeColumns computes the values of columns defined by this assignment.
 // This requires copying the data in the source columns, and sorting that data
 // according to the permutation criteria.
-func (p *SortedPermutation) ComputeColumns(tr trace.Trace) ([]*trace.Column, error) {
-	columns := tr.Columns()
-	// Ensure target columns don't exist
-	for i := p.Columns(); i.HasNext(); {
-		name := i.Next().Name()
-		// Sanity check no column already exists with this name.
-		if _, ok := columns.IndexOf(p.context.Module(), name); ok {
-			return nil, fmt.Errorf("permutation column already exists ({%s})", name)
-		}
-	}
-
+func (p *SortedPermutation) ComputeColumns(tr trace.Trace) ([]trace.ArrayColumn, error) {
 	data := make([]util.FrArray, len(p.sources))
 	// Construct target columns
 	for i := 0; i < len(p.sources); i++ {
 		src := p.sources[i]
 		// Read column data
-		src_data := columns.Get(src).Data()
+		src_data := tr.Column(src).Data()
 		// Clone it to initialise permutation.
 		data[i] = src_data.Clone()
 	}
 	// Sort target columns
 	util.PermutationSort(data, p.signs)
 	// Physically construct the columns
-	cols := make([]*trace.Column, len(p.sources))
+	cols := make([]trace.ArrayColumn, len(p.sources))
 	//
 	for i, iter := 0, p.Columns(); iter.HasNext(); i++ {
 		ith := iter.Next()
 		dstColName := ith.Name()
-		srcCol := tr.Columns().Get(p.sources[i])
-		cols[i] = trace.NewColumn(ith.Context(), dstColName, data[i], srcCol.Padding())
+		srcCol := tr.Column(p.sources[i])
+		cols[i] = trace.NewArrayColumn(ith.Context(), dstColName, data[i], srcCol.Padding())
 	}
 	//
 	return cols, nil

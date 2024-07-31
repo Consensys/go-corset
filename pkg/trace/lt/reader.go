@@ -3,6 +3,7 @@ package lt
 import (
 	"bytes"
 	"encoding/binary"
+	"strings"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -11,9 +12,7 @@ import (
 
 // FromBytes parses a byte array representing a given LT trace file into an
 // columns, or produces an error if the original file was malformed in some way.
-func FromBytes(data []byte) (trace.Trace, error) {
-	//
-	var zero fr.Element = fr.NewElement((0))
+func FromBytes(data []byte) ([]trace.RawColumn, error) {
 	// Construct new bytes.Reader
 	buf := bytes.NewReader(data)
 	// Read Number of BytesColumns
@@ -22,8 +21,8 @@ func FromBytes(data []byte) (trace.Trace, error) {
 		return nil, err
 	}
 	// Construct empty environment
-	builder := trace.NewBuilder()
 	headers := make([]columnHeader, ncols)
+	columns := make([]trace.RawColumn, ncols)
 	// Read column headers
 	for i := uint32(0); i < ncols; i++ {
 		header, err := readColumnHeader(buf)
@@ -40,19 +39,19 @@ func FromBytes(data []byte) (trace.Trace, error) {
 
 	for i := uint(0); i < uint(ncols); i++ {
 		ith := headers[i]
+		// Split qualified column name
+		mod, col := splitQualifiedColumnName(ith.name)
 		// Calculate length (in bytes) of this column
 		nbytes := ith.width * ith.length
 		// Read column data
 		elements := readColumnData(ith, data[offset:offset+nbytes])
 		// Construct appropriate slice
-		if err := builder.Add(ith.name, &zero, elements); err != nil {
-			return nil, err
-		}
+		columns[i] = trace.RawColumn{Module: mod, Name: col, Data: elements}
 		// Update byte offset
 		offset += nbytes
 	}
 	// Done
-	return builder.Build(), nil
+	return columns, nil
 }
 
 type columnHeader struct {
@@ -112,4 +111,16 @@ func readColumnData(header columnHeader, bytes []byte) util.FrArray {
 	}
 	// Done
 	return data
+}
+
+// SplitQualifiedColumnName splits a qualified column name into its module and
+// column components.
+func splitQualifiedColumnName(name string) (string, string) {
+	i := strings.Index(name, ".")
+	if i >= 0 {
+		// Split on "."
+		return name[0:i], name[i+1:]
+	}
+	// No module name given, therefore its in the prelude.
+	return "", name
 }

@@ -24,11 +24,10 @@ var traceCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		// Parse trace
-		tr := readTraceFile(args[0])
+		cols := readTraceFile(args[0])
 		list := getFlag(cmd, "list")
 		stats := getFlag(cmd, "stats")
 		print := getFlag(cmd, "print")
-		padding := getUint(cmd, "pad")
 		start := getUint(cmd, "start")
 		end := getUint(cmd, "end")
 		max_width := getUint(cmd, "max-width")
@@ -36,24 +35,21 @@ var traceCmd = &cobra.Command{
 		output := getString(cmd, "out")
 		// construct filters
 		if filter != "" {
-			tr = filterColumns(tr, filter)
-		}
-		if padding != 0 {
-			trace.PadColumns(tr, padding)
+			cols = filterColumns(cols, filter)
 		}
 		if list {
-			listColumns(tr)
+			listColumns(cols)
 		}
 		if stats {
-			summaryStats(tr)
+			summaryStats(cols)
 		}
 		//
 		if output != "" {
-			writeTraceFile(output, tr)
+			writeTraceFile(output, cols)
 		}
 
 		if print {
-			printTrace(start, end, max_width, tr)
+			printTrace(start, end, max_width, cols)
 		}
 	},
 }
@@ -63,7 +59,6 @@ func init() {
 	traceCmd.Flags().BoolP("list", "l", false, "list only the columns in the trace file")
 	traceCmd.Flags().Bool("stats", false, "print summary information about the trace file")
 	traceCmd.Flags().BoolP("print", "p", false, "print entire trace file")
-	traceCmd.Flags().Uint("pad", 0, "add a given number of padding rows (to each module)")
 	traceCmd.Flags().UintP("start", "s", 0, "filter out rows below this")
 	traceCmd.Flags().UintP("end", "e", math.MaxUint, "filter out this and all following rows")
 	traceCmd.Flags().Uint("max-width", 32, "specify maximum display width for a column")
@@ -73,43 +68,21 @@ func init() {
 
 // Construct a new trace containing only those columns from the original who
 // name begins with the given prefix.
-func filterColumns(tr trace.Trace, prefix string) trace.Trace {
-	n := tr.Columns().Len()
-	builder := trace.NewBuilder()
-	// Initialise modules in the builder to ensure module indices are preserved
-	// across traces.
-	for i := uint(0); i < n; i++ {
-		ith := tr.Columns().Get(i)
-		name := tr.Modules().Get(ith.Context().Module()).Name()
-
-		if !builder.HasModule(name) {
-			if _, err := builder.Register(name, ith.Height()); err != nil {
-				panic(err)
-			}
-		}
-	}
+func filterColumns(cols []trace.RawColumn, prefix string) []trace.RawColumn {
+	ncols := make([]trace.RawColumn, 0)
 	// Now create the columns.
-	for i := uint(0); i < n; i++ {
-		qName := QualifiedColumnName(i, tr)
-		//
-		if strings.HasPrefix(qName, prefix) {
-			ith := tr.Columns().Get(i)
-			// Copy column data
-			data := ith.Data().Clone()
-			err := builder.Add(qName, ith.Padding(), data)
-			// Sanity check
-			if err != nil {
-				panic(err)
-			}
+	for i := 0; i < len(cols); i++ {
+		name := trace.QualifiedColumnName(cols[i].Module, cols[i].Name)
+		if strings.HasPrefix(name, prefix) {
+			ncols = append(ncols, cols[i])
 		}
 	}
 	// Done
-	return builder.Build()
+	return ncols
 }
-func printTrace(start uint, end uint, max_width uint, tr trace.Trace) {
-	cols := tr.Columns()
-	n := tr.Columns().Len()
-	height := min(trace.MaxHeight(tr), end) - start
+func printTrace(start uint, end uint, max_width uint, cols []trace.RawColumn) {
+	n := uint(len(cols))
+	height := min(maxHeightColumns(cols), end) - start
 	tbl := util.NewTablePrinter(1+height, 1+n)
 
 	for j := uint(0); j < height; j++ {
@@ -117,13 +90,13 @@ func printTrace(start uint, end uint, max_width uint, tr trace.Trace) {
 	}
 
 	for i := uint(0); i < n; i++ {
-		ith := cols.Get(i)
-		tbl.Set(0, i+1, QualifiedColumnName(i, tr))
+		ith := cols[i].Data
+		tbl.Set(0, i+1, cols[i].QualifiedName())
 
-		if start < ith.Height() {
-			ith_height := min(ith.Height(), end) - start
+		if start < ith.Len() {
+			ith_height := min(ith.Len(), end) - start
 			for j := uint(0); j < ith_height; j++ {
-				tbl.Set(j+1, i+1, ith.Get(int(j+start)).String())
+				tbl.Set(j+1, i+1, ith.Get(j+start).String())
 			}
 		}
 	}
@@ -132,21 +105,18 @@ func printTrace(start uint, end uint, max_width uint, tr trace.Trace) {
 	tbl.Print()
 }
 
-func listColumns(tr trace.Trace) {
-	// Determine number of columns
+func listColumns(tr []trace.RawColumn) {
 	m := 1 + uint(len(colSummarisers))
-	// Determine number of rows
-	n := tr.Columns().Len()
+	n := uint(len(tr))
 	// Go!
 	tbl := util.NewTablePrinter(m, n)
 
 	for i := uint(0); i < n; i++ {
-		ith := tr.Columns().Get(i)
 		row := make([]string, m)
-		row[0] = QualifiedColumnName(i, tr)
+		row[0] = tr[i].QualifiedName()
 		// Add summarises
 		for j := 0; j < len(colSummarisers); j++ {
-			row[j+1] = colSummarisers[j].summary(ith)
+			row[j+1] = colSummarisers[j].summary(tr[i])
 		}
 		tbl.SetRow(i, row...)
 	}
@@ -155,7 +125,7 @@ func listColumns(tr trace.Trace) {
 	tbl.Print()
 }
 
-func summaryStats(tr trace.Trace) {
+func summaryStats(tr []trace.RawColumn) {
 	m := uint(len(trSummarisers))
 	tbl := util.NewTablePrinter(2, m)
 	// Go!
@@ -177,7 +147,7 @@ func summaryStats(tr trace.Trace) {
 // contents of a given column.
 type ColSummariser struct {
 	name    string
-	summary func(*trace.Column) string
+	summary func(trace.RawColumn) string
 }
 
 var colSummarisers []ColSummariser = []ColSummariser{
@@ -187,27 +157,27 @@ var colSummarisers []ColSummariser = []ColSummariser{
 	{"unique", uniqueSummariser},
 }
 
-func rowSummariser(col *trace.Column) string {
-	return fmt.Sprintf("%d rows", col.Data().Len())
+func rowSummariser(col trace.RawColumn) string {
+	return fmt.Sprintf("%d rows", col.Data.Len())
 }
 
-func widthSummariser(col *trace.Column) string {
-	return fmt.Sprintf("%d bits", col.Data().BitWidth())
+func widthSummariser(col trace.RawColumn) string {
+	return fmt.Sprintf("%d bits", col.Data.BitWidth())
 }
 
-func bytesSummariser(col *trace.Column) string {
-	bitwidth := col.Data().BitWidth()
+func bytesSummariser(col trace.RawColumn) string {
+	bitwidth := col.Data.BitWidth()
 	byteWidth := bitwidth / 8
 	// Determine proper bytewidth
 	if bitwidth%8 != 0 {
 		byteWidth++
 	}
 
-	return fmt.Sprintf("%d bytes", col.Data().Len()*byteWidth)
+	return fmt.Sprintf("%d bytes", col.Data.Len()*byteWidth)
 }
 
-func uniqueSummariser(col *trace.Column) string {
-	data := col.Data()
+func uniqueSummariser(col trace.RawColumn) string {
+	data := col.Data
 	elems := util.NewHashSet[util.BytesKey](data.Len() / 2)
 	// Add all the elements
 	for i := uint(0); i < data.Len(); i++ {
@@ -224,7 +194,7 @@ func uniqueSummariser(col *trace.Column) string {
 
 type traceSummariser struct {
 	name    string
-	summary func(trace.Trace) string
+	summary func([]trace.RawColumn) string
 }
 
 var trSummarisers []traceSummariser = []traceSummariser{
@@ -238,10 +208,10 @@ var trSummarisers []traceSummariser = []traceSummariser{
 func trWidthSummariser(lowWidth uint, highWidth uint) traceSummariser {
 	return traceSummariser{
 		name: fmt.Sprintf("# Columns (%d..%d bits)", lowWidth, highWidth),
-		summary: func(tr trace.Trace) string {
+		summary: func(tr []trace.RawColumn) string {
 			count := 0
-			for i := uint(0); i < tr.Columns().Len(); i++ {
-				ithWidth := tr.Columns().Get(i).Data().BitWidth()
+			for i := 0; i < len(tr); i++ {
+				ithWidth := tr[i].Data.BitWidth()
 				if ithWidth >= lowWidth && ithWidth <= highWidth {
 					count++
 				}

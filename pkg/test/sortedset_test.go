@@ -34,12 +34,12 @@ func Test_SortedSet_04(t *testing.T) {
 	check_SortedSet_InsertSorted(t, 50000, 1024)
 }
 
-func Test_SortedSet_05(t *testing.T) {
+func TestSlow_SortedSet_05(t *testing.T) {
 	check_SortedSet_Insert(t, 100000, 4096)
 	check_SortedSet_InsertSorted(t, 50000, 4096)
 }
 
-func Test_SortedSet_06(t *testing.T) {
+func TestSlow_SortedSet_06(t *testing.T) {
 	check_SortedSet_Insert(t, 100000, 16384)
 	check_SortedSet_InsertSorted(t, 50000, 16384)
 }

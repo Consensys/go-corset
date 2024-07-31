@@ -1,44 +1,40 @@
 package json
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/trace"
 )
 
 // ToJsonString converts a trace into a JSON string.
-func ToJsonString(tr trace.Trace) string {
+func ToJsonString(columns []trace.RawColumn) string {
 	var builder strings.Builder
-
-	columns := tr.Columns()
 	//
 	builder.WriteString("{")
 	//
-	for i := uint(0); i < columns.Len(); i++ {
-		ith := columns.Get(i)
-		mod := tr.Modules().Get(ith.Context().Module())
-		// Determine fully qualified column name
-		name := ith.Name()
-		// Prepend module name (if applicable)
-		if mod.Name() != "" {
-			name = fmt.Sprintf("%s.%s", mod.Name(), name)
-		}
+	for i := 0; i < len(columns); i++ {
+		ith := columns[i]
 		//
 		if i != 0 {
 			builder.WriteString(", ")
 		}
 		//
 		builder.WriteString("\"")
+		// Construct qualified column name
+		name := trace.QualifiedColumnName(ith.Module, ith.Name)
+		// Write out column name
 		builder.WriteString(name)
+		//
 		builder.WriteString("\": [")
 
-		for j := 0; j < int(ith.Height()); j++ {
+		data := ith.Data
+
+		for j := uint(0); j < data.Len(); j++ {
 			if j != 0 {
 				builder.WriteString(", ")
 			}
 
-			builder.WriteString(ith.Get(j).String())
+			builder.WriteString(data.Get(j).String())
 		}
 		builder.WriteString("]")
 	}

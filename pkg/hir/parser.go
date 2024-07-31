@@ -357,8 +357,10 @@ func (p *hirParser) parseAssertionDeclaration(elements []sexp.SExp) error {
 	if err != nil {
 		return err
 	}
+	// Determine evaluation context of assertion.
+	ctx := expr.Context(p.env.schema)
 	// Add assertion.
-	p.env.schema.AddPropertyAssertion(p.module.Module(), handle, expr)
+	p.env.schema.AddPropertyAssertion(handle, ctx, expr)
 
 	return nil
 }

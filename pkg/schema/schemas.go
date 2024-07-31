@@ -37,56 +37,6 @@ func ContextOfColumns(cols []uint, schema Schema) tr.Context {
 	return ctx
 }
 
-// RequiredSpillage returns the minimum amount of spillage required to ensure
-// valid traces are accepted in the presence of arbitrary padding.  Spillage can
-// only arise from computations as this is where values outside of the user's
-// control are determined.
-func RequiredSpillage(schema Schema) uint {
-	// Ensures always at least one row of spillage (referred to as the "initial
-	// padding row")
-	mx := uint(1)
-	// Determine if any more spillage required
-	for i := schema.Assignments(); i.HasNext(); {
-		// Get ith assignment
-		ith := i.Next()
-		// Incorporate its spillage requirements
-		mx = max(mx, ith.RequiredSpillage())
-	}
-
-	return mx
-}
-
-// ExpandTrace expands a given trace according to this schema.  More
-// specifically, that means computing the actual values for any assignments.
-// Observe that assignments have to be computed in the correct order.
-func ExpandTrace(schema Schema, trace tr.Trace) error {
-	index := schema.InputColumns().Count()
-	//m := schema.Assignments().Count()
-	//batchjobs := make([]expandTraceJob, m)
-	// Compute each assignment in turn
-	for i, j := schema.Assignments(), uint(0); i.HasNext(); j++ {
-		// Get ith assignment
-		ith := i.Next()
-		// Compute ith assignment(s)
-		//batchjobs[j] = expandTraceJob{index, ith, trace}
-		cols, err := ith.ComputeColumns(trace)
-		// Check error
-		if err != nil {
-			return err
-		}
-		// Add all columns
-		for k := 0; k < len(cols); k++ {
-			kth := cols[k]
-			trace.Columns().Add(kth.Context(), kth.Name(), kth.Data(), kth.Padding())
-		}
-		// Update index
-		index += ith.Columns().Count()
-	}
-	//
-	//	return util.ParExec[expandTraceJob](batchjobs)
-	return nil
-}
-
 // Accepts determines whether this schema will accept a given trace.  That
 // is, whether or not the given trace adheres to the schema.  A trace can fail
 // to adhere to the schema for a variety of reasons, such as having a constraint

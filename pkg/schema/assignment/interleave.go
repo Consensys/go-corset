@@ -1,8 +1,6 @@
 package assignment
 
 import (
-	"fmt"
-
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	tr "github.com/consensys/go-corset/pkg/trace"
@@ -69,8 +67,7 @@ func (p *Interleaving) RequiredSpillage() uint {
 // ComputeColumns computes the values of columns defined by this assignment.
 // This requires copying the data in the source columns to create the
 // interleaved column.
-func (p *Interleaving) ComputeColumns(tr trace.Trace) ([]*trace.Column, error) {
-	columns := tr.Columns()
+func (p *Interleaving) ComputeColumns(tr trace.Trace) ([]trace.ArrayColumn, error) {
 	ctx := p.target.Context()
 	// Byte width records the largest width of any column.
 	bit_width := uint(0)
@@ -79,19 +76,12 @@ func (p *Interleaving) ComputeColumns(tr trace.Trace) ([]*trace.Column, error) {
 		ith := i.Next()
 		// Update byte width
 		bit_width = max(bit_width, ith.Type().BitWidth())
-		// Sanity check no column already exists with this name.
-		if _, ok := columns.IndexOf(ctx.Module(), ith.Name()); ok {
-			return nil, fmt.Errorf("interleaved column already exists ({%s})", ith.Name())
-		}
 	}
 	// Determine interleaving width
 	width := uint(len(p.sources))
 	// Following division should always produce whole value because the length
 	// multiplier already includes the width as a factor.
-	multiplier := ctx.LengthMultiplier() / width
-	// Determine module height (as this can be used to determine the height of
-	// the interleaved column)
-	height := tr.Modules().Get(ctx.Module()).Height() * multiplier
+	height := tr.Height(ctx) / width
 	// Construct empty array
 	data := util.NewFrArray(height*width, bit_width)
 	// Offset just gives the column index
@@ -99,7 +89,7 @@ func (p *Interleaving) ComputeColumns(tr trace.Trace) ([]*trace.Column, error) {
 	// Copy interleaved data
 	for i := uint(0); i < width; i++ {
 		// Lookup source column
-		col := tr.Columns().Get(p.sources[i])
+		col := tr.Column(p.sources[i])
 		// Copy over
 		for j := uint(0); j < height; j++ {
 			data.Set(offset+(j*width), col.Get(int(j)))
@@ -109,11 +99,11 @@ func (p *Interleaving) ComputeColumns(tr trace.Trace) ([]*trace.Column, error) {
 	}
 	// Padding for the entire column is determined by the padding for the first
 	// column in the interleaving.
-	padding := columns.Get(0).Padding()
+	padding := tr.Column(0).Padding()
 	// Colunm needs to be expanded.
-	col := trace.NewColumn(ctx, p.target.Name(), data, padding)
+	col := trace.NewArrayColumn(ctx, p.target.Name(), data, padding)
 	//
-	return []*trace.Column{col}, nil
+	return []trace.ArrayColumn{col}, nil
 }
 
 // Dependencies returns the set of columns that this assignment depends upon.

@@ -8,167 +8,44 @@ import (
 // Trace describes a set of named columns.  Columns are not required to have the
 // same height and can be either "data" columns or "computed" columns.
 type Trace interface {
-	// Access the columns of this trace.
-	Columns() ColumnSet
-	// Clone creates an identical clone of this trace.
-	Clone() Trace
-	// Access the modules of this trace.
-	Modules() ModuleSet
+	// Access a given column in this trace.
+	Column(uint) Column
+	// Returns the number of columns in this trace.
+	Width() uint
+	// Returns the height of the given context (i.e. module).
+	Height(Context) uint
 }
-
-// ColumnSet provides an interface to the declared columns within this trace.
-type ColumnSet interface {
-	// Add a new column to this column set.
-	Add(ctx Context, name string, data util.FrArray, padding *fr.Element) uint
-	// Get the ith module in this set.
-	Get(uint) *Column
-	// Determine index of given column, or return false if this fails.
-	IndexOf(module uint, column string) (uint, bool)
-	// Returns the number of items in this array.
-	Len() uint
-	// Swap two columns in this column set
-	Swap(uint, uint)
-	// Reduce the number of columns to a given length by removing columns from
-	// the end.
-	Trim(uint)
-}
-
-// ModuleSet provides an interface to the declared moules within this trace.
-type ModuleSet interface {
-	// Register a new module with a given name and height, returning the module
-	// index.
-	Add(string, uint) uint
-	// Get the ith module in this set.
-	Get(uint) *Module
-	// Determine index of given module, or return false if this fails.
-	IndexOf(string) (uint, bool)
-	// Returns the number of items in this array.
-	Len() uint
-	// Pad the ith module in this set with n items at the front of each column
-	Pad(mid uint, n uint)
-	// Swap order of modules.  Note columns are updated accordingly.
-	Swap(uint, uint)
-}
-
-// ----------------------------------------------------------------------------
 
 // Column describes an individual column of data within a trace table.
-type Column struct {
+type Column interface {
 	// Evaluation context of this column
-	context Context
+	Context() Context
 	// Holds the name of this column
-	name string
-	// Holds the raw data making up this column
-	data util.FrArray
+	Name() string
+	// Get the value at a given row in this column.  If the row is
+	// out-of-bounds, then the column's padding value is returned instead.
+	// Thus, this function always succeeds.
+	Get(row int) *fr.Element
+	// Access the underlying data array for this column.  This is useful in
+	// situations where we want to clone the entire column, etc.
+	Data() util.FrArray
 	// Value to be used when padding this column
-	padding *fr.Element
+	Padding() *fr.Element
 }
 
-// NewColumn constructs a ArrayTraceColumn with the give name, data and padding.
-func NewColumn(context Context, name string, data util.FrArray,
-	padding *fr.Element) *Column {
-	// Sanity check data length
-	if data.Len()%context.LengthMultiplier() != 0 {
-		panic("data length has incorrect multiplier")
-	}
-	// Done
-	return &Column{context, name, data, padding}
+// RawColumn represents a raw column of data which has not (yet) been indexed as
+// part of a trace, etc.  Raw columns are typically read directly from trace
+// files, and subsequently indexed into a trace during the expansion process.
+type RawColumn struct {
+	// Name of the enclosing module
+	Module string
+	// Name of the column
+	Name string
+	// Data held in the column
+	Data util.FrArray
 }
 
-// Context returns the evaluation context this column provides.
-func (p *Column) Context() Context {
-	return p.context
-}
-
-// Name returns the name of the given column.
-func (p *Column) Name() string {
-	return p.name
-}
-
-// Height determines the height of this column.
-func (p *Column) Height() uint {
-	return p.data.Len()
-}
-
-// Padding returns the value which will be used for padding this column.
-func (p *Column) Padding() *fr.Element {
-	return p.padding
-}
-
-// Data provides access to the underlying data of this column
-func (p *Column) Data() util.FrArray {
-	return p.data
-}
-
-// Get the value at a given row in this column.  If the row is
-// out-of-bounds, then the column's padding value is returned instead.
-// Thus, this function always succeeds.
-func (p *Column) Get(row int) *fr.Element {
-	if row < 0 || uint(row) >= p.data.Len() {
-		// out-of-bounds access
-		return p.padding
-	}
-	// in-bounds access
-	return p.data.Get(uint(row))
-}
-
-func (p *Column) pad(n uint) {
-	// Apply the length multiplier
-	n = n * p.context.LengthMultiplier()
-	// Pad front of array
-	p.data = p.data.PadFront(n, p.padding)
-}
-
-// Reseat updates the module index of this column (e.g. as a result of a
-// realignment).
-func (p *Column) reseat(mid uint) {
-	p.context = NewContext(mid, p.context.LengthMultiplier())
-}
-
-// ----------------------------------------------------------------------------
-
-// Module describes an individual module within the trace table, and
-// permits actions on the columns of this module as a whole.
-type Module struct {
-	// Name of this module.
-	name string
-	// Determine the columns contained in this module by their column index.
-	columns []uint
-	// Height (in rows) of this module.  Specifically, every column in this
-	// module must have this height.
-	height uint
-}
-
-// Name of this module.
-func (p *Module) Name() string {
-	return p.name
-}
-
-// Columns identifies the columns contained in this module by their column index.
-func (p *Module) Columns() []uint {
-	return p.columns
-}
-
-// Copy creates a copy of this module, such that mutations to the copy will not
-// affect the original.
-func (p *Module) Copy() Module {
-	var clone Module
-	clone.name = p.name
-	clone.height = p.height
-	clone.columns = make([]uint, len(p.columns))
-	// Copy column indices
-	copy(clone.columns, p.columns)
-	// Done
-	return clone
-}
-
-// Height (in rows) of this module.  Specifically, every column in this
-// module must have this height.
-func (p *Module) Height() uint {
-	return p.height
-}
-
-// Register a new columnd contained within this module.
-func (p *Module) registerColumn(cid uint) {
-	p.columns = append(p.columns, cid)
+// QualifiedName returns the fully qualified name of this column.
+func (p *RawColumn) QualifiedName() string {
+	return QualifiedColumnName(p.Module, p.Name)
 }

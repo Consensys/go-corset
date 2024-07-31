@@ -70,30 +70,27 @@ func (p *LexicographicSort) RequiredSpillage() uint {
 // ComputeColumns computes the values of columns defined as needed to support
 // the LexicographicSortingGadget. That includes the delta column, and the bit
 // selectors.
-func (p *LexicographicSort) ComputeColumns(tr trace.Trace) ([]*trace.Column, error) {
-	columns := tr.Columns()
+func (p *LexicographicSort) ComputeColumns(tr trace.Trace) ([]trace.ArrayColumn, error) {
 	zero := fr.NewElement(0)
 	one := fr.NewElement(1)
 	first := p.targets[0]
 	// Exact number of columns involved in the sort
 	nbits := len(p.sources)
-	//
-	multiplier := p.context.LengthMultiplier()
 	// Determine how many rows to be constrained.
-	nrows := tr.Modules().Get(p.context.Module()).Height() * multiplier
+	nrows := tr.Height(p.context)
 	// Initialise new data columns
-	cols := make([]*trace.Column, nbits+1)
+	cols := make([]trace.ArrayColumn, nbits+1)
 	// Byte width records the largest width of any column.
 	bit_width := uint(0)
 	//
 	delta := util.NewFrArray(nrows, bit_width)
-	cols[0] = trace.NewColumn(first.Context(), first.Name(), delta, &zero)
+	cols[0] = trace.NewArrayColumn(first.Context(), first.Name(), delta, &zero)
 	//
 	for i := 0; i < nbits; i++ {
 		target := p.targets[1+i]
-		source := columns.Get(p.sources[i])
+		source := tr.Column(p.sources[i])
 		data := util.NewFrArray(nrows, 1)
-		cols[i+1] = trace.NewColumn(target.Context(), target.Name(), data, &zero)
+		cols[i+1] = trace.NewArrayColumn(target.Context(), target.Name(), data, &zero)
 		bit_width = max(bit_width, source.Data().BitWidth())
 	}
 
@@ -103,8 +100,8 @@ func (p *LexicographicSort) ComputeColumns(tr trace.Trace) ([]*trace.Column, err
 		delta.Set(i, &zero)
 		// Decide which row is the winner (if any)
 		for j := 0; j < nbits; j++ {
-			prev := columns.Get(p.sources[j]).Get(int(i - 1))
-			curr := columns.Get(p.sources[j]).Get(int(i))
+			prev := tr.Column(p.sources[j]).Get(int(i - 1))
+			curr := tr.Column(p.sources[j]).Get(int(i))
 
 			if !set && prev != nil && prev.Cmp(curr) != 0 {
 				var diff fr.Element

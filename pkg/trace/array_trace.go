@@ -2,6 +2,7 @@ package trace
 
 import (
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
@@ -14,40 +15,73 @@ type ArrayTrace struct {
 	// Holds the complete set of columns in this trace.  The index of each
 	// column in this array uniquely identifies it, and is referred to as the
 	// "column index".
-	columns []*Column
-	// Holds the complete set of modules in this trace.  The index of each
+	columns []ArrayColumn
+	// Holds the height of each module in this trace.  The index of each
 	// module in this array uniquely identifies it, and is referred to as the
 	// "module index".
-	modules []Module
+	modules []ArrayModule
 }
 
-// Columns returns the set of columns in this trace.  Observe that mutating
-// the returned array will mutate the trace.
-func (p *ArrayTrace) Columns() ColumnSet {
-	return arrayTraceColumnSet{p}
+// NewArrayTrace constructs a trace from a given set of indexed modules and columns.
+func NewArrayTrace(modules []ArrayModule, columns []ArrayColumn) *ArrayTrace {
+	return &ArrayTrace{columns, modules}
 }
 
-// Clone creates an identical clone of this trace.
-func (p *ArrayTrace) Clone() Trace {
-	clone := new(ArrayTrace)
-	clone.columns = make([]*Column, len(p.columns))
-	clone.modules = make([]Module, len(p.modules))
-	// Clone modules
-	for i, m := range p.modules {
-		clone.modules[i] = m.Copy()
+// Modules returns an iterator over the modules in this trace.
+func (p *ArrayTrace) Modules() util.Iterator[ArrayModule] {
+	return util.NewArrayIterator(p.modules)
+}
+
+// Width returns number of columns in this trace.
+func (p *ArrayTrace) Width() uint {
+	return uint(len(p.columns))
+}
+
+// Height returns the height of a given context (i.e. module) in the trace.
+func (p *ArrayTrace) Height(ctx Context) uint {
+	return p.modules[ctx.module].height * ctx.multiplier
+}
+
+// Column returns a given column in this trace.
+func (p *ArrayTrace) Column(cid uint) Column {
+	return &p.columns[cid]
+}
+
+// FillColumn sets the data and padding for the given column.  This will panic
+// if the data is already set.
+func (p *ArrayTrace) FillColumn(cid uint, data util.FrArray, padding *fr.Element) {
+	// Find column to fill
+	col := &p.columns[cid]
+	// Find enclosing module
+	mod := &p.modules[col.Context().Module()]
+	// Determine appropriate length multiplier
+	multiplier := col.context.multiplier
+	// Sanity check this column has not already been filled.
+	if data.Len()%multiplier != 0 {
+		colname := QualifiedColumnName(mod.name, col.name)
+		panic(fmt.Sprintf("computed column %s has invalid length multiplier (%d indivisible by %d)",
+			colname, data.Len(), multiplier))
+	} else if mod.height == math.MaxUint {
+		// Initialise column height
+		mod.height = data.Len() / col.context.multiplier
+	} else if data.Len() != p.Height(col.Context()) {
+		colname := QualifiedColumnName(mod.name, col.name)
+		panic(fmt.Sprintf("computed column %s has invalid height (%d but expected %d)", colname, data.Len(), mod.height))
 	}
-	// Clone columns
-	for i, c := range p.columns {
-		clone.columns[i] = NewColumn(c.context, c.name, c.data.Clone(), c.padding)
-	}
-	// done
-	return clone
+	// Fill the column
+	col.fill(data, padding)
 }
 
-// Modules returns the set of modules in this trace.  Observe that mutating the
-// returned array will mutate the trace.
-func (p *ArrayTrace) Modules() ModuleSet {
-	return arrayTraceModuleSet{p}
+// Pad pads a given module with a given number of padding rows.
+func (p *ArrayTrace) Pad(module uint, n uint) {
+	p.modules[module].height += n
+	// Padd each column contained within this module.
+	for i := 0; i < len(p.columns); i++ {
+		c := &p.columns[i]
+		if c.context.module == module {
+			c.pad(n)
+		}
+	}
 }
 
 func (p *ArrayTrace) String() string {
@@ -63,176 +97,141 @@ func (p *ArrayTrace) String() string {
 			id.WriteString(",")
 		}
 
-		modName := p.modules[ith.Context().Module()].Name()
+		modName := p.modules[ith.Context().Module()].name
 		if modName != "" {
 			id.WriteString(modName)
 			id.WriteString(".")
 		}
 
 		id.WriteString(ith.Name())
-		id.WriteString("={")
+		// Sanity check whether filled or not.
+		if ith.Data() == nil {
+			id.WriteString("=⊥")
+		} else {
+			id.WriteString("={")
+			// Print out each element
+			for j := uint(0); j < ith.Height(); j++ {
+				jth := ith.Get(int(j))
 
-		for j := uint(0); j < ith.Height(); j++ {
-			jth := ith.Get(int(j))
+				if j != 0 {
+					id.WriteString(",")
+				}
 
-			if j != 0 {
-				id.WriteString(",")
+				if jth == nil {
+					id.WriteString("_")
+				} else {
+					id.WriteString(jth.String())
+				}
 			}
-
-			if jth == nil {
-				id.WriteString("_")
-			} else {
-				id.WriteString(jth.String())
-			}
+			id.WriteString("}")
 		}
-		id.WriteString("}")
 	}
 	id.WriteString("}")
 	//
 	return id.String()
 }
 
-// ============================================================================
-// arrayTraceColumnSet
-// ============================================================================
+// ----------------------------------------------------------------------------
 
-// arrayTraceColumnSet is an implementation of ColumnSet which maintains key
-// invariants within an ArrayTrace.
-type arrayTraceColumnSet struct {
-	trace *ArrayTrace
+// ArrayModule describes an individual module within a trace.
+type ArrayModule struct {
+	// Holds the name of this module
+	name string
+	// Holds the height of all columns within this module.
+	height uint
 }
 
-// Add a new column to this column set.
-func (p arrayTraceColumnSet) Add(ctx Context, name string, data util.FrArray, padding *fr.Element) uint {
-	m := &p.trace.modules[ctx.Module()]
-	// Sanity check effective height
-	if data.Len() != (ctx.LengthMultiplier() * m.Height()) {
-		panic(fmt.Sprintf("invalid column height for %s: %d vs %d*%d", name,
-			data.Len(), m.Height(), ctx.LengthMultiplier()))
-	}
-	// Proceed
-	index := uint(len(p.trace.columns))
-	p.trace.columns = append(p.trace.columns, NewColumn(ctx, name, data, padding))
-	// Register column with enclosing module
-	m.registerColumn(index)
-	// Done
-	return index
+// EmptyArrayModule constructs a module with the given name and an (as yet)
+// unspecified height.
+func EmptyArrayModule(name string) ArrayModule {
+	return ArrayModule{name, math.MaxUint}
 }
 
-// Get returns the ith column in this column set.
-func (p arrayTraceColumnSet) Get(index uint) *Column {
-	return p.trace.columns[index]
+// ----------------------------------------------------------------------------
+
+// ArrayColumn describes an individual column of data within a trace table.
+type ArrayColumn struct {
+	// Evaluation context of this column
+	context Context
+	// Holds the name of this column
+	name string
+	// Holds the raw data making up this column
+	data util.FrArray
+	// Value to be used when padding this column
+	padding *fr.Element
 }
 
-// IndexOf returns the column index of the column with the given name in
-// this trace, or returns false if no such column exists.
-func (p arrayTraceColumnSet) IndexOf(module uint, name string) (uint, bool) {
-	for i := 0; i < len(p.trace.columns); i++ {
-		c := p.trace.columns[i]
-		if c.Context().Module() == module && c.Name() == name {
-			return uint(i), true
-		}
-	}
-	// Column does not exist
-	return 0, false
-}
-
-// Len returns the number of items in this array.
-func (p arrayTraceColumnSet) Len() uint {
-	return uint(len(p.trace.columns))
-}
-
-// Trim reduce the number of columns to n by removing columns from
-// the end.
-func (p arrayTraceColumnSet) Trim(n uint) {
-	p.trace.columns = p.trace.columns[:n]
-}
-
-// Swap two columns in this column set.
-func (p arrayTraceColumnSet) Swap(l uint, r uint) {
-	if l == r {
-		panic("invalid column swap")
-	}
-
-	cols := p.trace.columns
-	modules := p.trace.modules
-	lth := cols[l]
-	rth := cols[r]
-	cols[l] = rth
-	cols[r] = lth
-	// Update modules notion of which columns they own.  Observe that this only
-	// makes sense when the modules for each column differ.  Otherwise, this
-	// leads to broken results.
-	if lth.Context().Module() != rth.Context().Module() {
-		// Extract modules being swapped
-		lthmod := &modules[lth.Context().Module()]
-		rthmod := &modules[rth.Context().Module()]
-		// Update their columns caches
-		util.ReplaceFirstOrPanic(lthmod.columns, l, r)
-		util.ReplaceFirstOrPanic(rthmod.columns, r, l)
-	}
-}
-
-// ============================================================================
-// arrayTraceModuleSet
-// ============================================================================
-
-type arrayTraceModuleSet struct {
-	trace *ArrayTrace
-}
-
-func (p arrayTraceModuleSet) Add(name string, height uint) uint {
-	index := len(p.trace.modules)
-	columns := make([]uint, 0)
-	p.trace.modules = append(p.trace.modules, Module{name, columns, height})
-	// Return module index
-	return uint(index)
-}
-
-func (p arrayTraceModuleSet) Get(index uint) *Module {
-	return &p.trace.modules[index]
-}
-
-// Len returns the number of items in this array.
-func (p arrayTraceModuleSet) Len() uint {
-	return uint(len(p.trace.modules))
-}
-
-// IndexOf returns the module index of the module with the given name in
-// this trace, or returns false if no such module exists.
-func (p arrayTraceModuleSet) IndexOf(name string) (uint, bool) {
-	for i := 0; i < len(p.trace.modules); i++ {
-		m := p.trace.modules[i]
-		if m.Name() == name {
-			return uint(i), true
-		}
-	}
-	// MOdule does not exist
-	return 0, false
-}
-
-func (p arrayTraceModuleSet) Swap(l uint, r uint) {
-	// Swap the modules
-	lth := p.trace.modules[l]
-	rth := p.trace.modules[r]
-	p.trace.modules[l] = rth
-	p.trace.modules[r] = lth
-	// Update enclosed columns
-	p.reseatColumns(r, lth.columns)
-	p.reseatColumns(l, rth.columns)
-}
-
-func (p arrayTraceModuleSet) Pad(index uint, n uint) {
-	var m *Module = &p.trace.modules[index]
-	m.height += n
+// NewArrayColumn constructs a  with the give name, data and padding.
+func NewArrayColumn(context Context, name string, data util.FrArray,
+	padding *fr.Element) ArrayColumn {
+	col := EmptyArrayColumn(context, name)
+	col.fill(data, padding)
 	//
-	for _, c := range m.columns {
-		p.trace.columns[c].pad(n)
-	}
+	return col
 }
 
-func (p arrayTraceModuleSet) reseatColumns(mid uint, columns []uint) {
-	for _, c := range columns {
-		p.trace.columns[c].reseat(mid)
+// EmptyArrayColumn constructs a  with the give name, data and padding.
+func EmptyArrayColumn(context Context, name string) ArrayColumn {
+	return ArrayColumn{context, name, nil, nil}
+}
+
+// Context returns the evaluation context this column provides.
+func (p *ArrayColumn) Context() Context {
+	return p.context
+}
+
+// Name returns the name of the given column.
+func (p *ArrayColumn) Name() string {
+	return p.name
+}
+
+// Height determines the height of this column.
+func (p *ArrayColumn) Height() uint {
+	return p.data.Len()
+}
+
+// Padding returns the value which will be used for padding this column.
+func (p *ArrayColumn) Padding() *fr.Element {
+	return p.padding
+}
+
+// Data provides access to the underlying data of this column
+func (p *ArrayColumn) Data() util.FrArray {
+	return p.data
+}
+
+// Get the value at a given row in this column.  If the row is
+// out-of-bounds, then the column's padding value is returned instead.
+// Thus, this function always succeeds.
+func (p *ArrayColumn) Get(row int) *fr.Element {
+	if row < 0 || uint(row) >= p.data.Len() {
+		// out-of-bounds access
+		return p.padding
+	}
+	// in-bounds access
+	return p.data.Get(uint(row))
+}
+
+func (p *ArrayColumn) fill(data util.FrArray, padding *fr.Element) {
+	// Sanity check this column has not already been filled.
+	if p.data != nil {
+		panic(fmt.Sprintf("computed column %s has already been filled", p.name))
+	} else if data.Len()%p.context.LengthMultiplier() != 0 {
+		panic(fmt.Sprintf("computed column %s filling has invalid length multiplier", p.name))
+	}
+	// Fill the column
+	p.data = data
+	p.padding = padding
+}
+
+func (p *ArrayColumn) pad(n uint) {
+	// FIXME: have to avoid attempting to pad a computed column which has not
+	// yet neen computed (i.e. because we are applying spillage).  Somehow, this
+	// special casing does not feel right to me.
+	if p.data != nil {
+		// Apply the length multiplier
+		n = n * p.context.LengthMultiplier()
+		// Pad front of array
+		p.data = p.data.PadFront(n, p.padding)
 	}
 }

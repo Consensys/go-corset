@@ -81,7 +81,7 @@ func sliceColumns(columns []uint, tr trace.Trace) []util.FrArray {
 	cols := make([]util.FrArray, len(columns))
 	// Slice out the data
 	for i, n := range columns {
-		nth := tr.Columns().Get(n)
+		nth := tr.Column(n)
 		// Copy over
 		cols[i] = nth.Data()
 	}

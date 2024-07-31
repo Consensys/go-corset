@@ -3,7 +3,6 @@ package lt
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"io"
 	"log"
 
@@ -11,8 +10,8 @@ import (
 )
 
 // ToBytes writes a given trace file as an array of bytes.
-func ToBytes(tr trace.Trace) ([]byte, error) {
-	buf, err := ToBytesBuffer(tr)
+func ToBytes(columns []trace.RawColumn) ([]byte, error) {
+	buf, err := ToBytesBuffer(columns)
 	if err != nil {
 		return nil, err
 	}
@@ -21,9 +20,9 @@ func ToBytes(tr trace.Trace) ([]byte, error) {
 }
 
 // ToBytesBuffer writes a given trace file into a byte buffer.
-func ToBytesBuffer(tr trace.Trace) (*bytes.Buffer, error) {
+func ToBytesBuffer(columns []trace.RawColumn) (*bytes.Buffer, error) {
 	var buf bytes.Buffer
-	if err := WriteBytes(tr, &buf); err != nil {
+	if err := WriteBytes(columns, &buf); err != nil {
 		return nil, err
 	}
 
@@ -31,24 +30,17 @@ func ToBytesBuffer(tr trace.Trace) (*bytes.Buffer, error) {
 }
 
 // WriteBytes a given trace file to an io.Writer.
-func WriteBytes(tr trace.Trace, buf io.Writer) error {
-	columns := tr.Columns()
-	modules := tr.Modules()
-	ncols := columns.Len()
+func WriteBytes(columns []trace.RawColumn, buf io.Writer) error {
+	ncols := len(columns)
 	// Write column count
 	if err := binary.Write(buf, binary.BigEndian, uint32(ncols)); err != nil {
 		return err
 	}
 	// Write header information
-	for i := uint(0); i < ncols; i++ {
-		col := columns.Get(i)
-		data := col.Data()
-		mod := modules.Get(col.Context().Module())
-		name := col.Name()
-		// Prepend module name (if applicable)
-		if mod.Name() != "" {
-			name = fmt.Sprintf("%s.%s", mod.Name(), name)
-		}
+	for i := 0; i < ncols; i++ {
+		col := columns[i]
+		data := col.Data
+		name := trace.QualifiedColumnName(col.Module, col.Name)
 		// Write name length
 		nameBytes := []byte(name)
 		nameLen := uint16(len(nameBytes))
@@ -76,9 +68,9 @@ func WriteBytes(tr trace.Trace, buf io.Writer) error {
 		}
 	}
 	// Write column data information
-	for i := uint(0); i < ncols; i++ {
-		col := columns.Get(i)
-		if err := col.Data().Write(buf); err != nil {
+	for i := 0; i < ncols; i++ {
+		col := columns[i]
+		if err := col.Data.Write(buf); err != nil {
 			return err
 		}
 	}

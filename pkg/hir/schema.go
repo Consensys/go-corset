@@ -136,8 +136,8 @@ func (p *Schema) AddTypeConstraint(target uint, t sc.Type) {
 }
 
 // AddPropertyAssertion appends a new property assertion.
-func (p *Schema) AddPropertyAssertion(module uint, handle string, property Expr) {
-	p.assertions = append(p.assertions, sc.NewPropertyAssertion[ZeroArrayTest](module, handle, ZeroArrayTest{property}))
+func (p *Schema) AddPropertyAssertion(handle string, context trace.Context, property Expr) {
+	p.assertions = append(p.assertions, sc.NewPropertyAssertion[ZeroArrayTest](handle, context, ZeroArrayTest{property}))
 }
 
 // ============================================================================
