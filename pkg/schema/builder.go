@@ -50,11 +50,12 @@ func (tb TraceBuilder) Padding(padding uint) TraceBuilder {
 
 // Build takes the given builder configuration, along with a given set of input
 // columns and constructs a trace.
-func (tb TraceBuilder) Build(columns []trace.RawColumn) (trace.Trace, error) {
-	tr, err := initialiseTrace(tb.schema, columns)
+func (tb TraceBuilder) Build(columns []trace.RawColumn) (trace.Trace, []error) {
+	tr, errs := tb.initialiseTrace(columns)
 
-	if err != nil {
-		return nil, err
+	if tr == nil {
+		// Critical failure
+		return nil, errs
 	} else if tb.expand {
 		// TODO: this is not done properly.
 		padColumns(tr, requiredSpillage(tb.schema))
@@ -62,15 +63,127 @@ func (tb TraceBuilder) Build(columns []trace.RawColumn) (trace.Trace, error) {
 		if tb.parallel {
 			panic("parallel trace expansion not supported")
 		} else if err := sequentialTraceExpansion(tb.schema, tr); err != nil {
-			return tr, err
+			// Expansion errors are fatal as well
+			return nil, append(errs, err)
 		}
 	}
 	// Padding
 	if tb.padding > 0 {
 		padColumns(tr, tb.padding)
 	}
-	//fmt.Printf("BUILT TRACE: %s\n", tr)
-	return tr, nil
+
+	return tr, errs
+}
+
+// A column key is used as a key for the column map
+type columnKey struct {
+	context trace.Context
+	column  string
+}
+
+func (tb TraceBuilder) initialiseTrace(cols []trace.RawColumn) (*trace.ArrayTrace, []error) {
+	// Initialise modules
+	modules, modmap := tb.initialiseTraceModules()
+	// Initialise columns
+	columns, colmap := tb.initialiseTraceColumns()
+	// Construct (empty) trace
+	tr := trace.NewArrayTrace(modules, columns)
+	// Fill trace.  Note that all filling errors are non-critical.
+	errs := fillTraceColumns(modmap, colmap, cols, tr)
+	// Finally, sanity check all input columns provided
+	ninputs := tb.schema.InputColumns().Count()
+	//
+	for i := uint(0); i < ninputs; i++ {
+		ith := columns[i]
+		if ith.Data() == nil {
+			mod := tb.schema.Modules().Nth(ith.Context().Module()).name
+			// Missing an input column is a critical unrecoverable failure
+			err := fmt.Errorf("missing input column '%s.%s' in trace", mod, ith.Name())
+
+			return nil, append(errs, err)
+		}
+	}
+	// Done
+	return tr, errs
+}
+
+func (tb TraceBuilder) initialiseTraceModules() ([]trace.ArrayModule, map[string]uint) {
+	modmap := make(map[string]uint, 100)
+	modules := make([]trace.ArrayModule, tb.schema.Modules().Count())
+	// Initialise modules
+	for i, iter := uint(0), tb.schema.Modules(); iter.HasNext(); i++ {
+		m := iter.Next()
+		// Initialise an empty module.  Such modules have an (as yet)
+		// unspecified height.  For such a module to be usable, it needs at
+		// least one (or more) filled columns.
+		modules[i] = trace.EmptyArrayModule(m.name)
+		// Sanity check module
+		if _, ok := modmap[m.name]; ok {
+			panic(fmt.Sprintf("duplicate module '%s' in schema", m.name))
+		}
+
+		modmap[m.name] = i
+	}
+	// Done
+	return modules, modmap
+}
+
+func (tb TraceBuilder) initialiseTraceColumns() ([]trace.ArrayColumn, map[columnKey]uint) {
+	colmap := make(map[columnKey]uint, 100)
+	columns := make([]trace.ArrayColumn, tb.schema.Columns().Count())
+	// Initialise columns and map
+	for i, iter := uint(0), tb.schema.Columns(); iter.HasNext(); i++ {
+		c := iter.Next()
+		// Construct an appropriate key for this column
+		colkey := columnKey{c.Context(), c.Name()}
+		// Initially column data and padding are nil.  In some cases, we will
+		// populate this information from the cols array.  However, in other
+		// cases, it will need to be populated during trace expansion.
+		columns[i] = trace.EmptyArrayColumn(c.Context(), c.Name())
+		// Sanity check column
+		if _, ok := colmap[colkey]; ok {
+			mod := tb.schema.Modules().Nth(c.Context().Module())
+			panic(fmt.Sprintf("duplicate column '%s' in schema", trace.QualifiedColumnName(mod.name, c.Name())))
+		}
+		// All clear
+		colmap[colkey] = i
+	}
+	// Done
+	return columns, colmap
+}
+
+// Fill columns in the corresponding trace from the given input columns
+func fillTraceColumns(modmap map[string]uint, colmap map[columnKey]uint,
+	cols []trace.RawColumn, tr *trace.ArrayTrace) []error {
+	var zero fr.Element = fr.NewElement((0))
+	// Errs contains the set of filling errors which are accumulated
+	var errs []error
+	// Assign data from each input column given
+	for _, c := range cols {
+		// Lookup the module
+		mid, ok := modmap[c.Module]
+		if !ok {
+			errs = append(errs, fmt.Errorf("unknown module '%s' in trace", c.Module))
+		} else {
+			// We assume (for now) that user-provided columns always have a length
+			// multiplier of 1.  In general, this will be true.  However, in situations
+			// where we are importing expanded traces, then this might not be true.
+			context := trace.NewContext(mid, 1)
+			// Determine enclosiong module height
+			cid, ok := colmap[columnKey{context, c.Name}]
+			// More sanity checks
+			if !ok {
+				errs = append(errs, fmt.Errorf("unknown column '%s' in trace", c.QualifiedName()))
+			} else if tr.Column(cid).Data() != nil {
+				errs = append(errs, fmt.Errorf("duplicate column '%s' in trace", c.QualifiedName()))
+			} else {
+				// Assign data
+				tr.FillColumn(cid, c.Data, &zero)
+			}
+		}
+	}
+	//
+	return errs
 }
 
 // RequiredSpillage returns the minimum amount of spillage required to ensure
@@ -125,111 +238,6 @@ func sequentialTraceExpansion(schema Schema, trace *tr.ArrayTrace) error {
 			//
 			cid++
 		}
-	}
-	//
-	return nil
-}
-
-// A column key is used as a key for the column map
-type columnKey struct {
-	context trace.Context
-	column  string
-}
-
-func initialiseTrace(schema Schema, cols []trace.RawColumn) (*trace.ArrayTrace, error) {
-	// Initialise modules
-	modules, modmap := initialiseTraceModules(schema)
-	// Initialise columns
-	columns, colmap := initialiseTraceColumns(schema)
-	// Construct (empty) trace
-	tr := trace.NewArrayTrace(modules, columns)
-	// Fill trace
-	if err := fillTraceColumns(modmap, colmap, cols, tr); err != nil {
-		return nil, err
-	}
-	// Finally, sanity check all input columns provided
-	ninputs := schema.InputColumns().Count()
-	for i := uint(0); i < ninputs; i++ {
-		ith := columns[i]
-		if ith.Data() == nil {
-			mod := schema.Modules().Nth(ith.Context().Module()).name
-			return nil, fmt.Errorf("missing input column '%s.%s' in trace", mod, ith.Name())
-		}
-	}
-	// Done
-	return trace.NewArrayTrace(modules, columns), nil
-}
-
-func initialiseTraceModules(schema Schema) ([]trace.ArrayModule, map[string]uint) {
-	modmap := make(map[string]uint, 100)
-	modules := make([]trace.ArrayModule, schema.Modules().Count())
-	// Initialise modules
-	for i, iter := uint(0), schema.Modules(); iter.HasNext(); i++ {
-		m := iter.Next()
-		// Initialise an empty module.  Such modules have an (as yet)
-		// unspecified height.  For such a module to be usable, it needs at
-		// least one (or more) filled columns.
-		modules[i] = trace.EmptyArrayModule(m.name)
-		// Sanity check module
-		if _, ok := modmap[m.name]; ok {
-			panic(fmt.Sprintf("duplicate module '%s' in schema", m.name))
-		}
-
-		modmap[m.name] = i
-	}
-	// Done
-	return modules, modmap
-}
-
-func initialiseTraceColumns(schema Schema) ([]trace.ArrayColumn, map[columnKey]uint) {
-	colmap := make(map[columnKey]uint, 100)
-	columns := make([]trace.ArrayColumn, schema.Columns().Count())
-	// Initialise columns and map
-	for i, iter := uint(0), schema.Columns(); iter.HasNext(); i++ {
-		c := iter.Next()
-		// Construct an appropriate key for this column
-		colkey := columnKey{c.Context(), c.Name()}
-		// Initially column data and padding are nil.  In some cases, we will
-		// populate this information from the cols array.  However, in other
-		// cases, it will need to be populated during trace expansion.
-		columns[i] = trace.EmptyArrayColumn(c.Context(), c.Name())
-		// Sanity check column
-		if _, ok := colmap[colkey]; ok {
-			mod := schema.Modules().Nth(c.Context().Module())
-			panic(fmt.Sprintf("duplicate column '%s.%s' in schema", mod, c.Name()))
-		}
-		// All clear
-		colmap[colkey] = i
-	}
-	// Done
-	return columns, colmap
-}
-
-// Fill columns in the corresponding trace from the given input columns
-func fillTraceColumns(modmap map[string]uint, colmap map[columnKey]uint,
-	cols []trace.RawColumn, tr *trace.ArrayTrace) error {
-	var zero fr.Element = fr.NewElement((0))
-	// Assign data from each input column given
-	for _, c := range cols {
-		// Lookup the module
-		mid, ok := modmap[c.Module]
-		if !ok {
-			return fmt.Errorf("unknown module '%s' in trace", c.Module)
-		}
-		// We assume (for now) that user-provided columns always have a length
-		// multiplier of 1.  In general, this will be true.  However, in situations
-		// where we are importing expanded traces, then this might not be true.
-		context := trace.NewContext(mid, 1)
-		// Determine enclosiong module height
-		cid, ok := colmap[columnKey{context, c.Name}]
-		// More sanity checks
-		if !ok {
-			return fmt.Errorf("unknown column '%s.%s' in trace", c.Module, c.Name)
-		} else if tr.Column(cid).Data() != nil {
-			return fmt.Errorf("duplicate column '%s.%s' in trace", c.Module, c.Name)
-		}
-		// Assign data
-		tr.FillColumn(cid, c.Data, &zero)
 	}
 	//
 	return nil

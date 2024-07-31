@@ -99,10 +99,10 @@ func checkTraceWithLowering(cols []trace.RawColumn, schema *hir.Schema, cfg chec
 }
 
 func checkTraceWithLoweringHir(cols []trace.RawColumn, hirSchema *hir.Schema, cfg checkConfig) {
-	trHIR, errHIR := checkTrace(cols, hirSchema, cfg)
+	trHIR, errsHIR := checkTrace(cols, hirSchema, cfg)
 	//
-	if errHIR != nil {
-		reportError("HIR", trHIR, errHIR, cfg)
+	if errsHIR != nil {
+		reportErrors("HIR", trHIR, errsHIR, cfg)
 		os.Exit(1)
 	}
 }
@@ -111,10 +111,10 @@ func checkTraceWithLoweringMir(cols []trace.RawColumn, hirSchema *hir.Schema, cf
 	// Lower HIR => MIR
 	mirSchema := hirSchema.LowerToMir()
 	// Check trace
-	trMIR, errMIR := checkTrace(cols, mirSchema, cfg)
+	trMIR, errsMIR := checkTrace(cols, mirSchema, cfg)
 	//
-	if errMIR != nil {
-		reportError("MIR", trMIR, errMIR, cfg)
+	if errsMIR != nil {
+		reportErrors("MIR", trMIR, errsMIR, cfg)
 		os.Exit(1)
 	}
 }
@@ -124,10 +124,10 @@ func checkTraceWithLoweringAir(cols []trace.RawColumn, hirSchema *hir.Schema, cf
 	mirSchema := hirSchema.LowerToMir()
 	// Lower MIR => AIR
 	airSchema := mirSchema.LowerToAir()
-	trAIR, errAIR := checkTrace(cols, airSchema, cfg)
+	trAIR, errsAIR := checkTrace(cols, airSchema, cfg)
 	//
-	if errAIR != nil {
-		reportError("AIR", trAIR, errAIR, cfg)
+	if errsAIR != nil {
+		reportErrors("AIR", trAIR, errsAIR, cfg)
 		os.Exit(1)
 	}
 }
@@ -140,43 +140,36 @@ func checkTraceWithLoweringDefault(cols []trace.RawColumn, hirSchema *hir.Schema
 	// Lower MIR => AIR
 	airSchema := mirSchema.LowerToAir()
 	//
-	trHIR, errHIR := checkTrace(cols, hirSchema, cfg)
-	trMIR, errMIR := checkTrace(cols, mirSchema, cfg)
-	trAIR, errAIR := checkTrace(cols, airSchema, cfg)
+	trHIR, errsHIR := checkTrace(cols, hirSchema, cfg)
+	trMIR, errsMIR := checkTrace(cols, mirSchema, cfg)
+	trAIR, errsAIR := checkTrace(cols, airSchema, cfg)
 	//
-	if errHIR != nil || errMIR != nil || errAIR != nil {
-		strHIR := toErrorString(errHIR)
-		strMIR := toErrorString(errMIR)
-		strAIR := toErrorString(errAIR)
-		// At least one error encountered.
-		if strHIR == strMIR && strMIR == strAIR {
-			fmt.Println(errHIR)
-		} else {
-			reportError("HIR", trHIR, errHIR, cfg)
-			reportError("MIR", trMIR, errMIR, cfg)
-			reportError("AIR", trAIR, errAIR, cfg)
-		}
-
+	if errsHIR != nil || errsMIR != nil || errsAIR != nil {
+		reportErrors("HIR", trHIR, errsHIR, cfg)
+		reportErrors("MIR", trMIR, errsMIR, cfg)
+		reportErrors("AIR", trAIR, errsAIR, cfg)
 		os.Exit(1)
 	}
 }
 
-func checkTrace(cols []trace.RawColumn, schema sc.Schema, cfg checkConfig) (trace.Trace, error) {
+func checkTrace(cols []trace.RawColumn, schema sc.Schema, cfg checkConfig) (trace.Trace, []error) {
 	builder := sc.NewTraceBuilder(schema).Expand(cfg.expand)
 	//
 	for n := cfg.padding.Left; n <= cfg.padding.Right; n++ {
-		tr, err := builder.Padding(n).Build(cols)
+		tr, errs := builder.Padding(n).Build(cols)
 		// Check for errors
-		if err != nil {
-			return tr, err
+		if tr == nil || (cfg.strict && len(errs) > 0) {
+			return tr, errs
+		} else if len(errs) > 0 {
+			reportWarnings(errs, cfg)
 		}
 		// Validate trace.  Observe that this is only done for
 		if err := validationCheck(tr, schema); err != nil {
-			return tr, err
+			return tr, []error{err}
 		}
-		// Apply padding (as necessary)
+		// Check whether accepted or not.
 		if err := sc.Accepts(schema, tr); err != nil {
-			return tr, err
+			return tr, []error{err}
 		}
 	}
 	// Done
@@ -210,12 +203,10 @@ func validationCheck(tr trace.Trace, schema sc.Schema) error {
 	return nil
 }
 
-func toErrorString(err error) string {
-	if err == nil {
-		return ""
+func reportErrors(ir string, tr trace.Trace, errs []error, cfg checkConfig) {
+	for _, err := range errs {
+		reportError(ir, tr, err, cfg)
 	}
-
-	return err.Error()
 }
 
 func reportError(ir string, tr trace.Trace, err error, cfg checkConfig) {
@@ -224,9 +215,17 @@ func reportError(ir string, tr trace.Trace, err error, cfg checkConfig) {
 	}
 
 	if err != nil {
-		fmt.Printf("%s: %s\n", ir, err)
+		fmt.Printf("[ERROR] %s: %s\n", ir, err)
 	} else {
-		fmt.Printf("Trace should have been rejected at %s level.\n", ir)
+		fmt.Printf("[ERROR] Trace should have been rejected at %s level.\n", ir)
+	}
+}
+
+func reportWarnings(errs []error, cfg checkConfig) {
+	if !cfg.quiet {
+		for _, err := range errs {
+			fmt.Printf("[WARNING] %s\n", err)
+		}
 	}
 }
 
