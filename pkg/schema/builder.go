@@ -8,25 +8,66 @@ import (
 	tr "github.com/consensys/go-corset/pkg/trace"
 )
 
-// BuildTrace converts a set of raw columns into a fully expanded trace.  This
-// is a potentially expensive computation if the columns are large.
-func BuildTrace(schema Schema, columns []trace.RawColumn, expand bool, padding uint) (trace.Trace, error) {
-	//fmt.Printf("BUILDING TRACE: %s\n", columns)
-	tr, err := internalBuildTrace(schema, columns)
+// TraceBuilder provides a mechanical means of constructing a trace from a given
+// schema and set of input columns.  The goal is to encapsulate all of the logic
+// around building a trace.
+type TraceBuilder struct {
+	// Schema to be used when building the trace
+	schema Schema
+	// Indicates whether or not to perform trace expansion.  The default should
+	// be to apply trace expansion.  However, for testing purposes, it can be
+	// useful to provide an already expanded trace to ensure a set of
+	// constraints correctly rejects it.
+	expand bool
+	// Determines the amount of padding to apply to each module in the trace.
+	// At the moment, this is applied uniformly across all modules.  This is
+	// somewhat cumbersome, and it would make sense to support different
+	// protocols.  For example, one obvious protocol is to expand a module's
+	// length upto a power-of-two.
+	padding uint
+	// Determines whether or not trace expansion should be performed in
+	// parallel.  This should be the default, but a sequential option is
+	// retained for debugging purposes.
+	parallel bool
+}
+
+// NewTraceBuilder constructs a default trace builder.  The idea is that this
+// could then be customized as needed following the builder pattern.
+func NewTraceBuilder(schema Schema) TraceBuilder {
+	return TraceBuilder{schema, true, 0, false}
+}
+
+// Expand updates a given builder configuration to perform trace expansion (or
+// not).
+func (tb TraceBuilder) Expand(flag bool) TraceBuilder {
+	return TraceBuilder{tb.schema, flag, tb.padding, tb.parallel}
+}
+
+// Padding updates a given builder configuration to use a given amount of padding
+func (tb TraceBuilder) Padding(padding uint) TraceBuilder {
+	return TraceBuilder{tb.schema, tb.expand, padding, tb.parallel}
+}
+
+// Build takes the given builder configuration, along with a given set of input
+// columns and constructs a trace.
+func (tb TraceBuilder) Build(columns []trace.RawColumn) (trace.Trace, error) {
+	tr, err := initialiseTrace(tb.schema, columns)
 
 	if err != nil {
 		return nil, err
-	} else if expand {
+	} else if tb.expand {
 		// TODO: this is not done properly.
-		padColumns(tr, requiredSpillage(schema))
+		padColumns(tr, requiredSpillage(tb.schema))
 		// Expand trace
-		if err := doTraceExpansion(schema, tr); err != nil {
+		if tb.parallel {
+			panic("parallel trace expansion not supported")
+		} else if err := sequentialTraceExpansion(tb.schema, tr); err != nil {
 			return tr, err
 		}
 	}
 	// Padding
-	if padding > 0 {
-		padColumns(tr, padding)
+	if tb.padding > 0 {
+		padColumns(tr, tb.padding)
 	}
 	//fmt.Printf("BUILT TRACE: %s\n", tr)
 	return tr, nil
@@ -51,9 +92,10 @@ func requiredSpillage(schema Schema) uint {
 	return mx
 }
 
-// doTraceExpansion expands a given trace according to a given schema.  More
-// specifically, that means computing the actual values for any assignments.
-func doTraceExpansion(schema Schema, trace *tr.ArrayTrace) error {
+// sequentialTraceExpansion expands a given trace according to a given schema.
+// More specifically, that means computing the actual values for any
+// assignments.  This is done using a straightforward sequential algorithm.
+func sequentialTraceExpansion(schema Schema, trace *tr.ArrayTrace) error {
 	// Column identifiers for computed columns start immediately following the
 	// designated input columns.
 	cid := schema.InputColumns().Count()
@@ -85,16 +127,7 @@ func doTraceExpansion(schema Schema, trace *tr.ArrayTrace) error {
 		}
 	}
 	//
-	//	return util.ParExec[expandTraceJob](batchjobs)
 	return nil
-}
-
-// ColumnIndexOf returns the column index of the column with the given name, or
-// returns false if no matching column exists.
-func ColumnIndexOf(schema Schema, module uint, name string) (uint, bool) {
-	return schema.Columns().Find(func(c Column) bool {
-		return c.Context().Module() == module && c.Name() == name
-	})
 }
 
 // A column key is used as a key for the column map
@@ -103,7 +136,7 @@ type columnKey struct {
 	column  string
 }
 
-func internalBuildTrace(schema Schema, cols []trace.RawColumn) (*trace.ArrayTrace, error) {
+func initialiseTrace(schema Schema, cols []trace.RawColumn) (*trace.ArrayTrace, error) {
 	// Initialise modules
 	modules, modmap := initialiseTraceModules(schema)
 	// Initialise columns

@@ -162,9 +162,10 @@ func checkTraceWithLoweringDefault(cols []trace.RawColumn, hirSchema *hir.Schema
 }
 
 func checkTrace(cols []trace.RawColumn, schema sc.Schema, cfg checkConfig) (trace.Trace, error) {
+	builder := sc.NewTraceBuilder(schema).Expand(cfg.expand)
 	//
 	for n := cfg.padding.Left; n <= cfg.padding.Right; n++ {
-		tr, err := sc.BuildTrace(schema, cols, cfg.expand, n)
+		tr, err := builder.Padding(n).Build(cols)
 		// Check for errors
 		if err != nil {
 			return tr, err
