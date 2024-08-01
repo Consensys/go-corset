@@ -2,10 +2,12 @@ package schema
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/trace"
 	tr "github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // TraceBuilder provides a mechanical means of constructing a trace from a given
@@ -97,23 +99,19 @@ func (tb TraceBuilder) initialiseTrace(cols []trace.RawColumn) (*trace.ArrayTrac
 	columns, colmap := tb.initialiseTraceColumns()
 	// Construct (empty) trace
 	tr := trace.NewArrayTrace(modules, columns)
-	// Fill trace.  Note that all filling errors are non-critical.
-	errs := fillTraceColumns(modmap, colmap, cols, tr)
-	// Finally, sanity check all input columns provided
-	ninputs := tb.schema.InputColumns().Count()
+	// Fill trace.
+	warnings1 := fillTraceColumns(modmap, colmap, cols, tr)
+	// Validation
+	err, warnings2 := validateTraceColumns(tb.schema, tr)
+	// Combine warnings together
+	warnings := append(warnings1, warnings2...)
 	//
-	for i := uint(0); i < ninputs; i++ {
-		ith := columns[i]
-		if ith.Data() == nil {
-			mod := tb.schema.Modules().Nth(ith.Context().Module()).name
-			// Missing an input column is a critical unrecoverable failure
-			err := fmt.Errorf("missing input column '%s.%s' in trace", mod, ith.Name())
-
-			return nil, append(errs, err)
-		}
+	if err != nil {
+		// Unrecoverable error
+		return nil, append(warnings, err)
 	}
 	// Done
-	return tr, errs
+	return tr, warnings
 }
 
 func (tb TraceBuilder) initialiseTraceModules() ([]trace.ArrayModule, map[string]uint) {
@@ -193,6 +191,35 @@ func fillTraceColumns(modmap map[string]uint, colmap map[columnKey]uint,
 	}
 	//
 	return errs
+}
+
+func validateTraceColumns(schema Schema, tr *trace.ArrayTrace) (error, []error) {
+	var zero fr.Element = fr.NewElement((0))
+	// Determine how many input columns to expect
+	ninputs := schema.InputColumns().Count()
+	warnings := []error{}
+	// Finally, sanity check all input columns provided
+	for i := uint(0); i < ninputs; i++ {
+		ith := tr.Column(i)
+		if ith.Data() == nil {
+			// This looks suspect
+			mid := ith.Context().Module()
+			mod := schema.Modules().Nth(mid).name
+			err := fmt.Errorf("missing input column '%s.%s' in trace", mod, ith.Name())
+			mod_height := tr.Height(ith.Context())
+			// Check whether we have other columns for this module
+			if mod_height != math.MaxUint && mod_height != 0 {
+				// Yes, this is not recoverable.
+				return err, nil
+			}
+			// Ok, treat as warning
+			warnings = append(warnings, err)
+			// Fill with a column of height zero.
+			tr.FillColumn(i, util.NewFrArray(0, 256), &zero)
+		}
+	}
+	// Done
+	return nil, warnings
 }
 
 // RequiredSpillage returns the minimum amount of spillage required to ensure
