@@ -102,10 +102,10 @@ func checkTraceWithLowering(cols []trace.RawColumn, schema *hir.Schema, cfg chec
 }
 
 func checkTraceWithLoweringHir(cols []trace.RawColumn, hirSchema *hir.Schema, cfg checkConfig) {
-	trHIR, errsHIR := checkTrace(cols, hirSchema, cfg)
+	trHIR, errsHIR := checkTrace("HIR", cols, hirSchema, cfg)
 	//
 	if errsHIR != nil {
-		reportErrors("HIR", trHIR, errsHIR, cfg)
+		reportErrors("ERROR", "HIR", trHIR, errsHIR, cfg)
 		os.Exit(1)
 	}
 }
@@ -114,10 +114,10 @@ func checkTraceWithLoweringMir(cols []trace.RawColumn, hirSchema *hir.Schema, cf
 	// Lower HIR => MIR
 	mirSchema := hirSchema.LowerToMir()
 	// Check trace
-	trMIR, errsMIR := checkTrace(cols, mirSchema, cfg)
+	trMIR, errsMIR := checkTrace("MIR", cols, mirSchema, cfg)
 	//
 	if errsMIR != nil {
-		reportErrors("MIR", trMIR, errsMIR, cfg)
+		reportErrors("ERROR", "MIR", trMIR, errsMIR, cfg)
 		os.Exit(1)
 	}
 }
@@ -127,10 +127,10 @@ func checkTraceWithLoweringAir(cols []trace.RawColumn, hirSchema *hir.Schema, cf
 	mirSchema := hirSchema.LowerToMir()
 	// Lower MIR => AIR
 	airSchema := mirSchema.LowerToAir()
-	trAIR, errsAIR := checkTrace(cols, airSchema, cfg)
+	trAIR, errsAIR := checkTrace("AIR", cols, airSchema, cfg)
 	//
 	if errsAIR != nil {
-		reportErrors("AIR", trAIR, errsAIR, cfg)
+		reportErrors("ERROR", "AIR", trAIR, errsAIR, cfg)
 		os.Exit(1)
 	}
 }
@@ -143,19 +143,19 @@ func checkTraceWithLoweringDefault(cols []trace.RawColumn, hirSchema *hir.Schema
 	// Lower MIR => AIR
 	airSchema := mirSchema.LowerToAir()
 	//
-	trHIR, errsHIR := checkTrace(cols, hirSchema, cfg)
-	trMIR, errsMIR := checkTrace(cols, mirSchema, cfg)
-	trAIR, errsAIR := checkTrace(cols, airSchema, cfg)
+	trHIR, errsHIR := checkTrace("HIR", cols, hirSchema, cfg)
+	trMIR, errsMIR := checkTrace("MIR", cols, mirSchema, cfg)
+	trAIR, errsAIR := checkTrace("AIR", cols, airSchema, cfg)
 	//
 	if errsHIR != nil || errsMIR != nil || errsAIR != nil {
-		reportErrors("HIR", trHIR, errsHIR, cfg)
-		reportErrors("MIR", trMIR, errsMIR, cfg)
-		reportErrors("AIR", trAIR, errsAIR, cfg)
+		reportErrors("ERROR", "HIR", trHIR, errsHIR, cfg)
+		reportErrors("ERROR", "MIR", trMIR, errsMIR, cfg)
+		reportErrors("ERROR", "AIR", trAIR, errsAIR, cfg)
 		os.Exit(1)
 	}
 }
 
-func checkTrace(cols []trace.RawColumn, schema sc.Schema, cfg checkConfig) (trace.Trace, []error) {
+func checkTrace(ir string, cols []trace.RawColumn, schema sc.Schema, cfg checkConfig) (trace.Trace, []error) {
 	builder := sc.NewTraceBuilder(schema).Expand(cfg.expand).Parallel(cfg.parallelExpansion)
 	//
 	for n := cfg.padding.Left; n <= cfg.padding.Right; n++ {
@@ -164,7 +164,7 @@ func checkTrace(cols []trace.RawColumn, schema sc.Schema, cfg checkConfig) (trac
 		if tr == nil || (cfg.strict && len(errs) > 0) {
 			return tr, errs
 		} else if len(errs) > 0 {
-			reportWarnings(errs, cfg)
+			reportErrors("WARNING", ir, tr, errs, cfg)
 		}
 		// Validate trace.  Observe that this is only done for
 		if err := validationCheck(tr, schema); err != nil {
@@ -206,29 +206,20 @@ func validationCheck(tr trace.Trace, schema sc.Schema) error {
 	return nil
 }
 
-func reportErrors(ir string, tr trace.Trace, errs []error, cfg checkConfig) {
-	for _, err := range errs {
-		reportError(ir, tr, err, cfg)
-	}
-}
-
-func reportError(ir string, tr trace.Trace, err error, cfg checkConfig) {
+func reportErrors(level string, ir string, tr trace.Trace, errs []error, cfg checkConfig) {
 	if cfg.report && tr != nil {
 		trace.PrintTrace(tr)
 	}
-
-	if err != nil {
-		fmt.Printf("[ERROR] %s: %s\n", ir, err)
-	} else {
-		fmt.Printf("[ERROR] Trace should have been rejected at %s level.\n", ir)
+	// Construct set to ensure deduplicate errors
+	set := make(map[string]bool, len(errs))
+	//
+	for _, err := range errs {
+		key := fmt.Sprintf("[%s] %s (%s)", level, err, ir)
+		set[key] = true
 	}
-}
-
-func reportWarnings(errs []error, cfg checkConfig) {
-	if !cfg.quiet {
-		for _, err := range errs {
-			fmt.Printf("[WARNING] %s\n", err)
-		}
+	// Print each one
+	for e := range set {
+		fmt.Println(e)
 	}
 }
 
