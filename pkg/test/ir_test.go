@@ -527,7 +527,7 @@ func checkTrace(t *testing.T, inputs []trace.RawColumn, expand bool, id traceId,
 		}
 	} else {
 		// Check
-		err := sc.Accepts(schema, tr)
+		err := sc.Accepts(100, schema, tr)
 		// Determine whether trace accepted or not.
 		accepted := (err == nil)
 		// Process what happened versus what was supposed to happen.

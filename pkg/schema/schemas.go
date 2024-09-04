@@ -1,7 +1,11 @@
 package schema
 
 import (
+	"fmt"
+	"runtime"
+
 	tr "github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // JoinContexts combines one or more evaluation contexts together.  If all
@@ -43,30 +47,50 @@ func ContextOfColumns(cols []uint, schema Schema) tr.Context {
 // which does not hold.
 //
 //nolint:revive
-func Accepts(schema Schema, trace tr.Trace) error {
-	var err error
-	// Determine how many constraints
-	n := schema.Constraints().Count()
-	// Construct a communication channel for errors.
-	c := make(chan error, 100)
-	// Check each constraint in turn
-	for i := schema.Constraints(); i.HasNext(); {
-		// Get ith constraint
-		ith := i.Next()
-		// Launch checker for constraint
-		go func() {
-			// Send outcome back
-			c <- ith.Accepts(trace)
-		}()
+func Accepts(batchsize uint, schema Schema, trace tr.Trace) error {
+	iter := schema.Constraints()
+	// Initialise batch number (for debugging purposes)
+	batch := uint(0)
+	// Process constraints in batches
+	for iter.HasNext() {
+		if err := processConstraintBatch(batch, batchsize, iter, trace); err != nil {
+			return err
+		}
+		// Increment batch number
+		batch++
 	}
-	// Read responses back from each constraint.
+	// Success
+	return nil
+}
+
+// Process a given set of constraints in a single batch
+func processConstraintBatch(batch uint, batchsize uint, iter util.Iterator[Constraint], trace tr.Trace) error {
+	var err error
+
+	n := uint(0)
+	c := make(chan error, 10)
+	stats := util.NewPerfStats()
+	// Launch at most 100 go-routines.
+	for ; n < batchsize && iter.HasNext(); n++ {
+		// Get ith constraint
+		ith := iter.Next()
+		// Launch checker for constraint
+		go func(tr tr.Trace) {
+			// Send outcome back
+			c <- ith.Accepts(tr)
+		}(trace)
+	}
+	//
 	for i := uint(0); i < n; i++ {
 		// Read from channel
 		if e := <-c; e != nil {
 			err = e
 		}
 	}
-	// Success
+	stats.Log(fmt.Sprintf("Constraint batch %d", batch))
+	// Force garbage collection
+	runtime.GC()
+	//
 	return err
 }
 
