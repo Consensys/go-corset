@@ -8,6 +8,7 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -26,6 +27,11 @@ var checkCmd = &cobra.Command{
 			fmt.Println(cmd.UsageString())
 			os.Exit(1)
 		}
+		// Configure log level
+		if getFlag(cmd, "debug") {
+			log.SetLevel(log.DebugLevel)
+		}
+		//
 		cfg.air = getFlag(cmd, "air")
 		cfg.mir = getFlag(cmd, "mir")
 		cfg.hir = getFlag(cmd, "hir")
@@ -36,12 +42,16 @@ var checkCmd = &cobra.Command{
 		cfg.quiet = getFlag(cmd, "quiet")
 		cfg.padding.Right = getUint(cmd, "padding")
 		cfg.parallelExpansion = !getFlag(cmd, "sequential")
+		//
+		stats := NewPerfStats()
 		// TODO: support true ranges
 		cfg.padding.Left = cfg.padding.Right
 		// Parse constraints
 		hirSchema = readSchemaFile(args[1])
 		// Parse trace file
 		columns := readTraceFile(args[0])
+		//
+		stats.Log("Reading trace files")
 		// Go!
 		checkTraceWithLowering(columns, hirSchema, cfg)
 	},
@@ -105,7 +115,7 @@ func checkTraceWithLoweringHir(cols []trace.RawColumn, hirSchema *hir.Schema, cf
 	trHIR, errsHIR := checkTrace("HIR", cols, hirSchema, cfg)
 	//
 	if errsHIR != nil {
-		reportErrors("ERROR", "HIR", trHIR, errsHIR, cfg)
+		reportErrors(true, "HIR", trHIR, errsHIR, cfg)
 		os.Exit(1)
 	}
 }
@@ -117,7 +127,7 @@ func checkTraceWithLoweringMir(cols []trace.RawColumn, hirSchema *hir.Schema, cf
 	trMIR, errsMIR := checkTrace("MIR", cols, mirSchema, cfg)
 	//
 	if errsMIR != nil {
-		reportErrors("ERROR", "MIR", trMIR, errsMIR, cfg)
+		reportErrors(true, "MIR", trMIR, errsMIR, cfg)
 		os.Exit(1)
 	}
 }
@@ -130,7 +140,7 @@ func checkTraceWithLoweringAir(cols []trace.RawColumn, hirSchema *hir.Schema, cf
 	trAIR, errsAIR := checkTrace("AIR", cols, airSchema, cfg)
 	//
 	if errsAIR != nil {
-		reportErrors("ERROR", "AIR", trAIR, errsAIR, cfg)
+		reportErrors(true, "AIR", trAIR, errsAIR, cfg)
 		os.Exit(1)
 	}
 }
@@ -148,9 +158,9 @@ func checkTraceWithLoweringDefault(cols []trace.RawColumn, hirSchema *hir.Schema
 	trAIR, errsAIR := checkTrace("AIR", cols, airSchema, cfg)
 	//
 	if errsHIR != nil || errsMIR != nil || errsAIR != nil {
-		reportErrors("ERROR", "HIR", trHIR, errsHIR, cfg)
-		reportErrors("ERROR", "MIR", trMIR, errsMIR, cfg)
-		reportErrors("ERROR", "AIR", trAIR, errsAIR, cfg)
+		reportErrors(true, "HIR", trHIR, errsHIR, cfg)
+		reportErrors(true, "MIR", trMIR, errsMIR, cfg)
+		reportErrors(true, "AIR", trAIR, errsAIR, cfg)
 		os.Exit(1)
 	}
 }
@@ -159,21 +169,31 @@ func checkTrace(ir string, cols []trace.RawColumn, schema sc.Schema, cfg checkCo
 	builder := sc.NewTraceBuilder(schema).Expand(cfg.expand).Parallel(cfg.parallelExpansion)
 	//
 	for n := cfg.padding.Left; n <= cfg.padding.Right; n++ {
+		stats := NewPerfStats()
 		tr, errs := builder.Padding(n).Build(cols)
+
+		stats.Log("Expanding trace columns")
 		// Check for errors
 		if tr == nil || (cfg.strict && len(errs) > 0) {
 			return tr, errs
 		} else if len(errs) > 0 {
-			reportErrors("WARNING", ir, tr, errs, cfg)
+			reportErrors(false, ir, tr, errs, cfg)
 		}
-		// Validate trace.  Observe that this is only done for
+		// Validate trace.
+		stats = NewPerfStats()
+		//
 		if err := validationCheck(tr, schema); err != nil {
 			return tr, []error{err}
 		}
-		// Check whether accepted or not.
+		// Check trace.
+		stats.Log("Validating trace")
+		stats = NewPerfStats()
+		//
 		if err := sc.Accepts(schema, tr); err != nil {
 			return tr, []error{err}
 		}
+
+		stats.Log("Checking constraints")
 	}
 	// Done
 	return nil, nil
@@ -206,7 +226,7 @@ func validationCheck(tr trace.Trace, schema sc.Schema) error {
 	return nil
 }
 
-func reportErrors(level string, ir string, tr trace.Trace, errs []error, cfg checkConfig) {
+func reportErrors(error bool, ir string, tr trace.Trace, errs []error, cfg checkConfig) {
 	if cfg.report && tr != nil {
 		trace.PrintTrace(tr)
 	}
@@ -214,12 +234,16 @@ func reportErrors(level string, ir string, tr trace.Trace, errs []error, cfg che
 	set := make(map[string]bool, len(errs))
 	//
 	for _, err := range errs {
-		key := fmt.Sprintf("[%s] %s (%s)", level, err, ir)
+		key := fmt.Sprintf("%s (%s)", err, ir)
 		set[key] = true
 	}
-	// Print each one
+	// Report each one
 	for e := range set {
-		fmt.Println(e)
+		if error {
+			log.Errorln(e)
+		} else {
+			log.Warnln(e)
+		}
 	}
 }
 
@@ -232,6 +256,7 @@ func init() {
 	checkCmd.Flags().Bool("air", false, "check at AIR level")
 	checkCmd.Flags().BoolP("warn", "w", false, "report warnings instead of failing for certain errors"+
 		"(e.g. unknown columns in the trace)")
+	checkCmd.Flags().BoolP("debug", "d", false, "report debug logs")
 	checkCmd.Flags().BoolP("quiet", "q", false, "suppress output (e.g. warnings)")
 	checkCmd.Flags().Bool("sequential", false, "perform sequential trace expansion")
 	checkCmd.Flags().Uint("padding", 0, "specify amount of (front) padding to apply")
