@@ -202,7 +202,11 @@ func checkTrace(ir string, cols []trace.RawColumn, schema sc.Schema, cfg checkCo
 // Validate that values held in trace columns match the expected type.  This is
 // really a sanity check that the trace is not malformed.
 func validationCheck(tr trace.Trace, schema sc.Schema) error {
+	var err error
+
 	schemaCols := schema.Columns()
+	// Construct a communication channel for errors.
+	c := make(chan error, 10)
 	// Check each column in turn
 	for i := uint(0); i < tr.Width(); i++ {
 		// Extract ith column
@@ -214,15 +218,32 @@ func validationCheck(tr trace.Trace, schema sc.Schema) error {
 		// Extract type for ith column
 		colType := scCol.Type()
 		// Check elements
-		for j := 0; j < int(tr.Height(scCol.Context())); j++ {
-			jth := col.Get(j)
-			if !colType.Accept(jth) {
-				qualColName := trace.QualifiedColumnName(mod.Name(), col.Name())
-				return fmt.Errorf("row %d of column %s is out-of-bounds (%s)", j, qualColName, jth)
-			}
+		go func() {
+			// Send outcome back
+			c <- validateColumn(colType, col, mod)
+		}()
+	}
+	// Collect up all the results
+	for i := uint(0); i < tr.Width(); i++ {
+		// Read from channel
+		if e := <-c; e != nil {
+			err = e
 		}
 	}
 	// Done
+	return err
+}
+
+// Validate that all elements of a given column are within the given type.
+func validateColumn(colType sc.Type, col trace.Column, mod sc.Module) error {
+	for j := 0; j < int(col.Data().Len()); j++ {
+		jth := col.Get(j)
+		if !colType.Accept(jth) {
+			qualColName := trace.QualifiedColumnName(mod.Name(), col.Name())
+			return fmt.Errorf("row %d of column %s is out-of-bounds (%s)", j, qualColName, jth)
+		}
+	}
+	// success
 	return nil
 }
 
