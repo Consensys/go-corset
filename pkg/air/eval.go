@@ -50,9 +50,6 @@ func (e *Sub) EvalAt(k int, tr trace.Trace) *fr.Element {
 func evalExprsAt(k int, tr trace.Trace, exprs []Expr, fn func(*fr.Element, *fr.Element)) *fr.Element {
 	// Evaluate first argument
 	val := exprs[0].EvalAt(k, tr)
-	if val == nil {
-		return nil
-	}
 
 	// Continue evaluating the rest
 	for i := 1; i < len(exprs); i++ {

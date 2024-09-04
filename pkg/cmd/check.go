@@ -42,8 +42,9 @@ var checkCmd = &cobra.Command{
 		cfg.quiet = getFlag(cmd, "quiet")
 		cfg.padding.Right = getUint(cmd, "padding")
 		cfg.parallelExpansion = !getFlag(cmd, "sequential")
+		cfg.batchSize = getUint(cmd, "batch")
 		//
-		stats := NewPerfStats()
+		stats := util.NewPerfStats()
 		// TODO: support true ranges
 		cfg.padding.Left = cfg.padding.Right
 		// Parse constraints
@@ -87,6 +88,8 @@ type checkConfig struct {
 	report bool
 	// Perform trace expansion in parallel (or not)
 	parallelExpansion bool
+	// Size of constraint batches to execute in parallel
+	batchSize uint
 }
 
 // Check a given trace is consistently accepted (or rejected) at the different
@@ -169,7 +172,7 @@ func checkTrace(ir string, cols []trace.RawColumn, schema sc.Schema, cfg checkCo
 	builder := sc.NewTraceBuilder(schema).Expand(cfg.expand).Parallel(cfg.parallelExpansion)
 	//
 	for n := cfg.padding.Left; n <= cfg.padding.Right; n++ {
-		stats := NewPerfStats()
+		stats := util.NewPerfStats()
 		tr, errs := builder.Padding(n).Build(cols)
 
 		stats.Log("Expanding trace columns")
@@ -180,16 +183,16 @@ func checkTrace(ir string, cols []trace.RawColumn, schema sc.Schema, cfg checkCo
 			reportErrors(false, ir, tr, errs, cfg)
 		}
 		// Validate trace.
-		stats = NewPerfStats()
+		stats = util.NewPerfStats()
 		//
 		if err := validationCheck(tr, schema); err != nil {
 			return tr, []error{err}
 		}
 		// Check trace.
 		stats.Log("Validating trace")
-		stats = NewPerfStats()
+		stats = util.NewPerfStats()
 		//
-		if err := sc.Accepts(schema, tr); err != nil {
+		if err := sc.Accepts(cfg.batchSize, schema, tr); err != nil {
 			return tr, []error{err}
 		}
 
@@ -281,6 +284,7 @@ func init() {
 	checkCmd.Flags().BoolP("quiet", "q", false, "suppress output (e.g. warnings)")
 	checkCmd.Flags().Bool("sequential", false, "perform sequential trace expansion")
 	checkCmd.Flags().Uint("padding", 0, "specify amount of (front) padding to apply")
+	checkCmd.Flags().UintP("batch", "b", 1000, "specify batch size for constraint checking")
 	checkCmd.Flags().Int("spillage", -1,
 		"specify amount of splillage to account for (where -1 indicates this should be inferred)")
 }
