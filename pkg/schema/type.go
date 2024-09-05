@@ -18,7 +18,7 @@ type Type interface {
 	// field element, then this returns nil.
 	AsField() *FieldType
 	// Accept checks whether a specific value is accepted by this type
-	Accept(*fr.Element) bool
+	Accept(fr.Element) bool
 	// Return the number of bytes required represent any element of this type.
 	ByteWidth() uint
 	// Return the minimum number of bits required represent any element of this type.
@@ -75,7 +75,7 @@ func (p *UintType) ByteWidth() uint {
 
 // Accept determines whether a given value is an element of this type.  For
 // example, 123 is an element of the type u8 whilst 256 is not.
-func (p *UintType) Accept(val *fr.Element) bool {
+func (p *UintType) Accept(val fr.Element) bool {
 	return val.Cmp(p.bound) < 0
 }
 
@@ -132,7 +132,7 @@ func (p *FieldType) BitWidth() uint {
 
 // Accept determines whether a given value is an element of this type.  In
 // fact, all field elements are members of this type.
-func (p *FieldType) Accept(val *fr.Element) bool {
+func (p *FieldType) Accept(val fr.Element) bool {
 	return true
 }
 

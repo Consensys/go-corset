@@ -223,13 +223,10 @@ func extractIfZeroCondition(e *IfZero, schema *mir.Schema) mir.Expr {
 		panic(fmt.Sprintf("unexpanded expression (%s)", e.String()))
 	} else if e.TrueBranch != nil {
 		// (1 - NORM(cb)) for true branch
-		one := new(fr.Element)
-		one.SetOne()
-
 		normBody := &mir.Normalise{Arg: cb}
 		oneMinusNormBody := &mir.Sub{
 			Args: []mir.Expr{
-				&mir.Constant{Value: one},
+				&mir.Constant{Value: fr.One()},
 				normBody,
 			},
 		}

@@ -10,10 +10,10 @@ import (
 // duplication of elements.
 type FrPool[K any] interface {
 	// Allocate an item into the pool, returning its index.
-	Put(*fr.Element) K
+	Put(fr.Element) K
 
 	// Lookup a given item in the pool using an index.
-	Get(K) *fr.Element
+	Get(K) fr.Element
 }
 
 // ----------------------------------------------------------------------------
@@ -31,25 +31,25 @@ func NewFrMapPool(bitwidth uint) FrMapPool {
 }
 
 // Get looks up the given item in the pool.
-func (p FrMapPool) Get(index uint32) *fr.Element {
+func (p FrMapPool) Get(index uint32) fr.Element {
 	poolMapLock.RLock()
-	item := &poolMapArray[index]
+	item := poolMapArray[index]
 	poolMapLock.RUnlock()
 
 	return item
 }
 
 // Put allocates an item into the pool, returning its index.
-func (p FrMapPool) Put(element *fr.Element) uint32 {
+func (p FrMapPool) Put(element fr.Element) uint32 {
 	// Lock items
 	poolMapLock.Lock()
-	index, ok := poolMapIndex[*element]
+	index, ok := poolMapIndex[element]
 	//
 	if !ok {
 		len := uint32(len(poolMapArray))
 		index = poolMapSize
 		// Update index
-		poolMapIndex[*element] = index
+		poolMapIndex[element] = index
 		//
 		if index == len {
 			// capacity reached, so double it.
@@ -58,7 +58,7 @@ func (p FrMapPool) Put(element *fr.Element) uint32 {
 			poolMapArray = tmp
 		}
 		//
-		poolMapArray[index] = *element
+		poolMapArray[index] = element
 		poolMapSize++
 	}
 	// Done
@@ -97,17 +97,17 @@ func NewFrBitPool() FrBitPool {
 }
 
 // Get looks up the given item in the pool.
-func (p FrBitPool) Get(index bool) *fr.Element {
+func (p FrBitPool) Get(index bool) fr.Element {
 	if index {
-		return &pool16bit[1]
+		return pool16bit[1]
 	}
 	//
-	return &pool16bit[0]
+	return pool16bit[0]
 }
 
 // Put allocates an item into the pool, returning its index.  Since the pool is
 // fixed, then so is the index.
-func (p FrBitPool) Put(element *fr.Element) bool {
+func (p FrBitPool) Put(element fr.Element) bool {
 	val := element.Uint64()
 	// Sanity checks
 	if !element.IsUint64() || val >= 2 {
@@ -134,13 +134,13 @@ func NewFrIndexPool[K uint8 | uint16]() FrIndexPool[K] {
 }
 
 // Get looks up the given item in the pool.
-func (p FrIndexPool[K]) Get(index K) *fr.Element {
-	return &pool16bit[index]
+func (p FrIndexPool[K]) Get(index K) fr.Element {
+	return pool16bit[index]
 }
 
 // Put allocates an item into the pool, returning its index.  Since the pool is
 // fixed, then so is the index.
-func (p FrIndexPool[K]) Put(element *fr.Element) K {
+func (p FrIndexPool[K]) Put(element fr.Element) K {
 	val := element.Uint64()
 	// Sanity checks
 	if !element.IsUint64() || val >= 65536 {

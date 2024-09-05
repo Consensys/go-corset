@@ -91,7 +91,7 @@ type Evaluable interface {
 	// undefined for several reasons: firstly, if it accesses a
 	// row which does not exist (e.g. at index -1); secondly, if
 	// it accesses a column which does not exist.
-	EvalAt(int, tr.Trace) *fr.Element
+	EvalAt(int, tr.Trace) fr.Element
 }
 
 // Testable captures the notion of a constraint which can be tested on a given

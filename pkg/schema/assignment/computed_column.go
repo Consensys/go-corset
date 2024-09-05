@@ -3,7 +3,6 @@ package assignment
 import (
 	"fmt"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -83,12 +82,7 @@ func (p *ComputedColumn[E]) ComputeColumns(tr trace.Trace) ([]trace.ArrayColumn,
 	// Expand the trace
 	for i := uint(0); i < data.Len(); i++ {
 		val := p.expr.EvalAt(int(i), tr)
-		if val != nil {
-			data.Set(i, val)
-		} else {
-			zero := fr.NewElement(0)
-			data.Set(i, &zero)
-		}
+		data.Set(i, val)
 	}
 	// Determine padding value.  A negative row index is used here to ensure
 	// that all columns return their padding value which is then used to compute

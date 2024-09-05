@@ -27,12 +27,12 @@ type Column interface {
 	// Get the value at a given row in this column.  If the row is
 	// out-of-bounds, then the column's padding value is returned instead.
 	// Thus, this function always succeeds.
-	Get(row int) *fr.Element
+	Get(row int) fr.Element
 	// Access the underlying data array for this column.  This is useful in
 	// situations where we want to clone the entire column, etc.
 	Data() util.FrArray
 	// Value to be used when padding this column
-	Padding() *fr.Element
+	Padding() fr.Element
 }
 
 // RawColumn represents a raw column of data which has not (yet) been indexed as

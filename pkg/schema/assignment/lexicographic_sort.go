@@ -84,41 +84,41 @@ func (p *LexicographicSort) ComputeColumns(tr trace.Trace) ([]trace.ArrayColumn,
 	bit_width := uint(0)
 	//
 	delta := util.NewFrArray(nrows, bit_width)
-	cols[0] = trace.NewArrayColumn(first.Context(), first.Name(), delta, &zero)
+	cols[0] = trace.NewArrayColumn(first.Context(), first.Name(), delta, zero)
 	//
 	for i := 0; i < nbits; i++ {
 		target := p.targets[1+i]
 		source := tr.Column(p.sources[i])
 		data := util.NewFrArray(nrows, 1)
-		cols[i+1] = trace.NewArrayColumn(target.Context(), target.Name(), data, &zero)
+		cols[i+1] = trace.NewArrayColumn(target.Context(), target.Name(), data, zero)
 		bit_width = max(bit_width, source.Data().BitWidth())
 	}
 
 	for i := uint(0); i < nrows; i++ {
 		set := false
 		// Initialise delta to zero
-		delta.Set(i, &zero)
+		delta.Set(i, zero)
 		// Decide which row is the winner (if any)
 		for j := 0; j < nbits; j++ {
 			prev := tr.Column(p.sources[j]).Get(int(i - 1))
 			curr := tr.Column(p.sources[j]).Get(int(i))
 
-			if !set && prev != nil && prev.Cmp(curr) != 0 {
+			if !set && prev.Cmp(&curr) != 0 {
 				var diff fr.Element
 
-				cols[j+1].Data().Set(i, &one)
+				cols[j+1].Data().Set(i, one)
 				// Compute curr - prev
 				if p.signs[j] {
-					diff.Set(curr)
-					delta.Set(i, diff.Sub(&diff, prev))
+					diff.Set(&curr)
+					delta.Set(i, *diff.Sub(&diff, &prev))
 				} else {
-					diff.Set(prev)
-					delta.Set(i, diff.Sub(&diff, curr))
+					diff.Set(&prev)
+					delta.Set(i, *diff.Sub(&diff, &curr))
 				}
 
 				set = true
 			} else {
-				cols[j+1].Data().Set(i, &zero)
+				cols[j+1].Data().Set(i, zero)
 			}
 		}
 	}

@@ -129,7 +129,7 @@ func (p *Exp) RequiredColumns() *util.SortedSet[uint] {
 // ============================================================================
 
 // Constant represents a constant value within an expression.
-type Constant struct{ Value *fr.Element }
+type Constant struct{ Value fr.Element }
 
 // Bounds returns max shift in either the negative (left) or positive
 // direction (right).  A constant has zero shift.

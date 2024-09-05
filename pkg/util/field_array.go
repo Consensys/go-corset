@@ -33,7 +33,7 @@ type Array[T comparable] interface {
 // ----------------------------------------------------------------------------
 
 // FrArray represents an array of field elements.
-type FrArray = Array[*fr.Element]
+type FrArray = Array[fr.Element]
 
 // NewFrArray creates a new FrArray dynamically based on the given width.
 func NewFrArray(height uint, bitWidth uint) FrArray {
@@ -61,7 +61,8 @@ func FrArrayFromBigInts(bitWidth uint, ints []*big.Int) FrArray {
 	elements := NewFrArray(uint(len(ints)), bitWidth)
 	// Convert each integer in turn.
 	for i, v := range ints {
-		element := new(fr.Element)
+		var element fr.Element
+
 		element.SetBigInt(v)
 		elements.Set(uint(i), element)
 	}
@@ -101,18 +102,18 @@ func (p *FrElementArray) BitWidth() uint {
 }
 
 // Get returns the field element at the given index in this array.
-func (p *FrElementArray) Get(index uint) *fr.Element {
-	return &p.elements[index]
+func (p *FrElementArray) Get(index uint) fr.Element {
+	return p.elements[index]
 }
 
 // Set sets the field element at the given index in this array, overwriting the
 // original value.
-func (p *FrElementArray) Set(index uint, element *fr.Element) {
-	p.elements[index] = *element
+func (p *FrElementArray) Set(index uint, element fr.Element) {
+	p.elements[index] = element
 }
 
 // Clone makes clones of this array producing an otherwise identical copy.
-func (p *FrElementArray) Clone() Array[*fr.Element] {
+func (p *FrElementArray) Clone() Array[fr.Element] {
 	// Allocate sufficient memory
 	ndata := make([]fr.Element, uint(len(p.elements)))
 	// Copy over the data
@@ -122,14 +123,14 @@ func (p *FrElementArray) Clone() Array[*fr.Element] {
 }
 
 // PadFront (i.e. insert at the beginning) this array with n copies of the given padding value.
-func (p *FrElementArray) PadFront(n uint, padding *fr.Element) Array[*fr.Element] {
+func (p *FrElementArray) PadFront(n uint, padding fr.Element) Array[fr.Element] {
 	// Allocate sufficient memory
 	ndata := make([]fr.Element, uint(len(p.elements))+n)
 	// Copy over the data
 	copy(ndata[n:], p.elements)
 	// Go padding!
 	for i := uint(0); i < n; i++ {
-		ndata[i] = *padding
+		ndata[i] = padding
 	}
 	// Copy over
 	return &FrElementArray{ndata, p.bitwidth}
@@ -199,18 +200,18 @@ func (p *FrPtrElementArray) BitWidth() uint {
 }
 
 // Get returns the field element at the given index in this array.
-func (p *FrPtrElementArray) Get(index uint) *fr.Element {
-	return p.elements[index]
+func (p *FrPtrElementArray) Get(index uint) fr.Element {
+	return *p.elements[index]
 }
 
 // Set sets the field element at the given index in this array, overwriting the
 // original value.
-func (p *FrPtrElementArray) Set(index uint, element *fr.Element) {
-	p.elements[index] = element
+func (p *FrPtrElementArray) Set(index uint, element fr.Element) {
+	p.elements[index] = &element
 }
 
 // Clone makes clones of this array producing an otherwise identical copy.
-func (p *FrPtrElementArray) Clone() Array[*fr.Element] {
+func (p *FrPtrElementArray) Clone() Array[fr.Element] {
 	// Allocate sufficient memory
 	ndata := make([]*fr.Element, uint(len(p.elements)))
 	// Copy over the data
@@ -220,14 +221,15 @@ func (p *FrPtrElementArray) Clone() Array[*fr.Element] {
 }
 
 // PadFront (i.e. insert at the beginning) this array with n copies of the given padding value.
-func (p *FrPtrElementArray) PadFront(n uint, padding *fr.Element) Array[*fr.Element] {
+func (p *FrPtrElementArray) PadFront(n uint, padding fr.Element) Array[fr.Element] {
+	pad := &padding
 	// Allocate sufficient memory
 	ndata := make([]*fr.Element, uint(len(p.elements))+n)
 	// Copy over the data
 	copy(ndata[n:], p.elements)
 	// Go padding!
 	for i := uint(0); i < n; i++ {
-		ndata[i] = padding
+		ndata[i] = pad
 	}
 	// Copy over
 	return &FrPtrElementArray{ndata, p.bitwidth}
@@ -298,20 +300,20 @@ func (p *FrPoolArray[K, P]) BitWidth() uint {
 }
 
 // Get returns the field element at the given index in this array.
-func (p *FrPoolArray[K, P]) Get(index uint) *fr.Element {
+func (p *FrPoolArray[K, P]) Get(index uint) fr.Element {
 	key := p.elements[index]
 	return p.pool.Get(key)
 }
 
 // Set sets the field element at the given index in this array, overwriting the
 // original value.
-func (p *FrPoolArray[K, P]) Set(index uint, element *fr.Element) {
+func (p *FrPoolArray[K, P]) Set(index uint, element fr.Element) {
 	p.elements[index] = p.pool.Put(element)
 }
 
 // Clone makes clones of this array producing an otherwise identical copy.
 // nolint: revive
-func (p *FrPoolArray[K, P]) Clone() Array[*fr.Element] {
+func (p *FrPoolArray[K, P]) Clone() Array[fr.Element] {
 	// Allocate sufficient memory
 	ndata := make([]K, len(p.elements))
 	// Copy over the data
@@ -321,7 +323,7 @@ func (p *FrPoolArray[K, P]) Clone() Array[*fr.Element] {
 }
 
 // PadFront (i.e. insert at the beginning) this array with n copies of the given padding value.
-func (p *FrPoolArray[K, P]) PadFront(n uint, padding *fr.Element) Array[*fr.Element] {
+func (p *FrPoolArray[K, P]) PadFront(n uint, padding fr.Element) Array[fr.Element] {
 	key := p.pool.Put(padding)
 	// Allocate sufficient memory
 	nelements := make([]K, uint(len(p.elements))+n)
@@ -339,8 +341,9 @@ func (p *FrPoolArray[K, P]) PadFront(n uint, padding *fr.Element) Array[*fr.Elem
 // if this failed (for some reason).
 func (p *FrPoolArray[K, P]) Write(w io.Writer) error {
 	for _, i := range p.elements {
+		ith := p.pool.Get(i)
 		// Read exactly 32 bytes
-		bytes := p.pool.Get(i).Bytes()
+		bytes := ith.Bytes()
 		// Write them out
 		if _, err := w.Write(bytes[:]); err != nil {
 			return err
@@ -362,7 +365,8 @@ func (p *FrPoolArray[K, P]) String() string {
 		}
 
 		index := p.elements[i]
-		sb.WriteString(p.pool.Get(index).String())
+		ith := p.pool.Get(index)
+		sb.WriteString(ith.String())
 	}
 
 	sb.WriteString("[")

@@ -49,7 +49,7 @@ func (p *ArrayTrace) Column(cid uint) Column {
 
 // FillColumn sets the data and padding for the given column.  This will panic
 // if the data is already set.
-func (p *ArrayTrace) FillColumn(cid uint, data util.FrArray, padding *fr.Element) {
+func (p *ArrayTrace) FillColumn(cid uint, data util.FrArray, padding fr.Element) {
 	// Find column to fill
 	col := &p.columns[cid]
 	// Find enclosing module
@@ -117,11 +117,7 @@ func (p *ArrayTrace) String() string {
 					id.WriteString(",")
 				}
 
-				if jth == nil {
-					id.WriteString("_")
-				} else {
-					id.WriteString(jth.String())
-				}
+				id.WriteString(jth.String())
 			}
 			id.WriteString("}")
 		}
@@ -169,12 +165,12 @@ type ArrayColumn struct {
 	// Holds the raw data making up this column
 	data util.FrArray
 	// Value to be used when padding this column
-	padding *fr.Element
+	padding fr.Element
 }
 
 // NewArrayColumn constructs a  with the give name, data and padding.
 func NewArrayColumn(context Context, name string, data util.FrArray,
-	padding *fr.Element) ArrayColumn {
+	padding fr.Element) ArrayColumn {
 	col := EmptyArrayColumn(context, name)
 	col.fill(data, padding)
 	//
@@ -183,7 +179,7 @@ func NewArrayColumn(context Context, name string, data util.FrArray,
 
 // EmptyArrayColumn constructs a  with the give name, data and padding.
 func EmptyArrayColumn(context Context, name string) ArrayColumn {
-	return ArrayColumn{context, name, nil, nil}
+	return ArrayColumn{context, name, nil, fr.NewElement(0)}
 }
 
 // Context returns the evaluation context this column provides.
@@ -202,7 +198,7 @@ func (p *ArrayColumn) Height() uint {
 }
 
 // Padding returns the value which will be used for padding this column.
-func (p *ArrayColumn) Padding() *fr.Element {
+func (p *ArrayColumn) Padding() fr.Element {
 	return p.padding
 }
 
@@ -214,7 +210,7 @@ func (p *ArrayColumn) Data() util.FrArray {
 // Get the value at a given row in this column.  If the row is
 // out-of-bounds, then the column's padding value is returned instead.
 // Thus, this function always succeeds.
-func (p *ArrayColumn) Get(row int) *fr.Element {
+func (p *ArrayColumn) Get(row int) fr.Element {
 	if row < 0 || uint(row) >= p.data.Len() {
 		// out-of-bounds access
 		return p.padding
@@ -223,7 +219,7 @@ func (p *ArrayColumn) Get(row int) *fr.Element {
 	return p.data.Get(uint(row))
 }
 
-func (p *ArrayColumn) fill(data util.FrArray, padding *fr.Element) {
+func (p *ArrayColumn) fill(data util.FrArray, padding fr.Element) {
 	// Sanity check this column has not already been filled.
 	if p.data != nil {
 		panic(fmt.Sprintf("computed column %s has already been filled", p.name))

@@ -101,9 +101,9 @@ func (e *jsonExprConst) ToHir(schema *hir.Schema) hir.Expr {
 		panic(fmt.Sprintf("Unknown BigInt sign: %d", sign))
 	}
 	// Construct Field Value
-	num := new(fr.Element)
-	num.SetBigInt(val)
+	var num fr.Element
 
+	num.SetBigInt(val)
 	// Done!
 	return &hir.Constant{Val: num}
 }

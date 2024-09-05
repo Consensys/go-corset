@@ -30,8 +30,8 @@ func applyConstantPropagation(e Expr) Expr {
 }
 
 func applyConstantPropagationAdd(es []Expr) Expr {
-	var zero = fr.NewElement(0)
-	sum := &zero
+	sum := fr.NewElement(0)
+	is_const := true
 	rs := make([]Expr, len(es))
 	//
 	for i, e := range es {
@@ -39,14 +39,14 @@ func applyConstantPropagationAdd(es []Expr) Expr {
 		// Check for constant
 		c, ok := rs[i].(*Constant)
 		// Try to continue sum
-		if ok && sum != nil {
-			sum.Add(sum, c.Value)
+		if ok && is_const {
+			sum.Add(&sum, &c.Value)
 		} else {
-			sum = nil
+			is_const = false
 		}
 	}
-	//
-	if sum != nil {
+	// Check if constant
+	if is_const {
 		// Propagate constant
 		return &Constant{sum}
 	}
@@ -55,8 +55,9 @@ func applyConstantPropagationAdd(es []Expr) Expr {
 }
 
 func applyConstantPropagationSub(es []Expr) Expr {
-	var sum *fr.Element = nil
+	var sum fr.Element
 
+	is_const := true
 	rs := make([]Expr, len(es))
 	//
 	for i, e := range es {
@@ -65,18 +66,15 @@ func applyConstantPropagationSub(es []Expr) Expr {
 		c, ok := rs[i].(*Constant)
 		// Try to continue sum
 		if ok && i == 0 {
-			var val fr.Element
-			// Clone value
-			val.Set(c.Value)
-			sum = &val
-		} else if ok && sum != nil {
-			sum.Sub(sum, c.Value)
+			sum = c.Value
+		} else if ok && is_const {
+			sum.Sub(&sum, &c.Value)
 		} else {
-			sum = nil
+			is_const = false
 		}
 	}
-	//
-	if sum != nil {
+	// Check if constant
+	if is_const {
 		// Propagate constant
 		return &Constant{sum}
 	}
@@ -85,8 +83,9 @@ func applyConstantPropagationSub(es []Expr) Expr {
 }
 
 func applyConstantPropagationMul(es []Expr) Expr {
-	var one = fr.NewElement(1)
-	prod := &one
+	one := fr.NewElement(1)
+	is_const := true
+	prod := one
 	rs := make([]Expr, len(es))
 	//
 	for i, e := range es {
@@ -97,15 +96,15 @@ func applyConstantPropagationMul(es []Expr) Expr {
 		if ok && c.Value.IsZero() {
 			// No matter what, outcome is zero.
 			return &Constant{c.Value}
-		} else if ok && prod != nil {
+		} else if ok && is_const {
 			// Continue building constant
-			prod.Mul(prod, c.Value)
+			prod.Mul(&prod, &c.Value)
 		} else {
-			prod = nil
+			is_const = false
 		}
 	}
-	// Attempt to propagate constant
-	if prod != nil {
+	// Check if constant
+	if is_const {
 		return &Constant{prod}
 	}
 	//
@@ -118,11 +117,11 @@ func applyConstantPropagationExp(arg Expr, pow uint64) Expr {
 	if c, ok := arg.(*Constant); ok {
 		var val fr.Element
 		// Clone value
-		val.Set(c.Value)
+		val.Set(&c.Value)
 		// Compute exponent (in place)
 		util.Pow(&val, pow)
 		// Done
-		return &Constant{&val}
+		return &Constant{val}
 	}
 	//
 	return &Exp{arg, pow}
@@ -134,13 +133,13 @@ func applyConstantPropagationNorm(arg Expr) Expr {
 	if c, ok := arg.(*Constant); ok {
 		var val fr.Element
 		// Clone value
-		val.Set(c.Value)
+		val.Set(&c.Value)
 		// Normalise (in place)
 		if !val.IsZero() {
 			val.SetOne()
 		}
 		// Done
-		return &Constant{&val}
+		return &Constant{val}
 	}
 	//
 	return &Normalise{arg}

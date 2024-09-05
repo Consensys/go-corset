@@ -72,11 +72,14 @@ type Inverse struct{ Expr air.Expr }
 
 // EvalAt computes the multiplicative inverse of a given expression at a given
 // row in the table.
-func (e *Inverse) EvalAt(k int, tbl tr.Trace) *fr.Element {
-	inv := new(fr.Element)
+func (e *Inverse) EvalAt(k int, tbl tr.Trace) fr.Element {
+	var inv fr.Element
+
 	val := e.Expr.EvalAt(k, tbl)
 	// Go syntax huh?
-	return inv.Inverse(val)
+	inv.Inverse(&val)
+	// Done
+	return inv
 }
 
 // Bounds returns max shift in either the negative (left) or positive

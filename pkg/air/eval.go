@@ -8,57 +8,54 @@ import (
 // EvalAt evaluates a column access at a given row in a trace, which returns the
 // value at that row of the column in question or nil is that row is
 // out-of-bounds.
-func (e *ColumnAccess) EvalAt(k int, tr trace.Trace) *fr.Element {
+func (e *ColumnAccess) EvalAt(k int, tr trace.Trace) fr.Element {
 	return tr.Column(e.Column).Get(k + e.Shift)
 }
 
 // EvalAt evaluates a constant at a given row in a trace, which simply returns
 // that constant.
-func (e *Constant) EvalAt(k int, tr trace.Trace) *fr.Element {
+func (e *Constant) EvalAt(k int, tr trace.Trace) fr.Element {
 	return e.Value
 }
 
 // EvalAt evaluates a sum at a given row in a trace by first evaluating all of
 // its arguments at that row.
-func (e *Add) EvalAt(k int, tr trace.Trace) *fr.Element {
-	var val fr.Element
+func (e *Add) EvalAt(k int, tr trace.Trace) fr.Element {
 	// Evaluate first argument
-	val.Set(e.Args[0].EvalAt(k, tr))
+	val := e.Args[0].EvalAt(k, tr)
 	// Continue evaluating the rest
 	for i := 1; i < len(e.Args); i++ {
 		ith := e.Args[i].EvalAt(k, tr)
-		val.Add(&val, ith)
+		val.Add(&val, &ith)
 	}
 	// Done
-	return &val
+	return val
 }
 
 // EvalAt evaluates a product at a given row in a trace by first evaluating all of
 // its arguments at that row.
-func (e *Mul) EvalAt(k int, tr trace.Trace) *fr.Element {
-	var val fr.Element
+func (e *Mul) EvalAt(k int, tr trace.Trace) fr.Element {
 	// Evaluate first argument
-	val.Set(e.Args[0].EvalAt(k, tr))
+	val := e.Args[0].EvalAt(k, tr)
 	// Continue evaluating the rest
 	for i := 1; i < len(e.Args); i++ {
 		ith := e.Args[i].EvalAt(k, tr)
-		val.Mul(&val, ith)
+		val.Mul(&val, &ith)
 	}
 	// Done
-	return &val
+	return val
 }
 
 // EvalAt evaluates a subtraction at a given row in a trace by first evaluating all of
 // its arguments at that row.
-func (e *Sub) EvalAt(k int, tr trace.Trace) *fr.Element {
-	var val fr.Element
+func (e *Sub) EvalAt(k int, tr trace.Trace) fr.Element {
 	// Evaluate first argument
-	val.Set(e.Args[0].EvalAt(k, tr))
+	val := e.Args[0].EvalAt(k, tr)
 	// Continue evaluating the rest
 	for i := 1; i < len(e.Args); i++ {
 		ith := e.Args[i].EvalAt(k, tr)
-		val.Sub(&val, ith)
+		val.Sub(&val, &ith)
 	}
 	// Done
-	return &val
+	return val
 }

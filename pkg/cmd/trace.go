@@ -96,7 +96,8 @@ func printTrace(start uint, end uint, max_width uint, cols []trace.RawColumn) {
 		if start < ith.Len() {
 			ith_height := min(ith.Len(), end) - start
 			for j := uint(0); j < ith_height; j++ {
-				tbl.Set(j+1, i+1, ith.Get(j+start).String())
+				jth := ith.Get(j + start)
+				tbl.Set(j+1, i+1, jth.String())
 			}
 		}
 	}
