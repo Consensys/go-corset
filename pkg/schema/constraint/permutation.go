@@ -8,7 +8,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 )
 
-// PermutationConstraint declares a constraint that one column is a permutation
+// PermutationConstraint declares a constraint that one (or more) columns are a permutation
 // of another.
 type PermutationConstraint struct {
 	// The target columns

@@ -22,6 +22,10 @@ type LookupConstraint = *constraint.LookupConstraint[*ColumnAccess]
 // VanishingConstraint captures the essence of a vanishing constraint at the AIR level.
 type VanishingConstraint = *constraint.VanishingConstraint[constraint.ZeroTest[Expr]]
 
+// PermutationConstraint captures the essence of a permutation constraint at the AIR level.
+// Specifically, it represents a constraint that one (or more) columns are a permutation of another.
+type PermutationConstraint = *constraint.PermutationConstraint
+
 // PropertyAssertion captures the notion of an arbitrary property which should
 // hold for all acceptable traces.  However, such a property is not enforced by
 // the prover.
