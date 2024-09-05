@@ -152,6 +152,12 @@ func (p ArrayModule) Name() string {
 	return p.name
 }
 
+// Height returns the height of this module, meaning the number of assigned
+// rows.
+func (p ArrayModule) Height() uint {
+	return p.height
+}
+
 // ----------------------------------------------------------------------------
 
 // ArrayColumn describes an individual column of data within a trace table.

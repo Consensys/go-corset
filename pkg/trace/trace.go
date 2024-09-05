@@ -14,6 +14,8 @@ type Trace interface {
 	Width() uint
 	// Returns the height of the given context (i.e. module).
 	Height(Context) uint
+	// Module returns the list of assigned modules and their respective heights
+	Modules() util.Iterator[ArrayModule]
 }
 
 // Column describes an individual column of data within a trace table.
