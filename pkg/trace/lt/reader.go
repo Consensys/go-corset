@@ -36,19 +36,30 @@ func FromBytes(data []byte) ([]trace.RawColumn, error) {
 	}
 	// Determine byte slices
 	offset := uint(len(data) - buf.Len())
-
+	c := make(chan util.Pair[uint, util.Array[fr.Element]], 100)
+	// Dispatch go-routines
 	for i := uint(0); i < uint(ncols); i++ {
 		ith := headers[i]
-		// Split qualified column name
-		mod, col := splitQualifiedColumnName(ith.name)
 		// Calculate length (in bytes) of this column
 		nbytes := ith.width * ith.length
-		// Read column data
-		elements := readColumnData(ith, data[offset:offset+nbytes])
-		// Construct appropriate slice
-		columns[i] = trace.RawColumn{Module: mod, Name: col, Data: elements}
+		// Dispatch go-routine
+		go func(i uint, offset uint) {
+			// Read column data
+			elements := readColumnData(ith, data[offset:offset+nbytes])
+			// Package result
+			c <- util.NewPair(i, elements)
+		}(i, offset)
 		// Update byte offset
 		offset += nbytes
+	}
+	// Collect results
+	for i := uint(0); i < uint(ncols); i++ {
+		// Read packaged result from channel
+		res := <-c
+		// Split qualified column name
+		mod, col := splitQualifiedColumnName(headers[res.Left].name)
+		// Construct appropriate slice
+		columns[res.Left] = trace.RawColumn{Module: mod, Name: col, Data: res.Right}
 	}
 	// Done
 	return columns, nil
@@ -97,9 +108,76 @@ func readColumnHeader(buf *bytes.Reader) (columnHeader, error) {
 func readColumnData(header columnHeader, bytes []byte) util.FrArray {
 	// Construct array
 	data := util.NewFrArray(header.length, header.width*8)
-	// Assign elements
-	offset := uint(0)
+	// Handle special cases
+	switch header.width {
+	case 1:
+		return readByteColumnData(data, header, bytes)
+	case 2:
+		return readWordColumnData(data, header, bytes)
+	case 4:
+		return readDWordColumnData(data, header, bytes)
+	case 8:
+		return readQWordColumnData(data, header, bytes)
+	}
+	// General case
+	return readArbitraryColumnData(data, header, bytes)
+}
 
+func readByteColumnData(data util.Array[fr.Element], header columnHeader, bytes []byte) util.FrArray {
+	for i := uint(0); i < header.length; i++ {
+		// Construct ith field element
+		data.Set(i, fr.NewElement(uint64(bytes[i])))
+	}
+	// Done
+	return data
+}
+
+func readWordColumnData(data util.Array[fr.Element], header columnHeader, bytes []byte) util.FrArray {
+	offset := uint(0)
+	// Assign elements
+	for i := uint(0); i < header.length; i++ {
+		ith := binary.BigEndian.Uint16(bytes[offset : offset+2])
+		// Construct ith field element
+		data.Set(i, fr.NewElement(uint64(ith)))
+		// Move offset to next element
+		offset += 2
+	}
+	// Done
+	return data
+}
+
+func readDWordColumnData(data util.Array[fr.Element], header columnHeader, bytes []byte) util.FrArray {
+	offset := uint(0)
+	// Assign elements
+	for i := uint(0); i < header.length; i++ {
+		ith := binary.BigEndian.Uint32(bytes[offset : offset+4])
+		// Construct ith field element
+		data.Set(i, fr.NewElement(uint64(ith)))
+		// Move offset to next element
+		offset += 4
+	}
+	// Done
+	return data
+}
+
+func readQWordColumnData(data util.Array[fr.Element], header columnHeader, bytes []byte) util.FrArray {
+	offset := uint(0)
+	// Assign elements
+	for i := uint(0); i < header.length; i++ {
+		ith := binary.BigEndian.Uint64(bytes[offset : offset+8])
+		// Construct ith field element
+		data.Set(i, fr.NewElement(ith))
+		// Move offset to next element
+		offset += 8
+	}
+	// Done
+	return data
+}
+
+// Read column data which is has arbitrary width
+func readArbitraryColumnData(data util.Array[fr.Element], header columnHeader, bytes []byte) util.FrArray {
+	offset := uint(0)
+	// Assign elements
 	for i := uint(0); i < header.length; i++ {
 		var ith fr.Element
 		// Calculate position of next element
