@@ -75,10 +75,10 @@ func processConstraintBatch(batch uint, batchsize uint, iter util.Iterator[Const
 		// Get ith constraint
 		ith := iter.Next()
 		// Launch checker for constraint
-		go func(tr tr.Trace) {
+		go func() {
 			// Send outcome back
-			c <- ith.Accepts(tr)
-		}(trace)
+			c <- ith.Accepts(trace)
+		}()
 	}
 	//
 	for i := uint(0); i < n; i++ {

@@ -36,19 +36,30 @@ func FromBytes(data []byte) ([]trace.RawColumn, error) {
 	}
 	// Determine byte slices
 	offset := uint(len(data) - buf.Len())
-
+	c := make(chan util.Pair[uint, util.Array[fr.Element]], 10)
+	// Dispatch go-routines
 	for i := uint(0); i < uint(ncols); i++ {
 		ith := headers[i]
-		// Split qualified column name
-		mod, col := splitQualifiedColumnName(ith.name)
 		// Calculate length (in bytes) of this column
 		nbytes := ith.width * ith.length
-		// Read column data
-		elements := readColumnData(ith, data[offset:offset+nbytes])
-		// Construct appropriate slice
-		columns[i] = trace.RawColumn{Module: mod, Name: col, Data: elements}
+		// Dispatch go-routine
+		go func(i uint, offset uint) {
+			// Read column data
+			elements := readColumnData(ith, data[offset:offset+nbytes])
+			// Package result
+			c <- util.NewPair(i, elements)
+		}(i, offset)
 		// Update byte offset
 		offset += nbytes
+	}
+	// Collect results
+	for i := uint(0); i < uint(ncols); i++ {
+		// Read packaged result from channel
+		res := <-c
+		// Split qualified column name
+		mod, col := splitQualifiedColumnName(headers[res.Left].name)
+		// Construct appropriate slice
+		columns[res.Left] = trace.RawColumn{Module: mod, Name: col, Data: res.Right}
 	}
 	// Done
 	return columns, nil
