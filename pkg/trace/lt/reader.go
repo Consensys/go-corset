@@ -36,7 +36,7 @@ func FromBytes(data []byte) ([]trace.RawColumn, error) {
 	}
 	// Determine byte slices
 	offset := uint(len(data) - buf.Len())
-	c := make(chan util.Pair[uint, util.Array[fr.Element]], 100)
+	c := make(chan util.Pair[uint, util.Array[fr.Element]], ncols)
 	// Dispatch go-routines
 	for i := uint(0); i < uint(ncols); i++ {
 		ith := headers[i]
