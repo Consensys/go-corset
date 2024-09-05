@@ -59,3 +59,13 @@ func (p *RangeConstraint) Accepts(tr trace.Trace) error {
 func (p *RangeConstraint) String() string {
 	return fmt.Sprintf("(range #%d %s)", p.column, p.bound)
 }
+
+func (p *RangeConstraint) Column() uint {
+	return p.column
+}
+
+// Note: the bound is returned in the form of a uint because this is simpler
+// and more straightforward to understand.
+func (p *RangeConstraint) Bound() uint64 {
+	return p.bound.Uint64()
+}

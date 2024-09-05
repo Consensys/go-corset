@@ -76,6 +76,14 @@ func (p *PermutationConstraint) String() string {
 	return fmt.Sprintf("(permutation (%s) (%s))", targets, sources)
 }
 
+func (p *PermutationConstraint) Targets() []uint {
+	return p.targets
+}
+
+func (p *PermutationConstraint) Sources() []uint {
+	return p.sources
+}
+
 func sliceColumns(columns []uint, tr trace.Trace) []util.FrArray {
 	// Allocate return array
 	cols := make([]util.FrArray, len(columns))
