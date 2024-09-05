@@ -26,7 +26,7 @@ func (p ZeroArrayTest) TestAt(row int, tr trace.Trace) bool {
 	vals := p.Expr.EvalAllAt(row, tr)
 	// Check each value in turn against zero.
 	for _, val := range vals {
-		if val != nil && !val.IsZero() {
+		if !val.IsZero() {
 			// This expression does not evaluat to zero, hence failure.
 			return false
 		}
@@ -84,7 +84,7 @@ func NewUnitExpr(expr Expr) UnitExpr {
 // EvalAt evaluates a column access at a given row in a trace, which returns the
 // value at that row of the column in question or nil is that row is
 // out-of-bounds.
-func (e UnitExpr) EvalAt(k int, tr trace.Trace) *fr.Element {
+func (e UnitExpr) EvalAt(k int, tr trace.Trace) fr.Element {
 	vals := e.expr.EvalAllAt(k, tr)
 	// Check we got exactly one thing
 	if len(vals) == 1 {

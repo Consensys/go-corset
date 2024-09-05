@@ -49,7 +49,7 @@ func ApplyBitwidthGadget(col uint, nbits uint, schema *air.Schema) {
 	// Construct Columns
 	for i := uint(0); i < n; i++ {
 		// Create Column + Constraint
-		es[i] = air.NewColumnAccess(index+i, 0).Mul(air.NewConstCopy(&coefficient))
+		es[i] = air.NewColumnAccess(index+i, 0).Mul(air.NewConst(coefficient))
 
 		schema.AddRangeConstraint(index+i, &fr256)
 		// Update coefficient

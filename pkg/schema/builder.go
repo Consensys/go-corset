@@ -162,7 +162,7 @@ func (tb TraceBuilder) initialiseTraceColumns() ([]trace.ArrayColumn, map[column
 // Fill columns in the corresponding trace from the given input columns
 func fillTraceColumns(modmap map[string]uint, colmap map[columnKey]uint,
 	cols []trace.RawColumn, tr *trace.ArrayTrace) []error {
-	var zero fr.Element = fr.NewElement((0))
+	var zero fr.Element = fr.NewElement(0)
 	// Errs contains the set of filling errors which are accumulated
 	var errs []error
 	// Assign data from each input column given
@@ -185,7 +185,7 @@ func fillTraceColumns(modmap map[string]uint, colmap map[columnKey]uint,
 				errs = append(errs, fmt.Errorf("duplicate column '%s' in trace", c.QualifiedName()))
 			} else {
 				// Assign data
-				tr.FillColumn(cid, c.Data, &zero)
+				tr.FillColumn(cid, c.Data, zero)
 			}
 		}
 	}
@@ -194,7 +194,7 @@ func fillTraceColumns(modmap map[string]uint, colmap map[columnKey]uint,
 }
 
 func validateTraceColumns(schema Schema, tr *trace.ArrayTrace) (error, []error) {
-	var zero fr.Element = fr.NewElement((0))
+	var zero fr.Element = fr.NewElement(0)
 	// Determine how many input columns to expect
 	ninputs := schema.InputColumns().Count()
 	warnings := []error{}
@@ -215,7 +215,7 @@ func validateTraceColumns(schema Schema, tr *trace.ArrayTrace) (error, []error) 
 			// Ok, treat as warning
 			warnings = append(warnings, err)
 			// Fill with a column of height zero.
-			tr.FillColumn(i, util.NewFrArray(0, 256), &zero)
+			tr.FillColumn(i, util.NewFrArray(0, 256), zero)
 		}
 	}
 	// Done

@@ -32,7 +32,8 @@ func traceColumnData(tr Trace, col uint) []string {
 	data[1] = tr.Column(col).Name()
 
 	for row := 0; row < int(n); row++ {
-		data[row+2] = tr.Column(col).Get(row).String()
+		ith := tr.Column(col).Get(row)
+		data[row+2] = ith.String()
 	}
 
 	return data

@@ -20,7 +20,7 @@ type ZeroTest[E sc.Evaluable] struct {
 // Observe that if the expression is undefined, then it is assumed not to hold.
 func (p ZeroTest[E]) TestAt(row int, tr trace.Trace) bool {
 	val := p.Expr.EvalAt(row, tr)
-	return val != nil && val.IsZero()
+	return val.IsZero()
 }
 
 // Bounds determines the bounds for this zero test.

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"math"
 	"os"
 
 	"github.com/consensys/go-corset/pkg/hir"
@@ -243,7 +244,7 @@ func validateColumn(colType sc.Type, col trace.Column, mod sc.Module) error {
 		jth := col.Get(j)
 		if !colType.Accept(jth) {
 			qualColName := trace.QualifiedColumnName(mod.Name(), col.Name())
-			return fmt.Errorf("row %d of column %s is out-of-bounds (%s)", j, qualColName, jth)
+			return fmt.Errorf("row %d of column %s is out-of-bounds (%s)", j, qualColName, jth.String())
 		}
 	}
 	// success
@@ -284,7 +285,7 @@ func init() {
 	checkCmd.Flags().BoolP("quiet", "q", false, "suppress output (e.g. warnings)")
 	checkCmd.Flags().Bool("sequential", false, "perform sequential trace expansion")
 	checkCmd.Flags().Uint("padding", 0, "specify amount of (front) padding to apply")
-	checkCmd.Flags().UintP("batch", "b", 1000, "specify batch size for constraint checking")
+	checkCmd.Flags().UintP("batch", "b", math.MaxUint, "specify batch size for constraint checking")
 	checkCmd.Flags().Int("spillage", -1,
 		"specify amount of splillage to account for (where -1 indicates this should be inferred)")
 }

@@ -44,7 +44,7 @@ func (p *RangeConstraint) Accepts(tr trace.Trace) error {
 		// Get the value on the kth row
 		kth := column.Get(k)
 		// Perform the bounds check
-		if kth != nil && kth.Cmp(p.bound) >= 0 {
+		if kth.Cmp(p.bound) >= 0 {
 			name := column.Name()
 			// Construct useful error message
 			msg := fmt.Sprintf("value out-of-bounds (row %d, %s)", kth, name)

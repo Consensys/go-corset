@@ -29,7 +29,7 @@ func Pow(val *fr.Element, n uint64) {
 }
 
 // FrElementToBytes converts a given field element into a slice of 32 bytes.
-func FrElementToBytes(element *fr.Element) [32]byte {
+func FrElementToBytes(element fr.Element) [32]byte {
 	// Each fr.Element is 4 x 64bit words.
 	var bytes [32]byte
 	// Copy over each element

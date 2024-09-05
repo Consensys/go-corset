@@ -104,8 +104,10 @@ func readColumnData(header columnHeader, bytes []byte) util.FrArray {
 		var ith fr.Element
 		// Calculate position of next element
 		next := offset + header.width
+		// Initialise element
+		ith.SetBytes(bytes[offset:next])
 		// Construct ith field element
-		data.Set(i, ith.SetBytes(bytes[offset:next]))
+		data.Set(i, ith)
 		// Move offset to next element
 		offset = next
 	}

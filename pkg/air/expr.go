@@ -152,10 +152,10 @@ func (p *Mul) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
 // ============================================================================
 
 // Constant represents a constant value within an expression.
-type Constant struct{ Value *fr.Element }
+type Constant struct{ Value fr.Element }
 
 // NewConst construct an AIR expression representing a given constant.
-func NewConst(val *fr.Element) Expr {
+func NewConst(val fr.Element) Expr {
 	return &Constant{val}
 }
 
@@ -163,18 +163,7 @@ func NewConst(val *fr.Element) Expr {
 // uint64.
 func NewConst64(val uint64) Expr {
 	element := fr.NewElement(val)
-	return &Constant{&element}
-}
-
-// NewConstCopy construct an AIR expression representing a given constant,
-// and also clones that constant.
-func NewConstCopy(val *fr.Element) Expr {
-	// Create ith term (for final sum)
-	var clone fr.Element
-	// Clone coefficient
-	clone.Set(val)
-	// DOne
-	return &Constant{&clone}
+	return &Constant{element}
 }
 
 // Context determines the evaluation context (i.e. enclosing module) for this

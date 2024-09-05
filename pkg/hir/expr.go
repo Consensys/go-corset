@@ -30,7 +30,7 @@ type Expr interface {
 	// undefined for several reasons: firstly, if it accesses a
 	// row which does not exist (e.g. at index -1); secondly, if
 	// it accesses a column which does not exist.
-	EvalAllAt(int, trace.Trace) []*fr.Element
+	EvalAllAt(int, trace.Trace) []fr.Element
 	// String produces a string representing this as an S-Expression.
 	String() string
 }
@@ -171,7 +171,7 @@ func (p *List) RequiredColumns() *util.SortedSet[uint] {
 // ============================================================================
 
 // Constant represents a constant value within an expression.
-type Constant struct{ Val *fr.Element }
+type Constant struct{ Val fr.Element }
 
 // Bounds returns max shift in either the negative (left) or positive
 // direction (right).  A constant has zero shift.

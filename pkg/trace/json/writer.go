@@ -34,7 +34,8 @@ func ToJsonString(columns []trace.RawColumn) string {
 				builder.WriteString(", ")
 			}
 
-			builder.WriteString(data.Get(j).String())
+			jth := data.Get(j)
+			builder.WriteString(jth.String())
 		}
 		builder.WriteString("]")
 	}

@@ -443,15 +443,15 @@ func beginParserRule(args []Expr) (Expr, error) {
 
 func constantParserRule(symbol string) (Expr, bool, error) {
 	if symbol[0] >= '0' && symbol[0] < '9' {
-		num := new(fr.Element)
+		var num fr.Element
 		// Attempt to parse
-		c, err := num.SetString(symbol)
+		_, err := num.SetString(symbol)
 		// Check for errors
 		if err != nil {
 			return nil, true, err
 		}
 		// Done
-		return &Constant{Val: c}, true, nil
+		return &Constant{Val: num}, true, nil
 	}
 	// Not applicable
 	return nil, false, nil
