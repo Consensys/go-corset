@@ -210,7 +210,7 @@ func validationCheck(tr trace.Trace, schema sc.Schema) error {
 
 	schemaCols := schema.Columns()
 	// Construct a communication channel for errors.
-	c := make(chan error, 10)
+	c := make(chan error, tr.Width())
 	// Check each column in turn
 	for i := uint(0); i < tr.Width(); i++ {
 		// Extract ith column

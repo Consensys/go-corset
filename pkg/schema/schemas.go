@@ -68,7 +68,7 @@ func processConstraintBatch(batch uint, batchsize uint, iter util.Iterator[Const
 	var err error
 
 	n := uint(0)
-	c := make(chan error, 10)
+	c := make(chan error, 128)
 	stats := util.NewPerfStats()
 	// Launch at most 100 go-routines.
 	for ; n < batchsize && iter.HasNext(); n++ {
