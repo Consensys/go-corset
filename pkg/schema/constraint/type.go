@@ -1,12 +1,25 @@
 package constraint
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 )
+
+// TypeFailure provides structural information about a failing type constraint.
+type TypeFailure struct {
+	msg string
+}
+
+// Message provides a suitable error message
+func (p *TypeFailure) Message() string {
+	return p.msg
+}
+
+func (p *TypeFailure) String() string {
+	return p.msg
+}
 
 // TypeConstraint restricts all values in a given column to be within
 // a range [0..n) for some bound n.  Any bound is supported, and the system will
@@ -38,7 +51,7 @@ func (p *TypeConstraint) Type() schema.Type {
 
 // Accepts checks whether a range constraint evaluates to zero on
 // every row of a table. If so, return nil otherwise return an error.
-func (p *TypeConstraint) Accepts(tr trace.Trace) error {
+func (p *TypeConstraint) Accepts(tr trace.Trace) schema.Failure {
 	column := tr.Column(p.column)
 	// Determine height
 	height := tr.Height(column.Context())
@@ -52,7 +65,7 @@ func (p *TypeConstraint) Accepts(tr trace.Trace) error {
 			// Construct useful error message
 			msg := fmt.Sprintf("value out-of-bounds (row %d, %s)", kth, name)
 			// Evaluation failure
-			return errors.New(msg)
+			return &TypeFailure{msg}
 		}
 	}
 	// All good

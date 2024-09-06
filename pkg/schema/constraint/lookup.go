@@ -9,6 +9,20 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 )
 
+// LookupFailure provides structural information about a failing lookup constraint.
+type LookupFailure struct {
+	msg string
+}
+
+// Message provides a suitable error message
+func (p *LookupFailure) Message() string {
+	return p.msg
+}
+
+func (p *LookupFailure) String() string {
+	return p.msg
+}
+
 // LookupConstraint (sometimes also called an inclusion constraint) constrains
 // two sets of columns (potentially in different modules). Specifically, every
 // row in the source columns must match a row in the target columns (but not
@@ -80,7 +94,7 @@ func (p *LookupConstraint[E]) Targets() []E {
 // all rows of the source columns.
 //
 //nolint:revive
-func (p *LookupConstraint[E]) Accepts(tr trace.Trace) error {
+func (p *LookupConstraint[E]) Accepts(tr trace.Trace) schema.Failure {
 	// Determine height of enclosing module for source columns
 	src_height := tr.Height(p.source)
 	tgt_height := tr.Height(p.target)
@@ -96,7 +110,7 @@ func (p *LookupConstraint[E]) Accepts(tr trace.Trace) error {
 		ith_bytes := evalExprsAt(i, p.sources, tr)
 		// Check whether contained.
 		if !rows.Contains(util.NewBytesKey(ith_bytes)) {
-			return fmt.Errorf("lookup \"%s\" failed (row %d)", p.handle, i)
+			return &LookupFailure{fmt.Sprintf("lookup \"%s\" failed (row %d)", p.handle, i)}
 		}
 	}
 	//

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -55,7 +56,9 @@ var checkCmd = &cobra.Command{
 		//
 		stats.Log("Reading trace files")
 		// Go!
-		checkTraceWithLowering(columns, hirSchema, cfg)
+		if !checkTraceWithLowering(columns, hirSchema, cfg) {
+			os.Exit(1)
+		}
 	},
 }
 
@@ -95,81 +98,36 @@ type checkConfig struct {
 
 // Check a given trace is consistently accepted (or rejected) at the different
 // IR levels.
-func checkTraceWithLowering(cols []trace.RawColumn, schema *hir.Schema, cfg checkConfig) {
-	if !cfg.hir && !cfg.mir && !cfg.air {
-		// Process together
-		checkTraceWithLoweringDefault(cols, schema, cfg)
-	} else {
-		// Process individually
-		if cfg.hir {
-			checkTraceWithLoweringHir(cols, schema, cfg)
-		}
+func checkTraceWithLowering(cols []trace.RawColumn, schema *hir.Schema, cfg checkConfig) bool {
+	hir := cfg.hir
+	mir := cfg.mir
+	air := cfg.air
 
-		if cfg.mir {
-			checkTraceWithLoweringMir(cols, schema, cfg)
-		}
-
-		if cfg.air {
-			checkTraceWithLoweringAir(cols, schema, cfg)
-		}
+	if !hir && !mir && !air {
+		// If IR not specified default to running all.
+		hir = true
+		mir = true
+		air = true
 	}
+	//
+	res := true
+	// Process individually
+	if hir {
+		res = checkTrace("HIR", cols, schema, cfg)
+	}
+
+	if mir {
+		res = res && checkTrace("MIR", cols, schema.LowerToMir(), cfg)
+	}
+
+	if air {
+		res = res && checkTrace("AIR", cols, schema.LowerToMir().LowerToAir(), cfg)
+	}
+
+	return res
 }
 
-func checkTraceWithLoweringHir(cols []trace.RawColumn, hirSchema *hir.Schema, cfg checkConfig) {
-	trHIR, errsHIR := checkTrace("HIR", cols, hirSchema, cfg)
-	//
-	if errsHIR != nil {
-		reportErrors(true, "HIR", trHIR, errsHIR, cfg)
-		os.Exit(1)
-	}
-}
-
-func checkTraceWithLoweringMir(cols []trace.RawColumn, hirSchema *hir.Schema, cfg checkConfig) {
-	// Lower HIR => MIR
-	mirSchema := hirSchema.LowerToMir()
-	// Check trace
-	trMIR, errsMIR := checkTrace("MIR", cols, mirSchema, cfg)
-	//
-	if errsMIR != nil {
-		reportErrors(true, "MIR", trMIR, errsMIR, cfg)
-		os.Exit(1)
-	}
-}
-
-func checkTraceWithLoweringAir(cols []trace.RawColumn, hirSchema *hir.Schema, cfg checkConfig) {
-	// Lower HIR => MIR
-	mirSchema := hirSchema.LowerToMir()
-	// Lower MIR => AIR
-	airSchema := mirSchema.LowerToAir()
-	trAIR, errsAIR := checkTrace("AIR", cols, airSchema, cfg)
-	//
-	if errsAIR != nil {
-		reportErrors(true, "AIR", trAIR, errsAIR, cfg)
-		os.Exit(1)
-	}
-}
-
-// The default check allows one to compare all levels against each other and
-// look for any discrepenacies.
-func checkTraceWithLoweringDefault(cols []trace.RawColumn, hirSchema *hir.Schema, cfg checkConfig) {
-	// Lower HIR => MIR
-	mirSchema := hirSchema.LowerToMir()
-	// Lower MIR => AIR
-	airSchema := mirSchema.LowerToAir()
-	//
-	trHIR, errsHIR := checkTrace("HIR", cols, hirSchema, cfg)
-	trMIR, errsMIR := checkTrace("MIR", cols, mirSchema, cfg)
-	trAIR, errsAIR := checkTrace("AIR", cols, airSchema, cfg)
-	//
-	if errsHIR != nil || errsMIR != nil || errsAIR != nil {
-		reportErrors(true, "HIR", trHIR, errsHIR, cfg)
-		reportErrors(true, "MIR", trMIR, errsMIR, cfg)
-		reportErrors(true, "AIR", trAIR, errsAIR, cfg)
-		os.Exit(1)
-	}
-}
-
-func checkTrace(ir string, cols []trace.RawColumn, schema sc.Schema, cfg checkConfig) (trace.Trace, []error) {
+func checkTrace(ir string, cols []trace.RawColumn, schema sc.Schema, cfg checkConfig) bool {
 	builder := sc.NewTraceBuilder(schema).Expand(cfg.expand).Parallel(cfg.parallelExpansion)
 	//
 	for n := cfg.padding.Left; n <= cfg.padding.Right; n++ {
@@ -177,30 +135,32 @@ func checkTrace(ir string, cols []trace.RawColumn, schema sc.Schema, cfg checkCo
 		tr, errs := builder.Padding(n).Build(cols)
 
 		stats.Log("Expanding trace columns")
-		// Check for errors
+		// Report any errors
+		reportErrors(cfg.strict, ir, errs)
+		// Check whether considered unrecoverable
 		if tr == nil || (cfg.strict && len(errs) > 0) {
-			return tr, errs
-		} else if len(errs) > 0 {
-			reportErrors(false, ir, tr, errs, cfg)
+			return false
 		}
 		// Validate trace.
 		stats = util.NewPerfStats()
 		//
 		if err := validationCheck(tr, schema); err != nil {
-			return tr, []error{err}
+			reportErrors(true, ir, []error{err})
+			return false
 		}
 		// Check trace.
 		stats.Log("Validating trace")
 		stats = util.NewPerfStats()
 		//
 		if errs := sc.Accepts(cfg.batchSize, schema, tr); len(errs) > 0 {
-			return tr, errs
+			reportFailures(ir, errs)
+			return false
 		}
 
 		stats.Log("Checking constraints")
 	}
 	// Done
-	return nil, nil
+	return true
 }
 
 // Validate that values held in trace columns match the expected type.  This is
@@ -251,10 +211,17 @@ func validateColumn(colType sc.Type, col trace.Column, mod sc.Module) error {
 	return nil
 }
 
-func reportErrors(error bool, ir string, tr trace.Trace, errs []error, cfg checkConfig) {
-	if cfg.report && tr != nil {
-		trace.PrintTrace(tr)
+// Report constraint failures, whilst providing contextual information (when requested).
+func reportFailures(ir string, failures []sc.Failure) {
+	errs := make([]error, len(failures))
+	for i, f := range failures {
+		errs[i] = errors.New(f.Message())
 	}
+
+	reportErrors(true, ir, errs)
+}
+
+func reportErrors(error bool, ir string, errs []error) {
 	// Construct set to ensure deduplicate errors
 	set := make(map[string]bool, len(errs))
 	//

@@ -74,8 +74,15 @@ type Assignment interface {
 // Constraint represents an element which can "accept" a trace, or either reject
 // with an error (or eventually perhaps report a warning).
 type Constraint interface {
-	Accepts(tr.Trace) error
+	Accepts(tr.Trace) Failure
 	String() string
+}
+
+// Failure embodies structured information about a failing constraint.
+// This includes the constraint itself, along with the row
+type Failure interface {
+	// Provides a suitable error message
+	Message() string
 }
 
 // Evaluable captures something which can be evaluated on a given table row to

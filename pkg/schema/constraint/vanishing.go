@@ -1,9 +1,9 @@
 package constraint
 
 import (
-	"errors"
 	"fmt"
 
+	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -46,6 +46,20 @@ func (p ZeroTest[E]) RequiredColumns() *util.SortedSet[uint] {
 //nolint:revive
 func (p ZeroTest[E]) String() string {
 	return fmt.Sprintf("%s", any(p.Expr))
+}
+
+// VanishingFailure provides structural information about a failing vanishing constraint.
+type VanishingFailure struct {
+	msg string
+}
+
+// Message provides a suitable error message
+func (p *VanishingFailure) Message() string {
+	return p.msg
+}
+
+func (p *VanishingFailure) String() string {
+	return p.msg
 }
 
 // VanishingConstraint specifies a constraint which should hold on every row of the
@@ -105,7 +119,7 @@ func (p *VanishingConstraint[T]) Context() trace.Context {
 // of a table.  If so, return nil otherwise return an error.
 //
 //nolint:revive
-func (p *VanishingConstraint[T]) Accepts(tr trace.Trace) error {
+func (p *VanishingConstraint[T]) Accepts(tr trace.Trace) schema.Failure {
 	if p.domain == nil {
 		// Global Constraint
 		return HoldsGlobally(p.handle, p.context, p.constraint, tr)
@@ -127,7 +141,7 @@ func (p *VanishingConstraint[T]) Accepts(tr trace.Trace) error {
 
 // HoldsGlobally checks whether a given expression vanishes (i.e. evaluates to
 // zero) for all rows of a trace.  If not, report an appropriate error.
-func HoldsGlobally[T sc.Testable](handle string, ctx trace.Context, constraint T, tr trace.Trace) error {
+func HoldsGlobally[T sc.Testable](handle string, ctx trace.Context, constraint T, tr trace.Trace) schema.Failure {
 	// Determine height of enclosing module
 	height := tr.Height(ctx)
 	// Determine well-definedness bounds for this constraint
@@ -147,13 +161,13 @@ func HoldsGlobally[T sc.Testable](handle string, ctx trace.Context, constraint T
 
 // HoldsLocally checks whether a given constraint holds (e.g. vanishes) on a
 // specific row of a trace. If not, report an appropriate error.
-func HoldsLocally[T sc.Testable](k uint, handle string, constraint T, tr trace.Trace) error {
+func HoldsLocally[T sc.Testable](k uint, handle string, constraint T, tr trace.Trace) schema.Failure {
 	// Check whether it holds or not
 	if !constraint.TestAt(int(k), tr) {
 		// Construct useful error message
 		msg := fmt.Sprintf("constraint \"%s\" does not hold (row %d)", handle, k)
 		// Evaluation failure
-		return errors.New(msg)
+		return &VanishingFailure{msg}
 	}
 	// Success
 	return nil

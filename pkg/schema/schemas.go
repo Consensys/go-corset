@@ -46,8 +46,8 @@ func ContextOfColumns(cols []uint, schema Schema) tr.Context {
 // which does not hold.
 //
 //nolint:revive
-func Accepts(batchsize uint, schema Schema, trace tr.Trace) []error {
-	errors := make([]error, 0)
+func Accepts(batchsize uint, schema Schema, trace tr.Trace) []Failure {
+	errors := make([]Failure, 0)
 	iter := schema.Constraints()
 	// Initialise batch number (for debugging purposes)
 	batch := uint(0)
@@ -62,11 +62,11 @@ func Accepts(batchsize uint, schema Schema, trace tr.Trace) []error {
 	return errors
 }
 
-// Process a given set of constraints in a single batch
-func processConstraintBatch(batch uint, batchsize uint, iter util.Iterator[Constraint], trace tr.Trace) []error {
+// Process a given set of constraints in a single batch whilst recording all constraint failures.
+func processConstraintBatch(batch uint, batchsize uint, iter util.Iterator[Constraint], trace tr.Trace) []Failure {
 	n := uint(0)
-	c := make(chan error, 1024)
-	errors := make([]error, 0)
+	c := make(chan Failure, 1024)
+	errors := make([]Failure, 0)
 	stats := util.NewPerfStats()
 	// Launch at most 100 go-routines.
 	for ; n < batchsize && iter.HasNext(); n++ {

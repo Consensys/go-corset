@@ -1,12 +1,26 @@
 package constraint
 
 import (
-	"errors"
 	"fmt"
 
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
+
+// PermutationFailure provides structural information about a failing permutation constraint.
+type PermutationFailure struct {
+	msg string
+}
+
+// Message provides a suitable error message
+func (p *PermutationFailure) Message() string {
+	return p.msg
+}
+
+func (p *PermutationFailure) String() string {
+	return p.msg
+}
 
 // PermutationConstraint declares a constraint that one (or more) columns are a permutation
 // of another.
@@ -34,7 +48,7 @@ func (p *PermutationConstraint) RequiredSpillage() uint {
 
 // Accepts checks whether a permutation holds between the source and
 // target columns.
-func (p *PermutationConstraint) Accepts(tr trace.Trace) error {
+func (p *PermutationConstraint) Accepts(tr trace.Trace) schema.Failure {
 	// Slice out data
 	src := sliceColumns(p.sources, tr)
 	dst := sliceColumns(p.targets, tr)
@@ -50,7 +64,7 @@ func (p *PermutationConstraint) Accepts(tr trace.Trace) error {
 	msg := fmt.Sprintf("Target columns (%s) not permutation of source columns (%s)",
 		dst_names, src_names)
 	// Done
-	return errors.New(msg)
+	return &PermutationFailure{msg}
 }
 
 func (p *PermutationConstraint) String() string {
