@@ -141,6 +141,8 @@ type Contextual interface {
 	// That is, columns whose values may be accessed when evaluating this term
 	// on a given trace.
 	RequiredColumns() *util.SortedSet[uint]
+
+	//RequiredCells() *util.SortedSet[tr.CellRef]
 }
 
 // ============================================================================

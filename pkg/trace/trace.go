@@ -51,3 +51,11 @@ type RawColumn struct {
 func (p *RawColumn) QualifiedName() string {
 	return QualifiedColumnName(p.Module, p.Name)
 }
+
+// CellRef identifies a unique cell within a given table.
+type CellRef struct {
+	// Column index for the cell
+	Column uint
+	// Row index for the cell
+	Row int
+}
