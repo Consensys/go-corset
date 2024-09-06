@@ -41,6 +41,12 @@ func (p ZeroTest[E]) RequiredColumns() *util.SortedSet[uint] {
 	return p.Expr.RequiredColumns()
 }
 
+// RequiredCells returns the set of trace cells on which evaluation of this
+// constraint element depends.
+func (p ZeroTest[E]) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet[trace.CellRef] {
+	return p.Expr.RequiredCells(row, tr)
+}
+
 // String generates a human-readble string.
 //
 //nolint:revive
@@ -50,16 +56,23 @@ func (p ZeroTest[E]) String() string {
 
 // VanishingFailure provides structural information about a failing vanishing constraint.
 type VanishingFailure struct {
-	msg string
+	// Handle of the failing constraint
+	handle string
+	// Row on which the constraint failed
+	row uint
+	// Cells used by the failing constraint.  This is useful for providing a
+	// detailed report including the values of relevant cells.
+	cells []trace.CellRef
 }
 
 // Message provides a suitable error message
 func (p *VanishingFailure) Message() string {
-	return p.msg
+	// Construct useful error message
+	return fmt.Sprintf("constraint \"%s\" does not hold (row %d)", p.handle, p.row)
 }
 
 func (p *VanishingFailure) String() string {
-	return p.msg
+	return p.Message()
 }
 
 // VanishingConstraint specifies a constraint which should hold on every row of the
@@ -164,10 +177,10 @@ func HoldsGlobally[T sc.Testable](handle string, ctx trace.Context, constraint T
 func HoldsLocally[T sc.Testable](k uint, handle string, constraint T, tr trace.Trace) schema.Failure {
 	// Check whether it holds or not
 	if !constraint.TestAt(int(k), tr) {
-		// Construct useful error message
-		msg := fmt.Sprintf("constraint \"%s\" does not hold (row %d)", handle, k)
+		//cells := constraint.RequiredCells(int(k), tr).ToArray()
+		cells := make([]trace.CellRef, 0)
 		// Evaluation failure
-		return &VanishingFailure{msg}
+		return &VanishingFailure{handle, k, cells}
 	}
 	// Success
 	return nil

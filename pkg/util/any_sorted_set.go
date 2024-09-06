@@ -30,6 +30,11 @@ func NewAnySortedSet[T Comparable[T]]() *AnySortedSet[T] {
 	return &AnySortedSet[T]{}
 }
 
+// ToArray extracts the underlying array from this sorted set.
+func (p *AnySortedSet[T]) ToArray() []T {
+	return *p
+}
+
 // Contains returns true if a given element is in the set.
 //
 //nolint:revive

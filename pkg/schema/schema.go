@@ -99,6 +99,10 @@ type Evaluable interface {
 	// row which does not exist (e.g. at index -1); secondly, if
 	// it accesses a column which does not exist.
 	EvalAt(int, tr.Trace) fr.Element
+
+	// RequiredCells returns the set of trace cells on which evaluation of this
+	// constraint element depends.
+	RequiredCells(int, tr.Trace) *util.AnySortedSet[tr.CellRef]
 }
 
 // Testable captures the notion of a constraint which can be tested on a given
@@ -141,8 +145,9 @@ type Contextual interface {
 	// That is, columns whose values may be accessed when evaluating this term
 	// on a given trace.
 	RequiredColumns() *util.SortedSet[uint]
-
-	//RequiredCells() *util.SortedSet[tr.CellRef]
+	// RequiredCells returns the set of trace cells on which evaluation of this
+	// constraint element depends.
+	RequiredCells(int, tr.Trace) *util.AnySortedSet[tr.CellRef]
 }
 
 // ============================================================================

@@ -99,6 +99,12 @@ func (e *Inverse) RequiredColumns() *util.SortedSet[uint] {
 	return e.Expr.RequiredColumns()
 }
 
+// RequiredCells returns the set of trace cells on which this term depends.
+// In this case, that is the empty set.
+func (e *Inverse) RequiredCells(row int, trace tr.Trace) *util.AnySortedSet[tr.CellRef] {
+	return e.Expr.RequiredCells(row, trace)
+}
+
 func (e *Inverse) String() string {
 	return fmt.Sprintf("(inv %s)", e.Expr)
 }

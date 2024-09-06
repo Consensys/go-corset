@@ -59,3 +59,18 @@ type CellRef struct {
 	// Row index for the cell
 	Row int
 }
+
+// NewCellRef constructs a new cell reference.
+func NewCellRef(Column uint, Row int) CellRef {
+	return CellRef{Column, Row}
+}
+
+// LessEq implements a comparator as required for the util.Comparable interface.
+// This allows a CellRef to be used in an AnySortedSet.
+func (p CellRef) LessEq(q CellRef) bool {
+	if p.Column == q.Column {
+		return p.Row <= q.Row
+	}
+	//
+	return p.Column <= q.Column
+}

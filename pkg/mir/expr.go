@@ -45,6 +45,15 @@ func (p *Add) RequiredColumns() *util.SortedSet[uint] {
 	})
 }
 
+// RequiredCells returns the set of trace cells on which this term depends.
+// That is, evaluating this term at the given row in the given trace will read
+// these cells.
+func (p *Add) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet[trace.CellRef] {
+	return util.UnionAnySortedSets(p.Args, func(e Expr) *util.AnySortedSet[trace.CellRef] {
+		return e.RequiredCells(row, tr)
+	})
+}
+
 // ============================================================================
 // Subtraction
 // ============================================================================
@@ -71,6 +80,15 @@ func (p *Sub) RequiredColumns() *util.SortedSet[uint] {
 	})
 }
 
+// RequiredCells returns the set of trace cells on which this term depends.
+// That is, evaluating this term at the given row in the given trace will read
+// these cells.
+func (p *Sub) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet[trace.CellRef] {
+	return util.UnionAnySortedSets(p.Args, func(e Expr) *util.AnySortedSet[trace.CellRef] {
+		return e.RequiredCells(row, tr)
+	})
+}
+
 // ============================================================================
 // Multiplication
 // ============================================================================
@@ -94,6 +112,15 @@ func (p *Mul) Context(schema sc.Schema) trace.Context {
 func (p *Mul) RequiredColumns() *util.SortedSet[uint] {
 	return util.UnionSortedSets(p.Args, func(e Expr) *util.SortedSet[uint] {
 		return e.RequiredColumns()
+	})
+}
+
+// RequiredCells returns the set of trace cells on which this term depends.
+// That is, evaluating this term at the given row in the given trace will read
+// these cells.
+func (p *Mul) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet[trace.CellRef] {
+	return util.UnionAnySortedSets(p.Args, func(e Expr) *util.AnySortedSet[trace.CellRef] {
+		return e.RequiredCells(row, tr)
 	})
 }
 
@@ -124,6 +151,13 @@ func (p *Exp) RequiredColumns() *util.SortedSet[uint] {
 	return p.Arg.RequiredColumns()
 }
 
+// RequiredCells returns the set of trace cells on which this term depends.
+// That is, evaluating this term at the given row in the given trace will read
+// these cells.
+func (p *Exp) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet[trace.CellRef] {
+	return p.Arg.RequiredCells(row, tr)
+}
+
 // ============================================================================
 // Constant
 // ============================================================================
@@ -146,6 +180,13 @@ func (p *Constant) Context(schema sc.Schema) trace.Context {
 // on a given trace.
 func (p *Constant) RequiredColumns() *util.SortedSet[uint] {
 	return util.NewSortedSet[uint]()
+}
+
+// RequiredCells returns the set of trace cells on which this term depends.
+// That is, evaluating this term at the given row in the given trace will read
+// these cells.
+func (p *Constant) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet[trace.CellRef] {
+	return util.NewAnySortedSet[trace.CellRef]()
 }
 
 // ============================================================================
@@ -171,6 +212,13 @@ func (p *Normalise) Context(schema sc.Schema) trace.Context {
 // on a given trace.
 func (p *Normalise) RequiredColumns() *util.SortedSet[uint] {
 	return p.Arg.RequiredColumns()
+}
+
+// RequiredCells returns the set of trace cells on which this term depends.
+// That is, evaluating this term at the given row in the given trace will read
+// these cells.
+func (p *Normalise) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet[trace.CellRef] {
+	return p.Arg.RequiredCells(row, tr)
 }
 
 // ============================================================================
@@ -214,4 +262,13 @@ func (p *ColumnAccess) RequiredColumns() *util.SortedSet[uint] {
 	r.Insert(p.Column)
 	// Done
 	return r
+}
+
+// RequiredCells returns the set of trace cells on which this term depends.
+// In this case, that is the empty set.
+func (p *ColumnAccess) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet[trace.CellRef] {
+	set := util.NewAnySortedSet[trace.CellRef]()
+	set.Insert(trace.NewCellRef(p.Column, row+p.Shift))
+
+	return set
 }
