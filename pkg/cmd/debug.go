@@ -109,7 +109,7 @@ func printStats(hirSchema *hir.Schema, hir bool, mir bool, air bool) {
 		tbl.SetRow(i, row...)
 	}
 	//
-	tbl.SetMaxWidth(64)
+	tbl.SetMaxWidths(64)
 	tbl.Print()
 }
 

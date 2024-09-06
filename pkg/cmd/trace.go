@@ -102,7 +102,7 @@ func printTrace(start uint, end uint, max_width uint, cols []trace.RawColumn) {
 		}
 	}
 	//
-	tbl.SetMaxWidth(max_width)
+	tbl.SetMaxWidths(max_width)
 	tbl.Print()
 }
 
@@ -122,7 +122,7 @@ func listColumns(tr []trace.RawColumn) {
 		tbl.SetRow(i, row...)
 	}
 	//
-	tbl.SetMaxWidth(64)
+	tbl.SetMaxWidths(64)
 	tbl.Print()
 }
 
@@ -136,7 +136,7 @@ func summaryStats(tr []trace.RawColumn) {
 		tbl.SetRow(i, ith.name, summary)
 	}
 	//
-	tbl.SetMaxWidth(64)
+	tbl.SetMaxWidths(64)
 	tbl.Print()
 }
 

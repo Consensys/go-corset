@@ -267,6 +267,7 @@ func (p *ColumnAccess) RequiredColumns() *util.SortedSet[uint] {
 func (p *ColumnAccess) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet[trace.CellRef] {
 	set := util.NewAnySortedSet[trace.CellRef]()
 	set.Insert(trace.NewCellRef(p.Column, row+p.Shift))
+	//
 	return set
 }
 

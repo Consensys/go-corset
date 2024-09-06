@@ -5,7 +5,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/trace"
+	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
 
@@ -18,7 +18,7 @@ type ZeroTest[E sc.Evaluable] struct {
 
 // TestAt determines whether or not a given expression evaluates to zero.
 // Observe that if the expression is undefined, then it is assumed not to hold.
-func (p ZeroTest[E]) TestAt(row int, tr trace.Trace) bool {
+func (p ZeroTest[E]) TestAt(row int, tr tr.Trace) bool {
 	val := p.Expr.EvalAt(row, tr)
 	return val.IsZero()
 }
@@ -30,7 +30,7 @@ func (p ZeroTest[E]) Bounds() util.Bounds {
 
 // Context determines the evaluation context (i.e. enclosing module) for this
 // expression.
-func (p ZeroTest[E]) Context(schema sc.Schema) trace.Context {
+func (p ZeroTest[E]) Context(schema sc.Schema) tr.Context {
 	return p.Expr.Context(schema)
 }
 
@@ -43,7 +43,7 @@ func (p ZeroTest[E]) RequiredColumns() *util.SortedSet[uint] {
 
 // RequiredCells returns the set of trace cells on which evaluation of this
 // constraint element depends.
-func (p ZeroTest[E]) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet[trace.CellRef] {
+func (p ZeroTest[E]) RequiredCells(row int, tr tr.Trace) *util.AnySortedSet[tr.CellRef] {
 	return p.Expr.RequiredCells(row, tr)
 }
 
@@ -58,17 +58,37 @@ func (p ZeroTest[E]) String() string {
 type VanishingFailure struct {
 	// Handle of the failing constraint
 	handle string
+	// Constraint expression
+	constraint sc.Testable
 	// Row on which the constraint failed
 	row uint
-	// Cells used by the failing constraint.  This is useful for providing a
-	// detailed report including the values of relevant cells.
-	cells []trace.CellRef
+}
+
+// Handle returns the handle of this constraint
+func (p *VanishingFailure) Handle() string {
+	// Construct useful error message
+	return p.handle
 }
 
 // Message provides a suitable error message
 func (p *VanishingFailure) Message() string {
 	// Construct useful error message
 	return fmt.Sprintf("constraint \"%s\" does not hold (row %d)", p.handle, p.row)
+}
+
+// Constraint returns the constraint expression itself.
+func (p *VanishingFailure) Constraint() sc.Testable {
+	return p.constraint
+}
+
+// Row identifies the row on which this constraint failed.
+func (p *VanishingFailure) Row() uint {
+	return p.row
+}
+
+// RequiredCells identifies the cells required to evaluate the failing constraint at the failing row.
+func (p *VanishingFailure) RequiredCells(trace tr.Trace) *util.AnySortedSet[tr.CellRef] {
+	return p.constraint.RequiredCells(int(p.row), trace)
 }
 
 func (p *VanishingFailure) String() string {
@@ -87,7 +107,7 @@ type VanishingConstraint[T sc.Testable] struct {
 	handle string
 	// Evaluation context for this constraint which must match that of the
 	// constrained expression itself.
-	context trace.Context
+	context tr.Context
 	// Indicates (when nil) a global constraint that applies to all rows.
 	// Otherwise, indicates a local constraint which applies to the specific row
 	// given here.
@@ -98,7 +118,7 @@ type VanishingConstraint[T sc.Testable] struct {
 }
 
 // NewVanishingConstraint constructs a new vanishing constraint!
-func NewVanishingConstraint[T sc.Testable](handle string, context trace.Context,
+func NewVanishingConstraint[T sc.Testable](handle string, context tr.Context,
 	domain *int, constraint T) *VanishingConstraint[T] {
 	return &VanishingConstraint[T]{handle, context, domain, constraint}
 }
@@ -124,7 +144,7 @@ func (p *VanishingConstraint[T]) Domain() *int {
 
 // Context returns the evaluation context for this constraint.  Every constraint
 // must be situated within exactly one module in order to be well-formed.
-func (p *VanishingConstraint[T]) Context() trace.Context {
+func (p *VanishingConstraint[T]) Context() tr.Context {
 	return p.context
 }
 
@@ -132,7 +152,7 @@ func (p *VanishingConstraint[T]) Context() trace.Context {
 // of a table.  If so, return nil otherwise return an error.
 //
 //nolint:revive
-func (p *VanishingConstraint[T]) Accepts(tr trace.Trace) schema.Failure {
+func (p *VanishingConstraint[T]) Accepts(tr tr.Trace) schema.Failure {
 	if p.domain == nil {
 		// Global Constraint
 		return HoldsGlobally(p.handle, p.context, p.constraint, tr)
@@ -154,7 +174,7 @@ func (p *VanishingConstraint[T]) Accepts(tr trace.Trace) schema.Failure {
 
 // HoldsGlobally checks whether a given expression vanishes (i.e. evaluates to
 // zero) for all rows of a trace.  If not, report an appropriate error.
-func HoldsGlobally[T sc.Testable](handle string, ctx trace.Context, constraint T, tr trace.Trace) schema.Failure {
+func HoldsGlobally[T sc.Testable](handle string, ctx tr.Context, constraint T, tr tr.Trace) schema.Failure {
 	// Determine height of enclosing module
 	height := tr.Height(ctx)
 	// Determine well-definedness bounds for this constraint
@@ -174,13 +194,11 @@ func HoldsGlobally[T sc.Testable](handle string, ctx trace.Context, constraint T
 
 // HoldsLocally checks whether a given constraint holds (e.g. vanishes) on a
 // specific row of a trace. If not, report an appropriate error.
-func HoldsLocally[T sc.Testable](k uint, handle string, constraint T, tr trace.Trace) schema.Failure {
+func HoldsLocally[T sc.Testable](k uint, handle string, constraint T, tr tr.Trace) schema.Failure {
 	// Check whether it holds or not
 	if !constraint.TestAt(int(k), tr) {
-		//cells := constraint.RequiredCells(int(k), tr).ToArray()
-		cells := make([]trace.CellRef, 0)
 		// Evaluation failure
-		return &VanishingFailure{handle, k, cells}
+		return &VanishingFailure{handle, constraint, k}
 	}
 	// Success
 	return nil
