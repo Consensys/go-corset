@@ -193,8 +193,8 @@ func checkTrace(ir string, cols []trace.RawColumn, schema sc.Schema, cfg checkCo
 		stats.Log("Validating trace")
 		stats = util.NewPerfStats()
 		//
-		if err := sc.Accepts(cfg.batchSize, schema, tr); err != nil {
-			return tr, []error{err}
+		if errs := sc.Accepts(cfg.batchSize, schema, tr); len(errs) > 0 {
+			return tr, errs
 		}
 
 		stats.Log("Checking constraints")

@@ -2,7 +2,6 @@ package schema
 
 import (
 	"fmt"
-	"runtime"
 
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -47,28 +46,27 @@ func ContextOfColumns(cols []uint, schema Schema) tr.Context {
 // which does not hold.
 //
 //nolint:revive
-func Accepts(batchsize uint, schema Schema, trace tr.Trace) error {
+func Accepts(batchsize uint, schema Schema, trace tr.Trace) []error {
+	errors := make([]error, 0)
 	iter := schema.Constraints()
 	// Initialise batch number (for debugging purposes)
 	batch := uint(0)
 	// Process constraints in batches
 	for iter.HasNext() {
-		if err := processConstraintBatch(batch, batchsize, iter, trace); err != nil {
-			return err
-		}
+		errs := processConstraintBatch(batch, batchsize, iter, trace)
+		errors = append(errors, errs...)
 		// Increment batch number
 		batch++
 	}
 	// Success
-	return nil
+	return errors
 }
 
 // Process a given set of constraints in a single batch
-func processConstraintBatch(batch uint, batchsize uint, iter util.Iterator[Constraint], trace tr.Trace) error {
-	var err error
-
+func processConstraintBatch(batch uint, batchsize uint, iter util.Iterator[Constraint], trace tr.Trace) []error {
 	n := uint(0)
-	c := make(chan error, 128)
+	c := make(chan error, 1024)
+	errors := make([]error, 0)
 	stats := util.NewPerfStats()
 	// Launch at most 100 go-routines.
 	for ; n < batchsize && iter.HasNext(); n++ {
@@ -84,14 +82,13 @@ func processConstraintBatch(batch uint, batchsize uint, iter util.Iterator[Const
 	for i := uint(0); i < n; i++ {
 		// Read from channel
 		if e := <-c; e != nil {
-			err = e
+			errors = append(errors, e)
 		}
 	}
+	// Log stats about this batch
 	stats.Log(fmt.Sprintf("Constraint batch %d", batch))
-	// Force garbage collection
-	runtime.GC()
 	//
-	return err
+	return errors
 }
 
 // ColumnIndexOf returns the column index of the column with the given name, or
