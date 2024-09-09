@@ -1,13 +1,15 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"os"
 
 	"github.com/consensys/go-corset/pkg/hir"
 	sc "github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/schema/constraint"
+	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -44,6 +46,7 @@ var checkCmd = &cobra.Command{
 		cfg.padding.Right = getUint(cmd, "padding")
 		cfg.parallelExpansion = !getFlag(cmd, "sequential")
 		cfg.batchSize = getUint(cmd, "batch")
+		cfg.ansiEscapes = getFlag(cmd, "ansi-escapes")
 		//
 		stats := util.NewPerfStats()
 		// TODO: support true ranges
@@ -55,7 +58,9 @@ var checkCmd = &cobra.Command{
 		//
 		stats.Log("Reading trace files")
 		// Go!
-		checkTraceWithLowering(columns, hirSchema, cfg)
+		if !checkTraceWithLowering(columns, hirSchema, cfg) {
+			os.Exit(1)
+		}
 	},
 }
 
@@ -91,121 +96,80 @@ type checkConfig struct {
 	parallelExpansion bool
 	// Size of constraint batches to execute in parallel
 	batchSize uint
+	// Enable ansi escape codes in reports
+	ansiEscapes bool
 }
 
 // Check a given trace is consistently accepted (or rejected) at the different
 // IR levels.
-func checkTraceWithLowering(cols []trace.RawColumn, schema *hir.Schema, cfg checkConfig) {
-	if !cfg.hir && !cfg.mir && !cfg.air {
-		// Process together
-		checkTraceWithLoweringDefault(cols, schema, cfg)
-	} else {
-		// Process individually
-		if cfg.hir {
-			checkTraceWithLoweringHir(cols, schema, cfg)
-		}
+func checkTraceWithLowering(cols []tr.RawColumn, schema *hir.Schema, cfg checkConfig) bool {
+	hir := cfg.hir
+	mir := cfg.mir
+	air := cfg.air
 
-		if cfg.mir {
-			checkTraceWithLoweringMir(cols, schema, cfg)
-		}
-
-		if cfg.air {
-			checkTraceWithLoweringAir(cols, schema, cfg)
-		}
+	if !hir && !mir && !air {
+		// If IR not specified default to running all.
+		hir = true
+		mir = true
+		air = true
 	}
+	//
+	res := true
+	// Process individually
+	if hir {
+		res = checkTrace("HIR", cols, schema, cfg)
+	}
+
+	if mir {
+		res = checkTrace("MIR", cols, schema.LowerToMir(), cfg) && res
+	}
+
+	if air {
+		res = checkTrace("AIR", cols, schema.LowerToMir().LowerToAir(), cfg) && res
+	}
+
+	return res
 }
 
-func checkTraceWithLoweringHir(cols []trace.RawColumn, hirSchema *hir.Schema, cfg checkConfig) {
-	trHIR, errsHIR := checkTrace("HIR", cols, hirSchema, cfg)
-	//
-	if errsHIR != nil {
-		reportErrors(true, "HIR", trHIR, errsHIR, cfg)
-		os.Exit(1)
-	}
-}
-
-func checkTraceWithLoweringMir(cols []trace.RawColumn, hirSchema *hir.Schema, cfg checkConfig) {
-	// Lower HIR => MIR
-	mirSchema := hirSchema.LowerToMir()
-	// Check trace
-	trMIR, errsMIR := checkTrace("MIR", cols, mirSchema, cfg)
-	//
-	if errsMIR != nil {
-		reportErrors(true, "MIR", trMIR, errsMIR, cfg)
-		os.Exit(1)
-	}
-}
-
-func checkTraceWithLoweringAir(cols []trace.RawColumn, hirSchema *hir.Schema, cfg checkConfig) {
-	// Lower HIR => MIR
-	mirSchema := hirSchema.LowerToMir()
-	// Lower MIR => AIR
-	airSchema := mirSchema.LowerToAir()
-	trAIR, errsAIR := checkTrace("AIR", cols, airSchema, cfg)
-	//
-	if errsAIR != nil {
-		reportErrors(true, "AIR", trAIR, errsAIR, cfg)
-		os.Exit(1)
-	}
-}
-
-// The default check allows one to compare all levels against each other and
-// look for any discrepenacies.
-func checkTraceWithLoweringDefault(cols []trace.RawColumn, hirSchema *hir.Schema, cfg checkConfig) {
-	// Lower HIR => MIR
-	mirSchema := hirSchema.LowerToMir()
-	// Lower MIR => AIR
-	airSchema := mirSchema.LowerToAir()
-	//
-	trHIR, errsHIR := checkTrace("HIR", cols, hirSchema, cfg)
-	trMIR, errsMIR := checkTrace("MIR", cols, mirSchema, cfg)
-	trAIR, errsAIR := checkTrace("AIR", cols, airSchema, cfg)
-	//
-	if errsHIR != nil || errsMIR != nil || errsAIR != nil {
-		reportErrors(true, "HIR", trHIR, errsHIR, cfg)
-		reportErrors(true, "MIR", trMIR, errsMIR, cfg)
-		reportErrors(true, "AIR", trAIR, errsAIR, cfg)
-		os.Exit(1)
-	}
-}
-
-func checkTrace(ir string, cols []trace.RawColumn, schema sc.Schema, cfg checkConfig) (trace.Trace, []error) {
+func checkTrace(ir string, cols []tr.RawColumn, schema sc.Schema, cfg checkConfig) bool {
 	builder := sc.NewTraceBuilder(schema).Expand(cfg.expand).Parallel(cfg.parallelExpansion)
 	//
 	for n := cfg.padding.Left; n <= cfg.padding.Right; n++ {
 		stats := util.NewPerfStats()
-		tr, errs := builder.Padding(n).Build(cols)
+		trace, errs := builder.Padding(n).Build(cols)
 
 		stats.Log("Expanding trace columns")
-		// Check for errors
-		if tr == nil || (cfg.strict && len(errs) > 0) {
-			return tr, errs
-		} else if len(errs) > 0 {
-			reportErrors(false, ir, tr, errs, cfg)
+		// Report any errors
+		reportErrors(cfg.strict, ir, errs)
+		// Check whether considered unrecoverable
+		if trace == nil || (cfg.strict && len(errs) > 0) {
+			return false
 		}
-		// Validate trace.
+		// Validate trace
 		stats = util.NewPerfStats()
 		//
-		if err := validationCheck(tr, schema); err != nil {
-			return tr, []error{err}
+		if err := validationCheck(trace, schema); err != nil {
+			reportErrors(true, ir, []error{err})
+			return false
 		}
-		// Check trace.
+		// Check trace
 		stats.Log("Validating trace")
 		stats = util.NewPerfStats()
 		//
-		if err := sc.Accepts(cfg.batchSize, schema, tr); err != nil {
-			return tr, []error{err}
+		if errs := sc.Accepts(cfg.batchSize, schema, trace); len(errs) > 0 {
+			reportFailures(ir, errs, trace, cfg)
+			return false
 		}
 
 		stats.Log("Checking constraints")
 	}
 	// Done
-	return nil, nil
+	return true
 }
 
 // Validate that values held in trace columns match the expected type.  This is
 // really a sanity check that the trace is not malformed.
-func validationCheck(tr trace.Trace, schema sc.Schema) error {
+func validationCheck(tr tr.Trace, schema sc.Schema) error {
 	var err error
 
 	schemaCols := schema.Columns()
@@ -239,11 +203,11 @@ func validationCheck(tr trace.Trace, schema sc.Schema) error {
 }
 
 // Validate that all elements of a given column are within the given type.
-func validateColumn(colType sc.Type, col trace.Column, mod sc.Module) error {
+func validateColumn(colType sc.Type, col tr.Column, mod sc.Module) error {
 	for j := 0; j < int(col.Data().Len()); j++ {
 		jth := col.Get(j)
 		if !colType.Accept(jth) {
-			qualColName := trace.QualifiedColumnName(mod.Name(), col.Name())
+			qualColName := tr.QualifiedColumnName(mod.Name(), col.Name())
 			return fmt.Errorf("row %d of column %s is out-of-bounds (%s)", j, qualColName, jth.String())
 		}
 	}
@@ -251,10 +215,64 @@ func validateColumn(colType sc.Type, col trace.Column, mod sc.Module) error {
 	return nil
 }
 
-func reportErrors(error bool, ir string, tr trace.Trace, errs []error, cfg checkConfig) {
-	if cfg.report && tr != nil {
-		trace.PrintTrace(tr)
+// Report constraint failures, whilst providing contextual information (when requested).
+func reportFailures(ir string, failures []sc.Failure, trace tr.Trace, cfg checkConfig) {
+	errs := make([]error, len(failures))
+	for i, f := range failures {
+		errs[i] = errors.New(f.Message())
 	}
+	// First, log errors
+	reportErrors(true, ir, errs)
+	// Second, produce report (if requested)
+	if cfg.report {
+		for _, f := range failures {
+			reportFailure(f, trace, cfg)
+		}
+	}
+}
+
+// Print a human-readable report detailing the given failure
+func reportFailure(failure sc.Failure, trace tr.Trace, cfg checkConfig) {
+	if f, ok := failure.(*constraint.VanishingFailure); ok {
+		reportVanishingFailure(f, trace, cfg)
+	}
+}
+
+// Print a human-readable report detailing the given failure with a vanishing constraint.
+func reportVanishingFailure(failure *constraint.VanishingFailure, trace tr.Trace, cfg checkConfig) {
+	var start uint = math.MaxUint
+	// Determine all (input) cells involved in evaluating the given constraint
+	cells := failure.RequiredCells(trace)
+	end := uint(0)
+	// Determine row bounds
+	for _, c := range cells.ToArray() {
+		start = min(start, uint(c.Row))
+		end = max(end, uint(c.Row))
+	}
+	// Determine columns to show
+	cols := util.NewSortedSet[uint]()
+	for _, c := range cells.ToArray() {
+		cols.Insert(c.Column)
+	}
+	// Construct & configure printer
+	tp := tr.NewPrinter().Start(start).End(end).MaxCellWidth(16)
+	// Determine whether to enable ANSI escapes (e.g. for colour in the terminal)
+	tp = tp.AnsiEscapes(cfg.ansiEscapes)
+	// Filter out columns not used in evaluating the constraint.
+	tp = tp.Columns(func(col uint, trace tr.Trace) bool {
+		return cols.Contains(col)
+	})
+	// Highlight failing cells
+	tp = tp.Highlight(func(cell tr.CellRef, trace tr.Trace) bool {
+		return cells.Contains(cell)
+	})
+	// Print out report
+	fmt.Printf("failing constraint %s:\n", failure.Handle())
+	tp.Print(trace)
+	fmt.Println()
+}
+
+func reportErrors(error bool, ir string, errs []error) {
 	// Construct set to ensure deduplicate errors
 	set := make(map[string]bool, len(errs))
 	//
@@ -288,4 +306,5 @@ func init() {
 	checkCmd.Flags().UintP("batch", "b", math.MaxUint, "specify batch size for constraint checking")
 	checkCmd.Flags().Int("spillage", -1,
 		"specify amount of splillage to account for (where -1 indicates this should be inferred)")
+	checkCmd.Flags().Bool("ansi-escapes", true, "specify whether to allow ANSI escapes or not (e.g. for colour reports)")
 }

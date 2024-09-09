@@ -527,14 +527,14 @@ func checkTrace(t *testing.T, inputs []trace.RawColumn, expand bool, id traceId,
 		}
 	} else {
 		// Check
-		err := sc.Accepts(100, schema, tr)
+		errs := sc.Accepts(100, schema, tr)
 		// Determine whether trace accepted or not.
-		accepted := (err == nil)
+		accepted := len(errs) == 0
 		// Process what happened versus what was supposed to happen.
 		if !accepted && id.expected {
 			//table.PrintTrace(tr)
 			msg := fmt.Sprintf("Trace rejected incorrectly (%s, %s.accepts, line %d with padding %d): %s",
-				id.ir, id.test, id.line, id.padding, err)
+				id.ir, id.test, id.line, id.padding, errs)
 			t.Errorf(msg)
 		} else if accepted && !id.expected {
 			//printTrace(tr)

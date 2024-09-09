@@ -2,7 +2,6 @@ package test
 
 import (
 	"fmt"
-	"math/rand/v2"
 	"sort"
 	"testing"
 
@@ -15,32 +14,32 @@ func Test_HashSet_01(t *testing.T) {
 }
 
 func Test_HashSet_02(t *testing.T) {
-	items := GenerateRandomInputs(10, 32)
+	items := util.GenerateRandomInputs(10, 32)
 	check_HashSet(t, items)
 }
 
 func Test_HashSet_03(t *testing.T) {
-	items := GenerateRandomInputs(100, 32)
+	items := util.GenerateRandomInputs(100, 32)
 	check_HashSet(t, items)
 }
 
 func Test_HashSet_04(t *testing.T) {
-	items := GenerateRandomInputs(1000, 32)
+	items := util.GenerateRandomInputs(1000, 32)
 	check_HashSet(t, items)
 }
 
 func Test_HashSet_05(t *testing.T) {
-	items := GenerateRandomInputs(100000, 32)
+	items := util.GenerateRandomInputs(100000, 32)
 	check_HashSet(t, items)
 }
 
 func TestSlow_HashSet_08(t *testing.T) {
-	items := GenerateRandomInputs(100000, 64)
+	items := util.GenerateRandomInputs(100000, 64)
 	check_HashSet(t, items)
 }
 
 func TestSlow_HashSet_09(t *testing.T) {
-	items := GenerateRandomInputs(100000, 128)
+	items := util.GenerateRandomInputs(100000, 128)
 	check_HashSet(t, items)
 }
 
@@ -84,17 +83,6 @@ func check_HashSet(t *testing.T, items []uint) {
 			t.Errorf("missing item %d: %s", ith, set.String())
 		}
 	}
-}
-
-// GenerateRandomInputs generates n random inputs in the range 0..m.
-func GenerateRandomInputs(n, m uint) []uint {
-	items := make([]uint, n)
-
-	for i := uint(0); i < n; i++ {
-		items[i] = rand.UintN(m)
-	}
-
-	return items
 }
 
 // A simple wrapper around a uint64.  This is deliberately broken to ensure a

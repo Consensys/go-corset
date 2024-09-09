@@ -74,8 +74,15 @@ type Assignment interface {
 // Constraint represents an element which can "accept" a trace, or either reject
 // with an error (or eventually perhaps report a warning).
 type Constraint interface {
-	Accepts(tr.Trace) error
+	Accepts(tr.Trace) Failure
 	String() string
+}
+
+// Failure embodies structured information about a failing constraint.
+// This includes the constraint itself, along with the row
+type Failure interface {
+	// Provides a suitable error message
+	Message() string
 }
 
 // Evaluable captures something which can be evaluated on a given table row to
@@ -92,6 +99,10 @@ type Evaluable interface {
 	// row which does not exist (e.g. at index -1); secondly, if
 	// it accesses a column which does not exist.
 	EvalAt(int, tr.Trace) fr.Element
+
+	// RequiredCells returns the set of trace cells on which evaluation of this
+	// constraint element depends.
+	RequiredCells(int, tr.Trace) *util.AnySortedSet[tr.CellRef]
 }
 
 // Testable captures the notion of a constraint which can be tested on a given
@@ -134,6 +145,9 @@ type Contextual interface {
 	// That is, columns whose values may be accessed when evaluating this term
 	// on a given trace.
 	RequiredColumns() *util.SortedSet[uint]
+	// RequiredCells returns the set of trace cells on which evaluation of this
+	// constraint element depends.
+	RequiredCells(int, tr.Trace) *util.AnySortedSet[tr.CellRef]
 }
 
 // ============================================================================

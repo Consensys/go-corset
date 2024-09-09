@@ -1,12 +1,26 @@
 package constraint
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 )
+
+// RangeFailure provides structural information about a failing range constraint.
+type RangeFailure struct {
+	msg string
+}
+
+// Message provides a suitable error message
+func (p *RangeFailure) Message() string {
+	return p.msg
+}
+
+func (p *RangeFailure) String() string {
+	return p.msg
+}
 
 // RangeConstraint restricts all values in a given column to be within
 // a range [0..n) for some bound n.  For example, a bound of 256 would
@@ -36,7 +50,7 @@ func NewRangeConstraint(column uint, bound *fr.Element) *RangeConstraint {
 
 // Accepts checks whether a range constraint evaluates to zero on
 // every row of a table. If so, return nil otherwise return an error.
-func (p *RangeConstraint) Accepts(tr trace.Trace) error {
+func (p *RangeConstraint) Accepts(tr trace.Trace) schema.Failure {
 	column := tr.Column(p.column)
 	height := tr.Height(column.Context())
 	// Iterate all rows of the module
@@ -49,7 +63,7 @@ func (p *RangeConstraint) Accepts(tr trace.Trace) error {
 			// Construct useful error message
 			msg := fmt.Sprintf("value out-of-bounds (row %d, %s)", kth, name)
 			// Evaluation failure
-			return errors.New(msg)
+			return &RangeFailure{msg}
 		}
 	}
 	// All good

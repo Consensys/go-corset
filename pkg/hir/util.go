@@ -3,7 +3,7 @@ package hir
 import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	sc "github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/trace"
+	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
 
@@ -21,9 +21,9 @@ type ZeroArrayTest struct {
 // TestAt determines whether or not every element from a given array of
 // expressions evaluates to zero. Observe that any expressions which are
 // undefined are assumed to hold.
-func (p ZeroArrayTest) TestAt(row int, tr trace.Trace) bool {
+func (p ZeroArrayTest) TestAt(row int, trace tr.Trace) bool {
 	// Evalues expression yielding zero or more values.
-	vals := p.Expr.EvalAllAt(row, tr)
+	vals := p.Expr.EvalAllAt(row, trace)
 	// Check each value in turn against zero.
 	for _, val := range vals {
 		if !val.IsZero() {
@@ -46,7 +46,7 @@ func (p ZeroArrayTest) Bounds() util.Bounds {
 
 // Context determines the evaluation context (i.e. enclosing module) for this
 // expression.
-func (p ZeroArrayTest) Context(schema sc.Schema) trace.Context {
+func (p ZeroArrayTest) Context(schema sc.Schema) tr.Context {
 	return p.Expr.Context(schema)
 }
 
@@ -55,6 +55,12 @@ func (p ZeroArrayTest) Context(schema sc.Schema) trace.Context {
 // on a given trace.
 func (p ZeroArrayTest) RequiredColumns() *util.SortedSet[uint] {
 	return p.Expr.RequiredColumns()
+}
+
+// RequiredCells returns the set of trace cells on which evaluation of this
+// constraint element depends.
+func (p ZeroArrayTest) RequiredCells(row int, trace tr.Trace) *util.AnySortedSet[tr.CellRef] {
+	return p.Expr.RequiredCells(row, trace)
 }
 
 // ============================================================================
@@ -84,8 +90,8 @@ func NewUnitExpr(expr Expr) UnitExpr {
 // EvalAt evaluates a column access at a given row in a trace, which returns the
 // value at that row of the column in question or nil is that row is
 // out-of-bounds.
-func (e UnitExpr) EvalAt(k int, tr trace.Trace) fr.Element {
-	vals := e.expr.EvalAllAt(k, tr)
+func (e UnitExpr) EvalAt(k int, trace tr.Trace) fr.Element {
+	vals := e.expr.EvalAllAt(k, trace)
 	// Check we got exactly one thing
 	if len(vals) == 1 {
 		return vals[0]
@@ -102,7 +108,7 @@ func (e UnitExpr) Bounds() util.Bounds {
 
 // Context determines the evaluation context (i.e. enclosing module) for this
 // expression.
-func (e UnitExpr) Context(schema sc.Schema) trace.Context {
+func (e UnitExpr) Context(schema sc.Schema) tr.Context {
 	return e.expr.Context(schema)
 }
 
@@ -111,4 +117,10 @@ func (e UnitExpr) Context(schema sc.Schema) trace.Context {
 // on a given trace.
 func (e UnitExpr) RequiredColumns() *util.SortedSet[uint] {
 	return e.expr.RequiredColumns()
+}
+
+// RequiredCells returns the set of trace cells on which this term depends.
+// In this case, that is the empty set.
+func (e UnitExpr) RequiredCells(row int, trace tr.Trace) *util.AnySortedSet[tr.CellRef] {
+	return e.expr.RequiredCells(row, trace)
 }

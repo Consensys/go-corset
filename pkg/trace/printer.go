@@ -2,8 +2,157 @@ package trace
 
 import (
 	"fmt"
+	"math"
 	"unicode/utf8"
+
+	"github.com/consensys/go-corset/pkg/util"
 )
+
+// ColumnFilter is a predicate which determines whether a given column should be
+// included in the print out, or not.
+type ColumnFilter = func(uint, Trace) bool
+
+// Highlighter identifies cells which should be highlighted.
+type Highlighter = func(CellRef, Trace) bool
+
+// Printer encapsulates various configuration options useful for printing out
+// traces in human-readable forms.
+type Printer struct {
+	// First row to print
+	startRow uint
+	// Last row to print
+	endRow uint
+	// Additional rows either side
+	padding uint
+	// Which columns to include
+	colFilter ColumnFilter
+	// Which columns to highlight
+	highlighter Highlighter
+	// Determine maximum width to print
+	maxCellWidth uint
+	// Enable ANSI
+	ansiEscapes bool
+}
+
+// NewPrinter constructs a default printer
+func NewPrinter() *Printer {
+	// Include all colunms by default
+	emptyFilter := func(row uint, t Trace) bool {
+		return true
+	}
+	// Highlight nothing by default
+	emptyHighlighter := func(cell CellRef, t Trace) bool {
+		return false
+	}
+	// Return an empty printer
+	return &Printer{0, math.MaxInt, 2, emptyFilter, emptyHighlighter, math.MaxUint, true}
+}
+
+// Start configures the starting row for this printer.
+func (p *Printer) Start(start uint) *Printer {
+	p.startRow = start
+	return p
+}
+
+// End configures tne ending row (inclusive) for this printer.
+func (p *Printer) End(end uint) *Printer {
+	p.endRow = end
+	return p
+}
+
+// Columns configures a filter which selects columns to be included in the final
+// print out.
+func (p *Printer) Columns(filter ColumnFilter) *Printer {
+	p.colFilter = filter
+	return p
+}
+
+// AnsiEscapes can be used to enable or disable the use of ANSI escape sequences
+// (e.g. for showing colour in a terminal, etc)
+func (p *Printer) AnsiEscapes(enable bool) *Printer {
+	p.ansiEscapes = enable
+	return p
+}
+
+// Highlight configures a filter for cells which should be highlighted.  By
+// default, no cells are highlighted.
+func (p *Printer) Highlight(highlighter Highlighter) *Printer {
+	p.highlighter = highlighter
+	return p
+}
+
+// MaxCellWidth sets the maximum width to use for the cell data.
+func (p *Printer) MaxCellWidth(width uint) *Printer {
+	p.maxCellWidth = width
+	return p
+}
+
+// Print a given trace using the configured printer
+func (p *Printer) Print(trace Trace) {
+	var start uint
+	if p.startRow >= p.padding {
+		start = p.startRow - p.padding
+	} else {
+		start = p.startRow
+	}
+
+	end := p.startRow + p.padding + 1
+	columns := make([]uint, 0)
+	endRow := min(MaxHeight(trace), end)
+	width := 1 + endRow - start
+	// Filter columns
+	for i := uint(0); i < trace.Width(); i++ {
+		if p.colFilter(i, trace) {
+			columns = append(columns, i)
+		}
+	}
+	// Construct table
+	tp := util.NewTablePrinter(width, uint(1+len(columns)))
+	// Configure escapes
+	tp.AnsiEscapes(p.ansiEscapes)
+	// Initialise row indices
+	for j := start; j < end; j++ {
+		tp.Set(1+j-start, 0, fmt.Sprintf("%d", j))
+		tp.SetEscape(1+j-start, 0, util.NewAnsiEscape().FgColour(util.TERM_WHITE).Build())
+	}
+	// Construct suitable highlighting escape
+	highlightEscape := util.BoldAnsiEscape().FgColour(util.TERM_RED).Build()
+	// Fill table
+	for i, col := range columns {
+		column := trace.Column(col)
+		maxRow := min(end, column.Data().Len())
+		// Set columns names
+		tp.Set(0, uint(i+1), column.Name())
+		tp.SetEscape(0, uint(i+1), util.NewAnsiEscape().FgColour(util.TERM_WHITE).Build())
+		//
+		for row := start; row < maxRow; row++ {
+			var hex string
+			// Extract data for cell
+			jth := column.Data().Get(row)
+			// Determine text of cell
+			highlight := p.highlighter(NewCellRef(col, int(row)), trace)
+			//
+			if highlight && !p.ansiEscapes {
+				// In a non-ANSI environment, use a marker "*" to identify which cells were depended upon.
+				hex = fmt.Sprintf("*0x%s", jth.Text(16))
+			} else {
+				if highlight {
+					tp.SetEscape(1+row-start, uint(i+1), highlightEscape)
+				}
+				//
+				hex = fmt.Sprintf("0x%s", jth.Text(16))
+			}
+			//
+			tp.Set(1+row-start, uint(i+1), hex)
+		}
+	}
+	// Cap cells
+	for j := start; j < end; j++ {
+		tp.SetMaxWidth(1+j-start, p.maxCellWidth)
+	}
+	// Done
+	tp.Print()
+}
 
 // PrintTrace prints a trace in a more human-friendly fashion.
 func PrintTrace(tr Trace) {
