@@ -44,6 +44,11 @@ func (p *ByteDecomposition) String() string {
 // Declaration Interface
 // ============================================================================
 
+// Context returns the evaluation context for this declaration.
+func (p *ByteDecomposition) Context() trace.Context {
+	return p.targets[0].Context()
+}
+
 // Columns returns the columns declared by this byte decomposition (in the order
 // of declaration).
 func (p *ByteDecomposition) Columns() util.Iterator[schema.Column] {

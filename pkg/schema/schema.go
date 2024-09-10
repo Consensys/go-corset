@@ -43,6 +43,11 @@ type Declaration interface {
 	// Return the declared columns (in the order of declaration).
 	Columns() util.Iterator[Column]
 
+	// Context returns the evaluation context (i.e. enclosing module + length
+	// multiplier) for this declaration.  Every declaration must have a single,
+	// unique context.
+	Context() tr.Context
+
 	// Determines whether or not this declaration is computed.
 	IsComputed() bool
 }

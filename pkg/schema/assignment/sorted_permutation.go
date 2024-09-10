@@ -96,6 +96,11 @@ func (p *SortedPermutation) String() string {
 // Declaration Interface
 // ============================================================================
 
+// Context returns the evaluation context for this declaration.
+func (p *SortedPermutation) Context() trace.Context {
+	return p.context
+}
+
 // Columns returns the columns declared by this sorted permutation (in the order
 // of declaration).
 func (p *SortedPermutation) Columns() util.Iterator[schema.Column] {

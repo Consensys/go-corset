@@ -65,8 +65,8 @@ func (tb TraceBuilder) Build(columns []trace.RawColumn) (trace.Trace, []error) {
 		// Critical failure
 		return nil, errs
 	} else if tb.expand {
-		// TODO: this is not done properly.
-		padColumns(tr, requiredSpillage(tb.schema))
+		// Apply spillage
+		applySpillage(tr, tb.schema)
 		// Expand trace
 		if tb.parallel {
 			// Run (parallel) trace expansion
@@ -222,23 +222,14 @@ func validateTraceColumns(schema Schema, tr *trace.ArrayTrace) (error, []error) 
 	return nil, warnings
 }
 
-// RequiredSpillage returns the minimum amount of spillage required to ensure
-// valid traces are accepted in the presence of arbitrary padding.  Spillage can
-// only arise from computations as this is where values outside of the user's
-// control are determined.
-func requiredSpillage(schema Schema) uint {
-	// Ensures always at least one row of spillage (referred to as the "initial
-	// padding row")
-	mx := uint(1)
-	// Determine if any more spillage required
-	for i := schema.Assignments(); i.HasNext(); {
-		// Get ith assignment
-		ith := i.Next()
-		// Incorporate its spillage requirements
-		mx = max(mx, ith.RequiredSpillage())
+// applySpillage pads each module with its given level of spillage
+func applySpillage(tr *trace.ArrayTrace, schema Schema) {
+	n := tr.Modules().Count()
+	// Iterate over modules
+	for i := uint(0); i < n; i++ {
+		spillage := RequiredSpillage(i, schema)
+		tr.Pad(i, spillage)
 	}
-
-	return mx
 }
 
 // PadColumns pads every column in a given trace with a given amount of padding.
