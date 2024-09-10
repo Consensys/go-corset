@@ -54,9 +54,16 @@ func (p *Printer) Start(start uint) *Printer {
 	return p
 }
 
-// End configures tne ending row (inclusive) for this printer.
+// End configures the ending row (inclusive) for this printer.
 func (p *Printer) End(end uint) *Printer {
 	p.endRow = end
+	return p
+}
+
+// Padding configures the number of padding rows (i.e. rows outside the affected
+// area) to include for additional context.
+func (p *Printer) Padding(padding uint) *Printer {
+	p.padding = padding
 	return p
 }
 
@@ -92,14 +99,15 @@ func (p *Printer) Print(trace Trace) {
 	var start uint
 	if p.startRow >= p.padding {
 		start = p.startRow - p.padding
+	} else if p.padding > 0 {
+		start = 0
 	} else {
 		start = p.startRow
 	}
 
-	end := p.startRow + p.padding + 1
+	end := min(MaxHeight(trace), p.startRow+p.padding+1)
 	columns := make([]uint, 0)
-	endRow := min(MaxHeight(trace), end)
-	width := 1 + endRow - start
+	width := 1 + end - start
 	// Filter columns
 	for i := uint(0); i < trace.Width(); i++ {
 		if p.colFilter(i, trace) {

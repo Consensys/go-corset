@@ -156,6 +156,26 @@ func Test_Spillage_04(t *testing.T) {
 	Check(t, "spillage_04")
 }
 
+func Test_Spillage_05(t *testing.T) {
+	Check(t, "spillage_05")
+}
+
+func Test_Spillage_06(t *testing.T) {
+	Check(t, "spillage_06")
+}
+
+func Test_Spillage_07(t *testing.T) {
+	Check(t, "spillage_07")
+}
+
+func Test_Spillage_08(t *testing.T) {
+	Check(t, "spillage_08")
+}
+
+func Test_Spillage_09(t *testing.T) {
+	Check(t, "spillage_09")
+}
+
 // ===================================================================
 // Normalisation Tests
 // ===================================================================
@@ -456,7 +476,7 @@ func TestSlow_Mxp(t *testing.T) {
 
 // Determines the maximum amount of padding to use when testing.  Specifically,
 // every trace is tested with varying amounts of padding upto this value.
-const MAX_PADDING uint = 5
+const MAX_PADDING uint = 7
 
 // For a given set of constraints, check that all traces which we
 // expect to be accepted are accepted, and all traces that we expect

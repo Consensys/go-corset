@@ -44,6 +44,11 @@ func (p *ComputedColumn[E]) Name() string {
 // Declaration Interface
 // ============================================================================
 
+// Context returns the evaluation context for this computed column.
+func (p *ComputedColumn[E]) Context() trace.Context {
+	return p.target.Context()
+}
+
 // Columns returns the columns declared by this computed column.
 func (p *ComputedColumn[E]) Columns() util.Iterator[sc.Column] {
 	// TODO: figure out appropriate type for computed column

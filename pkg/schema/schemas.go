@@ -7,6 +7,28 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 )
 
+// RequiredSpillage returns the minimum amount of spillage required for a given
+// module to ensure valid traces are accepted in the presence of arbitrary
+// padding.  Spillage can only arise from computations as this is where values
+// outside of the user's control are determined.
+func RequiredSpillage(module uint, schema Schema) uint {
+	// Ensures always at least one row of spillage (referred to as the "initial
+	// padding row")
+	mx := uint(1)
+	// Determine if any more spillage required
+	for i := schema.Assignments(); i.HasNext(); {
+		// Get ith assignment
+		ith := i.Next()
+		//
+		if ith.Context().Module() == module {
+			// Incorporate its spillage requirements
+			mx = max(mx, ith.RequiredSpillage())
+		}
+	}
+
+	return mx
+}
+
 // JoinContexts combines one or more evaluation contexts together.  If all
 // expressions have the void context, then this is returned.  Likewise, if any
 // expression has a conflicting context then this is returned.  Finally, if any

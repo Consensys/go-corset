@@ -46,6 +46,11 @@ func NewLexicographicSort(prefix string, context trace.Context,
 // Declaration Interface
 // ============================================================================
 
+// Context returns the evaluation context for this declaration.
+func (p *LexicographicSort) Context() trace.Context {
+	return p.context
+}
+
 // Columns returns the columns declared by this assignment.
 func (p *LexicographicSort) Columns() util.Iterator[schema.Column] {
 	return util.NewArrayIterator(p.targets)

@@ -43,6 +43,11 @@ func (p *Interleaving) Sources() []uint {
 // Declaration Interface
 // ============================================================================
 
+// Context returns the evaluation context for this interleaving.
+func (p *Interleaving) Context() trace.Context {
+	return p.target.Context()
+}
+
 // Columns returns the column declared by this interleaving.
 func (p *Interleaving) Columns() util.Iterator[schema.Column] {
 	return util.NewUnitIterator(p.target)
