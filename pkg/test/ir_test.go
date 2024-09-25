@@ -553,14 +553,12 @@ func checkTrace(t *testing.T, inputs []trace.RawColumn, expand bool, id traceId,
 		// Process what happened versus what was supposed to happen.
 		if !accepted && id.expected {
 			//table.PrintTrace(tr)
-			msg := fmt.Sprintf("Trace rejected incorrectly (%s, %s.accepts, line %d with padding %d): %s",
+			t.Errorf("Trace rejected incorrectly (%s, %s.accepts, line %d with padding %d): %s",
 				id.ir, id.test, id.line, id.padding, errs)
-			t.Errorf(msg)
 		} else if accepted && !id.expected {
 			//printTrace(tr)
-			msg := fmt.Sprintf("Trace accepted incorrectly (%s, %s.rejects, line %d with padding %d)",
+			t.Errorf("Trace accepted incorrectly (%s, %s.rejects, line %d with padding %d)",
 				id.ir, id.test, id.line, id.padding)
-			t.Errorf(msg)
 		}
 	}
 }

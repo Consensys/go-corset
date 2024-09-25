@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math"
 	"os"
-	"strings"
+	"regexp"
 
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -63,23 +63,30 @@ func init() {
 	traceCmd.Flags().UintP("end", "e", math.MaxUint, "filter out this and all following rows")
 	traceCmd.Flags().Uint("max-width", 32, "specify maximum display width for a column")
 	traceCmd.Flags().StringP("out", "o", "", "Specify output file to write trace")
-	traceCmd.Flags().StringP("filter", "f", "", "Filter columns beginning with prefix")
+	traceCmd.Flags().StringP("filter", "f", "", "Filter columns matching regex")
 }
 
 // Construct a new trace containing only those columns from the original who
 // name begins with the given prefix.
-func filterColumns(cols []trace.RawColumn, prefix string) []trace.RawColumn {
+func filterColumns(cols []trace.RawColumn, regex string) []trace.RawColumn {
+	r, err := regexp.Compile(regex)
+	// Check for error
+	if err != nil {
+		panic(err)
+	}
+	//
 	ncols := make([]trace.RawColumn, 0)
 	// Now create the columns.
 	for i := 0; i < len(cols); i++ {
 		name := trace.QualifiedColumnName(cols[i].Module, cols[i].Name)
-		if strings.HasPrefix(name, prefix) {
+		if r.MatchString(name) {
 			ncols = append(ncols, cols[i])
 		}
 	}
 	// Done
 	return ncols
 }
+
 func printTrace(start uint, end uint, max_width uint, cols []trace.RawColumn) {
 	n := uint(len(cols))
 	height := min(maxHeightColumns(cols), end) - start
@@ -119,6 +126,7 @@ func listColumns(tr []trace.RawColumn) {
 		for j := 0; j < len(colSummarisers); j++ {
 			row[j+1] = colSummarisers[j].summary(tr[i])
 		}
+
 		tbl.SetRow(i, row...)
 	}
 	//

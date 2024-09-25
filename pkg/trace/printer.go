@@ -224,6 +224,7 @@ func printHorizontalRule(widths []int) {
 		for i := 0; i < w; i++ {
 			fmt.Print("-")
 		}
+
 		fmt.Print("-+")
 	}
 

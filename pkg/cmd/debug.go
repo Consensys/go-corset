@@ -106,6 +106,7 @@ func printStats(hirSchema *hir.Schema, hir bool, mir bool, air bool) {
 		for j := 0; j < len(schemas); j++ {
 			row[j+1] = ith.summary(schemas[j])
 		}
+
 		tbl.SetRow(i, row...)
 	}
 	//

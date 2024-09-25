@@ -119,9 +119,11 @@ func (p *ArrayTrace) String() string {
 
 				id.WriteString(jth.String())
 			}
+
 			id.WriteString("}")
 		}
 	}
+
 	id.WriteString("}")
 	//
 	return id.String()
