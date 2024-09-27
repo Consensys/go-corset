@@ -104,7 +104,8 @@ func printTrace(start uint, end uint, max_width uint, cols []trace.RawColumn) {
 			ith_height := min(ith.Len(), end) - start
 			for j := uint(0); j < ith_height; j++ {
 				jth := ith.Get(j + start)
-				tbl.Set(j+1, i+1, jth.String())
+
+				tbl.Set(j+1, i+1, jth.Text(16))
 			}
 		}
 	}
@@ -118,20 +119,40 @@ func listColumns(tr []trace.RawColumn) {
 	n := uint(len(tr))
 	// Go!
 	tbl := util.NewTablePrinter(m, n)
-
+	c := make(chan util.Pair[uint, []string], n)
+	//
 	for i := uint(0); i < n; i++ {
-		row := make([]string, m)
-		row[0] = tr[i].QualifiedName()
-		// Add summarises
-		for j := 0; j < len(colSummarisers); j++ {
-			row[j+1] = colSummarisers[j].summary(tr[i])
-		}
-
-		tbl.SetRow(i, row...)
+		// Launch summarisers
+		go func(index uint) {
+			// Apply summarisers to column
+			row := summariseColumn(tr[index])
+			// Package result
+			c <- util.NewPair(index, row)
+		}(i)
+	}
+	// Collect results
+	for i := uint(0); i < n; i++ {
+		// Read packaged result from channel
+		res := <-c
+		// Set row
+		tbl.SetRow(res.Left, res.Right...)
 	}
 	//
 	tbl.SetMaxWidths(64)
 	tbl.Print()
+}
+
+func summariseColumn(column trace.RawColumn) []string {
+	m := 1 + uint(len(colSummarisers))
+	//
+	row := make([]string, m)
+	row[0] = column.QualifiedName()
+	// Generate each summary
+	for j := 0; j < len(colSummarisers); j++ {
+		row[j+1] = colSummarisers[j].summary(column)
+	}
+	// Done
+	return row
 }
 
 func summaryStats(tr []trace.RawColumn) {
