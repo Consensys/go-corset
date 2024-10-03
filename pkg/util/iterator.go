@@ -6,7 +6,7 @@ type Predicate[T any] func(T) bool
 // Iterator is an adapter which sits on top of a BaseIterator and provides
 // various useful and reusable functions.
 type Iterator[T any] interface {
-	BaseIterator[T]
+	Enumerator[T]
 
 	// Append another iterator onto the end of this iterator.  Thus, when all
 	// items are visited in this iterator, iteration continues into the other.
@@ -490,16 +490,7 @@ func (p *unitIterator[T]) Nth(n uint) T {
 // Base Iterator
 // ===============================================================
 
-// BaseIterator abstracts the process of iterating over a sequence of elements.
-type BaseIterator[T any] interface {
-	// Check whether or not there are any items remaining to visit.
-	HasNext() bool
-
-	// Get the next item, and advanced the iterator.
-	Next() T
-}
-
-func baseFind[T any, S BaseIterator[T]](iter S, predicate Predicate[T]) (uint, bool) {
+func baseFind[T any, S Enumerator[T]](iter S, predicate Predicate[T]) (uint, bool) {
 	index := uint(0)
 
 	for i := iter; i.HasNext(); {
@@ -513,7 +504,7 @@ func baseFind[T any, S BaseIterator[T]](iter S, predicate Predicate[T]) (uint, b
 	return 0, false
 }
 
-func baseNth[T any, S BaseIterator[T]](iter S, n uint) T {
+func baseNth[T any, S Enumerator[T]](iter S, n uint) T {
 	index := uint(0)
 
 	for i := iter; i.HasNext(); {
