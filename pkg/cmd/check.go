@@ -136,7 +136,7 @@ func checkTraceWithLowering(cols []tr.RawColumn, schema *hir.Schema, cfg checkCo
 }
 
 func checkTrace(ir string, cols []tr.RawColumn, schema sc.Schema, cfg checkConfig) bool {
-	builder := sc.NewTraceBuilder(schema).Expand(cfg.expand).Parallel(cfg.parallelExpansion)
+	builder := sc.NewTraceBuilder(schema).Expand(cfg.expand).Parallel(cfg.parallelExpansion).BatchSize(cfg.batchSize)
 	//
 	for n := cfg.padding.Left; n <= cfg.padding.Right; n++ {
 		stats := util.NewPerfStats()
