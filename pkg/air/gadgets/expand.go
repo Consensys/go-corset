@@ -1,8 +1,6 @@
 package gadgets
 
 import (
-	"fmt"
-
 	"github.com/consensys/go-corset/pkg/air"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/assignment"
@@ -24,7 +22,7 @@ func Expand(ctx trace.Context, e air.Expr, schema *air.Schema) uint {
 		return ca.Column
 	}
 	// Determine computed column name
-	name := e.String()
+	name := e.Lisp(schema).String(false)
 	// Look up column
 	index, ok := sc.ColumnIndexOf(schema, ctx.Module(), name)
 	// Add new column (if it does not already exist)
@@ -37,8 +35,7 @@ func Expand(ctx trace.Context, e air.Expr, schema *air.Schema) uint {
 	// Construct 1 == e/e
 	eq_e_v := v.Equate(e)
 	// Ensure (e - v) == 0, where v is value of computed column.
-	c_name := fmt.Sprintf("[%s]", e.String())
-	schema.AddVanishingConstraint(c_name, ctx, nil, eq_e_v)
+	schema.AddVanishingConstraint(name, ctx, nil, eq_e_v)
 	//
 	return index
 }

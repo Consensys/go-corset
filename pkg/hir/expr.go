@@ -31,8 +31,6 @@ type Expr interface {
 	// row which does not exist (e.g. at index -1); secondly, if
 	// it accesses a column which does not exist.
 	EvalAllAt(int, trace.Trace) []fr.Element
-	// String produces a string representing this as an S-Expression.
-	String() string
 }
 
 // ============================================================================

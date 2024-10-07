@@ -1,5 +1,10 @@
 package sexp
 
+import (
+	"fmt"
+	"unicode"
+)
+
 // SExp is an S-Expression is either a List of zero or more S-Expressions, or
 // a Symbol.
 type SExp interface {
@@ -9,8 +14,10 @@ type SExp interface {
 	// AsSymbol checks whether this S-Expression is a symbol and,
 	// if so, returns it.  Otherwise, it returns nil.
 	AsSymbol() *Symbol
-	// String generates a string representation.
-	String() string
+	// String generates a string representation which may (may not) be quoted.
+	// Quoting is used to manage symbol names which contain whitespace
+	// characters and braces, etc.
+	String(quote bool) string
 }
 
 // ===================================================================
@@ -26,6 +33,16 @@ type List struct {
 // satisfies the given interface.
 var _ SExp = (*List)(nil)
 
+// EmptyList creates an empty list.
+func EmptyList() *List {
+	return &List{}
+}
+
+// NewList creates a new list from a given array of S-Expressions.
+func NewList(elements []SExp) *List {
+	return &List{elements}
+}
+
 // AsList returns the given list.
 func (l *List) AsList() *List { return l }
 
@@ -38,15 +55,20 @@ func (l *List) Len() int { return len(l.Elements) }
 // Get the ith element of this list
 func (l *List) Get(i int) SExp { return l.Elements[i] }
 
-func (l *List) String() string {
+// Append a new element onto this list.
+func (l *List) Append(element SExp) {
+	l.Elements = append(l.Elements, element)
+}
+
+func (l *List) String(quote bool) string {
 	var s = "("
 
 	for i := 0; i < len(l.Elements); i++ {
 		if i != 0 {
-			s += ","
+			s += " "
 		}
 
-		s += l.Elements[i].String()
+		s += l.Elements[i].String(quote)
 	}
 
 	s += ")"
@@ -88,10 +110,36 @@ type Symbol struct {
 // satisfies the given interface.
 var _ SExp = (*Symbol)(nil)
 
+// NewSymbol creates a new symbol from a given string.
+func NewSymbol(value string) *Symbol {
+	return &Symbol{value}
+}
+
 // AsList returns nil for a symbol.
 func (s *Symbol) AsList() *List { return nil }
 
 // AsSymbol returns the given symbol
 func (s *Symbol) AsSymbol() *Symbol { return s }
 
-func (s *Symbol) String() string { return s.Value }
+func (s *Symbol) String(quote bool) string {
+	if quote {
+		needed := false
+		// Check whether suitable symbol
+		for _, r := range s.Value {
+			if !isSymbolLetter(r) {
+				needed = true
+				break
+			}
+		}
+		// Quote (if necessary)
+		if needed {
+			return fmt.Sprintf("\"%s\"", s.Value)
+		}
+	}
+	// No quote required
+	return s.Value
+}
+
+func isSymbolLetter(r rune) bool {
+	return r != '(' && r != ')' && !unicode.IsSpace(r)
+}

@@ -29,6 +29,12 @@ func RequiredSpillage(module uint, schema Schema) uint {
 	return mx
 }
 
+// QualifiedName returns the fully qualified name for a given (indexed) column in a given schema.
+func QualifiedName(schema Schema, column uint) string {
+	col := schema.Columns().Nth(column)
+	return col.QualifiedName(schema)
+}
+
 // JoinContexts combines one or more evaluation contexts together.  If all
 // expressions have the void context, then this is returned.  Likewise, if any
 // expression has a conflicting context then this is returned.  Finally, if any

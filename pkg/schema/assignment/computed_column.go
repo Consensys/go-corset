@@ -1,9 +1,8 @@
 package assignment
 
 import (
-	"fmt"
-
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/sexp"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
@@ -28,11 +27,6 @@ func NewComputedColumn[E sc.Evaluable](context trace.Context, name string, expr 
 	column := sc.NewColumn(context, name, &sc.FieldType{})
 	// FIXME: Determine computed columns type?
 	return &ComputedColumn[E]{column, expr}
-}
-
-// nolint:revive
-func (p *ComputedColumn[E]) String() string {
-	return fmt.Sprintf("(compute %s %s)", p.Name(), any(p.expr))
 }
 
 // Name returns the name of this computed column.
@@ -103,4 +97,18 @@ func (p *ComputedColumn[E]) ComputeColumns(tr trace.Trace) ([]trace.ArrayColumn,
 // That can include both input columns, as well as other computed columns.
 func (p *ComputedColumn[E]) Dependencies() []uint {
 	return *p.expr.RequiredColumns()
+}
+
+// ============================================================================
+// Lispify Interface
+// ============================================================================
+
+// Lisp converts this schema element into a simple S-Expression, for example
+// so it can be printed.
+func (p *ComputedColumn[E]) Lisp(schema sc.Schema) sexp.SExp {
+	col := sexp.NewSymbol("computed")
+	name := sexp.NewSymbol(p.Columns().Next().QualifiedName(schema))
+	expr := p.expr.Lisp(schema)
+
+	return sexp.NewList([]sexp.SExp{col, name, expr})
 }

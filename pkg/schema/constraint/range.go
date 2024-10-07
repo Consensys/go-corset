@@ -5,6 +5,8 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
+	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/sexp"
 	"github.com/consensys/go-corset/pkg/trace"
 )
 
@@ -70,10 +72,6 @@ func (p *RangeConstraint) Accepts(tr trace.Trace) schema.Failure {
 	return nil
 }
 
-func (p *RangeConstraint) String() string {
-	return fmt.Sprintf("(range #%d %s)", p.column, p.bound)
-}
-
 // Column returns the index of the column subjected to the constraint.
 func (p *RangeConstraint) Column() uint {
 	return p.column
@@ -85,4 +83,16 @@ func (p *RangeConstraint) Column() uint {
 // and more straightforward to understand.
 func (p *RangeConstraint) Bound() uint64 {
 	return p.bound.Uint64()
+}
+
+// Lisp converts this schema element into a simple S-Expression, for example
+// so it can be printed.
+func (p *RangeConstraint) Lisp(schema sc.Schema) sexp.SExp {
+	col := schema.Columns().Nth(p.column)
+	//
+	return sexp.NewList([]sexp.SExp{
+		sexp.NewSymbol("range"),
+		sexp.NewSymbol(col.QualifiedName(schema)),
+		sexp.NewSymbol(p.bound.String()),
+	})
 }
