@@ -1,8 +1,8 @@
 package assignment
 
 import (
-	"github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/trace"
+	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/sexp"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
@@ -13,7 +13,7 @@ import (
 // Z=[1,3,2,4].
 type Interleaving struct {
 	// The new (interleaved) column
-	target schema.Column
+	target sc.Column
 	// The source columns
 	sources []uint
 }
@@ -23,7 +23,7 @@ func NewInterleaving(context tr.Context, name string, sources []uint) *Interleav
 	// Update multiplier
 	context = context.Multiply(uint(len(sources)))
 	// Fixme: determine interleaving type
-	target := schema.NewColumn(context, name, &schema.FieldType{})
+	target := sc.NewColumn(context, name, &sc.FieldType{})
 
 	return &Interleaving{target, sources}
 }
@@ -44,12 +44,12 @@ func (p *Interleaving) Sources() []uint {
 // ============================================================================
 
 // Context returns the evaluation context for this interleaving.
-func (p *Interleaving) Context() trace.Context {
+func (p *Interleaving) Context() tr.Context {
 	return p.target.Context()
 }
 
 // Columns returns the column declared by this interleaving.
-func (p *Interleaving) Columns() util.Iterator[schema.Column] {
+func (p *Interleaving) Columns() util.Iterator[sc.Column] {
 	return util.NewUnitIterator(p.target)
 }
 
@@ -72,7 +72,7 @@ func (p *Interleaving) RequiredSpillage() uint {
 // ComputeColumns computes the values of columns defined by this assignment.
 // This requires copying the data in the source columns to create the
 // interleaved column.
-func (p *Interleaving) ComputeColumns(tr trace.Trace) ([]trace.ArrayColumn, error) {
+func (p *Interleaving) ComputeColumns(trace tr.Trace) ([]tr.ArrayColumn, error) {
 	ctx := p.target.Context()
 	// Byte width records the largest width of any column.
 	bit_width := uint(0)
@@ -86,7 +86,7 @@ func (p *Interleaving) ComputeColumns(tr trace.Trace) ([]trace.ArrayColumn, erro
 	width := uint(len(p.sources))
 	// Following division should always produce whole value because the length
 	// multiplier already includes the width as a factor.
-	height := tr.Height(ctx) / width
+	height := trace.Height(ctx) / width
 	// Construct empty array
 	data := util.NewFrArray(height*width, bit_width)
 	// Offset just gives the column index
@@ -94,7 +94,7 @@ func (p *Interleaving) ComputeColumns(tr trace.Trace) ([]trace.ArrayColumn, erro
 	// Copy interleaved data
 	for i := uint(0); i < width; i++ {
 		// Lookup source column
-		col := tr.Column(p.sources[i])
+		col := trace.Column(p.sources[i])
 		// Copy over
 		for j := uint(0); j < height; j++ {
 			data.Set(offset+(j*width), col.Get(int(j)))
@@ -104,15 +104,36 @@ func (p *Interleaving) ComputeColumns(tr trace.Trace) ([]trace.ArrayColumn, erro
 	}
 	// Padding for the entire column is determined by the padding for the first
 	// column in the interleaving.
-	padding := tr.Column(0).Padding()
+	padding := trace.Column(0).Padding()
 	// Colunm needs to be expanded.
-	col := trace.NewArrayColumn(ctx, p.target.Name(), data, padding)
+	col := tr.NewArrayColumn(ctx, p.target.Name(), data, padding)
 	//
-	return []trace.ArrayColumn{col}, nil
+	return []tr.ArrayColumn{col}, nil
 }
 
 // Dependencies returns the set of columns that this assignment depends upon.
 // That can include both input columns, as well as other computed columns.
 func (p *Interleaving) Dependencies() []uint {
 	return p.sources
+}
+
+// ============================================================================
+// Lispify Interface
+// ============================================================================
+
+// Lisp converts this schema element into a simple S-Expression, for example
+// so it can be printed.
+func (p *Interleaving) Lisp(schema sc.Schema) sexp.SExp {
+	target := sexp.NewSymbol(p.target.QualifiedName(schema))
+	sources := sexp.EmptyList()
+	// Convert source columns
+	for _, src := range p.sources {
+		sources.Append(sexp.NewSymbol(sc.QualifiedName(schema, src)))
+	}
+	// Construct S-Expression
+	return sexp.NewList([]sexp.SExp{
+		sexp.NewSymbol("interleave"),
+		target,
+		sources,
+	})
 }

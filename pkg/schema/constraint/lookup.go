@@ -5,6 +5,8 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/schema"
+	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/sexp"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
@@ -137,26 +139,21 @@ func evalExprsAt[E schema.Evaluable](k int, sources []E, tr trace.Trace) []byte 
 	return bytes
 }
 
+// Lisp converts this schema element into a simple S-Expression, for example
+// so it can be printed.
+//
 //nolint:revive
-func (p *LookupConstraint[E]) String() string {
-	sources := ""
-	targets := ""
+func (p *LookupConstraint[E]) Lisp(schema sc.Schema) sexp.SExp {
+	sources := sexp.EmptyList()
+	targets := sexp.EmptyList()
 	// Iterate source expressions
 	for i := 0; i < len(p.sources); i++ {
-		if i == 0 {
-			sources = fmt.Sprintf("%s", any(p.sources[i]))
-		} else {
-			sources = fmt.Sprintf("%s %s", sources, any(p.sources[i]))
-		}
+		sources.Append(p.sources[i].Lisp(schema))
 	}
 	// Iterate source expressions
 	for i := 0; i < len(p.targets); i++ {
-		if i == 0 {
-			targets = fmt.Sprintf("%s", any(p.targets[i]))
-		} else {
-			targets = fmt.Sprintf("%s %s", targets, any(p.targets[i]))
-		}
+		targets.Append(p.targets[i].Lisp(schema))
 	}
 	// Done
-	return fmt.Sprintf("(lookup %s (%s) (%s))", p.handle, targets, sources)
+	return sexp.NewList([]sexp.SExp{sexp.NewSymbol(p.handle)})
 }

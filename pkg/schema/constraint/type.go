@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/schema"
+	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/sexp"
 	"github.com/consensys/go-corset/pkg/trace"
 )
 
@@ -72,6 +74,14 @@ func (p *TypeConstraint) Accepts(tr trace.Trace) schema.Failure {
 	return nil
 }
 
-func (p *TypeConstraint) String() string {
-	return fmt.Sprintf("(type %d %s)", p.column, p.expected.String())
+// Lisp converts this schema element into a simple S-Expression, for example
+// so it can be printed.
+func (p *TypeConstraint) Lisp(schema sc.Schema) sexp.SExp {
+	col := schema.Columns().Nth(p.column)
+	//
+	return sexp.NewList([]sexp.SExp{
+		sexp.NewSymbol("type"),
+		sexp.NewSymbol(col.QualifiedName(schema)),
+		sexp.NewSymbol(p.expected.String()),
+	})
 }

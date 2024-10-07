@@ -4,38 +4,39 @@ import (
 	"fmt"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
 )
 
 // ApplyConstantPropagation simply collapses constant expressions down to single
 // values.  For example, "(+ 1 2)" would be collapsed down to "3".
-func applyConstantPropagation(e Expr) Expr {
+func applyConstantPropagation(e Expr, schema sc.Schema) Expr {
 	if p, ok := e.(*Add); ok {
-		return applyConstantPropagationAdd(p.Args)
+		return applyConstantPropagationAdd(p.Args, schema)
 	} else if _, ok := e.(*Constant); ok {
 		return e
 	} else if _, ok := e.(*ColumnAccess); ok {
 		return e
 	} else if p, ok := e.(*Mul); ok {
-		return applyConstantPropagationMul(p.Args)
+		return applyConstantPropagationMul(p.Args, schema)
 	} else if p, ok := e.(*Exp); ok {
-		return applyConstantPropagationExp(p.Arg, p.Pow)
+		return applyConstantPropagationExp(p.Arg, p.Pow, schema)
 	} else if p, ok := e.(*Normalise); ok {
-		return applyConstantPropagationNorm(p.Arg)
+		return applyConstantPropagationNorm(p.Arg, schema)
 	} else if p, ok := e.(*Sub); ok {
-		return applyConstantPropagationSub(p.Args)
+		return applyConstantPropagationSub(p.Args, schema)
 	}
 	// Should be unreachable
-	panic(fmt.Sprintf("unknown expression: %s", e.String()))
+	panic(fmt.Sprintf("unknown expression: %s", e.Lisp(schema).String(true)))
 }
 
-func applyConstantPropagationAdd(es []Expr) Expr {
+func applyConstantPropagationAdd(es []Expr, schema sc.Schema) Expr {
 	sum := fr.NewElement(0)
 	is_const := true
 	rs := make([]Expr, len(es))
 	//
 	for i, e := range es {
-		rs[i] = applyConstantPropagation(e)
+		rs[i] = applyConstantPropagation(e, schema)
 		// Check for constant
 		c, ok := rs[i].(*Constant)
 		// Try to continue sum
@@ -54,14 +55,14 @@ func applyConstantPropagationAdd(es []Expr) Expr {
 	return &Add{rs}
 }
 
-func applyConstantPropagationSub(es []Expr) Expr {
+func applyConstantPropagationSub(es []Expr, schema sc.Schema) Expr {
 	var sum fr.Element
 
 	is_const := true
 	rs := make([]Expr, len(es))
 	//
 	for i, e := range es {
-		rs[i] = applyConstantPropagation(e)
+		rs[i] = applyConstantPropagation(e, schema)
 		// Check for constant
 		c, ok := rs[i].(*Constant)
 		// Try to continue sum
@@ -82,14 +83,14 @@ func applyConstantPropagationSub(es []Expr) Expr {
 	return &Sub{rs}
 }
 
-func applyConstantPropagationMul(es []Expr) Expr {
+func applyConstantPropagationMul(es []Expr, schema sc.Schema) Expr {
 	one := fr.NewElement(1)
 	is_const := true
 	prod := one
 	rs := make([]Expr, len(es))
 	//
 	for i, e := range es {
-		rs[i] = applyConstantPropagation(e)
+		rs[i] = applyConstantPropagation(e, schema)
 		// Check for constant
 		c, ok := rs[i].(*Constant)
 		//
@@ -111,8 +112,8 @@ func applyConstantPropagationMul(es []Expr) Expr {
 	return &Mul{rs}
 }
 
-func applyConstantPropagationExp(arg Expr, pow uint64) Expr {
-	arg = applyConstantPropagation(arg)
+func applyConstantPropagationExp(arg Expr, pow uint64, schema sc.Schema) Expr {
+	arg = applyConstantPropagation(arg, schema)
 	//
 	if c, ok := arg.(*Constant); ok {
 		var val fr.Element
@@ -127,8 +128,8 @@ func applyConstantPropagationExp(arg Expr, pow uint64) Expr {
 	return &Exp{arg, pow}
 }
 
-func applyConstantPropagationNorm(arg Expr) Expr {
-	arg = applyConstantPropagation(arg)
+func applyConstantPropagationNorm(arg Expr, schema sc.Schema) Expr {
+	arg = applyConstantPropagation(arg, schema)
 	//
 	if c, ok := arg.(*Constant); ok {
 		var val fr.Element

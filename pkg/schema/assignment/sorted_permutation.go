@@ -3,8 +3,8 @@ package assignment
 import (
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/trace"
+	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/sexp"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
@@ -13,9 +13,9 @@ import (
 // existing columns.
 type SortedPermutation struct {
 	// Context where this data column is located.
-	context trace.Context
+	context tr.Context
 	// The new (sorted) columns
-	targets []schema.Column
+	targets []sc.Column
 	// The sorting criteria
 	signs []bool
 	// The existing columns
@@ -23,7 +23,7 @@ type SortedPermutation struct {
 }
 
 // NewSortedPermutation creates a new sorted permutation
-func NewSortedPermutation(context tr.Context, targets []schema.Column,
+func NewSortedPermutation(context tr.Context, targets []sc.Column,
 	signs []bool, sources []uint) *SortedPermutation {
 	if len(targets) != len(signs) || len(signs) != len(sources) {
 		panic("target and source column widths must match")
@@ -57,39 +57,8 @@ func (p *SortedPermutation) Signs() []bool {
 // Targets returns the columns declared by this sorted permutation (in the order
 // of declaration).  This is the same as Columns(), except that it avoids using
 // an iterator.
-func (p *SortedPermutation) Targets() []schema.Column {
+func (p *SortedPermutation) Targets() []sc.Column {
 	return p.targets
-}
-
-// String returns a string representation of this constraint.  This is primarily
-// used for debugging.
-func (p *SortedPermutation) String() string {
-	targets := ""
-	sources := ""
-
-	index := 0
-	for i := 0; i != len(p.targets); i++ {
-		if index != 0 {
-			targets += " "
-		}
-
-		targets += p.targets[i].Name()
-		index++
-	}
-
-	for i, s := range p.sources {
-		if i != 0 {
-			sources += " "
-		}
-
-		if p.signs[i] {
-			sources += fmt.Sprintf("+#%d", s)
-		} else {
-			sources += fmt.Sprintf("-#%d", s)
-		}
-	}
-
-	return fmt.Sprintf("(permute (%s) (%s))", targets, sources)
 }
 
 // ============================================================================
@@ -97,13 +66,13 @@ func (p *SortedPermutation) String() string {
 // ============================================================================
 
 // Context returns the evaluation context for this declaration.
-func (p *SortedPermutation) Context() trace.Context {
+func (p *SortedPermutation) Context() tr.Context {
 	return p.context
 }
 
 // Columns returns the columns declared by this sorted permutation (in the order
 // of declaration).
-func (p *SortedPermutation) Columns() util.Iterator[schema.Column] {
+func (p *SortedPermutation) Columns() util.Iterator[sc.Column] {
 	return util.NewArrayIterator(p.targets)
 }
 
@@ -125,26 +94,26 @@ func (p *SortedPermutation) RequiredSpillage() uint {
 // ComputeColumns computes the values of columns defined by this assignment.
 // This requires copying the data in the source columns, and sorting that data
 // according to the permutation criteria.
-func (p *SortedPermutation) ComputeColumns(tr trace.Trace) ([]trace.ArrayColumn, error) {
+func (p *SortedPermutation) ComputeColumns(trace tr.Trace) ([]tr.ArrayColumn, error) {
 	data := make([]util.FrArray, len(p.sources))
 	// Construct target columns
 	for i := 0; i < len(p.sources); i++ {
 		src := p.sources[i]
 		// Read column data
-		src_data := tr.Column(src).Data()
+		src_data := trace.Column(src).Data()
 		// Clone it to initialise permutation.
 		data[i] = src_data.Clone()
 	}
 	// Sort target columns
 	util.PermutationSort(data, p.signs)
 	// Physically construct the columns
-	cols := make([]trace.ArrayColumn, len(p.sources))
+	cols := make([]tr.ArrayColumn, len(p.sources))
 	//
 	for i, iter := 0, p.Columns(); iter.HasNext(); i++ {
 		ith := iter.Next()
 		dstColName := ith.Name()
-		srcCol := tr.Column(p.sources[i])
-		cols[i] = trace.NewArrayColumn(ith.Context(), dstColName, data[i], srcCol.Padding())
+		srcCol := trace.Column(p.sources[i])
+		cols[i] = tr.NewArrayColumn(ith.Context(), dstColName, data[i], srcCol.Padding())
 	}
 	//
 	return cols, nil
@@ -154,4 +123,37 @@ func (p *SortedPermutation) ComputeColumns(tr trace.Trace) ([]trace.ArrayColumn,
 // That can include both input columns, as well as other computed columns.
 func (p *SortedPermutation) Dependencies() []uint {
 	return p.sources
+}
+
+// ============================================================================
+// Lispify Interface
+// ============================================================================
+
+// Lisp converts this schema element into a simple S-Expression, for example
+// so it can be printed.
+func (p *SortedPermutation) Lisp(schema sc.Schema) sexp.SExp {
+	targets := sexp.EmptyList()
+	sources := sexp.EmptyList()
+
+	for i := 0; i != len(p.targets); i++ {
+		ith := p.targets[i].QualifiedName(schema)
+		targets.Append(sexp.NewSymbol(ith))
+	}
+
+	for i, s := range p.sources {
+		ith := sc.QualifiedName(schema, s)
+		if p.signs[i] {
+			ith = fmt.Sprintf("+%s", ith)
+		} else {
+			ith = fmt.Sprintf("-%s", ith)
+		}
+		//
+		sources.Append(sexp.NewSymbol(ith))
+	}
+
+	return sexp.NewList([]sexp.SExp{
+		sexp.NewSymbol("sort"),
+		targets,
+		sources,
+	})
 }

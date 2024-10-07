@@ -15,8 +15,6 @@ import (
 type Expr interface {
 	util.Boundable
 	sc.Evaluable
-	// String produces a string representing this as an S-Expression.
-	String() string
 }
 
 // ============================================================================

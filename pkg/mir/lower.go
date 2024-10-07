@@ -166,7 +166,7 @@ func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Sche
 // should be located.
 func lowerExprTo(ctx trace.Context, e1 Expr, schema *air.Schema) air.Expr {
 	// Apply constant propagation
-	e2 := applyConstantPropagation(e1)
+	e2 := applyConstantPropagation(e1, schema)
 	// Lower properly
 	return lowerExprToInner(ctx, e2, schema)
 }
@@ -194,7 +194,7 @@ func lowerExprToInner(ctx trace.Context, e Expr, schema *air.Schema) air.Expr {
 		return &air.Sub{Args: lowerExprs(ctx, p.Args, schema)}
 	}
 	// Should be unreachable
-	panic(fmt.Sprintf("unknown expression: %s", e.String()))
+	panic(fmt.Sprintf("unknown expression: %s", e.Lisp(schema).String(true)))
 }
 
 // LowerTo lowers an exponent expression to the AIR level by lowering the

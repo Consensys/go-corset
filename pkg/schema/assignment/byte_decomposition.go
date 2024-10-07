@@ -4,7 +4,8 @@ import (
 	"fmt"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/schema"
+	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/sexp"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
@@ -15,7 +16,7 @@ type ByteDecomposition struct {
 	// The source column being decomposed
 	source uint
 	// Target columns needed for decomposition
-	targets []schema.Column
+	targets []sc.Column
 }
 
 // NewByteDecomposition creates a new sorted permutation
@@ -24,20 +25,16 @@ func NewByteDecomposition(prefix string, context trace.Context, source uint, wid
 		panic("zero byte decomposition encountered")
 	}
 	// Define type of bytes
-	U8 := schema.NewUintType(8)
+	U8 := sc.NewUintType(8)
 	// Construct target names
-	targets := make([]schema.Column, width)
+	targets := make([]sc.Column, width)
 
 	for i := uint(0); i < width; i++ {
 		name := fmt.Sprintf("%s:%d", prefix, i)
-		targets[i] = schema.NewColumn(context, name, U8)
+		targets[i] = sc.NewColumn(context, name, U8)
 	}
 	// Done
 	return &ByteDecomposition{source, targets}
-}
-
-func (p *ByteDecomposition) String() string {
-	return fmt.Sprintf("(decomposition #%d %d)", p.source, len(p.targets))
 }
 
 // ============================================================================
@@ -51,8 +48,8 @@ func (p *ByteDecomposition) Context() trace.Context {
 
 // Columns returns the columns declared by this byte decomposition (in the order
 // of declaration).
-func (p *ByteDecomposition) Columns() util.Iterator[schema.Column] {
-	return util.NewArrayIterator[schema.Column](p.targets)
+func (p *ByteDecomposition) Columns() util.Iterator[sc.Column] {
+	return util.NewArrayIterator[sc.Column](p.targets)
 }
 
 // IsComputed Determines whether or not this declaration is computed.
@@ -126,4 +123,23 @@ func decomposeIntoBytes(val fr.Element, n int) []fr.Element {
 
 	// Done
 	return elements
+}
+
+// ============================================================================
+// Lispify Interface
+// ============================================================================
+
+// Lisp converts this schema element into a simple S-Expression, for example
+// so it can be printed.
+func (p *ByteDecomposition) Lisp(schema sc.Schema) sexp.SExp {
+	targets := sexp.EmptyList()
+	for _, t := range p.targets {
+		targets.Append(sexp.NewSymbol(t.QualifiedName(schema)))
+	}
+
+	return sexp.NewList(
+		[]sexp.SExp{sexp.NewSymbol("decompose"),
+			targets,
+			sexp.NewSymbol(sc.QualifiedName(schema, p.source)),
+		})
 }

@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/schema"
+	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/sexp"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
@@ -67,27 +69,27 @@ func (p *PermutationConstraint) Accepts(tr trace.Trace) schema.Failure {
 	return &PermutationFailure{msg}
 }
 
-func (p *PermutationConstraint) String() string {
-	targets := ""
-	sources := ""
+// Lisp converts this schema element into a simple S-Expression, for example
+// so it can be printed.
+func (p *PermutationConstraint) Lisp(schema sc.Schema) sexp.SExp {
+	targets := sexp.EmptyList()
+	sources := sexp.EmptyList()
 
-	for i, s := range p.targets {
-		if i != 0 {
-			targets += " "
-		}
-
-		targets += fmt.Sprintf("%d", s)
+	for _, tid := range p.targets {
+		target := schema.Columns().Nth(tid)
+		targets.Append(sexp.NewSymbol(target.QualifiedName(schema)))
 	}
 
-	for i, s := range p.sources {
-		if i != 0 {
-			sources += " "
-		}
-
-		sources += fmt.Sprintf("%d", s)
+	for _, sid := range p.sources {
+		source := schema.Columns().Nth(sid)
+		sources.Append(sexp.NewSymbol(source.QualifiedName(schema)))
 	}
 
-	return fmt.Sprintf("(permutation (%s) (%s))", targets, sources)
+	return sexp.NewList([]sexp.SExp{
+		sexp.NewSymbol("permutation"),
+		targets,
+		sources,
+	})
 }
 
 // Targets returns the indices of the columns composing the "left" table of the

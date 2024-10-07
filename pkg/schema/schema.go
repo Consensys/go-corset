@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/go-corset/pkg/sexp"
 	"github.com/consensys/go-corset/pkg/trace"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -40,6 +41,7 @@ type Schema interface {
 // schema.  For example, a single data column is (for now) always a column group
 // of size 1. Likewise, an iterator of size n is a column group of size n, etc.
 type Declaration interface {
+	Lispifiable
 	// Return the declared columns (in the order of declaration).
 	Columns() util.Iterator[Column]
 
@@ -79,8 +81,8 @@ type Assignment interface {
 // Constraint represents an element which can "accept" a trace, or either reject
 // with an error (or eventually perhaps report a warning).
 type Constraint interface {
+	Lispifiable
 	Accepts(tr.Trace) Failure
-	String() string
 }
 
 // Failure embodies structured information about a failing constraint.
@@ -133,6 +135,7 @@ type Testable interface {
 // require a single context.  This interface is separated from Evaluable (and
 // Testable) because HIR expressions do not implement Evaluable.
 type Contextual interface {
+	Lispifiable
 	// Context returns the evaluation context (i.e. enclosing module + length
 	// multiplier) for this constraint.  Every expression must have a single
 	// evaluation context.  This function therefore attempts to determine what
@@ -153,6 +156,14 @@ type Contextual interface {
 	// RequiredCells returns the set of trace cells on which evaluation of this
 	// constraint element depends.
 	RequiredCells(int, tr.Trace) *util.AnySortedSet[tr.CellRef]
+}
+
+// Lispifiable captures a schema element which can be turned into a stand alone
+// S-expression (e.g. for printing).
+type Lispifiable interface {
+	// Lisp converts this schema element into a simple S-Expression, for example
+	// so it can be printed.
+	Lisp(sc Schema) sexp.SExp
 }
 
 // ============================================================================
@@ -183,6 +194,16 @@ func (p Column) Context() tr.Context {
 
 // Name returns the name of this column
 func (p Column) Name() string {
+	return p.name
+}
+
+// QualifiedName returns the fully qualified name of this column
+func (p Column) QualifiedName(schema Schema) string {
+	mod := schema.Modules().Nth(p.context.Module())
+	if mod.Name() != "" {
+		return fmt.Sprintf("%s:%s", mod.Name(), p.name)
+	}
+	//
 	return p.name
 }
 

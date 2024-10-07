@@ -3,6 +3,7 @@ package hir
 import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/sexp"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
@@ -35,10 +36,6 @@ func (p ZeroArrayTest) TestAt(row int, trace tr.Trace) bool {
 	return true
 }
 
-func (p ZeroArrayTest) String() string {
-	return p.Expr.String()
-}
-
 // Bounds determines the bounds for this zero test.
 func (p ZeroArrayTest) Bounds() util.Bounds {
 	return p.Expr.Bounds()
@@ -61,6 +58,12 @@ func (p ZeroArrayTest) RequiredColumns() *util.SortedSet[uint] {
 // constraint element depends.
 func (p ZeroArrayTest) RequiredCells(row int, trace tr.Trace) *util.AnySortedSet[tr.CellRef] {
 	return p.Expr.RequiredCells(row, trace)
+}
+
+// Lisp converts this schema element into a simple S-Expression, for example
+// so it can be printed.
+func (p ZeroArrayTest) Lisp(schema sc.Schema) sexp.SExp {
+	return p.Expr.Lisp(schema)
 }
 
 // ============================================================================
@@ -123,4 +126,10 @@ func (e UnitExpr) RequiredColumns() *util.SortedSet[uint] {
 // In this case, that is the empty set.
 func (e UnitExpr) RequiredCells(row int, trace tr.Trace) *util.AnySortedSet[tr.CellRef] {
 	return e.expr.RequiredCells(row, trace)
+}
+
+// Lisp converts this schema element into a simple S-Expression, for example
+// so it can be printed.
+func (e UnitExpr) Lisp(schema sc.Schema) sexp.SExp {
+	return e.expr.Lisp(schema)
 }

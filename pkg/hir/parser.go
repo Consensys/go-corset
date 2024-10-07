@@ -121,7 +121,7 @@ func (p *hirParser) parseModuleDeclaration(l *sexp.List) error {
 		return p.translator.SyntaxError(l, "malformed module declaration")
 	}
 	// Extract column name
-	moduleName := l.Elements[1].String()
+	moduleName := l.Elements[1].AsSymbol().Value
 	// Sanity check doesn't already exist
 	if p.env.HasModule(moduleName) {
 		return p.translator.SyntaxError(l, "duplicate module declaration")
@@ -141,7 +141,7 @@ func (p *hirParser) parseColumnDeclaration(l *sexp.List) error {
 		return p.translator.SyntaxError(l, "malformed column declaration")
 	}
 	// Extract column name
-	columnName := l.Elements[1].String()
+	columnName := l.Elements[1].String(false)
 	// Sanity check doesn't already exist
 	if p.env.HasColumn(p.module, columnName) {
 		return p.translator.SyntaxError(l, "duplicate column declaration")
@@ -191,7 +191,7 @@ func (p *hirParser) parseSortedPermutationDeclaration(l *sexp.List) error {
 			return p.translator.SyntaxError(sexpTargets.Get(i), "malformed column")
 		}
 		// Determine source column sign (i.e. sort direction)
-		sortName := source.String()
+		sortName := source.Value
 		if strings.HasPrefix(sortName, "+") {
 			signs[i] = true
 		} else if strings.HasPrefix(sortName, "-") {
@@ -205,7 +205,7 @@ func (p *hirParser) parseSortedPermutationDeclaration(l *sexp.List) error {
 		}
 
 		sourceName := sortName[1:]
-		targetName := target.String()
+		targetName := target.Value
 		// Determine index for source column
 		sourceIndex, ok := p.env.LookupColumn(p.module, sourceName)
 		if !ok {
@@ -239,7 +239,7 @@ func (p *hirParser) parseSortedPermutationDeclaration(l *sexp.List) error {
 
 // Parse a lookup declaration
 func (p *hirParser) parseLookupDeclaration(l *sexp.List) error {
-	handle := l.Elements[1].String()
+	handle := l.Elements[1].AsSymbol().Value
 	// Target columns are (sorted) permutations of source columns.
 	sexpTargets := l.Elements[2].AsList()
 	// Source columns.
@@ -348,7 +348,7 @@ func (p *hirParser) parseInterleavingDeclaration(l *sexp.List) error {
 
 // Parse a property assertion
 func (p *hirParser) parseAssertionDeclaration(elements []sexp.SExp) error {
-	handle := elements[1].String()
+	handle := elements[1].AsSymbol().Value
 	// Property assertions do not have global scope, hence qualified column
 	// accesses are not permitted.
 	p.global = false
@@ -367,7 +367,7 @@ func (p *hirParser) parseAssertionDeclaration(elements []sexp.SExp) error {
 
 // Parse a vanishing declaration
 func (p *hirParser) parseVanishingDeclaration(elements []sexp.SExp, domain *int) error {
-	handle := elements[1].String()
+	handle := elements[1].AsSymbol().Value
 	// Vanishing constraints do not have global scope, hence qualified column
 	// accesses are not permitted.
 	p.global = false
@@ -396,7 +396,7 @@ func (p *hirParser) parseType(term sexp.SExp) (sc.Type, error) {
 		return nil, p.translator.SyntaxError(term, "malformed column")
 	}
 	// Access string of symbol
-	str := symbol.String()
+	str := symbol.Value
 	if strings.HasPrefix(str, ":u") {
 		n, err := strconv.Atoi(str[2:])
 		if err != nil {

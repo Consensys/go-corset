@@ -162,7 +162,7 @@ func (e *Sub) LowerTo(schema *mir.Schema) []mir.Expr {
 // to the root.
 func lowerTo(e Expr, schema *mir.Schema) []mir.Expr {
 	// First expand expression
-	es := expand(e)
+	es := expand(e, schema)
 	// Now lower each one (carefully)
 	mes := make([]mir.Expr, len(es))
 	//
@@ -197,7 +197,7 @@ func extractCondition(e Expr, schema *mir.Schema) mir.Expr {
 		return extractConditions(p.Args, schema)
 	}
 	// Should be unreachable
-	panic(fmt.Sprintf("unknown expression: %s", e.String()))
+	panic(fmt.Sprintf("unknown expression: %s", e.Lisp(schema)))
 }
 
 func extractConditions(es []Expr, schema *mir.Schema) mir.Expr {
@@ -220,7 +220,7 @@ func extractIfZeroCondition(e *IfZero, schema *mir.Schema) mir.Expr {
 	if e.TrueBranch != nil && e.FalseBranch != nil {
 		// Expansion should ensure this case does not exist.  This is necessary
 		// to ensure exactly one expression is generated from this expression.
-		panic(fmt.Sprintf("unexpanded expression (%s)", e.String()))
+		panic(fmt.Sprintf("unexpanded expression (%s)", e.Lisp(schema)))
 	} else if e.TrueBranch != nil {
 		// (1 - NORM(cb)) for true branch
 		normBody := &mir.Normalise{Arg: cb}
@@ -262,7 +262,7 @@ func extractBody(e Expr, schema *mir.Schema) mir.Expr {
 		if p.TrueBranch != nil && p.FalseBranch != nil {
 			// Expansion should ensure this case does not exist.  This is necessary
 			// to ensure exactly one expression is generated from this expression.
-			panic(fmt.Sprintf("unexpanded expression (%s)", e.String()))
+			panic(fmt.Sprintf("unexpanded expression (%s)", e.Lisp(schema)))
 		} else if p.TrueBranch != nil {
 			return extractBody(p.TrueBranch, schema)
 		}
@@ -272,7 +272,7 @@ func extractBody(e Expr, schema *mir.Schema) mir.Expr {
 		return &mir.Sub{Args: extractBodies(p.Args, schema)}
 	}
 	// Should be unreachable
-	panic(fmt.Sprintf("unknown expression: %s", e.String()))
+	panic(fmt.Sprintf("unknown expression: %s", e.Lisp(schema)))
 }
 
 // Extract a vector of expanded expressions to the MIR level.
@@ -295,11 +295,11 @@ func extractBodies(es []Expr, schema *mir.Schema) []mir.Expr {
 // Likewise, a condition such as "(if X Y Z)" is broken down into two
 // expressions "(if X Y)" and "(ifnot X Z)".  These are necessary steps for the
 // conversion into a lower-level form.
-func expand(e Expr) []Expr {
+func expand(e Expr, schema sc.Schema) []Expr {
 	if p, ok := e.(*Add); ok {
 		return expandWithNaryConstructor(p.Args, func(nargs []Expr) Expr {
 			return &Add{Args: nargs}
-		})
+		}, schema)
 	} else if _, ok := e.(*Constant); ok {
 		return []Expr{e}
 	} else if _, ok := e.(*ColumnAccess); ok {
@@ -307,23 +307,23 @@ func expand(e Expr) []Expr {
 	} else if p, ok := e.(*Mul); ok {
 		return expandWithNaryConstructor(p.Args, func(nargs []Expr) Expr {
 			return &Mul{Args: nargs}
-		})
+		}, schema)
 	} else if p, ok := e.(*List); ok {
 		ees := make([]Expr, 0)
 		for _, arg := range p.Args {
-			ees = append(ees, expand(arg)...)
+			ees = append(ees, expand(arg, schema)...)
 		}
 
 		return ees
 	} else if p, ok := e.(*Exp); ok {
-		ees := expand(p.Arg)
+		ees := expand(p.Arg, schema)
 		for i, ee := range ees {
 			ees[i] = &Exp{ee, p.Pow}
 		}
 
 		return ees
 	} else if p, ok := e.(*Normalise); ok {
-		ees := expand(p.Arg)
+		ees := expand(p.Arg, schema)
 		for i, ee := range ees {
 			ees[i] = &Normalise{ee}
 		}
@@ -335,14 +335,14 @@ func expand(e Expr) []Expr {
 			// Expand true branch with condition
 			ees = expandWithBinaryConstructor(p.Condition, p.TrueBranch, func(c Expr, tb Expr) Expr {
 				return &IfZero{c, tb, nil}
-			})
+			}, schema)
 		}
 
 		if p.FalseBranch != nil {
 			// Expand false branch with condition
 			fes := expandWithBinaryConstructor(p.Condition, p.FalseBranch, func(c Expr, fb Expr) Expr {
 				return &IfZero{c, nil, fb}
-			})
+			}, schema)
 			ees = append(ees, fes...)
 		}
 		// Done
@@ -350,21 +350,21 @@ func expand(e Expr) []Expr {
 	} else if p, ok := e.(*Sub); ok {
 		return expandWithNaryConstructor(p.Args, func(nargs []Expr) Expr {
 			return &Sub{Args: nargs}
-		})
+		}, schema)
 	}
 	// Should be unreachable
-	panic(fmt.Sprintf("unknown expression: %s", e.String()))
+	panic(fmt.Sprintf("unknown expression: %s", e.Lisp(schema)))
 }
 
 type binaryConstructor func(Expr, Expr) Expr
 type naryConstructor func([]Expr) Expr
 
 // LowerWithBinaryConstructor is a generic mechanism for lowering down to a binary expression.
-func expandWithBinaryConstructor(lhs Expr, rhs Expr, create binaryConstructor) []Expr {
+func expandWithBinaryConstructor(lhs Expr, rhs Expr, create binaryConstructor, schema sc.Schema) []Expr {
 	var res []Expr
 	// Lower all three expressions
-	is := expand(lhs)
-	js := expand(rhs)
+	is := expand(lhs, schema)
+	js := expand(rhs, schema)
 
 	// Now construct
 	for i := 0; i < len(is); i++ {
@@ -397,17 +397,18 @@ func expandWithBinaryConstructor(lhs Expr, rhs Expr, create binaryConstructor) [
 //
 // This will expand into *four* MIR expressions (i.e. the cross product of the
 // left and right ifs).
-func expandWithNaryConstructor(args []Expr, constructor naryConstructor) []Expr {
+func expandWithNaryConstructor(args []Expr, constructor naryConstructor, schema sc.Schema) []Expr {
 	// Accumulator is initially empty
 	acc := make([]Expr, len(args))
 	// Start from the first argument
-	return expandWithNaryConstructorHelper(0, acc, args, constructor)
+	return expandWithNaryConstructorHelper(0, acc, args, constructor, schema)
 }
 
 // LowerWithNaryConstructorHelper manages progress through the cross-product expansion.
 // Specifically, "i" determines how much of args has been lowered thus
 // far, whilst "acc" represents the current array being generated.
-func expandWithNaryConstructorHelper(i int, acc []Expr, args []Expr, constructor naryConstructor) []Expr {
+func expandWithNaryConstructorHelper(i int, acc []Expr, args []Expr,
+	constructor naryConstructor, schema sc.Schema) []Expr {
 	if i == len(acc) {
 		// Base Case
 		nacc := make([]Expr, len(acc))
@@ -422,9 +423,9 @@ func expandWithNaryConstructorHelper(i int, acc []Expr, args []Expr, constructor
 	// Recursive Case
 	var nargs []Expr
 
-	for _, ith := range expand(args[i]) {
+	for _, ith := range expand(args[i], schema) {
 		acc[i] = ith
-		iths := expandWithNaryConstructorHelper(i+1, acc, args, constructor)
+		iths := expandWithNaryConstructorHelper(i+1, acc, args, constructor, schema)
 		nargs = append(nargs, iths...)
 	}
 

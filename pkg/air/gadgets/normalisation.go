@@ -7,6 +7,7 @@ import (
 	"github.com/consensys/go-corset/pkg/air"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/assignment"
+	"github.com/consensys/go-corset/pkg/sexp"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
@@ -37,7 +38,7 @@ func ApplyPseudoInverseGadget(e air.Expr, schema *air.Schema) air.Expr {
 	// Construct inverse computation
 	ie := &Inverse{Expr: e}
 	// Determine computed column name
-	name := ie.String()
+	name := ie.Lisp(schema).String(false)
 	// Look up column
 	index, ok := sc.ColumnIndexOf(schema, ctx.Module(), name)
 	// Add new column (if it does not already exist)
@@ -57,10 +58,10 @@ func ApplyPseudoInverseGadget(e air.Expr, schema *air.Schema) air.Expr {
 	// Construct (1/e != 0) ==> (1 == e/e)
 	inv_e_implies_one_e_e := inv_e.Mul(one_e_e)
 	// Ensure (e != 0) ==> (1 == e/e)
-	l_name := fmt.Sprintf("[%s <=]", ie.String())
+	l_name := fmt.Sprintf("%s <=", name)
 	schema.AddVanishingConstraint(l_name, ctx, nil, e_implies_one_e_e)
 	// Ensure (e/e != 0) ==> (1 == e/e)
-	r_name := fmt.Sprintf("[%s =>]", ie.String())
+	r_name := fmt.Sprintf("%s =>", name)
 	schema.AddVanishingConstraint(r_name, ctx, nil, inv_e_implies_one_e_e)
 	// Done
 	return air.NewColumnAccess(index, 0)
@@ -105,6 +106,11 @@ func (e *Inverse) RequiredCells(row int, trace tr.Trace) *util.AnySortedSet[tr.C
 	return e.Expr.RequiredCells(row, trace)
 }
 
-func (e *Inverse) String() string {
-	return fmt.Sprintf("(inv %s)", e.Expr)
+// Lisp converts this schema element into a simple S-Expression, for example
+// so it can be printed.
+func (e *Inverse) Lisp(schema sc.Schema) sexp.SExp {
+	return sexp.NewList([]sexp.SExp{
+		sexp.NewSymbol("inv"),
+		e.Expr.Lisp(schema),
+	})
 }

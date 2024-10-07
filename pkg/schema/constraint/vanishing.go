@@ -5,6 +5,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/sexp"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
@@ -52,6 +53,12 @@ func (p ZeroTest[E]) RequiredCells(row int, tr tr.Trace) *util.AnySortedSet[tr.C
 //nolint:revive
 func (p ZeroTest[E]) String() string {
 	return fmt.Sprintf("%s", any(p.Expr))
+}
+
+// Lisp converts this schema element into a simple S-Expression, for example
+// so it can be printed.
+func (p ZeroTest[E]) Lisp(schema sc.Schema) sexp.SExp {
+	return p.Expr.Lisp(schema)
 }
 
 // VanishingFailure provides structural information about a failing vanishing constraint.
@@ -204,15 +211,22 @@ func HoldsLocally[T sc.Testable](k uint, handle string, constraint T, tr tr.Trac
 	return nil
 }
 
-// String generates a human-readble string.
+// Lisp converts this constraint into an S-Expression.
 //
 //nolint:revive
-func (p *VanishingConstraint[T]) String() string {
+func (p *VanishingConstraint[T]) Lisp(schema sc.Schema) sexp.SExp {
+	var head string
 	if p.domain == nil {
-		return fmt.Sprintf("(vanish %s %s)", p.handle, any(p.constraint))
+		head = "vanish"
 	} else if *p.domain == 0 {
-		return fmt.Sprintf("(vanish:first %s %s)", p.handle, any(p.constraint))
+		head = "vanish:first"
+	} else {
+		head = "vanish:last"
 	}
-	//
-	return fmt.Sprintf("(vanish:last %s %s)", p.handle, any(p.constraint))
+	// Construct the list
+	return sexp.NewList([]sexp.SExp{
+		sexp.NewSymbol(head),
+		sexp.NewSymbol(p.handle),
+		p.constraint.Lisp(schema),
+	})
 }

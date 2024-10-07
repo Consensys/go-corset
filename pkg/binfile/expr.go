@@ -143,7 +143,7 @@ func (e *jsonExprFuncall) ToHir(colmap map[uint]uint, schema *hir.Schema) hir.Ex
 		c, ok := args[1].(*hir.Constant)
 
 		if !ok {
-			panic(fmt.Sprintf("constant power expected for Exp, got %s", args[1].String()))
+			panic(fmt.Sprintf("constant power expected for Exp, got %s", args[1].Lisp(schema)))
 		} else if !c.Val.IsUint64() {
 			panic("constant power too large for Exp")
 		}

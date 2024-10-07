@@ -17,9 +17,6 @@ type Expr interface {
 	util.Boundable
 	sc.Evaluable
 
-	// String produces a string representing this as an S-Expression.
-	String() string
-
 	// Add two expressions together, producing a third.
 	Add(Expr) Expr
 
