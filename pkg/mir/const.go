@@ -88,6 +88,7 @@ func applyConstantPropagationMul(es []Expr, schema sc.Schema) Expr {
 	is_const := true
 	prod := one
 	rs := make([]Expr, len(es))
+	ones := 0
 	//
 	for i, e := range es {
 		rs[i] = applyConstantPropagation(e, schema)
@@ -97,6 +98,9 @@ func applyConstantPropagationMul(es []Expr, schema sc.Schema) Expr {
 		if ok && c.Value.IsZero() {
 			// No matter what, outcome is zero.
 			return &Constant{c.Value}
+		} else if ok && c.Value.IsOne() {
+			ones++
+			rs[i] = nil
 		} else if ok && is_const {
 			// Continue building constant
 			prod.Mul(&prod, &c.Value)
@@ -107,8 +111,14 @@ func applyConstantPropagationMul(es []Expr, schema sc.Schema) Expr {
 	// Check if constant
 	if is_const {
 		return &Constant{prod}
+	} else if ones > 0 {
+		rs = util.RemoveMatching[Expr](rs, func(item Expr) bool { return item == nil })
 	}
-	//
+	// Sanity check what's left.
+	if len(rs) == 1 {
+		return rs[0]
+	}
+	// Done
 	return &Mul{rs}
 }
 
