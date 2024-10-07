@@ -63,7 +63,14 @@ func lowerConstraintToAir(c sc.Constraint, schema *air.Schema) {
 		lowerLookupConstraintToAir(v, schema)
 	} else if v, ok := c.(VanishingConstraint); ok {
 		air_expr := lowerExprTo(v.Context(), v.Constraint().Expr, schema)
-		schema.AddVanishingConstraint(v.Handle(), v.Context(), v.Domain(), air_expr)
+		// Check whether this is a constant
+		constant := air_expr.AsConstant()
+		// Check for compile-time constants
+		if constant != nil && !constant.IsZero() {
+			panic(fmt.Sprintf("constraint %s cannot vanish!", v.Handle()))
+		} else if constant == nil {
+			schema.AddVanishingConstraint(v.Handle(), v.Context(), v.Domain(), air_expr)
+		}
 	} else if v, ok := c.(*constraint.TypeConstraint); ok {
 		if t := v.Type().AsUint(); t != nil {
 			// Yes, a constraint is implied.  Now, decide whether to use a range

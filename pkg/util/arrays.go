@@ -21,6 +21,33 @@ func ReplaceFirstOrPanic[T comparable](columns []T, from T, to T) {
 	panic(fmt.Sprintf("invalid replace (item %s not found)", any(from)))
 }
 
+// RemoveMatching removes all elements from an array matching the given item.
+func RemoveMatching[T any](items []T, predicate Predicate[T]) []T {
+	count := 0
+	// Check how many matches we have
+	for _, r := range items {
+		if !predicate(r) {
+			count++
+		}
+	}
+	// Check for stuff to remove
+	if count != len(items) {
+		nitems := make([]T, count)
+		j := 0
+		// Remove items
+		for i, r := range items {
+			if !predicate(r) {
+				nitems[j] = items[i]
+				j++
+			}
+		}
+		//
+		items = nitems
+	}
+	//
+	return items
+}
+
 // Equals returns true if both arrays contain equivalent elements.
 func Equals(lhs []*fr.Element, rhs []*fr.Element) bool {
 	if len(lhs) != len(rhs) {

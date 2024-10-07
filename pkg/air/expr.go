@@ -28,6 +28,11 @@ type Expr interface {
 
 	// Equate one expression with another
 	Equate(Expr) Expr
+
+	// AsConstant determines whether or not this is a constant expression.  If
+	// so, the constant is returned; otherwise, nil is returned.  NOTE: this
+	// does not perform any form of simplification to determine this.
+	AsConstant() *fr.Element
 }
 
 // ============================================================================
@@ -77,6 +82,11 @@ func (p *Add) Equate(other Expr) Expr { return &Sub{Args: []Expr{p, other}} }
 // direction (right).
 func (p *Add) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
 
+// AsConstant determines whether or not this is a constant expression.  If
+// so, the constant is returned; otherwise, nil is returned.  NOTE: this
+// does not perform any form of simplification to determine this.
+func (p *Add) AsConstant() *fr.Element { return nil }
+
 // ============================================================================
 // Subtraction
 // ============================================================================
@@ -124,6 +134,11 @@ func (p *Sub) Equate(other Expr) Expr { return &Sub{Args: []Expr{p, other}} }
 // direction (right).
 func (p *Sub) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
 
+// AsConstant determines whether or not this is a constant expression.  If
+// so, the constant is returned; otherwise, nil is returned.  NOTE: this
+// does not perform any form of simplification to determine this.
+func (p *Sub) AsConstant() *fr.Element { return nil }
+
 // ============================================================================
 // Multiplication
 // ============================================================================
@@ -170,6 +185,11 @@ func (p *Mul) Equate(other Expr) Expr { return &Sub{Args: []Expr{p, other}} }
 // Bounds returns max shift in either the negative (left) or positive
 // direction (right).
 func (p *Mul) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
+
+// AsConstant determines whether or not this is a constant expression.  If
+// so, the constant is returned; otherwise, nil is returned.  NOTE: this
+// does not perform any form of simplification to determine this.
+func (p *Mul) AsConstant() *fr.Element { return nil }
 
 // ============================================================================
 // Constant
@@ -224,6 +244,11 @@ func (p *Constant) Equate(other Expr) Expr { return &Sub{Args: []Expr{p, other}}
 // Bounds returns max shift in either the negative (left) or positive
 // direction (right).  A constant has zero shift.
 func (p *Constant) Bounds() util.Bounds { return util.EMPTY_BOUND }
+
+// AsConstant determines whether or not this is a constant expression.  If
+// so, the constant is returned; otherwise, nil is returned.  NOTE: this
+// does not perform any form of simplification to determine this.
+func (p *Constant) AsConstant() *fr.Element { return &p.Value }
 
 // ColumnAccess represents reading the value held at a given column in the
 // tabular context.  Furthermore, the current row maybe shifted up (or down) by
@@ -290,3 +315,8 @@ func (p *ColumnAccess) Bounds() util.Bounds {
 	// Negative shift
 	return util.NewBounds(uint(-p.Shift), 0)
 }
+
+// AsConstant determines whether or not this is a constant expression.  If
+// so, the constant is returned; otherwise, nil is returned.  NOTE: this
+// does not perform any form of simplification to determine this.
+func (p *ColumnAccess) AsConstant() *fr.Element { return nil }
