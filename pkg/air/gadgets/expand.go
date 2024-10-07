@@ -29,13 +29,13 @@ func Expand(ctx trace.Context, e air.Expr, schema *air.Schema) uint {
 	if !ok {
 		// Add computed column
 		index = schema.AddAssignment(assignment.NewComputedColumn(ctx, name, e))
+		// Construct v == [e]
+		v := air.NewColumnAccess(index, 0)
+		// Construct 1 == e/e
+		eq_e_v := v.Equate(e)
+		// Ensure (e - v) == 0, where v is value of computed column.
+		schema.AddVanishingConstraint(name, ctx, nil, eq_e_v)
 	}
-	// Construct v == [e]
-	v := air.NewColumnAccess(index, 0)
-	// Construct 1 == e/e
-	eq_e_v := v.Equate(e)
-	// Ensure (e - v) == 0, where v is value of computed column.
-	schema.AddVanishingConstraint(name, ctx, nil, eq_e_v)
 	//
 	return index
 }
