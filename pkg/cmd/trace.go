@@ -5,6 +5,7 @@ import (
 	"math"
 	"os"
 	"regexp"
+	"strings"
 
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -27,6 +28,7 @@ var traceCmd = &cobra.Command{
 		cols := readTraceFile(args[0])
 		list := getFlag(cmd, "list")
 		stats := getFlag(cmd, "stats")
+		includes := getStringArray(cmd, "include")
 		print := getFlag(cmd, "print")
 		start := getUint(cmd, "start")
 		end := getUint(cmd, "end")
@@ -38,7 +40,7 @@ var traceCmd = &cobra.Command{
 			cols = filterColumns(cols, filter)
 		}
 		if list {
-			listColumns(cols)
+			listColumns(cols, includes)
 		}
 		if stats {
 			summaryStats(cols)
@@ -57,10 +59,12 @@ var traceCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(traceCmd)
 	traceCmd.Flags().BoolP("list", "l", false, "list only the columns in the trace file")
+	traceCmd.Flags().StringArrayP("include", "i", []string{"rows", "bitwidth", "bytes", "elements"},
+		fmt.Sprintf("specify information to include in column listing: %s", summariserOptions()))
 	traceCmd.Flags().Bool("stats", false, "print summary information about the trace file")
 	traceCmd.Flags().BoolP("print", "p", false, "print entire trace file")
-	traceCmd.Flags().UintP("start", "s", 0, "filter out rows below this")
-	traceCmd.Flags().UintP("end", "e", math.MaxUint, "filter out this and all following rows")
+	traceCmd.Flags().Uint("start", 0, "filter out rows below this")
+	traceCmd.Flags().Uint("end", math.MaxUint, "filter out this and all following rows")
 	traceCmd.Flags().Uint("max-width", 32, "specify maximum display width for a column")
 	traceCmd.Flags().StringP("out", "o", "", "Specify output file to write trace")
 	traceCmd.Flags().StringP("filter", "f", "", "Filter columns matching regex")
@@ -114,18 +118,25 @@ func printTrace(start uint, end uint, max_width uint, cols []trace.RawColumn) {
 	tbl.Print()
 }
 
-func listColumns(tr []trace.RawColumn) {
-	m := 1 + uint(len(colSummarisers))
+func listColumns(tr []trace.RawColumn, includes []string) {
+	summarisers := selectColumnSummarisers(includes)
+	m := 1 + uint(len(summarisers))
 	n := uint(len(tr))
 	// Go!
-	tbl := util.NewTablePrinter(m, n)
+	tbl := util.NewTablePrinter(m, n+1)
 	c := make(chan util.Pair[uint, []string], n)
-	//
+	// Set titles
+	tbl.Set(0, 0, "Column")
+
+	for i := uint(0); i < uint(len(summarisers)); i++ {
+		tbl.Set(i+1, 0, summarisers[i].name)
+	}
+	// Compute data
 	for i := uint(0); i < n; i++ {
 		// Launch summarisers
 		go func(index uint) {
 			// Apply summarisers to column
-			row := summariseColumn(tr[index])
+			row := summariseColumn(tr[index], summarisers)
 			// Package result
 			c <- util.NewPair(index, row)
 		}(i)
@@ -135,21 +146,76 @@ func listColumns(tr []trace.RawColumn) {
 		// Read packaged result from channel
 		res := <-c
 		// Set row
-		tbl.SetRow(res.Left, res.Right...)
+		tbl.SetRow(res.Left+1, res.Right...)
 	}
 	//
 	tbl.SetMaxWidths(64)
 	tbl.Print()
 }
 
-func summariseColumn(column trace.RawColumn) []string {
-	m := 1 + uint(len(colSummarisers))
+func selectColumnSummarisers(includes []string) []ColSummariser {
+	includes = flattenIncludes(includes)
+	summarisers := make([]ColSummariser, len(includes))
+	// Iterate included summarisers
+	for i, ss := range includes {
+		// Look them up
+		for _, cs := range colSummarisers {
+			if cs.name == ss {
+				summarisers[i] = cs
+				break
+			}
+		}
+		// Sanity check we found something
+		if summarisers[i].name != ss {
+			panic(fmt.Sprintf("unknown column summariser: %s", ss))
+		}
+	}
+	// Done
+	return summarisers
+}
+
+func flattenIncludes(includes []string) []string {
+	count := 0
+	// Determine total number of columns
+	for _, s := range includes {
+		extras := strings.Count(s, ",")
+		if extras > 0 {
+			count += extras
+		}
+
+		count++
+	}
+	// Expand (if necessary)
+	if count != len(includes) {
+		nincludes := make([]string, count)
+		index := 0
+		// Process each include
+		for _, s := range includes {
+			if strings.Contains(s, ",") {
+				for _, t := range strings.Split(s, ",") {
+					nincludes[index] = t
+					index++
+				}
+			} else {
+				nincludes[index] = s
+				index++
+			}
+		}
+		// Done
+		includes = nincludes
+	}
+	// Done
+	return includes
+}
+
+func summariseColumn(column trace.RawColumn, summarisers []ColSummariser) []string {
+	m := 1 + uint(len(summarisers))
 	//
 	row := make([]string, m)
 	row[0] = column.QualifiedName()
 	// Generate each summary
-	for j := 0; j < len(colSummarisers); j++ {
-		row[j+1] = colSummarisers[j].summary(column)
+	for j := 0; j < len(summarisers); j++ {
+		row[j+1] = summarisers[j].summary(column)
 	}
 	// Done
 	return row
@@ -176,23 +242,36 @@ func summaryStats(tr []trace.RawColumn) {
 // ColSummariser abstracts the notion of a function which summarises the
 // contents of a given column.
 type ColSummariser struct {
-	name    string
-	summary func(trace.RawColumn) string
+	name        string
+	description string
+	summary     func(trace.RawColumn) string
 }
 
 var colSummarisers []ColSummariser = []ColSummariser{
-	{"count", rowSummariser},
-	{"width", widthSummariser},
-	{"bytes", bytesSummariser},
-	{"unique", uniqueSummariser},
+	{"lines", "line count for column", lineCountSummariser},
+	{"bitwidth", "bitwidth for column as specified in trace file", bitWidthSummariser},
+	{"bytes", "total bytes required for column", bytesSummariser},
+	{"elements", "number of unique elements in column", uniqueElementsSummariser},
+	{"entropy", "number of lines in column whose value differs from previous line", entropySummariser},
 }
 
-func rowSummariser(col trace.RawColumn) string {
-	return fmt.Sprintf("%d rows", col.Data.Len())
+// Used to show the available options on the command-line.
+func summariserOptions() string {
+	summarisers := "\n"
+	//
+	for _, s := range colSummarisers {
+		summarisers = fmt.Sprintf("%s--- %s (%s)\n", summarisers, s.name, s.description)
+	}
+	//
+	return summarisers
 }
 
-func widthSummariser(col trace.RawColumn) string {
-	return fmt.Sprintf("%d bits", col.Data.BitWidth())
+func lineCountSummariser(col trace.RawColumn) string {
+	return fmt.Sprintf("%d", col.Data.Len())
+}
+
+func bitWidthSummariser(col trace.RawColumn) string {
+	return fmt.Sprintf("%d", col.Data.BitWidth())
 }
 
 func bytesSummariser(col trace.RawColumn) string {
@@ -203,10 +282,10 @@ func bytesSummariser(col trace.RawColumn) string {
 		byteWidth++
 	}
 
-	return fmt.Sprintf("%d bytes", col.Data.Len()*byteWidth)
+	return fmt.Sprintf("%d", col.Data.Len()*byteWidth)
 }
 
-func uniqueSummariser(col trace.RawColumn) string {
+func uniqueElementsSummariser(col trace.RawColumn) string {
 	data := col.Data
 	elems := util.NewHashSet[util.BytesKey](data.Len() / 2)
 	// Add all the elements
@@ -215,7 +294,29 @@ func uniqueSummariser(col trace.RawColumn) string {
 		elems.Insert(util.NewBytesKey(bytes[:]))
 	}
 	// Done
-	return fmt.Sprintf("%d elements", elems.Size())
+	return fmt.Sprintf("%d", elems.Size())
+}
+
+func entropySummariser(col trace.RawColumn) string {
+	data := col.Data
+	entropy := 0.0
+	//
+	if data.Len() > 0 {
+		last := data.Get(0)
+		count := 1
+		// Count all rows which have same value as previous row.
+		for i := uint(1); i < data.Len(); i++ {
+			ith := data.Get(i)
+			if last.Cmp(&ith) == 0 {
+				count++
+			}
+		}
+		// Calculate entropy
+		entropy = float64(count) / float64(data.Len())
+		entropy *= 100
+	}
+	// Done
+	return fmt.Sprintf("%2.1f%%", entropy)
 }
 
 // ============================================================================
