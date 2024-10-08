@@ -76,22 +76,33 @@ func ContextOfColumns(cols []uint, schema Schema) tr.Context {
 //nolint:revive
 func Accepts(batchsize uint, schema Schema, trace tr.Trace) []Failure {
 	errors := make([]Failure, 0)
-	iter := schema.Constraints()
 	// Initialise batch number (for debugging purposes)
 	batch := uint(0)
 	// Process constraints in batches
-	for iter.HasNext() {
-		errs := processConstraintBatch(batch, batchsize, iter, trace)
+	for iter := schema.Constraints(); iter.HasNext(); {
+		errs := processConstraintBatch("Constraint", batch, batchsize, iter, trace)
 		errors = append(errors, errs...)
 		// Increment batch number
 		batch++
+	}
+	// Check property assertions only if this a valid trace (since, otherwise,
+	// we can't expect the assertions to necessarily hold).
+	if len(errors) == 0 {
+		batch := uint(0)
+		for iter := schema.Assertions(); iter.HasNext(); {
+			errs := processConstraintBatch("Assertion", batch, batchsize, iter, trace)
+			errors = append(errors, errs...)
+			// Increment batch number
+			batch++
+		}
 	}
 	// Success
 	return errors
 }
 
 // Process a given set of constraints in a single batch whilst recording all constraint failures.
-func processConstraintBatch(batch uint, batchsize uint, iter util.Iterator[Constraint], trace tr.Trace) []Failure {
+func processConstraintBatch(logtitle string, batch uint, batchsize uint, iter util.Iterator[Constraint],
+	trace tr.Trace) []Failure {
 	n := uint(0)
 	c := make(chan Failure, 1024)
 	errors := make([]Failure, 0)
@@ -114,7 +125,7 @@ func processConstraintBatch(batch uint, batchsize uint, iter util.Iterator[Const
 		}
 	}
 	// Log stats about this batch
-	stats.Log(fmt.Sprintf("Constraint batch %d", batch))
+	stats.Log(fmt.Sprintf("%s batch %d", logtitle, batch))
 	//
 	return errors
 }

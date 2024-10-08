@@ -39,6 +39,10 @@ func (p *Schema) LowerToAir() *air.Schema {
 	for _, c := range p.constraints {
 		lowerConstraintToAir(c, airSchema)
 	}
+	// Add assertions (these do not need to be lowered)
+	for _, assertion := range p.assertions {
+		airSchema.AddPropertyAssertion(assertion.Handle(), assertion.Context(), assertion.Property())
+	}
 	// Done
 	return airSchema
 }

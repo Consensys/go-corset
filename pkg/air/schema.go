@@ -29,7 +29,7 @@ type PermutationConstraint = *constraint.PermutationConstraint
 // PropertyAssertion captures the notion of an arbitrary property which should
 // hold for all acceptable traces.  However, such a property is not enforced by
 // the prover.
-type PropertyAssertion = *schema.PropertyAssertion[constraint.ZeroTest[schema.Evaluable]]
+type PropertyAssertion = *schema.PropertyAssertion[schema.Testable]
 
 // Schema for AIR traces which is parameterised on a notion of computation as
 // permissible in computed columns.
@@ -134,6 +134,11 @@ func (p *Schema) AddPermutationConstraint(targets []uint, sources []uint) {
 	p.constraints = append(p.constraints, constraint.NewPermutationConstraint(targets, sources))
 }
 
+// AddPropertyAssertion appends a new property assertion.
+func (p *Schema) AddPropertyAssertion(handle string, context trace.Context, assertion schema.Testable) {
+	p.assertions = append(p.assertions, schema.NewPropertyAssertion(handle, context, assertion))
+}
+
 // AddVanishingConstraint appends a new vanishing constraint.
 func (p *Schema) AddVanishingConstraint(handle string, context trace.Context, domain *int, expr Expr) {
 	if context.Module() >= uint(len(p.modules)) {
@@ -160,6 +165,14 @@ func (p *Schema) InputColumns() util.Iterator[schema.Column] {
 	inputs := util.NewArrayIterator(p.inputs)
 	return util.NewFlattenIterator[schema.Declaration, schema.Column](inputs,
 		func(d schema.Declaration) util.Iterator[schema.Column] { return d.Columns() })
+}
+
+// Assertions returns an iterator over the property assertions of this
+// schema.  These are properties which should hold true for any valid trace
+// (though, of course, may not hold true for an invalid trace).
+func (p *Schema) Assertions() util.Iterator[schema.Constraint] {
+	properties := util.NewArrayIterator(p.assertions)
+	return util.NewCastIterator[PropertyAssertion, schema.Constraint](properties)
 }
 
 // Assignments returns an array over the assignments of this schema.  That
