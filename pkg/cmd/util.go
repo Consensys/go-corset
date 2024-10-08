@@ -59,6 +59,17 @@ func getString(cmd *cobra.Command, flag string) string {
 	return r
 }
 
+// Get an expected string array, or panic if an error arises.
+func getStringArray(cmd *cobra.Command, flag string) []string {
+	r, err := cmd.Flags().GetStringArray(flag)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(4)
+	}
+
+	return r
+}
+
 // Write a given trace file to disk
 func writeTraceFile(filename string, columns []trace.RawColumn) {
 	var err error
