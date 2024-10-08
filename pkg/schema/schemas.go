@@ -68,12 +68,11 @@ func ContextOfColumns(cols []uint, schema Schema) tr.Context {
 	return ctx
 }
 
-// Accepts determines whether this schema will accept a given trace.  That
-// is, whether or not the given trace adheres to the schema.  A trace can fail
-// to adhere to the schema for a variety of reasons, such as having a constraint
-// which does not hold.
-//
-//nolint:revive
+// Accepts determines whether this schema will accept a given trace.  That is,
+// whether or not the given trace adheres to the schema constraints.  A trace
+// can fail to adhere to the schema for a variety of reasons, such as having a
+// constraint which does not hold.  Observe that this does not check assertions
+// within the schema hold.
 func Accepts(batchsize uint, schema Schema, trace tr.Trace) []Failure {
 	errors := make([]Failure, 0)
 	// Initialise batch number (for debugging purposes)
@@ -85,16 +84,22 @@ func Accepts(batchsize uint, schema Schema, trace tr.Trace) []Failure {
 		// Increment batch number
 		batch++
 	}
-	// Check property assertions only if this a valid trace (since, otherwise,
-	// we can't expect the assertions to necessarily hold).
-	if len(errors) == 0 {
-		batch := uint(0)
-		for iter := schema.Assertions(); iter.HasNext(); {
-			errs := processConstraintBatch("Assertion", batch, batchsize, iter, trace)
-			errors = append(errors, errs...)
-			// Increment batch number
-			batch++
-		}
+	// Success
+	return errors
+}
+
+// Asserts determines whether or not this schema will "assert" a given trace.
+// That is, whether or not the given trace adheres to the schema assertions.
+func Asserts(batchsize uint, schema Schema, trace tr.Trace) []Failure {
+	errors := make([]Failure, 0)
+	// Initialise batch number (for debugging purposes)
+	batch := uint(0)
+	// Process assertions in batches
+	for iter := schema.Assertions(); iter.HasNext(); {
+		errs := processConstraintBatch("Assertion", batch, batchsize, iter, trace)
+		errors = append(errors, errs...)
+		// Increment batch number
+		batch++
 	}
 	// Success
 	return errors
