@@ -16,11 +16,11 @@ import (
 )
 
 var testCmd = &cobra.Command{
-	Use:   "test [flags] trace_file constraint_file",
-	Short: "Test a set of constraints (e.g. using randomly inputs).",
+	Use:   "test [flags] constraint_file",
+	Short: "Test a set of constraints (e.g. using randomly inputs). [EXPERIMENTAL]",
 	Long: `Check a given trace against a set of constraints.
-	Traces can be given either as JSON or binary lt files.
-	Constraints can be given either as lisp or bin files.`,
+	Constraints can be given either as lisp or bin files.  The goal is to check for
+	 properties which don't hold on valid traces`,
 	Run: func(cmd *cobra.Command, args []string) {
 		var cfg checkConfig
 		var hirSchema *hir.Schema
@@ -60,72 +60,62 @@ var testCmd = &cobra.Command{
 		//
 		stats.Log("Reading constraints file")
 		//
-		if errs := runTests(2, cfg, hirSchema); len(errs) > 0 {
-			// Report errors
-			for _, e := range errs {
-				log.Error(e)
-			}
+		if ok := runTests(2, cfg, hirSchema); !ok {
 			// Error signal
 			os.Exit(1)
 		}
 	},
 }
 
-func runTests(nrows uint, cfg checkConfig, hirSchema *hir.Schema) []error {
-	errors := []error{}
+func runTests(nrows uint, cfg checkConfig, hirSchema *hir.Schema) bool {
+	ok := true
 	// TODO: this only tests the happy path.
 	for iter := initTraceEnumerator(nrows, hirSchema); iter.HasNext(); {
 		// Read out next trace to test
 		trace := iter.Next()
-		// Detemine whether trace should be considered valid
-		// Test it
-		if errs := testTraceWithLowering(trace, hirSchema, cfg); len(errs) > 0 {
-			errors = append(errors, errs...)
-		}
+		// Test this specific trace
+		ok = testTraceWithLowering(trace, hirSchema, cfg) && ok
 	}
 	//
-	return errors
+	return ok
 }
 
 // Check a given trace is consistently accepted (or rejected) at the different
 // IR levels.
-func testTraceWithLowering(trace tr.Trace, schema *hir.Schema, cfg checkConfig) []error {
-	errs := []error{}
+func testTraceWithLowering(trace tr.Trace, schema *hir.Schema, cfg checkConfig) bool {
+	ok := true
 	// Check whether assertions hold for this trace
-	valid := sc.Asserts(cfg.batchSize, schema, trace) == nil
+	asserts := sc.Asserts(cfg.batchSize, schema, trace)
 	// Process individually
 	if cfg.hir {
-		errs = testTrace("HIR", valid, trace, schema, cfg)
+		ok = testTrace("HIR", asserts, trace, schema, cfg) && ok
 	}
 
 	if cfg.mir {
-		errs = append(errs, testTrace("MIR", valid, trace, schema.LowerToMir(), cfg)...)
+		ok = testTrace("MIR", asserts, trace, schema.LowerToMir(), cfg) && ok
 	}
 
 	if cfg.air {
-		errs = append(errs, testTrace("AIR", valid, trace, schema.LowerToMir().LowerToAir(), cfg)...)
+		ok = testTrace("AIR", asserts, trace, schema.LowerToMir().LowerToAir(), cfg) && ok
 	}
 
-	return errs
+	return ok
 }
 
-func testTrace(ir string, valid bool, trace tr.Trace, schema sc.Schema, cfg checkConfig) []error {
-	errors := []error{}
+func testTrace(ir string, asserts []sc.Failure, trace tr.Trace, schema sc.Schema, cfg checkConfig) bool {
+	ok := true
 	//
 	for n := cfg.padding.Left; n <= cfg.padding.Right; n++ {
 		// Check constraints
-		if errs := sc.Accepts(cfg.batchSize, schema, trace); valid && len(errs) > 0 {
-			// Trace rejected, but should have been accepted
-			err := fmt.Errorf("rejected incorrectly: %s (%s)", trace, ir)
-			errors = append(errors, err)
-		} else if !valid && len(errs) == 0 {
-			// Trace accepted, but should have been rejected
-			err := fmt.Errorf("accepted incorrectly: %s (%s)", trace, ir)
-			errors = append(errors, err)
+		if errs := sc.Accepts(cfg.batchSize, schema, trace); len(asserts) > 0 && len(errs) == 0 {
+			// Trace accepts, but at least one assertion has failed.
+			reportFailures(ir, asserts, trace, cfg)
+			// Indicate all is not well
+			ok = false
 		}
 	}
 	// Done
-	return errors
+	return ok
 }
 
 // Constructs a (lazy) enumerator over the set of traces to be used for testing.
