@@ -76,10 +76,10 @@ func runTests(nrows uint, cfg checkConfig, hirSchema *hir.Schema) []error {
 	// TODO: this only tests the happy path.
 	for iter := initTraceEnumerator(nrows, hirSchema); iter.HasNext(); {
 		// Read out next trace to test
-		columns := iter.Next()
+		trace := iter.Next()
 		// Detemine whether trace should be considered valid
 		// Test it
-		if errs := testTraceWithLowering(columns, hirSchema, cfg); len(errs) > 0 {
+		if errs := testTraceWithLowering(trace, hirSchema, cfg); len(errs) > 0 {
 			errors = append(errors, errs...)
 		}
 	}
@@ -89,59 +89,39 @@ func runTests(nrows uint, cfg checkConfig, hirSchema *hir.Schema) []error {
 
 // Check a given trace is consistently accepted (or rejected) at the different
 // IR levels.
-func testTraceWithLowering(cols []tr.RawColumn, schema *hir.Schema, cfg checkConfig) []error {
-	valid, errs := isValidTrace(cols, schema, cfg)
-	// Check for any errors
-	if len(errs) > 0 {
-		return errs
-	}
+func testTraceWithLowering(trace tr.Trace, schema *hir.Schema, cfg checkConfig) []error {
+	errs := []error{}
+	// Check whether assertions hold for this trace
+	valid := sc.Asserts(cfg.batchSize, schema, trace) == nil
 	// Process individually
 	if cfg.hir {
-		errs = testTrace("HIR", valid, cols, schema, cfg)
+		errs = testTrace("HIR", valid, trace, schema, cfg)
 	}
 
 	if cfg.mir {
-		errs = append(errs, testTrace("MIR", valid, cols, schema.LowerToMir(), cfg)...)
+		errs = append(errs, testTrace("MIR", valid, trace, schema.LowerToMir(), cfg)...)
 	}
 
 	if cfg.air {
-		errs = append(errs, testTrace("AIR", valid, cols, schema.LowerToMir().LowerToAir(), cfg)...)
+		errs = append(errs, testTrace("AIR", valid, trace, schema.LowerToMir().LowerToAir(), cfg)...)
 	}
 
 	return errs
 }
 
-// Oracle check to determine whether or not this trace should be accepted or rejected by the schema.
-func isValidTrace(cols []tr.RawColumn, schema sc.Schema, cfg checkConfig) (bool, []error) {
-	builder := sc.NewTraceBuilder(schema).Expand(cfg.expand).Parallel(cfg.parallelExpansion).BatchSize(cfg.batchSize)
-	//
-	if trace, errs := builder.Build(cols); len(errs) > 0 {
-		return true, errs
-	} else if errs := sc.Asserts(cfg.batchSize, schema, trace); len(errs) > 0 {
-		return false, nil
-	}
-	// Trace is valid
-	return true, nil
-}
-
-func testTrace(ir string, valid bool, cols []tr.RawColumn, schema sc.Schema, cfg checkConfig) []error {
-	builder := sc.NewTraceBuilder(schema).Expand(cfg.expand).Parallel(cfg.parallelExpansion).BatchSize(cfg.batchSize)
+func testTrace(ir string, valid bool, trace tr.Trace, schema sc.Schema, cfg checkConfig) []error {
 	errors := []error{}
 	//
 	for n := cfg.padding.Left; n <= cfg.padding.Right; n++ {
-		if trace, errs := builder.Padding(n).Build(cols); len(errs) > 0 {
-			errors = append(errors, errs...)
-		} else {
-			// Check constraints
-			if errs := sc.Accepts(cfg.batchSize, schema, trace); valid && len(errs) > 0 {
-				// Trace rejected, but should have been accepted
-				err := fmt.Errorf("rejected incorrectly: %s (%s)", trace, ir)
-				errors = append(errors, err)
-			} else if !valid && len(errs) == 0 {
-				// Trace accepted, but should have been rejected
-				err := fmt.Errorf("accepted incorrectly: %s (%s)", trace, ir)
-				errors = append(errors, err)
-			}
+		// Check constraints
+		if errs := sc.Accepts(cfg.batchSize, schema, trace); valid && len(errs) > 0 {
+			// Trace rejected, but should have been accepted
+			err := fmt.Errorf("rejected incorrectly: %s (%s)", trace, ir)
+			errors = append(errors, err)
+		} else if !valid && len(errs) == 0 {
+			// Trace accepted, but should have been rejected
+			err := fmt.Errorf("accepted incorrectly: %s (%s)", trace, ir)
+			errors = append(errors, err)
 		}
 	}
 	// Done
@@ -149,27 +129,14 @@ func testTrace(ir string, valid bool, cols []tr.RawColumn, schema sc.Schema, cfg
 }
 
 // Constructs a (lazy) enumerator over the set of traces to be used for testing.
-func initTraceEnumerator(nrows uint, hirSchema *hir.Schema) util.Enumerator[[]tr.RawColumn] {
-	ncols := hirSchema.Columns().Count()
+func initTraceEnumerator(nrows uint, hirSchema *hir.Schema) util.Enumerator[tr.Trace] {
 	// NOTE: This is really a temporary solution for now.  It doesn't handle
 	// length multipliers.  It doesn't allow for modules with different heights.
 	// It uses a fixed pool.
 	pool := []fr.Element{fr.NewElement(0), fr.NewElement(1), fr.NewElement(2),
 		fr.NewElement(3), fr.NewElement(4), fr.NewElement(5)}
-	specs := make([]tr.RawColumnSpec, ncols)
-	i := 0
-	// Construct column specs
-	for iter := hirSchema.Columns(); iter.HasNext(); {
-		// Extract column schema
-		col := iter.Next()
-		// Determine module name
-		mod := hirSchema.Modules().Nth(col.Context().Module())
-		// Construct spec
-		specs[i] = tr.RawColumnSpec{Module: mod.Name(), Name: col.Name(), Lines: nrows}
-		i++
-	}
 	// Done
-	return tr.NewRawColumnEnumerator(specs, pool)
+	return sc.NewTraceEnumerator(nrows, hirSchema, pool)
 }
 
 func init() {
