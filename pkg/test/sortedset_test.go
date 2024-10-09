@@ -59,7 +59,7 @@ func array_contains(items []uint, element uint) bool {
 }
 
 func check_SortedSet_Insert(t *testing.T, n uint, m uint) {
-	items := util.GenerateRandomInputs(n, m)
+	items := util.GenerateRandomUints(n, m)
 	set := toSortedSet(items)
 	anyset := toAnySortedSet(items)
 
@@ -83,8 +83,8 @@ func check_SortedSet_Insert(t *testing.T, n uint, m uint) {
 }
 
 func check_SortedSet_InsertSorted(t *testing.T, n uint, m uint) {
-	left := util.GenerateRandomInputs(n, m)
-	right := util.GenerateRandomInputs(n, m)
+	left := util.GenerateRandomUints(n, m)
+	right := util.GenerateRandomUints(n, m)
 	set := toSortedSet(left)
 	anyset := toAnySortedSet(left)
 

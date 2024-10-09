@@ -497,14 +497,27 @@ func Check(t *testing.T, test string) {
 		t.Fatalf("Error parsing %s.lisp: %s\n", test, err)
 	}
 	// Check valid traces are accepted
-	accepts := ReadTracesFile(test, "accepts")
-	CheckTraces(t, test, true, true, accepts, schema)
+	accepts_file := fmt.Sprintf("%s.%s", test, "accepts")
+	accepts := ReadTracesFile(accepts_file)
+	CheckTraces(t, accepts_file, true, true, accepts, schema)
 	// Check invalid traces are rejected
-	rejects := ReadTracesFile(test, "rejects")
-	CheckTraces(t, test, false, true, rejects, schema)
+	rejects_file := fmt.Sprintf("%s.%s", test, "rejects")
+	rejects := ReadTracesFile(rejects_file)
+	CheckTraces(t, rejects_file, false, true, rejects, schema)
 	// Check expanded traces are rejected
-	expands := ReadTracesFile(test, "expanded")
-	CheckTraces(t, test, false, false, expands, schema)
+	expands_file := fmt.Sprintf("%s.%s", test, "expanded")
+	expands := ReadTracesFile(expands_file)
+	CheckTraces(t, expands_file, false, false, expands, schema)
+	// Check auto-generated valid traces (if applicable)
+	auto_accepts_file := fmt.Sprintf("%s.%s", test, "auto.accepts")
+	if auto_accepts := ReadTracesFileIfExists(auto_accepts_file); auto_accepts != nil {
+		CheckTraces(t, auto_accepts_file, true, true, auto_accepts, schema)
+	}
+	// Check auto-generated invalid traces (if applicable)
+	auto_rejects_file := fmt.Sprintf("%s.%s", test, "auto.rejects")
+	if auto_rejects := ReadTracesFileIfExists(auto_rejects_file); auto_rejects != nil {
+		CheckTraces(t, auto_rejects_file, false, true, auto_rejects, schema)
+	}
 }
 
 // Check a given set of tests have an expected outcome (i.e. are
@@ -553,11 +566,11 @@ func checkTrace(t *testing.T, inputs []trace.RawColumn, expand bool, id traceId,
 		// Process what happened versus what was supposed to happen.
 		if !accepted && id.expected {
 			//table.PrintTrace(tr)
-			t.Errorf("Trace rejected incorrectly (%s, %s.accepts, line %d with padding %d): %s",
+			t.Errorf("Trace rejected incorrectly (%s, %s, line %d with padding %d): %s",
 				id.ir, id.test, id.line, id.padding, errs)
 		} else if accepted && !id.expected {
 			//printTrace(tr)
-			t.Errorf("Trace accepted incorrectly (%s, %s.rejects, line %d with padding %d)",
+			t.Errorf("Trace accepted incorrectly (%s, %s, line %d with padding %d)",
 				id.ir, id.test, id.line, id.padding)
 		}
 	}
@@ -584,8 +597,8 @@ type traceId struct {
 
 // ReadTracesFile reads a file containing zero or more traces expressed as JSON, where
 // each trace is on a separate line.
-func ReadTracesFile(name string, ext string) [][]trace.RawColumn {
-	lines := ReadInputFile(name, ext)
+func ReadTracesFile(filename string) [][]trace.RawColumn {
+	lines := ReadInputFile(filename)
 	traces := make([][]trace.RawColumn, len(lines))
 	// Read constraints line by line
 	for i, line := range lines {
@@ -593,7 +606,7 @@ func ReadTracesFile(name string, ext string) [][]trace.RawColumn {
 		if line != "" && !strings.HasPrefix(line, ";;") {
 			tr, err := json.FromBytes([]byte(line))
 			if err != nil {
-				msg := fmt.Sprintf("%s.%s:%d: %s", name, ext, i+1, err)
+				msg := fmt.Sprintf("%s:%d: %s", filename, i+1, err)
 				panic(msg)
 			}
 
@@ -604,10 +617,20 @@ func ReadTracesFile(name string, ext string) [][]trace.RawColumn {
 	return traces
 }
 
+func ReadTracesFileIfExists(name string) [][]trace.RawColumn {
+	filename := fmt.Sprintf("%s/%s", TestDir, name)
+	// Check whether it exists or not
+	if _, err := os.Stat(filename); err != nil {
+		return nil
+	}
+	// Yes it does
+	return ReadTracesFile(name)
+}
+
 // ReadInputFile reads an input file as a sequence of lines.
-func ReadInputFile(name string, ext string) []string {
-	name = fmt.Sprintf("%s/%s.%s", TestDir, name, ext)
-	file, err := os.Open(name)
+func ReadInputFile(filename string) []string {
+	filename = fmt.Sprintf("%s/%s", TestDir, filename)
+	file, err := os.Open(filename)
 	// Check whether file exists
 	if errors.Is(err, os.ErrNotExist) {
 		return []string{}

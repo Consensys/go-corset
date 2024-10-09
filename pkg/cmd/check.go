@@ -48,16 +48,22 @@ var checkCmd = &cobra.Command{
 		cfg.parallelExpansion = !getFlag(cmd, "sequential")
 		cfg.batchSize = getUint(cmd, "batch")
 		cfg.ansiEscapes = getFlag(cmd, "ansi-escapes")
-		//
-		stats := util.NewPerfStats()
 		// TODO: support true ranges
 		cfg.padding.Left = cfg.padding.Right
+		if !cfg.hir && !cfg.mir && !cfg.air {
+			// If IR not specified default to running all.
+			cfg.hir, cfg.mir, cfg.air = true, true, true
+		}
+		//
+		stats := util.NewPerfStats()
 		// Parse constraints
 		hirSchema = readSchemaFile(args[1])
+		//
+		stats.Log("Reading constraints file")
 		// Parse trace file
 		columns := readTraceFile(args[0])
 		//
-		stats.Log("Reading trace files")
+		stats.Log("Reading trace file")
 		// Go!
 		if !checkTraceWithLowering(columns, hirSchema, cfg) {
 			os.Exit(1)
@@ -107,28 +113,17 @@ type checkConfig struct {
 // Check a given trace is consistently accepted (or rejected) at the different
 // IR levels.
 func checkTraceWithLowering(cols []tr.RawColumn, schema *hir.Schema, cfg checkConfig) bool {
-	hir := cfg.hir
-	mir := cfg.mir
-	air := cfg.air
-
-	if !hir && !mir && !air {
-		// If IR not specified default to running all.
-		hir = true
-		mir = true
-		air = true
-	}
-	//
 	res := true
 	// Process individually
-	if hir {
+	if cfg.hir {
 		res = checkTrace("HIR", cols, schema, cfg)
 	}
 
-	if mir {
+	if cfg.mir {
 		res = checkTrace("MIR", cols, schema.LowerToMir(), cfg) && res
 	}
 
-	if air {
+	if cfg.air {
 		res = checkTrace("AIR", cols, schema.LowerToMir().LowerToAir(), cfg) && res
 	}
 
@@ -159,8 +154,13 @@ func checkTrace(ir string, cols []tr.RawColumn, schema sc.Schema, cfg checkConfi
 		// Check trace
 		stats.Log("Validating trace")
 		stats = util.NewPerfStats()
-		//
+		// Check constraints
 		if errs := sc.Accepts(cfg.batchSize, schema, trace); len(errs) > 0 {
+			reportFailures(ir, errs, trace, cfg)
+			return false
+		}
+		// Check assertions
+		if errs := sc.Asserts(cfg.batchSize, schema, trace); len(errs) > 0 {
 			reportFailures(ir, errs, trace, cfg)
 			return false
 		}
@@ -238,15 +238,19 @@ func reportFailures(ir string, failures []sc.Failure, trace tr.Trace, cfg checkC
 // Print a human-readable report detailing the given failure
 func reportFailure(failure sc.Failure, trace tr.Trace, cfg checkConfig) {
 	if f, ok := failure.(*constraint.VanishingFailure); ok {
-		reportVanishingFailure(f, trace, cfg)
+		cells := f.RequiredCells(trace)
+		reportConstraintFailure("constraint", f.Handle(), cells, trace, cfg)
+	} else if f, ok := failure.(*sc.AssertionFailure); ok {
+		cells := f.RequiredCells(trace)
+		reportConstraintFailure("assertion", f.Handle(), cells, trace, cfg)
 	}
 }
 
 // Print a human-readable report detailing the given failure with a vanishing constraint.
-func reportVanishingFailure(failure *constraint.VanishingFailure, trace tr.Trace, cfg checkConfig) {
+func reportConstraintFailure(kind string, handle string, cells *util.AnySortedSet[tr.CellRef],
+	trace tr.Trace, cfg checkConfig) {
 	var start uint = math.MaxUint
 	// Determine all (input) cells involved in evaluating the given constraint
-	cells := failure.RequiredCells(trace)
 	end := uint(0)
 	// Determine row bounds
 	for _, c := range cells.ToArray() {
@@ -271,7 +275,7 @@ func reportVanishingFailure(failure *constraint.VanishingFailure, trace tr.Trace
 		return cells.Contains(cell)
 	})
 	// Print out report
-	fmt.Printf("failing constraint %s:\n", failure.Handle())
+	fmt.Printf("failing %s %s:\n", kind, handle)
 	tp.Print(trace)
 	fmt.Println()
 }

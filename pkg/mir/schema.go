@@ -149,6 +149,14 @@ func (p *Schema) InputColumns() util.Iterator[schema.Column] {
 		func(d schema.Declaration) util.Iterator[schema.Column] { return d.Columns() })
 }
 
+// Assertions returns an iterator over the property assertions of this
+// schema.  These are properties which should hold true for any valid trace
+// (though, of course, may not hold true for an invalid trace).
+func (p *Schema) Assertions() util.Iterator[schema.Constraint] {
+	properties := util.NewArrayIterator(p.assertions)
+	return util.NewCastIterator[PropertyAssertion, schema.Constraint](properties)
+}
+
 // Assignments returns an array over the assignments of this schema.  That
 // is, the subset of declarations whose trace values can be computed from
 // the inputs.

@@ -12,6 +12,11 @@ import (
 
 // Schema represents a schema which can be used to manipulate a trace.
 type Schema interface {
+	// Assertions returns an iterator over the property assertions of this
+	// schema.  These are properties which should hold true for any valid trace
+	// (though, of course, may not hold true for an invalid trace).
+	Assertions() util.Iterator[Constraint]
+
 	// Assignments returns an iterator over the assignments of this schema.  That
 	// is, the subset of declarations whose trace values can be computed from
 	// the inputs.

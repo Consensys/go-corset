@@ -14,32 +14,32 @@ func Test_HashSet_01(t *testing.T) {
 }
 
 func Test_HashSet_02(t *testing.T) {
-	items := util.GenerateRandomInputs(10, 32)
+	items := util.GenerateRandomUints(10, 32)
 	check_HashSet(t, items)
 }
 
 func Test_HashSet_03(t *testing.T) {
-	items := util.GenerateRandomInputs(100, 32)
+	items := util.GenerateRandomUints(100, 32)
 	check_HashSet(t, items)
 }
 
 func Test_HashSet_04(t *testing.T) {
-	items := util.GenerateRandomInputs(1000, 32)
+	items := util.GenerateRandomUints(1000, 32)
 	check_HashSet(t, items)
 }
 
 func Test_HashSet_05(t *testing.T) {
-	items := util.GenerateRandomInputs(100000, 32)
+	items := util.GenerateRandomUints(100000, 32)
 	check_HashSet(t, items)
 }
 
 func TestSlow_HashSet_08(t *testing.T) {
-	items := util.GenerateRandomInputs(100000, 64)
+	items := util.GenerateRandomUints(100000, 64)
 	check_HashSet(t, items)
 }
 
 func TestSlow_HashSet_09(t *testing.T) {
-	items := util.GenerateRandomInputs(100000, 128)
+	items := util.GenerateRandomUints(100000, 128)
 	check_HashSet(t, items)
 }
 
