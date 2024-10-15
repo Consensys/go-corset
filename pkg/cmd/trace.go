@@ -59,7 +59,7 @@ var traceCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(traceCmd)
 	traceCmd.Flags().BoolP("list", "l", false, "list only the columns in the trace file")
-	traceCmd.Flags().StringArrayP("include", "i", []string{"rows", "bitwidth", "bytes", "elements"},
+	traceCmd.Flags().StringArrayP("include", "i", []string{"lines", "bitwidth", "bytes", "elements"},
 		fmt.Sprintf("specify information to include in column listing: %s", summariserOptions()))
 	traceCmd.Flags().Bool("stats", false, "print summary information about the trace file")
 	traceCmd.Flags().BoolP("print", "p", false, "print entire trace file")
