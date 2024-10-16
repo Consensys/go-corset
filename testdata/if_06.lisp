@@ -1,5 +1,4 @@
-(column X)
-(column Y)
+(defcolumns X Y)
 
 (vanish test1
         (- X (if Y 0)))

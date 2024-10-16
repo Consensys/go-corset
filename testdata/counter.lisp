@@ -1,5 +1,4 @@
-(column STAMP)
-(column CT)
+(defcolumns STAMP CT)
 
 ;; In the first row, STAMP is always zero.  This allows for an
 ;; arbitrary amount of padding at the beginning which has no function.

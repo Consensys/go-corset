@@ -1,6 +1,4 @@
-(column X)
-(column Y)
-(column Z)
+(defcolumns X Y Z)
 (vanish c1 (if X
                ;; if X==0 then Y == Z
                (begin Y Z)

@@ -1,4 +1,2 @@
-(column X)
-(column Y)
-(column Z)
+(defcolumns X Y Z)
 (vanish test (- Z (if X (if Y 0 16))))

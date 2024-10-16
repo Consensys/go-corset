@@ -90,8 +90,8 @@ func (p *hirParser) parseDeclaration(s sexp.SExp) error {
 	if e, ok := s.(*sexp.List); ok {
 		if e.MatchSymbols(2, "module") {
 			return p.parseModuleDeclaration(e)
-		} else if e.MatchSymbols(2, "column") {
-			return p.parseColumnDeclaration(e)
+		} else if e.MatchSymbols(1, "defcolumns") {
+			return p.parseColumnDeclarations(e)
 		} else if e.Len() == 3 && e.MatchSymbols(2, "vanish") {
 			return p.parseVanishingDeclaration(e.Elements, nil)
 		} else if e.Len() == 3 && e.MatchSymbols(2, "vanish:last") {
@@ -135,32 +135,55 @@ func (p *hirParser) parseModuleDeclaration(l *sexp.List) error {
 }
 
 // Parse a column declaration
-func (p *hirParser) parseColumnDeclaration(l *sexp.List) error {
+func (p *hirParser) parseColumnDeclarations(l *sexp.List) error {
 	// Sanity check declaration
-	if len(l.Elements) > 3 {
+	if len(l.Elements) == 1 {
 		return p.translator.SyntaxError(l, "malformed column declaration")
 	}
-	// Extract column name
-	columnName := l.Elements[1].String(false)
-	// Sanity check doesn't already exist
-	if p.env.HasColumn(p.module, columnName) {
-		return p.translator.SyntaxError(l, "duplicate column declaration")
-	}
-	// Default to field type
-	var columnType sc.Type = &sc.FieldType{}
-	// Parse type (if applicable)
-	if len(l.Elements) == 3 {
-		var err error
-		columnType, err = p.parseType(l.Elements[2])
-
-		if err != nil {
+	// Process column declarations one by one.
+	for i := 1; i < len(l.Elements); i++ {
+		// Extract column name
+		if err := p.parseColumnDeclaration(l.Elements[i]); err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (p *hirParser) parseColumnDeclaration(e sexp.SExp) error {
+	var columnName string
+	// Default to field type
+	var columnType sc.Type = &sc.FieldType{}
+	// Check whether extended declaration or not.
+	if l := e.AsList(); l != nil {
+		// Check at least the name provided.
+		if len(l.Elements) == 0 {
+			return p.translator.SyntaxError(l, "empty column declaration")
+		}
+		// Column name is always first
+		columnName = l.Elements[0].String(false)
+		//	Parse type (if applicable)
+		if len(l.Elements) == 2 {
+			var err error
+			if columnType, err = p.parseType(l.Elements[1]); err != nil {
+				return err
+			}
+		} else if len(l.Elements) > 2 {
+			// For now.
+			return p.translator.SyntaxError(l, "unknown column declaration attributes")
+		}
+	} else {
+		columnName = e.String(false)
+	}
+	// Sanity check doesn't already exist
+	if p.env.HasColumn(p.module, columnName) {
+		return p.translator.SyntaxError(e, "duplicate column declaration")
 	}
 	// Register column
 	cid := p.env.AddDataColumn(p.module, columnName, columnType)
 	p.env.schema.AddTypeConstraint(cid, columnType)
-
+	//
 	return nil
 }
 

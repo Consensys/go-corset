@@ -2,12 +2,11 @@
 ;; implemented on a column of bytes.
 
 ;; Input column
-(column X :u16)
+(defcolumns (X :u16))
 
 ;; Generated columns
-(column Delta) ;; implied u16
-(column Byte_0 :u8)
-(column Byte_1 :u8)
+(defcolumns Delta) ;; implied u16
+(defcolumns (Byte_0 :u8) (Byte_1 :u8))
 
 ;; Ensure Delta is a u16
 (vanish delta_type (- Delta (+ (* 256 Byte_1) Byte_0)))

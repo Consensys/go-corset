@@ -1,7 +1,8 @@
-(column ST)
-(column CT)
-(column BYTE :u8)
-(column ARG)
+(defcolumns
+  ST
+  CT
+  (BYTE :u8)
+  (ARG))
 
 ;; Increment or reset counter
 (vanish heartbeat

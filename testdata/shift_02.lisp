@@ -1,2 +1,2 @@
-(column X)
+(defcolumns X)
 (vanish c1 (shift X -1))

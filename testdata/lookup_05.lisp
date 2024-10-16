@@ -1,5 +1,2 @@
-(column A)
-(column B)
-(column X)
-(column Y)
+(defcolumns A B X Y)
 (lookup test (X Y) (A (* B 3)))

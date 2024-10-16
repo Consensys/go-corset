@@ -1,7 +1,7 @@
 (module m1)
-(column X)
+(defcolumns X)
 
 (module m2)
-(column Y)
+(defcolumns Y)
 ;;
 (lookup test (Y) (m1.X))

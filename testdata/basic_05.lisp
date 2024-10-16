@@ -1,5 +1,4 @@
-(column X)
-(column Y)
+(defcolumns X Y)
 (vanish c1 (+ X (* 2 Y)))
 (vanish c2 (+ (* 2 Y) X))
 (vanish c3 (+ X Y Y))

@@ -1,6 +1,5 @@
 (module m1)
-(column X)
+(defcolumns X)
 (module m2)
-(column X)
-(column Y)
+(defcolumns X Y)
 (vanish heartbeat (* X Y))

@@ -1,4 +1,4 @@
-(column STAMP)
+(defcolumns STAMP)
 
 ;; STAMP[0] == 0
 (vanish:first start STAMP)

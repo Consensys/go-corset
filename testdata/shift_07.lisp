@@ -1,5 +1,4 @@
-(column BIT_1 :u1)
-(column ARG)
+(defcolumns (BIT_1 :u1) ARG)
 
 (vanish pivot
         ;; If BIT_1[k-1]=0 and BIT_1[k]=1

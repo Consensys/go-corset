@@ -1,5 +1,4 @@
-(column X)
-(column Y)
+(defcolumns X Y)
 ;; X*2 == Y*2
 (vanish c1 (- (* X (* 2 1)) (* Y (* 1 2))))
 ;; X*1458 == Y*1458

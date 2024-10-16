@@ -1,4 +1,4 @@
-(column X)
+(defcolumns X)
 (module test)
-(column X)
+(defcolumns X)
 (vanish heartbeat X)

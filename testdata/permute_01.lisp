@@ -1,2 +1,2 @@
-(column X :u16)
+(defcolumns (X :u16))
 (permute (Y) (+X))
