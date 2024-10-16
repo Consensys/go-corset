@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	util "github.com/consensys/go-corset/pkg/cmd"
 	"github.com/consensys/go-corset/pkg/hir"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
@@ -23,6 +24,8 @@ func main() {
 }
 
 func init() {
+	rootCmd.Flags().Uint("min-lines", 1, "Minimum number of lines")
+	rootCmd.Flags().Uint("max-lines", 4, "Maximum number of lines")
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
@@ -35,25 +38,29 @@ var rootCmd = &cobra.Command{
 			fmt.Println(cmd.UsageString())
 			os.Exit(1)
 		}
-		model := args[0]
+		var cfg TestGenConfig
 		// Lookup model
-		for _, m := range models {
-			if m.Name == model {
-				// Read schema
-				filename := fmt.Sprintf("%s.lisp", m.Name)
-				schema := readSchemaFile(path.Join("testdata", filename))
-				// Generate & split traces
-				valid, invalid := generateTestTraces(m, schema)
-				// Write out
-				writeTestTraces(m, "accepts", schema, valid)
-				writeTestTraces(m, "rejects", schema, invalid)
-				os.Exit(0)
-			}
-		}
-		//
-		fmt.Printf("unknown model \"%s\"\n", model)
-		os.Exit(1)
+		cfg.model = findModel(args[0])
+		cfg.min_lines = util.GetUint(cmd, "min-lines")
+		cfg.max_lines = util.GetUint(cmd, "max-lines")
+		// Read schema
+		filename := fmt.Sprintf("%s.lisp", cfg.model.Name)
+		schema := readSchemaFile(path.Join("testdata", filename))
+		// Generate & split traces
+		valid, invalid := generateTestTraces(cfg, schema)
+		// Write out
+		writeTestTraces(cfg.model, "accepts", schema, valid)
+		writeTestTraces(cfg.model, "rejects", schema, invalid)
+		os.Exit(0)
+
 	},
+}
+
+// TestGenConfig encapsulates configuration related to test generation.
+type TestGenConfig struct {
+	model     Model
+	min_lines uint
+	max_lines uint
 }
 
 // Model represents a hard-coded oracle for a given test.
@@ -66,26 +73,39 @@ type Model struct {
 
 var models []Model = []Model{
 	{"memory", memoryModel},
+	{"word_sorting", wordSortingModel},
+}
+
+func findModel(name string) Model {
+	for _, m := range models {
+		if m.Name == name {
+			return m
+		}
+	}
+	//
+	panic(fmt.Sprintf("unknown model \"%s\"", name))
 }
 
 // Generate test traces
-func generateTestTraces(model Model, schema sc.Schema) ([]tr.Trace, []tr.Trace) {
+func generateTestTraces(cfg TestGenConfig, schema sc.Schema) ([]tr.Trace, []tr.Trace) {
 	// NOTE: This is really a temporary solution for now.  It doesn't handle
 	// length multipliers.  It doesn't allow for modules with different heights.
 	// It uses a fixed pool.
 	pool := []fr.Element{fr.NewElement(0), fr.NewElement(1), fr.NewElement(2)}
-	//
-	enumerator := sc.NewTraceEnumerator(2, schema, pool)
 	valid := make([]tr.Trace, 0)
 	invalid := make([]tr.Trace, 0)
-	// Generate and split the traces
-	for enumerator.HasNext() {
-		trace := enumerator.Next()
-		// Check whether trace is valid or not (according to the oracle)
-		if model.Oracle(schema, trace) {
-			valid = append(valid, trace)
-		} else {
-			invalid = append(invalid, trace)
+	//
+	for n := cfg.min_lines; n < cfg.max_lines; n++ {
+		enumerator := sc.NewTraceEnumerator(n, schema, pool)
+		// Generate and split the traces
+		for enumerator.HasNext() {
+			trace := enumerator.Next()
+			// Check whether trace is valid or not (according to the oracle)
+			if cfg.model.Oracle(schema, trace) {
+				valid = append(valid, trace)
+			} else {
+				invalid = append(invalid, trace)
+			}
 		}
 	}
 	// Done
@@ -108,7 +128,7 @@ func writeTestTraces(model Model, ext string, schema sc.Schema, traces []tr.Trac
 		panic(err)
 	}
 	// Log what happened
-	log.Infof("Wrote %s\n", filename)
+	log.Infof("Wrote %s (%d traces)\n", filename, len(traces))
 }
 
 // Convert a trace into an array of raw columns.
@@ -222,6 +242,36 @@ func memoryModel(schema sc.Schema, trace tr.Trace) bool {
 	return true
 }
 
+func wordSortingModel(schema sc.Schema, trace tr.Trace) bool {
+	TWO_8 := fr.NewElement(256)
+	//
+	X := findColumn(0, "X", schema, trace).Data()
+	Delta := findColumn(0, "Delta", schema, trace).Data()
+	Byte_0 := findColumn(0, "Byte_0", schema, trace).Data()
+	Byte_1 := findColumn(0, "Byte_1", schema, trace).Data()
+	//
+	for i := uint(0); i < X.Len(); i++ {
+		X_i := X.Get(i)
+		Delta_i := Delta.Get(i)
+		Byte_0_i := Byte_0.Get(i)
+		Byte_1_i := Byte_1.Get(i)
+		tmp := add(mul(Byte_1_i, TWO_8), Byte_0_i)
+		//
+		if Delta_i.Cmp(&tmp) != 0 {
+			return false
+		} else if i > 0 {
+			X_im1 := X.Get(i - 1)
+			diff := sub(X_i, X_im1)
+
+			if Delta_i.Cmp(&diff) != 0 {
+				return false
+			}
+		}
+	}
+	// Success
+	return true
+}
+
 // ============================================================================
 // Helpers
 // ============================================================================
@@ -231,4 +281,19 @@ func isIncremented(before fr.Element, after fr.Element) bool {
 	after.Sub(&after, &before)
 	//
 	return after.IsOne()
+}
+
+func add(lhs fr.Element, rhs fr.Element) fr.Element {
+	lhs.Add(&lhs, &rhs)
+	return lhs
+}
+
+func sub(lhs fr.Element, rhs fr.Element) fr.Element {
+	lhs.Sub(&lhs, &rhs)
+	return lhs
+}
+
+func mul(lhs fr.Element, rhs fr.Element) fr.Element {
+	lhs.Mul(&lhs, &rhs)
+	return lhs
 }

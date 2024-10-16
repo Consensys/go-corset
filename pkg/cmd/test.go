@@ -30,22 +30,22 @@ var testCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		// Configure log level
-		if getFlag(cmd, "debug") {
+		if GetFlag(cmd, "debug") {
 			log.SetLevel(log.DebugLevel)
 		}
 		// Setup check config
-		cfg.air = getFlag(cmd, "air")
-		cfg.mir = getFlag(cmd, "mir")
-		cfg.hir = getFlag(cmd, "hir")
-		cfg.expand = !getFlag(cmd, "raw")
-		cfg.report = getFlag(cmd, "report")
-		cfg.reportPadding = getUint(cmd, "report-context")
-		// cfg.strict = !getFlag(cmd, "warn")
-		// cfg.quiet = getFlag(cmd, "quiet")
-		cfg.padding.Right = getUint(cmd, "padding")
-		cfg.parallelExpansion = !getFlag(cmd, "sequential")
-		cfg.batchSize = getUint(cmd, "batch")
-		cfg.ansiEscapes = getFlag(cmd, "ansi-escapes")
+		cfg.air = GetFlag(cmd, "air")
+		cfg.mir = GetFlag(cmd, "mir")
+		cfg.hir = GetFlag(cmd, "hir")
+		cfg.expand = !GetFlag(cmd, "raw")
+		cfg.report = GetFlag(cmd, "report")
+		cfg.reportPadding = GetUint(cmd, "report-context")
+		// cfg.strict = !GetFlag(cmd, "warn")
+		// cfg.quiet = GetFlag(cmd, "quiet")
+		cfg.padding.Right = GetUint(cmd, "padding")
+		cfg.parallelExpansion = !GetFlag(cmd, "sequential")
+		cfg.batchSize = GetUint(cmd, "batch")
+		cfg.ansiEscapes = GetFlag(cmd, "ansi-escapes")
 		// TODO: support true ranges
 		cfg.padding.Left = cfg.padding.Right
 		// Normalise IRs

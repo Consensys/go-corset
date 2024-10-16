@@ -24,10 +24,10 @@ var debugCmd = &cobra.Command{
 			fmt.Println(cmd.UsageString())
 			os.Exit(1)
 		}
-		hir := getFlag(cmd, "hir")
-		mir := getFlag(cmd, "mir")
-		air := getFlag(cmd, "air")
-		stats := getFlag(cmd, "stats")
+		hir := GetFlag(cmd, "hir")
+		mir := GetFlag(cmd, "mir")
+		air := GetFlag(cmd, "air")
+		stats := GetFlag(cmd, "stats")
 		// Parse constraints
 		hirSchema := readSchemaFile(args[0])
 

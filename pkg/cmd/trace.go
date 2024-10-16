@@ -26,15 +26,15 @@ var traceCmd = &cobra.Command{
 		}
 		// Parse trace
 		cols := readTraceFile(args[0])
-		list := getFlag(cmd, "list")
-		stats := getFlag(cmd, "stats")
-		includes := getStringArray(cmd, "include")
-		print := getFlag(cmd, "print")
-		start := getUint(cmd, "start")
-		end := getUint(cmd, "end")
-		max_width := getUint(cmd, "max-width")
-		filter := getString(cmd, "filter")
-		output := getString(cmd, "out")
+		list := GetFlag(cmd, "list")
+		stats := GetFlag(cmd, "stats")
+		includes := GetStringArray(cmd, "include")
+		print := GetFlag(cmd, "print")
+		start := GetUint(cmd, "start")
+		end := GetUint(cmd, "end")
+		max_width := GetUint(cmd, "max-width")
+		filter := GetString(cmd, "filter")
+		output := GetString(cmd, "out")
 		// construct filters
 		if filter != "" {
 			cols = filterColumns(cols, filter)
