@@ -15,8 +15,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Get an expected flag, or panic if an error arises.
-func getFlag(cmd *cobra.Command, flag string) bool {
+// GetFlag gets an expected flag, or panic if an error arises.
+func GetFlag(cmd *cobra.Command, flag string) bool {
 	r, err := cmd.Flags().GetBool(flag)
 	if err != nil {
 		fmt.Println(err)
@@ -26,8 +26,8 @@ func getFlag(cmd *cobra.Command, flag string) bool {
 	return r
 }
 
-// Get an expectedsigned integer, or panic if an error arises.
-func getInt(cmd *cobra.Command, flag string) int {
+// GetInt gets an expectedsigned integer, or panic if an error arises.
+func GetInt(cmd *cobra.Command, flag string) int {
 	r, err := cmd.Flags().GetInt(flag)
 	if err != nil {
 		fmt.Println(err)
@@ -37,8 +37,8 @@ func getInt(cmd *cobra.Command, flag string) int {
 	return r
 }
 
-// Get an expected unsigned integer, or panic if an error arises.
-func getUint(cmd *cobra.Command, flag string) uint {
+// GetUint gets an expected unsigned integer, or panic if an error arises.
+func GetUint(cmd *cobra.Command, flag string) uint {
 	r, err := cmd.Flags().GetUint(flag)
 	if err != nil {
 		fmt.Println(err)
@@ -48,8 +48,8 @@ func getUint(cmd *cobra.Command, flag string) uint {
 	return r
 }
 
-// Get an expected string, or panic if an error arises.
-func getString(cmd *cobra.Command, flag string) string {
+// GetString gets an expected string, or panic if an error arises.
+func GetString(cmd *cobra.Command, flag string) string {
 	r, err := cmd.Flags().GetString(flag)
 	if err != nil {
 		fmt.Println(err)
@@ -59,8 +59,8 @@ func getString(cmd *cobra.Command, flag string) string {
 	return r
 }
 
-// Get an expected string array, or panic if an error arises.
-func getStringArray(cmd *cobra.Command, flag string) []string {
+// GetStringArray gets an expected string array, or panic if an error arises.
+func GetStringArray(cmd *cobra.Command, flag string) []string {
 	r, err := cmd.Flags().GetStringArray(flag)
 	if err != nil {
 		fmt.Println(err)
