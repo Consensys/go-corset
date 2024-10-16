@@ -72,6 +72,7 @@ type Model struct {
 }
 
 var models []Model = []Model{
+	{"bit_decomposition", bitDecompositionModel},
 	{"memory", memoryModel},
 	{"word_sorting", wordSortingModel},
 }
@@ -266,6 +267,48 @@ func wordSortingModel(schema sc.Schema, trace tr.Trace) bool {
 			if Delta_i.Cmp(&diff) != 0 {
 				return false
 			}
+		}
+	}
+	// Success
+	return true
+}
+
+func bitDecompositionModel(schema sc.Schema, trace tr.Trace) bool {
+	TWO_1 := fr.NewElement(2)
+	TWO_2 := fr.NewElement(4)
+	TWO_3 := fr.NewElement(8)
+	TWO_4 := fr.NewElement(16)
+	//
+	NIBBLE := findColumn(0, "NIBBLE", schema, trace).Data()
+	BIT_0 := findColumn(0, "BIT_0", schema, trace).Data()
+	BIT_1 := findColumn(0, "BIT_1", schema, trace).Data()
+	BIT_2 := findColumn(0, "BIT_2", schema, trace).Data()
+	BIT_3 := findColumn(0, "BIT_3", schema, trace).Data()
+	//
+	for i := uint(0); i < NIBBLE.Len(); i++ {
+		NIBBLE_i := NIBBLE.Get(i)
+		BIT_0_i := BIT_0.Get(i)
+		BIT_1_i := BIT_1.Get(i)
+		BIT_2_i := BIT_2.Get(i)
+		BIT_3_i := BIT_3.Get(i)
+		// Check types
+		t_NIBBLE := NIBBLE_i.Cmp(&TWO_4) < 0
+		t_BIT_0 := BIT_0_i.Cmp(&TWO_1) < 0
+		t_BIT_1 := BIT_1_i.Cmp(&TWO_1) < 0
+		t_BIT_2 := BIT_2_i.Cmp(&TWO_1) < 0
+		t_BIT_3 := BIT_3_i.Cmp(&TWO_1) < 0
+		// Check type constraints
+		if !(t_NIBBLE && t_BIT_0 && t_BIT_1 && t_BIT_2 && t_BIT_3) {
+			return false
+		}
+		//
+		b1 := mul(BIT_1_i, TWO_1)
+		b2 := mul(BIT_2_i, TWO_2)
+		b3 := mul(BIT_3_i, TWO_3)
+		sum := add(add(add(b3, b2), b1), BIT_0_i)
+		// Check decomposition matches
+		if NIBBLE_i.Cmp(&sum) != 0 {
+			return false
 		}
 	}
 	// Success

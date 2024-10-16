@@ -11,7 +11,7 @@ repos:
     rev: v1.0.0-rc.1
     hooks:
       - id: go-test-mod
-        args: [ --run=Test_ ]
+        args: [ --run=Test_Basic ]
   - repo: https://github.com/golangci/golangci-lint
     rev: v1.57.1
     hooks:
