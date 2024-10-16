@@ -1,3 +1,2 @@
-(column A)
-(column B)
+(defcolumns A B)
 (vanish c1 (if A B))

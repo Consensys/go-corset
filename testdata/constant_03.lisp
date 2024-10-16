@@ -1,5 +1,4 @@
-(column X)
-(column Y)
+(defcolumns X Y)
 ;; X == Y - 0
 (vanish c1 (- X Y (* 0 1)))
 ;; X == Y - 0

@@ -1,3 +1,2 @@
-(column ST)
-(column A)
+(defcolumns ST A)
 (vanish spills (* ST (* A (~ (shift A 2)))))

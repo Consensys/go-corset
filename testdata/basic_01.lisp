@@ -1,2 +1,2 @@
-(column X)
+(defcolumns X)
 (vanish heartbeat X)

@@ -1,2 +1,3 @@
-(column X16 :u16)
-(column X32 :u32)
+(defcolumns
+  (X16 :u16)
+  (X32 :u32))

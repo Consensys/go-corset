@@ -68,9 +68,15 @@ func (p *DataColumn) IsComputed() bool {
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
 func (p *DataColumn) Lisp(schema sc.Schema) sexp.SExp {
-	col := sexp.NewSymbol("column")
+	col := sexp.NewSymbol("defcolumns")
 	name := sexp.NewSymbol(p.Columns().Next().QualifiedName(schema))
+	//
+	if p.datatype.AsField() != nil {
+		return sexp.NewList([]sexp.SExp{col, name})
+	}
+	//
 	datatype := sexp.NewSymbol(p.datatype.String())
-
-	return sexp.NewList([]sexp.SExp{col, name, datatype})
+	def := sexp.NewList([]sexp.SExp{name, datatype})
+	//
+	return sexp.NewList([]sexp.SExp{col, def})
 }

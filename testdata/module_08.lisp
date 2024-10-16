@@ -1,3 +1,3 @@
-(column X)
+(defcolumns X)
 (module m1)
-(column X :u8)
+(defcolumns (X :u8))

@@ -1,3 +1,3 @@
-(column STAMP)
+(defcolumns STAMP)
 ;; STAMP[-1] == 0
 (vanish:last c1 STAMP)

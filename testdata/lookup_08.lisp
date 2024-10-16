@@ -1,4 +1,2 @@
-(column A)
-(column B)
-(column X)
+(defcolumns A B X)
 (lookup test (A B) (0 X))

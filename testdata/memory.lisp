@@ -11,13 +11,13 @@
 ;; written.
 
 ;; Program Counter (always increases by one)
-(column PC :u16)
+(defcolumns (PC :u16))
 ;; Read/Write flag (0=READ, 1=WRITE)
-(column RW :u1)
+(defcolumns (RW :u1))
 ;; Address being Read/Written
-(column ADDR :u32)
+(defcolumns (ADDR :u32))
 ;; Value being Read/Written
-(column VAL :u8)
+(defcolumns (VAL :u8))
 ;; Permutation
 (permute (ADDR' PC' RW' VAL') (+ADDR +PC +RW +VAL))
 ;; PC[0]=0

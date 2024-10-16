@@ -2,10 +2,10 @@
 ;; implemented on a column of bytes.
 
 ;; Input column
-(column X :u8)
+(defcolumns (X :u8))
 
 ;; Generated column
-(column Delta :u8)
+(defcolumns (Delta :u8))
 
 ;; Delta == X - X[i-1]
 (vanish sort (- Delta (- X (shift X -1))))

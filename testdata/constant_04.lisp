@@ -1,5 +1,4 @@
-(column X)
-(column Y)
+(defcolumns X Y)
 ;; X + 2 == Y + 2
 (vanish c1 (- (+ X 2) (+ Y (^ 2 1))))
 ;; X + 4 == Y + 4
