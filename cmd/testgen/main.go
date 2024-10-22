@@ -73,6 +73,7 @@ type Model struct {
 
 var models []Model = []Model{
 	{"bit_decomposition", bitDecompositionModel},
+	{"byte_decomposition", byteDecompositionModel},
 	{"memory", memoryModel},
 	{"word_sorting", wordSortingModel},
 }
@@ -187,6 +188,96 @@ func findColumn(mod uint, col string, schema sc.Schema, trace tr.Trace) tr.Colum
 // ============================================================================
 // Models
 // ============================================================================
+func bitDecompositionModel(schema sc.Schema, trace tr.Trace) bool {
+	TWO_1 := fr.NewElement(2)
+	TWO_2 := fr.NewElement(4)
+	TWO_3 := fr.NewElement(8)
+	TWO_4 := fr.NewElement(16)
+	//
+	NIBBLE := findColumn(0, "NIBBLE", schema, trace).Data()
+	BIT_0 := findColumn(0, "BIT_0", schema, trace).Data()
+	BIT_1 := findColumn(0, "BIT_1", schema, trace).Data()
+	BIT_2 := findColumn(0, "BIT_2", schema, trace).Data()
+	BIT_3 := findColumn(0, "BIT_3", schema, trace).Data()
+	//
+	for i := uint(0); i < NIBBLE.Len(); i++ {
+		NIBBLE_i := NIBBLE.Get(i)
+		BIT_0_i := BIT_0.Get(i)
+		BIT_1_i := BIT_1.Get(i)
+		BIT_2_i := BIT_2.Get(i)
+		BIT_3_i := BIT_3.Get(i)
+		// Check types
+		t_NIBBLE := NIBBLE_i.Cmp(&TWO_4) < 0
+		t_BIT_0 := BIT_0_i.Cmp(&TWO_1) < 0
+		t_BIT_1 := BIT_1_i.Cmp(&TWO_1) < 0
+		t_BIT_2 := BIT_2_i.Cmp(&TWO_1) < 0
+		t_BIT_3 := BIT_3_i.Cmp(&TWO_1) < 0
+		// Check type constraints
+		if !(t_NIBBLE && t_BIT_0 && t_BIT_1 && t_BIT_2 && t_BIT_3) {
+			return false
+		}
+		//
+		b1 := mul(BIT_1_i, TWO_1)
+		b2 := mul(BIT_2_i, TWO_2)
+		b3 := mul(BIT_3_i, TWO_3)
+		sum := add(add(add(b3, b2), b1), BIT_0_i)
+		// Check decomposition matches
+		if NIBBLE_i.Cmp(&sum) != 0 {
+			return false
+		}
+	}
+	// Success
+	return true
+}
+
+func byteDecompositionModel(schema sc.Schema, trace tr.Trace) bool {
+	TWO_8 := fr.NewElement(256)
+	//
+	ST := findColumn(0, "ST", schema, trace).Data()
+	CT := findColumn(0, "CT", schema, trace).Data()
+	BYTE := findColumn(0, "BYTE", schema, trace).Data()
+	ARG := findColumn(0, "ARG", schema, trace).Data()
+	//
+	padding := true
+	//
+	for i := uint(0); i < ST.Len(); i++ {
+		st_i := ST.Get(i)
+		ct_i := CT.Get(i)
+		byte_i := BYTE.Get(i)
+		arg_i := ARG.Get(i)
+		// Type constraints
+		t_byte := byte_i.Cmp(&TWO_8) < 0
+		// Check type constraints
+		if !t_byte {
+			return false
+		}
+		//
+		if padding && st_i.IsZero() {
+
+		} else if padding && !st_i.IsZero() {
+			padding = false
+		} else if st_i.IsZero() {
+			return false
+		}
+		//
+		if i+1 < ST.Len() {
+			st_ip1 := ST.Get(i + 1)
+			if !(eq(st_i, st_ip1) || eq(add_const(st_i, 1), st_ip1)) {
+				return false
+			}
+		}
+		// Check other constraints
+		if ct_i.IsZero() && !eq(arg_i, byte_i) {
+			return false
+		} else if !ct_i.IsZero() && !eq(arg_i, add(byte_i, mul(TWO_8, BYTE.Get(i-1)))) {
+			return false
+		} else if !padding && i+1 < ST.Len() && !eq(add_const(ct_i, 1), CT.Get(i+1)) {
+			return false
+		}
+	}
+	// Success
+	return true
+}
 
 func memoryModel(schema sc.Schema, trace tr.Trace) bool {
 	TWO_1 := fr.NewElement(2)
@@ -273,48 +364,6 @@ func wordSortingModel(schema sc.Schema, trace tr.Trace) bool {
 	return true
 }
 
-func bitDecompositionModel(schema sc.Schema, trace tr.Trace) bool {
-	TWO_1 := fr.NewElement(2)
-	TWO_2 := fr.NewElement(4)
-	TWO_3 := fr.NewElement(8)
-	TWO_4 := fr.NewElement(16)
-	//
-	NIBBLE := findColumn(0, "NIBBLE", schema, trace).Data()
-	BIT_0 := findColumn(0, "BIT_0", schema, trace).Data()
-	BIT_1 := findColumn(0, "BIT_1", schema, trace).Data()
-	BIT_2 := findColumn(0, "BIT_2", schema, trace).Data()
-	BIT_3 := findColumn(0, "BIT_3", schema, trace).Data()
-	//
-	for i := uint(0); i < NIBBLE.Len(); i++ {
-		NIBBLE_i := NIBBLE.Get(i)
-		BIT_0_i := BIT_0.Get(i)
-		BIT_1_i := BIT_1.Get(i)
-		BIT_2_i := BIT_2.Get(i)
-		BIT_3_i := BIT_3.Get(i)
-		// Check types
-		t_NIBBLE := NIBBLE_i.Cmp(&TWO_4) < 0
-		t_BIT_0 := BIT_0_i.Cmp(&TWO_1) < 0
-		t_BIT_1 := BIT_1_i.Cmp(&TWO_1) < 0
-		t_BIT_2 := BIT_2_i.Cmp(&TWO_1) < 0
-		t_BIT_3 := BIT_3_i.Cmp(&TWO_1) < 0
-		// Check type constraints
-		if !(t_NIBBLE && t_BIT_0 && t_BIT_1 && t_BIT_2 && t_BIT_3) {
-			return false
-		}
-		//
-		b1 := mul(BIT_1_i, TWO_1)
-		b2 := mul(BIT_2_i, TWO_2)
-		b3 := mul(BIT_3_i, TWO_3)
-		sum := add(add(add(b3, b2), b1), BIT_0_i)
-		// Check decomposition matches
-		if NIBBLE_i.Cmp(&sum) != 0 {
-			return false
-		}
-	}
-	// Success
-	return true
-}
-
 // ============================================================================
 // Helpers
 // ============================================================================
@@ -331,6 +380,10 @@ func add(lhs fr.Element, rhs fr.Element) fr.Element {
 	return lhs
 }
 
+func add_const(lhs fr.Element, rhs uint64) fr.Element {
+	return add(lhs, fr.NewElement(rhs))
+}
+
 func sub(lhs fr.Element, rhs fr.Element) fr.Element {
 	lhs.Sub(&lhs, &rhs)
 	return lhs
@@ -339,4 +392,9 @@ func sub(lhs fr.Element, rhs fr.Element) fr.Element {
 func mul(lhs fr.Element, rhs fr.Element) fr.Element {
 	lhs.Mul(&lhs, &rhs)
 	return lhs
+}
+
+func eq(lhs fr.Element, rhs fr.Element) bool {
+	d := sub(lhs, rhs)
+	return d.IsZero()
 }
