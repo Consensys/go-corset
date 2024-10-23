@@ -7,11 +7,12 @@ import (
 	"strings"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	util "github.com/consensys/go-corset/pkg/cmd"
+	cmdutil "github.com/consensys/go-corset/pkg/cmd"
 	"github.com/consensys/go-corset/pkg/hir"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/json"
+	"github.com/consensys/go-corset/pkg/util"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -43,10 +44,10 @@ var rootCmd = &cobra.Command{
 		var cfg TestGenConfig
 		// Lookup model
 		cfg.model = findModel(args[0])
-		cfg.min_elem = util.GetUint(cmd, "min-elem")
-		cfg.max_elem = util.GetUint(cmd, "max-elem")
-		cfg.min_lines = util.GetUint(cmd, "min-lines")
-		cfg.max_lines = util.GetUint(cmd, "max-lines")
+		cfg.min_elem = cmdutil.GetUint(cmd, "min-elem")
+		cfg.max_elem = cmdutil.GetUint(cmd, "max-elem")
+		cfg.min_lines = cmdutil.GetUint(cmd, "min-lines")
+		cfg.max_lines = cmdutil.GetUint(cmd, "max-lines")
 		// Read schema
 		filename := fmt.Sprintf("%s.lisp", cfg.model.Name)
 		schema := readSchemaFile(path.Join("testdata", filename))
@@ -82,7 +83,7 @@ type Model struct {
 
 var models []Model = []Model{
 	{"bit_decomposition", bitDecompositionModel},
-	{"byte_decomposition", byteDecompositionModel},
+	{"byte_decomposition", fixedFunctionModel("ST", "CT", 2, byteDecompositionModel)},
 	{"memory", memoryModel},
 	{"word_sorting", wordSortingModel},
 	{"counter", functionalModel("STAMP", counterModel)},
@@ -249,6 +250,47 @@ func functionalModel(stamp string, model func(uint, uint, sc.Schema, tr.Trace) b
 	}
 }
 
+// Fixed function model is a function model where each frame has a fixed number of rows.
+func fixedFunctionModel(stamp string, clk string, n uint, model func(uint, uint, sc.Schema, tr.Trace) bool) OracleFn {
+	clockedFn := func(first uint, last uint, schema sc.Schema, trace tr.Trace) bool {
+		CLK := findColumn(0, clk, schema, trace).Data()
+		// Check frame has expected size
+		if last-first+1 != n {
+			return false
+		}
+		// Check the counter
+		for i := first; i <= last; i++ {
+			clk_i := CLK.Get(i)
+			expected := fr.NewElement(uint64(i - first))
+			// Check counter matches expected valid
+			if clk_i.Cmp(&expected) != 0 {
+				return false
+			}
+		}
+		// Chain the model
+		return model(first, last, schema, trace)
+	}
+	// Final step
+	return functionalModel(stamp, clockedFn)
+}
+
+func checkType(bitwidth uint64, name string, schema sc.Schema, trace tr.Trace) bool {
+	// Determine 2^n
+	two_n := fr.NewElement(2)
+	util.Pow(&two_n, bitwidth)
+	// Find column in question
+	col := findColumn(0, name, schema, trace).Data()
+	//
+	for i := uint(0); i < col.Len(); i++ {
+		ith := col.Get(i)
+		if ith.Cmp(&two_n) >= 0 {
+			return false
+		}
+	}
+	//
+	return true
+}
+
 // ============================================================================
 // Models
 // ============================================================================
@@ -256,30 +298,27 @@ func bitDecompositionModel(schema sc.Schema, trace tr.Trace) bool {
 	TWO_1 := fr.NewElement(2)
 	TWO_2 := fr.NewElement(4)
 	TWO_3 := fr.NewElement(8)
-	TWO_4 := fr.NewElement(16)
 	//
 	NIBBLE := findColumn(0, "NIBBLE", schema, trace).Data()
 	BIT_0 := findColumn(0, "BIT_0", schema, trace).Data()
 	BIT_1 := findColumn(0, "BIT_1", schema, trace).Data()
 	BIT_2 := findColumn(0, "BIT_2", schema, trace).Data()
 	BIT_3 := findColumn(0, "BIT_3", schema, trace).Data()
-	//
+	// Check column types
+	if !checkType(4, "NIBBLE", schema, trace) ||
+		!checkType(2, "BIT_0", schema, trace) ||
+		!checkType(2, "BIT_1", schema, trace) ||
+		!checkType(2, "BIT_2", schema, trace) ||
+		!checkType(2, "BIT_3", schema, trace) {
+		return false
+	}
+	// Check decomposition
 	for i := uint(0); i < NIBBLE.Len(); i++ {
 		NIBBLE_i := NIBBLE.Get(i)
 		BIT_0_i := BIT_0.Get(i)
 		BIT_1_i := BIT_1.Get(i)
 		BIT_2_i := BIT_2.Get(i)
 		BIT_3_i := BIT_3.Get(i)
-		// Check types
-		t_NIBBLE := NIBBLE_i.Cmp(&TWO_4) < 0
-		t_BIT_0 := BIT_0_i.Cmp(&TWO_1) < 0
-		t_BIT_1 := BIT_1_i.Cmp(&TWO_1) < 0
-		t_BIT_2 := BIT_2_i.Cmp(&TWO_1) < 0
-		t_BIT_3 := BIT_3_i.Cmp(&TWO_1) < 0
-		// Check type constraints
-		if !(t_NIBBLE && t_BIT_0 && t_BIT_1 && t_BIT_2 && t_BIT_3) {
-			return false
-		}
 		//
 		b1 := mul(BIT_1_i, TWO_1)
 		b2 := mul(BIT_2_i, TWO_2)
@@ -294,53 +333,19 @@ func bitDecompositionModel(schema sc.Schema, trace tr.Trace) bool {
 	return true
 }
 
-func byteDecompositionModel(schema sc.Schema, trace tr.Trace) bool {
+func byteDecompositionModel(first uint, last uint, schema sc.Schema, trace tr.Trace) bool {
 	TWO_8 := fr.NewElement(256)
-	//
-	ST := findColumn(0, "ST", schema, trace).Data()
-	CT := findColumn(0, "CT", schema, trace).Data()
 	BYTE := findColumn(0, "BYTE", schema, trace).Data()
 	ARG := findColumn(0, "ARG", schema, trace).Data()
 	//
-	padding := true
+	arg_0 := ARG.Get(first)
+	arg_1 := ARG.Get(last)
+	byte_0 := BYTE.Get(first)
+	byte_1 := BYTE.Get(last)
+	// Check arg
+	val := add(mul(byte_0, TWO_8), byte_1)
 	//
-	for i := uint(0); i < ST.Len(); i++ {
-		st_i := ST.Get(i)
-		ct_i := CT.Get(i)
-		byte_i := BYTE.Get(i)
-		arg_i := ARG.Get(i)
-		// Type constraints
-		t_byte := byte_i.Cmp(&TWO_8) < 0
-		// Check type constraints
-		if !t_byte {
-			return false
-		}
-		//
-		if padding && st_i.IsZero() {
-
-		} else if padding && !st_i.IsZero() {
-			padding = false
-		} else if st_i.IsZero() {
-			return false
-		}
-		//
-		if i+1 < ST.Len() {
-			st_ip1 := ST.Get(i + 1)
-			if !(eq(st_i, st_ip1) || eq(add_const(st_i, 1), st_ip1)) {
-				return false
-			}
-		}
-		// Check other constraints
-		if ct_i.IsZero() && !eq(arg_i, byte_i) {
-			return false
-		} else if !ct_i.IsZero() && !eq(arg_i, add(byte_i, mul(TWO_8, BYTE.Get(i-1)))) {
-			return false
-		} else if !padding && i+1 < ST.Len() && !eq(add_const(ct_i, 1), CT.Get(i+1)) {
-			return false
-		}
-	}
-	// Success
-	return true
+	return arg_0.Cmp(&byte_0) == 0 && arg_1.Cmp(&val) == 0
 }
 
 func memoryModel(schema sc.Schema, trace tr.Trace) bool {
