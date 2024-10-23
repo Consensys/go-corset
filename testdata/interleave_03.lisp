@@ -1,5 +1,5 @@
 (defcolumns X Y)
-(interleave A (X Y))
-(interleave B (X Y))
-(interleave Z (A B))
+(definterleaved A (X Y))
+(definterleaved B (X Y))
+(definterleaved Z (A B))
 (defconstraint c1 () Z)

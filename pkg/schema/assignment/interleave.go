@@ -132,7 +132,7 @@ func (p *Interleaving) Lisp(schema sc.Schema) sexp.SExp {
 	}
 	// Construct S-Expression
 	return sexp.NewList([]sexp.SExp{
-		sexp.NewSymbol("interleave"),
+		sexp.NewSymbol("definterleaved"),
 		target,
 		sources,
 	})
