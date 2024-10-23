@@ -98,7 +98,7 @@ func (p *hirParser) parseDeclaration(s sexp.SExp) error {
 			return p.parseAssertionDeclaration(e.Elements)
 		} else if e.Len() == 3 && e.MatchSymbols(1, "permute") {
 			return p.parseSortedPermutationDeclaration(e)
-		} else if e.Len() == 4 && e.MatchSymbols(1, "lookup") {
+		} else if e.Len() == 4 && e.MatchSymbols(1, "deflookup") {
 			return p.parseLookupDeclaration(e)
 		} else if e.Len() == 3 && e.MatchSymbols(1, "interleave") {
 			return p.parseInterleavingDeclaration(e)

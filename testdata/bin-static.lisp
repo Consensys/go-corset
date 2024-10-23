@@ -68,7 +68,7 @@
 
 (defconstraint bin:set-oli-mli () (if (+ bin:IS_BYTE bin:IS_SIGNEXTEND) bin:ONE_LINE_INSTRUCTION (if bin:ARGUMENT_1_HI bin:ONE_LINE_INSTRUCTION (- bin:ONE_LINE_INSTRUCTION 1))))
 
-(defconstraint bin:result-via-lookup () (ifnot (+ bin:IS_AND bin:IS_OR bin:IS_XOR bin:IS_NOT) (begin (- bin:BYTE_5 bin:XXX_BYTE_HI) (- bin:BYTE_6 bin:XXX_BYTE_LO))))
+(defconstraint bin:result-via-deflookup () (ifnot (+ bin:IS_AND bin:IS_OR bin:IS_XOR bin:IS_NOT) (begin (- bin:BYTE_5 bin:XXX_BYTE_HI) (- bin:BYTE_6 bin:XXX_BYTE_LO))))
 
 (defconstraint bin:oli-incrementation () (ifnot bin:ONE_LINE_INSTRUCTION (- (shift bin:STAMP 1) (+ bin:STAMP 1))))
 

@@ -4,4 +4,4 @@
 (module m2)
 (defcolumns Y)
 ;;
-(lookup test (Y) (m1.X))
+(deflookup test (Y) (m1.X))

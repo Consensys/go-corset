@@ -1,2 +1,2 @@
 (defcolumns ST X Y)
-(lookup test (Y) ((* ST (+ 1 X))))
+(deflookup test (Y) ((* ST (+ 1 X))))
