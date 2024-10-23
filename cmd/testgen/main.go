@@ -83,7 +83,7 @@ type Model struct {
 
 var models []Model = []Model{
 	{"bit_decomposition", bitDecompositionModel},
-	{"byte_decomposition", fixedFunctionModel("ST", "CT", 2, byteDecompositionModel)},
+	{"byte_decomposition", fixedFunctionModel("ST", "CT", 4, byteDecompositionModel)},
 	{"memory", memoryModel},
 	{"word_sorting", wordSortingModel},
 	{"counter", functionalModel("STAMP", counterModel)},
@@ -337,15 +337,19 @@ func byteDecompositionModel(first uint, last uint, schema sc.Schema, trace tr.Tr
 	TWO_8 := fr.NewElement(256)
 	BYTE := findColumn(0, "BYTE", schema, trace).Data()
 	ARG := findColumn(0, "ARG", schema, trace).Data()
+	acc := fr.NewElement(0)
+	// Iterate elements
+	for i := first; i <= last; i++ {
+		byte := BYTE.Get(i)
+		arg := ARG.Get(i)
+		acc := add(mul(acc, TWO_8), byte)
+		// Check accumulator
+		if acc.Cmp(&arg) != 0 {
+			return false
+		}
+	}
 	//
-	arg_0 := ARG.Get(first)
-	arg_1 := ARG.Get(last)
-	byte_0 := BYTE.Get(first)
-	byte_1 := BYTE.Get(last)
-	// Check arg
-	val := add(mul(byte_0, TWO_8), byte_1)
-	//
-	return arg_0.Cmp(&byte_0) == 0 && arg_1.Cmp(&val) == 0
+	return true
 }
 
 func memoryModel(schema sc.Schema, trace tr.Trace) bool {
@@ -472,10 +476,6 @@ func add(lhs fr.Element, rhs fr.Element) fr.Element {
 	return lhs
 }
 
-func add_const(lhs fr.Element, rhs uint64) fr.Element {
-	return add(lhs, fr.NewElement(rhs))
-}
-
 func sub(lhs fr.Element, rhs fr.Element) fr.Element {
 	lhs.Sub(&lhs, &rhs)
 	return lhs
@@ -484,9 +484,4 @@ func sub(lhs fr.Element, rhs fr.Element) fr.Element {
 func mul(lhs fr.Element, rhs fr.Element) fr.Element {
 	lhs.Mul(&lhs, &rhs)
 	return lhs
-}
-
-func eq(lhs fr.Element, rhs fr.Element) bool {
-	d := sub(lhs, rhs)
-	return d.IsZero()
 }
