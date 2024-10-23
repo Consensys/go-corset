@@ -215,18 +215,20 @@ func HoldsLocally[T sc.Testable](k uint, handle string, constraint T, tr tr.Trac
 //
 //nolint:revive
 func (p *VanishingConstraint[T]) Lisp(schema sc.Schema) sexp.SExp {
-	var head string
+	attributes := sexp.EmptyList()
+	// Handle attributes
 	if p.domain == nil {
-		head = "vanish"
+		// Skip
 	} else if *p.domain == 0 {
-		head = "vanish:first"
+		attributes.Append(sexp.NewSymbol(":first"))
 	} else {
-		head = "vanish:last"
+		attributes.Append(sexp.NewSymbol(":last"))
 	}
 	// Construct the list
 	return sexp.NewList([]sexp.SExp{
-		sexp.NewSymbol(head),
+		sexp.NewSymbol("defconstraint"),
 		sexp.NewSymbol(p.handle),
+		attributes,
 		p.constraint.Lisp(schema),
 	})
 }

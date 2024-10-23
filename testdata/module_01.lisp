@@ -1,3 +1,3 @@
 (module test)
 (defcolumns X)
-(vanish heartbeat X)
+(defconstraint heartbeat () X)

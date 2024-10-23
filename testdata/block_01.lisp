@@ -1,2 +1,2 @@
 (defcolumns X Y)
-(vanish c1 (begin X Y))
+(defconstraint c1 () (begin X Y))

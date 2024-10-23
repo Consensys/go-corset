@@ -11,6 +11,9 @@ type SExp interface {
 	// AsList checks whether this S-Expression is a list and, if
 	// so, returns it.  Otherwise, it returns nil.
 	AsList() *List
+	// AsSet checks whether this S-Expression is a set and, if
+	// so, returns it.  Otherwise, it returns nil.
+	AsSet() *Set
 	// AsSymbol checks whether this S-Expression is a symbol and,
 	// if so, returns it.  Otherwise, it returns nil.
 	AsSymbol() *Symbol
@@ -45,6 +48,9 @@ func NewList(elements []SExp) *List {
 
 // AsList returns the given list.
 func (l *List) AsList() *List { return l }
+
+// AsSet returns nil for a list.
+func (l *List) AsSet() *Set { return nil }
 
 // AsSymbol returns nil for a list.
 func (l *List) AsSymbol() *Symbol { return nil }
@@ -98,6 +104,55 @@ func (l *List) MatchSymbols(n int, symbols ...string) bool {
 }
 
 // ===================================================================
+// Set
+// ===================================================================
+
+// Set represents a list of zero or more S-Expressions.
+type Set struct {
+	Elements []SExp
+}
+
+// NOTE: This is used for compile time type checking if the given type
+// satisfies the given interface.
+var _ SExp = (*Set)(nil)
+
+// NewSet creates a new set from a given array of S-Expressions.
+func NewSet(elements []SExp) *Set {
+	return &Set{elements}
+}
+
+// AsList returns nil for a set.
+func (l *Set) AsList() *List { return nil }
+
+// AsSet returns the given set.
+func (l *Set) AsSet() *Set { return l }
+
+// AsSymbol returns nil for a set.
+func (l *Set) AsSymbol() *Symbol { return nil }
+
+// Len gets the number of elements in this set.
+func (l *Set) Len() int { return len(l.Elements) }
+
+// Get the ith element of this set
+func (l *Set) Get(i int) SExp { return l.Elements[i] }
+
+func (l *Set) String(quote bool) string {
+	var s = "{"
+
+	for i := 0; i < len(l.Elements); i++ {
+		if i != 0 {
+			s += " "
+		}
+
+		s += l.Elements[i].String(quote)
+	}
+
+	s += "}"
+
+	return s
+}
+
+// ===================================================================
 // Symbol
 // ===================================================================
 
@@ -117,6 +172,9 @@ func NewSymbol(value string) *Symbol {
 
 // AsList returns nil for a symbol.
 func (s *Symbol) AsList() *List { return nil }
+
+// AsSet returns nil for a symbol.
+func (s *Symbol) AsSet() *Set { return nil }
 
 // AsSymbol returns the given symbol
 func (s *Symbol) AsSymbol() *Symbol { return s }

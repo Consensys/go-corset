@@ -1,2 +1,2 @@
 (defcolumns X)
-(vanish c1 (shift X -1))
+(defconstraint c1 () (shift X -1))

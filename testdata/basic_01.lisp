@@ -1,2 +1,2 @@
 (defcolumns X)
-(vanish heartbeat X)
+(defconstraint heartbeat () X)

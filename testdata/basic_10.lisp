@@ -1,3 +1,3 @@
 (defcolumns X Y)
 ;; Y == X*X
-(vanish c1 (- Y (^ X 2)))
+(defconstraint c1 () (- Y (^ X 2)))

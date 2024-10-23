@@ -1,2 +1,2 @@
 (defcolumns A)
-(vanish c1 (~ A))
+(defconstraint c1 () (~ A))

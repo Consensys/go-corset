@@ -92,14 +92,8 @@ func (p *hirParser) parseDeclaration(s sexp.SExp) error {
 			return p.parseModuleDeclaration(e)
 		} else if e.MatchSymbols(1, "defcolumns") {
 			return p.parseColumnDeclarations(e)
-		} else if e.Len() == 3 && e.MatchSymbols(2, "vanish") {
-			return p.parseVanishingDeclaration(e.Elements, nil)
-		} else if e.Len() == 3 && e.MatchSymbols(2, "vanish:last") {
-			domain := -1
-			return p.parseVanishingDeclaration(e.Elements, &domain)
-		} else if e.Len() == 3 && e.MatchSymbols(2, "vanish:first") {
-			domain := 0
-			return p.parseVanishingDeclaration(e.Elements, &domain)
+		} else if e.Len() == 4 && e.MatchSymbols(2, "defconstraint") {
+			return p.parseConstraintDeclaration(e.Elements)
 		} else if e.Len() == 3 && e.MatchSymbols(2, "assert") {
 			return p.parseAssertionDeclaration(e.Elements)
 		} else if e.Len() == 3 && e.MatchSymbols(1, "permute") {
@@ -111,7 +105,7 @@ func (p *hirParser) parseDeclaration(s sexp.SExp) error {
 		}
 	}
 	// Error
-	return p.translator.SyntaxError(s, "unexpected declaration")
+	return p.translator.SyntaxError(s, "unexpected or malformed declaration")
 }
 
 // Parse a column declaration
@@ -245,9 +239,9 @@ func (p *hirParser) parseSortedPermutationDeclaration(l *sexp.List) error {
 		ctx = ctx.Join(sourceCol.Context())
 		// Sanity check we have a sensible type here.
 		if ctx.IsConflicted() {
-			panic(fmt.Sprintf("source column %s has conflicted evaluation context", sexpSources.Get(i)))
+			return p.translator.SyntaxError(sexpSources.Get(i), "conflicting evaluation context")
 		} else if ctx.IsVoid() {
-			panic(fmt.Sprintf("source column %s has void evaluation context", sexpSources.Get(i)))
+			return p.translator.SyntaxError(sexpSources.Get(i), "empty evaluation context")
 		}
 		// Copy over column name
 		sources[i] = sourceIndex
@@ -356,9 +350,9 @@ func (p *hirParser) parseInterleavingDeclaration(l *sexp.List) error {
 		ctx = ctx.Join(sourceCol.Context())
 		// Sanity check we have a sensible context here.
 		if ctx.IsConflicted() {
-			panic(fmt.Sprintf("source column %s has conflicted evaluation context", sexpSources.Get(i)))
+			return p.translator.SyntaxError(sexpSources.Get(i), "conflicting evaluation context")
 		} else if ctx.IsVoid() {
-			panic(fmt.Sprintf("source column %s has void evaluation context", sexpSources.Get(i)))
+			return p.translator.SyntaxError(sexpSources.Get(i), "empty evaluation context")
 		}
 		// Assign
 		sources[i] = cid
@@ -389,13 +383,19 @@ func (p *hirParser) parseAssertionDeclaration(elements []sexp.SExp) error {
 }
 
 // Parse a vanishing declaration
-func (p *hirParser) parseVanishingDeclaration(elements []sexp.SExp, domain *int) error {
+func (p *hirParser) parseConstraintDeclaration(elements []sexp.SExp) error {
+	//
 	handle := elements[1].AsSymbol().Value
 	// Vanishing constraints do not have global scope, hence qualified column
 	// accesses are not permitted.
 	p.global = false
-	// Translate
-	expr, err := p.translator.Translate(elements[2])
+	attributes, err := p.parseConstraintAttributes(elements[2])
+	// Check for error
+	if err != nil {
+		return err
+	}
+	// Translate expression
+	expr, err := p.translator.Translate(elements[3])
 	if err != nil {
 		return err
 	}
@@ -403,14 +403,71 @@ func (p *hirParser) parseVanishingDeclaration(elements []sexp.SExp, domain *int)
 	ctx := expr.Context(p.env.schema)
 	// Sanity check we have a sensible context here.
 	if ctx.IsConflicted() {
-		panic(fmt.Sprintf("source column %s has conflicted evaluation context", elements[2]))
+		return p.translator.SyntaxError(elements[3], "conflicting evaluation context")
 	} else if ctx.IsVoid() {
-		panic(fmt.Sprintf("source column %s has void evaluation context", elements[2]))
+		return p.translator.SyntaxError(elements[3], "empty evaluation context")
 	}
 
-	p.env.schema.AddVanishingConstraint(handle, ctx, domain, expr)
+	p.env.schema.AddVanishingConstraint(handle, ctx, attributes, expr)
 
 	return nil
+}
+
+func (p *hirParser) parseConstraintAttributes(attributes sexp.SExp) (domain *int, err error) {
+	var res *int = nil
+	// Check attribute list is a list
+	if attributes.AsList() == nil {
+		return nil, p.translator.SyntaxError(attributes, "expected attribute list")
+	}
+	// Deconstruct as list
+	attrs := attributes.AsList()
+	// Process each attribute in turn
+	for i := 0; i < attrs.Len(); i++ {
+		ith := attrs.Get(i)
+		// Check start of attribute
+		if ith.AsSymbol() == nil {
+			return nil, p.translator.SyntaxError(ith, "malformed attribute")
+		}
+		// Check what we've got
+		switch ith.AsSymbol().Value {
+		case ":domain":
+			i++
+			if res, err = p.parseDomainAttribute(attrs.Get(i)); err != nil {
+				return nil, err
+			}
+		default:
+			return nil, p.translator.SyntaxError(ith, "unknown attribute")
+		}
+	}
+	// Done
+	return res, nil
+}
+
+func (p *hirParser) parseDomainAttribute(attribute sexp.SExp) (domain *int, err error) {
+	if attribute.AsSet() == nil {
+		return nil, p.translator.SyntaxError(attribute, "malformed domain set")
+	}
+	// Sanity check
+	set := attribute.AsSet()
+	// Check all domain elements well-formed.
+	for i := 0; i < set.Len(); i++ {
+		ith := set.Get(i)
+		if ith.AsSymbol() == nil {
+			return nil, p.translator.SyntaxError(ith, "malformed domain")
+		}
+	}
+	// Currently, only support domains of size 1.
+	if set.Len() == 1 {
+		first, err := strconv.Atoi(set.Get(0).AsSymbol().Value)
+		// Check for parse error
+		if err != nil {
+			return nil, p.translator.SyntaxError(set.Get(0), "malformed domain element")
+		}
+		// Done
+		return &first, nil
+	}
+	// Fail
+	return nil, p.translator.SyntaxError(attribute, "multiple values not supported")
 }
 
 func (p *hirParser) parseType(term sexp.SExp) (sc.Type, error) {

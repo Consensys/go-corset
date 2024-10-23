@@ -2,4 +2,4 @@
   (ST :u16)
   (X :u16))
 (permute (ST' Y) (+ST -X))
-(vanish:last first-row (- Y 5))
+(defconstraint first-row (:domain {-1}) (- Y 5))

@@ -9,7 +9,7 @@
 (defcolumns (Byte_0 :u8) (Byte_1 :u8))
 
 ;; Ensure Delta is a u16
-(vanish delta_type (- Delta (+ (* 256 Byte_1) Byte_0)))
+(defconstraint delta_type () (- Delta (+ (* 256 Byte_1) Byte_0)))
 
 ;; Delta == X - X[i-1]
-(vanish sort (- Delta (- X (shift X -1))))
+(defconstraint sort () (- Delta (- X (shift X -1))))

@@ -1,2 +1,2 @@
 (defcolumns ST A)
-(vanish spills (* ST (* A (~ (shift A -2)))))
+(defconstraint spills () (* ST (* A (~ (shift A -2)))))

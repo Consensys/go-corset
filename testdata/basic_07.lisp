@@ -1,3 +1,3 @@
 (defcolumns X Y)
-(vanish c1 (* Y (- Y 1) (- Y 2) (- Y 3)))
-(vanish c2 (* (- X Y) (- X Y 4)))
+(defconstraint c1 () (* Y (- Y 1) (- Y 2) (- Y 3)))
+(defconstraint c2 () (* (- X Y) (- X Y 4)))

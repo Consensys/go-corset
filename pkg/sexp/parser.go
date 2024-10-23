@@ -1,6 +1,8 @@
 package sexp
 
-import "unicode"
+import (
+	"unicode"
+)
 
 // Parse a given string into an S-expression, or return an error if the string
 // is malformed.
@@ -83,24 +85,21 @@ func (p *Parser) Parse() (SExp, error) {
 		p.index-- // backup
 		return nil, p.error("unexpected end-of-list")
 	} else if len(token) == 1 && token[0] == '(' {
-		var elements []SExp
-
-		for c := p.Lookahead(0); c == nil || *c != ')'; c = p.Lookahead(0) {
-			// Parse next element
-			element, err := p.Parse()
-			if err != nil {
-				return nil, err
-			} else if element == nil {
-				p.index-- // backup
-				return nil, p.error("unexpected end-of-file")
-			}
-			// Continue around!
-			elements = append(elements, element)
+		elements, err := p.parseSequence(')')
+		// Check for error
+		if err != nil {
+			return nil, err
 		}
-		// Consume right-brace
-		p.Next()
 		// Done
 		term = &List{elements}
+	} else if len(token) == 1 && token[0] == '{' {
+		elements, err := p.parseSequence('}')
+		// Check for error
+		if err != nil {
+			return nil, err
+		}
+		// Done
+		term = &Set{elements}
 	} else {
 		// Must be a symbol
 		term = &Symbol{string(token)}
@@ -121,8 +120,8 @@ func (p *Parser) Next() []rune {
 	}
 	// Check what we have
 	switch p.text[p.index] {
-	case '(', ')':
-		// List begin / end
+	case '(', ')', '{', '}':
+		// List/set begin / end
 		p.index = p.index + 1
 		return p.text[p.index-1 : p.index]
 	}
@@ -160,7 +159,7 @@ func (p *Parser) Lookahead(i int) *rune {
 	// Check what's there
 	if len(p.text) > pos {
 		r := p.text[pos]
-		if r == '(' || r == ')' || r == ';' {
+		if r == '(' || r == ')' || r == '{' || r == '}' || r == ';' {
 			return &r
 		} else if unicode.IsSpace(r) {
 			return p.Lookahead(i + 1)
@@ -176,7 +175,7 @@ func (p *Parser) parseSymbol() []rune {
 
 	for j := p.index; j < i; j++ {
 		c := p.text[j]
-		if c == ')' || c == ' ' || c == '\n' || c == '\t' {
+		if c == ')' || c == '}' || c == ' ' || c == '\n' || c == '\t' {
 			i = j
 			break
 		}
@@ -186,6 +185,27 @@ func (p *Parser) parseSymbol() []rune {
 	p.index = i
 
 	return token
+}
+
+func (p *Parser) parseSequence(terminator rune) ([]SExp, error) {
+	var elements []SExp
+
+	for c := p.Lookahead(0); c == nil || *c != terminator; c = p.Lookahead(0) {
+		// Parse next element
+		element, err := p.Parse()
+		if err != nil {
+			return nil, err
+		} else if element == nil {
+			p.index-- // backup
+			return nil, p.error("unexpected end-of-file")
+		}
+		// Continue around!
+		elements = append(elements, element)
+	}
+	// Consume terminator
+	p.Next()
+	//
+	return elements, nil
 }
 
 // Construct a parser error at the current position in the input stream.

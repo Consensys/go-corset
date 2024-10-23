@@ -6,17 +6,17 @@
 
 ;; In the first row, ST is always zero.  This allows for an
 ;; arbitrary amount of padding at the beginning which has no function.
-(vanish:first first ST)
+(defconstraint first (:domain {0}) ST)
 
 ;; ST either remains constant, or increments by one.
-(vanish increment (*
+(defconstraint increment () (*
                       ;; ST[k] == ST[k+1]
                       (- ST (shift ST 1))
                       ;; Or, ST[k]+1 == ST[k+1]
                       (- (+ 1 ST) (shift ST 1))))
 
 ;; Increment or reset counter
-(vanish heartbeat
+(defconstraint heartbeat ()
 	;; Only When ST != 0
 	(* ST
            ;; If CT[k] == 3
@@ -27,7 +27,7 @@
                (- (+ 1 CT) (shift CT 1)))))
 
 ;; Argument accumulates byte values.
-(vanish accumulator
+(defconstraint accumulator ()
            ;; If CT[k] == 0
            (if CT
                ;; Then, ARG == BYTE
