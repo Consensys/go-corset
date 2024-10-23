@@ -1,2 +1,5 @@
 (defcolumns (X :u16))
-(permute (Y) (+X))
+(defpermutation (Y) ((↓ X)))
+(defpermutation (Z) ((+ X)))
+;; Y == Z
+(defconstraint eq () (- Y Z))

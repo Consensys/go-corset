@@ -24,8 +24,8 @@ func (p *Schema) LowerToMir() *mir.Schema {
 		mirSchema.AddDataColumn(col.Context(), col.Name(), col.Type())
 	}
 	// Lower assignments (nothing to do here)
-	for _, asn := range p.assignments {
-		mirSchema.AddAssignment(asn)
+	for _, a := range p.assignments {
+		mirSchema.AddAssignment(a)
 	}
 	// Lower constraints
 	for _, c := range p.constraints {

@@ -96,8 +96,8 @@ func (p *hirParser) parseDeclaration(s sexp.SExp) error {
 			return p.parseConstraintDeclaration(e.Elements)
 		} else if e.Len() == 3 && e.MatchSymbols(2, "assert") {
 			return p.parseAssertionDeclaration(e.Elements)
-		} else if e.Len() == 3 && e.MatchSymbols(1, "permute") {
-			return p.parseSortedPermutationDeclaration(e)
+		} else if e.Len() == 3 && e.MatchSymbols(1, "defpermutation") {
+			return p.parsePermutationDeclaration(e)
 		} else if e.Len() == 4 && e.MatchSymbols(1, "deflookup") {
 			return p.parseLookupDeclaration(e)
 		} else if e.Len() == 3 && e.MatchSymbols(1, "definterleaved") {
@@ -182,13 +182,18 @@ func (p *hirParser) parseColumnDeclaration(e sexp.SExp) error {
 }
 
 // Parse a sorted permutation declaration
-func (p *hirParser) parseSortedPermutationDeclaration(l *sexp.List) error {
+func (p *hirParser) parsePermutationDeclaration(l *sexp.List) error {
 	// Target columns are (sorted) permutations of source columns.
 	sexpTargets := l.Elements[1].AsList()
 	// Source columns.
 	sexpSources := l.Elements[2].AsList()
+	// Sanity check
+	if sexpTargets == nil {
+		return p.translator.SyntaxError(l.Elements[1], "malformed target columns")
+	} else if sexpSources == nil {
+		return p.translator.SyntaxError(l.Elements[2], "malformed source columns")
+	}
 	// Convert into appropriate form.
-	targets := make([]sc.Column, sexpTargets.Len())
 	sources := make([]uint, sexpSources.Len())
 	signs := make([]bool, sexpSources.Len())
 	//
@@ -199,40 +204,9 @@ func (p *hirParser) parseSortedPermutationDeclaration(l *sexp.List) error {
 	ctx := trace.VoidContext()
 	//
 	for i := 0; i < sexpSources.Len(); i++ {
-		source := sexpSources.Get(i).AsSymbol()
-		target := sexpTargets.Get(i).AsSymbol()
-		// Sanity check syntax as expected
-		if source == nil {
-			return p.translator.SyntaxError(sexpSources.Get(i), "malformed column")
-		} else if target == nil {
-			return p.translator.SyntaxError(sexpTargets.Get(i), "malformed column")
-		}
-		// Determine source column sign (i.e. sort direction)
-		sortName := source.Value
-		if strings.HasPrefix(sortName, "+") {
-			signs[i] = true
-		} else if strings.HasPrefix(sortName, "-") {
-			if i == 0 {
-				return p.translator.SyntaxError(source, "sorted permutation requires ascending first column")
-			}
-
-			signs[i] = false
-		} else {
-			return p.translator.SyntaxError(source, "malformed sort direction")
-		}
-
-		sourceName := sortName[1:]
-		targetName := target.Value
-		// Determine index for source column
-		sourceIndex, ok := p.env.LookupColumn(p.module, sourceName)
-		if !ok {
-			// Column doesn't exist!
-			return p.translator.SyntaxError(sexpSources.Get(i), fmt.Sprintf("unknown column %s", sourceName))
-		}
-		// Sanity check that target column *doesn't* exist.
-		if p.env.HasColumn(p.module, targetName) {
-			// No, it doesn't.
-			return p.translator.SyntaxError(sexpTargets.Get(i), fmt.Sprintf("duplicate column %s", targetName))
+		sourceIndex, sourceSign, err := p.parsePermutationSource(sexpSources.Get(i))
+		if err != nil {
+			return err
 		}
 		// Check source context
 		sourceCol := p.env.schema.Columns().Nth(sourceIndex)
@@ -244,14 +218,86 @@ func (p *hirParser) parseSortedPermutationDeclaration(l *sexp.List) error {
 			return p.translator.SyntaxError(sexpSources.Get(i), "empty evaluation context")
 		}
 		// Copy over column name
+		signs[i] = sourceSign
 		sources[i] = sourceIndex
-		// FIXME: determine source column type
-		targets[i] = sc.NewColumn(ctx, targetName, &sc.FieldType{})
+	}
+	// Parse targets
+	targets := make([]sc.Column, sexpTargets.Len())
+	// Parse targets
+	for i := 0; i < sexpTargets.Len(); i++ {
+		targetName, err := p.parsePermutationTarget(sexpTargets.Get(i))
+		//
+		if err != nil {
+			return err
+		}
+		// Lookup corresponding source
+		source := p.env.schema.Columns().Nth(sources[i])
+		// Done
+		targets[i] = sc.NewColumn(ctx, targetName, source.Type())
 	}
 	//
 	p.env.AddAssignment(assignment.NewSortedPermutation(ctx, targets, signs, sources))
 	//
 	return nil
+}
+
+func (p *hirParser) parsePermutationSource(source sexp.SExp) (uint, bool, error) {
+	var (
+		name string
+		sign bool
+		err  error
+	)
+
+	if source.AsList() != nil {
+		l := source.AsList()
+		// Check whether sort direction provided
+		if l.Len() != 2 || l.Get(0).AsSymbol() == nil || l.Get(1).AsSymbol() == nil {
+			return 0, false, p.translator.SyntaxError(source, "malformed column")
+		}
+		// Parser sorting direction
+		if sign, err = p.parseSortDirection(l.Get(0).AsSymbol()); err != nil {
+			return 0, false, err
+		}
+		// Extract column name
+		name = l.Get(1).AsSymbol().Value
+	} else {
+		name = source.AsSymbol().Value
+		sign = true // default
+	}
+	// Determine index for source column
+	index, ok := p.env.LookupColumn(p.module, name)
+	if !ok {
+		// Column doesn't exist!
+		return 0, false, p.translator.SyntaxError(source, "unknown column")
+	}
+	// Done
+	return index, sign, nil
+}
+
+func (p *hirParser) parsePermutationTarget(target sexp.SExp) (string, error) {
+	if target.AsSymbol() == nil {
+		return "", p.translator.SyntaxError(target, "malformed target column")
+	}
+	//
+	targetName := target.AsSymbol().Value
+	// Sanity check that target column *doesn't* exist.
+	if p.env.HasColumn(p.module, targetName) {
+		// No, it doesn't.
+		return "", p.translator.SyntaxError(target, "duplicate column")
+	}
+	// Done
+	return targetName, nil
+}
+
+func (p *hirParser) parseSortDirection(l *sexp.Symbol) (bool, error) {
+	switch l.Value {
+	case "+", "↓":
+		return true, nil
+	case "-", "↑":
+		return false, nil
+	}
+	// Unknown sort
+	return false, p.translator.SyntaxError(l, "malformed sort direction")
 }
 
 // Parse a lookup declaration

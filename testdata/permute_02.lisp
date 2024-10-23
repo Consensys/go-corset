@@ -1,3 +1,3 @@
 (defcolumns (X :u16))
-(permute (Y) (+X))
+(defpermutation (Y) ((+ X)))
 (defconstraint first-row (:domain {0}) Y)
