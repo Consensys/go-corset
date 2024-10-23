@@ -52,7 +52,7 @@
   (mxp:DEPLOYS :u1)
   (mxp:MXP_TYPE_2 :u1))
 
-(permute (mxp:CN_perm mxp:STAMP_perm mxp:C_MEM_perm mxp:C_MEM_NEW_perm mxp:WORDS_perm mxp:WORDS_NEW_perm) (+mxp:CN +mxp:STAMP +mxp:C_MEM +mxp:C_MEM_NEW +mxp:WORDS +mxp:WORDS_NEW))
+(defpermutation (mxp:CN_perm mxp:STAMP_perm mxp:C_MEM_perm mxp:C_MEM_NEW_perm mxp:WORDS_perm mxp:WORDS_NEW_perm) ((+ mxp:CN) (+ mxp:STAMP) (+ mxp:C_MEM) (+ mxp:C_MEM_NEW) (+ mxp:WORDS) (+ mxp:WORDS_NEW)))
 
 (defconstraint mxp:counter-constancy () (begin (ifnot mxp:CT (- mxp:INST (shift mxp:INST -1))) (ifnot mxp:CT (- mxp:OFFSET_1_LO (shift mxp:OFFSET_1_LO -1))) (ifnot mxp:CT (- mxp:OFFSET_1_HI (shift mxp:OFFSET_1_HI -1))) (ifnot mxp:CT (- mxp:OFFSET_2_LO (shift mxp:OFFSET_2_LO -1))) (ifnot mxp:CT (- mxp:OFFSET_2_HI (shift mxp:OFFSET_2_HI -1))) (ifnot mxp:CT (- mxp:SIZE_1_LO (shift mxp:SIZE_1_LO -1))) (ifnot mxp:CT (- mxp:SIZE_1_HI (shift mxp:SIZE_1_HI -1))) (ifnot mxp:CT (- mxp:SIZE_2_LO (shift mxp:SIZE_2_LO -1))) (ifnot mxp:CT (- mxp:SIZE_2_HI (shift mxp:SIZE_2_HI -1))) (ifnot mxp:CT (- mxp:WORDS (shift mxp:WORDS -1))) (ifnot mxp:CT (- mxp:WORDS_NEW (shift mxp:WORDS_NEW -1))) (ifnot mxp:CT (- mxp:C_MEM (shift mxp:C_MEM -1))) (ifnot mxp:CT (- mxp:C_MEM_NEW (shift mxp:C_MEM_NEW -1))) (ifnot mxp:CT (- mxp:COMP (shift mxp:COMP -1))) (ifnot mxp:CT (- mxp:MXPX (shift mxp:MXPX -1))) (ifnot mxp:CT (- mxp:EXPANDS (shift mxp:EXPANDS -1))) (ifnot mxp:CT (- mxp:QUAD_COST (shift mxp:QUAD_COST -1))) (ifnot mxp:CT (- mxp:LIN_COST (shift mxp:LIN_COST -1))) (ifnot mxp:CT (- mxp:GAS_MXP (shift mxp:GAS_MXP -1)))))
 

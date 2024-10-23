@@ -19,7 +19,7 @@
 ;; Value being Read/Written
 (defcolumns (VAL :u8))
 ;; Permutation
-(permute (ADDR' PC' RW' VAL') (+ADDR +PC +RW +VAL))
+(defpermutation (ADDR' PC' RW' VAL') ((+ ADDR) (+ PC) (+ RW) (+ VAL)))
 ;; PC[0]=0
 (defconstraint heartbeat_1 (:domain {0}) PC)
 ;; PC[k]=0 || PC[k]=PC[k-1]+1
