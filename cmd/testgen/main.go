@@ -24,6 +24,8 @@ func main() {
 }
 
 func init() {
+	rootCmd.Flags().Uint("min-elem", 0, "Minimum element")
+	rootCmd.Flags().Uint("max-elem", 2, "Maximum element")
 	rootCmd.Flags().Uint("min-lines", 1, "Minimum number of lines")
 	rootCmd.Flags().Uint("max-lines", 4, "Maximum number of lines")
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
@@ -41,6 +43,8 @@ var rootCmd = &cobra.Command{
 		var cfg TestGenConfig
 		// Lookup model
 		cfg.model = findModel(args[0])
+		cfg.min_elem = util.GetUint(cmd, "min-elem")
+		cfg.max_elem = util.GetUint(cmd, "max-elem")
 		cfg.min_lines = util.GetUint(cmd, "min-lines")
 		cfg.max_lines = util.GetUint(cmd, "max-lines")
 		// Read schema
@@ -59,16 +63,21 @@ var rootCmd = &cobra.Command{
 // TestGenConfig encapsulates configuration related to test generation.
 type TestGenConfig struct {
 	model     Model
+	min_elem  uint
+	max_elem  uint
 	min_lines uint
 	max_lines uint
 }
+
+// OracleFn defines function which determines whether or not a given trace is accepted by the model (or not).
+type OracleFn = func(sc.Schema, tr.Trace) bool
 
 // Model represents a hard-coded oracle for a given test.
 type Model struct {
 	// Name of the model in question
 	Name string
 	// Predicate for determining which trace to accept
-	Oracle func(sc.Schema, tr.Trace) bool
+	Oracle OracleFn
 }
 
 var models []Model = []Model{
@@ -76,6 +85,7 @@ var models []Model = []Model{
 	{"byte_decomposition", byteDecompositionModel},
 	{"memory", memoryModel},
 	{"word_sorting", wordSortingModel},
+	{"counter", functionalModel("STAMP", counterModel)},
 }
 
 func findModel(name string) Model {
@@ -93,7 +103,7 @@ func generateTestTraces(cfg TestGenConfig, schema sc.Schema) ([]tr.Trace, []tr.T
 	// NOTE: This is really a temporary solution for now.  It doesn't handle
 	// length multipliers.  It doesn't allow for modules with different heights.
 	// It uses a fixed pool.
-	pool := []fr.Element{fr.NewElement(0), fr.NewElement(1), fr.NewElement(2)}
+	pool := generatePool(cfg)
 	valid := make([]tr.Trace, 0)
 	invalid := make([]tr.Trace, 0)
 	//
@@ -112,6 +122,18 @@ func generateTestTraces(cfg TestGenConfig, schema sc.Schema) ([]tr.Trace, []tr.T
 	}
 	// Done
 	return valid, invalid
+}
+
+func generatePool(cfg TestGenConfig) []fr.Element {
+	n := cfg.max_elem - cfg.min_elem + 1
+	elems := make([]fr.Element, n)
+	// Iterate values
+	for i := uint(0); i != n; i++ {
+		val := uint64(cfg.min_elem + i)
+		elems[i] = fr.NewElement(val)
+	}
+	// Done
+	return elems
 }
 
 func writeTestTraces(model Model, ext string, schema sc.Schema, traces []tr.Trace) {
@@ -183,6 +205,48 @@ func findColumn(mod uint, col string, schema sc.Schema, trace tr.Trace) tr.Colum
 	}
 	// Done
 	return trace.Column(cid)
+}
+
+func functionalModel(stamp string, model func(uint, uint, sc.Schema, tr.Trace) bool) OracleFn {
+	return func(schema sc.Schema, trace tr.Trace) bool {
+		// Lookup stamp column
+		STAMP := findColumn(0, stamp, schema, trace).Data()
+		// Check STAMP initially zero
+		if STAMP.Len() > 0 {
+			STAMP_0 := STAMP.Get(0)
+			if !STAMP_0.IsZero() {
+				return false
+			}
+		}
+		// Set initial frame
+		start := uint(0)
+		current := fr.NewElement(0)
+		i := uint(1)
+		// Split frames
+		for ; i < STAMP.Len(); i++ {
+			stamp_i := STAMP.Get(i)
+			// Look for frame boundary
+			if stamp_i.Cmp(&current) != 0 {
+				// Check stamp incremented
+				if !isIncremented(current, stamp_i) {
+					return false
+				}
+				// Check whether valid frame (or padding)
+				if !current.IsZero() && !model(start, i-1, schema, trace) {
+					return false
+				}
+				// Reset for next frame
+				start = i
+				current = stamp_i
+			}
+		}
+		// Handle final frame
+		if !current.IsZero() && !model(start, i-1, schema, trace) {
+			return false
+		}
+		//
+		return true
+	}
 }
 
 // ============================================================================
@@ -361,6 +425,29 @@ func wordSortingModel(schema sc.Schema, trace tr.Trace) bool {
 		}
 	}
 	// Success
+	return true
+}
+
+// ============================================================================
+// Functional Models
+// ============================================================================
+
+func counterModel(first uint, last uint, schema sc.Schema, trace tr.Trace) bool {
+	CT := findColumn(0, "CT", schema, trace).Data()
+	// All frames in this model must have length 4
+	if last-first != 3 {
+		return false
+	}
+	//
+	for i := first; i <= last; i++ {
+		ct_i := CT.Get(i)
+		expected := fr.NewElement(uint64(i - first))
+		// Check counter matches expected valid
+		if ct_i.Cmp(&expected) != 0 {
+			return false
+		}
+	}
+	//
 	return true
 }
 

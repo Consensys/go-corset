@@ -4,6 +4,10 @@
 ;; arbitrary amount of padding at the beginning which has no function.
 (defconstraint first (:domain {0}) STAMP)
 
+;; In the last row of a valid frame, the counter must have its max
+;; value.  This ensures that all non-padding frames are complete.
+(defconstraint last (:domain {-1}) (* STAMP (- 3 CT)))
+
 ;; STAMP either remains constant, or increments by one.
 (defconstraint increment () (*
                       ;; STAMP[k] == STAMP[k+1]
