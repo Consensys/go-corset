@@ -1,4 +1,4 @@
 (defcolumns X Y)
 
-(vanish test
+(defconstraint test ()
         (- X (if Y 0 16)))

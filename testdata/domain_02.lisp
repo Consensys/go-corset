@@ -1,3 +1,3 @@
 (defcolumns STAMP)
 ;; STAMP[-1] == 0
-(vanish:last c1 STAMP)
+(defconstraint c1 (:domain {-1}) STAMP)

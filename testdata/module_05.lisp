@@ -2,4 +2,4 @@
 (defcolumns X)
 (module m2)
 (defcolumns X Y)
-(vanish heartbeat (* X Y))
+(defconstraint heartbeat () (* X Y))

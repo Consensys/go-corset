@@ -1,11 +1,11 @@
 (defcolumns STAMP)
 
 ;; STAMP[0] == 0
-(vanish:first start STAMP)
+(defconstraint start (:domain {0}) STAMP)
 ;; STAMP[-1] == 5
-(vanish:last end (- STAMP 5))
+(defconstraint end (:domain {-1}) (- STAMP 5))
 ;; STAMP either remains constant, or increments by one.
-(vanish increment (*
+(defconstraint increment () (*
                       ;; STAMP[k] == STAMP[k+1]
                       (- STAMP (shift STAMP 1))
                       ;; Or, STAMP[k]+1 == STAMP[k+1]

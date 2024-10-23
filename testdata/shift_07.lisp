@@ -1,6 +1,6 @@
 (defcolumns (BIT_1 :u1) ARG)
 
-(vanish pivot
+(defconstraint pivot ()
         ;; If BIT_1[k-1]=0 and BIT_1[k]=1
         (if (+ (shift BIT_1 -1) (- 1 BIT_1))
             ;; Then ARG = 0

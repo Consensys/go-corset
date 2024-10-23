@@ -8,4 +8,4 @@
 (defcolumns (Delta :u8))
 
 ;; Delta == X - X[i-1]
-(vanish sort (- Delta (- X (shift X -1))))
+(defconstraint sort () (- Delta (- X (shift X -1))))

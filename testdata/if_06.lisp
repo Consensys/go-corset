@@ -1,7 +1,7 @@
 (defcolumns X Y)
 
-(vanish test1
+(defconstraint test1 ()
         (- X (if Y 0)))
 
-(vanish test2
+(defconstraint test2 ()
         (- X (ifnot Y 16)))

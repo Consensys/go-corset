@@ -3,4 +3,4 @@
 ;; Module without any column declarations to test alignment.
 (module m2)
 (defcolumns X)
-(vanish heartbeat X)
+(defconstraint heartbeat () X)
