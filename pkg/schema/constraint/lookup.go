@@ -155,5 +155,10 @@ func (p *LookupConstraint[E]) Lisp(schema sc.Schema) sexp.SExp {
 		targets.Append(p.targets[i].Lisp(schema))
 	}
 	// Done
-	return sexp.NewList([]sexp.SExp{sexp.NewSymbol(p.handle)})
+	return sexp.NewList([]sexp.SExp{
+		sexp.NewSymbol("deflookup"),
+		sexp.NewSymbol(p.handle),
+		targets,
+		sources,
+	})
 }

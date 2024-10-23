@@ -65,7 +65,7 @@
 
 (defconstraint bin:is-byte-result () (ifnot bin:IS_BYTE (if bin:CT_MAX (begin bin:RESULT_HI bin:RESULT_LO) (begin bin:RESULT_HI (- bin:RESULT_LO (* bin:SMALL bin:PIVOT))))))
 
-(defconstraint bin:result-via-lookup () (ifnot (+ bin:IS_AND bin:IS_OR bin:IS_XOR bin:IS_NOT) (begin (- bin:BYTE_5 bin:XXX_BYTE_HI) (- bin:BYTE_6 bin:XXX_BYTE_LO))))
+(defconstraint bin:result-via-deflookup () (ifnot (+ bin:IS_AND bin:IS_OR bin:IS_XOR bin:IS_NOT) (begin (- bin:BYTE_5 bin:XXX_BYTE_HI) (- bin:BYTE_6 bin:XXX_BYTE_LO))))
 
 (defconstraint bin:isnot-ctmax () (if (- bin:IS_NOT 1) (- bin:CT_MAX 15)))
 
