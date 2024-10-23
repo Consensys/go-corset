@@ -1,3 +1,3 @@
 (defcolumns X Y Z)
-(interleave A (X Y))
+(definterleaved A (X Y))
 (deflookup l1 (A) (Z))
