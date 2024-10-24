@@ -435,7 +435,7 @@ func (p *hirParser) parseConstraintDeclaration(elements []sexp.SExp) error {
 	// Vanishing constraints do not have global scope, hence qualified column
 	// accesses are not permitted.
 	p.global = false
-	attributes, err := p.parseConstraintAttributes(elements[2])
+	domain, guard, err := p.parseConstraintAttributes(elements[2])
 	// Check for error
 	if err != nil {
 		return err
@@ -444,6 +444,9 @@ func (p *hirParser) parseConstraintDeclaration(elements []sexp.SExp) error {
 	expr, err := p.translator.Translate(elements[3])
 	if err != nil {
 		return err
+	} else if guard != nil {
+		// if guard != 0 then expr
+		expr = &IfZero{guard, nil, expr}
 	}
 	// Determine evaluation context of expression.
 	ctx := expr.Context(p.env.schema)
@@ -454,16 +457,15 @@ func (p *hirParser) parseConstraintDeclaration(elements []sexp.SExp) error {
 		return p.translator.SyntaxError(elements[3], "empty evaluation context")
 	}
 
-	p.env.schema.AddVanishingConstraint(handle, ctx, attributes, expr)
+	p.env.schema.AddVanishingConstraint(handle, ctx, domain, expr)
 
 	return nil
 }
 
-func (p *hirParser) parseConstraintAttributes(attributes sexp.SExp) (domain *int, err error) {
-	var res *int = nil
+func (p *hirParser) parseConstraintAttributes(attributes sexp.SExp) (domain *int, guard Expr, err error) {
 	// Check attribute list is a list
 	if attributes.AsList() == nil {
-		return nil, p.translator.SyntaxError(attributes, "expected attribute list")
+		return nil, nil, p.translator.SyntaxError(attributes, "expected attribute list")
 	}
 	// Deconstruct as list
 	attrs := attributes.AsList()
@@ -472,21 +474,26 @@ func (p *hirParser) parseConstraintAttributes(attributes sexp.SExp) (domain *int
 		ith := attrs.Get(i)
 		// Check start of attribute
 		if ith.AsSymbol() == nil {
-			return nil, p.translator.SyntaxError(ith, "malformed attribute")
+			return nil, nil, p.translator.SyntaxError(ith, "malformed attribute")
 		}
 		// Check what we've got
 		switch ith.AsSymbol().Value {
 		case ":domain":
 			i++
-			if res, err = p.parseDomainAttribute(attrs.Get(i)); err != nil {
-				return nil, err
+			if domain, err = p.parseDomainAttribute(attrs.Get(i)); err != nil {
+				return nil, nil, err
+			}
+		case ":guard":
+			i++
+			if guard, err = p.translator.Translate(attrs.Get(i)); err != nil {
+				return nil, nil, err
 			}
 		default:
-			return nil, p.translator.SyntaxError(ith, "unknown attribute")
+			return nil, nil, p.translator.SyntaxError(ith, "unknown attribute")
 		}
 	}
 	// Done
-	return res, nil
+	return domain, guard, nil
 }
 
 func (p *hirParser) parseDomainAttribute(attribute sexp.SExp) (domain *int, err error) {

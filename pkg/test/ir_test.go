@@ -249,6 +249,30 @@ func Test_If_09(t *testing.T) {
 }
 
 // ===================================================================
+// Guards
+// ===================================================================
+
+func Test_Guard_01(t *testing.T) {
+	Check(t, "guard_01")
+}
+
+func Test_Guard_02(t *testing.T) {
+	Check(t, "guard_02")
+}
+
+func Test_Guard_03(t *testing.T) {
+	Check(t, "guard_03")
+}
+
+func Test_Guard_04(t *testing.T) {
+	Check(t, "guard_04")
+}
+
+func Test_Guard_05(t *testing.T) {
+	Check(t, "guard_05")
+}
+
+// ===================================================================
 // Column Types
 // ===================================================================
 
