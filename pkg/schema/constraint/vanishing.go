@@ -215,20 +215,21 @@ func HoldsLocally[T sc.Testable](k uint, handle string, constraint T, tr tr.Trac
 //
 //nolint:revive
 func (p *VanishingConstraint[T]) Lisp(schema sc.Schema) sexp.SExp {
-	attributes := sexp.EmptyList()
+	name := p.handle
 	// Handle attributes
 	if p.domain == nil {
 		// Skip
 	} else if *p.domain == 0 {
-		attributes.Append(sexp.NewSymbol(":first"))
+		name = fmt.Sprintf("%s:first", name)
+	} else if *p.domain == -1 {
+		name = fmt.Sprintf("%s:last", name)
 	} else {
-		attributes.Append(sexp.NewSymbol(":last"))
+		panic(fmt.Sprintf("domain value %d not supported for local constraint", p.domain))
 	}
 	// Construct the list
 	return sexp.NewList([]sexp.SExp{
-		sexp.NewSymbol("defconstraint"),
-		sexp.NewSymbol(p.handle),
-		attributes,
+		sexp.NewSymbol("vanish"),
+		sexp.NewSymbol(name),
 		p.constraint.Lisp(schema),
 	})
 }
