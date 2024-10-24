@@ -152,7 +152,7 @@ func (p *SortedPermutation) Lisp(schema sc.Schema) sexp.SExp {
 	}
 
 	return sexp.NewList([]sexp.SExp{
-		sexp.NewSymbol("defpermutation"),
+		sexp.NewSymbol("sort"),
 		targets,
 		sources,
 	})

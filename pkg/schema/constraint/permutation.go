@@ -86,7 +86,7 @@ func (p *PermutationConstraint) Lisp(schema sc.Schema) sexp.SExp {
 	}
 
 	return sexp.NewList([]sexp.SExp{
-		sexp.NewSymbol("defpermutation"),
+		sexp.NewSymbol("permutation"),
 		targets,
 		sources,
 	})

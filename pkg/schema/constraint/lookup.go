@@ -156,7 +156,7 @@ func (p *LookupConstraint[E]) Lisp(schema sc.Schema) sexp.SExp {
 	}
 	// Done
 	return sexp.NewList([]sexp.SExp{
-		sexp.NewSymbol("deflookup"),
+		sexp.NewSymbol("lookup"),
 		sexp.NewSymbol(p.handle),
 		targets,
 		sources,
