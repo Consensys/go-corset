@@ -19,11 +19,11 @@ type Interleaving struct {
 }
 
 // NewInterleaving constructs a new interleaving assignment.
-func NewInterleaving(context tr.Context, name string, sources []uint) *Interleaving {
+func NewInterleaving(context tr.Context, name string, sources []uint, datatype sc.Type) *Interleaving {
 	// Update multiplier
 	context = context.Multiply(uint(len(sources)))
 	// Fixme: determine interleaving type
-	target := sc.NewColumn(context, name, &sc.FieldType{})
+	target := sc.NewColumn(context, name, datatype)
 
 	return &Interleaving{target, sources}
 }
