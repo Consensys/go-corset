@@ -94,8 +94,16 @@ func addInterleavedComputation(c *jsonInterleavedComputation, index uint,
 	target_id := asColumn(c.Target)
 	dst_col := columns[target_id]
 	dst_hnd := asHandle(dst_col.Handle)
+	// Initially assume bottom type
+	var dst_type sc.Type = sc.NewUintType(0)
+	// Ensure each column's types included
+	for i := range sources {
+		src_col := schema.Columns().Nth(sources[i])
+		// Update the column type
+		dst_type = sc.Join(dst_type, src_col.Type())
+	}
 	// Finally, add the sorted permutation assignment
-	schema.AddAssignment(assignment.NewInterleaving(ctx, dst_hnd.column, sources))
+	schema.AddAssignment(assignment.NewInterleaving(ctx, dst_hnd.column, sources, dst_type))
 	// Update allocation information.
 	colmap[target_id] = index
 	//

@@ -404,7 +404,7 @@ func (p *hirParser) parseInterleavingDeclaration(l *sexp.List) error {
 		sources[i] = cid
 	}
 	// Add assignment
-	p.env.AddAssignment(assignment.NewInterleaving(ctx, sexpTarget.Value, sources))
+	p.env.AddAssignment(assignment.NewInterleaving(ctx, sexpTarget.Value, sources, &sc.FieldType{}))
 	// Done
 	return nil
 }

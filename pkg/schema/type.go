@@ -139,3 +139,20 @@ func (p *FieldType) Accept(val fr.Element) bool {
 func (p *FieldType) String() string {
 	return "𝔽"
 }
+
+// Join compute the Least Upper Bound of two types.  For example, the lub of u16
+// and u128 is u128, etc.
+func Join(lhs Type, rhs Type) Type {
+	if lhs.AsField() != nil || rhs.AsField() != nil {
+		return &FieldType{}
+	}
+	//
+	uLhs := lhs.AsUint()
+	uRhs := rhs.AsUint()
+	//
+	if uLhs.nbits >= uRhs.nbits {
+		return uLhs
+	}
+	//
+	return uRhs
+}
