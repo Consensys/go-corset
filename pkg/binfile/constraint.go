@@ -13,6 +13,7 @@ type jsonConstraint struct {
 	Vanishes    *jsonVanishingConstraint
 	Permutation *jsonPermutationConstraint
 	Lookup      *jsonLookupConstraint
+	InRange     *jsonRangeConstraint
 }
 
 type jsonDomain struct {
@@ -36,6 +37,12 @@ type jsonLookupConstraint struct {
 	Handle string          `json:"handle"`
 	From   []jsonTypedExpr `json:"included"`
 	To     []jsonTypedExpr `json:"including"`
+}
+
+type jsonRangeConstraint struct {
+	Handle string        `json:"handle"`
+	Expr   jsonTypedExpr `json:"exp"`
+	Max    jsonExprConst `json:"max"`
 }
 
 // =============================================================================
