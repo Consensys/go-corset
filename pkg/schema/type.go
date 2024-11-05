@@ -33,7 +33,7 @@ type UintType struct {
 	// The number of bits this type represents (e.g. 8 for u8, etc).
 	nbits uint
 	// The numeric bound of all values in this type (e.g. 2^8 for u8, etc).
-	bound *fr.Element
+	bound fr.Element
 }
 
 // NewUintType constructs a new integer type for a given bit width.
@@ -45,7 +45,7 @@ func NewUintType(nbits uint) *UintType {
 	bound := new(fr.Element)
 	bound.SetBigInt(&maxBigInt)
 
-	return &UintType{nbits, bound}
+	return &UintType{nbits, *bound}
 }
 
 // AsUint accesses this type assuming it is a Uint.  Since this is the case,
@@ -76,7 +76,7 @@ func (p *UintType) ByteWidth() uint {
 // Accept determines whether a given value is an element of this type.  For
 // example, 123 is an element of the type u8 whilst 256 is not.
 func (p *UintType) Accept(val fr.Element) bool {
-	return val.Cmp(p.bound) < 0
+	return val.Cmp(&p.bound) < 0
 }
 
 // BitWidth returns the bitwidth of this type.  For example, the
@@ -94,7 +94,7 @@ func (p *UintType) HasBound(bound uint) bool {
 }
 
 // Bound determines the actual bound for all values which are in this type.
-func (p *UintType) Bound() *fr.Element {
+func (p *UintType) Bound() fr.Element {
 	return p.bound
 }
 
