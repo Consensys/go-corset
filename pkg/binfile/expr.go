@@ -76,6 +76,20 @@ func (e *jsonTypedExpr) ToHir(colmap map[uint]uint, schema *hir.Schema) hir.Expr
 // ToHir converts a big integer represented as a sequence of unsigned 32bit
 // words into HIR constant expression.
 func (e *jsonExprConst) ToHir(schema *hir.Schema) hir.Expr {
+	return &hir.Constant{Val: e.ToField()}
+}
+
+func (e *jsonExprConst) ToField() fr.Element {
+	var num fr.Element
+	//
+	val := e.ToBigInt()
+	// Construct Field Value
+	num.SetBigInt(val)
+	//
+	return num
+}
+
+func (e *jsonExprConst) ToBigInt() *big.Int {
 	sign := int(e.BigInt[0].(float64))
 	words := e.BigInt[1].([]any)
 	// Begin
@@ -100,12 +114,8 @@ func (e *jsonExprConst) ToHir(schema *hir.Schema) hir.Expr {
 	} else {
 		panic(fmt.Sprintf("Unknown BigInt sign: %d", sign))
 	}
-	// Construct Field Value
-	var num fr.Element
-
-	num.SetBigInt(val)
-	// Done!
-	return &hir.Constant{Val: num}
+	// Done
+	return val
 }
 
 func (e *jsonExprColumn) ToHir(colmap map[uint]uint, schema *hir.Schema) hir.Expr {

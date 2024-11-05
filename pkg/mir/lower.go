@@ -2,11 +2,11 @@ package mir
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/consensys/go-corset/pkg/air"
 	air_gadgets "github.com/consensys/go-corset/pkg/air/gadgets"
 	sc "github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/trace"
 )
 
@@ -66,34 +66,59 @@ func lowerConstraintToAir(c sc.Constraint, schema *air.Schema) {
 	if v, ok := c.(LookupConstraint); ok {
 		lowerLookupConstraintToAir(v, schema)
 	} else if v, ok := c.(VanishingConstraint); ok {
-		air_expr := lowerExprTo(v.Context(), v.Constraint().Expr, schema)
-		// Check whether this is a constant
-		constant := air_expr.AsConstant()
-		// Check for compile-time constants
-		if constant != nil && !constant.IsZero() {
-			panic(fmt.Sprintf("constraint %s cannot vanish!", v.Handle()))
-		} else if constant == nil {
-			schema.AddVanishingConstraint(v.Handle(), v.Context(), v.Domain(), air_expr)
-		}
-	} else if v, ok := c.(*constraint.TypeConstraint); ok {
-		if t := v.Type().AsUint(); t != nil {
-			// Yes, a constraint is implied.  Now, decide whether to use a range
-			// constraint or just a vanishing constraint.
-			if t.HasBound(2) {
-				// u1 => use vanishing constraint X * (X - 1)
-				air_gadgets.ApplyBinaryGadget(v.Target(), schema)
-			} else if t.HasBound(256) {
-				// u2..8 use range constraints
-				schema.AddRangeConstraint(v.Target(), t.Bound())
-			} else {
-				// u9+ use byte decompositions.
-				air_gadgets.ApplyBitwidthGadget(v.Target(), t.BitWidth(), schema)
-			}
-		}
+		lowerVanishingConstraintToAir(v, schema)
+	} else if v, ok := c.(RangeConstraint); ok {
+		lowerRangeConstraintToAir(v, schema)
 	} else {
 		// Should be unreachable as no other constraint types can be added to a
 		// schema.
 		panic("unreachable")
+	}
+}
+
+// Lower a vanishing constraint to the AIR level.  This is relatively
+// straightforward and simply relies on lowering the expression being
+// constrained.  This may result in the generation of computed columns, e.g. to
+// hold inverses, etc.
+func lowerVanishingConstraintToAir(v VanishingConstraint, schema *air.Schema) {
+	air_expr := lowerExprTo(v.Context(), v.Constraint().Expr, schema)
+	// Check whether this is a constant
+	constant := air_expr.AsConstant()
+	// Check for compile-time constants
+	if constant != nil && !constant.IsZero() {
+		panic(fmt.Sprintf("constraint %s cannot vanish!", v.Handle()))
+	} else if constant == nil {
+		schema.AddVanishingConstraint(v.Handle(), v.Context(), v.Domain(), air_expr)
+	}
+}
+
+// Lower a range constraint to the AIR level.  The challenge here is that a
+// range constraint at the AIR level cannot use arbitrary expressions; rather it
+// can only constrain columns directly.  Therefore, whenever a general
+// expression is encountered, we must generate a computed column to hold the
+// value of that expression, along with appropriate constraints to enforce the
+// expected value.
+func lowerRangeConstraintToAir(v RangeConstraint, schema *air.Schema) {
+	// Lower target expression
+	target := lowerExprTo(v.Context(), v.Target(), schema)
+	// Expand target expression (if necessary)
+	column := air_gadgets.Expand(v.Context(), target, schema)
+	// Yes, a constraint is implied.  Now, decide whether to use a range
+	// constraint or just a vanishing constraint.
+	if v.BoundedAtMost(2) {
+		// u1 => use vanishing constraint X * (X - 1)
+		air_gadgets.ApplyBinaryGadget(column, schema)
+	} else if v.BoundedAtMost(256) {
+		// u2..8 use range constraints
+		schema.AddRangeConstraint(column, v.Bound())
+	} else {
+		// u9+ use byte decompositions.
+		var bi big.Int
+		// Convert bound into big int
+		elem := v.Bound()
+		elem.BigInt(&bi)
+		// Apply bitwidth gadget
+		air_gadgets.ApplyBitwidthGadget(column, uint(bi.BitLen()-1), schema)
 	}
 }
 

@@ -10,89 +10,115 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 )
 
-// RangeFailure provides structural information about a failing range constraint.
+// RangeFailure provides structural information about a failing type constraint.
 type RangeFailure struct {
-	msg string
+	// Handle of the failing constraint
+	handle string
+	// Constraint expression
+	expr sc.Evaluable
+	// Row on which the constraint failed
+	row uint
 }
 
 // Message provides a suitable error message
 func (p *RangeFailure) Message() string {
-	return p.msg
+	// Construct useful error message
+	return fmt.Sprintf("expression \"%s\" out-of-bounds (row %d)", p.handle, p.row)
 }
 
 func (p *RangeFailure) String() string {
-	return p.msg
+	return p.Message()
 }
 
-// RangeConstraint restricts all values in a given column to be within
-// a range [0..n) for some bound n.  For example, a bound of 256 would
-// restrict all values to be bytes.  At this time, range constraints
-// are explicitly limited at the arithmetic level to bounds of at most
-// 256 (i.e. to ensuring bytes).  This restriction is somewhat
-// arbitrary and is determined by the underlying prover.
-type RangeConstraint struct {
-	// Column index to be constrained.
-	column uint
-	// The actual constraint itself, namely an expression which
-	// should evaluate to zero.  NOTE: an fr.Element is used here
-	// to store the bound simply to make the necessary comparison
-	// against table data more direct.
-	bound *fr.Element
+// RangeConstraint restricts all values for a given expression to be within a
+// range [0..n) for some bound n.  Any bound is supported, and the system will
+// choose the best underlying implementation as needed.
+type RangeConstraint[E sc.Evaluable] struct {
+	// A unique identifier for this constraint.  This is primarily useful for
+	// debugging.
+	handle string
+	// Evaluation context for this constraint which must match that of the
+	// constrained expression itself.
+	context trace.Context
+	// Indicates (when nil) a global constraint that applies to all rows.
+	// Otherwise, indicates a local constraint which applies to the specific row
+	// given here.
+	expr E
+	// The upper bound for this constraint.  Specifically, every evaluation of
+	// the expression should produce a value strictly below this bound.  NOTE:
+	// an fr.Element is used here to store the bound simply to make the
+	// necessary comparison against table data more direct.
+	bound fr.Element
 }
 
 // NewRangeConstraint constructs a new Range constraint!
-func NewRangeConstraint(column uint, bound *fr.Element) *RangeConstraint {
-	var n fr.Element = fr.NewElement(256)
-	if bound.Cmp(&n) > 0 {
-		panic("Range constraint for bitwidth above 8 not supported")
-	}
-
-	return &RangeConstraint{column, bound}
+func NewRangeConstraint[E sc.Evaluable](handle string, context trace.Context,
+	expr E, bound fr.Element) *RangeConstraint[E] {
+	return &RangeConstraint[E]{handle, context, expr, bound}
 }
 
-// Accepts checks whether a range constraint evaluates to zero on
-// every row of a table. If so, return nil otherwise return an error.
-func (p *RangeConstraint) Accepts(tr trace.Trace) schema.Failure {
-	column := tr.Column(p.column)
-	height := tr.Height(column.Context())
-	// Iterate all rows of the module
+// Handle returns a unique identifier for this constraint.
+//
+//nolint:revive
+func (p *RangeConstraint[E]) Handle() string {
+	return p.handle
+}
+
+// Context returns the evaluation context for this constraint.
+//
+//nolint:revive
+func (p *RangeConstraint[E]) Context() trace.Context {
+	return p.context
+}
+
+// Target returns the target expression for this constraint.
+func (p *RangeConstraint[E]) Target() E {
+	return p.expr
+}
+
+// Bound returns the upper bound for this constraint.  Specifically, any
+// evaluation of the target expression should produce a value strictly below
+// this bound.
+func (p *RangeConstraint[E]) Bound() fr.Element {
+	return p.bound
+}
+
+// BoundedAtMost determines whether the bound for this constraint is at most a given bound.
+func (p *RangeConstraint[E]) BoundedAtMost(bound uint) bool {
+	var n fr.Element = fr.NewElement(uint64(bound))
+	return p.bound.Cmp(&n) <= 0
+}
+
+// Accepts checks whether a range constraint holds on every row of a table. If so, return
+// nil otherwise return an error.
+//
+//nolint:revive
+func (p *RangeConstraint[E]) Accepts(tr trace.Trace) schema.Failure {
+	// Determine height of enclosing module
+	height := tr.Height(p.context)
+	// Iterate every row
 	for k := 0; k < int(height); k++ {
 		// Get the value on the kth row
-		kth := column.Get(k)
-		// Perform the bounds check
-		if kth.Cmp(p.bound) >= 0 {
-			name := column.Name()
-			// Construct useful error message
-			msg := fmt.Sprintf("value out-of-bounds (row %d, %s)", kth, name)
+		kth := p.expr.EvalAt(k, tr)
+		// Perform the range check
+		if kth.Cmp(&p.bound) >= 0 {
 			// Evaluation failure
-			return &RangeFailure{msg}
+			return &RangeFailure{p.handle, p.expr, uint(k)}
 		}
 	}
 	// All good
 	return nil
 }
 
-// Column returns the index of the column subjected to the constraint.
-func (p *RangeConstraint) Column() uint {
-	return p.column
-}
-
-// Bound returns the range boundary of the constraint.
+// Lisp converts this schema element into a simple S-Expression, for example so
+// it can be printed.
 //
-// Note: the bound is returned in the form of a uint because this is simpler
-// and more straightforward to understand.
-func (p *RangeConstraint) Bound() uint64 {
-	return p.bound.Uint64()
-}
-
-// Lisp converts this schema element into a simple S-Expression, for example
-// so it can be printed.
-func (p *RangeConstraint) Lisp(schema sc.Schema) sexp.SExp {
-	col := schema.Columns().Nth(p.column)
+//nolint:revive
+func (p *RangeConstraint[E]) Lisp(schema sc.Schema) sexp.SExp {
 	//
 	return sexp.NewList([]sexp.SExp{
-		sexp.NewSymbol("range"),
-		sexp.NewSymbol(col.QualifiedName(schema)),
+		sexp.NewSymbol("definrange"),
+		p.expr.Lisp(schema),
 		sexp.NewSymbol(p.bound.String()),
 	})
 }

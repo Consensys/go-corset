@@ -3,6 +3,7 @@ package mir
 import (
 	"fmt"
 
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/assignment"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
@@ -21,6 +22,9 @@ type LookupConstraint = *constraint.LookupConstraint[Expr]
 // level. A vanishing constraint is a row constraint which must evaluate to
 // zero.
 type VanishingConstraint = *constraint.VanishingConstraint[constraint.ZeroTest[Expr]]
+
+// RangeConstraint captures the essence of a range constraints at the MIR level.
+type RangeConstraint = *constraint.RangeConstraint[Expr]
 
 // PropertyAssertion captures the notion of an arbitrary property which should
 // hold for all acceptable traces.  However, such a property is not enforced by
@@ -122,12 +126,9 @@ func (p *Schema) AddVanishingConstraint(handle string, context trace.Context, do
 		constraint.NewVanishingConstraint(handle, context, domain, constraint.ZeroTest[Expr]{Expr: expr}))
 }
 
-// AddTypeConstraint appends a new range constraint.
-func (p *Schema) AddTypeConstraint(target uint, t schema.Type) {
-	// Check whether is a field type, as these can actually be ignored.
-	if t.AsField() == nil {
-		p.constraints = append(p.constraints, constraint.NewTypeConstraint(target, t))
-	}
+// AddRangeConstraint appends a new range constraint.
+func (p *Schema) AddRangeConstraint(handle string, context trace.Context, expr Expr, bound fr.Element) {
+	p.constraints = append(p.constraints, constraint.NewRangeConstraint(handle, context, expr, bound))
 }
 
 // AddPropertyAssertion appends a new property assertion.

@@ -151,6 +151,8 @@ func (p *VanishingConstraint[T]) Domain() *int {
 
 // Context returns the evaluation context for this constraint.  Every constraint
 // must be situated within exactly one module in order to be well-formed.
+//
+//nolint:revive
 func (p *VanishingConstraint[T]) Context() tr.Context {
 	return p.context
 }

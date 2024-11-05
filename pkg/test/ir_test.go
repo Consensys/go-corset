@@ -289,6 +289,30 @@ func Test_Type_03(t *testing.T) {
 }
 
 // ===================================================================
+// Range Constraints
+// ===================================================================
+
+func Test_Range_01(t *testing.T) {
+	Check(t, "range_01")
+}
+
+func Test_Range_02(t *testing.T) {
+	Check(t, "range_02")
+}
+
+func Test_Range_03(t *testing.T) {
+	Check(t, "range_03")
+}
+
+func Test_Range_04(t *testing.T) {
+	Check(t, "range_04")
+}
+
+func Test_Range_05(t *testing.T) {
+	Check(t, "range_05")
+}
+
+// ===================================================================
 // Constant Propagation
 // ===================================================================
 

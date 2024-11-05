@@ -3,6 +3,7 @@ package hir
 import (
 	"fmt"
 
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/assignment"
@@ -23,6 +24,9 @@ type VanishingConstraint = *constraint.VanishingConstraint[ZeroArrayTest]
 // level.  To make this work, the UnitExpr adaptor is required, and this means
 // certain expression forms cannot be permitted (e.g. the use of lists).
 type LookupConstraint = *constraint.LookupConstraint[UnitExpr]
+
+// RangeConstraint captures the essence of a range constraints at the HIR level.
+type RangeConstraint = *constraint.RangeConstraint[MaxExpr]
 
 // PropertyAssertion captures the notion of an arbitrary property which should
 // hold for all acceptable traces.  However, such a property is not enforced by
@@ -127,12 +131,11 @@ func (p *Schema) AddVanishingConstraint(handle string, context trace.Context, do
 		constraint.NewVanishingConstraint(handle, context, domain, ZeroArrayTest{expr}))
 }
 
-// AddTypeConstraint appends a new range constraint.
-func (p *Schema) AddTypeConstraint(target uint, t sc.Type) {
+// AddRangeConstraint appends a new range constraint with a raw bound.
+func (p *Schema) AddRangeConstraint(handle string, context trace.Context, expr Expr, bound fr.Element) {
 	// Check whether is a field type, as these can actually be ignored.
-	if t.AsField() == nil {
-		p.constraints = append(p.constraints, constraint.NewTypeConstraint(target, t))
-	}
+	maxExpr := MaxExpr{expr}
+	p.constraints = append(p.constraints, constraint.NewRangeConstraint[MaxExpr](handle, context, maxExpr, bound))
 }
 
 // AddPropertyAssertion appends a new property assertion.

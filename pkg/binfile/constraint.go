@@ -13,6 +13,7 @@ type jsonConstraint struct {
 	Vanishes    *jsonVanishingConstraint
 	Permutation *jsonPermutationConstraint
 	Lookup      *jsonLookupConstraint
+	InRange     *jsonRangeConstraint
 }
 
 type jsonDomain struct {
@@ -36,6 +37,12 @@ type jsonLookupConstraint struct {
 	Handle string          `json:"handle"`
 	From   []jsonTypedExpr `json:"included"`
 	To     []jsonTypedExpr `json:"including"`
+}
+
+type jsonRangeConstraint struct {
+	Handle string        `json:"handle"`
+	Expr   jsonTypedExpr `json:"exp"`
+	Max    jsonExprConst `json:"max"`
 }
 
 // =============================================================================
@@ -70,6 +77,16 @@ func (e jsonConstraint) addToSchema(colmap map[uint]uint, schema *hir.Schema) {
 		}
 		// Add constraint
 		schema.AddLookupConstraint(e.Lookup.Handle, sourceCtx, targetCtx, sources, targets)
+	} else if e.InRange != nil {
+		// Translate the vanishing expression
+		expr := e.InRange.Expr.ToHir(colmap, schema)
+		// Determine enclosing module
+		ctx := expr.Context(schema)
+		// Convert bound into max
+		bound := e.InRange.Max.ToField()
+		handle := expr.Lisp(schema).String(true)
+		// Construct the vanishing constraint
+		schema.AddRangeConstraint(handle, ctx, expr, bound)
 	} else if e.Permutation == nil {
 		// Catch all
 		panic("Unknown JSON constraint encountered")
