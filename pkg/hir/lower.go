@@ -6,7 +6,6 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/mir"
 	sc "github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/schema/constraint"
 )
 
 // LowerToMir lowers (or refines) an HIR table into an MIR schema.  That means
@@ -53,8 +52,12 @@ func lowerConstraintToMir(c sc.Constraint, schema *mir.Schema) {
 		for _, mir_expr := range mir_exprs {
 			schema.AddVanishingConstraint(v.Handle(), v.Context(), v.Domain(), mir_expr)
 		}
-	} else if v, ok := c.(*constraint.TypeConstraint); ok {
-		schema.AddTypeConstraint(v.Target(), v.Type())
+	} else if v, ok := c.(RangeConstraint); ok {
+		mir_exprs := v.Target().LowerTo(schema)
+		// Add individual constraints arising
+		for _, mir_expr := range mir_exprs {
+			schema.AddTypeConstraint(v.Handle(), v.Context(), mir_expr, v.Type())
+		}
 	} else {
 		// Should be unreachable as no other constraint types can be added to a
 		// schema.

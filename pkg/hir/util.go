@@ -2,6 +2,7 @@ package hir
 
 import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/go-corset/pkg/mir"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/sexp"
 	tr "github.com/consensys/go-corset/pkg/trace"
@@ -131,5 +132,82 @@ func (e UnitExpr) RequiredCells(row int, trace tr.Trace) *util.AnySortedSet[tr.C
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
 func (e UnitExpr) Lisp(schema sc.Schema) sexp.SExp {
+	return e.expr.Lisp(schema)
+}
+
+// ============================================================================
+// MaxExpr
+// ============================================================================
+
+// MaxExpr is an adaptor for a general expression which can be used in
+// situations where an Evaluable expression is required.  This performs a
+// similar function to the ZeroArrayTest, but actually produces a value.
+// Specifically, the value produced is always the maximum of all values
+// produced.  This is only useful in specific situations (e.g. checking range
+// constraints).
+type MaxExpr struct {
+	//
+	expr Expr
+}
+
+// NewMaxExpr constructs a unit wrapper around an HIR expression.  In essence,
+// this introduces a runtime check that the given expression only every reduces
+// to a single value.  Evaluation of this expression will panic if that
+// condition does not hold.  The intention is that this error is checked for
+// upstream (e.g. as part of the compiler front end).
+func NewMaxExpr(expr Expr) MaxExpr {
+	return MaxExpr{expr}
+}
+
+// EvalAt evaluates a column access at a given row in a trace, which returns the
+// value at that row of the column in question or nil is that row is
+// out-of-bounds.
+func (e MaxExpr) EvalAt(k int, trace tr.Trace) fr.Element {
+	vals := e.expr.EvalAllAt(k, trace)
+	//
+	max := fr.NewElement(0)
+	//
+	for _, v := range vals {
+		if max.Cmp(&v) < 0 {
+			max = v
+		}
+	}
+	//
+	return max
+}
+
+// Bounds returns max shift in either the negative (left) or positive
+// direction (right).
+func (e MaxExpr) Bounds() util.Bounds {
+	return e.expr.Bounds()
+}
+
+// Context determines the evaluation context (i.e. enclosing module) for this
+// expression.
+func (e MaxExpr) Context(schema sc.Schema) tr.Context {
+	return e.expr.Context(schema)
+}
+
+// RequiredColumns returns the set of columns on which this term depends.
+// That is, columns whose values may be accessed when evaluating this term
+// on a given trace.
+func (e MaxExpr) RequiredColumns() *util.SortedSet[uint] {
+	return e.expr.RequiredColumns()
+}
+
+// RequiredCells returns the set of trace cells on which this term depends.
+// In this case, that is the empty set.
+func (e MaxExpr) RequiredCells(row int, trace tr.Trace) *util.AnySortedSet[tr.CellRef] {
+	return e.expr.RequiredCells(row, trace)
+}
+
+// LowerTo lowers a max expressions down to one or more expressions at the MIR level.
+func (e MaxExpr) LowerTo(schema *mir.Schema) []mir.Expr {
+	return e.expr.LowerTo(schema)
+}
+
+// Lisp converts this schema element into a simple S-Expression, for example
+// so it can be printed.
+func (e MaxExpr) Lisp(schema sc.Schema) sexp.SExp {
 	return e.expr.Lisp(schema)
 }

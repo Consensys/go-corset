@@ -73,6 +73,8 @@ func ContextOfColumns(cols []uint, schema Schema) tr.Context {
 // can fail to adhere to the schema for a variety of reasons, such as having a
 // constraint which does not hold.  Observe that this does not check assertions
 // within the schema hold.
+//
+//nolint:revive
 func Accepts(batchsize uint, schema Schema, trace tr.Trace) []Failure {
 	errors := make([]Failure, 0)
 	// Initialise batch number (for debugging purposes)

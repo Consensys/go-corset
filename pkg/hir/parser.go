@@ -102,6 +102,8 @@ func (p *hirParser) parseDeclaration(s sexp.SExp) error {
 			return p.parseLookupDeclaration(e)
 		} else if e.Len() == 3 && e.MatchSymbols(1, "definterleaved") {
 			return p.parseInterleavingDeclaration(e)
+		} else if e.Len() == 3 && e.MatchSymbols(1, "definrange") {
+			return p.parseRangeDeclaration(e)
 		}
 	}
 	// Error
@@ -176,7 +178,7 @@ func (p *hirParser) parseColumnDeclaration(e sexp.SExp) error {
 	}
 	// Register column
 	cid := p.env.AddDataColumn(p.module, columnName, columnType)
-	p.env.schema.AddTypeConstraint(cid, columnType)
+	p.env.schema.AddTypeConstraint(columnName, p.module, &ColumnAccess{cid, 0}, columnType)
 	//
 	return nil
 }
@@ -406,6 +408,35 @@ func (p *hirParser) parseInterleavingDeclaration(l *sexp.List) error {
 	// Add assignment
 	p.env.AddAssignment(assignment.NewInterleaving(ctx, sexpTarget.Value, sources, &sc.FieldType{}))
 	// Done
+	return nil
+}
+
+// Parse a range constraint
+func (p *hirParser) parseRangeDeclaration(l *sexp.List) error {
+	var bound big.Int
+	// Check bound
+	if l.Get(2).AsSymbol() == nil {
+		return p.translator.SyntaxError(l.Get(2), "malformed bound")
+	}
+	// Parse bound
+	bound.SetString(l.Get(2).AsSymbol().Value, 10)
+	// Parse expression
+	expr, err := p.translator.Translate(l.Get(1))
+	if err != nil {
+		return err
+	}
+	// Determine evaluation context of expression.
+	ctx := expr.Context(p.env.schema)
+	// Sanity check we have a sensible context here.
+	if ctx.IsConflicted() {
+		return p.translator.SyntaxError(l.Get(1), "conflicting evaluation context")
+	} else if ctx.IsVoid() {
+		return p.translator.SyntaxError(l.Get(1), "empty evaluation context")
+	}
+	//
+	handle := l.Get(1).String(true)
+	p.env.schema.AddTypeConstraint(handle, ctx, expr, sc.NewBoundedType(&bound))
+	//
 	return nil
 }
 
