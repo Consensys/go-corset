@@ -31,6 +31,11 @@ type Expr interface {
 	// row which does not exist (e.g. at index -1); secondly, if
 	// it accesses a column which does not exist.
 	EvalAllAt(int, trace.Trace) []fr.Element
+
+	// AsConstant determines whether or not this is a constant expression.  If
+	// so, the constant is returned; otherwise, nil is returned.  NOTE: this
+	// does not perform any form of simplification to determine this.
+	AsConstant() *fr.Element
 }
 
 // ============================================================================
@@ -68,6 +73,11 @@ func (p *Add) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet[trace.Ce
 	})
 }
 
+// AsConstant determines whether or not this is a constant expression.  If
+// so, the constant is returned; otherwise, nil is returned.  NOTE: this
+// does not perform any form of simplification to determine this.
+func (p *Add) AsConstant() *fr.Element { return nil }
+
 // ============================================================================
 // Subtraction
 // ============================================================================
@@ -102,6 +112,11 @@ func (p *Sub) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet[trace.Ce
 		return e.RequiredCells(row, tr)
 	})
 }
+
+// AsConstant determines whether or not this is a constant expression.  If
+// so, the constant is returned; otherwise, nil is returned.  NOTE: this
+// does not perform any form of simplification to determine this.
+func (p *Sub) AsConstant() *fr.Element { return nil }
 
 // ============================================================================
 // Multiplication
@@ -138,6 +153,11 @@ func (p *Mul) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet[trace.Ce
 	})
 }
 
+// AsConstant determines whether or not this is a constant expression.  If
+// so, the constant is returned; otherwise, nil is returned.  NOTE: this
+// does not perform any form of simplification to determine this.
+func (p *Mul) AsConstant() *fr.Element { return nil }
+
 // ============================================================================
 // Exponentiation
 // ============================================================================
@@ -171,6 +191,11 @@ func (p *Exp) RequiredColumns() *util.SortedSet[uint] {
 func (p *Exp) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet[trace.CellRef] {
 	return p.Arg.RequiredCells(row, tr)
 }
+
+// AsConstant determines whether or not this is a constant expression.  If
+// so, the constant is returned; otherwise, nil is returned.  NOTE: this
+// does not perform any form of simplification to determine this.
+func (p *Exp) AsConstant() *fr.Element { return nil }
 
 // ============================================================================
 // List
@@ -207,6 +232,25 @@ func (p *List) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet[trace.C
 	})
 }
 
+// AsConstant determines whether or not this is a constant expression.  If
+// so, the constant is returned; otherwise, nil is returned.  NOTE: this
+// does not perform any form of simplification to determine this.
+func (p *List) AsConstant() *fr.Element {
+	var constant *fr.Element = nil
+	// Check each expression in this list, one at a time.
+	for _, e := range p.Args {
+		c := e.AsConstant()
+		if c == nil || (constant != nil && constant.Cmp(c) != 0) {
+			// Either missing or mismatched constants
+			return nil
+		}
+		//
+		constant = c
+	}
+	// Done
+	return constant
+}
+
 // ============================================================================
 // Constant
 // ============================================================================
@@ -237,6 +281,11 @@ func (p *Constant) RequiredColumns() *util.SortedSet[uint] {
 func (p *Constant) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet[trace.CellRef] {
 	return util.NewAnySortedSet[trace.CellRef]()
 }
+
+// AsConstant determines whether or not this is a constant expression.  If
+// so, the constant is returned; otherwise, nil is returned.  NOTE: this
+// does not perform any form of simplification to determine this.
+func (p *Constant) AsConstant() *fr.Element { return &p.Val }
 
 // ============================================================================
 // IfZero
@@ -322,6 +371,11 @@ func (p *IfZero) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet[trace
 	return set
 }
 
+// AsConstant determines whether or not this is a constant expression.  If
+// so, the constant is returned; otherwise, nil is returned.  NOTE: this
+// does not perform any form of simplification to determine this.
+func (p *IfZero) AsConstant() *fr.Element { return nil }
+
 // ============================================================================
 // Normalise
 // ============================================================================
@@ -355,6 +409,11 @@ func (p *Normalise) RequiredColumns() *util.SortedSet[uint] {
 func (p *Normalise) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet[trace.CellRef] {
 	return p.Arg.RequiredCells(row, tr)
 }
+
+// AsConstant determines whether or not this is a constant expression.  If
+// so, the constant is returned; otherwise, nil is returned.  NOTE: this
+// does not perform any form of simplification to determine this.
+func (p *Normalise) AsConstant() *fr.Element { return nil }
 
 // ============================================================================
 // ColumnAccess
@@ -407,3 +466,8 @@ func (p *ColumnAccess) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet
 
 	return set
 }
+
+// AsConstant determines whether or not this is a constant expression.  If
+// so, the constant is returned; otherwise, nil is returned.  NOTE: this
+// does not perform any form of simplification to determine this.
+func (p *ColumnAccess) AsConstant() *fr.Element { return nil }
