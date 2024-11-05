@@ -3,6 +3,7 @@ package mir
 import (
 	"fmt"
 
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/assignment"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
@@ -125,12 +126,9 @@ func (p *Schema) AddVanishingConstraint(handle string, context trace.Context, do
 		constraint.NewVanishingConstraint(handle, context, domain, constraint.ZeroTest[Expr]{Expr: expr}))
 }
 
-// AddTypeConstraint appends a new range constraint.
-func (p *Schema) AddTypeConstraint(handle string, context trace.Context, expr Expr, t schema.Type) {
-	// Check whether is a field type, as these can actually be ignored.
-	if t.AsField() == nil {
-		p.constraints = append(p.constraints, constraint.NewTypeConstraint(handle, context, expr, t))
-	}
+// AddRangeConstraint appends a new range constraint.
+func (p *Schema) AddRangeConstraint(handle string, context trace.Context, expr Expr, bound fr.Element) {
+	p.constraints = append(p.constraints, constraint.NewTypeConstraint(handle, context, expr, bound))
 }
 
 // AddPropertyAssertion appends a new property assertion.

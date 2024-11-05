@@ -178,7 +178,11 @@ func (p *hirParser) parseColumnDeclaration(e sexp.SExp) error {
 	}
 	// Register column
 	cid := p.env.AddDataColumn(p.module, columnName, columnType)
-	p.env.schema.AddTypeConstraint(columnName, p.module, &ColumnAccess{cid, 0}, columnType)
+	// Apply type constraint (if applicable)
+	if columnType.AsUint() != nil {
+		bound := columnType.AsUint().Bound()
+		p.env.schema.AddRangeConstraint(columnName, p.module, &ColumnAccess{cid, 0}, *bound)
+	}
 	//
 	return nil
 }
@@ -413,13 +417,15 @@ func (p *hirParser) parseInterleavingDeclaration(l *sexp.List) error {
 
 // Parse a range constraint
 func (p *hirParser) parseRangeDeclaration(l *sexp.List) error {
-	var bound big.Int
+	var bound fr.Element
 	// Check bound
 	if l.Get(2).AsSymbol() == nil {
 		return p.translator.SyntaxError(l.Get(2), "malformed bound")
 	}
 	// Parse bound
-	bound.SetString(l.Get(2).AsSymbol().Value, 10)
+	if _, err := bound.SetString(l.Get(2).AsSymbol().Value); err != nil {
+		return p.translator.SyntaxError(l.Get(2), "malformed bound")
+	}
 	// Parse expression
 	expr, err := p.translator.Translate(l.Get(1))
 	if err != nil {
@@ -435,7 +441,7 @@ func (p *hirParser) parseRangeDeclaration(l *sexp.List) error {
 	}
 	//
 	handle := l.Get(1).String(true)
-	p.env.schema.AddTypeConstraint(handle, ctx, expr, sc.NewBoundedType(&bound))
+	p.env.schema.AddRangeConstraint(handle, ctx, expr, bound)
 	//
 	return nil
 }

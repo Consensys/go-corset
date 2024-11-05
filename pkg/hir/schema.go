@@ -3,6 +3,7 @@ package hir
 import (
 	"fmt"
 
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/assignment"
@@ -130,13 +131,12 @@ func (p *Schema) AddVanishingConstraint(handle string, context trace.Context, do
 		constraint.NewVanishingConstraint(handle, context, domain, ZeroArrayTest{expr}))
 }
 
-// AddTypeConstraint appends a new range constraint.
-func (p *Schema) AddTypeConstraint(handle string, context trace.Context, expr Expr, t sc.Type) {
+// AddRangeConstraint appends a new range constraint with a raw bound.
+func (p *Schema) AddRangeConstraint(handle string, context trace.Context, expr Expr, bound fr.Element) {
 	// Check whether is a field type, as these can actually be ignored.
-	if t.AsField() == nil {
-		maxExpr := MaxExpr{expr}
-		p.constraints = append(p.constraints, constraint.NewTypeConstraint[MaxExpr](handle, context, maxExpr, t))
-	}
+	maxExpr := MaxExpr{expr}
+	p.constraints = append(p.constraints, constraint.NewTypeConstraint[MaxExpr](handle, context, maxExpr, bound))
+
 }
 
 // AddPropertyAssertion appends a new property assertion.

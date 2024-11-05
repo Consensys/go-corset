@@ -48,16 +48,6 @@ func NewUintType(nbits uint) *UintType {
 	return &UintType{nbits, bound}
 }
 
-// NewBoundedType constructs a new integer type which is bounded by a maximum
-// value.  For example, a bound of 256 constructs the type of all bytes.
-func NewBoundedType(bound *big.Int) *UintType {
-	// Construct field element
-	elem := new(fr.Element)
-	elem.SetBigInt(bound)
-
-	return &UintType{uint(bound.BitLen() - 1), elem}
-}
-
 // AsUint accesses this type assuming it is a Uint.  Since this is the case,
 // this just returns itself.
 func (p *UintType) AsUint() *UintType {

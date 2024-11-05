@@ -2,6 +2,7 @@ package mir
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/consensys/go-corset/pkg/air"
 	air_gadgets "github.com/consensys/go-corset/pkg/air/gadgets"
@@ -98,24 +99,28 @@ func lowerVanishingConstraintToAir(v VanishingConstraint, schema *air.Schema) {
 // value of that expression, along with appropriate constraints to enforce the
 // expected value.
 func lowerRangeConstraintToAir(v RangeConstraint, schema *air.Schema) {
-	if t := v.Type().AsUint(); t != nil {
-		// Lower target expression
-		target := lowerExprTo(v.Context(), v.Target(), schema)
-		// Expand target expression (if necessary)
-		column := air_gadgets.Expand(v.Context(), target, schema)
-		// Yes, a constraint is implied.  Now, decide whether to use a range
-		// constraint or just a vanishing constraint.
-		if t.HasBound(2) {
-			// u1 => use vanishing constraint X * (X - 1)
-			air_gadgets.ApplyBinaryGadget(column, schema)
-		} else if t.HasBound(256) {
-			// u2..8 use range constraints
-			schema.AddRangeConstraint(column, t.Bound())
-		} else {
-			// u9+ use byte decompositions.
-			air_gadgets.ApplyBitwidthGadget(column, t.BitWidth(), schema)
-		}
+	// Lower target expression
+	target := lowerExprTo(v.Context(), v.Target(), schema)
+	// Expand target expression (if necessary)
+	column := air_gadgets.Expand(v.Context(), target, schema)
+	// Yes, a constraint is implied.  Now, decide whether to use a range
+	// constraint or just a vanishing constraint.
+	if v.BoundedAtMost(2) {
+		// u1 => use vanishing constraint X * (X - 1)
+		air_gadgets.ApplyBinaryGadget(column, schema)
+	} else if v.BoundedAtMost(256) {
+		// u2..8 use range constraints
+		schema.AddRangeConstraint(column, v.Bound())
+	} else {
+		// u9+ use byte decompositions.
+		var bi big.Int
+		// Convert bound into big int
+		elem := v.Bound()
+		elem.BigInt(&bi)
+		// Apply bitwidth gadget
+		air_gadgets.ApplyBitwidthGadget(column, uint(bi.BitLen()-1), schema)
 	}
+
 }
 
 // Lower a lookup constraint to the AIR level.  The challenge here is that a

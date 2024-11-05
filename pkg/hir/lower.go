@@ -56,7 +56,7 @@ func lowerConstraintToMir(c sc.Constraint, schema *mir.Schema) {
 		mir_exprs := v.Target().LowerTo(schema)
 		// Add individual constraints arising
 		for _, mir_expr := range mir_exprs {
-			schema.AddTypeConstraint(v.Handle(), v.Context(), mir_expr, v.Type())
+			schema.AddRangeConstraint(v.Handle(), v.Context(), mir_expr, v.Bound())
 		}
 	} else {
 		// Should be unreachable as no other constraint types can be added to a

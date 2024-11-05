@@ -150,8 +150,8 @@ func (p *Schema) AddVanishingConstraint(handle string, context trace.Context, do
 }
 
 // AddRangeConstraint appends a new range constraint.
-func (p *Schema) AddRangeConstraint(column uint, bound *fr.Element) {
-	p.constraints = append(p.constraints, constraint.NewRangeConstraint(column, bound))
+func (p *Schema) AddRangeConstraint(column uint, bound fr.Element) {
+	p.constraints = append(p.constraints, constraint.NewRangeConstraint(column, &bound))
 }
 
 // ============================================================================
