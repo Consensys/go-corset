@@ -120,7 +120,6 @@ func lowerRangeConstraintToAir(v RangeConstraint, schema *air.Schema) {
 		// Apply bitwidth gadget
 		air_gadgets.ApplyBitwidthGadget(column, uint(bi.BitLen()-1), schema)
 	}
-
 }
 
 // Lower a lookup constraint to the AIR level.  The challenge here is that a

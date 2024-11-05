@@ -24,7 +24,7 @@ type LookupConstraint = *constraint.LookupConstraint[Expr]
 type VanishingConstraint = *constraint.VanishingConstraint[constraint.ZeroTest[Expr]]
 
 // RangeConstraint captures the essence of a range constraints at the MIR level.
-type RangeConstraint = *constraint.TypeConstraint[Expr]
+type RangeConstraint = *constraint.RangeConstraint[Expr]
 
 // PropertyAssertion captures the notion of an arbitrary property which should
 // hold for all acceptable traces.  However, such a property is not enforced by
@@ -128,7 +128,7 @@ func (p *Schema) AddVanishingConstraint(handle string, context trace.Context, do
 
 // AddRangeConstraint appends a new range constraint.
 func (p *Schema) AddRangeConstraint(handle string, context trace.Context, expr Expr, bound fr.Element) {
-	p.constraints = append(p.constraints, constraint.NewTypeConstraint(handle, context, expr, bound))
+	p.constraints = append(p.constraints, constraint.NewRangeConstraint(handle, context, expr, bound))
 }
 
 // AddPropertyAssertion appends a new property assertion.

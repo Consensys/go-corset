@@ -22,6 +22,9 @@ type LookupConstraint = *constraint.LookupConstraint[*ColumnAccess]
 // VanishingConstraint captures the essence of a vanishing constraint at the AIR level.
 type VanishingConstraint = *constraint.VanishingConstraint[constraint.ZeroTest[Expr]]
 
+// RangeConstraint captures the essence of a range constraints at the AIR level.
+type RangeConstraint = *constraint.RangeConstraint[*ColumnAccess]
+
 // PermutationConstraint captures the essence of a permutation constraint at the AIR level.
 // Specifically, it represents a constraint that one (or more) columns are a permutation of another.
 type PermutationConstraint = *constraint.PermutationConstraint
@@ -151,7 +154,10 @@ func (p *Schema) AddVanishingConstraint(handle string, context trace.Context, do
 
 // AddRangeConstraint appends a new range constraint.
 func (p *Schema) AddRangeConstraint(column uint, bound fr.Element) {
-	p.constraints = append(p.constraints, constraint.NewRangeConstraint(column, &bound))
+	col := p.Columns().Nth(column)
+	handle := col.QualifiedName(p)
+	tc := constraint.NewRangeConstraint[*ColumnAccess](handle, col.Context(), NewColumnAccess(column, 0), bound)
+	p.constraints = append(p.constraints, tc)
 }
 
 // ============================================================================

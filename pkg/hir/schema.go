@@ -26,7 +26,7 @@ type VanishingConstraint = *constraint.VanishingConstraint[ZeroArrayTest]
 type LookupConstraint = *constraint.LookupConstraint[UnitExpr]
 
 // RangeConstraint captures the essence of a range constraints at the HIR level.
-type RangeConstraint = *constraint.TypeConstraint[MaxExpr]
+type RangeConstraint = *constraint.RangeConstraint[MaxExpr]
 
 // PropertyAssertion captures the notion of an arbitrary property which should
 // hold for all acceptable traces.  However, such a property is not enforced by
@@ -135,8 +135,7 @@ func (p *Schema) AddVanishingConstraint(handle string, context trace.Context, do
 func (p *Schema) AddRangeConstraint(handle string, context trace.Context, expr Expr, bound fr.Element) {
 	// Check whether is a field type, as these can actually be ignored.
 	maxExpr := MaxExpr{expr}
-	p.constraints = append(p.constraints, constraint.NewTypeConstraint[MaxExpr](handle, context, maxExpr, bound))
-
+	p.constraints = append(p.constraints, constraint.NewRangeConstraint[MaxExpr](handle, context, maxExpr, bound))
 }
 
 // AddPropertyAssertion appends a new property assertion.
