@@ -63,7 +63,7 @@ func (p Context) Module() uint {
 		panic("void context has no module")
 	}
 
-	panic("conflicted context has no module")
+	panic("conflicted context")
 }
 
 // LengthMultiplier returns the length multiplier for this context.  Note,

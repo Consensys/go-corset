@@ -38,7 +38,7 @@ type column struct {
 	// information about the length of this column (e.g. its a
 	// multiple of two).  This seems only relevant for computed
 	// columns.
-	IntrinsicSizeFactor string `json:"intrinsic_size_factor"`
+	IntrinsicSizeFactor uint `json:"intrinsic_size_factor"`
 	// Indicates this is a computed column.  For binfiles being
 	// compiled without expansion, this should always be false.
 	Computed bool
@@ -82,6 +82,10 @@ type register struct {
 	// the original binfile format.  Instead, this field is determined from
 	// parsing the binfile format.
 	MustProve bool
+	// LengthMultiplier indicates the length multiplier for this column.  This
+	// must be a factor of the number of rows in the column.  For example, a
+	// column with length multiplier of 2 must have an even number of rows, etc.
+	LengthMultiplier uint `json:"length_multiplier"`
 }
 
 type columnSet struct {
@@ -168,8 +172,7 @@ func allocateRegisters(cs *constraintSet, schema *hir.Schema) map[uint]uint {
 		if !c.Computed {
 			handle := asHandle(c.Handle)
 			mid := registerModule(schema, handle.module)
-			// NOTE: assumption here that length multiplier is always one.
-			ctx := trace.NewContext(mid, 1)
+			ctx := trace.NewContext(mid, c.LengthMultiplier)
 			col_type := c.Type.toHir()
 			// Add column for this
 			cid := schema.AddDataColumn(ctx, handle.column, col_type)
