@@ -181,7 +181,7 @@ func (p *hirParser) parseColumnDeclaration(e sexp.SExp) error {
 	// Apply type constraint (if applicable)
 	if columnType.AsUint() != nil {
 		bound := columnType.AsUint().Bound()
-		p.env.schema.AddRangeConstraint(columnName, p.module, &ColumnAccess{cid, 0}, *bound)
+		p.env.schema.AddRangeConstraint(columnName, p.module, &ColumnAccess{cid, 0}, bound)
 	}
 	//
 	return nil
