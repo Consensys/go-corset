@@ -96,8 +96,8 @@ func (tb TraceBuilder) Build(columns []trace.RawColumn) (trace.Trace, []error) {
 
 // A column key is used as a key for the column map
 type columnKey struct {
-	context trace.Context
-	column  string
+	module uint
+	column string
 }
 
 func (tb TraceBuilder) initialiseTrace(cols []trace.RawColumn) (*trace.ArrayTrace, []error) {
@@ -150,7 +150,7 @@ func (tb TraceBuilder) initialiseTraceColumns() ([]trace.ArrayColumn, map[column
 	for i, iter := uint(0), tb.schema.Columns(); iter.HasNext(); i++ {
 		c := iter.Next()
 		// Construct an appropriate key for this column
-		colkey := columnKey{c.Context(), c.Name()}
+		colkey := columnKey{c.Context().Module(), c.Name()}
 		// Initially column data and padding are nil.  In some cases, we will
 		// populate this information from the cols array.  However, in other
 		// cases, it will need to be populated during trace expansion.
@@ -180,12 +180,8 @@ func fillTraceColumns(modmap map[string]uint, colmap map[columnKey]uint,
 		if !ok {
 			errs = append(errs, fmt.Errorf("unknown module '%s' in trace", c.Module))
 		} else {
-			// We assume (for now) that user-provided columns always have a length
-			// multiplier of 1.  In general, this will be true.  However, in situations
-			// where we are importing expanded traces, then this might not be true.
-			context := trace.NewContext(mid, 1)
 			// Determine enclosiong module height
-			cid, ok := colmap[columnKey{context, c.Name}]
+			cid, ok := colmap[columnKey{mid, c.Name}]
 			// More sanity checks
 			if !ok {
 				errs = append(errs, fmt.Errorf("unknown column '%s' in trace", c.QualifiedName()))

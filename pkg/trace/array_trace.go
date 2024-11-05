@@ -59,14 +59,14 @@ func (p *ArrayTrace) FillColumn(cid uint, data util.FrArray, padding fr.Element)
 	// Sanity check this column has not already been filled.
 	if data.Len()%multiplier != 0 {
 		colname := QualifiedColumnName(mod.name, col.name)
-		panic(fmt.Sprintf("computed column %s has invalid length multiplier (%d indivisible by %d)",
+		panic(fmt.Sprintf("column %s has invalid length multiplier (%d indivisible by %d)",
 			colname, data.Len(), multiplier))
 	} else if mod.height == math.MaxUint {
 		// Initialise column height
 		mod.height = data.Len() / col.context.multiplier
 	} else if data.Len() != p.Height(col.Context()) {
 		colname := QualifiedColumnName(mod.name, col.name)
-		panic(fmt.Sprintf("computed column %s has invalid height (%d but expected %d)", colname, data.Len(), mod.height))
+		panic(fmt.Sprintf("column %s has invalid height (%d but expected %d)", colname, data.Len(), mod.height*multiplier))
 	}
 	// Fill the column
 	col.fill(data, padding)
