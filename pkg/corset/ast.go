@@ -1,7 +1,6 @@
 package corset
 
 import (
-	"github.com/consensys/go-corset/pkg/hir"
 	sc "github.com/consensys/go-corset/pkg/schema"
 )
 
@@ -11,12 +10,16 @@ type Module struct {
 }
 
 type Declaration interface {
-	LowerToHir(schema *hir.Schema)
+	Resolve()
 }
 
 // DefColumns captures a set of one or more columns being declared.
 type DefColumns struct {
 	Columns []DefColumn
+}
+
+func (p *DefColumns) Resolve() {
+	panic("got here")
 }
 
 // DefColumn packages together those piece relevant to declaring an individual
@@ -36,4 +39,10 @@ type DefPermutation struct {
 }
 
 type DefPureFun struct {
+}
+
+type Expr interface {
+	// Resolve resolves this expression in a given scope and constructs a fully
+	// resolved HIR expression.
+	Resolve()
 }
