@@ -57,7 +57,7 @@ var checkCmd = &cobra.Command{
 		//
 		stats := util.NewPerfStats()
 		// Parse constraints
-		hirSchema = readSchemaFile(args[1])
+		hirSchema = readSchema(args[1:])
 		//
 		stats.Log("Reading constraints file")
 		// Parse trace file

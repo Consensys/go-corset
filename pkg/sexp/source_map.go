@@ -75,6 +75,25 @@ func (p *Line) Length() int {
 	return p.span.Length()
 }
 
+// SourceMaps provides a mechanism for mapping terms from an AST to multiple
+// source files.
+type SourceMaps[T comparable] struct {
+	// Arrray of known source maps.
+	maps []SourceMap[T]
+}
+
+// NewSourceMaps constructs an (initially empty) set of source maps.  The
+// intention is that this is populated as each file is parsed.
+func NewSourceMaps[T comparable]() *SourceMaps[T] {
+	return &SourceMaps[T]{[]SourceMap[T]{}}
+}
+
+// Join a given source map into this set of source maps.  The effect of this is
+// that nodes recorded in the given source map can be accessed from this set.
+func (p *SourceMaps[T]) Join(srcmap *SourceMap[T]) {
+	p.maps = append(p.maps, *srcmap)
+}
+
 // SourceMap maps terms from an AST to slices of their originating string.  This
 // is important for error handling when we wish to highlight exactly where, in
 // the original source file, a given error has arisen.
@@ -92,6 +111,11 @@ type SourceMap[T comparable] struct {
 func NewSourceMap[T comparable](text []rune) *SourceMap[T] {
 	mapping := make(map[T]Span)
 	return &SourceMap[T]{mapping, text}
+}
+
+// Text returns underlying text of this source map.
+func (p *SourceMap[T]) Text() []rune {
+	return p.text
 }
 
 // Put registers a new AST item with a given span.  Note, if the item exists

@@ -4,41 +4,27 @@ import (
 	"unicode"
 )
 
-// Parse a given string into an S-expression, or return an error if the string
-// is malformed.
-func Parse(s string) (SExp, error) {
-	p := NewParser(s)
-	// Parse the input
-	sExp, err := p.Parse()
-	// Sanity check everything was parsed
-	if err == nil && p.index != len(p.text) {
-		return nil, p.error("unexpected remainder")
-	}
-
-	return sExp, err
-}
-
 // Parser represents a parser in the process of parsing a given string into one
 // or more S-expressions.
 type Parser struct {
-	// Text being parsed
+	// Source file being parsed
+	srcfile *SourceFile
+	// Cache (for simplicity)
 	text []rune
 	// Determine current position within text
 	index int
-	// Mapping from construct S-Expressions to their spans in the original text.
+	// Mapping from constructed S-Expressions to their spans in the original text.
 	srcmap *SourceMap[SExp]
 }
 
 // NewParser constructs a new instance of Parser
-func NewParser(text string) *Parser {
-	// Convert string into array of runes.  This is necessary to properly handle
-	// unicode.
-	runes := []rune(text)
+func NewParser(srcfile *SourceFile) *Parser {
 	// Construct initial parser.
 	return &Parser{
-		text:   runes,
-		index:  0,
-		srcmap: NewSourceMap[SExp](runes),
+		srcfile: srcfile,
+		text:    srcfile.Contents(),
+		index:   0,
+		srcmap:  NewSourceMap[SExp](srcfile.Contents()),
 	}
 }
 
@@ -49,27 +35,13 @@ func (p *Parser) SourceMap() *SourceMap[SExp] {
 	return p.srcmap
 }
 
-// ParseAll parses the input string into zero or more S-expressions, whilst
-// returning an error if the string is malformed.
-func (p *Parser) ParseAll() ([]SExp, error) {
-	terms := make([]SExp, 0)
-	// Parse the input
-	for {
-		term, err := p.Parse()
-		// Sanity check everything was parsed
-		if err != nil {
-			return terms, err
-		} else if term == nil {
-			// EOF reached
-			return terms, nil
-		}
-
-		terms = append(terms, term)
-	}
+// Text returns the underlying text for this parser.
+func (p *Parser) Text() []rune {
+	return p.text
 }
 
 // Parse a given string into an S-Expression, or produce an error.
-func (p *Parser) Parse() (SExp, error) {
+func (p *Parser) Parse() (SExp, *SyntaxError) {
 	var term SExp
 	// Skip over any whitespace.  This is import to get the correct starting
 	// point for this term.
@@ -187,7 +159,7 @@ func (p *Parser) parseSymbol() []rune {
 	return token
 }
 
-func (p *Parser) parseSequence(terminator rune) ([]SExp, error) {
+func (p *Parser) parseSequence(terminator rune) ([]SExp, *SyntaxError) {
 	var elements []SExp
 
 	for c := p.Lookahead(0); c == nil || *c != terminator; c = p.Lookahead(0) {
@@ -211,5 +183,5 @@ func (p *Parser) parseSequence(terminator rune) ([]SExp, error) {
 // Construct a parser error at the current position in the input stream.
 func (p *Parser) error(msg string) *SyntaxError {
 	span := NewSpan(p.index, p.index+1)
-	return &SyntaxError{span, msg}
+	return p.srcfile.SyntaxError(span, msg)
 }

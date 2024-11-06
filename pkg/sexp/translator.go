@@ -1,8 +1,6 @@
 package sexp
 
-import (
-	"fmt"
-)
+import "fmt"
 
 // SymbolRule is a symbol generator is responsible for converting a terminating
 // expression (i.e. a symbol) into an expression type T.  For
@@ -13,7 +11,7 @@ type SymbolRule[T comparable] func(string) (T, bool, error)
 // sequence of zero or more arguments into an expression type T.
 // Observe that the arguments are already translated into the correct
 // form.
-type ListRule[T comparable] func(*List) (T, error)
+type ListRule[T comparable] func(*List) (T, *SyntaxError)
 
 // BinaryRule is a binary translator is a wrapper for translating lists which must
 // have exactly two symbol arguments.  The wrapper takes care of
@@ -23,7 +21,7 @@ type BinaryRule[T comparable] func(string, string) (T, error)
 // RecursiveRule is a recursive translator is a wrapper for translating lists whose
 // elements can be built by recursively reusing the enclosing
 // translator.
-type RecursiveRule[T comparable] func([]T) (T, error)
+type RecursiveRule[T comparable] func(string, []T) (T, error)
 
 // ===================================================================
 // Parser
@@ -32,7 +30,12 @@ type RecursiveRule[T comparable] func([]T) (T, error)
 // Translator is a generic mechanism for translating S-Expressions into a structured
 // form.
 type Translator[T comparable] struct {
-	lists   map[string]ListRule[T]
+	srcfile *SourceFile
+	// Rules for parsing lists
+	lists map[string]ListRule[T]
+	// Fallback rule for generic user-defined lists.
+	list_default ListRule[T]
+	// Rules for parsing symbols
 	symbols []SymbolRule[T]
 	// Maps S-Expressions to their spans in the original source file.  This is
 	// used to build the new source map.
@@ -43,12 +46,14 @@ type Translator[T comparable] struct {
 }
 
 // NewTranslator constructs a new Translator instance.
-func NewTranslator[T comparable](srcmap *SourceMap[SExp]) *Translator[T] {
+func NewTranslator[T comparable](srcfile *SourceFile, srcmap *SourceMap[SExp]) *Translator[T] {
 	return &Translator[T]{
-		lists:      make(map[string]ListRule[T]),
-		symbols:    make([]SymbolRule[T], 0),
-		old_srcmap: srcmap,
-		new_srcmap: NewSourceMap[T](srcmap.text),
+		srcfile:      srcfile,
+		lists:        make(map[string]ListRule[T]),
+		list_default: nil,
+		symbols:      make([]SymbolRule[T], 0),
+		old_srcmap:   srcmap,
+		new_srcmap:   NewSourceMap[T](srcmap.text),
 	}
 }
 
@@ -56,23 +61,9 @@ func NewTranslator[T comparable](srcmap *SourceMap[SExp]) *Translator[T] {
 // Public
 // ===================================================================
 
-// ParseAndTranslate a given string into a given structured representation T
-// using an appropriately configured.
-func (p *Translator[T]) ParseAndTranslate(s string) (T, error) {
-	// Parse string into S-expression form
-	e, err := Parse(s)
-	if err != nil {
-		var empty T
-		return empty, err
-	}
-
-	// Process S-expression into AIR expression.
-	return translateSExp(p, e)
-}
-
 // Translate a given string into a given structured representation T
 // using an appropriately configured.
-func (p *Translator[T]) Translate(sexp SExp) (T, error) {
+func (p *Translator[T]) Translate(sexp SExp) (T, *SyntaxError) {
 	// Process S-expression into target expression
 	return translateSExp(p, sexp)
 }
@@ -80,14 +71,31 @@ func (p *Translator[T]) Translate(sexp SExp) (T, error) {
 // AddRecursiveRule adds a new list translator to this expression translator.
 func (p *Translator[T]) AddRecursiveRule(name string, t RecursiveRule[T]) {
 	// Construct a recursive list translator as a wrapper around a generic list translator.
-	p.lists[name] = func(l *List) (T, error) {
-		var (
-			empty T
-			err   error
-		)
+	p.lists[name] = p.createRecursiveRule(t)
+}
+
+// AddDefaultRecursiveRule adds a default recursive rule to be applied when no
+// other recursive rules apply.
+func (p *Translator[T]) AddDefaultRecursiveRule(t RecursiveRule[T]) {
+	// Construct a recursive list translator as a wrapper around a generic list translator.
+	p.list_default = p.createRecursiveRule(t)
+}
+
+func (p *Translator[T]) createRecursiveRule(t RecursiveRule[T]) ListRule[T] {
+	// Construct a recursive list translator as a wrapper around a generic list translator.
+	return func(l *List) (T, *SyntaxError) {
+		var empty T
+		// Extract the "head" of the list.
+		if len(l.Elements) == 0 || l.Elements[0].AsSymbol() == nil {
+			return empty, p.SyntaxError(l, "invalid list")
+		}
+		// Extract expression name
+		head := (l.Elements[0].(*Symbol)).Value
 		// Translate arguments
 		args := make([]T, len(l.Elements)-1)
+		//
 		for i, s := range l.Elements[1:] {
+			var err *SyntaxError
 			args[i], err = translateSExp(p, s)
 			// Handle error
 			if err != nil {
@@ -95,7 +103,7 @@ func (p *Translator[T]) AddRecursiveRule(name string, t RecursiveRule[T]) {
 			}
 		}
 		// Apply constructor
-		term, err := t(args)
+		term, err := t(head, args)
 		// Check for error
 		if err == nil {
 			return term, nil
@@ -109,7 +117,7 @@ func (p *Translator[T]) AddRecursiveRule(name string, t RecursiveRule[T]) {
 func (p *Translator[T]) AddBinaryRule(name string, t BinaryRule[T]) {
 	var empty T
 	//
-	p.lists[name] = func(l *List) (T, error) {
+	p.lists[name] = func(l *List) (T, *SyntaxError) {
 		if len(l.Elements) != 3 {
 			// Should be unreachable.
 			return empty, p.SyntaxError(l, "Incorrect number of arguments")
@@ -141,11 +149,11 @@ func (p *Translator[T]) AddSymbolRule(t SymbolRule[T]) {
 }
 
 // SyntaxError constructs a suitable syntax error for a given S-Expression.
-func (p *Translator[T]) SyntaxError(s SExp, msg string) error {
+func (p *Translator[T]) SyntaxError(s SExp, msg string) *SyntaxError {
 	// Get span of enclosing list
 	span := p.old_srcmap.Get(s)
-	// This should be unreachable.
-	return NewSyntaxError(span, msg)
+	// Construct syntax error
+	return p.srcfile.SyntaxError(span, msg)
 }
 
 // ===================================================================
@@ -155,7 +163,7 @@ func (p *Translator[T]) SyntaxError(s SExp, msg string) error {
 // Translate an S-Expression into an IR expression.  Observe that
 // this can still fail in the event that the given S-Expression does
 // not describe a well-formed IR expression.
-func translateSExp[T comparable](p *Translator[T], s SExp) (T, error) {
+func translateSExp[T comparable](p *Translator[T], s SExp) (T, *SyntaxError) {
 	var empty T
 
 	switch e := s.(type) {
@@ -180,7 +188,7 @@ func translateSExp[T comparable](p *Translator[T], s SExp) (T, error) {
 // expression of some kind.  This type of expression is determined by
 // the first element of the list.  The remaining elements are treated
 // as arguments which are first recursively translated.
-func translateSExpList[T comparable](p *Translator[T], l *List) (T, error) {
+func translateSExpList[T comparable](p *Translator[T], l *List) (T, *SyntaxError) {
 	var empty T
 	// Sanity check this list makes sense
 	if len(l.Elements) == 0 || l.Elements[0].AsSymbol() == nil {
@@ -193,6 +201,8 @@ func translateSExpList[T comparable](p *Translator[T], l *List) (T, error) {
 	// Check whether we found one.
 	if t != nil {
 		return (t)(l)
+	} else if p.list_default != nil {
+		return (p.list_default)(l)
 	}
 	// Default fall back
 	return empty, p.SyntaxError(l, "unknown list encountered")

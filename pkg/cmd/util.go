@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/binfile"
+	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/hir"
 	"github.com/consensys/go-corset/pkg/sexp"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -133,54 +134,79 @@ func readTraceFile(filename string) []trace.RawColumn {
 	return nil
 }
 
-// Parse a constraints schema file using a parser based on the extension of the
-// filename.
-func readSchemaFile(filename string) *hir.Schema {
+func readSchema(filenames []string) *hir.Schema {
+	if len(filenames) == 0 {
+		fmt.Println("source or binary constraint(s) file required.")
+		os.Exit(5)
+	} else if len(filenames) == 1 && path.Ext(filenames[0]) == "bin" {
+		// Single (binary) file supplied
+		return readBinaryFile(filenames[0])
+	}
+	// Must be source files
+	return readSourceFiles(filenames)
+}
+
+// Read a "bin" file.
+func readBinaryFile(filename string) *hir.Schema {
 	var schema *hir.Schema
 	// Read schema file
 	bytes, err := os.ReadFile(filename)
 	// Handle errors
 	if err == nil {
-		// Check file extension
-		ext := path.Ext(filename)
-		//
-		switch ext {
-		case ".lisp":
-			// Parse bytes into an S-Expression
-			schema, err = hir.ParseSchemaString(string(bytes))
-			if err == nil {
-				return schema
-			}
-		case ".bin":
-			schema, err = binfile.HirSchemaFromJson(bytes)
-			if err == nil {
-				return schema
-			}
-		default:
-			err = fmt.Errorf("Unknown schema file format: %s\n", ext)
+		// Read the binary file
+		schema, err = binfile.HirSchemaFromJson(bytes)
+		if err == nil {
+			return schema
 		}
 	}
-	// Handle error
-	if e, ok := err.(*sexp.SyntaxError); ok {
-		printSyntaxError(filename, e, string(bytes))
-	} else {
-		fmt.Println(err)
-	}
-
+	// Handle error & exit
+	fmt.Println(err)
 	os.Exit(2)
 	// unreachable
 	return nil
 }
 
+// Parse a set of source files and compile them into a single schema.  This can
+// result, for example, in a syntax error, etc.
+func readSourceFiles(filenames []string) *hir.Schema {
+	srcfiles := make([]*sexp.SourceFile, len(filenames))
+	// Read each file
+	for i, n := range filenames {
+		// Read source file
+		bytes, err := os.ReadFile(n)
+		// Sanity check for errors
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(3)
+		}
+		//
+		srcfiles[i] = sexp.NewSourceFile(n, bytes)
+	}
+	// Parse and compile source files
+	schema, errs := corset.CompileSourceFiles(srcfiles)
+	// Check for any errors
+	if errs == nil {
+		return schema
+	}
+	// Report errors
+	for _, err := range errs {
+		printSyntaxError(&err)
+	}
+	// Fail
+	os.Exit(4)
+	// unreachable
+	return nil
+}
+
 // Print a syntax error with appropriate highlighting.
-func printSyntaxError(filename string, err *sexp.SyntaxError, text string) {
+func printSyntaxError(err *sexp.SyntaxError) {
 	span := err.Span()
 	// Construct empty source map in order to determine enclosing line.
-	srcmap := sexp.NewSourceMap[sexp.SExp]([]rune(text))
+	srcmap := sexp.NewSourceMap[sexp.SExp](err.SourceFile().Contents())
 	//
 	line := srcmap.FindFirstEnclosingLine(span)
 	// Print error + line number
-	fmt.Printf("%s:%d: %s\n", filename, line.Number(), err.Message())
+	fmt.Printf("%s:%d: %s\n", err.SourceFile().Filename(), line.Number(), err.Message())
 	// Print separator line
 	fmt.Println()
 	// Print line
