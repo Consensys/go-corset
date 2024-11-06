@@ -1,4 +1,4 @@
-package hir
+package corset
 
 import (
 	"errors"
@@ -22,7 +22,7 @@ import (
 // ParseSchemaString parses a sequence of zero or more HIR schema declarations
 // represented as a string.  Internally, this uses sexp.ParseAll and
 // ParseSchemaSExp to do the work.
-func ParseSchemaString(str string) (*Schema, error) {
+func ParseSourceString(str string) (*Module, error) {
 	parser := sexp.NewParser(str)
 	// Parse bytes into an S-Expression
 	terms, err := parser.ParseAll()
@@ -31,17 +31,17 @@ func ParseSchemaString(str string) (*Schema, error) {
 		return nil, err
 	}
 	// Parse terms into an HIR schema
-	p := newHirParser(parser.SourceMap())
+	p, env := newHirParser(parser.SourceMap())
 	// Continue parsing string until nothing remains.
 	for _, term := range terms {
 		// Process declaration
-		err2 := p.parseDeclaration(term)
+		err2 := p.parseDeclaration(env, term)
 		if err2 != nil {
 			return nil, err2
 		}
 	}
 	// Done
-	return p.env.schema, nil
+	return env.schema, nil
 }
 
 // ===================================================================
@@ -50,28 +50,26 @@ func ParseSchemaString(str string) (*Schema, error) {
 
 type hirParser struct {
 	// Translator used for recursive expressions.
-	translator *sexp.Translator[Expr]
+	translator *sexp.Translator[*Environment, Expr]
 	// Current module being parsed.
 	module trace.Context
-	// Environment used during parsing to resolve column names into column
-	// indices.
-	env *Environment
 	// Global is used exclusively when parsing expressions to signal whether or
 	// not qualified column accesses are permitted (i.e. which include a
 	// module).
 	global bool
 }
 
-func newHirParser(srcmap *sexp.SourceMap[sexp.SExp]) *hirParser {
-	p := sexp.NewTranslator[Expr](srcmap)
+func newHirParser(srcmap *sexp.SourceMap[sexp.SExp]) (*hirParser, *Environment) {
+	p := sexp.NewTranslator[*Environment, Expr](srcmap)
 	// Initialise empty environment
 	env := EmptyEnvironment()
 	// Register top-level module (aka the prelude)
 	prelude := env.RegisterModule("")
 	// Construct parser
-	parser := &hirParser{p, prelude, env, false}
+	parser := &hirParser{p, prelude, false}
 	// Configure translator
 	p.AddSymbolRule(constantParserRule)
+	p.AddSymbolRule(varAccessParserRule(parser))
 	p.AddSymbolRule(columnAccessParserRule(parser))
 	p.AddBinaryRule("shift", shiftParserRule(parser))
 	p.AddRecursiveRule("+", addParserRule)
@@ -82,28 +80,31 @@ func newHirParser(srcmap *sexp.SourceMap[sexp.SExp]) *hirParser {
 	p.AddRecursiveRule("if", ifParserRule)
 	p.AddRecursiveRule("ifnot", ifNotParserRule)
 	p.AddRecursiveRule("begin", beginParserRule)
+	p.AddDefaultRecursiveRule(invokeParserRule)
 	//
-	return parser
+	return parser, env
 }
 
-func (p *hirParser) parseDeclaration(s sexp.SExp) error {
+func (p *hirParser) parseDeclaration(env *Environment, s sexp.SExp) error {
 	if e, ok := s.(*sexp.List); ok {
 		if e.MatchSymbols(2, "module") {
-			return p.parseModuleDeclaration(e)
+			return p.parseModuleDeclaration(env, e)
 		} else if e.MatchSymbols(1, "defcolumns") {
-			return p.parseColumnDeclarations(e)
+			return p.parseColumnDeclarations(env, e)
 		} else if e.Len() == 4 && e.MatchSymbols(2, "defconstraint") {
-			return p.parseConstraintDeclaration(e.Elements)
+			return p.parseConstraintDeclaration(env, e.Elements)
 		} else if e.Len() == 3 && e.MatchSymbols(2, "assert") {
-			return p.parseAssertionDeclaration(e.Elements)
+			return p.parseAssertionDeclaration(env, e.Elements)
 		} else if e.Len() == 3 && e.MatchSymbols(1, "defpermutation") {
-			return p.parsePermutationDeclaration(e)
+			return p.parsePermutationDeclaration(env, e)
 		} else if e.Len() == 4 && e.MatchSymbols(1, "deflookup") {
-			return p.parseLookupDeclaration(e)
+			return p.parseLookupDeclaration(env, e)
 		} else if e.Len() == 3 && e.MatchSymbols(1, "definterleaved") {
-			return p.parseInterleavingDeclaration(e)
+			return p.parseInterleavingDeclaration(env, e)
 		} else if e.Len() == 3 && e.MatchSymbols(1, "definrange") {
-			return p.parseRangeDeclaration(e)
+			return p.parseRangeDeclaration(env, e)
+		} else if e.Len() == 3 && e.MatchSymbols(1, "defpurefun") {
+			return p.parsePureFunDeclaration(env, e)
 		}
 	}
 	// Error
@@ -111,7 +112,7 @@ func (p *hirParser) parseDeclaration(s sexp.SExp) error {
 }
 
 // Parse a column declaration
-func (p *hirParser) parseModuleDeclaration(l *sexp.List) error {
+func (p *hirParser) parseModuleDeclaration(env *Environment, l *sexp.List) error {
 	// Sanity check declaration
 	if len(l.Elements) > 2 {
 		return p.translator.SyntaxError(l, "malformed module declaration")
@@ -119,11 +120,11 @@ func (p *hirParser) parseModuleDeclaration(l *sexp.List) error {
 	// Extract column name
 	moduleName := l.Elements[1].AsSymbol().Value
 	// Sanity check doesn't already exist
-	if p.env.HasModule(moduleName) {
+	if env.HasModule(moduleName) {
 		return p.translator.SyntaxError(l, "duplicate module declaration")
 	}
 	// Register module
-	mid := p.env.RegisterModule(moduleName)
+	mid := env.RegisterModule(moduleName)
 	// Set current module
 	p.module = mid
 	//
@@ -131,7 +132,7 @@ func (p *hirParser) parseModuleDeclaration(l *sexp.List) error {
 }
 
 // Parse a column declaration
-func (p *hirParser) parseColumnDeclarations(l *sexp.List) error {
+func (p *hirParser) parseColumnDeclarations(env *Environment, l *sexp.List) error {
 	// Sanity check declaration
 	if len(l.Elements) == 1 {
 		return p.translator.SyntaxError(l, "malformed column declaration")
@@ -139,7 +140,7 @@ func (p *hirParser) parseColumnDeclarations(l *sexp.List) error {
 	// Process column declarations one by one.
 	for i := 1; i < len(l.Elements); i++ {
 		// Extract column name
-		if err := p.parseColumnDeclaration(l.Elements[i]); err != nil {
+		if err := p.parseColumnDeclaration(env, l.Elements[i]); err != nil {
 			return err
 		}
 	}
@@ -147,7 +148,7 @@ func (p *hirParser) parseColumnDeclarations(l *sexp.List) error {
 	return nil
 }
 
-func (p *hirParser) parseColumnDeclaration(e sexp.SExp) error {
+func (p *hirParser) parseColumnDeclaration(env *Environment, e sexp.SExp) error {
 	var columnName string
 	// Default to field type
 	var columnType sc.Type = &sc.FieldType{}
@@ -173,22 +174,22 @@ func (p *hirParser) parseColumnDeclaration(e sexp.SExp) error {
 		columnName = e.String(false)
 	}
 	// Sanity check doesn't already exist
-	if p.env.HasColumn(p.module, columnName) {
+	if env.HasColumn(p.module, columnName) {
 		return p.translator.SyntaxError(e, "duplicate column declaration")
 	}
 	// Register column
-	cid := p.env.AddDataColumn(p.module, columnName, columnType)
+	cid := env.AddDataColumn(p.module, columnName, columnType)
 	// Apply type constraint (if applicable)
 	if columnType.AsUint() != nil {
 		bound := columnType.AsUint().Bound()
-		p.env.schema.AddRangeConstraint(columnName, p.module, &ColumnAccess{cid, 0}, bound)
+		env.schema.AddRangeConstraint(columnName, p.module, &ColumnAccess{cid, 0}, bound)
 	}
 	//
 	return nil
 }
 
 // Parse a sorted permutation declaration
-func (p *hirParser) parsePermutationDeclaration(l *sexp.List) error {
+func (p *hirParser) parsePermutationDeclaration(env *Environment, l *sexp.List) error {
 	// Target columns are (sorted) permutations of source columns.
 	sexpTargets := l.Elements[1].AsList()
 	// Source columns.
@@ -210,12 +211,12 @@ func (p *hirParser) parsePermutationDeclaration(l *sexp.List) error {
 	ctx := trace.VoidContext()
 	//
 	for i := 0; i < sexpSources.Len(); i++ {
-		sourceIndex, sourceSign, err := p.parsePermutationSource(sexpSources.Get(i))
+		sourceIndex, sourceSign, err := p.parsePermutationSource(env, sexpSources.Get(i))
 		if err != nil {
 			return err
 		}
 		// Check source context
-		sourceCol := p.env.schema.Columns().Nth(sourceIndex)
+		sourceCol := env.schema.Columns().Nth(sourceIndex)
 		ctx = ctx.Join(sourceCol.Context())
 		// Sanity check we have a sensible type here.
 		if ctx.IsConflicted() {
@@ -231,23 +232,23 @@ func (p *hirParser) parsePermutationDeclaration(l *sexp.List) error {
 	targets := make([]sc.Column, sexpTargets.Len())
 	// Parse targets
 	for i := 0; i < sexpTargets.Len(); i++ {
-		targetName, err := p.parsePermutationTarget(sexpTargets.Get(i))
+		targetName, err := p.parsePermutationTarget(env, sexpTargets.Get(i))
 		//
 		if err != nil {
 			return err
 		}
 		// Lookup corresponding source
-		source := p.env.schema.Columns().Nth(sources[i])
+		source := env.schema.Columns().Nth(sources[i])
 		// Done
 		targets[i] = sc.NewColumn(ctx, targetName, source.Type())
 	}
 	//
-	p.env.AddAssignment(assignment.NewSortedPermutation(ctx, targets, signs, sources))
+	env.AddAssignment(assignment.NewSortedPermutation(ctx, targets, signs, sources))
 	//
 	return nil
 }
 
-func (p *hirParser) parsePermutationSource(source sexp.SExp) (uint, bool, error) {
+func (p *hirParser) parsePermutationSource(env *Environment, source sexp.SExp) (uint, bool, error) {
 	var (
 		name string
 		sign bool
@@ -271,7 +272,7 @@ func (p *hirParser) parsePermutationSource(source sexp.SExp) (uint, bool, error)
 		sign = true // default
 	}
 	// Determine index for source column
-	index, ok := p.env.LookupColumn(p.module, name)
+	index, ok := env.LookupColumn(p.module, name)
 	if !ok {
 		// Column doesn't exist!
 		return 0, false, p.translator.SyntaxError(source, "unknown column")
@@ -280,14 +281,14 @@ func (p *hirParser) parsePermutationSource(source sexp.SExp) (uint, bool, error)
 	return index, sign, nil
 }
 
-func (p *hirParser) parsePermutationTarget(target sexp.SExp) (string, error) {
+func (p *hirParser) parsePermutationTarget(env *Environment, target sexp.SExp) (string, error) {
 	if target.AsSymbol() == nil {
 		return "", p.translator.SyntaxError(target, "malformed target column")
 	}
 	//
 	targetName := target.AsSymbol().Value
 	// Sanity check that target column *doesn't* exist.
-	if p.env.HasColumn(p.module, targetName) {
+	if env.HasColumn(p.module, targetName) {
 		// No, it doesn't.
 		return "", p.translator.SyntaxError(target, "duplicate column")
 	}
@@ -307,7 +308,7 @@ func (p *hirParser) parseSortDirection(l *sexp.Symbol) (bool, error) {
 }
 
 // Parse a lookup declaration
-func (p *hirParser) parseLookupDeclaration(l *sexp.List) error {
+func (p *hirParser) parseLookupDeclaration(env *Environment, l *sexp.List) error {
 	handle := l.Elements[1].AsSymbol().Value
 	// Target columns are (sorted) permutations of source columns.
 	sexpTargets := l.Elements[2].AsList()
@@ -337,8 +338,8 @@ func (p *hirParser) parseLookupDeclaration(l *sexp.List) error {
 	p.global = true
 	// Parse source / target expressions
 	for i := 0; i < len(targets); i++ {
-		target, err1 := p.translator.Translate(sexpTargets.Get(i))
-		source, err2 := p.translator.Translate(sexpSources.Get(i))
+		target, err1 := p.translator.Translate(env, sexpTargets.Get(i))
+		source, err2 := p.translator.Translate(env, sexpSources.Get(i))
 
 		if err1 != nil {
 			return err1
@@ -350,8 +351,8 @@ func (p *hirParser) parseLookupDeclaration(l *sexp.List) error {
 		sources[i] = UnitExpr{source}
 	}
 	// Sanity check enclosing source and target modules
-	sourceCtx := sc.JoinContexts(sources, p.env.schema)
-	targetCtx := sc.JoinContexts(targets, p.env.schema)
+	sourceCtx := sc.JoinContexts(sources, env.schema)
+	targetCtx := sc.JoinContexts(targets, env.schema)
 	// Propagate errors
 	if sourceCtx.IsConflicted() {
 		return p.translator.SyntaxError(sexpSources, "conflicting evaluation context")
@@ -363,13 +364,13 @@ func (p *hirParser) parseLookupDeclaration(l *sexp.List) error {
 		return p.translator.SyntaxError(sexpTargets, "empty evaluation context")
 	}
 	// Finally add constraint
-	p.env.schema.AddLookupConstraint(handle, sourceCtx, targetCtx, sources, targets)
+	env.schema.AddLookupConstraint(handle, sourceCtx, targetCtx, sources, targets)
 	// Done
 	return nil
 }
 
 // Parse am interleaving declaration
-func (p *hirParser) parseInterleavingDeclaration(l *sexp.List) error {
+func (p *hirParser) parseInterleavingDeclaration(env *Environment, l *sexp.List) error {
 	// Target columns are (sorted) permutations of source columns.
 	sexpTarget := l.Elements[1].AsSymbol()
 	// Source columns.
@@ -392,13 +393,13 @@ func (p *hirParser) parseInterleavingDeclaration(l *sexp.List) error {
 			return p.translator.SyntaxError(ith, "column name expected")
 		}
 		// Attempt to lookup the column
-		cid, ok := p.env.LookupColumn(p.module, col.Value)
+		cid, ok := env.LookupColumn(p.module, col.Value)
 		// Check it exists
 		if !ok {
 			return p.translator.SyntaxError(ith, "unknown column")
 		}
 		// Check multiplier calculation
-		sourceCol := p.env.schema.Columns().Nth(cid)
+		sourceCol := env.schema.Columns().Nth(cid)
 		ctx = ctx.Join(sourceCol.Context())
 		// Sanity check we have a sensible context here.
 		if ctx.IsConflicted() {
@@ -410,13 +411,13 @@ func (p *hirParser) parseInterleavingDeclaration(l *sexp.List) error {
 		sources[i] = cid
 	}
 	// Add assignment
-	p.env.AddAssignment(assignment.NewInterleaving(ctx, sexpTarget.Value, sources, &sc.FieldType{}))
+	env.AddAssignment(assignment.NewInterleaving(ctx, sexpTarget.Value, sources, &sc.FieldType{}))
 	// Done
 	return nil
 }
 
 // Parse a range constraint
-func (p *hirParser) parseRangeDeclaration(l *sexp.List) error {
+func (p *hirParser) parseRangeDeclaration(env *Environment, l *sexp.List) error {
 	var bound fr.Element
 	// Check bound
 	if l.Get(2).AsSymbol() == nil {
@@ -427,12 +428,12 @@ func (p *hirParser) parseRangeDeclaration(l *sexp.List) error {
 		return p.translator.SyntaxError(l.Get(2), "malformed bound")
 	}
 	// Parse expression
-	expr, err := p.translator.Translate(l.Get(1))
+	expr, err := p.translator.Translate(env, l.Get(1))
 	if err != nil {
 		return err
 	}
 	// Determine evaluation context of expression.
-	ctx := expr.Context(p.env.schema)
+	ctx := expr.Context(env.schema)
 	// Sanity check we have a sensible context here.
 	if ctx.IsConflicted() {
 		return p.translator.SyntaxError(l.Get(1), "conflicting evaluation context")
@@ -441,44 +442,84 @@ func (p *hirParser) parseRangeDeclaration(l *sexp.List) error {
 	}
 	//
 	handle := l.Get(1).String(true)
-	p.env.schema.AddRangeConstraint(handle, ctx, expr, bound)
+	env.schema.AddRangeConstraint(handle, ctx, expr, bound)
 	//
 	return nil
 }
 
+// Parse a pure function declaration
+func (p *hirParser) parsePureFunDeclaration(env *Environment, l *sexp.List) error {
+	// Parse function signature
+	name, params, err := p.parseFunSignature(l.Get(1))
+	if err != nil {
+		return err
+	}
+	// Intialise environment
+	/* 	for i, p := range params {
+	   		env[p] = uint(i)
+	   	}
+	*/
+	// Parse expression
+	body, err := p.translator.Translate(env, l.Get(2))
+	if err != nil {
+		return err
+	}
+	//
+	env.schema.AddMacroDefinition(p.module.Module(), name, params, body, true)
+	//
+	return nil
+}
+
+func (p *hirParser) parseFunSignature(e sexp.SExp) (string, []string, error) {
+	if e.AsList() == nil {
+		return "", nil, p.translator.SyntaxError(e, "invalid function signature")
+	}
+	// Sanity check signature
+	l := e.AsList()
+	if l.Len() == 0 || l.Get(0).AsSymbol() == nil {
+		return "", nil, p.translator.SyntaxError(l, "invalid function signature")
+	}
+	// Parse parameters
+	params := make([]string, l.Len()-1)
+	//
+
+	//
+	return l.Get(0).AsSymbol().String(false), params, nil
+}
+
 // Parse a property assertion
-func (p *hirParser) parseAssertionDeclaration(elements []sexp.SExp) error {
+func (p *hirParser) parseAssertionDeclaration(env *Environment, elements []sexp.SExp) error {
 	handle := elements[1].AsSymbol().Value
 	// Property assertions do not have global scope, hence qualified column
 	// accesses are not permitted.
 	p.global = false
 	// Translate
-	expr, err := p.translator.Translate(elements[2])
+	expr, err := p.translator.Translate(env, elements[2])
 	if err != nil {
 		return err
 	}
 	// Determine evaluation context of assertion.
-	ctx := expr.Context(p.env.schema)
+	ctx := expr.Context(env.schema)
 	// Add assertion.
-	p.env.schema.AddPropertyAssertion(handle, ctx, expr)
+	env.schema.AddPropertyAssertion(handle, ctx, expr)
 
 	return nil
 }
 
 // Parse a vanishing declaration
-func (p *hirParser) parseConstraintDeclaration(elements []sexp.SExp) error {
+func (p *hirParser) parseConstraintDeclaration(env *Environment, elements []sexp.SExp) error {
 	//
 	handle := elements[1].AsSymbol().Value
 	// Vanishing constraints do not have global scope, hence qualified column
 	// accesses are not permitted.
 	p.global = false
-	domain, guard, err := p.parseConstraintAttributes(elements[2])
+	domain, guard, err := p.parseConstraintAttributes(env, elements[2])
 	// Check for error
 	if err != nil {
 		return err
 	}
 	// Translate expression
-	expr, err := p.translator.Translate(elements[3])
+	expr, err := p.translator.Translate(env, elements[3])
 	if err != nil {
 		return err
 	} else if guard != nil {
@@ -486,7 +527,7 @@ func (p *hirParser) parseConstraintDeclaration(elements []sexp.SExp) error {
 		expr = &IfZero{guard, nil, expr}
 	}
 	// Determine evaluation context of expression.
-	ctx := expr.Context(p.env.schema)
+	ctx := expr.Context(env.schema)
 	// Sanity check we have a sensible context here.
 	if ctx.IsConflicted() {
 		return p.translator.SyntaxError(elements[3], "conflicting evaluation context")
@@ -494,12 +535,13 @@ func (p *hirParser) parseConstraintDeclaration(elements []sexp.SExp) error {
 		return p.translator.SyntaxError(elements[3], "empty evaluation context")
 	}
 
-	p.env.schema.AddVanishingConstraint(handle, ctx, domain, expr)
+	env.schema.AddVanishingConstraint(handle, ctx, domain, expr)
 
 	return nil
 }
 
-func (p *hirParser) parseConstraintAttributes(attributes sexp.SExp) (domain *int, guard Expr, err error) {
+func (p *hirParser) parseConstraintAttributes(env *Environment,
+	attributes sexp.SExp) (domain *int, guard Expr, err error) {
 	// Check attribute list is a list
 	if attributes.AsList() == nil {
 		return nil, nil, p.translator.SyntaxError(attributes, "expected attribute list")
@@ -522,7 +564,7 @@ func (p *hirParser) parseConstraintAttributes(attributes sexp.SExp) (domain *int
 			}
 		case ":guard":
 			i++
-			if guard, err = p.translator.Translate(attrs.Get(i)); err != nil {
+			if guard, err = p.translator.Translate(env, attrs.Get(i)); err != nil {
 				return nil, nil, err
 			}
 		default:
@@ -607,11 +649,11 @@ func (p *hirParser) checkUnitExpr(term sexp.SExp) error {
 	return nil
 }
 
-func beginParserRule(args []Expr) (Expr, error) {
+func beginParserRule(env *Environment, name string, args []Expr) (Expr, error) {
 	return &List{args}, nil
 }
 
-func constantParserRule(symbol string) (Expr, bool, error) {
+func constantParserRule(env *Environment, symbol string) (Expr, bool, error) {
 	if symbol[0] >= '0' && symbol[0] < '9' {
 		var num fr.Element
 		// Attempt to parse
@@ -627,9 +669,21 @@ func constantParserRule(symbol string) (Expr, bool, error) {
 	return nil, false, nil
 }
 
-func columnAccessParserRule(parser *hirParser) func(col string) (Expr, bool, error) {
+func varAccessParserRule(_ *hirParser) func(env *Environment, name string) (Expr, bool, error) {
 	// Returns a closure over the parser.
-	return func(col string) (Expr, bool, error) {
+	return func(env *Environment, name string) (Expr, bool, error) {
+		// Look up column in the environment using local scope.
+		if _, ok := env.LookupVariable(name); ok {
+			return &VariableAccess{name, 0}, true, nil
+		}
+		// Continue
+		return nil, false, nil
+	}
+}
+
+func columnAccessParserRule(parser *hirParser) func(env *Environment, col string) (Expr, bool, error) {
+	// Returns a closure over the parser.
+	return func(env *Environment, col string) (Expr, bool, error) {
 		var ok bool
 		// Sanity check what we have
 		if !unicode.IsLetter(rune(col[0])) {
@@ -642,7 +696,7 @@ func columnAccessParserRule(parser *hirParser) func(col string) (Expr, bool, err
 		split := strings.Split(col, ".")
 		if parser.global && len(split) == 2 {
 			// Lookup module
-			if context, ok = parser.env.LookupModule(split[0]); !ok {
+			if context, ok = env.LookupModule(split[0]); !ok {
 				return nil, true, errors.New("unknown module")
 			}
 
@@ -655,7 +709,7 @@ func columnAccessParserRule(parser *hirParser) func(col string) (Expr, bool, err
 		// Now lookup column in the appropriate module.
 		var cid uint
 		// Look up column in the environment using local scope.
-		cid, ok = parser.env.LookupColumn(context, colname)
+		cid, ok = env.LookupColumn(context, colname)
 		// Check column was found
 		if !ok {
 			return nil, true, errors.New("unknown column")
@@ -665,19 +719,19 @@ func columnAccessParserRule(parser *hirParser) func(col string) (Expr, bool, err
 	}
 }
 
-func addParserRule(args []Expr) (Expr, error) {
+func addParserRule(env *Environment, name string, args []Expr) (Expr, error) {
 	return &Add{args}, nil
 }
 
-func subParserRule(args []Expr) (Expr, error) {
+func subParserRule(env *Environment, name string, args []Expr) (Expr, error) {
 	return &Sub{args}, nil
 }
 
-func mulParserRule(args []Expr) (Expr, error) {
+func mulParserRule(env *Environment, name string, args []Expr) (Expr, error) {
 	return &Mul{args}, nil
 }
 
-func ifParserRule(args []Expr) (Expr, error) {
+func ifParserRule(env *Environment, name string, args []Expr) (Expr, error) {
 	if len(args) == 2 {
 		return &IfZero{args[0], args[1], nil}, nil
 	} else if len(args) == 3 {
@@ -687,7 +741,7 @@ func ifParserRule(args []Expr) (Expr, error) {
 	return nil, errors.New("incorrect number of arguments")
 }
 
-func ifNotParserRule(args []Expr) (Expr, error) {
+func ifNotParserRule(env *Environment, name string, args []Expr) (Expr, error) {
 	if len(args) == 2 {
 		return &IfZero{args[0], nil, args[1]}, nil
 	}
@@ -695,16 +749,16 @@ func ifNotParserRule(args []Expr) (Expr, error) {
 	return nil, errors.New("incorrect number of arguments")
 }
 
-func shiftParserRule(parser *hirParser) func(string, string) (Expr, error) {
+func shiftParserRule(parser *hirParser) func(*Environment, string, string) (Expr, error) {
 	// Returns a closure over the parser.
-	return func(col string, amt string) (Expr, error) {
+	return func(env *Environment, col string, amt string) (Expr, error) {
 		n, err := strconv.Atoi(amt)
 
 		if err != nil {
 			return nil, err
 		}
 		// Look up column in the environment
-		i, ok := parser.env.LookupColumn(parser.module, col)
+		i, ok := env.LookupColumn(parser.module, col)
 		// Check column was found
 		if !ok {
 			return nil, fmt.Errorf("unknown column %s", col)
@@ -717,7 +771,7 @@ func shiftParserRule(parser *hirParser) func(string, string) (Expr, error) {
 	}
 }
 
-func powParserRule(args []Expr) (Expr, error) {
+func powParserRule(env *Environment, name string, args []Expr) (Expr, error) {
 	var k big.Int
 
 	if len(args) != 2 {
@@ -736,10 +790,18 @@ func powParserRule(args []Expr) (Expr, error) {
 	return &Exp{Arg: args[0], Pow: k.Uint64()}, nil
 }
 
-func normParserRule(args []Expr) (Expr, error) {
+func normParserRule(env *Environment, name string, args []Expr) (Expr, error) {
 	if len(args) != 1 {
 		return nil, errors.New("incorrect number of arguments")
 	}
 
 	return &Normalise{Arg: args[0]}, nil
+}
+
+func invokeParserRule(env *Environment, name string, args []Expr) (Expr, error) {
+	if _, ok := env.LookupMacro(name); ok {
+		panic("matched invocation")
+	}
+	//
+	return nil, errors.New("unknown function")
 }

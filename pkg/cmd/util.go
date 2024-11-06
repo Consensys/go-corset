@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/binfile"
+	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/hir"
 	"github.com/consensys/go-corset/pkg/sexp"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -147,7 +148,7 @@ func readSchemaFile(filename string) *hir.Schema {
 		switch ext {
 		case ".lisp":
 			// Parse bytes into an S-Expression
-			schema, err = hir.ParseSchemaString(string(bytes))
+			schema, err = corset.ParseSourceString(string(bytes))
 			if err == nil {
 				return schema
 			}

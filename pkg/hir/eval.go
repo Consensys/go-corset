@@ -15,6 +15,12 @@ func (e *ColumnAccess) EvalAllAt(k int, tr trace.Trace) []fr.Element {
 	return []fr.Element{val}
 }
 
+// EvalAllAt attempts to evaluate a variable access at a given row in a trace.
+// However, at this time, that does not make sense.
+func (e *VariableAccess) EvalAllAt(k int, tr trace.Trace) []fr.Element {
+	panic("unsupported operation")
+}
+
 // EvalAllAt evaluates a constant at a given row in a trace, which simply returns
 // that constant.
 func (e *Constant) EvalAllAt(k int, tr trace.Trace) []fr.Element {
