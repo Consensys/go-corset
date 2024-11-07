@@ -54,8 +54,6 @@ linters-settings:
     severity: warning
     confidence: 0.8
     rules:
-      - name: indent-error-flow
-        severity: warning
       - name: errorf
         severity: warning
       - name: context-as-argument

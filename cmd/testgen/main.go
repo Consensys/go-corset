@@ -11,6 +11,7 @@ import (
 	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/hir"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/sexp"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/json"
 	"github.com/consensys/go-corset/pkg/util"
@@ -186,8 +187,10 @@ func readSchemaFile(filename string) *hir.Schema {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+	// Package up as source file
+	srcfile := sexp.NewSourceFile(filename, bytes)
 	// Attempt to parse schema
-	schema, err2 := corset.CompileSourceFile(string(bytes))
+	schema, err2 := corset.CompileSourceFile(srcfile)
 	// Check whether parsed successfully or not
 	if err2 == nil {
 		// Ok

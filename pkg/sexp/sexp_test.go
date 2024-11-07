@@ -141,7 +141,8 @@ func TestSexp_Err4(t *testing.T) {
 // ============================================================================
 
 func CheckOk(t *testing.T, sexp1 SExp, input string) {
-	sexp2, err := Parse(input)
+	src := NewSourceFile("test", []byte(input))
+	sexp2, _, err := src.Parse()
 	//
 	if err != nil {
 		t.Error(err)
@@ -151,7 +152,9 @@ func CheckOk(t *testing.T, sexp1 SExp, input string) {
 }
 
 func CheckErr(t *testing.T, input string) {
-	_, err := Parse(input)
+	src := NewSourceFile("test", []byte(input))
+	_, _, err := src.Parse()
+
 	//
 	if err == nil {
 		t.Errorf("input should not have parsed!")

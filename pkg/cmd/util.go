@@ -169,19 +169,21 @@ func readBinaryFile(filename string) *hir.Schema {
 // Parse a set of source files and compile them into a single schema.  This can
 // result, for example, in a syntax error, etc.
 func readSourceFiles(filenames []string) *hir.Schema {
-	files := make([]string, len(filenames))
+	srcfiles := make([]*sexp.SourceFile, len(filenames))
 	// Read each file
 	for i, n := range filenames {
-		// Read schema file
-		if bytes, err := os.ReadFile(n); err != nil {
+		// Read source file
+		bytes, err := os.ReadFile(n)
+		// Sanity check for errors
+		if err != nil {
 			fmt.Println(err)
 			os.Exit(3)
-		} else {
-			files[i] = string(bytes)
 		}
+		//
+		srcfiles[i] = sexp.NewSourceFile(n, bytes)
 	}
 	// Parse and compile source files
-	schema, errs := corset.CompileSourceFiles(files)
+	schema, errs := corset.CompileSourceFiles(srcfiles)
 	// Check for any errors
 	if errs == nil {
 		return schema
@@ -204,11 +206,11 @@ func readSourceFiles(filenames []string) *hir.Schema {
 func printSyntaxError(err *sexp.SyntaxError) {
 	span := err.Span()
 	// Construct empty source map in order to determine enclosing line.
-	srcmap := sexp.NewSourceMap[sexp.SExp](err.Text())
+	srcmap := sexp.NewSourceMap[sexp.SExp](err.SourceFile().Contents())
 	//
 	line := srcmap.FindFirstEnclosingLine(span)
 	// Print error + line number
-	fmt.Printf("%s:%d: %s\n", err.Filename(), line.Number(), err.Message())
+	fmt.Printf("%s:%d: %s\n", err.SourceFile().Filename(), line.Number(), err.Message())
 	// Print separator line
 	fmt.Println()
 	// Print line

@@ -8,8 +8,8 @@ import (
 )
 
 // CompileSourceFiles compiles one or more source files into a schema.
-func CompileSourceFiles(files []string) (*hir.Schema, []error) {
-	circuit, srcmap, errs := ParseSourceFiles(files)
+func CompileSourceFiles(srcfiles []*sexp.SourceFile) (*hir.Schema, []error) {
+	circuit, srcmap, errs := ParseSourceFiles(srcfiles)
 	// Check for parsing errors
 	if errs != nil {
 		return nil, errs
@@ -20,8 +20,8 @@ func CompileSourceFiles(files []string) (*hir.Schema, []error) {
 
 // CompileSourceFile compiles exactly one source file into a schema.  This is
 // really helper function for e.g. the testing environment.
-func CompileSourceFile(file string) (*hir.Schema, error) {
-	schema, errs := CompileSourceFiles([]string{file})
+func CompileSourceFile(srcfile *sexp.SourceFile) (*hir.Schema, error) {
+	schema, errs := CompileSourceFiles([]*sexp.SourceFile{srcfile})
 	// Check for errors
 	if errs != nil {
 		return nil, errs[0]

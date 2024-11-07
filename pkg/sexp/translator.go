@@ -30,10 +30,7 @@ type RecursiveRule[E any, T comparable] func(E, string, []T) (T, error)
 // Translator is a generic mechanism for translating S-Expressions into a structured
 // form.
 type Translator[E any, T comparable] struct {
-	// Name of file being translated
-	filename string
-	// Text of file being translated
-	text []rune
+	srcfile *SourceFile
 	// Rules for parsing lists
 	lists map[string]ListRule[E, T]
 	// Fallback rule for generic user-defined lists.
@@ -49,10 +46,9 @@ type Translator[E any, T comparable] struct {
 }
 
 // NewTranslator constructs a new Translator instance.
-func NewTranslator[E any, T comparable](filename string, text []rune, srcmap *SourceMap[SExp]) *Translator[E, T] {
+func NewTranslator[E any, T comparable](srcfile *SourceFile, srcmap *SourceMap[SExp]) *Translator[E, T] {
 	return &Translator[E, T]{
-		filename:     filename,
-		text:         text,
+		srcfile:      srcfile,
 		lists:        make(map[string]ListRule[E, T]),
 		list_default: nil,
 		symbols:      make([]SymbolRule[E, T], 0),
@@ -157,8 +153,8 @@ func (p *Translator[E, T]) AddSymbolRule(t SymbolRule[E, T]) {
 func (p *Translator[E, T]) SyntaxError(s SExp, msg string) error {
 	// Get span of enclosing list
 	span := p.old_srcmap.Get(s)
-	// This should be unreachable.
-	return NewSyntaxError(p.filename, p.text, span, msg)
+	// Construct syntax error
+	return p.srcfile.SyntaxError(span, msg)
 }
 
 // ===================================================================

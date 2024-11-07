@@ -12,6 +12,7 @@ import (
 	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/hir"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/sexp"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/json"
 )
@@ -543,19 +544,22 @@ const MAX_PADDING uint = 7
 // expect to be accepted are accepted, and all traces that we expect
 // to be rejected are rejected.
 func Check(t *testing.T, test string) {
+	filename := fmt.Sprintf("%s.lisp", test)
 	// Enable testing each trace in parallel
 	t.Parallel()
 	// Read constraints file
-	bytes, err := os.ReadFile(fmt.Sprintf("%s/%s.lisp", TestDir, test))
+	bytes, err := os.ReadFile(fmt.Sprintf("%s/%s", TestDir, filename))
 	// Check test file read ok
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Package up as source file
+	srcfile := sexp.NewSourceFile(filename, bytes)
 	// Parse terms into an HIR schema
-	schema, err := corset.CompileSourceFile(string(bytes))
+	schema, err := corset.CompileSourceFile(srcfile)
 	// Check terms parsed ok
 	if err != nil {
-		t.Fatalf("Error parsing %s.lisp: %s\n", test, err)
+		t.Fatalf("Error parsing %s: %s\n", filename, err)
 	}
 	// Check valid traces are accepted
 	accepts_file := fmt.Sprintf("%s.%s", test, "accepts")
