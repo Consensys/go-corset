@@ -23,8 +23,12 @@ type Void = struct{}
 // additional combines all fragments of the same module together into one place.
 // Thus, you should never expect to see duplicate module names in the returned
 // array.
-func ParseSourceFiles(files []string) ([]Module, []error) {
+func ParseSourceFiles(files []string) (Circuit, *sexp.SourceMaps[Node], []error) {
+	var circuit Circuit
 	var errors []error = make([]error, len(files))
+	// Construct an initially empty source map
+	srcmaps := sexp.NewSourceMaps[Node]()
+	// num_errs counts the number of errors reported
 	var num_errs uint
 	// Contents map holds the combined fragments of each module.
 	contents := make(map[string]Module, 0)
@@ -32,15 +36,19 @@ func ParseSourceFiles(files []string) ([]Module, []error) {
 	names := make([]string, 0)
 	//
 	for i, file := range files {
-		mods, err := ParseSourceFile(file)
+		c, srcmap, err := ParseSourceFile(file)
 		// Handle errors
 		if err != nil {
 			num_errs++
 		}
+		// Combine source maps
+		srcmaps.Join(srcmap)
+		// Update top-level declarations
+		circuit.Declarations = append(circuit.Declarations, c.Declarations...)
 		// Report any errors encountered
 		errors[i] = err
 		// Allocate any module fragments
-		for _, m := range mods {
+		for _, m := range c.Modules {
 			if om, ok := contents[m.Name]; !ok {
 				contents[m.Name] = m
 				names = append(names, m.Name)
@@ -51,78 +59,90 @@ func ParseSourceFiles(files []string) ([]Module, []error) {
 		}
 	}
 	// Bring all fragmenmts together
-	modules := make([]Module, len(names))
+	circuit.Modules = make([]Module, len(names))
 	// Sort module names to ensure that compilation is always deterministic.
 	sort.Strings(names)
 	// Finalise every module
 	for i, n := range names {
 		// Assume this cannot fail as every module in names has been assigned at
 		// least one fragment.
-		modules[i] = contents[n]
+		circuit.Modules[i] = contents[n]
 	}
 	// Done
 	if num_errs > 0 {
-		return modules, errors
+		return circuit, srcmaps, errors
 	}
 	// no errors
-	return modules, nil
+	return circuit, srcmaps, nil
 }
 
 // ParseSourceFile parses the contents of a single lisp file into one or more
 // modules.  Observe that every lisp file starts in the "prelude" or "root"
 // module, and may declare items for additional modules as necessary.
-func ParseSourceFile(file string) ([]Module, error) {
+func ParseSourceFile(file string) (Circuit, *sexp.SourceMap[Node], error) {
+	var circuit Circuit
 	parser := sexp.NewParser(file)
 	// Parse bytes into an S-Expression
 	terms, err := parser.ParseAll()
 	// Check test file parsed ok
 	if err != nil {
-		return nil, err
+		return circuit, nil, err
 	}
 	// Construct parser for corset syntax
-	p := NewCorsetParser(parser.SourceMap())
-	// Initially empty set of modules
-	var modules []Module
-
+	p := NewParser(parser.SourceMap())
 	var contents []Declaration
 	// Parse whatever is declared at the beginning of the file before the first
 	// module declaration.  These declarations form part of the "prelude".
-	if contents, terms, err = p.parseModuleContents("", terms); err != nil {
-		return nil, err
-	} else if len(contents) != 0 {
-		modules = append(modules, Module{"", contents})
+	if contents, terms, err = p.parseModuleContents(terms); err != nil {
+		return circuit, nil, err
 	}
+	// Configure root declarations
+	circuit.Declarations = contents
 	// Continue parsing string until nothing remains.
 	for len(terms) != 0 {
 		var name string
 		// Extract module name
 		if name, err = p.parseModuleStart(terms[0]); err != nil {
-			return nil, err
+			return circuit, nil, err
 		}
 		// Parse module contents
-		if contents, terms, err = p.parseModuleContents(name, terms[1:]); err != nil {
-			return nil, err
+		if contents, terms, err = p.parseModuleContents(terms[1:]); err != nil {
+			return circuit, nil, err
 		} else if len(contents) != 0 {
-			modules = append(modules, Module{"", contents})
+			circuit.Modules = append(circuit.Modules, Module{name, contents})
 		}
 	}
 	// Done
-	return modules, nil
+	return circuit, p.nodemap, nil
 }
 
 // ===================================================================
-// Private
+// Parser
 // ===================================================================
 
-type CorsetParser struct {
+// Parser implements a simple parser for the Corset language.  The parser itself
+// is relatively simplistic and simply packages up the relevant lisp constructs
+// into their corresponding AST forms.  This can fail in various ways, such as
+// e.g. a "defconstraint" not having exactly three arguments, etc.  However, the
+// parser does not attempt to perform more complex forms of validation (e.g.
+// ensuring that expressions are well-typed, etc) --- that is left up to the
+// compiler.
+type Parser struct {
 	// Translator used for recursive expressions.
 	translator *sexp.Translator[Void, Expr]
+	sexpmap    *sexp.SourceMap[sexp.SExp]
+	// Mapping from constructed S-Expressions to their spans in the original text.
+	nodemap *sexp.SourceMap[Node]
 }
 
-func NewCorsetParser(srcmap *sexp.SourceMap[sexp.SExp]) *CorsetParser {
-	p := sexp.NewTranslator[Void, Expr](srcmap)
+// NewParser constructs a new parser using a given mapping from S-Expressions to
+// spans in the underlying source file.
+func NewParser(filename string, text []rune, srcmap *sexp.SourceMap[sexp.SExp]) *Parser {
+	p := sexp.NewTranslator[Void, Expr](filename, text, srcmap)
+	// Construct (initially empty) node map
+	nodemap := sexp.NewSourceMap[Node](srcmap.Text())
 	// Construct parser
-	parser := &CorsetParser{p}
+	parser := &Parser{p, srcmap, nodemap}
 	// Configure translator
 	/* p.AddSymbolRule(constantParserRule)
 	p.AddSymbolRule(varAccessParserRule(parser))
@@ -142,7 +162,7 @@ func NewCorsetParser(srcmap *sexp.SourceMap[sexp.SExp]) *CorsetParser {
 }
 
 // Extract all declarations associated with a given module and package them up.
-func (p *CorsetParser) parseModuleContents(name string, terms []sexp.SExp) ([]Declaration, []sexp.SExp, error) {
+func (p *Parser) parseModuleContents(terms []sexp.SExp) ([]Declaration, []sexp.SExp, error) {
 	//
 	decls := make([]Declaration, 0)
 	//
@@ -170,7 +190,7 @@ func (p *CorsetParser) parseModuleContents(name string, terms []sexp.SExp) ([]De
 
 // Parse a module declaration of the form "(module m1)" which indicates the
 // start of module m1.
-func (p *CorsetParser) parseModuleStart(s sexp.SExp) (string, error) {
+func (p *Parser) parseModuleStart(s sexp.SExp) (string, error) {
 	l, ok := s.(*sexp.List)
 	// Check for error
 	if !ok {
@@ -186,7 +206,7 @@ func (p *CorsetParser) parseModuleStart(s sexp.SExp) (string, error) {
 	return name, nil
 }
 
-func (p *CorsetParser) parseDeclaration(s *sexp.List) (Declaration, error) {
+func (p *Parser) parseDeclaration(s *sexp.List) (Declaration, error) {
 	if s.MatchSymbols(1, "defcolumns") {
 		return p.parseColumnDeclarations(s)
 	}
@@ -209,7 +229,7 @@ func (p *CorsetParser) parseDeclaration(s *sexp.List) (Declaration, error) {
 }
 
 // Parse a column declaration
-func (p *CorsetParser) parseColumnDeclarations(l *sexp.List) (*DefColumns, error) {
+func (p *Parser) parseColumnDeclarations(l *sexp.List) (*DefColumns, error) {
 	// Sanity check declaration
 	if len(l.Elements) == 1 {
 		return nil, p.translator.SyntaxError(l, "malformed column declaration")
@@ -228,7 +248,7 @@ func (p *CorsetParser) parseColumnDeclarations(l *sexp.List) (*DefColumns, error
 	return &DefColumns{columns}, nil
 }
 
-func (p *CorsetParser) parseColumnDeclaration(e sexp.SExp) (DefColumn, error) {
+func (p *Parser) parseColumnDeclaration(e sexp.SExp) (DefColumn, error) {
 	var defcolumn DefColumn
 	// Default to field type
 	defcolumn.DataType = &sc.FieldType{}
@@ -257,7 +277,7 @@ func (p *CorsetParser) parseColumnDeclaration(e sexp.SExp) (DefColumn, error) {
 	return defcolumn, nil
 }
 
-func (p *CorsetParser) parseType(term sexp.SExp) (sc.Type, error) {
+func (p *Parser) parseType(term sexp.SExp) (sc.Type, error) {
 	symbol := term.AsSymbol()
 	if symbol == nil {
 		return nil, p.translator.SyntaxError(term, "malformed column")

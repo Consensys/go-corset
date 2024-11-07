@@ -181,34 +181,34 @@ func readSourceFiles(filenames []string) *hir.Schema {
 		}
 	}
 	// Parse and compile source files
-	_, errs := corset.ParseSourceFiles(files)
+	schema, errs := corset.CompileSourceFiles(files)
 	// Check for any errors
 	if errs == nil {
-		// Now compile source files down into the schema.
-		panic("implement compiler!")
+		return schema
 	}
 	// Report errors
-	for i, err := range errs {
+	for _, err := range errs {
 		if e, ok := err.(*sexp.SyntaxError); ok {
-			printSyntaxError(filenames[i], e, files[i])
+			printSyntaxError(e)
 		} else if err != nil {
 			fmt.Println(err)
 		}
 	}
+	// Fail
 	os.Exit(4)
 	// unreachable
 	return nil
 }
 
 // Print a syntax error with appropriate highlighting.
-func printSyntaxError(filename string, err *sexp.SyntaxError, text string) {
+func printSyntaxError(err *sexp.SyntaxError) {
 	span := err.Span()
 	// Construct empty source map in order to determine enclosing line.
-	srcmap := sexp.NewSourceMap[sexp.SExp]([]rune(text))
+	srcmap := sexp.NewSourceMap[sexp.SExp](err.Text())
 	//
 	line := srcmap.FindFirstEnclosingLine(span)
 	// Print error + line number
-	fmt.Printf("%s:%d: %s\n", filename, line.Number(), err.Message())
+	fmt.Printf("%s:%d: %s\n", err.Filename(), line.Number(), err.Message())
 	// Print separator line
 	fmt.Println()
 	// Print line

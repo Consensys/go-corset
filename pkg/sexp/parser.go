@@ -6,8 +6,8 @@ import (
 
 // Parse a given string into an S-expression, or return an error if the string
 // is malformed.
-func Parse(s string) (SExp, error) {
-	p := NewParser(s)
+func Parse(filename string, contents string) (SExp, error) {
+	p := NewParser(filename, contents)
 	// Parse the input
 	sExp, err := p.Parse()
 	// Sanity check everything was parsed
@@ -21,24 +21,27 @@ func Parse(s string) (SExp, error) {
 // Parser represents a parser in the process of parsing a given string into one
 // or more S-expressions.
 type Parser struct {
+	// Name of file being parsed
+	filename string
 	// Text being parsed
 	text []rune
 	// Determine current position within text
 	index int
-	// Mapping from construct S-Expressions to their spans in the original text.
+	// Mapping from constructed S-Expressions to their spans in the original text.
 	srcmap *SourceMap[SExp]
 }
 
 // NewParser constructs a new instance of Parser
-func NewParser(text string) *Parser {
+func NewParser(filename string, text string) *Parser {
 	// Convert string into array of runes.  This is necessary to properly handle
 	// unicode.
 	runes := []rune(text)
 	// Construct initial parser.
 	return &Parser{
-		text:   runes,
-		index:  0,
-		srcmap: NewSourceMap[SExp](runes),
+		filename: filename,
+		text:     runes,
+		index:    0,
+		srcmap:   NewSourceMap[SExp](runes),
 	}
 }
 
@@ -211,5 +214,5 @@ func (p *Parser) parseSequence(terminator rune) ([]SExp, error) {
 // Construct a parser error at the current position in the input stream.
 func (p *Parser) error(msg string) *SyntaxError {
 	span := NewSpan(p.index, p.index+1)
-	return &SyntaxError{span, msg}
+	return &SyntaxError{p.filename, p.text, span, msg}
 }
