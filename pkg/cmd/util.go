@@ -134,41 +134,68 @@ func readTraceFile(filename string) []trace.RawColumn {
 	return nil
 }
 
-// Parse a constraints schema file using a parser based on the extension of the
-// filename.
-func readSchemaFile(filename string) *hir.Schema {
+func readSchema(filenames []string) *hir.Schema {
+	if len(filenames) == 0 {
+		fmt.Println("source or binary constraint(s) file required.")
+		os.Exit(5)
+	} else if len(filenames) == 1 && path.Ext(filenames[0]) == "bin" {
+		// Single (binary) file supplied
+		return readBinaryFile(filenames[0])
+	}
+	// Must be source files
+	return readSourceFiles(filenames)
+}
+
+// Read a "bin" file.
+func readBinaryFile(filename string) *hir.Schema {
 	var schema *hir.Schema
 	// Read schema file
 	bytes, err := os.ReadFile(filename)
 	// Handle errors
 	if err == nil {
-		// Check file extension
-		ext := path.Ext(filename)
-		//
-		switch ext {
-		case ".lisp":
-			// Parse bytes into an S-Expression
-			schema, err = corset.ParseSourceString(string(bytes))
-			if err == nil {
-				return schema
-			}
-		case ".bin":
-			schema, err = binfile.HirSchemaFromJson(bytes)
-			if err == nil {
-				return schema
-			}
-		default:
-			err = fmt.Errorf("Unknown schema file format: %s\n", ext)
+		// Read the binary file
+		schema, err = binfile.HirSchemaFromJson(bytes)
+		if err == nil {
+			return schema
 		}
 	}
-	// Handle error
-	if e, ok := err.(*sexp.SyntaxError); ok {
-		printSyntaxError(filename, e, string(bytes))
-	} else {
-		fmt.Println(err)
-	}
-
+	// Handle error & exit
+	fmt.Println(err)
 	os.Exit(2)
+	// unreachable
+	return nil
+}
+
+// Parse a set of source files and compile them into a single schema.  This can
+// result, for example, in a syntax error, etc.
+func readSourceFiles(filenames []string) *hir.Schema {
+	files := make([]string, len(filenames))
+	// Read each file
+	for i, n := range filenames {
+		// Read schema file
+		if bytes, err := os.ReadFile(n); err != nil {
+			fmt.Println(err)
+			os.Exit(3)
+		} else {
+			files[i] = string(bytes)
+		}
+	}
+	// Parse and compile source files
+	_, errs := corset.ParseSourceFiles(files)
+	// Check for any errors
+	if errs == nil {
+		// Now compile source files down into the schema.
+		panic("implement compiler!")
+	}
+	// Report errors
+	for i, err := range errs {
+		if e, ok := err.(*sexp.SyntaxError); ok {
+			printSyntaxError(filenames[i], e, files[i])
+		} else if err != nil {
+			fmt.Println(err)
+		}
+	}
+	os.Exit(4)
 	// unreachable
 	return nil
 }

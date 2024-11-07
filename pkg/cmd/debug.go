@@ -29,7 +29,7 @@ var debugCmd = &cobra.Command{
 		air := GetFlag(cmd, "air")
 		stats := GetFlag(cmd, "stats")
 		// Parse constraints
-		hirSchema := readSchemaFile(args[0])
+		hirSchema := readSchema(args)
 
 		// Print constraints
 		if stats {

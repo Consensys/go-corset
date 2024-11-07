@@ -8,6 +8,7 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	cmdutil "github.com/consensys/go-corset/pkg/cmd"
+	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/hir"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
@@ -186,7 +187,7 @@ func readSchemaFile(filename string) *hir.Schema {
 		os.Exit(1)
 	}
 	// Attempt to parse schema
-	schema, err2 := hir.ParseSchemaString(string(bytes))
+	schema, err2 := corset.CompileSourceFile(string(bytes))
 	// Check whether parsed successfully or not
 	if err2 == nil {
 		// Ok

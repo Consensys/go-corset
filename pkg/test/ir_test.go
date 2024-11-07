@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/hir"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -551,7 +552,7 @@ func Check(t *testing.T, test string) {
 		t.Fatal(err)
 	}
 	// Parse terms into an HIR schema
-	schema, err := hir.ParseSchemaString(string(bytes))
+	schema, err := corset.CompileSourceFile(string(bytes))
 	// Check terms parsed ok
 	if err != nil {
 		t.Fatalf("Error parsing %s.lisp: %s\n", test, err)
