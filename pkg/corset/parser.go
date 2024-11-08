@@ -1,16 +1,17 @@
 package corset
 
 import (
+	"errors"
+	"math/big"
 	"sort"
 	"strconv"
 	"strings"
+	"unicode"
 
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/sexp"
 )
-
-// Void type represents an empty struct.
-type Void = struct{}
 
 // ===================================================================
 // Public
@@ -126,7 +127,7 @@ func ParseSourceFile(srcfile *sexp.SourceFile) (Circuit, *sexp.SourceMap[Node], 
 // compiler.
 type Parser struct {
 	// Translator used for recursive expressions.
-	translator *sexp.Translator[Void, Expr]
+	translator *sexp.Translator[Expr]
 	// Mapping from constructed S-Expressions to their spans in the original text.
 	nodemap *sexp.SourceMap[Node]
 }
@@ -134,25 +135,22 @@ type Parser struct {
 // NewParser constructs a new parser using a given mapping from S-Expressions to
 // spans in the underlying source file.
 func NewParser(srcfile *sexp.SourceFile, srcmap *sexp.SourceMap[sexp.SExp]) *Parser {
-	p := sexp.NewTranslator[Void, Expr](srcfile, srcmap)
+	p := sexp.NewTranslator[Expr](srcfile, srcmap)
 	// Construct (initially empty) node map
 	nodemap := sexp.NewSourceMap[Node](srcmap.Text())
 	// Construct parser
 	parser := &Parser{p, nodemap}
-	// Configure translator
-	/* p.AddSymbolRule(constantParserRule)
-	p.AddSymbolRule(varAccessParserRule(parser))
-	p.AddSymbolRule(columnAccessParserRule(parser))
-	p.AddBinaryRule("shift", shiftParserRule(parser))
+	// Configure expression translator
+	p.AddSymbolRule(constantParserRule)
+	p.AddSymbolRule(varAccessParserRule)
+	p.AddBinaryRule("shift", shiftParserRule)
 	p.AddRecursiveRule("+", addParserRule)
 	p.AddRecursiveRule("-", subParserRule)
 	p.AddRecursiveRule("*", mulParserRule)
 	p.AddRecursiveRule("~", normParserRule)
 	p.AddRecursiveRule("^", powParserRule)
 	p.AddRecursiveRule("if", ifParserRule)
-	p.AddRecursiveRule("ifnot", ifNotParserRule)
 	p.AddRecursiveRule("begin", beginParserRule)
-	p.AddDefaultRecursiveRule(invokeParserRule) */
 	//
 	return parser
 }
@@ -205,23 +203,24 @@ func (p *Parser) parseModuleStart(s sexp.SExp) (string, error) {
 func (p *Parser) parseDeclaration(s *sexp.List) (Declaration, error) {
 	if s.MatchSymbols(1, "defcolumns") {
 		return p.parseColumnDeclarations(s)
+	} else if s.Len() == 4 && s.MatchSymbols(2, "defconstraint") {
+		return p.parseConstraintDeclaration(s.Elements)
 	}
-	/* else if e.Len() == 4 && e.MatchSymbols(2, "defconstraint") {
-		return p.parseConstraintDeclaration(env, e.Elements)
-	} else if e.Len() == 3 && e.MatchSymbols(2, "assert") {
-		return p.parseAssertionDeclaration(env, e.Elements)
-	} else if e.Len() == 3 && e.MatchSymbols(1, "defpermutation") {
-		return p.parsePermutationDeclaration(env, e)
-	} else if e.Len() == 4 && e.MatchSymbols(1, "deflookup") {
-		return p.parseLookupDeclaration(env, e)
-	} else if e.Len() == 3 && e.MatchSymbols(1, "definterleaved") {
-		return p.parseInterleavingDeclaration(env, e)
-	} else if e.Len() == 3 && e.MatchSymbols(1, "definrange") {
-		return p.parseRangeDeclaration(env, e)
-	} else if e.Len() == 3 && e.MatchSymbols(1, "defpurefun") {
-		return p.parsePureFunDeclaration(env, e)
-	} */
-	return nil, p.translator.SyntaxError(s, "malformed module declaration")
+	/*
+		else if e.Len() == 3 && e.MatchSymbols(2, "assert") {
+			return p.parseAssertionDeclaration(env, e.Elements)
+		} else if e.Len() == 3 && e.MatchSymbols(1, "defpermutation") {
+			return p.parsePermutationDeclaration(env, e)
+		} else if e.Len() == 4 && e.MatchSymbols(1, "deflookup") {
+			return p.parseLookupDeclaration(env, e)
+		} else if e.Len() == 3 && e.MatchSymbols(1, "definterleaved") {
+			return p.parseInterleavingDeclaration(env, e)
+		} else if e.Len() == 3 && e.MatchSymbols(1, "definrange") {
+			return p.parseRangeDeclaration(env, e)
+		} else if e.Len() == 3 && e.MatchSymbols(1, "defpurefun") {
+			return p.parsePureFunDeclaration(env, e)
+		} */
+	return nil, p.translator.SyntaxError(s, "malformed declaration")
 }
 
 // Parse a column declaration
@@ -274,6 +273,87 @@ func (p *Parser) parseColumnDeclaration(e sexp.SExp) (DefColumn, error) {
 	return defcolumn, nil
 }
 
+// Parse a vanishing declaration
+func (p *Parser) parseConstraintDeclaration(elements []sexp.SExp) (*DefConstraint, error) {
+	//
+	handle := elements[1].AsSymbol().Value
+	// Vanishing constraints do not have global scope, hence qualified column
+	// accesses are not permitted.
+	domain, guard, err := p.parseConstraintAttributes(elements[2])
+	// Check for error
+	if err != nil {
+		return nil, err
+	}
+	// Translate expression
+	expr, err := p.translator.Translate(elements[3])
+	if err != nil {
+		return nil, err
+	}
+	// Done
+	return &DefConstraint{handle, domain, guard, expr}, nil
+}
+
+func (p *Parser) parseConstraintAttributes(attributes sexp.SExp) (domain *int, guard Expr, err error) {
+	// Check attribute list is a list
+	if attributes.AsList() == nil {
+		return nil, nil, p.translator.SyntaxError(attributes, "expected attribute list")
+	}
+	// Deconstruct as list
+	attrs := attributes.AsList()
+	// Process each attribute in turn
+	for i := 0; i < attrs.Len(); i++ {
+		ith := attrs.Get(i)
+		// Check start of attribute
+		if ith.AsSymbol() == nil {
+			return nil, nil, p.translator.SyntaxError(ith, "malformed attribute")
+		}
+		// Check what we've got
+		switch ith.AsSymbol().Value {
+		case ":domain":
+			i++
+			if domain, err = p.parseDomainAttribute(attrs.Get(i)); err != nil {
+				return nil, nil, err
+			}
+		case ":guard":
+			i++
+			if guard, err = p.translator.Translate(attrs.Get(i)); err != nil {
+				return nil, nil, err
+			}
+		default:
+			return nil, nil, p.translator.SyntaxError(ith, "unknown attribute")
+		}
+	}
+	// Done
+	return domain, guard, nil
+}
+
+func (p *Parser) parseDomainAttribute(attribute sexp.SExp) (domain *int, err error) {
+	if attribute.AsSet() == nil {
+		return nil, p.translator.SyntaxError(attribute, "malformed domain set")
+	}
+	// Sanity check
+	set := attribute.AsSet()
+	// Check all domain elements well-formed.
+	for i := 0; i < set.Len(); i++ {
+		ith := set.Get(i)
+		if ith.AsSymbol() == nil {
+			return nil, p.translator.SyntaxError(ith, "malformed domain")
+		}
+	}
+	// Currently, only support domains of size 1.
+	if set.Len() == 1 {
+		first, err := strconv.Atoi(set.Get(0).AsSymbol().Value)
+		// Check for parse error
+		if err != nil {
+			return nil, p.translator.SyntaxError(set.Get(0), "malformed domain element")
+		}
+		// Done
+		return &first, nil
+	}
+	// Fail
+	return nil, p.translator.SyntaxError(attribute, "multiple values not supported")
+}
+
 func (p *Parser) parseType(term sexp.SExp) (sc.Type, error) {
 	symbol := term.AsSymbol()
 	if symbol == nil {
@@ -291,4 +371,111 @@ func (p *Parser) parseType(term sexp.SExp) (sc.Type, error) {
 	}
 	// Error
 	return nil, p.translator.SyntaxError(symbol, "unknown type")
+}
+
+func beginParserRule(_ string, args []Expr) (Expr, error) {
+	return &List{args}, nil
+}
+
+func constantParserRule(symbol string) (Expr, bool, error) {
+	if symbol[0] >= '0' && symbol[0] < '9' {
+		var num fr.Element
+		// Attempt to parse
+		_, err := num.SetString(symbol)
+		// Check for errors
+		if err != nil {
+			return nil, true, err
+		}
+		// Done
+		return &Constant{Val: num}, true, nil
+	}
+	// Not applicable
+	return nil, false, nil
+}
+
+func varAccessParserRule(col string) (Expr, bool, error) {
+	// Sanity check what we have
+	if !unicode.IsLetter(rune(col[0])) {
+		return nil, false, nil
+	}
+	// Handle qualified accesses (where permitted)
+	// Attempt to split column name into module / column pair.
+	split := strings.Split(col, ".")
+	if len(split) == 2 {
+		return &VariableAccess{split[0], split[1], 0, nil}, true, nil
+	} else if len(split) > 2 {
+		return nil, true, errors.New("malformed column access")
+	}
+	// Done
+	return &VariableAccess{"", col, 0, nil}, true, nil
+}
+
+func addParserRule(_ string, args []Expr) (Expr, error) {
+	return &Add{args}, nil
+}
+
+func subParserRule(_ string, args []Expr) (Expr, error) {
+	return &Sub{args}, nil
+}
+
+func mulParserRule(_ string, args []Expr) (Expr, error) {
+	return &Mul{args}, nil
+}
+
+func ifParserRule(_ string, args []Expr) (Expr, error) {
+	if len(args) == 2 {
+		return &IfZero{args[0], args[1], nil}, nil
+	} else if len(args) == 3 {
+		return &IfZero{args[0], args[1], args[2]}, nil
+	}
+
+	return nil, errors.New("incorrect number of arguments")
+}
+
+func shiftParserRule(col string, amt string) (Expr, error) {
+	n, err := strconv.Atoi(amt)
+
+	if err != nil {
+		return nil, err
+	}
+	// Sanity check what we have
+	if !unicode.IsLetter(rune(col[0])) {
+		return nil, nil
+	}
+	// Handle qualified accesses (where appropriate)
+	split := strings.Split(col, ".")
+	if len(split) == 2 {
+		return &VariableAccess{split[0], split[1], n, nil}, nil
+	} else if len(split) > 2 {
+		return nil, errors.New("malformed column access")
+	}
+	// Done
+	return &VariableAccess{"", col, n, nil}, nil
+}
+
+func powParserRule(_ string, args []Expr) (Expr, error) {
+	var k big.Int
+
+	if len(args) != 2 {
+		return nil, errors.New("incorrect number of arguments")
+	}
+
+	c, ok := args[1].(*Constant)
+	if !ok {
+		return nil, errors.New("expected constant power")
+	} else if !c.Val.IsUint64() {
+		return nil, errors.New("constant power too large")
+	}
+	// Convert power to uint64
+	c.Val.BigInt(&k)
+	// Done
+	return &Exp{Arg: args[0], Pow: k.Uint64()}, nil
+}
+
+func normParserRule(_ string, args []Expr) (Expr, error) {
+	if len(args) != 1 {
+		return nil, errors.New("incorrect number of arguments")
+	}
+
+	return &Normalise{Arg: args[0]}, nil
 }

@@ -1,8 +1,6 @@
 package corset
 
 import (
-	"fmt"
-
 	"github.com/consensys/go-corset/pkg/hir"
 	"github.com/consensys/go-corset/pkg/sexp"
 )
@@ -55,6 +53,9 @@ func NewCompiler(circuit Circuit, srcmaps *sexp.SourceMaps[Node]) *Compiler {
 // expression refers to a non-existent module or column, or is not well-typed,
 // etc.
 func (p *Compiler) Compile() (*hir.Schema, []error) {
-	fmt.Printf("MODULES: %v\n", p.circuit.Modules)
+	// Resolve variables (via nested scopes)
+	// Check contexts (e.g. for constraints, lookups, etc)
+	// Type check
+	// Translate
 	panic("TODO")
 }
