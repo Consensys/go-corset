@@ -39,42 +39,6 @@ func (p *Span) Length() int {
 	return p.end - p.start
 }
 
-// Line provides information about a given line within the original string.
-// This includes the line number (counting from 1), and the span of the line
-// within the original string.
-type Line struct {
-	// Original text
-	text []rune
-	// Span within original text of this line.
-	span Span
-	// Line number of this line (counting from 1).
-	number int
-}
-
-// Get the string representing this line.
-func (p *Line) String() string {
-	// Extract runes representing line
-	runes := p.text[p.span.start:p.span.end]
-	// Convert into string
-	return string(runes)
-}
-
-// Number gets the line number of this line, where the first line in a string
-// has line number 1.
-func (p *Line) Number() int {
-	return p.number
-}
-
-// Start returns the starting index of this line in the original string.
-func (p *Line) Start() int {
-	return p.span.start
-}
-
-// Length returns the number of characters in this line.
-func (p *Line) Length() int {
-	return p.span.Length()
-}
-
 // SourceMaps provides a mechanism for mapping terms from an AST to multiple
 // source files.
 type SourceMaps[T comparable] struct {
@@ -86,6 +50,29 @@ type SourceMaps[T comparable] struct {
 // intention is that this is populated as each file is parsed.
 func NewSourceMaps[T comparable]() *SourceMaps[T] {
 	return &SourceMaps[T]{[]SourceMap[T]{}}
+}
+
+// SyntaxError constructs a syntax error for a given node contained within one
+// of the source files managed by this set of source maps.
+func (p *SourceMaps[T]) SyntaxError(node T, msg string) *SyntaxError {
+	for _, m := range p.maps {
+		if m.Has(node) {
+			span := m.Get(node)
+			return m.srcfile.SyntaxError(span, msg)
+		}
+	}
+	// If we get here, then it means the node on which the error occurrs is not
+	// present in any of the source maps.  This should not be possible, provided
+	// the parser is implemented correctly.
+	panic("missing mapping for source node")
+}
+
+// SyntaxErrors is really just a helper that construct a syntax error and then
+// places it into an array of size one.  This is helpful for situations where
+// sets of syntax errors are being passed around.
+func (p *SourceMaps[T]) SyntaxErrors(node T, msg string) []SyntaxError {
+	err := p.SyntaxError(node, msg)
+	return []SyntaxError{*err}
 }
 
 // Join a given source map into this set of source maps.  The effect of this is
@@ -103,19 +90,19 @@ func (p *SourceMaps[T]) Join(srcmap *SourceMap[T]) {
 type SourceMap[T comparable] struct {
 	// Maps a given AST object to a span in the original string.
 	mapping map[T]Span
-	// Original string
-	text []rune
+	// Enclosing source file
+	srcfile SourceFile
 }
 
 // NewSourceMap constructs an initially empty source map for a given string.
-func NewSourceMap[T comparable](text []rune) *SourceMap[T] {
+func NewSourceMap[T comparable](srcfile SourceFile) *SourceMap[T] {
 	mapping := make(map[T]Span)
-	return &SourceMap[T]{mapping, text}
+	return &SourceMap[T]{mapping, srcfile}
 }
 
-// Text returns underlying text of this source map.
-func (p *SourceMap[T]) Text() []rune {
-	return p.text
+// Source returns the underlying source file on which this map operates.
+func (p *SourceMap[T]) Source() SourceFile {
+	return p.srcfile
 }
 
 // Put registers a new AST item with a given span.  Note, if the item exists
@@ -126,6 +113,12 @@ func (p *SourceMap[T]) Put(item T, span Span) {
 	}
 	// Assign it
 	p.mapping[item] = span
+}
+
+// Has checks whether a given item is contained within this source map.
+func (p *SourceMap[T]) Has(item T) bool {
+	_, ok := p.mapping[item]
+	return ok
 }
 
 // Get determines the span associated with a given AST item extract from the
@@ -139,38 +132,11 @@ func (p *SourceMap[T]) Get(item T) Span {
 	panic(fmt.Sprintf("invalid source map key: %s", any(item)))
 }
 
-// FindFirstEnclosingLine determines the first line which encloses the start of
-// a span.  Observe that, if the position is beyond the bounds of the source
-// string then the last physical line is returned.  Also, the returned line is
-// not guaranteed to enclose the entire span, as these can cross multiple lines.
-func (p *SourceMap[T]) FindFirstEnclosingLine(span Span) Line {
-	// Index identifies the current position within the original text.
-	index := span.start
-	// Num records the line number, counting from 1.
-	num := 1
-	// Start records the starting offset of the current line.
-	start := 0
-	// Find the line.
-	for i := 0; i < len(p.text); i++ {
-		if i == index {
-			end := findEndOfLine(index, p.text)
-			return Line{p.text, Span{start, end}, num}
-		} else if p.text[i] == '\n' {
-			num++
-			start = i + 1
-		}
+// JoinMaps incorporates all mappings from one source map (the source) into
+// another source map (the target), whilst applying a given mapping to the node
+// types.
+func JoinMaps[S comparable, T comparable](target *SourceMap[S], source *SourceMap[T], mapping func(T) S) {
+	for i, k := range source.mapping {
+		target.Put(mapping(i), k)
 	}
-	//
-	return Line{p.text, Span{start, len(p.text)}, num}
-}
-
-// Find the end of the enclosing line
-func findEndOfLine(index int, text []rune) int {
-	for i := index; i < len(text); i++ {
-		if text[i] == '\n' {
-			return i
-		}
-	}
-	// No end in sight!
-	return len(text)
 }

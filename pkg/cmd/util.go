@@ -185,7 +185,7 @@ func readSourceFiles(filenames []string) *hir.Schema {
 	// Parse and compile source files
 	schema, errs := corset.CompileSourceFiles(srcfiles)
 	// Check for any errors
-	if errs == nil {
+	if len(errs) == 0 {
 		return schema
 	}
 	// Report errors
@@ -201,10 +201,7 @@ func readSourceFiles(filenames []string) *hir.Schema {
 // Print a syntax error with appropriate highlighting.
 func printSyntaxError(err *sexp.SyntaxError) {
 	span := err.Span()
-	// Construct empty source map in order to determine enclosing line.
-	srcmap := sexp.NewSourceMap[sexp.SExp](err.SourceFile().Contents())
-	//
-	line := srcmap.FindFirstEnclosingLine(span)
+	line := err.FirstEnclosingLine()
 	// Print error + line number
 	fmt.Printf("%s:%d: %s\n", err.SourceFile().Filename(), line.Number(), err.Message())
 	// Print separator line

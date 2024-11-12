@@ -41,7 +41,7 @@ type Declaration interface {
 
 // DefColumns captures a set of one or more columns being declared.
 type DefColumns struct {
-	Columns []DefColumn
+	Columns []*DefColumn
 }
 
 // Resolve something.
@@ -58,8 +58,9 @@ func (p *DefColumns) Lisp() sexp.SExp {
 // DefColumn packages together those piece relevant to declaring an individual
 // column, such its name and type.
 type DefColumn struct {
-	Name     string
-	DataType sc.Type
+	Name             string
+	DataType         sc.Type
+	LengthMultiplier uint
 }
 
 // Lisp converts this node into its lisp representation.  This is primarily used

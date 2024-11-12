@@ -53,13 +53,21 @@ func NewTranslator[T comparable](srcfile *SourceFile, srcmap *SourceMap[SExp]) *
 		list_default: nil,
 		symbols:      make([]SymbolRule[T], 0),
 		old_srcmap:   srcmap,
-		new_srcmap:   NewSourceMap[T](srcmap.text),
+		new_srcmap:   NewSourceMap[T](srcmap.srcfile),
 	}
 }
 
-// ===================================================================
-// Public
-// ===================================================================
+// SourceMap returns the source map maintained for terms constructed by this
+// translator.
+func (p *Translator[T]) SourceMap() *SourceMap[T] {
+	return p.new_srcmap
+}
+
+// SpanOf gets the span associated with a given S-Expression in the original
+// source file.
+func (p *Translator[T]) SpanOf(sexp SExp) Span {
+	return p.old_srcmap.Get(sexp)
+}
 
 // Translate a given string into a given structured representation T
 // using an appropriately configured.
@@ -171,12 +179,15 @@ func translateSExp[T comparable](p *Translator[T], s SExp) (T, *SyntaxError) {
 		return translateSExpList[T](p, e)
 	case *Symbol:
 		for i := 0; i != len(p.symbols); i++ {
-			ir, ok, err := (p.symbols[i])(e.Value)
+			node, ok, err := (p.symbols[i])(e.Value)
 			if ok && err != nil {
 				// Transform into syntax error
 				return empty, p.SyntaxError(s, err.Error())
 			} else if ok {
-				return ir, nil
+				// Update source map
+				map2sexp(p, node, s)
+				// Done
+				return node, nil
 			}
 		}
 	}
@@ -200,10 +211,27 @@ func translateSExpList[T comparable](p *Translator[T], l *List) (T, *SyntaxError
 	t := p.lists[name]
 	// Check whether we found one.
 	if t != nil {
-		return (t)(l)
+		node, err := (t)(l)
+		// Update source mapping
+		map2sexp(p, node, l)
+		// Done
+		return node, err
 	} else if p.list_default != nil {
-		return (p.list_default)(l)
+		node, err := (p.list_default)(l)
+		// Update source mapping
+		map2sexp(p, node, l)
+		// Done
+		return node, err
 	}
 	// Default fall back
 	return empty, p.SyntaxError(l, "unknown list encountered")
+}
+
+// Add a mapping from a given item to the S-expression from which it was
+// generated.  This updates the underlying source map to reflect this.
+func map2sexp[T comparable](p *Translator[T], item T, sexp SExp) {
+	// Lookup enclosing span
+	span := p.old_srcmap.Get(sexp)
+	// Map it the new source map
+	p.new_srcmap.Put(item, span)
 }

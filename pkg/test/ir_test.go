@@ -559,7 +559,7 @@ func Check(t *testing.T, test string) {
 	schema, errs := corset.CompileSourceFile(srcfile)
 	// Check terms parsed ok
 	if len(errs) > 0 {
-		t.Fatalf("Error parsing %s: %s\n", filename, errs)
+		t.Fatalf("Error parsing %s: %v\n", filename, errs)
 	}
 	// Check valid traces are accepted
 	accepts_file := fmt.Sprintf("%s.%s", test, "accepts")

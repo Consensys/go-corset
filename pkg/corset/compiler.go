@@ -1,6 +1,8 @@
 package corset
 
 import (
+	"fmt"
+
 	"github.com/consensys/go-corset/pkg/hir"
 	"github.com/consensys/go-corset/pkg/sexp"
 )
@@ -61,14 +63,16 @@ func NewCompiler(circuit Circuit, srcmaps *sexp.SourceMaps[Node]) *Compiler {
 // expression refers to a non-existent module or column, or is not well-typed,
 // etc.
 func (p *Compiler) Compile() (*hir.Schema, []SyntaxError) {
-	schema := hir.EmptySchema()
-	// Allocate columns?
-	//
 	// Resolve variables (via nested scopes)
+	env, errs := ResolveCircuit(p.srcmap, &p.circuit)
+	// Check whether any errors were encountered.  If so, terminate since we
+	// cannot proceed with translation.
+	if len(errs) != 0 {
+		return nil, errs
+	}
 	// Check constraint contexts (e.g. for constraints, lookups, etc)
 	// Type check constraints
+	fmt.Println("Translating circuit...")
 	// Finally, translate everything and add it to the schema.
-	errors := translateCircuit(&p.circuit, schema)
-	// Done
-	return schema, errors
+	return TranslateCircuit(env, p.srcmap, &p.circuit)
 }
