@@ -61,14 +61,14 @@ func NewCompiler(circuit Circuit, srcmaps *sexp.SourceMaps[Node]) *Compiler {
 // expression refers to a non-existent module or column, or is not well-typed,
 // etc.
 func (p *Compiler) Compile() (*hir.Schema, []SyntaxError) {
-	schema := hir.EmptySchema()
-	// Allocate columns?
-	//
 	// Resolve variables (via nested scopes)
+	env, errs := resolveCircuit(&p.circuit)
+	//
+	if len(errs) != 0 {
+		return nil, errs
+	}
 	// Check constraint contexts (e.g. for constraints, lookups, etc)
 	// Type check constraints
 	// Finally, translate everything and add it to the schema.
-	errors := translateCircuit(&p.circuit, schema)
-	// Done
-	return schema, errors
+	return translateCircuit(env, &p.circuit)
 }
