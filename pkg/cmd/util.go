@@ -190,11 +190,7 @@ func readSourceFiles(filenames []string) *hir.Schema {
 	}
 	// Report errors
 	for _, err := range errs {
-		if e, ok := err.(*sexp.SyntaxError); ok {
-			printSyntaxError(e)
-		} else if err != nil {
-			fmt.Println(err)
-		}
+		printSyntaxError(&err)
 	}
 	// Fail
 	os.Exit(4)

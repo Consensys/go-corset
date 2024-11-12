@@ -31,7 +31,7 @@ func (s *SourceFile) Contents() []rune {
 
 // Parse a given string into an S-expression, or return an error if the string
 // is malformed.  A source map is also returned for debugging purposes.
-func (s *SourceFile) Parse() (SExp, *SourceMap[SExp], error) {
+func (s *SourceFile) Parse() (SExp, *SourceMap[SExp], *SyntaxError) {
 	p := NewParser(s)
 	// Parse the input
 	sExp, err := p.Parse()
@@ -47,7 +47,7 @@ func (s *SourceFile) Parse() (SExp, *SourceMap[SExp], error) {
 // an error if the string is malformed.  A source map is also returned for
 // debugging purposes.  The key distinction from Parse is that this function
 // continues parsing after the first S-expression is encountered.
-func (s *SourceFile) ParseAll() ([]SExp, *SourceMap[SExp], error) {
+func (s *SourceFile) ParseAll() ([]SExp, *SourceMap[SExp], *SyntaxError) {
 	p := NewParser(s)
 	//
 	terms := make([]SExp, 0)

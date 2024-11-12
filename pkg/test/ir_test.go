@@ -556,10 +556,10 @@ func Check(t *testing.T, test string) {
 	// Package up as source file
 	srcfile := sexp.NewSourceFile(filename, bytes)
 	// Parse terms into an HIR schema
-	schema, err := corset.CompileSourceFile(srcfile)
+	schema, errs := corset.CompileSourceFile(srcfile)
 	// Check terms parsed ok
-	if err != nil {
-		t.Fatalf("Error parsing %s: %s\n", filename, err)
+	if len(errs) > 0 {
+		t.Fatalf("Error parsing %s: %s\n", filename, errs)
 	}
 	// Check valid traces are accepted
 	accepts_file := fmt.Sprintf("%s.%s", test, "accepts")

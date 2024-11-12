@@ -41,7 +41,7 @@ func (p *Parser) Text() []rune {
 }
 
 // Parse a given string into an S-Expression, or produce an error.
-func (p *Parser) Parse() (SExp, error) {
+func (p *Parser) Parse() (SExp, *SyntaxError) {
 	var term SExp
 	// Skip over any whitespace.  This is import to get the correct starting
 	// point for this term.
@@ -159,7 +159,7 @@ func (p *Parser) parseSymbol() []rune {
 	return token
 }
 
-func (p *Parser) parseSequence(terminator rune) ([]SExp, error) {
+func (p *Parser) parseSequence(terminator rune) ([]SExp, *SyntaxError) {
 	var elements []SExp
 
 	for c := p.Lookahead(0); c == nil || *c != terminator; c = p.Lookahead(0) {

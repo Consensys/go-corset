@@ -24,10 +24,10 @@ import (
 // additional combines all fragments of the same module together into one place.
 // Thus, you should never expect to see duplicate module names in the returned
 // array.
-func ParseSourceFiles(files []*sexp.SourceFile) (Circuit, *sexp.SourceMaps[Node], []error) {
+func ParseSourceFiles(files []*sexp.SourceFile) (Circuit, *sexp.SourceMaps[Node], []SyntaxError) {
 	var circuit Circuit
 	// (for now) at most one error per source file is supported.
-	var errors []error = make([]error, len(files))
+	var errors []SyntaxError = make([]SyntaxError, len(files))
 	// Construct an initially empty source map
 	srcmaps := sexp.NewSourceMaps[Node]()
 	// num_errs counts the number of errors reported
@@ -42,14 +42,14 @@ func ParseSourceFiles(files []*sexp.SourceFile) (Circuit, *sexp.SourceMaps[Node]
 		// Handle errors
 		if err != nil {
 			num_errs++
+			// Report any errors encountered
+			errors[i] = *err
 		} else {
 			// Combine source maps
 			srcmaps.Join(srcmap)
 		}
 		// Update top-level declarations
 		circuit.Declarations = append(circuit.Declarations, c.Declarations...)
-		// Report any errors encountered
-		errors[i] = err
 		// Allocate any module fragments
 		for _, m := range c.Modules {
 			if om, ok := contents[m.Name]; !ok {
@@ -82,7 +82,7 @@ func ParseSourceFiles(files []*sexp.SourceFile) (Circuit, *sexp.SourceMaps[Node]
 // ParseSourceFile parses the contents of a single lisp file into one or more
 // modules.  Observe that every lisp file starts in the "prelude" or "root"
 // module, and may declare items for additional modules as necessary.
-func ParseSourceFile(srcfile *sexp.SourceFile) (Circuit, *sexp.SourceMap[Node], error) {
+func ParseSourceFile(srcfile *sexp.SourceFile) (Circuit, *sexp.SourceMap[Node], *SyntaxError) {
 	var circuit Circuit
 	// Parse bytes into an S-Expression
 	terms, srcmap, err := srcfile.ParseAll()
@@ -156,7 +156,7 @@ func NewParser(srcfile *sexp.SourceFile, srcmap *sexp.SourceMap[sexp.SExp]) *Par
 }
 
 // Extract all declarations associated with a given module and package them up.
-func (p *Parser) parseModuleContents(terms []sexp.SExp) ([]Declaration, []sexp.SExp, error) {
+func (p *Parser) parseModuleContents(terms []sexp.SExp) ([]Declaration, []sexp.SExp, *SyntaxError) {
 	//
 	decls := make([]Declaration, 0)
 	//
@@ -184,7 +184,7 @@ func (p *Parser) parseModuleContents(terms []sexp.SExp) ([]Declaration, []sexp.S
 
 // Parse a module declaration of the form "(module m1)" which indicates the
 // start of module m1.
-func (p *Parser) parseModuleStart(s sexp.SExp) (string, error) {
+func (p *Parser) parseModuleStart(s sexp.SExp) (string, *SyntaxError) {
 	l, ok := s.(*sexp.List)
 	// Check for error
 	if !ok {
@@ -200,7 +200,7 @@ func (p *Parser) parseModuleStart(s sexp.SExp) (string, error) {
 	return name, nil
 }
 
-func (p *Parser) parseDeclaration(s *sexp.List) (Declaration, error) {
+func (p *Parser) parseDeclaration(s *sexp.List) (Declaration, *SyntaxError) {
 	if s.MatchSymbols(1, "defcolumns") {
 		return p.parseColumnDeclarations(s)
 	} else if s.Len() == 4 && s.MatchSymbols(2, "defconstraint") {
@@ -224,7 +224,7 @@ func (p *Parser) parseDeclaration(s *sexp.List) (Declaration, error) {
 }
 
 // Parse a column declaration
-func (p *Parser) parseColumnDeclarations(l *sexp.List) (*DefColumns, error) {
+func (p *Parser) parseColumnDeclarations(l *sexp.List) (*DefColumns, *SyntaxError) {
 	columns := make([]DefColumn, l.Len()-1)
 	// Sanity check declaration
 	if len(l.Elements) == 1 {
@@ -244,7 +244,7 @@ func (p *Parser) parseColumnDeclarations(l *sexp.List) (*DefColumns, error) {
 	return &DefColumns{columns}, nil
 }
 
-func (p *Parser) parseColumnDeclaration(e sexp.SExp) (DefColumn, error) {
+func (p *Parser) parseColumnDeclaration(e sexp.SExp) (DefColumn, *SyntaxError) {
 	var defcolumn DefColumn
 	// Default to field type
 	defcolumn.DataType = &sc.FieldType{}
@@ -258,7 +258,7 @@ func (p *Parser) parseColumnDeclaration(e sexp.SExp) (DefColumn, error) {
 		defcolumn.Name = l.Elements[0].String(false)
 		//	Parse type (if applicable)
 		if len(l.Elements) == 2 {
-			var err error
+			var err *SyntaxError
 			if defcolumn.DataType, err = p.parseType(l.Elements[1]); err != nil {
 				return defcolumn, err
 			}
@@ -274,7 +274,7 @@ func (p *Parser) parseColumnDeclaration(e sexp.SExp) (DefColumn, error) {
 }
 
 // Parse a vanishing declaration
-func (p *Parser) parseConstraintDeclaration(elements []sexp.SExp) (*DefConstraint, error) {
+func (p *Parser) parseConstraintDeclaration(elements []sexp.SExp) (*DefConstraint, *SyntaxError) {
 	//
 	handle := elements[1].AsSymbol().Value
 	// Vanishing constraints do not have global scope, hence qualified column
@@ -293,7 +293,7 @@ func (p *Parser) parseConstraintDeclaration(elements []sexp.SExp) (*DefConstrain
 	return &DefConstraint{handle, domain, guard, expr}, nil
 }
 
-func (p *Parser) parseConstraintAttributes(attributes sexp.SExp) (domain *int, guard Expr, err error) {
+func (p *Parser) parseConstraintAttributes(attributes sexp.SExp) (domain *int, guard Expr, err *SyntaxError) {
 	// Check attribute list is a list
 	if attributes.AsList() == nil {
 		return nil, nil, p.translator.SyntaxError(attributes, "expected attribute list")
@@ -327,7 +327,7 @@ func (p *Parser) parseConstraintAttributes(attributes sexp.SExp) (domain *int, g
 	return domain, guard, nil
 }
 
-func (p *Parser) parseDomainAttribute(attribute sexp.SExp) (domain *int, err error) {
+func (p *Parser) parseDomainAttribute(attribute sexp.SExp) (domain *int, err *SyntaxError) {
 	if attribute.AsSet() == nil {
 		return nil, p.translator.SyntaxError(attribute, "malformed domain set")
 	}
@@ -354,7 +354,7 @@ func (p *Parser) parseDomainAttribute(attribute sexp.SExp) (domain *int, err err
 	return nil, p.translator.SyntaxError(attribute, "multiple values not supported")
 }
 
-func (p *Parser) parseType(term sexp.SExp) (sc.Type, error) {
+func (p *Parser) parseType(term sexp.SExp) (sc.Type, *SyntaxError) {
 	symbol := term.AsSymbol()
 	if symbol == nil {
 		return nil, p.translator.SyntaxError(term, "malformed column")
@@ -364,7 +364,7 @@ func (p *Parser) parseType(term sexp.SExp) (sc.Type, error) {
 	if strings.HasPrefix(str, ":u") {
 		n, err := strconv.Atoi(str[2:])
 		if err != nil {
-			return nil, err
+			return nil, p.translator.SyntaxError(symbol, err.Error())
 		}
 		// Done
 		return sc.NewUintType(uint(n)), nil
