@@ -24,7 +24,7 @@ func NewParser(srcfile *SourceFile) *Parser {
 		srcfile: srcfile,
 		text:    srcfile.Contents(),
 		index:   0,
-		srcmap:  NewSourceMap[SExp](srcfile.Contents()),
+		srcmap:  NewSourceMap[SExp](*srcfile),
 	}
 }
 

@@ -53,13 +53,15 @@ func NewTranslator[T comparable](srcfile *SourceFile, srcmap *SourceMap[SExp]) *
 		list_default: nil,
 		symbols:      make([]SymbolRule[T], 0),
 		old_srcmap:   srcmap,
-		new_srcmap:   NewSourceMap[T](srcmap.text),
+		new_srcmap:   NewSourceMap[T](srcmap.srcfile),
 	}
 }
 
-// ===================================================================
-// Public
-// ===================================================================
+// SpanOf gets the span associated with a given S-Expression in the original
+// source file.
+func (p *Translator[T]) SpanOf(sexp SExp) Span {
+	return p.old_srcmap.Get(sexp)
+}
 
 // Translate a given string into a given structured representation T
 // using an appropriately configured.

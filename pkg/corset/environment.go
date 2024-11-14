@@ -54,7 +54,7 @@ func (p *Environment) RegisterModule(module string) trace.Context {
 		panic(fmt.Sprintf("module %s already exists", module))
 	}
 	// Update schema
-	mid := uint(len(p.columns))
+	mid := uint(len(p.modules))
 	// Update cache
 	p.modules[module] = mid
 	// Done

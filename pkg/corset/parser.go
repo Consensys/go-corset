@@ -137,7 +137,7 @@ type Parser struct {
 func NewParser(srcfile *sexp.SourceFile, srcmap *sexp.SourceMap[sexp.SExp]) *Parser {
 	p := sexp.NewTranslator[Expr](srcfile, srcmap)
 	// Construct (initially empty) node map
-	nodemap := sexp.NewSourceMap[Node](srcmap.Text())
+	nodemap := sexp.NewSourceMap[Node](srcmap.Source())
 	// Construct parser
 	parser := &Parser{p, nodemap}
 	// Configure expression translator
@@ -153,6 +153,11 @@ func NewParser(srcfile *sexp.SourceFile, srcmap *sexp.SourceMap[sexp.SExp]) *Par
 	p.AddRecursiveRule("begin", beginParserRule)
 	//
 	return parser
+}
+
+func (p *Parser) mapSourceNode(from sexp.SExp, to Node) {
+	span := p.translator.SpanOf(from)
+	p.nodemap.Put(to, span)
 }
 
 // Extract all declarations associated with a given module and package them up.
@@ -201,10 +206,17 @@ func (p *Parser) parseModuleStart(s sexp.SExp) (string, *SyntaxError) {
 }
 
 func (p *Parser) parseDeclaration(s *sexp.List) (Declaration, *SyntaxError) {
+	var (
+		decl  Declaration
+		error *SyntaxError
+	)
+	//
 	if s.MatchSymbols(1, "defcolumns") {
-		return p.parseColumnDeclarations(s)
+		decl, error = p.parseColumnDeclarations(s)
 	} else if s.Len() == 4 && s.MatchSymbols(2, "defconstraint") {
-		return p.parseConstraintDeclaration(s.Elements)
+		decl, error = p.parseConstraintDeclaration(s.Elements)
+	} else {
+		error = p.translator.SyntaxError(s, "malformed declaration")
 	}
 	/*
 		else if e.Len() == 3 && e.MatchSymbols(2, "assert") {
@@ -220,12 +232,17 @@ func (p *Parser) parseDeclaration(s *sexp.List) (Declaration, *SyntaxError) {
 		} else if e.Len() == 3 && e.MatchSymbols(1, "defpurefun") {
 			return p.parsePureFunDeclaration(env, e)
 		} */
-	return nil, p.translator.SyntaxError(s, "malformed declaration")
+	// Register node if appropriate
+	if decl != nil {
+		p.mapSourceNode(s, decl)
+	}
+	// done
+	return decl, error
 }
 
 // Parse a column declaration
 func (p *Parser) parseColumnDeclarations(l *sexp.List) (*DefColumns, *SyntaxError) {
-	columns := make([]DefColumn, l.Len()-1)
+	columns := make([]*DefColumn, l.Len()-1)
 	// Sanity check declaration
 	if len(l.Elements) == 1 {
 		return nil, p.translator.SyntaxError(l, "malformed column declaration")
@@ -244,8 +261,8 @@ func (p *Parser) parseColumnDeclarations(l *sexp.List) (*DefColumns, *SyntaxErro
 	return &DefColumns{columns}, nil
 }
 
-func (p *Parser) parseColumnDeclaration(e sexp.SExp) (DefColumn, *SyntaxError) {
-	var defcolumn DefColumn
+func (p *Parser) parseColumnDeclaration(e sexp.SExp) (*DefColumn, *SyntaxError) {
+	defcolumn := &DefColumn{"", nil}
 	// Default to field type
 	defcolumn.DataType = &sc.FieldType{}
 	// Check whether extended declaration or not.
@@ -269,6 +286,8 @@ func (p *Parser) parseColumnDeclaration(e sexp.SExp) (DefColumn, *SyntaxError) {
 	} else {
 		defcolumn.Name = e.String(false)
 	}
+	// Update source mapping
+	p.mapSourceNode(e, defcolumn)
 	//
 	return defcolumn, nil
 }

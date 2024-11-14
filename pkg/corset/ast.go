@@ -41,7 +41,7 @@ type Declaration interface {
 
 // DefColumns captures a set of one or more columns being declared.
 type DefColumns struct {
-	Columns []DefColumn
+	Columns []*DefColumn
 }
 
 // Resolve something.
