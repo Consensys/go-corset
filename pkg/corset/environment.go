@@ -67,7 +67,7 @@ func (p *Environment) RegisterModule(module string) trace.Context {
 // identifier.  Hence, care must be taken when declaring columns to ensure they
 // are allocated in the right order.
 func (p *Environment) RegisterColumn(context trace.Context, column string, datatype schema.Type) uint {
-	if p.HasColumn(context, column) {
+	if p.HasColumn(context.Module(), column) {
 		panic(fmt.Sprintf("column %d:%s already exists", context.Module(), column))
 	}
 	// Update cache
@@ -80,15 +80,15 @@ func (p *Environment) RegisterColumn(context trace.Context, column string, datat
 
 // LookupModule determines the module index for a given named module, or return
 // false if no such module exists.
-func (p *Environment) LookupModule(module string) (trace.Context, bool) {
+func (p *Environment) LookupModule(module string) (uint, bool) {
 	mid, ok := p.modules[module]
-	return trace.NewContext(mid, 1), ok
+	return mid, ok
 }
 
 // LookupColumn determines the column index for a given named column in a given
 // module, or return false if no such column exists.
-func (p *Environment) LookupColumn(context trace.Context, column string) (uint, bool) {
-	cref := colRef{context.Module(), column}
+func (p *Environment) LookupColumn(module uint, column string) (uint, bool) {
+	cref := colRef{module, column}
 	cinfo, ok := p.columns[cref]
 
 	return cinfo.cid, ok
@@ -96,7 +96,7 @@ func (p *Environment) LookupColumn(context trace.Context, column string) (uint, 
 
 // Module determines the module index for a given module.  This assumes the
 // module exists, and will panic otherwise.
-func (p *Environment) Module(module string) trace.Context {
+func (p *Environment) Module(module string) uint {
 	ctx, ok := p.LookupModule(module)
 	// Sanity check we found something
 	if !ok {
@@ -104,6 +104,19 @@ func (p *Environment) Module(module string) trace.Context {
 	}
 	// Discard column index
 	return ctx
+}
+
+// Module determines the module index for a given module.  This assumes the
+// module exists, and will panic otherwise.
+func (p *Environment) Column(module uint, column string) uint {
+	// FIXME: doesn't make sense using context here.
+	cid, ok := p.LookupColumn(module, column)
+	// Sanity check we found something
+	if !ok {
+		panic(fmt.Sprintf("unknown column %s", column))
+	}
+	// Discard column index
+	return cid
 }
 
 // HasModule checks whether a given module exists, or not.
@@ -114,8 +127,8 @@ func (p *Environment) HasModule(module string) bool {
 }
 
 // HasColumn checks whether a given module has a given column, or not.
-func (p *Environment) HasColumn(context trace.Context, column string) bool {
-	_, ok := p.LookupColumn(context, column)
+func (p *Environment) HasColumn(module uint, column string) bool {
+	_, ok := p.LookupColumn(module, column)
 	// Discard column index
 	return ok
 }

@@ -68,7 +68,7 @@ func (r *resolver) resolveInputColumns(circuit *Circuit) []SyntaxError {
 	return errs
 }
 
-func (r *resolver) resolveInputColumnsInModule(ctx tr.Context, decls []Declaration) []SyntaxError {
+func (r *resolver) resolveInputColumnsInModule(module uint, decls []Declaration) []SyntaxError {
 	var errors []SyntaxError
 	//
 	for _, d := range decls {
@@ -76,10 +76,11 @@ func (r *resolver) resolveInputColumnsInModule(ctx tr.Context, decls []Declarati
 		if dcols, ok := d.(*DefColumns); ok {
 			// Found one.
 			for _, col := range dcols.Columns {
-				if r.env.HasColumn(ctx, col.Name) {
+				if r.env.HasColumn(module, col.Name) {
 					errors = append(errors, *r.srcmap.SyntaxError(col, "duplicate declaration"))
 				} else {
-					r.env.RegisterColumn(ctx, col.Name, col.DataType)
+					context := tr.NewContext(module, col.LengthMultiplier)
+					r.env.RegisterColumn(context, col.Name, col.DataType)
 				}
 			}
 		}

@@ -262,7 +262,7 @@ func (p *Parser) parseColumnDeclarations(l *sexp.List) (*DefColumns, *SyntaxErro
 }
 
 func (p *Parser) parseColumnDeclaration(e sexp.SExp) (*DefColumn, *SyntaxError) {
-	defcolumn := &DefColumn{"", nil}
+	defcolumn := &DefColumn{"", nil, 1}
 	// Default to field type
 	defcolumn.DataType = &sc.FieldType{}
 	// Check whether extended declaration or not.

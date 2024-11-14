@@ -49,7 +49,7 @@ func (t *translator) translateModules(circuit *Circuit) {
 	// Add nested modules
 	for _, m := range circuit.Modules {
 		mid := t.schema.AddModule(m.Name)
-		aid := t.env.Module(m.Name).Module()
+		aid := t.env.Module(m.Name)
 		// Sanity check everything lines up.
 		if aid != mid {
 			panic(fmt.Sprintf("Invalid module identifier: %d vs %d", mid, aid))
@@ -81,23 +81,54 @@ func (t *translator) translateDeclarations(module string, decls []Declaration) [
 // and the translation should go through easily.  Thus, whilst syntax errors can
 // be returned here, this should never happen.  The mechanism is supported,
 // however, to simplify development of new features, etc.
-func (t *translator) translateDeclaration(decl Declaration, context tr.Context) []SyntaxError {
+func (t *translator) translateDeclaration(decl Declaration, module uint) []SyntaxError {
 	if d, ok := decl.(*DefColumns); ok {
-		t.translateDefColumns(d, context)
+		t.translateDefColumns(d, module)
 	} else if d, ok := decl.(*DefConstraint); ok {
-		t.translateDefConstraint(d, context)
+		t.translateDefConstraint(d, module)
+	} else {
+		// Error handling
+		panic("unknown declaration")
 	}
-	// Error handling
-	panic("unknown declaration")
+	//
+	return nil
 }
 
-func (t *translator) translateDefColumns(decl *DefColumns, context tr.Context) {
+// Translate a "defcolumns" declaration.
+func (t *translator) translateDefColumns(decl *DefColumns, module uint) {
 	// Add each column to schema
 	for _, c := range decl.Columns {
+		// FIXME: support user-defined length multiplier
+		context := tr.NewContext(module, 1)
 		t.schema.AddDataColumn(context, c.Name, c.DataType)
 	}
 }
 
-func (t *translator) translateDefConstraint(decl *DefConstraint, context tr.Context) {
-	panic("TODO")
+// Translate a "defconstraint" declaration.
+func (t *translator) translateDefConstraint(decl *DefConstraint, module uint) *SyntaxError {
+	constraint, err := t.translateExpr(decl.Constraint, module)
+	// Check whether valid constra
+	if err != nil {
+		return err
+	}
+	// FIXME: handle guard
+	context := tr.NewContext(module, 1)
+	// Add translated constraint
+	t.schema.AddVanishingConstraint(decl.Handle, context, decl.Domain, constraint)
+	// Done
+	return nil
+}
+
+// Translate an expression situated in a given context.  The context is
+// necessary to resolve unqualified names (e.g. for column access, function
+// invocations, etc).
+func (t *translator) translateExpr(expr Expr, module uint) (hir.Expr, *SyntaxError) {
+	if e, ok := expr.(*Constant); ok {
+		return &hir.Constant{Val: e.Val}, nil
+	} else if e, ok := expr.(*VariableAccess); ok {
+		cid := t.env.Column(module, e.Name)
+		return &hir.ColumnAccess{Column: cid, Shift: e.Shift}, nil
+	} else {
+		return nil, t.srcmap.SyntaxError(expr, "unknown expression")
+	}
 }
