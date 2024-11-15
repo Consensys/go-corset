@@ -106,8 +106,8 @@ func (p *Environment) Module(module string) uint {
 	return ctx
 }
 
-// Module determines the module index for a given module.  This assumes the
-// module exists, and will panic otherwise.
+// Column determines the column index for a given column declared in a given
+// module.  This assumes the column / module exist, and will panic otherwise.
 func (p *Environment) Column(module uint, column string) uint {
 	// FIXME: doesn't make sense using context here.
 	cid, ok := p.LookupColumn(module, column)

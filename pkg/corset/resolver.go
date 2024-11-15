@@ -161,7 +161,8 @@ func (r *resolver) resolveExpressionInModule(module uint, expr Expr) []SyntaxErr
 // Resolve a specific variable access contained within some expression which, in
 // turn, is contained within some module.
 func (r *resolver) resolveVariableInModule(module uint, expr *VariableAccess) []SyntaxError {
-	// Attempt to lookup a column in the enclosing module
+	// FIXME: handle qualified variable accesses
+	// Attempt resolve as a column access in enclosing module
 	if _, ok := r.env.LookupColumn(module, expr.Name); ok {
 		return nil
 	}

@@ -82,16 +82,18 @@ func (t *translator) translateDeclarations(module string, decls []Declaration) [
 // be returned here, this should never happen.  The mechanism is supported,
 // however, to simplify development of new features, etc.
 func (t *translator) translateDeclaration(decl Declaration, module uint) []SyntaxError {
+	var errors []SyntaxError
+	//
 	if d, ok := decl.(*DefColumns); ok {
 		t.translateDefColumns(d, module)
 	} else if d, ok := decl.(*DefConstraint); ok {
-		t.translateDefConstraint(d, module)
+		errors = t.translateDefConstraint(d, module)
 	} else {
 		// Error handling
 		panic("unknown declaration")
 	}
 	//
-	return nil
+	return errors
 }
 
 // Translate a "defcolumns" declaration.
@@ -109,7 +111,7 @@ func (t *translator) translateDefColumns(decl *DefColumns, module uint) {
 }
 
 // Translate a "defconstraint" declaration.
-func (t *translator) translateDefConstraint(decl *DefConstraint, module uint) *SyntaxError {
+func (t *translator) translateDefConstraint(decl *DefConstraint, module uint) []SyntaxError {
 	constraint, err := t.translateExpr(decl.Constraint, module)
 	// Check whether valid constra
 	if err != nil {
@@ -126,13 +128,13 @@ func (t *translator) translateDefConstraint(decl *DefConstraint, module uint) *S
 // Translate an expression situated in a given context.  The context is
 // necessary to resolve unqualified names (e.g. for column access, function
 // invocations, etc).
-func (t *translator) translateExpr(expr Expr, module uint) (hir.Expr, *SyntaxError) {
+func (t *translator) translateExpr(expr Expr, module uint) (hir.Expr, []SyntaxError) {
 	if e, ok := expr.(*Constant); ok {
 		return &hir.Constant{Val: e.Val}, nil
 	} else if e, ok := expr.(*VariableAccess); ok {
 		cid := t.env.Column(module, e.Name)
 		return &hir.ColumnAccess{Column: cid, Shift: e.Shift}, nil
 	} else {
-		return nil, t.srcmap.SyntaxError(expr, "unknown expression")
+		return nil, t.srcmap.SyntaxErrors(expr, "unknown expression")
 	}
 }

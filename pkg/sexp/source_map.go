@@ -131,3 +131,12 @@ func (p *SourceMap[T]) Get(item T) Span {
 
 	panic(fmt.Sprintf("invalid source map key: %s", any(item)))
 }
+
+// JoinMaps incorporates all mappings from one source map (the source) into
+// another source map (the target), whilst applying a given mapping to the node
+// types.
+func JoinMaps[S comparable, T comparable](target *SourceMap[S], source *SourceMap[T], mapping func(T) S) {
+	for i, k := range source.mapping {
+		target.Put(mapping(i), k)
+	}
+}

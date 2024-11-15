@@ -115,7 +115,7 @@ func ParseSourceFile(srcfile *sexp.SourceFile) (Circuit, *sexp.SourceMap[Node], 
 		}
 	}
 	// Done
-	return circuit, p.nodemap, nil
+	return circuit, p.NodeMap(), nil
 }
 
 // Parser implements a simple parser for the Corset language.  The parser itself
@@ -155,6 +155,18 @@ func NewParser(srcfile *sexp.SourceFile, srcmap *sexp.SourceMap[sexp.SExp]) *Par
 	return parser
 }
 
+// NodeMap extract the node map constructec by this parser.  A key task here is
+// to copy all mappings from the expression translator, which maintains its own
+// map.
+func (p *Parser) NodeMap() *sexp.SourceMap[Node] {
+	// Copy all mappings from translator's source map into this map.  A mapping
+	// function is required to coerce the types.
+	sexp.JoinMaps(p.nodemap, p.translator.SourceMap(), func(e Expr) Node { return e })
+	// Done
+	return p.nodemap
+}
+
+// Register a source mapping from a given S-Expression to a given target node.
 func (p *Parser) mapSourceNode(from sexp.SExp, to Node) {
 	span := p.translator.SpanOf(from)
 	p.nodemap.Put(to, span)
