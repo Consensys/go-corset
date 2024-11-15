@@ -112,17 +112,35 @@ func (t *translator) translateDefColumns(decl *DefColumns, module uint) {
 
 // Translate a "defconstraint" declaration.
 func (t *translator) translateDefConstraint(decl *DefConstraint, module uint) []SyntaxError {
-	constraint, err := t.translateExpr(decl.Constraint, module)
-	// Check whether valid constra
-	if err != nil {
-		return err
+	// Translate constraint body
+	constraint, errors := t.translateExpr(decl.Constraint, module)
+	// Translate (optional) guard
+	guard, guard_errors := t.translateOptionalExpr(decl.Guard, module)
+	// Combine errors
+	errors = append(errors, guard_errors...)
+	// Apply guard
+	if guard != nil {
+		constraint = &hir.Mul{Args: []hir.Expr{guard, constraint}}
 	}
-	// FIXME: handle guard
-	context := tr.NewContext(module, 1)
-	// Add translated constraint
-	t.schema.AddVanishingConstraint(decl.Handle, context, decl.Domain, constraint)
+	//
+	if len(errors) == 0 {
+		context := tr.NewContext(module, 1)
+		// Add translated constraint
+		t.schema.AddVanishingConstraint(decl.Handle, context, decl.Domain, constraint)
+	}
 	// Done
-	return nil
+	return errors
+}
+
+// Translate an optional expression in a given context.  That is an expression
+// which maybe nil (i.e. doesn't exist).  In such case, nil is returned (i.e.
+// without any errors).
+func (t *translator) translateOptionalExpr(expr Expr, module uint) (hir.Expr, []SyntaxError) {
+	if expr != nil {
+		return t.translateExpr(expr, module)
+	}
+
+	return nil, nil
 }
 
 // Translate an expression situated in a given context.  The context is
