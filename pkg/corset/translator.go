@@ -100,7 +100,11 @@ func (t *translator) translateDefColumns(decl *DefColumns, module uint) {
 	for _, c := range decl.Columns {
 		// FIXME: support user-defined length multiplier
 		context := tr.NewContext(module, 1)
-		t.schema.AddDataColumn(context, c.Name, c.DataType)
+		cid := t.schema.AddDataColumn(context, c.Name, c.DataType)
+		// Sanity check column identifier
+		if id := t.env.Column(module, c.Name); id != cid {
+			panic(fmt.Sprintf("invalid column identifier: %d vs %d", cid, id))
+		}
 	}
 }
 

@@ -14,13 +14,14 @@ import (
 func ResolveCircuit(srcmap *sexp.SourceMaps[Node], circuit *Circuit) (*Environment, []SyntaxError) {
 	r := resolver{EmptyEnvironment(), srcmap}
 	// Allocate declared modules
-	merrs := r.resolveModules(circuit)
+	errs := r.resolveModules(circuit)
 	// Allocate declared input columns
-	cerrs := r.resolveInputColumns(circuit)
-	// Allocate declared assignments
+	errs = append(errs, r.resolveInputColumns(circuit)...)
+	// TODO: Allocate declared assignments
 	// Check expressions
+	errs = append(errs, r.resolveConstraints(circuit)...)
 	// Done
-	return r.env, append(merrs, cerrs...)
+	return r.env, errs
 }
 
 // Resolver packages up information necessary for resolving a circuit and
@@ -87,4 +88,66 @@ func (r *resolver) resolveInputColumnsInModule(module uint, decls []Declaration)
 	}
 	//
 	return errors
+}
+
+// Examine each constraint and attempt to resolve any variables used within
+// them.  For example, a vanishing constraint may refer to some variable "X".
+// Prior to this function being called, its not clear what "X" refers to --- it
+// could refer to a column a constant, or even an alias.  The purpose of this
+// pass is to: firstly, check that every variable refers to something which was
+// declared; secondly, to determine what each variable represents (i.e. column
+// access, a constant, etc).
+func (r *resolver) resolveConstraints(circuit *Circuit) []SyntaxError {
+	errs := r.resolveConstraintsInModule(r.env.Module(""), circuit.Declarations)
+	//
+	for _, m := range circuit.Modules {
+		// The module must exist given after resolveModules.
+		ctx := r.env.Module(m.Name)
+		// Process all declarations in the module
+		merrs := r.resolveConstraintsInModule(ctx, m.Declarations)
+		// Package up all errors
+		errs = append(errs, merrs...)
+	}
+	//
+	return errs
+}
+
+// Helper for resolve constraints which considers those constraints declared in
+// a particular module.
+func (r *resolver) resolveConstraintsInModule(module uint, decls []Declaration) []SyntaxError {
+	var errors []SyntaxError
+
+	for _, d := range decls {
+		// Look for defcolumns decalarations only
+		if _, ok := d.(*DefColumns); ok {
+			// Safe to ignore.
+		} else if c, ok := d.(*DefConstraint); ok {
+			errors = append(errors, r.resolveDefConstraintInModule(module, c)...)
+		} else {
+			errors = append(errors, *r.srcmap.SyntaxError(d, "unknown declaration"))
+		}
+	}
+	//
+	return errors
+}
+
+// Resolve those variables appearing in either the guard or the body of this constraint.
+func (r *resolver) resolveDefConstraintInModule(module uint, decl *DefConstraint) []SyntaxError {
+	var errors []SyntaxError
+	if decl.Guard != nil {
+		errors = r.resolveExpressionInModule(module, decl.Constraint)
+	}
+	// Resolve constraint body
+	errors = append(errors, r.resolveExpressionInModule(module, decl.Constraint)...)
+	// Done
+	return errors
+}
+
+// Resolve any variable accesses with this expression (which is declared in a
+// given module).  The enclosing module is required to resolve unqualified
+// variable accesses.  As above, the goal is ensure variable refers to something
+// that was declared and, more specifically, what kind of access it is (e.g.
+// column access, constant access, etc).
+func (r *resolver) resolveExpressionInModule(module uint, expr Expr) []SyntaxError {
+	panic("TODO")
 }
