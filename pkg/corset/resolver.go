@@ -149,5 +149,22 @@ func (r *resolver) resolveDefConstraintInModule(module uint, decl *DefConstraint
 // that was declared and, more specifically, what kind of access it is (e.g.
 // column access, constant access, etc).
 func (r *resolver) resolveExpressionInModule(module uint, expr Expr) []SyntaxError {
-	panic("TODO")
+	if _, ok := expr.(*Constant); ok {
+		return nil
+	} else if v, ok := expr.(*VariableAccess); ok {
+		return r.resolveVariableInModule(module, v)
+	} else {
+		return r.srcmap.SyntaxErrors(expr, "unknown expression")
+	}
+}
+
+// Resolve a specific variable access contained within some expression which, in
+// turn, is contained within some module.
+func (r *resolver) resolveVariableInModule(module uint, expr *VariableAccess) []SyntaxError {
+	// Attempt to lookup a column in the enclosing module
+	if _, ok := r.env.LookupColumn(module, expr.Name); ok {
+		return nil
+	}
+	// Unable to resolve variable
+	return r.srcmap.SyntaxErrors(expr, "unknown variable")
 }

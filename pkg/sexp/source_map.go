@@ -67,6 +67,14 @@ func (p *SourceMaps[T]) SyntaxError(node T, msg string) *SyntaxError {
 	panic("missing mapping for source node")
 }
 
+// SyntaxErrors is really just a helper that construct a syntax error and then
+// places it into an array of size one.  This is helpful for situations where
+// sets of syntax errors are being passed around.
+func (p *SourceMaps[T]) SyntaxErrors(node T, msg string) []SyntaxError {
+	err := p.SyntaxError(node, msg)
+	return []SyntaxError{*err}
+}
+
 // Join a given source map into this set of source maps.  The effect of this is
 // that nodes recorded in the given source map can be accessed from this set.
 func (p *SourceMaps[T]) Join(srcmap *SourceMap[T]) {
