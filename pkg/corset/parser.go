@@ -227,25 +227,21 @@ func (p *Parser) parseDeclaration(s *sexp.List) (Declaration, *SyntaxError) {
 		decl, error = p.parseColumnDeclarations(s)
 	} else if s.Len() == 4 && s.MatchSymbols(2, "defconstraint") {
 		decl, error = p.parseConstraintDeclaration(s.Elements)
+	} else if s.Len() == 3 && s.MatchSymbols(1, "definrange") {
+		decl, error = p.parseRangeDeclaration(s.Elements)
 	} else if s.Len() == 3 && s.MatchSymbols(2, "defproperty") {
 		decl, error = p.parsePropertyDeclaration(s.Elements)
 	} else {
 		error = p.translator.SyntaxError(s, "malformed declaration")
 	}
 	/*
-		else if e.Len() == 3 && e.MatchSymbols(2, "assert") {
-			return p.parseAssertionDeclaration(env, e.Elements)
-		} else if e.Len() == 3 && e.MatchSymbols(1, "defpermutation") {
+		if e.Len() == 3 && e.MatchSymbols(1, "defpermutation") {
 			return p.parsePermutationDeclaration(env, e)
 		} else if e.Len() == 4 && e.MatchSymbols(1, "deflookup") {
 			return p.parseLookupDeclaration(env, e)
 		} else if e.Len() == 3 && e.MatchSymbols(1, "definterleaved") {
 			return p.parseInterleavingDeclaration(env, e)
-		} else if e.Len() == 3 && e.MatchSymbols(1, "definrange") {
-			return p.parseRangeDeclaration(env, e)
-		} else if e.Len() == 3 && e.MatchSymbols(1, "defpurefun") {
-			return p.parsePureFunDeclaration(env, e)
-		} */
+		}*/
 	// Register node if appropriate
 	if decl != nil {
 		p.mapSourceNode(s, decl)
@@ -337,6 +333,24 @@ func (p *Parser) parsePropertyDeclaration(elements []sexp.SExp) (*DefProperty, *
 	}
 	// Done
 	return &DefProperty{handle, expr}, nil
+}
+
+// Parse a range declaration
+func (p *Parser) parseRangeDeclaration(elements []sexp.SExp) (*DefInRange, *SyntaxError) {
+	var bound fr.Element
+	// Translate expression
+	expr, err := p.translator.Translate(elements[1])
+	if err != nil {
+		return nil, err
+	}
+	// Check & parse bound
+	if elements[2].AsSymbol() == nil {
+		return nil, p.translator.SyntaxError(elements[2], "malformed bound")
+	} else if _, err := bound.SetString(elements[2].AsSymbol().Value); err != nil {
+		return nil, p.translator.SyntaxError(elements[2], "malformed bound")
+	}
+	// Done
+	return &DefInRange{Expr: expr, Bound: bound}, nil
 }
 
 func (p *Parser) parseConstraintAttributes(attributes sexp.SExp) (domain *int, guard Expr, err *SyntaxError) {

@@ -40,9 +40,8 @@ type RangeConstraint[E sc.Evaluable] struct {
 	// Evaluation context for this constraint which must match that of the
 	// constrained expression itself.
 	context trace.Context
-	// Indicates (when nil) a global constraint that applies to all rows.
-	// Otherwise, indicates a local constraint which applies to the specific row
-	// given here.
+	// The expression whose values are being constrained to within the given
+	// bound.
 	expr E
 	// The upper bound for this constraint.  Specifically, every evaluation of
 	// the expression should produce a value strictly below this bound.  NOTE:

@@ -123,6 +123,8 @@ func (r *resolver) resolveConstraintsInModule(module string, decls []Declaration
 			// Safe to ignore.
 		} else if c, ok := d.(*DefConstraint); ok {
 			errors = append(errors, r.resolveDefConstraintInModule(module, c)...)
+		} else if c, ok := d.(*DefInRange); ok {
+			errors = append(errors, r.resolveDefInRangeInModule(module, c)...)
 		} else if c, ok := d.(*DefProperty); ok {
 			errors = append(errors, r.resolveDefPropertyInModule(module, c)...)
 		} else {
@@ -141,6 +143,15 @@ func (r *resolver) resolveDefConstraintInModule(module string, decl *DefConstrai
 	}
 	// Resolve constraint body
 	errors = append(errors, r.resolveExpressionInModule(module, false, decl.Constraint)...)
+	// Done
+	return errors
+}
+
+// Resolve those variables appearing in the body of this range constraint.
+func (r *resolver) resolveDefInRangeInModule(module string, decl *DefInRange) []SyntaxError {
+	var errors []SyntaxError
+	// Resolve property body
+	errors = append(errors, r.resolveExpressionInModule(module, false, decl.Expr)...)
 	// Done
 	return errors
 }

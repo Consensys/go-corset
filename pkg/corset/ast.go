@@ -36,7 +36,8 @@ type Node interface {
 // defconstraint, defcolumns, etc).
 type Declaration interface {
 	Node
-	Resolve()
+	// Simple marker to indicate this is really a declaration.
+	IsDeclaration()
 }
 
 // DefColumns captures a set of one or more columns being declared.
@@ -44,10 +45,8 @@ type DefColumns struct {
 	Columns []*DefColumn
 }
 
-// Resolve something.
-func (p *DefColumns) Resolve() {
-	panic("got here")
-}
+// IsDeclaration needed to signal declaration.
+func (p *DefColumns) IsDeclaration() {}
 
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
@@ -98,14 +97,35 @@ type DefConstraint struct {
 	Constraint Expr
 }
 
-// Resolve something.
-func (p *DefConstraint) Resolve() {
-	panic("got here")
-}
+// IsDeclaration needed to signal declaration.
+func (p *DefConstraint) IsDeclaration() {}
 
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
 func (p *DefConstraint) Lisp() sexp.SExp {
+	panic("got here")
+}
+
+// DefInRange restricts all values for a given expression to be within a range
+// [0..n) for some bound n.  Any bound is supported, and the system will choose
+// the best underlying implementation as needed.
+type DefInRange struct {
+	// The expression whose values are being constrained to within the given
+	// bound.
+	Expr Expr
+	// The upper bound for this constraint.  Specifically, every evaluation of
+	// the expression should produce a value strictly below this bound.  NOTE:
+	// an fr.Element is used here to store the bound simply to make the
+	// necessary comparison against table data more direct.
+	Bound fr.Element
+}
+
+// IsDeclaration needed to signal declaration.
+func (p *DefInRange) IsDeclaration() {}
+
+// Lisp converts this node into its lisp representation.  This is primarily used
+// for debugging purposes.
+func (p *DefInRange) Lisp() sexp.SExp {
 	panic("got here")
 }
 
@@ -147,10 +167,8 @@ type DefProperty struct {
 	Assertion Expr
 }
 
-// Resolve something.
-func (p *DefProperty) Resolve() {
-	panic("got here")
-}
+// IsDeclaration needed to signal declaration.
+func (p *DefProperty) IsDeclaration() {}
 
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
@@ -177,9 +195,8 @@ type DefFun struct {
 // techniques (such as introducing computed columns where necessary).
 type Expr interface {
 	Node
-	// Resolve resolves this expression in a given scope and constructs a fully
-	// resolved HIR expression.
-	Resolve()
+	// IsExpr is a marker to signal that this is really an expression.
+	IsExpr()
 }
 
 // ============================================================================
@@ -189,13 +206,8 @@ type Expr interface {
 // Add represents the sum over zero or more expressions.
 type Add struct{ Args []Expr }
 
-// Resolve accesses in this expression as either variable, column or macro
-// accesses.
-func (e *Add) Resolve() {
-	for _, arg := range e.Args {
-		arg.Resolve()
-	}
-}
+// IsExpr indicates that this is an expression.
+func (e *Add) IsExpr() {}
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
@@ -210,11 +222,8 @@ func (e *Add) Lisp() sexp.SExp {
 // Constant represents a constant value within an expression.
 type Constant struct{ Val fr.Element }
 
-// Resolve accesses in this expression as either variable, column or macro
-// accesses.
-func (e *Constant) Resolve() {
-	// Nothing to resolve!
-}
+// IsExpr indicates that this is an expression.
+func (e *Constant) IsExpr() {}
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
@@ -232,11 +241,8 @@ type Exp struct {
 	Pow uint64
 }
 
-// Resolve accesses in this expression as either variable, column or macro
-// accesses.
-func (e *Exp) Resolve() {
-	e.Arg.Resolve()
-}
+// IsExpr indicates that this is an expression.
+func (e *Exp) IsExpr() {}
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
@@ -259,13 +265,8 @@ type IfZero struct {
 	FalseBranch Expr
 }
 
-// Resolve accesses in this expression as either variable, column or macro
-// accesses.
-func (e *IfZero) Resolve() {
-	e.Condition.Resolve()
-	e.TrueBranch.Resolve()
-	e.FalseBranch.Resolve()
-}
+// IsExpr indicates that this is an expression.
+func (e *IfZero) IsExpr() {}
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
@@ -280,13 +281,8 @@ func (e *IfZero) Lisp() sexp.SExp {
 // List represents a block of zero or more expressions.
 type List struct{ Args []Expr }
 
-// Resolve accesses in this expression as either variable, column or macro
-// accesses.
-func (e *List) Resolve() {
-	for _, arg := range e.Args {
-		arg.Resolve()
-	}
-}
+// IsExpr indicates that this is an expression.
+func (e *List) IsExpr() {}
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
@@ -301,13 +297,8 @@ func (e *List) Lisp() sexp.SExp {
 // Mul represents the product over zero or more expressions.
 type Mul struct{ Args []Expr }
 
-// Resolve accesses in this expression as either variable, column or macro
-// accesses.
-func (e *Mul) Resolve() {
-	for _, arg := range e.Args {
-		arg.Resolve()
-	}
-}
+// IsExpr indicates that this is an expression.
+func (e *Mul) IsExpr() {}
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
@@ -323,11 +314,8 @@ func (e *Mul) Lisp() sexp.SExp {
 // or one (otherwise).
 type Normalise struct{ Arg Expr }
 
-// Resolve accesses in this expression as either variable, column or macro
-// accesses.
-func (e *Normalise) Resolve() {
-	e.Arg.Resolve()
-}
+// IsExpr indicates that this is an expression.
+func (e *Normalise) IsExpr() {}
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
@@ -342,13 +330,8 @@ func (e *Normalise) Lisp() sexp.SExp {
 // Sub represents the subtraction over zero or more expressions.
 type Sub struct{ Args []Expr }
 
-// Resolve accesses in this expression as either variable, column or macro
-// accesses.
-func (e *Sub) Resolve() {
-	for _, arg := range e.Args {
-		arg.Resolve()
-	}
-}
+// IsExpr indicates that this is an expression.
+func (e *Sub) IsExpr() {}
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
@@ -369,11 +352,8 @@ type VariableAccess struct {
 	Binding *Binder
 }
 
-// Resolve accesses in this expression as either variable, column or macro
-// accesses.
-func (e *VariableAccess) Resolve() {
-	panic("todo")
-}
+// IsExpr indicates that this is an expression.
+func (e *VariableAccess) IsExpr() {}
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.

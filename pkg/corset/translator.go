@@ -88,6 +88,8 @@ func (t *translator) translateDeclaration(decl Declaration, module uint) []Synta
 		t.translateDefColumns(d, module)
 	} else if d, ok := decl.(*DefConstraint); ok {
 		errors = t.translateDefConstraint(d, module)
+	} else if d, ok := decl.(*DefInRange); ok {
+		errors = t.translateDefInRange(d, module)
 	} else if d, ok := decl.(*DefProperty); ok {
 		errors = t.translateDefProperty(d, module)
 	} else {
@@ -129,6 +131,20 @@ func (t *translator) translateDefConstraint(decl *DefConstraint, module uint) []
 		context := tr.NewContext(module, 1)
 		// Add translated constraint
 		t.schema.AddVanishingConstraint(decl.Handle, context, decl.Domain, constraint)
+	}
+	// Done
+	return errors
+}
+
+// Translate a "definrange" declaration.
+func (t *translator) translateDefInRange(decl *DefInRange, module uint) []SyntaxError {
+	// Translate constraint body
+	expr, errors := t.translateExpressionInModule(decl.Expr, module)
+	//
+	if len(errors) == 0 {
+		context := tr.NewContext(module, 1)
+		// Add translated constraint
+		t.schema.AddRangeConstraint("", context, expr, decl.Bound)
 	}
 	// Done
 	return errors
