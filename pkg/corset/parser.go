@@ -227,6 +227,8 @@ func (p *Parser) parseDeclaration(s *sexp.List) (Declaration, *SyntaxError) {
 		decl, error = p.parseColumnDeclarations(s)
 	} else if s.Len() == 4 && s.MatchSymbols(2, "defconstraint") {
 		decl, error = p.parseConstraintDeclaration(s.Elements)
+	} else if s.Len() == 3 && s.MatchSymbols(2, "defproperty") {
+		decl, error = p.parsePropertyDeclaration(s.Elements)
 	} else {
 		error = p.translator.SyntaxError(s, "malformed declaration")
 	}
@@ -322,6 +324,19 @@ func (p *Parser) parseConstraintDeclaration(elements []sexp.SExp) (*DefConstrain
 	}
 	// Done
 	return &DefConstraint{handle, domain, guard, expr}, nil
+}
+
+// Parse a vanishing declaration
+func (p *Parser) parsePropertyDeclaration(elements []sexp.SExp) (*DefProperty, *SyntaxError) {
+	//
+	handle := elements[1].AsSymbol().Value
+	// Translate expression
+	expr, err := p.translator.Translate(elements[2])
+	if err != nil {
+		return nil, err
+	}
+	// Done
+	return &DefProperty{handle, expr}, nil
 }
 
 func (p *Parser) parseConstraintAttributes(attributes sexp.SExp) (domain *int, guard Expr, err *SyntaxError) {
@@ -433,12 +448,12 @@ func varAccessParserRule(col string) (Expr, bool, error) {
 	// Attempt to split column name into module / column pair.
 	split := strings.Split(col, ".")
 	if len(split) == 2 {
-		return &VariableAccess{split[0], split[1], 0, nil}, true, nil
+		return &VariableAccess{&split[0], split[1], 0, nil}, true, nil
 	} else if len(split) > 2 {
 		return nil, true, errors.New("malformed column access")
 	}
 	// Done
-	return &VariableAccess{"", col, 0, nil}, true, nil
+	return &VariableAccess{nil, col, 0, nil}, true, nil
 }
 
 func addParserRule(_ string, args []Expr) (Expr, error) {
@@ -476,12 +491,12 @@ func shiftParserRule(col string, amt string) (Expr, error) {
 	// Handle qualified accesses (where appropriate)
 	split := strings.Split(col, ".")
 	if len(split) == 2 {
-		return &VariableAccess{split[0], split[1], n, nil}, nil
+		return &VariableAccess{&split[0], split[1], n, nil}, nil
 	} else if len(split) > 2 {
 		return nil, errors.New("malformed column access")
 	}
 	// Done
-	return &VariableAccess{"", col, n, nil}, nil
+	return &VariableAccess{nil, col, n, nil}, nil
 }
 
 func powParserRule(_ string, args []Expr) (Expr, error) {

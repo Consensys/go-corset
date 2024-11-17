@@ -1,6 +1,8 @@
 package corset
 
 import (
+	"fmt"
+
 	"github.com/consensys/go-corset/pkg/sexp"
 	tr "github.com/consensys/go-corset/pkg/trace"
 )
@@ -98,13 +100,11 @@ func (r *resolver) resolveInputColumnsInModule(module uint, decls []Declaration)
 // declared; secondly, to determine what each variable represents (i.e. column
 // access, a constant, etc).
 func (r *resolver) resolveConstraints(circuit *Circuit) []SyntaxError {
-	errs := r.resolveConstraintsInModule(r.env.Module(""), circuit.Declarations)
+	errs := r.resolveConstraintsInModule("", circuit.Declarations)
 	//
 	for _, m := range circuit.Modules {
-		// The module must exist given after resolveModules.
-		ctx := r.env.Module(m.Name)
 		// Process all declarations in the module
-		merrs := r.resolveConstraintsInModule(ctx, m.Declarations)
+		merrs := r.resolveConstraintsInModule(m.Name, m.Declarations)
 		// Package up all errors
 		errs = append(errs, merrs...)
 	}
@@ -114,7 +114,7 @@ func (r *resolver) resolveConstraints(circuit *Circuit) []SyntaxError {
 
 // Helper for resolve constraints which considers those constraints declared in
 // a particular module.
-func (r *resolver) resolveConstraintsInModule(module uint, decls []Declaration) []SyntaxError {
+func (r *resolver) resolveConstraintsInModule(module string, decls []Declaration) []SyntaxError {
 	var errors []SyntaxError
 
 	for _, d := range decls {
@@ -123,8 +123,10 @@ func (r *resolver) resolveConstraintsInModule(module uint, decls []Declaration) 
 			// Safe to ignore.
 		} else if c, ok := d.(*DefConstraint); ok {
 			errors = append(errors, r.resolveDefConstraintInModule(module, c)...)
+		} else if c, ok := d.(*DefProperty); ok {
+			errors = append(errors, r.resolveDefPropertyInModule(module, c)...)
 		} else {
-			errors = append(errors, *r.srcmap.SyntaxError(d, "unknown declaration"))
+			errors = append(errors, *r.srcmap.SyntaxError(d, fmt.Sprintf("unknown declaration in module %s", module)))
 		}
 	}
 	//
@@ -132,13 +134,37 @@ func (r *resolver) resolveConstraintsInModule(module uint, decls []Declaration) 
 }
 
 // Resolve those variables appearing in either the guard or the body of this constraint.
-func (r *resolver) resolveDefConstraintInModule(module uint, decl *DefConstraint) []SyntaxError {
+func (r *resolver) resolveDefConstraintInModule(module string, decl *DefConstraint) []SyntaxError {
 	var errors []SyntaxError
 	if decl.Guard != nil {
-		errors = r.resolveExpressionInModule(module, decl.Constraint)
+		errors = r.resolveExpressionInModule(module, false, decl.Constraint)
 	}
 	// Resolve constraint body
-	errors = append(errors, r.resolveExpressionInModule(module, decl.Constraint)...)
+	errors = append(errors, r.resolveExpressionInModule(module, false, decl.Constraint)...)
+	// Done
+	return errors
+}
+
+// Resolve those variables appearing in the body of this property assertion.
+func (r *resolver) resolveDefPropertyInModule(module string, decl *DefProperty) []SyntaxError {
+	var errors []SyntaxError
+	// Resolve property body
+	errors = append(errors, r.resolveExpressionInModule(module, false, decl.Assertion)...)
+	// Done
+	return errors
+}
+
+// Resolve a sequence of zero or more expressions within a given module.  This
+// simply resolves each of the arguments in turn, collecting any errors arising.
+func (r *resolver) resolveExpressionsInModule(module string, global bool, args []Expr) []SyntaxError {
+	var errors []SyntaxError
+	// Visit each argument
+	for _, arg := range args {
+		if arg != nil {
+			errs := r.resolveExpressionInModule(module, global, arg)
+			errors = append(errors, errs...)
+		}
+	}
 	// Done
 	return errors
 }
@@ -148,24 +174,46 @@ func (r *resolver) resolveDefConstraintInModule(module uint, decl *DefConstraint
 // variable accesses.  As above, the goal is ensure variable refers to something
 // that was declared and, more specifically, what kind of access it is (e.g.
 // column access, constant access, etc).
-func (r *resolver) resolveExpressionInModule(module uint, expr Expr) []SyntaxError {
+func (r *resolver) resolveExpressionInModule(module string, global bool, expr Expr) []SyntaxError {
 	if _, ok := expr.(*Constant); ok {
 		return nil
+	} else if v, ok := expr.(*Add); ok {
+		return r.resolveExpressionsInModule(module, global, v.Args)
+	} else if v, ok := expr.(*Exp); ok {
+		return r.resolveExpressionInModule(module, global, v.Arg)
+	} else if v, ok := expr.(*IfZero); ok {
+		return r.resolveExpressionsInModule(module, global, []Expr{v.Condition, v.TrueBranch, v.FalseBranch})
+	} else if v, ok := expr.(*List); ok {
+		return r.resolveExpressionsInModule(module, global, v.Args)
+	} else if v, ok := expr.(*Mul); ok {
+		return r.resolveExpressionsInModule(module, global, v.Args)
+	} else if v, ok := expr.(*Normalise); ok {
+		return r.resolveExpressionInModule(module, global, v.Arg)
+	} else if v, ok := expr.(*Sub); ok {
+		return r.resolveExpressionsInModule(module, global, v.Args)
 	} else if v, ok := expr.(*VariableAccess); ok {
-		return r.resolveVariableInModule(module, v)
+		return r.resolveVariableInModule(module, global, v)
 	} else {
 		return r.srcmap.SyntaxErrors(expr, "unknown expression")
 	}
 }
 
 // Resolve a specific variable access contained within some expression which, in
-// turn, is contained within some module.
-func (r *resolver) resolveVariableInModule(module uint, expr *VariableAccess) []SyntaxError {
+// turn, is contained within some module.  Note, qualified accesses are only
+// permitted in a global context.
+func (r *resolver) resolveVariableInModule(module string, global bool, expr *VariableAccess) []SyntaxError {
+	// Check whether this is a qualified access, or not.
+	if global && expr.Module != nil {
+		module = *expr.Module
+	} else if expr.Module != nil {
+		return r.srcmap.SyntaxErrors(expr, "qualified access not permitted here")
+	}
 	// FIXME: handle qualified variable accesses
+	mid := r.env.Module(module)
 	// Attempt resolve as a column access in enclosing module
-	if _, ok := r.env.LookupColumn(module, expr.Name); ok {
+	if _, ok := r.env.LookupColumn(mid, expr.Name); ok {
 		return nil
 	}
 	// Unable to resolve variable
-	return r.srcmap.SyntaxErrors(expr, "unknown variable")
+	return r.srcmap.SyntaxErrors(expr, fmt.Sprintf("unknown symbol in module %s", module))
 }

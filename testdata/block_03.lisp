@@ -5,4 +5,4 @@
                ;; else X == Y && (Y == 0 || Z == 0)
                (begin (- X Y) (* Y Z))))
 ;; Z is always 0!
-(assert a1 Z)
+(defproperty a1 Z)

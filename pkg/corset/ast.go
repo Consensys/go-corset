@@ -131,6 +131,33 @@ type DefLookup struct {
 type DefPermutation struct {
 }
 
+// DefProperty represents an assertion to be used only for debugging / testing /
+// verification.  Unlike vanishing constraints, property assertions do not
+// represent something that the prover can enforce.  Rather, they represent
+// properties which are expected to hold for every valid trace. That is, they
+// should be implied by the actual constraints.  Thus, whilst the prover cannot
+// enforce such properties, external tools (such as for formal verification) can
+// attempt to ensure they do indeed always hold.
+type DefProperty struct {
+	// Unique handle given to this constraint.  This is primarily useful for
+	// debugging (i.e. so we know which constaint failed, etc).
+	Handle string
+	// The assertion itself which (when active) should evaluate to zero for the
+	// relevant set of rows.
+	Assertion Expr
+}
+
+// Resolve something.
+func (p *DefProperty) Resolve() {
+	panic("got here")
+}
+
+// Lisp converts this node into its lisp representation.  This is primarily used
+// for debugging purposes.
+func (p *DefProperty) Lisp() sexp.SExp {
+	panic("got here")
+}
+
 // DefFun represents defines a (possibly pure) "function" (which, in actuality,
 // is more like a macro).  Specifically, whenever an invocation of this function
 // is encountered we can imagine that, in the final constraint set, the body of
@@ -336,7 +363,7 @@ func (e *Sub) Lisp() sexp.SExp {
 // VariableAccess represents reading the value of a given local variable (such
 // as a function parameter).
 type VariableAccess struct {
-	Module  string
+	Module  *string
 	Name    string
 	Shift   int
 	Binding *Binder
