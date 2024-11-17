@@ -1,6 +1,8 @@
 package assignment
 
 import (
+	"fmt"
+
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/sexp"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -71,12 +73,9 @@ func (p *DataColumn) Lisp(schema sc.Schema) sexp.SExp {
 	col := sexp.NewSymbol("column")
 	name := sexp.NewSymbol(p.Columns().Next().QualifiedName(schema))
 	//
-	if p.datatype.AsField() != nil {
-		return sexp.NewList([]sexp.SExp{col, name})
-	}
-	//
 	datatype := sexp.NewSymbol(p.datatype.String())
-	def := sexp.NewList([]sexp.SExp{name, datatype})
+	multiplier := sexp.NewSymbol(fmt.Sprintf("x%d", p.context.LengthMultiplier()))
+	def := sexp.NewList([]sexp.SExp{name, datatype, multiplier})
 	//
 	return sexp.NewList([]sexp.SExp{col, def})
 }

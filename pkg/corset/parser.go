@@ -224,26 +224,22 @@ func (p *Parser) parseDeclaration(s *sexp.List) (Declaration, *SyntaxError) {
 	)
 	//
 	if s.MatchSymbols(1, "defcolumns") {
-		decl, error = p.parseColumnDeclarations(s)
+		decl, error = p.parseDefColumns(s)
 	} else if s.Len() == 4 && s.MatchSymbols(2, "defconstraint") {
-		decl, error = p.parseConstraintDeclaration(s.Elements)
+		decl, error = p.parseDefConstraint(s.Elements)
+	} else if s.Len() == 3 && s.MatchSymbols(1, "definrange") {
+		decl, error = p.parseDefInRange(s.Elements)
+	} else if s.Len() == 3 && s.MatchSymbols(1, "definterleaved") {
+		decl, error = p.parseDefInterleaved(s.Elements)
+	} else if s.Len() == 4 && s.MatchSymbols(1, "deflookup") {
+		decl, error = p.parseDefLookup(s.Elements)
+	} else if s.Len() == 3 && s.MatchSymbols(2, "defpermutation") {
+		decl, error = p.parseDefPermutation(s.Elements)
+	} else if s.Len() == 3 && s.MatchSymbols(2, "defproperty") {
+		decl, error = p.parseDefProperty(s.Elements)
 	} else {
 		error = p.translator.SyntaxError(s, "malformed declaration")
 	}
-	/*
-		else if e.Len() == 3 && e.MatchSymbols(2, "assert") {
-			return p.parseAssertionDeclaration(env, e.Elements)
-		} else if e.Len() == 3 && e.MatchSymbols(1, "defpermutation") {
-			return p.parsePermutationDeclaration(env, e)
-		} else if e.Len() == 4 && e.MatchSymbols(1, "deflookup") {
-			return p.parseLookupDeclaration(env, e)
-		} else if e.Len() == 3 && e.MatchSymbols(1, "definterleaved") {
-			return p.parseInterleavingDeclaration(env, e)
-		} else if e.Len() == 3 && e.MatchSymbols(1, "definrange") {
-			return p.parseRangeDeclaration(env, e)
-		} else if e.Len() == 3 && e.MatchSymbols(1, "defpurefun") {
-			return p.parsePureFunDeclaration(env, e)
-		} */
 	// Register node if appropriate
 	if decl != nil {
 		p.mapSourceNode(s, decl)
@@ -253,7 +249,7 @@ func (p *Parser) parseDeclaration(s *sexp.List) (Declaration, *SyntaxError) {
 }
 
 // Parse a column declaration
-func (p *Parser) parseColumnDeclarations(l *sexp.List) (*DefColumns, *SyntaxError) {
+func (p *Parser) parseDefColumns(l *sexp.List) (*DefColumns, *SyntaxError) {
 	columns := make([]*DefColumn, l.Len()-1)
 	// Sanity check declaration
 	if len(l.Elements) == 1 {
@@ -274,7 +270,7 @@ func (p *Parser) parseColumnDeclarations(l *sexp.List) (*DefColumns, *SyntaxErro
 }
 
 func (p *Parser) parseColumnDeclaration(e sexp.SExp) (*DefColumn, *SyntaxError) {
-	defcolumn := &DefColumn{"", nil, 1}
+	defcolumn := &DefColumn{"", nil, false, 1}
 	// Default to field type
 	defcolumn.DataType = &sc.FieldType{}
 	// Check whether extended declaration or not.
@@ -288,7 +284,7 @@ func (p *Parser) parseColumnDeclaration(e sexp.SExp) (*DefColumn, *SyntaxError) 
 		//	Parse type (if applicable)
 		if len(l.Elements) == 2 {
 			var err *SyntaxError
-			if defcolumn.DataType, err = p.parseType(l.Elements[1]); err != nil {
+			if defcolumn.DataType, defcolumn.MustProve, err = p.parseType(l.Elements[1]); err != nil {
 				return defcolumn, err
 			}
 		} else if len(l.Elements) > 2 {
@@ -305,7 +301,7 @@ func (p *Parser) parseColumnDeclaration(e sexp.SExp) (*DefColumn, *SyntaxError) 
 }
 
 // Parse a vanishing declaration
-func (p *Parser) parseConstraintDeclaration(elements []sexp.SExp) (*DefConstraint, *SyntaxError) {
+func (p *Parser) parseDefConstraint(elements []sexp.SExp) (*DefConstraint, *SyntaxError) {
 	//
 	handle := elements[1].AsSymbol().Value
 	// Vanishing constraints do not have global scope, hence qualified column
@@ -322,6 +318,173 @@ func (p *Parser) parseConstraintDeclaration(elements []sexp.SExp) (*DefConstrain
 	}
 	// Done
 	return &DefConstraint{handle, domain, guard, expr}, nil
+}
+
+// Parse a interleaved declaration
+func (p *Parser) parseDefInterleaved(elements []sexp.SExp) (*DefInterleaved, *SyntaxError) {
+	// Initial sanity checks
+	if elements[1].AsSymbol() == nil {
+		return nil, p.translator.SyntaxError(elements[1], "malformed target column")
+	} else if elements[2].AsList() == nil {
+		return nil, p.translator.SyntaxError(elements[2], "malformed source columns")
+	}
+	// Extract target and source columns
+	target := elements[1].AsSymbol().Value
+	sexpSources := elements[2].AsList()
+	sources := make([]string, sexpSources.Len())
+	//
+	for i := 0; i != sexpSources.Len(); i++ {
+		ith := sexpSources.Get(i)
+		if ith.AsSymbol() == nil {
+			return nil, p.translator.SyntaxError(ith, "malformed source column")
+		}
+		// Extract column name
+		sources[i] = ith.AsSymbol().Value
+	}
+	// Done
+	return &DefInterleaved{target, sources}, nil
+}
+
+// Parse a lookup declaration
+func (p *Parser) parseDefLookup(elements []sexp.SExp) (*DefLookup, *SyntaxError) {
+	// Initial sanity checks
+	if elements[1].AsSymbol() == nil {
+		return nil, p.translator.SyntaxError(elements[1], "malformed handle")
+	} else if elements[2].AsList() == nil {
+		return nil, p.translator.SyntaxError(elements[2], "malformed target columns")
+	} else if elements[3].AsList() == nil {
+		return nil, p.translator.SyntaxError(elements[3], "malformed source columns")
+	}
+	// Extract items
+	handle := elements[1].AsSymbol().Value
+	sexpTargets := elements[2].AsList()
+	sexpSources := elements[3].AsList()
+	// Sanity check number of columns matches
+	if sexpTargets.Len() != sexpSources.Len() {
+		return nil, p.translator.SyntaxError(elements[3], "incorrect number of columns")
+	}
+
+	sources := make([]Expr, sexpSources.Len())
+	targets := make([]Expr, sexpTargets.Len())
+	// Translate source & target expressions
+	for i := 0; i < sexpTargets.Len(); i++ {
+		var err *SyntaxError
+		// Translate source expressions
+		if sources[i], err = p.translator.Translate(sexpSources.Get(i)); err != nil {
+			return nil, err
+		}
+		// Translate target expressions
+		if targets[i], err = p.translator.Translate(sexpTargets.Get(i)); err != nil {
+			return nil, err
+		}
+	}
+	// Done
+	return &DefLookup{handle, sources, targets}, nil
+}
+
+// Parse a permutation declaration
+func (p *Parser) parseDefPermutation(elements []sexp.SExp) (*DefPermutation, *SyntaxError) {
+	var err *SyntaxError
+	//
+	sexpTargets := elements[1].AsList()
+	sexpSources := elements[2].AsList()
+	// Initial sanity checks
+	if sexpTargets == nil {
+		return nil, p.translator.SyntaxError(elements[1], "malformed target columns")
+	} else if sexpSources == nil {
+		return nil, p.translator.SyntaxError(elements[2], "malformed source columns")
+	} else if sexpTargets.Len() < sexpSources.Len() {
+		return nil, p.translator.SyntaxError(elements[1], "too few target columns")
+	} else if sexpTargets.Len() > sexpSources.Len() {
+		return nil, p.translator.SyntaxError(elements[1], "too many target columns")
+	}
+	//
+	targets := make([]*DefColumn, sexpTargets.Len())
+	sources := make([]*DefPermutedColumn, sexpSources.Len())
+	//
+	for i := 0; i < len(targets); i++ {
+		// Parse target column
+		if targets[i], err = p.parseColumnDeclaration(sexpTargets.Get(i)); err != nil {
+			return nil, err
+		}
+		// Parse source column
+		if sources[i], err = p.parsePermutedColumnDeclaration(sexpSources.Get(i)); err != nil {
+			return nil, err
+		}
+	}
+	//
+	return &DefPermutation{targets, sources}, nil
+}
+
+func (p *Parser) parsePermutedColumnDeclaration(e sexp.SExp) (*DefPermutedColumn, *SyntaxError) {
+	var err *SyntaxError
+	//
+	defcolumn := &DefPermutedColumn{"", false}
+	// Check whether extended declaration or not.
+	if l := e.AsList(); l != nil {
+		// Check at least the name provided.
+		if len(l.Elements) == 0 {
+			return defcolumn, p.translator.SyntaxError(l, "empty permutation column")
+		} else if len(l.Elements) != 2 {
+			return defcolumn, p.translator.SyntaxError(l, "malformed permutation column")
+		} else if l.Get(0).AsSymbol() == nil || l.Get(1).AsSymbol() == nil {
+			return defcolumn, p.translator.SyntaxError(l, "empty permutation column")
+		}
+		// Parse sign
+		if defcolumn.Sign, err = p.parsePermutedColumnSign(l.Get(0).AsSymbol()); err != nil {
+			return nil, err
+		}
+		// Parse column name
+		defcolumn.Name = l.Get(1).AsSymbol().Value
+	} else {
+		defcolumn.Name = e.String(false)
+	}
+	// Update source mapping
+	p.mapSourceNode(e, defcolumn)
+	//
+	return defcolumn, nil
+}
+
+func (p *Parser) parsePermutedColumnSign(sign *sexp.Symbol) (bool, *SyntaxError) {
+	switch sign.Value {
+	case "+", "↓":
+		return true, nil
+	case "-", "↑":
+		return false, nil
+	default:
+		return false, p.translator.SyntaxError(sign, "malformed sort direction")
+	}
+}
+
+// Parse a property assertion
+func (p *Parser) parseDefProperty(elements []sexp.SExp) (*DefProperty, *SyntaxError) {
+	//
+	handle := elements[1].AsSymbol().Value
+	// Translate expression
+	expr, err := p.translator.Translate(elements[2])
+	if err != nil {
+		return nil, err
+	}
+	// Done
+	return &DefProperty{handle, expr}, nil
+}
+
+// Parse a range declaration
+func (p *Parser) parseDefInRange(elements []sexp.SExp) (*DefInRange, *SyntaxError) {
+	var bound fr.Element
+	// Translate expression
+	expr, err := p.translator.Translate(elements[1])
+	if err != nil {
+		return nil, err
+	}
+	// Check & parse bound
+	if elements[2].AsSymbol() == nil {
+		return nil, p.translator.SyntaxError(elements[2], "malformed bound")
+	} else if _, err := bound.SetString(elements[2].AsSymbol().Value); err != nil {
+		return nil, p.translator.SyntaxError(elements[2], "malformed bound")
+	}
+	// Done
+	return &DefInRange{Expr: expr, Bound: bound}, nil
 }
 
 func (p *Parser) parseConstraintAttributes(attributes sexp.SExp) (domain *int, guard Expr, err *SyntaxError) {
@@ -385,23 +548,38 @@ func (p *Parser) parseDomainAttribute(attribute sexp.SExp) (domain *int, err *Sy
 	return nil, p.translator.SyntaxError(attribute, "multiple values not supported")
 }
 
-func (p *Parser) parseType(term sexp.SExp) (sc.Type, *SyntaxError) {
+func (p *Parser) parseType(term sexp.SExp) (sc.Type, bool, *SyntaxError) {
 	symbol := term.AsSymbol()
 	if symbol == nil {
-		return nil, p.translator.SyntaxError(term, "malformed column")
+		return nil, false, p.translator.SyntaxError(term, "malformed type")
 	}
 	// Access string of symbol
-	str := symbol.Value
-	if strings.HasPrefix(str, ":u") {
-		n, err := strconv.Atoi(str[2:])
-		if err != nil {
-			return nil, p.translator.SyntaxError(symbol, err.Error())
+	parts := strings.Split(symbol.Value, "@")
+	if len(parts) > 2 || (len(parts) == 2 && parts[1] != "prove") {
+		return nil, false, p.translator.SyntaxError(term, "malformed type")
+	}
+	// Determine whether type should be proven or not.
+	proven := len(parts) == 2
+	// See what we've got.
+	switch parts[0] {
+	case ":binary":
+		return sc.NewUintType(1), proven, nil
+	case ":byte":
+		return sc.NewUintType(8), proven, nil
+	default:
+		// Handle generic types like i16, i128, etc.
+		str := parts[0]
+		if strings.HasPrefix(str, ":i") {
+			n, err := strconv.Atoi(str[2:])
+			if err != nil {
+				return nil, false, p.translator.SyntaxError(symbol, err.Error())
+			}
+			// Done
+			return sc.NewUintType(uint(n)), proven, nil
 		}
-		// Done
-		return sc.NewUintType(uint(n)), nil
 	}
 	// Error
-	return nil, p.translator.SyntaxError(symbol, "unknown type")
+	return nil, false, p.translator.SyntaxError(symbol, "unknown type")
 }
 
 func beginParserRule(_ string, args []Expr) (Expr, error) {
@@ -433,12 +611,12 @@ func varAccessParserRule(col string) (Expr, bool, error) {
 	// Attempt to split column name into module / column pair.
 	split := strings.Split(col, ".")
 	if len(split) == 2 {
-		return &VariableAccess{split[0], split[1], 0, nil}, true, nil
+		return &VariableAccess{&split[0], split[1], 0, nil}, true, nil
 	} else if len(split) > 2 {
 		return nil, true, errors.New("malformed column access")
 	}
 	// Done
-	return &VariableAccess{"", col, 0, nil}, true, nil
+	return &VariableAccess{nil, col, 0, nil}, true, nil
 }
 
 func addParserRule(_ string, args []Expr) (Expr, error) {
@@ -476,12 +654,12 @@ func shiftParserRule(col string, amt string) (Expr, error) {
 	// Handle qualified accesses (where appropriate)
 	split := strings.Split(col, ".")
 	if len(split) == 2 {
-		return &VariableAccess{split[0], split[1], n, nil}, nil
+		return &VariableAccess{&split[0], split[1], n, nil}, nil
 	} else if len(split) > 2 {
 		return nil, errors.New("malformed column access")
 	}
 	// Done
-	return &VariableAccess{"", col, n, nil}, nil
+	return &VariableAccess{nil, col, n, nil}, nil
 }
 
 func powParserRule(_ string, args []Expr) (Expr, error) {

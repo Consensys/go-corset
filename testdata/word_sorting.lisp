@@ -2,11 +2,11 @@
 ;; implemented on a column of bytes.
 
 ;; Input column
-(defcolumns (X :u16))
+(defcolumns (X :i16@prove))
 
 ;; Generated columns
-(defcolumns Delta) ;; implied u16
-(defcolumns (Byte_0 :u8) (Byte_1 :u8))
+(defcolumns Delta) ;; implied i16
+(defcolumns (Byte_0 :i8@prove) (Byte_1 :i8@prove))
 
 ;; Ensure Delta is a u16
 (defconstraint delta_type () (- Delta (+ (* 256 Byte_1) Byte_0)))

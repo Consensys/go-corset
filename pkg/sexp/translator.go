@@ -157,6 +157,8 @@ func (p *Translator[T]) AddSymbolRule(t SymbolRule[T]) {
 }
 
 // SyntaxError constructs a suitable syntax error for a given S-Expression.
+//
+//nolint:revive
 func (p *Translator[T]) SyntaxError(s SExp, msg string) *SyntaxError {
 	// Get span of enclosing list
 	span := p.old_srcmap.Get(s)
@@ -200,7 +202,11 @@ func translateSExp[T comparable](p *Translator[T], s SExp) (T, *SyntaxError) {
 // the first element of the list.  The remaining elements are treated
 // as arguments which are first recursively translated.
 func translateSExpList[T comparable](p *Translator[T], l *List) (T, *SyntaxError) {
-	var empty T
+	var (
+		empty T
+		node  T
+		err   *SyntaxError
+	)
 	// Sanity check this list makes sense
 	if len(l.Elements) == 0 || l.Elements[0].AsSymbol() == nil {
 		return empty, p.SyntaxError(l, "invalid list")
@@ -211,20 +217,24 @@ func translateSExpList[T comparable](p *Translator[T], l *List) (T, *SyntaxError
 	t := p.lists[name]
 	// Check whether we found one.
 	if t != nil {
-		node, err := (t)(l)
-		// Update source mapping
-		map2sexp(p, node, l)
-		// Done
-		return node, err
+		node, err = (t)(l)
 	} else if p.list_default != nil {
 		node, err := (p.list_default)(l)
 		// Update source mapping
 		map2sexp(p, node, l)
 		// Done
 		return node, err
+	} else {
+		// Default fall back
+		return empty, p.SyntaxError(l, "unknown list encountered")
 	}
-	// Default fall back
-	return empty, p.SyntaxError(l, "unknown list encountered")
+	// Map source node
+	if err == nil {
+		// Update source mapping
+		map2sexp(p, node, l)
+	}
+	// Done
+	return node, err
 }
 
 // Add a mapping from a given item to the S-expression from which it was

@@ -1,3 +1,3 @@
 (defcolumns X)
 (module m1)
-(defcolumns (X :u8))
+(defcolumns (X :byte@prove))

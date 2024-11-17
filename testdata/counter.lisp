@@ -25,10 +25,11 @@
 ;; If STAMP non-zero and reaches end-of-cycle, then stamp increments;
 ;; otherwise, counter increments.
 (defconstraint heartbeat ()
-           (ifnot STAMP
-                  ;; If CT == 3
-                  (if (- 3 CT)
-                      ;; Then, STAMP[k]+1 == STAMP[k]
-                      (- (+ 1 STAMP) (shift STAMP 1))
-                      ;; Else, CT[k]+1 == CT[k]
-                      (- (+ 1 CT) (shift CT 1)))))
+  (if STAMP
+      0
+      ;; If CT == 3
+      (if (- 3 CT)
+          ;; Then, STAMP[k]+1 == STAMP[k]
+          (- (+ 1 STAMP) (shift STAMP 1))
+          ;; Else, CT[k]+1 == CT[k]
+          (- (+ 1 CT) (shift CT 1)))))

@@ -217,7 +217,13 @@ func HoldsLocally[T sc.Testable](k uint, handle string, constraint T, tr tr.Trac
 //
 //nolint:revive
 func (p *VanishingConstraint[T]) Lisp(schema sc.Schema) sexp.SExp {
-	name := p.handle
+	var name string
+	// Construct qualified name
+	if module := schema.Modules().Nth(p.context.Module()); module.Name() != "" {
+		name = fmt.Sprintf("%s:%s", module.Name(), p.handle)
+	} else {
+		name = p.handle
+	}
 	// Handle attributes
 	if p.domain == nil {
 		// Skip
@@ -228,10 +234,12 @@ func (p *VanishingConstraint[T]) Lisp(schema sc.Schema) sexp.SExp {
 	} else {
 		panic(fmt.Sprintf("domain value %d not supported for local constraint", p.domain))
 	}
+	// Determine multiplier
+	multiplier := fmt.Sprintf("x%d", p.context.LengthMultiplier())
 	// Construct the list
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("vanish"),
-		sexp.NewSymbol(name),
+		sexp.NewList([]sexp.SExp{sexp.NewSymbol(name), sexp.NewSymbol(multiplier)}),
 		p.constraint.Lisp(schema),
 	})
 }

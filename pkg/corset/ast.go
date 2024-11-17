@@ -5,6 +5,7 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/sexp"
 	"github.com/consensys/go-corset/pkg/trace"
+	tr "github.com/consensys/go-corset/pkg/trace"
 )
 
 // Circuit represents the root of the Abstract Syntax Tree.  This is also
@@ -32,11 +33,38 @@ type Node interface {
 	Lisp() sexp.SExp
 }
 
+// ColumnAssignment provides a schematic for describing a column arising from an
+// assignment.
+type ColumnAssignment struct {
+	// Name of defined column
+	Name string
+	// Length multiplier for defined column
+	LengthMultiplier uint
+	// Type of defined column
+	Type sc.Type
+}
+
 // Declaration represents a top-level declaration in a Corset source file (e.g.
 // defconstraint, defcolumns, etc).
 type Declaration interface {
 	Node
-	Resolve()
+	// Simple marker to indicate this is really a declaration.
+	IsDeclaration()
+}
+
+// Assignment is a declaration which introduces one (or more) computed columns.
+type Assignment interface {
+	Declaration
+
+	// Return the set of columns which are declared by this assignment.
+	Targets() []string
+
+	// Return the set of column assignments, or nil if the assignments cannot yet
+	// be determined (i.e. because the environment doesn't have complete
+	// information for one or more dependent columns).  This can also fail for
+	// other reasons, such as when two columns in an interleaving have different
+	// length multipliers.
+	Resolve(*Environment) ([]ColumnAssignment, []SyntaxError)
 }
 
 // DefColumns captures a set of one or more columns being declared.
@@ -44,10 +72,8 @@ type DefColumns struct {
 	Columns []*DefColumn
 }
 
-// Resolve something.
-func (p *DefColumns) Resolve() {
-	panic("got here")
-}
+// IsDeclaration needed to signal declaration.
+func (p *DefColumns) IsDeclaration() {}
 
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
@@ -58,8 +84,15 @@ func (p *DefColumns) Lisp() sexp.SExp {
 // DefColumn packages together those piece relevant to declaring an individual
 // column, such its name and type.
 type DefColumn struct {
-	Name             string
-	DataType         sc.Type
+	// Column name
+	Name string
+	// The datatype which all values in this column should inhabit.
+	DataType sc.Type
+	// Determines whether or not values in this column should be proven to be
+	// within the given type (i.e. using a range constraint).
+	MustProve bool
+	// Determines the length of this column as a multiple of the enclosing
+	// module.
 	LengthMultiplier uint
 }
 
@@ -98,14 +131,72 @@ type DefConstraint struct {
 	Constraint Expr
 }
 
-// Resolve something.
-func (p *DefConstraint) Resolve() {
-	panic("got here")
-}
+// IsDeclaration needed to signal declaration.
+func (p *DefConstraint) IsDeclaration() {}
 
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
 func (p *DefConstraint) Lisp() sexp.SExp {
+	panic("got here")
+}
+
+// DefInRange restricts all values for a given expression to be within a range
+// [0..n) for some bound n.  Any bound is supported, and the system will choose
+// the best underlying implementation as needed.
+type DefInRange struct {
+	// The expression whose values are being constrained to within the given
+	// bound.
+	Expr Expr
+	// The upper bound for this constraint.  Specifically, every evaluation of
+	// the expression should produce a value strictly below this bound.  NOTE:
+	// an fr.Element is used here to store the bound simply to make the
+	// necessary comparison against table data more direct.
+	Bound fr.Element
+}
+
+// IsDeclaration needed to signal declaration.
+func (p *DefInRange) IsDeclaration() {}
+
+// Lisp converts this node into its lisp representation.  This is primarily used
+// for debugging purposes.
+func (p *DefInRange) Lisp() sexp.SExp {
+	panic("got here")
+}
+
+// DefInterleaved generates a new column by interleaving two or more existing
+// colummns.  For example, say Z interleaves X and Y (in that order) and we have
+// a trace X=[1,2], Y=[3,4].  Then, the interleaved column Z has the values
+// Z=[1,3,2,4].  All columns must be defined within the same context.  Finally,
+// the type of the interleaved column is the widest type of any source columns.
+// For example, consider an interleaving of two columns X and Y with types i16
+// and i8 respectively.  Then, the type of the resulting column is i16 (as this
+// is required to hold an element from any source column).
+type DefInterleaved struct {
+	// The target column being defined
+	Target string
+	// The source columns used to define the interleaved target column.
+	Sources []string
+}
+
+// CanFinalise checks whether or not this interleaving is ready to be finalised.
+// Specifically, it checks whether or not the source columns of this
+// interleaving are themselves finalised.
+func (p *DefInterleaved) CanFinalise(module uint, env *Environment) bool {
+	for _, col := range p.Sources {
+		if !env.IsColumnFinalised(module, col) {
+			return false
+		}
+	}
+	//
+	return true
+}
+
+// IsDeclaration needed to signal declaration.
+func (p *DefInterleaved) IsDeclaration() {}
+
+// Lisp converts this node into its lisp representation.  This is primarily used
+// for debugging purposes.
+func (p *DefInterleaved) Lisp() sexp.SExp {
 	panic("got here")
 }
 
@@ -122,6 +213,24 @@ func (p *DefConstraint) Lisp() sexp.SExp {
 // not treated as multi-sets, hence the number of occurrences of a given tuple
 // is not relevant.
 type DefLookup struct {
+	// Unique handle given to this constraint.  This is primarily useful for
+	// debugging (i.e. so we know which constaint failed, etc).
+	Handle string
+	// Source expressions for lookup (i.e. these values must all be contained
+	// within the targets).
+	Sources []Expr
+	// Target expressions for lookup (i.e. these values must contain all of the
+	// source values, but may contain more).
+	Targets []Expr
+}
+
+// IsDeclaration needed to signal declaration.
+func (p *DefLookup) IsDeclaration() {}
+
+// Lisp converts this node into its lisp representation.  This is primarily used
+// for debugging purposes.
+func (p *DefLookup) Lisp() sexp.SExp {
+	panic("got here")
 }
 
 // DefPermutation represents a (lexicographically sorted) permutation of a set
@@ -129,6 +238,70 @@ type DefLookup struct {
 // corresponding set of target columns.  The sort direction for each of the
 // source columns can be specified as increasing or decreasing.
 type DefPermutation struct {
+	Targets []*DefColumn
+	Sources []*DefPermutedColumn
+}
+
+// IsDeclaration needed to signal declaration.
+func (p *DefPermutation) IsDeclaration() {}
+
+// CanFinalise checks whether or not this permutation is ready to be finalised.
+// Specifically, it checks whether or not the source columns of this permutation
+// are themselves finalised.
+func (p *DefPermutation) CanFinalise(module uint, env *Environment) bool {
+	for _, col := range p.Sources {
+		if !env.IsColumnFinalised(module, col.Name) {
+			return false
+		}
+	}
+	//
+	return true
+}
+
+// Lisp converts this node into its lisp representation.  This is primarily used
+// for debugging purposes.
+func (p *DefPermutation) Lisp() sexp.SExp {
+	panic("got here")
+}
+
+// DefPermutedColumn provides information about a column being permuted by a
+// sorted permutation.
+type DefPermutedColumn struct {
+	// Name of the column to be permuted
+	Name string
+	// Sign of the column
+	Sign bool
+}
+
+// Lisp converts this node into its lisp representation.  This is primarily used
+// for debugging purposes.
+func (p *DefPermutedColumn) Lisp() sexp.SExp {
+	panic("got here")
+}
+
+// DefProperty represents an assertion to be used only for debugging / testing /
+// verification.  Unlike vanishing constraints, property assertions do not
+// represent something that the prover can enforce.  Rather, they represent
+// properties which are expected to hold for every valid trace. That is, they
+// should be implied by the actual constraints.  Thus, whilst the prover cannot
+// enforce such properties, external tools (such as for formal verification) can
+// attempt to ensure they do indeed always hold.
+type DefProperty struct {
+	// Unique handle given to this constraint.  This is primarily useful for
+	// debugging (i.e. so we know which constaint failed, etc).
+	Handle string
+	// The assertion itself which (when active) should evaluate to zero for the
+	// relevant set of rows.
+	Assertion Expr
+}
+
+// IsDeclaration needed to signal declaration.
+func (p *DefProperty) IsDeclaration() {}
+
+// Lisp converts this node into its lisp representation.  This is primarily used
+// for debugging purposes.
+func (p *DefProperty) Lisp() sexp.SExp {
+	panic("got here")
 }
 
 // DefFun represents defines a (possibly pure) "function" (which, in actuality,
@@ -150,9 +323,17 @@ type DefFun struct {
 // techniques (such as introducing computed columns where necessary).
 type Expr interface {
 	Node
-	// Resolve resolves this expression in a given scope and constructs a fully
-	// resolved HIR expression.
-	Resolve()
+	// Multiplicity defines the number of values which will be returned when
+	// evaluating this expression.  Due to the nature of expressions in Corset,
+	// they can (perhaps) surprisingly return multiple values.  For example,
+	// lists return one value for each element in the list.  Note, every
+	// expression must return at least one value.
+	Multiplicity() uint
+
+	// Context returns the context for this expression.  Observe that the
+	// expression must have been resolved for this to be defined (i.e. it may
+	// panic if it has not been resolved yet).
+	Context() tr.Context
 }
 
 // ============================================================================
@@ -162,12 +343,17 @@ type Expr interface {
 // Add represents the sum over zero or more expressions.
 type Add struct{ Args []Expr }
 
-// Resolve accesses in this expression as either variable, column or macro
-// accesses.
-func (e *Add) Resolve() {
-	for _, arg := range e.Args {
-		arg.Resolve()
-	}
+// Multiplicity determines the number of values that evaluating this expression
+// can generate.
+func (e *Add) Multiplicity() uint {
+	return determineMultiplicity(e.Args)
+}
+
+// Context returns the context for this expression.  Observe that the
+// expression must have been resolved for this to be defined (i.e. it may
+// panic if it has not been resolved yet).
+func (e *Add) Context() tr.Context {
+	return ContextOfExpressions(e.Args)
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
@@ -183,10 +369,17 @@ func (e *Add) Lisp() sexp.SExp {
 // Constant represents a constant value within an expression.
 type Constant struct{ Val fr.Element }
 
-// Resolve accesses in this expression as either variable, column or macro
-// accesses.
-func (e *Constant) Resolve() {
-	// Nothing to resolve!
+// Multiplicity determines the number of values that evaluating this expression
+// can generate.
+func (e *Constant) Multiplicity() uint {
+	return 1
+}
+
+// Context returns the context for this expression.  Observe that the
+// expression must have been resolved for this to be defined (i.e. it may
+// panic if it has not been resolved yet).
+func (e *Constant) Context() tr.Context {
+	return tr.VoidContext()
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
@@ -205,10 +398,17 @@ type Exp struct {
 	Pow uint64
 }
 
-// Resolve accesses in this expression as either variable, column or macro
-// accesses.
-func (e *Exp) Resolve() {
-	e.Arg.Resolve()
+// Multiplicity determines the number of values that evaluating this expression
+// can generate.
+func (e *Exp) Multiplicity() uint {
+	return determineMultiplicity([]Expr{e.Arg})
+}
+
+// Context returns the context for this expression.  Observe that the
+// expression must have been resolved for this to be defined (i.e. it may
+// panic if it has not been resolved yet).
+func (e *Exp) Context() tr.Context {
+	return ContextOfExpressions([]Expr{e.Arg})
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
@@ -232,12 +432,17 @@ type IfZero struct {
 	FalseBranch Expr
 }
 
-// Resolve accesses in this expression as either variable, column or macro
-// accesses.
-func (e *IfZero) Resolve() {
-	e.Condition.Resolve()
-	e.TrueBranch.Resolve()
-	e.FalseBranch.Resolve()
+// Multiplicity determines the number of values that evaluating this expression
+// can generate.
+func (e *IfZero) Multiplicity() uint {
+	return determineMultiplicity([]Expr{e.Condition, e.TrueBranch, e.FalseBranch})
+}
+
+// Context returns the context for this expression.  Observe that the
+// expression must have been resolved for this to be defined (i.e. it may
+// panic if it has not been resolved yet).
+func (e *IfZero) Context() tr.Context {
+	return ContextOfExpressions([]Expr{e.Condition, e.TrueBranch, e.FalseBranch})
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
@@ -253,12 +458,17 @@ func (e *IfZero) Lisp() sexp.SExp {
 // List represents a block of zero or more expressions.
 type List struct{ Args []Expr }
 
-// Resolve accesses in this expression as either variable, column or macro
-// accesses.
-func (e *List) Resolve() {
-	for _, arg := range e.Args {
-		arg.Resolve()
-	}
+// Multiplicity determines the number of values that evaluating this expression
+// can generate.
+func (e *List) Multiplicity() uint {
+	return determineMultiplicity(e.Args)
+}
+
+// Context returns the context for this expression.  Observe that the
+// expression must have been resolved for this to be defined (i.e. it may
+// panic if it has not been resolved yet).
+func (e *List) Context() tr.Context {
+	return ContextOfExpressions(e.Args)
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
@@ -274,12 +484,17 @@ func (e *List) Lisp() sexp.SExp {
 // Mul represents the product over zero or more expressions.
 type Mul struct{ Args []Expr }
 
-// Resolve accesses in this expression as either variable, column or macro
-// accesses.
-func (e *Mul) Resolve() {
-	for _, arg := range e.Args {
-		arg.Resolve()
-	}
+// Multiplicity determines the number of values that evaluating this expression
+// can generate.
+func (e *Mul) Multiplicity() uint {
+	return determineMultiplicity(e.Args)
+}
+
+// Context returns the context for this expression.  Observe that the
+// expression must have been resolved for this to be defined (i.e. it may
+// panic if it has not been resolved yet).
+func (e *Mul) Context() tr.Context {
+	return ContextOfExpressions(e.Args)
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
@@ -296,10 +511,17 @@ func (e *Mul) Lisp() sexp.SExp {
 // or one (otherwise).
 type Normalise struct{ Arg Expr }
 
-// Resolve accesses in this expression as either variable, column or macro
-// accesses.
-func (e *Normalise) Resolve() {
-	e.Arg.Resolve()
+// Multiplicity determines the number of values that evaluating this expression
+// can generate.
+func (e *Normalise) Multiplicity() uint {
+	return determineMultiplicity([]Expr{e.Arg})
+}
+
+// Context returns the context for this expression.  Observe that the
+// expression must have been resolved for this to be defined (i.e. it may
+// panic if it has not been resolved yet).
+func (e *Normalise) Context() tr.Context {
+	return ContextOfExpressions([]Expr{e.Arg})
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
@@ -315,12 +537,17 @@ func (e *Normalise) Lisp() sexp.SExp {
 // Sub represents the subtraction over zero or more expressions.
 type Sub struct{ Args []Expr }
 
-// Resolve accesses in this expression as either variable, column or macro
-// accesses.
-func (e *Sub) Resolve() {
-	for _, arg := range e.Args {
-		arg.Resolve()
-	}
+// Multiplicity determines the number of values that evaluating this expression
+// can generate.
+func (e *Sub) Multiplicity() uint {
+	return determineMultiplicity(e.Args)
+}
+
+// Context returns the context for this expression.  Observe that the
+// expression must have been resolved for this to be defined (i.e. it may
+// panic if it has not been resolved yet).
+func (e *Sub) Context() tr.Context {
+	return ContextOfExpressions(e.Args)
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
@@ -336,16 +563,28 @@ func (e *Sub) Lisp() sexp.SExp {
 // VariableAccess represents reading the value of a given local variable (such
 // as a function parameter).
 type VariableAccess struct {
-	Module  string
+	Module  *string
 	Name    string
 	Shift   int
 	Binding *Binder
 }
 
-// Resolve accesses in this expression as either variable, column or macro
-// accesses.
-func (e *VariableAccess) Resolve() {
-	panic("todo")
+// Multiplicity determines the number of values that evaluating this expression
+// can generate.
+func (e *VariableAccess) Multiplicity() uint {
+	// NOTE: this might not be true for invocations.
+	return 1
+}
+
+// Context returns the context for this expression.  Observe that the
+// expression must have been resolved for this to be defined (i.e. it may
+// panic if it has not been resolved yet).
+func (e *VariableAccess) Context() tr.Context {
+	if e.Binding == nil {
+		panic("unresolved expressions encountered whilst resolving context")
+	}
+	// Extract saved context
+	return e.Binding.Context
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
@@ -365,4 +604,35 @@ type Binder struct {
 	Context trace.Context
 	// Identifies the variable or column index (as appropriate).
 	Index uint
+}
+
+// ============================================================================
+// Helpers
+// ============================================================================
+
+// ContextOfExpressions returns the context for a set of zero or more
+// expressions.  Observe that, if there the expressions have no context (i.e.
+// they are all constants) then the void context is returned.  Likewise, if
+// there are expressions with different contexts then the conflicted context
+// will be returned.  Otherwise, the one consistent context will be returned.
+func ContextOfExpressions(exprs []Expr) tr.Context {
+	context := tr.VoidContext()
+	//
+	for _, e := range exprs {
+		context = context.Join(e.Context())
+	}
+	//
+	return context
+}
+
+func determineMultiplicity(exprs []Expr) uint {
+	width := uint(1)
+	//
+	for _, e := range exprs {
+		if e != nil {
+			width *= e.Multiplicity()
+		}
+	}
+	//
+	return width
 }

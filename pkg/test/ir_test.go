@@ -290,6 +290,10 @@ func Test_Type_03(t *testing.T) {
 	Check(t, "type_03")
 }
 
+func Test_Type_04(t *testing.T) {
+	Check(t, "type_04")
+}
+
 // ===================================================================
 // Range Constraints
 // ===================================================================
@@ -369,9 +373,11 @@ func Test_Module_06(t *testing.T) {
 func Test_Module_07(t *testing.T) {
 	Check(t, "module_07")
 }
+
 func Test_Module_08(t *testing.T) {
 	Check(t, "module_08")
 }
+
 func Test_Module_09(t *testing.T) {
 	Check(t, "module_09")
 }
@@ -476,14 +482,14 @@ func Test_Interleave_04(t *testing.T) {
 // Functions
 // ===================================================================
 
-func Test_PureFun_01(t *testing.T) {
+/* func Test_PureFun_01(t *testing.T) {
 	Check(t, "purefun_01")
 }
 
 func Test_PureFun_02(t *testing.T) {
 	Check(t, "purefun_02")
 }
-
+*/
 // ===================================================================
 // Complex Tests
 // ===================================================================

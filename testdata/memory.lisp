@@ -11,13 +11,13 @@
 ;; written.
 
 ;; Program Counter (always increases by one)
-(defcolumns (PC :u16))
+(defcolumns (PC :i16@prove))
 ;; Read/Write flag (0=READ, 1=WRITE)
-(defcolumns (RW :u1))
+(defcolumns (RW :i1@prove))
 ;; Address being Read/Written
-(defcolumns (ADDR :u32))
+(defcolumns (ADDR :i32@prove))
 ;; Value being Read/Written
-(defcolumns (VAL :u8))
+(defcolumns (VAL :i8@prove))
 ;; Permutation
 (defpermutation (ADDR' PC' RW' VAL') ((+ ADDR) (+ PC) (+ RW) (+ VAL)))
 ;; PC[0]=0
@@ -29,7 +29,7 @@
 ;; PC[k]=0 ==> (RW[k]=0 && ADDR[k]=0 && VAL[k]=0)
 (defconstraint heartbeat_4 () (if PC (+ RW ADDR VAL)))
 ;; ADDR'[k] != ADDR'[k-1] ==> (RW'[k]=1 || VAL'[k]=0)
-(defconstraint first_read_1 () (ifnot (- ADDR' (shift ADDR' -1)) (* (- 1 RW') VAL')))
+(defconstraint first_read_1 () (if (- ADDR' (shift ADDR' -1)) 0 (* (- 1 RW') VAL')))
 ;; (RW'[0]=1 || VAL'[0]=0)
 (defconstraint first_read_2 (:domain {0}) (* (- 1 RW') VAL'))
 ;; ADDR'[k] == ADDR'[k-1] ==> (RW=1 || VAL'[k]=VAL'[k-1])
