@@ -125,6 +125,8 @@ func (r *resolver) resolveConstraintsInModule(module string, decls []Declaration
 			errors = append(errors, r.resolveDefConstraintInModule(module, c)...)
 		} else if c, ok := d.(*DefInRange); ok {
 			errors = append(errors, r.resolveDefInRangeInModule(module, c)...)
+		} else if c, ok := d.(*DefLookup); ok {
+			errors = append(errors, r.resolveDefLookupInModule(module, c)...)
 		} else if c, ok := d.(*DefProperty); ok {
 			errors = append(errors, r.resolveDefPropertyInModule(module, c)...)
 		} else {
@@ -152,6 +154,17 @@ func (r *resolver) resolveDefInRangeInModule(module string, decl *DefInRange) []
 	var errors []SyntaxError
 	// Resolve property body
 	errors = append(errors, r.resolveExpressionInModule(module, false, decl.Expr)...)
+	// Done
+	return errors
+}
+
+// Resolve those variables appearing in the body of this lookup constraint.
+func (r *resolver) resolveDefLookupInModule(module string, decl *DefLookup) []SyntaxError {
+	var errors []SyntaxError
+	// Resolve source expressions
+	errors = append(errors, r.resolveExpressionsInModule(module, true, decl.Sources)...)
+	// Resolve target expressions
+	errors = append(errors, r.resolveExpressionsInModule(module, true, decl.Targets)...)
 	// Done
 	return errors
 }

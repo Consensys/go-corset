@@ -90,6 +90,8 @@ func (t *translator) translateDeclaration(decl Declaration, module uint) []Synta
 		errors = t.translateDefConstraint(d, module)
 	} else if d, ok := decl.(*DefInRange); ok {
 		errors = t.translateDefInRange(d, module)
+	} else if d, ok := decl.(*DefLookup); ok {
+		errors = t.translateDefLookup(d, module)
 	} else if d, ok := decl.(*DefProperty); ok {
 		errors = t.translateDefProperty(d, module)
 	} else {
@@ -131,6 +133,22 @@ func (t *translator) translateDefConstraint(decl *DefConstraint, module uint) []
 		context := tr.NewContext(module, 1)
 		// Add translated constraint
 		t.schema.AddVanishingConstraint(decl.Handle, context, decl.Domain, constraint)
+	}
+	// Done
+	return errors
+}
+
+// Translate a "deflookup" declaration.
+func (t *translator) translateDefLookup(decl *DefLookup, module uint) []SyntaxError {
+	// Translate source expressions
+	sources, errors := t.translateUnitExpressionsInModule(decl.Sources, module)
+	targets, errors := t.translateUnitExpressionsInModule(decl.Targets, module)
+	//
+	if len(errors) == 0 {
+		src_context := nil
+		target_context := nil
+		// Add translated constraint
+		t.schema.AddLookupConstraint("", src_context, target_context, sources, targets)
 	}
 	// Done
 	return errors

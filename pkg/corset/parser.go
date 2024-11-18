@@ -229,6 +229,8 @@ func (p *Parser) parseDeclaration(s *sexp.List) (Declaration, *SyntaxError) {
 		decl, error = p.parseConstraintDeclaration(s.Elements)
 	} else if s.Len() == 3 && s.MatchSymbols(1, "definrange") {
 		decl, error = p.parseRangeDeclaration(s.Elements)
+	} else if s.Len() == 4 && s.MatchSymbols(1, "deflookup") {
+		decl, error = p.parseLookupDeclaration(s.Elements)
 	} else if s.Len() == 3 && s.MatchSymbols(2, "defproperty") {
 		decl, error = p.parsePropertyDeclaration(s.Elements)
 	} else {
@@ -237,8 +239,6 @@ func (p *Parser) parseDeclaration(s *sexp.List) (Declaration, *SyntaxError) {
 	/*
 		if e.Len() == 3 && e.MatchSymbols(1, "defpermutation") {
 			return p.parsePermutationDeclaration(env, e)
-		} else if e.Len() == 4 && e.MatchSymbols(1, "deflookup") {
-			return p.parseLookupDeclaration(env, e)
 		} else if e.Len() == 3 && e.MatchSymbols(1, "definterleaved") {
 			return p.parseInterleavingDeclaration(env, e)
 		}*/
@@ -320,6 +320,40 @@ func (p *Parser) parseConstraintDeclaration(elements []sexp.SExp) (*DefConstrain
 	}
 	// Done
 	return &DefConstraint{handle, domain, guard, expr}, nil
+}
+
+// Parse a lookup declaration
+func (p *Parser) parseLookupDeclaration(elements []sexp.SExp) (*DefLookup, *SyntaxError) {
+	// Initial sanity checks
+	if elements[1].AsSymbol() == nil {
+		return nil, p.translator.SyntaxError(elements[1], "malformed handle")
+	} else if elements[2].AsList() == nil {
+		return nil, p.translator.SyntaxError(elements[2], "malformed target columns")
+	} else if elements[3].AsList() == nil {
+		return nil, p.translator.SyntaxError(elements[3], "malformed source columns")
+	}
+	// Extract items
+	handle := elements[1].AsSymbol().Value
+	sexpTargets := elements[2].AsList()
+	sexpSources := elements[3].AsList()
+	// Sanity check number of columns matches
+	if sexpTargets.Len() != sexpSources.Len() {
+		return nil, p.translator.SyntaxError(elements[3], "incorrect number of columns")
+	}
+	sources := make([]Expr, sexpSources.Len())
+	targets := make([]Expr, sexpTargets.Len())
+	// Translate source & target expressions
+	for i := 0; i < sexpTargets.Len(); i++ {
+		var err *SyntaxError
+		if sources[i], err = p.translator.Translate(sexpSources.Get(i)); err != nil {
+			return nil, err
+		}
+		if targets[i], err = p.translator.Translate(sexpTargets.Get(i)); err != nil {
+			return nil, err
+		}
+	}
+	// Done
+	return &DefLookup{handle, sources, targets}, nil
 }
 
 // Parse a vanishing declaration

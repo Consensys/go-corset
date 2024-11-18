@@ -142,6 +142,24 @@ func (p *DefInRange) Lisp() sexp.SExp {
 // not treated as multi-sets, hence the number of occurrences of a given tuple
 // is not relevant.
 type DefLookup struct {
+	// Unique handle given to this constraint.  This is primarily useful for
+	// debugging (i.e. so we know which constaint failed, etc).
+	Handle string
+	// Source expressions for lookup (i.e. these values must all be contained
+	// within the targets).
+	Sources []Expr
+	// Target expressions for lookup (i.e. these values must contain all of the
+	// source values, but may contain more).
+	Targets []Expr
+}
+
+// IsDeclaration needed to signal declaration.
+func (p *DefLookup) IsDeclaration() {}
+
+// Lisp converts this node into its lisp representation.  This is primarily used
+// for debugging purposes.
+func (p *DefLookup) Lisp() sexp.SExp {
+	panic("got here")
 }
 
 // DefPermutation represents a (lexicographically sorted) permutation of a set
@@ -195,8 +213,12 @@ type DefFun struct {
 // techniques (such as introducing computed columns where necessary).
 type Expr interface {
 	Node
-	// IsExpr is a marker to signal that this is really an expression.
-	IsExpr()
+	// Multiplicity defines the number of values which will be returned when
+	// evaluating this expression.  Due to the nature of expressions in Corset,
+	// they can (perhaps) surprisingly return multiple values.  For example,
+	// lists return one value for each element in the list.  Note, every
+	// expression must return at least one value.
+	Multiplicity() uint
 }
 
 // ============================================================================
@@ -206,8 +228,11 @@ type Expr interface {
 // Add represents the sum over zero or more expressions.
 type Add struct{ Args []Expr }
 
-// IsExpr indicates that this is an expression.
-func (e *Add) IsExpr() {}
+// Multiplicity determines the number of values that evaluating this expression
+// can generate.
+func (e *Add) Multiplicity() uint {
+	return determineMultiplicity(e.Args)
+}
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
@@ -222,8 +247,11 @@ func (e *Add) Lisp() sexp.SExp {
 // Constant represents a constant value within an expression.
 type Constant struct{ Val fr.Element }
 
-// IsExpr indicates that this is an expression.
-func (e *Constant) IsExpr() {}
+// Multiplicity determines the number of values that evaluating this expression
+// can generate.
+func (e *Constant) Multiplicity() uint {
+	return 1
+}
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
@@ -241,8 +269,11 @@ type Exp struct {
 	Pow uint64
 }
 
-// IsExpr indicates that this is an expression.
-func (e *Exp) IsExpr() {}
+// Multiplicity determines the number of values that evaluating this expression
+// can generate.
+func (e *Exp) Multiplicity() uint {
+	return determineMultiplicity([]Expr{e.Arg})
+}
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
@@ -265,8 +296,11 @@ type IfZero struct {
 	FalseBranch Expr
 }
 
-// IsExpr indicates that this is an expression.
-func (e *IfZero) IsExpr() {}
+// Multiplicity determines the number of values that evaluating this expression
+// can generate.
+func (e *IfZero) Multiplicity() uint {
+	return determineMultiplicity([]Expr{e.Condition, e.TrueBranch, e.FalseBranch})
+}
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
@@ -281,8 +315,11 @@ func (e *IfZero) Lisp() sexp.SExp {
 // List represents a block of zero or more expressions.
 type List struct{ Args []Expr }
 
-// IsExpr indicates that this is an expression.
-func (e *List) IsExpr() {}
+// Multiplicity determines the number of values that evaluating this expression
+// can generate.
+func (e *List) Multiplicity() uint {
+	return determineMultiplicity(e.Args)
+}
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
@@ -297,8 +334,11 @@ func (e *List) Lisp() sexp.SExp {
 // Mul represents the product over zero or more expressions.
 type Mul struct{ Args []Expr }
 
-// IsExpr indicates that this is an expression.
-func (e *Mul) IsExpr() {}
+// Multiplicity determines the number of values that evaluating this expression
+// can generate.
+func (e *Mul) Multiplicity() uint {
+	return determineMultiplicity(e.Args)
+}
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
@@ -314,8 +354,11 @@ func (e *Mul) Lisp() sexp.SExp {
 // or one (otherwise).
 type Normalise struct{ Arg Expr }
 
-// IsExpr indicates that this is an expression.
-func (e *Normalise) IsExpr() {}
+// Multiplicity determines the number of values that evaluating this expression
+// can generate.
+func (e *Normalise) Multiplicity() uint {
+	return determineMultiplicity([]Expr{e.Arg})
+}
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
@@ -330,8 +373,11 @@ func (e *Normalise) Lisp() sexp.SExp {
 // Sub represents the subtraction over zero or more expressions.
 type Sub struct{ Args []Expr }
 
-// IsExpr indicates that this is an expression.
-func (e *Sub) IsExpr() {}
+// Multiplicity determines the number of values that evaluating this expression
+// can generate.
+func (e *Sub) Multiplicity() uint {
+	return determineMultiplicity(e.Args)
+}
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
@@ -352,8 +398,12 @@ type VariableAccess struct {
 	Binding *Binder
 }
 
-// IsExpr indicates that this is an expression.
-func (e *VariableAccess) IsExpr() {}
+// Multiplicity determines the number of values that evaluating this expression
+// can generate.
+func (e *VariableAccess) Multiplicity() uint {
+	// NOTE: this might not be true for invocations.
+	return 1
+}
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
@@ -372,4 +422,20 @@ type Binder struct {
 	Context trace.Context
 	// Identifies the variable or column index (as appropriate).
 	Index uint
+}
+
+// ============================================================================
+// Helpers
+// ============================================================================
+
+func determineMultiplicity(exprs []Expr) uint {
+	width := uint(1)
+	//
+	for _, e := range exprs {
+		if e != nil {
+			width *= e.Multiplicity()
+		}
+	}
+	//
+	return width
 }
