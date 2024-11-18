@@ -5,6 +5,7 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/sexp"
 	"github.com/consensys/go-corset/pkg/trace"
+	tr "github.com/consensys/go-corset/pkg/trace"
 )
 
 // Circuit represents the root of the Abstract Syntax Tree.  This is also
@@ -219,6 +220,11 @@ type Expr interface {
 	// lists return one value for each element in the list.  Note, every
 	// expression must return at least one value.
 	Multiplicity() uint
+
+	// Context returns the context for this expression.  Observe that the
+	// expression must have been resolved for this to be defined (i.e. it may
+	// panic if it has not been resolved yet).
+	Context() tr.Context
 }
 
 // ============================================================================
@@ -232,6 +238,13 @@ type Add struct{ Args []Expr }
 // can generate.
 func (e *Add) Multiplicity() uint {
 	return determineMultiplicity(e.Args)
+}
+
+// Context returns the context for this expression.  Observe that the
+// expression must have been resolved for this to be defined (i.e. it may
+// panic if it has not been resolved yet).
+func (e *Add) Context() tr.Context {
+	return ContextOfExpressions(e.Args)
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
@@ -251,6 +264,13 @@ type Constant struct{ Val fr.Element }
 // can generate.
 func (e *Constant) Multiplicity() uint {
 	return 1
+}
+
+// Context returns the context for this expression.  Observe that the
+// expression must have been resolved for this to be defined (i.e. it may
+// panic if it has not been resolved yet).
+func (e *Constant) Context() tr.Context {
+	return tr.VoidContext()
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
@@ -273,6 +293,13 @@ type Exp struct {
 // can generate.
 func (e *Exp) Multiplicity() uint {
 	return determineMultiplicity([]Expr{e.Arg})
+}
+
+// Context returns the context for this expression.  Observe that the
+// expression must have been resolved for this to be defined (i.e. it may
+// panic if it has not been resolved yet).
+func (e *Exp) Context() tr.Context {
+	return ContextOfExpressions([]Expr{e.Arg})
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
@@ -302,6 +329,13 @@ func (e *IfZero) Multiplicity() uint {
 	return determineMultiplicity([]Expr{e.Condition, e.TrueBranch, e.FalseBranch})
 }
 
+// Context returns the context for this expression.  Observe that the
+// expression must have been resolved for this to be defined (i.e. it may
+// panic if it has not been resolved yet).
+func (e *IfZero) Context() tr.Context {
+	return ContextOfExpressions([]Expr{e.Condition, e.TrueBranch, e.FalseBranch})
+}
+
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
 func (e *IfZero) Lisp() sexp.SExp {
@@ -321,6 +355,13 @@ func (e *List) Multiplicity() uint {
 	return determineMultiplicity(e.Args)
 }
 
+// Context returns the context for this expression.  Observe that the
+// expression must have been resolved for this to be defined (i.e. it may
+// panic if it has not been resolved yet).
+func (e *List) Context() tr.Context {
+	return ContextOfExpressions(e.Args)
+}
+
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
 func (e *List) Lisp() sexp.SExp {
@@ -338,6 +379,13 @@ type Mul struct{ Args []Expr }
 // can generate.
 func (e *Mul) Multiplicity() uint {
 	return determineMultiplicity(e.Args)
+}
+
+// Context returns the context for this expression.  Observe that the
+// expression must have been resolved for this to be defined (i.e. it may
+// panic if it has not been resolved yet).
+func (e *Mul) Context() tr.Context {
+	return ContextOfExpressions(e.Args)
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
@@ -360,6 +408,13 @@ func (e *Normalise) Multiplicity() uint {
 	return determineMultiplicity([]Expr{e.Arg})
 }
 
+// Context returns the context for this expression.  Observe that the
+// expression must have been resolved for this to be defined (i.e. it may
+// panic if it has not been resolved yet).
+func (e *Normalise) Context() tr.Context {
+	return ContextOfExpressions([]Expr{e.Arg})
+}
+
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
 func (e *Normalise) Lisp() sexp.SExp {
@@ -377,6 +432,13 @@ type Sub struct{ Args []Expr }
 // can generate.
 func (e *Sub) Multiplicity() uint {
 	return determineMultiplicity(e.Args)
+}
+
+// Context returns the context for this expression.  Observe that the
+// expression must have been resolved for this to be defined (i.e. it may
+// panic if it has not been resolved yet).
+func (e *Sub) Context() tr.Context {
+	return ContextOfExpressions(e.Args)
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
@@ -405,6 +467,17 @@ func (e *VariableAccess) Multiplicity() uint {
 	return 1
 }
 
+// Context returns the context for this expression.  Observe that the
+// expression must have been resolved for this to be defined (i.e. it may
+// panic if it has not been resolved yet).
+func (e *VariableAccess) Context() tr.Context {
+	if e.Binding == nil {
+		panic("unresolved expressions encountered whilst resolving context")
+	}
+	//
+	panic("todo")
+}
+
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
 func (e *VariableAccess) Lisp() sexp.SExp {
@@ -427,6 +500,15 @@ type Binder struct {
 // ============================================================================
 // Helpers
 // ============================================================================
+
+// ContextOfExpressions returns the context for a set of zero or more
+// expressions.  Observe that, if there the expressions have no context (i.e.
+// they are all constants) then the void context is returned.  Likewise, if
+// there are expressions with different contexts then the conflicted context
+// will be returned.  Otherwise, the one consistent context will be returned.
+func ContextOfExpressions(exprs []Expr) tr.Context {
+	panic("todo")
+}
 
 func determineMultiplicity(exprs []Expr) uint {
 	width := uint(1)

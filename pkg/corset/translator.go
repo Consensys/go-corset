@@ -145,8 +145,8 @@ func (t *translator) translateDefLookup(decl *DefLookup, module uint) []SyntaxEr
 	targets, errors := t.translateUnitExpressionsInModule(decl.Targets, module)
 	//
 	if len(errors) == 0 {
-		src_context := nil
-		target_context := nil
+		src_context := ContextOfExpressions(decl.Sources)
+		target_context := ContextOfExpressions(decl.Targets)
 		// Add translated constraint
 		t.schema.AddLookupConstraint("", src_context, target_context, sources, targets)
 	}
@@ -191,6 +191,25 @@ func (t *translator) translateOptionalExpressionInModule(expr Expr, module uint)
 	}
 
 	return nil, nil
+}
+
+// Translate an optional expression in a given context.  That is an expression
+// which maybe nil (i.e. doesn't exist).  In such case, nil is returned (i.e.
+// without any errors).
+func (t *translator) translateUnitExpressionsInModule(exprs []Expr, module uint) ([]hir.UnitExpr, []SyntaxError) {
+	errors := []SyntaxError{}
+	hirExprs := make([]hir.UnitExpr, len(exprs))
+	// Iterate each expression in turn
+	for i, e := range exprs {
+		if e != nil {
+			var errs []SyntaxError
+			expr, errs := t.translateExpressionInModule(e, module)
+			hirExprs[i] = hir.NewUnitExpr(expr)
+			errors = append(errors, errs...)
+		}
+	}
+	// Done
+	return hirExprs, errors
 }
 
 // Translate a sequence of zero or more expressions enclosed in a given module.
