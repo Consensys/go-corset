@@ -130,6 +130,30 @@ func (p *DefInRange) Lisp() sexp.SExp {
 	panic("got here")
 }
 
+// DefInterleaved generates a new column by interleaving two or more existing
+// colummns.  For example, say Z interleaves X and Y (in that order) and we have
+// a trace X=[1,2], Y=[3,4].  Then, the interleaved column Z has the values
+// Z=[1,3,2,4].  All columns must be defined within the same context.  Finally,
+// the type of the interleaved column is the widest type of any source columns.
+// For example, consider an interleaving of two columns X and Y with types i16
+// and i8 repsectively.  Then, the type of the resulting column is i16 (as this
+// is required to hold an element from any source column).
+type DefInterleaved struct {
+	// The target column being defined
+	Target string
+	// The source columns used to define the interleaved target column.
+	Sources []string
+}
+
+// IsDeclaration needed to signal declaration.
+func (p *DefInterleaved) IsDeclaration() {}
+
+// Lisp converts this node into its lisp representation.  This is primarily used
+// for debugging purposes.
+func (p *DefInterleaved) Lisp() sexp.SExp {
+	panic("got here")
+}
+
 // DefLookup represents a lookup constraint between a set N of source
 // expressions and a set of N target expressions.  The source expressions must
 // have a single context (i.e. all be in the same module) and likewise for the
@@ -474,8 +498,8 @@ func (e *VariableAccess) Context() tr.Context {
 	if e.Binding == nil {
 		panic("unresolved expressions encountered whilst resolving context")
 	}
-	//
-	panic("todo")
+	// Extract saved context
+	return e.Binding.Context
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
@@ -507,7 +531,13 @@ type Binder struct {
 // there are expressions with different contexts then the conflicted context
 // will be returned.  Otherwise, the one consistent context will be returned.
 func ContextOfExpressions(exprs []Expr) tr.Context {
-	panic("todo")
+	context := tr.VoidContext()
+	//
+	for _, e := range exprs {
+		context = context.Join(e.Context())
+	}
+	//
+	return context
 }
 
 func determineMultiplicity(exprs []Expr) uint {

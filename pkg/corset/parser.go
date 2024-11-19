@@ -229,6 +229,8 @@ func (p *Parser) parseDeclaration(s *sexp.List) (Declaration, *SyntaxError) {
 		decl, error = p.parseConstraintDeclaration(s.Elements)
 	} else if s.Len() == 3 && s.MatchSymbols(1, "definrange") {
 		decl, error = p.parseRangeDeclaration(s.Elements)
+	} else if s.Len() == 3 && s.MatchSymbols(1, "definterleaved") {
+		decl, error = p.parseInterleavedDeclaration(s.Elements)
 	} else if s.Len() == 4 && s.MatchSymbols(1, "deflookup") {
 		decl, error = p.parseLookupDeclaration(s.Elements)
 	} else if s.Len() == 3 && s.MatchSymbols(2, "defproperty") {
@@ -239,9 +241,7 @@ func (p *Parser) parseDeclaration(s *sexp.List) (Declaration, *SyntaxError) {
 	/*
 		if e.Len() == 3 && e.MatchSymbols(1, "defpermutation") {
 			return p.parsePermutationDeclaration(env, e)
-		} else if e.Len() == 3 && e.MatchSymbols(1, "definterleaved") {
-			return p.parseInterleavingDeclaration(env, e)
-		}*/
+		} */
 	// Register node if appropriate
 	if decl != nil {
 		p.mapSourceNode(s, decl)
@@ -320,6 +320,31 @@ func (p *Parser) parseConstraintDeclaration(elements []sexp.SExp) (*DefConstrain
 	}
 	// Done
 	return &DefConstraint{handle, domain, guard, expr}, nil
+}
+
+// Parse a interleaved declaration
+func (p *Parser) parseInterleavedDeclaration(elements []sexp.SExp) (*DefInterleaved, *SyntaxError) {
+	// Initial sanity checks
+	if elements[1].AsSymbol() == nil {
+		return nil, p.translator.SyntaxError(elements[1], "malformed target column")
+	} else if elements[2].AsList() == nil {
+		return nil, p.translator.SyntaxError(elements[2], "malformed source columns")
+	}
+	// Extract target and source columns
+	target := elements[1].AsSymbol().Value
+	sexpSources := elements[2].AsList()
+	sources := make([]string, sexpSources.Len())
+	//
+	for i := 0; i != sexpSources.Len(); i++ {
+		ith := sexpSources.Get(i)
+		if ith.AsSymbol() == nil {
+			return nil, p.translator.SyntaxError(ith, "malformed source column")
+		}
+		// Extract column name
+		sources[i] = ith.AsSymbol().Value
+	}
+	// Done
+	return &DefInterleaved{target, sources}, nil
 }
 
 // Parse a lookup declaration

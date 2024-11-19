@@ -18,7 +18,7 @@ type colRef struct {
 }
 
 // Packages up information about a declared column (either input or assignment).
-type colInfo struct {
+type ColumnInfo struct {
 	// Column index
 	cid uint
 	// Length multiplier
@@ -35,13 +35,13 @@ type Environment struct {
 	// Maps module names to their module indices.
 	modules map[string]uint
 	// Maps input columns to their column indices.
-	columns map[colRef]colInfo
+	columns map[colRef]ColumnInfo
 }
 
 // EmptyEnvironment constructs an empty environment.
 func EmptyEnvironment() *Environment {
 	modules := make(map[string]uint)
-	columns := make(map[colRef]colInfo)
+	columns := make(map[colRef]ColumnInfo)
 	//
 	return &Environment{modules, columns}
 }
@@ -73,7 +73,7 @@ func (p *Environment) RegisterColumn(context trace.Context, column string, datat
 	// Update cache
 	cid := uint(len(p.columns))
 	cref := colRef{context.Module(), column}
-	p.columns[cref] = colInfo{cid, context.LengthMultiplier(), datatype}
+	p.columns[cref] = ColumnInfo{cid, context.LengthMultiplier(), datatype}
 	// Done
 	return cid
 }
@@ -87,11 +87,11 @@ func (p *Environment) LookupModule(module string) (uint, bool) {
 
 // LookupColumn determines the column index for a given named column in a given
 // module, or return false if no such column exists.
-func (p *Environment) LookupColumn(module uint, column string) (uint, bool) {
+func (p *Environment) LookupColumn(module uint, column string) (ColumnInfo, bool) {
 	cref := colRef{module, column}
 	cinfo, ok := p.columns[cref]
 
-	return cinfo.cid, ok
+	return cinfo, ok
 }
 
 // Module determines the module index for a given module.  This assumes the
@@ -108,7 +108,7 @@ func (p *Environment) Module(module string) uint {
 
 // Column determines the column index for a given column declared in a given
 // module.  This assumes the column / module exist, and will panic otherwise.
-func (p *Environment) Column(module uint, column string) uint {
+func (p *Environment) Column(module uint, column string) ColumnInfo {
 	// FIXME: doesn't make sense using context here.
 	cid, ok := p.LookupColumn(module, column)
 	// Sanity check we found something

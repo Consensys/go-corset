@@ -3,6 +3,7 @@ package corset
 import (
 	"fmt"
 
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/sexp"
 	tr "github.com/consensys/go-corset/pkg/trace"
 )
@@ -18,8 +19,7 @@ func ResolveCircuit(srcmap *sexp.SourceMaps[Node], circuit *Circuit) (*Environme
 	// Allocate declared modules
 	errs := r.resolveModules(circuit)
 	// Allocate declared input columns
-	errs = append(errs, r.resolveInputColumns(circuit)...)
-	// TODO: Allocate declared assignments
+	errs = append(errs, r.resolveColumns(circuit)...)
 	// Check expressions
 	errs = append(errs, r.resolveConstraints(circuit)...)
 	// Done
@@ -53,17 +53,15 @@ func (r *resolver) resolveModules(circuit *Circuit) []SyntaxError {
 	return nil
 }
 
-// Process all input (column) declarations.  These must be allocated before
-// assignemts, since the hir.Schema separates these out.  Again, if any
-// duplicates are found then one or more errors will be reported.
-func (r *resolver) resolveInputColumns(circuit *Circuit) []SyntaxError {
-	errs := r.resolveInputColumnsInModule(r.env.Module(""), circuit.Declarations)
+// Process all input column or column assignment declarations.
+func (r *resolver) resolveColumns(circuit *Circuit) []SyntaxError {
+	// Input columns must be allocated before assignemts, since the hir.Schema
+	// separates these out.
+	errs := r.resolveColumnsInModule("", circuit.Declarations)
 	//
 	for _, m := range circuit.Modules {
-		// The module must exist given after resolveModules.
-		ctx := r.env.Module(m.Name)
 		// Process all declarations in the module
-		merrs := r.resolveInputColumnsInModule(ctx, m.Declarations)
+		merrs := r.resolveColumnsInModule(m.Name, m.Declarations)
 		// Package up all errors
 		errs = append(errs, merrs...)
 	}
@@ -71,18 +69,24 @@ func (r *resolver) resolveInputColumns(circuit *Circuit) []SyntaxError {
 	return errs
 }
 
-func (r *resolver) resolveInputColumnsInModule(module uint, decls []Declaration) []SyntaxError {
-	var errors []SyntaxError
+// Resolve all columns declared in a given module.  This is tricky because
+// assignments can depend on the declaration of other columns.  Hence, we have
+// to process all columns before we can sure that they are all declared
+// correctly.
+func (r *resolver) resolveColumnsInModule(module string, decls []Declaration) []SyntaxError {
+	errors := make([]SyntaxError, 0)
+	mid := r.env.Module(module)
 	//
 	for _, d := range decls {
 		// Look for defcolumns decalarations only
 		if dcols, ok := d.(*DefColumns); ok {
 			// Found one.
 			for _, col := range dcols.Columns {
-				if r.env.HasColumn(module, col.Name) {
-					errors = append(errors, *r.srcmap.SyntaxError(col, "duplicate declaration"))
+				if r.env.HasColumn(mid, col.Name) {
+					err := r.srcmap.SyntaxError(col, fmt.Sprintf("column %s already declared in module %s", col.Name, module))
+					errors = append(errors, *err)
 				} else {
-					context := tr.NewContext(module, col.LengthMultiplier)
+					context := tr.NewContext(mid, col.LengthMultiplier)
 					r.env.RegisterColumn(context, col.Name, col.DataType)
 				}
 			}
@@ -90,6 +94,125 @@ func (r *resolver) resolveInputColumnsInModule(module uint, decls []Declaration)
 	}
 	//
 	return errors
+}
+
+type colInfo struct {
+	length_multiplier uint
+	datatype          schema.Type
+}
+
+// Initialise the column allocation from the definitions.
+func (r *resolver) initialiseColumnAllocation(module string, decls []Declaration) (map[string]colInfo, []SyntaxError) {
+	panic("TODO")
+}
+
+// Finalising the columns in the module is important to ensure that they are
+// registered in the correct order.  This is because they must be registered in
+// the order of occurence.  We can assume that, once we get here, then there are
+// no errors with the column declarations.
+func (r *resolver) finaliseColumnsAllocation(module string, decls []Declaration, alloc map[string]colInfo) []SyntaxError {
+	mid := r.env.Module(module)
+	// (1) register input columns.
+	for _, d := range decls {
+		// Look for defcolumns decalarations only
+		if dcols, ok := d.(*DefColumns); ok {
+			// Found one.
+			for _, col := range dcols.Columns {
+				context := tr.NewContext(mid, col.LengthMultiplier)
+				r.env.RegisterColumn(context, col.Name, col.DataType)
+			}
+		}
+	}
+	// (2) register assignments.
+	for _, d := range decls {
+		if dInterleave, ok := d.(*DefInterleaved); ok {
+			info := alloc[dInterleave.Target]
+			context := tr.NewContext(mid, info.length_multiplier)
+			r.env.RegisterColumn(context, dInterleave.Target, info.datatype)
+		}
+	}
+}
+
+// Resolve all assignment declarations.   Managing these is slightly more
+// complex than for input columns, since they can depend upon each other.
+// Furthermore, information about their form is not always clear from the
+// declaration itself (e.g. the type of an interleaved column is determined by
+// the types of its source columns, etc).
+func (r *resolver) resolveAssignmentsInModule(module string, decls []Declaration) []SyntaxError {
+	changed := true
+	errors := make([]SyntaxError, 0)
+	done := make(map[Declaration]bool, 0)
+	// Keep going until no new assignments can be resolved.
+	for changed {
+		changed = false
+		// Discard any previously generated errors and repeat.
+		errors = make([]SyntaxError, 0)
+		// Reconsider all outstanding assignments.
+		for _, d := range decls {
+			if dInterleave, ok := d.(*DefInterleaved); ok && !done[d] {
+				if errs := r.resolveInterleavedAssignment(module, dInterleave); errs == nil {
+					// Mark assignment as done, so we never visit it again.
+					done[d] = true
+					changed = true
+				} else {
+					// Combine errors
+					errors = append(errors, errs...)
+				}
+			}
+		}
+	}
+	//
+	return errors
+}
+
+// Resolve an interleaving assignment.  This means: (1) checking that the
+// relevant column was not already defined; (2) that the source columns have
+// been defined.  If there are no problems here, then we register it after
+// determining its type and length multiplier.
+func (r *resolver) resolveInterleavedAssignment(module string, decl *DefInterleaved) []SyntaxError {
+	var (
+		length_multiplier uint
+		datatype          schema.Type
+		errors            []SyntaxError
+	)
+	// Determine enclosing module identifier
+	mid := r.env.Module(module)
+	// Check target column does not exist
+	if _, ok := r.env.LookupColumn(mid, decl.Target); ok {
+		errors = r.srcmap.SyntaxErrors(decl, fmt.Sprintf("column %s already declared in module %s", decl.Target, module))
+	}
+	// Check source columns do exist, whilst determining the type and length multiplier
+	for i, source := range decl.Sources {
+		// Check whether column exists or not.
+		if info, ok := r.env.LookupColumn(mid, source); ok {
+			if i == 0 {
+				length_multiplier = info.multiplier
+				datatype = info.datatype
+			} else if info.multiplier != length_multiplier {
+				// Columns to be interleaved must have the same length multiplier.
+				err := r.srcmap.SyntaxError(decl, fmt.Sprintf("source column %s has incompatible length multiplier", source))
+				errors = append(errors, *err)
+			}
+			// Combine datatypes.
+			datatype = schema.Join(datatype, info.datatype)
+		} else {
+			// Column does not exist!
+			err := r.srcmap.SyntaxError(decl, fmt.Sprintf("unknown column %s in module %s", decl.Target, module))
+			errors = append(errors, *err)
+		}
+	}
+	//
+	if errors != nil {
+		return errors
+	}
+	// Determine actual length multiplier
+	length_multiplier *= uint(len(decl.Sources))
+	// Construct context for this column
+	context := tr.NewContext(mid, length_multiplier)
+	// Register new column
+	r.env.RegisterColumn(context, decl.Target, datatype)
+	// Done
+	return nil
 }
 
 // Examine each constraint and attempt to resolve any variables used within
@@ -125,6 +248,9 @@ func (r *resolver) resolveConstraintsInModule(module string, decls []Declaration
 			errors = append(errors, r.resolveDefConstraintInModule(module, c)...)
 		} else if c, ok := d.(*DefInRange); ok {
 			errors = append(errors, r.resolveDefInRangeInModule(module, c)...)
+		} else if _, ok := d.(*DefInterleaved); ok {
+			// Nothing to do here, since this assignment form contains no
+			// expressions to be resolved.
 		} else if c, ok := d.(*DefLookup); ok {
 			errors = append(errors, r.resolveDefLookupInModule(module, c)...)
 		} else if c, ok := d.(*DefProperty); ok {
@@ -235,7 +361,11 @@ func (r *resolver) resolveVariableInModule(module string, global bool, expr *Var
 	// FIXME: handle qualified variable accesses
 	mid := r.env.Module(module)
 	// Attempt resolve as a column access in enclosing module
-	if _, ok := r.env.LookupColumn(mid, expr.Name); ok {
+	if cinfo, ok := r.env.LookupColumn(mid, expr.Name); ok {
+		ctx := tr.NewContext(mid, cinfo.multiplier)
+		// Register the binding to complete resolution.
+		expr.Binding = &Binder{true, ctx, cinfo.cid}
+		// Done
 		return nil
 	}
 	// Unable to resolve variable

@@ -130,10 +130,13 @@ func (p *Interleaving) Lisp(schema sc.Schema) sexp.SExp {
 	for _, src := range p.sources {
 		sources.Append(sexp.NewSymbol(sc.QualifiedName(schema, src)))
 	}
+	// Add datatype (if non-field)
+	datatype := sexp.NewSymbol(p.target.Type().String())
+	def := sexp.NewList([]sexp.SExp{target, datatype})
 	// Construct S-Expression
 	return sexp.NewList([]sexp.SExp{
-		sexp.NewSymbol("definterleaved"),
-		target,
+		sexp.NewSymbol("interleaved"),
+		def,
 		sources,
 	})
 }

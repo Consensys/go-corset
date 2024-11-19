@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/hir"
+	"github.com/consensys/go-corset/pkg/schema/assignment"
 	"github.com/consensys/go-corset/pkg/sexp"
 	tr "github.com/consensys/go-corset/pkg/trace"
 )
@@ -90,6 +91,8 @@ func (t *translator) translateDeclaration(decl Declaration, module uint) []Synta
 		errors = t.translateDefConstraint(d, module)
 	} else if d, ok := decl.(*DefInRange); ok {
 		errors = t.translateDefInRange(d, module)
+	} else if d, ok := decl.(*DefInterleaved); ok {
+		errors = t.translateDefInterleaved(d, module)
 	} else if d, ok := decl.(*DefLookup); ok {
 		errors = t.translateDefLookup(d, module)
 	} else if d, ok := decl.(*DefProperty); ok {
@@ -110,8 +113,8 @@ func (t *translator) translateDefColumns(decl *DefColumns, module uint) {
 		context := tr.NewContext(module, 1)
 		cid := t.schema.AddDataColumn(context, c.Name, c.DataType)
 		// Sanity check column identifier
-		if id := t.env.Column(module, c.Name); id != cid {
-			panic(fmt.Sprintf("invalid column identifier: %d vs %d", cid, id))
+		if info := t.env.Column(module, c.Name); info.cid != cid {
+			panic(fmt.Sprintf("invalid column identifier: %d vs %d", cid, info.cid))
 		}
 	}
 }
@@ -141,14 +144,16 @@ func (t *translator) translateDefConstraint(decl *DefConstraint, module uint) []
 // Translate a "deflookup" declaration.
 func (t *translator) translateDefLookup(decl *DefLookup, module uint) []SyntaxError {
 	// Translate source expressions
-	sources, errors := t.translateUnitExpressionsInModule(decl.Sources, module)
-	targets, errors := t.translateUnitExpressionsInModule(decl.Targets, module)
+	sources, src_errs := t.translateUnitExpressionsInModule(decl.Sources, module)
+	targets, tgt_errs := t.translateUnitExpressionsInModule(decl.Targets, module)
+	// Combine errors
+	errors := append(src_errs, tgt_errs...)
 	//
 	if len(errors) == 0 {
 		src_context := ContextOfExpressions(decl.Sources)
 		target_context := ContextOfExpressions(decl.Targets)
 		// Add translated constraint
-		t.schema.AddLookupConstraint("", src_context, target_context, sources, targets)
+		t.schema.AddLookupConstraint(decl.Handle, src_context, target_context, sources, targets)
 	}
 	// Done
 	return errors
@@ -166,6 +171,23 @@ func (t *translator) translateDefInRange(decl *DefInRange, module uint) []Syntax
 	}
 	// Done
 	return errors
+}
+
+// Translate a "definterleaved" declaration.
+func (t *translator) translateDefInterleaved(decl *DefInterleaved, module uint) []SyntaxError {
+	sources := make([]uint, len(decl.Sources))
+	// Lookup target column info
+	info := t.env.Column(module, decl.Target)
+	// Determine source column identifiers
+	for i, source := range decl.Sources {
+		sources[i] = t.env.Column(module, source).cid
+	}
+	// Construct context for this assignment
+	context := tr.NewContext(module, info.multiplier)
+	// Register assignment
+	t.schema.AddAssignment(assignment.NewInterleaving(context, decl.Target, sources, info.datatype))
+	// Done
+	return nil
 }
 
 // Translate a "defproperty" declaration.
@@ -204,8 +226,8 @@ func (t *translator) translateUnitExpressionsInModule(exprs []Expr, module uint)
 		if e != nil {
 			var errs []SyntaxError
 			expr, errs := t.translateExpressionInModule(e, module)
-			hirExprs[i] = hir.NewUnitExpr(expr)
 			errors = append(errors, errs...)
+			hirExprs[i] = hir.NewUnitExpr(expr)
 		}
 	}
 	// Done
@@ -256,8 +278,7 @@ func (t *translator) translateExpressionInModule(expr Expr, module uint) (hir.Ex
 		args, errs := t.translateExpressionsInModule(v.Args, module)
 		return &hir.Sub{Args: args}, errs
 	} else if e, ok := expr.(*VariableAccess); ok {
-		cid := t.env.Column(module, e.Name)
-		return &hir.ColumnAccess{Column: cid, Shift: e.Shift}, nil
+		return &hir.ColumnAccess{Column: e.Binding.Index, Shift: e.Shift}, nil
 	} else {
 		return nil, t.srcmap.SyntaxErrors(expr, "unknown expression")
 	}
