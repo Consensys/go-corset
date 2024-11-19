@@ -61,12 +61,12 @@ func (p *Environment) RegisterModule(module string) trace.Context {
 	return trace.NewContext(mid, 1)
 }
 
-// RegisterColumn registers a new column (input or assignment) within a given
-// module.  Observe that this will panic if the column already exists.
-// Furthermore, the column identifier is always determined as the next available
-// identifier.  Hence, care must be taken when declaring columns to ensure they
-// are allocated in the right order.
-func (p *Environment) RegisterColumn(context trace.Context, column string, datatype schema.Type) uint {
+// RegisterInputColumn registers a new input column within a given module.
+// Observe that this will panic if the column already exists. Furthermore, the
+// column identifier is always determined as the next available identifier.
+// Hence, care must be taken when declaring columns to ensure they are allocated
+// in the right order.
+func (p *Environment) RegisterInputColumn(context trace.Context, column string, datatype schema.Type) uint {
 	if p.HasColumn(context.Module(), column) {
 		panic(fmt.Sprintf("column %d:%s already exists", context.Module(), column))
 	}
@@ -76,6 +76,18 @@ func (p *Environment) RegisterColumn(context trace.Context, column string, datat
 	p.columns[cref] = ColumnInfo{cid, context.LengthMultiplier(), datatype}
 	// Done
 	return cid
+}
+
+// RegisterInitialAssignment makes an initial recording of the assignment, but
+// does not finalise all of the details yet (e.g. length multiplier and type).
+func (p *Environment) RegisterInitialAssignment(module uint, column string) {
+	panic("got here")
+}
+
+// IsAssignmentFinalised determines whether a given assignment has been
+// finalised yet, or not.
+func (p *Environment) IsAssignmentFinalised(module uint, column string) bool {
+	panic("got here")
 }
 
 // LookupModule determines the module index for a given named module, or return

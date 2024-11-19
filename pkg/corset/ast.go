@@ -33,12 +33,38 @@ type Node interface {
 	Lisp() sexp.SExp
 }
 
+// ColumnAssignment provides a schematic for describing a column arising from an
+// assignment.
+type ColumnAssignment struct {
+	// Name of defined column
+	Name string
+	// Length multiplier for defined column
+	LengthMultiplier uint
+	// Type of defined column
+	Type sc.Type
+}
+
 // Declaration represents a top-level declaration in a Corset source file (e.g.
 // defconstraint, defcolumns, etc).
 type Declaration interface {
 	Node
 	// Simple marker to indicate this is really a declaration.
 	IsDeclaration()
+}
+
+// Assignment is a declaration which introduces one (or more) computed columns.
+type Assignment interface {
+	Declaration
+
+	// Return the set of columns which are declared by this assignment.
+	Targets() []string
+
+	// Return the set of column assigments, or nil if the assignments cannot yet
+	// be determined (i.e. because the environment doesn't have complete
+	// information for one or more dependent columns).  This can also fail for
+	// other reasons, such as when two columns in an interleaving have different
+	// length multipliers.
+	Resolve(*Environment) ([]ColumnAssignment, []SyntaxError)
 }
 
 // DefColumns captures a set of one or more columns being declared.

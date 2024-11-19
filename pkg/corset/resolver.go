@@ -75,7 +75,7 @@ func (r *resolver) resolveColumns(circuit *Circuit) []SyntaxError {
 // to process all columns before we can sure that they are all declared
 // correctly.
 func (r *resolver) resolveColumnsInModule(module string, decls []Declaration) []SyntaxError {
-	alloc, errors := r.initialiseColumnAllocation(module, decls)
+	errors := r.initialiseColumnAssignments(module, decls)
 	// Check for any errors
 	if errors != nil {
 		return errors
@@ -83,7 +83,7 @@ func (r *resolver) resolveColumnsInModule(module string, decls []Declaration) []
 	// Iterate until all columns allocated.
 
 	// Finalise
-	errors = r.finaliseColumnsAllocation(module, decls, alloc)
+	errors = r.finaliseColumnsAssignments(module, decls)
 	return errors
 }
 
@@ -93,61 +93,96 @@ type colInfo struct {
 	datatype          sc.Type
 }
 
-// Initialise the column allocation from the definitions.
-func (r *resolver) initialiseColumnAllocation(module string, decls []Declaration) (map[string]colInfo, []SyntaxError) {
-	alloc := make(map[string]colInfo, 0)
+// Initialise the column allocation from the available declarations, whilst
+// identifying any duplicate declarations.  Observe that, for some declarations,
+// the initial assignment is incomplete because information about dependent
+// columns may not be available.  So, the goal of the subsequent phase is to
+// flesh out this missing information.
+func (r *resolver) initialiseColumnAssignments(module string, decls []Declaration) []SyntaxError {
 	errors := make([]SyntaxError, 0)
+	mid := r.env.Module(module)
 	//
 	for _, d := range decls {
 		if dcols, ok := d.(*DefColumns); ok {
 			// Found one.
 			for _, col := range dcols.Columns {
 				// Check whether column already exists
-				if _, ok := alloc[col.Name]; ok {
+				if _, ok := r.env.LookupColumn(mid, col.Name); ok {
 					err := r.srcmap.SyntaxError(col, fmt.Sprintf("column %s already declared in module %s", col.Name, module))
 					errors = append(errors, *err)
 				} else {
-					alloc[col.Name] = colInfo{dependencies: nil}
+					context := tr.NewContext(mid, col.LengthMultiplier)
+					r.env.RegisterInputColumn(context, col.Name, col.DataType)
 				}
 			}
-		} else if dinter, ok := d.(*DefInterleaved); ok {
-			if _, ok := alloc[dinter.Target]; ok {
-				err := r.srcmap.SyntaxError(dinter, fmt.Sprintf("column %s already declared in module %s", dinter.Target, module))
+		} else if col, ok := d.(*DefInterleaved); ok {
+			if _, ok := r.env.LookupColumn(mid, col.Target); ok {
+				err := r.srcmap.SyntaxError(col, fmt.Sprintf("column %s already declared in module %s", col.Target, module))
 				errors = append(errors, *err)
 			} else {
-				alloc[dinter.Target] = colInfo{dependencies: dinter.Sources}
+				// Register incomplete (assignment) column.
+				r.env.RegisterInitialAssignment(mid, col.Target)
 			}
 		}
 	}
 	// Done
-	return alloc, errors
+	return errors
 }
 
-// Finalising the columns in the module is important to ensure that they are
-// registered in the correct order.  This is because they must be registered in
-// the order of occurence.  We can assume that, once we get here, then there are
-// no errors with the column declarations.
-func (r *resolver) finaliseColumnsAllocation(module string, decls []Declaration, alloc map[string]colInfo) []SyntaxError {
+// Iterate the column allocation to a fix point by iteratively fleshing out column information.
+func (r *resolver) finaliseColumnAssignments(module string, decls []Declaration) []SyntaxError {
 	mid := r.env.Module(module)
-	// (1) register input columns.
-	for _, d := range decls {
-		// Look for defcolumns decalarations only
-		if dcols, ok := d.(*DefColumns); ok {
-			// Found one.
-			for _, col := range dcols.Columns {
-				context := tr.NewContext(mid, col.LengthMultiplier)
-				r.env.RegisterColumn(context, col.Name, col.DataType)
+	// Changed indicates whether or not a new assignment was finalised during a
+	// given iteration.  This is important to know since, if the assignment is
+	// not complete and we didn't finalise any more assignments --- then, we've
+	// reached a fixed point where the final assignment is incomplete (i.e.
+	// there is some error somewhere).
+	changed := true
+	// Complete tells us whether or not the assignment is complete.  The
+	// assignment is not complete if there it at least one declaration which is
+	// not yet finalised.
+	complete := false
+	// For an incomplete assignment, this identifies the last declaration that
+	// could not be finalised (i.e. as an example so we have at least one for
+	// error reporting).
+	var incomplete Node = nil
+	//
+	for changed && !complete {
+		changed = false
+		complete = true
+		//
+		for _, d := range decls {
+			if col, ok := d.(*DefInterleaved); ok {
+				// Check whether dependencies are resolved or not.
+				if r.columnAssignmentsAvailable(mid, col.Sources) {
+					panic("")
+				} else {
+					complete = false
+					incomplete = d
+				}
 			}
 		}
 	}
-	// (2) register assignments.
-	for _, d := range decls {
-		if dInterleave, ok := d.(*DefInterleaved); ok {
-			info := alloc[dInterleave.Target]
-			context := tr.NewContext(mid, info.length_multiplier)
-			r.env.RegisterColumn(context, dInterleave.Target, info.datatype)
+	// Check whether we actually finished the allocation.
+	if !complete {
+		// No, we didn't.  So, something is wrong --- assume it must be a cyclic
+		// definition for now.
+		err := r.srcmap.SyntaxError(incomplete, "declaration has cyclic definition")
+		return []SyntaxError{*err}
+	}
+	// Done
+	return nil
+}
+
+// Check whether all of these columns are fully resolved (or not).
+func (r *resolver) columnAssignmentsAvailable(module uint, sources []string) bool {
+	for _, col := range sources {
+		if !r.env.IsAssignmentFinalised(module, col) {
+			return false
 		}
 	}
+	//
+	return true
 }
 
 // Resolve all assignment declarations.   Managing these is slightly more
