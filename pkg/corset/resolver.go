@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/schema"
+	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/sexp"
 	tr "github.com/consensys/go-corset/pkg/trace"
 )
@@ -74,36 +75,52 @@ func (r *resolver) resolveColumns(circuit *Circuit) []SyntaxError {
 // to process all columns before we can sure that they are all declared
 // correctly.
 func (r *resolver) resolveColumnsInModule(module string, decls []Declaration) []SyntaxError {
-	errors := make([]SyntaxError, 0)
-	mid := r.env.Module(module)
-	//
-	for _, d := range decls {
-		// Look for defcolumns decalarations only
-		if dcols, ok := d.(*DefColumns); ok {
-			// Found one.
-			for _, col := range dcols.Columns {
-				if r.env.HasColumn(mid, col.Name) {
-					err := r.srcmap.SyntaxError(col, fmt.Sprintf("column %s already declared in module %s", col.Name, module))
-					errors = append(errors, *err)
-				} else {
-					context := tr.NewContext(mid, col.LengthMultiplier)
-					r.env.RegisterColumn(context, col.Name, col.DataType)
-				}
-			}
-		}
+	alloc, errors := r.initialiseColumnAllocation(module, decls)
+	// Check for any errors
+	if errors != nil {
+		return errors
 	}
-	//
+	// Iterate until all columns allocated.
+
+	// Finalise
+	errors = r.finaliseColumnsAllocation(module, decls, alloc)
 	return errors
 }
 
 type colInfo struct {
+	dependencies      []string
 	length_multiplier uint
-	datatype          schema.Type
+	datatype          sc.Type
 }
 
 // Initialise the column allocation from the definitions.
 func (r *resolver) initialiseColumnAllocation(module string, decls []Declaration) (map[string]colInfo, []SyntaxError) {
-	panic("TODO")
+	alloc := make(map[string]colInfo, 0)
+	errors := make([]SyntaxError, 0)
+	//
+	for _, d := range decls {
+		if dcols, ok := d.(*DefColumns); ok {
+			// Found one.
+			for _, col := range dcols.Columns {
+				// Check whether column already exists
+				if _, ok := alloc[col.Name]; ok {
+					err := r.srcmap.SyntaxError(col, fmt.Sprintf("column %s already declared in module %s", col.Name, module))
+					errors = append(errors, *err)
+				} else {
+					alloc[col.Name] = colInfo{dependencies: nil}
+				}
+			}
+		} else if dinter, ok := d.(*DefInterleaved); ok {
+			if _, ok := alloc[dinter.Target]; ok {
+				err := r.srcmap.SyntaxError(dinter, fmt.Sprintf("column %s already declared in module %s", dinter.Target, module))
+				errors = append(errors, *err)
+			} else {
+				alloc[dinter.Target] = colInfo{dependencies: dinter.Sources}
+			}
+		}
+	}
+	// Done
+	return alloc, errors
 }
 
 // Finalising the columns in the module is important to ensure that they are
