@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/schema"
-	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/sexp"
 	tr "github.com/consensys/go-corset/pkg/trace"
 )
@@ -75,22 +74,15 @@ func (r *resolver) resolveColumns(circuit *Circuit) []SyntaxError {
 // to process all columns before we can sure that they are all declared
 // correctly.
 func (r *resolver) resolveColumnsInModule(module string, decls []Declaration) []SyntaxError {
+	// FIXME: the following is actually broken since we must allocate all input
+	// columns in all modules before any assignments are preregistered.
 	errors := r.initialiseColumnAssignments(module, decls)
 	// Check for any errors
-	if errors != nil {
+	if len(errors) > 0 {
 		return errors
 	}
-	// Iterate until all columns allocated.
-
-	// Finalise
-	errors = r.finaliseColumnsAssignments(module, decls)
-	return errors
-}
-
-type colInfo struct {
-	dependencies      []string
-	length_multiplier uint
-	datatype          sc.Type
+	// Iterate until all columns finalised
+	return r.finaliseColumnAssignments(module, decls)
 }
 
 // Initialise the column allocation from the available declarations, whilst
@@ -112,7 +104,7 @@ func (r *resolver) initialiseColumnAssignments(module string, decls []Declaratio
 					errors = append(errors, *err)
 				} else {
 					context := tr.NewContext(mid, col.LengthMultiplier)
-					r.env.RegisterInputColumn(context, col.Name, col.DataType)
+					r.env.RegisterColumn(context, col.Name, col.DataType)
 				}
 			}
 		} else if col, ok := d.(*DefInterleaved); ok {
@@ -121,7 +113,7 @@ func (r *resolver) initialiseColumnAssignments(module string, decls []Declaratio
 				errors = append(errors, *err)
 			} else {
 				// Register incomplete (assignment) column.
-				r.env.RegisterInitialAssignment(mid, col.Target)
+				r.env.PreRegisterColumn(mid, col.Target)
 			}
 		}
 	}
@@ -148,6 +140,7 @@ func (r *resolver) finaliseColumnAssignments(module string, decls []Declaration)
 	var incomplete Node = nil
 	//
 	for changed && !complete {
+		errors := make([]SyntaxError, 0)
 		changed = false
 		complete = true
 		//
@@ -155,12 +148,20 @@ func (r *resolver) finaliseColumnAssignments(module string, decls []Declaration)
 			if col, ok := d.(*DefInterleaved); ok {
 				// Check whether dependencies are resolved or not.
 				if r.columnAssignmentsAvailable(mid, col.Sources) {
-					panic("")
+					// Finalise assignment and handle any errors
+					errs := r.finaliseInterleavedAssignment(mid, col)
+					errors = append(errors, errs...)
+					// Record that a new assignment is available.
+					changed = changed || len(errs) == 0
 				} else {
 					complete = false
 					incomplete = d
 				}
 			}
+		}
+		// Sanity check for any errors caught during this iteration.
+		if len(errors) > 0 {
+			return errors
 		}
 	}
 	// Check whether we actually finished the allocation.
@@ -177,7 +178,7 @@ func (r *resolver) finaliseColumnAssignments(module string, decls []Declaration)
 // Check whether all of these columns are fully resolved (or not).
 func (r *resolver) columnAssignmentsAvailable(module uint, sources []string) bool {
 	for _, col := range sources {
-		if !r.env.IsAssignmentFinalised(module, col) {
+		if !r.env.IsColumnFinalised(module, col) {
 			return false
 		}
 	}
@@ -185,86 +186,46 @@ func (r *resolver) columnAssignmentsAvailable(module uint, sources []string) boo
 	return true
 }
 
-// Resolve all assignment declarations.   Managing these is slightly more
-// complex than for input columns, since they can depend upon each other.
-// Furthermore, information about their form is not always clear from the
-// declaration itself (e.g. the type of an interleaved column is determined by
-// the types of its source columns, etc).
-func (r *resolver) resolveAssignmentsInModule(module string, decls []Declaration) []SyntaxError {
-	changed := true
-	errors := make([]SyntaxError, 0)
-	done := make(map[Declaration]bool, 0)
-	// Keep going until no new assignments can be resolved.
-	for changed {
-		changed = false
-		// Discard any previously generated errors and repeat.
-		errors = make([]SyntaxError, 0)
-		// Reconsider all outstanding assignments.
-		for _, d := range decls {
-			if dInterleave, ok := d.(*DefInterleaved); ok && !done[d] {
-				if errs := r.resolveInterleavedAssignment(module, dInterleave); errs == nil {
-					// Mark assignment as done, so we never visit it again.
-					done[d] = true
-					changed = true
-				} else {
-					// Combine errors
-					errors = append(errors, errs...)
-				}
-			}
-		}
-	}
-	//
-	return errors
-}
-
-// Resolve an interleaving assignment.  This means: (1) checking that the
-// relevant column was not already defined; (2) that the source columns have
-// been defined.  If there are no problems here, then we register it after
-// determining its type and length multiplier.
-func (r *resolver) resolveInterleavedAssignment(module string, decl *DefInterleaved) []SyntaxError {
+// Finalise an interleaving assignment.  Since the assignment would already been
+// initialised, all we need to do is determine the appropriate type and length
+// multiplier for the interleaved column.  This can still result in an error,
+// for example, if the multipliers between interleaved columns are incompatible,
+// etc.
+func (r *resolver) finaliseInterleavedAssignment(module uint, decl *DefInterleaved) []SyntaxError {
 	var (
+		// Length multiplier being determined
 		length_multiplier uint
-		datatype          schema.Type
-		errors            []SyntaxError
+		// Column type being determined
+		datatype schema.Type
+		// Errors discovered
+		errors []SyntaxError
 	)
-	// Determine enclosing module identifier
-	mid := r.env.Module(module)
-	// Check target column does not exist
-	if _, ok := r.env.LookupColumn(mid, decl.Target); ok {
-		errors = r.srcmap.SyntaxErrors(decl, fmt.Sprintf("column %s already declared in module %s", decl.Target, module))
-	}
-	// Check source columns do exist, whilst determining the type and length multiplier
+	// Determine type and length multiplier
 	for i, source := range decl.Sources {
-		// Check whether column exists or not.
-		if info, ok := r.env.LookupColumn(mid, source); ok {
-			if i == 0 {
-				length_multiplier = info.multiplier
-				datatype = info.datatype
-			} else if info.multiplier != length_multiplier {
-				// Columns to be interleaved must have the same length multiplier.
-				err := r.srcmap.SyntaxError(decl, fmt.Sprintf("source column %s has incompatible length multiplier", source))
-				errors = append(errors, *err)
-			}
-			// Combine datatypes.
-			datatype = schema.Join(datatype, info.datatype)
-		} else {
-			// Column does not exist!
-			err := r.srcmap.SyntaxError(decl, fmt.Sprintf("unknown column %s in module %s", decl.Target, module))
+		// Lookup info of column being interleaved.
+		info := r.env.Column(module, source)
+		if i == 0 {
+			length_multiplier = info.multiplier
+			datatype = info.datatype
+		} else if info.multiplier != length_multiplier {
+			// Columns to be interleaved must have the same length multiplier.
+			err := r.srcmap.SyntaxError(decl, fmt.Sprintf("source column %s has incompatible length multiplier", source))
 			errors = append(errors, *err)
 		}
+		// Combine datatypes.
+		datatype = schema.Join(datatype, info.datatype)
 	}
-	//
-	if errors != nil {
-		return errors
+	// Finalise details only if no errors
+	if len(errors) == 0 {
+		// Determine actual length multiplier
+		length_multiplier *= uint(len(decl.Sources))
+		// Construct context for this column
+		context := tr.NewContext(module, length_multiplier)
+		// Finalise column registration
+		r.env.FinaliseColumn(context, decl.Target, datatype)
 	}
-	// Determine actual length multiplier
-	length_multiplier *= uint(len(decl.Sources))
-	// Construct context for this column
-	context := tr.NewContext(mid, length_multiplier)
-	// Register new column
-	r.env.RegisterColumn(context, decl.Target, datatype)
 	// Done
-	return nil
+	return errors
 }
 
 // Examine each constraint and attempt to resolve any variables used within

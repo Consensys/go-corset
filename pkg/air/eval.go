@@ -1,8 +1,6 @@
 package air
 
 import (
-	"fmt"
-
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/trace"
 )
@@ -11,7 +9,6 @@ import (
 // value at that row of the column in question or nil is that row is
 // out-of-bounds.
 func (e *ColumnAccess) EvalAt(k int, tr trace.Trace) fr.Element {
-	fmt.Printf("Evaluating column %d[%d+%d] => %s\n", e.Column, k, e.Shift, tr.Column(e.Column).Get(k+e.Shift))
 	return tr.Column(e.Column).Get(k + e.Shift)
 }
 

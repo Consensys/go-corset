@@ -102,6 +102,8 @@ func addInterleavedComputation(c *jsonInterleavedComputation, index uint,
 		// Update the column type
 		dst_type = sc.Join(dst_type, src_col.Type())
 	}
+	// Update multiplier
+	ctx = ctx.Multiply(uint(len(sources)))
 	// Finally, add the sorted permutation assignment
 	schema.AddAssignment(assignment.NewInterleaving(ctx, dst_hnd.column, sources, dst_type))
 	// Update allocation information.

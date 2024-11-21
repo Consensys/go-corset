@@ -133,7 +133,7 @@ func (t *translator) translateDefConstraint(decl *DefConstraint, module uint) []
 	}
 	//
 	if len(errors) == 0 {
-		context := tr.NewContext(module, 1)
+		context := constraint.Context(t.schema)
 		// Add translated constraint
 		t.schema.AddVanishingConstraint(decl.Handle, context, decl.Domain, constraint)
 	}

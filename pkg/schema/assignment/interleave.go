@@ -1,6 +1,8 @@
 package assignment
 
 import (
+	"fmt"
+
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/sexp"
 	tr "github.com/consensys/go-corset/pkg/trace"
@@ -20,8 +22,10 @@ type Interleaving struct {
 
 // NewInterleaving constructs a new interleaving assignment.
 func NewInterleaving(context tr.Context, name string, sources []uint, datatype sc.Type) *Interleaving {
-	// Update multiplier
-	context = context.Multiply(uint(len(sources)))
+	if context.LengthMultiplier()%uint(len(sources)) != 0 {
+		panic(fmt.Sprintf("length multiplier (%d) for column %s not divisible by number of columns (%d)",
+			context.LengthMultiplier(), name, len(sources)))
+	}
 	// Fixme: determine interleaving type
 	target := sc.NewColumn(context, name, datatype)
 
@@ -132,7 +136,8 @@ func (p *Interleaving) Lisp(schema sc.Schema) sexp.SExp {
 	}
 	// Add datatype (if non-field)
 	datatype := sexp.NewSymbol(p.target.Type().String())
-	def := sexp.NewList([]sexp.SExp{target, datatype})
+	multiplier := sexp.NewSymbol(fmt.Sprintf("x%d", p.target.Context().LengthMultiplier()))
+	def := sexp.NewList([]sexp.SExp{target, datatype, multiplier})
 	// Construct S-Expression
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("interleaved"),
