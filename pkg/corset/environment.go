@@ -19,7 +19,8 @@ type colRef struct {
 	column string
 }
 
-// Packages up information about a declared column (either input or assignment).
+// ColumnInfo packages up information about a declared column (either input or
+// assignment).
 type ColumnInfo struct {
 	// Column index
 	cid uint

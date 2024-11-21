@@ -54,6 +54,8 @@ func NewSourceMaps[T comparable]() *SourceMaps[T] {
 
 // SyntaxError constructs a syntax error for a given node contained within one
 // of the source files managed by this set of source maps.
+//
+//nolint:revive
 func (p *SourceMaps[T]) SyntaxError(node T, msg string) *SyntaxError {
 	for _, m := range p.maps {
 		if m.Has(node) {

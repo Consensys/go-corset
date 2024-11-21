@@ -157,6 +157,8 @@ func (p *Translator[T]) AddSymbolRule(t SymbolRule[T]) {
 }
 
 // SyntaxError constructs a suitable syntax error for a given S-Expression.
+//
+//nolint:revive
 func (p *Translator[T]) SyntaxError(s SExp, msg string) *SyntaxError {
 	// Get span of enclosing list
 	span := p.old_srcmap.Get(s)

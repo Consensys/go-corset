@@ -365,14 +365,17 @@ func (p *Parser) parseLookupDeclaration(elements []sexp.SExp) (*DefLookup, *Synt
 	if sexpTargets.Len() != sexpSources.Len() {
 		return nil, p.translator.SyntaxError(elements[3], "incorrect number of columns")
 	}
+
 	sources := make([]Expr, sexpSources.Len())
 	targets := make([]Expr, sexpTargets.Len())
 	// Translate source & target expressions
 	for i := 0; i < sexpTargets.Len(); i++ {
 		var err *SyntaxError
+		// Translate source expressions
 		if sources[i], err = p.translator.Translate(sexpSources.Get(i)); err != nil {
 			return nil, err
 		}
+		// Translate target expressions
 		if targets[i], err = p.translator.Translate(sexpTargets.Get(i)); err != nil {
 			return nil, err
 		}

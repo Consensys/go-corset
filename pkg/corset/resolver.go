@@ -17,9 +17,9 @@ import (
 func ResolveCircuit(srcmap *sexp.SourceMaps[Node], circuit *Circuit) (*Environment, []SyntaxError) {
 	r := resolver{EmptyEnvironment(), srcmap}
 	// Allocate declared modules
-	errs := r.resolveModules(circuit)
+	r.resolveModules(circuit)
 	// Allocate declared input columns
-	errs = append(errs, r.resolveColumns(circuit)...)
+	errs := r.resolveColumns(circuit)
 	// Check expressions
 	errs = append(errs, r.resolveConstraints(circuit)...)
 	// Done
@@ -42,26 +42,35 @@ type resolver struct {
 // If any duplicates are found, one or more errors will be reported.  Note: it
 // is important that this traverses the modules in an identical order to the
 // translator.  This is to ensure that the relevant module identifiers line up.
-func (r *resolver) resolveModules(circuit *Circuit) []SyntaxError {
+func (r *resolver) resolveModules(circuit *Circuit) {
 	// Register the root module (which should always exist)
 	r.env.RegisterModule("")
 	//
 	for _, m := range circuit.Modules {
 		r.env.RegisterModule(m.Name)
 	}
-	// Done
-	return nil
 }
 
 // Process all input column or column assignment declarations.
 func (r *resolver) resolveColumns(circuit *Circuit) []SyntaxError {
+	// Allocate input columns first.  These must all be done before any
+	// assignments are allocated, since the hir.Schema separates these out.
+	ierrs := r.resolveInputColumns(circuit)
+	// Now we can resolve any assignments.
+	aerrs := r.resolveAssignments(circuit)
+	//
+	return append(ierrs, aerrs...)
+}
+
+// Process all input column declarations.
+func (r *resolver) resolveInputColumns(circuit *Circuit) []SyntaxError {
 	// Input columns must be allocated before assignemts, since the hir.Schema
 	// separates these out.
-	errs := r.resolveColumnsInModule("", circuit.Declarations)
+	errs := r.resolveInputColumnsInModule("", circuit.Declarations)
 	//
 	for _, m := range circuit.Modules {
 		// Process all declarations in the module
-		merrs := r.resolveColumnsInModule(m.Name, m.Declarations)
+		merrs := r.resolveInputColumnsInModule(m.Name, m.Declarations)
 		// Package up all errors
 		errs = append(errs, merrs...)
 	}
@@ -69,28 +78,8 @@ func (r *resolver) resolveColumns(circuit *Circuit) []SyntaxError {
 	return errs
 }
 
-// Resolve all columns declared in a given module.  This is tricky because
-// assignments can depend on the declaration of other columns.  Hence, we have
-// to process all columns before we can sure that they are all declared
-// correctly.
-func (r *resolver) resolveColumnsInModule(module string, decls []Declaration) []SyntaxError {
-	// FIXME: the following is actually broken since we must allocate all input
-	// columns in all modules before any assignments are preregistered.
-	errors := r.initialiseColumnAssignments(module, decls)
-	// Check for any errors
-	if len(errors) > 0 {
-		return errors
-	}
-	// Iterate until all columns finalised
-	return r.finaliseColumnAssignments(module, decls)
-}
-
-// Initialise the column allocation from the available declarations, whilst
-// identifying any duplicate declarations.  Observe that, for some declarations,
-// the initial assignment is incomplete because information about dependent
-// columns may not be available.  So, the goal of the subsequent phase is to
-// flesh out this missing information.
-func (r *resolver) initialiseColumnAssignments(module string, decls []Declaration) []SyntaxError {
+// Resolve all input columns in a given module.
+func (r *resolver) resolveInputColumnsInModule(module string, decls []Declaration) []SyntaxError {
 	errors := make([]SyntaxError, 0)
 	mid := r.env.Module(module)
 	//
@@ -107,7 +96,57 @@ func (r *resolver) initialiseColumnAssignments(module string, decls []Declaratio
 					r.env.RegisterColumn(context, col.Name, col.DataType)
 				}
 			}
-		} else if col, ok := d.(*DefInterleaved); ok {
+		}
+	}
+	// Done
+	return errors
+}
+
+// Process all assignment column declarations.  These are more complex than for
+// input columns, since there can be dependencies between them.  Thus, we cannot
+// simply resolve them in one linear scan.
+func (r *resolver) resolveAssignments(circuit *Circuit) []SyntaxError {
+	// Input columns must be allocated before assignemts, since the hir.Schema
+	// separates these out.
+	errs := r.resolveAssignmentsInModule("", circuit.Declarations)
+	//
+	for _, m := range circuit.Modules {
+		// Process all declarations in the module
+		merrs := r.resolveAssignmentsInModule(m.Name, m.Declarations)
+		// Package up all errors
+		errs = append(errs, merrs...)
+	}
+	//
+	return errs
+}
+
+// Resolve all columns declared in a given module.  This is tricky because
+// assignments can depend on the declaration of other columns.  Hence, we have
+// to process all columns before we can sure that they are all declared
+// correctly.
+func (r *resolver) resolveAssignmentsInModule(module string, decls []Declaration) []SyntaxError {
+	// FIXME: the following is actually broken since we must allocate all input
+	// columns in all modules before any assignments are preregistered.
+	errors := r.initialiseAssignmentsInModule(module, decls)
+	// Check for any errors
+	if len(errors) > 0 {
+		return errors
+	}
+	// Iterate until all columns finalised
+	return r.finaliseAssignmentsInModule(module, decls)
+}
+
+// Initialise the column allocation from the available declarations, whilst
+// identifying any duplicate declarations.  Observe that, for some declarations,
+// the initial assignment is incomplete because information about dependent
+// columns may not be available.  So, the goal of the subsequent phase is to
+// flesh out this missing information.
+func (r *resolver) initialiseAssignmentsInModule(module string, decls []Declaration) []SyntaxError {
+	errors := make([]SyntaxError, 0)
+	mid := r.env.Module(module)
+	//
+	for _, d := range decls {
+		if col, ok := d.(*DefInterleaved); ok {
 			if _, ok := r.env.LookupColumn(mid, col.Target); ok {
 				err := r.srcmap.SyntaxError(col, fmt.Sprintf("column %s already declared in module %s", col.Target, module))
 				errors = append(errors, *err)
@@ -122,7 +161,7 @@ func (r *resolver) initialiseColumnAssignments(module string, decls []Declaratio
 }
 
 // Iterate the column allocation to a fix point by iteratively fleshing out column information.
-func (r *resolver) finaliseColumnAssignments(module string, decls []Declaration) []SyntaxError {
+func (r *resolver) finaliseAssignmentsInModule(module string, decls []Declaration) []SyntaxError {
 	mid := r.env.Module(module)
 	// Changed indicates whether or not a new assignment was finalised during a
 	// given iteration.  This is important to know since, if the assignment is
@@ -168,7 +207,7 @@ func (r *resolver) finaliseColumnAssignments(module string, decls []Declaration)
 	if !complete {
 		// No, we didn't.  So, something is wrong --- assume it must be a cyclic
 		// definition for now.
-		err := r.srcmap.SyntaxError(incomplete, "declaration has cyclic definition")
+		err := r.srcmap.SyntaxError(incomplete, "cyclic declaration")
 		return []SyntaxError{*err}
 	}
 	// Done

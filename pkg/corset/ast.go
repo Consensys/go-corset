@@ -59,7 +59,7 @@ type Assignment interface {
 	// Return the set of columns which are declared by this assignment.
 	Targets() []string
 
-	// Return the set of column assigments, or nil if the assignments cannot yet
+	// Return the set of column assignments, or nil if the assignments cannot yet
 	// be determined (i.e. because the environment doesn't have complete
 	// information for one or more dependent columns).  This can also fail for
 	// other reasons, such as when two columns in an interleaving have different
@@ -162,7 +162,7 @@ func (p *DefInRange) Lisp() sexp.SExp {
 // Z=[1,3,2,4].  All columns must be defined within the same context.  Finally,
 // the type of the interleaved column is the widest type of any source columns.
 // For example, consider an interleaving of two columns X and Y with types i16
-// and i8 repsectively.  Then, the type of the resulting column is i16 (as this
+// and i8 respectively.  Then, the type of the resulting column is i16 (as this
 // is required to hold an element from any source column).
 type DefInterleaved struct {
 	// The target column being defined
