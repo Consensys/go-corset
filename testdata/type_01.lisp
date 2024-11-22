@@ -1,4 +1,4 @@
 (defcolumns
-  (X1 :u1)
-  (X4 :u4)
-  (X8 :u8))
+  (X1 :i1@prove)
+  (X4 :i4@prove)
+  (X8 :i8@prove))

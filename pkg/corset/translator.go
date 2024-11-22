@@ -92,9 +92,13 @@ func (t *translator) translateDefColumns(decl *DefColumns, module uint) []Syntax
 	var errors []SyntaxError
 	// Add each column to schema
 	for _, c := range decl.Columns {
-		// FIXME: support user-defined length multiplier
-		context := tr.NewContext(module, 1)
+		context := tr.NewContext(module, c.LengthMultiplier)
 		cid := t.schema.AddDataColumn(context, c.Name, c.DataType)
+		// Prove type (if requested)
+		if c.MustProve {
+			bound := c.DataType.AsUint().Bound()
+			t.schema.AddRangeConstraint(c.Name, context, &hir.ColumnAccess{Column: cid, Shift: 0}, bound)
+		}
 		// Sanity check column identifier
 		if info := t.env.Column(module, c.Name); info.cid != cid {
 			errors = append(errors, *t.srcmap.SyntaxError(c, "invalid column identifier"))

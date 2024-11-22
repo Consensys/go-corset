@@ -1,81 +1,85 @@
+(module bin)
+
 (defcolumns
-  (bin:BYTE_5 :u8)
-  (bin:ARGUMENT_1_LO)
-  (bin:ACC_5)
-  (bin:PIVOT :u8)
-  (bin:ARGUMENT_1_HI)
-  (bin:SMALL :u1)
-  (bin:IS_OR :u1)
-  (bin:BYTE_4 :u8)
-  (bin:XXX_BYTE_HI :u8)
-  (bin:ACC_3)
-  (bin:XXX_BYTE_LO :u8)
-  (bin:MLI :u1)
-  (bin:LOW_4 :u8)
-  (bin:BYTE_3 :u8)
-  (bin:BIT_B_4 :u1)
-  (bin:RESULT_LO)
-  (bin:ACC_1)
-  (bin:IS_SIGNEXTEND :u1)
-  (bin:IS_NOT :u1)
-  (bin:ACC_6)
-  (bin:BITS :u1)
-  (bin:BIT_1 :u1)
-  (bin:ARGUMENT_2_LO)
-  (bin:IS_BYTE :u1)
-  (bin:ACC_4)
-  (bin:ONE_LINE_INSTRUCTION :u1)
-  (bin:COUNTER :u8)
-  (bin:ACC_2)
-  (bin:RESULT_HI)
-  (bin:NEG :u1)
-  (bin:BYTE_2 :u8)
-  (bin:INST :u8)
-  (bin:ARGUMENT_2_HI)
-  (bin:BYTE_1 :u8)
-  (bin:IS_AND :u1)
-  (bin:BYTE_6 :u8)
-  (bin:STAMP)
-  (bin:IS_XOR :u1))
+  STAMP
+  (ONE_LINE_INSTRUCTION :binary)
+  (MLI :binary)
+  (COUNTER :byte)
+  (INST :byte)
+  ARGUMENT_1_HI
+  ARGUMENT_1_LO
+  ARGUMENT_2_HI
+  ARGUMENT_2_LO
+  RESULT_HI
+  RESULT_LO
+  (IS_AND :binary)
+  (IS_OR :binary)
+  (IS_XOR :binary)
+  (IS_NOT :binary)
+  (IS_BYTE :binary)
+  (IS_SIGNEXTEND :binary)
+  (SMALL :binary)
+  (BITS :binary)
+  (BIT_B_4 :binary)
+  (LOW_4 :byte)
+  (NEG :binary)
+  (BIT_1 :binary)
+  (PIVOT :byte)
+  (BYTE_1 :byte)
+  (BYTE_2 :byte)
+  (BYTE_3 :byte)
+  (BYTE_4 :byte)
+  (BYTE_5 :byte)
+  (BYTE_6 :byte)
+  ACC_1
+  ACC_2
+  ACC_3
+  ACC_4
+  ACC_5
+  ACC_6
+  ;; decoded bytes:
+  (XXX_BYTE_HI :byte)
+  (XXX_BYTE_LO :byte))
 
-(defconstraint bin:byte_decompositions () (begin (if bin:COUNTER (- bin:ACC_1 bin:BYTE_1) (- bin:ACC_1 (+ (* 256 (shift bin:ACC_1 -1)) bin:BYTE_1))) (if bin:COUNTER (- bin:ACC_2 bin:BYTE_2) (- bin:ACC_2 (+ (* 256 (shift bin:ACC_2 -1)) bin:BYTE_2))) (if bin:COUNTER (- bin:ACC_3 bin:BYTE_3) (- bin:ACC_3 (+ (* 256 (shift bin:ACC_3 -1)) bin:BYTE_3))) (if bin:COUNTER (- bin:ACC_4 bin:BYTE_4) (- bin:ACC_4 (+ (* 256 (shift bin:ACC_4 -1)) bin:BYTE_4))) (if bin:COUNTER (- bin:ACC_5 bin:BYTE_5) (- bin:ACC_5 (+ (* 256 (shift bin:ACC_5 -1)) bin:BYTE_5))) (if bin:COUNTER (- bin:ACC_6 bin:BYTE_6) (- bin:ACC_6 (+ (* 256 (shift bin:ACC_6 -1)) bin:BYTE_6)))))
 
-(defconstraint bin:bits-and-related () (if (- bin:COUNTER 15) (begin (- bin:PIVOT (+ (* 128 (shift bin:BITS -15)) (* 64 (shift bin:BITS -14)) (* 32 (shift bin:BITS -13)) (* 16 (shift bin:BITS -12)) (* 8 (shift bin:BITS -11)) (* 4 (shift bin:BITS -10)) (* 2 (shift bin:BITS -9)) (shift bin:BITS -8))) (- bin:BYTE_2 (+ (* 128 (shift bin:BITS -7)) (* 64 (shift bin:BITS -6)) (* 32 (shift bin:BITS -5)) (* 16 (shift bin:BITS -4)) (* 8 (shift bin:BITS -3)) (* 4 (shift bin:BITS -2)) (* 2 (shift bin:BITS -1)) bin:BITS)) (- bin:LOW_4 (+ (* 8 (shift bin:BITS -3)) (* 4 (shift bin:BITS -2)) (* 2 (shift bin:BITS -1)) bin:BITS)) (- bin:BIT_B_4 (shift bin:BITS -4)) (- bin:NEG (shift bin:BITS -15)))))
+(defconstraint byte_decompositions () (begin (if COUNTER (- ACC_1 BYTE_1) (- ACC_1 (+ (* 256 (shift ACC_1 -1)) BYTE_1))) (if COUNTER (- ACC_2 BYTE_2) (- ACC_2 (+ (* 256 (shift ACC_2 -1)) BYTE_2))) (if COUNTER (- ACC_3 BYTE_3) (- ACC_3 (+ (* 256 (shift ACC_3 -1)) BYTE_3))) (if COUNTER (- ACC_4 BYTE_4) (- ACC_4 (+ (* 256 (shift ACC_4 -1)) BYTE_4))) (if COUNTER (- ACC_5 BYTE_5) (- ACC_5 (+ (* 256 (shift ACC_5 -1)) BYTE_5))) (if COUNTER (- ACC_6 BYTE_6) (- ACC_6 (+ (* 256 (shift ACC_6 -1)) BYTE_6)))))
 
-(defconstraint bin:pivot () (ifnot bin:MLI (begin (ifnot bin:IS_BYTE (if bin:LOW_4 (if bin:COUNTER (if bin:BIT_B_4 (- bin:PIVOT bin:BYTE_3) (- bin:PIVOT bin:BYTE_4))) (if (+ (shift bin:BIT_1 -1) (- 1 bin:BIT_1)) (if bin:BIT_B_4 (- bin:PIVOT bin:BYTE_3) (- bin:PIVOT bin:BYTE_4))))) (ifnot bin:IS_SIGNEXTEND (if (- bin:LOW_4 15) (if bin:COUNTER (if bin:BIT_B_4 (- bin:PIVOT bin:BYTE_4) (- bin:PIVOT bin:BYTE_3))) (if (+ (shift bin:BIT_1 -1) (- 1 bin:BIT_1)) (if bin:BIT_B_4 (- bin:PIVOT bin:BYTE_4) (- bin:PIVOT bin:BYTE_3))))))))
+(defconstraint bits-and-related () (if (- COUNTER 15) (begin (- PIVOT (+ (* 128 (shift BITS -15)) (* 64 (shift BITS -14)) (* 32 (shift BITS -13)) (* 16 (shift BITS -12)) (* 8 (shift BITS -11)) (* 4 (shift BITS -10)) (* 2 (shift BITS -9)) (shift BITS -8))) (- BYTE_2 (+ (* 128 (shift BITS -7)) (* 64 (shift BITS -6)) (* 32 (shift BITS -5)) (* 16 (shift BITS -4)) (* 8 (shift BITS -3)) (* 4 (shift BITS -2)) (* 2 (shift BITS -1)) BITS)) (- LOW_4 (+ (* 8 (shift BITS -3)) (* 4 (shift BITS -2)) (* 2 (shift BITS -1)) BITS)) (- BIT_B_4 (shift BITS -4)) (- NEG (shift BITS -15)))))
 
-(defconstraint bin:bit_1 () (begin (if (- bin:IS_BYTE 1) (begin (if bin:LOW_4 (- bin:BIT_1 1) (if (- bin:COUNTER 0) bin:BIT_1 (if (- bin:COUNTER bin:LOW_4) (- bin:BIT_1 (+ (shift bin:BIT_1 -1) 1)) (- bin:BIT_1 (shift bin:BIT_1 -1))))))) (if (- bin:IS_SIGNEXTEND 1) (begin (if (- 15 bin:LOW_4) (- bin:BIT_1 1) (if (- bin:COUNTER 0) bin:BIT_1 (if (- bin:COUNTER (- 15 bin:LOW_4)) (- bin:BIT_1 (+ (shift bin:BIT_1 -1) 1)) (- bin:BIT_1 (shift bin:BIT_1 -1)))))))))
+(defconstraint pivot () (if MLI 0 (begin (if IS_BYTE 0 (if LOW_4 (if COUNTER (if BIT_B_4 (- PIVOT BYTE_3) (- PIVOT BYTE_4))) (if (+ (shift BIT_1 -1) (- 1 BIT_1)) (if BIT_B_4 (- PIVOT BYTE_3) (- PIVOT BYTE_4))))) (if IS_SIGNEXTEND 0 (if (- LOW_4 15) (if COUNTER (if BIT_B_4 (- PIVOT BYTE_4) (- PIVOT BYTE_3))) (if (+ (shift BIT_1 -1) (- 1 BIT_1)) (if BIT_B_4 (- PIVOT BYTE_4) (- PIVOT BYTE_3))))))))
 
-(defconstraint bin:binary_constraints () (begin (* bin:IS_AND (- 1 bin:IS_AND)) (* bin:IS_OR (- 1 bin:IS_OR)) (* bin:IS_XOR (- 1 bin:IS_XOR)) (* bin:IS_NOT (- 1 bin:IS_NOT)) (* bin:IS_BYTE (- 1 bin:IS_BYTE)) (* bin:IS_SIGNEXTEND (- 1 bin:IS_SIGNEXTEND)) (* bin:SMALL (- 1 bin:SMALL)) (* bin:BITS (- 1 bin:BITS)) (* bin:NEG (- 1 bin:NEG)) (* bin:BIT_B_4 (- 1 bin:BIT_B_4)) (* bin:BIT_1 (- 1 bin:BIT_1))))
+(defconstraint bit_1 () (begin (if (- IS_BYTE 1) (begin (if LOW_4 (- BIT_1 1) (if (- COUNTER 0) BIT_1 (if (- COUNTER LOW_4) (- BIT_1 (+ (shift BIT_1 -1) 1)) (- BIT_1 (shift BIT_1 -1))))))) (if (- IS_SIGNEXTEND 1) (begin (if (- 15 LOW_4) (- BIT_1 1) (if (- COUNTER 0) BIT_1 (if (- COUNTER (- 15 LOW_4)) (- BIT_1 (+ (shift BIT_1 -1) 1)) (- BIT_1 (shift BIT_1 -1)))))))))
 
-(defconstraint bin:counter-constancies () (begin (ifnot bin:COUNTER (- bin:ARGUMENT_1_HI (shift bin:ARGUMENT_1_HI -1))) (ifnot bin:COUNTER (- bin:ARGUMENT_1_LO (shift bin:ARGUMENT_1_LO -1))) (ifnot bin:COUNTER (- bin:ARGUMENT_2_HI (shift bin:ARGUMENT_2_HI -1))) (ifnot bin:COUNTER (- bin:ARGUMENT_2_LO (shift bin:ARGUMENT_2_LO -1))) (ifnot bin:COUNTER (- bin:RESULT_HI (shift bin:RESULT_HI -1))) (ifnot bin:COUNTER (- bin:RESULT_LO (shift bin:RESULT_LO -1))) (ifnot bin:COUNTER (- bin:INST (shift bin:INST -1))) (ifnot bin:COUNTER (- bin:PIVOT (shift bin:PIVOT -1))) (ifnot bin:COUNTER (- bin:BIT_B_4 (shift bin:BIT_B_4 -1))) (ifnot bin:COUNTER (- bin:LOW_4 (shift bin:LOW_4 -1))) (ifnot bin:COUNTER (- bin:NEG (shift bin:NEG -1)))))
+(defconstraint binary_constraints () (begin (* IS_AND (- 1 IS_AND)) (* IS_OR (- 1 IS_OR)) (* IS_XOR (- 1 IS_XOR)) (* IS_NOT (- 1 IS_NOT)) (* IS_BYTE (- 1 IS_BYTE)) (* IS_SIGNEXTEND (- 1 IS_SIGNEXTEND)) (* SMALL (- 1 SMALL)) (* BITS (- 1 BITS)) (* NEG (- 1 NEG)) (* BIT_B_4 (- 1 BIT_B_4)) (* BIT_1 (- 1 BIT_1))))
 
-(defconstraint bin:is-signextend-result () (ifnot bin:IS_SIGNEXTEND (if (- bin:ONE_LINE_INSTRUCTION 1) (begin (- bin:RESULT_HI bin:ARGUMENT_2_HI) (- bin:RESULT_LO bin:ARGUMENT_2_LO)) (if bin:SMALL (begin (- bin:RESULT_HI bin:ARGUMENT_2_HI) (- bin:RESULT_LO bin:ARGUMENT_2_LO)) (begin (if bin:BIT_B_4 (begin (- bin:BYTE_5 (* bin:NEG 255)) (if bin:BIT_1 (- bin:BYTE_6 (* bin:NEG 255)) (- bin:BYTE_6 bin:BYTE_4))) (begin (if bin:BIT_1 (- bin:BYTE_5 (* bin:NEG 255)) (- bin:BYTE_5 bin:BYTE_3)) (- bin:RESULT_LO bin:ARGUMENT_2_LO))))))))
+(defconstraint counter-constancies () (begin (if COUNTER 0 (- ARGUMENT_1_HI (shift ARGUMENT_1_HI -1))) (if COUNTER 0 (- ARGUMENT_1_LO (shift ARGUMENT_1_LO -1))) (if COUNTER 0 (- ARGUMENT_2_HI (shift ARGUMENT_2_HI -1))) (if COUNTER 0 (- ARGUMENT_2_LO (shift ARGUMENT_2_LO -1))) (if COUNTER 0 (- RESULT_HI (shift RESULT_HI -1))) (if COUNTER 0 (- RESULT_LO (shift RESULT_LO -1))) (if COUNTER 0 (- INST (shift INST -1))) (if COUNTER 0 (- PIVOT (shift PIVOT -1))) (if COUNTER 0 (- BIT_B_4 (shift BIT_B_4 -1))) (if COUNTER 0 (- LOW_4 (shift LOW_4 -1))) (if COUNTER 0 (- NEG (shift NEG -1)))))
 
-(defconstraint bin:small () (if (- bin:COUNTER 15) (if bin:ARGUMENT_1_HI (if (- bin:ARGUMENT_1_LO (+ (* 16 (shift bin:BITS -4)) (* 8 (shift bin:BITS -3)) (* 4 (shift bin:BITS -2)) (* 2 (shift bin:BITS -1)) bin:BITS)) (- bin:SMALL 1) bin:SMALL))))
+(defconstraint is-signextend-result () (if IS_SIGNEXTEND 0 (if (- ONE_LINE_INSTRUCTION 1) (begin (- RESULT_HI ARGUMENT_2_HI) (- RESULT_LO ARGUMENT_2_LO)) (if SMALL (begin (- RESULT_HI ARGUMENT_2_HI) (- RESULT_LO ARGUMENT_2_LO)) (begin (if BIT_B_4 (begin (- BYTE_5 (* NEG 255)) (if BIT_1 (- BYTE_6 (* NEG 255)) (- BYTE_6 BYTE_4))) (begin (if BIT_1 (- BYTE_5 (* NEG 255)) (- BYTE_5 BYTE_3)) (- RESULT_LO ARGUMENT_2_LO))))))))
 
-(defconstraint bin:inst-to-flag () (- bin:INST (+ (* bin:IS_AND 22) (* bin:IS_OR 23) (* bin:IS_XOR 24) (* bin:IS_NOT 25) (* bin:IS_BYTE 26) (* bin:IS_SIGNEXTEND 11))))
+(defconstraint small () (if (- COUNTER 15) (if ARGUMENT_1_HI (if (- ARGUMENT_1_LO (+ (* 16 (shift BITS -4)) (* 8 (shift BITS -3)) (* 4 (shift BITS -2)) (* 2 (shift BITS -1)) BITS)) (- SMALL 1) SMALL))))
 
-(defconstraint bin:target-constraints () (if (- bin:COUNTER 15) (begin (- bin:ACC_1 bin:ARGUMENT_1_HI) (- bin:ACC_2 bin:ARGUMENT_1_LO) (- bin:ACC_3 bin:ARGUMENT_2_HI) (- bin:ACC_4 bin:ARGUMENT_2_LO) (- bin:ACC_5 bin:RESULT_HI) (- bin:ACC_6 bin:RESULT_LO))))
+(defconstraint inst-to-flag () (- INST (+ (* IS_AND 22) (* IS_OR 23) (* IS_XOR 24) (* IS_NOT 25) (* IS_BYTE 26) (* IS_SIGNEXTEND 11))))
 
-(defconstraint bin:mli-incrementation () (ifnot bin:MLI (if (- bin:COUNTER 15) (- (shift bin:STAMP 1) (+ bin:STAMP 1)) (- (shift bin:COUNTER 1) (+ bin:COUNTER 1)))))
+(defconstraint target-constraints () (if (- COUNTER 15) (begin (- ACC_1 ARGUMENT_1_HI) (- ACC_2 ARGUMENT_1_LO) (- ACC_3 ARGUMENT_2_HI) (- ACC_4 ARGUMENT_2_LO) (- ACC_5 RESULT_HI) (- ACC_6 RESULT_LO))))
 
-(defconstraint bin:stamp-increments () (* (- (shift bin:STAMP 1) (+ bin:STAMP 0)) (- (shift bin:STAMP 1) (+ bin:STAMP 1))))
+(defconstraint mli-incrementation () (if MLI 0 (if (- COUNTER 15) (- (shift STAMP 1) (+ STAMP 1)) (- (shift COUNTER 1) (+ COUNTER 1)))))
 
-(defconstraint bin:is-byte-result () (ifnot bin:IS_BYTE (if (- bin:ONE_LINE_INSTRUCTION 1) (begin bin:RESULT_HI bin:RESULT_LO) (begin bin:RESULT_HI (- bin:RESULT_LO (* bin:SMALL bin:PIVOT))))))
+(defconstraint stamp-increments () (* (- (shift STAMP 1) (+ STAMP 0)) (- (shift STAMP 1) (+ STAMP 1))))
 
-(defconstraint bin:no-bin-no-flag () (if bin:STAMP (+ bin:IS_AND bin:IS_OR bin:IS_XOR bin:IS_NOT bin:IS_BYTE bin:IS_SIGNEXTEND) (- (+ bin:IS_AND bin:IS_OR bin:IS_XOR bin:IS_NOT bin:IS_BYTE bin:IS_SIGNEXTEND) 1)))
+(defconstraint is-byte-result () (if IS_BYTE 0 (if (- ONE_LINE_INSTRUCTION 1) (begin RESULT_HI RESULT_LO) (begin RESULT_HI (- RESULT_LO (* SMALL PIVOT))))))
 
-(defconstraint bin:set-oli-mli () (if (+ bin:IS_BYTE bin:IS_SIGNEXTEND) bin:ONE_LINE_INSTRUCTION (if bin:ARGUMENT_1_HI bin:ONE_LINE_INSTRUCTION (- bin:ONE_LINE_INSTRUCTION 1))))
+(defconstraint no-bin-no-flag () (if STAMP (+ IS_AND IS_OR IS_XOR IS_NOT IS_BYTE IS_SIGNEXTEND) (- (+ IS_AND IS_OR IS_XOR IS_NOT IS_BYTE IS_SIGNEXTEND) 1)))
 
-(defconstraint bin:result-via-deflookup () (ifnot (+ bin:IS_AND bin:IS_OR bin:IS_XOR bin:IS_NOT) (begin (- bin:BYTE_5 bin:XXX_BYTE_HI) (- bin:BYTE_6 bin:XXX_BYTE_LO))))
+(defconstraint set-oli-mli () (if (+ IS_BYTE IS_SIGNEXTEND) ONE_LINE_INSTRUCTION (if ARGUMENT_1_HI ONE_LINE_INSTRUCTION (- ONE_LINE_INSTRUCTION 1))))
 
-(defconstraint bin:oli-incrementation () (ifnot bin:ONE_LINE_INSTRUCTION (- (shift bin:STAMP 1) (+ bin:STAMP 1))))
+(defconstraint result-via-deflookup () (if (+ IS_AND IS_OR IS_XOR IS_NOT) 0 (begin (- BYTE_5 XXX_BYTE_HI) (- BYTE_6 XXX_BYTE_LO))))
 
-(defconstraint bin:last-row (:domain {-1}) (if (- bin:MLI 1) (- bin:COUNTER 15)))
+(defconstraint oli-incrementation () (if ONE_LINE_INSTRUCTION 0 (- (shift STAMP 1) (+ STAMP 1))))
 
-(defconstraint bin:oli-mli-exclusivity () (- (+ bin:ONE_LINE_INSTRUCTION bin:MLI) (+ bin:IS_AND bin:IS_OR bin:IS_XOR bin:IS_NOT bin:IS_BYTE bin:IS_SIGNEXTEND)))
+(defconstraint last-row (:domain {-1}) (if (- MLI 1) (- COUNTER 15)))
 
-(defconstraint bin:countereset () (ifnot (- (shift bin:STAMP 1) bin:STAMP) (shift bin:COUNTER 1)))
+(defconstraint oli-mli-exclusivity () (- (+ ONE_LINE_INSTRUCTION MLI) (+ IS_AND IS_OR IS_XOR IS_NOT IS_BYTE IS_SIGNEXTEND)))
 
-(defconstraint bin:first-row (:domain {0}) bin:STAMP)
+(defconstraint countereset () (if (- (shift STAMP 1) STAMP) 0 (shift COUNTER 1)))
+
+(defconstraint first-row (:domain {0}) STAMP)

@@ -1,2 +1,2 @@
 (defcolumns ST A B)
-(defconstraint c1 (:guard ST) (ifnot A B))
+(defconstraint c1 (:guard ST) (if A 0 B))

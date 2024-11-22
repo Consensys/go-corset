@@ -319,7 +319,7 @@ func (r *resolver) resolveConstraintsInModule(module string, decls []Declaration
 func (r *resolver) resolveDefConstraintInModule(module string, decl *DefConstraint) []SyntaxError {
 	var errors []SyntaxError
 	if decl.Guard != nil {
-		errors = r.resolveExpressionInModule(module, false, decl.Constraint)
+		errors = r.resolveExpressionInModule(module, false, decl.Guard)
 	}
 	// Resolve constraint body
 	errors = append(errors, r.resolveExpressionInModule(module, false, decl.Constraint)...)

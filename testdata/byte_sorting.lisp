@@ -2,10 +2,10 @@
 ;; implemented on a column of bytes.
 
 ;; Input column
-(defcolumns (X :u8))
+(defcolumns (X :i8@prove))
 
 ;; Generated column
-(defcolumns (Delta :u8))
+(defcolumns (Delta :i8@prove))
 
 ;; Delta == X - X[i-1]
 (defconstraint sort () (- Delta (- X (shift X -1))))

@@ -1,7 +1,7 @@
 (defcolumns
   ST
   CT
-  (BYTE :u8)
+  (BYTE :i8@prove)
   (ARG))
 
 ;; In the first row, ST is always zero.  This allows for an

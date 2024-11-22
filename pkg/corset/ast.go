@@ -84,8 +84,15 @@ func (p *DefColumns) Lisp() sexp.SExp {
 // DefColumn packages together those piece relevant to declaring an individual
 // column, such its name and type.
 type DefColumn struct {
-	Name             string
-	DataType         sc.Type
+	// Column name
+	Name string
+	// The datatype which all values in this column should inhabit.
+	DataType sc.Type
+	// Determines whether or not values in this column should be proven to be
+	// within the given type (i.e. using a range constraint).
+	MustProve bool
+	// Determines the length of this column as a multiple of the enclosing
+	// module.
 	LengthMultiplier uint
 }
 

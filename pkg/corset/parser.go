@@ -272,7 +272,7 @@ func (p *Parser) parseColumnDeclarations(l *sexp.List) (*DefColumns, *SyntaxErro
 }
 
 func (p *Parser) parseColumnDeclaration(e sexp.SExp) (*DefColumn, *SyntaxError) {
-	defcolumn := &DefColumn{"", nil, 1}
+	defcolumn := &DefColumn{"", nil, false, 1}
 	// Default to field type
 	defcolumn.DataType = &sc.FieldType{}
 	// Check whether extended declaration or not.
@@ -286,7 +286,7 @@ func (p *Parser) parseColumnDeclaration(e sexp.SExp) (*DefColumn, *SyntaxError) 
 		//	Parse type (if applicable)
 		if len(l.Elements) == 2 {
 			var err *SyntaxError
-			if defcolumn.DataType, err = p.parseType(l.Elements[1]); err != nil {
+			if defcolumn.DataType, defcolumn.MustProve, err = p.parseType(l.Elements[1]); err != nil {
 				return defcolumn, err
 			}
 		} else if len(l.Elements) > 2 {
@@ -476,23 +476,38 @@ func (p *Parser) parseDomainAttribute(attribute sexp.SExp) (domain *int, err *Sy
 	return nil, p.translator.SyntaxError(attribute, "multiple values not supported")
 }
 
-func (p *Parser) parseType(term sexp.SExp) (sc.Type, *SyntaxError) {
+func (p *Parser) parseType(term sexp.SExp) (sc.Type, bool, *SyntaxError) {
 	symbol := term.AsSymbol()
 	if symbol == nil {
-		return nil, p.translator.SyntaxError(term, "malformed column")
+		return nil, false, p.translator.SyntaxError(term, "malformed type")
 	}
 	// Access string of symbol
-	str := symbol.Value
-	if strings.HasPrefix(str, ":u") {
-		n, err := strconv.Atoi(str[2:])
-		if err != nil {
-			return nil, p.translator.SyntaxError(symbol, err.Error())
+	parts := strings.Split(symbol.Value, "@")
+	if len(parts) > 2 || (len(parts) == 2 && parts[1] != "prove") {
+		return nil, false, p.translator.SyntaxError(term, "malformed type")
+	}
+	// Determine whether type should be proven or not.
+	proven := len(parts) == 2
+	// See what we've got.
+	switch parts[0] {
+	case ":binary":
+		return sc.NewUintType(1), proven, nil
+	case ":byte":
+		return sc.NewUintType(8), proven, nil
+	default:
+		// Handle generic types like i16, i128, etc.
+		str := parts[0]
+		if strings.HasPrefix(str, ":i") {
+			n, err := strconv.Atoi(str[2:])
+			if err != nil {
+				return nil, false, p.translator.SyntaxError(symbol, err.Error())
+			}
+			// Done
+			return sc.NewUintType(uint(n)), proven, nil
 		}
-		// Done
-		return sc.NewUintType(uint(n)), nil
 	}
 	// Error
-	return nil, p.translator.SyntaxError(symbol, "unknown type")
+	return nil, false, p.translator.SyntaxError(symbol, "unknown type")
 }
 
 func beginParserRule(_ string, args []Expr) (Expr, error) {
