@@ -178,6 +178,19 @@ type DefInterleaved struct {
 	Sources []string
 }
 
+// CanFinalise checks whether or not this interleaving is ready to be finalised.
+// Specifically, it checks whether or not the source columns of this
+// interleaving are themselves finalised.
+func (p *DefInterleaved) CanFinalise(module uint, env *Environment) bool {
+	for _, col := range p.Sources {
+		if !env.IsColumnFinalised(module, col) {
+			return false
+		}
+	}
+	//
+	return true
+}
+
 // IsDeclaration needed to signal declaration.
 func (p *DefInterleaved) IsDeclaration() {}
 
@@ -225,6 +238,45 @@ func (p *DefLookup) Lisp() sexp.SExp {
 // corresponding set of target columns.  The sort direction for each of the
 // source columns can be specified as increasing or decreasing.
 type DefPermutation struct {
+	Targets []*DefColumn
+	Sources []*DefPermutedColumn
+}
+
+// IsDeclaration needed to signal declaration.
+func (p *DefPermutation) IsDeclaration() {}
+
+// CanFinalise checks whether or not this permutation is ready to be finalised.
+// Specifically, it checks whether or not the source columns of this permutation
+// are themselves finalised.
+func (p *DefPermutation) CanFinalise(module uint, env *Environment) bool {
+	for _, col := range p.Sources {
+		if !env.IsColumnFinalised(module, col.Name) {
+			return false
+		}
+	}
+	//
+	return true
+}
+
+// Lisp converts this node into its lisp representation.  This is primarily used
+// for debugging purposes.
+func (p *DefPermutation) Lisp() sexp.SExp {
+	panic("got here")
+}
+
+// DefPermutedColumn provides information about a column being permuted by a
+// sorted permutation.
+type DefPermutedColumn struct {
+	// Name of the column to be permuted
+	Name string
+	// Sign of the column
+	Sign bool
+}
+
+// Lisp converts this node into its lisp representation.  This is primarily used
+// for debugging purposes.
+func (p *DefPermutedColumn) Lisp() sexp.SExp {
+	panic("got here")
 }
 
 // DefProperty represents an assertion to be used only for debugging / testing /

@@ -154,6 +154,16 @@ func (r *resolver) initialiseAssignmentsInModule(module string, decls []Declarat
 				// Register incomplete (assignment) column.
 				r.env.PreRegisterColumn(mid, col.Target)
 			}
+		} else if col, ok := d.(*DefPermutation); ok {
+			for _, c := range col.Targets {
+				if _, ok := r.env.LookupColumn(mid, c.Name); ok {
+					err := r.srcmap.SyntaxError(col, fmt.Sprintf("column %s already declared in module %s", c.Name, module))
+					errors = append(errors, *err)
+				} else {
+					// Register incomplete (assignment) column.
+					r.env.PreRegisterColumn(mid, c.Name)
+				}
+			}
 		}
 	}
 	// Done
@@ -186,9 +196,21 @@ func (r *resolver) finaliseAssignmentsInModule(module string, decls []Declaratio
 		for _, d := range decls {
 			if col, ok := d.(*DefInterleaved); ok {
 				// Check whether dependencies are resolved or not.
-				if r.columnAssignmentsAvailable(mid, col.Sources) {
+				if col.CanFinalise(mid, r.env) {
 					// Finalise assignment and handle any errors
 					errs := r.finaliseInterleavedAssignment(mid, col)
+					errors = append(errors, errs...)
+					// Record that a new assignment is available.
+					changed = changed || len(errs) == 0
+				} else {
+					complete = false
+					incomplete = d
+				}
+			} else if col, ok := d.(*DefPermutation); ok {
+				// Check whether dependencies are resolved or not.
+				if col.CanFinalise(mid, r.env) {
+					// Finalise assignment and handle any errors
+					errs := r.finalisePermutationAssignment(mid, col)
 					errors = append(errors, errs...)
 					// Record that a new assignment is available.
 					changed = changed || len(errs) == 0
@@ -212,17 +234,6 @@ func (r *resolver) finaliseAssignmentsInModule(module string, decls []Declaratio
 	}
 	// Done
 	return nil
-}
-
-// Check whether all of these columns are fully resolved (or not).
-func (r *resolver) columnAssignmentsAvailable(module uint, sources []string) bool {
-	for _, col := range sources {
-		if !r.env.IsColumnFinalised(module, col) {
-			return false
-		}
-	}
-	//
-	return true
 }
 
 // Finalise an interleaving assignment.  Since the assignment would already been
@@ -267,6 +278,32 @@ func (r *resolver) finaliseInterleavedAssignment(module uint, decl *DefInterleav
 	return errors
 }
 
+// Finalise a permutation assignment.  Since the assignment would already been
+// initialised, this is actually quite easy to do.
+func (r *resolver) finalisePermutationAssignment(module uint, decl *DefPermutation) []SyntaxError {
+	var (
+		multiplier uint = 0
+		errors     []SyntaxError
+	)
+	// Finalise each column in turn
+	for i := 0; i < len(decl.Sources); i++ {
+		ith := decl.Sources[i]
+		src := r.env.Column(module, ith.Name)
+		// Sanity check length multiplier
+		if i == 0 {
+			multiplier = src.multiplier
+		} else if multiplier != src.multiplier {
+			// Problem
+			errors = append(errors, *r.srcmap.SyntaxError(ith, "incompatible length multiplier"))
+		}
+		// All good, finalise column
+		context := tr.NewContext(module, src.multiplier)
+		r.env.FinaliseColumn(context, decl.Targets[i].Name, src.datatype)
+	}
+	// Done
+	return errors
+}
+
 // Examine each constraint and attempt to resolve any variables used within
 // them.  For example, a vanishing constraint may refer to some variable "X".
 // Prior to this function being called, its not clear what "X" refers to --- it
@@ -305,6 +342,9 @@ func (r *resolver) resolveConstraintsInModule(module string, decls []Declaration
 			// expressions to be resolved.
 		} else if c, ok := d.(*DefLookup); ok {
 			errors = append(errors, r.resolveDefLookupInModule(module, c)...)
+		} else if _, ok := d.(*DefPermutation); ok {
+			// Nothing to do here, since this assignment form contains no
+			// expressions to be resolved.
 		} else if c, ok := d.(*DefProperty); ok {
 			errors = append(errors, r.resolveDefPropertyInModule(module, c)...)
 		} else {

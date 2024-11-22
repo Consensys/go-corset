@@ -366,16 +366,18 @@ func Test_Module_05(t *testing.T) {
 	Check(t, "module_05")
 }
 
-/* func Test_Module_06(t *testing.T) {
+func Test_Module_06(t *testing.T) {
 	Check(t, "module_06")
 }
 
 func Test_Module_07(t *testing.T) {
 	Check(t, "module_07")
 }
-*/func Test_Module_08(t *testing.T) {
+
+func Test_Module_08(t *testing.T) {
 	Check(t, "module_08")
 }
+
 func Test_Module_09(t *testing.T) {
 	Check(t, "module_09")
 }
@@ -384,7 +386,7 @@ func Test_Module_09(t *testing.T) {
 // Permutations
 // ===================================================================
 
-/* func Test_Permute_01(t *testing.T) {
+func Test_Permute_01(t *testing.T) {
 	Check(t, "permute_01")
 }
 
@@ -419,7 +421,7 @@ func Test_Permute_08(t *testing.T) {
 func Test_Permute_09(t *testing.T) {
 	Check(t, "permute_09")
 }
-*/
+
 // ===================================================================
 // Lookups
 // ===================================================================
@@ -512,9 +514,9 @@ func Test_WordSorting(t *testing.T) {
 	Check(t, "word_sorting")
 }
 
-/* func Test_Memory(t *testing.T) {
+func Test_Memory(t *testing.T) {
 	Check(t, "memory")
-} */
+}
 
 func TestSlow_Add(t *testing.T) {
 	Check(t, "add")

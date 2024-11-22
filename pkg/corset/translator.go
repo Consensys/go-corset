@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/hir"
+	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/assignment"
 	"github.com/consensys/go-corset/pkg/sexp"
 	tr "github.com/consensys/go-corset/pkg/trace"
@@ -146,10 +147,12 @@ func (t *translator) translateAssignmentOrConstraint(decl Declaration, module ui
 		errors = t.translateDefConstraint(d, module)
 	} else if d, ok := decl.(*DefInRange); ok {
 		errors = t.translateDefInRange(d, module)
-	} else if d, ok := decl.(*DefInterleaved); ok {
+	} else if d, Ok := decl.(*DefInterleaved); Ok {
 		errors = t.translateDefInterleaved(d, module)
 	} else if d, ok := decl.(*DefLookup); ok {
 		errors = t.translateDefLookup(d, module)
+	} else if d, Ok := decl.(*DefPermutation); Ok {
+		errors = t.translateDefPermutation(d, module)
 	} else if d, ok := decl.(*DefProperty); ok {
 		errors = t.translateDefProperty(d, module)
 	} else {
@@ -235,6 +238,39 @@ func (t *translator) translateDefInterleaved(decl *DefInterleaved, module uint) 
 	cid := t.schema.AddAssignment(assignment.NewInterleaving(context, decl.Target, sources, info.datatype))
 	// Sanity check column identifiers align.
 	if cid != info.cid {
+		errors = append(errors, *t.srcmap.SyntaxError(decl, "invalid column identifier"))
+	}
+	// Done
+	return errors
+}
+
+// Translate a "defpermutation" declaration.
+func (t *translator) translateDefPermutation(decl *DefPermutation, module uint) []SyntaxError {
+	var (
+		errors   []SyntaxError
+		context  tr.Context
+		firstCid uint
+	)
+	//
+	targets := make([]sc.Column, len(decl.Sources))
+	signs := make([]bool, len(decl.Sources))
+	sources := make([]uint, len(decl.Sources))
+	//
+	for i := 0; i < len(decl.Sources); i++ {
+		target := t.env.Column(module, decl.Targets[i].Name)
+		context = tr.NewContext(module, target.multiplier)
+		targets[i] = sc.NewColumn(context, decl.Targets[i].Name, target.datatype)
+		sources[i] = t.env.Column(module, decl.Sources[i].Name).cid
+		signs[i] = decl.Sources[i].Sign
+		// Record first CID
+		if i == 0 {
+			firstCid = target.cid
+		}
+	}
+	// Add the assignment and check the first identifier.
+	cid := t.schema.AddAssignment(assignment.NewSortedPermutation(context, targets, signs, sources))
+	// Sanity check column identifiers align.
+	if cid != firstCid {
 		errors = append(errors, *t.srcmap.SyntaxError(decl, "invalid column identifier"))
 	}
 	// Done

@@ -224,24 +224,22 @@ func (p *Parser) parseDeclaration(s *sexp.List) (Declaration, *SyntaxError) {
 	)
 	//
 	if s.MatchSymbols(1, "defcolumns") {
-		decl, error = p.parseColumnDeclarations(s)
+		decl, error = p.parseDefColumns(s)
 	} else if s.Len() == 4 && s.MatchSymbols(2, "defconstraint") {
-		decl, error = p.parseConstraintDeclaration(s.Elements)
+		decl, error = p.parseDefConstraint(s.Elements)
 	} else if s.Len() == 3 && s.MatchSymbols(1, "definrange") {
-		decl, error = p.parseRangeDeclaration(s.Elements)
+		decl, error = p.parseDefInRange(s.Elements)
 	} else if s.Len() == 3 && s.MatchSymbols(1, "definterleaved") {
-		decl, error = p.parseInterleavedDeclaration(s.Elements)
+		decl, error = p.parseDefInterleaved(s.Elements)
 	} else if s.Len() == 4 && s.MatchSymbols(1, "deflookup") {
-		decl, error = p.parseLookupDeclaration(s.Elements)
+		decl, error = p.parseDefLookup(s.Elements)
+	} else if s.Len() == 3 && s.MatchSymbols(2, "defpermutation") {
+		decl, error = p.parseDefPermutation(s.Elements)
 	} else if s.Len() == 3 && s.MatchSymbols(2, "defproperty") {
-		decl, error = p.parsePropertyDeclaration(s.Elements)
+		decl, error = p.parseDefProperty(s.Elements)
 	} else {
 		error = p.translator.SyntaxError(s, "malformed declaration")
 	}
-	/*
-		if e.Len() == 3 && e.MatchSymbols(1, "defpermutation") {
-			return p.parsePermutationDeclaration(env, e)
-		} */
 	// Register node if appropriate
 	if decl != nil {
 		p.mapSourceNode(s, decl)
@@ -251,7 +249,7 @@ func (p *Parser) parseDeclaration(s *sexp.List) (Declaration, *SyntaxError) {
 }
 
 // Parse a column declaration
-func (p *Parser) parseColumnDeclarations(l *sexp.List) (*DefColumns, *SyntaxError) {
+func (p *Parser) parseDefColumns(l *sexp.List) (*DefColumns, *SyntaxError) {
 	columns := make([]*DefColumn, l.Len()-1)
 	// Sanity check declaration
 	if len(l.Elements) == 1 {
@@ -303,7 +301,7 @@ func (p *Parser) parseColumnDeclaration(e sexp.SExp) (*DefColumn, *SyntaxError) 
 }
 
 // Parse a vanishing declaration
-func (p *Parser) parseConstraintDeclaration(elements []sexp.SExp) (*DefConstraint, *SyntaxError) {
+func (p *Parser) parseDefConstraint(elements []sexp.SExp) (*DefConstraint, *SyntaxError) {
 	//
 	handle := elements[1].AsSymbol().Value
 	// Vanishing constraints do not have global scope, hence qualified column
@@ -323,7 +321,7 @@ func (p *Parser) parseConstraintDeclaration(elements []sexp.SExp) (*DefConstrain
 }
 
 // Parse a interleaved declaration
-func (p *Parser) parseInterleavedDeclaration(elements []sexp.SExp) (*DefInterleaved, *SyntaxError) {
+func (p *Parser) parseDefInterleaved(elements []sexp.SExp) (*DefInterleaved, *SyntaxError) {
 	// Initial sanity checks
 	if elements[1].AsSymbol() == nil {
 		return nil, p.translator.SyntaxError(elements[1], "malformed target column")
@@ -348,7 +346,7 @@ func (p *Parser) parseInterleavedDeclaration(elements []sexp.SExp) (*DefInterlea
 }
 
 // Parse a lookup declaration
-func (p *Parser) parseLookupDeclaration(elements []sexp.SExp) (*DefLookup, *SyntaxError) {
+func (p *Parser) parseDefLookup(elements []sexp.SExp) (*DefLookup, *SyntaxError) {
 	// Initial sanity checks
 	if elements[1].AsSymbol() == nil {
 		return nil, p.translator.SyntaxError(elements[1], "malformed handle")
@@ -384,8 +382,82 @@ func (p *Parser) parseLookupDeclaration(elements []sexp.SExp) (*DefLookup, *Synt
 	return &DefLookup{handle, sources, targets}, nil
 }
 
-// Parse a vanishing declaration
-func (p *Parser) parsePropertyDeclaration(elements []sexp.SExp) (*DefProperty, *SyntaxError) {
+// Parse a permutation declaration
+func (p *Parser) parseDefPermutation(elements []sexp.SExp) (*DefPermutation, *SyntaxError) {
+	var err *SyntaxError
+	//
+	sexpTargets := elements[1].AsList()
+	sexpSources := elements[2].AsList()
+	// Initial sanity checks
+	if sexpTargets == nil {
+		return nil, p.translator.SyntaxError(elements[1], "malformed target columns")
+	} else if sexpSources == nil {
+		return nil, p.translator.SyntaxError(elements[2], "malformed source columns")
+	} else if sexpTargets.Len() < sexpSources.Len() {
+		return nil, p.translator.SyntaxError(elements[1], "too few target columns")
+	} else if sexpTargets.Len() > sexpSources.Len() {
+		return nil, p.translator.SyntaxError(elements[1], "too many target columns")
+	}
+	//
+	targets := make([]*DefColumn, sexpTargets.Len())
+	sources := make([]*DefPermutedColumn, sexpSources.Len())
+	//
+	for i := 0; i < len(targets); i++ {
+		// Parse target column
+		if targets[i], err = p.parseColumnDeclaration(sexpTargets.Get(i)); err != nil {
+			return nil, err
+		}
+		// Parse source column
+		if sources[i], err = p.parsePermutedColumnDeclaration(sexpSources.Get(i)); err != nil {
+			return nil, err
+		}
+	}
+	//
+	return &DefPermutation{targets, sources}, nil
+}
+
+func (p *Parser) parsePermutedColumnDeclaration(e sexp.SExp) (*DefPermutedColumn, *SyntaxError) {
+	var err *SyntaxError
+	//
+	defcolumn := &DefPermutedColumn{"", false}
+	// Check whether extended declaration or not.
+	if l := e.AsList(); l != nil {
+		// Check at least the name provided.
+		if len(l.Elements) == 0 {
+			return defcolumn, p.translator.SyntaxError(l, "empty permutation column")
+		} else if len(l.Elements) != 2 {
+			return defcolumn, p.translator.SyntaxError(l, "malformed permutation column")
+		} else if l.Get(0).AsSymbol() == nil || l.Get(1).AsSymbol() == nil {
+			return defcolumn, p.translator.SyntaxError(l, "empty permutation column")
+		}
+		// Parse sign
+		if defcolumn.Sign, err = p.parsePermutedColumnSign(l.Get(0).AsSymbol()); err != nil {
+			return nil, err
+		}
+		// Parse column name
+		defcolumn.Name = l.Get(1).AsSymbol().Value
+	} else {
+		defcolumn.Name = e.String(false)
+	}
+	// Update source mapping
+	p.mapSourceNode(e, defcolumn)
+	//
+	return defcolumn, nil
+}
+
+func (p *Parser) parsePermutedColumnSign(sign *sexp.Symbol) (bool, *SyntaxError) {
+	switch sign.Value {
+	case "+", "↓":
+		return true, nil
+	case "-", "↑":
+		return false, nil
+	default:
+		return false, p.translator.SyntaxError(sign, "malformed sort direction")
+	}
+}
+
+// Parse a property assertion
+func (p *Parser) parseDefProperty(elements []sexp.SExp) (*DefProperty, *SyntaxError) {
 	//
 	handle := elements[1].AsSymbol().Value
 	// Translate expression
@@ -398,7 +470,7 @@ func (p *Parser) parsePropertyDeclaration(elements []sexp.SExp) (*DefProperty, *
 }
 
 // Parse a range declaration
-func (p *Parser) parseRangeDeclaration(elements []sexp.SExp) (*DefInRange, *SyntaxError) {
+func (p *Parser) parseDefInRange(elements []sexp.SExp) (*DefInRange, *SyntaxError) {
 	var bound fr.Element
 	// Translate expression
 	expr, err := p.translator.Translate(elements[1])
