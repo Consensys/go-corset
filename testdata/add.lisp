@@ -19,7 +19,7 @@
 
 (defconstraint add:stamp-constancies () (begin (if (- (shift add:STAMP 1) add:STAMP) (- (shift add:ARG_1_HI 1) add:ARG_1_HI)) (if (- (shift add:STAMP 1) add:STAMP) (- (shift add:ARG_1_LO 1) add:ARG_1_LO)) (if (- (shift add:STAMP 1) add:STAMP) (- (shift add:ARG_2_HI 1) add:ARG_2_HI)) (if (- (shift add:STAMP 1) add:STAMP) (- (shift add:ARG_2_LO 1) add:ARG_2_LO)) (if (- (shift add:STAMP 1) add:STAMP) (- (shift add:RES_HI 1) add:RES_HI)) (if (- (shift add:STAMP 1) add:STAMP) (- (shift add:RES_LO 1) add:RES_LO)) (if (- (shift add:STAMP 1) add:STAMP) (- (shift add:INST 1) add:INST)) (if (- (shift add:STAMP 1) add:STAMP) (- (shift add:CT_MAX 1) add:CT_MAX))))
 
-(defconstraint add:heartbeat () (begin (if add:STAMP (begin add:INST)) (* (- (shift add:STAMP 1) add:STAMP) (- (shift add:STAMP 1) (+ add:STAMP 1))) (if (- (shift add:STAMP 1) 0 add:STAMP) (shift add:CT 1)) (if add:STAMP 0 (begin (* (- add:INST 1) (- add:INST 3)) (if (- 1 (~ (- add:CT add:CT_MAX))) (- (shift add:CT 1) (+ add:CT 1)) (- (shift add:STAMP 1) (+ add:STAMP 1))) (- (~ (* (- add:CT 16) add:CT_MAX)) 1)))))
+(defconstraint add:heartbeat () (begin (if add:STAMP (begin add:INST)) (* (- (shift add:STAMP 1) add:STAMP) (- (shift add:STAMP 1) (+ add:STAMP 1))) (if (- (shift add:STAMP 1) add:STAMP) 0 (shift add:CT 1)) (if add:STAMP 0 (begin (* (- add:INST 1) (- add:INST 3)) (if (- 1 (~ (- add:CT add:CT_MAX))) (- (shift add:CT 1) (+ add:CT 1)) (- (shift add:STAMP 1) (+ add:STAMP 1))) (- (~ (* (- add:CT 16) add:CT_MAX)) 1)))))
 
 (defconstraint add:binary-and-byte-decompositions () (begin (if add:CT (- add:ACC_1 add:BYTE_1) (- add:ACC_1 (+ (* 256 (shift add:ACC_1 -1)) add:BYTE_1))) (if add:CT (- add:ACC_2 add:BYTE_2) (- add:ACC_2 (+ (* 256 (shift add:ACC_2 -1)) add:BYTE_2)))))
 
