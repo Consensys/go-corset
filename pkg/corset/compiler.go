@@ -1,8 +1,6 @@
 package corset
 
 import (
-	"fmt"
-
 	"github.com/consensys/go-corset/pkg/hir"
 	"github.com/consensys/go-corset/pkg/sexp"
 )
@@ -72,7 +70,7 @@ func (p *Compiler) Compile() (*hir.Schema, []SyntaxError) {
 	}
 	// Check constraint contexts (e.g. for constraints, lookups, etc)
 	// Type check constraints
-	fmt.Println("TODO: type / context checking ...")
+
 	// Finally, translate everything and add it to the schema.
 	return TranslateCircuit(env, p.srcmap, &p.circuit)
 }

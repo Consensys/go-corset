@@ -136,6 +136,7 @@ func checkTrace(ir string, cols []tr.RawColumn, schema sc.Schema, cfg checkConfi
 	for n := cfg.padding.Left; n <= cfg.padding.Right; n++ {
 		stats := util.NewPerfStats()
 		trace, errs := builder.Padding(n).Build(cols)
+		// Log cost of expansion
 		stats.Log("Expanding trace columns")
 		// Report any errors
 		reportErrors(cfg.strict, ir, errs)
