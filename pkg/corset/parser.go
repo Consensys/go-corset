@@ -462,6 +462,10 @@ func (p *Parser) parsePermutedColumnSign(sign *sexp.Symbol) (bool, *SyntaxError)
 
 // Parse a property assertion
 func (p *Parser) parseDefProperty(elements []sexp.SExp) (*DefProperty, *SyntaxError) {
+	// Initial sanity checks
+	if elements[1].AsSymbol() == nil {
+		return nil, p.translator.SyntaxError(elements[1], "expected constraint handle")
+	}
 	//
 	handle := elements[1].AsSymbol().Value
 	// Translate expression

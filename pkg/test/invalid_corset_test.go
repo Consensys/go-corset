@@ -67,6 +67,108 @@ func Test_Basic_Invalid_12(t *testing.T) {
 }
 
 // ===================================================================
+// Property Tests
+// ===================================================================
+func Test_Property_Invalid_01(t *testing.T) {
+	CheckInvalid(t, "property_invalid_01")
+}
+
+func Test_Property_Invalid_02(t *testing.T) {
+	CheckInvalid(t, "property_invalid_02")
+}
+
+// ===================================================================
+// Shift Tests
+// ===================================================================
+
+func Test_Shift_Invalid_01(t *testing.T) {
+	CheckInvalid(t, "shift_invalid_01")
+}
+
+func Test_Shift_Invalid_02(t *testing.T) {
+	CheckInvalid(t, "shift_invalid_02")
+}
+
+// ===================================================================
+// Normalisation Tests
+// ===================================================================
+
+func Test_Norm_Invalid_01(t *testing.T) {
+	CheckInvalid(t, "norm_invalid_01")
+}
+
+// ===================================================================
+// If-Zero
+// ===================================================================
+
+func Test_If_Invalid_01(t *testing.T) {
+	CheckInvalid(t, "if_invalid_01")
+}
+
+func Test_If_Invalid_02(t *testing.T) {
+	CheckInvalid(t, "if_invalid_02")
+}
+
+// ===================================================================
+// Range Constraints
+// ===================================================================
+
+func Test_Range_Invalid_01(t *testing.T) {
+	CheckInvalid(t, "range_invalid_01")
+}
+
+func Test_Range_Invalid_02(t *testing.T) {
+	CheckInvalid(t, "range_invalid_02")
+}
+
+func Test_Range_Invalid_03(t *testing.T) {
+	CheckInvalid(t, "range_invalid_03")
+}
+
+func Test_Range_Invalid_04(t *testing.T) {
+	CheckInvalid(t, "range_invalid_04")
+}
+
+// ===================================================================
+// Modules
+// ===================================================================
+
+func Test_Module_Invalid_01(t *testing.T) {
+	CheckInvalid(t, "module_invalid_01")
+}
+
+// ===================================================================
+// Permutations
+// ===================================================================
+
+func Test_Permute_Invalid_01(t *testing.T) {
+	CheckInvalid(t, "permute_invalid_01")
+}
+
+func Test_Permute_Invalid_02(t *testing.T) {
+	CheckInvalid(t, "permute_invalid_02")
+}
+
+func Test_Permute_Invalid_03(t *testing.T) {
+	CheckInvalid(t, "permute_invalid_03")
+}
+
+func Test_Permute_Invalid_04(t *testing.T) {
+	CheckInvalid(t, "permute_invalid_04")
+}
+
+func Test_Permute_Invalid_05(t *testing.T) {
+	CheckInvalid(t, "permute_invalid_05")
+}
+
+func Test_Permute_Invalid_06(t *testing.T) {
+	CheckInvalid(t, "permute_invalid_06")
+}
+func Test_Permute_Invalid_07(t *testing.T) {
+	CheckInvalid(t, "permute_invalid_07")
+}
+
+// ===================================================================
 // Test Helpers
 // ===================================================================
 
