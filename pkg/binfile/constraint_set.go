@@ -151,7 +151,6 @@ func transferColumnInfo(cs *columnSet) {
 		if c.Kind == "Computed" {
 			cs.Registers[c.Register].Computed = true
 		} else if c.Computed {
-			fmt.Printf("COLUMN: %s\n", c.Handle)
 			panic("invalid JSON column configuration")
 		} else if c.MustProve {
 			// Copy over must-prove info.
