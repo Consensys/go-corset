@@ -138,7 +138,7 @@ func readSchema(filenames []string) *hir.Schema {
 	if len(filenames) == 0 {
 		fmt.Println("source or binary constraint(s) file required.")
 		os.Exit(5)
-	} else if len(filenames) == 1 && path.Ext(filenames[0]) == "bin" {
+	} else if len(filenames) == 1 && path.Ext(filenames[0]) == ".bin" {
 		// Single (binary) file supplied
 		return readBinaryFile(filenames[0])
 	}
