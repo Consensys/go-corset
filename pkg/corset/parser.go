@@ -302,6 +302,10 @@ func (p *Parser) parseColumnDeclaration(e sexp.SExp) (*DefColumn, *SyntaxError) 
 
 // Parse a vanishing declaration
 func (p *Parser) parseDefConstraint(elements []sexp.SExp) (*DefConstraint, *SyntaxError) {
+	// Initial sanity checks
+	if elements[1].AsSymbol() == nil {
+		return nil, p.translator.SyntaxError(elements[1], "expected constraint handle")
+	}
 	//
 	handle := elements[1].AsSymbol().Value
 	// Vanishing constraints do not have global scope, hence qualified column
