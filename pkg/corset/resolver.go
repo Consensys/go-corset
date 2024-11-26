@@ -127,9 +127,11 @@ func (r *resolver) resolveAssignments(circuit *Circuit) []SyntaxError {
 func (r *resolver) resolveAssignmentsInModule(module string, decls []Declaration) []SyntaxError {
 	// FIXME: the following is actually broken since we must allocate all input
 	// columns in all modules before any assignments are preregistered.
-	errors := r.initialiseAssignmentsInModule(module, decls)
-	// Check for any errors
-	if len(errors) > 0 {
+	if errors := r.initialiseAssignmentsInModule(module, decls); len(errors) > 0 {
+		return errors
+	}
+	// Check assignments
+	if errors := r.checkAssignmentsInModule(module, decls); len(errors) > 0 {
 		return errors
 	}
 	// Iterate until all columns finalised
@@ -162,6 +164,31 @@ func (r *resolver) initialiseAssignmentsInModule(module string, decls []Declarat
 				} else {
 					// Register incomplete (assignment) column.
 					r.env.PreRegisterColumn(mid, c.Name)
+				}
+			}
+		}
+	}
+	// Done
+	return errors
+}
+
+func (r *resolver) checkAssignmentsInModule(module string, decls []Declaration) []SyntaxError {
+	errors := make([]SyntaxError, 0)
+	mid := r.env.Module(module)
+	//
+	for _, d := range decls {
+		if col, ok := d.(*DefInterleaved); ok {
+			for _, c := range col.Sources {
+				if !r.env.HasColumn(mid, c.Name) {
+					errors = append(errors, *r.srcmap.SyntaxError(c, "unknown source column"))
+				}
+			}
+		} else if col, ok := d.(*DefPermutation); ok {
+			for _, c := range col.Sources {
+				if !r.env.HasColumn(mid, c.Name) {
+					errors = append(errors, *r.srcmap.SyntaxError(c, "unknown source column"))
+				} else if r.env.Column(mid, c.Name).datatype.AsUint() == nil {
+					errors = append(errors, *r.srcmap.SyntaxError(c, "fixed-width type required"))
 				}
 			}
 		}
@@ -253,7 +280,7 @@ func (r *resolver) finaliseInterleavedAssignment(module uint, decl *DefInterleav
 	// Determine type and length multiplier
 	for i, source := range decl.Sources {
 		// Lookup info of column being interleaved.
-		info := r.env.Column(module, source)
+		info := r.env.Column(module, source.Name)
 		if i == 0 {
 			length_multiplier = info.multiplier
 			datatype = info.datatype
@@ -445,12 +472,14 @@ func (r *resolver) resolveExpressionInModule(module string, global bool, expr Ex
 // permitted in a global context.
 func (r *resolver) resolveVariableInModule(module string, global bool, expr *VariableAccess) []SyntaxError {
 	// Check whether this is a qualified access, or not.
-	if global && expr.Module != nil {
-		module = *expr.Module
-	} else if expr.Module != nil {
+	if !global && expr.Module != nil {
 		return r.srcmap.SyntaxErrors(expr, "qualified access not permitted here")
+	} else if expr.Module != nil && !r.env.HasModule(*expr.Module) {
+		return r.srcmap.SyntaxErrors(expr, fmt.Sprintf("unknown module %s", *expr.Module))
+	} else if expr.Module != nil {
+		module = *expr.Module
 	}
-	// FIXME: handle qualified variable accesses
+	//
 	mid := r.env.Module(module)
 	// Attempt resolve as a column access in enclosing module
 	if cinfo, ok := r.env.LookupColumn(mid, expr.Name); ok {

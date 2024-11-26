@@ -18,62 +18,62 @@ const InvalidTestDir = "../../testdata"
 // Basic Tests
 // ===================================================================
 
-func Test_Basic_Invalid_01(t *testing.T) {
+func Test_Invalid_Basic_01(t *testing.T) {
 	CheckInvalid(t, "basic_invalid_01")
 }
 
-func Test_Basic_Invalid_02(t *testing.T) {
+func Test_Invalid_Basic_02(t *testing.T) {
 	CheckInvalid(t, "basic_invalid_02")
 }
 
-func Test_Basic_Invalid_03(t *testing.T) {
+func Test_Invalid_Basic_03(t *testing.T) {
 	CheckInvalid(t, "basic_invalid_03")
 }
 
-func Test_Basic_Invalid_04(t *testing.T) {
+func Test_Invalid_Basic_04(t *testing.T) {
 	CheckInvalid(t, "basic_invalid_04")
 }
 
-func Test_Basic_Invalid_05(t *testing.T) {
+func Test_Invalid_Basic_05(t *testing.T) {
 	CheckInvalid(t, "basic_invalid_05")
 }
 
-func Test_Basic_Invalid_06(t *testing.T) {
+func Test_Invalid_Basic_06(t *testing.T) {
 	CheckInvalid(t, "basic_invalid_06")
 }
 
-func Test_Basic_Invalid_07(t *testing.T) {
+func Test_Invalid_Basic_07(t *testing.T) {
 	CheckInvalid(t, "basic_invalid_07")
 }
 
-func Test_Basic_Invalid_08(t *testing.T) {
+func Test_Invalid_Basic_08(t *testing.T) {
 	CheckInvalid(t, "basic_invalid_08")
 }
 
-func Test_Basic_Invalid_09(t *testing.T) {
+func Test_Invalid_Basic_09(t *testing.T) {
 	CheckInvalid(t, "basic_invalid_09")
 }
 
-func Test_Basic_Invalid_10(t *testing.T) {
+func Test_Invalid_Basic_10(t *testing.T) {
 	CheckInvalid(t, "basic_invalid_10")
 }
 
-func Test_Basic_Invalid_11(t *testing.T) {
+func Test_Invalid_Basic_11(t *testing.T) {
 	CheckInvalid(t, "basic_invalid_11")
 }
 
-func Test_Basic_Invalid_12(t *testing.T) {
+func Test_Invalid_Basic_12(t *testing.T) {
 	CheckInvalid(t, "basic_invalid_12")
 }
 
 // ===================================================================
 // Property Tests
 // ===================================================================
-func Test_Property_Invalid_01(t *testing.T) {
+func Test_Invalid_Property_01(t *testing.T) {
 	CheckInvalid(t, "property_invalid_01")
 }
 
-func Test_Property_Invalid_02(t *testing.T) {
+func Test_Invalid_Property_02(t *testing.T) {
 	CheckInvalid(t, "property_invalid_02")
 }
 
@@ -81,11 +81,11 @@ func Test_Property_Invalid_02(t *testing.T) {
 // Shift Tests
 // ===================================================================
 
-func Test_Shift_Invalid_01(t *testing.T) {
+func Test_Invalid_Shift_01(t *testing.T) {
 	CheckInvalid(t, "shift_invalid_01")
 }
 
-func Test_Shift_Invalid_02(t *testing.T) {
+func Test_Invalid_Shift_02(t *testing.T) {
 	CheckInvalid(t, "shift_invalid_02")
 }
 
@@ -93,7 +93,7 @@ func Test_Shift_Invalid_02(t *testing.T) {
 // Normalisation Tests
 // ===================================================================
 
-func Test_Norm_Invalid_01(t *testing.T) {
+func Test_Invalid_Norm_01(t *testing.T) {
 	CheckInvalid(t, "norm_invalid_01")
 }
 
@@ -101,11 +101,11 @@ func Test_Norm_Invalid_01(t *testing.T) {
 // If-Zero
 // ===================================================================
 
-func Test_If_Invalid_01(t *testing.T) {
+func Test_Invalid_If_01(t *testing.T) {
 	CheckInvalid(t, "if_invalid_01")
 }
 
-func Test_If_Invalid_02(t *testing.T) {
+func Test_Invalid_If_02(t *testing.T) {
 	CheckInvalid(t, "if_invalid_02")
 }
 
@@ -113,19 +113,19 @@ func Test_If_Invalid_02(t *testing.T) {
 // Range Constraints
 // ===================================================================
 
-func Test_Range_Invalid_01(t *testing.T) {
+func Test_Invalid_Range_01(t *testing.T) {
 	CheckInvalid(t, "range_invalid_01")
 }
 
-func Test_Range_Invalid_02(t *testing.T) {
+func Test_Invalid_Range_02(t *testing.T) {
 	CheckInvalid(t, "range_invalid_02")
 }
 
-func Test_Range_Invalid_03(t *testing.T) {
+func Test_Invalid_Range_03(t *testing.T) {
 	CheckInvalid(t, "range_invalid_03")
 }
 
-func Test_Range_Invalid_04(t *testing.T) {
+func Test_Invalid_Range_04(t *testing.T) {
 	CheckInvalid(t, "range_invalid_04")
 }
 
@@ -133,7 +133,7 @@ func Test_Range_Invalid_04(t *testing.T) {
 // Modules
 // ===================================================================
 
-func Test_Module_Invalid_01(t *testing.T) {
+func Test_Invalid_Module_01(t *testing.T) {
 	CheckInvalid(t, "module_invalid_01")
 }
 
@@ -141,31 +141,66 @@ func Test_Module_Invalid_01(t *testing.T) {
 // Permutations
 // ===================================================================
 
-func Test_Permute_Invalid_01(t *testing.T) {
+func Test_Invalid_Permute_01(t *testing.T) {
 	CheckInvalid(t, "permute_invalid_01")
 }
 
-func Test_Permute_Invalid_02(t *testing.T) {
+func Test_Invalid_Permute_02(t *testing.T) {
 	CheckInvalid(t, "permute_invalid_02")
 }
 
-func Test_Permute_Invalid_03(t *testing.T) {
+func Test_Invalid_Permute_03(t *testing.T) {
 	CheckInvalid(t, "permute_invalid_03")
 }
 
-func Test_Permute_Invalid_04(t *testing.T) {
+func Test_Invalid_Permute_04(t *testing.T) {
 	CheckInvalid(t, "permute_invalid_04")
 }
 
-func Test_Permute_Invalid_05(t *testing.T) {
+func Test_Invalid_Permute_05(t *testing.T) {
 	CheckInvalid(t, "permute_invalid_05")
 }
 
-func Test_Permute_Invalid_06(t *testing.T) {
+func Test_Invalid_Permute_06(t *testing.T) {
 	CheckInvalid(t, "permute_invalid_06")
 }
-func Test_Permute_Invalid_07(t *testing.T) {
+func Test_Invalid_Permute_07(t *testing.T) {
 	CheckInvalid(t, "permute_invalid_07")
+}
+
+// ===================================================================
+// Lookups
+// ===================================================================
+
+func Test_Invalid_Lookup_01(t *testing.T) {
+	CheckInvalid(t, "lookup_invalid_01")
+}
+
+func Test_Invalid_Lookup_02(t *testing.T) {
+	CheckInvalid(t, "lookup_invalid_02")
+}
+func Test_Invalid_Lookup_03(t *testing.T) {
+	CheckInvalid(t, "lookup_invalid_03")
+}
+
+func Test_Invalid_Lookup_04(t *testing.T) {
+	CheckInvalid(t, "lookup_invalid_04")
+}
+
+func Test_Invalid_Lookup_05(t *testing.T) {
+	CheckInvalid(t, "lookup_invalid_05")
+}
+func Test_Invalid_Lookup_06(t *testing.T) {
+	CheckInvalid(t, "lookup_invalid_06")
+}
+func Test_Invalid_Lookup_07(t *testing.T) {
+	CheckInvalid(t, "lookup_invalid_07")
+}
+func Test_Invalid_Lookup_08(t *testing.T) {
+	CheckInvalid(t, "lookup_invalid_08")
+}
+func Test_Invalid_Lookup_09(t *testing.T) {
+	CheckInvalid(t, "lookup_invalid_09")
 }
 
 // ===================================================================

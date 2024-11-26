@@ -230,7 +230,7 @@ func (t *translator) translateDefInterleaved(decl *DefInterleaved, module uint) 
 	info := t.env.Column(module, decl.Target)
 	// Determine source column identifiers
 	for i, source := range decl.Sources {
-		sources[i] = t.env.Column(module, source).cid
+		sources[i] = t.env.Column(module, source.Name).cid
 	}
 	// Construct context for this assignment
 	context := tr.NewContext(module, info.multiplier)

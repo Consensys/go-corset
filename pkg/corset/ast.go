@@ -175,7 +175,7 @@ type DefInterleaved struct {
 	// The target column being defined
 	Target string
 	// The source columns used to define the interleaved target column.
-	Sources []string
+	Sources []*DefSourceColumn
 }
 
 // CanFinalise checks whether or not this interleaving is ready to be finalised.
@@ -183,7 +183,7 @@ type DefInterleaved struct {
 // interleaving are themselves finalised.
 func (p *DefInterleaved) CanFinalise(module uint, env *Environment) bool {
 	for _, col := range p.Sources {
-		if !env.IsColumnFinalised(module, col) {
+		if !env.IsColumnFinalised(module, col.Name) {
 			return false
 		}
 	}
@@ -197,6 +197,19 @@ func (p *DefInterleaved) IsDeclaration() {}
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
 func (p *DefInterleaved) Lisp() sexp.SExp {
+	panic("got here")
+}
+
+// DefSourceColumn provides information about a column being permuted by a
+// sorted permutation.
+type DefSourceColumn struct {
+	// Name of the column to be permuted
+	Name string
+}
+
+// Lisp converts this node into its lisp representation.  This is primarily used
+// for debugging purposes.
+func (p *DefSourceColumn) Lisp() sexp.SExp {
 	panic("got here")
 }
 

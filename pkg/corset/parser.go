@@ -335,7 +335,7 @@ func (p *Parser) parseDefInterleaved(elements []sexp.SExp) (*DefInterleaved, *Sy
 	// Extract target and source columns
 	target := elements[1].AsSymbol().Value
 	sexpSources := elements[2].AsList()
-	sources := make([]string, sexpSources.Len())
+	sources := make([]*DefSourceColumn, sexpSources.Len())
 	//
 	for i := 0; i != sexpSources.Len(); i++ {
 		ith := sexpSources.Get(i)
@@ -343,7 +343,7 @@ func (p *Parser) parseDefInterleaved(elements []sexp.SExp) (*DefInterleaved, *Sy
 			return nil, p.translator.SyntaxError(ith, "malformed source column")
 		}
 		// Extract column name
-		sources[i] = ith.AsSymbol().Value
+		sources[i] = &DefSourceColumn{ith.AsSymbol().Value}
 	}
 	// Done
 	return &DefInterleaved{target, sources}, nil
@@ -412,7 +412,7 @@ func (p *Parser) parseDefPermutation(elements []sexp.SExp) (*DefPermutation, *Sy
 			return nil, err
 		}
 		// Parse source column
-		if sources[i], err = p.parsePermutedColumnDeclaration(sexpSources.Get(i)); err != nil {
+		if sources[i], err = p.parsePermutedColumnDeclaration(i == 0, sexpSources.Get(i)); err != nil {
 			return nil, err
 		}
 	}
@@ -420,7 +420,7 @@ func (p *Parser) parseDefPermutation(elements []sexp.SExp) (*DefPermutation, *Sy
 	return &DefPermutation{targets, sources}, nil
 }
 
-func (p *Parser) parsePermutedColumnDeclaration(e sexp.SExp) (*DefPermutedColumn, *SyntaxError) {
+func (p *Parser) parsePermutedColumnDeclaration(signRequired bool, e sexp.SExp) (*DefPermutedColumn, *SyntaxError) {
 	var err *SyntaxError
 	//
 	defcolumn := &DefPermutedColumn{"", false}
@@ -440,6 +440,8 @@ func (p *Parser) parsePermutedColumnDeclaration(e sexp.SExp) (*DefPermutedColumn
 		}
 		// Parse column name
 		defcolumn.Name = l.Get(1).AsSymbol().Value
+	} else if signRequired {
+		return nil, p.translator.SyntaxError(e, "missing sort direction")
 	} else {
 		defcolumn.Name = e.String(false)
 	}
