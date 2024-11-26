@@ -125,8 +125,6 @@ func (r *resolver) resolveAssignments(circuit *Circuit) []SyntaxError {
 // to process all columns before we can sure that they are all declared
 // correctly.
 func (r *resolver) resolveAssignmentsInModule(module string, decls []Declaration) []SyntaxError {
-	// FIXME: the following is actually broken since we must allocate all input
-	// columns in all modules before any assignments are preregistered.
 	if errors := r.initialiseAssignmentsInModule(module, decls); len(errors) > 0 {
 		return errors
 	}
@@ -315,13 +313,13 @@ func (r *resolver) finalisePermutationAssignment(module uint, decl *DefPermutati
 		ith := decl.Sources[i]
 		src := r.env.Column(module, ith.Name)
 		// Sanity check length multiplier
-		if i == 0 {
+		if i == 0 && src.datatype.AsUint() == nil {
+			errors = append(errors, *r.srcmap.SyntaxError(ith, "fixed-width type required"))
+		} else if i == 0 {
 			multiplier = src.multiplier
 		} else if multiplier != src.multiplier {
 			// Problem
 			errors = append(errors, *r.srcmap.SyntaxError(ith, "incompatible length multiplier"))
-		} else if src.datatype.AsUint() == nil {
-			errors = append(errors, *r.srcmap.SyntaxError(ith, "fixed-width type required"))
 		}
 		// All good, finalise column
 		context := tr.NewContext(module, src.multiplier)
@@ -384,53 +382,69 @@ func (r *resolver) resolveConstraintsInModule(module string, decls []Declaration
 
 // Resolve those variables appearing in either the guard or the body of this constraint.
 func (r *resolver) resolveDefConstraintInModule(module string, decl *DefConstraint) []SyntaxError {
-	var errors []SyntaxError
+	var (
+		errors  []SyntaxError
+		context = tr.VoidContext()
+	)
+	// Resolve guard
 	if decl.Guard != nil {
-		errors = r.resolveExpressionInModule(module, false, decl.Guard)
+		errors = r.resolveExpressionInModule(module, false, &context, decl.Guard)
 	}
 	// Resolve constraint body
-	errors = append(errors, r.resolveExpressionInModule(module, false, decl.Constraint)...)
+	errors = append(errors, r.resolveExpressionInModule(module, false, &context, decl.Constraint)...)
 	// Done
 	return errors
 }
 
 // Resolve those variables appearing in the body of this range constraint.
 func (r *resolver) resolveDefInRangeInModule(module string, decl *DefInRange) []SyntaxError {
-	var errors []SyntaxError
+	var (
+		errors  []SyntaxError
+		context = tr.VoidContext()
+	)
 	// Resolve property body
-	errors = append(errors, r.resolveExpressionInModule(module, false, decl.Expr)...)
+	errors = append(errors, r.resolveExpressionInModule(module, false, &context, decl.Expr)...)
 	// Done
 	return errors
 }
 
 // Resolve those variables appearing in the body of this lookup constraint.
 func (r *resolver) resolveDefLookupInModule(module string, decl *DefLookup) []SyntaxError {
-	var errors []SyntaxError
+	var (
+		errors        []SyntaxError
+		sourceContext = tr.VoidContext()
+		targetContext = tr.VoidContext()
+	)
+
 	// Resolve source expressions
-	errors = append(errors, r.resolveExpressionsInModule(module, true, decl.Sources)...)
+	errors = append(errors, r.resolveExpressionsInModule(module, true, &sourceContext, decl.Sources)...)
 	// Resolve target expressions
-	errors = append(errors, r.resolveExpressionsInModule(module, true, decl.Targets)...)
+	errors = append(errors, r.resolveExpressionsInModule(module, true, &targetContext, decl.Targets)...)
 	// Done
 	return errors
 }
 
 // Resolve those variables appearing in the body of this property assertion.
 func (r *resolver) resolveDefPropertyInModule(module string, decl *DefProperty) []SyntaxError {
-	var errors []SyntaxError
+	var (
+		errors  []SyntaxError
+		context = tr.VoidContext()
+	)
 	// Resolve property body
-	errors = append(errors, r.resolveExpressionInModule(module, false, decl.Assertion)...)
+	errors = append(errors, r.resolveExpressionInModule(module, false, &context, decl.Assertion)...)
 	// Done
 	return errors
 }
 
 // Resolve a sequence of zero or more expressions within a given module.  This
 // simply resolves each of the arguments in turn, collecting any errors arising.
-func (r *resolver) resolveExpressionsInModule(module string, global bool, args []Expr) []SyntaxError {
+func (r *resolver) resolveExpressionsInModule(module string, global bool,
+	context *tr.Context, args []Expr) []SyntaxError {
 	var errors []SyntaxError
 	// Visit each argument
 	for _, arg := range args {
 		if arg != nil {
-			errs := r.resolveExpressionInModule(module, global, arg)
+			errs := r.resolveExpressionInModule(module, global, context, arg)
 			errors = append(errors, errs...)
 		}
 	}
@@ -443,25 +457,25 @@ func (r *resolver) resolveExpressionsInModule(module string, global bool, args [
 // variable accesses.  As above, the goal is ensure variable refers to something
 // that was declared and, more specifically, what kind of access it is (e.g.
 // column access, constant access, etc).
-func (r *resolver) resolveExpressionInModule(module string, global bool, expr Expr) []SyntaxError {
+func (r *resolver) resolveExpressionInModule(module string, global bool, context *tr.Context, expr Expr) []SyntaxError {
 	if _, ok := expr.(*Constant); ok {
 		return nil
 	} else if v, ok := expr.(*Add); ok {
-		return r.resolveExpressionsInModule(module, global, v.Args)
+		return r.resolveExpressionsInModule(module, global, context, v.Args)
 	} else if v, ok := expr.(*Exp); ok {
-		return r.resolveExpressionInModule(module, global, v.Arg)
+		return r.resolveExpressionInModule(module, global, context, v.Arg)
 	} else if v, ok := expr.(*IfZero); ok {
-		return r.resolveExpressionsInModule(module, global, []Expr{v.Condition, v.TrueBranch, v.FalseBranch})
+		return r.resolveExpressionsInModule(module, global, context, []Expr{v.Condition, v.TrueBranch, v.FalseBranch})
 	} else if v, ok := expr.(*List); ok {
-		return r.resolveExpressionsInModule(module, global, v.Args)
+		return r.resolveExpressionsInModule(module, global, context, v.Args)
 	} else if v, ok := expr.(*Mul); ok {
-		return r.resolveExpressionsInModule(module, global, v.Args)
+		return r.resolveExpressionsInModule(module, global, context, v.Args)
 	} else if v, ok := expr.(*Normalise); ok {
-		return r.resolveExpressionInModule(module, global, v.Arg)
+		return r.resolveExpressionInModule(module, global, context, v.Arg)
 	} else if v, ok := expr.(*Sub); ok {
-		return r.resolveExpressionsInModule(module, global, v.Args)
+		return r.resolveExpressionsInModule(module, global, context, v.Args)
 	} else if v, ok := expr.(*VariableAccess); ok {
-		return r.resolveVariableInModule(module, global, v)
+		return r.resolveVariableInModule(module, global, context, v)
 	} else {
 		return r.srcmap.SyntaxErrors(expr, "unknown expression")
 	}
@@ -470,7 +484,8 @@ func (r *resolver) resolveExpressionInModule(module string, global bool, expr Ex
 // Resolve a specific variable access contained within some expression which, in
 // turn, is contained within some module.  Note, qualified accesses are only
 // permitted in a global context.
-func (r *resolver) resolveVariableInModule(module string, global bool, expr *VariableAccess) []SyntaxError {
+func (r *resolver) resolveVariableInModule(module string, global bool, context *tr.Context,
+	expr *VariableAccess) []SyntaxError {
 	// Check whether this is a qualified access, or not.
 	if !global && expr.Module != nil {
 		return r.srcmap.SyntaxErrors(expr, "qualified access not permitted here")
@@ -484,6 +499,10 @@ func (r *resolver) resolveVariableInModule(module string, global bool, expr *Var
 	// Attempt resolve as a column access in enclosing module
 	if cinfo, ok := r.env.LookupColumn(mid, expr.Name); ok {
 		ctx := tr.NewContext(mid, cinfo.multiplier)
+		// Update context
+		if *context = context.Join(ctx); context.IsConflicted() {
+			return r.srcmap.SyntaxErrors(expr, "conflicting context")
+		}
 		// Register the binding to complete resolution.
 		expr.Binding = &Binder{true, ctx, cinfo.cid}
 		// Done
