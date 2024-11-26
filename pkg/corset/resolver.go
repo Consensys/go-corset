@@ -187,8 +187,6 @@ func (r *resolver) checkAssignmentsInModule(module string, decls []Declaration) 
 			for _, c := range col.Sources {
 				if !r.env.HasColumn(mid, c.Name) {
 					errors = append(errors, *r.srcmap.SyntaxError(c, "unknown source column"))
-				} else if r.env.Column(mid, c.Name).datatype.AsUint() == nil {
-					errors = append(errors, *r.srcmap.SyntaxError(c, "fixed-width type required"))
 				}
 			}
 		}
@@ -322,6 +320,8 @@ func (r *resolver) finalisePermutationAssignment(module uint, decl *DefPermutati
 		} else if multiplier != src.multiplier {
 			// Problem
 			errors = append(errors, *r.srcmap.SyntaxError(ith, "incompatible length multiplier"))
+		} else if src.datatype.AsUint() == nil {
+			errors = append(errors, *r.srcmap.SyntaxError(ith, "fixed-width type required"))
 		}
 		// All good, finalise column
 		context := tr.NewContext(module, src.multiplier)

@@ -204,6 +204,46 @@ func Test_Invalid_Lookup_09(t *testing.T) {
 }
 
 // ===================================================================
+// Interleavings
+// ===================================================================
+
+func Test_Invalid_Interleave_01(t *testing.T) {
+	CheckInvalid(t, "interleave_invalid_01")
+}
+
+func Test_Invalid_Interleave_02(t *testing.T) {
+	CheckInvalid(t, "interleave_invalid_02")
+}
+
+func Test_Invalid_Interleave_03(t *testing.T) {
+	CheckInvalid(t, "interleave_invalid_03")
+}
+
+func Test_Invalid_Interleave_04(t *testing.T) {
+	CheckInvalid(t, "interleave_invalid_04")
+}
+
+func Test_Invalid_Interleave_05(t *testing.T) {
+	CheckInvalid(t, "interleave_invalid_05")
+}
+
+func Test_Invalid_Interleave_06(t *testing.T) {
+	CheckInvalid(t, "interleave_invalid_06")
+}
+
+func Test_Invalid_Interleave_07(t *testing.T) {
+	CheckInvalid(t, "interleave_invalid_07")
+}
+
+func Test_Invalid_Interleave_08(t *testing.T) {
+	CheckInvalid(t, "interleave_invalid_08")
+}
+
+func Test_Invalid_Interleave_09(t *testing.T) {
+	CheckInvalid(t, "interleave_invalid_09")
+}
+
+// ===================================================================
 // Test Helpers
 // ===================================================================
 
