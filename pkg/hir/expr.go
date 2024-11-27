@@ -416,47 +416,6 @@ func (p *Normalise) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet[tr
 func (p *Normalise) AsConstant() *fr.Element { return nil }
 
 // ============================================================================
-// VariableAccess
-// ============================================================================
-
-// VariableAccess represents reading the value of a given local variable (such
-// as a function parameter).
-type VariableAccess struct {
-	Name  string
-	Shift int
-}
-
-// Bounds returns max shift in either the negative (left) or positive
-// direction (right).
-func (p *VariableAccess) Bounds() util.Bounds {
-	panic("variable accesses do not have bounds")
-}
-
-// Context determines the evaluation context (i.e. enclosing module) for this
-// expression.
-func (p *VariableAccess) Context(schema sc.Schema) trace.Context {
-	panic("variable accesses do not have a context")
-}
-
-// RequiredColumns returns the set of columns on which this term depends.
-// That is, columns whose values may be accessed when evaluating this term
-// on a given trace.
-func (p *VariableAccess) RequiredColumns() *util.SortedSet[uint] {
-	panic("unsupported operation")
-}
-
-// RequiredCells returns the set of trace cells on which this term depends.
-// In this case, that is the empty set.
-func (p *VariableAccess) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet[trace.CellRef] {
-	panic("unsupported operation")
-}
-
-// AsConstant determines whether or not this is a constant expression.  If
-// so, the constant is returned; otherwise, nil is returned.  NOTE: this
-// does not perform any form of simplification to determine this.
-func (p *VariableAccess) AsConstant() *fr.Element { return nil }
-
-// ============================================================================
 // ColumnAccess
 // ============================================================================
 

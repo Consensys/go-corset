@@ -113,13 +113,6 @@ func (e *ColumnAccess) LowerTo(schema *mir.Schema) []mir.Expr {
 	return lowerTo(e, schema)
 }
 
-// LowerTo lowers a variable access to the MIR level.  This requires expanding
-// the arguments, then lowering them.  Furthermore, conditionals are "lifted" to
-// the top.
-func (e *VariableAccess) LowerTo(schema *mir.Schema) []mir.Expr {
-	return lowerTo(e, schema)
-}
-
 // LowerTo lowers an exponent expression to the MIR level.  This requires expanding
 // the argument andn lowering it.  Furthermore, conditionals are "lifted" to
 // the top.

@@ -25,21 +25,6 @@ func (e *ColumnAccess) Lisp(schema sc.Schema) sexp.SExp {
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (e *VariableAccess) Lisp(schema sc.Schema) sexp.SExp {
-	access := sexp.NewSymbol(e.Name)
-	// Check whether shifted (or not)
-	if e.Shift == 0 {
-		// Not shifted
-		return access
-	}
-	// Shifted
-	shift := sexp.NewSymbol(fmt.Sprintf("%d", e.Shift))
-
-	return sexp.NewList([]sexp.SExp{sexp.NewSymbol("shift"), access, shift})
-}
-
-// Lisp converts this schema element into a simple S-Expression, for example
-// so it can be printed.
 func (e *Constant) Lisp(schema sc.Schema) sexp.SExp {
 	return sexp.NewSymbol(e.Val.String())
 }

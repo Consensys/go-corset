@@ -51,9 +51,6 @@ type Schema struct {
 	assertions []PropertyAssertion
 	// Cache list of columns declared in inputs and assignments.
 	column_cache []sc.Column
-	// Macros determines the set of macros which can be called within
-	// expressions, etc.
-	macros []*MacroDefinition
 }
 
 // EmptySchema is used to construct a fresh schema onto which new columns and
@@ -146,15 +143,6 @@ func (p *Schema) AddPropertyAssertion(handle string, context trace.Context, prop
 	p.assertions = append(p.assertions, sc.NewPropertyAssertion[ZeroArrayTest](handle, context, ZeroArrayTest{property}))
 }
 
-// AddMacroDefinition adds a definition for a macro (either pure or impure).
-func (p *Schema) AddMacroDefinition(module uint, name string, params []string, body Expr, pure bool) uint {
-	index := p.Macros().Count()
-	macro := &MacroDefinition{module, name, params, body, pure}
-	p.macros = append(p.macros, macro)
-
-	return index
-}
-
 // ============================================================================
 // Schema Interface
 // ============================================================================
@@ -202,11 +190,6 @@ func (p *Schema) Declarations() util.Iterator[sc.Declaration] {
 	ps := util.NewCastIterator[sc.Assignment, sc.Declaration](p.Assignments())
 
 	return inputs.Append(ps)
-}
-
-// Macros returns an array over the macro definitions available in this schema.
-func (p *Schema) Macros() util.Iterator[*MacroDefinition] {
-	return util.NewArrayIterator(p.macros)
 }
 
 // Modules returns an iterator over the declared set of modules within this

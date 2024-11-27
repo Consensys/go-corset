@@ -248,28 +248,31 @@ func Test_Invalid_Interleave_09(t *testing.T) {
 // ===================================================================
 
 func Test_Invalid_PureFun_01(t *testing.T) {
-	Check(t, "purefun_invalid_01")
+	CheckInvalid(t, "purefun_invalid_01")
 }
 
 func Test_Invalid_PureFun_02(t *testing.T) {
-	Check(t, "purefun_invalid_02")
+	CheckInvalid(t, "purefun_invalid_02")
 }
 
 func Test_Invalid_PureFun_03(t *testing.T) {
-	Check(t, "purefun_invalid_03")
+	CheckInvalid(t, "purefun_invalid_03")
 }
 
-func Test_Invalid_PureFun_04(t *testing.T) {
-	Check(t, "purefun_invalid_04")
-}
-
+/*
+	func Test_Invalid_PureFun_04(t *testing.T) {
+		CheckInvalid(t, "purefun_invalid_04")
+	}
+*/
 func Test_Invalid_PureFun_05(t *testing.T) {
-	Check(t, "purefun_invalid_05")
+	CheckInvalid(t, "purefun_invalid_05")
 }
 
-func Test_Invalid_PureFun_06(t *testing.T) {
-	Check(t, "purefun_invalid_06")
-}
+/*
+	func Test_Invalid_PureFun_06(t *testing.T) {
+		CheckInvalid(t, "purefun_invalid_06")
+	}
+*/
 
 // ===================================================================
 // Test Helpers

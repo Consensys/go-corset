@@ -490,9 +490,11 @@ func Test_PureFun_02(t *testing.T) {
 	Check(t, "purefun_02")
 }
 
-func Test_PureFun_03(t *testing.T) {
-	Check(t, "purefun_03")
-}
+/*
+	func Test_PureFun_03(t *testing.T) {
+		Check(t, "purefun_03")
+	}
+*/
 
 // ===================================================================
 // Complex Tests

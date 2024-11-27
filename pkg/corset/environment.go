@@ -54,6 +54,12 @@ func EmptyEnvironment() *Environment {
 	return &Environment{modules, columns}
 }
 
+// NewModuleScope creates a new evaluation scope.
+func (p *Environment) NewModuleScope(module string) *ModuleScope {
+	mid := p.Module(module)
+	return &ModuleScope{mid, p, make(map[string]FunctionBinding)}
+}
+
 // RegisterModule registers a new module within this environment.  Observe that
 // this will panic if the module already exists.  Furthermore, the module
 // identifier is always determined as the next available identifier.

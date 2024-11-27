@@ -27,7 +27,7 @@ import (
 func ParseSourceFiles(files []*sexp.SourceFile) (Circuit, *sexp.SourceMaps[Node], []SyntaxError) {
 	var circuit Circuit
 	// (for now) at most one error per source file is supported.
-	var errors []SyntaxError = make([]SyntaxError, len(files))
+	var errors []SyntaxError
 	// Construct an initially empty source map
 	srcmaps := sexp.NewSourceMaps[Node]()
 	// num_errs counts the number of errors reported
@@ -37,13 +37,13 @@ func ParseSourceFiles(files []*sexp.SourceFile) (Circuit, *sexp.SourceMaps[Node]
 	// Names identifies the names of each unique module.
 	names := make([]string, 0)
 	//
-	for i, file := range files {
-		c, srcmap, err := ParseSourceFile(file)
+	for _, file := range files {
+		c, srcmap, errs := ParseSourceFile(file)
 		// Handle errors
-		if err != nil {
-			num_errs++
+		if len(errs) > 0 {
+			num_errs += uint(len(errs))
 			// Report any errors encountered
-			errors[i] = *err
+			errors = append(errors, errs...)
 		} else {
 			// Combine source maps
 			srcmaps.Join(srcmap)
@@ -82,20 +82,23 @@ func ParseSourceFiles(files []*sexp.SourceFile) (Circuit, *sexp.SourceMaps[Node]
 // ParseSourceFile parses the contents of a single lisp file into one or more
 // modules.  Observe that every lisp file starts in the "prelude" or "root"
 // module, and may declare items for additional modules as necessary.
-func ParseSourceFile(srcfile *sexp.SourceFile) (Circuit, *sexp.SourceMap[Node], *SyntaxError) {
-	var circuit Circuit
+func ParseSourceFile(srcfile *sexp.SourceFile) (Circuit, *sexp.SourceMap[Node], []SyntaxError) {
+	var (
+		circuit Circuit
+		errors  []SyntaxError
+	)
 	// Parse bytes into an S-Expression
 	terms, srcmap, err := srcfile.ParseAll()
 	// Check test file parsed ok
 	if err != nil {
-		return circuit, nil, err
+		return circuit, nil, []SyntaxError{*err}
 	}
 	// Construct parser for corset syntax
 	p := NewParser(srcfile, srcmap)
 	// Parse whatever is declared at the beginning of the file before the first
 	// module declaration.  These declarations form part of the "prelude".
-	if circuit.Declarations, terms, err = p.parseModuleContents(terms); err != nil {
-		return circuit, nil, err
+	if circuit.Declarations, terms, errors = p.parseModuleContents(terms); len(errors) > 0 {
+		return circuit, nil, errors
 	}
 	// Continue parsing string until nothing remains.
 	for len(terms) != 0 {
@@ -104,12 +107,12 @@ func ParseSourceFile(srcfile *sexp.SourceFile) (Circuit, *sexp.SourceMap[Node], 
 			decls []Declaration
 		)
 		// Extract module name
-		if name, err = p.parseModuleStart(terms[0]); err != nil {
-			return circuit, nil, err
+		if name, errors = p.parseModuleStart(terms[0]); len(errors) > 0 {
+			return circuit, nil, errors
 		}
 		// Parse module contents
-		if decls, terms, err = p.parseModuleContents(terms[1:]); err != nil {
-			return circuit, nil, err
+		if decls, terms, errors = p.parseModuleContents(terms[1:]); len(errors) > 0 {
+			return circuit, nil, errors
 		} else if len(decls) != 0 {
 			circuit.Modules = append(circuit.Modules, Module{name, decls})
 		}
@@ -151,6 +154,7 @@ func NewParser(srcfile *sexp.SourceFile, srcmap *sexp.SourceMap[sexp.SExp]) *Par
 	p.AddRecursiveRule("^", powParserRule)
 	p.AddRecursiveRule("if", ifParserRule)
 	p.AddRecursiveRule("begin", beginParserRule)
+	p.AddDefaultRecursiveRule(invokeParserRule)
 	//
 	return parser
 }
@@ -173,7 +177,8 @@ func (p *Parser) mapSourceNode(from sexp.SExp, to Node) {
 }
 
 // Extract all declarations associated with a given module and package them up.
-func (p *Parser) parseModuleContents(terms []sexp.SExp) ([]Declaration, []sexp.SExp, *SyntaxError) {
+func (p *Parser) parseModuleContents(terms []sexp.SExp) ([]Declaration, []sexp.SExp, []SyntaxError) {
+	var errors []SyntaxError
 	//
 	decls := make([]Declaration, 0)
 	//
@@ -181,19 +186,20 @@ func (p *Parser) parseModuleContents(terms []sexp.SExp) ([]Declaration, []sexp.S
 		e, ok := s.(*sexp.List)
 		// Check for error
 		if !ok {
-			return nil, nil, p.translator.SyntaxError(s, "unexpected or malformed declaration")
-		}
-		// Check for end-of-module
-		if e.MatchSymbols(2, "module") {
+			err := p.translator.SyntaxError(s, "unexpected or malformed declaration")
+			errors = append(errors, *err)
+		} else if e.MatchSymbols(2, "module") {
 			return decls, terms[i:], nil
-		}
-		// Parse the declaration
-		if decl, err := p.parseDeclaration(e); err != nil {
-			return nil, nil, err
+		} else if decl, errs := p.parseDeclaration(e); errs != nil {
+			errors = append(errors, errs...)
 		} else {
 			// Continue accumulating declarations for this module.
 			decls = append(decls, decl)
 		}
+	}
+	// Sanity check errors
+	if len(errors) > 0 {
+		return nil, nil, errors
 	}
 	// End-of-file signals end-of-module.
 	return decls, make([]sexp.SExp, 0), nil
@@ -201,15 +207,17 @@ func (p *Parser) parseModuleContents(terms []sexp.SExp) ([]Declaration, []sexp.S
 
 // Parse a module declaration of the form "(module m1)" which indicates the
 // start of module m1.
-func (p *Parser) parseModuleStart(s sexp.SExp) (string, *SyntaxError) {
+func (p *Parser) parseModuleStart(s sexp.SExp) (string, []SyntaxError) {
 	l, ok := s.(*sexp.List)
 	// Check for error
 	if !ok {
-		return "", p.translator.SyntaxError(s, "unexpected or malformed declaration")
+		err := p.translator.SyntaxError(s, "unexpected or malformed declaration")
+		return "", []SyntaxError{*err}
 	}
 	// Sanity check declaration
 	if len(l.Elements) > 2 {
-		return "", p.translator.SyntaxError(l, "malformed module declaration")
+		err := p.translator.SyntaxError(l, "malformed module declaration")
+		return "", []SyntaxError{*err}
 	}
 	// Extract column name
 	name := l.Elements[1].AsSymbol().Value
@@ -217,53 +225,67 @@ func (p *Parser) parseModuleStart(s sexp.SExp) (string, *SyntaxError) {
 	return name, nil
 }
 
-func (p *Parser) parseDeclaration(s *sexp.List) (Declaration, *SyntaxError) {
+func (p *Parser) parseDeclaration(s *sexp.List) (Declaration, []SyntaxError) {
 	var (
-		decl  Declaration
-		error *SyntaxError
+		decl   Declaration
+		errors []SyntaxError
+		err    *SyntaxError
 	)
 	//
 	if s.MatchSymbols(1, "defcolumns") {
-		decl, error = p.parseDefColumns(s)
+		decl, errors = p.parseDefColumns(s)
 	} else if s.Len() == 4 && s.MatchSymbols(2, "defconstraint") {
-		decl, error = p.parseDefConstraint(s.Elements)
+		decl, errors = p.parseDefConstraint(s.Elements)
+	} else if s.Len() == 3 && s.MatchSymbols(1, "defpurefun") {
+		decl, errors = p.parseDefPureFun(s.Elements)
 	} else if s.Len() == 3 && s.MatchSymbols(1, "definrange") {
-		decl, error = p.parseDefInRange(s.Elements)
+		decl, err = p.parseDefInRange(s.Elements)
 	} else if s.Len() == 3 && s.MatchSymbols(1, "definterleaved") {
-		decl, error = p.parseDefInterleaved(s.Elements)
+		decl, err = p.parseDefInterleaved(s.Elements)
 	} else if s.Len() == 4 && s.MatchSymbols(1, "deflookup") {
-		decl, error = p.parseDefLookup(s.Elements)
+		decl, err = p.parseDefLookup(s.Elements)
 	} else if s.Len() == 3 && s.MatchSymbols(2, "defpermutation") {
-		decl, error = p.parseDefPermutation(s.Elements)
+		decl, err = p.parseDefPermutation(s.Elements)
 	} else if s.Len() == 3 && s.MatchSymbols(2, "defproperty") {
-		decl, error = p.parseDefProperty(s.Elements)
+		decl, err = p.parseDefProperty(s.Elements)
 	} else {
-		error = p.translator.SyntaxError(s, "malformed declaration")
+		err = p.translator.SyntaxError(s, "malformed declaration")
+	}
+	// Handle unit error case
+	if err != nil {
+		errors = append(errors, *err)
 	}
 	// Register node if appropriate
 	if decl != nil {
 		p.mapSourceNode(s, decl)
 	}
 	// done
-	return decl, error
+	return decl, errors
 }
 
 // Parse a column declaration
-func (p *Parser) parseDefColumns(l *sexp.List) (*DefColumns, *SyntaxError) {
+func (p *Parser) parseDefColumns(l *sexp.List) (*DefColumns, []SyntaxError) {
 	columns := make([]*DefColumn, l.Len()-1)
 	// Sanity check declaration
 	if len(l.Elements) == 1 {
-		return nil, p.translator.SyntaxError(l, "malformed column declaration")
+		err := p.translator.SyntaxError(l, "malformed column declaration")
+		return nil, []SyntaxError{*err}
 	}
+	//
+	var errors []SyntaxError
 	// Process column declarations one by one.
 	for i := 1; i < len(l.Elements); i++ {
 		decl, err := p.parseColumnDeclaration(l.Elements[i])
 		// Extract column name
 		if err != nil {
-			return nil, err
+			errors = append(errors, *err)
 		}
 		// Assign the declaration
 		columns[i-1] = decl
+	}
+	// Sanity check errors
+	if len(errors) > 0 {
+		return nil, errors
 	}
 	// Done
 	return &DefColumns{columns}, nil
@@ -301,10 +323,12 @@ func (p *Parser) parseColumnDeclaration(e sexp.SExp) (*DefColumn, *SyntaxError) 
 }
 
 // Parse a vanishing declaration
-func (p *Parser) parseDefConstraint(elements []sexp.SExp) (*DefConstraint, *SyntaxError) {
+func (p *Parser) parseDefConstraint(elements []sexp.SExp) (*DefConstraint, []SyntaxError) {
+	var errors []SyntaxError
 	// Initial sanity checks
 	if elements[1].AsSymbol() == nil {
-		return nil, p.translator.SyntaxError(elements[1], "expected constraint handle")
+		err := p.translator.SyntaxError(elements[1], "expected constraint handle")
+		return nil, []SyntaxError{*err}
 	}
 	//
 	handle := elements[1].AsSymbol().Value
@@ -313,12 +337,16 @@ func (p *Parser) parseDefConstraint(elements []sexp.SExp) (*DefConstraint, *Synt
 	domain, guard, err := p.parseConstraintAttributes(elements[2])
 	// Check for error
 	if err != nil {
-		return nil, err
+		errors = append(errors, *err)
 	}
 	// Translate expression
 	expr, err := p.translator.Translate(elements[3])
 	if err != nil {
-		return nil, err
+		errors = append(errors, *err)
+	}
+	//
+	if len(errors) > 0 {
+		return nil, errors
 	}
 	// Done
 	return &DefConstraint{handle, domain, guard, expr}, nil
@@ -335,7 +363,7 @@ func (p *Parser) parseDefInterleaved(elements []sexp.SExp) (*DefInterleaved, *Sy
 	// Extract target and source columns
 	target := elements[1].AsSymbol().Value
 	sexpSources := elements[2].AsList()
-	sources := make([]*DefSourceColumn, sexpSources.Len())
+	sources := make([]*DefName, sexpSources.Len())
 	//
 	for i := 0; i != sexpSources.Len(); i++ {
 		ith := sexpSources.Get(i)
@@ -343,7 +371,7 @@ func (p *Parser) parseDefInterleaved(elements []sexp.SExp) (*DefInterleaved, *Sy
 			return nil, p.translator.SyntaxError(ith, "malformed source column")
 		}
 		// Extract column name
-		sources[i] = &DefSourceColumn{ith.AsSymbol().Value}
+		sources[i] = &DefName{ith.AsSymbol().Value}
 	}
 	// Done
 	return &DefInterleaved{target, sources}, nil
@@ -477,6 +505,73 @@ func (p *Parser) parseDefProperty(elements []sexp.SExp) (*DefProperty, *SyntaxEr
 	}
 	// Done
 	return &DefProperty{handle, expr}, nil
+}
+
+// Parse a permutation declaration
+func (p *Parser) parseDefPureFun(elements []sexp.SExp) (*DefFun, []SyntaxError) {
+	var (
+		name      *DefName
+		ret       sc.Type
+		params    []*DefParameter
+		errors    []SyntaxError
+		signature *sexp.List = elements[1].AsList()
+	)
+	// Parse signature
+	if signature == nil || signature.Len() == 0 {
+		err := p.translator.SyntaxError(elements[1], "malformed function signature")
+		errors = append(errors, *err)
+	} else {
+		name, ret, params, errors = p.parseFunctionSignature(signature.Elements)
+	}
+	// Translate expression
+	body, err := p.translator.Translate(elements[2])
+	if err != nil {
+		errors = append(errors, *err)
+	}
+	// Check for errors
+	if len(errors) > 0 {
+		return nil, errors
+	}
+	//
+	return &DefFun{name, true, ret, params, body}, nil
+}
+
+func (p *Parser) parseFunctionSignature(elements []sexp.SExp) (*DefName, sc.Type, []*DefParameter, []SyntaxError) {
+	var (
+		name   *sexp.Symbol    = elements[0].AsSymbol()
+		params []*DefParameter = make([]*DefParameter, len(elements)-1)
+		ret    sc.Type         = &sc.FieldType{}
+		errors []SyntaxError
+	)
+	// Parse name
+	if name == nil {
+		err := p.translator.SyntaxError(elements[1], "expected function name")
+		errors = append(errors, *err)
+	}
+	// Parse parameters
+	for i := 0; i < len(params); i = i + 1 {
+		var errs []SyntaxError
+
+		if params[i], errs = p.parseFunctionParameter(elements[i+1]); len(errs) > 0 {
+			errors = append(errors, errs...)
+		}
+	}
+	// Check for any errors arising
+	if len(errors) > 0 {
+		return nil, nil, nil, errors
+	}
+	//
+	return &DefName{name.Value}, ret, params, nil
+}
+
+func (p *Parser) parseFunctionParameter(element sexp.SExp) (*DefParameter, []SyntaxError) {
+	if symbol := element.AsSymbol(); symbol != nil {
+		return &DefParameter{symbol.Value, &sc.FieldType{}}, nil
+	}
+	// Construct error message (for now)
+	err := p.translator.SyntaxError(element, "malformed parameter declaration")
+	//
+	return nil, []SyntaxError{*err}
 }
 
 // Parse a range declaration
@@ -649,6 +744,23 @@ func ifParserRule(_ string, args []Expr) (Expr, error) {
 	}
 
 	return nil, errors.New("incorrect number of arguments")
+}
+
+func invokeParserRule(name string, args []Expr) (Expr, error) {
+	// Sanity check what we have
+	if !unicode.IsLetter(rune(name[0])) {
+		return nil, nil
+	}
+	// Handle qualified accesses (where permitted)
+	// Attempt to split column name into module / column pair.
+	split := strings.Split(name, ".")
+	if len(split) == 2 {
+		return &Invoke{&split[0], split[1], args, nil}, nil
+	} else if len(split) > 2 {
+		return nil, errors.New("malformed function invocation")
+	}
+	// Done
+	return &Invoke{nil, name, args, nil}, nil
 }
 
 func shiftParserRule(col string, amt string) (Expr, error) {
