@@ -129,7 +129,7 @@ func (t *translator) translateAssignmentsAndConstraintsInModule(module string, d
 	context := t.env.Module(module)
 	//
 	for _, d := range decls {
-		errs := t.translateAssignmentOrConstraint(d, context)
+		errs := t.translateDeclaration(d, context)
 		errors = append(errors, errs...)
 	}
 	// Done
@@ -138,13 +138,16 @@ func (t *translator) translateAssignmentsAndConstraintsInModule(module string, d
 
 // Translate an assignment or constraint declarartion which occurs within a
 // given module.
-func (t *translator) translateAssignmentOrConstraint(decl Declaration, module uint) []SyntaxError {
+func (t *translator) translateDeclaration(decl Declaration, module uint) []SyntaxError {
 	var errors []SyntaxError
 	//
 	if _, ok := decl.(*DefColumns); ok {
 		// Not an assignment or a constraint, hence ignore.
 	} else if d, ok := decl.(*DefConstraint); ok {
 		errors = t.translateDefConstraint(d, module)
+	} else if _, ok := decl.(*DefFun); ok {
+		// For now, functions are always compiled out when going down to HIR.
+		// In the future, this might change if we add support for macros to HIR.
 	} else if d, ok := decl.(*DefInRange); ok {
 		errors = t.translateDefInRange(d, module)
 	} else if d, Ok := decl.(*DefInterleaved); Ok {
@@ -352,6 +355,16 @@ func (t *translator) translateExpressionInModule(expr Expr, module uint) (hir.Ex
 	} else if v, ok := expr.(*IfZero); ok {
 		args, errs := t.translateExpressionsInModule([]Expr{v.Condition, v.TrueBranch, v.FalseBranch}, module)
 		return &hir.IfZero{Condition: args[0], TrueBranch: args[1], FalseBranch: args[2]}, errs
+	} else if e, ok := expr.(*Invoke); ok {
+		if e.Binding != nil && e.Binding.arity == uint(len(e.Args)) {
+			body := e.Binding.Apply(e.Args)
+			return t.translateExpressionInModule(body, module)
+		} else if e.Binding != nil {
+			msg := fmt.Sprintf("incorrect number of arguments (expected %d, found %d)", e.Binding.arity, len(e.Args))
+			return nil, t.srcmap.SyntaxErrors(expr, msg)
+		}
+		//
+		return nil, t.srcmap.SyntaxErrors(expr, "unbound function")
 	} else if v, ok := expr.(*List); ok {
 		args, errs := t.translateExpressionsInModule(v.Args, module)
 		return &hir.List{Args: args}, errs
@@ -365,7 +378,11 @@ func (t *translator) translateExpressionInModule(expr Expr, module uint) (hir.Ex
 		args, errs := t.translateExpressionsInModule(v.Args, module)
 		return &hir.Sub{Args: args}, errs
 	} else if e, ok := expr.(*VariableAccess); ok {
-		return &hir.ColumnAccess{Column: e.Binding.Index, Shift: e.Shift}, nil
+		if binding, ok := e.Binding.(*ColumnBinding); ok {
+			return &hir.ColumnAccess{Column: binding.ColumnID(), Shift: e.Shift}, nil
+		}
+		// error
+		return nil, t.srcmap.SyntaxErrors(expr, "unbound variable")
 	} else {
 		return nil, t.srcmap.SyntaxErrors(expr, "unknown expression")
 	}
