@@ -404,14 +404,14 @@ func (r *resolver) resolveConstraintsInModule(enclosing Scope, decls []Declarati
 func (r *resolver) resolveDefConstraintInModule(enclosing Scope, decl *DefConstraint) []SyntaxError {
 	var (
 		errors []SyntaxError
-		scope  = NewEvaluationScope(enclosing)
+		scope  = NewLocalScope(enclosing, false)
 	)
 	// Resolve guard
 	if decl.Guard != nil {
-		errors = r.resolveExpressionInModule(scope, false, decl.Guard)
+		errors = r.resolveExpressionInModule(scope, decl.Guard)
 	}
 	// Resolve constraint body
-	errors = append(errors, r.resolveExpressionInModule(scope, false, decl.Constraint)...)
+	errors = append(errors, r.resolveExpressionInModule(scope, decl.Constraint)...)
 	// Done
 	return errors
 }
@@ -420,10 +420,10 @@ func (r *resolver) resolveDefConstraintInModule(enclosing Scope, decl *DefConstr
 func (r *resolver) resolveDefInRangeInModule(enclosing Scope, decl *DefInRange) []SyntaxError {
 	var (
 		errors []SyntaxError
-		scope  = NewEvaluationScope(enclosing)
+		scope  = NewLocalScope(enclosing, false)
 	)
 	// Resolve property body
-	errors = append(errors, r.resolveExpressionInModule(scope, false, decl.Expr)...)
+	errors = append(errors, r.resolveExpressionInModule(scope, decl.Expr)...)
 	// Done
 	return errors
 }
@@ -432,14 +432,14 @@ func (r *resolver) resolveDefInRangeInModule(enclosing Scope, decl *DefInRange) 
 func (r *resolver) resolveDefFunInModule(enclosing Scope, decl *DefFun) []SyntaxError {
 	var (
 		errors []SyntaxError
-		scope  = NewLocalScope(NewEvaluationScope(enclosing))
+		scope  = NewLocalScope(enclosing, false)
 	)
 	// Declare parameters in local scope
 	for _, p := range decl.Parameters {
 		scope.DeclareLocal(p.Name)
 	}
 	// Resolve property body
-	errors = append(errors, r.resolveExpressionInModule(&scope, false, decl.Body)...)
+	errors = append(errors, r.resolveExpressionInModule(scope, decl.Body)...)
 	// Remove parameters from enclosing environment
 	// Done
 	return errors
@@ -449,14 +449,14 @@ func (r *resolver) resolveDefFunInModule(enclosing Scope, decl *DefFun) []Syntax
 func (r *resolver) resolveDefLookupInModule(enclosing Scope, decl *DefLookup) []SyntaxError {
 	var (
 		errors      []SyntaxError
-		sourceScope = NewEvaluationScope(enclosing)
-		targetScope = NewEvaluationScope(enclosing)
+		sourceScope = NewLocalScope(enclosing, true)
+		targetScope = NewLocalScope(enclosing, true)
 	)
 
 	// Resolve source expressions
-	errors = append(errors, r.resolveExpressionsInModule(sourceScope, true, decl.Sources)...)
+	errors = append(errors, r.resolveExpressionsInModule(sourceScope, decl.Sources)...)
 	// Resolve target expressions
-	errors = append(errors, r.resolveExpressionsInModule(targetScope, true, decl.Targets)...)
+	errors = append(errors, r.resolveExpressionsInModule(targetScope, decl.Targets)...)
 	// Done
 	return errors
 }
@@ -465,22 +465,22 @@ func (r *resolver) resolveDefLookupInModule(enclosing Scope, decl *DefLookup) []
 func (r *resolver) resolveDefPropertyInModule(enclosing Scope, decl *DefProperty) []SyntaxError {
 	var (
 		errors []SyntaxError
-		scope  = NewEvaluationScope(enclosing)
+		scope  = NewLocalScope(enclosing, false)
 	)
 	// Resolve property body
-	errors = append(errors, r.resolveExpressionInModule(scope, false, decl.Assertion)...)
+	errors = append(errors, r.resolveExpressionInModule(scope, decl.Assertion)...)
 	// Done
 	return errors
 }
 
 // Resolve a sequence of zero or more expressions within a given module.  This
 // simply resolves each of the arguments in turn, collecting any errors arising.
-func (r *resolver) resolveExpressionsInModule(scope Scope, global bool, args []Expr) []SyntaxError {
+func (r *resolver) resolveExpressionsInModule(scope LocalScope, args []Expr) []SyntaxError {
 	var errors []SyntaxError
 	// Visit each argument
 	for _, arg := range args {
 		if arg != nil {
-			errs := r.resolveExpressionInModule(scope, global, arg)
+			errs := r.resolveExpressionInModule(scope, arg)
 			errors = append(errors, errs...)
 		}
 	}
@@ -493,27 +493,27 @@ func (r *resolver) resolveExpressionsInModule(scope Scope, global bool, args []E
 // variable accesses.  As above, the goal is ensure variable refers to something
 // that was declared and, more specifically, what kind of access it is (e.g.
 // column access, constant access, etc).
-func (r *resolver) resolveExpressionInModule(scope Scope, global bool, expr Expr) []SyntaxError {
+func (r *resolver) resolveExpressionInModule(scope LocalScope, expr Expr) []SyntaxError {
 	if _, ok := expr.(*Constant); ok {
 		return nil
 	} else if v, ok := expr.(*Add); ok {
-		return r.resolveExpressionsInModule(scope, global, v.Args)
+		return r.resolveExpressionsInModule(scope, v.Args)
 	} else if v, ok := expr.(*Exp); ok {
-		return r.resolveExpressionInModule(scope, global, v.Arg)
+		return r.resolveExpressionInModule(scope, v.Arg)
 	} else if v, ok := expr.(*IfZero); ok {
-		return r.resolveExpressionsInModule(scope, global, []Expr{v.Condition, v.TrueBranch, v.FalseBranch})
+		return r.resolveExpressionsInModule(scope, []Expr{v.Condition, v.TrueBranch, v.FalseBranch})
 	} else if v, ok := expr.(*Invoke); ok {
-		return r.resolveInvokeInModule(scope, global, v)
+		return r.resolveInvokeInModule(scope, v)
 	} else if v, ok := expr.(*List); ok {
-		return r.resolveExpressionsInModule(scope, global, v.Args)
+		return r.resolveExpressionsInModule(scope, v.Args)
 	} else if v, ok := expr.(*Mul); ok {
-		return r.resolveExpressionsInModule(scope, global, v.Args)
+		return r.resolveExpressionsInModule(scope, v.Args)
 	} else if v, ok := expr.(*Normalise); ok {
-		return r.resolveExpressionInModule(scope, global, v.Arg)
+		return r.resolveExpressionInModule(scope, v.Arg)
 	} else if v, ok := expr.(*Sub); ok {
-		return r.resolveExpressionsInModule(scope, global, v.Args)
+		return r.resolveExpressionsInModule(scope, v.Args)
 	} else if v, ok := expr.(*VariableAccess); ok {
-		return r.resolveVariableInModule(scope, global, v)
+		return r.resolveVariableInModule(scope, v)
 	} else {
 		return r.srcmap.SyntaxErrors(expr, "unknown expression")
 	}
@@ -522,9 +522,9 @@ func (r *resolver) resolveExpressionInModule(scope Scope, global bool, expr Expr
 // Resolve a specific invocation contained within some expression which, in
 // turn, is contained within some module.  Note, qualified accesses are only
 // permitted in a global context.
-func (r *resolver) resolveInvokeInModule(scope Scope, global bool, expr *Invoke) []SyntaxError {
+func (r *resolver) resolveInvokeInModule(scope LocalScope, expr *Invoke) []SyntaxError {
 	// Resolve arguments
-	if errors := r.resolveExpressionsInModule(scope, global, expr.Args); errors != nil {
+	if errors := r.resolveExpressionsInModule(scope, expr.Args); errors != nil {
 		return errors
 	}
 	// Lookup the corresponding function definition.
@@ -541,18 +541,18 @@ func (r *resolver) resolveInvokeInModule(scope Scope, global bool, expr *Invoke)
 // Resolve a specific variable access contained within some expression which, in
 // turn, is contained within some module.  Note, qualified accesses are only
 // permitted in a global context.
-func (r *resolver) resolveVariableInModule(scope Scope, global bool,
+func (r *resolver) resolveVariableInModule(scope LocalScope,
 	expr *VariableAccess) []SyntaxError {
 	// Will identify module of variable
 	//var module string = scope.EnclosingModule()
-	var mid *uint = nil
+	var mid *uint
 	// Check whether this is a qualified access, or not.
-	if !global && expr.Module != nil {
+	if !scope.IsGlobal() && expr.Module != nil {
 		return r.srcmap.SyntaxErrors(expr, "qualified access not permitted here")
 	} else if expr.Module != nil && !scope.HasModule(*expr.Module) {
 		return r.srcmap.SyntaxErrors(expr, fmt.Sprintf("unknown module %s", *expr.Module))
 	} else if expr.Module != nil {
-		tmp := scope.EnclosingModule()
+		tmp := scope.Module(*expr.Module)
 		mid = &tmp
 	}
 	// Attempt resolve as a column access in enclosing module

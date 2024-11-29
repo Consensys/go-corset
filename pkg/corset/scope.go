@@ -14,13 +14,10 @@ type Scope interface {
 	// Get the name of the enclosing module.  This is generally useful for
 	// reporting errors.
 	EnclosingModule() uint
-	// Fix the context for this scope.  Since every scope requires exactly one
-	// context, this fails if we fix it to incompatible contexts.
-	FixContext(tr.Context) bool
 	// HasModule checks whether a given module exists, or not.
 	HasModule(string) bool
-	// Module determines the module index for a given module.  This assumes the
-	// module exists, and will panic otherwise.
+	// Lookup the identifier for a given module.  This assumes that the module
+	// exists, and will panic otherwise.
 	Module(string) uint
 	// Lookup a given variable being referenced with an optional module
 	// specifier.  This variable could correspond to a column, a function, a
@@ -47,12 +44,6 @@ type ModuleScope struct {
 // useful for reporting errors.
 func (p *ModuleScope) EnclosingModule() uint {
 	return p.module
-}
-
-// FixContext fixes the context for this scope.  Since every scope requires
-// exactly one context, this fails if we fix it to incompatible contexts.
-func (p *ModuleScope) FixContext(context tr.Context) bool {
-	panic("unreachable")
 }
 
 // HasModule checks whether a given module exists, or not.
@@ -97,74 +88,49 @@ func (p *ModuleScope) DeclareFunction(name string, arity uint, body Expr) {
 }
 
 // =============================================================================
-// Evaluation Scope
-// =============================================================================
-
-// EvaluationScope represents a scope in which a given expression can be
-// evaluated.  The key feature of an evaluation scope is that it must have a
-// single context.
-type EvaluationScope struct {
-	// Represents the enclosing scope
-	enclosing Scope
-	// Context for this scope
-	context tr.Context
-}
-
-// NewEvaluationScope creates a fresh scope representing the evaluation of some
-// expression.
-func NewEvaluationScope(enclosing Scope) *EvaluationScope {
-	return &EvaluationScope{enclosing, tr.VoidContext()}
-}
-
-// EnclosingModule returns the name of the enclosing module.  This is generally
-// useful for reporting errors.
-func (p *EvaluationScope) EnclosingModule() uint {
-	return p.enclosing.EnclosingModule()
-}
-
-// FixContext fixes the context for this scope.  Since every scope requires
-// exactly one context, this fails if we fix it to incompatible contexts.
-func (p *EvaluationScope) FixContext(context tr.Context) bool {
-	// Join contexts together
-	p.context = p.context.Join(context)
-	// Check they were compatible
-	return !p.context.IsConflicted()
-}
-
-// HasModule checks whether a given module exists, or not.
-func (p *EvaluationScope) HasModule(module string) bool {
-	return p.enclosing.HasModule(module)
-}
-
-// Module determines the module index for a given module.  This assumes the
-// module exists, and will panic otherwise.
-func (p *EvaluationScope) Module(module string) uint {
-	return p.enclosing.Module(module)
-}
-
-// Bind looks up a given variable being referenced within a given module.
-func (p *EvaluationScope) Bind(module *uint, name string, fn bool) Binding {
-	return p.enclosing.Bind(module, name, fn)
-}
-
-// =============================================================================
 // Local Scope
 // =============================================================================
 
 // LocalScope represents a simple implementation of scope in which local
-// variables can be declared.
+// variables can be declared.  A local scope must have a single context
+// associated with it, and this will be inferred by resolving those expressions
+// which must be evaluated within.
 type LocalScope struct {
+	global bool
 	// Represents the enclosing scope
 	enclosing Scope
+	// Context for this scope
+	context *tr.Context
 	// Maps inputs parameters to the declaration index.
 	locals map[string]uint
 }
 
-// NewLocalScope constructs a new local scope within a given scope.  A local
-// scope can have local variables declared within it.
-func NewLocalScope(enclosing Scope) LocalScope {
+// NewLocalScope constructs a new local scope within a given enclosing scope.  A
+// local scope can have local variables declared within it.  A local scope can
+// also be "global" in the sense that accessing symbols from other modules is
+// permitted.
+func NewLocalScope(enclosing Scope, global bool) LocalScope {
+	context := tr.VoidContext()
 	locals := make(map[string]uint)
-	return LocalScope{enclosing, locals}
+	//
+	return LocalScope{global, enclosing, &context, locals}
+}
+
+// NestedScope creates a nested scope within this local scope.
+func (p LocalScope) NestedScope() LocalScope {
+	nlocals := make(map[string]uint)
+	// Clone allocated variables
+	for k, v := range p.locals {
+		nlocals[k] = v
+	}
+	// Done
+	return LocalScope{p.global, p.enclosing, p.context, nlocals}
+}
+
+// IsGlobal determines whether symbols can be accessed in modules other than the
+// enclosing module.
+func (p LocalScope) IsGlobal() bool {
+	return p.global
 }
 
 // EnclosingModule returns the name of the enclosing module.  This is generally
@@ -176,7 +142,10 @@ func (p LocalScope) EnclosingModule() uint {
 // FixContext fixes the context for this scope.  Since every scope requires
 // exactly one context, this fails if we fix it to incompatible contexts.
 func (p LocalScope) FixContext(context tr.Context) bool {
-	return p.enclosing.FixContext(context)
+	// Join contexts together
+	*p.context = p.context.Join(context)
+	// Check they were compatible
+	return !p.context.IsConflicted()
 }
 
 // HasModule checks whether a given module exists, or not.
