@@ -432,7 +432,8 @@ func (p *Parser) parseDefPermutation(elements []sexp.SExp) (*DefPermutation, *Sy
 	}
 	//
 	targets := make([]*DefColumn, sexpTargets.Len())
-	sources := make([]*DefPermutedColumn, sexpSources.Len())
+	sources := make([]*DefName, sexpSources.Len())
+	signs := make([]bool, sexpSources.Len())
 	//
 	for i := 0; i < len(targets); i++ {
 		// Parse target column
@@ -440,43 +441,45 @@ func (p *Parser) parseDefPermutation(elements []sexp.SExp) (*DefPermutation, *Sy
 			return nil, err
 		}
 		// Parse source column
-		if sources[i], err = p.parsePermutedColumnDeclaration(i == 0, sexpSources.Get(i)); err != nil {
+		if sources[i], signs[i], err = p.parsePermutedColumnDeclaration(i == 0, sexpSources.Get(i)); err != nil {
 			return nil, err
 		}
 	}
 	//
-	return &DefPermutation{targets, sources}, nil
+	return &DefPermutation{targets, sources, signs}, nil
 }
 
-func (p *Parser) parsePermutedColumnDeclaration(signRequired bool, e sexp.SExp) (*DefPermutedColumn, *SyntaxError) {
-	var err *SyntaxError
-	//
-	defcolumn := &DefPermutedColumn{"", false}
+func (p *Parser) parsePermutedColumnDeclaration(signRequired bool, e sexp.SExp) (*DefName, bool, *SyntaxError) {
+	var (
+		err  *SyntaxError
+		name DefName
+		sign bool
+	)
 	// Check whether extended declaration or not.
 	if l := e.AsList(); l != nil {
 		// Check at least the name provided.
 		if len(l.Elements) == 0 {
-			return defcolumn, p.translator.SyntaxError(l, "empty permutation column")
+			return nil, false, p.translator.SyntaxError(l, "empty permutation column")
 		} else if len(l.Elements) != 2 {
-			return defcolumn, p.translator.SyntaxError(l, "malformed permutation column")
+			return nil, false, p.translator.SyntaxError(l, "malformed permutation column")
 		} else if l.Get(0).AsSymbol() == nil || l.Get(1).AsSymbol() == nil {
-			return defcolumn, p.translator.SyntaxError(l, "empty permutation column")
+			return nil, false, p.translator.SyntaxError(l, "empty permutation column")
 		}
 		// Parse sign
-		if defcolumn.Sign, err = p.parsePermutedColumnSign(l.Get(0).AsSymbol()); err != nil {
-			return nil, err
+		if sign, err = p.parsePermutedColumnSign(l.Get(0).AsSymbol()); err != nil {
+			return nil, false, err
 		}
 		// Parse column name
-		defcolumn.Name = l.Get(1).AsSymbol().Value
+		name.Name = l.Get(1).AsSymbol().Value
 	} else if signRequired {
-		return nil, p.translator.SyntaxError(e, "missing sort direction")
+		return nil, false, p.translator.SyntaxError(e, "missing sort direction")
 	} else {
-		defcolumn.Name = e.String(false)
+		name.Name = e.String(false)
 	}
 	// Update source mapping
-	p.mapSourceNode(e, defcolumn)
+	p.mapSourceNode(e, &name)
 	//
-	return defcolumn, nil
+	return &name, sign, nil
 }
 
 func (p *Parser) parsePermutedColumnSign(sign *sexp.Symbol) (bool, *SyntaxError) {

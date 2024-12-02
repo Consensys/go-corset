@@ -177,19 +177,6 @@ type DefInterleaved struct {
 	Sources []*DefName
 }
 
-// CanFinalise checks whether or not this interleaving is ready to be finalised.
-// Specifically, it checks whether or not the source columns of this
-// interleaving are themselves finalised.
-func (p *DefInterleaved) CanFinalise(module uint, env *Environment) bool {
-	for _, col := range p.Sources {
-		if !env.IsColumnFinalised(module, col.Name) {
-			return false
-		}
-	}
-	//
-	return true
-}
-
 // IsDeclaration needed to signal declaration.
 func (p *DefInterleaved) IsDeclaration() {}
 
@@ -238,43 +225,16 @@ func (p *DefLookup) Lisp() sexp.SExp {
 // source columns can be specified as increasing or decreasing.
 type DefPermutation struct {
 	Targets []*DefColumn
-	Sources []*DefPermutedColumn
+	Sources []*DefName
+	Signs   []bool
 }
 
 // IsDeclaration needed to signal declaration.
 func (p *DefPermutation) IsDeclaration() {}
 
-// CanFinalise checks whether or not this permutation is ready to be finalised.
-// Specifically, it checks whether or not the source columns of this permutation
-// are themselves finalised.
-func (p *DefPermutation) CanFinalise(module uint, env *Environment) bool {
-	for _, col := range p.Sources {
-		if !env.IsColumnFinalised(module, col.Name) {
-			return false
-		}
-	}
-	//
-	return true
-}
-
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
 func (p *DefPermutation) Lisp() sexp.SExp {
-	panic("got here")
-}
-
-// DefPermutedColumn provides information about a column being permuted by a
-// sorted permutation.
-type DefPermutedColumn struct {
-	// Name of the column to be permuted
-	Name string
-	// Sign of the column
-	Sign bool
-}
-
-// Lisp converts this node into its lisp representation.  This is primarily used
-// for debugging purposes.
-func (p *DefPermutedColumn) Lisp() sexp.SExp {
 	panic("got here")
 }
 
@@ -370,7 +330,7 @@ type Expr interface {
 	Node
 	// Multiplicity defines the number of values which will be returned when
 	// evaluating this expression.  Due to the nature of expressions in Corset,
-	// they can (perhaps) surprisingly return multiple values.  For example,
+	// they can (perhaps surprisingly) return multiple values.  For example,
 	// lists return one value for each element in the list.  Note, every
 	// expression must return at least one value.
 	Multiplicity() uint
@@ -378,12 +338,15 @@ type Expr interface {
 	// Context returns the context for this expression.  Observe that the
 	// expression must have been resolved for this to be defined (i.e. it may
 	// panic if it has not been resolved yet).
-	Context() tr.Context
+	Context() Context
 
 	// Substitute all variables (such as for function parameters) arising in
 	// this expression.
 	Substitute(args []Expr) Expr
 }
+
+// Context represents the evaluation context for a given expression.
+type Context = tr.RawContext[string]
 
 // ============================================================================
 // Addition
@@ -401,7 +364,7 @@ func (e *Add) Multiplicity() uint {
 // Context returns the context for this expression.  Observe that the
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
-func (e *Add) Context() tr.Context {
+func (e *Add) Context() Context {
 	return ContextOfExpressions(e.Args)
 }
 
@@ -433,8 +396,8 @@ func (e *Constant) Multiplicity() uint {
 // Context returns the context for this expression.  Observe that the
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
-func (e *Constant) Context() tr.Context {
-	return tr.VoidContext()
+func (e *Constant) Context() Context {
+	return tr.VoidContext[string]()
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
@@ -468,7 +431,7 @@ func (e *Exp) Multiplicity() uint {
 // Context returns the context for this expression.  Observe that the
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
-func (e *Exp) Context() tr.Context {
+func (e *Exp) Context() Context {
 	return ContextOfExpressions([]Expr{e.Arg})
 }
 
@@ -508,7 +471,7 @@ func (e *IfZero) Multiplicity() uint {
 // Context returns the context for this expression.  Observe that the
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
-func (e *IfZero) Context() tr.Context {
+func (e *IfZero) Context() Context {
 	return ContextOfExpressions([]Expr{e.Condition, e.TrueBranch, e.FalseBranch})
 }
 
@@ -543,7 +506,7 @@ func (e *List) Multiplicity() uint {
 // Context returns the context for this expression.  Observe that the
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
-func (e *List) Context() tr.Context {
+func (e *List) Context() Context {
 	return ContextOfExpressions(e.Args)
 }
 
@@ -575,7 +538,7 @@ func (e *Mul) Multiplicity() uint {
 // Context returns the context for this expression.  Observe that the
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
-func (e *Mul) Context() tr.Context {
+func (e *Mul) Context() Context {
 	return ContextOfExpressions(e.Args)
 }
 
@@ -608,7 +571,7 @@ func (e *Normalise) Multiplicity() uint {
 // Context returns the context for this expression.  Observe that the
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
-func (e *Normalise) Context() tr.Context {
+func (e *Normalise) Context() Context {
 	return ContextOfExpressions([]Expr{e.Arg})
 }
 
@@ -640,7 +603,7 @@ func (e *Sub) Multiplicity() uint {
 // Context returns the context for this expression.  Observe that the
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
-func (e *Sub) Context() tr.Context {
+func (e *Sub) Context() Context {
 	return ContextOfExpressions(e.Args)
 }
 
@@ -671,7 +634,7 @@ type Invoke struct {
 // Context returns the context for this expression.  Observe that the
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
-func (e *Invoke) Context() tr.Context {
+func (e *Invoke) Context() Context {
 	if e.Binding == nil {
 		panic("unresolved expressions encountered whilst resolving context")
 	}
@@ -720,12 +683,16 @@ func (e *VariableAccess) Multiplicity() uint {
 // Context returns the context for this expression.  Observe that the
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
-func (e *VariableAccess) Context() tr.Context {
-	if e.Binding == nil {
-		panic("unresolved expressions encountered whilst resolving context")
+func (e *VariableAccess) Context() Context {
+	binding, ok := e.Binding.(*ColumnBinding)
+	//
+	if ok {
+		return binding.Context()
+	} else if binding == nil {
+		panic("unresolved column access")
 	}
-	// Extract saved context
-	return e.Binding.Context()
+	//
+	panic("invalid column access")
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
@@ -758,8 +725,8 @@ func (e *VariableAccess) Substitute(args []Expr) Expr {
 // they are all constants) then the void context is returned.  Likewise, if
 // there are expressions with different contexts then the conflicted context
 // will be returned.  Otherwise, the one consistent context will be returned.
-func ContextOfExpressions(exprs []Expr) tr.Context {
-	context := tr.VoidContext()
+func ContextOfExpressions(exprs []Expr) Context {
+	context := tr.VoidContext[string]()
 	//
 	for _, e := range exprs {
 		context = context.Join(e.Context())

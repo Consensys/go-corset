@@ -127,7 +127,7 @@ func sourceColumnsFromHandles(handles []string, columns []column,
 	// Convert source refs into column indexes
 	sources := make([]uint, len(sourceIDs))
 	//
-	ctx := trace.VoidContext()
+	ctx := trace.VoidContext[uint]()
 	//
 	for i, source_id := range sourceIDs {
 		// Determine schema column index for ith source column.
