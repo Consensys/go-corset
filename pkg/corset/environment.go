@@ -65,7 +65,7 @@ func (p GlobalEnvironment) Module(name string) *ModuleScope {
 func (p GlobalEnvironment) Column(module string, name string) *ColumnBinding {
 	// Lookup the given binding, expecting that it is a column binding.  If not,
 	// then this will fail.
-	return p.Module(module).Bind(nil, name, false).(*ColumnBinding)
+	return p.Module(module).Column(name)
 }
 
 // ContextFrom constructs a trace context for a given module and length

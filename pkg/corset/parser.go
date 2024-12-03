@@ -97,7 +97,7 @@ func ParseSourceFile(srcfile *sexp.SourceFile) (Circuit, *sexp.SourceMap[Node], 
 	p := NewParser(srcfile, srcmap)
 	// Parse whatever is declared at the beginning of the file before the first
 	// module declaration.  These declarations form part of the "prelude".
-	if circuit.Declarations, terms, errors = p.parseModuleContents(terms); len(errors) > 0 {
+	if circuit.Declarations, terms, errors = p.parseModuleContents("", terms); len(errors) > 0 {
 		return circuit, nil, errors
 	}
 	// Continue parsing string until nothing remains.
@@ -111,7 +111,7 @@ func ParseSourceFile(srcfile *sexp.SourceFile) (Circuit, *sexp.SourceMap[Node], 
 			return circuit, nil, errors
 		}
 		// Parse module contents
-		if decls, terms, errors = p.parseModuleContents(terms[1:]); len(errors) > 0 {
+		if decls, terms, errors = p.parseModuleContents(name, terms[1:]); len(errors) > 0 {
 			return circuit, nil, errors
 		} else if len(decls) != 0 {
 			circuit.Modules = append(circuit.Modules, Module{name, decls})
@@ -177,7 +177,7 @@ func (p *Parser) mapSourceNode(from sexp.SExp, to Node) {
 }
 
 // Extract all declarations associated with a given module and package them up.
-func (p *Parser) parseModuleContents(terms []sexp.SExp) ([]Declaration, []sexp.SExp, []SyntaxError) {
+func (p *Parser) parseModuleContents(module string, terms []sexp.SExp) ([]Declaration, []sexp.SExp, []SyntaxError) {
 	var errors []SyntaxError
 	//
 	decls := make([]Declaration, 0)
@@ -190,7 +190,7 @@ func (p *Parser) parseModuleContents(terms []sexp.SExp) ([]Declaration, []sexp.S
 			errors = append(errors, *err)
 		} else if e.MatchSymbols(2, "module") {
 			return decls, terms[i:], nil
-		} else if decl, errs := p.parseDeclaration(e); errs != nil {
+		} else if decl, errs := p.parseDeclaration(module, e); errs != nil {
 			errors = append(errors, errs...)
 		} else {
 			// Continue accumulating declarations for this module.
@@ -225,7 +225,7 @@ func (p *Parser) parseModuleStart(s sexp.SExp) (string, []SyntaxError) {
 	return name, nil
 }
 
-func (p *Parser) parseDeclaration(s *sexp.List) (Declaration, []SyntaxError) {
+func (p *Parser) parseDeclaration(module string, s *sexp.List) (Declaration, []SyntaxError) {
 	var (
 		decl   Declaration
 		errors []SyntaxError
@@ -233,7 +233,7 @@ func (p *Parser) parseDeclaration(s *sexp.List) (Declaration, []SyntaxError) {
 	)
 	//
 	if s.MatchSymbols(1, "defcolumns") {
-		decl, errors = p.parseDefColumns(s)
+		decl, errors = p.parseDefColumns(module, s)
 	} else if s.Len() == 4 && s.MatchSymbols(2, "defconstraint") {
 		decl, errors = p.parseDefConstraint(s.Elements)
 	} else if s.Len() == 3 && s.MatchSymbols(1, "defpurefun") {
@@ -241,11 +241,11 @@ func (p *Parser) parseDeclaration(s *sexp.List) (Declaration, []SyntaxError) {
 	} else if s.Len() == 3 && s.MatchSymbols(1, "definrange") {
 		decl, err = p.parseDefInRange(s.Elements)
 	} else if s.Len() == 3 && s.MatchSymbols(1, "definterleaved") {
-		decl, err = p.parseDefInterleaved(s.Elements)
+		decl, err = p.parseDefInterleaved(module, s.Elements)
 	} else if s.Len() == 4 && s.MatchSymbols(1, "deflookup") {
 		decl, err = p.parseDefLookup(s.Elements)
 	} else if s.Len() == 3 && s.MatchSymbols(2, "defpermutation") {
-		decl, err = p.parseDefPermutation(s.Elements)
+		decl, err = p.parseDefPermutation(module, s.Elements)
 	} else if s.Len() == 3 && s.MatchSymbols(2, "defproperty") {
 		decl, err = p.parseDefProperty(s.Elements)
 	} else {
@@ -264,7 +264,7 @@ func (p *Parser) parseDeclaration(s *sexp.List) (Declaration, []SyntaxError) {
 }
 
 // Parse a column declaration
-func (p *Parser) parseDefColumns(l *sexp.List) (*DefColumns, []SyntaxError) {
+func (p *Parser) parseDefColumns(module string, l *sexp.List) (*DefColumns, []SyntaxError) {
 	columns := make([]*DefColumn, l.Len()-1)
 	// Sanity check declaration
 	if len(l.Elements) == 1 {
@@ -275,7 +275,7 @@ func (p *Parser) parseDefColumns(l *sexp.List) (*DefColumns, []SyntaxError) {
 	var errors []SyntaxError
 	// Process column declarations one by one.
 	for i := 1; i < len(l.Elements); i++ {
-		decl, err := p.parseColumnDeclaration(l.Elements[i])
+		decl, err := p.parseColumnDeclaration(module, l.Elements[i])
 		// Extract column name
 		if err != nil {
 			errors = append(errors, *err)
@@ -291,35 +291,37 @@ func (p *Parser) parseDefColumns(l *sexp.List) (*DefColumns, []SyntaxError) {
 	return &DefColumns{columns}, nil
 }
 
-func (p *Parser) parseColumnDeclaration(e sexp.SExp) (*DefColumn, *SyntaxError) {
-	defcolumn := &DefColumn{"", nil, false, 1}
-	// Default to field type
-	defcolumn.DataType = &sc.FieldType{}
+func (p *Parser) parseColumnDeclaration(module string, e sexp.SExp) (*DefColumn, *SyntaxError) {
+	var name string
+	//
+	binding := NewColumnBinding(module, false, false, 1, &sc.FieldType{})
 	// Check whether extended declaration or not.
 	if l := e.AsList(); l != nil {
 		// Check at least the name provided.
 		if len(l.Elements) == 0 {
-			return defcolumn, p.translator.SyntaxError(l, "empty column declaration")
+			return nil, p.translator.SyntaxError(l, "empty column declaration")
 		}
 		// Column name is always first
-		defcolumn.Name = l.Elements[0].String(false)
+		name = l.Elements[0].String(false)
 		//	Parse type (if applicable)
 		if len(l.Elements) == 2 {
 			var err *SyntaxError
-			if defcolumn.DataType, defcolumn.MustProve, err = p.parseType(l.Elements[1]); err != nil {
-				return defcolumn, err
+			if binding.dataType, binding.mustProve, err = p.parseType(l.Elements[1]); err != nil {
+				return nil, err
 			}
 		} else if len(l.Elements) > 2 {
 			// For now.
-			return defcolumn, p.translator.SyntaxError(l, "unknown column declaration attributes")
+			return nil, p.translator.SyntaxError(l, "unknown column declaration attributes")
 		}
 	} else {
-		defcolumn.Name = e.String(false)
+		name = e.String(false)
 	}
-	// Update source mapping
-	p.mapSourceNode(e, defcolumn)
 	//
-	return defcolumn, nil
+	def := &DefColumn{name, *binding}
+	// Update source mapping
+	p.mapSourceNode(e, def)
+	//
+	return def, nil
 }
 
 // Parse a vanishing declaration
@@ -353,7 +355,7 @@ func (p *Parser) parseDefConstraint(elements []sexp.SExp) (*DefConstraint, []Syn
 }
 
 // Parse a interleaved declaration
-func (p *Parser) parseDefInterleaved(elements []sexp.SExp) (*DefInterleaved, *SyntaxError) {
+func (p *Parser) parseDefInterleaved(module string, elements []sexp.SExp) (*DefInterleaved, *SyntaxError) {
 	// Initial sanity checks
 	if elements[1].AsSymbol() == nil {
 		return nil, p.translator.SyntaxError(elements[1], "malformed target column")
@@ -361,9 +363,8 @@ func (p *Parser) parseDefInterleaved(elements []sexp.SExp) (*DefInterleaved, *Sy
 		return nil, p.translator.SyntaxError(elements[2], "malformed source columns")
 	}
 	// Extract target and source columns
-	target := elements[1].AsSymbol().Value
 	sexpSources := elements[2].AsList()
-	sources := make([]*DefName, sexpSources.Len())
+	sources := make([]Symbol, sexpSources.Len())
 	//
 	for i := 0; i != sexpSources.Len(); i++ {
 		ith := sexpSources.Get(i)
@@ -371,8 +372,14 @@ func (p *Parser) parseDefInterleaved(elements []sexp.SExp) (*DefInterleaved, *Sy
 			return nil, p.translator.SyntaxError(ith, "malformed source column")
 		}
 		// Extract column name
-		sources[i] = &DefName{ith.AsSymbol().Value}
+		sources[i] = &ColumnName{ith.AsSymbol().Value, nil}
+		p.mapSourceNode(ith, sources[i])
 	}
+	//
+	binding := NewColumnBinding(module, false, false, 1, &sc.FieldType{})
+	target := &DefColumn{elements[1].AsSymbol().Value, *binding}
+	// Updating mapping for target definition
+	p.mapSourceNode(elements[1], target)
 	// Done
 	return &DefInterleaved{target, sources}, nil
 }
@@ -415,7 +422,7 @@ func (p *Parser) parseDefLookup(elements []sexp.SExp) (*DefLookup, *SyntaxError)
 }
 
 // Parse a permutation declaration
-func (p *Parser) parseDefPermutation(elements []sexp.SExp) (*DefPermutation, *SyntaxError) {
+func (p *Parser) parseDefPermutation(module string, elements []sexp.SExp) (*DefPermutation, *SyntaxError) {
 	var err *SyntaxError
 	//
 	sexpTargets := elements[1].AsList()
@@ -432,12 +439,12 @@ func (p *Parser) parseDefPermutation(elements []sexp.SExp) (*DefPermutation, *Sy
 	}
 	//
 	targets := make([]*DefColumn, sexpTargets.Len())
-	sources := make([]*DefName, sexpSources.Len())
+	sources := make([]Symbol, sexpSources.Len())
 	signs := make([]bool, sexpSources.Len())
 	//
 	for i := 0; i < len(targets); i++ {
 		// Parse target column
-		if targets[i], err = p.parseColumnDeclaration(sexpTargets.Get(i)); err != nil {
+		if targets[i], err = p.parseColumnDeclaration(module, sexpTargets.Get(i)); err != nil {
 			return nil, err
 		}
 		// Parse source column
@@ -449,10 +456,10 @@ func (p *Parser) parseDefPermutation(elements []sexp.SExp) (*DefPermutation, *Sy
 	return &DefPermutation{targets, sources, signs}, nil
 }
 
-func (p *Parser) parsePermutedColumnDeclaration(signRequired bool, e sexp.SExp) (*DefName, bool, *SyntaxError) {
+func (p *Parser) parsePermutedColumnDeclaration(signRequired bool, e sexp.SExp) (*ColumnName, bool, *SyntaxError) {
 	var (
 		err  *SyntaxError
-		name DefName
+		name *ColumnName
 		sign bool
 	)
 	// Check whether extended declaration or not.
@@ -470,16 +477,16 @@ func (p *Parser) parsePermutedColumnDeclaration(signRequired bool, e sexp.SExp) 
 			return nil, false, err
 		}
 		// Parse column name
-		name.Name = l.Get(1).AsSymbol().Value
+		name = &ColumnName{l.Get(1).AsSymbol().Value, nil}
 	} else if signRequired {
 		return nil, false, p.translator.SyntaxError(e, "missing sort direction")
 	} else {
-		name.Name = e.String(false)
+		name = &ColumnName{e.String(false), nil}
 	}
 	// Update source mapping
-	p.mapSourceNode(e, &name)
+	p.mapSourceNode(e, name)
 	//
-	return &name, sign, nil
+	return name, sign, nil
 }
 
 func (p *Parser) parsePermutedColumnSign(sign *sexp.Symbol) (bool, *SyntaxError) {
@@ -513,7 +520,7 @@ func (p *Parser) parseDefProperty(elements []sexp.SExp) (*DefProperty, *SyntaxEr
 // Parse a permutation declaration
 func (p *Parser) parseDefPureFun(elements []sexp.SExp) (*DefFun, []SyntaxError) {
 	var (
-		name      *DefName
+		name      string
 		ret       sc.Type
 		params    []*DefParameter
 		errors    []SyntaxError
@@ -535,11 +542,18 @@ func (p *Parser) parseDefPureFun(elements []sexp.SExp) (*DefFun, []SyntaxError) 
 	if len(errors) > 0 {
 		return nil, errors
 	}
+	// Extract parameter types
+	paramTypes := make([]sc.Type, len(params))
+	for i, p := range params {
+		paramTypes[i] = p.DataType
+	}
+	// Construct binding
+	binding := NewFunctionBinding(true, paramTypes, ret, body)
 	//
-	return &DefFun{name, true, ret, params, body}, nil
+	return &DefFun{name, params, binding}, nil
 }
 
-func (p *Parser) parseFunctionSignature(elements []sexp.SExp) (*DefName, sc.Type, []*DefParameter, []SyntaxError) {
+func (p *Parser) parseFunctionSignature(elements []sexp.SExp) (string, sc.Type, []*DefParameter, []SyntaxError) {
 	var (
 		name   *sexp.Symbol    = elements[0].AsSymbol()
 		params []*DefParameter = make([]*DefParameter, len(elements)-1)
@@ -561,10 +575,10 @@ func (p *Parser) parseFunctionSignature(elements []sexp.SExp) (*DefName, sc.Type
 	}
 	// Check for any errors arising
 	if len(errors) > 0 {
-		return nil, nil, nil, errors
+		return "", nil, nil, errors
 	}
 	//
-	return &DefName{name.Value}, ret, params, nil
+	return name.Value, ret, params, nil
 }
 
 func (p *Parser) parseFunctionParameter(element sexp.SExp) (*DefParameter, []SyntaxError) {
@@ -722,9 +736,9 @@ func varAccessParserRule(col string) (Expr, bool, error) {
 		return &VariableAccess{&split[0], split[1], 0, nil}, true, nil
 	} else if len(split) > 2 {
 		return nil, true, errors.New("malformed column access")
+	} else {
+		return &VariableAccess{nil, col, 0, nil}, true, nil
 	}
-	// Done
-	return &VariableAccess{nil, col, 0, nil}, true, nil
 }
 
 func addParserRule(_ string, args []Expr) (Expr, error) {
@@ -761,9 +775,9 @@ func invokeParserRule(name string, args []Expr) (Expr, error) {
 		return &Invoke{&split[0], split[1], args, nil}, nil
 	} else if len(split) > 2 {
 		return nil, errors.New("malformed function invocation")
+	} else {
+		return &Invoke{nil, name, args, nil}, nil
 	}
-	// Done
-	return &Invoke{nil, name, args, nil}, nil
 }
 
 func shiftParserRule(col string, amt string) (Expr, error) {

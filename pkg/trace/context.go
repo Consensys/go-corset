@@ -49,7 +49,7 @@ func VoidContext[T comparable]() RawContext[T] {
 // deteremed.  This value is generally considered to indicate an error.
 func ConflictingContext[T comparable]() RawContext[T] {
 	var empty T
-	return RawContext[T]{empty, math.MaxUint - 1}
+	return RawContext[T]{empty, math.MaxUint}
 }
 
 // NewContext returns a context representing the given module with the given
@@ -119,5 +119,11 @@ func (p RawContext[T]) Join(other RawContext[T]) RawContext[T] {
 }
 
 func (p RawContext[T]) String() string {
+	if p.IsVoid() {
+		return "⊥"
+	} else if p.IsConflicted() {
+		return "⊤"
+	}
+	// Valid multiplier.
 	return fmt.Sprintf("%v*%d", p.module, p.multiplier)
 }

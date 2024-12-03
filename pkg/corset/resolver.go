@@ -5,6 +5,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/sexp"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // ResolveCircuit resolves all symbols declared and used within a circuit,
@@ -25,9 +26,11 @@ func ResolveCircuit(srcmap *sexp.SourceMaps[Node], circuit *Circuit) (*GlobalSco
 	// Construct resolver
 	r := resolver{srcmap}
 	// Allocate declared input columns
-	errs := r.resolveColumns(scope, circuit)
-	// Check expressions
-	errs = append(errs, r.resolveConstraints(scope, circuit)...)
+	errs := r.resolveDeclarations(scope, circuit)
+	//
+	if len(errs) > 0 {
+		return nil, errs
+	}
 	// Done
 	return scope, errs
 }
@@ -41,69 +44,17 @@ type resolver struct {
 	srcmap *sexp.SourceMaps[Node]
 }
 
-// Process all input column or column assignment declarations.
-func (r *resolver) resolveColumns(scope *GlobalScope, circuit *Circuit) []SyntaxError {
-	// Allocate input columns first.  These must all be done before any
-	// assignments are allocated, since the hir.Schema separates these out.
-	ierrs := r.resolveInputColumns(scope, circuit)
-	// Now we can resolve any assignments.
-	aerrs := r.resolveAssignments(scope, circuit)
-	//
-	return append(ierrs, aerrs...)
-}
-
-// Process all input column declarations.
-func (r *resolver) resolveInputColumns(scope *GlobalScope, circuit *Circuit) []SyntaxError {
-	// Input columns must be allocated before assignemts, since the hir.Schema
-	// separates these out.
-	errs := r.resolveInputColumnsInModule(scope.Module(""), circuit.Declarations)
-	//
-	for _, m := range circuit.Modules {
-		// Process all declarations in the module
-		merrs := r.resolveInputColumnsInModule(scope.Module(m.Name), m.Declarations)
-		// Package up all errors
-		errs = append(errs, merrs...)
-	}
-	//
-	return errs
-}
-
-// Resolve all input columns in a given module.
-func (r *resolver) resolveInputColumnsInModule(scope *ModuleScope, decls []Declaration) []SyntaxError {
-	errors := make([]SyntaxError, 0)
-	//
-	for _, d := range decls {
-		if dcols, ok := d.(*DefColumns); ok {
-			// Found one.
-			for _, col := range dcols.Columns {
-				// Check whether column already exists
-				if scope.Bind(nil, col.Name, false) != nil {
-					msg := fmt.Sprintf("symbol %s already declared in %s", col.Name, scope.EnclosingModule())
-					err := r.srcmap.SyntaxError(col, msg)
-					errors = append(errors, *err)
-				} else {
-					// Declare new column
-					scope.Declare(col.Name, false, NewColumnBinding(scope.EnclosingModule(),
-						false, col.LengthMultiplier, col.DataType))
-				}
-			}
-		}
-	}
-	// Done
-	return errors
-}
-
 // Process all assignment column declarations.  These are more complex than for
 // input columns, since there can be dependencies between them.  Thus, we cannot
 // simply resolve them in one linear scan.
-func (r *resolver) resolveAssignments(scope *GlobalScope, circuit *Circuit) []SyntaxError {
+func (r *resolver) resolveDeclarations(scope *GlobalScope, circuit *Circuit) []SyntaxError {
 	// Input columns must be allocated before assignemts, since the hir.Schema
 	// separates these out.
-	errs := r.resolveAssignmentsInModule(scope.Module(""), circuit.Declarations)
+	errs := r.resolveDeclarationsInModule(scope.Module(""), circuit.Declarations)
 	//
 	for _, m := range circuit.Modules {
 		// Process all declarations in the module
-		merrs := r.resolveAssignmentsInModule(scope.Module(m.Name), m.Declarations)
+		merrs := r.resolveDeclarationsInModule(scope.Module(m.Name), m.Declarations)
 		// Package up all errors
 		errs = append(errs, merrs...)
 	}
@@ -115,45 +66,32 @@ func (r *resolver) resolveAssignments(scope *GlobalScope, circuit *Circuit) []Sy
 // assignments can depend on the declaration of other columns.  Hence, we have
 // to process all columns before we can sure that they are all declared
 // correctly.
-func (r *resolver) resolveAssignmentsInModule(scope *ModuleScope, decls []Declaration) []SyntaxError {
-	if errors := r.initialiseAssignmentsInModule(scope, decls); len(errors) > 0 {
-		return errors
-	}
-	// Check assignments
-	if errors := r.checkAssignmentsInModule(scope, decls); len(errors) > 0 {
+func (r *resolver) resolveDeclarationsInModule(scope *ModuleScope, decls []Declaration) []SyntaxError {
+	if errors := r.initialiseDeclarationsInModule(scope, decls); len(errors) > 0 {
 		return errors
 	}
 	// Iterate until all columns finalised
-	return r.finaliseAssignmentsInModule(scope, decls)
+	return r.finaliseDeclarationsInModule(scope, decls)
 }
 
-// Initialise the column allocation from the available declarations, whilst
-// identifying any duplicate declarations.  Observe that, for some declarations,
-// the initial assignment is incomplete because information about dependent
-// columns may not be available.  So, the goal of the subsequent phase is to
-// flesh out this missing information.
-func (r *resolver) initialiseAssignmentsInModule(scope *ModuleScope, decls []Declaration) []SyntaxError {
+// Initialise all declarations in the given module scope.  That means allocating
+// all bindings into the scope, whilst also ensuring that we never have two
+// bindings for the same symbol, etc.  The key is that, at this stage, all
+// bindings are potentially "non-finalised".  That means they may be missing key
+// information which is yet to be determined (e.g. information about types, or
+// contexts, etc).
+func (r *resolver) initialiseDeclarationsInModule(scope *ModuleScope, decls []Declaration) []SyntaxError {
 	module := scope.EnclosingModule()
 	errors := make([]SyntaxError, 0)
 	//
 	for _, d := range decls {
-		if col, ok := d.(*DefInterleaved); ok {
-			if binding := scope.Bind(nil, col.Target, false); binding != nil {
-				err := r.srcmap.SyntaxError(col, fmt.Sprintf("symbol %s already declared in %s", col.Target, module))
+		for iter := d.Definitions(); iter.HasNext(); {
+			def := iter.Next()
+			// Attempt to declare symbol
+			if !scope.Declare(def) {
+				msg := fmt.Sprintf("symbol %s already declared in %s", def.Name(), module)
+				err := r.srcmap.SyntaxError(def, msg)
 				errors = append(errors, *err)
-			} else {
-				// Register incomplete (assignment) column.
-				scope.Declare(col.Target, false, NewColumnBinding(module, true, 0, nil))
-			}
-		} else if col, ok := d.(*DefPermutation); ok {
-			for _, c := range col.Targets {
-				if binding := scope.Bind(nil, c.Name, false); binding != nil {
-					err := r.srcmap.SyntaxError(col, fmt.Sprintf("symbol %s already declared in %s", c.Name, module))
-					errors = append(errors, *err)
-				} else {
-					// Register incomplete (assignment) column.
-					scope.Declare(c.Name, false, NewColumnBinding(scope.EnclosingModule(), true, 0, nil))
-				}
 			}
 		}
 	}
@@ -161,30 +99,12 @@ func (r *resolver) initialiseAssignmentsInModule(scope *ModuleScope, decls []Dec
 	return errors
 }
 
-func (r *resolver) checkAssignmentsInModule(scope *ModuleScope, decls []Declaration) []SyntaxError {
-	errors := make([]SyntaxError, 0)
-	//
-	for _, d := range decls {
-		if col, ok := d.(*DefInterleaved); ok {
-			for _, c := range col.Sources {
-				if scope.Bind(nil, c.Name, false) == nil {
-					errors = append(errors, *r.srcmap.SyntaxError(c, "unknown source column"))
-				}
-			}
-		} else if col, ok := d.(*DefPermutation); ok {
-			for _, c := range col.Sources {
-				if scope.Bind(nil, c.Name, false) == nil {
-					errors = append(errors, *r.srcmap.SyntaxError(c, "unknown source column"))
-				}
-			}
-		}
-	}
-	// Done
-	return errors
-}
-
-// Iterate the column allocation to a fix point by iteratively fleshing out column information.
-func (r *resolver) finaliseAssignmentsInModule(scope *ModuleScope, decls []Declaration) []SyntaxError {
+// Finalise all declarations given in a module.  This requires an iterative
+// process as we cannot finalise a declaration until all of its dependencies
+// have been themselves finalised.  For example, a function which depends upon
+// an interleaved column.  Until the interleaved column is finalised, its type
+// won't be available and, hence, we cannot type the function.
+func (r *resolver) finaliseDeclarationsInModule(scope *ModuleScope, decls []Declaration) []SyntaxError {
 	// Changed indicates whether or not a new assignment was finalised during a
 	// given iteration.  This is important to know since, if the assignment is
 	// not complete and we didn't finalise any more assignments --- then, we've
@@ -198,47 +118,45 @@ func (r *resolver) finaliseAssignmentsInModule(scope *ModuleScope, decls []Decla
 	// For an incomplete assignment, this identifies the last declaration that
 	// could not be finalised (i.e. as an example so we have at least one for
 	// error reporting).
-	var incomplete Node = nil
+	var (
+		incomplete Node = nil
+		counter    uint = 4
+	)
 	//
-	for changed && !complete {
+	for changed && !complete && counter > 0 {
 		errors := make([]SyntaxError, 0)
 		changed = false
 		complete = true
 		//
 		for _, d := range decls {
-			if col, ok := d.(*DefInterleaved); ok {
-				// Check whether dependencies are resolved or not.
-				if r.columnsAreFinalised(scope, col.Sources) {
-					// Finalise assignment and handle any errors
-					errs := r.finaliseInterleavedAssignment(scope, col)
-					errors = append(errors, errs...)
-					// Record that a new assignment is available.
-					changed = changed || len(errs) == 0
-				} else {
-					complete = false
-					incomplete = d
-				}
-			} else if col, ok := d.(*DefPermutation); ok {
-				// Check whether dependencies are resolved or not.
-				if r.columnsAreFinalised(scope, col.Sources) {
-					// Finalise assignment and handle any errors
-					errs := r.finalisePermutationAssignment(scope, col)
-					errors = append(errors, errs...)
-					// Record that a new assignment is available.
-					changed = changed || len(errs) == 0
-				} else {
-					complete = false
-					incomplete = d
-				}
+			ready, errs := r.declarationDependenciesAreFinalised(scope, d.Dependencies())
+			// See what arosed
+			if errs != nil {
+				errors = append(errors, errs...)
+			} else if ready {
+				// Finalise declaration and handle errors
+				errs := r.finaliseDeclaration(scope, d)
+				errors = append(errors, errs...)
+				// Record that a new assignment is available.
+				changed = changed || len(errs) == 0
+			} else {
+				// Declaration not ready yet
+				complete = false
+				incomplete = d
 			}
 		}
 		// Sanity check for any errors caught during this iteration.
 		if len(errors) > 0 {
 			return errors
 		}
+		// Decrement counter
+		counter--
 	}
 	// Check whether we actually finished the allocation.
-	if !complete {
+	if counter == 0 {
+		err := r.srcmap.SyntaxError(incomplete, "unable to complete resolution")
+		return []SyntaxError{*err}
+	} else if !complete {
 		// No, we didn't.  So, something is wrong --- assume it must be a cyclic
 		// definition for now.
 		err := r.srcmap.SyntaxError(incomplete, "cyclic declaration")
@@ -249,20 +167,68 @@ func (r *resolver) finaliseAssignmentsInModule(scope *ModuleScope, decls []Decla
 }
 
 // Check that a given set of source columns have been finalised.  This is
-// important, since we cannot finalise an assignment until all of its
+// important, since we cannot finalise a declaration until all of its
 // dependencies have themselves been finalised.
-func (r *resolver) columnsAreFinalised(scope *ModuleScope, columns []*DefName) bool {
-	for _, col := range columns {
-		// Look up information
-		info := scope.Bind(nil, col.Name, false).(*ColumnBinding)
-		// Check whether its finalised
-		if info.multiplier == 0 {
-			// Nope, not yet.
-			return false
+func (r *resolver) declarationDependenciesAreFinalised(scope *ModuleScope,
+	symbols util.Iterator[Symbol]) (bool, []SyntaxError) {
+	var (
+		errors    []SyntaxError
+		finalised bool = true
+	)
+	//
+	for iter := symbols; iter.HasNext(); {
+		symbol := iter.Next()
+		// Attempt to resolve
+		if !symbol.IsResolved() && !scope.Bind(symbol) {
+			errors = append(errors, *r.srcmap.SyntaxError(symbol, "unknown symbol"))
+			// not finalised yet
+			finalised = false
+		} else if !symbol.Binding().IsFinalised() {
+			// no, not finalised
+			finalised = false
 		}
 	}
 	//
-	return true
+	return finalised, errors
+}
+
+// Finalise a declaration.
+func (r *resolver) finaliseDeclaration(scope *ModuleScope, decl Declaration) []SyntaxError {
+	if d, ok := decl.(*DefConstraint); ok {
+		return r.finaliseDefConstraintInModule(scope, d)
+	} else if d, ok := decl.(*DefFun); ok {
+		return r.finaliseDefFunInModule(scope, d)
+	} else if d, ok := decl.(*DefInRange); ok {
+		return r.finaliseDefInRangeInModule(scope, d)
+	} else if d, ok := decl.(*DefInterleaved); ok {
+		return r.finaliseDefInterleavedInModule(d)
+	} else if d, ok := decl.(*DefLookup); ok {
+		return r.finaliseDefLookupInModule(scope, d)
+	} else if d, ok := decl.(*DefPermutation); ok {
+		return r.finaliseDefPermutationInModule(d)
+	} else if d, ok := decl.(*DefProperty); ok {
+		return r.finaliseDefPropertyInModule(scope, d)
+	}
+	//
+	return nil
+}
+
+// Finalise a vanishing constraint declaration after all symbols have been
+// resolved. This involves: (a) checking the context is valid; (b) checking the
+// expressions are well-typed.
+func (r *resolver) finaliseDefConstraintInModule(enclosing Scope, decl *DefConstraint) []SyntaxError {
+	var (
+		errors []SyntaxError
+		scope  = NewLocalScope(enclosing, false)
+	)
+	// Resolve guard
+	if decl.Guard != nil {
+		errors = r.finaliseExpressionInModule(scope, decl.Guard)
+	}
+	// Resolve constraint body
+	errors = append(errors, r.finaliseExpressionInModule(scope, decl.Constraint)...)
+	// Done
+	return errors
 }
 
 // Finalise an interleaving assignment.  Since the assignment would already been
@@ -270,7 +236,7 @@ func (r *resolver) columnsAreFinalised(scope *ModuleScope, columns []*DefName) b
 // multiplier for the interleaved column.  This can still result in an error,
 // for example, if the multipliers between interleaved columns are incompatible,
 // etc.
-func (r *resolver) finaliseInterleavedAssignment(scope *ModuleScope, decl *DefInterleaved) []SyntaxError {
+func (r *resolver) finaliseDefInterleavedInModule(decl *DefInterleaved) []SyntaxError {
 	var (
 		// Length multiplier being determined
 		length_multiplier uint
@@ -281,37 +247,37 @@ func (r *resolver) finaliseInterleavedAssignment(scope *ModuleScope, decl *DefIn
 	)
 	// Determine type and length multiplier
 	for i, source := range decl.Sources {
-		// Lookup info of column being interleaved.
-		info := scope.Bind(nil, source.Name, false).(*ColumnBinding)
+		// Lookup binding of column being interleaved.
+		binding := source.Binding().(*ColumnBinding)
 		//
 		if i == 0 {
-			length_multiplier = info.multiplier
-			datatype = info.datatype
-		} else if info.multiplier != length_multiplier {
+			length_multiplier = binding.multiplier
+			datatype = binding.dataType
+		} else if binding.multiplier != length_multiplier {
 			// Columns to be interleaved must have the same length multiplier.
-			err := r.srcmap.SyntaxError(decl, fmt.Sprintf("source column %s has incompatible length multiplier", source))
+			err := r.srcmap.SyntaxError(decl, fmt.Sprintf("source column %s has incompatible length multiplier", source.Name()))
 			errors = append(errors, *err)
 		}
 		// Combine datatypes.
-		datatype = schema.Join(datatype, info.datatype)
+		datatype = schema.Join(datatype, binding.dataType)
 	}
 	// Finalise details only if no errors
 	if len(errors) == 0 {
 		// Determine actual length multiplier
 		length_multiplier *= uint(len(decl.Sources))
 		// Lookup existing declaration
-		info := scope.Bind(nil, decl.Target, false).(*ColumnBinding)
+		binding := decl.Target.Binding().(*ColumnBinding)
 		// Update with completed information
-		info.multiplier = length_multiplier
-		info.datatype = datatype
+		binding.multiplier = length_multiplier
+		binding.dataType = datatype
 	}
 	// Done
 	return errors
 }
 
-// Finalise a permutation assignment.  Since the assignment would already been
-// initialised, this is actually quite easy to do.
-func (r *resolver) finalisePermutationAssignment(scope *ModuleScope, decl *DefPermutation) []SyntaxError {
+// Finalise a permutation assignment after all symbols have been resolved.  This
+// requires checking the contexts of all columns is consistent.
+func (r *resolver) finaliseDefPermutationInModule(decl *DefPermutation) []SyntaxError {
 	var (
 		multiplier uint = 0
 		errors     []SyntaxError
@@ -320,9 +286,9 @@ func (r *resolver) finalisePermutationAssignment(scope *ModuleScope, decl *DefPe
 	for i := 0; i < len(decl.Sources); i++ {
 		ith := decl.Sources[i]
 		// Lookup source of column being permuted
-		source := scope.Bind(nil, ith.Name, false).(*ColumnBinding)
+		source := ith.Binding().(*ColumnBinding)
 		// Sanity check length multiplier
-		if i == 0 && source.datatype.AsUint() == nil {
+		if i == 0 && source.dataType.AsUint() == nil {
 			errors = append(errors, *r.srcmap.SyntaxError(ith, "fixed-width type required"))
 		} else if i == 0 {
 			multiplier = source.multiplier
@@ -331,149 +297,84 @@ func (r *resolver) finalisePermutationAssignment(scope *ModuleScope, decl *DefPe
 			errors = append(errors, *r.srcmap.SyntaxError(ith, "incompatible length multiplier"))
 		}
 		// All good, finalise target column
-		target := scope.Bind(nil, decl.Targets[i].Name, false).(*ColumnBinding)
+		target := decl.Targets[i].Binding().(*ColumnBinding)
 		// Update with completed information
 		target.multiplier = source.multiplier
-		target.datatype = source.datatype
+		target.dataType = source.dataType
 	}
 	// Done
 	return errors
 }
 
-// Examine each constraint and attempt to resolve any variables used within
-// them.  For example, a vanishing constraint may refer to some variable "X".
-// Prior to this function being called, its not clear what "X" refers to --- it
-// could refer to a column a constant, or even an alias.  The purpose of this
-// pass is to: firstly, check that every variable refers to something which was
-// declared; secondly, to determine what each variable represents (i.e. column
-// access, a constant, etc).
-func (r *resolver) resolveConstraints(scope *GlobalScope, circuit *Circuit) []SyntaxError {
-	errs := r.resolveConstraintsInModule(scope.Module(""), circuit.Declarations)
-	//
-	for _, m := range circuit.Modules {
-		// Process all declarations in the module
-		merrs := r.resolveConstraintsInModule(scope.Module(m.Name), m.Declarations)
-		// Package up all errors
-		errs = append(errs, merrs...)
-	}
-	//
-	return errs
-}
-
-// Helper for resolve constraints which considers those constraints declared in
-// a particular module.
-func (r *resolver) resolveConstraintsInModule(enclosing Scope, decls []Declaration) []SyntaxError {
-	var errors []SyntaxError
-	//
-	for _, d := range decls {
-		// Look for defcolumns decalarations only
-		if _, ok := d.(*DefColumns); ok {
-			// Safe to ignore.
-		} else if c, ok := d.(*DefConstraint); ok {
-			errors = append(errors, r.resolveDefConstraintInModule(enclosing, c)...)
-		} else if c, ok := d.(*DefInRange); ok {
-			errors = append(errors, r.resolveDefInRangeInModule(enclosing, c)...)
-		} else if _, ok := d.(*DefInterleaved); ok {
-			// Nothing to do here, since this assignment form contains no
-			// expressions to be resolved.
-		} else if c, ok := d.(*DefLookup); ok {
-			errors = append(errors, r.resolveDefLookupInModule(enclosing, c)...)
-		} else if _, ok := d.(*DefPermutation); ok {
-			// Nothing to do here, since this assignment form contains no
-			// expressions to be resolved.
-		} else if c, ok := d.(*DefFun); ok {
-			errors = append(errors, r.resolveDefFunInModule(enclosing, c)...)
-		} else if c, ok := d.(*DefProperty); ok {
-			errors = append(errors, r.resolveDefPropertyInModule(enclosing, c)...)
-		} else {
-			errors = append(errors, *r.srcmap.SyntaxError(d, "unknown declaration"))
-		}
-	}
-	//
-	return errors
-}
-
-// Resolve those variables appearing in either the guard or the body of this constraint.
-func (r *resolver) resolveDefConstraintInModule(enclosing Scope, decl *DefConstraint) []SyntaxError {
-	var (
-		errors []SyntaxError
-		scope  = NewLocalScope(enclosing, false)
-	)
-	// Resolve guard
-	if decl.Guard != nil {
-		errors = r.resolveExpressionInModule(scope, decl.Guard)
-	}
-	// Resolve constraint body
-	errors = append(errors, r.resolveExpressionInModule(scope, decl.Constraint)...)
-	// Done
-	return errors
-}
-
-// Resolve those variables appearing in the body of this range constraint.
-func (r *resolver) resolveDefInRangeInModule(enclosing Scope, decl *DefInRange) []SyntaxError {
+// Finalise a range constraint declaration after all symbols have been
+// resolved. This involves: (a) checking the context is valid; (b) checking the
+// expressions are well-typed.
+func (r *resolver) finaliseDefInRangeInModule(enclosing Scope, decl *DefInRange) []SyntaxError {
 	var (
 		errors []SyntaxError
 		scope  = NewLocalScope(enclosing, false)
 	)
 	// Resolve property body
-	errors = append(errors, r.resolveExpressionInModule(scope, decl.Expr)...)
+	errors = append(errors, r.finaliseExpressionInModule(scope, decl.Expr)...)
 	// Done
 	return errors
 }
 
-// Resolve those variables appearing in the body of this function.
-func (r *resolver) resolveDefFunInModule(enclosing Scope, decl *DefFun) []SyntaxError {
+// Finalise a function definition after all symbols have been resolved. This
+// involves: (a) checking the context is valid for the body; (b) checking the
+// body is well-typed; (c) for pure functions checking that no columns are
+// accessed; (d) finally, resolving any parameters used within the body of this
+// function.
+func (r *resolver) finaliseDefFunInModule(enclosing Scope, decl *DefFun) []SyntaxError {
 	var (
 		errors []SyntaxError
 		scope  = NewLocalScope(enclosing, false)
 	)
 	// Declare parameters in local scope
-	for _, p := range decl.Parameters {
+	for _, p := range decl.Parameters() {
 		scope.DeclareLocal(p.Name)
 	}
 	// Resolve property body
-	errors = append(errors, r.resolveExpressionInModule(scope, decl.Body)...)
-	// Remove parameters from enclosing environment
+	errors = append(errors, r.finaliseExpressionInModule(scope, decl.Body())...)
 	// Done
 	return errors
 }
 
 // Resolve those variables appearing in the body of this lookup constraint.
-func (r *resolver) resolveDefLookupInModule(enclosing Scope, decl *DefLookup) []SyntaxError {
+func (r *resolver) finaliseDefLookupInModule(enclosing Scope, decl *DefLookup) []SyntaxError {
 	var (
 		errors      []SyntaxError
 		sourceScope = NewLocalScope(enclosing, true)
 		targetScope = NewLocalScope(enclosing, true)
 	)
-
 	// Resolve source expressions
-	errors = append(errors, r.resolveExpressionsInModule(sourceScope, decl.Sources)...)
+	errors = append(errors, r.finaliseExpressionsInModule(sourceScope, decl.Sources)...)
 	// Resolve target expressions
-	errors = append(errors, r.resolveExpressionsInModule(targetScope, decl.Targets)...)
+	errors = append(errors, r.finaliseExpressionsInModule(targetScope, decl.Targets)...)
 	// Done
 	return errors
 }
 
 // Resolve those variables appearing in the body of this property assertion.
-func (r *resolver) resolveDefPropertyInModule(enclosing Scope, decl *DefProperty) []SyntaxError {
+func (r *resolver) finaliseDefPropertyInModule(enclosing Scope, decl *DefProperty) []SyntaxError {
 	var (
 		errors []SyntaxError
 		scope  = NewLocalScope(enclosing, false)
 	)
 	// Resolve property body
-	errors = append(errors, r.resolveExpressionInModule(scope, decl.Assertion)...)
+	errors = append(errors, r.finaliseExpressionInModule(scope, decl.Assertion)...)
 	// Done
 	return errors
 }
 
 // Resolve a sequence of zero or more expressions within a given module.  This
 // simply resolves each of the arguments in turn, collecting any errors arising.
-func (r *resolver) resolveExpressionsInModule(scope LocalScope, args []Expr) []SyntaxError {
+func (r *resolver) finaliseExpressionsInModule(scope LocalScope, args []Expr) []SyntaxError {
 	var errors []SyntaxError
 	// Visit each argument
 	for _, arg := range args {
 		if arg != nil {
-			errs := r.resolveExpressionInModule(scope, arg)
+			errs := r.finaliseExpressionInModule(scope, arg)
 			errors = append(errors, errs...)
 		}
 	}
@@ -486,27 +387,27 @@ func (r *resolver) resolveExpressionsInModule(scope LocalScope, args []Expr) []S
 // variable accesses.  As above, the goal is ensure variable refers to something
 // that was declared and, more specifically, what kind of access it is (e.g.
 // column access, constant access, etc).
-func (r *resolver) resolveExpressionInModule(scope LocalScope, expr Expr) []SyntaxError {
+func (r *resolver) finaliseExpressionInModule(scope LocalScope, expr Expr) []SyntaxError {
 	if _, ok := expr.(*Constant); ok {
 		return nil
 	} else if v, ok := expr.(*Add); ok {
-		return r.resolveExpressionsInModule(scope, v.Args)
+		return r.finaliseExpressionsInModule(scope, v.Args)
 	} else if v, ok := expr.(*Exp); ok {
-		return r.resolveExpressionInModule(scope, v.Arg)
+		return r.finaliseExpressionInModule(scope, v.Arg)
 	} else if v, ok := expr.(*IfZero); ok {
-		return r.resolveExpressionsInModule(scope, []Expr{v.Condition, v.TrueBranch, v.FalseBranch})
+		return r.finaliseExpressionsInModule(scope, []Expr{v.Condition, v.TrueBranch, v.FalseBranch})
 	} else if v, ok := expr.(*Invoke); ok {
-		return r.resolveInvokeInModule(scope, v)
+		return r.finaliseInvokeInModule(scope, v)
 	} else if v, ok := expr.(*List); ok {
-		return r.resolveExpressionsInModule(scope, v.Args)
+		return r.finaliseExpressionsInModule(scope, v.Args)
 	} else if v, ok := expr.(*Mul); ok {
-		return r.resolveExpressionsInModule(scope, v.Args)
+		return r.finaliseExpressionsInModule(scope, v.Args)
 	} else if v, ok := expr.(*Normalise); ok {
-		return r.resolveExpressionInModule(scope, v.Arg)
+		return r.finaliseExpressionInModule(scope, v.Arg)
 	} else if v, ok := expr.(*Sub); ok {
-		return r.resolveExpressionsInModule(scope, v.Args)
+		return r.finaliseExpressionsInModule(scope, v.Args)
 	} else if v, ok := expr.(*VariableAccess); ok {
-		return r.resolveVariableInModule(scope, v)
+		return r.finaliseVariableInModule(scope, v)
 	} else {
 		return r.srcmap.SyntaxErrors(expr, "unknown expression")
 	}
@@ -515,44 +416,47 @@ func (r *resolver) resolveExpressionInModule(scope LocalScope, expr Expr) []Synt
 // Resolve a specific invocation contained within some expression which, in
 // turn, is contained within some module.  Note, qualified accesses are only
 // permitted in a global context.
-func (r *resolver) resolveInvokeInModule(scope LocalScope, expr *Invoke) []SyntaxError {
+func (r *resolver) finaliseInvokeInModule(scope LocalScope, expr *Invoke) []SyntaxError {
 	// Resolve arguments
-	if errors := r.resolveExpressionsInModule(scope, expr.Args); errors != nil {
+	if errors := r.finaliseExpressionsInModule(scope, expr.Args()); errors != nil {
 		return errors
 	}
 	// Lookup the corresponding function definition.
-	binding := scope.Bind(nil, expr.Name, true)
-	// Check what we got
-	if fnBinding, ok := binding.(*FunctionBinding); ok {
-		expr.Binding = fnBinding
-		return nil
+	if !scope.Bind(expr) {
+		return r.srcmap.SyntaxErrors(expr, "unknown function")
 	}
-	//
-	return r.srcmap.SyntaxErrors(expr, "unknown function")
+	// Success
+	return nil
 }
 
 // Resolve a specific variable access contained within some expression which, in
 // turn, is contained within some module.  Note, qualified accesses are only
 // permitted in a global context.
-func (r *resolver) resolveVariableInModule(scope LocalScope,
+func (r *resolver) finaliseVariableInModule(scope LocalScope,
 	expr *VariableAccess) []SyntaxError {
 	// Check whether this is a qualified access, or not.
-	if !scope.IsGlobal() && expr.Module != nil {
+	if !scope.IsGlobal() && expr.IsQualified() {
 		return r.srcmap.SyntaxErrors(expr, "qualified access not permitted here")
-	} else if expr.Module != nil && !scope.HasModule(*expr.Module) {
-		return r.srcmap.SyntaxErrors(expr, fmt.Sprintf("unknown module %s", *expr.Module))
+	} else if expr.IsQualified() && !scope.HasModule(expr.Module()) {
+		return r.srcmap.SyntaxErrors(expr, fmt.Sprintf("unknown module %s", expr.Module()))
 	}
-	// Attempt resolve this variable access, noting that it definitely does not
-	// refer to a function.
-	if expr.Binding = scope.Bind(expr.Module, expr.Name, false); expr.Binding != nil {
+	// Symbol should be resolved at this point, but we still need to check the
+	// context.
+	if expr.IsResolved() {
 		// Update context
-		binding, ok := expr.Binding.(*ColumnBinding)
+		binding, ok := expr.Binding().(*ColumnBinding)
 		if ok && !scope.FixContext(binding.Context()) {
 			return r.srcmap.SyntaxErrors(expr, "conflicting context")
+		} else if !ok {
+			// Unable to resolve variable
+			return r.srcmap.SyntaxErrors(expr, "not a column")
 		}
 		// Done
 		return nil
+	} else if scope.Bind(expr) {
+		// Must be a local variable or parameter access, so we're all good.
+		return nil
 	}
 	// Unable to resolve variable
-	return r.srcmap.SyntaxErrors(expr, "unknown symbol")
+	return r.srcmap.SyntaxErrors(expr, "unresolved symbol")
 }

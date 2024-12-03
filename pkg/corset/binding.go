@@ -21,8 +21,8 @@ type BindingId struct {
 // Binding represents an association between a name, as found in a source file,
 // and concrete item (e.g. a column, function, etc).
 type Binding interface {
-	// Returns the context associated with this binding.
-	IsBinding()
+	// Determine whether this binding is finalised or not.
+	IsFinalised() bool
 }
 
 // ColumnBinding represents something bound to a given column.
@@ -33,19 +33,23 @@ type ColumnBinding struct {
 	module string
 	// Determines whether this is a computed column, or not.
 	computed bool
+	// Determines whether this column must be proven (or not).
+	mustProve bool
 	// Column's length multiplier
 	multiplier uint
 	// Column's datatype
-	datatype sc.Type
+	dataType sc.Type
 }
 
 // NewColumnBinding constructs a new column binding in a given module.
-func NewColumnBinding(module string, computed bool, multiplier uint, datatype sc.Type) *ColumnBinding {
-	return &ColumnBinding{math.MaxUint, module, computed, multiplier, datatype}
+func NewColumnBinding(module string, computed bool, mustProve bool, multiplier uint, datatype sc.Type) *ColumnBinding {
+	return &ColumnBinding{math.MaxUint, module, computed, mustProve, multiplier, datatype}
 }
 
-// IsBinding ensures this is an instance of Binding.
-func (p *ColumnBinding) IsBinding() {}
+// IsFinalised checks whether this binding has been finalised yet or not.
+func (p *ColumnBinding) IsFinalised() bool {
+	return p.multiplier != 0
+}
 
 // Context returns the of this column.  That is, the module in which this colunm
 // was declared and also the length multiplier of that module it requires.
@@ -74,20 +78,38 @@ type ParameterBinding struct {
 	index uint
 }
 
-// IsBinding ensures this is an instance of Binding.
-func (p *ParameterBinding) IsBinding() {}
+// IsFinalised checks whether this binding has been finalised yet or not.
+func (p *ParameterBinding) IsFinalised() bool {
+	panic("")
+}
 
 // FunctionBinding represents the binding of a function application to its
 // physical definition.
 type FunctionBinding struct {
-	// arity determines the number of arguments this function takes.
-	arity uint
+	// Flag whether or not is pure function
+	pure bool
+	// Types of parameters
+	paramTypes []sc.Type
+	// Type of return
+	returnType sc.Type
 	// body of the function in question.
 	body Expr
 }
 
-// IsBinding ensures this is an instance of Binding.
-func (p *FunctionBinding) IsBinding() {}
+// NewFunctionBinding constructs a new function binding.
+func NewFunctionBinding(pure bool, paramTypes []sc.Type, returnType sc.Type, body Expr) FunctionBinding {
+	return FunctionBinding{pure, paramTypes, returnType, body}
+}
+
+// IsFinalised checks whether this binding has been finalised yet or not.
+func (p *FunctionBinding) IsFinalised() bool {
+	return p.returnType != nil
+}
+
+// Arity returns the number of parameters that this function accepts.
+func (p *FunctionBinding) Arity() uint {
+	return uint(len(p.paramTypes))
+}
 
 // Apply a given set of arguments to this function binding.
 func (p *FunctionBinding) Apply(args []Expr) Expr {

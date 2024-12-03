@@ -11,16 +11,12 @@ import (
 // variable used within an expression refers to.  For example, a variable can
 // refer to a column, or a parameter, etc.
 type Scope interface {
-	// Get the name of the enclosing module.  This is generally useful for
-	// reporting errors.
-	EnclosingModule() string
 	// HasModule checks whether a given module exists, or not.
 	HasModule(string) bool
-	// Lookup a given variable being referenced with an optional module
-	// specifier.  This variable could correspond to a column, a function, a
-	// parameter, or a local variable.  Furthermore, the returned binding will
-	// be nil if this variable does not exist.
-	Bind(*string, string, bool) Binding
+	// Attempt to bind a given symbol within this scope.  If successful, the
+	// symbol is then resolved with the appropriate binding.  Return value
+	// indicates whether successful or not.
+	Bind(Symbol) bool
 }
 
 // =============================================================================
@@ -56,12 +52,6 @@ func (p *GlobalScope) DeclareModule(module string) {
 	p.ids[module] = mid
 }
 
-// EnclosingModule returns the name of the enclosing module.  For a global
-// scope, this has no meaning.
-func (p *GlobalScope) EnclosingModule() string {
-	panic("unreachable")
-}
-
 // HasModule checks whether a given module exists, or not.
 func (p *GlobalScope) HasModule(module string) bool {
 	// Attempt to lookup the module
@@ -72,18 +62,25 @@ func (p *GlobalScope) HasModule(module string) bool {
 
 // Bind looks up a given variable being referenced within a given module.  For a
 // root context, this is either a column, an alias or a function declaration.
-func (p *GlobalScope) Bind(module *string, name string, fn bool) Binding {
-	if module == nil {
+func (p *GlobalScope) Bind(symbol Symbol) bool {
+	if !symbol.IsQualified() {
 		panic("cannot bind unqualified symbol in the global scope")
+	} else if !p.HasModule(symbol.Module()) {
+		// Pontially, it might be better to report a more useful error message.
+		return false
 	}
 	//
-	return p.Module(*module).Bind(nil, name, fn)
+	return p.Module(symbol.Module()).Bind(symbol)
 }
 
-// Module returns the identifier of the module with the given name.
+// Module returns the identifier of the module with the given name.  Observe
+// that this will panic if the module in question does not exist.
 func (p *GlobalScope) Module(name string) *ModuleScope {
-	mid := p.ids[name]
-	return &p.modules[mid]
+	if mid, ok := p.ids[name]; ok {
+		return &p.modules[mid]
+	}
+	// Problem.
+	panic(fmt.Sprintf("unknown module \"%s\"", name))
 }
 
 // ToEnvironment converts this global scope into a concrete environment by
@@ -123,32 +120,51 @@ func (p *ModuleScope) HasModule(module string) bool {
 
 // Bind looks up a given variable being referenced within a given module.  For a
 // root context, this is either a column, an alias or a function declaration.
-func (p *ModuleScope) Bind(module *string, name string, fn bool) Binding {
+func (p *ModuleScope) Bind(symbol Symbol) bool {
 	// Determine module for this lookup.
-	if module != nil {
+	if symbol.IsQualified() && symbol.Module() != p.module {
 		// non-local lookup
-		return p.enclosing.Bind(module, name, fn)
+		return p.enclosing.Bind(symbol)
 	}
 	// construct binding identifier
-	if bid, ok := p.ids[BindingId{name, fn}]; ok {
-		return p.bindings[bid]
+	id := BindingId{symbol.Name(), symbol.IsFunction()}
+	// Look for it.
+	if bid, ok := p.ids[id]; ok {
+		// Extract binding
+		binding := p.bindings[bid]
+		// Resolve symbol
+		symbol.Resolve(binding)
+		// Success
+		return true
 	}
 	// failed
-	return nil
+	return false
+}
+
+// Column returns information about a particular column declared within this
+// module.
+func (p *ModuleScope) Column(name string) *ColumnBinding {
+	// construct binding identifier
+	bid := p.ids[BindingId{name, false}]
+	//
+	return p.bindings[bid].(*ColumnBinding)
 }
 
 // Declare declares a given binding within this module scope.
-func (p *ModuleScope) Declare(name string, fn bool, binding Binding) {
+func (p *ModuleScope) Declare(symbol SymbolDefinition) bool {
 	// construct binding identifier
-	bid := BindingId{name, fn}
+	bid := BindingId{symbol.Name(), symbol.IsFunction()}
 	// Sanity check not already declared
 	if _, ok := p.ids[bid]; ok {
-		panic(fmt.Sprintf("attempt to redeclare binding for \"%s\"", name))
+		// Cannot redeclare
+		return false
 	}
 	// Done
 	id := uint(len(p.bindings))
-	p.bindings = append(p.bindings, binding)
+	p.bindings = append(p.bindings, symbol.Binding())
 	p.ids[bid] = id
+	//
+	return true
 }
 
 // =============================================================================
@@ -197,12 +213,6 @@ func (p LocalScope) IsGlobal() bool {
 	return p.global
 }
 
-// EnclosingModule returns the name of the enclosing module.  This is generally
-// useful for reporting errors.
-func (p LocalScope) EnclosingModule() string {
-	return p.enclosing.EnclosingModule()
-}
-
 // FixContext fixes the context for this scope.  Since every scope requires
 // exactly one context, this fails if we fix it to incompatible contexts.
 func (p LocalScope) FixContext(context Context) bool {
@@ -219,14 +229,16 @@ func (p LocalScope) HasModule(module string) bool {
 
 // Bind looks up a given variable or function being referenced either within the
 // enclosing scope (module==nil) or within a specified module.
-func (p LocalScope) Bind(module *string, name string, fn bool) Binding {
+func (p LocalScope) Bind(symbol Symbol) bool {
 	// Check whether this is a local variable access.
-	if id, ok := p.locals[name]; ok && !fn && module == nil {
+	if id, ok := p.locals[symbol.Name()]; ok && !symbol.IsFunction() && !symbol.IsQualified() {
 		// Yes, this is a local variable access.
-		return &ParameterBinding{id}
+		symbol.Resolve(&ParameterBinding{id})
+		// Success
+		return true
 	}
 	// No, this is not a local variable access.
-	return p.enclosing.Bind(module, name, fn)
+	return p.enclosing.Bind(symbol)
 }
 
 // DeclareLocal registers a new local variable (e.g. a parameter).

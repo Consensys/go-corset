@@ -1,8 +1,6 @@
 package corset
 
 import (
-	"fmt"
-
 	"github.com/consensys/go-corset/pkg/hir"
 	"github.com/consensys/go-corset/pkg/sexp"
 )
@@ -72,9 +70,6 @@ func (p *Compiler) Compile() (*hir.Schema, []SyntaxError) {
 	}
 	// Convert global scope into an environment by allocating all columns.
 	environment := scope.ToEnvironment()
-	// Check constraint contexts (e.g. for constraints, lookups, etc)
-	// Type check constraints
-	fmt.Println("Translating Circuit...")
 	// Finally, translate everything and add it to the schema.
 	return TranslateCircuit(environment, p.srcmap, &p.circuit)
 }

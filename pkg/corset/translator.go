@@ -91,15 +91,15 @@ func (t *translator) translateDefColumns(decl *DefColumns, module string) []Synt
 	var errors []SyntaxError
 	// Add each column to schema
 	for _, c := range decl.Columns {
-		context := t.env.ContextFrom(module, c.LengthMultiplier)
-		cid := t.schema.AddDataColumn(context, c.Name, c.DataType)
+		context := t.env.ContextFrom(module, c.LengthMultiplier())
+		cid := t.schema.AddDataColumn(context, c.Name(), c.DataType())
 		// Prove type (if requested)
-		if c.MustProve {
-			bound := c.DataType.AsUint().Bound()
-			t.schema.AddRangeConstraint(c.Name, context, &hir.ColumnAccess{Column: cid, Shift: 0}, bound)
+		if c.MustProve() {
+			bound := c.DataType().AsUint().Bound()
+			t.schema.AddRangeConstraint(c.Name(), context, &hir.ColumnAccess{Column: cid, Shift: 0}, bound)
 		}
 		// Sanity check column identifier
-		if info := t.env.Column(module, c.Name); info.ColumnId() != cid {
+		if info := t.env.Column(module, c.Name()); info.ColumnId() != cid {
 			errors = append(errors, *t.srcmap.SyntaxError(c, "invalid column identifier"))
 		}
 	}
@@ -228,15 +228,15 @@ func (t *translator) translateDefInterleaved(decl *DefInterleaved, module string
 	//
 	sources := make([]uint, len(decl.Sources))
 	// Lookup target column info
-	info := t.env.Column(module, decl.Target)
+	info := t.env.Column(module, decl.Target.Name())
 	// Determine source column identifiers
 	for i, source := range decl.Sources {
-		sources[i] = t.env.Column(module, source.Name).ColumnId()
+		sources[i] = t.env.Column(module, source.Name()).ColumnId()
 	}
 	// Construct context for this assignment
 	context := t.env.ContextFrom(module, info.multiplier)
 	// Register assignment
-	cid := t.schema.AddAssignment(assignment.NewInterleaving(context, decl.Target, sources, info.datatype))
+	cid := t.schema.AddAssignment(assignment.NewInterleaving(context, decl.Target.Name(), sources, info.dataType))
 	// Sanity check column identifiers align.
 	if cid != info.ColumnId() {
 		errors = append(errors, *t.srcmap.SyntaxError(decl, "invalid column identifier"))
@@ -258,10 +258,10 @@ func (t *translator) translateDefPermutation(decl *DefPermutation, module string
 	sources := make([]uint, len(decl.Sources))
 	//
 	for i := 0; i < len(decl.Sources); i++ {
-		target := t.env.Column(module, decl.Targets[i].Name)
+		target := t.env.Column(module, decl.Targets[i].Name())
 		context = t.env.ContextFrom(module, target.multiplier)
-		targets[i] = sc.NewColumn(context, decl.Targets[i].Name, target.datatype)
-		sources[i] = t.env.Column(module, decl.Sources[i].Name).ColumnId()
+		targets[i] = sc.NewColumn(context, decl.Targets[i].Name(), target.dataType)
+		sources[i] = t.env.Column(module, decl.Sources[i].Name()).ColumnId()
 		signs[i] = decl.Signs[i]
 		// Record first CID
 		if i == 0 {
@@ -354,12 +354,14 @@ func (t *translator) translateExpressionInModule(expr Expr, module string) (hir.
 		args, errs := t.translateExpressionsInModule([]Expr{v.Condition, v.TrueBranch, v.FalseBranch}, module)
 		return &hir.IfZero{Condition: args[0], TrueBranch: args[1], FalseBranch: args[2]}, errs
 	} else if e, ok := expr.(*Invoke); ok {
-		if e.Binding != nil && e.Binding.arity == uint(len(e.Args)) {
-			body := e.Binding.Apply(e.Args)
-			return t.translateExpressionInModule(body, module)
-		} else if e.Binding != nil {
-			msg := fmt.Sprintf("incorrect number of arguments (expected %d, found %d)", e.Binding.arity, len(e.Args))
-			return nil, t.srcmap.SyntaxErrors(expr, msg)
+		if binding, ok := e.Binding().(*FunctionBinding); ok {
+			if binding.Arity() == uint(len(e.Args())) {
+				body := binding.Apply(e.Args())
+				return t.translateExpressionInModule(body, module)
+			} else {
+				msg := fmt.Sprintf("incorrect number of arguments (expected %d, found %d)", binding.Arity(), len(e.Args()))
+				return nil, t.srcmap.SyntaxErrors(expr, msg)
+			}
 		}
 		//
 		return nil, t.srcmap.SyntaxErrors(expr, "unbound function")
@@ -376,11 +378,11 @@ func (t *translator) translateExpressionInModule(expr Expr, module string) (hir.
 		args, errs := t.translateExpressionsInModule(v.Args, module)
 		return &hir.Sub{Args: args}, errs
 	} else if e, ok := expr.(*VariableAccess); ok {
-		if binding, ok := e.Binding.(*ColumnBinding); ok {
+		if binding, ok := e.Binding().(*ColumnBinding); ok {
 			// Lookup column binding
-			cinfo := t.env.Column(binding.module, e.Name)
+			cinfo := t.env.Column(binding.module, e.Name())
 			// Done
-			return &hir.ColumnAccess{Column: cinfo.ColumnId(), Shift: e.Shift}, nil
+			return &hir.ColumnAccess{Column: cinfo.ColumnId(), Shift: e.Shift()}, nil
 		}
 		// error
 		return nil, t.srcmap.SyntaxErrors(expr, "unbound variable")
