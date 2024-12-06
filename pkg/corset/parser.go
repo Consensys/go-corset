@@ -234,6 +234,8 @@ func (p *Parser) parseDeclaration(module string, s *sexp.List) (Declaration, []S
 	//
 	if s.MatchSymbols(1, "defcolumns") {
 		decl, errors = p.parseDefColumns(module, s)
+	} else if s.Len() > 1 && s.MatchSymbols(1, "defconst") {
+		decl, errors = p.parseDefConst(s.Elements)
 	} else if s.Len() == 4 && s.MatchSymbols(2, "defconstraint") {
 		decl, errors = p.parseDefConstraint(s.Elements)
 	} else if s.Len() == 3 && s.MatchSymbols(1, "defpurefun") {
@@ -321,6 +323,47 @@ func (p *Parser) parseColumnDeclaration(module string, e sexp.SExp) (*DefColumn,
 	// Update source mapping
 	p.mapSourceNode(e, def)
 	//
+	return def, nil
+}
+
+// Parse a constant declaration
+func (p *Parser) parseDefConst(elements []sexp.SExp) (*DefConst, []SyntaxError) {
+	var (
+		errors    []SyntaxError
+		constants []*DefConstUnit
+	)
+
+	for i := 1; i < len(elements); i += 2 {
+		ith := elements[i].AsSymbol()
+		// Sanity check first
+		if i+1 == len(elements) {
+			// Uneven number of constant declarations!
+			errors = append(errors, *p.translator.SyntaxError(elements[i], "missing constant definition"))
+		} else if ith == nil {
+			// Symbol expected!
+			errors = append(errors, *p.translator.SyntaxError(elements[i], "invalid constant name"))
+		} else {
+			// Attempt to parse definition
+			constant, errs := p.parseDefConstUnit(ith, elements[i+1])
+			errors = append(errors, errs...)
+			constants = append(constants, constant)
+		}
+	}
+	// Done
+	return &DefConst{constants}, errors
+}
+
+func (p *Parser) parseDefConstUnit(name *sexp.Symbol, value sexp.SExp) (*DefConstUnit, []SyntaxError) {
+	expr, err := p.translator.Translate(value)
+	// Check for errors
+	if err != nil {
+		return nil, []SyntaxError{*err}
+	}
+	// Looks good
+	def := &DefConstUnit{name.Value, ConstantBinding{expr}}
+	// Map to source node
+	p.mapSourceNode(value, def)
+	// Done
 	return def, nil
 }
 

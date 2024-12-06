@@ -171,6 +171,10 @@ func (e *ColumnName) Lisp() sexp.SExp {
 	return sexp.NewSymbol(e.name)
 }
 
+// ============================================================================
+// defcolumns
+// ============================================================================
+
 // DefColumns captures a set of one or more columns being declared.
 type DefColumns struct {
 	Columns []*DefColumn
@@ -257,6 +261,80 @@ func (e *DefColumn) Lisp() sexp.SExp {
 	panic("got here")
 }
 
+// ============================================================================
+// defconst
+// ============================================================================
+
+// DefConst represents the declaration of one of more constant values which can
+// be used within expressions to improve readability.
+type DefConst struct {
+	// List of constant pairs.  Observe that every expression in this list must
+	// be constant (i.e. it cannot refer to column values or call impure
+	// functions, etc).
+	constants []*DefConstUnit
+}
+
+// Definitions returns the set of symbols defined by this declaration.  Observe
+// that these may not yet have been finalised.
+func (p *DefConst) Definitions() util.Iterator[SymbolDefinition] {
+	iter := util.NewArrayIterator[*DefConstUnit](p.constants)
+	return util.NewCastIterator[*DefConstUnit, SymbolDefinition](iter)
+}
+
+// Dependencies needed to signal declaration.
+func (p *DefConst) Dependencies() util.Iterator[Symbol] {
+	var deps []Symbol
+	// Combine dependencies from all constants defined within.
+	for _, d := range p.constants {
+		deps = append(deps, d.binding.value.Dependencies()...)
+	}
+	// Done
+	return util.NewArrayIterator[Symbol](deps)
+}
+
+// Lisp converts this node into its lisp representation.  This is primarily used
+// for debugging purposes.
+func (p *DefConst) Lisp() sexp.SExp {
+	panic("got here")
+}
+
+// DefConstUnit represents the definition of exactly one constant value.  As
+// such, this is an instance of SymbolDefinition and provides a binding.
+type DefConstUnit struct {
+	// Name of the constant being declared.
+	name string
+	// Binding for this constant.
+	binding ConstantBinding
+}
+
+// IsFunction is never true for a constant definition.
+func (e *DefConstUnit) IsFunction() bool {
+	return false
+}
+
+// Binding returns the allocated binding for this symbol (which may or may not
+// be finalised).
+func (e *DefConstUnit) Binding() Binding {
+	return &e.binding
+}
+
+// Name of symbol being defined
+func (e *DefConstUnit) Name() string {
+	return e.name
+}
+
+// Lisp converts this node into its lisp representation.  This is primarily used
+// for debugging purposes.
+//
+//nolint:revive
+func (p *DefConstUnit) Lisp() sexp.SExp {
+	panic("got here")
+}
+
+// ============================================================================
+// defconstraint
+// ============================================================================
+
 // DefConstraint represents a vanishing constraint, which is either "local" or
 // "global".  A local constraint applies either to the first or last rows,
 // whilst a global constraint applies to all rows.  For a constraint to hold,
@@ -311,6 +389,10 @@ func (p *DefConstraint) Lisp() sexp.SExp {
 	panic("got here")
 }
 
+// ============================================================================
+// definrange
+// ============================================================================
+
 // DefInRange restricts all values for a given expression to be within a range
 // [0..n) for some bound n.  Any bound is supported, and the system will choose
 // the best underlying implementation as needed.
@@ -341,6 +423,10 @@ func (p *DefInRange) Dependencies() util.Iterator[Symbol] {
 func (p *DefInRange) Lisp() sexp.SExp {
 	panic("got here")
 }
+
+// ============================================================================
+// definterleaved
+// ============================================================================
 
 // DefInterleaved generates a new column by interleaving two or more existing
 // colummns.  For example, say Z interleaves X and Y (in that order) and we have
@@ -374,6 +460,10 @@ func (p *DefInterleaved) Dependencies() util.Iterator[Symbol] {
 func (p *DefInterleaved) Lisp() sexp.SExp {
 	panic("got here")
 }
+
+// ============================================================================
+// deflookup
+// ============================================================================
 
 // DefLookup represents a lookup constraint between a set N of source
 // expressions and a set of N target expressions.  The source expressions must
@@ -419,6 +509,10 @@ func (p *DefLookup) Lisp() sexp.SExp {
 	panic("got here")
 }
 
+// ============================================================================
+// defpermutation
+// ============================================================================
+
 // DefPermutation represents a (lexicographically sorted) permutation of a set
 // of source columns in a given source context, manifested as an assignment to a
 // corresponding set of target columns.  The sort direction for each of the
@@ -446,6 +540,10 @@ func (p *DefPermutation) Dependencies() util.Iterator[Symbol] {
 func (p *DefPermutation) Lisp() sexp.SExp {
 	panic("got here")
 }
+
+// ============================================================================
+// defproperty
+// ============================================================================
 
 // DefProperty represents an assertion to be used only for debugging / testing /
 // verification.  Unlike vanishing constraints, property assertions do not
@@ -479,6 +577,10 @@ func (p *DefProperty) Dependencies() util.Iterator[Symbol] {
 func (p *DefProperty) Lisp() sexp.SExp {
 	panic("got here")
 }
+
+// ============================================================================
+// depurefun & defun
+// ============================================================================
 
 // DefFun represents defines a (possibly pure) "function" (which, in actuality,
 // is more like a macro).  Specifically, whenever an invocation of this function
@@ -583,6 +685,10 @@ type DefParameter struct {
 func (p *DefParameter) Lisp() sexp.SExp {
 	panic("got here")
 }
+
+// ============================================================================
+// Expressions
+// ============================================================================
 
 // Expr represents an arbitrary expression over the columns of a given context
 // (or the parameters of an enclosing function).  Such expressions are pitched
