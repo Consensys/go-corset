@@ -42,7 +42,7 @@ func QualifiedName(schema Schema, column uint) string {
 // context is returned.  Otherwise, the common context to all expressions is
 // returned.
 func JoinContexts[E Contextual](args []E, schema Schema) tr.Context {
-	ctx := tr.VoidContext()
+	ctx := tr.VoidContext[uint]()
 	//
 	for _, e := range args {
 		ctx = ctx.Join(e.Context(schema))
@@ -58,7 +58,7 @@ func JoinContexts[E Contextual](args []E, schema Schema) tr.Context {
 // conflicting context is returned.  Otherwise, the common context to all
 // columns is returned.
 func ContextOfColumns(cols []uint, schema Schema) tr.Context {
-	ctx := tr.VoidContext()
+	ctx := tr.VoidContext[uint]()
 	//
 	for i := 0; i < len(cols); i++ {
 		col := schema.Columns().Nth(cols[i])

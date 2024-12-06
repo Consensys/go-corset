@@ -1,32 +1,75 @@
 package corset
 
 import (
+	"math"
+
+	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 )
+
+// BindingId is an identifier is used to distinguish different forms of binding,
+// as some forms are known from their use.  Specifically, at the current time,
+// only functions are distinguished from other categories (e.g. columns,
+// parameters, etc).
+type BindingId struct {
+	// Name of the binding
+	name string
+	// Indicates whether function binding or other.
+	fn bool
+}
 
 // Binding represents an association between a name, as found in a source file,
 // and concrete item (e.g. a column, function, etc).
 type Binding interface {
-	// Returns the context associated with this binding.
-	Context() tr.Context
+	// Determine whether this binding is finalised or not.
+	IsFinalised() bool
 }
 
 // ColumnBinding represents something bound to a given column.
 type ColumnBinding struct {
-	// For a column access, this identifies the enclosing context.
-	context tr.Context
-	// Identifies the variable or column index (as appropriate).
-	index uint
+	// Column's allocated identifier
+	cid uint
+	// Column's enclosing module
+	module string
+	// Determines whether this is a computed column, or not.
+	computed bool
+	// Determines whether this column must be proven (or not).
+	mustProve bool
+	// Column's length multiplier
+	multiplier uint
+	// Column's datatype
+	dataType sc.Type
 }
 
-// Context returns the enclosing context for this column access.
-func (p *ColumnBinding) Context() tr.Context {
-	return p.context
+// NewColumnBinding constructs a new column binding in a given module.
+func NewColumnBinding(module string, computed bool, mustProve bool, multiplier uint, datatype sc.Type) *ColumnBinding {
+	return &ColumnBinding{math.MaxUint, module, computed, mustProve, multiplier, datatype}
 }
 
-// ColumnID returns the column identifier that this column access refers to.
-func (p *ColumnBinding) ColumnID() uint {
-	return p.index
+// IsFinalised checks whether this binding has been finalised yet or not.
+func (p *ColumnBinding) IsFinalised() bool {
+	return p.multiplier != 0
+}
+
+// Context returns the of this column.  That is, the module in which this colunm
+// was declared and also the length multiplier of that module it requires.
+func (p *ColumnBinding) Context() Context {
+	return tr.NewContext(p.module, p.multiplier)
+}
+
+// AllocateId allocates the column identifier for this column
+func (p *ColumnBinding) AllocateId(cid uint) {
+	p.cid = cid
+}
+
+// ColumnId returns the allocated identifier for this column.  NOTE: this will
+// panic if this column has not yet been allocated an identifier.
+func (p *ColumnBinding) ColumnId() uint {
+	if p.cid == math.MaxUint {
+		panic("column id not yet allocated")
+	}
+	//
+	return p.cid
 }
 
 // ParameterBinding represents something bound to a given column.
@@ -35,25 +78,37 @@ type ParameterBinding struct {
 	index uint
 }
 
-// Context for a parameter is always void, as it does not correspond to a column
-// in given module.
-func (p *ParameterBinding) Context() tr.Context {
-	return tr.VoidContext()
+// IsFinalised checks whether this binding has been finalised yet or not.
+func (p *ParameterBinding) IsFinalised() bool {
+	panic("")
 }
 
 // FunctionBinding represents the binding of a function application to its
 // physical definition.
 type FunctionBinding struct {
-	// arity determines the number of arguments this function takes.
-	arity uint
+	// Flag whether or not is pure function
+	pure bool
+	// Types of parameters
+	paramTypes []sc.Type
+	// Type of return
+	returnType sc.Type
 	// body of the function in question.
 	body Expr
 }
 
-// Context for a parameter is always void, as it does not correspond to a column
-// in given module.
-func (p *FunctionBinding) Context() tr.Context {
-	return tr.VoidContext()
+// NewFunctionBinding constructs a new function binding.
+func NewFunctionBinding(pure bool, paramTypes []sc.Type, returnType sc.Type, body Expr) FunctionBinding {
+	return FunctionBinding{pure, paramTypes, returnType, body}
+}
+
+// IsFinalised checks whether this binding has been finalised yet or not.
+func (p *FunctionBinding) IsFinalised() bool {
+	return p.returnType != nil
+}
+
+// Arity returns the number of parameters that this function accepts.
+func (p *FunctionBinding) Arity() uint {
+	return uint(len(p.paramTypes))
 }
 
 // Apply a given set of arguments to this function binding.

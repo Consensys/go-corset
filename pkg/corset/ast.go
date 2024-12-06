@@ -5,6 +5,7 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/sexp"
 	tr "github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // Circuit represents the root of the Abstract Syntax Tree.  This is also
@@ -43,12 +44,53 @@ type ColumnAssignment struct {
 	Type sc.Type
 }
 
+// Symbol represents a variable or function access within a declaration.
+// Initially, such the proper interpretation of such accesses is unclear and it
+// is only later when we can distinguish them (e.g. whether its a column access,
+// a constant access, etc).
+type Symbol interface {
+	Node
+	// Determines whether this symbol is qualfied or not (i.e. has an explicitly
+	// module specifier).
+	IsQualified() bool
+	// Indicates whether or not this is a function.
+	IsFunction() bool
+	// Checks whether this symbol has been resolved already, or not.
+	IsResolved() bool
+	// Optional module qualification
+	Module() string
+	// Name of the symbol
+	Name() string
+	// Get binding associated with this interface.  This will panic if this
+	// symbol is not yet resolved.
+	Binding() Binding
+	// Resolve this symbol by associating it with the binding associated with
+	// the definition of the symbol to which this refers.
+	Resolve(Binding)
+}
+
+// SymbolDefinition represents a declaration (or part thereof) which defines a
+// particular symbol.  For example, "defcolumns" will define one or more symbols
+// representing columns, etc.
+type SymbolDefinition interface {
+	Node
+	// Name of symbol being defined
+	Name() string
+	// Indicates whether or not this is a function definition.
+	IsFunction() bool
+	// Allocated binding for the symbol which may or may not be finalised.
+	Binding() Binding
+}
+
 // Declaration represents a top-level declaration in a Corset source file (e.g.
 // defconstraint, defcolumns, etc).
 type Declaration interface {
 	Node
-	// Simple marker to indicate this is really a declaration.
-	IsDeclaration()
+	// Returns the set of symbols being defined this declaration.  Observe that
+	// these may not yet have been finalised.
+	Definitions() util.Iterator[SymbolDefinition]
+	// Return set of columns on which this declaration depends.
+	Dependencies() util.Iterator[Symbol]
 }
 
 // Assignment is a declaration which introduces one (or more) computed columns.
@@ -66,13 +108,85 @@ type Assignment interface {
 	Resolve(*Environment) ([]ColumnAssignment, []SyntaxError)
 }
 
+// ColumnName represents a name within some syntactic item.  Essentially this wraps a
+// string and provides a mechanism for it to be associated with source line
+// information.
+type ColumnName struct {
+	name    string
+	binding Binding
+}
+
+// IsQualified determines whether this symbol is qualfied or not (i.e. has an
+// explicit module specifier).  Column names are never qualified.
+func (e *ColumnName) IsQualified() bool {
+	return false
+}
+
+// IsFunction indicates whether or not this symbol refers to a function (which
+// of course it never does).
+func (e *ColumnName) IsFunction() bool {
+	return false
+}
+
+// IsResolved checks whether this symbol has been resolved already, or not.
+func (e *ColumnName) IsResolved() bool {
+	return e.binding != nil
+}
+
+// Module returns the optional module qualification.  This always panics because
+// column name's are never qualified.
+func (e *ColumnName) Module() string {
+	panic("undefined")
+}
+
+// Name returns the (unqualified) name of the column to which this symbol
+// refers.
+func (e *ColumnName) Name() string {
+	return e.name
+}
+
+// Binding gets binding associated with this interface.  This will panic if this
+// symbol is not yet resolved.
+func (e *ColumnName) Binding() Binding {
+	if e.binding == nil {
+		panic("name not yet resolved")
+	}
+	//
+	return e.binding
+}
+
+// Resolve this symbol by associating it with the binding associated with
+// the definition of the symbol to which this refers.
+func (e *ColumnName) Resolve(binding Binding) {
+	if e.binding != nil {
+		panic("name already resolved")
+	}
+	//
+	e.binding = binding
+}
+
+// Lisp converts this node into its lisp representation.  This is primarily used
+// for debugging purposes.
+func (e *ColumnName) Lisp() sexp.SExp {
+	return sexp.NewSymbol(e.name)
+}
+
 // DefColumns captures a set of one or more columns being declared.
 type DefColumns struct {
 	Columns []*DefColumn
 }
 
-// IsDeclaration needed to signal declaration.
-func (p *DefColumns) IsDeclaration() {}
+// Dependencies needed to signal declaration.
+func (p *DefColumns) Dependencies() util.Iterator[Symbol] {
+	return util.NewArrayIterator[Symbol](nil)
+}
+
+// Definitions returns the set of symbols defined by this declaration.  Observe
+// that these may not yet have been finalised.
+func (p *DefColumns) Definitions() util.Iterator[SymbolDefinition] {
+	iter := util.NewArrayIterator(p.Columns)
+	return util.NewCastIterator[*DefColumn, SymbolDefinition](iter)
+}
 
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
@@ -84,20 +198,62 @@ func (p *DefColumns) Lisp() sexp.SExp {
 // column, such its name and type.
 type DefColumn struct {
 	// Column name
-	Name string
-	// The datatype which all values in this column should inhabit.
-	DataType sc.Type
-	// Determines whether or not values in this column should be proven to be
-	// within the given type (i.e. using a range constraint).
-	MustProve bool
-	// Determines the length of this column as a multiple of the enclosing
-	// module.
-	LengthMultiplier uint
+	name string
+	// Binding of this column (which may or may not be finalised).
+	binding ColumnBinding
+}
+
+// IsFunction is never true for a column definition.
+func (e *DefColumn) IsFunction() bool {
+	return false
+}
+
+// Binding returns the allocated binding for this symbol (which may or may not
+// be finalised).
+func (e *DefColumn) Binding() Binding {
+	return &e.binding
+}
+
+// Name of symbol being defined
+func (e *DefColumn) Name() string {
+	return e.name
+}
+
+// DataType returns the type of this column.  If this column have not yet been
+// finalised, then this will panic.
+func (e *DefColumn) DataType() sc.Type {
+	if !e.binding.IsFinalised() {
+		panic("unfinalised column")
+	}
+	//
+	return e.binding.dataType
+}
+
+// LengthMultiplier returns the length multiplier of this column (where the
+// height of this column is determined as the product of the enclosing module's
+// height and this length multiplier).  If this column have not yet been
+// finalised, then this will panic.
+func (e *DefColumn) LengthMultiplier() uint {
+	if !e.binding.IsFinalised() {
+		panic("unfinalised column")
+	}
+	//
+	return e.binding.multiplier
+}
+
+// MustProve determines whether or not the type of this column must be
+// established by the prover (e.g. a range constraint or similar).
+func (e *DefColumn) MustProve() bool {
+	if !e.binding.IsFinalised() {
+		panic("unfinalised column")
+	}
+	//
+	return e.binding.mustProve
 }
 
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
-func (p *DefColumn) Lisp() sexp.SExp {
+func (e *DefColumn) Lisp() sexp.SExp {
 	panic("got here")
 }
 
@@ -130,8 +286,24 @@ type DefConstraint struct {
 	Constraint Expr
 }
 
-// IsDeclaration needed to signal declaration.
-func (p *DefConstraint) IsDeclaration() {}
+// Definitions returns the set of symbols defined by this declaration.  Observe
+// that these may not yet have been finalised.
+func (p *DefConstraint) Definitions() util.Iterator[SymbolDefinition] {
+	return util.NewArrayIterator[SymbolDefinition](nil)
+}
+
+// Dependencies needed to signal declaration.
+func (p *DefConstraint) Dependencies() util.Iterator[Symbol] {
+	var guard_deps []Symbol
+	// Extract guard's dependencies (if applicable)
+	if p.Guard != nil {
+		guard_deps = p.Guard.Dependencies()
+	}
+	// Extract bodies dependencies
+	body_deps := p.Constraint.Dependencies()
+	// Done
+	return util.NewArrayIterator[Symbol](append(guard_deps, body_deps...))
+}
 
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
@@ -153,8 +325,16 @@ type DefInRange struct {
 	Bound fr.Element
 }
 
-// IsDeclaration needed to signal declaration.
-func (p *DefInRange) IsDeclaration() {}
+// Definitions returns the set of symbols defined by this declaration.  Observe
+// that these may not yet have been finalised.
+func (p *DefInRange) Definitions() util.Iterator[SymbolDefinition] {
+	return util.NewArrayIterator[SymbolDefinition](nil)
+}
+
+// Dependencies needed to signal declaration.
+func (p *DefInRange) Dependencies() util.Iterator[Symbol] {
+	return util.NewArrayIterator[Symbol](p.Expr.Dependencies())
+}
 
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
@@ -172,26 +352,22 @@ func (p *DefInRange) Lisp() sexp.SExp {
 // is required to hold an element from any source column).
 type DefInterleaved struct {
 	// The target column being defined
-	Target string
+	Target *DefColumn
 	// The source columns used to define the interleaved target column.
-	Sources []*DefName
+	Sources []Symbol
 }
 
-// CanFinalise checks whether or not this interleaving is ready to be finalised.
-// Specifically, it checks whether or not the source columns of this
-// interleaving are themselves finalised.
-func (p *DefInterleaved) CanFinalise(module uint, env *Environment) bool {
-	for _, col := range p.Sources {
-		if !env.IsColumnFinalised(module, col.Name) {
-			return false
-		}
-	}
-	//
-	return true
+// Definitions returns the set of symbols defined by this declaration.  Observe
+// that these may not yet have been finalised.
+func (p *DefInterleaved) Definitions() util.Iterator[SymbolDefinition] {
+	iter := util.NewUnitIterator(p.Target)
+	return util.NewCastIterator[*DefColumn, SymbolDefinition](iter)
 }
 
-// IsDeclaration needed to signal declaration.
-func (p *DefInterleaved) IsDeclaration() {}
+// Dependencies needed to signal declaration.
+func (p *DefInterleaved) Dependencies() util.Iterator[Symbol] {
+	return util.NewArrayIterator(p.Sources)
+}
 
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
@@ -223,8 +399,19 @@ type DefLookup struct {
 	Targets []Expr
 }
 
-// IsDeclaration needed to signal declaration.
-func (p *DefLookup) IsDeclaration() {}
+// Definitions returns the set of symbols defined by this declaration.  Observe
+// that these may not yet have been finalised.
+func (p *DefLookup) Definitions() util.Iterator[SymbolDefinition] {
+	return util.NewArrayIterator[SymbolDefinition](nil)
+}
+
+// Dependencies needed to signal declaration.
+func (p *DefLookup) Dependencies() util.Iterator[Symbol] {
+	sourceDeps := DependenciesOfExpressions(p.Sources)
+	targetDeps := DependenciesOfExpressions(p.Targets)
+	// Combine deps
+	return util.NewArrayIterator(append(sourceDeps, targetDeps...))
+}
 
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
@@ -238,43 +425,25 @@ func (p *DefLookup) Lisp() sexp.SExp {
 // source columns can be specified as increasing or decreasing.
 type DefPermutation struct {
 	Targets []*DefColumn
-	Sources []*DefPermutedColumn
+	Sources []Symbol
+	Signs   []bool
 }
 
-// IsDeclaration needed to signal declaration.
-func (p *DefPermutation) IsDeclaration() {}
+// Definitions returns the set of symbols defined by this declaration.  Observe
+// that these may not yet have been finalised.
+func (p *DefPermutation) Definitions() util.Iterator[SymbolDefinition] {
+	iter := util.NewArrayIterator(p.Targets)
+	return util.NewCastIterator[*DefColumn, SymbolDefinition](iter)
+}
 
-// CanFinalise checks whether or not this permutation is ready to be finalised.
-// Specifically, it checks whether or not the source columns of this permutation
-// are themselves finalised.
-func (p *DefPermutation) CanFinalise(module uint, env *Environment) bool {
-	for _, col := range p.Sources {
-		if !env.IsColumnFinalised(module, col.Name) {
-			return false
-		}
-	}
-	//
-	return true
+// Dependencies needed to signal declaration.
+func (p *DefPermutation) Dependencies() util.Iterator[Symbol] {
+	return util.NewArrayIterator(p.Sources)
 }
 
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
 func (p *DefPermutation) Lisp() sexp.SExp {
-	panic("got here")
-}
-
-// DefPermutedColumn provides information about a column being permuted by a
-// sorted permutation.
-type DefPermutedColumn struct {
-	// Name of the column to be permuted
-	Name string
-	// Sign of the column
-	Sign bool
-}
-
-// Lisp converts this node into its lisp representation.  This is primarily used
-// for debugging purposes.
-func (p *DefPermutedColumn) Lisp() sexp.SExp {
 	panic("got here")
 }
 
@@ -294,8 +463,16 @@ type DefProperty struct {
 	Assertion Expr
 }
 
-// IsDeclaration needed to signal declaration.
-func (p *DefProperty) IsDeclaration() {}
+// Definitions returns the set of symbols defined by this declaration.  Observe that
+// these may not yet have been finalised.
+func (p *DefProperty) Definitions() util.Iterator[SymbolDefinition] {
+	return util.NewArrayIterator[SymbolDefinition](nil)
+}
+
+// Dependencies needed to signal declaration.
+func (p *DefProperty) Dependencies() util.Iterator[Symbol] {
+	return util.NewArrayIterator(p.Assertion.Dependencies())
+}
 
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
@@ -311,24 +488,85 @@ func (p *DefProperty) Lisp() sexp.SExp {
 // parameters).  In contrast, an impure function can access those columns
 // defined within its enclosing context.
 type DefFun struct {
-	Name *DefName
-	// Flag whether or not is pure function
-	Pure bool
-	// Return type
-	Return sc.Type
+	name string
 	// Parameters
-	Parameters []*DefParameter
-	// Body
-	Body Expr
+	parameters []*DefParameter
+	//
+	binding FunctionBinding
 }
 
-// IsDeclaration needed to signal declaration.
-func (p *DefFun) IsDeclaration() {}
+// IsFunction is always true for a function definition!
+func (p *DefFun) IsFunction() bool {
+	return true
+}
+
+// IsPure indicates whether or not this is a pure function.  That is, a function
+// which is not permitted to access any columns from the enclosing environment
+// (either directly itself, or indirectly via functions it calls).
+func (p *DefFun) IsPure() bool {
+	return p.binding.pure
+}
+
+// Parameters returns information about the parameters defined by this
+// declaration.
+func (p *DefFun) Parameters() []*DefParameter {
+	return p.parameters
+}
+
+// Body Access information about the parameters defined by this declaration.
+func (p *DefFun) Body() Expr {
+	return p.binding.body
+}
+
+// Binding returns the allocated binding for this symbol (which may or may not
+// be finalised).
+func (p *DefFun) Binding() Binding {
+	return &p.binding
+}
+
+// Name of symbol being defined
+func (p *DefFun) Name() string {
+	return p.name
+}
+
+// Definitions returns the set of symbols defined by this declaration.  Observe
+// that these may not yet have been finalised.
+func (p *DefFun) Definitions() util.Iterator[SymbolDefinition] {
+	iter := util.NewUnitIterator(p)
+	return util.NewCastIterator[*DefFun, SymbolDefinition](iter)
+}
+
+// Dependencies needed to signal declaration.
+func (p *DefFun) Dependencies() util.Iterator[Symbol] {
+	deps := p.binding.body.Dependencies()
+	ndeps := make([]Symbol, 0)
+	// Filter out all parameters declared in this function, since these are not
+	// external dependencies.
+	for _, d := range deps {
+		if d.IsQualified() || d.IsFunction() || !p.hasParameter(d.Name()) {
+			ndeps = append(ndeps, d)
+		}
+	}
+	// Done
+	return util.NewArrayIterator(ndeps)
+}
 
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
 func (p *DefFun) Lisp() sexp.SExp {
 	panic("got here")
+}
+
+// hasParameter checks whether this function has a parameter with the given
+// name, or not.
+func (p *DefFun) hasParameter(name string) bool {
+	for _, v := range p.parameters {
+		if v.Name == name {
+			return true
+		}
+	}
+	//
+	return false
 }
 
 // DefParameter packages together those piece relevant to declaring an individual
@@ -346,19 +584,6 @@ func (p *DefParameter) Lisp() sexp.SExp {
 	panic("got here")
 }
 
-// DefName is simply a wrapper around a string which can be associated with
-// source information for producing syntax errors.
-type DefName struct {
-	// Name of the column to be permuted
-	Name string
-}
-
-// Lisp converts this node into its lisp representation.  This is primarily used
-// for debugging purposes.
-func (p *DefName) Lisp() sexp.SExp {
-	panic("got here")
-}
-
 // Expr represents an arbitrary expression over the columns of a given context
 // (or the parameters of an enclosing function).  Such expressions are pitched
 // at a higher-level than those of the underlying constraint system.  For
@@ -370,7 +595,7 @@ type Expr interface {
 	Node
 	// Multiplicity defines the number of values which will be returned when
 	// evaluating this expression.  Due to the nature of expressions in Corset,
-	// they can (perhaps) surprisingly return multiple values.  For example,
+	// they can (perhaps surprisingly) return multiple values.  For example,
 	// lists return one value for each element in the list.  Note, every
 	// expression must return at least one value.
 	Multiplicity() uint
@@ -378,12 +603,18 @@ type Expr interface {
 	// Context returns the context for this expression.  Observe that the
 	// expression must have been resolved for this to be defined (i.e. it may
 	// panic if it has not been resolved yet).
-	Context() tr.Context
+	Context() Context
 
 	// Substitute all variables (such as for function parameters) arising in
 	// this expression.
 	Substitute(args []Expr) Expr
+
+	// Return set of columns on which this declaration depends.
+	Dependencies() []Symbol
 }
+
+// Context represents the evaluation context for a given expression.
+type Context = tr.RawContext[string]
 
 // ============================================================================
 // Addition
@@ -401,7 +632,7 @@ func (e *Add) Multiplicity() uint {
 // Context returns the context for this expression.  Observe that the
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
-func (e *Add) Context() tr.Context {
+func (e *Add) Context() Context {
 	return ContextOfExpressions(e.Args)
 }
 
@@ -415,6 +646,11 @@ func (e *Add) Lisp() sexp.SExp {
 // this expression.
 func (e *Add) Substitute(args []Expr) Expr {
 	return &Add{SubstituteExpressions(e.Args, args)}
+}
+
+// Dependencies needed to signal declaration.
+func (e *Add) Dependencies() []Symbol {
+	return DependenciesOfExpressions(e.Args)
 }
 
 // ============================================================================
@@ -433,8 +669,8 @@ func (e *Constant) Multiplicity() uint {
 // Context returns the context for this expression.  Observe that the
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
-func (e *Constant) Context() tr.Context {
-	return tr.VoidContext()
+func (e *Constant) Context() Context {
+	return tr.VoidContext[string]()
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
@@ -447,6 +683,11 @@ func (e *Constant) Lisp() sexp.SExp {
 // this expression.
 func (e *Constant) Substitute(args []Expr) Expr {
 	return e
+}
+
+// Dependencies needed to signal declaration.
+func (e *Constant) Dependencies() []Symbol {
+	return nil
 }
 
 // ============================================================================
@@ -468,7 +709,7 @@ func (e *Exp) Multiplicity() uint {
 // Context returns the context for this expression.  Observe that the
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
-func (e *Exp) Context() tr.Context {
+func (e *Exp) Context() Context {
 	return ContextOfExpressions([]Expr{e.Arg})
 }
 
@@ -482,6 +723,11 @@ func (e *Exp) Lisp() sexp.SExp {
 // this expression.
 func (e *Exp) Substitute(args []Expr) Expr {
 	return &Exp{e.Arg.Substitute(args), e.Pow}
+}
+
+// Dependencies needed to signal declaration.
+func (e *Exp) Dependencies() []Symbol {
+	return e.Arg.Dependencies()
 }
 
 // ============================================================================
@@ -508,7 +754,7 @@ func (e *IfZero) Multiplicity() uint {
 // Context returns the context for this expression.  Observe that the
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
-func (e *IfZero) Context() tr.Context {
+func (e *IfZero) Context() Context {
 	return ContextOfExpressions([]Expr{e.Condition, e.TrueBranch, e.FalseBranch})
 }
 
@@ -527,6 +773,11 @@ func (e *IfZero) Substitute(args []Expr) Expr {
 	}
 }
 
+// Dependencies needed to signal declaration.
+func (e *IfZero) Dependencies() []Symbol {
+	return DependenciesOfExpressions([]Expr{e.Condition, e.TrueBranch, e.FalseBranch})
+}
+
 // ============================================================================
 // List
 // ============================================================================
@@ -543,7 +794,7 @@ func (e *List) Multiplicity() uint {
 // Context returns the context for this expression.  Observe that the
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
-func (e *List) Context() tr.Context {
+func (e *List) Context() Context {
 	return ContextOfExpressions(e.Args)
 }
 
@@ -557,6 +808,11 @@ func (e *List) Lisp() sexp.SExp {
 // this expression.
 func (e *List) Substitute(args []Expr) Expr {
 	return &List{SubstituteExpressions(e.Args, args)}
+}
+
+// Dependencies needed to signal declaration.
+func (e *List) Dependencies() []Symbol {
+	return DependenciesOfExpressions(e.Args)
 }
 
 // ============================================================================
@@ -575,7 +831,7 @@ func (e *Mul) Multiplicity() uint {
 // Context returns the context for this expression.  Observe that the
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
-func (e *Mul) Context() tr.Context {
+func (e *Mul) Context() Context {
 	return ContextOfExpressions(e.Args)
 }
 
@@ -589,6 +845,11 @@ func (e *Mul) Lisp() sexp.SExp {
 // this expression.
 func (e *Mul) Substitute(args []Expr) Expr {
 	return &Mul{SubstituteExpressions(e.Args, args)}
+}
+
+// Dependencies needed to signal declaration.
+func (e *Mul) Dependencies() []Symbol {
+	return DependenciesOfExpressions(e.Args)
 }
 
 // ============================================================================
@@ -608,7 +869,7 @@ func (e *Normalise) Multiplicity() uint {
 // Context returns the context for this expression.  Observe that the
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
-func (e *Normalise) Context() tr.Context {
+func (e *Normalise) Context() Context {
 	return ContextOfExpressions([]Expr{e.Arg})
 }
 
@@ -622,6 +883,11 @@ func (e *Normalise) Lisp() sexp.SExp {
 // this expression.
 func (e *Normalise) Substitute(args []Expr) Expr {
 	return &Normalise{e.Arg.Substitute(args)}
+}
+
+// Dependencies needed to signal declaration.
+func (e *Normalise) Dependencies() []Symbol {
+	return e.Arg.Dependencies()
 }
 
 // ============================================================================
@@ -640,7 +906,7 @@ func (e *Sub) Multiplicity() uint {
 // Context returns the context for this expression.  Observe that the
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
-func (e *Sub) Context() tr.Context {
+func (e *Sub) Context() Context {
 	return ContextOfExpressions(e.Args)
 }
 
@@ -656,27 +922,91 @@ func (e *Sub) Substitute(args []Expr) Expr {
 	return &Sub{SubstituteExpressions(e.Args, args)}
 }
 
+// Dependencies needed to signal declaration.
+func (e *Sub) Dependencies() []Symbol {
+	return DependenciesOfExpressions(e.Args)
+}
+
 // ============================================================================
-// VariableAccess
+// Function Invocation
 // ============================================================================
 
 // Invoke represents an attempt to invoke a given function.
 type Invoke struct {
-	Module  *string
-	Name    string
-	Args    []Expr
-	Binding *FunctionBinding
+	module  *string
+	name    string
+	args    []Expr
+	binding *FunctionBinding
+}
+
+// IsQualified determines whether this symbol is qualfied or not (i.e. has an
+// explicitly module specifier).
+func (e *Invoke) IsQualified() bool {
+	return e.module != nil
+}
+
+// IsFunction indicates whether or not this symbol refers to a function (which
+// of course it always does).
+func (e *Invoke) IsFunction() bool {
+	return true
+}
+
+// IsResolved checks whether this symbol has been resolved already, or not.
+func (e *Invoke) IsResolved() bool {
+	return e.binding != nil
+}
+
+// Resolve this symbol by associating it with the binding associated with
+// the definition of the symbol to which this refers.
+func (e *Invoke) Resolve(binding Binding) {
+	if fb, ok := binding.(*FunctionBinding); ok {
+		e.binding = fb
+		return
+	}
+	// Problem
+	panic("cannot resolve function invocation with anything other than a function binding")
+}
+
+// Module returns the optional module qualification.  This will panic if this
+// invocation is unqualified.
+func (e *Invoke) Module() string {
+	if e.module == nil {
+		panic("invocation has no module qualifier")
+	}
+
+	return *e.module
+}
+
+// Name of the function being invoked.
+func (e *Invoke) Name() string {
+	return e.name
+}
+
+// Args returns the arguments provided by this invocation to the function being
+// invoked.
+func (e *Invoke) Args() []Expr {
+	return e.args
+}
+
+// Binding gets binding associated with this interface.  This will panic if this
+// symbol is not yet resolved.
+func (e *Invoke) Binding() Binding {
+	if e.binding == nil {
+		panic("invocation not yet resolved")
+	}
+
+	return e.binding
 }
 
 // Context returns the context for this expression.  Observe that the
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
-func (e *Invoke) Context() tr.Context {
-	if e.Binding == nil {
+func (e *Invoke) Context() Context {
+	if e.binding == nil {
 		panic("unresolved expressions encountered whilst resolving context")
 	}
 	// TODO: impure functions can have their own context.
-	return ContextOfExpressions(e.Args)
+	return ContextOfExpressions(e.args)
 }
 
 // Multiplicity determines the number of values that evaluating this expression
@@ -695,7 +1025,15 @@ func (e *Invoke) Lisp() sexp.SExp {
 // Substitute all variables (such as for function parameters) arising in
 // this expression.
 func (e *Invoke) Substitute(args []Expr) Expr {
-	return &Invoke{e.Module, e.Name, SubstituteExpressions(e.Args, args), e.Binding}
+	return &Invoke{e.module, e.name, SubstituteExpressions(e.args, args), e.binding}
+}
+
+// Dependencies needed to signal declaration.
+func (e *Invoke) Dependencies() []Symbol {
+	deps := DependenciesOfExpressions(e.args)
+	// Include this expression as a symbol (which must be bound to the function
+	// being invoked)
+	return append(deps, e)
 }
 
 // ============================================================================
@@ -705,10 +1043,65 @@ func (e *Invoke) Substitute(args []Expr) Expr {
 // VariableAccess represents reading the value of a given local variable (such
 // as a function parameter).
 type VariableAccess struct {
-	Module  *string
-	Name    string
-	Shift   int
-	Binding Binding
+	module  *string
+	name    string
+	shift   int
+	binding Binding
+}
+
+// IsQualified determines whether this symbol is qualfied or not (i.e. has an
+// explicitly module specifier).
+func (e *VariableAccess) IsQualified() bool {
+	return e.module != nil
+}
+
+// IsFunction determines whether this symbol refers to a function (which, of
+// course, variable accesses never do).
+func (e *VariableAccess) IsFunction() bool {
+	return false
+}
+
+// IsResolved checks whether this symbol has been resolved already, or not.
+func (e *VariableAccess) IsResolved() bool {
+	return e.binding != nil
+}
+
+// Resolve this symbol by associating it with the binding associated with
+// the definition of the symbol to which this refers.
+func (e *VariableAccess) Resolve(binding Binding) {
+	if binding == nil {
+		panic("empty binding")
+	} else if e.binding != nil {
+		panic("already resolved")
+	}
+
+	e.binding = binding
+}
+
+// Module returns the optional module qualification.  This will panic if this
+// invocation is unqualified.
+func (e *VariableAccess) Module() string {
+	return *e.module
+}
+
+// Name returns the (unqualified) name of this symbol
+func (e *VariableAccess) Name() string {
+	return e.name
+}
+
+// Binding gets binding associated with this interface.  This will panic if this
+// symbol is not yet resolved.
+func (e *VariableAccess) Binding() Binding {
+	if e.binding == nil {
+		panic("variable access is unresolved")
+	}
+	//
+	return e.binding
+}
+
+// Shift returns the row shift (if any) associated with this variable access.
+func (e *VariableAccess) Shift() int {
+	return e.shift
 }
 
 // Multiplicity determines the number of values that evaluating this expression
@@ -720,12 +1113,14 @@ func (e *VariableAccess) Multiplicity() uint {
 // Context returns the context for this expression.  Observe that the
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
-func (e *VariableAccess) Context() tr.Context {
-	if e.Binding == nil {
-		panic("unresolved expressions encountered whilst resolving context")
+func (e *VariableAccess) Context() Context {
+	binding, ok := e.binding.(*ColumnBinding)
+	//
+	if ok {
+		return binding.Context()
 	}
-	// Extract saved context
-	return e.Binding.Context()
+	//
+	panic("invalid column access")
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
@@ -737,9 +1132,9 @@ func (e *VariableAccess) Lisp() sexp.SExp {
 // Substitute all variables (such as for function parameters) arising in
 // this expression.
 func (e *VariableAccess) Substitute(args []Expr) Expr {
-	if b, ok := e.Binding.(*ParameterBinding); ok {
+	if b, ok := e.binding.(*ParameterBinding); ok {
 		// This is a variable to be substituted.
-		if e.Shift != 0 {
+		if e.shift != 0 {
 			panic("support variable shifts")
 		}
 		//
@@ -747,6 +1142,11 @@ func (e *VariableAccess) Substitute(args []Expr) Expr {
 	}
 	// Nothing to do here
 	return e
+}
+
+// Dependencies needed to signal declaration.
+func (e *VariableAccess) Dependencies() []Symbol {
+	return []Symbol{e}
 }
 
 // ============================================================================
@@ -758,8 +1158,8 @@ func (e *VariableAccess) Substitute(args []Expr) Expr {
 // they are all constants) then the void context is returned.  Likewise, if
 // there are expressions with different contexts then the conflicted context
 // will be returned.  Otherwise, the one consistent context will be returned.
-func ContextOfExpressions(exprs []Expr) tr.Context {
-	context := tr.VoidContext()
+func ContextOfExpressions(exprs []Expr) Context {
+	context := tr.VoidContext[string]()
 	//
 	for _, e := range exprs {
 		context = context.Join(e.Context())
@@ -788,6 +1188,20 @@ func SubstituteOptionalExpression(expr Expr, vars []Expr) Expr {
 	}
 	//
 	return expr
+}
+
+// DependenciesOfExpressions determines the dependencies for a given set of zero
+// or more expressions.
+func DependenciesOfExpressions(exprs []Expr) []Symbol {
+	var deps []Symbol
+	//
+	for _, e := range exprs {
+		if e != nil {
+			deps = append(deps, e.Dependencies()...)
+		}
+	}
+	//
+	return deps
 }
 
 func determineMultiplicity(exprs []Expr) uint {

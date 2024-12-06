@@ -265,7 +265,7 @@ func (p *Constant) Bounds() util.Bounds { return util.EMPTY_BOUND }
 // Context determines the evaluation context (i.e. enclosing module) for this
 // expression.
 func (p *Constant) Context(schema sc.Schema) trace.Context {
-	return trace.VoidContext()
+	return trace.VoidContext[uint]()
 }
 
 // RequiredColumns returns the set of columns on which this term depends.
