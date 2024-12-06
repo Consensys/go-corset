@@ -1,3 +1,3 @@
-(defcolumns X Y)
-;; Y == 0
-(defconstraint c1 () (if (* 1 2) X Y))
+(defconst ONE 1)
+(defcolumns CT)
+(defconstraint c1 () (* (- CT (shift CT ONE)) (- (+ CT ONE) (shift CT ONE))))

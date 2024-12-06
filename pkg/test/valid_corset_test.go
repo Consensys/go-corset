@@ -67,6 +67,33 @@ func Test_Basic_10(t *testing.T) {
 }
 
 // ===================================================================
+// Constants Tests
+// ===================================================================
+func Test_Constant_01(t *testing.T) {
+	Check(t, "constant_01")
+}
+
+func Test_Constant_02(t *testing.T) {
+	Check(t, "constant_02")
+}
+
+func Test_Constant_03(t *testing.T) {
+	Check(t, "constant_03")
+}
+
+func Test_Constant_04(t *testing.T) {
+	Check(t, "constant_04")
+}
+
+func Test_Constant_05(t *testing.T) {
+	Check(t, "constant_05")
+}
+
+func Test_Constant_06(t *testing.T) {
+	Check(t, "constant_06")
+}
+
+// ===================================================================
 // Domain Tests
 // ===================================================================
 
@@ -322,24 +349,24 @@ func Test_Range_05(t *testing.T) {
 // Constant Propagation
 // ===================================================================
 
-func Test_Constant_01(t *testing.T) {
-	Check(t, "constant_01")
+func Test_ConstExpr_01(t *testing.T) {
+	Check(t, "constexpr_01")
 }
 
-func Test_Constant_02(t *testing.T) {
-	Check(t, "constant_02")
+func Test_ConstExpr_02(t *testing.T) {
+	Check(t, "constexpr_02")
 }
 
-func Test_Constant_03(t *testing.T) {
-	Check(t, "constant_03")
+func Test_ConstExpr_03(t *testing.T) {
+	Check(t, "constexpr_03")
 }
 
-func Test_Constant_04(t *testing.T) {
-	Check(t, "constant_04")
+func Test_ConstExpr_04(t *testing.T) {
+	Check(t, "constexpr_04")
 }
 
-func Test_Constant_05(t *testing.T) {
-	Check(t, "constant_05")
+func Test_ConstExpr_05(t *testing.T) {
+	Check(t, "constexpr_05")
 }
 
 // ===================================================================

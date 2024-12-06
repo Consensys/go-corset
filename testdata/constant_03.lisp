@@ -1,21 +1,10 @@
+(defconst
+  ONE   0x01
+  TWO   0x02
+  THREE 0x03
+  FOUR  0x04
+)
+
 (defcolumns X Y)
-;; X == Y - 0
-(defconstraint c1 () (- X Y (* 0 1)))
-;; X == Y - 0
-(defconstraint c1 () (- X Y (* 1 0)))
-;; X == Y - 0
-(defconstraint c1 () (- X Y (* 0 2)))
-;; X == Y - 0
-(defconstraint c1 () (- X Y (* 2 0)))
-;; X == Y - 0
-(defconstraint c1 () (- X Y (* 0 0 1)))
-;; X == Y - 0
-(defconstraint c1 () (- X Y (* 0 1 0)))
-;; X == Y - 0
-(defconstraint c1 () (- X Y (* 0 1 1)))
-;; X == Y - 0
-(defconstraint c1 () (- X Y (* 1 0 0)))
-;; X == Y - 0
-(defconstraint c1 () (- X Y (* 1 0 1)))
-;; X == Y - 0
-(defconstraint c1 () (- X Y (* 1 1 0)))
+(defconstraint c1 () (* Y (- Y ONE) (- Y TWO) (- Y THREE)))
+(defconstraint c2 () (* (- X Y) (- X Y FOUR)))
