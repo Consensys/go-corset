@@ -1,6 +1,6 @@
 (defconst
-  ONE_  1
-  ONE   ONE_
+  X     1
+  ONE   X
   TWO   (+ 1 ONE)
   FOUR  (* 2 TWO)
 )

@@ -25,7 +25,7 @@ func TranslateCircuit(env Environment, srcmap *sexp.SourceMaps[Node], circuit *C
 		return nil, errs
 	}
 	// Translate everything else
-	if errs := t.translateAssignmentsAndConstraints(circuit); len(errs) > 0 {
+	if errs := t.translateOtherDeclarations(circuit); len(errs) > 0 {
 		return nil, errs
 	}
 	// Done
@@ -108,11 +108,11 @@ func (t *translator) translateDefColumns(decl *DefColumns, module string) []Synt
 }
 
 // Translate all assignment or constraint declarations in the circuit.
-func (t *translator) translateAssignmentsAndConstraints(circuit *Circuit) []SyntaxError {
-	errors := t.translateAssignmentsAndConstraintsInModule("", circuit.Declarations)
+func (t *translator) translateOtherDeclarations(circuit *Circuit) []SyntaxError {
+	errors := t.translateOtherDeclarationsInModule("", circuit.Declarations)
 	// Translate each module
 	for _, m := range circuit.Modules {
-		errs := t.translateAssignmentsAndConstraintsInModule(m.Name, m.Declarations)
+		errs := t.translateOtherDeclarationsInModule(m.Name, m.Declarations)
 		errors = append(errors, errs...)
 	}
 	// Done
@@ -121,7 +121,7 @@ func (t *translator) translateAssignmentsAndConstraints(circuit *Circuit) []Synt
 
 // Translate all assignment or constraint declarations in a given module within
 // the circuit.
-func (t *translator) translateAssignmentsAndConstraintsInModule(module string, decls []Declaration) []SyntaxError {
+func (t *translator) translateOtherDeclarationsInModule(module string, decls []Declaration) []SyntaxError {
 	var errors []SyntaxError
 	//
 	for _, d := range decls {
@@ -139,6 +139,8 @@ func (t *translator) translateDeclaration(decl Declaration, module string) []Syn
 	//
 	if _, ok := decl.(*DefColumns); ok {
 		// Not an assignment or a constraint, hence ignore.
+	} else if _, ok := decl.(*DefConst); ok {
+		// For now, constants are always compiled out when going down to HIR.
 	} else if d, ok := decl.(*DefConstraint); ok {
 		errors = t.translateDefConstraint(d, module)
 	} else if _, ok := decl.(*DefFun); ok {
@@ -354,17 +356,7 @@ func (t *translator) translateExpressionInModule(expr Expr, module string) (hir.
 		args, errs := t.translateExpressionsInModule([]Expr{v.Condition, v.TrueBranch, v.FalseBranch}, module)
 		return &hir.IfZero{Condition: args[0], TrueBranch: args[1], FalseBranch: args[2]}, errs
 	} else if e, ok := expr.(*Invoke); ok {
-		if binding, ok := e.Binding().(*FunctionBinding); ok {
-			if binding.Arity() == uint(len(e.Args())) {
-				body := binding.Apply(e.Args())
-				return t.translateExpressionInModule(body, module)
-			} else {
-				msg := fmt.Sprintf("incorrect number of arguments (expected %d, found %d)", binding.Arity(), len(e.Args()))
-				return nil, t.srcmap.SyntaxErrors(expr, msg)
-			}
-		}
-		//
-		return nil, t.srcmap.SyntaxErrors(expr, "unbound function")
+		return t.translateInvokeInModule(e, module)
 	} else if v, ok := expr.(*List); ok {
 		args, errs := t.translateExpressionsInModule(v.Args, module)
 		return &hir.List{Args: args}, errs
@@ -378,15 +370,36 @@ func (t *translator) translateExpressionInModule(expr Expr, module string) (hir.
 		args, errs := t.translateExpressionsInModule(v.Args, module)
 		return &hir.Sub{Args: args}, errs
 	} else if e, ok := expr.(*VariableAccess); ok {
-		if binding, ok := e.Binding().(*ColumnBinding); ok {
-			// Lookup column binding
-			cinfo := t.env.Column(binding.module, e.Name())
-			// Done
-			return &hir.ColumnAccess{Column: cinfo.ColumnId(), Shift: e.Shift()}, nil
-		}
-		// error
-		return nil, t.srcmap.SyntaxErrors(expr, "unbound variable")
+		return t.translateVariableAccessInModule(e, module)
 	} else {
 		return nil, t.srcmap.SyntaxErrors(expr, "unknown expression")
 	}
+}
+
+func (t *translator) translateInvokeInModule(expr *Invoke, module string) (hir.Expr, []SyntaxError) {
+	if binding, ok := expr.Binding().(*FunctionBinding); ok {
+		if binding.Arity() == uint(len(expr.Args())) {
+			body := binding.Apply(expr.Args())
+			return t.translateExpressionInModule(body, module)
+		} else {
+			msg := fmt.Sprintf("incorrect number of arguments (expected %d, found %d)", binding.Arity(), len(expr.Args()))
+			return nil, t.srcmap.SyntaxErrors(expr, msg)
+		}
+	}
+	//
+	return nil, t.srcmap.SyntaxErrors(expr, "unbound function")
+}
+
+func (t *translator) translateVariableAccessInModule(expr *VariableAccess, module string) (hir.Expr, []SyntaxError) {
+	if binding, ok := expr.Binding().(*ColumnBinding); ok {
+		// Lookup column binding
+		cinfo := t.env.Column(binding.module, expr.Name())
+		// Done
+		return &hir.ColumnAccess{Column: cinfo.ColumnId(), Shift: expr.Shift()}, nil
+	} else if binding, ok := expr.Binding().(*ConstantBinding); ok {
+		// Just fill in the constant.
+		return t.translateExpressionInModule(binding.value, module)
+	}
+	// error
+	return nil, t.srcmap.SyntaxErrors(expr, "unbound variable")
 }

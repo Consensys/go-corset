@@ -444,12 +444,13 @@ func (r *resolver) finaliseVariableInModule(scope LocalScope,
 	// context.
 	if expr.IsResolved() {
 		// Update context
-		binding, ok := expr.Binding().(*ColumnBinding)
-		if ok && !scope.FixContext(binding.Context()) {
-			return r.srcmap.SyntaxErrors(expr, "conflicting context")
-		} else if !ok {
+		if binding, ok := expr.Binding().(*ColumnBinding); ok {
+			if !scope.FixContext(binding.Context()) {
+				return r.srcmap.SyntaxErrors(expr, "conflicting context")
+			}
+		} else if _, ok := expr.Binding().(*ConstantBinding); !ok {
 			// Unable to resolve variable
-			return r.srcmap.SyntaxErrors(expr, "not a column")
+			return r.srcmap.SyntaxErrors(expr, "refers to a function")
 		}
 		// Done
 		return nil
