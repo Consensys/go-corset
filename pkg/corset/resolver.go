@@ -404,6 +404,8 @@ func (r *resolver) finaliseExpressionInModule(scope LocalScope, expr Expr) []Syn
 		return r.finaliseExpressionsInModule(scope, v.Args)
 	} else if v, ok := expr.(*Normalise); ok {
 		return r.finaliseExpressionInModule(scope, v.Arg)
+	} else if v, ok := expr.(*Shift); ok {
+		return r.finaliseExpressionsInModule(scope, []Expr{v.Arg, v.Shift})
 	} else if v, ok := expr.(*Sub); ok {
 		return r.finaliseExpressionsInModule(scope, v.Args)
 	} else if v, ok := expr.(*VariableAccess); ok {

@@ -2,6 +2,8 @@ package corset
 
 import (
 	"errors"
+	"fmt"
+	"math/big"
 	"sort"
 	"strconv"
 	"strings"
@@ -145,14 +147,14 @@ func NewParser(srcfile *sexp.SourceFile, srcmap *sexp.SourceMap[sexp.SExp]) *Par
 	// Configure expression translator
 	p.AddSymbolRule(constantParserRule)
 	p.AddSymbolRule(varAccessParserRule)
-	p.AddBinaryRule("shift", shiftParserRule)
 	p.AddRecursiveRule("+", addParserRule)
 	p.AddRecursiveRule("-", subParserRule)
 	p.AddRecursiveRule("*", mulParserRule)
 	p.AddRecursiveRule("~", normParserRule)
 	p.AddRecursiveRule("^", powParserRule)
-	p.AddRecursiveRule("if", ifParserRule)
 	p.AddRecursiveRule("begin", beginParserRule)
+	p.AddRecursiveRule("if", ifParserRule)
+	p.AddRecursiveRule("shift", shiftParserRule)
 	p.AddDefaultRecursiveRule(invokeParserRule)
 	//
 	return parser
@@ -751,19 +753,30 @@ func beginParserRule(_ string, args []Expr) (Expr, error) {
 }
 
 func constantParserRule(symbol string) (Expr, bool, error) {
-	if symbol[0] >= '0' && symbol[0] < '9' {
-		var num fr.Element
-		// Attempt to parse
-		_, err := num.SetString(symbol)
-		// Check for errors
-		if err != nil {
-			return nil, true, err
-		}
-		// Done
-		return &Constant{Val: num}, true, nil
+	var (
+		base int
+		name string
+		num  big.Int
+	)
+	//
+	if strings.HasPrefix(symbol, "0x") {
+		symbol = symbol[2:]
+		base = 16
+		name = "hexadecimal"
+	} else if symbol[0] >= '0' && symbol[0] < '9' {
+		base = 10
+		name = "integer"
+	} else {
+		// Not applicable
+		return nil, false, nil
 	}
-	// Not applicable
-	return nil, false, nil
+	// Attempt to parse
+	if _, ok := num.SetString(symbol, base); !ok {
+		err := fmt.Sprintf("invalid %s constant", name)
+		return nil, true, errors.New(err)
+	}
+	// Done
+	return &Constant{Val: num}, true, nil
 }
 
 func varAccessParserRule(col string) (Expr, bool, error) {
@@ -775,11 +788,11 @@ func varAccessParserRule(col string) (Expr, bool, error) {
 	// Attempt to split column name into module / column pair.
 	split := strings.Split(col, ".")
 	if len(split) == 2 {
-		return &VariableAccess{&split[0], split[1], 0, nil}, true, nil
+		return &VariableAccess{&split[0], split[1], nil}, true, nil
 	} else if len(split) > 2 {
 		return nil, true, errors.New("malformed column access")
 	} else {
-		return &VariableAccess{nil, col, 0, nil}, true, nil
+		return &VariableAccess{nil, col, nil}, true, nil
 	}
 }
 
@@ -822,25 +835,12 @@ func invokeParserRule(name string, args []Expr) (Expr, error) {
 	}
 }
 
-func shiftParserRule(col string, amt string) (Expr, error) {
-	n, err := strconv.Atoi(amt)
-
-	if err != nil {
-		return nil, err
-	}
-	// Sanity check what we have
-	if !unicode.IsLetter(rune(col[0])) {
-		return nil, nil
-	}
-	// Handle qualified accesses (where appropriate)
-	split := strings.Split(col, ".")
-	if len(split) == 2 {
-		return &VariableAccess{&split[0], split[1], n, nil}, nil
-	} else if len(split) > 2 {
-		return nil, errors.New("malformed column access")
+func shiftParserRule(_ string, args []Expr) (Expr, error) {
+	if len(args) != 2 {
+		return nil, errors.New("incorrect number of arguments")
 	}
 	// Done
-	return &VariableAccess{nil, col, n, nil}, nil
+	return &Shift{Arg: args[0], Shift: args[1]}, nil
 }
 
 func powParserRule(_ string, args []Expr) (Expr, error) {
