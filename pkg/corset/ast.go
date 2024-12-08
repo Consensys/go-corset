@@ -803,7 +803,7 @@ func (e *Constant) Dependencies() []Symbol {
 // Exp represents the a given value taken to a power.
 type Exp struct {
 	Arg Expr
-	Pow uint64
+	Pow Expr
 }
 
 // Multiplicity determines the number of values that evaluating this expression
@@ -816,7 +816,7 @@ func (e *Exp) Multiplicity() uint {
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
 func (e *Exp) Context() Context {
-	return ContextOfExpressions([]Expr{e.Arg})
+	return ContextOfExpressions([]Expr{e.Arg, e.Pow})
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example

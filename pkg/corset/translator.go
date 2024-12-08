@@ -350,8 +350,22 @@ func (t *translator) translateExpressionInModule(expr Expr, module string) (hir.
 		args, errs := t.translateExpressionsInModule(v.Args, module)
 		return &hir.Add{Args: args}, errs
 	} else if v, ok := expr.(*Exp); ok {
-		arg, errs := t.translateExpressionInModule(v.Arg, module)
-		return &hir.Exp{Arg: arg, Pow: v.Pow}, errs
+		arg, errs1 := t.translateExpressionInModule(v.Arg, module)
+		pow, errs2 := t.translateExpressionInModule(v.Pow, module)
+		// Combine errors
+		errs := append(errs1, errs2...)
+		// Identity constant for pow
+		if len(errs) == 0 {
+			if c := pow.AsConstant(); c != nil && c.IsUint64() {
+				return &hir.Exp{Arg: arg, Pow: c.Uint64()}, errs
+			} else if c == nil {
+				errs = append(errs2, *t.srcmap.SyntaxError(v.Pow, "expected constant power"))
+			} else {
+				errs = append(errs2, *t.srcmap.SyntaxError(v.Pow, "constant power too large"))
+			}
+		}
+		//
+		return nil, errs
 	} else if v, ok := expr.(*IfZero); ok {
 		args, errs := t.translateExpressionsInModule([]Expr{v.Condition, v.TrueBranch, v.FalseBranch}, module)
 		return &hir.IfZero{Condition: args[0], TrueBranch: args[1], FalseBranch: args[2]}, errs

@@ -2,7 +2,6 @@ package corset
 
 import (
 	"errors"
-	"math/big"
 	"sort"
 	"strconv"
 	"strings"
@@ -845,22 +844,11 @@ func shiftParserRule(col string, amt string) (Expr, error) {
 }
 
 func powParserRule(_ string, args []Expr) (Expr, error) {
-	var k big.Int
-
 	if len(args) != 2 {
 		return nil, errors.New("incorrect number of arguments")
 	}
-
-	c, ok := args[1].(*Constant)
-	if !ok {
-		return nil, errors.New("expected constant power")
-	} else if !c.Val.IsUint64() {
-		return nil, errors.New("constant power too large")
-	}
-	// Convert power to uint64
-	c.Val.BigInt(&k)
 	// Done
-	return &Exp{Arg: args[0], Pow: k.Uint64()}, nil
+	return &Exp{Arg: args[0], Pow: args[1]}, nil
 }
 
 func normParserRule(_ string, args []Expr) (Expr, error) {

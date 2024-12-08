@@ -393,7 +393,7 @@ func (r *resolver) finaliseExpressionInModule(scope LocalScope, expr Expr) []Syn
 	} else if v, ok := expr.(*Add); ok {
 		return r.finaliseExpressionsInModule(scope, v.Args)
 	} else if v, ok := expr.(*Exp); ok {
-		return r.finaliseExpressionInModule(scope, v.Arg)
+		return r.finaliseExpressionsInModule(scope, []Expr{v.Arg, v.Pow})
 	} else if v, ok := expr.(*IfZero); ok {
 		return r.finaliseExpressionsInModule(scope, []Expr{v.Condition, v.TrueBranch, v.FalseBranch})
 	} else if v, ok := expr.(*Invoke); ok {

@@ -109,6 +109,22 @@ func Test_Invalid_Constant_10(t *testing.T) {
 	CheckInvalid(t, "constant_invalid_10")
 }
 
+func Test_Invalid_Constant_11(t *testing.T) {
+	CheckInvalid(t, "constant_invalid_11")
+}
+
+func Test_Invalid_Constant_12(t *testing.T) {
+	CheckInvalid(t, "constant_invalid_12")
+}
+
+func Test_Invalid_Constant_13(t *testing.T) {
+	CheckInvalid(t, "constant_invalid_13")
+}
+
+func Test_Invalid_Constant_14(t *testing.T) {
+	CheckInvalid(t, "constant_invalid_14")
+}
+
 // ===================================================================
 // Property Tests
 // ===================================================================
