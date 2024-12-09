@@ -93,6 +93,10 @@ func Test_Constant_06(t *testing.T) {
 	Check(t, "constant_06")
 }
 
+func Test_Constant_07(t *testing.T) {
+	Check(t, "constant_07")
+}
+
 // ===================================================================
 // Domain Tests
 // ===================================================================
@@ -163,6 +167,10 @@ func Test_Shift_06(t *testing.T) {
 
 func Test_Shift_07(t *testing.T) {
 	Check(t, "shift_07")
+}
+
+func Test_Shift_08(t *testing.T) {
+	Check(t, "shift_08")
 }
 
 // ===================================================================

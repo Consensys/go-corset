@@ -737,7 +737,8 @@ type Add struct{ Args []Expr }
 // AsConstant attempts to evaluate this expression as a constant (signed) value.
 // If this expression is not constant, then nil is returned.
 func (e *Add) AsConstant() *big.Int {
-	panic("todo")
+	fn := func(l *big.Int, r *big.Int) *big.Int { l.Add(l, r); return l }
+	return AsConstantOfExpressions(e.Args, fn)
 }
 
 // Multiplicity determines the number of values that evaluating this expression
@@ -826,7 +827,14 @@ type Exp struct {
 // AsConstant attempts to evaluate this expression as a constant (signed) value.
 // If this expression is not constant, then nil is returned.
 func (e *Exp) AsConstant() *big.Int {
-	panic("todo")
+	arg := e.Arg.AsConstant()
+	pow := e.Pow.AsConstant()
+	// Check if can evaluate
+	if arg != nil && pow != nil {
+		return arg.Exp(arg, pow, nil)
+	}
+	//
+	return nil
 }
 
 // Multiplicity determines the number of values that evaluating this expression
@@ -877,7 +885,18 @@ type IfZero struct {
 // AsConstant attempts to evaluate this expression as a constant (signed) value.
 // If this expression is not constant, then nil is returned.
 func (e *IfZero) AsConstant() *big.Int {
-	panic("todo")
+	if condition := e.Condition.AsConstant(); condition != nil {
+		// Determine whether condition holds true (or not).
+		holds := condition.Cmp(big.NewInt(0)) == 0
+		//
+		if holds && e.TrueBranch != nil {
+			return e.TrueBranch.AsConstant()
+		} else if !holds && e.FalseBranch != nil {
+			return e.FalseBranch.AsConstant()
+		}
+	}
+	//
+	return nil
 }
 
 // Multiplicity determines the number of values that evaluating this expression
@@ -928,7 +947,13 @@ type Invoke struct {
 // AsConstant attempts to evaluate this expression as a constant (signed) value.
 // If this expression is not constant, then nil is returned.
 func (e *Invoke) AsConstant() *big.Int {
-	panic("todo")
+	if e.binding == nil {
+		panic("unresolved invocation")
+	}
+	// Unroll body
+	body := e.binding.Apply(e.args)
+	// Attempt to evaluate as constant
+	return body.AsConstant()
 }
 
 // IsQualified determines whether this symbol is qualfied or not (i.e. has an
@@ -1038,7 +1063,8 @@ type List struct{ Args []Expr }
 // AsConstant attempts to evaluate this expression as a constant (signed) value.
 // If this expression is not constant, then nil is returned.
 func (e *List) AsConstant() *big.Int {
-	panic("todo")
+	// Potentially we could do better here, but its not clear we need to.
+	return nil
 }
 
 // Multiplicity determines the number of values that evaluating this expression
@@ -1081,7 +1107,8 @@ type Mul struct{ Args []Expr }
 // AsConstant attempts to evaluate this expression as a constant (signed) value.
 // If this expression is not constant, then nil is returned.
 func (e *Mul) AsConstant() *big.Int {
-	panic("todo")
+	fn := func(l *big.Int, r *big.Int) *big.Int { l.Mul(l, r); return l }
+	return AsConstantOfExpressions(e.Args, fn)
 }
 
 // Multiplicity determines the number of values that evaluating this expression
@@ -1168,7 +1195,8 @@ type Sub struct{ Args []Expr }
 // AsConstant attempts to evaluate this expression as a constant (signed) value.
 // If this expression is not constant, then nil is returned.
 func (e *Sub) AsConstant() *big.Int {
-	panic("todo")
+	fn := func(l *big.Int, r *big.Int) *big.Int { l.Sub(l, r); return l }
+	return AsConstantOfExpressions(e.Args, fn)
 }
 
 // Multiplicity determines the number of values that evaluating this expression
@@ -1220,7 +1248,9 @@ type Shift struct {
 // AsConstant attempts to evaluate this expression as a constant (signed) value.
 // If this expression is not constant, then nil is returned.
 func (e *Shift) AsConstant() *big.Int {
-	panic("todo")
+	// Observe the shift doesn't matter as, in the case that the argument is a
+	// constant, then the shift has no effect anyway.
+	return e.Arg.AsConstant()
 }
 
 // Multiplicity determines the number of values that evaluating this expression
@@ -1418,6 +1448,25 @@ func DependenciesOfExpressions(exprs []Expr) []Symbol {
 	}
 	//
 	return deps
+}
+
+// AsConstantOfExpressions attempts to fold one or more expressions across a
+// given operation (e.g. add, subtract, etc) to produce a constant value.  If
+// any of the expressions are not themselves constant, then neither is the
+// result.
+func AsConstantOfExpressions(exprs []Expr, fn func(*big.Int, *big.Int) *big.Int) *big.Int {
+	var val *big.Int = big.NewInt(0)
+	//
+	for _, arg := range exprs {
+		c := arg.AsConstant()
+		if c == nil {
+			return nil
+		}
+		// Evaluate function
+		val = fn(val, c)
+	}
+	//
+	return val
 }
 
 func determineMultiplicity(exprs []Expr) uint {

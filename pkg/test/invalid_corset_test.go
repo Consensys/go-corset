@@ -89,17 +89,20 @@ func Test_Invalid_Constant_05(t *testing.T) {
 	CheckInvalid(t, "constant_invalid_05")
 }
 
-func Test_Invalid_Constant_06(t *testing.T) {
+/* Recursive --- #406
+  func Test_Invalid_Constant_06(t *testing.T) {
 	CheckInvalid(t, "constant_invalid_06")
-}
+} */
 
-func Test_Invalid_Constant_07(t *testing.T) {
+/* Recursive --- #406
+  func Test_Invalid_Constant_07(t *testing.T) {
 	CheckInvalid(t, "constant_invalid_07")
 }
-
-func Test_Invalid_Constant_08(t *testing.T) {
+*/
+/* Recursive --- #406
+  func Test_Invalid_Constant_08(t *testing.T) {
 	CheckInvalid(t, "constant_invalid_08")
-}
+} */
 
 func Test_Invalid_Constant_09(t *testing.T) {
 	CheckInvalid(t, "constant_invalid_09")

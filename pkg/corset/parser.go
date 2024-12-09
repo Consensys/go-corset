@@ -335,17 +335,16 @@ func (p *Parser) parseDefConst(elements []sexp.SExp) (*DefConst, []SyntaxError) 
 	)
 
 	for i := 1; i < len(elements); i += 2 {
-		ith := elements[i].AsSymbol()
 		// Sanity check first
 		if i+1 == len(elements) {
 			// Uneven number of constant declarations!
 			errors = append(errors, *p.translator.SyntaxError(elements[i], "missing constant definition"))
-		} else if ith == nil {
+		} else if !isIdentifier(elements[i]) {
 			// Symbol expected!
 			errors = append(errors, *p.translator.SyntaxError(elements[i], "invalid constant name"))
 		} else {
 			// Attempt to parse definition
-			constant, errs := p.parseDefConstUnit(ith, elements[i+1])
+			constant, errs := p.parseDefConstUnit(elements[i].AsSymbol().Value, elements[i+1])
 			errors = append(errors, errs...)
 			constants = append(constants, constant)
 		}
@@ -354,14 +353,14 @@ func (p *Parser) parseDefConst(elements []sexp.SExp) (*DefConst, []SyntaxError) 
 	return &DefConst{constants}, errors
 }
 
-func (p *Parser) parseDefConstUnit(name *sexp.Symbol, value sexp.SExp) (*DefConstUnit, []SyntaxError) {
+func (p *Parser) parseDefConstUnit(name string, value sexp.SExp) (*DefConstUnit, []SyntaxError) {
 	expr, err := p.translator.Translate(value)
 	// Check for errors
 	if err != nil {
 		return nil, []SyntaxError{*err}
 	}
 	// Looks good
-	def := &DefConstUnit{name.Value, ConstantBinding{expr}}
+	def := &DefConstUnit{name, ConstantBinding{expr}}
 	// Map to source node
 	p.mapSourceNode(value, def)
 	// Done
@@ -372,12 +371,10 @@ func (p *Parser) parseDefConstUnit(name *sexp.Symbol, value sexp.SExp) (*DefCons
 func (p *Parser) parseDefConstraint(elements []sexp.SExp) (*DefConstraint, []SyntaxError) {
 	var errors []SyntaxError
 	// Initial sanity checks
-	if elements[1].AsSymbol() == nil {
-		err := p.translator.SyntaxError(elements[1], "expected constraint handle")
+	if !isIdentifier(elements[1]) {
+		err := p.translator.SyntaxError(elements[1], "invalid constraint handle")
 		return nil, []SyntaxError{*err}
 	}
-	//
-	handle := elements[1].AsSymbol().Value
 	// Vanishing constraints do not have global scope, hence qualified column
 	// accesses are not permitted.
 	domain, guard, err := p.parseConstraintAttributes(elements[2])
@@ -395,13 +392,13 @@ func (p *Parser) parseDefConstraint(elements []sexp.SExp) (*DefConstraint, []Syn
 		return nil, errors
 	}
 	// Done
-	return &DefConstraint{handle, domain, guard, expr}, nil
+	return &DefConstraint{elements[1].AsSymbol().Value, domain, guard, expr}, nil
 }
 
 // Parse a interleaved declaration
 func (p *Parser) parseDefInterleaved(module string, elements []sexp.SExp) (*DefInterleaved, *SyntaxError) {
 	// Initial sanity checks
-	if elements[1].AsSymbol() == nil {
+	if !isIdentifier(elements[1]) {
 		return nil, p.translator.SyntaxError(elements[1], "malformed target column")
 	} else if elements[2].AsList() == nil {
 		return nil, p.translator.SyntaxError(elements[2], "malformed source columns")
@@ -412,7 +409,7 @@ func (p *Parser) parseDefInterleaved(module string, elements []sexp.SExp) (*DefI
 	//
 	for i := 0; i != sexpSources.Len(); i++ {
 		ith := sexpSources.Get(i)
-		if ith.AsSymbol() == nil {
+		if !isIdentifier(ith) {
 			return nil, p.translator.SyntaxError(ith, "malformed source column")
 		}
 		// Extract column name
@@ -431,7 +428,7 @@ func (p *Parser) parseDefInterleaved(module string, elements []sexp.SExp) (*DefI
 // Parse a lookup declaration
 func (p *Parser) parseDefLookup(elements []sexp.SExp) (*DefLookup, *SyntaxError) {
 	// Initial sanity checks
-	if elements[1].AsSymbol() == nil {
+	if !isIdentifier(elements[1]) {
 		return nil, p.translator.SyntaxError(elements[1], "malformed handle")
 	} else if elements[2].AsList() == nil {
 		return nil, p.translator.SyntaxError(elements[2], "malformed target columns")
@@ -547,7 +544,7 @@ func (p *Parser) parsePermutedColumnSign(sign *sexp.Symbol) (bool, *SyntaxError)
 // Parse a property assertion
 func (p *Parser) parseDefProperty(elements []sexp.SExp) (*DefProperty, *SyntaxError) {
 	// Initial sanity checks
-	if elements[1].AsSymbol() == nil {
+	if !isIdentifier(elements[1]) {
 		return nil, p.translator.SyntaxError(elements[1], "expected constraint handle")
 	}
 	//
@@ -599,13 +596,12 @@ func (p *Parser) parseDefPureFun(elements []sexp.SExp) (*DefFun, []SyntaxError) 
 
 func (p *Parser) parseFunctionSignature(elements []sexp.SExp) (string, sc.Type, []*DefParameter, []SyntaxError) {
 	var (
-		name   *sexp.Symbol    = elements[0].AsSymbol()
 		params []*DefParameter = make([]*DefParameter, len(elements)-1)
 		ret    sc.Type         = &sc.FieldType{}
 		errors []SyntaxError
 	)
 	// Parse name
-	if name == nil {
+	if !isIdentifier(elements[0]) {
 		err := p.translator.SyntaxError(elements[1], "expected function name")
 		errors = append(errors, *err)
 	}
@@ -622,12 +618,12 @@ func (p *Parser) parseFunctionSignature(elements []sexp.SExp) (string, sc.Type, 
 		return "", nil, nil, errors
 	}
 	//
-	return name.Value, ret, params, nil
+	return elements[0].AsSymbol().Value, ret, params, nil
 }
 
 func (p *Parser) parseFunctionParameter(element sexp.SExp) (*DefParameter, []SyntaxError) {
-	if symbol := element.AsSymbol(); symbol != nil {
-		return &DefParameter{symbol.Value, &sc.FieldType{}}, nil
+	if isIdentifier(element) {
+		return &DefParameter{element.AsSymbol().Value, &sc.FieldType{}}, nil
 	}
 	// Construct error message (for now)
 	err := p.translator.SyntaxError(element, "malformed parameter declaration")
@@ -763,7 +759,7 @@ func constantParserRule(symbol string) (Expr, bool, error) {
 		symbol = symbol[2:]
 		base = 16
 		name = "hexadecimal"
-	} else if symbol[0] >= '0' && symbol[0] < '9' {
+	} else if (symbol[0] >= '0' && symbol[0] < '9') || symbol[0] == '-' {
 		base = 10
 		name = "integer"
 	} else {
@@ -857,4 +853,22 @@ func normParserRule(_ string, args []Expr) (Expr, error) {
 	}
 
 	return &Normalise{Arg: args[0]}, nil
+}
+
+// Attempt to parse an S-Expression as an identifier, return nil if this fails.
+func isIdentifier(sexp sexp.SExp) bool {
+	if symbol := sexp.AsSymbol(); symbol != nil && len(symbol.Value) > 0 {
+		runes := []rune(symbol.Value)
+		if unicode.IsLetter(runes[0]) || runes[0] == '_' {
+			for i := 1; i < len(runes); i++ {
+				if !unicode.IsLetter(runes[i]) && !unicode.IsDigit(runes[i]) && runes[i] != '_' {
+					return false
+				}
+			}
+			// Success
+			return true
+		}
+	}
+	// Fail
+	return false
 }

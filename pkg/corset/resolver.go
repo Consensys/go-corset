@@ -194,7 +194,9 @@ func (r *resolver) declarationDependenciesAreFinalised(scope *ModuleScope,
 
 // Finalise a declaration.
 func (r *resolver) finaliseDeclaration(scope *ModuleScope, decl Declaration) []SyntaxError {
-	if d, ok := decl.(*DefConstraint); ok {
+	if d, ok := decl.(*DefConst); ok {
+		return r.finaliseDefConstInModule(d)
+	} else if d, ok := decl.(*DefConstraint); ok {
 		return r.finaliseDefConstraintInModule(scope, d)
 	} else if d, ok := decl.(*DefFun); ok {
 		return r.finaliseDefFunInModule(scope, d)
@@ -211,6 +213,22 @@ func (r *resolver) finaliseDeclaration(scope *ModuleScope, decl Declaration) []S
 	}
 	//
 	return nil
+}
+
+// Finalise one or more constant definitions within a given module.
+// Specifically, we need to check that the constant values provided are indeed
+// constants.
+func (r *resolver) finaliseDefConstInModule(decl *DefConst) []SyntaxError {
+	var errors []SyntaxError
+	//
+	for _, c := range decl.constants {
+		if constant := c.binding.value.AsConstant(); constant == nil {
+			err := r.srcmap.SyntaxError(c, "definition not constant")
+			errors = append(errors, *err)
+		}
+	}
+	//
+	return errors
 }
 
 // Finalise a vanishing constraint declaration after all symbols have been

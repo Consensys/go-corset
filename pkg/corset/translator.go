@@ -381,19 +381,17 @@ func (t *translator) translateExpressionInModule(expr Expr, module string, shift
 }
 
 func (t *translator) translateExpInModule(expr *Exp, module string, shift int) (hir.Expr, []SyntaxError) {
-	arg, errs1 := t.translateExpressionInModule(expr.Arg, module, shift)
-	pow, errs2 := t.translateExpressionInModule(expr.Pow, module, shift)
-	// Combine errors
-	errs := append(errs1, errs2...)
+	arg, errs := t.translateExpressionInModule(expr.Arg, module, shift)
+	pow := expr.Pow.AsConstant()
 	// Identity constant for pow
+	if pow == nil {
+		errs = append(errs, *t.srcmap.SyntaxError(expr.Pow, "constant power too large"))
+	} else if !pow.IsUint64() {
+		errs = append(errs, *t.srcmap.SyntaxError(expr.Pow, "expected constant power"))
+	}
+	// Sanity check errors
 	if len(errs) == 0 {
-		if c := pow.AsConstant(); c != nil && c.IsUint64() {
-			return &hir.Exp{Arg: arg, Pow: c.Uint64()}, errs
-		} else if c == nil {
-			errs = append(errs2, *t.srcmap.SyntaxError(expr.Pow, "expected constant power"))
-		} else {
-			errs = append(errs2, *t.srcmap.SyntaxError(expr.Pow, "constant power too large"))
-		}
+		return &hir.Exp{Arg: arg, Pow: pow.Uint64()}, errs
 	}
 	//
 	return nil, errs
@@ -418,7 +416,7 @@ func (t *translator) translateShiftInModule(expr *Shift, module string, shift in
 	// Determine the shift constant
 	if constant == nil {
 		return nil, t.srcmap.SyntaxErrors(expr.Shift, "expected constant shift")
-	} else if !constant.IsUint64() {
+	} else if !constant.IsInt64() {
 		return nil, t.srcmap.SyntaxErrors(expr.Shift, "constant shift too large")
 	}
 	// Now translate target expression with updated shift.
