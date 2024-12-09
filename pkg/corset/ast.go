@@ -175,6 +175,62 @@ func (e *ColumnName) Lisp() sexp.SExp {
 }
 
 // ============================================================================
+// defalias
+// ============================================================================
+
+// DefAliases represents the declaration of one or more aliases.  That is,
+// alternate names for existing symbols.
+type DefAliases struct {
+	// Aliases
+	aliases []*DefAlias
+	// Symbols being aliased
+	symbols []Symbol
+}
+
+// Dependencies needed to signal declaration.
+func (p *DefAliases) Dependencies() util.Iterator[Symbol] {
+	return util.NewArrayIterator[Symbol](nil)
+}
+
+// Definitions returns the set of symbols defined by this declaration.  Observe
+// that these may not yet have been finalised.
+func (p *DefAliases) Definitions() util.Iterator[SymbolDefinition] {
+	return util.NewArrayIterator[SymbolDefinition](nil)
+}
+
+// Lisp converts this node into its lisp representation.  This is primarily used
+// for debugging purposes.
+//
+//nolint:revive
+func (p *DefAliases) Lisp() sexp.SExp {
+	pairs := sexp.EmptyList()
+	//
+	for i, a := range p.aliases {
+		pairs.Append(sexp.NewSymbol(a.name))
+		pairs.Append(p.symbols[i].Lisp())
+	}
+	//
+	return sexp.NewList([]sexp.SExp{
+		sexp.NewSymbol("defalias"),
+		pairs,
+	})
+}
+
+// DefAlias provides a node on which to hang source information to an alias name.
+type DefAlias struct {
+	// Name of the alias
+	name string
+}
+
+// Lisp converts this node into its lisp representation.  This is primarily used
+// for debugging purposes.
+//
+//nolint:revive
+func (p *DefAlias) Lisp() sexp.SExp {
+	return sexp.NewSymbol(p.name)
+}
+
+// ============================================================================
 // defcolumns
 // ============================================================================
 

@@ -83,7 +83,7 @@ func (r *resolver) resolveDeclarationsInModule(scope *ModuleScope, decls []Decla
 func (r *resolver) initialiseDeclarationsInModule(scope *ModuleScope, decls []Declaration) []SyntaxError {
 	module := scope.EnclosingModule()
 	errors := make([]SyntaxError, 0)
-	//
+	// Initialise all columns
 	for _, d := range decls {
 		for iter := d.Definitions(); iter.HasNext(); {
 			def := iter.Next()
@@ -92,6 +92,39 @@ func (r *resolver) initialiseDeclarationsInModule(scope *ModuleScope, decls []De
 				msg := fmt.Sprintf("symbol %s already declared in %s", def.Name(), module)
 				err := r.srcmap.SyntaxError(def, msg)
 				errors = append(errors, *err)
+			}
+		}
+	}
+	// Apply any aliases
+	visited := make(map[string]bool)
+	changed := true
+	// Iterate aliases until no new aliases discovered
+	for changed {
+		changed = false
+		// Look for all aliases
+		for _, d := range decls {
+			if a, ok := d.(*DefAliases); ok {
+				for i, alias := range a.aliases {
+					symbol := a.symbols[i]
+					if _, ok := visited[alias.name]; !ok {
+						if change := scope.Alias(alias.name, symbol); change {
+							visited[alias.name] = true
+							changed = true
+						}
+					}
+				}
+			}
+		}
+	}
+	// Check for any aliases which remain incomplete
+	for _, d := range decls {
+		if a, ok := d.(*DefAliases); ok {
+			for i, alias := range a.aliases {
+				symbol := a.symbols[i]
+				if _, ok := visited[alias.name]; !ok {
+					err := r.srcmap.SyntaxError(symbol, "unknown symbol")
+					errors = append(errors, *err)
+				}
 			}
 		}
 	}

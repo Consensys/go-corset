@@ -167,6 +167,23 @@ func (p *ModuleScope) Declare(symbol SymbolDefinition) bool {
 	return true
 }
 
+// Alias constructs an alias for an existing symbol.  If the symbol does not
+// exist, then this returns false.
+func (p *ModuleScope) Alias(alias string, symbol Symbol) bool {
+	// construct binding identifier
+	symbol_id := BindingId{symbol.Name(), symbol.IsFunction()}
+	// Sanity check not already declared
+	if id, ok := p.ids[symbol_id]; ok {
+		// construct alias identifier
+		alias_id := BindingId{alias, symbol.IsFunction()}
+		p.ids[alias_id] = id
+		// Done
+		return true
+	}
+	// Symbol not known (yet)
+	return false
+}
+
 // =============================================================================
 // Local Scope
 // =============================================================================
