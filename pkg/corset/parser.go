@@ -330,7 +330,7 @@ func (p *Parser) parseColumnDeclaration(module string, e sexp.SExp) (*DefColumn,
 }
 
 // Parse a constant declaration
-func (p *Parser) parseDefConst(elements []sexp.SExp) (*DefConst, []SyntaxError) {
+func (p *Parser) parseDefConst(elements []sexp.SExp) (Declaration, []SyntaxError) {
 	var (
 		errors    []SyntaxError
 		constants []*DefConstUnit
@@ -370,7 +370,7 @@ func (p *Parser) parseDefConstUnit(name string, value sexp.SExp) (*DefConstUnit,
 }
 
 // Parse a vanishing declaration
-func (p *Parser) parseDefConstraint(elements []sexp.SExp) (*DefConstraint, []SyntaxError) {
+func (p *Parser) parseDefConstraint(elements []sexp.SExp) (Declaration, []SyntaxError) {
 	var errors []SyntaxError
 	// Initial sanity checks
 	if !isIdentifier(elements[1]) {
@@ -398,7 +398,7 @@ func (p *Parser) parseDefConstraint(elements []sexp.SExp) (*DefConstraint, []Syn
 }
 
 // Parse a interleaved declaration
-func (p *Parser) parseDefInterleaved(module string, elements []sexp.SExp) (*DefInterleaved, *SyntaxError) {
+func (p *Parser) parseDefInterleaved(module string, elements []sexp.SExp) (Declaration, *SyntaxError) {
 	// Initial sanity checks
 	if !isIdentifier(elements[1]) {
 		return nil, p.translator.SyntaxError(elements[1], "malformed target column")
@@ -465,7 +465,7 @@ func (p *Parser) parseDefLookup(elements []sexp.SExp) (*DefLookup, *SyntaxError)
 }
 
 // Parse a permutation declaration
-func (p *Parser) parseDefPermutation(module string, elements []sexp.SExp) (*DefPermutation, *SyntaxError) {
+func (p *Parser) parseDefPermutation(module string, elements []sexp.SExp) (Declaration, *SyntaxError) {
 	var err *SyntaxError
 	//
 	sexpTargets := elements[1].AsList()
@@ -544,7 +544,7 @@ func (p *Parser) parsePermutedColumnSign(sign *sexp.Symbol) (bool, *SyntaxError)
 }
 
 // Parse a property assertion
-func (p *Parser) parseDefProperty(elements []sexp.SExp) (*DefProperty, *SyntaxError) {
+func (p *Parser) parseDefProperty(elements []sexp.SExp) (Declaration, *SyntaxError) {
 	// Initial sanity checks
 	if !isIdentifier(elements[1]) {
 		return nil, p.translator.SyntaxError(elements[1], "expected constraint handle")
@@ -880,5 +880,5 @@ func isIdentifierStart(c rune) bool {
 }
 
 func isIdentifierMiddle(c rune) bool {
-	return unicode.IsDigit(c) || isIdentifierStart(c)
+	return unicode.IsDigit(c) || isIdentifierStart(c) || c == '-'
 }
