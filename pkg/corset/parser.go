@@ -303,6 +303,8 @@ func (p *Parser) parseColumnDeclaration(module string, e sexp.SExp) (*DefColumn,
 		// Check at least the name provided.
 		if len(l.Elements) == 0 {
 			return nil, p.translator.SyntaxError(l, "empty column declaration")
+		} else if !isIdentifier(l.Elements[0]) {
+			return nil, p.translator.SyntaxError(l.Elements[0], "invalid column name")
 		}
 		// Column name is always first
 		name = l.Elements[0].String(false)
@@ -859,9 +861,9 @@ func normParserRule(_ string, args []Expr) (Expr, error) {
 func isIdentifier(sexp sexp.SExp) bool {
 	if symbol := sexp.AsSymbol(); symbol != nil && len(symbol.Value) > 0 {
 		runes := []rune(symbol.Value)
-		if unicode.IsLetter(runes[0]) || runes[0] == '_' {
+		if isIdentifierStart(runes[0]) {
 			for i := 1; i < len(runes); i++ {
-				if !unicode.IsLetter(runes[i]) && !unicode.IsDigit(runes[i]) && runes[i] != '_' {
+				if !isIdentifierMiddle(runes[i]) {
 					return false
 				}
 			}
@@ -871,4 +873,12 @@ func isIdentifier(sexp sexp.SExp) bool {
 	}
 	// Fail
 	return false
+}
+
+func isIdentifierStart(c rune) bool {
+	return unicode.IsLetter(c) || c == '_' || c == '\''
+}
+
+func isIdentifierMiddle(c rune) bool {
+	return unicode.IsDigit(c) || isIdentifierStart(c)
 }
