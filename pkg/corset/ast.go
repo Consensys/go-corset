@@ -472,7 +472,11 @@ func (p *DefInRange) Dependencies() util.Iterator[Symbol] {
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
 func (p *DefInRange) Lisp() sexp.SExp {
-	panic("got here")
+	return sexp.NewList([]sexp.SExp{
+		sexp.NewSymbol("definrange"),
+		p.Expr.Lisp(),
+		sexp.NewSymbol(p.Bound.String()),
+	})
 }
 
 // ============================================================================
@@ -509,7 +513,17 @@ func (p *DefInterleaved) Dependencies() util.Iterator[Symbol] {
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
 func (p *DefInterleaved) Lisp() sexp.SExp {
-	panic("got here")
+	sources := make([]sexp.SExp, len(p.Sources))
+	// Sources
+	for i, t := range p.Sources {
+		sources[i] = t.Lisp()
+	}
+	//
+	return sexp.NewList([]sexp.SExp{
+		sexp.NewSymbol("definterleaved"),
+		p.Target.Lisp(),
+		sexp.NewList(sources),
+	})
 }
 
 // ============================================================================
@@ -557,7 +571,23 @@ func (p *DefLookup) Dependencies() util.Iterator[Symbol] {
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
 func (p *DefLookup) Lisp() sexp.SExp {
-	panic("got here")
+	targets := make([]sexp.SExp, len(p.Targets))
+	sources := make([]sexp.SExp, len(p.Sources))
+	// Targets
+	for i, t := range p.Targets {
+		targets[i] = t.Lisp()
+	}
+	// Sources
+	for i, t := range p.Sources {
+		sources[i] = t.Lisp()
+	}
+	//
+	return sexp.NewList([]sexp.SExp{
+		sexp.NewSymbol("deflookup"),
+		sexp.NewSymbol(p.Handle),
+		sexp.NewList(targets),
+		sexp.NewList(sources),
+	})
 }
 
 // ============================================================================

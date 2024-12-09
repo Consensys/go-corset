@@ -260,6 +260,7 @@ func (p *Parser) parseDeclaration(module string, s *sexp.List) (Declaration, []S
 	}
 	// Register node if appropriate
 	if decl != nil {
+		fmt.Println(decl.Lisp().String(false))
 		p.mapSourceNode(s, decl)
 	}
 	// done
@@ -267,7 +268,7 @@ func (p *Parser) parseDeclaration(module string, s *sexp.List) (Declaration, []S
 }
 
 // Parse a column declaration
-func (p *Parser) parseDefColumns(module string, l *sexp.List) (*DefColumns, []SyntaxError) {
+func (p *Parser) parseDefColumns(module string, l *sexp.List) (Declaration, []SyntaxError) {
 	columns := make([]*DefColumn, l.Len()-1)
 	// Sanity check declaration
 	if len(l.Elements) == 1 {
@@ -428,7 +429,7 @@ func (p *Parser) parseDefInterleaved(module string, elements []sexp.SExp) (Decla
 }
 
 // Parse a lookup declaration
-func (p *Parser) parseDefLookup(elements []sexp.SExp) (*DefLookup, *SyntaxError) {
+func (p *Parser) parseDefLookup(elements []sexp.SExp) (Declaration, *SyntaxError) {
 	// Initial sanity checks
 	if !isIdentifier(elements[1]) {
 		return nil, p.translator.SyntaxError(elements[1], "malformed handle")
@@ -561,7 +562,7 @@ func (p *Parser) parseDefProperty(elements []sexp.SExp) (Declaration, *SyntaxErr
 }
 
 // Parse a permutation declaration
-func (p *Parser) parseDefPureFun(elements []sexp.SExp) (*DefFun, []SyntaxError) {
+func (p *Parser) parseDefPureFun(elements []sexp.SExp) (Declaration, []SyntaxError) {
 	var (
 		name      string
 		ret       sc.Type
@@ -634,7 +635,7 @@ func (p *Parser) parseFunctionParameter(element sexp.SExp) (*DefParameter, []Syn
 }
 
 // Parse a range declaration
-func (p *Parser) parseDefInRange(elements []sexp.SExp) (*DefInRange, *SyntaxError) {
+func (p *Parser) parseDefInRange(elements []sexp.SExp) (Declaration, *SyntaxError) {
 	var bound fr.Element
 	// Translate expression
 	expr, err := p.translator.Translate(elements[1])
