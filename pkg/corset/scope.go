@@ -141,6 +141,17 @@ func (p *ModuleScope) Bind(symbol Symbol) bool {
 	return false
 }
 
+// Binding returns information about the binding of a particular symbol defined
+// in this module.
+func (p *ModuleScope) Binding(name string) Binding {
+	// construct binding identifier
+	if bid, ok := p.ids[BindingId{name, false}]; ok {
+		return p.bindings[bid]
+	}
+	// Failure
+	return nil
+}
+
 // Column returns information about a particular column declared within this
 // module.
 func (p *ModuleScope) Column(name string) *ColumnBinding {
@@ -170,15 +181,18 @@ func (p *ModuleScope) Declare(symbol SymbolDefinition) bool {
 // Alias constructs an alias for an existing symbol.  If the symbol does not
 // exist, then this returns false.
 func (p *ModuleScope) Alias(alias string, symbol Symbol) bool {
-	// construct binding identifier
+	// construct symbol identifier
 	symbol_id := BindingId{symbol.Name(), symbol.IsFunction()}
-	// Sanity check not already declared
-	if id, ok := p.ids[symbol_id]; ok {
-		// construct alias identifier
-		alias_id := BindingId{alias, symbol.IsFunction()}
-		p.ids[alias_id] = id
-		// Done
-		return true
+	// construct alias identifier
+	alias_id := BindingId{alias, symbol.IsFunction()}
+	// Check alias does not already exist
+	if _, ok := p.ids[alias_id]; !ok {
+		// Check symbol being aliased exists
+		if id, ok := p.ids[symbol_id]; ok {
+			p.ids[alias_id] = id
+			// Done
+			return true
+		}
 	}
 	// Symbol not known (yet)
 	return false

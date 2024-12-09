@@ -67,10 +67,15 @@ func (r *resolver) resolveDeclarations(scope *GlobalScope, circuit *Circuit) []S
 // to process all columns before we can sure that they are all declared
 // correctly.
 func (r *resolver) resolveDeclarationsInModule(scope *ModuleScope, decls []Declaration) []SyntaxError {
+	// Columns & Assignments
 	if errors := r.initialiseDeclarationsInModule(scope, decls); len(errors) > 0 {
 		return errors
 	}
-	// Iterate until all columns finalised
+	// Aliases
+	if errors := r.initialiseAliasesInModule(scope, decls); len(errors) > 0 {
+		return errors
+	}
+	// Finalise everything
 	return r.finaliseDeclarationsInModule(scope, decls)
 }
 
@@ -95,10 +100,21 @@ func (r *resolver) initialiseDeclarationsInModule(scope *ModuleScope, decls []De
 			}
 		}
 	}
+	//
+	return errors
+}
+
+// Initialise all alias declarations in the given module scope.  This means
+// declaring them within the module scope, whilst also supporting aliases of
+// aliases, etc.  Since the order of aliases is unspecified, this means we have
+// to iterate the alias declarations until a fixed point is reached.  Once that
+// is done, if there are any aliases left unallocated then they indicate errors.
+func (r *resolver) initialiseAliasesInModule(scope *ModuleScope, decls []Declaration) []SyntaxError {
 	// Apply any aliases
-	visited := make(map[string]bool)
+	errors := make([]SyntaxError, 0)
+	visited := make(map[string]Declaration)
 	changed := true
-	// Iterate aliases until no new aliases discovered
+	// Iterate aliases to fixed point (i.e. until no new aliases discovered)
 	for changed {
 		changed = false
 		// Look for all aliases
@@ -108,7 +124,7 @@ func (r *resolver) initialiseDeclarationsInModule(scope *ModuleScope, decls []De
 					symbol := a.symbols[i]
 					if _, ok := visited[alias.name]; !ok {
 						if change := scope.Alias(alias.name, symbol); change {
-							visited[alias.name] = true
+							visited[alias.name] = d
 							changed = true
 						}
 					}
@@ -117,11 +133,17 @@ func (r *resolver) initialiseDeclarationsInModule(scope *ModuleScope, decls []De
 		}
 	}
 	// Check for any aliases which remain incomplete
-	for _, d := range decls {
-		if a, ok := d.(*DefAliases); ok {
+	for _, decl := range decls {
+		if a, ok := decl.(*DefAliases); ok {
 			for i, alias := range a.aliases {
 				symbol := a.symbols[i]
-				if _, ok := visited[alias.name]; !ok {
+				// Check whether it already exists (or not)
+				if d, ok := visited[alias.name]; ok && d == decl {
+					continue
+				} else if scope.Binding(alias.name) != nil {
+					err := r.srcmap.SyntaxError(alias, "symbol already exists")
+					errors = append(errors, *err)
+				} else {
 					err := r.srcmap.SyntaxError(symbol, "unknown symbol")
 					errors = append(errors, *err)
 				}
