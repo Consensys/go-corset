@@ -233,7 +233,9 @@ func (p *Parser) parseDeclaration(module string, s *sexp.List) (Declaration, []S
 		err    *SyntaxError
 	)
 	//
-	if s.MatchSymbols(1, "defcolumns") {
+	if s.MatchSymbols(1, "defalias") {
+		decl, errors = p.parseDefAlias(s.Elements)
+	} else if s.MatchSymbols(1, "defcolumns") {
 		decl, errors = p.parseDefColumns(module, s)
 	} else if s.Len() > 1 && s.MatchSymbols(1, "defconst") {
 		decl, errors = p.parseDefConst(s.Elements)
@@ -264,6 +266,39 @@ func (p *Parser) parseDeclaration(module string, s *sexp.List) (Declaration, []S
 	}
 	// done
 	return decl, errors
+}
+
+// Parse an alias declaration
+func (p *Parser) parseDefAlias(elements []sexp.SExp) (Declaration, []SyntaxError) {
+	var (
+		errors  []SyntaxError
+		aliases []*DefAlias
+		names   []Symbol
+	)
+
+	for i := 1; i < len(elements); i += 2 {
+		// Sanity check first
+		if i+1 == len(elements) {
+			// Uneven number of constant declarations!
+			errors = append(errors, *p.translator.SyntaxError(elements[i], "missing alias definition"))
+		} else if !isIdentifier(elements[i]) {
+			// Symbol expected!
+			errors = append(errors, *p.translator.SyntaxError(elements[i], "invalid alias name"))
+		} else if !isIdentifier(elements[i+1]) {
+			// Symbol expected!
+			errors = append(errors, *p.translator.SyntaxError(elements[i+1], "invalid alias definition"))
+		} else {
+			alias := &DefAlias{elements[i].AsSymbol().Value}
+			name := &ColumnName{elements[i+1].AsSymbol().Value, nil}
+			p.mapSourceNode(elements[i], alias)
+			p.mapSourceNode(elements[i+1], name)
+			//
+			aliases = append(aliases, alias)
+			names = append(names, name)
+		}
+	}
+	// Done
+	return &DefAliases{aliases, names}, errors
 }
 
 // Parse a column declaration

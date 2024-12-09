@@ -138,7 +138,9 @@ func (t *translator) translateOtherDeclarationsInModule(module string, decls []D
 func (t *translator) translateDeclaration(decl Declaration, module string) []SyntaxError {
 	var errors []SyntaxError
 	//
-	if _, ok := decl.(*DefColumns); ok {
+	if _, ok := decl.(*DefAliases); ok {
+		// Not an assignment or a constraint, hence ignore.
+	} else if _, ok := decl.(*DefColumns); ok {
 		// Not an assignment or a constraint, hence ignore.
 	} else if _, ok := decl.(*DefConst); ok {
 		// For now, constants are always compiled out when going down to HIR.

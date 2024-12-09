@@ -129,6 +129,37 @@ func Test_Invalid_Constant_14(t *testing.T) {
 }
 
 // ===================================================================
+// Alias Tests
+// ===================================================================
+func Test_Invalid_Alias_01(t *testing.T) {
+	CheckInvalid(t, "alias_invalid_01")
+}
+
+func Test_Invalid_Alias_02(t *testing.T) {
+	CheckInvalid(t, "alias_invalid_02")
+}
+
+func Test_Invalid_Alias_03(t *testing.T) {
+	CheckInvalid(t, "alias_invalid_03")
+}
+
+func Test_Invalid_Alias_04(t *testing.T) {
+	CheckInvalid(t, "alias_invalid_04")
+}
+
+func Test_Invalid_Alias_05(t *testing.T) {
+	CheckInvalid(t, "alias_invalid_05")
+}
+
+func Test_Invalid_Alias_06(t *testing.T) {
+	CheckInvalid(t, "alias_invalid_06")
+}
+
+func Test_Invalid_Alias_07(t *testing.T) {
+	CheckInvalid(t, "alias_invalid_07")
+}
+
+// ===================================================================
 // Property Tests
 // ===================================================================
 func Test_Invalid_Property_01(t *testing.T) {

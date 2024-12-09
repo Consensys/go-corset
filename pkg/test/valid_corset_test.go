@@ -98,6 +98,28 @@ func Test_Constant_07(t *testing.T) {
 }
 
 // ===================================================================
+// Alias Tests
+// ===================================================================
+func Test_Alias_01(t *testing.T) {
+	Check(t, "alias_01")
+}
+func Test_Alias_02(t *testing.T) {
+	Check(t, "alias_02")
+}
+func Test_Alias_03(t *testing.T) {
+	Check(t, "alias_03")
+}
+func Test_Alias_04(t *testing.T) {
+	Check(t, "alias_04")
+}
+func Test_Alias_05(t *testing.T) {
+	Check(t, "alias_05")
+}
+func Test_Alias_06(t *testing.T) {
+	Check(t, "alias_06")
+}
+
+// ===================================================================
 // Domain Tests
 // ===================================================================
 
