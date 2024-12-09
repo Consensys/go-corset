@@ -194,7 +194,9 @@ func (r *resolver) declarationDependenciesAreFinalised(scope *ModuleScope,
 
 // Finalise a declaration.
 func (r *resolver) finaliseDeclaration(scope *ModuleScope, decl Declaration) []SyntaxError {
-	if d, ok := decl.(*DefConstraint); ok {
+	if d, ok := decl.(*DefConst); ok {
+		return r.finaliseDefConstInModule(d)
+	} else if d, ok := decl.(*DefConstraint); ok {
 		return r.finaliseDefConstraintInModule(scope, d)
 	} else if d, ok := decl.(*DefFun); ok {
 		return r.finaliseDefFunInModule(scope, d)
@@ -211,6 +213,22 @@ func (r *resolver) finaliseDeclaration(scope *ModuleScope, decl Declaration) []S
 	}
 	//
 	return nil
+}
+
+// Finalise one or more constant definitions within a given module.
+// Specifically, we need to check that the constant values provided are indeed
+// constants.
+func (r *resolver) finaliseDefConstInModule(decl *DefConst) []SyntaxError {
+	var errors []SyntaxError
+	//
+	for _, c := range decl.constants {
+		if constant := c.binding.value.AsConstant(); constant == nil {
+			err := r.srcmap.SyntaxError(c, "definition not constant")
+			errors = append(errors, *err)
+		}
+	}
+	//
+	return errors
 }
 
 // Finalise a vanishing constraint declaration after all symbols have been
@@ -393,7 +411,7 @@ func (r *resolver) finaliseExpressionInModule(scope LocalScope, expr Expr) []Syn
 	} else if v, ok := expr.(*Add); ok {
 		return r.finaliseExpressionsInModule(scope, v.Args)
 	} else if v, ok := expr.(*Exp); ok {
-		return r.finaliseExpressionInModule(scope, v.Arg)
+		return r.finaliseExpressionsInModule(scope, []Expr{v.Arg, v.Pow})
 	} else if v, ok := expr.(*IfZero); ok {
 		return r.finaliseExpressionsInModule(scope, []Expr{v.Condition, v.TrueBranch, v.FalseBranch})
 	} else if v, ok := expr.(*Invoke); ok {
@@ -404,6 +422,8 @@ func (r *resolver) finaliseExpressionInModule(scope LocalScope, expr Expr) []Syn
 		return r.finaliseExpressionsInModule(scope, v.Args)
 	} else if v, ok := expr.(*Normalise); ok {
 		return r.finaliseExpressionInModule(scope, v.Arg)
+	} else if v, ok := expr.(*Shift); ok {
+		return r.finaliseExpressionsInModule(scope, []Expr{v.Arg, v.Shift})
 	} else if v, ok := expr.(*Sub); ok {
 		return r.finaliseExpressionsInModule(scope, v.Args)
 	} else if v, ok := expr.(*VariableAccess); ok {
@@ -444,12 +464,13 @@ func (r *resolver) finaliseVariableInModule(scope LocalScope,
 	// context.
 	if expr.IsResolved() {
 		// Update context
-		binding, ok := expr.Binding().(*ColumnBinding)
-		if ok && !scope.FixContext(binding.Context()) {
-			return r.srcmap.SyntaxErrors(expr, "conflicting context")
-		} else if !ok {
+		if binding, ok := expr.Binding().(*ColumnBinding); ok {
+			if !scope.FixContext(binding.Context()) {
+				return r.srcmap.SyntaxErrors(expr, "conflicting context")
+			}
+		} else if _, ok := expr.Binding().(*ConstantBinding); !ok {
 			// Unable to resolve variable
-			return r.srcmap.SyntaxErrors(expr, "not a column")
+			return r.srcmap.SyntaxErrors(expr, "refers to a function")
 		}
 		// Done
 		return nil

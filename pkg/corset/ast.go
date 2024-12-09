@@ -1,6 +1,9 @@
 package corset
 
 import (
+	"fmt"
+	"math/big"
+
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/sexp"
@@ -171,6 +174,10 @@ func (e *ColumnName) Lisp() sexp.SExp {
 	return sexp.NewSymbol(e.name)
 }
 
+// ============================================================================
+// defcolumns
+// ============================================================================
+
 // DefColumns captures a set of one or more columns being declared.
 type DefColumns struct {
 	Columns []*DefColumn
@@ -191,7 +198,14 @@ func (p *DefColumns) Definitions() util.Iterator[SymbolDefinition] {
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
 func (p *DefColumns) Lisp() sexp.SExp {
-	panic("got here")
+	list := sexp.EmptyList()
+	list.Append(sexp.NewSymbol("defcolumns"))
+	// Add lisp for each individual column
+	for _, c := range p.Columns {
+		list.Append(c.Lisp())
+	}
+	// Done
+	return list
 }
 
 // DefColumn packages together those piece relevant to declaring an individual
@@ -254,8 +268,105 @@ func (e *DefColumn) MustProve() bool {
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
 func (e *DefColumn) Lisp() sexp.SExp {
+	list := sexp.EmptyList()
+	list.Append(sexp.NewSymbol(e.name))
+	//
+	if e.binding.dataType != nil {
+		datatype := e.binding.dataType.String()
+		if e.binding.mustProve {
+			datatype = fmt.Sprintf("%s@prove", datatype)
+		}
+
+		list.Append(sexp.NewSymbol(datatype))
+	}
+	//
+	if e.binding.multiplier != 1 {
+		list.Append(sexp.NewSymbol(":multiplier"))
+		list.Append(sexp.NewSymbol(fmt.Sprintf("%d", e.binding.multiplier)))
+	}
+	//
+	if list.Len() == 1 {
+		return list.Get(0)
+	}
+	//
+	return list
+}
+
+// ============================================================================
+// defconst
+// ============================================================================
+
+// DefConst represents the declaration of one of more constant values which can
+// be used within expressions to improve readability.
+type DefConst struct {
+	// List of constant pairs.  Observe that every expression in this list must
+	// be constant (i.e. it cannot refer to column values or call impure
+	// functions, etc).
+	constants []*DefConstUnit
+}
+
+// Definitions returns the set of symbols defined by this declaration.  Observe
+// that these may not yet have been finalised.
+func (p *DefConst) Definitions() util.Iterator[SymbolDefinition] {
+	iter := util.NewArrayIterator[*DefConstUnit](p.constants)
+	return util.NewCastIterator[*DefConstUnit, SymbolDefinition](iter)
+}
+
+// Dependencies needed to signal declaration.
+func (p *DefConst) Dependencies() util.Iterator[Symbol] {
+	var deps []Symbol
+	// Combine dependencies from all constants defined within.
+	for _, d := range p.constants {
+		deps = append(deps, d.binding.value.Dependencies()...)
+	}
+	// Done
+	return util.NewArrayIterator[Symbol](deps)
+}
+
+// Lisp converts this node into its lisp representation.  This is primarily used
+// for debugging purposes.
+func (p *DefConst) Lisp() sexp.SExp {
 	panic("got here")
 }
+
+// DefConstUnit represents the definition of exactly one constant value.  As
+// such, this is an instance of SymbolDefinition and provides a binding.
+type DefConstUnit struct {
+	// Name of the constant being declared.
+	name string
+	// Binding for this constant.
+	binding ConstantBinding
+}
+
+// IsFunction is never true for a constant definition.
+func (e *DefConstUnit) IsFunction() bool {
+	return false
+}
+
+// Binding returns the allocated binding for this symbol (which may or may not
+// be finalised).
+func (e *DefConstUnit) Binding() Binding {
+	return &e.binding
+}
+
+// Name of symbol being defined
+func (e *DefConstUnit) Name() string {
+	return e.name
+}
+
+// Lisp converts this node into its lisp representation.  This is primarily used
+// for debugging purposes.
+//
+//nolint:revive
+func (p *DefConstUnit) Lisp() sexp.SExp {
+	return sexp.NewList([]sexp.SExp{
+		sexp.NewSymbol(p.name),
+		p.binding.value.Lisp()})
+}
+
+// ============================================================================
+// defconstraint
+// ============================================================================
 
 // DefConstraint represents a vanishing constraint, which is either "local" or
 // "global".  A local constraint applies either to the first or last rows,
@@ -308,8 +419,30 @@ func (p *DefConstraint) Dependencies() util.Iterator[Symbol] {
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
 func (p *DefConstraint) Lisp() sexp.SExp {
-	panic("got here")
+	modifiers := sexp.EmptyList()
+	// domain
+	if p.Domain != nil {
+		domain := fmt.Sprintf("{%d}", *p.Domain)
+		//
+		modifiers.Append(sexp.NewSymbol(":domain"))
+		modifiers.Append(sexp.NewSymbol(domain))
+	}
+	//
+	if p.Guard != nil {
+		modifiers.Append(sexp.NewSymbol(":guard"))
+		modifiers.Append(p.Guard.Lisp())
+	}
+	//
+	return sexp.NewList([]sexp.SExp{
+		sexp.NewSymbol("defconstraint"),
+		sexp.NewSymbol(p.Handle),
+		modifiers,
+		p.Constraint.Lisp()})
 }
+
+// ============================================================================
+// definrange
+// ============================================================================
 
 // DefInRange restricts all values for a given expression to be within a range
 // [0..n) for some bound n.  Any bound is supported, and the system will choose
@@ -339,8 +472,16 @@ func (p *DefInRange) Dependencies() util.Iterator[Symbol] {
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
 func (p *DefInRange) Lisp() sexp.SExp {
-	panic("got here")
+	return sexp.NewList([]sexp.SExp{
+		sexp.NewSymbol("definrange"),
+		p.Expr.Lisp(),
+		sexp.NewSymbol(p.Bound.String()),
+	})
 }
+
+// ============================================================================
+// definterleaved
+// ============================================================================
 
 // DefInterleaved generates a new column by interleaving two or more existing
 // colummns.  For example, say Z interleaves X and Y (in that order) and we have
@@ -372,8 +513,22 @@ func (p *DefInterleaved) Dependencies() util.Iterator[Symbol] {
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
 func (p *DefInterleaved) Lisp() sexp.SExp {
-	panic("got here")
+	sources := make([]sexp.SExp, len(p.Sources))
+	// Sources
+	for i, t := range p.Sources {
+		sources[i] = t.Lisp()
+	}
+	//
+	return sexp.NewList([]sexp.SExp{
+		sexp.NewSymbol("definterleaved"),
+		p.Target.Lisp(),
+		sexp.NewList(sources),
+	})
 }
+
+// ============================================================================
+// deflookup
+// ============================================================================
 
 // DefLookup represents a lookup constraint between a set N of source
 // expressions and a set of N target expressions.  The source expressions must
@@ -416,8 +571,28 @@ func (p *DefLookup) Dependencies() util.Iterator[Symbol] {
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
 func (p *DefLookup) Lisp() sexp.SExp {
-	panic("got here")
+	targets := make([]sexp.SExp, len(p.Targets))
+	sources := make([]sexp.SExp, len(p.Sources))
+	// Targets
+	for i, t := range p.Targets {
+		targets[i] = t.Lisp()
+	}
+	// Sources
+	for i, t := range p.Sources {
+		sources[i] = t.Lisp()
+	}
+	//
+	return sexp.NewList([]sexp.SExp{
+		sexp.NewSymbol("deflookup"),
+		sexp.NewSymbol(p.Handle),
+		sexp.NewList(targets),
+		sexp.NewList(sources),
+	})
 }
+
+// ============================================================================
+// defpermutation
+// ============================================================================
 
 // DefPermutation represents a (lexicographically sorted) permutation of a set
 // of source columns in a given source context, manifested as an assignment to a
@@ -444,8 +619,35 @@ func (p *DefPermutation) Dependencies() util.Iterator[Symbol] {
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
 func (p *DefPermutation) Lisp() sexp.SExp {
-	panic("got here")
+	targets := make([]sexp.SExp, len(p.Targets))
+	sources := make([]sexp.SExp, len(p.Sources))
+	// Targets
+	for i, t := range p.Targets {
+		targets[i] = t.Lisp()
+	}
+	// Sources
+	for i, t := range p.Sources {
+		var sign string
+		if p.Signs[i] {
+			sign = "+"
+		} else {
+			sign = "-"
+		}
+		//
+		sources[i] = sexp.NewList([]sexp.SExp{
+			sexp.NewSymbol(sign),
+			t.Lisp()})
+	}
+	//
+	return sexp.NewList([]sexp.SExp{
+		sexp.NewSymbol("defpermutation"),
+		sexp.NewList(targets),
+		sexp.NewList(sources)})
 }
+
+// ============================================================================
+// defproperty
+// ============================================================================
 
 // DefProperty represents an assertion to be used only for debugging / testing /
 // verification.  Unlike vanishing constraints, property assertions do not
@@ -477,8 +679,15 @@ func (p *DefProperty) Dependencies() util.Iterator[Symbol] {
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
 func (p *DefProperty) Lisp() sexp.SExp {
-	panic("got here")
+	return sexp.NewList([]sexp.SExp{
+		sexp.NewSymbol("defproperty"),
+		sexp.NewSymbol(p.Handle),
+		p.Assertion.Lisp()})
 }
+
+// ============================================================================
+// depurefun & defun
+// ============================================================================
 
 // DefFun represents defines a (possibly pure) "function" (which, in actuality,
 // is more like a macro).  Specifically, whenever an invocation of this function
@@ -584,6 +793,10 @@ func (p *DefParameter) Lisp() sexp.SExp {
 	panic("got here")
 }
 
+// ============================================================================
+// Expressions
+// ============================================================================
+
 // Expr represents an arbitrary expression over the columns of a given context
 // (or the parameters of an enclosing function).  Such expressions are pitched
 // at a higher-level than those of the underlying constraint system.  For
@@ -593,6 +806,9 @@ func (p *DefParameter) Lisp() sexp.SExp {
 // techniques (such as introducing computed columns where necessary).
 type Expr interface {
 	Node
+	// Evaluates this expression as a constant (signed) value.  If this
+	// expression is not constant, then nil is returned.
+	AsConstant() *big.Int
 	// Multiplicity defines the number of values which will be returned when
 	// evaluating this expression.  Due to the nature of expressions in Corset,
 	// they can (perhaps surprisingly) return multiple values.  For example,
@@ -623,6 +839,13 @@ type Context = tr.RawContext[string]
 // Add represents the sum over zero or more expressions.
 type Add struct{ Args []Expr }
 
+// AsConstant attempts to evaluate this expression as a constant (signed) value.
+// If this expression is not constant, then nil is returned.
+func (e *Add) AsConstant() *big.Int {
+	fn := func(l *big.Int, r *big.Int) *big.Int { l.Add(l, r); return l }
+	return AsConstantOfExpressions(e.Args, fn)
+}
+
 // Multiplicity determines the number of values that evaluating this expression
 // can generate.
 func (e *Add) Multiplicity() uint {
@@ -639,7 +862,7 @@ func (e *Add) Context() Context {
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
 func (e *Add) Lisp() sexp.SExp {
-	panic("todo")
+	return ListOfExpressions(sexp.NewSymbol("+"), e.Args)
 }
 
 // Substitute all variables (such as for function parameters) arising in
@@ -658,7 +881,13 @@ func (e *Add) Dependencies() []Symbol {
 // ============================================================================
 
 // Constant represents a constant value within an expression.
-type Constant struct{ Val fr.Element }
+type Constant struct{ Val big.Int }
+
+// AsConstant attempts to evaluate this expression as a constant (signed) value.
+// If this expression is not constant, then nil is returned.
+func (e *Constant) AsConstant() *big.Int {
+	return &e.Val
+}
 
 // Multiplicity determines the number of values that evaluating this expression
 // can generate.
@@ -697,7 +926,20 @@ func (e *Constant) Dependencies() []Symbol {
 // Exp represents the a given value taken to a power.
 type Exp struct {
 	Arg Expr
-	Pow uint64
+	Pow Expr
+}
+
+// AsConstant attempts to evaluate this expression as a constant (signed) value.
+// If this expression is not constant, then nil is returned.
+func (e *Exp) AsConstant() *big.Int {
+	arg := e.Arg.AsConstant()
+	pow := e.Pow.AsConstant()
+	// Check if can evaluate
+	if arg != nil && pow != nil {
+		return arg.Exp(arg, pow, nil)
+	}
+	//
+	return nil
 }
 
 // Multiplicity determines the number of values that evaluating this expression
@@ -710,13 +952,16 @@ func (e *Exp) Multiplicity() uint {
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
 func (e *Exp) Context() Context {
-	return ContextOfExpressions([]Expr{e.Arg})
+	return ContextOfExpressions([]Expr{e.Arg, e.Pow})
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
 func (e *Exp) Lisp() sexp.SExp {
-	panic("todo")
+	return sexp.NewList([]sexp.SExp{
+		sexp.NewSymbol("^"),
+		e.Arg.Lisp(),
+		e.Pow.Lisp()})
 }
 
 // Substitute all variables (such as for function parameters) arising in
@@ -727,7 +972,7 @@ func (e *Exp) Substitute(args []Expr) Expr {
 
 // Dependencies needed to signal declaration.
 func (e *Exp) Dependencies() []Symbol {
-	return e.Arg.Dependencies()
+	return DependenciesOfExpressions([]Expr{e.Arg, e.Pow})
 }
 
 // ============================================================================
@@ -743,6 +988,23 @@ type IfZero struct {
 	TrueBranch Expr
 	// False branch (optional).
 	FalseBranch Expr
+}
+
+// AsConstant attempts to evaluate this expression as a constant (signed) value.
+// If this expression is not constant, then nil is returned.
+func (e *IfZero) AsConstant() *big.Int {
+	if condition := e.Condition.AsConstant(); condition != nil {
+		// Determine whether condition holds true (or not).
+		holds := condition.Cmp(big.NewInt(0)) == 0
+		//
+		if holds && e.TrueBranch != nil {
+			return e.TrueBranch.AsConstant()
+		} else if !holds && e.FalseBranch != nil {
+			return e.FalseBranch.AsConstant()
+		}
+	}
+	//
+	return nil
 }
 
 // Multiplicity determines the number of values that evaluating this expression
@@ -761,7 +1023,16 @@ func (e *IfZero) Context() Context {
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
 func (e *IfZero) Lisp() sexp.SExp {
-	panic("todo")
+	if e.FalseBranch != nil {
+		return sexp.NewList([]sexp.SExp{
+			sexp.NewSymbol("if"),
+			e.TrueBranch.Lisp(),
+			e.FalseBranch.Lisp()})
+	}
+	//
+	return sexp.NewList([]sexp.SExp{
+		sexp.NewSymbol("if"),
+		e.TrueBranch.Lisp()})
 }
 
 // Substitute all variables (such as for function parameters) arising in
@@ -779,155 +1050,6 @@ func (e *IfZero) Dependencies() []Symbol {
 }
 
 // ============================================================================
-// List
-// ============================================================================
-
-// List represents a block of zero or more expressions.
-type List struct{ Args []Expr }
-
-// Multiplicity determines the number of values that evaluating this expression
-// can generate.
-func (e *List) Multiplicity() uint {
-	return determineMultiplicity(e.Args)
-}
-
-// Context returns the context for this expression.  Observe that the
-// expression must have been resolved for this to be defined (i.e. it may
-// panic if it has not been resolved yet).
-func (e *List) Context() Context {
-	return ContextOfExpressions(e.Args)
-}
-
-// Lisp converts this schema element into a simple S-Expression, for example
-// so it can be printed.
-func (e *List) Lisp() sexp.SExp {
-	panic("todo")
-}
-
-// Substitute all variables (such as for function parameters) arising in
-// this expression.
-func (e *List) Substitute(args []Expr) Expr {
-	return &List{SubstituteExpressions(e.Args, args)}
-}
-
-// Dependencies needed to signal declaration.
-func (e *List) Dependencies() []Symbol {
-	return DependenciesOfExpressions(e.Args)
-}
-
-// ============================================================================
-// Multiplication
-// ============================================================================
-
-// Mul represents the product over zero or more expressions.
-type Mul struct{ Args []Expr }
-
-// Multiplicity determines the number of values that evaluating this expression
-// can generate.
-func (e *Mul) Multiplicity() uint {
-	return determineMultiplicity(e.Args)
-}
-
-// Context returns the context for this expression.  Observe that the
-// expression must have been resolved for this to be defined (i.e. it may
-// panic if it has not been resolved yet).
-func (e *Mul) Context() Context {
-	return ContextOfExpressions(e.Args)
-}
-
-// Lisp converts this schema element into a simple S-Expression, for example
-// so it can be printed.
-func (e *Mul) Lisp() sexp.SExp {
-	panic("todo")
-}
-
-// Substitute all variables (such as for function parameters) arising in
-// this expression.
-func (e *Mul) Substitute(args []Expr) Expr {
-	return &Mul{SubstituteExpressions(e.Args, args)}
-}
-
-// Dependencies needed to signal declaration.
-func (e *Mul) Dependencies() []Symbol {
-	return DependenciesOfExpressions(e.Args)
-}
-
-// ============================================================================
-// Normalise
-// ============================================================================
-
-// Normalise reduces the value of an expression to either zero (if it was zero)
-// or one (otherwise).
-type Normalise struct{ Arg Expr }
-
-// Multiplicity determines the number of values that evaluating this expression
-// can generate.
-func (e *Normalise) Multiplicity() uint {
-	return determineMultiplicity([]Expr{e.Arg})
-}
-
-// Context returns the context for this expression.  Observe that the
-// expression must have been resolved for this to be defined (i.e. it may
-// panic if it has not been resolved yet).
-func (e *Normalise) Context() Context {
-	return ContextOfExpressions([]Expr{e.Arg})
-}
-
-// Lisp converts this schema element into a simple S-Expression, for example
-// so it can be printed.
-func (e *Normalise) Lisp() sexp.SExp {
-	panic("todo")
-}
-
-// Substitute all variables (such as for function parameters) arising in
-// this expression.
-func (e *Normalise) Substitute(args []Expr) Expr {
-	return &Normalise{e.Arg.Substitute(args)}
-}
-
-// Dependencies needed to signal declaration.
-func (e *Normalise) Dependencies() []Symbol {
-	return e.Arg.Dependencies()
-}
-
-// ============================================================================
-// Subtraction
-// ============================================================================
-
-// Sub represents the subtraction over zero or more expressions.
-type Sub struct{ Args []Expr }
-
-// Multiplicity determines the number of values that evaluating this expression
-// can generate.
-func (e *Sub) Multiplicity() uint {
-	return determineMultiplicity(e.Args)
-}
-
-// Context returns the context for this expression.  Observe that the
-// expression must have been resolved for this to be defined (i.e. it may
-// panic if it has not been resolved yet).
-func (e *Sub) Context() Context {
-	return ContextOfExpressions(e.Args)
-}
-
-// Lisp converts this schema element into a simple S-Expression, for example
-// so it can be printed.
-func (e *Sub) Lisp() sexp.SExp {
-	panic("todo")
-}
-
-// Substitute all variables (such as for function parameters) arising in
-// this expression.
-func (e *Sub) Substitute(args []Expr) Expr {
-	return &Sub{SubstituteExpressions(e.Args, args)}
-}
-
-// Dependencies needed to signal declaration.
-func (e *Sub) Dependencies() []Symbol {
-	return DependenciesOfExpressions(e.Args)
-}
-
-// ============================================================================
 // Function Invocation
 // ============================================================================
 
@@ -937,6 +1059,18 @@ type Invoke struct {
 	name    string
 	args    []Expr
 	binding *FunctionBinding
+}
+
+// AsConstant attempts to evaluate this expression as a constant (signed) value.
+// If this expression is not constant, then nil is returned.
+func (e *Invoke) AsConstant() *big.Int {
+	if e.binding == nil {
+		panic("unresolved invocation")
+	}
+	// Unroll body
+	body := e.binding.Apply(e.args)
+	// Attempt to evaluate as constant
+	return body.AsConstant()
 }
 
 // IsQualified determines whether this symbol is qualfied or not (i.e. has an
@@ -1019,7 +1153,14 @@ func (e *Invoke) Multiplicity() uint {
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
 func (e *Invoke) Lisp() sexp.SExp {
-	panic("todo")
+	var fn sexp.SExp
+	if e.module != nil {
+		fn = sexp.NewSymbol(fmt.Sprintf("%s.%s", *e.module, e.name))
+	} else {
+		fn = sexp.NewSymbol(e.name)
+	}
+
+	return ListOfExpressions(fn, e.args)
 }
 
 // Substitute all variables (such as for function parameters) arising in
@@ -1037,6 +1178,242 @@ func (e *Invoke) Dependencies() []Symbol {
 }
 
 // ============================================================================
+// List
+// ============================================================================
+
+// List represents a block of zero or more expressions.
+type List struct{ Args []Expr }
+
+// AsConstant attempts to evaluate this expression as a constant (signed) value.
+// If this expression is not constant, then nil is returned.
+func (e *List) AsConstant() *big.Int {
+	// Potentially we could do better here, but its not clear we need to.
+	return nil
+}
+
+// Multiplicity determines the number of values that evaluating this expression
+// can generate.
+func (e *List) Multiplicity() uint {
+	return determineMultiplicity(e.Args)
+}
+
+// Context returns the context for this expression.  Observe that the
+// expression must have been resolved for this to be defined (i.e. it may
+// panic if it has not been resolved yet).
+func (e *List) Context() Context {
+	return ContextOfExpressions(e.Args)
+}
+
+// Lisp converts this schema element into a simple S-Expression, for example
+// so it can be printed.
+func (e *List) Lisp() sexp.SExp {
+	return ListOfExpressions(sexp.NewSymbol("begin"), e.Args)
+}
+
+// Substitute all variables (such as for function parameters) arising in
+// this expression.
+func (e *List) Substitute(args []Expr) Expr {
+	return &List{SubstituteExpressions(e.Args, args)}
+}
+
+// Dependencies needed to signal declaration.
+func (e *List) Dependencies() []Symbol {
+	return DependenciesOfExpressions(e.Args)
+}
+
+// ============================================================================
+// Multiplication
+// ============================================================================
+
+// Mul represents the product over zero or more expressions.
+type Mul struct{ Args []Expr }
+
+// AsConstant attempts to evaluate this expression as a constant (signed) value.
+// If this expression is not constant, then nil is returned.
+func (e *Mul) AsConstant() *big.Int {
+	fn := func(l *big.Int, r *big.Int) *big.Int { l.Mul(l, r); return l }
+	return AsConstantOfExpressions(e.Args, fn)
+}
+
+// Multiplicity determines the number of values that evaluating this expression
+// can generate.
+func (e *Mul) Multiplicity() uint {
+	return determineMultiplicity(e.Args)
+}
+
+// Context returns the context for this expression.  Observe that the
+// expression must have been resolved for this to be defined (i.e. it may
+// panic if it has not been resolved yet).
+func (e *Mul) Context() Context {
+	return ContextOfExpressions(e.Args)
+}
+
+// Lisp converts this schema element into a simple S-Expression, for example
+// so it can be printed.
+func (e *Mul) Lisp() sexp.SExp {
+	return ListOfExpressions(sexp.NewSymbol("*"), e.Args)
+}
+
+// Substitute all variables (such as for function parameters) arising in
+// this expression.
+func (e *Mul) Substitute(args []Expr) Expr {
+	return &Mul{SubstituteExpressions(e.Args, args)}
+}
+
+// Dependencies needed to signal declaration.
+func (e *Mul) Dependencies() []Symbol {
+	return DependenciesOfExpressions(e.Args)
+}
+
+// ============================================================================
+// Normalise
+// ============================================================================
+
+// Normalise reduces the value of an expression to either zero (if it was zero)
+// or one (otherwise).
+type Normalise struct{ Arg Expr }
+
+// AsConstant attempts to evaluate this expression as a constant (signed) value.
+// If this expression is not constant, then nil is returned.
+func (e *Normalise) AsConstant() *big.Int {
+	// FIXME: we could do better here.
+	return nil
+}
+
+// Multiplicity determines the number of values that evaluating this expression
+// can generate.
+func (e *Normalise) Multiplicity() uint {
+	return determineMultiplicity([]Expr{e.Arg})
+}
+
+// Context returns the context for this expression.  Observe that the
+// expression must have been resolved for this to be defined (i.e. it may
+// panic if it has not been resolved yet).
+func (e *Normalise) Context() Context {
+	return ContextOfExpressions([]Expr{e.Arg})
+}
+
+// Lisp converts this schema element into a simple S-Expression, for example
+// so it can be printed.
+func (e *Normalise) Lisp() sexp.SExp {
+	return sexp.NewList([]sexp.SExp{
+		sexp.NewSymbol("~"),
+		e.Arg.Lisp()})
+}
+
+// Substitute all variables (such as for function parameters) arising in
+// this expression.
+func (e *Normalise) Substitute(args []Expr) Expr {
+	return &Normalise{e.Arg.Substitute(args)}
+}
+
+// Dependencies needed to signal declaration.
+func (e *Normalise) Dependencies() []Symbol {
+	return e.Arg.Dependencies()
+}
+
+// ============================================================================
+// Subtraction
+// ============================================================================
+
+// Sub represents the subtraction over zero or more expressions.
+type Sub struct{ Args []Expr }
+
+// AsConstant attempts to evaluate this expression as a constant (signed) value.
+// If this expression is not constant, then nil is returned.
+func (e *Sub) AsConstant() *big.Int {
+	fn := func(l *big.Int, r *big.Int) *big.Int { l.Sub(l, r); return l }
+	return AsConstantOfExpressions(e.Args, fn)
+}
+
+// Multiplicity determines the number of values that evaluating this expression
+// can generate.
+func (e *Sub) Multiplicity() uint {
+	return determineMultiplicity(e.Args)
+}
+
+// Context returns the context for this expression.  Observe that the
+// expression must have been resolved for this to be defined (i.e. it may
+// panic if it has not been resolved yet).
+func (e *Sub) Context() Context {
+	return ContextOfExpressions(e.Args)
+}
+
+// Lisp converts this schema element into a simple S-Expression, for example
+// so it can be printed.
+func (e *Sub) Lisp() sexp.SExp {
+	return ListOfExpressions(sexp.NewSymbol("-"), e.Args)
+}
+
+// Substitute all variables (such as for function parameters) arising in
+// this expression.
+func (e *Sub) Substitute(args []Expr) Expr {
+	return &Sub{SubstituteExpressions(e.Args, args)}
+}
+
+// Dependencies needed to signal declaration.
+func (e *Sub) Dependencies() []Symbol {
+	return DependenciesOfExpressions(e.Args)
+}
+
+// ============================================================================
+// Shift
+// ============================================================================
+
+// Shift represents the result of a given expression shifted by a certain
+// amount.  In reality, the shift amount must be statically known.  However, it
+// is represented here as an expression to allow for constants and the results
+// of function invocations, etc to be used.  In all cases, these must still be
+// eventually translated into constant values however.
+type Shift struct {
+	// The expression being shifted
+	Arg Expr
+	// The amount it is being shifted by.
+	Shift Expr
+}
+
+// AsConstant attempts to evaluate this expression as a constant (signed) value.
+// If this expression is not constant, then nil is returned.
+func (e *Shift) AsConstant() *big.Int {
+	// Observe the shift doesn't matter as, in the case that the argument is a
+	// constant, then the shift has no effect anyway.
+	return e.Arg.AsConstant()
+}
+
+// Multiplicity determines the number of values that evaluating this expression
+// can generate.
+func (e *Shift) Multiplicity() uint {
+	return determineMultiplicity([]Expr{e.Arg})
+}
+
+// Context returns the context for this expression.  Observe that the
+// expression must have been resolved for this to be defined (i.e. it may
+// panic if it has not been resolved yet).
+func (e *Shift) Context() Context {
+	return ContextOfExpressions([]Expr{e.Arg, e.Shift})
+}
+
+// Lisp converts this schema element into a simple S-Expression, for example
+// so it can be printed.
+func (e *Shift) Lisp() sexp.SExp {
+	return sexp.NewList([]sexp.SExp{
+		sexp.NewSymbol("shift"),
+		e.Arg.Lisp(),
+		e.Shift.Lisp()})
+}
+
+// Substitute all variables (such as for function parameters) arising in
+// this expression.
+func (e *Shift) Substitute(args []Expr) Expr {
+	return &Shift{e.Arg.Substitute(args), e.Shift.Substitute(args)}
+}
+
+// Dependencies needed to signal declaration.
+func (e *Shift) Dependencies() []Symbol {
+	return DependenciesOfExpressions([]Expr{e.Arg, e.Shift})
+}
+
+// ============================================================================
 // VariableAccess
 // ============================================================================
 
@@ -1045,8 +1422,17 @@ func (e *Invoke) Dependencies() []Symbol {
 type VariableAccess struct {
 	module  *string
 	name    string
-	shift   int
 	binding Binding
+}
+
+// AsConstant attempts to evaluate this expression as a constant (signed) value.
+// If this expression is not constant, then nil is returned.
+func (e *VariableAccess) AsConstant() *big.Int {
+	if binding, ok := e.binding.(*ConstantBinding); ok {
+		return binding.value.AsConstant()
+	}
+	// not a constant
+	return nil
 }
 
 // IsQualified determines whether this symbol is qualfied or not (i.e. has an
@@ -1099,11 +1485,6 @@ func (e *VariableAccess) Binding() Binding {
 	return e.binding
 }
 
-// Shift returns the row shift (if any) associated with this variable access.
-func (e *VariableAccess) Shift() int {
-	return e.shift
-}
-
 // Multiplicity determines the number of values that evaluating this expression
 // can generate.
 func (e *VariableAccess) Multiplicity() uint {
@@ -1126,18 +1507,20 @@ func (e *VariableAccess) Context() Context {
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.a
 func (e *VariableAccess) Lisp() sexp.SExp {
-	panic("todo")
+	var name string
+	if e.module != nil {
+		name = fmt.Sprintf("%s.%s", *e.module, e.name)
+	} else {
+		name = e.name
+	}
+	//
+	return sexp.NewSymbol(name)
 }
 
 // Substitute all variables (such as for function parameters) arising in
 // this expression.
 func (e *VariableAccess) Substitute(args []Expr) Expr {
 	if b, ok := e.binding.(*ParameterBinding); ok {
-		// This is a variable to be substituted.
-		if e.shift != 0 {
-			panic("support variable shifts")
-		}
-		//
 		return args[b.index]
 	}
 	// Nothing to do here
@@ -1202,6 +1585,39 @@ func DependenciesOfExpressions(exprs []Expr) []Symbol {
 	}
 	//
 	return deps
+}
+
+// ListOfExpressions converts an array of one or more expressions into a list of
+// corresponding lisp expressions.
+func ListOfExpressions(head sexp.SExp, exprs []Expr) *sexp.List {
+	lisps := make([]sexp.SExp, len(exprs)+1)
+	// Assign head
+	lisps[0] = head
+	//
+	for i, e := range exprs {
+		lisps[i+1] = e.Lisp()
+	}
+	//
+	return sexp.NewList(lisps)
+}
+
+// AsConstantOfExpressions attempts to fold one or more expressions across a
+// given operation (e.g. add, subtract, etc) to produce a constant value.  If
+// any of the expressions are not themselves constant, then neither is the
+// result.
+func AsConstantOfExpressions(exprs []Expr, fn func(*big.Int, *big.Int) *big.Int) *big.Int {
+	var val *big.Int = big.NewInt(0)
+	//
+	for _, arg := range exprs {
+		c := arg.AsConstant()
+		if c == nil {
+			return nil
+		}
+		// Evaluate function
+		val = fn(val, c)
+	}
+	//
+	return val
 }
 
 func determineMultiplicity(exprs []Expr) uint {

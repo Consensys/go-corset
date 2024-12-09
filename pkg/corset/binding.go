@@ -25,6 +25,10 @@ type Binding interface {
 	IsFinalised() bool
 }
 
+// ============================================================================
+// ColumnBinding
+// ============================================================================
+
 // ColumnBinding represents something bound to a given column.
 type ColumnBinding struct {
 	// Column's allocated identifier
@@ -72,11 +76,40 @@ func (p *ColumnBinding) ColumnId() uint {
 	return p.cid
 }
 
+// ============================================================================
+// ConstantBinding
+// ============================================================================
+
+// ConstantBinding represents a constant definition
+type ConstantBinding struct {
+	// Constant expression which, when evaluated, produces a constant value.
+	value Expr
+}
+
+// IsFinalised checks whether this binding has been finalised yet or not.
+func (p *ConstantBinding) IsFinalised() bool {
+	return true
+}
+
+// Context returns the of this constant, noting that constants (by definition)
+// do not have a context.
+func (p *ConstantBinding) Context() Context {
+	return tr.VoidContext[string]()
+}
+
+// ============================================================================
+// ParameterBinding
+// ============================================================================
+
 // ParameterBinding represents something bound to a given column.
 type ParameterBinding struct {
 	// Identifies the variable or column index (as appropriate).
 	index uint
 }
+
+// ============================================================================
+// FunctionBinding
+// ============================================================================
 
 // IsFinalised checks whether this binding has been finalised yet or not.
 func (p *ParameterBinding) IsFinalised() bool {

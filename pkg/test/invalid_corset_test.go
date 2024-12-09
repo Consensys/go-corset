@@ -67,6 +67,68 @@ func Test_Invalid_Basic_12(t *testing.T) {
 }
 
 // ===================================================================
+// Constant Tests
+// ===================================================================
+func Test_Invalid_Constant_01(t *testing.T) {
+	CheckInvalid(t, "constant_invalid_01")
+}
+
+func Test_Invalid_Constant_02(t *testing.T) {
+	CheckInvalid(t, "constant_invalid_02")
+}
+
+func Test_Invalid_Constant_03(t *testing.T) {
+	CheckInvalid(t, "constant_invalid_03")
+}
+
+func Test_Invalid_Constant_04(t *testing.T) {
+	CheckInvalid(t, "constant_invalid_04")
+}
+
+func Test_Invalid_Constant_05(t *testing.T) {
+	CheckInvalid(t, "constant_invalid_05")
+}
+
+/* Recursive --- #406
+  func Test_Invalid_Constant_06(t *testing.T) {
+	CheckInvalid(t, "constant_invalid_06")
+} */
+
+/* Recursive --- #406
+  func Test_Invalid_Constant_07(t *testing.T) {
+	CheckInvalid(t, "constant_invalid_07")
+}
+*/
+/* Recursive --- #406
+  func Test_Invalid_Constant_08(t *testing.T) {
+	CheckInvalid(t, "constant_invalid_08")
+} */
+
+func Test_Invalid_Constant_09(t *testing.T) {
+	CheckInvalid(t, "constant_invalid_09")
+}
+
+func Test_Invalid_Constant_10(t *testing.T) {
+	CheckInvalid(t, "constant_invalid_10")
+}
+
+func Test_Invalid_Constant_11(t *testing.T) {
+	CheckInvalid(t, "constant_invalid_11")
+}
+
+func Test_Invalid_Constant_12(t *testing.T) {
+	CheckInvalid(t, "constant_invalid_12")
+}
+
+func Test_Invalid_Constant_13(t *testing.T) {
+	CheckInvalid(t, "constant_invalid_13")
+}
+
+func Test_Invalid_Constant_14(t *testing.T) {
+	CheckInvalid(t, "constant_invalid_14")
+}
+
+// ===================================================================
 // Property Tests
 // ===================================================================
 func Test_Invalid_Property_01(t *testing.T) {
