@@ -347,7 +347,9 @@ func (t *translator) translateExpressionsInModule(exprs []Expr, module string) (
 func (t *translator) translateExpressionInModule(expr Expr, module string, shift int) (hir.Expr, []SyntaxError) {
 	if e, ok := expr.(*Constant); ok {
 		var val fr.Element
+		// Initialise field from bigint
 		val.SetBigInt(&e.Val)
+		//
 		return &hir.Constant{Val: val}, nil
 	} else if v, ok := expr.(*Add); ok {
 		args, errs := t.translateExpressionsInModule(v.Args, module)
@@ -423,7 +425,8 @@ func (t *translator) translateShiftInModule(expr *Shift, module string, shift in
 	return t.translateExpressionInModule(expr.Arg, module, shift+int(constant.Int64()))
 }
 
-func (t *translator) translateVariableAccessInModule(expr *VariableAccess, module string, shift int) (hir.Expr, []SyntaxError) {
+func (t *translator) translateVariableAccessInModule(expr *VariableAccess, module string,
+	shift int) (hir.Expr, []SyntaxError) {
 	if binding, ok := expr.Binding().(*ColumnBinding); ok {
 		// Lookup column binding
 		cinfo := t.env.Column(binding.module, expr.Name())
