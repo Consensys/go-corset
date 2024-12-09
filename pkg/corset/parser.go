@@ -260,7 +260,6 @@ func (p *Parser) parseDeclaration(module string, s *sexp.List) (Declaration, []S
 	}
 	// Register node if appropriate
 	if decl != nil {
-		fmt.Println(decl.Lisp().String(false))
 		p.mapSourceNode(s, decl)
 	}
 	// done

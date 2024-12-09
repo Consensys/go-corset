@@ -679,7 +679,10 @@ func (p *DefProperty) Dependencies() util.Iterator[Symbol] {
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
 func (p *DefProperty) Lisp() sexp.SExp {
-	panic("got here")
+	return sexp.NewList([]sexp.SExp{
+		sexp.NewSymbol("defproperty"),
+		sexp.NewSymbol(p.Handle),
+		p.Assertion.Lisp()})
 }
 
 // ============================================================================
