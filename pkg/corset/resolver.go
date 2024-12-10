@@ -238,7 +238,7 @@ func (r *resolver) declarationDependenciesAreFinalised(scope *ModuleScope,
 			errors = append(errors, *r.srcmap.SyntaxError(symbol, "unknown symbol"))
 			// not finalised yet
 			finalised = false
-		} else if !symbol.Binding().IsFinalised() {
+		} else if symbol.IsResolved() && !symbol.Binding().IsFinalised() {
 			// no, not finalised
 			finalised = false
 		}

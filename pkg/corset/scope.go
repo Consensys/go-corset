@@ -133,9 +133,7 @@ func (p *ModuleScope) Bind(symbol Symbol) bool {
 		// Extract binding
 		binding := p.bindings[bid]
 		// Resolve symbol
-		symbol.Resolve(binding)
-		// Success
-		return true
+		return symbol.Resolve(binding)
 	}
 	// failed
 	return false
@@ -286,9 +284,7 @@ func (p LocalScope) Bind(symbol Symbol) bool {
 	// Check whether this is a local variable access.
 	if id, ok := p.locals[symbol.Name()]; ok && !symbol.IsFunction() && !symbol.IsQualified() {
 		// Yes, this is a local variable access.
-		symbol.Resolve(&ParameterBinding{id})
-		// Success
-		return true
+		return symbol.Resolve(&ParameterBinding{id})
 	}
 	// No, this is not a local variable access.
 	return p.enclosing.Bind(symbol)

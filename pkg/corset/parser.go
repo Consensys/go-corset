@@ -293,7 +293,7 @@ func (p *Parser) parseDefAlias(functions bool, elements []sexp.SExp) (Declaratio
 			errors = append(errors, *p.translator.SyntaxError(elements[i+1], "invalid alias definition"))
 		} else {
 			alias := &DefAlias{elements[i].AsSymbol().Value}
-			name := &Name{elements[i+1].AsSymbol().Value, functions, nil}
+			name := NewName[Binding](elements[i+1].AsSymbol().Value, functions)
 			p.mapSourceNode(elements[i], alias)
 			p.mapSourceNode(elements[i+1], name)
 			//
@@ -454,7 +454,7 @@ func (p *Parser) parseDefInterleaved(module string, elements []sexp.SExp) (Decla
 			return nil, p.translator.SyntaxError(ith, "malformed source column")
 		}
 		// Extract column name
-		sources[i] = &Name{ith.AsSymbol().Value, false, nil}
+		sources[i] = NewColumnName(ith.AsSymbol().Value)
 		p.mapSourceNode(ith, sources[i])
 	}
 	//
@@ -538,10 +538,10 @@ func (p *Parser) parseDefPermutation(module string, elements []sexp.SExp) (Decla
 	return &DefPermutation{targets, sources, signs}, nil
 }
 
-func (p *Parser) parsePermutedColumnDeclaration(signRequired bool, e sexp.SExp) (*Name, bool, *SyntaxError) {
+func (p *Parser) parsePermutedColumnDeclaration(signRequired bool, e sexp.SExp) (*ColumnName, bool, *SyntaxError) {
 	var (
 		err  *SyntaxError
-		name *Name
+		name *ColumnName
 		sign bool
 	)
 	// Check whether extended declaration or not.
@@ -559,11 +559,11 @@ func (p *Parser) parsePermutedColumnDeclaration(signRequired bool, e sexp.SExp) 
 			return nil, false, err
 		}
 		// Parse column name
-		name = &Name{l.Get(1).AsSymbol().Value, false, nil}
+		name = NewColumnName(l.Get(1).AsSymbol().Value)
 	} else if signRequired {
 		return nil, false, p.translator.SyntaxError(e, "missing sort direction")
 	} else {
-		name = &Name{e.String(false), false, nil}
+		name = NewColumnName(e.String(false))
 	}
 	// Update source mapping
 	p.mapSourceNode(e, name)
