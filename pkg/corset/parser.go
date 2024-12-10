@@ -917,5 +917,5 @@ func isIdentifierStart(c rune) bool {
 }
 
 func isIdentifierMiddle(c rune) bool {
-	return unicode.IsDigit(c) || isIdentifierStart(c) || c == '-'
+	return unicode.IsDigit(c) || isIdentifierStart(c) || c == '-' || c == '!'
 }
