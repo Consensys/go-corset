@@ -242,7 +242,9 @@ func (p *Parser) parseDeclaration(module string, s *sexp.List) (Declaration, []S
 	} else if s.Len() == 4 && s.MatchSymbols(2, "defconstraint") {
 		decl, errors = p.parseDefConstraint(s.Elements)
 	} else if s.Len() == 3 && s.MatchSymbols(1, "defpurefun") {
-		decl, errors = p.parseDefPureFun(s.Elements)
+		decl, errors = p.parseDefFun(true, s.Elements)
+	} else if s.Len() == 3 && s.MatchSymbols(1, "defun") {
+		decl, errors = p.parseDefFun(false, s.Elements)
 	} else if s.Len() == 3 && s.MatchSymbols(1, "definrange") {
 		decl, err = p.parseDefInRange(s.Elements)
 	} else if s.Len() == 3 && s.MatchSymbols(1, "definterleaved") {
@@ -596,7 +598,7 @@ func (p *Parser) parseDefProperty(elements []sexp.SExp) (Declaration, *SyntaxErr
 }
 
 // Parse a permutation declaration
-func (p *Parser) parseDefPureFun(elements []sexp.SExp) (Declaration, []SyntaxError) {
+func (p *Parser) parseDefFun(pure bool, elements []sexp.SExp) (Declaration, []SyntaxError) {
 	var (
 		name      string
 		ret       sc.Type
@@ -628,7 +630,7 @@ func (p *Parser) parseDefPureFun(elements []sexp.SExp) (Declaration, []SyntaxErr
 	// Construct binding
 	binding := NewFunctionBinding(true, paramTypes, ret, body)
 	//
-	return &DefFun{name, params, binding}, nil
+	return &DefFun{name, pure, params, binding}, nil
 }
 
 func (p *Parser) parseFunctionSignature(elements []sexp.SExp) (string, sc.Type, []*DefParameter, []SyntaxError) {

@@ -340,6 +340,27 @@ func Test_Invalid_Interleave_09(t *testing.T) {
 // Functions
 // ===================================================================
 
+func Test_Invalid_Fun_01(t *testing.T) {
+	CheckInvalid(t, "fun_invalid_01")
+}
+
+func Test_Invalid_Fun_02(t *testing.T) {
+	CheckInvalid(t, "fun_invalid_02")
+}
+
+func Test_Invalid_Fun_03(t *testing.T) {
+	CheckInvalid(t, "fun_invalid_03")
+}
+
+/*
+func Test_Invalid_Fun_04(t *testing.T) {
+	CheckInvalid(t, "fun_invalid_04")
+} */
+
+// ===================================================================
+// Pure Functions
+// ===================================================================
+
 func Test_Invalid_PureFun_01(t *testing.T) {
 	CheckInvalid(t, "purefun_invalid_01")
 }
