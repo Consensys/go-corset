@@ -111,46 +111,50 @@ type Assignment interface {
 	Resolve(*Environment) ([]ColumnAssignment, []SyntaxError)
 }
 
-// ColumnName represents a name within some syntactic item.  Essentially this wraps a
+// Name represents a name within some syntactic item.  Essentially this wraps a
 // string and provides a mechanism for it to be associated with source line
 // information.
-type ColumnName struct {
-	name    string
+type Name struct {
+	// Name of symbol
+	name string
+	// Indicates whether represents function or something else.
+	function bool
+	// Binding constructed for symbol.
 	binding Binding
 }
 
 // IsQualified determines whether this symbol is qualfied or not (i.e. has an
 // explicit module specifier).  Column names are never qualified.
-func (e *ColumnName) IsQualified() bool {
+func (e *Name) IsQualified() bool {
 	return false
 }
 
 // IsFunction indicates whether or not this symbol refers to a function (which
 // of course it never does).
-func (e *ColumnName) IsFunction() bool {
-	return false
+func (e *Name) IsFunction() bool {
+	return e.function
 }
 
 // IsResolved checks whether this symbol has been resolved already, or not.
-func (e *ColumnName) IsResolved() bool {
+func (e *Name) IsResolved() bool {
 	return e.binding != nil
 }
 
 // Module returns the optional module qualification.  This always panics because
 // column name's are never qualified.
-func (e *ColumnName) Module() string {
+func (e *Name) Module() string {
 	panic("undefined")
 }
 
 // Name returns the (unqualified) name of the column to which this symbol
 // refers.
-func (e *ColumnName) Name() string {
+func (e *Name) Name() string {
 	return e.name
 }
 
 // Binding gets binding associated with this interface.  This will panic if this
 // symbol is not yet resolved.
-func (e *ColumnName) Binding() Binding {
+func (e *Name) Binding() Binding {
 	if e.binding == nil {
 		panic("name not yet resolved")
 	}
@@ -160,7 +164,7 @@ func (e *ColumnName) Binding() Binding {
 
 // Resolve this symbol by associating it with the binding associated with
 // the definition of the symbol to which this refers.
-func (e *ColumnName) Resolve(binding Binding) {
+func (e *Name) Resolve(binding Binding) {
 	if e.binding != nil {
 		panic("name already resolved")
 	}
@@ -170,7 +174,7 @@ func (e *ColumnName) Resolve(binding Binding) {
 
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
-func (e *ColumnName) Lisp() sexp.SExp {
+func (e *Name) Lisp() sexp.SExp {
 	return sexp.NewSymbol(e.name)
 }
 
@@ -181,6 +185,8 @@ func (e *ColumnName) Lisp() sexp.SExp {
 // DefAliases represents the declaration of one or more aliases.  That is,
 // alternate names for existing symbols.
 type DefAliases struct {
+	// Distinguishes defalias from defunalias
+	functions bool
 	// Aliases
 	aliases []*DefAlias
 	// Symbols being aliased
@@ -210,9 +216,16 @@ func (p *DefAliases) Lisp() sexp.SExp {
 		pairs.Append(p.symbols[i].Lisp())
 	}
 	//
+	var name *sexp.Symbol
+	//
+	if p.functions {
+		name = sexp.NewSymbol("defunalias")
+	} else {
+		name = sexp.NewSymbol("defalias")
+	}
+	//
 	return sexp.NewList([]sexp.SExp{
-		sexp.NewSymbol("defalias"),
-		pairs,
+		name, pairs,
 	})
 }
 

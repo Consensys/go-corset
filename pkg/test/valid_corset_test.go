@@ -120,6 +120,21 @@ func Test_Alias_06(t *testing.T) {
 }
 
 // ===================================================================
+// Function Alias Tests
+// ===================================================================
+func Test_FunAlias_01(t *testing.T) {
+	Check(t, "funalias_01")
+}
+
+func Test_FunAlias_02(t *testing.T) {
+	Check(t, "funalias_02")
+}
+
+func Test_FunAlias_03(t *testing.T) {
+	Check(t, "funalias_03")
+}
+
+// ===================================================================
 // Domain Tests
 // ===================================================================
 
