@@ -539,6 +539,34 @@ func Test_Interleave_04(t *testing.T) {
 // Functions
 // ===================================================================
 
+func Test_Fun_01(t *testing.T) {
+	Check(t, "fun_01")
+}
+
+func Test_Fun_02(t *testing.T) {
+	Check(t, "fun_02")
+}
+
+func Test_Fun_03(t *testing.T) {
+	Check(t, "fun_03")
+}
+
+func Test_Fun_04(t *testing.T) {
+	Check(t, "fun_04")
+}
+
+func Test_Fun_05(t *testing.T) {
+	Check(t, "fun_05")
+}
+
+func Test_Fun_06(t *testing.T) {
+	Check(t, "fun_06")
+}
+
+// ===================================================================
+// Pure Functions
+// ===================================================================
+
 func Test_PureFun_01(t *testing.T) {
 	Check(t, "purefun_01")
 }
@@ -552,6 +580,10 @@ func Test_PureFun_02(t *testing.T) {
 		Check(t, "purefun_03")
 	}
 */
+
+func Test_PureFun_04(t *testing.T) {
+	Check(t, "purefun_04")
+}
 
 // ===================================================================
 // Complex Tests
