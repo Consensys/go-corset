@@ -128,6 +128,18 @@ func Test_Invalid_Constant_14(t *testing.T) {
 	CheckInvalid(t, "constant_invalid_14")
 }
 
+func Test_Invalid_Constant_15(t *testing.T) {
+	CheckInvalid(t, "constant_invalid_15")
+}
+
+func Test_Invalid_Constant_16(t *testing.T) {
+	CheckInvalid(t, "constant_invalid_16")
+}
+
+func Test_Invalid_Constant_17(t *testing.T) {
+	CheckInvalid(t, "constant_invalid_17")
+}
+
 // ===================================================================
 // Alias Tests
 // ===================================================================
@@ -373,11 +385,10 @@ func Test_Invalid_PureFun_03(t *testing.T) {
 	CheckInvalid(t, "purefun_invalid_03")
 }
 
-/*
-	func Test_Invalid_PureFun_04(t *testing.T) {
-		CheckInvalid(t, "purefun_invalid_04")
-	}
-*/
+func Test_Invalid_PureFun_04(t *testing.T) {
+	CheckInvalid(t, "purefun_invalid_04")
+}
+
 func Test_Invalid_PureFun_05(t *testing.T) {
 	CheckInvalid(t, "purefun_invalid_05")
 }
@@ -387,6 +398,10 @@ func Test_Invalid_PureFun_05(t *testing.T) {
 		CheckInvalid(t, "purefun_invalid_06")
 	}
 */
+
+func Test_Invalid_PureFun_07(t *testing.T) {
+	CheckInvalid(t, "purefun_invalid_07")
+}
 
 // ===================================================================
 // Test Helpers

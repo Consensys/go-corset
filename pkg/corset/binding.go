@@ -134,6 +134,11 @@ func NewFunctionBinding(pure bool, paramTypes []sc.Type, returnType sc.Type, bod
 	return FunctionBinding{pure, paramTypes, returnType, body}
 }
 
+// IsPure checks whether this is a defpurefun or not
+func (p *FunctionBinding) IsPure() bool {
+	return p.pure
+}
+
 // IsFinalised checks whether this binding has been finalised yet or not.
 func (p *FunctionBinding) IsFinalised() bool {
 	return p.returnType != nil

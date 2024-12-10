@@ -208,6 +208,9 @@ func (p *ModuleScope) Alias(alias string, symbol Symbol) bool {
 // which must be evaluated within.
 type LocalScope struct {
 	global bool
+	// Determines whether or not this scope is "pure" (i.e. whether or not
+	// columns can be accessed, etc).
+	pure bool
 	// Represents the enclosing scope
 	enclosing Scope
 	// Context for this scope
@@ -220,11 +223,11 @@ type LocalScope struct {
 // local scope can have local variables declared within it.  A local scope can
 // also be "global" in the sense that accessing symbols from other modules is
 // permitted.
-func NewLocalScope(enclosing Scope, global bool) LocalScope {
+func NewLocalScope(enclosing Scope, global bool, pure bool) LocalScope {
 	context := tr.VoidContext[string]()
 	locals := make(map[string]uint)
 	//
-	return LocalScope{global, enclosing, &context, locals}
+	return LocalScope{global, pure, enclosing, &context, locals}
 }
 
 // NestedScope creates a nested scope within this local scope.
@@ -235,13 +238,32 @@ func (p LocalScope) NestedScope() LocalScope {
 		nlocals[k] = v
 	}
 	// Done
-	return LocalScope{p.global, p.enclosing, p.context, nlocals}
+	return LocalScope{p.global, p.pure, p, p.context, nlocals}
+}
+
+// NestedPureScope creates a nested scope within this local scope which, in
+// addition, is always pure.
+func (p LocalScope) NestedPureScope() LocalScope {
+	nlocals := make(map[string]uint)
+	// Clone allocated variables
+	for k, v := range p.locals {
+		nlocals[k] = v
+	}
+	// Done
+	return LocalScope{p.global, true, p, p.context, nlocals}
 }
 
 // IsGlobal determines whether symbols can be accessed in modules other than the
 // enclosing module.
 func (p LocalScope) IsGlobal() bool {
 	return p.global
+}
+
+// IsPure determines whether or not this scope is pure.  That is, whether or not
+// expressions in this scope are permitted to access columns (either directly,
+// or indirectly via impure invocations).
+func (p LocalScope) IsPure() bool {
+	return p.pure
 }
 
 // FixContext fixes the context for this scope.  Since every scope requires
