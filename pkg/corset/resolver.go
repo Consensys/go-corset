@@ -250,7 +250,7 @@ func (r *resolver) declarationDependenciesAreFinalised(scope *ModuleScope,
 // Finalise a declaration.
 func (r *resolver) finaliseDeclaration(scope *ModuleScope, decl Declaration) []SyntaxError {
 	if d, ok := decl.(*DefConst); ok {
-		return r.finaliseDefConstInModule(d)
+		return r.finaliseDefConstInModule(scope, d)
 	} else if d, ok := decl.(*DefConstraint); ok {
 		return r.finaliseDefConstraintInModule(scope, d)
 	} else if d, ok := decl.(*DefFun); ok {
@@ -273,10 +273,14 @@ func (r *resolver) finaliseDeclaration(scope *ModuleScope, decl Declaration) []S
 // Finalise one or more constant definitions within a given module.
 // Specifically, we need to check that the constant values provided are indeed
 // constants.
-func (r *resolver) finaliseDefConstInModule(decl *DefConst) []SyntaxError {
+func (r *resolver) finaliseDefConstInModule(enclosing Scope, decl *DefConst) []SyntaxError {
 	var errors []SyntaxError
 	//
 	for _, c := range decl.constants {
+		scope := NewLocalScope(enclosing, false, true)
+		// Resolve constant body
+		errors = append(errors, r.finaliseExpressionInModule(scope, c.binding.value)...)
+		// Check it is indeed constant!
 		if constant := c.binding.value.AsConstant(); constant == nil {
 			err := r.srcmap.SyntaxError(c, "definition not constant")
 			errors = append(errors, *err)
@@ -292,7 +296,7 @@ func (r *resolver) finaliseDefConstInModule(decl *DefConst) []SyntaxError {
 func (r *resolver) finaliseDefConstraintInModule(enclosing Scope, decl *DefConstraint) []SyntaxError {
 	var (
 		errors []SyntaxError
-		scope  = NewLocalScope(enclosing, false)
+		scope  = NewLocalScope(enclosing, false, false)
 	)
 	// Resolve guard
 	if decl.Guard != nil {
@@ -385,7 +389,7 @@ func (r *resolver) finaliseDefPermutationInModule(decl *DefPermutation) []Syntax
 func (r *resolver) finaliseDefInRangeInModule(enclosing Scope, decl *DefInRange) []SyntaxError {
 	var (
 		errors []SyntaxError
-		scope  = NewLocalScope(enclosing, false)
+		scope  = NewLocalScope(enclosing, false, false)
 	)
 	// Resolve property body
 	errors = append(errors, r.finaliseExpressionInModule(scope, decl.Expr)...)
@@ -401,7 +405,7 @@ func (r *resolver) finaliseDefInRangeInModule(enclosing Scope, decl *DefInRange)
 func (r *resolver) finaliseDefFunInModule(enclosing Scope, decl *DefFun) []SyntaxError {
 	var (
 		errors []SyntaxError
-		scope  = NewLocalScope(enclosing, false)
+		scope  = NewLocalScope(enclosing, false, decl.IsPure())
 	)
 	// Declare parameters in local scope
 	for _, p := range decl.Parameters() {
@@ -417,8 +421,8 @@ func (r *resolver) finaliseDefFunInModule(enclosing Scope, decl *DefFun) []Synta
 func (r *resolver) finaliseDefLookupInModule(enclosing Scope, decl *DefLookup) []SyntaxError {
 	var (
 		errors      []SyntaxError
-		sourceScope = NewLocalScope(enclosing, true)
-		targetScope = NewLocalScope(enclosing, true)
+		sourceScope = NewLocalScope(enclosing, true, false)
+		targetScope = NewLocalScope(enclosing, true, false)
 	)
 	// Resolve source expressions
 	errors = append(errors, r.finaliseExpressionsInModule(sourceScope, decl.Sources)...)
@@ -432,7 +436,7 @@ func (r *resolver) finaliseDefLookupInModule(enclosing Scope, decl *DefLookup) [
 func (r *resolver) finaliseDefPropertyInModule(enclosing Scope, decl *DefProperty) []SyntaxError {
 	var (
 		errors []SyntaxError
-		scope  = NewLocalScope(enclosing, false)
+		scope  = NewLocalScope(enclosing, false, false)
 	)
 	// Resolve property body
 	errors = append(errors, r.finaliseExpressionInModule(scope, decl.Assertion)...)
@@ -466,7 +470,11 @@ func (r *resolver) finaliseExpressionInModule(scope LocalScope, expr Expr) []Syn
 	} else if v, ok := expr.(*Add); ok {
 		return r.finaliseExpressionsInModule(scope, v.Args)
 	} else if v, ok := expr.(*Exp); ok {
-		return r.finaliseExpressionsInModule(scope, []Expr{v.Arg, v.Pow})
+		purescope := scope.NestedPureScope()
+		arg_errs := r.finaliseExpressionInModule(scope, v.Arg)
+		pow_errs := r.finaliseExpressionInModule(purescope, v.Pow)
+		// combine errors
+		return append(arg_errs, pow_errs...)
 	} else if v, ok := expr.(*IfZero); ok {
 		return r.finaliseExpressionsInModule(scope, []Expr{v.Condition, v.TrueBranch, v.FalseBranch})
 	} else if v, ok := expr.(*Invoke); ok {
@@ -478,7 +486,11 @@ func (r *resolver) finaliseExpressionInModule(scope LocalScope, expr Expr) []Syn
 	} else if v, ok := expr.(*Normalise); ok {
 		return r.finaliseExpressionInModule(scope, v.Arg)
 	} else if v, ok := expr.(*Shift); ok {
-		return r.finaliseExpressionsInModule(scope, []Expr{v.Arg, v.Shift})
+		purescope := scope.NestedPureScope()
+		arg_errs := r.finaliseExpressionInModule(scope, v.Arg)
+		shf_errs := r.finaliseExpressionInModule(purescope, v.Shift)
+		// combine errors
+		return append(arg_errs, shf_errs...)
 	} else if v, ok := expr.(*Sub); ok {
 		return r.finaliseExpressionsInModule(scope, v.Args)
 	} else if v, ok := expr.(*VariableAccess); ok {
@@ -499,6 +511,8 @@ func (r *resolver) finaliseInvokeInModule(scope LocalScope, expr *Invoke) []Synt
 	// Lookup the corresponding function definition.
 	if !scope.Bind(expr) {
 		return r.srcmap.SyntaxErrors(expr, "unknown function")
+	} else if scope.IsPure() && !expr.binding.IsPure() {
+		return r.srcmap.SyntaxErrors(expr, "not permitted in pure context")
 	}
 	// Success
 	return nil
@@ -522,6 +536,8 @@ func (r *resolver) finaliseVariableInModule(scope LocalScope,
 		if binding, ok := expr.Binding().(*ColumnBinding); ok {
 			if !scope.FixContext(binding.Context()) {
 				return r.srcmap.SyntaxErrors(expr, "conflicting context")
+			} else if scope.IsPure() {
+				return r.srcmap.SyntaxErrors(expr, "not permitted in pure context")
 			}
 		} else if _, ok := expr.Binding().(*ConstantBinding); !ok {
 			// Unable to resolve variable

@@ -628,9 +628,9 @@ func (p *Parser) parseDefFun(pure bool, elements []sexp.SExp) (Declaration, []Sy
 		paramTypes[i] = p.DataType
 	}
 	// Construct binding
-	binding := NewFunctionBinding(true, paramTypes, ret, body)
+	binding := NewFunctionBinding(pure, paramTypes, ret, body)
 	//
-	return &DefFun{name, pure, params, binding}, nil
+	return &DefFun{name, params, binding}, nil
 }
 
 func (p *Parser) parseFunctionSignature(elements []sexp.SExp) (string, sc.Type, []*DefParameter, []SyntaxError) {

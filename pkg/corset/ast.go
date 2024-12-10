@@ -754,8 +754,6 @@ func (p *DefProperty) Lisp() sexp.SExp {
 // defined within its enclosing context.
 type DefFun struct {
 	name string
-	// Specify whether is pure (or not)
-	pure bool
 	// Parameters
 	parameters []*DefParameter
 	//
