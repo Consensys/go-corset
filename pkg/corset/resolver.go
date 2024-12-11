@@ -310,13 +310,13 @@ func (r *resolver) finaliseDefConstraintInModule(enclosing Scope, decl *DefConst
 		}
 	}
 	// Resolve constraint body
-	_, errors := r.finaliseExpressionInModule(scope, decl.Constraint)
+	constraint_t, errors := r.finaliseExpressionInModule(scope, decl.Constraint)
 	//
-	// if constraint_t != nil && !constraint_t.HasLoobeanSemantics() {
-	//	msg := fmt.Sprintf("expected loobean constraint (found %s)", constraint_t.String())
-	//	err := r.srcmap.SyntaxError(decl.Constraint, msg)
-	//	errors = append(errors, *err)
-	// }
+	if constraint_t != nil && !constraint_t.HasLoobeanSemantics() {
+		msg := fmt.Sprintf("expected loobean constraint (found %s)", constraint_t.String())
+		err := r.srcmap.SyntaxError(decl.Constraint, msg)
+		errors = append(errors, *err)
+	}
 	// Done
 	return append(guard_errors, errors...)
 }
@@ -349,7 +349,7 @@ func (r *resolver) finaliseDefInterleavedInModule(decl *DefInterleaved) []Syntax
 			errors = append(errors, *err)
 		}
 		// Combine datatypes.
-		datatype = Join(datatype, binding.dataType)
+		datatype = GreatestLowerBound(datatype, binding.dataType)
 	}
 	// Finalise details only if no errors
 	if len(errors) == 0 {
@@ -485,7 +485,7 @@ func (r *resolver) finaliseExpressionInModule(scope LocalScope, expr Expr) (Type
 		return NewUintType(uint(nbits)), nil
 	} else if v, ok := expr.(*Add); ok {
 		types, errs := r.finaliseExpressionsInModule(scope, v.Args)
-		return JoinAll(types), errs
+		return LeastUpperBoundAll(types), errs
 	} else if v, ok := expr.(*Exp); ok {
 		purescope := scope.NestedPureScope()
 		arg_types, arg_errs := r.finaliseExpressionInModule(scope, v.Arg)
@@ -498,10 +498,10 @@ func (r *resolver) finaliseExpressionInModule(scope LocalScope, expr Expr) (Type
 		return r.finaliseInvokeInModule(scope, v)
 	} else if v, ok := expr.(*List); ok {
 		types, errs := r.finaliseExpressionsInModule(scope, v.Args)
-		return JoinAll(types), errs
+		return GreatestLowerBoundAll(types), errs
 	} else if v, ok := expr.(*Mul); ok {
 		types, errs := r.finaliseExpressionsInModule(scope, v.Args)
-		return JoinAll(types), errs
+		return GreatestLowerBoundAll(types), errs
 	} else if v, ok := expr.(*Normalise); ok {
 		return r.finaliseExpressionInModule(scope, v.Arg)
 	} else if v, ok := expr.(*Shift); ok {
@@ -512,7 +512,7 @@ func (r *resolver) finaliseExpressionInModule(scope LocalScope, expr Expr) (Type
 		return arg_types, append(arg_errs, shf_errs...)
 	} else if v, ok := expr.(*Sub); ok {
 		types, errs := r.finaliseExpressionsInModule(scope, v.Args)
-		return JoinAll(types), errs
+		return LeastUpperBoundAll(types), errs
 	} else if v, ok := expr.(*VariableAccess); ok {
 		return r.finaliseVariableInModule(scope, v)
 	} else {
@@ -541,7 +541,7 @@ func (r *resolver) finaliseIfInModule(scope LocalScope, expr *If) (Type, []Synta
 		return nil, r.srcmap.SyntaxErrors(expr.Condition, "invalid condition (neither loobean nor boolean)")
 	}
 	// Join result types
-	return JoinAll(types[1:]), errs
+	return GreatestLowerBoundAll(types[1:]), errs
 }
 
 // Resolve a specific invocation contained within some expression which, in
@@ -559,7 +559,7 @@ func (r *resolver) finaliseInvokeInModule(scope LocalScope, expr *Invoke) (Type,
 		return nil, r.srcmap.SyntaxErrors(expr, "not permitted in pure context")
 	}
 	// Success
-	return NewFieldType(), nil
+	return expr.binding.returnType, nil
 }
 
 // Resolve a specific variable access contained within some expression which, in

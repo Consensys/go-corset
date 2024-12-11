@@ -637,14 +637,9 @@ func (p *Parser) parseDefFun(pure bool, elements []sexp.SExp) (Declaration, []Sy
 func (p *Parser) parseFunctionSignature(elements []sexp.SExp) (string, Type, []*DefParameter, []SyntaxError) {
 	var (
 		params []*DefParameter = make([]*DefParameter, len(elements)-1)
-		ret    Type            = NewFieldType()
-		errors []SyntaxError
 	)
-	// Parse name
-	if !isIdentifier(elements[0]) {
-		err := p.translator.SyntaxError(elements[1], "expected function name")
-		errors = append(errors, *err)
-	}
+	// Parse name and (optional) return type
+	name, ret, _, errors := p.parseFunctionNameReturn(elements[0])
 	// Parse parameters
 	for i := 0; i < len(params); i = i + 1 {
 		var errs []SyntaxError
@@ -658,7 +653,52 @@ func (p *Parser) parseFunctionSignature(elements []sexp.SExp) (string, Type, []*
 		return "", nil, nil, errors
 	}
 	//
-	return elements[0].AsSymbol().Value, ret, params, nil
+	return name, ret, params, nil
+}
+
+func (p *Parser) parseFunctionNameReturn(element sexp.SExp) (string, Type, bool, []SyntaxError) {
+	var (
+		err    *SyntaxError
+		name   sexp.SExp
+		ret    Type = NewFieldType()
+		forced bool
+		symbol *sexp.Symbol = element.AsSymbol()
+		list   *sexp.List   = element.AsList()
+	)
+	//
+	if symbol != nil {
+		name = symbol
+	} else if list.Len() == 2 {
+		name = list.Get(0)
+		// Extract type (and check for errors)
+		if ret, _, err = p.parseType(list.Get(1)); err != nil {
+			return "", nil, false, []SyntaxError{*err}
+		}
+	} else if list.Len() >= 3 {
+		name = list.Get(0)
+		modifier := list.Get(2).AsSymbol()
+		// Check have ":forced" as expected.
+		if modifier == nil || modifier.Value != ":force" {
+			err := p.translator.SyntaxError(list.Get(2), "unexpected modifier")
+			return "", nil, false, []SyntaxError{*err}
+		} else if list.Len() > 3 {
+			err := p.translator.SyntaxError(list.Get(3), "unexpected modifier")
+			return "", nil, false, []SyntaxError{*err}
+		}
+		// Make this as forcing the outcome
+		forced = true
+	} else {
+		err := p.translator.SyntaxError(element, "invalid function declaration")
+		return "", nil, false, []SyntaxError{*err}
+	}
+	//
+	if isIdentifier(name) {
+		return name.AsSymbol().Value, ret, forced, nil
+	} else {
+		// Must be non-identifier symbol
+		err = p.translator.SyntaxError(element, "expected function name")
+		return "", nil, false, []SyntaxError{*err}
+	}
 }
 
 func (p *Parser) parseFunctionParameter(element sexp.SExp) (*DefParameter, []SyntaxError) {

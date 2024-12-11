@@ -470,6 +470,10 @@ func Test_Module_09(t *testing.T) {
 	Check(t, "module_09")
 }
 
+func Test_Module_10(t *testing.T) {
+	Check(t, "module_10")
+}
+
 // ===================================================================
 // Permutations
 // ===================================================================
@@ -688,7 +692,7 @@ func Check(t *testing.T, test string) {
 	// Package up as source file
 	srcfile := sexp.NewSourceFile(filename, bytes)
 	// Parse terms into an HIR schema
-	schema, errs := corset.CompileSourceFile(srcfile)
+	schema, errs := corset.CompileSourceFile(false, srcfile)
 	// Check terms parsed ok
 	if len(errs) > 0 {
 		t.Fatalf("Error parsing %s: %v\n", filename, errs)

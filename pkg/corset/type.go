@@ -45,26 +45,26 @@ func NewUintType(nbits uint) Type {
 	return &NativeType{sc.NewUintType(nbits), false, false}
 }
 
-// JoinAll joins zero or more types together.
-func JoinAll(types []Type) Type {
+// GreatestLowerBoundAll joins zero or more types together using the GLB
+// operator.
+func GreatestLowerBoundAll(types []Type) Type {
 	var datatype Type
 	//
 	for _, t := range types {
 		if datatype == nil {
 			datatype = t
 		} else if t != nil {
-			datatype = Join(datatype, t)
+			datatype = GreatestLowerBound(datatype, t)
 		}
 	}
 	//
 	return datatype
 }
 
-// Join computes the Least Upper Bound of two types.  For example, the lub of
-// u16 and u128 is u128, etc.  Observe that the type with no semantics is above
-// those which have semantics.  Thus, joining a loobean with a boolean
-// necessarily leads to a type without a semantic specifier.
-func Join(lhs Type, rhs Type) Type {
+// GreatestLowerBound computes the Greatest Lower Bound of two types.  For
+// example, the lub of u16 and u128 is u128, etc.  This means that, when joining
+// the bottom type with a type that has semantics, you get the former.
+func GreatestLowerBound(lhs Type, rhs Type) Type {
 	var (
 		l_loobean bool = lhs.HasLoobeanSemantics()
 		r_loobean bool = rhs.HasLoobeanSemantics()
@@ -73,12 +73,39 @@ func Join(lhs Type, rhs Type) Type {
 	)
 	// Determine join of underlying types
 	underlying := sc.Join(lhs.AsUnderlying(), rhs.AsUnderlying())
-	// Check whether semantics match or not.
-	if l_loobean == r_loobean && l_boolean == r_boolean {
-		return &NativeType{underlying, l_loobean, r_boolean}
+	//
+	return &NativeType{underlying, l_loobean && r_loobean, l_boolean && r_boolean}
+}
+
+// LeastUpperBoundAll joins zero or more types together using the LUB operator.
+func LeastUpperBoundAll(types []Type) Type {
+	var datatype Type
+	//
+	for _, t := range types {
+		if datatype == nil {
+			datatype = t
+		} else if t != nil {
+			datatype = LeastUpperBound(datatype, t)
+		}
 	}
 	//
-	return &NativeType{underlying, false, false}
+	return datatype
+}
+
+// LeastUpperBound computes the Least Upper Bound of two types.  For example,
+// the lub of u16 and u128 is u128, etc.    This means that, when joining the
+// bottom type with a type that has semantics, you get the latter.
+func LeastUpperBound(lhs Type, rhs Type) Type {
+	var (
+		l_loobean bool = lhs.HasLoobeanSemantics()
+		r_loobean bool = rhs.HasLoobeanSemantics()
+		l_boolean bool = lhs.HasBooleanSemantics()
+		r_boolean bool = rhs.HasBooleanSemantics()
+	)
+	// Determine join of underlying types
+	underlying := sc.Join(lhs.AsUnderlying(), rhs.AsUnderlying())
+	//
+	return &NativeType{underlying, l_loobean || r_loobean, l_boolean || r_boolean}
 }
 
 // NativeType simply wraps one of the types available at the HIR level (and below).
@@ -97,14 +124,14 @@ type NativeType struct {
 // semantics or not. If so, this means that 0 is treated as true, with anything
 // else being false.
 func (p *NativeType) HasLoobeanSemantics() bool {
-	return p.loobean
+	return p.loobean && !p.boolean
 }
 
 // HasBooleanSemantics indicates whether or not this type supports "boolean"
 // semantics. If so, this means that 0 is treated as false, with anything else
 // being true.
 func (p *NativeType) HasBooleanSemantics() bool {
-	return p.boolean
+	return p.boolean && !p.loobean
 }
 
 // WithLoobeanSemantics constructs a variant of this type which employs loobean
@@ -138,6 +165,8 @@ func (p *NativeType) AsUnderlying() sc.Type {
 func (p *NativeType) String() string {
 	if p.loobean {
 		return fmt.Sprintf("%s@loob", p.datatype.String())
+	} else if p.boolean {
+		return fmt.Sprintf("%s@bool", p.datatype.String())
 	}
 	//
 	return p.datatype.String()
