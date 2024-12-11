@@ -469,8 +469,9 @@ func (r *resolver) finaliseExpressionsInModule(scope LocalScope, args []Expr) ([
 //
 //nolint:staticcheck
 func (r *resolver) finaliseExpressionInModule(scope LocalScope, expr Expr) (Type, []SyntaxError) {
-	if _, ok := expr.(*Constant); ok {
-		return nil, nil
+	if v, ok := expr.(*Constant); ok {
+		nbits := v.Val.BitLen()
+		return NewUintType(uint(nbits)), nil
 	} else if v, ok := expr.(*Add); ok {
 		types, errs := r.finaliseExpressionsInModule(scope, v.Args)
 		return JoinAll(types), errs
@@ -480,9 +481,8 @@ func (r *resolver) finaliseExpressionInModule(scope LocalScope, expr Expr) (Type
 		_, pow_errs := r.finaliseExpressionInModule(purescope, v.Pow)
 		// combine errors
 		return arg_types, append(arg_errs, pow_errs...)
-	} else if v, ok := expr.(*IfZero); ok {
-		types, errs := r.finaliseExpressionsInModule(scope, []Expr{v.Condition, v.TrueBranch, v.FalseBranch})
-		return JoinAll(types), errs
+	} else if v, ok := expr.(*If); ok {
+		return r.finaliseIfInModule(scope, v)
 	} else if v, ok := expr.(*Invoke); ok {
 		return r.finaliseInvokeInModule(scope, v)
 	} else if v, ok := expr.(*List); ok {
@@ -509,6 +509,30 @@ func (r *resolver) finaliseExpressionInModule(scope LocalScope, expr Expr) (Type
 	}
 }
 
+// Resolve an if condition contained within some expression which, in turn, is
+// contained within some module.  An important step occurrs here where, based on
+// the semantics of the condition, this is inferred as an "if-zero" or an
+// "if-notzero".
+func (r *resolver) finaliseIfInModule(scope LocalScope, expr *If) (Type, []SyntaxError) {
+	types, errs := r.finaliseExpressionsInModule(scope, []Expr{expr.Condition, expr.TrueBranch, expr.FalseBranch})
+	// Sanity check
+	if len(errs) != 0 {
+		return nil, errs
+	}
+	// Check & Resolve Condition
+	if types[0].HasLoobeanSemantics() {
+		// if-zero
+		expr.FixSemantics(true)
+	} else if types[0].HasBooleanSemantics() {
+		// if-notzero
+		expr.FixSemantics(false)
+	} else {
+		return nil, r.srcmap.SyntaxErrors(expr.Condition, "invalid condition (neither loobean nor boolean)")
+	}
+	// Join result types
+	return JoinAll(types[1:]), errs
+}
+
 // Resolve a specific invocation contained within some expression which, in
 // turn, is contained within some module.  Note, qualified accesses are only
 // permitted in a global context.
@@ -524,7 +548,7 @@ func (r *resolver) finaliseInvokeInModule(scope LocalScope, expr *Invoke) (Type,
 		return nil, r.srcmap.SyntaxErrors(expr, "not permitted in pure context")
 	}
 	// Success
-	return nil, nil
+	return NewFieldType(), nil
 }
 
 // Resolve a specific variable access contained within some expression which, in
@@ -548,15 +572,19 @@ func (r *resolver) finaliseVariableInModule(scope LocalScope,
 			} else if scope.IsPure() {
 				return nil, r.srcmap.SyntaxErrors(expr, "not permitted in pure context")
 			}
-		} else if _, ok := expr.Binding().(*ConstantBinding); !ok {
-			// Unable to resolve variable
-			return nil, r.srcmap.SyntaxErrors(expr, "refers to a function")
+			// Use column's datatype
+			return binding.dataType, nil
+		} else if binding, ok := expr.Binding().(*ConstantBinding); ok {
+			// Is this safe?
+			constant := binding.value.AsConstant()
+			//
+			return NewUintType(uint(constant.BitLen())), nil
 		}
-		// Done
-		return nil, nil
+		// Unable to resolve variable
+		return nil, r.srcmap.SyntaxErrors(expr, "refers to a function")
 	} else if scope.Bind(expr) {
 		// Must be a local variable or parameter access, so we're all good.
-		return nil, nil
+		return NewFieldType(), nil
 	}
 	// Unable to resolve variable
 	return nil, r.srcmap.SyntaxErrors(expr, "unresolved symbol")

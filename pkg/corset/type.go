@@ -50,11 +50,11 @@ func JoinAll(types []Type) Type {
 	var datatype Type
 	//
 	for _, t := range types {
-		if t == nil {
-			return nil
+		if datatype == nil {
+			datatype = t
+		} else if t != nil {
+			datatype = Join(datatype, t)
 		}
-		//
-		datatype = Join(datatype, t)
 	}
 	//
 	return datatype
