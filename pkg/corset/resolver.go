@@ -304,9 +304,8 @@ func (r *resolver) finaliseDefConstraintInModule(enclosing Scope, decl *DefConst
 	if decl.Guard != nil {
 		guard_t, guard_errors = r.finaliseExpressionInModule(scope, decl.Guard)
 		//
-		if guard_t != nil && !guard_t.HasBooleanSemantics() {
-			msg := fmt.Sprintf("expected boolean guard (found %s)", guard_t.String())
-			err := r.srcmap.SyntaxError(decl.Guard, msg)
+		if guard_t != nil && guard_t.HasLoobeanSemantics() {
+			err := r.srcmap.SyntaxError(decl.Guard, "unexpected loobean guard")
 			guard_errors = append(guard_errors, *err)
 		}
 	}

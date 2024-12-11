@@ -1,4 +1,4 @@
-(defcolumns X Y Z)
+(defcolumns (X :@loob) Y Z)
 (defconstraint c1 () (if X
                ;; if X==0 then Y == Z
                (begin Y Z)
