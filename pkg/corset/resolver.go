@@ -297,15 +297,27 @@ func (r *resolver) finaliseDefConstInModule(enclosing Scope, decl *DefConst) []S
 func (r *resolver) finaliseDefConstraintInModule(enclosing Scope, decl *DefConstraint) []SyntaxError {
 	var (
 		guard_errors []SyntaxError
+		guard_t      Type
 		scope        = NewLocalScope(enclosing, false, false)
 	)
 	// Resolve guard
 	if decl.Guard != nil {
-		// FIXME: check for boolean semantics!
-		_, guard_errors = r.finaliseExpressionInModule(scope, decl.Guard)
+		guard_t, guard_errors = r.finaliseExpressionInModule(scope, decl.Guard)
+		//
+		if guard_t != nil && !guard_t.HasBooleanSemantics() {
+			msg := fmt.Sprintf("expected boolean guard (found %s)", guard_t.String())
+			err := r.srcmap.SyntaxError(decl.Guard, msg)
+			guard_errors = append(guard_errors, *err)
+		}
 	}
 	// Resolve constraint body
 	_, errors := r.finaliseExpressionInModule(scope, decl.Constraint)
+	//
+	// if constraint_t != nil && !constraint_t.HasLoobeanSemantics() {
+	//	msg := fmt.Sprintf("expected loobean constraint (found %s)", constraint_t.String())
+	//	err := r.srcmap.SyntaxError(decl.Constraint, msg)
+	//	errors = append(errors, *err)
+	// }
 	// Done
 	return append(guard_errors, errors...)
 }
