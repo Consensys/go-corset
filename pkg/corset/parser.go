@@ -757,9 +757,6 @@ func (p *Parser) parseType(term sexp.SExp) (Type, bool, *SyntaxError) {
 	}
 	// Access string of symbol
 	parts := strings.Split(symbol.Value, "@")
-	if len(parts) > 2 {
-		return nil, false, p.translator.SyntaxError(term, "malformed type")
-	}
 	// Determine whether type should be proven or not.
 	var datatype Type
 	// See what we've got.
@@ -864,9 +861,9 @@ func mulParserRule(_ string, args []Expr) (Expr, error) {
 
 func ifParserRule(_ string, args []Expr) (Expr, error) {
 	if len(args) == 2 {
-		return &IfZero{args[0], args[1], nil}, nil
+		return &If{0, args[0], args[1], nil}, nil
 	} else if len(args) == 3 {
-		return &IfZero{args[0], args[1], args[2]}, nil
+		return &If{0, args[0], args[1], args[2]}, nil
 	}
 
 	return nil, errors.New("incorrect number of arguments")

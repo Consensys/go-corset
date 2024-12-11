@@ -363,9 +363,16 @@ func (t *translator) translateExpressionInModule(expr Expr, module string, shift
 		return &hir.Add{Args: args}, errs
 	} else if e, ok := expr.(*Exp); ok {
 		return t.translateExpInModule(e, module, shift)
-	} else if v, ok := expr.(*IfZero); ok {
+	} else if v, ok := expr.(*If); ok {
 		args, errs := t.translateExpressionsInModule([]Expr{v.Condition, v.TrueBranch, v.FalseBranch}, module)
-		return &hir.IfZero{Condition: args[0], TrueBranch: args[1], FalseBranch: args[2]}, errs
+		if v.IsIfZero() {
+			return &hir.IfZero{Condition: args[0], TrueBranch: args[1], FalseBranch: args[2]}, errs
+		} else if v.IsIfNotZero() {
+			// In this case, switch the ordering.
+			return &hir.IfZero{Condition: args[0], TrueBranch: args[2], FalseBranch: args[1]}, errs
+		}
+		// Should be unreachable
+		return nil, t.srcmap.SyntaxErrors(expr, "unresolved conditional")
 	} else if e, ok := expr.(*Invoke); ok {
 		return t.translateInvokeInModule(e, module, shift)
 	} else if v, ok := expr.(*List); ok {
