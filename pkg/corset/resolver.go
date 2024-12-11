@@ -278,7 +278,9 @@ func (r *resolver) finaliseDefConstInModule(enclosing Scope, decl *DefConst) []S
 	for _, c := range decl.constants {
 		scope := NewLocalScope(enclosing, false, true)
 		// Resolve constant body
-		errors = append(errors, r.finaliseExpressionInModule(scope, c.binding.value)...)
+		_, errs := r.finaliseExpressionInModule(scope, c.binding.value)
+		// Accumulate errors
+		errors = append(errors, errs...)
 		// Check it is indeed constant!
 		if constant := c.binding.value.AsConstant(); constant == nil {
 			err := r.srcmap.SyntaxError(c, "definition not constant")
@@ -294,17 +296,18 @@ func (r *resolver) finaliseDefConstInModule(enclosing Scope, decl *DefConst) []S
 // expressions are well-typed.
 func (r *resolver) finaliseDefConstraintInModule(enclosing Scope, decl *DefConstraint) []SyntaxError {
 	var (
-		errors []SyntaxError
-		scope  = NewLocalScope(enclosing, false, false)
+		guard_errors []SyntaxError
+		scope        = NewLocalScope(enclosing, false, false)
 	)
 	// Resolve guard
 	if decl.Guard != nil {
-		errors = r.finaliseExpressionInModule(scope, decl.Guard)
+		// FIXME: check for boolean semantics!
+		_, guard_errors = r.finaliseExpressionInModule(scope, decl.Guard)
 	}
 	// Resolve constraint body
-	errors = append(errors, r.finaliseExpressionInModule(scope, decl.Constraint)...)
+	_, errors := r.finaliseExpressionInModule(scope, decl.Constraint)
 	// Done
-	return errors
+	return append(guard_errors, errors...)
 }
 
 // Finalise an interleaving assignment.  Since the assignment would already been
@@ -387,11 +390,10 @@ func (r *resolver) finaliseDefPermutationInModule(decl *DefPermutation) []Syntax
 // expressions are well-typed.
 func (r *resolver) finaliseDefInRangeInModule(enclosing Scope, decl *DefInRange) []SyntaxError {
 	var (
-		errors []SyntaxError
-		scope  = NewLocalScope(enclosing, false, false)
+		scope = NewLocalScope(enclosing, false, false)
 	)
 	// Resolve property body
-	errors = append(errors, r.finaliseExpressionInModule(scope, decl.Expr)...)
+	_, errors := r.finaliseExpressionInModule(scope, decl.Expr)
 	// Done
 	return errors
 }
@@ -403,15 +405,14 @@ func (r *resolver) finaliseDefInRangeInModule(enclosing Scope, decl *DefInRange)
 // function.
 func (r *resolver) finaliseDefFunInModule(enclosing Scope, decl *DefFun) []SyntaxError {
 	var (
-		errors []SyntaxError
-		scope  = NewLocalScope(enclosing, false, decl.IsPure())
+		scope = NewLocalScope(enclosing, false, decl.IsPure())
 	)
 	// Declare parameters in local scope
 	for _, p := range decl.Parameters() {
 		scope.DeclareLocal(p.Name)
 	}
 	// Resolve property body
-	errors = append(errors, r.finaliseExpressionInModule(scope, decl.Body())...)
+	_, errors := r.finaliseExpressionInModule(scope, decl.Body())
 	// Done
 	return errors
 }
@@ -419,43 +420,45 @@ func (r *resolver) finaliseDefFunInModule(enclosing Scope, decl *DefFun) []Synta
 // Resolve those variables appearing in the body of this lookup constraint.
 func (r *resolver) finaliseDefLookupInModule(enclosing Scope, decl *DefLookup) []SyntaxError {
 	var (
-		errors      []SyntaxError
 		sourceScope = NewLocalScope(enclosing, true, false)
 		targetScope = NewLocalScope(enclosing, true, false)
 	)
 	// Resolve source expressions
-	errors = append(errors, r.finaliseExpressionsInModule(sourceScope, decl.Sources)...)
+	_, source_errors := r.finaliseExpressionsInModule(sourceScope, decl.Sources)
 	// Resolve target expressions
-	errors = append(errors, r.finaliseExpressionsInModule(targetScope, decl.Targets)...)
-	// Done
-	return errors
+	_, target_errors := r.finaliseExpressionsInModule(targetScope, decl.Targets)
+	//
+	return append(source_errors, target_errors...)
 }
 
 // Resolve those variables appearing in the body of this property assertion.
 func (r *resolver) finaliseDefPropertyInModule(enclosing Scope, decl *DefProperty) []SyntaxError {
 	var (
-		errors []SyntaxError
-		scope  = NewLocalScope(enclosing, false, false)
+		scope = NewLocalScope(enclosing, false, false)
 	)
-	// Resolve property body
-	errors = append(errors, r.finaliseExpressionInModule(scope, decl.Assertion)...)
+	// Resolve assertion
+	_, errors := r.finaliseExpressionInModule(scope, decl.Assertion)
 	// Done
 	return errors
 }
 
 // Resolve a sequence of zero or more expressions within a given module.  This
 // simply resolves each of the arguments in turn, collecting any errors arising.
-func (r *resolver) finaliseExpressionsInModule(scope LocalScope, args []Expr) []SyntaxError {
-	var errors []SyntaxError
+func (r *resolver) finaliseExpressionsInModule(scope LocalScope, args []Expr) ([]Type, []SyntaxError) {
+	var (
+		errs   []SyntaxError
+		errors []SyntaxError
+		types  []Type = make([]Type, len(args))
+	)
 	// Visit each argument
-	for _, arg := range args {
+	for i, arg := range args {
 		if arg != nil {
-			errs := r.finaliseExpressionInModule(scope, arg)
+			types[i], errs = r.finaliseExpressionInModule(scope, arg)
 			errors = append(errors, errs...)
 		}
 	}
 	// Done
-	return errors
+	return types, errors
 }
 
 // Resolve any variable accesses with this expression (which is declared in a
@@ -463,70 +466,77 @@ func (r *resolver) finaliseExpressionsInModule(scope LocalScope, args []Expr) []
 // variable accesses.  As above, the goal is ensure variable refers to something
 // that was declared and, more specifically, what kind of access it is (e.g.
 // column access, constant access, etc).
-func (r *resolver) finaliseExpressionInModule(scope LocalScope, expr Expr) []SyntaxError {
+//
+//nolint:staticcheck
+func (r *resolver) finaliseExpressionInModule(scope LocalScope, expr Expr) (Type, []SyntaxError) {
 	if _, ok := expr.(*Constant); ok {
-		return nil
+		return nil, nil
 	} else if v, ok := expr.(*Add); ok {
-		return r.finaliseExpressionsInModule(scope, v.Args)
+		types, errs := r.finaliseExpressionsInModule(scope, v.Args)
+		return JoinAll(types), errs
 	} else if v, ok := expr.(*Exp); ok {
 		purescope := scope.NestedPureScope()
-		arg_errs := r.finaliseExpressionInModule(scope, v.Arg)
-		pow_errs := r.finaliseExpressionInModule(purescope, v.Pow)
+		arg_types, arg_errs := r.finaliseExpressionInModule(scope, v.Arg)
+		_, pow_errs := r.finaliseExpressionInModule(purescope, v.Pow)
 		// combine errors
-		return append(arg_errs, pow_errs...)
+		return arg_types, append(arg_errs, pow_errs...)
 	} else if v, ok := expr.(*IfZero); ok {
-		return r.finaliseExpressionsInModule(scope, []Expr{v.Condition, v.TrueBranch, v.FalseBranch})
+		types, errs := r.finaliseExpressionsInModule(scope, []Expr{v.Condition, v.TrueBranch, v.FalseBranch})
+		return JoinAll(types), errs
 	} else if v, ok := expr.(*Invoke); ok {
 		return r.finaliseInvokeInModule(scope, v)
 	} else if v, ok := expr.(*List); ok {
-		return r.finaliseExpressionsInModule(scope, v.Args)
+		types, errs := r.finaliseExpressionsInModule(scope, v.Args)
+		return JoinAll(types), errs
 	} else if v, ok := expr.(*Mul); ok {
-		return r.finaliseExpressionsInModule(scope, v.Args)
+		types, errs := r.finaliseExpressionsInModule(scope, v.Args)
+		return JoinAll(types), errs
 	} else if v, ok := expr.(*Normalise); ok {
 		return r.finaliseExpressionInModule(scope, v.Arg)
 	} else if v, ok := expr.(*Shift); ok {
 		purescope := scope.NestedPureScope()
-		arg_errs := r.finaliseExpressionInModule(scope, v.Arg)
-		shf_errs := r.finaliseExpressionInModule(purescope, v.Shift)
+		arg_types, arg_errs := r.finaliseExpressionInModule(scope, v.Arg)
+		_, shf_errs := r.finaliseExpressionInModule(purescope, v.Shift)
 		// combine errors
-		return append(arg_errs, shf_errs...)
+		return arg_types, append(arg_errs, shf_errs...)
 	} else if v, ok := expr.(*Sub); ok {
-		return r.finaliseExpressionsInModule(scope, v.Args)
+		types, errs := r.finaliseExpressionsInModule(scope, v.Args)
+		return JoinAll(types), errs
 	} else if v, ok := expr.(*VariableAccess); ok {
 		return r.finaliseVariableInModule(scope, v)
 	} else {
-		return r.srcmap.SyntaxErrors(expr, "unknown expression")
+		return nil, r.srcmap.SyntaxErrors(expr, "unknown expression")
 	}
 }
 
 // Resolve a specific invocation contained within some expression which, in
 // turn, is contained within some module.  Note, qualified accesses are only
 // permitted in a global context.
-func (r *resolver) finaliseInvokeInModule(scope LocalScope, expr *Invoke) []SyntaxError {
+func (r *resolver) finaliseInvokeInModule(scope LocalScope, expr *Invoke) (Type, []SyntaxError) {
 	// Resolve arguments
-	if errors := r.finaliseExpressionsInModule(scope, expr.Args()); errors != nil {
-		return errors
+	if _, errors := r.finaliseExpressionsInModule(scope, expr.Args()); errors != nil {
+		return nil, errors
 	}
 	// Lookup the corresponding function definition.
 	if !scope.Bind(expr) {
-		return r.srcmap.SyntaxErrors(expr, "unknown function")
+		return nil, r.srcmap.SyntaxErrors(expr, "unknown function")
 	} else if scope.IsPure() && !expr.binding.IsPure() {
-		return r.srcmap.SyntaxErrors(expr, "not permitted in pure context")
+		return nil, r.srcmap.SyntaxErrors(expr, "not permitted in pure context")
 	}
 	// Success
-	return nil
+	return nil, nil
 }
 
 // Resolve a specific variable access contained within some expression which, in
 // turn, is contained within some module.  Note, qualified accesses are only
 // permitted in a global context.
 func (r *resolver) finaliseVariableInModule(scope LocalScope,
-	expr *VariableAccess) []SyntaxError {
+	expr *VariableAccess) (Type, []SyntaxError) {
 	// Check whether this is a qualified access, or not.
 	if !scope.IsGlobal() && expr.IsQualified() {
-		return r.srcmap.SyntaxErrors(expr, "qualified access not permitted here")
+		return nil, r.srcmap.SyntaxErrors(expr, "qualified access not permitted here")
 	} else if expr.IsQualified() && !scope.HasModule(expr.Module()) {
-		return r.srcmap.SyntaxErrors(expr, fmt.Sprintf("unknown module %s", expr.Module()))
+		return nil, r.srcmap.SyntaxErrors(expr, fmt.Sprintf("unknown module %s", expr.Module()))
 	}
 	// Symbol should be resolved at this point, but we still need to check the
 	// context.
@@ -534,20 +544,20 @@ func (r *resolver) finaliseVariableInModule(scope LocalScope,
 		// Update context
 		if binding, ok := expr.Binding().(*ColumnBinding); ok {
 			if !scope.FixContext(binding.Context()) {
-				return r.srcmap.SyntaxErrors(expr, "conflicting context")
+				return nil, r.srcmap.SyntaxErrors(expr, "conflicting context")
 			} else if scope.IsPure() {
-				return r.srcmap.SyntaxErrors(expr, "not permitted in pure context")
+				return nil, r.srcmap.SyntaxErrors(expr, "not permitted in pure context")
 			}
 		} else if _, ok := expr.Binding().(*ConstantBinding); !ok {
 			// Unable to resolve variable
-			return r.srcmap.SyntaxErrors(expr, "refers to a function")
+			return nil, r.srcmap.SyntaxErrors(expr, "refers to a function")
 		}
 		// Done
-		return nil
+		return nil, nil
 	} else if scope.Bind(expr) {
 		// Must be a local variable or parameter access, so we're all good.
-		return nil
+		return nil, nil
 	}
 	// Unable to resolve variable
-	return r.srcmap.SyntaxErrors(expr, "unresolved symbol")
+	return nil, r.srcmap.SyntaxErrors(expr, "unresolved symbol")
 }
