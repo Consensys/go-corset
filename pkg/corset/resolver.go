@@ -3,7 +3,6 @@ package corset
 import (
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/sexp"
 	"github.com/consensys/go-corset/pkg/util"
 )
@@ -318,7 +317,7 @@ func (r *resolver) finaliseDefInterleavedInModule(decl *DefInterleaved) []Syntax
 		// Length multiplier being determined
 		length_multiplier uint
 		// Column type being determined
-		datatype schema.Type
+		datatype Type
 		// Errors discovered
 		errors []SyntaxError
 	)
@@ -336,7 +335,7 @@ func (r *resolver) finaliseDefInterleavedInModule(decl *DefInterleaved) []Syntax
 			errors = append(errors, *err)
 		}
 		// Combine datatypes.
-		datatype = schema.Join(datatype, binding.dataType)
+		datatype = Join(datatype, binding.dataType)
 	}
 	// Finalise details only if no errors
 	if len(errors) == 0 {
@@ -365,7 +364,7 @@ func (r *resolver) finaliseDefPermutationInModule(decl *DefPermutation) []Syntax
 		// Lookup source of column being permuted
 		source := ith.Binding().(*ColumnBinding)
 		// Sanity check length multiplier
-		if i == 0 && source.dataType.AsUint() == nil {
+		if i == 0 && source.dataType.AsUnderlying().AsUint() == nil {
 			errors = append(errors, *r.srcmap.SyntaxError(ith, "fixed-width type required"))
 		} else if i == 0 {
 			multiplier = source.multiplier

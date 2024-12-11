@@ -261,6 +261,14 @@ func Test_Invalid_Type_06(t *testing.T) {
 	CheckInvalid(t, "type_invalid_06")
 }
 
+func Test_Invalid_Type_07(t *testing.T) {
+	CheckInvalid(t, "type_invalid_07")
+}
+
+func Test_Invalid_Type_08(t *testing.T) {
+	CheckInvalid(t, "type_invalid_08")
+}
+
 // ===================================================================
 // Range Constraints
 // ===================================================================

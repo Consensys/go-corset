@@ -93,10 +93,10 @@ func (t *translator) translateDefColumns(decl *DefColumns, module string) []Synt
 	// Add each column to schema
 	for _, c := range decl.Columns {
 		context := t.env.ContextFrom(module, c.LengthMultiplier())
-		cid := t.schema.AddDataColumn(context, c.Name(), c.DataType())
+		cid := t.schema.AddDataColumn(context, c.Name(), c.DataType().AsUnderlying())
 		// Prove type (if requested)
 		if c.MustProve() {
-			bound := c.DataType().AsUint().Bound()
+			bound := c.DataType().AsUnderlying().AsUint().Bound()
 			t.schema.AddRangeConstraint(c.Name(), context, &hir.ColumnAccess{Column: cid, Shift: 0}, bound)
 		}
 		// Sanity check column identifier
@@ -240,8 +240,10 @@ func (t *translator) translateDefInterleaved(decl *DefInterleaved, module string
 	}
 	// Construct context for this assignment
 	context := t.env.ContextFrom(module, info.multiplier)
+	// Extract underlying datatype
+	datatype := info.dataType.AsUnderlying()
 	// Register assignment
-	cid := t.schema.AddAssignment(assignment.NewInterleaving(context, decl.Target.Name(), sources, info.dataType))
+	cid := t.schema.AddAssignment(assignment.NewInterleaving(context, decl.Target.Name(), sources, datatype))
 	// Sanity check column identifiers align.
 	if cid != info.ColumnId() {
 		errors = append(errors, *t.srcmap.SyntaxError(decl, "invalid column identifier"))
@@ -265,7 +267,10 @@ func (t *translator) translateDefPermutation(decl *DefPermutation, module string
 	for i := 0; i < len(decl.Sources); i++ {
 		target := t.env.Column(module, decl.Targets[i].Name())
 		context = t.env.ContextFrom(module, target.multiplier)
-		targets[i] = sc.NewColumn(context, decl.Targets[i].Name(), target.dataType)
+		// Extract underlying datatype
+		datatype := target.dataType.AsUnderlying()
+		// Construct columns
+		targets[i] = sc.NewColumn(context, decl.Targets[i].Name(), datatype)
 		sources[i] = t.env.Column(module, decl.Sources[i].Name()).ColumnId()
 		signs[i] = decl.Signs[i]
 		// Record first CID
