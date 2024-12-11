@@ -45,6 +45,21 @@ func NewUintType(nbits uint) Type {
 	return &NativeType{sc.NewUintType(nbits), false, false}
 }
 
+// JoinAll joins zero or more types together.
+func JoinAll(types []Type) Type {
+	var datatype Type
+	//
+	for _, t := range types {
+		if t == nil {
+			return nil
+		}
+		//
+		datatype = Join(datatype, t)
+	}
+	//
+	return datatype
+}
+
 // Join computes the Least Upper Bound of two types.  For example, the lub of
 // u16 and u128 is u128, etc.  Observe that the type with no semantics is above
 // those which have semantics.  Thus, joining a loobean with a boolean
