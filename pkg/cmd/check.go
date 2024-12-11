@@ -41,6 +41,7 @@ var checkCmd = &cobra.Command{
 		cfg.expand = !GetFlag(cmd, "raw")
 		cfg.report = GetFlag(cmd, "report")
 		cfg.reportPadding = GetUint(cmd, "report-context")
+		cfg.reportCellWidth = GetUint(cmd, "report-cellwidth")
 		cfg.spillage = GetInt(cmd, "spillage")
 		cfg.strict = !GetFlag(cmd, "warn")
 		cfg.quiet = GetFlag(cmd, "quiet")
@@ -102,6 +103,8 @@ type checkConfig struct {
 	// Specifies the number of additional rows to show eitherside of the failing
 	// area. This essentially allows more contextual information to be shown.
 	reportPadding uint
+	// Specifies the width of a cell to show.
+	reportCellWidth uint
 	// Perform trace expansion in parallel (or not)
 	parallelExpansion bool
 	// Size of constraint batches to execute in parallel
@@ -263,7 +266,7 @@ func reportConstraintFailure(kind string, handle string, cells *util.AnySortedSe
 		cols.Insert(c.Column)
 	}
 	// Construct & configure printer
-	tp := tr.NewPrinter().Start(start).End(end).MaxCellWidth(16).Padding(cfg.reportPadding)
+	tp := tr.NewPrinter().Start(start).End(end).MaxCellWidth(cfg.reportCellWidth).Padding(cfg.reportPadding)
 	// Determine whether to enable ANSI escapes (e.g. for colour in the terminal)
 	tp = tp.AnsiEscapes(cfg.ansiEscapes)
 	// Filter out columns not used in evaluating the constraint.
@@ -302,6 +305,7 @@ func init() {
 	rootCmd.AddCommand(checkCmd)
 	checkCmd.Flags().Bool("report", false, "report details of failure for debugging")
 	checkCmd.Flags().Uint("report-context", 2, "specify number of rows to show eitherside of failure in report")
+	checkCmd.Flags().Uint("report-cellwidth", 32, "specify max number of bytes to show in a given cell in the report")
 	checkCmd.Flags().Bool("raw", false, "assume input trace already expanded")
 	checkCmd.Flags().Bool("hir", false, "check at HIR level")
 	checkCmd.Flags().Bool("mir", false, "check at MIR level")
