@@ -1,4 +1,4 @@
-(defcolumns X Y)
+(defcolumns X (Y :@loob))
 
 (defconstraint test1 ()
         (- X (if Y 0)))

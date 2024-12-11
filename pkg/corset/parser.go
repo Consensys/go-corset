@@ -765,6 +765,12 @@ func (p *Parser) parseType(term sexp.SExp) (Type, bool, *SyntaxError) {
 		datatype = NewUintType(1)
 	case ":byte":
 		datatype = NewUintType(8)
+	case ":":
+		if len(parts) == 1 {
+			return nil, false, p.translator.SyntaxError(symbol, "unknown type")
+		}
+		//
+		datatype = NewFieldType()
 	default:
 		// Handle generic types like i16, i128, etc.
 		str := parts[0]
