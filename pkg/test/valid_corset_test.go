@@ -347,7 +347,7 @@ func Test_Guard_05(t *testing.T) {
 }
 
 // ===================================================================
-// Column Types
+// Types
 // ===================================================================
 
 func Test_Type_01(t *testing.T) {
@@ -364,6 +364,22 @@ func Test_Type_03(t *testing.T) {
 
 func Test_Type_04(t *testing.T) {
 	Check(t, "type_04")
+}
+
+func Test_Type_05(t *testing.T) {
+	Check(t, "type_04")
+}
+
+func Test_Type_06(t *testing.T) {
+	Check(t, "type_06")
+}
+
+func Test_Type_07(t *testing.T) {
+	Check(t, "type_07")
+}
+
+func Test_Type_08(t *testing.T) {
+	Check(t, "type_08")
 }
 
 // ===================================================================
