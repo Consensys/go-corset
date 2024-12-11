@@ -10,7 +10,6 @@ import (
 	"unicode"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/sexp"
 )
 
@@ -336,7 +335,7 @@ func (p *Parser) parseDefColumns(module string, l *sexp.List) (Declaration, []Sy
 func (p *Parser) parseColumnDeclaration(module string, e sexp.SExp) (*DefColumn, *SyntaxError) {
 	var name string
 	//
-	binding := NewColumnBinding(module, false, false, 1, &sc.FieldType{})
+	binding := NewColumnBinding(module, false, false, 1, NewFieldType())
 	// Check whether extended declaration or not.
 	if l := e.AsList(); l != nil {
 		// Check at least the name provided.
@@ -458,7 +457,7 @@ func (p *Parser) parseDefInterleaved(module string, elements []sexp.SExp) (Decla
 		p.mapSourceNode(ith, sources[i])
 	}
 	//
-	binding := NewColumnBinding(module, false, false, 1, &sc.FieldType{})
+	binding := NewColumnBinding(module, false, false, 1, NewFieldType())
 	target := &DefColumn{elements[1].AsSymbol().Value, *binding}
 	// Updating mapping for target definition
 	p.mapSourceNode(elements[1], target)
@@ -603,7 +602,7 @@ func (p *Parser) parseDefProperty(elements []sexp.SExp) (Declaration, *SyntaxErr
 func (p *Parser) parseDefFun(pure bool, elements []sexp.SExp) (Declaration, []SyntaxError) {
 	var (
 		name      string
-		ret       sc.Type
+		ret       Type
 		params    []*DefParameter
 		errors    []SyntaxError
 		signature *sexp.List = elements[1].AsList()
@@ -625,7 +624,7 @@ func (p *Parser) parseDefFun(pure bool, elements []sexp.SExp) (Declaration, []Sy
 		return nil, errors
 	}
 	// Extract parameter types
-	paramTypes := make([]sc.Type, len(params))
+	paramTypes := make([]Type, len(params))
 	for i, p := range params {
 		paramTypes[i] = p.DataType
 	}
@@ -635,10 +634,10 @@ func (p *Parser) parseDefFun(pure bool, elements []sexp.SExp) (Declaration, []Sy
 	return &DefFun{name, params, binding}, nil
 }
 
-func (p *Parser) parseFunctionSignature(elements []sexp.SExp) (string, sc.Type, []*DefParameter, []SyntaxError) {
+func (p *Parser) parseFunctionSignature(elements []sexp.SExp) (string, Type, []*DefParameter, []SyntaxError) {
 	var (
 		params []*DefParameter = make([]*DefParameter, len(elements)-1)
-		ret    sc.Type         = &sc.FieldType{}
+		ret    Type            = NewFieldType()
 		errors []SyntaxError
 	)
 	// Parse name
@@ -664,7 +663,7 @@ func (p *Parser) parseFunctionSignature(elements []sexp.SExp) (string, sc.Type, 
 
 func (p *Parser) parseFunctionParameter(element sexp.SExp) (*DefParameter, []SyntaxError) {
 	if isIdentifier(element) {
-		return &DefParameter{element.AsSymbol().Value, &sc.FieldType{}}, nil
+		return &DefParameter{element.AsSymbol().Value, NewFieldType()}, nil
 	}
 	// Construct error message (for now)
 	err := p.translator.SyntaxError(element, "malformed parameter declaration")
@@ -751,38 +750,56 @@ func (p *Parser) parseDomainAttribute(attribute sexp.SExp) (domain *int, err *Sy
 	return nil, p.translator.SyntaxError(attribute, "multiple values not supported")
 }
 
-func (p *Parser) parseType(term sexp.SExp) (sc.Type, bool, *SyntaxError) {
+func (p *Parser) parseType(term sexp.SExp) (Type, bool, *SyntaxError) {
 	symbol := term.AsSymbol()
 	if symbol == nil {
 		return nil, false, p.translator.SyntaxError(term, "malformed type")
 	}
 	// Access string of symbol
 	parts := strings.Split(symbol.Value, "@")
-	if len(parts) > 2 || (len(parts) == 2 && parts[1] != "prove") {
+	if len(parts) > 2 {
 		return nil, false, p.translator.SyntaxError(term, "malformed type")
 	}
 	// Determine whether type should be proven or not.
-	proven := len(parts) == 2
+	var datatype Type
 	// See what we've got.
 	switch parts[0] {
 	case ":binary":
-		return sc.NewUintType(1), proven, nil
+		datatype = NewUintType(1)
 	case ":byte":
-		return sc.NewUintType(8), proven, nil
+		datatype = NewUintType(8)
 	default:
 		// Handle generic types like i16, i128, etc.
 		str := parts[0]
-		if strings.HasPrefix(str, ":i") {
-			n, err := strconv.Atoi(str[2:])
-			if err != nil {
-				return nil, false, p.translator.SyntaxError(symbol, err.Error())
-			}
-			// Done
-			return sc.NewUintType(uint(n)), proven, nil
+		if !strings.HasPrefix(str, ":i") {
+			return nil, false, p.translator.SyntaxError(symbol, "unknown type")
+		}
+		// Parse bitwidth
+		n, err := strconv.Atoi(str[2:])
+		if err != nil {
+			return nil, false, p.translator.SyntaxError(symbol, err.Error())
+		}
+		// Done
+		datatype = NewUintType(uint(n))
+	}
+	// Types not proven unless explicitly requested
+	var proven bool = false
+	// Process type modifiers
+	for i := 1; i < len(parts); i++ {
+		switch parts[i] {
+		case "prove":
+			proven = true
+		case "loob":
+			datatype = datatype.WithLoobeanSemantics()
+		case "bool":
+			datatype = datatype.WithBooleanSemantics()
+		default:
+			msg := fmt.Sprintf("unknown modifier \"%s\"", parts[i])
+			return nil, false, p.translator.SyntaxError(symbol, msg)
 		}
 	}
-	// Error
-	return nil, false, p.translator.SyntaxError(symbol, "unknown type")
+	// Done
+	return datatype, proven, nil
 }
 
 func beginParserRule(_ string, args []Expr) (Expr, error) {
