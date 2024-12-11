@@ -1,4 +1,6 @@
+(defpurefun ((vanishes! :@loob) x) x)
+
 (defcolumns COUNTER)
 (defalias CT1 COUNTER)
 (defalias CT2 CT1)
-(defconstraint heartbeat () CT2)
+(defconstraint heartbeat () (vanishes! CT2))

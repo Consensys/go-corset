@@ -1,4 +1,4 @@
-(defcolumns X Y)
+(defcolumns (X :@loob) (Y :@loob))
 (definterleaved A (X Y))
 (definterleaved B (X Y))
 (definterleaved Z (A B))

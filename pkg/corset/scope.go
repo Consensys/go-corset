@@ -64,7 +64,8 @@ func (p *GlobalScope) HasModule(module string) bool {
 // root context, this is either a column, an alias or a function declaration.
 func (p *GlobalScope) Bind(symbol Symbol) bool {
 	if !symbol.IsQualified() {
-		panic("cannot bind unqualified symbol in the global scope")
+		// Search for symbol in root module.
+		return p.Module("").Bind(symbol)
 	} else if !p.HasModule(symbol.Module()) {
 		// Pontially, it might be better to report a more useful error message.
 		return false
@@ -134,9 +135,10 @@ func (p *ModuleScope) Bind(symbol Symbol) bool {
 		binding := p.bindings[bid]
 		// Resolve symbol
 		return symbol.Resolve(binding)
+	} else {
+		// Attempt to lookup in parent
+		return p.enclosing.Bind(symbol)
 	}
-	// failed
-	return false
 }
 
 // Binding returns information about the binding of a particular symbol defined

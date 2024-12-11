@@ -1,4 +1,4 @@
-(defcolumns (BIT_1 :binary@prove) ARG)
+(defcolumns (BIT_1 :binary@loob@prove) (ARG :@loob))
 
 (defconstraint pivot ()
         ;; If BIT_1[k-1]=0 and BIT_1[k]=1

@@ -492,7 +492,7 @@ func CheckInvalid(t *testing.T, test string) {
 	// Package up as source file
 	srcfile := sexp.NewSourceFile(filename, bytes)
 	// Parse terms into an HIR schema
-	_, errs := corset.CompileSourceFile(srcfile)
+	_, errs := corset.CompileSourceFile(false, srcfile)
 	// Check program did not compile!
 	if len(errs) == 0 {
 		t.Fatalf("Error %s should not have compiled\n", filename)

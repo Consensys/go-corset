@@ -28,8 +28,9 @@ var debugCmd = &cobra.Command{
 		mir := GetFlag(cmd, "mir")
 		air := GetFlag(cmd, "air")
 		stats := GetFlag(cmd, "stats")
+		stdlib := !GetFlag(cmd, "no-stdlib")
 		// Parse constraints
-		hirSchema := readSchema(args)
+		hirSchema := readSchema(stdlib, args)
 		// Print constraints
 		if stats {
 			printStats(hirSchema, hir, mir, air)
@@ -45,6 +46,7 @@ func init() {
 	debugCmd.Flags().Bool("mir", false, "Print constraints at MIR level")
 	debugCmd.Flags().Bool("air", false, "Print constraints at AIR level")
 	debugCmd.Flags().Bool("stats", false, "Print summary information")
+	debugCmd.Flags().Bool("no-stdlib", false, "prevents the standard library from being included")
 }
 
 func printSchemas(hirSchema *hir.Schema, hir bool, mir bool, air bool) {

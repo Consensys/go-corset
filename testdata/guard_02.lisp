@@ -1,3 +1,7 @@
+(defpurefun ((vanishes! :@loob) x) x)
+
 (defcolumns ST (A :@loob) B)
 ;; STAMP == 0 || X == 1 || X == 2
-(defconstraint c1 (:guard ST) (if A B))
+(defconstraint c1 (:guard ST)
+  (if A
+      (vanishes! B)))

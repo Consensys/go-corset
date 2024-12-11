@@ -1,3 +1,5 @@
+(defpurefun ((vanishes! :@loob) x) x)
+
 (defconst
   ONE_  1
   ONE   ONE_
@@ -6,6 +8,6 @@
 )
 
 (defcolumns X Y Z)
-(defconstraint c1 () (* Z (- Z ONE)))
-(defconstraint c2 () (* (- Y Z) (- Y Z TWO)))
-(defconstraint c3 () (* (- X Y) (- X Y FOUR)))
+(defconstraint c1 () (vanishes! (* Z (- Z ONE))))
+(defconstraint c2 () (vanishes! (* (- Y Z) (- Y Z TWO))))
+(defconstraint c3 () (vanishes! (* (- X Y) (- X Y FOUR))))

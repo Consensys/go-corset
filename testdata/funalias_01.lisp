@@ -1,4 +1,6 @@
+(defpurefun ((vanishes! :@loob) x) x)
+
 (defcolumns A)
 (defpurefun (id x) x)
 (defunalias ID id)
-(defconstraint test () (ID A))
+(defconstraint test () (vanishes! (ID A)))
