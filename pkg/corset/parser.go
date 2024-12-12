@@ -660,7 +660,7 @@ func (p *Parser) parseFunctionNameReturn(element sexp.SExp) (string, Type, bool,
 	var (
 		err    *SyntaxError
 		name   sexp.SExp
-		ret    Type = NewFieldType()
+		ret    Type = nil
 		forced bool
 		symbol *sexp.Symbol = element.AsSymbol()
 		list   *sexp.List   = element.AsList()

@@ -415,13 +415,8 @@ func (t *translator) translateExpInModule(expr *Exp, module string, shift int) (
 
 func (t *translator) translateInvokeInModule(expr *Invoke, module string, shift int) (hir.Expr, []SyntaxError) {
 	if binding, ok := expr.Binding().(*FunctionBinding); ok {
-		if binding.Arity() == uint(len(expr.Args())) {
-			body := binding.Apply(expr.Args())
-			return t.translateExpressionInModule(body, module, shift)
-		} else {
-			msg := fmt.Sprintf("incorrect number of arguments (expected %d, found %d)", binding.Arity(), len(expr.Args()))
-			return nil, t.srcmap.SyntaxErrors(expr, msg)
-		}
+		body := binding.Apply(expr.Args())
+		return t.translateExpressionInModule(body, module, shift)
 	}
 	//
 	return nil, t.srcmap.SyntaxErrors(expr, "unbound function")
