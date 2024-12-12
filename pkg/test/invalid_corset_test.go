@@ -474,6 +474,11 @@ func Test_Invalid_PureFun_07(t *testing.T) {
 	CheckInvalid(t, "purefun_invalid_07")
 }
 
+func Test_Invalid_PureFun_08(t *testing.T) {
+	// tricky one
+	CheckInvalid(t, "purefun_invalid_08")
+}
+
 // ===================================================================
 // Test Helpers
 // ===================================================================
