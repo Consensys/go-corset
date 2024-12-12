@@ -11,7 +11,7 @@
     (if
      (eq! lhs rhs)
      ;; True branch
-     0
+     (vanishes! 0)
      ;; False branch
      then))
 

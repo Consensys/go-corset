@@ -220,9 +220,9 @@ func (r *resolver) finaliseDeclarationsInModule(scope *ModuleScope, decls []Decl
 	return nil
 }
 
-// Check that a given set of source columns have been finalised.  This is
-// important, since we cannot finalise a declaration until all of its
-// dependencies have themselves been finalised.
+// Check that a given set of symbols have been finalised.  This is important,
+// since we cannot finalise a declaration until all of its dependencies have
+// themselves been finalised.
 func (r *resolver) declarationDependenciesAreFinalised(scope *ModuleScope,
 	symbols util.Iterator[Symbol]) (bool, []SyntaxError) {
 	var (
@@ -357,9 +357,8 @@ func (r *resolver) finaliseDefInterleavedInModule(decl *DefInterleaved) []Syntax
 		length_multiplier *= uint(len(decl.Sources))
 		// Lookup existing declaration
 		binding := decl.Target.Binding().(*ColumnBinding)
-		// Update with completed information
-		binding.multiplier = length_multiplier
-		binding.dataType = datatype
+		// Finalise column binding
+		binding.Finalise(length_multiplier, datatype)
 	}
 	// Done
 	return errors
@@ -420,10 +419,14 @@ func (r *resolver) finaliseDefFunInModule(enclosing Scope, decl *DefFun) []Synta
 	)
 	// Declare parameters in local scope
 	for _, p := range decl.Parameters() {
-		scope.DeclareLocal(p.Name)
+		scope.DeclareLocal(p.Name, p.DataType)
 	}
 	// Resolve property body
-	_, errors := r.finaliseExpressionInModule(scope, decl.Body())
+	datatype, errors := r.finaliseExpressionInModule(scope, decl.Body())
+	// Finalise declaration
+	if len(errors) == 0 {
+		decl.binding.Finalise(datatype)
+	}
 	// Done
 	return errors
 }
@@ -566,9 +569,13 @@ func (r *resolver) finaliseInvokeInModule(scope LocalScope, expr *Invoke) (Type,
 		// no need, it was provided
 		return expr.binding.returnType, nil
 	}
-	// TODO: this is potentially expensive
+	// TODO: this is potentially expensive, and it would likely be good if we
+	// could avoid it.  Realistically, this is just about determining the right
+	// type information.  Potentially, we could adjust the local scope to
+	// provide the required type information.  Or we could have a separate pass
+	// which just determines the type.
 	body := expr.binding.Apply(expr.Args())
-	//
+	// Dig out the type
 	return r.finaliseExpressionInModule(scope, body)
 }
 
@@ -583,30 +590,32 @@ func (r *resolver) finaliseVariableInModule(scope LocalScope,
 	} else if expr.IsQualified() && !scope.HasModule(expr.Module()) {
 		return nil, r.srcmap.SyntaxErrors(expr, fmt.Sprintf("unknown module %s", expr.Module()))
 	}
-	// Symbol should be resolved at this point, but we still need to check the
-	// context.
-	if expr.IsResolved() {
-		// Update context
-		if binding, ok := expr.Binding().(*ColumnBinding); ok {
-			if !scope.FixContext(binding.Context()) {
-				return nil, r.srcmap.SyntaxErrors(expr, "conflicting context")
-			} else if scope.IsPure() {
-				return nil, r.srcmap.SyntaxErrors(expr, "not permitted in pure context")
-			}
-			// Use column's datatype
-			return binding.dataType, nil
-		} else if binding, ok := expr.Binding().(*ConstantBinding); ok {
-			// Is this safe?
-			constant := binding.value.AsConstant()
-			//
-			return NewUintType(uint(constant.BitLen())), nil
-		}
+	// Symbol should be resolved at this point, but we'd better sanity check this.
+	if !expr.IsResolved() && !scope.Bind(expr) {
 		// Unable to resolve variable
-		return nil, r.srcmap.SyntaxErrors(expr, "refers to a function")
-	} else if scope.Bind(expr) {
-		// Must be a local variable or parameter access, so we're all good.
-		return NewFieldType(), nil
+		return nil, r.srcmap.SyntaxErrors(expr, "unresolved symbol")
 	}
-	// Unable to resolve variable
-	return nil, r.srcmap.SyntaxErrors(expr, "unresolved symbol")
+	//
+	if binding, ok := expr.Binding().(*ColumnBinding); ok {
+		// For column bindings, we still need to sanity check the context is
+		// compatible.
+		if !scope.FixContext(binding.Context()) {
+			return nil, r.srcmap.SyntaxErrors(expr, "conflicting context")
+		} else if scope.IsPure() {
+			return nil, r.srcmap.SyntaxErrors(expr, "not permitted in pure context")
+		}
+		// Use column's datatype
+		return binding.dataType, nil
+	} else if binding, ok := expr.Binding().(*ConstantBinding); ok {
+		// Constant
+		return binding.datatype, nil
+	} else if binding, ok := expr.Binding().(*ParameterBinding); ok {
+		// Parameter
+		return binding.datatype, nil
+	} else if _, ok := expr.Binding().(*FunctionBinding); ok {
+		// Function doesn't makes sense here.
+		return nil, r.srcmap.SyntaxErrors(expr, "refers to a function")
+	}
+	// Should be unreachable.
+	return nil, r.srcmap.SyntaxErrors(expr, "unknown symbol kind")
 }

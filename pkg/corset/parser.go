@@ -400,7 +400,7 @@ func (p *Parser) parseDefConstUnit(name string, value sexp.SExp) (*DefConstUnit,
 		return nil, []SyntaxError{*err}
 	}
 	// Looks good
-	def := &DefConstUnit{name, ConstantBinding{expr}}
+	def := &DefConstUnit{name, NewConstantBinding(expr)}
 	// Map to source node
 	p.mapSourceNode(value, def)
 	// Done

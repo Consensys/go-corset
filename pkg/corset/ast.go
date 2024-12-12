@@ -261,7 +261,15 @@ func (p *DefConst) Dependencies() util.Iterator[Symbol] {
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
 func (p *DefConst) Lisp() sexp.SExp {
-	panic("got here")
+	def := sexp.EmptyList()
+	def.Append(sexp.NewSymbol("defconst"))
+	//
+	for _, c := range p.constants {
+		def.Append(sexp.NewSymbol(c.name))
+		def.Append(c.binding.value.Lisp())
+	}
+	// Done
+	return def
 }
 
 // DefConstUnit represents the definition of exactly one constant value.  As
@@ -698,7 +706,11 @@ func (p *DefFun) Dependencies() util.Iterator[Symbol] {
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
 func (p *DefFun) Lisp() sexp.SExp {
-	panic("got here")
+	return sexp.NewList([]sexp.SExp{
+		sexp.NewSymbol("defun"),
+		sexp.NewSymbol(p.name),
+		sexp.NewSymbol("..."), // todo
+	})
 }
 
 // hasParameter checks whether this function has a parameter with the given

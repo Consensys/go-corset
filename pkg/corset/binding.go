@@ -54,6 +54,12 @@ func (p *ColumnBinding) IsFinalised() bool {
 	return p.multiplier != 0
 }
 
+// Finalise this binding by providing the necessary missing information.
+func (p *ColumnBinding) Finalise(multiplier uint, datatype Type) {
+	p.multiplier = multiplier
+	p.dataType = datatype
+}
+
 // Context returns the of this column.  That is, the module in which this colunm
 // was declared and also the length multiplier of that module it requires.
 func (p *ColumnBinding) Context() Context {
@@ -83,11 +89,24 @@ func (p *ColumnBinding) ColumnId() uint {
 type ConstantBinding struct {
 	// Constant expression which, when evaluated, produces a constant value.
 	value Expr
+	// Inferred type of the given expression
+	datatype Type
+}
+
+// NewConstantBinding creates a new constant binding (which is initially not
+// finalised).
+func NewConstantBinding(value Expr) ConstantBinding {
+	return ConstantBinding{value, nil}
 }
 
 // IsFinalised checks whether this binding has been finalised yet or not.
 func (p *ConstantBinding) IsFinalised() bool {
-	return true
+	return p.datatype != nil
+}
+
+// Finalise this binding by providing the necessary missing information.
+func (p *ConstantBinding) Finalise(datatype Type) {
+	p.datatype = datatype
 }
 
 // Context returns the of this constant, noting that constants (by definition)
@@ -104,6 +123,8 @@ func (p *ConstantBinding) Context() Context {
 type ParameterBinding struct {
 	// Identifies the variable or column index (as appropriate).
 	index uint
+	// Type to use for this parameter.
+	datatype Type
 }
 
 // ============================================================================
@@ -124,13 +145,16 @@ type FunctionBinding struct {
 	paramTypes []Type
 	// Type of return (optional)
 	returnType Type
+	// Inferred type of the body.  This is used to compare against the declared
+	// type (if there is one) to check for any descrepencies.
+	bodyType Type
 	// body of the function in question.
 	body Expr
 }
 
 // NewFunctionBinding constructs a new function binding.
 func NewFunctionBinding(pure bool, paramTypes []Type, returnType Type, body Expr) FunctionBinding {
-	return FunctionBinding{pure, paramTypes, returnType, body}
+	return FunctionBinding{pure, paramTypes, returnType, nil, body}
 }
 
 // IsPure checks whether this is a defpurefun or not
@@ -140,12 +164,17 @@ func (p *FunctionBinding) IsPure() bool {
 
 // IsFinalised checks whether this binding has been finalised yet or not.
 func (p *FunctionBinding) IsFinalised() bool {
-	return true
+	return p.bodyType != nil
 }
 
 // Arity returns the number of parameters that this function accepts.
 func (p *FunctionBinding) Arity() uint {
 	return uint(len(p.paramTypes))
+}
+
+// Finalise this binding by providing the necessary missing information.
+func (p *FunctionBinding) Finalise(bodyType Type) {
+	p.bodyType = bodyType
 }
 
 // Apply a given set of arguments to this function binding.
