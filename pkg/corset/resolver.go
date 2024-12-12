@@ -557,9 +557,19 @@ func (r *resolver) finaliseInvokeInModule(scope LocalScope, expr *Invoke) (Type,
 		return nil, r.srcmap.SyntaxErrors(expr, "unknown function")
 	} else if scope.IsPure() && !expr.binding.IsPure() {
 		return nil, r.srcmap.SyntaxErrors(expr, "not permitted in pure context")
+	} else if binding := expr.binding; binding.Arity() != uint(len(expr.Args())) {
+		msg := fmt.Sprintf("incorrect number of arguments (expected %d, found %d)", binding.Arity(), len(expr.Args()))
+		return nil, r.srcmap.SyntaxErrors(expr, msg)
 	}
-	// Success
-	return expr.binding.returnType, nil
+	// Check whether need to infer return type
+	if expr.binding.returnType != nil {
+		// no need, it was provided
+		return expr.binding.returnType, nil
+	}
+	// TODO: this is potentially expensive
+	body := expr.binding.Apply(expr.Args())
+	//
+	return r.finaliseExpressionInModule(scope, body)
 }
 
 // Resolve a specific variable access contained within some expression which, in

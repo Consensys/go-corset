@@ -10,10 +10,9 @@
 
 ;; In the last row of a valid frame, the counter must have its max
 ;; value.  This ensures that all non-padding frames are complete.
-(defconstraint last (:domain {-1})
-  (or!
-   (eq! ST 0)
-   (eq! CT 3)))
+(defconstraint last (:domain {-1} :guard ST)
+  ;; CT[$] == 3
+  (eq! CT 3))
 
 ;; ST either remains constant, or increments by one.
 (defconstraint increment ()
@@ -32,24 +31,19 @@
    (eq! (next CT) 0)))
 
 ;; Increment or reset counter
-(defconstraint heartbeat ()
-  ;; Only When ST != 0
-  (or! ST
-       ;; If CT[k] == 3
-       (if-eq-else CT 3
-           ;; Then, CT[k+1] == 0
-           (shift CT 1)
-           ;; Else, CT[k]+1 == CT[k+1]
-           (- (+ 1 CT) (next CT)))))
+(defconstraint heartbeat (:guard ST)
+  ;; If CT[k] == 3
+  (if-eq-else CT 3
+              ;; Then, CT[k+1] == 0
+              (shift CT 1)
+              ;; Else, CT[k]+1 == CT[k+1]
+              (- (+ 1 CT) (next CT))))
 
 ;; Argument accumulates byte values.
-(defconstraint accumulator ()
-  ;; Only When ST != 0
-  (or!
-   (eq! ST 0)
-   ;; If CT[k] == 0
-   (if-eq-else CT 0
-          ;; Then, ARG == BYTE
-          (eq! ARG BYTE)
-          ;; Else, ARG = BYTE[k] + 256*BYTE[k-1]
-          (eq! ARG (+ BYTE (* 256 (prev ARG)))))))
+(defconstraint accumulator (:guard ST)
+  ;; If CT[k] == 0
+  (if-eq-else CT 0
+              ;; Then, ARG == BYTE
+              (eq! ARG BYTE)
+              ;; Else, ARG = BYTE[k] + 256*BYTE[k-1]
+              (eq! ARG (+ BYTE (* 256 (prev ARG))))))

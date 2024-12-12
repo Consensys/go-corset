@@ -120,9 +120,9 @@ func (p *ParameterBinding) IsFinalised() bool {
 type FunctionBinding struct {
 	// Flag whether or not is pure function
 	pure bool
-	// Types of parameters
+	// Types of parameters (optional)
 	paramTypes []Type
-	// Type of return
+	// Type of return (optional)
 	returnType Type
 	// body of the function in question.
 	body Expr
@@ -140,7 +140,7 @@ func (p *FunctionBinding) IsPure() bool {
 
 // IsFinalised checks whether this binding has been finalised yet or not.
 func (p *FunctionBinding) IsFinalised() bool {
-	return p.returnType != nil
+	return true
 }
 
 // Arity returns the number of parameters that this function accepts.
