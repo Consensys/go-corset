@@ -569,6 +569,8 @@ func (r *resolver) finaliseInvokeInModule(scope LocalScope, expr *Invoke) (Type,
 	// TODO: this is potentially expensive
 	body := expr.binding.Apply(expr.Args())
 	//
+	fmt.Printf("BODY: %s", body.Lisp().String(false))
+	//
 	return r.finaliseExpressionInModule(scope, body)
 }
 
