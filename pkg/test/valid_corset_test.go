@@ -27,111 +27,111 @@ const TestDir = "../../testdata"
 // ===================================================================
 
 func Test_Basic_01(t *testing.T) {
-	Check(t, "basic_01")
+	Check(t, false, "basic_01")
 }
 
 func Test_Basic_02(t *testing.T) {
-	Check(t, "basic_02")
+	Check(t, false, "basic_02")
 }
 
 func Test_Basic_03(t *testing.T) {
-	Check(t, "basic_03")
+	Check(t, false, "basic_03")
 }
 
 func Test_Basic_04(t *testing.T) {
-	Check(t, "basic_04")
+	Check(t, false, "basic_04")
 }
 
 func Test_Basic_05(t *testing.T) {
-	Check(t, "basic_05")
+	Check(t, false, "basic_05")
 }
 
 func Test_Basic_06(t *testing.T) {
-	Check(t, "basic_06")
+	Check(t, false, "basic_06")
 }
 
 func Test_Basic_07(t *testing.T) {
-	Check(t, "basic_07")
+	Check(t, false, "basic_07")
 }
 
 func Test_Basic_08(t *testing.T) {
-	Check(t, "basic_08")
+	Check(t, false, "basic_08")
 }
 
 func Test_Basic_09(t *testing.T) {
-	Check(t, "basic_09")
+	Check(t, false, "basic_09")
 }
 
 func Test_Basic_10(t *testing.T) {
-	Check(t, "basic_10")
+	Check(t, false, "basic_10")
 }
 
 // ===================================================================
 // Constants Tests
 // ===================================================================
 func Test_Constant_01(t *testing.T) {
-	Check(t, "constant_01")
+	Check(t, false, "constant_01")
 }
 
 func Test_Constant_02(t *testing.T) {
-	Check(t, "constant_02")
+	Check(t, false, "constant_02")
 }
 
 func Test_Constant_03(t *testing.T) {
-	Check(t, "constant_03")
+	Check(t, false, "constant_03")
 }
 
 func Test_Constant_04(t *testing.T) {
-	Check(t, "constant_04")
+	Check(t, false, "constant_04")
 }
 
 func Test_Constant_05(t *testing.T) {
-	Check(t, "constant_05")
+	Check(t, false, "constant_05")
 }
 
 func Test_Constant_06(t *testing.T) {
-	Check(t, "constant_06")
+	Check(t, false, "constant_06")
 }
 
 func Test_Constant_07(t *testing.T) {
-	Check(t, "constant_07")
+	Check(t, false, "constant_07")
 }
 
 // ===================================================================
 // Alias Tests
 // ===================================================================
 func Test_Alias_01(t *testing.T) {
-	Check(t, "alias_01")
+	Check(t, false, "alias_01")
 }
 func Test_Alias_02(t *testing.T) {
-	Check(t, "alias_02")
+	Check(t, false, "alias_02")
 }
 func Test_Alias_03(t *testing.T) {
-	Check(t, "alias_03")
+	Check(t, false, "alias_03")
 }
 func Test_Alias_04(t *testing.T) {
-	Check(t, "alias_04")
+	Check(t, false, "alias_04")
 }
 func Test_Alias_05(t *testing.T) {
-	Check(t, "alias_05")
+	Check(t, false, "alias_05")
 }
 func Test_Alias_06(t *testing.T) {
-	Check(t, "alias_06")
+	Check(t, false, "alias_06")
 }
 
 // ===================================================================
 // Function Alias Tests
 // ===================================================================
 func Test_FunAlias_01(t *testing.T) {
-	Check(t, "funalias_01")
+	Check(t, false, "funalias_01")
 }
 
 func Test_FunAlias_02(t *testing.T) {
-	Check(t, "funalias_02")
+	Check(t, false, "funalias_02")
 }
 
 func Test_FunAlias_03(t *testing.T) {
-	Check(t, "funalias_03")
+	Check(t, false, "funalias_03")
 }
 
 // ===================================================================
@@ -139,15 +139,15 @@ func Test_FunAlias_03(t *testing.T) {
 // ===================================================================
 
 func Test_Domain_01(t *testing.T) {
-	Check(t, "domain_01")
+	Check(t, false, "domain_01")
 }
 
 func Test_Domain_02(t *testing.T) {
-	Check(t, "domain_02")
+	Check(t, false, "domain_02")
 }
 
 func Test_Domain_03(t *testing.T) {
-	Check(t, "domain_03")
+	Check(t, false, "domain_03")
 }
 
 // ===================================================================
@@ -155,15 +155,15 @@ func Test_Domain_03(t *testing.T) {
 // ===================================================================
 
 func Test_Block_01(t *testing.T) {
-	Check(t, "block_01")
+	Check(t, false, "block_01")
 }
 
 func Test_Block_02(t *testing.T) {
-	Check(t, "block_02")
+	Check(t, false, "block_02")
 }
 
 func Test_Block_03(t *testing.T) {
-	Check(t, "block_03")
+	Check(t, false, "block_03")
 }
 
 // ===================================================================
@@ -171,7 +171,7 @@ func Test_Block_03(t *testing.T) {
 // ===================================================================
 
 func Test_Property_01(t *testing.T) {
-	Check(t, "property_01")
+	Check(t, false, "property_01")
 }
 
 // ===================================================================
@@ -179,35 +179,35 @@ func Test_Property_01(t *testing.T) {
 // ===================================================================
 
 func Test_Shift_01(t *testing.T) {
-	Check(t, "shift_01")
+	Check(t, false, "shift_01")
 }
 
 func Test_Shift_02(t *testing.T) {
-	Check(t, "shift_02")
+	Check(t, false, "shift_02")
 }
 
 func Test_Shift_03(t *testing.T) {
-	Check(t, "shift_03")
+	Check(t, false, "shift_03")
 }
 
 func Test_Shift_04(t *testing.T) {
-	Check(t, "shift_04")
+	Check(t, false, "shift_04")
 }
 
 func Test_Shift_05(t *testing.T) {
-	Check(t, "shift_05")
+	Check(t, false, "shift_05")
 }
 
 func Test_Shift_06(t *testing.T) {
-	Check(t, "shift_06")
+	Check(t, false, "shift_06")
 }
 
 func Test_Shift_07(t *testing.T) {
-	Check(t, "shift_07")
+	Check(t, false, "shift_07")
 }
 
 func Test_Shift_08(t *testing.T) {
-	Check(t, "shift_08")
+	Check(t, false, "shift_08")
 }
 
 // ===================================================================
@@ -215,39 +215,39 @@ func Test_Shift_08(t *testing.T) {
 // ===================================================================
 
 func Test_Spillage_01(t *testing.T) {
-	Check(t, "spillage_01")
+	Check(t, false, "spillage_01")
 }
 
 func Test_Spillage_02(t *testing.T) {
-	Check(t, "spillage_02")
+	Check(t, false, "spillage_02")
 }
 
 func Test_Spillage_03(t *testing.T) {
-	Check(t, "spillage_03")
+	Check(t, false, "spillage_03")
 }
 
 func Test_Spillage_04(t *testing.T) {
-	Check(t, "spillage_04")
+	Check(t, false, "spillage_04")
 }
 
 func Test_Spillage_05(t *testing.T) {
-	Check(t, "spillage_05")
+	Check(t, false, "spillage_05")
 }
 
 func Test_Spillage_06(t *testing.T) {
-	Check(t, "spillage_06")
+	Check(t, false, "spillage_06")
 }
 
 func Test_Spillage_07(t *testing.T) {
-	Check(t, "spillage_07")
+	Check(t, false, "spillage_07")
 }
 
 func Test_Spillage_08(t *testing.T) {
-	Check(t, "spillage_08")
+	Check(t, false, "spillage_08")
 }
 
 func Test_Spillage_09(t *testing.T) {
-	Check(t, "spillage_09")
+	Check(t, false, "spillage_09")
 }
 
 // ===================================================================
@@ -255,31 +255,31 @@ func Test_Spillage_09(t *testing.T) {
 // ===================================================================
 
 func Test_Norm_01(t *testing.T) {
-	Check(t, "norm_01")
+	Check(t, false, "norm_01")
 }
 
 func Test_Norm_02(t *testing.T) {
-	Check(t, "norm_02")
+	Check(t, false, "norm_02")
 }
 
 func Test_Norm_03(t *testing.T) {
-	Check(t, "norm_03")
+	Check(t, false, "norm_03")
 }
 
 func Test_Norm_04(t *testing.T) {
-	Check(t, "norm_04")
+	Check(t, false, "norm_04")
 }
 
 func Test_Norm_05(t *testing.T) {
-	Check(t, "norm_05")
+	Check(t, false, "norm_05")
 }
 
 func Test_Norm_06(t *testing.T) {
-	Check(t, "norm_06")
+	Check(t, false, "norm_06")
 }
 
 func Test_Norm_07(t *testing.T) {
-	Check(t, "norm_07")
+	Check(t, false, "norm_07")
 }
 
 // ===================================================================
@@ -287,39 +287,39 @@ func Test_Norm_07(t *testing.T) {
 // ===================================================================
 
 func Test_If_01(t *testing.T) {
-	Check(t, "if_01")
+	Check(t, false, "if_01")
 }
 
 func Test_If_02(t *testing.T) {
-	Check(t, "if_02")
+	Check(t, false, "if_02")
 }
 
 func Test_If_03(t *testing.T) {
-	Check(t, "if_03")
+	Check(t, false, "if_03")
 }
 
 func Test_If_04(t *testing.T) {
-	Check(t, "if_04")
+	Check(t, false, "if_04")
 }
 
 func Test_If_05(t *testing.T) {
-	Check(t, "if_05")
+	Check(t, false, "if_05")
 }
 
 func Test_If_06(t *testing.T) {
-	Check(t, "if_06")
+	Check(t, false, "if_06")
 }
 
 func Test_If_07(t *testing.T) {
-	Check(t, "if_07")
+	Check(t, false, "if_07")
 }
 
 func Test_If_08(t *testing.T) {
-	Check(t, "if_08")
+	Check(t, false, "if_08")
 }
 
 func Test_If_09(t *testing.T) {
-	Check(t, "if_09")
+	Check(t, false, "if_09")
 }
 
 // ===================================================================
@@ -327,23 +327,23 @@ func Test_If_09(t *testing.T) {
 // ===================================================================
 
 func Test_Guard_01(t *testing.T) {
-	Check(t, "guard_01")
+	Check(t, false, "guard_01")
 }
 
 func Test_Guard_02(t *testing.T) {
-	Check(t, "guard_02")
+	Check(t, false, "guard_02")
 }
 
 func Test_Guard_03(t *testing.T) {
-	Check(t, "guard_03")
+	Check(t, false, "guard_03")
 }
 
 func Test_Guard_04(t *testing.T) {
-	Check(t, "guard_04")
+	Check(t, false, "guard_04")
 }
 
 func Test_Guard_05(t *testing.T) {
-	Check(t, "guard_05")
+	Check(t, false, "guard_05")
 }
 
 // ===================================================================
@@ -351,35 +351,35 @@ func Test_Guard_05(t *testing.T) {
 // ===================================================================
 
 func Test_Type_01(t *testing.T) {
-	Check(t, "type_01")
+	Check(t, false, "type_01")
 }
 
 func Test_Type_02(t *testing.T) {
-	Check(t, "type_02")
+	Check(t, false, "type_02")
 }
 
 func Test_Type_03(t *testing.T) {
-	Check(t, "type_03")
+	Check(t, false, "type_03")
 }
 
 func Test_Type_04(t *testing.T) {
-	Check(t, "type_04")
+	Check(t, false, "type_04")
 }
 
 func Test_Type_05(t *testing.T) {
-	Check(t, "type_04")
+	Check(t, false, "type_04")
 }
 
 func Test_Type_06(t *testing.T) {
-	Check(t, "type_06")
+	Check(t, false, "type_06")
 }
 
 func Test_Type_07(t *testing.T) {
-	Check(t, "type_07")
+	Check(t, false, "type_07")
 }
 
 func Test_Type_08(t *testing.T) {
-	Check(t, "type_08")
+	Check(t, false, "type_08")
 }
 
 // ===================================================================
@@ -387,23 +387,23 @@ func Test_Type_08(t *testing.T) {
 // ===================================================================
 
 func Test_Range_01(t *testing.T) {
-	Check(t, "range_01")
+	Check(t, false, "range_01")
 }
 
 func Test_Range_02(t *testing.T) {
-	Check(t, "range_02")
+	Check(t, false, "range_02")
 }
 
 func Test_Range_03(t *testing.T) {
-	Check(t, "range_03")
+	Check(t, false, "range_03")
 }
 
 func Test_Range_04(t *testing.T) {
-	Check(t, "range_04")
+	Check(t, false, "range_04")
 }
 
 func Test_Range_05(t *testing.T) {
-	Check(t, "range_05")
+	Check(t, false, "range_05")
 }
 
 // ===================================================================
@@ -411,23 +411,23 @@ func Test_Range_05(t *testing.T) {
 // ===================================================================
 
 func Test_ConstExpr_01(t *testing.T) {
-	Check(t, "constexpr_01")
+	Check(t, false, "constexpr_01")
 }
 
 func Test_ConstExpr_02(t *testing.T) {
-	Check(t, "constexpr_02")
+	Check(t, false, "constexpr_02")
 }
 
 func Test_ConstExpr_03(t *testing.T) {
-	Check(t, "constexpr_03")
+	Check(t, false, "constexpr_03")
 }
 
 func Test_ConstExpr_04(t *testing.T) {
-	Check(t, "constexpr_04")
+	Check(t, false, "constexpr_04")
 }
 
 func Test_ConstExpr_05(t *testing.T) {
-	Check(t, "constexpr_05")
+	Check(t, false, "constexpr_05")
 }
 
 // ===================================================================
@@ -435,43 +435,43 @@ func Test_ConstExpr_05(t *testing.T) {
 // ===================================================================
 
 func Test_Module_01(t *testing.T) {
-	Check(t, "module_01")
+	Check(t, false, "module_01")
 }
 
 func Test_Module_02(t *testing.T) {
-	Check(t, "module_02")
+	Check(t, false, "module_02")
 }
 
 func Test_Module_03(t *testing.T) {
-	Check(t, "module_03")
+	Check(t, false, "module_03")
 }
 
 func Test_Module_04(t *testing.T) {
-	Check(t, "module_04")
+	Check(t, false, "module_04")
 }
 
 func Test_Module_05(t *testing.T) {
-	Check(t, "module_05")
+	Check(t, false, "module_05")
 }
 
 func Test_Module_06(t *testing.T) {
-	Check(t, "module_06")
+	Check(t, false, "module_06")
 }
 
 func Test_Module_07(t *testing.T) {
-	Check(t, "module_07")
+	Check(t, false, "module_07")
 }
 
 func Test_Module_08(t *testing.T) {
-	Check(t, "module_08")
+	Check(t, false, "module_08")
 }
 
 func Test_Module_09(t *testing.T) {
-	Check(t, "module_09")
+	Check(t, false, "module_09")
 }
 
 func Test_Module_10(t *testing.T) {
-	Check(t, "module_10")
+	Check(t, false, "module_10")
 }
 
 // ===================================================================
@@ -479,39 +479,39 @@ func Test_Module_10(t *testing.T) {
 // ===================================================================
 
 func Test_Permute_01(t *testing.T) {
-	Check(t, "permute_01")
+	Check(t, false, "permute_01")
 }
 
 func Test_Permute_02(t *testing.T) {
-	Check(t, "permute_02")
+	Check(t, false, "permute_02")
 }
 
 func Test_Permute_03(t *testing.T) {
-	Check(t, "permute_03")
+	Check(t, false, "permute_03")
 }
 
 func Test_Permute_04(t *testing.T) {
-	Check(t, "permute_04")
+	Check(t, false, "permute_04")
 }
 
 func Test_Permute_05(t *testing.T) {
-	Check(t, "permute_05")
+	Check(t, false, "permute_05")
 }
 
 func Test_Permute_06(t *testing.T) {
-	Check(t, "permute_06")
+	Check(t, false, "permute_06")
 }
 
 func Test_Permute_07(t *testing.T) {
-	Check(t, "permute_07")
+	Check(t, false, "permute_07")
 }
 
 func Test_Permute_08(t *testing.T) {
-	Check(t, "permute_08")
+	Check(t, false, "permute_08")
 }
 
 func Test_Permute_09(t *testing.T) {
-	Check(t, "permute_09")
+	Check(t, false, "permute_09")
 }
 
 // ===================================================================
@@ -519,35 +519,35 @@ func Test_Permute_09(t *testing.T) {
 // ===================================================================
 
 func Test_Lookup_01(t *testing.T) {
-	Check(t, "lookup_01")
+	Check(t, false, "lookup_01")
 }
 
 func Test_Lookup_02(t *testing.T) {
-	Check(t, "lookup_02")
+	Check(t, false, "lookup_02")
 }
 
 func Test_Lookup_03(t *testing.T) {
-	Check(t, "lookup_03")
+	Check(t, false, "lookup_03")
 }
 
 func Test_Lookup_04(t *testing.T) {
-	Check(t, "lookup_04")
+	Check(t, false, "lookup_04")
 }
 
 func Test_Lookup_05(t *testing.T) {
-	Check(t, "lookup_05")
+	Check(t, false, "lookup_05")
 }
 
 func Test_Lookup_06(t *testing.T) {
-	Check(t, "lookup_06")
+	Check(t, false, "lookup_06")
 }
 
 func Test_Lookup_07(t *testing.T) {
-	Check(t, "lookup_07")
+	Check(t, false, "lookup_07")
 }
 
 func Test_Lookup_08(t *testing.T) {
-	Check(t, "lookup_08")
+	Check(t, false, "lookup_08")
 }
 
 // ===================================================================
@@ -555,19 +555,19 @@ func Test_Lookup_08(t *testing.T) {
 // ===================================================================
 
 func Test_Interleave_01(t *testing.T) {
-	Check(t, "interleave_01")
+	Check(t, false, "interleave_01")
 }
 
 func Test_Interleave_02(t *testing.T) {
-	Check(t, "interleave_02")
+	Check(t, false, "interleave_02")
 }
 
 func Test_Interleave_03(t *testing.T) {
-	Check(t, "interleave_03")
+	Check(t, false, "interleave_03")
 }
 
 func Test_Interleave_04(t *testing.T) {
-	Check(t, "interleave_04")
+	Check(t, false, "interleave_04")
 }
 
 // ===================================================================
@@ -575,27 +575,27 @@ func Test_Interleave_04(t *testing.T) {
 // ===================================================================
 
 func Test_Fun_01(t *testing.T) {
-	Check(t, "fun_01")
+	Check(t, false, "fun_01")
 }
 
 func Test_Fun_02(t *testing.T) {
-	Check(t, "fun_02")
+	Check(t, false, "fun_02")
 }
 
 func Test_Fun_03(t *testing.T) {
-	Check(t, "fun_03")
+	Check(t, false, "fun_03")
 }
 
 func Test_Fun_04(t *testing.T) {
-	Check(t, "fun_04")
+	Check(t, false, "fun_04")
 }
 
 func Test_Fun_05(t *testing.T) {
-	Check(t, "fun_05")
+	Check(t, false, "fun_05")
 }
 
 func Test_Fun_06(t *testing.T) {
-	Check(t, "fun_06")
+	Check(t, false, "fun_06")
 }
 
 // ===================================================================
@@ -603,21 +603,21 @@ func Test_Fun_06(t *testing.T) {
 // ===================================================================
 
 func Test_PureFun_01(t *testing.T) {
-	Check(t, "purefun_01")
+	Check(t, false, "purefun_01")
 }
 
 func Test_PureFun_02(t *testing.T) {
-	Check(t, "purefun_02")
+	Check(t, false, "purefun_02")
 }
 
 /*
 	func Test_PureFun_03(t *testing.T) {
-		Check(t, "purefun_03")
+		Check(t, false, "purefun_03")
 	}
 */
 
 func Test_PureFun_04(t *testing.T) {
-	Check(t, "purefun_04")
+	Check(t, false, "purefun_04")
 }
 
 // ===================================================================
@@ -625,47 +625,47 @@ func Test_PureFun_04(t *testing.T) {
 // ===================================================================
 
 func Test_Counter(t *testing.T) {
-	Check(t, "counter")
+	Check(t, false, "counter")
 }
 
 func Test_ByteDecomp(t *testing.T) {
-	Check(t, "byte_decomposition")
+	Check(t, false, "byte_decomposition")
 }
 
 func Test_BitDecomp(t *testing.T) {
-	Check(t, "bit_decomposition")
+	Check(t, false, "bit_decomposition")
 }
 
 func Test_ByteSorting(t *testing.T) {
-	Check(t, "byte_sorting")
+	Check(t, false, "byte_sorting")
 }
 
 func Test_WordSorting(t *testing.T) {
-	Check(t, "word_sorting")
+	Check(t, false, "word_sorting")
 }
 
 func Test_Memory(t *testing.T) {
-	Check(t, "memory")
+	Check(t, true, "memory")
 }
 
 func TestSlow_Add(t *testing.T) {
-	Check(t, "add")
+	Check(t, false, "add")
 }
 
 func TestSlow_BinStatic(t *testing.T) {
-	Check(t, "bin-static")
+	Check(t, false, "bin-static")
 }
 
 func TestSlow_BinDynamic(t *testing.T) {
-	Check(t, "bin-dynamic")
+	Check(t, false, "bin-dynamic")
 }
 
 func TestSlow_Wcp(t *testing.T) {
-	Check(t, "wcp")
+	Check(t, false, "wcp")
 }
 
 func TestSlow_Mxp(t *testing.T) {
-	Check(t, "mxp")
+	Check(t, false, "mxp")
 }
 
 // ===================================================================
@@ -679,7 +679,7 @@ const MAX_PADDING uint = 7
 // For a given set of constraints, check that all traces which we
 // expect to be accepted are accepted, and all traces that we expect
 // to be rejected are rejected.
-func Check(t *testing.T, test string) {
+func Check(t *testing.T, stdlib bool, test string) {
 	filename := fmt.Sprintf("%s.lisp", test)
 	// Enable testing each trace in parallel
 	t.Parallel()
@@ -692,7 +692,7 @@ func Check(t *testing.T, test string) {
 	// Package up as source file
 	srcfile := sexp.NewSourceFile(filename, bytes)
 	// Parse terms into an HIR schema
-	schema, errs := corset.CompileSourceFile(false, srcfile)
+	schema, errs := corset.CompileSourceFile(stdlib, srcfile)
 	// Check terms parsed ok
 	if len(errs) > 0 {
 		t.Fatalf("Error parsing %s: %v\n", filename, errs)

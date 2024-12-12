@@ -135,9 +135,12 @@ func (p *ModuleScope) Bind(symbol Symbol) bool {
 		binding := p.bindings[bid]
 		// Resolve symbol
 		return symbol.Resolve(binding)
-	} else {
-		// Attempt to lookup in parent
+	} else if p.module != "" {
+		// Attempt to lookup in parent (unless we are the root module, in which
+		// case we have no parent)
 		return p.enclosing.Bind(symbol)
+	} else {
+		return false
 	}
 }
 
