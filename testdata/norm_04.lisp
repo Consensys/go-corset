@@ -1,2 +1,4 @@
+(defpurefun ((vanishes! :@loob) x) x)
+
 (defcolumns ST A B)
-(defconstraint c1 () (* ST (- 1 (~ A)) (- 1 (~ B))))
+(defconstraint c1 () (vanishes! (* ST (- 1 (~ A)) (- 1 (~ B)))))

@@ -1,2 +1,2 @@
-(defcolumns X)
+(defcolumns (X :byte@loob))
 (defconstraint heartbeat () X)

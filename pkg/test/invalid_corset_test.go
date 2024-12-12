@@ -234,6 +234,42 @@ func Test_Invalid_If_02(t *testing.T) {
 }
 
 // ===================================================================
+// Types
+// ===================================================================
+
+func Test_Invalid_Type_01(t *testing.T) {
+	CheckInvalid(t, "type_invalid_01")
+}
+
+func Test_Invalid_Type_02(t *testing.T) {
+	CheckInvalid(t, "type_invalid_02")
+}
+
+func Test_Invalid_Type_03(t *testing.T) {
+	CheckInvalid(t, "type_invalid_03")
+}
+
+func Test_Invalid_Type_04(t *testing.T) {
+	CheckInvalid(t, "type_invalid_04")
+}
+
+func Test_Invalid_Type_05(t *testing.T) {
+	CheckInvalid(t, "type_invalid_05")
+}
+
+func Test_Invalid_Type_06(t *testing.T) {
+	CheckInvalid(t, "type_invalid_06")
+}
+
+func Test_Invalid_Type_07(t *testing.T) {
+	CheckInvalid(t, "type_invalid_07")
+}
+
+func Test_Invalid_Type_08(t *testing.T) {
+	CheckInvalid(t, "type_invalid_08")
+}
+
+// ===================================================================
 // Range Constraints
 // ===================================================================
 
@@ -438,6 +474,11 @@ func Test_Invalid_PureFun_07(t *testing.T) {
 	CheckInvalid(t, "purefun_invalid_07")
 }
 
+func Test_Invalid_PureFun_08(t *testing.T) {
+	// tricky one
+	CheckInvalid(t, "purefun_invalid_08")
+}
+
 // ===================================================================
 // Test Helpers
 // ===================================================================
@@ -456,7 +497,7 @@ func CheckInvalid(t *testing.T, test string) {
 	// Package up as source file
 	srcfile := sexp.NewSourceFile(filename, bytes)
 	// Parse terms into an HIR schema
-	_, errs := corset.CompileSourceFile(srcfile)
+	_, errs := corset.CompileSourceFile(false, srcfile)
 	// Check program did not compile!
 	if len(errs) == 0 {
 		t.Fatalf("Error %s should not have compiled\n", filename)

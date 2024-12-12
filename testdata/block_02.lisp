@@ -1,2 +1,8 @@
-(defcolumns X Y Z)
-(defconstraint c1 () (if X (begin Y Z)))
+(defpurefun ((vanishes! :@loob) x) x)
+
+(defcolumns (X :@loob) Y Z)
+(defconstraint c1 ()
+  (if X
+      (begin
+       (vanishes! Y)
+       (vanishes! Z))))

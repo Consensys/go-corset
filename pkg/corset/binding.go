@@ -3,7 +3,6 @@ package corset
 import (
 	"math"
 
-	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 )
 
@@ -42,11 +41,11 @@ type ColumnBinding struct {
 	// Column's length multiplier
 	multiplier uint
 	// Column's datatype
-	dataType sc.Type
+	dataType Type
 }
 
 // NewColumnBinding constructs a new column binding in a given module.
-func NewColumnBinding(module string, computed bool, mustProve bool, multiplier uint, datatype sc.Type) *ColumnBinding {
+func NewColumnBinding(module string, computed bool, mustProve bool, multiplier uint, datatype Type) *ColumnBinding {
 	return &ColumnBinding{math.MaxUint, module, computed, mustProve, multiplier, datatype}
 }
 
@@ -121,16 +120,16 @@ func (p *ParameterBinding) IsFinalised() bool {
 type FunctionBinding struct {
 	// Flag whether or not is pure function
 	pure bool
-	// Types of parameters
-	paramTypes []sc.Type
-	// Type of return
-	returnType sc.Type
+	// Types of parameters (optional)
+	paramTypes []Type
+	// Type of return (optional)
+	returnType Type
 	// body of the function in question.
 	body Expr
 }
 
 // NewFunctionBinding constructs a new function binding.
-func NewFunctionBinding(pure bool, paramTypes []sc.Type, returnType sc.Type, body Expr) FunctionBinding {
+func NewFunctionBinding(pure bool, paramTypes []Type, returnType Type, body Expr) FunctionBinding {
 	return FunctionBinding{pure, paramTypes, returnType, body}
 }
 
@@ -141,7 +140,7 @@ func (p *FunctionBinding) IsPure() bool {
 
 // IsFinalised checks whether this binding has been finalised yet or not.
 func (p *FunctionBinding) IsFinalised() bool {
-	return p.returnType != nil
+	return true
 }
 
 // Arity returns the number of parameters that this function accepts.

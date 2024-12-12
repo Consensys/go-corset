@@ -44,6 +44,7 @@ var checkCmd = &cobra.Command{
 		cfg.reportCellWidth = GetUint(cmd, "report-cellwidth")
 		cfg.spillage = GetInt(cmd, "spillage")
 		cfg.strict = !GetFlag(cmd, "warn")
+		cfg.stdlib = !GetFlag(cmd, "no-stdlib")
 		cfg.quiet = GetFlag(cmd, "quiet")
 		cfg.padding.Right = GetUint(cmd, "padding")
 		cfg.parallelExpansion = !GetFlag(cmd, "sequential")
@@ -58,7 +59,7 @@ var checkCmd = &cobra.Command{
 		//
 		stats := util.NewPerfStats()
 		// Parse constraints
-		hirSchema = readSchema(args[1:])
+		hirSchema = readSchema(cfg.stdlib, args[1:])
 		//
 		stats.Log("Reading constraints file")
 		// Parse trace file
@@ -97,6 +98,9 @@ type checkConfig struct {
 	// not required when a "raw" trace is given which already includes all
 	// implied columns.
 	expand bool
+	// Specifies whether or not to include the standard library.  The default is
+	// to include it.
+	stdlib bool
 	// Specifies whether or not to report details of the failure (e.g. for
 	// debugging purposes).
 	report bool
@@ -312,6 +316,7 @@ func init() {
 	checkCmd.Flags().Bool("air", false, "check at AIR level")
 	checkCmd.Flags().BoolP("warn", "w", false, "report warnings instead of failing for certain errors"+
 		"(e.g. unknown columns in the trace)")
+	checkCmd.Flags().Bool("no-stdlib", false, "prevents the standard library from being included")
 	checkCmd.Flags().BoolP("debug", "d", false, "report debug logs")
 	checkCmd.Flags().BoolP("quiet", "q", false, "suppress output (e.g. warnings)")
 	checkCmd.Flags().Bool("sequential", false, "perform sequential trace expansion")

@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/sexp"
 	"github.com/consensys/go-corset/pkg/util"
 )
@@ -171,7 +170,7 @@ func (e *DefColumn) Name() string {
 
 // DataType returns the type of this column.  If this column have not yet been
 // finalised, then this will panic.
-func (e *DefColumn) DataType() sc.Type {
+func (e *DefColumn) DataType() Type {
 	if !e.binding.IsFinalised() {
 		panic("unfinalised column")
 	}
@@ -720,7 +719,7 @@ type DefParameter struct {
 	// Column name
 	Name string
 	// The datatype which all values in this parameter should inhabit.
-	DataType sc.Type
+	DataType Type
 }
 
 // Lisp converts this node into its lisp representation.  This is primarily used
