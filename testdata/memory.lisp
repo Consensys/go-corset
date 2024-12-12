@@ -11,26 +11,56 @@
 ;; written.
 
 ;; Program Counter (always increases by one)
-(defcolumns (PC :i16@prove))
+(defcolumns (PC :i16@loob@prove))
 ;; Read/Write flag (0=READ, 1=WRITE)
 (defcolumns (RW :i1@prove))
 ;; Address being Read/Written
 (defcolumns (ADDR :i32@prove))
 ;; Value being Read/Written
 (defcolumns (VAL :i8@prove))
+
 ;; Permutation
 (defpermutation (ADDR' PC' RW' VAL') ((+ ADDR) (+ PC) (+ RW) (+ VAL)))
+
 ;; PC[0]=0
-(defconstraint heartbeat_1 (:domain {0}) PC)
+(defconstraint heartbeat_1 (:domain {0}) (eq! PC 0))
+
 ;; PC[k]=0 || PC[k]=PC[k-1]+1
-(defconstraint heartbeat_2 () (* PC (- PC (+ 1 (shift PC -1)))))
+(defconstraint heartbeat_2 ()
+  (or!
+   (eq! PC 0)
+   (eq! PC (+ 1 (prev PC)))))
+
 ;; PC[k]=0 ==> PC[k-1]=0
-(defconstraint heartbeat_3 () (if PC (shift PC -1)))
+(defconstraint heartbeat_3 ()
+  (if PC
+      (eq! (prev PC) 0)))
+
 ;; PC[k]=0 ==> (RW[k]=0 && ADDR[k]=0 && VAL[k]=0)
-(defconstraint heartbeat_4 () (if PC (+ RW ADDR VAL)))
+(defconstraint heartbeat_4 ()
+  (if PC
+      (+
+       (eq! RW 0)
+       (eq! ADDR 0)
+       (eq! VAL 0))))
+
 ;; ADDR'[k] != ADDR'[k-1] ==> (RW'[k]=1 || VAL'[k]=0)
-(defconstraint first_read_1 () (if (- ADDR' (shift ADDR' -1)) 0 (* (- 1 RW') VAL')))
+(defconstraint first_read_1 ()
+  (if-not-eq ADDR' (prev ADDR')
+      (or!
+       (eq! RW' 1)
+       (eq! VAL' 0))))
+
 ;; (RW'[0]=1 || VAL'[0]=0)
-(defconstraint first_read_2 (:domain {0}) (* (- 1 RW') VAL'))
+(defconstraint first_read_2 (:domain {0})
+  (or!
+   (eq! RW' 1)
+   (eq! VAL' 0)))
+
 ;; ADDR'[k] == ADDR'[k-1] ==> (RW=1 || VAL'[k]=VAL'[k-1])
-(defconstraint next_read () (if (- ADDR' (shift ADDR' -1)) (* (- 1 RW') (- VAL' (shift VAL' -1)))))
+(defconstraint next_read ()
+  (if
+   (eq! ADDR' (prev ADDR'))
+   (or!
+    (eq! RW' 1)
+    (eq! VAL' (prev VAL')))))
