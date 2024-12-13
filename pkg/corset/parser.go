@@ -334,7 +334,10 @@ func (p *Parser) parseDefColumns(module string, l *sexp.List) (Declaration, []Sy
 }
 
 func (p *Parser) parseColumnDeclaration(e sexp.SExp, binding *ColumnBinding) (*DefColumn, *SyntaxError) {
-	var name string
+	var (
+		name  string
+		error *SyntaxError
+	)
 	// Check whether extended declaration or not.
 	if l := e.AsList(); l != nil {
 		// Check at least the name provided.
@@ -346,14 +349,8 @@ func (p *Parser) parseColumnDeclaration(e sexp.SExp, binding *ColumnBinding) (*D
 		// Column name is always first
 		name = l.Elements[0].String(false)
 		//	Parse type (if applicable)
-		if len(l.Elements) == 2 {
-			var err *SyntaxError
-			if binding.dataType, binding.mustProve, err = p.parseType(l.Elements[1]); err != nil {
-				return nil, err
-			}
-		} else if len(l.Elements) > 2 {
-			// For now.
-			return nil, p.translator.SyntaxError(l, "unknown column declaration attributes")
+		if binding.dataType, binding.mustProve, error = p.parseColumnDeclarationAttributes(l.Elements[1:]); error != nil {
+			return nil, error
 		}
 	} else {
 		name = e.String(false)
@@ -364,6 +361,33 @@ func (p *Parser) parseColumnDeclaration(e sexp.SExp, binding *ColumnBinding) (*D
 	p.mapSourceNode(e, def)
 	//
 	return def, nil
+}
+
+func (p *Parser) parseColumnDeclarationAttributes(attrs []sexp.SExp) (Type, bool, *SyntaxError) {
+	var (
+		dataType  Type = NewFieldType()
+		mustProve bool = false
+		err       *SyntaxError
+	)
+
+	for _, attr := range attrs {
+		symbol := attr.AsSymbol()
+		// Sanity check
+		if symbol == nil {
+			return nil, false, p.translator.SyntaxError(attr, "unknown column attribute")
+		}
+		//
+		switch symbol.Value {
+		case ":display", ":opcode":
+			// skip these for now, as they are only relevant to the inspector.
+		default:
+			if dataType, mustProve, err = p.parseType(attr); err != nil {
+				return nil, false, err
+			}
+		}
+	}
+	// Done
+	return dataType, mustProve, nil
 }
 
 // Parse a constant declaration
@@ -668,28 +692,27 @@ func (p *Parser) parseFunctionNameReturn(element sexp.SExp) (string, Type, bool,
 	//
 	if symbol != nil {
 		name = symbol
-	} else if list.Len() == 2 {
-		name = list.Get(0)
-		// Extract type (and check for errors)
-		if ret, _, err = p.parseType(list.Get(1)); err != nil {
-			return "", nil, false, []SyntaxError{*err}
-		}
-	} else if list.Len() >= 3 {
-		name = list.Get(0)
-		modifier := list.Get(2).AsSymbol()
-		// Check have ":forced" as expected.
-		if modifier == nil || modifier.Value != ":force" {
-			err := p.translator.SyntaxError(list.Get(2), "unexpected modifier")
-			return "", nil, false, []SyntaxError{*err}
-		} else if list.Len() > 3 {
-			err := p.translator.SyntaxError(list.Get(3), "unexpected modifier")
-			return "", nil, false, []SyntaxError{*err}
-		}
-		// Make this as forcing the outcome
-		forced = true
 	} else {
-		err := p.translator.SyntaxError(element, "invalid function declaration")
-		return "", nil, false, []SyntaxError{*err}
+		// Check all modifiers
+		for i, element := range list.Elements {
+			symbol := element.AsSymbol()
+			// Check what we have
+			if symbol == nil {
+				err := p.translator.SyntaxError(element, "modifier expected")
+				return "", nil, false, []SyntaxError{*err}
+			} else if i == 0 {
+				name = symbol
+			} else {
+				switch symbol.Value {
+				case ":force":
+					forced = true
+				default:
+					if ret, _, err = p.parseType(element); err != nil {
+						return "", nil, false, []SyntaxError{*err}
+					}
+				}
+			}
+		}
 	}
 	//
 	if isIdentifier(name) {

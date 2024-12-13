@@ -1,30 +1,97 @@
 (module add)
 
 (defcolumns
-  (ACC_2 :i128)
-  (RES_LO :i128)
+  (STAMP :i32)
+  (CT_MAX :byte)
+  (CT :byte)
+  (INST :byte :display :opcode)
+  (ARG_1_HI :i128)
   (ARG_1_LO :i128)
-  (OVERFLOW :binary@prove)
+  (ARG_2_HI :i128)
+  (ARG_2_LO :i128)
   (RES_HI :i128)
-  (INST :i8)
+  (RES_LO :i128)
   (BYTE_1 :byte@prove)
   (BYTE_2 :byte@prove)
   (ACC_1 :i128)
-  (STAMP :i32)
-  (ARG_1_HI :i128)
-  (ARG_2_LO :i128)
-  (ARG_2_HI :i128)
-  (CT_MAX :i8)
-  (CT :i8))
+  (ACC_2 :i128)
+  (OVERFLOW :binary@prove))
 
-(defconstraint adder-constraints () (if STAMP 0 (if (- CT CT_MAX) (begin (- RES_HI ACC_1) (- RES_LO ACC_2) (if (- INST 3) 0 (begin (- (+ ARG_1_LO ARG_2_LO) (+ RES_LO (* 340282366920938463463374607431768211456 OVERFLOW))) (- (+ ARG_1_HI ARG_2_HI OVERFLOW) (+ RES_HI (* 340282366920938463463374607431768211456 (shift OVERFLOW -1)))))) (if (- INST 1) 0 (begin (- (+ RES_LO ARG_2_LO) (+ ARG_1_LO (* 340282366920938463463374607431768211456 OVERFLOW))) (- (+ RES_HI ARG_2_HI OVERFLOW) (+ ARG_1_HI (* 340282366920938463463374607431768211456 (shift OVERFLOW -1))))))))))
+(defconst
+  EVM_INST_STOP                          0x00
+  EVM_INST_ADD                           0x01
+  EVM_INST_MUL                           0x02
+  EVM_INST_SUB                           0x03
+  LLARGEMO 15
+  LLARGE   16
+  THETA 340282366920938463463374607431768211456) ;; note that 340282366920938463463374607431768211456 = 256^16
 
-(defconstraint stamp-constancies () (begin (if (- (shift STAMP 1) STAMP) (- (shift ARG_1_HI 1) ARG_1_HI)) (if (- (shift STAMP 1) STAMP) (- (shift ARG_1_LO 1) ARG_1_LO)) (if (- (shift STAMP 1) STAMP) (- (shift ARG_2_HI 1) ARG_2_HI)) (if (- (shift STAMP 1) STAMP) (- (shift ARG_2_LO 1) ARG_2_LO)) (if (- (shift STAMP 1) STAMP) (- (shift RES_HI 1) RES_HI)) (if (- (shift STAMP 1) STAMP) (- (shift RES_LO 1) RES_LO)) (if (- (shift STAMP 1) STAMP) (- (shift INST 1) INST)) (if (- (shift STAMP 1) STAMP) (- (shift CT_MAX 1) CT_MAX))))
+(defconstraint stamp-constancies ()
+  (begin (stamp-constancy STAMP ARG_1_HI)
+         (stamp-constancy STAMP ARG_1_LO)
+         (stamp-constancy STAMP ARG_2_HI)
+         (stamp-constancy STAMP ARG_2_LO)
+         (stamp-constancy STAMP RES_HI)
+         (stamp-constancy STAMP RES_LO)
+         (stamp-constancy STAMP INST)
+         (stamp-constancy STAMP CT_MAX)))
 
-(defconstraint heartbeat () (begin (if STAMP (begin INST)) (* (- (shift STAMP 1) STAMP) (- (shift STAMP 1) (+ STAMP 1))) (if (- (shift STAMP 1) STAMP) 0 (shift CT 1)) (if STAMP 0 (begin (* (- INST 1) (- INST 3)) (if (- 1 (~ (- CT CT_MAX))) (- (shift CT 1) (+ CT 1)) (- (shift STAMP 1) (+ STAMP 1))) (- (~ (* (- CT 16) CT_MAX)) 1)))))
+;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                     ;;
+;;    1.3 heartbeat    ;;
+;;                     ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;
+(defconstraint first-row (:domain {0})
+  (vanishes! STAMP))
 
-(defconstraint binary-and-byte-decompositions () (begin (if CT (- ACC_1 BYTE_1) (- ACC_1 (+ (* 256 (shift ACC_1 -1)) BYTE_1))) (if CT (- ACC_2 BYTE_2) (- ACC_2 (+ (* 256 (shift ACC_2 -1)) BYTE_2)))))
+(defconstraint heartbeat ()
+  (begin (if-zero STAMP
+                  (begin (vanishes! INST)
+                         ;; (debug (vanishes! CT))
+                         ;; (debug (vanishes! CT_MAX))
+                         ))
+         (vanishes! (* (will-remain-constant! STAMP) (will-inc! STAMP 1)))
+         (if-not-zero (will-remain-constant! STAMP)
+                      (vanishes! (next CT)))
+         (if-not-zero STAMP
+                      (begin (vanishes! (* (eq! INST EVM_INST_ADD) (eq! INST EVM_INST_SUB)))
+                             (if (eq CT CT_MAX)
+                                 (will-inc! STAMP 1)
+                                 (will-inc! CT 1))
+                             (eq! (~ (* (- CT LLARGE) CT_MAX))
+                                  1)))))
 
-(defconstraint last-row (:domain {-1}) (- CT CT_MAX))
+(defconstraint last-row (:domain {-1})
+  (eq! CT CT_MAX))
 
-(defconstraint first-row (:domain {0}) STAMP)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                                                   ;;
+;;    1.4 binary, bytehood and byte decompositions   ;;
+;;                                                   ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defconstraint binary-and-byte-decompositions ()
+  (begin (byte-decomposition CT ACC_1 BYTE_1)
+         (byte-decomposition CT ACC_2 BYTE_2)))
+
+;; TODO: bytehood constraints
+;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                       ;;
+;;    1.5 constraints    ;;
+;;                       ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defconstraint adder-constraints (:guard STAMP)
+  (if-eq CT CT_MAX
+         (begin (eq! RES_HI ACC_1)
+                (eq! RES_LO ACC_2)
+                (if-not-zero (- INST EVM_INST_SUB)
+                             (begin (eq! (+ ARG_1_LO ARG_2_LO)
+                                         (+ RES_LO (* THETA OVERFLOW)))
+                                    (eq! (+ ARG_1_HI ARG_2_HI OVERFLOW)
+                                         (+ RES_HI
+                                            (* THETA (prev OVERFLOW))))))
+                (if-not-zero (- INST EVM_INST_ADD)
+                             (begin (eq! (+ RES_LO ARG_2_LO)
+                                         (+ ARG_1_LO (* THETA OVERFLOW)))
+                                    (eq! (+ RES_HI ARG_2_HI OVERFLOW)
+                                         (+ ARG_1_HI
+                                            (* THETA (prev OVERFLOW)))))))))
