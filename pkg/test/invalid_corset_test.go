@@ -1,13 +1,15 @@
 package test
 
 import (
-	"bufio"
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/sexp"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // Determines the (relative) location of the test directory.  That is
@@ -585,11 +587,11 @@ func Test_Invalid_Debug_02(t *testing.T) {
 
 // Check that a given source file fails to compiler.
 func CheckInvalid(t *testing.T, test string) {
-	filename := fmt.Sprintf("%s.lisp", test)
+	filename := fmt.Sprintf("%s/%s.lisp", InvalidTestDir, test)
 	// Enable testing each trace in parallel
 	t.Parallel()
 	// Read constraints file
-	bytes, err := os.ReadFile(fmt.Sprintf("%s/%s", InvalidTestDir, filename))
+	bytes, err := os.ReadFile(filename)
 	// Check test file read ok
 	if err != nil {
 		t.Fatal(err)
@@ -598,16 +600,122 @@ func CheckInvalid(t *testing.T, test string) {
 	srcfile := sexp.NewSourceFile(filename, bytes)
 	// Parse terms into an HIR schema
 	_, errs := corset.CompileSourceFile(false, false, srcfile)
+	// Extract expected errors for comparison
+	expectedErrs, lineOffsets := extractExpectedErrors(filename)
 	// Check program did not compile!
 	if len(errs) == 0 {
 		t.Fatalf("Error %s should not have compiled\n", filename)
+	} else if len(errs) != len(expectedErrs) {
+		t.Fatalf("Error %s reported incorrect number of errors (%d vs %d)\n", filename, len(errs), len(expectedErrs))
+	} else {
+		// Check errors match
+		for i := 0; i < len(expectedErrs); i++ {
+			expected := expectedErrs[i]
+			actual := errs[i]
+			//
+			if expected.msg != actual.Message() {
+				t.Fatalf("Error %s, got \"%s\" but wanted \"%s\"\n", filename, actual.Message(), expected.msg)
+			} else if expected.span != actual.Span() {
+				aSpan := spanToString(actual.Span(), lineOffsets)
+				eSpan := spanToString(expected.span, lineOffsets)
+				t.Fatalf("Error %s, span was %s but wanted %s\n", filename, aSpan, eSpan)
+			}
+		}
 	}
 }
 
-func ExtractExpectedSyntaxErrors(bytes []byte) []sexp.SyntaxError {
-	scanner := bufio.NewScanner(bytes)
-	// optionally, resize scanner's capacity for lines over 64K, see next example
-	for scanner.Scan() {
-		fmt.Println(scanner.Text())
+// SyntaxError captures key information about an expected error
+type SyntaxError struct {
+	// The range of bytes in the original file to which this error is
+	// associated.
+	span sexp.Span
+	// The error message reported.
+	msg string
+}
+
+func extractExpectedErrors(filename string) ([]SyntaxError, []int) {
+	// Read the source file and convert into one or more lines.
+	lines := util.ReadInputFile(filename)
+	// Calcuate the character offset of each line
+	offsets := make([]int, len(lines))
+	offset := 0
+	//
+	for i, line := range lines {
+		offsets[i] = offset
+		offset += len(line) + 1
 	}
+	// Now construct errors
+	errors := make([]SyntaxError, 0)
+	// scan file line-by-line until no more errors found
+	for _, line := range lines {
+		error := extractSyntaxError(line, offsets)
+		// Keep going until no more errors
+		if error == nil {
+			return errors, offsets
+		}
+
+		errors = append(errors, *error)
+	}
+	//
+	return errors, offsets
+}
+
+// Extract the syntax error from a given line in the source file, or return nil
+// if it does not describe an error.
+func extractSyntaxError(line string, offsets []int) *SyntaxError {
+	if strings.HasPrefix(line, ";;error") {
+		splits := strings.Split(line, ":")
+		span := determineFileSpan(splits[1], splits[2], offsets)
+		msg := splits[3]
+		// Done
+		return &SyntaxError{span, msg}
+	}
+	// No error
+	return nil
+}
+
+// Determine the span that the the given line string and span string corresponds
+// to.  We need the line offsets so that the computed span includes the starting
+// offset of the relevant line.
+func determineFileSpan(line_str string, span_str string, offsets []int) sexp.Span {
+	line, err := strconv.Atoi(line_str)
+	if err != nil {
+		panic(err)
+	}
+	// Split the span
+	span_splits := strings.Split(span_str, "-")
+	// Parse span start as integer
+	start, err := strconv.Atoi(span_splits[0])
+	if err != nil {
+		panic(err)
+	}
+	// Parse span end as integer
+	end, err := strconv.Atoi(span_splits[1])
+	if err != nil {
+		panic(err)
+	}
+	// Add line offset
+	start += offsets[line-1]
+	end += offsets[line-1]
+	// Done
+	return sexp.NewSpan(start, end)
+}
+
+// Convert a span into a useful human readable string.
+func spanToString(span sexp.Span, offsets []int) string {
+	line := 0
+	last := 0
+	start := span.Start()
+	end := span.End()
+	//
+	for i, o := range offsets {
+		if o > start {
+			break
+		}
+		// Update status
+		last = o
+		line = i + 1
+	}
+	//
+	return fmt.Sprintf("%d:%d-%d", line, start-last, end-last)
 }

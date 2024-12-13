@@ -1,10 +1,7 @@
 package test
 
 import (
-	"bufio"
-	"errors"
 	"fmt"
-	"io"
 	"os"
 	"strings"
 	"testing"
@@ -15,6 +12,7 @@ import (
 	"github.com/consensys/go-corset/pkg/sexp"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/json"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // Determines the (relative) location of the test directory.  That is
@@ -899,7 +897,7 @@ type traceId struct {
 // ReadTracesFile reads a file containing zero or more traces expressed as JSON, where
 // each trace is on a separate line.
 func ReadTracesFile(filename string) [][]trace.RawColumn {
-	lines := ReadInputFile(filename)
+	lines := util.ReadInputFile(filename)
 	traces := make([][]trace.RawColumn, len(lines))
 	// Read constraints line by line
 	for i, line := range lines {
@@ -925,61 +923,5 @@ func ReadTracesFileIfExists(name string) [][]trace.RawColumn {
 		return nil
 	}
 	// Yes it does
-	return ReadTracesFile(name)
-}
-
-// ReadInputFile reads an input file as a sequence of lines.
-func ReadInputFile(filename string) []string {
-	filename = fmt.Sprintf("%s/%s", TestDir, filename)
-	file, err := os.Open(filename)
-	// Check whether file exists
-	if errors.Is(err, os.ErrNotExist) {
-		return []string{}
-	} else if err != nil {
-		panic(err)
-	}
-
-	reader := bufio.NewReaderSize(file, 1024*128)
-	lines := make([]string, 0)
-	// Read file line-by-line
-	for {
-		// Read the next line
-		line := readLine(reader)
-		// Check whether for EOF
-		if line == nil {
-			if err = file.Close(); err != nil {
-				panic(err)
-			}
-
-			return lines
-		}
-
-		lines = append(lines, *line)
-	}
-}
-
-// Read a single line
-func readLine(reader *bufio.Reader) *string {
-	var (
-		bytes []byte
-		bit   []byte
-		err   error
-	)
-	//
-	cont := true
-	//
-	for cont {
-		bit, cont, err = reader.ReadLine()
-		if err == io.EOF {
-			return nil
-		} else if err != nil {
-			panic(err)
-		}
-
-		bytes = append(bytes, bit...)
-	}
-	// Convert to string
-	str := string(bytes)
-	// Done
-	return &str
+	return ReadTracesFile(filename)
 }
