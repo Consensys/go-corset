@@ -125,3 +125,13 @@
 (defpurefun (stamp-constancy STAMP C)
             (if (will-remain-constant! STAMP)
                 (will-remain-constant! C)))
+
+;; =============================================================================
+;; Add
+;; =============================================================================
+(defpurefun (if-not-eq X Y then)
+    (if (eq! X Y)
+        ;; True branch
+        (vanishes! 0)
+        ;; False branch
+        then))
