@@ -1,6 +1,7 @@
 package test
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"testing"
@@ -600,5 +601,13 @@ func CheckInvalid(t *testing.T, test string) {
 	// Check program did not compile!
 	if len(errs) == 0 {
 		t.Fatalf("Error %s should not have compiled\n", filename)
+	}
+}
+
+func ExtractExpectedSyntaxErrors(bytes []byte) []sexp.SyntaxError {
+	scanner := bufio.NewScanner(bytes)
+	// optionally, resize scanner's capacity for lines over 64K, see next example
+	for scanner.Scan() {
+		fmt.Println(scanner.Text())
 	}
 }
