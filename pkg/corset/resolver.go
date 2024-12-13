@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/sexp"
-	"github.com/consensys/go-corset/pkg/util"
 )
 
 // ResolveCircuit resolves all symbols declared and used within a circuit,
@@ -183,20 +182,24 @@ func (r *resolver) finaliseDeclarationsInModule(scope *ModuleScope, decls []Decl
 		complete = true
 		//
 		for _, d := range decls {
-			ready, errs := r.declarationDependenciesAreFinalised(scope, d.Dependencies())
-			// See what arosed
-			if errs != nil {
-				errors = append(errors, errs...)
-			} else if ready {
-				// Finalise declaration and handle errors
-				errs := r.finaliseDeclaration(scope, d)
-				errors = append(errors, errs...)
-				// Record that a new assignment is available.
-				changed = changed || len(errs) == 0
-			} else {
-				// Declaration not ready yet
-				complete = false
-				incomplete = d
+			// Check whether already finalised
+			if !d.IsFinalised() {
+				// No, so attempt to finalise
+				ready, errs := r.declarationDependenciesAreFinalised(scope, d)
+				// Check what we found
+				if errs != nil {
+					errors = append(errors, errs...)
+				} else if ready {
+					// Finalise declaration and handle errors
+					errs := r.finaliseDeclaration(scope, d)
+					errors = append(errors, errs...)
+					// Record that a new assignment is available.
+					changed = changed || len(errs) == 0
+				} else {
+					// Declaration not ready yet
+					complete = false
+					incomplete = d
+				}
 			}
 		}
 		// Sanity check for any errors caught during this iteration.
@@ -224,22 +227,30 @@ func (r *resolver) finaliseDeclarationsInModule(scope *ModuleScope, decls []Decl
 // since we cannot finalise a declaration until all of its dependencies have
 // themselves been finalised.
 func (r *resolver) declarationDependenciesAreFinalised(scope *ModuleScope,
-	symbols util.Iterator[Symbol]) (bool, []SyntaxError) {
+	decl Declaration) (bool, []SyntaxError) {
 	var (
 		errors    []SyntaxError
 		finalised bool = true
 	)
 	//
-	for iter := symbols; iter.HasNext(); {
+	for iter := decl.Dependencies(); iter.HasNext(); {
 		symbol := iter.Next()
 		// Attempt to resolve
 		if !symbol.IsResolved() && !scope.Bind(symbol) {
 			errors = append(errors, *r.srcmap.SyntaxError(symbol, "unknown symbol"))
 			// not finalised yet
 			finalised = false
-		} else if symbol.IsResolved() && !symbol.Binding().IsFinalised() {
-			// no, not finalised
-			finalised = false
+		} else {
+			// Check whether this declaration defines this symbol (because if it
+			// does, we cannot expect it to be finalised yet :)
+			selfdefinition := decl.Defines(symbol)
+			// Check whether this symbol is already finalised.
+			symbol_finalised := symbol.Binding().IsFinalised()
+			// Final check
+			if !selfdefinition && !symbol_finalised {
+				// Ok, not ready for finalisation yet.
+				finalised = false
+			}
 		}
 	}
 	//
@@ -278,13 +289,16 @@ func (r *resolver) finaliseDefConstInModule(enclosing Scope, decl *DefConst) []S
 	for _, c := range decl.constants {
 		scope := NewLocalScope(enclosing, false, true)
 		// Resolve constant body
-		_, errs := r.finaliseExpressionInModule(scope, c.binding.value)
+		datatype, errs := r.finaliseExpressionInModule(scope, c.binding.value)
 		// Accumulate errors
 		errors = append(errors, errs...)
 		// Check it is indeed constant!
 		if constant := c.binding.value.AsConstant(); constant == nil {
 			err := r.srcmap.SyntaxError(c, "definition not constant")
 			errors = append(errors, *err)
+		} else {
+			// Finalise constant binding
+			c.binding.Finalise(datatype)
 		}
 	}
 	//
@@ -316,6 +330,9 @@ func (r *resolver) finaliseDefConstraintInModule(enclosing Scope, decl *DefConst
 		msg := fmt.Sprintf("expected loobean constraint (found %s)", constraint_t.String())
 		err := r.srcmap.SyntaxError(decl.Constraint, msg)
 		errors = append(errors, *err)
+	} else if len(errors) == 0 {
+		// Finalise declaration.
+		decl.Finalise()
 	}
 	// Done
 	return append(guard_errors, errors...)

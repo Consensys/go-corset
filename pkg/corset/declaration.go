@@ -42,6 +42,11 @@ type Declaration interface {
 	Definitions() util.Iterator[SymbolDefinition]
 	// Return set of columns on which this declaration depends.
 	Dependencies() util.Iterator[Symbol]
+	// Check whether this declaration defines a given symbol.  The symbol in
+	// question needs to have been resolved already for this to make sense.
+	Defines(Symbol) bool
+	// Check whether this declaration is finalised already.
+	IsFinalised() bool
 }
 
 // ============================================================================
@@ -68,6 +73,20 @@ func (p *DefAliases) Dependencies() util.Iterator[Symbol] {
 // that these may not yet have been finalised.
 func (p *DefAliases) Definitions() util.Iterator[SymbolDefinition] {
 	return util.NewArrayIterator[SymbolDefinition](nil)
+}
+
+// Defines checks whether this declaration defines the given symbol.  The symbol
+// in question needs to have been resolved already for this to make sense.
+func (p *DefAliases) Defines(symbol Symbol) bool {
+	// fine beause defaliases gets special treatement.
+	return false
+}
+
+// IsFinalised checks whether this declaration has already been finalised.  If
+// so, then we don't need to finalise it again.
+func (p *DefAliases) IsFinalised() bool {
+	// Fine because defaliases doesn't really do anything with its symbols.
+	return true
 }
 
 // Lisp converts this node into its lisp representation.  This is primarily used
@@ -128,6 +147,24 @@ func (p *DefColumns) Dependencies() util.Iterator[Symbol] {
 func (p *DefColumns) Definitions() util.Iterator[SymbolDefinition] {
 	iter := util.NewArrayIterator(p.Columns)
 	return util.NewCastIterator[*DefColumn, SymbolDefinition](iter)
+}
+
+// Defines checks whether this declaration defines the given symbol.  The symbol
+// in question needs to have been resolved already for this to make sense.
+func (p *DefColumns) Defines(symbol Symbol) bool {
+	for _, sym := range p.Columns {
+		if &sym.binding == symbol.Binding() {
+			return true
+		}
+	}
+	//
+	return false
+}
+
+// IsFinalised checks whether this declaration has already been finalised.  If
+// so, then we don't need to finalise it again.
+func (p *DefColumns) IsFinalised() bool {
+	return true
 }
 
 // Lisp converts this node into its lisp representation.  This is primarily used
@@ -258,6 +295,30 @@ func (p *DefConst) Dependencies() util.Iterator[Symbol] {
 	return util.NewArrayIterator[Symbol](deps)
 }
 
+// Defines checks whether this declaration defines the given symbol.  The symbol
+// in question needs to have been resolved already for this to make sense.
+func (p *DefConst) Defines(symbol Symbol) bool {
+	for _, sym := range p.constants {
+		if &sym.binding == symbol.Binding() {
+			return true
+		}
+	}
+	//
+	return false
+}
+
+// IsFinalised checks whether this declaration has already been finalised.  If
+// so, then we don't need to finalise it again.
+func (p *DefConst) IsFinalised() bool {
+	for _, c := range p.constants {
+		if !c.binding.IsFinalised() {
+			return false
+		}
+	}
+	//
+	return true
+}
+
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
 func (p *DefConst) Lisp() sexp.SExp {
@@ -338,6 +399,8 @@ type DefConstraint struct {
 	// The constraint itself which (when active) should evaluate to zero for the
 	// relevant set of rows.
 	Constraint Expr
+	//
+	finalised bool
 }
 
 // Definitions returns the set of symbols defined by this declaration.  Observe
@@ -357,6 +420,24 @@ func (p *DefConstraint) Dependencies() util.Iterator[Symbol] {
 	body_deps := p.Constraint.Dependencies()
 	// Done
 	return util.NewArrayIterator[Symbol](append(guard_deps, body_deps...))
+}
+
+// Defines checks whether this declaration defines the given symbol.  The symbol
+// in question needs to have been resolved already for this to make sense.
+func (p *DefConstraint) Defines(symbol Symbol) bool {
+	return false
+}
+
+// IsFinalised checks whether this declaration has already been finalised.  If
+// so, then we don't need to finalise it again.
+func (p *DefConstraint) IsFinalised() bool {
+	return p.finalised
+}
+
+// Finalise this declaration, which means that its guard (if applicable) and
+// body have been resolved.
+func (p *DefConstraint) Finalise() {
+	p.finalised = true
 }
 
 // Lisp converts this node into its lisp representation.  This is primarily used
@@ -399,6 +480,8 @@ type DefInRange struct {
 	// an fr.Element is used here to store the bound simply to make the
 	// necessary comparison against table data more direct.
 	Bound fr.Element
+	// Indicates whether or not the expression has been resolved.
+	finalised bool
 }
 
 // Definitions returns the set of symbols defined by this declaration.  Observe
@@ -410,6 +493,23 @@ func (p *DefInRange) Definitions() util.Iterator[SymbolDefinition] {
 // Dependencies needed to signal declaration.
 func (p *DefInRange) Dependencies() util.Iterator[Symbol] {
 	return util.NewArrayIterator[Symbol](p.Expr.Dependencies())
+}
+
+// Defines checks whether this declaration defines the given symbol.  The symbol
+// in question needs to have been resolved already for this to make sense.
+func (p *DefInRange) Defines(symbol Symbol) bool {
+	return false
+}
+
+// IsFinalised checks whether this declaration has already been finalised.  If
+// so, then we don't need to finalise it again.
+func (p *DefInRange) IsFinalised() bool {
+	return p.finalised
+}
+
+// Finalise this declaration, meaning that the expression has been resolved.
+func (p *DefInRange) Finalise() {
+	p.finalised = true
 }
 
 // Lisp converts this node into its lisp representation.  This is primarily used
@@ -451,6 +551,18 @@ func (p *DefInterleaved) Definitions() util.Iterator[SymbolDefinition] {
 // Dependencies needed to signal declaration.
 func (p *DefInterleaved) Dependencies() util.Iterator[Symbol] {
 	return util.NewArrayIterator(p.Sources)
+}
+
+// Defines checks whether this declaration defines the given symbol.  The symbol
+// in question needs to have been resolved already for this to make sense.
+func (p *DefInterleaved) Defines(symbol Symbol) bool {
+	return &p.Target.binding == symbol.Binding()
+}
+
+// IsFinalised checks whether this declaration has already been finalised.  If
+// so, then we don't need to finalise it again.
+func (p *DefInterleaved) IsFinalised() bool {
+	return p.Target.binding.IsFinalised()
 }
 
 // Lisp converts this node into its lisp representation.  This is primarily used
@@ -495,6 +607,8 @@ type DefLookup struct {
 	// Target expressions for lookup (i.e. these values must contain all of the
 	// source values, but may contain more).
 	Targets []Expr
+	// Indicates whether or not target and source expressions have been resolved.
+	finalised bool
 }
 
 // Definitions returns the set of symbols defined by this declaration.  Observe
@@ -509,6 +623,24 @@ func (p *DefLookup) Dependencies() util.Iterator[Symbol] {
 	targetDeps := DependenciesOfExpressions(p.Targets)
 	// Combine deps
 	return util.NewArrayIterator(append(sourceDeps, targetDeps...))
+}
+
+// Defines checks whether this declaration defines the given symbol.  The symbol
+// in question needs to have been resolved already for this to make sense.
+func (p *DefLookup) Defines(symbol Symbol) bool {
+	return false
+}
+
+// IsFinalised checks whether this declaration has already been finalised.  If
+// so, then we don't need to finalise it again.
+func (p *DefLookup) IsFinalised() bool {
+	return p.finalised
+}
+
+// Finalise this declaration, which means that all source and target expressions
+// have been resolved.
+func (p *DefLookup) Finalise() {
+	p.finalised = true
 }
 
 // Lisp converts this node into its lisp representation.  This is primarily used
@@ -559,6 +691,30 @@ func (p *DefPermutation) Dependencies() util.Iterator[Symbol] {
 	return util.NewArrayIterator(p.Sources)
 }
 
+// Defines checks whether this declaration defines the given symbol.  The symbol
+// in question needs to have been resolved already for this to make sense.
+func (p *DefPermutation) Defines(symbol Symbol) bool {
+	for _, col := range p.Targets {
+		if &col.binding == symbol.Binding() {
+			return true
+		}
+	}
+	// Done
+	return false
+}
+
+// IsFinalised checks whether this declaration has already been finalised.  If
+// so, then we don't need to finalise it again.
+func (p *DefPermutation) IsFinalised() bool {
+	for _, col := range p.Targets {
+		if !col.binding.IsFinalised() {
+			return false
+		}
+	}
+	// Done
+	return true
+}
+
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
 func (p *DefPermutation) Lisp() sexp.SExp {
@@ -606,6 +762,8 @@ type DefProperty struct {
 	// The assertion itself which (when active) should evaluate to zero for the
 	// relevant set of rows.
 	Assertion Expr
+	// Indicates whether or not the assertion has been resolved.
+	finalised bool
 }
 
 // Definitions returns the set of symbols defined by this declaration.  Observe that
@@ -617,6 +775,23 @@ func (p *DefProperty) Definitions() util.Iterator[SymbolDefinition] {
 // Dependencies needed to signal declaration.
 func (p *DefProperty) Dependencies() util.Iterator[Symbol] {
 	return util.NewArrayIterator(p.Assertion.Dependencies())
+}
+
+// Defines checks whether this declaration defines the given symbol.  The symbol
+// in question needs to have been resolved already for this to make sense.
+func (p *DefProperty) Defines(symbol Symbol) bool {
+	return false
+}
+
+// IsFinalised checks whether this declaration has already been finalised.  If
+// so, then we don't need to finalise it again.
+func (p *DefProperty) IsFinalised() bool {
+	return p.finalised
+}
+
+// Finalise this property, meaning that the assertion has been resolved.
+func (p *DefProperty) Finalise() {
+	p.finalised = true
 }
 
 // Lisp converts this node into its lisp representation.  This is primarily used
@@ -703,6 +878,18 @@ func (p *DefFun) Dependencies() util.Iterator[Symbol] {
 	return util.NewArrayIterator(ndeps)
 }
 
+// Defines checks whether this declaration defines the given symbol.  The symbol
+// in question needs to have been resolved already for this to make sense.
+func (p *DefFun) Defines(symbol Symbol) bool {
+	return &p.binding == symbol.Binding()
+}
+
+// IsFinalised checks whether this declaration has already been finalised.  If
+// so, then we don't need to finalise it again.
+func (p *DefFun) IsFinalised() bool {
+	return p.binding.IsFinalised()
+}
+
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
 func (p *DefFun) Lisp() sexp.SExp {
@@ -737,5 +924,5 @@ type DefParameter struct {
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
 func (p *DefParameter) Lisp() sexp.SExp {
-	panic("got here")
+	return sexp.NewSymbol(p.Name)
 }

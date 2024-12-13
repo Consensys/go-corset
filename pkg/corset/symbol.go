@@ -1,6 +1,10 @@
 package corset
 
-import "github.com/consensys/go-corset/pkg/sexp"
+import (
+	"fmt"
+
+	"github.com/consensys/go-corset/pkg/sexp"
+)
 
 // Symbol represents a variable or function access within a declaration.
 // Initially, such the proper interpretation of such accesses is unclear and it
@@ -28,6 +32,15 @@ type Symbol interface {
 	// (e.g. a function binding was provided, but we're expecting a column
 	// binding).
 	Resolve(Binding) bool
+}
+
+// QualifiedName returns the qualified name of a given symbol
+func QualifiedName(symbol Symbol) string {
+	if symbol.IsQualified() {
+		return fmt.Sprintf("%s.%s", symbol.Module(), symbol.Name())
+	}
+	//
+	return symbol.Name()
 }
 
 // SymbolDefinition represents a declaration (or part thereof) which defines a

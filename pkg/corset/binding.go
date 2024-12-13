@@ -44,9 +44,21 @@ type ColumnBinding struct {
 	dataType Type
 }
 
-// NewColumnBinding constructs a new column binding in a given module.
-func NewColumnBinding(module string, computed bool, mustProve bool, multiplier uint, datatype Type) *ColumnBinding {
-	return &ColumnBinding{math.MaxUint, module, computed, mustProve, multiplier, datatype}
+// NewInputColumnBinding constructs a new column binding in a given module.
+// This is for the case where all information about the column is already known,
+// and will not be inferred from elsewhere.
+func NewInputColumnBinding(module string, mustProve bool, multiplier uint, datatype Type) *ColumnBinding {
+	return &ColumnBinding{math.MaxUint, module, false, mustProve, multiplier, datatype}
+}
+
+// NewComputedColumnBinding constructs a new column binding in a given
+// module.  This is for the case where not all information is yet known about
+// the column and, hence, it must be finalised later on.  For example, in a
+// definterleaved constraint the target column information (e.g. its type) is
+// not immediately available and must be determined from those columns from
+// which it is constructed.
+func NewComputedColumnBinding(module string) *ColumnBinding {
+	return &ColumnBinding{math.MaxUint, module, true, false, 0, nil}
 }
 
 // IsFinalised checks whether this binding has been finalised yet or not.
@@ -127,14 +139,14 @@ type ParameterBinding struct {
 	datatype Type
 }
 
+// IsFinalised checks whether this binding has been finalised yet or not.
+func (p *ParameterBinding) IsFinalised() bool {
+	panic("should be unreachable?")
+}
+
 // ============================================================================
 // FunctionBinding
 // ============================================================================
-
-// IsFinalised checks whether this binding has been finalised yet or not.
-func (p *ParameterBinding) IsFinalised() bool {
-	panic("")
-}
 
 // FunctionBinding represents the binding of a function application to its
 // physical definition.

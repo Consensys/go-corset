@@ -316,7 +316,8 @@ func (p *Parser) parseDefColumns(module string, l *sexp.List) (Declaration, []Sy
 	var errors []SyntaxError
 	// Process column declarations one by one.
 	for i := 1; i < len(l.Elements); i++ {
-		decl, err := p.parseColumnDeclaration(module, l.Elements[i])
+		binding := NewInputColumnBinding(module, false, 1, NewFieldType())
+		decl, err := p.parseColumnDeclaration(l.Elements[i], binding)
 		// Extract column name
 		if err != nil {
 			errors = append(errors, *err)
@@ -332,10 +333,8 @@ func (p *Parser) parseDefColumns(module string, l *sexp.List) (Declaration, []Sy
 	return &DefColumns{columns}, nil
 }
 
-func (p *Parser) parseColumnDeclaration(module string, e sexp.SExp) (*DefColumn, *SyntaxError) {
+func (p *Parser) parseColumnDeclaration(e sexp.SExp, binding *ColumnBinding) (*DefColumn, *SyntaxError) {
 	var name string
-	//
-	binding := NewColumnBinding(module, false, false, 1, NewFieldType())
 	// Check whether extended declaration or not.
 	if l := e.AsList(); l != nil {
 		// Check at least the name provided.
@@ -432,7 +431,7 @@ func (p *Parser) parseDefConstraint(elements []sexp.SExp) (Declaration, []Syntax
 		return nil, errors
 	}
 	// Done
-	return &DefConstraint{elements[1].AsSymbol().Value, domain, guard, expr}, nil
+	return &DefConstraint{elements[1].AsSymbol().Value, domain, guard, expr, false}, nil
 }
 
 // Parse a interleaved declaration
@@ -457,7 +456,7 @@ func (p *Parser) parseDefInterleaved(module string, elements []sexp.SExp) (Decla
 		p.mapSourceNode(ith, sources[i])
 	}
 	//
-	binding := NewColumnBinding(module, false, false, 1, NewFieldType())
+	binding := NewComputedColumnBinding(module)
 	target := &DefColumn{elements[1].AsSymbol().Value, *binding}
 	// Updating mapping for target definition
 	p.mapSourceNode(elements[1], target)
@@ -499,7 +498,7 @@ func (p *Parser) parseDefLookup(elements []sexp.SExp) (Declaration, *SyntaxError
 		}
 	}
 	// Done
-	return &DefLookup{handle, sources, targets}, nil
+	return &DefLookup{handle, sources, targets, false}, nil
 }
 
 // Parse a permutation declaration
@@ -525,7 +524,8 @@ func (p *Parser) parseDefPermutation(module string, elements []sexp.SExp) (Decla
 	//
 	for i := 0; i < len(targets); i++ {
 		// Parse target column
-		if targets[i], err = p.parseColumnDeclaration(module, sexpTargets.Get(i)); err != nil {
+		binding := NewComputedColumnBinding(module)
+		if targets[i], err = p.parseColumnDeclaration(sexpTargets.Get(i), binding); err != nil {
 			return nil, err
 		}
 		// Parse source column
@@ -595,7 +595,7 @@ func (p *Parser) parseDefProperty(elements []sexp.SExp) (Declaration, *SyntaxErr
 		return nil, err
 	}
 	// Done
-	return &DefProperty{handle, expr}, nil
+	return &DefProperty{handle, expr, false}, nil
 }
 
 // Parse a permutation declaration
