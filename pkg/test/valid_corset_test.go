@@ -625,23 +625,23 @@ func Test_PureFun_04(t *testing.T) {
 // ===================================================================
 
 func Test_Counter(t *testing.T) {
-	Check(t, false, "counter")
+	Check(t, true, "counter")
 }
 
 func Test_ByteDecomp(t *testing.T) {
-	Check(t, false, "byte_decomposition")
+	Check(t, true, "byte_decomposition")
 }
 
 func Test_BitDecomp(t *testing.T) {
-	Check(t, false, "bit_decomposition")
+	Check(t, true, "bit_decomposition")
 }
 
 func Test_ByteSorting(t *testing.T) {
-	Check(t, false, "byte_sorting")
+	Check(t, true, "byte_sorting")
 }
 
 func Test_WordSorting(t *testing.T) {
-	Check(t, false, "word_sorting")
+	Check(t, true, "word_sorting")
 }
 
 func Test_Memory(t *testing.T) {
@@ -649,23 +649,23 @@ func Test_Memory(t *testing.T) {
 }
 
 func TestSlow_Add(t *testing.T) {
-	Check(t, false, "add")
+	Check(t, true, "add")
 }
 
 func TestSlow_BinStatic(t *testing.T) {
-	Check(t, false, "bin-static")
+	Check(t, true, "bin-static")
 }
 
 func TestSlow_BinDynamic(t *testing.T) {
-	Check(t, false, "bin-dynamic")
+	Check(t, true, "bin-dynamic")
 }
 
 func TestSlow_Wcp(t *testing.T) {
-	Check(t, false, "wcp")
+	Check(t, true, "wcp")
 }
 
 func TestSlow_Mxp(t *testing.T) {
-	Check(t, false, "mxp")
+	Check(t, true, "mxp")
 }
 
 // ===================================================================

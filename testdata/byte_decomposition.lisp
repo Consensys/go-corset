@@ -35,9 +35,9 @@
   ;; If CT[k] == 3
   (if-eq-else CT 3
               ;; Then, CT[k+1] == 0
-              (shift CT 1)
+              (eq! (next CT) 0)
               ;; Else, CT[k]+1 == CT[k+1]
-              (- (+ 1 CT) (next CT))))
+              (eq! (+ 1 CT) (next CT))))
 
 ;; Argument accumulates byte values.
 (defconstraint accumulator (:guard ST)
