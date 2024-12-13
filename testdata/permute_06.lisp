@@ -1,5 +1,5 @@
 (defcolumns
-  (X :i16@prove)
-  (Y :i16@prove))
+  (X :i16@loob@prove)
+  (Y :i16@loob@prove))
 (defpermutation (A B) ((+ X) (+ Y)))
 (defconstraint diag_ab () (- (shift A 1) B))

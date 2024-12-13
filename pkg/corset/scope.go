@@ -64,7 +64,8 @@ func (p *GlobalScope) HasModule(module string) bool {
 // root context, this is either a column, an alias or a function declaration.
 func (p *GlobalScope) Bind(symbol Symbol) bool {
 	if !symbol.IsQualified() {
-		panic("cannot bind unqualified symbol in the global scope")
+		// Search for symbol in root module.
+		return p.Module("").Bind(symbol)
 	} else if !p.HasModule(symbol.Module()) {
 		// Pontially, it might be better to report a more useful error message.
 		return false
@@ -134,9 +135,13 @@ func (p *ModuleScope) Bind(symbol Symbol) bool {
 		binding := p.bindings[bid]
 		// Resolve symbol
 		return symbol.Resolve(binding)
+	} else if !symbol.IsQualified() && p.module != "" {
+		// Attempt to lookup in parent (unless we are the root module, in which
+		// case we have no parent)
+		return p.enclosing.Bind(symbol)
+	} else {
+		return false
 	}
-	// failed
-	return false
 }
 
 // Binding returns information about the binding of a particular symbol defined
@@ -215,6 +220,8 @@ type LocalScope struct {
 	context *Context
 	// Maps inputs parameters to the declaration index.
 	locals map[string]uint
+	// Actual parameter bindings
+	bindings []*ParameterBinding
 }
 
 // NewLocalScope constructs a new local scope within a given enclosing scope.  A
@@ -224,31 +231,38 @@ type LocalScope struct {
 func NewLocalScope(enclosing Scope, global bool, pure bool) LocalScope {
 	context := tr.VoidContext[string]()
 	locals := make(map[string]uint)
+	bindings := make([]*ParameterBinding, 0)
 	//
-	return LocalScope{global, pure, enclosing, &context, locals}
+	return LocalScope{global, pure, enclosing, &context, locals, bindings}
 }
 
 // NestedScope creates a nested scope within this local scope.
 func (p LocalScope) NestedScope() LocalScope {
 	nlocals := make(map[string]uint)
+	nbindings := make([]*ParameterBinding, len(p.bindings))
 	// Clone allocated variables
 	for k, v := range p.locals {
 		nlocals[k] = v
 	}
+	// Copy over bindings.
+	copy(nbindings, p.bindings)
 	// Done
-	return LocalScope{p.global, p.pure, p, p.context, nlocals}
+	return LocalScope{p.global, p.pure, p, p.context, nlocals, nbindings}
 }
 
 // NestedPureScope creates a nested scope within this local scope which, in
 // addition, is always pure.
 func (p LocalScope) NestedPureScope() LocalScope {
 	nlocals := make(map[string]uint)
+	nbindings := make([]*ParameterBinding, len(p.bindings))
 	// Clone allocated variables
 	for k, v := range p.locals {
 		nlocals[k] = v
 	}
+	// Copy over bindings.
+	copy(nbindings, p.bindings)
 	// Done
-	return LocalScope{p.global, true, p, p.context, nlocals}
+	return LocalScope{p.global, true, p, p.context, nlocals, nbindings}
 }
 
 // IsGlobal determines whether symbols can be accessed in modules other than the
@@ -284,16 +298,18 @@ func (p LocalScope) Bind(symbol Symbol) bool {
 	// Check whether this is a local variable access.
 	if id, ok := p.locals[symbol.Name()]; ok && !symbol.IsFunction() && !symbol.IsQualified() {
 		// Yes, this is a local variable access.
-		return symbol.Resolve(&ParameterBinding{id})
+		return symbol.Resolve(p.bindings[id])
 	}
 	// No, this is not a local variable access.
 	return p.enclosing.Bind(symbol)
 }
 
 // DeclareLocal registers a new local variable (e.g. a parameter).
-func (p LocalScope) DeclareLocal(name string) uint {
+func (p *LocalScope) DeclareLocal(name string, datatype Type) uint {
 	index := uint(len(p.locals))
+	binding := ParameterBinding{index, datatype}
 	p.locals[name] = index
+	p.bindings = append(p.bindings, &binding)
 	// Return variable index
 	return index
 }

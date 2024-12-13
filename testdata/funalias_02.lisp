@@ -1,4 +1,6 @@
+(defpurefun ((vanishes! :@loob) x) x)
+
 (defcolumns A B)
 (defpurefun (eq x y) (- y x))
 (defunalias eq! eq)
-(defconstraint test () (eq! A B))
+(defconstraint test () (vanishes! (eq! A B)))

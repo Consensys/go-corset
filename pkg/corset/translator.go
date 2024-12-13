@@ -93,10 +93,10 @@ func (t *translator) translateDefColumns(decl *DefColumns, module string) []Synt
 	// Add each column to schema
 	for _, c := range decl.Columns {
 		context := t.env.ContextFrom(module, c.LengthMultiplier())
-		cid := t.schema.AddDataColumn(context, c.Name(), c.DataType())
+		cid := t.schema.AddDataColumn(context, c.Name(), c.DataType().AsUnderlying())
 		// Prove type (if requested)
 		if c.MustProve() {
-			bound := c.DataType().AsUint().Bound()
+			bound := c.DataType().AsUnderlying().AsUint().Bound()
 			t.schema.AddRangeConstraint(c.Name(), context, &hir.ColumnAccess{Column: cid, Shift: 0}, bound)
 		}
 		// Sanity check column identifier
@@ -240,8 +240,10 @@ func (t *translator) translateDefInterleaved(decl *DefInterleaved, module string
 	}
 	// Construct context for this assignment
 	context := t.env.ContextFrom(module, info.multiplier)
+	// Extract underlying datatype
+	datatype := info.dataType.AsUnderlying()
 	// Register assignment
-	cid := t.schema.AddAssignment(assignment.NewInterleaving(context, decl.Target.Name(), sources, info.dataType))
+	cid := t.schema.AddAssignment(assignment.NewInterleaving(context, decl.Target.Name(), sources, datatype))
 	// Sanity check column identifiers align.
 	if cid != info.ColumnId() {
 		errors = append(errors, *t.srcmap.SyntaxError(decl, "invalid column identifier"))
@@ -265,7 +267,10 @@ func (t *translator) translateDefPermutation(decl *DefPermutation, module string
 	for i := 0; i < len(decl.Sources); i++ {
 		target := t.env.Column(module, decl.Targets[i].Name())
 		context = t.env.ContextFrom(module, target.multiplier)
-		targets[i] = sc.NewColumn(context, decl.Targets[i].Name(), target.dataType)
+		// Extract underlying datatype
+		datatype := target.dataType.AsUnderlying()
+		// Construct columns
+		targets[i] = sc.NewColumn(context, decl.Targets[i].Name(), datatype)
 		sources[i] = t.env.Column(module, decl.Sources[i].Name()).ColumnId()
 		signs[i] = decl.Signs[i]
 		// Record first CID
@@ -358,9 +363,16 @@ func (t *translator) translateExpressionInModule(expr Expr, module string, shift
 		return &hir.Add{Args: args}, errs
 	} else if e, ok := expr.(*Exp); ok {
 		return t.translateExpInModule(e, module, shift)
-	} else if v, ok := expr.(*IfZero); ok {
+	} else if v, ok := expr.(*If); ok {
 		args, errs := t.translateExpressionsInModule([]Expr{v.Condition, v.TrueBranch, v.FalseBranch}, module)
-		return &hir.IfZero{Condition: args[0], TrueBranch: args[1], FalseBranch: args[2]}, errs
+		if v.IsIfZero() {
+			return &hir.IfZero{Condition: args[0], TrueBranch: args[1], FalseBranch: args[2]}, errs
+		} else if v.IsIfNotZero() {
+			// In this case, switch the ordering.
+			return &hir.IfZero{Condition: args[0], TrueBranch: args[2], FalseBranch: args[1]}, errs
+		}
+		// Should be unreachable
+		return nil, t.srcmap.SyntaxErrors(expr, "unresolved conditional")
 	} else if e, ok := expr.(*Invoke); ok {
 		return t.translateInvokeInModule(e, module, shift)
 	} else if v, ok := expr.(*List); ok {
@@ -403,13 +415,8 @@ func (t *translator) translateExpInModule(expr *Exp, module string, shift int) (
 
 func (t *translator) translateInvokeInModule(expr *Invoke, module string, shift int) (hir.Expr, []SyntaxError) {
 	if binding, ok := expr.Binding().(*FunctionBinding); ok {
-		if binding.Arity() == uint(len(expr.Args())) {
-			body := binding.Apply(expr.Args())
-			return t.translateExpressionInModule(body, module, shift)
-		} else {
-			msg := fmt.Sprintf("incorrect number of arguments (expected %d, found %d)", binding.Arity(), len(expr.Args()))
-			return nil, t.srcmap.SyntaxErrors(expr, msg)
-		}
+		body := binding.Apply(expr.Args())
+		return t.translateExpressionInModule(body, module, shift)
 	}
 	//
 	return nil, t.srcmap.SyntaxErrors(expr, "unbound function")

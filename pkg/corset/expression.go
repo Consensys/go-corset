@@ -190,9 +190,13 @@ func (e *Exp) Dependencies() []Symbol {
 // IfZero
 // ============================================================================
 
-// IfZero returns the (optional) true branch when the condition evaluates to zero, and
+// If returns the (optional) true branch when the condition evaluates to zero, and
 // the (optional false branch otherwise.
-type IfZero struct {
+type If struct {
+	// Indicates whether this is an if-zero (kind==1) or an if-notzero
+	// (kind==2).  Any other kind value implies this has not yet been
+	// determined.
+	kind uint8
 	// Elements contained within this list.
 	Condition Expr
 	// True branch (optional).
@@ -201,9 +205,31 @@ type IfZero struct {
 	FalseBranch Expr
 }
 
+// IsIfZero determines whether or not this has been determined as an IfZero
+// condition.
+func (e *If) IsIfZero() bool {
+	return e.kind == 1
+}
+
+// IsIfNotZero determines whether or not this has been determined as an
+// IfNotZero condition.
+func (e *If) IsIfNotZero() bool {
+	return e.kind == 2
+}
+
+// FixSemantics fixes the semantics for this condition to be either "if-zero" or
+// "if-notzero".
+func (e *If) FixSemantics(ifzero bool) {
+	if ifzero {
+		e.kind = 1
+	} else {
+		e.kind = 2
+	}
+}
+
 // AsConstant attempts to evaluate this expression as a constant (signed) value.
 // If this expression is not constant, then nil is returned.
-func (e *IfZero) AsConstant() *big.Int {
+func (e *If) AsConstant() *big.Int {
 	if condition := e.Condition.AsConstant(); condition != nil {
 		// Determine whether condition holds true (or not).
 		holds := condition.Cmp(big.NewInt(0)) == 0
@@ -220,20 +246,20 @@ func (e *IfZero) AsConstant() *big.Int {
 
 // Multiplicity determines the number of values that evaluating this expression
 // can generate.
-func (e *IfZero) Multiplicity() uint {
+func (e *If) Multiplicity() uint {
 	return determineMultiplicity([]Expr{e.Condition, e.TrueBranch, e.FalseBranch})
 }
 
 // Context returns the context for this expression.  Observe that the
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
-func (e *IfZero) Context() Context {
+func (e *If) Context() Context {
 	return ContextOfExpressions([]Expr{e.Condition, e.TrueBranch, e.FalseBranch})
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (e *IfZero) Lisp() sexp.SExp {
+func (e *If) Lisp() sexp.SExp {
 	if e.FalseBranch != nil {
 		return sexp.NewList([]sexp.SExp{
 			sexp.NewSymbol("if"),
@@ -248,15 +274,15 @@ func (e *IfZero) Lisp() sexp.SExp {
 
 // Substitute all variables (such as for function parameters) arising in
 // this expression.
-func (e *IfZero) Substitute(args []Expr) Expr {
-	return &IfZero{e.Condition.Substitute(args),
+func (e *If) Substitute(args []Expr) Expr {
+	return &If{e.kind, e.Condition.Substitute(args),
 		SubstituteOptionalExpression(e.TrueBranch, args),
 		SubstituteOptionalExpression(e.FalseBranch, args),
 	}
 }
 
 // Dependencies needed to signal declaration.
-func (e *IfZero) Dependencies() []Symbol {
+func (e *If) Dependencies() []Symbol {
 	return DependenciesOfExpressions([]Expr{e.Condition, e.TrueBranch, e.FalseBranch})
 }
 

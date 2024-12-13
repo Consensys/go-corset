@@ -3,7 +3,6 @@ package corset
 import (
 	"math"
 
-	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 )
 
@@ -42,17 +41,35 @@ type ColumnBinding struct {
 	// Column's length multiplier
 	multiplier uint
 	// Column's datatype
-	dataType sc.Type
+	dataType Type
 }
 
-// NewColumnBinding constructs a new column binding in a given module.
-func NewColumnBinding(module string, computed bool, mustProve bool, multiplier uint, datatype sc.Type) *ColumnBinding {
-	return &ColumnBinding{math.MaxUint, module, computed, mustProve, multiplier, datatype}
+// NewInputColumnBinding constructs a new column binding in a given module.
+// This is for the case where all information about the column is already known,
+// and will not be inferred from elsewhere.
+func NewInputColumnBinding(module string, mustProve bool, multiplier uint, datatype Type) *ColumnBinding {
+	return &ColumnBinding{math.MaxUint, module, false, mustProve, multiplier, datatype}
+}
+
+// NewComputedColumnBinding constructs a new column binding in a given
+// module.  This is for the case where not all information is yet known about
+// the column and, hence, it must be finalised later on.  For example, in a
+// definterleaved constraint the target column information (e.g. its type) is
+// not immediately available and must be determined from those columns from
+// which it is constructed.
+func NewComputedColumnBinding(module string) *ColumnBinding {
+	return &ColumnBinding{math.MaxUint, module, true, false, 0, nil}
 }
 
 // IsFinalised checks whether this binding has been finalised yet or not.
 func (p *ColumnBinding) IsFinalised() bool {
 	return p.multiplier != 0
+}
+
+// Finalise this binding by providing the necessary missing information.
+func (p *ColumnBinding) Finalise(multiplier uint, datatype Type) {
+	p.multiplier = multiplier
+	p.dataType = datatype
 }
 
 // Context returns the of this column.  That is, the module in which this colunm
@@ -84,11 +101,24 @@ func (p *ColumnBinding) ColumnId() uint {
 type ConstantBinding struct {
 	// Constant expression which, when evaluated, produces a constant value.
 	value Expr
+	// Inferred type of the given expression
+	datatype Type
+}
+
+// NewConstantBinding creates a new constant binding (which is initially not
+// finalised).
+func NewConstantBinding(value Expr) ConstantBinding {
+	return ConstantBinding{value, nil}
 }
 
 // IsFinalised checks whether this binding has been finalised yet or not.
 func (p *ConstantBinding) IsFinalised() bool {
-	return true
+	return p.datatype != nil
+}
+
+// Finalise this binding by providing the necessary missing information.
+func (p *ConstantBinding) Finalise(datatype Type) {
+	p.datatype = datatype
 }
 
 // Context returns the of this constant, noting that constants (by definition)
@@ -105,33 +135,38 @@ func (p *ConstantBinding) Context() Context {
 type ParameterBinding struct {
 	// Identifies the variable or column index (as appropriate).
 	index uint
+	// Type to use for this parameter.
+	datatype Type
+}
+
+// IsFinalised checks whether this binding has been finalised yet or not.
+func (p *ParameterBinding) IsFinalised() bool {
+	panic("should be unreachable?")
 }
 
 // ============================================================================
 // FunctionBinding
 // ============================================================================
 
-// IsFinalised checks whether this binding has been finalised yet or not.
-func (p *ParameterBinding) IsFinalised() bool {
-	panic("")
-}
-
 // FunctionBinding represents the binding of a function application to its
 // physical definition.
 type FunctionBinding struct {
 	// Flag whether or not is pure function
 	pure bool
-	// Types of parameters
-	paramTypes []sc.Type
-	// Type of return
-	returnType sc.Type
+	// Types of parameters (optional)
+	paramTypes []Type
+	// Type of return (optional)
+	returnType Type
+	// Inferred type of the body.  This is used to compare against the declared
+	// type (if there is one) to check for any descrepencies.
+	bodyType Type
 	// body of the function in question.
 	body Expr
 }
 
 // NewFunctionBinding constructs a new function binding.
-func NewFunctionBinding(pure bool, paramTypes []sc.Type, returnType sc.Type, body Expr) FunctionBinding {
-	return FunctionBinding{pure, paramTypes, returnType, body}
+func NewFunctionBinding(pure bool, paramTypes []Type, returnType Type, body Expr) FunctionBinding {
+	return FunctionBinding{pure, paramTypes, returnType, nil, body}
 }
 
 // IsPure checks whether this is a defpurefun or not
@@ -141,12 +176,17 @@ func (p *FunctionBinding) IsPure() bool {
 
 // IsFinalised checks whether this binding has been finalised yet or not.
 func (p *FunctionBinding) IsFinalised() bool {
-	return p.returnType != nil
+	return p.bodyType != nil
 }
 
 // Arity returns the number of parameters that this function accepts.
 func (p *FunctionBinding) Arity() uint {
 	return uint(len(p.paramTypes))
+}
+
+// Finalise this binding by providing the necessary missing information.
+func (p *FunctionBinding) Finalise(bodyType Type) {
+	p.bodyType = bodyType
 }
 
 // Apply a given set of arguments to this function binding.

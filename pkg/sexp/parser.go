@@ -173,6 +173,8 @@ func (p *Parser) parseSequence(terminator rune) ([]SExp, *SyntaxError) {
 		}
 		// Continue around!
 		elements = append(elements, element)
+		// Skip whitespace
+		p.SkipWhiteSpace()
 	}
 	// Consume terminator
 	p.Next()

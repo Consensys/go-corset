@@ -1,16 +1,3 @@
-(defpurefun (vanishes! e0) e0)
-;;
-(defpurefun (next X) (shift X 1))
-(defpurefun (prev X) (shift X -1))
-;;
-(defpurefun (eq! x y) (- x y))
-;;
-(defpurefun (will-eq! e0 e1) (eq! (next e0) e1))
-(defpurefun (will-inc! e0 offset) (will-eq! e0 (+ e0 offset)))
-(defpurefun (will-remain-constant! e0) (will-eq! e0 e0))
-;;
-(defpurefun (if-eq-else x val then else) (if (eq! x val) then else))
-
 ;; ===================================================
 ;; Constraints
 ;; ===================================================
@@ -18,7 +5,7 @@
 
 ;; In the first row, STAMP is always zero.  This allows for an
 ;; arbitrary amount of padding at the beginning which has no function.
-(defconstraint first (:domain {0}) STAMP)
+(defconstraint first (:domain {0}) (eq! STAMP 0))
 
 ;; In the last row of a valid frame, the counter must have its max
 ;; value.  This ensures that all non-padding frames are complete.
