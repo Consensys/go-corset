@@ -4,7 +4,7 @@
   (WORD_COMPARISON_STAMP :i32)
   (COUNTER :byte)
   (CT_MAX :byte)
-  (INST :byte)
+  (INST :byte :display :opcode)
   (ARGUMENT_1_HI :i128)
   (ARGUMENT_1_LO :i128)
   (ARGUMENT_2_HI :i128)
@@ -40,32 +40,208 @@
   (BIT_3 :binary@prove)
   (BIT_4 :binary@prove))
 
-(defconstraint result () (begin (if (- ONE_LINE_INSTRUCTION 1) (- RESULT (* BIT_1 BIT_2))) (if (- IS_LT 1) (- RESULT (- 1 (* BIT_1 BIT_2) (+ BIT_3 (* BIT_1 BIT_4))))) (if (- IS_GT 1) (- RESULT (+ BIT_3 (* BIT_1 BIT_4)))) (if (- IS_LEQ 1) (- RESULT (+ (- 1 (* BIT_1 BIT_2) (+ BIT_3 (* BIT_1 BIT_4))) (* BIT_1 BIT_2)))) (if (- IS_GEQ 1) (- RESULT (+ (+ BIT_3 (* BIT_1 BIT_4)) (* BIT_1 BIT_2)))) (if (- IS_LT 1) (- RESULT (- 1 (* BIT_1 BIT_2) (+ BIT_3 (* BIT_1 BIT_4))))) (if (- IS_SLT 1) (if (- NEG_1 NEG_2) (- RESULT (- 1 (* BIT_1 BIT_2) (+ BIT_3 (* BIT_1 BIT_4)))) (- RESULT NEG_1))) (if (- IS_SGT 1) (if (- NEG_1 NEG_2) (- RESULT (+ BIT_3 (* BIT_1 BIT_4))) (- RESULT NEG_2)))))
+;; aliases
+(defalias
+  STAMP    WORD_COMPARISON_STAMP
+  OLI      ONE_LINE_INSTRUCTION
+  VLI      VARIABLE_LENGTH_INSTRUCTION
+  CT       COUNTER
+  ARG_1_HI ARGUMENT_1_HI
+  ARG_1_LO ARGUMENT_1_LO
+  ARG_2_HI ARGUMENT_2_HI
+  ARG_2_LO ARGUMENT_2_LO
+  RES      RESULT)
 
-(defconstraint bits-and-negs () (if (+ IS_SLT IS_SGT) 0 (if (- COUNTER 15) (begin (- (shift BYTE_1 -15) (+ (* 1 (shift BITS -8)) (+ (* 2 (shift BITS -9)) (+ (* 4 (shift BITS -10)) (+ (* 8 (shift BITS -11)) (+ (* 16 (shift BITS -12)) (+ (* 32 (shift BITS -13)) (+ (* 128 (shift BITS -15)) (* 64 (shift BITS -14)))))))))) (- (shift BYTE_3 -15) (+ (* 1 BITS) (+ (* 2 (shift BITS -1)) (+ (* 4 (shift BITS -2)) (+ (* 8 (shift BITS -3)) (+ (* 16 (shift BITS -4)) (+ (* 32 (shift BITS -5)) (+ (* 128 (shift BITS -7)) (* 64 (shift BITS -6)))))))))) (- NEG_1 (shift BITS -15)) (- NEG_2 (shift BITS -7))))))
+(defpurefun (if-eq-else A B then else)
+  (if-zero-else (- A B)
+           then
+           else))
 
-(defconstraint byte_decompositions () (begin (if COUNTER (- ACC_1 BYTE_1) (- ACC_1 (+ (* 256 (shift ACC_1 -1)) BYTE_1))) (if COUNTER (- ACC_2 BYTE_2) (- ACC_2 (+ (* 256 (shift ACC_2 -1)) BYTE_2))) (if COUNTER (- ACC_3 BYTE_3) (- ACC_3 (+ (* 256 (shift ACC_3 -1)) BYTE_3))) (if COUNTER (- ACC_4 BYTE_4) (- ACC_4 (+ (* 256 (shift ACC_4 -1)) BYTE_4))) (if COUNTER (- ACC_5 BYTE_5) (- ACC_5 (+ (* 256 (shift ACC_5 -1)) BYTE_5))) (if COUNTER (- ACC_6 BYTE_6) (- ACC_6 (+ (* 256 (shift ACC_6 -1)) BYTE_6)))))
+;; opcode values
+(defconst
+  LEQ      0x0E
+  GEQ      0x0F
+  LT       16
+  GT       17
+  SLT      18
+  SGT      19
+  EQ_      20
+  ISZERO   21
+  LLARGE   16
+  LLARGEMO 15)
 
-(defconstraint target-constraints () (begin (if WORD_COMPARISON_STAMP 0 (begin (if (- ARGUMENT_1_HI ARGUMENT_2_HI) (- BIT_1 1) BIT_1) (if (- ARGUMENT_1_LO ARGUMENT_2_LO) (- BIT_2 1) BIT_2))) (if (- VARIABLE_LENGTH_INSTRUCTION 1) (if (- COUNTER CT_MAX) (begin (- ACC_1 ARGUMENT_1_HI) (- ACC_2 ARGUMENT_1_LO) (- ACC_3 ARGUMENT_2_HI) (- ACC_4 ARGUMENT_2_LO) (- ACC_5 (- (* (- (* 2 BIT_3) 1) (- ARGUMENT_1_HI ARGUMENT_2_HI)) BIT_3)) (- ACC_6 (- (* (- (* 2 BIT_4) 1) (- ARGUMENT_1_LO ARGUMENT_2_LO)) BIT_4))))) (if (- IS_ISZERO 1) (begin ARGUMENT_2_HI ARGUMENT_2_LO))))
 
-(defconstraint counter-constancies () (begin (if COUNTER 0 (- ARGUMENT_1_HI (shift ARGUMENT_1_HI -1))) (if COUNTER 0 (- ARGUMENT_1_LO (shift ARGUMENT_1_LO -1))) (if COUNTER 0 (- ARGUMENT_2_HI (shift ARGUMENT_2_HI -1))) (if COUNTER 0 (- ARGUMENT_2_LO (shift ARGUMENT_2_LO -1))) (if COUNTER 0 (- RESULT (shift RESULT -1))) (if COUNTER 0 (- INST (shift INST -1))) (if COUNTER 0 (- CT_MAX (shift CT_MAX -1))) (if COUNTER 0 (- BIT_3 (shift BIT_3 -1))) (if COUNTER 0 (- BIT_4 (shift BIT_4 -1))) (if COUNTER 0 (- NEG_1 (shift NEG_1 -1))) (if COUNTER 0 (- NEG_2 (shift NEG_2 -1)))))
+(defun (one-line-inst)
+  (+ IS_EQ IS_ISZERO))
 
-(defconstraint setting-flag () (begin (- INST (+ (* 16 IS_LT) (* 17 IS_GT) (* 18 IS_SLT) (* 19 IS_SGT) (* 20 IS_EQ) (* 21 IS_ISZERO) (* 15 IS_GEQ) (* 14 IS_LEQ))) (- ONE_LINE_INSTRUCTION (+ IS_EQ IS_ISZERO)) (- VARIABLE_LENGTH_INSTRUCTION (+ IS_LT IS_GT IS_LEQ IS_GEQ IS_SLT IS_SGT))))
+(defun (variable-length-inst)
+  (+ IS_LT IS_GT IS_LEQ IS_GEQ IS_SLT IS_SGT))
 
-(defconstraint inst-decoding () (if WORD_COMPARISON_STAMP (+ (+ IS_EQ IS_ISZERO) (+ IS_LT IS_GT IS_LEQ IS_GEQ IS_SLT IS_SGT)) (- (+ (+ IS_EQ IS_ISZERO) (+ IS_LT IS_GT IS_LEQ IS_GEQ IS_SLT IS_SGT)) 1)))
+(defun (flag-sum)
+  (+ (one-line-inst) (variable-length-inst)))
 
-(defconstraint heartbeat () (if WORD_COMPARISON_STAMP 0 (if (- COUNTER CT_MAX) (- (shift WORD_COMPARISON_STAMP 1) (+ WORD_COMPARISON_STAMP 1)) (- (shift COUNTER 1) (+ COUNTER 1)))))
+(defun (weight-sum)
+  (+ (* LT IS_LT)
+     (* GT IS_GT)
+     (* SLT IS_SLT)
+     (* SGT IS_SGT)
+     (* EQ_ IS_EQ)
+     (* ISZERO IS_ISZERO)
+     (* GEQ IS_GEQ)
+     (* LEQ IS_LEQ)))
 
-(defconstraint stamp-increments () (* (- (shift WORD_COMPARISON_STAMP 1) WORD_COMPARISON_STAMP) (- (shift WORD_COMPARISON_STAMP 1) (+ WORD_COMPARISON_STAMP 1))))
+(defconstraint inst-decoding ()
+  (if-zero-else STAMP
+           (vanishes! (flag-sum))
+           (eq! (flag-sum) 1)))
 
-(defconstraint ct-upper-bond () (- (~ (- 16 COUNTER)) 1))
+(defconstraint setting-flag ()
+  (begin (eq! INST (weight-sum))
+         (eq! OLI (one-line-inst))
+         (eq! VLI (variable-length-inst))))
 
-(defconstraint counter-reset () (if (- (shift WORD_COMPARISON_STAMP 1) WORD_COMPARISON_STAMP) 0 (shift COUNTER 1)))
+(defconstraint counter-constancies ()
+  (begin (counter-constancy CT ARG_1_HI)
+         (counter-constancy CT ARG_1_LO)
+         (counter-constancy CT ARG_2_HI)
+         (counter-constancy CT ARG_2_LO)
+         (counter-constancy CT RES)
+         (counter-constancy CT INST)
+         (counter-constancy CT CT_MAX)
+         (counter-constancy CT BIT_3)
+         (counter-constancy CT BIT_4)
+         (counter-constancy CT NEG_1)
+         (counter-constancy CT NEG_2)))
 
-(defconstraint setting-ct-max () (if (- ONE_LINE_INSTRUCTION 1) CT_MAX))
+(defconstraint first-row (:domain {0})
+  (vanishes! STAMP))
 
-(defconstraint no-neg-if-small () (if (- CT_MAX 15) 0 (begin NEG_1 NEG_2)))
+(defconstraint stamp-increments ()
+  (* (will-remain-constant! STAMP) (will-inc! STAMP 1)))
 
-(defconstraint lastRow (:domain {-1}) (- COUNTER CT_MAX))
+(defconstraint counter-reset ()
+  (if-not-zero (will-remain-constant! STAMP)
+               (vanishes! (next CT))))
 
-(defconstraint first-row (:domain {0}) WORD_COMPARISON_STAMP)
+(defconstraint setting-ct-max ()
+  (if-eq OLI 1 (vanishes! CT_MAX)))
+
+(defconstraint heartbeat (:guard STAMP)
+  (if-eq-else CT CT_MAX (will-inc! STAMP 1) (will-inc! CT 1)))
+
+(defconstraint ct-upper-bond ()
+  (eq! (~ (- LLARGE CT))
+       1))
+
+(defconstraint lastRow (:domain {-1})
+  (eq! CT CT_MAX))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                              ;;
+;;    2.6 byte decompositions   ;;
+;;                              ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; byte decompositions
+(defconstraint byte_decompositions ()
+  (begin (byte-decomposition CT ACC_1 BYTE_1)
+         (byte-decomposition CT ACC_2 BYTE_2)
+         (byte-decomposition CT ACC_3 BYTE_3)
+         (byte-decomposition CT ACC_4 BYTE_4)
+         (byte-decomposition CT ACC_5 BYTE_5)
+         (byte-decomposition CT ACC_6 BYTE_6)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                                         ;;
+;;    2.7 BITS and sign bit constraints    ;;
+;;                                         ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; (defun (first-eight-bits-bit-dec)
+;;   (reduce +
+;;           (for i
+;;                [0 :7]
+;;                (* (^ 2 i)
+;;                   (shift BITS
+;;                          (- 0 (+ i 8)))))))
+
+;; (defun (last-eight-bits-bit-dec)
+;;   (reduce +
+;;           (for i
+;;                [0 :7]
+;;                (* (^ 2 i)
+;;                   (shift BITS (- 0 i))))))
+
+;; (defconstraint bits-and-negs (:guard (+ IS_SLT IS_SGT))
+;;   (if-eq CT LLARGEMO
+;;          (begin (eq! (shift BYTE_1 (- 0 LLARGEMO))
+;;                      (first-eight-bits-bit-dec))
+;;                 (eq! (shift BYTE_3 (- 0 LLARGEMO))
+;;                      (last-eight-bits-bit-dec))
+;;                 (eq! NEG_1
+;;                      (shift BITS (- 0 LLARGEMO)))
+;;                 (eq! NEG_2
+;;                      (shift BITS (- 0 7))))))
+
+(defconstraint no-neg-if-small ()
+  (if-not-zero (- CT_MAX LLARGEMO)
+               (begin (vanishes! NEG_1)
+                      (vanishes! NEG_2))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                              ;;
+;;    2.6 target constraints    ;;
+;;                              ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defconstraint target-constraints ()
+  (begin (if-not-zero STAMP
+                      (begin (if-eq-else ARG_1_HI ARG_2_HI (eq! BIT_1 1) (vanishes! BIT_1))
+                             (if-eq-else ARG_1_LO ARG_2_LO (eq! BIT_2 1) (vanishes! BIT_2))))
+         (if-eq VLI 1
+                (if-eq CT CT_MAX
+                       (begin (eq! ACC_1 ARG_1_HI)
+                              (eq! ACC_2 ARG_1_LO)
+                              (eq! ACC_3 ARG_2_HI)
+                              (eq! ACC_4 ARG_2_LO)
+                              (eq! ACC_5
+                                   (- (* (- (* 2 BIT_3) 1)
+                                         (- ARG_1_HI ARG_2_HI))
+                                      BIT_3))
+                              (eq! ACC_6
+                                   (- (* (- (* 2 BIT_4) 1)
+                                         (- ARG_1_LO ARG_2_LO))
+                                      BIT_4)))))
+         (if-eq IS_ISZERO 1
+                (begin (vanishes! ARG_2_HI)
+                       (vanishes! ARG_2_LO)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                              ;;
+;;    2.7 result constraints    ;;
+;;                              ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; eq_ = [[1]] . [[2]]
+;; gt_ = [[3]] + [[1]] . [[4]]
+;; lt_ = 1 - eq - gt
+(defun (eq_)
+  (* BIT_1 BIT_2))
+
+(defun (gt_)
+  (+ BIT_3 (* BIT_1 BIT_4)))
+
+(defun (lt_)
+  (- 1 (eq_) (gt_)))
+
+;; 2.7.2
+(defconstraint result ()
+  (begin (if-eq OLI 1 (eq! RES (eq_)))
+         (if-eq IS_LT 1 (eq! RES (lt_)))
+         (if-eq IS_GT 1 (eq! RES (gt_)))
+         (if-eq IS_LEQ 1
+                (eq! RES (+ (lt_) (eq_))))
+         (if-eq IS_GEQ 1
+                (eq! RES (+ (gt_) (eq_))))
+         (if-eq IS_LT 1 (eq! RES (lt_)))
+         (if-eq IS_SLT 1
+                (if-eq-else NEG_1 NEG_2 (eq! RES (lt_)) (eq! RES NEG_1)))
+         (if-eq IS_SGT 1
+                (if-eq-else NEG_1 NEG_2 (eq! RES (gt_)) (eq! RES NEG_2)))))

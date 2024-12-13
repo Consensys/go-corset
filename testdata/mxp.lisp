@@ -1,131 +1,460 @@
 (module mxp)
 
 (defcolumns
-	(STAMP  :i32)
-	(CN     :i64)
-	(CT     :i5)
-	(ROOB	:binary@prove)
-	(NOOP	:binary@prove)
-	(MXPX	:binary@prove)
-	(INST   :byte)
-	(MXP_TYPE_1 :binary@prove)
-	(MXP_TYPE_2 :binary@prove)
-	(MXP_TYPE_3 :binary@prove)
-	(MXP_TYPE_4 :binary@prove)
-	(MXP_TYPE_5 :binary@prove)
-        (GBYTE :i64)
-        (GWORD :i64)
-        (DEPLOYS :binary@prove)
-        (OFFSET_1_LO :i128)
-        (OFFSET_2_LO :i128)
-        (OFFSET_1_HI :i128)
-        (OFFSET_2_HI :i128)
-        (SIZE_1_LO :i128)
-        (SIZE_2_LO :i128)
-        (SIZE_1_HI :i128)
-        (SIZE_2_HI :i128)
-        (MAX_OFFSET_1 :i128)
-        (MAX_OFFSET_2 :i128)
-        (MAX_OFFSET   :i128)
-        (COMP :binary@prove)
-	(BYTE_1 :byte@prove)
-	(BYTE_2 :byte@prove)
-	(BYTE_3 :byte@prove)
-	(BYTE_4 :byte@prove)
-	(BYTE_A	:byte@prove)
-	(BYTE_W	:byte@prove)
-	(BYTE_Q	:byte@prove)
-	(ACC_1 :i136)
-	(ACC_2 :i136)
-	(ACC_3 :i136)
-	(ACC_4 :i136)
-	(ACC_A :i136)
-	(ACC_W :i136)
-	(ACC_Q :i136)
-        (BYTE_QQ :byte@prove)
-        (BYTE_R :byte@prove)
-        (WORDS :i64)
-        (WORDS_NEW :i64)
-        (C_MEM :i64)
-        (C_MEM_NEW :i64)
-        (QUAD_COST :i64)
-        (LIN_COST :i64)
-        (GAS_MXP :i64)
-        (EXPANDS :binary@prove)
-        (MTNTOP :binary@prove))
+  (STAMP :i32)
+  (CN :i64)
+  (CT :i5)
+  (ROOB :binary@prove)
+  (NOOP :binary@prove)
+  (MXPX :binary@prove)
+  (INST :byte :display :opcode)
+  (MXP_TYPE :binary@prove :array [5])
+  (GBYTE :i64)
+  (GWORD :i64)
+  (DEPLOYS :binary@prove)
+  (OFFSET_1_LO :i128)
+  (OFFSET_2_LO :i128)
+  (OFFSET_1_HI :i128)
+  (OFFSET_2_HI :i128)
+  (SIZE_1_LO :i128)
+  (SIZE_2_LO :i128)
+  (SIZE_1_HI :i128)
+  (SIZE_2_HI :i128)
+  (MAX_OFFSET_1 :i128)
+  (MAX_OFFSET_2 :i128)
+  (MAX_OFFSET   :i128)
+  (COMP :binary@prove)
+  (BYTE :byte@prove :array [4])
+  (BYTE_A :byte@prove)
+  (BYTE_W :byte@prove)
+  (BYTE_Q :byte@prove)
+  (ACC :i136 :array [4])
+  (ACC_A :i136)
+  (ACC_W :i136)
+  (ACC_Q :i136)
+  (BYTE_QQ :byte@prove)
+  (BYTE_R :byte@prove)
+  (WORDS :i64)
+  (WORDS_NEW :i64)
+  (C_MEM :i64)
+  (C_MEM_NEW :i64)
+  (QUAD_COST :i64)
+  (LIN_COST :i64)
+  (GAS_MXP :i64)
+  (EXPANDS :binary@prove)
+  (MTNTOP :binary@prove)
+  (SIZE_1_NONZERO_NO_MXPX :binary)
+  (SIZE_2_NONZERO_NO_MXPX :binary))
 
-(defpermutation (CN_perm STAMP_perm C_MEM_perm C_MEM_NEW_perm WORDS_perm WORDS_NEW_perm) ((+ CN) (+ STAMP) (+ C_MEM) (+ C_MEM_NEW) (+ WORDS) (+ WORDS_NEW)))
+  (defalias
+  S1NZNOMXPX SIZE_1_NONZERO_NO_MXPX
+  S2NZNOMXPX SIZE_2_NONZERO_NO_MXPX)
 
-(defconstraint counter-constancy () (begin (if CT 0 (- INST (shift INST -1))) (if CT 0 (- OFFSET_1_LO (shift OFFSET_1_LO -1))) (if CT 0 (- OFFSET_1_HI (shift OFFSET_1_HI -1))) (if CT 0 (- OFFSET_2_LO (shift OFFSET_2_LO -1))) (if CT 0 (- OFFSET_2_HI (shift OFFSET_2_HI -1))) (if CT 0 (- SIZE_1_LO (shift SIZE_1_LO -1))) (if CT 0 (- SIZE_1_HI (shift SIZE_1_HI -1))) (if CT 0 (- SIZE_2_LO (shift SIZE_2_LO -1))) (if CT 0 (- SIZE_2_HI (shift SIZE_2_HI -1))) (if CT 0 (- WORDS (shift WORDS -1))) (if CT 0 (- WORDS_NEW (shift WORDS_NEW -1))) (if CT 0 (- C_MEM (shift C_MEM -1))) (if CT 0 (- C_MEM_NEW (shift C_MEM_NEW -1))) (if CT 0 (- COMP (shift COMP -1))) (if CT 0 (- MXPX (shift MXPX -1))) (if CT 0 (- EXPANDS (shift EXPANDS -1))) (if CT 0 (- QUAD_COST (shift QUAD_COST -1))) (if CT 0 (- LIN_COST (shift LIN_COST -1))) (if CT 0 (- GAS_MXP (shift GAS_MXP -1)))))
 
-(defconstraint byte-decompositions () (begin (if CT (- ACC_1 BYTE_1) (- ACC_1 (+ (* 256 (shift ACC_1 -1)) BYTE_1))) (if CT (- ACC_2 BYTE_2) (- ACC_2 (+ (* 256 (shift ACC_2 -1)) BYTE_2))) (if CT (- ACC_3 BYTE_3) (- ACC_3 (+ (* 256 (shift ACC_3 -1)) BYTE_3))) (if CT (- ACC_4 BYTE_4) (- ACC_4 (+ (* 256 (shift ACC_4 -1)) BYTE_4))) (if CT (- ACC_A BYTE_A) (- ACC_A (+ (* 256 (shift ACC_A -1)) BYTE_A))) (if CT (- ACC_W BYTE_W) (- ACC_W (+ (* 256 (shift ACC_W -1)) BYTE_W))) (if CT (- ACC_Q BYTE_Q) (- ACC_Q (+ (* 256 (shift ACC_Q -1)) BYTE_Q)))))
 
-(defconstraint euclidean-division-of-square-of-accA () (if (* (* STAMP (- 1 NOOP ROOB)) (* (* (- 1 (~ (- CT 3))) (- 1 MXPX)) EXPANDS)) 0 (begin (- (* ACC_A ACC_A) (+ (* 512 (+ ACC_Q (+ (* 4294967296 (shift BYTE_QQ -2)) (* 1099511627776 (shift BYTE_QQ -3))))) (+ (* 256 (shift BYTE_QQ -1)) BYTE_QQ))) (* (shift BYTE_QQ -1) (- 1 (shift BYTE_QQ -1))))))
+(module mxp)
 
-(defconstraint setting-c-mem-new () (if (* (* STAMP (- 1 NOOP ROOB)) (* (* (- 1 (~ (- CT 3))) (- 1 MXPX)) EXPANDS)) 0 (- C_MEM_NEW (+ (* 3 ACC_A) (+ ACC_Q (+ (* 4294967296 (shift BYTE_QQ -2)) (* 1099511627776 (shift BYTE_QQ -3))))))))
+(defconst
+  CT_MAX_TRIVIAL              0
+  CT_MAX_NON_TRIVIAL          3
+  CT_MAX_NON_TRIVIAL_BUT_MXPX 16
+  TWO_POW_32                  4294967296)
 
-(defconstraint setting-roob-type-5 () (if MXP_TYPE_5 0 (begin (if SIZE_1_HI 0 (- ROOB 1)) (if SIZE_2_HI 0 (- ROOB 1)) (if (* OFFSET_1_HI SIZE_1_LO) 0 (- ROOB 1)) (if (* OFFSET_2_HI SIZE_2_LO) 0 (- ROOB 1)) (if SIZE_1_HI (if SIZE_2_HI (if (* OFFSET_1_HI SIZE_1_LO) (if (* OFFSET_2_HI SIZE_2_LO) ROOB)))))))
 
-(defconstraint setting-noop () (if ROOB (begin (if (+ MXP_TYPE_1 MXP_TYPE_2 MXP_TYPE_3) 0 (- NOOP MXP_TYPE_1)) (if (- MXP_TYPE_4 1) (- NOOP (- 1 (~ SIZE_1_LO)))) (if (- MXP_TYPE_5 1) (- NOOP (* (- 1 (~ SIZE_1_LO)) (- 1 (~ SIZE_2_LO))))))))
+(module mxp)
 
-(defconstraint non-trivial-instruction-counter-cycle () (if STAMP 0 (if (- 1 (+ ROOB NOOP)) 0 (if MXPX (if (- CT 3) (- (shift STAMP 1) (+ STAMP 1)) (- (shift CT 1) (+ CT 1))) (if (- CT 16) (- (shift STAMP 1) (+ STAMP 1)) (- (shift CT 1) (+ CT 1)))))))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                             ;;
+;;    2.1 binary constraints   ;;
+;;                             ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defconstraint size-in-evm-words () (if (* (* STAMP (- 1 NOOP ROOB)) (* (- 1 (~ (- CT 3))) (- 1 MXPX))) 0 (if (- MXP_TYPE_4 1) (begin (- SIZE_1_LO (- (* 32 ACC_W) BYTE_R)) (- (shift BYTE_R -1) (+ 224 BYTE_R))))))
+;; done with binary@prove in columns.lisp
 
-(defconstraint comparing-max-offsets-1-and-2 () (if (* (* STAMP (- 1 NOOP ROOB)) (* (- 1 (~ (- CT 3))) (- 1 MXPX))) 0 (- (+ ACC_3 (- 1 COMP)) (* (- MAX_OFFSET_1 MAX_OFFSET_2) (- (* 2 COMP) 1)))))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                             ;;
+;;    2.2 counter constancy    ;;
+;;                             ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defconstraint defining-accA () (if (* (* STAMP (- 1 NOOP ROOB)) (* (- 1 (~ (- CT 3))) (- 1 MXPX))) 0 (begin (- (+ MAX_OFFSET 1) (- (* 32 ACC_A) (shift BYTE_R -2))) (- (shift BYTE_R -3) (+ 224 (shift BYTE_R -2))))))
+(defconstraint counter-constancy ()
+  (begin (counter-constancy CT CN)
+         (counter-constancy CT INST)
+         (counter-constancy CT DEPLOYS)
+         (counter-constancy CT OFFSET_1_LO)
+         (counter-constancy CT OFFSET_1_HI)
+         (counter-constancy CT OFFSET_2_LO)
+         (counter-constancy CT OFFSET_2_HI)
+         (counter-constancy CT SIZE_1_LO)
+         (counter-constancy CT SIZE_1_HI)
+         (counter-constancy CT SIZE_2_LO)
+         (counter-constancy CT SIZE_2_HI)
+         (counter-constancy CT WORDS)
+         (counter-constancy CT WORDS_NEW)
+         (counter-constancy CT C_MEM)
+         (counter-constancy CT C_MEM_NEW)
+         (counter-constancy CT COMP)
+         (counter-constancy CT MXPX)
+         (counter-constancy CT EXPANDS)
+         (counter-constancy CT QUAD_COST)
+         (counter-constancy CT LIN_COST)
+         (counter-constancy CT GAS_MXP)))
 
-(defconstraint setting-gas-mxp () (if (* (* STAMP (- 1 NOOP ROOB)) (* (- 1 (~ (- CT 3))) (- 1 MXPX))) 0 (if (- INST 243) (- GAS_MXP (+ QUAD_COST (* DEPLOYS LIN_COST))) (- GAS_MXP (+ QUAD_COST LIN_COST)))))
+;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                     ;;
+;;    2.3 ROOB flag    ;;
+;;                     ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defconstraint mem-expansion-took-place () (if (* (* STAMP (- 1 NOOP ROOB)) (* (- 1 (~ (- CT 3))) (- 1 MXPX))) 0 (- (+ ACC_4 EXPANDS) (* (- ACC_A WORDS) (- (* 2 EXPANDS) 1)))))
+(defconstraint setting-roob-type-1 (:guard [MXP_TYPE 1])
+  (vanishes! ROOB))
 
-(defconstraint setting-quad-cost-and-lin-cost () (if (* (* STAMP (- 1 NOOP ROOB)) (* (- 1 (~ (- CT 3))) (- 1 MXPX))) 0 (begin (- QUAD_COST (- C_MEM_NEW C_MEM)) (- LIN_COST (+ (* GBYTE SIZE_1_LO) (* GWORD ACC_W))))))
+(defconstraint setting-roob-type-2-3 (:guard (+ [MXP_TYPE 2] [MXP_TYPE 3]))
+  (if-not-zero OFFSET_1_HI
+               (eq! ROOB 1)
+               (vanishes! ROOB)))
 
-(defconstraint defining-max-offset () (if (* (* STAMP (- 1 NOOP ROOB)) (* (- 1 (~ (- CT 3))) (- 1 MXPX))) 0 (- MAX_OFFSET (+ (* COMP MAX_OFFSET_1) (* (- 1 COMP) MAX_OFFSET_2)))))
+(defconstraint setting-roob-type-4 (:guard [MXP_TYPE 4])
+  (begin (if-not-zero SIZE_1_HI
+                      (eq! ROOB 1))
+         (if-not-zero (* OFFSET_1_HI SIZE_1_LO)
+                      (eq! ROOB 1))
+         (if-zero SIZE_1_HI
+                  (if-zero (* OFFSET_1_HI SIZE_1_LO)
+                           (vanishes! ROOB)))))
 
-(defconstraint max-offsets-1-and-2-type-5 () (if (* STAMP (- 1 NOOP ROOB)) 0 (if (- MXP_TYPE_5 1) (begin (if SIZE_1_LO MAX_OFFSET_1 (- MAX_OFFSET_1 (+ OFFSET_1_LO (- SIZE_1_LO 1)))) (if SIZE_2_LO MAX_OFFSET_2 (- MAX_OFFSET_2 (+ OFFSET_2_LO (- SIZE_2_LO 1))))))))
+(defconstraint setting-roob-type-5 (:guard [MXP_TYPE 5])
+  (begin (if-not-zero SIZE_1_HI
+                      (eq! ROOB 1))
+         (if-not-zero SIZE_2_HI
+                      (eq! ROOB 1))
+         (if-not-zero (* OFFSET_1_HI SIZE_1_LO)
+                      (eq! ROOB 1))
+         (if-not-zero (* OFFSET_2_HI SIZE_2_LO)
+                      (eq! ROOB 1))
+         (if-zero SIZE_1_HI
+                  (if-zero SIZE_2_HI
+                           (if-zero (* OFFSET_1_HI SIZE_1_LO)
+                                    (if-zero (* OFFSET_2_HI SIZE_2_LO)
+                                             (vanishes! ROOB)))))))
 
-(defconstraint binary-constraints () (begin (* ROOB (- 1 ROOB)) (* NOOP (- 1 NOOP)) (* MXPX (- 1 MXPX)) (* DEPLOYS (- 1 DEPLOYS)) (* COMP (- 1 COMP)) (* EXPANDS (- 1 EXPANDS))))
+;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                     ;;
+;;    2.4 NOOP flag    ;;
+;;                     ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defconstraint offsets-out-of-bounds () (if (* STAMP (- 1 NOOP ROOB)) 0 (if (- MXPX 1) (if (- CT 16) (* (- (- MAX_OFFSET_1 4294967296) ACC_1) (- (- MAX_OFFSET_2 4294967296) ACC_2))))))
+(defconstraint noop-automatic-vanishing ()
+  (if-not-zero ROOB
+               (vanishes! NOOP)))
 
-(defconstraint no-expansion () (if (* (* STAMP (- 1 NOOP ROOB)) (* (- 1 (~ (- CT 3))) (- 1 MXPX))) 0 (if EXPANDS (begin (- WORDS_NEW WORDS) (- C_MEM_NEW C_MEM)))))
+(defconstraint setting-noop ()
+  (if-zero ROOB
+           (begin (if-not-zero (+ [MXP_TYPE 1] [MXP_TYPE 2] [MXP_TYPE 3])
+                               (eq! NOOP [MXP_TYPE 1]))
+                  (if-eq [MXP_TYPE 4] 1
+                         (eq! NOOP (is-zero SIZE_1_LO)))
+                  (if-eq [MXP_TYPE 5] 1
+                         (eq! NOOP
+                              (* (is-zero SIZE_1_LO) (is-zero SIZE_2_LO)))))))
 
-(defconstraint max-offsets-1-and-2-are-small () (if (* (* STAMP (- 1 NOOP ROOB)) (* (- 1 (~ (- CT 3))) (- 1 MXPX))) 0 (begin (- ACC_1 MAX_OFFSET_1) (- ACC_2 MAX_OFFSET_2))))
+(defconstraint noop-consequences (:guard NOOP)
+  (begin (vanishes! QUAD_COST)
+         (vanishes! LIN_COST)
+         (= WORDS_NEW WORDS)
+         (= C_MEM_NEW C_MEM)))
 
-(defconstraint setting-words-new () (if (* (* STAMP (- 1 NOOP ROOB)) (* (* (- 1 (~ (- CT 3))) (- 1 MXPX)) EXPANDS)) 0 (- WORDS_NEW ACC_A)))
+;;;;;;;;;;;;;;;;;;;;
+;;                ;;
+;;    2.5 MTNTOP  ;;
+;;                ;;
+;;;;;;;;;;;;;;;;;;;;
 
-(defconstraint setting-roob-type-4 () (if MXP_TYPE_4 0 (begin (if SIZE_1_HI 0 (- ROOB 1)) (if (* OFFSET_1_HI SIZE_1_LO) 0 (- ROOB 1)) (if SIZE_1_HI (if (* OFFSET_1_HI SIZE_1_LO) ROOB)))))
+(defconstraint setting-mtntop ()
+  (begin
+    (debug (is-binary MTNTOP))
+    (debug (if-zero [MXP_TYPE 4]
+            (vanishes! MTNTOP)))
+    (if-not-zero MXPX
+            (vanishes! MTNTOP))
+    (if-not-zero [MXP_TYPE 4]
+            (if-zero MXPX
+              (if-zero SIZE_1_LO
+                (vanishes! MTNTOP)
+                (eq! MTNTOP 1))))))
 
-(defconstraint max-offsets-1-and-2-type-4 () (if (* STAMP (- 1 NOOP ROOB)) 0 (if (- MXP_TYPE_4 1) (begin (- MAX_OFFSET_1 (+ OFFSET_1_LO (- SIZE_1_LO 1))) MAX_OFFSET_2))))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                                           ;;
+;;  2.6 The S1NZNOMXPX and S2NZNOMXPX flags  ;;
+;;                                           ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defconstraint max-offsets-1-and-2-type-2 () (if (* STAMP (- 1 NOOP ROOB)) 0 (if (- MXP_TYPE_2 1) (begin (- MAX_OFFSET_1 (+ OFFSET_1_LO 31)) MAX_OFFSET_2))))
+(defconstraint setting-s1nznomp-s2nznomp ()
+  (begin
+    (debug (is-binary S1NZNOMXPX))
+    (debug (is-binary S2NZNOMXPX))
+    (debug (counter-constancy CT S1NZNOMXPX))
+    (debug (counter-constancy CT S2NZNOMXPX))
+    (if-not-zero MXPX
+      (begin (vanishes! S1NZNOMXPX)
+             (vanishes! S2NZNOMXPX))
+      (begin (if-not-zero SIZE_1_LO
+                (eq! S1NZNOMXPX 1))
+             (if-not-zero SIZE_1_HI
+                (eq! S1NZNOMXPX 1))
+             (if-zero SIZE_1_LO
+                (if-zero SIZE_1_HI
+                  (vanishes! S1NZNOMXPX)))
+             (if-not-zero SIZE_2_LO
+                (eq! S2NZNOMXPX 1))
+             (if-not-zero SIZE_2_HI
+                (eq! S2NZNOMXPX 1))
+             (if-zero SIZE_2_LO
+                (if-zero SIZE_2_HI
+                  (vanishes! S2NZNOMXPX)))))))
 
-(defconstraint consistency () (if CN_perm 0 (if (- (shift CN_perm -1) CN_perm) (if (- (shift STAMP_perm -1) STAMP_perm) 0 (begin (- WORDS_perm (shift WORDS_NEW_perm -1)) (- C_MEM_perm (shift C_MEM_NEW_perm -1)))) (begin WORDS_perm C_MEM_perm))))
+;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                     ;;
+;;    2.7 heartbeat    ;;
+;;                     ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defconstraint type-flag-sum () (if STAMP 0 (- 1 (+ MXP_TYPE_1 (+ MXP_TYPE_2 (+ MXP_TYPE_3 (+ MXP_TYPE_5 MXP_TYPE_4)))))))
+(defconstraint first-row (:domain {0})
+  (vanishes! STAMP))
 
-(defconstraint max-offsets-1-and-2-type-3 () (if (* STAMP (- 1 NOOP ROOB)) 0 (if (- MXP_TYPE_3 1) (begin (- MAX_OFFSET_1 OFFSET_1_LO) MAX_OFFSET_2))))
+(defconstraint stamp-increments ()
+  (any! (will-remain-constant! STAMP) (will-inc! STAMP 1)))
 
-(defconstraint stamp-increment-when-roob-or-noop () (if (+ ROOB NOOP) 0 (begin (- (shift STAMP 1) (+ STAMP 1)) (- MXPX ROOB))))
+(defconstraint automatic-vanishing-when-padding ()
+  (if-zero STAMP
+           (begin (vanishes! (+ ROOB NOOP MXPX))
+                  (vanishes! CT)
+                  (vanishes! INST))))
 
-(defconstraint final-row (:domain {-1}) (if STAMP 0 (if (+ ROOB NOOP) (- CT (if MXPX 3 16)))))
+;; (defconstraint type-flag-sum (:guard STAMP)
+;;   (eq! 1
+;;        (reduce + (for i [5] [MXP_TYPE i]))))
 
-(defconstraint setting-roob-type-2-3 () (if (+ MXP_TYPE_2 MXP_TYPE_3) 0 (if OFFSET_1_HI ROOB (- ROOB 1))))
+(defconstraint counter-reset ()
+  (if-not-zero (will-remain-constant! STAMP)
+               (vanishes! (next CT))))
 
-(defconstraint setting-mtntop () (if MXP_TYPE_4 MTNTOP (begin (if MXPX (if SIZE_1_LO MTNTOP (- MTNTOP 1)) MTNTOP))))
+(defconstraint stamp-increment-when-roob-or-noop ()
+  (if-not-zero (+ ROOB NOOP)
+               (begin (will-inc! STAMP 1)
+                      (eq! MXPX ROOB))))
 
-(defconstraint stamp-increments () (* (- (shift STAMP 1) STAMP) (- (shift STAMP 1) (+ STAMP 1))))
+(defconstraint non-trivial-instruction-counter-cycle ()
+  (if-not-zero STAMP
+               ;; ROOB + NOOP is binary
+               (if-not-zero (- 1 (+ ROOB NOOP))
+                            (if-zero MXPX
+                                     (if-eq-else CT CT_MAX_NON_TRIVIAL
+                                                 (will-inc! STAMP 1)
+                                                 (will-inc! CT 1))
+                                     (if-eq-else CT CT_MAX_NON_TRIVIAL_BUT_MXPX
+                                                 (will-inc! STAMP 1)
+                                                 (will-inc! CT 1))))))
 
-(defconstraint noop-consequences () (if NOOP 0 (begin QUAD_COST LIN_COST (- WORDS_NEW WORDS) (- C_MEM_NEW C_MEM))))
+(defconstraint final-row (:domain {-1})
+  (if-not-zero STAMP
+               (if-zero (force-bool (+ ROOB NOOP))
+                        (eq! CT (if-zero MXPX
+                                      CT_MAX_NON_TRIVIAL
+                                      CT_MAX_NON_TRIVIAL_BUT_MXPX)))))
 
-(defconstraint automatic-vanishing-when-padding () (if STAMP (begin (+ ROOB NOOP MXPX) CT INST)))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                               ;;
+;;    2.8 Byte decompositions    ;;
+;;                               ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defconstraint counter-reset () (if (- (shift STAMP 1) STAMP) 0 (shift CT 1)))
+(defconstraint byte-decompositions ()
+  (begin (for k [1:4] (byte-decomposition CT [ACC k] [BYTE k]))
+         (byte-decomposition CT ACC_A BYTE_A)
+         (byte-decomposition CT ACC_W BYTE_W)
+         (byte-decomposition CT ACC_Q BYTE_Q)))
 
-(defconstraint setting-roob-type-1 () (if MXP_TYPE_1 0 ROOB))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                               ;;
+;;    Specialized constraints    ;;
+;;                               ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defconstraint noop-automatic-vanishing () (if ROOB 0 NOOP))
+(defun (standing-hypothesis)
+  (* STAMP (- 1 NOOP ROOB))) ;; NOOP + ROOB is binary cf noop section
 
-(defconstraint first-row (:domain {0}) STAMP)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                       ;;
+;;    3.1 Max offsets    ;;
+;;                       ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defconstraint max-offsets-1-and-2-type-2 (:guard (standing-hypothesis))
+  (if-eq [MXP_TYPE 2] 1
+         (begin (eq! MAX_OFFSET_1 (+ OFFSET_1_LO 31))
+                (vanishes! MAX_OFFSET_2))))
+
+(defconstraint max-offsets-1-and-2-type-3 (:guard (standing-hypothesis))
+  (if-eq [MXP_TYPE 3] 1
+         (begin (eq! MAX_OFFSET_1 OFFSET_1_LO)
+                (vanishes! MAX_OFFSET_2))))
+
+(defconstraint max-offsets-1-and-2-type-4 (:guard (standing-hypothesis))
+  (if-eq [MXP_TYPE 4] 1
+         (begin (eq! MAX_OFFSET_1
+                     (+ OFFSET_1_LO (- SIZE_1_LO 1)))
+                (vanishes! MAX_OFFSET_2))))
+
+(defconstraint max-offsets-1-and-2-type-5 (:guard (standing-hypothesis))
+  (if-eq [MXP_TYPE 5] 1
+         (begin (if-zero SIZE_1_LO
+                         (vanishes! MAX_OFFSET_1)
+                         (eq! MAX_OFFSET_1
+                              (+ OFFSET_1_LO (- SIZE_1_LO 1))))
+                (if-zero SIZE_2_LO
+                         (vanishes! MAX_OFFSET_2)
+                         (eq! MAX_OFFSET_2
+                              (+ OFFSET_2_LO (- SIZE_2_LO 1)))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                                     ;;
+;;    3.2 Offsets are out of bounds    ;;
+;;                                     ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defconstraint offsets-out-of-bounds (:guard (standing-hypothesis))
+  (if-eq MXPX 1
+         (if-eq CT CT_MAX_NON_TRIVIAL_BUT_MXPX
+                (vanishes! (* (- (- MAX_OFFSET_1 TWO_POW_32) [ACC 1])
+                              (- (- MAX_OFFSET_2 TWO_POW_32) [ACC 2]))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                                ;;
+;;    3.3 Offsets are in bounds   ;;
+;;                                ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun (offsets-are-in-bounds)
+  (* (is-zero (- CT CT_MAX_NON_TRIVIAL))
+     (- 1 MXPX)))
+
+(defconstraint size-in-evm-words (:guard (* (standing-hypothesis) (offsets-are-in-bounds)))
+  (if-eq [MXP_TYPE 4] 1
+         (begin (eq! SIZE_1_LO
+                     (- (* 32 ACC_W) BYTE_R))
+                (eq! (prev BYTE_R)
+                     (+ (- 256 32) BYTE_R)))))
+
+(defconstraint max-offsets-1-and-2-are-small (:guard (* (standing-hypothesis) (offsets-are-in-bounds)))
+  (begin (eq! [ACC 1] MAX_OFFSET_1)
+         (eq! [ACC 2] MAX_OFFSET_2)))
+
+(defconstraint comparing-max-offsets-1-and-2 (:guard (* (standing-hypothesis) (offsets-are-in-bounds)))
+  (eq! (+ [ACC 3] (- 1 COMP))
+       (* (- MAX_OFFSET_1 MAX_OFFSET_2)
+          (- (* 2 COMP) 1))))
+
+(defconstraint defining-max-offset (:guard (* (standing-hypothesis) (offsets-are-in-bounds)))
+  (eq! MAX_OFFSET
+       (+ (* COMP MAX_OFFSET_1)
+          (* (- 1 COMP) MAX_OFFSET_2))))
+
+(defconstraint defining-accA (:guard (* (standing-hypothesis) (offsets-are-in-bounds)))
+  (begin (eq! (+ MAX_OFFSET 1)
+              (- (* 32 ACC_A) (shift BYTE_R -2)))
+         (eq! (shift BYTE_R -3)
+              (+ (- 256 32) (shift BYTE_R -2)))))
+
+(defconstraint mem-expansion-took-place (:guard (* (standing-hypothesis) (offsets-are-in-bounds)))
+  (eq! (+ [ACC 4] EXPANDS)
+       (* (- ACC_A WORDS)
+          (- (* 2 EXPANDS) 1))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                              ;;
+;;    3.4.2 No expansion event  ;;
+;;                              ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defconstraint no-expansion (:guard (* (standing-hypothesis) (offsets-are-in-bounds)))
+  (if-zero EXPANDS
+           (begin (eq! WORDS_NEW WORDS)
+                  (eq! C_MEM_NEW C_MEM))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                            ;;
+;;    3.4.3 Expansion event   ;;
+;;                            ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun (expansion-happened)
+  (* (offsets-are-in-bounds) EXPANDS))
+
+(defconstraint setting-words-new (:guard (* (standing-hypothesis) (expansion-happened)))
+  (eq! WORDS_NEW ACC_A))
+
+(defun (large-quotient)
+  (+ ACC_Q
+     (+ (* TWO_POW_32 (shift BYTE_QQ -2))
+        (* (* 256 TWO_POW_32) (shift BYTE_QQ -3)))))
+
+(defconstraint euclidean-division-of-square-of-accA (:guard (* (standing-hypothesis) (expansion-happened)))
+  (begin (eq! (* ACC_A ACC_A)
+              (+ (* 512 (large-quotient))
+                 (+ (* 256 (prev BYTE_QQ))
+                    BYTE_QQ)))
+         (vanishes! (* (prev BYTE_QQ)
+                       (- 1 (prev BYTE_QQ))))))
+
+(defconstraint setting-c-mem-new (:guard (* (standing-hypothesis) (expansion-happened)))
+  (eq! C_MEM_NEW
+       (+ (* GAS_CONST_G_MEMORY ACC_A) (large-quotient))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                          ;;
+;;    3.4.4 Expansion gas   ;;
+;;                          ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defconstraint setting-quad-cost-and-lin-cost (:guard (* (standing-hypothesis) (offsets-are-in-bounds)))
+  (begin (eq! QUAD_COST (- C_MEM_NEW C_MEM))
+         (eq! LIN_COST
+              (+ (* GBYTE SIZE_1_LO) (* GWORD ACC_W)))))
+
+(defconstraint setting-gas-mxp (:guard (* (standing-hypothesis) (offsets-are-in-bounds)))
+  (if (eq! INST EVM_INST_RETURN)
+      (eq! GAS_MXP
+           (+ QUAD_COST (* DEPLOYS LIN_COST)))
+      (eq! GAS_MXP (+ QUAD_COST LIN_COST))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;                                    ;;
+;;    2.12 Consistency Constraints    ;;
+;;                                    ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defpermutation
+  (CN_perm
+   STAMP_perm
+   C_MEM_perm
+   C_MEM_NEW_perm
+   WORDS_perm
+   WORDS_NEW_perm)
+
+  ((↓ CN)
+   (↓ STAMP)
+   C_MEM
+   C_MEM_NEW
+   WORDS
+   WORDS_NEW)
+  )
+
+(defconstraint consistency ()
+  (if-not-zero CN_perm
+               (if-eq-else (prev CN_perm) CN_perm
+                           (if-not-zero (- (prev STAMP_perm) STAMP_perm)
+                                        (begin (eq! WORDS_perm (prev WORDS_NEW_perm))
+                                               (eq! C_MEM_perm (prev C_MEM_NEW_perm))))
+                           (begin (vanishes! WORDS_perm)
+                                  (vanishes! C_MEM_perm)))))

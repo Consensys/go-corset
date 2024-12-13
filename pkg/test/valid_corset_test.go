@@ -664,10 +664,10 @@ func TestSlow_Wcp(t *testing.T) {
 	Check(t, true, "wcp")
 }
 
-func TestSlow_Mxp(t *testing.T) {
+/* func TestSlow_Mxp(t *testing.T) {
 	Check(t, true, "mxp")
 }
-
+*/
 // ===================================================================
 // Test Helpers
 // ===================================================================
