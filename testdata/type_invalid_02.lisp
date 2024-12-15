@@ -1,3 +1,4 @@
+;;error:2:1-2:blah
 (defcolumns
     (BIT :binary)
     (X :i8@loob))

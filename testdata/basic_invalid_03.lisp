@@ -1,2 +1,2 @@
-;;error:2:20-24:unknown type
+;;error:2:21-25:unknown type
 (defcolumns (X :i32 :odd))
