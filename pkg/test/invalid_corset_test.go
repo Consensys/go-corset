@@ -9,7 +9,6 @@ import (
 
 	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/sexp"
-	"github.com/consensys/go-corset/pkg/util"
 )
 
 // Determines the (relative) location of the test directory.  That is
@@ -589,7 +588,8 @@ func Test_Invalid_Debug_02(t *testing.T) {
 func CheckInvalid(t *testing.T, test string) {
 	filename := fmt.Sprintf("%s/%s.lisp", InvalidTestDir, test)
 	// Enable testing each trace in parallel
-	t.Parallel()
+	fmt.Println("*** DISABLED PARALLLISM")
+	// t.Parallel()
 	// Read constraints file
 	bytes, err := os.ReadFile(filename)
 	// Check test file read ok
@@ -601,25 +601,40 @@ func CheckInvalid(t *testing.T, test string) {
 	// Parse terms into an HIR schema
 	_, errs := corset.CompileSourceFile(false, false, srcfile)
 	// Extract expected errors for comparison
-	expectedErrs, lineOffsets := extractExpectedErrors(filename)
+	expectedErrs, lineOffsets := extractExpectedErrors(bytes)
 	// Check program did not compile!
 	if len(errs) == 0 {
 		t.Fatalf("Error %s should not have compiled\n", filename)
-	} else if len(errs) != len(expectedErrs) {
-		t.Fatalf("Error %s reported incorrect number of errors (%d vs %d)\n", filename, len(errs), len(expectedErrs))
 	} else {
-		// Check errors match
-		for i := 0; i < len(expectedErrs); i++ {
-			expected := expectedErrs[i]
-			actual := errs[i]
-			//
-			if expected.msg != actual.Message() {
-				t.Fatalf("Error %s, got \"%s\" but wanted \"%s\"\n", filename, actual.Message(), expected.msg)
-			} else if expected.span != actual.Span() {
-				aSpan := spanToString(actual.Span(), lineOffsets)
-				eSpan := spanToString(expected.span, lineOffsets)
-				t.Fatalf("Error %s, span was %s but wanted %s\n", filename, aSpan, eSpan)
+		error := false
+		// Construct initial message
+		msg := fmt.Sprintf("Error %s\n", filename)
+		// Pad out with what received
+		for i := 0; i < max(len(errs), len(expectedErrs)); i++ {
+			if i < len(errs) && i < len(expectedErrs) {
+				expected := expectedErrs[i]
+				actual := errs[i]
+				// Check whether message OK
+				if expected.msg == actual.Message() && expected.span == actual.Span() {
+					continue
+				}
 			}
+			// Indicate error arose
+			error = true
+			// actual
+			if i < len(errs) {
+				actual := errs[i]
+				msg = fmt.Sprintf("%s unexpected error %s:%s\n", msg, spanToString(actual.Span(), lineOffsets), actual.Message())
+			}
+			// expected
+			if i < len(expectedErrs) {
+				expected := expectedErrs[i]
+				msg = fmt.Sprintf("%s   expected error %s:%s\n", msg, spanToString(expected.span, lineOffsets), expected.msg)
+			}
+		}
+		//
+		if error {
+			t.Fatalf(msg)
 		}
 	}
 }
@@ -633,17 +648,9 @@ type SyntaxError struct {
 	msg string
 }
 
-func extractExpectedErrors(filename string) ([]SyntaxError, []int) {
-	// Read the source file and convert into one or more lines.
-	lines := util.ReadInputFile(filename)
+func extractExpectedErrors(bytes []byte) ([]SyntaxError, []int) {
 	// Calcuate the character offset of each line
-	offsets := make([]int, len(lines))
-	offset := 0
-	//
-	for i, line := range lines {
-		offsets[i] = offset
-		offset += len(line) + 1
-	}
+	offsets, lines := splitFileLines(bytes)
 	// Now construct errors
 	errors := make([]SyntaxError, 0)
 	// scan file line-by-line until no more errors found
@@ -658,6 +665,29 @@ func extractExpectedErrors(filename string) ([]SyntaxError, []int) {
 	}
 	//
 	return errors, offsets
+}
+
+// Split out a given file into the line contents and the line offsets.  This
+// needs to be done carefully to ensure that these both align properly,
+// otherwise error messages tend to have the wrong column numbers, etc.
+func splitFileLines(bytes []byte) ([]int, []string) {
+	contents := []rune(string(bytes))
+	// Calcuate the character offset of each line
+	offsets := make([]int, 1)
+	lines := make([]string, 0)
+	start := 0
+	// Iterate each byte
+	for i := 0; i <= len(contents); i++ {
+		if i == len(contents) || contents[i] == '\n' {
+			line := string(contents[start:i])
+			offsets = append(offsets, i+1)
+			lines = append(lines, line)
+			//
+			start = i + 1
+		}
+	}
+	// Done
+	return offsets, lines
 }
 
 // Extract the syntax error from a given line in the source file, or return nil
@@ -688,6 +718,8 @@ func determineFileSpan(line_str string, span_str string, offsets []int) sexp.Spa
 	start, err := strconv.Atoi(span_splits[0])
 	if err != nil {
 		panic(err)
+	} else if start == 0 {
+		panic("columns numbered from 1")
 	}
 	// Parse span end as integer
 	end, err := strconv.Atoi(span_splits[1])
@@ -697,8 +729,13 @@ func determineFileSpan(line_str string, span_str string, offsets []int) sexp.Spa
 	// Add line offset
 	start += offsets[line-1]
 	end += offsets[line-1]
-	// Done
-	return sexp.NewSpan(start, end)
+	// Sanity check
+	if start >= offsets[line] || end > offsets[line] {
+		panic("span overflows to following line")
+	}
+	// Create span, recalling that span's start from zero whereas column numbers
+	// start from 1.
+	return sexp.NewSpan(start-1, end-1)
 }
 
 // Convert a span into a useful human readable string.
@@ -717,5 +754,5 @@ func spanToString(span sexp.Span, offsets []int) string {
 		line = i + 1
 	}
 	//
-	return fmt.Sprintf("%d:%d-%d", line, start-last, end-last)
+	return fmt.Sprintf("%d:%d-%d", line, 1+start-last, 1+end-last)
 }

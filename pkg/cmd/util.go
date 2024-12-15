@@ -208,7 +208,7 @@ func printSyntaxError(err *sexp.SyntaxError) {
 	length := min(line.Length()-lineOffset, span.Length())
 	// Print error + line number
 	fmt.Printf("%s:%d:%d-%d %s\n", err.SourceFile().Filename(),
-		line.Number(), lineOffset, lineOffset+length, err.Message())
+		line.Number(), 1+lineOffset, 1+lineOffset+length, err.Message())
 	// Print separator line
 	fmt.Println()
 	// Print line

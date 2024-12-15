@@ -1,2 +1,2 @@
-;;error:2:15-19:unknown type
+;;error:2:16-20:unknown type
 (defcolumns (X :odd))

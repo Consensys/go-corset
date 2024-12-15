@@ -293,11 +293,10 @@ func (r *resolver) finaliseDefConstInModule(enclosing Scope, decl *DefConst) []S
 		// Accumulate errors
 		errors = append(errors, errs...)
 		// Check it is indeed constant!
-		if constant := c.binding.value.AsConstant(); constant == nil {
-			err := r.srcmap.SyntaxError(c, "definition not constant")
-			errors = append(errors, *err)
-		} else {
-			// Finalise constant binding
+		if constant := c.binding.value.AsConstant(); constant != nil {
+			// Finalise constant binding.  Note, no need to register a syntax
+			// error for the error case, because it would have already been
+			// accounted for during resolution.
 			c.binding.Finalise(datatype)
 		}
 	}

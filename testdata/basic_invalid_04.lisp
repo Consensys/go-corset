@@ -1,2 +1,2 @@
-;;error:2:14-15:symbol X already declared
+;;error:2:15-16:symbol X already declared
 (defcolumns X X)
