@@ -187,6 +187,65 @@ func (e *Exp) Dependencies() []Symbol {
 }
 
 // ============================================================================
+// For
+// ============================================================================
+
+// For represents a for loop of a statically known range of values
+type For struct {
+	// Index Variable
+	Var string
+	// Start value for Index
+	Start int
+	// Last Value for Index
+	End int
+	// Body of loop
+	Body Expr
+}
+
+// AsConstant attempts to evaluate this expression as a constant (signed) value.
+// If this expression is not constant, then nil is returned.
+func (e *For) AsConstant() *big.Int {
+	body := e.Body.AsConstant()
+	// Check if can evaluate
+	if body != nil {
+		return body
+	}
+	//
+	return nil
+}
+
+// Multiplicity determines the number of values that evaluating this expression
+// can generate.
+func (e *For) Multiplicity() uint {
+	return uint(e.End - e.Start + 1)
+}
+
+// Context returns the context for this expression.  Observe that the
+// expression must have been resolved for this to be defined (i.e. it may
+// panic if it has not been resolved yet).
+func (e *For) Context() Context {
+	return e.Body.Context()
+}
+
+// Lisp converts this schema element into a simple S-Expression, for example
+// so it can be printed.
+func (e *For) Lisp() sexp.SExp {
+	panic("todo")
+}
+
+// Substitute all variables (such as for function parameters) arising in
+// this expression.
+func (e *For) Substitute(args []Expr) Expr {
+	body := e.Body.Substitute(args)
+	return &For{e.Var, e.Start, e.End, body}
+}
+
+// Dependencies needed to signal declaration.
+func (e *For) Dependencies() []Symbol {
+	return e.Body.Dependencies()
+}
+
+// ============================================================================
 // IfZero
 // ============================================================================
 
