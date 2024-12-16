@@ -2,6 +2,7 @@ package corset
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/hir"
@@ -363,6 +364,8 @@ func (t *translator) translateExpressionInModule(expr Expr, module string, shift
 		return &hir.Add{Args: args}, errs
 	} else if e, ok := expr.(*Exp); ok {
 		return t.translateExpInModule(e, module, shift)
+	} else if e, ok := expr.(*For); ok {
+		return t.translateForInModule(e, module, shift)
 	} else if v, ok := expr.(*If); ok {
 		args, errs := t.translateExpressionsInModule([]Expr{v.Condition, v.TrueBranch, v.FalseBranch}, module)
 		if v.IsIfZero() {
@@ -401,9 +404,9 @@ func (t *translator) translateExpInModule(expr *Exp, module string, shift int) (
 	pow := expr.Pow.AsConstant()
 	// Identity constant for pow
 	if pow == nil {
-		errs = append(errs, *t.srcmap.SyntaxError(expr.Pow, "constant power too large"))
-	} else if !pow.IsUint64() {
 		errs = append(errs, *t.srcmap.SyntaxError(expr.Pow, "expected constant power"))
+	} else if !pow.IsUint64() {
+		errs = append(errs, *t.srcmap.SyntaxError(expr.Pow, "constant power too large"))
 	}
 	// Sanity check errors
 	if len(errs) == 0 {
@@ -411,6 +414,32 @@ func (t *translator) translateExpInModule(expr *Exp, module string, shift int) (
 	}
 	//
 	return nil, errs
+}
+
+func (t *translator) translateForInModule(expr *For, module string, shift int) (hir.Expr, []SyntaxError) {
+	var (
+		errors  []SyntaxError
+		mapping map[uint]Expr = make(map[uint]Expr)
+	)
+	// Determine range for index variable
+	n := expr.End - expr.Start + 1
+	args := make([]hir.Expr, n)
+	// Expand body n times
+	for i := uint(0); i < n; i++ {
+		var errs []SyntaxError
+		// Substitute through for i
+		mapping[expr.Binding.index] = &Constant{*big.NewInt(int64(i + expr.Start))}
+		ith := expr.Body.Substitute(mapping)
+		// Translate subsituted expression
+		args[i], errs = t.translateExpressionInModule(ith, module, shift)
+		errors = append(errors, errs...)
+	}
+	// Error check
+	if len(errors) != 0 {
+		return nil, errors
+	}
+	// Done
+	return &hir.List{Args: args}, nil
 }
 
 func (t *translator) translateInvokeInModule(expr *Invoke, module string, shift int) (hir.Expr, []SyntaxError) {

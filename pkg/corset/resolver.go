@@ -436,7 +436,7 @@ func (r *resolver) finaliseDefFunInModule(enclosing Scope, decl *DefFun) []Synta
 	)
 	// Declare parameters in local scope
 	for _, p := range decl.Parameters() {
-		scope.DeclareLocal(p.Name, p.DataType)
+		scope.DeclareLocal(p.Binding.name, &p.Binding)
 	}
 	// Resolve property body
 	datatype, errors := r.finaliseExpressionInModule(scope, decl.Body())
@@ -512,6 +512,12 @@ func (r *resolver) finaliseExpressionInModule(scope LocalScope, expr Expr) (Type
 		_, pow_errs := r.finaliseExpressionInModule(purescope, v.Pow)
 		// combine errors
 		return arg_types, append(arg_errs, pow_errs...)
+	} else if v, ok := expr.(*For); ok {
+		nestedscope := scope.NestedScope()
+		// Declare local variable
+		nestedscope.DeclareLocal(v.Binding.name, &v.Binding)
+		// Continue resolution
+		return r.finaliseExpressionInModule(nestedscope, v.Body)
 	} else if v, ok := expr.(*If); ok {
 		return r.finaliseIfInModule(scope, v)
 	} else if v, ok := expr.(*Invoke); ok {
@@ -626,7 +632,7 @@ func (r *resolver) finaliseVariableInModule(scope LocalScope,
 	} else if binding, ok := expr.Binding().(*ConstantBinding); ok {
 		// Constant
 		return binding.datatype, nil
-	} else if binding, ok := expr.Binding().(*ParameterBinding); ok {
+	} else if binding, ok := expr.Binding().(*LocalVariableBinding); ok {
 		// Parameter
 		return binding.datatype, nil
 	} else if _, ok := expr.Binding().(*FunctionBinding); ok {

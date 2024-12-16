@@ -131,17 +131,30 @@ func (p *ConstantBinding) Context() Context {
 // ParameterBinding
 // ============================================================================
 
-// ParameterBinding represents something bound to a given column.
-type ParameterBinding struct {
-	// Identifies the variable or column index (as appropriate).
-	index uint
+// LocalVariableBinding represents something bound to a given column.
+type LocalVariableBinding struct {
+	// Name the local variable
+	name string
 	// Type to use for this parameter.
 	datatype Type
+	// Identifies the variable or column index (as appropriate).
+	index uint
+}
+
+// NewLocalVariableBinding constructs an (unitilalised) variable binding.  Being
+// uninitialised means that its index identifier remains unknown.
+func NewLocalVariableBinding(name string, datatype Type) LocalVariableBinding {
+	return LocalVariableBinding{name, datatype, math.MaxUint}
 }
 
 // IsFinalised checks whether this binding has been finalised yet or not.
-func (p *ParameterBinding) IsFinalised() bool {
-	panic("should be unreachable?")
+func (p *LocalVariableBinding) IsFinalised() bool {
+	return p.index != math.MaxUint
+}
+
+// Finalise this local variable binding by allocating it an identifier.
+func (p *LocalVariableBinding) Finalise(index uint) {
+	p.index = index
 }
 
 // ============================================================================
@@ -191,5 +204,11 @@ func (p *FunctionBinding) Finalise(bodyType Type) {
 
 // Apply a given set of arguments to this function binding.
 func (p *FunctionBinding) Apply(args []Expr) Expr {
-	return p.body.Substitute(args)
+	mapping := make(map[uint]Expr)
+	// Setup the mapping
+	for i, e := range args {
+		mapping[uint(i)] = e
+	}
+	// Substitute through
+	return p.body.Substitute(mapping)
 }

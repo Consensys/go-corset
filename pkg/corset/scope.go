@@ -221,7 +221,7 @@ type LocalScope struct {
 	// Maps inputs parameters to the declaration index.
 	locals map[string]uint
 	// Actual parameter bindings
-	bindings []*ParameterBinding
+	bindings []*LocalVariableBinding
 }
 
 // NewLocalScope constructs a new local scope within a given enclosing scope.  A
@@ -231,7 +231,7 @@ type LocalScope struct {
 func NewLocalScope(enclosing Scope, global bool, pure bool) LocalScope {
 	context := tr.VoidContext[string]()
 	locals := make(map[string]uint)
-	bindings := make([]*ParameterBinding, 0)
+	bindings := make([]*LocalVariableBinding, 0)
 	//
 	return LocalScope{global, pure, enclosing, &context, locals, bindings}
 }
@@ -239,7 +239,7 @@ func NewLocalScope(enclosing Scope, global bool, pure bool) LocalScope {
 // NestedScope creates a nested scope within this local scope.
 func (p LocalScope) NestedScope() LocalScope {
 	nlocals := make(map[string]uint)
-	nbindings := make([]*ParameterBinding, len(p.bindings))
+	nbindings := make([]*LocalVariableBinding, len(p.bindings))
 	// Clone allocated variables
 	for k, v := range p.locals {
 		nlocals[k] = v
@@ -254,7 +254,7 @@ func (p LocalScope) NestedScope() LocalScope {
 // addition, is always pure.
 func (p LocalScope) NestedPureScope() LocalScope {
 	nlocals := make(map[string]uint)
-	nbindings := make([]*ParameterBinding, len(p.bindings))
+	nbindings := make([]*LocalVariableBinding, len(p.bindings))
 	// Clone allocated variables
 	for k, v := range p.locals {
 		nlocals[k] = v
@@ -305,11 +305,11 @@ func (p LocalScope) Bind(symbol Symbol) bool {
 }
 
 // DeclareLocal registers a new local variable (e.g. a parameter).
-func (p *LocalScope) DeclareLocal(name string, datatype Type) uint {
+func (p *LocalScope) DeclareLocal(name string, binding *LocalVariableBinding) uint {
 	index := uint(len(p.locals))
-	binding := ParameterBinding{index, datatype}
+	binding.Finalise(index)
 	p.locals[name] = index
-	p.bindings = append(p.bindings, &binding)
+	p.bindings = append(p.bindings, binding)
 	// Return variable index
 	return index
 }

@@ -34,7 +34,7 @@ type Expr interface {
 
 	// Substitute all variables (such as for function parameters) arising in
 	// this expression.
-	Substitute(args []Expr) Expr
+	Substitute(mapping map[uint]Expr) Expr
 
 	// Return set of columns on which this declaration depends.
 	Dependencies() []Symbol
@@ -78,8 +78,8 @@ func (e *Add) Lisp() sexp.SExp {
 
 // Substitute all variables (such as for function parameters) arising in
 // this expression.
-func (e *Add) Substitute(args []Expr) Expr {
-	return &Add{SubstituteExpressions(e.Args, args)}
+func (e *Add) Substitute(mapping map[uint]Expr) Expr {
+	return &Add{SubstituteExpressions(e.Args, mapping)}
 }
 
 // Dependencies needed to signal declaration.
@@ -121,7 +121,7 @@ func (e *Constant) Lisp() sexp.SExp {
 
 // Substitute all variables (such as for function parameters) arising in
 // this expression.
-func (e *Constant) Substitute(args []Expr) Expr {
+func (e *Constant) Substitute(mapping map[uint]Expr) Expr {
 	return e
 }
 
@@ -177,13 +177,82 @@ func (e *Exp) Lisp() sexp.SExp {
 
 // Substitute all variables (such as for function parameters) arising in
 // this expression.
-func (e *Exp) Substitute(args []Expr) Expr {
-	return &Exp{e.Arg.Substitute(args), e.Pow}
+func (e *Exp) Substitute(mapping map[uint]Expr) Expr {
+	return &Exp{e.Arg.Substitute(mapping), e.Pow.Substitute(mapping)}
 }
 
 // Dependencies needed to signal declaration.
 func (e *Exp) Dependencies() []Symbol {
 	return DependenciesOfExpressions([]Expr{e.Arg, e.Pow})
+}
+
+// ============================================================================
+// For
+// ============================================================================
+
+// For represents a for loop of a statically known range of values
+type For struct {
+	// Variable binding
+	Binding LocalVariableBinding
+	// Start value for Index
+	Start uint
+	// Last Value for Index
+	End uint
+	// Body of loop
+	Body Expr
+}
+
+// AsConstant attempts to evaluate this expression as a constant (signed) value.
+// If this expression is not constant, then nil is returned.
+func (e *For) AsConstant() *big.Int {
+	body := e.Body.AsConstant()
+	// Check if can evaluate
+	if body != nil {
+		return body
+	}
+	//
+	return nil
+}
+
+// Multiplicity determines the number of values that evaluating this expression
+// can generate.
+func (e *For) Multiplicity() uint {
+	return e.End - e.Start + 1
+}
+
+// Context returns the context for this expression.  Observe that the
+// expression must have been resolved for this to be defined (i.e. it may
+// panic if it has not been resolved yet).
+func (e *For) Context() Context {
+	return e.Body.Context()
+}
+
+// Lisp converts this schema element into a simple S-Expression, for example
+// so it can be printed.
+func (e *For) Lisp() sexp.SExp {
+	panic("todo")
+}
+
+// Substitute all variables (such as for function parameters) arising in
+// this expression.
+func (e *For) Substitute(mapping map[uint]Expr) Expr {
+	body := e.Body.Substitute(mapping)
+	return &For{e.Binding, e.Start, e.End, body}
+}
+
+// Dependencies needed to signal declaration.
+func (e *For) Dependencies() []Symbol {
+	// Remove occurrences of the index variable defined by this expression.  In
+	// essence, we are capturing this occurrences of this symbol.
+	var rest []Symbol
+	//
+	for _, s := range e.Body.Dependencies() {
+		if s.IsQualified() || s.Name() != e.Binding.name {
+			rest = append(rest, s)
+		}
+	}
+	//
+	return rest
 }
 
 // ============================================================================
@@ -274,10 +343,10 @@ func (e *If) Lisp() sexp.SExp {
 
 // Substitute all variables (such as for function parameters) arising in
 // this expression.
-func (e *If) Substitute(args []Expr) Expr {
-	return &If{e.kind, e.Condition.Substitute(args),
-		SubstituteOptionalExpression(e.TrueBranch, args),
-		SubstituteOptionalExpression(e.FalseBranch, args),
+func (e *If) Substitute(mapping map[uint]Expr) Expr {
+	return &If{e.kind, e.Condition.Substitute(mapping),
+		SubstituteOptionalExpression(e.TrueBranch, mapping),
+		SubstituteOptionalExpression(e.FalseBranch, mapping),
 	}
 }
 
@@ -402,8 +471,8 @@ func (e *Invoke) Lisp() sexp.SExp {
 
 // Substitute all variables (such as for function parameters) arising in
 // this expression.
-func (e *Invoke) Substitute(args []Expr) Expr {
-	return &Invoke{e.module, e.name, SubstituteExpressions(e.args, args), e.binding}
+func (e *Invoke) Substitute(mapping map[uint]Expr) Expr {
+	return &Invoke{e.module, e.name, SubstituteExpressions(e.args, mapping), e.binding}
 }
 
 // Dependencies needed to signal declaration.
@@ -449,8 +518,8 @@ func (e *List) Lisp() sexp.SExp {
 
 // Substitute all variables (such as for function parameters) arising in
 // this expression.
-func (e *List) Substitute(args []Expr) Expr {
-	return &List{SubstituteExpressions(e.Args, args)}
+func (e *List) Substitute(mapping map[uint]Expr) Expr {
+	return &List{SubstituteExpressions(e.Args, mapping)}
 }
 
 // Dependencies needed to signal declaration.
@@ -493,8 +562,8 @@ func (e *Mul) Lisp() sexp.SExp {
 
 // Substitute all variables (such as for function parameters) arising in
 // this expression.
-func (e *Mul) Substitute(args []Expr) Expr {
-	return &Mul{SubstituteExpressions(e.Args, args)}
+func (e *Mul) Substitute(mapping map[uint]Expr) Expr {
+	return &Mul{SubstituteExpressions(e.Args, mapping)}
 }
 
 // Dependencies needed to signal declaration.
@@ -540,8 +609,8 @@ func (e *Normalise) Lisp() sexp.SExp {
 
 // Substitute all variables (such as for function parameters) arising in
 // this expression.
-func (e *Normalise) Substitute(args []Expr) Expr {
-	return &Normalise{e.Arg.Substitute(args)}
+func (e *Normalise) Substitute(mapping map[uint]Expr) Expr {
+	return &Normalise{e.Arg.Substitute(mapping)}
 }
 
 // Dependencies needed to signal declaration.
@@ -584,8 +653,8 @@ func (e *Sub) Lisp() sexp.SExp {
 
 // Substitute all variables (such as for function parameters) arising in
 // this expression.
-func (e *Sub) Substitute(args []Expr) Expr {
-	return &Sub{SubstituteExpressions(e.Args, args)}
+func (e *Sub) Substitute(mapping map[uint]Expr) Expr {
+	return &Sub{SubstituteExpressions(e.Args, mapping)}
 }
 
 // Dependencies needed to signal declaration.
@@ -641,8 +710,8 @@ func (e *Shift) Lisp() sexp.SExp {
 
 // Substitute all variables (such as for function parameters) arising in
 // this expression.
-func (e *Shift) Substitute(args []Expr) Expr {
-	return &Shift{e.Arg.Substitute(args), e.Shift.Substitute(args)}
+func (e *Shift) Substitute(mapping map[uint]Expr) Expr {
+	return &Shift{e.Arg.Substitute(mapping), e.Shift.Substitute(mapping)}
 }
 
 // Dependencies needed to signal declaration.
@@ -758,9 +827,11 @@ func (e *VariableAccess) Lisp() sexp.SExp {
 
 // Substitute all variables (such as for function parameters) arising in
 // this expression.
-func (e *VariableAccess) Substitute(args []Expr) Expr {
-	if b, ok := e.binding.(*ParameterBinding); ok {
-		return args[b.index]
+func (e *VariableAccess) Substitute(mapping map[uint]Expr) Expr {
+	if b, ok1 := e.binding.(*LocalVariableBinding); ok1 {
+		if e, ok2 := mapping[b.index]; ok2 {
+			return e
+		}
 	}
 	// Nothing to do here
 	return e
@@ -792,11 +863,11 @@ func ContextOfExpressions(exprs []Expr) Context {
 
 // SubstituteExpressions substitutes all variables found in a given set of
 // expressions.
-func SubstituteExpressions(exprs []Expr, vars []Expr) []Expr {
+func SubstituteExpressions(exprs []Expr, mapping map[uint]Expr) []Expr {
 	nexprs := make([]Expr, len(exprs))
 	//
 	for i := 0; i < len(nexprs); i++ {
-		nexprs[i] = exprs[i].Substitute(vars)
+		nexprs[i] = exprs[i].Substitute(mapping)
 	}
 	//
 	return nexprs
@@ -804,9 +875,9 @@ func SubstituteExpressions(exprs []Expr, vars []Expr) []Expr {
 
 // SubstituteOptionalExpression substitutes through an expression which is
 // optional (i.e. might be nil).  In such case, nil is returned.
-func SubstituteOptionalExpression(expr Expr, vars []Expr) Expr {
+func SubstituteOptionalExpression(expr Expr, mapping map[uint]Expr) Expr {
 	if expr != nil {
-		expr = expr.Substitute(vars)
+		expr = expr.Substitute(mapping)
 	}
 	//
 	return expr
