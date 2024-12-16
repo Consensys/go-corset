@@ -904,7 +904,7 @@ func (p *DefFun) Lisp() sexp.SExp {
 // name, or not.
 func (p *DefFun) hasParameter(name string) bool {
 	for _, v := range p.parameters {
-		if v.Name == name {
+		if v.Binding.name == name {
 			return true
 		}
 	}
@@ -915,14 +915,11 @@ func (p *DefFun) hasParameter(name string) bool {
 // DefParameter packages together those piece relevant to declaring an individual
 // parameter, such its name and type.
 type DefParameter struct {
-	// Column name
-	Name string
-	// The datatype which all values in this parameter should inhabit.
-	DataType Type
+	Binding LocalVariableBinding
 }
 
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
 func (p *DefParameter) Lisp() sexp.SExp {
-	return sexp.NewSymbol(p.Name)
+	return sexp.NewSymbol(p.Binding.name)
 }

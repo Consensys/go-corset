@@ -480,6 +480,21 @@ func Test_Invalid_PureFun_08(t *testing.T) {
 }
 
 // ===================================================================
+// For Loops
+// ===================================================================
+func Test_Invalid_For_01(t *testing.T) {
+	CheckInvalid(t, "for_invalid_01")
+}
+
+func Test_Invalid_For_02(t *testing.T) {
+	CheckInvalid(t, "for_invalid_02")
+}
+
+func Test_Invalid_For_03(t *testing.T) {
+	CheckInvalid(t, "for_invalid_03")
+}
+
+// ===================================================================
 // Test Helpers
 // ===================================================================
 

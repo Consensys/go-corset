@@ -646,7 +646,7 @@ func (p *Parser) parseDefProperty(elements []sexp.SExp) (Declaration, []SyntaxEr
 		errors = p.translator.SyntaxErrors(elements[1], "expected constraint handle")
 	}
 	//
-	handle := elements[1].AsSymbol().Value
+	handle := elements[1].AsSymbol()
 	// Translate expression
 	expr, errs := p.translator.Translate(elements[2])
 	errors = append(errors, errs...)
@@ -655,7 +655,7 @@ func (p *Parser) parseDefProperty(elements []sexp.SExp) (Declaration, []SyntaxEr
 		return nil, errors
 	}
 	// Done
-	return &DefProperty{handle, expr, false}, nil
+	return &DefProperty{handle.Value, expr, false}, nil
 }
 
 // Parse a permutation declaration
@@ -684,7 +684,7 @@ func (p *Parser) parseDefFun(pure bool, elements []sexp.SExp) (Declaration, []Sy
 	// Extract parameter types
 	paramTypes := make([]Type, len(params))
 	for i, p := range params {
-		paramTypes[i] = p.DataType
+		paramTypes[i] = p.Binding.datatype
 	}
 	// Construct binding
 	binding := NewFunctionBinding(pure, paramTypes, ret, body)
@@ -760,7 +760,8 @@ func (p *Parser) parseFunctionNameReturn(element sexp.SExp) (string, Type, bool,
 
 func (p *Parser) parseFunctionParameter(element sexp.SExp) (*DefParameter, []SyntaxError) {
 	if isIdentifier(element) {
-		return &DefParameter{element.AsSymbol().Value, NewFieldType()}, nil
+		binding := NewLocalVariableBinding(element.AsSymbol().Value, NewFieldType())
+		return &DefParameter{binding}, nil
 	}
 	// Construct error message (for now)
 	err := p.translator.SyntaxError(element, "malformed parameter declaration")
@@ -936,6 +937,12 @@ func forParserRule(p *Parser) sexp.ListRule[Expr] {
 				errors = append(errors, *err)
 			}
 		}
+		// Parse range
+		start, end, ok := parseForRange(rangeStr)
+		// Error Check
+		if !ok {
+			errors = append(errors, *p.translator.SyntaxError(list.Get(2), "malformed index range"))
+		}
 		// Parse body
 		body, errs := p.translator.Translate(list.Get(n))
 		errors = append(errors, errs...)
@@ -943,9 +950,40 @@ func forParserRule(p *Parser) sexp.ListRule[Expr] {
 		if len(errors) > 0 {
 			return nil, errors
 		}
+		// Construct binding
+		binding := NewLocalVariableBinding(indexVar.Value, nil)
 		//
-		return &For{indexVar.Value, 0, 0, body}, nil
+		return &For{binding, start, end, body}, nil
 	}
+}
+
+func parseForRange(rangeStr string) (uint, uint, bool) {
+	var (
+		start int
+		end   int
+		err1  error
+		err2  error
+	)
+	// Check has form "[...]"
+	if !strings.HasPrefix(rangeStr, "[") || !strings.HasSuffix(rangeStr, "]") {
+		// error
+		return 0, 0, false
+	}
+	// Split out components
+	splits := strings.Split(rangeStr[1:len(rangeStr)-1], ":")
+	// Error check
+	if len(splits) == 0 || len(splits) > 2 {
+		// error
+		return 0, 0, false
+	} else if len(splits) == 1 {
+		start, err1 = strconv.Atoi(splits[0])
+		end = start
+	} else if len(splits) == 2 {
+		start, err1 = strconv.Atoi(splits[0])
+		end, err2 = strconv.Atoi(splits[1])
+	}
+	//
+	return uint(start), uint(end), err1 == nil && err2 == nil
 }
 
 func constantParserRule(symbol string) (Expr, bool, error) {
