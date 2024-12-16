@@ -56,6 +56,12 @@ func (p *Parser) Parse() (SExp, *SyntaxError) {
 	} else if len(token) == 1 && token[0] == ')' {
 		p.index-- // backup
 		return nil, p.error("unexpected end-of-list")
+	} else if len(token) == 1 && token[0] == '}' {
+		p.index-- // backup
+		return nil, p.error("unexpected end-of-set")
+	} else if len(token) == 1 && token[0] == ']' {
+		p.index-- // backup
+		return nil, p.error("unexpected end-of-array")
 	} else if len(token) == 1 && token[0] == '(' {
 		elements, err := p.parseSequence(')')
 		// Check for error
@@ -72,6 +78,14 @@ func (p *Parser) Parse() (SExp, *SyntaxError) {
 		}
 		// Done
 		term = &Set{elements}
+	} else if len(token) == 1 && token[0] == '[' {
+		elements, err := p.parseSequence(']')
+		// Check for error
+		if err != nil {
+			return nil, err
+		}
+		// Done
+		term = &Array{elements}
 	} else {
 		// Must be a symbol
 		term = &Symbol{string(token)}
@@ -92,7 +106,7 @@ func (p *Parser) Next() []rune {
 	}
 	// Check what we have
 	switch p.text[p.index] {
-	case '(', ')', '{', '}':
+	case '(', ')', '{', '}', '[', ']':
 		// List/set begin / end
 		p.index = p.index + 1
 		return p.text[p.index-1 : p.index]
@@ -131,7 +145,7 @@ func (p *Parser) Lookahead(i int) *rune {
 	// Check what's there
 	if len(p.text) > pos {
 		r := p.text[pos]
-		if r == '(' || r == ')' || r == '{' || r == '}' || r == ';' {
+		if r == '(' || r == ')' || r == '{' || r == '}' || r == '[' || r == ']' || r == ';' {
 			return &r
 		} else if unicode.IsSpace(r) {
 			return p.Lookahead(i + 1)
@@ -147,7 +161,7 @@ func (p *Parser) parseSymbol() []rune {
 
 	for j := p.index; j < i; j++ {
 		c := p.text[j]
-		if c == ')' || c == '}' || c == ' ' || c == '\n' || c == '\t' {
+		if c == ')' || c == '}' || c == ']' || c == ' ' || c == '\n' || c == '\t' {
 			i = j
 			break
 		}

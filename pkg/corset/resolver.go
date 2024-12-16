@@ -500,7 +500,9 @@ func (r *resolver) finaliseExpressionsInModule(scope LocalScope, args []Expr) ([
 //
 //nolint:staticcheck
 func (r *resolver) finaliseExpressionInModule(scope LocalScope, expr Expr) (Type, []SyntaxError) {
-	if v, ok := expr.(*Constant); ok {
+	if v, ok := expr.(*ArrayAccess); ok {
+		return r.finaliseArrayAccessInModule(scope, v)
+	} else if v, ok := expr.(*Constant); ok {
 		nbits := v.Val.BitLen()
 		return NewUintType(uint(nbits)), nil
 	} else if v, ok := expr.(*Add); ok {
@@ -542,8 +544,28 @@ func (r *resolver) finaliseExpressionInModule(scope LocalScope, expr Expr) (Type
 	} else if v, ok := expr.(*VariableAccess); ok {
 		return r.finaliseVariableInModule(scope, v)
 	} else {
-		return nil, r.srcmap.SyntaxErrors(expr, "unknown expression")
+		return nil, r.srcmap.SyntaxErrors(expr, "unknown expression encountered during resolution")
 	}
+}
+
+// Resolve a specific array access contained within some expression which, in
+// turn, is contained within some module.
+func (r *resolver) finaliseArrayAccessInModule(scope LocalScope, expr *ArrayAccess) (Type, []SyntaxError) {
+	// Resolve argument
+	if _, errors := r.finaliseExpressionInModule(scope, expr.arg); errors != nil {
+		return nil, errors
+	}
+	//
+	if !expr.IsResolved() && !scope.Bind(expr) {
+		return nil, r.srcmap.SyntaxErrors(expr, "unknown array column")
+	} else if binding, ok := expr.Binding().(*ColumnBinding); ok {
+		// Found column, now check it is an array.
+		if arr_t, ok := binding.dataType.(*ArrayType); ok {
+			return arr_t.element, nil
+		}
+	}
+	// Default
+	return nil, r.srcmap.SyntaxErrors(expr, "not an array column")
 }
 
 // Resolve an if condition contained within some expression which, in turn, is

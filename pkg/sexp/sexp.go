@@ -14,6 +14,9 @@ type SExp interface {
 	// AsSet checks whether this S-Expression is a set and, if
 	// so, returns it.  Otherwise, it returns nil.
 	AsSet() *Set
+	// AsArray checks whether this S-Expression is an array and, if so, returns
+	// it.  Otherwise, it returns nil.
+	AsArray() *Array
 	// AsSymbol checks whether this S-Expression is a symbol and,
 	// if so, returns it.  Otherwise, it returns nil.
 	AsSymbol() *Symbol
@@ -45,6 +48,9 @@ func EmptyList() *List {
 func NewList(elements []SExp) *List {
 	return &List{elements}
 }
+
+// AsArray returns the given array.
+func (l *List) AsArray() *Array { return nil }
 
 // AsList returns the given list.
 func (l *List) AsList() *List { return l }
@@ -121,6 +127,9 @@ func NewSet(elements []SExp) *Set {
 	return &Set{elements}
 }
 
+// AsArray returns the given array.
+func (l *Set) AsArray() *Array { return nil }
+
 // AsList returns nil for a set.
 func (l *Set) AsList() *List { return nil }
 
@@ -170,6 +179,9 @@ func NewSymbol(value string) *Symbol {
 	return &Symbol{value}
 }
 
+// AsArray returns the given array.
+func (s *Symbol) AsArray() *Array { return nil }
+
 // AsList returns nil for a symbol.
 func (s *Symbol) AsList() *List { return nil }
 
@@ -200,4 +212,56 @@ func (s *Symbol) String(quote bool) string {
 
 func isSymbolLetter(r rune) bool {
 	return r != '(' && r != ')' && !unicode.IsSpace(r)
+}
+
+// ===================================================================
+// Array
+// ===================================================================
+
+// Array represents a list of zero or more S-Expressions.
+type Array struct {
+	Elements []SExp
+}
+
+// NOTE: This is used for compile time type checking if the given type
+// satisfies the given interface.
+var _ SExp = (*Array)(nil)
+
+// NewArray creates a new Array from a given array of S-Expressions.
+func NewArray(elements []SExp) *Array {
+	return &Array{elements}
+}
+
+// AsArray returns the given array.
+func (a *Array) AsArray() *Array { return a }
+
+// AsList returns nil for a Array.
+func (a *Array) AsList() *List { return nil }
+
+// AsSet returns the given Array.
+func (a *Array) AsSet() *Set { return nil }
+
+// AsSymbol returns nil for a Array.
+func (a *Array) AsSymbol() *Symbol { return nil }
+
+// Len gets the number of elements in this Array.
+func (a *Array) Len() int { return len(a.Elements) }
+
+// Get the ith element of this Array
+func (a *Array) Get(i int) SExp { return a.Elements[i] }
+
+func (a *Array) String(quote bool) string {
+	var s = "["
+
+	for i := 0; i < len(a.Elements); i++ {
+		if i != 0 {
+			s += " "
+		}
+
+		s += a.Elements[i].String(quote)
+	}
+
+	s += "]"
+
+	return s
 }

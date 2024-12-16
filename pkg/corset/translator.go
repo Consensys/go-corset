@@ -93,20 +93,53 @@ func (t *translator) translateDefColumns(decl *DefColumns, module string) []Synt
 	var errors []SyntaxError
 	// Add each column to schema
 	for _, c := range decl.Columns {
-		context := t.env.ContextFrom(module, c.LengthMultiplier())
-		cid := t.schema.AddDataColumn(context, c.Name(), c.DataType().AsUnderlying())
-		// Prove type (if requested)
-		if c.MustProve() {
-			bound := c.DataType().AsUnderlying().AsUint().Bound()
-			t.schema.AddRangeConstraint(c.Name(), context, &hir.ColumnAccess{Column: cid, Shift: 0}, bound)
-		}
-		// Sanity check column identifier
-		if info := t.env.Column(module, c.Name()); info.ColumnId() != cid {
-			errors = append(errors, *t.srcmap.SyntaxError(c, "invalid column identifier"))
-		}
+		errs := t.translateDefColumn(c, module)
+		errors = append(errors, errs...)
 	}
 	//
 	return errors
+}
+
+// Translate a "defcolumns" declaration.
+func (t *translator) translateDefColumn(decl *DefColumn, module string) []SyntaxError {
+	// Extract base columnd ID
+	columnId := t.env.Column(module, decl.Name()).cid
+	//
+	if arr_t, ok := decl.DataType().(*ArrayType); ok {
+		var errors []SyntaxError
+		// Handle array types
+		for i := uint(1); i <= arr_t.size; i++ {
+			name := fmt.Sprintf("%s_%d", decl.name, i)
+			errs := t.translateRawColumn(decl, module, name, arr_t.element.AsUnderlying(), columnId)
+			errors = append(errors, errs...)
+			columnId++
+		}
+		//
+		return errors
+	} else {
+		return t.translateRawColumn(decl, module, decl.name, decl.DataType().AsUnderlying(), columnId)
+	}
+}
+
+func (t *translator) translateRawColumn(decl *DefColumn, module string, name string,
+	datatype sc.Type, columnId uint) []SyntaxError {
+	//
+	context := t.env.ContextFrom(module, decl.LengthMultiplier())
+	cid := t.schema.AddDataColumn(context, name, datatype)
+	// Prove type (if requested)
+	if decl.MustProve() {
+		bound := datatype.AsUint().Bound()
+		t.schema.AddRangeConstraint(name, context, &hir.ColumnAccess{Column: cid, Shift: 0}, bound)
+	}
+	// Sanity check column identifier
+	if columnId != cid {
+		msg := fmt.Sprintf("invalid column identifier (expected %d got %d)", columnId, cid)
+		err := t.srcmap.SyntaxError(decl, msg)
+		//
+		return []SyntaxError{*err}
+	}
+	//
+	return nil
 }
 
 // Translate all assignment or constraint declarations in the circuit.
@@ -353,7 +386,9 @@ func (t *translator) translateExpressionsInModule(exprs []Expr, module string) (
 // necessary to resolve unqualified names (e.g. for column access, function
 // invocations, etc).
 func (t *translator) translateExpressionInModule(expr Expr, module string, shift int) (hir.Expr, []SyntaxError) {
-	if e, ok := expr.(*Constant); ok {
+	if e, ok := expr.(*ArrayAccess); ok {
+		return t.translateArrayAccessInModule(e, shift)
+	} else if e, ok := expr.(*Constant); ok {
 		var val fr.Element
 		// Initialise field from bigint
 		val.SetBigInt(&e.Val)
@@ -375,7 +410,7 @@ func (t *translator) translateExpressionInModule(expr Expr, module string, shift
 			return &hir.IfZero{Condition: args[0], TrueBranch: args[2], FalseBranch: args[1]}, errs
 		}
 		// Should be unreachable
-		return nil, t.srcmap.SyntaxErrors(expr, "unresolved conditional")
+		return nil, t.srcmap.SyntaxErrors(expr, "unresolved conditional encountered during translation")
 	} else if e, ok := expr.(*Invoke); ok {
 		return t.translateInvokeInModule(e, module, shift)
 	} else if v, ok := expr.(*List); ok {
@@ -395,8 +430,30 @@ func (t *translator) translateExpressionInModule(expr Expr, module string, shift
 	} else if e, ok := expr.(*VariableAccess); ok {
 		return t.translateVariableAccessInModule(e, module, shift)
 	} else {
-		return nil, t.srcmap.SyntaxErrors(expr, "unknown expression")
+		return nil, t.srcmap.SyntaxErrors(expr, "unknown expression encountered during translation")
 	}
+}
+
+func (t *translator) translateArrayAccessInModule(expr *ArrayAccess, shift int) (hir.Expr, []SyntaxError) {
+	var errors []SyntaxError
+	// Array index should be statically known
+	index := expr.arg.AsConstant()
+	if index == nil {
+		errors = append(errors, *t.srcmap.SyntaxError(expr.arg, "expected constant array index"))
+	}
+	// Lookup the column
+	binding, ok := expr.Binding().(*ColumnBinding)
+	// Did we find it?
+	if !ok {
+		errors = append(errors, *t.srcmap.SyntaxError(expr.arg, "invalid array index encountered during translation"))
+		return nil, errors
+	}
+	// Lookup underlying column info
+	info := t.env.Column(binding.module, expr.Name())
+	// Update column id (remember indices start from 1)
+	columnId := info.cid + uint(index.Uint64()) - 1
+	// Done
+	return &hir.ColumnAccess{Column: columnId, Shift: shift}, nil
 }
 
 func (t *translator) translateExpInModule(expr *Exp, module string, shift int) (hir.Expr, []SyntaxError) {

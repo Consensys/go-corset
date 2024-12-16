@@ -37,7 +37,7 @@ func NewGlobalEnvironment(scope *GlobalScope) GlobalEnvironment {
 			if binding, ok := b.(*ColumnBinding); ok && !binding.computed {
 				binding.AllocateId(columnId)
 				// Increase the column id
-				columnId++
+				columnId += binding.dataType.Width()
 			}
 		}
 	}
@@ -47,7 +47,7 @@ func NewGlobalEnvironment(scope *GlobalScope) GlobalEnvironment {
 			if binding, ok := b.(*ColumnBinding); ok && binding.computed {
 				binding.AllocateId(columnId)
 				// Increase the column id
-				columnId++
+				columnId += binding.dataType.Width()
 			}
 		}
 	}
