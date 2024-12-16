@@ -88,6 +88,106 @@ func (e *Add) Dependencies() []Symbol {
 }
 
 // ============================================================================
+// ArrayAccess
+// ============================================================================
+
+// ArrayAccess represents the a given value taken to a power.
+type ArrayAccess struct {
+	name    string
+	arg     Expr
+	binding Binding
+}
+
+// IsQualified determines whether this symbol is qualfied or not (i.e. has an
+// explicitly module specifier).
+func (e *ArrayAccess) IsQualified() bool {
+	return false
+}
+
+// IsFunction indicates whether or not this symbol refers to a function (which
+// of course it always does).
+func (e *ArrayAccess) IsFunction() bool {
+	return false
+}
+
+// IsResolved checks whether this symbol has been resolved already, or not.
+func (e *ArrayAccess) IsResolved() bool {
+	return e.binding != nil
+}
+
+// AsConstant attempts to evaluate this expression as a constant (signed) value.
+// If this expression is not constant, then nil is returned.
+func (e *ArrayAccess) AsConstant() *big.Int {
+	return nil
+}
+
+// Multiplicity determines the number of values that evaluating this expression
+// can generate.
+func (e *ArrayAccess) Multiplicity() uint {
+	return determineMultiplicity([]Expr{e.arg})
+}
+
+// Module returns the module used to qualify this array access.  At this time,
+// however, array accesses are always unqualified.
+func (e *ArrayAccess) Module() string {
+	panic("unqualified array access")
+}
+
+// Name returns the (unqualified) name of this symbol
+func (e *ArrayAccess) Name() string {
+	return e.name
+}
+
+// Binding gets binding associated with this interface.  This will panic if this
+// symbol is not yet resolved.
+func (e *ArrayAccess) Binding() Binding {
+	if e.binding == nil {
+		panic("variable access is unresolved")
+	}
+	//
+	return e.binding
+}
+
+// Context returns the context for this expression.  Observe that the
+// expression must have been resolved for this to be defined (i.e. it may
+// panic if it has not been resolved yet).
+func (e *ArrayAccess) Context() Context {
+	return e.arg.Context()
+}
+
+// Lisp converts this schema element into a simple S-Expression, for example
+// so it can be printed.
+func (e *ArrayAccess) Lisp() sexp.SExp {
+	panic("todo")
+}
+
+// Substitute all variables (such as for function parameters) arising in
+// this expression.
+func (e *ArrayAccess) Substitute(mapping map[uint]Expr) Expr {
+	return &ArrayAccess{e.name, e.arg.Substitute(mapping), e.binding}
+}
+
+// Resolve this symbol by associating it with the binding associated with
+// the definition of the symbol to which this refers.
+func (e *ArrayAccess) Resolve(binding Binding) bool {
+	if binding == nil {
+		panic("empty binding")
+	} else if e.binding != nil {
+		panic("already resolved")
+	}
+	//
+	e.binding = binding
+	//
+	return true
+}
+
+// Dependencies needed to signal declaration.
+func (e *ArrayAccess) Dependencies() []Symbol {
+	deps := e.arg.Dependencies()
+	return append(deps, e)
+}
+
+// ============================================================================
 // Constants
 // ============================================================================
 

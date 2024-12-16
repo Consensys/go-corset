@@ -146,16 +146,17 @@ func NewParser(srcfile *sexp.SourceFile, srcmap *sexp.SourceMap[sexp.SExp]) *Par
 	// Configure expression translator
 	p.AddSymbolRule(constantParserRule)
 	p.AddSymbolRule(varAccessParserRule)
-	p.AddRecursiveRule("+", addParserRule)
-	p.AddRecursiveRule("-", subParserRule)
-	p.AddRecursiveRule("*", mulParserRule)
-	p.AddRecursiveRule("~", normParserRule)
-	p.AddRecursiveRule("^", powParserRule)
-	p.AddRecursiveRule("begin", beginParserRule)
+	p.AddRecursiveListRule("+", addParserRule)
+	p.AddRecursiveListRule("-", subParserRule)
+	p.AddRecursiveListRule("*", mulParserRule)
+	p.AddRecursiveListRule("~", normParserRule)
+	p.AddRecursiveListRule("^", powParserRule)
+	p.AddRecursiveListRule("begin", beginParserRule)
 	p.AddListRule("for", forParserRule(parser))
-	p.AddRecursiveRule("if", ifParserRule)
-	p.AddRecursiveRule("shift", shiftParserRule)
-	p.AddDefaultRecursiveRule(invokeParserRule)
+	p.AddRecursiveListRule("if", ifParserRule)
+	p.AddRecursiveListRule("shift", shiftParserRule)
+	p.AddDefaultRecursiveListRule(invokeParserRule)
+	p.AddDefaultRecursiveArrayRule(arrayAccessParserRule)
 	//
 	return parser
 }
@@ -363,27 +364,53 @@ func (p *Parser) parseColumnDeclarationAttributes(attrs []sexp.SExp) (Type, bool
 	var (
 		dataType  Type = NewFieldType()
 		mustProve bool = false
+		array     uint
 		err       *SyntaxError
 	)
 
-	for _, attr := range attrs {
-		symbol := attr.AsSymbol()
+	for i := 0; i < len(attrs); i++ {
+		ith := attrs[i]
+		symbol := ith.AsSymbol()
 		// Sanity check
 		if symbol == nil {
-			return nil, false, p.translator.SyntaxError(attr, "unknown column attribute")
+			return nil, false, p.translator.SyntaxError(ith, "unknown column attribute")
 		}
 		//
 		switch symbol.Value {
 		case ":display", ":opcode":
 			// skip these for now, as they are only relevant to the inspector.
+		case ":array":
+			if array, err = p.parseArrayDimension(attrs[i+1]); err != nil {
+				return nil, false, err
+			}
+			// skip dimension
+			i++
 		default:
-			if dataType, mustProve, err = p.parseType(attr); err != nil {
+			if dataType, mustProve, err = p.parseType(ith); err != nil {
 				return nil, false, err
 			}
 		}
 	}
 	// Done
+	if array != 0 {
+		return NewArrayType(dataType, array), mustProve, nil
+	}
+	//
 	return dataType, mustProve, nil
+}
+
+func (p *Parser) parseArrayDimension(s sexp.SExp) (uint, *SyntaxError) {
+	dim := s.AsArray()
+	//
+	if dim == nil || dim.Len() != 1 || dim.Get(0).AsSymbol() == nil {
+		return 0, p.translator.SyntaxError(s, "invalid array dimension")
+	}
+	//
+	if num, ok := strconv.Atoi(dim.Get(0).AsSymbol().Value); ok == nil && num >= 0 {
+		return uint(num), nil
+	}
+	//
+	return 0, p.translator.SyntaxError(s, "invalid array dimension")
 }
 
 // Parse a constant declaration
@@ -919,34 +946,26 @@ func forParserRule(p *Parser) sexp.ListRule[Expr] {
 	return func(list *sexp.List) (Expr, []SyntaxError) {
 		var (
 			errors   []SyntaxError
-			n        int = list.Len() - 1
-			rangeStr string
 			indexVar *sexp.Symbol
 		)
+		// Check we've got the expected number
+		if list.Len() != 4 {
+			msg := fmt.Sprintf("expected 3 arguments, found %d", list.Len())
+			return nil, p.translator.SyntaxErrors(list, msg)
+		}
 		// Extract index variable
 		if indexVar = list.Get(1).AsSymbol(); indexVar == nil {
 			err := p.translator.SyntaxError(list.Get(1), "invalid index variable")
 			errors = append(errors, *err)
 		}
-		// Extract range
-		for i := 2; i < n; i++ {
-			if ith := list.Get(i).AsSymbol(); ith != nil {
-				rangeStr = fmt.Sprintf("%s%s", rangeStr, ith.Value)
-			} else {
-				err := p.translator.SyntaxError(list.Get(i), "invalid range component")
-				errors = append(errors, *err)
-			}
-		}
 		// Parse range
-		start, end, ok := parseForRange(rangeStr)
+		start, end, errs := parseForRange(p, list.Get(2))
 		// Error Check
-		if !ok {
-			errors = append(errors, *p.translator.SyntaxError(list.Get(2), "malformed index range"))
-		}
-		// Parse body
-		body, errs := p.translator.Translate(list.Get(n))
 		errors = append(errors, errs...)
-		//
+		// Parse body
+		body, errs := p.translator.Translate(list.Get(3))
+		errors = append(errors, errs...)
+		// Error check
 		if len(errors) > 0 {
 			return nil, errors
 		}
@@ -957,24 +976,30 @@ func forParserRule(p *Parser) sexp.ListRule[Expr] {
 	}
 }
 
-func parseForRange(rangeStr string) (uint, uint, bool) {
+// Parse a range which, represented as a string is "[s:e]".
+func parseForRange(p *Parser, interval sexp.SExp) (uint, uint, []SyntaxError) {
 	var (
 		start int
 		end   int
 		err1  error
 		err2  error
 	)
+	// This is a bit dirty.  Essentially, we turn the sexp.Array back into a
+	// string and then parse it from there.
+	str := interval.String(false)
+	// Strip out any whitespace (which is permitted)
+	str = strings.ReplaceAll(str, " ", "")
 	// Check has form "[...]"
-	if !strings.HasPrefix(rangeStr, "[") || !strings.HasSuffix(rangeStr, "]") {
+	if !strings.HasPrefix(str, "[") || !strings.HasSuffix(str, "]") {
 		// error
-		return 0, 0, false
+		return 0, 0, p.translator.SyntaxErrors(interval, "invalid interval")
 	}
 	// Split out components
-	splits := strings.Split(rangeStr[1:len(rangeStr)-1], ":")
+	splits := strings.Split(str[1:len(str)-1], ":")
 	// Error check
 	if len(splits) == 0 || len(splits) > 2 {
 		// error
-		return 0, 0, false
+		return 0, 0, p.translator.SyntaxErrors(interval, "invalid interval")
 	} else if len(splits) == 1 {
 		start, err1 = strconv.Atoi(splits[0])
 		end = start
@@ -983,7 +1008,11 @@ func parseForRange(rangeStr string) (uint, uint, bool) {
 		end, err2 = strconv.Atoi(splits[1])
 	}
 	//
-	return uint(start), uint(end), err1 == nil && err2 == nil
+	if err1 != nil || err2 != nil {
+		return 0, 0, p.translator.SyntaxErrors(interval, "invalid interval")
+	}
+	// Success
+	return uint(start), uint(end), nil
 }
 
 func constantParserRule(symbol string) (Expr, bool, error) {
@@ -1016,7 +1045,7 @@ func constantParserRule(symbol string) (Expr, bool, error) {
 func varAccessParserRule(col string) (Expr, bool, error) {
 	// Sanity check what we have
 	if !unicode.IsLetter(rune(col[0])) {
-		return nil, false, nil
+		return nil, false, errors.New("malformed column access")
 	}
 	// Handle qualified accesses (where permitted)
 	// Attempt to split column name into module / column pair.
@@ -1028,6 +1057,14 @@ func varAccessParserRule(col string) (Expr, bool, error) {
 	} else {
 		return &VariableAccess{nil, col, nil}, true, nil
 	}
+}
+
+func arrayAccessParserRule(name string, args []Expr) (Expr, error) {
+	if len(args) != 1 {
+		return nil, errors.New("malformed array access")
+	}
+	//
+	return &ArrayAccess{name, args[0], nil}, nil
 }
 
 func addParserRule(_ string, args []Expr) (Expr, error) {

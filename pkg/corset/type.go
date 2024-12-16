@@ -29,6 +29,10 @@ type Type interface {
 	// this doesn't exist, then nil is returned.
 	AsUnderlying() sc.Type
 
+	// Returns the number of underlying columns represented by this column.  For
+	// example, an array of size n will expand into n underlying columns.
+	Width() uint
+
 	// Produce a string representation of this type.
 	String() string
 }
@@ -108,6 +112,10 @@ func LeastUpperBound(lhs Type, rhs Type) Type {
 	return &NativeType{underlying, l_loobean || r_loobean, l_boolean || r_boolean}
 }
 
+// ============================================================================
+// NativeType
+// ============================================================================
+
 // NativeType simply wraps one of the types available at the HIR level (and below).
 type NativeType struct {
 	// The underlying type
@@ -156,6 +164,12 @@ func (p *NativeType) WithBooleanSemantics() Type {
 	return &NativeType{p.datatype, false, true}
 }
 
+// Width returns the number of underlying columns represented by this column.
+// For example, an array of size n will expand into n underlying columns.
+func (p *NativeType) Width() uint {
+	return 1
+}
+
 // AsUnderlying attempts to convert this type into an underlying type.  If this
 // is not possible, then nil is returned.
 func (p *NativeType) AsUnderlying() sc.Type {
@@ -170,4 +184,65 @@ func (p *NativeType) String() string {
 	}
 	//
 	return p.datatype.String()
+}
+
+// ============================================================================
+// ArrayType
+// ============================================================================
+
+// ArrayType represents a statically-sized array of types.
+type ArrayType struct {
+	// element type
+	element Type
+	// array size
+	size uint
+}
+
+// NewArrayType constructs a new array type of a given (fixed) size.
+func NewArrayType(element Type, size uint) *ArrayType {
+	return &ArrayType{element, size}
+}
+
+// HasLoobeanSemantics indicates whether or not this type supports "loobean"
+// semantics or not. If so, this means that 0 is treated as true, with anything
+// else being false.
+func (p *ArrayType) HasLoobeanSemantics() bool {
+	return false
+}
+
+// HasBooleanSemantics indicates whether or not this type supports "boolean"
+// semantics. If so, this means that 0 is treated as false, with anything else
+// being true.
+func (p *ArrayType) HasBooleanSemantics() bool {
+	return false
+}
+
+// WithLoobeanSemantics constructs a variant of this type which employs loobean
+// semantics.  This will panic if the type has already been given boolean
+// semantics.
+func (p *ArrayType) WithLoobeanSemantics() Type {
+	panic("unreachable")
+}
+
+// WithBooleanSemantics constructs a variant of this type which employs boolean
+// semantics.  This will panic if the type has already been given boolean
+// semantics.
+func (p *ArrayType) WithBooleanSemantics() Type {
+	panic("unreachable")
+}
+
+// Width returns the number of underlying columns represented by this column.
+// For example, an array of size n will expand into n underlying columns.
+func (p *ArrayType) Width() uint {
+	return p.size
+}
+
+// AsUnderlying attempts to convert this type into an underlying type.  If this
+// is not possible, then nil is returned.
+func (p *ArrayType) AsUnderlying() sc.Type {
+	return nil
+}
+
+func (p *ArrayType) String() string {
+	return fmt.Sprintf("(%s)[%d]", p.element.String(), p.size)
 }
