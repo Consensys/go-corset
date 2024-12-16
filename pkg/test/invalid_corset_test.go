@@ -518,6 +518,22 @@ func Test_Invalid_Array_05(t *testing.T) {
 }
 
 // ===================================================================
+// Reduce
+// ===================================================================
+
+func Test_Invalid_Reduce_01(t *testing.T) {
+	CheckInvalid(t, "reduce_invalid_01")
+}
+
+func Test_Invalid_Reduce_02(t *testing.T) {
+	CheckInvalid(t, "reduce_invalid_02")
+}
+
+func Test_Invalid_Reduce_03(t *testing.T) {
+	CheckInvalid(t, "reduce_invalid_03")
+}
+
+// ===================================================================
 // Test Helpers
 // ===================================================================
 
