@@ -446,6 +446,9 @@ func (t *translator) translateArrayAccessInModule(expr *ArrayAccess, shift int) 
 	// Did we find it?
 	if !ok {
 		errors = append(errors, *t.srcmap.SyntaxError(expr.arg, "invalid array index encountered during translation"))
+	}
+	// Error check
+	if len(errors) > 0 {
 		return nil, errors
 	}
 	// Lookup underlying column info

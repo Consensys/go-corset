@@ -558,14 +558,18 @@ func (r *resolver) finaliseArrayAccessInModule(scope LocalScope, expr *ArrayAcce
 	//
 	if !expr.IsResolved() && !scope.Bind(expr) {
 		return nil, r.srcmap.SyntaxErrors(expr, "unknown array column")
-	} else if binding, ok := expr.Binding().(*ColumnBinding); ok {
-		// Found column, now check it is an array.
-		if arr_t, ok := binding.dataType.(*ArrayType); ok {
-			return arr_t.element, nil
-		}
+	} else if binding, ok := expr.Binding().(*ColumnBinding); !ok {
+		return nil, r.srcmap.SyntaxErrors(expr, "unknown array column")
+	} else if arr_t, ok := binding.dataType.(*ArrayType); !ok {
+		return nil, r.srcmap.SyntaxErrors(expr, "expected array column")
+	} else if c := expr.arg.AsConstant(); c == nil {
+		return nil, r.srcmap.SyntaxErrors(expr, "expected constant array index")
+	} else if i := uint(c.Uint64()); i == 0 || i > arr_t.Width() {
+		return nil, r.srcmap.SyntaxErrors(expr, "array access out-of-bounds")
+	} else {
+		// All good
+		return arr_t.element, nil
 	}
-	// Default
-	return nil, r.srcmap.SyntaxErrors(expr, "not an array column")
 }
 
 // Resolve an if condition contained within some expression which, in turn, is

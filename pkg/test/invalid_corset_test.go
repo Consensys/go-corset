@@ -495,6 +495,29 @@ func Test_Invalid_For_03(t *testing.T) {
 }
 
 // ===================================================================
+// Arrays
+// ===================================================================
+func Test_Invalid_Array_01(t *testing.T) {
+	CheckInvalid(t, "array_invalid_01")
+}
+
+func Test_Invalid_Array_02(t *testing.T) {
+	CheckInvalid(t, "array_invalid_02")
+}
+
+func Test_Invalid_Array_03(t *testing.T) {
+	CheckInvalid(t, "array_invalid_03")
+}
+
+func Test_Invalid_Array_04(t *testing.T) {
+	CheckInvalid(t, "array_invalid_04")
+}
+
+func Test_Invalid_Array_05(t *testing.T) {
+	CheckInvalid(t, "array_invalid_05")
+}
+
+// ===================================================================
 // Test Helpers
 // ===================================================================
 
