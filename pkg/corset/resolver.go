@@ -142,7 +142,7 @@ func (r *resolver) initialiseAliasesInModule(scope *ModuleScope, decls []Declara
 					err := r.srcmap.SyntaxError(alias, "symbol already exists")
 					errors = append(errors, *err)
 				} else {
-					err := r.srcmap.SyntaxError(symbol, "unknown symbol")
+					err := r.srcmap.SyntaxError(symbol, "unknown symbol encountered during resolution")
 					errors = append(errors, *err)
 				}
 			}
@@ -237,7 +237,7 @@ func (r *resolver) declarationDependenciesAreFinalised(scope *ModuleScope,
 		symbol := iter.Next()
 		// Attempt to resolve
 		if !symbol.IsResolved() && !scope.Bind(symbol) {
-			errors = append(errors, *r.srcmap.SyntaxError(symbol, "unknown symbol"))
+			errors = append(errors, *r.srcmap.SyntaxError(symbol, "unknown symbol encountered during resolution"))
 			// not finalised yet
 			finalised = false
 		} else {
@@ -532,6 +532,8 @@ func (r *resolver) finaliseExpressionInModule(scope LocalScope, expr Expr) (Type
 		return GreatestLowerBoundAll(types), errs
 	} else if v, ok := expr.(*Normalise); ok {
 		return r.finaliseExpressionInModule(scope, v.Arg)
+	} else if v, ok := expr.(*Reduce); ok {
+		return r.finaliseReduceInModule(scope, v)
 	} else if v, ok := expr.(*Shift); ok {
 		purescope := scope.NestedPureScope()
 		arg_types, arg_errs := r.finaliseExpressionInModule(scope, v.Arg)
@@ -605,27 +607,59 @@ func (r *resolver) finaliseInvokeInModule(scope LocalScope, expr *Invoke) (Type,
 		return nil, errors
 	}
 	// Lookup the corresponding function definition.
-	if !scope.Bind(expr) {
+	if !expr.fn.IsResolved() && !scope.Bind(expr.fn) {
 		return nil, r.srcmap.SyntaxErrors(expr, "unknown function")
-	} else if scope.IsPure() && !expr.binding.IsPure() {
+	}
+	// Following must be true if we get here.
+	binding := expr.fn.binding.(*FunctionBinding)
+
+	if scope.IsPure() && !binding.IsPure() {
 		return nil, r.srcmap.SyntaxErrors(expr, "not permitted in pure context")
-	} else if binding := expr.binding; binding.Arity() != uint(len(expr.Args())) {
+	} else if binding.Arity() != uint(len(expr.Args())) {
 		msg := fmt.Sprintf("incorrect number of arguments (expected %d, found %d)", binding.Arity(), len(expr.Args()))
 		return nil, r.srcmap.SyntaxErrors(expr, msg)
 	}
 	// Check whether need to infer return type
-	if expr.binding.returnType != nil {
+	if binding.returnType != nil {
 		// no need, it was provided
-		return expr.binding.returnType, nil
+		return binding.returnType, nil
 	}
 	// TODO: this is potentially expensive, and it would likely be good if we
 	// could avoid it.  Realistically, this is just about determining the right
 	// type information.  Potentially, we could adjust the local scope to
 	// provide the required type information.  Or we could have a separate pass
 	// which just determines the type.
-	body := expr.binding.Apply(expr.Args())
+	body := binding.Apply(expr.Args())
 	// Dig out the type
 	return r.finaliseExpressionInModule(scope, body)
+}
+
+// Resolve a specific invocation contained within some expression which, in
+// turn, is contained within some module.  Note, qualified accesses are only
+// permitted in a global context.
+func (r *resolver) finaliseReduceInModule(scope LocalScope, expr *Reduce) (Type, []SyntaxError) {
+	// Resolve arguments
+	body_t, errors := r.finaliseExpressionInModule(scope, expr.arg)
+	// Lookup the corresponding function definition.
+	if !expr.fn.IsResolved() && !scope.Bind(expr.fn) {
+		errors = append(errors, *r.srcmap.SyntaxError(expr, "unknown function"))
+	} else {
+		// Following must be true if we get here.
+		binding := expr.fn.binding.(*FunctionBinding)
+
+		if scope.IsPure() && !binding.IsPure() {
+			errors = append(errors, *r.srcmap.SyntaxError(expr, "not permitted in pure context"))
+		} else if binding.Arity() != 2 {
+			msg := fmt.Sprintf("incorrect number of arguments (expected 2, found %d)", binding.Arity())
+			errors = append(errors, *r.srcmap.SyntaxError(expr, msg))
+		}
+	}
+	// Error check
+	if len(errors) > 0 {
+		return nil, errors
+	}
+	//
+	return body_t, nil
 }
 
 // Resolve a specific variable access contained within some expression which, in

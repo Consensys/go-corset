@@ -533,6 +533,14 @@ func Test_Invalid_Reduce_03(t *testing.T) {
 	CheckInvalid(t, "reduce_invalid_03")
 }
 
+func Test_Invalid_Reduce_04(t *testing.T) {
+	CheckInvalid(t, "reduce_invalid_04")
+}
+
+func Test_Invalid_Reduce_05(t *testing.T) {
+	CheckInvalid(t, "reduce_invalid_05")
+}
+
 // ===================================================================
 // Test Helpers
 // ===================================================================

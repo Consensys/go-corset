@@ -676,6 +676,10 @@ func Test_Reduce_04(t *testing.T) {
 	Check(t, false, "reduce_04")
 }
 
+func Test_Reduce_05(t *testing.T) {
+	Check(t, false, "reduce_05")
+}
+
 // ===================================================================
 // Complex Tests
 // ===================================================================

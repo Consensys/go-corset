@@ -158,7 +158,10 @@ func (e *ArrayAccess) Context() Context {
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
 func (e *ArrayAccess) Lisp() sexp.SExp {
-	panic("todo")
+	return sexp.NewArray([]sexp.SExp{
+		sexp.NewSymbol(e.name),
+		e.arg.Lisp(),
+	})
 }
 
 // Substitute all variables (such as for function parameters) arising in
@@ -461,65 +464,23 @@ func (e *If) Dependencies() []Symbol {
 
 // Invoke represents an attempt to invoke a given function.
 type Invoke struct {
-	module  *string
-	name    string
-	args    []Expr
-	binding *FunctionBinding
+	fn   *VariableAccess
+	args []Expr
 }
 
 // AsConstant attempts to evaluate this expression as a constant (signed) value.
 // If this expression is not constant, then nil is returned.
 func (e *Invoke) AsConstant() *big.Int {
-	if e.binding == nil {
+	if e.fn.binding == nil {
 		panic("unresolved invocation")
+	} else if fn_binding, ok := e.fn.binding.(*FunctionBinding); ok {
+		// Unroll body
+		body := fn_binding.Apply(e.args)
+		// Attempt to evaluate as constant
+		return body.AsConstant()
 	}
-	// Unroll body
-	body := e.binding.Apply(e.args)
-	// Attempt to evaluate as constant
-	return body.AsConstant()
-}
-
-// IsQualified determines whether this symbol is qualfied or not (i.e. has an
-// explicitly module specifier).
-func (e *Invoke) IsQualified() bool {
-	return e.module != nil
-}
-
-// IsFunction indicates whether or not this symbol refers to a function (which
-// of course it always does).
-func (e *Invoke) IsFunction() bool {
-	return true
-}
-
-// IsResolved checks whether this symbol has been resolved already, or not.
-func (e *Invoke) IsResolved() bool {
-	return e.binding != nil
-}
-
-// Resolve this symbol by associating it with the binding associated with
-// the definition of the symbol to which this refers.
-func (e *Invoke) Resolve(binding Binding) bool {
-	if fb, ok := binding.(*FunctionBinding); ok {
-		e.binding = fb
-		return true
-	}
-	// Problem
-	return false
-}
-
-// Module returns the optional module qualification.  This will panic if this
-// invocation is unqualified.
-func (e *Invoke) Module() string {
-	if e.module == nil {
-		panic("invocation has no module qualifier")
-	}
-
-	return *e.module
-}
-
-// Name of the function being invoked.
-func (e *Invoke) Name() string {
-	return e.name
+	// Just fail
+	return nil
 }
 
 // Args returns the arguments provided by this invocation to the function being
@@ -528,24 +489,10 @@ func (e *Invoke) Args() []Expr {
 	return e.args
 }
 
-// Binding gets binding associated with this interface.  This will panic if this
-// symbol is not yet resolved.
-func (e *Invoke) Binding() Binding {
-	if e.binding == nil {
-		panic("invocation not yet resolved")
-	}
-
-	return e.binding
-}
-
 // Context returns the context for this expression.  Observe that the
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
 func (e *Invoke) Context() Context {
-	if e.binding == nil {
-		panic("unresolved expressions encountered whilst resolving context")
-	}
-	// TODO: impure functions can have their own context.
 	return ContextOfExpressions(e.args)
 }
 
@@ -559,20 +506,13 @@ func (e *Invoke) Multiplicity() uint {
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
 func (e *Invoke) Lisp() sexp.SExp {
-	var fn sexp.SExp
-	if e.module != nil {
-		fn = sexp.NewSymbol(fmt.Sprintf("%s.%s", *e.module, e.name))
-	} else {
-		fn = sexp.NewSymbol(e.name)
-	}
-
-	return ListOfExpressions(fn, e.args)
+	return ListOfExpressions(e.fn.Lisp(), e.args)
 }
 
 // Substitute all variables (such as for function parameters) arising in
 // this expression.
 func (e *Invoke) Substitute(mapping map[uint]Expr) Expr {
-	return &Invoke{e.module, e.name, SubstituteExpressions(e.args, mapping), e.binding}
+	return &Invoke{e.fn, SubstituteExpressions(e.args, mapping)}
 }
 
 // Dependencies needed to signal declaration.
@@ -580,7 +520,7 @@ func (e *Invoke) Dependencies() []Symbol {
 	deps := DependenciesOfExpressions(e.args)
 	// Include this expression as a symbol (which must be bound to the function
 	// being invoked)
-	return append(deps, e)
+	return append(deps, e.fn)
 }
 
 // ============================================================================
@@ -719,6 +659,60 @@ func (e *Normalise) Dependencies() []Symbol {
 }
 
 // ============================================================================
+// Reduction
+// ============================================================================
+
+// Reduce reduces (i.e. folds) a list using a given binary function.
+type Reduce struct {
+	fn  *VariableAccess
+	arg Expr
+}
+
+// AsConstant attempts to evaluate this expression as a constant (signed) value.
+// If this expression is not constant, then nil is returned.
+func (e *Reduce) AsConstant() *big.Int {
+	// TODO: potentially we can do better here.
+	return nil
+}
+
+// Multiplicity determines the number of values that evaluating this expression
+// can generate.
+func (e *Reduce) Multiplicity() uint {
+	return 1
+}
+
+// Context returns the context for this expression.  Observe that the
+// expression must have been resolved for this to be defined (i.e. it may
+// panic if it has not been resolved yet).
+func (e *Reduce) Context() Context {
+	return e.arg.Context()
+}
+
+// Lisp converts this schema element into a simple S-Expression, for example
+// so it can be printed.
+func (e *Reduce) Lisp() sexp.SExp {
+	return sexp.NewList([]sexp.SExp{
+		sexp.NewSymbol("reduce"),
+		sexp.NewSymbol(e.fn.name),
+		e.arg.Lisp()})
+}
+
+// Substitute all variables (such as for function parameters) arising in
+// this expression.
+func (e *Reduce) Substitute(mapping map[uint]Expr) Expr {
+	return &Reduce{
+		e.fn,
+		e.arg.Substitute(mapping),
+	}
+}
+
+// Dependencies needed to signal declaration.
+func (e *Reduce) Dependencies() []Symbol {
+	deps := e.arg.Dependencies()
+	return append(deps, e.fn)
+}
+
+// ============================================================================
 // Subtraction
 // ============================================================================
 
@@ -828,6 +822,7 @@ func (e *Shift) Dependencies() []Symbol {
 type VariableAccess struct {
 	module  *string
 	name    string
+	fn      bool
 	binding Binding
 }
 
@@ -850,7 +845,7 @@ func (e *VariableAccess) IsQualified() bool {
 // IsFunction determines whether this symbol refers to a function (which, of
 // course, variable accesses never do).
 func (e *VariableAccess) IsFunction() bool {
-	return false
+	return e.fn
 }
 
 // IsResolved checks whether this symbol has been resolved already, or not.
@@ -865,6 +860,10 @@ func (e *VariableAccess) Resolve(binding Binding) bool {
 		panic("empty binding")
 	} else if e.binding != nil {
 		panic("already resolved")
+	} else if _, ok := binding.(*FunctionBinding); ok && !e.fn {
+		return false
+	} else if _, ok := binding.(*FunctionBinding); !ok && e.fn {
+		return false
 	}
 	//
 	e.binding = binding

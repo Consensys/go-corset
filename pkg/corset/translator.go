@@ -422,6 +422,8 @@ func (t *translator) translateExpressionInModule(expr Expr, module string, shift
 	} else if v, ok := expr.(*Normalise); ok {
 		arg, errs := t.translateExpressionInModule(v.Arg, module, shift)
 		return &hir.Normalise{Arg: arg}, errs
+	} else if v, ok := expr.(*Reduce); ok {
+		return t.translateReduceInModule(v, module, shift)
 	} else if v, ok := expr.(*Sub); ok {
 		args, errs := t.translateExpressionsInModule(v.Args, module)
 		return &hir.Sub{Args: args}, errs
@@ -503,12 +505,28 @@ func (t *translator) translateForInModule(expr *For, module string, shift int) (
 }
 
 func (t *translator) translateInvokeInModule(expr *Invoke, module string, shift int) (hir.Expr, []SyntaxError) {
-	if binding, ok := expr.Binding().(*FunctionBinding); ok {
+	if binding, ok := expr.fn.Binding().(*FunctionBinding); ok {
 		body := binding.Apply(expr.Args())
 		return t.translateExpressionInModule(body, module, shift)
 	}
 	//
 	return nil, t.srcmap.SyntaxErrors(expr, "unbound function")
+}
+
+func (t *translator) translateReduceInModule(expr *Reduce, module string, shift int) (hir.Expr, []SyntaxError) {
+	if list, ok := expr.arg.(*List); !ok {
+		return nil, t.srcmap.SyntaxErrors(expr.arg, "expected list")
+	} else if binding, ok := expr.fn.Binding().(*FunctionBinding); !ok {
+		return nil, t.srcmap.SyntaxErrors(expr.arg, "unbound function")
+	} else {
+		reduction := list.Args[0]
+		// Build reduction
+		for i := 1; i < len(list.Args); i++ {
+			reduction = binding.Apply([]Expr{reduction, list.Args[i]})
+		}
+		// Translate reduction
+		return t.translateExpressionInModule(reduction, module, shift)
+	}
 }
 
 func (t *translator) translateShiftInModule(expr *Shift, module string, shift int) (hir.Expr, []SyntaxError) {
