@@ -819,7 +819,7 @@ type DefFun struct {
 	// Parameters
 	parameters []*DefParameter
 	//
-	binding FunctionBinding
+	binding DefunBinding
 }
 
 // IsFunction is always true for a function definition!

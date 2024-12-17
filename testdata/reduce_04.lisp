@@ -1,0 +1,10 @@
+(defcolumns (X :@loob) (Y :@loob))
+
+(defconstraint c1 () (reduce + (begin X (* 2 Y))))
+(defconstraint c2 () (reduce + (begin (* 2 Y) X)))
+(defconstraint c3 () (reduce + (begin X Y Y)))
+(defconstraint c4 () (reduce + (begin Y X Y)))
+(defconstraint c5 () (reduce + (begin Y Y X)))
+(defconstraint c6 () (reduce + (begin (* 1 X) Y Y)))
+(defconstraint c7 () (reduce + (begin Y (* 1 X) Y)))
+(defconstraint c8 () (reduce + (begin Y Y (* 1 X))))

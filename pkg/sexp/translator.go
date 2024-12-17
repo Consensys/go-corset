@@ -98,11 +98,10 @@ func (p *Translator[T]) AddRecursiveListRule(name string, t RecursiveRule[T]) {
 	p.lists[name] = p.createRecursiveListRule(t)
 }
 
-// AddDefaultRecursiveListRule adds a default recursive rule to be applied when no
-// other recursive rules apply.
-func (p *Translator[T]) AddDefaultRecursiveListRule(t RecursiveRule[T]) {
-	// Construct a recursive list translator as a wrapper around a generic list translator.
-	p.list_default = p.createRecursiveListRule(t)
+// AddDefaultListRule adds a default rule to be applied when no other recursive
+// rules apply.
+func (p *Translator[T]) AddDefaultListRule(rule ListRule[T]) {
+	p.list_default = rule
 }
 
 // AddDefaultRecursiveArrayRule adds a default recursive rule to be applied when no

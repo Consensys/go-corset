@@ -422,6 +422,8 @@ func (t *translator) translateExpressionInModule(expr Expr, module string, shift
 	} else if v, ok := expr.(*Normalise); ok {
 		arg, errs := t.translateExpressionInModule(v.Arg, module, shift)
 		return &hir.Normalise{Arg: arg}, errs
+	} else if v, ok := expr.(*Reduce); ok {
+		return t.translateReduceInModule(v, module, shift)
 	} else if v, ok := expr.(*Sub); ok {
 		args, errs := t.translateExpressionsInModule(v.Args, module)
 		return &hir.Sub{Args: args}, errs
@@ -436,16 +438,19 @@ func (t *translator) translateExpressionInModule(expr Expr, module string, shift
 
 func (t *translator) translateArrayAccessInModule(expr *ArrayAccess, shift int) (hir.Expr, []SyntaxError) {
 	var errors []SyntaxError
-	// Array index should be statically known
-	index := expr.arg.AsConstant()
-	if index == nil {
-		errors = append(errors, *t.srcmap.SyntaxError(expr.arg, "expected constant array index"))
-	}
 	// Lookup the column
 	binding, ok := expr.Binding().(*ColumnBinding)
 	// Did we find it?
 	if !ok {
 		errors = append(errors, *t.srcmap.SyntaxError(expr.arg, "invalid array index encountered during translation"))
+	}
+	// Array index should be statically known
+	index := expr.arg.AsConstant()
+	//
+	if index == nil {
+		errors = append(errors, *t.srcmap.SyntaxError(expr.arg, "expected constant array index"))
+	} else if i := uint(index.Uint64()); i == 0 || (binding != nil && i > binding.dataType.Width()) {
+		errors = append(errors, *t.srcmap.SyntaxError(expr.arg, "array index out-of-bounds"))
 	}
 	// Error check
 	if len(errors) > 0 {
@@ -503,12 +508,28 @@ func (t *translator) translateForInModule(expr *For, module string, shift int) (
 }
 
 func (t *translator) translateInvokeInModule(expr *Invoke, module string, shift int) (hir.Expr, []SyntaxError) {
-	if binding, ok := expr.Binding().(*FunctionBinding); ok {
+	if binding, ok := expr.fn.Binding().(FunctionBinding); ok {
 		body := binding.Apply(expr.Args())
 		return t.translateExpressionInModule(body, module, shift)
 	}
 	//
 	return nil, t.srcmap.SyntaxErrors(expr, "unbound function")
+}
+
+func (t *translator) translateReduceInModule(expr *Reduce, module string, shift int) (hir.Expr, []SyntaxError) {
+	if list, ok := expr.arg.(*List); !ok {
+		return nil, t.srcmap.SyntaxErrors(expr.arg, "expected list")
+	} else if binding, ok := expr.fn.Binding().(FunctionBinding); !ok {
+		return nil, t.srcmap.SyntaxErrors(expr.arg, "unbound function")
+	} else {
+		reduction := list.Args[0]
+		// Build reduction
+		for i := 1; i < len(list.Args); i++ {
+			reduction = binding.Apply([]Expr{reduction, list.Args[i]})
+		}
+		// Translate reduction
+		return t.translateExpressionInModule(reduction, module, shift)
+	}
 }
 
 func (t *translator) translateShiftInModule(expr *Shift, module string, shift int) (hir.Expr, []SyntaxError) {

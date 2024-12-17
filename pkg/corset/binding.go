@@ -24,6 +24,26 @@ type Binding interface {
 	IsFinalised() bool
 }
 
+// FunctionBinding is a special kind of binding which captures the essence of
+// something which can be called.  For example, this could be a user-defined
+// function or an intrinsic.
+type FunctionBinding interface {
+	Binding
+	// IsPure checks whether this function binding has side-effects or not.
+	IsPure() bool
+	// HasArity checks whether this binding supports a given number of
+	// parameters.  For example, intrinsic functions are often nary --- meaning
+	// they can accept any number of arguments.  In contrast, a user-defined
+	// function may only accept a specific number of arguments, etc.
+	HasArity(uint) bool
+	// Apply a set of concreate arguments to this function.  This substitutes
+	// them through the body of the function producing a single expression.
+	Apply([]Expr) Expr
+	// Get the declared return type of this function, or nil if no return type
+	// was declared.
+	ReturnType() Type
+}
+
 // ============================================================================
 // ColumnBinding
 // ============================================================================
@@ -158,12 +178,12 @@ func (p *LocalVariableBinding) Finalise(index uint) {
 }
 
 // ============================================================================
-// FunctionBinding
+// DefunBinding
 // ============================================================================
 
-// FunctionBinding represents the binding of a function application to its
-// physical definition.
-type FunctionBinding struct {
+// DefunBinding is a function binding arising from a user-defined function (as
+// opposed, for example, to a function binding arising from an intrinsic).
+type DefunBinding struct {
 	// Flag whether or not is pure function
 	pure bool
 	// Types of parameters (optional)
@@ -177,33 +197,42 @@ type FunctionBinding struct {
 	body Expr
 }
 
-// NewFunctionBinding constructs a new function binding.
-func NewFunctionBinding(pure bool, paramTypes []Type, returnType Type, body Expr) FunctionBinding {
-	return FunctionBinding{pure, paramTypes, returnType, nil, body}
+var _ FunctionBinding = &DefunBinding{}
+
+// NewDefunBinding constructs a new function binding.
+func NewDefunBinding(pure bool, paramTypes []Type, returnType Type, body Expr) DefunBinding {
+	return DefunBinding{pure, paramTypes, returnType, nil, body}
 }
 
 // IsPure checks whether this is a defpurefun or not
-func (p *FunctionBinding) IsPure() bool {
+func (p *DefunBinding) IsPure() bool {
 	return p.pure
 }
 
 // IsFinalised checks whether this binding has been finalised yet or not.
-func (p *FunctionBinding) IsFinalised() bool {
+func (p *DefunBinding) IsFinalised() bool {
 	return p.bodyType != nil
 }
 
-// Arity returns the number of parameters that this function accepts.
-func (p *FunctionBinding) Arity() uint {
-	return uint(len(p.paramTypes))
+// HasArity checks whether this function accepts a given number of arguments (or
+// not).
+func (p *DefunBinding) HasArity(arity uint) bool {
+	return arity == uint(len(p.paramTypes))
+}
+
+// ReturnType gets the declared return type of this function, or nil if no
+// return type was declared.
+func (p *DefunBinding) ReturnType() Type {
+	return p.returnType
 }
 
 // Finalise this binding by providing the necessary missing information.
-func (p *FunctionBinding) Finalise(bodyType Type) {
+func (p *DefunBinding) Finalise(bodyType Type) {
 	p.bodyType = bodyType
 }
 
 // Apply a given set of arguments to this function binding.
-func (p *FunctionBinding) Apply(args []Expr) Expr {
+func (p *DefunBinding) Apply(args []Expr) Expr {
 	mapping := make(map[uint]Expr)
 	// Setup the mapping
 	for i, e := range args {

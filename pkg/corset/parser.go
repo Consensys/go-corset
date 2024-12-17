@@ -153,9 +153,10 @@ func NewParser(srcfile *sexp.SourceFile, srcmap *sexp.SourceMap[sexp.SExp]) *Par
 	p.AddRecursiveListRule("^", powParserRule)
 	p.AddRecursiveListRule("begin", beginParserRule)
 	p.AddListRule("for", forParserRule(parser))
+	p.AddListRule("reduce", reduceParserRule(parser))
 	p.AddRecursiveListRule("if", ifParserRule)
 	p.AddRecursiveListRule("shift", shiftParserRule)
-	p.AddDefaultRecursiveListRule(invokeParserRule)
+	p.AddDefaultListRule(invokeParserRule(parser))
 	p.AddDefaultRecursiveArrayRule(arrayAccessParserRule)
 	//
 	return parser
@@ -714,7 +715,7 @@ func (p *Parser) parseDefFun(pure bool, elements []sexp.SExp) (Declaration, []Sy
 		paramTypes[i] = p.Binding.datatype
 	}
 	// Construct binding
-	binding := NewFunctionBinding(pure, paramTypes, ret, body)
+	binding := NewDefunBinding(pure, paramTypes, ret, body)
 	//
 	return &DefFun{name, params, binding}, nil
 }
@@ -950,7 +951,7 @@ func forParserRule(p *Parser) sexp.ListRule[Expr] {
 		)
 		// Check we've got the expected number
 		if list.Len() != 4 {
-			msg := fmt.Sprintf("expected 3 arguments, found %d", list.Len())
+			msg := fmt.Sprintf("expected 3 arguments, found %d", list.Len()-1)
 			return nil, p.translator.SyntaxErrors(list, msg)
 		}
 		// Extract index variable
@@ -1015,6 +1016,35 @@ func parseForRange(p *Parser, interval sexp.SExp) (uint, uint, []SyntaxError) {
 	return uint(start), uint(end), nil
 }
 
+func reduceParserRule(p *Parser) sexp.ListRule[Expr] {
+	return func(list *sexp.List) (Expr, []SyntaxError) {
+		var errors []SyntaxError
+		// Check we've got the expected number
+		if list.Len() != 3 {
+			msg := fmt.Sprintf("expected 2 arguments, found %d", list.Len()-1)
+			return nil, p.translator.SyntaxErrors(list, msg)
+		}
+		// function name
+		name := list.Get(1).AsSymbol()
+		//
+		if name == nil {
+			errors = append(errors, *p.translator.SyntaxError(list.Get(1), "invalid function"))
+		}
+		// Parse body
+		body, errs := p.translator.Translate(list.Get(2))
+		errors = append(errors, errs...)
+		// Error check
+		if len(errors) > 0 {
+			return nil, errors
+		}
+		//
+		varaccess := &VariableAccess{nil, name.Value, true, nil}
+		p.mapSourceNode(name, varaccess)
+		//
+		return &Reduce{varaccess, body}, nil
+	}
+}
+
 func constantParserRule(symbol string) (Expr, bool, error) {
 	var (
 		base int
@@ -1051,11 +1081,11 @@ func varAccessParserRule(col string) (Expr, bool, error) {
 	// Attempt to split column name into module / column pair.
 	split := strings.Split(col, ".")
 	if len(split) == 2 {
-		return &VariableAccess{&split[0], split[1], nil}, true, nil
+		return &VariableAccess{&split[0], split[1], false, nil}, true, nil
 	} else if len(split) > 2 {
 		return nil, true, errors.New("malformed column access")
 	} else {
-		return &VariableAccess{nil, col, nil}, true, nil
+		return &VariableAccess{nil, col, false, nil}, true, nil
 	}
 }
 
@@ -1089,20 +1119,48 @@ func ifParserRule(_ string, args []Expr) (Expr, error) {
 	return nil, errors.New("incorrect number of arguments")
 }
 
-func invokeParserRule(name string, args []Expr) (Expr, error) {
-	// Sanity check what we have
-	if !unicode.IsLetter(rune(name[0])) {
-		return nil, nil
-	}
-	// Handle qualified accesses (where permitted)
-	// Attempt to split column name into module / column pair.
-	split := strings.Split(name, ".")
-	if len(split) == 2 {
-		return &Invoke{&split[0], split[1], args, nil}, nil
-	} else if len(split) > 2 {
-		return nil, errors.New("malformed function invocation")
-	} else {
-		return &Invoke{nil, name, args, nil}, nil
+func invokeParserRule(p *Parser) sexp.ListRule[Expr] {
+	return func(list *sexp.List) (Expr, []SyntaxError) {
+		var (
+			varaccess *VariableAccess
+			errors    []SyntaxError
+		)
+		//
+		if list.Len() == 0 || list.Get(0).AsSymbol() == nil {
+			return nil, p.translator.SyntaxErrors(list, "invalid invocation")
+		}
+		// Extract function name
+		name := list.Get(0).AsSymbol().Value
+		// Sanity check what we have
+		if !unicode.IsLetter(rune(name[0])) {
+			errors = append(errors, *p.translator.SyntaxError(list.Get(0), "invalid function name"))
+		}
+		// Handle qualified accesses (where permitted)
+		// Attempt to split column name into module / column pair.
+		split := strings.Split(name, ".")
+		if len(split) == 2 {
+			//
+			varaccess = &VariableAccess{&split[0], split[1], true, nil}
+		} else if len(split) > 2 {
+			return nil, p.translator.SyntaxErrors(list.Get(0), "invalid function name")
+		} else {
+			varaccess = &VariableAccess{nil, split[0], true, nil}
+		}
+		// Parse arguments
+		args := make([]Expr, list.Len()-1)
+		for i := 0; i < len(args); i++ {
+			var errs []SyntaxError
+			args[i], errs = p.translator.Translate(list.Get(i + 1))
+			errors = append(errors, errs...)
+		}
+		// Error check
+		if len(errors) > 0 {
+			return nil, errors
+		}
+		//
+		p.mapSourceNode(list.Get(0), varaccess)
+		//
+		return &Invoke{varaccess, args}, nil
 	}
 }
 

@@ -166,6 +166,10 @@ func Test_Block_03(t *testing.T) {
 	Check(t, false, "block_03")
 }
 
+func Test_Block_04(t *testing.T) {
+	Check(t, false, "block_04")
+}
+
 // ===================================================================
 // Property Tests
 // ===================================================================
@@ -648,13 +652,37 @@ func Test_Array_01(t *testing.T) {
 	Check(t, false, "array_01")
 }
 
-/* func Test_Array_02(t *testing.T) {
-	Check(t, false, "array_02")
-}
+/*
+	 func Test_Array_02(t *testing.T) {
+		Check(t, false, "array_02")
+	}
 */
-
 func Test_Array_03(t *testing.T) {
 	Check(t, false, "array_03")
+}
+
+// ===================================================================
+// Reduce
+// ===================================================================
+
+func Test_Reduce_01(t *testing.T) {
+	Check(t, false, "reduce_01")
+}
+
+func Test_Reduce_02(t *testing.T) {
+	Check(t, false, "reduce_02")
+}
+
+func Test_Reduce_03(t *testing.T) {
+	Check(t, false, "reduce_03")
+}
+
+func Test_Reduce_04(t *testing.T) {
+	Check(t, false, "reduce_04")
+}
+
+func Test_Reduce_05(t *testing.T) {
+	Check(t, false, "reduce_05")
 }
 
 // ===================================================================
