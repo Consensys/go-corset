@@ -47,9 +47,16 @@ func (p *GlobalScope) DeclareModule(module string) {
 	}
 	// Register module
 	mid := uint(len(p.ids))
-	scope := ModuleScope{module, mid, make(map[BindingId]uint), make([]Binding, 0), p}
-	p.modules = append(p.modules, scope)
+	p.modules = append(p.modules, ModuleScope{
+		module, mid, make(map[BindingId]uint), make([]Binding, 0), p,
+	})
 	p.ids[module] = mid
+	// Declare intrinsics (if applicable)
+	if module == "" {
+		for _, i := range INTRINSICS {
+			p.modules[mid].Declare(&i)
+		}
+	}
 }
 
 // HasModule checks whether a given module exists, or not.
@@ -139,9 +146,9 @@ func (p *ModuleScope) Bind(symbol Symbol) bool {
 		// Attempt to lookup in parent (unless we are the root module, in which
 		// case we have no parent)
 		return p.enclosing.Bind(symbol)
-	} else {
-		return false
 	}
+	//
+	return false
 }
 
 // Binding returns information about the binding of a particular symbol defined
@@ -167,16 +174,16 @@ func (p *ModuleScope) Column(name string) *ColumnBinding {
 // Declare declares a given binding within this module scope.
 func (p *ModuleScope) Declare(symbol SymbolDefinition) bool {
 	// construct binding identifier
-	bid := BindingId{symbol.Name(), symbol.IsFunction()}
+	id := BindingId{symbol.Name(), symbol.IsFunction()}
 	// Sanity check not already declared
-	if _, ok := p.ids[bid]; ok {
+	if _, ok := p.ids[id]; ok {
 		// Cannot redeclare
 		return false
 	}
 	// Done
-	id := uint(len(p.bindings))
+	bid := uint(len(p.bindings))
 	p.bindings = append(p.bindings, symbol.Binding())
-	p.ids[bid] = id
+	p.ids[id] = bid
 	//
 	return true
 }

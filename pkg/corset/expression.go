@@ -473,7 +473,7 @@ type Invoke struct {
 func (e *Invoke) AsConstant() *big.Int {
 	if e.fn.binding == nil {
 		panic("unresolved invocation")
-	} else if fn_binding, ok := e.fn.binding.(*FunctionBinding); ok {
+	} else if fn_binding, ok := e.fn.binding.(FunctionBinding); ok {
 		// Unroll body
 		body := fn_binding.Apply(e.args)
 		// Attempt to evaluate as constant
@@ -860,9 +860,9 @@ func (e *VariableAccess) Resolve(binding Binding) bool {
 		panic("empty binding")
 	} else if e.binding != nil {
 		panic("already resolved")
-	} else if _, ok := binding.(*FunctionBinding); ok && !e.fn {
+	} else if _, ok := binding.(FunctionBinding); ok && !e.fn {
 		return false
-	} else if _, ok := binding.(*FunctionBinding); !ok && e.fn {
+	} else if _, ok := binding.(FunctionBinding); !ok && e.fn {
 		return false
 	}
 	//

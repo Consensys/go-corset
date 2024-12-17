@@ -715,7 +715,7 @@ func (p *Parser) parseDefFun(pure bool, elements []sexp.SExp) (Declaration, []Sy
 		paramTypes[i] = p.Binding.datatype
 	}
 	// Construct binding
-	binding := NewFunctionBinding(pure, paramTypes, ret, body)
+	binding := NewDefunBinding(pure, paramTypes, ret, body)
 	//
 	return &DefFun{name, params, binding}, nil
 }

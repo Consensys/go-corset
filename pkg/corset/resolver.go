@@ -526,7 +526,7 @@ func (r *resolver) finaliseExpressionInModule(scope LocalScope, expr Expr) (Type
 		return r.finaliseInvokeInModule(scope, v)
 	} else if v, ok := expr.(*List); ok {
 		types, errs := r.finaliseExpressionsInModule(scope, v.Args)
-		return GreatestLowerBoundAll(types), errs
+		return LeastUpperBoundAll(types), errs
 	} else if v, ok := expr.(*Mul); ok {
 		types, errs := r.finaliseExpressionsInModule(scope, v.Args)
 		return GreatestLowerBoundAll(types), errs
@@ -564,10 +564,6 @@ func (r *resolver) finaliseArrayAccessInModule(scope LocalScope, expr *ArrayAcce
 		return nil, r.srcmap.SyntaxErrors(expr, "unknown array column")
 	} else if arr_t, ok := binding.dataType.(*ArrayType); !ok {
 		return nil, r.srcmap.SyntaxErrors(expr, "expected array column")
-	} else if c := expr.arg.AsConstant(); c == nil {
-		return nil, r.srcmap.SyntaxErrors(expr, "expected constant array index")
-	} else if i := uint(c.Uint64()); i == 0 || i > arr_t.Width() {
-		return nil, r.srcmap.SyntaxErrors(expr, "array access out-of-bounds")
 	} else {
 		// All good
 		return arr_t.element, nil
@@ -611,18 +607,18 @@ func (r *resolver) finaliseInvokeInModule(scope LocalScope, expr *Invoke) (Type,
 		return nil, r.srcmap.SyntaxErrors(expr, "unknown function")
 	}
 	// Following must be true if we get here.
-	binding := expr.fn.binding.(*FunctionBinding)
+	binding := expr.fn.binding.(FunctionBinding)
 
 	if scope.IsPure() && !binding.IsPure() {
 		return nil, r.srcmap.SyntaxErrors(expr, "not permitted in pure context")
-	} else if binding.Arity() != uint(len(expr.Args())) {
-		msg := fmt.Sprintf("incorrect number of arguments (expected %d, found %d)", binding.Arity(), len(expr.Args()))
+	} else if !binding.HasArity(uint(len(expr.Args()))) {
+		msg := fmt.Sprintf("incorrect number of arguments (found %d)", len(expr.Args()))
 		return nil, r.srcmap.SyntaxErrors(expr, msg)
 	}
 	// Check whether need to infer return type
-	if binding.returnType != nil {
+	if binding.ReturnType() != nil {
 		// no need, it was provided
-		return binding.returnType, nil
+		return binding.ReturnType(), nil
 	}
 	// TODO: this is potentially expensive, and it would likely be good if we
 	// could avoid it.  Realistically, this is just about determining the right
@@ -645,12 +641,12 @@ func (r *resolver) finaliseReduceInModule(scope LocalScope, expr *Reduce) (Type,
 		errors = append(errors, *r.srcmap.SyntaxError(expr, "unknown function"))
 	} else {
 		// Following must be true if we get here.
-		binding := expr.fn.binding.(*FunctionBinding)
+		binding := expr.fn.binding.(FunctionBinding)
 
 		if scope.IsPure() && !binding.IsPure() {
 			errors = append(errors, *r.srcmap.SyntaxError(expr, "not permitted in pure context"))
-		} else if binding.Arity() != 2 {
-			msg := fmt.Sprintf("incorrect number of arguments (expected 2, found %d)", binding.Arity())
+		} else if !binding.HasArity(2) {
+			msg := "incorrect number of arguments (expected 2)"
 			errors = append(errors, *r.srcmap.SyntaxError(expr, msg))
 		}
 	}
@@ -695,7 +691,7 @@ func (r *resolver) finaliseVariableInModule(scope LocalScope,
 	} else if binding, ok := expr.Binding().(*LocalVariableBinding); ok {
 		// Parameter
 		return binding.datatype, nil
-	} else if _, ok := expr.Binding().(*FunctionBinding); ok {
+	} else if _, ok := expr.Binding().(FunctionBinding); ok {
 		// Function doesn't makes sense here.
 		return nil, r.srcmap.SyntaxErrors(expr, "refers to a function")
 	}
