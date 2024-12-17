@@ -234,6 +234,55 @@ func (e *Constant) Dependencies() []Symbol {
 }
 
 // ============================================================================
+// Normalise
+// ============================================================================
+
+// Debug is an optional constraint which can be specifically enabled via the
+// debug setting.  The intention of debug constraints is that they capture
+// things which are implied by other constraints.  The ability to enable them
+// can simply help with debugging, should it arise that they are not actually
+// implied.
+type Debug struct{ Arg Expr }
+
+// AsConstant attempts to evaluate this expression as a constant (signed) value.
+// If this expression is not constant, then nil is returned.
+func (e *Debug) AsConstant() *big.Int {
+	return nil
+}
+
+// Multiplicity determines the number of values that evaluating this expression
+// can generate.
+func (e *Debug) Multiplicity() uint {
+	return determineMultiplicity([]Expr{e.Arg})
+}
+
+// Context returns the context for this expression.  Observe that the
+// expression must have been resolved for this to be defined (i.e. it may
+// panic if it has not been resolved yet).
+func (e *Debug) Context() Context {
+	return ContextOfExpressions([]Expr{e.Arg})
+}
+
+// Lisp converts this schema element into a simple S-Expression, for example
+// so it can be printed.
+func (e *Debug) Lisp() sexp.SExp {
+	return sexp.NewList([]sexp.SExp{
+		sexp.NewSymbol("debug"),
+		e.Arg.Lisp()})
+}
+
+// Substitute all variables (such as for function parameters) arising in
+// this expression.
+func (e *Debug) Substitute(mapping map[uint]Expr) Expr {
+	return &Debug{e.Arg.Substitute(mapping)}
+}
+
+// Dependencies needed to signal declaration.
+func (e *Debug) Dependencies() []Symbol {
+	return e.Arg.Dependencies()
+}
+
+// ============================================================================
 // Exponentiation
 // ============================================================================
 

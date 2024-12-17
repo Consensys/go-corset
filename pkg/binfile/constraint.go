@@ -62,16 +62,8 @@ func (e jsonConstraint) addToSchema(colmap map[uint]uint, schema *hir.Schema) {
 		domain := e.Vanishes.Domain.toHir()
 		// Determine enclosing module
 		ctx := expr.Context(schema)
-		// Check for vacuous constraint (i.e. one which evaluates to a constant)
-		if constant := expr.AsConstant(); constant != nil {
-			// Constraint outcome known at compile time.
-			if !constant.IsZero() {
-				panic(fmt.Sprintf("constraint %s always fails (i.e. evaluates to constant value %s)", e.Vanishes.Handle, constant))
-			}
-		} else {
-			// Construct the vanishing constraint
-			schema.AddVanishingConstraint(e.Vanishes.Handle, ctx, domain, expr)
-		}
+		// Construct the vanishing constraint
+		schema.AddVanishingConstraint(e.Vanishes.Handle, ctx, domain, expr)
 	} else if e.Lookup != nil {
 		sources := jsonExprsToHirUnit(e.Lookup.From, colmap, schema)
 		targets := jsonExprsToHirUnit(e.Lookup.To, colmap, schema)

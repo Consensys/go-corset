@@ -18,8 +18,10 @@ import (
 // easily.  Thus, whilst syntax errors can be returned here, this should never
 // happen.  The mechanism is supported, however, to simplify development of new
 // features, etc.
-func TranslateCircuit(env Environment, srcmap *sexp.SourceMaps[Node], circuit *Circuit) (*hir.Schema, []SyntaxError) {
-	t := translator{env, srcmap, hir.EmptySchema()}
+func TranslateCircuit(env Environment, debug bool, srcmap *sexp.SourceMaps[Node],
+	circuit *Circuit) (*hir.Schema, []SyntaxError) {
+	//
+	t := translator{env, debug, srcmap, hir.EmptySchema()}
 	// Allocate all modules into schema
 	t.translateModules(circuit)
 	// Translate input columns
@@ -40,6 +42,8 @@ type translator struct {
 	// Environment is needed for determining the identifiers for modules and
 	// columns.
 	env Environment
+	// Debug enables the use of debug constraints.
+	debug bool
 	// Source maps nodes in the circuit back to the spans in their original
 	// source files.  This is needed when reporting syntax errors to generate
 	// highlights of the relevant source line(s) in question.
@@ -206,22 +210,33 @@ func (t *translator) translateDefConstraint(decl *DefConstraint, module string) 
 	// Translate constraint body
 	constraint, errors := t.translateExpressionInModule(decl.Constraint, module, 0)
 	// Translate (optional) guard
-	guard, guard_errors := t.translateOptionalExpressionInModule(decl.Guard, module)
+	guard, guard_errors := t.translateOptionalExpressionInModule(decl.Guard, module, 0)
 	// Combine errors
 	errors = append(errors, guard_errors...)
 	// Apply guard
-	if guard != nil {
+	if constraint == nil {
+		// NOTE: in this case, the constraint itself has been translated as nil.
+		// This means there is no constraint (e.g. its a debug constraint, but
+		// debug mode is not enabled).
+		return errors
+	} else if guard != nil {
 		constraint = &hir.Mul{Args: []hir.Expr{guard, constraint}}
 	}
 	//
 	if len(errors) == 0 {
 		context := constraint.Context(t.schema)
 		//
-		if context.Module() != t.env.Module(module).mid {
+		if context.IsVoid() {
+			// Constraint is a constant (for some reason).
+			if constraint.Multiplicity() != 0 {
+				return t.srcmap.SyntaxErrors(decl, "constraint is a constant")
+			}
+		} else if context.Module() != t.env.Module(module).mid {
 			return t.srcmap.SyntaxErrors(decl, "invalid context inferred")
+		} else {
+			// Add translated constraint
+			t.schema.AddVanishingConstraint(decl.Handle, context, decl.Domain, constraint)
 		}
-		// Add translated constraint
-		t.schema.AddVanishingConstraint(decl.Handle, context, decl.Domain, constraint)
 	}
 	// Done
 	return errors
@@ -232,8 +247,8 @@ func (t *translator) translateDefConstraint(decl *DefConstraint, module string) 
 //nolint:staticcheck
 func (t *translator) translateDefLookup(decl *DefLookup, module string) []SyntaxError {
 	// Translate source expressions
-	sources, src_errs := t.translateUnitExpressionsInModule(decl.Sources, module)
-	targets, tgt_errs := t.translateUnitExpressionsInModule(decl.Targets, module)
+	sources, src_errs := t.translateUnitExpressionsInModule(decl.Sources, module, 0)
+	targets, tgt_errs := t.translateUnitExpressionsInModule(decl.Targets, module, 0)
 	// Combine errors
 	errors := append(src_errs, tgt_errs...)
 	//
@@ -339,9 +354,11 @@ func (t *translator) translateDefProperty(decl *DefProperty, module string) []Sy
 // Translate an optional expression in a given context.  That is an expression
 // which maybe nil (i.e. doesn't exist).  In such case, nil is returned (i.e.
 // without any errors).
-func (t *translator) translateOptionalExpressionInModule(expr Expr, module string) (hir.Expr, []SyntaxError) {
+func (t *translator) translateOptionalExpressionInModule(expr Expr, module string,
+	shift int) (hir.Expr, []SyntaxError) {
+	//
 	if expr != nil {
-		return t.translateExpressionInModule(expr, module, 0)
+		return t.translateExpressionInModule(expr, module, shift)
 	}
 
 	return nil, nil
@@ -350,14 +367,16 @@ func (t *translator) translateOptionalExpressionInModule(expr Expr, module strin
 // Translate an optional expression in a given context.  That is an expression
 // which maybe nil (i.e. doesn't exist).  In such case, nil is returned (i.e.
 // without any errors).
-func (t *translator) translateUnitExpressionsInModule(exprs []Expr, module string) ([]hir.UnitExpr, []SyntaxError) {
+func (t *translator) translateUnitExpressionsInModule(exprs []Expr, module string,
+	shift int) ([]hir.UnitExpr, []SyntaxError) {
+	//
 	errors := []SyntaxError{}
 	hirExprs := make([]hir.UnitExpr, len(exprs))
 	// Iterate each expression in turn
 	for i, e := range exprs {
 		if e != nil {
 			var errs []SyntaxError
-			expr, errs := t.translateExpressionInModule(e, module, 0)
+			expr, errs := t.translateExpressionInModule(e, module, shift)
 			errors = append(errors, errs...)
 			hirExprs[i] = hir.NewUnitExpr(expr)
 		}
@@ -367,19 +386,72 @@ func (t *translator) translateUnitExpressionsInModule(exprs []Expr, module strin
 }
 
 // Translate a sequence of zero or more expressions enclosed in a given module.
-func (t *translator) translateExpressionsInModule(exprs []Expr, module string) ([]hir.Expr, []SyntaxError) {
+// All expressions are expected to be non-voidable (see below for more on
+// voidability).
+func (t *translator) translateExpressionsInModule(exprs []Expr, module string,
+	shift int) ([]hir.Expr, []SyntaxError) {
+	//
 	errors := []SyntaxError{}
 	hirExprs := make([]hir.Expr, len(exprs))
 	// Iterate each expression in turn
 	for i, e := range exprs {
 		if e != nil {
 			var errs []SyntaxError
-			hirExprs[i], errs = t.translateExpressionInModule(e, module, 0)
+			hirExprs[i], errs = t.translateExpressionInModule(e, module, shift)
 			errors = append(errors, errs...)
+			// Check for non-voidability
+			if hirExprs[i] == nil {
+				errors = append(errors, *t.srcmap.SyntaxError(e, "void expression not permitted here"))
+			}
 		}
 	}
-	// Done
+	//
 	return hirExprs, errors
+}
+
+// Translate a sequence of zero or more expressions enclosed in a given module.
+// A key aspect of this function is that it additionally accounts for "voidable"
+// expressions.  That is, essentially, to account for debug constraints which
+// only exist in debug mode.  Hence, when debug mode is not enabled, then a
+// debug constraint is "void".
+func (t *translator) translateVoidableExpressionsInModule(exprs []Expr, module string,
+	shift int) ([]hir.Expr, []SyntaxError) {
+	//
+	errors := []SyntaxError{}
+	hirExprs := make([]hir.Expr, len(exprs))
+	nils := 0
+	// Iterate each expression in turn
+	for i, e := range exprs {
+		if e != nil {
+			var errs []SyntaxError
+			hirExprs[i], errs = t.translateExpressionInModule(e, module, shift)
+			errors = append(errors, errs...)
+			// Update dirty flag
+			if hirExprs[i] == nil {
+				nils++
+			}
+		}
+	}
+	// Nil check.
+	if nils == 0 {
+		// Done
+		return hirExprs, errors
+	}
+	// Stip nils. Recall that nils can arise legitimately when we have debug
+	// constraints, but debug mode is not enabled.  In such case, we want to
+	// strip them out.  Since this is a rare occurrence, we try to keep the happy
+	// path efficient.
+	nHirExprs := make([]hir.Expr, len(exprs)-nils)
+	i := 0
+	// Strip out nils
+	for _, e := range hirExprs {
+		if e != nil {
+			nHirExprs[i] = e
+			i++
+		}
+	}
+	//
+	return nHirExprs, errors
 }
 
 // Translate an expression situated in a given context.  The context is
@@ -388,21 +460,28 @@ func (t *translator) translateExpressionsInModule(exprs []Expr, module string) (
 func (t *translator) translateExpressionInModule(expr Expr, module string, shift int) (hir.Expr, []SyntaxError) {
 	if e, ok := expr.(*ArrayAccess); ok {
 		return t.translateArrayAccessInModule(e, shift)
+	} else if v, ok := expr.(*Add); ok {
+		args, errs := t.translateExpressionsInModule(v.Args, module, shift)
+		return &hir.Add{Args: args}, errs
 	} else if e, ok := expr.(*Constant); ok {
 		var val fr.Element
 		// Initialise field from bigint
 		val.SetBigInt(&e.Val)
 		//
 		return &hir.Constant{Val: val}, nil
-	} else if v, ok := expr.(*Add); ok {
-		args, errs := t.translateExpressionsInModule(v.Args, module)
-		return &hir.Add{Args: args}, errs
+	} else if e, ok := expr.(*Debug); ok {
+		if t.debug {
+			return t.translateExpressionInModule(e.Arg, module, shift)
+		}
+		// When debug is not enabled, simply substitute for 0.
+		return nil, nil
 	} else if e, ok := expr.(*Exp); ok {
 		return t.translateExpInModule(e, module, shift)
 	} else if e, ok := expr.(*For); ok {
 		return t.translateForInModule(e, module, shift)
 	} else if v, ok := expr.(*If); ok {
-		args, errs := t.translateExpressionsInModule([]Expr{v.Condition, v.TrueBranch, v.FalseBranch}, module)
+		args, errs := t.translateExpressionsInModule([]Expr{v.Condition, v.TrueBranch, v.FalseBranch}, module, shift)
+		// Construct appropriate if form
 		if v.IsIfZero() {
 			return &hir.IfZero{Condition: args[0], TrueBranch: args[1], FalseBranch: args[2]}, errs
 		} else if v.IsIfNotZero() {
@@ -414,10 +493,10 @@ func (t *translator) translateExpressionInModule(expr Expr, module string, shift
 	} else if e, ok := expr.(*Invoke); ok {
 		return t.translateInvokeInModule(e, module, shift)
 	} else if v, ok := expr.(*List); ok {
-		args, errs := t.translateExpressionsInModule(v.Args, module)
+		args, errs := t.translateVoidableExpressionsInModule(v.Args, module, shift)
 		return &hir.List{Args: args}, errs
 	} else if v, ok := expr.(*Mul); ok {
-		args, errs := t.translateExpressionsInModule(v.Args, module)
+		args, errs := t.translateExpressionsInModule(v.Args, module, shift)
 		return &hir.Mul{Args: args}, errs
 	} else if v, ok := expr.(*Normalise); ok {
 		arg, errs := t.translateExpressionInModule(v.Arg, module, shift)
@@ -425,7 +504,7 @@ func (t *translator) translateExpressionInModule(expr Expr, module string, shift
 	} else if v, ok := expr.(*Reduce); ok {
 		return t.translateReduceInModule(v, module, shift)
 	} else if v, ok := expr.(*Sub); ok {
-		args, errs := t.translateExpressionsInModule(v.Args, module)
+		args, errs := t.translateExpressionsInModule(v.Args, module, shift)
 		return &hir.Sub{Args: args}, errs
 	} else if e, ok := expr.(*Shift); ok {
 		return t.translateShiftInModule(e, module, shift)

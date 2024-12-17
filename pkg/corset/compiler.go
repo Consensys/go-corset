@@ -21,7 +21,7 @@ type SyntaxError = sexp.SyntaxError
 // CompileSourceFiles compiles one or more source files into a schema.  This
 // process can fail if the source files are mal-formed, or contain syntax errors
 // or other forms of error (e.g. type errors).
-func CompileSourceFiles(stdlib bool, srcfiles []*sexp.SourceFile) (*hir.Schema, []SyntaxError) {
+func CompileSourceFiles(stdlib bool, debug bool, srcfiles []*sexp.SourceFile) (*hir.Schema, []SyntaxError) {
 	// Include the standard library (if requested)
 	srcfiles = includeStdlib(stdlib, srcfiles)
 	// Parse all source files (inc stdblib if applicable).
@@ -31,15 +31,15 @@ func CompileSourceFiles(stdlib bool, srcfiles []*sexp.SourceFile) (*hir.Schema, 
 		return nil, errs
 	}
 	// Compile each module into the schema
-	return NewCompiler(circuit, srcmap).Compile()
+	return NewCompiler(circuit, srcmap).SetDebug(debug).Compile()
 }
 
 // CompileSourceFile compiles exactly one source file into a schema.  This is
 // really helper function for e.g. the testing environment.   This process can
 // fail if the source file is mal-formed, or contains syntax errors or other
 // forms of error (e.g. type errors).
-func CompileSourceFile(stdlib bool, srcfile *sexp.SourceFile) (*hir.Schema, []SyntaxError) {
-	schema, errs := CompileSourceFiles(stdlib, []*sexp.SourceFile{srcfile})
+func CompileSourceFile(stdlib bool, debug bool, srcfile *sexp.SourceFile) (*hir.Schema, []SyntaxError) {
+	schema, errs := CompileSourceFiles(stdlib, debug, []*sexp.SourceFile{srcfile})
 	// Check for errors
 	if errs != nil {
 		return nil, errs
@@ -54,6 +54,8 @@ func CompileSourceFile(stdlib bool, srcfile *sexp.SourceFile) (*hir.Schema, []Sy
 type Compiler struct {
 	// A high-level definition of a Corset circuit.
 	circuit Circuit
+	// Determines whether debug
+	debug bool
 	// Source maps nodes in the circuit back to the spans in their original
 	// source files.  This is needed when reporting syntax errors to generate
 	// highlights of the relevant source line(s) in question.
@@ -62,7 +64,14 @@ type Compiler struct {
 
 // NewCompiler constructs a new compiler for a given set of modules.
 func NewCompiler(circuit Circuit, srcmaps *sexp.SourceMaps[Node]) *Compiler {
-	return &Compiler{circuit, srcmaps}
+	return &Compiler{circuit, false, srcmaps}
+}
+
+// SetDebug enables or disables debug mode.  In debug mode, debug constraints
+// will be compiled in.
+func (p *Compiler) SetDebug(flag bool) *Compiler {
+	p.debug = flag
+	return p
 }
 
 // Compile is the top-level function for the corset compiler which actually
@@ -81,7 +90,7 @@ func (p *Compiler) Compile() (*hir.Schema, []SyntaxError) {
 	// Convert global scope into an environment by allocating all columns.
 	environment := scope.ToEnvironment()
 	// Finally, translate everything and add it to the schema.
-	return TranslateCircuit(environment, p.srcmap, &p.circuit)
+	return TranslateCircuit(environment, p.debug, p.srcmap, &p.circuit)
 }
 
 func includeStdlib(stdlib bool, srcfiles []*sexp.SourceFile) []*sexp.SourceFile {

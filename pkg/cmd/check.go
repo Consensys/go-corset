@@ -31,7 +31,7 @@ var checkCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		// Configure log level
-		if GetFlag(cmd, "debug") {
+		if GetFlag(cmd, "verbose") {
 			log.SetLevel(log.DebugLevel)
 		}
 		//
@@ -45,6 +45,7 @@ var checkCmd = &cobra.Command{
 		cfg.spillage = GetInt(cmd, "spillage")
 		cfg.strict = !GetFlag(cmd, "warn")
 		cfg.stdlib = !GetFlag(cmd, "no-stdlib")
+		cfg.debug = GetFlag(cmd, "debug")
 		cfg.quiet = GetFlag(cmd, "quiet")
 		cfg.padding.Right = GetUint(cmd, "padding")
 		cfg.parallelExpansion = !GetFlag(cmd, "sequential")
@@ -59,7 +60,7 @@ var checkCmd = &cobra.Command{
 		//
 		stats := util.NewPerfStats()
 		// Parse constraints
-		hirSchema = readSchema(cfg.stdlib, args[1:])
+		hirSchema = readSchema(cfg.stdlib, cfg.debug, args[1:])
 		//
 		stats.Log("Reading constraints file")
 		// Parse trace file
@@ -88,6 +89,8 @@ type checkConfig struct {
 	spillage int
 	// Determines how much padding to use
 	padding util.Pair[uint, uint]
+	// Determines whether or not to enable debugging constraints
+	debug bool
 	// Suppress output (e.g. warnings)
 	quiet bool
 	// Specified whether strict checking is performed or not.  This is enabled
@@ -317,7 +320,8 @@ func init() {
 	checkCmd.Flags().BoolP("warn", "w", false, "report warnings instead of failing for certain errors"+
 		"(e.g. unknown columns in the trace)")
 	checkCmd.Flags().Bool("no-stdlib", false, "prevents the standard library from being included")
-	checkCmd.Flags().BoolP("debug", "d", false, "report debug logs")
+	checkCmd.Flags().Bool("debug", false, "enable debugging constraints")
+	checkCmd.Flags().BoolP("verbose", "v", false, "increase logging verbosity")
 	checkCmd.Flags().BoolP("quiet", "q", false, "suppress output (e.g. warnings)")
 	checkCmd.Flags().Bool("sequential", false, "perform sequential trace expansion")
 	checkCmd.Flags().Uint("padding", 0, "specify amount of (front) padding to apply")

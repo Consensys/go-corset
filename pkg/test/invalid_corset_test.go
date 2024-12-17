@@ -542,6 +542,18 @@ func Test_Invalid_Reduce_05(t *testing.T) {
 }
 
 // ===================================================================
+// Debug
+// ===================================================================
+
+func Test_Invalid_Debug_01(t *testing.T) {
+	CheckInvalid(t, "debug_invalid_01")
+}
+
+func Test_Invalid_Debug_02(t *testing.T) {
+	CheckInvalid(t, "debug_invalid_02")
+}
+
+// ===================================================================
 // Test Helpers
 // ===================================================================
 
@@ -559,7 +571,7 @@ func CheckInvalid(t *testing.T, test string) {
 	// Package up as source file
 	srcfile := sexp.NewSourceFile(filename, bytes)
 	// Parse terms into an HIR schema
-	_, errs := corset.CompileSourceFile(false, srcfile)
+	_, errs := corset.CompileSourceFile(false, false, srcfile)
 	// Check program did not compile!
 	if len(errs) == 0 {
 		t.Fatalf("Error %s should not have compiled\n", filename)
