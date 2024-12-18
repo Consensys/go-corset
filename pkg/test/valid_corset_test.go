@@ -628,6 +628,10 @@ func Test_PureFun_04(t *testing.T) {
 	Check(t, false, "purefun_04")
 }
 
+func Test_PureFun_05(t *testing.T) {
+	Check(t, false, "purefun_05")
+}
+
 // ===================================================================
 // For Loops
 // ===================================================================

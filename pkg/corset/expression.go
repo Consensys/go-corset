@@ -513,23 +513,21 @@ func (e *If) Dependencies() []Symbol {
 
 // Invoke represents an attempt to invoke a given function.
 type Invoke struct {
-	fn   *VariableAccess
-	args []Expr
+	fn        *VariableAccess
+	signature *FunctionSignature
+	args      []Expr
 }
 
 // AsConstant attempts to evaluate this expression as a constant (signed) value.
 // If this expression is not constant, then nil is returned.
 func (e *Invoke) AsConstant() *big.Int {
-	if e.fn.binding == nil {
+	if e.signature == nil {
 		panic("unresolved invocation")
-	} else if fn_binding, ok := e.fn.binding.(FunctionBinding); ok {
-		// Unroll body
-		body := fn_binding.Apply(e.args)
-		// Attempt to evaluate as constant
-		return body.AsConstant()
 	}
-	// Just fail
-	return nil
+	// Unroll body
+	body := e.signature.Apply(e.args)
+	// Attempt to evaluate as constant
+	return body.AsConstant()
 }
 
 // Args returns the arguments provided by this invocation to the function being
@@ -558,10 +556,15 @@ func (e *Invoke) Lisp() sexp.SExp {
 	return ListOfExpressions(e.fn.Lisp(), e.args)
 }
 
+// Finalise the signature for this invocation.
+func (e *Invoke) Finalise(signature *FunctionSignature) {
+	e.signature = signature
+}
+
 // Substitute all variables (such as for function parameters) arising in
 // this expression.
 func (e *Invoke) Substitute(mapping map[uint]Expr) Expr {
-	return &Invoke{e.fn, SubstituteExpressions(e.args, mapping)}
+	return &Invoke{e.fn, e.signature, SubstituteExpressions(e.args, mapping)}
 }
 
 // Dependencies needed to signal declaration.
@@ -713,8 +716,9 @@ func (e *Normalise) Dependencies() []Symbol {
 
 // Reduce reduces (i.e. folds) a list using a given binary function.
 type Reduce struct {
-	fn  *VariableAccess
-	arg Expr
+	fn        *VariableAccess
+	signature *FunctionSignature
+	arg       Expr
 }
 
 // AsConstant attempts to evaluate this expression as a constant (signed) value.
@@ -751,8 +755,20 @@ func (e *Reduce) Lisp() sexp.SExp {
 func (e *Reduce) Substitute(mapping map[uint]Expr) Expr {
 	return &Reduce{
 		e.fn,
+		e.signature,
 		e.arg.Substitute(mapping),
 	}
+}
+
+// Finalise the signature for this reduction.
+func (e *Reduce) Finalise(signature *FunctionSignature) {
+	if signature == nil {
+		panic("cannot finalise with nil signature")
+	} else if e.signature != nil {
+		panic("reduce has already been finalised")
+	}
+
+	e.signature = signature
 }
 
 // Dependencies needed to signal declaration.

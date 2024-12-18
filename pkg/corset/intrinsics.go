@@ -67,6 +67,23 @@ func (p *IntrinsicDefinition) HasArity(arity uint) bool {
 	return arity >= p.min_arity && arity <= p.max_arity
 }
 
+// Select the best fit signature based on the available parameter types.
+// Observe that, for valid arities, this always returns a signature.
+// However, that signature may not actually accept the provided parameters
+// (in which case, an error should be reported).  Furthermore, if no
+// appropriate signature exists then this will return nil.
+func (p *IntrinsicDefinition) Select(args []Type) *FunctionSignature {
+	// construct the body
+	body := p.constructor(uint(len(args)))
+	types := make([]Type, len(args))
+	//
+	for i := 0; i < len(types); i++ {
+		types[i] = NewFieldType()
+	}
+	// Allow return type to be inferred.
+	return &FunctionSignature{types, nil, body}
+}
+
 // Apply a given set of arguments to this function binding.
 func (p *IntrinsicDefinition) Apply(args []Expr) Expr {
 	// First construct the body

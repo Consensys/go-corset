@@ -600,42 +600,66 @@ func (r *resolver) finaliseIfInModule(scope LocalScope, expr *If) (Type, []Synta
 // turn, is contained within some module.  Note, qualified accesses are only
 // permitted in a global context.
 func (r *resolver) finaliseInvokeInModule(scope LocalScope, expr *Invoke) (Type, []SyntaxError) {
+	var (
+		errors   []SyntaxError
+		argTypes []Type
+	)
 	// Resolve arguments
-	if _, errors := r.finaliseExpressionsInModule(scope, expr.Args()); errors != nil {
-		return nil, errors
-	}
+	argTypes, errors = r.finaliseExpressionsInModule(scope, expr.Args())
 	// Lookup the corresponding function definition.
 	if !expr.fn.IsResolved() && !scope.Bind(expr.fn) {
-		return nil, r.srcmap.SyntaxErrors(expr, "unknown function")
+		return nil, append(errors, *r.srcmap.SyntaxError(expr, "unknown function"))
 	}
 	// Following must be true if we get here.
 	binding := expr.fn.binding.(FunctionBinding)
-
+	// Check purity
 	if scope.IsPure() && !binding.IsPure() {
-		return nil, r.srcmap.SyntaxErrors(expr, "not permitted in pure context")
-	} else if !binding.HasArity(uint(len(expr.Args()))) {
+		errors = append(errors, *r.srcmap.SyntaxError(expr, "not permitted in pure context"))
+	}
+	// Check provide correct number of arguments
+	if !binding.HasArity(uint(len(expr.Args()))) {
 		msg := fmt.Sprintf("incorrect number of arguments (found %d)", len(expr.Args()))
-		return nil, r.srcmap.SyntaxErrors(expr, msg)
+		errors = append(errors, *r.srcmap.SyntaxError(expr, msg))
 	}
-	// Check whether need to infer return type
-	if binding.ReturnType() != nil {
-		// no need, it was provided
-		return binding.ReturnType(), nil
+	// Select best overloaded signature
+	if signature := binding.Select(argTypes); signature != nil {
+		// Check arguments are accepted, based on their type.
+		for i := 0; i < len(argTypes); i++ {
+			expected := signature.Parameter(uint(i))
+			actual := argTypes[i]
+			// subtype check
+			if !actual.SubtypeOf(expected) {
+				msg := fmt.Sprintf("expected type %s (found %s)", expected, actual)
+				errors = append(errors, *r.srcmap.SyntaxError(expr.args[i], msg))
+			}
+		}
+		//
+		expr.Finalise(signature)
+		//
+		if len(errors) != 0 {
+			return nil, errors
+		} else if signature.Return() != nil {
+			// no need, it was provided
+			return signature.Return(), nil
+		}
+		// TODO: this is potentially expensive, and it would likely be good if we
+		// could avoid it.  Realistically, this is just about determining the right
+		// type information.  Potentially, we could adjust the local scope to
+		// provide the required type information.  Or we could have a separate pass
+		// which just determines the type.
+		body := signature.Apply(expr.Args())
+		// Dig out the type
+		return r.finaliseExpressionInModule(scope, body)
 	}
-	// TODO: this is potentially expensive, and it would likely be good if we
-	// could avoid it.  Realistically, this is just about determining the right
-	// type information.  Potentially, we could adjust the local scope to
-	// provide the required type information.  Or we could have a separate pass
-	// which just determines the type.
-	body := binding.Apply(expr.Args())
-	// Dig out the type
-	return r.finaliseExpressionInModule(scope, body)
+	// ambiguous invocation
+	return nil, append(errors, *r.srcmap.SyntaxError(expr, "ambiguous invocation"))
 }
 
 // Resolve a specific invocation contained within some expression which, in
 // turn, is contained within some module.  Note, qualified accesses are only
 // permitted in a global context.
 func (r *resolver) finaliseReduceInModule(scope LocalScope, expr *Reduce) (Type, []SyntaxError) {
+	var signature *FunctionSignature
 	// Resolve arguments
 	body_t, errors := r.finaliseExpressionInModule(scope, expr.arg)
 	// Lookup the corresponding function definition.
@@ -650,12 +674,28 @@ func (r *resolver) finaliseReduceInModule(scope LocalScope, expr *Reduce) (Type,
 		} else if !binding.HasArity(2) {
 			msg := "incorrect number of arguments (expected 2)"
 			errors = append(errors, *r.srcmap.SyntaxError(expr, msg))
+		} else if signature = binding.Select([]Type{body_t, body_t}); signature != nil {
+			// Check left parameter type
+			if !body_t.SubtypeOf(signature.Parameter(0)) {
+				msg := fmt.Sprintf("expected type %s (found %s)", signature.Parameter(0), body_t)
+				errors = append(errors, *r.srcmap.SyntaxError(expr.arg, msg))
+			}
+			// Check right parameter type
+			if !body_t.SubtypeOf(signature.Parameter(1)) {
+				msg := fmt.Sprintf("expected type %s (found %s)", signature.Parameter(1), body_t)
+				errors = append(errors, *r.srcmap.SyntaxError(expr.arg, msg))
+			}
+		} else {
+			msg := "ambiguous reduction"
+			errors = append(errors, *r.srcmap.SyntaxError(expr, msg))
 		}
 	}
 	// Error check
 	if len(errors) > 0 {
 		return nil, errors
 	}
+	// Lock in signature
+	expr.Finalise(signature)
 	//
 	return body_t, nil
 }
@@ -691,7 +731,7 @@ func (r *resolver) finaliseVariableInModule(scope LocalScope,
 		// Constant
 		return binding.datatype, nil
 	} else if binding, ok := expr.Binding().(*LocalVariableBinding); ok {
-		// Parameter
+		// Parameter or other local variable
 		return binding.datatype, nil
 	} else if _, ok := expr.Binding().(FunctionBinding); ok {
 		// Function doesn't makes sense here.
