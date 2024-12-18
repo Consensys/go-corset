@@ -1,0 +1,12 @@
+(defpurefun ((vanishes! :@loob) x) x)
+(defunalias and +)
+
+(defcolumns X Y)
+(defconstraint c1 () (vanishes! (and X (* 2 Y))))
+(defconstraint c2 () (vanishes! (and (* 2 Y) X)))
+(defconstraint c3 () (vanishes! (and X Y Y)))
+(defconstraint c4 () (vanishes! (and Y X Y)))
+(defconstraint c5 () (vanishes! (and Y Y X)))
+(defconstraint c6 () (vanishes! (and (* 1 X) Y Y)))
+(defconstraint c7 () (vanishes! (and Y (* 1 X) Y)))
+(defconstraint c8 () (vanishes! (and Y Y (* 1 X))))

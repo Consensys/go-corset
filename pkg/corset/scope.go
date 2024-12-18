@@ -153,9 +153,9 @@ func (p *ModuleScope) Bind(symbol Symbol) bool {
 
 // Binding returns information about the binding of a particular symbol defined
 // in this module.
-func (p *ModuleScope) Binding(name string) Binding {
+func (p *ModuleScope) Binding(name string, function bool) Binding {
 	// construct binding identifier
-	if bid, ok := p.ids[BindingId{name, false}]; ok {
+	if bid, ok := p.ids[BindingId{name, function}]; ok {
 		return p.bindings[bid]
 	}
 	// Failure

@@ -190,6 +190,10 @@ func Test_Invalid_FunAlias_04(t *testing.T) {
 	CheckInvalid(t, "funalias_invalid_04")
 }
 
+func Test_Invalid_FunAlias_05(t *testing.T) {
+	CheckInvalid(t, "funalias_invalid_05")
+}
+
 // ===================================================================
 // Property Tests
 // ===================================================================

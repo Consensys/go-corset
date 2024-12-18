@@ -134,6 +134,14 @@ func Test_FunAlias_03(t *testing.T) {
 	Check(t, false, "funalias_03")
 }
 
+func Test_FunAlias_04(t *testing.T) {
+	Check(t, false, "funalias_04")
+}
+
+func Test_FunAlias_05(t *testing.T) {
+	Check(t, false, "funalias_05")
+}
+
 // ===================================================================
 // Domain Tests
 // ===================================================================

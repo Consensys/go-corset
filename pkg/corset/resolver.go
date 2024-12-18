@@ -121,6 +121,7 @@ func (r *resolver) initialiseAliasesInModule(scope *ModuleScope, decls []Declara
 				for i, alias := range a.aliases {
 					symbol := a.symbols[i]
 					if _, ok := visited[alias.name]; !ok {
+						// Attempt to make the alias
 						if change := scope.Alias(alias.name, symbol); change {
 							visited[alias.name] = d
 							changed = true
@@ -138,7 +139,7 @@ func (r *resolver) initialiseAliasesInModule(scope *ModuleScope, decls []Declara
 				// Check whether it already exists (or not)
 				if d, ok := visited[alias.name]; ok && d == decl {
 					continue
-				} else if scope.Binding(alias.name) != nil {
+				} else if scope.Binding(alias.name, symbol.IsFunction()) != nil {
 					err := r.srcmap.SyntaxError(alias, "symbol already exists")
 					errors = append(errors, *err)
 				} else {
