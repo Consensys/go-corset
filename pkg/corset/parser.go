@@ -283,10 +283,10 @@ func (p *Parser) parseDefAlias(functions bool, elements []sexp.SExp) (Declaratio
 		if i+1 == len(elements) {
 			// Uneven number of constant declarations!
 			errors = append(errors, *p.translator.SyntaxError(elements[i], "missing alias definition"))
-		} else if !isIdentifier(elements[i]) {
+		} else if !isEitherOrIdentifier(elements[i], functions) {
 			// Symbol expected!
 			errors = append(errors, *p.translator.SyntaxError(elements[i], "invalid alias name"))
-		} else if !isIdentifier(elements[i+1]) {
+		} else if !isEitherOrIdentifier(elements[i+1], functions) {
 			// Symbol expected!
 			errors = append(errors, *p.translator.SyntaxError(elements[i+1], "invalid alias definition"))
 		} else {
@@ -778,7 +778,7 @@ func (p *Parser) parseFunctionNameReturn(element sexp.SExp) (string, Type, bool,
 		}
 	}
 	//
-	if isIdentifier(name) {
+	if isFunIdentifier(name) {
 		return name.AsSymbol().Value, ret, forced, nil
 	} else {
 		// Must be non-identifier symbol
@@ -1161,7 +1161,7 @@ func invokeParserRule(p *Parser) sexp.ListRule[Expr] {
 		// Extract function name
 		name := list.Get(0).AsSymbol()
 		// Sanity check what we have
-		if !isIdentifier(name) {
+		if !isFunIdentifier(name) {
 			errors = append(errors, *p.translator.SyntaxError(list.Get(0), "invalid function name"))
 		}
 		// Handle qualified accesses (where permitted)
@@ -1218,6 +1218,18 @@ func normParserRule(_ string, args []Expr) (Expr, error) {
 }
 
 // Attempt to parse an S-Expression as an identifier, return nil if this fails.
+// The function flag switches this to identifiers suitable for functions and
+// invocations.
+func isEitherOrIdentifier(sexp sexp.SExp, function bool) bool {
+	if function {
+		return isFunIdentifier(sexp)
+	}
+	//
+	return isIdentifier(sexp)
+}
+
+// Attempt to parse an S-Expression as an identifier suitable for something
+// which is not a function (e.g. column, constant, etc).
 func isIdentifier(sexp sexp.SExp) bool {
 	if symbol := sexp.AsSymbol(); symbol != nil && len(symbol.Value) > 0 {
 		runes := []rune(symbol.Value)
@@ -1235,10 +1247,39 @@ func isIdentifier(sexp sexp.SExp) bool {
 	return false
 }
 
+// Attempt to parse an S-Expression as an identifier suitable for something
+// which is not a function (e.g. column, constant, etc).
+func isFunIdentifier(sexp sexp.SExp) bool {
+	if symbol := sexp.AsSymbol(); symbol != nil && len(symbol.Value) > 0 {
+		runes := []rune(symbol.Value)
+		if isFunctionSymbol(runes) {
+			return true
+		} else if isFunctionIdentifierStart(runes[0]) {
+			for i := 1; i < len(runes); i++ {
+				if !isIdentifierMiddle(runes[i]) {
+					return false
+				}
+			}
+			// Success
+			return true
+		}
+	}
+	// Fail
+	return false
+}
+
 func isIdentifierStart(c rune) bool {
-	return unicode.IsLetter(c) || c == '_' || c == '\'' || c == '~'
+	return unicode.IsLetter(c) || c == '_' || c == '\''
 }
 
 func isIdentifierMiddle(c rune) bool {
 	return unicode.IsDigit(c) || isIdentifierStart(c) || c == '-' || c == '!'
+}
+
+func isFunctionIdentifierStart(c rune) bool {
+	return isIdentifierStart(c) || c == '~'
+}
+
+func isFunctionSymbol(runes []rune) bool {
+	return len(runes) == 1 && (runes[0] == '+' || runes[0] == '*' || runes[0] == '-' || runes[0] == '=')
 }
