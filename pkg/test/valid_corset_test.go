@@ -737,6 +737,10 @@ func Test_Memory(t *testing.T) {
 	Check(t, true, "memory")
 }
 
+func TestSlow_Fields_01(t *testing.T) {
+	Check(t, true, "fields_01")
+}
+
 func TestSlow_Add(t *testing.T) {
 	Check(t, true, "add")
 }
