@@ -23,6 +23,8 @@ type Type interface {
 	ByteWidth() uint
 	// Return the minimum number of bits required represent any element of this type.
 	BitWidth() uint
+	// Check whether subtypes another
+	SubtypeOf(Type) bool
 	// Produce a string representation of this type.
 	String() string
 }
@@ -98,6 +100,17 @@ func (p *UintType) Bound() fr.Element {
 	return p.bound
 }
 
+// SubtypeOf checks whether this subtypes another
+func (p *UintType) SubtypeOf(other Type) bool {
+	if other.AsField() != nil {
+		return true
+	} else if o, ok := other.(*UintType); ok {
+		return p.bound == o.bound
+	}
+
+	return false
+}
+
 func (p *UintType) String() string {
 	return fmt.Sprintf("u%d", p.nbits)
 }
@@ -128,6 +141,11 @@ func (p *FieldType) ByteWidth() uint {
 // bitwidth of the type u8 is 8.
 func (p *FieldType) BitWidth() uint {
 	return p.ByteWidth() * 8
+}
+
+// SubtypeOf checks whether this subtypes another
+func (p *FieldType) SubtypeOf(other Type) bool {
+	return other.AsField() != nil
 }
 
 // Accept determines whether a given value is an element of this type.  In

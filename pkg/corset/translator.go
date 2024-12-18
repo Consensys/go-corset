@@ -587,8 +587,8 @@ func (t *translator) translateForInModule(expr *For, module string, shift int) (
 }
 
 func (t *translator) translateInvokeInModule(expr *Invoke, module string, shift int) (hir.Expr, []SyntaxError) {
-	if binding, ok := expr.fn.Binding().(FunctionBinding); ok {
-		body := binding.Apply(expr.Args())
+	if expr.signature != nil {
+		body := expr.signature.Apply(expr.Args())
 		return t.translateExpressionInModule(body, module, shift)
 	}
 	//
@@ -598,13 +598,13 @@ func (t *translator) translateInvokeInModule(expr *Invoke, module string, shift 
 func (t *translator) translateReduceInModule(expr *Reduce, module string, shift int) (hir.Expr, []SyntaxError) {
 	if list, ok := expr.arg.(*List); !ok {
 		return nil, t.srcmap.SyntaxErrors(expr.arg, "expected list")
-	} else if binding, ok := expr.fn.Binding().(FunctionBinding); !ok {
+	} else if sig := expr.signature; sig == nil {
 		return nil, t.srcmap.SyntaxErrors(expr.arg, "unbound function")
 	} else {
 		reduction := list.Args[0]
 		// Build reduction
 		for i := 1; i < len(list.Args); i++ {
-			reduction = binding.Apply([]Expr{reduction, list.Args[i]})
+			reduction = sig.Apply([]Expr{reduction, list.Args[i]})
 		}
 		// Translate reduction
 		return t.translateExpressionInModule(reduction, module, shift)

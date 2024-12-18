@@ -36,12 +36,54 @@ type FunctionBinding interface {
 	// they can accept any number of arguments.  In contrast, a user-defined
 	// function may only accept a specific number of arguments, etc.
 	HasArity(uint) bool
-	// Apply a set of concreate arguments to this function.  This substitutes
-	// them through the body of the function producing a single expression.
-	Apply([]Expr) Expr
-	// Get the declared return type of this function, or nil if no return type
-	// was declared.
-	ReturnType() Type
+	// Select the best fit signature based on the available parameter types.
+	// Observe that, for valid arities, this always returns a signature.
+	// However, that signature may not actually accept the provided parameters
+	// (in which case, an error should be reported).  Furthermore, if no
+	// appropriate signature exists then this will return nil.
+	Select([]Type) *FunctionSignature
+}
+
+// FunctionSignature embodies a concrete function instance.  It is necessary to
+// separate bindings from signatures because, in corset, function overloading is
+// supported.  That is, we can have different definitions for a function of the
+// same name and arity.  The appropriate definition is then selected for the
+// given parameter types.
+type FunctionSignature struct {
+	// Parameter types for this function
+	parameters []Type
+	// Return type for this function
+	ret Type
+	// Body of this function
+	body Expr
+}
+
+// Return the (optional) return type for this signature.  If no declared return
+// type is given, then the intention is that it be inferred from the body.
+func (p *FunctionSignature) Return() Type {
+	return p.ret
+}
+
+// Parameter returns the given parameter in this signature.
+func (p *FunctionSignature) Parameter(index uint) Type {
+	return p.parameters[index]
+}
+
+// NumParameters returns the number of parameters in this signature.
+func (p *FunctionSignature) NumParameters() uint {
+	return uint(len(p.parameters))
+}
+
+// Apply a set of concreate arguments to this function.  This substitutes
+// them through the body of the function producing a single expression.
+func (p *FunctionSignature) Apply(args []Expr) Expr {
+	mapping := make(map[uint]Expr)
+	// Setup the mapping
+	for i, e := range args {
+		mapping[uint(i)] = e
+	}
+	// Substitute through
+	return p.body.Substitute(mapping)
 }
 
 // ============================================================================
@@ -231,13 +273,15 @@ func (p *DefunBinding) Finalise(bodyType Type) {
 	p.bodyType = bodyType
 }
 
-// Apply a given set of arguments to this function binding.
-func (p *DefunBinding) Apply(args []Expr) Expr {
-	mapping := make(map[uint]Expr)
-	// Setup the mapping
-	for i, e := range args {
-		mapping[uint(i)] = e
+// Select the best fit signature based on the available parameter types.
+// Observe that, for valid arities, this always returns a signature.
+// However, that signature may not actually accept the provided parameters
+// (in which case, an error should be reported).  Furthermore, if no
+// appropriate signature exists then this will return nil.
+func (p *DefunBinding) Select(args []Type) *FunctionSignature {
+	if len(args) == len(p.paramTypes) {
+		return &FunctionSignature{p.paramTypes, p.returnType, p.body}
 	}
-	// Substitute through
-	return p.body.Substitute(mapping)
+	// Ambiguous
+	return nil
 }

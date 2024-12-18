@@ -788,14 +788,32 @@ func (p *Parser) parseFunctionNameReturn(element sexp.SExp) (string, Type, bool,
 }
 
 func (p *Parser) parseFunctionParameter(element sexp.SExp) (*DefParameter, []SyntaxError) {
+	list := element.AsList()
+	//
 	if isIdentifier(element) {
 		binding := NewLocalVariableBinding(element.AsSymbol().Value, NewFieldType())
 		return &DefParameter{binding}, nil
+	} else if list == nil || list.Len() != 2 || !isIdentifier(list.Get(0)) {
+		// Construct error message (for now)
+		err := p.translator.SyntaxError(element, "malformed parameter declaration")
+		//
+		return nil, []SyntaxError{*err}
 	}
-	// Construct error message (for now)
-	err := p.translator.SyntaxError(element, "malformed parameter declaration")
+	// Parse the type
+	datatype, prove, err := p.parseType(list.Get(1))
 	//
-	return nil, []SyntaxError{*err}
+	if err != nil {
+		return nil, []SyntaxError{*err}
+	} else if prove {
+		// Parameters cannot be marked @prove
+		err := p.translator.SyntaxError(element, "malformed parameter declaration")
+		//
+		return nil, []SyntaxError{*err}
+	}
+	// Done
+	binding := NewLocalVariableBinding(list.Get(0).AsSymbol().Value, datatype)
+	//
+	return &DefParameter{binding}, nil
 }
 
 // Parse a range declaration
@@ -979,8 +997,10 @@ func forParserRule(p *Parser) sexp.ListRule[Expr] {
 		if len(errors) > 0 {
 			return nil, errors
 		}
-		// Construct binding
-		binding := NewLocalVariableBinding(indexVar.Value, nil)
+		// Construct binding.  At this stage, its unclear what the best type to
+		// use for the index variable is here.  Potentially, it could be refined
+		// based on the range of actual values, etc.
+		binding := NewLocalVariableBinding(indexVar.Value, NewFieldType())
 		//
 		return &For{binding, start, end, body}, nil
 	}
@@ -1050,7 +1070,7 @@ func reduceParserRule(p *Parser) sexp.ListRule[Expr] {
 		varaccess := &VariableAccess{nil, name.Value, true, nil}
 		p.mapSourceNode(name, varaccess)
 		//
-		return &Reduce{varaccess, body}, nil
+		return &Reduce{varaccess, nil, body}, nil
 	}
 }
 
@@ -1169,7 +1189,7 @@ func invokeParserRule(p *Parser) sexp.ListRule[Expr] {
 		//
 		p.mapSourceNode(list.Get(0), varaccess)
 		//
-		return &Invoke{varaccess, args}, nil
+		return &Invoke{varaccess, nil, args}, nil
 	}
 }
 

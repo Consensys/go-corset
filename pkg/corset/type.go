@@ -25,6 +25,9 @@ type Type interface {
 	// will panic if the type has already been given loobean semantics.
 	WithBooleanSemantics() Type
 
+	// SubtypeOf determines whether or not this type is a subtype of another.
+	SubtypeOf(Type) bool
+
 	// Access an underlying representation of this type (should one exist).  If
 	// this doesn't exist, then nil is returned.
 	AsUnderlying() sc.Type
@@ -176,6 +179,16 @@ func (p *NativeType) AsUnderlying() sc.Type {
 	return p.datatype
 }
 
+// SubtypeOf determines whether or not this type is a subtype of another.
+func (p *NativeType) SubtypeOf(other Type) bool {
+	if o, ok := other.(*NativeType); ok && p.datatype.SubtypeOf(o.datatype) {
+		// An interpreted type can flow into an uninterpreted type.
+		return (!o.loobean && !o.boolean) || p == o
+	}
+	//
+	return false
+}
+
 func (p *NativeType) String() string {
 	if p.loobean {
 		return fmt.Sprintf("%s@loob", p.datatype.String())
@@ -241,6 +254,15 @@ func (p *ArrayType) Width() uint {
 // is not possible, then nil is returned.
 func (p *ArrayType) AsUnderlying() sc.Type {
 	return nil
+}
+
+// SubtypeOf determines whether or not this type is a subtype of another.
+func (p *ArrayType) SubtypeOf(other Type) bool {
+	if o, ok := other.(*ArrayType); ok {
+		return p.element.SubtypeOf(o.element)
+	}
+	//
+	return false
 }
 
 func (p *ArrayType) String() string {
