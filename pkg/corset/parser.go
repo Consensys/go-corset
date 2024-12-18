@@ -782,7 +782,7 @@ func (p *Parser) parseFunctionNameReturn(element sexp.SExp) (string, Type, bool,
 		return name.AsSymbol().Value, ret, forced, nil
 	} else {
 		// Must be non-identifier symbol
-		err = p.translator.SyntaxError(element, "expected function name")
+		err = p.translator.SyntaxError(element, "invalid function name")
 		return "", nil, false, []SyntaxError{*err}
 	}
 }
@@ -1159,14 +1159,14 @@ func invokeParserRule(p *Parser) sexp.ListRule[Expr] {
 			return nil, p.translator.SyntaxErrors(list, "invalid invocation")
 		}
 		// Extract function name
-		name := list.Get(0).AsSymbol().Value
+		name := list.Get(0).AsSymbol()
 		// Sanity check what we have
-		if !unicode.IsLetter(rune(name[0])) {
+		if !isIdentifier(name) {
 			errors = append(errors, *p.translator.SyntaxError(list.Get(0), "invalid function name"))
 		}
 		// Handle qualified accesses (where permitted)
 		// Attempt to split column name into module / column pair.
-		split := strings.Split(name, ".")
+		split := strings.Split(name.Value, ".")
 		if len(split) == 2 {
 			//
 			varaccess = &VariableAccess{&split[0], split[1], true, nil}
@@ -1236,7 +1236,7 @@ func isIdentifier(sexp sexp.SExp) bool {
 }
 
 func isIdentifierStart(c rune) bool {
-	return unicode.IsLetter(c) || c == '_' || c == '\''
+	return unicode.IsLetter(c) || c == '_' || c == '\'' || c == '~'
 }
 
 func isIdentifierMiddle(c rune) bool {
