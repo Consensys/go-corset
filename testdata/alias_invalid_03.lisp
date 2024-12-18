@@ -1,3 +1,3 @@
-;;error:2:1-2:blah
+;;error:3:11-12:symbol already exists
 (defcolumns X Y)
 (defalias X Y)
