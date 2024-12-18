@@ -32,10 +32,9 @@ type Expr interface {
 	// it accesses a column which does not exist.
 	EvalAllAt(int, trace.Trace) []fr.Element
 
-	// AsConstant determines whether or not this is a constant expression.  If
-	// so, the constant is returned; otherwise, nil is returned.  NOTE: this
-	// does not perform any form of simplification to determine this.
-	AsConstant() *fr.Element
+	// Multiplicity returns the number of underlyg expressions that this
+	// expression will expand to.
+	Multiplicity() uint
 }
 
 // ============================================================================
@@ -73,10 +72,17 @@ func (p *Add) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet[trace.Ce
 	})
 }
 
-// AsConstant determines whether or not this is a constant expression.  If
-// so, the constant is returned; otherwise, nil is returned.  NOTE: this
-// does not perform any form of simplification to determine this.
-func (p *Add) AsConstant() *fr.Element { return nil }
+// Multiplicity returns the number of underlyg expressions that this
+// expression will expand to.
+func (p *Add) Multiplicity() uint {
+	count := uint(0)
+	//
+	for _, e := range p.Args {
+		count += e.Multiplicity()
+	}
+	//
+	return count
+}
 
 // ============================================================================
 // Subtraction
@@ -113,10 +119,17 @@ func (p *Sub) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet[trace.Ce
 	})
 }
 
-// AsConstant determines whether or not this is a constant expression.  If
-// so, the constant is returned; otherwise, nil is returned.  NOTE: this
-// does not perform any form of simplification to determine this.
-func (p *Sub) AsConstant() *fr.Element { return nil }
+// Multiplicity returns the number of underlyg expressions that this
+// expression will expand to.
+func (p *Sub) Multiplicity() uint {
+	count := uint(0)
+	//
+	for _, e := range p.Args {
+		count += e.Multiplicity()
+	}
+	//
+	return count
+}
 
 // ============================================================================
 // Multiplication
@@ -153,10 +166,17 @@ func (p *Mul) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet[trace.Ce
 	})
 }
 
-// AsConstant determines whether or not this is a constant expression.  If
-// so, the constant is returned; otherwise, nil is returned.  NOTE: this
-// does not perform any form of simplification to determine this.
-func (p *Mul) AsConstant() *fr.Element { return nil }
+// Multiplicity returns the number of underlyg expressions that this
+// expression will expand to.
+func (p *Mul) Multiplicity() uint {
+	count := uint(0)
+	//
+	for _, e := range p.Args {
+		count += e.Multiplicity()
+	}
+	//
+	return count
+}
 
 // ============================================================================
 // Exponentiation
@@ -192,10 +212,11 @@ func (p *Exp) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet[trace.Ce
 	return p.Arg.RequiredCells(row, tr)
 }
 
-// AsConstant determines whether or not this is a constant expression.  If
-// so, the constant is returned; otherwise, nil is returned.  NOTE: this
-// does not perform any form of simplification to determine this.
-func (p *Exp) AsConstant() *fr.Element { return nil }
+// Multiplicity returns the number of underlyg expressions that this
+// expression will expand to.
+func (p *Exp) Multiplicity() uint {
+	return p.Arg.Multiplicity()
+}
 
 // ============================================================================
 // List
@@ -232,23 +253,16 @@ func (p *List) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet[trace.C
 	})
 }
 
-// AsConstant determines whether or not this is a constant expression.  If
-// so, the constant is returned; otherwise, nil is returned.  NOTE: this
-// does not perform any form of simplification to determine this.
-func (p *List) AsConstant() *fr.Element {
-	var constant *fr.Element = nil
-	// Check each expression in this list, one at a time.
+// Multiplicity returns the number of underlyg expressions that this
+// expression will expand to.
+func (p *List) Multiplicity() uint {
+	count := uint(0)
+	//
 	for _, e := range p.Args {
-		c := e.AsConstant()
-		if c == nil || (constant != nil && constant.Cmp(c) != 0) {
-			// Either missing or mismatched constants
-			return nil
-		}
-		//
-		constant = c
+		count += e.Multiplicity()
 	}
-	// Done
-	return constant
+	//
+	return count
 }
 
 // ============================================================================
@@ -282,10 +296,9 @@ func (p *Constant) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet[tra
 	return util.NewAnySortedSet[trace.CellRef]()
 }
 
-// AsConstant determines whether or not this is a constant expression.  If
-// so, the constant is returned; otherwise, nil is returned.  NOTE: this
-// does not perform any form of simplification to determine this.
-func (p *Constant) AsConstant() *fr.Element { return &p.Val }
+// Multiplicity returns the number of underlyg expressions that this
+// expression will expand to.
+func (p *Constant) Multiplicity() uint { return 1 }
 
 // ============================================================================
 // IfZero
@@ -371,10 +384,21 @@ func (p *IfZero) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet[trace
 	return set
 }
 
-// AsConstant determines whether or not this is a constant expression.  If
-// so, the constant is returned; otherwise, nil is returned.  NOTE: this
-// does not perform any form of simplification to determine this.
-func (p *IfZero) AsConstant() *fr.Element { return nil }
+// Multiplicity returns the number of underlyg expressions that this
+// expression will expand to.
+func (p *IfZero) Multiplicity() uint {
+	count := uint(0)
+	// TrueBranch (if applicable)
+	if p.TrueBranch != nil {
+		count += p.TrueBranch.Multiplicity()
+	}
+	// FalseBranch (if applicable)
+	if p.FalseBranch != nil {
+		count += p.FalseBranch.Multiplicity()
+	}
+	// done
+	return count
+}
 
 // ============================================================================
 // Normalise
@@ -410,10 +434,9 @@ func (p *Normalise) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet[tr
 	return p.Arg.RequiredCells(row, tr)
 }
 
-// AsConstant determines whether or not this is a constant expression.  If
-// so, the constant is returned; otherwise, nil is returned.  NOTE: this
-// does not perform any form of simplification to determine this.
-func (p *Normalise) AsConstant() *fr.Element { return nil }
+// Multiplicity returns the number of underlyg expressions that this
+// expression will expand to.
+func (p *Normalise) Multiplicity() uint { return p.Arg.Multiplicity() }
 
 // ============================================================================
 // ColumnAccess
@@ -467,7 +490,6 @@ func (p *ColumnAccess) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet
 	return set
 }
 
-// AsConstant determines whether or not this is a constant expression.  If
-// so, the constant is returned; otherwise, nil is returned.  NOTE: this
-// does not perform any form of simplification to determine this.
-func (p *ColumnAccess) AsConstant() *fr.Element { return nil }
+// Multiplicity returns the number of underlyg expressions that this
+// expression will expand to.
+func (p *ColumnAccess) Multiplicity() uint { return 1 }

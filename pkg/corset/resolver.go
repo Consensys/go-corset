@@ -502,12 +502,14 @@ func (r *resolver) finaliseExpressionsInModule(scope LocalScope, args []Expr) ([
 func (r *resolver) finaliseExpressionInModule(scope LocalScope, expr Expr) (Type, []SyntaxError) {
 	if v, ok := expr.(*ArrayAccess); ok {
 		return r.finaliseArrayAccessInModule(scope, v)
-	} else if v, ok := expr.(*Constant); ok {
-		nbits := v.Val.BitLen()
-		return NewUintType(uint(nbits)), nil
 	} else if v, ok := expr.(*Add); ok {
 		types, errs := r.finaliseExpressionsInModule(scope, v.Args)
 		return LeastUpperBoundAll(types), errs
+	} else if v, ok := expr.(*Constant); ok {
+		nbits := v.Val.BitLen()
+		return NewUintType(uint(nbits)), nil
+	} else if v, ok := expr.(*Debug); ok {
+		return r.finaliseExpressionInModule(scope, v.Arg)
 	} else if v, ok := expr.(*Exp); ok {
 		purescope := scope.NestedPureScope()
 		arg_types, arg_errs := r.finaliseExpressionInModule(scope, v.Arg)

@@ -135,7 +135,7 @@ func readTraceFile(filename string) []trace.RawColumn {
 }
 
 // Read the constraints file, whilst optionally including the standard library.
-func readSchema(stdlib bool, filenames []string) *hir.Schema {
+func readSchema(stdlib bool, debug bool, filenames []string) *hir.Schema {
 	if len(filenames) == 0 {
 		fmt.Println("source or binary constraint(s) file required.")
 		os.Exit(5)
@@ -144,7 +144,7 @@ func readSchema(stdlib bool, filenames []string) *hir.Schema {
 		return readBinaryFile(filenames[0])
 	}
 	// Must be source files
-	return readSourceFiles(stdlib, filenames)
+	return readSourceFiles(stdlib, debug, filenames)
 }
 
 // Read a "bin" file.
@@ -169,7 +169,7 @@ func readBinaryFile(filename string) *hir.Schema {
 
 // Parse a set of source files and compile them into a single schema.  This can
 // result, for example, in a syntax error, etc.
-func readSourceFiles(stdlib bool, filenames []string) *hir.Schema {
+func readSourceFiles(stdlib bool, debug bool, filenames []string) *hir.Schema {
 	srcfiles := make([]*sexp.SourceFile, len(filenames))
 	// Read each file
 	for i, n := range filenames {
@@ -184,7 +184,7 @@ func readSourceFiles(stdlib bool, filenames []string) *hir.Schema {
 		srcfiles[i] = sexp.NewSourceFile(n, bytes)
 	}
 	// Parse and compile source files
-	schema, errs := corset.CompileSourceFiles(stdlib, srcfiles)
+	schema, errs := corset.CompileSourceFiles(stdlib, debug, srcfiles)
 	// Check for any errors
 	if len(errs) == 0 {
 		return schema

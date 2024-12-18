@@ -686,6 +686,14 @@ func Test_Reduce_05(t *testing.T) {
 }
 
 // ===================================================================
+// Debug
+// ===================================================================
+
+func Test_Debug_01(t *testing.T) {
+	Check(t, false, "debug_01")
+}
+
+// ===================================================================
 // Complex Tests
 // ===================================================================
 
@@ -757,7 +765,7 @@ func Check(t *testing.T, stdlib bool, test string) {
 	// Package up as source file
 	srcfile := sexp.NewSourceFile(filename, bytes)
 	// Parse terms into an HIR schema
-	schema, errs := corset.CompileSourceFile(stdlib, srcfile)
+	schema, errs := corset.CompileSourceFile(stdlib, false, srcfile)
 	// Check terms parsed ok
 	if len(errs) > 0 {
 		t.Fatalf("Error parsing %s: %v\n", filename, errs)
