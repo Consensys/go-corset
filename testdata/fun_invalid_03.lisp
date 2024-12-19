@@ -1,2 +1,2 @@
-;;error:2:1-2:blah
+;;error:2:20-21:unknown symbol
 (defun (id x) (+ x y))
