@@ -679,7 +679,7 @@ func (e *Reduce) Lisp() sexp.SExp {
 func (e *Reduce) Finalise(signature *FunctionSignature) {
 	if signature == nil {
 		panic("cannot finalise with nil signature")
-	} else if e.signature != nil {
+	} else if e.signature != nil && !reflect.DeepEqual(e.signature, signature) {
 		panic("reduce has already been finalised")
 	}
 
@@ -969,7 +969,8 @@ func Substitute(expr Expr, mapping map[uint]Expr, srcmap *sexp.SourceMaps[Node])
 		nexpr = &Sub{args}
 	case *Shift:
 		arg := Substitute(e.Arg, mapping, srcmap)
-		nexpr = &Shift{arg, e.Shift}
+		shift := Substitute(e.Shift, mapping, srcmap)
+		nexpr = &Shift{arg, shift}
 	case *VariableAccess:
 		//
 		if b, ok1 := e.binding.(*LocalVariableBinding); !ok1 {

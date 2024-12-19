@@ -1001,7 +1001,7 @@ func forParserRule(p *Parser) sexp.ListRule[Expr] {
 		// use for the index variable is here.  Potentially, it could be refined
 		// based on the range of actual values, etc.
 		binding := NewLocalVariableBinding(indexVar.Value, NewFieldType())
-		//
+		// Done
 		return &For{binding, start, end, body}, nil
 	}
 }
@@ -1069,7 +1069,7 @@ func reduceParserRule(p *Parser) sexp.ListRule[Expr] {
 		//
 		varaccess := &VariableAccess{nil, name.Value, true, nil}
 		p.mapSourceNode(name, varaccess)
-		//
+		// Done
 		return &Reduce{varaccess, nil, body}, nil
 	}
 }
@@ -1188,7 +1188,7 @@ func invokeParserRule(p *Parser) sexp.ListRule[Expr] {
 		}
 		//
 		p.mapSourceNode(list.Get(0), varaccess)
-		//
+		// Done
 		return &Invoke{varaccess, nil, args}, nil
 	}
 }
