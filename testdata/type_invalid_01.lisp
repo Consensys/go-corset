@@ -1,4 +1,4 @@
-;;error:2:1-2:blah
+;;error:6:22-32:expected loobean constraint (found u8)
 (defcolumns
     (BIT :binary@loob)
     (X :i8))
