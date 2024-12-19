@@ -20,7 +20,7 @@
   (SMALL :binary@prove)
   (BITS :binary@prove)
   (BIT_B_4 :binary@prove)
-  (LOW_4 :byte@prove)
+  (LOW_4 :byte)
   (NEG :binary@prove)
   (BIT_1 :binary@prove)
   (PIVOT :byte)
@@ -50,17 +50,21 @@
   RES_HI   RESULT_HI
   RES_LO   RESULT_LO)
 
+;; constants
 (defconst
   ;; opcode values
-  SIGNEXTEND 11
-  AND        22
-  OR         23
-  XOR        24
-  NOT        25
-  BYTE       26
+  EVM_INST_SIGNEXTEND 0x0b
+  EVM_INST_AND        0x16
+  EVM_INST_OR         0x17
+  EVM_INST_XOR        0x18
+  EVM_INST_NOT        0x19
+  EVM_INST_BYTE       0x1a
   ;; constant values
-  LLARGE     16
-  LLARGEMO   15)
+  LLARGE             16
+  LLARGEMO           (- LLARGE 1))
+
+
+(module bin)
 
 (defpurefun (if-eq-else A B THEN ELSE)
   (if-zero (- A B)
@@ -72,12 +76,12 @@
   (+ IS_AND IS_OR IS_XOR IS_NOT IS_BYTE IS_SIGNEXTEND))
 
 (defun (weight-sum)
-  (+ (* IS_AND AND)
-     (* IS_OR OR)
-     (* IS_XOR XOR)
-     (* IS_NOT NOT)
-     (* IS_BYTE BYTE)
-     (* IS_SIGNEXTEND SIGNEXTEND)))
+  (+ (* IS_AND EVM_INST_AND)
+     (* IS_OR EVM_INST_OR)
+     (* IS_XOR EVM_INST_XOR)
+     (* IS_NOT EVM_INST_NOT)
+     (* IS_BYTE EVM_INST_BYTE)
+     (* IS_SIGNEXTEND EVM_INST_SIGNEXTEND)))
 
 ;; 2.3 Instruction decoding
 (defconstraint no-bin-no-flag ()
@@ -143,7 +147,14 @@
          (byte-decomposition CT ACC_6 BYTE_6)))
 
 ;;    2.7 target constraints
-(defconstraint target-constraints ()
+(defun (requires-byte-decomposition)
+  (+ IS_AND
+     IS_OR
+     IS_XOR
+     IS_NOT
+     (* CT_MAX (+ IS_BYTE IS_SIGNEXTEND))))
+
+(defconstraint target-constraints (:guard (requires-byte-decomposition))
   (if-eq CT CT_MAX
          (begin (eq! ACC_1 ARG_1_HI)
                 (eq! ACC_2 ARG_1_LO)
@@ -187,22 +198,21 @@
                 (eq! NEG (shift BITS -15)))))
 
 ;; 2.8.3 [[1]] constraints
-;; (defconstraint bit_1 (:guard CT_MAX)
-;;   (begin (if-eq IS_BYTE 1 (plateau-constraint CT BIT_1 LOW_4))
-;;          (if-eq IS_SIGNEXTEND 1
-;;                 (plateau-constraint CT BIT_1 (- LLARGEMO LOW_4)))))
+(defconstraint bit_1 (:guard CT_MAX)
+  (begin (if-eq IS_BYTE 1 (plateau-constraint CT BIT_1 LOW_4))
+         (if-eq IS_SIGNEXTEND 1
+                (plateau-constraint CT BIT_1 (- LLARGEMO LOW_4)))))
 
 ;; 2.8.4 SMALL constraints
 (defconstraint small (:guard (+ IS_BYTE IS_SIGNEXTEND))
   (if-eq CT LLARGEMO
-         (if-zero ARG_1_HI
-                  (if-eq-else ARG_1_LO (+ (* 16 (shift BITS -4))
-                                 (* 8 (shift BITS -3))
-                                 (* 4 (shift BITS -2))
-                                 (* 2 (shift BITS -1))
-                                 BITS)
-                              (eq! SMALL 1)
-                              (vanishes! SMALL)))))
+         (if-eq-else ARG_1_LO (+ (* 16 (shift BITS -4))
+                        (* 8 (shift BITS -3))
+                        (* 4 (shift BITS -2))
+                        (* 2 (shift BITS -1))
+                        BITS)
+                     (eq! SMALL 1)
+                     (vanishes! SMALL))))
 
 ;;    2.9 pivot constraints
 (defconstraint pivot (:guard CT_MAX)
