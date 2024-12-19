@@ -53,7 +53,7 @@
   RES      RESULT)
 
 (defpurefun (if-eq-else A B then else)
-  (if-zero-else (- A B)
+  (if-zero (- A B)
            then
            else))
 
@@ -91,7 +91,7 @@
      (* LEQ IS_LEQ)))
 
 (defconstraint inst-decoding ()
-  (if-zero-else STAMP
+  (if-zero STAMP
            (vanishes! (flag-sum))
            (eq! (flag-sum) 1)))
 

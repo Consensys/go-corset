@@ -1,11 +1,8 @@
-;; [TODO] (defunalias debug-assert debug)
-
 (defpurefun (if-zero cond then) (if (vanishes! cond) then))
-;; [TODO] (defpurefun (if-zero cond then else) (if (vanishes! cond) then else))
-(defpurefun (if-zero-else cond then else) (if (vanishes! cond) then else))
+(defpurefun (if-zero cond then else) (if (vanishes! cond) then else))
 
 (defpurefun (if-not-zero cond then) (if (force-bool cond) then))
-;; [TODO] (defpurefun (if-not-zero cond then else) (if (force-bool cond) then else))
+(defpurefun (if-not-zero cond then else) (if (force-bool cond) then else))
 
 (defpurefun ((force-bool :@bool :force) x) x)
 (defpurefun ((is-binary :@loob :force) e0) (* e0 (- 1 e0)))
@@ -18,23 +15,24 @@
 ;; !-suffix denotes loobean algebra (i.e. 0 == true)
 ;; ~-prefix denotes normalized-functions (i.e. output is 0/1)
 (defpurefun (and a b) (* a b))
-;; [TODO] (defpurefun ((~and :binary@bool) a b) (~ (and a b)))
+(defpurefun ((~and :binary@bool) a b) (~ (and a b)))
 (defpurefun ((or! :@loob) a b) (* a b))
-;; [TODO] (defpurefun ((~or! :binary@loob) a b) (~ (or! a b)))
+(defpurefun ((~or! :binary@loob) a b) (~ (or! a b)))
 
-;; [TODO] (defpurefun ((not :binary@bool :force) (x :binary)) (- 1 x))
+(defpurefun ((not :binary@bool :force) (x :binary)) (- 1 x))
 
+(defpurefun ((eq! :binary@loob :force) (x :binary) (y :binary)) (^ (- x y) 2))
 (defpurefun ((eq! :@loob) x y) (- x y))
-;; [TODO] (defpurefun ((neq! :binary@loob :force) x y) (not (~ (eq! x y))))
-;; [TODO] (defunalias = eq!)
+(defpurefun ((neq! :binary@loob :force) x y) (not (~ (eq! x y))))
+(defunalias = eq!)
 
-;; [TODO] (defpurefun ((eq :binary@bool :force) (x :binary) (y :binary)) (^ (- x y) 2))
+(defpurefun ((eq :binary@bool :force) (x :binary) (y :binary)) (- 1 (^ (- x y) 2)))
 (defpurefun ((eq :binary@bool :force) x y) (- 1 (~ (eq! x y))))
 (defpurefun ((neq :binary@bool :force) x y) (eq! x y))
 
 ;; Variadic variations on and/or
-;; [TODO] (defunalias any! *)
-;; [TODO] (defunalias all *)
+(defunalias any! *)
+(defunalias all *)
 
 ;; Boolean functions
 (defpurefun ((is-not-zero :binary@bool) x) (~ x))
@@ -67,8 +65,8 @@
 
 ;; Ensure (in loobean logic) that e0 has changed (resp. will change) its value
 ;; with regards to the previous (resp. next) row.
-;; [TODO] (defpurefun (did-change! e0) (neq! e0 (prev e0)))
-;; [TODO] (defpurefun (will-change! e0) (neq! e0 (next e0)))
+(defpurefun (did-change! e0) (neq! e0 (prev e0)))
+(defpurefun (will-change! e0) (neq! e0 (next e0)))
 
 (defpurefun (did-change e0) (neq e0 (prev e0)))
 (defpurefun (will-change e0) (neq e0 (next e0)))
@@ -99,7 +97,7 @@
 
 ;; base-X decomposition constraints
 (defpurefun (base-X-decomposition ct base acc digits)
-  (if-zero-else ct
+  (if-zero ct
            (eq! acc digits)
            (eq! acc (+ (* base (prev acc)) digits))))
 
@@ -110,28 +108,18 @@
 (defpurefun (bit-decomposition ct acc bits) (base-X-decomposition ct 2 acc bits))
 
 ;; plateau constraints
-;; [TODO] (defpurefun (plateau-constraint CT (X :binary) C)
-;;             (begin (debug-assert (stamp-constancy CT C))
-;;                    (if-zero C
-;;                             (eq! X 1)
-;;                             (if (eq! CT 0)
-;;                                 (vanishes! X)
-;;                               (if (eq!  CT C)
-;;                                   (did-inc! X 1)
-;;                                 (remained-constant! X))))))
+(defpurefun (plateau-constraint CT (X :binary) C)
+            (begin (debug (stamp-constancy CT C))
+                   (if-zero C
+                            (eq! X 1)
+                            (if (eq! CT 0)
+                                (vanishes! X)
+                              (if (eq!  CT C)
+                                  (did-inc! X 1)
+                                (remained-constant! X))))))
 
 ;; stamp constancy imposes that the column C may only
 ;; change at rows where the STAMP column changes.
 (defpurefun (stamp-constancy STAMP C)
             (if (will-remain-constant! STAMP)
                 (will-remain-constant! C)))
-
-;; =============================================================================
-;; Add
-;; =============================================================================
-(defpurefun (if-not-eq X Y then)
-    (if (eq! X Y)
-        ;; True branch
-        (vanishes! 0)
-        ;; False branch
-        then))

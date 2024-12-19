@@ -63,7 +63,7 @@
   LLARGEMO   15)
 
 (defpurefun (if-eq-else A B THEN ELSE)
-  (if-zero-else (- A B)
+  (if-zero (- A B)
            THEN
            ELSE))
 
@@ -81,7 +81,7 @@
 
 ;; 2.3 Instruction decoding
 (defconstraint no-bin-no-flag ()
-  (if-zero-else STAMP
+  (if-zero STAMP
            (vanishes! (flag-sum))
            (eq! (flag-sum) 1)))
 
@@ -104,7 +104,7 @@
 
 (defconstraint isbyte-ctmax ()
   (if-eq (+ IS_BYTE IS_SIGNEXTEND) 1
-         (if-zero-else ARG_1_HI
+         (if-zero ARG_1_HI
                   (eq! CT_MAX LLARGEMO)
                   (vanishes! CT_MAX))))
 
@@ -207,23 +207,23 @@
 ;;    2.9 pivot constraints
 (defconstraint pivot (:guard CT_MAX)
   (begin (if-eq IS_BYTE 1
-                (if-zero-else LOW_4
+                (if-zero LOW_4
                          (if-zero CT
-                                  (if-zero-else BIT_B_4
+                                  (if-zero BIT_B_4
                                            (eq! PIVOT BYTE_3)
                                            (eq! PIVOT BYTE_4)))
                          (if-zero (+ (prev BIT_1) (- 1 BIT_1))
-                                  (if-zero-else BIT_B_4
+                                  (if-zero BIT_B_4
                                            (eq! PIVOT BYTE_3)
                                            (eq! PIVOT BYTE_4)))))
          (if-eq IS_SIGNEXTEND 1
                 (if-eq-else LOW_4 LLARGEMO
                             (if-zero CT
-                                     (if-zero-else BIT_B_4
+                                     (if-zero BIT_B_4
                                               (eq! PIVOT BYTE_4)
                                               (eq! PIVOT BYTE_3)))
                             (if-zero (+ (prev BIT_1) (- 1 BIT_1))
-                                     (if-zero-else BIT_B_4
+                                     (if-zero BIT_B_4
                                               (eq! PIVOT BYTE_4)
                                               (eq! PIVOT BYTE_3)))))))
 
@@ -233,31 +233,31 @@
 ;;                              ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defconstraint is-byte-result (:guard IS_BYTE)
-  (if-zero-else CT_MAX
+  (if-zero CT_MAX
            (begin (vanishes! RES_HI)
                   (vanishes! RES_LO))
            (begin (vanishes! RES_HI)
                   (eq! RES_LO (* SMALL PIVOT)))))
 
 (defconstraint is-signextend-result (:guard IS_SIGNEXTEND)
-  (if-zero-else CT_MAX
+  (if-zero CT_MAX
            (begin (eq! RES_HI ARG_2_HI)
                   (eq! RES_LO ARG_2_LO))
-           (if-zero-else SMALL
+           (if-zero SMALL
                     ;; SMALL == 0
                     (begin (eq! RES_HI ARG_2_HI)
                            (eq! RES_LO ARG_2_LO))
                     ;; SMALL == 1
-                    (begin (if-zero-else BIT_B_4
+                    (begin (if-zero BIT_B_4
                                     ;; b4 == 0
                                     (begin (eq! BYTE_5 (* NEG 255))
-                                           (if-zero-else BIT_1
+                                           (if-zero BIT_1
                                                     ;; [[1]] == 0
                                                     (eq! BYTE_6 (* NEG 255))
                                                     ;; [[1]] == 1
                                                     (eq! BYTE_6 BYTE_4)))
                                     ;; b4 == 1
-                                    (begin (if-zero-else BIT_1
+                                    (begin (if-zero BIT_1
                                                     ;; [[1]] == 0
                                                     (eq! BYTE_5 (* NEG 255))
                                                     ;; [[1]] == 1
