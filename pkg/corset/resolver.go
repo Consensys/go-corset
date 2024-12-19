@@ -649,7 +649,7 @@ func (r *resolver) finaliseInvokeInModule(scope LocalScope, expr *Invoke) (Type,
 		// type information.  Potentially, we could adjust the local scope to
 		// provide the required type information.  Or we could have a separate pass
 		// which just determines the type.
-		body := signature.Apply(expr.Args())
+		body := signature.Apply(expr.Args(), nil)
 		// Dig out the type
 		return r.finaliseExpressionInModule(scope, body)
 	}

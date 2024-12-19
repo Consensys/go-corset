@@ -626,11 +626,9 @@ func Test_PureFun_02(t *testing.T) {
 	Check(t, false, "purefun_02")
 }
 
-/*
-	func Test_PureFun_03(t *testing.T) {
-		Check(t, false, "purefun_03")
-	}
-*/
+func Test_PureFun_03(t *testing.T) {
+	Check(t, false, "purefun_03")
+}
 
 func Test_PureFun_04(t *testing.T) {
 	Check(t, false, "purefun_04")
@@ -676,11 +674,10 @@ func Test_Array_01(t *testing.T) {
 	Check(t, false, "array_01")
 }
 
-/*
-	 func Test_Array_02(t *testing.T) {
-		Check(t, false, "array_02")
-	}
-*/
+func Test_Array_02(t *testing.T) {
+	Check(t, false, "array_02")
+}
+
 func Test_Array_03(t *testing.T) {
 	Check(t, false, "array_03")
 }

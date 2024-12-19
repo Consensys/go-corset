@@ -4,6 +4,7 @@ import (
 	"math"
 	"reflect"
 
+	"github.com/consensys/go-corset/pkg/sexp"
 	tr "github.com/consensys/go-corset/pkg/trace"
 )
 
@@ -128,14 +129,14 @@ func (p *FunctionSignature) SubtypeOf(other *FunctionSignature) bool {
 
 // Apply a set of concreate arguments to this function.  This substitutes
 // them through the body of the function producing a single expression.
-func (p *FunctionSignature) Apply(args []Expr) Expr {
+func (p *FunctionSignature) Apply(args []Expr, srcmap *sexp.SourceMaps[Node]) Expr {
 	mapping := make(map[uint]Expr)
 	// Setup the mapping
 	for i, e := range args {
 		mapping[uint(i)] = e
 	}
 	// Substitute through
-	return p.body.Substitute(mapping)
+	return Substitute(p.body, mapping, srcmap)
 }
 
 // ============================================================================

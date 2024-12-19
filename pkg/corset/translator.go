@@ -2,7 +2,6 @@ package corset
 
 import (
 	"fmt"
-	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/hir"
@@ -18,10 +17,10 @@ import (
 // easily.  Thus, whilst syntax errors can be returned here, this should never
 // happen.  The mechanism is supported, however, to simplify development of new
 // features, etc.
-func TranslateCircuit(env Environment, debug bool, srcmap *sexp.SourceMaps[Node],
+func TranslateCircuit(env Environment, srcmap *sexp.SourceMaps[Node],
 	circuit *Circuit) (*hir.Schema, []SyntaxError) {
 	//
-	t := translator{env, debug, srcmap, hir.EmptySchema()}
+	t := translator{env, srcmap, hir.EmptySchema()}
 	// Allocate all modules into schema
 	t.translateModules(circuit)
 	// Translate input columns
@@ -42,8 +41,6 @@ type translator struct {
 	// Environment is needed for determining the identifiers for modules and
 	// columns.
 	env Environment
-	// Debug enables the use of debug constraints.
-	debug bool
 	// Source maps nodes in the circuit back to the spans in their original
 	// source files.  This is needed when reporting syntax errors to generate
 	// highlights of the relevant source line(s) in question.
@@ -386,8 +383,6 @@ func (t *translator) translateUnitExpressionsInModule(exprs []Expr, module strin
 }
 
 // Translate a sequence of zero or more expressions enclosed in a given module.
-// All expressions are expected to be non-voidable (see below for more on
-// voidability).
 func (t *translator) translateExpressionsInModule(exprs []Expr, module string,
 	shift int) ([]hir.Expr, []SyntaxError) {
 	//
@@ -409,108 +404,52 @@ func (t *translator) translateExpressionsInModule(exprs []Expr, module string,
 	return hirExprs, errors
 }
 
-// Translate a sequence of zero or more expressions enclosed in a given module.
-// A key aspect of this function is that it additionally accounts for "voidable"
-// expressions.  That is, essentially, to account for debug constraints which
-// only exist in debug mode.  Hence, when debug mode is not enabled, then a
-// debug constraint is "void".
-func (t *translator) translateVoidableExpressionsInModule(exprs []Expr, module string,
-	shift int) ([]hir.Expr, []SyntaxError) {
-	//
-	errors := []SyntaxError{}
-	hirExprs := make([]hir.Expr, len(exprs))
-	nils := 0
-	// Iterate each expression in turn
-	for i, e := range exprs {
-		if e != nil {
-			var errs []SyntaxError
-			hirExprs[i], errs = t.translateExpressionInModule(e, module, shift)
-			errors = append(errors, errs...)
-			// Update dirty flag
-			if hirExprs[i] == nil {
-				nils++
-			}
-		}
-	}
-	// Nil check.
-	if nils == 0 {
-		// Done
-		return hirExprs, errors
-	}
-	// Stip nils. Recall that nils can arise legitimately when we have debug
-	// constraints, but debug mode is not enabled.  In such case, we want to
-	// strip them out.  Since this is a rare occurrence, we try to keep the happy
-	// path efficient.
-	nHirExprs := make([]hir.Expr, len(exprs)-nils)
-	i := 0
-	// Strip out nils
-	for _, e := range hirExprs {
-		if e != nil {
-			nHirExprs[i] = e
-			i++
-		}
-	}
-	//
-	return nHirExprs, errors
-}
-
 // Translate an expression situated in a given context.  The context is
 // necessary to resolve unqualified names (e.g. for column access, function
 // invocations, etc).
 func (t *translator) translateExpressionInModule(expr Expr, module string, shift int) (hir.Expr, []SyntaxError) {
-	if e, ok := expr.(*ArrayAccess); ok {
+	switch e := expr.(type) {
+	case *ArrayAccess:
 		return t.translateArrayAccessInModule(e, shift)
-	} else if v, ok := expr.(*Add); ok {
-		args, errs := t.translateExpressionsInModule(v.Args, module, shift)
+	case *Add:
+		args, errs := t.translateExpressionsInModule(e.Args, module, shift)
 		return &hir.Add{Args: args}, errs
-	} else if e, ok := expr.(*Constant); ok {
+	case *Constant:
 		var val fr.Element
 		// Initialise field from bigint
 		val.SetBigInt(&e.Val)
 		//
 		return &hir.Constant{Val: val}, nil
-	} else if e, ok := expr.(*Debug); ok {
-		if t.debug {
-			return t.translateExpressionInModule(e.Arg, module, shift)
-		}
-		// When debug is not enabled, simply substitute for 0.
-		return nil, nil
-	} else if e, ok := expr.(*Exp); ok {
+	case *Exp:
 		return t.translateExpInModule(e, module, shift)
-	} else if e, ok := expr.(*For); ok {
-		return t.translateForInModule(e, module, shift)
-	} else if v, ok := expr.(*If); ok {
-		args, errs := t.translateExpressionsInModule([]Expr{v.Condition, v.TrueBranch, v.FalseBranch}, module, shift)
+	case *If:
+		args, errs := t.translateExpressionsInModule([]Expr{e.Condition, e.TrueBranch, e.FalseBranch}, module, shift)
 		// Construct appropriate if form
-		if v.IsIfZero() {
+		if e.IsIfZero() {
 			return &hir.IfZero{Condition: args[0], TrueBranch: args[1], FalseBranch: args[2]}, errs
-		} else if v.IsIfNotZero() {
+		} else if e.IsIfNotZero() {
 			// In this case, switch the ordering.
 			return &hir.IfZero{Condition: args[0], TrueBranch: args[2], FalseBranch: args[1]}, errs
 		}
 		// Should be unreachable
 		return nil, t.srcmap.SyntaxErrors(expr, "unresolved conditional encountered during translation")
-	} else if e, ok := expr.(*Invoke); ok {
-		return t.translateInvokeInModule(e, module, shift)
-	} else if v, ok := expr.(*List); ok {
-		args, errs := t.translateVoidableExpressionsInModule(v.Args, module, shift)
+	case *List:
+		args, errs := t.translateExpressionsInModule(e.Args, module, shift)
 		return &hir.List{Args: args}, errs
-	} else if v, ok := expr.(*Mul); ok {
-		args, errs := t.translateExpressionsInModule(v.Args, module, shift)
+	case *Mul:
+		args, errs := t.translateExpressionsInModule(e.Args, module, shift)
 		return &hir.Mul{Args: args}, errs
-	} else if v, ok := expr.(*Normalise); ok {
-		arg, errs := t.translateExpressionInModule(v.Arg, module, shift)
+	case *Normalise:
+		arg, errs := t.translateExpressionInModule(e.Arg, module, shift)
 		return &hir.Normalise{Arg: arg}, errs
-	} else if v, ok := expr.(*Reduce); ok {
-		return t.translateReduceInModule(v, module, shift)
-	} else if v, ok := expr.(*Sub); ok {
-		args, errs := t.translateExpressionsInModule(v.Args, module, shift)
+	case *Sub:
+		args, errs := t.translateExpressionsInModule(e.Args, module, shift)
 		return &hir.Sub{Args: args}, errs
-	} else if e, ok := expr.(*Shift); ok {
+	case *Shift:
 		return t.translateShiftInModule(e, module, shift)
-	} else if e, ok := expr.(*VariableAccess); ok {
+	case *VariableAccess:
 		return t.translateVariableAccessInModule(e, module, shift)
-	} else {
+	default:
 		return nil, t.srcmap.SyntaxErrors(expr, "unknown expression encountered during translation")
 	}
 }
@@ -558,57 +497,6 @@ func (t *translator) translateExpInModule(expr *Exp, module string, shift int) (
 	}
 	//
 	return nil, errs
-}
-
-func (t *translator) translateForInModule(expr *For, module string, shift int) (hir.Expr, []SyntaxError) {
-	var (
-		errors  []SyntaxError
-		mapping map[uint]Expr = make(map[uint]Expr)
-	)
-	// Determine range for index variable
-	n := expr.End - expr.Start + 1
-	args := make([]hir.Expr, n)
-	// Expand body n times
-	for i := uint(0); i < n; i++ {
-		var errs []SyntaxError
-		// Substitute through for i
-		mapping[expr.Binding.index] = &Constant{*big.NewInt(int64(i + expr.Start))}
-		ith := expr.Body.Substitute(mapping)
-		// Translate subsituted expression
-		args[i], errs = t.translateExpressionInModule(ith, module, shift)
-		errors = append(errors, errs...)
-	}
-	// Error check
-	if len(errors) != 0 {
-		return nil, errors
-	}
-	// Done
-	return &hir.List{Args: args}, nil
-}
-
-func (t *translator) translateInvokeInModule(expr *Invoke, module string, shift int) (hir.Expr, []SyntaxError) {
-	if expr.signature != nil {
-		body := expr.signature.Apply(expr.Args())
-		return t.translateExpressionInModule(body, module, shift)
-	}
-	//
-	return nil, t.srcmap.SyntaxErrors(expr, "unbound function")
-}
-
-func (t *translator) translateReduceInModule(expr *Reduce, module string, shift int) (hir.Expr, []SyntaxError) {
-	if list, ok := expr.arg.(*List); !ok {
-		return nil, t.srcmap.SyntaxErrors(expr.arg, "expected list")
-	} else if sig := expr.signature; sig == nil {
-		return nil, t.srcmap.SyntaxErrors(expr.arg, "unbound function")
-	} else {
-		reduction := list.Args[0]
-		// Build reduction
-		for i := 1; i < len(list.Args); i++ {
-			reduction = sig.Apply([]Expr{reduction, list.Args[i]})
-		}
-		// Translate reduction
-		return t.translateExpressionInModule(reduction, module, shift)
-	}
 }
 
 func (t *translator) translateShiftInModule(expr *Shift, module string, shift int) (hir.Expr, []SyntaxError) {
