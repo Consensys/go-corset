@@ -1,6 +1,8 @@
 package sexp
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // Span represents a contiguous slice of the original string.  Instead of
 // representing this as a string slice, however, it is useful to retain the
@@ -81,6 +83,20 @@ func (p *SourceMaps[T]) SyntaxErrors(node T, msg string) []SyntaxError {
 // that nodes recorded in the given source map can be accessed from this set.
 func (p *SourceMaps[T]) Join(srcmap *SourceMap[T]) {
 	p.maps = append(p.maps, *srcmap)
+}
+
+// Copy copies the source mapping for one node to the source mapping for
+// another.  The main use of this is when an existing node is expanded into some
+// other nodes (e.g. during preprocessing).
+func (p *SourceMaps[T]) Copy(from T, to T) {
+	for _, m := range p.maps {
+		if m.Has(from) {
+			span := m.Get(from)
+			m.Put(to, span)
+			// Done
+			return
+		}
+	}
 }
 
 // SourceMap maps terms from an AST to slices of their originating string.  This

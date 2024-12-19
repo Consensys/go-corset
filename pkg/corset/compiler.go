@@ -87,10 +87,14 @@ func (p *Compiler) Compile() (*hir.Schema, []SyntaxError) {
 	if len(errs) != 0 {
 		return nil, errs
 	}
+	// Preprocess circuit to remove invocations, reductions, etc.
+	if errs := PreprocessCircuit(p.debug, p.srcmap, &p.circuit); len(errs) > 0 {
+		return nil, errs
+	}
 	// Convert global scope into an environment by allocating all columns.
 	environment := scope.ToEnvironment()
 	// Finally, translate everything and add it to the schema.
-	return TranslateCircuit(environment, p.debug, p.srcmap, &p.circuit)
+	return TranslateCircuit(environment, p.srcmap, &p.circuit)
 }
 
 func includeStdlib(stdlib bool, srcfiles []*sexp.SourceFile) []*sexp.SourceFile {
