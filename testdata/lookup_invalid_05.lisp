@@ -1,4 +1,4 @@
-;;error:2:1-2:blah
+;;error:3:18-19:unknown symbol
 (defcolumns X)
 (deflookup test (Y) (X))
 

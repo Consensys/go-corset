@@ -1,4 +1,4 @@
-;;error:2:1-2:blah
+;;error:3:25-29:unknown symbol
 (defcolumns X)
 (deflookup test (X) ((+ m2.A 1)))
 

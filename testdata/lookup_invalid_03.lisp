@@ -1,3 +1,3 @@
-;;error:2:1-2:blah
+;;error:3:12-14:malformed handle
 (defcolumns X Y)
 (deflookup () (Y) (X))
