@@ -239,6 +239,10 @@ func Test_Invalid_If_02(t *testing.T) {
 	CheckInvalid(t, "if_invalid_02")
 }
 
+func Test_Invalid_If_03(t *testing.T) {
+	CheckInvalid(t, "if_invalid_03")
+}
+
 // ===================================================================
 // Types
 // ===================================================================

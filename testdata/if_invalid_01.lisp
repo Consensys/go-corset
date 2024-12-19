@@ -1,3 +1,3 @@
-;;error:2:1-2:blah
+;;error:3:22-28:incorrect number of arguments
 (defcolumns A)
 (defconstraint c1 () (if A))
