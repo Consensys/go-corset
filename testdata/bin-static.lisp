@@ -65,7 +65,7 @@
   LLARGEMO   15)
 
 (defpurefun (if-eq-else A B THEN ELSE)
-  (if-zero-else (- A B)
+  (if-zero (- A B)
            THEN
            ELSE))
 
@@ -98,7 +98,7 @@
 
 ;; 2.3 Instruction decoding
 (defconstraint no-bin-no-flag ()
-  (if-zero-else STAMP
+  (if-zero STAMP
            (vanishes! (flag-sum))
            (eq! (flag-sum) 1)))
 
@@ -163,9 +163,9 @@
 ;;                                     ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defconstraint set-oli-mli ()
-  (if-zero-else (+ IS_BYTE IS_SIGNEXTEND)
+  (if-zero (+ IS_BYTE IS_SIGNEXTEND)
            (vanishes! OLI)
-           (if-zero-else ARG_1_HI
+           (if-zero ARG_1_HI
                     (vanishes! OLI)
                     (eq! OLI 1))))
 
@@ -222,23 +222,23 @@
 ;;    2.9 pivot constraints
 (defconstraint pivot (:guard MLI)
   (begin (if-not-zero IS_BYTE
-                      (if-zero-else LOW_4
+                      (if-zero LOW_4
                                (if-zero CT
-                                        (if-zero-else BIT_B_4
+                                        (if-zero BIT_B_4
                                                  (eq! PIVOT BYTE_3)
                                                  (eq! PIVOT BYTE_4)))
                                (if-zero (+ (prev BIT_1) (- 1 BIT_1))
-                                        (if-zero-else BIT_B_4
+                                        (if-zero BIT_B_4
                                                  (eq! PIVOT BYTE_3)
                                                  (eq! PIVOT BYTE_4)))))
          (if-not-zero IS_SIGNEXTEND
                       (if-eq-else LOW_4 LLARGEMO
                                   (if-zero CT
-                                           (if-zero-else BIT_B_4
+                                           (if-zero BIT_B_4
                                                     (eq! PIVOT BYTE_4)
                                                     (eq! PIVOT BYTE_3)))
                                   (if-zero (+ (prev BIT_1) (- 1 BIT_1))
-                                           (if-zero-else BIT_B_4
+                                           (if-zero BIT_B_4
                                                     (eq! PIVOT BYTE_4)
                                                     (eq! PIVOT BYTE_3)))))))
 
@@ -258,21 +258,21 @@
   (if-eq-else OLI 1
               (begin (eq! RES_HI ARG_2_HI)
                      (eq! RES_LO ARG_2_LO))
-              (if-zero-else SMALL
+              (if-zero SMALL
                        ;; SMALL == 0
                        (begin (eq! RES_HI ARG_2_HI)
                               (eq! RES_LO ARG_2_LO))
                        ;; SMALL == 1
-                       (begin (if-zero-else BIT_B_4
+                       (begin (if-zero BIT_B_4
                                        ;; b4 == 0
                                        (begin (eq! BYTE_5 (* NEG 255))
-                                              (if-zero-else BIT_1
+                                              (if-zero BIT_1
                                                        ;; [[1]] == 0
                                                        (eq! BYTE_6 (* NEG 255))
                                                        ;; [[1]] == 1
                                                        (eq! BYTE_6 BYTE_4)))
                                        ;; b4 == 1
-                                       (begin (if-zero-else BIT_1
+                                       (begin (if-zero BIT_1
                                                        ;; [[1]] == 0
                                                        (eq! BYTE_5 (* NEG 255))
                                                        ;; [[1]] == 1

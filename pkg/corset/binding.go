@@ -279,7 +279,7 @@ func (p *LocalVariableBinding) Finalise(index uint) {
 // function bindings.
 type OverloadedBinding struct {
 	// Available specialisations
-	overloads []FunctionSignature
+	overloads []*DefunBinding
 }
 
 // IsPure checks whether this is a defpurefun or not
@@ -289,15 +289,20 @@ func (p *OverloadedBinding) IsPure() bool {
 
 // IsFinalised checks whether this binding has been finalised yet or not.
 func (p *OverloadedBinding) IsFinalised() bool {
-	// Unclear to me whether or not this really makes sense.
+	for _, binding := range p.overloads {
+		if !binding.IsFinalised() {
+			return false
+		}
+	}
+	//
 	return true
 }
 
 // HasArity checks whether this function accepts a given number of arguments (or
 // not).
 func (p *OverloadedBinding) HasArity(arity uint) bool {
-	for _, sig := range p.overloads {
-		if sig.NumParameters() == arity {
+	for _, binding := range p.overloads {
+		if binding.HasArity(arity) {
 			// match
 			return true
 		}
@@ -315,8 +320,12 @@ func (p *OverloadedBinding) Select(args []Type) *FunctionSignature {
 	var selected *FunctionSignature
 	// Attempt to select the Greated Lower Bound (GLB).  This can fail if there
 	// is no unique GLB.
-	for _, sig := range p.overloads {
+	for _, binding := range p.overloads {
+		// Extract its function signature
+		sig := binding.Signature()
+		// Check whether its applicable to the given argument types.
 		applicable := sig.Accepts(args)
+		// If it is applicable, then update the current selection as necessary.
 		if applicable && selected == nil {
 			selected = &sig
 		} else if applicable && sig.SubtypeOf(selected) {
@@ -336,21 +345,20 @@ func (p *OverloadedBinding) Select(args []Type) *FunctionSignature {
 // (e.g. intrinsics) cannot be overloaded; (2) duplicate overloadings are
 // not permitted; (3) combinding pure and impure overloadings is also not
 // permitted.
-func (p *OverloadedBinding) Overload(binding *DefunBinding) (FunctionBinding, bool) {
+func (p *OverloadedBinding) Overload(overload *DefunBinding) (FunctionBinding, bool) {
 	// Check matches purity
-	if binding.IsPure() != p.IsPure() {
+	if overload.IsPure() != p.IsPure() {
 		return nil, false
 	}
 	// Check overload does not already exist
-	for _, sig := range p.overloads {
-		if reflect.DeepEqual(sig.parameters, binding.paramTypes) {
+	for _, binding := range p.overloads {
+		if reflect.DeepEqual(binding.paramTypes, overload.paramTypes) {
 			// Already declared
 			return nil, false
 		}
 	}
 	// Otherwise, looks good.
-	sig := FunctionSignature{binding.pure, binding.paramTypes, binding.returnType, binding.body}
-	p.overloads = append(p.overloads, sig)
+	p.overloads = append(p.overloads, overload)
 	//
 	return p, true
 }
@@ -398,6 +406,12 @@ func (p *DefunBinding) HasArity(arity uint) bool {
 	return arity == uint(len(p.paramTypes))
 }
 
+// Signature returns the corresponding function signature for this user-defined
+// function.
+func (p *DefunBinding) Signature() FunctionSignature {
+	return FunctionSignature{p.pure, p.paramTypes, p.returnType, p.body}
+}
+
 // Finalise this binding by providing the necessary missing information.
 func (p *DefunBinding) Finalise(bodyType Type) {
 	p.bodyType = bodyType
@@ -421,17 +435,14 @@ func (p *DefunBinding) Select(args []Type) *FunctionSignature {
 // (e.g. intrinsics) cannot be overloaded; (2) duplicate overloadings are
 // not permitted; (3) combinding pure and impure overloadings is also not
 // permitted.
-func (p *DefunBinding) Overload(binding *DefunBinding) (FunctionBinding, bool) {
-	if p.IsPure() != binding.IsPure() {
+func (p *DefunBinding) Overload(overload *DefunBinding) (FunctionBinding, bool) {
+	if p.IsPure() != overload.IsPure() {
 		// Purity is misaligned
 		return nil, false
-	} else if reflect.DeepEqual(p.paramTypes, binding.paramTypes) {
+	} else if reflect.DeepEqual(p.paramTypes, overload.paramTypes) {
 		// Specialisation already exists!
 		return nil, false
 	}
-	// Construct initial overloadings
-	first := FunctionSignature{p.pure, p.paramTypes, p.returnType, p.body}
-	second := FunctionSignature{binding.pure, binding.paramTypes, binding.returnType, binding.body}
 	//
-	return &OverloadedBinding{[]FunctionSignature{first, second}}, true
+	return &OverloadedBinding{[]*DefunBinding{p, overload}}, true
 }

@@ -533,7 +533,9 @@ func (r *resolver) finaliseExpressionInModule(scope LocalScope, expr Expr) (Type
 		types, errs := r.finaliseExpressionsInModule(scope, v.Args)
 		return GreatestLowerBoundAll(types), errs
 	} else if v, ok := expr.(*Normalise); ok {
-		return r.finaliseExpressionInModule(scope, v.Arg)
+		_, errs := r.finaliseExpressionInModule(scope, v.Arg)
+		// Normalise guaranteed to return either 0 or 1.
+		return NewUintType(1), errs
 	} else if v, ok := expr.(*Reduce); ok {
 		return r.finaliseReduceInModule(scope, v)
 	} else if v, ok := expr.(*Shift); ok {
@@ -628,7 +630,7 @@ func (r *resolver) finaliseInvokeInModule(scope LocalScope, expr *Invoke) (Type,
 			expected := signature.Parameter(uint(i))
 			actual := argTypes[i]
 			// subtype check
-			if !actual.SubtypeOf(expected) {
+			if actual != nil && !actual.SubtypeOf(expected) {
 				msg := fmt.Sprintf("expected type %s (found %s)", expected, actual)
 				errors = append(errors, *r.srcmap.SyntaxError(expr.args[i], msg))
 			}
