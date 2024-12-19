@@ -45,12 +45,6 @@ func (p *IntrinsicDefinition) IsFinalised() bool {
 	return true
 }
 
-// ReturnType gets the declared return type of this function, or nil if no
-// return type was declared.
-func (p *IntrinsicDefinition) ReturnType() Type {
-	return nil
-}
-
 // Binding returns the binding associated with this intrinsic.
 func (p *IntrinsicDefinition) Binding() Binding {
 	return p
@@ -81,21 +75,17 @@ func (p *IntrinsicDefinition) Select(args []Type) *FunctionSignature {
 		types[i] = NewFieldType()
 	}
 	// Allow return type to be inferred.
-	return &FunctionSignature{types, nil, body}
+	return &FunctionSignature{true, types, nil, body}
 }
 
-// Apply a given set of arguments to this function binding.
-func (p *IntrinsicDefinition) Apply(args []Expr) Expr {
-	// First construct the body
-	body := p.constructor(uint(len(args)))
-	// Then, substitute through.
-	mapping := make(map[uint]Expr)
-	// Setup the mapping
-	for i, e := range args {
-		mapping[uint(i)] = e
-	}
-	// Substitute through
-	return body.Substitute(mapping)
+// Overload (a.k.a specialise) this function binding to incorporate another
+// function binding.  This can fail for a few reasons: (1) some bindings
+// (e.g. intrinsics) cannot be overloaded; (2) duplicate overloadings are
+// not permitted; (3) combinding pure and impure overloadings is also not
+// permitted.
+func (p *IntrinsicDefinition) Overload(binding *DefunBinding) (FunctionBinding, bool) {
+	// Easy case, as intrinsics cannot be overloaded.
+	return nil, false
 }
 
 // ============================================================================
