@@ -52,43 +52,40 @@
   ARG_2_LO ARGUMENT_2_LO
   RES      RESULT)
 
-(defpurefun (if-eq-else A B then else)
-  (if-zero (- A B)
-           then
-           else))
-
 ;; opcode values
 (defconst
-  LEQ      0x0E
-  GEQ      0x0F
-  LT       16
-  GT       17
-  SLT      18
-  SGT      19
-  EQ_      20
-  ISZERO   21
+  WCP_INST_LEQ      0x0E
+  WCP_INST_GEQ      0x0F
+  EVM_INST_LT       16
+  EVM_INST_GT       17
+  EVM_INST_SLT      18
+  EVM_INST_SGT      19
+  EVM_INST_EQ       20
+  EVM_INST_ISZERO   21
   LLARGE   16
   LLARGEMO 15)
 
+(module wcp)
+
+(defun (flag-sum)
+  (+ (one-line-inst) (variable-length-inst)))
+
+(defun (weight-sum)
+  (+
+    (* EVM_INST_LT     IS_LT)
+    (* EVM_INST_GT     IS_GT)
+    (* EVM_INST_SLT    IS_SLT)
+    (* EVM_INST_SGT    IS_SGT)
+    (* EVM_INST_EQ     IS_EQ)
+    (* EVM_INST_ISZERO IS_ISZERO)
+    (* WCP_INST_GEQ    IS_GEQ)
+    (* WCP_INST_LEQ    IS_LEQ)))
 
 (defun (one-line-inst)
   (+ IS_EQ IS_ISZERO))
 
 (defun (variable-length-inst)
   (+ IS_LT IS_GT IS_LEQ IS_GEQ IS_SLT IS_SGT))
-
-(defun (flag-sum)
-  (+ (one-line-inst) (variable-length-inst)))
-
-(defun (weight-sum)
-  (+ (* LT IS_LT)
-     (* GT IS_GT)
-     (* SLT IS_SLT)
-     (* SGT IS_SGT)
-     (* EQ_ IS_EQ)
-     (* ISZERO IS_ISZERO)
-     (* GEQ IS_GEQ)
-     (* LEQ IS_LEQ)))
 
 (defconstraint inst-decoding ()
   (if-zero STAMP
@@ -117,7 +114,7 @@
   (vanishes! STAMP))
 
 (defconstraint stamp-increments ()
-  (* (will-remain-constant! STAMP) (will-inc! STAMP 1)))
+  (any! (will-remain-constant! STAMP) (will-inc! STAMP 1)))
 
 (defconstraint counter-reset ()
   (if-not-zero (will-remain-constant! STAMP)
@@ -155,37 +152,36 @@
 ;;    2.7 BITS and sign bit constraints    ;;
 ;;                                         ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;; (defun (first-eight-bits-bit-dec)
-;;   (reduce +
-;;           (for i
-;;                [0 :7]
-;;                (* (^ 2 i)
-;;                   (shift BITS
-;;                          (- 0 (+ i 8)))))))
-
-;; (defun (last-eight-bits-bit-dec)
-;;   (reduce +
-;;           (for i
-;;                [0 :7]
-;;                (* (^ 2 i)
-;;                   (shift BITS (- 0 i))))))
-
-;; (defconstraint bits-and-negs (:guard (+ IS_SLT IS_SGT))
-;;   (if-eq CT LLARGEMO
-;;          (begin (eq! (shift BYTE_1 (- 0 LLARGEMO))
-;;                      (first-eight-bits-bit-dec))
-;;                 (eq! (shift BYTE_3 (- 0 LLARGEMO))
-;;                      (last-eight-bits-bit-dec))
-;;                 (eq! NEG_1
-;;                      (shift BITS (- 0 LLARGEMO)))
-;;                 (eq! NEG_2
-;;                      (shift BITS (- 0 7))))))
+(defconstraint bits-and-negs (:guard (+ IS_SLT IS_SGT))
+  (if-eq CT LLARGEMO
+         (begin (eq! (shift BYTE_1 (- 0 LLARGEMO))
+                     (first-eight-bits-bit-dec))
+                (eq! (shift BYTE_3 (- 0 LLARGEMO))
+                     (last-eight-bits-bit-dec))
+                (eq! NEG_1
+                     (shift BITS (- 0 LLARGEMO)))
+                (eq! NEG_2
+                     (shift BITS (- 0 7))))))
 
 (defconstraint no-neg-if-small ()
   (if-not-zero (- CT_MAX LLARGEMO)
                (begin (vanishes! NEG_1)
                       (vanishes! NEG_2))))
+
+(defun (first-eight-bits-bit-dec)
+  (reduce +
+          (for i
+               [0 :7]
+               (* (^ 2 i)
+                  (shift BITS
+                         (- 0 (+ i 8)))))))
+
+(defun (last-eight-bits-bit-dec)
+  (reduce +
+          (for i
+               [0 :7]
+               (* (^ 2 i)
+                  (shift BITS (- 0 i))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                              ;;
@@ -240,7 +236,6 @@
                 (eq! RES (+ (lt_) (eq_))))
          (if-eq IS_GEQ 1
                 (eq! RES (+ (gt_) (eq_))))
-         (if-eq IS_LT 1 (eq! RES (lt_)))
          (if-eq IS_SLT 1
                 (if-eq-else NEG_1 NEG_2 (eq! RES (lt_)) (eq! RES NEG_1)))
          (if-eq IS_SGT 1
