@@ -203,17 +203,18 @@ func readSourceFiles(stdlib bool, debug bool, filenames []string) *hir.Schema {
 func printSyntaxError(err *sexp.SyntaxError) {
 	span := err.Span()
 	line := err.FirstEnclosingLine()
+	lineOffset := span.Start() - line.Start()
+	// Calculate length (ensures don't overflow line)
+	length := min(line.Length()-lineOffset, span.Length())
 	// Print error + line number
-	fmt.Printf("%s:%d: %s\n", err.SourceFile().Filename(), line.Number(), err.Message())
+	fmt.Printf("%s:%d:%d-%d %s\n", err.SourceFile().Filename(),
+		line.Number(), 1+lineOffset, 1+lineOffset+length, err.Message())
 	// Print separator line
 	fmt.Println()
 	// Print line
 	fmt.Println(line.String())
 	// Print indent (todo: account for tabs)
-	lineOffset := span.Start() - line.Start()
 	fmt.Print(strings.Repeat(" ", lineOffset))
-	// Calculate length (ensures don't overflow line)
-	length := min(line.Length()-lineOffset, span.Length())
 	// Print highlight
 	fmt.Println(strings.Repeat("^", length))
 }

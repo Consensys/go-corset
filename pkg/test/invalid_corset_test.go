@@ -3,6 +3,8 @@ package test
 import (
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/consensys/go-corset/pkg/corset"
@@ -235,6 +237,10 @@ func Test_Invalid_If_01(t *testing.T) {
 
 func Test_Invalid_If_02(t *testing.T) {
 	CheckInvalid(t, "if_invalid_02")
+}
+
+func Test_Invalid_If_03(t *testing.T) {
+	CheckInvalid(t, "if_invalid_03")
 }
 
 // ===================================================================
@@ -583,12 +589,14 @@ func Test_Invalid_Debug_02(t *testing.T) {
 // ===================================================================
 
 // Check that a given source file fails to compiler.
+// nolint
 func CheckInvalid(t *testing.T, test string) {
-	filename := fmt.Sprintf("%s.lisp", test)
+	filename := fmt.Sprintf("%s/%s.lisp", InvalidTestDir, test)
 	// Enable testing each trace in parallel
-	t.Parallel()
+	fmt.Println("*** DISABLED PARALLLISM")
+	// t.Parallel()
 	// Read constraints file
-	bytes, err := os.ReadFile(fmt.Sprintf("%s/%s", InvalidTestDir, filename))
+	bytes, err := os.ReadFile(filename)
 	// Check test file read ok
 	if err != nil {
 		t.Fatal(err)
@@ -597,8 +605,159 @@ func CheckInvalid(t *testing.T, test string) {
 	srcfile := sexp.NewSourceFile(filename, bytes)
 	// Parse terms into an HIR schema
 	_, errs := corset.CompileSourceFile(false, false, srcfile)
+	// Extract expected errors for comparison
+	expectedErrs, lineOffsets := extractExpectedErrors(bytes)
 	// Check program did not compile!
 	if len(errs) == 0 {
 		t.Fatalf("Error %s should not have compiled\n", filename)
+	} else {
+		error := false
+		// Construct initial message
+		msg := fmt.Sprintf("Error %s\n", filename)
+		// Pad out with what received
+		for i := 0; i < max(len(errs), len(expectedErrs)); i++ {
+			if i < len(errs) && i < len(expectedErrs) {
+				expected := expectedErrs[i]
+				actual := errs[i]
+				// Check whether message OK
+				if expected.msg == actual.Message() && expected.span == actual.Span() {
+					continue
+				}
+			}
+			// Indicate error arose
+			error = true
+			// actual
+			if i < len(errs) {
+				actual := errs[i]
+				msg = fmt.Sprintf("%s unexpected error %s:%s\n", msg, spanToString(actual.Span(), lineOffsets), actual.Message())
+			}
+			// expected
+			if i < len(expectedErrs) {
+				expected := expectedErrs[i]
+				msg = fmt.Sprintf("%s   expected error %s:%s\n", msg, spanToString(expected.span, lineOffsets), expected.msg)
+			}
+		}
+		//
+		if error {
+			t.Fatalf(msg)
+		}
 	}
+}
+
+// SyntaxError captures key information about an expected error
+type SyntaxError struct {
+	// The range of bytes in the original file to which this error is
+	// associated.
+	span sexp.Span
+	// The error message reported.
+	msg string
+}
+
+func extractExpectedErrors(bytes []byte) ([]SyntaxError, []int) {
+	// Calcuate the character offset of each line
+	offsets, lines := splitFileLines(bytes)
+	// Now construct errors
+	errors := make([]SyntaxError, 0)
+	// scan file line-by-line until no more errors found
+	for _, line := range lines {
+		error := extractSyntaxError(line, offsets)
+		// Keep going until no more errors
+		if error == nil {
+			return errors, offsets
+		}
+
+		errors = append(errors, *error)
+	}
+	//
+	return errors, offsets
+}
+
+// Split out a given file into the line contents and the line offsets.  This
+// needs to be done carefully to ensure that these both align properly,
+// otherwise error messages tend to have the wrong column numbers, etc.
+func splitFileLines(bytes []byte) ([]int, []string) {
+	contents := []rune(string(bytes))
+	// Calcuate the character offset of each line
+	offsets := make([]int, 1)
+	lines := make([]string, 0)
+	start := 0
+	// Iterate each byte
+	for i := 0; i <= len(contents); i++ {
+		if i == len(contents) || contents[i] == '\n' {
+			line := string(contents[start:i])
+			offsets = append(offsets, i+1)
+			lines = append(lines, line)
+			//
+			start = i + 1
+		}
+	}
+	// Done
+	return offsets, lines
+}
+
+// Extract the syntax error from a given line in the source file, or return nil
+// if it does not describe an error.
+func extractSyntaxError(line string, offsets []int) *SyntaxError {
+	if strings.HasPrefix(line, ";;error") {
+		splits := strings.Split(line, ":")
+		span := determineFileSpan(splits[1], splits[2], offsets)
+		msg := splits[3]
+		// Done
+		return &SyntaxError{span, msg}
+	}
+	// No error
+	return nil
+}
+
+// Determine the span that the the given line string and span string corresponds
+// to.  We need the line offsets so that the computed span includes the starting
+// offset of the relevant line.
+func determineFileSpan(line_str string, span_str string, offsets []int) sexp.Span {
+	line, err := strconv.Atoi(line_str)
+	if err != nil {
+		panic(err)
+	}
+	// Split the span
+	span_splits := strings.Split(span_str, "-")
+	// Parse span start as integer
+	start, err := strconv.Atoi(span_splits[0])
+	if err != nil {
+		panic(err)
+	} else if start == 0 {
+		panic("columns numbered from 1")
+	}
+	// Parse span end as integer
+	end, err := strconv.Atoi(span_splits[1])
+	if err != nil {
+		panic(err)
+	}
+	// Add line offset
+	start += offsets[line-1]
+	end += offsets[line-1]
+	// Sanity check
+	if start >= offsets[line] || end > offsets[line] {
+		panic("span overflows to following line")
+	}
+	// Create span, recalling that span's start from zero whereas column numbers
+	// start from 1.
+	return sexp.NewSpan(start-1, end-1)
+}
+
+// Convert a span into a useful human readable string.
+func spanToString(span sexp.Span, offsets []int) string {
+	line := 0
+	last := 0
+	start := span.Start()
+	end := span.End()
+	//
+	for i, o := range offsets {
+		if o > start {
+			break
+		}
+		// Update status
+		last = o
+		line = i + 1
+	}
+	//
+	return fmt.Sprintf("%d:%d-%d", line, 1+start-last, 1+end-last)
 }

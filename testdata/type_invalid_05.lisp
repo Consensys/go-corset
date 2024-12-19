@@ -1,3 +1,4 @@
+;;error:6:26-35:invalid condition (neither loobean nor boolean)
 (defcolumns
     (BIT :binary)
     (X :binary@loob))

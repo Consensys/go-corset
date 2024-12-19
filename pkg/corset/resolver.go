@@ -142,7 +142,7 @@ func (r *resolver) initialiseAliasesInModule(scope *ModuleScope, decls []Declara
 					err := r.srcmap.SyntaxError(alias, "symbol already exists")
 					errors = append(errors, *err)
 				} else {
-					err := r.srcmap.SyntaxError(symbol, "unknown symbol encountered during resolution")
+					err := r.srcmap.SyntaxError(symbol, "unknown symbol")
 					errors = append(errors, *err)
 				}
 			}
@@ -237,7 +237,7 @@ func (r *resolver) declarationDependenciesAreFinalised(scope *ModuleScope,
 		symbol := iter.Next()
 		// Attempt to resolve
 		if !symbol.IsResolved() && !scope.Bind(symbol) {
-			errors = append(errors, *r.srcmap.SyntaxError(symbol, "unknown symbol encountered during resolution"))
+			errors = append(errors, *r.srcmap.SyntaxError(symbol, "unknown symbol"))
 			// not finalised yet
 			finalised = false
 		} else {
@@ -293,11 +293,10 @@ func (r *resolver) finaliseDefConstInModule(enclosing Scope, decl *DefConst) []S
 		// Accumulate errors
 		errors = append(errors, errs...)
 		// Check it is indeed constant!
-		if constant := c.binding.value.AsConstant(); constant == nil {
-			err := r.srcmap.SyntaxError(c, "definition not constant")
-			errors = append(errors, *err)
-		} else {
-			// Finalise constant binding
+		if constant := c.binding.value.AsConstant(); constant != nil {
+			// Finalise constant binding.  Note, no need to register a syntax
+			// error for the error case, because it would have already been
+			// accounted for during resolution.
 			c.binding.Finalise(datatype)
 		}
 	}

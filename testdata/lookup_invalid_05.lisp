@@ -1,3 +1,4 @@
+;;error:3:18-19:unknown symbol
 (defcolumns X)
 (deflookup test (Y) (X))
 
