@@ -2,6 +2,7 @@ package corset
 
 import (
 	"math"
+	"reflect"
 
 	tr "github.com/consensys/go-corset/pkg/trace"
 )
@@ -42,6 +43,12 @@ type FunctionBinding interface {
 	// (in which case, an error should be reported).  Furthermore, if no
 	// appropriate signature exists then this will return nil.
 	Select([]Type) *FunctionSignature
+	// Overload (a.k.a specialise) this function binding to incorporate another
+	// function binding.  This can fail for a few reasons: (1) some bindings
+	// (e.g. intrinsics) cannot be overloaded; (2) duplicate overloadings are
+	// not permitted; (3) combinding pure and impure overloadings is also not
+	// permitted.
+	Overload(*DefunBinding) (FunctionBinding, bool)
 }
 
 // FunctionSignature embodies a concrete function instance.  It is necessary to
@@ -50,12 +57,39 @@ type FunctionBinding interface {
 // same name and arity.  The appropriate definition is then selected for the
 // given parameter types.
 type FunctionSignature struct {
+	// Pure or not
+	pure bool
 	// Parameter types for this function
 	parameters []Type
 	// Return type for this function
 	ret Type
 	// Body of this function
 	body Expr
+}
+
+// IsPure checks whether this function binding has side-effects or not.
+func (p *FunctionSignature) IsPure() bool {
+	return p.pure
+}
+
+// Accepts check whether a given set of concrete argument types can be accepted
+// by this signature.
+func (p *FunctionSignature) Accepts(args []Type) bool {
+	if len(args) != len(p.parameters) {
+		return false
+	}
+	// Check argument at each position is accepted by parameter at that
+	// position.
+	for i := 0; i < len(args); i++ {
+		arg_t := args[i]
+		param_t := p.parameters[i]
+		//
+		if !arg_t.SubtypeOf(param_t) {
+			return false
+		}
+	}
+	// Done
+	return true
 }
 
 // Return the (optional) return type for this signature.  If no declared return
@@ -72,6 +106,24 @@ func (p *FunctionSignature) Parameter(index uint) Type {
 // NumParameters returns the number of parameters in this signature.
 func (p *FunctionSignature) NumParameters() uint {
 	return uint(len(p.parameters))
+}
+
+// SubtypeOf determines whether this is a stronger specialisation than another.
+func (p *FunctionSignature) SubtypeOf(other *FunctionSignature) bool {
+	if len(p.parameters) != len(other.parameters) {
+		return false
+	}
+	//
+	for i := 0; i < len(p.parameters); i++ {
+		pth := p.parameters[i]
+		oth := other.parameters[i]
+		// Check them
+		if !pth.SubtypeOf(oth) {
+			return false
+		}
+	}
+	//
+	return true
 }
 
 // Apply a set of concreate arguments to this function.  This substitutes
@@ -220,6 +272,90 @@ func (p *LocalVariableBinding) Finalise(index uint) {
 }
 
 // ============================================================================
+// OverloadedBinding
+// ============================================================================
+
+// OverloadedBinding represents the amalgamation of two or more user-define
+// function bindings.
+type OverloadedBinding struct {
+	// Available specialisations
+	overloads []FunctionSignature
+}
+
+// IsPure checks whether this is a defpurefun or not
+func (p *OverloadedBinding) IsPure() bool {
+	return p.overloads[0].IsPure()
+}
+
+// IsFinalised checks whether this binding has been finalised yet or not.
+func (p *OverloadedBinding) IsFinalised() bool {
+	// Unclear to me whether or not this really makes sense.
+	return true
+}
+
+// HasArity checks whether this function accepts a given number of arguments (or
+// not).
+func (p *OverloadedBinding) HasArity(arity uint) bool {
+	for _, sig := range p.overloads {
+		if sig.NumParameters() == arity {
+			// match
+			return true
+		}
+	}
+	//
+	return false
+}
+
+// Select the best fit signature based on the available parameter types.
+// Observe that, for valid arities, this always returns a signature.
+// However, that signature may not actually accept the provided parameters
+// (in which case, an error should be reported).  Furthermore, if no
+// appropriate signature exists then this will return nil.
+func (p *OverloadedBinding) Select(args []Type) *FunctionSignature {
+	var selected *FunctionSignature
+	// Attempt to select the Greated Lower Bound (GLB).  This can fail if there
+	// is no unique GLB.
+	for _, sig := range p.overloads {
+		applicable := sig.Accepts(args)
+		if applicable && selected == nil {
+			selected = &sig
+		} else if applicable && sig.SubtypeOf(selected) {
+			// Signature is better specialisation than that currently selected.
+			selected = &sig
+		} else if applicable && !selected.SubtypeOf(&sig) {
+			// Ambiguous, so give up.
+			return nil
+		}
+	}
+	//
+	return selected
+}
+
+// Overload (a.k.a specialise) this function binding to incorporate another
+// function binding.  This can fail for a few reasons: (1) some bindings
+// (e.g. intrinsics) cannot be overloaded; (2) duplicate overloadings are
+// not permitted; (3) combinding pure and impure overloadings is also not
+// permitted.
+func (p *OverloadedBinding) Overload(binding *DefunBinding) (FunctionBinding, bool) {
+	// Check matches purity
+	if binding.IsPure() != p.IsPure() {
+		return nil, false
+	}
+	// Check overload does not already exist
+	for _, sig := range p.overloads {
+		if reflect.DeepEqual(sig.parameters, binding.paramTypes) {
+			// Already declared
+			return nil, false
+		}
+	}
+	// Otherwise, looks good.
+	sig := FunctionSignature{binding.pure, binding.paramTypes, binding.returnType, binding.body}
+	p.overloads = append(p.overloads, sig)
+	//
+	return p, true
+}
+
+// ============================================================================
 // DefunBinding
 // ============================================================================
 
@@ -262,12 +398,6 @@ func (p *DefunBinding) HasArity(arity uint) bool {
 	return arity == uint(len(p.paramTypes))
 }
 
-// ReturnType gets the declared return type of this function, or nil if no
-// return type was declared.
-func (p *DefunBinding) ReturnType() Type {
-	return p.returnType
-}
-
 // Finalise this binding by providing the necessary missing information.
 func (p *DefunBinding) Finalise(bodyType Type) {
 	p.bodyType = bodyType
@@ -280,8 +410,28 @@ func (p *DefunBinding) Finalise(bodyType Type) {
 // appropriate signature exists then this will return nil.
 func (p *DefunBinding) Select(args []Type) *FunctionSignature {
 	if len(args) == len(p.paramTypes) {
-		return &FunctionSignature{p.paramTypes, p.returnType, p.body}
+		return &FunctionSignature{p.pure, p.paramTypes, p.returnType, p.body}
 	}
 	// Ambiguous
 	return nil
+}
+
+// Overload (a.k.a specialise) this function binding to incorporate another
+// function binding.  This can fail for a few reasons: (1) some bindings
+// (e.g. intrinsics) cannot be overloaded; (2) duplicate overloadings are
+// not permitted; (3) combinding pure and impure overloadings is also not
+// permitted.
+func (p *DefunBinding) Overload(binding *DefunBinding) (FunctionBinding, bool) {
+	if p.IsPure() != binding.IsPure() {
+		// Purity is misaligned
+		return nil, false
+	} else if reflect.DeepEqual(p.paramTypes, binding.paramTypes) {
+		// Specialisation already exists!
+		return nil, false
+	}
+	// Construct initial overloadings
+	first := FunctionSignature{p.pure, p.paramTypes, p.returnType, p.body}
+	second := FunctionSignature{binding.pure, binding.paramTypes, binding.returnType, binding.body}
+	//
+	return &OverloadedBinding{[]FunctionSignature{first, second}}, true
 }

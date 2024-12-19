@@ -84,7 +84,6 @@ func (r *resolver) resolveDeclarationsInModule(scope *ModuleScope, decls []Decla
 // information which is yet to be determined (e.g. information about types, or
 // contexts, etc).
 func (r *resolver) initialiseDeclarationsInModule(scope *ModuleScope, decls []Declaration) []SyntaxError {
-	module := scope.EnclosingModule()
 	errors := make([]SyntaxError, 0)
 	// Initialise all columns
 	for _, d := range decls {
@@ -92,7 +91,7 @@ func (r *resolver) initialiseDeclarationsInModule(scope *ModuleScope, decls []De
 			def := iter.Next()
 			// Attempt to declare symbol
 			if !scope.Declare(def) {
-				msg := fmt.Sprintf("symbol %s already declared in %s", def.Name(), module)
+				msg := fmt.Sprintf("symbol %s already declared", def.Name())
 				err := r.srcmap.SyntaxError(def, msg)
 				errors = append(errors, *err)
 			}

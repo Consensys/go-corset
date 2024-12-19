@@ -176,11 +176,24 @@ func (p *ModuleScope) Declare(symbol SymbolDefinition) bool {
 	// construct binding identifier
 	id := BindingId{symbol.Name(), symbol.IsFunction()}
 	// Sanity check not already declared
-	if _, ok := p.ids[id]; ok {
-		// Cannot redeclare
+	if bid, ok := p.ids[id]; ok && !symbol.IsFunction() {
+		// Symbol already declared, and not a function.
+		return false
+	} else if ok {
+		// Following must be true because we internally never attempt to
+		// redeclare an intrinsic.
+		def_binding := p.bindings[bid].(FunctionBinding)
+		sym_binding := symbol.Binding().(*DefunBinding)
+		// Attempt to overload the existing definition.
+		if overloaded_binding, ok := def_binding.Overload(sym_binding); ok {
+			// Success
+			p.bindings[bid] = overloaded_binding
+			return true
+		}
+		// Failed
 		return false
 	}
-	// Done
+	// Symbol not previously declared, so no need to consider overloadings.
 	bid := uint(len(p.bindings))
 	p.bindings = append(p.bindings, symbol.Binding())
 	p.ids[id] = bid
