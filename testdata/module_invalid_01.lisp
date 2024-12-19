@@ -1,4 +1,4 @@
-;;error:2:1-2:blah
+;;error:6:13-14:unknown symbol
 (module m1)
 (defcolumns X)
 
