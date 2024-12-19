@@ -1,3 +1,3 @@
-;;error:2:1-2:blah
+;;error:3:15-16:malformed bound
 (defcolumns X Y)
 (definrange X Y)

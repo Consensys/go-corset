@@ -1,3 +1,3 @@
-;;error:2:1-2:blah
+;;error:3:13-14:unknown symbol
 (defcolumns X)
 (definrange Y 2)
