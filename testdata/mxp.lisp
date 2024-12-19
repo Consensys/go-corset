@@ -50,7 +50,9 @@
   S1NZNOMXPX SIZE_1_NONZERO_NO_MXPX
   S2NZNOMXPX SIZE_2_NONZERO_NO_MXPX)
 
-
+(defconst
+  EVM_INST_RETURN                           0xF3
+  GAS_CONST_G_MEMORY                        3)
 
 (module mxp)
 
@@ -231,9 +233,9 @@
                   (vanishes! CT)
                   (vanishes! INST))))
 
-;; (defconstraint type-flag-sum (:guard STAMP)
-;;   (eq! 1
-;;        (reduce + (for i [5] [MXP_TYPE i]))))
+(defconstraint type-flag-sum (:guard STAMP)
+  (eq! 1
+       (reduce + (for i [5] [MXP_TYPE i]))))
 
 (defconstraint counter-reset ()
   (if-not-zero (will-remain-constant! STAMP)
