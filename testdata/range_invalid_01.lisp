@@ -1,4 +1,4 @@
-;;error:2:1-2:blah
+;;error:4:1-15:malformed declaration
 (defcolumns X Y)
 
 (definrange X)
