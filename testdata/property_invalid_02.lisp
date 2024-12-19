@@ -1,3 +1,3 @@
-;;error:2:1-2:blah
+;;error:3:1-21:malformed declaration
 (defcolumns X)
 (defproperty p1 X X)
