@@ -1,3 +1,3 @@
-;;error:2:1-2:blah
+;;error:3:22-27:fixed-width type required
 (defcolumns X)
 (defpermutation (Z) ((+ X)))
