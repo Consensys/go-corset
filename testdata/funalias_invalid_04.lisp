@@ -1,2 +1,2 @@
-;;error:2:1-2:blah
+;;error:2:15-16:unknown symbol
 (defunalias X X)
