@@ -1,4 +1,4 @@
-;;error:2:1-2:blah
+;;error:4:25-26:not permitted in pure context
 (defcolumns A)
 ;; not pure!
 (defpurefun (id x) (+ x A))

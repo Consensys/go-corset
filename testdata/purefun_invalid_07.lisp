@@ -1,4 +1,4 @@
-;;error:2:1-2:blah
+;;error:5:25-31:not permitted in pure context
 (defcolumns A)
 (defun (getA) A)
 ;; not pure!
