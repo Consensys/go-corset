@@ -589,6 +589,7 @@ func Test_Invalid_Debug_02(t *testing.T) {
 // ===================================================================
 
 // Check that a given source file fails to compiler.
+// nolint
 func CheckInvalid(t *testing.T, test string) {
 	filename := fmt.Sprintf("%s/%s.lisp", InvalidTestDir, test)
 	// Enable testing each trace in parallel
