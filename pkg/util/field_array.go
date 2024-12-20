@@ -20,6 +20,8 @@ type Array[T comparable] interface {
 	Set(uint, T)
 	// Clone makes clones of this array producing an otherwise identical copy.
 	Clone() Array[T]
+	// Slice out a subregion of this array.
+	Slice(uint, uint) Array[T]
 	// Return the number of bits required to store an element of this array.
 	BitWidth() uint
 	// Insert a given number of copies of T at start of array producing an
@@ -122,6 +124,11 @@ func (p *FrElementArray) Clone() Array[fr.Element] {
 	return &FrElementArray{ndata, p.bitwidth}
 }
 
+// Slice out a subregion of this array.
+func (p *FrElementArray) Slice(start uint, end uint) Array[fr.Element] {
+	return &FrElementArray{p.elements[start:end], p.bitwidth}
+}
+
 // PadFront (i.e. insert at the beginning) this array with n copies of the given padding value.
 func (p *FrElementArray) PadFront(n uint, padding fr.Element) Array[fr.Element] {
 	// Allocate sufficient memory
@@ -218,6 +225,11 @@ func (p *FrPtrElementArray) Clone() Array[fr.Element] {
 	copy(ndata, p.elements)
 	//
 	return &FrPtrElementArray{ndata, p.bitwidth}
+}
+
+// Slice out a subregion of this array.
+func (p *FrPtrElementArray) Slice(start uint, end uint) Array[fr.Element] {
+	return &FrPtrElementArray{p.elements[start:end], p.bitwidth}
 }
 
 // PadFront (i.e. insert at the beginning) this array with n copies of the given padding value.
@@ -320,6 +332,11 @@ func (p *FrPoolArray[K, P]) Clone() Array[fr.Element] {
 	copy(ndata, p.elements)
 	//
 	return &FrPoolArray[K, P]{p.pool, ndata, p.bitwidth}
+}
+
+// Slice out a subregion of this array.
+func (p *FrPoolArray[K, P]) Slice(start uint, end uint) Array[fr.Element] {
+	return &FrPoolArray[K, P]{p.pool, p.elements[start:end], p.bitwidth}
 }
 
 // PadFront (i.e. insert at the beginning) this array with n copies of the given padding value.
