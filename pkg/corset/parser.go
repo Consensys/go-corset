@@ -1085,7 +1085,7 @@ func constantParserRule(symbol string) (Expr, bool, error) {
 		symbol = symbol[2:]
 		base = 16
 		name = "hexadecimal"
-	} else if (symbol[0] >= '0' && symbol[0] < '9') || symbol[0] == '-' {
+	} else if (symbol[0] >= '0' && symbol[0] <= '9') || symbol[0] == '-' {
 		base = 10
 		name = "integer"
 	} else {
