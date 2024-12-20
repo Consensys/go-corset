@@ -1273,7 +1273,7 @@ func isIdentifierStart(c rune) bool {
 }
 
 func isIdentifierMiddle(c rune) bool {
-	return unicode.IsDigit(c) || isIdentifierStart(c) || c == '-' || c == '!'
+	return unicode.IsDigit(c) || isIdentifierStart(c) || c == '-' || c == '!' || c == '@'
 }
 
 func isFunctionIdentifierStart(c rune) bool {
