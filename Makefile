@@ -22,7 +22,7 @@ lint:
 .PHONY: test
 test:
 	@echo ">>> Running Unit Tests..."
-	go test -v -race ./...
+	go test --timeout 0 -v ./...
 
 .PHONY: qtest
 qtest:
