@@ -95,6 +95,10 @@ func Test_Constant_07(t *testing.T) {
 	Check(t, false, "constant_07")
 }
 
+func Test_Constant_08(t *testing.T) {
+	Check(t, false, "constant_08")
+}
+
 // ===================================================================
 // Alias Tests
 // ===================================================================
@@ -794,19 +798,19 @@ func Check(t *testing.T, stdlib bool, test string) {
 		t.Fatalf("Error parsing %s: %v\n", filename, errs)
 	}
 	// Check valid traces are accepted
-	accepts_file := fmt.Sprintf("%s.%s", test, "accepts")
+	accepts_file := fmt.Sprintf("%s/%s.%s", TestDir, test, "accepts")
 	accepts := ReadTracesFile(accepts_file)
 	CheckTraces(t, accepts_file, true, true, accepts, schema)
 	// Check invalid traces are rejected
-	rejects_file := fmt.Sprintf("%s.%s", test, "rejects")
+	rejects_file := fmt.Sprintf("%s/%s.%s", TestDir, test, "rejects")
 	rejects := ReadTracesFile(rejects_file)
 	CheckTraces(t, rejects_file, false, true, rejects, schema)
 	// Check expanded traces are rejected
-	expands_file := fmt.Sprintf("%s.%s", test, "expanded")
+	expands_file := fmt.Sprintf("%s/%s.%s", TestDir, test, "expanded")
 	expands := ReadTracesFile(expands_file)
 	CheckTraces(t, expands_file, false, false, expands, schema)
 	// Check auto-generated valid traces (if applicable)
-	auto_accepts_file := fmt.Sprintf("%s.%s", test, "auto.accepts")
+	auto_accepts_file := fmt.Sprintf("%s/%s.%s", TestDir, test, "auto.accepts")
 	if auto_accepts := ReadTracesFileIfExists(auto_accepts_file); auto_accepts != nil {
 		CheckTraces(t, auto_accepts_file, true, true, auto_accepts, schema)
 	}

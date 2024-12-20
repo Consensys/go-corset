@@ -1047,15 +1047,19 @@ func ListOfExpressions(head sexp.SExp, exprs []Expr) *sexp.List {
 // any of the expressions are not themselves constant, then neither is the
 // result.
 func AsConstantOfExpressions(exprs []Expr, fn func(*big.Int, *big.Int) *big.Int) *big.Int {
-	var val *big.Int = big.NewInt(0)
+	var val *big.Int
 	//
 	for _, arg := range exprs {
 		c := arg.AsConstant()
 		if c == nil {
 			return nil
+		} else if val == nil {
+			// Initialise value
+			val = c
+		} else {
+			// Evaluate function
+			val = fn(val, c)
 		}
-		// Evaluate function
-		val = fn(val, c)
 	}
 	//
 	return val
