@@ -48,7 +48,7 @@ type Add struct{ Args []Expr }
 // AsConstant attempts to evaluate this expression as a constant (signed) value.
 // If this expression is not constant, then nil is returned.
 func (e *Add) AsConstant() *big.Int {
-	fn := func(l *big.Int, r *big.Int) *big.Int { l.Add(l, r); return l }
+	fn := func(l *big.Int, r *big.Int) { l.Add(l, r) }
 	return AsConstantOfExpressions(e.Args, fn)
 }
 
@@ -566,7 +566,7 @@ type Mul struct{ Args []Expr }
 // AsConstant attempts to evaluate this expression as a constant (signed) value.
 // If this expression is not constant, then nil is returned.
 func (e *Mul) AsConstant() *big.Int {
-	fn := func(l *big.Int, r *big.Int) *big.Int { l.Mul(l, r); return l }
+	fn := func(l *big.Int, r *big.Int) { l.Mul(l, r) }
 	return AsConstantOfExpressions(e.Args, fn)
 }
 
@@ -702,7 +702,7 @@ type Sub struct{ Args []Expr }
 // AsConstant attempts to evaluate this expression as a constant (signed) value.
 // If this expression is not constant, then nil is returned.
 func (e *Sub) AsConstant() *big.Int {
-	fn := func(l *big.Int, r *big.Int) *big.Int { l.Sub(l, r); return l }
+	fn := func(l *big.Int, r *big.Int) { l.Sub(l, r) }
 	return AsConstantOfExpressions(e.Args, fn)
 }
 
@@ -1046,23 +1046,22 @@ func ListOfExpressions(head sexp.SExp, exprs []Expr) *sexp.List {
 // given operation (e.g. add, subtract, etc) to produce a constant value.  If
 // any of the expressions are not themselves constant, then neither is the
 // result.
-func AsConstantOfExpressions(exprs []Expr, fn func(*big.Int, *big.Int) *big.Int) *big.Int {
-	var val *big.Int
+func AsConstantOfExpressions(exprs []Expr, fn func(*big.Int, *big.Int)) *big.Int {
+	var val big.Int
 	//
-	for _, arg := range exprs {
+	for i, arg := range exprs {
 		c := arg.AsConstant()
 		if c == nil {
 			return nil
-		} else if val == nil {
-			// Initialise value
-			val = c
+		} else if i == 0 {
+			// Must clone c
+			val.Set(c)
 		} else {
-			// Evaluate function
-			val = fn(val, c)
+			fn(&val, c)
 		}
 	}
 	//
-	return val
+	return &val
 }
 
 func determineMultiplicity(exprs []Expr) uint {

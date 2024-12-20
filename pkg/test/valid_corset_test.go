@@ -99,6 +99,10 @@ func Test_Constant_08(t *testing.T) {
 	Check(t, false, "constant_08")
 }
 
+func Test_Constant_09(t *testing.T) {
+	Check(t, false, "constant_09")
+}
+
 // ===================================================================
 // Alias Tests
 // ===================================================================
@@ -338,6 +342,10 @@ func Test_If_09(t *testing.T) {
 
 func Test_If_10(t *testing.T) {
 	Check(t, false, "if_10")
+}
+
+func Test_If_11(t *testing.T) {
+	Check(t, false, "if_11")
 }
 
 // ===================================================================
