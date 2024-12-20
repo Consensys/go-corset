@@ -269,6 +269,7 @@ func translateSExp[T comparable](p *Translator[T], s SExp) (T, []SyntaxError) {
 	}
 	// This should be unreachable.
 	typeof := reflect.TypeOf(s)
+	// But, if it is reached ... produce a nice error :)
 	return empty, p.SyntaxErrors(s, fmt.Sprintf("invalid s-expression (%s)", typeof))
 }
 
