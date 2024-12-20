@@ -660,6 +660,11 @@ func Test_PureFun_08(t *testing.T) {
 	Check(t, false, "purefun_08")
 }
 
+/* #479
+func Test_PureFun_09(t *testing.T) {
+	Check(t, false, "purefun_0")
+}
+*/
 // ===================================================================
 // For Loops
 // ===================================================================
@@ -772,10 +777,10 @@ func TestSlow_Wcp(t *testing.T) {
 	Check(t, true, "wcp")
 }
 
-/* func TestSlow_Mxp(t *testing.T) {
+func TestSlow_Mxp(t *testing.T) {
 	Check(t, true, "mxp")
 }
-*/
+
 // ===================================================================
 // Test Helpers
 // ===================================================================
