@@ -802,11 +802,10 @@ func TestSlow_Euc(t *testing.T) {
 	Check(t, true, "euc")
 }
 
-/*
-	 func TestSlow_Oob(t *testing.T) {
-		Check(t, true, "oob")
-	}
-*/
+func TestSlow_Oob(t *testing.T) {
+	Check(t, true, "oob")
+}
+
 func TestSlow_Stp(t *testing.T) {
 	Check(t, true, "stp")
 }
