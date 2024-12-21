@@ -660,6 +660,11 @@ func Test_PureFun_08(t *testing.T) {
 	Check(t, false, "purefun_08")
 }
 
+/* #479
+func Test_PureFun_09(t *testing.T) {
+	Check(t, false, "purefun_0")
+}
+*/
 // ===================================================================
 // For Loops
 // ===================================================================
@@ -764,8 +769,8 @@ func TestSlow_BinStatic(t *testing.T) {
 	Check(t, true, "bin-static")
 }
 
-func TestSlow_BinDynamic(t *testing.T) {
-	Check(t, true, "bin-dynamic")
+func TestSlow_Bin(t *testing.T) {
+	Check(t, true, "bin")
 }
 
 func TestSlow_Wcp(t *testing.T) {
@@ -774,6 +779,28 @@ func TestSlow_Wcp(t *testing.T) {
 
 /* func TestSlow_Mxp(t *testing.T) {
 	Check(t, true, "mxp")
+}
+*/
+/*
+	 func TestSlow_Shf(t *testing.T) {
+		Check(t, true, "shf")
+	}
+*/
+func TestSlow_Euc(t *testing.T) {
+	Check(t, true, "euc")
+}
+
+/*
+	 func TestSlow_Oob(t *testing.T) {
+		Check(t, true, "oob")
+	}
+*/
+func TestSlow_Stp(t *testing.T) {
+	Check(t, true, "stp")
+}
+
+/* func TestSlow_Mmio(t *testing.T) {
+	Check(t, true, "mmio")
 }
 */
 // ===================================================================
@@ -808,14 +835,17 @@ func Check(t *testing.T, stdlib bool, test string) {
 	// Check valid traces are accepted
 	accepts_file := fmt.Sprintf("%s/%s.%s", TestDir, test, "accepts")
 	accepts := ReadTracesFile(accepts_file)
+	ntests := len(accepts)
 	CheckTraces(t, accepts_file, true, true, accepts, schema)
 	// Check invalid traces are rejected
 	rejects_file := fmt.Sprintf("%s/%s.%s", TestDir, test, "rejects")
 	rejects := ReadTracesFile(rejects_file)
+	ntests += len(rejects)
 	CheckTraces(t, rejects_file, false, true, rejects, schema)
 	// Check expanded traces are rejected
 	expands_file := fmt.Sprintf("%s/%s.%s", TestDir, test, "expanded")
 	expands := ReadTracesFile(expands_file)
+	ntests += len(expands)
 	CheckTraces(t, expands_file, false, false, expands, schema)
 	// Check auto-generated valid traces (if applicable)
 	auto_accepts_file := fmt.Sprintf("%s/%s.%s", TestDir, test, "auto.accepts")
@@ -826,6 +856,10 @@ func Check(t *testing.T, stdlib bool, test string) {
 	auto_rejects_file := fmt.Sprintf("%s.%s", test, "auto.rejects")
 	if auto_rejects := ReadTracesFileIfExists(auto_rejects_file); auto_rejects != nil {
 		CheckTraces(t, auto_rejects_file, false, true, auto_rejects, schema)
+	}
+	//
+	if ntests == 0 {
+		panic(fmt.Sprintf("missing any tests for %s", test))
 	}
 }
 

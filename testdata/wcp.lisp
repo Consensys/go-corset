@@ -54,16 +54,18 @@
 
 ;; opcode values
 (defconst
-  WCP_INST_LEQ      0x0E
-  WCP_INST_GEQ      0x0F
-  EVM_INST_LT       16
-  EVM_INST_GT       17
-  EVM_INST_SLT      18
-  EVM_INST_SGT      19
-  EVM_INST_EQ       20
-  EVM_INST_ISZERO   21
-  LLARGE   16
-  LLARGEMO 15)
+  EVM_INST_LT                               0x10
+  EVM_INST_GT                               0x11
+  EVM_INST_SLT                              0x12
+  EVM_INST_SGT                              0x13
+  EVM_INST_EQ                               0x14
+  EVM_INST_ISZERO                           0x15
+  ;;
+  WCP_INST_GEQ                              0x0E
+  WCP_INST_LEQ                              0x0F
+  ;;
+  LLARGE                                    16
+  LLARGEMO                                  (- LLARGE 1))
 
 (module wcp)
 

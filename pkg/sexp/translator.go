@@ -1,6 +1,9 @@
 package sexp
 
-import "fmt"
+import (
+	"fmt"
+	"reflect"
+)
 
 // SymbolRule is a symbol generator is responsible for converting a terminating
 // expression (i.e. a symbol) into an expression type T.  For
@@ -265,7 +268,9 @@ func translateSExp[T comparable](p *Translator[T], s SExp) (T, []SyntaxError) {
 		}
 	}
 	// This should be unreachable.
-	return empty, p.SyntaxErrors(s, "invalid s-expression")
+	typeof := reflect.TypeOf(s)
+	// But, if it is reached ... produce a nice error :)
+	return empty, p.SyntaxErrors(s, fmt.Sprintf("invalid s-expression (%s)", typeof))
 }
 
 // Translate a list of S-Expressions into a unary, binary or n-ary
