@@ -805,11 +805,10 @@ func TestSlow_Mxp(t *testing.T) {
 	Check(t, true, "mxp")
 }
 
-/*
-	 func TestSlow_Shf(t *testing.T) {
-		Check(t, true, "shf")
-	}
-*/
+func TestSlow_Shf(t *testing.T) {
+	Check(t, true, "shf")
+}
+
 func TestSlow_Euc(t *testing.T) {
 	Check(t, true, "euc")
 }
