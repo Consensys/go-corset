@@ -366,7 +366,8 @@ func (p *Parser) parseColumnDeclarationAttributes(attrs []sexp.SExp) (Type, bool
 	var (
 		dataType  Type = NewFieldType()
 		mustProve bool = false
-		array     uint
+		array_min uint
+		array_max uint
 		err       *SyntaxError
 	)
 
@@ -396,7 +397,7 @@ func (p *Parser) parseColumnDeclarationAttributes(attrs []sexp.SExp) (Type, bool
 				return nil, false, p.translator.SyntaxError(ith, "unknown display definition")
 			}
 		case ":array":
-			if array, err = p.parseArrayDimension(attrs[i+1]); err != nil {
+			if array_min, array_max, err = p.parseArrayDimension(attrs[i+1]); err != nil {
 				return nil, false, err
 			}
 			// skip dimension
@@ -408,25 +409,34 @@ func (p *Parser) parseColumnDeclarationAttributes(attrs []sexp.SExp) (Type, bool
 		}
 	}
 	// Done
-	if array != 0 {
-		return NewArrayType(dataType, array), mustProve, nil
+	if array_max != 0 {
+		return NewArrayType(dataType, array_min, array_max), mustProve, nil
 	}
 	//
 	return dataType, mustProve, nil
 }
 
-func (p *Parser) parseArrayDimension(s sexp.SExp) (uint, *SyntaxError) {
+func (p *Parser) parseArrayDimension(s sexp.SExp) (uint, uint, *SyntaxError) {
 	dim := s.AsArray()
 	//
-	if dim == nil || dim.Len() != 1 || dim.Get(0).AsSymbol() == nil {
-		return 0, p.translator.SyntaxError(s, "invalid array dimension")
+	if dim == nil || dim.Get(0).AsSymbol() == nil || dim.Len() != 1 {
+		return 0, 0, p.translator.SyntaxError(s, "invalid array dimension")
+	} else {
+		// Check for interval dimensions
+		split := strings.Split(dim.Get(0).AsSymbol().Value, ":")
+		//
+		if len(split) == 0 || len(split) > 2 {
+			return 0, 0, p.translator.SyntaxError(s, "invalid array dimension")
+		} else if m, ok_m := strconv.Atoi(split[0]); len(split) == 1 && m >= 0 && ok_m == nil {
+			return uint(1), uint(m), nil
+		} else if ok_m != nil || m < 0 {
+			//unlikely scenarios
+		} else if n, ok_n := strconv.Atoi(split[1]); len(split) == 2 && n >= 0 && ok_n == nil {
+			return uint(m), uint(n), nil
+		}
 	}
 	//
-	if num, ok := strconv.Atoi(dim.Get(0).AsSymbol().Value); ok == nil && num >= 0 {
-		return uint(num), nil
-	}
-	//
-	return 0, p.translator.SyntaxError(s, "invalid array dimension")
+	return 0, 0, p.translator.SyntaxError(s, "invalid array dimension")
 }
 
 // Parse a constant declaration

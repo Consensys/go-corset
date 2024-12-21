@@ -2,6 +2,7 @@ package corset
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/hir"
@@ -109,7 +110,7 @@ func (t *translator) translateDefColumn(decl *DefColumn, module string) []Syntax
 	if arr_t, ok := decl.DataType().(*ArrayType); ok {
 		var errors []SyntaxError
 		// Handle array types
-		for i := uint(1); i <= arr_t.size; i++ {
+		for i := arr_t.min; i <= arr_t.max; i++ {
 			name := fmt.Sprintf("%s_%d", decl.name, i)
 			errs := t.translateRawColumn(decl, module, name, arr_t.element.AsUnderlying(), columnId)
 			errors = append(errors, errs...)
@@ -455,19 +456,26 @@ func (t *translator) translateExpressionInModule(expr Expr, module string, shift
 }
 
 func (t *translator) translateArrayAccessInModule(expr *ArrayAccess, shift int) (hir.Expr, []SyntaxError) {
-	var errors []SyntaxError
+	var (
+		errors []SyntaxError
+		min    uint = 0
+		max    uint = math.MaxUint
+	)
 	// Lookup the column
 	binding, ok := expr.Binding().(*ColumnBinding)
 	// Did we find it?
 	if !ok {
 		errors = append(errors, *t.srcmap.SyntaxError(expr.arg, "invalid array index encountered during translation"))
+	} else if arr_t, ok := binding.dataType.(*ArrayType); ok {
+		min = arr_t.min
+		max = arr_t.max
 	}
 	// Array index should be statically known
 	index := expr.arg.AsConstant()
 	//
 	if index == nil {
 		errors = append(errors, *t.srcmap.SyntaxError(expr.arg, "expected constant array index"))
-	} else if i := uint(index.Uint64()); i == 0 || (binding != nil && i > binding.dataType.Width()) {
+	} else if i := uint(index.Uint64()); i < min || i > max {
 		errors = append(errors, *t.srcmap.SyntaxError(expr.arg, "array index out-of-bounds"))
 	}
 	// Error check
@@ -476,8 +484,8 @@ func (t *translator) translateArrayAccessInModule(expr *ArrayAccess, shift int) 
 	}
 	// Lookup underlying column info
 	info := t.env.Column(binding.module, expr.Name())
-	// Update column id (remember indices start from 1)
-	columnId := info.cid + uint(index.Uint64()) - 1
+	// Update column id
+	columnId := info.cid + uint(index.Uint64()) - min
 	// Done
 	return &hir.ColumnAccess{Column: columnId, Shift: shift}, nil
 }
