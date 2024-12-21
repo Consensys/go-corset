@@ -1,2 +1,2 @@
-(defcolumns (X :i1@bool@prove) (Y :i4@loob))
-(defconstraint c1 () (if X Y))
+(defcolumns (BIT :i1@bool@prove) (X :i4@loob))
+(defconstraint c1 () (if BIT X))
