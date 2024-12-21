@@ -65,6 +65,15 @@ func NewColumnName(name string) *ColumnName {
 	return &ColumnName{name, false, nil, false}
 }
 
+// FunctionName represents a name used in a position where it can only be
+// resolved as a function.
+type FunctionName = Name[*DefunBinding]
+
+// NewFunctionName construct a new column name which is (initially) unresolved.
+func NewFunctionName(name string, binding *DefunBinding) *FunctionName {
+	return &FunctionName{name, true, binding, true}
+}
+
 // Name represents a name within some syntactic item.  Essentially this wraps a
 // string and provides a mechanism for it to be associated with source line
 // information.

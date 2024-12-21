@@ -714,7 +714,7 @@ func (p *Parser) parseDefProperty(elements []sexp.SExp) (Declaration, []SyntaxEr
 // Parse a permutation declaration
 func (p *Parser) parseDefFun(pure bool, elements []sexp.SExp) (Declaration, []SyntaxError) {
 	var (
-		name      string
+		name      *sexp.Symbol
 		ret       Type
 		params    []*DefParameter
 		errors    []SyntaxError
@@ -741,11 +741,14 @@ func (p *Parser) parseDefFun(pure bool, elements []sexp.SExp) (Declaration, []Sy
 	}
 	// Construct binding
 	binding := NewDefunBinding(pure, paramTypes, ret, body)
+	fn_name := NewFunctionName(name.Value, &binding)
+	// Update source mapping
+	p.mapSourceNode(name, fn_name)
 	//
-	return &DefFun{name, params, binding}, nil
+	return &DefFun{fn_name, params}, nil
 }
 
-func (p *Parser) parseFunctionSignature(elements []sexp.SExp) (string, Type, []*DefParameter, []SyntaxError) {
+func (p *Parser) parseFunctionSignature(elements []sexp.SExp) (*sexp.Symbol, Type, []*DefParameter, []SyntaxError) {
 	var (
 		params []*DefParameter = make([]*DefParameter, len(elements)-1)
 	)
@@ -761,13 +764,13 @@ func (p *Parser) parseFunctionSignature(elements []sexp.SExp) (string, Type, []*
 	}
 	// Check for any errors arising
 	if len(errors) > 0 {
-		return "", nil, nil, errors
+		return nil, nil, nil, errors
 	}
 	//
 	return name, ret, params, nil
 }
 
-func (p *Parser) parseFunctionNameReturn(element sexp.SExp) (string, Type, bool, []SyntaxError) {
+func (p *Parser) parseFunctionNameReturn(element sexp.SExp) (*sexp.Symbol, Type, bool, []SyntaxError) {
 	var (
 		err    *SyntaxError
 		name   sexp.SExp
@@ -786,7 +789,7 @@ func (p *Parser) parseFunctionNameReturn(element sexp.SExp) (string, Type, bool,
 			// Check what we have
 			if symbol == nil {
 				err := p.translator.SyntaxError(element, "modifier expected")
-				return "", nil, false, []SyntaxError{*err}
+				return nil, nil, false, []SyntaxError{*err}
 			} else if i == 0 {
 				name = symbol
 			} else {
@@ -795,7 +798,7 @@ func (p *Parser) parseFunctionNameReturn(element sexp.SExp) (string, Type, bool,
 					forced = true
 				default:
 					if ret, _, err = p.parseType(element); err != nil {
-						return "", nil, false, []SyntaxError{*err}
+						return nil, nil, false, []SyntaxError{*err}
 					}
 				}
 			}
@@ -803,11 +806,11 @@ func (p *Parser) parseFunctionNameReturn(element sexp.SExp) (string, Type, bool,
 	}
 	//
 	if isFunIdentifier(name) {
-		return name.AsSymbol().Value, ret, forced, nil
+		return name.AsSymbol(), ret, forced, nil
 	} else {
 		// Must be non-identifier symbol
 		err = p.translator.SyntaxError(element, "invalid function name")
-		return "", nil, false, []SyntaxError{*err}
+		return nil, nil, false, []SyntaxError{*err}
 	}
 }
 

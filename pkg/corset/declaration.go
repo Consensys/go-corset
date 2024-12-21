@@ -815,11 +815,9 @@ func (p *DefProperty) Lisp() sexp.SExp {
 // parameters).  In contrast, an impure function can access those columns
 // defined within its enclosing context.
 type DefFun struct {
-	name string
+	symbol *FunctionName
 	// Parameters
 	parameters []*DefParameter
-	//
-	binding DefunBinding
 }
 
 // IsFunction is always true for a function definition!
@@ -831,7 +829,7 @@ func (p *DefFun) IsFunction() bool {
 // which is not permitted to access any columns from the enclosing environment
 // (either directly itself, or indirectly via functions it calls).
 func (p *DefFun) IsPure() bool {
-	return p.binding.pure
+	return p.symbol.binding.pure
 }
 
 // Parameters returns information about the parameters defined by this
@@ -842,30 +840,30 @@ func (p *DefFun) Parameters() []*DefParameter {
 
 // Body Access information about the parameters defined by this declaration.
 func (p *DefFun) Body() Expr {
-	return p.binding.body
+	return p.symbol.binding.body
 }
 
 // Binding returns the allocated binding for this symbol (which may or may not
 // be finalised).
 func (p *DefFun) Binding() Binding {
-	return &p.binding
+	return p.symbol.binding
 }
 
 // Name of symbol being defined
 func (p *DefFun) Name() string {
-	return p.name
+	return p.symbol.name
 }
 
 // Definitions returns the set of symbols defined by this declaration.  Observe
 // that these may not yet have been finalised.
 func (p *DefFun) Definitions() util.Iterator[SymbolDefinition] {
-	iter := util.NewUnitIterator(p)
-	return util.NewCastIterator[*DefFun, SymbolDefinition](iter)
+	iter := util.NewUnitIterator(p.symbol)
+	return util.NewCastIterator[*FunctionName, SymbolDefinition](iter)
 }
 
 // Dependencies needed to signal declaration.
 func (p *DefFun) Dependencies() util.Iterator[Symbol] {
-	deps := p.binding.body.Dependencies()
+	deps := p.symbol.binding.body.Dependencies()
 	ndeps := make([]Symbol, 0)
 	// Filter out all parameters declared in this function, since these are not
 	// external dependencies.
@@ -881,13 +879,13 @@ func (p *DefFun) Dependencies() util.Iterator[Symbol] {
 // Defines checks whether this declaration defines the given symbol.  The symbol
 // in question needs to have been resolved already for this to make sense.
 func (p *DefFun) Defines(symbol Symbol) bool {
-	return &p.binding == symbol.Binding()
+	return p.symbol.binding == symbol.Binding()
 }
 
 // IsFinalised checks whether this declaration has already been finalised.  If
 // so, then we don't need to finalise it again.
 func (p *DefFun) IsFinalised() bool {
-	return p.binding.IsFinalised()
+	return p.symbol.binding.IsFinalised()
 }
 
 // Lisp converts this node into its lisp representation.  This is primarily used
@@ -895,7 +893,7 @@ func (p *DefFun) IsFinalised() bool {
 func (p *DefFun) Lisp() sexp.SExp {
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("defun"),
-		sexp.NewSymbol(p.name),
+		sexp.NewSymbol(p.symbol.name),
 		sexp.NewSymbol("..."), // todo
 	})
 }
