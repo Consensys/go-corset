@@ -193,8 +193,8 @@ func (p *Parser) parseModuleContents(module string, terms []sexp.SExp) ([]Declar
 			err := p.translator.SyntaxError(s, "unexpected or malformed declaration")
 			errors = append(errors, *err)
 		} else if e.MatchSymbols(2, "module") {
-			return decls, terms[i:], nil
-		} else if decl, errs := p.parseDeclaration(module, e); errs != nil {
+			return decls, terms[i:], errors
+		} else if decl, errs := p.parseDeclaration(module, e); len(errs) > 0 {
 			errors = append(errors, errs...)
 		} else {
 			// Continue accumulating declarations for this module.
