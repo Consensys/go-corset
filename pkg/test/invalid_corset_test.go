@@ -728,7 +728,7 @@ func extractSyntaxError(line string, offsets []int) *SyntaxError {
 	if strings.HasPrefix(line, ";;error") {
 		splits := strings.Split(line, ":")
 		span := determineFileSpan(splits[1], splits[2], offsets)
-		msg := splits[3]
+		msg := strings.Join(splits[3:], ":")
 		// Done
 		return &SyntaxError{span, msg}
 	}

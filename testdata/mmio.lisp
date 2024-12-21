@@ -75,6 +75,38 @@
   TLO   TARGET_LIMB_OFFSET
   TBO   TARGET_BYTE_OFFSET)
 
+(defconst
+  LLARGE                                    16
+  LLARGEMO                                  (- LLARGE 1)
+  ;;
+  EXO_SUM_INDEX_ROM                         0
+  EXO_SUM_INDEX_KEC                         1
+  EXO_SUM_INDEX_LOG                         2
+  EXO_SUM_INDEX_TXCD                        3
+  EXO_SUM_INDEX_ECDATA                      4
+  EXO_SUM_INDEX_RIPSHA                      5
+  EXO_SUM_INDEX_BLAKEMODEXP                 6
+  EXO_SUM_WEIGHT_ROM                        (^ 2 EXO_SUM_INDEX_ROM)
+  EXO_SUM_WEIGHT_KEC                        (^ 2 EXO_SUM_INDEX_KEC)
+  EXO_SUM_WEIGHT_LOG                        (^ 2 EXO_SUM_INDEX_LOG)
+  EXO_SUM_WEIGHT_TXCD                       (^ 2 EXO_SUM_INDEX_TXCD)
+  EXO_SUM_WEIGHT_ECDATA                     (^ 2 EXO_SUM_INDEX_ECDATA)
+  EXO_SUM_WEIGHT_RIPSHA                     (^ 2 EXO_SUM_INDEX_RIPSHA)
+  EXO_SUM_WEIGHT_BLAKEMODEXP                (^ 2 EXO_SUM_INDEX_BLAKEMODEXP)
+  ;;
+  MMIO_INST_LIMB_VANISHES                   0xfe01
+  MMIO_INST_LIMB_TO_RAM_TRANSPLANT          0xfe11
+  MMIO_INST_LIMB_TO_RAM_ONE_TARGET          0xfe12
+  MMIO_INST_LIMB_TO_RAM_TWO_TARGET          0xfe13
+  MMIO_INST_RAM_TO_LIMB_TRANSPLANT          0xfe21
+  MMIO_INST_RAM_TO_LIMB_ONE_SOURCE          0xfe22
+  MMIO_INST_RAM_TO_LIMB_TWO_SOURCE          0xfe23
+  MMIO_INST_RAM_TO_RAM_TRANSPLANT           0xfe31
+  MMIO_INST_RAM_TO_RAM_PARTIAL              0xfe32
+  MMIO_INST_RAM_TO_RAM_TWO_TARGET           0xfe33
+  MMIO_INST_RAM_TO_RAM_TWO_SOURCE           0xfe34
+  MMIO_INST_RAM_EXCISION                    0xfe41
+  MMIO_INST_RAM_VANISHES                    0xfe42)
 
 (module mmio)
 
