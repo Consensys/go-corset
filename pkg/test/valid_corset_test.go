@@ -103,6 +103,10 @@ func Test_Constant_09(t *testing.T) {
 	Check(t, false, "constant_09")
 }
 
+func Test_Constant_10(t *testing.T) {
+	Check(t, false, "constant_10")
+}
+
 // ===================================================================
 // Alias Tests
 // ===================================================================
@@ -818,9 +822,9 @@ func TestSlow_Stp(t *testing.T) {
 	Check(t, true, "stp")
 }
 
-/* func TestSlow_Mmio(t *testing.T) {
+func TestSlow_Mmio(t *testing.T) {
 	Check(t, true, "mmio")
-} */
+}
 
 // ===================================================================
 // Test Helpers

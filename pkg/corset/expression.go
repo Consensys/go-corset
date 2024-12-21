@@ -270,7 +270,11 @@ func (e *Exp) AsConstant() *big.Int {
 	pow := e.Pow.AsConstant()
 	// Check if can evaluate
 	if arg != nil && pow != nil {
-		return arg.Exp(arg, pow, nil)
+		var res big.Int
+		// Compute exponent
+		res.Exp(arg, pow, nil)
+		// Done
+		return &res
 	}
 	//
 	return nil
@@ -605,7 +609,14 @@ type Normalise struct{ Arg Expr }
 // AsConstant attempts to evaluate this expression as a constant (signed) value.
 // If this expression is not constant, then nil is returned.
 func (e *Normalise) AsConstant() *big.Int {
-	// FIXME: we could do better here.
+	if arg := e.Arg.AsConstant(); arg != nil {
+		if arg.Cmp(big.NewInt(0)) != 0 {
+			return big.NewInt(1)
+		}
+		// zero
+		return arg
+	}
+	//
 	return nil
 }
 

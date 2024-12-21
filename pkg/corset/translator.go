@@ -449,7 +449,7 @@ func (t *translator) translateExpressionInModule(expr Expr, module string, shift
 	case *Shift:
 		return t.translateShiftInModule(e, module, shift)
 	case *VariableAccess:
-		return t.translateVariableAccessInModule(e, module, shift)
+		return t.translateVariableAccessInModule(e, shift)
 	default:
 		return nil, t.srcmap.SyntaxErrors(expr, "unknown expression encountered during translation")
 	}
@@ -519,8 +519,7 @@ func (t *translator) translateShiftInModule(expr *Shift, module string, shift in
 	return t.translateExpressionInModule(expr.Arg, module, shift+int(constant.Int64()))
 }
 
-func (t *translator) translateVariableAccessInModule(expr *VariableAccess, module string,
-	shift int) (hir.Expr, []SyntaxError) {
+func (t *translator) translateVariableAccessInModule(expr *VariableAccess, shift int) (hir.Expr, []SyntaxError) {
 	if binding, ok := expr.Binding().(*ColumnBinding); ok {
 		// Lookup column binding
 		cinfo := t.env.Column(binding.module, expr.Name())
@@ -528,7 +527,11 @@ func (t *translator) translateVariableAccessInModule(expr *VariableAccess, modul
 		return &hir.ColumnAccess{Column: cinfo.ColumnId(), Shift: shift}, nil
 	} else if binding, ok := expr.Binding().(*ConstantBinding); ok {
 		// Just fill in the constant.
-		return t.translateExpressionInModule(binding.value, module, shift)
+		var constant fr.Element
+		// Initialise field from bigint
+		constant.SetBigInt(binding.value.AsConstant())
+		//
+		return &hir.Constant{Val: constant}, nil
 	}
 	// error
 	return nil, t.srcmap.SyntaxErrors(expr, "unbound variable")
