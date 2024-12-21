@@ -23,14 +23,16 @@ func ResolveCircuit(srcmap *sexp.SourceMaps[Node], circuit *Circuit) (*GlobalSco
 	}
 	// Construct resolver
 	r := resolver{srcmap}
-	// Allocate declared input columns
-	errs := r.resolveDeclarations(scope, circuit)
+	// Initialise all columns
+	errs1 := r.initialiseDeclarations(scope, circuit)
+	// Finalise all columns / declarations
+	errs2 := r.resolveDeclarations(scope, circuit)
 	//
-	if len(errs) > 0 {
-		return nil, errs
+	if len(errs1)+len(errs2) > 0 {
+		return nil, append(errs1, errs2...)
 	}
 	// Done
-	return scope, errs
+	return scope, nil
 }
 
 // Resolver packages up information necessary for resolving a circuit and
@@ -40,6 +42,22 @@ type resolver struct {
 	// source files.  This is needed when reporting syntax errors to generate
 	// highlights of the relevant source line(s) in question.
 	srcmap *sexp.SourceMaps[Node]
+}
+
+// Initialise all columns from their declaring constructs.
+func (r *resolver) initialiseDeclarations(scope *GlobalScope, circuit *Circuit) []SyntaxError {
+	// Input columns must be allocated before assignemts, since the hir.Schema
+	// separates these out.
+	errs := r.initialiseDeclarationsInModule(scope.Module(""), circuit.Declarations)
+	//
+	for _, m := range circuit.Modules {
+		// Process all declarations in the module
+		merrs := r.initialiseDeclarationsInModule(scope.Module(m.Name), m.Declarations)
+		// Package up all errors
+		errs = append(errs, merrs...)
+	}
+	//
+	return errs
 }
 
 // Process all assignment column declarations.  These are more complex than for
@@ -65,10 +83,6 @@ func (r *resolver) resolveDeclarations(scope *GlobalScope, circuit *Circuit) []S
 // to process all columns before we can sure that they are all declared
 // correctly.
 func (r *resolver) resolveDeclarationsInModule(scope *ModuleScope, decls []Declaration) []SyntaxError {
-	// Columns & Assignments
-	if errors := r.initialiseDeclarationsInModule(scope, decls); len(errors) > 0 {
-		return errors
-	}
 	// Aliases
 	if errors := r.initialiseAliasesInModule(scope, decls); len(errors) > 0 {
 		return errors
