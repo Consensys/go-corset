@@ -266,7 +266,7 @@
 ;;    2.5 shifting constraints   ;;
 ;;                               ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defun (left-shift-by k ct bit_b bit_n B1_init B2_init B1_shft B2_shft)
+(defun (left-shift-by k ct bit_b (bit_n :binary) B1_init B2_init B1_shft B2_shft)
   (begin (plateau-constraint ct bit_n (- LLARGE k))
          (if-zero bit_b
                   (begin (= B1_shft B1_init)
@@ -278,7 +278,7 @@
                                      (shift B2_init (- k LLARGE)))
                                   (vanishes! B2_shft))))))
 
-(defun (right-shift-by k ct neg inst bit_b bit_n B1_init B2_init B1_shft B2_shft)
+(defun (right-shift-by k ct neg inst bit_b (bit_n :binary) B1_init B2_init B1_shft B2_shft)
   (begin (plateau-constraint ct bit_n k)
          (if-zero bit_b
                   (begin (= B1_shft B1_init)
