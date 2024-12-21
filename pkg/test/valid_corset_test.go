@@ -842,6 +842,14 @@ func TestSlow_Gas(t *testing.T) {
 	Check(t, true, "exp")
 } */
 
+func TestSlow_Mul(t *testing.T) {
+	Check(t, true, "mul")
+}
+
+func TestSlow_Mod(t *testing.T) {
+	Check(t, true, "mod")
+}
+
 // ===================================================================
 // Test Helpers
 // ===================================================================

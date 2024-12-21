@@ -1,3 +1,7 @@
+(defconst
+    EVM_INST_LT                               0x10
+    WCP_INST_LEQ                              0x0F)
+
 (module gas)
 
 (defcolumns
