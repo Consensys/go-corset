@@ -36,6 +36,45 @@
   (OUTGOING_DATA :i128 :array [4])
   (OUTGOING_RES_LO :i128))
 
+(defconst
+  ;; Stop and Arithmetic Operations
+  EVM_INST_ADD                              0x01
+  EVM_INST_DIV                              0x04
+  EVM_INST_MOD                              0x06
+  ;; Comparison & Bitwise Logic Operations
+  EVM_INST_LT                               0x10
+  EVM_INST_GT                               0x11
+  EVM_INST_EQ                               0x14
+  EVM_INST_ISZERO                           0x15
+  ;;
+  MAX_CODE_SIZE                             24576
+  EIP2681_MAX_NONCE                         18446744073709551615               ;; = 2^64 - 1
+  ;;
+  GAS_CONST_G_CALL_STIPEND                  2300
+  ;;
+  OOB_INST_JUMP                             0x56
+  OOB_INST_JUMPI                            0x57
+  OOB_INST_RDC                              0x3E
+  OOB_INST_CDL                              0x35
+  OOB_INST_XCALL                            0xCC
+  OOB_INST_CALL                             0xCA
+  OOB_INST_CREATE                           0xCE
+  OOB_INST_SSTORE                           0x55
+  OOB_INST_DEPLOYMENT                       0xF3
+  OOB_INST_ECRECOVER                        0xFF01
+  OOB_INST_SHA2                             0xFF02
+  OOB_INST_RIPEMD                           0xFF03
+  OOB_INST_IDENTITY                         0xFF04
+  OOB_INST_ECADD                            0xFF06
+  OOB_INST_ECMUL                            0xFF07
+  OOB_INST_ECPAIRING                        0xFF08
+  OOB_INST_BLAKE_CDS                        0xFA09
+  OOB_INST_BLAKE_PARAMS                     0xFB09
+  OOB_INST_MODEXP_CDS                       0xFA05
+  OOB_INST_MODEXP_XBS                       0xFB05
+  OOB_INST_MODEXP_LEAD                      0xFC05
+  OOB_INST_MODEXP_PRICING                   0xFD05
+  OOB_INST_MODEXP_EXTRACT                   0xFE05)
 
 (module oob)
 

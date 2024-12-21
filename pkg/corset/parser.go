@@ -379,8 +379,22 @@ func (p *Parser) parseColumnDeclarationAttributes(attrs []sexp.SExp) (Type, bool
 		}
 		//
 		switch symbol.Value {
-		case ":display", ":opcode":
+		case ":display":
 			// skip these for now, as they are only relevant to the inspector.
+			if i+1 == len(attrs) {
+				return nil, false, p.translator.SyntaxError(ith, "incomplete display definition")
+			} else if attrs[i+1].AsSymbol() == nil {
+				return nil, false, p.translator.SyntaxError(ith, "malformed display definition")
+			}
+			// Check what display attribute we have
+			switch attrs[i+1].AsSymbol().String(false) {
+			case ":dec", ":hex", ":bytes", ":opcode":
+				// all good
+				i = i + 1
+			default:
+				// not good
+				return nil, false, p.translator.SyntaxError(ith, "unknown display definition")
+			}
 		case ":array":
 			if array, err = p.parseArrayDimension(attrs[i+1]); err != nil {
 				return nil, false, err
