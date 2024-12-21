@@ -825,6 +825,23 @@ func TestSlow_Mmio(t *testing.T) {
 	Check(t, true, "mmio")
 }
 
+func TestSlow_Rom(t *testing.T) {
+	Check(t, true, "rom")
+}
+
+func TestSlow_Mmu(t *testing.T) {
+	Check(t, true, "mmu")
+}
+
+func TestSlow_Gas(t *testing.T) {
+	Check(t, true, "gas")
+}
+
+/* #396
+   func TestSlow_Exp(t *testing.T) {
+	Check(t, true, "exp")
+} */
+
 // ===================================================================
 // Test Helpers
 // ===================================================================
