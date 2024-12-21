@@ -709,6 +709,14 @@ func Test_Array_03(t *testing.T) {
 	Check(t, false, "array_03")
 }
 
+func Test_Array_04(t *testing.T) {
+	Check(t, false, "array_04")
+}
+
+func Test_Array_05(t *testing.T) {
+	Check(t, false, "array_05")
+}
+
 // ===================================================================
 // Reduce
 // ===================================================================

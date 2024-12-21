@@ -207,13 +207,15 @@ func (p *NativeType) String() string {
 type ArrayType struct {
 	// element type
 	element Type
-	// array size
-	size uint
+	// min index
+	min uint
+	// max index
+	max uint
 }
 
 // NewArrayType constructs a new array type of a given (fixed) size.
-func NewArrayType(element Type, size uint) *ArrayType {
-	return &ArrayType{element, size}
+func NewArrayType(element Type, min uint, max uint) *ArrayType {
+	return &ArrayType{element, min, max}
 }
 
 // HasLoobeanSemantics indicates whether or not this type supports "loobean"
@@ -247,7 +249,7 @@ func (p *ArrayType) WithBooleanSemantics() Type {
 // Width returns the number of underlying columns represented by this column.
 // For example, an array of size n will expand into n underlying columns.
 func (p *ArrayType) Width() uint {
-	return p.size
+	return p.max - p.min + 1
 }
 
 // AsUnderlying attempts to convert this type into an underlying type.  If this
@@ -266,5 +268,5 @@ func (p *ArrayType) SubtypeOf(other Type) bool {
 }
 
 func (p *ArrayType) String() string {
-	return fmt.Sprintf("(%s)[%d]", p.element.String(), p.size)
+	return fmt.Sprintf("(%s)[%d:%d]", p.element.String(), p.min, p.max)
 }
