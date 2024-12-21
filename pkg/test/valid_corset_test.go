@@ -681,6 +681,10 @@ func Test_For_03(t *testing.T) {
 	Check(t, false, "for_03")
 }
 
+func Test_For_04(t *testing.T) {
+	Check(t, false, "for_04")
+}
+
 // ===================================================================
 // Arrays
 // ===================================================================
@@ -777,10 +781,10 @@ func TestSlow_Wcp(t *testing.T) {
 	Check(t, true, "wcp")
 }
 
-/* func TestSlow_Mxp(t *testing.T) {
+func TestSlow_Mxp(t *testing.T) {
 	Check(t, true, "mxp")
 }
-*/
+
 /*
 	 func TestSlow_Shf(t *testing.T) {
 		Check(t, true, "shf")
