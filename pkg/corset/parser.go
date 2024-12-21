@@ -1031,8 +1031,8 @@ func parseForRange(p *Parser, interval sexp.SExp) (uint, uint, []SyntaxError) {
 		// error
 		return 0, 0, p.translator.SyntaxErrors(interval, "invalid interval")
 	} else if len(splits) == 1 {
-		start, err1 = strconv.Atoi(splits[0])
-		end = start
+		end, err1 = strconv.Atoi(splits[0])
+		start = 1
 	} else if len(splits) == 2 {
 		start, err1 = strconv.Atoi(splits[0])
 		end, err2 = strconv.Atoi(splits[1])

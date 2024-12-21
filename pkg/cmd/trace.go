@@ -39,6 +39,9 @@ var traceCmd = &cobra.Command{
 		if filter != "" {
 			cols = filterColumns(cols, filter)
 		}
+		if start != 0 || end != math.MaxUint {
+			sliceColumns(cols, start, end)
+		}
 		if list {
 			listColumns(cols, includes)
 		}
@@ -51,7 +54,7 @@ var traceCmd = &cobra.Command{
 		}
 
 		if print {
-			printTrace(start, end, max_width, cols)
+			printTrace(start, max_width, cols)
 		}
 	},
 }
@@ -91,9 +94,25 @@ func filterColumns(cols []trace.RawColumn, regex string) []trace.RawColumn {
 	return ncols
 }
 
-func printTrace(start uint, end uint, max_width uint, cols []trace.RawColumn) {
+// Construct a new trace where all columns are sliced to a given region.  In
+// some cases, that might mean the column becomes entirely empty.
+func sliceColumns(cols []trace.RawColumn, start uint, end uint) {
+	// Now slice them columns.
+	for i := 0; i < len(cols); i++ {
+		ith := cols[i]
+		s := min(start, ith.Data.Len())
+		e := min(end, ith.Data.Len())
+		cols[i] = trace.RawColumn{
+			Module: ith.Module,
+			Name:   ith.Name,
+			Data:   ith.Data.Slice(s, e),
+		}
+	}
+}
+
+func printTrace(start uint, max_width uint, cols []trace.RawColumn) {
 	n := uint(len(cols))
-	height := min(maxHeightColumns(cols), end) - start
+	height := maxHeightColumns(cols)
 	tbl := util.NewTablePrinter(1+height, 1+n)
 
 	for j := uint(0); j < height; j++ {
@@ -104,13 +123,10 @@ func printTrace(start uint, end uint, max_width uint, cols []trace.RawColumn) {
 		ith := cols[i].Data
 		tbl.Set(0, i+1, cols[i].QualifiedName())
 
-		if start < ith.Len() {
-			ith_height := min(ith.Len(), end) - start
-			for j := uint(0); j < ith_height; j++ {
-				jth := ith.Get(j + start)
+		for j := uint(0); j < ith.Len(); j++ {
+			jth := ith.Get(j)
 
-				tbl.Set(j+1, i+1, jth.Text(16))
-			}
+			tbl.Set(j+1, i+1, jth.Text(16))
 		}
 	}
 	//

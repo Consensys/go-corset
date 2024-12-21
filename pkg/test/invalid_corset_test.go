@@ -593,8 +593,7 @@ func Test_Invalid_Debug_02(t *testing.T) {
 func CheckInvalid(t *testing.T, test string) {
 	filename := fmt.Sprintf("%s/%s.lisp", InvalidTestDir, test)
 	// Enable testing each trace in parallel
-	fmt.Println("*** DISABLED PARALLLISM")
-	// t.Parallel()
+	t.Parallel()
 	// Read constraints file
 	bytes, err := os.ReadFile(filename)
 	// Check test file read ok
