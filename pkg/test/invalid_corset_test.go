@@ -635,6 +635,10 @@ func Test_Invalid_Perspective_05(t *testing.T) {
 	CheckInvalid(t, "perspective_invalid_05")
 }
 
+func Test_Invalid_Perspective_06(t *testing.T) {
+	CheckInvalid(t, "perspective_invalid_06")
+}
+
 // ===================================================================
 // Test Helpers
 // ===================================================================

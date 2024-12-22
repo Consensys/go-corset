@@ -317,7 +317,7 @@ func (p *Parser) parseDefColumns(module string, l *sexp.List) (Declaration, []Sy
 	var errors []SyntaxError
 	// Process column declarations one by one.
 	for i := 1; i < len(l.Elements); i++ {
-		binding := NewInputColumnBinding(module, false, 1, NewFieldType())
+		binding := NewInputColumnBinding(module, "", false, 1, NewFieldType())
 		decl, err := p.parseColumnDeclaration(l.Elements[i], binding)
 		// Extract column name
 		if err != nil {
@@ -698,13 +698,16 @@ func (p *Parser) parseDefPerspective(module string, elements []sexp.SExp) (Decla
 	var (
 		errors       []SyntaxError
 		sexp_columns *sexp.List = elements[3].AsList()
-		sexp_handle             = elements[1].AsSymbol()
-		columns      []*DefColumn
+		//sexp_handle             = elements[1].AsSymbol()
+		columns     []*DefColumn
+		perspective string
 	)
 
 	// Initial sanity checks
 	if !isIdentifier(elements[1]) {
 		errors = p.translator.SyntaxErrors(elements[1], "expected constraint handle")
+	} else {
+		perspective = elements[1].AsSymbol().Value
 	}
 	// Check for columns
 	if sexp_columns == nil {
@@ -718,7 +721,7 @@ func (p *Parser) parseDefPerspective(module string, elements []sexp.SExp) (Decla
 		columns = make([]*DefColumn, sexp_columns.Len())
 
 		for i := 0; i < len(sexp_columns.Elements); i++ {
-			binding := NewInputColumnBinding(module, false, 1, NewFieldType())
+			binding := NewInputColumnBinding(module, perspective, false, 1, NewFieldType())
 			decl, err := p.parseColumnDeclaration(sexp_columns.Elements[i], binding)
 			// Extract column name
 			if err != nil {
@@ -733,7 +736,7 @@ func (p *Parser) parseDefPerspective(module string, elements []sexp.SExp) (Decla
 		return nil, errors
 	}
 	//
-	return &DefPerspective{sexp_handle.Value, selector, columns}, nil
+	return &DefPerspective{perspective, selector, columns}, nil
 }
 
 // Parse a property assertion

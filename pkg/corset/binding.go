@@ -149,6 +149,8 @@ type ColumnBinding struct {
 	cid uint
 	// Column's enclosing module
 	module string
+	// Enclosing perspective
+	perspective string
 	// Determines whether this is a computed column, or not.
 	computed bool
 	// Determines whether this column must be proven (or not).
@@ -162,8 +164,9 @@ type ColumnBinding struct {
 // NewInputColumnBinding constructs a new column binding in a given module.
 // This is for the case where all information about the column is already known,
 // and will not be inferred from elsewhere.
-func NewInputColumnBinding(module string, mustProve bool, multiplier uint, datatype Type) *ColumnBinding {
-	return &ColumnBinding{math.MaxUint, module, false, mustProve, multiplier, datatype}
+func NewInputColumnBinding(module string, perspective string, mustProve bool,
+	multiplier uint, datatype Type) *ColumnBinding {
+	return &ColumnBinding{math.MaxUint, module, perspective, false, mustProve, multiplier, datatype}
 }
 
 // NewComputedColumnBinding constructs a new column binding in a given
@@ -173,7 +176,7 @@ func NewInputColumnBinding(module string, mustProve bool, multiplier uint, datat
 // not immediately available and must be determined from those columns from
 // which it is constructed.
 func NewComputedColumnBinding(module string) *ColumnBinding {
-	return &ColumnBinding{math.MaxUint, module, true, false, 0, nil}
+	return &ColumnBinding{math.MaxUint, module, "", true, false, 0, nil}
 }
 
 // IsFinalised checks whether this binding has been finalised yet or not.
