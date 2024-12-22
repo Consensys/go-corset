@@ -336,7 +336,7 @@ func translateSExpArray[T comparable](p *Translator[T], l *Array) (T, []SyntaxEr
 	// Check whether we found one.
 	if t != nil {
 		node, errors = (t)(l)
-	} else if p.list_default != nil {
+	} else if p.array_default != nil {
 		node, err := (p.array_default)(l)
 		// Update source mapping
 		if err == nil {

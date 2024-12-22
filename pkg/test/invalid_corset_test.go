@@ -576,6 +576,10 @@ func Test_Invalid_Array_05(t *testing.T) {
 	CheckInvalid(t, "array_invalid_05")
 }
 
+func Test_Invalid_Array_06(t *testing.T) {
+	CheckInvalid(t, "array_invalid_06")
+}
+
 // ===================================================================
 // Reduce
 // ===================================================================
