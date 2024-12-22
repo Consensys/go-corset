@@ -59,27 +59,30 @@ func (p *preprocessor) preprocessDeclarationsInModule(module string, decls []Dec
 func (p *preprocessor) preprocessDeclaration(decl Declaration, module string) []SyntaxError {
 	var errors []SyntaxError
 	//
-	if _, ok := decl.(*DefAliases); ok {
+	switch d := decl.(type) {
+	case *DefAliases:
 		// ignore
-	} else if _, ok := decl.(*DefColumns); ok {
+	case *DefColumns:
 		// ignore
-	} else if _, ok := decl.(*DefConst); ok {
+	case *DefConst:
 		// ignore
-	} else if d, ok := decl.(*DefConstraint); ok {
+	case *DefConstraint:
 		errors = p.preprocessDefConstraint(d, module)
-	} else if _, ok := decl.(*DefFun); ok {
+	case *DefFun:
 		// ignore
-	} else if d, ok := decl.(*DefInRange); ok {
+	case *DefInRange:
 		errors = p.preprocessDefInRange(d, module)
-	} else if _, Ok := decl.(*DefInterleaved); Ok {
+	case *DefInterleaved:
 		// ignore
-	} else if d, ok := decl.(*DefLookup); ok {
+	case *DefLookup:
 		errors = p.preprocessDefLookup(d, module)
-	} else if _, Ok := decl.(*DefPermutation); Ok {
+	case *DefPermutation:
 		// ignore
-	} else if d, ok := decl.(*DefProperty); ok {
+	case *DefPerspective:
+		errors = p.preprocessDefPerspective(d, module)
+	case *DefProperty:
 		errors = p.preprocessDefProperty(d, module)
-	} else {
+	default:
 		// Error handling
 		panic("unknown declaration")
 	}
@@ -122,6 +125,15 @@ func (p *preprocessor) preprocessDefInRange(decl *DefInRange, module string) []S
 	// preprocess constraint body
 	decl.Expr, errors = p.preprocessExpressionInModule(decl.Expr, module)
 	// Done
+	return errors
+}
+
+// preprocess a "defperspective" declaration.
+func (p *preprocessor) preprocessDefPerspective(decl *DefPerspective, module string) []SyntaxError {
+	var errors []SyntaxError
+	// preprocess selector expression
+	decl.Selector, errors = p.preprocessExpressionInModule(decl.Selector, module)
+	// Combine errors
 	return errors
 }
 

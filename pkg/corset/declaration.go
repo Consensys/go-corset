@@ -396,6 +396,9 @@ type DefConstraint struct {
 	// constraint is active; otherwiser, its inactive. Nil is permitted to
 	// indicate no guard is present.
 	Guard Expr
+	// Perspective identifies the perspective to which this constraint is
+	// associated (if any).
+	Perspective *PerspectiveName
 	// The constraint itself which (when active) should evaluate to zero for the
 	// relevant set of rows.
 	Constraint Expr
@@ -761,13 +764,14 @@ type DefPerspective struct {
 
 // Dependencies needed to signal declaration.
 func (p *DefPerspective) Dependencies() util.Iterator[Symbol] {
-	return util.NewArrayIterator[Symbol](nil)
+	return util.NewArrayIterator(p.Selector.Dependencies())
 }
 
 // Definitions returns the set of symbols defined by this declaration.  Observe
 // that these may not yet have been finalised.
 func (p *DefPerspective) Definitions() util.Iterator[SymbolDefinition] {
 	iter := util.NewArrayIterator(p.Columns)
+	// Construct casting iterator
 	return util.NewCastIterator[*DefColumn, SymbolDefinition](iter)
 }
 

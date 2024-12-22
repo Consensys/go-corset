@@ -490,7 +490,7 @@ func (p *Parser) parseDefConstraint(elements []sexp.SExp) (Declaration, []Syntax
 	}
 	// Vanishing constraints do not have global scope, hence qualified column
 	// accesses are not permitted.
-	domain, guard, errs := p.parseConstraintAttributes(elements[2])
+	domain, guard, perspective, errs := p.parseConstraintAttributes(elements[2])
 	errors = append(errors, errs...)
 	// Translate expression
 	expr, errs := p.translator.Translate(elements[3])
@@ -500,7 +500,7 @@ func (p *Parser) parseDefConstraint(elements []sexp.SExp) (Declaration, []Syntax
 		return nil, errors
 	}
 	// Done
-	return &DefConstraint{elements[1].AsSymbol().Value, domain, guard, expr, false}, nil
+	return &DefConstraint{elements[1].AsSymbol().Value, domain, guard, perspective, expr, false}, nil
 }
 
 // Parse a interleaved declaration
@@ -717,7 +717,7 @@ func (p *Parser) parseDefPerspective(module string, elements []sexp.SExp) (Decla
 	if sexp_columns != nil {
 		columns = make([]*DefColumn, sexp_columns.Len())
 
-		for i := 1; i < len(sexp_columns.Elements); i++ {
+		for i := 0; i < len(sexp_columns.Elements); i++ {
 			binding := NewInputColumnBinding(module, false, 1, NewFieldType())
 			decl, err := p.parseColumnDeclaration(sexp_columns.Elements[i], binding)
 			// Extract column name
@@ -725,7 +725,7 @@ func (p *Parser) parseDefPerspective(module string, elements []sexp.SExp) (Decla
 				errors = append(errors, *err)
 			}
 			// Assign the declaration
-			columns[i-1] = decl
+			columns[i] = decl
 		}
 	}
 	// Error check
@@ -907,11 +907,13 @@ func (p *Parser) parseDefInRange(elements []sexp.SExp) (Declaration, []SyntaxErr
 	return &DefInRange{Expr: expr, Bound: bound}, nil
 }
 
-func (p *Parser) parseConstraintAttributes(attributes sexp.SExp) (domain *int, guard Expr, err []SyntaxError) {
+func (p *Parser) parseConstraintAttributes(attributes sexp.SExp) (domain *int, guard Expr,
+	perspective *PerspectiveName, err []SyntaxError) {
+	//
 	var errors []SyntaxError
 	// Check attribute list is a list
 	if attributes.AsList() == nil {
-		return nil, nil, p.translator.SyntaxErrors(attributes, "expected attribute list")
+		return nil, nil, nil, p.translator.SyntaxErrors(attributes, "expected attribute list")
 	}
 	// Deconstruct as list
 	attrs := attributes.AsList()
@@ -931,6 +933,10 @@ func (p *Parser) parseConstraintAttributes(attributes sexp.SExp) (domain *int, g
 			case ":guard":
 				i++
 				guard, errs = p.translator.Translate(attrs.Get(i))
+			case ":perspective":
+				i++
+				binding := NewPerspectiveBinding()
+				perspective, errs = parseSymbolName(p, attrs.Get(i), false, binding)
 			default:
 				errs = p.translator.SyntaxErrors(ith, "unknown attribute")
 			}
@@ -942,10 +948,21 @@ func (p *Parser) parseConstraintAttributes(attributes sexp.SExp) (domain *int, g
 	}
 	// Error Check
 	if len(errors) != 0 {
-		return nil, nil, errors
+		return nil, nil, nil, errors
 	}
 	// Done
-	return domain, guard, nil
+	return domain, guard, perspective, nil
+}
+
+// Parse a symbol name, which will include a binding.
+func parseSymbolName[T Binding](p *Parser, symbol sexp.SExp, function bool, binding T) (*Name[T], []SyntaxError) {
+	if !isEitherOrIdentifier(symbol, function) {
+		return nil, p.translator.SyntaxErrors(symbol, "expected identifier")
+	}
+	// Extract
+	name := symbol.AsSymbol().Value
+	// Construct
+	return &Name[T]{name, function, binding, false}, nil
 }
 
 func (p *Parser) parseDomainAttribute(attribute sexp.SExp) (domain *int, err []SyntaxError) {

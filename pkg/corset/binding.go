@@ -447,3 +447,22 @@ func (p *DefunBinding) Overload(overload *DefunBinding) (FunctionBinding, bool) 
 	//
 	return &OverloadedBinding{[]*DefunBinding{p, overload}}, true
 }
+
+// ============================================================================
+// Perspective
+// ============================================================================
+
+type PerspectiveBinding struct {
+	// Column bindings?
+}
+
+var _ Binding = &PerspectiveBinding{}
+
+func NewPerspectiveBinding() *PerspectiveBinding {
+	return &PerspectiveBinding{}
+}
+
+// IsFinalised checks whether this binding has been finalised yet or not.
+func (p *PerspectiveBinding) IsFinalised() bool {
+	return true
+}

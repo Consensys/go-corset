@@ -1,3 +1,5 @@
+(defpurefun ((vanishes! :@loob :force) e0) e0)
+;;
 (defcolumns
     ;; Column (not in perspective)
     A
