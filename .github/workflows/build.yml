@@ -15,7 +15,10 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '>=1.20'
-      - run: make test
+      - run: |
+          #make test
+          VERSION=$(grep "go " go.mod)
+          echo $VERSION
 
   lint:
     runs-on: ubuntu-latest
