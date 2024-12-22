@@ -74,6 +74,15 @@ func NewFunctionName(name string, binding *DefunBinding) *FunctionName {
 	return &FunctionName{name, true, binding, true}
 }
 
+// PerspectiveName represents a name used in a position where it can only be
+// resolved as a perspective.
+type PerspectiveName = Name[*PerspectiveBinding]
+
+// NewPerspectiveName construct a new column name which is (initially) unresolved.
+func NewPerspectiveName(name string, binding *PerspectiveBinding) *PerspectiveName {
+	return &PerspectiveName{name, true, binding, true}
+}
+
 // Name represents a name within some syntactic item.  Essentially this wraps a
 // string and provides a mechanism for it to be associated with source line
 // information.

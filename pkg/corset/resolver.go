@@ -273,21 +273,24 @@ func (r *resolver) declarationDependenciesAreFinalised(scope *ModuleScope,
 
 // Finalise a declaration.
 func (r *resolver) finaliseDeclaration(scope *ModuleScope, decl Declaration) []SyntaxError {
-	if d, ok := decl.(*DefConst); ok {
+	switch d := decl.(type) {
+	case *DefConst:
 		return r.finaliseDefConstInModule(scope, d)
-	} else if d, ok := decl.(*DefConstraint); ok {
+	case *DefConstraint:
 		return r.finaliseDefConstraintInModule(scope, d)
-	} else if d, ok := decl.(*DefFun); ok {
+	case *DefFun:
 		return r.finaliseDefFunInModule(scope, d)
-	} else if d, ok := decl.(*DefInRange); ok {
+	case *DefInRange:
 		return r.finaliseDefInRangeInModule(scope, d)
-	} else if d, ok := decl.(*DefInterleaved); ok {
+	case *DefInterleaved:
 		return r.finaliseDefInterleavedInModule(d)
-	} else if d, ok := decl.(*DefLookup); ok {
+	case *DefLookup:
 		return r.finaliseDefLookupInModule(scope, d)
-	} else if d, ok := decl.(*DefPermutation); ok {
+	case *DefPermutation:
 		return r.finaliseDefPermutationInModule(d)
-	} else if d, ok := decl.(*DefProperty); ok {
+	case *DefPerspective:
+		return r.finaliseDefPerspectiveInModule(scope, d)
+	case *DefProperty:
 		return r.finaliseDefPropertyInModule(scope, d)
 	}
 	//
@@ -301,7 +304,7 @@ func (r *resolver) finaliseDefConstInModule(enclosing Scope, decl *DefConst) []S
 	var errors []SyntaxError
 	//
 	for _, c := range decl.constants {
-		scope := NewLocalScope(enclosing, false, true)
+		scope := NewLocalScope(enclosing, false, true, "")
 		// Resolve constant body
 		datatype, errs := r.finaliseExpressionInModule(scope, c.binding.value)
 		// Accumulate errors
@@ -325,8 +328,14 @@ func (r *resolver) finaliseDefConstraintInModule(enclosing Scope, decl *DefConst
 	var (
 		guard_errors []SyntaxError
 		guard_t      Type
-		scope        = NewLocalScope(enclosing, false, false)
+		perspective  string = ""
 	)
+	// Identifiery enclosing perspective (if applicable)
+	if decl.Perspective != nil {
+		perspective = decl.Perspective.Name()
+	}
+	// Construct scope in which to resolve constraint
+	scope := NewLocalScope(enclosing, false, false, perspective)
 	// Resolve guard
 	if decl.Guard != nil {
 		guard_t, guard_errors = r.finaliseExpressionInModule(scope, decl.Guard)
@@ -425,12 +434,25 @@ func (r *resolver) finaliseDefPermutationInModule(decl *DefPermutation) []Syntax
 	return errors
 }
 
+// Resolve those variables appearing in the body of this property assertion.
+func (r *resolver) finaliseDefPerspectiveInModule(enclosing Scope, decl *DefPerspective) []SyntaxError {
+	scope := NewLocalScope(enclosing, false, false, "")
+	// Resolve assertion
+	_, errors := r.finaliseExpressionInModule(scope, decl.Selector)
+	// Error check
+	if len(errors) == 0 {
+		decl.Finalise()
+	}
+	// Done
+	return errors
+}
+
 // Finalise a range constraint declaration after all symbols have been
 // resolved. This involves: (a) checking the context is valid; (b) checking the
 // expressions are well-typed.
 func (r *resolver) finaliseDefInRangeInModule(enclosing Scope, decl *DefInRange) []SyntaxError {
 	var (
-		scope = NewLocalScope(enclosing, false, false)
+		scope = NewLocalScope(enclosing, false, false, "")
 	)
 	// Resolve property body
 	_, errors := r.finaliseExpressionInModule(scope, decl.Expr)
@@ -445,7 +467,7 @@ func (r *resolver) finaliseDefInRangeInModule(enclosing Scope, decl *DefInRange)
 // function.
 func (r *resolver) finaliseDefFunInModule(enclosing Scope, decl *DefFun) []SyntaxError {
 	var (
-		scope = NewLocalScope(enclosing, false, decl.IsPure())
+		scope = NewLocalScope(enclosing, false, decl.IsPure(), "")
 	)
 	// Declare parameters in local scope
 	for _, p := range decl.Parameters() {
@@ -464,8 +486,8 @@ func (r *resolver) finaliseDefFunInModule(enclosing Scope, decl *DefFun) []Synta
 // Resolve those variables appearing in the body of this lookup constraint.
 func (r *resolver) finaliseDefLookupInModule(enclosing Scope, decl *DefLookup) []SyntaxError {
 	var (
-		sourceScope = NewLocalScope(enclosing, true, false)
-		targetScope = NewLocalScope(enclosing, true, false)
+		sourceScope = NewLocalScope(enclosing, true, false, "")
+		targetScope = NewLocalScope(enclosing, true, false, "")
 	)
 	// Resolve source expressions
 	_, source_errors := r.finaliseExpressionsInModule(sourceScope, decl.Sources)
@@ -477,9 +499,7 @@ func (r *resolver) finaliseDefLookupInModule(enclosing Scope, decl *DefLookup) [
 
 // Resolve those variables appearing in the body of this property assertion.
 func (r *resolver) finaliseDefPropertyInModule(enclosing Scope, decl *DefProperty) []SyntaxError {
-	var (
-		scope = NewLocalScope(enclosing, false, false)
-	)
+	scope := NewLocalScope(enclosing, false, false, "")
 	// Resolve assertion
 	_, errors := r.finaliseExpressionInModule(scope, decl.Assertion)
 	// Done
@@ -739,6 +759,8 @@ func (r *resolver) finaliseVariableInModule(scope LocalScope,
 			return nil, r.srcmap.SyntaxErrors(expr, "conflicting context")
 		} else if scope.IsPure() {
 			return nil, r.srcmap.SyntaxErrors(expr, "not permitted in pure context")
+		} else if binding.perspective != "" && scope.perspective != binding.perspective {
+			return nil, r.srcmap.SyntaxErrors(expr, "not visible here")
 		}
 		// Use column's datatype
 		return binding.dataType, nil

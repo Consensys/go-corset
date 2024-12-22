@@ -80,9 +80,13 @@ func (t *translator) translateInputColumns(circuit *Circuit) []SyntaxError {
 func (t *translator) translateInputColumnsInModule(module string, decls []Declaration) []SyntaxError {
 	var errors []SyntaxError
 	//
-	for _, d := range decls {
-		if dcols, ok := d.(*DefColumns); ok {
-			errs := t.translateDefColumns(dcols, module)
+	for _, decl := range decls {
+		switch d := decl.(type) {
+		case *DefColumns:
+			errs := t.translateDefColumns(d, module)
+			errors = append(errors, errs...)
+		case *DefPerspective:
+			errs := t.translateDefPerspective(d, module)
 			errors = append(errors, errs...)
 		}
 	}
@@ -92,6 +96,18 @@ func (t *translator) translateInputColumnsInModule(module string, decls []Declar
 
 // Translate a "defcolumns" declaration.
 func (t *translator) translateDefColumns(decl *DefColumns, module string) []SyntaxError {
+	var errors []SyntaxError
+	// Add each column to schema
+	for _, c := range decl.Columns {
+		errs := t.translateDefColumn(c, module)
+		errors = append(errors, errs...)
+	}
+	//
+	return errors
+}
+
+// Translate a "defperspective" declaration.
+func (t *translator) translateDefPerspective(decl *DefPerspective, module string) []SyntaxError {
 	var errors []SyntaxError
 	// Add each column to schema
 	for _, c := range decl.Columns {
@@ -174,28 +190,31 @@ func (t *translator) translateOtherDeclarationsInModule(module string, decls []D
 func (t *translator) translateDeclaration(decl Declaration, module string) []SyntaxError {
 	var errors []SyntaxError
 	//
-	if _, ok := decl.(*DefAliases); ok {
+	switch d := decl.(type) {
+	case *DefAliases:
 		// Not an assignment or a constraint, hence ignore.
-	} else if _, ok := decl.(*DefColumns); ok {
+	case *DefColumns:
 		// Not an assignment or a constraint, hence ignore.
-	} else if _, ok := decl.(*DefConst); ok {
+	case *DefConst:
 		// For now, constants are always compiled out when going down to HIR.
-	} else if d, ok := decl.(*DefConstraint); ok {
+	case *DefConstraint:
 		errors = t.translateDefConstraint(d, module)
-	} else if _, ok := decl.(*DefFun); ok {
+	case *DefFun:
 		// For now, functions are always compiled out when going down to HIR.
 		// In the future, this might change if we add support for macros to HIR.
-	} else if d, ok := decl.(*DefInRange); ok {
+	case *DefInRange:
 		errors = t.translateDefInRange(d, module)
-	} else if d, Ok := decl.(*DefInterleaved); Ok {
+	case *DefInterleaved:
 		errors = t.translateDefInterleaved(d, module)
-	} else if d, ok := decl.(*DefLookup); ok {
+	case *DefLookup:
 		errors = t.translateDefLookup(d, module)
-	} else if d, Ok := decl.(*DefPermutation); Ok {
+	case *DefPermutation:
 		errors = t.translateDefPermutation(d, module)
-	} else if d, ok := decl.(*DefProperty); ok {
+	case *DefPerspective:
+		// As for defcolumns, nothing generated here.
+	case *DefProperty:
 		errors = t.translateDefProperty(d, module)
-	} else {
+	default:
 		// Error handling
 		panic("unknown declaration")
 	}
@@ -209,16 +228,25 @@ func (t *translator) translateDefConstraint(decl *DefConstraint, module string) 
 	constraint, errors := t.translateExpressionInModule(decl.Constraint, module, 0)
 	// Translate (optional) guard
 	guard, guard_errors := t.translateOptionalExpressionInModule(decl.Guard, module, 0)
+	// Translate (optional) perspective selector
+	selector, selector_errors := t.translateSelectorInModule(decl.Perspective, module)
 	// Combine errors
 	errors = append(errors, guard_errors...)
+	errors = append(errors, selector_errors...)
 	// Apply guard
 	if constraint == nil {
 		// NOTE: in this case, the constraint itself has been translated as nil.
 		// This means there is no constraint (e.g. its a debug constraint, but
 		// debug mode is not enabled).
 		return errors
-	} else if guard != nil {
+	}
+	// Apply guard (if applicable)
+	if guard != nil {
 		constraint = &hir.Mul{Args: []hir.Expr{guard, constraint}}
+	}
+	// Apply perspective selector (if applicable)
+	if selector != nil {
+		constraint = &hir.Mul{Args: []hir.Expr{selector, constraint}}
 	}
 	//
 	if len(errors) == 0 {
@@ -238,6 +266,17 @@ func (t *translator) translateDefConstraint(decl *DefConstraint, module string) 
 	}
 	// Done
 	return errors
+}
+
+// Translate the selector for the perspective of a defconstraint.  Observe that
+// a defconstraint may not be part of a perspective and, hence, would have no
+// selector.
+func (t *translator) translateSelectorInModule(perspective *PerspectiveName, module string) (hir.Expr, []SyntaxError) {
+	if perspective != nil {
+		return t.translateExpressionInModule(perspective.binding.selector, module, 0)
+	}
+	//
+	return nil, nil
 }
 
 // Translate a "deflookup" declaration.
