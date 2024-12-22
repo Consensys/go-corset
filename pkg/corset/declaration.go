@@ -745,6 +745,57 @@ func (p *DefPermutation) Lisp() sexp.SExp {
 }
 
 // ============================================================================
+// defperspective
+// ============================================================================
+
+// DefPerspective captures the definition of a perspective, its selector and  a
+// set of one or more columns being declared within.
+type DefPerspective struct {
+	// Name of the perspective.
+	Name string
+	// Selector for the perspective.
+	Selector Expr
+	// Columns defined in this perspective.
+	Columns []*DefColumn
+}
+
+// Dependencies needed to signal declaration.
+func (p *DefPerspective) Dependencies() util.Iterator[Symbol] {
+	return util.NewArrayIterator[Symbol](nil)
+}
+
+// Definitions returns the set of symbols defined by this declaration.  Observe
+// that these may not yet have been finalised.
+func (p *DefPerspective) Definitions() util.Iterator[SymbolDefinition] {
+	iter := util.NewArrayIterator(p.Columns)
+	return util.NewCastIterator[*DefColumn, SymbolDefinition](iter)
+}
+
+// Defines checks whether this declaration defines the given symbol.  The symbol
+// in question needs to have been resolved already for this to make sense.
+func (p *DefPerspective) Defines(symbol Symbol) bool {
+	for _, sym := range p.Columns {
+		if &sym.binding == symbol.Binding() {
+			return true
+		}
+	}
+	//
+	return false
+}
+
+// IsFinalised checks whether this declaration has already been finalised.  If
+// so, then we don't need to finalise it again.
+func (p *DefPerspective) IsFinalised() bool {
+	return true
+}
+
+// Lisp converts this node into its lisp representation.  This is primarily used
+// for debugging purposes.
+func (p *DefPerspective) Lisp() sexp.SExp {
+	panic("todo")
+}
+
+// ============================================================================
 // defproperty
 // ============================================================================
 

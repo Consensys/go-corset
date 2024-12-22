@@ -257,6 +257,8 @@ func (p *Parser) parseDeclaration(module string, s *sexp.List) (Declaration, []S
 		decl, errors = p.parseDefLookup(s.Elements)
 	} else if s.Len() == 3 && s.MatchSymbols(2, "defpermutation") {
 		decl, errors = p.parseDefPermutation(module, s.Elements)
+	} else if s.Len() == 4 && s.MatchSymbols(2, "defperspective") {
+		decl, errors = p.parseDefPerspective(module, s.Elements)
 	} else if s.Len() == 3 && s.MatchSymbols(2, "defproperty") {
 		decl, errors = p.parseDefProperty(s.Elements)
 	} else {
@@ -689,6 +691,49 @@ func (p *Parser) parsePermutedColumnSign(sign *sexp.Symbol) (bool, *SyntaxError)
 	default:
 		return false, p.translator.SyntaxError(sign, "malformed sort direction")
 	}
+}
+
+// Parse a perspective declaration
+func (p *Parser) parseDefPerspective(module string, elements []sexp.SExp) (Declaration, []SyntaxError) {
+	var (
+		errors       []SyntaxError
+		sexp_columns *sexp.List = elements[3].AsList()
+		sexp_handle             = elements[1].AsSymbol()
+		columns      []*DefColumn
+	)
+
+	// Initial sanity checks
+	if !isIdentifier(elements[1]) {
+		errors = p.translator.SyntaxErrors(elements[1], "expected constraint handle")
+	}
+	// Check for columns
+	if sexp_columns == nil {
+		errors = p.translator.SyntaxErrors(elements[3], "expected column declarations")
+	}
+	// Translate selector
+	selector, errs := p.translator.Translate(elements[2])
+	errors = append(errors, errs...)
+	// Process column declarations one by one.
+	if sexp_columns != nil {
+		columns = make([]*DefColumn, sexp_columns.Len())
+
+		for i := 1; i < len(sexp_columns.Elements); i++ {
+			binding := NewInputColumnBinding(module, false, 1, NewFieldType())
+			decl, err := p.parseColumnDeclaration(sexp_columns.Elements[i], binding)
+			// Extract column name
+			if err != nil {
+				errors = append(errors, *err)
+			}
+			// Assign the declaration
+			columns[i-1] = decl
+		}
+	}
+	// Error check
+	if len(errors) != 0 {
+		return nil, errors
+	}
+	//
+	return &DefPerspective{sexp_handle.Value, selector, columns}, nil
 }
 
 // Parse a property assertion
