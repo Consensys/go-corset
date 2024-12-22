@@ -989,7 +989,9 @@ func Substitute(expr Expr, mapping map[uint]Expr, srcmap *sexp.SourceMaps[Node])
 		} else if e2, ok2 := mapping[b.index]; !ok2 {
 			return e
 		} else {
-			return e2
+			// Shallow copy the node to ensure it is unique and, hence, can have
+			// the source mapping associated with e.
+			nexpr = ShallowCopy(e2)
 		}
 	default:
 		panic(fmt.Sprintf("unknown expression (%s)", reflect.TypeOf(expr)))
@@ -1023,6 +1025,47 @@ func SubstituteOptional(expr Expr, mapping map[uint]Expr, srcmap *sexp.SourceMap
 	}
 	//
 	return expr
+}
+
+// ShallowCopy creates a copy of the expression itself, but not those
+// expressions it contains (if any).  This is useful in e.g. situations where we
+// want to assocate different souce file information with a specific expression.
+func ShallowCopy(expr Expr) Expr {
+	//
+	switch e := expr.(type) {
+	case *ArrayAccess:
+		return &ArrayAccess{e.name, e.arg, e.binding}
+	case *Add:
+		return &Add{e.Args}
+	case *Constant:
+		return &Constant{e.Val}
+	case *Debug:
+		return &Debug{e.Arg}
+	case *Exp:
+		return &Exp{e.Arg, e.Pow}
+	case *For:
+		return &For{e.Binding, e.Start, e.End, e.Body}
+	case *If:
+		return &If{e.kind, e.Condition, e.TrueBranch, e.FalseBranch}
+	case *Invoke:
+		return &Invoke{e.fn, e.signature, e.args}
+	case *List:
+		return &List{e.Args}
+	case *Mul:
+		return &Mul{e.Args}
+	case *Normalise:
+		return &Normalise{e.Arg}
+	case *Reduce:
+		return &Reduce{e.fn, e.signature, e.arg}
+	case *Sub:
+		return &Sub{e.Args}
+	case *Shift:
+		return &Shift{e.Arg, e.Shift}
+	case *VariableAccess:
+		return &VariableAccess{e.module, e.name, e.fn, e.binding}
+	default:
+		panic(fmt.Sprintf("unknown expression (%s)", reflect.TypeOf(expr)))
+	}
 }
 
 // DependenciesOfExpressions determines the dependencies for a given set of zero
