@@ -455,7 +455,7 @@ func (r *resolver) finaliseDefFunInModule(enclosing Scope, decl *DefFun) []Synta
 	datatype, errors := r.finaliseExpressionInModule(scope, decl.Body())
 	// Finalise declaration
 	if len(errors) == 0 {
-		decl.binding.Finalise(datatype)
+		decl.symbol.binding.Finalise(datatype)
 	}
 	// Done
 	return errors
