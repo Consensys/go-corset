@@ -56,10 +56,10 @@ func (t *translator) translateModules(circuit *Circuit) {
 	// Add nested modules
 	for _, m := range circuit.Modules {
 		mid := t.schema.AddModule(m.Name)
-		aid := t.env.Module(m.Name).mid
+		info := t.env.Module(m.Name)
 		// Sanity check everything lines up.
-		if aid != mid {
-			panic(fmt.Sprintf("Invalid module identifier: %d vs %d", mid, aid))
+		if info.Id != mid {
+			panic(fmt.Sprintf("Invalid module identifier: %d vs %d", mid, info.Id))
 		}
 	}
 }
@@ -121,37 +121,37 @@ func (t *translator) translateDefPerspective(decl *DefPerspective, module string
 // Translate a "defcolumns" declaration.
 func (t *translator) translateDefColumn(decl *DefColumn, module string) []SyntaxError {
 	// Extract base columnd ID
-	columnId := t.env.Column(module, decl.Name()).cid
 	//
 	if arr_t, ok := decl.DataType().(*ArrayType); ok {
 		var errors []SyntaxError
 		// Handle array types
 		for i := arr_t.min; i <= arr_t.max; i++ {
 			name := fmt.Sprintf("%s_%d", decl.name, i)
-			errs := t.translateRawColumn(decl, module, name, arr_t.element.AsUnderlying(), columnId)
+			errs := t.translateRawColumn(decl, module, name, arr_t.element.AsUnderlying())
 			errors = append(errors, errs...)
-			columnId++
 		}
 		//
 		return errors
 	} else {
-		return t.translateRawColumn(decl, module, decl.name, decl.DataType().AsUnderlying(), columnId)
+		return t.translateRawColumn(decl, module, decl.name, decl.DataType().AsUnderlying())
 	}
 }
 
-func (t *translator) translateRawColumn(decl *DefColumn, module string, name string,
-	datatype sc.Type, columnId uint) []SyntaxError {
-	//
-	context := t.env.ContextFrom(module, decl.LengthMultiplier())
+func (t *translator) translateRawColumn(decl *DefColumn, module string, name string, datatype sc.Type) []SyntaxError {
+	// Construct suitable context
+	context := t.env.Module(module).Context(decl.LengthMultiplier())
+	// Declare column at HIR level.
 	cid := t.schema.AddDataColumn(context, name, datatype)
 	// Prove type (if requested)
 	if decl.MustProve() {
 		bound := datatype.AsUint().Bound()
 		t.schema.AddRangeConstraint(name, context, &hir.ColumnAccess{Column: cid, Shift: 0}, bound)
 	}
-	// Sanity check column identifier
-	if columnId != cid {
-		msg := fmt.Sprintf("invalid column identifier (expected %d got %d)", columnId, cid)
+	// Determine underlying register id
+	registerId, _ := t.env.RegisterOf(module, name)
+	// Sanity check register id
+	if registerId != cid {
+		msg := fmt.Sprintf("invalid column identifier (expected %d got %d)", registerId, cid)
 		err := t.srcmap.SyntaxError(decl, msg)
 		//
 		return []SyntaxError{*err}
@@ -257,8 +257,6 @@ func (t *translator) translateDefConstraint(decl *DefConstraint, module string) 
 			if constraint.Multiplicity() != 0 {
 				return t.srcmap.SyntaxErrors(decl, "constraint is a constant")
 			}
-		} else if context.Module() != t.env.Module(module).mid {
-			return t.srcmap.SyntaxErrors(decl, "invalid context inferred")
 		} else {
 			// Add translated constraint
 			t.schema.AddVanishingConstraint(decl.Handle, context, decl.Domain, constraint)
@@ -290,8 +288,8 @@ func (t *translator) translateDefLookup(decl *DefLookup, module string) []Syntax
 	errors := append(src_errs, tgt_errs...)
 	//
 	if len(errors) == 0 {
-		src_context := t.env.ToContext(ContextOfExpressions(decl.Sources))
-		target_context := t.env.ToContext(ContextOfExpressions(decl.Targets))
+		src_context := t.env.ContextOf(ContextOfExpressions(decl.Sources))
+		target_context := t.env.ContextOf(ContextOfExpressions(decl.Targets))
 		// Add translated constraint
 		t.schema.AddLookupConstraint(decl.Handle, src_context, target_context, sources, targets)
 	}
@@ -305,7 +303,7 @@ func (t *translator) translateDefInRange(decl *DefInRange, module string) []Synt
 	expr, errors := t.translateExpressionInModule(decl.Expr, module, 0)
 	//
 	if len(errors) == 0 {
-		context := t.env.ContextFrom(module, 1)
+		context := expr.Context(t.schema)
 		// Add translated constraint
 		t.schema.AddRangeConstraint("", context, expr, decl.Bound)
 	}
@@ -319,19 +317,15 @@ func (t *translator) translateDefInterleaved(decl *DefInterleaved, module string
 	//
 	sources := make([]uint, len(decl.Sources))
 	// Lookup target column info
-	info := t.env.Column(module, decl.Target.Name())
+	targetId, target := t.env.RegisterOf(module, decl.Target.Name())
 	// Determine source column identifiers
 	for i, source := range decl.Sources {
-		sources[i] = t.env.Column(module, source.Name()).ColumnId()
+		sources[i], _ = t.env.RegisterOf(module, source.Name())
 	}
-	// Construct context for this assignment
-	context := t.env.ContextFrom(module, info.multiplier)
-	// Extract underlying datatype
-	datatype := info.dataType.AsUnderlying()
 	// Register assignment
-	cid := t.schema.AddAssignment(assignment.NewInterleaving(context, decl.Target.Name(), sources, datatype))
+	cid := t.schema.AddAssignment(assignment.NewInterleaving(target.Context, target.Name, sources, target.DataType))
 	// Sanity check column identifiers align.
-	if cid != info.ColumnId() {
+	if cid != targetId {
 		errors = append(errors, *t.srcmap.SyntaxError(decl, "invalid column identifier"))
 	}
 	// Done
@@ -342,7 +336,7 @@ func (t *translator) translateDefInterleaved(decl *DefInterleaved, module string
 func (t *translator) translateDefPermutation(decl *DefPermutation, module string) []SyntaxError {
 	var (
 		errors   []SyntaxError
-		context  tr.Context
+		context  tr.Context = tr.VoidContext[uint]()
 		firstCid uint
 	)
 	//
@@ -351,18 +345,17 @@ func (t *translator) translateDefPermutation(decl *DefPermutation, module string
 	sources := make([]uint, len(decl.Sources))
 	//
 	for i := 0; i < len(decl.Sources); i++ {
-		target := t.env.Column(module, decl.Targets[i].Name())
-		context = t.env.ContextFrom(module, target.multiplier)
-		// Extract underlying datatype
-		datatype := target.dataType.AsUnderlying()
+		targetId, target := t.env.RegisterOf(module, decl.Targets[i].Name())
 		// Construct columns
-		targets[i] = sc.NewColumn(context, decl.Targets[i].Name(), datatype)
-		sources[i] = t.env.Column(module, decl.Sources[i].Name()).ColumnId()
+		targets[i] = sc.NewColumn(target.Context, target.Name, target.DataType)
+		sources[i], _ = t.env.RegisterOf(module, decl.Sources[i].Name())
 		signs[i] = decl.Signs[i]
 		// Record first CID
 		if i == 0 {
-			firstCid = target.ColumnId()
+			firstCid = targetId
 		}
+		// Join contexts
+		context = context.Join(target.Context)
 	}
 	// Add the assignment and check the first identifier.
 	cid := t.schema.AddAssignment(assignment.NewSortedPermutation(context, targets, signs, sources))
@@ -380,7 +373,7 @@ func (t *translator) translateDefProperty(decl *DefProperty, module string) []Sy
 	assertion, errors := t.translateExpressionInModule(decl.Assertion, module, 0)
 	//
 	if len(errors) == 0 {
-		context := t.env.ContextFrom(module, 1)
+		context := assertion.Context(t.schema)
 		// Add translated constraint
 		t.schema.AddPropertyAssertion(decl.Handle, context, assertion)
 	}
@@ -521,12 +514,12 @@ func (t *translator) translateArrayAccessInModule(expr *ArrayAccess, shift int) 
 	if len(errors) > 0 {
 		return nil, errors
 	}
+	// Construct real column name
+	name := fmt.Sprintf("%s_%d", expr.Name(), index.Uint64())
 	// Lookup underlying column info
-	info := t.env.Column(binding.module, expr.Name())
-	// Update column id
-	columnId := info.cid + uint(index.Uint64()) - min
+	registerId, _ := t.env.RegisterOf(binding.module, name)
 	// Done
-	return &hir.ColumnAccess{Column: columnId, Shift: shift}, nil
+	return &hir.ColumnAccess{Column: registerId, Shift: shift}, nil
 }
 
 func (t *translator) translateExpInModule(expr *Exp, module string, shift int) (hir.Expr, []SyntaxError) {
@@ -561,9 +554,9 @@ func (t *translator) translateShiftInModule(expr *Shift, module string, shift in
 func (t *translator) translateVariableAccessInModule(expr *VariableAccess, shift int) (hir.Expr, []SyntaxError) {
 	if binding, ok := expr.Binding().(*ColumnBinding); ok {
 		// Lookup column binding
-		cinfo := t.env.Column(binding.module, expr.Name())
+		register_id, _ := t.env.RegisterOf(binding.module, expr.Name())
 		// Done
-		return &hir.ColumnAccess{Column: cinfo.ColumnId(), Shift: shift}, nil
+		return &hir.ColumnAccess{Column: register_id, Shift: shift}, nil
 	} else if binding, ok := expr.Binding().(*ConstantBinding); ok {
 		// Just fill in the constant.
 		var constant fr.Element

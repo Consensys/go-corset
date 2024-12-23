@@ -46,15 +46,15 @@ func (p *GlobalScope) DeclareModule(module string) {
 		panic(fmt.Sprintf("duplicate module %s declared", module))
 	}
 	// Register module
-	mid := uint(len(p.ids))
+	id := uint(len(p.ids))
 	p.modules = append(p.modules, ModuleScope{
-		module, mid, make(map[BindingId]uint), make([]Binding, 0), p,
+		module, make(map[BindingId]uint), make([]Binding, 0), p,
 	})
-	p.ids[module] = mid
+	p.ids[module] = id
 	// Declare intrinsics (if applicable)
 	if module == "" {
 		for _, i := range INTRINSICS {
-			p.modules[mid].Declare(&i)
+			p.modules[id].Declare(&i)
 		}
 	}
 }
@@ -105,8 +105,6 @@ func (p *GlobalScope) ToEnvironment() Environment {
 type ModuleScope struct {
 	// Module name
 	module string
-	// Module identifier
-	mid uint
 	// Mapping from binding identifiers to indices within the bindings array.
 	ids map[BindingId]uint
 	// The set of bindings in the order of declaration.
