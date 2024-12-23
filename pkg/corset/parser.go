@@ -696,32 +696,33 @@ func (p *Parser) parsePermutedColumnSign(sign *sexp.Symbol) (bool, *SyntaxError)
 // Parse a perspective declaration
 func (p *Parser) parseDefPerspective(module string, elements []sexp.SExp) (Declaration, []SyntaxError) {
 	var (
-		errors       []SyntaxError
-		sexp_columns *sexp.List = elements[3].AsList()
-		//sexp_handle             = elements[1].AsSymbol()
-		columns     []*DefColumn
-		perspective string
+		errors           []SyntaxError
+		sexp_columns     *sexp.List = elements[3].AsList()
+		columns          []*DefColumn
+		perspective      *PerspectiveName
+		perspective_name string
 	)
-
-	// Initial sanity checks
-	if !isIdentifier(elements[1]) {
-		errors = p.translator.SyntaxErrors(elements[1], "expected constraint handle")
-	} else {
-		perspective = elements[1].AsSymbol().Value
-	}
 	// Check for columns
 	if sexp_columns == nil {
-		errors = p.translator.SyntaxErrors(elements[3], "expected column declarations")
+		errors = append(errors, *p.translator.SyntaxError(elements[3], "expected column declarations"))
 	}
 	// Translate selector
 	selector, errs := p.translator.Translate(elements[2])
 	errors = append(errors, errs...)
+	// Parse perspective selector
+	binding := NewPerspectiveBinding(selector)
+	// Parse perspective name
+	if perspective, errs = parseSymbolName(p, elements[1], false, binding); len(errs) == 0 {
+		perspective_name = perspective.name
+	} else {
+		errors = append(errors, errs...)
+	}
 	// Process column declarations one by one.
 	if sexp_columns != nil {
 		columns = make([]*DefColumn, sexp_columns.Len())
 
 		for i := 0; i < len(sexp_columns.Elements); i++ {
-			binding := NewInputColumnBinding(module, perspective, false, 1, NewFieldType())
+			binding := NewInputColumnBinding(module, perspective_name, false, 1, NewFieldType())
 			decl, err := p.parseColumnDeclaration(sexp_columns.Elements[i], binding)
 			// Extract column name
 			if err != nil {
@@ -938,8 +939,8 @@ func (p *Parser) parseConstraintAttributes(attributes sexp.SExp) (domain *int, g
 				guard, errs = p.translator.Translate(attrs.Get(i))
 			case ":perspective":
 				i++
-				binding := NewPerspectiveBinding()
-				perspective, errs = parseSymbolName(p, attrs.Get(i), false, binding)
+				//binding := NewPerspectiveBinding()
+				perspective, errs = parseSymbolName[*PerspectiveBinding](p, attrs.Get(i), false, nil)
 			default:
 				errs = p.translator.SyntaxErrors(ith, "unknown attribute")
 			}
@@ -963,9 +964,11 @@ func parseSymbolName[T Binding](p *Parser, symbol sexp.SExp, function bool, bind
 		return nil, p.translator.SyntaxErrors(symbol, "expected identifier")
 	}
 	// Extract
-	name := symbol.AsSymbol().Value
+	name := &Name[T]{symbol.AsSymbol().Value, function, binding, false}
+	// Update source mapping
+	p.mapSourceNode(symbol, name)
 	// Construct
-	return &Name[T]{name, function, binding, false}, nil
+	return name, nil
 }
 
 func (p *Parser) parseDomainAttribute(attribute sexp.SExp) (domain *int, err []SyntaxError) {

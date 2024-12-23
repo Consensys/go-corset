@@ -1,5 +1,5 @@
 ;;error:8:1-32:malformed declaration
-;;error:9:17-21:expected constraint handle
+;;error:9:17-21:expected identifier
 ;;error:10:1-22:malformed declaration
 ;;error:11:22-23:expected column declarations
 (defcolumns (P :binary@prove) A)

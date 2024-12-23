@@ -273,21 +273,24 @@ func (r *resolver) declarationDependenciesAreFinalised(scope *ModuleScope,
 
 // Finalise a declaration.
 func (r *resolver) finaliseDeclaration(scope *ModuleScope, decl Declaration) []SyntaxError {
-	if d, ok := decl.(*DefConst); ok {
+	switch d := decl.(type) {
+	case *DefConst:
 		return r.finaliseDefConstInModule(scope, d)
-	} else if d, ok := decl.(*DefConstraint); ok {
+	case *DefConstraint:
 		return r.finaliseDefConstraintInModule(scope, d)
-	} else if d, ok := decl.(*DefFun); ok {
+	case *DefFun:
 		return r.finaliseDefFunInModule(scope, d)
-	} else if d, ok := decl.(*DefInRange); ok {
+	case *DefInRange:
 		return r.finaliseDefInRangeInModule(scope, d)
-	} else if d, ok := decl.(*DefInterleaved); ok {
+	case *DefInterleaved:
 		return r.finaliseDefInterleavedInModule(d)
-	} else if d, ok := decl.(*DefLookup); ok {
+	case *DefLookup:
 		return r.finaliseDefLookupInModule(scope, d)
-	} else if d, ok := decl.(*DefPermutation); ok {
+	case *DefPermutation:
 		return r.finaliseDefPermutationInModule(d)
-	} else if d, ok := decl.(*DefProperty); ok {
+	case *DefPerspective:
+		return r.finaliseDefPerspectiveInModule(scope, d)
+	case *DefProperty:
 		return r.finaliseDefPropertyInModule(scope, d)
 	}
 	//
@@ -431,6 +434,19 @@ func (r *resolver) finaliseDefPermutationInModule(decl *DefPermutation) []Syntax
 	return errors
 }
 
+// Resolve those variables appearing in the body of this property assertion.
+func (r *resolver) finaliseDefPerspectiveInModule(enclosing Scope, decl *DefPerspective) []SyntaxError {
+	scope := NewLocalScope(enclosing, false, false, "")
+	// Resolve assertion
+	_, errors := r.finaliseExpressionInModule(scope, decl.Selector)
+	// Error check
+	if len(errors) == 0 {
+		decl.Finalise()
+	}
+	// Done
+	return errors
+}
+
 // Finalise a range constraint declaration after all symbols have been
 // resolved. This involves: (a) checking the context is valid; (b) checking the
 // expressions are well-typed.
@@ -483,9 +499,7 @@ func (r *resolver) finaliseDefLookupInModule(enclosing Scope, decl *DefLookup) [
 
 // Resolve those variables appearing in the body of this property assertion.
 func (r *resolver) finaliseDefPropertyInModule(enclosing Scope, decl *DefProperty) []SyntaxError {
-	var (
-		scope = NewLocalScope(enclosing, false, false, "")
-	)
+	scope := NewLocalScope(enclosing, false, false, "")
 	// Resolve assertion
 	_, errors := r.finaliseExpressionInModule(scope, decl.Assertion)
 	// Done

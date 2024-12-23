@@ -228,16 +228,25 @@ func (t *translator) translateDefConstraint(decl *DefConstraint, module string) 
 	constraint, errors := t.translateExpressionInModule(decl.Constraint, module, 0)
 	// Translate (optional) guard
 	guard, guard_errors := t.translateOptionalExpressionInModule(decl.Guard, module, 0)
+	// Translate (optional) perspective selector
+	selector, selector_errors := t.translateSelectorInModule(decl.Perspective, module)
 	// Combine errors
 	errors = append(errors, guard_errors...)
+	errors = append(errors, selector_errors...)
 	// Apply guard
 	if constraint == nil {
 		// NOTE: in this case, the constraint itself has been translated as nil.
 		// This means there is no constraint (e.g. its a debug constraint, but
 		// debug mode is not enabled).
 		return errors
-	} else if guard != nil {
+	}
+	// Apply guard (if applicable)
+	if guard != nil {
 		constraint = &hir.Mul{Args: []hir.Expr{guard, constraint}}
+	}
+	// Apply perspective selector (if applicable)
+	if selector != nil {
+		constraint = &hir.Mul{Args: []hir.Expr{selector, constraint}}
 	}
 	//
 	if len(errors) == 0 {
@@ -257,6 +266,17 @@ func (t *translator) translateDefConstraint(decl *DefConstraint, module string) 
 	}
 	// Done
 	return errors
+}
+
+// Translate the selector for the perspective of a defconstraint.  Observe that
+// a defconstraint may not be part of a perspective and, hence, would have no
+// selector.
+func (t *translator) translateSelectorInModule(perspective *PerspectiveName, module string) (hir.Expr, []SyntaxError) {
+	if perspective != nil {
+		return t.translateExpressionInModule(perspective.binding.selector, module, 0)
+	}
+	//
+	return nil, nil
 }
 
 // Translate a "deflookup" declaration.

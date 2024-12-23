@@ -455,17 +455,29 @@ func (p *DefunBinding) Overload(overload *DefunBinding) (FunctionBinding, bool) 
 // Perspective
 // ============================================================================
 
+// PerspectiveBinding contains key information about a perspective, such as its
+// selector expression.
 type PerspectiveBinding struct {
-	// Column bindings?
+	// Expression which determines when this perspective is enabled.
+	selector Expr
+	// Indicates whether or not the selector has been finalised.
+	resolved bool
 }
 
 var _ Binding = &PerspectiveBinding{}
 
-func NewPerspectiveBinding() *PerspectiveBinding {
-	return &PerspectiveBinding{}
+// NewPerspectiveBinding constructs a new binding for a given perspective.
+func NewPerspectiveBinding(selector Expr) *PerspectiveBinding {
+	return &PerspectiveBinding{selector, false}
 }
 
 // IsFinalised checks whether this binding has been finalised yet or not.
 func (p *PerspectiveBinding) IsFinalised() bool {
-	return true
+	return p.resolved
+}
+
+// Finalise this binding, which indicates the selector expression has been
+// finalised.
+func (p *PerspectiveBinding) Finalise() {
+	p.resolved = true
 }

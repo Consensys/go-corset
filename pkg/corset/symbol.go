@@ -78,7 +78,7 @@ func NewFunctionName(name string, binding *DefunBinding) *FunctionName {
 // resolved as a perspective.
 type PerspectiveName = Name[*PerspectiveBinding]
 
-// NewFunctionName construct a new column name which is (initially) unresolved.
+// NewPerspectiveName construct a new column name which is (initially) unresolved.
 func NewPerspectiveName(name string, binding *PerspectiveBinding) *PerspectiveName {
 	return &PerspectiveName{name, true, binding, true}
 }
