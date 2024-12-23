@@ -144,6 +144,15 @@ func moduleAllocation(scope *GlobalScope) map[string]*ModuleInfo {
 // columns at the HIR level.  Likewise, perspectives allow columns to be reused,
 // meaning that multiple columns at the Corset level can be mapped down to just
 // a single column at the HIR level.
+//
+// Notes:
+//
+// * Arrays.  These are allocated consecutive columns, as determined by their
+// "width".  That is, the size of the array.
+//
+// * Perspectives.  This is where the main challenge lies.  Columns in different
+// perspectives can be merged together, but this is only done when they have
+// compatible underlying types.
 func registerAllocation(modules map[string]*ModuleInfo, scope *GlobalScope) map[columnId]*RegisterInfo {
 	registers := make(map[columnId]*RegisterInfo)
 	registerId := uint(0)
