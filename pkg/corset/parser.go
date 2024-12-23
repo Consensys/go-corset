@@ -317,8 +317,7 @@ func (p *Parser) parseDefColumns(module string, l *sexp.List) (Declaration, []Sy
 	var errors []SyntaxError
 	// Process column declarations one by one.
 	for i := 1; i < len(l.Elements); i++ {
-		binding := NewInputColumnBinding(module, "", false, 1, NewFieldType())
-		decl, err := p.parseColumnDeclaration(l.Elements[i], binding)
+		decl, err := p.parseColumnDeclaration(module, "", false, l.Elements[i])
 		// Extract column name
 		if err != nil {
 			errors = append(errors, *err)
@@ -334,11 +333,19 @@ func (p *Parser) parseDefColumns(module string, l *sexp.List) (Declaration, []Sy
 	return &DefColumns{columns}, nil
 }
 
-func (p *Parser) parseColumnDeclaration(e sexp.SExp, binding *ColumnBinding) (*DefColumn, *SyntaxError) {
+func (p *Parser) parseColumnDeclaration(module string, perspective string, computed bool,
+	e sexp.SExp) (*DefColumn, *SyntaxError) {
+	//
 	var (
-		name  string
-		error *SyntaxError
+		error   *SyntaxError
+		binding ColumnBinding = ColumnBinding{module, perspective, "", computed, false, 0, nil}
 	)
+	// Set defaults for input columns
+	if !computed {
+		// Input columns have defaults which are implicit unless explicitly overridden.
+		binding.multiplier = 1
+		binding.dataType = NewFieldType()
+	}
 	// Check whether extended declaration or not.
 	if l := e.AsList(); l != nil {
 		// Check at least the name provided.
@@ -348,16 +355,16 @@ func (p *Parser) parseColumnDeclaration(e sexp.SExp, binding *ColumnBinding) (*D
 			return nil, p.translator.SyntaxError(l.Elements[0], "invalid column name")
 		}
 		// Column name is always first
-		name = l.Elements[0].String(false)
+		binding.name = l.Elements[0].String(false)
 		//	Parse type (if applicable)
 		if binding.dataType, binding.mustProve, error = p.parseColumnDeclarationAttributes(l.Elements[1:]); error != nil {
 			return nil, error
 		}
 	} else {
-		name = e.String(false)
+		binding.name = e.String(false)
 	}
 	//
-	def := &DefColumn{name, *binding}
+	def := &DefColumn{binding.name, binding}
 	// Update source mapping
 	p.mapSourceNode(e, def)
 	//
@@ -537,8 +544,9 @@ func (p *Parser) parseDefInterleaved(module string, elements []sexp.SExp) (Decla
 		return nil, errors
 	}
 	//
-	binding := NewComputedColumnBinding(module)
-	target := &DefColumn{elements[1].AsSymbol().Value, *binding}
+	name := elements[1].AsSymbol().Value
+	binding := NewComputedColumnBinding(module, name)
+	target := &DefColumn{name, *binding}
 	// Updating mapping for target definition
 	p.mapSourceNode(elements[1], target)
 	// Done
@@ -631,8 +639,7 @@ func (p *Parser) parseDefPermutation(module string, elements []sexp.SExp) (Decla
 		for i := 0; i < min(len(sources), len(targets)); i++ {
 			var err *SyntaxError
 			// Parse target column
-			binding := NewComputedColumnBinding(module)
-			if targets[i], err = p.parseColumnDeclaration(sexpTargets.Get(i), binding); err != nil {
+			if targets[i], err = p.parseColumnDeclaration(module, "", true, sexpTargets.Get(i)); err != nil {
 				errors = append(errors, *err)
 			}
 			// Parse source column
@@ -722,8 +729,7 @@ func (p *Parser) parseDefPerspective(module string, elements []sexp.SExp) (Decla
 		columns = make([]*DefColumn, sexp_columns.Len())
 
 		for i := 0; i < len(sexp_columns.Elements); i++ {
-			binding := NewInputColumnBinding(module, perspective_name, false, 1, NewFieldType())
-			decl, err := p.parseColumnDeclaration(sexp_columns.Elements[i], binding)
+			decl, err := p.parseColumnDeclaration(module, perspective_name, false, sexp_columns.Elements[i])
 			// Extract column name
 			if err != nil {
 				errors = append(errors, *err)
