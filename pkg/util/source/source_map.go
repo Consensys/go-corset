@@ -174,6 +174,23 @@ func (p *Map[T]) Get(item T) Span {
 	panic(fmt.Sprintf("invalid source map key: %s", any(item)))
 }
 
+// SyntaxError constructs a syntax error for a given node contained within the
+// source file associated with this source map.
+//
+//nolint:revive
+func (p *Map[T]) SyntaxError(item T, msg string) *SyntaxError {
+	span := p.Get(item)
+	return &SyntaxError{&p.srcfile, span, msg}
+}
+
+// SyntaxErrors is really just a helper that construct a syntax error and then
+// places it into an array of size one.  This is helpful for situations where
+// sets of syntax errors are being passed around.
+func (p *Map[T]) SyntaxErrors(item T, msg string) []SyntaxError {
+	err := p.SyntaxError(item, msg)
+	return []SyntaxError{*err}
+}
+
 // JoinMaps incorporates all mappings from one source map (the source) into
 // another source map (the target), whilst applying a given mapping to the node
 // types.
