@@ -17,6 +17,15 @@ type Polynomial[S comparable, T Term[S]] interface {
 	// Otherwise, the result is maybe.
 	IsZero() (res bool, ok bool)
 
-	// Add another polynomial onto this polynomial.
+	// Add another polynomial onto this polynomial, such that this polynomial is
+	// updated in place.
 	Add(T)
+
+	// Subtract another polynomial from this polynomial, such that this
+	// polynomial is updated in place.
+	Sub(T)
+
+	// Multiply this polynomial by another polynomial, such that this polynomial
+	// is updated in place.
+	Mul(T)
 }

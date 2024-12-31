@@ -1,5 +1,7 @@
 package polynomial
 
+import "github.com/consensys/go-corset/pkg/sexp"
+
 // ArrayPoly is the simpliest (and least efficient) polynomial implementation.
 // It provides a reference against which other (more efficient) implementations
 // can be compared.
@@ -53,4 +55,10 @@ func (p *ArrayPoly[S, T]) AddTerm(other T) {
 			}
 		}
 	}
+}
+
+// ParseArrayPoly parses an S-Expression representing a polynomial into an array
+// poly.
+func ParseArrayPoly[S comparable, T Term[S]](sexp sexp.SExp) (*ArrayPoly[S, T], []sexp.SyntaxError) {
+	panic("got here")
 }
