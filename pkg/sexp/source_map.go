@@ -159,6 +159,14 @@ func (p *SourceMap[T]) SyntaxError(item T, msg string) *SyntaxError {
 	return &SyntaxError{&p.srcfile, span, msg}
 }
 
+// SyntaxErrors is really just a helper that construct a syntax error and then
+// places it into an array of size one.  This is helpful for situations where
+// sets of syntax errors are being passed around.
+func (p *SourceMap[T]) SyntaxErrors(item T, msg string) []SyntaxError {
+	err := p.SyntaxError(item, msg)
+	return []SyntaxError{*err}
+}
+
 // JoinMaps incorporates all mappings from one source map (the source) into
 // another source map (the target), whilst applying a given mapping to the node
 // types.

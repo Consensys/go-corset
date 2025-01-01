@@ -1,4 +1,4 @@
-package polynomial
+package poly
 
 import (
 	"github.com/consensys/go-corset/pkg/sexp"
@@ -31,7 +31,7 @@ func (p *Parser[S, T]) parsePoly(expr sexp.SExp) (*ArrayPoly[S, T], []sexp.Synta
 	case *sexp.List:
 		panic("todo")
 	default:
-		panic("todo")
+		return nil, p.srcmap.SyntaxErrors(expr, "unknown term")
 	}
 }
 
@@ -42,10 +42,5 @@ func (p *Parser[S, T]) parseSymbol(symbol *sexp.Symbol) (*ArrayPoly[S, T], []sex
 		return NewArrayPoly(term), nil
 	}
 	// Syntax error
-	p.srcmap.SyntaxError(symbol, err)
-}
-
-func (p *Parser[S, T]) syntaxErrors(term sexp.SExp) []sexp.SyntaxError {
-	span := p.srcmap.Get(term)
-	err := sexp.SyntaxError{}
+	return nil, p.srcmap.SyntaxErrors(symbol, err.Error())
 }

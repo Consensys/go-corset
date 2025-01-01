@@ -1,4 +1,4 @@
-package polynomial
+package poly
 
 // Polynomial represents a sum of terms of a type T of variables.
 type Polynomial[S comparable, T Term[S]] interface {
@@ -19,13 +19,13 @@ type Polynomial[S comparable, T Term[S]] interface {
 
 	// Add another polynomial onto this polynomial, such that this polynomial is
 	// updated in place.
-	Add(T)
+	Add(Polynomial[S, T])
 
 	// Subtract another polynomial from this polynomial, such that this
 	// polynomial is updated in place.
-	Sub(T)
+	Sub(Polynomial[S, T])
 
 	// Multiply this polynomial by another polynomial, such that this polynomial
 	// is updated in place.
-	Mul(T)
+	Mul(Polynomial[S, T])
 }
