@@ -1,4 +1,4 @@
-package polynomial
+package poly
 
 import "github.com/consensys/go-corset/pkg/sexp"
 
@@ -20,8 +20,8 @@ func (p *ArrayPoly[S, T]) Len() uint {
 }
 
 // Term returns the ith term in this polynomial.
-func (p *ArrayPoly[S, T]) Term(ith uint) *T {
-	return &p.terms[ith]
+func (p *ArrayPoly[S, T]) Term(ith uint) T {
+	return p.terms[ith]
 }
 
 // IsZero returns an indication as to whether this polynomial is equivalent
@@ -40,6 +40,16 @@ func (p *ArrayPoly[S, T]) Add(other Polynomial[S, T]) {
 	for i := uint(0); i < other.Len(); i++ {
 		p.AddTerm(other.Term(i))
 	}
+}
+
+// Sub another polynomial from this polynomil
+func (p *ArrayPoly[S, T]) Sub(other Polynomial[S, T]) {
+	panic("todo")
+}
+
+// Mul this polynomial by another polynomial.
+func (p *ArrayPoly[S, T]) Mul(other Polynomial[S, T]) {
+	panic("todo")
 }
 
 // AddTerm adds a single term into this polynomial.
