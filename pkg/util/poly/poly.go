@@ -1,5 +1,7 @@
 package poly
 
+import "math/big"
+
 // Polynomial represents a sum of terms of a type T of variables.
 type Polynomial[S comparable, T Term[S]] interface {
 	// Len returns the number of terms in this polynomial.
@@ -28,4 +30,30 @@ type Polynomial[S comparable, T Term[S]] interface {
 	// Multiply this polynomial by another polynomial, such that this polynomial
 	// is updated in place.
 	Mul(Polynomial[S, T])
+}
+
+func Eval[S comparable, T Term[S]](poly Polynomial[S, T], env map[S]big.Int) *big.Int {
+	val := big.NewInt(0)
+	// Sum evaluated terms
+	for i := uint(0); i < poly.Len(); i++ {
+		val.Add(val, EvalTerm(poly.Term(i), env))
+	}
+	// Done
+	return val
+}
+
+func EvalTerm[S comparable, T Term[S]](term T, env map[S]big.Int) *big.Int {
+	var (
+		acc   big.Int
+		coeff big.Int = term.Coefficient()
+	)
+	// Initialise accumulator
+	acc.Set(&coeff)
+	//
+	for j := uint(0); j < term.Len(); j++ {
+		jth := env[term.Nth(j)]
+		acc.Mul(&acc, &jth)
+	}
+	//
+	return &acc
 }

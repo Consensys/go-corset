@@ -203,12 +203,6 @@ func (s *Symbol) AsSet() *Set { return nil }
 // AsSymbol returns the given symbol
 func (s *Symbol) AsSymbol() *Symbol { return s }
 
-// IsSignedInt checks whether this symbol describes a signed integer (i.e. an
-// integer which can be begin with "-").
-func (s *Symbol) IsSignedInt() bool {
-	panic("todo")
-}
-
 func (s *Symbol) String(quote bool) string {
 	if quote {
 		needed := false

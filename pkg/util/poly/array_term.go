@@ -9,6 +9,11 @@ type ArrayTerm[S comparable] struct {
 
 var _ Term[string] = &ArrayTerm[string]{}
 
+// NewArrayTerm constructs a new polynomial term.
+func NewArrayTerm[S comparable](coefficient big.Int, vars []S) *ArrayTerm[S] {
+	return &ArrayTerm[S]{coefficient, vars}
+}
+
 // Coefficient returns the coefficient of this term.
 func (p *ArrayTerm[S]) Coefficient() big.Int {
 	return p.coefficient
