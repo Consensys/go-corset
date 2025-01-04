@@ -1,6 +1,8 @@
 package poly
 
-import "math/big"
+import (
+	"math/big"
+)
 
 // Polynomial represents a sum of terms of a type T of variables.
 type Polynomial[S comparable, T Term[S]] interface {
@@ -30,13 +32,17 @@ type Polynomial[S comparable, T Term[S]] interface {
 	// Multiply this polynomial by another polynomial, such that this polynomial
 	// is updated in place.
 	Mul(Polynomial[S, T])
+
+	// Simple string representation
+	String() string
 }
 
 func Eval[S comparable, T Term[S]](poly Polynomial[S, T], env map[S]big.Int) *big.Int {
 	val := big.NewInt(0)
 	// Sum evaluated terms
 	for i := uint(0); i < poly.Len(); i++ {
-		val.Add(val, EvalTerm(poly.Term(i), env))
+		ith := EvalTerm(poly.Term(i), env)
+		val.Add(val, ith)
 	}
 	// Done
 	return val

@@ -29,7 +29,7 @@ func (p *Parser[S, T]) parsePoly(expr sexp.SExp) (*ArrayPoly[S, T], []sexp.Synta
 	case *sexp.Symbol:
 		return p.parseSymbol(e)
 	case *sexp.List:
-		panic("todo")
+		return p.parseList(e)
 	default:
 		return nil, p.srcmap.SyntaxErrors(expr, "unknown term")
 	}
@@ -43,4 +43,51 @@ func (p *Parser[S, T]) parseSymbol(symbol *sexp.Symbol) (*ArrayPoly[S, T], []sex
 	}
 	// Syntax error
 	return nil, p.srcmap.SyntaxErrors(symbol, err.Error())
+}
+
+func (p *Parser[S, T]) parseList(list *sexp.List) (*ArrayPoly[S, T], []sexp.SyntaxError) {
+	if list.Len() <= 1 {
+		return nil, p.srcmap.SyntaxErrors(list, "malformed expression")
+	} else if list.Get(0).AsSymbol() == nil {
+		return nil, p.srcmap.SyntaxErrors(list.Get(0), "expected operator")
+	}
+	//
+	operator := list.Get(0).AsSymbol().Value
+	//
+	switch operator {
+	case "+":
+		return p.foldList(list.Elements[1:], func(l *ArrayPoly[S, T], r *ArrayPoly[S, T]) {
+			l.Add(r)
+		})
+	case "-":
+		return p.foldList(list.Elements[1:], func(l *ArrayPoly[S, T], r *ArrayPoly[S, T]) {
+			l.Sub(r)
+		})
+	case "*":
+		return p.foldList(list.Elements[1:], func(l *ArrayPoly[S, T], r *ArrayPoly[S, T]) {
+			l.Mul(r)
+		})
+	default:
+		// problem
+		return nil, p.srcmap.SyntaxErrors(list.Get(0), "unknown operator")
+	}
+}
+
+// Type of operators to be used with fold.
+type foldOp[S comparable, T Term[S]] func(*ArrayPoly[S, T], *ArrayPoly[S, T])
+
+func (p *Parser[S, T]) foldList(elements []sexp.SExp, op foldOp[S, T]) (*ArrayPoly[S, T], []sexp.SyntaxError) {
+	var res *ArrayPoly[S, T]
+	// Fold over each element
+	for i := 0; i < len(elements); i++ {
+		if poly, errs := p.parsePoly(elements[i]); len(errs) > 0 {
+			return nil, errs
+		} else if i == 0 {
+			res = poly
+		} else {
+			op(res, poly)
+		}
+	}
+	//
+	return res, nil
 }

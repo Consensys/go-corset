@@ -25,14 +25,24 @@ func (p *ArrayTerm[S]) Len() uint {
 }
 
 // Nth returns the nth variable in this polynomial term.
-func (p *ArrayTerm[S]) Nth(uint) S {
-	panic("todo")
+func (p *ArrayTerm[S]) Nth(index uint) S {
+	return p.vars[index]
 }
 
 // Matches determines whether or not the variables of this term match those
 // of the other.
 func (p *ArrayTerm[S]) Matches(other Term[S]) bool {
-	panic("todo")
+	if p.Len() != other.Len() {
+		return false
+	}
+	//
+	for i := uint(0); i < p.Len(); i++ {
+		if p.vars[i] != other.Nth(i) {
+			return false
+		}
+	}
+	//
+	return true
 }
 
 // Add updates the cofficient for this term.

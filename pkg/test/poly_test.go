@@ -2,6 +2,7 @@ package test
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -21,12 +22,28 @@ func Test_Poly_02(t *testing.T) {
 	check(t, "a", points)
 }
 
+func Test_Poly_03(t *testing.T) {
+	points := [][]uint{{1, 0}, {2, 1}, {3, 2}}
+	check(t, "(+ a 1)", points)
+}
+
+func Test_Poly_04(t *testing.T) {
+	points := [][]uint{{0, 1}, {1, 2}, {2, 3}}
+	check(t, "(- a 1)", points)
+}
+
+func Test_Poly_05(t *testing.T) {
+	points := [][]uint{{2, 1}, {4, 2}, {6, 3}}
+	check(t, "(* a 2)", points)
+}
+
 // Check the evaluation of a polynomial at evaluation given points.
 func check(t *testing.T, input string, points [][]uint) {
 	// Parse the polynomial, producing one or more errors.
 	if p, errs := parse(input); len(errs) != 0 {
 		t.Error(errs)
 	} else {
+		fmt.Printf("POLY=%s\n", p)
 		// Evaluate the polynomial at the given points, recalling that the first
 		// point is always the outcome.
 		for _, pnt := range points {
@@ -36,7 +53,8 @@ func check(t *testing.T, input string, points [][]uint) {
 			expected := big.NewInt(int64(pnt[0]))
 			// Evaluate and check
 			if actual.Cmp(expected) != 0 {
-				t.Error("incorrect evaluation")
+				err := fmt.Sprintf("incorrect evaluation (was %s, expected %s)", actual.String(), expected.String())
+				t.Error(err)
 			}
 		}
 	}
@@ -62,8 +80,9 @@ func termConstructor(symbol string) (*poly.ArrayTerm[string], error) {
 	if (symbol[0] >= '0' && symbol[0] <= '9') || symbol[0] == '-' {
 		return constantConstructor(symbol)
 	}
-	//
-	panic("handle varibles")
+	// Construct variable
+	one := big.NewInt(1)
+	return poly.NewArrayTerm[string](*one, []string{symbol}), nil
 }
 
 // Constructor for constant literals.
