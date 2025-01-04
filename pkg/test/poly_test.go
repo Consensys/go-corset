@@ -1,6 +1,8 @@
 package test
 
 import (
+	"errors"
+	"math/big"
 	"testing"
 
 	"github.com/consensys/go-corset/pkg/sexp"
@@ -22,10 +24,21 @@ func Test_Poly_02(t *testing.T) {
 // Check the evaluation of a polynomial at evaluation given points.
 func check(t *testing.T, input string, points [][]uint) {
 	// Parse the polynomial, producing one or more errors.
-	if _, errs := parse(input); len(errs) != 0 {
+	if p, errs := parse(input); len(errs) != 0 {
 		t.Error(errs)
 	} else {
-		panic("got here")
+		// Evaluate the polynomial at the given points, recalling that the first
+		// point is always the outcome.
+		for _, pnt := range points {
+			env := make(map[string]big.Int)
+			env["a"] = *big.NewInt(int64(pnt[1]))
+			actual := poly.Eval(p, env)
+			expected := big.NewInt(int64(pnt[0]))
+			// Evaluate and check
+			if actual.Cmp(expected) != 0 {
+				t.Error("incorrect evaluation")
+			}
+		}
 	}
 }
 
@@ -39,10 +52,27 @@ func parse(input string) (Poly, []sexp.SyntaxError) {
 	}
 	// Now, convert S-expression into polynomial
 	parser := poly.NewParser(srcmap, termConstructor)
+	//
 	return parser.Parse(term)
 }
 
 // Default construct for terms.
 func termConstructor(symbol string) (*poly.ArrayTerm[string], error) {
-	panic("got here")
+	// Check for constant
+	if (symbol[0] >= '0' && symbol[0] <= '9') || symbol[0] == '-' {
+		return constantConstructor(symbol)
+	}
+	//
+	panic("handle varibles")
+}
+
+// Constructor for constant literals.
+func constantConstructor(symbol string) (*poly.ArrayTerm[string], error) {
+	var num big.Int
+	//
+	if _, ok := num.SetString(symbol, 10); !ok {
+		return nil, errors.New("invalid constant")
+	}
+	//
+	return poly.NewArrayTerm[string](num, nil), nil
 }
