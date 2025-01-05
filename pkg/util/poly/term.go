@@ -4,7 +4,6 @@ import "math/big"
 
 // Term represents a product (or monomial) within a polynomial.
 type Term[T any] interface {
-
 	// Coefficient returns the coefficient of this term.
 	Coefficient() big.Int
 
@@ -19,7 +18,13 @@ type Term[T any] interface {
 	Matches(other Term[T]) bool
 
 	// Add updates the cofficient for this term.
-	Add(coeff big.Int)
+	Add(coeff *big.Int)
+
+	// Sub updates the cofficient for this term.
+	Sub(coeff *big.Int)
+
+	// Mul updates the cofficient for this term.
+	Mul(coeff *big.Int)
 
 	// IsZero checks whether the coefficient for this term is zero or not.
 	IsZero() bool

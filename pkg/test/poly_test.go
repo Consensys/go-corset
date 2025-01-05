@@ -1,7 +1,6 @@
 package test
 
 import (
-	"errors"
 	"fmt"
 	"math/big"
 	"testing"
@@ -69,29 +68,14 @@ func parse(input string) (Poly, []sexp.SyntaxError) {
 		return nil, []sexp.SyntaxError{*err}
 	}
 	// Now, convert S-expression into polynomial
-	parser := poly.NewParser(srcmap, termConstructor)
+	parser := poly.NewParser[string](srcmap, termConstructor)
 	//
 	return parser.Parse(term)
 }
 
 // Default construct for terms.
-func termConstructor(symbol string) (*poly.ArrayTerm[string], error) {
-	// Check for constant
-	if (symbol[0] >= '0' && symbol[0] <= '9') || symbol[0] == '-' {
-		return constantConstructor(symbol)
-	}
-	// Construct variable
-	one := big.NewInt(1)
-	return poly.NewArrayTerm[string](*one, []string{symbol}), nil
-}
-
-// Constructor for constant literals.
-func constantConstructor(symbol string) (*poly.ArrayTerm[string], error) {
-	var num big.Int
-	//
-	if _, ok := num.SetString(symbol, 10); !ok {
-		return nil, errors.New("invalid constant")
-	}
-	//
-	return poly.NewArrayTerm[string](num, nil), nil
+func termConstructor(symbol string) (string, error) {
+	// In theory, we could do some sanity check of the symbol to ensure it meets
+	// certain requirements (e.g. does not include arbitrary symbols, etc).
+	return symbol, nil
 }

@@ -21,6 +21,9 @@ type Polynomial[S comparable, T Term[S]] interface {
 	// Otherwise, the result is maybe.
 	IsZero() (res bool, ok bool)
 
+	// Negate this polynomial, which is equivalent to multiplying by -1.
+	Neg()
+
 	// Add another polynomial onto this polynomial, such that this polynomial is
 	// updated in place.
 	Add(Polynomial[S, T])
