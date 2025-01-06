@@ -23,6 +23,10 @@ type Type interface {
 	ByteWidth() uint
 	// Return the minimum number of bits required represent any element of this type.
 	BitWidth() uint
+	// Compare two types, returning: a negative value if this type is "below"
+	// the other; 0 if they are equal, a positive value if this type is "above"
+	// the other.
+	Cmp(Type) int
 	// Check whether subtypes another
 	SubtypeOf(Type) bool
 	// Produce a string representation of this type.
@@ -111,6 +115,13 @@ func (p *UintType) SubtypeOf(other Type) bool {
 	return false
 }
 
+// Cmp compares two types, returning: a negative value if this type is "below"
+// the other; 0 if they are equal, a positive value if this type is "above" the
+// other.
+func (p *UintType) Cmp(other Type) int {
+	panic("todo")
+}
+
 func (p *UintType) String() string {
 	return fmt.Sprintf("u%d", p.nbits)
 }
@@ -146,6 +157,13 @@ func (p *FieldType) BitWidth() uint {
 // SubtypeOf checks whether this subtypes another
 func (p *FieldType) SubtypeOf(other Type) bool {
 	return other.AsField() != nil
+}
+
+// Cmp compares two types, returning: a negative value if this type is "below"
+// the other; 0 if they are equal, a positive value if this type is "above" the
+// other.
+func (p *FieldType) Cmp(other Type) int {
+	panic("todo")
 }
 
 // Accept determines whether a given value is an element of this type.  In

@@ -760,9 +760,10 @@ func Test_Debug_01(t *testing.T) {
 // ===================================================================
 // Perspectives
 // ===================================================================
-/* func Test_Perspective_01(t *testing.T) {
+
+func Test_Perspective_01(t *testing.T) {
 	Check(t, false, "perspective_01")
-} */
+}
 
 // ===================================================================
 // Complex Tests

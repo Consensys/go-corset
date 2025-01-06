@@ -52,6 +52,8 @@ func CompileSourceFile(stdlib bool, debug bool, srcfile *sexp.SourceFile) (*hir.
 // definitions down into an HIR schema.  Observe that the compiler may fail if
 // the modules definitions are malformed in some way (e.g. fail type checking).
 type Compiler struct {
+	// The register allocation algorithm to be used by this compiler.
+	allocator func(RegisterAllocation)
 	// A high-level definition of a Corset circuit.
 	circuit Circuit
 	// Determines whether debug
@@ -64,13 +66,19 @@ type Compiler struct {
 
 // NewCompiler constructs a new compiler for a given set of modules.
 func NewCompiler(circuit Circuit, srcmaps *sexp.SourceMaps[Node]) *Compiler {
-	return &Compiler{circuit, false, srcmaps}
+	return &Compiler{DEFAULT_ALLOCATOR, circuit, false, srcmaps}
 }
 
 // SetDebug enables or disables debug mode.  In debug mode, debug constraints
 // will be compiled in.
 func (p *Compiler) SetDebug(flag bool) *Compiler {
 	p.debug = flag
+	return p
+}
+
+// SetAllocator overides the default register allocator.
+func (p *Compiler) SetAllocator(allocator func(RegisterAllocation)) *Compiler {
+	p.allocator = allocator
 	return p
 }
 
@@ -92,7 +100,7 @@ func (p *Compiler) Compile() (*hir.Schema, []SyntaxError) {
 		return nil, errs
 	}
 	// Convert global scope into an environment by allocating all columns.
-	environment := scope.ToEnvironment()
+	environment := scope.ToEnvironment(p.allocator)
 	// Finally, translate everything and add it to the schema.
 	return TranslateCircuit(environment, p.srcmap, &p.circuit)
 }

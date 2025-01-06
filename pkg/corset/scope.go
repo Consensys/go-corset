@@ -93,8 +93,8 @@ func (p *GlobalScope) Module(name string) *ModuleScope {
 
 // ToEnvironment converts this global scope into a concrete environment by
 // allocating all columns within this scope.
-func (p *GlobalScope) ToEnvironment() Environment {
-	return NewGlobalEnvironment(p)
+func (p *GlobalScope) ToEnvironment(allocator func(RegisterAllocation)) Environment {
+	return NewGlobalEnvironment(p, allocator)
 }
 
 // =============================================================================

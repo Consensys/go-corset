@@ -5,6 +5,7 @@ import (
 
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // ModuleInfo provides information about a module in the underlying HIR
@@ -28,9 +29,15 @@ type Environment interface {
 	// Module returns informartion about a given module, such as its module
 	// identifier.
 	Module(Module string) *ModuleInfo
-	// RegisterOf returns the underlying (HIR) column identifier and
-	// details of the register to which the column is allocated.
-	RegisterOf(module string, name string) (uint, *Register)
+	// Register returns information about a given register, based on its index
+	// (i.e. underlying HIR column identifier).
+	Register(index uint) *Register
+	// RegisterOf identifiers the register (i.e. underlying (HIR) column) to
+	// which a given source-level (i.e. corset) column is allocated.
+	RegisterOf(module string, name string) uint
+	// RegistersOf identifies the set of registers (i.e. underlying (HIR)
+	// columns) associated with a given module.
+	RegistersOf(module string) []uint
 	// Convert a context from the high-level form into the lower level form
 	// suitable for HIR.
 	ContextOf(from Context) tr.Context
@@ -39,8 +46,8 @@ type Environment interface {
 // ColumnId uniquely identifiers a Corset column.  Note, however, that
 // multiple Corset columns can be mapped to a single underlying register.
 type ColumnId struct {
-	module  string
-	columnd string
+	module string
+	column string
 }
 
 // GlobalEnvironment is a wrapper around a global scope.  The point, really, is
@@ -56,11 +63,15 @@ type GlobalEnvironment struct {
 }
 
 // NewGlobalEnvironment constructs a new global environment from a global scope
-// by allocating appropriate identifiers to all columns.
-func NewGlobalEnvironment(scope *GlobalScope) GlobalEnvironment {
+// by allocating appropriate identifiers to all columns.  This process is
+// parameterised upon a given register allocator, thus enabling different
+// allocation algorithms.
+func NewGlobalEnvironment(scope *GlobalScope, allocator func(RegisterAllocation)) GlobalEnvironment {
 	env := GlobalEnvironment{nil, nil, nil}
 	env.initModules(scope)
 	env.initColumnsAndRegisters(scope)
+	// Apply register allocation.
+	env.applyRegisterAllocation(allocator)
 	// Done
 	return env
 }
@@ -71,14 +82,49 @@ func (p GlobalEnvironment) Module(module string) *ModuleInfo {
 	return p.modules[module]
 }
 
-// RegisterOf returns the column identifier for a given column in a given
-// module, or panics if no such column exists.
-func (p GlobalEnvironment) RegisterOf(module string, name string) (uint, *Register) {
+// Register returns information about a given register, based on its index
+// (i.e. underlying HIR column identifier).
+func (p GlobalEnvironment) Register(index uint) *Register {
+	return &p.registers[index]
+}
+
+// RegisterOf identifiers the register (i.e. underlying (HIR) column) to
+// which a given source-level (i.e. corset) column is allocated.
+func (p GlobalEnvironment) RegisterOf(module string, name string) uint {
 	// Construct column identifier.
 	cid := ColumnId{module, name}
 	regId := p.columns[cid]
 	// Lookup register info
-	return regId, &p.registers[regId]
+	return regId
+}
+
+// RegistersOf identifies the set of registers (i.e. underlying (HIR)
+// columns) associated with a given module.
+func (p GlobalEnvironment) RegistersOf(module string) []uint {
+	mid := p.modules[module].Id
+	regs := make([]uint, 0)
+	// Iterate all registers looking for those in the given module.
+	for i, reg := range p.registers {
+		if reg.Context.Module() == mid {
+			// match
+			regs = append(regs, uint(i))
+		}
+	}
+	// Done
+	return regs
+}
+
+// ColumnsOf returns the set of registers allocated to a given column.
+func (p GlobalEnvironment) ColumnsOf(register uint) []ColumnId {
+	var columns []ColumnId
+	//
+	for col, reg := range p.columns {
+		if reg == register {
+			columns = append(columns, col)
+		}
+	}
+	//
+	return columns
 }
 
 // ContextOf constructs a trace context from a given corset context.
@@ -153,45 +199,139 @@ func (p *GlobalEnvironment) initColumnsAndRegisters(scope *GlobalScope) {
 // allocation of a number of registers (based on the columns type).  For
 // example, an array of length n will allocate n registers, etc.
 func (p *GlobalEnvironment) allocateColumn(column *ColumnBinding) {
-	p.allocate(column.module, column.name, column.multiplier, column.dataType, column)
+	p.allocate(column, column.name, column.dataType)
 }
 
-func (p *GlobalEnvironment) allocate(module string, name string, multiplier uint, datatype Type,
-	binding *ColumnBinding) {
+func (p *GlobalEnvironment) allocate(column *ColumnBinding, name string, datatype Type) {
 	// Check for base base
 	if datatype.AsUnderlying() != nil {
-		p.allocateUnit(module, name, multiplier, datatype.AsUnderlying(), binding)
+		p.allocateUnit(column, name, datatype.AsUnderlying())
 	} else if arraytype, ok := datatype.(*ArrayType); ok {
 		// For now, assume must be an array
-		p.allocateArray(module, name, multiplier, arraytype, binding)
+		p.allocateArray(column, name, arraytype)
 	} else {
 		panic(fmt.Sprintf("unknown type encountered: %v", datatype))
 	}
 }
 
 // Allocate an array type
-func (p *GlobalEnvironment) allocateArray(module string, name string, multiplier uint, arraytype *ArrayType,
-	binding *ColumnBinding) {
+func (p *GlobalEnvironment) allocateArray(column *ColumnBinding, name string, arraytype *ArrayType) {
 	// Allocate n columns
 	for i := arraytype.min; i <= arraytype.max; i++ {
 		ith_name := fmt.Sprintf("%s_%d", name, i)
-		p.allocate(module, ith_name, multiplier, arraytype.element, binding)
+		p.allocate(column, ith_name, arraytype.element)
 	}
 }
 
 // Allocate a single register.
-func (p *GlobalEnvironment) allocateUnit(module string, name string, multiplier uint, datatype sc.Type,
-	binding *ColumnBinding) {
-	moduleId := p.modules[module].Id
-	colId := ColumnId{module, name}
+func (p *GlobalEnvironment) allocateUnit(column *ColumnBinding, name string, datatype sc.Type) {
+	moduleId := p.modules[column.module].Id
+	colId := ColumnId{column.module, name}
 	regId := uint(len(p.registers))
+	// Construct appropriate register source.
+	source := RegisterSource{
+		column.module,
+		column.perspective,
+		name,
+		column.multiplier,
+		datatype,
+		column.mustProve,
+		column.computed}
 	// Allocate register
 	p.registers = append(p.registers, Register{
-		tr.NewContext(moduleId, multiplier),
+		tr.NewContext(moduleId, column.multiplier),
 		name,
 		datatype,
-		[]*ColumnBinding{binding},
+		[]RegisterSource{source},
 	})
 	// Map column to register
 	p.columns[colId] = regId
+}
+
+// Apply the given register allocator to each module of this environment in turn.
+func (p *GlobalEnvironment) applyRegisterAllocation(allocator func(RegisterAllocation)) {
+	// Apply to each module in turn
+	for m := range p.modules {
+		// Determine register subset for this module
+		view := p.RegistersOf(m)
+		// Apply allocation to this subset
+		allocator(&localRegisterAllocation{view, p})
+	}
+	// Remove inactive registers.  This is necessary because register allocation
+	// marks a register as inactive when they its merged into another, but does
+	// not actually delete the register.
+	mapping := make([]uint, len(p.registers))
+	// Overallocate set of new registers
+	nregisters := make([]Register, len(p.registers))
+	// Index into nregisters
+	j := uint(0)
+	// Build mapping and remove registers
+	for i := 0; i < len(p.registers); i++ {
+		ith := p.registers[i]
+		//
+		if ith.IsActive() {
+			mapping[i] = j
+			nregisters[j] = ith
+			j++
+		}
+	}
+	// Update the columns maps, etc.
+	for col, reg := range p.columns {
+		// Safe since as neither adding nor removing entry from map.
+		p.columns[col] = mapping[reg]
+	}
+	// Copy over new register set, whilst slicing off inactive ones.
+	p.registers = nregisters[0:j]
+}
+
+// ===========================================================================
+// RegisterAllocation impl
+// ===========================================================================
+
+// LocalRegisterAllocation provides a view of the environment for the purposes
+// of register allocation, such that only registers in this view will be
+// considered for allocation.  This is necessary because we must not attempt to
+// allocate registers across different modules (indeed, contexts) together.
+// Instead, we must allocate registers on a module-by-module basis, etc.
+type localRegisterAllocation struct {
+	// View of registers available for register allocation.
+	registers []uint
+	// Parent pointer for register merging.
+	env *GlobalEnvironment
+}
+
+// Len returns the number of allocated registers.
+func (p *localRegisterAllocation) Len() uint {
+	return uint(len(p.registers))
+}
+
+// Registers returns an iterator over the set of registers in this local
+// allocation.
+func (p *localRegisterAllocation) Registers() util.Iterator[uint] {
+	return util.NewArrayIterator(p.registers)
+}
+
+// Access information about a specific register in this window.
+func (p *localRegisterAllocation) Register(index uint) *Register {
+	return &p.env.registers[index]
+}
+
+// Merge one register (src) into another (dst).  This will remove the src
+// register, and automatically update all column assignments.  Therefore, any
+// register identifier can be potenitally invalided by this operation.  This
+// will panic if the registers are incompatible (i.e. have different contexts).
+func (p *localRegisterAllocation) Merge(dst uint, src uint) {
+	target := &p.env.registers[dst]
+	source := &p.env.registers[src]
+	// Sanity check
+	if target.Context != source.Context {
+		// Should be unreachable.
+		panic("attempting to merge incompatible registers")
+	}
+	// Update column map
+	for _, col := range p.env.ColumnsOf(src) {
+		p.env.columns[col] = dst
+	}
+	//
+	target.Merge(source)
 }

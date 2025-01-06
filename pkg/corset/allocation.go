@@ -1,0 +1,424 @@
+package corset
+
+import (
+	"fmt"
+	"math"
+	"strings"
+
+	"github.com/consensys/go-corset/pkg/schema"
+	sc "github.com/consensys/go-corset/pkg/schema"
+	tr "github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/util"
+)
+
+// Register encapsulates information about a "register" in the underlying
+// constraint system.  The rough analogy is that "register allocation" is
+// applied to map Corset columns down to HIR columns (a.k.a. registers).  The
+// distinction between columns at the Corset level, and registers at the HIR
+// level is necessary for two reasons: firstly, one corset column can expand to
+// several HIR registers; secondly, register allocation is applied to columns in
+// different perspectives of the same module.
+type Register struct {
+	// Context (i.e. module + multiplier) of this register.
+	Context tr.Context
+	// Name of this register
+	Name string
+	// Underlying datatype of this register.
+	DataType sc.Type
+	// Source columns of this register
+	Sources []RegisterSource
+}
+
+// IsActive determines whether or not this register is "active".  Inactive
+// registers should not generally be visible outside of register allocation.
+func (r *Register) IsActive() bool {
+	return r.DataType != nil
+}
+
+// IsInput determines whether or not this register represents an input column,
+// or not.  NOTE: there is currently an implicit assumption that columns
+// allocated to the same register always have the same "visibility" (i.e. are
+// either all input, or all computed, etc).
+func (r *Register) IsInput() bool {
+	// Extract input from first source
+	computed := r.Sources[0].computed
+	// Sanity check all sources are consistent.
+	for _, ith := range r.Sources {
+		if ith.computed != computed {
+			panic("inconsistent register visibility")
+		}
+	}
+	//
+	return !computed
+}
+
+// Merge two registers together.  This means the source-level columns will be
+// allocated to the same underlying HIR column (i.e. register).
+func (r *Register) Merge(other *Register) {
+	if r.Context != other.Context {
+		panic("cannot merge registers from different context")
+	}
+	//
+	r.Name = fmt.Sprintf("%s_xor_%s", r.Name, other.Name)
+	r.DataType = schema.Join(r.DataType, other.DataType)
+	r.Sources = append(r.Sources, other.Sources...)
+	// Deactivate other register
+	other.Deactivate()
+}
+
+// Deactivate marks a given register as no longer being required.  This happens
+// when one register is merged into another.
+func (r *Register) Deactivate() {
+	r.Name = ""
+	r.DataType = nil
+	r.Sources = nil
+}
+
+// RegisterSource provides necessary information about source-level columns
+// allocated to a  given register.
+type RegisterSource struct {
+	// Module in which source-level column resides
+	module string
+	// Perspective containing source-level column.  If none, then this is
+	// assigned "".
+	perspective string
+	// Name of source-level column.
+	name string
+	// Length multiplier of source-level column.
+	multiplier uint
+	// Underlying datatype of the source-level column.
+	datatype sc.Type
+	// Provability requirement for source-level column.
+	mustProve bool
+	// Determines whether this is a computed column.
+	computed bool
+}
+
+// RegisterAllocation is a generic interface to support different "regsiter
+// allocation" algorithms.  More specifically, register allocation is the
+// process of allocating columns to their underlying HIR columns (a.k.a
+// registers).  This is straightforward when there is a 1-1 mapping from a
+// Corset column to an HIR column.  However, this is not always the case.  For
+// example, array columns at the Corset level map to multiple columns at the HIR
+// level.  Likewise, perspectives allow columns to be reused, meaning that
+// multiple columns at the Corset level can be mapped down to just a single
+// column at the HIR level.
+//
+// Notes:
+//
+// * Arrays.  These are allocated consecutive columns, as determined by their
+// "width".  That is, the size of the array.
+//
+// * Perspectives.  This is where the main challenge lies.  Columns in different
+// perspectives can be merged together, but this is only done when they have
+// compatible underlying types.
+type RegisterAllocation interface {
+	// Access the set of registers being considered for allocation.
+	Registers() util.Iterator[uint]
+	// Access information about a specific register.
+	Register(uint) *Register
+	// Merge one register (src) into another (dst).  This marks the source
+	// register as inactive, but does not otherwise update the register
+	// assignment.  Thus, existing register ids remain valid throughout register
+	// allocation.  Once register allocation is complete, inactive registers are
+	// then discarded.
+	Merge(dst uint, src uint)
+}
+
+// DEFAULT_ALLOCATOR determines the register allocation algorithm to use by
+// default.
+var DEFAULT_ALLOCATOR func(RegisterAllocation) = originalAllocator
+
+// The original register allocation algorithm used in Corset.  This is retained
+// for backwards compatibility reasons, but should eventually be dropped.
+func originalAllocator(allocation RegisterAllocation) {
+	allocator := NewRegisterAllocator(allocation)
+	allocator.CompactBy(identicalType)
+	allocator.Finalise()
+}
+
+func identicalType(lhs *RegisterGroup, rhs *RegisterGroup) bool {
+	lIntType := lhs.dataType.AsUint()
+	rIntType := rhs.dataType.AsUint()
+	// Check whether both are int types, or not.
+	if lIntType != nil && rIntType != nil {
+		return lIntType.BitWidth() == rIntType.BitWidth()
+	}
+	//
+	return lIntType == rIntType
+}
+
+// ============================================================================
+// GreedyAllocator
+// ============================================================================
+
+// AllocationComparator is a binary predicate over register groups used to
+// determine when two groups can be merged.
+type AllocationComparator = func(*RegisterGroup, *RegisterGroup) bool
+
+// RegisterAllocator is a simple, but reasonably effective high-level approach
+// to register allocation.  Essentially, perspective columns are sorted by type
+// and then allocated based on their "compatibility".  Here, compatibility
+// determines when two registers can be merged (i.e. when they are
+// "compatible"_.  This allocator is parameterised over the notion of
+// compatibility in order to support different top-level allocation algorithms.
+type RegisterAllocator struct {
+	// Underlying allocation of registers
+	allocation RegisterAllocation
+	// Maps perspectives to their "allocation slot"
+	perspectives map[string]uint
+	// Allocation matrix, where each innermost array has an entry for each
+	// perspective.  The allocation slot for a perspective determines its index
+	// within this array.  Entries can be "empty" if they are given MaxUint
+	// value.
+	allocations []RegisterGroup
+}
+
+// NewRegisterAllocator initialises a new greedy sort allocator from an initial
+// allocation with a given compatibility function.
+func NewRegisterAllocator(allocation RegisterAllocation) *RegisterAllocator {
+	// Construct initial allocator
+	allocator := RegisterAllocator{
+		allocation,
+		make(map[string]uint, 0),
+		make([]RegisterGroup, 0),
+	}
+	// Identify all perspectives
+	for iter := allocation.Registers(); iter.HasNext(); {
+		regInfo := allocation.Register(iter.Next())
+		if len(regInfo.Sources) != 1 {
+			// This should be unreachable.
+			panic("register not associated with unique column")
+		} else if regInfo.Sources[0].perspective != "" {
+			allocator.allocatePerspective(regInfo.Sources[0].perspective)
+		}
+	}
+	// Initial allocation of perspective registers
+	for iter := allocation.Registers(); iter.HasNext(); {
+		regIndex := iter.Next()
+		regInfo := allocation.Register(regIndex)
+		if regInfo.Sources[0].perspective != "" {
+			allocator.allocateRegister(regInfo.Sources[0].perspective, regIndex)
+		}
+	}
+	// Done (for now)
+	return &allocator
+}
+
+// CompactBy Greedily compact the given allocation using a given "compabitility" comparator.
+func (p *RegisterAllocator) CompactBy(predicate AllocationComparator) {
+	for i := range p.allocations {
+		ith := &p.allocations[i]
+		// Ignore allocation if its already been merged into something else.
+		if !ith.IsEmpty() {
+			for j := i + 1; j < len(p.allocations); j++ {
+				jth := &p.allocations[j]
+				// Can we merge them?
+				if !jth.IsEmpty() && ith.Disjoint(jth) && predicate(ith, jth) {
+					// Yes!
+					ith.Merge(jth)
+				}
+			}
+		}
+	}
+}
+
+// Finalise the register allocation by merging allocated registers in the same slot.
+func (p *RegisterAllocator) Finalise() {
+	for _, a := range p.allocations {
+		if !a.IsEmpty() {
+			// Determine target register for allocation.
+			head := a.Target()
+			// Merge all other allocated slots into head.
+			for _, r := range a.slots {
+				if r.register != head {
+					p.allocation.Merge(head, r.register)
+				}
+			}
+		}
+	}
+}
+
+// Allocate a given perspective to a "slot" within the allocation matrix.  If
+// the perspective has already been allocated, then do nothing.
+func (p *RegisterAllocator) allocatePerspective(perspective string) {
+	if _, ok := p.perspectives[perspective]; !ok {
+		slot := uint(len(p.perspectives))
+		p.perspectives[perspective] = slot
+	}
+}
+
+// Greedily allocate a given register.
+func (p *RegisterAllocator) allocateRegister(perspective string, regIndex uint) {
+	// Extract register info
+	regInfo := p.allocation.Register(regIndex)
+	regType := regInfo.DataType
+	// Determine perspective slot
+	slot := p.perspectives[perspective]
+	// Construct empty allocation
+	alloc := NewRegisterGroup(regType)
+	// Allocate this slot to the specified register
+	alloc.Assign(slot, regIndex)
+	// Done
+	p.allocations = append(p.allocations, alloc)
+}
+
+// RegisterSlot represents a register in a given "slot".  The intuition is that
+// each perspective is allocated its own slot.  Thus, the goal of register
+// allocation is to group compatible registers in different perspectives (i.e.
+// slots).
+type RegisterSlot struct {
+	slot     uint
+	register uint
+}
+
+// LessEq implements the necessary comparator for register slots.
+func (p RegisterSlot) LessEq(other RegisterSlot) bool {
+	if p.slot < other.slot {
+		return true
+	} else if p.slot == other.slot {
+		// This should be unreachable.
+		panic("multiple registers allocated to same slot")
+	}
+	//
+	return false
+}
+
+// RegisterGroup represents a group of registers which (eventually) will be
+// allocated to the same column.  The intuition is that, initially, we begin
+// with a single group for each register.  Then, groups are merged together
+// according to the high-level allocation algorithm.
+type RegisterGroup struct {
+	// The enclosing type to use for this group, which should include the type
+	// for every allocated slot.
+	dataType sc.Type
+	// Identifies members of this group, where each member is a register
+	// allocated to a given slot (i.e. perspective). The intuition is that no
+	// two members of this group should be allocated to the same slot (i.e.
+	// perspective).  Furthermore, all members of this groups should be
+	// compatible (in some sense).
+	slots util.AnySortedSet[RegisterSlot]
+}
+
+// NewRegisterGroup constructs a new (and empty) register group.
+func NewRegisterGroup(dataType sc.Type) RegisterGroup {
+	// Create initially empty set of register slots.
+	slots := util.NewAnySortedSet[RegisterSlot]()
+	//
+	return RegisterGroup{
+		dataType,
+		*slots,
+	}
+}
+
+// IsEmpty checks whether this group is empty or not.  Groups can become empty
+// when they are merged into others.
+func (p *RegisterGroup) IsEmpty() bool {
+	return len(p.slots) == 0
+}
+
+// Available determines whether a given slot has been set already.
+func (p *RegisterGroup) Available(slot uint) bool {
+	// NOTE: could be made more efficient using a binary search.
+	for _, r := range p.slots {
+		if r.slot == slot {
+			return false
+		} else if r.slot > slot {
+			// This early termination criteria makes sense as we know that each
+			// RegisterSlot is sorted in increasing order of its slot.
+			return true
+		}
+	}
+	//
+	return true
+}
+
+// Assign a register to a given slot in this group.  If the slot is already
+// taken, then this will panic.
+func (p *RegisterGroup) Assign(slot uint, reg uint) {
+	if !p.Available(slot) {
+		// Should be unreachable
+		panic("attempt to reassign slot")
+	}
+	//
+	p.slots.Insert(RegisterSlot{slot, reg})
+}
+
+// Target returns the register with the least index within this allocation.
+func (p *RegisterGroup) Target() uint {
+	if len(p.slots) == 0 {
+		// Should be impossible since each allocation starts with exactly one
+		// slot already taken.
+		panic("empty allocation encountered")
+	}
+	//
+	var target uint = math.MaxUint
+	//
+	for _, r := range p.slots {
+		target = min(target, r.register)
+	}
+	//
+	return target
+}
+
+// Disjoint checks whether this allocation and another are disjoint.  That is,
+// they do not have registers allocated to the same slot.
+func (p *RegisterGroup) Disjoint(other *RegisterGroup) bool {
+	if len(p.slots) != len(other.slots) {
+		// Should be unreachable.
+		panic("incompabible greedy allocations")
+	}
+	// Check each slot in turn
+	i := 0
+	j := 0
+	//
+	for i < len(p.slots) && j < len(other.slots) {
+		ith := p.slots[i].slot
+		jth := other.slots[j].slot
+		//
+		if ith == jth {
+			// This indicates a given slot has been assigned a register in both
+			// groups.  Hence, they are not disjoint.
+			return false
+		} else if ith < jth {
+			i++
+		} else {
+			j++
+		}
+	}
+	// No slot allocated in both, so they are disjoint.
+	return true
+}
+
+// Merge another allocation into this allocation.  This leaves the other
+// allocation in the unused state (i.e. it will be ignored from now on).
+func (p *RegisterGroup) Merge(other *RegisterGroup) {
+	if len(p.slots) != len(other.slots) {
+		// Should be unreachable.
+		panic("incompabible greedy allocations")
+	}
+	// Join their datatypes
+	p.dataType = schema.Join(p.dataType, other.dataType)
+	// Join the two groups (via set union)
+	p.slots.InsertSorted(&other.slots)
+	// Mark other allocation as empty
+	other.slots = nil
+}
+
+func (p *RegisterGroup) String() string {
+	var builder strings.Builder
+	//
+	builder.WriteString("{")
+	//
+	for i, r := range p.slots {
+		if i != 0 {
+			builder.WriteString(",")
+		}
+		//
+		builder.WriteString(fmt.Sprintf("%d:=%d", r.slot, r.register))
+	}
+	//
+	builder.WriteString("}")
+	//
+	return builder.String()
+}
