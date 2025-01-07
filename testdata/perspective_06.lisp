@@ -9,7 +9,7 @@
     (Q :binary@prove))
 
 ;; Section 1
-(defperspective p1 P ((B :binary)))
+(defperspective p1 P ((B :binary@prove)))
 (defconstraint c1 (:perspective p1) (vanishes! (- A B)))
 
 ;; Section 2

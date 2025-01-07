@@ -197,6 +197,7 @@ func NewRegisterAllocator(allocation RegisterAllocation) *RegisterAllocator {
 	for iter := allocation.Registers(); iter.HasNext(); {
 		regIndex := iter.Next()
 		regInfo := allocation.Register(regIndex)
+
 		if regInfo.Sources[0].perspective != "" {
 			allocator.allocateRegister(regInfo.Sources[0].perspective, regIndex)
 		}
@@ -364,10 +365,6 @@ func (p *RegisterGroup) Target() uint {
 // Disjoint checks whether this allocation and another are disjoint.  That is,
 // they do not have registers allocated to the same slot.
 func (p *RegisterGroup) Disjoint(other *RegisterGroup) bool {
-	if len(p.slots) != len(other.slots) {
-		// Should be unreachable.
-		panic("incompabible greedy allocations")
-	}
 	// Check each slot in turn
 	i := 0
 	j := 0
@@ -393,10 +390,6 @@ func (p *RegisterGroup) Disjoint(other *RegisterGroup) bool {
 // Merge another allocation into this allocation.  This leaves the other
 // allocation in the unused state (i.e. it will be ignored from now on).
 func (p *RegisterGroup) Merge(other *RegisterGroup) {
-	if len(p.slots) != len(other.slots) {
-		// Should be unreachable.
-		panic("incompabible greedy allocations")
-	}
 	// Join their datatypes
 	p.dataType = schema.Join(p.dataType, other.dataType)
 	// Join the two groups (via set union)

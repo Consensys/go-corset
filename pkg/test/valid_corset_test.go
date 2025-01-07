@@ -765,6 +765,82 @@ func Test_Perspective_01(t *testing.T) {
 	Check(t, false, "perspective_01")
 }
 
+func Test_Perspective_02(t *testing.T) {
+	Check(t, false, "perspective_02")
+}
+
+func Test_Perspective_03(t *testing.T) {
+	Check(t, false, "perspective_03")
+}
+
+func Test_Perspective_04(t *testing.T) {
+	Check(t, false, "perspective_04")
+}
+
+func Test_Perspective_05(t *testing.T) {
+	Check(t, false, "perspective_05")
+}
+
+func Test_Perspective_06(t *testing.T) {
+	Check(t, false, "perspective_06")
+}
+
+func Test_Perspective_07(t *testing.T) {
+	Check(t, false, "perspective_07")
+}
+
+func Test_Perspective_08(t *testing.T) {
+	Check(t, false, "perspective_08")
+}
+
+func Test_Perspective_09(t *testing.T) {
+	Check(t, false, "perspective_09")
+}
+
+func Test_Perspective_10(t *testing.T) {
+	Check(t, false, "perspective_10")
+}
+
+func Test_Perspective_11(t *testing.T) {
+	Check(t, false, "perspective_11")
+}
+
+func Test_Perspective_12(t *testing.T) {
+	Check(t, false, "perspective_12")
+}
+
+func Test_Perspective_13(t *testing.T) {
+	Check(t, false, "perspective_13")
+}
+
+func Test_Perspective_14(t *testing.T) {
+	Check(t, false, "perspective_14")
+}
+
+func Test_Perspective_15(t *testing.T) {
+	Check(t, false, "perspective_15")
+}
+
+func Test_Perspective_16(t *testing.T) {
+	Check(t, false, "perspective_16")
+}
+
+func Test_Perspective_17(t *testing.T) {
+	Check(t, false, "perspective_17")
+}
+
+func Test_Perspective_18(t *testing.T) {
+	Check(t, false, "perspective_18")
+}
+
+func Test_Perspective_19(t *testing.T) {
+	Check(t, false, "perspective_19")
+}
+
+func Test_Perspective_20(t *testing.T) {
+	Check(t, false, "perspective_20")
+}
+
 // ===================================================================
 // Complex Tests
 // ===================================================================
