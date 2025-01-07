@@ -643,8 +643,8 @@ func Test_Invalid_Perspective_06(t *testing.T) {
 	CheckInvalid(t, "perspective_invalid_06")
 }
 
-func Test_Invalid_Perspective_07(t *testing.T) {
-	CheckInvalid(t, "perspective_invalid_07")
+func Test_Invalid_Perspective_08(t *testing.T) {
+	CheckInvalid(t, "perspective_invalid_08")
 }
 
 // ===================================================================
