@@ -396,6 +396,9 @@ type DefConstraint struct {
 	// constraint is active; otherwiser, its inactive. Nil is permitted to
 	// indicate no guard is present.
 	Guard Expr
+	// Perspective identifies the perspective to which this constraint is
+	// associated (if any).
+	Perspective *PerspectiveName
 	// The constraint itself which (when active) should evaluate to zero for the
 	// relevant set of rows.
 	Constraint Expr
@@ -411,15 +414,19 @@ func (p *DefConstraint) Definitions() util.Iterator[SymbolDefinition] {
 
 // Dependencies needed to signal declaration.
 func (p *DefConstraint) Dependencies() util.Iterator[Symbol] {
-	var guard_deps []Symbol
+	var deps []Symbol
 	// Extract guard's dependencies (if applicable)
 	if p.Guard != nil {
-		guard_deps = p.Guard.Dependencies()
+		deps = p.Guard.Dependencies()
+	}
+	// Extract perspective (if applicable)
+	if p.Perspective != nil {
+		deps = append(deps, p.Perspective)
 	}
 	// Extract bodies dependencies
-	body_deps := p.Constraint.Dependencies()
+	deps = append(deps, p.Constraint.Dependencies()...)
 	// Done
-	return util.NewArrayIterator[Symbol](append(guard_deps, body_deps...))
+	return util.NewArrayIterator[Symbol](deps)
 }
 
 // Defines checks whether this declaration defines the given symbol.  The symbol
@@ -742,6 +749,82 @@ func (p *DefPermutation) Lisp() sexp.SExp {
 		sexp.NewSymbol("defpermutation"),
 		sexp.NewList(targets),
 		sexp.NewList(sources)})
+}
+
+// ============================================================================
+// defperspective
+// ============================================================================
+
+// DefPerspective captures the definition of a perspective, its selector and  a
+// set of one or more columns being declared within.
+type DefPerspective struct {
+	// Name of the perspective.
+	symbol *PerspectiveName
+	// Selector for the perspective.
+	Selector Expr
+	// Columns defined in this perspective.
+	Columns []*DefColumn
+}
+
+// Name of symbol being defined
+func (p *DefPerspective) Name() string {
+	return p.symbol.name
+}
+
+// IsFunction is always true for a function definition!
+func (p *DefPerspective) IsFunction() bool {
+	return false
+}
+
+// Finalise this perspective, which indicates the selector expression has been
+// finalised.
+func (p *DefPerspective) Finalise() {
+	p.symbol.binding.Finalise()
+}
+
+// Binding returns the allocated binding for this symbol (which may or may not
+// be finalised).
+func (p *DefPerspective) Binding() Binding {
+	return p.symbol.binding
+}
+
+// Dependencies needed to signal declaration.
+func (p *DefPerspective) Dependencies() util.Iterator[Symbol] {
+	return util.NewArrayIterator(p.Selector.Dependencies())
+}
+
+// Definitions returns the set of symbols defined by this declaration.  Observe
+// that these may not yet have been finalised.
+func (p *DefPerspective) Definitions() util.Iterator[SymbolDefinition] {
+	iter1 := util.NewArrayIterator(p.Columns)
+	iter2 := util.NewCastIterator[*DefColumn, SymbolDefinition](iter1)
+	iter3 := util.NewUnitIterator[SymbolDefinition](p)
+	// Construct casting iterator
+	return iter2.Append(iter3)
+}
+
+// Defines checks whether this declaration defines the given symbol.  The symbol
+// in question needs to have been resolved already for this to make sense.
+func (p *DefPerspective) Defines(symbol Symbol) bool {
+	for _, sym := range p.Columns {
+		if &sym.binding == symbol.Binding() {
+			return true
+		}
+	}
+	//
+	return false
+}
+
+// IsFinalised checks whether this declaration has already been finalised.  If
+// so, then we don't need to finalise it again.
+func (p *DefPerspective) IsFinalised() bool {
+	return p.symbol.binding.IsFinalised()
+}
+
+// Lisp converts this node into its lisp representation.  This is primarily used
+// for debugging purposes.
+func (p *DefPerspective) Lisp() sexp.SExp {
+	panic("todo")
 }
 
 // ============================================================================

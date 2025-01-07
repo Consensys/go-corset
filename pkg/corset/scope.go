@@ -46,15 +46,15 @@ func (p *GlobalScope) DeclareModule(module string) {
 		panic(fmt.Sprintf("duplicate module %s declared", module))
 	}
 	// Register module
-	mid := uint(len(p.ids))
+	id := uint(len(p.ids))
 	p.modules = append(p.modules, ModuleScope{
-		module, mid, make(map[BindingId]uint), make([]Binding, 0), p,
+		module, make(map[BindingId]uint), make([]Binding, 0), p,
 	})
-	p.ids[module] = mid
+	p.ids[module] = id
 	// Declare intrinsics (if applicable)
 	if module == "" {
 		for _, i := range INTRINSICS {
-			p.modules[mid].Declare(&i)
+			p.modules[id].Declare(&i)
 		}
 	}
 }
@@ -93,8 +93,8 @@ func (p *GlobalScope) Module(name string) *ModuleScope {
 
 // ToEnvironment converts this global scope into a concrete environment by
 // allocating all columns within this scope.
-func (p *GlobalScope) ToEnvironment() Environment {
-	return NewGlobalEnvironment(p)
+func (p *GlobalScope) ToEnvironment(allocator func(RegisterAllocation)) Environment {
+	return NewGlobalEnvironment(p, allocator)
 }
 
 // =============================================================================
@@ -105,8 +105,6 @@ func (p *GlobalScope) ToEnvironment() Environment {
 type ModuleScope struct {
 	// Module name
 	module string
-	// Module identifier
-	mid uint
 	// Mapping from binding identifiers to indices within the bindings array.
 	ids map[BindingId]uint
 	// The set of bindings in the order of declaration.
@@ -238,6 +236,8 @@ type LocalScope struct {
 	enclosing Scope
 	// Context for this scope
 	context *Context
+	// Perspective for this scope
+	perspective string
 	// Maps inputs parameters to the declaration index.
 	locals map[string]uint
 	// Actual parameter bindings
@@ -248,12 +248,12 @@ type LocalScope struct {
 // local scope can have local variables declared within it.  A local scope can
 // also be "global" in the sense that accessing symbols from other modules is
 // permitted.
-func NewLocalScope(enclosing Scope, global bool, pure bool) LocalScope {
+func NewLocalScope(enclosing Scope, global bool, pure bool, perspective string) LocalScope {
 	context := tr.VoidContext[string]()
 	locals := make(map[string]uint)
 	bindings := make([]*LocalVariableBinding, 0)
 	//
-	return LocalScope{global, pure, enclosing, &context, locals, bindings}
+	return LocalScope{global, pure, enclosing, &context, perspective, locals, bindings}
 }
 
 // NestedScope creates a nested scope within this local scope.
@@ -267,7 +267,7 @@ func (p LocalScope) NestedScope() LocalScope {
 	// Copy over bindings.
 	copy(nbindings, p.bindings)
 	// Done
-	return LocalScope{p.global, p.pure, p, p.context, nlocals, nbindings}
+	return LocalScope{p.global, p.pure, p, p.context, p.perspective, nlocals, nbindings}
 }
 
 // NestedPureScope creates a nested scope within this local scope which, in
@@ -282,7 +282,7 @@ func (p LocalScope) NestedPureScope() LocalScope {
 	// Copy over bindings.
 	copy(nbindings, p.bindings)
 	// Done
-	return LocalScope{p.global, true, p, p.context, nlocals, nbindings}
+	return LocalScope{p.global, true, p, p.context, p.perspective, nlocals, nbindings}
 }
 
 // IsGlobal determines whether symbols can be accessed in modules other than the

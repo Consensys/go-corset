@@ -25,9 +25,7 @@ func TranslateCircuit(env Environment, srcmap *sexp.SourceMaps[Node],
 	// Allocate all modules into schema
 	t.translateModules(circuit)
 	// Translate input columns
-	if errs := t.translateInputColumns(circuit); len(errs) > 0 {
-		return nil, errs
-	}
+	t.translateInputColumns(circuit)
 	// Translate everything else
 	if errs := t.translateOtherDeclarations(circuit); len(errs) > 0 {
 		return nil, errs
@@ -56,92 +54,111 @@ func (t *translator) translateModules(circuit *Circuit) {
 	// Add nested modules
 	for _, m := range circuit.Modules {
 		mid := t.schema.AddModule(m.Name)
-		aid := t.env.Module(m.Name).mid
+		info := t.env.Module(m.Name)
 		// Sanity check everything lines up.
-		if aid != mid {
-			panic(fmt.Sprintf("Invalid module identifier: %d vs %d", mid, aid))
+		if info.Id != mid {
+			panic(fmt.Sprintf("Invalid module identifier: %d vs %d", mid, info.Id))
 		}
 	}
 }
 
 // Translate all input column declarations in the entire circuit.
-func (t *translator) translateInputColumns(circuit *Circuit) []SyntaxError {
-	errors := t.translateInputColumnsInModule("", circuit.Declarations)
+func (t *translator) translateInputColumns(circuit *Circuit) {
+	t.translateInputColumnsInModule("")
 	// Translate each module
 	for _, m := range circuit.Modules {
-		errs := t.translateInputColumnsInModule(m.Name, m.Declarations)
-		errors = append(errors, errs...)
+		t.translateInputColumnsInModule(m.Name)
 	}
-	// Done
-	return errors
 }
 
-// Translate all input column declarations occurring in a given module within the circuit.
-func (t *translator) translateInputColumnsInModule(module string, decls []Declaration) []SyntaxError {
-	var errors []SyntaxError
-	//
-	for _, d := range decls {
-		if dcols, ok := d.(*DefColumns); ok {
-			errs := t.translateDefColumns(dcols, module)
-			errors = append(errors, errs...)
+// Translate all input column declarations occurring in a given module within
+// the circuit.  Observe that this does not attempt to translate column
+// declarations directly, since register allocation has broken the link between
+// source-level columns and registers (i.e. HIR-level columns).  Instead, we
+// must rely on information provided by the environment.
+//
+// Furthermore, we only allocate input columns here.  This is actually safe
+// since (at this time) input columns are the only ones subject to register
+// allocation.  In the future, this might change and a more involved strategy
+// will be required (e.g. adding another level of indirection between the
+// register indices generated from register allocation and those column
+// identifiers used at the HIR level; or, requiring the column identifier be
+// specified to HIR at the point of allocation).
+func (t *translator) translateInputColumnsInModule(module string) {
+	// Process each register in turn.
+	for _, regIndex := range t.env.RegistersOf(module) {
+		regInfo := t.env.Register(regIndex)
+		// Sanity Check
+		if !regInfo.IsActive() {
+			panic("inactive register encountered")
+		} else if regInfo.IsInput() {
+			// Declare column at HIR level.
+			cid := t.schema.AddDataColumn(regInfo.Context, regInfo.Name, regInfo.DataType)
+			// Prove underlying types (as necessary)
+			t.translateTypeConstraints(regIndex)
+			// Sanity check
+			if cid != regIndex {
+				// Should be unreachable
+				panic(fmt.Sprintf("inconsistent register index (%d versus %d)", cid, regIndex))
+			}
 		}
 	}
-	// Done
-	return errors
 }
 
-// Translate a "defcolumns" declaration.
-func (t *translator) translateDefColumns(decl *DefColumns, module string) []SyntaxError {
-	var errors []SyntaxError
-	// Add each column to schema
-	for _, c := range decl.Columns {
-		errs := t.translateDefColumn(c, module)
-		errors = append(errors, errs...)
-	}
-	//
-	return errors
-}
-
-// Translate a "defcolumns" declaration.
-func (t *translator) translateDefColumn(decl *DefColumn, module string) []SyntaxError {
-	// Extract base columnd ID
-	columnId := t.env.Column(module, decl.Name()).cid
-	//
-	if arr_t, ok := decl.DataType().(*ArrayType); ok {
-		var errors []SyntaxError
-		// Handle array types
-		for i := arr_t.min; i <= arr_t.max; i++ {
-			name := fmt.Sprintf("%s_%d", decl.name, i)
-			errs := t.translateRawColumn(decl, module, name, arr_t.element.AsUnderlying(), columnId)
-			errors = append(errors, errs...)
-			columnId++
+// Translate any type constraints applicable for the given register.  Type
+// constraints are determined by the source-level columns and, hence, there are
+// several cases to consider:
+//
+// (1) none of the source-level columns allocated to this register was marked
+// provable. Therefore, no need to do anything.
+//
+// (2) all source-level columns allocated to this register which are marked
+// provable have the same type which, furthermore, is the largest type of any
+// column allocated to this register.  In this case, we can use a single
+// (global) constraint for the entire column.
+//
+// (3) source-level columns allocated to this register which are marked provable
+// have the same type, but this is not the largest of any allocated to this
+// register.  In fact, only binary@prove is supported here and we can assume
+// each column is allocated to a different perspective.
+//
+// Any other cases are considered to be erroneous register allocations, and will
+// lead to a panic.
+func (t *translator) translateTypeConstraints(regIndex uint) {
+	regInfo := t.env.Register(regIndex)
+	// NOTE: at the moment, a more restrictive set of requirements is assumed
+	// (compared with the description above).  Specifically we assume that, for
+	// any register needing a type constraint, the type of all source columns is
+	// the same.  The intention is that, in the future, the logic here (and
+	// potentially elsewhere) will be updated to support the weaker requirements
+	// above.  In particular, to make use of the weaker requirements requires a
+	// more powerful register allocator than currently implemented.
+	required := false
+	// Check for provability
+	for _, col := range regInfo.Sources {
+		if col.mustProve {
+			required = true
+			break
 		}
-		//
-		return errors
-	} else {
-		return t.translateRawColumn(decl, module, decl.name, decl.DataType().AsUnderlying(), columnId)
 	}
-}
-
-func (t *translator) translateRawColumn(decl *DefColumn, module string, name string,
-	datatype sc.Type, columnId uint) []SyntaxError {
-	//
-	context := t.env.ContextFrom(module, decl.LengthMultiplier())
-	cid := t.schema.AddDataColumn(context, name, datatype)
-	// Prove type (if requested)
-	if decl.MustProve() {
-		bound := datatype.AsUint().Bound()
-		t.schema.AddRangeConstraint(name, context, &hir.ColumnAccess{Column: cid, Shift: 0}, bound)
+	// Apply provability (if it is required)
+	if required {
+		reg_width := regInfo.DataType.AsUint().BitWidth()
+		// For now, enforce all source columns have matching bitwidth.
+		for _, col := range regInfo.Sources {
+			// Determine bitwidth
+			col_width := col.datatype.AsUint().BitWidth()
+			// Sanity check (for now)
+			if col_width != reg_width {
+				// See above discussion of why this strong restriction is
+				// currently in place.
+				panic("cannot (currently) prove type of mixed-width register")
+			}
+		}
+		// Add appropriate type constraint
+		bound := regInfo.DataType.AsUint().Bound()
+		t.schema.AddRangeConstraint(regInfo.Name, regInfo.Context, &hir.ColumnAccess{Column: regIndex, Shift: 0}, bound)
 	}
-	// Sanity check column identifier
-	if columnId != cid {
-		msg := fmt.Sprintf("invalid column identifier (expected %d got %d)", columnId, cid)
-		err := t.srcmap.SyntaxError(decl, msg)
-		//
-		return []SyntaxError{*err}
-	}
-	//
-	return nil
 }
 
 // Translate all assignment or constraint declarations in the circuit.
@@ -174,28 +191,31 @@ func (t *translator) translateOtherDeclarationsInModule(module string, decls []D
 func (t *translator) translateDeclaration(decl Declaration, module string) []SyntaxError {
 	var errors []SyntaxError
 	//
-	if _, ok := decl.(*DefAliases); ok {
+	switch d := decl.(type) {
+	case *DefAliases:
 		// Not an assignment or a constraint, hence ignore.
-	} else if _, ok := decl.(*DefColumns); ok {
+	case *DefColumns:
 		// Not an assignment or a constraint, hence ignore.
-	} else if _, ok := decl.(*DefConst); ok {
+	case *DefConst:
 		// For now, constants are always compiled out when going down to HIR.
-	} else if d, ok := decl.(*DefConstraint); ok {
+	case *DefConstraint:
 		errors = t.translateDefConstraint(d, module)
-	} else if _, ok := decl.(*DefFun); ok {
+	case *DefFun:
 		// For now, functions are always compiled out when going down to HIR.
 		// In the future, this might change if we add support for macros to HIR.
-	} else if d, ok := decl.(*DefInRange); ok {
+	case *DefInRange:
 		errors = t.translateDefInRange(d, module)
-	} else if d, Ok := decl.(*DefInterleaved); Ok {
+	case *DefInterleaved:
 		errors = t.translateDefInterleaved(d, module)
-	} else if d, ok := decl.(*DefLookup); ok {
+	case *DefLookup:
 		errors = t.translateDefLookup(d, module)
-	} else if d, Ok := decl.(*DefPermutation); Ok {
+	case *DefPermutation:
 		errors = t.translateDefPermutation(d, module)
-	} else if d, ok := decl.(*DefProperty); ok {
+	case *DefPerspective:
+		// As for defcolumns, nothing generated here.
+	case *DefProperty:
 		errors = t.translateDefProperty(d, module)
-	} else {
+	default:
 		// Error handling
 		panic("unknown declaration")
 	}
@@ -209,16 +229,25 @@ func (t *translator) translateDefConstraint(decl *DefConstraint, module string) 
 	constraint, errors := t.translateExpressionInModule(decl.Constraint, module, 0)
 	// Translate (optional) guard
 	guard, guard_errors := t.translateOptionalExpressionInModule(decl.Guard, module, 0)
+	// Translate (optional) perspective selector
+	selector, selector_errors := t.translateSelectorInModule(decl.Perspective, module)
 	// Combine errors
 	errors = append(errors, guard_errors...)
+	errors = append(errors, selector_errors...)
 	// Apply guard
 	if constraint == nil {
 		// NOTE: in this case, the constraint itself has been translated as nil.
 		// This means there is no constraint (e.g. its a debug constraint, but
 		// debug mode is not enabled).
 		return errors
-	} else if guard != nil {
+	}
+	// Apply guard (if applicable)
+	if guard != nil {
 		constraint = &hir.Mul{Args: []hir.Expr{guard, constraint}}
+	}
+	// Apply perspective selector (if applicable)
+	if selector != nil {
+		constraint = &hir.Mul{Args: []hir.Expr{selector, constraint}}
 	}
 	//
 	if len(errors) == 0 {
@@ -229,8 +258,6 @@ func (t *translator) translateDefConstraint(decl *DefConstraint, module string) 
 			if constraint.Multiplicity() != 0 {
 				return t.srcmap.SyntaxErrors(decl, "constraint is a constant")
 			}
-		} else if context.Module() != t.env.Module(module).mid {
-			return t.srcmap.SyntaxErrors(decl, "invalid context inferred")
 		} else {
 			// Add translated constraint
 			t.schema.AddVanishingConstraint(decl.Handle, context, decl.Domain, constraint)
@@ -238,6 +265,17 @@ func (t *translator) translateDefConstraint(decl *DefConstraint, module string) 
 	}
 	// Done
 	return errors
+}
+
+// Translate the selector for the perspective of a defconstraint.  Observe that
+// a defconstraint may not be part of a perspective and, hence, would have no
+// selector.
+func (t *translator) translateSelectorInModule(perspective *PerspectiveName, module string) (hir.Expr, []SyntaxError) {
+	if perspective != nil {
+		return t.translateExpressionInModule(perspective.binding.selector, module, 0)
+	}
+	//
+	return nil, nil
 }
 
 // Translate a "deflookup" declaration.
@@ -251,8 +289,8 @@ func (t *translator) translateDefLookup(decl *DefLookup, module string) []Syntax
 	errors := append(src_errs, tgt_errs...)
 	//
 	if len(errors) == 0 {
-		src_context := t.env.ToContext(ContextOfExpressions(decl.Sources))
-		target_context := t.env.ToContext(ContextOfExpressions(decl.Targets))
+		src_context := t.env.ContextOf(ContextOfExpressions(decl.Sources))
+		target_context := t.env.ContextOf(ContextOfExpressions(decl.Targets))
 		// Add translated constraint
 		t.schema.AddLookupConstraint(decl.Handle, src_context, target_context, sources, targets)
 	}
@@ -266,7 +304,7 @@ func (t *translator) translateDefInRange(decl *DefInRange, module string) []Synt
 	expr, errors := t.translateExpressionInModule(decl.Expr, module, 0)
 	//
 	if len(errors) == 0 {
-		context := t.env.ContextFrom(module, 1)
+		context := expr.Context(t.schema)
 		// Add translated constraint
 		t.schema.AddRangeConstraint("", context, expr, decl.Bound)
 	}
@@ -280,20 +318,18 @@ func (t *translator) translateDefInterleaved(decl *DefInterleaved, module string
 	//
 	sources := make([]uint, len(decl.Sources))
 	// Lookup target column info
-	info := t.env.Column(module, decl.Target.Name())
+	targetId := t.env.RegisterOf(module, decl.Target.Name())
+	target := t.env.Register(targetId)
 	// Determine source column identifiers
 	for i, source := range decl.Sources {
-		sources[i] = t.env.Column(module, source.Name()).ColumnId()
+		sources[i] = t.env.RegisterOf(module, source.Name())
 	}
-	// Construct context for this assignment
-	context := t.env.ContextFrom(module, info.multiplier)
-	// Extract underlying datatype
-	datatype := info.dataType.AsUnderlying()
 	// Register assignment
-	cid := t.schema.AddAssignment(assignment.NewInterleaving(context, decl.Target.Name(), sources, datatype))
+	cid := t.schema.AddAssignment(assignment.NewInterleaving(target.Context, target.Name, sources, target.DataType))
 	// Sanity check column identifiers align.
-	if cid != info.ColumnId() {
-		errors = append(errors, *t.srcmap.SyntaxError(decl, "invalid column identifier"))
+	if cid != targetId {
+		err := fmt.Sprintf("inconsitent (interleaved) column identifier (%d v %d)", cid, targetId)
+		errors = append(errors, *t.srcmap.SyntaxError(decl, err))
 	}
 	// Done
 	return errors
@@ -303,7 +339,7 @@ func (t *translator) translateDefInterleaved(decl *DefInterleaved, module string
 func (t *translator) translateDefPermutation(decl *DefPermutation, module string) []SyntaxError {
 	var (
 		errors   []SyntaxError
-		context  tr.Context
+		context  tr.Context = tr.VoidContext[uint]()
 		firstCid uint
 	)
 	//
@@ -312,24 +348,25 @@ func (t *translator) translateDefPermutation(decl *DefPermutation, module string
 	sources := make([]uint, len(decl.Sources))
 	//
 	for i := 0; i < len(decl.Sources); i++ {
-		target := t.env.Column(module, decl.Targets[i].Name())
-		context = t.env.ContextFrom(module, target.multiplier)
-		// Extract underlying datatype
-		datatype := target.dataType.AsUnderlying()
+		targetId := t.env.RegisterOf(module, decl.Targets[i].Name())
+		target := t.env.Register(targetId)
 		// Construct columns
-		targets[i] = sc.NewColumn(context, decl.Targets[i].Name(), datatype)
-		sources[i] = t.env.Column(module, decl.Sources[i].Name()).ColumnId()
+		targets[i] = sc.NewColumn(target.Context, target.Name, target.DataType)
+		sources[i] = t.env.RegisterOf(module, decl.Sources[i].Name())
 		signs[i] = decl.Signs[i]
 		// Record first CID
 		if i == 0 {
-			firstCid = target.ColumnId()
+			firstCid = targetId
 		}
+		// Join contexts
+		context = context.Join(target.Context)
 	}
 	// Add the assignment and check the first identifier.
 	cid := t.schema.AddAssignment(assignment.NewSortedPermutation(context, targets, signs, sources))
 	// Sanity check column identifiers align.
 	if cid != firstCid {
-		errors = append(errors, *t.srcmap.SyntaxError(decl, "invalid column identifier"))
+		err := fmt.Sprintf("inconsitent (permuted) column identifier (%d v %d)", cid, firstCid)
+		errors = append(errors, *t.srcmap.SyntaxError(decl, err))
 	}
 	// Done
 	return errors
@@ -341,7 +378,7 @@ func (t *translator) translateDefProperty(decl *DefProperty, module string) []Sy
 	assertion, errors := t.translateExpressionInModule(decl.Assertion, module, 0)
 	//
 	if len(errors) == 0 {
-		context := t.env.ContextFrom(module, 1)
+		context := assertion.Context(t.schema)
 		// Add translated constraint
 		t.schema.AddPropertyAssertion(decl.Handle, context, assertion)
 	}
@@ -482,12 +519,12 @@ func (t *translator) translateArrayAccessInModule(expr *ArrayAccess, shift int) 
 	if len(errors) > 0 {
 		return nil, errors
 	}
+	// Construct real column name
+	name := fmt.Sprintf("%s_%d", expr.Name(), index.Uint64())
 	// Lookup underlying column info
-	info := t.env.Column(binding.module, expr.Name())
-	// Update column id
-	columnId := info.cid + uint(index.Uint64()) - min
+	registerId := t.env.RegisterOf(binding.module, name)
 	// Done
-	return &hir.ColumnAccess{Column: columnId, Shift: shift}, nil
+	return &hir.ColumnAccess{Column: registerId, Shift: shift}, nil
 }
 
 func (t *translator) translateExpInModule(expr *Exp, module string, shift int) (hir.Expr, []SyntaxError) {
@@ -522,9 +559,9 @@ func (t *translator) translateShiftInModule(expr *Shift, module string, shift in
 func (t *translator) translateVariableAccessInModule(expr *VariableAccess, shift int) (hir.Expr, []SyntaxError) {
 	if binding, ok := expr.Binding().(*ColumnBinding); ok {
 		// Lookup column binding
-		cinfo := t.env.Column(binding.module, expr.Name())
+		register_id := t.env.RegisterOf(binding.module, expr.Name())
 		// Done
-		return &hir.ColumnAccess{Column: cinfo.ColumnId(), Shift: shift}, nil
+		return &hir.ColumnAccess{Column: register_id, Shift: shift}, nil
 	} else if binding, ok := expr.Binding().(*ConstantBinding); ok {
 		// Just fill in the constant.
 		var constant fr.Element

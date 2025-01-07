@@ -145,10 +145,12 @@ func (p *FunctionSignature) Apply(args []Expr, srcmap *sexp.SourceMaps[Node]) Ex
 
 // ColumnBinding represents something bound to a given column.
 type ColumnBinding struct {
-	// Column's allocated identifier
-	cid uint
 	// Column's enclosing module
 	module string
+	// Enclosing perspective
+	perspective string
+	// Column's name
+	name string
 	// Determines whether this is a computed column, or not.
 	computed bool
 	// Determines whether this column must be proven (or not).
@@ -159,21 +161,14 @@ type ColumnBinding struct {
 	dataType Type
 }
 
-// NewInputColumnBinding constructs a new column binding in a given module.
-// This is for the case where all information about the column is already known,
-// and will not be inferred from elsewhere.
-func NewInputColumnBinding(module string, mustProve bool, multiplier uint, datatype Type) *ColumnBinding {
-	return &ColumnBinding{math.MaxUint, module, false, mustProve, multiplier, datatype}
-}
-
 // NewComputedColumnBinding constructs a new column binding in a given
 // module.  This is for the case where not all information is yet known about
 // the column and, hence, it must be finalised later on.  For example, in a
 // definterleaved constraint the target column information (e.g. its type) is
 // not immediately available and must be determined from those columns from
 // which it is constructed.
-func NewComputedColumnBinding(module string) *ColumnBinding {
-	return &ColumnBinding{math.MaxUint, module, true, false, 0, nil}
+func NewComputedColumnBinding(module string, name string) *ColumnBinding {
+	return &ColumnBinding{module, "", name, true, false, 0, nil}
 }
 
 // IsFinalised checks whether this binding has been finalised yet or not.
@@ -191,21 +186,6 @@ func (p *ColumnBinding) Finalise(multiplier uint, datatype Type) {
 // was declared and also the length multiplier of that module it requires.
 func (p *ColumnBinding) Context() Context {
 	return tr.NewContext(p.module, p.multiplier)
-}
-
-// AllocateId allocates the column identifier for this column
-func (p *ColumnBinding) AllocateId(cid uint) {
-	p.cid = cid
-}
-
-// ColumnId returns the allocated identifier for this column.  NOTE: this will
-// panic if this column has not yet been allocated an identifier.
-func (p *ColumnBinding) ColumnId() uint {
-	if p.cid == math.MaxUint {
-		panic("column id not yet allocated")
-	}
-	//
-	return p.cid
 }
 
 // ============================================================================
@@ -446,4 +426,35 @@ func (p *DefunBinding) Overload(overload *DefunBinding) (FunctionBinding, bool) 
 	}
 	//
 	return &OverloadedBinding{[]*DefunBinding{p, overload}}, true
+}
+
+// ============================================================================
+// Perspective
+// ============================================================================
+
+// PerspectiveBinding contains key information about a perspective, such as its
+// selector expression.
+type PerspectiveBinding struct {
+	// Expression which determines when this perspective is enabled.
+	selector Expr
+	// Indicates whether or not the selector has been finalised.
+	resolved bool
+}
+
+var _ Binding = &PerspectiveBinding{}
+
+// NewPerspectiveBinding constructs a new binding for a given perspective.
+func NewPerspectiveBinding(selector Expr) *PerspectiveBinding {
+	return &PerspectiveBinding{selector, false}
+}
+
+// IsFinalised checks whether this binding has been finalised yet or not.
+func (p *PerspectiveBinding) IsFinalised() bool {
+	return p.resolved
+}
+
+// Finalise this binding, which indicates the selector expression has been
+// finalised.
+func (p *PerspectiveBinding) Finalise() {
+	p.resolved = true
 }
