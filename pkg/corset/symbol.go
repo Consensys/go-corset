@@ -1,9 +1,8 @@
 package corset
 
 import (
-	"fmt"
-
 	"github.com/consensys/go-corset/pkg/sexp"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // Symbol represents a variable or function access within a declaration.
@@ -12,17 +11,12 @@ import (
 // a constant access, etc).
 type Symbol interface {
 	Node
-	// Determines whether this symbol is qualfied or not (i.e. has an explicitly
-	// module specifier).
-	IsQualified() bool
+	// Path returns the given path of this symbol.
+	Path() *util.Path
 	// Indicates whether or not this is a function.
 	IsFunction() bool
 	// Checks whether this symbol has been resolved already, or not.
 	IsResolved() bool
-	// Optional module qualification
-	Module() string
-	// Name of the symbol
-	Name() string
 	// Get binding associated with this interface.  This will panic if this
 	// symbol is not yet resolved.
 	Binding() Binding
@@ -34,22 +28,17 @@ type Symbol interface {
 	Resolve(Binding) bool
 }
 
-// QualifiedName returns the qualified name of a given symbol
-func QualifiedName(symbol Symbol) string {
-	if symbol.IsQualified() {
-		return fmt.Sprintf("%s.%s", symbol.Module(), symbol.Name())
-	}
-	//
-	return symbol.Name()
-}
-
 // SymbolDefinition represents a declaration (or part thereof) which defines a
 // particular symbol.  For example, "defcolumns" will define one or more symbols
 // representing columns, etc.
 type SymbolDefinition interface {
 	Node
-	// Name of symbol being defined
+	// Name returns the (unqualified) name of this symbol.  For example, "X" for
+	// a column X defined in a module m1.
 	Name() string
+	// Path returns the qualified name (i.e. absolute path) of this symbol.  For
+	// example, "m1.X" for a column X defined in module m1.
+	Path() *util.Path
 	// Indicates whether or not this is a function definition.
 	IsFunction() bool
 	// Allocated binding for the symbol which may or may not be finalised.
@@ -61,8 +50,8 @@ type SymbolDefinition interface {
 type ColumnName = Name[*ColumnBinding]
 
 // NewColumnName construct a new column name which is (initially) unresolved.
-func NewColumnName(name string) *ColumnName {
-	return &ColumnName{name, false, nil, false}
+func NewColumnName(path util.Path) *ColumnName {
+	return &ColumnName{path, false, nil, false}
 }
 
 // FunctionName represents a name used in a position where it can only be
@@ -70,8 +59,8 @@ func NewColumnName(name string) *ColumnName {
 type FunctionName = Name[*DefunBinding]
 
 // NewFunctionName construct a new column name which is (initially) unresolved.
-func NewFunctionName(name string, binding *DefunBinding) *FunctionName {
-	return &FunctionName{name, true, binding, true}
+func NewFunctionName(path util.Path, binding *DefunBinding) *FunctionName {
+	return &FunctionName{path, true, binding, true}
 }
 
 // PerspectiveName represents a name used in a position where it can only be
@@ -79,8 +68,8 @@ func NewFunctionName(name string, binding *DefunBinding) *FunctionName {
 type PerspectiveName = Name[*PerspectiveBinding]
 
 // NewPerspectiveName construct a new column name which is (initially) unresolved.
-func NewPerspectiveName(name string, binding *PerspectiveBinding) *PerspectiveName {
-	return &PerspectiveName{name, true, binding, true}
+func NewPerspectiveName(path util.Path, binding *PerspectiveBinding) *PerspectiveName {
+	return &PerspectiveName{path, true, binding, true}
 }
 
 // Name represents a name within some syntactic item.  Essentially this wraps a
@@ -88,7 +77,7 @@ func NewPerspectiveName(name string, binding *PerspectiveBinding) *PerspectiveNa
 // information.
 type Name[T Binding] struct {
 	// Name of symbol
-	name string
+	path util.Path
 	// Indicates whether represents function or something else.
 	function bool
 	// Binding constructed for symbol.
@@ -98,17 +87,23 @@ type Name[T Binding] struct {
 }
 
 // NewName construct a new name which is (initially) unresolved.
-func NewName[T Binding](name string, function bool) *Name[T] {
+func NewName[T Binding](path util.Path, function bool) *Name[T] {
 	// Default value for type T
 	var empty T
 	// Construct the name
-	return &Name[T]{name, function, empty, false}
+	return &Name[T]{path, function, empty, false}
 }
 
-// IsQualified determines whether this symbol is qualfied or not (i.e. has an
-// explicit module specifier).  Column names are never qualified.
-func (e *Name[T]) IsQualified() bool {
-	return false
+// Name returns the (unqualified) name of this symbol.  For example, "X" for
+// a column X defined in a module m1.
+func (e *Name[T]) Name() string {
+	return e.path.Tail()
+}
+
+// Path returns the qualified name (i.e. absolute path) of this symbol.  For
+// example, "m1.X" for a column X defined in module m1.
+func (e *Name[T]) Path() *util.Path {
+	return &e.path
 }
 
 // IsFunction indicates whether or not this symbol refers to a function (which
@@ -120,18 +115,6 @@ func (e *Name[T]) IsFunction() bool {
 // IsResolved checks whether this symbol has been resolved already, or not.
 func (e *Name[T]) IsResolved() bool {
 	return e.resolved
-}
-
-// Module returns the optional module qualification.  This always panics because
-// column name's are never qualified.
-func (e *Name[T]) Module() string {
-	panic("undefined")
-}
-
-// Name returns the (unqualified) name of the column to which this symbol
-// refers.
-func (e *Name[T]) Name() string {
-	return e.name
 }
 
 // Binding gets binding associated with this interface.  This will panic if this
@@ -162,5 +145,5 @@ func (e *Name[T]) Resolve(binding Binding) bool {
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
 func (e *Name[T]) Lisp() sexp.SExp {
-	return sexp.NewSymbol(e.name)
+	return sexp.NewSymbol(e.path.String())
 }

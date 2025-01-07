@@ -33,8 +33,9 @@ type Environment interface {
 	// (i.e. underlying HIR column identifier).
 	Register(index uint) *Register
 	// RegisterOf identifiers the register (i.e. underlying (HIR) column) to
-	// which a given source-level (i.e. corset) column is allocated.
-	RegisterOf(module string, name string) uint
+	// which a given source-level (i.e. corset) column is allocated.  This
+	// expects an absolute path.
+	RegisterOf(path *util.Path) uint
 	// RegistersOf identifies the set of registers (i.e. underlying (HIR)
 	// columns) associated with a given module.
 	RegistersOf(module string) []uint
@@ -88,9 +89,12 @@ func (p GlobalEnvironment) Register(index uint) *Register {
 	return &p.registers[index]
 }
 
-// RegisterOf identifiers the register (i.e. underlying (HIR) column) to
+// RegisterOf identifies the register (i.e. underlying (HIR) column) to
 // which a given source-level (i.e. corset) column is allocated.
-func (p GlobalEnvironment) RegisterOf(module string, name string) uint {
+func (p GlobalEnvironment) RegisterOf(column *util.Path) uint {
+	// FIXME: this is broken
+	module := column.Parent().String()
+	name := column.Tail()
 	// Construct column identifier.
 	cid := ColumnId{module, name}
 	regId := p.columns[cid]
@@ -147,7 +151,8 @@ func (p *GlobalEnvironment) initModules(scope *GlobalScope) {
 	moduleId := uint(0)
 	// Allocate modules one-by-one
 	for _, m := range scope.modules {
-		p.modules[m.module] = &ModuleInfo{m.module, moduleId}
+		name := m.path.String()
+		p.modules[name] = &ModuleInfo{name, moduleId}
 		moduleId++
 	}
 }
@@ -162,10 +167,6 @@ func (p *GlobalEnvironment) initColumnsAndRegisters(scope *GlobalScope) {
 	for _, m := range scope.modules {
 		for _, b := range m.bindings {
 			if binding, ok := b.(*ColumnBinding); ok && !binding.computed {
-				if m.module != binding.module {
-					panic("unreachable?")
-				}
-				//
 				p.allocateColumn(binding)
 			}
 		}
@@ -174,20 +175,18 @@ func (p *GlobalEnvironment) initColumnsAndRegisters(scope *GlobalScope) {
 	for _, m := range scope.modules {
 		for _, b := range m.bindings {
 			if binding, ok := b.(*ColumnBinding); ok && binding.computed {
-				if m.module != binding.module {
-					panic("unreachable?")
-				}
-
 				p.allocateColumn(binding)
 			}
 		}
 	}
 	// Apply aliases
 	for _, m := range scope.modules {
+		name := m.path.String()
+		//
 		for id, binding_id := range m.ids {
 			if binding, ok := m.bindings[binding_id].(*ColumnBinding); ok && !id.fn {
-				orig := ColumnId{m.module, binding.name}
-				alias := ColumnId{m.module, id.name}
+				orig := ColumnId{name, binding.path.Tail()}
+				alias := ColumnId{name, id.name}
 				p.columns[alias] = p.columns[orig]
 			}
 		}
@@ -199,40 +198,43 @@ func (p *GlobalEnvironment) initColumnsAndRegisters(scope *GlobalScope) {
 // allocation of a number of registers (based on the columns type).  For
 // example, an array of length n will allocate n registers, etc.
 func (p *GlobalEnvironment) allocateColumn(column *ColumnBinding) {
-	p.allocate(column, column.name, column.dataType)
+	p.allocate(column, &column.path, column.dataType)
 }
 
-func (p *GlobalEnvironment) allocate(column *ColumnBinding, name string, datatype Type) {
+func (p *GlobalEnvironment) allocate(column *ColumnBinding, path *util.Path, datatype Type) {
 	// Check for base base
 	if datatype.AsUnderlying() != nil {
-		p.allocateUnit(column, name, datatype.AsUnderlying())
+		p.allocateUnit(column, path, datatype.AsUnderlying())
 	} else if arraytype, ok := datatype.(*ArrayType); ok {
 		// For now, assume must be an array
-		p.allocateArray(column, name, arraytype)
+		p.allocateArray(column, path, arraytype)
 	} else {
 		panic(fmt.Sprintf("unknown type encountered: %v", datatype))
 	}
 }
 
 // Allocate an array type
-func (p *GlobalEnvironment) allocateArray(column *ColumnBinding, name string, arraytype *ArrayType) {
+func (p *GlobalEnvironment) allocateArray(column *ColumnBinding, path *util.Path, arraytype *ArrayType) {
 	// Allocate n columns
 	for i := arraytype.min; i <= arraytype.max; i++ {
-		ith_name := fmt.Sprintf("%s_%d", name, i)
-		p.allocate(column, ith_name, arraytype.element)
+		ith_name := fmt.Sprintf("%s_%d", path.Tail(), i)
+		ith_path := path.Parent().Extend(ith_name)
+		p.allocate(column, ith_path, arraytype.element)
 	}
 }
 
 // Allocate a single register.
-func (p *GlobalEnvironment) allocateUnit(column *ColumnBinding, name string, datatype sc.Type) {
-	moduleId := p.modules[column.module].Id
-	colId := ColumnId{column.module, name}
+func (p *GlobalEnvironment) allocateUnit(column *ColumnBinding, path *util.Path, datatype sc.Type) {
+	// FIXME: following is broken because we lose perspective information.
+	module := path.Parent().String()
+	name := path.Tail()
+	//
+	moduleId := p.modules[module].Id
+	colId := ColumnId{module, name}
 	regId := uint(len(p.registers))
 	// Construct appropriate register source.
 	source := RegisterSource{
-		column.module,
-		column.perspective,
-		name,
+		*path,
 		column.multiplier,
 		datatype,
 		column.mustProve,

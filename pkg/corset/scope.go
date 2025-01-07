@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	tr "github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // Scope represents a region of code in which an expression can be evaluated.
@@ -40,7 +41,9 @@ func NewGlobalScope() *GlobalScope {
 
 // DeclareModule declares an initialises a new module within this global scope.
 // If a module by the same name already exists, then this will panic.
-func (p *GlobalScope) DeclareModule(module string) {
+func (p *GlobalScope) DeclareModule(path util.Path) {
+	// FIXME: this will not work with nested modules.
+	module := path.String()
 	// Sanity check module doesn't already exist
 	if _, ok := p.ids[module]; ok {
 		panic(fmt.Sprintf("duplicate module %s declared", module))
@@ -48,7 +51,7 @@ func (p *GlobalScope) DeclareModule(module string) {
 	// Register module
 	id := uint(len(p.ids))
 	p.modules = append(p.modules, ModuleScope{
-		module, make(map[BindingId]uint), make([]Binding, 0), p,
+		path, make(map[BindingId]uint), make([]Binding, 0), p,
 	})
 	p.ids[module] = id
 	// Declare intrinsics (if applicable)
@@ -70,20 +73,25 @@ func (p *GlobalScope) HasModule(module string) bool {
 // Bind looks up a given variable being referenced within a given module.  For a
 // root context, this is either a column, an alias or a function declaration.
 func (p *GlobalScope) Bind(symbol Symbol) bool {
-	if !symbol.IsQualified() {
+	path := symbol.Path()
+	//
+	if !path.IsAbsolute() {
 		// Search for symbol in root module.
-		return p.Module("").Bind(symbol)
-	} else if !p.HasModule(symbol.Module()) {
+		return p.Module(util.NewAbsolutePath(nil)).Bind(symbol)
+	} else if !p.HasModule(path.Head()) {
 		// Pontially, it might be better to report a more useful error message.
 		return false
 	}
-	//
-	return p.Module(symbol.Module()).Bind(symbol)
+	// Absolute lookup.
+	return p.Module(*path.Parent()).Bind(symbol)
 }
 
 // Module returns the identifier of the module with the given name.  Observe
 // that this will panic if the module in question does not exist.
-func (p *GlobalScope) Module(name string) *ModuleScope {
+func (p *GlobalScope) Module(path util.Path) *ModuleScope {
+	// FIXME: this will not work with nested modules.
+	name := path.String()
+	//
 	if mid, ok := p.ids[name]; ok {
 		return &p.modules[mid]
 	}
@@ -103,20 +111,14 @@ func (p *GlobalScope) ToEnvironment(allocator func(RegisterAllocation)) Environm
 
 // ModuleScope represents the scope characterised by a module.
 type ModuleScope struct {
-	// Module name
-	module string
+	// Absolute path
+	path util.Path
 	// Mapping from binding identifiers to indices within the bindings array.
 	ids map[BindingId]uint
 	// The set of bindings in the order of declaration.
 	bindings []Binding
 	// Enclosing global scope
 	enclosing Scope
-}
-
-// EnclosingModule returns the name of the enclosing module.  This is generally
-// useful for reporting errors.
-func (p *ModuleScope) EnclosingModule() string {
-	return p.module
 }
 
 // HasModule checks whether a given module exists, or not.
@@ -127,20 +129,25 @@ func (p *ModuleScope) HasModule(module string) bool {
 // Bind looks up a given variable being referenced within a given module.  For a
 // root context, this is either a column, an alias or a function declaration.
 func (p *ModuleScope) Bind(symbol Symbol) bool {
+	// FIXME: this is broken and needs to be rebuilt.  The reason is that it
+	// doesn't reflect the potentially recursive nature of paths.
+	//
 	// Determine module for this lookup.
-	if symbol.IsQualified() && symbol.Module() != p.module {
+	if symbol.Path().IsAbsolute() && !symbol.Path().Parent().Equals(p.path) {
 		// non-local lookup
 		return p.enclosing.Bind(symbol)
+	} else if symbol.Path().Depth() > 2 {
+		panic("no support for perspecives")
 	}
 	// construct binding identifier
-	id := BindingId{symbol.Name(), symbol.IsFunction()}
+	id := BindingId{symbol.Path().Tail(), symbol.IsFunction()}
 	// Look for it.
 	if bid, ok := p.ids[id]; ok {
 		// Extract binding
 		binding := p.bindings[bid]
 		// Resolve symbol
 		return symbol.Resolve(binding)
-	} else if !symbol.IsQualified() && p.module != "" {
+	} else if !symbol.Path().IsAbsolute() && p.path.Depth() != 0 {
 		// Attempt to lookup in parent (unless we are the root module, in which
 		// case we have no parent)
 		return p.enclosing.Bind(symbol)
@@ -202,8 +209,14 @@ func (p *ModuleScope) Declare(symbol SymbolDefinition) bool {
 // Alias constructs an alias for an existing symbol.  If the symbol does not
 // exist, then this returns false.
 func (p *ModuleScope) Alias(alias string, symbol Symbol) bool {
+	// Sanity check
+	if symbol.Path().Depth() != 1 {
+		panic(fmt.Sprintf("qualified aliases not supported %s", symbol.Path().String()))
+	}
+	// Extract symbol name
+	name := symbol.Path().Head()
 	// construct symbol identifier
-	symbol_id := BindingId{symbol.Name(), symbol.IsFunction()}
+	symbol_id := BindingId{name, symbol.IsFunction()}
 	// construct alias identifier
 	alias_id := BindingId{alias, symbol.IsFunction()}
 	// Check alias does not already exist
@@ -236,8 +249,6 @@ type LocalScope struct {
 	enclosing Scope
 	// Context for this scope
 	context *Context
-	// Perspective for this scope
-	perspective string
 	// Maps inputs parameters to the declaration index.
 	locals map[string]uint
 	// Actual parameter bindings
@@ -248,12 +259,12 @@ type LocalScope struct {
 // local scope can have local variables declared within it.  A local scope can
 // also be "global" in the sense that accessing symbols from other modules is
 // permitted.
-func NewLocalScope(enclosing Scope, global bool, pure bool, perspective string) LocalScope {
+func NewLocalScope(enclosing Scope, global bool, pure bool) LocalScope {
 	context := tr.VoidContext[string]()
 	locals := make(map[string]uint)
 	bindings := make([]*LocalVariableBinding, 0)
 	//
-	return LocalScope{global, pure, enclosing, &context, perspective, locals, bindings}
+	return LocalScope{global, pure, enclosing, &context, locals, bindings}
 }
 
 // NestedScope creates a nested scope within this local scope.
@@ -267,7 +278,7 @@ func (p LocalScope) NestedScope() LocalScope {
 	// Copy over bindings.
 	copy(nbindings, p.bindings)
 	// Done
-	return LocalScope{p.global, p.pure, p, p.context, p.perspective, nlocals, nbindings}
+	return LocalScope{p.global, p.pure, p, p.context, nlocals, nbindings}
 }
 
 // NestedPureScope creates a nested scope within this local scope which, in
@@ -282,7 +293,7 @@ func (p LocalScope) NestedPureScope() LocalScope {
 	// Copy over bindings.
 	copy(nbindings, p.bindings)
 	// Done
-	return LocalScope{p.global, true, p, p.context, p.perspective, nlocals, nbindings}
+	return LocalScope{p.global, true, p, p.context, nlocals, nbindings}
 }
 
 // IsGlobal determines whether symbols can be accessed in modules other than the
@@ -315,8 +326,11 @@ func (p LocalScope) HasModule(module string) bool {
 // Bind looks up a given variable or function being referenced either within the
 // enclosing scope (module==nil) or within a specified module.
 func (p LocalScope) Bind(symbol Symbol) bool {
+	path := symbol.Path()
+	// Determine whether this symbol could be a local variable or not.
+	localVar := !symbol.IsFunction() && !path.IsAbsolute() && path.Depth() == 1
 	// Check whether this is a local variable access.
-	if id, ok := p.locals[symbol.Name()]; ok && !symbol.IsFunction() && !symbol.IsQualified() {
+	if id, ok := p.locals[path.Head()]; ok && localVar {
 		// Yes, this is a local variable access.
 		return symbol.Resolve(p.bindings[id])
 	}

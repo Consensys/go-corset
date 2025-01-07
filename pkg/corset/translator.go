@@ -10,6 +10,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema/assignment"
 	"github.com/consensys/go-corset/pkg/sexp"
 	tr "github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // TranslateCircuit translates the components of a Corset circuit and add them
@@ -318,11 +319,12 @@ func (t *translator) translateDefInterleaved(decl *DefInterleaved, module string
 	//
 	sources := make([]uint, len(decl.Sources))
 	// Lookup target column info
-	targetId := t.env.RegisterOf(module, decl.Target.Name())
+	targetPath := util.NewAbsolutePath([]string{module, decl.Target.Name()})
+	targetId := t.env.RegisterOf(&targetPath)
 	target := t.env.Register(targetId)
 	// Determine source column identifiers
 	for i, source := range decl.Sources {
-		sources[i] = t.env.RegisterOf(module, source.Name())
+		sources[i] = t.env.RegisterOf(source.Path())
 	}
 	// Register assignment
 	cid := t.schema.AddAssignment(assignment.NewInterleaving(target.Context, target.Name, sources, target.DataType))
@@ -348,11 +350,12 @@ func (t *translator) translateDefPermutation(decl *DefPermutation, module string
 	sources := make([]uint, len(decl.Sources))
 	//
 	for i := 0; i < len(decl.Sources); i++ {
-		targetId := t.env.RegisterOf(module, decl.Targets[i].Name())
+		targetPath := util.NewAbsolutePath([]string{module, decl.Targets[i].Name()})
+		targetId := t.env.RegisterOf(&targetPath)
 		target := t.env.Register(targetId)
 		// Construct columns
 		targets[i] = sc.NewColumn(target.Context, target.Name, target.DataType)
-		sources[i] = t.env.RegisterOf(module, decl.Sources[i].Name())
+		sources[i] = t.env.RegisterOf(decl.Sources[i].Path())
 		signs[i] = decl.Signs[i]
 		// Record first CID
 		if i == 0 {
@@ -520,9 +523,11 @@ func (t *translator) translateArrayAccessInModule(expr *ArrayAccess, shift int) 
 		return nil, errors
 	}
 	// Construct real column name
-	name := fmt.Sprintf("%s_%d", expr.Name(), index.Uint64())
+	path := &binding.path
+	name := fmt.Sprintf("%s_%d", path.Tail(), index.Uint64())
+	path = path.Parent().Extend(name)
 	// Lookup underlying column info
-	registerId := t.env.RegisterOf(binding.module, name)
+	registerId := t.env.RegisterOf(path)
 	// Done
 	return &hir.ColumnAccess{Column: registerId, Shift: shift}, nil
 }
@@ -559,7 +564,7 @@ func (t *translator) translateShiftInModule(expr *Shift, module string, shift in
 func (t *translator) translateVariableAccessInModule(expr *VariableAccess, shift int) (hir.Expr, []SyntaxError) {
 	if binding, ok := expr.Binding().(*ColumnBinding); ok {
 		// Lookup column binding
-		register_id := t.env.RegisterOf(binding.module, expr.Name())
+		register_id := t.env.RegisterOf(binding.AbsolutePath())
 		// Done
 		return &hir.ColumnAccess{Column: register_id, Shift: shift}, nil
 	} else if binding, ok := expr.Binding().(*ConstantBinding); ok {

@@ -237,7 +237,7 @@ func (p *preprocessor) preprocessExpressionInModule(expr Expr, module string) (E
 	switch e := expr.(type) {
 	case *ArrayAccess:
 		arg, errs := p.preprocessExpressionInModule(e.arg, module)
-		nexpr, errors = &ArrayAccess{e.name, arg, e.binding}, errs
+		nexpr, errors = &ArrayAccess{e.path, arg, e.binding}, errs
 	case *Add:
 		args, errs := p.preprocessExpressionsInModule(e.Args, module)
 		nexpr, errors = &Add{args}, errs

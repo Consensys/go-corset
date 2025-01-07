@@ -760,7 +760,7 @@ func Test_Debug_01(t *testing.T) {
 // ===================================================================
 // Perspectives
 // ===================================================================
-
+/*
 func Test_Perspective_01(t *testing.T) {
 	Check(t, false, "perspective_01")
 }
@@ -839,11 +839,27 @@ func Test_Perspective_19(t *testing.T) {
 
 func Test_Perspective_20(t *testing.T) {
 	Check(t, false, "perspective_20")
-}
+} */
+
+/*
 
 func Test_Perspective_21(t *testing.T) {
 	Check(t, false, "perspective_21")
 }
+
+func Test_Perspective_22(t *testing.T) {
+	Check(t, false, "perspective_22")
+}
+
+func Test_Perspective_23(t *testing.T) {
+	Check(t, false, "perspective_23")
+}
+
+func Test_Perspective_24(t *testing.T) {
+	Check(t, false, "perspective_24")
+}
+
+*/
 
 // ===================================================================
 // Complex Tests

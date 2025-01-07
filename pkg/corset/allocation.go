@@ -77,13 +77,8 @@ func (r *Register) Deactivate() {
 // RegisterSource provides necessary information about source-level columns
 // allocated to a  given register.
 type RegisterSource struct {
-	// Module in which source-level column resides
-	module string
-	// Perspective containing source-level column.  If none, then this is
-	// assigned "".
-	perspective string
-	// Name of source-level column.
-	name string
+	// Fully qualified (i.e. absolute) name of source-level column.
+	name util.Path
 	// Length multiplier of source-level column.
 	multiplier uint
 	// Underlying datatype of the source-level column.
@@ -186,20 +181,30 @@ func NewRegisterAllocator(allocation RegisterAllocation) *RegisterAllocator {
 	// Identify all perspectives
 	for iter := allocation.Registers(); iter.HasNext(); {
 		regInfo := allocation.Register(iter.Next())
+		regSource := regInfo.Sources[0]
+		//
 		if len(regInfo.Sources) != 1 {
 			// This should be unreachable.
 			panic("register not associated with unique column")
-		} else if regInfo.Sources[0].perspective != "" {
-			allocator.allocatePerspective(regInfo.Sources[0].perspective)
+		} else if regSource.name.Depth() == 0 || regSource.name.Depth() > 3 {
+			// This should be unreachable.
+			panic(fmt.Sprintf("register has invalid depth %d", regSource.name.Depth()))
+		} else if regSource.name.Depth() == 3 {
+			// FIXME: assuming names have a depth of at most three is not ideal.
+			perspective := regSource.name.Parent().String()
+			allocator.allocatePerspective(perspective)
 		}
 	}
 	// Initial allocation of perspective registers
 	for iter := allocation.Registers(); iter.HasNext(); {
 		regIndex := iter.Next()
 		regInfo := allocation.Register(regIndex)
-
-		if regInfo.Sources[0].perspective != "" {
-			allocator.allocateRegister(regInfo.Sources[0].perspective, regIndex)
+		regSource := regInfo.Sources[0]
+		//
+		if regSource.name.Depth() == 3 {
+			// FIXME: assuming names have a depth of at most three is not ideal.
+			perspective := regSource.name.Parent().String()
+			allocator.allocateRegister(perspective, regIndex)
 		}
 	}
 	// Done (for now)
