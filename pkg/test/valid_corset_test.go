@@ -871,6 +871,14 @@ func Test_Perspective_24(t *testing.T) {
 //   Check(t, false, "perspective_25")
 // }
 
+func Test_Perspective_26(t *testing.T) {
+	Check(t, false, "perspective_26")
+}
+
+func Test_Perspective_27(t *testing.T) {
+	Check(t, false, "perspective_27")
+}
+
 // ===================================================================
 // Complex Tests
 // ===================================================================

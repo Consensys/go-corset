@@ -1237,8 +1237,12 @@ func arrayAccessParserRule(name string, args []Expr) (Expr, error) {
 	if len(args) != 1 {
 		return nil, errors.New("malformed array access")
 	}
-	//
-	path := util.NewRelativePath(name)
+	// Handle qualified accesses (where permitted)
+	// Attempt to split column name into module / column pair.
+	path, err := parseQualifiableName(name)
+	if err != nil {
+		return nil, err
+	}
 	//
 	return &ArrayAccess{path, args[0], nil}, nil
 }
