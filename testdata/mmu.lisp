@@ -158,6 +158,25 @@
   NB_MICRO_ROWS_TOT_MODEXP_DATA                      32
   NB_MICRO_ROWS_TOT_BLAKE                            2)
 
+(defconst
+  EVM_INST_LT                               0x10
+  EVM_INST_EQ                               0x14
+  EVM_INST_ISZERO                           0x15
+  ;;
+  MMU_INST_MLOAD                            0xfe01
+  MMU_INST_MSTORE                           0xfe02
+  MMU_INST_MSTORE8                          0xfe03
+  MMU_INST_INVALID_CODE_PREFIX              0xfe00
+  MMU_INST_RIGHT_PADDED_WORD_EXTRACTION     0xfe10
+  MMU_INST_RAM_TO_EXO_WITH_PADDING          0xfe20
+  MMU_INST_EXO_TO_RAM_TRANSPLANTS           0xfe30
+  MMU_INST_RAM_TO_RAM_SANS_PADDING          0xfe40
+  MMU_INST_ANY_TO_RAM_WITH_PADDING          0xfe50
+  ;;MMU_INST_ANY_TO_RAM_WITH_PADDING_SOME_DATA    0xfe51
+  ;;MMU_INST_ANY_TO_RAM_WITH_PADDING_PURE_PADDING 0xfe52
+  MMU_INST_MODEXP_ZERO                      0xfe60
+  MMU_INST_MODEXP_DATA                      0xfe70
+  MMU_INST_BLAKE                            0xfe80)
 
 (module mmu)
 

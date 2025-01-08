@@ -3,6 +3,7 @@ package corset
 import (
 	"fmt"
 	"math"
+	"slices"
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/schema"
@@ -105,6 +106,54 @@ func (p *RegisterSource) Perspective() string {
 	return p.name.Parent().Slice(p.context.Depth()).String()
 }
 
+// RegisterAllocationView provides a view of an environment for the purposes of
+// register allocation, such that only registers in this view will be considered
+// for allocation.  This is necessary because we must not attempt to allocate
+// registers across different modules (indeed, contexts) together. Instead, we
+// must allocate registers on a module-by-module basis, etc.
+type RegisterAllocationView struct {
+	// View of registers available for register allocation.
+	registers []uint
+	// Parent pointer for register merging.
+	env *GlobalEnvironment
+}
+
+// Len returns the number of allocated registers.
+func (p *RegisterAllocationView) Len() uint {
+	return uint(len(p.registers))
+}
+
+// Registers returns an iterator over the set of registers in this local
+// allocation.
+func (p *RegisterAllocationView) Registers() util.Iterator[uint] {
+	return util.NewArrayIterator(p.registers)
+}
+
+// Register accesses information about a specific register in this window.
+func (p *RegisterAllocationView) Register(index uint) *Register {
+	return &p.env.registers[index]
+}
+
+// Merge one register (src) into another (dst).  This will remove the src
+// register, and automatically update all column assignments.  Therefore, any
+// register identifier can be potenitally invalided by this operation.  This
+// will panic if the registers are incompatible (i.e. have different contexts).
+func (p *RegisterAllocationView) Merge(dst uint, src uint) {
+	target := &p.env.registers[dst]
+	source := &p.env.registers[src]
+	// Sanity check
+	if target.Context != source.Context {
+		// Should be unreachable.
+		panic("attempting to merge incompatible registers")
+	}
+	// Update column map
+	for _, col := range p.env.ColumnsOf(src) {
+		p.env.columns[col] = dst
+	}
+	//
+	target.Merge(source)
+}
+
 // RegisterAllocation is a generic interface to support different "regsiter
 // allocation" algorithms.  More specifically, register allocation is the
 // process of allocating columns to their underlying HIR columns (a.k.a
@@ -143,6 +192,7 @@ var DEFAULT_ALLOCATOR func(RegisterAllocation) = originalAllocator
 // The original register allocation algorithm used in Corset.  This is retained
 // for backwards compatibility reasons, but should eventually be dropped.
 func originalAllocator(allocation RegisterAllocation) {
+	sortRegisters(allocation.(*RegisterAllocationView))
 	allocator := NewRegisterAllocator(allocation)
 	allocator.CompactBy(identicalType)
 	allocator.Finalise()
@@ -157,6 +207,16 @@ func identicalType(lhs *RegisterGroup, rhs *RegisterGroup) bool {
 	}
 	//
 	return lIntType == rIntType
+}
+
+// Sort the registers into alphabetical order.
+func sortRegisters(view *RegisterAllocationView) {
+	slices.SortFunc(view.registers, func(l, r uint) int {
+		lhs := view.Register(l)
+		rhs := view.Register(r)
+		// Compare them alphabetically
+		return strings.Compare(lhs.Name, rhs.Name)
+	})
 }
 
 // ============================================================================

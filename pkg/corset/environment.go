@@ -265,7 +265,7 @@ func (p *GlobalEnvironment) applyRegisterAllocation(allocator func(RegisterAlloc
 		// Determine register subset for this module
 		view := p.RegistersOf(m)
 		// Apply allocation to this subset
-		allocator(&localRegisterAllocation{view, p})
+		allocator(&RegisterAllocationView{view, p})
 	}
 	// Remove inactive registers.  This is necessary because register allocation
 	// marks a register as inactive when they its merged into another, but does
@@ -292,56 +292,4 @@ func (p *GlobalEnvironment) applyRegisterAllocation(allocator func(RegisterAlloc
 	}
 	// Copy over new register set, whilst slicing off inactive ones.
 	p.registers = nregisters[0:j]
-}
-
-// ===========================================================================
-// RegisterAllocation impl
-// ===========================================================================
-
-// LocalRegisterAllocation provides a view of the environment for the purposes
-// of register allocation, such that only registers in this view will be
-// considered for allocation.  This is necessary because we must not attempt to
-// allocate registers across different modules (indeed, contexts) together.
-// Instead, we must allocate registers on a module-by-module basis, etc.
-type localRegisterAllocation struct {
-	// View of registers available for register allocation.
-	registers []uint
-	// Parent pointer for register merging.
-	env *GlobalEnvironment
-}
-
-// Len returns the number of allocated registers.
-func (p *localRegisterAllocation) Len() uint {
-	return uint(len(p.registers))
-}
-
-// Registers returns an iterator over the set of registers in this local
-// allocation.
-func (p *localRegisterAllocation) Registers() util.Iterator[uint] {
-	return util.NewArrayIterator(p.registers)
-}
-
-// Access information about a specific register in this window.
-func (p *localRegisterAllocation) Register(index uint) *Register {
-	return &p.env.registers[index]
-}
-
-// Merge one register (src) into another (dst).  This will remove the src
-// register, and automatically update all column assignments.  Therefore, any
-// register identifier can be potenitally invalided by this operation.  This
-// will panic if the registers are incompatible (i.e. have different contexts).
-func (p *localRegisterAllocation) Merge(dst uint, src uint) {
-	target := &p.env.registers[dst]
-	source := &p.env.registers[src]
-	// Sanity check
-	if target.Context != source.Context {
-		// Should be unreachable.
-		panic("attempting to merge incompatible registers")
-	}
-	// Update column map
-	for _, col := range p.env.ColumnsOf(src) {
-		p.env.columns[col] = dst
-	}
-	//
-	target.Merge(source)
 }
