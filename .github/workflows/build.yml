@@ -9,7 +9,7 @@ on:
 jobs:
 
   test:
-    runs-on: ubuntu-latest-128
+    runs-on: gha-runner-scale-set-ubuntu-22.04-amd64-xxl
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
