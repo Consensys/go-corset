@@ -62,6 +62,15 @@
   CT_MAX_MACRO_MODEXP_LOG 0
   CT_MAX_PRPRC_MODEXP_LOG 3)
 
+(defconst
+  EVM_INST_LT                               0x10
+  EVM_INST_ISZERO                           0x15
+  ;;
+  EXP_INST_EXPLOG                           0xEE0A
+  EXP_INST_MODEXPLOG                        0xEE05
+  ;;
+  GAS_CONST_G_EXP_BYTE                      50)
+
 
 (module exp)
 
