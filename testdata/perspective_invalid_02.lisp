@@ -1,5 +1,5 @@
-;;error:15:53-54:not visible here
-;;error:16:53-54:not visible here
+;;error:15:53-54:unknown symbol
+;;error:16:53-54:unknown symbol
 (defpurefun ((vanishes! :@loob :force) e0) e0)
 ;;
 (defcolumns

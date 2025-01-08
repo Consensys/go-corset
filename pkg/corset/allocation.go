@@ -77,13 +77,11 @@ func (r *Register) Deactivate() {
 // RegisterSource provides necessary information about source-level columns
 // allocated to a  given register.
 type RegisterSource struct {
-	// Module in which source-level column resides
-	module string
-	// Perspective containing source-level column.  If none, then this is
-	// assigned "".
-	perspective string
-	// Name of source-level column.
-	name string
+	// Context is a prefix of name which, when they differ, indicates a virtual
+	// column (i.e. one which is subject to register allocation).
+	context util.Path
+	// Fully qualified (i.e. absolute) name of source-level column.
+	name util.Path
 	// Length multiplier of source-level column.
 	multiplier uint
 	// Underlying datatype of the source-level column.
@@ -92,6 +90,19 @@ type RegisterSource struct {
 	mustProve bool
 	// Determines whether this is a computed column.
 	computed bool
+}
+
+// IsVirtual indicates whether or not this is a "virtual" column.  That is,
+// something which is subject to register allocation (i.e. because it is
+// declared in a perspective).
+func (p *RegisterSource) IsVirtual() bool {
+	return !p.name.Parent().Equals(p.context)
+}
+
+// Perspective returns the name of the "virtual perspective" in which this
+// column exists.
+func (p *RegisterSource) Perspective() string {
+	return p.name.Parent().Slice(p.context.Depth()).String()
 }
 
 // RegisterAllocation is a generic interface to support different "regsiter
@@ -186,20 +197,24 @@ func NewRegisterAllocator(allocation RegisterAllocation) *RegisterAllocator {
 	// Identify all perspectives
 	for iter := allocation.Registers(); iter.HasNext(); {
 		regInfo := allocation.Register(iter.Next())
+		regSource := regInfo.Sources[0]
+		//
 		if len(regInfo.Sources) != 1 {
 			// This should be unreachable.
 			panic("register not associated with unique column")
-		} else if regInfo.Sources[0].perspective != "" {
-			allocator.allocatePerspective(regInfo.Sources[0].perspective)
+		} else if regSource.IsVirtual() {
+			allocator.allocatePerspective(regSource.Perspective())
 		}
 	}
 	// Initial allocation of perspective registers
 	for iter := allocation.Registers(); iter.HasNext(); {
 		regIndex := iter.Next()
 		regInfo := allocation.Register(regIndex)
-
-		if regInfo.Sources[0].perspective != "" {
-			allocator.allocateRegister(regInfo.Sources[0].perspective, regIndex)
+		regSource := regInfo.Sources[0]
+		//
+		if regSource.IsVirtual() {
+			perspective := regSource.Perspective()
+			allocator.allocateRegister(perspective, regIndex)
 		}
 	}
 	// Done (for now)

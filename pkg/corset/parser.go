@@ -11,6 +11,7 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/sexp"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // ===================================================================
@@ -86,6 +87,7 @@ func ParseSourceFile(srcfile *sexp.SourceFile) (Circuit, *sexp.SourceMap[Node], 
 	var (
 		circuit Circuit
 		errors  []SyntaxError
+		path    util.Path = util.NewAbsolutePath()
 	)
 	// Parse bytes into an S-Expression
 	terms, srcmap, err := srcfile.ParseAll()
@@ -97,7 +99,7 @@ func ParseSourceFile(srcfile *sexp.SourceFile) (Circuit, *sexp.SourceMap[Node], 
 	p := NewParser(srcfile, srcmap)
 	// Parse whatever is declared at the beginning of the file before the first
 	// module declaration.  These declarations form part of the "prelude".
-	if circuit.Declarations, terms, errors = p.parseModuleContents("", terms); len(errors) > 0 {
+	if circuit.Declarations, terms, errors = p.parseModuleContents(path, terms); len(errors) > 0 {
 		return circuit, nil, errors
 	}
 	// Continue parsing string until nothing remains.
@@ -111,7 +113,8 @@ func ParseSourceFile(srcfile *sexp.SourceFile) (Circuit, *sexp.SourceMap[Node], 
 			return circuit, nil, errors
 		}
 		// Parse module contents
-		if decls, terms, errors = p.parseModuleContents(name, terms[1:]); len(errors) > 0 {
+		path = util.NewAbsolutePath(name)
+		if decls, terms, errors = p.parseModuleContents(path, terms[1:]); len(errors) > 0 {
 			return circuit, nil, errors
 		} else if len(decls) != 0 {
 			circuit.Modules = append(circuit.Modules, Module{name, decls})
@@ -181,7 +184,7 @@ func (p *Parser) mapSourceNode(from sexp.SExp, to Node) {
 }
 
 // Extract all declarations associated with a given module and package them up.
-func (p *Parser) parseModuleContents(module string, terms []sexp.SExp) ([]Declaration, []sexp.SExp, []SyntaxError) {
+func (p *Parser) parseModuleContents(path util.Path, terms []sexp.SExp) ([]Declaration, []sexp.SExp, []SyntaxError) {
 	var errors []SyntaxError
 	//
 	decls := make([]Declaration, 0)
@@ -194,7 +197,7 @@ func (p *Parser) parseModuleContents(module string, terms []sexp.SExp) ([]Declar
 			errors = append(errors, *err)
 		} else if e.MatchSymbols(2, "module") {
 			return decls, terms[i:], errors
-		} else if decl, errs := p.parseDeclaration(module, e); len(errs) > 0 {
+		} else if decl, errs := p.parseDeclaration(path, e); len(errs) > 0 {
 			errors = append(errors, errs...)
 		} else {
 			// Continue accumulating declarations for this module.
@@ -229,7 +232,7 @@ func (p *Parser) parseModuleStart(s sexp.SExp) (string, []SyntaxError) {
 	return name, nil
 }
 
-func (p *Parser) parseDeclaration(module string, s *sexp.List) (Declaration, []SyntaxError) {
+func (p *Parser) parseDeclaration(module util.Path, s *sexp.List) (Declaration, []SyntaxError) {
 	var (
 		decl   Declaration
 		errors []SyntaxError
@@ -240,15 +243,15 @@ func (p *Parser) parseDeclaration(module string, s *sexp.List) (Declaration, []S
 	} else if s.MatchSymbols(1, "defcolumns") {
 		decl, errors = p.parseDefColumns(module, s)
 	} else if s.Len() > 1 && s.MatchSymbols(1, "defconst") {
-		decl, errors = p.parseDefConst(s.Elements)
+		decl, errors = p.parseDefConst(module, s.Elements)
 	} else if s.Len() == 4 && s.MatchSymbols(2, "defconstraint") {
-		decl, errors = p.parseDefConstraint(s.Elements)
+		decl, errors = p.parseDefConstraint(module, s.Elements)
 	} else if s.MatchSymbols(1, "defunalias") {
 		decl, errors = p.parseDefAlias(true, s.Elements)
 	} else if s.Len() == 3 && s.MatchSymbols(1, "defpurefun") {
-		decl, errors = p.parseDefFun(true, s.Elements)
+		decl, errors = p.parseDefFun(module, true, s.Elements)
 	} else if s.Len() == 3 && s.MatchSymbols(1, "defun") {
-		decl, errors = p.parseDefFun(false, s.Elements)
+		decl, errors = p.parseDefFun(module, false, s.Elements)
 	} else if s.Len() == 3 && s.MatchSymbols(1, "definrange") {
 		decl, errors = p.parseDefInRange(s.Elements)
 	} else if s.Len() == 3 && s.MatchSymbols(1, "definterleaved") {
@@ -293,7 +296,9 @@ func (p *Parser) parseDefAlias(functions bool, elements []sexp.SExp) (Declaratio
 			errors = append(errors, *p.translator.SyntaxError(elements[i+1], "invalid alias definition"))
 		} else {
 			alias := &DefAlias{elements[i].AsSymbol().Value}
-			name := NewName[Binding](elements[i+1].AsSymbol().Value, functions)
+			path := util.NewRelativePath(elements[i+1].AsSymbol().Value)
+			name := NewName[Binding](path, functions)
+			//
 			p.mapSourceNode(elements[i], alias)
 			p.mapSourceNode(elements[i+1], name)
 			//
@@ -306,7 +311,7 @@ func (p *Parser) parseDefAlias(functions bool, elements []sexp.SExp) (Declaratio
 }
 
 // Parse a column declaration
-func (p *Parser) parseDefColumns(module string, l *sexp.List) (Declaration, []SyntaxError) {
+func (p *Parser) parseDefColumns(module util.Path, l *sexp.List) (Declaration, []SyntaxError) {
 	columns := make([]*DefColumn, l.Len()-1)
 	// Sanity check declaration
 	if len(l.Elements) == 1 {
@@ -317,7 +322,7 @@ func (p *Parser) parseDefColumns(module string, l *sexp.List) (Declaration, []Sy
 	var errors []SyntaxError
 	// Process column declarations one by one.
 	for i := 1; i < len(l.Elements); i++ {
-		decl, err := p.parseColumnDeclaration(module, "", false, l.Elements[i])
+		decl, err := p.parseColumnDeclaration(module, module, false, l.Elements[i])
 		// Extract column name
 		if err != nil {
 			errors = append(errors, *err)
@@ -333,12 +338,12 @@ func (p *Parser) parseDefColumns(module string, l *sexp.List) (Declaration, []Sy
 	return &DefColumns{columns}, nil
 }
 
-func (p *Parser) parseColumnDeclaration(module string, perspective string, computed bool,
+func (p *Parser) parseColumnDeclaration(context util.Path, path util.Path, computed bool,
 	e sexp.SExp) (*DefColumn, *SyntaxError) {
 	//
 	var (
 		error   *SyntaxError
-		binding ColumnBinding = ColumnBinding{module, perspective, "", computed, false, 0, nil}
+		binding ColumnBinding = ColumnBinding{context, path, computed, false, 0, nil}
 	)
 	// Set defaults for input columns
 	if !computed {
@@ -355,16 +360,16 @@ func (p *Parser) parseColumnDeclaration(module string, perspective string, compu
 			return nil, p.translator.SyntaxError(l.Elements[0], "invalid column name")
 		}
 		// Column name is always first
-		binding.name = l.Elements[0].String(false)
+		binding.path = *path.Extend(l.Elements[0].String(false))
 		//	Parse type (if applicable)
 		if binding.dataType, binding.mustProve, error = p.parseColumnDeclarationAttributes(l.Elements[1:]); error != nil {
 			return nil, error
 		}
 	} else {
-		binding.name = e.String(false)
+		binding.path = *path.Extend(e.String(false))
 	}
 	//
-	def := &DefColumn{binding.name, binding}
+	def := &DefColumn{binding}
 	// Update source mapping
 	p.mapSourceNode(e, def)
 	//
@@ -449,7 +454,7 @@ func (p *Parser) parseArrayDimension(s sexp.SExp) (uint, uint, *SyntaxError) {
 }
 
 // Parse a constant declaration
-func (p *Parser) parseDefConst(elements []sexp.SExp) (Declaration, []SyntaxError) {
+func (p *Parser) parseDefConst(module util.Path, elements []sexp.SExp) (Declaration, []SyntaxError) {
 	var (
 		errors    []SyntaxError
 		constants []*DefConstUnit
@@ -465,7 +470,8 @@ func (p *Parser) parseDefConst(elements []sexp.SExp) (Declaration, []SyntaxError
 			errors = append(errors, *p.translator.SyntaxError(elements[i], "invalid constant name"))
 		} else {
 			// Attempt to parse definition
-			constant, errs := p.parseDefConstUnit(elements[i].AsSymbol().Value, elements[i+1])
+			path := module.Extend(elements[i].AsSymbol().Value)
+			constant, errs := p.parseDefConstUnit(*path, elements[i+1])
 			errors = append(errors, errs...)
 			constants = append(constants, constant)
 		}
@@ -474,14 +480,14 @@ func (p *Parser) parseDefConst(elements []sexp.SExp) (Declaration, []SyntaxError
 	return &DefConst{constants}, errors
 }
 
-func (p *Parser) parseDefConstUnit(name string, value sexp.SExp) (*DefConstUnit, []SyntaxError) {
+func (p *Parser) parseDefConstUnit(name util.Path, value sexp.SExp) (*DefConstUnit, []SyntaxError) {
 	expr, errors := p.translator.Translate(value)
 	// Check for errors
 	if len(errors) != 0 {
 		return nil, errors
 	}
 	// Looks good
-	def := &DefConstUnit{name, NewConstantBinding(expr)}
+	def := &DefConstUnit{NewConstantBinding(name, expr)}
 	// Map to source node
 	p.mapSourceNode(value, def)
 	// Done
@@ -489,7 +495,7 @@ func (p *Parser) parseDefConstUnit(name string, value sexp.SExp) (*DefConstUnit,
 }
 
 // Parse a vanishing declaration
-func (p *Parser) parseDefConstraint(elements []sexp.SExp) (Declaration, []SyntaxError) {
+func (p *Parser) parseDefConstraint(module util.Path, elements []sexp.SExp) (Declaration, []SyntaxError) {
 	var errors []SyntaxError
 	// Initial sanity checks
 	if !isIdentifier(elements[1]) {
@@ -497,7 +503,7 @@ func (p *Parser) parseDefConstraint(elements []sexp.SExp) (Declaration, []Syntax
 	}
 	// Vanishing constraints do not have global scope, hence qualified column
 	// accesses are not permitted.
-	domain, guard, perspective, errs := p.parseConstraintAttributes(elements[2])
+	domain, guard, perspective, errs := p.parseConstraintAttributes(module, elements[2])
 	errors = append(errors, errs...)
 	// Translate expression
 	expr, errs := p.translator.Translate(elements[3])
@@ -511,7 +517,7 @@ func (p *Parser) parseDefConstraint(elements []sexp.SExp) (Declaration, []Syntax
 }
 
 // Parse a interleaved declaration
-func (p *Parser) parseDefInterleaved(module string, elements []sexp.SExp) (Declaration, []SyntaxError) {
+func (p *Parser) parseDefInterleaved(module util.Path, elements []sexp.SExp) (Declaration, []SyntaxError) {
 	var (
 		errors  []SyntaxError
 		sources []Symbol
@@ -534,7 +540,11 @@ func (p *Parser) parseDefInterleaved(module string, elements []sexp.SExp) (Decla
 				errors = append(errors, *p.translator.SyntaxError(ith, "malformed source column"))
 			} else {
 				// Extract column name
-				sources[i] = NewColumnName(ith.AsSymbol().Value)
+				name := ith.AsSymbol().Value
+				// Construct absolute path of column
+				path := module.Extend(name)
+				//
+				sources[i] = NewColumnName(*path)
 				p.mapSourceNode(ith, sources[i])
 			}
 		}
@@ -544,9 +554,9 @@ func (p *Parser) parseDefInterleaved(module string, elements []sexp.SExp) (Decla
 		return nil, errors
 	}
 	//
-	name := elements[1].AsSymbol().Value
-	binding := NewComputedColumnBinding(module, name)
-	target := &DefColumn{name, *binding}
+	path := module.Extend(elements[1].AsSymbol().Value)
+	binding := NewComputedColumnBinding(module, *path)
+	target := &DefColumn{*binding}
 	// Updating mapping for target definition
 	p.mapSourceNode(elements[1], target)
 	// Done
@@ -604,7 +614,7 @@ func (p *Parser) parseDefLookup(elements []sexp.SExp) (Declaration, []SyntaxErro
 }
 
 // Parse a permutation declaration
-func (p *Parser) parseDefPermutation(module string, elements []sexp.SExp) (Declaration, []SyntaxError) {
+func (p *Parser) parseDefPermutation(module util.Path, elements []sexp.SExp) (Declaration, []SyntaxError) {
 	var (
 		errors  []SyntaxError
 		sources []Symbol
@@ -639,11 +649,11 @@ func (p *Parser) parseDefPermutation(module string, elements []sexp.SExp) (Decla
 		for i := 0; i < min(len(sources), len(targets)); i++ {
 			var err *SyntaxError
 			// Parse target column
-			if targets[i], err = p.parseColumnDeclaration(module, "", true, sexpTargets.Get(i)); err != nil {
+			if targets[i], err = p.parseColumnDeclaration(module, module, true, sexpTargets.Get(i)); err != nil {
 				errors = append(errors, *err)
 			}
 			// Parse source column
-			if sources[i], signs[i], err = p.parsePermutedColumnDeclaration(i == 0, sexpSources.Get(i)); err != nil {
+			if sources[i], signs[i], err = p.parsePermutedColumnDeclaration(module, i == 0, sexpSources.Get(i)); err != nil {
 				errors = append(errors, *err)
 			}
 		}
@@ -656,10 +666,12 @@ func (p *Parser) parseDefPermutation(module string, elements []sexp.SExp) (Decla
 	return &DefPermutation{targets, sources, signs}, nil
 }
 
-func (p *Parser) parsePermutedColumnDeclaration(signRequired bool, e sexp.SExp) (*ColumnName, bool, *SyntaxError) {
+func (p *Parser) parsePermutedColumnDeclaration(module util.Path, signRequired bool,
+	e sexp.SExp) (*ColumnName, bool, *SyntaxError) {
+	//
 	var (
 		err  *SyntaxError
-		name *ColumnName
+		name string
 		sign bool
 	)
 	// Check whether extended declaration or not.
@@ -677,16 +689,19 @@ func (p *Parser) parsePermutedColumnDeclaration(signRequired bool, e sexp.SExp) 
 			return nil, false, err
 		}
 		// Parse column name
-		name = NewColumnName(l.Get(1).AsSymbol().Value)
+		name = l.Get(1).AsSymbol().Value
 	} else if signRequired {
 		return nil, false, p.translator.SyntaxError(e, "missing sort direction")
 	} else {
-		name = NewColumnName(e.String(false))
+		name = e.String(false)
 	}
-	// Update source mapping
-	p.mapSourceNode(e, name)
 	//
-	return name, sign, nil
+	path := module.Extend(name)
+	colname := NewColumnName(*path)
+	// Update source mapping
+	p.mapSourceNode(e, colname)
+	//
+	return colname, sign, nil
 }
 
 func (p *Parser) parsePermutedColumnSign(sign *sexp.Symbol) (bool, *SyntaxError) {
@@ -701,13 +716,12 @@ func (p *Parser) parsePermutedColumnSign(sign *sexp.Symbol) (bool, *SyntaxError)
 }
 
 // Parse a perspective declaration
-func (p *Parser) parseDefPerspective(module string, elements []sexp.SExp) (Declaration, []SyntaxError) {
+func (p *Parser) parseDefPerspective(module util.Path, elements []sexp.SExp) (Declaration, []SyntaxError) {
 	var (
-		errors           []SyntaxError
-		sexp_columns     *sexp.List = elements[3].AsList()
-		columns          []*DefColumn
-		perspective      *PerspectiveName
-		perspective_name string
+		errors       []SyntaxError
+		sexp_columns *sexp.List = elements[3].AsList()
+		columns      []*DefColumn
+		perspective  *PerspectiveName
 	)
 	// Check for columns
 	if sexp_columns == nil {
@@ -719,17 +733,15 @@ func (p *Parser) parseDefPerspective(module string, elements []sexp.SExp) (Decla
 	// Parse perspective selector
 	binding := NewPerspectiveBinding(selector)
 	// Parse perspective name
-	if perspective, errs = parseSymbolName(p, elements[1], false, binding); len(errs) == 0 {
-		perspective_name = perspective.name
-	} else {
+	if perspective, errs = parseSymbolName(p, elements[1], module, false, binding); len(errs) != 0 {
 		errors = append(errors, errs...)
 	}
 	// Process column declarations one by one.
-	if sexp_columns != nil {
+	if sexp_columns != nil && perspective != nil {
 		columns = make([]*DefColumn, sexp_columns.Len())
 
 		for i := 0; i < len(sexp_columns.Elements); i++ {
-			decl, err := p.parseColumnDeclaration(module, perspective_name, false, sexp_columns.Elements[i])
+			decl, err := p.parseColumnDeclaration(module, *perspective.Path(), false, sexp_columns.Elements[i])
 			// Extract column name
 			if err != nil {
 				errors = append(errors, *err)
@@ -767,7 +779,7 @@ func (p *Parser) parseDefProperty(elements []sexp.SExp) (Declaration, []SyntaxEr
 }
 
 // Parse a permutation declaration
-func (p *Parser) parseDefFun(pure bool, elements []sexp.SExp) (Declaration, []SyntaxError) {
+func (p *Parser) parseDefFun(module util.Path, pure bool, elements []sexp.SExp) (Declaration, []SyntaxError) {
 	var (
 		name      *sexp.Symbol
 		ret       Type
@@ -795,8 +807,9 @@ func (p *Parser) parseDefFun(pure bool, elements []sexp.SExp) (Declaration, []Sy
 		paramTypes[i] = p.Binding.datatype
 	}
 	// Construct binding
+	path := module.Extend(name.Value)
 	binding := NewDefunBinding(pure, paramTypes, ret, body)
-	fn_name := NewFunctionName(name.Value, &binding)
+	fn_name := NewFunctionName(*path, &binding)
 	// Update source mapping
 	p.mapSourceNode(name, fn_name)
 	//
@@ -917,7 +930,7 @@ func (p *Parser) parseDefInRange(elements []sexp.SExp) (Declaration, []SyntaxErr
 	return &DefInRange{Expr: expr, Bound: bound}, nil
 }
 
-func (p *Parser) parseConstraintAttributes(attributes sexp.SExp) (domain *int, guard Expr,
+func (p *Parser) parseConstraintAttributes(module util.Path, attributes sexp.SExp) (domain *int, guard Expr,
 	perspective *PerspectiveName, err []SyntaxError) {
 	//
 	var errors []SyntaxError
@@ -945,8 +958,7 @@ func (p *Parser) parseConstraintAttributes(attributes sexp.SExp) (domain *int, g
 				guard, errs = p.translator.Translate(attrs.Get(i))
 			case ":perspective":
 				i++
-				//binding := NewPerspectiveBinding()
-				perspective, errs = parseSymbolName[*PerspectiveBinding](p, attrs.Get(i), false, nil)
+				perspective, errs = parseSymbolName[*PerspectiveBinding](p, attrs.Get(i), module, false, nil)
 			default:
 				errs = p.translator.SyntaxErrors(ith, "unknown attribute")
 			}
@@ -965,12 +977,15 @@ func (p *Parser) parseConstraintAttributes(attributes sexp.SExp) (domain *int, g
 }
 
 // Parse a symbol name, which will include a binding.
-func parseSymbolName[T Binding](p *Parser, symbol sexp.SExp, function bool, binding T) (*Name[T], []SyntaxError) {
+func parseSymbolName[T Binding](p *Parser, symbol sexp.SExp, module util.Path, function bool,
+	binding T) (*Name[T], []SyntaxError) {
+	//
 	if !isEitherOrIdentifier(symbol, function) {
 		return nil, p.translator.SyntaxErrors(symbol, "expected identifier")
 	}
 	// Extract
-	name := &Name[T]{symbol.AsSymbol().Value, function, binding, false}
+	path := module.Extend(symbol.AsSymbol().Value)
+	name := &Name[T]{*path, function, binding, false}
 	// Update source mapping
 	p.mapSourceNode(symbol, name)
 	// Construct
@@ -1168,7 +1183,8 @@ func reduceParserRule(p *Parser) sexp.ListRule[Expr] {
 			return nil, errors
 		}
 		//
-		varaccess := &VariableAccess{nil, name.Value, true, nil}
+		path := util.NewRelativePath(name.Value)
+		varaccess := &VariableAccess{path, true, nil}
 		p.mapSourceNode(name, varaccess)
 		// Done
 		return &Reduce{varaccess, nil, body}, nil
@@ -1209,14 +1225,12 @@ func varAccessParserRule(col string) (Expr, bool, error) {
 	}
 	// Handle qualified accesses (where permitted)
 	// Attempt to split column name into module / column pair.
-	split := strings.Split(col, ".")
-	if len(split) == 2 {
-		return &VariableAccess{&split[0], split[1], false, nil}, true, nil
-	} else if len(split) > 2 {
-		return nil, true, errors.New("malformed column access")
-	} else {
-		return &VariableAccess{nil, col, false, nil}, true, nil
+	path, err := parseQualifiableName(col)
+	if err != nil {
+		return nil, true, err
 	}
+	//
+	return &VariableAccess{path, false, nil}, true, nil
 }
 
 func arrayAccessParserRule(name string, args []Expr) (Expr, error) {
@@ -1224,7 +1238,9 @@ func arrayAccessParserRule(name string, args []Expr) (Expr, error) {
 		return nil, errors.New("malformed array access")
 	}
 	//
-	return &ArrayAccess{name, args[0], nil}, nil
+	path := util.NewRelativePath(name)
+	//
+	return &ArrayAccess{path, args[0], nil}, nil
 }
 
 func addParserRule(_ string, args []Expr) (Expr, error) {
@@ -1266,15 +1282,12 @@ func invokeParserRule(p *Parser) sexp.ListRule[Expr] {
 			errors = append(errors, *p.translator.SyntaxError(list.Get(0), "invalid function name"))
 		}
 		// Handle qualified accesses (where permitted)
-		// Attempt to split column name into module / column pair.
-		split := strings.Split(name.Value, ".")
-		if len(split) == 2 {
-			//
-			varaccess = &VariableAccess{&split[0], split[1], true, nil}
-		} else if len(split) > 2 {
+		path, err := parseQualifiableName(name.Value)
+		//
+		if err != nil {
 			return nil, p.translator.SyntaxErrors(list.Get(0), "invalid function name")
 		} else {
-			varaccess = &VariableAccess{nil, split[0], true, nil}
+			varaccess = &VariableAccess{path, true, nil}
 		}
 		// Parse arguments
 		args := make([]Expr, list.Len()-1)
@@ -1316,6 +1329,38 @@ func normParserRule(_ string, args []Expr) (Expr, error) {
 	}
 
 	return &Normalise{Arg: args[0]}, nil
+}
+
+// Parse a name which can be (optionally) adorned with either a module or
+// perspective qualifier, or both.
+func parseQualifiableName(qualName string) (path util.Path, err error) {
+	// Look for module qualification
+	split := strings.Split(qualName, ".")
+	switch len(split) {
+	case 1:
+		return parsePerspectifiableName(qualName)
+	case 2:
+		module := split[0]
+		path, err := parsePerspectifiableName(split[1])
+
+		return *path.PushRoot(module), err
+	default:
+		return path, errors.New("malformed qualified name")
+	}
+}
+
+// Parse a name which can (optionally) adorned with a perspective qualifier
+func parsePerspectifiableName(qualName string) (path util.Path, err error) {
+	// Look for module qualification
+	split := strings.Split(qualName, "/")
+	switch len(split) {
+	case 1:
+		return util.NewRelativePath(split[0]), nil
+	case 2:
+		return util.NewRelativePath(split[0], split[1]), nil
+	default:
+		return path, errors.New("malformed qualified name")
+	}
 }
 
 // Attempt to parse an S-Expression as an identifier, return nil if this fails.

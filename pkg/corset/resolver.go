@@ -12,14 +12,16 @@ import (
 // a symbol (e.g. a column) is referred to which doesn't exist.  Likewise, if
 // two modules or columns with identical names are declared in the same scope,
 // etc.
-func ResolveCircuit(srcmap *sexp.SourceMaps[Node], circuit *Circuit) (*GlobalScope, []SyntaxError) {
+func ResolveCircuit(srcmap *sexp.SourceMaps[Node], circuit *Circuit) (*ModuleScope, []SyntaxError) {
 	// Construct top-level scope
-	scope := NewGlobalScope()
-	// Register the root module (which should always exist)
-	scope.DeclareModule("")
-	// Register other modules
+	scope := NewModuleScope()
+	// Define intrinsics
+	for _, i := range INTRINSICS {
+		scope.Define(&i)
+	}
+	// Register modules
 	for _, m := range circuit.Modules {
-		scope.DeclareModule(m.Name)
+		scope.Declare(m.Name, false)
 	}
 	// Construct resolver
 	r := resolver{srcmap}
@@ -45,14 +47,14 @@ type resolver struct {
 }
 
 // Initialise all columns from their declaring constructs.
-func (r *resolver) initialiseDeclarations(scope *GlobalScope, circuit *Circuit) []SyntaxError {
+func (r *resolver) initialiseDeclarations(scope *ModuleScope, circuit *Circuit) []SyntaxError {
 	// Input columns must be allocated before assignemts, since the hir.Schema
 	// separates these out.
-	errs := r.initialiseDeclarationsInModule(scope.Module(""), circuit.Declarations)
+	errs := r.initialiseDeclarationsInModule(scope, circuit.Declarations)
 	//
 	for _, m := range circuit.Modules {
 		// Process all declarations in the module
-		merrs := r.initialiseDeclarationsInModule(scope.Module(m.Name), m.Declarations)
+		merrs := r.initialiseDeclarationsInModule(scope.Enter(m.Name), m.Declarations)
 		// Package up all errors
 		errs = append(errs, merrs...)
 	}
@@ -63,14 +65,14 @@ func (r *resolver) initialiseDeclarations(scope *GlobalScope, circuit *Circuit) 
 // Process all assignment column declarations.  These are more complex than for
 // input columns, since there can be dependencies between them.  Thus, we cannot
 // simply resolve them in one linear scan.
-func (r *resolver) resolveDeclarations(scope *GlobalScope, circuit *Circuit) []SyntaxError {
+func (r *resolver) resolveDeclarations(scope *ModuleScope, circuit *Circuit) []SyntaxError {
 	// Input columns must be allocated before assignemts, since the hir.Schema
 	// separates these out.
-	errs := r.resolveDeclarationsInModule(scope.Module(""), circuit.Declarations)
+	errs := r.resolveDeclarationsInModule(scope, circuit.Declarations)
 	//
 	for _, m := range circuit.Modules {
 		// Process all declarations in the module
-		merrs := r.resolveDeclarationsInModule(scope.Module(m.Name), m.Declarations)
+		merrs := r.resolveDeclarationsInModule(scope.Enter(m.Name), m.Declarations)
 		// Package up all errors
 		errs = append(errs, merrs...)
 	}
@@ -99,13 +101,24 @@ func (r *resolver) resolveDeclarationsInModule(scope *ModuleScope, decls []Decla
 // contexts, etc).
 func (r *resolver) initialiseDeclarationsInModule(scope *ModuleScope, decls []Declaration) []SyntaxError {
 	errors := make([]SyntaxError, 0)
-	// Initialise all columns
+	// First, initialise any perspectives as submodules of the given scope.  Its
+	// slightly frustrating that we have to do this separately, but the
+	// non-lexical nature of perspectives forces our hand.
+	for _, d := range decls {
+		if def, ok := d.(*DefPerspective); ok {
+			// Attempt to declare the perspective.  Note, we don't need to check
+			// whether or not this succeeds here as, if it fails, this will be
+			// caught below.
+			scope.Declare(def.Name(), true)
+		}
+	}
+	// Second, initialise all symbol (e.g. column) definitions.
 	for _, d := range decls {
 		for iter := d.Definitions(); iter.HasNext(); {
 			def := iter.Next()
 			// Attempt to declare symbol
-			if !scope.Declare(def) {
-				msg := fmt.Sprintf("symbol %s already declared", def.Name())
+			if !scope.Define(def) {
+				msg := fmt.Sprintf("symbol %s already declared", def.Path())
 				err := r.srcmap.SyntaxError(def, msg)
 				errors = append(errors, *err)
 			}
@@ -246,6 +259,17 @@ func (r *resolver) declarationDependenciesAreFinalised(scope *ModuleScope,
 		errors    []SyntaxError
 		finalised bool = true
 	)
+	// DefConstraints require special handling because they can be associated
+	// with a perspective.  Perspectives are challenging here because they are
+	// effectively non-lexical scopes, which is not a good fit for the module
+	// tree structure used.
+	if dc, ok := decl.(*DefConstraint); ok && dc.Perspective != nil {
+		if dc.Perspective.IsResolved() || scope.Bind(dc.Perspective) {
+			// Temporarily enter the perspective for the purposes of resolving
+			// symbols within this declaration.
+			scope = scope.Enter(dc.Perspective.Name())
+		}
+	}
 	//
 	for iter := decl.Dependencies(); iter.HasNext(); {
 		symbol := iter.Next()
@@ -304,7 +328,7 @@ func (r *resolver) finaliseDefConstInModule(enclosing Scope, decl *DefConst) []S
 	var errors []SyntaxError
 	//
 	for _, c := range decl.constants {
-		scope := NewLocalScope(enclosing, false, true, "")
+		scope := NewLocalScope(enclosing, false, true)
 		// Resolve constant body
 		datatype, errs := r.finaliseExpressionInModule(scope, c.binding.value)
 		// Accumulate errors
@@ -324,18 +348,19 @@ func (r *resolver) finaliseDefConstInModule(enclosing Scope, decl *DefConst) []S
 // Finalise a vanishing constraint declaration after all symbols have been
 // resolved. This involves: (a) checking the context is valid; (b) checking the
 // expressions are well-typed.
-func (r *resolver) finaliseDefConstraintInModule(enclosing Scope, decl *DefConstraint) []SyntaxError {
+func (r *resolver) finaliseDefConstraintInModule(enclosing *ModuleScope, decl *DefConstraint) []SyntaxError {
 	var (
 		guard_errors []SyntaxError
 		guard_t      Type
-		perspective  string = ""
 	)
 	// Identifiery enclosing perspective (if applicable)
 	if decl.Perspective != nil {
-		perspective = decl.Perspective.Name()
+		// As before, we must temporarily enter the perspective here.
+		perspective := decl.Perspective.Name()
+		enclosing = enclosing.Enter(perspective)
 	}
 	// Construct scope in which to resolve constraint
-	scope := NewLocalScope(enclosing, false, false, perspective)
+	scope := NewLocalScope(enclosing, false, false)
 	// Resolve guard
 	if decl.Guard != nil {
 		guard_t, guard_errors = r.finaliseExpressionInModule(scope, decl.Guard)
@@ -384,7 +409,7 @@ func (r *resolver) finaliseDefInterleavedInModule(decl *DefInterleaved) []Syntax
 			datatype = binding.dataType
 		} else if binding.multiplier != length_multiplier {
 			// Columns to be interleaved must have the same length multiplier.
-			err := r.srcmap.SyntaxError(decl, fmt.Sprintf("source column %s has incompatible length multiplier", source.Name()))
+			err := r.srcmap.SyntaxError(decl, fmt.Sprintf("source column %s has incompatible length multiplier", source.Path()))
 			errors = append(errors, *err)
 		}
 		// Combine datatypes.
@@ -436,7 +461,7 @@ func (r *resolver) finaliseDefPermutationInModule(decl *DefPermutation) []Syntax
 
 // Resolve those variables appearing in the body of this property assertion.
 func (r *resolver) finaliseDefPerspectiveInModule(enclosing Scope, decl *DefPerspective) []SyntaxError {
-	scope := NewLocalScope(enclosing, false, false, "")
+	scope := NewLocalScope(enclosing, false, false)
 	// Resolve assertion
 	_, errors := r.finaliseExpressionInModule(scope, decl.Selector)
 	// Error check
@@ -452,7 +477,7 @@ func (r *resolver) finaliseDefPerspectiveInModule(enclosing Scope, decl *DefPers
 // expressions are well-typed.
 func (r *resolver) finaliseDefInRangeInModule(enclosing Scope, decl *DefInRange) []SyntaxError {
 	var (
-		scope = NewLocalScope(enclosing, false, false, "")
+		scope = NewLocalScope(enclosing, false, false)
 	)
 	// Resolve property body
 	_, errors := r.finaliseExpressionInModule(scope, decl.Expr)
@@ -467,7 +492,7 @@ func (r *resolver) finaliseDefInRangeInModule(enclosing Scope, decl *DefInRange)
 // function.
 func (r *resolver) finaliseDefFunInModule(enclosing Scope, decl *DefFun) []SyntaxError {
 	var (
-		scope = NewLocalScope(enclosing, false, decl.IsPure(), "")
+		scope = NewLocalScope(enclosing, false, decl.IsPure())
 	)
 	// Declare parameters in local scope
 	for _, p := range decl.Parameters() {
@@ -486,8 +511,8 @@ func (r *resolver) finaliseDefFunInModule(enclosing Scope, decl *DefFun) []Synta
 // Resolve those variables appearing in the body of this lookup constraint.
 func (r *resolver) finaliseDefLookupInModule(enclosing Scope, decl *DefLookup) []SyntaxError {
 	var (
-		sourceScope = NewLocalScope(enclosing, true, false, "")
-		targetScope = NewLocalScope(enclosing, true, false, "")
+		sourceScope = NewLocalScope(enclosing, true, false)
+		targetScope = NewLocalScope(enclosing, true, false)
 	)
 	// Resolve source expressions
 	_, source_errors := r.finaliseExpressionsInModule(sourceScope, decl.Sources)
@@ -499,7 +524,7 @@ func (r *resolver) finaliseDefLookupInModule(enclosing Scope, decl *DefLookup) [
 
 // Resolve those variables appearing in the body of this property assertion.
 func (r *resolver) finaliseDefPropertyInModule(enclosing Scope, decl *DefProperty) []SyntaxError {
-	scope := NewLocalScope(enclosing, false, false, "")
+	scope := NewLocalScope(enclosing, false, false)
 	// Resolve assertion
 	_, errors := r.finaliseExpressionInModule(scope, decl.Assertion)
 	// Done
@@ -741,10 +766,8 @@ func (r *resolver) finaliseReduceInModule(scope LocalScope, expr *Reduce) (Type,
 func (r *resolver) finaliseVariableInModule(scope LocalScope,
 	expr *VariableAccess) (Type, []SyntaxError) {
 	// Check whether this is a qualified access, or not.
-	if !scope.IsGlobal() && expr.IsQualified() {
+	if !scope.IsGlobal() && expr.Path().IsAbsolute() {
 		return nil, r.srcmap.SyntaxErrors(expr, "qualified access not permitted here")
-	} else if expr.IsQualified() && !scope.HasModule(expr.Module()) {
-		return nil, r.srcmap.SyntaxErrors(expr, fmt.Sprintf("unknown module %s", expr.Module()))
 	}
 	// Symbol should be resolved at this point, but we'd better sanity check this.
 	if !expr.IsResolved() && !scope.Bind(expr) {
@@ -759,8 +782,6 @@ func (r *resolver) finaliseVariableInModule(scope LocalScope,
 			return nil, r.srcmap.SyntaxErrors(expr, "conflicting context")
 		} else if scope.IsPure() {
 			return nil, r.srcmap.SyntaxErrors(expr, "not permitted in pure context")
-		} else if binding.perspective != "" && scope.perspective != binding.perspective {
-			return nil, r.srcmap.SyntaxErrors(expr, "not visible here")
 		}
 		// Use column's datatype
 		return binding.dataType, nil

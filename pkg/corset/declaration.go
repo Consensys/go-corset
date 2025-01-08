@@ -183,11 +183,11 @@ func (p *DefColumns) Lisp() sexp.SExp {
 // DefColumn packages together those piece relevant to declaring an individual
 // column, such its name and type.
 type DefColumn struct {
-	// Column name
-	name string
 	// Binding of this column (which may or may not be finalised).
 	binding ColumnBinding
 }
+
+var _ SymbolDefinition = &DefColumn{}
 
 // IsFunction is never true for a column definition.
 func (e *DefColumn) IsFunction() bool {
@@ -200,9 +200,16 @@ func (e *DefColumn) Binding() Binding {
 	return &e.binding
 }
 
-// Name of symbol being defined
+// Name returns the (unqualified) name of this symbol.  For example, "X" for
+// a column X defined in a module m1.
 func (e *DefColumn) Name() string {
-	return e.name
+	return e.binding.path.Tail()
+}
+
+// Path returns the qualified name (i.e. absolute path) of this symbol.  For
+// example, "m1.X" for a column X defined in module m1.
+func (e *DefColumn) Path() *util.Path {
+	return &e.binding.path
 }
 
 // DataType returns the type of this column.  If this column have not yet been
@@ -241,7 +248,7 @@ func (e *DefColumn) MustProve() bool {
 // for debugging purposes.
 func (e *DefColumn) Lisp() sexp.SExp {
 	list := sexp.EmptyList()
-	list.Append(sexp.NewSymbol(e.name))
+	list.Append(sexp.NewSymbol(e.Name()))
 	//
 	if e.binding.dataType != nil {
 		datatype := e.binding.dataType.String()
@@ -326,7 +333,7 @@ func (p *DefConst) Lisp() sexp.SExp {
 	def.Append(sexp.NewSymbol("defconst"))
 	//
 	for _, c := range p.constants {
-		def.Append(sexp.NewSymbol(c.name))
+		def.Append(sexp.NewSymbol(c.Name()))
 		def.Append(c.binding.value.Lisp())
 	}
 	// Done
@@ -336,8 +343,6 @@ func (p *DefConst) Lisp() sexp.SExp {
 // DefConstUnit represents the definition of exactly one constant value.  As
 // such, this is an instance of SymbolDefinition and provides a binding.
 type DefConstUnit struct {
-	// Name of the constant being declared.
-	name string
 	// Binding for this constant.
 	binding ConstantBinding
 }
@@ -353,19 +358,26 @@ func (e *DefConstUnit) Binding() Binding {
 	return &e.binding
 }
 
-// Name of symbol being defined
+// Name returns the (unqualified) name of this symbol.  For example, "X" for
+// a column X defined in a module m1.
 func (e *DefConstUnit) Name() string {
-	return e.name
+	return e.binding.path.Tail()
+}
+
+// Path returns the qualified name (i.e. absolute path) of this symbol.  For
+// example, "m1.X" for a column X defined in module m1.
+func (e *DefConstUnit) Path() *util.Path {
+	return &e.binding.path
 }
 
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
 //
 //nolint:revive
-func (p *DefConstUnit) Lisp() sexp.SExp {
+func (e *DefConstUnit) Lisp() sexp.SExp {
 	return sexp.NewList([]sexp.SExp{
-		sexp.NewSymbol(p.name),
-		p.binding.value.Lisp()})
+		sexp.NewSymbol(e.Name()),
+		e.binding.value.Lisp()})
 }
 
 // ============================================================================
@@ -766,9 +778,16 @@ type DefPerspective struct {
 	Columns []*DefColumn
 }
 
-// Name of symbol being defined
+// Name returns the (unqualified) name of this symbol.  For example, "X" for
+// a column X defined in a module m1.
 func (p *DefPerspective) Name() string {
-	return p.symbol.name
+	return p.symbol.Path().Tail()
+}
+
+// Path returns the qualified name (i.e. absolute path) of this symbol.  For
+// example, "m1.X" for a column X defined in module m1.
+func (p *DefPerspective) Path() *util.Path {
+	return &p.symbol.path
 }
 
 // IsFunction is always true for a function definition!
@@ -903,6 +922,8 @@ type DefFun struct {
 	parameters []*DefParameter
 }
 
+var _ SymbolDefinition = &DefFun{}
+
 // IsFunction is always true for a function definition!
 func (p *DefFun) IsFunction() bool {
 	return true
@@ -932,9 +953,16 @@ func (p *DefFun) Binding() Binding {
 	return p.symbol.binding
 }
 
-// Name of symbol being defined
+// Name returns the (unqualified) name of this symbol.  For example, "X" for
+// a column X defined in a module m1.
 func (p *DefFun) Name() string {
-	return p.symbol.name
+	return p.symbol.Path().Tail()
+}
+
+// Path returns the qualified name (i.e. absolute path) of this symbol.  For
+// example, "m1.X" for a column X defined in module m1.
+func (p *DefFun) Path() *util.Path {
+	return &p.symbol.path
 }
 
 // Definitions returns the set of symbols defined by this declaration.  Observe
@@ -951,7 +979,8 @@ func (p *DefFun) Dependencies() util.Iterator[Symbol] {
 	// Filter out all parameters declared in this function, since these are not
 	// external dependencies.
 	for _, d := range deps {
-		if d.IsQualified() || d.IsFunction() || !p.hasParameter(d.Name()) {
+		n := d.Path()
+		if n.IsAbsolute() || d.IsFunction() || n.Depth() > 1 || !p.hasParameter(n.Head()) {
 			ndeps = append(ndeps, d)
 		}
 	}
@@ -976,7 +1005,7 @@ func (p *DefFun) IsFinalised() bool {
 func (p *DefFun) Lisp() sexp.SExp {
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("defun"),
-		sexp.NewSymbol(p.symbol.name),
+		sexp.NewSymbol(p.symbol.path.Tail()),
 		sexp.NewSymbol("..."), // todo
 	})
 }

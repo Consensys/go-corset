@@ -31,10 +31,10 @@ type preprocessor struct {
 
 // preprocess all assignment or constraint declarations in the circuit.
 func (p *preprocessor) preprocessDeclarations(circuit *Circuit) []SyntaxError {
-	errors := p.preprocessDeclarationsInModule("", circuit.Declarations)
+	errors := p.preprocessDeclarationsInModule(circuit.Declarations)
 	// preprocess each module
 	for _, m := range circuit.Modules {
-		errs := p.preprocessDeclarationsInModule(m.Name, m.Declarations)
+		errs := p.preprocessDeclarationsInModule(m.Declarations)
 		errors = append(errors, errs...)
 	}
 	// Done
@@ -43,11 +43,11 @@ func (p *preprocessor) preprocessDeclarations(circuit *Circuit) []SyntaxError {
 
 // preprocess all assignment or constraint declarations in a given module within
 // the circuit.
-func (p *preprocessor) preprocessDeclarationsInModule(module string, decls []Declaration) []SyntaxError {
+func (p *preprocessor) preprocessDeclarationsInModule(decls []Declaration) []SyntaxError {
 	var errors []SyntaxError
 	//
 	for _, d := range decls {
-		errs := p.preprocessDeclaration(d, module)
+		errs := p.preprocessDeclaration(d)
 		errors = append(errors, errs...)
 	}
 	// Done
@@ -56,7 +56,7 @@ func (p *preprocessor) preprocessDeclarationsInModule(module string, decls []Dec
 
 // preprocess an assignment or constraint declarartion which occurs within a
 // given module.
-func (p *preprocessor) preprocessDeclaration(decl Declaration, module string) []SyntaxError {
+func (p *preprocessor) preprocessDeclaration(decl Declaration) []SyntaxError {
 	var errors []SyntaxError
 	//
 	switch d := decl.(type) {
@@ -67,21 +67,21 @@ func (p *preprocessor) preprocessDeclaration(decl Declaration, module string) []
 	case *DefConst:
 		// ignore
 	case *DefConstraint:
-		errors = p.preprocessDefConstraint(d, module)
+		errors = p.preprocessDefConstraint(d)
 	case *DefFun:
 		// ignore
 	case *DefInRange:
-		errors = p.preprocessDefInRange(d, module)
+		errors = p.preprocessDefInRange(d)
 	case *DefInterleaved:
 		// ignore
 	case *DefLookup:
-		errors = p.preprocessDefLookup(d, module)
+		errors = p.preprocessDefLookup(d)
 	case *DefPermutation:
 		// ignore
 	case *DefPerspective:
-		errors = p.preprocessDefPerspective(d, module)
+		errors = p.preprocessDefPerspective(d)
 	case *DefProperty:
-		errors = p.preprocessDefProperty(d, module)
+		errors = p.preprocessDefProperty(d)
 	default:
 		// Error handling
 		panic("unknown declaration")
@@ -91,15 +91,15 @@ func (p *preprocessor) preprocessDeclaration(decl Declaration, module string) []
 }
 
 // preprocess a "defconstraint" declaration.
-func (p *preprocessor) preprocessDefConstraint(decl *DefConstraint, module string) []SyntaxError {
+func (p *preprocessor) preprocessDefConstraint(decl *DefConstraint) []SyntaxError {
 	var (
 		constraint_errors []SyntaxError
 		guard_errors      []SyntaxError
 	)
 	// preprocess constraint body
-	decl.Constraint, constraint_errors = p.preprocessExpressionInModule(decl.Constraint, module)
+	decl.Constraint, constraint_errors = p.preprocessExpressionInModule(decl.Constraint)
 	// preprocess (optional) guard
-	decl.Guard, guard_errors = p.preprocessOptionalExpressionInModule(decl.Guard, module)
+	decl.Guard, guard_errors = p.preprocessOptionalExpressionInModule(decl.Guard)
 	// Combine errors
 	return append(constraint_errors, guard_errors...)
 }
@@ -107,41 +107,41 @@ func (p *preprocessor) preprocessDefConstraint(decl *DefConstraint, module strin
 // preprocess a "deflookup" declaration.
 //
 //nolint:staticcheck
-func (p *preprocessor) preprocessDefLookup(decl *DefLookup, module string) []SyntaxError {
+func (p *preprocessor) preprocessDefLookup(decl *DefLookup) []SyntaxError {
 	var (
 		source_errs []SyntaxError
 		target_errs []SyntaxError
 	)
 	// preprocess source expressions
-	decl.Sources, source_errs = p.preprocessExpressionsInModule(decl.Sources, module)
-	decl.Targets, target_errs = p.preprocessExpressionsInModule(decl.Targets, module)
+	decl.Sources, source_errs = p.preprocessExpressionsInModule(decl.Sources)
+	decl.Targets, target_errs = p.preprocessExpressionsInModule(decl.Targets)
 	// Combine errors
 	return append(source_errs, target_errs...)
 }
 
 // preprocess a "definrange" declaration.
-func (p *preprocessor) preprocessDefInRange(decl *DefInRange, module string) []SyntaxError {
+func (p *preprocessor) preprocessDefInRange(decl *DefInRange) []SyntaxError {
 	var errors []SyntaxError
 	// preprocess constraint body
-	decl.Expr, errors = p.preprocessExpressionInModule(decl.Expr, module)
+	decl.Expr, errors = p.preprocessExpressionInModule(decl.Expr)
 	// Done
 	return errors
 }
 
 // preprocess a "defperspective" declaration.
-func (p *preprocessor) preprocessDefPerspective(decl *DefPerspective, module string) []SyntaxError {
+func (p *preprocessor) preprocessDefPerspective(decl *DefPerspective) []SyntaxError {
 	var errors []SyntaxError
 	// preprocess selector expression
-	decl.Selector, errors = p.preprocessExpressionInModule(decl.Selector, module)
+	decl.Selector, errors = p.preprocessExpressionInModule(decl.Selector)
 	// Combine errors
 	return errors
 }
 
 // preprocess a "defproperty" declaration.
-func (p *preprocessor) preprocessDefProperty(decl *DefProperty, module string) []SyntaxError {
+func (p *preprocessor) preprocessDefProperty(decl *DefProperty) []SyntaxError {
 	var errors []SyntaxError
 	// preprocess constraint body
-	decl.Assertion, errors = p.preprocessExpressionInModule(decl.Assertion, module)
+	decl.Assertion, errors = p.preprocessExpressionInModule(decl.Assertion)
 	// Done
 	return errors
 }
@@ -149,10 +149,10 @@ func (p *preprocessor) preprocessDefProperty(decl *DefProperty, module string) [
 // preprocess an optional expression in a given context.  That is an expression
 // which maybe nil (i.e. doesn't exist).  In such case, nil is returned (i.e.
 // without any errors).
-func (p *preprocessor) preprocessOptionalExpressionInModule(expr Expr, module string) (Expr, []SyntaxError) {
+func (p *preprocessor) preprocessOptionalExpressionInModule(expr Expr) (Expr, []SyntaxError) {
 	//
 	if expr != nil {
-		return p.preprocessExpressionInModule(expr, module)
+		return p.preprocessExpressionInModule(expr)
 	}
 
 	return nil, nil
@@ -161,7 +161,7 @@ func (p *preprocessor) preprocessOptionalExpressionInModule(expr Expr, module st
 // preprocess a sequence of zero or more expressions enclosed in a given module.
 // All expressions are expected to be non-voidable (see below for more on
 // voidability).
-func (p *preprocessor) preprocessExpressionsInModule(exprs []Expr, module string) ([]Expr, []SyntaxError) {
+func (p *preprocessor) preprocessExpressionsInModule(exprs []Expr) ([]Expr, []SyntaxError) {
 	//
 	errors := []SyntaxError{}
 	hirExprs := make([]Expr, len(exprs))
@@ -169,7 +169,7 @@ func (p *preprocessor) preprocessExpressionsInModule(exprs []Expr, module string
 	for i, e := range exprs {
 		if e != nil {
 			var errs []SyntaxError
-			hirExprs[i], errs = p.preprocessExpressionInModule(e, module)
+			hirExprs[i], errs = p.preprocessExpressionInModule(e)
 			errors = append(errors, errs...)
 			// Check for non-voidability
 			if hirExprs[i] == nil {
@@ -186,7 +186,7 @@ func (p *preprocessor) preprocessExpressionsInModule(exprs []Expr, module string
 // expressions.  That is, essentially, to account for debug constraints which
 // only exist in debug mode.  Hence, when debug mode is not enabled, then a
 // debug constraint is "void".
-func (p *preprocessor) preprocessVoidableExpressionsInModule(exprs []Expr, module string) ([]Expr, []SyntaxError) {
+func (p *preprocessor) preprocessVoidableExpressionsInModule(exprs []Expr) ([]Expr, []SyntaxError) {
 	//
 	errors := []SyntaxError{}
 	hirExprs := make([]Expr, len(exprs))
@@ -195,7 +195,7 @@ func (p *preprocessor) preprocessVoidableExpressionsInModule(exprs []Expr, modul
 	for i, e := range exprs {
 		if e != nil {
 			var errs []SyntaxError
-			hirExprs[i], errs = p.preprocessExpressionInModule(e, module)
+			hirExprs[i], errs = p.preprocessExpressionInModule(e)
 			errors = append(errors, errs...)
 			// Update dirty flag
 			if hirExprs[i] == nil {
@@ -228,7 +228,7 @@ func (p *preprocessor) preprocessVoidableExpressionsInModule(exprs []Expr, modul
 // preprocess an expression situated in a given context.  The context is
 // necessary to resolve unqualified names (e.g. for column access, function
 // invocations, etc).
-func (p *preprocessor) preprocessExpressionInModule(expr Expr, module string) (Expr, []SyntaxError) {
+func (p *preprocessor) preprocessExpressionInModule(expr Expr) (Expr, []SyntaxError) {
 	var (
 		nexpr  Expr
 		errors []SyntaxError
@@ -236,48 +236,48 @@ func (p *preprocessor) preprocessExpressionInModule(expr Expr, module string) (E
 	//
 	switch e := expr.(type) {
 	case *ArrayAccess:
-		arg, errs := p.preprocessExpressionInModule(e.arg, module)
-		nexpr, errors = &ArrayAccess{e.name, arg, e.binding}, errs
+		arg, errs := p.preprocessExpressionInModule(e.arg)
+		nexpr, errors = &ArrayAccess{e.path, arg, e.binding}, errs
 	case *Add:
-		args, errs := p.preprocessExpressionsInModule(e.Args, module)
+		args, errs := p.preprocessExpressionsInModule(e.Args)
 		nexpr, errors = &Add{args}, errs
 	case *Constant:
 		return e, nil
 	case *Debug:
 		if p.debug {
-			return p.preprocessExpressionInModule(e.Arg, module)
+			return p.preprocessExpressionInModule(e.Arg)
 		}
 		// When debug is not enabled, return "void".
 		return nil, nil
 	case *Exp:
-		arg, errs1 := p.preprocessExpressionInModule(e.Arg, module)
-		pow, errs2 := p.preprocessExpressionInModule(e.Pow, module)
+		arg, errs1 := p.preprocessExpressionInModule(e.Arg)
+		pow, errs2 := p.preprocessExpressionInModule(e.Pow)
 		// Done
 		nexpr, errors = &Exp{arg, pow}, append(errs1, errs2...)
 	case *For:
-		return p.preprocessForInModule(e, module)
+		return p.preprocessForInModule(e)
 	case *If:
-		args, errs := p.preprocessExpressionsInModule([]Expr{e.Condition, e.TrueBranch, e.FalseBranch}, module)
+		args, errs := p.preprocessExpressionsInModule([]Expr{e.Condition, e.TrueBranch, e.FalseBranch})
 		// Construct appropriate if form
 		nexpr, errors = &If{e.kind, args[0], args[1], args[2]}, errs
 	case *Invoke:
-		return p.preprocessInvokeInModule(e, module)
+		return p.preprocessInvokeInModule(e)
 	case *List:
-		args, errs := p.preprocessVoidableExpressionsInModule(e.Args, module)
+		args, errs := p.preprocessVoidableExpressionsInModule(e.Args)
 		nexpr, errors = &List{args}, errs
 	case *Mul:
-		args, errs := p.preprocessExpressionsInModule(e.Args, module)
+		args, errs := p.preprocessExpressionsInModule(e.Args)
 		nexpr, errors = &Mul{args}, errs
 	case *Normalise:
-		arg, errs := p.preprocessExpressionInModule(e.Arg, module)
+		arg, errs := p.preprocessExpressionInModule(e.Arg)
 		nexpr, errors = &Normalise{arg}, errs
 	case *Reduce:
-		return p.preprocessReduceInModule(e, module)
+		return p.preprocessReduceInModule(e)
 	case *Sub:
-		args, errs := p.preprocessExpressionsInModule(e.Args, module)
+		args, errs := p.preprocessExpressionsInModule(e.Args)
 		nexpr, errors = &Sub{args}, errs
 	case *Shift:
-		arg, errs := p.preprocessExpressionInModule(e.Arg, module)
+		arg, errs := p.preprocessExpressionInModule(e.Arg)
 		nexpr, errors = &Shift{arg, e.Shift}, errs
 	case *VariableAccess:
 		return e, nil
@@ -290,7 +290,7 @@ func (p *preprocessor) preprocessExpressionInModule(expr Expr, module string) (E
 	return nexpr, errors
 }
 
-func (p *preprocessor) preprocessForInModule(expr *For, module string) (Expr, []SyntaxError) {
+func (p *preprocessor) preprocessForInModule(expr *For) (Expr, []SyntaxError) {
 	var (
 		errors  []SyntaxError
 		mapping map[uint]Expr = make(map[uint]Expr)
@@ -305,7 +305,7 @@ func (p *preprocessor) preprocessForInModule(expr *For, module string) (Expr, []
 		mapping[expr.Binding.index] = &Constant{*big.NewInt(int64(i + expr.Start))}
 		ith := Substitute(expr.Body, mapping, p.srcmap)
 		// preprocess subsituted expression
-		args[i], errs = p.preprocessExpressionInModule(ith, module)
+		args[i], errs = p.preprocessExpressionInModule(ith)
 		errors = append(errors, errs...)
 	}
 	// Error check
@@ -316,17 +316,17 @@ func (p *preprocessor) preprocessForInModule(expr *For, module string) (Expr, []
 	return &List{args}, nil
 }
 
-func (p *preprocessor) preprocessInvokeInModule(expr *Invoke, module string) (Expr, []SyntaxError) {
+func (p *preprocessor) preprocessInvokeInModule(expr *Invoke) (Expr, []SyntaxError) {
 	if expr.signature != nil {
 		body := expr.signature.Apply(expr.Args(), p.srcmap)
-		return p.preprocessExpressionInModule(body, module)
+		return p.preprocessExpressionInModule(body)
 	}
 	//
 	return nil, p.srcmap.SyntaxErrors(expr, "unbound function")
 }
 
-func (p *preprocessor) preprocessReduceInModule(expr *Reduce, module string) (Expr, []SyntaxError) {
-	body, errors := p.preprocessExpressionInModule(expr.arg, module)
+func (p *preprocessor) preprocessReduceInModule(expr *Reduce) (Expr, []SyntaxError) {
+	body, errors := p.preprocessExpressionInModule(expr.arg)
 	//
 	if list, ok := body.(*List); !ok {
 		return nil, append(errors, *p.srcmap.SyntaxError(expr.arg, "expected list"))

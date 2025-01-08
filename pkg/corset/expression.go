@@ -7,6 +7,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/sexp"
 	tr "github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // Expr represents an arbitrary expression over the columns of a given context
@@ -82,15 +83,9 @@ func (e *Add) Dependencies() []Symbol {
 
 // ArrayAccess represents the a given value taken to a power.
 type ArrayAccess struct {
-	name    string
+	path    util.Path
 	arg     Expr
 	binding Binding
-}
-
-// IsQualified determines whether this symbol is qualfied or not (i.e. has an
-// explicitly module specifier).
-func (e *ArrayAccess) IsQualified() bool {
-	return false
 }
 
 // IsFunction indicates whether or not this symbol refers to a function (which
@@ -116,15 +111,9 @@ func (e *ArrayAccess) Multiplicity() uint {
 	return determineMultiplicity([]Expr{e.arg})
 }
 
-// Module returns the module used to qualify this array access.  At this time,
-// however, array accesses are always unqualified.
-func (e *ArrayAccess) Module() string {
-	panic("unqualified array access")
-}
-
-// Name returns the (unqualified) name of this symbol
-func (e *ArrayAccess) Name() string {
-	return e.name
+// Path returns the given path of this symbol.
+func (e *ArrayAccess) Path() *util.Path {
+	return &e.path
 }
 
 // Binding gets binding associated with this interface.  This will panic if this
@@ -148,7 +137,7 @@ func (e *ArrayAccess) Context() Context {
 // so it can be printed.
 func (e *ArrayAccess) Lisp() sexp.SExp {
 	return sexp.NewArray([]sexp.SExp{
-		sexp.NewSymbol(e.name),
+		sexp.NewSymbol(e.path.String()),
 		e.arg.Lisp(),
 	})
 }
@@ -361,7 +350,8 @@ func (e *For) Dependencies() []Symbol {
 	var rest []Symbol
 	//
 	for _, s := range e.Body.Dependencies() {
-		if s.IsQualified() || s.Name() != e.Binding.name {
+		p := s.Path()
+		if p.IsAbsolute() || p.Depth() != 1 || p.Head() != e.Binding.name {
 			rest = append(rest, s)
 		}
 	}
@@ -682,7 +672,7 @@ func (e *Reduce) Context() Context {
 func (e *Reduce) Lisp() sexp.SExp {
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("reduce"),
-		sexp.NewSymbol(e.fn.name),
+		sexp.NewSymbol(e.fn.Path().String()),
 		e.arg.Lisp()})
 }
 
@@ -799,8 +789,7 @@ func (e *Shift) Dependencies() []Symbol {
 // VariableAccess represents reading the value of a given local variable (such
 // as a function parameter).
 type VariableAccess struct {
-	module  *string
-	name    string
+	path    util.Path
 	fn      bool
 	binding Binding
 }
@@ -815,10 +804,9 @@ func (e *VariableAccess) AsConstant() *big.Int {
 	return nil
 }
 
-// IsQualified determines whether this symbol is qualfied or not (i.e. has an
-// explicitly module specifier).
-func (e *VariableAccess) IsQualified() bool {
-	return e.module != nil
+// Path returns the given path of this symbol.
+func (e *VariableAccess) Path() *util.Path {
+	return &e.path
 }
 
 // IsFunction determines whether this symbol refers to a function (which, of
@@ -848,17 +836,6 @@ func (e *VariableAccess) Resolve(binding Binding) bool {
 	e.binding = binding
 	//
 	return true
-}
-
-// Module returns the optional module qualification.  This will panic if this
-// invocation is unqualified.
-func (e *VariableAccess) Module() string {
-	return *e.module
-}
-
-// Name returns the (unqualified) name of this symbol
-func (e *VariableAccess) Name() string {
-	return e.name
 }
 
 // Binding gets binding associated with this interface.  This will panic if this
@@ -893,14 +870,7 @@ func (e *VariableAccess) Context() Context {
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.a
 func (e *VariableAccess) Lisp() sexp.SExp {
-	var name string
-	if e.module != nil {
-		name = fmt.Sprintf("%s.%s", *e.module, e.name)
-	} else {
-		name = e.name
-	}
-	//
-	return sexp.NewSymbol(name)
+	return sexp.NewSymbol(e.path.String())
 }
 
 // Dependencies needed to signal declaration.
@@ -937,7 +907,7 @@ func Substitute(expr Expr, mapping map[uint]Expr, srcmap *sexp.SourceMaps[Node])
 	switch e := expr.(type) {
 	case *ArrayAccess:
 		arg := Substitute(e.arg, mapping, srcmap)
-		nexpr = &ArrayAccess{e.name, arg, e.binding}
+		nexpr = &ArrayAccess{e.path, arg, e.binding}
 	case *Add:
 		args := SubstituteAll(e.Args, mapping, srcmap)
 		nexpr = &Add{args}
@@ -1034,7 +1004,7 @@ func ShallowCopy(expr Expr) Expr {
 	//
 	switch e := expr.(type) {
 	case *ArrayAccess:
-		return &ArrayAccess{e.name, e.arg, e.binding}
+		return &ArrayAccess{e.path, e.arg, e.binding}
 	case *Add:
 		return &Add{e.Args}
 	case *Constant:
@@ -1062,7 +1032,7 @@ func ShallowCopy(expr Expr) Expr {
 	case *Shift:
 		return &Shift{e.Arg, e.Shift}
 	case *VariableAccess:
-		return &VariableAccess{e.module, e.name, e.fn, e.binding}
+		return &VariableAccess{e.path, e.fn, e.binding}
 	default:
 		panic(fmt.Sprintf("unknown expression (%s)", reflect.TypeOf(expr)))
 	}

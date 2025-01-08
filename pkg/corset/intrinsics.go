@@ -5,6 +5,7 @@ import (
 	"math"
 
 	"github.com/consensys/go-corset/pkg/sexp"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // IntrinsicDefinition is a SymbolDefinition for an intrinsic (i.e. built-in)
@@ -27,6 +28,13 @@ var _ FunctionBinding = &IntrinsicDefinition{}
 // Name returns the name of the intrinsic being defined.
 func (p *IntrinsicDefinition) Name() string {
 	return p.name
+}
+
+// Path returns the qualified name (i.e. absolute path) of this symbol.  For
+// example, "m1.X" for a column X defined in module m1.
+func (p *IntrinsicDefinition) Path() *util.Path {
+	path := util.NewAbsolutePath(p.name)
+	return &path
 }
 
 // IsPure checks whether this pure (which intrinsics always are).
@@ -121,8 +129,9 @@ func intrinsicNaryBody(arity uint) []Expr {
 	//
 	for i := uint(0); i != arity; i++ {
 		name := fmt.Sprintf("x%d", i)
+		path := util.NewAbsolutePath(name)
 		binding := &LocalVariableBinding{name, nil, i}
-		args[i] = &VariableAccess{nil, name, true, binding}
+		args[i] = &VariableAccess{path, true, binding}
 	}
 	//
 	return args

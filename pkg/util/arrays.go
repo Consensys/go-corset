@@ -6,6 +6,38 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
 
+// Prepend creates a new slice containing the result of prepending the given
+// item onto the end of the given slice.  Observe that, unlike the built-in
+// append() function, this will never modify the given slice.
+func Prepend[T any](item T, slice []T) []T {
+	n := len(slice)
+	// Make space for new slice
+	nslice := make([]T, n+1)
+	// Copy existing values
+	copy(nslice[1:], slice)
+	// Set first value
+	nslice[0] = item
+	// Done
+	return nslice
+}
+
+// Append creates a new slice containing the result of appending the given item
+// onto the end of the given slice.  Observe that, unlike the built-in append()
+// function, this will never modify the given slice.
+//
+//nolint:revive
+func Append[T any](slice []T, item T) []T {
+	n := len(slice)
+	// Make space for new slice
+	nslice := make([]T, n+1)
+	// Copy existing values
+	copy(nslice[:n], slice)
+	// Set last value
+	nslice[n] = item
+	// Done
+	return nslice
+}
+
 // ReplaceFirstOrPanic replaces the first occurrence of a given item (from) in an
 // array with another item (to).  If not match is found, then this will panic.
 // In otherwords, we are expecting a match.
