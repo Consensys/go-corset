@@ -34,6 +34,7 @@ var checkCmd = &cobra.Command{
 		if GetFlag(cmd, "verbose") {
 			log.SetLevel(log.DebugLevel)
 		}
+		legacy := GetFlag(cmd, "legacy")
 		//
 		cfg.air = GetFlag(cmd, "air")
 		cfg.mir = GetFlag(cmd, "mir")
@@ -60,7 +61,7 @@ var checkCmd = &cobra.Command{
 		//
 		stats := util.NewPerfStats()
 		// Parse constraints
-		hirSchema = readSchema(cfg.stdlib, cfg.debug, args[1:])
+		hirSchema = readSchema(cfg.stdlib, cfg.debug, legacy, args[1:])
 		//
 		stats.Log("Reading constraints file")
 		// Parse trace file
@@ -221,7 +222,7 @@ func validateColumn(colType sc.Type, col tr.Column, mod sc.Module) error {
 	for j := 0; j < int(col.Data().Len()); j++ {
 		jth := col.Get(j)
 		if !colType.Accept(jth) {
-			qualColName := tr.QualifiedColumnName(mod.Name(), col.Name())
+			qualColName := tr.QualifiedColumnName(mod.Name, col.Name())
 			return fmt.Errorf("row %d of column %s is out-of-bounds (%s)", j, qualColName, jth.String())
 		}
 	}

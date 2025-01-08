@@ -118,7 +118,7 @@ func sourceColumnsFromHandles(handles []string, columns []column,
 	handle := asHandle(columns[sourceIDs[0]].Handle)
 	// Resolve enclosing module
 	mid, ok := schema.Modules().Find(func(m sc.Module) bool {
-		return m.Name() == handle.module
+		return m.Name == handle.module
 	})
 	// Sanity check assumptions
 	if !ok {

@@ -171,7 +171,7 @@ func traceToColumns(schema sc.Schema, trace tr.Trace) []tr.RawColumn {
 		// Determine module name
 		mod := schema.Modules().Nth(sc_col.Context().Module())
 		// Assignt the raw colmn
-		cols[i] = tr.RawColumn{Module: mod.Name(), Name: sc_col.Name(), Data: tr_col.Data()}
+		cols[i] = tr.RawColumn{Module: mod.Name, Name: sc_col.Name(), Data: tr_col.Data()}
 		//
 		i++
 	}

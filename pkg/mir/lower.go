@@ -17,7 +17,7 @@ func (p *Schema) LowerToAir() *air.Schema {
 	airSchema := air.EmptySchema[Expr]()
 	// Copy modules
 	for _, mod := range p.modules {
-		airSchema.AddModule(mod.Name())
+		airSchema.AddModule(mod.Name)
 	}
 	// Add data columns.
 	for _, c := range p.inputs {

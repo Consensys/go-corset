@@ -15,7 +15,7 @@ func (p *Schema) LowerToMir() *mir.Schema {
 	mirSchema := mir.EmptySchema()
 	// Copy modules
 	for _, mod := range p.modules {
-		mirSchema.AddModule(mod.Name())
+		mirSchema.AddModule(mod.Name)
 	}
 	// Lower columns
 	for _, input := range p.inputs {

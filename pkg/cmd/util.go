@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"bytes"
+	"encoding/gob"
 	"fmt"
 	"os"
 	"path"
@@ -135,30 +137,33 @@ func readTraceFile(filename string) []trace.RawColumn {
 }
 
 // Read the constraints file, whilst optionally including the standard library.
-func readSchema(stdlib bool, debug bool, filenames []string) *hir.Schema {
+func readSchema(stdlib bool, debug bool, legacy bool, filenames []string) *hir.Schema {
 	if len(filenames) == 0 {
 		fmt.Println("source or binary constraint(s) file required.")
 		os.Exit(5)
 	} else if len(filenames) == 1 && path.Ext(filenames[0]) == ".bin" {
 		// Single (binary) file supplied
-		return readBinaryFile(filenames[0])
+		return readBinaryFile(legacy, filenames[0])
 	}
 	// Must be source files
 	return readSourceFiles(stdlib, debug, filenames)
 }
 
 // Read a "bin" file.
-func readBinaryFile(filename string) *hir.Schema {
+func readBinaryFile(legacy bool, filename string) *hir.Schema {
 	var schema *hir.Schema
 	// Read schema file
 	bytes, err := os.ReadFile(filename)
 	// Handle errors
-	if err == nil {
+	if err == nil && legacy {
 		// Read the binary file
 		schema, err = binfile.HirSchemaFromJson(bytes)
 		if err == nil {
 			return schema
 		}
+	} else if err == nil {
+		// Read the Gob file
+		panic("got here")
 	}
 	// Handle error & exit
 	fmt.Println(err)
@@ -197,6 +202,28 @@ func readSourceFiles(stdlib bool, debug bool, filenames []string) *hir.Schema {
 	os.Exit(4)
 	// unreachable
 	return nil
+}
+
+func writeHirSchema(schema *hir.Schema, legacy bool, filename string) {
+	var (
+		buffer     bytes.Buffer
+		gobEncoder *gob.Encoder = gob.NewEncoder(&buffer)
+	)
+	// Sanity checks
+	if legacy {
+		// Currently, there is no support for this.
+		fmt.Println("legacy binary format not supported for writing")
+	}
+	// Encode schema
+	if err := gobEncoder.Encode(schema); err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
+	// Write file
+	if err := os.WriteFile(filename, buffer.Bytes(), 0644); err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
 }
 
 // Print a syntax error with appropriate highlighting.

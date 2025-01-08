@@ -1,6 +1,8 @@
 package hir
 
 import (
+	"bytes"
+	"encoding/gob"
 	"fmt"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
@@ -196,4 +198,20 @@ func (p *Schema) Declarations() util.Iterator[sc.Declaration] {
 // schema.
 func (p *Schema) Modules() util.Iterator[sc.Module] {
 	return util.NewArrayIterator(p.modules)
+}
+
+// ============================================================================
+// GobEncoder Interface
+// ============================================================================
+
+// GobEncode an HIR schema.  This allows it to be marshalled into a binary form.
+func (p *Schema) GobEncode() (data []byte, err error) {
+	var buffer bytes.Buffer
+	gobEncoder := gob.NewEncoder(&buffer)
+	//
+	if err := gobEncoder.Encode(p.modules); err != nil {
+		return nil, err
+	}
+	// Success
+	return buffer.Bytes(), nil
 }

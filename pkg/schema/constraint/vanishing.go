@@ -219,8 +219,8 @@ func HoldsLocally[T sc.Testable](k uint, handle string, constraint T, tr tr.Trac
 func (p *VanishingConstraint[T]) Lisp(schema sc.Schema) sexp.SExp {
 	var name string
 	// Construct qualified name
-	if module := schema.Modules().Nth(p.context.Module()); module.Name() != "" {
-		name = fmt.Sprintf("%s:%s", module.Name(), p.handle)
+	if module := schema.Modules().Nth(p.context.Module()); module.Name != "" {
+		name = fmt.Sprintf("%s:%s", module.Name, p.handle)
 	} else {
 		name = p.handle
 	}

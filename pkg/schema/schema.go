@@ -205,8 +205,8 @@ func (p Column) Name() string {
 // QualifiedName returns the fully qualified name of this column
 func (p Column) QualifiedName(schema Schema) string {
 	mod := schema.Modules().Nth(p.context.Module())
-	if mod.Name() != "" {
-		return fmt.Sprintf("%s:%s", mod.Name(), p.name)
+	if mod.Name != "" {
+		return fmt.Sprintf("%s:%s", mod.Name, p.name)
 	}
 	//
 	return p.name
@@ -232,15 +232,10 @@ func (p Column) String() string {
 // things like identify input / output columns, etc.
 type Module struct {
 	// Returns the name of this column
-	name string
+	Name string
 }
 
 // NewModule constructs a new column
 func NewModule(name string) Module {
 	return Module{name}
-}
-
-// Name returns the name of this module
-func (p *Module) Name() string {
-	return p.name
 }
