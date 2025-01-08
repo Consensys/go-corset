@@ -9,17 +9,6 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 )
 
-// BindingId is an identifier is used to distinguish different forms of binding,
-// as some forms are known from their use.  Specifically, at the current time,
-// only functions are distinguished from other categories (e.g. columns,
-// parameters, etc).
-type BindingId struct {
-	// Name of the binding
-	name string
-	// Indicates whether function binding or other.
-	fn bool
-}
-
 // Binding represents an association between a name, as found in a source file,
 // and concrete item (e.g. a column, function, etc).
 type Binding interface {
@@ -146,6 +135,11 @@ func (p *FunctionSignature) Apply(args []Expr, srcmap *sexp.SourceMaps[Node]) Ex
 
 // ColumnBinding represents something bound to a given column.
 type ColumnBinding struct {
+	// Context determines the real (i.e. non-virtual) enclosing module of this
+	// column, and should always be a prefix of the path.   If this column was
+	// declared in a perspective then it will be the perspective's enclosing
+	// module.  Otherwise, it will exactly match the path's parent.
+	context util.Path
 	// Absolute path of column.  This determines the name of the column, its
 	// enclosing module and/or perspective.
 	path util.Path
@@ -165,8 +159,8 @@ type ColumnBinding struct {
 // definterleaved constraint the target column information (e.g. its type) is
 // not immediately available and must be determined from those columns from
 // which it is constructed.
-func NewComputedColumnBinding(path util.Path) *ColumnBinding {
-	return &ColumnBinding{path, true, false, 0, nil}
+func NewComputedColumnBinding(context util.Path, path util.Path) *ColumnBinding {
+	return &ColumnBinding{context, path, true, false, 0, nil}
 }
 
 // AbsolutePath returns the fully resolved (absolute) path of the column in question.
@@ -188,9 +182,7 @@ func (p *ColumnBinding) Finalise(multiplier uint, datatype Type) {
 // Context returns the of this column.  That is, the module in which this colunm
 // was declared and also the length multiplier of that module it requires.
 func (p *ColumnBinding) Context() Context {
-	// FIXME: this will fail for perspectives?
-	module := p.path.Parent().String()
-	return tr.NewContext(module, p.multiplier)
+	return tr.NewContext(p.context.String(), p.multiplier)
 }
 
 // ============================================================================

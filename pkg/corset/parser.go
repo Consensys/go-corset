@@ -87,7 +87,7 @@ func ParseSourceFile(srcfile *sexp.SourceFile) (Circuit, *sexp.SourceMap[Node], 
 	var (
 		circuit Circuit
 		errors  []SyntaxError
-		path    util.Path = util.NewAbsolutePath([]string{})
+		path    util.Path = util.NewAbsolutePath()
 	)
 	// Parse bytes into an S-Expression
 	terms, srcmap, err := srcfile.ParseAll()
@@ -113,7 +113,7 @@ func ParseSourceFile(srcfile *sexp.SourceFile) (Circuit, *sexp.SourceMap[Node], 
 			return circuit, nil, errors
 		}
 		// Parse module contents
-		path = util.NewAbsolutePath([]string{name})
+		path = util.NewAbsolutePath(name)
 		if decls, terms, errors = p.parseModuleContents(path, terms[1:]); len(errors) > 0 {
 			return circuit, nil, errors
 		} else if len(decls) != 0 {
@@ -239,7 +239,7 @@ func (p *Parser) parseDeclaration(module util.Path, s *sexp.List) (Declaration, 
 	)
 	//
 	if s.MatchSymbols(1, "defalias") {
-		decl, errors = p.parseDefAlias(module, false, s.Elements)
+		decl, errors = p.parseDefAlias(false, s.Elements)
 	} else if s.MatchSymbols(1, "defcolumns") {
 		decl, errors = p.parseDefColumns(module, s)
 	} else if s.Len() > 1 && s.MatchSymbols(1, "defconst") {
@@ -247,7 +247,7 @@ func (p *Parser) parseDeclaration(module util.Path, s *sexp.List) (Declaration, 
 	} else if s.Len() == 4 && s.MatchSymbols(2, "defconstraint") {
 		decl, errors = p.parseDefConstraint(module, s.Elements)
 	} else if s.MatchSymbols(1, "defunalias") {
-		decl, errors = p.parseDefAlias(module, true, s.Elements)
+		decl, errors = p.parseDefAlias(true, s.Elements)
 	} else if s.Len() == 3 && s.MatchSymbols(1, "defpurefun") {
 		decl, errors = p.parseDefFun(module, true, s.Elements)
 	} else if s.Len() == 3 && s.MatchSymbols(1, "defun") {
@@ -276,7 +276,7 @@ func (p *Parser) parseDeclaration(module util.Path, s *sexp.List) (Declaration, 
 }
 
 // Parse an alias declaration
-func (p *Parser) parseDefAlias(module util.Path, functions bool, elements []sexp.SExp) (Declaration, []SyntaxError) {
+func (p *Parser) parseDefAlias(functions bool, elements []sexp.SExp) (Declaration, []SyntaxError) {
 	var (
 		errors  []SyntaxError
 		aliases []*DefAlias
@@ -296,8 +296,8 @@ func (p *Parser) parseDefAlias(module util.Path, functions bool, elements []sexp
 			errors = append(errors, *p.translator.SyntaxError(elements[i+1], "invalid alias definition"))
 		} else {
 			alias := &DefAlias{elements[i].AsSymbol().Value}
-			path := module.Extend(elements[i+1].AsSymbol().Value)
-			name := NewName[Binding](*path, functions)
+			path := util.NewRelativePath(elements[i+1].AsSymbol().Value)
+			name := NewName[Binding](path, functions)
 			//
 			p.mapSourceNode(elements[i], alias)
 			p.mapSourceNode(elements[i+1], name)
@@ -322,7 +322,7 @@ func (p *Parser) parseDefColumns(module util.Path, l *sexp.List) (Declaration, [
 	var errors []SyntaxError
 	// Process column declarations one by one.
 	for i := 1; i < len(l.Elements); i++ {
-		decl, err := p.parseColumnDeclaration(&module, false, l.Elements[i])
+		decl, err := p.parseColumnDeclaration(module, module, false, l.Elements[i])
 		// Extract column name
 		if err != nil {
 			errors = append(errors, *err)
@@ -338,12 +338,12 @@ func (p *Parser) parseDefColumns(module util.Path, l *sexp.List) (Declaration, [
 	return &DefColumns{columns}, nil
 }
 
-func (p *Parser) parseColumnDeclaration(path *util.Path, computed bool,
+func (p *Parser) parseColumnDeclaration(context util.Path, path util.Path, computed bool,
 	e sexp.SExp) (*DefColumn, *SyntaxError) {
 	//
 	var (
 		error   *SyntaxError
-		binding ColumnBinding = ColumnBinding{*path, computed, false, 0, nil}
+		binding ColumnBinding = ColumnBinding{context, path, computed, false, 0, nil}
 	)
 	// Set defaults for input columns
 	if !computed {
@@ -555,7 +555,7 @@ func (p *Parser) parseDefInterleaved(module util.Path, elements []sexp.SExp) (De
 	}
 	//
 	path := module.Extend(elements[1].AsSymbol().Value)
-	binding := NewComputedColumnBinding(*path)
+	binding := NewComputedColumnBinding(module, *path)
 	target := &DefColumn{*binding}
 	// Updating mapping for target definition
 	p.mapSourceNode(elements[1], target)
@@ -649,7 +649,7 @@ func (p *Parser) parseDefPermutation(module util.Path, elements []sexp.SExp) (De
 		for i := 0; i < min(len(sources), len(targets)); i++ {
 			var err *SyntaxError
 			// Parse target column
-			if targets[i], err = p.parseColumnDeclaration(&module, true, sexpTargets.Get(i)); err != nil {
+			if targets[i], err = p.parseColumnDeclaration(module, module, true, sexpTargets.Get(i)); err != nil {
 				errors = append(errors, *err)
 			}
 			// Parse source column
@@ -737,11 +737,11 @@ func (p *Parser) parseDefPerspective(module util.Path, elements []sexp.SExp) (De
 		errors = append(errors, errs...)
 	}
 	// Process column declarations one by one.
-	if sexp_columns != nil {
+	if sexp_columns != nil && perspective != nil {
 		columns = make([]*DefColumn, sexp_columns.Len())
 
 		for i := 0; i < len(sexp_columns.Elements); i++ {
-			decl, err := p.parseColumnDeclaration(perspective.Path(), false, sexp_columns.Elements[i])
+			decl, err := p.parseColumnDeclaration(module, *perspective.Path(), false, sexp_columns.Elements[i])
 			// Extract column name
 			if err != nil {
 				errors = append(errors, *err)
@@ -1183,7 +1183,7 @@ func reduceParserRule(p *Parser) sexp.ListRule[Expr] {
 			return nil, errors
 		}
 		//
-		path := util.NewRelativePath([]string{name.Value})
+		path := util.NewRelativePath(name.Value)
 		varaccess := &VariableAccess{path, true, nil}
 		p.mapSourceNode(name, varaccess)
 		// Done
@@ -1238,7 +1238,7 @@ func arrayAccessParserRule(name string, args []Expr) (Expr, error) {
 		return nil, errors.New("malformed array access")
 	}
 	//
-	path := util.NewRelativePath([]string{name})
+	path := util.NewRelativePath(name)
 	//
 	return &ArrayAccess{path, args[0], nil}, nil
 }
@@ -1355,9 +1355,9 @@ func parsePerspectifiableName(qualName string) (path util.Path, err error) {
 	split := strings.Split(qualName, "/")
 	switch len(split) {
 	case 1:
-		return util.NewRelativePath([]string{split[0]}), nil
+		return util.NewRelativePath(split[0]), nil
 	case 2:
-		return util.NewRelativePath([]string{split[0], split[1]}), nil
+		return util.NewRelativePath(split[0], split[1]), nil
 	default:
 		return path, errors.New("malformed qualified name")
 	}

@@ -164,10 +164,12 @@ func (t *translator) translateTypeConstraints(regIndex uint) {
 
 // Translate all assignment or constraint declarations in the circuit.
 func (t *translator) translateOtherDeclarations(circuit *Circuit) []SyntaxError {
-	errors := t.translateOtherDeclarationsInModule("", circuit.Declarations)
+	rootPath := util.NewAbsolutePath()
+	errors := t.translateOtherDeclarationsInModule(rootPath, circuit.Declarations)
 	// Translate each module
 	for _, m := range circuit.Modules {
-		errs := t.translateOtherDeclarationsInModule(m.Name, m.Declarations)
+		modPath := rootPath.Extend(m.Name)
+		errs := t.translateOtherDeclarationsInModule(*modPath, m.Declarations)
 		errors = append(errors, errs...)
 	}
 	// Done
@@ -176,7 +178,7 @@ func (t *translator) translateOtherDeclarations(circuit *Circuit) []SyntaxError 
 
 // Translate all assignment or constraint declarations in a given module within
 // the circuit.
-func (t *translator) translateOtherDeclarationsInModule(module string, decls []Declaration) []SyntaxError {
+func (t *translator) translateOtherDeclarationsInModule(module util.Path, decls []Declaration) []SyntaxError {
 	var errors []SyntaxError
 	//
 	for _, d := range decls {
@@ -189,7 +191,7 @@ func (t *translator) translateOtherDeclarationsInModule(module string, decls []D
 
 // Translate an assignment or constraint declarartion which occurs within a
 // given module.
-func (t *translator) translateDeclaration(decl Declaration, module string) []SyntaxError {
+func (t *translator) translateDeclaration(decl Declaration, module util.Path) []SyntaxError {
 	var errors []SyntaxError
 	//
 	switch d := decl.(type) {
@@ -225,7 +227,7 @@ func (t *translator) translateDeclaration(decl Declaration, module string) []Syn
 }
 
 // Translate a "defconstraint" declaration.
-func (t *translator) translateDefConstraint(decl *DefConstraint, module string) []SyntaxError {
+func (t *translator) translateDefConstraint(decl *DefConstraint, module util.Path) []SyntaxError {
 	// Translate constraint body
 	constraint, errors := t.translateExpressionInModule(decl.Constraint, module, 0)
 	// Translate (optional) guard
@@ -271,7 +273,9 @@ func (t *translator) translateDefConstraint(decl *DefConstraint, module string) 
 // Translate the selector for the perspective of a defconstraint.  Observe that
 // a defconstraint may not be part of a perspective and, hence, would have no
 // selector.
-func (t *translator) translateSelectorInModule(perspective *PerspectiveName, module string) (hir.Expr, []SyntaxError) {
+func (t *translator) translateSelectorInModule(perspective *PerspectiveName,
+	module util.Path) (hir.Expr, []SyntaxError) {
+	//
 	if perspective != nil {
 		return t.translateExpressionInModule(perspective.binding.selector, module, 0)
 	}
@@ -282,7 +286,7 @@ func (t *translator) translateSelectorInModule(perspective *PerspectiveName, mod
 // Translate a "deflookup" declaration.
 //
 //nolint:staticcheck
-func (t *translator) translateDefLookup(decl *DefLookup, module string) []SyntaxError {
+func (t *translator) translateDefLookup(decl *DefLookup, module util.Path) []SyntaxError {
 	// Translate source expressions
 	sources, src_errs := t.translateUnitExpressionsInModule(decl.Sources, module, 0)
 	targets, tgt_errs := t.translateUnitExpressionsInModule(decl.Targets, module, 0)
@@ -300,7 +304,7 @@ func (t *translator) translateDefLookup(decl *DefLookup, module string) []Syntax
 }
 
 // Translate a "definrange" declaration.
-func (t *translator) translateDefInRange(decl *DefInRange, module string) []SyntaxError {
+func (t *translator) translateDefInRange(decl *DefInRange, module util.Path) []SyntaxError {
 	// Translate constraint body
 	expr, errors := t.translateExpressionInModule(decl.Expr, module, 0)
 	//
@@ -314,13 +318,13 @@ func (t *translator) translateDefInRange(decl *DefInRange, module string) []Synt
 }
 
 // Translate a "definterleaved" declaration.
-func (t *translator) translateDefInterleaved(decl *DefInterleaved, module string) []SyntaxError {
+func (t *translator) translateDefInterleaved(decl *DefInterleaved, module util.Path) []SyntaxError {
 	var errors []SyntaxError
 	//
 	sources := make([]uint, len(decl.Sources))
 	// Lookup target column info
-	targetPath := util.NewAbsolutePath([]string{module, decl.Target.Name()})
-	targetId := t.env.RegisterOf(&targetPath)
+	targetPath := module.Extend(decl.Target.Name())
+	targetId := t.env.RegisterOf(targetPath)
 	target := t.env.Register(targetId)
 	// Determine source column identifiers
 	for i, source := range decl.Sources {
@@ -338,7 +342,7 @@ func (t *translator) translateDefInterleaved(decl *DefInterleaved, module string
 }
 
 // Translate a "defpermutation" declaration.
-func (t *translator) translateDefPermutation(decl *DefPermutation, module string) []SyntaxError {
+func (t *translator) translateDefPermutation(decl *DefPermutation, module util.Path) []SyntaxError {
 	var (
 		errors   []SyntaxError
 		context  tr.Context = tr.VoidContext[uint]()
@@ -350,8 +354,8 @@ func (t *translator) translateDefPermutation(decl *DefPermutation, module string
 	sources := make([]uint, len(decl.Sources))
 	//
 	for i := 0; i < len(decl.Sources); i++ {
-		targetPath := util.NewAbsolutePath([]string{module, decl.Targets[i].Name()})
-		targetId := t.env.RegisterOf(&targetPath)
+		targetPath := module.Extend(decl.Targets[i].Name())
+		targetId := t.env.RegisterOf(targetPath)
 		target := t.env.Register(targetId)
 		// Construct columns
 		targets[i] = sc.NewColumn(target.Context, target.Name, target.DataType)
@@ -368,7 +372,7 @@ func (t *translator) translateDefPermutation(decl *DefPermutation, module string
 	cid := t.schema.AddAssignment(assignment.NewSortedPermutation(context, targets, signs, sources))
 	// Sanity check column identifiers align.
 	if cid != firstCid {
-		err := fmt.Sprintf("inconsitent (permuted) column identifier (%d v %d)", cid, firstCid)
+		err := fmt.Sprintf("inconsistent (permuted) column identifier (%d v %d)", cid, firstCid)
 		errors = append(errors, *t.srcmap.SyntaxError(decl, err))
 	}
 	// Done
@@ -376,7 +380,7 @@ func (t *translator) translateDefPermutation(decl *DefPermutation, module string
 }
 
 // Translate a "defproperty" declaration.
-func (t *translator) translateDefProperty(decl *DefProperty, module string) []SyntaxError {
+func (t *translator) translateDefProperty(decl *DefProperty, module util.Path) []SyntaxError {
 	// Translate constraint body
 	assertion, errors := t.translateExpressionInModule(decl.Assertion, module, 0)
 	//
@@ -392,7 +396,7 @@ func (t *translator) translateDefProperty(decl *DefProperty, module string) []Sy
 // Translate an optional expression in a given context.  That is an expression
 // which maybe nil (i.e. doesn't exist).  In such case, nil is returned (i.e.
 // without any errors).
-func (t *translator) translateOptionalExpressionInModule(expr Expr, module string,
+func (t *translator) translateOptionalExpressionInModule(expr Expr, module util.Path,
 	shift int) (hir.Expr, []SyntaxError) {
 	//
 	if expr != nil {
@@ -405,7 +409,7 @@ func (t *translator) translateOptionalExpressionInModule(expr Expr, module strin
 // Translate an optional expression in a given context.  That is an expression
 // which maybe nil (i.e. doesn't exist).  In such case, nil is returned (i.e.
 // without any errors).
-func (t *translator) translateUnitExpressionsInModule(exprs []Expr, module string,
+func (t *translator) translateUnitExpressionsInModule(exprs []Expr, module util.Path,
 	shift int) ([]hir.UnitExpr, []SyntaxError) {
 	//
 	errors := []SyntaxError{}
@@ -424,7 +428,7 @@ func (t *translator) translateUnitExpressionsInModule(exprs []Expr, module strin
 }
 
 // Translate a sequence of zero or more expressions enclosed in a given module.
-func (t *translator) translateExpressionsInModule(exprs []Expr, module string,
+func (t *translator) translateExpressionsInModule(exprs []Expr, module util.Path,
 	shift int) ([]hir.Expr, []SyntaxError) {
 	//
 	errors := []SyntaxError{}
@@ -448,7 +452,7 @@ func (t *translator) translateExpressionsInModule(exprs []Expr, module string,
 // Translate an expression situated in a given context.  The context is
 // necessary to resolve unqualified names (e.g. for column access, function
 // invocations, etc).
-func (t *translator) translateExpressionInModule(expr Expr, module string, shift int) (hir.Expr, []SyntaxError) {
+func (t *translator) translateExpressionInModule(expr Expr, module util.Path, shift int) (hir.Expr, []SyntaxError) {
 	switch e := expr.(type) {
 	case *ArrayAccess:
 		return t.translateArrayAccessInModule(e, shift)
@@ -532,7 +536,7 @@ func (t *translator) translateArrayAccessInModule(expr *ArrayAccess, shift int) 
 	return &hir.ColumnAccess{Column: registerId, Shift: shift}, nil
 }
 
-func (t *translator) translateExpInModule(expr *Exp, module string, shift int) (hir.Expr, []SyntaxError) {
+func (t *translator) translateExpInModule(expr *Exp, module util.Path, shift int) (hir.Expr, []SyntaxError) {
 	arg, errs := t.translateExpressionInModule(expr.Arg, module, shift)
 	pow := expr.Pow.AsConstant()
 	// Identity constant for pow
@@ -549,7 +553,7 @@ func (t *translator) translateExpInModule(expr *Exp, module string, shift int) (
 	return nil, errs
 }
 
-func (t *translator) translateShiftInModule(expr *Shift, module string, shift int) (hir.Expr, []SyntaxError) {
+func (t *translator) translateShiftInModule(expr *Shift, module util.Path, shift int) (hir.Expr, []SyntaxError) {
 	constant := expr.Shift.AsConstant()
 	// Determine the shift constant
 	if constant == nil {

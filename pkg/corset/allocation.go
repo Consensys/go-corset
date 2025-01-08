@@ -77,6 +77,9 @@ func (r *Register) Deactivate() {
 // RegisterSource provides necessary information about source-level columns
 // allocated to a  given register.
 type RegisterSource struct {
+	// Context is a prefix of name which, when they differ, indicates a virtual
+	// column (i.e. one which is subject to register allocation).
+	context util.Path
 	// Fully qualified (i.e. absolute) name of source-level column.
 	name util.Path
 	// Length multiplier of source-level column.
@@ -87,6 +90,19 @@ type RegisterSource struct {
 	mustProve bool
 	// Determines whether this is a computed column.
 	computed bool
+}
+
+// IsVirtual indicates whether or not this is a "virtual" column.  That is,
+// something which is subject to register allocation (i.e. because it is
+// declared in a perspective).
+func (p *RegisterSource) IsVirtual() bool {
+	return !p.name.Parent().Equals(p.context)
+}
+
+// Perspective returns the name of the "virtual perspective" in which this
+// column exists.
+func (p *RegisterSource) Perspective() string {
+	return p.name.Parent().Slice(p.context.Depth()).String()
 }
 
 // RegisterAllocation is a generic interface to support different "regsiter
@@ -186,13 +202,8 @@ func NewRegisterAllocator(allocation RegisterAllocation) *RegisterAllocator {
 		if len(regInfo.Sources) != 1 {
 			// This should be unreachable.
 			panic("register not associated with unique column")
-		} else if regSource.name.Depth() == 0 || regSource.name.Depth() > 3 {
-			// This should be unreachable.
-			panic(fmt.Sprintf("register has invalid depth %d", regSource.name.Depth()))
-		} else if regSource.name.Depth() == 3 {
-			// FIXME: assuming names have a depth of at most three is not ideal.
-			perspective := regSource.name.Parent().String()
-			allocator.allocatePerspective(perspective)
+		} else if regSource.IsVirtual() {
+			allocator.allocatePerspective(regSource.Perspective())
 		}
 	}
 	// Initial allocation of perspective registers
@@ -201,9 +212,8 @@ func NewRegisterAllocator(allocation RegisterAllocation) *RegisterAllocator {
 		regInfo := allocation.Register(regIndex)
 		regSource := regInfo.Sources[0]
 		//
-		if regSource.name.Depth() == 3 {
-			// FIXME: assuming names have a depth of at most three is not ideal.
-			perspective := regSource.name.Parent().String()
+		if regSource.IsVirtual() {
+			perspective := regSource.Perspective()
 			allocator.allocateRegister(perspective, regIndex)
 		}
 	}

@@ -33,7 +33,7 @@ func (p *IntrinsicDefinition) Name() string {
 // Path returns the qualified name (i.e. absolute path) of this symbol.  For
 // example, "m1.X" for a column X defined in module m1.
 func (p *IntrinsicDefinition) Path() *util.Path {
-	path := util.NewRelativePath([]string{p.name})
+	path := util.NewAbsolutePath(p.name)
 	return &path
 }
 
@@ -129,7 +129,7 @@ func intrinsicNaryBody(arity uint) []Expr {
 	//
 	for i := uint(0); i != arity; i++ {
 		name := fmt.Sprintf("x%d", i)
-		path := util.NewAbsolutePath([]string{name})
+		path := util.NewAbsolutePath(name)
 		binding := &LocalVariableBinding{name, nil, i}
 		args[i] = &VariableAccess{path, true, binding}
 	}

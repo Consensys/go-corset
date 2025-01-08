@@ -12,148 +12,103 @@ import (
 // variable used within an expression refers to.  For example, a variable can
 // refer to a column, or a parameter, etc.
 type Scope interface {
-	// HasModule checks whether a given module exists, or not.
-	HasModule(string) bool
 	// Attempt to bind a given symbol within this scope.  If successful, the
 	// symbol is then resolved with the appropriate binding.  Return value
 	// indicates whether successful or not.
 	Bind(Symbol) bool
 }
 
-// =============================================================================
-// Global Scope
-// =============================================================================
-
-// GlobalScope represents the top-level scope in a Corset file, and is used to
-// glue the scopes for modules together.  For example, it enables one module to
-// lookup columns in another.
-type GlobalScope struct {
-	// Top-level mapping of modules to their scopes.
-	ids map[string]uint
-	// List of modules in declaration order
-	modules []ModuleScope
-}
-
-// NewGlobalScope constructs an empty global scope.
-func NewGlobalScope() *GlobalScope {
-	return &GlobalScope{make(map[string]uint), make([]ModuleScope, 0)}
-}
-
-// DeclareModule declares an initialises a new module within this global scope.
-// If a module by the same name already exists, then this will panic.
-func (p *GlobalScope) DeclareModule(path util.Path) {
-	// FIXME: this will not work with nested modules.
-	module := path.String()
-	// Sanity check module doesn't already exist
-	if _, ok := p.ids[module]; ok {
-		panic(fmt.Sprintf("duplicate module %s declared", module))
-	}
-	// Register module
-	id := uint(len(p.ids))
-	p.modules = append(p.modules, ModuleScope{
-		path, make(map[BindingId]uint), make([]Binding, 0), p,
-	})
-	p.ids[module] = id
-	// Declare intrinsics (if applicable)
-	if module == "" {
-		for _, i := range INTRINSICS {
-			p.modules[id].Declare(&i)
-		}
-	}
-}
-
-// HasModule checks whether a given module exists, or not.
-func (p *GlobalScope) HasModule(module string) bool {
-	// Attempt to lookup the module
-	_, ok := p.ids[module]
-	// Return what we found
-	return ok
-}
-
-// Bind looks up a given variable being referenced within a given module.  For a
-// root context, this is either a column, an alias or a function declaration.
-func (p *GlobalScope) Bind(symbol Symbol) bool {
-	path := symbol.Path()
-	//
-	if !path.IsAbsolute() {
-		// Search for symbol in root module.
-		return p.Module(util.NewAbsolutePath(nil)).Bind(symbol)
-	} else if !p.HasModule(path.Head()) {
-		// Pontially, it might be better to report a more useful error message.
-		return false
-	}
-	// Absolute lookup.
-	return p.Module(*path.Parent()).Bind(symbol)
-}
-
-// Module returns the identifier of the module with the given name.  Observe
-// that this will panic if the module in question does not exist.
-func (p *GlobalScope) Module(path util.Path) *ModuleScope {
-	// FIXME: this will not work with nested modules.
-	name := path.String()
-	//
-	if mid, ok := p.ids[name]; ok {
-		return &p.modules[mid]
-	}
-	// Problem.
-	panic(fmt.Sprintf("unknown module \"%s\"", name))
-}
-
-// ToEnvironment converts this global scope into a concrete environment by
-// allocating all columns within this scope.
-func (p *GlobalScope) ToEnvironment(allocator func(RegisterAllocation)) Environment {
-	return NewGlobalEnvironment(p, allocator)
+// BindingId is an identifier is used to distinguish different forms of binding,
+// as some forms are known from their use.  Specifically, at the current time,
+// only functions are distinguished from other categories (e.g. columns,
+// parameters, etc).
+type BindingId struct {
+	// Name of the binding
+	name string
+	// Indicates whether function binding or other.
+	fn bool
 }
 
 // =============================================================================
 // Module Scope
 // =============================================================================
 
-// ModuleScope represents the scope characterised by a module.
+// ModuleScope defines recursive tree of scopes where symbols can be resolved
+// and bound.  The primary goal is to handle the various ways in which a
+// symbol's qualified name (i.e. path) can be expressed.  For example, a symbol
+// can be given an absolute name (which is resolved from the root of the scope
+// tree), or it can be relative (in which case it is resolved relative to a
+// given module).
 type ModuleScope struct {
 	// Absolute path
 	path util.Path
-	// Mapping from binding identifiers to indices within the bindings array.
+	// Map identifiers to indices within the bindings array.
 	ids map[BindingId]uint
 	// The set of bindings in the order of declaration.
 	bindings []Binding
-	// Enclosing global scope
-	enclosing Scope
+	// Enclosing scope
+	parent *ModuleScope
+	// Submodules in a map (for efficient lookup)
+	submodmap map[string]*ModuleScope
+	// Submodules in the order of declaration (for determinism).
+	submodules []*ModuleScope
+	// Indicates whether or not this is a real module.
+	virtual bool
 }
 
-// HasModule checks whether a given module exists, or not.
-func (p *ModuleScope) HasModule(module string) bool {
-	return p.enclosing.HasModule(module)
+// NewModuleScope constructs an initially empty top-level scope.
+func NewModuleScope() *ModuleScope {
+	return &ModuleScope{
+		util.NewAbsolutePath(),
+		make(map[BindingId]uint),
+		nil,
+		nil,
+		make(map[string]*ModuleScope),
+		nil,
+		false,
+	}
 }
 
-// Bind looks up a given variable being referenced within a given module.  For a
-// root context, this is either a column, an alias or a function declaration.
-func (p *ModuleScope) Bind(symbol Symbol) bool {
-	// FIXME: this is broken and needs to be rebuilt.  The reason is that it
-	// doesn't reflect the potentially recursive nature of paths.
-	//
-	// Determine module for this lookup.
-	if symbol.Path().IsAbsolute() && !symbol.Path().Parent().Equals(p.path) {
-		// non-local lookup
-		return p.enclosing.Bind(symbol)
-	} else if symbol.Path().Depth() > 2 {
-		panic("no support for perspecives")
+// IsRoot checks whether or not this is the root of the module tree.
+func (p *ModuleScope) IsRoot() bool {
+	return p.parent == nil
+}
+
+// Owner returns the enclosing non-virtual module of this module.  Observe
+// that, if this is a non-virtual module, then it is returned.
+func (p *ModuleScope) Owner() *ModuleScope {
+	if !p.virtual {
+		return p
+	} else if p.parent != nil {
+		return p.parent.Owner()
 	}
-	// construct binding identifier
-	id := BindingId{symbol.Path().Tail(), symbol.IsFunction()}
-	// Look for it.
-	if bid, ok := p.ids[id]; ok {
-		// Extract binding
-		binding := p.bindings[bid]
-		// Resolve symbol
-		return symbol.Resolve(binding)
-	} else if !symbol.Path().IsAbsolute() && p.path.Depth() != 0 {
-		// Attempt to lookup in parent (unless we are the root module, in which
-		// case we have no parent)
-		return p.enclosing.Bind(symbol)
+	// Should be unreachable
+	panic("invalid module tree")
+}
+
+// Declare a new submodule at the given (absolute) path within this tree scope.
+// Submodules can be declared as "virtual" which indicates the submodule is
+// simply a subset of rows of its enclosing module.  This returns true if this
+// succeeds, otherwise returns false (i.e. a matching submodule already exists).
+func (p *ModuleScope) Declare(submodule string, virtual bool) bool {
+	if _, ok := p.submodmap[submodule]; ok {
+		return false
 	}
-	//
-	return false
+	// Construct suitable child scope
+	scope := &ModuleScope{
+		*p.path.Extend(submodule),
+		make(map[BindingId]uint),
+		nil,
+		p,
+		make(map[string]*ModuleScope),
+		nil,
+		virtual,
+	}
+	// Update records
+	p.submodmap[submodule] = scope
+	p.submodules = append(p.submodules, scope)
+	// Done
+	return true
 }
 
 // Binding returns information about the binding of a particular symbol defined
@@ -167,17 +122,109 @@ func (p *ModuleScope) Binding(name string, function bool) Binding {
 	return nil
 }
 
-// Column returns information about a particular column declared within this
-// module.
-func (p *ModuleScope) Column(name string) *ColumnBinding {
-	// construct binding identifier
-	bid := p.ids[BindingId{name, false}]
+// Bind looks up a given variable being referenced within a given module.  For a
+// root context, this is either a column, an alias or a function declaration.
+func (p *ModuleScope) Bind(symbol Symbol) bool {
+	// Split the two cases: absolute versus relative.
+	if symbol.Path().IsAbsolute() && p.parent != nil {
+		// Absolute path, and this is not the root scope.  Therefore, simply
+		// pass this up to the root scope for further processing.
+		return p.parent.Bind(symbol)
+	}
+	// Relative path from this scope, or possibly an absolute path if this is
+	// the root scope.
+	found := p.innerBind(symbol.Path(), symbol)
+	// If not found, traverse upwards.
+	if !found && p.parent != nil {
+		return p.parent.Bind(symbol)
+	}
 	//
-	return p.bindings[bid].(*ColumnBinding)
+	return found
 }
 
-// Declare declares a given binding within this module scope.
-func (p *ModuleScope) Declare(symbol SymbolDefinition) bool {
+// InnerBind is really a helper which allows us to split out the symbol path
+// from the symbol itself.  This then lets us "traverse" the path as we go
+// looking through submodules, etc.
+func (p *ModuleScope) innerBind(path *util.Path, symbol Symbol) bool {
+	// Relative path.  Then, either it refers to something in this scope, or
+	// something in a subscope.
+	if path.Depth() == 1 {
+		// Must be something in this scope,.
+		id := BindingId{symbol.Path().Tail(), symbol.IsFunction()}
+		// Look for it.
+		if bid, ok := p.ids[id]; ok {
+			// Extract binding
+			binding := p.bindings[bid]
+			// Resolve symbol
+			return symbol.Resolve(binding)
+		}
+	} else if submod, ok := p.submodmap[path.Head()]; ok {
+		// Looks like this could be in the child scope, so continue searching there.
+		return submod.innerBind(path.Dehead(), symbol)
+	}
+	// Otherwise, try traversing upwards.
+	return false
+}
+
+// Enter returns a given submodule within this module.
+func (p *ModuleScope) Enter(submodule string) *ModuleScope {
+	if child, ok := p.submodmap[submodule]; ok {
+		// Looks like this is in the child scope, so continue searching there.
+		return child
+	}
+	// Should be unreachable.
+	panic("unknown submodule")
+}
+
+// Alias constructs an alias for an existing symbol.  If the symbol does not
+// exist, then this returns false.
+func (p *ModuleScope) Alias(alias string, symbol Symbol) bool {
+	// Sanity checks.  These are required for now, since we cannot alias
+	// bindings in another scope at this time.
+	if symbol.Path().IsAbsolute() || symbol.Path().Depth() != 1 {
+		// This should be unreachable at the moment.
+		panic(fmt.Sprintf("qualified aliases not supported %s", symbol.Path().String()))
+	}
+	// Extract symbol name
+	name := symbol.Path().Head()
+	// construct symbol identifier
+	symbol_id := BindingId{name, symbol.IsFunction()}
+	// construct alias identifier
+	alias_id := BindingId{alias, symbol.IsFunction()}
+	// Check alias does not already exist
+	if _, ok := p.ids[alias_id]; !ok {
+		// Check symbol being aliased exists
+		if id, ok := p.ids[symbol_id]; ok {
+			p.ids[alias_id] = id
+			// Done
+			return true
+		}
+	}
+	// Symbol not known (yet)
+	return false
+}
+
+// Define a new symbol within this scope.
+func (p *ModuleScope) Define(symbol SymbolDefinition) bool {
+	// Sanity checks
+	if !symbol.Path().IsAbsolute() {
+		// Definitely should be unreachable.
+		panic("symbole definition cannot have relative path!")
+	} else if !p.path.PrefixOf(*symbol.Path()) {
+		// Should be unreachable.
+		err := fmt.Sprintf("invalid symbol definition (%s not prefix of %s)", p.path.String(), symbol.Path().String())
+		panic(err)
+	} else if !symbol.Path().Parent().Equals(p.path) {
+		name := symbol.Path().Get(p.path.Depth())
+		// Looks like this definition is for a submodule.  Therefore, attempt to
+		// find it and then define it there.
+		if mod, ok := p.submodmap[name]; ok {
+			// Found it, so attempt definition.
+			return mod.Define(symbol)
+		}
+		// Failed
+		return false
+	}
 	// construct binding identifier
 	id := BindingId{symbol.Name(), symbol.IsFunction()}
 	// Sanity check not already declared
@@ -206,30 +253,16 @@ func (p *ModuleScope) Declare(symbol SymbolDefinition) bool {
 	return true
 }
 
-// Alias constructs an alias for an existing symbol.  If the symbol does not
-// exist, then this returns false.
-func (p *ModuleScope) Alias(alias string, symbol Symbol) bool {
-	// Sanity check
-	if symbol.Path().Depth() != 1 {
-		panic(fmt.Sprintf("qualified aliases not supported %s", symbol.Path().String()))
+// Flattern flatterns the tree into a flat array of modules, such that a module
+// always comes before its own submodules.
+func (p *ModuleScope) Flattern() []*ModuleScope {
+	modules := []*ModuleScope{p}
+	//
+	for _, m := range p.submodules {
+		modules = append(modules, m.Flattern()...)
 	}
-	// Extract symbol name
-	name := symbol.Path().Head()
-	// construct symbol identifier
-	symbol_id := BindingId{name, symbol.IsFunction()}
-	// construct alias identifier
-	alias_id := BindingId{alias, symbol.IsFunction()}
-	// Check alias does not already exist
-	if _, ok := p.ids[alias_id]; !ok {
-		// Check symbol being aliased exists
-		if id, ok := p.ids[symbol_id]; ok {
-			p.ids[alias_id] = id
-			// Done
-			return true
-		}
-	}
-	// Symbol not known (yet)
-	return false
+	//
+	return modules
 }
 
 // =============================================================================
@@ -316,11 +349,6 @@ func (p LocalScope) FixContext(context Context) bool {
 	*p.context = p.context.Join(context)
 	// Check they were compatible
 	return !p.context.IsConflicted()
-}
-
-// HasModule checks whether a given module exists, or not.
-func (p LocalScope) HasModule(module string) bool {
-	return p.enclosing.HasModule(module)
 }
 
 // Bind looks up a given variable or function being referenced either within the

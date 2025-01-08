@@ -100,7 +100,7 @@ func (p *Compiler) Compile() (*hir.Schema, []SyntaxError) {
 		return nil, errs
 	}
 	// Convert global scope into an environment by allocating all columns.
-	environment := scope.ToEnvironment(p.allocator)
+	environment := NewGlobalEnvironment(scope, p.allocator)
 	// Finally, translate everything and add it to the schema.
 	return TranslateCircuit(environment, p.srcmap, &p.circuit)
 }

@@ -16,12 +16,12 @@ type Path struct {
 }
 
 // NewAbsolutePath constructs a new absolute path from the given segments.
-func NewAbsolutePath(segments []string) Path {
+func NewAbsolutePath(segments ...string) Path {
 	return Path{true, segments}
 }
 
 // NewRelativePath constructs a new absolute path from the given segments.
-func NewRelativePath(segments []string) Path {
+func NewRelativePath(segments ...string) Path {
 	return Path{false, segments}
 }
 
@@ -40,15 +40,46 @@ func (p *Path) Head() string {
 	return p.segments[0]
 }
 
+// Dehead removes the head from this path, returning an otherwise identical
+// path.  Observe that, if this were absolute, it is no longer!
+func (p *Path) Dehead() *Path {
+	return &Path{false, p.segments[1:]}
+}
+
 // Tail returns the last (i.e. innermost) segment in this path.
 func (p *Path) Tail() string {
 	n := len(p.segments) - 1
 	return p.segments[n]
 }
 
+// Get returns the nth segment of this path.
+func (p *Path) Get(nth uint) string {
+	return p.segments[nth]
+}
+
 // Equals determines whether two paths are the same.
 func (p *Path) Equals(other Path) bool {
 	return p.absolute == other.absolute && slices.Equal(p.segments, other.segments)
+}
+
+// PrefixOf checks whether this path is a prefix of the other.
+func (p *Path) PrefixOf(other Path) bool {
+	if len(p.segments) > len(other.segments) {
+		return false
+	}
+	//
+	for i := range p.segments {
+		if p.segments[i] != other.segments[i] {
+			return false
+		}
+	}
+	// Looks good
+	return true
+}
+
+// Slice returns the subpath starting from the given segment.
+func (p *Path) Slice(start uint) *Path {
+	return &Path{false, p.segments[start:]}
 }
 
 // PushRoot converts a relative path into an absolute path by pushing the "root"

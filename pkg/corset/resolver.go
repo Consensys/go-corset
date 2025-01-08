@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/sexp"
-	"github.com/consensys/go-corset/pkg/util"
 )
 
 // ResolveCircuit resolves all symbols declared and used within a circuit,
@@ -13,14 +12,16 @@ import (
 // a symbol (e.g. a column) is referred to which doesn't exist.  Likewise, if
 // two modules or columns with identical names are declared in the same scope,
 // etc.
-func ResolveCircuit(srcmap *sexp.SourceMaps[Node], circuit *Circuit) (*GlobalScope, []SyntaxError) {
+func ResolveCircuit(srcmap *sexp.SourceMaps[Node], circuit *Circuit) (*ModuleScope, []SyntaxError) {
 	// Construct top-level scope
-	scope := NewGlobalScope()
-	// Register the root module (which should always exist)
-	scope.DeclareModule(util.NewAbsolutePath([]string{}))
-	// Register other modules
+	scope := NewModuleScope()
+	// Define intrinsics
+	for _, i := range INTRINSICS {
+		scope.Define(&i)
+	}
+	// Register modules
 	for _, m := range circuit.Modules {
-		scope.DeclareModule(util.NewAbsolutePath([]string{m.Name}))
+		scope.Declare(m.Name, false)
 	}
 	// Construct resolver
 	r := resolver{srcmap}
@@ -46,16 +47,14 @@ type resolver struct {
 }
 
 // Initialise all columns from their declaring constructs.
-func (r *resolver) initialiseDeclarations(scope *GlobalScope, circuit *Circuit) []SyntaxError {
-	path := util.NewAbsolutePath([]string{})
+func (r *resolver) initialiseDeclarations(scope *ModuleScope, circuit *Circuit) []SyntaxError {
 	// Input columns must be allocated before assignemts, since the hir.Schema
 	// separates these out.
-	errs := r.initialiseDeclarationsInModule(scope.Module(path), circuit.Declarations)
+	errs := r.initialiseDeclarationsInModule(scope, circuit.Declarations)
 	//
 	for _, m := range circuit.Modules {
-		m_path := path.Extend(m.Name)
 		// Process all declarations in the module
-		merrs := r.initialiseDeclarationsInModule(scope.Module(*m_path), m.Declarations)
+		merrs := r.initialiseDeclarationsInModule(scope.Enter(m.Name), m.Declarations)
 		// Package up all errors
 		errs = append(errs, merrs...)
 	}
@@ -66,16 +65,14 @@ func (r *resolver) initialiseDeclarations(scope *GlobalScope, circuit *Circuit) 
 // Process all assignment column declarations.  These are more complex than for
 // input columns, since there can be dependencies between them.  Thus, we cannot
 // simply resolve them in one linear scan.
-func (r *resolver) resolveDeclarations(scope *GlobalScope, circuit *Circuit) []SyntaxError {
-	path := util.NewAbsolutePath([]string{})
+func (r *resolver) resolveDeclarations(scope *ModuleScope, circuit *Circuit) []SyntaxError {
 	// Input columns must be allocated before assignemts, since the hir.Schema
 	// separates these out.
-	errs := r.resolveDeclarationsInModule(scope.Module(path), circuit.Declarations)
+	errs := r.resolveDeclarationsInModule(scope, circuit.Declarations)
 	//
 	for _, m := range circuit.Modules {
-		m_path := path.Extend(m.Name)
 		// Process all declarations in the module
-		merrs := r.resolveDeclarationsInModule(scope.Module(*m_path), m.Declarations)
+		merrs := r.resolveDeclarationsInModule(scope.Enter(m.Name), m.Declarations)
 		// Package up all errors
 		errs = append(errs, merrs...)
 	}
@@ -104,12 +101,23 @@ func (r *resolver) resolveDeclarationsInModule(scope *ModuleScope, decls []Decla
 // contexts, etc).
 func (r *resolver) initialiseDeclarationsInModule(scope *ModuleScope, decls []Declaration) []SyntaxError {
 	errors := make([]SyntaxError, 0)
-	// Initialise all columns
+	// First, initialise any perspectives as submodules of the given scope.  Its
+	// slightly frustrating that we have to do this separately, but the
+	// non-lexical nature of perspectives forces our hand.
+	for _, d := range decls {
+		if def, ok := d.(*DefPerspective); ok {
+			// Attempt to declare the perspective.  Note, we don't need to check
+			// whether or not this succeeds here as, if it fails, this will be
+			// caught below.
+			scope.Declare(def.Name(), true)
+		}
+	}
+	// Second, initialise all symbol (e.g. column) definitions.
 	for _, d := range decls {
 		for iter := d.Definitions(); iter.HasNext(); {
 			def := iter.Next()
 			// Attempt to declare symbol
-			if !scope.Declare(def) {
+			if !scope.Define(def) {
 				msg := fmt.Sprintf("symbol %s already declared", def.Path())
 				err := r.srcmap.SyntaxError(def, msg)
 				errors = append(errors, *err)
@@ -251,6 +259,17 @@ func (r *resolver) declarationDependenciesAreFinalised(scope *ModuleScope,
 		errors    []SyntaxError
 		finalised bool = true
 	)
+	// DefConstraints require special handling because they can be associated
+	// with a perspective.  Perspectives are challenging here because they are
+	// effectively non-lexical scopes, which is not a good fit for the module
+	// tree structure used.
+	if dc, ok := decl.(*DefConstraint); ok && dc.Perspective != nil {
+		if dc.Perspective.IsResolved() || scope.Bind(dc.Perspective) {
+			// Temporarily enter the perspective for the purposes of resolving
+			// symbols within this declaration.
+			scope = scope.Enter(dc.Perspective.Name())
+		}
+	}
 	//
 	for iter := decl.Dependencies(); iter.HasNext(); {
 		symbol := iter.Next()
@@ -329,15 +348,16 @@ func (r *resolver) finaliseDefConstInModule(enclosing Scope, decl *DefConst) []S
 // Finalise a vanishing constraint declaration after all symbols have been
 // resolved. This involves: (a) checking the context is valid; (b) checking the
 // expressions are well-typed.
-func (r *resolver) finaliseDefConstraintInModule(enclosing Scope, decl *DefConstraint) []SyntaxError {
+func (r *resolver) finaliseDefConstraintInModule(enclosing *ModuleScope, decl *DefConstraint) []SyntaxError {
 	var (
 		guard_errors []SyntaxError
 		guard_t      Type
 	)
 	// Identifiery enclosing perspective (if applicable)
 	if decl.Perspective != nil {
-		//perspective = decl.Perspective.Name()
-		panic("implement me")
+		// As before, we must temporarily enter the perspective here.
+		perspective := decl.Perspective.Name()
+		enclosing = enclosing.Enter(perspective)
 	}
 	// Construct scope in which to resolve constraint
 	scope := NewLocalScope(enclosing, false, false)

@@ -361,7 +361,7 @@ func (e *DefConstUnit) Binding() Binding {
 // Name returns the (unqualified) name of this symbol.  For example, "X" for
 // a column X defined in a module m1.
 func (e *DefConstUnit) Name() string {
-	return e.binding.path.Head()
+	return e.binding.path.Tail()
 }
 
 // Path returns the qualified name (i.e. absolute path) of this symbol.  For
@@ -781,7 +781,7 @@ type DefPerspective struct {
 // Name returns the (unqualified) name of this symbol.  For example, "X" for
 // a column X defined in a module m1.
 func (p *DefPerspective) Name() string {
-	return p.symbol.Path().Head()
+	return p.symbol.Path().Tail()
 }
 
 // Path returns the qualified name (i.e. absolute path) of this symbol.  For
@@ -956,7 +956,7 @@ func (p *DefFun) Binding() Binding {
 // Name returns the (unqualified) name of this symbol.  For example, "X" for
 // a column X defined in a module m1.
 func (p *DefFun) Name() string {
-	return p.symbol.Path().Head()
+	return p.symbol.Path().Tail()
 }
 
 // Path returns the qualified name (i.e. absolute path) of this symbol.  For
