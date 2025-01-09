@@ -1,9 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-	"os"
-
 	"github.com/spf13/cobra"
 )
 
@@ -13,10 +10,6 @@ var compileCmd = &cobra.Command{
 	Long: `Compile a given set of constraint file(s) into a single binary package which can
 	 be subsequently used without requiring a full compilation step.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) != 1 {
-			fmt.Println(cmd.UsageString())
-			os.Exit(1)
-		}
 		stdlib := !GetFlag(cmd, "no-stdlib")
 		debug := GetFlag(cmd, "debug")
 		legacy := GetFlag(cmd, "legacy")
