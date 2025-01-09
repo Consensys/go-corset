@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/binfile"
@@ -15,6 +16,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/json"
 	"github.com/consensys/go-corset/pkg/trace/lt"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -138,12 +140,19 @@ func readTraceFile(filename string) []trace.RawColumn {
 
 // Read the constraints file, whilst optionally including the standard library.
 func readSchema(stdlib bool, debug bool, legacy bool, filenames []string) *hir.Schema {
+	var err error
+	//
 	if len(filenames) == 0 {
 		fmt.Println("source or binary constraint(s) file required.")
 		os.Exit(5)
 	} else if len(filenames) == 1 && path.Ext(filenames[0]) == ".bin" {
 		// Single (binary) file supplied
 		return readBinaryFile(legacy, filenames[0])
+	}
+	// Recursively expand any directories given in the list of filenames.
+	if filenames, err = expandSourceFiles(filenames); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
 	}
 	// Must be source files
 	return readSourceFiles(stdlib, debug, filenames)
@@ -181,6 +190,7 @@ func readSourceFiles(stdlib bool, debug bool, filenames []string) *hir.Schema {
 	srcfiles := make([]*sexp.SourceFile, len(filenames))
 	// Read each file
 	for i, n := range filenames {
+		log.Info(fmt.Sprintf("including source file %s", n))
 		// Read source file
 		bytes, err := os.ReadFile(n)
 		// Sanity check for errors
@@ -205,6 +215,48 @@ func readSourceFiles(stdlib bool, debug bool, filenames []string) *hir.Schema {
 	os.Exit(4)
 	// unreachable
 	return nil
+}
+
+// Look through the list of filenames and identify any which are directories.
+// Those are then recursively expanded.
+func expandSourceFiles(filenames []string) ([]string, error) {
+	var expandedFilenames []string
+	//
+	for _, f := range filenames {
+		// Lookup information on the given file.
+		if info, err := os.Stat(f); err != nil {
+			// Something is wrong with one of the files provided, therefore
+			// terminate with an error.
+			return nil, err
+		} else if info.IsDir() {
+			// This a directory, so read its contents
+			if contents, err := expandDirectory(f); err != nil {
+				return nil, err
+			} else {
+				expandedFilenames = append(expandedFilenames, contents...)
+			}
+		} else {
+			// This is a single file
+			expandedFilenames = append(expandedFilenames, f)
+		}
+	}
+	//
+	return expandedFilenames, nil
+}
+
+// Recursively search through a given directory looking for any lisp files.
+func expandDirectory(dirname string) ([]string, error) {
+	var filenames []string
+	// Recursively walk the given directory.
+	err := filepath.Walk(dirname, func(filename string, info os.FileInfo, err error) error {
+		if !info.IsDir() && path.Ext(filename) == ".lisp" {
+			filenames = append(filenames, filename)
+		}
+		// Continue.
+		return nil
+	})
+	// Done
+	return filenames, err
 }
 
 func writeHirSchema(schema *hir.Schema, legacy bool, filename string) {
