@@ -1,6 +1,7 @@
 package corset
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/sexp"
@@ -262,6 +263,8 @@ func (p *preprocessor) preprocessExpressionInModule(expr Expr) (Expr, []SyntaxEr
 		nexpr, errors = &If{e.kind, args[0], args[1], args[2]}, errs
 	case *Invoke:
 		return p.preprocessInvokeInModule(e)
+	case *Let:
+		return p.preprocessLetInModule(e)
 	case *List:
 		args, errs := p.preprocessVoidableExpressionsInModule(e.Args)
 		nexpr, errors = &List{args}, errs
@@ -316,10 +319,44 @@ func (p *preprocessor) preprocessForInModule(expr *For) (Expr, []SyntaxError) {
 	return &List{args}, nil
 }
 
+func (p *preprocessor) preprocessLetInModule(expr *Let) (Expr, []SyntaxError) {
+	var (
+		mapping map[uint]Expr = make(map[uint]Expr)
+		errors  []SyntaxError
+		errs    []SyntaxError
+	)
+	// Construct variable mapping and preprocess
+	for i, v := range expr.Vars {
+		fmt.Printf("Index for variable %s is %d.\n", v.name, v.index)
+		mapping[v.index], errs = p.preprocessExpressionInModule(expr.Args[i])
+		errors = append(errors, errs...)
+	}
+	// Apply substituteion
+	body := Substitute(expr.Body, mapping, p.srcmap)
+	// Constinue preprocessing
+	body, errs = p.preprocessExpressionInModule(body)
+	// Done
+	return body, append(errors, errs...)
+}
+
 func (p *preprocessor) preprocessInvokeInModule(expr *Invoke) (Expr, []SyntaxError) {
 	if expr.signature != nil {
-		body := expr.signature.Apply(expr.Args(), p.srcmap)
-		return p.preprocessExpressionInModule(body)
+		var (
+			args   []Expr = make([]Expr, len(expr.args))
+			errors []SyntaxError
+			errs   []SyntaxError
+		)
+		// Preprocess arguments prior to subsitution.
+		for i, e := range expr.args {
+			args[i], errs = p.preprocessExpressionInModule(e)
+			errors = append(errors, errs...)
+		}
+		// Substitute through body
+		body := expr.signature.Apply(args, p.srcmap)
+		// Preprocess body
+		body, errs = p.preprocessExpressionInModule(body)
+		// Done
+		return body, append(errors, errs...)
 	}
 	//
 	return nil, p.srcmap.SyntaxErrors(expr, "unbound function")

@@ -707,6 +707,14 @@ func Test_For_04(t *testing.T) {
 	Check(t, false, "for_04")
 }
 
+func Test_For_05(t *testing.T) {
+	Check(t, false, "for_05")
+}
+
+func Test_For_06(t *testing.T) {
+	Check(t, false, "for_06")
+}
+
 // ===================================================================
 // Arrays
 // ===================================================================
@@ -883,6 +891,49 @@ func Test_Perspective_27(t *testing.T) {
 
 func Test_Perspective_28(t *testing.T) {
 	Check(t, false, "perspective_28")
+}
+
+// ===================================================================
+// Let
+// ===================================================================
+
+func Test_Let_01(t *testing.T) {
+	Check(t, false, "let_01")
+}
+
+func Test_Let_02(t *testing.T) {
+	Check(t, false, "let_02")
+}
+
+func Test_Let_03(t *testing.T) {
+	Check(t, false, "let_03")
+}
+
+func Test_Let_04(t *testing.T) {
+	Check(t, false, "let_04")
+}
+
+func Test_Let_05(t *testing.T) {
+	Check(t, false, "let_05")
+}
+
+func Test_Let_06(t *testing.T) {
+	Check(t, false, "let_06")
+}
+
+func Test_Let_07(t *testing.T) {
+	Check(t, false, "let_07")
+}
+
+func Test_Let_08(t *testing.T) {
+	Check(t, false, "let_08")
+}
+func Test_Let_09(t *testing.T) {
+	Check(t, false, "let_09")
+}
+
+func Test_Let_10(t *testing.T) {
+	Check(t, false, "let_10")
 }
 
 // ===================================================================

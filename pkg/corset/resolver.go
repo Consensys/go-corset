@@ -558,56 +558,73 @@ func (r *resolver) finaliseExpressionsInModule(scope LocalScope, args []Expr) ([
 //
 //nolint:staticcheck
 func (r *resolver) finaliseExpressionInModule(scope LocalScope, expr Expr) (Type, []SyntaxError) {
-	if v, ok := expr.(*ArrayAccess); ok {
+	switch v := expr.(type) {
+	case *ArrayAccess:
 		return r.finaliseArrayAccessInModule(scope, v)
-	} else if v, ok := expr.(*Add); ok {
+	case *Add:
 		types, errs := r.finaliseExpressionsInModule(scope, v.Args)
 		return LeastUpperBoundAll(types), errs
-	} else if v, ok := expr.(*Constant); ok {
+	case *Constant:
 		nbits := v.Val.BitLen()
 		return NewUintType(uint(nbits)), nil
-	} else if v, ok := expr.(*Debug); ok {
+	case *Debug:
 		return r.finaliseExpressionInModule(scope, v.Arg)
-	} else if v, ok := expr.(*Exp); ok {
+	case *Exp:
 		purescope := scope.NestedPureScope()
 		arg_types, arg_errs := r.finaliseExpressionInModule(scope, v.Arg)
 		_, pow_errs := r.finaliseExpressionInModule(purescope, v.Pow)
 		// combine errors
 		return arg_types, append(arg_errs, pow_errs...)
-	} else if v, ok := expr.(*For); ok {
+	case *For:
 		nestedscope := scope.NestedScope()
 		// Declare local variable
 		nestedscope.DeclareLocal(v.Binding.name, &v.Binding)
 		// Continue resolution
 		return r.finaliseExpressionInModule(nestedscope, v.Body)
-	} else if v, ok := expr.(*If); ok {
+	case *If:
 		return r.finaliseIfInModule(scope, v)
-	} else if v, ok := expr.(*Invoke); ok {
+	case *Invoke:
 		return r.finaliseInvokeInModule(scope, v)
-	} else if v, ok := expr.(*List); ok {
+	case *Let:
+		errors := make([]SyntaxError, 0)
+		fmt.Printf("Local variables are %v\n", scope.locals)
+		nestedscope := scope.NestedScope()
+		// Declare assigned variable(s)
+		for i, letvar := range v.Vars {
+			nestedscope.DeclareLocal(letvar.name, &v.Vars[i])
+			fmt.Printf("Index of %s assigned as %d\n", letvar.name, v.Vars[i].index)
+		}
+		// Finalise assigned expressions
+		for _, arg := range v.Args {
+			_, errs := r.finaliseExpressionInModule(scope, arg)
+			errors = append(errors, errs...)
+		}
+		// Finalise body
+		return r.finaliseExpressionInModule(nestedscope, v.Body)
+	case *List:
 		types, errs := r.finaliseExpressionsInModule(scope, v.Args)
 		return LeastUpperBoundAll(types), errs
-	} else if v, ok := expr.(*Mul); ok {
+	case *Mul:
 		types, errs := r.finaliseExpressionsInModule(scope, v.Args)
 		return GreatestLowerBoundAll(types), errs
-	} else if v, ok := expr.(*Normalise); ok {
+	case *Normalise:
 		_, errs := r.finaliseExpressionInModule(scope, v.Arg)
 		// Normalise guaranteed to return either 0 or 1.
 		return NewUintType(1), errs
-	} else if v, ok := expr.(*Reduce); ok {
+	case *Reduce:
 		return r.finaliseReduceInModule(scope, v)
-	} else if v, ok := expr.(*Shift); ok {
+	case *Shift:
 		purescope := scope.NestedPureScope()
 		arg_types, arg_errs := r.finaliseExpressionInModule(scope, v.Arg)
 		_, shf_errs := r.finaliseExpressionInModule(purescope, v.Shift)
 		// combine errors
 		return arg_types, append(arg_errs, shf_errs...)
-	} else if v, ok := expr.(*Sub); ok {
+	case *Sub:
 		types, errs := r.finaliseExpressionsInModule(scope, v.Args)
 		return LeastUpperBoundAll(types), errs
-	} else if v, ok := expr.(*VariableAccess); ok {
+	case *VariableAccess:
 		return r.finaliseVariableInModule(scope, v)
-	} else {
+	default:
 		return nil, r.srcmap.SyntaxErrors(expr, "unknown expression encountered during resolution")
 	}
 }
