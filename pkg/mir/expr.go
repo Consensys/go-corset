@@ -249,7 +249,7 @@ func (p *ColumnAccess) Bounds() util.Bounds {
 // expression.
 func (p *ColumnAccess) Context(schema sc.Schema) trace.Context {
 	col := schema.Columns().Nth(p.Column)
-	return col.Context()
+	return col.Context
 }
 
 // RequiredColumns returns the set of columns on which this term depends.

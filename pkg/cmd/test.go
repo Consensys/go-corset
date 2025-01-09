@@ -33,6 +33,7 @@ var testCmd = &cobra.Command{
 		if GetFlag(cmd, "debug") {
 			log.SetLevel(log.DebugLevel)
 		}
+		legacy := GetFlag(cmd, "legacy")
 		// Setup check config
 		cfg.air = GetFlag(cmd, "air")
 		cfg.mir = GetFlag(cmd, "mir")
@@ -57,7 +58,7 @@ var testCmd = &cobra.Command{
 		//
 		stats := util.NewPerfStats()
 		// Parse constraints
-		hirSchema = readSchema(cfg.stdlib, false, args)
+		hirSchema = readSchema(cfg.stdlib, false, legacy, args)
 		//
 		stats.Log("Reading constraints file")
 		//
@@ -141,7 +142,6 @@ func init() {
 	// testCmd.Flags().BoolP("warn", "w", false, "report warnings instead of failing for certain errors"+
 	// 	"(e.g. unknown columns in the trace)")
 	testCmd.Flags().BoolP("debug", "d", false, "report debug logs")
-	testCmd.Flags().Bool("no-stdlib", false, "prevents the standard library from being included")
 	//testCmd.Flags().BoolP("quiet", "q", false, "suppress output (e.g. warnings)")
 	testCmd.Flags().Bool("sequential", false, "perform sequential trace expansion")
 	testCmd.Flags().Uint("padding", 0, "specify amount of (front) padding to apply")

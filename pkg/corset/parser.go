@@ -930,13 +930,13 @@ func (p *Parser) parseDefInRange(elements []sexp.SExp) (Declaration, []SyntaxErr
 	return &DefInRange{Expr: expr, Bound: bound}, nil
 }
 
-func (p *Parser) parseConstraintAttributes(module util.Path, attributes sexp.SExp) (domain *int, guard Expr,
+func (p *Parser) parseConstraintAttributes(module util.Path, attributes sexp.SExp) (domain util.Option[int], guard Expr,
 	perspective *PerspectiveName, err []SyntaxError) {
 	//
 	var errors []SyntaxError
 	// Check attribute list is a list
 	if attributes.AsList() == nil {
-		return nil, nil, nil, p.translator.SyntaxErrors(attributes, "expected attribute list")
+		return util.None[int](), nil, nil, p.translator.SyntaxErrors(attributes, "expected attribute list")
 	}
 	// Deconstruct as list
 	attrs := attributes.AsList()
@@ -970,7 +970,7 @@ func (p *Parser) parseConstraintAttributes(module util.Path, attributes sexp.SEx
 	}
 	// Error Check
 	if len(errors) != 0 {
-		return nil, nil, nil, errors
+		return util.None[int](), nil, nil, errors
 	}
 	// Done
 	return domain, guard, perspective, nil
@@ -992,9 +992,9 @@ func parseSymbolName[T Binding](p *Parser, symbol sexp.SExp, module util.Path, f
 	return name, nil
 }
 
-func (p *Parser) parseDomainAttribute(attribute sexp.SExp) (domain *int, err []SyntaxError) {
+func (p *Parser) parseDomainAttribute(attribute sexp.SExp) (domain util.Option[int], err []SyntaxError) {
 	if attribute.AsSet() == nil {
-		return nil, p.translator.SyntaxErrors(attribute, "malformed domain set")
+		return util.None[int](), p.translator.SyntaxErrors(attribute, "malformed domain set")
 	}
 	// Sanity check
 	set := attribute.AsSet()
@@ -1002,7 +1002,7 @@ func (p *Parser) parseDomainAttribute(attribute sexp.SExp) (domain *int, err []S
 	for i := 0; i < set.Len(); i++ {
 		ith := set.Get(i)
 		if ith.AsSymbol() == nil {
-			return nil, p.translator.SyntaxErrors(ith, "malformed domain")
+			return util.None[int](), p.translator.SyntaxErrors(ith, "malformed domain")
 		}
 	}
 	// Currently, only support domains of size 1.
@@ -1010,13 +1010,13 @@ func (p *Parser) parseDomainAttribute(attribute sexp.SExp) (domain *int, err []S
 		first, err := strconv.Atoi(set.Get(0).AsSymbol().Value)
 		// Check for parse error
 		if err != nil {
-			return nil, p.translator.SyntaxErrors(set.Get(0), "malformed domain element")
+			return util.None[int](), p.translator.SyntaxErrors(set.Get(0), "malformed domain element")
 		}
 		// Done
-		return &first, nil
+		return util.Some(first), nil
 	}
 	// Fail
-	return nil, p.translator.SyntaxErrors(attribute, "multiple values not supported")
+	return util.None[int](), p.translator.SyntaxErrors(attribute, "multiple values not supported")
 }
 
 func (p *Parser) parseType(term sexp.SExp) (Type, bool, *SyntaxError) {

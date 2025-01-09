@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"encoding/gob"
 	"fmt"
 	"math/big"
 
@@ -37,9 +38,9 @@ type Type interface {
 // For example, for the type "u8" then "nbits" is 8.
 type UintType struct {
 	// The number of bits this type represents (e.g. 8 for u8, etc).
-	nbits uint
+	NumOfBits uint
 	// The numeric bound of all values in this type (e.g. 2^8 for u8, etc).
-	bound fr.Element
+	ValueBound fr.Element
 }
 
 // NewUintType constructs a new integer type for a given bit width.
@@ -69,8 +70,8 @@ func (p *UintType) AsField() *FieldType {
 // ByteWidth returns the number of bytes required represent any element of this
 // type.
 func (p *UintType) ByteWidth() uint {
-	m := p.nbits / 8
-	n := p.nbits % 8
+	m := p.NumOfBits / 8
+	n := p.NumOfBits % 8
 	// Check for even division
 	if n == 0 {
 		return m
@@ -82,13 +83,13 @@ func (p *UintType) ByteWidth() uint {
 // Accept determines whether a given value is an element of this type.  For
 // example, 123 is an element of the type u8 whilst 256 is not.
 func (p *UintType) Accept(val fr.Element) bool {
-	return val.Cmp(&p.bound) < 0
+	return val.Cmp(&p.ValueBound) < 0
 }
 
 // BitWidth returns the bitwidth of this type.  For example, the
 // bitwidth of the type u8 is 8.
 func (p *UintType) BitWidth() uint {
-	return p.nbits
+	return p.NumOfBits
 }
 
 // HasBound determines whether this type fits within a given bound.  For
@@ -96,12 +97,12 @@ func (p *UintType) BitWidth() uint {
 // not fit within a bound of 255.
 func (p *UintType) HasBound(bound uint) bool {
 	var n fr.Element = fr.NewElement(uint64(bound))
-	return p.bound.Cmp(&n) <= 0
+	return p.ValueBound.Cmp(&n) <= 0
 }
 
 // Bound determines the actual bound for all values which are in this type.
 func (p *UintType) Bound() fr.Element {
-	return p.bound
+	return p.ValueBound
 }
 
 // SubtypeOf checks whether this subtypes another
@@ -109,7 +110,7 @@ func (p *UintType) SubtypeOf(other Type) bool {
 	if other.AsField() != nil {
 		return true
 	} else if o, ok := other.(*UintType); ok {
-		return p.bound == o.bound
+		return p.ValueBound == o.ValueBound
 	}
 
 	return false
@@ -123,7 +124,7 @@ func (p *UintType) Cmp(other Type) int {
 }
 
 func (p *UintType) String() string {
-	return fmt.Sprintf("u%d", p.nbits)
+	return fmt.Sprintf("u%d", p.NumOfBits)
 }
 
 // FieldType is the type of raw field elements (normally for a prime field).
@@ -186,9 +187,18 @@ func Join(lhs Type, rhs Type) Type {
 	uLhs := lhs.AsUint()
 	uRhs := rhs.AsUint()
 	//
-	if uLhs.nbits >= uRhs.nbits {
+	if uLhs.NumOfBits >= uRhs.NumOfBits {
 		return uLhs
 	}
 	//
 	return uRhs
+}
+
+// ============================================================================
+// Encoding / Decoding
+// ============================================================================
+
+func init() {
+	gob.Register(Type(&UintType{}))
+	gob.Register(Type(&FieldType{}))
 }

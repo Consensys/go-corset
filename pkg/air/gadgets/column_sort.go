@@ -6,6 +6,7 @@ import (
 	"github.com/consensys/go-corset/pkg/air"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/assignment"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // ApplyColumnSortGadget adds sorting constraints for a column where the
@@ -24,7 +25,7 @@ func ApplyColumnSortGadget(col uint, sign bool, bitwidth uint, schema *air.Schem
 	// Identify target column
 	column := schema.Columns().Nth(col)
 	// Determine column name
-	name := column.Name()
+	name := column.Name
 	// Configure computation
 	Xk := air.NewColumnAccess(col, 0)
 	Xkm1 := air.NewColumnAccess(col, -1)
@@ -38,15 +39,15 @@ func ApplyColumnSortGadget(col uint, sign bool, bitwidth uint, schema *air.Schem
 		deltaName = fmt.Sprintf("-%s", name)
 	}
 	// Look up column
-	deltaIndex, ok := sc.ColumnIndexOf(schema, column.Context().Module(), deltaName)
+	deltaIndex, ok := sc.ColumnIndexOf(schema, column.Context.Module(), deltaName)
 	// Add new column (if it does not already exist)
 	if !ok {
 		deltaIndex = schema.AddAssignment(
-			assignment.NewComputedColumn(column.Context(), deltaName, Xdiff))
+			assignment.NewComputedColumn(column.Context, deltaName, Xdiff))
 	}
 	// Add necessary bitwidth constraints
 	ApplyBitwidthGadget(deltaIndex, bitwidth, schema)
 	// Configure constraint: Delta[k] = X[k] - X[k-1]
 	Dk := air.NewColumnAccess(deltaIndex, 0)
-	schema.AddVanishingConstraint(deltaName, column.Context(), nil, Dk.Equate(Xdiff))
+	schema.AddVanishingConstraint(deltaName, column.Context, util.None[int](), Dk.Equate(Xdiff))
 }

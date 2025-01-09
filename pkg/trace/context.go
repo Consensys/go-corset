@@ -28,11 +28,11 @@ type Context = RawContext[uint]
 type RawContext[T comparable] struct {
 	// Identifies the module in which this evaluation context exists.  The empty
 	// module is given by the maximum index (math.MaxUint).
-	module T
+	ModuleId T
 	// Identifies the length multiplier required to complete this context.  In
 	// essence, length multiplies divide up a given module into several disjoint
 	// "subregions", such than every expression exists only in one of them.
-	multiplier uint
+	Multiplier uint
 }
 
 // VoidContext returns the void (or empty) context.  This is the bottom type in
@@ -63,7 +63,7 @@ func NewContext[T comparable](module T, multiplier uint) RawContext[T] {
 // this cases, this method will panic.
 func (p RawContext[T]) Module() T {
 	if !p.IsVoid() && !p.IsConflicted() {
-		return p.module
+		return p.ModuleId
 	} else if p.IsVoid() {
 		panic("void context has no module")
 	}
@@ -76,7 +76,7 @@ func (p RawContext[T]) Module() T {
 // conflicted  context.  In this cases, this method will panic.
 func (p RawContext[T]) LengthMultiplier() uint {
 	if !p.IsVoid() && !p.IsConflicted() {
-		return p.multiplier
+		return p.Multiplier
 	} else if p.IsVoid() {
 		panic("void context has no module")
 	}
@@ -87,20 +87,20 @@ func (p RawContext[T]) LengthMultiplier() uint {
 // IsVoid checks whether this context is the void context (or not).  This is the
 // bottom element in the lattice.
 func (p RawContext[T]) IsVoid() bool {
-	return p.multiplier == 0
+	return p.Multiplier == 0
 }
 
 // IsConflicted checks whether this context represents the conflicted context.
 // This is the top element in the lattice, and is used to represent the case
 // where e.g. an expression has multiple conflicting contexts.
 func (p RawContext[T]) IsConflicted() bool {
-	return p.multiplier == math.MaxUint
+	return p.Multiplier == math.MaxUint
 }
 
 // Multiply updates the length multiplier by multiplying it by a given factor,
 // producing the updated context.
 func (p RawContext[T]) Multiply(factor uint) RawContext[T] {
-	return NewContext(p.module, p.multiplier*factor)
+	return NewContext(p.ModuleId, p.Multiplier*factor)
 }
 
 // Join returns the least upper bound of the two contexts, or false if this does
@@ -125,5 +125,5 @@ func (p RawContext[T]) String() string {
 		return "⊤"
 	}
 	// Valid multiplier.
-	return fmt.Sprintf("%v*%d", p.module, p.multiplier)
+	return fmt.Sprintf("%v*%d", p.ModuleId, p.Multiplier)
 }

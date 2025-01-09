@@ -79,7 +79,7 @@ func (p ZeroArrayTest) Lisp(schema sc.Schema) sexp.SExp {
 // such as lists and if conditions can result in Eval causing a panic.
 type UnitExpr struct {
 	//
-	expr Expr
+	Expr Expr
 }
 
 // NewUnitExpr constructs a unit wrapper around an HIR expression.  In essence,
@@ -95,7 +95,7 @@ func NewUnitExpr(expr Expr) UnitExpr {
 // value at that row of the column in question or nil is that row is
 // out-of-bounds.
 func (e UnitExpr) EvalAt(k int, trace tr.Trace) fr.Element {
-	vals := e.expr.EvalAllAt(k, trace)
+	vals := e.Expr.EvalAllAt(k, trace)
 	// Check we got exactly one thing
 	if len(vals) == 1 {
 		return vals[0]
@@ -107,32 +107,32 @@ func (e UnitExpr) EvalAt(k int, trace tr.Trace) fr.Element {
 // Bounds returns max shift in either the negative (left) or positive
 // direction (right).
 func (e UnitExpr) Bounds() util.Bounds {
-	return e.expr.Bounds()
+	return e.Expr.Bounds()
 }
 
 // Context determines the evaluation context (i.e. enclosing module) for this
 // expression.
 func (e UnitExpr) Context(schema sc.Schema) tr.Context {
-	return e.expr.Context(schema)
+	return e.Expr.Context(schema)
 }
 
 // RequiredColumns returns the set of columns on which this term depends.
 // That is, columns whose values may be accessed when evaluating this term
 // on a given trace.
 func (e UnitExpr) RequiredColumns() *util.SortedSet[uint] {
-	return e.expr.RequiredColumns()
+	return e.Expr.RequiredColumns()
 }
 
 // RequiredCells returns the set of trace cells on which this term depends.
 // In this case, that is the empty set.
 func (e UnitExpr) RequiredCells(row int, trace tr.Trace) *util.AnySortedSet[tr.CellRef] {
-	return e.expr.RequiredCells(row, trace)
+	return e.Expr.RequiredCells(row, trace)
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
 func (e UnitExpr) Lisp(schema sc.Schema) sexp.SExp {
-	return e.expr.Lisp(schema)
+	return e.Expr.Lisp(schema)
 }
 
 // ============================================================================
@@ -147,7 +147,7 @@ func (e UnitExpr) Lisp(schema sc.Schema) sexp.SExp {
 // constraints).
 type MaxExpr struct {
 	//
-	expr Expr
+	Expr Expr
 }
 
 // NewMaxExpr constructs a unit wrapper around an HIR expression.  In essence,
@@ -163,7 +163,7 @@ func NewMaxExpr(expr Expr) MaxExpr {
 // value at that row of the column in question or nil is that row is
 // out-of-bounds.
 func (e MaxExpr) EvalAt(k int, trace tr.Trace) fr.Element {
-	vals := e.expr.EvalAllAt(k, trace)
+	vals := e.Expr.EvalAllAt(k, trace)
 	//
 	max := fr.NewElement(0)
 	//
@@ -179,35 +179,35 @@ func (e MaxExpr) EvalAt(k int, trace tr.Trace) fr.Element {
 // Bounds returns max shift in either the negative (left) or positive
 // direction (right).
 func (e MaxExpr) Bounds() util.Bounds {
-	return e.expr.Bounds()
+	return e.Expr.Bounds()
 }
 
 // Context determines the evaluation context (i.e. enclosing module) for this
 // expression.
 func (e MaxExpr) Context(schema sc.Schema) tr.Context {
-	return e.expr.Context(schema)
+	return e.Expr.Context(schema)
 }
 
 // RequiredColumns returns the set of columns on which this term depends.
 // That is, columns whose values may be accessed when evaluating this term
 // on a given trace.
 func (e MaxExpr) RequiredColumns() *util.SortedSet[uint] {
-	return e.expr.RequiredColumns()
+	return e.Expr.RequiredColumns()
 }
 
 // RequiredCells returns the set of trace cells on which this term depends.
 // In this case, that is the empty set.
 func (e MaxExpr) RequiredCells(row int, trace tr.Trace) *util.AnySortedSet[tr.CellRef] {
-	return e.expr.RequiredCells(row, trace)
+	return e.Expr.RequiredCells(row, trace)
 }
 
 // LowerTo lowers a max expressions down to one or more expressions at the MIR level.
 func (e MaxExpr) LowerTo(schema *mir.Schema) []mir.Expr {
-	return e.expr.LowerTo(schema)
+	return e.Expr.LowerTo(schema)
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
 func (e MaxExpr) Lisp(schema sc.Schema) sexp.SExp {
-	return e.expr.Lisp(schema)
+	return e.Expr.Lisp(schema)
 }

@@ -5,6 +5,7 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/assignment"
 	"github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // Expand converts an arbitrary expression into a specific column index.  In
@@ -34,7 +35,7 @@ func Expand(ctx trace.Context, e air.Expr, schema *air.Schema) uint {
 		// Construct 1 == e/e
 		eq_e_v := v.Equate(e)
 		// Ensure (e - v) == 0, where v is value of computed column.
-		schema.AddVanishingConstraint(name, ctx, nil, eq_e_v)
+		schema.AddVanishingConstraint(name, ctx, util.None[int](), eq_e_v)
 	}
 	//
 	return index

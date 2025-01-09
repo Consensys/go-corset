@@ -8,6 +8,7 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/assignment"
 	"github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // ApplyLexicographicSortingGadget Add sorting constraints for a sequence of one
@@ -46,7 +47,7 @@ func ApplyLexicographicSortingGadget(columns []uint, signs []bool, bitwidth uint
 	constraint := constructLexicographicDeltaConstraint(deltaIndex, columns, signs)
 	// Add delta constraint
 	deltaName := fmt.Sprintf("%s:delta", prefix)
-	schema.AddVanishingConstraint(deltaName, ctx, nil, constraint)
+	schema.AddVanishingConstraint(deltaName, ctx, util.None[int](), constraint)
 	// Add necessary bitwidth constraints
 	ApplyBitwidthGadget(deltaIndex, bitwidth, schema)
 }
@@ -59,7 +60,7 @@ func constructLexicographicSortingPrefix(columns []uint, signs []bool, schema *a
 	// Concatenate column names with their signs.
 	for i := 0; i < len(columns); i++ {
 		ith := schema.Columns().Nth(columns[i])
-		id.WriteString(ith.Name())
+		id.WriteString(ith.Name)
 
 		if signs[i] {
 			id.WriteString("+")
@@ -104,7 +105,7 @@ func addLexicographicSelectorBits(prefix string, context trace.Context,
 		pDiff := air.NewColumnAccess(columns[i], 0).Sub(air.NewColumnAccess(columns[i], -1))
 		pName := fmt.Sprintf("%s:%d:a", prefix, i)
 		schema.AddVanishingConstraint(pName, context,
-			nil, air.NewConst64(1).Sub(&air.Add{Args: pterms}).Mul(pDiff))
+			util.None[int](), air.NewConst64(1).Sub(&air.Add{Args: pterms}).Mul(pDiff))
 		// (∀j<i.Bj=0) ∧ Bi=1 ==> C[k]≠C[k-1]
 		qDiff := Normalise(air.NewColumnAccess(columns[i], 0).Sub(air.NewColumnAccess(columns[i], -1)), schema)
 		qName := fmt.Sprintf("%s:%d:b", prefix, i)
@@ -116,14 +117,14 @@ func addLexicographicSelectorBits(prefix string, context trace.Context,
 			constraint = air.NewConst64(1).Sub(&air.Add{Args: qterms}).Mul(constraint)
 		}
 
-		schema.AddVanishingConstraint(qName, context, nil, constraint)
+		schema.AddVanishingConstraint(qName, context, util.None[int](), constraint)
 	}
 
 	sum := &air.Add{Args: terms}
 	// (sum = 0) ∨ (sum = 1)
 	constraint := sum.Mul(sum.Equate(air.NewConst64(1)))
 	name := fmt.Sprintf("%s:xor", prefix)
-	schema.AddVanishingConstraint(name, context, nil, constraint)
+	schema.AddVanishingConstraint(name, context, util.None[int](), constraint)
 }
 
 // Construct the lexicographic delta constraint.  This states that the delta

@@ -131,13 +131,13 @@ func (tb TraceBuilder) initialiseTraceModules() ([]trace.ArrayModule, map[string
 		// Initialise an empty module.  Such modules have an (as yet)
 		// unspecified height.  For such a module to be usable, it needs at
 		// least one (or more) filled columns.
-		modules[i] = trace.EmptyArrayModule(m.name)
+		modules[i] = trace.EmptyArrayModule(m.Name)
 		// Sanity check module
-		if _, ok := modmap[m.name]; ok {
-			panic(fmt.Sprintf("duplicate module '%s' in schema", m.name))
+		if _, ok := modmap[m.Name]; ok {
+			panic(fmt.Sprintf("duplicate module '%s' in schema", m.Name))
 		}
 
-		modmap[m.name] = i
+		modmap[m.Name] = i
 	}
 	// Done
 	return modules, modmap
@@ -150,15 +150,15 @@ func (tb TraceBuilder) initialiseTraceColumns() ([]trace.ArrayColumn, map[column
 	for i, iter := uint(0), tb.schema.Columns(); iter.HasNext(); i++ {
 		c := iter.Next()
 		// Construct an appropriate key for this column
-		colkey := columnKey{c.Context().Module(), c.Name()}
+		colkey := columnKey{c.Context.Module(), c.Name}
 		// Initially column data and padding are nil.  In some cases, we will
 		// populate this information from the cols array.  However, in other
 		// cases, it will need to be populated during trace expansion.
-		columns[i] = trace.EmptyArrayColumn(c.Context(), c.Name())
+		columns[i] = trace.EmptyArrayColumn(c.Context, c.Name)
 		// Sanity check column
 		if _, ok := colmap[colkey]; ok {
-			mod := tb.schema.Modules().Nth(c.Context().Module())
-			panic(fmt.Sprintf("duplicate column '%s' in schema", trace.QualifiedColumnName(mod.name, c.Name())))
+			mod := tb.schema.Modules().Nth(c.Context.Module())
+			panic(fmt.Sprintf("duplicate column '%s' in schema", trace.QualifiedColumnName(mod.Name, c.Name)))
 		}
 		// All clear
 		colmap[colkey] = i
@@ -208,7 +208,7 @@ func validateTraceColumns(schema Schema, tr *trace.ArrayTrace) (error, []error) 
 		if ith.Data() == nil {
 			// This looks suspect
 			mid := ith.Context().Module()
-			mod := schema.Modules().Nth(mid).name
+			mod := schema.Modules().Nth(mid).Name
 			err := fmt.Errorf("missing input column '%s.%s' in trace", mod, ith.Name())
 			mod_height := tr.Height(ith.Context())
 			// Check whether we have other columns for this module

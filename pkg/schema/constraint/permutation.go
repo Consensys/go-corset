@@ -3,7 +3,6 @@ package constraint
 import (
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/sexp"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -12,24 +11,26 @@ import (
 
 // PermutationFailure provides structural information about a failing permutation constraint.
 type PermutationFailure struct {
-	msg string
+	Msg string
 }
 
 // Message provides a suitable error message
 func (p *PermutationFailure) Message() string {
-	return p.msg
+	return p.Msg
 }
 
 func (p *PermutationFailure) String() string {
-	return p.msg
+	return p.Msg
 }
 
 // PermutationConstraint declares a constraint that one (or more) columns are a permutation
 // of another.
 type PermutationConstraint struct {
-	// The target columns
-	targets []uint
-	// The source columns
+	// Targets returns the indices of the columns composing the "left" table of the
+	// permutation.
+	Targets []uint
+	// Sources returns the indices of the columns composing the "right" table of the
+	// permutation.
 	sources []uint
 }
 
@@ -50,10 +51,10 @@ func (p *PermutationConstraint) RequiredSpillage() uint {
 
 // Accepts checks whether a permutation holds between the source and
 // target columns.
-func (p *PermutationConstraint) Accepts(tr trace.Trace) schema.Failure {
+func (p *PermutationConstraint) Accepts(tr trace.Trace) sc.Failure {
 	// Slice out data
 	src := sliceColumns(p.sources, tr)
-	dst := sliceColumns(p.targets, tr)
+	dst := sliceColumns(p.Targets, tr)
 	// Sanity check whether column exists
 	if util.ArePermutationOf(dst, src) {
 		// Success
@@ -61,7 +62,7 @@ func (p *PermutationConstraint) Accepts(tr trace.Trace) schema.Failure {
 	}
 	// Prepare suitable error message
 	src_names := trace.QualifiedColumnNamesToCommaSeparatedString(p.sources, tr)
-	dst_names := trace.QualifiedColumnNamesToCommaSeparatedString(p.targets, tr)
+	dst_names := trace.QualifiedColumnNamesToCommaSeparatedString(p.Targets, tr)
 	//
 	msg := fmt.Sprintf("Target columns (%s) not permutation of source columns (%s)",
 		dst_names, src_names)
@@ -75,7 +76,7 @@ func (p *PermutationConstraint) Lisp(schema sc.Schema) sexp.SExp {
 	targets := sexp.EmptyList()
 	sources := sexp.EmptyList()
 
-	for _, tid := range p.targets {
+	for _, tid := range p.Targets {
 		target := schema.Columns().Nth(tid)
 		targets.Append(sexp.NewSymbol(target.QualifiedName(schema)))
 	}
@@ -90,18 +91,6 @@ func (p *PermutationConstraint) Lisp(schema sc.Schema) sexp.SExp {
 		targets,
 		sources,
 	})
-}
-
-// Targets returns the indices of the columns composing the "left" table of the
-// permutation.
-func (p *PermutationConstraint) Targets() []uint {
-	return p.targets
-}
-
-// Sources returns the indices of the columns composing the "right" table of the
-// permutation.
-func (p *PermutationConstraint) Sources() []uint {
-	return p.sources
 }
 
 func sliceColumns(columns []uint, tr trace.Trace) []util.FrArray {

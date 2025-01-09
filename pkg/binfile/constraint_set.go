@@ -226,10 +226,10 @@ func checkAllocation(cs *columnSet, colmap map[uint]uint, schema *hir.Schema) {
 		}
 
 		sc_col := schema.Columns().Nth(cid)
-		sc_mod := schema.Modules().Nth(sc_col.Context().Module())
+		sc_mod := schema.Modules().Nth(sc_col.Context.Module())
 		// Perform the check
-		if sc_mod.Name() != handle.module || sc_col.Name() != handle.column {
-			panic(fmt.Sprintf("invalid allocation %s.%s != %s.%s", handle.module, handle.column, sc_mod.Name(), sc_col.Name()))
+		if sc_mod.Name != handle.module || sc_col.Name != handle.column {
+			panic(fmt.Sprintf("invalid allocation %s.%s != %s.%s", handle.module, handle.column, sc_mod.Name, sc_col.Name))
 		}
 	}
 }
@@ -239,7 +239,7 @@ func checkAllocation(cs *columnSet, colmap map[uint]uint, schema *hir.Schema) {
 func registerModule(schema *hir.Schema, module string) uint {
 	// Attempt to find existing module with same name
 	mid, ok := schema.Modules().Find(func(m sc.Module) bool {
-		return m.Name() == module
+		return m.Name == module
 	})
 	// Check whether search successful, or not.
 	if ok {

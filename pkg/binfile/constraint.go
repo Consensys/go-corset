@@ -5,6 +5,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/hir"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // JsonConstraint аn enumeration of constraint forms.  Exactly one of these fields
@@ -93,13 +94,13 @@ func (e jsonConstraint) addToSchema(colmap map[uint]uint, schema *hir.Schema) {
 	}
 }
 
-func (e jsonDomain) toHir() *int {
+func (e jsonDomain) toHir() util.Option[int] {
 	if len(e.Set) == 1 {
 		domain := e.Set[0]
-		return &domain
+		return util.Some(domain)
 	} else if e.Set != nil {
 		panic("Unknown domain")
 	}
 	// Default
-	return nil
+	return util.None[int]()
 }

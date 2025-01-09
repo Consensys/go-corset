@@ -178,12 +178,12 @@ type Lispifiable interface {
 // Column represents a specific column in the schema that, ultimately, will
 // correspond 1:1 with a column in the trace.
 type Column struct {
-	// Evaluation context of this column.
-	context tr.Context
-	// Returns the name of this column
-	name string
+	// Evaluation Context of this column.
+	Context tr.Context
+	// Returns the Name of this column
+	Name string
 	// Returns the expected type of data in this column
-	datatype Type
+	DataType Type
 }
 
 // NewColumn constructs a new column
@@ -191,34 +191,18 @@ func NewColumn(context tr.Context, name string, datatype Type) Column {
 	return Column{context, name, datatype}
 }
 
-// Context returns the evaluation context for this column access, which is
-// determined by the column itself.
-func (p Column) Context() tr.Context {
-	return p.context
-}
-
-// Name returns the name of this column
-func (p Column) Name() string {
-	return p.name
-}
-
 // QualifiedName returns the fully qualified name of this column
 func (p Column) QualifiedName(schema Schema) string {
-	mod := schema.Modules().Nth(p.context.Module())
-	if mod.Name() != "" {
-		return fmt.Sprintf("%s:%s", mod.Name(), p.name)
+	mod := schema.Modules().Nth(p.Context.Module())
+	if mod.Name != "" {
+		return fmt.Sprintf("%s:%s", mod.Name, p.Name)
 	}
 	//
-	return p.name
-}
-
-// Type returns the expected type of data in this column
-func (p Column) Type() Type {
-	return p.datatype
+	return p.Name
 }
 
 func (p Column) String() string {
-	return fmt.Sprintf("%s:%s", p.name, p.datatype.String())
+	return fmt.Sprintf("%s:%s", p.Name, p.DataType.String())
 }
 
 // ============================================================================
@@ -232,15 +216,10 @@ func (p Column) String() string {
 // things like identify input / output columns, etc.
 type Module struct {
 	// Returns the name of this column
-	name string
+	Name string
 }
 
 // NewModule constructs a new column
 func NewModule(name string) Module {
 	return Module{name}
-}
-
-// Name returns the name of this module
-func (p *Module) Name() string {
-	return p.name
 }

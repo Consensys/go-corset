@@ -6,6 +6,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/air"
 	"github.com/consensys/go-corset/pkg/schema/assignment"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // ApplyBinaryGadget adds a binarity constraint for a given column in the schema
@@ -15,7 +16,7 @@ func ApplyBinaryGadget(col uint, schema *air.Schema) {
 	// Identify target column
 	column := schema.Columns().Nth(col)
 	// Determine column name
-	name := column.Name()
+	name := column.Name
 	// Construct X
 	X := air.NewColumnAccess(col, 0)
 	// Construct X-1
@@ -23,7 +24,7 @@ func ApplyBinaryGadget(col uint, schema *air.Schema) {
 	// Construct X * (X-1)
 	X_X_m1 := X.Mul(X_m1)
 	// Done!
-	schema.AddVanishingConstraint(fmt.Sprintf("%s:u1", name), column.Context(), nil, X_X_m1)
+	schema.AddVanishingConstraint(fmt.Sprintf("%s:u1", name), column.Context, util.None[int](), X_X_m1)
 }
 
 // ApplyBitwidthGadget ensures all values in a given column fit within a given
@@ -41,11 +42,11 @@ func ApplyBitwidthGadget(col uint, nbits uint, schema *air.Schema) {
 	n := nbits / 8
 	es := make([]air.Expr, n)
 	fr256 := fr.NewElement(256)
-	name := column.Name()
+	name := column.Name
 	coefficient := fr.NewElement(1)
 	// Add decomposition assignment
 	index := schema.AddAssignment(
-		assignment.NewByteDecomposition(name, column.Context(), col, n))
+		assignment.NewByteDecomposition(name, column.Context, col, n))
 	// Construct Columns
 	for i := uint(0); i < n; i++ {
 		// Create Column + Constraint
@@ -61,5 +62,5 @@ func ApplyBitwidthGadget(col uint, nbits uint, schema *air.Schema) {
 	X := air.NewColumnAccess(col, 0)
 	eq := X.Equate(sum)
 	// Construct column name
-	schema.AddVanishingConstraint(fmt.Sprintf("%s:u%d", name, nbits), column.Context(), nil, eq)
+	schema.AddVanishingConstraint(fmt.Sprintf("%s:u%d", name, nbits), column.Context, util.None[int](), eq)
 }

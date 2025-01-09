@@ -34,6 +34,7 @@ var checkCmd = &cobra.Command{
 		if GetFlag(cmd, "verbose") {
 			log.SetLevel(log.DebugLevel)
 		}
+		legacy := GetFlag(cmd, "legacy")
 		//
 		cfg.air = GetFlag(cmd, "air")
 		cfg.mir = GetFlag(cmd, "mir")
@@ -60,7 +61,7 @@ var checkCmd = &cobra.Command{
 		//
 		stats := util.NewPerfStats()
 		// Parse constraints
-		hirSchema = readSchema(cfg.stdlib, cfg.debug, args[1:])
+		hirSchema = readSchema(cfg.stdlib, cfg.debug, legacy, args[1:])
 		//
 		stats.Log("Reading constraints file")
 		// Parse trace file
@@ -196,9 +197,9 @@ func validationCheck(tr tr.Trace, schema sc.Schema) error {
 		// Extract schema for ith column
 		scCol := schemaCols.Next()
 		// Determine enclosing module
-		mod := schema.Modules().Nth(scCol.Context().Module())
+		mod := schema.Modules().Nth(scCol.Context.Module())
 		// Extract type for ith column
-		colType := scCol.Type()
+		colType := scCol.DataType
 		// Check elements
 		go func() {
 			// Send outcome back
@@ -221,7 +222,7 @@ func validateColumn(colType sc.Type, col tr.Column, mod sc.Module) error {
 	for j := 0; j < int(col.Data().Len()); j++ {
 		jth := col.Get(j)
 		if !colType.Accept(jth) {
-			qualColName := tr.QualifiedColumnName(mod.Name(), col.Name())
+			qualColName := tr.QualifiedColumnName(mod.Name, col.Name())
 			return fmt.Errorf("row %d of column %s is out-of-bounds (%s)", j, qualColName, jth.String())
 		}
 	}
@@ -249,10 +250,10 @@ func reportFailures(ir string, failures []sc.Failure, trace tr.Trace, cfg checkC
 func reportFailure(failure sc.Failure, trace tr.Trace, cfg checkConfig) {
 	if f, ok := failure.(*constraint.VanishingFailure); ok {
 		cells := f.RequiredCells(trace)
-		reportConstraintFailure("constraint", f.Handle(), cells, trace, cfg)
+		reportConstraintFailure("constraint", f.Handle, cells, trace, cfg)
 	} else if f, ok := failure.(*sc.AssertionFailure); ok {
 		cells := f.RequiredCells(trace)
-		reportConstraintFailure("assertion", f.Handle(), cells, trace, cfg)
+		reportConstraintFailure("assertion", f.Handle, cells, trace, cfg)
 	}
 }
 

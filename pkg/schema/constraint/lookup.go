@@ -13,16 +13,16 @@ import (
 
 // LookupFailure provides structural information about a failing lookup constraint.
 type LookupFailure struct {
-	msg string
+	Msg string
 }
 
 // Message provides a suitable error message
 func (p *LookupFailure) Message() string {
-	return p.msg
+	return p.Msg
 }
 
 func (p *LookupFailure) String() string {
-	return p.msg
+	return p.Msg
 }
 
 // LookupConstraint (sometimes also called an inclusion constraint) constrains
@@ -41,15 +41,19 @@ func (p *LookupFailure) String() string {
 // the source module is just checking that a given set of input/output pairs
 // makes sense.
 type LookupConstraint[E schema.Evaluable] struct {
-	handle string
-	// Evaluation context for source columns.
-	source trace.Context
-	// Evaluation context for target columns.
-	target trace.Context
-	// Source rows represent the subset of rows.
-	sources []E
-	// Target rows represent the set of rows.
-	targets []E
+	// Handle returns the handle for this lookup constraint which is simply an
+	// identifier useful when debugging (i.e. to know which lookup failed, etc).
+	Handle string
+	// Context in which all source columns are evaluated.
+	SourceContext trace.Context
+	// Context in which all target columns are evaluated.
+	TargetContext trace.Context
+	// Sources returns the source expressions which are used to lookup into the
+	// target expressions.
+	Sources []E
+	// Targets returns the target expressions which are used to lookup into the
+	// target expressions.
+	Targets []E
 }
 
 // NewLookupConstraint creates a new lookup constraint with a given handle.
@@ -62,57 +66,27 @@ func NewLookupConstraint[E schema.Evaluable](handle string, source trace.Context
 	return &LookupConstraint[E]{handle, source, target, sources, targets}
 }
 
-// Handle returns the handle for this lookup constraint which is simply an
-// identifier useful when debugging (i.e. to know which lookup failed, etc).
-//
-//nolint:revive
-func (p *LookupConstraint[E]) Handle() string {
-	return p.handle
-}
-
-// SourceContext returns the contezt in which all target expressions are evaluated.
-func (p *LookupConstraint[E]) SourceContext() trace.Context {
-	return p.source
-}
-
-// TargetContext returns the contezt in which all target expressions are evaluated.
-func (p *LookupConstraint[E]) TargetContext() trace.Context {
-	return p.target
-}
-
-// Sources returns the source expressions which are used to lookup into the
-// target expressions.
-func (p *LookupConstraint[E]) Sources() []E {
-	return p.sources
-}
-
-// Targets returns the target expressions which are used to lookup into the
-// target expressions.
-func (p *LookupConstraint[E]) Targets() []E {
-	return p.targets
-}
-
 // Accepts checks whether a lookup constraint into the target columns holds for
 // all rows of the source columns.
 //
 //nolint:revive
 func (p *LookupConstraint[E]) Accepts(tr trace.Trace) schema.Failure {
 	// Determine height of enclosing module for source columns
-	src_height := tr.Height(p.source)
-	tgt_height := tr.Height(p.target)
+	src_height := tr.Height(p.SourceContext)
+	tgt_height := tr.Height(p.TargetContext)
 	//
 	rows := util.NewHashSet[util.BytesKey](tgt_height)
 	// Add all target columns to the set
 	for i := 0; i < int(tgt_height); i++ {
-		ith_bytes := evalExprsAt(i, p.targets, tr)
+		ith_bytes := evalExprsAt(i, p.Targets, tr)
 		rows.Insert(util.NewBytesKey(ith_bytes))
 	}
 	// Check all source columns are contained
 	for i := 0; i < int(src_height); i++ {
-		ith_bytes := evalExprsAt(i, p.sources, tr)
+		ith_bytes := evalExprsAt(i, p.Sources, tr)
 		// Check whether contained.
 		if !rows.Contains(util.NewBytesKey(ith_bytes)) {
-			return &LookupFailure{fmt.Sprintf("lookup \"%s\" failed (row %d)", p.handle, i)}
+			return &LookupFailure{fmt.Sprintf("lookup \"%s\" failed (row %d)", p.Handle, i)}
 		}
 	}
 	//
@@ -147,17 +121,17 @@ func (p *LookupConstraint[E]) Lisp(schema sc.Schema) sexp.SExp {
 	sources := sexp.EmptyList()
 	targets := sexp.EmptyList()
 	// Iterate source expressions
-	for i := 0; i < len(p.sources); i++ {
-		sources.Append(p.sources[i].Lisp(schema))
+	for i := 0; i < len(p.Sources); i++ {
+		sources.Append(p.Sources[i].Lisp(schema))
 	}
 	// Iterate source expressions
-	for i := 0; i < len(p.targets); i++ {
-		targets.Append(p.targets[i].Lisp(schema))
+	for i := 0; i < len(p.Targets); i++ {
+		targets.Append(p.Targets[i].Lisp(schema))
 	}
 	// Done
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("lookup"),
-		sexp.NewSymbol(p.handle),
+		sexp.NewSymbol(p.Handle),
 		targets,
 		sources,
 	})
