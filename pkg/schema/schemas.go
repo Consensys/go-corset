@@ -62,7 +62,7 @@ func ContextOfColumns(cols []uint, schema Schema) tr.Context {
 	//
 	for i := 0; i < len(cols); i++ {
 		col := schema.Columns().Nth(cols[i])
-		ctx = ctx.Join(col.Context())
+		ctx = ctx.Join(col.Context)
 	}
 	// Done
 	return ctx
@@ -141,6 +141,6 @@ func processConstraintBatch(logtitle string, batch uint, batchsize uint, iter ut
 // returns false if no matching column exists.
 func ColumnIndexOf(schema Schema, module uint, name string) (uint, bool) {
 	return schema.Columns().Find(func(c Column) bool {
-		return c.Context().Module() == module && c.Name() == name
+		return c.Context.Module() == module && c.Name == name
 	})
 }

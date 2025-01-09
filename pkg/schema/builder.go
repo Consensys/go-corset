@@ -150,15 +150,15 @@ func (tb TraceBuilder) initialiseTraceColumns() ([]trace.ArrayColumn, map[column
 	for i, iter := uint(0), tb.schema.Columns(); iter.HasNext(); i++ {
 		c := iter.Next()
 		// Construct an appropriate key for this column
-		colkey := columnKey{c.Context().Module(), c.Name()}
+		colkey := columnKey{c.Context.Module(), c.Name}
 		// Initially column data and padding are nil.  In some cases, we will
 		// populate this information from the cols array.  However, in other
 		// cases, it will need to be populated during trace expansion.
-		columns[i] = trace.EmptyArrayColumn(c.Context(), c.Name())
+		columns[i] = trace.EmptyArrayColumn(c.Context, c.Name)
 		// Sanity check column
 		if _, ok := colmap[colkey]; ok {
-			mod := tb.schema.Modules().Nth(c.Context().Module())
-			panic(fmt.Sprintf("duplicate column '%s' in schema", trace.QualifiedColumnName(mod.Name, c.Name())))
+			mod := tb.schema.Modules().Nth(c.Context.Module())
+			panic(fmt.Sprintf("duplicate column '%s' in schema", trace.QualifiedColumnName(mod.Name, c.Name)))
 		}
 		// All clear
 		colmap[colkey] = i

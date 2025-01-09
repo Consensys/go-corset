@@ -31,7 +31,7 @@ func NewComputedColumn[E sc.Evaluable](context trace.Context, name string, expr 
 
 // Name returns the name of this computed column.
 func (p *ComputedColumn[E]) Name() string {
-	return p.target.Name()
+	return p.target.Name
 }
 
 // ============================================================================
@@ -40,7 +40,7 @@ func (p *ComputedColumn[E]) Name() string {
 
 // Context returns the evaluation context for this computed column.
 func (p *ComputedColumn[E]) Context() trace.Context {
-	return p.target.Context()
+	return p.target.Context
 }
 
 // Columns returns the columns declared by this computed column.
@@ -75,7 +75,7 @@ func (p *ComputedColumn[E]) RequiredSpillage() uint {
 // evaluating a given expression on each row.
 func (p *ComputedColumn[E]) ComputeColumns(tr trace.Trace) ([]trace.ArrayColumn, error) {
 	// Determine multiplied height
-	height := tr.Height(p.target.Context())
+	height := tr.Height(p.target.Context)
 	// Make space for computed data
 	data := util.NewFrArray(height, 256)
 	// Expand the trace
@@ -88,7 +88,7 @@ func (p *ComputedColumn[E]) ComputeColumns(tr trace.Trace) ([]trace.ArrayColumn,
 	// the padding value for *this* column.
 	padding := p.expr.EvalAt(-1, tr)
 	// Construct column
-	col := trace.NewArrayColumn(p.target.Context(), p.Name(), data, padding)
+	col := trace.NewArrayColumn(p.target.Context, p.Name(), data, padding)
 	// Done
 	return []trace.ArrayColumn{col}, nil
 }

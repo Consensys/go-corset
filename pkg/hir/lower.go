@@ -33,9 +33,9 @@ func (p *Schema) LowerToMir() *mir.Schema {
 	// Copy property assertions.  Observe, these do not require lowering
 	// because they are already MIR-level expressions.
 	for _, c := range p.assertions {
-		properties := c.Property().Expr.LowerTo(mirSchema)
+		properties := c.Property.Expr.LowerTo(mirSchema)
 		for _, p := range properties {
-			mirSchema.AddPropertyAssertion(c.Handle(), c.Context(), p)
+			mirSchema.AddPropertyAssertion(c.Handle, c.Context, p)
 		}
 	}
 	//
@@ -47,16 +47,16 @@ func lowerConstraintToMir(c sc.Constraint, schema *mir.Schema) {
 	if v, ok := c.(LookupConstraint); ok {
 		lowerLookupConstraint(v, schema)
 	} else if v, ok := c.(VanishingConstraint); ok {
-		mir_exprs := v.Constraint().Expr.LowerTo(schema)
+		mir_exprs := v.Constraint.Expr.LowerTo(schema)
 		// Add individual constraints arising
 		for _, mir_expr := range mir_exprs {
-			schema.AddVanishingConstraint(v.Handle(), v.Context(), v.Domain(), mir_expr)
+			schema.AddVanishingConstraint(v.Handle, v.Context, v.Domain, mir_expr)
 		}
 	} else if v, ok := c.(RangeConstraint); ok {
-		mir_exprs := v.Target().LowerTo(schema)
+		mir_exprs := v.Expr.LowerTo(schema)
 		// Add individual constraints arising
 		for _, mir_expr := range mir_exprs {
-			schema.AddRangeConstraint(v.Handle(), v.Context(), mir_expr, v.Bound())
+			schema.AddRangeConstraint(v.Handle, v.Context, mir_expr, v.Bound)
 		}
 	} else {
 		// Should be unreachable as no other constraint types can be added to a
@@ -66,24 +66,22 @@ func lowerConstraintToMir(c sc.Constraint, schema *mir.Schema) {
 }
 
 func lowerLookupConstraint(c LookupConstraint, schema *mir.Schema) {
-	sources := c.Sources()
-	targets := c.Targets()
-	from := make([]mir.Expr, len(sources))
-	into := make([]mir.Expr, len(targets))
+	from := make([]mir.Expr, len(c.Sources))
+	into := make([]mir.Expr, len(c.Targets))
 	// Convert general expressions into unit expressions.
 	for i := 0; i < len(from); i++ {
-		from[i] = lowerUnitTo(sources[i], schema)
-		into[i] = lowerUnitTo(targets[i], schema)
+		from[i] = lowerUnitTo(c.Sources[i], schema)
+		into[i] = lowerUnitTo(c.Targets[i], schema)
 	}
 	//
-	schema.AddLookupConstraint(c.Handle(), c.SourceContext(), c.TargetContext(), from, into)
+	schema.AddLookupConstraint(c.Handle, c.SourceContext, c.TargetContext, from, into)
 }
 
 // Lower an expression which is expected to lower into a single expression.
 // This will panic if the unit expression is malformed (i.e. does not lower
 // into a single expression).
 func lowerUnitTo(e UnitExpr, schema *mir.Schema) mir.Expr {
-	exprs := lowerTo(e.expr, schema)
+	exprs := lowerTo(e.Expr, schema)
 
 	if len(exprs) != 1 {
 		panic("invalid unitary expression")

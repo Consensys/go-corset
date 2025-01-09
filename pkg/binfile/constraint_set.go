@@ -226,10 +226,10 @@ func checkAllocation(cs *columnSet, colmap map[uint]uint, schema *hir.Schema) {
 		}
 
 		sc_col := schema.Columns().Nth(cid)
-		sc_mod := schema.Modules().Nth(sc_col.Context().Module())
+		sc_mod := schema.Modules().Nth(sc_col.Context.Module())
 		// Perform the check
-		if sc_mod.Name != handle.module || sc_col.Name() != handle.column {
-			panic(fmt.Sprintf("invalid allocation %s.%s != %s.%s", handle.module, handle.column, sc_mod.Name, sc_col.Name()))
+		if sc_mod.Name != handle.module || sc_col.Name != handle.column {
+			panic(fmt.Sprintf("invalid allocation %s.%s != %s.%s", handle.module, handle.column, sc_mod.Name, sc_col.Name))
 		}
 	}
 }

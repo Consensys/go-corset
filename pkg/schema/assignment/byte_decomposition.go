@@ -43,7 +43,7 @@ func NewByteDecomposition(prefix string, context trace.Context, source uint, wid
 
 // Context returns the evaluation context for this declaration.
 func (p *ByteDecomposition) Context() trace.Context {
-	return p.targets[0].Context()
+	return p.targets[0].Context
 }
 
 // Columns returns the columns declared by this byte decomposition (in the order
@@ -80,7 +80,7 @@ func (p *ByteDecomposition) ComputeColumns(tr trace.Trace) ([]trace.ArrayColumn,
 		// Construct a byte array for ith byte
 		data := util.NewFrArray(height, 8)
 		// Construct a byte column for ith byte
-		cols[i] = trace.NewArrayColumn(ith.Context(), ith.Name(), data, padding[i])
+		cols[i] = trace.NewArrayColumn(ith.Context, ith.Name, data, padding[i])
 	}
 	// Decompose each row of each column
 	for i := uint(0); i < height; i = i + 1 {

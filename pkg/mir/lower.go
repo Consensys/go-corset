@@ -41,7 +41,7 @@ func (p *Schema) LowerToAir() *air.Schema {
 	}
 	// Add assertions (these do not need to be lowered)
 	for _, assertion := range p.assertions {
-		airSchema.AddPropertyAssertion(assertion.Handle(), assertion.Context(), assertion.Property())
+		airSchema.AddPropertyAssertion(assertion.Handle, assertion.Context, assertion.Property)
 	}
 	// Done
 	return airSchema
@@ -81,14 +81,14 @@ func lowerConstraintToAir(c sc.Constraint, schema *air.Schema) {
 // constrained.  This may result in the generation of computed columns, e.g. to
 // hold inverses, etc.
 func lowerVanishingConstraintToAir(v VanishingConstraint, schema *air.Schema) {
-	air_expr := lowerExprTo(v.Context(), v.Constraint().Expr, schema)
+	air_expr := lowerExprTo(v.Context, v.Constraint.Expr, schema)
 	// Check whether this is a constant
 	constant := air_expr.AsConstant()
 	// Check for compile-time constants
 	if constant != nil && !constant.IsZero() {
-		panic(fmt.Sprintf("constraint %s cannot vanish!", v.Handle()))
+		panic(fmt.Sprintf("constraint %s cannot vanish!", v.Handle))
 	} else if constant == nil {
-		schema.AddVanishingConstraint(v.Handle(), v.Context(), v.Domain(), air_expr)
+		schema.AddVanishingConstraint(v.Handle, v.Context, v.Domain, air_expr)
 	}
 }
 
@@ -100,9 +100,9 @@ func lowerVanishingConstraintToAir(v VanishingConstraint, schema *air.Schema) {
 // expected value.
 func lowerRangeConstraintToAir(v RangeConstraint, schema *air.Schema) {
 	// Lower target expression
-	target := lowerExprTo(v.Context(), v.Target(), schema)
+	target := lowerExprTo(v.Context, v.Expr, schema)
 	// Expand target expression (if necessary)
-	column := air_gadgets.Expand(v.Context(), target, schema)
+	column := air_gadgets.Expand(v.Context, target, schema)
 	// Yes, a constraint is implied.  Now, decide whether to use a range
 	// constraint or just a vanishing constraint.
 	if v.BoundedAtMost(2) {
@@ -110,12 +110,12 @@ func lowerRangeConstraintToAir(v RangeConstraint, schema *air.Schema) {
 		air_gadgets.ApplyBinaryGadget(column, schema)
 	} else if v.BoundedAtMost(256) {
 		// u2..8 use range constraints
-		schema.AddRangeConstraint(column, v.Bound())
+		schema.AddRangeConstraint(column, v.Bound)
 	} else {
 		// u9+ use byte decompositions.
 		var bi big.Int
 		// Convert bound into big int
-		elem := v.Bound()
+		elem := v.Bound
 		elem.BigInt(&bi)
 		// Apply bitwidth gadget
 		air_gadgets.ApplyBitwidthGadget(column, uint(bi.BitLen()-1), schema)
@@ -129,19 +129,19 @@ func lowerRangeConstraintToAir(v RangeConstraint, schema *air.Schema) {
 // value of that expression, along with appropriate constraints to enforce the
 // expected value.
 func lowerLookupConstraintToAir(c LookupConstraint, schema *air.Schema) {
-	targets := make([]uint, len(c.Targets()))
-	sources := make([]uint, len(c.Sources()))
+	targets := make([]uint, len(c.Targets))
+	sources := make([]uint, len(c.Sources))
 	//
 	for i := 0; i < len(targets); i++ {
 		// Lower source and target expressions
-		target := lowerExprTo(c.TargetContext(), c.Targets()[i], schema)
-		source := lowerExprTo(c.SourceContext(), c.Sources()[i], schema)
+		target := lowerExprTo(c.TargetContext, c.Targets[i], schema)
+		source := lowerExprTo(c.SourceContext, c.Sources[i], schema)
 		// Expand them
-		targets[i] = air_gadgets.Expand(c.TargetContext(), target, schema)
-		sources[i] = air_gadgets.Expand(c.SourceContext(), source, schema)
+		targets[i] = air_gadgets.Expand(c.TargetContext, target, schema)
+		sources[i] = air_gadgets.Expand(c.SourceContext, source, schema)
 	}
 	// finally add the constraint
-	schema.AddLookupConstraint(c.Handle(), c.SourceContext(), c.TargetContext(), sources, targets)
+	schema.AddLookupConstraint(c.Handle, c.SourceContext, c.TargetContext, sources, targets)
 }
 
 // Lower a permutation to the AIR level.  This has quite a few
@@ -151,7 +151,7 @@ func lowerLookupConstraintToAir(c LookupConstraint, schema *air.Schema) {
 // computation is required to ensure traces are correctly expanded to
 // meet the requirements of a sorted permutation.
 func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Schema) {
-	c_targets := c.Targets()
+	c_targets := c.Targets
 	ncols := len(c_targets)
 	//
 	targets := make([]uint, ncols)
@@ -159,14 +159,14 @@ func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Sche
 	for i := 0; i < ncols; i++ {
 		var ok bool
 		// TODO: how best to avoid this lookup?
-		targets[i], ok = sc.ColumnIndexOf(airSchema, c.Module(), c_targets[i].Name())
+		targets[i], ok = sc.ColumnIndexOf(airSchema, c.Module(), c_targets[i].Name)
 
 		if !ok {
 			panic("internal failure")
 		}
 	}
 	//
-	airSchema.AddPermutationConstraint(targets, c.Sources())
+	airSchema.AddPermutationConstraint(targets, c.Sources)
 	// Add sorting constraints + computed columns as necessary.
 	if ncols == 1 {
 		// For a single column sort, its actually a bit easier because we don't
@@ -174,9 +174,9 @@ func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Sche
 		// differs, etc).  Instead, we just need a delta column which ensures
 		// there is a non-negative difference between consecutive rows.  This
 		// also requires bitwidth constraints.
-		bitwidth := mirSchema.Columns().Nth(c.Sources()[0]).Type().AsUint().BitWidth()
+		bitwidth := mirSchema.Columns().Nth(c.Sources[0]).DataType.AsUint().BitWidth()
 		// Add column sorting constraints
-		air_gadgets.ApplyColumnSortGadget(targets[0], c.Signs()[0], bitwidth, airSchema)
+		air_gadgets.ApplyColumnSortGadget(targets[0], c.Signs[0], bitwidth, airSchema)
 	} else {
 		// For a multi column sort, its a bit harder as we need additional
 		// logicl to ensure the target columns are lexicographally sorted.
@@ -184,13 +184,13 @@ func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Sche
 
 		for i := 0; i < ncols; i++ {
 			// Extract bitwidth of ith column
-			ith := mirSchema.Columns().Nth(c.Sources()[i]).Type().AsUint().BitWidth()
+			ith := mirSchema.Columns().Nth(c.Sources[i]).DataType.AsUint().BitWidth()
 			if ith > bitwidth {
 				bitwidth = ith
 			}
 		}
 		// Add lexicographically sorted constraints
-		air_gadgets.ApplyLexicographicSortingGadget(targets, c.Signs(), bitwidth, airSchema)
+		air_gadgets.ApplyLexicographicSortingGadget(targets, c.Signs, bitwidth, airSchema)
 	}
 }
 

@@ -153,17 +153,20 @@ func readSchema(stdlib bool, debug bool, legacy bool, filenames []string) *hir.S
 func readBinaryFile(legacy bool, filename string) *hir.Schema {
 	var schema *hir.Schema
 	// Read schema file
-	bytes, err := os.ReadFile(filename)
+	data, err := os.ReadFile(filename)
 	// Handle errors
 	if err == nil && legacy {
 		// Read the binary file
-		schema, err = binfile.HirSchemaFromJson(bytes)
-		if err == nil {
-			return schema
-		}
+		schema, err = binfile.HirSchemaFromJson(data)
 	} else if err == nil {
 		// Read the Gob file
-		panic("got here")
+		buffer := bytes.NewBuffer(data)
+		decoder := gob.NewDecoder(buffer)
+		err = decoder.Decode(&schema)
+	}
+	// Return if no errors
+	if err == nil {
+		return schema
 	}
 	// Handle error & exit
 	fmt.Println(err)

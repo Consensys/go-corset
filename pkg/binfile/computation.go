@@ -71,11 +71,11 @@ func addSortedComputation(sorted *jsonSortedComputation, index uint,
 		dst_hnd := asHandle(dst_col.Handle)
 		src_col := schema.Columns().Nth(sources[i])
 		// Sanity check source column type
-		if src_col.Type().AsUint() == nil {
-			panic(fmt.Sprintf("source column %s has field type", src_col.Name()))
+		if src_col.DataType.AsUint() == nil {
+			panic(fmt.Sprintf("source column %s has field type", src_col.Name))
 		}
 
-		targets[i] = sc.NewColumn(ctx, dst_hnd.column, src_col.Type())
+		targets[i] = sc.NewColumn(ctx, dst_hnd.column, src_col.DataType)
 		// Update allocation information.
 		colmap[target_id] = index
 		index++
@@ -100,7 +100,7 @@ func addInterleavedComputation(c *jsonInterleavedComputation, index uint,
 	for i := range sources {
 		src_col := schema.Columns().Nth(sources[i])
 		// Update the column type
-		dst_type = sc.Join(dst_type, src_col.Type())
+		dst_type = sc.Join(dst_type, src_col.DataType)
 	}
 	// Update multiplier
 	ctx = ctx.Multiply(uint(len(sources)))
@@ -139,16 +139,16 @@ func sourceColumnsFromHandles(handles []string, columns []column,
 		// Extract schema info about source column
 		src_col := schema.Columns().Nth(src_cid)
 		// Sanity check enclosing modules match
-		if src_col.Context().Module() != mid {
+		if src_col.Context.Module() != mid {
 			panic("inconsistent enclosing module for sorted permutation (source)")
 		}
 
-		ctx = ctx.Join(src_col.Context())
+		ctx = ctx.Join(src_col.Context)
 		// Sanity check we have a sensible type here.
 		if ctx.IsConflicted() {
-			panic(fmt.Sprintf("source column %s has conflicted evaluation context", src_col.Name()))
+			panic(fmt.Sprintf("source column %s has conflicted evaluation context", src_col.Name))
 		} else if ctx.IsVoid() {
-			panic(fmt.Sprintf("source column %s has void evaluation context", src_col.Name()))
+			panic(fmt.Sprintf("source column %s has void evaluation context", src_col.Name))
 		}
 
 		sources[i] = src_cid

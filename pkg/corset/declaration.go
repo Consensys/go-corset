@@ -398,11 +398,11 @@ type DefConstraint struct {
 	// Unique handle given to this constraint.  This is primarily useful for
 	// debugging (i.e. so we know which constaint failed, etc).
 	Handle string
-	// Domain of this constraint, where nil indicates a global constraint.
+	// Domain of this constraint which, if empty, indicates a global constraint.
 	// Otherwise, a given value indicates a single row on which this constraint
 	// should apply (where negative values are taken from the end, meaning that
 	// -1 represents the last row of a given module).
-	Domain *int
+	Domain util.Option[int]
 	// A selector which determines for which rows this constraint is active.
 	// Specifically, when the expression evaluates to a non-zero value then the
 	// constraint is active; otherwiser, its inactive. Nil is permitted to
@@ -464,8 +464,8 @@ func (p *DefConstraint) Finalise() {
 func (p *DefConstraint) Lisp() sexp.SExp {
 	modifiers := sexp.EmptyList()
 	// domain
-	if p.Domain != nil {
-		domain := fmt.Sprintf("{%d}", *p.Domain)
+	if p.Domain.HasValue() {
+		domain := fmt.Sprintf("{%d}", p.Domain.Unwrap())
 		//
 		modifiers.Append(sexp.NewSymbol(":domain"))
 		modifiers.Append(sexp.NewSymbol(domain))

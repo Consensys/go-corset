@@ -1,6 +1,8 @@
 package test
 
 import (
+	"bytes"
+	"encoding/gob"
 	"fmt"
 	"os"
 	"strings"
@@ -401,7 +403,7 @@ func Test_Type_04(t *testing.T) {
 }
 
 func Test_Type_05(t *testing.T) {
-	Check(t, false, "type_04")
+	Check(t, false, "type_05")
 }
 
 func Test_Type_06(t *testing.T) {
@@ -911,8 +913,8 @@ func Test_Memory(t *testing.T) {
 	Check(t, true, "memory")
 }
 
-func TestSlow_Fields_01(t *testing.T) {
-	Check(t, true, "fields_01")
+func TestSlow_Fields(t *testing.T) {
+	Check(t, true, "fields")
 }
 
 func TestSlow_Add(t *testing.T) {
@@ -1008,30 +1010,31 @@ func Check(t *testing.T, stdlib bool, test string) {
 	if len(errs) > 0 {
 		t.Fatalf("Error parsing %s: %v\n", filename, errs)
 	}
+
 	// Check valid traces are accepted
 	accepts_file := fmt.Sprintf("%s/%s.%s", TestDir, test, "accepts")
 	accepts := ReadTracesFile(accepts_file)
 	ntests := len(accepts)
-	CheckTraces(t, accepts_file, true, true, accepts, schema)
+	BinCheckTraces(t, accepts_file, true, true, accepts, schema)
 	// Check invalid traces are rejected
 	rejects_file := fmt.Sprintf("%s/%s.%s", TestDir, test, "rejects")
 	rejects := ReadTracesFile(rejects_file)
 	ntests += len(rejects)
-	CheckTraces(t, rejects_file, false, true, rejects, schema)
+	BinCheckTraces(t, rejects_file, false, true, rejects, schema)
 	// Check expanded traces are rejected
 	expands_file := fmt.Sprintf("%s/%s.%s", TestDir, test, "expanded")
 	expands := ReadTracesFile(expands_file)
 	ntests += len(expands)
-	CheckTraces(t, expands_file, false, false, expands, schema)
+	BinCheckTraces(t, expands_file, false, false, expands, schema)
 	// Check auto-generated valid traces (if applicable)
 	auto_accepts_file := fmt.Sprintf("%s/%s.%s", TestDir, test, "auto.accepts")
 	if auto_accepts := ReadTracesFileIfExists(auto_accepts_file); auto_accepts != nil {
-		CheckTraces(t, auto_accepts_file, true, true, auto_accepts, schema)
+		BinCheckTraces(t, auto_accepts_file, true, true, auto_accepts, schema)
 	}
 	// Check auto-generated invalid traces (if applicable)
 	auto_rejects_file := fmt.Sprintf("%s.%s", test, "auto.rejects")
 	if auto_rejects := ReadTracesFileIfExists(auto_rejects_file); auto_rejects != nil {
-		CheckTraces(t, auto_rejects_file, false, true, auto_rejects, schema)
+		BinCheckTraces(t, auto_rejects_file, false, true, auto_rejects, schema)
 	}
 	//
 	if ntests == 0 {
@@ -1039,9 +1042,21 @@ func Check(t *testing.T, stdlib bool, test string) {
 	}
 }
 
+func BinCheckTraces(t *testing.T, test string, expected bool, expand bool,
+	traces [][]trace.RawColumn, srcSchema *hir.Schema) {
+	// Run checks using schema compiled from source
+	CheckTraces(t, test, MAX_PADDING, expected, expand, traces, srcSchema)
+	// Construct binary schema
+	if binSchema := encodeDecodeSchema(t, srcSchema); binSchema != nil {
+		// Run checks using schema from binary file.  Observe, to try and reduce
+		// overhead of repeating all the tests we don't consider padding.
+		CheckTraces(t, test, 0, expected, expand, traces, binSchema)
+	}
+}
+
 // Check a given set of tests have an expected outcome (i.e. are
 // either accepted or rejected) by a given set of constraints.
-func CheckTraces(t *testing.T, test string, expected bool, expand bool,
+func CheckTraces(t *testing.T, test string, maxPadding uint, expected bool, expand bool,
 	traces [][]trace.RawColumn, hirSchema *hir.Schema) {
 	for i, tr := range traces {
 		if tr != nil {
@@ -1050,7 +1065,7 @@ func CheckTraces(t *testing.T, test string, expected bool, expand bool,
 			// Lower MIR => AIR
 			airSchema := mirSchema.LowerToAir()
 			// Align trace with schema, and check whether expanded or not.
-			for padding := uint(0); padding <= MAX_PADDING; padding++ {
+			for padding := uint(0); padding <= maxPadding; padding++ {
 				// Construct trace identifiers
 				hirID := traceId{"HIR", test, expected, i + 1, padding}
 				mirID := traceId{"MIR", test, expected, i + 1, padding}
@@ -1146,4 +1161,27 @@ func ReadTracesFileIfExists(name string) [][]trace.RawColumn {
 	}
 	// Yes it does
 	return ReadTracesFile(filename)
+}
+
+// This is a little test to ensure the binary file format (specifically the
+// binary encoder / decoder) works as expected.
+func encodeDecodeSchema(t *testing.T, schema *hir.Schema) *hir.Schema {
+	var (
+		buffer     bytes.Buffer
+		gobEncoder *gob.Encoder = gob.NewEncoder(&buffer)
+		binSchema  hir.Schema
+	)
+	// Encode schema
+	if err := gobEncoder.Encode(schema); err != nil {
+		t.Error(err)
+		return nil
+	}
+	// Decode schema
+	decoder := gob.NewDecoder(&buffer)
+	if err := decoder.Decode(&binSchema); err != nil {
+		t.Error(err)
+		return nil
+	}
+	//
+	return &binSchema
 }

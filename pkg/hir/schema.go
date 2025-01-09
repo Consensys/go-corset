@@ -124,7 +124,7 @@ func (p *Schema) AddAssignment(c sc.Assignment) uint {
 }
 
 // AddVanishingConstraint appends a new vanishing constraint.
-func (p *Schema) AddVanishingConstraint(handle string, context trace.Context, domain *int, expr Expr) {
+func (p *Schema) AddVanishingConstraint(handle string, context trace.Context, domain util.Option[int], expr Expr) {
 	if context.Module() >= uint(len(p.modules)) {
 		panic(fmt.Sprintf("invalid module index (%d)", context.Module()))
 	}
@@ -201,17 +201,89 @@ func (p *Schema) Modules() util.Iterator[sc.Module] {
 }
 
 // ============================================================================
-// GobEncoder Interface
+// Encoding / Decoding
 // ============================================================================
 
 // GobEncode an HIR schema.  This allows it to be marshalled into a binary form.
 func (p *Schema) GobEncode() (data []byte, err error) {
 	var buffer bytes.Buffer
 	gobEncoder := gob.NewEncoder(&buffer)
-	//
+	// Modules
 	if err := gobEncoder.Encode(p.modules); err != nil {
+		return nil, err
+	}
+	// Inputs
+	if err := gobEncoder.Encode(p.inputs); err != nil {
+		return nil, err
+	}
+	// Assignments
+	if err := gobEncoder.Encode(p.assignments); err != nil {
+		return nil, err
+	}
+	// Constraints
+	if err := gobEncoder.Encode(p.constraints); err != nil {
+		return nil, err
+	}
+	// Assertions
+	if err := gobEncoder.Encode(p.assertions); err != nil {
 		return nil, err
 	}
 	// Success
 	return buffer.Bytes(), nil
+}
+
+// GobDecode a previously encoded schema
+func (p *Schema) GobDecode(data []byte) error {
+	buffer := bytes.NewBuffer(data)
+	gobDecoder := gob.NewDecoder(buffer)
+	// Modules
+	if err := gobDecoder.Decode(&p.modules); err != nil {
+		return err
+	}
+	// Inputs
+	if err := gobDecoder.Decode(&p.inputs); err != nil {
+		return err
+	}
+	// Assignments
+	if err := gobDecoder.Decode(&p.assignments); err != nil {
+		return err
+	}
+	// Constraints
+	if err := gobDecoder.Decode(&p.constraints); err != nil {
+		return err
+	}
+	// Assertions
+	if err := gobDecoder.Decode(&p.assertions); err != nil {
+		return err
+	}
+	// Rebuild column cache
+	p.rebuildCaches()
+	// Success
+	return nil
+}
+
+func (p *Schema) rebuildCaches() {
+	// Add all inputs
+	for _, col := range p.inputs {
+		for c := col.Columns(); c.HasNext(); {
+			p.column_cache = append(p.column_cache, c.Next())
+		}
+	}
+	// Add all assignments
+	for _, col := range p.assignments {
+		for c := col.Columns(); c.HasNext(); {
+			p.column_cache = append(p.column_cache, c.Next())
+		}
+	}
+}
+
+// ============================================================================
+// Encoding / Decoding
+// ============================================================================
+
+func init() {
+	gob.Register(sc.Constraint(&constraint.VanishingConstraint[ZeroArrayTest]{}))
+	gob.Register(sc.Constraint(&constraint.RangeConstraint[MaxExpr]{}))
+	gob.Register(sc.Constraint(&constraint.PermutationConstraint{}))
+	gob.Register(sc.Constraint(&constraint.LookupConstraint[UnitExpr]{}))
 }

@@ -1,6 +1,8 @@
 package hir
 
 import (
+	"encoding/gob"
+
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/mir"
 	sc "github.com/consensys/go-corset/pkg/schema"
@@ -468,7 +470,7 @@ func (p *ColumnAccess) Bounds() util.Bounds {
 // expression.
 func (p *ColumnAccess) Context(schema sc.Schema) trace.Context {
 	col := schema.Columns().Nth(p.Column)
-	return col.Context()
+	return col.Context
 }
 
 // RequiredColumns returns the set of columns on which this term depends.
@@ -493,3 +495,19 @@ func (p *ColumnAccess) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet
 // Multiplicity returns the number of underlyg expressions that this
 // expression will expand to.
 func (p *ColumnAccess) Multiplicity() uint { return 1 }
+
+// ============================================================================
+// Encoding / Decoding
+// ============================================================================
+
+func init() {
+	gob.Register(Expr(&Add{}))
+	gob.Register(Expr(&Mul{}))
+	gob.Register(Expr(&Sub{}))
+	gob.Register(Expr(&Exp{}))
+	gob.Register(Expr(&IfZero{}))
+	gob.Register(Expr(&List{}))
+	gob.Register(Expr(&Constant{}))
+	gob.Register(Expr(&Normalise{}))
+	gob.Register(Expr(&ColumnAccess{}))
+}

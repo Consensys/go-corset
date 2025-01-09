@@ -1,6 +1,7 @@
 package assignment
 
 import (
+	"encoding/gob"
 	"fmt"
 
 	sc "github.com/consensys/go-corset/pkg/schema"
@@ -15,9 +16,10 @@ import (
 // Z=[1,3,2,4].
 type Interleaving struct {
 	// The new (interleaved) column
-	target sc.Column
-	// The source columns
-	sources []uint
+	Target sc.Column
+	// Sources are the columns used by this interleaving to define the new
+	// (interleaved) column.
+	Sources []uint
 }
 
 // NewInterleaving constructs a new interleaving assignment.
@@ -34,13 +36,7 @@ func NewInterleaving(context tr.Context, name string, sources []uint, datatype s
 
 // Module returns the module which encloses this interleaving.
 func (p *Interleaving) Module() uint {
-	return p.target.Context().Module()
-}
-
-// Sources returns the columns used by this interleaving to define the new
-// (interleaved) column.
-func (p *Interleaving) Sources() []uint {
-	return p.sources
+	return p.Target.Context.Module()
 }
 
 // ============================================================================
@@ -49,12 +45,12 @@ func (p *Interleaving) Sources() []uint {
 
 // Context returns the evaluation context for this interleaving.
 func (p *Interleaving) Context() tr.Context {
-	return p.target.Context()
+	return p.Target.Context
 }
 
 // Columns returns the column declared by this interleaving.
 func (p *Interleaving) Columns() util.Iterator[sc.Column] {
-	return util.NewUnitIterator(p.target)
+	return util.NewUnitIterator(p.Target)
 }
 
 // IsComputed Determines whether or not this declaration is computed (which an
@@ -77,17 +73,17 @@ func (p *Interleaving) RequiredSpillage() uint {
 // This requires copying the data in the source columns to create the
 // interleaved column.
 func (p *Interleaving) ComputeColumns(trace tr.Trace) ([]tr.ArrayColumn, error) {
-	ctx := p.target.Context()
+	ctx := p.Target.Context
 	// Byte width records the largest width of any column.
 	bit_width := uint(0)
 	// Ensure target column doesn't exist
 	for i := p.Columns(); i.HasNext(); {
 		ith := i.Next()
 		// Update byte width
-		bit_width = max(bit_width, ith.Type().BitWidth())
+		bit_width = max(bit_width, ith.DataType.BitWidth())
 	}
 	// Determine interleaving width
-	width := uint(len(p.sources))
+	width := uint(len(p.Sources))
 	// Following division should always produce whole value because the length
 	// multiplier already includes the width as a factor.
 	height := trace.Height(ctx) / width
@@ -98,7 +94,7 @@ func (p *Interleaving) ComputeColumns(trace tr.Trace) ([]tr.ArrayColumn, error) 
 	// Copy interleaved data
 	for i := uint(0); i < width; i++ {
 		// Lookup source column
-		col := trace.Column(p.sources[i])
+		col := trace.Column(p.Sources[i])
 		// Copy over
 		for j := uint(0); j < height; j++ {
 			data.Set(offset+(j*width), col.Get(int(j)))
@@ -110,7 +106,7 @@ func (p *Interleaving) ComputeColumns(trace tr.Trace) ([]tr.ArrayColumn, error) 
 	// column in the interleaving.
 	padding := trace.Column(0).Padding()
 	// Colunm needs to be expanded.
-	col := tr.NewArrayColumn(ctx, p.target.Name(), data, padding)
+	col := tr.NewArrayColumn(ctx, p.Target.Name, data, padding)
 	//
 	return []tr.ArrayColumn{col}, nil
 }
@@ -118,7 +114,7 @@ func (p *Interleaving) ComputeColumns(trace tr.Trace) ([]tr.ArrayColumn, error) 
 // Dependencies returns the set of columns that this assignment depends upon.
 // That can include both input columns, as well as other computed columns.
 func (p *Interleaving) Dependencies() []uint {
-	return p.sources
+	return p.Sources
 }
 
 // ============================================================================
@@ -128,15 +124,15 @@ func (p *Interleaving) Dependencies() []uint {
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
 func (p *Interleaving) Lisp(schema sc.Schema) sexp.SExp {
-	target := sexp.NewSymbol(p.target.QualifiedName(schema))
+	target := sexp.NewSymbol(p.Target.QualifiedName(schema))
 	sources := sexp.EmptyList()
 	// Convert source columns
-	for _, src := range p.sources {
+	for _, src := range p.Sources {
 		sources.Append(sexp.NewSymbol(sc.QualifiedName(schema, src)))
 	}
 	// Add datatype (if non-field)
-	datatype := sexp.NewSymbol(p.target.Type().String())
-	multiplier := sexp.NewSymbol(fmt.Sprintf("x%d", p.target.Context().LengthMultiplier()))
+	datatype := sexp.NewSymbol(p.Target.DataType.String())
+	multiplier := sexp.NewSymbol(fmt.Sprintf("x%d", p.Target.Context.LengthMultiplier()))
 	def := sexp.NewList([]sexp.SExp{target, datatype, multiplier})
 	// Construct S-Expression
 	return sexp.NewList([]sexp.SExp{
@@ -144,4 +140,12 @@ func (p *Interleaving) Lisp(schema sc.Schema) sexp.SExp {
 		def,
 		sources,
 	})
+}
+
+// ============================================================================
+// Encoding / Decoding
+// ============================================================================
+
+func init() {
+	gob.Register(sc.Declaration(&Interleaving{}))
 }

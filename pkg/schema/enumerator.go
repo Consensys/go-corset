@@ -50,8 +50,8 @@ func (p *TraceEnumerator) Next() tr.Trace {
 			j++
 		}
 		// Construct raw column
-		modName := p.schema.Modules().Nth(col.context.Module()).Name
-		cols[i] = tr.RawColumn{Module: modName, Name: col.Name(), Data: data}
+		modName := p.schema.Modules().Nth(col.Context.Module()).Name
+		cols[i] = tr.RawColumn{Module: modName, Name: col.Name, Data: data}
 		i++
 	}
 	// Finally, build the trace.

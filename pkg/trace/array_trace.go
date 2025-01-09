@@ -39,7 +39,7 @@ func (p *ArrayTrace) Width() uint {
 
 // Height returns the height of a given context (i.e. module) in the trace.
 func (p *ArrayTrace) Height(ctx Context) uint {
-	return p.modules[ctx.module].height * ctx.multiplier
+	return p.modules[ctx.Module()].height * ctx.Multiplier
 }
 
 // Column returns a given column in this trace.
@@ -55,7 +55,7 @@ func (p *ArrayTrace) FillColumn(cid uint, data util.FrArray, padding fr.Element)
 	// Find enclosing module
 	mod := &p.modules[col.Context().Module()]
 	// Determine appropriate length multiplier
-	multiplier := col.context.multiplier
+	multiplier := col.context.Multiplier
 	// Sanity check this column has not already been filled.
 	if data.Len()%multiplier != 0 {
 		colname := QualifiedColumnName(mod.name, col.name)
@@ -63,7 +63,7 @@ func (p *ArrayTrace) FillColumn(cid uint, data util.FrArray, padding fr.Element)
 			colname, data.Len(), multiplier))
 	} else if mod.height == math.MaxUint {
 		// Initialise column height
-		mod.height = data.Len() / col.context.multiplier
+		mod.height = data.Len() / col.context.Multiplier
 	} else if data.Len() != p.Height(col.Context()) {
 		colname := QualifiedColumnName(mod.name, col.name)
 		panic(fmt.Sprintf("column %s has invalid height (%d but expected %d)", colname, data.Len(), mod.height*multiplier))
@@ -78,7 +78,7 @@ func (p *ArrayTrace) Pad(module uint, n uint) {
 	// Padd each column contained within this module.
 	for i := 0; i < len(p.columns); i++ {
 		c := &p.columns[i]
-		if c.context.module == module {
+		if c.context.ModuleId == module {
 			c.pad(n)
 		}
 	}

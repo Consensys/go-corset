@@ -197,9 +197,9 @@ func validationCheck(tr tr.Trace, schema sc.Schema) error {
 		// Extract schema for ith column
 		scCol := schemaCols.Next()
 		// Determine enclosing module
-		mod := schema.Modules().Nth(scCol.Context().Module())
+		mod := schema.Modules().Nth(scCol.Context.Module())
 		// Extract type for ith column
-		colType := scCol.Type()
+		colType := scCol.DataType
 		// Check elements
 		go func() {
 			// Send outcome back
@@ -250,10 +250,10 @@ func reportFailures(ir string, failures []sc.Failure, trace tr.Trace, cfg checkC
 func reportFailure(failure sc.Failure, trace tr.Trace, cfg checkConfig) {
 	if f, ok := failure.(*constraint.VanishingFailure); ok {
 		cells := f.RequiredCells(trace)
-		reportConstraintFailure("constraint", f.Handle(), cells, trace, cfg)
+		reportConstraintFailure("constraint", f.Handle, cells, trace, cfg)
 	} else if f, ok := failure.(*sc.AssertionFailure); ok {
 		cells := f.RequiredCells(trace)
-		reportConstraintFailure("assertion", f.Handle(), cells, trace, cfg)
+		reportConstraintFailure("assertion", f.Handle, cells, trace, cfg)
 	}
 }
 

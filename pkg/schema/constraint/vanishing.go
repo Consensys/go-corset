@@ -3,7 +3,6 @@ package constraint
 import (
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/sexp"
 	tr "github.com/consensys/go-corset/pkg/trace"
@@ -64,38 +63,22 @@ func (p ZeroTest[E]) Lisp(schema sc.Schema) sexp.SExp {
 // VanishingFailure provides structural information about a failing vanishing constraint.
 type VanishingFailure struct {
 	// Handle of the failing constraint
-	handle string
+	Handle string
 	// Constraint expression
-	constraint sc.Testable
+	Constraint sc.Testable
 	// Row on which the constraint failed
-	row uint
-}
-
-// Handle returns the handle of this constraint
-func (p *VanishingFailure) Handle() string {
-	// Construct useful error message
-	return p.handle
+	Row uint
 }
 
 // Message provides a suitable error message
 func (p *VanishingFailure) Message() string {
 	// Construct useful error message
-	return fmt.Sprintf("constraint \"%s\" does not hold (row %d)", p.handle, p.row)
-}
-
-// Constraint returns the constraint expression itself.
-func (p *VanishingFailure) Constraint() sc.Testable {
-	return p.constraint
-}
-
-// Row identifies the row on which this constraint failed.
-func (p *VanishingFailure) Row() uint {
-	return p.row
+	return fmt.Sprintf("constraint \"%s\" does not hold (row %d)", p.Handle, p.Row)
 }
 
 // RequiredCells identifies the cells required to evaluate the failing constraint at the failing row.
 func (p *VanishingFailure) RequiredCells(trace tr.Trace) *util.AnySortedSet[tr.CellRef] {
-	return p.constraint.RequiredCells(int(p.row), trace)
+	return p.Constraint.RequiredCells(int(p.Row), trace)
 }
 
 func (p *VanishingFailure) String() string {
@@ -111,79 +94,54 @@ func (p *VanishingFailure) String() string {
 type VanishingConstraint[T sc.Testable] struct {
 	// A unique identifier for this constraint.  This is primarily
 	// useful for debugging.
-	handle string
-	// Evaluation context for this constraint which must match that of the
+	Handle string
+	// Evaluation Context for this constraint which must match that of the
 	// constrained expression itself.
-	context tr.Context
-	// Indicates (when nil) a global constraint that applies to all rows.
+	Context tr.Context
+	// Indicates (when empty) a global constraint that applies to all rows.
 	// Otherwise, indicates a local constraint which applies to the specific row
-	// given here.
-	domain *int
-	// The actual constraint itself (e.g. an expression which
+	// given.
+	Domain util.Option[int]
+	// The actual Constraint itself (e.g. an expression which
 	// should evaluate to zero, etc)
-	constraint T
+	Constraint T
 }
 
 // NewVanishingConstraint constructs a new vanishing constraint!
 func NewVanishingConstraint[T sc.Testable](handle string, context tr.Context,
-	domain *int, constraint T) *VanishingConstraint[T] {
+	domain util.Option[int], constraint T) *VanishingConstraint[T] {
 	return &VanishingConstraint[T]{handle, context, domain, constraint}
-}
-
-// Handle returns the handle associated with this constraint.
-//
-//nolint:revive
-func (p *VanishingConstraint[T]) Handle() string {
-	return p.handle
-}
-
-// Constraint returns the vanishing expression itself.
-func (p *VanishingConstraint[T]) Constraint() T {
-	return p.constraint
-}
-
-// Domain returns the domain of this constraint.  If the domain is nil, then
-// this is a global constraint.  Otherwise this signals a local constraint which
-// applies to a specific row (e.g. the first or last).
-func (p *VanishingConstraint[T]) Domain() *int {
-	return p.domain
-}
-
-// Context returns the evaluation context for this constraint.  Every constraint
-// must be situated within exactly one module in order to be well-formed.
-//
-//nolint:revive
-func (p *VanishingConstraint[T]) Context() tr.Context {
-	return p.context
 }
 
 // Accepts checks whether a vanishing constraint evaluates to zero on every row
 // of a table.  If so, return nil otherwise return an error.
 //
 //nolint:revive
-func (p *VanishingConstraint[T]) Accepts(tr tr.Trace) schema.Failure {
-	if p.domain == nil {
+func (p *VanishingConstraint[T]) Accepts(tr tr.Trace) sc.Failure {
+	if p.Domain.IsEmpty() {
 		// Global Constraint
-		return HoldsGlobally(p.handle, p.context, p.constraint, tr)
+		return HoldsGlobally(p.Handle, p.Context, p.Constraint, tr)
 	}
+	// Extract domain
+	domain := p.Domain.Unwrap()
 	// Local constraint
 	var start uint
 	// Handle negative domains
-	if *p.domain < 0 {
+	if domain < 0 {
 		// Determine height of enclosing module
-		height := tr.Height(p.context)
+		height := tr.Height(p.Context)
 		// Negative rows calculated from end of trace.
-		start = height + uint(*p.domain)
+		start = height + uint(domain)
 	} else {
-		start = uint(*p.domain)
+		start = uint(domain)
 	}
 	// Check specific row
-	return HoldsLocally(start, p.handle, p.constraint, tr)
+	return HoldsLocally(start, p.Handle, p.Constraint, tr)
 }
 
 // HoldsGlobally checks whether a given expression vanishes (i.e. evaluates to
 // zero) for all rows of a trace.  If not, report an appropriate error.
-func HoldsGlobally[T sc.Testable](handle string, ctx tr.Context, constraint T, tr tr.Trace) schema.Failure {
+func HoldsGlobally[T sc.Testable](handle string, ctx tr.Context, constraint T, tr tr.Trace) sc.Failure {
 	// Determine height of enclosing module
 	height := tr.Height(ctx)
 	// Determine well-definedness bounds for this constraint
@@ -203,7 +161,7 @@ func HoldsGlobally[T sc.Testable](handle string, ctx tr.Context, constraint T, t
 
 // HoldsLocally checks whether a given constraint holds (e.g. vanishes) on a
 // specific row of a trace. If not, report an appropriate error.
-func HoldsLocally[T sc.Testable](k uint, handle string, constraint T, tr tr.Trace) schema.Failure {
+func HoldsLocally[T sc.Testable](k uint, handle string, constraint T, tr tr.Trace) sc.Failure {
 	// Check whether it holds or not
 	if !constraint.TestAt(int(k), tr) {
 		// Evaluation failure
@@ -219,27 +177,28 @@ func HoldsLocally[T sc.Testable](k uint, handle string, constraint T, tr tr.Trac
 func (p *VanishingConstraint[T]) Lisp(schema sc.Schema) sexp.SExp {
 	var name string
 	// Construct qualified name
-	if module := schema.Modules().Nth(p.context.Module()); module.Name != "" {
-		name = fmt.Sprintf("%s:%s", module.Name, p.handle)
+	if module := schema.Modules().Nth(p.Context.Module()); module.Name != "" {
+		name = fmt.Sprintf("%s:%s", module.Name, p.Handle)
 	} else {
-		name = p.handle
+		name = p.Handle
 	}
 	// Handle attributes
-	if p.domain == nil {
-		// Skip
-	} else if *p.domain == 0 {
-		name = fmt.Sprintf("%s:first", name)
-	} else if *p.domain == -1 {
-		name = fmt.Sprintf("%s:last", name)
-	} else {
-		panic(fmt.Sprintf("domain value %d not supported for local constraint", p.domain))
+	if p.Domain.HasValue() {
+		domain := p.Domain.Unwrap()
+		if domain == 0 {
+			name = fmt.Sprintf("%s:first", name)
+		} else if domain == -1 {
+			name = fmt.Sprintf("%s:last", name)
+		} else {
+			panic(fmt.Sprintf("domain value %d not supported for local constraint", domain))
+		}
 	}
 	// Determine multiplier
-	multiplier := fmt.Sprintf("x%d", p.context.LengthMultiplier())
+	multiplier := fmt.Sprintf("x%d", p.Context.LengthMultiplier())
 	// Construct the list
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("vanish"),
 		sexp.NewList([]sexp.SExp{sexp.NewSymbol(name), sexp.NewSymbol(multiplier)}),
-		p.constraint.Lisp(schema),
+		p.Constraint.Lisp(schema),
 	})
 }
