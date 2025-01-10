@@ -933,10 +933,13 @@ func (e *VariableAccess) Multiplicity() uint {
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
 func (e *VariableAccess) Context() Context {
-	binding, ok := e.binding.(*ColumnBinding)
-	//
-	if ok {
+	// Check the expected options.
+	if binding, ok := e.binding.(*ColumnBinding); ok {
 		return binding.Context()
+	} else if _, ok := e.Binding().(*ConstantBinding); ok {
+		return tr.VoidContext[string]()
+	} else if _, ok := e.Binding().(*LocalVariableBinding); ok {
+		return tr.VoidContext[string]()
 	}
 	//
 	panic("invalid column access")
