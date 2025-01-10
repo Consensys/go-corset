@@ -183,19 +183,24 @@ func (p *typeChecker) typeCheckOptionalExpressionInModule(expr Expr) (Type, []Sy
 // All expressions are expected to be non-voidable (see below for more on
 // voidability).
 func (p *typeChecker) typeCheckExpressionsInModule(exprs []Expr) ([]Type, []SyntaxError) {
-	//
 	errors := []SyntaxError{}
-	hirExprs := make([]Type, len(exprs))
+	types := make([]Type, len(exprs))
 	// Iterate each expression in turn
 	for i, e := range exprs {
-		if e != nil {
-			var errs []SyntaxError
-			hirExprs[i], errs = p.typeCheckExpressionInModule(e)
-			errors = append(errors, errs...)
+		if e == nil {
+			continue
+		}
+		//
+		var errs []SyntaxError
+		types[i], errs = p.typeCheckExpressionInModule(e)
+		errors = append(errors, errs...)
+		// Sanity check what we got back
+		if types[i] == nil {
+			return nil, errors
 		}
 	}
 	//
-	return hirExprs, errors
+	return types, errors
 }
 
 // typeCheck an expression situated in a given context.  The context is
@@ -275,7 +280,7 @@ func (p *typeChecker) typeCheckArrayAccessInModule(expr *ArrayAccess) (Type, []S
 func (p *typeChecker) typeCheckIfInModule(expr *If) (Type, []SyntaxError) {
 	types, errs := p.typeCheckExpressionsInModule([]Expr{expr.Condition, expr.TrueBranch, expr.FalseBranch})
 	// Sanity check
-	if len(errs) != 0 {
+	if len(errs) != 0 || types == nil {
 		return nil, errs
 	}
 	// Check & Resolve Condition
@@ -299,6 +304,9 @@ func (p *typeChecker) typeCheckInvokeInModule(expr *Invoke) (Type, []SyntaxError
 		return nil, nil
 	} else if argTypes, errors := p.typeCheckExpressionsInModule(expr.args); len(errors) > 0 {
 		return nil, errors
+	} else if argTypes == nil {
+		// An upstream expression could not because of a resolution error.
+		return nil, nil
 	} else if signature := binding.Select(argTypes); signature != nil {
 		// Check arguments are accepted, based on their type.
 		for i := 0; i < len(argTypes); i++ {
@@ -326,24 +334,27 @@ func (p *typeChecker) typeCheckInvokeInModule(expr *Invoke) (Type, []SyntaxError
 		return p.typeCheckExpressionInModule(body)
 	}
 	// ambiguous invocation
-	return nil, p.srcmap.SyntaxErrors(expr, "ambiguous invocation")
+	return nil, p.srcmap.SyntaxErrors(expr.fn, "ambiguous invocation")
 }
 
 func (p *typeChecker) typeCheckLetInModule(expr *Let) (Type, []SyntaxError) {
 	// NOTE: there is a limitation here since we are using the type of the
 	// assigned expressions.  It would be nice to retain this, but it would
 	// require a more flexible notion of environment than we currently have.
-	types, arg_errors := p.typeCheckExpressionsInModule(expr.Args)
-	// Update type for let-bound variables.
-	for i := range expr.Vars {
-		if types[i] != nil {
-			expr.Vars[i].datatype = types[i]
+	if types, arg_errors := p.typeCheckExpressionsInModule(expr.Args); types != nil {
+		// Update type for let-bound variables.
+		for i := range expr.Vars {
+			if types[i] != nil {
+				expr.Vars[i].datatype = types[i]
+			}
 		}
+		// Type check body
+		body_t, body_errors := p.typeCheckExpressionInModule(expr.Body)
+		//
+		return body_t, append(arg_errors, body_errors...)
+	} else {
+		return nil, arg_errors
 	}
-	// Type check body
-	body_t, body_errors := p.typeCheckExpressionInModule(expr.Body)
-	//
-	return body_t, append(arg_errors, body_errors...)
 }
 
 func (p *typeChecker) typeCheckReduceInModule(expr *Reduce) (Type, []SyntaxError) {

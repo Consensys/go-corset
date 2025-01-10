@@ -1,5 +1,4 @@
-;;error:5:27-29:unknown symbol
-;;error:5:24-32:expected loobean constraint (found 𝔽)
+;;error:4:27-29:unknown symbol
 (defcolumns A)
 (defpurefun (id x) x)
 (defconstraint test () (+ id A))
