@@ -161,7 +161,7 @@ func (p *Parser) parseSymbol() []rune {
 
 	for j := p.index; j < i; j++ {
 		c := p.text[j]
-		if c == ')' || c == '}' || c == ']' || c == ' ' || c == '\n' || c == '\t' {
+		if c == '(' || c == ')' || c == '{' || c == '}' || c == '[' || c == ']' || c == ' ' || c == '\n' || c == '\t' {
 			i = j
 			break
 		}
