@@ -606,6 +606,10 @@ func Test_Lookup_11(t *testing.T) {
 	Check(t, false, "lookup_11")
 }
 
+func Test_Lookup_12(t *testing.T) {
+	Check(t, false, "lookup_12")
+}
+
 // ===================================================================
 // Interleaving
 // ===================================================================
