@@ -100,6 +100,12 @@ func (p *preprocessor) preprocessDefConstraint(decl *DefConstraint) []SyntaxErro
 	decl.Constraint, constraint_errors = p.preprocessExpressionInModule(decl.Constraint)
 	// preprocess (optional) guard
 	decl.Guard, guard_errors = p.preprocessOptionalExpressionInModule(decl.Guard)
+	// sanity check
+	if decl.Constraint == nil {
+		// this case is possible when the constraint expression consists
+		// entirely of debug constraints, and debug mode is not enabled.
+		decl.Constraint = &List{nil}
+	}
 	// Combine errors
 	return append(constraint_errors, guard_errors...)
 }

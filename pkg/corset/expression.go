@@ -858,8 +858,7 @@ func (e *Shift) Dependencies() []Symbol {
 }
 
 // ============================================================================
-// VariableAccess
-// ============================================================================
+// VariableAccess// ============================================================================
 
 // VariableAccess represents reading the value of a given local variable (such
 // as a function parameter).
