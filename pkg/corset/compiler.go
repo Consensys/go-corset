@@ -89,15 +89,12 @@ func (p *Compiler) SetAllocator(allocator func(RegisterAllocation)) *Compiler {
 // etc.
 func (p *Compiler) Compile() (*hir.Schema, []SyntaxError) {
 	// Resolve variables (via nested scopes)
-	scope, errs := ResolveCircuit(p.srcmap, &p.circuit)
-	// Check whether any errors were encountered.  If so, terminate since we
-	// cannot proceed with translation.
-	if len(errs) != 0 {
-		return nil, errs
-	}
+	scope, res_errs := ResolveCircuit(p.srcmap, &p.circuit)
 	// Type check circuit.
-	if errs := TypeCheckCircuit(p.srcmap, &p.circuit); len(errs) > 0 {
-		return nil, errs
+	type_errs := TypeCheckCircuit(p.srcmap, &p.circuit)
+	// Don't proceed if errors at this point.
+	if len(res_errs) > 0 || len(type_errs) > 0 {
+		return nil, append(res_errs, type_errs...)
 	}
 	// Preprocess circuit to remove invocations, reductions, etc.
 	if errs := PreprocessCircuit(p.debug, p.srcmap, &p.circuit); len(errs) > 0 {

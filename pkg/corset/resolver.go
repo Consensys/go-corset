@@ -661,9 +661,6 @@ func (r *resolver) finaliseReduceInModule(scope LocalScope, expr *Reduce) []Synt
 
 		if scope.IsPure() && !binding.IsPure() {
 			errors = append(errors, *r.srcmap.SyntaxError(expr, "not permitted in pure context"))
-		} else if !binding.HasArity(2) {
-			msg := "incorrect number of arguments (expected 2)"
-			errors = append(errors, *r.srcmap.SyntaxError(expr, msg))
 		}
 	}
 	// Done

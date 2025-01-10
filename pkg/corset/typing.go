@@ -293,10 +293,11 @@ func (p *typeChecker) typeCheckIfInModule(expr *If) (Type, []SyntaxError) {
 }
 
 func (p *typeChecker) typeCheckInvokeInModule(expr *Invoke) (Type, []SyntaxError) {
-	// Following safe as resolver checked this already.
-	binding := expr.fn.binding.(FunctionBinding)
-	//
-	if argTypes, errors := p.typeCheckExpressionsInModule(expr.args); len(errors) > 0 {
+	if binding, ok := expr.fn.binding.(FunctionBinding); !ok {
+		// We don't return an error here, since one would already have been
+		// generated during resolution.
+		return nil, nil
+	} else if argTypes, errors := p.typeCheckExpressionsInModule(expr.args); len(errors) > 0 {
 		return nil, errors
 	} else if signature := binding.Select(argTypes); signature != nil {
 		// Check arguments are accepted, based on their type.
@@ -350,36 +351,42 @@ func (p *typeChecker) typeCheckReduceInModule(expr *Reduce) (Type, []SyntaxError
 	// Type check body of reduction
 	body_t, errors := p.typeCheckExpressionInModule(expr.arg)
 	// Following safe as resolver checked this already.
-	binding := expr.fn.binding.(FunctionBinding)
-	//
-	if signature = binding.Select([]Type{body_t, body_t}); signature != nil {
-		// Check left parameter type
-		if !body_t.SubtypeOf(signature.Parameter(0)) {
-			msg := fmt.Sprintf("expected type %s (found %s)", signature.Parameter(0), body_t)
-			errors = append(errors, *p.srcmap.SyntaxError(expr.arg, msg))
+	if binding, ok := expr.fn.binding.(FunctionBinding); ok && body_t != nil {
+		//
+		if signature = binding.Select([]Type{body_t, body_t}); signature != nil {
+			// Check left parameter type
+			if !body_t.SubtypeOf(signature.Parameter(0)) {
+				msg := fmt.Sprintf("expected type %s (found %s)", signature.Parameter(0), body_t)
+				errors = append(errors, *p.srcmap.SyntaxError(expr.arg, msg))
+			}
+			// Check right parameter type
+			if !body_t.SubtypeOf(signature.Parameter(1)) {
+				msg := fmt.Sprintf("expected type %s (found %s)", signature.Parameter(1), body_t)
+				errors = append(errors, *p.srcmap.SyntaxError(expr.arg, msg))
+			}
+		} else if !binding.HasArity(2) {
+			msg := "incorrect number of arguments (expected 2)"
+			errors = append(errors, *p.srcmap.SyntaxError(expr, msg))
+		} else {
+			msg := "ambiguous reduction"
+			errors = append(errors, *p.srcmap.SyntaxError(expr, msg))
 		}
-		// Check right parameter type
-		if !body_t.SubtypeOf(signature.Parameter(1)) {
-			msg := fmt.Sprintf("expected type %s (found %s)", signature.Parameter(1), body_t)
-			errors = append(errors, *p.srcmap.SyntaxError(expr.arg, msg))
+		// Error check
+		if len(errors) > 0 {
+			return nil, errors
 		}
-	} else {
-		msg := "ambiguous reduction"
-		errors = append(errors, *p.srcmap.SyntaxError(expr, msg))
+		// Lock in signature
+		expr.Finalise(signature)
 	}
-	// Error check
-	if len(errors) > 0 {
-		return nil, errors
-	}
-	// Lock in signature
-	expr.Finalise(signature)
 	//
 	return body_t, nil
 }
 
 func (p *typeChecker) typeCheckVariableInModule(expr *VariableAccess) (Type, []SyntaxError) {
 	// Check what we've got.
-	if binding, ok := expr.Binding().(*ColumnBinding); ok {
+	if !expr.IsResolved() {
+		//
+	} else if binding, ok := expr.Binding().(*ColumnBinding); ok {
 		return binding.dataType, nil
 	} else if binding, ok := expr.Binding().(*ConstantBinding); ok {
 		// Constant
@@ -388,6 +395,7 @@ func (p *typeChecker) typeCheckVariableInModule(expr *VariableAccess) (Type, []S
 		// Parameter, for or let variable
 		return binding.datatype, nil
 	}
-	// Should be unreachable.
-	return nil, p.srcmap.SyntaxErrors(expr, "unknown symbol kind")
+	// NOTE: we don't return an error here, since this case would have already
+	// been caught by the resolver and we don't want to double up on errors.
+	return nil, nil
 }
