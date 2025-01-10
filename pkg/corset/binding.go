@@ -194,24 +194,25 @@ type ConstantBinding struct {
 	path util.Path
 	// Constant expression which, when evaluated, produces a constant value.
 	value Expr
-	// Inferred type of the given expression
-	datatype Type
+	// Determines whether or not this binding is finalised (i.e. its expression
+	// has been resolved).
+	finalised bool
 }
 
 // NewConstantBinding creates a new constant binding (which is initially not
 // finalised).
 func NewConstantBinding(path util.Path, value Expr) ConstantBinding {
-	return ConstantBinding{path, value, nil}
+	return ConstantBinding{path, value, false}
 }
 
 // IsFinalised checks whether this binding has been finalised yet or not.
 func (p *ConstantBinding) IsFinalised() bool {
-	return p.datatype != nil
+	return p.finalised
 }
 
-// Finalise this binding by providing the necessary missing information.
-func (p *ConstantBinding) Finalise(datatype Type) {
-	p.datatype = datatype
+// Finalise this binding.
+func (p *ConstantBinding) Finalise() {
+	p.finalised = true
 }
 
 // Context returns the of this constant, noting that constants (by definition)
@@ -355,9 +356,9 @@ type DefunBinding struct {
 	paramTypes []Type
 	// Type of return (optional)
 	returnType Type
-	// Inferred type of the body.  This is used to compare against the declared
-	// type (if there is one) to check for any descrepencies.
-	bodyType Type
+	// Indicates whether this symbol is finalised (i.e. all expressions have
+	// been resolved).
+	finalised bool
 	// body of the function in question.
 	body Expr
 }
@@ -366,7 +367,7 @@ var _ FunctionBinding = &DefunBinding{}
 
 // NewDefunBinding constructs a new function binding.
 func NewDefunBinding(pure bool, paramTypes []Type, returnType Type, body Expr) DefunBinding {
-	return DefunBinding{pure, paramTypes, returnType, nil, body}
+	return DefunBinding{pure, paramTypes, returnType, false, body}
 }
 
 // IsPure checks whether this is a defpurefun or not
@@ -376,7 +377,7 @@ func (p *DefunBinding) IsPure() bool {
 
 // IsFinalised checks whether this binding has been finalised yet or not.
 func (p *DefunBinding) IsFinalised() bool {
-	return p.bodyType != nil
+	return p.finalised
 }
 
 // HasArity checks whether this function accepts a given number of arguments (or
@@ -392,8 +393,8 @@ func (p *DefunBinding) Signature() FunctionSignature {
 }
 
 // Finalise this binding by providing the necessary missing information.
-func (p *DefunBinding) Finalise(bodyType Type) {
-	p.bodyType = bodyType
+func (p *DefunBinding) Finalise() {
+	p.finalised = true
 }
 
 // Select the best fit signature based on the available parameter types.
