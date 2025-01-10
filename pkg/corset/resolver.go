@@ -62,37 +62,6 @@ func (r *resolver) initialiseDeclarations(scope *ModuleScope, circuit *Circuit) 
 	return errs
 }
 
-// Process all assignment column declarations.  These are more complex than for
-// input columns, since there can be dependencies between them.  Thus, we cannot
-// simply resolve them in one linear scan.
-func (r *resolver) resolveDeclarations(scope *ModuleScope, circuit *Circuit) []SyntaxError {
-	// Input columns must be allocated before assignemts, since the hir.Schema
-	// separates these out.
-	errs := r.resolveDeclarationsInModule(scope, circuit.Declarations)
-	//
-	for _, m := range circuit.Modules {
-		// Process all declarations in the module
-		merrs := r.resolveDeclarationsInModule(scope.Enter(m.Name), m.Declarations)
-		// Package up all errors
-		errs = append(errs, merrs...)
-	}
-	//
-	return errs
-}
-
-// Resolve all columns declared in a given module.  This is tricky because
-// assignments can depend on the declaration of other columns.  Hence, we have
-// to process all columns before we can sure that they are all declared
-// correctly.
-func (r *resolver) resolveDeclarationsInModule(scope *ModuleScope, decls []Declaration) []SyntaxError {
-	// Aliases
-	if errors := r.initialiseAliasesInModule(scope, decls); len(errors) > 0 {
-		return errors
-	}
-	// Finalise everything
-	return r.finaliseDeclarationsInModule(scope, decls)
-}
-
 // Initialise all declarations in the given module scope.  That means allocating
 // all bindings into the scope, whilst also ensuring that we never have two
 // bindings for the same symbol, etc.  The key is that, at this stage, all
@@ -123,6 +92,10 @@ func (r *resolver) initialiseDeclarationsInModule(scope *ModuleScope, decls []De
 				errors = append(errors, *err)
 			}
 		}
+	}
+	// Third, intialise aliases
+	if errors := r.initialiseAliasesInModule(scope, decls); len(errors) > 0 {
+		return errors
 	}
 	//
 	return errors
@@ -177,6 +150,24 @@ func (r *resolver) initialiseAliasesInModule(scope *ModuleScope, decls []Declara
 	}
 	// Done
 	return errors
+}
+
+// Process all assignment column declarations.  These are more complex than for
+// input columns, since there can be dependencies between them.  Thus, we cannot
+// simply resolve them in one linear scan.
+func (r *resolver) resolveDeclarations(scope *ModuleScope, circuit *Circuit) []SyntaxError {
+	// Input columns must be allocated before assignemts, since the hir.Schema
+	// separates these out.
+	errs := r.finaliseDeclarationsInModule(scope, circuit.Declarations)
+	//
+	for _, m := range circuit.Modules {
+		// Process all declarations in the module
+		merrs := r.finaliseDeclarationsInModule(scope.Enter(m.Name), m.Declarations)
+		// Package up all errors
+		errs = append(errs, merrs...)
+	}
+	//
+	return errs
 }
 
 // Finalise all declarations given in a module.  This requires an iterative
