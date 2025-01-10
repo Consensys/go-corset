@@ -483,7 +483,7 @@ func (r *resolver) finaliseDefInRangeInModule(enclosing Scope, decl *DefInRange)
 // accessed; (d) finally, resolving any parameters used within the body of this
 // function.
 func (r *resolver) finaliseDefFunInModule(enclosing Scope, decl *DefFun) []SyntaxError {
-	var scope = NewLocalScope(enclosing, false, decl.IsPure())
+	var scope = NewLocalScope(enclosing, true, decl.IsPure())
 	// Declare parameters in local scope
 	for _, p := range decl.Parameters() {
 		scope.DeclareLocal(p.Binding.name, &p.Binding)
