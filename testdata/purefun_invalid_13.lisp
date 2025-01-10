@@ -1,4 +1,4 @@
-;;error:8:22-30:ambiguous invocation
+;;error:8:23-25:ambiguous invocation
 (defpurefun (fn (x :binary) y) (- x y))
 (defpurefun (fn x (y :binary)) (+ x y))
 (defpurefun (fn x y) (* x y))

@@ -72,6 +72,11 @@ func GreatestLowerBoundAll(types []Type) Type {
 // example, the lub of u16 and u128 is u128, etc.  This means that, when joining
 // the bottom type with a type that has semantics, you get the former.
 func GreatestLowerBound(lhs Type, rhs Type) Type {
+	// Sanity checks
+	if lhs == nil || rhs == nil {
+		return nil
+	}
+	// Proceed
 	var (
 		l_loobean bool = lhs.HasLoobeanSemantics()
 		r_loobean bool = rhs.HasLoobeanSemantics()
@@ -103,6 +108,11 @@ func LeastUpperBoundAll(types []Type) Type {
 // the lub of u16 and u128 is u128, etc.    This means that, when joining the
 // bottom type with a type that has semantics, you get the latter.
 func LeastUpperBound(lhs Type, rhs Type) Type {
+	// Sanity checks
+	if lhs == nil || rhs == nil {
+		return nil
+	}
+	// Proceed
 	var (
 		l_loobean bool = lhs.HasLoobeanSemantics()
 		r_loobean bool = rhs.HasLoobeanSemantics()
