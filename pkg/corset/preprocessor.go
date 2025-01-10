@@ -1,7 +1,6 @@
 package corset
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/sexp"
@@ -327,7 +326,6 @@ func (p *preprocessor) preprocessLetInModule(expr *Let) (Expr, []SyntaxError) {
 	)
 	// Construct variable mapping and preprocess
 	for i, v := range expr.Vars {
-		fmt.Printf("Index for variable %s is %d.\n", v.name, v.index)
 		mapping[v.index], errs = p.preprocessExpressionInModule(expr.Args[i])
 		errors = append(errors, errs...)
 	}

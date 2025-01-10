@@ -95,6 +95,10 @@ func (p *Compiler) Compile() (*hir.Schema, []SyntaxError) {
 	if len(errs) != 0 {
 		return nil, errs
 	}
+	// Type check circuit.
+	if errs := TypeCheckCircuit(p.srcmap, &p.circuit); len(errs) > 0 {
+		return nil, errs
+	}
 	// Preprocess circuit to remove invocations, reductions, etc.
 	if errs := PreprocessCircuit(p.debug, p.srcmap, &p.circuit); len(errs) > 0 {
 		return nil, errs

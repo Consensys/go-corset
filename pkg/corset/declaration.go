@@ -965,6 +965,11 @@ func (p *DefFun) Path() *util.Path {
 	return &p.symbol.path
 }
 
+// Finalise this declaration
+func (p *DefFun) Finalise() {
+	p.symbol.binding.Finalise()
+}
+
 // Definitions returns the set of symbols defined by this declaration.  Observe
 // that these may not yet have been finalised.
 func (p *DefFun) Definitions() util.Iterator[SymbolDefinition] {
