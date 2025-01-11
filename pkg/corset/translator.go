@@ -94,7 +94,7 @@ func (t *translator) translateInputColumnsInModule(module string) {
 			panic("inactive register encountered")
 		} else if regInfo.IsInput() {
 			// Declare column at HIR level.
-			cid := t.schema.AddDataColumn(regInfo.Context, regInfo.Name, regInfo.DataType)
+			cid := t.schema.AddDataColumn(regInfo.Context, regInfo.Name(), regInfo.DataType)
 			// Prove underlying types (as necessary)
 			t.translateTypeConstraints(regIndex)
 			// Sanity check
@@ -158,7 +158,7 @@ func (t *translator) translateTypeConstraints(regIndex uint) {
 		}
 		// Add appropriate type constraint
 		bound := regInfo.DataType.AsUint().Bound()
-		t.schema.AddRangeConstraint(regInfo.Name, regInfo.Context, &hir.ColumnAccess{Column: regIndex, Shift: 0}, bound)
+		t.schema.AddRangeConstraint(regInfo.Name(), regInfo.Context, &hir.ColumnAccess{Column: regIndex, Shift: 0}, bound)
 	}
 }
 
@@ -331,7 +331,7 @@ func (t *translator) translateDefInterleaved(decl *DefInterleaved, module util.P
 		sources[i] = t.env.RegisterOf(source.Path())
 	}
 	// Register assignment
-	cid := t.schema.AddAssignment(assignment.NewInterleaving(target.Context, target.Name, sources, target.DataType))
+	cid := t.schema.AddAssignment(assignment.NewInterleaving(target.Context, target.Name(), sources, target.DataType))
 	// Sanity check column identifiers align.
 	if cid != targetId {
 		err := fmt.Sprintf("inconsitent (interleaved) column identifier (%d v %d)", cid, targetId)
@@ -358,7 +358,7 @@ func (t *translator) translateDefPermutation(decl *DefPermutation, module util.P
 		targetId := t.env.RegisterOf(targetPath)
 		target := t.env.Register(targetId)
 		// Construct columns
-		targets[i] = sc.NewColumn(target.Context, target.Name, target.DataType)
+		targets[i] = sc.NewColumn(target.Context, target.Name(), target.DataType)
 		sources[i] = t.env.RegisterOf(decl.Sources[i].Path())
 		signs[i] = decl.Signs[i]
 		// Record first CID

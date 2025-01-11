@@ -22,12 +22,12 @@ import (
 type Register struct {
 	// Context (i.e. module + multiplier) of this register.
 	Context tr.Context
-	// Name of this register
-	Name string
 	// Underlying datatype of this register.
 	DataType sc.Type
 	// Source columns of this register
 	Sources []RegisterSource
+	// Cached name
+	cached_name *string
 }
 
 // IsActive determines whether or not this register is "active".  Inactive
@@ -60,9 +60,10 @@ func (r *Register) Merge(other *Register) {
 		panic("cannot merge registers from different context")
 	}
 	//
-	r.Name = fmt.Sprintf("%s_xor_%s", r.Name, other.Name)
 	r.DataType = schema.Join(r.DataType, other.DataType)
 	r.Sources = append(r.Sources, other.Sources...)
+	// Reset the cached name
+	r.cached_name = nil
 	// Deactivate other register
 	other.Deactivate()
 }
@@ -70,9 +71,46 @@ func (r *Register) Merge(other *Register) {
 // Deactivate marks a given register as no longer being required.  This happens
 // when one register is merged into another.
 func (r *Register) Deactivate() {
-	r.Name = ""
 	r.DataType = nil
 	r.Sources = nil
+}
+
+// Name returns the given name for this register.
+func (r *Register) Name() string {
+	if r.cached_name == nil {
+		// Construct registers name
+		names := make([]string, len(r.Sources))
+		// Sort by perspective name
+		slices.SortFunc(r.Sources, func(l RegisterSource, r RegisterSource) int {
+			return strings.Compare(l.Perspective(), r.Perspective())
+		})
+		//
+		for i, source := range r.Sources {
+			// FIXME: below is used instead of above in order to replicate the original
+			// Corset tool.  Eventually, this behaviour should be deprecated.
+			names[i] = source.name.Tail()
+		}
+		// Construct register name from list of names
+		name := constructRegisterName(names)
+		r.cached_name = &name
+	}
+	//
+	return *r.cached_name
+}
+
+// A simple algorithm for joining names together.
+func constructRegisterName(names []string) string {
+	str := ""
+	// Joing them together
+	for i, n := range names {
+		if i == 0 {
+			str = n
+		} else {
+			str = fmt.Sprintf("%s_xor_%s", str, n)
+		}
+	}
+	//
+	return str
 }
 
 // RegisterSource provides necessary information about source-level columns
@@ -212,10 +250,10 @@ func identicalType(lhs *RegisterGroup, rhs *RegisterGroup) bool {
 // Sort the registers into alphabetical order.
 func sortRegisters(view *RegisterAllocationView) {
 	slices.SortFunc(view.registers, func(l, r uint) int {
-		lhs := view.Register(l)
-		rhs := view.Register(r)
-		// Compare them alphabetically
-		return strings.Compare(lhs.Name, rhs.Name)
+		lhs := view.Register(l).Sources[0].name.String()
+		rhs := view.Register(r).Sources[0].name.String()
+		// Within perspective sort alphabetically by name
+		return strings.Compare(lhs, rhs)
 	})
 }
 
@@ -238,6 +276,8 @@ type RegisterAllocator struct {
 	allocation RegisterAllocation
 	// Maps perspectives to their "allocation slot"
 	perspectives map[string]uint
+	// Maps each slot to its perspective string.
+	slots []string
 	// Allocation matrix, where each innermost array has an entry for each
 	// perspective.  The allocation slot for a perspective determines its index
 	// within this array.  Entries can be "empty" if they are given MaxUint
@@ -252,6 +292,7 @@ func NewRegisterAllocator(allocation RegisterAllocation) *RegisterAllocator {
 	allocator := RegisterAllocator{
 		allocation,
 		make(map[string]uint, 0),
+		make([]string, 0),
 		make([]RegisterGroup, 0),
 	}
 	// Identify all perspectives
@@ -321,6 +362,7 @@ func (p *RegisterAllocator) allocatePerspective(perspective string) {
 	if _, ok := p.perspectives[perspective]; !ok {
 		slot := uint(len(p.perspectives))
 		p.perspectives[perspective] = slot
+		p.slots = append(p.slots, perspective)
 	}
 }
 
