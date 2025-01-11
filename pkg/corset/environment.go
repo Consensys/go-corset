@@ -226,16 +226,6 @@ func (p *GlobalEnvironment) allocateArray(col *ColumnBinding, ctx util.Path, pat
 // Allocate a single register.
 func (p *GlobalEnvironment) allocateUnit(column *ColumnBinding, ctx util.Path, path util.Path, datatype sc.Type) {
 	module := ctx.String()
-	// // The name is extracted from the different between the context and the //
-	// // path.  The context must be a prefix of the path and, essentially, //
-	// // identifies the concrete module where this column will eventually live.
-	// name := path.Slice(ctx.Depth()).String()[1:]
-	// // Neaten the name up a bit
-	// name = strings.ReplaceAll(name, "/", "$")
-	//
-	// FIXME: below is used instead of above in order to replicate the original
-	// Corset tool.  Eventually, this behaviour should be deprecated.
-	name := path.Tail()
 	//
 	moduleId := p.modules[module].Id
 	regId := uint(len(p.registers))
@@ -250,9 +240,9 @@ func (p *GlobalEnvironment) allocateUnit(column *ColumnBinding, ctx util.Path, p
 	// Allocate register
 	p.registers = append(p.registers, Register{
 		tr.NewContext(moduleId, column.multiplier),
-		name,
 		datatype,
 		[]RegisterSource{source},
+		nil,
 	})
 	// Map column to register
 	p.columns[path.String()] = regId

@@ -909,6 +909,10 @@ func Test_Perspective_28(t *testing.T) {
 	Check(t, false, "perspective_28")
 }
 
+func Test_Perspective_29(t *testing.T) {
+	Check(t, false, "perspective_29")
+}
+
 // ===================================================================
 // Let
 // ===================================================================
