@@ -191,7 +191,7 @@ func (r *resolver) finaliseDeclarationsInModule(scope *ModuleScope, decls []Decl
 	// error reporting).
 	var (
 		incomplete Node = nil
-		counter    uint = 4
+		counter    uint = 32
 	)
 	//
 	for changed && !complete && counter > 0 {
