@@ -30,7 +30,7 @@ var testCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		// Configure log level
-		if GetFlag(cmd, "debug") {
+		if GetFlag(cmd, "verbose") {
 			log.SetLevel(log.DebugLevel)
 		}
 		legacy := GetFlag(cmd, "legacy")
@@ -139,10 +139,6 @@ func init() {
 	testCmd.Flags().Bool("hir", false, "check at HIR level")
 	testCmd.Flags().Bool("mir", false, "check at MIR level")
 	testCmd.Flags().Bool("air", false, "check at AIR level")
-	// testCmd.Flags().BoolP("warn", "w", false, "report warnings instead of failing for certain errors"+
-	// 	"(e.g. unknown columns in the trace)")
-	testCmd.Flags().BoolP("debug", "d", false, "report debug logs")
-	//testCmd.Flags().BoolP("quiet", "q", false, "suppress output (e.g. warnings)")
 	testCmd.Flags().Bool("sequential", false, "perform sequential trace expansion")
 	testCmd.Flags().Uint("padding", 0, "specify amount of (front) padding to apply")
 	testCmd.Flags().UintP("batch", "b", math.MaxUint, "specify batch size for constraint checking")

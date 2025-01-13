@@ -190,7 +190,7 @@ func readSourceFiles(stdlib bool, debug bool, filenames []string) *hir.Schema {
 	srcfiles := make([]*sexp.SourceFile, len(filenames))
 	// Read each file
 	for i, n := range filenames {
-		log.Info(fmt.Sprintf("including source file %s", n))
+		log.Debug(fmt.Sprintf("including source file %s", n))
 		// Read source file
 		bytes, err := os.ReadFile(n)
 		// Sanity check for errors

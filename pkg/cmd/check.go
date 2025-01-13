@@ -322,7 +322,6 @@ func init() {
 		"(e.g. unknown columns in the trace)")
 	checkCmd.Flags().Bool("no-stdlib", false, "prevents the standard library from being included")
 	checkCmd.Flags().Bool("debug", false, "enable debugging constraints")
-	checkCmd.Flags().BoolP("verbose", "v", false, "increase logging verbosity")
 	checkCmd.Flags().BoolP("quiet", "q", false, "suppress output (e.g. warnings)")
 	checkCmd.Flags().Bool("sequential", false, "perform sequential trace expansion")
 	checkCmd.Flags().Uint("padding", 0, "specify amount of (front) padding to apply")

@@ -26,4 +26,5 @@ func init() {
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	rootCmd.PersistentFlags().Bool("legacy", false, "use legacy binary format")
 	rootCmd.PersistentFlags().Bool("no-stdlib", false, "prevent standard library from being included")
+	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "increase logging verbosity")
 }

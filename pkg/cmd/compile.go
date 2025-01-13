@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -10,6 +11,11 @@ var compileCmd = &cobra.Command{
 	Long: `Compile a given set of constraint file(s) into a single binary package which can
 	 be subsequently used without requiring a full compilation step.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		// Configure log level
+		if GetFlag(cmd, "verbose") {
+			log.SetLevel(log.DebugLevel)
+		}
+		//
 		stdlib := !GetFlag(cmd, "no-stdlib")
 		debug := GetFlag(cmd, "debug")
 		legacy := GetFlag(cmd, "legacy")
