@@ -10,6 +10,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -24,6 +25,11 @@ var debugCmd = &cobra.Command{
 			fmt.Println(cmd.UsageString())
 			os.Exit(1)
 		}
+		// Configure log level
+		if GetFlag(cmd, "verbose") {
+			log.SetLevel(log.DebugLevel)
+		}
+		//
 		hir := GetFlag(cmd, "hir")
 		mir := GetFlag(cmd, "mir")
 		air := GetFlag(cmd, "air")
