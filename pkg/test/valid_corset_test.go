@@ -1085,34 +1085,21 @@ func Check(t *testing.T, stdlib bool, test string) {
 	if len(errs) > 0 {
 		t.Fatalf("Error parsing %s: %v\n", filename, errs)
 	}
-
-	// Check valid traces are accepted
-	accepts_file := fmt.Sprintf("%s/%s.%s", TestDir, test, "accepts")
-	accepts := ReadTracesFile(accepts_file)
-	ntests := len(accepts)
-	BinCheckTraces(t, accepts_file, true, true, accepts, schema)
-	// Check invalid traces are rejected
-	rejects_file := fmt.Sprintf("%s/%s.%s", TestDir, test, "rejects")
-	rejects := ReadTracesFile(rejects_file)
-	ntests += len(rejects)
-	BinCheckTraces(t, rejects_file, false, true, rejects, schema)
-	// Check expanded traces are rejected
-	expands_file := fmt.Sprintf("%s/%s.%s", TestDir, test, "expanded")
-	expands := ReadTracesFile(expands_file)
-	ntests += len(expands)
-	BinCheckTraces(t, expands_file, false, false, expands, schema)
-	// Check auto-generated valid traces (if applicable)
-	auto_accepts_file := fmt.Sprintf("%s/%s.%s", TestDir, test, "auto.accepts")
-	if auto_accepts := ReadTracesFileIfExists(auto_accepts_file); auto_accepts != nil {
-		BinCheckTraces(t, auto_accepts_file, true, true, auto_accepts, schema)
+	// Record how many tests executed.
+	nTests := 0
+	// Iterate possible testfile extensions
+	for _, tfExt := range TESTFILE_EXTENSIONS {
+		var traces [][]trace.RawColumn
+		// Construct test filename
+		testFilename := fmt.Sprintf("%s/%s.%s", TestDir, test, tfExt.extension)
+		traces = ReadTracesFile(testFilename)
+		// Run tests
+		BinCheckTraces(t, testFilename, tfExt.expected, tfExt.expand, traces, schema)
+		// Record how many tests we found
+		nTests += len(traces)
 	}
-	// Check auto-generated invalid traces (if applicable)
-	auto_rejects_file := fmt.Sprintf("%s.%s", test, "auto.rejects")
-	if auto_rejects := ReadTracesFileIfExists(auto_rejects_file); auto_rejects != nil {
-		BinCheckTraces(t, auto_rejects_file, false, true, auto_rejects, schema)
-	}
-	//
-	if ntests == 0 {
+	// Sanity check at least one trace found.
+	if nTests == 0 {
 		panic(fmt.Sprintf("missing any tests for %s", test))
 	}
 }
@@ -1187,6 +1174,25 @@ func checkTrace(t *testing.T, inputs []trace.RawColumn, expand bool, id traceId,
 	}
 }
 
+// TestFileExtension provides a simple mechanism for searching for testfiles.
+type TestFileExtension struct {
+	extension string
+	expected  bool
+	expand    bool
+}
+
+var TESTFILE_EXTENSIONS []TestFileExtension = []TestFileExtension{
+	// should all pass
+	{"accepts", true, true},
+	{"accepts.bz2", true, true},
+	{"auto.accepts", true, true},
+	// should all fail
+	{"rejects", false, true},
+	{"rejects.bz2", false, true},
+	{"auto.rejects", false, true},
+	{"expanded", false, false},
+}
+
 // A trace identifier uniquely identifies a specific trace within a given test.
 // This is used to provide debug information about a trace failure.
 // Specifically, so the user knows which line in which file caused the problem.
@@ -1226,16 +1232,6 @@ func ReadTracesFile(filename string) [][]trace.RawColumn {
 	}
 
 	return traces
-}
-
-func ReadTracesFileIfExists(name string) [][]trace.RawColumn {
-	filename := fmt.Sprintf("%s/%s", TestDir, name)
-	// Check whether it exists or not
-	if _, err := os.Stat(filename); err != nil {
-		return nil
-	}
-	// Yes it does
-	return ReadTracesFile(filename)
 }
 
 // This is a little test to ensure the binary file format (specifically the

@@ -2,9 +2,11 @@ package util
 
 import (
 	"bufio"
+	"compress/bzip2"
 	"errors"
 	"io"
 	"os"
+	"path"
 )
 
 // ReadInputFile reads an input file as a sequence of lines.
@@ -16,13 +18,22 @@ func ReadInputFile(filename string) []string {
 	} else if err != nil {
 		panic(err)
 	}
-
-	reader := bufio.NewReaderSize(file, 1024*128)
+	// apply compression
+	var reader io.Reader
+	// check extension
+	switch path.Ext(filename) {
+	case ".bz2":
+		reader = bzip2.NewReader(file)
+	default:
+		reader = file
+	}
+	//
+	bufReader := bufio.NewReaderSize(reader, 1024*128)
 	lines := make([]string, 0)
 	// Read file line-by-line
 	for {
 		// Read the next line
-		line := readLine(reader)
+		line := readLine(bufReader)
 		// Check whether for EOF
 		if line == nil {
 			if err = file.Close(); err != nil {
