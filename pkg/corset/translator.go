@@ -230,7 +230,40 @@ func (t *translator) translateDeclaration(decl Declaration, module util.Path) []
 
 // Translate a "defcomputed" declaration.
 func (t *translator) translateDefComputed(decl *DefComputed, module util.Path) []SyntaxError {
-	panic("got here")
+	var (
+		errors   []SyntaxError
+		context  tr.Context = tr.VoidContext[uint]()
+		firstCid uint
+	)
+	//
+	targets := make([]sc.Column, len(decl.Sources))
+	sources := make([]uint, len(decl.Sources))
+	//
+	for i := 0; i < len(decl.Sources); i++ {
+		targetPath := module.Extend(decl.Targets[i].Name())
+		targetId := t.env.RegisterOf(targetPath)
+		target := t.env.Register(targetId)
+		// Construct columns
+		targets[i] = sc.NewColumn(target.Context, target.Name(), target.DataType)
+		sources[i] = t.env.RegisterOf(decl.Sources[i].Path())
+		// Record first CID
+		if i == 0 {
+			firstCid = targetId
+		}
+		// Join contexts
+		context = context.Join(target.Context)
+	}
+	// Extract the binding
+	binding := decl.Function.Binding().(*NativeDefinition)
+	// Add the assignment and check the first identifier.
+	cid := t.schema.AddAssignment(assignment.NewComputation(context, binding.name, targets, sources))
+	// Sanity check column identifiers align.
+	if cid != firstCid {
+		err := fmt.Sprintf("inconsistent (computed) column identifier (%d v %d)", cid, firstCid)
+		errors = append(errors, *t.srcmap.SyntaxError(decl, err))
+	}
+	// Done
+	return errors
 }
 
 // Translate a "defconstraint" declaration.

@@ -125,7 +125,6 @@ func (p *ModuleScope) Binding(name string, function bool) Binding {
 // Bind looks up a given variable being referenced within a given module.  For a
 // root context, this is either a column, an alias or a function declaration.
 func (p *ModuleScope) Bind(symbol Symbol) bool {
-	fmt.Printf("Binding %s in module %s\n", symbol.Path(), &p.path)
 	// Split the two cases: absolute versus relative.
 	if symbol.Path().IsAbsolute() && p.parent != nil {
 		// Absolute path, and this is not the root scope.  Therefore, simply
