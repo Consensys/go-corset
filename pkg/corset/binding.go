@@ -23,6 +23,8 @@ type FunctionBinding interface {
 	Binding
 	// IsPure checks whether this function binding has side-effects or not.
 	IsPure() bool
+	// IsNative checks whether this function binding is native (or not).
+	IsNative() bool
 	// HasArity checks whether this binding supports a given number of
 	// parameters.  For example, intrinsic functions are often nary --- meaning
 	// they can accept any number of arguments.  In contrast, a user-defined
@@ -267,6 +269,11 @@ func (p *OverloadedBinding) IsPure() bool {
 	return p.overloads[0].IsPure()
 }
 
+// IsNative checks whether this function binding is native (or not).
+func (p OverloadedBinding) IsNative() bool {
+	return p.overloads[0].IsNative()
+}
+
 // IsFinalised checks whether this binding has been finalised yet or not.
 func (p *OverloadedBinding) IsFinalised() bool {
 	for _, binding := range p.overloads {
@@ -373,6 +380,11 @@ func NewDefunBinding(pure bool, paramTypes []Type, returnType Type, body Expr) D
 // IsPure checks whether this is a defpurefun or not
 func (p *DefunBinding) IsPure() bool {
 	return p.pure
+}
+
+// IsNative checks whether this function binding is native (or not).
+func (p *DefunBinding) IsNative() bool {
+	return false
 }
 
 // IsFinalised checks whether this binding has been finalised yet or not.

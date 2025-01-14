@@ -15,6 +15,10 @@ import (
 func ResolveCircuit(srcmap *sexp.SourceMaps[Node], circuit *Circuit) (*ModuleScope, []SyntaxError) {
 	// Construct top-level scope
 	scope := NewModuleScope()
+	// Define natives
+	for _, i := range NATIVES {
+		scope.Define(&i)
+	}
 	// Define intrinsics
 	for _, i := range INTRINSICS {
 		scope.Define(&i)

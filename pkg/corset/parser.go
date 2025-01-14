@@ -489,13 +489,19 @@ func (p *Parser) parseDefComputed(module util.Path, elements []sexp.SExp) (Decla
 		for i := 0; i < sexpSources.Len(); i++ {
 			ith := sexpSources.Get(i)
 			if symbol := sexpSources.Get(i).AsSymbol(); symbol == nil {
-				errors = append(errors, *p.translator.SyntaxError(ith, "malformed symbol or function identifier"))
+				errors = append(errors, *p.translator.SyntaxError(ith, "malformed symbol or function name"))
 			} else {
-				name := symbol.Value
-				path := module.Extend(name)
-				sources[i] = NewColumnName(*path)
-				// Update source mapping
-				p.mapSourceNode(ith, sources[i])
+				// Handle qualified accesses (where permitted)
+				path, err := parseQualifiableName(symbol.Value)
+				//
+				if err != nil {
+					errors = append(errors, *p.translator.SyntaxError(ith, "invalid symbol or function name"))
+				} else {
+					// Valid symbol
+					sources[i] = &VariableAccess{path, i == 0, nil}
+					// Update source mapping
+					p.mapSourceNode(ith, sources[i])
+				}
 			}
 		}
 	}
