@@ -244,6 +244,8 @@ func (p *Parser) parseDeclaration(module util.Path, s *sexp.List) (Declaration, 
 		decl, errors = p.parseDefAlias(false, s.Elements)
 	} else if s.MatchSymbols(1, "defcolumns") {
 		decl, errors = p.parseDefColumns(module, s)
+	} else if s.Len() == 3 && s.MatchSymbols(1, "defcomputed") {
+		decl, errors = p.parseDefComputed(module, s.Elements)
 	} else if s.Len() > 1 && s.MatchSymbols(1, "defconst") {
 		decl, errors = p.parseDefConst(module, s.Elements)
 	} else if s.Len() == 4 && s.MatchSymbols(2, "defconstraint") {
@@ -453,6 +455,56 @@ func (p *Parser) parseArrayDimension(s sexp.SExp) (uint, uint, *SyntaxError) {
 	}
 	//
 	return 0, 0, p.translator.SyntaxError(s, "invalid array dimension")
+}
+
+// Parse a defcomputed declaration
+func (p *Parser) parseDefComputed(module util.Path, elements []sexp.SExp) (Declaration, []SyntaxError) {
+	var (
+		errors      []SyntaxError
+		sexpTargets *sexp.List = elements[1].AsList()
+		sexpSources *sexp.List = elements[2].AsList()
+		targets     []*DefColumn
+		sources     []Symbol
+	)
+	// Sanity checks
+	if sexpTargets == nil || sexpTargets.Len() == 0 {
+		errors = append(errors, *p.translator.SyntaxError(elements[1], "malformed target columns"))
+	} else {
+		targets = make([]*DefColumn, sexpTargets.Len())
+		//
+		for i := 0; i < sexpTargets.Len(); i++ {
+			var err *SyntaxError
+			// Parse target declaration
+			if targets[i], err = p.parseColumnDeclaration(module, module, true, sexpTargets.Get(i)); err != nil {
+				errors = append(errors, *err)
+			}
+		}
+	}
+	//
+	if sexpSources == nil || sexpSources.Len() == 0 {
+		errors = append(errors, *p.translator.SyntaxError(elements[2], "malformed source invocation"))
+	} else {
+		sources = make([]Symbol, sexpSources.Len())
+		//
+		for i := 0; i < sexpSources.Len(); i++ {
+			ith := sexpSources.Get(i)
+			if symbol := sexpSources.Get(i).AsSymbol(); symbol == nil {
+				errors = append(errors, *p.translator.SyntaxError(ith, "malformed symbol or function identifier"))
+			} else {
+				name := symbol.Value
+				path := module.Extend(name)
+				sources[i] = NewColumnName(*path)
+				// Update source mapping
+				p.mapSourceNode(ith, sources[i])
+			}
+		}
+	}
+	//
+	if len(errors) > 0 {
+		return nil, errors
+	}
+	//
+	return &DefComputed{targets, sources[0], sources[1:]}, nil
 }
 
 // Parse a constant declaration

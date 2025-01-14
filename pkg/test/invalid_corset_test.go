@@ -671,6 +671,22 @@ func Test_Invalid_Let_07(t *testing.T) {
 }
 
 // ===================================================================
+// Computed Columns
+// ===================================================================
+
+func Test_Invalid_Compute_01(t *testing.T) {
+	CheckInvalid(t, "compute_invalid_01")
+}
+
+func Test_Invalid_Compute_02(t *testing.T) {
+	CheckInvalid(t, "compute_invalid_02")
+}
+
+func Test_Invalid_Compute_03(t *testing.T) {
+	CheckInvalid(t, "compute_invalid_03")
+}
+
+// ===================================================================
 // Test Helpers
 // ===================================================================
 

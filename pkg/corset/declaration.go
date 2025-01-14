@@ -272,6 +272,85 @@ func (e *DefColumn) Lisp() sexp.SExp {
 }
 
 // ============================================================================
+// defcompute
+// ============================================================================
+
+// DefComputed is an assignment which computes the values for one or more columns
+// based (currently) on a chosen internal function.
+type DefComputed struct {
+	// Columns being assigned by this computation
+	Targets []*DefColumn
+	// Function being invoked to perform computation
+	Function Symbol
+	// Source columns as parameters to computation.
+	Sources []Symbol
+}
+
+// Definitions returns the set of symbols defined by this declaration.  Observe
+// that these may not yet have been finalised.
+func (p *DefComputed) Definitions() util.Iterator[SymbolDefinition] {
+	iter := util.NewArrayIterator(p.Targets)
+	return util.NewCastIterator[*DefColumn, SymbolDefinition](iter)
+}
+
+// Dependencies needed to signal declaration.
+func (p *DefComputed) Dependencies() util.Iterator[Symbol] {
+	fn := util.NewUnitIterator(p.Function)
+	sources := util.NewArrayIterator(p.Sources)
+	//
+	return fn.Append(sources)
+}
+
+// Defines checks whether this declaration defines the given symbol.  The symbol
+// in question needs to have been resolved already for this to make sense.
+func (p *DefComputed) Defines(symbol Symbol) bool {
+	for _, col := range p.Targets {
+		if &col.binding == symbol.Binding() {
+			return true
+		}
+	}
+	// Done
+	return false
+}
+
+// IsFinalised checks whether this declaration has already been finalised.  If
+// so, then we don't need to finalise it again.
+func (p *DefComputed) IsFinalised() bool {
+	for _, col := range p.Targets {
+		if !col.binding.IsFinalised() {
+			return false
+		}
+	}
+	// Done
+	return true
+}
+
+// Lisp converts this node into its lisp representation.  This is primarily used
+// for debugging purposes.
+func (p *DefComputed) Lisp() sexp.SExp {
+	targets := make([]sexp.SExp, len(p.Targets))
+	sources := make([]sexp.SExp, len(p.Sources))
+	// Targets
+	for i, t := range p.Targets {
+		targets[i] = t.Lisp()
+	}
+	// Sources
+	for i, t := range p.Sources {
+		var sign string
+		//
+		sources[i] = sexp.NewList([]sexp.SExp{
+			sexp.NewSymbol(sign),
+			t.Lisp()})
+	}
+	//
+	return sexp.NewList([]sexp.SExp{
+		sexp.NewSymbol("defcomputed"),
+		sexp.NewList(targets),
+		sexp.NewSymbol(p.Function.Path().String()),
+		sexp.NewList(sources)})
+}
+
+// ============================================================================
 // defconst
 // ============================================================================
 
