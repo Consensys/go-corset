@@ -293,6 +293,8 @@ func (r *resolver) declarationDependenciesAreFinalised(scope *ModuleScope,
 // Finalise a declaration.
 func (r *resolver) finaliseDeclaration(scope *ModuleScope, decl Declaration) []SyntaxError {
 	switch d := decl.(type) {
+	case *DefComputed:
+		return r.finaliseDefComputedInModule(d)
 	case *DefConst:
 		return r.finaliseDefConstInModule(scope, d)
 	case *DefConstraint:
@@ -314,6 +316,34 @@ func (r *resolver) finaliseDeclaration(scope *ModuleScope, decl Declaration) []S
 	}
 	//
 	return nil
+}
+
+func (r *resolver) finaliseDefComputedInModule(decl *DefComputed) []SyntaxError {
+	var (
+		errors    []SyntaxError
+		arguments []NativeColumn = make([]NativeColumn, len(decl.Sources))
+		binding   *NativeDefinition
+	)
+	// Initialise arguments
+	for i := 0; i < len(decl.Sources); i++ {
+		// FIXME: sanity check that these things make sense.
+		ith := decl.Sources[i].Binding().(*ColumnBinding)
+		arguments[i] = NativeColumn{ith.dataType, ith.multiplier}
+	}
+	// Extract binding
+	binding = decl.Function.Binding().(*NativeDefinition)
+	// Apply definition to determine geometry of assignment
+	assignments := binding.Apply(arguments)
+	// Finalise each target column
+	for i := 0; i < len(decl.Targets); i++ {
+		// Finalise ith target column
+		target := decl.Targets[i].Binding().(*ColumnBinding)
+		// Update with completed information
+		target.multiplier = assignments[i].multiplier
+		target.dataType = assignments[i].datatype
+	}
+	// Done
+	return errors
 }
 
 // Finalise one or more constant definitions within a given module.

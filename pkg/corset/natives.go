@@ -5,6 +5,13 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 )
 
+type NativeColumn struct {
+	// type of assigned column
+	datatype Type
+	// multiplier for assigned column
+	multiplier uint
+}
+
 type NativeDefinition struct {
 	// Name of the intrinsic (e.g. "+")
 	name string
@@ -12,6 +19,8 @@ type NativeDefinition struct {
 	min_arity uint
 	// Maximum number of arguments this native can accept.
 	max_arity uint
+	// Responsible for doing whatever the function does.
+	constructor func([]NativeColumn) []NativeColumn
 }
 
 var _ FunctionBinding = &NativeDefinition{}
@@ -76,6 +85,10 @@ func (p *NativeDefinition) Select(args []Type) *FunctionSignature {
 	return nil
 }
 
+func (p *NativeDefinition) Apply(args []NativeColumn) []NativeColumn {
+	return p.constructor(args)
+}
+
 // Overload (a.k.a specialise) this function binding to incorporate another
 // function binding.  This can fail for a few reasons: (1) some bindings
 // (e.g. intrinsics) cannot be overloaded; (2) duplicate overloadings are
@@ -94,5 +107,9 @@ func (p *NativeDefinition) Overload(binding *DefunBinding) (FunctionBinding, boo
 // defcomputed assignments.
 var NATIVES []NativeDefinition = []NativeDefinition{
 	// Simple identity function.
-	{"id", 1, 1},
+	{"id", 1, 1, nativeId},
+}
+
+func nativeId(inputs []NativeColumn) []NativeColumn {
+	return inputs
 }

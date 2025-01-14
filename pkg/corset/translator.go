@@ -197,6 +197,8 @@ func (t *translator) translateDeclaration(decl Declaration, module util.Path) []
 	switch d := decl.(type) {
 	case *DefAliases:
 		// Not an assignment or a constraint, hence ignore.
+	case *DefComputed:
+		errors = t.translateDefComputed(d, module)
 	case *DefColumns:
 		// Not an assignment or a constraint, hence ignore.
 	case *DefConst:
@@ -224,6 +226,11 @@ func (t *translator) translateDeclaration(decl Declaration, module util.Path) []
 	}
 	//
 	return errors
+}
+
+// Translate a "defcomputed" declaration.
+func (t *translator) translateDefComputed(decl *DefComputed, module util.Path) []SyntaxError {
+	panic("got here")
 }
 
 // Translate a "defconstraint" declaration.

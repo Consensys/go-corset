@@ -64,6 +64,8 @@ func (p *preprocessor) preprocessDeclaration(decl Declaration) []SyntaxError {
 		// ignore
 	case *DefColumns:
 		// ignore
+	case *DefComputed:
+		// ignore
 	case *DefConst:
 		// ignore
 	case *DefConstraint:
