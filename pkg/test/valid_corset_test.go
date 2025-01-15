@@ -66,6 +66,10 @@ func Test_Basic_10(t *testing.T) {
 	Check(t, false, "basic_10")
 }
 
+func Test_Basic_11(t *testing.T) {
+	Check(t, false, "basic_11")
+}
+
 // ===================================================================
 // Constants Tests
 // ===================================================================
