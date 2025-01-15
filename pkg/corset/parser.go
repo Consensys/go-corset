@@ -1277,7 +1277,7 @@ func constantParserRule(symbol string) (Expr, bool, error) {
 
 func varAccessParserRule(col string) (Expr, bool, error) {
 	// Sanity check what we have
-	if !unicode.IsLetter(rune(col[0])) {
+	if col[0] != '_' && !unicode.IsLetter(rune(col[0])) {
 		return nil, false, errors.New("malformed column access")
 	}
 	// Handle qualified accesses (where permitted)
