@@ -5,6 +5,8 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 )
 
+// NativeColumn provides information about a column acting as a parameter or
+// return in a given native function.
 type NativeColumn struct {
 	// type of assigned column
 	datatype Type
@@ -12,6 +14,8 @@ type NativeColumn struct {
 	multiplier uint
 }
 
+// NativeDefinition describes a native function, such as specifying how many
+// arguments it requires, etc.
 type NativeDefinition struct {
 	// Name of the intrinsic (e.g. "+")
 	name string

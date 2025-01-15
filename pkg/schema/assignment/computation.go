@@ -38,7 +38,8 @@ type NativeComputation struct {
 
 // NATIVES map holds the supported set of native computations.
 var NATIVES map[string]NativeComputation = map[string]NativeComputation{
-	"id": {"id", idNativeFunction},
+	"id":     {"id", idNativeFunction},
+	"filter": {"filter", filterNativeFunction},
 }
 
 // NewComputation defines a set of target columns which are assigned from a
@@ -150,12 +151,39 @@ func (p *Computation) Lisp(schema sc.Schema) sexp.SExp {
 // Native Function Definitions
 // ============================================================================
 
+// id assigns the target column with the corresponding value of the source
+// column
 func idNativeFunction(trace tr.Trace, sources []uint) []util.FrArray {
 	if len(sources) != 1 {
 		panic("incorrect number of arguments")
 	}
 	// Clone source column
 	data := trace.Column(sources[0]).Data().Clone()
+	// Done
+	return []util.FrArray{data}
+}
+
+// filter assigns the target column with the corresponding value of the source
+// column *when* a given selector column is non-zero.  Otherwise, the target
+// column remains zero at the given position.
+func filterNativeFunction(trace tr.Trace, sources []uint) []util.FrArray {
+	if len(sources) != 2 {
+		panic("incorrect number of arguments")
+	}
+	// Extract input column info
+	src_col := trace.Column(sources[0]).Data()
+	sel_col := trace.Column(sources[1]).Data()
+	// Clone source column
+	data := util.NewFrArray(src_col.Len(), src_col.BitWidth())
+	//
+	for i := uint(0); i < data.Len(); i++ {
+		selector := sel_col.Get(i)
+		// Check whether selctor non-zero
+		if !selector.IsZero() {
+			ith_value := src_col.Get(i)
+			data.Set(i, ith_value)
+		}
+	}
 	// Done
 	return []util.FrArray{data}
 }
