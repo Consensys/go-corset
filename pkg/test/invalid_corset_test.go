@@ -698,6 +698,10 @@ func Test_Invalid_Compute_06(t *testing.T) {
 	CheckInvalid(t, "compute_invalid_06")
 }
 
+func Test_Invalid_Compute_07(t *testing.T) {
+	CheckInvalid(t, "compute_invalid_07")
+}
+
 // ===================================================================
 // Test Helpers
 // ===================================================================

@@ -85,6 +85,7 @@ func (p *NativeDefinition) Select(args []Type) *FunctionSignature {
 	return nil
 }
 
+// Apply returns the output columns given a set of input columns.
 func (p *NativeDefinition) Apply(args []NativeColumn) []NativeColumn {
 	return p.constructor(args)
 }
@@ -108,8 +109,22 @@ func (p *NativeDefinition) Overload(binding *DefunBinding) (FunctionBinding, boo
 var NATIVES []NativeDefinition = []NativeDefinition{
 	// Simple identity function.
 	{"id", 1, 1, nativeId},
+	// Filter based on second argument
+	{"filter", 2, 2, nativeFilter},
 }
 
 func nativeId(inputs []NativeColumn) []NativeColumn {
+	if len(inputs) != 1 {
+		panic("unreachable")
+	}
+
 	return inputs
+}
+
+func nativeFilter(inputs []NativeColumn) []NativeColumn {
+	if len(inputs) != 2 {
+		panic("unreachable")
+	}
+	//
+	return []NativeColumn{inputs[0]}
 }

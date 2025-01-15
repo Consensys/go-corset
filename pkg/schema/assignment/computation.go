@@ -89,9 +89,18 @@ func (p *Computation) RequiredSpillage() uint {
 // This requires copying the data in the source columns, and sorting that data
 // according to the permutation criteria.
 func (p *Computation) ComputeColumns(trace tr.Trace) ([]tr.ArrayColumn, error) {
+	var (
+		fn NativeComputation
+		ok bool
+	)
+	// Sanity check
+	if fn, ok = NATIVES[p.Name]; !ok {
+		panic(fmt.Sprintf("unknown native function: %s", p.Name))
+	}
+	// Proceed
 	targets := make([]tr.ArrayColumn, len(p.Targets))
 	// Apply native function (or panic if none exists)
-	data := NATIVES[p.Name].Function(trace, p.Sources)
+	data := fn.Function(trace, p.Sources)
 	// Physically construct target columns
 	for i, iter := 0, p.Columns(); iter.HasNext(); i++ {
 		ith := iter.Next()

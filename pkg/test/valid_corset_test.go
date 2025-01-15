@@ -972,6 +972,10 @@ func Test_Compute_01(t *testing.T) {
 	Check(t, false, "compute_01")
 }
 
+func Test_Compute_02(t *testing.T) {
+	Check(t, false, "compute_02")
+}
+
 // ===================================================================
 // Complex Tests
 // ===================================================================

@@ -240,7 +240,8 @@ func (t *translator) translateDefComputed(decl *DefComputed, module util.Path) [
 	sources := make([]uint, len(decl.Sources))
 	// Identify source columns
 	for i := 0; i < len(decl.Sources); i++ {
-		sources[i] = t.env.RegisterOf(decl.Sources[i].Path())
+		ith := decl.Sources[i].Binding().(*ColumnBinding)
+		sources[i] = t.env.RegisterOf(&ith.path)
 	}
 	// Identify target columns
 	for i := 0; i < len(decl.Targets); i++ {
