@@ -236,16 +236,19 @@ func (t *translator) translateDefComputed(decl *DefComputed, module util.Path) [
 		firstCid uint
 	)
 	//
-	targets := make([]sc.Column, len(decl.Sources))
+	targets := make([]sc.Column, len(decl.Targets))
 	sources := make([]uint, len(decl.Sources))
-	//
+	// Identify source columns
 	for i := 0; i < len(decl.Sources); i++ {
+		sources[i] = t.env.RegisterOf(decl.Sources[i].Path())
+	}
+	// Identify target columns
+	for i := 0; i < len(decl.Targets); i++ {
 		targetPath := module.Extend(decl.Targets[i].Name())
 		targetId := t.env.RegisterOf(targetPath)
 		target := t.env.Register(targetId)
 		// Construct columns
 		targets[i] = sc.NewColumn(target.Context, target.Name(), target.DataType)
-		sources[i] = t.env.RegisterOf(decl.Sources[i].Path())
 		// Record first CID
 		if i == 0 {
 			firstCid = targetId

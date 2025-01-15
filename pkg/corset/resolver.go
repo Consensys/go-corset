@@ -332,15 +332,21 @@ func (r *resolver) finaliseDefComputedInModule(decl *DefComputed) []SyntaxError 
 	}
 	// Extract binding
 	binding = decl.Function.Binding().(*NativeDefinition)
-	// Apply definition to determine geometry of assignment
-	assignments := binding.Apply(arguments)
-	// Finalise each target column
-	for i := 0; i < len(decl.Targets); i++ {
-		// Finalise ith target column
-		target := decl.Targets[i].Binding().(*ColumnBinding)
-		// Update with completed information
-		target.multiplier = assignments[i].multiplier
-		target.dataType = assignments[i].datatype
+	//
+	if !binding.HasArity(uint(len(arguments))) {
+		msg := fmt.Sprintf("incorrect number of arguments (found %d)", len(arguments))
+		errors = append(errors, *r.srcmap.SyntaxError(decl.Function, msg))
+	} else {
+		// Apply definition to determine geometry of assignment
+		assignments := binding.Apply(arguments)
+		// Finalise each target column
+		for i := 0; i < len(decl.Targets); i++ {
+			// Finalise ith target column
+			target := decl.Targets[i].Binding().(*ColumnBinding)
+			// Update with completed information
+			target.multiplier = assignments[i].multiplier
+			target.dataType = assignments[i].datatype
+		}
 	}
 	// Done
 	return errors

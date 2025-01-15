@@ -1,6 +1,9 @@
 package assignment
 
 import (
+	"encoding/gob"
+	"fmt"
+
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/sexp"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -14,7 +17,7 @@ type Computation struct {
 	// Context where in which source and target columns exist.
 	ColumnContext tr.Context
 	// Name of the function being invoked.
-	name string
+	Name string
 	// Target columns declared by this sorted permutation (in the order
 	// of declaration).
 	Targets []sc.Column
@@ -22,9 +25,33 @@ type Computation struct {
 	Sources []uint
 }
 
+// NativeComputation embeds information about a support native computation.
+// This can be used, for example, to check that a native function is being
+// called correctly, etc.
+type NativeComputation struct {
+	// Name of this computation
+	Name string
+	// Function which will be applied to a given set of input columns, whilst
+	// writing to a given set of output columns.
+	Function func(tr.Trace, []uint) []util.FrArray
+}
+
+// NATIVES map holds the supported set of native computations.
+var NATIVES map[string]NativeComputation = map[string]NativeComputation{
+	"id": {"id", idNativeFunction},
+}
+
 // NewComputation defines a set of target columns which are assigned from a
 // given set of source columns using a function to multiplex input to output.
 func NewComputation(context tr.Context, functionName string, targets []sc.Column, sources []uint) *Computation {
+	// Sanity checks
+	for _, c := range targets {
+		if c.Context != context {
+			err := fmt.Sprintf("inconsistent evaluation contexts (%s vs %s)", c.Context, context)
+			panic(err)
+		}
+	}
+	//
 	return &Computation{context, functionName, targets, sources}
 }
 
@@ -62,7 +89,18 @@ func (p *Computation) RequiredSpillage() uint {
 // This requires copying the data in the source columns, and sorting that data
 // according to the permutation criteria.
 func (p *Computation) ComputeColumns(trace tr.Trace) ([]tr.ArrayColumn, error) {
-	panic("todo")
+	targets := make([]tr.ArrayColumn, len(p.Targets))
+	// Apply native function (or panic if none exists)
+	data := NATIVES[p.Name].Function(trace, p.Sources)
+	// Physically construct target columns
+	for i, iter := 0, p.Columns(); iter.HasNext(); i++ {
+		ith := iter.Next()
+		dstColName := ith.Name
+		srcCol := trace.Column(p.Sources[i])
+		targets[i] = tr.NewArrayColumn(ith.Context, dstColName, data[i], srcCol.Padding())
+	}
+	//
+	return targets, nil
 }
 
 // Dependencies returns the set of columns that this assignment depends upon.
@@ -94,7 +132,29 @@ func (p *Computation) Lisp(schema sc.Schema) sexp.SExp {
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("compute"),
 		targets,
-		sexp.NewSymbol(p.name),
+		sexp.NewSymbol(p.Name),
 		sources,
 	})
+}
+
+// ============================================================================
+// Native Function Definitions
+// ============================================================================
+
+func idNativeFunction(trace tr.Trace, sources []uint) []util.FrArray {
+	if len(sources) != 1 {
+		panic("incorrect number of arguments")
+	}
+	// Clone source column
+	data := trace.Column(sources[0]).Data().Clone()
+	// Done
+	return []util.FrArray{data}
+}
+
+// ============================================================================
+// Encoding / Decoding
+// ============================================================================
+
+func init() {
+	gob.Register(sc.Declaration(&Computation{}))
 }
