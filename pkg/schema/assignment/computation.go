@@ -152,6 +152,8 @@ var NATIVES map[string]NativeComputation = map[string]NativeComputation{
 	"fwd-changes-within":   {fwdChangesWithinNativeFunction},
 	"fwd-unchanged-within": {fwdUnchangedWithinNativeFunction},
 	"bwd-changes-within":   {bwdChangesWithinNativeFunction},
+	"fwd-fill-within":      {fwdFillWithinNativeFunction},
+	"bwd-fill-within":      {bwdFillWithinNativeFunction},
 }
 
 // id assigns the target column with the corresponding value of the source
@@ -304,6 +306,66 @@ func bwdChangesWithinNativeFunction(trace tr.Trace, sources []uint) []util.FrArr
 				//
 				data.Set(i-1, one)
 			}
+		}
+	}
+	// Done
+	return []util.FrArray{data}
+}
+
+func fwdFillWithinNativeFunction(trace tr.Trace, sources []uint) []util.FrArray {
+	if len(sources) != 3 {
+		panic("incorrect number of arguments")
+	}
+	// Extract input column info
+	selector_col := trace.Column(sources[0]).Data()
+	first_col := trace.Column(sources[1]).Data()
+	source_col := trace.Column(sources[2]).Data()
+	// Construct (binary) output column
+	data := util.NewFrArray(source_col.Len(), source_col.BitWidth())
+	// Set current value
+	current := fr.NewElement(0)
+	//
+	for i := uint(0); i < selector_col.Len(); i++ {
+		ith_selector := selector_col.Get(i)
+		// Check whether within region or not.
+		if !ith_selector.IsZero() {
+			ith_first := first_col.Get(i)
+			//
+			if !ith_first.IsZero() {
+				current = source_col.Get(i)
+			}
+			//
+			data.Set(i, current)
+		}
+	}
+	// Done
+	return []util.FrArray{data}
+}
+
+func bwdFillWithinNativeFunction(trace tr.Trace, sources []uint) []util.FrArray {
+	if len(sources) != 3 {
+		panic("incorrect number of arguments")
+	}
+	// Extract input column info
+	selector_col := trace.Column(sources[0]).Data()
+	first_col := trace.Column(sources[1]).Data()
+	source_col := trace.Column(sources[2]).Data()
+	// Construct (binary) output column
+	data := util.NewFrArray(source_col.Len(), source_col.BitWidth())
+	// Set current value
+	current := fr.NewElement(0)
+	//
+	for i := selector_col.Len(); i > 0; i-- {
+		ith_selector := selector_col.Get(i - 1)
+		// Check whether within region or not.
+		if !ith_selector.IsZero() {
+			ith_first := first_col.Get(i - 1)
+			//
+			if !ith_first.IsZero() {
+				current = source_col.Get(i - 1)
+			}
+			//
+			data.Set(i-1, current)
 		}
 	}
 	// Done

@@ -123,6 +123,10 @@ var NATIVES []NativeDefinition = []NativeDefinition{
 	{"fwd-unchanged-within", 2, math.MaxUint, nativeChangeWithin},
 	// Identify changes of a column within a given region (in backwards direction).
 	{"bwd-changes-within", 2, math.MaxUint, nativeChangeWithin},
+	// Flood fill (forwards) within a given region
+	{"fwd-fill-within", 3, 3, nativeFillWithin},
+	// Flood fill (backwards) within a given region
+	{"bwd-fill-within", 3, 3, nativeFillWithin},
 }
 
 func nativeId(inputs []NativeColumn) []NativeColumn {
@@ -149,4 +153,12 @@ func nativeChangeWithin(inputs []NativeColumn) []NativeColumn {
 	result := NativeColumn{NewUintType(1), inputs[0].multiplier}
 	//
 	return []NativeColumn{result}
+}
+
+func nativeFillWithin(inputs []NativeColumn) []NativeColumn {
+	if len(inputs) <= 2 {
+		panic("unreachable")
+	}
+	//
+	return []NativeColumn{inputs[0]}
 }
