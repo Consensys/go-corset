@@ -42,6 +42,11 @@ func (p *IntrinsicDefinition) IsPure() bool {
 	return true
 }
 
+// IsNative checks whether this function binding is native (or not).
+func (p *IntrinsicDefinition) IsNative() bool {
+	return false
+}
+
 // IsFunction identifies whether or not the intrinsic being defined is a
 // function.  At this time, all intrinsics are functions.
 func (p *IntrinsicDefinition) IsFunction() bool {

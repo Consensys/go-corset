@@ -1,2 +1,2 @@
-;;error:2:25-26:unknown symbol
-(defpurefun (id x) (+ x y))
+;;error:2:24-25:unknown symbol
+(defpurefun (f x) (+ x y))

@@ -62,6 +62,8 @@ func (p *typeChecker) typeCheckDeclaration(decl Declaration) []SyntaxError {
 		// ignore
 	case *DefColumns:
 		// ignore
+	case *DefComputed:
+		// ignore (for now)
 	case *DefConst:
 		errors = p.typeCheckDefConstInModule(d)
 	case *DefConstraint:

@@ -197,6 +197,8 @@ func (t *translator) translateDeclaration(decl Declaration, module util.Path) []
 	switch d := decl.(type) {
 	case *DefAliases:
 		// Not an assignment or a constraint, hence ignore.
+	case *DefComputed:
+		errors = t.translateDefComputed(d, module)
 	case *DefColumns:
 		// Not an assignment or a constraint, hence ignore.
 	case *DefConst:
@@ -223,6 +225,48 @@ func (t *translator) translateDeclaration(decl Declaration, module util.Path) []
 		panic("unknown declaration")
 	}
 	//
+	return errors
+}
+
+// Translate a "defcomputed" declaration.
+func (t *translator) translateDefComputed(decl *DefComputed, module util.Path) []SyntaxError {
+	var (
+		errors   []SyntaxError
+		context  tr.Context = tr.VoidContext[uint]()
+		firstCid uint
+	)
+	//
+	targets := make([]sc.Column, len(decl.Targets))
+	sources := make([]uint, len(decl.Sources))
+	// Identify source columns
+	for i := 0; i < len(decl.Sources); i++ {
+		ith := decl.Sources[i].Binding().(*ColumnBinding)
+		sources[i] = t.env.RegisterOf(&ith.path)
+	}
+	// Identify target columns
+	for i := 0; i < len(decl.Targets); i++ {
+		targetPath := module.Extend(decl.Targets[i].Name())
+		targetId := t.env.RegisterOf(targetPath)
+		target := t.env.Register(targetId)
+		// Construct columns
+		targets[i] = sc.NewColumn(target.Context, target.Name(), target.DataType)
+		// Record first CID
+		if i == 0 {
+			firstCid = targetId
+		}
+		// Join contexts
+		context = context.Join(target.Context)
+	}
+	// Extract the binding
+	binding := decl.Function.Binding().(*NativeDefinition)
+	// Add the assignment and check the first identifier.
+	cid := t.schema.AddAssignment(assignment.NewComputation(context, binding.name, targets, sources))
+	// Sanity check column identifiers align.
+	if cid != firstCid {
+		err := fmt.Sprintf("inconsistent (computed) column identifier (%d v %d)", cid, firstCid)
+		errors = append(errors, *t.srcmap.SyntaxError(decl, err))
+	}
+	// Done
 	return errors
 }
 

@@ -37,6 +37,9 @@ type Permutation = *assignment.SortedPermutation
 // Interleaving captures the notion of an interleaving at the MIR level.
 type Interleaving = *assignment.Interleaving
 
+// Computation captures the notion of an computation at the MIR level.
+type Computation = *assignment.Computation
+
 // Schema for MIR traces
 type Schema struct {
 	// The modules of the schema

@@ -55,6 +55,10 @@ func lowerAssignmentToAir(c sc.Assignment, mirSchema *Schema, airSchema *air.Sch
 		// Nothing to do for interleaving constraints, as they can be passed
 		// directly down to the AIR level
 		return
+	} else if _, ok := c.(Computation); ok {
+		// Nothing to do for computation, as they can be passed directly down to
+		// the AIR level
+		return
 	} else {
 		panic("unknown assignment")
 	}

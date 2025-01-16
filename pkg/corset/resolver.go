@@ -15,6 +15,10 @@ import (
 func ResolveCircuit(srcmap *sexp.SourceMaps[Node], circuit *Circuit) (*ModuleScope, []SyntaxError) {
 	// Construct top-level scope
 	scope := NewModuleScope()
+	// Define natives
+	for _, i := range NATIVES {
+		scope.Define(&i)
+	}
 	// Define intrinsics
 	for _, i := range INTRINSICS {
 		scope.Define(&i)
@@ -289,6 +293,8 @@ func (r *resolver) declarationDependenciesAreFinalised(scope *ModuleScope,
 // Finalise a declaration.
 func (r *resolver) finaliseDeclaration(scope *ModuleScope, decl Declaration) []SyntaxError {
 	switch d := decl.(type) {
+	case *DefComputed:
+		return r.finaliseDefComputedInModule(d)
 	case *DefConst:
 		return r.finaliseDefConstInModule(scope, d)
 	case *DefConstraint:
@@ -310,6 +316,49 @@ func (r *resolver) finaliseDeclaration(scope *ModuleScope, decl Declaration) []S
 	}
 	//
 	return nil
+}
+
+func (r *resolver) finaliseDefComputedInModule(decl *DefComputed) []SyntaxError {
+	var (
+		errors    []SyntaxError
+		arguments []NativeColumn = make([]NativeColumn, len(decl.Sources))
+		binding   *NativeDefinition
+	)
+	// Initialise arguments
+	for i := 0; i < len(decl.Sources); i++ {
+		// FIXME: sanity check that these things make sense.
+		ith := decl.Sources[i].Binding().(*ColumnBinding)
+		arguments[i] = NativeColumn{ith.dataType, ith.multiplier}
+	}
+	// Extract binding
+	binding = decl.Function.Binding().(*NativeDefinition)
+	//
+	if !binding.HasArity(uint(len(arguments))) {
+		msg := fmt.Sprintf("incorrect number of arguments (found %d)", len(arguments))
+		errors = append(errors, *r.srcmap.SyntaxError(decl.Function, msg))
+	} else {
+		// Apply definition to determine geometry of assignment
+		assignments := binding.Apply(arguments)
+		//
+		if len(assignments) > len(decl.Targets) {
+			msg := fmt.Sprintf("not enough target columns (expected %d)", len(assignments))
+			errors = append(errors, *r.srcmap.SyntaxError(decl.Function, msg))
+		} else if len(assignments) < len(decl.Targets) {
+			msg := fmt.Sprintf("too many target columns (expected %d)", len(assignments))
+			errors = append(errors, *r.srcmap.SyntaxError(decl.Function, msg))
+		} else {
+			// Finalise each target column
+			for i := 0; i < len(decl.Targets); i++ {
+				// Finalise ith target column
+				target := decl.Targets[i].Binding().(*ColumnBinding)
+				// Update with completed information
+				target.multiplier = assignments[i].multiplier
+				target.dataType = assignments[i].datatype
+			}
+		}
+	}
+	// Done
+	return errors
 }
 
 // Finalise one or more constant definitions within a given module.
