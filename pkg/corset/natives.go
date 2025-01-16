@@ -1,6 +1,8 @@
 package corset
 
 import (
+	"math"
+
 	"github.com/consensys/go-corset/pkg/sexp"
 	"github.com/consensys/go-corset/pkg/util"
 )
@@ -115,6 +117,16 @@ var NATIVES []NativeDefinition = []NativeDefinition{
 	{"id", 1, 1, nativeId},
 	// Filter based on second argument
 	{"filter", 2, 2, nativeFilter},
+	// Identify changes of a column within a given region (in forwards direction).
+	{"fwd-changes-within", 2, math.MaxUint, nativeChangeWithin},
+	// Identify rows which don't change within a given region (in forwards direction).
+	{"fwd-unchanged-within", 2, math.MaxUint, nativeChangeWithin},
+	// Identify changes of a column within a given region (in backwards direction).
+	{"bwd-changes-within", 2, math.MaxUint, nativeChangeWithin},
+	// Flood fill (forwards) within a given region
+	{"fwd-fill-within", 3, 3, nativeFillWithin},
+	// Flood fill (backwards) within a given region
+	{"bwd-fill-within", 3, 3, nativeFillWithin},
 }
 
 func nativeId(inputs []NativeColumn) []NativeColumn {
@@ -127,6 +139,24 @@ func nativeId(inputs []NativeColumn) []NativeColumn {
 
 func nativeFilter(inputs []NativeColumn) []NativeColumn {
 	if len(inputs) != 2 {
+		panic("unreachable")
+	}
+	//
+	return []NativeColumn{inputs[0]}
+}
+
+func nativeChangeWithin(inputs []NativeColumn) []NativeColumn {
+	if len(inputs) <= 1 {
+		panic("unreachable")
+	}
+	//
+	result := NativeColumn{NewUintType(1), inputs[0].multiplier}
+	//
+	return []NativeColumn{result}
+}
+
+func nativeFillWithin(inputs []NativeColumn) []NativeColumn {
+	if len(inputs) <= 2 {
 		panic("unreachable")
 	}
 	//

@@ -977,6 +977,31 @@ func Test_Compute_02(t *testing.T) {
 }
 
 // ===================================================================
+// Native computations
+// ===================================================================
+
+func Test_Native_01(t *testing.T) {
+	Check(t, false, "native_01")
+}
+func Test_Native_02(t *testing.T) {
+	Check(t, false, "native_02")
+}
+func Test_Native_03(t *testing.T) {
+	Check(t, false, "native_03")
+}
+func Test_Native_04(t *testing.T) {
+	Check(t, false, "native_04")
+}
+
+func Test_Native_05(t *testing.T) {
+	Check(t, false, "native_05")
+}
+
+func Test_Native_06(t *testing.T) {
+	Check(t, false, "native_06")
+}
+
+// ===================================================================
 // Complex Tests
 // ===================================================================
 
