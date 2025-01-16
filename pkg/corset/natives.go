@@ -1,6 +1,8 @@
 package corset
 
 import (
+	"math"
+
 	"github.com/consensys/go-corset/pkg/sexp"
 	"github.com/consensys/go-corset/pkg/util"
 )
@@ -115,6 +117,12 @@ var NATIVES []NativeDefinition = []NativeDefinition{
 	{"id", 1, 1, nativeId},
 	// Filter based on second argument
 	{"filter", 2, 2, nativeFilter},
+	// Identify changes of a column within a given region (in forwards direction).
+	{"fwd-changes-within", 2, math.MaxUint, nativeChangeWithin},
+	// Identify rows which don't change within a given region (in forwards direction).
+	{"fwd-unchanged-within", 2, math.MaxUint, nativeChangeWithin},
+	// Identify changes of a column within a given region (in backwards direction).
+	{"bwd-changes-within", 2, math.MaxUint, nativeChangeWithin},
 }
 
 func nativeId(inputs []NativeColumn) []NativeColumn {
@@ -131,4 +139,14 @@ func nativeFilter(inputs []NativeColumn) []NativeColumn {
 	}
 	//
 	return []NativeColumn{inputs[0]}
+}
+
+func nativeChangeWithin(inputs []NativeColumn) []NativeColumn {
+	if len(inputs) <= 1 {
+		panic("unreachable")
+	}
+	//
+	result := NativeColumn{NewUintType(1), inputs[0].multiplier}
+	//
+	return []NativeColumn{result}
 }

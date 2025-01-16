@@ -3,7 +3,9 @@ package assignment
 import (
 	"encoding/gob"
 	"fmt"
+	"slices"
 
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/sexp"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -23,23 +25,6 @@ type Computation struct {
 	Targets []sc.Column
 	// Source columns which define the new (sorted) columns.
 	Sources []uint
-}
-
-// NativeComputation embeds information about a support native computation.
-// This can be used, for example, to check that a native function is being
-// called correctly, etc.
-type NativeComputation struct {
-	// Name of this computation
-	Name string
-	// Function which will be applied to a given set of input columns, whilst
-	// writing to a given set of output columns.
-	Function func(tr.Trace, []uint) []util.FrArray
-}
-
-// NATIVES map holds the supported set of native computations.
-var NATIVES map[string]NativeComputation = map[string]NativeComputation{
-	"id":     {"id", idNativeFunction},
-	"filter": {"filter", filterNativeFunction},
 }
 
 // NewComputation defines a set of target columns which are assigned from a
@@ -151,6 +136,24 @@ func (p *Computation) Lisp(schema sc.Schema) sexp.SExp {
 // Native Function Definitions
 // ============================================================================
 
+// NativeComputation embeds information about a support native computation.
+// This can be used, for example, to check that a native function is being
+// called correctly, etc.
+type NativeComputation struct {
+	// Function which will be applied to a given set of input columns, whilst
+	// writing to a given set of output columns.
+	Function func(tr.Trace, []uint) []util.FrArray
+}
+
+// NATIVES map holds the supported set of native computations.
+var NATIVES map[string]NativeComputation = map[string]NativeComputation{
+	"id":                   {idNativeFunction},
+	"filter":               {filterNativeFunction},
+	"fwd-changes-within":   {fwdChangesWithinNativeFunction},
+	"fwd-unchanged-within": {fwdUnchangedWithinNativeFunction},
+	"bwd-changes-within":   {bwdChangesWithinNativeFunction},
+}
+
 // id assigns the target column with the corresponding value of the source
 // column
 func idNativeFunction(trace tr.Trace, sources []uint) []util.FrArray {
@@ -186,6 +189,135 @@ func filterNativeFunction(trace tr.Trace, sources []uint) []util.FrArray {
 	}
 	// Done
 	return []util.FrArray{data}
+}
+
+// determines changes of a given set of columns within a given region.
+func fwdChangesWithinNativeFunction(trace tr.Trace, sources []uint) []util.FrArray {
+	if len(sources) < 2 {
+		panic("incorrect number of arguments")
+	}
+	// Useful constant
+	one := fr.One()
+	// Extract input column info
+	selector_col := trace.Column(sources[0]).Data()
+	source_cols := make([]util.Array[fr.Element], len(sources)-1)
+	//
+	for i := 1; i < len(sources); i++ {
+		source_cols[i-1] = trace.Column(sources[i]).Data()
+	}
+	// Construct (binary) output column
+	data := util.NewFrArray(selector_col.Len(), 1)
+	// Set current value
+	current := make([]fr.Element, len(source_cols))
+	started := false
+	//
+	for i := uint(0); i < selector_col.Len(); i++ {
+		ith_selector := selector_col.Get(i)
+		// Check whether within region or not.
+		if !ith_selector.IsZero() {
+			//
+			row := extractIthColumns(i, source_cols)
+			// Trigger required?
+			if !started || !slices.Equal(current, row) {
+				started = true
+				current = row
+				//
+				data.Set(i, one)
+			}
+		}
+	}
+	// Done
+	return []util.FrArray{data}
+}
+
+func fwdUnchangedWithinNativeFunction(trace tr.Trace, sources []uint) []util.FrArray {
+	if len(sources) < 2 {
+		panic("incorrect number of arguments")
+	}
+	// Useful constant
+	one := fr.One()
+	zero := fr.NewElement(0)
+	// Extract input column info
+	selector_col := trace.Column(sources[0]).Data()
+	source_cols := make([]util.Array[fr.Element], len(sources)-1)
+	//
+	for i := 1; i < len(sources); i++ {
+		source_cols[i-1] = trace.Column(sources[i]).Data()
+	}
+	// Construct (binary) output column
+	data := util.NewFrArray(selector_col.Len(), 1)
+	// Set current value
+	current := make([]fr.Element, len(source_cols))
+	started := false
+	//
+	for i := uint(0); i < selector_col.Len(); i++ {
+		ith_selector := selector_col.Get(i)
+		// Check whether within region or not.
+		if !ith_selector.IsZero() {
+			//
+			row := extractIthColumns(i, source_cols)
+			// Trigger required?
+			if !started || !slices.Equal(current, row) {
+				started = true
+				current = row
+				//
+				data.Set(i, zero)
+			} else {
+				data.Set(i, one)
+			}
+		}
+	}
+	// Done
+	return []util.FrArray{data}
+}
+
+// determines changes of a given set of columns within a given region.
+func bwdChangesWithinNativeFunction(trace tr.Trace, sources []uint) []util.FrArray {
+	if len(sources) < 2 {
+		panic("incorrect number of arguments")
+	}
+	// Useful constant
+	one := fr.One()
+	// Extract input column info
+	selector_col := trace.Column(sources[0]).Data()
+	source_cols := make([]util.Array[fr.Element], len(sources)-1)
+	//
+	for i := 1; i < len(sources); i++ {
+		source_cols[i-1] = trace.Column(sources[i]).Data()
+	}
+	// Construct (binary) output column
+	data := util.NewFrArray(selector_col.Len(), 1)
+	// Set current value
+	current := make([]fr.Element, len(source_cols))
+	started := false
+	//
+	for i := selector_col.Len(); i > 0; i-- {
+		ith_selector := selector_col.Get(i - 1)
+		// Check whether within region or not.
+		if !ith_selector.IsZero() {
+			//
+			row := extractIthColumns(i-1, source_cols)
+			// Trigger required?
+			if !started || !slices.Equal(current, row) {
+				started = true
+				current = row
+				//
+				data.Set(i-1, one)
+			}
+		}
+	}
+	// Done
+	return []util.FrArray{data}
+}
+
+func extractIthColumns(index uint, cols []util.Array[fr.Element]) []fr.Element {
+	row := make([]fr.Element, len(cols))
+	//
+	for i := range row {
+		row[i] = cols[i].Get(index)
+	}
+	//
+	return row
 }
 
 // ============================================================================
