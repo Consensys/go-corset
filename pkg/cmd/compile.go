@@ -20,10 +20,11 @@ var compileCmd = &cobra.Command{
 		debug := GetFlag(cmd, "debug")
 		legacy := GetFlag(cmd, "legacy")
 		output := GetString(cmd, "output")
+		metadata := []byte{}
 		// Parse constraints
 		hirSchema := readSchema(stdlib, debug, legacy, args)
 		// Serialise as a gob file.
-		writeHirSchema(hirSchema, legacy, output)
+		writeBinaryFile(metadata, hirSchema, legacy, output)
 	},
 }
 
