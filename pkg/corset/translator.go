@@ -404,7 +404,8 @@ func (t *translator) translateDefPermutation(decl *DefPermutation, module util.P
 		target := t.env.Register(targetId)
 		// Construct columns
 		targets[i] = sc.NewColumn(target.Context, target.Name(), target.DataType)
-		sources[i] = t.env.RegisterOf(decl.Sources[i].Path())
+		sourceBinding := decl.Sources[i].Binding().(*ColumnBinding)
+		sources[i] = t.env.RegisterOf(&sourceBinding.path)
 		signs[i] = decl.Signs[i]
 		// Record first CID
 		if i == 0 {
