@@ -391,7 +391,7 @@ func readBinaryFile(legacy bool, filename string) (*BinaryFile, *hir.Schema) {
 	// Read schema file
 	data, err := os.ReadFile(filename)
 	// Handle errors
-	if err == nil && legacy {
+	if err == nil && (legacy || !isBinaryFile(data)) {
 		// Read the binary file
 		schema, err = binfile.HirSchemaFromJson(data)
 	} else if err == nil {
@@ -448,4 +448,19 @@ func writeBinaryFile(metadata []byte, schema *hir.Schema, legacy bool, filename 
 		fmt.Println(err.Error())
 		os.Exit(1)
 	}
+}
+
+// Check whether the given data file begins with the expected "zkbinary"
+// identifier.
+func isBinaryFile(data []byte) bool {
+	var (
+		zkbinary [8]byte
+		buffer   *bytes.Buffer = bytes.NewBuffer(data)
+	)
+	//
+	if _, err := buffer.Read(zkbinary[:]); err != nil {
+		return false
+	}
+	// Check whether header identified
+	return zkbinary == ZKBINARY
 }
