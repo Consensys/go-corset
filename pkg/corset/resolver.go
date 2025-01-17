@@ -268,6 +268,7 @@ func (r *resolver) declarationDependenciesAreFinalised(scope *ModuleScope,
 	//
 	for iter := decl.Dependencies(); iter.HasNext(); {
 		symbol := iter.Next()
+		fmt.Printf("Resolving %s\n", symbol.Path().String())
 		// Attempt to resolve
 		if !symbol.IsResolved() && !scope.Bind(symbol) {
 			errors = append(errors, *r.srcmap.SyntaxError(symbol, "unknown symbol"))
