@@ -467,26 +467,29 @@ func (r *resolver) finaliseDefPermutationInModule(decl *DefPermutation) []Syntax
 	var (
 		multiplier uint = 0
 		errors     []SyntaxError
+		started    bool
 	)
 	// Finalise each column in turn
 	for i := 0; i < len(decl.Sources); i++ {
 		ith := decl.Sources[i]
 		// Lookup source of column being permuted
-		source := ith.Binding().(*ColumnBinding)
-		// Sanity check length multiplier
-		if i == 0 && source.dataType.AsUnderlying().AsUint() == nil {
+		if source, ok := ith.Binding().(*ColumnBinding); !ok {
+			errors = append(errors, *r.srcmap.SyntaxError(ith, "invalid source column"))
+			return errors
+		} else if !started && source.dataType.AsUnderlying().AsUint() == nil {
 			errors = append(errors, *r.srcmap.SyntaxError(ith, "fixed-width type required"))
-		} else if i == 0 {
-			multiplier = source.multiplier
-		} else if multiplier != source.multiplier {
+		} else if started && multiplier != source.multiplier {
 			// Problem
 			errors = append(errors, *r.srcmap.SyntaxError(ith, "incompatible length multiplier"))
+		} else {
+			// All good, finalise target column
+			target := decl.Targets[i].Binding().(*ColumnBinding)
+			// Update with completed information
+			target.multiplier = source.multiplier
+			target.dataType = source.dataType
+			multiplier = source.multiplier
+			started = true
 		}
-		// All good, finalise target column
-		target := decl.Targets[i].Binding().(*ColumnBinding)
-		// Update with completed information
-		target.multiplier = source.multiplier
-		target.dataType = source.dataType
 	}
 	// Done
 	return errors
