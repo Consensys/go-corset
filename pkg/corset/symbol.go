@@ -28,6 +28,15 @@ type Symbol interface {
 	Resolve(Binding) bool
 }
 
+// TypedSymbol is an extended form of symbol which contains additional
+// information about a given column access.
+type TypedSymbol interface {
+	Symbol
+	// Type returns the type associated with this symbol.  If the type cannot be
+	// determined, then nil is returned.
+	Type() Type
+}
+
 // SymbolDefinition represents a declaration (or part thereof) which defines a
 // particular symbol.  For example, "defcolumns" will define one or more symbols
 // representing columns, etc.

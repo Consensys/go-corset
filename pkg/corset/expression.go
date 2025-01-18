@@ -126,6 +126,18 @@ func (e *ArrayAccess) Binding() Binding {
 	return e.binding
 }
 
+// Type returns the type associated with this symbol.  If the type cannot be
+// determined, then nil is returned.
+func (e *ArrayAccess) Type() Type {
+	if binding, ok := e.binding.(*ColumnBinding); !ok {
+		return nil
+	} else if arr_t, ok := binding.dataType.(*ArrayType); ok {
+		return arr_t.element
+	}
+	// Cannot be typed
+	return nil
+}
+
 // Context returns the context for this expression.  Observe that the
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
@@ -953,6 +965,16 @@ func (e *VariableAccess) Lisp() sexp.SExp {
 // Dependencies needed to signal declaration.
 func (e *VariableAccess) Dependencies() []Symbol {
 	return []Symbol{e}
+}
+
+// Type returns the type associated with this symbol.  If the type cannot be
+// determined, then nil is returned.
+func (e *VariableAccess) Type() Type {
+	if binding, ok := e.binding.(*ColumnBinding); ok {
+		return binding.dataType
+	}
+	// Cannot be typed
+	return nil
 }
 
 // ============================================================================

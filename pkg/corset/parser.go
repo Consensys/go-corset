@@ -580,7 +580,7 @@ func (p *Parser) parseDefConstraint(module util.Path, elements []sexp.SExp) (Dec
 func (p *Parser) parseDefInterleaved(module util.Path, elements []sexp.SExp) (Declaration, []SyntaxError) {
 	var (
 		errors  []SyntaxError
-		sources []Symbol
+		sources []TypedSymbol
 	)
 	// Check target column
 	if !isIdentifier(elements[1]) {
@@ -592,7 +592,7 @@ func (p *Parser) parseDefInterleaved(module util.Path, elements []sexp.SExp) (De
 	} else {
 		// Extract target and source columns
 		sexpSources := elements[2].AsList()
-		sources = make([]Symbol, sexpSources.Len())
+		sources = make([]TypedSymbol, sexpSources.Len())
 		//
 		for i := 0; i != sexpSources.Len(); i++ {
 			var errs []SyntaxError
@@ -614,7 +614,7 @@ func (p *Parser) parseDefInterleaved(module util.Path, elements []sexp.SExp) (De
 	return &DefInterleaved{target, sources}, nil
 }
 
-func (p *Parser) parseDefInterleavedSource(source sexp.SExp) (Symbol, []SyntaxError) {
+func (p *Parser) parseDefInterleavedSource(source sexp.SExp) (TypedSymbol, []SyntaxError) {
 	if source.AsSymbol() != nil {
 		return p.parseDefInterleavedSourceColumn(source.AsSymbol())
 	} else if source.AsArray() != nil {
@@ -624,7 +624,7 @@ func (p *Parser) parseDefInterleavedSource(source sexp.SExp) (Symbol, []SyntaxEr
 	return nil, p.translator.SyntaxErrors(source, "malformed source column")
 }
 
-func (p *Parser) parseDefInterleavedSourceColumn(source *sexp.Symbol) (Symbol, []SyntaxError) {
+func (p *Parser) parseDefInterleavedSourceColumn(source *sexp.Symbol) (TypedSymbol, []SyntaxError) {
 	if path, err := parseQualifiableName(source.Value); err != nil {
 		return nil, p.translator.SyntaxErrors(source, err.Error())
 	} else {
@@ -635,7 +635,7 @@ func (p *Parser) parseDefInterleavedSourceColumn(source *sexp.Symbol) (Symbol, [
 	}
 }
 
-func (p *Parser) parseDefInterleavedSourceArray(source *sexp.Array) (Symbol, []SyntaxError) {
+func (p *Parser) parseDefInterleavedSourceArray(source *sexp.Array) (TypedSymbol, []SyntaxError) {
 	// Parse index
 	name := source.Get(0).AsSymbol()
 	index, errors := p.translator.Translate(source.Get(1))
