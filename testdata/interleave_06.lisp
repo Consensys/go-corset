@@ -1,0 +1,5 @@
+(defcolumns (P :binary@bool) (X :@loob))
+(defperspective p1 P ((Y :@loob)))
+(definterleaved Z (X p1/Y))
+(definterleaved Q (P P))
+(defconstraint c1 (:guard Q) Z)
