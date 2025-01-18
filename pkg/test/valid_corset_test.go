@@ -640,6 +640,9 @@ func Test_Interleave_05(t *testing.T) {
 func Test_Interleave_06(t *testing.T) {
 	Check(t, false, "interleave_06")
 }
+func Test_Interleave_07(t *testing.T) {
+	Check(t, false, "interleave_07")
+}
 
 // ===================================================================
 // Functions

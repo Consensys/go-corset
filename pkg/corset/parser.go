@@ -595,15 +595,9 @@ func (p *Parser) parseDefInterleaved(module util.Path, elements []sexp.SExp) (De
 		sources = make([]Symbol, sexpSources.Len())
 		//
 		for i := 0; i != sexpSources.Len(); i++ {
-			ith := sexpSources.Get(i)
-			if ith.AsSymbol() == nil {
-				errors = append(errors, *p.translator.SyntaxError(ith, "malformed source column"))
-			} else if path, err := parseQualifiableName(ith.AsSymbol().Value); err != nil {
-				errors = append(errors, *p.translator.SyntaxError(ith, err.Error()))
-			} else {
-				sources[i] = &VariableAccess{path, false, nil}
-				p.mapSourceNode(ith, sources[i])
-			}
+			var errs []SyntaxError
+			sources[i], errs = p.parseDefInterleavedSource(sexpSources.Get(i))
+			errors = append(errors, errs...)
 		}
 	}
 	// Error Check
@@ -618,6 +612,47 @@ func (p *Parser) parseDefInterleaved(module util.Path, elements []sexp.SExp) (De
 	p.mapSourceNode(elements[1], target)
 	// Done
 	return &DefInterleaved{target, sources}, nil
+}
+
+func (p *Parser) parseDefInterleavedSource(source sexp.SExp) (Symbol, []SyntaxError) {
+	if source.AsSymbol() != nil {
+		return p.parseDefInterleavedSourceColumn(source.AsSymbol())
+	} else if source.AsArray() != nil {
+		return p.parseDefInterleavedSourceArray(source.AsArray())
+	}
+	//
+	return nil, p.translator.SyntaxErrors(source, "malformed source column")
+}
+
+func (p *Parser) parseDefInterleavedSourceColumn(source *sexp.Symbol) (Symbol, []SyntaxError) {
+	if path, err := parseQualifiableName(source.Value); err != nil {
+		return nil, p.translator.SyntaxErrors(source, err.Error())
+	} else {
+		varAccess := &VariableAccess{path, false, nil}
+		p.mapSourceNode(source, varAccess)
+
+		return varAccess, nil
+	}
+}
+
+func (p *Parser) parseDefInterleavedSourceArray(source *sexp.Array) (Symbol, []SyntaxError) {
+	// Parse index
+	name := source.Get(0).AsSymbol()
+	index, errors := p.translator.Translate(source.Get(1))
+	//
+	if name == nil {
+		errors = p.translator.SyntaxErrors(source, "malformed source column")
+	} else if path, err := parseQualifiableName(name.Value); err != nil {
+		errors = append(errors, *p.translator.SyntaxError(source, err.Error()))
+	} else {
+		arrAccess := &ArrayAccess{path, index, nil}
+		p.mapSourceNode(source, arrAccess)
+
+		return arrAccess, nil
+	}
+	//
+	//
+	return nil, errors
 }
 
 // Parse a lookup declaration
