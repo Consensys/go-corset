@@ -636,7 +636,7 @@ type DefInterleaved struct {
 	// The target column being defined
 	Target *DefColumn
 	// The source columns used to define the interleaved target column.
-	Sources []Symbol
+	Sources []TypedSymbol
 }
 
 // Definitions returns the set of symbols defined by this declaration.  Observe
@@ -648,7 +648,8 @@ func (p *DefInterleaved) Definitions() util.Iterator[SymbolDefinition] {
 
 // Dependencies needed to signal declaration.
 func (p *DefInterleaved) Dependencies() util.Iterator[Symbol] {
-	return util.NewArrayIterator(p.Sources)
+	iter := util.NewArrayIterator(p.Sources)
+	return util.NewCastIterator[TypedSymbol, Symbol](iter)
 }
 
 // Defines checks whether this declaration defines the given symbol.  The symbol

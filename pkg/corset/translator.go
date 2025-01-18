@@ -372,8 +372,9 @@ func (t *translator) translateDefInterleaved(decl *DefInterleaved, module util.P
 	target := t.env.Register(targetId)
 	// Determine source column identifiers
 	for i, source := range decl.Sources {
-		binding := source.Binding().(*ColumnBinding)
-		sources[i] = t.env.RegisterOf(&binding.path)
+		var errs []SyntaxError
+		sources[i], errs = t.registerOfColumnAccess(source)
+		errors = append(errors, errs...)
 	}
 	// Register assignment
 	cid := t.schema.AddAssignment(assignment.NewInterleaving(target.Context, target.Name(), sources, target.DataType))
@@ -501,7 +502,10 @@ func (t *translator) translateExpressionsInModule(exprs []Expr, module util.Path
 func (t *translator) translateExpressionInModule(expr Expr, module util.Path, shift int) (hir.Expr, []SyntaxError) {
 	switch e := expr.(type) {
 	case *ArrayAccess:
-		return t.translateArrayAccessInModule(e, shift)
+		// Lookup underlying column info
+		registerId, errors := t.registerOfColumnAccess(e)
+		// Done
+		return &hir.ColumnAccess{Column: registerId, Shift: shift}, errors
 	case *Add:
 		args, errs := t.translateExpressionsInModule(e.Args, module, shift)
 		return &hir.Add{Args: args}, errs
@@ -543,43 +547,6 @@ func (t *translator) translateExpressionInModule(expr Expr, module util.Path, sh
 	default:
 		return nil, t.srcmap.SyntaxErrors(expr, "unknown expression encountered during translation")
 	}
-}
-
-func (t *translator) translateArrayAccessInModule(expr *ArrayAccess, shift int) (hir.Expr, []SyntaxError) {
-	var (
-		errors []SyntaxError
-		min    uint = 0
-		max    uint = math.MaxUint
-	)
-	// Lookup the column
-	binding, ok := expr.Binding().(*ColumnBinding)
-	// Did we find it?
-	if !ok {
-		errors = append(errors, *t.srcmap.SyntaxError(expr.arg, "invalid array index encountered during translation"))
-	} else if arr_t, ok := binding.dataType.(*ArrayType); ok {
-		min = arr_t.min
-		max = arr_t.max
-	}
-	// Array index should be statically known
-	index := expr.arg.AsConstant()
-	//
-	if index == nil {
-		errors = append(errors, *t.srcmap.SyntaxError(expr.arg, "expected constant array index"))
-	} else if i := uint(index.Uint64()); i < min || i > max {
-		errors = append(errors, *t.srcmap.SyntaxError(expr.arg, "array index out-of-bounds"))
-	}
-	// Error check
-	if len(errors) > 0 {
-		return nil, errors
-	}
-	// Construct real column name
-	path := &binding.path
-	name := fmt.Sprintf("%s_%d", path.Tail(), index.Uint64())
-	path = path.Parent().Extend(name)
-	// Lookup underlying column info
-	registerId := t.env.RegisterOf(path)
-	// Done
-	return &hir.ColumnAccess{Column: registerId, Shift: shift}, nil
 }
 
 func (t *translator) translateExpInModule(expr *Exp, module util.Path, shift int) (hir.Expr, []SyntaxError) {
@@ -627,4 +594,59 @@ func (t *translator) translateVariableAccessInModule(expr *VariableAccess, shift
 	}
 	// error
 	return nil, t.srcmap.SyntaxErrors(expr, "unbound variable")
+}
+
+// Determine the underlying register for a symbol which represents a column access.
+func (t *translator) registerOfColumnAccess(symbol Symbol) (uint, []SyntaxError) {
+	switch e := symbol.(type) {
+	case *ArrayAccess:
+		return t.registerOfArrayAccess(e)
+	case *VariableAccess:
+		return t.registerOfVariableAccess(e)
+	}
+	//
+	return math.MaxUint, t.srcmap.SyntaxErrors(symbol, "invalid column access")
+}
+
+func (t *translator) registerOfVariableAccess(expr *VariableAccess) (uint, []SyntaxError) {
+	if binding, ok := expr.Binding().(*ColumnBinding); ok {
+		// Lookup column binding
+		return t.env.RegisterOf(binding.AbsolutePath()), nil
+	}
+	//
+	return math.MaxUint, t.srcmap.SyntaxErrors(expr, "invalid column access")
+}
+func (t *translator) registerOfArrayAccess(expr *ArrayAccess) (uint, []SyntaxError) {
+	var (
+		errors []SyntaxError
+		min    uint = 0
+		max    uint = math.MaxUint
+	)
+	// Lookup the column
+	binding, ok := expr.Binding().(*ColumnBinding)
+	// Did we find it?
+	if !ok {
+		errors = append(errors, *t.srcmap.SyntaxError(expr.arg, "invalid array index encountered during translation"))
+	} else if arr_t, ok := binding.dataType.(*ArrayType); ok {
+		min = arr_t.min
+		max = arr_t.max
+	}
+	// Array index should be statically known
+	index := expr.arg.AsConstant()
+	//
+	if index == nil {
+		errors = append(errors, *t.srcmap.SyntaxError(expr.arg, "expected constant array index"))
+	} else if i := uint(index.Uint64()); i < min || i > max {
+		errors = append(errors, *t.srcmap.SyntaxError(expr.arg, "array index out-of-bounds"))
+	}
+	// Error check
+	if len(errors) > 0 {
+		return math.MaxUint, errors
+	}
+	// Construct real column name
+	path := &binding.path
+	name := fmt.Sprintf("%s_%d", path.Tail(), index.Uint64())
+	path = path.Parent().Extend(name)
+	// Lookup underlying column info
+	return t.env.RegisterOf(path), errors
 }
