@@ -373,7 +373,7 @@ func (t *translator) translateDefInterleaved(decl *DefInterleaved, module util.P
 	// Determine source column identifiers
 	for i, source := range decl.Sources {
 		var errs []SyntaxError
-		sources[i], errs = t.registerOf(source)
+		sources[i], errs = t.registerOfColumnAccess(source)
 		errors = append(errors, errs...)
 	}
 	// Register assignment
@@ -503,7 +503,7 @@ func (t *translator) translateExpressionInModule(expr Expr, module util.Path, sh
 	switch e := expr.(type) {
 	case *ArrayAccess:
 		// Lookup underlying column info
-		registerId, errors := t.registerOf(e)
+		registerId, errors := t.registerOfColumnAccess(e)
 		// Done
 		return &hir.ColumnAccess{Column: registerId, Shift: shift}, errors
 	case *Add:
@@ -596,17 +596,26 @@ func (t *translator) translateVariableAccessInModule(expr *VariableAccess, shift
 	return nil, t.srcmap.SyntaxErrors(expr, "unbound variable")
 }
 
-func (t *translator) registerOf(symbol Symbol) (uint, []SyntaxError) {
+// Determine the underlying register for a symbol which represents a column access.
+func (t *translator) registerOfColumnAccess(symbol Symbol) (uint, []SyntaxError) {
 	switch e := symbol.(type) {
 	case *ArrayAccess:
 		return t.registerOfArrayAccess(e)
 	case *VariableAccess:
-		return t.env.RegisterOf(e.Path()), nil
+		return t.registerOfVariableAccess(e)
 	}
 	//
-	return 0, t.srcmap.SyntaxErrors(symbol, "invalid column access")
+	return math.MaxUint, t.srcmap.SyntaxErrors(symbol, "invalid column access")
 }
 
+func (t *translator) registerOfVariableAccess(expr *VariableAccess) (uint, []SyntaxError) {
+	if binding, ok := expr.Binding().(*ColumnBinding); ok {
+		// Lookup column binding
+		return t.env.RegisterOf(binding.AbsolutePath()), nil
+	}
+	//
+	return math.MaxUint, t.srcmap.SyntaxErrors(expr, "invalid column access")
+}
 func (t *translator) registerOfArrayAccess(expr *ArrayAccess) (uint, []SyntaxError) {
 	var (
 		errors []SyntaxError
@@ -632,7 +641,7 @@ func (t *translator) registerOfArrayAccess(expr *ArrayAccess) (uint, []SyntaxErr
 	}
 	// Error check
 	if len(errors) > 0 {
-		return 0, errors
+		return math.MaxUint, errors
 	}
 	// Construct real column name
 	path := &binding.path

@@ -1,5 +1,5 @@
 ;;error:13:17-18:array index out-of-bounds
-;;error:13:12-19:void expression not permitted here
+;;
 (defcolumns
     (BIT :binary@prove :array [3])
     (ARG :i16@loob))
