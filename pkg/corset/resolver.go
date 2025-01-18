@@ -432,18 +432,21 @@ func (r *resolver) finaliseDefInterleavedInModule(decl *DefInterleaved) []Syntax
 	// Determine type and length multiplier
 	for i, source := range decl.Sources {
 		// Lookup binding of column being interleaved.
-		binding := source.Binding().(*ColumnBinding)
-		//
-		if i == 0 {
+		if binding, ok := source.Binding().(*ColumnBinding); !ok {
+			// Columns to be interleaved must have the same length multiplier.
+			err := r.srcmap.SyntaxError(source, "invalid source column")
+			errors = append(errors, *err)
+		} else if i == 0 {
 			length_multiplier = binding.multiplier
 			datatype = binding.dataType
 		} else if binding.multiplier != length_multiplier {
 			// Columns to be interleaved must have the same length multiplier.
-			err := r.srcmap.SyntaxError(decl, fmt.Sprintf("source column %s has incompatible length multiplier", source.Path()))
+			err := r.srcmap.SyntaxError(source, "incompatible length multiplier")
 			errors = append(errors, *err)
+		} else {
+			// Combine datatypes.
+			datatype = GreatestLowerBound(datatype, binding.dataType)
 		}
-		// Combine datatypes.
-		datatype = GreatestLowerBound(datatype, binding.dataType)
 	}
 	// Finalise details only if no errors
 	if len(errors) == 0 {

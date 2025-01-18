@@ -634,6 +634,13 @@ func Test_Interleave_04(t *testing.T) {
 	Check(t, false, "interleave_04")
 }
 
+func Test_Interleave_05(t *testing.T) {
+	Check(t, false, "interleave_05")
+}
+func Test_Interleave_06(t *testing.T) {
+	Check(t, false, "interleave_06")
+}
+
 // ===================================================================
 // Functions
 // ===================================================================

@@ -596,15 +596,12 @@ func (p *Parser) parseDefInterleaved(module util.Path, elements []sexp.SExp) (De
 		//
 		for i := 0; i != sexpSources.Len(); i++ {
 			ith := sexpSources.Get(i)
-			if !isIdentifier(ith) {
+			if ith.AsSymbol() == nil {
 				errors = append(errors, *p.translator.SyntaxError(ith, "malformed source column"))
+			} else if path, err := parseQualifiableName(ith.AsSymbol().Value); err != nil {
+				errors = append(errors, *p.translator.SyntaxError(ith, err.Error()))
 			} else {
-				// Extract column name
-				name := ith.AsSymbol().Value
-				// Construct absolute path of column
-				path := module.Extend(name)
-				//
-				sources[i] = NewColumnName(*path)
+				sources[i] = &VariableAccess{path, false, nil}
 				p.mapSourceNode(ith, sources[i])
 			}
 		}

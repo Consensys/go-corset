@@ -372,7 +372,8 @@ func (t *translator) translateDefInterleaved(decl *DefInterleaved, module util.P
 	target := t.env.Register(targetId)
 	// Determine source column identifiers
 	for i, source := range decl.Sources {
-		sources[i] = t.env.RegisterOf(source.Path())
+		binding := source.Binding().(*ColumnBinding)
+		sources[i] = t.env.RegisterOf(&binding.path)
 	}
 	// Register assignment
 	cid := t.schema.AddAssignment(assignment.NewInterleaving(target.Context, target.Name(), sources, target.DataType))
