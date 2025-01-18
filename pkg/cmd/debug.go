@@ -58,19 +58,16 @@ func init() {
 }
 
 func printSchemas(hirSchema *hir.Schema, hir bool, mir bool, air bool) {
-	mirSchema := hirSchema.LowerToMir()
-	airSchema := mirSchema.LowerToAir()
-
 	if hir {
 		printSchema(hirSchema)
 	}
 
 	if mir {
-		printSchema(mirSchema)
+		printSchema(hirSchema.LowerToMir())
 	}
 
 	if air {
-		printSchema(airSchema)
+		printSchema(hirSchema.LowerToMir().LowerToAir())
 	}
 }
 

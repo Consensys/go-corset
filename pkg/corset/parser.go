@@ -710,7 +710,7 @@ func (p *Parser) parseDefPermutation(module util.Path, elements []sexp.SExp) (De
 				errors = append(errors, *err)
 			}
 			// Parse source column
-			if sources[i], signs[i], err = p.parsePermutedColumnDeclaration(module, i == 0, sexpSources.Get(i)); err != nil {
+			if sources[i], signs[i], err = p.parsePermutedColumnAccess(i == 0, sexpSources.Get(i)); err != nil {
 				errors = append(errors, *err)
 			}
 		}
@@ -723,8 +723,7 @@ func (p *Parser) parseDefPermutation(module util.Path, elements []sexp.SExp) (De
 	return &DefPermutation{targets, sources, signs}, nil
 }
 
-func (p *Parser) parsePermutedColumnDeclaration(module util.Path, signRequired bool,
-	e sexp.SExp) (*ColumnName, bool, *SyntaxError) {
+func (p *Parser) parsePermutedColumnAccess(signRequired bool, e sexp.SExp) (Symbol, bool, *SyntaxError) {
 	//
 	var (
 		err  *SyntaxError
@@ -753,12 +752,15 @@ func (p *Parser) parsePermutedColumnDeclaration(module util.Path, signRequired b
 		name = e.String(false)
 	}
 	//
-	path := module.Extend(name)
-	colname := NewColumnName(*path)
-	// Update source mapping
-	p.mapSourceNode(e, colname)
-	//
-	return colname, sign, nil
+	if path, err := parseQualifiableName(name); err == nil {
+		colAccess := &VariableAccess{path, false, nil}
+		// Update source mapping
+		p.mapSourceNode(e, colAccess)
+		//
+		return colAccess, sign, nil
+	} else {
+		return nil, false, p.translator.SyntaxError(e, err.Error())
+	}
 }
 
 func (p *Parser) parsePermutedColumnSign(sign *sexp.Symbol) (bool, *SyntaxError) {

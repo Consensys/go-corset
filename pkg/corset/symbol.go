@@ -45,15 +45,6 @@ type SymbolDefinition interface {
 	Binding() Binding
 }
 
-// ColumnName represents a name used in a position where it can only be resolved
-// against a column.
-type ColumnName = Name[*ColumnBinding]
-
-// NewColumnName construct a new column name which is (initially) unresolved.
-func NewColumnName(path util.Path) *ColumnName {
-	return &ColumnName{path, false, nil, false}
-}
-
 // FunctionName represents a name used in a position where it can only be
 // resolved as a function.
 type FunctionName = Name[*DefunBinding]

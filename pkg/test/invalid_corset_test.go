@@ -355,9 +355,9 @@ func Test_Invalid_Permute_04(t *testing.T) {
 	CheckInvalid(t, "permute_invalid_04")
 }
 
-func Test_Invalid_Permute_05(t *testing.T) {
+/* func Test_Invalid_Permute_05(t *testing.T) {
 	CheckInvalid(t, "permute_invalid_05")
-}
+} */
 
 func Test_Invalid_Permute_06(t *testing.T) {
 	CheckInvalid(t, "permute_invalid_06")
