@@ -31,7 +31,7 @@ type PermutationConstraint struct {
 	Targets []uint
 	// Sources returns the indices of the columns composing the "right" table of the
 	// permutation.
-	sources []uint
+	Sources []uint
 }
 
 // NewPermutationConstraint creates a new permutation
@@ -53,7 +53,7 @@ func (p *PermutationConstraint) RequiredSpillage() uint {
 // target columns.
 func (p *PermutationConstraint) Accepts(tr trace.Trace) sc.Failure {
 	// Slice out data
-	src := sliceColumns(p.sources, tr)
+	src := sliceColumns(p.Sources, tr)
 	dst := sliceColumns(p.Targets, tr)
 	// Sanity check whether column exists
 	if util.ArePermutationOf(dst, src) {
@@ -61,7 +61,7 @@ func (p *PermutationConstraint) Accepts(tr trace.Trace) sc.Failure {
 		return nil
 	}
 	// Prepare suitable error message
-	src_names := trace.QualifiedColumnNamesToCommaSeparatedString(p.sources, tr)
+	src_names := trace.QualifiedColumnNamesToCommaSeparatedString(p.Sources, tr)
 	dst_names := trace.QualifiedColumnNamesToCommaSeparatedString(p.Targets, tr)
 	//
 	msg := fmt.Sprintf("Target columns (%s) not permutation of source columns (%s)",
@@ -81,7 +81,7 @@ func (p *PermutationConstraint) Lisp(schema sc.Schema) sexp.SExp {
 		targets.Append(sexp.NewSymbol(target.QualifiedName(schema)))
 	}
 
-	for _, sid := range p.sources {
+	for _, sid := range p.Sources {
 		source := schema.Columns().Nth(sid)
 		sources.Append(sexp.NewSymbol(source.QualifiedName(schema)))
 	}
