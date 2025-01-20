@@ -14,10 +14,10 @@ import (
 	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/hir"
-	"github.com/consensys/go-corset/pkg/sexp"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/json"
 	"github.com/consensys/go-corset/pkg/trace/lt"
+	"github.com/consensys/go-corset/pkg/util/sexp"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )

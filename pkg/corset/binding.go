@@ -4,9 +4,9 @@ import (
 	"math"
 	"reflect"
 
-	"github.com/consensys/go-corset/pkg/sexp"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/sexp"
 )
 
 // Binding represents an association between a name, as found in a source file,

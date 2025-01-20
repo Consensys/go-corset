@@ -3,7 +3,7 @@ package corset
 import (
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/sexp"
+	"github.com/consensys/go-corset/pkg/util/sexp"
 )
 
 // ResolveCircuit resolves all symbols declared and used within a circuit,

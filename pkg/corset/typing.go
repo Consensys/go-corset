@@ -3,7 +3,7 @@ package corset
 import (
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/sexp"
+	"github.com/consensys/go-corset/pkg/util/sexp"
 )
 
 // TypeCheckCircuit performs a type checking pass over the circuit to ensure

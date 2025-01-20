@@ -3,8 +3,8 @@ package corset
 import (
 	"math"
 
-	"github.com/consensys/go-corset/pkg/sexp"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/sexp"
 )
 
 // NativeColumn provides information about a column acting as a parameter or

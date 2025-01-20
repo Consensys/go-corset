@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/consensys/go-corset/pkg/sexp"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/sexp"
 )
 
 // IntrinsicDefinition is a SymbolDefinition for an intrinsic (i.e. built-in)

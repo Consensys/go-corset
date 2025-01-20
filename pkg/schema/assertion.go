@@ -3,9 +3,9 @@ package schema
 import (
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/sexp"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/sexp"
 )
 
 // AssertionFailure provides structural information about a failing vanishing constraint.

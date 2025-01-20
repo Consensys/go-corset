@@ -3,7 +3,7 @@ package corset
 import (
 	"math/big"
 
-	"github.com/consensys/go-corset/pkg/sexp"
+	"github.com/consensys/go-corset/pkg/util/sexp"
 )
 
 // PreprocessCircuit performs preprocessing prior to final translation.

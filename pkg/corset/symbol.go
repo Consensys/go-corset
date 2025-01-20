@@ -1,8 +1,8 @@
 package corset
 
 import (
-	"github.com/consensys/go-corset/pkg/sexp"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/sexp"
 )
 
 // Symbol represents a variable or function access within a declaration.

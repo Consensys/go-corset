@@ -4,7 +4,7 @@ import (
 	_ "embed"
 
 	"github.com/consensys/go-corset/pkg/hir"
-	"github.com/consensys/go-corset/pkg/sexp"
+	"github.com/consensys/go-corset/pkg/util/sexp"
 )
 
 // STDLIB is an import of the standard library.
