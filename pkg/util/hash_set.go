@@ -38,6 +38,8 @@ func NewHashSet[T Hasher[T]](size uint) *HashSet[T] {
 }
 
 // Size returns the number of unique items stored in this HashSet.
+//
+//nolint:revive
 func (p *HashSet[T]) Size() uint {
 	count := uint(0)
 	for _, b := range p.items {

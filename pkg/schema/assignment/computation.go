@@ -1,6 +1,7 @@
 package assignment
 
 import (
+	"encoding/binary"
 	"encoding/gob"
 	"fmt"
 	"slices"
@@ -149,6 +150,7 @@ type NativeComputation struct {
 var NATIVES map[string]NativeComputation = map[string]NativeComputation{
 	"id":                   {idNativeFunction},
 	"filter":               {filterNativeFunction},
+	"map-if":               {mapIfNativeFunction},
 	"fwd-changes-within":   {fwdChangesWithinNativeFunction},
 	"fwd-unchanged-within": {fwdUnchangedWithinNativeFunction},
 	"bwd-changes-within":   {bwdChangesWithinNativeFunction},
@@ -191,6 +193,86 @@ func filterNativeFunction(trace tr.Trace, sources []uint) []util.FrArray {
 	}
 	// Done
 	return []util.FrArray{data}
+}
+
+// apply a key-value map conditionally.
+func mapIfNativeFunction(trace tr.Trace, sources []uint) []util.FrArray {
+	n := len(sources) - 3
+	if n%2 != 0 {
+		panic(fmt.Sprintf("map-if expects 3 + 2*n columns (given %d)", len(sources)))
+	}
+	//
+	n = n / 2
+	// Setup what we need
+	source_selector := trace.Column(sources[1+n]).Data()
+	source_keys := make([]util.Array[fr.Element], n)
+	source_value := trace.Column(sources[2+n+n]).Data()
+	source_map := util.NewHashMap[util.BytesKey, fr.Element](source_value.Len())
+	target_selector := trace.Column(sources[0]).Data()
+	target_keys := make([]util.Array[fr.Element], n)
+	target_value := util.NewFrArray(target_selector.Len(), source_value.BitWidth())
+	// Initialise source / target keys
+	for i := 0; i < n; i++ {
+		target_keys[i] = trace.Column(sources[1+i]).Data()
+		source_keys[i] = trace.Column(sources[2+n+i]).Data()
+	}
+	// Build source map
+	for i := uint(0); i < source_value.Len(); i++ {
+		ith_selector := source_selector.Get(i)
+		if !ith_selector.IsZero() {
+			ith_value := source_value.Get(i)
+			ith_key := extractIthKey(i, source_keys)
+			//
+			if val, ok := source_map.Get(ith_key); ok && val.Cmp(&ith_value) != 0 {
+				// Conflicting item already in map, so fail with useful error.
+				ith_row := extractIthColumns(i, source_keys)
+				lhs := fmt.Sprintf("%v=>%s", ith_row, ith_value.String())
+				rhs := fmt.Sprintf("%v=>%s", ith_row, val.String())
+				panic(fmt.Sprintf("conflicting values in source map (row %d): %s vs %s", i, lhs, rhs))
+			} else if !ok {
+				// Item not previously in map
+				source_map.Insert(ith_key, ith_value)
+			}
+		}
+	}
+	// Construct target value column
+	for i := uint(0); i < target_value.Len(); i++ {
+		ith_selector := target_selector.Get(i)
+		if !ith_selector.IsZero() {
+			ith_key := extractIthKey(i, target_keys)
+			//nolint:revive
+			if val, ok := source_map.Get(ith_key); !ok {
+				// Couldn't find key in source map, so fail with useful error.
+				ith_row := extractIthColumns(i, target_keys)
+				panic(fmt.Sprintf("target key (%v) missing from source map", ith_row))
+			} else {
+				// Assign target value
+				target_value.Set(i, val)
+			}
+		}
+	}
+	// Done
+	return []util.FrArray{target_value}
+}
+
+func extractIthKey(index uint, cols []util.Array[fr.Element]) util.BytesKey {
+	// Each fr.Element is 4 x 64bit words.
+	bytes := make([]byte, 32*len(cols))
+	// Slice provides an access window for writing
+	slice := bytes
+	// Evaluate each expression in turn
+	for i := 0; i < len(cols); i++ {
+		ith := cols[i].Get(index)
+		// Copy over each element
+		binary.BigEndian.PutUint64(slice, ith[0])
+		binary.BigEndian.PutUint64(slice[8:], ith[1])
+		binary.BigEndian.PutUint64(slice[16:], ith[2])
+		binary.BigEndian.PutUint64(slice[24:], ith[3])
+		// Move slice over
+		slice = slice[32:]
+	}
+	// Done
+	return util.NewBytesKey(bytes)
 }
 
 // determines changes of a given set of columns within a given region.
