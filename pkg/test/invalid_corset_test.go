@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/consensys/go-corset/pkg/corset"
-	"github.com/consensys/go-corset/pkg/sexp"
+	"github.com/consensys/go-corset/pkg/util/sexp"
 )
 
 // Determines the (relative) location of the test directory.  That is

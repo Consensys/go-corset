@@ -1,8 +1,9 @@
-package corset
+package compiler
 
 import (
 	"fmt"
 
+	"github.com/consensys/go-corset/pkg/corset/ast"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
@@ -15,7 +16,7 @@ type Scope interface {
 	// Attempt to bind a given symbol within this scope.  If successful, the
 	// symbol is then resolved with the appropriate binding.  Return value
 	// indicates whether successful or not.
-	Bind(Symbol) bool
+	Bind(ast.Symbol) bool
 }
 
 // BindingId is an identifier is used to distinguish different forms of binding,
@@ -45,7 +46,7 @@ type ModuleScope struct {
 	// Map identifiers to indices within the bindings array.
 	ids map[BindingId]uint
 	// The set of bindings in the order of declaration.
-	bindings []Binding
+	bindings []ast.Binding
 	// Enclosing scope
 	parent *ModuleScope
 	// Submodules in a map (for efficient lookup)
@@ -113,7 +114,7 @@ func (p *ModuleScope) Declare(submodule string, virtual bool) bool {
 
 // Binding returns information about the binding of a particular symbol defined
 // in this module.
-func (p *ModuleScope) Binding(name string, function bool) Binding {
+func (p *ModuleScope) Binding(name string, function bool) ast.Binding {
 	// construct binding identifier
 	if bid, ok := p.ids[BindingId{name, function}]; ok {
 		return p.bindings[bid]
@@ -124,7 +125,7 @@ func (p *ModuleScope) Binding(name string, function bool) Binding {
 
 // Bind looks up a given variable being referenced within a given module.  For a
 // root context, this is either a column, an alias or a function declaration.
-func (p *ModuleScope) Bind(symbol Symbol) bool {
+func (p *ModuleScope) Bind(symbol ast.Symbol) bool {
 	// Split the two cases: absolute versus relative.
 	if symbol.Path().IsAbsolute() && p.parent != nil {
 		// Absolute path, and this is not the root scope.  Therefore, simply
@@ -145,7 +146,7 @@ func (p *ModuleScope) Bind(symbol Symbol) bool {
 // InnerBind is really a helper which allows us to split out the symbol path
 // from the symbol itself.  This then lets us "traverse" the path as we go
 // looking through submodules, etc.
-func (p *ModuleScope) innerBind(path *util.Path, symbol Symbol) bool {
+func (p *ModuleScope) innerBind(path *util.Path, symbol ast.Symbol) bool {
 	// Relative path.  Then, either it refers to something in this scope, or
 	// something in a subscope.
 	if path.Depth() == 1 {
@@ -178,7 +179,7 @@ func (p *ModuleScope) Enter(submodule string) *ModuleScope {
 
 // Alias constructs an alias for an existing symbol.  If the symbol does not
 // exist, then this returns false.
-func (p *ModuleScope) Alias(alias string, symbol Symbol) bool {
+func (p *ModuleScope) Alias(alias string, symbol ast.Symbol) bool {
 	// Sanity checks.  These are required for now, since we cannot alias
 	// bindings in another scope at this time.
 	if symbol.Path().IsAbsolute() || symbol.Path().Depth() != 1 {
@@ -200,12 +201,12 @@ func (p *ModuleScope) Alias(alias string, symbol Symbol) bool {
 			return true
 		}
 	}
-	// Symbol not known (yet)
+	// ast.Symbol not known (yet)
 	return false
 }
 
 // Define a new symbol within this scope.
-func (p *ModuleScope) Define(symbol SymbolDefinition) bool {
+func (p *ModuleScope) Define(symbol ast.SymbolDefinition) bool {
 	// Sanity checks
 	if !symbol.Path().IsAbsolute() {
 		// Definitely should be unreachable.
@@ -229,13 +230,13 @@ func (p *ModuleScope) Define(symbol SymbolDefinition) bool {
 	id := BindingId{symbol.Name(), symbol.IsFunction()}
 	// Sanity check not already declared
 	if bid, ok := p.ids[id]; ok && !symbol.IsFunction() {
-		// Symbol already declared, and not a function.
+		// ast.Symbol already declared, and not a function.
 		return false
 	} else if ok {
 		// Following must be true because we internally never attempt to
 		// redeclare an intrinsic.
-		def_binding := p.bindings[bid].(FunctionBinding)
-		sym_binding := symbol.Binding().(*DefunBinding)
+		def_binding := p.bindings[bid].(ast.FunctionBinding)
+		sym_binding := symbol.Binding().(*ast.DefunBinding)
 		// Attempt to overload the existing definition.
 		if overloaded_binding, ok := def_binding.Overload(sym_binding); ok {
 			// Success
@@ -245,7 +246,7 @@ func (p *ModuleScope) Define(symbol SymbolDefinition) bool {
 		// Failed
 		return false
 	}
-	// Symbol not previously declared, so no need to consider overloadings.
+	// ast.Symbol not previously declared, so no need to consider overloadings.
 	bid := uint(len(p.bindings))
 	p.bindings = append(p.bindings, symbol.Binding())
 	p.ids[id] = bid
@@ -281,11 +282,11 @@ type LocalScope struct {
 	// Represents the enclosing scope
 	enclosing Scope
 	// Context for this scope
-	context *Context
+	context *ast.Context
 	// Maps inputs parameters to the declaration index.
 	locals map[string]uint
 	// Actual parameter bindings
-	bindings []*LocalVariableBinding
+	bindings []*ast.LocalVariableBinding
 }
 
 // NewLocalScope constructs a new local scope within a given enclosing scope.  A
@@ -295,7 +296,7 @@ type LocalScope struct {
 func NewLocalScope(enclosing Scope, global bool, pure bool) LocalScope {
 	context := tr.VoidContext[string]()
 	locals := make(map[string]uint)
-	bindings := make([]*LocalVariableBinding, 0)
+	bindings := make([]*ast.LocalVariableBinding, 0)
 	//
 	return LocalScope{global, pure, enclosing, &context, locals, bindings}
 }
@@ -303,7 +304,7 @@ func NewLocalScope(enclosing Scope, global bool, pure bool) LocalScope {
 // NestedScope creates a nested scope within this local scope.
 func (p LocalScope) NestedScope() LocalScope {
 	nlocals := make(map[string]uint)
-	nbindings := make([]*LocalVariableBinding, len(p.bindings))
+	nbindings := make([]*ast.LocalVariableBinding, len(p.bindings))
 	// Clone allocated variables
 	for k, v := range p.locals {
 		nlocals[k] = v
@@ -318,7 +319,7 @@ func (p LocalScope) NestedScope() LocalScope {
 // addition, is always pure.
 func (p LocalScope) NestedPureScope() LocalScope {
 	nlocals := make(map[string]uint)
-	nbindings := make([]*LocalVariableBinding, len(p.bindings))
+	nbindings := make([]*ast.LocalVariableBinding, len(p.bindings))
 	// Clone allocated variables
 	for k, v := range p.locals {
 		nlocals[k] = v
@@ -344,7 +345,7 @@ func (p LocalScope) IsPure() bool {
 
 // FixContext fixes the context for this scope.  Since every scope requires
 // exactly one context, this fails if we fix it to incompatible contexts.
-func (p LocalScope) FixContext(context Context) bool {
+func (p LocalScope) FixContext(context ast.Context) bool {
 	// Join contexts together
 	*p.context = p.context.Join(context)
 	// Check they were compatible
@@ -353,7 +354,7 @@ func (p LocalScope) FixContext(context Context) bool {
 
 // Bind looks up a given variable or function being referenced either within the
 // enclosing scope (module==nil) or within a specified module.
-func (p LocalScope) Bind(symbol Symbol) bool {
+func (p LocalScope) Bind(symbol ast.Symbol) bool {
 	path := symbol.Path()
 	// Determine whether this symbol could be a local variable or not.
 	localVar := !symbol.IsFunction() && !path.IsAbsolute() && path.Depth() == 1
@@ -367,7 +368,7 @@ func (p LocalScope) Bind(symbol Symbol) bool {
 }
 
 // DeclareLocal registers a new local variable (e.g. a parameter).
-func (p *LocalScope) DeclareLocal(name string, binding *LocalVariableBinding) uint {
+func (p *LocalScope) DeclareLocal(name string, binding *ast.LocalVariableBinding) uint {
 	index := uint(len(p.locals))
 	binding.Finalise(index)
 	p.locals[name] = index

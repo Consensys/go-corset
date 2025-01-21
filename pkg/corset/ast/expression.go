@@ -1,13 +1,13 @@
-package corset
+package ast
 
 import (
 	"fmt"
 	"math/big"
 	"reflect"
 
-	"github.com/consensys/go-corset/pkg/sexp"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/sexp"
 )
 
 // Expr represents an arbitrary expression over the columns of a given context
@@ -83,9 +83,9 @@ func (e *Add) Dependencies() []Symbol {
 
 // ArrayAccess represents the a given value taken to a power.
 type ArrayAccess struct {
-	path    util.Path
-	arg     Expr
-	binding Binding
+	Name         util.Path
+	Arg          Expr
+	ArrayBinding Binding
 }
 
 // IsFunction indicates whether or not this symbol refers to a function (which
@@ -96,7 +96,7 @@ func (e *ArrayAccess) IsFunction() bool {
 
 // IsResolved checks whether this symbol has been resolved already, or not.
 func (e *ArrayAccess) IsResolved() bool {
-	return e.binding != nil
+	return e.ArrayBinding != nil
 }
 
 // AsConstant attempts to evaluate this expression as a constant (signed) value.
@@ -108,30 +108,30 @@ func (e *ArrayAccess) AsConstant() *big.Int {
 // Multiplicity determines the number of values that evaluating this expression
 // can generate.
 func (e *ArrayAccess) Multiplicity() uint {
-	return determineMultiplicity([]Expr{e.arg})
+	return determineMultiplicity([]Expr{e.Arg})
 }
 
 // Path returns the given path of this symbol.
 func (e *ArrayAccess) Path() *util.Path {
-	return &e.path
+	return &e.Name
 }
 
 // Binding gets binding associated with this interface.  This will panic if this
 // symbol is not yet resolved.
 func (e *ArrayAccess) Binding() Binding {
-	if e.binding == nil {
+	if e.ArrayBinding == nil {
 		panic("variable access is unresolved")
 	}
 	//
-	return e.binding
+	return e.ArrayBinding
 }
 
 // Type returns the type associated with this symbol.  If the type cannot be
 // determined, then nil is returned.
 func (e *ArrayAccess) Type() Type {
-	if binding, ok := e.binding.(*ColumnBinding); !ok {
+	if binding, ok := e.ArrayBinding.(*ColumnBinding); !ok {
 		return nil
-	} else if arr_t, ok := binding.dataType.(*ArrayType); ok {
+	} else if arr_t, ok := binding.DataType.(*ArrayType); ok {
 		return arr_t.element
 	}
 	// Cannot be typed
@@ -142,15 +142,15 @@ func (e *ArrayAccess) Type() Type {
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
 func (e *ArrayAccess) Context() Context {
-	return e.arg.Context()
+	return e.Arg.Context()
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
 func (e *ArrayAccess) Lisp() sexp.SExp {
 	return sexp.NewArray([]sexp.SExp{
-		sexp.NewSymbol(e.path.String()),
-		e.arg.Lisp(),
+		sexp.NewSymbol(e.Name.String()),
+		e.Arg.Lisp(),
 	})
 }
 
@@ -159,18 +159,18 @@ func (e *ArrayAccess) Lisp() sexp.SExp {
 func (e *ArrayAccess) Resolve(binding Binding) bool {
 	if binding == nil {
 		panic("empty binding")
-	} else if e.binding != nil {
+	} else if e.ArrayBinding != nil {
 		panic("already resolved")
 	}
 	//
-	e.binding = binding
+	e.ArrayBinding = binding
 	//
 	return true
 }
 
 // Dependencies needed to signal declaration.
 func (e *ArrayAccess) Dependencies() []Symbol {
-	deps := e.arg.Dependencies()
+	deps := e.Arg.Dependencies()
 	return append(deps, e)
 }
 
@@ -324,6 +324,13 @@ type For struct {
 	Body Expr
 }
 
+// NewFor constructs a new for-expression given a variable name, a static index
+// range and a body.
+func NewFor(name string, start uint, end uint, body Expr) *For {
+	binding := NewLocalVariableBinding(name, NewFieldType())
+	return &For{binding, start, end, body}
+}
+
 // AsConstant attempts to evaluate this expression as a constant (signed) value.
 // If this expression is not constant, then nil is returned.
 func (e *For) AsConstant() *big.Int {
@@ -363,7 +370,7 @@ func (e *For) Dependencies() []Symbol {
 	//
 	for _, s := range e.Body.Dependencies() {
 		p := s.Path()
-		if p.IsAbsolute() || p.Depth() != 1 || p.Head() != e.Binding.name {
+		if p.IsAbsolute() || p.Depth() != 1 || p.Head() != e.Binding.Name {
 			rest = append(rest, s)
 		}
 	}
@@ -378,10 +385,10 @@ func (e *For) Dependencies() []Symbol {
 // If returns the (optional) true branch when the condition evaluates to zero, and
 // the (optional false branch otherwise.
 type If struct {
-	// Indicates whether this is an if-zero (kind==1) or an if-notzero
-	// (kind==2).  Any other kind value implies this has not yet been
+	// Indicates whether this is an if-zero (Kind==1) or an if-notzero
+	// (Kind==2).  Any other Kind value implies this has not yet been
 	// determined.
-	kind uint8
+	Kind uint8
 	// Elements contained within this list.
 	Condition Expr
 	// True branch (optional).
@@ -393,22 +400,22 @@ type If struct {
 // IsIfZero determines whether or not this has been determined as an IfZero
 // condition.
 func (e *If) IsIfZero() bool {
-	return e.kind == 1
+	return e.Kind == 1
 }
 
 // IsIfNotZero determines whether or not this has been determined as an
 // IfNotZero condition.
 func (e *If) IsIfNotZero() bool {
-	return e.kind == 2
+	return e.Kind == 2
 }
 
 // FixSemantics fixes the semantics for this condition to be either "if-zero" or
 // "if-notzero".
 func (e *If) FixSemantics(ifzero bool) {
 	if ifzero {
-		e.kind = 1
+		e.Kind = 1
 	} else {
-		e.kind = 2
+		e.Kind = 2
 	}
 }
 
@@ -468,34 +475,28 @@ func (e *If) Dependencies() []Symbol {
 
 // Invoke represents an attempt to invoke a given function.
 type Invoke struct {
-	fn        *VariableAccess
-	signature *FunctionSignature
-	args      []Expr
+	Name      *VariableAccess
+	Signature *FunctionSignature
+	Args      []Expr
 }
 
 // AsConstant attempts to evaluate this expression as a constant (signed) value.
 // If this expression is not constant, then nil is returned.
 func (e *Invoke) AsConstant() *big.Int {
-	if e.signature == nil {
+	if e.Signature == nil {
 		panic("unresolved invocation")
 	}
 	// Unroll body
-	body := e.signature.Apply(e.args, nil)
+	body := e.Signature.Apply(e.Args, nil)
 	// Attempt to evaluate as constant
 	return body.AsConstant()
-}
-
-// Args returns the arguments provided by this invocation to the function being
-// invoked.
-func (e *Invoke) Args() []Expr {
-	return e.args
 }
 
 // Context returns the context for this expression.  Observe that the
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
 func (e *Invoke) Context() Context {
-	return ContextOfExpressions(e.args)
+	return ContextOfExpressions(e.Args)
 }
 
 // Multiplicity determines the number of values that evaluating this expression
@@ -508,20 +509,20 @@ func (e *Invoke) Multiplicity() uint {
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
 func (e *Invoke) Lisp() sexp.SExp {
-	return ListOfExpressions(e.fn.Lisp(), e.args)
+	return ListOfExpressions(e.Name.Lisp(), e.Args)
 }
 
 // Finalise the signature for this invocation.
 func (e *Invoke) Finalise(signature *FunctionSignature) {
-	e.signature = signature
+	e.Signature = signature
 }
 
 // Dependencies needed to signal declaration.
 func (e *Invoke) Dependencies() []Symbol {
-	deps := DependenciesOfExpressions(e.args)
+	deps := DependenciesOfExpressions(e.Args)
 	// Include this expression as a symbol (which must be bound to the function
 	// being invoked)
-	return append(deps, e.fn)
+	return append(deps, e.Name)
 }
 
 // ============================================================================
@@ -542,6 +543,19 @@ type Let struct {
 	// Body of the let expression (i.e. where the variables it defines can be
 	// used).
 	Body Expr
+}
+
+// NewLet constructs a new let-expression for a given number of bindings.
+func NewLet(bindings []util.Pair[string, Expr], body Expr) *Let {
+	vars := make([]LocalVariableBinding, len(bindings))
+	exprs := make([]Expr, len(bindings))
+	//
+	for i, p := range bindings {
+		vars[i] = NewLocalVariableBinding(p.Left, NewFieldType())
+		exprs[i] = p.Right
+	}
+	//
+	return &Let{vars, exprs, body}
 }
 
 // AsConstant attempts to evaluate this expression as a constant (signed) value.
@@ -584,7 +598,7 @@ func (e *Let) Dependencies() []Symbol {
 			matched := false
 			// Could be a variable defined here, so check variable names.
 			for _, v := range e.Vars {
-				if p.Head() == v.name {
+				if p.Head() == v.Name {
 					matched = true
 					break
 				}
@@ -729,9 +743,9 @@ func (e *Normalise) Dependencies() []Symbol {
 
 // Reduce reduces (i.e. folds) a list using a given binary function.
 type Reduce struct {
-	fn        *VariableAccess
-	signature *FunctionSignature
-	arg       Expr
+	Name      *VariableAccess
+	Signature *FunctionSignature
+	Arg       Expr
 }
 
 // AsConstant attempts to evaluate this expression as a constant (signed) value.
@@ -751,7 +765,7 @@ func (e *Reduce) Multiplicity() uint {
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
 func (e *Reduce) Context() Context {
-	return e.arg.Context()
+	return e.Arg.Context()
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
@@ -759,25 +773,25 @@ func (e *Reduce) Context() Context {
 func (e *Reduce) Lisp() sexp.SExp {
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("reduce"),
-		sexp.NewSymbol(e.fn.Path().String()),
-		e.arg.Lisp()})
+		sexp.NewSymbol(e.Name.Path().String()),
+		e.Arg.Lisp()})
 }
 
 // Finalise the signature for this reduction.
 func (e *Reduce) Finalise(signature *FunctionSignature) {
 	if signature == nil {
 		panic("cannot finalise with nil signature")
-	} else if e.signature != nil && !reflect.DeepEqual(e.signature, signature) {
+	} else if e.Signature != nil && !reflect.DeepEqual(e.Signature, signature) {
 		panic("reduce has already been finalised")
 	}
 
-	e.signature = signature
+	e.Signature = signature
 }
 
 // Dependencies needed to signal declaration.
 func (e *Reduce) Dependencies() []Symbol {
-	deps := e.arg.Dependencies()
-	return append(deps, e.fn)
+	deps := e.Arg.Dependencies()
+	return append(deps, e.Name)
 }
 
 // ============================================================================
@@ -875,16 +889,23 @@ func (e *Shift) Dependencies() []Symbol {
 // VariableAccess represents reading the value of a given local variable (such
 // as a function parameter).
 type VariableAccess struct {
-	path    util.Path
-	fn      bool
-	binding Binding
+	Name     util.Path
+	Function bool
+	binding  Binding
+}
+
+// NewVariableAccess creates a new variable access with the given (optionally
+// qualified) path that may (or may not) refer to a function, and which has a
+// given initial binding (which can be nil).
+func NewVariableAccess(path util.Path, isFunction bool, binding Binding) *VariableAccess {
+	return &VariableAccess{path, isFunction, binding}
 }
 
 // AsConstant attempts to evaluate this expression as a constant (signed) value.
 // If this expression is not constant, then nil is returned.
 func (e *VariableAccess) AsConstant() *big.Int {
 	if binding, ok := e.binding.(*ConstantBinding); ok {
-		return binding.value.AsConstant()
+		return binding.Value.AsConstant()
 	}
 	// not a constant
 	return nil
@@ -892,13 +913,13 @@ func (e *VariableAccess) AsConstant() *big.Int {
 
 // Path returns the given path of this symbol.
 func (e *VariableAccess) Path() *util.Path {
-	return &e.path
+	return &e.Name
 }
 
 // IsFunction determines whether this symbol refers to a function (which, of
 // course, variable accesses never do).
 func (e *VariableAccess) IsFunction() bool {
-	return e.fn
+	return e.Function
 }
 
 // IsResolved checks whether this symbol has been resolved already, or not.
@@ -913,9 +934,9 @@ func (e *VariableAccess) Resolve(binding Binding) bool {
 		panic("empty binding")
 	} else if e.binding != nil {
 		panic("already resolved")
-	} else if _, ok := binding.(FunctionBinding); ok && !e.fn {
+	} else if _, ok := binding.(FunctionBinding); ok && !e.Function {
 		return false
-	} else if _, ok := binding.(FunctionBinding); !ok && e.fn {
+	} else if _, ok := binding.(FunctionBinding); !ok && e.Function {
 		return false
 	}
 	//
@@ -924,13 +945,9 @@ func (e *VariableAccess) Resolve(binding Binding) bool {
 	return true
 }
 
-// Binding gets binding associated with this interface.  This will panic if this
-// symbol is not yet resolved.
+// Binding gets binding associated with this interface.  This returns nil if the
+// access has not already been resolved.
 func (e *VariableAccess) Binding() Binding {
-	if e.binding == nil {
-		panic("variable access is unresolved")
-	}
-	//
 	return e.binding
 }
 
@@ -959,7 +976,7 @@ func (e *VariableAccess) Context() Context {
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.a
 func (e *VariableAccess) Lisp() sexp.SExp {
-	return sexp.NewSymbol(e.path.String())
+	return sexp.NewSymbol(e.Name.String())
 }
 
 // Dependencies needed to signal declaration.
@@ -971,7 +988,7 @@ func (e *VariableAccess) Dependencies() []Symbol {
 // determined, then nil is returned.
 func (e *VariableAccess) Type() Type {
 	if binding, ok := e.binding.(*ColumnBinding); ok {
-		return binding.dataType
+		return binding.DataType
 	}
 	// Cannot be typed
 	return nil
@@ -1005,8 +1022,8 @@ func Substitute(expr Expr, mapping map[uint]Expr, srcmap *sexp.SourceMaps[Node])
 	//
 	switch e := expr.(type) {
 	case *ArrayAccess:
-		arg := Substitute(e.arg, mapping, srcmap)
-		nexpr = &ArrayAccess{e.path, arg, e.binding}
+		arg := Substitute(e.Arg, mapping, srcmap)
+		nexpr = &ArrayAccess{e.Name, arg, e.ArrayBinding}
 	case *Add:
 		args := SubstituteAll(e.Args, mapping, srcmap)
 		nexpr = &Add{args}
@@ -1028,10 +1045,10 @@ func Substitute(expr Expr, mapping map[uint]Expr, srcmap *sexp.SourceMaps[Node])
 		trueBranch := SubstituteOptional(e.TrueBranch, mapping, srcmap)
 		falseBranch := SubstituteOptional(e.FalseBranch, mapping, srcmap)
 		// Construct appropriate if form
-		nexpr = &If{e.kind, condition, trueBranch, falseBranch}
+		nexpr = &If{e.Kind, condition, trueBranch, falseBranch}
 	case *Invoke:
-		args := SubstituteAll(e.args, mapping, srcmap)
-		nexpr = &Invoke{e.fn, e.signature, args}
+		args := SubstituteAll(e.Args, mapping, srcmap)
+		nexpr = &Invoke{e.Name, e.Signature, args}
 	case *Let:
 		args := SubstituteAll(e.Args, mapping, srcmap)
 		body := Substitute(e.Body, mapping, srcmap)
@@ -1046,8 +1063,8 @@ func Substitute(expr Expr, mapping map[uint]Expr, srcmap *sexp.SourceMaps[Node])
 		arg := Substitute(e.Arg, mapping, srcmap)
 		nexpr = &Normalise{arg}
 	case *Reduce:
-		arg := Substitute(e.arg, mapping, srcmap)
-		nexpr = &Reduce{e.fn, e.signature, arg}
+		arg := Substitute(e.Arg, mapping, srcmap)
+		nexpr = &Reduce{e.Name, e.Signature, arg}
 	case *Sub:
 		args := SubstituteAll(e.Args, mapping, srcmap)
 		nexpr = &Sub{args}
@@ -1059,7 +1076,7 @@ func Substitute(expr Expr, mapping map[uint]Expr, srcmap *sexp.SourceMaps[Node])
 		//
 		if b, ok1 := e.binding.(*LocalVariableBinding); !ok1 {
 			return e
-		} else if e2, ok2 := mapping[b.index]; !ok2 {
+		} else if e2, ok2 := mapping[b.Index]; !ok2 {
 			return e
 		} else {
 			// Shallow copy the node to ensure it is unique and, hence, can have
@@ -1107,7 +1124,7 @@ func ShallowCopy(expr Expr) Expr {
 	//
 	switch e := expr.(type) {
 	case *ArrayAccess:
-		return &ArrayAccess{e.path, e.arg, e.binding}
+		return &ArrayAccess{e.Name, e.Arg, e.ArrayBinding}
 	case *Add:
 		return &Add{e.Args}
 	case *Constant:
@@ -1119,9 +1136,9 @@ func ShallowCopy(expr Expr) Expr {
 	case *For:
 		return &For{e.Binding, e.Start, e.End, e.Body}
 	case *If:
-		return &If{e.kind, e.Condition, e.TrueBranch, e.FalseBranch}
+		return &If{e.Kind, e.Condition, e.TrueBranch, e.FalseBranch}
 	case *Invoke:
-		return &Invoke{e.fn, e.signature, e.args}
+		return &Invoke{e.Name, e.Signature, e.Args}
 	case *List:
 		return &List{e.Args}
 	case *Mul:
@@ -1129,13 +1146,13 @@ func ShallowCopy(expr Expr) Expr {
 	case *Normalise:
 		return &Normalise{e.Arg}
 	case *Reduce:
-		return &Reduce{e.fn, e.signature, e.arg}
+		return &Reduce{e.Name, e.Signature, e.Arg}
 	case *Sub:
 		return &Sub{e.Args}
 	case *Shift:
 		return &Shift{e.Arg, e.Shift}
 	case *VariableAccess:
-		return &VariableAccess{e.path, e.fn, e.binding}
+		return &VariableAccess{e.Name, e.Function, e.binding}
 	default:
 		panic(fmt.Sprintf("unknown expression (%s)", reflect.TypeOf(expr)))
 	}

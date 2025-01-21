@@ -1,4 +1,4 @@
-package corset
+package ast
 
 import (
 	"fmt"
@@ -266,6 +266,21 @@ func (p *ArrayType) Width() uint {
 // is not possible, then nil is returned.
 func (p *ArrayType) AsUnderlying() sc.Type {
 	return nil
+}
+
+// Element returns the element of this array type.
+func (p *ArrayType) Element() Type {
+	return p.element
+}
+
+// MinIndex returns the smallest index of elements in this array type.
+func (p *ArrayType) MinIndex() uint {
+	return p.min
+}
+
+// MaxIndex returns the largest index of elements in this array type.
+func (p *ArrayType) MaxIndex() uint {
+	return p.max
 }
 
 // SubtypeOf determines whether or not this type is a subtype of another.

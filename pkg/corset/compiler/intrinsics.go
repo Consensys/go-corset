@@ -1,11 +1,12 @@
-package corset
+package compiler
 
 import (
 	"fmt"
 	"math"
 
-	"github.com/consensys/go-corset/pkg/sexp"
+	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/sexp"
 )
 
 // IntrinsicDefinition is a SymbolDefinition for an intrinsic (i.e. built-in)
@@ -20,10 +21,10 @@ type IntrinsicDefinition struct {
 	max_arity uint
 	// Construct an instance of this intrinsic for a given arity (i.e. number of
 	// arguments).
-	constructor func(uint) Expr
+	constructor func(uint) ast.Expr
 }
 
-var _ FunctionBinding = &IntrinsicDefinition{}
+var _ ast.FunctionBinding = &IntrinsicDefinition{}
 
 // Name returns the name of the intrinsic being defined.
 func (p *IntrinsicDefinition) Name() string {
@@ -59,7 +60,7 @@ func (p *IntrinsicDefinition) IsFinalised() bool {
 }
 
 // Binding returns the binding associated with this intrinsic.
-func (p *IntrinsicDefinition) Binding() Binding {
+func (p *IntrinsicDefinition) Binding() ast.Binding {
 	return p
 }
 
@@ -79,16 +80,16 @@ func (p *IntrinsicDefinition) HasArity(arity uint) bool {
 // However, that signature may not actually accept the provided parameters
 // (in which case, an error should be reported).  Furthermore, if no
 // appropriate signature exists then this will return nil.
-func (p *IntrinsicDefinition) Select(args []Type) *FunctionSignature {
+func (p *IntrinsicDefinition) Select(args []ast.Type) *ast.FunctionSignature {
 	// construct the body
 	body := p.constructor(uint(len(args)))
-	types := make([]Type, len(args))
+	types := make([]ast.Type, len(args))
 	//
 	for i := 0; i < len(types); i++ {
-		types[i] = NewFieldType()
+		types[i] = ast.NewFieldType()
 	}
 	// Allow return type to be inferred.
-	return &FunctionSignature{true, types, nil, body}
+	return ast.NewFunctionSignature(true, types, nil, body)
 }
 
 // Overload (a.k.a specialise) this function binding to incorporate another
@@ -96,7 +97,7 @@ func (p *IntrinsicDefinition) Select(args []Type) *FunctionSignature {
 // (e.g. intrinsics) cannot be overloaded; (2) duplicate overloadings are
 // not permitted; (3) combinding pure and impure overloadings is also not
 // permitted.
-func (p *IntrinsicDefinition) Overload(binding *DefunBinding) (FunctionBinding, bool) {
+func (p *IntrinsicDefinition) Overload(binding *ast.DefunBinding) (ast.FunctionBinding, bool) {
 	// Easy case, as intrinsics cannot be overloaded.
 	return nil, false
 }
@@ -117,26 +118,26 @@ var INTRINSICS []IntrinsicDefinition = []IntrinsicDefinition{
 	{"*", 1, math.MaxUint, intrinsicMul},
 }
 
-func intrinsicAdd(arity uint) Expr {
-	return &Add{intrinsicNaryBody(arity)}
+func intrinsicAdd(arity uint) ast.Expr {
+	return &ast.Add{Args: intrinsicNaryBody(arity)}
 }
 
-func intrinsicSub(arity uint) Expr {
-	return &Sub{intrinsicNaryBody(arity)}
+func intrinsicSub(arity uint) ast.Expr {
+	return &ast.Sub{Args: intrinsicNaryBody(arity)}
 }
 
-func intrinsicMul(arity uint) Expr {
-	return &Mul{intrinsicNaryBody(arity)}
+func intrinsicMul(arity uint) ast.Expr {
+	return &ast.Mul{Args: intrinsicNaryBody(arity)}
 }
 
-func intrinsicNaryBody(arity uint) []Expr {
-	args := make([]Expr, arity)
+func intrinsicNaryBody(arity uint) []ast.Expr {
+	args := make([]ast.Expr, arity)
 	//
 	for i := uint(0); i != arity; i++ {
 		name := fmt.Sprintf("x%d", i)
 		path := util.NewAbsolutePath(name)
-		binding := &LocalVariableBinding{name, nil, i}
-		args[i] = &VariableAccess{path, true, binding}
+		binding := &ast.LocalVariableBinding{Name: name, DataType: nil, Index: i}
+		args[i] = ast.NewVariableAccess(path, true, binding)
 	}
 	//
 	return args

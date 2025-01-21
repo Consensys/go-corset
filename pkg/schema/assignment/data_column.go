@@ -5,9 +5,9 @@ import (
 	"fmt"
 
 	sc "github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/sexp"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/sexp"
 )
 
 // DataColumn represents a column of user-provided values.

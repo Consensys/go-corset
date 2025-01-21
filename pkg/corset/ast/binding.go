@@ -1,12 +1,12 @@
-package corset
+package ast
 
 import (
 	"math"
 	"reflect"
 
-	"github.com/consensys/go-corset/pkg/sexp"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/sexp"
 )
 
 // Binding represents an association between a name, as found in a source file,
@@ -58,6 +58,13 @@ type FunctionSignature struct {
 	ret Type
 	// Body of this function
 	body Expr
+}
+
+// NewFunctionSignature creates a new function signature with a given set of
+// parameter/return types and a body.  The signature can also be identified as
+// that of a pure function, or not.
+func NewFunctionSignature(pure bool, parameters []Type, ret Type, body Expr) *FunctionSignature {
+	return &FunctionSignature{pure, parameters, ret, body}
 }
 
 // IsPure checks whether this function binding has side-effects or not.
@@ -142,49 +149,39 @@ type ColumnBinding struct {
 	// declared in a perspective then it will be the perspective's enclosing
 	// module.  Otherwise, it will exactly match the path's parent.
 	context util.Path
-	// Absolute path of column.  This determines the name of the column, its
+	// Absolute Path of column.  This determines the name of the column, its
 	// enclosing module and/or perspective.
-	path util.Path
-	// Determines whether this is a computed column, or not.
-	computed bool
-	// Determines whether this column must be proven (or not).
-	mustProve bool
-	// Column's length multiplier
-	multiplier uint
+	Path util.Path
 	// Column's datatype
-	dataType Type
-}
-
-// NewComputedColumnBinding constructs a new column binding in a given
-// module.  This is for the case where not all information is yet known about
-// the column and, hence, it must be finalised later on.  For example, in a
-// definterleaved constraint the target column information (e.g. its type) is
-// not immediately available and must be determined from those columns from
-// which it is constructed.
-func NewComputedColumnBinding(context util.Path, path util.Path) *ColumnBinding {
-	return &ColumnBinding{context, path, true, false, 0, nil}
+	DataType Type
+	// Determines whether this column must be proven (or not).
+	MustProve bool
+	// Column's length Multiplier
+	Multiplier uint
+	// Determines whether this is a Computed column, or not.
+	Computed bool
 }
 
 // AbsolutePath returns the fully resolved (absolute) path of the column in question.
 func (p *ColumnBinding) AbsolutePath() *util.Path {
-	return &p.path
+	return &p.Path
 }
 
 // IsFinalised checks whether this binding has been finalised yet or not.
 func (p *ColumnBinding) IsFinalised() bool {
-	return p.multiplier != 0
+	return p.Multiplier != 0
 }
 
 // Finalise this binding by providing the necessary missing information.
 func (p *ColumnBinding) Finalise(multiplier uint, datatype Type) {
-	p.multiplier = multiplier
-	p.dataType = datatype
+	p.Multiplier = multiplier
+	p.DataType = datatype
 }
 
 // Context returns the of this column.  That is, the module in which this colunm
 // was declared and also the length multiplier of that module it requires.
 func (p *ColumnBinding) Context() Context {
-	return tr.NewContext(p.context.String(), p.multiplier)
+	return tr.NewContext(p.context.String(), p.Multiplier)
 }
 
 // ============================================================================
@@ -193,9 +190,9 @@ func (p *ColumnBinding) Context() Context {
 
 // ConstantBinding represents a constant definition
 type ConstantBinding struct {
-	path util.Path
-	// Constant expression which, when evaluated, produces a constant value.
-	value Expr
+	Path util.Path
+	// Constant expression which, when evaluated, produces a constant Value.
+	Value Expr
 	// Determines whether or not this binding is finalised (i.e. its expression
 	// has been resolved).
 	finalised bool
@@ -230,11 +227,11 @@ func (p *ConstantBinding) Context() Context {
 // LocalVariableBinding represents something bound to a given column.
 type LocalVariableBinding struct {
 	// Name the local variable
-	name string
+	Name string
 	// Type to use for this parameter.
-	datatype Type
-	// Identifies the variable or column index (as appropriate).
-	index uint
+	DataType Type
+	// Identifies the variable or column Index (as appropriate).
+	Index uint
 }
 
 // NewLocalVariableBinding constructs an (unitilalised) variable binding.  Being
@@ -245,12 +242,12 @@ func NewLocalVariableBinding(name string, datatype Type) LocalVariableBinding {
 
 // IsFinalised checks whether this binding has been finalised yet or not.
 func (p *LocalVariableBinding) IsFinalised() bool {
-	return p.index != math.MaxUint
+	return p.Index != math.MaxUint
 }
 
 // Finalise this local variable binding by allocating it an identifier.
 func (p *LocalVariableBinding) Finalise(index uint) {
-	p.index = index
+	p.Index = index
 }
 
 // ============================================================================
@@ -447,7 +444,7 @@ func (p *DefunBinding) Overload(overload *DefunBinding) (FunctionBinding, bool) 
 // selector expression.
 type PerspectiveBinding struct {
 	// Expression which determines when this perspective is enabled.
-	selector Expr
+	Selector Expr
 	// Indicates whether or not the selector has been finalised.
 	resolved bool
 }
