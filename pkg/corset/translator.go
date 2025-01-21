@@ -5,6 +5,7 @@ import (
 	"math"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/hir"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/assignment"
@@ -19,8 +20,8 @@ import (
 // easily.  Thus, whilst syntax errors can be returned here, this should never
 // happen.  The mechanism is supported, however, to simplify development of new
 // features, etc.
-func TranslateCircuit(env Environment, srcmap *sexp.SourceMaps[Node],
-	circuit *Circuit) (*hir.Schema, []SyntaxError) {
+func TranslateCircuit(env Environment, srcmap *sexp.SourceMaps[ast.Node],
+	circuit *ast.Circuit) (*hir.Schema, []SyntaxError) {
 	//
 	t := translator{env, srcmap, hir.EmptySchema()}
 	// Allocate all modules into schema
@@ -44,12 +45,12 @@ type translator struct {
 	// Source maps nodes in the circuit back to the spans in their original
 	// source files.  This is needed when reporting syntax errors to generate
 	// highlights of the relevant source line(s) in question.
-	srcmap *sexp.SourceMaps[Node]
+	srcmap *sexp.SourceMaps[ast.Node]
 	// Represents the schema being constructed by this translator.
 	schema *hir.Schema
 }
 
-func (t *translator) translateModules(circuit *Circuit) {
+func (t *translator) translateModules(circuit *ast.Circuit) {
 	// Add root module
 	t.schema.AddModule("")
 	// Add nested modules
@@ -64,7 +65,7 @@ func (t *translator) translateModules(circuit *Circuit) {
 }
 
 // Translate all input column declarations in the entire circuit.
-func (t *translator) translateInputColumns(circuit *Circuit) {
+func (t *translator) translateInputColumns(circuit *ast.Circuit) {
 	t.translateInputColumnsInModule("")
 	// Translate each module
 	for _, m := range circuit.Modules {
@@ -163,7 +164,7 @@ func (t *translator) translateTypeConstraints(regIndex uint) {
 }
 
 // Translate all assignment or constraint declarations in the circuit.
-func (t *translator) translateOtherDeclarations(circuit *Circuit) []SyntaxError {
+func (t *translator) translateOtherDeclarations(circuit *ast.Circuit) []SyntaxError {
 	rootPath := util.NewAbsolutePath()
 	errors := t.translateOtherDeclarationsInModule(rootPath, circuit.Declarations)
 	// Translate each module
@@ -178,7 +179,7 @@ func (t *translator) translateOtherDeclarations(circuit *Circuit) []SyntaxError 
 
 // Translate all assignment or constraint declarations in a given module within
 // the circuit.
-func (t *translator) translateOtherDeclarationsInModule(module util.Path, decls []Declaration) []SyntaxError {
+func (t *translator) translateOtherDeclarationsInModule(module util.Path, decls []ast.Declaration) []SyntaxError {
 	var errors []SyntaxError
 	//
 	for _, d := range decls {
@@ -191,34 +192,34 @@ func (t *translator) translateOtherDeclarationsInModule(module util.Path, decls 
 
 // Translate an assignment or constraint declarartion which occurs within a
 // given module.
-func (t *translator) translateDeclaration(decl Declaration, module util.Path) []SyntaxError {
+func (t *translator) translateDeclaration(decl ast.Declaration, module util.Path) []SyntaxError {
 	var errors []SyntaxError
 	//
 	switch d := decl.(type) {
-	case *DefAliases:
+	case *ast.DefAliases:
 		// Not an assignment or a constraint, hence ignore.
-	case *DefComputed:
+	case *ast.DefComputed:
 		errors = t.translateDefComputed(d, module)
-	case *DefColumns:
+	case *ast.DefColumns:
 		// Not an assignment or a constraint, hence ignore.
-	case *DefConst:
+	case *ast.DefConst:
 		// For now, constants are always compiled out when going down to HIR.
-	case *DefConstraint:
+	case *ast.DefConstraint:
 		errors = t.translateDefConstraint(d, module)
-	case *DefFun:
+	case *ast.DefFun:
 		// For now, functions are always compiled out when going down to HIR.
 		// In the future, this might change if we add support for macros to HIR.
-	case *DefInRange:
+	case *ast.DefInRange:
 		errors = t.translateDefInRange(d, module)
-	case *DefInterleaved:
+	case *ast.DefInterleaved:
 		errors = t.translateDefInterleaved(d, module)
-	case *DefLookup:
+	case *ast.DefLookup:
 		errors = t.translateDefLookup(d, module)
-	case *DefPermutation:
+	case *ast.DefPermutation:
 		errors = t.translateDefPermutation(d, module)
-	case *DefPerspective:
+	case *ast.DefPerspective:
 		// As for defcolumns, nothing generated here.
-	case *DefProperty:
+	case *ast.DefProperty:
 		errors = t.translateDefProperty(d, module)
 	default:
 		// Error handling
@@ -229,7 +230,7 @@ func (t *translator) translateDeclaration(decl Declaration, module util.Path) []
 }
 
 // Translate a "defcomputed" declaration.
-func (t *translator) translateDefComputed(decl *DefComputed, module util.Path) []SyntaxError {
+func (t *translator) translateDefComputed(decl *ast.DefComputed, module util.Path) []SyntaxError {
 	var (
 		errors   []SyntaxError
 		context  tr.Context = tr.VoidContext[uint]()
@@ -240,8 +241,8 @@ func (t *translator) translateDefComputed(decl *DefComputed, module util.Path) [
 	sources := make([]uint, len(decl.Sources))
 	// Identify source columns
 	for i := 0; i < len(decl.Sources); i++ {
-		ith := decl.Sources[i].Binding().(*ColumnBinding)
-		sources[i] = t.env.RegisterOf(&ith.path)
+		ith := decl.Sources[i].Binding().(*ast.ColumnBinding)
+		sources[i] = t.env.RegisterOf(&ith.Path)
 	}
 	// Identify target columns
 	for i := 0; i < len(decl.Targets); i++ {
@@ -271,7 +272,7 @@ func (t *translator) translateDefComputed(decl *DefComputed, module util.Path) [
 }
 
 // Translate a "defconstraint" declaration.
-func (t *translator) translateDefConstraint(decl *DefConstraint, module util.Path) []SyntaxError {
+func (t *translator) translateDefConstraint(decl *ast.DefConstraint, module util.Path) []SyntaxError {
 	// Translate constraint body
 	constraint, errors := t.translateExpressionInModule(decl.Constraint, module, 0)
 	// Translate (optional) guard
@@ -317,11 +318,11 @@ func (t *translator) translateDefConstraint(decl *DefConstraint, module util.Pat
 // Translate the selector for the perspective of a defconstraint.  Observe that
 // a defconstraint may not be part of a perspective and, hence, would have no
 // selector.
-func (t *translator) translateSelectorInModule(perspective *PerspectiveName,
+func (t *translator) translateSelectorInModule(perspective *ast.PerspectiveName,
 	module util.Path) (hir.Expr, []SyntaxError) {
 	//
 	if perspective != nil {
-		return t.translateExpressionInModule(perspective.binding.selector, module, 0)
+		return t.translateExpressionInModule(perspective.InnerBinding().Selector, module, 0)
 	}
 	//
 	return nil, nil
@@ -330,7 +331,7 @@ func (t *translator) translateSelectorInModule(perspective *PerspectiveName,
 // Translate a "deflookup" declaration.
 //
 //nolint:staticcheck
-func (t *translator) translateDefLookup(decl *DefLookup, module util.Path) []SyntaxError {
+func (t *translator) translateDefLookup(decl *ast.DefLookup, module util.Path) []SyntaxError {
 	// Translate source expressions
 	sources, src_errs := t.translateUnitExpressionsInModule(decl.Sources, module, 0)
 	targets, tgt_errs := t.translateUnitExpressionsInModule(decl.Targets, module, 0)
@@ -338,8 +339,8 @@ func (t *translator) translateDefLookup(decl *DefLookup, module util.Path) []Syn
 	errors := append(src_errs, tgt_errs...)
 	//
 	if len(errors) == 0 {
-		src_context := t.env.ContextOf(ContextOfExpressions(decl.Sources))
-		target_context := t.env.ContextOf(ContextOfExpressions(decl.Targets))
+		src_context := t.env.ContextOf(ast.ContextOfExpressions(decl.Sources))
+		target_context := t.env.ContextOf(ast.ContextOfExpressions(decl.Targets))
 		// Add translated constraint
 		t.schema.AddLookupConstraint(decl.Handle, src_context, target_context, sources, targets)
 	}
@@ -348,7 +349,7 @@ func (t *translator) translateDefLookup(decl *DefLookup, module util.Path) []Syn
 }
 
 // Translate a "definrange" declaration.
-func (t *translator) translateDefInRange(decl *DefInRange, module util.Path) []SyntaxError {
+func (t *translator) translateDefInRange(decl *ast.DefInRange, module util.Path) []SyntaxError {
 	// Translate constraint body
 	expr, errors := t.translateExpressionInModule(decl.Expr, module, 0)
 	//
@@ -362,7 +363,7 @@ func (t *translator) translateDefInRange(decl *DefInRange, module util.Path) []S
 }
 
 // Translate a "definterleaved" declaration.
-func (t *translator) translateDefInterleaved(decl *DefInterleaved, module util.Path) []SyntaxError {
+func (t *translator) translateDefInterleaved(decl *ast.DefInterleaved, module util.Path) []SyntaxError {
 	var errors []SyntaxError
 	//
 	sources := make([]uint, len(decl.Sources))
@@ -388,7 +389,7 @@ func (t *translator) translateDefInterleaved(decl *DefInterleaved, module util.P
 }
 
 // Translate a "defpermutation" declaration.
-func (t *translator) translateDefPermutation(decl *DefPermutation, module util.Path) []SyntaxError {
+func (t *translator) translateDefPermutation(decl *ast.DefPermutation, module util.Path) []SyntaxError {
 	var (
 		errors   []SyntaxError
 		context  tr.Context = tr.VoidContext[uint]()
@@ -405,8 +406,8 @@ func (t *translator) translateDefPermutation(decl *DefPermutation, module util.P
 		target := t.env.Register(targetId)
 		// Construct columns
 		targets[i] = sc.NewColumn(target.Context, target.Name(), target.DataType)
-		sourceBinding := decl.Sources[i].Binding().(*ColumnBinding)
-		sources[i] = t.env.RegisterOf(&sourceBinding.path)
+		sourceBinding := decl.Sources[i].Binding().(*ast.ColumnBinding)
+		sources[i] = t.env.RegisterOf(&sourceBinding.Path)
 		signs[i] = decl.Signs[i]
 		// Record first CID
 		if i == 0 {
@@ -427,7 +428,7 @@ func (t *translator) translateDefPermutation(decl *DefPermutation, module util.P
 }
 
 // Translate a "defproperty" declaration.
-func (t *translator) translateDefProperty(decl *DefProperty, module util.Path) []SyntaxError {
+func (t *translator) translateDefProperty(decl *ast.DefProperty, module util.Path) []SyntaxError {
 	// Translate constraint body
 	assertion, errors := t.translateExpressionInModule(decl.Assertion, module, 0)
 	//
@@ -443,7 +444,7 @@ func (t *translator) translateDefProperty(decl *DefProperty, module util.Path) [
 // Translate an optional expression in a given context.  That is an expression
 // which maybe nil (i.e. doesn't exist).  In such case, nil is returned (i.e.
 // without any errors).
-func (t *translator) translateOptionalExpressionInModule(expr Expr, module util.Path,
+func (t *translator) translateOptionalExpressionInModule(expr ast.Expr, module util.Path,
 	shift int) (hir.Expr, []SyntaxError) {
 	//
 	if expr != nil {
@@ -456,7 +457,7 @@ func (t *translator) translateOptionalExpressionInModule(expr Expr, module util.
 // Translate an optional expression in a given context.  That is an expression
 // which maybe nil (i.e. doesn't exist).  In such case, nil is returned (i.e.
 // without any errors).
-func (t *translator) translateUnitExpressionsInModule(exprs []Expr, module util.Path,
+func (t *translator) translateUnitExpressionsInModule(exprs []ast.Expr, module util.Path,
 	shift int) ([]hir.UnitExpr, []SyntaxError) {
 	//
 	errors := []SyntaxError{}
@@ -475,7 +476,7 @@ func (t *translator) translateUnitExpressionsInModule(exprs []Expr, module util.
 }
 
 // Translate a sequence of zero or more expressions enclosed in a given module.
-func (t *translator) translateExpressionsInModule(exprs []Expr, module util.Path,
+func (t *translator) translateExpressionsInModule(exprs []ast.Expr, module util.Path,
 	shift int) ([]hir.Expr, []SyntaxError) {
 	//
 	errors := []SyntaxError{}
@@ -499,26 +500,26 @@ func (t *translator) translateExpressionsInModule(exprs []Expr, module util.Path
 // Translate an expression situated in a given context.  The context is
 // necessary to resolve unqualified names (e.g. for column access, function
 // invocations, etc).
-func (t *translator) translateExpressionInModule(expr Expr, module util.Path, shift int) (hir.Expr, []SyntaxError) {
+func (t *translator) translateExpressionInModule(expr ast.Expr, module util.Path, shift int) (hir.Expr, []SyntaxError) {
 	switch e := expr.(type) {
-	case *ArrayAccess:
+	case *ast.ArrayAccess:
 		// Lookup underlying column info
 		registerId, errors := t.registerOfColumnAccess(e)
 		// Done
 		return &hir.ColumnAccess{Column: registerId, Shift: shift}, errors
-	case *Add:
+	case *ast.Add:
 		args, errs := t.translateExpressionsInModule(e.Args, module, shift)
 		return &hir.Add{Args: args}, errs
-	case *Constant:
+	case *ast.Constant:
 		var val fr.Element
 		// Initialise field from bigint
 		val.SetBigInt(&e.Val)
 		//
 		return &hir.Constant{Val: val}, nil
-	case *Exp:
+	case *ast.Exp:
 		return t.translateExpInModule(e, module, shift)
-	case *If:
-		args, errs := t.translateExpressionsInModule([]Expr{e.Condition, e.TrueBranch, e.FalseBranch}, module, shift)
+	case *ast.If:
+		args, errs := t.translateExpressionsInModule([]ast.Expr{e.Condition, e.TrueBranch, e.FalseBranch}, module, shift)
 		// Construct appropriate if form
 		if e.IsIfZero() {
 			return &hir.IfZero{Condition: args[0], TrueBranch: args[1], FalseBranch: args[2]}, errs
@@ -528,28 +529,28 @@ func (t *translator) translateExpressionInModule(expr Expr, module util.Path, sh
 		}
 		// Should be unreachable
 		return nil, t.srcmap.SyntaxErrors(expr, "unresolved conditional encountered during translation")
-	case *List:
+	case *ast.List:
 		args, errs := t.translateExpressionsInModule(e.Args, module, shift)
 		return &hir.List{Args: args}, errs
-	case *Mul:
+	case *ast.Mul:
 		args, errs := t.translateExpressionsInModule(e.Args, module, shift)
 		return &hir.Mul{Args: args}, errs
-	case *Normalise:
+	case *ast.Normalise:
 		arg, errs := t.translateExpressionInModule(e.Arg, module, shift)
 		return &hir.Normalise{Arg: arg}, errs
-	case *Sub:
+	case *ast.Sub:
 		args, errs := t.translateExpressionsInModule(e.Args, module, shift)
 		return &hir.Sub{Args: args}, errs
-	case *Shift:
+	case *ast.Shift:
 		return t.translateShiftInModule(e, module, shift)
-	case *VariableAccess:
+	case *ast.VariableAccess:
 		return t.translateVariableAccessInModule(e, shift)
 	default:
 		return nil, t.srcmap.SyntaxErrors(expr, "unknown expression encountered during translation")
 	}
 }
 
-func (t *translator) translateExpInModule(expr *Exp, module util.Path, shift int) (hir.Expr, []SyntaxError) {
+func (t *translator) translateExpInModule(expr *ast.Exp, module util.Path, shift int) (hir.Expr, []SyntaxError) {
 	arg, errs := t.translateExpressionInModule(expr.Arg, module, shift)
 	pow := expr.Pow.AsConstant()
 	// Identity constant for pow
@@ -566,7 +567,7 @@ func (t *translator) translateExpInModule(expr *Exp, module util.Path, shift int
 	return nil, errs
 }
 
-func (t *translator) translateShiftInModule(expr *Shift, module util.Path, shift int) (hir.Expr, []SyntaxError) {
+func (t *translator) translateShiftInModule(expr *ast.Shift, module util.Path, shift int) (hir.Expr, []SyntaxError) {
 	constant := expr.Shift.AsConstant()
 	// Determine the shift constant
 	if constant == nil {
@@ -578,17 +579,17 @@ func (t *translator) translateShiftInModule(expr *Shift, module util.Path, shift
 	return t.translateExpressionInModule(expr.Arg, module, shift+int(constant.Int64()))
 }
 
-func (t *translator) translateVariableAccessInModule(expr *VariableAccess, shift int) (hir.Expr, []SyntaxError) {
-	if binding, ok := expr.Binding().(*ColumnBinding); ok {
+func (t *translator) translateVariableAccessInModule(expr *ast.VariableAccess, shift int) (hir.Expr, []SyntaxError) {
+	if binding, ok := expr.Binding().(*ast.ColumnBinding); ok {
 		// Lookup column binding
 		register_id := t.env.RegisterOf(binding.AbsolutePath())
 		// Done
 		return &hir.ColumnAccess{Column: register_id, Shift: shift}, nil
-	} else if binding, ok := expr.Binding().(*ConstantBinding); ok {
+	} else if binding, ok := expr.Binding().(*ast.ConstantBinding); ok {
 		// Just fill in the constant.
 		var constant fr.Element
 		// Initialise field from bigint
-		constant.SetBigInt(binding.value.AsConstant())
+		constant.SetBigInt(binding.Value.AsConstant())
 		//
 		return &hir.Constant{Val: constant}, nil
 	}
@@ -597,54 +598,54 @@ func (t *translator) translateVariableAccessInModule(expr *VariableAccess, shift
 }
 
 // Determine the underlying register for a symbol which represents a column access.
-func (t *translator) registerOfColumnAccess(symbol Symbol) (uint, []SyntaxError) {
+func (t *translator) registerOfColumnAccess(symbol ast.Symbol) (uint, []SyntaxError) {
 	switch e := symbol.(type) {
-	case *ArrayAccess:
+	case *ast.ArrayAccess:
 		return t.registerOfArrayAccess(e)
-	case *VariableAccess:
+	case *ast.VariableAccess:
 		return t.registerOfVariableAccess(e)
 	}
 	//
 	return math.MaxUint, t.srcmap.SyntaxErrors(symbol, "invalid column access")
 }
 
-func (t *translator) registerOfVariableAccess(expr *VariableAccess) (uint, []SyntaxError) {
-	if binding, ok := expr.Binding().(*ColumnBinding); ok {
+func (t *translator) registerOfVariableAccess(expr *ast.VariableAccess) (uint, []SyntaxError) {
+	if binding, ok := expr.Binding().(*ast.ColumnBinding); ok {
 		// Lookup column binding
 		return t.env.RegisterOf(binding.AbsolutePath()), nil
 	}
 	//
 	return math.MaxUint, t.srcmap.SyntaxErrors(expr, "invalid column access")
 }
-func (t *translator) registerOfArrayAccess(expr *ArrayAccess) (uint, []SyntaxError) {
+func (t *translator) registerOfArrayAccess(expr *ast.ArrayAccess) (uint, []SyntaxError) {
 	var (
 		errors []SyntaxError
 		min    uint = 0
 		max    uint = math.MaxUint
 	)
 	// Lookup the column
-	binding, ok := expr.Binding().(*ColumnBinding)
+	binding, ok := expr.Binding().(*ast.ColumnBinding)
 	// Did we find it?
 	if !ok {
-		errors = append(errors, *t.srcmap.SyntaxError(expr.arg, "invalid array index encountered during translation"))
-	} else if arr_t, ok := binding.dataType.(*ArrayType); ok {
-		min = arr_t.min
-		max = arr_t.max
+		errors = append(errors, *t.srcmap.SyntaxError(expr.Arg, "invalid array index encountered during translation"))
+	} else if arr_t, ok := binding.DataType.(*ast.ArrayType); ok {
+		min = arr_t.MinIndex()
+		max = arr_t.MaxIndex()
 	}
 	// Array index should be statically known
-	index := expr.arg.AsConstant()
+	index := expr.Arg.AsConstant()
 	//
 	if index == nil {
-		errors = append(errors, *t.srcmap.SyntaxError(expr.arg, "expected constant array index"))
+		errors = append(errors, *t.srcmap.SyntaxError(expr.Arg, "expected constant array index"))
 	} else if i := uint(index.Uint64()); i < min || i > max {
-		errors = append(errors, *t.srcmap.SyntaxError(expr.arg, "array index out-of-bounds"))
+		errors = append(errors, *t.srcmap.SyntaxError(expr.Arg, "array index out-of-bounds"))
 	}
 	// Error check
 	if len(errors) > 0 {
 		return math.MaxUint, errors
 	}
 	// Construct real column name
-	path := &binding.path
+	path := &binding.Path
 	name := fmt.Sprintf("%s_%d", path.Tail(), index.Uint64())
 	path = path.Parent().Extend(name)
 	// Lookup underlying column info

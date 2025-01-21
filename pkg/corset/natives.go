@@ -3,6 +3,7 @@ package corset
 import (
 	"math"
 
+	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/sexp"
 )
@@ -11,7 +12,7 @@ import (
 // return in a given native function.
 type NativeColumn struct {
 	// type of assigned column
-	datatype Type
+	datatype ast.Type
 	// multiplier for assigned column
 	multiplier uint
 }
@@ -29,7 +30,7 @@ type NativeDefinition struct {
 	constructor func([]NativeColumn) []NativeColumn
 }
 
-var _ FunctionBinding = &NativeDefinition{}
+var _ ast.FunctionBinding = &NativeDefinition{}
 
 // Name returns the name of the intrinsic being defined.
 func (p *NativeDefinition) Name() string {
@@ -65,7 +66,7 @@ func (p *NativeDefinition) IsFinalised() bool {
 }
 
 // Binding returns the binding associated with this intrinsic.
-func (p *NativeDefinition) Binding() Binding {
+func (p *NativeDefinition) Binding() ast.Binding {
 	return p
 }
 
@@ -85,7 +86,7 @@ func (p *NativeDefinition) HasArity(arity uint) bool {
 // However, that signature may not actually accept the provided parameters
 // (in which case, an error should be reported).  Furthermore, if no
 // appropriate signature exists then this will return nil.
-func (p *NativeDefinition) Select(args []Type) *FunctionSignature {
+func (p *NativeDefinition) Select(args []ast.Type) *ast.FunctionSignature {
 	// This is safe because natives can only (currently) be used in very
 	// specific situations.
 	return nil
@@ -101,7 +102,7 @@ func (p *NativeDefinition) Apply(args []NativeColumn) []NativeColumn {
 // (e.g. intrinsics) cannot be overloaded; (2) duplicate overloadings are
 // not permitted; (3) combinding pure and impure overloadings is also not
 // permitted.
-func (p *NativeDefinition) Overload(binding *DefunBinding) (FunctionBinding, bool) {
+func (p *NativeDefinition) Overload(binding *ast.DefunBinding) (ast.FunctionBinding, bool) {
 	// Easy case, as natives cannot be overloaded.
 	return nil, false
 }
@@ -150,7 +151,7 @@ func nativeChangeWithin(inputs []NativeColumn) []NativeColumn {
 		panic("unreachable")
 	}
 	//
-	result := NativeColumn{NewUintType(1), inputs[0].multiplier}
+	result := NativeColumn{ast.NewUintType(1), inputs[0].multiplier}
 	//
 	return []NativeColumn{result}
 }

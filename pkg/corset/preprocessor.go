@@ -3,14 +3,15 @@ package corset
 import (
 	"math/big"
 
+	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/util/sexp"
 )
 
 // PreprocessCircuit performs preprocessing prior to final translation.
 // Specifically, it expands all invocations, reductions and for loops.  Thus,
 // final translation is greatly simplified after this step.
-func PreprocessCircuit(debug bool, srcmap *sexp.SourceMaps[Node],
-	circuit *Circuit) []SyntaxError {
+func PreprocessCircuit(debug bool, srcmap *sexp.SourceMaps[ast.Node],
+	circuit *ast.Circuit) []SyntaxError {
 	// Construct fresh preprocessor
 	p := preprocessor{debug, srcmap}
 	// Preprocess all declarations
@@ -26,11 +27,11 @@ type preprocessor struct {
 	// Source maps nodes in the circuit back to the spans in their original
 	// source files.  This is needed when reporting syntax errors to generate
 	// highlights of the relevant source line(s) in question.
-	srcmap *sexp.SourceMaps[Node]
+	srcmap *sexp.SourceMaps[ast.Node]
 }
 
 // preprocess all assignment or constraint declarations in the circuit.
-func (p *preprocessor) preprocessDeclarations(circuit *Circuit) []SyntaxError {
+func (p *preprocessor) preprocessDeclarations(circuit *ast.Circuit) []SyntaxError {
 	errors := p.preprocessDeclarationsInModule(circuit.Declarations)
 	// preprocess each module
 	for _, m := range circuit.Modules {
@@ -43,7 +44,7 @@ func (p *preprocessor) preprocessDeclarations(circuit *Circuit) []SyntaxError {
 
 // preprocess all assignment or constraint declarations in a given module within
 // the circuit.
-func (p *preprocessor) preprocessDeclarationsInModule(decls []Declaration) []SyntaxError {
+func (p *preprocessor) preprocessDeclarationsInModule(decls []ast.Declaration) []SyntaxError {
 	var errors []SyntaxError
 	//
 	for _, d := range decls {
@@ -56,33 +57,33 @@ func (p *preprocessor) preprocessDeclarationsInModule(decls []Declaration) []Syn
 
 // preprocess an assignment or constraint declarartion which occurs within a
 // given module.
-func (p *preprocessor) preprocessDeclaration(decl Declaration) []SyntaxError {
+func (p *preprocessor) preprocessDeclaration(decl ast.Declaration) []SyntaxError {
 	var errors []SyntaxError
 	//
 	switch d := decl.(type) {
-	case *DefAliases:
+	case *ast.DefAliases:
 		// ignore
-	case *DefColumns:
+	case *ast.DefColumns:
 		// ignore
-	case *DefComputed:
+	case *ast.DefComputed:
 		// ignore
-	case *DefConst:
+	case *ast.DefConst:
 		// ignore
-	case *DefConstraint:
+	case *ast.DefConstraint:
 		errors = p.preprocessDefConstraint(d)
-	case *DefFun:
+	case *ast.DefFun:
 		// ignore
-	case *DefInRange:
+	case *ast.DefInRange:
 		errors = p.preprocessDefInRange(d)
-	case *DefInterleaved:
+	case *ast.DefInterleaved:
 		// ignore
-	case *DefLookup:
+	case *ast.DefLookup:
 		errors = p.preprocessDefLookup(d)
-	case *DefPermutation:
+	case *ast.DefPermutation:
 		// ignore
-	case *DefPerspective:
+	case *ast.DefPerspective:
 		errors = p.preprocessDefPerspective(d)
-	case *DefProperty:
+	case *ast.DefProperty:
 		errors = p.preprocessDefProperty(d)
 	default:
 		// Error handling
@@ -93,7 +94,7 @@ func (p *preprocessor) preprocessDeclaration(decl Declaration) []SyntaxError {
 }
 
 // preprocess a "defconstraint" declaration.
-func (p *preprocessor) preprocessDefConstraint(decl *DefConstraint) []SyntaxError {
+func (p *preprocessor) preprocessDefConstraint(decl *ast.DefConstraint) []SyntaxError {
 	var (
 		constraint_errors []SyntaxError
 		guard_errors      []SyntaxError
@@ -106,7 +107,7 @@ func (p *preprocessor) preprocessDefConstraint(decl *DefConstraint) []SyntaxErro
 	if decl.Constraint == nil {
 		// this case is possible when the constraint expression consists
 		// entirely of debug constraints, and debug mode is not enabled.
-		decl.Constraint = &List{nil}
+		decl.Constraint = &ast.List{Args: nil}
 	}
 	// Combine errors
 	return append(constraint_errors, guard_errors...)
@@ -115,7 +116,7 @@ func (p *preprocessor) preprocessDefConstraint(decl *DefConstraint) []SyntaxErro
 // preprocess a "deflookup" declaration.
 //
 //nolint:staticcheck
-func (p *preprocessor) preprocessDefLookup(decl *DefLookup) []SyntaxError {
+func (p *preprocessor) preprocessDefLookup(decl *ast.DefLookup) []SyntaxError {
 	var (
 		source_errs []SyntaxError
 		target_errs []SyntaxError
@@ -128,7 +129,7 @@ func (p *preprocessor) preprocessDefLookup(decl *DefLookup) []SyntaxError {
 }
 
 // preprocess a "definrange" declaration.
-func (p *preprocessor) preprocessDefInRange(decl *DefInRange) []SyntaxError {
+func (p *preprocessor) preprocessDefInRange(decl *ast.DefInRange) []SyntaxError {
 	var errors []SyntaxError
 	// preprocess constraint body
 	decl.Expr, errors = p.preprocessExpressionInModule(decl.Expr)
@@ -137,7 +138,7 @@ func (p *preprocessor) preprocessDefInRange(decl *DefInRange) []SyntaxError {
 }
 
 // preprocess a "defperspective" declaration.
-func (p *preprocessor) preprocessDefPerspective(decl *DefPerspective) []SyntaxError {
+func (p *preprocessor) preprocessDefPerspective(decl *ast.DefPerspective) []SyntaxError {
 	var errors []SyntaxError
 	// preprocess selector expression
 	decl.Selector, errors = p.preprocessExpressionInModule(decl.Selector)
@@ -146,7 +147,7 @@ func (p *preprocessor) preprocessDefPerspective(decl *DefPerspective) []SyntaxEr
 }
 
 // preprocess a "defproperty" declaration.
-func (p *preprocessor) preprocessDefProperty(decl *DefProperty) []SyntaxError {
+func (p *preprocessor) preprocessDefProperty(decl *ast.DefProperty) []SyntaxError {
 	var errors []SyntaxError
 	// preprocess constraint body
 	decl.Assertion, errors = p.preprocessExpressionInModule(decl.Assertion)
@@ -157,7 +158,7 @@ func (p *preprocessor) preprocessDefProperty(decl *DefProperty) []SyntaxError {
 // preprocess an optional expression in a given context.  That is an expression
 // which maybe nil (i.e. doesn't exist).  In such case, nil is returned (i.e.
 // without any errors).
-func (p *preprocessor) preprocessOptionalExpressionInModule(expr Expr) (Expr, []SyntaxError) {
+func (p *preprocessor) preprocessOptionalExpressionInModule(expr ast.Expr) (ast.Expr, []SyntaxError) {
 	//
 	if expr != nil {
 		return p.preprocessExpressionInModule(expr)
@@ -169,10 +170,10 @@ func (p *preprocessor) preprocessOptionalExpressionInModule(expr Expr) (Expr, []
 // preprocess a sequence of zero or more expressions enclosed in a given module.
 // All expressions are expected to be non-voidable (see below for more on
 // voidability).
-func (p *preprocessor) preprocessExpressionsInModule(exprs []Expr) ([]Expr, []SyntaxError) {
+func (p *preprocessor) preprocessExpressionsInModule(exprs []ast.Expr) ([]ast.Expr, []SyntaxError) {
 	//
 	errors := []SyntaxError{}
-	hirExprs := make([]Expr, len(exprs))
+	hirExprs := make([]ast.Expr, len(exprs))
 	// Iterate each expression in turn
 	for i, e := range exprs {
 		if e != nil {
@@ -194,10 +195,10 @@ func (p *preprocessor) preprocessExpressionsInModule(exprs []Expr) ([]Expr, []Sy
 // expressions.  That is, essentially, to account for debug constraints which
 // only exist in debug mode.  Hence, when debug mode is not enabled, then a
 // debug constraint is "void".
-func (p *preprocessor) preprocessVoidableExpressionsInModule(exprs []Expr) ([]Expr, []SyntaxError) {
+func (p *preprocessor) preprocessVoidableExpressionsInModule(exprs []ast.Expr) ([]ast.Expr, []SyntaxError) {
 	//
 	errors := []SyntaxError{}
-	hirExprs := make([]Expr, len(exprs))
+	hirExprs := make([]ast.Expr, len(exprs))
 	nils := 0
 	// Iterate each expression in turn
 	for i, e := range exprs {
@@ -220,7 +221,7 @@ func (p *preprocessor) preprocessVoidableExpressionsInModule(exprs []Expr) ([]Ex
 	// constraints, but debug mode is not enabled.  In such case, we want to
 	// strip them out.  Since this is a rare occurrence, we try to keep the happy
 	// path efficient.
-	nHirExprs := make([]Expr, len(exprs)-nils)
+	nHirExprs := make([]ast.Expr, len(exprs)-nils)
 	i := 0
 	// Strip out nils
 	for _, e := range hirExprs {
@@ -236,60 +237,60 @@ func (p *preprocessor) preprocessVoidableExpressionsInModule(exprs []Expr) ([]Ex
 // preprocess an expression situated in a given context.  The context is
 // necessary to resolve unqualified names (e.g. for column access, function
 // invocations, etc).
-func (p *preprocessor) preprocessExpressionInModule(expr Expr) (Expr, []SyntaxError) {
+func (p *preprocessor) preprocessExpressionInModule(expr ast.Expr) (ast.Expr, []SyntaxError) {
 	var (
-		nexpr  Expr
+		nexpr  ast.Expr
 		errors []SyntaxError
 	)
 	//
 	switch e := expr.(type) {
-	case *ArrayAccess:
-		arg, errs := p.preprocessExpressionInModule(e.arg)
-		nexpr, errors = &ArrayAccess{e.path, arg, e.binding}, errs
-	case *Add:
+	case *ast.ArrayAccess:
+		arg, errs := p.preprocessExpressionInModule(e.Arg)
+		nexpr, errors = &ast.ArrayAccess{Name: e.Name, Arg: arg, ArrayBinding: e.ArrayBinding}, errs
+	case *ast.Add:
 		args, errs := p.preprocessExpressionsInModule(e.Args)
-		nexpr, errors = &Add{args}, errs
-	case *Constant:
+		nexpr, errors = &ast.Add{Args: args}, errs
+	case *ast.Constant:
 		return e, nil
-	case *Debug:
+	case *ast.Debug:
 		if p.debug {
 			return p.preprocessExpressionInModule(e.Arg)
 		}
 		// When debug is not enabled, return "void".
 		return nil, nil
-	case *Exp:
+	case *ast.Exp:
 		arg, errs1 := p.preprocessExpressionInModule(e.Arg)
 		pow, errs2 := p.preprocessExpressionInModule(e.Pow)
 		// Done
-		nexpr, errors = &Exp{arg, pow}, append(errs1, errs2...)
-	case *For:
+		nexpr, errors = &ast.Exp{Arg: arg, Pow: pow}, append(errs1, errs2...)
+	case *ast.For:
 		return p.preprocessForInModule(e)
-	case *If:
-		args, errs := p.preprocessExpressionsInModule([]Expr{e.Condition, e.TrueBranch, e.FalseBranch})
+	case *ast.If:
+		args, errs := p.preprocessExpressionsInModule([]ast.Expr{e.Condition, e.TrueBranch, e.FalseBranch})
 		// Construct appropriate if form
-		nexpr, errors = &If{e.kind, args[0], args[1], args[2]}, errs
-	case *Invoke:
+		nexpr, errors = &ast.If{e.Kind, args[0], args[1], args[2]}, errs
+	case *ast.Invoke:
 		return p.preprocessInvokeInModule(e)
-	case *Let:
+	case *ast.Let:
 		return p.preprocessLetInModule(e)
-	case *List:
+	case *ast.List:
 		args, errs := p.preprocessVoidableExpressionsInModule(e.Args)
-		nexpr, errors = &List{args}, errs
-	case *Mul:
+		nexpr, errors = &ast.List{Args: args}, errs
+	case *ast.Mul:
 		args, errs := p.preprocessExpressionsInModule(e.Args)
-		nexpr, errors = &Mul{args}, errs
-	case *Normalise:
+		nexpr, errors = &ast.Mul{Args: args}, errs
+	case *ast.Normalise:
 		arg, errs := p.preprocessExpressionInModule(e.Arg)
-		nexpr, errors = &Normalise{arg}, errs
-	case *Reduce:
+		nexpr, errors = &ast.Normalise{Arg: arg}, errs
+	case *ast.Reduce:
 		return p.preprocessReduceInModule(e)
-	case *Sub:
+	case *ast.Sub:
 		args, errs := p.preprocessExpressionsInModule(e.Args)
-		nexpr, errors = &Sub{args}, errs
-	case *Shift:
+		nexpr, errors = &ast.Sub{Args: args}, errs
+	case *ast.Shift:
 		arg, errs := p.preprocessExpressionInModule(e.Arg)
-		nexpr, errors = &Shift{arg, e.Shift}, errs
-	case *VariableAccess:
+		nexpr, errors = &ast.Shift{Arg: arg, Shift: e.Shift}, errs
+	case *ast.VariableAccess:
 		return e, nil
 	default:
 		return nil, p.srcmap.SyntaxErrors(expr, "unknown expression encountered during translation")
@@ -300,20 +301,20 @@ func (p *preprocessor) preprocessExpressionInModule(expr Expr) (Expr, []SyntaxEr
 	return nexpr, errors
 }
 
-func (p *preprocessor) preprocessForInModule(expr *For) (Expr, []SyntaxError) {
+func (p *preprocessor) preprocessForInModule(expr *ast.For) (ast.Expr, []SyntaxError) {
 	var (
 		errors  []SyntaxError
-		mapping map[uint]Expr = make(map[uint]Expr)
+		mapping map[uint]ast.Expr = make(map[uint]ast.Expr)
 	)
 	// Determine range for index variable
 	n := expr.End - expr.Start + 1
-	args := make([]Expr, n)
+	args := make([]ast.Expr, n)
 	// Expand body n times
 	for i := uint(0); i < n; i++ {
 		var errs []SyntaxError
 		// Substitute through for i
-		mapping[expr.Binding.index] = &Constant{*big.NewInt(int64(i + expr.Start))}
-		ith := Substitute(expr.Body, mapping, p.srcmap)
+		mapping[expr.Binding.Index] = &ast.Constant{Val: *big.NewInt(int64(i + expr.Start))}
+		ith := ast.Substitute(expr.Body, mapping, p.srcmap)
 		// preprocess subsituted expression
 		args[i], errs = p.preprocessExpressionInModule(ith)
 		errors = append(errors, errs...)
@@ -323,42 +324,42 @@ func (p *preprocessor) preprocessForInModule(expr *For) (Expr, []SyntaxError) {
 		return nil, errors
 	}
 	// Done
-	return &List{args}, nil
+	return &ast.List{Args: args}, nil
 }
 
-func (p *preprocessor) preprocessLetInModule(expr *Let) (Expr, []SyntaxError) {
+func (p *preprocessor) preprocessLetInModule(expr *ast.Let) (ast.Expr, []SyntaxError) {
 	var (
-		mapping map[uint]Expr = make(map[uint]Expr)
+		mapping map[uint]ast.Expr = make(map[uint]ast.Expr)
 		errors  []SyntaxError
 		errs    []SyntaxError
 	)
 	// Construct variable mapping and preprocess
 	for i, v := range expr.Vars {
-		mapping[v.index], errs = p.preprocessExpressionInModule(expr.Args[i])
+		mapping[v.Index], errs = p.preprocessExpressionInModule(expr.Args[i])
 		errors = append(errors, errs...)
 	}
 	// Apply substituteion
-	body := Substitute(expr.Body, mapping, p.srcmap)
+	body := ast.Substitute(expr.Body, mapping, p.srcmap)
 	// Constinue preprocessing
 	body, errs = p.preprocessExpressionInModule(body)
 	// Done
 	return body, append(errors, errs...)
 }
 
-func (p *preprocessor) preprocessInvokeInModule(expr *Invoke) (Expr, []SyntaxError) {
-	if expr.signature != nil {
+func (p *preprocessor) preprocessInvokeInModule(expr *ast.Invoke) (ast.Expr, []SyntaxError) {
+	if expr.Signature != nil {
 		var (
-			args   []Expr = make([]Expr, len(expr.args))
+			args   []ast.Expr = make([]ast.Expr, len(expr.Args))
 			errors []SyntaxError
 			errs   []SyntaxError
 		)
 		// Preprocess arguments prior to subsitution.
-		for i, e := range expr.args {
+		for i, e := range expr.Args {
 			args[i], errs = p.preprocessExpressionInModule(e)
 			errors = append(errors, errs...)
 		}
 		// Substitute through body
-		body := expr.signature.Apply(args, p.srcmap)
+		body := expr.Signature.Apply(args, p.srcmap)
 		// Preprocess body
 		body, errs = p.preprocessExpressionInModule(body)
 		// Done
@@ -368,18 +369,18 @@ func (p *preprocessor) preprocessInvokeInModule(expr *Invoke) (Expr, []SyntaxErr
 	return nil, p.srcmap.SyntaxErrors(expr, "unbound function")
 }
 
-func (p *preprocessor) preprocessReduceInModule(expr *Reduce) (Expr, []SyntaxError) {
-	body, errors := p.preprocessExpressionInModule(expr.arg)
+func (p *preprocessor) preprocessReduceInModule(expr *ast.Reduce) (ast.Expr, []SyntaxError) {
+	body, errors := p.preprocessExpressionInModule(expr.Arg)
 	//
-	if list, ok := body.(*List); !ok {
-		return nil, append(errors, *p.srcmap.SyntaxError(expr.arg, "expected list"))
-	} else if sig := expr.signature; sig == nil {
-		return nil, append(errors, *p.srcmap.SyntaxError(expr.arg, "unbound function"))
+	if list, ok := body.(*ast.List); !ok {
+		return nil, append(errors, *p.srcmap.SyntaxError(expr.Arg, "expected list"))
+	} else if sig := expr.Signature; sig == nil {
+		return nil, append(errors, *p.srcmap.SyntaxError(expr.Arg, "unbound function"))
 	} else {
 		reduction := list.Args[0]
 		// Build reduction
 		for i := 1; i < len(list.Args); i++ {
-			reduction = sig.Apply([]Expr{reduction, list.Args[i]}, p.srcmap)
+			reduction = sig.Apply([]ast.Expr{reduction, list.Args[i]}, p.srcmap)
 		}
 		// done
 		return reduction, errors

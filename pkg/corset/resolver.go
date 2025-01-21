@@ -3,6 +3,7 @@ package corset
 import (
 	"fmt"
 
+	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/util/sexp"
 )
 
@@ -12,7 +13,7 @@ import (
 // a symbol (e.g. a column) is referred to which doesn't exist.  Likewise, if
 // two modules or columns with identical names are declared in the same scope,
 // etc.
-func ResolveCircuit(srcmap *sexp.SourceMaps[Node], circuit *Circuit) (*ModuleScope, []SyntaxError) {
+func ResolveCircuit(srcmap *sexp.SourceMaps[ast.Node], circuit *ast.Circuit) (*ModuleScope, []SyntaxError) {
 	// Construct top-level scope
 	scope := NewModuleScope()
 	// Define natives
@@ -47,11 +48,11 @@ type resolver struct {
 	// Source maps nodes in the circuit back to the spans in their original
 	// source files.  This is needed when reporting syntax errors to generate
 	// highlights of the relevant source line(s) in question.
-	srcmap *sexp.SourceMaps[Node]
+	srcmap *sexp.SourceMaps[ast.Node]
 }
 
 // Initialise all columns from their declaring constructs.
-func (r *resolver) initialiseDeclarations(scope *ModuleScope, circuit *Circuit) []SyntaxError {
+func (r *resolver) initialiseDeclarations(scope *ModuleScope, circuit *ast.Circuit) []SyntaxError {
 	// Input columns must be allocated before assignemts, since the hir.Schema
 	// separates these out.
 	errs := r.initialiseDeclarationsInModule(scope, circuit.Declarations)
@@ -72,13 +73,13 @@ func (r *resolver) initialiseDeclarations(scope *ModuleScope, circuit *Circuit) 
 // bindings are potentially "non-finalised".  That means they may be missing key
 // information which is yet to be determined (e.g. information about types, or
 // contexts, etc).
-func (r *resolver) initialiseDeclarationsInModule(scope *ModuleScope, decls []Declaration) []SyntaxError {
+func (r *resolver) initialiseDeclarationsInModule(scope *ModuleScope, decls []ast.Declaration) []SyntaxError {
 	errors := make([]SyntaxError, 0)
 	// First, initialise any perspectives as submodules of the given scope.  Its
 	// slightly frustrating that we have to do this separately, but the
 	// non-lexical nature of perspectives forces our hand.
 	for _, d := range decls {
-		if def, ok := d.(*DefPerspective); ok {
+		if def, ok := d.(*ast.DefPerspective); ok {
 			// Attempt to declare the perspective.  Note, we don't need to check
 			// whether or not this succeeds here as, if it fails, this will be
 			// caught below.
@@ -110,23 +111,23 @@ func (r *resolver) initialiseDeclarationsInModule(scope *ModuleScope, decls []De
 // aliases, etc.  Since the order of aliases is unspecified, this means we have
 // to iterate the alias declarations until a fixed point is reached.  Once that
 // is done, if there are any aliases left unallocated then they indicate errors.
-func (r *resolver) initialiseAliasesInModule(scope *ModuleScope, decls []Declaration) []SyntaxError {
+func (r *resolver) initialiseAliasesInModule(scope *ModuleScope, decls []ast.Declaration) []SyntaxError {
 	// Apply any aliases
 	errors := make([]SyntaxError, 0)
-	visited := make(map[string]Declaration)
+	visited := make(map[string]ast.Declaration)
 	changed := true
 	// Iterate aliases to fixed point (i.e. until no new aliases discovered)
 	for changed {
 		changed = false
 		// Look for all aliases
 		for _, d := range decls {
-			if a, ok := d.(*DefAliases); ok {
-				for i, alias := range a.aliases {
-					symbol := a.symbols[i]
-					if _, ok := visited[alias.name]; !ok {
+			if a, ok := d.(*ast.DefAliases); ok {
+				for i, alias := range a.Aliases {
+					symbol := a.Symbols[i]
+					if _, ok := visited[alias.Name]; !ok {
 						// Attempt to make the alias
-						if change := scope.Alias(alias.name, symbol); change {
-							visited[alias.name] = d
+						if change := scope.Alias(alias.Name, symbol); change {
+							visited[alias.Name] = d
 							changed = true
 						}
 					}
@@ -136,13 +137,13 @@ func (r *resolver) initialiseAliasesInModule(scope *ModuleScope, decls []Declara
 	}
 	// Check for any aliases which remain incomplete
 	for _, decl := range decls {
-		if a, ok := decl.(*DefAliases); ok {
-			for i, alias := range a.aliases {
-				symbol := a.symbols[i]
+		if a, ok := decl.(*ast.DefAliases); ok {
+			for i, alias := range a.Aliases {
+				symbol := a.Symbols[i]
 				// Check whether it already exists (or not)
-				if d, ok := visited[alias.name]; ok && d == decl {
+				if d, ok := visited[alias.Name]; ok && d == decl {
 					continue
-				} else if scope.Binding(alias.name, symbol.IsFunction()) != nil {
+				} else if scope.Binding(alias.Name, symbol.IsFunction()) != nil {
 					err := r.srcmap.SyntaxError(alias, "symbol already exists")
 					errors = append(errors, *err)
 				} else {
@@ -159,7 +160,7 @@ func (r *resolver) initialiseAliasesInModule(scope *ModuleScope, decls []Declara
 // Process all assignment column declarations.  These are more complex than for
 // input columns, since there can be dependencies between them.  Thus, we cannot
 // simply resolve them in one linear scan.
-func (r *resolver) resolveDeclarations(scope *ModuleScope, circuit *Circuit) []SyntaxError {
+func (r *resolver) resolveDeclarations(scope *ModuleScope, circuit *ast.Circuit) []SyntaxError {
 	// Input columns must be allocated before assignemts, since the hir.Schema
 	// separates these out.
 	errs := r.finaliseDeclarationsInModule(scope, circuit.Declarations)
@@ -179,7 +180,7 @@ func (r *resolver) resolveDeclarations(scope *ModuleScope, circuit *Circuit) []S
 // have been themselves finalised.  For example, a function which depends upon
 // an interleaved column.  Until the interleaved column is finalised, its type
 // won't be available and, hence, we cannot type the function.
-func (r *resolver) finaliseDeclarationsInModule(scope *ModuleScope, decls []Declaration) []SyntaxError {
+func (r *resolver) finaliseDeclarationsInModule(scope *ModuleScope, decls []ast.Declaration) []SyntaxError {
 	// Changed indicates whether or not a new assignment was finalised during a
 	// given iteration.  This is important to know since, if the assignment is
 	// not complete and we didn't finalise any more assignments --- then, we've
@@ -194,8 +195,8 @@ func (r *resolver) finaliseDeclarationsInModule(scope *ModuleScope, decls []Decl
 	// could not be finalised (i.e. as an example so we have at least one for
 	// error reporting).
 	var (
-		incomplete Node = nil
-		counter    uint = 32
+		incomplete ast.Node = nil
+		counter    uint     = 32
 	)
 	//
 	for changed && !complete && counter > 0 {
@@ -218,7 +219,7 @@ func (r *resolver) finaliseDeclarationsInModule(scope *ModuleScope, decls []Decl
 					// Record that a new assignment is available.
 					changed = changed || len(errs) == 0
 				} else {
-					// Declaration not ready yet
+					// ast.Declaration not ready yet
 					complete = false
 					incomplete = d
 				}
@@ -249,7 +250,7 @@ func (r *resolver) finaliseDeclarationsInModule(scope *ModuleScope, decls []Decl
 // since we cannot finalise a declaration until all of its dependencies have
 // themselves been finalised.
 func (r *resolver) declarationDependenciesAreFinalised(scope *ModuleScope,
-	decl Declaration) (bool, []SyntaxError) {
+	decl ast.Declaration) (bool, []SyntaxError) {
 	var (
 		errors    []SyntaxError
 		finalised bool = true
@@ -258,7 +259,7 @@ func (r *resolver) declarationDependenciesAreFinalised(scope *ModuleScope,
 	// with a perspective.  Perspectives are challenging here because they are
 	// effectively non-lexical scopes, which is not a good fit for the module
 	// tree structure used.
-	if dc, ok := decl.(*DefConstraint); ok && dc.Perspective != nil {
+	if dc, ok := decl.(*ast.DefConstraint); ok && dc.Perspective != nil {
 		if dc.Perspective.IsResolved() || scope.Bind(dc.Perspective) {
 			// Temporarily enter the perspective for the purposes of resolving
 			// symbols within this declaration.
@@ -291,34 +292,34 @@ func (r *resolver) declarationDependenciesAreFinalised(scope *ModuleScope,
 }
 
 // Finalise a declaration.
-func (r *resolver) finaliseDeclaration(scope *ModuleScope, decl Declaration) []SyntaxError {
+func (r *resolver) finaliseDeclaration(scope *ModuleScope, decl ast.Declaration) []SyntaxError {
 	switch d := decl.(type) {
-	case *DefComputed:
+	case *ast.DefComputed:
 		return r.finaliseDefComputedInModule(d)
-	case *DefConst:
+	case *ast.DefConst:
 		return r.finaliseDefConstInModule(scope, d)
-	case *DefConstraint:
+	case *ast.DefConstraint:
 		return r.finaliseDefConstraintInModule(scope, d)
-	case *DefFun:
+	case *ast.DefFun:
 		return r.finaliseDefFunInModule(scope, d)
-	case *DefInRange:
+	case *ast.DefInRange:
 		return r.finaliseDefInRangeInModule(scope, d)
-	case *DefInterleaved:
+	case *ast.DefInterleaved:
 		return r.finaliseDefInterleavedInModule(d)
-	case *DefLookup:
+	case *ast.DefLookup:
 		return r.finaliseDefLookupInModule(scope, d)
-	case *DefPermutation:
+	case *ast.DefPermutation:
 		return r.finaliseDefPermutationInModule(d)
-	case *DefPerspective:
+	case *ast.DefPerspective:
 		return r.finaliseDefPerspectiveInModule(scope, d)
-	case *DefProperty:
+	case *ast.DefProperty:
 		return r.finaliseDefPropertyInModule(scope, d)
 	}
 	//
 	return nil
 }
 
-func (r *resolver) finaliseDefComputedInModule(decl *DefComputed) []SyntaxError {
+func (r *resolver) finaliseDefComputedInModule(decl *ast.DefComputed) []SyntaxError {
 	var (
 		errors    []SyntaxError
 		arguments []NativeColumn = make([]NativeColumn, len(decl.Sources))
@@ -327,8 +328,8 @@ func (r *resolver) finaliseDefComputedInModule(decl *DefComputed) []SyntaxError 
 	// Initialise arguments
 	for i := 0; i < len(decl.Sources); i++ {
 		// FIXME: sanity check that these things make sense.
-		ith := decl.Sources[i].Binding().(*ColumnBinding)
-		arguments[i] = NativeColumn{ith.dataType, ith.multiplier}
+		ith := decl.Sources[i].Binding().(*ast.ColumnBinding)
+		arguments[i] = NativeColumn{ith.DataType, ith.Multiplier}
 	}
 	// Extract binding
 	binding = decl.Function.Binding().(*NativeDefinition)
@@ -350,10 +351,10 @@ func (r *resolver) finaliseDefComputedInModule(decl *DefComputed) []SyntaxError 
 			// Finalise each target column
 			for i := 0; i < len(decl.Targets); i++ {
 				// Finalise ith target column
-				target := decl.Targets[i].Binding().(*ColumnBinding)
+				target := decl.Targets[i].Binding().(*ast.ColumnBinding)
 				// Update with completed information
-				target.multiplier = assignments[i].multiplier
-				target.dataType = assignments[i].datatype
+				target.Multiplier = assignments[i].multiplier
+				target.DataType = assignments[i].datatype
 			}
 		}
 	}
@@ -364,22 +365,22 @@ func (r *resolver) finaliseDefComputedInModule(decl *DefComputed) []SyntaxError 
 // Finalise one or more constant definitions within a given module.
 // Specifically, we need to check that the constant values provided are indeed
 // constants.
-func (r *resolver) finaliseDefConstInModule(enclosing Scope, decl *DefConst) []SyntaxError {
+func (r *resolver) finaliseDefConstInModule(enclosing Scope, decl *ast.DefConst) []SyntaxError {
 	var errors []SyntaxError
 	//
-	for _, c := range decl.constants {
+	for _, c := range decl.Constants {
 		scope := NewLocalScope(enclosing, false, true)
 		// Resolve constant body
-		errs := r.finaliseExpressionInModule(scope, c.binding.value)
+		errs := r.finaliseExpressionInModule(scope, c.ConstBinding.Value)
 		// Accumulate errors
 		errors = append(errors, errs...)
 		if len(errors) == 0 {
 			// Check it is indeed constant!
-			if constant := c.binding.value.AsConstant(); constant != nil {
+			if constant := c.ConstBinding.Value.AsConstant(); constant != nil {
 				// Finalise constant binding.  Note, no need to register a syntax
 				// error for the error case, because it would have already been
 				// accounted for during resolution.
-				c.binding.Finalise()
+				c.ConstBinding.Finalise()
 			}
 		}
 	}
@@ -390,7 +391,7 @@ func (r *resolver) finaliseDefConstInModule(enclosing Scope, decl *DefConst) []S
 // Finalise a vanishing constraint declaration after all symbols have been
 // resolved. This involves: (a) checking the context is valid; (b) checking the
 // expressions are well-typed.
-func (r *resolver) finaliseDefConstraintInModule(enclosing *ModuleScope, decl *DefConstraint) []SyntaxError {
+func (r *resolver) finaliseDefConstraintInModule(enclosing *ModuleScope, decl *ast.DefConstraint) []SyntaxError {
 	var guard_errors []SyntaxError
 	// Identifiery enclosing perspective (if applicable)
 	if decl.Perspective != nil {
@@ -420,32 +421,32 @@ func (r *resolver) finaliseDefConstraintInModule(enclosing *ModuleScope, decl *D
 // multiplier for the interleaved column.  This can still result in an error,
 // for example, if the multipliers between interleaved columns are incompatible,
 // etc.
-func (r *resolver) finaliseDefInterleavedInModule(decl *DefInterleaved) []SyntaxError {
+func (r *resolver) finaliseDefInterleavedInModule(decl *ast.DefInterleaved) []SyntaxError {
 	var (
 		// Length multiplier being determined
 		length_multiplier uint
 		// Column type being determined
-		datatype Type
+		datatype ast.Type
 		// Errors discovered
 		errors []SyntaxError
 	)
 	// Determine type and length multiplier
 	for _, source := range decl.Sources {
 		// Lookup binding of column being interleaved.
-		if binding, ok := source.Binding().(*ColumnBinding); !ok {
+		if binding, ok := source.Binding().(*ast.ColumnBinding); !ok {
 			// Columns to be interleaved must have the same length multiplier.
 			err := r.srcmap.SyntaxError(source, "invalid source column")
 			errors = append(errors, *err)
 		} else if datatype == nil {
-			length_multiplier = binding.multiplier
+			length_multiplier = binding.Multiplier
 			datatype = source.Type()
-		} else if binding.multiplier != length_multiplier {
+		} else if binding.Multiplier != length_multiplier {
 			// Columns to be interleaved must have the same length multiplier.
 			err := r.srcmap.SyntaxError(source, "incompatible length multiplier")
 			errors = append(errors, *err)
 		} else {
 			// Combine datatypes.
-			datatype = GreatestLowerBound(datatype, source.Type())
+			datatype = ast.GreatestLowerBound(datatype, source.Type())
 		}
 	}
 	// Finalise details only if no errors
@@ -453,7 +454,7 @@ func (r *resolver) finaliseDefInterleavedInModule(decl *DefInterleaved) []Syntax
 		// Determine actual length multiplier
 		length_multiplier *= uint(len(decl.Sources))
 		// Lookup existing declaration
-		binding := decl.Target.Binding().(*ColumnBinding)
+		binding := decl.Target.Binding().(*ast.ColumnBinding)
 		// Finalise column binding
 		binding.Finalise(length_multiplier, datatype)
 	}
@@ -463,7 +464,7 @@ func (r *resolver) finaliseDefInterleavedInModule(decl *DefInterleaved) []Syntax
 
 // Finalise a permutation assignment after all symbols have been resolved.  This
 // requires checking the contexts of all columns is consistent.
-func (r *resolver) finaliseDefPermutationInModule(decl *DefPermutation) []SyntaxError {
+func (r *resolver) finaliseDefPermutationInModule(decl *ast.DefPermutation) []SyntaxError {
 	var (
 		multiplier uint = 0
 		errors     []SyntaxError
@@ -473,21 +474,21 @@ func (r *resolver) finaliseDefPermutationInModule(decl *DefPermutation) []Syntax
 	for i := 0; i < len(decl.Sources); i++ {
 		ith := decl.Sources[i]
 		// Lookup source of column being permuted
-		if source, ok := ith.Binding().(*ColumnBinding); !ok {
+		if source, ok := ith.Binding().(*ast.ColumnBinding); !ok {
 			errors = append(errors, *r.srcmap.SyntaxError(ith, "invalid source column"))
 			return errors
-		} else if !started && source.dataType.AsUnderlying().AsUint() == nil {
+		} else if !started && source.DataType.AsUnderlying().AsUint() == nil {
 			errors = append(errors, *r.srcmap.SyntaxError(ith, "fixed-width type required"))
-		} else if started && multiplier != source.multiplier {
+		} else if started && multiplier != source.Multiplier {
 			// Problem
 			errors = append(errors, *r.srcmap.SyntaxError(ith, "incompatible length multiplier"))
 		} else {
 			// All good, finalise target column
-			target := decl.Targets[i].Binding().(*ColumnBinding)
+			target := decl.Targets[i].Binding().(*ast.ColumnBinding)
 			// Update with completed information
-			target.multiplier = source.multiplier
-			target.dataType = source.dataType
-			multiplier = source.multiplier
+			target.Multiplier = source.Multiplier
+			target.DataType = source.DataType
+			multiplier = source.Multiplier
 			started = true
 		}
 	}
@@ -496,7 +497,7 @@ func (r *resolver) finaliseDefPermutationInModule(decl *DefPermutation) []Syntax
 }
 
 // Resolve those variables appearing in the body of this property assertion.
-func (r *resolver) finaliseDefPerspectiveInModule(enclosing Scope, decl *DefPerspective) []SyntaxError {
+func (r *resolver) finaliseDefPerspectiveInModule(enclosing Scope, decl *ast.DefPerspective) []SyntaxError {
 	scope := NewLocalScope(enclosing, false, false)
 	// Resolve assertion
 	errors := r.finaliseExpressionInModule(scope, decl.Selector)
@@ -511,7 +512,7 @@ func (r *resolver) finaliseDefPerspectiveInModule(enclosing Scope, decl *DefPers
 // Finalise a range constraint declaration after all symbols have been
 // resolved. This involves: (a) checking the context is valid; (b) checking the
 // expressions are well-typed.
-func (r *resolver) finaliseDefInRangeInModule(enclosing Scope, decl *DefInRange) []SyntaxError {
+func (r *resolver) finaliseDefInRangeInModule(enclosing Scope, decl *ast.DefInRange) []SyntaxError {
 	var scope = NewLocalScope(enclosing, false, false)
 	// Resolve property body
 	errors := r.finaliseExpressionInModule(scope, decl.Expr)
@@ -528,11 +529,11 @@ func (r *resolver) finaliseDefInRangeInModule(enclosing Scope, decl *DefInRange)
 // body is well-typed; (c) for pure functions checking that no columns are
 // accessed; (d) finally, resolving any parameters used within the body of this
 // function.
-func (r *resolver) finaliseDefFunInModule(enclosing Scope, decl *DefFun) []SyntaxError {
+func (r *resolver) finaliseDefFunInModule(enclosing Scope, decl *ast.DefFun) []SyntaxError {
 	var scope = NewLocalScope(enclosing, true, decl.IsPure())
 	// Declare parameters in local scope
 	for _, p := range decl.Parameters() {
-		scope.DeclareLocal(p.Binding.name, &p.Binding)
+		scope.DeclareLocal(p.Binding.Name, &p.Binding)
 	}
 	// Resolve property body
 	errors := r.finaliseExpressionInModule(scope, decl.Body())
@@ -545,7 +546,7 @@ func (r *resolver) finaliseDefFunInModule(enclosing Scope, decl *DefFun) []Synta
 }
 
 // Resolve those variables appearing in the body of this lookup constraint.
-func (r *resolver) finaliseDefLookupInModule(enclosing Scope, decl *DefLookup) []SyntaxError {
+func (r *resolver) finaliseDefLookupInModule(enclosing Scope, decl *ast.DefLookup) []SyntaxError {
 	var (
 		sourceScope = NewLocalScope(enclosing, true, false)
 		targetScope = NewLocalScope(enclosing, true, false)
@@ -559,7 +560,7 @@ func (r *resolver) finaliseDefLookupInModule(enclosing Scope, decl *DefLookup) [
 }
 
 // Resolve those variables appearing in the body of this property assertion.
-func (r *resolver) finaliseDefPropertyInModule(enclosing Scope, decl *DefProperty) []SyntaxError {
+func (r *resolver) finaliseDefPropertyInModule(enclosing Scope, decl *ast.DefProperty) []SyntaxError {
 	scope := NewLocalScope(enclosing, false, false)
 	// Resolve assertion
 	return r.finaliseExpressionInModule(scope, decl.Assertion)
@@ -567,7 +568,7 @@ func (r *resolver) finaliseDefPropertyInModule(enclosing Scope, decl *DefPropert
 
 // Resolve a sequence of zero or more expressions within a given module.  This
 // simply resolves each of the arguments in turn, collecting any errors arising.
-func (r *resolver) finaliseExpressionsInModule(scope LocalScope, args []Expr) []SyntaxError {
+func (r *resolver) finaliseExpressionsInModule(scope LocalScope, args []ast.Expr) []SyntaxError {
 	var errors []SyntaxError
 	// Visit each argument
 	for _, arg := range args {
@@ -587,51 +588,51 @@ func (r *resolver) finaliseExpressionsInModule(scope LocalScope, args []Expr) []
 // column access, constant access, etc).
 //
 //nolint:staticcheck
-func (r *resolver) finaliseExpressionInModule(scope LocalScope, expr Expr) []SyntaxError {
+func (r *resolver) finaliseExpressionInModule(scope LocalScope, expr ast.Expr) []SyntaxError {
 	switch v := expr.(type) {
-	case *ArrayAccess:
+	case *ast.ArrayAccess:
 		return r.finaliseArrayAccessInModule(scope, v)
-	case *Add:
+	case *ast.Add:
 		return r.finaliseExpressionsInModule(scope, v.Args)
-	case *Constant:
+	case *ast.Constant:
 		return nil
-	case *Debug:
+	case *ast.Debug:
 		return r.finaliseExpressionInModule(scope, v.Arg)
-	case *Exp:
+	case *ast.Exp:
 		purescope := scope.NestedPureScope()
 		arg_errs := r.finaliseExpressionInModule(scope, v.Arg)
 		pow_errs := r.finaliseExpressionInModule(purescope, v.Pow)
 		// combine errors
 		return append(arg_errs, pow_errs...)
-	case *For:
+	case *ast.For:
 		nestedscope := scope.NestedScope()
 		// Declare local variable
-		nestedscope.DeclareLocal(v.Binding.name, &v.Binding)
+		nestedscope.DeclareLocal(v.Binding.Name, &v.Binding)
 		// Continue resolution
 		return r.finaliseExpressionInModule(nestedscope, v.Body)
-	case *If:
-		return r.finaliseExpressionsInModule(scope, []Expr{v.Condition, v.TrueBranch, v.FalseBranch})
-	case *Invoke:
+	case *ast.If:
+		return r.finaliseExpressionsInModule(scope, []ast.Expr{v.Condition, v.TrueBranch, v.FalseBranch})
+	case *ast.Invoke:
 		return r.finaliseInvokeInModule(scope, v)
-	case *Let:
+	case *ast.Let:
 		return r.finaliseLetInModule(scope, v)
-	case *List:
+	case *ast.List:
 		return r.finaliseExpressionsInModule(scope, v.Args)
-	case *Mul:
+	case *ast.Mul:
 		return r.finaliseExpressionsInModule(scope, v.Args)
-	case *Normalise:
+	case *ast.Normalise:
 		return r.finaliseExpressionInModule(scope, v.Arg)
-	case *Reduce:
+	case *ast.Reduce:
 		return r.finaliseReduceInModule(scope, v)
-	case *Shift:
+	case *ast.Shift:
 		purescope := scope.NestedPureScope()
 		arg_errs := r.finaliseExpressionInModule(scope, v.Arg)
 		shf_errs := r.finaliseExpressionInModule(purescope, v.Shift)
 		// combine errors
 		return append(arg_errs, shf_errs...)
-	case *Sub:
+	case *ast.Sub:
 		return r.finaliseExpressionsInModule(scope, v.Args)
-	case *VariableAccess:
+	case *ast.VariableAccess:
 		return r.finaliseVariableInModule(scope, v)
 	default:
 		return r.srcmap.SyntaxErrors(expr, "unknown expression encountered during resolution")
@@ -640,13 +641,13 @@ func (r *resolver) finaliseExpressionInModule(scope LocalScope, expr Expr) []Syn
 
 // Resolve a specific array access contained within some expression which, in
 // turn, is contained within some module.
-func (r *resolver) finaliseArrayAccessInModule(scope LocalScope, expr *ArrayAccess) []SyntaxError {
+func (r *resolver) finaliseArrayAccessInModule(scope LocalScope, expr *ast.ArrayAccess) []SyntaxError {
 	// Resolve argument
-	errors := r.finaliseExpressionInModule(scope, expr.arg)
+	errors := r.finaliseExpressionInModule(scope, expr.Arg)
 	//
 	if !expr.IsResolved() && !scope.Bind(expr) {
 		errors = append(errors, *r.srcmap.SyntaxError(expr, "unknown array column"))
-	} else if _, ok := expr.Binding().(*ColumnBinding); !ok {
+	} else if _, ok := expr.Binding().(*ast.ColumnBinding); !ok {
 		errors = append(errors, *r.srcmap.SyntaxError(expr, "unknown array column"))
 	}
 	// All good
@@ -656,33 +657,33 @@ func (r *resolver) finaliseArrayAccessInModule(scope LocalScope, expr *ArrayAcce
 // Resolve a specific invocation contained within some expression which, in
 // turn, is contained within some module.  Note, qualified accesses are only
 // permitted in a global context.
-func (r *resolver) finaliseInvokeInModule(scope LocalScope, expr *Invoke) []SyntaxError {
+func (r *resolver) finaliseInvokeInModule(scope LocalScope, expr *ast.Invoke) []SyntaxError {
 	// Resolve arguments
-	errors := r.finaliseExpressionsInModule(scope, expr.Args())
+	errors := r.finaliseExpressionsInModule(scope, expr.Args)
 	// Lookup the corresponding function definition.
-	if !expr.fn.IsResolved() && !scope.Bind(expr.fn) {
+	if !expr.Name.IsResolved() && !scope.Bind(expr.Name) {
 		return append(errors, *r.srcmap.SyntaxError(expr, "unknown function"))
 	}
 	// Following must be true if we get here.
-	binding := expr.fn.binding.(FunctionBinding)
+	binding := expr.Name.Binding().(ast.FunctionBinding)
 	// Check purity
 	if scope.IsPure() && !binding.IsPure() {
 		errors = append(errors, *r.srcmap.SyntaxError(expr, "not permitted in pure context"))
 	}
 	// Check provide correct number of arguments
-	if !binding.HasArity(uint(len(expr.Args()))) {
-		msg := fmt.Sprintf("incorrect number of arguments (found %d)", len(expr.Args()))
+	if !binding.HasArity(uint(len(expr.Args))) {
+		msg := fmt.Sprintf("incorrect number of arguments (found %d)", len(expr.Args))
 		errors = append(errors, *r.srcmap.SyntaxError(expr, msg))
 	}
 	//
 	return errors
 }
 
-func (r *resolver) finaliseLetInModule(scope LocalScope, expr *Let) []SyntaxError {
+func (r *resolver) finaliseLetInModule(scope LocalScope, expr *ast.Let) []SyntaxError {
 	nestedscope := scope.NestedScope()
 	// Declare assigned variable(s)
 	for i, letvar := range expr.Vars {
-		nestedscope.DeclareLocal(letvar.name, &expr.Vars[i])
+		nestedscope.DeclareLocal(letvar.Name, &expr.Vars[i])
 	}
 	// Finalise assigned expressions
 	args_errs := r.finaliseExpressionsInModule(scope, expr.Args)
@@ -695,15 +696,15 @@ func (r *resolver) finaliseLetInModule(scope LocalScope, expr *Let) []SyntaxErro
 // Resolve a specific invocation contained within some expression which, in
 // turn, is contained within some module.  Note, qualified accesses are only
 // permitted in a global context.
-func (r *resolver) finaliseReduceInModule(scope LocalScope, expr *Reduce) []SyntaxError {
+func (r *resolver) finaliseReduceInModule(scope LocalScope, expr *ast.Reduce) []SyntaxError {
 	// Resolve arguments
-	errors := r.finaliseExpressionInModule(scope, expr.arg)
+	errors := r.finaliseExpressionInModule(scope, expr.Arg)
 	// Lookup the corresponding function definition.
-	if !expr.fn.IsResolved() && !scope.Bind(expr.fn) {
+	if !expr.Name.IsResolved() && !scope.Bind(expr.Name) {
 		errors = append(errors, *r.srcmap.SyntaxError(expr, "unknown function"))
 	} else {
 		// Following must be true if we get here.
-		binding := expr.fn.binding.(FunctionBinding)
+		binding := expr.Name.Binding().(ast.FunctionBinding)
 
 		if scope.IsPure() && !binding.IsPure() {
 			errors = append(errors, *r.srcmap.SyntaxError(expr, "not permitted in pure context"))
@@ -716,7 +717,7 @@ func (r *resolver) finaliseReduceInModule(scope LocalScope, expr *Reduce) []Synt
 // Resolve a specific variable access contained within some expression which, in
 // turn, is contained within some module.  Note, qualified accesses are only
 // permitted in a global context.
-func (r *resolver) finaliseVariableInModule(scope LocalScope, expr *VariableAccess) []SyntaxError {
+func (r *resolver) finaliseVariableInModule(scope LocalScope, expr *ast.VariableAccess) []SyntaxError {
 	// Check whether this is a qualified access, or not.
 	if !scope.IsGlobal() && expr.Path().IsAbsolute() {
 		return r.srcmap.SyntaxErrors(expr, "qualified access not permitted here")
@@ -727,7 +728,7 @@ func (r *resolver) finaliseVariableInModule(scope LocalScope, expr *VariableAcce
 		return r.srcmap.SyntaxErrors(expr, "unresolved symbol")
 	}
 	// Check what we've got.
-	if binding, ok := expr.Binding().(*ColumnBinding); ok {
+	if binding, ok := expr.Binding().(*ast.ColumnBinding); ok {
 		// For column bindings, we still need to sanity check the context is
 		// compatible.
 		if !scope.FixContext(binding.Context()) {
@@ -737,13 +738,13 @@ func (r *resolver) finaliseVariableInModule(scope LocalScope, expr *VariableAcce
 		}
 		//
 		return nil
-	} else if _, ok := expr.Binding().(*ConstantBinding); ok {
+	} else if _, ok := expr.Binding().(*ast.ConstantBinding); ok {
 		// Constant
 		return nil
-	} else if _, ok := expr.Binding().(*LocalVariableBinding); ok {
+	} else if _, ok := expr.Binding().(*ast.LocalVariableBinding); ok {
 		// Parameter, for or let variable
 		return nil
-	} else if _, ok := expr.Binding().(FunctionBinding); ok {
+	} else if _, ok := expr.Binding().(ast.FunctionBinding); ok {
 		// Function doesn't makes sense here.
 		return r.srcmap.SyntaxErrors(expr, "refers to a function")
 	}

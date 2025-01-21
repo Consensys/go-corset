@@ -1,4 +1,4 @@
-package corset
+package ast
 
 import (
 	"fmt"
@@ -57,11 +57,16 @@ type Declaration interface {
 // alternate names for existing symbols.
 type DefAliases struct {
 	// Distinguishes defalias from defunalias
-	functions bool
+	Functions bool
 	// Aliases
-	aliases []*DefAlias
+	Aliases []*DefAlias
 	// Symbols being aliased
-	symbols []Symbol
+	Symbols []Symbol
+}
+
+// NewDefAliases constructs a new instance of DefAliases.
+func NewDefAliases(functions bool, aliases []*DefAlias, symbols []Symbol) *DefAliases {
+	return &DefAliases{functions, aliases, symbols}
 }
 
 // Dependencies needed to signal declaration.
@@ -96,14 +101,14 @@ func (p *DefAliases) IsFinalised() bool {
 func (p *DefAliases) Lisp() sexp.SExp {
 	pairs := sexp.EmptyList()
 	//
-	for i, a := range p.aliases {
-		pairs.Append(sexp.NewSymbol(a.name))
-		pairs.Append(p.symbols[i].Lisp())
+	for i, a := range p.Aliases {
+		pairs.Append(sexp.NewSymbol(a.Name))
+		pairs.Append(p.Symbols[i].Lisp())
 	}
 	//
 	var name *sexp.Symbol
 	//
-	if p.functions {
+	if p.Functions {
 		name = sexp.NewSymbol("defunalias")
 	} else {
 		name = sexp.NewSymbol("defalias")
@@ -117,7 +122,12 @@ func (p *DefAliases) Lisp() sexp.SExp {
 // DefAlias provides a node on which to hang source information to an alias name.
 type DefAlias struct {
 	// Name of the alias
-	name string
+	Name string
+}
+
+// NewDefAlias constructs a new instance of DefAlias.
+func NewDefAlias(name string) *DefAlias {
+	return &DefAlias{name}
 }
 
 // Lisp converts this node into its lisp representation.  This is primarily used
@@ -125,7 +135,7 @@ type DefAlias struct {
 //
 //nolint:revive
 func (p *DefAlias) Lisp() sexp.SExp {
-	return sexp.NewSymbol(p.name)
+	return sexp.NewSymbol(p.Name)
 }
 
 // ============================================================================
@@ -135,6 +145,11 @@ func (p *DefAlias) Lisp() sexp.SExp {
 // DefColumns captures a set of one or more columns being declared.
 type DefColumns struct {
 	Columns []*DefColumn
+}
+
+// NewDefColumns constructs a new instance of DefColumns.
+func NewDefColumns(columns []*DefColumn) *DefColumns {
+	return &DefColumns{columns}
 }
 
 // Dependencies needed to signal declaration.
@@ -189,6 +204,23 @@ type DefColumn struct {
 
 var _ SymbolDefinition = &DefColumn{}
 
+// NewDefColumn constructs a new (non-computed) column declaration.  Such a
+// column is automatically finalised, since all information is provided at the
+// point of creation.
+func NewDefColumn(context util.Path, name util.Path, datatype Type, mustProve bool, multiplier uint,
+	computed bool) *DefColumn {
+	binding := ColumnBinding{context, name, datatype, mustProve, multiplier, computed}
+	return &DefColumn{binding}
+}
+
+// NewDefComputedColumn constructs a new column declaration for a computed
+// column.  Such a column cannot be finalised yet, since its type and multiplier
+// remains to be determined, etc.
+func NewDefComputedColumn(context util.Path, name util.Path) *DefColumn {
+	binding := ColumnBinding{context, name, nil, false, 0, true}
+	return &DefColumn{binding}
+}
+
 // IsFunction is never true for a column definition.
 func (e *DefColumn) IsFunction() bool {
 	return false
@@ -203,13 +235,13 @@ func (e *DefColumn) Binding() Binding {
 // Name returns the (unqualified) name of this symbol.  For example, "X" for
 // a column X defined in a module m1.
 func (e *DefColumn) Name() string {
-	return e.binding.path.Tail()
+	return e.binding.Path.Tail()
 }
 
 // Path returns the qualified name (i.e. absolute path) of this symbol.  For
 // example, "m1.X" for a column X defined in module m1.
 func (e *DefColumn) Path() *util.Path {
-	return &e.binding.path
+	return &e.binding.Path
 }
 
 // DataType returns the type of this column.  If this column have not yet been
@@ -219,7 +251,7 @@ func (e *DefColumn) DataType() Type {
 		panic("unfinalised column")
 	}
 	//
-	return e.binding.dataType
+	return e.binding.DataType
 }
 
 // LengthMultiplier returns the length multiplier of this column (where the
@@ -231,7 +263,7 @@ func (e *DefColumn) LengthMultiplier() uint {
 		panic("unfinalised column")
 	}
 	//
-	return e.binding.multiplier
+	return e.binding.Multiplier
 }
 
 // MustProve determines whether or not the type of this column must be
@@ -241,7 +273,7 @@ func (e *DefColumn) MustProve() bool {
 		panic("unfinalised column")
 	}
 	//
-	return e.binding.mustProve
+	return e.binding.MustProve
 }
 
 // Lisp converts this node into its lisp representation.  This is primarily used
@@ -250,18 +282,18 @@ func (e *DefColumn) Lisp() sexp.SExp {
 	list := sexp.EmptyList()
 	list.Append(sexp.NewSymbol(e.Name()))
 	//
-	if e.binding.dataType != nil {
-		datatype := e.binding.dataType.String()
-		if e.binding.mustProve {
+	if e.binding.DataType != nil {
+		datatype := e.binding.DataType.String()
+		if e.binding.MustProve {
 			datatype = fmt.Sprintf("%s@prove", datatype)
 		}
 
 		list.Append(sexp.NewSymbol(datatype))
 	}
 	//
-	if e.binding.multiplier != 1 {
+	if e.binding.Multiplier != 1 {
 		list.Append(sexp.NewSymbol(":multiplier"))
-		list.Append(sexp.NewSymbol(fmt.Sprintf("%d", e.binding.multiplier)))
+		list.Append(sexp.NewSymbol(fmt.Sprintf("%d", e.binding.Multiplier)))
 	}
 	//
 	if list.Len() == 1 {
@@ -360,13 +392,13 @@ type DefConst struct {
 	// List of constant pairs.  Observe that every expression in this list must
 	// be constant (i.e. it cannot refer to column values or call impure
 	// functions, etc).
-	constants []*DefConstUnit
+	Constants []*DefConstUnit
 }
 
 // Definitions returns the set of symbols defined by this declaration.  Observe
 // that these may not yet have been finalised.
 func (p *DefConst) Definitions() util.Iterator[SymbolDefinition] {
-	iter := util.NewArrayIterator[*DefConstUnit](p.constants)
+	iter := util.NewArrayIterator[*DefConstUnit](p.Constants)
 	return util.NewCastIterator[*DefConstUnit, SymbolDefinition](iter)
 }
 
@@ -374,8 +406,8 @@ func (p *DefConst) Definitions() util.Iterator[SymbolDefinition] {
 func (p *DefConst) Dependencies() util.Iterator[Symbol] {
 	var deps []Symbol
 	// Combine dependencies from all constants defined within.
-	for _, d := range p.constants {
-		deps = append(deps, d.binding.value.Dependencies()...)
+	for _, d := range p.Constants {
+		deps = append(deps, d.ConstBinding.Value.Dependencies()...)
 	}
 	// Done
 	return util.NewArrayIterator[Symbol](deps)
@@ -384,8 +416,8 @@ func (p *DefConst) Dependencies() util.Iterator[Symbol] {
 // Defines checks whether this declaration defines the given symbol.  The symbol
 // in question needs to have been resolved already for this to make sense.
 func (p *DefConst) Defines(symbol Symbol) bool {
-	for _, sym := range p.constants {
-		if &sym.binding == symbol.Binding() {
+	for _, sym := range p.Constants {
+		if &sym.ConstBinding == symbol.Binding() {
 			return true
 		}
 	}
@@ -396,8 +428,8 @@ func (p *DefConst) Defines(symbol Symbol) bool {
 // IsFinalised checks whether this declaration has already been finalised.  If
 // so, then we don't need to finalise it again.
 func (p *DefConst) IsFinalised() bool {
-	for _, c := range p.constants {
-		if !c.binding.IsFinalised() {
+	for _, c := range p.Constants {
+		if !c.ConstBinding.IsFinalised() {
 			return false
 		}
 	}
@@ -411,9 +443,9 @@ func (p *DefConst) Lisp() sexp.SExp {
 	def := sexp.EmptyList()
 	def.Append(sexp.NewSymbol("defconst"))
 	//
-	for _, c := range p.constants {
+	for _, c := range p.Constants {
 		def.Append(sexp.NewSymbol(c.Name()))
-		def.Append(c.binding.value.Lisp())
+		def.Append(c.ConstBinding.Value.Lisp())
 	}
 	// Done
 	return def
@@ -423,7 +455,7 @@ func (p *DefConst) Lisp() sexp.SExp {
 // such, this is an instance of SymbolDefinition and provides a binding.
 type DefConstUnit struct {
 	// Binding for this constant.
-	binding ConstantBinding
+	ConstBinding ConstantBinding
 }
 
 // IsFunction is never true for a constant definition.
@@ -434,19 +466,19 @@ func (e *DefConstUnit) IsFunction() bool {
 // Binding returns the allocated binding for this symbol (which may or may not
 // be finalised).
 func (e *DefConstUnit) Binding() Binding {
-	return &e.binding
+	return &e.ConstBinding
 }
 
 // Name returns the (unqualified) name of this symbol.  For example, "X" for
 // a column X defined in a module m1.
 func (e *DefConstUnit) Name() string {
-	return e.binding.path.Tail()
+	return e.ConstBinding.Path.Tail()
 }
 
 // Path returns the qualified name (i.e. absolute path) of this symbol.  For
 // example, "m1.X" for a column X defined in module m1.
 func (e *DefConstUnit) Path() *util.Path {
-	return &e.binding.path
+	return &e.ConstBinding.Path
 }
 
 // Lisp converts this node into its lisp representation.  This is primarily used
@@ -456,7 +488,7 @@ func (e *DefConstUnit) Path() *util.Path {
 func (e *DefConstUnit) Lisp() sexp.SExp {
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol(e.Name()),
-		e.binding.value.Lisp()})
+		e.ConstBinding.Value.Lisp()})
 }
 
 // ============================================================================
@@ -495,6 +527,12 @@ type DefConstraint struct {
 	Constraint Expr
 	//
 	finalised bool
+}
+
+// NewDefConstraint constructs a new (unfinalised) constraint.
+func NewDefConstraint(handle string, domain util.Option[int], guard Expr, perspective *PerspectiveName,
+	constraint Expr) *DefConstraint {
+	return &DefConstraint{handle, domain, guard, perspective, constraint, false}
 }
 
 // Definitions returns the set of symbols defined by this declaration.  Observe
@@ -710,6 +748,11 @@ type DefLookup struct {
 	finalised bool
 }
 
+// NewDefLookup creates a new (unfinalised) lookup constraint.
+func NewDefLookup(handle string, sources []Expr, targets []Expr) *DefLookup {
+	return &DefLookup{handle, sources, targets, false}
+}
+
 // Definitions returns the set of symbols defined by this declaration.  Observe
 // that these may not yet have been finalised.
 func (p *DefLookup) Definitions() util.Iterator[SymbolDefinition] {
@@ -776,6 +819,11 @@ type DefPermutation struct {
 	Targets []*DefColumn
 	Sources []Symbol
 	Signs   []bool
+}
+
+// NewDefPermutation constructs a new (unfinalised) sorted permutation assignment.
+func NewDefPermutation(targets []*DefColumn, sources []Symbol, signs []bool) *DefPermutation {
+	return &DefPermutation{targets, sources, signs}
 }
 
 // Definitions returns the set of symbols defined by this declaration.  Observe
@@ -856,6 +904,11 @@ type DefPerspective struct {
 	Selector Expr
 	// Columns defined in this perspective.
 	Columns []*DefColumn
+}
+
+// NewDefPerspective constructs a new (unfinalised) perspective declaration.
+func NewDefPerspective(name *PerspectiveName, selector Expr, columns []*DefColumn) *DefPerspective {
+	return &DefPerspective{name, selector, columns}
 }
 
 // Name returns the (unqualified) name of this symbol.  For example, "X" for
@@ -948,6 +1001,11 @@ type DefProperty struct {
 	finalised bool
 }
 
+// NewDefProperty constructs a new (unfinalised) property assertion.
+func NewDefProperty(handle string, assertion Expr) *DefProperty {
+	return &DefProperty{handle, assertion, false}
+}
+
 // Definitions returns the set of symbols defined by this declaration.  Observe that
 // these may not yet have been finalised.
 func (p *DefProperty) Definitions() util.Iterator[SymbolDefinition] {
@@ -1003,6 +1061,11 @@ type DefFun struct {
 }
 
 var _ SymbolDefinition = &DefFun{}
+
+// NewDefFun constructs a new (unfinalised) function declaration.
+func NewDefFun(name *FunctionName, parameters []*DefParameter) *DefFun {
+	return &DefFun{name, parameters}
+}
 
 // IsFunction is always true for a function definition!
 func (p *DefFun) IsFunction() bool {
@@ -1099,7 +1162,7 @@ func (p *DefFun) Lisp() sexp.SExp {
 // name, or not.
 func (p *DefFun) hasParameter(name string) bool {
 	for _, v := range p.parameters {
-		if v.Binding.name == name {
+		if v.Binding.Name == name {
 			return true
 		}
 	}
@@ -1113,8 +1176,14 @@ type DefParameter struct {
 	Binding LocalVariableBinding
 }
 
+// NewDefParameter constructs a new parameter declaration.
+func NewDefParameter(name string, datatype Type) *DefParameter {
+	binding := NewLocalVariableBinding(name, datatype)
+	return &DefParameter{binding}
+}
+
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
 func (p *DefParameter) Lisp() sexp.SExp {
-	return sexp.NewSymbol(p.Binding.name)
+	return sexp.NewSymbol(p.Binding.Name)
 }

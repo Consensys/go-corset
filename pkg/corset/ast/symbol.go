@@ -1,4 +1,4 @@
-package corset
+package ast
 
 import (
 	"github.com/consensys/go-corset/pkg/util"
@@ -86,12 +86,18 @@ type Name[T Binding] struct {
 	resolved bool
 }
 
-// NewName construct a new name which is (initially) unresolved.
-func NewName[T Binding](path util.Path, function bool) *Name[T] {
+// NewUnboundName construct a new name which is (initially) unresolved.
+func NewUnboundName[T Binding](path util.Path, function bool) *Name[T] {
 	// Default value for type T
 	var empty T
 	// Construct the name
 	return &Name[T]{path, function, empty, false}
+}
+
+// NewBoundName construct a new name which is already unresolved.
+func NewBoundName[T Binding](path util.Path, function bool, binding T) *Name[T] {
+	// Construct the name
+	return &Name[T]{path, function, binding, false}
 }
 
 // Name returns the (unqualified) name of this symbol.  For example, "X" for
@@ -120,6 +126,15 @@ func (e *Name[T]) IsResolved() bool {
 // Binding gets binding associated with this interface.  This will panic if this
 // symbol is not yet resolved.
 func (e *Name[T]) Binding() Binding {
+	if !e.resolved {
+		panic("name not yet resolved")
+	}
+	//
+	return e.binding
+}
+
+// InnerBinding returns the concrete binding type used within this name.
+func (e *Name[T]) InnerBinding() T {
 	if !e.resolved {
 		panic("name not yet resolved")
 	}

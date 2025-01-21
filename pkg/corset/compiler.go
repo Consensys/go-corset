@@ -3,6 +3,7 @@ package corset
 import (
 	_ "embed"
 
+	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/hir"
 	"github.com/consensys/go-corset/pkg/util/sexp"
 )
@@ -55,17 +56,17 @@ type Compiler struct {
 	// The register allocation algorithm to be used by this compiler.
 	allocator func(RegisterAllocation)
 	// A high-level definition of a Corset circuit.
-	circuit Circuit
+	circuit ast.Circuit
 	// Determines whether debug
 	debug bool
 	// Source maps nodes in the circuit back to the spans in their original
 	// source files.  This is needed when reporting syntax errors to generate
 	// highlights of the relevant source line(s) in question.
-	srcmap *sexp.SourceMaps[Node]
+	srcmap *sexp.SourceMaps[ast.Node]
 }
 
 // NewCompiler constructs a new compiler for a given set of modules.
-func NewCompiler(circuit Circuit, srcmaps *sexp.SourceMaps[Node]) *Compiler {
+func NewCompiler(circuit ast.Circuit, srcmaps *sexp.SourceMaps[ast.Node]) *Compiler {
 	return &Compiler{DEFAULT_ALLOCATOR, circuit, false, srcmaps}
 }
 
