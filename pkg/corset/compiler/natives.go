@@ -1,4 +1,4 @@
-package corset
+package compiler
 
 import (
 	"math"

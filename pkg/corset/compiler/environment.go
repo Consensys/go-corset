@@ -1,4 +1,4 @@
-package corset
+package compiler
 
 import (
 	"fmt"
@@ -215,7 +215,8 @@ func (p *GlobalEnvironment) allocate(column *ast.ColumnBinding, ctx util.Path, p
 }
 
 // Allocate an array type
-func (p *GlobalEnvironment) allocateArray(col *ast.ColumnBinding, ctx util.Path, path util.Path, arrtype *ast.ArrayType) {
+func (p *GlobalEnvironment) allocateArray(col *ast.ColumnBinding, ctx util.Path, path util.Path,
+	arrtype *ast.ArrayType) {
 	// Allocate n columns
 	for i := arrtype.MinIndex(); i <= arrtype.MaxIndex(); i++ {
 		ith_name := fmt.Sprintf("%s_%d", path.Tail(), i)

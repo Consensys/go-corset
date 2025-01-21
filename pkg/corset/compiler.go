@@ -4,6 +4,7 @@ import (
 	_ "embed"
 
 	"github.com/consensys/go-corset/pkg/corset/ast"
+	"github.com/consensys/go-corset/pkg/corset/compiler"
 	"github.com/consensys/go-corset/pkg/hir"
 	"github.com/consensys/go-corset/pkg/util/sexp"
 )
@@ -26,7 +27,7 @@ func CompileSourceFiles(stdlib bool, debug bool, srcfiles []*sexp.SourceFile) (*
 	// Include the standard library (if requested)
 	srcfiles = includeStdlib(stdlib, srcfiles)
 	// Parse all source files (inc stdblib if applicable).
-	circuit, srcmap, errs := ParseSourceFiles(srcfiles)
+	circuit, srcmap, errs := compiler.ParseSourceFiles(srcfiles)
 	// Check for parsing errors
 	if errs != nil {
 		return nil, errs
@@ -54,7 +55,7 @@ func CompileSourceFile(stdlib bool, debug bool, srcfile *sexp.SourceFile) (*hir.
 // the modules definitions are malformed in some way (e.g. fail type checking).
 type Compiler struct {
 	// The register allocation algorithm to be used by this compiler.
-	allocator func(RegisterAllocation)
+	allocator func(compiler.RegisterAllocation)
 	// A high-level definition of a Corset circuit.
 	circuit ast.Circuit
 	// Determines whether debug
@@ -67,7 +68,7 @@ type Compiler struct {
 
 // NewCompiler constructs a new compiler for a given set of modules.
 func NewCompiler(circuit ast.Circuit, srcmaps *sexp.SourceMaps[ast.Node]) *Compiler {
-	return &Compiler{DEFAULT_ALLOCATOR, circuit, false, srcmaps}
+	return &Compiler{compiler.DEFAULT_ALLOCATOR, circuit, false, srcmaps}
 }
 
 // SetDebug enables or disables debug mode.  In debug mode, debug constraints
@@ -78,7 +79,7 @@ func (p *Compiler) SetDebug(flag bool) *Compiler {
 }
 
 // SetAllocator overides the default register allocator.
-func (p *Compiler) SetAllocator(allocator func(RegisterAllocation)) *Compiler {
+func (p *Compiler) SetAllocator(allocator func(compiler.RegisterAllocation)) *Compiler {
 	p.allocator = allocator
 	return p
 }
@@ -90,21 +91,21 @@ func (p *Compiler) SetAllocator(allocator func(RegisterAllocation)) *Compiler {
 // etc.
 func (p *Compiler) Compile() (*hir.Schema, []SyntaxError) {
 	// Resolve variables (via nested scopes)
-	scope, res_errs := ResolveCircuit(p.srcmap, &p.circuit)
+	scope, res_errs := compiler.ResolveCircuit(p.srcmap, &p.circuit)
 	// Type check circuit.
-	type_errs := TypeCheckCircuit(p.srcmap, &p.circuit)
+	type_errs := compiler.TypeCheckCircuit(p.srcmap, &p.circuit)
 	// Don't proceed if errors at this point.
 	if len(res_errs) > 0 || len(type_errs) > 0 {
 		return nil, append(res_errs, type_errs...)
 	}
 	// Preprocess circuit to remove invocations, reductions, etc.
-	if errs := PreprocessCircuit(p.debug, p.srcmap, &p.circuit); len(errs) > 0 {
+	if errs := compiler.PreprocessCircuit(p.debug, p.srcmap, &p.circuit); len(errs) > 0 {
 		return nil, errs
 	}
 	// Convert global scope into an environment by allocating all columns.
-	environment := NewGlobalEnvironment(scope, p.allocator)
+	environment := compiler.NewGlobalEnvironment(scope, p.allocator)
 	// Finally, translate everything and add it to the schema.
-	return TranslateCircuit(environment, p.srcmap, &p.circuit)
+	return compiler.TranslateCircuit(environment, p.srcmap, &p.circuit)
 }
 
 func includeStdlib(stdlib bool, srcfiles []*sexp.SourceFile) []*sexp.SourceFile {

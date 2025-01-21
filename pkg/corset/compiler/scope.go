@@ -1,4 +1,4 @@
-package corset
+package compiler
 
 import (
 	"fmt"
@@ -112,7 +112,7 @@ func (p *ModuleScope) Declare(submodule string, virtual bool) bool {
 	return true
 }
 
-// ast.Binding returns information about the binding of a particular symbol defined
+// Binding returns information about the binding of a particular symbol defined
 // in this module.
 func (p *ModuleScope) Binding(name string, function bool) ast.Binding {
 	// construct binding identifier

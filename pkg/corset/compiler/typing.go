@@ -1,4 +1,4 @@
-package corset
+package compiler
 
 import (
 	"fmt"
@@ -6,6 +6,12 @@ import (
 	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/util/sexp"
 )
+
+// SyntaxError defines the kind of errors that can be reported by this compiler.
+// Syntax errors are always associated with some line in one of the original
+// source files.  For simplicity, we reuse existing notion of syntax error from
+// the S-Expression library.
+type SyntaxError = sexp.SyntaxError
 
 // TypeCheckCircuit performs a type checking pass over the circuit to ensure
 // types are used correctly.  Additionally, this resolves some ambiguities

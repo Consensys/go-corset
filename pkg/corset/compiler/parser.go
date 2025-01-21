@@ -1,9 +1,8 @@
-package corset
+package compiler
 
 import (
 	"errors"
 	"fmt"
-	"math"
 	"math/big"
 	"sort"
 	"strconv"
@@ -119,7 +118,7 @@ func ParseSourceFile(srcfile *sexp.SourceFile) (ast.Circuit, *sexp.SourceMap[ast
 		if decls, terms, errors = p.parseModuleContents(path, terms[1:]); len(errors) > 0 {
 			return circuit, nil, errors
 		} else if len(decls) != 0 {
-			circuit.Modules = append(circuit.Modules, ast.Module{name, decls})
+			circuit.Modules = append(circuit.Modules, ast.Module{Name: name, Declarations: decls})
 		}
 	}
 	// Done
@@ -187,7 +186,9 @@ func (p *Parser) mapSourceNode(from sexp.SExp, to ast.Node) {
 }
 
 // Extract all declarations associated with a given module and package them up.
-func (p *Parser) parseModuleContents(path util.Path, terms []sexp.SExp) ([]ast.Declaration, []sexp.SExp, []SyntaxError) {
+func (p *Parser) parseModuleContents(path util.Path, terms []sexp.SExp) ([]ast.Declaration, []sexp.SExp,
+	[]SyntaxError) {
+	//
 	var errors []SyntaxError
 	//
 	decls := make([]ast.Declaration, 0)
@@ -890,7 +891,7 @@ func (p *Parser) parseDefFun(module util.Path, pure bool, elements []sexp.SExp) 
 		err := p.translator.SyntaxError(elements[1], "malformed function signature")
 		errors = append(errors, *err)
 	} else {
-		name, ret, params, errors = p.parseFunctionSignature(signature.Elements)
+		name, ret, params, errors = p.parseFunSignature(signature.Elements)
 	}
 	// Translate expression
 	body, errs := p.translator.Translate(elements[2])
@@ -914,10 +915,8 @@ func (p *Parser) parseDefFun(module util.Path, pure bool, elements []sexp.SExp) 
 	return ast.NewDefFun(fn_name, params), nil
 }
 
-func (p *Parser) parseFunctionSignature(elements []sexp.SExp) (*sexp.Symbol, ast.Type, []*ast.DefParameter, []SyntaxError) {
-	var (
-		params []*ast.DefParameter = make([]*ast.DefParameter, len(elements)-1)
-	)
+func (p *Parser) parseFunSignature(elements []sexp.SExp) (*sexp.Symbol, ast.Type, []*ast.DefParameter, []SyntaxError) {
+	var params []*ast.DefParameter = make([]*ast.DefParameter, len(elements)-1)
 	// Parse name and (optional) return type
 	name, ret, _, errors := p.parseFunctionNameReturn(elements[0])
 	// Parse parameters
@@ -1025,8 +1024,8 @@ func (p *Parser) parseDefInRange(elements []sexp.SExp) (ast.Declaration, []Synta
 	return &ast.DefInRange{Expr: expr, Bound: bound}, nil
 }
 
-func (p *Parser) parseConstraintAttributes(module util.Path, attributes sexp.SExp) (domain util.Option[int], guard ast.Expr,
-	perspective *ast.PerspectiveName, err []SyntaxError) {
+func (p *Parser) parseConstraintAttributes(module util.Path, attributes sexp.SExp) (domain util.Option[int],
+	guard ast.Expr, perspective *ast.PerspectiveName, err []SyntaxError) {
 	//
 	var errors []SyntaxError
 	// Check attribute list is a list
@@ -1208,12 +1207,10 @@ func forParserRule(p *Parser) sexp.ListRule[ast.Expr] {
 		if len(errors) > 0 {
 			return nil, errors
 		}
-		// Construct binding.  At this stage, its unclear what the best type to
-		// use for the index variable is here.  Potentially, it could be refined
-		// based on the range of actual values, etc.
-		binding := ast.NewLocalVariableBinding(indexVar.Value, ast.NewFieldType())
-		// Done
-		return &ast.For{binding, start, end, body}, nil
+		// Construct expression.  At this stage, its unclear what the best type
+		// to use for the index variable is here.  Potentially, it could be
+		// refined based on the range of actual values, etc.
+		return ast.NewFor(indexVar.Value, start, end, body), nil
 	}
 }
 
@@ -1231,8 +1228,7 @@ func letParserRule(p *Parser) sexp.ListRule[ast.Expr] {
 		}
 		// Prep assignments
 		assignments := list.Get(1).AsList()
-		vars := make([]ast.LocalVariableBinding, assignments.Len())
-		exprs := make([]ast.Expr, assignments.Len())
+		bindings := make([]util.Pair[string, ast.Expr], assignments.Len())
 		names := make(map[string]bool)
 		// Parse var assignmnts
 		for i, e := range assignments.Elements {
@@ -1254,10 +1250,7 @@ func letParserRule(p *Parser) sexp.ListRule[ast.Expr] {
 				names[name] = true
 				expr, errs := p.translator.Translate(ith.Get(1))
 				errors = append(errors, errs...)
-				// NOTE: max index used here because this has no meaning for let
-				// bound expressions.
-				vars[i] = ast.LocalVariableBinding{name, ast.NewFieldType(), math.MaxUint}
-				exprs[i] = expr
+				bindings[i] = util.NewPair(name, expr)
 			}
 		}
 		// Parse body
@@ -1268,7 +1261,7 @@ func letParserRule(p *Parser) sexp.ListRule[ast.Expr] {
 			return nil, errors
 		}
 		// Done
-		return &ast.Let{vars, exprs, body}, nil
+		return ast.NewLet(bindings, body), nil
 	}
 }
 
@@ -1337,7 +1330,7 @@ func reduceParserRule(p *Parser) sexp.ListRule[ast.Expr] {
 		varaccess := ast.NewVariableAccess(path, true, nil)
 		p.mapSourceNode(name, varaccess)
 		// Done
-		return &ast.Reduce{varaccess, nil, body}, nil
+		return &ast.Reduce{Name: varaccess, Signature: nil, Arg: body}, nil
 	}
 }
 

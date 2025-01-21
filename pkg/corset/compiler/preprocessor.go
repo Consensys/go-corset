@@ -1,4 +1,4 @@
-package corset
+package compiler
 
 import (
 	"math/big"
@@ -268,7 +268,7 @@ func (p *preprocessor) preprocessExpressionInModule(expr ast.Expr) (ast.Expr, []
 	case *ast.If:
 		args, errs := p.preprocessExpressionsInModule([]ast.Expr{e.Condition, e.TrueBranch, e.FalseBranch})
 		// Construct appropriate if form
-		nexpr, errors = &ast.If{e.Kind, args[0], args[1], args[2]}, errs
+		nexpr, errors = &ast.If{Kind: e.Kind, Condition: args[0], TrueBranch: args[1], FalseBranch: args[2]}, errs
 	case *ast.Invoke:
 		return p.preprocessInvokeInModule(e)
 	case *ast.Let:

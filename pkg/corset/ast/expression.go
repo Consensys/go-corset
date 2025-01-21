@@ -324,6 +324,13 @@ type For struct {
 	Body Expr
 }
 
+// NewFor constructs a new for-expression given a variable name, a static index
+// range and a body.
+func NewFor(name string, start uint, end uint, body Expr) *For {
+	binding := NewLocalVariableBinding(name, NewFieldType())
+	return &For{binding, start, end, body}
+}
+
 // AsConstant attempts to evaluate this expression as a constant (signed) value.
 // If this expression is not constant, then nil is returned.
 func (e *For) AsConstant() *big.Int {
@@ -536,6 +543,19 @@ type Let struct {
 	// Body of the let expression (i.e. where the variables it defines can be
 	// used).
 	Body Expr
+}
+
+// NewLet constructs a new let-expression for a given number of bindings.
+func NewLet(bindings []util.Pair[string, Expr], body Expr) *Let {
+	vars := make([]LocalVariableBinding, len(bindings))
+	exprs := make([]Expr, len(bindings))
+	//
+	for i, p := range bindings {
+		vars[i] = NewLocalVariableBinding(p.Left, NewFieldType())
+		exprs[i] = p.Right
+	}
+	//
+	return &Let{vars, exprs, body}
 }
 
 // AsConstant attempts to evaluate this expression as a constant (signed) value.
