@@ -28,12 +28,12 @@ type Hasher[T any] interface {
 // simply discarding them.
 type HashSet[T Hasher[T]] struct {
 	// items maps hashcodes to *buckets* of items.
-	items map[uint64]bucket[T]
+	items map[uint64]hashSetBucket[T]
 }
 
 // NewHashSet creates a new HashSet with a given underlying capacity.
 func NewHashSet[T Hasher[T]](size uint) *HashSet[T] {
-	items := make(map[uint64]bucket[T], size)
+	items := make(map[uint64]hashSetBucket[T], size)
 	return &HashSet[T]{items}
 }
 
@@ -62,7 +62,7 @@ func (p *HashSet[T]) MaxBucket() uint {
 //
 //nolint:revive
 func (p *HashSet[T]) Insert(item T) bool {
-	var b1 bucket[T]
+	var b1 hashSetBucket[T]
 	// Compute item's hashcode
 	hash := item.Hash()
 	// Lookup existing bucket
@@ -118,21 +118,21 @@ func (p *HashSet[T]) String() string {
 // Bucket
 // ============================================================================
 
-type bucket[T Hasher[T]] struct {
+type hashSetBucket[T Hasher[T]] struct {
 	items []T
 }
 
 // Get the number of items in this bucket.
 //
 //nolint:revive
-func (b *bucket[T]) size() uint {
+func (b *hashSetBucket[T]) size() uint {
 	return uint(len(b.items))
 }
 
 // Insert a new item into this bucket
 //
 //nolint:revive
-func (b *bucket[T]) insert(item T) bool {
+func (b *hashSetBucket[T]) insert(item T) bool {
 	if b.contains(item) {
 		// Item already present, so nothing to do.
 		return true
@@ -146,7 +146,7 @@ func (b *bucket[T]) insert(item T) bool {
 // Check whether this bucket contains a given item, or not.
 //
 //nolint:revive
-func (b *bucket[T]) contains(item T) bool {
+func (b *hashSetBucket[T]) contains(item T) bool {
 	for _, i := range b.items {
 		if item.Equals(i) {
 			return true
