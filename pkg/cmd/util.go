@@ -229,6 +229,8 @@ func expandDirectory(dirname string) ([]string, error) {
 	err := filepath.Walk(dirname, func(filename string, info os.FileInfo, err error) error {
 		if !info.IsDir() && path.Ext(filename) == ".lisp" {
 			filenames = append(filenames, filename)
+		} else if !info.IsDir() && path.Ext(filename) == ".lispX" {
+			log.Info(fmt.Sprintf("ignoring file %s", filename))
 		}
 		// Continue.
 		return nil
