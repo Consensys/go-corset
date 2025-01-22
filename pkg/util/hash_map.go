@@ -20,6 +20,8 @@ func NewHashMap[K Hasher[K], V any](size uint) *HashMap[K, V] {
 }
 
 // Size returns the number of unique items stored in this HashMap.
+//
+//nolint:revive
 func (p *HashMap[K, V]) Size() uint {
 	count := uint(0)
 	for _, b := range p.buckets {
@@ -30,6 +32,8 @@ func (p *HashMap[K, V]) Size() uint {
 }
 
 // MaxBucket returns the size of the largest bucket.
+//
+//nolint:revive
 func (p *HashMap[K, V]) MaxBucket() uint {
 	m := uint(0)
 	for _, b := range p.buckets {

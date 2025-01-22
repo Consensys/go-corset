@@ -312,6 +312,8 @@ func (p *FrPoolArray[K, P]) BitWidth() uint {
 }
 
 // Get returns the field element at the given index in this array.
+//
+//nolint:revive
 func (p *FrPoolArray[K, P]) Get(index uint) fr.Element {
 	key := p.elements[index]
 	return p.pool.Get(key)
