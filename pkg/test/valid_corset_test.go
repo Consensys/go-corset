@@ -562,6 +562,10 @@ func Test_Permute_09(t *testing.T) {
 	Check(t, false, "permute_09")
 }
 
+func Test_Permute_10(t *testing.T) {
+	Check(t, false, "permute_10")
+}
+
 // ===================================================================
 // Lookups
 // ===================================================================

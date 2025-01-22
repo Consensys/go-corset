@@ -768,7 +768,7 @@ func (p *Parser) parsePermutedColumnAccess(signRequired bool, e sexp.SExp) (ast.
 	var (
 		err  *SyntaxError
 		name string
-		sign bool
+		sign bool = true
 	)
 	// Check whether extended declaration or not.
 	if l := e.AsList(); l != nil {
