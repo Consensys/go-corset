@@ -63,8 +63,10 @@ func (e jsonConstraint) addToSchema(colmap map[uint]uint, schema *hir.Schema) {
 		domain := e.Vanishes.Domain.toHir()
 		// Determine enclosing module
 		ctx := expr.Context(schema)
+		// Normalise handle
+		handle := asHandle(e.Vanishes.Handle)
 		// Construct the vanishing constraint
-		schema.AddVanishingConstraint(e.Vanishes.Handle, ctx, domain, expr)
+		schema.AddVanishingConstraint(handle.column, ctx, domain, expr)
 	} else if e.Lookup != nil {
 		sources := jsonExprsToHirUnit(e.Lookup.From, colmap, schema)
 		targets := jsonExprsToHirUnit(e.Lookup.To, colmap, schema)
@@ -76,8 +78,10 @@ func (e jsonConstraint) addToSchema(colmap map[uint]uint, schema *hir.Schema) {
 		} else if targetCtx.IsConflicted() || targetCtx.IsVoid() {
 			panic(fmt.Sprintf("lookup %s has conflicting target evaluation context", e.Lookup.Handle))
 		}
+		// Normalise handle
+		handle := asHandle(e.Lookup.Handle)
 		// Add constraint
-		schema.AddLookupConstraint(e.Lookup.Handle, sourceCtx, targetCtx, sources, targets)
+		schema.AddLookupConstraint(handle.column, sourceCtx, targetCtx, sources, targets)
 	} else if e.InRange != nil {
 		// Translate the vanishing expression
 		expr := e.InRange.Expr.ToHir(colmap, schema)

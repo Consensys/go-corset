@@ -17,6 +17,10 @@ type Handle struct {
 
 func asHandle(handle string) Handle {
 	split := strings.Split(handle, ".")
+	//
+	if split[0] == "<prelude>" {
+		return Handle{"", split[1]}
+	}
 	// Easy
 	return Handle{split[0], split[1]}
 }
