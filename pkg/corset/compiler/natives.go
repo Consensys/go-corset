@@ -1,6 +1,7 @@
 package compiler
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/consensys/go-corset/pkg/corset/ast"
@@ -118,6 +119,8 @@ var NATIVES []NativeDefinition = []NativeDefinition{
 	{"id", 1, 1, nativeId},
 	// Filter based on second argument
 	{"filter", 2, 2, nativeFilter},
+	// Guarded map
+	{"map-if", 3, math.MaxUint, nativeMapIf},
 	// Identify changes of a column within a given region (in forwards direction).
 	{"fwd-changes-within", 2, math.MaxUint, nativeChangeWithin},
 	// Identify rows which don't change within a given region (in forwards direction).
@@ -144,6 +147,17 @@ func nativeFilter(inputs []NativeColumn) []NativeColumn {
 	}
 	//
 	return []NativeColumn{inputs[0]}
+}
+
+func nativeMapIf(inputs []NativeColumn) []NativeColumn {
+	n := (len(inputs) - 3) % 2
+	m := len(inputs) - 1
+	// Sanity check (for now)
+	if n != 0 {
+		panic(fmt.Sprintf("map-if expects 3 + 2*n columns (given %d)", len(inputs)))
+	}
+	//
+	return []NativeColumn{inputs[m]}
 }
 
 func nativeChangeWithin(inputs []NativeColumn) []NativeColumn {

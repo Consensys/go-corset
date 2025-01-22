@@ -1019,6 +1019,18 @@ func Test_Native_06(t *testing.T) {
 	Check(t, false, "native_06")
 }
 
+func Test_Native_07(t *testing.T) {
+	Check(t, false, "native_07")
+}
+
+func Test_Native_08(t *testing.T) {
+	Check(t, false, "native_08")
+}
+
+func Test_Native_09(t *testing.T) {
+	Check(t, false, "native_09")
+}
+
 // ===================================================================
 // Complex Tests
 // ===================================================================
