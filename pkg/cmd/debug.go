@@ -189,7 +189,7 @@ func typeOfCounter[T any](iter util.Iterator[T], prefix string) int {
 
 func isTypeOf(obj any, prefix string) bool {
 	dyntype := reflect.TypeOf(obj)
-	// Check whether dynanic type matches prefix
+	// Check whether dynamic type matches prefix
 	return strings.HasPrefix(dyntype.String(), prefix)
 }
 
