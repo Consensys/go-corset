@@ -32,7 +32,7 @@ func applyConstantPropagation(e Expr, schema sc.Schema) Expr {
 
 func applyConstantPropagationAdd(es []Expr, schema sc.Schema) Expr {
 	sum := fr.NewElement(0)
-	is_const := true
+	count := 0
 	rs := make([]Expr, len(es))
 	//
 	for i, e := range es {
@@ -40,16 +40,18 @@ func applyConstantPropagationAdd(es []Expr, schema sc.Schema) Expr {
 		// Check for constant
 		c, ok := rs[i].(*Constant)
 		// Try to continue sum
-		if ok && is_const {
+		if ok {
 			sum.Add(&sum, &c.Value)
-		} else {
-			is_const = false
+			// Increase count of constants
+			count++
 		}
 	}
 	// Check if constant
-	if is_const {
+	if count == len(es) {
 		// Propagate constant
 		return &Constant{sum}
+	} else if count > 1 {
+		rs = mergeConstants(sum, rs)
 	}
 	// Done
 	return &Add{rs}
@@ -85,10 +87,10 @@ func applyConstantPropagationSub(es []Expr, schema sc.Schema) Expr {
 
 func applyConstantPropagationMul(es []Expr, schema sc.Schema) Expr {
 	one := fr.NewElement(1)
-	is_const := true
 	prod := one
 	rs := make([]Expr, len(es))
 	ones := 0
+	consts := 0
 	//
 	for i, e := range es {
 		rs[i] = applyConstantPropagation(e, schema)
@@ -100,16 +102,17 @@ func applyConstantPropagationMul(es []Expr, schema sc.Schema) Expr {
 			return &Constant{c.Value}
 		} else if ok && c.Value.IsOne() {
 			ones++
+			consts++
 			rs[i] = nil
-		} else if ok && is_const {
+		} else if ok {
 			// Continue building constant
 			prod.Mul(&prod, &c.Value)
-		} else {
-			is_const = false
+			//
+			consts++
 		}
 	}
 	// Check if constant
-	if is_const {
+	if consts == len(es) {
 		return &Constant{prod}
 	} else if ones > 0 {
 		rs = util.RemoveMatching[Expr](rs, func(item Expr) bool { return item == nil })
@@ -117,6 +120,9 @@ func applyConstantPropagationMul(es []Expr, schema sc.Schema) Expr {
 	// Sanity check what's left.
 	if len(rs) == 1 {
 		return rs[0]
+	} else if consts-ones > 1 {
+		// Combine constants
+		rs = mergeConstants(prod, rs)
 	}
 	// Done
 	return &Mul{rs}
@@ -154,4 +160,27 @@ func applyConstantPropagationNorm(arg Expr, schema sc.Schema) Expr {
 	}
 	//
 	return &Normalise{arg}
+}
+
+// Replace all constants within a given sequence of expressions with a single
+// constant (whose value has been precomputed from those constants).  The new
+// value replaces the first constant in the list.
+func mergeConstants(constant fr.Element, es []Expr) []Expr {
+	j := 0
+	first := true
+	//
+	for i := range es {
+		// Check for constant
+		if _, ok := es[i].(*Constant); ok && first {
+			es[j] = &Constant{constant}
+			first = false
+			j++
+		} else if !ok {
+			// Retain non-constant expression
+			es[j] = es[i]
+			j++
+		}
+	}
+	// Return slice
+	return es[0:j]
 }
