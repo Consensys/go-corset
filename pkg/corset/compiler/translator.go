@@ -295,7 +295,10 @@ func (t *translator) translateDefConstraint(decl *ast.DefConstraint, module util
 	}
 	// Apply perspective selector (if applicable)
 	if selector != nil {
-		constraint = &hir.IfZero{Condition: selector, TrueBranch: nil, FalseBranch: constraint}
+		// NOTE: using an ifnot (as above) would be preferable here.  However,
+		// this is currently done just to ensure constraints identical to the
+		// original are generated.
+		constraint = &hir.Mul{Args: []hir.Expr{selector, constraint}}
 	}
 	//
 	if len(errors) == 0 {
