@@ -29,7 +29,7 @@ func Expand(ctx trace.Context, e air.Expr, schema *air.Schema) uint {
 	// Add new column (if it does not already exist)
 	if !ok {
 		// Add computed column
-		index = schema.AddAssignment(assignment.NewComputedColumn(ctx, name, e))
+		index = schema.AddAssignment(assignment.NewComputedColumn[air.Expr](ctx, name, e))
 		// Construct v == [e]
 		v := air.NewColumnAccess(index, 0)
 		// Construct 1 == e/e
