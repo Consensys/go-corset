@@ -21,12 +21,10 @@
 
 (defpurefun ((not :binary@bool :force) (x :binary)) (- 1 x))
 
-(defpurefun ((eq! :binary@loob :force) (x :binary) (y :binary)) (^ (- x y) 2))
 (defpurefun ((eq! :@loob) x y) (- x y))
 (defpurefun ((neq! :binary@loob :force) x y) (not (~ (eq! x y))))
 (defunalias = eq!)
 
-(defpurefun ((eq :binary@bool :force) (x :binary) (y :binary)) (- 1 (^ (- x y) 2)))
 (defpurefun ((eq :binary@bool :force) x y) (- 1 (~ (eq! x y))))
 (defpurefun ((neq :binary@bool :force) x y) (eq! x y))
 
