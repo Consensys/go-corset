@@ -44,7 +44,7 @@ func ApplyPseudoInverseGadget(e air.Expr, schema *air.Schema) air.Expr {
 	// Add new column (if it does not already exist)
 	if !ok {
 		// Add computed column
-		index = schema.AddAssignment(assignment.NewComputedColumn(ctx, name, ie))
+		index = schema.AddAssignment(assignment.NewComputedColumn[air.Expr](ctx, name, ie))
 		// Construct 1/e
 		inv_e := air.NewColumnAccess(index, 0)
 		// Construct e/e
@@ -81,6 +81,23 @@ func (e *Inverse) EvalAt(k int, tbl tr.Trace) fr.Element {
 	// Done
 	return inv
 }
+
+// Add two expressions together, producing a third.
+func (e *Inverse) Add(other air.Expr) air.Expr { panic("unreachable") }
+
+// Sub (subtract) one expression from another.
+func (e *Inverse) Sub(other air.Expr) air.Expr { panic("unreachable") }
+
+// Mul (multiply) two expressions together, producing a third.
+func (e *Inverse) Mul(other air.Expr) air.Expr { panic("unreachable") }
+
+// Equate one expression with another (equivalent to subtraction).
+func (e *Inverse) Equate(other air.Expr) air.Expr { panic("unreachable") }
+
+// AsConstant determines whether or not this is a constant expression.  If
+// so, the constant is returned; otherwise, nil is returned.  NOTE: this
+// does not perform any form of simplification to determine this.
+func (e *Inverse) AsConstant() *fr.Element { return nil }
 
 // Bounds returns max shift in either the negative (left) or positive
 // direction (right).
