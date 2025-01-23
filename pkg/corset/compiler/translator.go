@@ -291,11 +291,11 @@ func (t *translator) translateDefConstraint(decl *ast.DefConstraint, module util
 	}
 	// Apply guard (if applicable)
 	if guard != nil {
-		constraint = &hir.Mul{Args: []hir.Expr{guard, constraint}}
+		constraint = &hir.IfZero{Condition: guard, TrueBranch: nil, FalseBranch: constraint}
 	}
 	// Apply perspective selector (if applicable)
 	if selector != nil {
-		constraint = &hir.Mul{Args: []hir.Expr{selector, constraint}}
+		constraint = &hir.IfZero{Condition: selector, TrueBranch: nil, FalseBranch: constraint}
 	}
 	//
 	if len(errors) == 0 {
