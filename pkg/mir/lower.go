@@ -37,7 +37,7 @@ func (p *Schema) LowerToAir() *air.Schema {
 	}
 	// Lower vanishing constraints
 	for _, c := range p.constraints {
-		lowerConstraintToAir(c, airSchema)
+		lowerConstraintToAir(c, p, airSchema)
 	}
 	// Add assertions (these do not need to be lowered)
 	for _, assertion := range p.assertions {
@@ -65,14 +65,14 @@ func lowerAssignmentToAir(c sc.Assignment, mirSchema *Schema, airSchema *air.Sch
 }
 
 // Lower a constraint to the AIR level.
-func lowerConstraintToAir(c sc.Constraint, schema *air.Schema) {
+func lowerConstraintToAir(c sc.Constraint, mirSchema *Schema, airSchema *air.Schema) {
 	// Check what kind of constraint we have
 	if v, ok := c.(LookupConstraint); ok {
-		lowerLookupConstraintToAir(v, schema)
+		lowerLookupConstraintToAir(v, mirSchema, airSchema)
 	} else if v, ok := c.(VanishingConstraint); ok {
-		lowerVanishingConstraintToAir(v, schema)
+		lowerVanishingConstraintToAir(v, mirSchema, airSchema)
 	} else if v, ok := c.(RangeConstraint); ok {
-		lowerRangeConstraintToAir(v, schema)
+		lowerRangeConstraintToAir(v, mirSchema, airSchema)
 	} else {
 		// Should be unreachable as no other constraint types can be added to a
 		// schema.
@@ -84,15 +84,15 @@ func lowerConstraintToAir(c sc.Constraint, schema *air.Schema) {
 // straightforward and simply relies on lowering the expression being
 // constrained.  This may result in the generation of computed columns, e.g. to
 // hold inverses, etc.
-func lowerVanishingConstraintToAir(v VanishingConstraint, schema *air.Schema) {
-	air_expr := lowerExprTo(v.Context, v.Constraint.Expr, schema)
+func lowerVanishingConstraintToAir(v VanishingConstraint, mirSchema *Schema, airSchema *air.Schema) {
+	air_expr := lowerExprTo(v.Context, v.Constraint.Expr, mirSchema, airSchema)
 	// Check whether this is a constant
 	constant := air_expr.AsConstant()
 	// Check for compile-time constants
 	if constant != nil && !constant.IsZero() {
 		panic(fmt.Sprintf("constraint %s cannot vanish!", v.Handle))
 	} else if constant == nil {
-		schema.AddVanishingConstraint(v.Handle, v.Context, v.Domain, air_expr)
+		airSchema.AddVanishingConstraint(v.Handle, v.Context, v.Domain, air_expr)
 	}
 }
 
@@ -102,19 +102,19 @@ func lowerVanishingConstraintToAir(v VanishingConstraint, schema *air.Schema) {
 // expression is encountered, we must generate a computed column to hold the
 // value of that expression, along with appropriate constraints to enforce the
 // expected value.
-func lowerRangeConstraintToAir(v RangeConstraint, schema *air.Schema) {
+func lowerRangeConstraintToAir(v RangeConstraint, mirSchema *Schema, airSchema *air.Schema) {
 	// Lower target expression
-	target := lowerExprTo(v.Context, v.Expr, schema)
+	target := lowerExprTo(v.Context, v.Expr, mirSchema, airSchema)
 	// Expand target expression (if necessary)
-	column := air_gadgets.Expand(v.Context, target, schema)
+	column := air_gadgets.Expand(v.Context, target, airSchema)
 	// Yes, a constraint is implied.  Now, decide whether to use a range
 	// constraint or just a vanishing constraint.
 	if v.BoundedAtMost(2) {
 		// u1 => use vanishing constraint X * (X - 1)
-		air_gadgets.ApplyBinaryGadget(column, schema)
+		air_gadgets.ApplyBinaryGadget(column, airSchema)
 	} else if v.BoundedAtMost(256) {
 		// u2..8 use range constraints
-		schema.AddRangeConstraint(column, v.Bound)
+		airSchema.AddRangeConstraint(column, v.Bound)
 	} else {
 		// u9+ use byte decompositions.
 		var bi big.Int
@@ -122,7 +122,7 @@ func lowerRangeConstraintToAir(v RangeConstraint, schema *air.Schema) {
 		elem := v.Bound
 		elem.BigInt(&bi)
 		// Apply bitwidth gadget
-		air_gadgets.ApplyBitwidthGadget(column, uint(bi.BitLen()-1), schema)
+		air_gadgets.ApplyBitwidthGadget(column, uint(bi.BitLen()-1), airSchema)
 	}
 }
 
@@ -132,20 +132,20 @@ func lowerRangeConstraintToAir(v RangeConstraint, schema *air.Schema) {
 // expression is encountered, we must generate a computed column to hold the
 // value of that expression, along with appropriate constraints to enforce the
 // expected value.
-func lowerLookupConstraintToAir(c LookupConstraint, schema *air.Schema) {
+func lowerLookupConstraintToAir(c LookupConstraint, mirSchema *Schema, airSchema *air.Schema) {
 	targets := make([]uint, len(c.Targets))
 	sources := make([]uint, len(c.Sources))
 	//
 	for i := 0; i < len(targets); i++ {
 		// Lower source and target expressions
-		target := lowerExprTo(c.TargetContext, c.Targets[i], schema)
-		source := lowerExprTo(c.SourceContext, c.Sources[i], schema)
+		target := lowerExprTo(c.TargetContext, c.Targets[i], mirSchema, airSchema)
+		source := lowerExprTo(c.SourceContext, c.Sources[i], mirSchema, airSchema)
 		// Expand them
-		targets[i] = air_gadgets.Expand(c.TargetContext, target, schema)
-		sources[i] = air_gadgets.Expand(c.SourceContext, source, schema)
+		targets[i] = air_gadgets.Expand(c.TargetContext, target, airSchema)
+		sources[i] = air_gadgets.Expand(c.SourceContext, source, airSchema)
 	}
 	// finally add the constraint
-	schema.AddLookupConstraint(c.Handle, c.SourceContext, c.TargetContext, sources, targets)
+	airSchema.AddLookupConstraint(c.Handle, c.SourceContext, c.TargetContext, sources, targets)
 }
 
 // Lower a permutation to the AIR level.  This has quite a few
@@ -204,45 +204,52 @@ func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Sche
 // performs constant propagation to ensure lowering is as efficient as possible.
 // A module identifier is required to determine where any computed columns
 // should be located.
-func lowerExprTo(ctx trace.Context, e1 Expr, schema *air.Schema) air.Expr {
+func lowerExprTo(ctx trace.Context, e1 Expr, mirSchema *Schema, airSchema *air.Schema) air.Expr {
 	// Apply constant propagation
-	e2 := applyConstantPropagation(e1, schema)
+	e2 := applyConstantPropagation(e1, airSchema)
 	// Lower properly
-	return lowerExprToInner(ctx, e2, schema)
+	return lowerExprToInner(ctx, e2, mirSchema, airSchema)
 }
 
 // Inner form is used for recursive calls and does not repeat the constant
 // propagation phase.
-func lowerExprToInner(ctx trace.Context, e Expr, schema *air.Schema) air.Expr {
+func lowerExprToInner(ctx trace.Context, e Expr, mirSchema *Schema, airSchema *air.Schema) air.Expr {
 	if p, ok := e.(*Add); ok {
-		return &air.Add{Args: lowerExprs(ctx, p.Args, schema)}
+		return &air.Add{Args: lowerExprs(ctx, p.Args, mirSchema, airSchema)}
 	} else if p, ok := e.(*Constant); ok {
 		return &air.Constant{Value: p.Value}
 	} else if p, ok := e.(*ColumnAccess); ok {
 		return &air.ColumnAccess{Column: p.Column, Shift: p.Shift}
 	} else if p, ok := e.(*Mul); ok {
-		return &air.Mul{Args: lowerExprs(ctx, p.Args, schema)}
+		return &air.Mul{Args: lowerExprs(ctx, p.Args, mirSchema, airSchema)}
 	} else if p, ok := e.(*Exp); ok {
-		return lowerExpTo(ctx, p, schema)
+		return lowerExpTo(ctx, p, mirSchema, airSchema)
 	} else if p, ok := e.(*Normalise); ok {
+		bounds := p.Arg.IntRange(mirSchema)
 		// Lower the expression being normalised
-		e := lowerExprToInner(ctx, p.Arg, schema)
+		e := lowerExprToInner(ctx, p.Arg, mirSchema, airSchema)
+		// Check whether normalisation actual required.  For example, if the
+		// argument is just a binary column then a normalisation is not actually
+		// required.
+		if bounds.Within(big.NewInt(0), big.NewInt(1)) {
+			return e
+		}
 		// Construct an expression representing the normalised value of e.  That is,
 		// an expression which is 0 when e is 0, and 1 when e is non-zero.
-		return air_gadgets.Normalise(e, schema)
+		return air_gadgets.Normalise(e, airSchema)
 	} else if p, ok := e.(*Sub); ok {
-		return &air.Sub{Args: lowerExprs(ctx, p.Args, schema)}
+		return &air.Sub{Args: lowerExprs(ctx, p.Args, mirSchema, airSchema)}
 	}
 	// Should be unreachable
-	panic(fmt.Sprintf("unknown expression: %s", e.Lisp(schema).String(true)))
+	panic(fmt.Sprintf("unknown expression: %s", e.Lisp(airSchema).String(true)))
 }
 
 // LowerTo lowers an exponent expression to the AIR level by lowering the
 // argument, and then constructing a multiplication.  This is because the AIR
 // level does not support an explicit exponent operator.
-func lowerExpTo(ctx trace.Context, e *Exp, schema *air.Schema) air.Expr {
+func lowerExpTo(ctx trace.Context, e *Exp, mirSchema *Schema, airSchema *air.Schema) air.Expr {
 	// Lower the expression being raised
-	le := lowerExprToInner(ctx, e.Arg, schema)
+	le := lowerExprToInner(ctx, e.Arg, mirSchema, airSchema)
 	// Multiply it out k times
 	es := make([]air.Expr, e.Pow)
 	//
@@ -254,12 +261,12 @@ func lowerExpTo(ctx trace.Context, e *Exp, schema *air.Schema) air.Expr {
 }
 
 // Lower a set of zero or more MIR expressions.
-func lowerExprs(ctx trace.Context, exprs []Expr, schema *air.Schema) []air.Expr {
+func lowerExprs(ctx trace.Context, exprs []Expr, mirSchema *Schema, airSchema *air.Schema) []air.Expr {
 	n := len(exprs)
 	nexprs := make([]air.Expr, n)
 
 	for i := 0; i < n; i++ {
-		nexprs[i] = lowerExprToInner(ctx, exprs[i], schema)
+		nexprs[i] = lowerExprToInner(ctx, exprs[i], mirSchema, airSchema)
 	}
 
 	return nexprs

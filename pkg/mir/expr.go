@@ -1,6 +1,8 @@
 package mir
 
 import (
+	"math/big"
+
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -15,6 +17,10 @@ import (
 type Expr interface {
 	util.Boundable
 	sc.Evaluable
+
+	// IntRange computes a conservative approximation for the set of possible
+	// values that this expression can evaluate to.
+	IntRange(schema sc.Schema) *util.Interval
 }
 
 // ============================================================================
@@ -52,6 +58,23 @@ func (p *Add) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet[trace.Ce
 	})
 }
 
+// IntRange computes a conservative approximation for the set of possible
+// values that this expression can evaluate to.
+func (p *Add) IntRange(schema sc.Schema) *util.Interval {
+	var res util.Interval
+
+	for i, arg := range p.Args {
+		ith := arg.IntRange(schema)
+		if i == 0 {
+			res.Set(ith)
+		} else {
+			res.Add(ith)
+		}
+	}
+	//
+	return &res
+}
+
 // ============================================================================
 // Subtraction
 // ============================================================================
@@ -85,6 +108,23 @@ func (p *Sub) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet[trace.Ce
 	return util.UnionAnySortedSets(p.Args, func(e Expr) *util.AnySortedSet[trace.CellRef] {
 		return e.RequiredCells(row, tr)
 	})
+}
+
+// IntRange computes a conservative approximation for the set of possible
+// values that this expression can evaluate to.
+func (p *Sub) IntRange(schema sc.Schema) *util.Interval {
+	var res util.Interval
+
+	for i, arg := range p.Args {
+		ith := arg.IntRange(schema)
+		if i == 0 {
+			res.Set(ith)
+		} else {
+			res.Sub(ith)
+		}
+	}
+	//
+	return &res
 }
 
 // ============================================================================
@@ -122,6 +162,23 @@ func (p *Mul) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet[trace.Ce
 	})
 }
 
+// IntRange computes a conservative approximation for the set of possible
+// values that this expression can evaluate to.
+func (p *Mul) IntRange(schema sc.Schema) *util.Interval {
+	var res util.Interval
+
+	for i, arg := range p.Args {
+		ith := arg.IntRange(schema)
+		if i == 0 {
+			res.Set(ith)
+		} else {
+			res.Mul(ith)
+		}
+	}
+	//
+	return &res
+}
+
 // ============================================================================
 // Exponentiation
 // ============================================================================
@@ -156,6 +213,15 @@ func (p *Exp) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet[trace.Ce
 	return p.Arg.RequiredCells(row, tr)
 }
 
+// IntRange computes a conservative approximation for the set of possible
+// values that this expression can evaluate to.
+func (p *Exp) IntRange(schema sc.Schema) *util.Interval {
+	bounds := p.Arg.IntRange(schema)
+	bounds.Exp(uint(p.Pow))
+	//
+	return bounds
+}
+
 // ============================================================================
 // Constant
 // ============================================================================
@@ -185,6 +251,16 @@ func (p *Constant) RequiredColumns() *util.SortedSet[uint] {
 // these cells.
 func (p *Constant) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet[trace.CellRef] {
 	return util.NewAnySortedSet[trace.CellRef]()
+}
+
+// IntRange computes a conservative approximation for the set of possible
+// values that this expression can evaluate to.
+func (p *Constant) IntRange(schema sc.Schema) *util.Interval {
+	var c big.Int
+	// Extract big integer from field element
+	p.Value.BigInt(&c)
+	// Return as interval
+	return util.NewInterval(&c, &c)
 }
 
 // ============================================================================
@@ -217,6 +293,12 @@ func (p *Normalise) RequiredColumns() *util.SortedSet[uint] {
 // these cells.
 func (p *Normalise) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet[trace.CellRef] {
 	return p.Arg.RequiredCells(row, tr)
+}
+
+// IntRange computes a conservative approximation for the set of possible
+// values that this expression can evaluate to.
+func (p *Normalise) IntRange(schema sc.Schema) *util.Interval {
+	return util.NewInterval(big.NewInt(0), big.NewInt(1))
 }
 
 // ============================================================================
@@ -269,4 +351,16 @@ func (p *ColumnAccess) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet
 	set.Insert(trace.NewCellRef(p.Column, row+p.Shift))
 
 	return set
+}
+
+// IntRange computes a conservative approximation for the set of possible
+// values that this expression can evaluate to.
+func (p *ColumnAccess) IntRange(schema sc.Schema) *util.Interval {
+	bound := big.NewInt(2)
+	width := int64(schema.Columns().Nth(p.Column).DataType.BitWidth())
+	bound.Exp(bound, big.NewInt(width), nil)
+	// Subtract 1 because interval is inclusive.
+	bound.Sub(bound, big.NewInt(1))
+	// Done
+	return util.NewInterval(big.NewInt(0), bound)
 }
