@@ -230,7 +230,6 @@ func mapIfNativeFunction(trace tr.Trace, sources []uint) []util.FrArray {
 				rhs := fmt.Sprintf("%v=>%s", ith_row, val.String())
 				panic(fmt.Sprintf("conflicting values in source map (row %d): %s vs %s", i, lhs, rhs))
 			} else if !ok {
-				fmt.Printf("Inserting source key (row %d): %v\n", i, extractIthColumns(i, source_keys))
 				// Item not previously in map
 				source_map.Insert(ith_key, ith_value)
 			}

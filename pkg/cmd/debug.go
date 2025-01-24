@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"os"
 	"reflect"
-	"strings"
 
+	"github.com/consensys/go-corset/pkg/air"
 	"github.com/consensys/go-corset/pkg/hir"
+	"github.com/consensys/go-corset/pkg/mir"
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/assignment"
 	"github.com/consensys/go-corset/pkg/util"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -133,19 +135,20 @@ type schemaSummariser struct {
 
 var schemaSummarisers []schemaSummariser = []schemaSummariser{
 	// Constraints
-	constraintCounter("Constraints", "*constraint.VanishingConstraint"),
-	constraintCounter("Lookups", "*constraint.LookupConstraint"),
-	constraintCounter("Permutations", "*constraint.PermutationConstraint"),
-	constraintCounter("Types", "*constraint.TypeConstraint"),
-	constraintCounter("Range", "*constraint.RangeConstraint"),
+	constraintCounter("Constraints", vanishingConstraints...),
+	constraintCounter("Lookups", lookupConstraints...),
+	constraintCounter("Permutations", permutationConstraints...),
+	constraintCounter("Range", rangeConstraints...),
 	// Assignments
-	assignmentCounter("Decompositions", "*assignment.ByteDecomposition"),
-	assignmentCounter("Computed Columns", "*assignment.ComputedColumn"),
-	assignmentCounter("Committed Columns", "*assignment.DataColumn"),
-	assignmentCounter("Interleavings", "*assignment.Interleaving"),
-	assignmentCounter("Lexicographic Orderings", "*assignment.LexicographicSort"),
-	assignmentCounter("Sorted Permutations", "*assignment.SortedPermutation"),
-	// Column Width
+	assignmentCounter("Decompositions", reflect.TypeOf((*assignment.ByteDecomposition)(nil))),
+	assignmentCounter("Committed Columns", reflect.TypeOf((*assignment.DataColumn)(nil))),
+	assignmentCounter("Computed Columns", computedColumns...),
+	assignmentCounter("Computation Columns", reflect.TypeOf((*assignment.Computation)(nil))),
+	assignmentCounter("Interleavings", reflect.TypeOf((*assignment.Interleaving)(nil))),
+	assignmentCounter("Lexicographic Orderings", reflect.TypeOf((*assignment.LexicographicSort)(nil))),
+	assignmentCounter("Sorted Permutations", reflect.TypeOf((*assignment.SortedPermutation)(nil))),
+	// Columns
+	columnCounter(),
 	columnWidthSummariser(1, 1),
 	columnWidthSummariser(2, 4),
 	columnWidthSummariser(5, 8),
@@ -156,30 +159,61 @@ var schemaSummarisers []schemaSummariser = []schemaSummariser{
 	columnWidthSummariser(129, 256),
 }
 
-func constraintCounter(title string, prefix string) schemaSummariser {
+var vanishingConstraints = []reflect.Type{
+	reflect.TypeOf((hir.VanishingConstraint)(nil)),
+	reflect.TypeOf((mir.VanishingConstraint)(nil)),
+	reflect.TypeOf((air.VanishingConstraint)(nil))}
+
+var lookupConstraints = []reflect.Type{
+	reflect.TypeOf((hir.LookupConstraint)(nil)),
+	reflect.TypeOf((mir.LookupConstraint)(nil)),
+	reflect.TypeOf((air.LookupConstraint)(nil))}
+
+var rangeConstraints = []reflect.Type{
+	reflect.TypeOf((hir.RangeConstraint)(nil)),
+	reflect.TypeOf((mir.RangeConstraint)(nil)),
+	reflect.TypeOf((air.RangeConstraint)(nil))}
+
+var permutationConstraints = []reflect.Type{
+	// permutation constraints only exist at AIR level
+	reflect.TypeOf((air.PermutationConstraint)(nil))}
+
+var computedColumns = []reflect.Type{
+	// permutation constraints only exist at AIR level
+	reflect.TypeOf((*assignment.ComputedColumn[air.Expr])(nil))}
+
+func constraintCounter(title string, types ...reflect.Type) schemaSummariser {
 	return schemaSummariser{
 		name: title,
 		summary: func(schema sc.Schema) int {
-			return typeOfCounter(schema.Constraints(), prefix)
+			sum := 0
+			for _, t := range types {
+				sum += typeOfCounter(schema.Constraints(), t)
+			}
+			return sum
 		},
 	}
 }
 
-func assignmentCounter(title string, prefix string) schemaSummariser {
+func assignmentCounter(title string, types ...reflect.Type) schemaSummariser {
 	return schemaSummariser{
 		name: title,
 		summary: func(schema sc.Schema) int {
-			return typeOfCounter(schema.Declarations(), prefix)
+			sum := 0
+			for _, t := range types {
+				sum += typeOfCounter(schema.Declarations(), t)
+			}
+			return sum
 		},
 	}
 }
 
-func typeOfCounter[T any](iter util.Iterator[T], prefix string) int {
+func typeOfCounter[T any](iter util.Iterator[T], dyntype reflect.Type) int {
 	count := 0
 
 	for iter.HasNext() {
 		ith := iter.Next()
-		if isTypeOf(ith, prefix) {
+		if dyntype == reflect.TypeOf(ith) {
 			count++
 		}
 	}
@@ -187,10 +221,18 @@ func typeOfCounter[T any](iter util.Iterator[T], prefix string) int {
 	return count
 }
 
-func isTypeOf(obj any, prefix string) bool {
-	dyntype := reflect.TypeOf(obj)
-	// Check whether dynamic type matches prefix
-	return strings.HasPrefix(dyntype.String(), prefix)
+func columnCounter() schemaSummariser {
+	return schemaSummariser{
+		name: "Columns (all)",
+		summary: func(sc schema.Schema) int {
+			count := 0
+			for i := sc.Columns(); i.HasNext(); {
+				i.Next()
+				count++
+			}
+			return count
+		},
+	}
 }
 
 func columnWidthSummariser(lowWidth uint, highWidth uint) schemaSummariser {

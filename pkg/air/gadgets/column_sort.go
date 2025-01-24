@@ -43,7 +43,7 @@ func ApplyColumnSortGadget(col uint, sign bool, bitwidth uint, schema *air.Schem
 	// Add new column (if it does not already exist)
 	if !ok {
 		deltaIndex = schema.AddAssignment(
-			assignment.NewComputedColumn(column.Context, deltaName, Xdiff))
+			assignment.NewComputedColumn[air.Expr](column.Context, deltaName, Xdiff))
 	}
 	// Add necessary bitwidth constraints
 	ApplyBitwidthGadget(deltaIndex, bitwidth, schema)
