@@ -1,7 +1,6 @@
 package test
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -328,8 +327,6 @@ func checkInterval(t *testing.T, ops []uint, sets [][]int) {
 }
 
 func checkSubSet(t *testing.T, i *util.Interval, set []int) {
-	fmt.Printf("Checking %s contains %v\n", i.String(), set)
-	//
 	for _, item := range set {
 		ith := big.NewInt(int64(item))
 		if !i.Contains(ith) {
