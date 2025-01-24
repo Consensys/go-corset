@@ -132,7 +132,7 @@ func processConstraintBatch(logtitle string, batch uint, batchsize uint, iter ut
 		}
 	}
 	// Log stats about this batch
-	stats.Log(fmt.Sprintf("%s batch %d", logtitle, batch))
+	stats.Log(fmt.Sprintf("%s batch %d (%d items)", logtitle, batch, n))
 	//
 	return errors
 }

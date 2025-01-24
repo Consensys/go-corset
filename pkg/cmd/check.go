@@ -17,7 +17,7 @@ import (
 
 // computeCmd represents the compute command
 var checkCmd = &cobra.Command{
-	Use:   "check [flags] trace_file constraint_file",
+	Use:   "check [flags] trace_file constraint_file(s)",
 	Short: "Check a given trace against a set of constraints.",
 	Long: `Check a given trace against a set of constraints.
 	Traces can be given either as JSON or binary lt files.
