@@ -1,6 +1,7 @@
 package field
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
@@ -91,8 +92,6 @@ type FrBitPool struct{}
 
 // NewFrBitPool constructs a new pool which uses a single bit for indexing.
 func NewFrBitPool() FrBitPool {
-	initPool16()
-	//
 	return FrBitPool{}
 }
 
@@ -111,7 +110,7 @@ func (p FrBitPool) Put(element fr.Element) bool {
 	val := element.Uint64()
 	// Sanity checks
 	if !element.IsUint64() || val >= 2 {
-		panic("invalid field element for bit pool")
+		panic(fmt.Sprintf("invalid field element for bit pool (%d)", val))
 	} else if val == 1 {
 		return true
 	}
@@ -128,8 +127,6 @@ type FrIndexPool[K uint8 | uint16] struct{}
 // NewFrIndexPool constructs a new pool which uses a given key type for
 // indexing.
 func NewFrIndexPool[K uint8 | uint16]() FrIndexPool[K] {
-	initPool16()
-	//
 	return FrIndexPool[K]{}
 }
 
@@ -156,7 +153,7 @@ var pool16init sync.Once
 var pool16bit []fr.Element
 
 // Initialise the index pool.
-func initPool16() {
+func init() {
 	// Singleton pattern for initialisation.
 	pool16init.Do(func() {
 		// Construct empty array

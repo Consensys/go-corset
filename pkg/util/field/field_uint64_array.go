@@ -2,7 +2,6 @@ package field
 
 import (
 	"encoding/binary"
-	"fmt"
 	"io"
 	"strings"
 
@@ -46,17 +45,21 @@ func (p *FrUint64Array) Get(index uint) fr.Element {
 // Set sets the field element at the given index in this array, overwriting the
 // original value.
 func (p *FrUint64Array) Set(index uint, element fr.Element) {
+	if !element.IsUint64() {
+		panic("invalid element")
+	}
+	//
 	p.elements[index] = element.Uint64()
 }
 
 // Clone makes clones of this array producing an otherwise identical copy.
 func (p *FrUint64Array) Clone() util.Array[fr.Element] {
 	// Allocate sufficient memory
-	ndata := make([]uint64, uint(len(p.elements)))
+	elements := make([]uint64, uint(len(p.elements)))
 	// Copy over the data
-	copy(ndata, p.elements)
+	copy(elements, p.elements)
 	//
-	return &FrUint64Array{ndata, p.bitwidth}
+	return &FrUint64Array{elements, p.bitwidth}
 }
 
 // Slice out a subregion of this array.
@@ -67,15 +70,19 @@ func (p *FrUint64Array) Slice(start uint, end uint) util.Array[fr.Element] {
 // PadFront (i.e. insert at the beginning) this array with n copies of the given padding value.
 func (p *FrUint64Array) PadFront(n uint, padding fr.Element) util.Array[fr.Element] {
 	// Allocate sufficient memory
-	ndata := make([]uint64, uint(len(p.elements))+n)
+	elements := make([]uint64, uint(len(p.elements))+n)
 	// Copy over the data
-	copy(ndata[n:], p.elements)
+	copy(elements[n:], p.elements)
 	// Go padding!
 	for i := uint(0); i < n; i++ {
-		ndata[i] = padding.Uint64()
+		if !padding.IsUint64() {
+			panic("invalid padding")
+		}
+		//
+		elements[i] = padding.Uint64()
 	}
 	// Copy over
-	return &FrUint64Array{ndata, p.bitwidth}
+	return &FrUint64Array{elements, p.bitwidth}
 }
 
 // Write the raw bytes of this column to a given writer, returning an error
@@ -83,7 +90,7 @@ func (p *FrUint64Array) PadFront(n uint, padding fr.Element) util.Array[fr.Eleme
 func (p *FrUint64Array) Write(w io.Writer) error {
 	for _, e := range p.elements {
 		var bytes [8]byte
-		// Read exactly 32 bytes
+		// Set exactly 32 bytes
 		binary.BigEndian.PutUint64(bytes[:], e)
 		// Write them out
 		if _, err := w.Write(bytes[:]); err != nil {
@@ -99,12 +106,13 @@ func (p *FrUint64Array) String() string {
 
 	sb.WriteString("[")
 
-	for i := 0; i < len(p.elements); i++ {
+	for i := uint(0); i < p.Len(); i++ {
 		if i != 0 {
 			sb.WriteString(",")
 		}
 
-		sb.WriteString(fmt.Sprintf("0x%x", p.elements[i]))
+		ith := p.Get(i)
+		sb.WriteString(ith.String())
 	}
 
 	sb.WriteString("]")

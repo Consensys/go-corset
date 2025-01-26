@@ -89,18 +89,19 @@ func (p *LexicographicSort) ComputeColumns(trace tr.Trace) ([]tr.ArrayColumn, er
 	cols := make([]tr.ArrayColumn, nbits+1)
 	// Byte width records the largest width of any column.
 	bit_width := uint(0)
-	//
+	// Configure data columns
+	for i := 0; i < nbits; i++ {
+		target := p.targets[1+i]
+		data := field.NewFrArray(nrows, 1)
+		cols[i+1] = tr.NewArrayColumn(target.Context, target.Name, data, zero)
+		// Update bitwidth
+		source := trace.Column(p.sources[i])
+		bit_width = max(bit_width, source.Data().BitWidth())
+	}
+	// Configure data column
 	delta := field.NewFrArray(nrows, bit_width)
 	cols[0] = tr.NewArrayColumn(first.Context, first.Name, delta, zero)
 	//
-	for i := 0; i < nbits; i++ {
-		target := p.targets[1+i]
-		source := trace.Column(p.sources[i])
-		data := field.NewFrArray(nrows, 1)
-		cols[i+1] = tr.NewArrayColumn(target.Context, target.Name, data, zero)
-		bit_width = max(bit_width, source.Data().BitWidth())
-	}
-
 	for i := uint(0); i < nrows; i++ {
 		set := false
 		// Initialise delta to zero

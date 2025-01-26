@@ -14,22 +14,22 @@ type FrArray = util.Array[fr.Element]
 
 // NewFrArray creates a new FrArray dynamically based on the given width.
 func NewFrArray(height uint, bitWidth uint) FrArray {
-	switch bitWidth {
-	case 1:
+	switch {
+	case bitWidth <= 1:
 		var pool FrBitPool = NewFrBitPool()
 		return NewFrPoolArray[bool](height, bitWidth, pool)
-	case 2, 3, 4, 5, 6, 7, 8:
+	case bitWidth <= 8:
 		var pool FrIndexPool[uint8] = NewFrIndexPool[uint8]()
 		return NewFrPoolArray[uint8](height, bitWidth, pool)
-	case 9, 10, 11, 12, 13, 14, 15, 16:
+	case bitWidth <= 16:
 		var pool FrIndexPool[uint16] = NewFrIndexPool[uint16]()
 		return NewFrPoolArray[uint16](height, bitWidth, pool)
+	case bitWidth < 256:
+		return NewFrIndexArray(height, bitWidth)
 	default:
-		if bitWidth >= 128 {
-			var pool FrMapPool = NewFrMapPool(bitWidth)
-			return NewFrPoolArray[uint32](height, bitWidth, pool)
-		}
-		// return NewFrPtrElementArray(height, bitWidth)
+		// NOTE: this case is currently optimised under the assumption that
+		// columns of size 256bits are always inverses.  Such columns currently
+		// cannot benefit from an index array.
 		return NewFrElementArray(height, bitWidth)
 	}
 }

@@ -116,7 +116,7 @@ func (p *FrPoolArray[K, P]) String() string {
 		sb.WriteString(ith.String())
 	}
 
-	sb.WriteString("[")
+	sb.WriteString("]")
 
 	return sb.String()
 }
