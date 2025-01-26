@@ -3,6 +3,7 @@ package trace
 import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/field"
 )
 
 // Trace describes a set of named columns.  Columns are not required to have the
@@ -30,7 +31,7 @@ type Column interface {
 	Get(row int) fr.Element
 	// Access the underlying data array for this column.  This is useful in
 	// situations where we want to clone the entire column, etc.
-	Data() util.FrArray
+	Data() field.FrArray
 	// Value to be used when padding this column
 	Padding() fr.Element
 }
@@ -44,7 +45,7 @@ type RawColumn struct {
 	// Name of the column
 	Name string
 	// Data held in the column
-	Data util.FrArray
+	Data field.FrArray
 }
 
 // QualifiedName returns the fully qualified name of this column.

@@ -7,6 +7,7 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/field"
 )
 
 // ArrayTrace provides an implementation of Trace which stores columns as an
@@ -49,7 +50,7 @@ func (p *ArrayTrace) Column(cid uint) Column {
 
 // FillColumn sets the data and padding for the given column.  This will panic
 // if the data is already set.
-func (p *ArrayTrace) FillColumn(cid uint, data util.FrArray, padding fr.Element) {
+func (p *ArrayTrace) FillColumn(cid uint, data field.FrArray, padding fr.Element) {
 	// Find column to fill
 	col := &p.columns[cid]
 	// Find enclosing module
@@ -165,13 +166,13 @@ type ArrayColumn struct {
 	// Holds the name of this column
 	name string
 	// Holds the raw data making up this column
-	data util.FrArray
+	data field.FrArray
 	// Value to be used when padding this column
 	padding fr.Element
 }
 
 // NewArrayColumn constructs a  with the give name, data and padding.
-func NewArrayColumn(context Context, name string, data util.FrArray,
+func NewArrayColumn(context Context, name string, data field.FrArray,
 	padding fr.Element) ArrayColumn {
 	col := EmptyArrayColumn(context, name)
 	col.fill(data, padding)
@@ -205,7 +206,7 @@ func (p *ArrayColumn) Padding() fr.Element {
 }
 
 // Data provides access to the underlying data of this column
-func (p *ArrayColumn) Data() util.FrArray {
+func (p *ArrayColumn) Data() field.FrArray {
 	return p.data
 }
 
@@ -221,7 +222,7 @@ func (p *ArrayColumn) Get(row int) fr.Element {
 	return p.data.Get(uint(row))
 }
 
-func (p *ArrayColumn) fill(data util.FrArray, padding fr.Element) {
+func (p *ArrayColumn) fill(data field.FrArray, padding fr.Element) {
 	// Sanity check this column has not already been filled.
 	if p.data != nil {
 		panic(fmt.Sprintf("computed column %s has already been filled", p.name))

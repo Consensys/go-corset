@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/trace"
-	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/field"
 )
 
 // FromBytes parses a trace expressed in JSON notation.  For example, {"X":
@@ -27,7 +27,7 @@ func FromBytes(bytes []byte) ([]trace.RawColumn, error) {
 		// Translate raw bigints into raw field elements
 		mod, col := splitQualifiedColumnName(name)
 		// TODO: support native field widths in column name.
-		data := util.FrArrayFromBigInts(256, rawInts)
+		data := field.FrArrayFromBigInts(256, rawInts)
 		// Construct column
 		cols[index] = trace.RawColumn{Module: mod, Name: col, Data: data}
 		//

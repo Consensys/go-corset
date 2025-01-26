@@ -8,6 +8,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/field"
 )
 
 // TraceBuilder provides a mechanical means of constructing a trace from a given
@@ -219,7 +220,7 @@ func validateTraceColumns(schema Schema, tr *trace.ArrayTrace) (error, []error) 
 			// Ok, treat as warning
 			warnings = append(warnings, err)
 			// Fill with a column of height zero.
-			tr.FillColumn(i, util.NewFrArray(0, 256), zero)
+			tr.FillColumn(i, field.NewFrArray(0, 256), zero)
 		}
 	}
 	// Done

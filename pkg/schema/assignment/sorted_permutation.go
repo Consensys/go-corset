@@ -7,6 +7,7 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/sexp"
 )
 
@@ -79,7 +80,7 @@ func (p *SortedPermutation) RequiredSpillage() uint {
 // This requires copying the data in the source columns, and sorting that data
 // according to the permutation criteria.
 func (p *SortedPermutation) ComputeColumns(trace tr.Trace) ([]tr.ArrayColumn, error) {
-	data := make([]util.FrArray, len(p.Sources))
+	data := make([]field.FrArray, len(p.Sources))
 	// Construct target columns
 	for i := 0; i < len(p.Sources); i++ {
 		src := p.Sources[i]

@@ -6,6 +6,7 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/sexp"
 )
 
@@ -93,9 +94,9 @@ func (p *PermutationConstraint) Lisp(schema sc.Schema) sexp.SExp {
 	})
 }
 
-func sliceColumns(columns []uint, tr trace.Trace) []util.FrArray {
+func sliceColumns(columns []uint, tr trace.Trace) []field.FrArray {
 	// Allocate return array
-	cols := make([]util.FrArray, len(columns))
+	cols := make([]field.FrArray, len(columns))
 	// Slice out the data
 	for i, n := range columns {
 		nth := tr.Column(n)

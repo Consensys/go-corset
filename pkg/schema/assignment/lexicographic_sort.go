@@ -7,6 +7,7 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/sexp"
 )
 
@@ -89,13 +90,13 @@ func (p *LexicographicSort) ComputeColumns(trace tr.Trace) ([]tr.ArrayColumn, er
 	// Byte width records the largest width of any column.
 	bit_width := uint(0)
 	//
-	delta := util.NewFrArray(nrows, bit_width)
+	delta := field.NewFrArray(nrows, bit_width)
 	cols[0] = tr.NewArrayColumn(first.Context, first.Name, delta, zero)
 	//
 	for i := 0; i < nbits; i++ {
 		target := p.targets[1+i]
 		source := trace.Column(p.sources[i])
-		data := util.NewFrArray(nrows, 1)
+		data := field.NewFrArray(nrows, 1)
 		cols[i+1] = tr.NewArrayColumn(target.Context, target.Name, data, zero)
 		bit_width = max(bit_width, source.Data().BitWidth())
 	}

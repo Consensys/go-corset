@@ -11,6 +11,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/sexp"
 )
 
@@ -143,7 +144,7 @@ func (p *Computation) Lisp(schema sc.Schema) sexp.SExp {
 type NativeComputation struct {
 	// Function which will be applied to a given set of input columns, whilst
 	// writing to a given set of output columns.
-	Function func(tr.Trace, []uint) []util.FrArray
+	Function func(tr.Trace, []uint) []field.FrArray
 }
 
 // NATIVES map holds the supported set of native computations.
@@ -160,20 +161,20 @@ var NATIVES map[string]NativeComputation = map[string]NativeComputation{
 
 // id assigns the target column with the corresponding value of the source
 // column
-func idNativeFunction(trace tr.Trace, sources []uint) []util.FrArray {
+func idNativeFunction(trace tr.Trace, sources []uint) []field.FrArray {
 	if len(sources) != 1 {
 		panic("incorrect number of arguments")
 	}
 	// Clone source column
 	data := trace.Column(sources[0]).Data().Clone()
 	// Done
-	return []util.FrArray{data}
+	return []field.FrArray{data}
 }
 
 // filter assigns the target column with the corresponding value of the source
 // column *when* a given selector column is non-zero.  Otherwise, the target
 // column remains zero at the given position.
-func filterNativeFunction(trace tr.Trace, sources []uint) []util.FrArray {
+func filterNativeFunction(trace tr.Trace, sources []uint) []field.FrArray {
 	if len(sources) != 2 {
 		panic("incorrect number of arguments")
 	}
@@ -181,7 +182,7 @@ func filterNativeFunction(trace tr.Trace, sources []uint) []util.FrArray {
 	src_col := trace.Column(sources[0]).Data()
 	sel_col := trace.Column(sources[1]).Data()
 	// Clone source column
-	data := util.NewFrArray(src_col.Len(), src_col.BitWidth())
+	data := field.NewFrArray(src_col.Len(), src_col.BitWidth())
 	//
 	for i := uint(0); i < data.Len(); i++ {
 		selector := sel_col.Get(i)
@@ -192,11 +193,11 @@ func filterNativeFunction(trace tr.Trace, sources []uint) []util.FrArray {
 		}
 	}
 	// Done
-	return []util.FrArray{data}
+	return []field.FrArray{data}
 }
 
 // apply a key-value map conditionally.
-func mapIfNativeFunction(trace tr.Trace, sources []uint) []util.FrArray {
+func mapIfNativeFunction(trace tr.Trace, sources []uint) []field.FrArray {
 	n := len(sources) - 3
 	if n%2 != 0 {
 		panic(fmt.Sprintf("map-if expects 3 + 2*n columns (given %d)", len(sources)))
@@ -210,7 +211,7 @@ func mapIfNativeFunction(trace tr.Trace, sources []uint) []util.FrArray {
 	source_map := util.NewHashMap[util.BytesKey, fr.Element](source_value.Len())
 	target_selector := trace.Column(sources[0]).Data()
 	target_keys := make([]util.Array[fr.Element], n)
-	target_value := util.NewFrArray(target_selector.Len(), source_value.BitWidth())
+	target_value := field.NewFrArray(target_selector.Len(), source_value.BitWidth())
 	// Initialise source / target keys
 	for i := 0; i < n; i++ {
 		target_keys[i] = trace.Column(sources[1+i]).Data()
@@ -252,7 +253,7 @@ func mapIfNativeFunction(trace tr.Trace, sources []uint) []util.FrArray {
 		}
 	}
 	// Done
-	return []util.FrArray{target_value}
+	return []field.FrArray{target_value}
 }
 
 func extractIthKey(index uint, cols []util.Array[fr.Element]) util.BytesKey {
@@ -276,7 +277,7 @@ func extractIthKey(index uint, cols []util.Array[fr.Element]) util.BytesKey {
 }
 
 // determines changes of a given set of columns within a given region.
-func fwdChangesWithinNativeFunction(trace tr.Trace, sources []uint) []util.FrArray {
+func fwdChangesWithinNativeFunction(trace tr.Trace, sources []uint) []field.FrArray {
 	if len(sources) < 2 {
 		panic("incorrect number of arguments")
 	}
@@ -290,7 +291,7 @@ func fwdChangesWithinNativeFunction(trace tr.Trace, sources []uint) []util.FrArr
 		source_cols[i-1] = trace.Column(sources[i]).Data()
 	}
 	// Construct (binary) output column
-	data := util.NewFrArray(selector_col.Len(), 1)
+	data := field.NewFrArray(selector_col.Len(), 1)
 	// Set current value
 	current := make([]fr.Element, len(source_cols))
 	started := false
@@ -311,10 +312,10 @@ func fwdChangesWithinNativeFunction(trace tr.Trace, sources []uint) []util.FrArr
 		}
 	}
 	// Done
-	return []util.FrArray{data}
+	return []field.FrArray{data}
 }
 
-func fwdUnchangedWithinNativeFunction(trace tr.Trace, sources []uint) []util.FrArray {
+func fwdUnchangedWithinNativeFunction(trace tr.Trace, sources []uint) []field.FrArray {
 	if len(sources) < 2 {
 		panic("incorrect number of arguments")
 	}
@@ -329,7 +330,7 @@ func fwdUnchangedWithinNativeFunction(trace tr.Trace, sources []uint) []util.FrA
 		source_cols[i-1] = trace.Column(sources[i]).Data()
 	}
 	// Construct (binary) output column
-	data := util.NewFrArray(selector_col.Len(), 1)
+	data := field.NewFrArray(selector_col.Len(), 1)
 	// Set current value
 	current := make([]fr.Element, len(source_cols))
 	started := false
@@ -352,11 +353,11 @@ func fwdUnchangedWithinNativeFunction(trace tr.Trace, sources []uint) []util.FrA
 		}
 	}
 	// Done
-	return []util.FrArray{data}
+	return []field.FrArray{data}
 }
 
 // determines changes of a given set of columns within a given region.
-func bwdChangesWithinNativeFunction(trace tr.Trace, sources []uint) []util.FrArray {
+func bwdChangesWithinNativeFunction(trace tr.Trace, sources []uint) []field.FrArray {
 	if len(sources) < 2 {
 		panic("incorrect number of arguments")
 	}
@@ -370,7 +371,7 @@ func bwdChangesWithinNativeFunction(trace tr.Trace, sources []uint) []util.FrArr
 		source_cols[i-1] = trace.Column(sources[i]).Data()
 	}
 	// Construct (binary) output column
-	data := util.NewFrArray(selector_col.Len(), 1)
+	data := field.NewFrArray(selector_col.Len(), 1)
 	// Set current value
 	current := make([]fr.Element, len(source_cols))
 	started := false
@@ -391,10 +392,10 @@ func bwdChangesWithinNativeFunction(trace tr.Trace, sources []uint) []util.FrArr
 		}
 	}
 	// Done
-	return []util.FrArray{data}
+	return []field.FrArray{data}
 }
 
-func fwdFillWithinNativeFunction(trace tr.Trace, sources []uint) []util.FrArray {
+func fwdFillWithinNativeFunction(trace tr.Trace, sources []uint) []field.FrArray {
 	if len(sources) != 3 {
 		panic("incorrect number of arguments")
 	}
@@ -403,7 +404,7 @@ func fwdFillWithinNativeFunction(trace tr.Trace, sources []uint) []util.FrArray 
 	first_col := trace.Column(sources[1]).Data()
 	source_col := trace.Column(sources[2]).Data()
 	// Construct (binary) output column
-	data := util.NewFrArray(source_col.Len(), source_col.BitWidth())
+	data := field.NewFrArray(source_col.Len(), source_col.BitWidth())
 	// Set current value
 	current := fr.NewElement(0)
 	//
@@ -421,10 +422,10 @@ func fwdFillWithinNativeFunction(trace tr.Trace, sources []uint) []util.FrArray 
 		}
 	}
 	// Done
-	return []util.FrArray{data}
+	return []field.FrArray{data}
 }
 
-func bwdFillWithinNativeFunction(trace tr.Trace, sources []uint) []util.FrArray {
+func bwdFillWithinNativeFunction(trace tr.Trace, sources []uint) []field.FrArray {
 	if len(sources) != 3 {
 		panic("incorrect number of arguments")
 	}
@@ -433,7 +434,7 @@ func bwdFillWithinNativeFunction(trace tr.Trace, sources []uint) []util.FrArray 
 	first_col := trace.Column(sources[1]).Data()
 	source_col := trace.Column(sources[2]).Data()
 	// Construct (binary) output column
-	data := util.NewFrArray(source_col.Len(), source_col.BitWidth())
+	data := field.NewFrArray(source_col.Len(), source_col.BitWidth())
 	// Set current value
 	current := fr.NewElement(0)
 	//
@@ -451,7 +452,7 @@ func bwdFillWithinNativeFunction(trace tr.Trace, sources []uint) []util.FrArray 
 		}
 	}
 	// Done
-	return []util.FrArray{data}
+	return []field.FrArray{data}
 }
 
 func extractIthColumns(index uint, cols []util.Array[fr.Element]) []fr.Element {
