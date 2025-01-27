@@ -26,8 +26,12 @@ type FrIndexArray struct {
 // NewFrIndexArray constructs a new field array with a given capacity.
 func NewFrIndexArray(height uint, bitwidth uint) *FrIndexArray {
 	elements := make([]uint32, height)
-	heap := make([]fr.Element, 0)
+	// NOTE: initial element is required here as otherwise, when height != 0, we
+	// would be in an invalid state.
+	heap := make([]fr.Element, 1)
 	pool := make(map[[4]uint64]uint32)
+	// Initialise pool
+	pool[heap[0]] = 0
 	//
 	return &FrIndexArray{elements, heap, pool, bitwidth}
 }
