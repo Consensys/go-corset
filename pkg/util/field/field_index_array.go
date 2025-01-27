@@ -13,21 +13,23 @@ import (
 // using a precomputed table; (2) otherwise, elements are referred to by index.
 type FrIndexArray struct {
 	// The data stored in this column (as indexes into the heap).
-	elements []int32
+	elements []uint32
 	// The set of elements in this array
 	heap []fr.Element
+	// Pool records value allocated to heap.  This helps ensure heap indices are
+	// reused.
+	pool map[[4]uint64]uint32
 	// Maximum number of bits required to store an element of this array.
 	bitwidth uint
 }
 
 // NewFrIndexArray constructs a new field array with a given capacity.
 func NewFrIndexArray(height uint, bitwidth uint) *FrIndexArray {
-	elements := make([]int32, height)
-	// NOTE: must be one element on the heap initially, otherwise index 0 gets
-	// confused with element 0.  This first element is always unused.
-	heap := make([]fr.Element, 1)
+	elements := make([]uint32, height)
+	heap := make([]fr.Element, 0)
+	pool := make(map[[4]uint64]uint32)
 	//
-	return &FrIndexArray{elements, heap, bitwidth}
+	return &FrIndexArray{elements, heap, pool, bitwidth}
 }
 
 // Len returns the number of elements in this field array.
@@ -42,36 +44,40 @@ func (p *FrIndexArray) BitWidth() uint {
 
 // Get returns the field element at the given index in this array.
 func (p *FrIndexArray) Get(index uint) fr.Element {
-	// Check for pool element
-	if elem := p.elements[index]; elem <= 0 {
-		return pool16bit[-elem]
-	} else {
-		return p.heap[elem]
-	}
+	return p.heap[p.elements[index]]
 }
 
 // Set sets the field element at the given index in this array, overwriting the
 // original value.
 func (p *FrIndexArray) Set(index uint, element fr.Element) {
-	//
-	if e := element.Uint64(); element.IsUint64() && e < 65536 {
-		p.elements[index] = -int32(e)
-	} else {
-		p.elements[index] = int32(len(p.heap))
+	// Lookup element in pool
+	offset, ok := p.pool[element]
+	// Check whether allocated already, or not
+	if !ok {
+		// Not allocated, so allocate now.
+		offset = uint32(len(p.heap))
+		p.pool[element] = offset
 		p.heap = append(p.heap, element)
 	}
+	// Assign element
+	p.elements[index] = offset
 }
 
 // Clone makes clones of this array producing an otherwise identical copy.
 func (p *FrIndexArray) Clone() util.Array[fr.Element] {
 	// Allocate sufficient memory
-	elements := make([]int32, len(p.elements))
+	elements := make([]uint32, len(p.elements))
 	heap := make([]fr.Element, len(p.heap))
+	pool := make(map[[4]uint64]uint32, len(p.pool))
 	// Copy over the data
 	copy(elements, p.elements)
 	copy(heap, p.heap)
+	// Initialise pool
+	for i, e := range heap {
+		pool[e] = uint32(i)
+	}
 	//
-	return &FrIndexArray{elements, heap, p.bitwidth}
+	return &FrIndexArray{elements, heap, pool, p.bitwidth}
 }
 
 // Slice out a subregion of this array.
@@ -82,13 +88,18 @@ func (p *FrIndexArray) Slice(start uint, end uint) util.Array[fr.Element] {
 // PadFront (i.e. insert at the beginning) this array with n copies of the given padding value.
 func (p *FrIndexArray) PadFront(n uint, padding fr.Element) util.Array[fr.Element] {
 	// Allocate sufficient memory
-	elements := make([]int32, uint(len(p.elements))+n)
+	elements := make([]uint32, uint(len(p.elements))+n)
 	heap := make([]fr.Element, len(p.heap))
+	pool := make(map[[4]uint64]uint32, len(p.pool))
 	// Copy over the data
 	copy(elements[n:], p.elements)
 	copy(heap, p.heap)
+	// Initialise pool
+	for i, e := range heap {
+		pool[e] = uint32(i)
+	}
 	//
-	narr := &FrIndexArray{elements, heap, p.bitwidth}
+	narr := &FrIndexArray{elements, heap, pool, p.bitwidth}
 	// Go padding!
 	for i := uint(0); i < n; i++ {
 		narr.Set(i, padding)
@@ -101,15 +112,9 @@ func (p *FrIndexArray) PadFront(n uint, padding fr.Element) util.Array[fr.Elemen
 // if this failed (for some reason).
 func (p *FrIndexArray) Write(w io.Writer) error {
 	for _, e := range p.elements {
-		var fv fr.Element
-		//
-		if e <= 0 {
-			fv = pool16bit[-e]
-		} else {
-			fv = p.heap[e]
-		}
+		element := p.heap[e]
 		// Read exactly 32 bytes
-		bytes := fv.Bytes()
+		bytes := element.Bytes()
 		// Write them out
 		if _, err := w.Write(bytes[:]); err != nil {
 			return err

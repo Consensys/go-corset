@@ -24,13 +24,8 @@ func NewFrArray(height uint, bitWidth uint) FrArray {
 	case bitWidth <= 16:
 		var pool FrIndexPool[uint16] = NewFrIndexPool[uint16]()
 		return NewFrPoolArray[uint16](height, bitWidth, pool)
-	case bitWidth < 256:
-		return NewFrIndexArray(height, bitWidth)
 	default:
-		// NOTE: this case is currently optimised under the assumption that
-		// columns of size 256bits are always inverses.  Such columns currently
-		// cannot benefit from an index array.
-		return NewFrElementArray(height, bitWidth)
+		return NewFrIndexArray(height, bitWidth)
 	}
 }
 
