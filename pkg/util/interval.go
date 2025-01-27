@@ -26,6 +26,12 @@ func NewInterval(lower *big.Int, upper *big.Int) *Interval {
 	return &Interval{min, max}
 }
 
+// BitWidth returns the minimum number of bits required to store all elements in
+// this interval.
+func (p *Interval) BitWidth() uint {
+	return uint(p.max.BitLen())
+}
+
 // Set assigns a given value to this interval.
 func (p *Interval) Set(val *Interval) {
 	p.min.Set(&val.min)

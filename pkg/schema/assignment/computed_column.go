@@ -24,8 +24,9 @@ type ComputedColumn[E sc.Evaluable] struct {
 // NewComputedColumn constructs a new computed column with a given name and
 // determining expression.  More specifically, that expression is used to
 // compute the values for this column during trace expansion.
-func NewComputedColumn[E sc.Evaluable](context trace.Context, name string, expr E) *ComputedColumn[E] {
-	column := sc.NewColumn(context, name, &sc.FieldType{})
+func NewComputedColumn[E sc.Evaluable](context trace.Context, name string, datatype sc.Type,
+	expr E) *ComputedColumn[E] {
+	column := sc.NewColumn(context, name, datatype)
 	// FIXME: Determine computed columns type?
 	return &ComputedColumn[E]{column, expr}
 }
@@ -78,7 +79,7 @@ func (p *ComputedColumn[E]) ComputeColumns(tr trace.Trace) ([]trace.ArrayColumn,
 	// Determine multiplied height
 	height := tr.Height(p.target.Context)
 	// Make space for computed data
-	data := field.NewFrArray(height, 256)
+	data := field.NewFrArray(height, p.target.DataType.BitWidth())
 	// Expand the trace
 	for i := uint(0); i < data.Len(); i++ {
 		val := p.expr.EvalAt(int(i), tr)

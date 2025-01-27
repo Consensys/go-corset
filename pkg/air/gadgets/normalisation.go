@@ -43,8 +43,9 @@ func ApplyPseudoInverseGadget(e air.Expr, schema *air.Schema) air.Expr {
 	index, ok := sc.ColumnIndexOf(schema, ctx.Module(), name)
 	// Add new column (if it does not already exist)
 	if !ok {
-		// Add computed column
-		index = schema.AddAssignment(assignment.NewComputedColumn[air.Expr](ctx, name, ie))
+		// Add computed column, noting that inverses often require the full
+		// 256bits available.
+		index = schema.AddAssignment(assignment.NewComputedColumn[air.Expr](ctx, name, &sc.FieldType{}, ie))
 		// Construct 1/e
 		inv_e := air.NewColumnAccess(index, 0)
 		// Construct e/e

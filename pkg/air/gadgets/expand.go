@@ -13,7 +13,7 @@ import (
 // arbitrary expression and returning its index.  However, this can be optimised
 // in the case the given expression is a direct column access by simply
 // returning the accessed column index.
-func Expand(ctx trace.Context, e air.Expr, schema *air.Schema) uint {
+func Expand(ctx trace.Context, bitwidth uint, e air.Expr, schema *air.Schema) uint {
 	if ctx.IsVoid() || ctx.IsConflicted() {
 		panic("conflicting (or void) context")
 	}
@@ -29,7 +29,7 @@ func Expand(ctx trace.Context, e air.Expr, schema *air.Schema) uint {
 	// Add new column (if it does not already exist)
 	if !ok {
 		// Add computed column
-		index = schema.AddAssignment(assignment.NewComputedColumn[air.Expr](ctx, name, e))
+		index = schema.AddAssignment(assignment.NewComputedColumn[air.Expr](ctx, name, sc.NewUintType(bitwidth), e))
 		// Construct v == [e]
 		v := air.NewColumnAccess(index, 0)
 		// Construct 1 == e/e

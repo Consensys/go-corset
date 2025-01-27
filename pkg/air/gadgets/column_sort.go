@@ -42,8 +42,15 @@ func ApplyColumnSortGadget(col uint, sign bool, bitwidth uint, schema *air.Schem
 	deltaIndex, ok := sc.ColumnIndexOf(schema, column.Context.Module(), deltaName)
 	// Add new column (if it does not already exist)
 	if !ok {
+		// NOTE: require delta bitwidth is greater than 16 because, otherwise,
+		// failing traces can result in a panic when the (miscomputed) delta
+		// overflows the underlying column.  This works around the problem by
+		// ensuring the underlying column is an instanceof FrIndexColumn (since
+		// this can hold values of any width).
+		deltaBitwidth := max(17, bitwidth)
+		//
 		deltaIndex = schema.AddAssignment(
-			assignment.NewComputedColumn[air.Expr](column.Context, deltaName, Xdiff))
+			assignment.NewComputedColumn[air.Expr](column.Context, deltaName, sc.NewUintType(deltaBitwidth), Xdiff))
 	}
 	// Add necessary bitwidth constraints
 	ApplyBitwidthGadget(deltaIndex, bitwidth, schema)

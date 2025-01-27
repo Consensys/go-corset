@@ -103,10 +103,11 @@ func lowerVanishingConstraintToAir(v VanishingConstraint, mirSchema *Schema, air
 // value of that expression, along with appropriate constraints to enforce the
 // expected value.
 func lowerRangeConstraintToAir(v RangeConstraint, mirSchema *Schema, airSchema *air.Schema) {
+	bitwidth := v.Expr.IntRange(mirSchema).BitWidth()
 	// Lower target expression
 	target := lowerExprTo(v.Context, v.Expr, mirSchema, airSchema)
 	// Expand target expression (if necessary)
-	column := air_gadgets.Expand(v.Context, target, airSchema)
+	column := air_gadgets.Expand(v.Context, bitwidth, target, airSchema)
 	// Yes, a constraint is implied.  Now, decide whether to use a range
 	// constraint or just a vanishing constraint.
 	if v.BoundedAtMost(2) {
@@ -137,12 +138,14 @@ func lowerLookupConstraintToAir(c LookupConstraint, mirSchema *Schema, airSchema
 	sources := make([]uint, len(c.Sources))
 	//
 	for i := 0; i < len(targets); i++ {
+		targetBitwidth := c.Targets[i].IntRange(mirSchema).BitWidth()
+		sourceBitwidth := c.Sources[i].IntRange(mirSchema).BitWidth()
 		// Lower source and target expressions
 		target := lowerExprTo(c.TargetContext, c.Targets[i], mirSchema, airSchema)
 		source := lowerExprTo(c.SourceContext, c.Sources[i], mirSchema, airSchema)
 		// Expand them
-		targets[i] = air_gadgets.Expand(c.TargetContext, target, airSchema)
-		sources[i] = air_gadgets.Expand(c.SourceContext, source, airSchema)
+		targets[i] = air_gadgets.Expand(c.TargetContext, targetBitwidth, target, airSchema)
+		sources[i] = air_gadgets.Expand(c.SourceContext, sourceBitwidth, source, airSchema)
 	}
 	// finally add the constraint
 	airSchema.AddLookupConstraint(c.Handle, c.SourceContext, c.TargetContext, sources, targets)

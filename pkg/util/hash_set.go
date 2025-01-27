@@ -50,6 +50,8 @@ func (p *HashSet[T]) Size() uint {
 }
 
 // MaxBucket returns the size of the largest bucket.
+//
+//nolint:revive
 func (p *HashSet[T]) MaxBucket() uint {
 	m := uint(0)
 	for _, b := range p.items {
