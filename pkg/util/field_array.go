@@ -50,8 +50,10 @@ func NewFrArray(height uint, bitWidth uint) FrArray {
 		var pool FrIndexPool[uint16] = NewFrIndexPool[uint16]()
 		return NewFrPoolArray[uint16](height, bitWidth, pool)
 	default:
-		//var pool FrMapPool = NewFrMapPool(bitWidth)
-		//return NewFrPoolArray[uint32](height, bitWidth, pool)
+		//if bitWidth >= 128 {
+		//	var pool FrMapPool = NewFrMapPool(bitWidth)
+		//	return NewFrPoolArray[uint32](height, bitWidth, pool)
+		//}
 		// return NewFrPtrElementArray(height, bitWidth)
 		return NewFrElementArray(height, bitWidth)
 	}
