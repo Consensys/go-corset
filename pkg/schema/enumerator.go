@@ -4,6 +4,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/field"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -42,7 +43,7 @@ func (p *TraceEnumerator) Next() tr.Trace {
 	// Construct each column from the sequence
 	for iter := p.schema.InputColumns(); iter.HasNext(); {
 		col := iter.Next()
-		data := util.NewFrArray(p.lines, 256)
+		data := field.NewFrArray(p.lines, 256)
 		// Slice nrows values from elems
 		for k := uint(0); k < p.lines; k++ {
 			data.Set(k, elems[j])

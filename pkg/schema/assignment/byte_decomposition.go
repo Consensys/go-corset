@@ -7,6 +7,7 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/sexp"
 )
 
@@ -78,7 +79,7 @@ func (p *ByteDecomposition) ComputeColumns(tr trace.Trace) ([]trace.ArrayColumn,
 	for i := 0; i < n; i++ {
 		ith := p.targets[i]
 		// Construct a byte array for ith byte
-		data := util.NewFrArray(height, 8)
+		data := field.NewFrArray(height, 8)
 		// Construct a byte column for ith byte
 		cols[i] = trace.NewArrayColumn(ith.Context, ith.Name, data, padding[i])
 	}

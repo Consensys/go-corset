@@ -4,6 +4,7 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/sexp"
 )
 
@@ -77,7 +78,7 @@ func (p *ComputedColumn[E]) ComputeColumns(tr trace.Trace) ([]trace.ArrayColumn,
 	// Determine multiplied height
 	height := tr.Height(p.target.Context)
 	// Make space for computed data
-	data := util.NewFrArray(height, 256)
+	data := field.NewFrArray(height, 256)
 	// Expand the trace
 	for i := uint(0); i < data.Len(); i++ {
 		val := p.expr.EvalAt(int(i), tr)

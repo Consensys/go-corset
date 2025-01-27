@@ -2,9 +2,34 @@ package util
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
+
+// Array provides a generice interface to an array of elements.  Typically, we
+// are interested in arrays of field elements here.
+type Array[T comparable] interface {
+	// Returns the number of elements in this array.
+	Len() uint
+	// Get returns the element at the given index in this array.
+	Get(uint) T
+	// Set the element at the given index in this array, overwriting the
+	// original value.
+	Set(uint, T)
+	// Clone makes clones of this array producing an otherwise identical copy.
+	Clone() Array[T]
+	// Slice out a subregion of this array.
+	Slice(uint, uint) Array[T]
+	// Return the number of bits required to store an element of this array.
+	BitWidth() uint
+	// Insert a given number of copies of T at start of array producing an
+	// updated array.
+	PadFront(uint, T) Array[T]
+	// Write out the contents of this array, assuming a minimal unit of 1 byte
+	// per element.
+	Write(w io.Writer) error
+}
 
 // Prepend creates a new slice containing the result of prepending the given
 // item onto the end of the given slice.  Observe that, unlike the built-in

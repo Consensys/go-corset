@@ -7,6 +7,7 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/sexp"
 )
 
@@ -88,7 +89,7 @@ func (p *Interleaving) ComputeColumns(trace tr.Trace) ([]tr.ArrayColumn, error) 
 	// multiplier already includes the width as a factor.
 	height := trace.Height(ctx) / width
 	// Construct empty array
-	data := util.NewFrArray(height*width, bit_width)
+	data := field.NewFrArray(height*width, bit_width)
 	// Offset just gives the column index
 	offset := uint(0)
 	// Copy interleaved data
