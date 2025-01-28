@@ -6,6 +6,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/termio"
 )
 
 // ColumnFilter is a predicate which determines whether a given column should be
@@ -121,17 +122,17 @@ func (p *Printer) Print(trace Trace) {
 	// Initialise row indices
 	for j := start; j < end; j++ {
 		tp.Set(1+j-start, 0, fmt.Sprintf("%d", j))
-		tp.SetEscape(1+j-start, 0, util.NewAnsiEscape().FgColour(util.TERM_WHITE).Build())
+		tp.SetEscape(1+j-start, 0, termio.NewAnsiEscape().FgColour(termio.TERM_WHITE).Build())
 	}
 	// Construct suitable highlighting escape
-	highlightEscape := util.BoldAnsiEscape().FgColour(util.TERM_RED).Build()
+	highlightEscape := termio.BoldAnsiEscape().FgColour(termio.TERM_RED).Build()
 	// Fill table
 	for i, col := range columns {
 		column := trace.Column(col)
 		maxRow := min(end, column.Data().Len())
 		// Set columns names
 		tp.Set(0, uint(i+1), column.Name())
-		tp.SetEscape(0, uint(i+1), util.NewAnsiEscape().FgColour(util.TERM_WHITE).Build())
+		tp.SetEscape(0, uint(i+1), termio.NewAnsiEscape().FgColour(termio.TERM_WHITE).Build())
 		//
 		for row := start; row < maxRow; row++ {
 			var hex string
