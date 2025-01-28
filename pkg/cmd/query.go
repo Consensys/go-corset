@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/spf13/cobra"
 )
 
@@ -11,7 +12,6 @@ var queryCmd = &cobra.Command{
 	Long:  `Query specific information from the binary package.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		field := GetFlag(cmd, "field-columns")
-		fieldType := GetString(cmd, "field-type")
 		// Parse constraints
 		hirSchema := readSchema(true, false, true, args[0:])
 		if field {
@@ -22,7 +22,7 @@ var queryCmd = &cobra.Command{
 				// Extract type for ith column
 				colType := scCol.DataType
 				// If type field
-				if colType.String() == fieldType {
+				if colType.String() == (&schema.FieldType{}).String() {
 					fmt.Println(scCol.Name)
 				}
 			}
@@ -34,5 +34,4 @@ var queryCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(queryCmd)
 	queryCmd.Flags().Bool("field-columns", false, "list column names of field type. ")
-	queryCmd.Flags().String("field-type", "u128", "specify field type. Default is field type u128 for BLS12-377.")
 }
