@@ -12,8 +12,9 @@ var queryCmd = &cobra.Command{
 	Long:  `Query specific information from the binary package.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		field := GetFlag(cmd, "field-columns")
+		explicit := GetFlag(cmd, "explicit")
 		// Parse constraints
-		hirSchema := readSchema(true, false, true, args[0:])
+		hirSchema := readSchema(true, false, true, explicit, args[0:])
 		if field {
 			schemaCols := hirSchema.Columns()
 			// Check each column
@@ -34,4 +35,5 @@ var queryCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(queryCmd)
 	queryCmd.Flags().Bool("field-columns", false, "list column names of field type. ")
+	queryCmd.Flags().Bool("explicit", false, "fill columns with default field type when they don't have explicit types. ")
 }

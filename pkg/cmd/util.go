@@ -141,7 +141,7 @@ func readTraceFile(filename string) []trace.RawColumn {
 }
 
 // Read the constraints file, whilst optionally including the standard library.
-func readSchema(stdlib bool, debug bool, legacy bool, filenames []string) *hir.Schema {
+func readSchema(stdlib bool, debug bool, legacy bool, explicit bool, filenames []string) *hir.Schema {
 	var err error
 	//
 	if len(filenames) == 0 {
@@ -149,7 +149,7 @@ func readSchema(stdlib bool, debug bool, legacy bool, filenames []string) *hir.S
 		os.Exit(5)
 	} else if len(filenames) == 1 && path.Ext(filenames[0]) == ".bin" {
 		// Single (binary) file supplied
-		_, schema := readBinaryFile(legacy, filenames[0])
+		_, schema := readBinaryFile(legacy, explicit, filenames[0])
 		// Ignore header information here.
 		return schema
 	}
@@ -385,7 +385,7 @@ const BINFILE_MINOR_VERSION uint16 = 0
 var ZKBINARY [8]byte = [8]byte{'z', 'k', 'b', 'i', 'n', 'a', 'r', 'y'}
 
 // Read a "bin" file and extract the metadata bytes, along with the schema.
-func readBinaryFile(legacy bool, filename string) (*BinaryFile, *hir.Schema) {
+func readBinaryFile(legacy bool, explicit bool, filename string) (*BinaryFile, *hir.Schema) {
 	var (
 		header BinaryFile
 		schema *hir.Schema
@@ -395,7 +395,7 @@ func readBinaryFile(legacy bool, filename string) (*BinaryFile, *hir.Schema) {
 	// Handle errors
 	if err == nil && (legacy || !isBinaryFile(data)) {
 		// Read the binary file
-		schema, err = binfile.HirSchemaFromJson(data)
+		schema, err = binfile.HirSchemaFromJson(data, explicit)
 	} else if err == nil {
 		// Read the Gob file
 		buffer := bytes.NewBuffer(data)
