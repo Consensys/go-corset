@@ -75,7 +75,7 @@ func constructLexicographicSortingPrefix(columns []uint, signs []bool, schema *a
 // Add lexicographic selector bits, including the necessary constraints.  Each
 // selector bit is given a binarity constraint to ensure it is always either 1
 // or 0.  A selector bit can only be set if all bits to its left are unset, and
-// there is a strict difference between the two values for its colummn.
+// there is a strict difference between the two values for its column.
 //
 // NOTE: this implementation differs from the original corset which used an
 // additional "Eq" bit to help ensure at most one selector bit was enabled.
@@ -86,7 +86,7 @@ func addLexicographicSelectorBits(prefix string, context trace.Context,
 	bitIndex := deltaIndex + 1
 	// Add binary constraints for selector bits
 	for i := uint(0); i < ncols; i++ {
-		// Add binarity constraints (i.e. to enfoce that this column is a bit).
+		// Add binarity constraints (i.e. to enforce that this column is a bit).
 		ApplyBinaryGadget(bitIndex+i, schema)
 	}
 	// Apply constraints to ensure at most one is set.
@@ -170,7 +170,7 @@ func AddBitArray(prefix string, count int, schema *air.Schema) []uint {
 		// ith := fmt.Sprintf("%s:%d", prefix, i)
 		// // Add (computed) column
 		// bits[i] = schema.AddColumn(ith, sc.NewUintType(1))
-		// Add binarity constraints (i.e. to enfoce that this column is a bit).
+		// Add binarity constraints (i.e. to enforce that this column is a bit).
 		ApplyBinaryGadget(bits[i], schema)
 	}
 	//
