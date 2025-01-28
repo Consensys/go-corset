@@ -22,7 +22,7 @@ var compileCmd = &cobra.Command{
 		output := GetString(cmd, "output")
 		metadata := []byte{}
 		// Parse constraints
-		hirSchema := readSchema(stdlib, debug, legacy, args)
+		hirSchema := readSchema(stdlib, debug, legacy, false, args)
 		// Serialise as a gob file.
 		writeBinaryFile(metadata, hirSchema, legacy, output)
 	},

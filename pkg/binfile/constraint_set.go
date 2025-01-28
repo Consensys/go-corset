@@ -120,7 +120,7 @@ type constraintSet struct {
 
 // HirSchemaFromJson constructs an HIR schema from a set of bytes representing
 // the JSON encoding for a set of constraints / columns.
-func HirSchemaFromJson(bytes []byte) (schema *hir.Schema, err error) {
+func HirSchemaFromJson(bytes []byte, explicit bool) (schema *hir.Schema, err error) {
 	var res constraintSet
 	// Unmarshall
 	jsonErr := json.Unmarshal(bytes, &res)
@@ -129,7 +129,7 @@ func HirSchemaFromJson(bytes []byte) (schema *hir.Schema, err error) {
 	// Transfer column info
 	transferColumnInfo(&res.Columns)
 	// Allocate registers
-	colmap := allocateRegisters(&res, schema)
+	colmap := allocateRegisters(&res, schema, explicit)
 	// Double check allocation is correct
 	checkAllocation(&res.Columns, colmap, schema)
 	// Finally, add constraints
@@ -163,7 +163,7 @@ func transferColumnInfo(cs *columnSet) {
 // Allocate all registers as columns in the given schema, whilst producing a
 // "column mapping".  The mapping goes from binfile column indices to schema
 // column indices.
-func allocateRegisters(cs *constraintSet, schema *hir.Schema) map[uint]uint {
+func allocateRegisters(cs *constraintSet, schema *hir.Schema, explicit bool) map[uint]uint {
 	colmap := make(map[uint]uint)
 	//
 	for _, c := range cs.Columns.Registers {
@@ -173,7 +173,7 @@ func allocateRegisters(cs *constraintSet, schema *hir.Schema) map[uint]uint {
 			handle := asHandle(c.Handle)
 			mid := registerModule(schema, handle.module)
 			ctx := trace.NewContext(mid, c.LengthMultiplier)
-			col_type := c.Type.toHir()
+			col_type := c.Type.toHir(explicit)
 			// Add column for this
 			cid := schema.AddDataColumn(ctx, handle.column, col_type)
 			// Check whether a type constraint required or not.
