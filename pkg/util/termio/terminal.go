@@ -190,7 +190,8 @@ func (p *terminalCanvas) renderLine(line uint) []byte {
 		}
 		// Clip chunk if it overlaps
 		if c.xpos < xpos {
-			clip := xpos - c.xpos
+			diff := xpos - c.xpos
+			clip := min(len(c_text), int(diff))
 			c_text = c_text[clip:]
 		}
 		// Construct string
@@ -209,7 +210,7 @@ func (p *terminalCanvas) renderLine(line uint) []byte {
 			bytes = append(bytes, []byte(c_str)...)
 		}
 		// Advance cursor
-		xpos += uint(len(c.text))
+		xpos += uint(len(c_text))
 	}
 	// fill to end of line
 	for ; xpos < p.width; xpos++ {

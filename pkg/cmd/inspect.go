@@ -67,7 +67,8 @@ func construct(schema sc.Schema, trace tr.Trace) *termio.Terminal {
 		fmt.Println(error.Error(err))
 		os.Exit(1)
 	}
-	inspector := &inspector{schema, trace}
+	// Construct inspector state
+	inspector := newInspector(schema, trace)
 	//
 	term.Add(constructTabs(schema))
 	term.Add(widget.NewSeparator("⎯"))
@@ -90,7 +91,8 @@ func constructTabs(schema sc.Schema) termio.Widget {
 // ==================================================================
 
 type inspector struct {
-	trace tr.Trace
+	schema sc.Schema
+	trace  tr.Trace
 	// Modules
 	views []moduleView
 	// Selected module
@@ -100,31 +102,38 @@ type inspector struct {
 func newInspector(schema sc.Schema, trace tr.Trace) *inspector {
 	nmods := schema.Modules().Count()
 	views := make([]moduleView, nmods)
-	// initialise views
-	for iter := schema.Columns(); iter.HasNext(); {
-		ith := iter.Next()
-		mid := ith.Context.Module()
-		views[mid].columns = append(views[mid].columns, i))
+	// initialise module views
+	for i := uint(0); i < trace.Width(); i++ {
+		mid := trace.Column(i).Context().Module()
+		views[mid].columns = append(views[mid].columns, i)
 	}
 	//
-	return &inspector{trace, views, 0}
+	return &inspector{schema, trace, views, 0}
 }
 
 func (p *inspector) ColumnWidth(col uint) uint {
-	return 1
+	//return p.views[p.module].widths[col]
+	return 10
 }
 
 func (p *inspector) CellAt(col, row uint) string {
+	view := &p.views[p.module]
+	if row >= uint(len(view.columns)) {
+		return "???"
+	} else if col == 0 {
+		cid := view.columns[row]
+		// Determine column name
+		return p.schema.Columns().Nth(cid).Name
+	}
+	//
 	return "x"
 }
 
 func (p *inspector) TableDimensions() (uint, uint) {
-	// Find columns in the table
-	cols, ok := p.schema.Columns().Find(func(c sc.Column) bool {
-		return c.Context.Module() == p.module
-	})
-	//
-	return 5, uint(len(cols))
+	nrows := p.trace.Height(tr.NewContext(p.module, 1))
+	ncols := uint(len(p.views[p.module].columns))
+
+	return nrows, ncols
 }
 
 type moduleView struct {
