@@ -2,6 +2,8 @@ package util
 
 import (
 	"fmt"
+
+	"github.com/consensys/go-corset/pkg/util/termio"
 )
 
 // TablePrinter is useful for printing tables to the terminal.
@@ -94,7 +96,7 @@ func (p *TablePrinter) Print() {
 			}
 			// Cancel colour (if applicable)
 			if p.enableEscapes && jth_escape != "" {
-				fmt.Print(ResetAnsiEscape().Build())
+				fmt.Print(termio.ResetAnsiEscape().Build())
 			}
 
 			fmt.Print(" |")
