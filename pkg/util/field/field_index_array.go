@@ -86,7 +86,19 @@ func (p *FrIndexArray) Clone() util.Array[fr.Element] {
 
 // Slice out a subregion of this array.
 func (p *FrIndexArray) Slice(start uint, end uint) util.Array[fr.Element] {
-	panic("todo")
+	// could be more efficient.
+	elements := make([]uint32, len(p.elements))
+	heap := make([]fr.Element, len(p.heap))
+	pool := make(map[[4]uint64]uint32, len(p.pool))
+	// Copy over the data
+	copy(elements, p.elements)
+	copy(heap, p.heap)
+	// Initialise pool
+	for i, e := range heap {
+		pool[e] = uint32(i)
+	}
+	//
+	return &FrIndexArray{elements[start:end], heap, pool, p.bitwidth}
 }
 
 // PadFront (i.e. insert at the beginning) this array with n copies of the given padding value.
