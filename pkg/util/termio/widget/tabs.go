@@ -14,6 +14,17 @@ func NewTabs(tabs ...string) *Tabs {
 	return &Tabs{tabs, 0}
 }
 
+// Selected returns the currently selected tab.
+func (p *Tabs) Selected() uint {
+	return p.selected
+}
+
+// Select sets the given selected tab.  If the index is greater than the
+// available tabs, then it automatically "wraps around".
+func (p *Tabs) Select(tab uint) {
+	p.selected = tab % uint(len(p.tabs))
+}
+
 // Render the tabs widget to a given canvas.
 func (p *Tabs) Render(canvas termio.Canvas) {
 	w, _ := canvas.GetDimensions()

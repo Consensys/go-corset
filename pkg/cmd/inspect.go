@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"time"
 
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
@@ -35,30 +34,32 @@ var inspectCmd = &cobra.Command{
 		//
 		builder := sc.NewTraceBuilder(schema).Expand(true).Parallel(true)
 		//
-		trace, errs := builder.Build(columns)
+		trace, errors := builder.Build(columns)
 		//
-		if len(errs) > 0 {
-			fmt.Println(errs)
+		if len(errors) == 0 {
+			// Run the inspector.
+			errors = inspect(schema, trace)
+		}
+		// Sanity check what happened
+		if len(errors) > 0 {
+			for _, err := range errors {
+				fmt.Println(err)
+			}
 			os.Exit(1)
 		}
-		//
-		inspect(schema, trace)
 	},
 }
 
 // Inspect a given trace using a given schema.
-func inspect(schema sc.Schema, trace tr.Trace) {
+func inspect(schema sc.Schema, trace tr.Trace) []error {
 	// Construct inspector window
 	inspector := construct(schema, trace)
 	// Render inspector
 	if err := inspector.Render(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		return []error{err}
 	}
 	//
-	time.Sleep(5 * time.Second)
-	//
-	inspector.Close()
+	return inspector.Loop()
 }
 
 func construct(schema sc.Schema, trace tr.Trace) *Inspector {
@@ -86,8 +87,6 @@ type Inspector struct {
 	//
 	tabs  *widget.Tabs
 	table *widget.Table
-	// Selected module
-	module uint
 }
 
 // NewInspector constructs a new inspector on given terminal.
@@ -101,7 +100,7 @@ func NewInspector(term *termio.Terminal, schema sc.Schema, trace tr.Trace) *Insp
 		views[mid].columns = append(views[mid].columns, i)
 	}
 	//
-	inspector := &Inspector{term, schema, trace, views, tabs, table, 0}
+	inspector := &Inspector{term, schema, trace, views, tabs, table}
 	table.SetSource(inspector)
 	//
 	return inspector
@@ -117,6 +116,22 @@ func (p *Inspector) Close() error {
 	return p.term.Restore()
 }
 
+// KeyPressed allows the inspector to react to a key being pressed by the user.
+func (p *Inspector) KeyPressed(key uint16) bool {
+	switch key {
+	case termio.TAB:
+		p.tabs.Select(p.tabs.Selected() + 1)
+	case termio.BACKTAB:
+		p.tabs.Select(p.tabs.Selected() - 1)
+	case 'q':
+		return true
+	default:
+		fmt.Printf("ignoring %x\n", key)
+	}
+	//
+	return false
+}
+
 // ColumnWidth gets the width of a given column in the main table of the
 // inspector.  Note that columns here are table columns, not trace columns.
 func (p *Inspector) ColumnWidth(col uint) uint {
@@ -127,7 +142,10 @@ func (p *Inspector) ColumnWidth(col uint) uint {
 // CellAt returns the contents of a given cell in the main table of the
 // inspector.
 func (p *Inspector) CellAt(col, row uint) string {
-	view := &p.views[p.module]
+	// Determine currently selected module
+	module := p.tabs.Selected()
+	//
+	view := &p.views[module]
 	if row >= uint(len(view.columns)) {
 		return "???"
 	} else if col == 0 {
@@ -142,10 +160,38 @@ func (p *Inspector) CellAt(col, row uint) string {
 // TableDimensions returns the maxium dimensions of the main table of the
 // inspector.
 func (p *Inspector) TableDimensions() (uint, uint) {
-	nrows := p.trace.Height(tr.NewContext(p.module, 1))
-	ncols := uint(len(p.views[p.module].columns))
-
+	// Determine currently selected module
+	module := p.tabs.Selected()
+	//
+	nrows := p.trace.Height(tr.NewContext(module, 1))
+	ncols := uint(len(p.views[module].columns))
+	//
 	return nrows, ncols
+}
+
+// Loop provides a read / update / render loop.
+func (p *Inspector) Loop() []error {
+	var errors []error
+	//
+	for {
+		if key, err := p.term.ReadKey(); err != nil {
+			errors = append(errors, err)
+			break
+		} else if exit := p.KeyPressed(key); exit {
+			break
+		}
+		// Rerender window
+		if err := p.Render(); err != nil {
+			errors = append(errors, err)
+			break
+		}
+	}
+	// Attempt to restore terminal state
+	if err := p.term.Restore(); err != nil {
+		errors = append(errors, err)
+	}
+	// Done
+	return errors
 }
 
 func initInspectorWidgets(term *termio.Terminal, schema sc.Schema) (tabs *widget.Tabs, table *widget.Table) {
@@ -155,6 +201,7 @@ func initInspectorWidgets(term *termio.Terminal, schema sc.Schema) (tabs *widget
 	term.Add(tabs)
 	term.Add(widget.NewSeparator("⎯"))
 	term.Add(table)
+	//
 	return tabs, table
 }
 

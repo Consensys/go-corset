@@ -10,6 +10,18 @@ import (
 	"golang.org/x/term"
 )
 
+// ESC is the escape code.
+const ESC uint16 = 0x1b
+
+// TAB indicates the horizontal tab
+const TAB uint16 = 0x09
+
+// BACKTAB indicates shift + tab
+const BACKTAB uint16 = 0x5b5a
+
+// UNKNOWN is a fall-back for unknown escape sequences
+const UNKNOWN uint16 = 0x5bff
+
 // Terminal provides a simple top-level window.
 type Terminal struct {
 	// file descriptor for output.
@@ -43,6 +55,35 @@ func NewTerminal() (*Terminal, error) {
 	terminal := term.NewTerminal(screen, "")
 	//
 	return &Terminal{fd, terminal, state, nil}, nil
+}
+
+// ReadKey returns a keyevent from the keyboard.  This is either an ASCII
+// character, or an extended escape code.
+func (t *Terminal) ReadKey() (uint16, error) {
+	var key [1]byte
+	//
+	if _, err := os.Stdin.Read(key[:]); err != nil {
+		return 0, err
+	} else if uint16(key[0]) != ESC {
+		return uint16(key[0]), nil
+	}
+	// Start of escape sequence
+	if _, err := os.Stdin.Read(key[:]); err != nil {
+		return 0, err
+	} else if key[0] != '[' {
+		// Unknown or malformed escape sequence.
+		return UNKNOWN, nil
+	}
+	// Assume single byte escape sequence for now.
+	if _, err := os.Stdin.Read(key[:]); err != nil {
+		return 0, err
+	}
+	switch key[0] {
+	case 'Z':
+		return BACKTAB, nil
+	}
+	// unknown key
+	return UNKNOWN, nil
 }
 
 // GetSize returns the dimensions of the terminal.
