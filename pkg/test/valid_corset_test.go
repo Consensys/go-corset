@@ -1174,13 +1174,13 @@ func Check(t *testing.T, stdlib bool, test string) {
 	// Record how many tests executed.
 	nTests := 0
 	// Iterate possible testfile extensions
-	for _, tfExt := range TESTFILE_EXTENSIONS {
+	for _, cfg := range TESTFILE_EXTENSIONS {
 		var traces [][]trace.RawColumn
 		// Construct test filename
-		testFilename := fmt.Sprintf("%s/%s.%s", TestDir, test, tfExt.extension)
+		testFilename := fmt.Sprintf("%s/%s.%s", TestDir, test, cfg.extension)
 		traces = ReadTracesFile(testFilename)
 		// Run tests
-		BinCheckTraces(t, testFilename, tfExt.expected, tfExt.expand, traces, schema)
+		BinCheckTraces(t, testFilename, cfg, traces, schema)
 		// Record how many tests we found
 		nTests += len(traces)
 	}
@@ -1190,22 +1190,22 @@ func Check(t *testing.T, stdlib bool, test string) {
 	}
 }
 
-func BinCheckTraces(t *testing.T, test string, expected bool, expand bool,
+func BinCheckTraces(t *testing.T, test string, cfg TestConfig,
 	traces [][]trace.RawColumn, srcSchema *hir.Schema) {
 	// Run checks using schema compiled from source
-	CheckTraces(t, test, MAX_PADDING, expected, expand, traces, srcSchema)
+	CheckTraces(t, test, MAX_PADDING, cfg, traces, srcSchema)
 	// Construct binary schema
 	if binSchema := encodeDecodeSchema(t, srcSchema); binSchema != nil {
 		// Run checks using schema from binary file.  Observe, to try and reduce
 		// overhead of repeating all the tests we don't consider padding.
-		CheckTraces(t, test, 0, expected, expand, traces, binSchema)
+		CheckTraces(t, test, 0, cfg, traces, binSchema)
 	}
 }
 
 // Check a given set of tests have an expected outcome (i.e. are
 // either accepted or rejected) by a given set of constraints.
-func CheckTraces(t *testing.T, test string, maxPadding uint, expected bool, expand bool,
-	traces [][]trace.RawColumn, hirSchema *hir.Schema) {
+func CheckTraces(t *testing.T, test string, maxPadding uint, cfg TestConfig, traces [][]trace.RawColumn,
+	hirSchema *hir.Schema) {
 	for i, tr := range traces {
 		if tr != nil {
 			// Lower HIR => MIR
@@ -1215,31 +1215,35 @@ func CheckTraces(t *testing.T, test string, maxPadding uint, expected bool, expa
 			// Align trace with schema, and check whether expanded or not.
 			for padding := uint(0); padding <= maxPadding; padding++ {
 				// Construct trace identifiers
-				hirID := traceId{"HIR", test, expected, i + 1, padding}
-				mirID := traceId{"MIR", test, expected, i + 1, padding}
-				airID := traceId{"AIR", test, expected, i + 1, padding}
+				hirID := traceId{"HIR", test, cfg.expected, cfg.expand, cfg.validate, i + 1, padding}
+				mirID := traceId{"MIR", test, cfg.expected, cfg.expand, cfg.validate, i + 1, padding}
+				airID := traceId{"AIR", test, cfg.expected, cfg.expand, cfg.validate, i + 1, padding}
 				//
-				if expand {
+				if cfg.expand {
 					// Only HIR / MIR constraints for traces which must be
 					// expanded.  They don't really make sense otherwise.
-					checkTrace(t, tr, expand, hirID, hirSchema)
-					checkTrace(t, tr, expand, mirID, mirSchema)
+					checkTrace(t, tr, hirID, hirSchema)
+					checkTrace(t, tr, mirID, mirSchema)
 				}
 				// Always check AIR constraints
-				checkTrace(t, tr, expand, airID, airSchema)
+				checkTrace(t, tr, airID, airSchema)
 			}
 		}
 	}
 }
 
-func checkTrace(t *testing.T, inputs []trace.RawColumn, expand bool, id traceId, schema sc.Schema) {
+func checkTrace(t *testing.T, inputs []trace.RawColumn, id traceId, schema sc.Schema) {
 	// Construct the trace
-	tr, errs := sc.NewTraceBuilder(schema).Expand(expand).Padding(id.padding).Parallel(true).Build(inputs)
+	tr, errs := sc.NewTraceBuilder(schema).
+		Expand(id.expand).
+		Validate(id.validate).
+		Padding(id.padding).
+		Parallel(true).
+		Build(inputs)
 	// Sanity check construction
 	if len(errs) > 0 {
-		for _, err := range errs {
-			t.Error(err)
-		}
+		t.Errorf("Trace expansion failed (%s, %s, line %d with padding %d): %s",
+			id.ir, id.test, id.line, id.padding, errs)
 	} else {
 		// Check Constraints
 		errs := sc.Accepts(100, schema, tr)
@@ -1260,23 +1264,24 @@ func checkTrace(t *testing.T, inputs []trace.RawColumn, expand bool, id traceId,
 	}
 }
 
-// TestFileExtension provides a simple mechanism for searching for testfiles.
-type TestFileExtension struct {
+// TestConfig provides a simple mechanism for searching for testfiles.
+type TestConfig struct {
 	extension string
 	expected  bool
 	expand    bool
+	validate  bool
 }
 
-var TESTFILE_EXTENSIONS []TestFileExtension = []TestFileExtension{
+var TESTFILE_EXTENSIONS []TestConfig = []TestConfig{
 	// should all pass
-	{"accepts", true, true},
-	{"accepts.bz2", true, true},
-	{"auto.accepts", true, true},
+	{"accepts", true, true, true},
+	{"accepts.bz2", true, true, true},
+	{"auto.accepts", true, true, true},
 	// should all fail
-	{"rejects", false, true},
-	{"rejects.bz2", false, true},
-	{"auto.rejects", false, true},
-	{"expanded", false, false},
+	{"rejects", false, true, false},
+	{"rejects.bz2", false, true, false},
+	{"auto.rejects", false, true, false},
+	{"expanded", false, false, false},
 }
 
 // A trace identifier uniquely identifies a specific trace within a given test.
@@ -1288,9 +1293,13 @@ type traceId struct {
 	// Identifies the test name.  From this, the test filename can be determined
 	// in conjunction with the expected outcome.
 	test string
-	// Identifiers whether this trace should be accepted (true) or rejected
+	// Identifies whether this trace should be accepted (true) or rejected
 	// (false).
 	expected bool
+	// Identifies whether this trace should be expanded (or not).
+	expand bool
+	// Identifies whether this trace should be validate (or not).
+	validate bool
 	// Identifies the line number within the test file that the failing trace
 	// original.
 	line int
