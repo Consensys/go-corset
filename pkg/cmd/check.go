@@ -155,15 +155,7 @@ func checkTrace(ir string, cols []tr.RawColumn, schema sc.Schema, cfg checkConfi
 		if trace == nil || (cfg.strict && len(errs) > 0) {
 			return false
 		}
-		// Validate trace
-		stats = util.NewPerfStats()
 		//
-		if err := validationCheck(trace, schema); err != nil {
-			reportErrors(true, ir, []error{err})
-			return false
-		}
-		// Check trace
-		stats.Log("Validating trace")
 		stats = util.NewPerfStats()
 		// Check constraints
 		if errs := sc.Accepts(cfg.batchSize, schema, trace); len(errs) > 0 {
@@ -180,54 +172,6 @@ func checkTrace(ir string, cols []tr.RawColumn, schema sc.Schema, cfg checkConfi
 	}
 	// Done
 	return true
-}
-
-// Validate that values held in trace columns match the expected type.  This is
-// really a sanity check that the trace is not malformed.
-func validationCheck(tr tr.Trace, schema sc.Schema) error {
-	var err error
-
-	schemaCols := schema.Columns()
-	// Construct a communication channel for errors.
-	c := make(chan error, tr.Width())
-	// Check each column in turn
-	for i := uint(0); i < tr.Width(); i++ {
-		// Extract ith column
-		col := tr.Column(i)
-		// Extract schema for ith column
-		scCol := schemaCols.Next()
-		// Determine enclosing module
-		mod := schema.Modules().Nth(scCol.Context.Module())
-		// Extract type for ith column
-		colType := scCol.DataType
-		// Check elements
-		go func() {
-			// Send outcome back
-			c <- validateColumn(colType, col, mod)
-		}()
-	}
-	// Collect up all the results
-	for i := uint(0); i < tr.Width(); i++ {
-		// Read from channel
-		if e := <-c; e != nil {
-			err = e
-		}
-	}
-	// Done
-	return err
-}
-
-// Validate that all elements of a given column are within the given type.
-func validateColumn(colType sc.Type, col tr.Column, mod sc.Module) error {
-	for j := 0; j < int(col.Data().Len()); j++ {
-		jth := col.Get(j)
-		if !colType.Accept(jth) {
-			qualColName := tr.QualifiedColumnName(mod.Name, col.Name())
-			return fmt.Errorf("row %d of column %s is out-of-bounds (%s)", j, qualColName, jth.String())
-		}
-	}
-	// success
-	return nil
 }
 
 // Report constraint failures, whilst providing contextual information (when requested).

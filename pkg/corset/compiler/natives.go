@@ -175,5 +175,5 @@ func nativeFillWithin(inputs []NativeColumn) []NativeColumn {
 		panic("unreachable")
 	}
 	//
-	return []NativeColumn{inputs[0]}
+	return []NativeColumn{inputs[2]}
 }

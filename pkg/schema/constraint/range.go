@@ -90,7 +90,7 @@ func (p *RangeConstraint[E]) Accepts(tr trace.Trace) schema.Failure {
 func (p *RangeConstraint[E]) Lisp(schema sc.Schema) sexp.SExp {
 	//
 	return sexp.NewList([]sexp.SExp{
-		sexp.NewSymbol("definrange"),
+		sexp.NewSymbol("range"),
 		p.Expr.Lisp(schema),
 		sexp.NewSymbol(p.Bound.String()),
 	})

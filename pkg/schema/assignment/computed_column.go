@@ -1,6 +1,8 @@
 package assignment
 
 import (
+	"fmt"
+
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -110,7 +112,10 @@ func (p *ComputedColumn[E]) Dependencies() []uint {
 func (p *ComputedColumn[E]) Lisp(schema sc.Schema) sexp.SExp {
 	col := sexp.NewSymbol("computed")
 	name := sexp.NewSymbol(p.Columns().Next().QualifiedName(schema))
+	datatype := sexp.NewSymbol(p.target.DataType.String())
+	multiplier := sexp.NewSymbol(fmt.Sprintf("x%d", p.target.Context.LengthMultiplier()))
+	def := sexp.NewList([]sexp.SExp{name, datatype, multiplier})
 	expr := p.expr.Lisp(schema)
 
-	return sexp.NewList([]sexp.SExp{col, name, expr})
+	return sexp.NewList([]sexp.SExp{col, def, expr})
 }

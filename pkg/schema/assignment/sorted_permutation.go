@@ -121,8 +121,12 @@ func (p *SortedPermutation) Lisp(schema sc.Schema) sexp.SExp {
 	sources := sexp.EmptyList()
 
 	for i := 0; i != len(p.Targets); i++ {
-		ith := p.Targets[i].QualifiedName(schema)
-		targets.Append(sexp.NewSymbol(ith))
+		ith := p.Targets[i]
+		name := sexp.NewSymbol(ith.QualifiedName(schema))
+		datatype := sexp.NewSymbol(ith.DataType.String())
+		multiplier := sexp.NewSymbol(fmt.Sprintf("x%d", ith.Context.LengthMultiplier()))
+		def := sexp.NewList([]sexp.SExp{name, datatype, multiplier})
+		targets.Append(def)
 	}
 
 	for i, s := range p.Sources {
