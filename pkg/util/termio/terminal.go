@@ -2,6 +2,7 @@ package termio
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"math"
 	"os"
@@ -18,6 +19,18 @@ const TAB uint16 = 0x09
 
 // BACKTAB indicates shift + tab
 const BACKTAB uint16 = 0x5b5a
+
+// CURSOR_UP (up arrow)
+const CURSOR_UP uint16 = 0x5b41
+
+// CURSOR_DOWN (down arrow)
+const CURSOR_DOWN uint16 = 0x5b42
+
+// CURSOR_LEFT (left arrow)
+const CURSOR_LEFT uint16 = 0x5b43
+
+// CURSOR_RIGHT (left arrow)
+const CURSOR_RIGHT uint16 = 0x5b44
 
 // UNKNOWN is a fall-back for unknown escape sequences
 const UNKNOWN uint16 = 0x5bff
@@ -78,10 +91,21 @@ func (t *Terminal) ReadKey() (uint16, error) {
 	if _, err := os.Stdin.Read(key[:]); err != nil {
 		return 0, err
 	}
+	// Dispatch key press
 	switch key[0] {
+	case 'A':
+		return CURSOR_UP, nil
+	case 'B':
+		return CURSOR_DOWN, nil
+	case 'C':
+		return CURSOR_RIGHT, nil
+	case 'D':
+		return CURSOR_LEFT, nil
 	case 'Z':
 		return BACKTAB, nil
 	}
+	//
+	fmt.Printf("IGNORED %d\n", key[0])
 	// unknown key
 	return UNKNOWN, nil
 }

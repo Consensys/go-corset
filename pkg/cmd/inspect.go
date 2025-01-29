@@ -84,7 +84,7 @@ type Inspector struct {
 	trace  tr.Trace
 	// Modules
 	views []moduleView
-	//
+	// Widgets
 	tabs  *widget.Tabs
 	table *widget.Table
 }
@@ -97,7 +97,11 @@ func NewInspector(term *termio.Terminal, schema sc.Schema, trace tr.Trace) *Insp
 	// initialise module views
 	for i := uint(0); i < trace.Width(); i++ {
 		mid := trace.Column(i).Context().Module()
-		views[mid].columns = append(views[mid].columns, i)
+		views[mid].trColumnIds = append(views[mid].trColumnIds, i)
+	}
+	// Finalise the module view.
+	for i := range views {
+		views[i].finalise(trace)
 	}
 	//
 	inspector := &Inspector{term, schema, trace, views, tabs, table}
@@ -118,25 +122,54 @@ func (p *Inspector) Close() error {
 
 // KeyPressed allows the inspector to react to a key being pressed by the user.
 func (p *Inspector) KeyPressed(key uint16) bool {
+	module := p.tabs.Selected()
+	//
 	switch key {
 	case termio.TAB:
-		p.tabs.Select(p.tabs.Selected() + 1)
+		p.tabs.Select(module + 1)
 	case termio.BACKTAB:
-		p.tabs.Select(p.tabs.Selected() - 1)
+		p.tabs.Select(module - 1)
+	case termio.CURSOR_UP:
+		col := p.views[module].trColOffset
+		p.views[module].setTrColumnOffset(col - 1)
+	case termio.CURSOR_DOWN:
+		col := p.views[module].trColOffset
+		p.views[module].setTrColumnOffset(col + 1)
+	case termio.CURSOR_LEFT:
+		row := p.views[module].trRowOffset
+		p.views[module].setTrRowOffset(row - 1)
+	case termio.CURSOR_RIGHT:
+		row := p.views[module].trRowOffset
+		p.views[module].setTrRowOffset(row + 1)
 	case 'q':
 		return true
-	default:
-		fmt.Printf("ignoring %x\n", key)
 	}
 	//
 	return false
 }
 
+// ==================================================================
+// TableSource
+// ==================================================================
+
 // ColumnWidth gets the width of a given column in the main table of the
 // inspector.  Note that columns here are table columns, not trace columns.
 func (p *Inspector) ColumnWidth(col uint) uint {
-	//return p.views[p.module].widths[col]
-	return 10
+	module := p.tabs.Selected()
+	view := p.views[module]
+	colWidths := view.tabColumnWidths
+	maxWidth := view.maxTabColWidth
+	//
+	trRow := min(col-1+view.trRowOffset, uint(len(view.tabColumnWidths)))
+	width := maxWidth
+	//
+	if col == 0 {
+		width = colWidths[col] + 1
+	} else if trRow < uint(len(colWidths)) {
+		width = colWidths[trRow] + 1
+	}
+	// Default
+	return min(width, maxWidth) + 1
 }
 
 // CellAt returns the contents of a given cell in the main table of the
@@ -144,29 +177,29 @@ func (p *Inspector) ColumnWidth(col uint) uint {
 func (p *Inspector) CellAt(col, row uint) string {
 	// Determine currently selected module
 	module := p.tabs.Selected()
-	//
 	view := &p.views[module]
-	if row >= uint(len(view.columns)) {
-		return "???"
+	// Calculate trace offsets
+	trCol := min(row-1+view.trColOffset, uint(len(view.trColumnIds)))
+	trRow := min(col-1+view.trRowOffset, uint(len(view.tabColumnWidths)))
+	//
+	if col == 0 && row == 0 {
+		return " "
+	} else if row == 0 {
+		return fmt.Sprintf("%d", trRow)
+	} else if trCol >= uint(len(view.trColumnIds)) {
+		// Overrun columns
+		return ""
 	} else if col == 0 {
-		cid := view.columns[row]
+		cid := view.trColumnIds[trCol]
 		// Determine column name
 		return p.schema.Columns().Nth(cid).Name
 	}
+	// Determine trace column
+	trColumn := view.trColumnIds[trCol]
+	// Extract cell value
+	val := p.trace.Column(trColumn).Get(int(trRow - 1))
 	//
-	return "x"
-}
-
-// TableDimensions returns the maxium dimensions of the main table of the
-// inspector.
-func (p *Inspector) TableDimensions() (uint, uint) {
-	// Determine currently selected module
-	module := p.tabs.Selected()
-	//
-	nrows := p.trace.Height(tr.NewContext(module, 1))
-	ncols := uint(len(p.views[module].columns))
-	//
-	return nrows, ncols
+	return fmt.Sprintf("0x%s", val.Text(16))
 }
 
 // Loop provides a read / update / render loop.
@@ -194,6 +227,10 @@ func (p *Inspector) Loop() []error {
 	return errors
 }
 
+// ==================================================================
+// Helpers
+// ==================================================================
+
 func initInspectorWidgets(term *termio.Terminal, schema sc.Schema) (tabs *widget.Tabs, table *widget.Table) {
 	tabs = initInspectorTabs(schema)
 	table = widget.NewTable(nil)
@@ -215,8 +252,61 @@ func initInspectorTabs(schema sc.Schema) *widget.Tabs {
 }
 
 type moduleView struct {
-	widths  []uint
-	columns []uint
+	// Identifies table column tabColumnWidths. Notice that these columns are table
+	// columns, not trace columns!
+	tabColumnWidths []uint
+	// Current maximum width for a table column
+	maxTabColWidth uint
+	// Identifies trace trColumnIds in this module.
+	trColumnIds []uint
+	// Row offset into trace
+	trRowOffset uint
+	// Column offset into trace
+	trColOffset uint
+}
+
+func (p *moduleView) setTrColumnOffset(colOffset uint) {
+	// Only set when it makes sense
+	if colOffset < uint(len(p.trColumnIds)) {
+		p.trColOffset = colOffset
+	}
+}
+
+func (p *moduleView) setTrRowOffset(rowOffset uint) {
+	// Only set when it makes sense
+	if rowOffset < uint(len(p.tabColumnWidths)) {
+		p.trRowOffset = rowOffset
+	}
+}
+
+// Finalise the module view, for example by computing all the column widths.
+func (p *moduleView) finalise(tr tr.Trace) {
+	// First table column always for trace column headers.
+	nTableCols := uint(0)
+	// Determine height of columns in this module, keeping in mind that some
+	// columns might have multipliers in play.
+	for _, col := range p.trColumnIds {
+		column := tr.Column(col)
+		nTableCols = max(nTableCols, column.Data().Len())
+	}
+	//
+	p.tabColumnWidths = make([]uint, nTableCols+1)
+	//
+	for _, col := range p.trColumnIds {
+		column := tr.Column(col)
+		length := len(column.Name())
+		data := column.Data()
+		p.tabColumnWidths[0] = max(p.tabColumnWidths[0], uint(length))
+		//
+		for i := uint(0); i < data.Len(); i++ {
+			val := data.Get(i)
+			str := fmt.Sprintf("0x%s", val.Text(16))
+			width := uint(len(str))
+			p.tabColumnWidths[i+1] = max(p.tabColumnWidths[i+1], width)
+		}
+	}
+	// Final configuration stuff
+	p.maxTabColWidth = 16
 }
 
 //nolint:errcheck
