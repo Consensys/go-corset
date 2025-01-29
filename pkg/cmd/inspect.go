@@ -39,6 +39,7 @@ var inspectCmd = &cobra.Command{
 		//
 		if len(errs) > 0 {
 			fmt.Println(errs)
+			os.Exit(1)
 		}
 		//
 		inspect(schema, trace)
@@ -48,19 +49,19 @@ var inspectCmd = &cobra.Command{
 // Inspect a given trace using a given schema.
 func inspect(schema sc.Schema, trace tr.Trace) {
 	// Construct inspector window
-	term := construct(schema, trace)
+	inspector := construct(schema, trace)
 	// Render inspector
-	if err := term.Render(); err != nil {
+	if err := inspector.Render(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 	//
 	time.Sleep(5 * time.Second)
 	//
-	term.Restore()
+	inspector.Close()
 }
 
-func construct(schema sc.Schema, trace tr.Trace) *termio.Terminal {
+func construct(schema sc.Schema, trace tr.Trace) *Inspector {
 	term, err := termio.NewTerminal()
 	// Check whether successful
 	if err != nil {
@@ -68,38 +69,30 @@ func construct(schema sc.Schema, trace tr.Trace) *termio.Terminal {
 		os.Exit(1)
 	}
 	// Construct inspector state
-	inspector := newInspector(schema, trace)
-	//
-	term.Add(constructTabs(schema))
-	term.Add(widget.NewSeparator("⎯"))
-	term.Add(widget.NewTable(inspector))
-	//
-	return term
-}
-
-func constructTabs(schema sc.Schema) termio.Widget {
-	var titles []string
-	for i := schema.Modules(); i.HasNext(); {
-		titles = append(titles, i.Next().Name)
-	}
-	//
-	return widget.NewTabs(titles...)
+	return NewInspector(term, schema, trace)
 }
 
 // ==================================================================
 // Inspector
 // ==================================================================
 
-type inspector struct {
+// Inspector provides the necessary pacjkage
+type Inspector struct {
+	term   *termio.Terminal
 	schema sc.Schema
 	trace  tr.Trace
 	// Modules
 	views []moduleView
+	//
+	tabs  *widget.Tabs
+	table *widget.Table
 	// Selected module
 	module uint
 }
 
-func newInspector(schema sc.Schema, trace tr.Trace) *inspector {
+// NewInspector constructs a new inspector on given terminal.
+func NewInspector(term *termio.Terminal, schema sc.Schema, trace tr.Trace) *Inspector {
+	tabs, table := initInspectorWidgets(term, schema)
 	nmods := schema.Modules().Count()
 	views := make([]moduleView, nmods)
 	// initialise module views
@@ -108,15 +101,32 @@ func newInspector(schema sc.Schema, trace tr.Trace) *inspector {
 		views[mid].columns = append(views[mid].columns, i)
 	}
 	//
-	return &inspector{schema, trace, views, 0}
+	inspector := &Inspector{term, schema, trace, views, tabs, table, 0}
+	table.SetSource(inspector)
+	//
+	return inspector
 }
 
-func (p *inspector) ColumnWidth(col uint) uint {
+// Render the inspector to the given terminal
+func (p *Inspector) Render() error {
+	return p.term.Render()
+}
+
+// Close the inspector.
+func (p *Inspector) Close() error {
+	return p.term.Restore()
+}
+
+// ColumnWidth gets the width of a given column in the main table of the
+// inspector.  Note that columns here are table columns, not trace columns.
+func (p *Inspector) ColumnWidth(col uint) uint {
 	//return p.views[p.module].widths[col]
 	return 10
 }
 
-func (p *inspector) CellAt(col, row uint) string {
+// CellAt returns the contents of a given cell in the main table of the
+// inspector.
+func (p *Inspector) CellAt(col, row uint) string {
 	view := &p.views[p.module]
 	if row >= uint(len(view.columns)) {
 		return "???"
@@ -129,11 +139,32 @@ func (p *inspector) CellAt(col, row uint) string {
 	return "x"
 }
 
-func (p *inspector) TableDimensions() (uint, uint) {
+// TableDimensions returns the maxium dimensions of the main table of the
+// inspector.
+func (p *Inspector) TableDimensions() (uint, uint) {
 	nrows := p.trace.Height(tr.NewContext(p.module, 1))
 	ncols := uint(len(p.views[p.module].columns))
 
 	return nrows, ncols
+}
+
+func initInspectorWidgets(term *termio.Terminal, schema sc.Schema) (tabs *widget.Tabs, table *widget.Table) {
+	tabs = initInspectorTabs(schema)
+	table = widget.NewTable(nil)
+	//
+	term.Add(tabs)
+	term.Add(widget.NewSeparator("⎯"))
+	term.Add(table)
+	return tabs, table
+}
+
+func initInspectorTabs(schema sc.Schema) *widget.Tabs {
+	var titles []string
+	for i := schema.Modules(); i.HasNext(); {
+		titles = append(titles, i.Next().Name)
+	}
+	//
+	return widget.NewTabs(titles...)
 }
 
 type moduleView struct {

@@ -21,7 +21,7 @@ type Table struct {
 }
 
 // NewTable constructs a new table with a given source.
-func NewTable(source TableSource) termio.Widget {
+func NewTable(source TableSource) *Table {
 	return &Table{source}
 }
 
@@ -29,6 +29,11 @@ func NewTable(source TableSource) termio.Widget {
 // much as it can.
 func (p *Table) GetHeight() uint {
 	return math.MaxUint
+}
+
+// SetSource sets the table source.
+func (p *Table) SetSource(source TableSource) {
+	p.source = source
 }
 
 // Render this widget on the given canvas.
