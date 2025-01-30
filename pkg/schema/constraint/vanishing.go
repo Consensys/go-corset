@@ -113,6 +113,21 @@ func NewVanishingConstraint[T sc.Testable](handle string, context tr.Context,
 	return &VanishingConstraint[T]{handle, context, domain, constraint}
 }
 
+// Bounds determines the well-definedness bounds for this constraint for both
+// the negative (left) or positive (right) directions.  For example, consider an
+// expression such as "(shift X -1)".  This is technically undefined for the
+// first row of any trace and, by association, any constraint evaluating this
+// expression on that first row is also undefined (and hence must pass).
+//
+//nolint:revive
+func (p *VanishingConstraint[E]) Bounds(module uint) util.Bounds {
+	if p.Context.Module() == module {
+		return p.Constraint.Bounds()
+	}
+	//
+	return util.EMPTY_BOUND
+}
+
 // Accepts checks whether a vanishing constraint evaluates to zero on every row
 // of a table.  If so, return nil otherwise return an error.
 //

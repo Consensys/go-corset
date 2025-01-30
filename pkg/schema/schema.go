@@ -65,6 +65,7 @@ type Declaration interface {
 // computation (e.g. which columns it depends upon, etc).
 type Assignment interface {
 	Declaration
+	util.Boundable
 
 	// ComputeColumns computes the values of columns defined by this assignment.
 	// In order for this computation to makes sense, all columns on which this
@@ -72,11 +73,6 @@ type Assignment interface {
 	// computed already).  Computed columns do not exist in the original trace,
 	// but are added during trace expansion to form the final trace.
 	ComputeColumns(tr.Trace) ([]trace.ArrayColumn, error)
-	// RequiredSpillage returns the minimum amount of spillage required to ensure
-	// valid traces are accepted in the presence of arbitrary padding.  Note,
-	// spillage is currently assumed to be required only at the front of a
-	// trace.
-	RequiredSpillage() uint
 
 	// Returns the set of columns that this assignment depends upon.  That can
 	// include both input columns, as well as other computed columns.
@@ -87,7 +83,14 @@ type Assignment interface {
 // with an error (or eventually perhaps report a warning).
 type Constraint interface {
 	Lispifiable
+	//
 	Accepts(tr.Trace) Failure
+	// Determine the well-definedness bounds for this constraint in both the
+	// negative (left) or positive (right) directions.  For example, consider an
+	// expression such as "(shift X -1)".  This is technically undefined for the
+	// first row of any trace and, by association, any constraint evaluating
+	// this expression on that first row is also undefined (and hence must pass)
+	Bounds(modult uint) util.Bounds
 }
 
 // Failure embodies structured information about a failing constraint.

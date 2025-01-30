@@ -63,15 +63,13 @@ func (p *ComputedColumn[E]) IsComputed() bool {
 // Assignment Interface
 // ============================================================================
 
-// RequiredSpillage returns the minimum amount of spillage required to ensure
-// this column can be correctly computed in the presence of arbitrary (front)
-// padding.
-func (p *ComputedColumn[E]) RequiredSpillage() uint {
-	// NOTE: Spillage is only currently considered to be necessary at the front
-	// (i.e. start) of a trace.  This is because padding is always inserted at
-	// the front, never the back.  As such, it is the maximum positive shift
-	// which determines how much spillage is required for this comptuation.
-	return p.expr.Bounds().End
+// Bounds determines the well-definedness bounds for this assignment for both
+// the negative (left) or positive (right) directions.  For example, consider an
+// expression such as "(shift X -1)".  This is technically undefined for the
+// first row of any trace and, by association, any constraint evaluating this
+// expression on that first row is also undefined (and hence must pass).
+func (p *ComputedColumn[E]) Bounds() util.Bounds {
+	return p.expr.Bounds()
 }
 
 // ComputeColumns computes the values of columns defined by this assignment.

@@ -66,6 +66,31 @@ func NewLookupConstraint[E schema.Evaluable](handle string, source trace.Context
 	return &LookupConstraint[E]{handle, source, target, sources, targets}
 }
 
+// Bounds determines the well-definedness bounds for this constraint for both
+// the negative (left) or positive (right) directions.  For example, consider an
+// expression such as "(shift X -1)".  This is technically undefined for the
+// first row of any trace and, by association, any constraint evaluating this
+// expression on that first row is also undefined (and hence must pass).
+//
+//nolint:revive
+func (p *LookupConstraint[E]) Bounds(module uint) util.Bounds {
+	var bound util.Bounds
+	//
+	if module == p.SourceContext.Module() {
+		for _, e := range p.Sources {
+			eth := e.Bounds()
+			bound.Union(&eth)
+		}
+	} else if module == p.TargetContext.Module() {
+		for _, e := range p.Targets {
+			eth := e.Bounds()
+			bound.Union(&eth)
+		}
+	}
+	//
+	return bound
+}
+
 // Accepts checks whether a lookup constraint into the target columns holds for
 // all rows of the source columns.
 //

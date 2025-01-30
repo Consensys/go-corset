@@ -101,10 +101,12 @@ func (p *FrIndexArray) Slice(start uint, end uint) util.Array[fr.Element] {
 	return &FrIndexArray{elements[start:end], heap, pool, p.bitwidth}
 }
 
-// PadFront (i.e. insert at the beginning) this array with n copies of the given padding value.
-func (p *FrIndexArray) PadFront(n uint, padding fr.Element) util.Array[fr.Element] {
+// Pad prepend array with n copies and append with m copies of the given padding
+// value.
+func (p *FrIndexArray) Pad(n uint, m uint, padding fr.Element) util.Array[fr.Element] {
+	l := uint(len(p.elements))
 	// Allocate sufficient memory
-	elements := make([]uint32, uint(len(p.elements))+n)
+	elements := make([]uint32, l+n+m)
 	heap := make([]fr.Element, len(p.heap))
 	pool := make(map[[4]uint64]uint32, len(p.pool))
 	// Copy over the data
@@ -116,8 +118,12 @@ func (p *FrIndexArray) PadFront(n uint, padding fr.Element) util.Array[fr.Elemen
 	}
 	//
 	narr := &FrIndexArray{elements, heap, pool, p.bitwidth}
-	// Go padding!
+	// Front padding!
 	for i := uint(0); i < n; i++ {
+		narr.Set(i, padding)
+	}
+	// Back padding!
+	for i := n + l; i < l+n+m; i++ {
 		narr.Set(i, padding)
 	}
 	// Copy over

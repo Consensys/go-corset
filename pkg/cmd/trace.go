@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 
+	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/spf13/cobra"
@@ -14,20 +15,24 @@ import (
 
 // traceCmd represents the trace command for manipulating traces.
 var traceCmd = &cobra.Command{
-	Use:   "trace [flags] trace_file",
+	Use:   "trace [flags] trace_file [constraint_file(s)]",
 	Short: "Operate on a trace file.",
 	Long: `Operate on a trace file, such as converting
 	it from one format (e.g. lt) to another (e.g. json),
 	or filtering out modules, or listing columns, etc.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) != 1 {
+		expand := GetFlag(cmd, "expand")
+		// Sanity check
+		if (expand && len(args) != 2) || (!expand && len(args) != 1) {
 			fmt.Println(cmd.UsageString())
 			os.Exit(1)
 		}
 		// Parse trace
 		cols := readTraceFile(args[0])
 		list := GetFlag(cmd, "list")
+		defensive := GetFlag(cmd, "defensive")
 		stats := GetFlag(cmd, "stats")
+		stdlib := !GetFlag(cmd, "no-stdlib")
 		includes := GetStringArray(cmd, "include")
 		print := GetFlag(cmd, "print")
 		start := GetUint(cmd, "start")
@@ -35,6 +40,14 @@ var traceCmd = &cobra.Command{
 		max_width := GetUint(cmd, "max-width")
 		filter := GetString(cmd, "filter")
 		output := GetString(cmd, "out")
+		//
+		if expand {
+			schema := readSchema(stdlib, false, false, args[1:])
+			cols = expandColumns(cols, schema, defensive)
+		} else if defensive {
+			fmt.Println("cannot apply defensive padding without trace expansion")
+			os.Exit(2)
+		}
 		// construct filters
 		if filter != "" {
 			cols = filterColumns(cols, filter)
@@ -66,11 +79,41 @@ func init() {
 		fmt.Sprintf("specify information to include in column listing: %s", summariserOptions()))
 	traceCmd.Flags().Bool("stats", false, "print summary information about the trace file")
 	traceCmd.Flags().BoolP("print", "p", false, "print entire trace file")
+	traceCmd.Flags().BoolP("expand", "e", false, "perform trace expansion (schema required)")
+	traceCmd.Flags().Bool("defensive", false, "perform defensive padding (schema required)")
 	traceCmd.Flags().Uint("start", 0, "filter out rows below this")
 	traceCmd.Flags().Uint("end", math.MaxUint, "filter out this and all following rows")
 	traceCmd.Flags().Uint("max-width", 32, "specify maximum display width for a column")
 	traceCmd.Flags().StringP("out", "o", "", "Specify output file to write trace")
 	traceCmd.Flags().StringP("filter", "f", "", "Filter columns matching regex")
+}
+
+func expandColumns(cols []trace.RawColumn, schema sc.Schema, defensive bool) []trace.RawColumn {
+	builder := sc.NewTraceBuilder(schema).Expand(true).Defensive(defensive)
+	tr, errs := builder.Build(cols)
+	//
+	if len(errs) > 0 {
+		for _, err := range errs {
+			fmt.Println(err)
+		}
+		//
+		os.Exit(1)
+	}
+	// Convert back to raw column array
+	rcols := make([]trace.RawColumn, tr.Width())
+	//
+	for i := range rcols {
+		ith := tr.Column(uint(i))
+		module := tr.Modules().Nth(ith.Context().Module())
+		//
+		rcols[i] = trace.RawColumn{
+			Module: module.Name(),
+			Name:   ith.Name(),
+			Data:   ith.Data(),
+		}
+	}
+	//
+	return rcols
 }
 
 // Construct a new trace containing only those columns from the original who

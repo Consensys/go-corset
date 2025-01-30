@@ -69,15 +69,22 @@ func (p *FrPoolArray[K, P]) Slice(start uint, end uint) util.Array[fr.Element] {
 	return &FrPoolArray[K, P]{p.pool, p.elements[start:end], p.bitwidth}
 }
 
-// PadFront (i.e. insert at the beginning) this array with n copies of the given padding value.
-func (p *FrPoolArray[K, P]) PadFront(n uint, padding fr.Element) util.Array[fr.Element] {
+// Pad prepend array with n copies and append with m copies of the given padding
+// value.
+func (p *FrPoolArray[K, P]) Pad(n uint, m uint, padding fr.Element) util.Array[fr.Element] {
+	l := uint(len(p.elements))
+	// Ensure padding in pool
 	key := p.pool.Put(padding)
 	// Allocate sufficient memory
-	nelements := make([]K, uint(len(p.elements))+n)
+	nelements := make([]K, l+n+m)
 	// Copy over the data
 	copy(nelements[n:], p.elements)
-	// Go padding!
+	// Front padding!
 	for i := uint(0); i < n; i++ {
+		nelements[i] = key
+	}
+	// Back padding!
+	for i := l + n; i < l+n+m; i++ {
 		nelements[i] = key
 	}
 	// Copy over

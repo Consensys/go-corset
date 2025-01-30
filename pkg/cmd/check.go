@@ -39,6 +39,7 @@ var checkCmd = &cobra.Command{
 		cfg.air = GetFlag(cmd, "air")
 		cfg.mir = GetFlag(cmd, "mir")
 		cfg.hir = GetFlag(cmd, "hir")
+		cfg.defensive = GetFlag(cmd, "defensive")
 		cfg.expand = !GetFlag(cmd, "raw")
 		cfg.report = GetFlag(cmd, "report")
 		cfg.reportPadding = GetUint(cmd, "report-context")
@@ -84,6 +85,8 @@ type checkConfig struct {
 	mir bool
 	// Performing checking at AIR level
 	air bool
+	// Determines whether or not to apply "defensive padding" to every module.
+	defensive bool
 	// Determines how much spillage to account for.  This gives the user the
 	// ability to override the inferred default.  A negative value indicates
 	// this default should be used.
@@ -142,7 +145,11 @@ func checkTraceWithLowering(cols []tr.RawColumn, schema *hir.Schema, cfg checkCo
 }
 
 func checkTrace(ir string, cols []tr.RawColumn, schema sc.Schema, cfg checkConfig) bool {
-	builder := sc.NewTraceBuilder(schema).Expand(cfg.expand).Parallel(cfg.parallelExpansion).BatchSize(cfg.batchSize)
+	builder := sc.NewTraceBuilder(schema).
+		Defensive(cfg.defensive).
+		Expand(cfg.expand).
+		Parallel(cfg.parallelExpansion).
+		BatchSize(cfg.batchSize)
 	//
 	for n := cfg.padding.Left; n <= cfg.padding.Right; n++ {
 		stats := util.NewPerfStats()
@@ -268,6 +275,7 @@ func init() {
 	checkCmd.Flags().Bool("debug", false, "enable debugging constraints")
 	checkCmd.Flags().BoolP("quiet", "q", false, "suppress output (e.g. warnings)")
 	checkCmd.Flags().Bool("sequential", false, "perform sequential trace expansion")
+	checkCmd.Flags().Bool("defensive", true, "automatically apply defensive padding to every module")
 	checkCmd.Flags().Uint("padding", 0, "specify amount of (front) padding to apply")
 	checkCmd.Flags().UintP("batch", "b", math.MaxUint, "specify batch size for constraint checking")
 	checkCmd.Flags().Int("spillage", -1,

@@ -21,12 +21,32 @@ func RequiredSpillage(module uint, schema Schema) uint {
 		ith := i.Next()
 		//
 		if ith.Context().Module() == module {
-			// Incorporate its spillage requirements
-			mx = max(mx, ith.RequiredSpillage())
+			// NOTE: Spillage is only currently considered to be necessary at
+			// the front (i.e. start) of a trace.  This is because the prover
+			// always inserts padding at the front, never the back.  As such, it
+			// is the maximum positive shift which determines how much spillage
+			// is required for a comptuation.
+			mx = max(mx, ith.Bounds().End)
 		}
 	}
 
 	return mx
+}
+
+// DefensivePadding returns the maximum amount of front padding required to
+// ensure no constraint operating in the active region is clipped.  Observe that
+// only front padding is considered because, for now, we assume the prover will
+// only pad at the front.
+func DefensivePadding(module uint, schema Schema) uint {
+	front := uint(0)
+	// Determine maximum amounts of defensive padding required for constraints.
+	for i := schema.Constraints(); i.HasNext(); {
+		bounds := i.Next().Bounds(module)
+		//
+		front = max(front, bounds.Start)
+	}
+	//
+	return front
 }
 
 // QualifiedName returns the fully qualified name for a given (indexed) column in a given schema.

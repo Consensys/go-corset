@@ -73,14 +73,15 @@ func (p *ArrayTrace) FillColumn(cid uint, data field.FrArray, padding fr.Element
 	col.fill(data, padding)
 }
 
-// Pad pads a given module with a given number of padding rows.
-func (p *ArrayTrace) Pad(module uint, n uint) {
-	p.modules[module].height += n
+// Pad prepends (front) and appends (back) a given module with a given number of
+// padding rows.
+func (p *ArrayTrace) Pad(module uint, front uint, back uint) {
+	p.modules[module].height += front + back
 	// Padd each column contained within this module.
 	for i := 0; i < len(p.columns); i++ {
 		c := &p.columns[i]
 		if c.context.ModuleId == module {
-			c.pad(n)
+			c.pad(front, back)
 		}
 	}
 }
@@ -234,14 +235,12 @@ func (p *ArrayColumn) fill(data field.FrArray, padding fr.Element) {
 	p.padding = padding
 }
 
-func (p *ArrayColumn) pad(n uint) {
-	// FIXME: have to avoid attempting to pad a computed column which has not
-	// yet neen computed (i.e. because we are applying spillage).  Somehow, this
-	// special casing does not feel right to me.
+func (p *ArrayColumn) pad(front uint, back uint) {
 	if p.data != nil {
 		// Apply the length multiplier
-		n = n * p.context.LengthMultiplier()
+		front = front * p.context.LengthMultiplier()
+		back = back * p.context.LengthMultiplier()
 		// Pad front of array
-		p.data = p.data.PadFront(n, p.padding)
+		p.data = p.data.Pad(front, back, p.padding)
 	}
 }
