@@ -60,6 +60,12 @@ func NewPropertyAssertion[T Testable](handle string, ctx tr.Context, property T)
 	return &PropertyAssertion[T]{handle, ctx, property}
 }
 
+// Bounds is not required for a property assertion since these are not real
+// constraints.
+func (p *PropertyAssertion[T]) Bounds(module uint) util.Bounds {
+	return util.EMPTY_BOUND
+}
+
 // Accepts checks whether a vanishing constraint evaluates to zero on every row
 // of a table. If so, return nil otherwise return an error.
 //

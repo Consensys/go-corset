@@ -44,10 +44,13 @@ func NewPermutationConstraint(targets []uint, sources []uint) *PermutationConstr
 	return &PermutationConstraint{targets, sources}
 }
 
-// RequiredSpillage returns the minimum amount of spillage required to ensure
-// valid traces are accepted in the presence of arbitrary padding.
-func (p *PermutationConstraint) RequiredSpillage() uint {
-	return uint(0)
+// Bounds determines the well-definedness bounds for this constraint for both
+// the negative (left) or positive (right) directions.  For example, consider an
+// expression such as "(shift X -1)".  This is technically undefined for the
+// first row of any trace and, by association, any constraint evaluating this
+// expression on that first row is also undefined (and hence must pass).
+func (p *PermutationConstraint) Bounds(module uint) util.Bounds {
+	return util.EMPTY_BOUND
 }
 
 // Accepts checks whether a permutation holds between the source and

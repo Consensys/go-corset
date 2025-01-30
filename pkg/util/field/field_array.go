@@ -101,14 +101,20 @@ func (p *FrElementArray) Slice(start uint, end uint) util.Array[fr.Element] {
 	return &FrElementArray{p.elements[start:end], p.bitwidth}
 }
 
-// PadFront (i.e. insert at the beginning) this array with n copies of the given padding value.
-func (p *FrElementArray) PadFront(n uint, padding fr.Element) util.Array[fr.Element] {
+// Pad prepend array with n copies and append with m copies of the given padding
+// value.
+func (p *FrElementArray) Pad(n uint, m uint, padding fr.Element) util.Array[fr.Element] {
+	l := uint(len(p.elements))
 	// Allocate sufficient memory
-	ndata := make([]fr.Element, uint(len(p.elements))+n)
+	ndata := make([]fr.Element, l+n+m)
 	// Copy over the data
 	copy(ndata[n:], p.elements)
-	// Go padding!
+	// Front padding!
 	for i := uint(0); i < n; i++ {
+		ndata[i] = padding
+	}
+	// Back padding!
+	for i := n + l; i < n+l+m; i++ {
 		ndata[i] = padding
 	}
 	// Copy over

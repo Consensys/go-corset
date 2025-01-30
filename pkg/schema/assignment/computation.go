@@ -67,10 +67,13 @@ func (p *Computation) IsComputed() bool {
 // Assignment Interface
 // ============================================================================
 
-// RequiredSpillage returns the minimum amount of spillage required to ensure
-// valid traces are accepted in the presence of arbitrary padding.
-func (p *Computation) RequiredSpillage() uint {
-	return uint(0)
+// Bounds determines the well-definedness bounds for this assignment for both
+// the negative (left) or positive (right) directions.  For example, consider an
+// expression such as "(shift X -1)".  This is technically undefined for the
+// first row of any trace and, by association, any constraint evaluating this
+// expression on that first row is also undefined (and hence must pass).
+func (p *Computation) Bounds() util.Bounds {
+	return util.EMPTY_BOUND
 }
 
 // ComputeColumns computes the values of columns defined by this assignment.

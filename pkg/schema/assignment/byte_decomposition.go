@@ -94,10 +94,13 @@ func (p *ByteDecomposition) ComputeColumns(tr trace.Trace) ([]trace.ArrayColumn,
 	return cols, nil
 }
 
-// RequiredSpillage returns the minimum amount of spillage required to ensure
-// valid traces are accepted in the presence of arbitrary padding.
-func (p *ByteDecomposition) RequiredSpillage() uint {
-	return uint(0)
+// Bounds determines the well-definedness bounds for this assignment for both
+// the negative (left) or positive (right) directions.  For example, consider an
+// expression such as "(shift X -1)".  This is technically undefined for the
+// first row of any trace and, by association, any constraint evaluating this
+// expression on that first row is also undefined (and hence must pass).
+func (p *ByteDecomposition) Bounds() util.Bounds {
+	return util.EMPTY_BOUND
 }
 
 // Dependencies returns the set of columns that this assignment depends upon.

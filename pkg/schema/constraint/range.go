@@ -7,6 +7,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/sexp"
 )
 
@@ -60,6 +61,21 @@ func NewRangeConstraint[E sc.Evaluable](handle string, context trace.Context,
 func (p *RangeConstraint[E]) BoundedAtMost(bound uint) bool {
 	var n fr.Element = fr.NewElement(uint64(bound))
 	return p.Bound.Cmp(&n) <= 0
+}
+
+// Bounds determines the well-definedness bounds for this constraint for both
+// the negative (left) or positive (right) directions.  For example, consider an
+// expression such as "(shift X -1)".  This is technically undefined for the
+// first row of any trace and, by association, any constraint evaluating this
+// expression on that first row is also undefined (and hence must pass).
+//
+//nolint:revive
+func (p *RangeConstraint[E]) Bounds(module uint) util.Bounds {
+	if p.Context.Module() == module {
+		return p.Expr.Bounds()
+	}
+	//
+	return util.EMPTY_BOUND
 }
 
 // Accepts checks whether a range constraint holds on every row of a table. If so, return

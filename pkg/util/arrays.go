@@ -23,9 +23,9 @@ type Array[T comparable] interface {
 	Slice(uint, uint) Array[T]
 	// Return the number of bits required to store an element of this array.
 	BitWidth() uint
-	// Insert a given number of copies of T at start of array producing an
-	// updated array.
-	PadFront(uint, T) Array[T]
+	// Insert n copies of T at start of the array and m copies at the back
+	// producing an updated array.
+	Pad(uint, uint, T) Array[T]
 	// Write out the contents of this array, assuming a minimal unit of 1 byte
 	// per element.
 	Write(w io.Writer) error

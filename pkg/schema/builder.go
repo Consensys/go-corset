@@ -17,6 +17,12 @@ import (
 type TraceBuilder struct {
 	// Schema to be used when building the trace
 	schema Schema
+	// Indicates whether or not to perform defensive padding.  This is where
+	// padding rows are appended and/or prepended to ensure no constraint in the
+	// active region of the trace is clipped.  Whilst not strictly necessary,
+	// this can be helpful for identifying invalid constraints which are only
+	// exposed with a given amount of padding.
+	defensive bool
 	// Indicates whether or not to perform trace expansion.  The default should
 	// be to apply trace expansion.  However, for testing purposes, it can be
 	// useful to provide an already expanded trace to ensure a set of
@@ -43,36 +49,60 @@ type TraceBuilder struct {
 // NewTraceBuilder constructs a default trace builder.  The idea is that this
 // could then be customized as needed following the builder pattern.
 func NewTraceBuilder(schema Schema) TraceBuilder {
-	return TraceBuilder{schema, true, true, 0, true, math.MaxUint}
+	return TraceBuilder{schema, true, true, true, 0, true, math.MaxUint}
+}
+
+// Defensive updates a given builder configuration to apply defensive padding
+// (or not).
+func (tb TraceBuilder) Defensive(flag bool) TraceBuilder {
+	ntb := tb
+	ntb.defensive = flag
+	//
+	return ntb
 }
 
 // Expand updates a given builder configuration to perform trace expansion (or
 // not).
 func (tb TraceBuilder) Expand(flag bool) TraceBuilder {
-	return TraceBuilder{tb.schema, flag, tb.validate, tb.padding, tb.parallel, tb.batchSize}
+	ntb := tb
+	ntb.expand = flag
+	//
+	return ntb
 }
 
 // Validate updates a given builder configuration to perform trace validation (or
 // not).
 func (tb TraceBuilder) Validate(flag bool) TraceBuilder {
-	return TraceBuilder{tb.schema, tb.expand, flag, tb.padding, tb.parallel, tb.batchSize}
+	ntb := tb
+	ntb.validate = flag
+	//
+	return ntb
 }
 
 // Padding updates a given builder configuration to use a given amount of padding
 func (tb TraceBuilder) Padding(padding uint) TraceBuilder {
-	return TraceBuilder{tb.schema, tb.expand, tb.validate, padding, tb.parallel, tb.batchSize}
+	ntb := tb
+	ntb.padding = padding
+	//
+	return ntb
 }
 
 // Parallel updates a given builder configuration to allow trace expansion to be
 // performed concurrently (or not).
-func (tb TraceBuilder) Parallel(parallel bool) TraceBuilder {
-	return TraceBuilder{tb.schema, tb.expand, tb.validate, tb.padding, parallel, tb.batchSize}
+func (tb TraceBuilder) Parallel(flag bool) TraceBuilder {
+	ntb := tb
+	ntb.parallel = flag
+	//
+	return ntb
 }
 
 // BatchSize sets the maximum number of batches to run in parallel during trace
 // expansion.
 func (tb TraceBuilder) BatchSize(batchSize uint) TraceBuilder {
-	return TraceBuilder{tb.schema, tb.expand, tb.validate, tb.padding, tb.parallel, batchSize}
+	ntb := tb
+	ntb.batchSize = batchSize
+	//
+	return ntb
 }
 
 // Build takes the given builder configuration, along with a given set of input
@@ -85,7 +115,7 @@ func (tb TraceBuilder) Build(columns []trace.RawColumn) (trace.Trace, []error) {
 		return nil, errors
 	} else if tb.expand {
 		// Apply spillage
-		applySpillage(tr, tb.schema)
+		applySpillageAndDefensivePadding(tb.defensive, tr, tb.schema)
 		// Expand trace
 		if tb.parallel {
 			// Run (parallel) trace expansion
@@ -249,22 +279,31 @@ func checkForMissingInputColumns(schema Schema, tr *trace.ArrayTrace) (error, []
 	return nil, warnings
 }
 
-// applySpillage pads each module with its given level of spillage
-func applySpillage(tr *trace.ArrayTrace, schema Schema) {
+// pad each module with its given level of spillage and (optionally) ensure a
+// given level of defensive padding.
+func applySpillageAndDefensivePadding(defensive bool, tr *trace.ArrayTrace, schema Schema) {
 	n := tr.Modules().Count()
 	// Iterate over modules
 	for i := uint(0); i < n; i++ {
-		spillage := RequiredSpillage(i, schema)
-		tr.Pad(i, spillage)
+		padding := RequiredSpillage(i, schema)
+		//
+		if defensive {
+			// determine minimum levels of defensive padding required.
+			padding = max(padding, DefensivePadding(i, schema))
+		}
+		//
+		tr.Pad(i, padding, 0)
 	}
 }
 
-// PadColumns pads every column in a given trace with a given amount of padding.
+// PadColumns pads every column in a given trace with a given amount of (front)
+// padding. Observe that this applies on top of any spillage and/or defensive
+// padding already applied.
 func padColumns(tr *trace.ArrayTrace, padding uint) {
 	n := tr.Modules().Count()
 	// Iterate over modules
 	for i := uint(0); i < n; i++ {
-		tr.Pad(i, padding)
+		tr.Pad(i, padding, 0)
 	}
 }
 
