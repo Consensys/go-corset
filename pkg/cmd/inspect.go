@@ -99,6 +99,9 @@ const STATUS_MODE = 3
 
 // Inspector provides the necessary pacjkage
 type Inspector struct {
+	width  uint
+	height uint
+	//
 	term   *termio.Terminal
 	schema sc.Schema
 	trace  tr.Trace
@@ -145,7 +148,7 @@ func NewInspector(term *termio.Terminal, schema sc.Schema, trace tr.Trace) *Insp
 		views[i].finalise(trace)
 	}
 	//
-	inspector := &Inspector{term, schema, trace, views, tabs, table, cmdbar, statusbar, nil}
+	inspector := &Inspector{0, 0, term, schema, trace, views, tabs, table, cmdbar, statusbar, nil}
 	table.SetSource(inspector)
 	// Put the inspector into default mode.
 	inspector.EnterMode(&NavigationMode{})
@@ -155,11 +158,19 @@ func NewInspector(term *termio.Terminal, schema sc.Schema, trace tr.Trace) *Insp
 
 // Clock the inspector
 func (p *Inspector) Clock() error {
-	var n = len(p.modes) - 1
+	mode := len(p.modes) - 1
+	nWidth, nHeight := p.term.GetSize()
 	// Pass on clock
-	p.modes[n].Clock(p)
-	// Render
-	return p.Render()
+	p.modes[mode].Clock(p)
+	// Only force rerender if dimensions have changed.
+	if nWidth != p.width || nHeight != p.height {
+		// Update cached dimensions
+		p.width, p.height = nWidth, nHeight
+		// Render
+		return p.Render()
+	}
+	//
+	return nil
 }
 
 // Render the inspector to the given terminal
