@@ -152,7 +152,7 @@ func (t *Terminal) Render() error {
 	}
 	// Reset taken
 	taken = 0
-	buffer := make([]byte, 0)
+	buffer := []byte{'\n'}
 	//
 	for _, w := range t.widgets {
 		var h uint

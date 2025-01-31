@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -233,7 +234,7 @@ func (p *Inspector) ColumnWidth(col uint) uint {
 	width := uint(0)
 	//
 	if col == 0 {
-		width = colWidths[0]
+		width = min(colWidths[0], 48)
 	} else if trRow < uint(len(colWidths)) {
 		width = min(colWidths[trRow], maxWidth)
 	}
@@ -282,21 +283,7 @@ func (p *Inspector) CellAt(col, row uint) termio.FormattedText {
 	//
 	text := termio.NewText(string(runes))
 	//
-	if !val.IsZero() {
-		col := uint(0)
-		for _, b := range val.Bytes() {
-			col = col ^ uint(b)
-		}
-		//
-		bg_col := 16 + (col % 213)
-		escape := termio.NewAnsiEscape().Bg256Colour(bg_col)
-		//
-		if bg_col > 128 {
-			escape = escape.FgColour(termio.TERM_BLACK)
-		}
-		//
-		text.Format(escape)
-	}
+	text.Format(cellColour(val))
 	//
 	return text
 }
@@ -336,6 +323,30 @@ func (p *Inspector) Start() []error {
 	}
 	// Done
 	return errors
+}
+
+// This algorithm is based on that used in the original tool.  To understand
+// this algorithm, you need to look at the 256 colour table for ANSI escape
+// codes.  It actually does make sense, even if it doesn't appear to.
+func cellColour(val fr.Element) termio.AnsiEscape {
+	if val.IsZero() {
+		return termio.NewAnsiEscape().FgColour(termio.TERM_WHITE)
+	}
+	// Compute a simple hash of the bytes making up the value in question.
+	col := uint(0)
+	for _, b := range val.Bytes() {
+		col = col ^ uint(b)
+	}
+	// Select suitable background colour based on hash, whilst also ensuring
+	// contrast with the foreground colour.
+	bg_col := (col % (213 - 16))
+	escape := termio.NewAnsiEscape().Bg256Colour(16 + bg_col)
+	//
+	if bg_col%36 > 18 {
+		escape = escape.FgColour(termio.TERM_BLACK)
+	}
+	//
+	return escape
 }
 
 // ==================================================================
