@@ -6,6 +6,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/termio"
 )
 
+// TableSource is an abstraction used by a table to determine what values to put in each cell.
 type TableSource interface {
 	// Width returns the width of a given column.
 	ColumnWidth(col uint) uint
@@ -13,6 +14,7 @@ type TableSource interface {
 	CellAt(col, row uint) termio.FormattedText
 }
 
+// Table is a grid of cells of varying width.
 type Table struct {
 	source TableSource
 }
