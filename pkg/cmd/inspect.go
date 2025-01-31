@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"strconv"
 	"time"
 
@@ -136,7 +137,7 @@ func NewInspector(term *termio.Terminal, schema sc.Schema, trace tr.Trace) *Insp
 	// initialise module views
 	for i := uint(0); i < trace.Width(); i++ {
 		mid := trace.Column(i).Context().Module()
-		views[mid].trColumnIds = append(views[mid].trColumnIds, i)
+		views[mid].trColumns = append(views[mid].trColumns, i)
 	}
 	// Finalise the module view.
 	for i := range views {
@@ -201,6 +202,21 @@ func (p *Inspector) gotoRow(row uint) bool {
 	return p.views[module].setTrRowOffset(row)
 }
 
+// filter columns based on a regex
+func (p *Inspector) filterColumns(regex *regexp.Regexp) bool {
+	module := p.tabs.Selected()
+	view := &p.views[module]
+	view.trFilteredColumns = make([]uint, 0)
+
+	for _, col := range view.trColumns {
+		if name := p.trace.Column(col).Name(); regex.MatchString(name) {
+			view.trFilteredColumns = append(view.trFilteredColumns, col)
+		}
+	}
+	// Success
+	return true
+}
+
 // ==================================================================
 // TableSource
 // ==================================================================
@@ -232,7 +248,7 @@ func (p *Inspector) CellAt(col, row uint) termio.FormattedText {
 	module := p.tabs.Selected()
 	view := &p.views[module]
 	// Calculate trace offsets
-	trCol := min(row-1+view.trColOffset, uint(len(view.trColumnIds)))
+	trCol := min(row-1+view.trColOffset, uint(len(view.trFilteredColumns)))
 	trRow := min(col-1+view.trRowOffset, uint(len(view.tabColumnWidths)))
 	//
 	if col == 0 && row == 0 {
@@ -240,17 +256,17 @@ func (p *Inspector) CellAt(col, row uint) termio.FormattedText {
 	} else if row == 0 {
 		val := fmt.Sprintf("%d", trRow)
 		return termio.NewColouredText(val, termio.TERM_BLUE)
-	} else if trCol >= uint(len(view.trColumnIds)) {
+	} else if trCol >= uint(len(view.trFilteredColumns)) {
 		// Overrun columns
 		return termio.NewText("")
 	} else if col == 0 {
-		cid := view.trColumnIds[trCol]
+		cid := view.trFilteredColumns[trCol]
 		name := p.schema.Columns().Nth(cid).Name
 		//
 		return termio.NewColouredText(name, termio.TERM_BLUE)
 	}
 	// Determine trace column
-	trColumn := view.trColumnIds[trCol]
+	trColumn := view.trFilteredColumns[trCol]
 	// Extract cell value
 	val := p.trace.Column(trColumn).Get(int(trRow))
 	// Convert value into appropriate form.  For now, this is always
@@ -337,13 +353,15 @@ func (p *NavigationMode) Activate(parent *Inspector) {
 	parent.cmdBar.Clear()
 	parent.cmdBar.Add(termio.NewColouredText("[g]", termio.TERM_YELLOW))
 	parent.cmdBar.Add(termio.NewText("oto :: "))
-	//p.cmdbar.Add(termio.NewFormattedText("[f]ilter"))
-	//p.cmdbar.Add(termio.NewFormattedText("[#]clear filter"))
+	parent.cmdBar.Add(termio.NewColouredText("[f]", termio.TERM_YELLOW))
+	parent.cmdBar.Add(termio.NewText("ilter :: "))
+	parent.cmdBar.Add(termio.NewColouredText("[#]", termio.TERM_YELLOW))
+	parent.cmdBar.Add(termio.NewText("clear filter :: "))
 	//p.cmdbar.Add(termio.NewFormattedText("[p]erspectives"))
 	parent.cmdBar.Add(termio.NewColouredText("[q]", termio.TERM_RED))
 	parent.cmdBar.Add(termio.NewText("uit"))
 	//
-	parent.statusBar.Clear()
+	//parent.statusBar.Clear()
 }
 
 // Clock navitation mode, which does nothing at this time.
@@ -378,16 +396,26 @@ func (p *NavigationMode) KeyPressed(parent *Inspector, key uint16) bool {
 		return true
 	// goto command
 	case 'g':
-		parent.EnterMode(p.gotoRowMode(parent))
+		parent.EnterMode(p.gotoInputMode(parent))
+	case 'f':
+		parent.EnterMode(p.filterInputMode(parent))
+	case '#':
+		parent.filterColumns(regexp.MustCompile(".*"))
 	}
 	//
 	return false
 }
 
-func (p *NavigationMode) gotoRowMode(parent *Inspector) InspectorMode {
+func (p *NavigationMode) gotoInputMode(parent *Inspector) InspectorMode {
 	prompt := termio.NewColouredText("row? ", termio.TERM_YELLOW)
 	//
 	return newInputMode(prompt, newUintHandler(parent.gotoRow))
+}
+
+func (p *NavigationMode) filterInputMode(parent *Inspector) InspectorMode {
+	prompt := termio.NewColouredText("regex? ", termio.TERM_YELLOW)
+	//
+	return newInputMode(prompt, newRegexHandler(parent.filterColumns))
 }
 
 // ==================================================================
@@ -490,6 +518,26 @@ func (p *uintHandler) Apply(value uint) {
 	p.callback(value)
 }
 
+type regexHandler struct {
+	callback func(*regexp.Regexp) bool
+}
+
+func newRegexHandler(callback func(*regexp.Regexp) bool) InputHandler[*regexp.Regexp] {
+	return &regexHandler{callback}
+}
+
+func (p *regexHandler) Convert(input string) (*regexp.Regexp, bool) {
+	if regex, err := regexp.Compile(input); err == nil {
+		return regex, true
+	}
+
+	return nil, false
+}
+
+func (p *regexHandler) Apply(regex *regexp.Regexp) {
+	p.callback(regex)
+}
+
 // ==================================================================
 // Helpers
 // ==================================================================
@@ -527,8 +575,10 @@ type moduleView struct {
 	tabColumnWidths []uint
 	// Current maximum width for a table column
 	maxTabColWidth uint
-	// Identifies trace trColumnIds in this module.
-	trColumnIds []uint
+	// Identifies trace columns in this module.
+	trColumns []uint
+	// Identifies trace filtered in this module.
+	trFilteredColumns []uint
 	// Row offset into trace
 	trRowOffset uint
 	// Column offset into trace
@@ -537,7 +587,7 @@ type moduleView struct {
 
 func (p *moduleView) setTrColumnOffset(colOffset uint) {
 	// Only set when it makes sense
-	if colOffset < uint(len(p.trColumnIds)) {
+	if colOffset < uint(len(p.trFilteredColumns)) {
 		p.trColOffset = colOffset
 	}
 }
@@ -558,14 +608,16 @@ func (p *moduleView) finalise(tr tr.Trace) {
 	nTableCols := uint(0)
 	// Determine height of columns in this module, keeping in mind that some
 	// columns might have multipliers in play.
-	for _, col := range p.trColumnIds {
+	for _, col := range p.trColumns {
 		column := tr.Column(col)
 		nTableCols = max(nTableCols, column.Data().Len())
+
+		p.trFilteredColumns = append(p.trFilteredColumns, col)
 	}
 	//
 	p.tabColumnWidths = make([]uint, nTableCols+1)
 	//
-	for _, col := range p.trColumnIds {
+	for _, col := range p.trFilteredColumns {
 		column := tr.Column(col)
 		length := len(column.Name())
 		data := column.Data()
