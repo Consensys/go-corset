@@ -54,6 +54,11 @@ func (p *FormattedText) Len() uint {
 	return uint(len(p.text))
 }
 
+// ClearFormat clears any formatting for this chunk of text.
+func (p *FormattedText) ClearFormat() {
+	p.format = nil
+}
+
 // Format sets the format for this chunk of text.
 func (p *FormattedText) Format(format AnsiEscape) {
 	p.format = &format

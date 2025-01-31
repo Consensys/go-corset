@@ -264,7 +264,25 @@ func (p *Inspector) CellAt(col, row uint) termio.FormattedText {
 		runes[view.maxTabColWidth-2] = '.'
 	}
 	//
-	return termio.NewText(string(runes))
+	text := termio.NewText(string(runes))
+	//
+	if !val.IsZero() {
+		col := uint(0)
+		for _, b := range val.Bytes() {
+			col = col ^ uint(b)
+		}
+		//
+		bg_col := 16 + (col % 213)
+		escape := termio.NewAnsiEscape().Bg256Colour(bg_col)
+		//
+		if bg_col > 128 {
+			escape = escape.FgColour(termio.TERM_BLACK)
+		}
+		//
+		text.Format(escape)
+	}
+	//
+	return text
 }
 
 // Start provides a read / update / render loop.

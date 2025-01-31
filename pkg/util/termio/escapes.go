@@ -66,6 +66,32 @@ func (p AnsiEscape) FgColour(col uint) AnsiEscape {
 	return AnsiEscape{escape, p.count + 1}
 }
 
+// Fg256Colour sets the foreground colour using 256-colour mode.
+func (p AnsiEscape) Fg256Colour(col uint) AnsiEscape {
+	// Construct string
+	var escape string
+	if p.count > 0 {
+		escape = fmt.Sprintf("%s;38;5;%d", p.escape, col%256)
+	} else {
+		escape = fmt.Sprintf("%s[38;5;%d", p.escape, col%256)
+	}
+	// Done
+	return AnsiEscape{escape, p.count + 1}
+}
+
+// Bg256Colour sets the background colour using 256-colour mode.
+func (p AnsiEscape) Bg256Colour(col uint) AnsiEscape {
+	// Construct string
+	var escape string
+	if p.count > 0 {
+		escape = fmt.Sprintf("%s;48;5;%d", p.escape, col%256)
+	} else {
+		escape = fmt.Sprintf("%s[48;5;%d", p.escape, col%256)
+	}
+	// Done
+	return AnsiEscape{escape, p.count + 1}
+}
+
 // BgColour sets the foreground colour
 func (p AnsiEscape) BgColour(col uint) AnsiEscape {
 	col += 40

@@ -2,11 +2,11 @@ package termio
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"math"
 	"os"
 	"slices"
+	"sync"
 
 	"golang.org/x/term"
 )
@@ -105,8 +105,6 @@ func (t *Terminal) ReadKey() (uint16, error) {
 	case 'Z':
 		return BACKTAB, nil
 	}
-	//
-	fmt.Printf("IGNORED %d\n", key[0])
 	// unknown key
 	return UNKNOWN, nil
 }
@@ -127,6 +125,9 @@ func (t *Terminal) GetSize() (uint, uint) {
 func (t *Terminal) Add(w Widget) {
 	t.widgets = append(t.widgets, w)
 }
+
+// Lock on writing
+var renderLock sync.Mutex
 
 // Render this window to the terminal.
 func (t *Terminal) Render() error {
@@ -151,6 +152,7 @@ func (t *Terminal) Render() error {
 	}
 	// Reset taken
 	taken = 0
+	buffer := make([]byte, 0)
 	//
 	for _, w := range t.widgets {
 		var h uint
@@ -165,22 +167,32 @@ func (t *Terminal) Render() error {
 		// Render widget
 		w.Render(canvas)
 		// Render canvas
-		if err := t.renderCanvas(canvas); err != nil {
-			return err
-		}
+		buffer = t.renderCanvas(buffer, canvas)
 	}
 	// Check whether any left
 	if taken < height {
 		blank := blankLine(width)
 		// Fill out remainder with blanks
 		for ; taken < height; taken++ {
-			if _, err := t.xterm.Write(blank); err != nil {
-				return err
-			}
+			buffer = append(buffer, blank...)
 		}
 	}
 	//
-	return nil
+	renderLock.Lock()
+	for {
+		// Write as much as we can.
+		n, err := t.xterm.Write(buffer)
+		// Check what happened
+		if err != nil {
+			renderLock.Unlock()
+			return err
+		} else if n == len(buffer) {
+			renderLock.Unlock()
+			return nil
+		}
+		//
+		buffer = buffer[n:]
+	}
 }
 
 // Restore terminal to its original state.
@@ -188,17 +200,14 @@ func (t *Terminal) Restore() error {
 	return term.Restore(t.fd, t.state)
 }
 
-func (t *Terminal) renderCanvas(canvas *terminalCanvas) error {
+func (t *Terminal) renderCanvas(buffer []byte, canvas *terminalCanvas) []byte {
 	for i := uint(0); i < uint(len(canvas.lines)); i++ {
-		// Render the line
 		line := canvas.renderLine(i)
-		// Write the line
-		if _, err := t.xterm.Write(line); err != nil {
-			return err
-		}
+		// Render the line
+		buffer = append(buffer, line...)
 	}
 	//
-	return nil
+	return buffer
 }
 
 // TerminalCanvas provides a Canvas which collects chunks to be written when
