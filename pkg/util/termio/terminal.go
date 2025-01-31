@@ -17,6 +17,12 @@ const ESC uint16 = 0x1b
 // TAB indicates the horizontal tab
 const TAB uint16 = 0x09
 
+// CARRIAGE_RETURN indicates "enter"
+const CARRIAGE_RETURN uint16 = 0x0D
+
+// BACKSPACE is the backspace
+const BACKSPACE uint16 = 0x08
+
 // BACKTAB indicates shift + tab
 const BACKTAB uint16 = 0x5b5a
 
@@ -73,26 +79,18 @@ func NewTerminal() (*Terminal, error) {
 // ReadKey returns a keyevent from the keyboard.  This is either an ASCII
 // character, or an extended escape code.
 func (t *Terminal) ReadKey() (uint16, error) {
-	var key [1]byte
+	var key [3]byte
 	//
-	if _, err := os.Stdin.Read(key[:]); err != nil {
+	if n, err := os.Stdin.Read(key[:]); err != nil {
 		return 0, err
-	} else if uint16(key[0]) != ESC {
+	} else if n == 1 {
 		return uint16(key[0]), nil
-	}
-	// Start of escape sequence
-	if _, err := os.Stdin.Read(key[:]); err != nil {
-		return 0, err
-	} else if key[0] != '[' {
+	} else if n != 3 || key[1] != '[' {
 		// Unknown or malformed escape sequence.
 		return UNKNOWN, nil
 	}
-	// Assume single byte escape sequence for now.
-	if _, err := os.Stdin.Read(key[:]); err != nil {
-		return 0, err
-	}
-	// Dispatch key press
-	switch key[0] {
+	// Dispatch escape
+	switch key[2] {
 	case 'A':
 		return CURSOR_UP, nil
 	case 'B':
@@ -215,18 +213,17 @@ func (p *terminalCanvas) GetDimensions() (uint, uint) {
 	return p.width, uint(len(p.lines))
 }
 
-func (p *terminalCanvas) Write(x, y uint, str string, format *AnsiEscape) {
-	text := []rune(str)
+func (p *terminalCanvas) Write(x, y uint, text FormattedText) {
 	// Determine dimensions
 	w, h := p.GetDimensions()
 	// Clip chunk if necessary
 	if x < w && y < h {
-		mx := (x + uint(len(text)))
+		mx := x + text.Len()
 		if mx > w {
-			text = text[:w-x]
+			text.Clip(0, w-x)
 		}
 		//
-		p.lines[y] = append(p.lines[y], terminalChunk{x, format, text})
+		p.lines[y] = append(p.lines[y], terminalChunk{x, text})
 	}
 }
 
@@ -256,26 +253,12 @@ func (p *terminalCanvas) renderLine(line uint) []byte {
 		// Clip chunk if it overlaps
 		if c.xpos < xpos {
 			diff := xpos - c.xpos
-			clip := min(len(c_text), int(diff))
-			c_text = c_text[clip:]
+			c_text.Clip(diff, math.MaxUint)
 		}
-		// Construct string
-		c_str := string(c_text)
-		// Append bytes
-		if c.escape != nil {
-			// Apply formatting
-			escape := c.escape.Build()
-			bytes = append(bytes, []byte(escape)...)
-			// Add content
-			bytes = append(bytes, []byte(c_str)...)
-			// Reset formatting
-			escape = ResetAnsiEscape().Build()
-			bytes = append(bytes, []byte(escape)...)
-		} else {
-			bytes = append(bytes, []byte(c_str)...)
-		}
+		// Construct
+		bytes = append(bytes, c_text.Bytes()...)
 		// Advance cursor
-		xpos += uint(len(c_text))
+		xpos += c_text.Len()
 	}
 	// fill to end of line
 	for ; xpos < p.width; xpos++ {
@@ -286,9 +269,8 @@ func (p *terminalCanvas) renderLine(line uint) []byte {
 }
 
 type terminalChunk struct {
-	xpos   uint
-	escape *AnsiEscape
-	text   []rune
+	xpos uint
+	text FormattedText
 }
 
 // Construct a line full of blanks.

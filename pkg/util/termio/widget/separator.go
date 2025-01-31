@@ -1,6 +1,8 @@
 package widget
 
 import (
+	"strings"
+
 	"github.com/consensys/go-corset/pkg/util/termio"
 )
 
@@ -25,7 +27,11 @@ func (p *Separator) GetHeight() uint {
 func (p *Separator) Render(canvas termio.Canvas) {
 	w, _ := canvas.GetDimensions()
 	//
+	var builder strings.Builder
+	//
 	for i := uint(0); i < w; i++ {
-		canvas.Write(i, 0, p.separator, nil)
+		builder.WriteString(p.separator)
 	}
+	//
+	canvas.Write(0, 0, termio.NewText(builder.String()))
 }

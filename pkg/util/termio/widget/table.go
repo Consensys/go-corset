@@ -45,7 +45,7 @@ func (p *Table) Render(canvas termio.Canvas) {
 		//
 		for row := uint(0); row < height; row++ {
 			cell := p.source.CellAt(col, row)
-			canvas.Write(xpos, row, cell, nil)
+			canvas.Write(xpos, row, termio.NewText(cell))
 		}
 		//
 		xpos += colWidth

@@ -32,23 +32,20 @@ func (p *Tabs) Render(canvas termio.Canvas) {
 	x := uint(1)
 	//
 	for i := 0; i < len(p.tabs) && x < w; i++ {
-		var escape *termio.AnsiEscape = nil
-		//
 		if i != 0 {
 			// Write out separator
-			canvas.Write(x, 0, " | ", nil)
+			canvas.Write(x, 0, termio.NewText(" | "))
 			x += 3
 		}
+		// Extract title
+		cell := termio.NewText(p.tabs[i])
 		// Check for selected
 		if uint(i) == p.selected {
-			var esc termio.AnsiEscape = termio.UnderlineAnsiEscape()
-			escape = &esc
+			cell.Format(termio.UnderlineAnsiEscape())
 		}
-		// Extract title
-		title := p.tabs[i]
 		// Write out title
-		canvas.Write(x, 0, title, escape)
-		x += uint(len(title))
+		canvas.Write(x, 0, cell)
+		x += cell.Len()
 	}
 }
 
