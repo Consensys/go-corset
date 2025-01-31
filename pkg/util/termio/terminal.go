@@ -23,6 +23,9 @@ const CARRIAGE_RETURN uint16 = 0x0D
 // BACKSPACE is the backspace
 const BACKSPACE uint16 = 0x08
 
+// DEL is the delete key
+const DEL uint16 = 0x7f
+
 // BACKTAB indicates shift + tab
 const BACKTAB uint16 = 0x5b5a
 

@@ -213,21 +213,21 @@ func (p *Inspector) ColumnWidth(col uint) uint {
 	colWidths := view.tabColumnWidths
 	maxWidth := view.maxTabColWidth
 	//
-	trRow := min(col-1+view.trRowOffset, uint(len(view.tabColumnWidths)))
-	width := maxWidth
+	trRow := col + view.trRowOffset
+	width := uint(0)
 	//
 	if col == 0 {
-		width = colWidths[col] + 1
+		width = colWidths[0]
 	} else if trRow < uint(len(colWidths)) {
-		width = colWidths[trRow] + 1
+		width = min(colWidths[trRow], maxWidth)
 	}
-	// Default
-	return min(width, maxWidth) + 1
+	//
+	return width
 }
 
 // CellAt returns the contents of a given cell in the main table of the
 // inspector.
-func (p *Inspector) CellAt(col, row uint) string {
+func (p *Inspector) CellAt(col, row uint) termio.FormattedText {
 	// Determine currently selected module
 	module := p.tabs.Selected()
 	view := &p.views[module]
@@ -236,23 +236,35 @@ func (p *Inspector) CellAt(col, row uint) string {
 	trRow := min(col-1+view.trRowOffset, uint(len(view.tabColumnWidths)))
 	//
 	if col == 0 && row == 0 {
-		return " "
+		return termio.NewText(" ")
 	} else if row == 0 {
-		return fmt.Sprintf("%d", trRow)
+		val := fmt.Sprintf("%d", trRow)
+		return termio.NewColouredText(val, termio.TERM_BLUE)
 	} else if trCol >= uint(len(view.trColumnIds)) {
 		// Overrun columns
-		return ""
+		return termio.NewText("")
 	} else if col == 0 {
 		cid := view.trColumnIds[trCol]
-		// Determine column name
-		return p.schema.Columns().Nth(cid).Name
+		name := p.schema.Columns().Nth(cid).Name
+		//
+		return termio.NewColouredText(name, termio.TERM_BLUE)
 	}
 	// Determine trace column
 	trColumn := view.trColumnIds[trCol]
 	// Extract cell value
-	val := p.trace.Column(trColumn).Get(int(trRow - 1))
+	val := p.trace.Column(trColumn).Get(int(trRow))
+	// Convert value into appropriate form.  For now, this is always
+	// hexadecimal.
+	hex := fmt.Sprintf("0x%s", val.Text(16))
+	runes := []rune(hex)
 	//
-	return fmt.Sprintf("0x%s", val.Text(16))
+	if len(runes) > int(view.maxTabColWidth) {
+		runes := runes[0:view.maxTabColWidth]
+		runes[view.maxTabColWidth-1] = '.'
+		runes[view.maxTabColWidth-2] = '.'
+	}
+	//
+	return termio.NewText(string(runes))
 }
 
 // Start provides a read / update / render loop.
@@ -406,7 +418,7 @@ func (p *InputMode[T]) KeyPressed(parent *Inspector, key uint16) bool {
 	switch {
 	case key == termio.ESC:
 		return true
-	case key == termio.BACKSPACE:
+	case key == termio.BACKSPACE || key == termio.DEL:
 		if len(p.input) > 0 {
 			n := len(p.input) - 1
 			p.input = p.input[0:n]

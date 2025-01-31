@@ -10,7 +10,7 @@ type TableSource interface {
 	// Width returns the width of a given column.
 	ColumnWidth(col uint) uint
 	// Get content of given cell in table.
-	CellAt(col, row uint) string
+	CellAt(col, row uint) termio.FormattedText
 }
 
 type Table struct {
@@ -45,9 +45,10 @@ func (p *Table) Render(canvas termio.Canvas) {
 		//
 		for row := uint(0); row < height; row++ {
 			cell := p.source.CellAt(col, row)
-			canvas.Write(xpos, row, termio.NewText(cell))
+			cell.Clip(0, colWidth)
+			canvas.Write(xpos, row, cell)
 		}
 		//
-		xpos += colWidth
+		xpos += colWidth + 1
 	}
 }
