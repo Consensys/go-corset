@@ -224,7 +224,15 @@ func (p *Inspector) gotoRow(row uint) bool {
 // filter columns based on a regex
 func (p *Inspector) filterColumns(regex *regexp.Regexp) bool {
 	module := p.tabs.Selected()
-	p.views[module].applyColumnFilter(p.trace, regex)
+	p.views[module].applyColumnFilter(p.trace, regex, true)
+	// Success
+	return true
+}
+
+func (p *Inspector) clearColumnFilter() bool {
+	module := p.tabs.Selected()
+	regex := regexp.MustCompile("")
+	p.views[module].applyColumnFilter(p.trace, regex, false)
 	// Success
 	return true
 }
@@ -422,24 +430,32 @@ func (p *NavigationMode) KeyPressed(parent *Inspector, key uint16) bool {
 	case 'f':
 		parent.EnterMode(p.filterInputMode(parent))
 	case '#':
-		parent.filterColumns(regexp.MustCompile(".*"))
+		parent.clearColumnFilter()
 	}
 	//
 	return false
 }
 
 func (p *NavigationMode) gotoInputMode(parent *Inspector) InspectorMode {
-	prompt := termio.NewColouredText("row? ", termio.TERM_YELLOW)
+	prompt := termio.NewColouredText("[history ↑/↓] row? ", termio.TERM_YELLOW)
+	history := parent.currentView().targetRowHistory
+	history_index := uint(len(history))
 	//
-	return newInputMode(prompt, "", newUintHandler(parent.gotoRow))
+	return newInputMode(prompt, history_index, history, newUintHandler(parent.gotoRow))
 }
 
-func (p *NavigationMode) filterInputMode(parent *Inspector) InspectorMode {
-	prompt := termio.NewColouredText("regex? ", termio.TERM_YELLOW)
+func (p *NavigationMode) filterInputMode(parent *Inspector) InspectorMode { //
+	prompt := termio.NewColouredText("[history ↑/↓] regex? ", termio.TERM_YELLOW)
 	// Determine current active filter
 	filter := parent.currentView().columnFilter
+	history := parent.currentView().columnFilterHistory
+	history_index := uint(len(history))
 	//
-	return newInputMode(prompt, filter, newRegexHandler(parent.filterColumns))
+	if filter != "" {
+		history_index--
+	}
+	//
+	return newInputMode(prompt, history_index, history, newRegexHandler(parent.filterColumns))
 }
 
 // ==================================================================
@@ -453,6 +469,10 @@ type InputMode[T any] struct {
 	prompt termio.FormattedText
 	// input text being accumulated whilst in input mode.
 	input []byte
+	// history of options for this input mode.
+	history []string
+	// history index
+	index uint
 	// parser responsible for checking whether input is valid (or not).
 	handler InputHandler[T]
 }
@@ -466,8 +486,17 @@ type InputHandler[T any] interface {
 	Apply(T)
 }
 
-func newInputMode[T any](prompt termio.FormattedText, input string, handler InputHandler[T]) *InputMode[T] {
-	return &InputMode[T]{prompt, []byte(input), handler}
+func newInputMode[T any](prompt termio.FormattedText, index uint, history []string,
+	handler InputHandler[T]) *InputMode[T] {
+	var input []byte
+	// Determine whether to show item from history
+	if index >= uint(len(history)) {
+		input = []byte{}
+	} else {
+		input = []byte(history[index])
+	}
+	// Done
+	return &InputMode[T]{prompt, input, history, index, handler}
 }
 
 // Activate navigation mode by setting the command bar to show the navigation
@@ -511,6 +540,20 @@ func (p *InputMode[T]) KeyPressed(parent *Inspector, key uint16) bool {
 		}
 		// Success
 		return true
+	case key == termio.CURSOR_UP:
+		if p.index > 0 {
+			p.index--
+			p.input = []byte(p.history[p.index])
+		}
+	case key == termio.CURSOR_DOWN:
+		p.index++
+		// Check for end-of-history
+		if p.index >= uint(len(p.history)) {
+			p.index = uint(len(p.history))
+			p.input = []byte{}
+		} else {
+			p.input = []byte(p.history[p.index])
+		}
 	case key >= 32 && key <= 126:
 		p.input = append(p.input, byte(key))
 	}
@@ -607,8 +650,12 @@ type moduleView struct {
 	trRowOffset uint
 	// Column offset into trace
 	trColOffset uint
+	// History for goto row commands
+	targetRowHistory []string
 	// Active column filter
 	columnFilter string
+	// Set of column filters used.
+	columnFilterHistory []string
 }
 
 func (p *moduleView) setTrColumnOffset(colOffset uint) {
@@ -621,7 +668,10 @@ func (p *moduleView) setTrColumnOffset(colOffset uint) {
 func (p *moduleView) setTrRowOffset(rowOffset uint) bool {
 	// Only set when it makes sense
 	if rowOffset < uint(len(p.tabColumnWidths)) {
+		rowOffsetStr := fmt.Sprintf("%d", rowOffset)
 		p.trRowOffset = rowOffset
+		p.targetRowHistory = history_append(p.targetRowHistory, rowOffsetStr)
+		//
 		return true
 	}
 	// failed
@@ -661,7 +711,7 @@ func (p *moduleView) finalise(tr tr.Trace) {
 }
 
 // Apply a new column filter to this module view.
-func (p *moduleView) applyColumnFilter(tr tr.Trace, regex *regexp.Regexp) {
+func (p *moduleView) applyColumnFilter(tr tr.Trace, regex *regexp.Regexp, history bool) {
 	// Reset filter
 	p.trFilteredColumns = nil
 	// Apply filter
@@ -672,6 +722,20 @@ func (p *moduleView) applyColumnFilter(tr tr.Trace, regex *regexp.Regexp) {
 	}
 	// Update selection and history
 	p.columnFilter = regex.String()
+	//
+	if history {
+		p.columnFilterHistory = history_append(p.columnFilterHistory, regex.String())
+	}
+}
+
+// History append will append a given item to the end of the history.  However,
+// if that item already existed in the history, then that is removed.  This is
+// to avoid duplicates in the history.
+func history_append[T comparable](history []T, item T) []T {
+	// Remove previous entry (if applicable)
+	history = util.RemoveMatching(history, func(ith T) bool { return ith == item })
+	// Add item to end
+	return append(history, item)
 }
 
 //nolint:errcheck
