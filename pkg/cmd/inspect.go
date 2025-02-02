@@ -207,6 +207,13 @@ func (p *Inspector) KeyPressed(key uint16) bool {
 	return len(p.modes) == 0
 }
 
+// Access currently selected view
+func (p *Inspector) currentView() *moduleView {
+	module := p.tabs.Selected()
+	// Action change
+	return &p.views[module]
+}
+
 // Actions goto row mode
 func (p *Inspector) gotoRow(row uint) bool {
 	module := p.tabs.Selected()
@@ -217,14 +224,7 @@ func (p *Inspector) gotoRow(row uint) bool {
 // filter columns based on a regex
 func (p *Inspector) filterColumns(regex *regexp.Regexp) bool {
 	module := p.tabs.Selected()
-	view := &p.views[module]
-	view.trFilteredColumns = make([]uint, 0)
-
-	for _, col := range view.trColumns {
-		if name := p.trace.Column(col).Name(); regex.MatchString(name) {
-			view.trFilteredColumns = append(view.trFilteredColumns, col)
-		}
-	}
+	p.views[module].applyColumnFilter(p.trace, regex)
 	// Success
 	return true
 }
@@ -431,13 +431,15 @@ func (p *NavigationMode) KeyPressed(parent *Inspector, key uint16) bool {
 func (p *NavigationMode) gotoInputMode(parent *Inspector) InspectorMode {
 	prompt := termio.NewColouredText("row? ", termio.TERM_YELLOW)
 	//
-	return newInputMode(prompt, newUintHandler(parent.gotoRow))
+	return newInputMode(prompt, "", newUintHandler(parent.gotoRow))
 }
 
 func (p *NavigationMode) filterInputMode(parent *Inspector) InspectorMode {
 	prompt := termio.NewColouredText("regex? ", termio.TERM_YELLOW)
+	// Determine current active filter
+	filter := parent.currentView().columnFilter
 	//
-	return newInputMode(prompt, newRegexHandler(parent.filterColumns))
+	return newInputMode(prompt, filter, newRegexHandler(parent.filterColumns))
 }
 
 // ==================================================================
@@ -464,8 +466,8 @@ type InputHandler[T any] interface {
 	Apply(T)
 }
 
-func newInputMode[T any](prompt termio.FormattedText, handler InputHandler[T]) *InputMode[T] {
-	return &InputMode[T]{prompt, nil, handler}
+func newInputMode[T any](prompt termio.FormattedText, input string, handler InputHandler[T]) *InputMode[T] {
+	return &InputMode[T]{prompt, []byte(input), handler}
 }
 
 // Activate navigation mode by setting the command bar to show the navigation
@@ -473,6 +475,15 @@ func newInputMode[T any](prompt termio.FormattedText, handler InputHandler[T]) *
 func (p *InputMode[T]) Activate(parent *Inspector) {
 	parent.cmdBar.Clear()
 	parent.cmdBar.Add(p.prompt)
+	// Add current filter
+	colour := termio.TERM_GREEN
+	input := string(p.input)
+	//
+	if _, ok := p.handler.Convert(input); !ok {
+		colour = termio.TERM_RED
+	}
+	//
+	parent.cmdBar.Add(termio.NewColouredText(input, colour))
 }
 
 // Clock navitation mode, which does nothing at this time.
@@ -504,16 +515,7 @@ func (p *InputMode[T]) KeyPressed(parent *Inspector, key uint16) bool {
 		p.input = append(p.input, byte(key))
 	}
 	// Update displayed text
-	parent.cmdBar.Clear()
-	parent.cmdBar.Add(p.prompt)
-	input := string(p.input)
-	colour := termio.TERM_GREEN
-	//
-	if _, ok := p.handler.Convert(input); !ok {
-		colour = termio.TERM_RED
-	}
-	//
-	parent.cmdBar.Add(termio.NewColouredText(input, colour))
+	p.Activate(parent)
 	//
 	return false
 }
@@ -605,6 +607,8 @@ type moduleView struct {
 	trRowOffset uint
 	// Column offset into trace
 	trColOffset uint
+	// Active column filter
+	columnFilter string
 }
 
 func (p *moduleView) setTrColumnOffset(colOffset uint) {
@@ -654,6 +658,20 @@ func (p *moduleView) finalise(tr tr.Trace) {
 	}
 	// Final configuration stuff
 	p.maxTabColWidth = 16
+}
+
+// Apply a new column filter to this module view.
+func (p *moduleView) applyColumnFilter(tr tr.Trace, regex *regexp.Regexp) {
+	// Reset filter
+	p.trFilteredColumns = nil
+	// Apply filter
+	for _, col := range p.trColumns {
+		if name := tr.Column(col).Name(); regex.MatchString(name) {
+			p.trFilteredColumns = append(p.trFilteredColumns, col)
+		}
+	}
+	// Update selection and history
+	p.columnFilter = regex.String()
 }
 
 //nolint:errcheck
