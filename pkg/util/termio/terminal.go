@@ -41,6 +41,12 @@ const CURSOR_LEFT uint16 = 0x5b43
 // CURSOR_RIGHT (left arrow)
 const CURSOR_RIGHT uint16 = 0x5b44
 
+// SCROLL_UP (page up)
+const SCROLL_UP uint16 = 0x5b53
+
+// SCROLL_DOWN (page down)
+const SCROLL_DOWN uint16 = 0x5b54
+
 // UNKNOWN is a fall-back for unknown escape sequences
 const UNKNOWN uint16 = 0x5bff
 
@@ -50,6 +56,8 @@ type Terminal struct {
 	fd int
 	// Underlying terminal
 	xterm *term.Terminal
+	// Input buffer to handling escapes, etc.
+	input terminalInput
 	// Stores original state of terminal so this can be restored.
 	state *term.State
 	// List of widgets to display
@@ -75,38 +83,15 @@ func NewTerminal() (*Terminal, error) {
 	}{os.Stdin, os.Stdout}
 	// Grab terminal screen
 	terminal := term.NewTerminal(screen, "")
+	input := newTerminalInput()
 	//
-	return &Terminal{fd, terminal, state, nil}, nil
+	return &Terminal{fd, terminal, input, state, nil}, nil
 }
 
 // ReadKey returns a keyevent from the keyboard.  This is either an ASCII
 // character, or an extended escape code.
 func (t *Terminal) ReadKey() (uint16, error) {
-	var key [3]byte
-	//
-	if n, err := os.Stdin.Read(key[:]); err != nil {
-		return 0, err
-	} else if n == 1 {
-		return uint16(key[0]), nil
-	} else if n != 3 || key[1] != '[' {
-		// Unknown or malformed escape sequence.
-		return UNKNOWN, nil
-	}
-	// Dispatch escape
-	switch key[2] {
-	case 'A':
-		return CURSOR_UP, nil
-	case 'B':
-		return CURSOR_DOWN, nil
-	case 'C':
-		return CURSOR_RIGHT, nil
-	case 'D':
-		return CURSOR_LEFT, nil
-	case 'Z':
-		return BACKTAB, nil
-	}
-	// unknown key
-	return UNKNOWN, nil
+	return t.input.Read()
 }
 
 // GetSize returns the dimensions of the terminal.
@@ -294,4 +279,93 @@ func blankLine(width uint) []byte {
 	}
 	//
 	return bytes
+}
+
+// TerminalInput is responsible for processing input coming from the terminal
+// and translating it into key sequences.  Specifically, it must handle escape
+// sequences correctly.
+type terminalInput struct {
+	// Processed input buffer.
+	keyBuffer []uint16
+}
+
+func newTerminalInput() terminalInput {
+	return terminalInput{nil}
+}
+
+// ReadKey returns a keyevent from the keyboard.  This is either an ASCII
+// character, or an extended escape code.
+func (t *terminalInput) Read() (uint16, error) {
+	// Sanity check whether key already available
+	if len(t.keyBuffer) > 0 {
+		key := t.keyBuffer[0]
+		t.keyBuffer = t.keyBuffer[1:]
+		// Done
+		return key, nil
+	}
+	//
+	var buffer []byte
+	//
+	for {
+		var buf [128]byte
+		// Read in raw bytes
+		n, err := os.Stdin.Read(buf[:])
+		// Append bytes
+		buffer = append(buffer, buf[:n]...)
+		//
+		if err != nil {
+			return 0, err
+		} else if n < 128 {
+			break
+		}
+	}
+	// Process raw bytes
+	t.processRawBuffer(buffer)
+	// Read offshoots of our work
+	return t.Read()
+}
+
+func (t *terminalInput) processRawBuffer(buffer []byte) {
+	for i := 0; i < len(buffer); {
+		i += t.processRawBufferByte(buffer[i:])
+	}
+}
+
+func (t *terminalInput) processRawBufferByte(buffer []byte) int {
+	key := uint16(buffer[0])
+	// Check for escape
+	if key != ESC || len(buffer) == 1 {
+		t.keyBuffer = append(t.keyBuffer, key)
+		return 1
+	} else if buffer[1] == '[' && len(buffer) > 2 {
+		return 2 + t.processCsiCommand(buffer[2:])
+	} else {
+		// Other escapes are currently unsupported.  Therefore, we just append
+		// them as raw bytes.
+		t.keyBuffer = append(t.keyBuffer, key)
+		return 2
+	}
+}
+
+func (t *terminalInput) processCsiCommand(buffer []byte) int {
+	var key uint16
+	// Dispatch escape
+	switch buffer[0] {
+	case 'A':
+		key = CURSOR_UP
+	case 'B':
+		key = CURSOR_DOWN
+	case 'C':
+		key = CURSOR_RIGHT
+	case 'D':
+		key = CURSOR_LEFT
+	case 'Z':
+		key = BACKTAB
+	default:
+		key = UNKNOWN
+	}
+	// Done
+	t.keyBuffer = append(t.keyBuffer, key)
+	//
+	return 1
 }
