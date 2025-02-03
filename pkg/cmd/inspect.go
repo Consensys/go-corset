@@ -4,10 +4,13 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"slices"
 	"strconv"
 	"time"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/go-corset/pkg/binfile"
+	"github.com/consensys/go-corset/pkg/corset/compiler"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -25,10 +28,15 @@ var inspectCmd = &cobra.Command{
 			fmt.Println(cmd.UsageString())
 			os.Exit(1)
 		}
+		defensive := GetFlag(cmd, "defensive")
 		//
 		stats := util.NewPerfStats()
 		// Parse constraints
-		binfile := readSchema(true, false, false, args[1:])
+		binf := readSchema(true, false, false, args[1:])
+		// Sanity check debug information is available.
+		if _, ok := binfile.GetAttribute[*compiler.SourceMap](binf); !ok {
+			panic("missing source map information from binary constraints file")
+		}
 		//
 		stats.Log("Reading constraints file")
 		// Parse trace file
@@ -36,13 +44,13 @@ var inspectCmd = &cobra.Command{
 		//
 		stats.Log("Reading trace file")
 		//
-		builder := sc.NewTraceBuilder(&binfile.Schema).Expand(true).Parallel(true)
+		builder := sc.NewTraceBuilder(&binf.Schema).Expand(true).Defensive(defensive).Parallel(true)
 		//
 		trace, errors := builder.Build(columns)
 		//
 		if len(errors) == 0 {
 			// Run the inspector.
-			errors = inspect(&binfile.Schema, trace)
+			errors = inspect(binf, trace)
 		}
 		// Sanity check what happened
 		if len(errors) > 0 {
@@ -55,9 +63,9 @@ var inspectCmd = &cobra.Command{
 }
 
 // Inspect a given trace using a given schema.
-func inspect(schema sc.Schema, trace tr.Trace) []error {
+func inspect(binf *binfile.BinaryFile, trace tr.Trace) []error {
 	// Construct inspector window
-	inspector := construct(schema, trace)
+	inspector := construct(binf, trace)
 	// Render inspector
 	if err := inspector.Render(); err != nil {
 		return []error{err}
@@ -66,7 +74,7 @@ func inspect(schema sc.Schema, trace tr.Trace) []error {
 	return inspector.Start()
 }
 
-func construct(schema sc.Schema, trace tr.Trace) *Inspector {
+func construct(binf *binfile.BinaryFile, trace tr.Trace) *Inspector {
 	term, err := termio.NewTerminal()
 	// Check whether successful
 	if err != nil {
@@ -74,7 +82,7 @@ func construct(schema sc.Schema, trace tr.Trace) *Inspector {
 		os.Exit(1)
 	}
 	// Construct inspector state
-	return NewInspector(term, schema, trace)
+	return NewInspector(term, binf, trace)
 }
 
 // ==================================================================
@@ -102,9 +110,8 @@ type Inspector struct {
 	width  uint
 	height uint
 	//
-	term   *termio.Terminal
-	schema sc.Schema
-	trace  tr.Trace
+	term  *termio.Terminal
+	trace tr.Trace
 	// Modules
 	views []moduleView
 	// Widgets
@@ -134,21 +141,29 @@ type InspectorMode interface {
 }
 
 // NewInspector constructs a new inspector on given terminal.
-func NewInspector(term *termio.Terminal, schema sc.Schema, trace tr.Trace) *Inspector {
-	tabs, table, cmdbar, statusbar := initInspectorWidgets(term, schema)
-	nmods := schema.Modules().Count()
+func NewInspector(term *termio.Terminal, binf *binfile.BinaryFile, trace tr.Trace) *Inspector {
+	tabs, table, cmdbar, statusbar := initInspectorWidgets(term, &binf.Schema)
+	nmods := binf.Schema.Modules().Count()
 	views := make([]moduleView, nmods)
+	// extract debug info
+	srcmap, srcmap_ok := binfile.GetAttribute[*compiler.SourceMap](binf)
+	//
+	if !srcmap_ok {
+		panic("missing source map information")
+	}
 	// initialise module views
-	for i := uint(0); i < trace.Width(); i++ {
-		mid := trace.Column(i).Context().Module()
-		views[mid].trColumns = append(views[mid].trColumns, i)
+	for _, col := range srcmap.SourceColumnMap {
+		reg := col.Register
+		// FIXME: this seems unfortunate.
+		mid := trace.Column(reg).Context().Module()
+		views[mid].trColumns = append(views[mid].trColumns, col)
 	}
 	// Finalise the module view.
 	for i := range views {
 		views[i].finalise(trace)
 	}
 	//
-	inspector := &Inspector{0, 0, term, schema, trace, views, tabs, table, cmdbar, statusbar, nil}
+	inspector := &Inspector{0, 0, term, trace, views, tabs, table, cmdbar, statusbar, nil}
 	table.SetSource(inspector)
 	// Put the inspector into default mode.
 	inspector.EnterMode(&NavigationMode{})
@@ -224,7 +239,7 @@ func (p *Inspector) gotoRow(row uint) bool {
 // filter columns based on a regex
 func (p *Inspector) filterColumns(regex *regexp.Regexp) bool {
 	module := p.tabs.Selected()
-	p.views[module].applyColumnFilter(p.trace, regex, true)
+	p.views[module].applyColumnFilter(regex, true)
 	// Success
 	return true
 }
@@ -232,7 +247,7 @@ func (p *Inspector) filterColumns(regex *regexp.Regexp) bool {
 func (p *Inspector) clearColumnFilter() bool {
 	module := p.tabs.Selected()
 	regex := regexp.MustCompile("")
-	p.views[module].applyColumnFilter(p.trace, regex, false)
+	p.views[module].applyColumnFilter(regex, false)
 	// Success
 	return true
 }
@@ -281,12 +296,12 @@ func (p *Inspector) CellAt(col, row uint) termio.FormattedText {
 		return termio.NewText("")
 	} else if col == 0 {
 		cid := view.trFilteredColumns[trCol]
-		name := p.schema.Columns().Nth(cid).Name
+		name := view.trColumns[cid].Column.Name.Slice(1)
 		//
-		return termio.NewColouredText(name, termio.TERM_BLUE)
+		return termio.NewColouredText(name.String(), termio.TERM_BLUE)
 	}
 	// Determine trace column
-	trColumn := view.trFilteredColumns[trCol]
+	trColumn := view.trColumns[view.trFilteredColumns[trCol]].Register
 	// Extract cell value
 	val := p.trace.Column(trColumn).Get(int(trRow))
 	// Convert value into appropriate form.  For now, this is always
@@ -643,7 +658,7 @@ type moduleView struct {
 	// Current maximum width for a table column
 	maxTabColWidth uint
 	// Identifies trace columns in this module.
-	trColumns []uint
+	trColumns []compiler.SourceColumnMapping
 	// Identifies trace filtered in this module.
 	trFilteredColumns []uint
 	// Row offset into trace
@@ -682,21 +697,26 @@ func (p *moduleView) setTrRowOffset(rowOffset uint) bool {
 func (p *moduleView) finalise(tr tr.Trace) {
 	// First table column always for trace column headers.
 	nTableCols := uint(0)
+	//
+	slices.SortFunc(p.trColumns, func(l compiler.SourceColumnMapping, r compiler.SourceColumnMapping) int {
+		return l.Column.Name.Compare(r.Column.Name)
+	})
 	// Determine height of columns in this module, keeping in mind that some
 	// columns might have multipliers in play.
-	for _, col := range p.trColumns {
-		column := tr.Column(col)
-		nTableCols = max(nTableCols, column.Data().Len())
-
-		p.trFilteredColumns = append(p.trFilteredColumns, col)
+	for cid, col := range p.trColumns {
+		register := tr.Column(col.Register)
+		nTableCols = max(nTableCols, register.Data().Len())
+		//
+		p.trFilteredColumns = append(p.trFilteredColumns, uint(cid))
 	}
 	//
 	p.tabColumnWidths = make([]uint, nTableCols+1)
 	//
-	for _, col := range p.trFilteredColumns {
-		column := tr.Column(col)
-		length := len(column.Name())
-		data := column.Data()
+	for _, cid := range p.trFilteredColumns {
+		col := p.trColumns[cid]
+		column := col.Column.Name.Dehead()
+		length := len(column.String())
+		data := tr.Column(col.Register).Data()
 		p.tabColumnWidths[0] = max(p.tabColumnWidths[0], uint(length))
 		//
 		for i := uint(0); i < data.Len(); i++ {
@@ -711,13 +731,14 @@ func (p *moduleView) finalise(tr tr.Trace) {
 }
 
 // Apply a new column filter to this module view.
-func (p *moduleView) applyColumnFilter(tr tr.Trace, regex *regexp.Regexp, history bool) {
+func (p *moduleView) applyColumnFilter(regex *regexp.Regexp, history bool) {
 	// Reset filter
 	p.trFilteredColumns = nil
 	// Apply filter
-	for _, col := range p.trColumns {
-		if name := tr.Column(col).Name(); regex.MatchString(name) {
-			p.trFilteredColumns = append(p.trFilteredColumns, col)
+	for cid, col := range p.trColumns {
+		// Check whether it matches the regex or not.
+		if name := col.Column.Name.String(); regex.MatchString(name) {
+			p.trFilteredColumns = append(p.trFilteredColumns, uint(cid))
 		}
 	}
 	// Update selection and history
@@ -741,4 +762,5 @@ func history_append[T comparable](history []T, item T) []T {
 //nolint:errcheck
 func init() {
 	rootCmd.AddCommand(inspectCmd)
+	inspectCmd.Flags().Bool("defensive", true, "enable / disable defensive padding")
 }

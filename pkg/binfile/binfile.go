@@ -38,14 +38,16 @@ func NewBinaryFile(headerdata []byte, attributes []Attribute, schema *hir.Schema
 
 // GetAttribute returns the first instance of a given attribute, or nil if none
 // exists.
-func GetAttribute[T Attribute](binf *BinaryFile) *T {
+func GetAttribute[T Attribute](binf *BinaryFile) (T, bool) {
+	var empty T
+	//
 	for _, attr := range binf.Attributes {
 		if a, ok := attr.(T); ok {
-			return &a
+			return a, true
 		}
 	}
 	//
-	return nil
+	return empty, false
 }
 
 // Attribute is essentially an abstraction allowing arbitrary

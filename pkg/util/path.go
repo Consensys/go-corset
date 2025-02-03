@@ -5,6 +5,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"slices"
+	"strings"
 )
 
 // Path is a construct for describing paths through trees.  A path can be either
@@ -62,6 +63,26 @@ func (p *Path) Get(nth uint) string {
 // Equals determines whether two paths are the same.
 func (p *Path) Equals(other Path) bool {
 	return p.absolute == other.absolute && slices.Equal(p.segments, other.segments)
+}
+
+func (p *Path) Compare(other Path) int {
+	if p.absolute != other.absolute && p.absolute {
+		return 1
+	} else if len(p.segments) < len(other.segments) {
+		return -1
+	} else if len(p.segments) > len(other.segments) {
+		return 1
+	}
+	//
+	for i := range p.segments {
+		c := strings.Compare(p.segments[i], other.segments[i])
+		//
+		if c != 0 {
+			return c
+		}
+	}
+	//
+	return 0
 }
 
 // PrefixOf checks whether this path is a prefix of the other.
