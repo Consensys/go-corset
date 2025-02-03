@@ -42,7 +42,7 @@ var debugCmd = &cobra.Command{
 		debug := GetFlag(cmd, "debug")
 		legacy := GetFlag(cmd, "legacy")
 		// Parse constraints
-		binfile := readSchema(stdlib, debug, legacy, args)
+		binfile := ReadConstraintFiles(stdlib, debug, legacy, args)
 		// Print constraints
 		if stats {
 			printStats(&binfile.Schema, hir, mir, air)

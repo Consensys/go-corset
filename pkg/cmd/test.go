@@ -57,7 +57,7 @@ var testCmd = &cobra.Command{
 		//
 		stats := util.NewPerfStats()
 		// Parse constraints
-		binfile := readSchema(cfg.stdlib, false, legacy, args)
+		binfile := ReadConstraintFiles(cfg.stdlib, false, legacy, args)
 		//
 		stats.Log("Reading constraints file")
 		//

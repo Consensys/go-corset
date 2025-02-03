@@ -105,8 +105,10 @@ func writeTraceFile(filename string, columns []trace.RawColumn) {
 	os.Exit(4)
 }
 
-// Parse a trace file using a parser based on the extension of the filename.
-func readTraceFile(filename string) []trace.RawColumn {
+// ReadTraceFile reads a trace file (either binary lt or json), and parses it
+// into an array of raw columns.  The determination of what kind of trace file
+// (i.e. binary or json) is based on the extension.
+func ReadTraceFile(filename string) []trace.RawColumn {
 	var tr []trace.RawColumn
 	// Read data file
 	bytes, err := os.ReadFile(filename)
@@ -137,10 +139,11 @@ func readTraceFile(filename string) []trace.RawColumn {
 	return nil
 }
 
-// WriteBinaryFile writes a binary file to disk.
+// WriteBinaryFile writes a binary file (e.g. zkevm.bin) to disk using the given
+// binfile versioning defined in the binfile package.
 //
 //nolint:errcheck
-func writeBinaryFile(binfile *binfile.BinaryFile, legacy bool, filename string) {
+func WriteBinaryFile(binfile *binfile.BinaryFile, legacy bool, filename string) {
 	var (
 		bytes []byte
 		err   error
@@ -162,8 +165,17 @@ func writeBinaryFile(binfile *binfile.BinaryFile, legacy bool, filename string) 
 	}
 }
 
-// Read the constraints file, whilst optionally including the standard library.
-func readSchema(stdlib bool, debug bool, legacy bool, filenames []string) *binfile.BinaryFile {
+// ReadConstraintFiles provides a generic interface for reading constraint files
+// in one of two ways.  If a single file is provided with the "bin" extension
+// then this is treated as a binfile (e.g. zkevm.bin).  Otherwise, the files are
+// assumed to be source (i.e. lisp) files and are read in and then compiled into
+// a binfile.  NOTES: (1) when reading a binfile, the legacy format can be
+// explicitly specified (though it is also detected automatically so this is
+// largely redundant now); (2) when source files are provided, they can be
+// compiled with (or without) the standard library.  Generally speaking, you
+// want to compile with the standard library.  However, some internal tests are
+// run without including the standard library to minimise the surface area.
+func ReadConstraintFiles(stdlib bool, debug bool, legacy bool, filenames []string) *binfile.BinaryFile {
 	var err error
 	//
 	if len(filenames) == 0 {
@@ -171,7 +183,7 @@ func readSchema(stdlib bool, debug bool, legacy bool, filenames []string) *binfi
 		os.Exit(5)
 	} else if len(filenames) == 1 && path.Ext(filenames[0]) == ".bin" {
 		// Single (binary) file supplied
-		return readBinaryFile(legacy, filenames[0])
+		return ReadBinaryFile(legacy, filenames[0])
 	}
 	// Recursively expand any directories given in the list of filenames.
 	if filenames, err = expandSourceFiles(filenames); err != nil {
@@ -179,12 +191,14 @@ func readSchema(stdlib bool, debug bool, legacy bool, filenames []string) *binfi
 		os.Exit(1)
 	}
 	// Must be source files
-	return readSourceFiles(stdlib, debug, filenames)
+	return CompileSourceFiles(stdlib, debug, filenames)
 }
 
-// ReadBinaryFile reads a "bin" file and extract the metadata bytes, along with
-// the schema, and any included attributes.
-func readBinaryFile(legacy bool, filename string) *binfile.BinaryFile {
+// ReadBinaryFile reads a binfile which includes the metadata bytes, along with
+// the schema, and any included attributes.  The legacy format can be explicitly
+// requested, though this function will now automatically detect whether it is a
+// legeacy or non-legacy binfile.
+func ReadBinaryFile(legacy bool, filename string) *binfile.BinaryFile {
 	var binf binfile.BinaryFile
 	// Read schema file
 	data, err := os.ReadFile(filename)
@@ -209,9 +223,11 @@ func readBinaryFile(legacy bool, filename string) *binfile.BinaryFile {
 	return nil
 }
 
-// Parse a set of source files and compile them into a single schema.  This can
-// result, for example, in a syntax error, etc.
-func readSourceFiles(stdlib bool, debug bool, filenames []string) *binfile.BinaryFile {
+// CompileSourceFiles accepts a set of source files and compiles them into a
+// single schema.  This can result, for example, in a syntax error, etc.  This
+// can be done with (or without) including the standard library, and also with
+// (or without) debug constraints.
+func CompileSourceFiles(stdlib bool, debug bool, filenames []string) *binfile.BinaryFile {
 	srcfiles := make([]*sexp.SourceFile, len(filenames))
 	// Read each file
 	for i, n := range filenames {

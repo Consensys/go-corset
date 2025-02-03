@@ -61,11 +61,11 @@ var checkCmd = &cobra.Command{
 		//
 		stats := util.NewPerfStats()
 		// Parse constraints
-		binfile := readSchema(cfg.stdlib, cfg.debug, legacy, args[1:])
+		binfile := ReadConstraintFiles(cfg.stdlib, cfg.debug, legacy, args[1:])
 		//
 		stats.Log("Reading constraints file")
 		// Parse trace file
-		columns := readTraceFile(args[0])
+		columns := ReadTraceFile(args[0])
 		//
 		stats.Log("Reading trace file")
 		// Go!

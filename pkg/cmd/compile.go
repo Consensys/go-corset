@@ -21,9 +21,9 @@ var compileCmd = &cobra.Command{
 		legacy := GetFlag(cmd, "legacy")
 		output := GetString(cmd, "output")
 		// Parse constraints
-		binfile := readSchema(stdlib, debug, legacy, args)
+		binfile := ReadConstraintFiles(stdlib, debug, legacy, args)
 		// Serialise as a gob file.
-		writeBinaryFile(binfile, legacy, output)
+		WriteBinaryFile(binfile, legacy, output)
 	},
 }
 

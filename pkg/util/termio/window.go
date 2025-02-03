@@ -41,6 +41,11 @@ func NewText(text string) FormattedText {
 	return FormattedText{nil, []rune(text)}
 }
 
+// NewFormattedText constructs a new chunk of text with a given format.
+func NewFormattedText(text string, format AnsiEscape) FormattedText {
+	return FormattedText{&format, []rune(text)}
+}
+
 // NewColouredText constructs a new (coloured) chunk of text.
 func NewColouredText(text string, colour uint) FormattedText {
 	escape := NewAnsiEscape().FgColour(colour)
