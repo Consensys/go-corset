@@ -28,7 +28,7 @@ var inspectCmd = &cobra.Command{
 		//
 		stats := util.NewPerfStats()
 		// Parse constraints
-		schema := readSchema(true, false, false, args[1:])
+		binfile := readSchema(true, false, false, args[1:])
 		//
 		stats.Log("Reading constraints file")
 		// Parse trace file
@@ -36,13 +36,13 @@ var inspectCmd = &cobra.Command{
 		//
 		stats.Log("Reading trace file")
 		//
-		builder := sc.NewTraceBuilder(schema).Expand(true).Parallel(true)
+		builder := sc.NewTraceBuilder(&binfile.Schema).Expand(true).Parallel(true)
 		//
 		trace, errors := builder.Build(columns)
 		//
 		if len(errors) == 0 {
 			// Run the inspector.
-			errors = inspect(schema, trace)
+			errors = inspect(&binfile.Schema, trace)
 		}
 		// Sanity check what happened
 		if len(errors) > 0 {

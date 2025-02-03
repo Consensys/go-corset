@@ -23,7 +23,6 @@ var testCmd = &cobra.Command{
 	 properties which don't hold on valid traces`,
 	Run: func(cmd *cobra.Command, args []string) {
 		var cfg checkConfig
-		var hirSchema *hir.Schema
 
 		if len(args) != 1 {
 			fmt.Println(cmd.UsageString())
@@ -58,11 +57,11 @@ var testCmd = &cobra.Command{
 		//
 		stats := util.NewPerfStats()
 		// Parse constraints
-		hirSchema = readSchema(cfg.stdlib, false, legacy, args)
+		binfile := readSchema(cfg.stdlib, false, legacy, args)
 		//
 		stats.Log("Reading constraints file")
 		//
-		if ok := runTests(2, cfg, hirSchema); !ok {
+		if ok := runTests(2, cfg, &binfile.Schema); !ok {
 			// Error signal
 			os.Exit(1)
 		}
