@@ -7,7 +7,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/consensys/go-corset/pkg/binfile"
+	legacy_binfile "github.com/consensys/go-corset/pkg/binfile/legacy"
 	"github.com/consensys/go-corset/pkg/corset"
+	"github.com/consensys/go-corset/pkg/hir"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/json"
 	"github.com/consensys/go-corset/pkg/trace/lt"
@@ -134,8 +137,33 @@ func readTraceFile(filename string) []trace.RawColumn {
 	return nil
 }
 
+// WriteBinaryFile writes a binary file to disk.
+//
+//nolint:errcheck
+func writeBinaryFile(binfile *binfile.BinaryFile, legacy bool, filename string) {
+	var (
+		bytes []byte
+		err   error
+	)
+	// Sanity checks
+	if legacy {
+		// Currently, there is no support for this.
+		fmt.Println("legacy binary format not supported for writing")
+	}
+	// Encode binary file as bytes
+	if bytes, err = binfile.MarshalBinary(); err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
+	// Write file
+	if err := os.WriteFile(filename, bytes, 0644); err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
+}
+
 // Read the constraints file, whilst optionally including the standard library.
-func readSchema(stdlib bool, debug bool, legacy bool, filenames []string) *BinaryFile {
+func readSchema(stdlib bool, debug bool, legacy bool, filenames []string) *binfile.BinaryFile {
 	var err error
 	//
 	if len(filenames) == 0 {
@@ -154,9 +182,36 @@ func readSchema(stdlib bool, debug bool, legacy bool, filenames []string) *Binar
 	return readSourceFiles(stdlib, debug, filenames)
 }
 
+// ReadBinaryFile reads a "bin" file and extract the metadata bytes, along with
+// the schema, and any included attributes.
+func readBinaryFile(legacy bool, filename string) *binfile.BinaryFile {
+	var binf binfile.BinaryFile
+	// Read schema file
+	data, err := os.ReadFile(filename)
+	// Handle errors
+	if err == nil && (legacy || !binfile.IsBinaryFile(data)) {
+		var schema *hir.Schema
+		// Read the binary file
+		schema, err = legacy_binfile.HirSchemaFromJson(data)
+		//
+		binf.Schema = *schema
+	} else if err == nil {
+		err = binf.UnmarshalBinary(data)
+	}
+	// Return if no errors
+	if err == nil {
+		return &binf
+	}
+	// Handle error & exit
+	fmt.Println(err)
+	os.Exit(2)
+	// unreachable
+	return nil
+}
+
 // Parse a set of source files and compile them into a single schema.  This can
 // result, for example, in a syntax error, etc.
-func readSourceFiles(stdlib bool, debug bool, filenames []string) *BinaryFile {
+func readSourceFiles(stdlib bool, debug bool, filenames []string) *binfile.BinaryFile {
 	srcfiles := make([]*sexp.SourceFile, len(filenames))
 	// Read each file
 	for i, n := range filenames {
@@ -172,10 +227,10 @@ func readSourceFiles(stdlib bool, debug bool, filenames []string) *BinaryFile {
 		srcfiles[i] = sexp.NewSourceFile(n, bytes)
 	}
 	// Parse and compile source files
-	schema, errs := corset.CompileSourceFiles(stdlib, debug, srcfiles)
+	binf, errs := corset.CompileSourceFiles(stdlib, debug, srcfiles)
 	// Check for any errors
 	if len(errs) == 0 {
-		return NewBinaryFile(nil, nil, schema)
+		return binf
 	}
 	// Report errors
 	for _, err := range errs {

@@ -1,8 +1,10 @@
 package compiler
 
 import (
+	"encoding/gob"
 	"fmt"
 
+	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/corset/ast"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
@@ -51,10 +53,10 @@ type Environment interface {
 type GlobalEnvironment struct {
 	// Info about modules
 	modules map[string]*ModuleInfo
-	// Map source-level columns to registers
-	columns map[string]uint
-	// Registers
+	// Registers (i.e. HIR-level columns)
 	registers []Register
+	// Map source-level columnMap to registers
+	columnMap map[string]uint
 }
 
 // NewGlobalEnvironment constructs a new global environment from a global scope
@@ -94,7 +96,7 @@ func (p GlobalEnvironment) Register(index uint) *Register {
 // RegisterOf identifies the register (i.e. underlying (HIR) column) to
 // which a given source-level (i.e. corset) column is allocated.
 func (p GlobalEnvironment) RegisterOf(column *util.Path) uint {
-	regId := p.columns[column.String()]
+	regId := p.columnMap[column.String()]
 	// Lookup register info
 	return regId
 }
@@ -119,7 +121,7 @@ func (p GlobalEnvironment) RegistersOf(module string) []uint {
 func (p GlobalEnvironment) ColumnsOf(register uint) []string {
 	var columns []string
 	//
-	for col, reg := range p.columns {
+	for col, reg := range p.columnMap {
 		if reg == register {
 			columns = append(columns, col)
 		}
@@ -134,6 +136,63 @@ func (p GlobalEnvironment) ContextOf(from ast.Context) tr.Context {
 	mid := p.Module(from.Module()).Id
 	// Construct underlying context from this.
 	return tr.NewContext(mid, from.LengthMultiplier())
+}
+
+// SourceColumnMap constructs a mapping from source-level columns to registers.
+// This is used primarily for debugging purposes.
+func (p GlobalEnvironment) SourceColumnMap() *SourceMap {
+	var entries []SourceColumnMapping
+	//
+	for i, reg := range p.registers {
+		for _, col := range reg.Sources {
+			entry := SourceColumnMapping{col, uint(i)}
+			entries = append(entries, entry)
+		}
+	}
+	//
+	return &SourceMap{entries}
+}
+
+// ===========================================================================
+// SourceColumnMap
+// ===========================================================================
+
+// SourceMap is a binary file attribute which provides debugging
+// information about the relationship between registers and source-level
+// columns.  This is used, for example, within the inspector.
+type SourceMap struct {
+	SourceColumnMap []SourceColumnMapping
+}
+
+// AttributeName returns the name of the binary file attribute that this will
+// generate.  This is used, for example, when listing attributes contained
+// within a binary file.
+func (p *SourceMap) AttributeName() string {
+	return "CorsetSourceMap"
+}
+
+// Entries returns the set of attribute mappings within this binary file attribute.
+func (p *SourceMap) Entries() util.Iterator[binfile.AttributeEntry] {
+	iter := util.NewArrayIterator(p.SourceColumnMap)
+	return util.NewCastIterator[SourceColumnMapping, binfile.AttributeEntry](iter)
+}
+
+// SourceColumnMapping contains the mapping for a single source-level column.
+type SourceColumnMapping struct {
+	// Provides information about the source-level column.
+	Column SourceColumn
+	// Identifiers the register to which this column was eventually allocated.
+	Register uint
+}
+
+// Key returns the attribute key
+func (p SourceColumnMapping) Key() string {
+	return p.Column.Name.String()
+}
+
+// Value returns the attribute value
+func (p SourceColumnMapping) Value() any {
+	return p.Register
 }
 
 // ===========================================================================
@@ -160,7 +219,7 @@ func (p *GlobalEnvironment) initModules(modules []*ModuleScope) {
 // unique register.  The intention is that, subsequently, registers can be
 // merged as necessary.
 func (p *GlobalEnvironment) initColumnsAndRegisters(modules []*ModuleScope) {
-	p.columns = make(map[string]uint)
+	p.columnMap = make(map[string]uint)
 	p.registers = make([]Register, 0)
 	// Allocate input columns first.
 	for _, m := range modules {
@@ -188,7 +247,7 @@ func (p *GlobalEnvironment) initColumnsAndRegisters(modules []*ModuleScope) {
 			if binding, ok := m.bindings[binding_id].(*ast.ColumnBinding); ok && !id.fn {
 				orig := binding.Path.String()
 				alias := m.path.Extend(id.name).String()
-				p.columns[alias] = p.columns[orig]
+				p.columnMap[alias] = p.columnMap[orig]
 			}
 		}
 	}
@@ -232,7 +291,7 @@ func (p *GlobalEnvironment) allocateUnit(column *ast.ColumnBinding, ctx util.Pat
 	moduleId := p.modules[module].Id
 	regId := uint(len(p.registers))
 	// Construct appropriate register source.
-	source := RegisterSource{
+	source := SourceColumn{
 		ctx,
 		path,
 		column.Multiplier,
@@ -243,11 +302,11 @@ func (p *GlobalEnvironment) allocateUnit(column *ast.ColumnBinding, ctx util.Pat
 	p.registers = append(p.registers, Register{
 		tr.NewContext(moduleId, column.Multiplier),
 		datatype,
-		[]RegisterSource{source},
+		[]SourceColumn{source},
 		nil,
 	})
 	// Map column to register
-	p.columns[path.String()] = regId
+	p.columnMap[path.String()] = regId
 }
 
 // Apply the given register allocator to each module of this environment in turn.
@@ -278,10 +337,14 @@ func (p *GlobalEnvironment) applyRegisterAllocation(allocator func(RegisterAlloc
 		}
 	}
 	// Update the columns maps, etc.
-	for col, reg := range p.columns {
+	for col, reg := range p.columnMap {
 		// Safe since as neither adding nor removing entry from map.
-		p.columns[col] = mapping[reg]
+		p.columnMap[col] = mapping[reg]
 	}
 	// Copy over new register set, whilst slicing off inactive ones.
 	p.registers = nregisters[0:j]
+}
+
+func init() {
+	gob.Register(binfile.Attribute(&SourceMap{}))
 }

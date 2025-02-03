@@ -3,9 +3,9 @@ package corset
 import (
 	_ "embed"
 
+	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/corset/compiler"
-	"github.com/consensys/go-corset/pkg/hir"
 	"github.com/consensys/go-corset/pkg/util/sexp"
 )
 
@@ -23,7 +23,7 @@ type SyntaxError = sexp.SyntaxError
 // CompileSourceFiles compiles one or more source files into a schema.  This
 // process can fail if the source files are mal-formed, or contain syntax errors
 // or other forms of error (e.g. type errors).
-func CompileSourceFiles(stdlib bool, debug bool, srcfiles []*sexp.SourceFile) (*hir.Schema, []SyntaxError) {
+func CompileSourceFiles(stdlib bool, debug bool, srcfiles []*sexp.SourceFile) (*binfile.BinaryFile, []SyntaxError) {
 	// Include the standard library (if requested)
 	srcfiles = includeStdlib(stdlib, srcfiles)
 	// Parse all source files (inc stdblib if applicable).
@@ -40,7 +40,7 @@ func CompileSourceFiles(stdlib bool, debug bool, srcfiles []*sexp.SourceFile) (*
 // really helper function for e.g. the testing environment.   This process can
 // fail if the source file is mal-formed, or contains syntax errors or other
 // forms of error (e.g. type errors).
-func CompileSourceFile(stdlib bool, debug bool, srcfile *sexp.SourceFile) (*hir.Schema, []SyntaxError) {
+func CompileSourceFile(stdlib bool, debug bool, srcfile *sexp.SourceFile) (*binfile.BinaryFile, []SyntaxError) {
 	schema, errs := CompileSourceFiles(stdlib, debug, []*sexp.SourceFile{srcfile})
 	// Check for errors
 	if errs != nil {
@@ -89,7 +89,7 @@ func (p *Compiler) SetAllocator(allocator func(compiler.RegisterAllocation)) *Co
 // ways if the given modules are malformed in some way.  For example, if some
 // expression refers to a non-existent module or column, or is not well-typed,
 // etc.
-func (p *Compiler) Compile() (*hir.Schema, []SyntaxError) {
+func (p *Compiler) Compile() (*binfile.BinaryFile, []SyntaxError) {
 	// Resolve variables (via nested scopes)
 	scope, res_errs := compiler.ResolveCircuit(p.srcmap, &p.circuit)
 	// Type check circuit.
@@ -104,8 +104,12 @@ func (p *Compiler) Compile() (*hir.Schema, []SyntaxError) {
 	}
 	// Convert global scope into an environment by allocating all columns.
 	environment := compiler.NewGlobalEnvironment(scope, p.allocator)
-	// Finally, translate everything and add it to the schema.
-	return compiler.TranslateCircuit(environment, p.srcmap, &p.circuit)
+	// Translate everything and add it to the schema.
+	schema, errs := compiler.TranslateCircuit(environment, p.srcmap, &p.circuit)
+	// Extract key attributes (for debugging purposes)
+	attributes := []binfile.Attribute{environment.SourceColumnMap()}
+	// Construct binary file
+	return binfile.NewBinaryFile(nil, attributes, schema), errs
 }
 
 func includeStdlib(stdlib bool, srcfiles []*sexp.SourceFile) []*sexp.SourceFile {

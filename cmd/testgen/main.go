@@ -190,11 +190,11 @@ func readSchemaFile(filename string) *hir.Schema {
 	// Package up as source file
 	srcfile := sexp.NewSourceFile(filename, bytes)
 	// Attempt to parse schema
-	schema, err2 := corset.CompileSourceFile(false, false, srcfile)
+	binfile, err2 := corset.CompileSourceFile(false, false, srcfile)
 	// Check whether parsed successfully or not
 	if err2 == nil {
 		// Ok
-		return schema
+		return &binfile.Schema
 	}
 	// Errors
 	fmt.Println(err2)
