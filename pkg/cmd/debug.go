@@ -40,7 +40,7 @@ var debugCmd = &cobra.Command{
 		debug := GetFlag(cmd, "debug")
 		legacy := GetFlag(cmd, "legacy")
 		// Parse constraints
-		hirSchema := readSchema(stdlib, debug, legacy, false, args)
+		hirSchema := readSchema(stdlib, debug, legacy, args)
 		// Print constraints
 		if stats {
 			printStats(hirSchema, hir, mir, air)

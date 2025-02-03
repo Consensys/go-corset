@@ -21,14 +21,11 @@ type jsonType struct {
 // Translation
 // =============================================================================
 
-func (e *jsonType) toHir(explicit bool) schema.Type {
+func (e *jsonType) toHir() schema.Type {
 	// Check whether magma is string
 	if str, ok := e.Magma.(string); ok {
 		switch str {
 		case "Native":
-			if explicit {
-				return schema.NewUintType(128)
-			}
 			return &schema.FieldType{}
 		case "Byte":
 			return schema.NewUintType(8)
