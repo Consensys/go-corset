@@ -15,7 +15,7 @@ import (
 // etc.
 func ResolveCircuit(srcmap *sexp.SourceMaps[ast.Node], circuit *ast.Circuit) (*ModuleScope, []SyntaxError) {
 	// Construct top-level scope
-	scope := NewModuleScope()
+	scope := NewModuleScope(nil)
 	// Define natives
 	for _, i := range NATIVES {
 		scope.Define(&i)
@@ -26,7 +26,7 @@ func ResolveCircuit(srcmap *sexp.SourceMaps[ast.Node], circuit *ast.Circuit) (*M
 	}
 	// Register modules
 	for _, m := range circuit.Modules {
-		scope.Declare(m.Name, false)
+		scope.Declare(m.Name, nil)
 	}
 	// Construct resolver
 	r := resolver{srcmap}
@@ -83,7 +83,7 @@ func (r *resolver) initialiseDeclarationsInModule(scope *ModuleScope, decls []as
 			// Attempt to declare the perspective.  Note, we don't need to check
 			// whether or not this succeeds here as, if it fails, this will be
 			// caught below.
-			scope.Declare(def.Name(), true)
+			scope.Declare(def.Name(), def.Selector)
 		}
 	}
 	// Second, initialise all symbol (e.g. column) definitions.

@@ -73,7 +73,7 @@ func NewInspector(term *termio.Terminal, schema sc.Schema, trace tr.Trace, srcma
 	for _, module := range srcmap.Flattern(concreteModules) {
 		// only consider modules which actually have columns.
 		if len(module.Columns) > 0 {
-			states = append(states, NewModuleState(&module, trace, true))
+			states = append(states, newModuleState(&module, trace, true))
 		}
 	}
 	//

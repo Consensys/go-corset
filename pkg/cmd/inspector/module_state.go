@@ -29,16 +29,19 @@ type ModuleState struct {
 	columnFilterHistory []string
 }
 
+// SourceColumn provides key information to the inspector about source-level
+// columns and their mapping to registers at the HIR level (i.e. columns we
+// would find in the trace).
 type SourceColumn struct {
 	// Column name
 	Name string
 	// Selector determines when column active.
-	Selector hir.Expr
+	Selector *hir.UnitExpr
 	// Register to which this column is allocated
 	Register uint
 }
 
-func NewModuleState(module *corset.SourceModule, trace tr.Trace, recurse bool) ModuleState {
+func newModuleState(module *corset.SourceModule, trace tr.Trace, recurse bool) ModuleState {
 	var (
 		state      ModuleState
 		submodules []corset.SourceModule
@@ -50,7 +53,7 @@ func NewModuleState(module *corset.SourceModule, trace tr.Trace, recurse bool) M
 	//
 	state.name = module.Name
 	// Extract source columns from module tree
-	state.columns = extractSourceColumns(util.NewAbsolutePath(""), module.Columns, submodules)
+	state.columns = extractSourceColumns(util.NewAbsolutePath(""), module.Selector, module.Columns, submodules)
 	// Sort all column names so that, for example, columns in the same
 	// perspective are grouped together.
 	slices.SortFunc(state.columns, func(l SourceColumn, r SourceColumn) int {
@@ -78,19 +81,6 @@ func (p *ModuleState) setRowOffset(rowOffset uint) bool {
 	}
 	// failed
 	return false
-}
-
-// Finalise the module view, for example by computing all the column widths.
-func (p *ModuleState) finalise(trace tr.Trace) {
-	// Sort all column names so that, for example, columns in the same
-	// perspective are grouped together.
-	slices.SortFunc(p.columns, func(l SourceColumn, r SourceColumn) int {
-		return strings.Compare(l.Name, r.Name)
-	})
-	// Final configuration stuff
-	p.view.maxRowWidth = 16
-	// Initialise the view
-	p.view.SetActiveColumns(trace, p.columns)
 }
 
 // Apply a new column filter to the module view.  This determines which columns
@@ -124,18 +114,20 @@ func history_append[T comparable](history []T, item T) []T {
 	return append(history, item)
 }
 
-func extractSourceColumns(path util.Path, columns []corset.SourceColumn, submodules []corset.SourceModule) []SourceColumn {
+func extractSourceColumns(path util.Path, selector *hir.UnitExpr, columns []corset.SourceColumn,
+	submodules []corset.SourceModule) []SourceColumn {
+	//
 	var srcColumns []SourceColumn
 	//
 	for _, col := range columns {
 		name := path.Extend(col.Name).String()[1:]
-		srcCol := SourceColumn{name, nil, col.Register}
+		srcCol := SourceColumn{name, selector, col.Register}
 		srcColumns = append(srcColumns, srcCol)
 	}
 	//
 	for _, submod := range submodules {
 		subpath := path.Extend(submod.Name)
-		subSrcColumns := extractSourceColumns(*subpath, submod.Columns, submod.Submodules)
+		subSrcColumns := extractSourceColumns(*subpath, submod.Selector, submod.Columns, submod.Submodules)
 		srcColumns = append(srcColumns, subSrcColumns...)
 	}
 	//

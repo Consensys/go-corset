@@ -145,7 +145,7 @@ func (p *GlobalEnvironment) initModules(modules []*ModuleScope) {
 	moduleId := uint(0)
 	// Allocate submodules one-by-one
 	for _, m := range modules {
-		if !m.virtual {
+		if !m.Virtual() {
 			name := m.path.String()
 			p.modules[name] = &ModuleInfo{name, moduleId}
 			moduleId++

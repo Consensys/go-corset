@@ -6,6 +6,7 @@ import (
 	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/corset/compiler"
+	"github.com/consensys/go-corset/pkg/hir"
 	"github.com/consensys/go-corset/pkg/util/sexp"
 )
 
@@ -153,8 +154,30 @@ func constructSourceModule(scope *compiler.ModuleScope, env compiler.GlobalEnvir
 		Name:       scope.Name(),
 		Synthetic:  false,
 		Virtual:    scope.Virtual(),
-		Selector:   nil, // selecto
+		Selector:   compileSelector(env, scope.Selector()),
 		Submodules: submodules,
 		Columns:    columns,
 	}
+}
+
+// This is really broken.  The problem is that we need to translate the selector
+// expression within the translator.  But, setting that all up is not
+// straightforward.  This should be done in the future!
+func compileSelector(env compiler.Environment, selector ast.Expr) *hir.UnitExpr {
+	if selector == nil {
+		return nil
+	}
+	//
+	if e, ok := selector.(*ast.VariableAccess); ok {
+		if binding, ok := e.Binding().(*ast.ColumnBinding); ok {
+			// Lookup column binding
+			register_id := env.RegisterOf(binding.AbsolutePath())
+			// Done
+			expr := &hir.ColumnAccess{Column: register_id, Shift: 0}
+			//
+			return &hir.UnitExpr{Expr: expr}
+		}
+	}
+	// FIXME: #630
+	panic("unsupported selector")
 }

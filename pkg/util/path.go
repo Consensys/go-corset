@@ -65,6 +65,7 @@ func (p *Path) Equals(other Path) bool {
 	return p.absolute == other.absolute && slices.Equal(p.segments, other.segments)
 }
 
+// Compare two paths lexicographically.
 func (p *Path) Compare(other Path) int {
 	if p.absolute != other.absolute && p.absolute {
 		return 1

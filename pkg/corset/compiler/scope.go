@@ -42,6 +42,8 @@ type BindingId struct {
 // tree), or it can be relative (in which case it is resolved relative to a
 // given module).
 type ModuleScope struct {
+	// Selector determining when this module is active.
+	selector ast.Expr
 	// Absolute path
 	path util.Path
 	// Map identifiers to indices within the bindings array.
@@ -54,20 +56,18 @@ type ModuleScope struct {
 	submodmap map[string]*ModuleScope
 	// Submodules in the order of declaration (for determinism).
 	submodules []*ModuleScope
-	// Indicates whether or not this is a real module.
-	virtual bool
 }
 
 // NewModuleScope constructs an initially empty top-level scope.
-func NewModuleScope() *ModuleScope {
+func NewModuleScope(selector ast.Expr) *ModuleScope {
 	return &ModuleScope{
+		selector,
 		util.NewAbsolutePath(),
 		make(map[BindingId]uint),
 		nil,
 		nil,
 		make(map[string]*ModuleScope),
 		nil,
-		false,
 	}
 }
 
@@ -87,7 +87,7 @@ func (p *ModuleScope) Name() string {
 
 // Virtual identifies whether or not this is a virtual module.
 func (p *ModuleScope) Virtual() bool {
-	return p.virtual
+	return p.selector != nil
 }
 
 // IsRoot checks whether or not this is the root of the module tree.
@@ -98,6 +98,13 @@ func (p *ModuleScope) IsRoot() bool {
 // Children returns the set of submodules defined within this module.
 func (p *ModuleScope) Children() []*ModuleScope {
 	return p.submodules
+}
+
+// Selector gets an HIR unit expression which evaluates to a non-zero value when
+// this module is active.  This can be nil if there is no selector (i.e. this is
+// a non-virtual module).
+func (p *ModuleScope) Selector() ast.Expr {
+	return p.selector
 }
 
 // DestructuredColumns returns the set of (destructured) columns defined within
@@ -122,7 +129,7 @@ func (p *ModuleScope) DestructuredColumns() []RegisterSource {
 // Owner returns the enclosing non-virtual module of this module.  Observe
 // that, if this is a non-virtual module, then it is returned.
 func (p *ModuleScope) Owner() *ModuleScope {
-	if !p.virtual {
+	if p.selector == nil {
 		return p
 	} else if p.parent != nil {
 		return p.parent.Owner()
@@ -133,21 +140,23 @@ func (p *ModuleScope) Owner() *ModuleScope {
 
 // Declare a new submodule at the given (absolute) path within this tree scope.
 // Submodules can be declared as "virtual" which indicates the submodule is
-// simply a subset of rows of its enclosing module.  This returns true if this
-// succeeds, otherwise returns false (i.e. a matching submodule already exists).
-func (p *ModuleScope) Declare(submodule string, virtual bool) bool {
+// simply a subset of rows of its enclosing module.  A virtual module is
+// indicated by a non-zero selector, which signals when the virtual module is
+// active.  This returns true if this succeeds, otherwise returns false (i.e. a
+// matching submodule already exists).
+func (p *ModuleScope) Declare(submodule string, selector ast.Expr) bool {
 	if _, ok := p.submodmap[submodule]; ok {
 		return false
 	}
 	// Construct suitable child scope
 	scope := &ModuleScope{
+		selector,
 		*p.path.Extend(submodule),
 		make(map[BindingId]uint),
 		nil,
 		p,
 		make(map[string]*ModuleScope),
 		nil,
-		virtual,
 	}
 	// Update records
 	p.submodmap[submodule] = scope

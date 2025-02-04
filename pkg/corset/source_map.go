@@ -39,10 +39,12 @@ type SourceModule struct {
 	// Synthetic indicates whether or not this module was automatically
 	// generated or not.
 	Synthetic bool
-	Virtual   bool
+	// Virtual indicates whether or not this is a "virtual" module.  That is, a
+	// module which is artificially embedded in some outer (concrete) module.
+	Virtual bool
 	// Selector determines when this (sub)module is active.  Specifically, when
 	// it evaluates to a non-zero value the module is active.
-	Selector hir.Expr
+	Selector *hir.UnitExpr
 	// Submodules identifies any (virtual) submodules contained within this.
 	// Currently, perspectives are the only form of submodule currently
 	// supported.

@@ -97,8 +97,13 @@ func (p *ModuleView) CellAt(trace tr.Trace, col, row uint) termio.FormattedText 
 	val := p.ValueAt(trace, trCol, trRow)
 	// Generate textual representation of value, and clip accordingly.
 	str := clipValue(p.display(val), p.rowWidths[trRow])
-	// Calculate appropriate colour for this cell.
-	return termio.NewFormattedText(str, cellColour(val))
+	//
+	if p.IsActive(trace, trCol, trRow) {
+		// Calculate appropriate colour for this cell.
+		return termio.NewFormattedText(str, cellColour(val))
+	} else {
+		return termio.NewColouredText(str, termio.TERM_BLACK)
+	}
 }
 
 // ValueAt extracts the data point at a given rol and column in the trace.
@@ -107,6 +112,19 @@ func (p *ModuleView) ValueAt(trace tr.Trace, trCol, trRow uint) fr.Element {
 	regId := p.columns[trCol].Register
 	// Extract cell value from register
 	return trace.Column(regId).Get(int(trRow))
+}
+
+// IsActive determines whether a given cell is active, or not.  A cell can be
+// inactive, for example, if its part of a perspective which is not active.
+func (p *ModuleView) IsActive(trace tr.Trace, trCol, trRow uint) bool {
+	selector := p.columns[trCol].Selector
+	//
+	if selector != nil {
+		val := selector.EvalAt(int(trRow), trace)
+		return !val.IsZero()
+	}
+	//
+	return true
 }
 
 // ============================================================================
