@@ -1,4 +1,4 @@
-package util
+package iter
 
 // Enumerator abstracts the process of iterating over a sequence of elements.
 type Enumerator[T any] interface {

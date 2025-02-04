@@ -6,7 +6,7 @@ import (
 
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
-	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/iter"
 	"github.com/consensys/go-corset/pkg/util/sexp"
 )
 
@@ -52,10 +52,10 @@ func (p *DataColumn) Type() sc.Type {
 // ============================================================================
 
 // Columns returns the columns declared by this computed column.
-func (p *DataColumn) Columns() util.Iterator[sc.Column] {
+func (p *DataColumn) Columns() iter.Iterator[sc.Column] {
 	// Datacolumns always have a multiplier of 1.
 	column := sc.NewColumn(p.TraceContext, p.ColumnName, p.DataType)
-	return util.NewUnitIterator[sc.Column](column)
+	return iter.NewUnitIterator[sc.Column](column)
 }
 
 // IsComputed Determines whether or not this declaration is computed (which data

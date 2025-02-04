@@ -10,6 +10,7 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/iter"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -120,7 +121,7 @@ func testTrace(ir string, asserts []sc.Failure, trace tr.Trace, schema sc.Schema
 }
 
 // Constructs a (lazy) enumerator over the set of traces to be used for testing.
-func initTraceEnumerator(nrows uint, hirSchema *hir.Schema) util.Enumerator[tr.Trace] {
+func initTraceEnumerator(nrows uint, hirSchema *hir.Schema) iter.Enumerator[tr.Trace] {
 	// NOTE: This is really a temporary solution for now.  It doesn't handle
 	// length multipliers.  It doesn't allow for modules with different heights.
 	// It uses a fixed pool.

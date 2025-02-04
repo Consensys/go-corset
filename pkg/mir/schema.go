@@ -9,6 +9,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/iter"
 )
 
 // DataColumn captures the essence of a data column at the MIR level.
@@ -147,50 +148,50 @@ func (p *Schema) AddPropertyAssertion(handle string, context trace.Context, expr
 // InputColumns returns an array over the input columns of this schema.  That
 // is, the subset of columns whose trace values must be provided by the
 // user.
-func (p *Schema) InputColumns() util.Iterator[schema.Column] {
-	inputs := util.NewArrayIterator(p.inputs)
-	return util.NewFlattenIterator[schema.Declaration, schema.Column](inputs,
-		func(d schema.Declaration) util.Iterator[schema.Column] { return d.Columns() })
+func (p *Schema) InputColumns() iter.Iterator[schema.Column] {
+	inputs := iter.NewArrayIterator(p.inputs)
+	return iter.NewFlattenIterator[schema.Declaration, schema.Column](inputs,
+		func(d schema.Declaration) iter.Iterator[schema.Column] { return d.Columns() })
 }
 
 // Assertions returns an iterator over the property assertions of this
 // schema.  These are properties which should hold true for any valid trace
 // (though, of course, may not hold true for an invalid trace).
-func (p *Schema) Assertions() util.Iterator[schema.Constraint] {
-	properties := util.NewArrayIterator(p.assertions)
-	return util.NewCastIterator[PropertyAssertion, schema.Constraint](properties)
+func (p *Schema) Assertions() iter.Iterator[schema.Constraint] {
+	properties := iter.NewArrayIterator(p.assertions)
+	return iter.NewCastIterator[PropertyAssertion, schema.Constraint](properties)
 }
 
 // Assignments returns an array over the assignments of this schema.  That
 // is, the subset of declarations whose trace values can be computed from
 // the inputs.
-func (p *Schema) Assignments() util.Iterator[schema.Assignment] {
-	return util.NewArrayIterator(p.assignments)
+func (p *Schema) Assignments() iter.Iterator[schema.Assignment] {
+	return iter.NewArrayIterator(p.assignments)
 }
 
 // Columns returns an array over the underlying columns of this schema.
 // Specifically, the index of a column in this array is its column index.
-func (p *Schema) Columns() util.Iterator[schema.Column] {
-	return util.NewArrayIterator(p.column_cache)
+func (p *Schema) Columns() iter.Iterator[schema.Column] {
+	return iter.NewArrayIterator(p.column_cache)
 }
 
 // Constraints returns an array over the underlying constraints of this
 // schema.
-func (p *Schema) Constraints() util.Iterator[schema.Constraint] {
-	return util.NewArrayIterator(p.constraints)
+func (p *Schema) Constraints() iter.Iterator[schema.Constraint] {
+	return iter.NewArrayIterator(p.constraints)
 }
 
 // Declarations returns an array over the column declarations of this
 // schema.
-func (p *Schema) Declarations() util.Iterator[schema.Declaration] {
-	inputs := util.NewArrayIterator(p.inputs)
-	ps := util.NewCastIterator[schema.Assignment, schema.Declaration](p.Assignments())
+func (p *Schema) Declarations() iter.Iterator[schema.Declaration] {
+	inputs := iter.NewArrayIterator(p.inputs)
+	ps := iter.NewCastIterator[schema.Assignment, schema.Declaration](p.Assignments())
 
 	return inputs.Append(ps)
 }
 
 // Modules returns an iterator over the declared set of modules within this
 // schema.
-func (p *Schema) Modules() util.Iterator[schema.Module] {
-	return util.NewArrayIterator(p.modules)
+func (p *Schema) Modules() iter.Iterator[schema.Module] {
+	return iter.NewArrayIterator(p.modules)
 }

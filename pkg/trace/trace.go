@@ -2,7 +2,7 @@ package trace
 
 import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/iter"
 	"github.com/consensys/go-corset/pkg/util/field"
 )
 
@@ -16,7 +16,7 @@ type Trace interface {
 	// Returns the height of the given context (i.e. module).
 	Height(Context) uint
 	// Module returns the list of assigned modules and their respective heights
-	Modules() util.Iterator[ArrayModule]
+	Modules() iter.Iterator[ArrayModule]
 }
 
 // Column describes an individual column of data within a trace table.

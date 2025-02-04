@@ -3,6 +3,8 @@ package util
 import (
 	"cmp"
 	"sort"
+
+	"github.com/consensys/go-corset/pkg/util/collection/iter"
 )
 
 // Comparable provides an interface which types used in a AnySortedSet must implement.
@@ -95,8 +97,8 @@ func (p *AnySortedSet[T]) InsertSorted(q *AnySortedSet[T]) {
 // Iter returns an iterator over the elements of this sorted set.
 //
 //nolint:revive
-func (p *AnySortedSet[T]) Iter() Iterator[T] {
-	return NewArrayIterator(*p)
+func (p *AnySortedSet[T]) Iter() iter.Iterator[T] {
+	return iter.NewArrayIterator(*p)
 }
 
 // UnionAnySortedSets unions together a number of things which can be turn into a

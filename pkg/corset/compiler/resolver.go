@@ -4,8 +4,12 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/corset/ast"
+	"github.com/consensys/go-corset/pkg/util/collection/iter"
 	"github.com/consensys/go-corset/pkg/util/sexp"
 )
+
+// DeclIterator is a shorthand notation.
+type DeclIterator = iter.Iterator[ast.Declaration]
 
 // ResolveCircuit resolves all symbols declared and used within a circuit,
 // producing an environment which can subsequently be used to look up the
@@ -163,11 +167,11 @@ func (r *resolver) initialiseAliasesInModule(scope *ModuleScope, decls []ast.Dec
 func (r *resolver) resolveDeclarations(scope *ModuleScope, circuit *ast.Circuit) []SyntaxError {
 	// Input columns must be allocated before assignemts, since the hir.Schema
 	// separates these out.
-	errs := r.finaliseDeclarationsInModule(scope, circuit.Declarations)
+	errs := r.finaliseDeclarationsInModule(scope, iter.NewArrayIterator(circuit.Declarations))
 	//
 	for _, m := range circuit.Modules {
 		// Process all declarations in the module
-		merrs := r.finaliseDeclarationsInModule(scope.Enter(m.Name), m.Declarations)
+		merrs := r.finaliseDeclarationsInModule(scope.Enter(m.Name), iter.NewArrayIterator(m.Declarations))
 		// Package up all errors
 		errs = append(errs, merrs...)
 	}
@@ -180,7 +184,7 @@ func (r *resolver) resolveDeclarations(scope *ModuleScope, circuit *ast.Circuit)
 // have been themselves finalised.  For example, a function which depends upon
 // an interleaved column.  Until the interleaved column is finalised, its type
 // won't be available and, hence, we cannot type the function.
-func (r *resolver) finaliseDeclarationsInModule(scope *ModuleScope, decls []ast.Declaration) []SyntaxError {
+func (r *resolver) finaliseDeclarationsInModule(scope *ModuleScope, decls DeclIterator) []SyntaxError {
 	// Changed indicates whether or not a new assignment was finalised during a
 	// given iteration.  This is important to know since, if the assignment is
 	// not complete and we didn't finalise any more assignments --- then, we've
@@ -204,24 +208,25 @@ func (r *resolver) finaliseDeclarationsInModule(scope *ModuleScope, decls []ast.
 		changed = false
 		complete = true
 		//
-		for _, d := range decls {
+		for iter := decls.Clone(); iter.HasNext(); {
+			decl := iter.Next()
 			// Check whether already finalised
-			if !d.IsFinalised() {
+			if !decl.IsFinalised() {
 				// No, so attempt to finalise
-				ready, errs := r.declarationDependenciesAreFinalised(scope, d)
+				ready, errs := r.declarationDependenciesAreFinalised(scope, decl)
 				// Check what we found
 				if errs != nil {
 					errors = append(errors, errs...)
 				} else if ready {
 					// Finalise declaration and handle errors
-					errs := r.finaliseDeclaration(scope, d)
+					errs := r.finaliseDeclaration(scope, decl)
 					errors = append(errors, errs...)
 					// Record that a new assignment is available.
 					changed = changed || len(errs) == 0
 				} else {
 					// ast.Declaration not ready yet
 					complete = false
-					incomplete = d
+					incomplete = decl
 				}
 			}
 		}

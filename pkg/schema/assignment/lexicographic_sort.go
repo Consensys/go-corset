@@ -7,6 +7,7 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/iter"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/sexp"
 )
@@ -54,8 +55,8 @@ func (p *LexicographicSort) Context() tr.Context {
 }
 
 // Columns returns the columns declared by this assignment.
-func (p *LexicographicSort) Columns() util.Iterator[sc.Column] {
-	return util.NewArrayIterator(p.targets)
+func (p *LexicographicSort) Columns() iter.Iterator[sc.Column] {
+	return iter.NewArrayIterator(p.targets)
 }
 
 // IsComputed Determines whether or not this declaration is computed (which it

@@ -7,6 +7,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/iter"
 	"github.com/consensys/go-corset/pkg/util/sexp"
 )
 
@@ -15,31 +16,31 @@ type Schema interface {
 	// Assertions returns an iterator over the property assertions of this
 	// schema.  These are properties which should hold true for any valid trace
 	// (though, of course, may not hold true for an invalid trace).
-	Assertions() util.Iterator[Constraint]
+	Assertions() iter.Iterator[Constraint]
 
 	// Assignments returns an iterator over the assignments of this schema.  That
 	// is, the subset of declarations whose trace values can be computed from
 	// the inputs.
-	Assignments() util.Iterator[Assignment]
+	Assignments() iter.Iterator[Assignment]
 
 	// Columns returns an iterator over the underlying columns of this schema.
 	// Specifically, the index of a column in this array is its column index.
-	Columns() util.Iterator[Column]
+	Columns() iter.Iterator[Column]
 
 	// Constraints returns an iterator over the underlying constraints of this
 	// schema.
-	Constraints() util.Iterator[Constraint]
+	Constraints() iter.Iterator[Constraint]
 
 	// Declarations returns an iterator over the column declarations of this
 	// schema.
-	Declarations() util.Iterator[Declaration]
+	Declarations() iter.Iterator[Declaration]
 
 	// Iterator over the input (i.e. non-computed) columns of the schema.
-	InputColumns() util.Iterator[Column]
+	InputColumns() iter.Iterator[Column]
 
 	// Modules returns an iterator over the declared set of modules within this
 	// schema.
-	Modules() util.Iterator[Module]
+	Modules() iter.Iterator[Module]
 }
 
 // Declaration represents an element which declares one (or more) columns in the
@@ -48,7 +49,7 @@ type Schema interface {
 type Declaration interface {
 	Lispifiable
 	// Return the declared columns (in the order of declaration).
-	Columns() util.Iterator[Column]
+	Columns() iter.Iterator[Column]
 
 	// Context returns the evaluation context (i.e. enclosing module + length
 	// multiplier) for this declaration.  Every declaration must have a single,

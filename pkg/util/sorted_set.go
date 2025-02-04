@@ -3,6 +3,8 @@ package util
 import (
 	"cmp"
 	"sort"
+
+	"github.com/consensys/go-corset/pkg/util/collection/iter"
 )
 
 // SortedSet is an array of unique sorted values (i.e. no duplicates).
@@ -71,8 +73,8 @@ func (p *SortedSet[T]) InsertSorted(q *SortedSet[T]) {
 // Iter returns an iterator over the elements of this sorted set.
 //
 //nolint:revive
-func (p *SortedSet[T]) Iter() Iterator[T] {
-	return NewArrayIterator(*p)
+func (p *SortedSet[T]) Iter() iter.Iterator[T] {
+	return iter.NewArrayIterator(*p)
 }
 
 // UnionSortedSets unions together a number of things which can be turn into a

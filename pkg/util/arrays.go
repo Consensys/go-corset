@@ -5,6 +5,7 @@ import (
 	"io"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/go-corset/pkg/util/collection/iter"
 )
 
 // Array provides a generice interface to an array of elements.  Typically, we
@@ -79,7 +80,7 @@ func ReplaceFirstOrPanic[T comparable](columns []T, from T, to T) {
 }
 
 // RemoveMatching removes all elements from an array matching the given item.
-func RemoveMatching[T any](items []T, predicate Predicate[T]) []T {
+func RemoveMatching[T any](items []T, predicate iter.Predicate[T]) []T {
 	count := 0
 	// Check how many matches we have
 	for _, r := range items {

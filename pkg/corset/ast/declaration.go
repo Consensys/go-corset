@@ -5,6 +5,7 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/iter"
 	"github.com/consensys/go-corset/pkg/util/sexp"
 )
 
@@ -39,9 +40,9 @@ type Declaration interface {
 	Node
 	// Returns the set of symbols being defined this declaration.  Observe that
 	// these may not yet have been finalised.
-	Definitions() util.Iterator[SymbolDefinition]
+	Definitions() iter.Iterator[SymbolDefinition]
 	// Return set of columns on which this declaration depends.
-	Dependencies() util.Iterator[Symbol]
+	Dependencies() iter.Iterator[Symbol]
 	// Check whether this declaration defines a given symbol.  The symbol in
 	// question needs to have been resolved already for this to make sense.
 	Defines(Symbol) bool
@@ -70,14 +71,14 @@ func NewDefAliases(functions bool, aliases []*DefAlias, symbols []Symbol) *DefAl
 }
 
 // Dependencies needed to signal declaration.
-func (p *DefAliases) Dependencies() util.Iterator[Symbol] {
-	return util.NewArrayIterator[Symbol](nil)
+func (p *DefAliases) Dependencies() iter.Iterator[Symbol] {
+	return iter.NewArrayIterator[Symbol](nil)
 }
 
 // Definitions returns the set of symbols defined by this declaration.  Observe
 // that these may not yet have been finalised.
-func (p *DefAliases) Definitions() util.Iterator[SymbolDefinition] {
-	return util.NewArrayIterator[SymbolDefinition](nil)
+func (p *DefAliases) Definitions() iter.Iterator[SymbolDefinition] {
+	return iter.NewArrayIterator[SymbolDefinition](nil)
 }
 
 // Defines checks whether this declaration defines the given symbol.  The symbol
@@ -153,15 +154,15 @@ func NewDefColumns(columns []*DefColumn) *DefColumns {
 }
 
 // Dependencies needed to signal declaration.
-func (p *DefColumns) Dependencies() util.Iterator[Symbol] {
-	return util.NewArrayIterator[Symbol](nil)
+func (p *DefColumns) Dependencies() iter.Iterator[Symbol] {
+	return iter.NewArrayIterator[Symbol](nil)
 }
 
 // Definitions returns the set of symbols defined by this declaration.  Observe
 // that these may not yet have been finalised.
-func (p *DefColumns) Definitions() util.Iterator[SymbolDefinition] {
-	iter := util.NewArrayIterator(p.Columns)
-	return util.NewCastIterator[*DefColumn, SymbolDefinition](iter)
+func (p *DefColumns) Definitions() iter.Iterator[SymbolDefinition] {
+	iterator := iter.NewArrayIterator(p.Columns)
+	return iter.NewCastIterator[*DefColumn, SymbolDefinition](iterator)
 }
 
 // Defines checks whether this declaration defines the given symbol.  The symbol
@@ -320,15 +321,15 @@ type DefComputed struct {
 
 // Definitions returns the set of symbols defined by this declaration.  Observe
 // that these may not yet have been finalised.
-func (p *DefComputed) Definitions() util.Iterator[SymbolDefinition] {
-	iter := util.NewArrayIterator(p.Targets)
-	return util.NewCastIterator[*DefColumn, SymbolDefinition](iter)
+func (p *DefComputed) Definitions() iter.Iterator[SymbolDefinition] {
+	iterator := iter.NewArrayIterator(p.Targets)
+	return iter.NewCastIterator[*DefColumn, SymbolDefinition](iterator)
 }
 
 // Dependencies needed to signal declaration.
-func (p *DefComputed) Dependencies() util.Iterator[Symbol] {
-	fn := util.NewUnitIterator(p.Function)
-	sources := util.NewArrayIterator(p.Sources)
+func (p *DefComputed) Dependencies() iter.Iterator[Symbol] {
+	fn := iter.NewUnitIterator(p.Function)
+	sources := iter.NewArrayIterator(p.Sources)
 	//
 	return fn.Append(sources)
 }
@@ -397,20 +398,20 @@ type DefConst struct {
 
 // Definitions returns the set of symbols defined by this declaration.  Observe
 // that these may not yet have been finalised.
-func (p *DefConst) Definitions() util.Iterator[SymbolDefinition] {
-	iter := util.NewArrayIterator[*DefConstUnit](p.Constants)
-	return util.NewCastIterator[*DefConstUnit, SymbolDefinition](iter)
+func (p *DefConst) Definitions() iter.Iterator[SymbolDefinition] {
+	iterator := iter.NewArrayIterator[*DefConstUnit](p.Constants)
+	return iter.NewCastIterator[*DefConstUnit, SymbolDefinition](iterator)
 }
 
 // Dependencies needed to signal declaration.
-func (p *DefConst) Dependencies() util.Iterator[Symbol] {
+func (p *DefConst) Dependencies() iter.Iterator[Symbol] {
 	var deps []Symbol
 	// Combine dependencies from all constants defined within.
 	for _, d := range p.Constants {
 		deps = append(deps, d.ConstBinding.Value.Dependencies()...)
 	}
 	// Done
-	return util.NewArrayIterator[Symbol](deps)
+	return iter.NewArrayIterator[Symbol](deps)
 }
 
 // Defines checks whether this declaration defines the given symbol.  The symbol
@@ -537,12 +538,12 @@ func NewDefConstraint(handle string, domain util.Option[int], guard Expr, perspe
 
 // Definitions returns the set of symbols defined by this declaration.  Observe
 // that these may not yet have been finalised.
-func (p *DefConstraint) Definitions() util.Iterator[SymbolDefinition] {
-	return util.NewArrayIterator[SymbolDefinition](nil)
+func (p *DefConstraint) Definitions() iter.Iterator[SymbolDefinition] {
+	return iter.NewArrayIterator[SymbolDefinition](nil)
 }
 
 // Dependencies needed to signal declaration.
-func (p *DefConstraint) Dependencies() util.Iterator[Symbol] {
+func (p *DefConstraint) Dependencies() iter.Iterator[Symbol] {
 	var deps []Symbol
 	// Extract guard's dependencies (if applicable)
 	if p.Guard != nil {
@@ -555,7 +556,7 @@ func (p *DefConstraint) Dependencies() util.Iterator[Symbol] {
 	// Extract bodies dependencies
 	deps = append(deps, p.Constraint.Dependencies()...)
 	// Done
-	return util.NewArrayIterator[Symbol](deps)
+	return iter.NewArrayIterator[Symbol](deps)
 }
 
 // Defines checks whether this declaration defines the given symbol.  The symbol
@@ -622,13 +623,13 @@ type DefInRange struct {
 
 // Definitions returns the set of symbols defined by this declaration.  Observe
 // that these may not yet have been finalised.
-func (p *DefInRange) Definitions() util.Iterator[SymbolDefinition] {
-	return util.NewArrayIterator[SymbolDefinition](nil)
+func (p *DefInRange) Definitions() iter.Iterator[SymbolDefinition] {
+	return iter.NewArrayIterator[SymbolDefinition](nil)
 }
 
 // Dependencies needed to signal declaration.
-func (p *DefInRange) Dependencies() util.Iterator[Symbol] {
-	return util.NewArrayIterator[Symbol](p.Expr.Dependencies())
+func (p *DefInRange) Dependencies() iter.Iterator[Symbol] {
+	return iter.NewArrayIterator[Symbol](p.Expr.Dependencies())
 }
 
 // Defines checks whether this declaration defines the given symbol.  The symbol
@@ -679,15 +680,15 @@ type DefInterleaved struct {
 
 // Definitions returns the set of symbols defined by this declaration.  Observe
 // that these may not yet have been finalised.
-func (p *DefInterleaved) Definitions() util.Iterator[SymbolDefinition] {
-	iter := util.NewUnitIterator(p.Target)
-	return util.NewCastIterator[*DefColumn, SymbolDefinition](iter)
+func (p *DefInterleaved) Definitions() iter.Iterator[SymbolDefinition] {
+	iterator := iter.NewUnitIterator(p.Target)
+	return iter.NewCastIterator[*DefColumn, SymbolDefinition](iterator)
 }
 
 // Dependencies needed to signal declaration.
-func (p *DefInterleaved) Dependencies() util.Iterator[Symbol] {
-	iter := util.NewArrayIterator(p.Sources)
-	return util.NewCastIterator[TypedSymbol, Symbol](iter)
+func (p *DefInterleaved) Dependencies() iter.Iterator[Symbol] {
+	iterator := iter.NewArrayIterator(p.Sources)
+	return iter.NewCastIterator[TypedSymbol, Symbol](iterator)
 }
 
 // Defines checks whether this declaration defines the given symbol.  The symbol
@@ -755,16 +756,16 @@ func NewDefLookup(handle string, sources []Expr, targets []Expr) *DefLookup {
 
 // Definitions returns the set of symbols defined by this declaration.  Observe
 // that these may not yet have been finalised.
-func (p *DefLookup) Definitions() util.Iterator[SymbolDefinition] {
-	return util.NewArrayIterator[SymbolDefinition](nil)
+func (p *DefLookup) Definitions() iter.Iterator[SymbolDefinition] {
+	return iter.NewArrayIterator[SymbolDefinition](nil)
 }
 
 // Dependencies needed to signal declaration.
-func (p *DefLookup) Dependencies() util.Iterator[Symbol] {
+func (p *DefLookup) Dependencies() iter.Iterator[Symbol] {
 	sourceDeps := DependenciesOfExpressions(p.Sources)
 	targetDeps := DependenciesOfExpressions(p.Targets)
 	// Combine deps
-	return util.NewArrayIterator(append(sourceDeps, targetDeps...))
+	return iter.NewArrayIterator(append(sourceDeps, targetDeps...))
 }
 
 // Defines checks whether this declaration defines the given symbol.  The symbol
@@ -828,14 +829,14 @@ func NewDefPermutation(targets []*DefColumn, sources []Symbol, signs []bool) *De
 
 // Definitions returns the set of symbols defined by this declaration.  Observe
 // that these may not yet have been finalised.
-func (p *DefPermutation) Definitions() util.Iterator[SymbolDefinition] {
-	iter := util.NewArrayIterator(p.Targets)
-	return util.NewCastIterator[*DefColumn, SymbolDefinition](iter)
+func (p *DefPermutation) Definitions() iter.Iterator[SymbolDefinition] {
+	iterator := iter.NewArrayIterator(p.Targets)
+	return iter.NewCastIterator[*DefColumn, SymbolDefinition](iterator)
 }
 
 // Dependencies needed to signal declaration.
-func (p *DefPermutation) Dependencies() util.Iterator[Symbol] {
-	return util.NewArrayIterator(p.Sources)
+func (p *DefPermutation) Dependencies() iter.Iterator[Symbol] {
+	return iter.NewArrayIterator(p.Sources)
 }
 
 // Defines checks whether this declaration defines the given symbol.  The symbol
@@ -941,16 +942,16 @@ func (p *DefPerspective) Binding() Binding {
 }
 
 // Dependencies needed to signal declaration.
-func (p *DefPerspective) Dependencies() util.Iterator[Symbol] {
-	return util.NewArrayIterator(p.Selector.Dependencies())
+func (p *DefPerspective) Dependencies() iter.Iterator[Symbol] {
+	return iter.NewArrayIterator(p.Selector.Dependencies())
 }
 
 // Definitions returns the set of symbols defined by this declaration.  Observe
 // that these may not yet have been finalised.
-func (p *DefPerspective) Definitions() util.Iterator[SymbolDefinition] {
-	iter1 := util.NewArrayIterator(p.Columns)
-	iter2 := util.NewCastIterator[*DefColumn, SymbolDefinition](iter1)
-	iter3 := util.NewUnitIterator[SymbolDefinition](p)
+func (p *DefPerspective) Definitions() iter.Iterator[SymbolDefinition] {
+	iter1 := iter.NewArrayIterator(p.Columns)
+	iter2 := iter.NewCastIterator[*DefColumn, SymbolDefinition](iter1)
+	iter3 := iter.NewUnitIterator[SymbolDefinition](p)
 	// Construct casting iterator
 	return iter2.Append(iter3)
 }
@@ -1008,13 +1009,13 @@ func NewDefProperty(handle string, assertion Expr) *DefProperty {
 
 // Definitions returns the set of symbols defined by this declaration.  Observe that
 // these may not yet have been finalised.
-func (p *DefProperty) Definitions() util.Iterator[SymbolDefinition] {
-	return util.NewArrayIterator[SymbolDefinition](nil)
+func (p *DefProperty) Definitions() iter.Iterator[SymbolDefinition] {
+	return iter.NewArrayIterator[SymbolDefinition](nil)
 }
 
 // Dependencies needed to signal declaration.
-func (p *DefProperty) Dependencies() util.Iterator[Symbol] {
-	return util.NewArrayIterator(p.Assertion.Dependencies())
+func (p *DefProperty) Dependencies() iter.Iterator[Symbol] {
+	return iter.NewArrayIterator(p.Assertion.Dependencies())
 }
 
 // Defines checks whether this declaration defines the given symbol.  The symbol
@@ -1115,13 +1116,13 @@ func (p *DefFun) Finalise() {
 
 // Definitions returns the set of symbols defined by this declaration.  Observe
 // that these may not yet have been finalised.
-func (p *DefFun) Definitions() util.Iterator[SymbolDefinition] {
-	iter := util.NewUnitIterator(p.symbol)
-	return util.NewCastIterator[*FunctionName, SymbolDefinition](iter)
+func (p *DefFun) Definitions() iter.Iterator[SymbolDefinition] {
+	iterator := iter.NewUnitIterator(p.symbol)
+	return iter.NewCastIterator[*FunctionName, SymbolDefinition](iterator)
 }
 
 // Dependencies needed to signal declaration.
-func (p *DefFun) Dependencies() util.Iterator[Symbol] {
+func (p *DefFun) Dependencies() iter.Iterator[Symbol] {
 	deps := p.symbol.binding.body.Dependencies()
 	ndeps := make([]Symbol, 0)
 	// Filter out all parameters declared in this function, since these are not
@@ -1133,7 +1134,7 @@ func (p *DefFun) Dependencies() util.Iterator[Symbol] {
 		}
 	}
 	// Done
-	return util.NewArrayIterator(ndeps)
+	return iter.NewArrayIterator(ndeps)
 }
 
 // Defines checks whether this declaration defines the given symbol.  The symbol

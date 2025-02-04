@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/iter"
 	"github.com/consensys/go-corset/pkg/util/field"
 )
 
@@ -29,8 +29,8 @@ func NewArrayTrace(modules []ArrayModule, columns []ArrayColumn) *ArrayTrace {
 }
 
 // Modules returns an iterator over the modules in this trace.
-func (p *ArrayTrace) Modules() util.Iterator[ArrayModule] {
-	return util.NewArrayIterator(p.modules)
+func (p *ArrayTrace) Modules() iter.Iterator[ArrayModule] {
+	return iter.NewArrayIterator(p.modules)
 }
 
 // Width returns number of columns in this trace.

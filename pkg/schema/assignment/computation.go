@@ -11,6 +11,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/iter"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/sexp"
 )
@@ -53,8 +54,8 @@ func (p *Computation) Context() trace.Context {
 }
 
 // Columns returns the columns declared by this computed column.
-func (p *Computation) Columns() util.Iterator[sc.Column] {
-	return util.NewArrayIterator[sc.Column](p.Targets)
+func (p *Computation) Columns() iter.Iterator[sc.Column] {
+	return iter.NewArrayIterator[sc.Column](p.Targets)
 }
 
 // IsComputed Determines whether or not this declaration is computed (which it

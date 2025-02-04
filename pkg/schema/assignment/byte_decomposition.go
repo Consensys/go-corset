@@ -7,6 +7,7 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/iter"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/sexp"
 )
@@ -49,8 +50,8 @@ func (p *ByteDecomposition) Context() trace.Context {
 
 // Columns returns the columns declared by this byte decomposition (in the order
 // of declaration).
-func (p *ByteDecomposition) Columns() util.Iterator[sc.Column] {
-	return util.NewArrayIterator[sc.Column](p.targets)
+func (p *ByteDecomposition) Columns() iter.Iterator[sc.Column] {
+	return iter.NewArrayIterator[sc.Column](p.targets)
 }
 
 // IsComputed Determines whether or not this declaration is computed.
