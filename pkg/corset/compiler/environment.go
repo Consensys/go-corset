@@ -1,12 +1,7 @@
 package compiler
 
 import (
-	"encoding/gob"
-	"fmt"
-
-	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/corset/ast"
-	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
@@ -138,63 +133,6 @@ func (p GlobalEnvironment) ContextOf(from ast.Context) tr.Context {
 	return tr.NewContext(mid, from.LengthMultiplier())
 }
 
-// SourceColumnMap constructs a mapping from source-level columns to registers.
-// This is used primarily for debugging purposes.
-func (p GlobalEnvironment) SourceColumnMap() *SourceMap {
-	var entries []SourceColumnMapping
-	//
-	for i, reg := range p.registers {
-		for _, col := range reg.Sources {
-			entry := SourceColumnMapping{col, uint(i)}
-			entries = append(entries, entry)
-		}
-	}
-	//
-	return &SourceMap{entries}
-}
-
-// ===========================================================================
-// SourceColumnMap
-// ===========================================================================
-
-// SourceMap is a binary file attribute which provides debugging
-// information about the relationship between registers and source-level
-// columns.  This is used, for example, within the inspector.
-type SourceMap struct {
-	SourceColumnMap []SourceColumnMapping
-}
-
-// AttributeName returns the name of the binary file attribute that this will
-// generate.  This is used, for example, when listing attributes contained
-// within a binary file.
-func (p *SourceMap) AttributeName() string {
-	return "CorsetSourceMap"
-}
-
-// Entries returns the set of attribute mappings within this binary file attribute.
-func (p *SourceMap) Entries() util.Iterator[binfile.AttributeEntry] {
-	iter := util.NewArrayIterator(p.SourceColumnMap)
-	return util.NewCastIterator[SourceColumnMapping, binfile.AttributeEntry](iter)
-}
-
-// SourceColumnMapping contains the mapping for a single source-level column.
-type SourceColumnMapping struct {
-	// Provides information about the source-level column.
-	Column SourceColumn
-	// Identifiers the register to which this column was eventually allocated.
-	Register uint
-}
-
-// Key returns the attribute key
-func (p SourceColumnMapping) Key() string {
-	return p.Column.Name.String()
-}
-
-// Value returns the attribute value
-func (p SourceColumnMapping) Value() any {
-	return p.Register
-}
-
 // ===========================================================================
 // Helpers
 // ===========================================================================
@@ -223,21 +161,17 @@ func (p *GlobalEnvironment) initColumnsAndRegisters(modules []*ModuleScope) {
 	p.registers = make([]Register, 0)
 	// Allocate input columns first.
 	for _, m := range modules {
-		owner := m.Owner()
-		//
-		for _, b := range m.bindings {
-			if binding, ok := b.(*ast.ColumnBinding); ok && !binding.Computed {
-				p.allocateColumn(binding, owner.path)
+		for _, col := range m.DestructuredColumns() {
+			if !col.Computed {
+				p.allocateRegister(col)
 			}
 		}
 	}
 	// Allocate assignments second.
 	for _, m := range modules {
-		owner := m.Owner()
-		//
-		for _, b := range m.bindings {
-			if binding, ok := b.(*ast.ColumnBinding); ok && binding.Computed {
-				p.allocateColumn(binding, owner.path)
+		for _, col := range m.DestructuredColumns() {
+			if col.Computed {
+				p.allocateRegister(col)
 			}
 		}
 	}
@@ -257,56 +191,20 @@ func (p *GlobalEnvironment) initColumnsAndRegisters(modules []*ModuleScope) {
 // column can correspond to multiple underling registers, this can result in the
 // allocation of a number of registers (based on the columns type).  For
 // example, an array of length n will allocate n registers, etc.
-func (p *GlobalEnvironment) allocateColumn(column *ast.ColumnBinding, context util.Path) {
-	p.allocate(column, context, column.Path, column.DataType)
-}
-
-func (p *GlobalEnvironment) allocate(column *ast.ColumnBinding, ctx util.Path, path util.Path, datatype ast.Type) {
-	// Check for base base
-	if datatype.AsUnderlying() != nil {
-		p.allocateUnit(column, ctx, path, datatype.AsUnderlying())
-	} else if arraytype, ok := datatype.(*ast.ArrayType); ok {
-		// For now, assume must be an array
-		p.allocateArray(column, ctx, path, arraytype)
-	} else {
-		panic(fmt.Sprintf("unknown type encountered: %v", datatype))
-	}
-}
-
-// Allocate an array type
-func (p *GlobalEnvironment) allocateArray(col *ast.ColumnBinding, ctx util.Path, path util.Path,
-	arrtype *ast.ArrayType) {
-	// Allocate n columns
-	for i := arrtype.MinIndex(); i <= arrtype.MaxIndex(); i++ {
-		ith_name := fmt.Sprintf("%s_%d", path.Tail(), i)
-		ith_path := path.Parent().Extend(ith_name)
-		p.allocate(col, ctx, *ith_path, arrtype.Element())
-	}
-}
-
-// Allocate a single register.
-func (p *GlobalEnvironment) allocateUnit(column *ast.ColumnBinding, ctx util.Path, path util.Path, datatype sc.Type) {
-	module := ctx.String()
+func (p *GlobalEnvironment) allocateRegister(source RegisterSource) {
+	module := source.Context.String()
 	//
 	moduleId := p.modules[module].Id
 	regId := uint(len(p.registers))
-	// Construct appropriate register source.
-	source := SourceColumn{
-		ctx,
-		path,
-		column.Multiplier,
-		datatype,
-		column.MustProve,
-		column.Computed}
 	// Allocate register
 	p.registers = append(p.registers, Register{
-		tr.NewContext(moduleId, column.Multiplier),
-		datatype,
-		[]SourceColumn{source},
+		tr.NewContext(moduleId, source.Multiplier),
+		source.DataType,
+		[]RegisterSource{source},
 		nil,
 	})
 	// Map column to register
-	p.columnMap[path.String()] = regId
+	p.columnMap[source.Name.String()] = regId
 }
 
 // Apply the given register allocator to each module of this environment in turn.
@@ -343,8 +241,4 @@ func (p *GlobalEnvironment) applyRegisterAllocation(allocator func(RegisterAlloc
 	}
 	// Copy over new register set, whilst slicing off inactive ones.
 	p.registers = nregisters[0:j]
-}
-
-func init() {
-	gob.Register(binfile.Attribute(&SourceMap{}))
 }

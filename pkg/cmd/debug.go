@@ -98,25 +98,6 @@ func printSchema(schema schema.Schema) {
 func printAttributes(attrs []binfile.Attribute) {
 	for _, attr := range attrs {
 		fmt.Printf("attribute \"%s\":\n", attr.AttributeName())
-		printAttributeEntries(1, attr.Entries())
-	}
-}
-
-func printAttributeEntries(indent uint, entries util.Iterator[binfile.AttributeEntry]) {
-	for entries.HasNext() {
-		entry := entries.Next()
-		val := entry.Value()
-		// Apply indent
-		for i := uint(0); i < indent; i++ {
-			fmt.Print("  ")
-		}
-		//
-		if attrMap, ok := val.(binfile.AttributeMap); ok {
-			fmt.Printf("%s:\n", entry.Key())
-			printAttributeEntries(indent+1, attrMap.Entries())
-		} else {
-			fmt.Printf("%s: %v\n", entry.Key(), val)
-		}
 	}
 }
 

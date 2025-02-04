@@ -25,7 +25,7 @@ type Register struct {
 	// Underlying datatype of this register.
 	DataType sc.Type
 	// Source columns of this register
-	Sources []SourceColumn
+	Sources []RegisterSource
 	// Cached name
 	cached_name *string
 }
@@ -81,7 +81,7 @@ func (r *Register) Name() string {
 		// Construct registers name
 		names := make([]string, len(r.Sources))
 		// Sort by perspective name
-		slices.SortFunc(r.Sources, func(l SourceColumn, r SourceColumn) int {
+		slices.SortFunc(r.Sources, func(l RegisterSource, r RegisterSource) int {
 			return strings.Compare(l.Perspective(), r.Perspective())
 		})
 		//
@@ -113,9 +113,9 @@ func constructRegisterName(names []string) string {
 	return str
 }
 
-// SourceColumn provides necessary information about source-level columns
-// allocated to a  given register.
-type SourceColumn struct {
+// RegisterSource provides necessary information about source-level columns
+// allocated to a given register.
+type RegisterSource struct {
 	// Context is a prefix of name which, when they differ, indicates a virtual
 	// column (i.e. one which is subject to register allocation).
 	Context util.Path
@@ -134,13 +134,13 @@ type SourceColumn struct {
 // IsVirtual indicates whether or not this is a "virtual" column.  That is,
 // something which is subject to register allocation (i.e. because it is
 // declared in a perspective).
-func (p *SourceColumn) IsVirtual() bool {
+func (p *RegisterSource) IsVirtual() bool {
 	return !p.Name.Parent().Equals(p.Context)
 }
 
 // Perspective returns the name of the "virtual perspective" in which this
 // column exists.
-func (p *SourceColumn) Perspective() string {
+func (p *RegisterSource) Perspective() string {
 	return p.Name.Parent().Slice(p.Context.Depth()).String()
 }
 

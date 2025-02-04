@@ -6,7 +6,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/cmd/inspector"
-	"github.com/consensys/go-corset/pkg/corset/compiler"
+	"github.com/consensys/go-corset/pkg/corset"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -24,13 +24,16 @@ var inspectCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		defensive := GetFlag(cmd, "defensive")
+		stdlib := !GetFlag(cmd, "no-stdlib")
 		//
 		stats := util.NewPerfStats()
 		// Parse constraints
-		binf := ReadConstraintFiles(true, false, false, args[1:])
+		binf := ReadConstraintFiles(stdlib, false, false, args[1:])
 		// Sanity check debug information is available.
-		if _, ok := binfile.GetAttribute[*compiler.SourceMap](binf); !ok {
-			panic("missing source map information from binary constraints file")
+		srcmap, srcmap_ok := binfile.GetAttribute[*corset.SourceMap](binf)
+		//
+		if !srcmap_ok {
+			fmt.Printf("binary file \"%s\" missing source map", args[1])
 		}
 		//
 		stats.Log("Reading constraints file")
@@ -45,7 +48,7 @@ var inspectCmd = &cobra.Command{
 		//
 		if len(errors) == 0 {
 			// Run the inspector.
-			errors = inspect(binf, trace)
+			errors = inspect(&binf.Schema, srcmap, trace)
 		}
 		// Sanity check what happened
 		if len(errors) > 0 {
@@ -58,13 +61,9 @@ var inspectCmd = &cobra.Command{
 }
 
 // Inspect a given trace using a given schema.
-func inspect(binf *binfile.BinaryFile, trace tr.Trace) []error {
+func inspect(schema sc.Schema, srcmap *corset.SourceMap, trace tr.Trace) []error {
 	// Construct inspector window
-	inspector, err := construct(binf, trace)
-	// Check error
-	if err != nil {
-		return []error{err}
-	}
+	inspector := construct(schema, trace, srcmap)
 	// Render inspector
 	if err := inspector.Render(); err != nil {
 		return []error{err}
@@ -73,7 +72,7 @@ func inspect(binf *binfile.BinaryFile, trace tr.Trace) []error {
 	return inspector.Start()
 }
 
-func construct(binf *binfile.BinaryFile, trace tr.Trace) (*inspector.Inspector, error) {
+func construct(schema sc.Schema, trace tr.Trace, srcmap *corset.SourceMap) *inspector.Inspector {
 	term, err := termio.NewTerminal()
 	// Check whether successful
 	if err != nil {
@@ -81,7 +80,7 @@ func construct(binf *binfile.BinaryFile, trace tr.Trace) (*inspector.Inspector, 
 		os.Exit(1)
 	}
 	// Construct inspector state
-	return inspector.NewInspector(term, binf, trace)
+	return inspector.NewInspector(term, schema, trace, srcmap)
 }
 
 //nolint:errcheck

@@ -106,8 +106,10 @@ func (p *Compiler) Compile() (*binfile.BinaryFile, []SyntaxError) {
 	environment := compiler.NewGlobalEnvironment(scope, p.allocator)
 	// Translate everything and add it to the schema.
 	schema, errs := compiler.TranslateCircuit(environment, p.srcmap, &p.circuit)
+	// Construct source map
+	source_map := constructSourceMap(scope, environment)
 	// Extract key attributes (for debugging purposes)
-	attributes := []binfile.Attribute{environment.SourceColumnMap()}
+	attributes := []binfile.Attribute{source_map}
 	// Construct binary file
 	return binfile.NewBinaryFile(nil, attributes, schema), errs
 }
@@ -121,4 +123,38 @@ func includeStdlib(stdlib bool, srcfiles []*sexp.SourceFile) []*sexp.SourceFile 
 	}
 	// Not included
 	return srcfiles
+}
+
+func constructSourceMap(scope *compiler.ModuleScope, env compiler.GlobalEnvironment) *SourceMap {
+	return &SourceMap{constructSourceModule(scope, env)}
+}
+
+func constructSourceModule(scope *compiler.ModuleScope, env compiler.GlobalEnvironment) SourceModule {
+	var (
+		columns    []SourceColumn
+		submodules []SourceModule
+	)
+	//
+	for _, col := range scope.DestructuredColumns() {
+		// Determine register allocated to this (destructured) column.
+		regId := env.RegisterOf(&col.Name)
+		// Determine (unqualified) column name
+		name := col.Name.Tail()
+		// Translate register source into source column
+		srcCol := SourceColumn{name, col.Multiplier, col.DataType, col.MustProve, col.Computed, regId}
+		columns = append(columns, srcCol)
+	}
+	//
+	for _, child := range scope.Children() {
+		submodules = append(submodules, constructSourceModule(child, env))
+	}
+	//
+	return SourceModule{
+		Name:       scope.Name(),
+		Synthetic:  false,
+		Virtual:    scope.Virtual(),
+		Selector:   nil, // selecto
+		Submodules: submodules,
+		Columns:    columns,
+	}
 }

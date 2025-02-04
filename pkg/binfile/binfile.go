@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/hir"
-	"github.com/consensys/go-corset/pkg/util"
 )
 
 // ============================================================================
@@ -55,21 +54,8 @@ func GetAttribute[T Attribute](binf *BinaryFile) (T, bool) {
 // example, for storing mapping information from source columns to allocated
 // columns, etc.
 type Attribute interface {
-	AttributeMap
 	// AttributeName returns the name of this attribute.
 	AttributeName() string
-}
-
-// AttributeMap simply defines a sequence of key-value pairs.
-type AttributeMap interface {
-	// Entries returns the set of attribute mappings within this attribute.
-	Entries() util.Iterator[AttributeEntry]
-}
-
-// AttributeEntry defines an individual key-value pair.
-type AttributeEntry interface {
-	Key() string
-	Value() any
 }
 
 // Header provides a structured header for the binary file format.  In

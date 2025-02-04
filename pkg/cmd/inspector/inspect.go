@@ -1,12 +1,10 @@
 package inspector
 
 import (
-	"errors"
 	"regexp"
 	"time"
 
-	"github.com/consensys/go-corset/pkg/binfile"
-	"github.com/consensys/go-corset/pkg/corset/compiler"
+	"github.com/consensys/go-corset/pkg/corset"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/termio"
@@ -69,33 +67,24 @@ type Mode interface {
 }
 
 // NewInspector constructs a new inspector on given terminal.
-func NewInspector(term *termio.Terminal, binf *binfile.BinaryFile, trace tr.Trace) (*Inspector, error) {
-	tabs, table, cmdbar, statusbar := initInspectorWidgets(term, &binf.Schema)
-	nmods := binf.Schema.Modules().Count()
-	states := make([]ModuleState, nmods)
-	// extract debug info
-	srcmap, srcmap_ok := binfile.GetAttribute[*compiler.SourceMap](binf)
+func NewInspector(term *termio.Terminal, schema sc.Schema, trace tr.Trace, srcmap *corset.SourceMap) *Inspector {
+	states := make([]ModuleState, 0)
 	//
-	if !srcmap_ok {
-		return nil, errors.New("missing source map from binfile")
+	for _, module := range srcmap.Flattern(concreteModules) {
+		// only consider modules which actually have columns.
+		if len(module.Columns) > 0 {
+			states = append(states, NewModuleState(&module, trace, true))
+		}
 	}
-	// Initialise module states
-	for _, col := range srcmap.SourceColumnMap {
-		reg := col.Register
-		mid := trace.Column(reg).Context().Module()
-		states[mid].columns = append(states[mid].columns, col)
-	}
-	// Finalise module states
-	for i := range states {
-		states[i].finalise(trace)
-	}
+	//
+	tabs, table, cmdbar, statusbar := initInspectorWidgets(term, states)
 	//
 	inspector := &Inspector{0, 0, term, trace, states, tabs, table, cmdbar, statusbar, nil}
 	table.SetSource(inspector)
 	// Put the inspector into default mode.
 	inspector.EnterMode(&NavigationMode{})
 	//
-	return inspector, nil
+	return inspector
 }
 
 // Clock the inspector
@@ -244,10 +233,10 @@ func (p *Inspector) Start() []error {
 // Helpers
 // ==================================================================
 
-func initInspectorWidgets(term *termio.Terminal, schema sc.Schema) (tabs *widget.Tabs,
+func initInspectorWidgets(term *termio.Terminal, states []ModuleState) (tabs *widget.Tabs,
 	table *widget.Table, cmdbar *widget.TextLine, statusbar *widget.TextLine) {
 	//
-	tabs = initInspectorTabs(schema)
+	tabs = initInspectorTabs(states)
 	table = widget.NewTable(nil)
 	cmdbar = widget.NewText()
 	statusbar = widget.NewText()
@@ -262,11 +251,15 @@ func initInspectorWidgets(term *termio.Terminal, schema sc.Schema) (tabs *widget
 	return tabs, table, cmdbar, statusbar
 }
 
-func initInspectorTabs(schema sc.Schema) *widget.Tabs {
+func initInspectorTabs(states []ModuleState) *widget.Tabs {
 	var titles []string
-	for i := schema.Modules(); i.HasNext(); {
-		titles = append(titles, i.Next().Name)
+	for _, state := range states {
+		titles = append(titles, state.name)
 	}
 	//
 	return widget.NewTabs(titles...)
+}
+
+func concreteModules(m *corset.SourceModule) bool {
+	return !m.Virtual
 }

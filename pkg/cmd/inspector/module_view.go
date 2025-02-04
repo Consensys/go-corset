@@ -2,10 +2,8 @@ package inspector
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/corset/compiler"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/termio"
 )
@@ -17,7 +15,7 @@ type ModuleView struct {
 	row, col uint
 	// Columns currently being shown in this view.  For example, only columns
 	// matching the currently active filter would be in this array.
-	columns []compiler.SourceColumnMapping
+	columns []SourceColumn
 	// RowWidths holds the maximum width of all rows in the module's trace.
 	rowWidths []uint
 	// Specifies the maximum width for any row
@@ -48,7 +46,7 @@ func (p *ModuleView) SetRow(row uint) bool {
 
 // SetActiveColumns sets the currently active set of columns.  This updates the
 // current column title width, as as well as the maximum width for every row.
-func (p *ModuleView) SetActiveColumns(trace tr.Trace, columns []compiler.SourceColumnMapping) {
+func (p *ModuleView) SetActiveColumns(trace tr.Trace, columns []SourceColumn) {
 	p.columns = columns
 	// Recalculate maximum title width
 	p.colTitleWidth = p.recalculateColumnTitleWidth()
@@ -83,9 +81,9 @@ func (p *ModuleView) CellAt(trace tr.Trace, col, row uint) termio.FormattedText 
 	trCol := col - 1 + p.col
 	trRow := row - 1 + p.row
 	//
-	if row == 0 {
+	if row == 0 && trCol < uint(len(p.columns)) {
 		// Column title
-		name := p.determineColumnName(trCol)
+		name := p.columns[trCol].Name
 		return termio.NewColouredText(name, termio.TERM_BLUE)
 	} else if col == 0 {
 		// Row title
@@ -150,9 +148,8 @@ func cellColour(val fr.Element) termio.AnsiEscape {
 func (p *ModuleView) recalculateColumnTitleWidth() uint {
 	maxWidth := 0
 
-	for i := range p.columns {
-		name := p.determineColumnName(uint(i))
-		maxWidth = max(maxWidth, len(name))
+	for _, col := range p.columns {
+		maxWidth = max(maxWidth, len(col.Name))
 	}
 
 	return uint(maxWidth)
@@ -179,31 +176,10 @@ func (p *ModuleView) recalculateRowWidths(trace tr.Trace) []uint {
 	return widths
 }
 
-func (p *ModuleView) determineColumnName(col uint) string {
-	var builder strings.Builder
-	//
-	if col >= uint(len(p.columns)) {
-		return ""
-	}
-	// Determine name
-	context := p.columns[col].Column.Context
-	name := p.columns[col].Column.Name
-	// Strip off module name
-	for i := context.Depth(); i < name.Depth(); i++ {
-		if i != context.Depth() {
-			builder.WriteString(" / ")
-		}
-		//
-		builder.WriteString(name.Get(i))
-	}
-	//
-	return builder.String()
-}
-
 // Determine the maximum number of rows whih can be displayed for a given set of
 // columns.  Observe that this is not fully determined by the module height,
 // since we have columns which may have length multipliers, etc.
-func determineNumberOfRows(trace tr.Trace, columns []compiler.SourceColumnMapping) uint {
+func determineNumberOfRows(trace tr.Trace, columns []SourceColumn) uint {
 	maxRows := uint(0)
 
 	for _, col := range columns {

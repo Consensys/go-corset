@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/corset/ast"
+	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
@@ -70,9 +71,52 @@ func NewModuleScope() *ModuleScope {
 	}
 }
 
+// Path returns the absolute path of this module.
+func (p *ModuleScope) Path() *util.Path {
+	return &p.path
+}
+
+// Name returns the name of the given module.
+func (p *ModuleScope) Name() string {
+	if p.path.Depth() > 0 {
+		return p.path.Tail()
+	}
+	//
+	return ""
+}
+
+// Virtual identifies whether or not this is a virtual module.
+func (p *ModuleScope) Virtual() bool {
+	return p.virtual
+}
+
 // IsRoot checks whether or not this is the root of the module tree.
 func (p *ModuleScope) IsRoot() bool {
 	return p.parent == nil
+}
+
+// Children returns the set of submodules defined within this module.
+func (p *ModuleScope) Children() []*ModuleScope {
+	return p.submodules
+}
+
+// DestructuredColumns returns the set of (destructured) columns defined within
+// this module scope.  That is, source-level columns which are broken down into
+// their atomic components.
+func (p *ModuleScope) DestructuredColumns() []RegisterSource {
+	var (
+		sources []RegisterSource
+		owner   util.Path = p.Owner().path
+	)
+	//
+	for _, b := range p.bindings {
+		if binding, ok := b.(*ast.ColumnBinding); ok {
+			cols := p.destructureColumn(binding, owner, binding.Path, binding.DataType)
+			sources = append(sources, cols...)
+		}
+	}
+	//
+	return sources
 }
 
 // Owner returns the enclosing non-virtual module of this module.  Observe
@@ -264,6 +308,49 @@ func (p *ModuleScope) Flattern() []*ModuleScope {
 	}
 	//
 	return modules
+}
+
+func (p *ModuleScope) destructureColumn(column *ast.ColumnBinding, ctx util.Path, path util.Path,
+	datatype ast.Type) []RegisterSource {
+	// Check for base base
+	if datatype.AsUnderlying() != nil {
+		return p.destructureAtomicColumn(column, ctx, path, datatype.AsUnderlying())
+	} else if arraytype, ok := datatype.(*ast.ArrayType); ok {
+		// For now, assume must be an array
+		return p.destructureArrayColumn(column, ctx, path, arraytype)
+	} else {
+		panic(fmt.Sprintf("unknown type encountered: %v", datatype))
+	}
+}
+
+// Allocate an array type
+func (p *ModuleScope) destructureArrayColumn(col *ast.ColumnBinding, ctx util.Path, path util.Path,
+	arrtype *ast.ArrayType) []RegisterSource {
+	//
+	var sources []RegisterSource
+	// Allocate n columns
+	for i := arrtype.MinIndex(); i <= arrtype.MaxIndex(); i++ {
+		ith_name := fmt.Sprintf("%s_%d", path.Tail(), i)
+		ith_path := path.Parent().Extend(ith_name)
+		sources = append(sources, p.destructureColumn(col, ctx, *ith_path, arrtype.Element())...)
+	}
+	//
+	return sources
+}
+
+// Destructure atomic column
+func (p *ModuleScope) destructureAtomicColumn(column *ast.ColumnBinding, ctx util.Path, path util.Path,
+	datatype sc.Type) []RegisterSource {
+	// Construct register source.
+	source := RegisterSource{
+		ctx,
+		path,
+		column.Multiplier,
+		datatype,
+		column.MustProve,
+		column.Computed}
+	//
+	return []RegisterSource{source}
 }
 
 // =============================================================================

@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"regexp"
 	"slices"
+	"strings"
 
-	"github.com/consensys/go-corset/pkg/corset/compiler"
+	"github.com/consensys/go-corset/pkg/corset"
+	"github.com/consensys/go-corset/pkg/hir"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
@@ -13,8 +15,10 @@ import (
 // ModuleState provides state regarding how to display the trace for a given
 // module, including related aspects like filter histories, etc.
 type ModuleState struct {
+	// Module name
+	name string
 	// Identifies trace columns in this module.
-	columns []compiler.SourceColumnMapping
+	columns []SourceColumn
 	// Active module view
 	view ModuleView
 	// History for goto row commands
@@ -23,6 +27,41 @@ type ModuleState struct {
 	columnFilter string
 	// Set of column filters used.
 	columnFilterHistory []string
+}
+
+type SourceColumn struct {
+	// Column name
+	Name string
+	// Selector determines when column active.
+	Selector hir.Expr
+	// Register to which this column is allocated
+	Register uint
+}
+
+func NewModuleState(module *corset.SourceModule, trace tr.Trace, recurse bool) ModuleState {
+	var (
+		state      ModuleState
+		submodules []corset.SourceModule
+	)
+	// Handle non-root modules
+	if recurse {
+		submodules = module.Submodules
+	}
+	//
+	state.name = module.Name
+	// Extract source columns from module tree
+	state.columns = extractSourceColumns(util.NewAbsolutePath(""), module.Columns, submodules)
+	// Sort all column names so that, for example, columns in the same
+	// perspective are grouped together.
+	slices.SortFunc(state.columns, func(l SourceColumn, r SourceColumn) int {
+		return strings.Compare(l.Name, r.Name)
+	})
+	// Configure view
+	state.view.maxRowWidth = 16
+	// Finalise view
+	state.view.SetActiveColumns(trace, state.columns)
+	//
+	return state
 }
 
 func (p *ModuleState) setColumnOffset(colOffset uint) {
@@ -45,8 +84,8 @@ func (p *ModuleState) setRowOffset(rowOffset uint) bool {
 func (p *ModuleState) finalise(trace tr.Trace) {
 	// Sort all column names so that, for example, columns in the same
 	// perspective are grouped together.
-	slices.SortFunc(p.columns, func(l compiler.SourceColumnMapping, r compiler.SourceColumnMapping) int {
-		return l.Column.Name.Compare(r.Column.Name)
+	slices.SortFunc(p.columns, func(l SourceColumn, r SourceColumn) int {
+		return strings.Compare(l.Name, r.Name)
 	})
 	// Final configuration stuff
 	p.view.maxRowWidth = 16
@@ -57,11 +96,11 @@ func (p *ModuleState) finalise(trace tr.Trace) {
 // Apply a new column filter to the module view.  This determines which columns
 // are currently visible.
 func (p *ModuleState) applyColumnFilter(trace tr.Trace, regex *regexp.Regexp, history bool) {
-	filteredColumns := make([]compiler.SourceColumnMapping, 0)
+	filteredColumns := make([]SourceColumn, 0)
 	// Apply filter
 	for _, col := range p.columns {
 		// Check whether it matches the regex or not.
-		if name := col.Column.Name.String(); regex.MatchString(name) {
+		if name := col.Name; regex.MatchString(name) {
 			filteredColumns = append(filteredColumns, col)
 		}
 	}
@@ -83,4 +122,22 @@ func history_append[T comparable](history []T, item T) []T {
 	history = util.RemoveMatching(history, func(ith T) bool { return ith == item })
 	// Add item to end
 	return append(history, item)
+}
+
+func extractSourceColumns(path util.Path, columns []corset.SourceColumn, submodules []corset.SourceModule) []SourceColumn {
+	var srcColumns []SourceColumn
+	//
+	for _, col := range columns {
+		name := path.Extend(col.Name).String()[1:]
+		srcCol := SourceColumn{name, nil, col.Register}
+		srcColumns = append(srcColumns, srcCol)
+	}
+	//
+	for _, submod := range submodules {
+		subpath := path.Extend(submod.Name)
+		subSrcColumns := extractSourceColumns(*subpath, submod.Columns, submod.Submodules)
+		srcColumns = append(srcColumns, subSrcColumns...)
+	}
+	//
+	return srcColumns
 }
