@@ -1,9 +1,5 @@
 package iter
 
-// ===============================================================
-// Array Iterator
-// ===============================================================
-
 // ArrayIterator provides an iterator implementation for an Array.
 type arrayIterator[T any] struct {
 	items []T

@@ -48,6 +48,8 @@ type Declaration interface {
 	Defines(Symbol) bool
 	// Check whether this declaration is finalised already.
 	IsFinalised() bool
+	// Check whether this declaration is an assignment or not.
+	IsAssignment() bool
 }
 
 // ============================================================================
@@ -92,6 +94,13 @@ func (p *DefAliases) Defines(symbol Symbol) bool {
 // so, then we don't need to finalise it again.
 func (p *DefAliases) IsFinalised() bool {
 	// Fine because defaliases doesn't really do anything with its symbols.
+	return true
+}
+
+// IsAssignment checks whether this declaration is an assignment or not.
+func (p *DefAliases) IsAssignment() bool {
+	// Technically, this is not an assignment.  But, alias can be referred to by
+	// assignments.
 	return true
 }
 
@@ -180,6 +189,11 @@ func (p *DefColumns) Defines(symbol Symbol) bool {
 // IsFinalised checks whether this declaration has already been finalised.  If
 // so, then we don't need to finalise it again.
 func (p *DefColumns) IsFinalised() bool {
+	return true
+}
+
+// IsAssignment checks whether this declaration is an assignment or not.
+func (p *DefColumns) IsAssignment() bool {
 	return true
 }
 
@@ -358,6 +372,11 @@ func (p *DefComputed) IsFinalised() bool {
 	return true
 }
 
+// IsAssignment checks whether this declaration is an assignment or not.
+func (p *DefComputed) IsAssignment() bool {
+	return true
+}
+
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
 func (p *DefComputed) Lisp() sexp.SExp {
@@ -436,6 +455,11 @@ func (p *DefConst) IsFinalised() bool {
 	}
 	//
 	return true
+}
+
+// IsAssignment checks whether this declaration is an assignment or not.
+func (p *DefConst) IsAssignment() bool {
+	return false
 }
 
 // Lisp converts this node into its lisp representation.  This is primarily used
@@ -577,6 +601,11 @@ func (p *DefConstraint) Finalise() {
 	p.finalised = true
 }
 
+// IsAssignment checks whether this declaration is an assignment or not.
+func (p *DefConstraint) IsAssignment() bool {
+	return false
+}
+
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
 func (p *DefConstraint) Lisp() sexp.SExp {
@@ -644,6 +673,11 @@ func (p *DefInRange) IsFinalised() bool {
 	return p.finalised
 }
 
+// IsAssignment checks whether this declaration is an assignment or not.
+func (p *DefInRange) IsAssignment() bool {
+	return false
+}
+
 // Finalise this declaration, meaning that the expression has been resolved.
 func (p *DefInRange) Finalise() {
 	p.finalised = true
@@ -701,6 +735,11 @@ func (p *DefInterleaved) Defines(symbol Symbol) bool {
 // so, then we don't need to finalise it again.
 func (p *DefInterleaved) IsFinalised() bool {
 	return p.Target.binding.IsFinalised()
+}
+
+// IsAssignment checks whether this declaration is an assignment or not.
+func (p *DefInterleaved) IsAssignment() bool {
+	return true
 }
 
 // Lisp converts this node into its lisp representation.  This is primarily used
@@ -778,6 +817,11 @@ func (p *DefLookup) Defines(symbol Symbol) bool {
 // so, then we don't need to finalise it again.
 func (p *DefLookup) IsFinalised() bool {
 	return p.finalised
+}
+
+// IsAssignment checks whether this declaration is an assignment or not.
+func (p *DefLookup) IsAssignment() bool {
+	return false
 }
 
 // Finalise this declaration, which means that all source and target expressions
@@ -863,6 +907,11 @@ func (p *DefPermutation) IsFinalised() bool {
 	return true
 }
 
+// IsAssignment checks whether this declaration is an assignment or not.
+func (p *DefPermutation) IsAssignment() bool {
+	return true
+}
+
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
 func (p *DefPermutation) Lisp() sexp.SExp {
@@ -933,6 +982,11 @@ func (p *DefPerspective) IsFunction() bool {
 // finalised.
 func (p *DefPerspective) Finalise() {
 	p.symbol.binding.Finalise()
+}
+
+// IsAssignment checks whether this declaration is an assignment or not.
+func (p *DefPerspective) IsAssignment() bool {
+	return true
 }
 
 // Binding returns the allocated binding for this symbol (which may or may not
@@ -1028,6 +1082,11 @@ func (p *DefProperty) Defines(symbol Symbol) bool {
 // so, then we don't need to finalise it again.
 func (p *DefProperty) IsFinalised() bool {
 	return p.finalised
+}
+
+// IsAssignment checks whether this declaration is an assignment or not.
+func (p *DefProperty) IsAssignment() bool {
+	return false
 }
 
 // Finalise this property, meaning that the assertion has been resolved.
@@ -1147,6 +1206,11 @@ func (p *DefFun) Defines(symbol Symbol) bool {
 // so, then we don't need to finalise it again.
 func (p *DefFun) IsFinalised() bool {
 	return p.symbol.binding.IsFinalised()
+}
+
+// IsAssignment checks whether this declaration is an assignment or not.
+func (p *DefFun) IsAssignment() bool {
+	return false
 }
 
 // Lisp converts this node into its lisp representation.  This is primarily used
