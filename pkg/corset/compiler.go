@@ -107,6 +107,10 @@ func (p *Compiler) Compile() (*binfile.BinaryFile, []SyntaxError) {
 	environment := compiler.NewGlobalEnvironment(scope, p.allocator)
 	// Translate everything and add it to the schema.
 	schema, errs := compiler.TranslateCircuit(environment, p.srcmap, &p.circuit)
+	// Sanity check for errors
+	if len(errs) > 0 {
+		return nil, errs
+	}
 	// Construct source map
 	source_map := constructSourceMap(scope, environment)
 	// Extract key attributes (for debugging purposes)
