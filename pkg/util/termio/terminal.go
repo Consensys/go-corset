@@ -137,7 +137,11 @@ func (t *Terminal) Render() error {
 	}
 	// Reset taken
 	taken = 0
-	buffer := []byte{'\n'}
+	// Issue CUP command to reset cursor to top-left position.  This helps to
+	// avoid screen tearing.  We could go even better by only redrawing those
+	// lines (or sections of lines) which had actually changed.  However, that
+	// seems to be going overboard.
+	buffer := []byte{0x1b, '[', 'H'}
 	//
 	for _, w := range t.widgets {
 		var h uint
