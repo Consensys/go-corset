@@ -35,15 +35,16 @@ func ResolveCircuit(srcmap *sexp.SourceMaps[ast.Node], circuit *ast.Circuit) (*M
 	// Construct resolver
 	r := resolver{srcmap}
 	// Initialise all columns
-	errs1 := r.initialiseDeclarations(scope, circuit)
+	if errs := r.initialiseDeclarations(scope, circuit); len(errs) > 0 {
+		return nil, errs
+	}
 	// Finalise all columns / declarations
-	errs2 := r.resolveAssignments(scope, circuit)
+	if errs := r.resolveAssignments(scope, circuit); len(errs) > 0 {
+		return nil, errs
+	}
 	//
-	errs3 := r.resolveConstraints(scope, circuit)
-	//
-	if len(errs1)+len(errs2)+len(errs3) > 0 {
-		errs2 = append(errs2, errs3...)
-		return nil, append(errs1, errs2...)
+	if errs := r.resolveConstraints(scope, circuit); len(errs) > 0 {
+		return nil, errs
 	}
 	// Done
 	return scope, nil
