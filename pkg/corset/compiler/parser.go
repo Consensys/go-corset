@@ -354,6 +354,7 @@ func (p *Parser) parseColumnDeclaration(context util.Path, path util.Path, compu
 		multiplier uint
 		datatype   ast.Type
 		mustProve  bool
+		display    string
 	)
 	// Set defaults for input columns
 	if !computed {
@@ -372,26 +373,27 @@ func (p *Parser) parseColumnDeclaration(context util.Path, path util.Path, compu
 		// Column name is always first
 		name = *path.Extend(l.Elements[0].String(false))
 		//	Parse type (if applicable)
-		if datatype, mustProve, error = p.parseColumnDeclarationAttributes(l.Elements[1:]); error != nil {
+		if datatype, mustProve, display, error = p.parseColumnDeclarationAttributes(l.Elements[1:]); error != nil {
 			return nil, error
 		}
 	} else {
 		name = *path.Extend(e.String(false))
 	}
 	//
-	def := ast.NewDefColumn(context, name, datatype, mustProve, multiplier, computed)
+	def := ast.NewDefColumn(context, name, datatype, mustProve, multiplier, computed, display)
 	// Update source mapping
 	p.mapSourceNode(e, def)
 	//
 	return def, nil
 }
 
-func (p *Parser) parseColumnDeclarationAttributes(attrs []sexp.SExp) (ast.Type, bool, *SyntaxError) {
+func (p *Parser) parseColumnDeclarationAttributes(attrs []sexp.SExp) (ast.Type, bool, string, *SyntaxError) {
 	var (
 		dataType  ast.Type = ast.NewFieldType()
 		mustProve bool     = false
 		array_min uint
 		array_max uint
+		display   string = "hex"
 		err       *SyntaxError
 	)
 
@@ -400,44 +402,47 @@ func (p *Parser) parseColumnDeclarationAttributes(attrs []sexp.SExp) (ast.Type, 
 		symbol := ith.AsSymbol()
 		// Sanity check
 		if symbol == nil {
-			return nil, false, p.translator.SyntaxError(ith, "unknown column attribute")
+			return nil, false, "", p.translator.SyntaxError(ith, "unknown column attribute")
 		}
 		//
 		switch symbol.Value {
 		case ":display":
 			// skip these for now, as they are only relevant to the inspector.
 			if i+1 == len(attrs) {
-				return nil, false, p.translator.SyntaxError(ith, "incomplete display definition")
+				return nil, false, "", p.translator.SyntaxError(ith, "incomplete display definition")
 			} else if attrs[i+1].AsSymbol() == nil {
-				return nil, false, p.translator.SyntaxError(ith, "malformed display definition")
+				return nil, false, "", p.translator.SyntaxError(ith, "malformed display definition")
 			}
+			//
+			display = attrs[i+1].AsSymbol().String(false)
 			// Check what display attribute we have
-			switch attrs[i+1].AsSymbol().String(false) {
+			switch display {
 			case ":dec", ":hex", ":bytes", ":opcode":
+				display = display[1:]
 				// all good
 				i = i + 1
 			default:
 				// not good
-				return nil, false, p.translator.SyntaxError(ith, "unknown display definition")
+				return nil, false, "", p.translator.SyntaxError(ith, "unknown display definition")
 			}
 		case ":array":
 			if array_min, array_max, err = p.parseArrayDimension(attrs[i+1]); err != nil {
-				return nil, false, err
+				return nil, false, "", err
 			}
 			// skip dimension
 			i++
 		default:
 			if dataType, mustProve, err = p.parseType(ith); err != nil {
-				return nil, false, err
+				return nil, false, "", err
 			}
 		}
 	}
 	// Done
 	if array_max != 0 {
-		return ast.NewArrayType(dataType, array_min, array_max), mustProve, nil
+		return ast.NewArrayType(dataType, array_min, array_max), mustProve, display, nil
 	}
 	//
-	return dataType, mustProve, nil
+	return dataType, mustProve, display, nil
 }
 
 func (p *Parser) parseArrayDimension(s sexp.SExp) (uint, uint, *SyntaxError) {

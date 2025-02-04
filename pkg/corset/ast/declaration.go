@@ -223,8 +223,8 @@ var _ SymbolDefinition = &DefColumn{}
 // column is automatically finalised, since all information is provided at the
 // point of creation.
 func NewDefColumn(context util.Path, name util.Path, datatype Type, mustProve bool, multiplier uint,
-	computed bool) *DefColumn {
-	binding := ColumnBinding{context, name, datatype, mustProve, multiplier, computed, "hex"}
+	computed bool, display string) *DefColumn {
+	binding := ColumnBinding{context, name, datatype, mustProve, multiplier, computed, display}
 	return &DefColumn{binding}
 }
 
