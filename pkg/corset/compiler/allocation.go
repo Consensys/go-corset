@@ -11,6 +11,7 @@ import (
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
+	"github.com/consensys/go-corset/pkg/util/collection/set"
 )
 
 // Register encapsulates information about a "register" in the underlying
@@ -416,13 +417,13 @@ type RegisterGroup struct {
 	// two members of this group should be allocated to the same slot (i.e.
 	// perspective).  Furthermore, all members of this groups should be
 	// compatible (in some sense).
-	slots util.AnySortedSet[RegisterSlot]
+	slots set.AnySortedSet[RegisterSlot]
 }
 
 // NewRegisterGroup constructs a new (and empty) register group.
 func NewRegisterGroup(dataType sc.Type) RegisterGroup {
 	// Create initially empty set of register slots.
-	slots := util.NewAnySortedSet[RegisterSlot]()
+	slots := set.NewAnySortedSet[RegisterSlot]()
 	//
 	return RegisterGroup{
 		dataType,

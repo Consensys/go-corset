@@ -8,6 +8,7 @@ import (
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
+	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/util/sexp"
 )
 
@@ -118,7 +119,7 @@ type Evaluable interface {
 
 	// RequiredCells returns the set of trace cells on which evaluation of this
 	// constraint element depends.
-	RequiredCells(int, tr.Trace) *util.AnySortedSet[tr.CellRef]
+	RequiredCells(int, tr.Trace) *set.AnySortedSet[tr.CellRef]
 }
 
 // Testable captures the notion of a constraint which can be tested on a given
@@ -161,10 +162,10 @@ type Contextual interface {
 	// RequiredColumns returns the set of columns on which this term depends.
 	// That is, columns whose values may be accessed when evaluating this term
 	// on a given trace.
-	RequiredColumns() *util.SortedSet[uint]
+	RequiredColumns() *set.SortedSet[uint]
 	// RequiredCells returns the set of trace cells on which evaluation of this
 	// constraint element depends.
-	RequiredCells(int, tr.Trace) *util.AnySortedSet[tr.CellRef]
+	RequiredCells(int, tr.Trace) *set.AnySortedSet[tr.CellRef]
 }
 
 // Lispifiable captures a schema element which can be turned into a stand alone

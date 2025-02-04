@@ -1,4 +1,4 @@
-package util
+package set
 
 import (
 	"cmp"
@@ -7,45 +7,22 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 )
 
-// Comparable provides an interface which types used in a AnySortedSet must implement.
-type Comparable[T any] interface {
-	comparable
-	LessEq(T) bool
-}
+// SortedSet is an array of unique sorted values (i.e. no duplicates).
+type SortedSet[T cmp.Ordered] []T
 
-// Order provides a wrapper around primtive types for use with an AnySortedSet.
-// This is mostly for testing purposes.
-type Order[T cmp.Ordered] struct {
-	Item T
-}
-
-// LessEq wraps the respective primitive comparison.
-func (lhs Order[T]) LessEq(rhs Order[T]) bool {
-	return lhs.Item <= rhs.Item
-}
-
-// AnySortedSet is an array of unique sorted values (i.e. no duplicates).
-type AnySortedSet[T Comparable[T]] []T
-
-// NewAnySortedSet returns an empty sorted set.
-func NewAnySortedSet[T Comparable[T]]() *AnySortedSet[T] {
-	return &AnySortedSet[T]{}
-}
-
-// ToArray extracts the underlying array from this sorted set.
-func (p *AnySortedSet[T]) ToArray() []T {
-	return *p
+// NewSortedSet returns an empty sorted set.
+func NewSortedSet[T cmp.Ordered]() *SortedSet[T] {
+	return &SortedSet[T]{}
 }
 
 // Contains returns true if a given element is in the set.
 //
 //nolint:revive
-func (p *AnySortedSet[T]) Contains(element T) bool {
+func (p *SortedSet[T]) Contains(element T) bool {
 	data := *p
 	// Find index where element either does occur, or should occur.
-	i := sort.Search(len(data), func(i int) bool {
-		// element <= data[i]
-		return element.LessEq(data[i])
+	i := sort.Search(len(*p), func(i int) bool {
+		return element <= data[i]
 	})
 	// Check whether item existed or not.
 	return i < len(data) && data[i] == element
@@ -54,12 +31,11 @@ func (p *AnySortedSet[T]) Contains(element T) bool {
 // Insert an element into this sorted set.
 //
 //nolint:revive
-func (p *AnySortedSet[T]) Insert(element T) {
+func (p *SortedSet[T]) Insert(element T) {
 	data := *p
 	// Find index where element either does occur, or should occur.
-	i := sort.Search(len(data), func(i int) bool {
-		// element <= data[i]
-		return element.LessEq(data[i])
+	i := sort.Search(len(*p), func(i int) bool {
+		return element <= data[i]
 	})
 	// Check whether item existed or not.
 	if i >= len(data) || data[i] != element {
@@ -75,11 +51,11 @@ func (p *AnySortedSet[T]) Insert(element T) {
 // InsertSorted inserts all elements in a given sorted set into this set.
 //
 //nolint:revive
-func (p *AnySortedSet[T]) InsertSorted(q *AnySortedSet[T]) {
+func (p *SortedSet[T]) InsertSorted(q *SortedSet[T]) {
 	left := *p
 	right := *q
 	// Check containment
-	n := anyCountDuplicates(left, right)
+	n := countDuplicates(left, right)
 	// Check for total inclusion
 	if n == len(right) {
 		// Right set completedly included in left, so actually there is nothing
@@ -89,7 +65,7 @@ func (p *AnySortedSet[T]) InsertSorted(q *AnySortedSet[T]) {
 	// Allocate space
 	ndata := make([]T, len(left)+len(right)-n)
 	// Merge
-	anyMergeSorted(ndata, left, right)
+	mergeSorted(ndata, left, right)
 	// Finally copy over new data
 	*p = ndata
 }
@@ -97,16 +73,16 @@ func (p *AnySortedSet[T]) InsertSorted(q *AnySortedSet[T]) {
 // Iter returns an iterator over the elements of this sorted set.
 //
 //nolint:revive
-func (p *AnySortedSet[T]) Iter() iter.Iterator[T] {
+func (p *SortedSet[T]) Iter() iter.Iterator[T] {
 	return iter.NewArrayIterator(*p)
 }
 
-// UnionAnySortedSets unions together a number of things which can be turn into a
+// UnionSortedSets unions together a number of things which can be turn into a
 // sorted set using a given mapping function.  At some level, this is a
 // map/reduce function.
-func UnionAnySortedSets[S any, T Comparable[T]](elems []S, fn func(S) *AnySortedSet[T]) *AnySortedSet[T] {
+func UnionSortedSets[S any, T cmp.Ordered](elems []S, fn func(S) *SortedSet[T]) *SortedSet[T] {
 	if len(elems) == 0 {
-		return NewAnySortedSet[T]()
+		return NewSortedSet[T]()
 	}
 	// Map first element
 	set := fn(elems[0])
@@ -122,21 +98,21 @@ func UnionAnySortedSets[S any, T Comparable[T]](elems []S, fn func(S) *AnySorted
 }
 
 // Determine number of duplicate elements
-func anyCountDuplicates[T Comparable[T]](left []T, right []T) int {
+func countDuplicates[T cmp.Ordered](left []T, right []T) int {
 	// Check containment
 	i := 0
 	j := 0
 	n := 0
 
 	for i < len(left) && j < len(right) {
-		if left[i] == right[j] {
+		if left[i] < right[j] {
+			i++
+		} else if left[i] > right[j] {
+			j++
+		} else {
 			i++
 			j++
 			n++ // duplicate detected
-		} else if left[i].LessEq(right[j]) {
-			i++
-		} else {
-			j++
 		}
 	}
 
@@ -145,21 +121,21 @@ func anyCountDuplicates[T Comparable[T]](left []T, right []T) int {
 
 // Merge two sets of sorted arrays (left and right) into a target array.  This
 // assumes the target array is big enough.
-func anyMergeSorted[T Comparable[T]](target []T, left []T, right []T) {
+func mergeSorted[T cmp.Ordered](target []T, left []T, right []T) {
 	i := 0
 	j := 0
 	k := 0
 	// Merge overlap of both sets
 	for ; i < len(left) && j < len(right); k++ {
-		if left[i] == right[j] {
+		if left[i] < right[j] {
 			target[k] = left[i]
 			i++
-			j++
-		} else if left[i].LessEq(right[j]) {
-			target[k] = left[i]
-			i++
-		} else {
+		} else if left[i] > right[j] {
 			target[k] = right[j]
+			j++
+		} else {
+			target[k] = left[i]
+			i++
 			j++
 		}
 	}

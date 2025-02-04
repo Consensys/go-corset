@@ -5,6 +5,7 @@ import (
 
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/util/sexp"
 )
 
@@ -25,7 +26,7 @@ func (p *AssertionFailure) Message() string {
 }
 
 // RequiredCells identifies the cells required to evaluate the failing constraint at the failing row.
-func (p *AssertionFailure) RequiredCells(trace tr.Trace) *util.AnySortedSet[tr.CellRef] {
+func (p *AssertionFailure) RequiredCells(trace tr.Trace) *set.AnySortedSet[tr.CellRef] {
 	return p.Constraint.RequiredCells(int(p.Row), trace)
 }
 

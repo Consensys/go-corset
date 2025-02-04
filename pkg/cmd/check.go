@@ -11,6 +11,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema/constraint"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/set"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -208,7 +209,7 @@ func reportFailure(failure sc.Failure, trace tr.Trace, cfg checkConfig) {
 }
 
 // Print a human-readable report detailing the given failure with a vanishing constraint.
-func reportConstraintFailure(kind string, handle string, cells *util.AnySortedSet[tr.CellRef],
+func reportConstraintFailure(kind string, handle string, cells *set.AnySortedSet[tr.CellRef],
 	trace tr.Trace, cfg checkConfig) {
 	var start uint = math.MaxUint
 	// Determine all (input) cells involved in evaluating the given constraint
@@ -219,7 +220,7 @@ func reportConstraintFailure(kind string, handle string, cells *util.AnySortedSe
 		end = max(end, uint(c.Row))
 	}
 	// Determine columns to show
-	cols := util.NewSortedSet[uint]()
+	cols := set.NewSortedSet[uint]()
 	for _, c := range cells.ToArray() {
 		cols.Insert(c.Column)
 	}

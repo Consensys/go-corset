@@ -9,6 +9,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema/assignment"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/util/sexp"
 )
 
@@ -113,13 +114,13 @@ func (e *Inverse) Context(schema sc.Schema) tr.Context {
 // RequiredColumns returns the set of columns on which this term depends.
 // That is, columns whose values may be accessed when evaluating this term
 // on a given trace.
-func (e *Inverse) RequiredColumns() *util.SortedSet[uint] {
+func (e *Inverse) RequiredColumns() *set.SortedSet[uint] {
 	return e.Expr.RequiredColumns()
 }
 
 // RequiredCells returns the set of trace cells on which this term depends.
 // In this case, that is the empty set.
-func (e *Inverse) RequiredCells(row int, trace tr.Trace) *util.AnySortedSet[tr.CellRef] {
+func (e *Inverse) RequiredCells(row int, trace tr.Trace) *set.AnySortedSet[tr.CellRef] {
 	return e.Expr.RequiredCells(row, trace)
 }
 
