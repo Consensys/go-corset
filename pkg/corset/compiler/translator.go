@@ -138,7 +138,7 @@ func (t *translator) translateTypeConstraints(regIndex uint) {
 	required := false
 	// Check for provability
 	for _, col := range regInfo.Sources {
-		if col.mustProve {
+		if col.MustProve {
 			required = true
 			break
 		}
@@ -149,7 +149,7 @@ func (t *translator) translateTypeConstraints(regIndex uint) {
 		// For now, enforce all source columns have matching bitwidth.
 		for _, col := range regInfo.Sources {
 			// Determine bitwidth
-			col_width := col.datatype.AsUint().BitWidth()
+			col_width := col.DataType.AsUint().BitWidth()
 			// Sanity check (for now)
 			if col_width != reg_width {
 				// See above discussion of why this strong restriction is

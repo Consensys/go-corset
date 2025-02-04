@@ -201,12 +201,12 @@ func (p *arrayIterator[T]) Nth(n uint) T {
 // ===============================================================
 // Cast Iterator
 // ===============================================================
-type castIterator[S, T comparable] struct {
+type castIterator[S, T any] struct {
 	iter Iterator[S]
 }
 
 // NewCastIterator construct an iterator over an array of items.
-func NewCastIterator[S, T comparable](iter Iterator[S]) Iterator[T] {
+func NewCastIterator[S, T any](iter Iterator[S]) Iterator[T] {
 	return &castIterator[S, T]{iter}
 }
 

@@ -28,7 +28,7 @@ var traceCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		// Parse trace
-		cols := readTraceFile(args[0])
+		cols := ReadTraceFile(args[0])
 		list := GetFlag(cmd, "list")
 		defensive := GetFlag(cmd, "defensive")
 		stats := GetFlag(cmd, "stats")
@@ -42,8 +42,8 @@ var traceCmd = &cobra.Command{
 		output := GetString(cmd, "out")
 		//
 		if expand {
-			schema := readSchema(stdlib, false, false, args[1:])
-			cols = expandColumns(cols, schema, defensive)
+			binfile := ReadConstraintFiles(stdlib, false, false, args[1:])
+			cols = expandColumns(cols, &binfile.Schema, defensive)
 		} else if defensive {
 			fmt.Println("cannot apply defensive padding without trace expansion")
 			os.Exit(2)

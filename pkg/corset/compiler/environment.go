@@ -1,10 +1,7 @@
 package compiler
 
 import (
-	"fmt"
-
 	"github.com/consensys/go-corset/pkg/corset/ast"
-	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
@@ -51,10 +48,10 @@ type Environment interface {
 type GlobalEnvironment struct {
 	// Info about modules
 	modules map[string]*ModuleInfo
-	// Map source-level columns to registers
-	columns map[string]uint
-	// Registers
+	// Registers (i.e. HIR-level columns)
 	registers []Register
+	// Map source-level columnMap to registers
+	columnMap map[string]uint
 }
 
 // NewGlobalEnvironment constructs a new global environment from a global scope
@@ -94,7 +91,7 @@ func (p GlobalEnvironment) Register(index uint) *Register {
 // RegisterOf identifies the register (i.e. underlying (HIR) column) to
 // which a given source-level (i.e. corset) column is allocated.
 func (p GlobalEnvironment) RegisterOf(column *util.Path) uint {
-	regId := p.columns[column.String()]
+	regId := p.columnMap[column.String()]
 	// Lookup register info
 	return regId
 }
@@ -119,7 +116,7 @@ func (p GlobalEnvironment) RegistersOf(module string) []uint {
 func (p GlobalEnvironment) ColumnsOf(register uint) []string {
 	var columns []string
 	//
-	for col, reg := range p.columns {
+	for col, reg := range p.columnMap {
 		if reg == register {
 			columns = append(columns, col)
 		}
@@ -148,7 +145,7 @@ func (p *GlobalEnvironment) initModules(modules []*ModuleScope) {
 	moduleId := uint(0)
 	// Allocate submodules one-by-one
 	for _, m := range modules {
-		if !m.virtual {
+		if !m.Virtual() {
 			name := m.path.String()
 			p.modules[name] = &ModuleInfo{name, moduleId}
 			moduleId++
@@ -160,25 +157,21 @@ func (p *GlobalEnvironment) initModules(modules []*ModuleScope) {
 // unique register.  The intention is that, subsequently, registers can be
 // merged as necessary.
 func (p *GlobalEnvironment) initColumnsAndRegisters(modules []*ModuleScope) {
-	p.columns = make(map[string]uint)
+	p.columnMap = make(map[string]uint)
 	p.registers = make([]Register, 0)
 	// Allocate input columns first.
 	for _, m := range modules {
-		owner := m.Owner()
-		//
-		for _, b := range m.bindings {
-			if binding, ok := b.(*ast.ColumnBinding); ok && !binding.Computed {
-				p.allocateColumn(binding, owner.path)
+		for _, col := range m.DestructuredColumns() {
+			if !col.Computed {
+				p.allocateRegister(col)
 			}
 		}
 	}
 	// Allocate assignments second.
 	for _, m := range modules {
-		owner := m.Owner()
-		//
-		for _, b := range m.bindings {
-			if binding, ok := b.(*ast.ColumnBinding); ok && binding.Computed {
-				p.allocateColumn(binding, owner.path)
+		for _, col := range m.DestructuredColumns() {
+			if col.Computed {
+				p.allocateRegister(col)
 			}
 		}
 	}
@@ -188,7 +181,7 @@ func (p *GlobalEnvironment) initColumnsAndRegisters(modules []*ModuleScope) {
 			if binding, ok := m.bindings[binding_id].(*ast.ColumnBinding); ok && !id.fn {
 				orig := binding.Path.String()
 				alias := m.path.Extend(id.name).String()
-				p.columns[alias] = p.columns[orig]
+				p.columnMap[alias] = p.columnMap[orig]
 			}
 		}
 	}
@@ -198,56 +191,20 @@ func (p *GlobalEnvironment) initColumnsAndRegisters(modules []*ModuleScope) {
 // column can correspond to multiple underling registers, this can result in the
 // allocation of a number of registers (based on the columns type).  For
 // example, an array of length n will allocate n registers, etc.
-func (p *GlobalEnvironment) allocateColumn(column *ast.ColumnBinding, context util.Path) {
-	p.allocate(column, context, column.Path, column.DataType)
-}
-
-func (p *GlobalEnvironment) allocate(column *ast.ColumnBinding, ctx util.Path, path util.Path, datatype ast.Type) {
-	// Check for base base
-	if datatype.AsUnderlying() != nil {
-		p.allocateUnit(column, ctx, path, datatype.AsUnderlying())
-	} else if arraytype, ok := datatype.(*ast.ArrayType); ok {
-		// For now, assume must be an array
-		p.allocateArray(column, ctx, path, arraytype)
-	} else {
-		panic(fmt.Sprintf("unknown type encountered: %v", datatype))
-	}
-}
-
-// Allocate an array type
-func (p *GlobalEnvironment) allocateArray(col *ast.ColumnBinding, ctx util.Path, path util.Path,
-	arrtype *ast.ArrayType) {
-	// Allocate n columns
-	for i := arrtype.MinIndex(); i <= arrtype.MaxIndex(); i++ {
-		ith_name := fmt.Sprintf("%s_%d", path.Tail(), i)
-		ith_path := path.Parent().Extend(ith_name)
-		p.allocate(col, ctx, *ith_path, arrtype.Element())
-	}
-}
-
-// Allocate a single register.
-func (p *GlobalEnvironment) allocateUnit(column *ast.ColumnBinding, ctx util.Path, path util.Path, datatype sc.Type) {
-	module := ctx.String()
+func (p *GlobalEnvironment) allocateRegister(source RegisterSource) {
+	module := source.Context.String()
 	//
 	moduleId := p.modules[module].Id
 	regId := uint(len(p.registers))
-	// Construct appropriate register source.
-	source := RegisterSource{
-		ctx,
-		path,
-		column.Multiplier,
-		datatype,
-		column.MustProve,
-		column.Computed}
 	// Allocate register
 	p.registers = append(p.registers, Register{
-		tr.NewContext(moduleId, column.Multiplier),
-		datatype,
+		tr.NewContext(moduleId, source.Multiplier),
+		source.DataType,
 		[]RegisterSource{source},
 		nil,
 	})
 	// Map column to register
-	p.columns[path.String()] = regId
+	p.columnMap[source.Name.String()] = regId
 }
 
 // Apply the given register allocator to each module of this environment in turn.
@@ -278,9 +235,9 @@ func (p *GlobalEnvironment) applyRegisterAllocation(allocator func(RegisterAlloc
 		}
 	}
 	// Update the columns maps, etc.
-	for col, reg := range p.columns {
+	for col, reg := range p.columnMap {
 		// Safe since as neither adding nor removing entry from map.
-		p.columns[col] = mapping[reg]
+		p.columnMap[col] = mapping[reg]
 	}
 	// Copy over new register set, whilst slicing off inactive ones.
 	p.registers = nregisters[0:j]

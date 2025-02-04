@@ -1,8 +1,11 @@
 package util
 
 import (
+	"bytes"
+	"encoding/gob"
 	"fmt"
 	"slices"
+	"strings"
 )
 
 // Path is a construct for describing paths through trees.  A path can be either
@@ -60,6 +63,27 @@ func (p *Path) Get(nth uint) string {
 // Equals determines whether two paths are the same.
 func (p *Path) Equals(other Path) bool {
 	return p.absolute == other.absolute && slices.Equal(p.segments, other.segments)
+}
+
+// Compare two paths lexicographically.
+func (p *Path) Compare(other Path) int {
+	if p.absolute != other.absolute && p.absolute {
+		return 1
+	} else if len(p.segments) < len(other.segments) {
+		return -1
+	} else if len(p.segments) > len(other.segments) {
+		return 1
+	}
+	//
+	for i := range p.segments {
+		c := strings.Compare(p.segments[i], other.segments[i])
+		//
+		if c != 0 {
+			return c
+		}
+	}
+	//
+	return 0
 }
 
 // PrefixOf checks whether this path is a prefix of the other.
@@ -129,4 +153,40 @@ func (p *Path) String() string {
 	default:
 		return fmt.Sprintf("%s/%s", p.Parent().String(), p.Tail())
 	}
+}
+
+// ============================================================================
+// Encoding / Decoding
+// ============================================================================
+
+// GobEncode an option.  This allows it to be marshalled into a binary form.
+func (p *Path) GobEncode() (data []byte, err error) {
+	var buffer bytes.Buffer
+	gobEncoder := gob.NewEncoder(&buffer)
+	// absolute flag
+	if err := gobEncoder.Encode(&p.absolute); err != nil {
+		return nil, err
+	}
+	// segments
+	if err := gobEncoder.Encode(&p.segments); err != nil {
+		return nil, err
+	}
+	// Success
+	return buffer.Bytes(), nil
+}
+
+// GobDecode a previously encoded option
+func (p *Path) GobDecode(data []byte) error {
+	buffer := bytes.NewBuffer(data)
+	gobDecoder := gob.NewDecoder(buffer)
+	// absolute flag
+	if err := gobDecoder.Decode(&p.absolute); err != nil {
+		return err
+	}
+	// segments
+	if err := gobDecoder.Decode(&p.segments); err != nil {
+		return err
+	}
+	// Success!
+	return nil
 }

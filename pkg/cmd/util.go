@@ -1,10 +1,6 @@
 package cmd
 
 import (
-	"bytes"
-	"encoding/binary"
-	"encoding/gob"
-	"errors"
 	"fmt"
 	"os"
 	"path"
@@ -12,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/binfile"
+	legacy_binfile "github.com/consensys/go-corset/pkg/binfile/legacy"
 	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/hir"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -108,8 +105,10 @@ func writeTraceFile(filename string, columns []trace.RawColumn) {
 	os.Exit(4)
 }
 
-// Parse a trace file using a parser based on the extension of the filename.
-func readTraceFile(filename string) []trace.RawColumn {
+// ReadTraceFile reads a trace file (either binary lt or json), and parses it
+// into an array of raw columns.  The determination of what kind of trace file
+// (i.e. binary or json) is based on the extension.
+func ReadTraceFile(filename string) []trace.RawColumn {
 	var tr []trace.RawColumn
 	// Read data file
 	bytes, err := os.ReadFile(filename)
@@ -140,8 +139,43 @@ func readTraceFile(filename string) []trace.RawColumn {
 	return nil
 }
 
-// Read the constraints file, whilst optionally including the standard library.
-func readSchema(stdlib bool, debug bool, legacy bool, filenames []string) *hir.Schema {
+// WriteBinaryFile writes a binary file (e.g. zkevm.bin) to disk using the given
+// binfile versioning defined in the binfile package.
+//
+//nolint:errcheck
+func WriteBinaryFile(binfile *binfile.BinaryFile, legacy bool, filename string) {
+	var (
+		bytes []byte
+		err   error
+	)
+	// Sanity checks
+	if legacy {
+		// Currently, there is no support for this.
+		fmt.Println("legacy binary format not supported for writing")
+	}
+	// Encode binary file as bytes
+	if bytes, err = binfile.MarshalBinary(); err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
+	// Write file
+	if err := os.WriteFile(filename, bytes, 0644); err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
+}
+
+// ReadConstraintFiles provides a generic interface for reading constraint files
+// in one of two ways.  If a single file is provided with the "bin" extension
+// then this is treated as a binfile (e.g. zkevm.bin).  Otherwise, the files are
+// assumed to be source (i.e. lisp) files and are read in and then compiled into
+// a binfile.  NOTES: (1) when reading a binfile, the legacy format can be
+// explicitly specified (though it is also detected automatically so this is
+// largely redundant now); (2) when source files are provided, they can be
+// compiled with (or without) the standard library.  Generally speaking, you
+// want to compile with the standard library.  However, some internal tests are
+// run without including the standard library to minimise the surface area.
+func ReadConstraintFiles(stdlib bool, debug bool, legacy bool, filenames []string) *binfile.BinaryFile {
 	var err error
 	//
 	if len(filenames) == 0 {
@@ -149,9 +183,7 @@ func readSchema(stdlib bool, debug bool, legacy bool, filenames []string) *hir.S
 		os.Exit(5)
 	} else if len(filenames) == 1 && path.Ext(filenames[0]) == ".bin" {
 		// Single (binary) file supplied
-		_, schema := readBinaryFile(legacy, filenames[0])
-		// Ignore header information here.
-		return schema
+		return ReadBinaryFile(legacy, filenames[0])
 	}
 	// Recursively expand any directories given in the list of filenames.
 	if filenames, err = expandSourceFiles(filenames); err != nil {
@@ -159,12 +191,43 @@ func readSchema(stdlib bool, debug bool, legacy bool, filenames []string) *hir.S
 		os.Exit(1)
 	}
 	// Must be source files
-	return readSourceFiles(stdlib, debug, filenames)
+	return CompileSourceFiles(stdlib, debug, filenames)
 }
 
-// Parse a set of source files and compile them into a single schema.  This can
-// result, for example, in a syntax error, etc.
-func readSourceFiles(stdlib bool, debug bool, filenames []string) *hir.Schema {
+// ReadBinaryFile reads a binfile which includes the metadata bytes, along with
+// the schema, and any included attributes.  The legacy format can be explicitly
+// requested, though this function will now automatically detect whether it is a
+// legeacy or non-legacy binfile.
+func ReadBinaryFile(legacy bool, filename string) *binfile.BinaryFile {
+	var binf binfile.BinaryFile
+	// Read schema file
+	data, err := os.ReadFile(filename)
+	// Handle errors
+	if err == nil && (legacy || !binfile.IsBinaryFile(data)) {
+		var schema *hir.Schema
+		// Read the binary file
+		schema, err = legacy_binfile.HirSchemaFromJson(data)
+		//
+		binf.Schema = *schema
+	} else if err == nil {
+		err = binf.UnmarshalBinary(data)
+	}
+	// Return if no errors
+	if err == nil {
+		return &binf
+	}
+	// Handle error & exit
+	fmt.Println(err)
+	os.Exit(2)
+	// unreachable
+	return nil
+}
+
+// CompileSourceFiles accepts a set of source files and compiles them into a
+// single schema.  This can result, for example, in a syntax error, etc.  This
+// can be done with (or without) including the standard library, and also with
+// (or without) debug constraints.
+func CompileSourceFiles(stdlib bool, debug bool, filenames []string) *binfile.BinaryFile {
 	srcfiles := make([]*sexp.SourceFile, len(filenames))
 	// Read each file
 	for i, n := range filenames {
@@ -180,10 +243,10 @@ func readSourceFiles(stdlib bool, debug bool, filenames []string) *hir.Schema {
 		srcfiles[i] = sexp.NewSourceFile(n, bytes)
 	}
 	// Parse and compile source files
-	schema, errs := corset.CompileSourceFiles(stdlib, debug, srcfiles)
+	binf, errs := corset.CompileSourceFiles(stdlib, debug, srcfiles)
 	// Check for any errors
 	if len(errs) == 0 {
-		return schema
+		return binf
 	}
 	// Report errors
 	for _, err := range errs {
@@ -267,202 +330,4 @@ func maxHeightColumns(cols []trace.RawColumn) uint {
 	}
 	// Done
 	return h
-}
-
-// ============================================================================
-// Binary File Format
-// ============================================================================
-
-// BinaryFile provides a structured header for the binary file format.  In
-// particular, it supports versioning and embedded (binary) metadata.
-type BinaryFile struct {
-	Identifier   [8]byte
-	MajorVersion uint16
-	MinorVersion uint16
-	MetaData     []byte
-}
-
-// MarshalBinary converts the BinaryFile header into a sequence of bytes.
-// Observe that we don't use GobEncoding here to avoid being tied to that
-// encoding scheme.
-func (p *BinaryFile) MarshalBinary() ([]byte, error) {
-	var (
-		buffer     bytes.Buffer
-		majorBytes [2]byte
-		minorBytes [2]byte
-		metaLength [4]byte
-	)
-	// Marshall version numbers
-	binary.BigEndian.PutUint16(majorBytes[:], p.MajorVersion)
-	binary.BigEndian.PutUint16(minorBytes[:], p.MinorVersion)
-	binary.BigEndian.PutUint32(metaLength[:], uint32(len(p.MetaData)))
-	// Write identifier
-	buffer.Write(p.Identifier[:])
-	// Write major version
-	buffer.Write(majorBytes[:])
-	// Write minor version
-	buffer.Write(minorBytes[:])
-	// Write metadata length
-	buffer.Write(metaLength[:])
-	// Write metadata itself
-	buffer.Write(p.MetaData)
-	// Done
-	return buffer.Bytes(), nil
-}
-
-// UnmarshalBinary initialises this BinaryFile from a given set of data bytes.
-// This should match exactly the encoding above.
-func (p *BinaryFile) UnmarshalBinary(buffer *bytes.Buffer) error {
-	var (
-		majorBytes      [2]byte
-		minorBytes      [2]byte
-		metaLengthBytes [4]byte
-	)
-	// Read identifier
-	if n, err := buffer.Read(p.Identifier[:]); err != nil {
-		return err
-	} else if n != 8 {
-		return errors.New("malformed binary file")
-	}
-	// Read major version
-	if n, err := buffer.Read(majorBytes[:]); err != nil {
-		return err
-	} else if n != len(majorBytes) {
-		return errors.New("malformed binary file")
-	}
-	// Read minor version
-	if n, err := buffer.Read(minorBytes[:]); err != nil {
-		return err
-	} else if n != len(minorBytes) {
-		return errors.New("malformed binary file")
-	}
-	// Read metadata length
-	if n, err := buffer.Read(metaLengthBytes[:]); err != nil {
-		return err
-	} else if n != len(metaLengthBytes) {
-		return errors.New("malformed binary file")
-	}
-	// Make space for the metadata
-	var (
-		metaLength        = binary.BigEndian.Uint32(metaLengthBytes[:])
-		metaBytes  []byte = make([]byte, metaLength)
-	)
-	// Read metadata itself
-	if n, err := buffer.Read(metaBytes[:]); err != nil {
-		return err
-	} else if n != len(metaBytes) {
-		return errors.New("malformed binary file")
-	}
-	// Finally assign everything over
-	p.MajorVersion = binary.BigEndian.Uint16(majorBytes[:])
-	p.MinorVersion = binary.BigEndian.Uint16(minorBytes[:])
-	p.MetaData = metaBytes
-	// Done
-	return nil
-}
-
-// Determine whether a given binary file is compatible with this version of
-// go-corset.
-func (p *BinaryFile) isCompatible() bool {
-	return p.Identifier == ZKBINARY &&
-		p.MajorVersion == BINFILE_MAJOR_VERSION &&
-		p.MinorVersion <= BINFILE_MINOR_VERSION
-}
-
-// BINFILE_MAJOR_VERSION givesn the major version of the binary file format.  No
-// matter what version, we should always have the ZKBINARY identifier first,
-// followed by a GOB encoding of the header.  What follows after that, however,
-// is determined by the major version.
-const BINFILE_MAJOR_VERSION uint16 = 1
-
-// BINFILE_MINOR_VERSION gives the minor version of the binary file format.  The
-// expected interpretation is that older versions are compatible with newer
-// ones, but not vice-versa.
-const BINFILE_MINOR_VERSION uint16 = 0
-
-// ZKBINARY is used as the file identifier for binary file types.  This just
-// helps us identify actual binary files from corrupted files.
-var ZKBINARY [8]byte = [8]byte{'z', 'k', 'b', 'i', 'n', 'a', 'r', 'y'}
-
-// Read a "bin" file and extract the metadata bytes, along with the schema.
-func readBinaryFile(legacy bool, filename string) (*BinaryFile, *hir.Schema) {
-	var (
-		header BinaryFile
-		schema *hir.Schema
-	)
-	// Read schema file
-	data, err := os.ReadFile(filename)
-	// Handle errors
-	if err == nil && (legacy || !isBinaryFile(data)) {
-		// Read the binary file
-		schema, err = binfile.HirSchemaFromJson(data)
-	} else if err == nil {
-		// Read the Gob file
-		buffer := bytes.NewBuffer(data)
-		// Read header
-		if err = header.UnmarshalBinary(buffer); err == nil && header.isCompatible() {
-			// Looks good, proceed.
-			decoder := gob.NewDecoder(buffer)
-			// All looks good, proceed to decode the schema itself.
-			err = decoder.Decode(&schema)
-		} else if err == nil {
-			err = fmt.Errorf("incompatible binary file (was v%d.%d, but expected v%d.%d)",
-				header.MajorVersion, header.MinorVersion, BINFILE_MAJOR_VERSION, BINFILE_MINOR_VERSION)
-		}
-	}
-	// Return if no errors
-	if err == nil {
-		return &header, schema
-	}
-	// Handle error & exit
-	fmt.Println(err)
-	os.Exit(2)
-	// unreachable
-	return nil, nil
-}
-
-// Write a binary file using a given set of metadata bytes.
-//
-//nolint:errcheck
-func writeBinaryFile(metadata []byte, schema *hir.Schema, legacy bool, filename string) {
-	var (
-		buffer     bytes.Buffer
-		gobEncoder *gob.Encoder = gob.NewEncoder(&buffer)
-		// Construct header.
-		header BinaryFile = BinaryFile{ZKBINARY, BINFILE_MAJOR_VERSION, BINFILE_MINOR_VERSION, metadata}
-	)
-	// Sanity checks
-	if legacy {
-		// Currently, there is no support for this.
-		fmt.Println("legacy binary format not supported for writing")
-	}
-	// Marshal header
-	headerBytes, _ := header.MarshalBinary()
-	// Encode header
-	buffer.Write(headerBytes)
-	// Encode schema
-	if err := gobEncoder.Encode(schema); err != nil {
-		fmt.Println(err.Error())
-		os.Exit(1)
-	}
-	// Write file
-	if err := os.WriteFile(filename, buffer.Bytes(), 0644); err != nil {
-		fmt.Println(err.Error())
-		os.Exit(1)
-	}
-}
-
-// Check whether the given data file begins with the expected "zkbinary"
-// identifier.
-func isBinaryFile(data []byte) bool {
-	var (
-		zkbinary [8]byte
-		buffer   *bytes.Buffer = bytes.NewBuffer(data)
-	)
-	//
-	if _, err := buffer.Read(zkbinary[:]); err != nil {
-		return false
-	}
-	// Check whether header identified
-	return zkbinary == ZKBINARY
 }

@@ -6,6 +6,7 @@ import (
 	"reflect"
 
 	"github.com/consensys/go-corset/pkg/air"
+	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/hir"
 	"github.com/consensys/go-corset/pkg/mir"
 	"github.com/consensys/go-corset/pkg/schema"
@@ -36,16 +37,23 @@ var debugCmd = &cobra.Command{
 		mir := GetFlag(cmd, "mir")
 		air := GetFlag(cmd, "air")
 		stats := GetFlag(cmd, "stats")
+		attrs := GetFlag(cmd, "attributes")
 		stdlib := !GetFlag(cmd, "no-stdlib")
 		debug := GetFlag(cmd, "debug")
 		legacy := GetFlag(cmd, "legacy")
 		// Parse constraints
-		hirSchema := readSchema(stdlib, debug, legacy, args)
+		binfile := ReadConstraintFiles(stdlib, debug, legacy, args)
 		// Print constraints
 		if stats {
-			printStats(hirSchema, hir, mir, air)
-		} else {
-			printSchemas(hirSchema, hir, mir, air)
+			printStats(&binfile.Schema, hir, mir, air)
+		}
+		//
+		if attrs {
+			printAttributes(binfile.Attributes)
+		}
+		//
+		if !stats && !attrs {
+			printSchemas(&binfile.Schema, hir, mir, air)
 		}
 	},
 }
@@ -56,6 +64,7 @@ func init() {
 	debugCmd.Flags().Bool("mir", false, "Print constraints at MIR level")
 	debugCmd.Flags().Bool("air", false, "Print constraints at AIR level")
 	debugCmd.Flags().Bool("stats", false, "Print summary information")
+	debugCmd.Flags().Bool("attributes", false, "Print attribute information")
 	debugCmd.Flags().Bool("debug", false, "enable debugging constraints")
 }
 
@@ -83,6 +92,12 @@ func printSchema(schema schema.Schema) {
 	for i := schema.Constraints(); i.HasNext(); {
 		ith := i.Next()
 		fmt.Println(ith.Lisp(schema).String(true))
+	}
+}
+
+func printAttributes(attrs []binfile.Attribute) {
+	for _, attr := range attrs {
+		fmt.Printf("attribute \"%s\":\n", attr.AttributeName())
 	}
 }
 

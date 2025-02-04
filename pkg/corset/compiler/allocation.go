@@ -42,10 +42,10 @@ func (r *Register) IsActive() bool {
 // either all input, or all computed, etc).
 func (r *Register) IsInput() bool {
 	// Extract input from first source
-	computed := r.Sources[0].computed
+	computed := r.Sources[0].Computed
 	// Sanity check all sources are consistent.
 	for _, ith := range r.Sources {
-		if ith.computed != computed {
+		if ith.Computed != computed {
 			panic("inconsistent register visibility")
 		}
 	}
@@ -88,7 +88,7 @@ func (r *Register) Name() string {
 		for i, source := range r.Sources {
 			// FIXME: below is used instead of above in order to replicate the original
 			// Corset tool.  Eventually, this behaviour should be deprecated.
-			names[i] = source.name.Tail()
+			names[i] = source.Name.Tail()
 		}
 		// Construct register name from list of names
 		name := constructRegisterName(names)
@@ -114,34 +114,34 @@ func constructRegisterName(names []string) string {
 }
 
 // RegisterSource provides necessary information about source-level columns
-// allocated to a  given register.
+// allocated to a given register.
 type RegisterSource struct {
 	// Context is a prefix of name which, when they differ, indicates a virtual
 	// column (i.e. one which is subject to register allocation).
-	context util.Path
-	// Fully qualified (i.e. absolute) name of source-level column.
-	name util.Path
-	// Length multiplier of source-level column.
-	multiplier uint
-	// Underlying datatype of the source-level column.
-	datatype sc.Type
+	Context util.Path
+	// Fully qualified (i.e. absolute) Name of source-level column.
+	Name util.Path
+	// Length Multiplier of source-level column.
+	Multiplier uint
+	// Underlying DataType of the source-level column.
+	DataType sc.Type
 	// Provability requirement for source-level column.
-	mustProve bool
-	// Determines whether this is a computed column.
-	computed bool
+	MustProve bool
+	// Determines whether this is a Computed column.
+	Computed bool
 }
 
 // IsVirtual indicates whether or not this is a "virtual" column.  That is,
 // something which is subject to register allocation (i.e. because it is
 // declared in a perspective).
 func (p *RegisterSource) IsVirtual() bool {
-	return !p.name.Parent().Equals(p.context)
+	return !p.Name.Parent().Equals(p.Context)
 }
 
 // Perspective returns the name of the "virtual perspective" in which this
 // column exists.
 func (p *RegisterSource) Perspective() string {
-	return p.name.Parent().Slice(p.context.Depth()).String()
+	return p.Name.Parent().Slice(p.Context.Depth()).String()
 }
 
 // RegisterAllocationView provides a view of an environment for the purposes of
@@ -186,7 +186,7 @@ func (p *RegisterAllocationView) Merge(dst uint, src uint) {
 	}
 	// Update column map
 	for _, col := range p.env.ColumnsOf(src) {
-		p.env.columns[col] = dst
+		p.env.columnMap[col] = dst
 	}
 	//
 	target.Merge(source)
@@ -250,8 +250,8 @@ func identicalType(lhs *RegisterGroup, rhs *RegisterGroup) bool {
 // Sort the registers into alphabetical order.
 func sortRegisters(view *RegisterAllocationView) {
 	slices.SortFunc(view.registers, func(l, r uint) int {
-		lhs := view.Register(l).Sources[0].name.String()
-		rhs := view.Register(r).Sources[0].name.String()
+		lhs := view.Register(l).Sources[0].Name.String()
+		rhs := view.Register(r).Sources[0].Name.String()
 		// Within perspective sort alphabetically by name
 		return strings.Compare(lhs, rhs)
 	})
