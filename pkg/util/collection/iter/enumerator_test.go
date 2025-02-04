@@ -1,48 +1,46 @@
-package test
+package iter
 
 import (
 	"testing"
-
-	"github.com/consensys/go-corset/pkg/util/collection/iter"
 )
 
 func Test_Enumerator_1_1(t *testing.T) {
-	enumerator := iter.EnumerateElements[uint](1, []uint{0})
+	enumerator := EnumerateElements[uint](1, []uint{0})
 	checkEnumerator(t, enumerator, [][]uint{{0}}, arrayEquals)
 }
 
 func Test_Enumerator_1_2(t *testing.T) {
-	enumerator := iter.EnumerateElements[uint](1, []uint{0, 1})
+	enumerator := EnumerateElements[uint](1, []uint{0, 1})
 	checkEnumerator(t, enumerator, [][]uint{{0}, {1}}, arrayEquals)
 }
 
 func Test_Enumerator_1_3(t *testing.T) {
-	enumerator := iter.EnumerateElements[uint](1, []uint{0, 1, 2})
+	enumerator := EnumerateElements[uint](1, []uint{0, 1, 2})
 	checkEnumerator(t, enumerator, [][]uint{{0}, {1}, {2}}, arrayEquals)
 }
 
 func Test_Enumerator_2_1(t *testing.T) {
-	enumerator := iter.EnumerateElements[uint](2, []uint{0})
+	enumerator := EnumerateElements[uint](2, []uint{0})
 	checkEnumerator(t, enumerator, [][]uint{{0, 0}}, arrayEquals)
 }
 
 func Test_Enumerator_2_2(t *testing.T) {
-	enumerator := iter.EnumerateElements[uint](2, []uint{0, 1})
+	enumerator := EnumerateElements[uint](2, []uint{0, 1})
 	checkEnumerator(t, enumerator, [][]uint{{0, 0}, {1, 0}, {0, 1}, {1, 1}}, arrayEquals)
 }
 
 func Test_Enumerator_2_3(t *testing.T) {
-	enumerator := iter.EnumerateElements[uint](2, []uint{0, 1, 2})
+	enumerator := EnumerateElements[uint](2, []uint{0, 1, 2})
 	checkEnumerator(t, enumerator, [][]uint{
 		{0, 0}, {1, 0}, {2, 0}, {0, 1}, {1, 1}, {2, 1}, {0, 2}, {1, 2}, {2, 2}}, arrayEquals)
 }
 
 func Test_Enumerator_3_1(t *testing.T) {
-	enumerator := iter.EnumerateElements[uint](3, []uint{0})
+	enumerator := EnumerateElements[uint](3, []uint{0})
 	checkEnumerator(t, enumerator, [][]uint{{0, 0, 0}}, arrayEquals)
 }
 func Test_Enumerator_3_2(t *testing.T) {
-	enumerator := iter.EnumerateElements[uint](3, []uint{0, 1})
+	enumerator := EnumerateElements[uint](3, []uint{0, 1})
 	checkEnumerator(t, enumerator, [][]uint{
 		{0, 0, 0}, {1, 0, 0}, {0, 1, 0}, {1, 1, 0}, {0, 0, 1}, {1, 0, 1}, {0, 1, 1}, {1, 1, 1}}, arrayEquals)
 }
@@ -51,7 +49,7 @@ func Test_Enumerator_3_2(t *testing.T) {
 // Test Helpers
 // ===================================================================
 
-func checkEnumerator[E any](t *testing.T, enumerator iter.Enumerator[E], expected []E, eq func(E, E) bool) {
+func checkEnumerator[E any](t *testing.T, enumerator Enumerator[E], expected []E, eq func(E, E) bool) {
 	for i := 0; i < len(expected); i++ {
 		ith := enumerator.Next()
 		if !eq(ith, expected[i]) {

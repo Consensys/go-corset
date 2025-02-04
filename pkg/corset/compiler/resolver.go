@@ -276,10 +276,9 @@ func (r *resolver) finaliseDeclarationsInModule(scope *ModuleScope, decls []ast.
 		err := r.srcmap.SyntaxError(incomplete, "unable to complete resolution")
 		return []SyntaxError{*err}
 	} else if !complete {
-		// No, we didn't.  So, something is wrong --- assume it must be a cyclic
-		// definition for now.
-		err := r.srcmap.SyntaxError(incomplete, "cyclic declaration")
-		return []SyntaxError{*err}
+		// No, we didn't.  So, something is wrong and we now have to figure out
+		// what exactly.
+		return r.determineFinalisationErrors(decls, includes)
 	}
 	// Done
 	return nil
@@ -328,6 +327,28 @@ func (r *resolver) declarationDependenciesAreFinalised(scope *ModuleScope,
 	}
 	//
 	return finalised, errors
+}
+
+// For each included declaration, identify which dependencies are unresolved and
+// report specific errors for them.
+func (r *resolver) determineFinalisationErrors(decls []ast.Declaration, includes DeclPredicate) []SyntaxError {
+	var errors []SyntaxError
+	//
+	for _, decl := range decls {
+		// Look for an included, but unfinalised declaration
+		if includes(decl) && !decl.IsFinalised() {
+			for iter := decl.Dependencies(); iter.HasNext(); {
+				symbol := iter.Next()
+				// Check whether this dependency is a problem
+				if !symbol.Binding().IsFinalised() {
+					// Yes, so report error
+					errors = append(errors, *r.srcmap.SyntaxError(symbol, "unresolved symbol"))
+				}
+			}
+		}
+	}
+	//
+	return errors
 }
 
 // Finalise a declaration.

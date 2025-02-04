@@ -1,4 +1,4 @@
-(deflookup l1 (m1.B) (m2.X))
+(deflookup l1 (m2.X) (m1.B))
 
 (module m1)
 (defcolumns (A :i32))
