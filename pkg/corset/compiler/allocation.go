@@ -131,6 +131,8 @@ type RegisterSource struct {
 	MustProve bool
 	// Determines whether this is a Computed column.
 	Computed bool
+	// Display modifier
+	Display string
 }
 
 // IsVirtual indicates whether or not this is a "virtual" column.  That is,

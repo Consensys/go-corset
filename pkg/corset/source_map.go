@@ -3,6 +3,7 @@ package corset
 import (
 	"encoding/gob"
 
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/hir"
 	sc "github.com/consensys/go-corset/pkg/schema"
@@ -52,6 +53,9 @@ type SourceModule struct {
 	// Columns identifies any columns defined in this module.  Observe that
 	// columns across modules are mapped to registers in a many-to-one fashion.
 	Columns []SourceColumn
+	// Enumerations are custom types for display.  For example, we might want to
+	// display opcodes as ADD, MUl, SUB, etc.
+	Enumerations []map[fr.Element]string
 }
 
 // Flattern modules in this tree either including (or excluding) virtual
@@ -82,9 +86,24 @@ type SourceColumn struct {
 	MustProve bool
 	// Determines whether this is a Computed column.
 	Computed bool
+	// Display modifier for column. Here 0-256 are reserved, and values >256 are
+	// entries in Enumerations map.  More specifically, 0=hex, 1=dec, 2=bytes.
+	Display uint
 	// Register at HIR level to which this column is mapped.
 	Register uint
 }
+
+// DISPLAY_HEX shows values in hex
+const DISPLAY_HEX = uint(0)
+
+// DISPLAY_DEC shows values in dec
+const DISPLAY_DEC = uint(1)
+
+// DISPLAY_BYTES shows values as bytes.
+const DISPLAY_BYTES = uint(2)
+
+// DISPLAY_CUSTOM selects a custom layout
+const DISPLAY_CUSTOM = uint(256)
 
 func init() {
 	gob.Register(binfile.Attribute(&SourceMap{}))

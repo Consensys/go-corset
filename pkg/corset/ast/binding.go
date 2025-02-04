@@ -160,6 +160,8 @@ type ColumnBinding struct {
 	Multiplier uint
 	// Determines whether this is a Computed column, or not.
 	Computed bool
+	// Display modifier
+	Display string
 }
 
 // AbsolutePath returns the fully resolved (absolute) path of the column in question.

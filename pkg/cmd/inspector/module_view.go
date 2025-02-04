@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/go-corset/pkg/corset"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/termio"
 )
@@ -96,7 +97,7 @@ func (p *ModuleView) CellAt(trace tr.Trace, col, row uint) termio.FormattedText 
 	// Determine value at given trace column / row
 	val := p.ValueAt(trace, trCol, trRow)
 	// Generate textual representation of value, and clip accordingly.
-	str := clipValue(p.display(val), p.rowWidths[trRow])
+	str := clipValue(p.display(trCol, val), p.rowWidths[trRow])
 	//
 	if p.IsActive(trace, trCol, trRow) {
 		// Calculate appropriate colour for this cell.
@@ -130,13 +131,6 @@ func (p *ModuleView) IsActive(trace tr.Trace, trCol, trRow uint) bool {
 // ============================================================================
 // Helpers
 // ============================================================================
-
-// Determine the (unclipped) string value at a given column and row in a given
-// trace.
-func (p *ModuleView) display(val fr.Element) string {
-	// FIXME: this is only a temporary solution for now.
-	return fmt.Sprintf("0x%s", val.Text(16))
-}
 
 // This algorithm is based on that used in the original tool.  To understand
 // this algorithm, you need to look at the 256 colour table for ANSI escape
@@ -184,7 +178,7 @@ func (p *ModuleView) recalculateRowWidths(trace tr.Trace) []uint {
 		//
 		for col := uint(0); col < uint(len(p.columns)); col++ {
 			val := p.ValueAt(trace, col, row)
-			width := len(p.display(val))
+			width := len(p.display(col, val))
 			maxWidth = max(maxWidth, uint(width))
 		}
 		//
@@ -192,6 +186,27 @@ func (p *ModuleView) recalculateRowWidths(trace tr.Trace) []uint {
 	}
 	//
 	return widths
+}
+
+// Determine the (unclipped) string value at a given column and row in a given
+// trace.
+func (p *ModuleView) display(col uint, val fr.Element) string {
+	if col < uint(len(p.columns)) {
+		disp := p.columns[col].Display
+		//
+		switch {
+		case disp == corset.DISPLAY_HEX:
+			// default
+		case disp == corset.DISPLAY_DEC:
+			return val.Text(10)
+		case disp == corset.DISPLAY_BYTES:
+			// ?
+		case disp == corset.DISPLAY_CUSTOM:
+			return "ADD"
+		}
+	}
+	// Default:
+	return fmt.Sprintf("0x%s", val.Text(16))
 }
 
 // Determine the maximum number of rows whih can be displayed for a given set of

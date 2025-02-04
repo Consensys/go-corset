@@ -357,7 +357,8 @@ func (p *ModuleScope) destructureAtomicColumn(column *ast.ColumnBinding, ctx uti
 		column.Multiplier,
 		datatype,
 		column.MustProve,
-		column.Computed}
+		column.Computed,
+		column.Display}
 	//
 	return []RegisterSource{source}
 }

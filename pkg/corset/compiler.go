@@ -145,8 +145,10 @@ func constructSourceModule(scope *compiler.ModuleScope, env compiler.GlobalEnvir
 		regId := env.RegisterOf(&col.Name)
 		// Determine (unqualified) column name
 		name := col.Name.Tail()
+		//
+		display := constructDisplayModifier(col.Display)
 		// Translate register source into source column
-		srcCol := SourceColumn{name, col.Multiplier, col.DataType, col.MustProve, col.Computed, regId}
+		srcCol := SourceColumn{name, col.Multiplier, col.DataType, col.MustProve, col.Computed, display, regId}
 		columns = append(columns, srcCol)
 	}
 	//
@@ -162,6 +164,21 @@ func constructSourceModule(scope *compiler.ModuleScope, env compiler.GlobalEnvir
 		Submodules: submodules,
 		Columns:    columns,
 	}
+}
+
+func constructDisplayModifier(modifier string) uint {
+	switch modifier {
+	case "hex":
+		return DISPLAY_HEX
+	case "dec":
+		return DISPLAY_DEC
+	case "bytes":
+		return DISPLAY_BYTES
+	case "opcode":
+		return DISPLAY_CUSTOM
+	}
+	// unknown, so default to hex
+	return DISPLAY_HEX
 }
 
 // This is really broken.  The problem is that we need to translate the selector
