@@ -1,4 +1,4 @@
-package test
+package hash
 
 import (
 	"testing"
@@ -47,7 +47,7 @@ func TestSlow_HashMap_09(t *testing.T) {
 
 func check_HashMap(t *testing.T, items []uint) {
 	gmap := initGoMap(items)
-	hmap := util.NewHashMap[testKey, uint](0)
+	hmap := NewMap[testKey, uint](0)
 	// Insert items
 	for key, val := range gmap {
 		hmap.Insert(testKey{key}, val)

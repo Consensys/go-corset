@@ -10,6 +10,7 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/hash"
 	"github.com/spf13/cobra"
 )
 
@@ -346,11 +347,11 @@ func bytesSummariser(col trace.RawColumn) string {
 
 func uniqueElementsSummariser(col trace.RawColumn) string {
 	data := col.Data
-	elems := util.NewHashSet[util.BytesKey](data.Len() / 2)
+	elems := hash.NewSet[hash.BytesKey](data.Len() / 2)
 	// Add all the elements
 	for i := uint(0); i < data.Len(); i++ {
 		bytes := util.FrElementToBytes(data.Get(i))
-		elems.Insert(util.NewBytesKey(bytes[:]))
+		elems.Insert(hash.NewBytesKey(bytes[:]))
 	}
 	// Done
 	return fmt.Sprintf("%d", elems.Size())

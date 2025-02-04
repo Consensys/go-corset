@@ -1,4 +1,4 @@
-package test
+package hash
 
 import (
 	"fmt"
@@ -48,7 +48,7 @@ func TestSlow_HashSet_09(t *testing.T) {
 // ===================================================================
 
 func check_HashSet(t *testing.T, items []uint) {
-	set := util.NewHashSet[testKey](0)
+	set := NewSet[testKey](0)
 	dups := uint(0)
 	// Insert items
 	for _, item := range items {

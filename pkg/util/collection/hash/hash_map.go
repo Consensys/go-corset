@@ -1,28 +1,28 @@
-package util
+package hash
 
 import (
 	"fmt"
 	"strings"
 )
 
-// HashMap defines a generic set implementation backed by a map.  This is a true
+// Map defines a generic set implementation backed by a map.  This is a true
 // hashtable in that collisions are handle gracefully using buckets, rather than
 // simply discarding them.
-type HashMap[K Hasher[K], V any] struct {
+type Map[K Hasher[K], V any] struct {
 	// items maps hashcodes to *buckets* of items.
 	buckets map[uint64]hashMapBucket[K, V]
 }
 
-// NewHashMap creates a new HashMap with a given underlying capacity.
-func NewHashMap[K Hasher[K], V any](size uint) *HashMap[K, V] {
+// NewMap creates a new HashMap with a given underlying capacity.
+func NewMap[K Hasher[K], V any](size uint) *Map[K, V] {
 	items := make(map[uint64]hashMapBucket[K, V], size)
-	return &HashMap[K, V]{items}
+	return &Map[K, V]{items}
 }
 
 // Size returns the number of unique items stored in this HashMap.
 //
 //nolint:revive
-func (p *HashMap[K, V]) Size() uint {
+func (p *Map[K, V]) Size() uint {
 	count := uint(0)
 	for _, b := range p.buckets {
 		count += b.size()
@@ -34,7 +34,7 @@ func (p *HashMap[K, V]) Size() uint {
 // MaxBucket returns the size of the largest bucket.
 //
 //nolint:revive
-func (p *HashMap[K, V]) MaxBucket() uint {
+func (p *Map[K, V]) MaxBucket() uint {
 	m := uint(0)
 	for _, b := range p.buckets {
 		m = max(m, b.size())
@@ -47,7 +47,7 @@ func (p *HashMap[K, V]) MaxBucket() uint {
 // and false otherwise.
 //
 //nolint:revive
-func (p *HashMap[K, V]) Insert(key K, value V) bool {
+func (p *Map[K, V]) Insert(key K, value V) bool {
 	var b1 hashMapBucket[K, V]
 	// Compute item's hashcode
 	hash := key.Hash()
@@ -64,7 +64,7 @@ func (p *HashMap[K, V]) Insert(key K, value V) bool {
 // Contains checks whether the given item is contained within this map, or not.
 //
 //nolint:revive
-func (p *HashMap[K, V]) ContainsKey(key K) bool {
+func (p *Map[K, V]) ContainsKey(key K) bool {
 	hash := key.Hash()
 
 	if bucket, ok := p.buckets[hash]; ok {
@@ -77,7 +77,7 @@ func (p *HashMap[K, V]) ContainsKey(key K) bool {
 // Get item from bucket, or return false otherwise.
 //
 //nolint:revive
-func (p *HashMap[K, V]) Get(key K) (V, bool) {
+func (p *Map[K, V]) Get(key K) (V, bool) {
 	var (
 		empty V
 		hash  uint64 = key.Hash()
@@ -91,7 +91,7 @@ func (p *HashMap[K, V]) Get(key K) (V, bool) {
 }
 
 //nolint:revive
-func (p *HashMap[K, V]) String() string {
+func (p *Map[K, V]) String() string {
 	var r strings.Builder
 	//
 	first := true

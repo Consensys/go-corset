@@ -11,6 +11,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/hash"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/sexp"
@@ -216,7 +217,7 @@ func mapIfNativeFunction(trace tr.Trace, sources []uint) []field.FrArray {
 	source_selector := trace.Column(sources[1+n]).Data()
 	source_keys := make([]util.Array[fr.Element], n)
 	source_value := trace.Column(sources[2+n+n]).Data()
-	source_map := util.NewHashMap[util.BytesKey, fr.Element](source_value.Len())
+	source_map := hash.NewMap[hash.BytesKey, fr.Element](source_value.Len())
 	target_selector := trace.Column(sources[0]).Data()
 	target_keys := make([]util.Array[fr.Element], n)
 	target_value := field.NewFrArray(target_selector.Len(), source_value.BitWidth())
@@ -264,7 +265,7 @@ func mapIfNativeFunction(trace tr.Trace, sources []uint) []field.FrArray {
 	return []field.FrArray{target_value}
 }
 
-func extractIthKey(index uint, cols []util.Array[fr.Element]) util.BytesKey {
+func extractIthKey(index uint, cols []util.Array[fr.Element]) hash.BytesKey {
 	// Each fr.Element is 4 x 64bit words.
 	bytes := make([]byte, 32*len(cols))
 	// Slice provides an access window for writing
@@ -281,7 +282,7 @@ func extractIthKey(index uint, cols []util.Array[fr.Element]) util.BytesKey {
 		slice = slice[32:]
 	}
 	// Done
-	return util.NewBytesKey(bytes)
+	return hash.NewBytesKey(bytes)
 }
 
 // determines changes of a given set of columns within a given region.
