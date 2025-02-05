@@ -37,11 +37,15 @@ type SourceColumn struct {
 	Name string
 	// Selector determines when column active.
 	Selector *hir.UnitExpr
+	// Display modifier
+	Display uint
 	// Register to which this column is allocated
 	Register uint
 }
 
-func newModuleState(module *corset.SourceModule, trace tr.Trace, recurse bool) ModuleState {
+func newModuleState(module *corset.SourceModule, trace tr.Trace, enums []corset.Enumeration,
+	recurse bool) ModuleState {
+	//
 	var (
 		state      ModuleState
 		submodules []corset.SourceModule
@@ -61,6 +65,7 @@ func newModuleState(module *corset.SourceModule, trace tr.Trace, recurse bool) M
 	})
 	// Configure view
 	state.view.maxRowWidth = 16
+	state.view.enumerations = enums
 	// Finalise view
 	state.view.SetActiveColumns(trace, state.columns)
 	//
@@ -121,7 +126,7 @@ func extractSourceColumns(path util.Path, selector *hir.UnitExpr, columns []cors
 	//
 	for _, col := range columns {
 		name := path.Extend(col.Name).String()[1:]
-		srcCol := SourceColumn{name, selector, col.Register}
+		srcCol := SourceColumn{name, selector, col.Display, col.Register}
 		srcColumns = append(srcColumns, srcCol)
 	}
 	//

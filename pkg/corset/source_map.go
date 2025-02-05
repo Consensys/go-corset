@@ -3,6 +3,7 @@ package corset
 import (
 	"encoding/gob"
 
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/hir"
 	sc "github.com/consensys/go-corset/pkg/schema"
@@ -15,6 +16,9 @@ type SourceMap struct {
 	// Root module correspond to the top-level HIR modules.  Thus, indicates into
 	// this table correspond to HIR module indices, etc.
 	Root SourceModule
+	// Enumerations are custom types for display.  For example, we might want to
+	// display opcodes as ADD, MUl, SUB, etc.
+	Enumerations []Enumeration
 }
 
 // AttributeName returns the name of the binary file attribute that this will
@@ -28,6 +32,10 @@ func (p *SourceMap) AttributeName() string {
 func (p *SourceMap) Flattern(predicate func(*SourceModule) bool) []SourceModule {
 	return p.Root.Flattern(predicate)
 }
+
+// Enumeration is a mapping from field elements to explicitly given names.  For
+// example, mapping opcode bytes to their names.
+type Enumeration map[fr.Element]string
 
 // SourceModule represents an entity at the source-level which groups together
 // related columns.  Modules can be either concrete (in which case they
@@ -82,9 +90,24 @@ type SourceColumn struct {
 	MustProve bool
 	// Determines whether this is a Computed column.
 	Computed bool
+	// Display modifier for column. Here 0-256 are reserved, and values >256 are
+	// entries in Enumerations map.  More specifically, 0=hex, 1=dec, 2=bytes.
+	Display uint
 	// Register at HIR level to which this column is mapped.
 	Register uint
 }
+
+// DISPLAY_HEX shows values in hex
+const DISPLAY_HEX = uint(0)
+
+// DISPLAY_DEC shows values in dec
+const DISPLAY_DEC = uint(1)
+
+// DISPLAY_BYTES shows values as bytes.
+const DISPLAY_BYTES = uint(2)
+
+// DISPLAY_CUSTOM selects a custom layout
+const DISPLAY_CUSTOM = uint(256)
 
 func init() {
 	gob.Register(binfile.Attribute(&SourceMap{}))
