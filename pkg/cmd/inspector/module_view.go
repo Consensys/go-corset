@@ -2,6 +2,8 @@ package inspector
 
 import (
 	"fmt"
+	"math/big"
+	"strings"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/corset"
@@ -24,6 +26,8 @@ type ModuleView struct {
 	// ColTitleWidth holds the maximum width of any (active) column title in the
 	// module's trace.
 	colTitleWidth uint
+	// Available enumerations
+	enumerations []corset.Enumeration
 }
 
 // SetColumn sets the column offset if its valid (otherwise ignore).  This
@@ -200,13 +204,44 @@ func (p *ModuleView) display(col uint, val fr.Element) string {
 		case disp == corset.DISPLAY_DEC:
 			return val.Text(10)
 		case disp == corset.DISPLAY_BYTES:
-			// ?
-		case disp == corset.DISPLAY_CUSTOM:
-			return "ADD"
+			return displayBytes(val)
+		case disp >= corset.DISPLAY_CUSTOM:
+			enumID := int(disp - corset.DISPLAY_CUSTOM)
+			// Check whether valid enumeration.
+			if enumID < len(p.enumerations) {
+				// Check whether value covered by enumeration.
+				if lab, ok := p.enumerations[enumID][val]; ok {
+					return lab
+				}
+			}
 		}
 	}
 	// Default:
 	return fmt.Sprintf("0x%s", val.Text(16))
+}
+
+// Format a field element according to the ":bytes" directive.
+func displayBytes(val fr.Element) string {
+	var (
+		builder strings.Builder
+		bival   big.Int
+	)
+	// Handle zero case specifically.
+	if val.IsZero() {
+		return "00"
+	}
+	// assign as big integer
+	val.BigInt(&bival)
+	//
+	for i, b := range bival.Bytes() {
+		if i != 0 {
+			builder.WriteString(" ")
+		}
+		//
+		builder.WriteString(fmt.Sprintf("%02x", b))
+	}
+	//
+	return builder.String()
 }
 
 // Determine the maximum number of rows whih can be displayed for a given set of

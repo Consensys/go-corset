@@ -16,6 +16,9 @@ type SourceMap struct {
 	// Root module correspond to the top-level HIR modules.  Thus, indicates into
 	// this table correspond to HIR module indices, etc.
 	Root SourceModule
+	// Enumerations are custom types for display.  For example, we might want to
+	// display opcodes as ADD, MUl, SUB, etc.
+	Enumerations []Enumeration
 }
 
 // AttributeName returns the name of the binary file attribute that this will
@@ -29,6 +32,10 @@ func (p *SourceMap) AttributeName() string {
 func (p *SourceMap) Flattern(predicate func(*SourceModule) bool) []SourceModule {
 	return p.Root.Flattern(predicate)
 }
+
+// Enumeration is a mapping from field elements to explicitly given names.  For
+// example, mapping opcode bytes to their names.
+type Enumeration map[fr.Element]string
 
 // SourceModule represents an entity at the source-level which groups together
 // related columns.  Modules can be either concrete (in which case they
@@ -53,9 +60,6 @@ type SourceModule struct {
 	// Columns identifies any columns defined in this module.  Observe that
 	// columns across modules are mapped to registers in a many-to-one fashion.
 	Columns []SourceColumn
-	// Enumerations are custom types for display.  For example, we might want to
-	// display opcodes as ADD, MUl, SUB, etc.
-	Enumerations []map[fr.Element]string
 }
 
 // Flattern modules in this tree either including (or excluding) virtual

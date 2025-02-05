@@ -43,7 +43,9 @@ type SourceColumn struct {
 	Register uint
 }
 
-func newModuleState(module *corset.SourceModule, trace tr.Trace, recurse bool) ModuleState {
+func newModuleState(module *corset.SourceModule, trace tr.Trace, enums []corset.Enumeration,
+	recurse bool) ModuleState {
+	//
 	var (
 		state      ModuleState
 		submodules []corset.SourceModule
@@ -63,6 +65,7 @@ func newModuleState(module *corset.SourceModule, trace tr.Trace, recurse bool) M
 	})
 	// Configure view
 	state.view.maxRowWidth = 16
+	state.view.enumerations = enums
 	// Finalise view
 	state.view.SetActiveColumns(trace, state.columns)
 	//
