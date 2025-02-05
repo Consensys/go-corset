@@ -39,6 +39,11 @@ func (e *Mul) EvalAt(k int, tr trace.Trace) fr.Element {
 	val := e.Args[0].EvalAt(k, tr)
 	// Continue evaluating the rest
 	for i := 1; i < len(e.Args); i++ {
+		// Can short-circuit evaluation?
+		if val.IsZero() {
+			break
+		}
+		// No
 		ith := e.Args[i].EvalAt(k, tr)
 		val.Mul(&val, &ith)
 	}
