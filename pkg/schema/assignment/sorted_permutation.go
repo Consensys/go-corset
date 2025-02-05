@@ -7,6 +7,7 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/iter"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/sexp"
 )
@@ -57,8 +58,8 @@ func (p *SortedPermutation) Context() tr.Context {
 
 // Columns returns the columns declared by this sorted permutation (in the order
 // of declaration).
-func (p *SortedPermutation) Columns() util.Iterator[sc.Column] {
-	return util.NewArrayIterator(p.Targets)
+func (p *SortedPermutation) Columns() iter.Iterator[sc.Column] {
+	return iter.NewArrayIterator(p.Targets)
 }
 
 // IsComputed Determines whether or not this declaration is computed.

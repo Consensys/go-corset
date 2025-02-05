@@ -8,6 +8,7 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/hash"
 	"github.com/consensys/go-corset/pkg/util/sexp"
 )
 
@@ -100,17 +101,17 @@ func (p *LookupConstraint[E]) Accepts(tr trace.Trace) schema.Failure {
 	src_height := tr.Height(p.SourceContext)
 	tgt_height := tr.Height(p.TargetContext)
 	//
-	rows := util.NewHashSet[util.BytesKey](tgt_height)
+	rows := hash.NewSet[hash.BytesKey](tgt_height)
 	// Add all target columns to the set
 	for i := 0; i < int(tgt_height); i++ {
 		ith_bytes := evalExprsAt(i, p.Targets, tr)
-		rows.Insert(util.NewBytesKey(ith_bytes))
+		rows.Insert(hash.NewBytesKey(ith_bytes))
 	}
 	// Check all source columns are contained
 	for i := 0; i < int(src_height); i++ {
 		ith_bytes := evalExprsAt(i, p.Sources, tr)
 		// Check whether contained.
-		if !rows.Contains(util.NewBytesKey(ith_bytes)) {
+		if !rows.Contains(hash.NewBytesKey(ith_bytes)) {
 			return &LookupFailure{fmt.Sprintf("lookup \"%s\" failed (row %d)", p.Handle, i)}
 		}
 	}

@@ -7,6 +7,7 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/set"
 )
 
 // Expr represents an expression in the Mid-Level Intermediate Representation
@@ -43,8 +44,8 @@ func (p *Add) Context(schema sc.Schema) trace.Context {
 // RequiredColumns returns the set of columns on which this term depends.
 // That is, columns whose values may be accessed when evaluating this term
 // on a given trace.
-func (p *Add) RequiredColumns() *util.SortedSet[uint] {
-	return util.UnionSortedSets(p.Args, func(e Expr) *util.SortedSet[uint] {
+func (p *Add) RequiredColumns() *set.SortedSet[uint] {
+	return set.UnionSortedSets(p.Args, func(e Expr) *set.SortedSet[uint] {
 		return e.RequiredColumns()
 	})
 }
@@ -52,8 +53,8 @@ func (p *Add) RequiredColumns() *util.SortedSet[uint] {
 // RequiredCells returns the set of trace cells on which this term depends.
 // That is, evaluating this term at the given row in the given trace will read
 // these cells.
-func (p *Add) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet[trace.CellRef] {
-	return util.UnionAnySortedSets(p.Args, func(e Expr) *util.AnySortedSet[trace.CellRef] {
+func (p *Add) RequiredCells(row int, tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
+	return set.UnionAnySortedSets(p.Args, func(e Expr) *set.AnySortedSet[trace.CellRef] {
 		return e.RequiredCells(row, tr)
 	})
 }
@@ -95,8 +96,8 @@ func (p *Sub) Context(schema sc.Schema) trace.Context {
 // RequiredColumns returns the set of columns on which this term depends.
 // That is, columns whose values may be accessed when evaluating this term
 // on a given trace.
-func (p *Sub) RequiredColumns() *util.SortedSet[uint] {
-	return util.UnionSortedSets(p.Args, func(e Expr) *util.SortedSet[uint] {
+func (p *Sub) RequiredColumns() *set.SortedSet[uint] {
+	return set.UnionSortedSets(p.Args, func(e Expr) *set.SortedSet[uint] {
 		return e.RequiredColumns()
 	})
 }
@@ -104,8 +105,8 @@ func (p *Sub) RequiredColumns() *util.SortedSet[uint] {
 // RequiredCells returns the set of trace cells on which this term depends.
 // That is, evaluating this term at the given row in the given trace will read
 // these cells.
-func (p *Sub) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet[trace.CellRef] {
-	return util.UnionAnySortedSets(p.Args, func(e Expr) *util.AnySortedSet[trace.CellRef] {
+func (p *Sub) RequiredCells(row int, tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
+	return set.UnionAnySortedSets(p.Args, func(e Expr) *set.AnySortedSet[trace.CellRef] {
 		return e.RequiredCells(row, tr)
 	})
 }
@@ -147,8 +148,8 @@ func (p *Mul) Context(schema sc.Schema) trace.Context {
 // RequiredColumns returns the set of columns on which this term depends.
 // That is, columns whose values may be accessed when evaluating this term
 // on a given trace.
-func (p *Mul) RequiredColumns() *util.SortedSet[uint] {
-	return util.UnionSortedSets(p.Args, func(e Expr) *util.SortedSet[uint] {
+func (p *Mul) RequiredColumns() *set.SortedSet[uint] {
+	return set.UnionSortedSets(p.Args, func(e Expr) *set.SortedSet[uint] {
 		return e.RequiredColumns()
 	})
 }
@@ -156,8 +157,8 @@ func (p *Mul) RequiredColumns() *util.SortedSet[uint] {
 // RequiredCells returns the set of trace cells on which this term depends.
 // That is, evaluating this term at the given row in the given trace will read
 // these cells.
-func (p *Mul) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet[trace.CellRef] {
-	return util.UnionAnySortedSets(p.Args, func(e Expr) *util.AnySortedSet[trace.CellRef] {
+func (p *Mul) RequiredCells(row int, tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
+	return set.UnionAnySortedSets(p.Args, func(e Expr) *set.AnySortedSet[trace.CellRef] {
 		return e.RequiredCells(row, tr)
 	})
 }
@@ -202,14 +203,14 @@ func (p *Exp) Context(schema sc.Schema) trace.Context {
 // RequiredColumns returns the set of columns on which this term depends.
 // That is, columns whose values may be accessed when evaluating this term
 // on a given trace.
-func (p *Exp) RequiredColumns() *util.SortedSet[uint] {
+func (p *Exp) RequiredColumns() *set.SortedSet[uint] {
 	return p.Arg.RequiredColumns()
 }
 
 // RequiredCells returns the set of trace cells on which this term depends.
 // That is, evaluating this term at the given row in the given trace will read
 // these cells.
-func (p *Exp) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet[trace.CellRef] {
+func (p *Exp) RequiredCells(row int, tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
 	return p.Arg.RequiredCells(row, tr)
 }
 
@@ -242,15 +243,15 @@ func (p *Constant) Context(schema sc.Schema) trace.Context {
 // RequiredColumns returns the set of columns on which this term depends.
 // That is, columns whose values may be accessed when evaluating this term
 // on a given trace.
-func (p *Constant) RequiredColumns() *util.SortedSet[uint] {
-	return util.NewSortedSet[uint]()
+func (p *Constant) RequiredColumns() *set.SortedSet[uint] {
+	return set.NewSortedSet[uint]()
 }
 
 // RequiredCells returns the set of trace cells on which this term depends.
 // That is, evaluating this term at the given row in the given trace will read
 // these cells.
-func (p *Constant) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet[trace.CellRef] {
-	return util.NewAnySortedSet[trace.CellRef]()
+func (p *Constant) RequiredCells(row int, tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
+	return set.NewAnySortedSet[trace.CellRef]()
 }
 
 // IntRange computes a conservative approximation for the set of possible
@@ -284,14 +285,14 @@ func (p *Normalise) Context(schema sc.Schema) trace.Context {
 // RequiredColumns returns the set of columns on which this term depends.
 // That is, columns whose values may be accessed when evaluating this term
 // on a given trace.
-func (p *Normalise) RequiredColumns() *util.SortedSet[uint] {
+func (p *Normalise) RequiredColumns() *set.SortedSet[uint] {
 	return p.Arg.RequiredColumns()
 }
 
 // RequiredCells returns the set of trace cells on which this term depends.
 // That is, evaluating this term at the given row in the given trace will read
 // these cells.
-func (p *Normalise) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet[trace.CellRef] {
+func (p *Normalise) RequiredCells(row int, tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
 	return p.Arg.RequiredCells(row, tr)
 }
 
@@ -337,8 +338,8 @@ func (p *ColumnAccess) Context(schema sc.Schema) trace.Context {
 // RequiredColumns returns the set of columns on which this term depends.
 // That is, columns whose values may be accessed when evaluating this term
 // on a given trace.
-func (p *ColumnAccess) RequiredColumns() *util.SortedSet[uint] {
-	r := util.NewSortedSet[uint]()
+func (p *ColumnAccess) RequiredColumns() *set.SortedSet[uint] {
+	r := set.NewSortedSet[uint]()
 	r.Insert(p.Column)
 	// Done
 	return r
@@ -346,8 +347,8 @@ func (p *ColumnAccess) RequiredColumns() *util.SortedSet[uint] {
 
 // RequiredCells returns the set of trace cells on which this term depends.
 // In this case, that is the empty set.
-func (p *ColumnAccess) RequiredCells(row int, tr trace.Trace) *util.AnySortedSet[trace.CellRef] {
-	set := util.NewAnySortedSet[trace.CellRef]()
+func (p *ColumnAccess) RequiredCells(row int, tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
+	set := set.NewAnySortedSet[trace.CellRef]()
 	set.Insert(trace.NewCellRef(p.Column, row+p.Shift))
 
 	return set

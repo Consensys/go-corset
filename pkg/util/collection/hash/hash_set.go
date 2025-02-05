@@ -1,4 +1,4 @@
-package util
+package hash
 
 import (
 	"bytes"
@@ -23,24 +23,24 @@ type Hasher[T any] interface {
 	Hash() uint64
 }
 
-// HashSet defines a generic set implementation backed by a map.  This is a true
+// Set defines a generic set implementation backed by a map.  This is a true
 // hashtable in that collisions are handle gracefully using buckets, rather than
 // simply discarding them.
-type HashSet[T Hasher[T]] struct {
+type Set[T Hasher[T]] struct {
 	// items maps hashcodes to *buckets* of items.
 	items map[uint64]hashSetBucket[T]
 }
 
-// NewHashSet creates a new HashSet with a given underlying capacity.
-func NewHashSet[T Hasher[T]](size uint) *HashSet[T] {
+// NewSet creates a new HashSet with a given underlying capacity.
+func NewSet[T Hasher[T]](size uint) *Set[T] {
 	items := make(map[uint64]hashSetBucket[T], size)
-	return &HashSet[T]{items}
+	return &Set[T]{items}
 }
 
 // Size returns the number of unique items stored in this HashSet.
 //
 //nolint:revive
-func (p *HashSet[T]) Size() uint {
+func (p *Set[T]) Size() uint {
 	count := uint(0)
 	for _, b := range p.items {
 		count += b.size()
@@ -52,7 +52,7 @@ func (p *HashSet[T]) Size() uint {
 // MaxBucket returns the size of the largest bucket.
 //
 //nolint:revive
-func (p *HashSet[T]) MaxBucket() uint {
+func (p *Set[T]) MaxBucket() uint {
 	m := uint(0)
 	for _, b := range p.items {
 		m = max(m, b.size())
@@ -65,7 +65,7 @@ func (p *HashSet[T]) MaxBucket() uint {
 // and false otherwise.
 //
 //nolint:revive
-func (p *HashSet[T]) Insert(item T) bool {
+func (p *Set[T]) Insert(item T) bool {
 	var b1 hashSetBucket[T]
 	// Compute item's hashcode
 	hash := item.Hash()
@@ -82,7 +82,7 @@ func (p *HashSet[T]) Insert(item T) bool {
 // Contains checks whether the given item is contained within this map, or not.
 //
 //nolint:revive
-func (p *HashSet[T]) Contains(item T) bool {
+func (p *Set[T]) Contains(item T) bool {
 	hash := item.Hash()
 
 	if bucket, ok := p.items[hash]; ok {
@@ -93,7 +93,7 @@ func (p *HashSet[T]) Contains(item T) bool {
 }
 
 //nolint:revive
-func (p *HashSet[T]) String() string {
+func (p *Set[T]) String() string {
 	var r strings.Builder
 	//
 	first := true

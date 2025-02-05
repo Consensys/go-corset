@@ -4,8 +4,12 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/corset/ast"
+	"github.com/consensys/go-corset/pkg/util/collection/iter"
 	"github.com/consensys/go-corset/pkg/util/sexp"
 )
+
+// DeclPredicate is a shorthand notation.
+type DeclPredicate = iter.Predicate[ast.Declaration]
 
 // ResolveCircuit resolves all symbols declared and used within a circuit,
 // producing an environment which can subsequently be used to look up the
@@ -31,12 +35,16 @@ func ResolveCircuit(srcmap *sexp.SourceMaps[ast.Node], circuit *ast.Circuit) (*M
 	// Construct resolver
 	r := resolver{srcmap}
 	// Initialise all columns
-	errs1 := r.initialiseDeclarations(scope, circuit)
+	if errs := r.initialiseDeclarations(scope, circuit); len(errs) > 0 {
+		return nil, errs
+	}
 	// Finalise all columns / declarations
-	errs2 := r.resolveDeclarations(scope, circuit)
+	if errs := r.resolveAssignments(scope, circuit); len(errs) > 0 {
+		return nil, errs
+	}
 	//
-	if len(errs1)+len(errs2) > 0 {
-		return nil, append(errs1, errs2...)
+	if errs := r.resolveConstraints(scope, circuit); len(errs) > 0 {
+		return nil, errs
 	}
 	// Done
 	return scope, nil
@@ -160,14 +168,14 @@ func (r *resolver) initialiseAliasesInModule(scope *ModuleScope, decls []ast.Dec
 // Process all assignment column declarations.  These are more complex than for
 // input columns, since there can be dependencies between them.  Thus, we cannot
 // simply resolve them in one linear scan.
-func (r *resolver) resolveDeclarations(scope *ModuleScope, circuit *ast.Circuit) []SyntaxError {
+func (r *resolver) resolveAssignments(scope *ModuleScope, circuit *ast.Circuit) []SyntaxError {
 	// Input columns must be allocated before assignemts, since the hir.Schema
 	// separates these out.
-	errs := r.finaliseDeclarationsInModule(scope, circuit.Declarations)
+	errs := r.finaliseDeclarationsInModule(scope, circuit.Declarations, isAssigmentDeclaration)
 	//
 	for _, m := range circuit.Modules {
 		// Process all declarations in the module
-		merrs := r.finaliseDeclarationsInModule(scope.Enter(m.Name), m.Declarations)
+		merrs := r.finaliseDeclarationsInModule(scope.Enter(m.Name), m.Declarations, isAssigmentDeclaration)
 		// Package up all errors
 		errs = append(errs, merrs...)
 	}
@@ -175,12 +183,44 @@ func (r *resolver) resolveDeclarations(scope *ModuleScope, circuit *ast.Circuit)
 	return errs
 }
 
-// Finalise all declarations given in a module.  This requires an iterative
-// process as we cannot finalise a declaration until all of its dependencies
-// have been themselves finalised.  For example, a function which depends upon
-// an interleaved column.  Until the interleaved column is finalised, its type
-// won't be available and, hence, we cannot type the function.
-func (r *resolver) finaliseDeclarationsInModule(scope *ModuleScope, decls []ast.Declaration) []SyntaxError {
+// Process all remaining declarations, such as constraint declarations.  These
+// are more complex than for input columns, since there can be dependencies
+// between them.  Thus, we cannot simply resolve them in one linear scan.
+func (r *resolver) resolveConstraints(scope *ModuleScope, circuit *ast.Circuit) []SyntaxError {
+	// Input columns must be allocated before assignemts, since the hir.Schema
+	// separates these out.
+	errs := r.finaliseDeclarationsInModule(scope, circuit.Declarations, isNotAssigmentDeclaration)
+	//
+	for _, m := range circuit.Modules {
+		// Process all declarations in the module
+		merrs := r.finaliseDeclarationsInModule(scope.Enter(m.Name), m.Declarations, isNotAssigmentDeclaration)
+		// Package up all errors
+		errs = append(errs, merrs...)
+	}
+	//
+	return errs
+}
+
+// Determines whether a given declaration is an "assignment" or not.
+// Specifically, an assignment is a declaration which defines one or more
+// computed (i.e. assigned) columns.
+func isAssigmentDeclaration(decl ast.Declaration) bool {
+	return decl.IsAssignment()
+}
+
+// Determines whether a given declaration is not an "assignment" (see above).
+func isNotAssigmentDeclaration(decl ast.Declaration) bool {
+	return !decl.IsAssignment()
+}
+
+// Finalise a subset of declarations in a given module.  This requires an
+// iterative process as we cannot finalise an arbitrary declaration until all of
+// its dependencies have been themselves finalised.  For example, a function
+// which depends upon an interleaved column.  Until the interleaved column is
+// finalised, its type won't be available and, hence, we cannot type the
+// function.
+func (r *resolver) finaliseDeclarationsInModule(scope *ModuleScope, decls []ast.Declaration,
+	includes DeclPredicate) []SyntaxError {
 	// Changed indicates whether or not a new assignment was finalised during a
 	// given iteration.  This is important to know since, if the assignment is
 	// not complete and we didn't finalise any more assignments --- then, we've
@@ -204,24 +244,24 @@ func (r *resolver) finaliseDeclarationsInModule(scope *ModuleScope, decls []ast.
 		changed = false
 		complete = true
 		//
-		for _, d := range decls {
-			// Check whether already finalised
-			if !d.IsFinalised() {
+		for _, decl := range decls {
+			// Check whether included and already finalised
+			if includes(decl) && !decl.IsFinalised() {
 				// No, so attempt to finalise
-				ready, errs := r.declarationDependenciesAreFinalised(scope, d)
+				ready, errs := r.declarationDependenciesAreFinalised(scope, decl)
 				// Check what we found
 				if errs != nil {
 					errors = append(errors, errs...)
 				} else if ready {
 					// Finalise declaration and handle errors
-					errs := r.finaliseDeclaration(scope, d)
+					errs := r.finaliseDeclaration(scope, decl)
 					errors = append(errors, errs...)
 					// Record that a new assignment is available.
 					changed = changed || len(errs) == 0
 				} else {
 					// ast.Declaration not ready yet
 					complete = false
-					incomplete = d
+					incomplete = decl
 				}
 			}
 		}
@@ -237,10 +277,9 @@ func (r *resolver) finaliseDeclarationsInModule(scope *ModuleScope, decls []ast.
 		err := r.srcmap.SyntaxError(incomplete, "unable to complete resolution")
 		return []SyntaxError{*err}
 	} else if !complete {
-		// No, we didn't.  So, something is wrong --- assume it must be a cyclic
-		// definition for now.
-		err := r.srcmap.SyntaxError(incomplete, "cyclic declaration")
-		return []SyntaxError{*err}
+		// No, we didn't.  So, something is wrong and we now have to figure out
+		// what exactly.
+		return r.determineFinalisationErrors(decls, includes)
 	}
 	// Done
 	return nil
@@ -289,6 +328,28 @@ func (r *resolver) declarationDependenciesAreFinalised(scope *ModuleScope,
 	}
 	//
 	return finalised, errors
+}
+
+// For each included declaration, identify which dependencies are unresolved and
+// report specific errors for them.
+func (r *resolver) determineFinalisationErrors(decls []ast.Declaration, includes DeclPredicate) []SyntaxError {
+	var errors []SyntaxError
+	//
+	for _, decl := range decls {
+		// Look for an included, but unfinalised declaration
+		if includes(decl) && !decl.IsFinalised() {
+			for iter := decl.Dependencies(); iter.HasNext(); {
+				symbol := iter.Next()
+				// Check whether this dependency is a problem
+				if !symbol.Binding().IsFinalised() {
+					// Yes, so report error
+					errors = append(errors, *r.srcmap.SyntaxError(symbol, "unresolved symbol"))
+				}
+			}
+		}
+	}
+	//
+	return errors
 }
 
 // Finalise a declaration.

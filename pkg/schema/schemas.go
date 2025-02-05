@@ -5,6 +5,7 @@ import (
 
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/iter"
 )
 
 // RequiredSpillage returns the minimum amount of spillage required for a given
@@ -128,7 +129,7 @@ func Asserts(batchsize uint, schema Schema, trace tr.Trace) []Failure {
 }
 
 // Process a given set of constraints in a single batch whilst recording all constraint failures.
-func processConstraintBatch(logtitle string, batch uint, batchsize uint, iter util.Iterator[Constraint],
+func processConstraintBatch(logtitle string, batch uint, batchsize uint, iter iter.Iterator[Constraint],
 	trace tr.Trace) []Failure {
 	n := uint(0)
 	c := make(chan Failure, 1024)

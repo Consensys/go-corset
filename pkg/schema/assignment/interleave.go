@@ -7,6 +7,7 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/iter"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/sexp"
 )
@@ -50,8 +51,8 @@ func (p *Interleaving) Context() tr.Context {
 }
 
 // Columns returns the column declared by this interleaving.
-func (p *Interleaving) Columns() util.Iterator[sc.Column] {
-	return util.NewUnitIterator(p.Target)
+func (p *Interleaving) Columns() iter.Iterator[sc.Column] {
+	return iter.NewUnitIterator(p.Target)
 }
 
 // IsComputed Determines whether or not this declaration is computed (which an

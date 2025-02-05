@@ -10,6 +10,8 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/iter"
+	"github.com/consensys/go-corset/pkg/util/collection/set"
 )
 
 // Register encapsulates information about a "register" in the underlying
@@ -163,8 +165,8 @@ func (p *RegisterAllocationView) Len() uint {
 
 // Registers returns an iterator over the set of registers in this local
 // allocation.
-func (p *RegisterAllocationView) Registers() util.Iterator[uint] {
-	return util.NewArrayIterator(p.registers)
+func (p *RegisterAllocationView) Registers() iter.Iterator[uint] {
+	return iter.NewArrayIterator(p.registers)
 }
 
 // Register accesses information about a specific register in this window.
@@ -212,7 +214,7 @@ func (p *RegisterAllocationView) Merge(dst uint, src uint) {
 // compatible underlying types.
 type RegisterAllocation interface {
 	// Access the set of registers being considered for allocation.
-	Registers() util.Iterator[uint]
+	Registers() iter.Iterator[uint]
 	// Access information about a specific register.
 	Register(uint) *Register
 	// Merge one register (src) into another (dst).  This marks the source
@@ -415,13 +417,13 @@ type RegisterGroup struct {
 	// two members of this group should be allocated to the same slot (i.e.
 	// perspective).  Furthermore, all members of this groups should be
 	// compatible (in some sense).
-	slots util.AnySortedSet[RegisterSlot]
+	slots set.AnySortedSet[RegisterSlot]
 }
 
 // NewRegisterGroup constructs a new (and empty) register group.
 func NewRegisterGroup(dataType sc.Type) RegisterGroup {
 	// Create initially empty set of register slots.
-	slots := util.NewAnySortedSet[RegisterSlot]()
+	slots := set.NewAnySortedSet[RegisterSlot]()
 	//
 	return RegisterGroup{
 		dataType,

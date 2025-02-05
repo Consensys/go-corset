@@ -6,6 +6,7 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/util/sexp"
 )
 
@@ -37,13 +38,13 @@ func (p ZeroTest[E]) Context(schema sc.Schema) tr.Context {
 // RequiredColumns returns the set of columns on which this term depends.
 // That is, columns whose values may be accessed when evaluating this term
 // on a given trace.
-func (p ZeroTest[E]) RequiredColumns() *util.SortedSet[uint] {
+func (p ZeroTest[E]) RequiredColumns() *set.SortedSet[uint] {
 	return p.Expr.RequiredColumns()
 }
 
 // RequiredCells returns the set of trace cells on which evaluation of this
 // constraint element depends.
-func (p ZeroTest[E]) RequiredCells(row int, tr tr.Trace) *util.AnySortedSet[tr.CellRef] {
+func (p ZeroTest[E]) RequiredCells(row int, tr tr.Trace) *set.AnySortedSet[tr.CellRef] {
 	return p.Expr.RequiredCells(row, tr)
 }
 
@@ -77,7 +78,7 @@ func (p *VanishingFailure) Message() string {
 }
 
 // RequiredCells identifies the cells required to evaluate the failing constraint at the failing row.
-func (p *VanishingFailure) RequiredCells(trace tr.Trace) *util.AnySortedSet[tr.CellRef] {
+func (p *VanishingFailure) RequiredCells(trace tr.Trace) *set.AnySortedSet[tr.CellRef] {
 	return p.Constraint.RequiredCells(int(p.Row), trace)
 }
 

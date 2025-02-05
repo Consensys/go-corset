@@ -13,6 +13,7 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/assignment"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/iter"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -223,7 +224,7 @@ func assignmentCounter(title string, types ...reflect.Type) schemaSummariser {
 	}
 }
 
-func typeOfCounter[T any](iter util.Iterator[T], dyntype reflect.Type) int {
+func typeOfCounter[T any](iter iter.Iterator[T], dyntype reflect.Type) int {
 	count := 0
 
 	for iter.HasNext() {
