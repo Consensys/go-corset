@@ -54,15 +54,9 @@ func ApplyPseudoInverseGadget(e air.Expr, schema *air.Schema) air.Expr {
 		// Construct 1 == e/e
 		one_e_e := air.NewConst64(1).Equate(e_inv_e)
 		// Construct (e != 0) ==> (1 == e/e)
-		e_implies_one_e_e := e.Mul(one_e_e)
-		// Construct (1/e != 0) ==> (1 == e/e)
-		inv_e_implies_one_e_e := inv_e.Mul(one_e_e)
-		// Ensure (e != 0) ==> (1 == e/e)
+		e_implies_one_e_e := e.Mul(one_e_e) // Ensure (e != 0) ==> (1 == e/e)
 		l_name := fmt.Sprintf("%s <=", name)
 		schema.AddVanishingConstraint(l_name, ctx, util.None[int](), e_implies_one_e_e)
-		// Ensure (e/e != 0) ==> (1 == e/e)
-		r_name := fmt.Sprintf("%s =>", name)
-		schema.AddVanishingConstraint(r_name, ctx, util.None[int](), inv_e_implies_one_e_e)
 	}
 	// Done
 	return air.NewColumnAccess(index, 0)
