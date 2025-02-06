@@ -41,10 +41,16 @@ var traceCmd = &cobra.Command{
 		max_width := GetUint(cmd, "max-width")
 		filter := GetString(cmd, "filter")
 		output := GetString(cmd, "out")
+		air := GetFlag(cmd, "air")
+		mir := GetFlag(cmd, "mir")
+		hir := GetFlag(cmd, "hir")
 		//
-		if expand {
-			binfile := ReadConstraintFiles(stdlib, false, false, args[1:])
-			cols = expandColumns(cols, &binfile.Schema, defensive)
+		if expand && !air && !mir && !hir {
+			fmt.Println("must specify --hir/mir/air for trace expansion")
+			os.Exit(2)
+		} else if expand {
+			level := determineAbstractionLevel(air, mir, hir)
+			cols = expandWithConstraints(level, cols, stdlib, defensive, args[1:])
 		} else if defensive {
 			fmt.Println("cannot apply defensive padding without trace expansion")
 			os.Exit(2)
@@ -87,6 +93,52 @@ func init() {
 	traceCmd.Flags().Uint("max-width", 32, "specify maximum display width for a column")
 	traceCmd.Flags().StringP("out", "o", "", "Specify output file to write trace")
 	traceCmd.Flags().StringP("filter", "f", "", "Filter columns matching regex")
+	traceCmd.Flags().Bool("hir", false, "check at HIR level")
+	traceCmd.Flags().Bool("mir", false, "check at MIR level")
+	traceCmd.Flags().Bool("air", false, "check at AIR level")
+}
+
+const air_LEVEL = 0
+const mir_LEVEL = 1
+const hir_LEVEL = 2
+
+func determineAbstractionLevel(air, mir, hir bool) int {
+	switch {
+	case air && !mir && !hir:
+		return air_LEVEL
+	case !air && mir && !hir:
+		return mir_LEVEL
+	case !air && !mir && hir:
+		return hir_LEVEL
+	case !air && !mir && !hir:
+		fmt.Println("must specify target level (hir/mir/air) for trace expansion")
+	default:
+		fmt.Println("conflicting target level (hir/mir/air) for trace expansion")
+	}
+	//nolint:revive
+	os.Exit(2)
+	panic("unreachable")
+}
+
+func expandWithConstraints(level int, cols []trace.RawColumn, stdlib bool, defensive bool,
+	filenames []string) []trace.RawColumn {
+	//
+	var schema sc.Schema
+	//
+	binfile := ReadConstraintFiles(stdlib, false, false, filenames)
+	//
+	switch level {
+	case hir_LEVEL:
+		schema = &binfile.Schema
+	case mir_LEVEL:
+		schema = binfile.Schema.LowerToMir()
+	case air_LEVEL:
+		schema = binfile.Schema.LowerToMir().LowerToAir()
+	default:
+		panic("unreachable")
+	}
+	// Done
+	return expandColumns(cols, schema, defensive)
 }
 
 func expandColumns(cols []trace.RawColumn, schema sc.Schema, defensive bool) []trace.RawColumn {
