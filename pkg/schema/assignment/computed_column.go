@@ -17,25 +17,25 @@ import (
 // expectation that this computation is acyclic.  Furthermore, computed columns
 // give rise to "trace expansion".  That is where the initial trace provided by
 // the user is expanded by determining the value of all computed columns.
-type ComputedColumn[E sc.Evaluable] struct {
+type ComputedColumn struct {
 	target sc.Column
 	// The computation which accepts a given trace and computes
 	// the value of this column at a given row.
-	expr E
+	expr sc.Evaluable
 }
 
 // NewComputedColumn constructs a new computed column with a given name and
 // determining expression.  More specifically, that expression is used to
 // compute the values for this column during trace expansion.
-func NewComputedColumn[E sc.Evaluable](context trace.Context, name string, datatype sc.Type,
-	expr E) *ComputedColumn[E] {
+func NewComputedColumn(context trace.Context, name string, datatype sc.Type,
+	expr sc.Evaluable) *ComputedColumn {
 	column := sc.NewColumn(context, name, datatype)
 	// FIXME: Determine computed columns type?
-	return &ComputedColumn[E]{column, expr}
+	return &ComputedColumn{column, expr}
 }
 
 // Name returns the name of this computed column.
-func (p *ComputedColumn[E]) Name() string {
+func (p *ComputedColumn) Name() string {
 	return p.target.Name
 }
 
@@ -44,19 +44,19 @@ func (p *ComputedColumn[E]) Name() string {
 // ============================================================================
 
 // Context returns the evaluation context for this computed column.
-func (p *ComputedColumn[E]) Context() trace.Context {
+func (p *ComputedColumn) Context() trace.Context {
 	return p.target.Context
 }
 
 // Columns returns the columns declared by this computed column.
-func (p *ComputedColumn[E]) Columns() iter.Iterator[sc.Column] {
+func (p *ComputedColumn) Columns() iter.Iterator[sc.Column] {
 	// TODO: figure out appropriate type for computed column
 	return iter.NewUnitIterator[sc.Column](p.target)
 }
 
 // IsComputed Determines whether or not this declaration is computed (which it
 // is).
-func (p *ComputedColumn[E]) IsComputed() bool {
+func (p *ComputedColumn) IsComputed() bool {
 	return true
 }
 
@@ -69,14 +69,14 @@ func (p *ComputedColumn[E]) IsComputed() bool {
 // expression such as "(shift X -1)".  This is technically undefined for the
 // first row of any trace and, by association, any constraint evaluating this
 // expression on that first row is also undefined (and hence must pass).
-func (p *ComputedColumn[E]) Bounds() util.Bounds {
+func (p *ComputedColumn) Bounds() util.Bounds {
 	return p.expr.Bounds()
 }
 
 // ComputeColumns computes the values of columns defined by this assignment.
 // Specifically, this creates a new column which contains the result of
 // evaluating a given expression on each row.
-func (p *ComputedColumn[E]) ComputeColumns(tr trace.Trace) ([]trace.ArrayColumn, error) {
+func (p *ComputedColumn) ComputeColumns(tr trace.Trace) ([]trace.ArrayColumn, error) {
 	// Determine multiplied height
 	height := tr.Height(p.target.Context)
 	// Make space for computed data
@@ -98,7 +98,7 @@ func (p *ComputedColumn[E]) ComputeColumns(tr trace.Trace) ([]trace.ArrayColumn,
 
 // Dependencies returns the set of columns that this assignment depends upon.
 // That can include both input columns, as well as other computed columns.
-func (p *ComputedColumn[E]) Dependencies() []uint {
+func (p *ComputedColumn) Dependencies() []uint {
 	return *p.expr.RequiredColumns()
 }
 
@@ -108,7 +108,7 @@ func (p *ComputedColumn[E]) Dependencies() []uint {
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (p *ComputedColumn[E]) Lisp(schema sc.Schema) sexp.SExp {
+func (p *ComputedColumn) Lisp(schema sc.Schema) sexp.SExp {
 	col := sexp.NewSymbol("computed")
 	name := sexp.NewSymbol(p.Columns().Next().QualifiedName(schema))
 	datatype := sexp.NewSymbol(p.target.DataType.String())

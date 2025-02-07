@@ -21,7 +21,7 @@ type DataColumn = *assignment.DataColumn
 type LookupConstraint = *constraint.LookupConstraint[*ColumnAccess]
 
 // VanishingConstraint captures the essence of a vanishing constraint at the AIR level.
-type VanishingConstraint = *constraint.VanishingConstraint[constraint.ZeroTest[Expr]]
+type VanishingConstraint = *constraint.VanishingConstraint[Expr]
 
 // RangeConstraint captures the essence of a range constraints at the AIR level.
 type RangeConstraint = *constraint.RangeConstraint[*ColumnAccess]
@@ -122,8 +122,8 @@ func (p *Schema) AddLookupConstraint(handle string, source trace.Context,
 	into := make([]*ColumnAccess, len(targets))
 	// Construct column accesses from column indices.
 	for i := 0; i < len(from); i++ {
-		from[i] = NewColumnAccess(sources[i], 0)
-		into[i] = NewColumnAccess(targets[i], 0)
+		from[i] = &ColumnAccess{Column: sources[i], Shift: 0}
+		into[i] = &ColumnAccess{Column: targets[i], Shift: 0}
 	}
 	// Construct lookup constraint
 	var lookup LookupConstraint = constraint.NewLookupConstraint(handle, source, target, from, into)
@@ -150,14 +150,14 @@ func (p *Schema) AddVanishingConstraint(handle string, context trace.Context, do
 	}
 	// TODO: sanity check expression enclosed by module
 	p.constraints = append(p.constraints,
-		constraint.NewVanishingConstraint(handle, context, domain, constraint.ZeroTest[Expr]{Expr: expr}))
+		constraint.NewVanishingConstraint(handle, context, domain, expr))
 }
 
 // AddRangeConstraint appends a new range constraint.
 func (p *Schema) AddRangeConstraint(column uint, bound fr.Element) {
 	col := p.Columns().Nth(column)
 	handle := col.QualifiedName(p)
-	tc := constraint.NewRangeConstraint[*ColumnAccess](handle, col.Context, NewColumnAccess(column, 0), bound)
+	tc := constraint.NewRangeConstraint(handle, col.Context, &ColumnAccess{Column: column, Shift: 0}, bound)
 	p.constraints = append(p.constraints, tc)
 }
 

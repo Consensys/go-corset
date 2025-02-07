@@ -218,13 +218,15 @@ func lowerExprTo(ctx trace.Context, e1 Expr, mirSchema *Schema, airSchema *air.S
 // propagation phase.
 func lowerExprToInner(ctx trace.Context, e Expr, mirSchema *Schema, airSchema *air.Schema) air.Expr {
 	if p, ok := e.(*Add); ok {
-		return &air.Add{Args: lowerExprs(ctx, p.Args, mirSchema, airSchema)}
+		args := lowerExprs(ctx, p.Args, mirSchema, airSchema)
+		return air.Sum(args...)
 	} else if p, ok := e.(*Constant); ok {
-		return &air.Constant{Value: p.Value}
+		return air.NewConst(p.Value)
 	} else if p, ok := e.(*ColumnAccess); ok {
-		return &air.ColumnAccess{Column: p.Column, Shift: p.Shift}
+		return air.NewColumnAccess(p.Column, p.Shift)
 	} else if p, ok := e.(*Mul); ok {
-		return &air.Mul{Args: lowerExprs(ctx, p.Args, mirSchema, airSchema)}
+		args := lowerExprs(ctx, p.Args, mirSchema, airSchema)
+		return air.Product(args...)
 	} else if p, ok := e.(*Exp); ok {
 		return lowerExpTo(ctx, p, mirSchema, airSchema)
 	} else if p, ok := e.(*Normalise); ok {
@@ -241,7 +243,8 @@ func lowerExprToInner(ctx trace.Context, e Expr, mirSchema *Schema, airSchema *a
 		// an expression which is 0 when e is 0, and 1 when e is non-zero.
 		return air_gadgets.Normalise(e, airSchema)
 	} else if p, ok := e.(*Sub); ok {
-		return &air.Sub{Args: lowerExprs(ctx, p.Args, mirSchema, airSchema)}
+		args := lowerExprs(ctx, p.Args, mirSchema, airSchema)
+		return air.Subtract(args...)
 	}
 	// Should be unreachable
 	panic(fmt.Sprintf("unknown expression: %s", e.Lisp(airSchema).String(true)))
@@ -260,7 +263,7 @@ func lowerExpTo(ctx trace.Context, e *Exp, mirSchema *Schema, airSchema *air.Sch
 		es[i] = le
 	}
 	// Done
-	return &air.Mul{Args: es}
+	return air.Product(es...)
 }
 
 // Lower a set of zero or more MIR expressions.

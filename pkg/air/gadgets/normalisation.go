@@ -46,7 +46,7 @@ func applyPseudoInverseGadget(e air.Expr, schema *air.Schema) air.Expr {
 	if !ok {
 		// Add computed column, noting that inverses often require the full
 		// 256bits available.
-		index = schema.AddAssignment(assignment.NewComputedColumn[air.Expr](ctx, name, &sc.FieldType{}, ie))
+		index = schema.AddAssignment(assignment.NewComputedColumn(ctx, name, &sc.FieldType{}, ie))
 		// Construct 1/e
 		inv_e := air.NewColumnAccess(index, 0)
 		// Construct e/e
@@ -64,31 +64,22 @@ func applyPseudoInverseGadget(e air.Expr, schema *air.Schema) air.Expr {
 
 // psuedoInverse represents a computation which computes the multiplicative
 // inverse of a given AIR expression.
-type psuedoInverse struct{ Expr air.Expr }
+type psuedoInverse struct {
+	Expr air.Expr
+}
 
 // EvalAt computes the multiplicative inverse of a given expression at a given
 // row in the table.
 func (e *psuedoInverse) EvalAt(k int, tbl tr.Trace) fr.Element {
 	var inv fr.Element
-
+	// Convert expression into something which can be evaluated, then evaluate
+	// it.
 	val := e.Expr.EvalAt(k, tbl)
 	// Go syntax huh?
 	inv.Inverse(&val)
 	// Done
 	return inv
 }
-
-// Add two expressions together, producing a third.
-func (e *psuedoInverse) Add(other air.Expr) air.Expr { panic("unreachable") }
-
-// Sub (subtract) one expression from another.
-func (e *psuedoInverse) Sub(other air.Expr) air.Expr { panic("unreachable") }
-
-// Mul (multiply) two expressions together, producing a third.
-func (e *psuedoInverse) Mul(other air.Expr) air.Expr { panic("unreachable") }
-
-// Equate one expression with another (equivalent to subtraction).
-func (e *psuedoInverse) Equate(other air.Expr) air.Expr { panic("unreachable") }
 
 // AsConstant determines whether or not this is a constant expression.  If
 // so, the constant is returned; otherwise, nil is returned.  NOTE: this

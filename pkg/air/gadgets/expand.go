@@ -18,7 +18,7 @@ func Expand(ctx trace.Context, bitwidth uint, e air.Expr, schema *air.Schema) ui
 		panic("conflicting (or void) context")
 	}
 	//
-	if ca, ok := e.(*air.ColumnAccess); ok && ca.Shift == 0 {
+	if ca, ok := e.Term.(*air.ColumnAccess); ok && ca.Shift == 0 {
 		// Optimisation possible
 		return ca.Column
 	}
@@ -29,7 +29,7 @@ func Expand(ctx trace.Context, bitwidth uint, e air.Expr, schema *air.Schema) ui
 	// Add new column (if it does not already exist)
 	if !ok {
 		// Add computed column
-		index = schema.AddAssignment(assignment.NewComputedColumn[air.Expr](ctx, name, sc.NewUintType(bitwidth), e))
+		index = schema.AddAssignment(assignment.NewComputedColumn(ctx, name, sc.NewUintType(bitwidth), e))
 		// Construct v == [e]
 		v := air.NewColumnAccess(index, 0)
 		// Construct 1 == e/e

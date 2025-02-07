@@ -2,14 +2,33 @@ package air
 
 import (
 	"fmt"
+	"reflect"
 
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/sexp"
 )
 
-// Lisp converts this schema element into a simple S-Expression, for example
+func lispOfTerm(e Term, schema sc.Schema) sexp.SExp {
+	switch e := e.(type) {
+	case *Add:
+		return nary2Lisp(schema, "+", e.Args)
+	case *Constant:
+		return sexp.NewSymbol(e.Value.String())
+	case *ColumnAccess:
+		return lispOfColumnAccess(e, schema)
+	case *Sub:
+		return nary2Lisp(schema, "-", e.Args)
+	case *Mul:
+		return nary2Lisp(schema, "*", e.Args)
+	default:
+		name := reflect.TypeOf(e).Name()
+		panic(fmt.Sprintf("unknown AIR expression \"%s\"", name))
+	}
+}
+
+// Lisp converts this schema element into a simple S-Termession, for example
 // so it can be printed.
-func (e *ColumnAccess) Lisp(schema sc.Schema) sexp.SExp {
+func lispOfColumnAccess(e *ColumnAccess, schema sc.Schema) sexp.SExp {
 	name := schema.Columns().Nth(e.Column).QualifiedName(schema)
 	access := sexp.NewSymbol(name)
 	// Check whether shifted (or not)
@@ -23,36 +42,12 @@ func (e *ColumnAccess) Lisp(schema sc.Schema) sexp.SExp {
 	return sexp.NewList([]sexp.SExp{sexp.NewSymbol("shift"), access, shift})
 }
 
-// Lisp converts this schema element into a simple S-Expression, for example
-// so it can be printed.
-func (e *Constant) Lisp(schema sc.Schema) sexp.SExp {
-	return sexp.NewSymbol(e.Value.String())
-}
-
-// Lisp converts this schema element into a simple S-Expression, for example
-// so it can be printed.
-func (e *Add) Lisp(schema sc.Schema) sexp.SExp {
-	return nary2Lisp(schema, "+", e.Args)
-}
-
-// Lisp converts this schema element into a simple S-Expression, for example
-// so it can be printed.
-func (e *Sub) Lisp(schema sc.Schema) sexp.SExp {
-	return nary2Lisp(schema, "-", e.Args)
-}
-
-// Lisp converts this schema element into a simple S-Expression, for example
-// so it can be printed.
-func (e *Mul) Lisp(schema sc.Schema) sexp.SExp {
-	return nary2Lisp(schema, "*", e.Args)
-}
-
-func nary2Lisp(schema sc.Schema, op string, exprs []Expr) sexp.SExp {
+func nary2Lisp(schema sc.Schema, op string, exprs []Term) sexp.SExp {
 	arr := make([]sexp.SExp, 1+len(exprs))
 	arr[0] = sexp.NewSymbol(op)
 	// Translate arguments
 	for i, e := range exprs {
-		arr[i+1] = e.Lisp(schema)
+		arr[i+1] = lispOfTerm(e, schema)
 	}
 	// Done
 	return sexp.NewList(arr)

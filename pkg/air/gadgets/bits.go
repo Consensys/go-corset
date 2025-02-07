@@ -57,7 +57,7 @@ func ApplyBitwidthGadget(col uint, nbits uint, schema *air.Schema) {
 		coefficient.Mul(&coefficient, &fr256)
 	}
 	// Construct (X:0 * 1) + ... + (X:n * 2^n)
-	sum := &air.Add{Args: es}
+	sum := air.Sum(es...)
 	// Construct X == (X:0 * 1) + ... + (X:n * 2^n)
 	X := air.NewColumnAccess(col, 0)
 	eq := X.Equate(sum)

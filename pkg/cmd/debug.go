@@ -196,7 +196,7 @@ var permutationConstraints = []reflect.Type{
 
 var computedColumns = []reflect.Type{
 	// permutation constraints only exist at AIR level
-	reflect.TypeOf((*assignment.ComputedColumn[air.Expr])(nil))}
+	reflect.TypeOf((*assignment.ComputedColumn)(nil))}
 
 func constraintCounter(title string, types ...reflect.Type) schemaSummariser {
 	return schemaSummariser{
