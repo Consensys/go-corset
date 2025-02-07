@@ -134,7 +134,7 @@ func (tb TraceBuilder) Build(columns []trace.RawColumn) (trace.Trace, []error) {
 			}
 		} else if tb.validate {
 			// Run (sequential) trace validation
-			if errs := sequentialTraceValidation(tb.schema, tr); errs != nil {
+			if errs := sequentialTraceValidation(tb.schema, tr); len(errs) > 0 {
 				return nil, append(errors, errs...)
 			}
 		}
@@ -316,7 +316,7 @@ func sequentialTraceExpansion(schema Schema, trace *tr.ArrayTrace) error {
 	// designated input columns.
 	cid := schema.InputColumns().Count()
 	// Compute each assignment in turn
-	for i, j := schema.Assignments(), uint(0); i.HasNext(); j++ {
+	for i := schema.Assignments(); i.HasNext(); {
 		var cols []tr.ArrayColumn
 		// Get ith assignment
 		ith := i.Next()
@@ -507,7 +507,9 @@ func sequentialTraceValidation(schema Schema, tr tr.Trace) []error {
 		// Extract type for ith column
 		colType := scCol.DataType
 		// Check elements
-		errors = append(errors, validateColumnType(colType, col, mod))
+		if err := validateColumnType(colType, col, mod); err != nil {
+			errors = append(errors, err)
+		}
 	}
 	// Done
 	return errors

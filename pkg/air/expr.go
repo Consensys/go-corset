@@ -1,6 +1,8 @@
 package air
 
 import (
+	"fmt"
+
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -80,7 +82,9 @@ func (e Expr) RequiredCells(row int, tr trace.Trace) *set.AnySortedSet[trace.Cel
 // value at that row of the column in question or nil is that row is
 // out-of-bounds.
 func (e Expr) EvalAt(k int, tr trace.Trace) fr.Element {
-	return evalAtTerm(e.Term, k, tr)
+	val, _ := evalAtTerm(e.Term, k, tr)
+	//
+	return val
 }
 
 // TestAt evaluates this expression in a given tabular context and checks it
@@ -89,23 +93,25 @@ func (e Expr) EvalAt(k int, tr trace.Trace) fr.Element {
 // several reasons: firstly, if it accesses a row which does not exist (e.g.
 // at index -1); secondly, if it accesses a column which does not exist.
 func (e Expr) TestAt(k int, tr trace.Trace) bool {
-	val := evalAtTerm(e.Term, k, tr)
+	val, path := evalAtTerm(e.Term, k, tr)
+	fmt.Printf("ID[%d]: %d [%v]\n", k, path, e.Term)
+	//
 	return val.IsZero()
 }
 
 // Add two expressions together.
 func (e Expr) Add(arg Expr) Expr {
-	return Expr{&Add{Args: []Term{arg.Term, arg.Term}}}
+	return Expr{&Add{Args: []Term{e.Term, arg.Term}}}
 }
 
 // Sub subtracts the argument from this expression.
 func (e Expr) Sub(arg Expr) Expr {
-	return Expr{&Sub{Args: []Term{arg.Term, arg.Term}}}
+	return Expr{&Sub{Args: []Term{e.Term, arg.Term}}}
 }
 
 // Mul multiplies this expression with the argument
 func (e Expr) Mul(arg Expr) Expr {
-	return Expr{&Mul{Args: []Term{arg.Term, arg.Term}}}
+	return Expr{&Mul{Args: []Term{e.Term, arg.Term}}}
 }
 
 // Equate equates this expression with the argument.

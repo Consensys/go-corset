@@ -50,7 +50,7 @@ var checkCmd = &cobra.Command{
 		cfg.debug = GetFlag(cmd, "debug")
 		cfg.quiet = GetFlag(cmd, "quiet")
 		cfg.padding.Right = GetUint(cmd, "padding")
-		cfg.parallelExpansion = !GetFlag(cmd, "sequential")
+		cfg.parallel = !GetFlag(cmd, "sequential")
 		cfg.batchSize = GetUint(cmd, "batch")
 		cfg.ansiEscapes = GetFlag(cmd, "ansi-escapes")
 		// TODO: support true ranges
@@ -117,7 +117,7 @@ type checkConfig struct {
 	// Specifies the width of a cell to show.
 	reportCellWidth uint
 	// Perform trace expansion in parallel (or not)
-	parallelExpansion bool
+	parallel bool
 	// Size of constraint batches to execute in parallel
 	batchSize uint
 	// Enable ansi escape codes in reports
@@ -148,7 +148,7 @@ func checkTrace(ir string, cols []tr.RawColumn, schema sc.Schema, cfg checkConfi
 	builder := sc.NewTraceBuilder(schema).
 		Defensive(cfg.defensive).
 		Expand(cfg.expand).
-		Parallel(cfg.parallelExpansion).
+		Parallel(cfg.parallel).
 		BatchSize(cfg.batchSize)
 	//
 	for n := cfg.padding.Left; n <= cfg.padding.Right; n++ {
@@ -165,12 +165,12 @@ func checkTrace(ir string, cols []tr.RawColumn, schema sc.Schema, cfg checkConfi
 		//
 		stats = util.NewPerfStats()
 		// Check constraints
-		if errs := sc.Accepts(cfg.batchSize, schema, trace); len(errs) > 0 {
+		if errs := sc.Accepts(cfg.parallel, cfg.batchSize, schema, trace); len(errs) > 0 {
 			reportFailures(ir, errs, trace, cfg)
 			return false
 		}
 		// Check assertions
-		if errs := sc.Asserts(cfg.batchSize, schema, trace); len(errs) > 0 {
+		if errs := sc.Asserts(cfg.parallel, cfg.batchSize, schema, trace); len(errs) > 0 {
 			reportFailures(ir, errs, trace, cfg)
 			return false
 		}

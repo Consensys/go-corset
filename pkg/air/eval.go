@@ -5,64 +5,77 @@ import (
 	"reflect"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/trace"
+	tr "github.com/consensys/go-corset/pkg/trace"
 )
 
-func evalAtTerm(e Term, k int, tr trace.Trace) fr.Element {
+func evalAtTerm(e Term, k int, trace tr.Trace) (fr.Element, uint) {
 	switch e := e.(type) {
 	case *Add:
-		return evalAtAdd(e, k, tr)
+		return evalAtAdd(e, k, trace)
 	case *Constant:
-		return e.Value
+		return e.Value, 0
 	case *ColumnAccess:
-		return tr.Column(e.Column).Get(k + e.Shift)
+		return trace.Column(e.Column).Get(k + e.Shift), 0
 	case *Sub:
-		return evalAtSub(e, k, tr)
+		return evalAtSub(e, k, trace)
 	case *Mul:
-		return evalAtMul(e, k, tr)
+		return evalAtMul(e, k, trace)
 	default:
 		name := reflect.TypeOf(e).Name()
 		panic(fmt.Sprintf("unknown AIR expression \"%s\"", name))
 	}
 }
 
-func evalAtAdd(e *Add, k int, tr trace.Trace) fr.Element {
+func evalAtAdd(e *Add, k int, trace tr.Trace) (fr.Element, uint) {
+	var n = uint(len(e.Args))
 	// Evaluate first argument
-	val := evalAtTerm(e.Args[0], k, tr)
+	val, metric := evalAtTerm(e.Args[0], k, trace)
 	// Continue evaluating the rest
 	for i := 1; i < len(e.Args); i++ {
-		ith := evalAtTerm(e.Args[i], k, tr)
+		ith, ithmetric := evalAtTerm(e.Args[i], k, trace)
 		val.Add(&val, &ith)
+		// update metric
+		metric = (metric * n) + ithmetric
 	}
 	// Done
-	return val
+	return val, metric
 }
 
-func evalAtMul(e *Mul, k int, tr trace.Trace) fr.Element {
+func evalAtMul(e *Mul, k int, trace tr.Trace) (fr.Element, uint) {
+	n := uint(len(e.Args))
 	// Evaluate first argument
-	val := evalAtTerm(e.Args[0], k, tr)
+	val, metric := evalAtTerm(e.Args[0], k, trace)
+	//
+	metric = (metric * n) + uint(0)
 	// Continue evaluating the rest
 	for i := 1; i < len(e.Args); i++ {
+		var ith fr.Element
 		// Can short-circuit evaluation?
 		if val.IsZero() {
 			break
 		}
 		// No
-		ith := evalAtTerm(e.Args[i], k, tr)
+		ith, metric = evalAtTerm(e.Args[i], k, trace)
+		metric = (metric * n) + uint(i)
+		//
 		val.Mul(&val, &ith)
 	}
 	// Done
-	return val
+	return val, metric
 }
 
-func evalAtSub(e *Sub, k int, tr trace.Trace) fr.Element {
+func evalAtSub(e *Sub, k int, trace tr.Trace) (fr.Element, uint) {
+	var n = uint(len(e.Args))
 	// Evaluate first argument
-	val := evalAtTerm(e.Args[0], k, tr)
+	val, metric := evalAtTerm(e.Args[0], k, trace)
 	// Continue evaluating the rest
 	for i := 1; i < len(e.Args); i++ {
-		ith := evalAtTerm(e.Args[i], k, tr)
+		ith, ithmetric := evalAtTerm(e.Args[i], k, trace)
 		val.Sub(&val, &ith)
+		// update metric
+		metric = (metric * n) + ithmetric
+
 	}
 	// Done
-	return val
+	return val, metric
 }

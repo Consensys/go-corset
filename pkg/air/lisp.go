@@ -29,7 +29,14 @@ func lispOfTerm(e Term, schema sc.Schema) sexp.SExp {
 // Lisp converts this schema element into a simple S-Termession, for example
 // so it can be printed.
 func lispOfColumnAccess(e *ColumnAccess, schema sc.Schema) sexp.SExp {
-	name := schema.Columns().Nth(e.Column).QualifiedName(schema)
+	var name string
+	// Generate name, whilst allowing for schema to be nil.
+	if schema != nil {
+		name = schema.Columns().Nth(e.Column).QualifiedName(schema)
+	} else {
+		name = fmt.Sprintf("#%d", e.Column)
+	}
+	//
 	access := sexp.NewSymbol(name)
 	// Check whether shifted (or not)
 	if e.Shift == 0 {

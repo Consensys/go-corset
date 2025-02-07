@@ -134,6 +134,7 @@ func (p *VanishingConstraint[E]) Bounds(module uint) util.Bounds {
 //
 //nolint:revive
 func (p *VanishingConstraint[T]) Accepts(tr tr.Trace) sc.Failure {
+	fmt.Printf("Executing %s...\n", p.Handle)
 	if p.Domain.IsEmpty() {
 		// Global Constraint
 		return HoldsGlobally(p.Handle, p.Context, p.Constraint, tr)
