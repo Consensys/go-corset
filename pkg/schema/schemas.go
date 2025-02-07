@@ -97,28 +97,29 @@ func ContextOfColumns(cols []uint, schema Schema) tr.Context {
 //
 //nolint:revive
 func Accepts(parallel bool, batchsize uint, schema Schema, trace tr.Trace) []Failure {
-	return accepts(parallel, batchsize, schema, trace, "Constraint")
+	fmt.Println("*** ACCEPTS")
+	return accepts(parallel, batchsize, schema.Constraints(), trace, "Constraint")
 }
 
 // Asserts determines whether or not this schema will "assert" a given trace.
 // That is, whether or not the given trace adheres to the schema assertions.
 func Asserts(parallel bool, batchsize uint, schema Schema, trace tr.Trace) []Failure {
-	return accepts(parallel, batchsize, schema, trace, "Assertion")
+	return accepts(parallel, batchsize, schema.Assertions(), trace, "Assertion")
 }
 
 //nolint:revive
-func accepts(parallel bool, batchsize uint, schema Schema, trace tr.Trace, kind string) []Failure {
+func accepts(parallel bool, batchsize uint, iter iter.Iterator[Constraint], trace tr.Trace, kind string) []Failure {
 	if parallel {
-		return parallelAccepts(batchsize, schema, trace, kind)
+		return parallelAccepts(batchsize, iter, trace, kind)
 	}
 	// sequential
-	return sequentialAccepts(schema, trace)
+	return sequentialAccepts(iter, trace)
 }
 
-func sequentialAccepts(schema Schema, trace tr.Trace) []Failure {
+func sequentialAccepts(iter iter.Iterator[Constraint], trace tr.Trace) []Failure {
 	errors := make([]Failure, 0)
 	//
-	for iter := schema.Constraints(); iter.HasNext(); {
+	for iter.HasNext() {
 		ith := iter.Next()
 		if err := ith.Accepts(trace); err != nil {
 			errors = append(errors, err)
@@ -128,12 +129,12 @@ func sequentialAccepts(schema Schema, trace tr.Trace) []Failure {
 	return errors
 }
 
-func parallelAccepts(batchsize uint, schema Schema, trace tr.Trace, kind string) []Failure {
+func parallelAccepts(batchsize uint, iter iter.Iterator[Constraint], trace tr.Trace, kind string) []Failure {
 	errors := make([]Failure, 0)
 	// Initialise batch number (for debugging purposes)
 	batch := uint(0)
 	// Process constraints in batches
-	for iter := schema.Constraints(); iter.HasNext(); {
+	for iter.HasNext() {
 		errs := processConstraintBatch(kind, batch, batchsize, iter, trace)
 		errors = append(errors, errs...)
 		// Increment batch number

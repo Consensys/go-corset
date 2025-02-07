@@ -94,7 +94,7 @@ func (e Expr) EvalAt(k int, tr trace.Trace) fr.Element {
 // at index -1); secondly, if it accesses a column which does not exist.
 func (e Expr) TestAt(k int, tr trace.Trace) bool {
 	val, path := evalAtTerm(e.Term, k, tr)
-	fmt.Printf("ID[%d]: %d [%v]\n", k, path, e.Term)
+	fmt.Printf("ID[%d]: %d\n", k, path)
 	//
 	return val.IsZero()
 }

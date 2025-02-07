@@ -27,7 +27,10 @@ func evalAtTerm(e Term, k int, trace tr.Trace) (fr.Element, uint) {
 }
 
 func evalAtAdd(e *Add, k int, trace tr.Trace) (fr.Element, uint) {
-	var n = uint(len(e.Args))
+	var (
+		n   = uint(len(e.Args))
+		exp = uint(1)
+	)
 	// Evaluate first argument
 	val, metric := evalAtTerm(e.Args[0], k, trace)
 	// Continue evaluating the rest
@@ -35,7 +38,8 @@ func evalAtAdd(e *Add, k int, trace tr.Trace) (fr.Element, uint) {
 		ith, ithmetric := evalAtTerm(e.Args[i], k, trace)
 		val.Add(&val, &ith)
 		// update metric
-		metric = (metric * n) + ithmetric
+		exp = exp * n
+		metric += (exp * ithmetric)
 	}
 	// Done
 	return val, metric
@@ -65,7 +69,10 @@ func evalAtMul(e *Mul, k int, trace tr.Trace) (fr.Element, uint) {
 }
 
 func evalAtSub(e *Sub, k int, trace tr.Trace) (fr.Element, uint) {
-	var n = uint(len(e.Args))
+	var (
+		n   = uint(len(e.Args))
+		exp = uint(1)
+	)
 	// Evaluate first argument
 	val, metric := evalAtTerm(e.Args[0], k, trace)
 	// Continue evaluating the rest
@@ -73,8 +80,8 @@ func evalAtSub(e *Sub, k int, trace tr.Trace) (fr.Element, uint) {
 		ith, ithmetric := evalAtTerm(e.Args[i], k, trace)
 		val.Sub(&val, &ith)
 		// update metric
-		metric = (metric * n) + ithmetric
-
+		exp = exp * n
+		metric += (exp * ithmetric)
 	}
 	// Done
 	return val, metric
