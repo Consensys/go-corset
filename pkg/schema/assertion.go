@@ -77,7 +77,7 @@ func (p *PropertyAssertion[T]) Accepts(tr tr.Trace) Failure {
 	// Iterate every row in the module
 	for k := uint(0); k < height; k++ {
 		// Check whether property holds (or was undefined)
-		if !p.Property.TestAt(int(k), tr) {
+		if ok, _ := p.Property.TestAt(int(k), tr); !ok {
 			// Evaluation failure
 			return &AssertionFailure{p.Handle, p.Property, k}
 		}

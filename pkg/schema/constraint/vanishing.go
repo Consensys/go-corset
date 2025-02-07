@@ -19,9 +19,15 @@ type ZeroTest[E sc.Evaluable] struct {
 
 // TestAt determines whether or not a given expression evaluates to zero.
 // Observe that if the expression is undefined, then it is assumed not to hold.
-func (p ZeroTest[E]) TestAt(row int, tr tr.Trace) bool {
+func (p ZeroTest[E]) TestAt(row int, tr tr.Trace) (bool, uint) {
 	val := p.Expr.EvalAt(row, tr)
-	return val.IsZero()
+	return val.IsZero(), 0
+}
+
+// NumPaths returns the number of unique evaluation paths through the given
+// constraint.
+func (p ZeroTest[E]) NumPaths() uint {
+	panic("todo")
 }
 
 // Bounds determines the bounds for this zero test.
@@ -134,7 +140,6 @@ func (p *VanishingConstraint[E]) Bounds(module uint) util.Bounds {
 //
 //nolint:revive
 func (p *VanishingConstraint[T]) Accepts(tr tr.Trace) sc.Failure {
-	fmt.Printf("Executing %s...\n", p.Handle)
 	if p.Domain.IsEmpty() {
 		// Global Constraint
 		return HoldsGlobally(p.Handle, p.Context, p.Constraint, tr)
@@ -153,7 +158,9 @@ func (p *VanishingConstraint[T]) Accepts(tr tr.Trace) sc.Failure {
 		start = uint(domain)
 	}
 	// Check specific row
-	return HoldsLocally(start, p.Handle, p.Constraint, tr)
+	err, _ := HoldsLocally(start, p.Handle, p.Constraint, tr)
+	//
+	return err
 }
 
 // HoldsGlobally checks whether a given expression vanishes (i.e. evaluates to
@@ -165,12 +172,19 @@ func HoldsGlobally[T sc.Testable](handle string, ctx tr.Context, constraint T, t
 	bounds := constraint.Bounds()
 	// Sanity check enough rows
 	if bounds.End < height {
+		ids := make([]uint, height)
 		// Check all in-bounds values
 		for k := bounds.Start; k < (height - bounds.End); k++ {
-			if err := HoldsLocally(k, handle, constraint, tr); err != nil {
+			err, id := HoldsLocally(k, handle, constraint, tr)
+			if err != nil {
 				return err
 			}
+
+			ids[k] = id
 		}
+		//
+		count := util.CountUnique(ids)
+		fmt.Printf("Constraint %s had %d / %d paths executed.\n", handle, count, constraint.NumPaths())
 	}
 	// Success
 	return nil
@@ -178,14 +192,15 @@ func HoldsGlobally[T sc.Testable](handle string, ctx tr.Context, constraint T, t
 
 // HoldsLocally checks whether a given constraint holds (e.g. vanishes) on a
 // specific row of a trace. If not, report an appropriate error.
-func HoldsLocally[T sc.Testable](k uint, handle string, constraint T, tr tr.Trace) sc.Failure {
+func HoldsLocally[T sc.Testable](k uint, handle string, constraint T, tr tr.Trace) (sc.Failure, uint) {
+	ok, id := constraint.TestAt(int(k), tr)
 	// Check whether it holds or not
-	if !constraint.TestAt(int(k), tr) {
+	if !ok {
 		// Evaluation failure
-		return &VanishingFailure{handle, constraint, k}
+		return &VanishingFailure{handle, constraint, k}, id
 	}
 	// Success
-	return nil
+	return nil, id
 }
 
 // Lisp converts this constraint into an S-Expression.

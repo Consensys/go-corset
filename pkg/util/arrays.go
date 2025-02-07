@@ -1,8 +1,10 @@
 package util
 
 import (
+	"cmp"
 	"fmt"
 	"io"
+	"slices"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
@@ -62,6 +64,22 @@ func Append[T any](slice []T, item T) []T {
 	nslice[n] = item
 	// Done
 	return nslice
+}
+
+// CountUnique counts the number of unique items within a given slice.
+func CountUnique[T cmp.Ordered](items []T) uint {
+	// First sort them
+	slices.Sort(items)
+	//
+	count := uint(0)
+	//
+	for i, v := range items {
+		if i == 0 || items[i-1] != v {
+			count++
+		}
+	}
+	//
+	return count
 }
 
 // ReplaceFirstOrPanic replaces the first occurrence of a given item (from) in an

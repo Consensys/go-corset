@@ -1,8 +1,6 @@
 package air
 
 import (
-	"fmt"
-
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -92,11 +90,14 @@ func (e Expr) EvalAt(k int, tr trace.Trace) fr.Element {
 // context then it returns "nil".  An expression can be undefined for
 // several reasons: firstly, if it accesses a row which does not exist (e.g.
 // at index -1); secondly, if it accesses a column which does not exist.
-func (e Expr) TestAt(k int, tr trace.Trace) bool {
+func (e Expr) TestAt(k int, tr trace.Trace) (bool, uint) {
 	val, path := evalAtTerm(e.Term, k, tr)
-	fmt.Printf("ID[%d]: %d\n", k, path)
 	//
-	return val.IsZero()
+	return val.IsZero(), path
+}
+
+func (e Expr) NumPaths() uint {
+	return pathsOfTerm(e.Term)
 }
 
 // Add two expressions together.

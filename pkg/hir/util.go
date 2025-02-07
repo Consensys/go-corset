@@ -24,18 +24,24 @@ type ZeroArrayTest struct {
 // TestAt determines whether or not every element from a given array of
 // expressions evaluates to zero. Observe that any expressions which are
 // undefined are assumed to hold.
-func (p ZeroArrayTest) TestAt(row int, trace tr.Trace) bool {
+func (p ZeroArrayTest) TestAt(row int, trace tr.Trace) (bool, uint) {
 	// Evalues expression yielding zero or more values.
 	vals := p.Expr.EvalAllAt(row, trace)
 	// Check each value in turn against zero.
 	for _, val := range vals {
 		if !val.IsZero() {
 			// This expression does not evaluat to zero, hence failure.
-			return false
+			return false, 0
 		}
 	}
 	// Success
-	return true
+	return true, 0
+}
+
+// NumPaths returns the number of unique evaluation paths through the given
+// constraint.
+func (p ZeroArrayTest) NumPaths() uint {
+	panic("todo")
 }
 
 // Bounds determines the bounds for this zero test.

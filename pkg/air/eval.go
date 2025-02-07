@@ -86,3 +86,39 @@ func evalAtSub(e *Sub, k int, trace tr.Trace) (fr.Element, uint) {
 	// Done
 	return val, metric
 }
+
+func pathsOfTerm(e Term) uint {
+	switch e := e.(type) {
+	case *Add:
+		count := uint(1)
+		//
+		for _, arg := range e.Args {
+			count *= pathsOfTerm(arg)
+		}
+		//
+		return count
+	case *Constant:
+		return 1
+	case *ColumnAccess:
+		return 1
+	case *Sub:
+		count := uint(1)
+		//
+		for _, arg := range e.Args {
+			count *= pathsOfTerm(arg)
+		}
+		//
+		return count
+	case *Mul:
+		count := uint(0)
+		//
+		for _, arg := range e.Args {
+			count += pathsOfTerm(arg)
+		}
+		//
+		return count
+	default:
+		name := reflect.TypeOf(e).Name()
+		panic(fmt.Sprintf("unknown AIR expression \"%s\"", name))
+	}
+}

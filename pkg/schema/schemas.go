@@ -97,7 +97,6 @@ func ContextOfColumns(cols []uint, schema Schema) tr.Context {
 //
 //nolint:revive
 func Accepts(parallel bool, batchsize uint, schema Schema, trace tr.Trace) []Failure {
-	fmt.Println("*** ACCEPTS")
 	return accepts(parallel, batchsize, schema.Constraints(), trace, "Constraint")
 }
 
