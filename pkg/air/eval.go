@@ -52,7 +52,7 @@ func evalAtMul[T sc.Metric[T]](e *Mul, k int, trace tr.Trace) (fr.Element, T) {
 		var ith fr.Element
 		// Can short-circuit evaluation?
 		if val.IsZero() {
-			return val, metric.Mark(i, n)
+			return val, metric.Mark(i-1, n)
 		}
 		// No
 		ith, metric = evalAtTerm[T](e.Args[i], k, trace)
