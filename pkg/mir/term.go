@@ -8,6 +8,10 @@ import (
 // Term represents a component of an AIR expression.
 type Term interface {
 	util.Boundable
+
+	// Normalised returns true if the given term is normalised.  For example, an
+	// product containing a product argument is not normalised.
+	Normalised() bool
 }
 
 // ============================================================================
@@ -20,6 +24,12 @@ type Add struct{ Args []Term }
 // direction (right).
 func (p *Add) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
 
+// Normalised returns true if the given term is normalised.  For example, an
+// product containing a product argument is not normalised.
+func (p *Add) Normalised() bool {
+	panic("todo")
+}
+
 // ============================================================================
 // Subtraction
 // ============================================================================
@@ -31,6 +41,12 @@ type Sub struct{ Args []Term }
 // direction (right).
 func (p *Sub) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
 
+// Normalised returns true if the given term is normalised.  For example, an
+// product containing a product argument is not normalised.
+func (p *Sub) Normalised() bool {
+	panic("todo")
+}
+
 // ============================================================================
 // Multiplication
 // ============================================================================
@@ -41,6 +57,12 @@ type Mul struct{ Args []Term }
 // Bounds returns max shift in either the negative (left) or positive
 // direction (right).
 func (p *Mul) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
+
+// Normalised returns true if the given term is normalised.  For example, an
+// product containing a product argument is not normalised.
+func (p *Mul) Normalised() bool {
+	panic("todo")
+}
 
 // ============================================================================
 // Exponentiation
@@ -56,6 +78,12 @@ type Exp struct {
 // direction (right).
 func (p *Exp) Bounds() util.Bounds { return p.Arg.Bounds() }
 
+// Normalised returns true if the given term is normalised.  For example, an
+// product containing a product argument is not normalised.
+func (p *Exp) Normalised() bool {
+	panic("todo")
+}
+
 // ============================================================================
 // Constant
 // ============================================================================
@@ -66,6 +94,12 @@ type Constant struct{ Value fr.Element }
 // Bounds returns max shift in either the negative (left) or positive
 // direction (right).  A constant has zero shift.
 func (p *Constant) Bounds() util.Bounds { return util.EMPTY_BOUND }
+
+// Normalised returns true if the given term is normalised.  For example, an
+// product containing a product argument is not normalised.
+func (p *Constant) Normalised() bool {
+	return true
+}
 
 // ============================================================================
 // Normalise
@@ -78,6 +112,12 @@ type Normalise struct{ Arg Term }
 // Bounds returns max shift in either the negative (left) or positive
 // direction (right).
 func (p *Normalise) Bounds() util.Bounds { return p.Arg.Bounds() }
+
+// Normalised returns true if the given term is normalised.  For example, an
+// product containing a product argument is not normalised.
+func (p *Normalise) Normalised() bool {
+	panic("todo")
+}
 
 // ============================================================================
 // ColumnAccess
@@ -103,4 +143,10 @@ func (p *ColumnAccess) Bounds() util.Bounds {
 	}
 	// Negative shift
 	return util.NewBounds(uint(-p.Shift), 0)
+}
+
+// Normalised returns true if the given term is normalised.  For example, an
+// product containing a product argument is not normalised.
+func (p *ColumnAccess) Normalised() bool {
+	return true
 }

@@ -3,6 +3,7 @@ package mir
 import (
 	"fmt"
 	"math/big"
+	"reflect"
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/air"
@@ -214,45 +215,47 @@ func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Sche
 // should be located.
 func lowerExprTo(ctx trace.Context, e1 Expr, mirSchema *Schema, airSchema *air.Schema) air.Expr {
 	// Apply constant propagation
-	e2 := constantPropagationForTerm(e1, airSchema)
+	t1 := constantPropagationForTerm(e1.term, airSchema)
 	// Lower properly
-	return lowerExprToInner(ctx, e2, mirSchema, airSchema)
+	return lowerTermToInner(ctx, t1, mirSchema, airSchema)
 }
 
 // Inner form is used for recursive calls and does not repeat the constant
 // propagation phase.
-func lowerExprToInner(ctx trace.Context, e Expr, mirSchema *Schema, airSchema *air.Schema) air.Expr {
-	if p, ok := e.(*Add); ok {
-		args := lowerExprs(ctx, p.Args, mirSchema, airSchema)
+func lowerTermToInner(ctx trace.Context, e Term, mirSchema *Schema, airSchema *air.Schema) air.Expr {
+	switch e := e.(type) {
+	case *Add:
+		args := lowerTerms(ctx, e.Args, mirSchema, airSchema)
 		return air.Sum(args...)
-	} else if p, ok := e.(*Constant); ok {
-		return air.NewConst(p.Value)
-	} else if p, ok := e.(*ColumnAccess); ok {
-		return air.NewColumnAccess(p.Column, p.Shift)
-	} else if p, ok := e.(*Mul); ok {
-		args := lowerExprs(ctx, p.Args, mirSchema, airSchema)
+	case *Constant:
+		return air.NewConst(e.Value)
+	case *ColumnAccess:
+		return air.NewColumnAccess(e.Column, e.Shift)
+	case *Exp:
+		return lowerExpTo(ctx, e, mirSchema, airSchema)
+	case *Mul:
+		args := lowerTerms(ctx, e.Args, mirSchema, airSchema)
 		return air.Product(args...)
-	} else if p, ok := e.(*Exp); ok {
-		return lowerExpTo(ctx, p, mirSchema, airSchema)
-	} else if p, ok := e.(*Normalise); ok {
-		bounds := p.Arg.IntRange(mirSchema)
+	case *Normalise:
+		bounds := rangeOfTerm(e.Arg, mirSchema)
 		// Lower the expression being normalised
-		e := lowerExprToInner(ctx, p.Arg, mirSchema, airSchema)
+		arg := lowerTermToInner(ctx, e.Arg, mirSchema, airSchema)
 		// Check whether normalisation actual required.  For example, if the
 		// argument is just a binary column then a normalisation is not actually
 		// required.
 		if bounds.Within(big.NewInt(0), big.NewInt(1)) {
-			return e
+			return arg
 		}
 		// Construct an expression representing the normalised value of e.  That is,
 		// an expression which is 0 when e is 0, and 1 when e is non-zero.
-		return air_gadgets.Normalise(e, airSchema)
-	} else if p, ok := e.(*Sub); ok {
-		args := lowerExprs(ctx, p.Args, mirSchema, airSchema)
+		return air_gadgets.Normalise(arg, airSchema)
+	case *Sub:
+		args := lowerTerms(ctx, e.Args, mirSchema, airSchema)
 		return air.Subtract(args...)
+	default:
+		name := reflect.TypeOf(e).Name()
+		panic(fmt.Sprintf("unknown MIR expression \"%s\"", name))
 	}
-	// Should be unreachable
-	panic(fmt.Sprintf("unknown expression: %s", e.Lisp(airSchema).String(true)))
 }
 
 // LowerTo lowers an exponent expression to the AIR level by lowering the
@@ -260,7 +263,7 @@ func lowerExprToInner(ctx trace.Context, e Expr, mirSchema *Schema, airSchema *a
 // level does not support an explicit exponent operator.
 func lowerExpTo(ctx trace.Context, e *Exp, mirSchema *Schema, airSchema *air.Schema) air.Expr {
 	// Lower the expression being raised
-	le := lowerExprToInner(ctx, e.Arg, mirSchema, airSchema)
+	le := lowerTermToInner(ctx, e.Arg, mirSchema, airSchema)
 	// Multiply it out k times
 	es := make([]air.Expr, e.Pow)
 	//
@@ -272,12 +275,12 @@ func lowerExpTo(ctx trace.Context, e *Exp, mirSchema *Schema, airSchema *air.Sch
 }
 
 // Lower a set of zero or more MIR expressions.
-func lowerExprs(ctx trace.Context, exprs []Expr, mirSchema *Schema, airSchema *air.Schema) []air.Expr {
+func lowerTerms(ctx trace.Context, exprs []Term, mirSchema *Schema, airSchema *air.Schema) []air.Expr {
 	n := len(exprs)
 	nexprs := make([]air.Expr, n)
 
 	for i := 0; i < n; i++ {
-		nexprs[i] = lowerExprToInner(ctx, exprs[i], mirSchema, airSchema)
+		nexprs[i] = lowerTermToInner(ctx, exprs[i], mirSchema, airSchema)
 	}
 
 	return nexprs

@@ -126,6 +126,31 @@ func RemoveMatching[T any](items []T, predicate iter.Predicate[T]) []T {
 	return items
 }
 
+// Flatten flattens items from an array which expand into arrays of terms.
+func Flatten[T any](items []T, fn func(T) []T) []T {
+	for _, t := range items {
+		if fn(t) != nil {
+			return forceFlatten(items, fn)
+		}
+	}
+	// no change
+	return items
+}
+
+func forceFlatten[T any](items []T, fn func(T) []T) []T {
+	nitems := make([]T, 0)
+	//
+	for _, t := range items {
+		if ts := fn(t); ts != nil {
+			nitems = append(nitems, ts...)
+		} else {
+			nitems = append(nitems, t)
+		}
+	}
+	// no change
+	return nitems
+}
+
 // Equals2d returns true if two 2D arrays are equal.
 func Equals2d(lhs [][]fr.Element, rhs [][]fr.Element) bool {
 	if len(lhs) != len(rhs) {

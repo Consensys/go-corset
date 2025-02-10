@@ -2,8 +2,8 @@ package hir
 
 import (
 	"fmt"
+	"reflect"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/mir"
 	sc "github.com/consensys/go-corset/pkg/schema"
 )
@@ -50,7 +50,13 @@ func lowerConstraintToMir(c sc.Constraint, schema *mir.Schema) {
 		mir_exprs := v.Constraint.Expr.LowerTo(schema)
 		// Add individual constraints arising
 		for i, mir_expr := range mir_exprs {
-			handle := fmt.Sprintf("%s#%d", v.Handle, i+1)
+			var handle string = v.Handle
+			// Only split the name when multiple distinct cases are extracted
+			// from the constraint.
+			if len(mir_exprs) > 1 {
+				handle = fmt.Sprintf("%s#%d", handle, i+1)
+			}
+			//
 			schema.AddVanishingConstraint(handle, v.Context, v.Domain, mir_expr)
 		}
 	} else if v, ok := c.(RangeConstraint); ok {
@@ -172,7 +178,7 @@ func lowerTo(e Expr, schema *mir.Schema) []mir.Expr {
 	for i, e := range es {
 		c := extractCondition(e, schema)
 		b := extractBody(e, schema)
-		mes[i] = mul2(c, b)
+		mes[i] = mir.Product(c, b)
 	}
 	// Done
 	return mes
@@ -182,33 +188,36 @@ func lowerTo(e Expr, schema *mir.Schema) []mir.Expr {
 // conditional constraint of the form "if c then e", where "c" is the condition.
 // This is allowed to return nil if the body is unconditional.
 func extractCondition(e Expr, schema *mir.Schema) mir.Expr {
-	if p, ok := e.(*Add); ok {
-		return extractConditions(p.Args, schema)
-	} else if _, ok := e.(*Constant); ok {
-		return nil
-	} else if _, ok := e.(*ColumnAccess); ok {
-		return nil
-	} else if p, ok := e.(*Mul); ok {
-		return extractConditions(p.Args, schema)
-	} else if p, ok := e.(*Normalise); ok {
-		return extractCondition(p.Arg, schema)
-	} else if p, ok := e.(*Exp); ok {
-		return extractCondition(p.Arg, schema)
-	} else if p, ok := e.(*IfZero); ok {
-		return extractIfZeroCondition(p, schema)
-	} else if p, ok := e.(*Sub); ok {
-		return extractConditions(p.Args, schema)
+	switch e := e.(type) {
+	case *Add:
+		return extractConditions(e.Args, schema)
+	case *Constant:
+		return mir.ONE
+	case *ColumnAccess:
+		return mir.ONE
+	case *Exp:
+		return extractCondition(e.Arg, schema)
+	case *IfZero:
+		return extractIfZeroCondition(e, schema)
+	case *Mul:
+		return extractConditions(e.Args, schema)
+	case *Normalise:
+		return extractCondition(e.Arg, schema)
+	case *Sub:
+		return extractConditions(e.Args, schema)
+	default:
+		name := reflect.TypeOf(e).Name()
+		panic(fmt.Sprintf("unknown HIR expression \"%s\"", name))
 	}
-	// Should be unreachable
-	panic(fmt.Sprintf("unknown expression: %s", e.Lisp(schema)))
 }
 
 func extractConditions(es []Expr, schema *mir.Schema) mir.Expr {
-	var r mir.Expr = nil
+	var r mir.Expr = mir.ONE
+	//
 	for _, e := range es {
-		r = mul2(r, extractCondition(e, schema))
+		r = mir.Product(r, extractCondition(e, schema))
 	}
-
+	//
 	return r
 }
 
@@ -226,14 +235,9 @@ func extractIfZeroCondition(e *IfZero, schema *mir.Schema) mir.Expr {
 		panic(fmt.Sprintf("unexpanded expression (%s)", e.Lisp(schema)))
 	} else if e.TrueBranch != nil {
 		// (1 - NORM(cb)) for true branch
-		normBody := &mir.Normalise{Arg: cb}
-		oneMinusNormBody := &mir.Sub{
-			Args: []mir.Expr{
-				&mir.Constant{Value: fr.One()},
-				normBody,
-			},
-		}
-
+		normBody := mir.Norm(cb)
+		one := mir.NewConst64(1)
+		oneMinusNormBody := mir.Subtract(one, normBody)
 		cb = oneMinusNormBody
 		// Lower conditional's arising from body
 		bc = extractCondition(e.TrueBranch, schema)
@@ -242,40 +246,42 @@ func extractIfZeroCondition(e *IfZero, schema *mir.Schema) mir.Expr {
 		bc = extractCondition(e.FalseBranch, schema)
 	}
 	//
-	return mul3(cc, cb, bc)
+	return mir.Product(cc, cb, bc)
 }
 
 // Translate the "body" of an expression.  Every expression can be view as a
 // conditional constraint of the form "if c then e", where "e" is the
 // constraint.
 func extractBody(e Expr, schema *mir.Schema) mir.Expr {
-	if p, ok := e.(*Add); ok {
-		return &mir.Add{Args: extractBodies(p.Args, schema)}
-	} else if p, ok := e.(*Constant); ok {
-		return &mir.Constant{Value: p.Val}
-	} else if p, ok := e.(*ColumnAccess); ok {
-		return &mir.ColumnAccess{Column: p.Column, Shift: p.Shift}
-	} else if p, ok := e.(*Mul); ok {
-		return &mir.Mul{Args: extractBodies(p.Args, schema)}
-	} else if p, ok := e.(*Exp); ok {
-		return &mir.Exp{Arg: extractBody(p.Arg, schema), Pow: p.Pow}
-	} else if p, ok := e.(*Normalise); ok {
-		return &mir.Normalise{Arg: extractBody(p.Arg, schema)}
-	} else if p, ok := e.(*IfZero); ok {
-		if p.TrueBranch != nil && p.FalseBranch != nil {
+	switch e := e.(type) {
+	case *Add:
+		return mir.Sum(extractBodies(e.Args, schema)...)
+	case *Constant:
+		return mir.NewConst(e.Val)
+	case *ColumnAccess:
+		return mir.NewColumnAccess(e.Column, e.Shift)
+	case *Exp:
+		return mir.Exponent(extractBody(e.Arg, schema), e.Pow)
+	case *IfZero:
+		if e.TrueBranch != nil && e.FalseBranch != nil {
 			// Expansion should ensure this case does not exist.  This is necessary
 			// to ensure exactly one expression is generated from this expression.
 			panic(fmt.Sprintf("unexpanded expression (%s)", e.Lisp(schema)))
-		} else if p.TrueBranch != nil {
-			return extractBody(p.TrueBranch, schema)
+		} else if e.TrueBranch != nil {
+			return extractBody(e.TrueBranch, schema)
 		}
 		// Done
-		return extractBody(p.FalseBranch, schema)
-	} else if p, ok := e.(*Sub); ok {
-		return &mir.Sub{Args: extractBodies(p.Args, schema)}
+		return extractBody(e.FalseBranch, schema)
+	case *Mul:
+		return mir.Product(extractBodies(e.Args, schema)...)
+	case *Normalise:
+		return mir.Norm(extractBody(e.Arg, schema))
+	case *Sub:
+		return mir.Subtract(extractBodies(e.Args, schema)...)
+	default:
+		name := reflect.TypeOf(e).Name()
+		panic(fmt.Sprintf("unknown HIR expression \"%s\"", name))
 	}
-	// Should be unreachable
-	panic(fmt.Sprintf("unknown expression: %s", e.Lisp(schema)))
 }
 
 // Extract a vector of expanded expressions to the MIR level.
@@ -453,36 +459,4 @@ func expandWithNaryConstructorHelper(i int, acc []Expr, args []Expr,
 	}
 
 	return nargs
-}
-
-// Multiply three expressions together, any of which could be nil.
-func mul3(lhs mir.Term, mhs mir.Term, rhs mir.Term) mir.Term {
-	return mul2(lhs, mul2(mhs, rhs))
-}
-
-// Multiply two expressions together, where either could be nil.  This attempts
-// to a little clever in that it combines products together.
-func mul2(lhs mir.Term, rhs mir.Term) mir.Term {
-	// Check for short-circuit
-	if lhs == nil {
-		return rhs
-	} else if rhs == nil {
-		return lhs
-	}
-	// Look for optimisation
-	l, lok := lhs.(*mir.Mul)
-	r, rok := rhs.(*mir.Mul)
-	//
-	if lok && rok {
-		l.Args = append(l.Args, r.Args...)
-		return l
-	} else if lok {
-		l.Args = append(l.Args, rhs)
-		return l
-	} else if rok {
-		r.Args = append(r.Args, lhs)
-		return r
-	}
-	// Fall back
-	return &mir.Mul{Args: []mir.Term{lhs, rhs}}
 }
