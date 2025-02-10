@@ -6,6 +6,7 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/util/sexp"
 )
@@ -19,15 +20,16 @@ type ZeroTest[E sc.Evaluable] struct {
 
 // TestAt determines whether or not a given expression evaluates to zero.
 // Observe that if the expression is undefined, then it is assumed not to hold.
-func (p ZeroTest[E]) TestAt(row int, tr tr.Trace) (bool, uint) {
+func (p ZeroTest[E]) TestAt(row int, tr tr.Trace) (bool, sc.BranchMetric) {
 	val := p.Expr.EvalAt(row, tr)
-	return val.IsZero(), 0
+	return val.IsZero(), sc.BranchMetric{}
 }
 
-// NumPaths returns the number of unique evaluation paths through the given
+// Branches returns the number of unique evaluation paths through the given
 // constraint.
-func (p ZeroTest[E]) NumPaths() uint {
-	panic("todo")
+func (p ZeroTest[E]) Branches() uint {
+	// FIXME
+	return 1
 }
 
 // Bounds determines the bounds for this zero test.
@@ -120,6 +122,12 @@ func NewVanishingConstraint[T sc.Testable](handle string, context tr.Context,
 	return &VanishingConstraint[T]{handle, context, domain, constraint}
 }
 
+// Name returns a unique name for a given constraint.  This is useful
+// purely for identifying constraints in reports, etc.
+func (p *VanishingConstraint[E]) Name() string {
+	return p.Handle
+}
+
 // Bounds determines the well-definedness bounds for this constraint for both
 // the negative (left) or positive (right) directions.  For example, consider an
 // expression such as "(shift X -1)".  This is technically undefined for the
@@ -127,7 +135,7 @@ func NewVanishingConstraint[T sc.Testable](handle string, context tr.Context,
 // expression on that first row is also undefined (and hence must pass).
 //
 //nolint:revive
-func (p *VanishingConstraint[E]) Bounds(module uint) util.Bounds {
+func (p *VanishingConstraint[T]) Bounds(module uint) util.Bounds {
 	if p.Context.Module() == module {
 		return p.Constraint.Bounds()
 	}
@@ -139,7 +147,7 @@ func (p *VanishingConstraint[E]) Bounds(module uint) util.Bounds {
 // of a table.  If so, return nil otherwise return an error.
 //
 //nolint:revive
-func (p *VanishingConstraint[T]) Accepts(tr tr.Trace) sc.Failure {
+func (p *VanishingConstraint[T]) Accepts(tr tr.Trace) (sc.Coverage, sc.Failure) {
 	if p.Domain.IsEmpty() {
 		// Global Constraint
 		return HoldsGlobally(p.Handle, p.Context, p.Constraint, tr)
@@ -157,42 +165,43 @@ func (p *VanishingConstraint[T]) Accepts(tr tr.Trace) sc.Failure {
 	} else {
 		start = uint(domain)
 	}
-	// Check specific row
-	err, _ := HoldsLocally(start, p.Handle, p.Constraint, tr)
 	//
-	return err
+	var coverage bit.Set
+	// Check specific row
+	err, id := HoldsLocally(start, p.Handle, p.Constraint, tr)
+	//
+	coverage.Insert(id.Key())
+	//
+	return sc.NewCoverage(coverage, p.Constraint.Branches()), err
 }
 
 // HoldsGlobally checks whether a given expression vanishes (i.e. evaluates to
 // zero) for all rows of a trace.  If not, report an appropriate error.
-func HoldsGlobally[T sc.Testable](handle string, ctx tr.Context, constraint T, tr tr.Trace) sc.Failure {
+func HoldsGlobally[T sc.Testable](handle string, ctx tr.Context, constraint T, tr tr.Trace) (sc.Coverage, sc.Failure) {
+	coverage := sc.NewCoverage(bit.Set{}, constraint.Branches())
 	// Determine height of enclosing module
 	height := tr.Height(ctx)
 	// Determine well-definedness bounds for this constraint
 	bounds := constraint.Bounds()
 	// Sanity check enough rows
 	if bounds.End < height {
-		ids := make([]uint, height)
 		// Check all in-bounds values
 		for k := bounds.Start; k < (height - bounds.End); k++ {
 			err, id := HoldsLocally(k, handle, constraint, tr)
 			if err != nil {
-				return err
+				return coverage, err
 			}
-
-			ids[k] = id
+			// Update coverage
+			coverage.Covered.Insert(id.Key())
 		}
-		//
-		count := util.CountUnique(ids)
-		fmt.Printf("Constraint %s had %d / %d paths executed.\n", handle, count, constraint.NumPaths())
 	}
 	// Success
-	return nil
+	return coverage, nil
 }
 
 // HoldsLocally checks whether a given constraint holds (e.g. vanishes) on a
 // specific row of a trace. If not, report an appropriate error.
-func HoldsLocally[T sc.Testable](k uint, handle string, constraint T, tr tr.Trace) (sc.Failure, uint) {
+func HoldsLocally[T sc.Testable](k uint, handle string, constraint T, tr tr.Trace) (sc.Failure, sc.BranchMetric) {
 	ok, id := constraint.TestAt(int(k), tr)
 	// Check whether it holds or not
 	if !ok {

@@ -52,6 +52,7 @@ var checkCmd = &cobra.Command{
 		cfg.padding.Right = GetUint(cmd, "padding")
 		cfg.parallel = !GetFlag(cmd, "sequential")
 		cfg.batchSize = GetUint(cmd, "batch")
+		cfg.coverage = GetFlag(cmd, "coverage")
 		cfg.ansiEscapes = GetFlag(cmd, "ansi-escapes")
 		// TODO: support true ranges
 		cfg.padding.Left = cfg.padding.Right
@@ -70,8 +71,19 @@ var checkCmd = &cobra.Command{
 		//
 		stats.Log("Reading trace file")
 		// Go!
-		if !checkTraceWithLowering(columns, &binfile.Schema, cfg) {
+		ok, coverage := checkTraceWithLowering(columns, &binfile.Schema, cfg)
+		//
+		if !ok {
 			os.Exit(1)
+		} else if cfg.coverage {
+			keys := coverage.Keys()
+			// Print out the data
+			for iter := keys.Iter(); iter.HasNext(); {
+				ith := iter.Next()
+				cov := coverage.CoverageOf(ith)
+				percent := float64(100*cov.Covered.Count()) / float64(cov.Total)
+				fmt.Printf("\"%s\": %d / %d (%.1f%%)\n", ith, cov.Covered.Count(), cov.Total, percent)
+			}
 		}
 	},
 }
@@ -108,6 +120,8 @@ type checkConfig struct {
 	// Specifies whether or not to include the standard library.  The default is
 	// to include it.
 	stdlib bool
+	// Specifies whether or not to produce branch coverage data.
+	coverage bool
 	// Specifies whether or not to report details of the failure (e.g. for
 	// debugging purposes).
 	report bool
@@ -126,25 +140,40 @@ type checkConfig struct {
 
 // Check a given trace is consistently accepted (or rejected) at the different
 // IR levels.
-func checkTraceWithLowering(cols []tr.RawColumn, schema *hir.Schema, cfg checkConfig) bool {
+func checkTraceWithLowering(cols []tr.RawColumn, schema *hir.Schema, cfg checkConfig) (bool, sc.CoverageMap) {
+	coverage := sc.NewBranchCoverage()
 	res := true
 	// Process individually
 	if cfg.hir {
-		res = checkTrace("HIR", cols, schema, cfg)
+		r, cov := checkTrace[sc.NoMetric]("HIR", cols, schema, cfg)
+		res = r
+		//
+		coverage.InsertAll(cov)
 	}
 
 	if cfg.mir {
-		res = checkTrace("MIR", cols, schema.LowerToMir(), cfg) && res
+		r, cov := checkTrace[sc.NoMetric]("MIR", cols, schema.LowerToMir(), cfg)
+		//
+		res = res && r
+		//
+		coverage.InsertAll(cov)
 	}
 
 	if cfg.air {
-		res = checkTrace("AIR", cols, schema.LowerToMir().LowerToAir(), cfg) && res
+		r, cov := checkTrace[sc.NoMetric]("AIR", cols, schema.LowerToMir().LowerToAir(), cfg)
+		//
+		res = res && r
+		//
+		coverage.InsertAll(cov)
 	}
 
-	return res
+	return res, coverage
 }
 
-func checkTrace(ir string, cols []tr.RawColumn, schema sc.Schema, cfg checkConfig) bool {
+func checkTrace[K sc.Metric[K]](ir string, cols []tr.RawColumn, schema sc.Schema,
+	cfg checkConfig) (bool, sc.CoverageMap) {
+	//
+	coverage := sc.NewBranchCoverage()
 	builder := sc.NewTraceBuilder(schema).
 		Defensive(cfg.defensive).
 		Expand(cfg.expand).
@@ -160,25 +189,27 @@ func checkTrace(ir string, cols []tr.RawColumn, schema sc.Schema, cfg checkConfi
 		reportErrors(cfg.strict, ir, errs)
 		// Check whether considered unrecoverable
 		if trace == nil || (cfg.strict && len(errs) > 0) {
-			return false
+			return false, coverage
 		}
 		//
 		stats = util.NewPerfStats()
 		// Check constraints
-		if errs := sc.Accepts(cfg.parallel, cfg.batchSize, schema, trace); len(errs) > 0 {
+		if cov, errs := sc.Accepts(cfg.parallel, cfg.batchSize, schema, trace); len(errs) > 0 {
 			reportFailures(ir, errs, trace, cfg)
-			return false
+			return false, coverage
+		} else {
+			coverage.InsertAll(cov)
 		}
 		// Check assertions
-		if errs := sc.Asserts(cfg.parallel, cfg.batchSize, schema, trace); len(errs) > 0 {
+		if _, errs := sc.Asserts(cfg.parallel, cfg.batchSize, schema, trace); len(errs) > 0 {
 			reportFailures(ir, errs, trace, cfg)
-			return false
+			return false, coverage
 		}
 
 		stats.Log("Checking constraints")
 	}
 	// Done
-	return true
+	return true, coverage
 }
 
 // Report constraint failures, whilst providing contextual information (when requested).
@@ -276,6 +307,7 @@ func init() {
 	checkCmd.Flags().BoolP("quiet", "q", false, "suppress output (e.g. warnings)")
 	checkCmd.Flags().Bool("sequential", false, "perform sequential trace expansion")
 	checkCmd.Flags().Bool("defensive", true, "automatically apply defensive padding to every module")
+	checkCmd.Flags().Bool("coverage", false, "print coverage results")
 	checkCmd.Flags().Uint("padding", 0, "specify amount of (front) padding to apply")
 	checkCmd.Flags().UintP("batch", "b", math.MaxUint, "specify batch size for constraint checking")
 	checkCmd.Flags().Int("spillage", -1,

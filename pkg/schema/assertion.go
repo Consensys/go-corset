@@ -57,7 +57,9 @@ type PropertyAssertion[T Testable] struct {
 }
 
 // NewPropertyAssertion constructs a new property assertion!
-func NewPropertyAssertion[T Testable](handle string, ctx tr.Context, property T) *PropertyAssertion[T] {
+func NewPropertyAssertion[T Testable](handle string, ctx tr.Context,
+	property T) *PropertyAssertion[T] {
+	//
 	return &PropertyAssertion[T]{handle, ctx, property}
 }
 

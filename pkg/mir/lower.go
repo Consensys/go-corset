@@ -3,6 +3,7 @@ package mir
 import (
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/consensys/go-corset/pkg/air"
 	air_gadgets "github.com/consensys/go-corset/pkg/air/gadgets"
@@ -158,22 +159,26 @@ func lowerLookupConstraintToAir(c LookupConstraint, mirSchema *Schema, airSchema
 // computation is required to ensure traces are correctly expanded to
 // meet the requirements of a sorted permutation.
 func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Schema) {
+	builder := strings.Builder{}
 	c_targets := c.Targets
 	ncols := len(c_targets)
-	//
 	targets := make([]uint, ncols)
+	//
+	builder.WriteString("permutation")
 	// Add individual permutation constraints
 	for i := 0; i < ncols; i++ {
 		var ok bool
 		// TODO: how best to avoid this lookup?
 		targets[i], ok = sc.ColumnIndexOf(airSchema, c.Module(), c_targets[i].Name)
-
+		//
 		if !ok {
 			panic("internal failure")
 		}
+		//
+		builder.WriteString(fmt.Sprintf(":%s", c_targets[i].Name))
 	}
 	//
-	airSchema.AddPermutationConstraint(targets, c.Sources)
+	airSchema.AddPermutationConstraint(builder.String(), targets, c.Sources)
 	// Add sorting constraints + computed columns as necessary.
 	if ncols == 1 {
 		// For a single column sort, its actually a bit easier because we don't
