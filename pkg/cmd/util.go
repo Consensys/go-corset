@@ -14,6 +14,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/json"
 	"github.com/consensys/go-corset/pkg/trace/lt"
+	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/sexp"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -137,6 +138,28 @@ func ReadTraceFile(filename string) []trace.RawColumn {
 	os.Exit(2)
 	// unreachable
 	return nil
+}
+
+// ReadBatchedTraceFile reads a file containing zero or more traces expressed as
+// JSON, where each trace is on a separate line.
+func ReadBatchedTraceFile(filename string) [][]trace.RawColumn {
+	lines := util.ReadInputFile(filename)
+	traces := make([][]trace.RawColumn, 0)
+	// Read constraints line by line
+	for i, line := range lines {
+		// Parse input line as JSON
+		if line != "" && !strings.HasPrefix(line, ";;") {
+			tr, err := json.FromBytes([]byte(line))
+			if err != nil {
+				msg := fmt.Sprintf("%s:%d: %s", filename, i+1, err)
+				panic(msg)
+			}
+
+			traces = append(traces, tr)
+		}
+	}
+
+	return traces
 }
 
 // WriteBinaryFile writes a binary file (e.g. zkevm.bin) to disk using the given

@@ -9,6 +9,7 @@ import (
 	"github.com/consensys/go-corset/pkg/hir"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
+	"github.com/consensys/go-corset/pkg/trace"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -24,7 +25,10 @@ var checkCmd = &cobra.Command{
 	Traces can be given either as JSON or binary lt files.
 	Constraints can be given either as lisp or bin files.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		var cfg checkConfig
+		var (
+			cfg    checkConfig
+			traces [][]trace.RawColumn
+		)
 
 		if len(args) != 2 {
 			fmt.Println(cmd.UsageString())
@@ -35,6 +39,7 @@ var checkCmd = &cobra.Command{
 			log.SetLevel(log.DebugLevel)
 		}
 		legacy := GetFlag(cmd, "legacy")
+		batched := GetFlag(cmd, "batched")
 		//
 		cfg.air = GetFlag(cmd, "air")
 		cfg.mir = GetFlag(cmd, "mir")
@@ -66,12 +71,19 @@ var checkCmd = &cobra.Command{
 		binfile := ReadConstraintFiles(cfg.stdlib, cfg.debug, legacy, args[1:])
 		//
 		stats.Log("Reading constraints file")
-		// Parse trace file
-		columns := ReadTraceFile(args[0])
+		// Parse trace file(s)
+		if batched {
+			// batched mode
+			traces = ReadBatchedTraceFile(args[0])
+		} else {
+			// unbatched (i.e. normal) mode
+			columns := ReadTraceFile(args[0])
+			traces = [][]trace.RawColumn{columns}
+		}
 		//
 		stats.Log("Reading trace file")
 		// Go!
-		ok, coverage := checkTraceWithLowering(columns, &binfile.Schema, cfg)
+		ok, coverage := checkTraceWithLowering(traces, &binfile.Schema, cfg)
 		//
 		if !ok {
 			os.Exit(1)
@@ -140,19 +152,19 @@ type checkConfig struct {
 
 // Check a given trace is consistently accepted (or rejected) at the different
 // IR levels.
-func checkTraceWithLowering(cols []tr.RawColumn, schema *hir.Schema, cfg checkConfig) (bool, sc.CoverageMap) {
+func checkTraceWithLowering(traces [][]tr.RawColumn, schema *hir.Schema, cfg checkConfig) (bool, sc.CoverageMap) {
 	coverage := sc.NewBranchCoverage()
 	res := true
 	// Process individually
 	if cfg.hir {
-		r, cov := checkTrace[sc.NoMetric]("HIR", cols, schema, cfg)
+		r, cov := checkTrace[sc.NoMetric]("HIR", traces, schema, cfg)
 		res = r
 		//
 		coverage.InsertAll(cov)
 	}
 
 	if cfg.mir {
-		r, cov := checkTrace[sc.NoMetric]("MIR", cols, schema.LowerToMir(), cfg)
+		r, cov := checkTrace[sc.NoMetric]("MIR", traces, schema.LowerToMir(), cfg)
 		//
 		res = res && r
 		//
@@ -160,7 +172,7 @@ func checkTraceWithLowering(cols []tr.RawColumn, schema *hir.Schema, cfg checkCo
 	}
 
 	if cfg.air {
-		r, cov := checkTrace[sc.NoMetric]("AIR", cols, schema.LowerToMir().LowerToAir(), cfg)
+		r, cov := checkTrace[sc.NoMetric]("AIR", traces, schema.LowerToMir().LowerToAir(), cfg)
 		//
 		res = res && r
 		//
@@ -170,7 +182,7 @@ func checkTraceWithLowering(cols []tr.RawColumn, schema *hir.Schema, cfg checkCo
 	return res, coverage
 }
 
-func checkTrace[K sc.Metric[K]](ir string, cols []tr.RawColumn, schema sc.Schema,
+func checkTrace[K sc.Metric[K]](ir string, traces [][]tr.RawColumn, schema sc.Schema,
 	cfg checkConfig) (bool, sc.CoverageMap) {
 	//
 	coverage := sc.NewBranchCoverage()
@@ -180,33 +192,35 @@ func checkTrace[K sc.Metric[K]](ir string, cols []tr.RawColumn, schema sc.Schema
 		Parallel(cfg.parallel).
 		BatchSize(cfg.batchSize)
 	//
-	for n := cfg.padding.Left; n <= cfg.padding.Right; n++ {
-		stats := util.NewPerfStats()
-		trace, errs := builder.Padding(n).Build(cols)
-		// Log cost of expansion
-		stats.Log("Expanding trace columns")
-		// Report any errors
-		reportErrors(cfg.strict, ir, errs)
-		// Check whether considered unrecoverable
-		if trace == nil || (cfg.strict && len(errs) > 0) {
-			return false, coverage
-		}
-		//
-		stats = util.NewPerfStats()
-		// Check constraints
-		if cov, errs := sc.Accepts(cfg.parallel, cfg.batchSize, schema, trace); len(errs) > 0 {
-			reportFailures(ir, errs, trace, cfg)
-			return false, coverage
-		} else {
-			coverage.InsertAll(cov)
-		}
-		// Check assertions
-		if _, errs := sc.Asserts(cfg.parallel, cfg.batchSize, schema, trace); len(errs) > 0 {
-			reportFailures(ir, errs, trace, cfg)
-			return false, coverage
-		}
+	for _, cols := range traces {
+		for n := cfg.padding.Left; n <= cfg.padding.Right; n++ {
+			stats := util.NewPerfStats()
+			trace, errs := builder.Padding(n).Build(cols)
+			// Log cost of expansion
+			stats.Log("Expanding trace columns")
+			// Report any errors
+			reportErrors(cfg.strict, ir, errs)
+			// Check whether considered unrecoverable
+			if trace == nil || (cfg.strict && len(errs) > 0) {
+				return false, coverage
+			}
+			//
+			stats = util.NewPerfStats()
+			// Check constraints
+			if cov, errs := sc.Accepts(cfg.parallel, cfg.batchSize, schema, trace); len(errs) > 0 {
+				reportFailures(ir, errs, trace, cfg)
+				return false, coverage
+			} else {
+				coverage.InsertAll(cov)
+			}
+			// Check assertions
+			if _, errs := sc.Asserts(cfg.parallel, cfg.batchSize, schema, trace); len(errs) > 0 {
+				reportFailures(ir, errs, trace, cfg)
+				return false, coverage
+			}
 
-		stats.Log("Checking constraints")
+			stats.Log("Checking constraints")
+		}
 	}
 	// Done
 	return true, coverage
@@ -310,6 +324,8 @@ func init() {
 	checkCmd.Flags().Bool("coverage", false, "print coverage results")
 	checkCmd.Flags().Uint("padding", 0, "specify amount of (front) padding to apply")
 	checkCmd.Flags().UintP("batch", "b", math.MaxUint, "specify batch size for constraint checking")
+	checkCmd.Flags().Bool("batched", false,
+		"specify trace file is batched (i.e. contains multiple traces, one for each line)")
 	checkCmd.Flags().Int("spillage", -1,
 		"specify amount of splillage to account for (where -1 indicates this should be inferred)")
 	checkCmd.Flags().Bool("ansi-escapes", true, "specify whether to allow ANSI escapes or not (e.g. for colour reports)")
