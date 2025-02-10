@@ -87,7 +87,7 @@ func lowerConstraintToAir(c sc.Constraint, mirSchema *Schema, airSchema *air.Sch
 // constrained.  This may result in the generation of computed columns, e.g. to
 // hold inverses, etc.
 func lowerVanishingConstraintToAir(v VanishingConstraint, mirSchema *Schema, airSchema *air.Schema) {
-	air_expr := lowerExprTo(v.Context, v.Constraint.Expr, mirSchema, airSchema)
+	air_expr := lowerExprTo(v.Context, v.Constraint, mirSchema, airSchema)
 	// Check whether this is a constant
 	constant := air_expr.AsConstant()
 	// Check for compile-time constants

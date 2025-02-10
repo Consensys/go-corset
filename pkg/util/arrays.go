@@ -99,6 +99,17 @@ func ReplaceFirstOrPanic[T comparable](columns []T, from T, to T) {
 	panic(fmt.Sprintf("invalid replace (item %s not found)", any(from)))
 }
 
+// ContainsMatching checks whether a given array contains an item matching a given predicate.
+func ContainsMatching[T any](items []T, predicate iter.Predicate[T]) bool {
+	for _, item := range items {
+		if predicate(item) {
+			return true
+		}
+	}
+	//
+	return false
+}
+
 // RemoveMatching removes all elements from an array matching the given item.
 func RemoveMatching[T any](items []T, predicate iter.Predicate[T]) []T {
 	count := 0

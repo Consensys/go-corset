@@ -11,64 +11,6 @@ import (
 	"github.com/consensys/go-corset/pkg/util/sexp"
 )
 
-// ZeroTest is a wrapper which converts an Evaluable expression into a Testable
-// constraint.  Specifically, by checking whether or not the given expression
-// vanishes (i.e. evaluates to zero).
-type ZeroTest[E sc.Evaluable] struct {
-	Expr E
-}
-
-// TestAt determines whether or not a given expression evaluates to zero.
-// Observe that if the expression is undefined, then it is assumed not to hold.
-func (p ZeroTest[E]) TestAt(row int, tr tr.Trace) (bool, sc.BranchMetric) {
-	val := p.Expr.EvalAt(row, tr)
-	return val.IsZero(), sc.BranchMetric{}
-}
-
-// Branches returns the number of unique evaluation paths through the given
-// constraint.
-func (p ZeroTest[E]) Branches() uint {
-	// FIXME
-	return 1
-}
-
-// Bounds determines the bounds for this zero test.
-func (p ZeroTest[E]) Bounds() util.Bounds {
-	return p.Expr.Bounds()
-}
-
-// Context determines the evaluation context (i.e. enclosing module) for this
-// expression.
-func (p ZeroTest[E]) Context(schema sc.Schema) tr.Context {
-	return p.Expr.Context(schema)
-}
-
-// RequiredColumns returns the set of columns on which this term depends.
-// That is, columns whose values may be accessed when evaluating this term
-// on a given trace.
-func (p ZeroTest[E]) RequiredColumns() *set.SortedSet[uint] {
-	return p.Expr.RequiredColumns()
-}
-
-// RequiredCells returns the set of trace cells on which evaluation of this
-// constraint element depends.
-func (p ZeroTest[E]) RequiredCells(row int, tr tr.Trace) *set.AnySortedSet[tr.CellRef] {
-	return p.Expr.RequiredCells(row, tr)
-}
-
-// String generates a human-readble string.
-//
-//nolint:revive
-func (p ZeroTest[E]) String() string {
-	return fmt.Sprintf("%s", any(p.Expr))
-}
-
-// Lisp converts this schema element into a simple S-Expression, for example
-// so it can be printed.
-func (p ZeroTest[E]) Lisp(schema sc.Schema) sexp.SExp {
-	return p.Expr.Lisp(schema)
-}
-
 // VanishingFailure provides structural information about a failing vanishing constraint.
 type VanishingFailure struct {
 	// Handle of the failing constraint

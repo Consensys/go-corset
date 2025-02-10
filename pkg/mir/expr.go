@@ -21,6 +21,9 @@ type Expr struct {
 
 var _ sc.Evaluable = Expr{}
 
+// ZERO represents the constant expression equivalent to 1.
+var ZERO Expr
+
 // ONE represents the constant expression equivalent to 1.
 var ONE Expr
 
@@ -171,6 +174,10 @@ func Product(exprs ...Expr) Expr {
 	})
 	// Remove all multiplications by one
 	terms = util.RemoveMatching(terms, isOne)
+	// Check for zero
+	if util.ContainsMatching(terms, isZero) {
+		return ZERO
+	}
 	// Final optimisation
 	switch len(terms) {
 	case 0:
@@ -220,4 +227,5 @@ func isZero(term Term) bool {
 
 func init() {
 	ONE = NewConst64(1)
+	ZERO = NewConst64(0)
 }

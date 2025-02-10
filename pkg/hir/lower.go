@@ -63,7 +63,13 @@ func lowerConstraintToMir(c sc.Constraint, schema *mir.Schema) {
 		mir_exprs := v.Expr.LowerTo(schema)
 		// Add individual constraints arising
 		for i, mir_expr := range mir_exprs {
-			handle := fmt.Sprintf("%s#%d", v.Handle, i+1)
+			var handle string = v.Handle
+			// Only split the name when multiple distinct cases are extracted
+			// from the constraint.
+			if len(mir_exprs) > 1 {
+				handle = fmt.Sprintf("%s#%d", handle, i+1)
+			}
+			//
 			schema.AddRangeConstraint(handle, v.Context, mir_expr, v.Bound)
 		}
 	} else {

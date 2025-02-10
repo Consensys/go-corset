@@ -18,6 +18,7 @@ type Term interface {
 // Addition
 // ============================================================================
 
+// Add represents the addition of zero or more expressions.
 type Add struct{ Args []Term }
 
 // Bounds returns max shift in either the negative (left) or positive
