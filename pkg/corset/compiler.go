@@ -295,7 +295,7 @@ func init() {
 	}
 	// Log
 	for i := uint64(0); i <= 4; i++ {
-		OPCODE_ENUMERATION[fr.NewElement(i+0x90)] = fmt.Sprintf("LOG%d", i)
+		OPCODE_ENUMERATION[fr.NewElement(i+0xa0)] = fmt.Sprintf("LOG%d", i)
 	}
 	//
 	OPCODE_ENUMERATION[fr.NewElement(0xf0)] = "CREATE"
