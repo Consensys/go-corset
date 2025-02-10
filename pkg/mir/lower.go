@@ -214,7 +214,7 @@ func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Sche
 // should be located.
 func lowerExprTo(ctx trace.Context, e1 Expr, mirSchema *Schema, airSchema *air.Schema) air.Expr {
 	// Apply constant propagation
-	e2 := applyConstantPropagation(e1, airSchema)
+	e2 := constantPropagationForTerm(e1, airSchema)
 	// Lower properly
 	return lowerExprToInner(ctx, e2, mirSchema, airSchema)
 }

@@ -456,13 +456,13 @@ func expandWithNaryConstructorHelper(i int, acc []Expr, args []Expr,
 }
 
 // Multiply three expressions together, any of which could be nil.
-func mul3(lhs mir.Expr, mhs mir.Expr, rhs mir.Expr) mir.Expr {
+func mul3(lhs mir.Term, mhs mir.Term, rhs mir.Term) mir.Term {
 	return mul2(lhs, mul2(mhs, rhs))
 }
 
 // Multiply two expressions together, where either could be nil.  This attempts
 // to a little clever in that it combines products together.
-func mul2(lhs mir.Expr, rhs mir.Expr) mir.Expr {
+func mul2(lhs mir.Term, rhs mir.Term) mir.Term {
 	// Check for short-circuit
 	if lhs == nil {
 		return rhs
@@ -484,5 +484,5 @@ func mul2(lhs mir.Expr, rhs mir.Expr) mir.Expr {
 		return r
 	}
 	// Fall back
-	return &mir.Mul{Args: []mir.Expr{lhs, rhs}}
+	return &mir.Mul{Args: []mir.Term{lhs, rhs}}
 }

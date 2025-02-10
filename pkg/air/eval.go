@@ -19,10 +19,10 @@ func evalAtTerm[T sc.Metric[T]](e Term, k int, trace tr.Trace) (fr.Element, T) {
 		return e.Value, id.Empty()
 	case *ColumnAccess:
 		return trace.Column(e.Column).Get(k + e.Shift), id.Empty()
-	case *Sub:
-		return evalAtSub[T](e, k, trace)
 	case *Mul:
 		return evalAtMul[T](e, k, trace)
+	case *Sub:
+		return evalAtSub[T](e, k, trace)
 	default:
 		name := reflect.TypeOf(e).Name()
 		panic(fmt.Sprintf("unknown AIR expression \"%s\"", name))

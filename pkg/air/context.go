@@ -18,9 +18,9 @@ func contextOfTerm(e Term, schema sc.Schema) trace.Context {
 	case *ColumnAccess:
 		col := schema.Columns().Nth(e.Column)
 		return col.Context
-	case *Sub:
-		return contextOfTerms(e.Args, schema)
 	case *Mul:
+		return contextOfTerms(e.Args, schema)
+	case *Sub:
 		return contextOfTerms(e.Args, schema)
 	default:
 		name := reflect.TypeOf(e).Name()
@@ -46,9 +46,9 @@ func requiredColumnsOfTerm(e Term) *set.SortedSet[uint] {
 		return set.NewSortedSet[uint]()
 	case *ColumnAccess:
 		return requiredColumnsOfColumnAccess(e)
-	case *Sub:
-		return requiredColumnsOfTerms(e.Args)
 	case *Mul:
+		return requiredColumnsOfTerms(e.Args)
+	case *Sub:
 		return requiredColumnsOfTerms(e.Args)
 	default:
 		name := reflect.TypeOf(e).Name()
@@ -77,9 +77,9 @@ func requiredCellsOfTerm(e Term, row int, tr trace.Trace) *set.AnySortedSet[trac
 		return set.NewAnySortedSet[trace.CellRef]()
 	case *ColumnAccess:
 		return requiredCellsOfColumnAccess(e, row)
-	case *Sub:
-		return requiredCellsOfTerms(e.Args, row, tr)
 	case *Mul:
+		return requiredCellsOfTerms(e.Args, row, tr)
+	case *Sub:
 		return requiredCellsOfTerms(e.Args, row, tr)
 	default:
 		name := reflect.TypeOf(e).Name()

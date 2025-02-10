@@ -16,10 +16,10 @@ func lispOfTerm(e Term, schema sc.Schema) sexp.SExp {
 		return sexp.NewSymbol(e.Value.String())
 	case *ColumnAccess:
 		return lispOfColumnAccess(e, schema)
-	case *Sub:
-		return nary2Lisp(schema, "-", e.Args)
 	case *Mul:
 		return nary2Lisp(schema, "*", e.Args)
+	case *Sub:
+		return nary2Lisp(schema, "-", e.Args)
 	default:
 		name := reflect.TypeOf(e).Name()
 		panic(fmt.Sprintf("unknown AIR expression \"%s\"", name))

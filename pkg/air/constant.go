@@ -15,9 +15,9 @@ func constantOfTerm(e Term) *fr.Element {
 		return &e.Value
 	case *ColumnAccess:
 		return nil
-	case *Sub:
-		return nil
 	case *Mul:
+		return nil
+	case *Sub:
 		return nil
 	default:
 		name := reflect.TypeOf(e).Name()
