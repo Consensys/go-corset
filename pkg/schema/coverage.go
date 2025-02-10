@@ -1,6 +1,8 @@
 package schema
 
 import (
+	"fmt"
+
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 )
@@ -64,7 +66,8 @@ func (p *CoverageMap) InsertAll(other CoverageMap) {
 			res.InsertAll(data.Covered)
 			// Sanity check
 			if data.Total != v.Total {
-				panic("incompatible branch coverage data detected!")
+				msg := fmt.Sprintf("inconsistent branch count for %s (%d vs %d)", k, data.Total, v.Total)
+				panic(msg)
 			}
 		}
 		//
