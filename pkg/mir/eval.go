@@ -25,7 +25,7 @@ func evalAtTerm[T sc.Metric[T]](e Term, k int, trace tr.Trace) (fr.Element, T) {
 		return evalAtExp[T](e, k, trace)
 	case *Mul:
 		return evalAtMul[T](e, k, trace)
-	case *Normalise:
+	case *Norm:
 		return evalAtNormalise[T](e, k, trace)
 	case *Sub:
 		return evalAtSub[T](e, k, trace)
@@ -81,7 +81,7 @@ func evalAtMul[T sc.Metric[T]](e *Mul, k int, trace tr.Trace) (fr.Element, T) {
 // EvalAt evaluates the normalisation of some expression by first evaluating
 // that expression.  Then, zero is returned if the result is zero; otherwise one
 // is returned.
-func evalAtNormalise[T sc.Metric[T]](e *Normalise, k int, tr trace.Trace) (fr.Element, T) {
+func evalAtNormalise[T sc.Metric[T]](e *Norm, k int, tr trace.Trace) (fr.Element, T) {
 	// Check whether argument evaluates to zero or not.
 	val, metric := evalAtTerm[T](e.Arg, k, tr)
 	// Normalise value (if necessary)
@@ -131,7 +131,7 @@ func pathsOfTerm(e Term) uint {
 		}
 		//
 		return count
-	case *Normalise:
+	case *Norm:
 		return pathsOfTerm(e.Arg)
 	case *Sub:
 		count := uint(1)

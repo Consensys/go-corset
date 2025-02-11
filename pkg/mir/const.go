@@ -23,7 +23,7 @@ func constantPropagationForTerm(e Term, schema sc.Schema) Term {
 		return constantPropagationForExp(e.Arg, e.Pow, schema)
 	case *Mul:
 		return constantPropagationForMul(e.Args, schema)
-	case *Normalise:
+	case *Norm:
 		return constantPropagationForNorm(e.Arg, schema)
 	case *Sub:
 		return constantPropagationForSub(e.Args, schema)
@@ -134,7 +134,7 @@ func constantPropagationForNorm(arg Term, schema sc.Schema) Term {
 		return &Constant{val}
 	}
 	//
-	return &Normalise{arg}
+	return &Norm{arg}
 }
 
 func constantPropagationForSub(es []Term, schema sc.Schema) Term {

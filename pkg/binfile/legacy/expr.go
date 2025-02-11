@@ -135,7 +135,7 @@ func (e *jsonExprFuncall) ToHir(colmap map[uint]uint, schema *hir.Schema) hir.Ex
 	switch e.Func {
 	case "Normalize":
 		if len(args) == 1 {
-			return hir.NewNormalise(args[0])
+			return hir.Normalise(args[0])
 		} else {
 			panic("incorrect arguments for Normalize")
 		}
@@ -165,17 +165,17 @@ func (e *jsonExprFuncall) ToHir(colmap map[uint]uint, schema *hir.Schema) hir.Ex
 		return hir.Exponent(args[0], k.Uint64())
 	case "IfZero":
 		if len(args) == 2 {
-			return hir.NewIfZero(args[0], args[1], hir.ZERO)
+			return hir.If(args[0], args[1], hir.ZERO)
 		} else if len(args) == 3 {
-			return hir.NewIfZero(args[0], args[1], args[2])
+			return hir.If(args[0], args[1], args[2])
 		} else {
 			panic(fmt.Sprintf("incorrect number of arguments for IfZero (%d)", len(args)))
 		}
 	case "IfNotZero":
 		if len(args) == 2 {
-			return hir.NewIfZero(args[0], hir.ZERO, args[1])
+			return hir.If(args[0], hir.ZERO, args[1])
 		} else if len(args) == 3 {
-			return hir.NewIfZero(args[0], args[2], args[1])
+			return hir.If(args[0], args[2], args[1])
 		} else {
 			panic(fmt.Sprintf("incorrect number of arguments for IfNotZero (%d)", len(args)))
 		}
@@ -190,7 +190,7 @@ func jsonListToHir(Args []jsonTypedExpr, colmap map[uint]uint, schema *hir.Schem
 		args[i] = Args[i].ToHir(colmap, schema)
 	}
 
-	return hir.NewList(args...)
+	return hir.ListOf(args...)
 }
 
 func jsonExprsToHirUnit(Args []jsonTypedExpr, colmap map[uint]uint, schema *hir.Schema) []hir.UnitExpr {

@@ -143,7 +143,7 @@ func extractCondition(e Term, schema *mir.Schema) mir.Expr {
 		return extractIfZeroCondition(e, schema)
 	case *Mul:
 		return extractConditions(e.Args, schema)
-	case *Normalise:
+	case *Norm:
 		return extractCondition(e.Arg, schema)
 	case *Sub:
 		return extractConditions(e.Args, schema)
@@ -177,7 +177,7 @@ func extractIfZeroCondition(e *IfZero, schema *mir.Schema) mir.Expr {
 		panic(fmt.Sprintf("unexpanded expression (%s)", lispOfTerm(e, schema)))
 	} else if e.TrueBranch != nil {
 		// (1 - NORM(cb)) for true branch
-		normBody := mir.Norm(cb)
+		normBody := mir.Normalise(cb)
 		one := mir.NewConst64(1)
 		oneMinusNormBody := mir.Subtract(one, normBody)
 		cb = oneMinusNormBody
@@ -216,8 +216,8 @@ func extractBody(e Term, schema *mir.Schema) mir.Expr {
 		return extractBody(e.FalseBranch, schema)
 	case *Mul:
 		return mir.Product(extractBodies(e.Args, schema)...)
-	case *Normalise:
-		return mir.Norm(extractBody(e.Arg, schema))
+	case *Norm:
+		return mir.Normalise(extractBody(e.Arg, schema))
 	case *Sub:
 		return mir.Subtract(extractBodies(e.Args, schema)...)
 	default:
@@ -293,10 +293,10 @@ func expand(e Term, schema sc.Schema) []Term {
 		}
 
 		return ees
-	} else if p, ok := e.(*Normalise); ok {
+	} else if p, ok := e.(*Norm); ok {
 		ees := expand(p.Arg, schema)
 		for i, ee := range ees {
-			ees[i] = &Normalise{ee}
+			ees[i] = &Norm{ee}
 		}
 
 		return ees

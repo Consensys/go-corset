@@ -291,7 +291,7 @@ func (t *translator) translateDefConstraint(decl *ast.DefConstraint, module util
 	}
 	// Apply guard (if applicable)
 	if guard != hir.VOID {
-		constraint = hir.NewIfZero(guard, hir.VOID, constraint)
+		constraint = hir.If(guard, hir.VOID, constraint)
 	}
 	// Apply perspective selector (if applicable)
 	if selector != hir.VOID {
@@ -525,22 +525,22 @@ func (t *translator) translateExpressionInModule(expr ast.Expr, module util.Path
 		args, errs := t.translateExpressionsInModule([]ast.Expr{e.Condition, e.TrueBranch, e.FalseBranch}, module, shift)
 		// Construct appropriate if form
 		if e.IsIfZero() {
-			return hir.NewIfZero(args[0], args[1], args[2]), errs
+			return hir.If(args[0], args[1], args[2]), errs
 		} else if e.IsIfNotZero() {
 			// In this case, switch the ordering.
-			return hir.NewIfZero(args[0], args[2], args[1]), errs
+			return hir.If(args[0], args[2], args[1]), errs
 		}
 		// Should be unreachable
 		return hir.VOID, t.srcmap.SyntaxErrors(expr, "unresolved conditional encountered during translation")
 	case *ast.List:
 		args, errs := t.translateExpressionsInModule(e.Args, module, shift)
-		return hir.NewList(args...), errs
+		return hir.ListOf(args...), errs
 	case *ast.Mul:
 		args, errs := t.translateExpressionsInModule(e.Args, module, shift)
 		return hir.Product(args...), errs
 	case *ast.Normalise:
 		arg, errs := t.translateExpressionInModule(e.Arg, module, shift)
-		return hir.NewNormalise(arg), errs
+		return hir.Normalise(arg), errs
 	case *ast.Sub:
 		args, errs := t.translateExpressionsInModule(e.Args, module, shift)
 		return hir.Subtract(args...), errs

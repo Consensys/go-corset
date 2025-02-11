@@ -106,35 +106,15 @@ func (e Expr) Branches() uint {
 	return pathsOfTerm(e.term)
 }
 
-// Add two expressions together.
-func (e Expr) Add(arg Expr) Expr {
-	return Expr{&Add{Args: []Term{e.term, arg.term}}}
-}
-
-// Sub subtracts the argument from this expression.
-func (e Expr) Sub(arg Expr) Expr {
-	return Expr{&Sub{Args: []Term{e.term, arg.term}}}
-}
-
-// Mul multiplies this expression with the argument
-func (e Expr) Mul(arg Expr) Expr {
-	return Expr{&Mul{Args: []Term{e.term, arg.term}}}
-}
-
-// Equate equates this expression with the argument.
-func (e Expr) Equate(arg Expr) Expr {
-	return Expr{&Sub{Args: []Term{e.term, arg.term}}}
-}
-
 // Exponent raises a given expression to a given power.
 func Exponent(arg Expr, pow uint64) Expr {
 	return Expr{&Exp{arg.term, pow}}
 }
 
-// Norm normalises the result of evaluating a given expression to be either 0
+// Normalise normalises the result of evaluating a given expression to be either 0
 // (if its value was 0) or 1 (otherwise).
-func Norm(arg Expr) Expr {
-	return Expr{&Normalise{arg.term}}
+func Normalise(arg Expr) Expr {
+	return Expr{&Norm{arg.term}}
 }
 
 // Sum zero or more expressions together.

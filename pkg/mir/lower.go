@@ -236,7 +236,7 @@ func lowerTermToInner(ctx trace.Context, e Term, mirSchema *Schema, airSchema *a
 	case *Mul:
 		args := lowerTerms(ctx, e.Args, mirSchema, airSchema)
 		return air.Product(args...)
-	case *Normalise:
+	case *Norm:
 		bounds := rangeOfTerm(e.Arg, mirSchema)
 		// Lower the expression being normalised
 		arg := lowerTermToInner(ctx, e.Arg, mirSchema, airSchema)

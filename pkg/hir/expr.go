@@ -103,31 +103,27 @@ func (e Expr) RequiredCells(row int, tr trace.Trace) *set.AnySortedSet[trace.Cel
 	return requiredCellsOfTerm(e.Term, row, tr)
 }
 
-// Branches returns the number of unique evaluation paths through the given
-// constraint.
-func (e Expr) Branches() uint {
-	// TODO
-	return 1
-}
-
-// Exponent raises a given expression to a given power.
+// Exponent constructs a new expression representing the given argument
+// raised to a given a given power.
 func Exponent(arg Expr, pow uint64) Expr {
 	return Expr{&Exp{arg.Term, pow}}
 }
 
-// NewIfZero a new conditional branch
-func NewIfZero(condition Expr, trueBranch Expr, falseBranch Expr) Expr {
+// If a new conditional branch, where either the true branch or the false branch
+// can (optionally) be VOID (but both cannot).  Note, the true branch is taken
+// when the condition evaluates to zero.
+func If(condition Expr, trueBranch Expr, falseBranch Expr) Expr {
 	return Expr{&IfZero{condition.Term, trueBranch.Term, falseBranch.Term}}
 }
 
-// NewNormalise normalises the result of evaluating a given expression to be
+// Normalise normalises the result of evaluating a given expression to be
 // either 0 (if its value was 0) or 1 (otherwise).
-func NewNormalise(arg Expr) Expr {
-	return Expr{&Normalise{arg.Term}}
+func Normalise(arg Expr) Expr {
+	return Expr{&Norm{arg.Term}}
 }
 
-// NewList constructs a list of 0 or more values
-func NewList(exprs ...Expr) Expr {
+// ListOf constructs a list of 0 or more values
+func ListOf(exprs ...Expr) Expr {
 	terms := asTerms(exprs...)
 	return Expr{&List{terms}}
 }

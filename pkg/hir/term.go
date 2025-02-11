@@ -196,17 +196,17 @@ func (p *Constant) multiplicity() uint { return 1 }
 // Normalise
 // ============================================================================
 
-// Normalise reduces the value of an expression to either zero (if it was zero)
-// or one (otherwise).
-type Normalise struct{ Arg Term }
+// Norm represents the normalisation operator which reduces the value of an
+// expression to either zero (if it was zero) or one (otherwise).
+type Norm struct{ Arg Term }
 
 // Bounds returns max shift in either the negative (left) or positive
 // direction (right).
-func (p *Normalise) Bounds() util.Bounds { return p.Arg.Bounds() }
+func (p *Norm) Bounds() util.Bounds { return p.Arg.Bounds() }
 
 // multiplicity returns the number of underlyg expressions that this
 // expression will expand to.
-func (p *Normalise) multiplicity() uint { return p.Arg.multiplicity() }
+func (p *Norm) multiplicity() uint { return p.Arg.multiplicity() }
 
 // ============================================================================
 // ColumnAccess
@@ -250,6 +250,6 @@ func init() {
 	gob.Register(Term(&IfZero{}))
 	gob.Register(Term(&List{}))
 	gob.Register(Term(&Constant{}))
-	gob.Register(Term(&Normalise{}))
+	gob.Register(Term(&Norm{}))
 	gob.Register(Term(&ColumnAccess{}))
 }

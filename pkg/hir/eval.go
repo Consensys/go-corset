@@ -27,7 +27,7 @@ func evalAtTerm(e Term, k int, trace tr.Trace) []fr.Element {
 		return evalAtList(e, k, trace)
 	case *Mul:
 		return evalAtMul(e, k, trace)
-	case *Normalise:
+	case *Norm:
 		return evalAtNormalise(e, k, trace)
 	case *Sub:
 		return evalAtSub(e, k, trace)
@@ -79,7 +79,7 @@ func evalAtMul(e *Mul, k int, tr trace.Trace) []fr.Element {
 	return evalAtTerms(k, tr, e.Args, fn)
 }
 
-func evalAtNormalise(e *Normalise, k int, tr trace.Trace) []fr.Element {
+func evalAtNormalise(e *Norm, k int, tr trace.Trace) []fr.Element {
 	// Check whether argument evaluates to zero or not.
 	vals := evalAtTerm(e.Arg, k, tr)
 	// Normalise value (if necessary)

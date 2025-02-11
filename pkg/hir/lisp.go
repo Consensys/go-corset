@@ -24,7 +24,7 @@ func lispOfTerm(e Term, schema sc.Schema) sexp.SExp {
 		return nary2Lisp(schema, "begin", e.Args)
 	case *Mul:
 		return nary2Lisp(schema, "*", e.Args)
-	case *Normalise:
+	case *Norm:
 		return lispOfNormalise(e, schema)
 	case *Sub:
 		return nary2Lisp(schema, "-", e.Args)
@@ -83,7 +83,7 @@ func lispOfIfZero(e *IfZero, schema sc.Schema) sexp.SExp {
 	})
 }
 
-func lispOfNormalise(e *Normalise, schema sc.Schema) sexp.SExp {
+func lispOfNormalise(e *Norm, schema sc.Schema) sexp.SExp {
 	arg := lispOfTerm(e.Arg, schema)
 	return sexp.NewList([]sexp.SExp{sexp.NewSymbol("~"), arg})
 }
