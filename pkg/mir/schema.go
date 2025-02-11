@@ -22,7 +22,7 @@ type LookupConstraint = *constraint.LookupConstraint[Expr]
 // VanishingConstraint captures the essence of a vanishing constraint at the MIR
 // level. A vanishing constraint is a row constraint which must evaluate to
 // zero.
-type VanishingConstraint = *constraint.VanishingConstraint[constraint.ZeroTest[Expr]]
+type VanishingConstraint = *constraint.VanishingConstraint[Expr]
 
 // RangeConstraint captures the essence of a range constraints at the MIR level.
 type RangeConstraint = *constraint.RangeConstraint[Expr]
@@ -30,7 +30,7 @@ type RangeConstraint = *constraint.RangeConstraint[Expr]
 // PropertyAssertion captures the notion of an arbitrary property which should
 // hold for all acceptable traces.  However, such a property is not enforced by
 // the prover.
-type PropertyAssertion = *schema.PropertyAssertion[constraint.ZeroTest[Expr]]
+type PropertyAssertion = *schema.PropertyAssertion[Expr]
 
 // Permutation captures the notion of a (sorted) permutation at the MIR level.
 type Permutation = *assignment.SortedPermutation
@@ -127,7 +127,7 @@ func (p *Schema) AddVanishingConstraint(handle string, context trace.Context, do
 	}
 
 	p.constraints = append(p.constraints,
-		constraint.NewVanishingConstraint(handle, context, domain, constraint.ZeroTest[Expr]{Expr: expr}))
+		constraint.NewVanishingConstraint(handle, context, domain, expr))
 }
 
 // AddRangeConstraint appends a new range constraint.
@@ -137,8 +137,7 @@ func (p *Schema) AddRangeConstraint(handle string, context trace.Context, expr E
 
 // AddPropertyAssertion appends a new property assertion.
 func (p *Schema) AddPropertyAssertion(handle string, context trace.Context, expr Expr) {
-	test := constraint.ZeroTest[Expr]{Expr: expr}
-	p.assertions = append(p.assertions, schema.NewPropertyAssertion(handle, context, test))
+	p.assertions = append(p.assertions, schema.NewPropertyAssertion(handle, context, expr))
 }
 
 // ============================================================================

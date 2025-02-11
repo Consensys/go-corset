@@ -6,60 +6,10 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/util/sexp"
 )
-
-// ZeroTest is a wrapper which converts an Evaluable expression into a Testable
-// constraint.  Specifically, by checking whether or not the given expression
-// vanishes (i.e. evaluates to zero).
-type ZeroTest[E sc.Evaluable] struct {
-	Expr E
-}
-
-// TestAt determines whether or not a given expression evaluates to zero.
-// Observe that if the expression is undefined, then it is assumed not to hold.
-func (p ZeroTest[E]) TestAt(row int, tr tr.Trace) bool {
-	val := p.Expr.EvalAt(row, tr)
-	return val.IsZero()
-}
-
-// Bounds determines the bounds for this zero test.
-func (p ZeroTest[E]) Bounds() util.Bounds {
-	return p.Expr.Bounds()
-}
-
-// Context determines the evaluation context (i.e. enclosing module) for this
-// expression.
-func (p ZeroTest[E]) Context(schema sc.Schema) tr.Context {
-	return p.Expr.Context(schema)
-}
-
-// RequiredColumns returns the set of columns on which this term depends.
-// That is, columns whose values may be accessed when evaluating this term
-// on a given trace.
-func (p ZeroTest[E]) RequiredColumns() *set.SortedSet[uint] {
-	return p.Expr.RequiredColumns()
-}
-
-// RequiredCells returns the set of trace cells on which evaluation of this
-// constraint element depends.
-func (p ZeroTest[E]) RequiredCells(row int, tr tr.Trace) *set.AnySortedSet[tr.CellRef] {
-	return p.Expr.RequiredCells(row, tr)
-}
-
-// String generates a human-readble string.
-//
-//nolint:revive
-func (p ZeroTest[E]) String() string {
-	return fmt.Sprintf("%s", any(p.Expr))
-}
-
-// Lisp converts this schema element into a simple S-Expression, for example
-// so it can be printed.
-func (p ZeroTest[E]) Lisp(schema sc.Schema) sexp.SExp {
-	return p.Expr.Lisp(schema)
-}
 
 // VanishingFailure provides structural information about a failing vanishing constraint.
 type VanishingFailure struct {
@@ -114,6 +64,12 @@ func NewVanishingConstraint[T sc.Testable](handle string, context tr.Context,
 	return &VanishingConstraint[T]{handle, context, domain, constraint}
 }
 
+// Name returns a unique name for a given constraint.  This is useful
+// purely for identifying constraints in reports, etc.
+func (p *VanishingConstraint[E]) Name() string {
+	return p.Handle
+}
+
 // Bounds determines the well-definedness bounds for this constraint for both
 // the negative (left) or positive (right) directions.  For example, consider an
 // expression such as "(shift X -1)".  This is technically undefined for the
@@ -121,7 +77,7 @@ func NewVanishingConstraint[T sc.Testable](handle string, context tr.Context,
 // expression on that first row is also undefined (and hence must pass).
 //
 //nolint:revive
-func (p *VanishingConstraint[E]) Bounds(module uint) util.Bounds {
+func (p *VanishingConstraint[T]) Bounds(module uint) util.Bounds {
 	if p.Context.Module() == module {
 		return p.Constraint.Bounds()
 	}
@@ -133,7 +89,7 @@ func (p *VanishingConstraint[E]) Bounds(module uint) util.Bounds {
 // of a table.  If so, return nil otherwise return an error.
 //
 //nolint:revive
-func (p *VanishingConstraint[T]) Accepts(tr tr.Trace) sc.Failure {
+func (p *VanishingConstraint[T]) Accepts(tr tr.Trace) (sc.Coverage, sc.Failure) {
 	if p.Domain.IsEmpty() {
 		// Global Constraint
 		return HoldsGlobally(p.Handle, p.Context, p.Constraint, tr)
@@ -151,13 +107,20 @@ func (p *VanishingConstraint[T]) Accepts(tr tr.Trace) sc.Failure {
 	} else {
 		start = uint(domain)
 	}
+	//
+	var coverage bit.Set
 	// Check specific row
-	return HoldsLocally(start, p.Handle, p.Constraint, tr)
+	err, id := HoldsLocally(start, p.Handle, p.Constraint, tr)
+	//
+	coverage.Insert(id.Key())
+	//
+	return sc.NewCoverage(coverage, p.Constraint.Branches()), err
 }
 
 // HoldsGlobally checks whether a given expression vanishes (i.e. evaluates to
 // zero) for all rows of a trace.  If not, report an appropriate error.
-func HoldsGlobally[T sc.Testable](handle string, ctx tr.Context, constraint T, tr tr.Trace) sc.Failure {
+func HoldsGlobally[T sc.Testable](handle string, ctx tr.Context, constraint T, tr tr.Trace) (sc.Coverage, sc.Failure) {
+	coverage := sc.NewCoverage(bit.Set{}, constraint.Branches())
 	// Determine height of enclosing module
 	height := tr.Height(ctx)
 	// Determine well-definedness bounds for this constraint
@@ -166,25 +129,29 @@ func HoldsGlobally[T sc.Testable](handle string, ctx tr.Context, constraint T, t
 	if bounds.End < height {
 		// Check all in-bounds values
 		for k := bounds.Start; k < (height - bounds.End); k++ {
-			if err := HoldsLocally(k, handle, constraint, tr); err != nil {
-				return err
+			err, id := HoldsLocally(k, handle, constraint, tr)
+			if err != nil {
+				return coverage, err
 			}
+			// Update coverage
+			coverage.Covered.Insert(id.Key())
 		}
 	}
 	// Success
-	return nil
+	return coverage, nil
 }
 
 // HoldsLocally checks whether a given constraint holds (e.g. vanishes) on a
 // specific row of a trace. If not, report an appropriate error.
-func HoldsLocally[T sc.Testable](k uint, handle string, constraint T, tr tr.Trace) sc.Failure {
+func HoldsLocally[T sc.Testable](k uint, handle string, constraint T, tr tr.Trace) (sc.Failure, sc.BranchMetric) {
+	ok, id := constraint.TestAt(int(k), tr)
 	// Check whether it holds or not
-	if !constraint.TestAt(int(k), tr) {
+	if !ok {
 		// Evaluation failure
-		return &VanishingFailure{handle, constraint, k}
+		return &VanishingFailure{handle, constraint, k}, id
 	}
 	// Success
-	return nil
+	return nil, id
 }
 
 // Lisp converts this constraint into an S-Expression.

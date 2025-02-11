@@ -57,6 +57,12 @@ func NewRangeConstraint[E sc.Evaluable](handle string, context trace.Context,
 	return &RangeConstraint[E]{handle, context, expr, bound}
 }
 
+// Name returns a unique name for a given constraint.  This is useful
+// purely for identifying constraints in reports, etc.
+func (p *RangeConstraint[E]) Name() string {
+	return p.Handle
+}
+
 // BoundedAtMost determines whether the bound for this constraint is at most a given bound.
 func (p *RangeConstraint[E]) BoundedAtMost(bound uint) bool {
 	var n fr.Element = fr.NewElement(uint64(bound))
@@ -82,7 +88,8 @@ func (p *RangeConstraint[E]) Bounds(module uint) util.Bounds {
 // nil otherwise return an error.
 //
 //nolint:revive
-func (p *RangeConstraint[E]) Accepts(tr trace.Trace) schema.Failure {
+func (p *RangeConstraint[E]) Accepts(tr trace.Trace) (sc.Coverage, schema.Failure) {
+	var coverage sc.Coverage
 	// Determine height of enclosing module
 	height := tr.Height(p.Context)
 	// Iterate every row
@@ -92,11 +99,11 @@ func (p *RangeConstraint[E]) Accepts(tr trace.Trace) schema.Failure {
 		// Perform the range check
 		if kth.Cmp(&p.Bound) >= 0 {
 			// Evaluation failure
-			return &RangeFailure{p.Handle, p.Expr, uint(k)}
+			return coverage, &RangeFailure{p.Handle, p.Expr, uint(k)}
 		}
 	}
 	// All good
-	return nil
+	return coverage, nil
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example so

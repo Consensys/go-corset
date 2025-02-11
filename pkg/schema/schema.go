@@ -85,14 +85,20 @@ type Assignment interface {
 // with an error (or eventually perhaps report a warning).
 type Constraint interface {
 	Lispifiable
-	//
-	Accepts(tr.Trace) Failure
+	// Accepts determines whether a given constraint accepts a given trace or
+	// not.  If not, a failure is produced.  Otherwise, a bitset indicating
+	// branch coverage is returned.
+	Accepts(tr.Trace) (Coverage, Failure)
 	// Determine the well-definedness bounds for this constraint in both the
 	// negative (left) or positive (right) directions.  For example, consider an
 	// expression such as "(shift X -1)".  This is technically undefined for the
 	// first row of any trace and, by association, any constraint evaluating
 	// this expression on that first row is also undefined (and hence must pass)
 	Bounds(modult uint) util.Bounds
+
+	// Name returns a unique name for a given constraint.  This is useful
+	// purely for identifying constraints in reports, etc.
+	Name() string
 }
 
 // Failure embodies structured information about a failing constraint.
@@ -137,7 +143,11 @@ type Testable interface {
 	// context then it returns "nil".  An expression can be undefined for
 	// several reasons: firstly, if it accesses a row which does not exist (e.g.
 	// at index -1); secondly, if it accesses a column which does not exist.
-	TestAt(int, tr.Trace) bool
+	TestAt(int, tr.Trace) (bool, BranchMetric)
+
+	// Branches returns the number of unique evaluation paths through the given
+	// constraint.
+	Branches() uint
 }
 
 // Contextual captures something which requires an evaluation context (i.e. a

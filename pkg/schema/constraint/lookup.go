@@ -67,6 +67,12 @@ func NewLookupConstraint[E schema.Evaluable](handle string, source trace.Context
 	return &LookupConstraint[E]{handle, source, target, sources, targets}
 }
 
+// Name returns a unique name for a given constraint.  This is useful
+// purely for identifying constraints in reports, etc.
+func (p *LookupConstraint[E]) Name() string {
+	return p.Handle
+}
+
 // Bounds determines the well-definedness bounds for this constraint for both
 // the negative (left) or positive (right) directions.  For example, consider an
 // expression such as "(shift X -1)".  This is technically undefined for the
@@ -96,7 +102,8 @@ func (p *LookupConstraint[E]) Bounds(module uint) util.Bounds {
 // all rows of the source columns.
 //
 //nolint:revive
-func (p *LookupConstraint[E]) Accepts(tr trace.Trace) schema.Failure {
+func (p *LookupConstraint[E]) Accepts(tr trace.Trace) (sc.Coverage, schema.Failure) {
+	var coverage sc.Coverage
 	// Determine height of enclosing module for source columns
 	src_height := tr.Height(p.SourceContext)
 	tgt_height := tr.Height(p.TargetContext)
@@ -112,11 +119,11 @@ func (p *LookupConstraint[E]) Accepts(tr trace.Trace) schema.Failure {
 		ith_bytes := evalExprsAt(i, p.Sources, tr)
 		// Check whether contained.
 		if !rows.Contains(hash.NewBytesKey(ith_bytes)) {
-			return &LookupFailure{fmt.Sprintf("lookup \"%s\" failed (row %d)", p.Handle, i)}
+			return coverage, &LookupFailure{fmt.Sprintf("lookup \"%s\" failed (row %d)", p.Handle, i)}
 		}
 	}
 	//
-	return nil
+	return coverage, nil
 }
 
 func evalExprsAt[E schema.Evaluable](k int, sources []E, tr trace.Trace) []byte {

@@ -45,7 +45,7 @@ var testCmd = &cobra.Command{
 		// cfg.strict = !GetFlag(cmd, "warn")
 		// cfg.quiet = GetFlag(cmd, "quiet")
 		cfg.padding.Right = GetUint(cmd, "padding")
-		cfg.parallelExpansion = !GetFlag(cmd, "sequential")
+		cfg.parallel = !GetFlag(cmd, "sequential")
 		cfg.batchSize = GetUint(cmd, "batch")
 		cfg.ansiEscapes = GetFlag(cmd, "ansi-escapes")
 		// TODO: support true ranges
@@ -87,7 +87,7 @@ func runTests(nrows uint, cfg checkConfig, hirSchema *hir.Schema) bool {
 func testTraceWithLowering(trace tr.Trace, schema *hir.Schema, cfg checkConfig) bool {
 	ok := true
 	// Check whether assertions hold for this trace
-	asserts := sc.Asserts(cfg.batchSize, schema, trace)
+	_, asserts := sc.Asserts(cfg.parallel, cfg.batchSize, schema, trace)
 	// Process individually
 	if cfg.hir {
 		ok = testTrace("HIR", asserts, trace, schema, cfg) && ok
@@ -109,7 +109,7 @@ func testTrace(ir string, asserts []sc.Failure, trace tr.Trace, schema sc.Schema
 	//
 	for n := cfg.padding.Left; n <= cfg.padding.Right; n++ {
 		// Check constraints
-		if errs := sc.Accepts(cfg.batchSize, schema, trace); len(asserts) > 0 && len(errs) == 0 {
+		if _, errs := sc.Accepts(cfg.parallel, cfg.batchSize, schema, trace); len(asserts) > 0 && len(errs) == 0 {
 			// Trace accepts, but at least one assertion has failed.
 			reportFailures(ir, asserts, trace, cfg)
 			// Indicate all is not well

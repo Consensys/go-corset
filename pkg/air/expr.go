@@ -6,6 +6,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/sexp"
 )
 
 // Expr represents an expression in the Arithmetic Intermediate Representation
@@ -14,310 +15,147 @@ import (
 // those which cannot.  The latter represent expressions which cannot be
 // expressed within a polynomial but can be computed externally (e.g. during
 // trace expansion).
-type Expr interface {
-	util.Boundable
-	sc.Evaluable
-
-	// Add two expressions together, producing a third.
-	Add(Expr) Expr
-
-	// Subtract one expression from another
-	Sub(Expr) Expr
-
-	// Multiply two expressions together, producing a third.
-	Mul(Expr) Expr
-
-	// Equate one expression with another
-	Equate(Expr) Expr
-
-	// AsConstant determines whether or not this is a constant expression.  If
-	// so, the constant is returned; otherwise, nil is returned.  NOTE: this
-	// does not perform any form of simplification to determine this.
-	AsConstant() *fr.Element
+type Expr struct {
+	// Termession to be evaluated, etc.
+	Term Term
 }
 
-// ============================================================================
-// Addition
-// ============================================================================
+var _ sc.Evaluable = Expr{}
 
-// Add represents the sum over zero or more expressions.
-type Add struct{ Args []Expr }
-
-// Context determines the evaluation context (i.e. enclosing module) for this
-// expression.
-func (p *Add) Context(schema sc.Schema) trace.Context {
-	return sc.JoinContexts[Expr](p.Args, schema)
+// NewColumnAccess constructs an AIR expression representing the value of a given
+// column on the current row.
+func NewColumnAccess(column uint, shift int) Expr {
+	return Expr{&ColumnAccess{column, shift}}
 }
-
-// RequiredColumns returns the set of columns on which this term depends.
-// That is, columns whose values may be accessed when evaluating this term
-// on a given trace.
-func (p *Add) RequiredColumns() *set.SortedSet[uint] {
-	return set.UnionSortedSets(p.Args, func(e Expr) *set.SortedSet[uint] {
-		return e.RequiredColumns()
-	})
-}
-
-// RequiredCells returns the set of trace cells on which this term depends.
-// That is, evaluating this term at the given row in the given trace will read
-// these cells.
-func (p *Add) RequiredCells(row int, tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
-	return set.UnionAnySortedSets(p.Args, func(e Expr) *set.AnySortedSet[trace.CellRef] {
-		return e.RequiredCells(row, tr)
-	})
-}
-
-// Add two expressions together, producing a third.
-func (p *Add) Add(other Expr) Expr { return &Add{Args: []Expr{p, other}} }
-
-// Sub (subtract) one expression from another.
-func (p *Add) Sub(other Expr) Expr { return &Sub{Args: []Expr{p, other}} }
-
-// Mul (multiply) two expressions together, producing a third.
-func (p *Add) Mul(other Expr) Expr { return &Mul{Args: []Expr{p, other}} }
-
-// Equate one expression with another (equivalent to subtraction).
-func (p *Add) Equate(other Expr) Expr { return &Sub{Args: []Expr{p, other}} }
-
-// Bounds returns max shift in either the negative (left) or positive
-// direction (right).
-func (p *Add) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
-
-// AsConstant determines whether or not this is a constant expression.  If
-// so, the constant is returned; otherwise, nil is returned.  NOTE: this
-// does not perform any form of simplification to determine this.
-func (p *Add) AsConstant() *fr.Element { return nil }
-
-// ============================================================================
-// Subtraction
-// ============================================================================
-
-// Sub represents the subtraction over zero or more expressions.
-type Sub struct{ Args []Expr }
-
-// Context determines the evaluation context (i.e. enclosing module) for this
-// expression.
-func (p *Sub) Context(schema sc.Schema) trace.Context {
-	return sc.JoinContexts[Expr](p.Args, schema)
-}
-
-// RequiredColumns returns the set of columns on which this term depends.
-// That is, columns whose values may be accessed when evaluating this term
-// on a given trace.
-func (p *Sub) RequiredColumns() *set.SortedSet[uint] {
-	return set.UnionSortedSets(p.Args, func(e Expr) *set.SortedSet[uint] {
-		return e.RequiredColumns()
-	})
-}
-
-// RequiredCells returns the set of trace cells on which this term depends.
-// That is, evaluating this term at the given row in the given trace will read
-// these cells.
-func (p *Sub) RequiredCells(row int, tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
-	return set.UnionAnySortedSets(p.Args, func(e Expr) *set.AnySortedSet[trace.CellRef] {
-		return e.RequiredCells(row, tr)
-	})
-}
-
-// Add two expressions together, producing a third.
-func (p *Sub) Add(other Expr) Expr { return &Add{Args: []Expr{p, other}} }
-
-// Sub (subtract) one expression from another.
-func (p *Sub) Sub(other Expr) Expr { return &Sub{Args: []Expr{p, other}} }
-
-// Mul (multiply) two expressions together, producing a third.
-func (p *Sub) Mul(other Expr) Expr { return &Mul{Args: []Expr{p, other}} }
-
-// Equate one expression with another (equivalent to subtraction).
-func (p *Sub) Equate(other Expr) Expr { return &Sub{Args: []Expr{p, other}} }
-
-// Bounds returns max shift in either the negative (left) or positive
-// direction (right).
-func (p *Sub) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
-
-// AsConstant determines whether or not this is a constant expression.  If
-// so, the constant is returned; otherwise, nil is returned.  NOTE: this
-// does not perform any form of simplification to determine this.
-func (p *Sub) AsConstant() *fr.Element { return nil }
-
-// ============================================================================
-// Multiplication
-// ============================================================================
-
-// Mul represents the product over zero or more expressions.
-type Mul struct{ Args []Expr }
-
-// Context determines the evaluation context (i.e. enclosing module) for this
-// expression.
-func (p *Mul) Context(schema sc.Schema) trace.Context {
-	return sc.JoinContexts[Expr](p.Args, schema)
-}
-
-// RequiredColumns returns the set of columns on which this term depends.
-// That is, columns whose values may be accessed when evaluating this term
-// on a given trace.
-func (p *Mul) RequiredColumns() *set.SortedSet[uint] {
-	return set.UnionSortedSets(p.Args, func(e Expr) *set.SortedSet[uint] {
-		return e.RequiredColumns()
-	})
-}
-
-// RequiredCells returns the set of trace cells on which this term depends.
-// That is, evaluating this term at the given row in the given trace will read
-// these cells.
-func (p *Mul) RequiredCells(row int, tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
-	return set.UnionAnySortedSets(p.Args, func(e Expr) *set.AnySortedSet[trace.CellRef] {
-		return e.RequiredCells(row, tr)
-	})
-}
-
-// Add two expressions together, producing a third.
-func (p *Mul) Add(other Expr) Expr { return &Add{Args: []Expr{p, other}} }
-
-// Sub (subtract) one expression from another.
-func (p *Mul) Sub(other Expr) Expr { return &Sub{Args: []Expr{p, other}} }
-
-// Mul (multiply) two expressions together, producing a third.
-func (p *Mul) Mul(other Expr) Expr { return &Mul{Args: []Expr{p, other}} }
-
-// Equate one expression with another (equivalent to subtraction).
-func (p *Mul) Equate(other Expr) Expr { return &Sub{Args: []Expr{p, other}} }
-
-// Bounds returns max shift in either the negative (left) or positive
-// direction (right).
-func (p *Mul) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
-
-// AsConstant determines whether or not this is a constant expression.  If
-// so, the constant is returned; otherwise, nil is returned.  NOTE: this
-// does not perform any form of simplification to determine this.
-func (p *Mul) AsConstant() *fr.Element { return nil }
-
-// ============================================================================
-// Constant
-// ============================================================================
-
-// Constant represents a constant value within an expression.
-type Constant struct{ Value fr.Element }
 
 // NewConst construct an AIR expression representing a given constant.
 func NewConst(val fr.Element) Expr {
-	return &Constant{val}
+	return Expr{&Constant{val}}
 }
 
 // NewConst64 construct an AIR expression representing a given constant from a
 // uint64.
 func NewConst64(val uint64) Expr {
 	element := fr.NewElement(val)
-	return &Constant{element}
+	return Expr{&Constant{element}}
 }
-
-// Context determines the evaluation context (i.e. enclosing module) for this
-// expression.
-func (p *Constant) Context(schema sc.Schema) trace.Context {
-	return trace.VoidContext[uint]()
-}
-
-// RequiredColumns returns the set of columns on which this term depends.
-// That is, columns whose values may be accessed when evaluating this term
-// on a given trace.
-func (p *Constant) RequiredColumns() *set.SortedSet[uint] {
-	return set.NewSortedSet[uint]()
-}
-
-// RequiredCells returns the set of trace cells on which this term depends.
-// In this case, that is the empty set.
-func (p *Constant) RequiredCells(row int, tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
-	return set.NewAnySortedSet[trace.CellRef]()
-}
-
-// Add two expressions together, producing a third.
-func (p *Constant) Add(other Expr) Expr { return &Add{Args: []Expr{p, other}} }
-
-// Sub (subtract) one expression from another.
-func (p *Constant) Sub(other Expr) Expr { return &Sub{Args: []Expr{p, other}} }
-
-// Mul (multiply) two expressions together, producing a third.
-func (p *Constant) Mul(other Expr) Expr { return &Mul{Args: []Expr{p, other}} }
-
-// Equate one expression with another (equivalent to subtraction).
-func (p *Constant) Equate(other Expr) Expr { return &Sub{Args: []Expr{p, other}} }
-
-// Bounds returns max shift in either the negative (left) or positive
-// direction (right).  A constant has zero shift.
-func (p *Constant) Bounds() util.Bounds { return util.EMPTY_BOUND }
 
 // AsConstant determines whether or not this is a constant expression.  If
 // so, the constant is returned; otherwise, nil is returned.  NOTE: this
 // does not perform any form of simplification to determine this.
-func (p *Constant) AsConstant() *fr.Element { return &p.Value }
-
-// ColumnAccess represents reading the value held at a given column in the
-// tabular context.  Furthermore, the current row maybe shifted up (or down) by
-// a given amount. Suppose we are evaluating a constraint on row k=5 which
-// contains the column accesses "STAMP(0)" and "CT(-1)".  Then, STAMP(0)
-// accesses the STAMP column at row 5, whilst CT(-1) accesses the CT column at
-// row 4.
-type ColumnAccess struct {
-	Column uint
-	Shift  int
-}
-
-// NewColumnAccess constructs an AIR expression representing the value of a given
-// column on the current row.
-func NewColumnAccess(column uint, shift int) *ColumnAccess {
-	return &ColumnAccess{column, shift}
+func (e Expr) AsConstant() *fr.Element {
+	return constantOfTerm(e.Term)
 }
 
 // Context determines the evaluation context (i.e. enclosing module) for this
-// expression.
-func (p *ColumnAccess) Context(schema sc.Schema) trace.Context {
-	col := schema.Columns().Nth(p.Column)
-	return col.Context
+func (e Expr) Context(schema sc.Schema) trace.Context {
+	return contextOfTerm(e.Term, schema)
 }
-
-// RequiredColumns returns the set of columns on which this term depends.
-// That is, columns whose values may be accessed when evaluating this term
-// on a given trace.
-func (p *ColumnAccess) RequiredColumns() *set.SortedSet[uint] {
-	r := set.NewSortedSet[uint]()
-	r.Insert(p.Column)
-	// Done
-	return r
-}
-
-// RequiredCells returns the set of trace cells on which this term depends.
-// In this case, that is the empty set.
-func (p *ColumnAccess) RequiredCells(row int, tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
-	set := set.NewAnySortedSet[trace.CellRef]()
-	set.Insert(trace.NewCellRef(p.Column, row+p.Shift))
-	//
-	return set
-}
-
-// Add two expressions together, producing a third.
-func (p *ColumnAccess) Add(other Expr) Expr { return &Add{Args: []Expr{p, other}} }
-
-// Sub (subtract) one expression from another.
-func (p *ColumnAccess) Sub(other Expr) Expr { return &Sub{Args: []Expr{p, other}} }
-
-// Mul (multiply) two expressions together, producing a third.
-func (p *ColumnAccess) Mul(other Expr) Expr { return &Mul{Args: []Expr{p, other}} }
-
-// Equate one expression with another (equivalent to subtraction).
-func (p *ColumnAccess) Equate(other Expr) Expr { return &Sub{Args: []Expr{p, other}} }
 
 // Bounds returns max shift in either the negative (left) or positive
 // direction (right).
-func (p *ColumnAccess) Bounds() util.Bounds {
-	if p.Shift >= 0 {
-		// Positive shift
-		return util.NewBounds(0, uint(p.Shift))
-	}
-	// Negative shift
-	return util.NewBounds(uint(-p.Shift), 0)
+func (e Expr) Bounds() util.Bounds { return e.Term.Bounds() }
+
+// Lisp converts this schema element into a simple S-Termession, for example
+// so it can be printed.
+func (e Expr) Lisp(schema sc.Schema) sexp.SExp {
+	return lispOfTerm(e.Term, schema)
 }
 
-// AsConstant determines whether or not this is a constant expression.  If
-// so, the constant is returned; otherwise, nil is returned.  NOTE: this
-// does not perform any form of simplification to determine this.
-func (p *ColumnAccess) AsConstant() *fr.Element { return nil }
+// RequiredColumns returns the set of columns on which this term depends.
+// That is, columns whose values may be accessed when evaluating this term
+// on a given trace.
+func (e Expr) RequiredColumns() *set.SortedSet[uint] {
+	return requiredColumnsOfTerm(e.Term)
+}
+
+// RequiredCells returns the set of trace cells on which this term depends.
+// That is, evaluating this term at the given row in the given trace will read
+// these cells.
+func (e Expr) RequiredCells(row int, tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
+	return requiredCellsOfTerm(e.Term, row, tr)
+}
+
+// EvalAt evaluates a column access at a given row in a trace, which returns the
+// value at that row of the column in question or nil is that row is
+// out-of-bounds.
+func (e Expr) EvalAt(k int, tr trace.Trace) fr.Element {
+	val, _ := evalAtTerm[sc.NoMetric](e.Term, k, tr)
+	//
+	return val
+}
+
+// TestAt evaluates this expression in a given tabular context and checks it
+// against zero. Observe that if this expression is *undefined* within this
+// context then it returns "nil".  An expression can be undefined for
+// several reasons: firstly, if it accesses a row which does not exist (e.g.
+// at index -1); secondly, if it accesses a column which does not exist.
+func (e Expr) TestAt(k int, tr trace.Trace) (bool, sc.BranchMetric) {
+	val, path := evalAtTerm[sc.BranchMetric](e.Term, k, tr)
+	//
+	return val.IsZero(), path
+}
+
+// Branches returns the number of unique evaluation paths through the given
+// constraint.
+func (e Expr) Branches() uint {
+	return pathsOfTerm(e.Term)
+}
+
+// Add two expressions together.
+func (e Expr) Add(arg Expr) Expr {
+	return Expr{&Add{Args: []Term{e.Term, arg.Term}}}
+}
+
+// Sub subtracts the argument from this expression.
+func (e Expr) Sub(arg Expr) Expr {
+	return Expr{&Sub{Args: []Term{e.Term, arg.Term}}}
+}
+
+// Mul multiplies this expression with the argument
+func (e Expr) Mul(arg Expr) Expr {
+	return Expr{&Mul{Args: []Term{e.Term, arg.Term}}}
+}
+
+// Equate equates this expression with the argument.
+func (e Expr) Equate(arg Expr) Expr {
+	return Expr{&Sub{Args: []Term{e.Term, arg.Term}}}
+}
+
+// Sum zero or more expressions together.
+func Sum(exprs ...Expr) Expr {
+	if len(exprs) == 0 {
+		return NewConst64(0)
+	}
+	//
+	return Expr{&Add{asTerms(exprs...)}}
+}
+
+// Product returns the product of zero or more multiplications.
+func Product(exprs ...Expr) Expr {
+	if len(exprs) == 0 {
+		return NewConst64(1)
+	}
+	//
+	return Expr{&Mul{asTerms(exprs...)}}
+}
+
+// Subtract returns the subtraction of the subsequent expressions from the
+// first.
+func Subtract(exprs ...Expr) Expr {
+	if len(exprs) == 0 {
+		return NewConst64(0)
+	}
+	//
+	return Expr{&Sub{asTerms(exprs...)}}
+}
+
+func asTerms(exprs ...Expr) []Term {
+	terms := make([]Term, len(exprs))
+	//
+	for i, e := range exprs {
+		terms[i] = e.Term
+	}
+	//
+	return terms
+}

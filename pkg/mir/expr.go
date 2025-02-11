@@ -1,13 +1,12 @@
 package mir
 
 import (
-	"math/big"
-
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/sexp"
 )
 
 // Expr represents an expression in the Mid-Level Intermediate Representation
@@ -15,353 +14,218 @@ import (
 // expressions in the AIR level.  However, some expressions at this level do not
 // exist at the AIR level (e.g. normalise) and are "compiled out" by introducing
 // appropriate computed columns and constraints.
-type Expr interface {
-	util.Boundable
-	sc.Evaluable
-
-	// IntRange computes a conservative approximation for the set of possible
-	// values that this expression can evaluate to.
-	IntRange(schema sc.Schema) *util.Interval
+type Expr struct {
+	// Termession to be evaluated, etc.
+	term Term
 }
 
-// ============================================================================
-// Addition
-// ============================================================================
+var _ sc.Evaluable = Expr{}
 
-// Add represents the sum over zero or more expressions.
-type Add struct{ Args []Expr }
+// ZERO represents the constant expression equivalent to 1.
+var ZERO Expr
+
+// ONE represents the constant expression equivalent to 1.
+var ONE Expr
+
+// NewColumnAccess constructs an AIR expression representing the value of a given
+// column on the current row.
+func NewColumnAccess(column uint, shift int) Expr {
+	return Expr{&ColumnAccess{column, shift}}
+}
+
+// NewConst construct an AIR expression representing a given constant.
+func NewConst(val fr.Element) Expr {
+	return Expr{&Constant{val}}
+}
+
+// NewConst64 construct an AIR expression representing a given constant from a
+// uint64.
+func NewConst64(val uint64) Expr {
+	element := fr.NewElement(val)
+	return Expr{&Constant{element}}
+}
+
+// Context determines the evaluation context (i.e. enclosing module) for this
+func (e Expr) Context(schema sc.Schema) trace.Context {
+	return contextOfTerm(e.term, schema)
+}
 
 // Bounds returns max shift in either the negative (left) or positive
 // direction (right).
-func (p *Add) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
+func (e Expr) Bounds() util.Bounds { return e.term.Bounds() }
 
-// Context determines the evaluation context (i.e. enclosing module) for this
-// expression.
-func (p *Add) Context(schema sc.Schema) trace.Context {
-	return sc.JoinContexts[Expr](p.Args, schema)
+// IntRange computes a conservative approximation for the set of possible
+// values that this expression can evaluate to.
+func (e Expr) IntRange(schema sc.Schema) *util.Interval {
+	return rangeOfTerm(e.term, schema)
+}
+
+// Lisp converts this schema element into a simple S-Termession, for example
+// so it can be printed.
+func (e Expr) Lisp(schema sc.Schema) sexp.SExp {
+	return lispOfTerm(e.term, schema)
 }
 
 // RequiredColumns returns the set of columns on which this term depends.
 // That is, columns whose values may be accessed when evaluating this term
 // on a given trace.
-func (p *Add) RequiredColumns() *set.SortedSet[uint] {
-	return set.UnionSortedSets(p.Args, func(e Expr) *set.SortedSet[uint] {
-		return e.RequiredColumns()
-	})
+func (e Expr) RequiredColumns() *set.SortedSet[uint] {
+	return requiredColumnsOfTerm(e.term)
 }
 
 // RequiredCells returns the set of trace cells on which this term depends.
 // That is, evaluating this term at the given row in the given trace will read
 // these cells.
-func (p *Add) RequiredCells(row int, tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
-	return set.UnionAnySortedSets(p.Args, func(e Expr) *set.AnySortedSet[trace.CellRef] {
-		return e.RequiredCells(row, tr)
-	})
+func (e Expr) RequiredCells(row int, tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
+	return requiredCellsOfTerm(e.term, row, tr)
 }
 
-// IntRange computes a conservative approximation for the set of possible
-// values that this expression can evaluate to.
-func (p *Add) IntRange(schema sc.Schema) *util.Interval {
-	var res util.Interval
+// EvalAt evaluates a column access at a given row in a trace, which returns the
+// value at that row of the column in question or nil is that row is
+// out-of-bounds.
+func (e Expr) EvalAt(k int, tr trace.Trace) fr.Element {
+	val, _ := evalAtTerm[sc.NoMetric](e.term, k, tr)
+	//
+	return val
+}
 
-	for i, arg := range p.Args {
-		ith := arg.IntRange(schema)
-		if i == 0 {
-			res.Set(ith)
-		} else {
-			res.Add(ith)
+// TestAt evaluates this expression in a given tabular context and checks it
+// against zero. Observe that if this expression is *undefined* within this
+// context then it returns "nil".  An expression can be undefined for
+// several reasons: firstly, if it accesses a row which does not exist (e.g.
+// at index -1); secondly, if it accesses a column which does not exist.
+func (e Expr) TestAt(k int, tr trace.Trace) (bool, sc.BranchMetric) {
+	val, path := evalAtTerm[sc.BranchMetric](e.term, k, tr)
+	//
+	return val.IsZero(), path
+}
+
+// Branches returns the number of unique evaluation paths through the given
+// constraint.
+func (e Expr) Branches() uint {
+	return pathsOfTerm(e.term)
+}
+
+// Add two expressions together.
+func (e Expr) Add(arg Expr) Expr {
+	return Expr{&Add{Args: []Term{e.term, arg.term}}}
+}
+
+// Sub subtracts the argument from this expression.
+func (e Expr) Sub(arg Expr) Expr {
+	return Expr{&Sub{Args: []Term{e.term, arg.term}}}
+}
+
+// Mul multiplies this expression with the argument
+func (e Expr) Mul(arg Expr) Expr {
+	return Expr{&Mul{Args: []Term{e.term, arg.term}}}
+}
+
+// Equate equates this expression with the argument.
+func (e Expr) Equate(arg Expr) Expr {
+	return Expr{&Sub{Args: []Term{e.term, arg.term}}}
+}
+
+// Exponent raises a given expression to a given power.
+func Exponent(arg Expr, pow uint64) Expr {
+	return Expr{&Exp{arg.term, pow}}
+}
+
+// Norm normalises the result of evaluating a given expression to be either 0
+// (if its value was 0) or 1 (otherwise).
+func Norm(arg Expr) Expr {
+	return Expr{&Normalise{arg.term}}
+}
+
+// Sum zero or more expressions together.
+func Sum(exprs ...Expr) Expr {
+	terms := asTerms(exprs...)
+	// flatten any nested sums
+	terms = util.Flatten(terms, func(t Term) []Term {
+		if t, ok := t.(*Add); ok {
+			return t.Args
 		}
+		//
+		return nil
+	})
+	// Remove any zeros
+	terms = util.RemoveMatching(terms, isZero)
+	// Final optimisation
+	switch len(terms) {
+	case 0:
+		return NewConst64(0)
+	case 1:
+		return Expr{terms[0]}
+	default:
+		return Expr{&Add{terms}}
 	}
-	//
-	return &res
 }
 
-// ============================================================================
-// Subtraction
-// ============================================================================
-
-// Sub represents the subtraction over zero or more expressions.
-type Sub struct{ Args []Expr }
-
-// Bounds returns max shift in either the negative (left) or positive
-// direction (right).
-func (p *Sub) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
-
-// Context determines the evaluation context (i.e. enclosing module) for this
-// expression.
-func (p *Sub) Context(schema sc.Schema) trace.Context {
-	return sc.JoinContexts[Expr](p.Args, schema)
-}
-
-// RequiredColumns returns the set of columns on which this term depends.
-// That is, columns whose values may be accessed when evaluating this term
-// on a given trace.
-func (p *Sub) RequiredColumns() *set.SortedSet[uint] {
-	return set.UnionSortedSets(p.Args, func(e Expr) *set.SortedSet[uint] {
-		return e.RequiredColumns()
-	})
-}
-
-// RequiredCells returns the set of trace cells on which this term depends.
-// That is, evaluating this term at the given row in the given trace will read
-// these cells.
-func (p *Sub) RequiredCells(row int, tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
-	return set.UnionAnySortedSets(p.Args, func(e Expr) *set.AnySortedSet[trace.CellRef] {
-		return e.RequiredCells(row, tr)
-	})
-}
-
-// IntRange computes a conservative approximation for the set of possible
-// values that this expression can evaluate to.
-func (p *Sub) IntRange(schema sc.Schema) *util.Interval {
-	var res util.Interval
-
-	for i, arg := range p.Args {
-		ith := arg.IntRange(schema)
-		if i == 0 {
-			res.Set(ith)
-		} else {
-			res.Sub(ith)
+// Product returns the product of zero or more multiplications.
+func Product(exprs ...Expr) Expr {
+	terms := asTerms(exprs...)
+	// flatten any nested products
+	terms = util.Flatten(terms, func(t Term) []Term {
+		if t, ok := t.(*Mul); ok {
+			return t.Args
 		}
-	}
-	//
-	return &res
-}
-
-// ============================================================================
-// Multiplication
-// ============================================================================
-
-// Mul represents the product over zero or more expressions.
-type Mul struct{ Args []Expr }
-
-// Bounds returns max shift in either the negative (left) or positive
-// direction (right).
-func (p *Mul) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
-
-// Context determines the evaluation context (i.e. enclosing module) for this
-// expression.
-func (p *Mul) Context(schema sc.Schema) trace.Context {
-	return sc.JoinContexts[Expr](p.Args, schema)
-}
-
-// RequiredColumns returns the set of columns on which this term depends.
-// That is, columns whose values may be accessed when evaluating this term
-// on a given trace.
-func (p *Mul) RequiredColumns() *set.SortedSet[uint] {
-	return set.UnionSortedSets(p.Args, func(e Expr) *set.SortedSet[uint] {
-		return e.RequiredColumns()
+		//
+		return nil
 	})
+	// Remove all multiplications by one
+	terms = util.RemoveMatching(terms, isOne)
+	// Check for zero
+	if util.ContainsMatching(terms, isZero) {
+		return ZERO
+	}
+	// Final optimisation
+	switch len(terms) {
+	case 0:
+		return NewConst64(1)
+	case 1:
+		return Expr{terms[0]}
+	default:
+		return Expr{&Mul{terms}}
+	}
 }
 
-// RequiredCells returns the set of trace cells on which this term depends.
-// That is, evaluating this term at the given row in the given trace will read
-// these cells.
-func (p *Mul) RequiredCells(row int, tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
-	return set.UnionAnySortedSets(p.Args, func(e Expr) *set.AnySortedSet[trace.CellRef] {
-		return e.RequiredCells(row, tr)
-	})
-}
-
-// IntRange computes a conservative approximation for the set of possible
-// values that this expression can evaluate to.
-func (p *Mul) IntRange(schema sc.Schema) *util.Interval {
-	var res util.Interval
-
-	for i, arg := range p.Args {
-		ith := arg.IntRange(schema)
-		if i == 0 {
-			res.Set(ith)
-		} else {
-			res.Mul(ith)
-		}
+// Subtract returns the subtraction of the subsequent expressions from the
+// first.
+func Subtract(exprs ...Expr) Expr {
+	if len(exprs) == 0 {
+		return NewConst64(0)
 	}
 	//
-	return &res
+	return Expr{&Sub{asTerms(exprs...)}}
 }
 
-// ============================================================================
-// Exponentiation
-// ============================================================================
-
-// Exp represents the a given value taken to a power.
-type Exp struct {
-	Arg Expr
-	Pow uint64
-}
-
-// Bounds returns max shift in either the negative (left) or positive
-// direction (right).
-func (p *Exp) Bounds() util.Bounds { return p.Arg.Bounds() }
-
-// Context determines the evaluation context (i.e. enclosing module) for this
-// expression.
-func (p *Exp) Context(schema sc.Schema) trace.Context {
-	return p.Arg.Context(schema)
-}
-
-// RequiredColumns returns the set of columns on which this term depends.
-// That is, columns whose values may be accessed when evaluating this term
-// on a given trace.
-func (p *Exp) RequiredColumns() *set.SortedSet[uint] {
-	return p.Arg.RequiredColumns()
-}
-
-// RequiredCells returns the set of trace cells on which this term depends.
-// That is, evaluating this term at the given row in the given trace will read
-// these cells.
-func (p *Exp) RequiredCells(row int, tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
-	return p.Arg.RequiredCells(row, tr)
-}
-
-// IntRange computes a conservative approximation for the set of possible
-// values that this expression can evaluate to.
-func (p *Exp) IntRange(schema sc.Schema) *util.Interval {
-	bounds := p.Arg.IntRange(schema)
-	bounds.Exp(uint(p.Pow))
+func asTerms(exprs ...Expr) []Term {
+	terms := make([]Term, len(exprs))
 	//
-	return bounds
-}
-
-// ============================================================================
-// Constant
-// ============================================================================
-
-// Constant represents a constant value within an expression.
-type Constant struct{ Value fr.Element }
-
-// Bounds returns max shift in either the negative (left) or positive
-// direction (right).  A constant has zero shift.
-func (p *Constant) Bounds() util.Bounds { return util.EMPTY_BOUND }
-
-// Context determines the evaluation context (i.e. enclosing module) for this
-// expression.
-func (p *Constant) Context(schema sc.Schema) trace.Context {
-	return trace.VoidContext[uint]()
-}
-
-// RequiredColumns returns the set of columns on which this term depends.
-// That is, columns whose values may be accessed when evaluating this term
-// on a given trace.
-func (p *Constant) RequiredColumns() *set.SortedSet[uint] {
-	return set.NewSortedSet[uint]()
-}
-
-// RequiredCells returns the set of trace cells on which this term depends.
-// That is, evaluating this term at the given row in the given trace will read
-// these cells.
-func (p *Constant) RequiredCells(row int, tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
-	return set.NewAnySortedSet[trace.CellRef]()
-}
-
-// IntRange computes a conservative approximation for the set of possible
-// values that this expression can evaluate to.
-func (p *Constant) IntRange(schema sc.Schema) *util.Interval {
-	var c big.Int
-	// Extract big integer from field element
-	p.Value.BigInt(&c)
-	// Return as interval
-	return util.NewInterval(&c, &c)
-}
-
-// ============================================================================
-// Normalise
-// ============================================================================
-
-// Normalise reduces the value of an expression to either zero (if it was zero)
-// or one (otherwise).
-type Normalise struct{ Arg Expr }
-
-// Bounds returns max shift in either the negative (left) or positive
-// direction (right).
-func (p *Normalise) Bounds() util.Bounds { return p.Arg.Bounds() }
-
-// Context determines the evaluation context (i.e. enclosing module) for this
-// expression.
-func (p *Normalise) Context(schema sc.Schema) trace.Context {
-	return p.Arg.Context(schema)
-}
-
-// RequiredColumns returns the set of columns on which this term depends.
-// That is, columns whose values may be accessed when evaluating this term
-// on a given trace.
-func (p *Normalise) RequiredColumns() *set.SortedSet[uint] {
-	return p.Arg.RequiredColumns()
-}
-
-// RequiredCells returns the set of trace cells on which this term depends.
-// That is, evaluating this term at the given row in the given trace will read
-// these cells.
-func (p *Normalise) RequiredCells(row int, tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
-	return p.Arg.RequiredCells(row, tr)
-}
-
-// IntRange computes a conservative approximation for the set of possible
-// values that this expression can evaluate to.
-func (p *Normalise) IntRange(schema sc.Schema) *util.Interval {
-	return util.NewInterval(big.NewInt(0), big.NewInt(1))
-}
-
-// ============================================================================
-// ColumnAccess
-// ============================================================================
-
-// ColumnAccess represents reading the value held at a given column in the
-// tabular context.  Furthermore, the current row maybe shifted up (or down) by
-// a given amount. Suppose we are evaluating a constraint on row k=5 which
-// contains the column accesses "STAMP(0)" and "CT(-1)".  Then, STAMP(0)
-// accesses the STAMP column at row 5, whilst CT(-1) accesses the CT column at
-// row 4.
-type ColumnAccess struct {
-	Column uint
-	Shift  int
-}
-
-// Bounds returns max shift in either the negative (left) or positive
-// direction (right).
-func (p *ColumnAccess) Bounds() util.Bounds {
-	if p.Shift >= 0 {
-		// Positive shift
-		return util.NewBounds(0, uint(p.Shift))
+	for i, e := range exprs {
+		terms[i] = e.term
 	}
-	// Negative shift
-	return util.NewBounds(uint(-p.Shift), 0)
+	//
+	return terms
 }
 
-// Context determines the evaluation context (i.e. enclosing module) for this
-// expression.
-func (p *ColumnAccess) Context(schema sc.Schema) trace.Context {
-	col := schema.Columns().Nth(p.Column)
-	return col.Context
+func isOne(term Term) bool {
+	if t, ok := term.(*Constant); ok {
+		return t.Value.IsOne()
+	}
+	//
+	return false
 }
 
-// RequiredColumns returns the set of columns on which this term depends.
-// That is, columns whose values may be accessed when evaluating this term
-// on a given trace.
-func (p *ColumnAccess) RequiredColumns() *set.SortedSet[uint] {
-	r := set.NewSortedSet[uint]()
-	r.Insert(p.Column)
-	// Done
-	return r
+func isZero(term Term) bool {
+	if t, ok := term.(*Constant); ok {
+		return t.Value.IsZero()
+	}
+	//
+	return false
 }
 
-// RequiredCells returns the set of trace cells on which this term depends.
-// In this case, that is the empty set.
-func (p *ColumnAccess) RequiredCells(row int, tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
-	set := set.NewAnySortedSet[trace.CellRef]()
-	set.Insert(trace.NewCellRef(p.Column, row+p.Shift))
-
-	return set
-}
-
-// IntRange computes a conservative approximation for the set of possible
-// values that this expression can evaluate to.
-func (p *ColumnAccess) IntRange(schema sc.Schema) *util.Interval {
-	bound := big.NewInt(2)
-	width := int64(schema.Columns().Nth(p.Column).DataType.BitWidth())
-	bound.Exp(bound, big.NewInt(width), nil)
-	// Subtract 1 because interval is inclusive.
-	bound.Sub(bound, big.NewInt(1))
-	// Done
-	return util.NewInterval(big.NewInt(0), bound)
+func init() {
+	ONE = NewConst64(1)
+	ZERO = NewConst64(0)
 }

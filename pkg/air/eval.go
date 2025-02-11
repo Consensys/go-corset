@@ -1,66 +1,115 @@
 package air
 
 import (
+	"fmt"
+	"reflect"
+
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/trace"
+	sc "github.com/consensys/go-corset/pkg/schema"
+	tr "github.com/consensys/go-corset/pkg/trace"
 )
 
-// EvalAt evaluates a column access at a given row in a trace, which returns the
-// value at that row of the column in question or nil is that row is
-// out-of-bounds.
-func (e *ColumnAccess) EvalAt(k int, tr trace.Trace) fr.Element {
-	return tr.Column(e.Column).Get(k + e.Shift)
+func evalAtTerm[T sc.Metric[T]](e Term, k int, trace tr.Trace) (fr.Element, T) {
+	var id T
+	//
+	switch e := e.(type) {
+	case *Add:
+		return evalAtAdd[T](e, k, trace)
+	case *Constant:
+		return e.Value, id.Empty()
+	case *ColumnAccess:
+		return trace.Column(e.Column).Get(k + e.Shift), id.Empty()
+	case *Mul:
+		return evalAtMul[T](e, k, trace)
+	case *Sub:
+		return evalAtSub[T](e, k, trace)
+	default:
+		name := reflect.TypeOf(e).Name()
+		panic(fmt.Sprintf("unknown AIR expression \"%s\"", name))
+	}
 }
 
-// EvalAt evaluates a constant at a given row in a trace, which simply returns
-// that constant.
-func (e *Constant) EvalAt(k int, tr trace.Trace) fr.Element {
-	return e.Value
-}
-
-// EvalAt evaluates a sum at a given row in a trace by first evaluating all of
-// its arguments at that row.
-func (e *Add) EvalAt(k int, tr trace.Trace) fr.Element {
+func evalAtAdd[T sc.Metric[T]](e *Add, k int, trace tr.Trace) (fr.Element, T) {
 	// Evaluate first argument
-	val := e.Args[0].EvalAt(k, tr)
+	val, metric := evalAtTerm[T](e.Args[0], k, trace)
 	// Continue evaluating the rest
 	for i := 1; i < len(e.Args); i++ {
-		ith := e.Args[i].EvalAt(k, tr)
+		ith, ithmetric := evalAtTerm[T](e.Args[i], k, trace)
 		val.Add(&val, &ith)
+		// update metric
+		metric = metric.Join(ithmetric)
 	}
 	// Done
-	return val
+	return val, metric
 }
 
-// EvalAt evaluates a product at a given row in a trace by first evaluating all of
-// its arguments at that row.
-func (e *Mul) EvalAt(k int, tr trace.Trace) fr.Element {
+func evalAtMul[T sc.Metric[T]](e *Mul, k int, trace tr.Trace) (fr.Element, T) {
+	n := uint(len(e.Args))
 	// Evaluate first argument
-	val := e.Args[0].EvalAt(k, tr)
+	val, metric := evalAtTerm[T](e.Args[0], k, trace)
 	// Continue evaluating the rest
-	for i := 1; i < len(e.Args); i++ {
+	for i := uint(1); i < n; i++ {
+		var ith fr.Element
 		// Can short-circuit evaluation?
 		if val.IsZero() {
-			break
+			return val, metric.Mark(i-1, n)
 		}
 		// No
-		ith := e.Args[i].EvalAt(k, tr)
+		ith, metric = evalAtTerm[T](e.Args[i], k, trace)
+		//
 		val.Mul(&val, &ith)
 	}
 	// Done
-	return val
+	return val, metric.Mark(n-1, n)
 }
 
-// EvalAt evaluates a subtraction at a given row in a trace by first evaluating all of
-// its arguments at that row.
-func (e *Sub) EvalAt(k int, tr trace.Trace) fr.Element {
+func evalAtSub[T sc.Metric[T]](e *Sub, k int, trace tr.Trace) (fr.Element, T) {
 	// Evaluate first argument
-	val := e.Args[0].EvalAt(k, tr)
+	val, metric := evalAtTerm[T](e.Args[0], k, trace)
 	// Continue evaluating the rest
 	for i := 1; i < len(e.Args); i++ {
-		ith := e.Args[i].EvalAt(k, tr)
+		ith, ithmetric := evalAtTerm[T](e.Args[i], k, trace)
 		val.Sub(&val, &ith)
+		// update metric
+		metric = metric.Join(ithmetric)
 	}
 	// Done
-	return val
+	return val, metric
+}
+
+// Determine the number of distinct evaluation paths through a given term.
+func pathsOfTerm(e Term) uint {
+	switch e := e.(type) {
+	case *Add:
+		count := uint(1)
+		//
+		for _, arg := range e.Args {
+			count *= pathsOfTerm(arg)
+		}
+		//
+		return count
+	case *Constant:
+		return 1
+	case *ColumnAccess:
+		return 1
+	case *Sub:
+		count := uint(1)
+		//
+		for _, arg := range e.Args {
+			count *= pathsOfTerm(arg)
+		}
+		//
+		return count
+	case *Mul:
+		count := uint(0)
+		//
+		for _, arg := range e.Args {
+			count += pathsOfTerm(arg)
+		}
+		//
+		return count
+	default:
+		name := reflect.TypeOf(e).Name()
+		panic(fmt.Sprintf("unknown AIR expression \"%s\"", name))
+	}
 }
