@@ -33,7 +33,7 @@ func (p *Schema) LowerToMir() *mir.Schema {
 	// Copy property assertions.  Observe, these do not require lowering
 	// because they are already MIR-level expressions.
 	for _, c := range p.assertions {
-		properties := c.Property.Expr.LowerTo(mirSchema)
+		properties := lowerTo(c.Property.Expr, mirSchema)
 		for _, p := range properties {
 			mirSchema.AddPropertyAssertion(c.Handle, c.Context, p)
 		}
@@ -47,7 +47,7 @@ func lowerConstraintToMir(c sc.Constraint, schema *mir.Schema) {
 	if v, ok := c.(LookupConstraint); ok {
 		lowerLookupConstraint(v, schema)
 	} else if v, ok := c.(VanishingConstraint); ok {
-		mir_exprs := v.Constraint.Expr.LowerTo(schema)
+		mir_exprs := lowerTo(v.Constraint.Expr, schema)
 		// Add individual constraints arising
 		for i, mir_expr := range mir_exprs {
 			var handle string = v.Handle
@@ -104,70 +104,6 @@ func lowerUnitTo(e UnitExpr, schema *mir.Schema) mir.Expr {
 	return exprs[0]
 }
 
-// LowerTo lowers a sum expression to the MIR level.  This requires expanding
-// the arguments, then lowering them.  Furthermore, conditionals are "lifted" to
-// the top.
-func (e *Add) LowerTo(schema *mir.Schema) []mir.Expr {
-	return lowerTo(e, schema)
-}
-
-// LowerTo lowers a constant to the MIR level.   This requires expanding the
-// arguments, then lowering them.  Furthermore, conditionals are "lifted" to the
-// top.
-func (e *Constant) LowerTo(schema *mir.Schema) []mir.Expr {
-	return lowerTo(e, schema)
-}
-
-// LowerTo lowers a column access to the MIR level.  This requires expanding
-// the arguments, then lowering them.  Furthermore, conditionals are "lifted" to
-// the top.
-func (e *ColumnAccess) LowerTo(schema *mir.Schema) []mir.Expr {
-	return lowerTo(e, schema)
-}
-
-// LowerTo lowers an exponent expression to the MIR level.  This requires expanding
-// the argument andn lowering it.  Furthermore, conditionals are "lifted" to
-// the top.
-func (e *Exp) LowerTo(schema *mir.Schema) []mir.Expr {
-	return lowerTo(e, schema)
-}
-
-// LowerTo lowers a product expression to the MIR level.  This requires expanding
-// the arguments, then lowering them.  Furthermore, conditionals are "lifted" to
-// the top.
-func (e *Mul) LowerTo(schema *mir.Schema) []mir.Expr {
-	return lowerTo(e, schema)
-}
-
-// LowerTo lowers a list expression to the MIR level by eliminating it
-// altogether.  This still requires expanding the arguments, then lowering them.
-// Furthermore, conditionals are "lifted" to the top..
-func (e *List) LowerTo(schema *mir.Schema) []mir.Expr {
-	return lowerTo(e, schema)
-}
-
-// LowerTo lowers a normalise expression to the MIR level.  This requires
-// expanding the arguments, then lowering them.  Furthermore, conditionals are
-// "lifted" to the top..
-func (e *Normalise) LowerTo(schema *mir.Schema) []mir.Expr {
-	return lowerTo(e, schema)
-}
-
-// LowerTo lowers an if expression to the MIR level by "compiling out" the
-// expression using normalisation at the MIR level.  This also requires
-// expanding the arguments, then lowering them.  Furthermore, conditionals are
-// "lifted" to the top.
-func (e *IfZero) LowerTo(schema *mir.Schema) []mir.Expr {
-	return lowerTo(e, schema)
-}
-
-// LowerTo lowers a subtract expression to the MIR level. This also requires
-// expanding the arguments, then lowering them.  Furthermore, conditionals are
-// "lifted" to the top.
-func (e *Sub) LowerTo(schema *mir.Schema) []mir.Expr {
-	return lowerTo(e, schema)
-}
-
 // ============================================================================
 // lowerTo
 // ============================================================================
@@ -177,7 +113,7 @@ func (e *Sub) LowerTo(schema *mir.Schema) []mir.Expr {
 // to the root.
 func lowerTo(e Expr, schema *mir.Schema) []mir.Expr {
 	// First expand expression
-	es := expand(e, schema)
+	es := expand(e.Term, schema)
 	// Now lower each one (carefully)
 	mes := make([]mir.Expr, len(es))
 	//
@@ -193,7 +129,7 @@ func lowerTo(e Expr, schema *mir.Schema) []mir.Expr {
 // Extract the "condition" of an expression.  Every expression can be view as a
 // conditional constraint of the form "if c then e", where "c" is the condition.
 // This is allowed to return nil if the body is unconditional.
-func extractCondition(e Expr, schema *mir.Schema) mir.Expr {
+func extractCondition(e Term, schema *mir.Schema) mir.Expr {
 	switch e := e.(type) {
 	case *Add:
 		return extractConditions(e.Args, schema)
@@ -217,7 +153,7 @@ func extractCondition(e Expr, schema *mir.Schema) mir.Expr {
 	}
 }
 
-func extractConditions(es []Expr, schema *mir.Schema) mir.Expr {
+func extractConditions(es []Term, schema *mir.Schema) mir.Expr {
 	var r mir.Expr = mir.ONE
 	//
 	for _, e := range es {
@@ -238,7 +174,7 @@ func extractIfZeroCondition(e *IfZero, schema *mir.Schema) mir.Expr {
 	if e.TrueBranch != nil && e.FalseBranch != nil {
 		// Expansion should ensure this case does not exist.  This is necessary
 		// to ensure exactly one expression is generated from this expression.
-		panic(fmt.Sprintf("unexpanded expression (%s)", e.Lisp(schema)))
+		panic(fmt.Sprintf("unexpanded expression (%s)", lispOfTerm(e, schema)))
 	} else if e.TrueBranch != nil {
 		// (1 - NORM(cb)) for true branch
 		normBody := mir.Norm(cb)
@@ -258,12 +194,12 @@ func extractIfZeroCondition(e *IfZero, schema *mir.Schema) mir.Expr {
 // Translate the "body" of an expression.  Every expression can be view as a
 // conditional constraint of the form "if c then e", where "e" is the
 // constraint.
-func extractBody(e Expr, schema *mir.Schema) mir.Expr {
+func extractBody(e Term, schema *mir.Schema) mir.Expr {
 	switch e := e.(type) {
 	case *Add:
 		return mir.Sum(extractBodies(e.Args, schema)...)
 	case *Constant:
-		return mir.NewConst(e.Val)
+		return mir.NewConst(e.Value)
 	case *ColumnAccess:
 		return mir.NewColumnAccess(e.Column, e.Shift)
 	case *Exp:
@@ -272,7 +208,7 @@ func extractBody(e Expr, schema *mir.Schema) mir.Expr {
 		if e.TrueBranch != nil && e.FalseBranch != nil {
 			// Expansion should ensure this case does not exist.  This is necessary
 			// to ensure exactly one expression is generated from this expression.
-			panic(fmt.Sprintf("unexpanded expression (%s)", e.Lisp(schema)))
+			panic(fmt.Sprintf("unexpanded expression (%s)", lispOfTerm(e, schema)))
 		} else if e.TrueBranch != nil {
 			return extractBody(e.TrueBranch, schema)
 		}
@@ -291,7 +227,7 @@ func extractBody(e Expr, schema *mir.Schema) mir.Expr {
 }
 
 // Extract a vector of expanded expressions to the MIR level.
-func extractBodies(es []Expr, schema *mir.Schema) []mir.Expr {
+func extractBodies(es []Term, schema *mir.Schema) []mir.Expr {
 	rs := make([]mir.Expr, len(es))
 	for i, e := range es {
 		rs[i] = extractBody(e, schema)
@@ -304,16 +240,16 @@ func extractBodies(es []Expr, schema *mir.Schema) []mir.Expr {
 // expand
 // ============================================================================
 
-// Expand an expression into one or more expressions by eliminating lists and
+// Expand a term into one or more terms by eliminating lists and
 // breaking down conditions.  For example, a list such as say "(begin (- X Y) (-
 // Y Z))" is broken down into two distinct expressions "(- X Y)" and "(- Y Z)".
 // Likewise, a condition such as "(if X Y Z)" is broken down into two
 // expressions "(if X Y)" and "(ifnot X Z)".  These are necessary steps for the
 // conversion into a lower-level form.
-func expand(e Expr, schema sc.Schema) []Expr {
+func expand(e Term, schema sc.Schema) []Term {
 	if p, ok := e.(*Add); ok {
-		return expandWithNaryConstructor(p.Args, func(nargs []Expr) Expr {
-			var args []Expr
+		return expandWithNaryConstructor(p.Args, func(nargs []Term) Term {
+			var args []Term
 			// Flatten nested sums
 			for _, e := range nargs {
 				if a, ok := e.(*Add); ok {
@@ -326,12 +262,12 @@ func expand(e Expr, schema sc.Schema) []Expr {
 			return &Add{Args: args}
 		}, schema)
 	} else if _, ok := e.(*Constant); ok {
-		return []Expr{e}
+		return []Term{e}
 	} else if _, ok := e.(*ColumnAccess); ok {
-		return []Expr{e}
+		return []Term{e}
 	} else if p, ok := e.(*Mul); ok {
-		return expandWithNaryConstructor(p.Args, func(nargs []Expr) Expr {
-			var args []Expr
+		return expandWithNaryConstructor(p.Args, func(nargs []Term) Term {
+			var args []Term
 			// Flatten nested products
 			for _, e := range nargs {
 				if a, ok := e.(*Mul); ok {
@@ -344,7 +280,7 @@ func expand(e Expr, schema sc.Schema) []Expr {
 			return &Mul{Args: args}
 		}, schema)
 	} else if p, ok := e.(*List); ok {
-		ees := make([]Expr, 0)
+		ees := make([]Term, 0)
 		for _, arg := range p.Args {
 			ees = append(ees, expand(arg, schema)...)
 		}
@@ -365,17 +301,17 @@ func expand(e Expr, schema sc.Schema) []Expr {
 
 		return ees
 	} else if p, ok := e.(*IfZero); ok {
-		ees := make([]Expr, 0)
+		ees := make([]Term, 0)
 		if p.TrueBranch != nil {
 			// Expand true branch with condition
-			ees = expandWithBinaryConstructor(p.Condition, p.TrueBranch, func(c Expr, tb Expr) Expr {
+			ees = expandWithBinaryConstructor(p.Condition, p.TrueBranch, func(c Term, tb Term) Term {
 				return &IfZero{c, tb, nil}
 			}, schema)
 		}
 
 		if p.FalseBranch != nil {
 			// Expand false branch with condition
-			fes := expandWithBinaryConstructor(p.Condition, p.FalseBranch, func(c Expr, fb Expr) Expr {
+			fes := expandWithBinaryConstructor(p.Condition, p.FalseBranch, func(c Term, fb Term) Term {
 				return &IfZero{c, nil, fb}
 			}, schema)
 			ees = append(ees, fes...)
@@ -383,20 +319,20 @@ func expand(e Expr, schema sc.Schema) []Expr {
 		// Done
 		return ees
 	} else if p, ok := e.(*Sub); ok {
-		return expandWithNaryConstructor(p.Args, func(nargs []Expr) Expr {
+		return expandWithNaryConstructor(p.Args, func(nargs []Term) Term {
 			return &Sub{Args: nargs}
 		}, schema)
 	}
 	// Should be unreachable
-	panic(fmt.Sprintf("unknown expression: %s", e.Lisp(schema)))
+	panic(fmt.Sprintf("unknown expression: %s", lispOfTerm(e, schema)))
 }
 
-type binaryConstructor func(Expr, Expr) Expr
-type naryConstructor func([]Expr) Expr
+type binaryConstructor func(Term, Term) Term
+type naryConstructor func([]Term) Term
 
 // LowerWithBinaryConstructor is a generic mechanism for lowering down to a binary expression.
-func expandWithBinaryConstructor(lhs Expr, rhs Expr, create binaryConstructor, schema sc.Schema) []Expr {
-	var res []Expr
+func expandWithBinaryConstructor(lhs Term, rhs Term, create binaryConstructor, schema sc.Schema) []Term {
+	var res []Term
 	// Lower all three expressions
 	is := expand(lhs, schema)
 	js := expand(rhs, schema)
@@ -432,9 +368,9 @@ func expandWithBinaryConstructor(lhs Expr, rhs Expr, create binaryConstructor, s
 //
 // This will expand into *four* MIR expressions (i.e. the cross product of the
 // left and right ifs).
-func expandWithNaryConstructor(args []Expr, constructor naryConstructor, schema sc.Schema) []Expr {
+func expandWithNaryConstructor(args []Term, constructor naryConstructor, schema sc.Schema) []Term {
 	// Accumulator is initially empty
-	acc := make([]Expr, len(args))
+	acc := make([]Term, len(args))
 	// Start from the first argument
 	return expandWithNaryConstructorHelper(0, acc, args, constructor, schema)
 }
@@ -442,21 +378,21 @@ func expandWithNaryConstructor(args []Expr, constructor naryConstructor, schema 
 // LowerWithNaryConstructorHelper manages progress through the cross-product expansion.
 // Specifically, "i" determines how much of args has been lowered thus
 // far, whilst "acc" represents the current array being generated.
-func expandWithNaryConstructorHelper(i int, acc []Expr, args []Expr,
-	constructor naryConstructor, schema sc.Schema) []Expr {
+func expandWithNaryConstructorHelper(i int, acc []Term, args []Term,
+	constructor naryConstructor, schema sc.Schema) []Term {
 	if i == len(acc) {
 		// Base Case
-		nacc := make([]Expr, len(acc))
+		nacc := make([]Term, len(acc))
 		// Clone the slice because it is used as a temporary
 		// working storage during the expansion.
 		copy(nacc, acc)
 		// Apply the constructor to produce the appropriate
 		// mir.Expr.
-		return []Expr{constructor(nacc)}
+		return []Term{constructor(nacc)}
 	}
 
 	// Recursive Case
-	var nargs []Expr
+	var nargs []Term
 
 	for _, ith := range expand(args[i], schema) {
 		acc[i] = ith

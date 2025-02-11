@@ -159,7 +159,7 @@ func (t *translator) translateTypeConstraints(regIndex uint) {
 		}
 		// Add appropriate type constraint
 		bound := regInfo.DataType.AsUint().Bound()
-		t.schema.AddRangeConstraint(regInfo.Name(), regInfo.Context, &hir.ColumnAccess{Column: regIndex, Shift: 0}, bound)
+		t.schema.AddRangeConstraint(regInfo.Name(), regInfo.Context, hir.NewColumnAccess(regIndex, 0), bound)
 	}
 }
 
@@ -283,22 +283,22 @@ func (t *translator) translateDefConstraint(decl *ast.DefConstraint, module util
 	errors = append(errors, guard_errors...)
 	errors = append(errors, selector_errors...)
 	// Apply guard
-	if constraint == nil {
+	if constraint == hir.VOID {
 		// NOTE: in this case, the constraint itself has been translated as nil.
 		// This means there is no constraint (e.g. its a debug constraint, but
 		// debug mode is not enabled).
 		return errors
 	}
 	// Apply guard (if applicable)
-	if guard != nil {
-		constraint = &hir.IfZero{Condition: guard, TrueBranch: nil, FalseBranch: constraint}
+	if guard != hir.VOID {
+		constraint = hir.NewIfZero(guard, hir.VOID, constraint)
 	}
 	// Apply perspective selector (if applicable)
-	if selector != nil {
+	if selector != hir.VOID {
 		// NOTE: using an ifnot (as above) would be preferable here.  However,
 		// this is currently done just to ensure constraints identical to the
 		// original are generated.
-		constraint = &hir.Mul{Args: []hir.Expr{selector, constraint}}
+		constraint = hir.Product(selector, constraint)
 	}
 	//
 	if len(errors) == 0 {
@@ -328,7 +328,7 @@ func (t *translator) translateSelectorInModule(perspective *ast.PerspectiveName,
 		return t.translateExpressionInModule(perspective.InnerBinding().Selector, module, 0)
 	}
 	//
-	return nil, nil
+	return hir.VOID, nil
 }
 
 // Translate a "deflookup" declaration.
@@ -454,7 +454,7 @@ func (t *translator) translateOptionalExpressionInModule(expr ast.Expr, module u
 		return t.translateExpressionInModule(expr, module, shift)
 	}
 
-	return nil, nil
+	return hir.VOID, nil
 }
 
 // Translate an optional expression in a given context.  That is an expression
@@ -490,10 +490,10 @@ func (t *translator) translateExpressionsInModule(exprs []ast.Expr, module util.
 			var errs []SyntaxError
 			hirExprs[i], errs = t.translateExpressionInModule(e, module, shift)
 			errors = append(errors, errs...)
-			// Check for non-voidability
-			if hirExprs[i] == nil {
-				errors = append(errors, *t.srcmap.SyntaxError(e, "void expression not permitted here"))
-			}
+		} else {
+			// Strictly speaking, this assignment is unnecessary.  However, the
+			// purpose is just to make it clear what's going on.
+			hirExprs[i] = hir.VOID
 		}
 	}
 	//
@@ -509,47 +509,47 @@ func (t *translator) translateExpressionInModule(expr ast.Expr, module util.Path
 		// Lookup underlying column info
 		registerId, errors := t.registerOfColumnAccess(e)
 		// Done
-		return &hir.ColumnAccess{Column: registerId, Shift: shift}, errors
+		return hir.NewColumnAccess(registerId, shift), errors
 	case *ast.Add:
 		args, errs := t.translateExpressionsInModule(e.Args, module, shift)
-		return &hir.Add{Args: args}, errs
+		return hir.Sum(args...), errs
 	case *ast.Constant:
 		var val fr.Element
 		// Initialise field from bigint
 		val.SetBigInt(&e.Val)
 		//
-		return &hir.Constant{Val: val}, nil
+		return hir.NewConst(val), nil
 	case *ast.Exp:
 		return t.translateExpInModule(e, module, shift)
 	case *ast.If:
 		args, errs := t.translateExpressionsInModule([]ast.Expr{e.Condition, e.TrueBranch, e.FalseBranch}, module, shift)
 		// Construct appropriate if form
 		if e.IsIfZero() {
-			return &hir.IfZero{Condition: args[0], TrueBranch: args[1], FalseBranch: args[2]}, errs
+			return hir.NewIfZero(args[0], args[1], args[2]), errs
 		} else if e.IsIfNotZero() {
 			// In this case, switch the ordering.
-			return &hir.IfZero{Condition: args[0], TrueBranch: args[2], FalseBranch: args[1]}, errs
+			return hir.NewIfZero(args[0], args[2], args[1]), errs
 		}
 		// Should be unreachable
-		return nil, t.srcmap.SyntaxErrors(expr, "unresolved conditional encountered during translation")
+		return hir.VOID, t.srcmap.SyntaxErrors(expr, "unresolved conditional encountered during translation")
 	case *ast.List:
 		args, errs := t.translateExpressionsInModule(e.Args, module, shift)
-		return &hir.List{Args: args}, errs
+		return hir.NewList(args...), errs
 	case *ast.Mul:
 		args, errs := t.translateExpressionsInModule(e.Args, module, shift)
-		return &hir.Mul{Args: args}, errs
+		return hir.Product(args...), errs
 	case *ast.Normalise:
 		arg, errs := t.translateExpressionInModule(e.Arg, module, shift)
-		return &hir.Normalise{Arg: arg}, errs
+		return hir.NewNormalise(arg), errs
 	case *ast.Sub:
 		args, errs := t.translateExpressionsInModule(e.Args, module, shift)
-		return &hir.Sub{Args: args}, errs
+		return hir.Subtract(args...), errs
 	case *ast.Shift:
 		return t.translateShiftInModule(e, module, shift)
 	case *ast.VariableAccess:
 		return t.translateVariableAccessInModule(e, shift)
 	default:
-		return nil, t.srcmap.SyntaxErrors(expr, "unknown expression encountered during translation")
+		return hir.VOID, t.srcmap.SyntaxErrors(expr, "unknown expression encountered during translation")
 	}
 }
 
@@ -564,19 +564,19 @@ func (t *translator) translateExpInModule(expr *ast.Exp, module util.Path, shift
 	}
 	// Sanity check errors
 	if len(errs) == 0 {
-		return &hir.Exp{Arg: arg, Pow: pow.Uint64()}, errs
+		return hir.Exponent(arg, pow.Uint64()), errs
 	}
 	//
-	return nil, errs
+	return hir.VOID, errs
 }
 
 func (t *translator) translateShiftInModule(expr *ast.Shift, module util.Path, shift int) (hir.Expr, []SyntaxError) {
 	constant := expr.Shift.AsConstant()
 	// Determine the shift constant
 	if constant == nil {
-		return nil, t.srcmap.SyntaxErrors(expr.Shift, "expected constant shift")
+		return hir.VOID, t.srcmap.SyntaxErrors(expr.Shift, "expected constant shift")
 	} else if !constant.IsInt64() {
-		return nil, t.srcmap.SyntaxErrors(expr.Shift, "constant shift too large")
+		return hir.VOID, t.srcmap.SyntaxErrors(expr.Shift, "constant shift too large")
 	}
 	// Now translate target expression with updated shift.
 	return t.translateExpressionInModule(expr.Arg, module, shift+int(constant.Int64()))
@@ -587,17 +587,17 @@ func (t *translator) translateVariableAccessInModule(expr *ast.VariableAccess, s
 		// Lookup column binding
 		register_id := t.env.RegisterOf(binding.AbsolutePath())
 		// Done
-		return &hir.ColumnAccess{Column: register_id, Shift: shift}, nil
+		return hir.NewColumnAccess(register_id, shift), nil
 	} else if binding, ok := expr.Binding().(*ast.ConstantBinding); ok {
 		// Just fill in the constant.
 		var constant fr.Element
 		// Initialise field from bigint
 		constant.SetBigInt(binding.Value.AsConstant())
 		//
-		return &hir.Constant{Val: constant}, nil
+		return hir.NewConst(constant), nil
 	}
 	// error
-	return nil, t.srcmap.SyntaxErrors(expr, "unbound variable")
+	return hir.VOID, t.srcmap.SyntaxErrors(expr, "unbound variable")
 }
 
 // Determine the underlying register for a symbol which represents a column access.
