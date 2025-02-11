@@ -66,7 +66,7 @@ func (p *IntrinsicDefinition) Binding() ast.Binding {
 
 // Lisp returns a lisp representation of this intrinsic.
 func (p *IntrinsicDefinition) Lisp() sexp.SExp {
-	panic("unreacahble")
+	panic("unreachable")
 }
 
 // HasArity checks whether this function accepts a given number of arguments (or
