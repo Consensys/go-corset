@@ -1,3 +1,15 @@
+// Copyright Consensys Software Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+// the License. You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+// an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
+//
+// SPDX-License-Identifier: Apache-2.0
 package constraint
 
 import (
@@ -27,6 +39,7 @@ func (p *PermutationFailure) String() string {
 // PermutationConstraint declares a constraint that one (or more) columns are a permutation
 // of another.
 type PermutationConstraint struct {
+	Handle string
 	// Targets returns the indices of the columns composing the "left" table of the
 	// permutation.
 	Targets []uint
@@ -36,12 +49,18 @@ type PermutationConstraint struct {
 }
 
 // NewPermutationConstraint creates a new permutation
-func NewPermutationConstraint(targets []uint, sources []uint) *PermutationConstraint {
+func NewPermutationConstraint(handle string, targets []uint, sources []uint) *PermutationConstraint {
 	if len(targets) != len(sources) {
 		panic("differeng number of target / source permutation columns")
 	}
 
-	return &PermutationConstraint{targets, sources}
+	return &PermutationConstraint{handle, targets, sources}
+}
+
+// Name returns a unique name for a given constraint.  This is useful
+// purely for identifying constraints in reports, etc.
+func (p *PermutationConstraint) Name() string {
+	return p.Handle
 }
 
 // Bounds determines the well-definedness bounds for this constraint for both
@@ -55,14 +74,16 @@ func (p *PermutationConstraint) Bounds(module uint) util.Bounds {
 
 // Accepts checks whether a permutation holds between the source and
 // target columns.
-func (p *PermutationConstraint) Accepts(tr trace.Trace) sc.Failure {
+func (p *PermutationConstraint) Accepts(tr trace.Trace) (sc.Coverage, sc.Failure) {
+	// Coverage currently always empty for permutation constraints.
+	var coverage sc.Coverage
 	// Slice out data
 	src := sliceColumns(p.Sources, tr)
 	dst := sliceColumns(p.Targets, tr)
 	// Sanity check whether column exists
 	if util.ArePermutationOf(dst, src) {
 		// Success
-		return nil
+		return coverage, nil
 	}
 	// Prepare suitable error message
 	src_names := trace.QualifiedColumnNamesToCommaSeparatedString(p.Sources, tr)
@@ -71,7 +92,7 @@ func (p *PermutationConstraint) Accepts(tr trace.Trace) sc.Failure {
 	msg := fmt.Sprintf("Target columns (%s) not permutation of source columns (%s)",
 		dst_names, src_names)
 	// Done
-	return &PermutationFailure{msg}
+	return coverage, &PermutationFailure{msg}
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example

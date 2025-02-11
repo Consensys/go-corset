@@ -1,3 +1,15 @@
+// Copyright Consensys Software Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+// the License. You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+// an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
+//
+// SPDX-License-Identifier: Apache-2.0
 package schema
 
 import (
@@ -96,43 +108,68 @@ func ContextOfColumns(cols []uint, schema Schema) tr.Context {
 // within the schema hold.
 //
 //nolint:revive
-func Accepts(batchsize uint, schema Schema, trace tr.Trace) []Failure {
-	errors := make([]Failure, 0)
-	// Initialise batch number (for debugging purposes)
-	batch := uint(0)
-	// Process constraints in batches
-	for iter := schema.Constraints(); iter.HasNext(); {
-		errs := processConstraintBatch("Constraint", batch, batchsize, iter, trace)
-		errors = append(errors, errs...)
-		// Increment batch number
-		batch++
-	}
-	// Success
-	return errors
+func Accepts(parallel bool, batchsize uint, schema Schema, trace tr.Trace) (CoverageMap, []Failure) {
+	return accepts(parallel, batchsize, schema.Constraints(), trace, "Constraint")
 }
 
 // Asserts determines whether or not this schema will "assert" a given trace.
 // That is, whether or not the given trace adheres to the schema assertions.
-func Asserts(batchsize uint, schema Schema, trace tr.Trace) []Failure {
+func Asserts(parallel bool, batchsize uint, schema Schema, trace tr.Trace) (CoverageMap, []Failure) {
+	return accepts(parallel, batchsize, schema.Assertions(), trace, "Assertion")
+}
+
+//nolint:revive
+func accepts(parallel bool, batchsize uint, iter iter.Iterator[Constraint], trace tr.Trace,
+	kind string) (CoverageMap, []Failure) {
+	//
+	if parallel {
+		return parallelAccepts(batchsize, iter, trace, kind)
+	}
+	// sequential
+	return sequentialAccepts(iter, trace)
+}
+
+func sequentialAccepts(iter iter.Iterator[Constraint], trace tr.Trace) (CoverageMap, []Failure) {
+	coverage := NewBranchCoverage()
+	errors := make([]Failure, 0)
+	//
+	for iter.HasNext() {
+		ith := iter.Next()
+		//
+		data, err := ith.Accepts(trace)
+		if err != nil {
+			errors = append(errors, err)
+		}
+		//
+		coverage.Insert(ith.Name(), data)
+	}
+	//
+	return coverage, errors
+}
+
+func parallelAccepts(batchsize uint, iter iter.Iterator[Constraint], trace tr.Trace,
+	kind string) (CoverageMap, []Failure) {
+	//
+	coverage := NewBranchCoverage()
 	errors := make([]Failure, 0)
 	// Initialise batch number (for debugging purposes)
 	batch := uint(0)
-	// Process assertions in batches
-	for iter := schema.Assertions(); iter.HasNext(); {
-		errs := processConstraintBatch("Assertion", batch, batchsize, iter, trace)
+	// Process constraints in batches
+	for iter.HasNext() {
+		errs := processConstraintBatch(kind, batch, batchsize, iter, &coverage, trace)
 		errors = append(errors, errs...)
 		// Increment batch number
 		batch++
 	}
 	// Success
-	return errors
+	return coverage, errors
 }
 
 // Process a given set of constraints in a single batch whilst recording all constraint failures.
 func processConstraintBatch(logtitle string, batch uint, batchsize uint, iter iter.Iterator[Constraint],
-	trace tr.Trace) []Failure {
+	coverage *CoverageMap, trace tr.Trace) []Failure {
 	n := uint(0)
-	c := make(chan Failure, 1024)
+	c := make(chan pcOutcome, 1024)
 	errors := make([]Failure, 0)
 	stats := util.NewPerfStats()
 	// Launch at most 100 go-routines.
@@ -142,20 +179,30 @@ func processConstraintBatch(logtitle string, batch uint, batchsize uint, iter it
 		// Launch checker for constraint
 		go func() {
 			// Send outcome back
-			c <- ith.Accepts(trace)
+			cov, err := ith.Accepts(trace)
+			c <- pcOutcome{ith.Name(), cov, err}
 		}()
 	}
 	//
 	for i := uint(0); i < n; i++ {
+		p := <-c
 		// Read from channel
-		if e := <-c; e != nil {
-			errors = append(errors, e)
+		if p.error != nil {
+			errors = append(errors, p.error)
 		}
+		// Update coverage
+		coverage.Insert(p.handle, p.data)
 	}
 	// Log stats about this batch
 	stats.Log(fmt.Sprintf("%s batch %d (%d items)", logtitle, batch, n))
 	//
 	return errors
+}
+
+type pcOutcome struct {
+	handle string
+	data   Coverage
+	error  Failure
 }
 
 // ColumnIndexOf returns the column index of the column with the given name, or

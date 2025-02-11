@@ -1,3 +1,15 @@
+// Copyright Consensys Software Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+// the License. You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+// an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
+//
+// SPDX-License-Identifier: Apache-2.0
 package test
 
 import (
@@ -1252,9 +1264,10 @@ func checkTrace(t *testing.T, inputs []trace.RawColumn, id traceId, schema sc.Sc
 			id.ir, id.test, id.line, id.padding, errs)
 	} else {
 		// Check Constraints
-		errs := sc.Accepts(100, schema, tr)
+		_, errs1 := sc.Accepts(true, 100, schema, tr)
 		// Check assertions
-		errs = append(errs, sc.Asserts(100, schema, tr)...)
+		_, errs2 := sc.Asserts(true, 100, schema, tr)
+		errs := append(errs1, errs2...)
 		// Determine whether trace accepted or not.
 		accepted := len(errs) == 0
 		// Process what happened versus what was supposed to happen.

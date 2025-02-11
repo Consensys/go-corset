@@ -1,8 +1,22 @@
+// Copyright Consensys Software Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+// the License. You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+// an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
+//
+// SPDX-License-Identifier: Apache-2.0
 package util
 
 import (
+	"cmp"
 	"fmt"
 	"io"
+	"slices"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
@@ -64,6 +78,24 @@ func Append[T any](slice []T, item T) []T {
 	return nslice
 }
 
+// CountUnique counts the number of unique items within a given slice.
+func CountUnique[T cmp.Ordered](items []T) uint {
+	// First sort them
+	slices.Sort(items)
+	//
+	fmt.Printf("got %v\n", items)
+	//
+	count := uint(0)
+	//
+	for i, v := range items {
+		if i == 0 || items[i-1] != v {
+			count++
+		}
+	}
+	//
+	return count
+}
+
 // ReplaceFirstOrPanic replaces the first occurrence of a given item (from) in an
 // array with another item (to).  If not match is found, then this will panic.
 // In otherwords, we are expecting a match.
@@ -77,6 +109,17 @@ func ReplaceFirstOrPanic[T comparable](columns []T, from T, to T) {
 	}
 	// Failure
 	panic(fmt.Sprintf("invalid replace (item %s not found)", any(from)))
+}
+
+// ContainsMatching checks whether a given array contains an item matching a given predicate.
+func ContainsMatching[T any](items []T, predicate iter.Predicate[T]) bool {
+	for _, item := range items {
+		if predicate(item) {
+			return true
+		}
+	}
+	//
+	return false
 }
 
 // RemoveMatching removes all elements from an array matching the given item.
@@ -104,6 +147,31 @@ func RemoveMatching[T any](items []T, predicate iter.Predicate[T]) []T {
 	}
 	//
 	return items
+}
+
+// Flatten flattens items from an array which expand into arrays of terms.
+func Flatten[T any](items []T, fn func(T) []T) []T {
+	for _, t := range items {
+		if fn(t) != nil {
+			return forceFlatten(items, fn)
+		}
+	}
+	// no change
+	return items
+}
+
+func forceFlatten[T any](items []T, fn func(T) []T) []T {
+	nitems := make([]T, 0)
+	//
+	for _, t := range items {
+		if ts := fn(t); ts != nil {
+			nitems = append(nitems, ts...)
+		} else {
+			nitems = append(nitems, t)
+		}
+	}
+	// no change
+	return nitems
 }
 
 // Equals2d returns true if two 2D arrays are equal.

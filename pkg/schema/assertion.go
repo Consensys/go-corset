@@ -1,3 +1,15 @@
+// Copyright Consensys Software Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+// the License. You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+// an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
+//
+// SPDX-License-Identifier: Apache-2.0
 package schema
 
 import (
@@ -5,6 +17,7 @@ import (
 
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/util/sexp"
 )
@@ -57,8 +70,16 @@ type PropertyAssertion[T Testable] struct {
 }
 
 // NewPropertyAssertion constructs a new property assertion!
-func NewPropertyAssertion[T Testable](handle string, ctx tr.Context, property T) *PropertyAssertion[T] {
+func NewPropertyAssertion[T Testable](handle string, ctx tr.Context,
+	property T) *PropertyAssertion[T] {
+	//
 	return &PropertyAssertion[T]{handle, ctx, property}
+}
+
+// Name returns a unique name for a given constraint.  This is useful
+// purely for identifying constraints in reports, etc.
+func (p *PropertyAssertion[T]) Name() string {
+	return p.Handle
 }
 
 // Bounds is not required for a property assertion since these are not real
@@ -71,19 +92,23 @@ func (p *PropertyAssertion[T]) Bounds(module uint) util.Bounds {
 // of a table. If so, return nil otherwise return an error.
 //
 //nolint:revive
-func (p *PropertyAssertion[T]) Accepts(tr tr.Trace) Failure {
+func (p *PropertyAssertion[T]) Accepts(tr tr.Trace) (Coverage, Failure) {
+	coverage := NewCoverage(bit.Set{}, p.Property.Branches())
 	// Determine height of enclosing module
 	height := tr.Height(p.Context)
 	// Iterate every row in the module
 	for k := uint(0); k < height; k++ {
 		// Check whether property holds (or was undefined)
-		if !p.Property.TestAt(int(k), tr) {
+		if ok, id := p.Property.TestAt(int(k), tr); !ok {
 			// Evaluation failure
-			return &AssertionFailure{p.Handle, p.Property, k}
+			return coverage, &AssertionFailure{p.Handle, p.Property, k}
+		} else {
+			// Update coverage
+			coverage.Covered.Insert(id.Key())
 		}
 	}
 	// All good
-	return nil
+	return coverage, nil
 }
 
 // Lisp converts this constraint into an S-Expression.

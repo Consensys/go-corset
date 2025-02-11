@@ -1,3 +1,15 @@
+// Copyright Consensys Software Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+// the License. You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+// an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
+//
+// SPDX-License-Identifier: Apache-2.0
 package cmd
 
 import (
@@ -45,7 +57,7 @@ var testCmd = &cobra.Command{
 		// cfg.strict = !GetFlag(cmd, "warn")
 		// cfg.quiet = GetFlag(cmd, "quiet")
 		cfg.padding.Right = GetUint(cmd, "padding")
-		cfg.parallelExpansion = !GetFlag(cmd, "sequential")
+		cfg.parallel = !GetFlag(cmd, "sequential")
 		cfg.batchSize = GetUint(cmd, "batch")
 		cfg.ansiEscapes = GetFlag(cmd, "ansi-escapes")
 		// TODO: support true ranges
@@ -87,7 +99,7 @@ func runTests(nrows uint, cfg checkConfig, hirSchema *hir.Schema) bool {
 func testTraceWithLowering(trace tr.Trace, schema *hir.Schema, cfg checkConfig) bool {
 	ok := true
 	// Check whether assertions hold for this trace
-	asserts := sc.Asserts(cfg.batchSize, schema, trace)
+	_, asserts := sc.Asserts(cfg.parallel, cfg.batchSize, schema, trace)
 	// Process individually
 	if cfg.hir {
 		ok = testTrace("HIR", asserts, trace, schema, cfg) && ok
@@ -109,7 +121,7 @@ func testTrace(ir string, asserts []sc.Failure, trace tr.Trace, schema sc.Schema
 	//
 	for n := cfg.padding.Left; n <= cfg.padding.Right; n++ {
 		// Check constraints
-		if errs := sc.Accepts(cfg.batchSize, schema, trace); len(asserts) > 0 && len(errs) == 0 {
+		if _, errs := sc.Accepts(cfg.parallel, cfg.batchSize, schema, trace); len(asserts) > 0 && len(errs) == 0 {
 			// Trace accepts, but at least one assertion has failed.
 			reportFailures(ir, asserts, trace, cfg)
 			// Indicate all is not well

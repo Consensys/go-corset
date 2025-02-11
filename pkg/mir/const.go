@@ -1,7 +1,20 @@
+// Copyright Consensys Software Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+// the License. You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+// an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
+//
+// SPDX-License-Identifier: Apache-2.0
 package mir
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	sc "github.com/consensys/go-corset/pkg/schema"
@@ -10,33 +23,35 @@ import (
 
 // ApplyConstantPropagation simply collapses constant expressions down to single
 // values.  For example, "(+ 1 2)" would be collapsed down to "3".
-func applyConstantPropagation(e Expr, schema sc.Schema) Expr {
-	if p, ok := e.(*Add); ok {
-		return applyConstantPropagationAdd(p.Args, schema)
-	} else if _, ok := e.(*Constant); ok {
+func constantPropagationForTerm(e Term, schema sc.Schema) Term {
+	switch e := e.(type) {
+	case *Add:
+		return constantPropagationForAdd(e.Args, schema)
+	case *Constant:
 		return e
-	} else if _, ok := e.(*ColumnAccess); ok {
+	case *ColumnAccess:
 		return e
-	} else if p, ok := e.(*Mul); ok {
-		return applyConstantPropagationMul(p.Args, schema)
-	} else if p, ok := e.(*Exp); ok {
-		return applyConstantPropagationExp(p.Arg, p.Pow, schema)
-	} else if p, ok := e.(*Normalise); ok {
-		return applyConstantPropagationNorm(p.Arg, schema)
-	} else if p, ok := e.(*Sub); ok {
-		return applyConstantPropagationSub(p.Args, schema)
+	case *Exp:
+		return constantPropagationForExp(e.Arg, e.Pow, schema)
+	case *Mul:
+		return constantPropagationForMul(e.Args, schema)
+	case *Norm:
+		return constantPropagationForNorm(e.Arg, schema)
+	case *Sub:
+		return constantPropagationForSub(e.Args, schema)
+	default:
+		name := reflect.TypeOf(e).Name()
+		panic(fmt.Sprintf("unknown MIR expression \"%s\"", name))
 	}
-	// Should be unreachable
-	panic(fmt.Sprintf("unknown expression: %s", e.Lisp(schema).String(true)))
 }
 
-func applyConstantPropagationAdd(es []Expr, schema sc.Schema) Expr {
+func constantPropagationForAdd(es []Term, schema sc.Schema) Term {
 	sum := fr.NewElement(0)
 	count := 0
-	rs := make([]Expr, len(es))
+	rs := make([]Term, len(es))
 	//
 	for i, e := range es {
-		rs[i] = applyConstantPropagation(e, schema)
+		rs[i] = constantPropagationForTerm(e, schema)
 		// Check for constant
 		c, ok := rs[i].(*Constant)
 		// Try to continue sum
@@ -57,43 +72,31 @@ func applyConstantPropagationAdd(es []Expr, schema sc.Schema) Expr {
 	return &Add{rs}
 }
 
-func applyConstantPropagationSub(es []Expr, schema sc.Schema) Expr {
-	var sum fr.Element
-
-	is_const := true
-	rs := make([]Expr, len(es))
+func constantPropagationForExp(arg Term, pow uint64, schema sc.Schema) Term {
+	arg = constantPropagationForTerm(arg, schema)
 	//
-	for i, e := range es {
-		rs[i] = applyConstantPropagation(e, schema)
-		// Check for constant
-		c, ok := rs[i].(*Constant)
-		// Try to continue sum
-		if ok && i == 0 {
-			sum = c.Value
-		} else if ok && is_const {
-			sum.Sub(&sum, &c.Value)
-		} else {
-			is_const = false
-		}
+	if c, ok := arg.(*Constant); ok {
+		var val fr.Element
+		// Clone value
+		val.Set(&c.Value)
+		// Compute exponent (in place)
+		util.Pow(&val, pow)
+		// Done
+		return &Constant{val}
 	}
-	// Check if constant
-	if is_const {
-		// Propagate constant
-		return &Constant{sum}
-	}
-	// Done
-	return &Sub{rs}
+	//
+	return &Exp{arg, pow}
 }
 
-func applyConstantPropagationMul(es []Expr, schema sc.Schema) Expr {
+func constantPropagationForMul(es []Term, schema sc.Schema) Term {
 	one := fr.NewElement(1)
 	prod := one
-	rs := make([]Expr, len(es))
+	rs := make([]Term, len(es))
 	ones := 0
 	consts := 0
 	//
 	for i, e := range es {
-		rs[i] = applyConstantPropagation(e, schema)
+		rs[i] = constantPropagationForTerm(e, schema)
 		// Check for constant
 		c, ok := rs[i].(*Constant)
 		//
@@ -115,7 +118,7 @@ func applyConstantPropagationMul(es []Expr, schema sc.Schema) Expr {
 	if consts == len(es) {
 		return &Constant{prod}
 	} else if ones > 0 {
-		rs = util.RemoveMatching[Expr](rs, func(item Expr) bool { return item == nil })
+		rs = util.RemoveMatching[Term](rs, func(item Term) bool { return item == nil })
 	}
 	// Sanity check what's left.
 	if len(rs) == 1 {
@@ -128,24 +131,8 @@ func applyConstantPropagationMul(es []Expr, schema sc.Schema) Expr {
 	return &Mul{rs}
 }
 
-func applyConstantPropagationExp(arg Expr, pow uint64, schema sc.Schema) Expr {
-	arg = applyConstantPropagation(arg, schema)
-	//
-	if c, ok := arg.(*Constant); ok {
-		var val fr.Element
-		// Clone value
-		val.Set(&c.Value)
-		// Compute exponent (in place)
-		util.Pow(&val, pow)
-		// Done
-		return &Constant{val}
-	}
-	//
-	return &Exp{arg, pow}
-}
-
-func applyConstantPropagationNorm(arg Expr, schema sc.Schema) Expr {
-	arg = applyConstantPropagation(arg, schema)
+func constantPropagationForNorm(arg Term, schema sc.Schema) Term {
+	arg = constantPropagationForTerm(arg, schema)
 	//
 	if c, ok := arg.(*Constant); ok {
 		var val fr.Element
@@ -159,13 +146,41 @@ func applyConstantPropagationNorm(arg Expr, schema sc.Schema) Expr {
 		return &Constant{val}
 	}
 	//
-	return &Normalise{arg}
+	return &Norm{arg}
+}
+
+func constantPropagationForSub(es []Term, schema sc.Schema) Term {
+	var sum fr.Element
+
+	is_const := true
+	rs := make([]Term, len(es))
+	//
+	for i, e := range es {
+		rs[i] = constantPropagationForTerm(e, schema)
+		// Check for constant
+		c, ok := rs[i].(*Constant)
+		// Try to continue sum
+		if ok && i == 0 {
+			sum = c.Value
+		} else if ok && is_const {
+			sum.Sub(&sum, &c.Value)
+		} else {
+			is_const = false
+		}
+	}
+	// Check if constant
+	if is_const {
+		// Propagate constant
+		return &Constant{sum}
+	}
+	// Done
+	return &Sub{rs}
 }
 
 // Replace all constants within a given sequence of expressions with a single
 // constant (whose value has been precomputed from those constants).  The new
 // value replaces the first constant in the list.
-func mergeConstants(constant fr.Element, es []Expr) []Expr {
+func mergeConstants(constant fr.Element, es []Term) []Term {
 	j := 0
 	first := true
 	//

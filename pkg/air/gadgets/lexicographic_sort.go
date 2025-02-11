@@ -1,3 +1,15 @@
+// Copyright Consensys Software Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+// the License. You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+// an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
+//
+// SPDX-License-Identifier: Apache-2.0
 package gadgets
 
 import (
@@ -105,7 +117,7 @@ func addLexicographicSelectorBits(prefix string, context trace.Context,
 		pDiff := air.NewColumnAccess(columns[i], 0).Sub(air.NewColumnAccess(columns[i], -1))
 		pName := fmt.Sprintf("%s:%d:a", prefix, i)
 		schema.AddVanishingConstraint(pName, context,
-			util.None[int](), air.NewConst64(1).Sub(&air.Add{Args: pterms}).Mul(pDiff))
+			util.None[int](), air.NewConst64(1).Sub(air.Sum(pterms...)).Mul(pDiff))
 		// (∀j<i.Bj=0) ∧ Bi=1 ==> C[k]≠C[k-1]
 		qDiff := Normalise(air.NewColumnAccess(columns[i], 0).Sub(air.NewColumnAccess(columns[i], -1)), schema)
 		qName := fmt.Sprintf("%s:%d:b", prefix, i)
@@ -114,13 +126,13 @@ func addLexicographicSelectorBits(prefix string, context trace.Context,
 
 		if i != 0 {
 			// (∃j<i.Bj≠0) || bi = 0 || C[k]≠C[k-1]
-			constraint = air.NewConst64(1).Sub(&air.Add{Args: qterms}).Mul(constraint)
+			constraint = air.NewConst64(1).Sub(air.Sum(qterms...)).Mul(constraint)
 		}
 
 		schema.AddVanishingConstraint(qName, context, util.None[int](), constraint)
 	}
 
-	sum := &air.Add{Args: terms}
+	sum := air.Sum(terms...)
 	// (sum = 0) ∨ (sum = 1)
 	constraint := sum.Mul(sum.Equate(air.NewConst64(1)))
 	name := fmt.Sprintf("%s:xor", prefix)
@@ -157,7 +169,7 @@ func constructLexicographicDeltaConstraint(deltaIndex uint, columns []uint, sign
 		terms[i] = Bk.Mul(Xdiff)
 	}
 	// Construct final constraint
-	return Dk.Equate(&air.Add{Args: terms})
+	return Dk.Equate(air.Sum(terms...))
 }
 
 // AddBitArray adds an array of n bit columns using a given prefix, including

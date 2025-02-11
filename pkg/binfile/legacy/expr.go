@@ -1,3 +1,15 @@
+// Copyright Consensys Software Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+// the License. You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+// an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
+//
+// SPDX-License-Identifier: Apache-2.0
 package binfile
 
 import (
@@ -76,7 +88,7 @@ func (e *jsonTypedExpr) ToHir(colmap map[uint]uint, schema *hir.Schema) hir.Expr
 // ToHir converts a big integer represented as a sequence of unsigned 32bit
 // words into HIR constant expression.
 func (e *jsonExprConst) ToHir(schema *hir.Schema) hir.Expr {
-	return &hir.Constant{Val: e.ToField()}
+	return hir.NewConst(e.ToField())
 }
 
 func (e *jsonExprConst) ToField() fr.Element {
@@ -122,7 +134,7 @@ func (e *jsonExprColumn) ToHir(colmap map[uint]uint, schema *hir.Schema) hir.Exp
 	// Determine binfile column index
 	cid := asColumn(e.Handle)
 	// Map to schema column index
-	return &hir.ColumnAccess{Column: colmap[cid], Shift: e.Shift}
+	return hir.NewColumnAccess(colmap[cid], e.Shift)
 }
 
 func (e *jsonExprFuncall) ToHir(colmap map[uint]uint, schema *hir.Schema) hir.Expr {
@@ -135,47 +147,47 @@ func (e *jsonExprFuncall) ToHir(colmap map[uint]uint, schema *hir.Schema) hir.Ex
 	switch e.Func {
 	case "Normalize":
 		if len(args) == 1 {
-			return &hir.Normalise{Arg: args[0]}
+			return hir.Normalise(args[0])
 		} else {
 			panic("incorrect arguments for Normalize")
 		}
 	case "VectorAdd", "Add":
-		return &hir.Add{Args: args}
+		return hir.Sum(args...)
 	case "VectorMul", "Mul":
-		return &hir.Mul{Args: args}
+		return hir.Product(args...)
 	case "VectorSub", "Sub":
-		return &hir.Sub{Args: args}
+		return hir.Subtract(args...)
 	case "Exp":
 		if len(args) != 2 {
 			panic(fmt.Sprintf("incorrect number of arguments for Exp (%d)", len(args)))
 		}
 
-		c, ok := args[1].(*hir.Constant)
+		c, ok := args[1].Term.(*hir.Constant)
 
 		if !ok {
 			panic(fmt.Sprintf("constant power expected for Exp, got %s", args[1].Lisp(schema)))
-		} else if !c.Val.IsUint64() {
+		} else if !c.Value.IsUint64() {
 			panic("constant power too large for Exp")
 		}
 
 		var k big.Int
 		// Convert power to uint64
-		c.Val.BigInt(&k)
+		c.Value.BigInt(&k)
 		// Done
-		return &hir.Exp{Arg: args[0], Pow: k.Uint64()}
+		return hir.Exponent(args[0], k.Uint64())
 	case "IfZero":
 		if len(args) == 2 {
-			return &hir.IfZero{Condition: args[0], TrueBranch: args[1], FalseBranch: nil}
+			return hir.If(args[0], args[1], hir.VOID)
 		} else if len(args) == 3 {
-			return &hir.IfZero{Condition: args[0], TrueBranch: args[1], FalseBranch: args[2]}
+			return hir.If(args[0], args[1], args[2])
 		} else {
 			panic(fmt.Sprintf("incorrect number of arguments for IfZero (%d)", len(args)))
 		}
 	case "IfNotZero":
 		if len(args) == 2 {
-			return &hir.IfZero{Condition: args[0], TrueBranch: nil, FalseBranch: args[1]}
+			return hir.If(args[0], hir.VOID, args[1])
 		} else if len(args) == 3 {
-			return &hir.IfZero{Condition: args[0], TrueBranch: args[2], FalseBranch: args[1]}
+			return hir.If(args[0], args[2], args[1])
 		} else {
 			panic(fmt.Sprintf("incorrect number of arguments for IfNotZero (%d)", len(args)))
 		}
@@ -190,7 +202,7 @@ func jsonListToHir(Args []jsonTypedExpr, colmap map[uint]uint, schema *hir.Schem
 		args[i] = Args[i].ToHir(colmap, schema)
 	}
 
-	return &hir.List{Args: args}
+	return hir.ListOf(args...)
 }
 
 func jsonExprsToHirUnit(Args []jsonTypedExpr, colmap map[uint]uint, schema *hir.Schema) []hir.UnitExpr {

@@ -1,3 +1,15 @@
+// Copyright Consensys Software Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+// the License. You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+// an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
+//
+// SPDX-License-Identifier: Apache-2.0
 package constraint
 
 import (
@@ -57,6 +69,12 @@ func NewRangeConstraint[E sc.Evaluable](handle string, context trace.Context,
 	return &RangeConstraint[E]{handle, context, expr, bound}
 }
 
+// Name returns a unique name for a given constraint.  This is useful
+// purely for identifying constraints in reports, etc.
+func (p *RangeConstraint[E]) Name() string {
+	return p.Handle
+}
+
 // BoundedAtMost determines whether the bound for this constraint is at most a given bound.
 func (p *RangeConstraint[E]) BoundedAtMost(bound uint) bool {
 	var n fr.Element = fr.NewElement(uint64(bound))
@@ -82,7 +100,8 @@ func (p *RangeConstraint[E]) Bounds(module uint) util.Bounds {
 // nil otherwise return an error.
 //
 //nolint:revive
-func (p *RangeConstraint[E]) Accepts(tr trace.Trace) schema.Failure {
+func (p *RangeConstraint[E]) Accepts(tr trace.Trace) (sc.Coverage, schema.Failure) {
+	var coverage sc.Coverage
 	// Determine height of enclosing module
 	height := tr.Height(p.Context)
 	// Iterate every row
@@ -92,11 +111,11 @@ func (p *RangeConstraint[E]) Accepts(tr trace.Trace) schema.Failure {
 		// Perform the range check
 		if kth.Cmp(&p.Bound) >= 0 {
 			// Evaluation failure
-			return &RangeFailure{p.Handle, p.Expr, uint(k)}
+			return coverage, &RangeFailure{p.Handle, p.Expr, uint(k)}
 		}
 	}
 	// All good
-	return nil
+	return coverage, nil
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example so

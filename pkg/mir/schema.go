@@ -1,3 +1,15 @@
+// Copyright Consensys Software Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+// the License. You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+// an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
+//
+// SPDX-License-Identifier: Apache-2.0
 package mir
 
 import (
@@ -22,7 +34,7 @@ type LookupConstraint = *constraint.LookupConstraint[Expr]
 // VanishingConstraint captures the essence of a vanishing constraint at the MIR
 // level. A vanishing constraint is a row constraint which must evaluate to
 // zero.
-type VanishingConstraint = *constraint.VanishingConstraint[constraint.ZeroTest[Expr]]
+type VanishingConstraint = *constraint.VanishingConstraint[Expr]
 
 // RangeConstraint captures the essence of a range constraints at the MIR level.
 type RangeConstraint = *constraint.RangeConstraint[Expr]
@@ -30,7 +42,7 @@ type RangeConstraint = *constraint.RangeConstraint[Expr]
 // PropertyAssertion captures the notion of an arbitrary property which should
 // hold for all acceptable traces.  However, such a property is not enforced by
 // the prover.
-type PropertyAssertion = *schema.PropertyAssertion[constraint.ZeroTest[Expr]]
+type PropertyAssertion = *schema.PropertyAssertion[Expr]
 
 // Permutation captures the notion of a (sorted) permutation at the MIR level.
 type Permutation = *assignment.SortedPermutation
@@ -127,7 +139,7 @@ func (p *Schema) AddVanishingConstraint(handle string, context trace.Context, do
 	}
 
 	p.constraints = append(p.constraints,
-		constraint.NewVanishingConstraint(handle, context, domain, constraint.ZeroTest[Expr]{Expr: expr}))
+		constraint.NewVanishingConstraint(handle, context, domain, expr))
 }
 
 // AddRangeConstraint appends a new range constraint.
@@ -137,8 +149,7 @@ func (p *Schema) AddRangeConstraint(handle string, context trace.Context, expr E
 
 // AddPropertyAssertion appends a new property assertion.
 func (p *Schema) AddPropertyAssertion(handle string, context trace.Context, expr Expr) {
-	test := constraint.ZeroTest[Expr]{Expr: expr}
-	p.assertions = append(p.assertions, schema.NewPropertyAssertion(handle, context, test))
+	p.assertions = append(p.assertions, schema.NewPropertyAssertion(handle, context, expr))
 }
 
 // ============================================================================

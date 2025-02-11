@@ -1,3 +1,15 @@
+// Copyright Consensys Software Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+// the License. You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+// an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
+//
+// SPDX-License-Identifier: Apache-2.0
 package hir
 
 import (
@@ -24,18 +36,25 @@ type ZeroArrayTest struct {
 // TestAt determines whether or not every element from a given array of
 // expressions evaluates to zero. Observe that any expressions which are
 // undefined are assumed to hold.
-func (p ZeroArrayTest) TestAt(row int, trace tr.Trace) bool {
+func (p ZeroArrayTest) TestAt(row int, trace tr.Trace) (bool, sc.BranchMetric) {
 	// Evalues expression yielding zero or more values.
-	vals := p.Expr.EvalAllAt(row, trace)
+	vals := evalAtTerm(p.Expr.Term, row, trace)
 	// Check each value in turn against zero.
 	for _, val := range vals {
 		if !val.IsZero() {
 			// This expression does not evaluat to zero, hence failure.
-			return false
+			return false, sc.BranchMetric{}
 		}
 	}
 	// Success
-	return true
+	return true, sc.BranchMetric{}
+}
+
+// Branches returns the number of unique evaluation paths through the given
+// constraint.
+func (p ZeroArrayTest) Branches() uint {
+	// FIXME
+	return 1
 }
 
 // Bounds determines the bounds for this zero test.
@@ -96,7 +115,7 @@ func NewUnitExpr(expr Expr) UnitExpr {
 // value at that row of the column in question or nil is that row is
 // out-of-bounds.
 func (e UnitExpr) EvalAt(k int, trace tr.Trace) fr.Element {
-	vals := e.Expr.EvalAllAt(k, trace)
+	vals := evalAtTerm(e.Expr.Term, k, trace)
 	// Check we got exactly one thing
 	if len(vals) == 1 {
 		return vals[0]
@@ -164,7 +183,7 @@ func NewMaxExpr(expr Expr) MaxExpr {
 // value at that row of the column in question or nil is that row is
 // out-of-bounds.
 func (e MaxExpr) EvalAt(k int, trace tr.Trace) fr.Element {
-	vals := e.Expr.EvalAllAt(k, trace)
+	vals := evalAtTerm(e.Expr.Term, k, trace)
 	//
 	max := fr.NewElement(0)
 	//
@@ -204,7 +223,7 @@ func (e MaxExpr) RequiredCells(row int, trace tr.Trace) *set.AnySortedSet[tr.Cel
 
 // LowerTo lowers a max expressions down to one or more expressions at the MIR level.
 func (e MaxExpr) LowerTo(schema *mir.Schema) []mir.Expr {
-	return e.Expr.LowerTo(schema)
+	return lowerTo(e.Expr, schema)
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example

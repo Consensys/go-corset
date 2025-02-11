@@ -1,3 +1,15 @@
+// Copyright Consensys Software Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+// the License. You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+// an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
+//
+// SPDX-License-Identifier: Apache-2.0
 package cmd
 
 import (
@@ -9,6 +21,7 @@ import (
 	"github.com/consensys/go-corset/pkg/hir"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
+	"github.com/consensys/go-corset/pkg/trace"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -24,7 +37,10 @@ var checkCmd = &cobra.Command{
 	Traces can be given either as JSON or binary lt files.
 	Constraints can be given either as lisp or bin files.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		var cfg checkConfig
+		var (
+			cfg    checkConfig
+			traces [][]trace.RawColumn
+		)
 
 		if len(args) != 2 {
 			fmt.Println(cmd.UsageString())
@@ -35,6 +51,7 @@ var checkCmd = &cobra.Command{
 			log.SetLevel(log.DebugLevel)
 		}
 		legacy := GetFlag(cmd, "legacy")
+		batched := GetFlag(cmd, "batched")
 		//
 		cfg.air = GetFlag(cmd, "air")
 		cfg.mir = GetFlag(cmd, "mir")
@@ -50,8 +67,9 @@ var checkCmd = &cobra.Command{
 		cfg.debug = GetFlag(cmd, "debug")
 		cfg.quiet = GetFlag(cmd, "quiet")
 		cfg.padding.Right = GetUint(cmd, "padding")
-		cfg.parallelExpansion = !GetFlag(cmd, "sequential")
+		cfg.parallel = !GetFlag(cmd, "sequential")
 		cfg.batchSize = GetUint(cmd, "batch")
+		cfg.coverage = GetFlag(cmd, "coverage")
 		cfg.ansiEscapes = GetFlag(cmd, "ansi-escapes")
 		// TODO: support true ranges
 		cfg.padding.Left = cfg.padding.Right
@@ -65,13 +83,31 @@ var checkCmd = &cobra.Command{
 		binfile := ReadConstraintFiles(cfg.stdlib, cfg.debug, legacy, args[1:])
 		//
 		stats.Log("Reading constraints file")
-		// Parse trace file
-		columns := ReadTraceFile(args[0])
+		// Parse trace file(s)
+		if batched {
+			// batched mode
+			traces = ReadBatchedTraceFile(args[0])
+		} else {
+			// unbatched (i.e. normal) mode
+			columns := ReadTraceFile(args[0])
+			traces = [][]trace.RawColumn{columns}
+		}
 		//
 		stats.Log("Reading trace file")
 		// Go!
-		if !checkTraceWithLowering(columns, &binfile.Schema, cfg) {
+		ok, coverage := checkTraceWithLowering(traces, &binfile.Schema, cfg)
+		//
+		if !ok {
 			os.Exit(1)
+		} else if cfg.coverage {
+			keys := coverage.Keys()
+			// Print out the data
+			for iter := keys.Iter(); iter.HasNext(); {
+				ith := iter.Next()
+				cov := coverage.CoverageOf(ith)
+				percent := float64(100*cov.Covered.Count()) / float64(cov.Total)
+				fmt.Printf("\"%s\": %d / %d (%.1f%%)\n", ith, cov.Covered.Count(), cov.Total, percent)
+			}
 		}
 	},
 }
@@ -108,6 +144,8 @@ type checkConfig struct {
 	// Specifies whether or not to include the standard library.  The default is
 	// to include it.
 	stdlib bool
+	// Specifies whether or not to produce branch coverage data.
+	coverage bool
 	// Specifies whether or not to report details of the failure (e.g. for
 	// debugging purposes).
 	report bool
@@ -117,7 +155,7 @@ type checkConfig struct {
 	// Specifies the width of a cell to show.
 	reportCellWidth uint
 	// Perform trace expansion in parallel (or not)
-	parallelExpansion bool
+	parallel bool
 	// Size of constraint batches to execute in parallel
 	batchSize uint
 	// Enable ansi escape codes in reports
@@ -126,59 +164,78 @@ type checkConfig struct {
 
 // Check a given trace is consistently accepted (or rejected) at the different
 // IR levels.
-func checkTraceWithLowering(cols []tr.RawColumn, schema *hir.Schema, cfg checkConfig) bool {
+func checkTraceWithLowering(traces [][]tr.RawColumn, schema *hir.Schema, cfg checkConfig) (bool, sc.CoverageMap) {
+	coverage := sc.NewBranchCoverage()
 	res := true
 	// Process individually
 	if cfg.hir {
-		res = checkTrace("HIR", cols, schema, cfg)
+		r, cov := checkTrace[sc.NoMetric]("HIR", traces, schema, cfg)
+		res = r
+		//
+		coverage.InsertAll(cov)
 	}
 
 	if cfg.mir {
-		res = checkTrace("MIR", cols, schema.LowerToMir(), cfg) && res
+		r, cov := checkTrace[sc.NoMetric]("MIR", traces, schema.LowerToMir(), cfg)
+		//
+		res = res && r
+		//
+		coverage.InsertAll(cov)
 	}
 
 	if cfg.air {
-		res = checkTrace("AIR", cols, schema.LowerToMir().LowerToAir(), cfg) && res
+		r, cov := checkTrace[sc.NoMetric]("AIR", traces, schema.LowerToMir().LowerToAir(), cfg)
+		//
+		res = res && r
+		//
+		coverage.InsertAll(cov)
 	}
 
-	return res
+	return res, coverage
 }
 
-func checkTrace(ir string, cols []tr.RawColumn, schema sc.Schema, cfg checkConfig) bool {
+func checkTrace[K sc.Metric[K]](ir string, traces [][]tr.RawColumn, schema sc.Schema,
+	cfg checkConfig) (bool, sc.CoverageMap) {
+	//
+	coverage := sc.NewBranchCoverage()
 	builder := sc.NewTraceBuilder(schema).
 		Defensive(cfg.defensive).
 		Expand(cfg.expand).
-		Parallel(cfg.parallelExpansion).
+		Parallel(cfg.parallel).
 		BatchSize(cfg.batchSize)
 	//
-	for n := cfg.padding.Left; n <= cfg.padding.Right; n++ {
-		stats := util.NewPerfStats()
-		trace, errs := builder.Padding(n).Build(cols)
-		// Log cost of expansion
-		stats.Log("Expanding trace columns")
-		// Report any errors
-		reportErrors(cfg.strict, ir, errs)
-		// Check whether considered unrecoverable
-		if trace == nil || (cfg.strict && len(errs) > 0) {
-			return false
-		}
-		//
-		stats = util.NewPerfStats()
-		// Check constraints
-		if errs := sc.Accepts(cfg.batchSize, schema, trace); len(errs) > 0 {
-			reportFailures(ir, errs, trace, cfg)
-			return false
-		}
-		// Check assertions
-		if errs := sc.Asserts(cfg.batchSize, schema, trace); len(errs) > 0 {
-			reportFailures(ir, errs, trace, cfg)
-			return false
-		}
+	for _, cols := range traces {
+		for n := cfg.padding.Left; n <= cfg.padding.Right; n++ {
+			stats := util.NewPerfStats()
+			trace, errs := builder.Padding(n).Build(cols)
+			// Log cost of expansion
+			stats.Log("Expanding trace columns")
+			// Report any errors
+			reportErrors(cfg.strict, ir, errs)
+			// Check whether considered unrecoverable
+			if trace == nil || (cfg.strict && len(errs) > 0) {
+				return false, coverage
+			}
+			//
+			stats = util.NewPerfStats()
+			// Check constraints
+			if cov, errs := sc.Accepts(cfg.parallel, cfg.batchSize, schema, trace); len(errs) > 0 {
+				reportFailures(ir, errs, trace, cfg)
+				return false, coverage
+			} else {
+				coverage.InsertAll(cov)
+			}
+			// Check assertions
+			if _, errs := sc.Asserts(cfg.parallel, cfg.batchSize, schema, trace); len(errs) > 0 {
+				reportFailures(ir, errs, trace, cfg)
+				return false, coverage
+			}
 
-		stats.Log("Checking constraints")
+			stats.Log("Checking constraints")
+		}
 	}
 	// Done
-	return true
+	return true, coverage
 }
 
 // Report constraint failures, whilst providing contextual information (when requested).
@@ -276,8 +333,11 @@ func init() {
 	checkCmd.Flags().BoolP("quiet", "q", false, "suppress output (e.g. warnings)")
 	checkCmd.Flags().Bool("sequential", false, "perform sequential trace expansion")
 	checkCmd.Flags().Bool("defensive", true, "automatically apply defensive padding to every module")
+	checkCmd.Flags().Bool("coverage", false, "print coverage results")
 	checkCmd.Flags().Uint("padding", 0, "specify amount of (front) padding to apply")
 	checkCmd.Flags().UintP("batch", "b", math.MaxUint, "specify batch size for constraint checking")
+	checkCmd.Flags().Bool("batched", false,
+		"specify trace file is batched (i.e. contains multiple traces, one for each line)")
 	checkCmd.Flags().Int("spillage", -1,
 		"specify amount of splillage to account for (where -1 indicates this should be inferred)")
 	checkCmd.Flags().Bool("ansi-escapes", true, "specify whether to allow ANSI escapes or not (e.g. for colour reports)")
