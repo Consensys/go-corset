@@ -165,7 +165,7 @@ func (e *jsonExprFuncall) ToHir(colmap map[uint]uint, schema *hir.Schema) hir.Ex
 		return hir.Exponent(args[0], k.Uint64())
 	case "IfZero":
 		if len(args) == 2 {
-			return hir.If(args[0], args[1], hir.ZERO)
+			return hir.If(args[0], args[1], hir.VOID)
 		} else if len(args) == 3 {
 			return hir.If(args[0], args[1], args[2])
 		} else {
@@ -173,7 +173,7 @@ func (e *jsonExprFuncall) ToHir(colmap map[uint]uint, schema *hir.Schema) hir.Ex
 		}
 	case "IfNotZero":
 		if len(args) == 2 {
-			return hir.If(args[0], hir.ZERO, args[1])
+			return hir.If(args[0], hir.VOID, args[1])
 		} else if len(args) == 3 {
 			return hir.If(args[0], args[2], args[1])
 		} else {
