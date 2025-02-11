@@ -197,7 +197,7 @@ func compileSelector(env compiler.Environment, selector ast.Expr) *hir.UnitExpr 
 			// Lookup column binding
 			register_id := env.RegisterOf(binding.AbsolutePath())
 			// Done
-			expr := &hir.ColumnAccess{Column: register_id, Shift: 0}
+			expr := hir.NewColumnAccess(register_id, 0)
 			//
 			return &hir.UnitExpr{Expr: expr}
 		}

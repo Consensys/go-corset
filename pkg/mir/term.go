@@ -106,17 +106,17 @@ func (p *Constant) Normalised() bool {
 // Normalise
 // ============================================================================
 
-// Normalise reduces the value of an expression to either zero (if it was zero)
+// Norm reduces the value of an expression to either zero (if it was zero)
 // or one (otherwise).
-type Normalise struct{ Arg Term }
+type Norm struct{ Arg Term }
 
 // Bounds returns max shift in either the negative (left) or positive
 // direction (right).
-func (p *Normalise) Bounds() util.Bounds { return p.Arg.Bounds() }
+func (p *Norm) Bounds() util.Bounds { return p.Arg.Bounds() }
 
 // Normalised returns true if the given term is normalised.  For example, an
 // product containing a product argument is not normalised.
-func (p *Normalise) Normalised() bool {
+func (p *Norm) Normalised() bool {
 	panic("todo")
 }
 

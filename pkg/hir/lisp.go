@@ -2,15 +2,47 @@ package hir
 
 import (
 	"fmt"
+	"reflect"
 
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/sexp"
 )
 
-// Lisp converts this schema element into a simple S-Expression, for example
-// so it can be printed.
-func (e *ColumnAccess) Lisp(schema sc.Schema) sexp.SExp {
-	name := schema.Columns().Nth(e.Column).QualifiedName(schema)
+func lispOfTerm(e Term, schema sc.Schema) sexp.SExp {
+	switch e := e.(type) {
+	case *Add:
+		return nary2Lisp(schema, "+", e.Args)
+	case *Constant:
+		return sexp.NewSymbol(e.Value.String())
+	case *ColumnAccess:
+		return lispOfColumnAccess(e, schema)
+	case *Exp:
+		return lispOfExp(e, schema)
+	case *IfZero:
+		return lispOfIfZero(e, schema)
+	case *List:
+		return nary2Lisp(schema, "begin", e.Args)
+	case *Mul:
+		return nary2Lisp(schema, "*", e.Args)
+	case *Norm:
+		return lispOfNormalise(e, schema)
+	case *Sub:
+		return nary2Lisp(schema, "-", e.Args)
+	default:
+		name := reflect.TypeOf(e).Name()
+		panic(fmt.Sprintf("unknown HIR expression \"%s\"", name))
+	}
+}
+
+func lispOfColumnAccess(e *ColumnAccess, schema sc.Schema) sexp.SExp {
+	var name string
+	// Generate name, whilst allowing for schema to be nil.
+	if schema != nil {
+		name = schema.Columns().Nth(e.Column).QualifiedName(schema)
+	} else {
+		name = fmt.Sprintf("#%d", e.Column)
+	}
+	//
 	access := sexp.NewSymbol(name)
 	// Check whether shifted (or not)
 	if e.Shift == 0 {
@@ -25,84 +57,50 @@ func (e *ColumnAccess) Lisp(schema sc.Schema) sexp.SExp {
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (e *Constant) Lisp(schema sc.Schema) sexp.SExp {
-	return sexp.NewSymbol(e.Val.String())
-}
-
-// Lisp converts this schema element into a simple S-Expression, for example
-// so it can be printed.
-func (e *List) Lisp(schema sc.Schema) sexp.SExp {
-	return nary2Lisp(schema, "begin", e.Args)
-}
-
-// Lisp converts this schema element into a simple S-Expression, for example
-// so it can be printed.
-func (e *Add) Lisp(schema sc.Schema) sexp.SExp {
-	return nary2Lisp(schema, "+", e.Args)
-}
-
-// Lisp converts this schema element into a simple S-Expression, for example
-// so it can be printed.
-func (e *Sub) Lisp(schema sc.Schema) sexp.SExp {
-	return nary2Lisp(schema, "-", e.Args)
-}
-
-// Lisp converts this schema element into a simple S-Expression, for example
-// so it can be printed.
-func (e *Mul) Lisp(schema sc.Schema) sexp.SExp {
-	return nary2Lisp(schema, "*", e.Args)
-}
-
-// Lisp converts this schema element into a simple S-Expression, for example
-// so it can be printed.
-func (e *Normalise) Lisp(schema sc.Schema) sexp.SExp {
-	arg := e.Arg.Lisp(schema)
-	return sexp.NewList([]sexp.SExp{sexp.NewSymbol("~"), arg})
-}
-
-// Lisp converts this schema element into a simple S-Expression, for example
-// so it can be printed.
-func (e *Exp) Lisp(schema sc.Schema) sexp.SExp {
-	arg := e.Arg.Lisp(schema)
-	pow := sexp.NewSymbol(fmt.Sprintf("%d", e.Pow))
-
-	return sexp.NewList([]sexp.SExp{sexp.NewSymbol("^"), arg, pow})
-}
-
-// Lisp converts this schema element into a simple S-Expression, for example
-// so it can be printed.
-func (e *IfZero) Lisp(schema sc.Schema) sexp.SExp {
+func lispOfIfZero(e *IfZero, schema sc.Schema) sexp.SExp {
 	// Translate Condition
-	condition := e.Condition.Lisp(schema)
+	condition := lispOfTerm(e.Condition, schema)
 	// Dispatch on type
 	if e.FalseBranch == nil {
 		return sexp.NewList([]sexp.SExp{
 			sexp.NewSymbol("if"),
 			condition,
-			e.TrueBranch.Lisp(schema),
+			lispOfTerm(e.TrueBranch, schema),
 		})
 	} else if e.TrueBranch == nil {
 		return sexp.NewList([]sexp.SExp{
 			sexp.NewSymbol("ifnot"),
 			condition,
-			e.FalseBranch.Lisp(schema),
+			lispOfTerm(e.FalseBranch, schema),
 		})
 	}
 
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("if"),
 		condition,
-		e.TrueBranch.Lisp(schema),
-		e.FalseBranch.Lisp(schema),
+		lispOfTerm(e.TrueBranch, schema),
+		lispOfTerm(e.FalseBranch, schema),
 	})
 }
 
-func nary2Lisp(schema sc.Schema, op string, exprs []Expr) sexp.SExp {
+func lispOfNormalise(e *Norm, schema sc.Schema) sexp.SExp {
+	arg := lispOfTerm(e.Arg, schema)
+	return sexp.NewList([]sexp.SExp{sexp.NewSymbol("~"), arg})
+}
+
+func lispOfExp(e *Exp, schema sc.Schema) sexp.SExp {
+	arg := lispOfTerm(e.Arg, schema)
+	pow := sexp.NewSymbol(fmt.Sprintf("%d", e.Pow))
+
+	return sexp.NewList([]sexp.SExp{sexp.NewSymbol("^"), arg, pow})
+}
+
+func nary2Lisp(schema sc.Schema, op string, exprs []Term) sexp.SExp {
 	arr := make([]sexp.SExp, 1+len(exprs))
 	arr[0] = sexp.NewSymbol(op)
 	// Translate arguments
 	for i, e := range exprs {
-		arr[i+1] = e.Lisp(schema)
+		arr[i+1] = lispOfTerm(e, schema)
 	}
 	// Done
 	return sexp.NewList(arr)

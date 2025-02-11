@@ -26,7 +26,7 @@ type ZeroArrayTest struct {
 // undefined are assumed to hold.
 func (p ZeroArrayTest) TestAt(row int, trace tr.Trace) (bool, sc.BranchMetric) {
 	// Evalues expression yielding zero or more values.
-	vals := p.Expr.EvalAllAt(row, trace)
+	vals := evalAtTerm(p.Expr.Term, row, trace)
 	// Check each value in turn against zero.
 	for _, val := range vals {
 		if !val.IsZero() {
@@ -103,7 +103,7 @@ func NewUnitExpr(expr Expr) UnitExpr {
 // value at that row of the column in question or nil is that row is
 // out-of-bounds.
 func (e UnitExpr) EvalAt(k int, trace tr.Trace) fr.Element {
-	vals := e.Expr.EvalAllAt(k, trace)
+	vals := evalAtTerm(e.Expr.Term, k, trace)
 	// Check we got exactly one thing
 	if len(vals) == 1 {
 		return vals[0]
@@ -171,7 +171,7 @@ func NewMaxExpr(expr Expr) MaxExpr {
 // value at that row of the column in question or nil is that row is
 // out-of-bounds.
 func (e MaxExpr) EvalAt(k int, trace tr.Trace) fr.Element {
-	vals := e.Expr.EvalAllAt(k, trace)
+	vals := evalAtTerm(e.Expr.Term, k, trace)
 	//
 	max := fr.NewElement(0)
 	//
@@ -211,7 +211,7 @@ func (e MaxExpr) RequiredCells(row int, trace tr.Trace) *set.AnySortedSet[tr.Cel
 
 // LowerTo lowers a max expressions down to one or more expressions at the MIR level.
 func (e MaxExpr) LowerTo(schema *mir.Schema) []mir.Expr {
-	return e.Expr.LowerTo(schema)
+	return lowerTo(e.Expr, schema)
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example

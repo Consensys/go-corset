@@ -28,7 +28,7 @@ func rangeOfTerm(e Term, schema sc.Schema) *util.Interval {
 		return bounds
 	case *Mul:
 		return rangeOfMul(e.Args, schema)
-	case *Normalise:
+	case *Norm:
 		return util.NewInterval(big.NewInt(0), big.NewInt(1))
 	case *Sub:
 		return rangeOfSub(e.Args, schema)
