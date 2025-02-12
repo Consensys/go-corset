@@ -20,6 +20,7 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
 	"github.com/consensys/go-corset/pkg/util/sexp"
 )
@@ -114,8 +115,8 @@ func (p *LookupConstraint[E]) Bounds(module uint) util.Bounds {
 // all rows of the source columns.
 //
 //nolint:revive
-func (p *LookupConstraint[E]) Accepts(tr trace.Trace) (sc.Coverage, schema.Failure) {
-	var coverage sc.Coverage
+func (p *LookupConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
+	var coverage bit.Set
 	// Determine height of enclosing module for source columns
 	src_height := tr.Height(p.SourceContext)
 	tgt_height := tr.Height(p.TargetContext)

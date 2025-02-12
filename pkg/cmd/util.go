@@ -29,6 +29,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace/json"
 	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/sexp"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -113,6 +114,55 @@ func writeCoverageReport(filename string, air sc.CoverageMap, mir sc.CoverageMap
 		fmt.Println(err)
 		os.Exit(6)
 	}
+}
+
+func readCoverageReport(filename string) [3]sc.CoverageMap {
+	var (
+		report map[string]map[string][]uint
+		air    sc.CoverageMap
+		mir    sc.CoverageMap
+		hir    sc.CoverageMap
+	)
+	// Read data file
+	bytes, err := os.ReadFile(filename)
+	// Check success
+	if err == nil {
+		if err = enc_json.Unmarshal(bytes, &report); err == nil {
+			// Read air section
+			if section, ok := report["air"]; ok {
+				air = readCoverageReportSection(section)
+			}
+			// Read mir section
+			if section, ok := report["mir"]; ok {
+				mir = readCoverageReportSection(section)
+			}
+			// Read hir section
+			if section, ok := report["hir"]; ok {
+				hir = readCoverageReportSection(section)
+			}
+			// Done
+			return [3]sc.CoverageMap{air, mir, hir}
+		}
+	}
+	// Handle error
+	fmt.Println(err)
+	os.Exit(4)
+	// unreachable
+	return [3]sc.CoverageMap{air, mir, hir}
+}
+
+func readCoverageReportSection(section map[string][]uint) sc.CoverageMap {
+	report := sc.NewBranchCoverage()
+	//
+	for k, vals := range section {
+		var covered bit.Set
+		// Insert all elements
+		covered.InsertAll(vals...)
+		// Done
+		report.Insert(k, covered)
+	}
+	//
+	return report
 }
 
 // Write a given trace file to disk

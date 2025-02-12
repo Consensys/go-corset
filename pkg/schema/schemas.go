@@ -17,6 +17,7 @@ import (
 
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 )
 
@@ -201,7 +202,7 @@ func processConstraintBatch(logtitle string, batch uint, batchsize uint, iter it
 
 type pcOutcome struct {
 	handle string
-	data   Coverage
+	data   bit.Set
 	error  Failure
 }
 

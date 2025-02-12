@@ -101,7 +101,7 @@ func (p *VanishingConstraint[T]) Bounds(module uint) util.Bounds {
 // of a table.  If so, return nil otherwise return an error.
 //
 //nolint:revive
-func (p *VanishingConstraint[T]) Accepts(tr tr.Trace) (sc.Coverage, sc.Failure) {
+func (p *VanishingConstraint[T]) Accepts(tr tr.Trace) (bit.Set, sc.Failure) {
 	if p.Domain.IsEmpty() {
 		// Global Constraint
 		return HoldsGlobally(p.Handle, p.Context, p.Constraint, tr)
@@ -126,13 +126,13 @@ func (p *VanishingConstraint[T]) Accepts(tr tr.Trace) (sc.Coverage, sc.Failure) 
 	//
 	coverage.Insert(id.Key())
 	//
-	return sc.NewCoverage(coverage, p.Constraint.Branches()), err
+	return coverage, err
 }
 
 // HoldsGlobally checks whether a given expression vanishes (i.e. evaluates to
 // zero) for all rows of a trace.  If not, report an appropriate error.
-func HoldsGlobally[T sc.Testable](handle string, ctx tr.Context, constraint T, tr tr.Trace) (sc.Coverage, sc.Failure) {
-	coverage := sc.NewCoverage(bit.Set{}, constraint.Branches())
+func HoldsGlobally[T sc.Testable](handle string, ctx tr.Context, constraint T, tr tr.Trace) (bit.Set, sc.Failure) {
+	var coverage bit.Set
 	// Determine height of enclosing module
 	height := tr.Height(ctx)
 	// Determine well-definedness bounds for this constraint
@@ -146,7 +146,7 @@ func HoldsGlobally[T sc.Testable](handle string, ctx tr.Context, constraint T, t
 				return coverage, err
 			}
 			// Update coverage
-			coverage.Covered.Insert(id.Key())
+			coverage.Insert(id.Key())
 		}
 	}
 	// Success

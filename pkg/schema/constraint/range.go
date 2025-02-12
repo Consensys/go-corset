@@ -20,6 +20,7 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/sexp"
 )
 
@@ -100,8 +101,8 @@ func (p *RangeConstraint[E]) Bounds(module uint) util.Bounds {
 // nil otherwise return an error.
 //
 //nolint:revive
-func (p *RangeConstraint[E]) Accepts(tr trace.Trace) (sc.Coverage, schema.Failure) {
-	var coverage sc.Coverage
+func (p *RangeConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
+	var coverage bit.Set
 	// Determine height of enclosing module
 	height := tr.Height(p.Context)
 	// Iterate every row

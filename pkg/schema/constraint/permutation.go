@@ -18,6 +18,7 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/sexp"
 )
@@ -74,9 +75,9 @@ func (p *PermutationConstraint) Bounds(module uint) util.Bounds {
 
 // Accepts checks whether a permutation holds between the source and
 // target columns.
-func (p *PermutationConstraint) Accepts(tr trace.Trace) (sc.Coverage, sc.Failure) {
+func (p *PermutationConstraint) Accepts(tr trace.Trace) (bit.Set, sc.Failure) {
 	// Coverage currently always empty for permutation constraints.
-	var coverage sc.Coverage
+	var coverage bit.Set
 	// Slice out data
 	src := sliceColumns(p.Sources, tr)
 	dst := sliceColumns(p.Targets, tr)

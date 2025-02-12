@@ -88,7 +88,7 @@ func check_BitSet_Insert(t *testing.T, n uint, m uint) {
 	items := util.GenerateRandomUints(n, m)
 	count := countUniqueItems(items)
 	bset := toBitSet(items)
-	iset.InsertAll(bset)
+	iset.Union(bset)
 	//
 	if bset.Count() != count {
 		t.Errorf("unexpected number of items (%d vs %d) (insert)", bset.Count(), count)

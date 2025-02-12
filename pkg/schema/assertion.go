@@ -92,8 +92,8 @@ func (p *PropertyAssertion[T]) Bounds(module uint) util.Bounds {
 // of a table. If so, return nil otherwise return an error.
 //
 //nolint:revive
-func (p *PropertyAssertion[T]) Accepts(tr tr.Trace) (Coverage, Failure) {
-	coverage := NewCoverage(bit.Set{}, p.Property.Branches())
+func (p *PropertyAssertion[T]) Accepts(tr tr.Trace) (bit.Set, Failure) {
+	var coverage bit.Set
 	// Determine height of enclosing module
 	height := tr.Height(p.Context)
 	// Iterate every row in the module
@@ -104,7 +104,7 @@ func (p *PropertyAssertion[T]) Accepts(tr tr.Trace) (Coverage, Failure) {
 			return coverage, &AssertionFailure{p.Handle, p.Property, k}
 		} else {
 			// Update coverage
-			coverage.Covered.Insert(id.Key())
+			coverage.Insert(id.Key())
 		}
 	}
 	// All good
