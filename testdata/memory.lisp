@@ -64,11 +64,3 @@
    (or!
     (eq! RW' 1)
     (eq! VAL' (prev VAL')))))
-
-;; NOTE: following should be added directly to the standard library.
-(defpurefun (if-not-eq X Y then)
-    (if (eq! X Y)
-        ;; True branch
-        (vanishes! 0)
-        ;; False branch
-        then))

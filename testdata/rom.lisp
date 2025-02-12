@@ -45,10 +45,6 @@
 
 (module rom)
 
-(defpurefun (if-not-eq A B then)
-  (if (neq A B)
-      then))
-
 ;; Constancies
 (defun (cfi-constant X)
   (if-not-eq CFI
