@@ -69,10 +69,14 @@ var checkCmd = &cobra.Command{
 		cfg.padding.Right = GetUint(cmd, "padding")
 		cfg.parallel = !GetFlag(cmd, "sequential")
 		cfg.batchSize = GetUint(cmd, "batch")
-		cfg.coverage = GetFlag(cmd, "coverage")
 		cfg.ansiEscapes = GetFlag(cmd, "ansi-escapes")
 		// TODO: support true ranges
 		cfg.padding.Left = cfg.padding.Right
+		// enable / disable coverage
+		if covfile := GetString(cmd, "coverage"); covfile != "" {
+			cfg.coverage = util.Some(covfile)
+		}
+		// Configure Intermediate Representations
 		if !cfg.hir && !cfg.mir && !cfg.air {
 			// If IR not specified default to running all.
 			cfg.hir, cfg.mir, cfg.air = true, true, true
@@ -99,15 +103,8 @@ var checkCmd = &cobra.Command{
 		//
 		if !ok {
 			os.Exit(1)
-		} else if cfg.coverage {
-			keys := coverage.Keys()
-			// Print out the data
-			for iter := keys.Iter(); iter.HasNext(); {
-				ith := iter.Next()
-				cov := coverage.CoverageOf(ith)
-				percent := float64(100*cov.Covered.Count()) / float64(cov.Total)
-				fmt.Printf("\"%s\": %d / %d (%.1f%%)\n", ith, cov.Covered.Count(), cov.Total, percent)
-			}
+		} else if cfg.coverage.HasValue() {
+			writeCoverageReport(cfg.coverage.Unwrap(), coverage[0], coverage[1], coverage[2])
 		}
 	},
 }
@@ -144,8 +141,9 @@ type checkConfig struct {
 	// Specifies whether or not to include the standard library.  The default is
 	// to include it.
 	stdlib bool
-	// Specifies whether or not to produce branch coverage data.
-	coverage bool
+	// Specifies whether to use coverage testing and, if so, where to write the
+	// coverage data.
+	coverage util.Option[string]
 	// Specifies whether or not to report details of the failure (e.g. for
 	// debugging purposes).
 	report bool
@@ -164,34 +162,33 @@ type checkConfig struct {
 
 // Check a given trace is consistently accepted (or rejected) at the different
 // IR levels.
-func checkTraceWithLowering(traces [][]tr.RawColumn, schema *hir.Schema, cfg checkConfig) (bool, sc.CoverageMap) {
-	coverage := sc.NewBranchCoverage()
+func checkTraceWithLowering(traces [][]tr.RawColumn, schema *hir.Schema, cfg checkConfig) (bool, [3]sc.CoverageMap) {
+	var (
+		tmp         bool
+		airCoverage sc.CoverageMap
+		mirCoverage sc.CoverageMap
+		hirCoverage sc.CoverageMap
+	)
+	//
 	res := true
 	// Process individually
 	if cfg.hir {
-		r, cov := checkTrace[sc.NoMetric]("HIR", traces, schema, cfg)
-		res = r
-		//
-		coverage.InsertAll(cov)
+		res, hirCoverage = checkTrace[sc.NoMetric]("HIR", traces, schema, cfg)
 	}
 
 	if cfg.mir {
-		r, cov := checkTrace[sc.NoMetric]("MIR", traces, schema.LowerToMir(), cfg)
+		tmp, mirCoverage = checkTrace[sc.NoMetric]("MIR", traces, schema.LowerToMir(), cfg)
 		//
-		res = res && r
-		//
-		coverage.InsertAll(cov)
+		res = res && tmp
 	}
 
 	if cfg.air {
-		r, cov := checkTrace[sc.NoMetric]("AIR", traces, schema.LowerToMir().LowerToAir(), cfg)
+		tmp, airCoverage = checkTrace[sc.NoMetric]("AIR", traces, schema.LowerToMir().LowerToAir(), cfg)
 		//
-		res = res && r
-		//
-		coverage.InsertAll(cov)
+		res = res && tmp
 	}
 
-	return res, coverage
+	return res, [3]sc.CoverageMap{airCoverage, mirCoverage, hirCoverage}
 }
 
 func checkTrace[K sc.Metric[K]](ir string, traces [][]tr.RawColumn, schema sc.Schema,
@@ -333,7 +330,7 @@ func init() {
 	checkCmd.Flags().BoolP("quiet", "q", false, "suppress output (e.g. warnings)")
 	checkCmd.Flags().Bool("sequential", false, "perform sequential trace expansion")
 	checkCmd.Flags().Bool("defensive", true, "automatically apply defensive padding to every module")
-	checkCmd.Flags().Bool("coverage", false, "print coverage results")
+	checkCmd.Flags().String("coverage", "", "write JSON coverage data to file")
 	checkCmd.Flags().Uint("padding", 0, "specify amount of (front) padding to apply")
 	checkCmd.Flags().UintP("batch", "b", math.MaxUint, "specify batch size for constraint checking")
 	checkCmd.Flags().Bool("batched", false,

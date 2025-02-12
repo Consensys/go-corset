@@ -13,6 +13,7 @@
 package bit
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/consensys/go-corset/pkg/util"
@@ -47,6 +48,10 @@ func TestSlow_BitSet_05(t *testing.T) {
 
 func TestSlow_BitSet_06(t *testing.T) {
 	check_BitSet_Insert(t, 100000, 16384)
+}
+
+func TestSlow_BitSet_07(t *testing.T) {
+	check_BitSet_Insert(t, 100000, 65536)
 }
 
 // ===================================================================
@@ -87,6 +92,9 @@ func check_BitSet_Insert(t *testing.T, n uint, m uint) {
 	//
 	if bset.Count() != count {
 		t.Errorf("unexpected number of items (%d vs %d) (insert)", bset.Count(), count)
+	} else if c := bset.Iter().Count(); c != count {
+		fmt.Printf("%v\n", items)
+		t.Errorf("unexpected number of items (%d vs %d) (iterator)", c, count)
 	}
 	//
 	if iset.Count() != count {
@@ -108,6 +116,13 @@ func check_BitSet_Insert(t *testing.T, n uint, m uint) {
 			t.Errorf("unexpected item %d (insert all)", i)
 		} else if l && !s {
 			t.Errorf("missing item %d (insert all)", i)
+		}
+	}
+	//
+	for iter := bset.Iter(); iter.HasNext(); {
+		ith := iter.Next()
+		if !array_contains(items, ith) {
+			t.Errorf("unexpected item %d (iterator)", ith)
 		}
 	}
 }

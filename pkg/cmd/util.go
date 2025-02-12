@@ -13,6 +13,7 @@
 package cmd
 
 import (
+	enc_json "encoding/json"
 	"fmt"
 	"os"
 	"path"
@@ -23,6 +24,7 @@ import (
 	legacy_binfile "github.com/consensys/go-corset/pkg/binfile/legacy"
 	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/hir"
+	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/json"
 	"github.com/consensys/go-corset/pkg/trace/lt"
@@ -85,6 +87,32 @@ func GetStringArray(cmd *cobra.Command, flag string) []string {
 	}
 
 	return r
+}
+
+func writeCoverageReport(filename string, air sc.CoverageMap, mir sc.CoverageMap, hir sc.CoverageMap) {
+	var data map[string]any = make(map[string]any)
+	// Add AIR data (if applicable)
+	if !air.IsEmpty() {
+		data["air"] = air.ToJson()
+	}
+	// Add MIR data (if applicable)
+	if !mir.IsEmpty() {
+		data["mir"] = mir.ToJson()
+	}
+	// Add HIR data (if applicable)
+	if !hir.IsEmpty() {
+		data["hir"] = hir.ToJson()
+	}
+	// write to disk
+	jsonString, err := enc_json.Marshal(data)
+	//
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(5)
+	} else if err := os.WriteFile(filename, jsonString, 0644); err != nil {
+		fmt.Println(err)
+		os.Exit(6)
+	}
 }
 
 // Write a given trace file to disk

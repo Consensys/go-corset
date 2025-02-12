@@ -80,7 +80,7 @@ func (p *appendIterator[T]) Count() uint {
 //
 //nolint:revive
 func (p *appendIterator[T]) Find(predicate Predicate[T]) (uint, bool) {
-	return baseFind(p, predicate)
+	return Find(p, predicate)
 }
 
 // Nth returns the nth item in this iterator
@@ -88,5 +88,5 @@ func (p *appendIterator[T]) Find(predicate Predicate[T]) (uint, bool) {
 //nolint:revive
 func (p *appendIterator[T]) Nth(n uint) T {
 	// TODO: improve performance.
-	return baseNth(p, n)
+	return Nth(p, n)
 }

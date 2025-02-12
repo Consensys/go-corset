@@ -80,7 +80,7 @@ func (p *arrayIterator[T]) Count() uint {
 //
 //nolint:revive
 func (p *arrayIterator[T]) Find(predicate Predicate[T]) (uint, bool) {
-	return baseFind(p, predicate)
+	return Find(p, predicate)
 }
 
 // Nth returns the nth item in this iterator

@@ -48,11 +48,15 @@ type Iterator[T any] interface {
 // Base Iterator
 // ===============================================================
 
-func baseFind[T any, S Enumerator[T]](iter S, predicate Predicate[T]) (uint, bool) {
+// Find provides a default implementation of Iterator.Find which can be used by
+// other iterator implementations.
+//
+//nolint:revive
+func Find[T any, S Enumerator[T]](iter S, predicate Predicate[T]) (uint, bool) {
 	index := uint(0)
 
-	for i := iter; i.HasNext(); {
-		if predicate(i.Next()) {
+	for iter.HasNext() {
+		if predicate(iter.Next()) {
 			return index, true
 		}
 
@@ -62,11 +66,15 @@ func baseFind[T any, S Enumerator[T]](iter S, predicate Predicate[T]) (uint, boo
 	return 0, false
 }
 
-func baseNth[T any, S Enumerator[T]](iter S, n uint) T {
+// Nth provides a default implementation of Iterator.Nth which can be used by
+// other iterator implementations.
+//
+//nolint:revive
+func Nth[T any, S Enumerator[T]](iter S, n uint) T {
 	index := uint(0)
 
-	for i := iter; i.HasNext(); {
-		ith := i.Next()
+	for iter.HasNext() {
+		ith := iter.Next()
 		if index == n {
 			return ith
 		}
@@ -75,4 +83,34 @@ func baseNth[T any, S Enumerator[T]](iter S, n uint) T {
 	}
 	// Issue!
 	panic("iterator out-of-bounds")
+}
+
+// Count provides a default implementation of Iterator.Count which can be used by
+// other iterator implementations.
+//
+//nolint:revive
+func Count[T any, S Enumerator[T]](iter S) uint {
+	count := uint(0)
+
+	for iter.HasNext() {
+		iter.Next()
+		//
+		count++
+	}
+	// Issue!
+	return count
+}
+
+// Collect provides a default implementation of Iterator.Collect which can be used by
+// other iterator implementations.
+//
+//nolint:revive
+func Collect[T any, S Enumerator[T]](iter S) []T {
+	var items []T = make([]T, 0)
+	//
+	for iter.HasNext() {
+		items = append(items, iter.Next())
+	}
+	//
+	return items
 }
