@@ -15,6 +15,8 @@ package bit
 import (
 	"fmt"
 	"strings"
+
+	"github.com/consensys/go-corset/pkg/util/collection/iter"
 )
 
 // Set provides a straightforward bitset implementation.  That is, a set of
@@ -80,6 +82,11 @@ func (p *Set) Count() uint {
 	return count
 }
 
+// Iter returns an iterator over the elements of this bitset.
+func (p *Set) Iter() iter.Iterator[uint] {
+	return &iterator{p.words, 0}
+}
+
 func (p *Set) String() string {
 	var (
 		builder strings.Builder
@@ -103,4 +110,93 @@ func (p *Set) String() string {
 	}
 	//
 	return builder.String()
+}
+
+// ============================================================================
+// Iterator
+// ============================================================================
+type iterator struct {
+	words []uint64
+	value uint
+}
+
+func (p *iterator) HasNext() bool {
+	n := uint(len(p.words))
+	word := p.value / 64
+	bit := p.value % 64
+	mask := uint64(1) << bit
+	// skip empty words
+	for word < n && (p.words[word] == 0 || p.words[word] < mask) {
+		bit = 0
+		mask = 1
+		word = word + 1
+	}
+	//
+	if word < n {
+		for i := bit; i < 64; i++ {
+			mask := uint64(1) << i
+			if (p.words[word] & mask) != 0 {
+				p.value = (word * 64) + i
+				return true
+			}
+		}
+	}
+	//
+	p.value = n * 64
+	// Done
+	return false
+}
+
+func (p *iterator) Next() uint {
+	next := p.value
+	p.value = p.value + 1
+	//
+	return next
+}
+
+// Append another iterator onto the end of this iterator.  Thus, when all
+// items are visited in this iterator, iteration continues into the other.
+//
+//nolint:revive
+func (p *iterator) Append(other iter.Iterator[uint]) iter.Iterator[uint] {
+	return iter.NewAppendIterator[uint](p, other)
+}
+
+// Clone creates a copy of this iterator at the given cursor position.
+// Modifying the clone (i.e. by calling Next) iterator will not modify the
+// original.
+//
+//nolint:revive
+func (p *iterator) Clone() iter.Iterator[uint] {
+	return &iterator{p.words, p.value}
+}
+
+// Collect allocates a new array containing all items of this iterator.
+// This drains the iterator.
+//
+//nolint:revive
+func (p *iterator) Collect() []uint {
+	return iter.Collect(p)
+}
+
+// Count returns the number of items left in the iterator
+//
+//nolint:revive
+func (p *iterator) Count() uint {
+	return iter.Count(p)
+}
+
+// Find returns the index of the first match for a given predicate, or
+// return false if no match is found.
+//
+//nolint:revive
+func (p *iterator) Find(predicate iter.Predicate[uint]) (uint, bool) {
+	return iter.Find(p, predicate)
+}
+
+// Nth returns the nth item in this iterator
+//
+//nolint:revive
+func (p *iterator) Nth(n uint) uint {
+	return iter.Nth(p, n)
 }

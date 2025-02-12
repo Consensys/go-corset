@@ -59,6 +59,11 @@ func NewBranchCoverage() CoverageMap {
 	return CoverageMap{items}
 }
 
+// IsEmpty checks whether or not this map is empty.
+func (p *CoverageMap) IsEmpty() bool {
+	return len(p.items) == 0
+}
+
 // CoverageOf returns, for a given constraint, the recorded coverage data.
 func (p *CoverageMap) CoverageOf(name string) Coverage {
 	return p.items[name]
@@ -99,6 +104,22 @@ func (p *CoverageMap) Keys() *set.SortedSet[string] {
 	}
 	//
 	return keys
+}
+
+// ToJson returns a representation of this coverage map suitable for being
+// converted into JSON.
+func (p *CoverageMap) ToJson() map[string]any {
+	var json map[string]any = make(map[string]any)
+	//
+	keys := p.Keys()
+	// Print out the data
+	for iter := keys.Iter(); iter.HasNext(); {
+		ith := iter.Next()
+		cov := p.CoverageOf(ith)
+		json[ith] = cov.Covered.Iter().Collect()
+	}
+	//
+	return json
 }
 
 // ============================================================================
