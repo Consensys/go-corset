@@ -99,7 +99,7 @@ func (p *CoverageMap) InsertAll(other CoverageMap) {
 func (p *CoverageMap) Keys() *set.SortedSet[string] {
 	keys := set.NewSortedSet[string]()
 	//
-	for k, _ := range p.items {
+	for k := range p.items {
 		keys.Insert(k)
 	}
 	//
