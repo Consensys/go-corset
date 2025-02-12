@@ -89,11 +89,11 @@
 (defpurefun (was-eq e0 e1) (eq (prev e0) e1))
 (defpurefun (will-eq e0 e1) (eq (next e0) e1))
 
-
 ;; Helpers
 (defpurefun ((vanishes! :@loob :force) e0) e0)
 (defpurefun (if-eq x val then) (if (eq! x val) then))
 (defpurefun (if-eq-else x val then else) (if (eq! x val) then else))
+(defpurefun (if-not-eq A B then) (if (neq A B) then))
 
 ;; counter constancy constraint
 (defpurefun ((counter-constancy :@loob) ct X)
