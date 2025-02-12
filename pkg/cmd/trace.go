@@ -105,9 +105,9 @@ func init() {
 	traceCmd.Flags().Uint("max-width", 32, "specify maximum display width for a column")
 	traceCmd.Flags().StringP("out", "o", "", "Specify output file to write trace")
 	traceCmd.Flags().StringP("filter", "f", "", "Filter columns matching regex")
-	traceCmd.Flags().Bool("hir", false, "check at HIR level")
-	traceCmd.Flags().Bool("mir", false, "check at MIR level")
-	traceCmd.Flags().Bool("air", false, "check at AIR level")
+	traceCmd.Flags().Bool("hir", false, "expand to HIR level")
+	traceCmd.Flags().Bool("mir", false, "expand to MIR level")
+	traceCmd.Flags().Bool("air", false, "expand to AIR level")
 }
 
 const air_LEVEL = 0
