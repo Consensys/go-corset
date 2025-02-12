@@ -122,6 +122,41 @@ func ContainsMatching[T any](items []T, predicate iter.Predicate[T]) bool {
 	return false
 }
 
+// InsertAt constructs an identical slice, except with the element inserted at
+// the given index.  If the index is beyond the bounds of the array, then the
+// element is simply appended.
+func InsertAt[T any](items []T, element T, index uint) []T {
+	n := uint(len(items))
+	//
+	if index < n {
+		first := items[:index]
+		second := items[index:]
+		items = make([]T, n+1)
+		copy(items, first)
+		copy(items[index+1:], second)
+		items[index] = element
+	} else {
+		items = append(items, element)
+	}
+	//
+	return items
+}
+
+// RemoveAt constructs an identical slice, except with the element at the given
+// index removed.  If the index is beyond the bounds of the array, then there is
+// no change.
+func RemoveAt[T any](items []T, index uint) []T {
+	n := uint(len(items))
+	//
+	if index < n {
+		first := items[0:index]
+		second := items[index+1:]
+		items = append(first, second...)
+	}
+	//
+	return items
+}
+
 // RemoveMatching removes all elements from an array matching the given item.
 func RemoveMatching[T any](items []T, predicate iter.Predicate[T]) []T {
 	count := 0

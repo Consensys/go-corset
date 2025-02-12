@@ -16,6 +16,7 @@ import (
 	"regexp"
 	"strconv"
 
+	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/termio"
 )
 
@@ -26,6 +27,8 @@ type InputMode[T any] struct {
 	prompt termio.FormattedText
 	// input text being accumulated whilst in input mode.
 	input []byte
+	// current cursor position
+	cursor uint
 	// history of options for this input mode.
 	history []string
 	// history index
@@ -53,7 +56,7 @@ func newInputMode[T any](prompt termio.FormattedText, index uint, history []stri
 		input = []byte(history[index])
 	}
 	// Done
-	return &InputMode[T]{prompt, input, history, index, handler}
+	return &InputMode[T]{prompt, input, 0, history, index, handler}
 }
 
 // Activate navigation mode by setting the command bar to show the navigation
@@ -63,13 +66,25 @@ func (p *InputMode[T]) Activate(parent *Inspector) {
 	parent.cmdBar.Add(p.prompt)
 	// Add current filter
 	colour := termio.TERM_GREEN
+	invColour := termio.TERM_BLACK
 	input := string(p.input)
 	//
 	if _, ok := p.handler.Convert(input); !ok {
 		colour = termio.TERM_RED
 	}
-	//
-	parent.cmdBar.Add(termio.NewColouredText(input, colour))
+	// construct cursor escape code
+	escape := termio.NewAnsiEscape().FgColour(invColour).BgColour(termio.TERM_YELLOW)
+	// handle cursor
+	if p.cursor < uint(len(p.input)) {
+		// cursor behind text
+		parent.cmdBar.Add(termio.NewColouredText(input[:p.cursor], colour))
+		parent.cmdBar.Add(termio.NewFormattedText(input[p.cursor:p.cursor+1], escape))
+		parent.cmdBar.Add(termio.NewColouredText(input[p.cursor+1:], colour))
+	} else {
+		// cursor leading text
+		parent.cmdBar.Add(termio.NewColouredText(input, colour))
+		parent.cmdBar.Add(termio.NewFormattedText(" ", escape))
+	}
 }
 
 // Clock navitation mode, which does nothing at this time.
@@ -84,10 +99,7 @@ func (p *InputMode[T]) KeyPressed(parent *Inspector, key uint16) bool {
 	case key == termio.ESC:
 		return true
 	case key == termio.BACKSPACE || key == termio.DEL:
-		if len(p.input) > 0 {
-			n := len(p.input) - 1
-			p.input = p.input[0:n]
-		}
+		p.deleteCharacterAtCursor()
 	case key == termio.CARRIAGE_RETURN:
 		input := string(p.input)
 		// Attempt conversion
@@ -97,6 +109,14 @@ func (p *InputMode[T]) KeyPressed(parent *Inspector, key uint16) bool {
 		}
 		// Success
 		return true
+	case key == termio.CURSOR_LEFT:
+		if p.cursor > 0 {
+			p.cursor--
+		}
+	case key == termio.CURSOR_RIGHT:
+		if p.cursor < uint(len(p.input)) {
+			p.cursor++
+		}
 	case key == termio.CURSOR_UP:
 		if p.index > 0 {
 			p.index--
@@ -112,12 +132,27 @@ func (p *InputMode[T]) KeyPressed(parent *Inspector, key uint16) bool {
 			p.input = []byte(p.history[p.index])
 		}
 	case key >= 32 && key <= 126:
-		p.input = append(p.input, byte(key))
+		p.insertCharacterAtCursor(byte(key))
 	}
 	// Update displayed text
 	p.Activate(parent)
 	//
 	return false
+}
+
+// Delete character at cursor position
+func (p *InputMode[T]) deleteCharacterAtCursor() {
+	if p.cursor > 0 {
+		p.cursor--
+		p.input = util.RemoveAt(p.input, p.cursor)
+	}
+}
+
+// Insert character at cursor position
+func (p *InputMode[T]) insertCharacterAtCursor(char byte) {
+	p.input = util.InsertAt(p.input, char, p.cursor)
+	// advance cursor
+	p.cursor++
 }
 
 // ==================================================================
