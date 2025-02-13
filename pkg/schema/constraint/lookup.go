@@ -19,7 +19,9 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
+	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
 	"github.com/consensys/go-corset/pkg/util/sexp"
 )
@@ -81,8 +83,34 @@ func NewLookupConstraint[E schema.Evaluable](handle string, source trace.Context
 
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
-func (p *LookupConstraint[E]) Name() string {
-	return p.Handle
+func (p *LookupConstraint[E]) Name() (string, uint) {
+	return p.Handle, 0
+}
+
+// Contexts returns the evaluation contexts (i.e. enclosing module + length
+// multiplier) for this constraint.  Most constraints have only a single
+// evaluation context, though some (e.g. lookups) have more.  Note that all
+// constraints have at least one context (which we can call the "primary"
+// context).
+func (p *LookupConstraint[E]) Contexts() []tr.Context {
+	// source context designated as primary.
+	return []tr.Context{p.SourceContext, p.TargetContext}
+}
+
+// Branches returns the total number of logical branches this constraint can
+// take during evaluation.
+func (p *LookupConstraint[E]) Branches() uint {
+	sum := uint(1)
+	// Include source branches
+	for _, e := range p.Sources {
+		sum *= e.Branches()
+	}
+	// Include target branches
+	for _, e := range p.Targets {
+		sum *= e.Branches()
+	}
+	// Done
+	return sum
 }
 
 // Bounds determines the well-definedness bounds for this constraint for both
@@ -114,8 +142,8 @@ func (p *LookupConstraint[E]) Bounds(module uint) util.Bounds {
 // all rows of the source columns.
 //
 //nolint:revive
-func (p *LookupConstraint[E]) Accepts(tr trace.Trace) (sc.Coverage, schema.Failure) {
-	var coverage sc.Coverage
+func (p *LookupConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
+	var coverage bit.Set
 	// Determine height of enclosing module for source columns
 	src_height := tr.Height(p.SourceContext)
 	tgt_height := tr.Height(p.TargetContext)

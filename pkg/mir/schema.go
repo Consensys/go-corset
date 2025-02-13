@@ -133,18 +133,20 @@ func (p *Schema) AddLookupConstraint(handle string, source trace.Context, target
 }
 
 // AddVanishingConstraint appends a new vanishing constraint.
-func (p *Schema) AddVanishingConstraint(handle string, context trace.Context, domain util.Option[int], expr Expr) {
+func (p *Schema) AddVanishingConstraint(handle string, num uint, context trace.Context,
+	domain util.Option[int], expr Expr) {
+	//
 	if context.Module() >= uint(len(p.modules)) {
 		panic(fmt.Sprintf("invalid module index (%d)", context.Module()))
 	}
 
 	p.constraints = append(p.constraints,
-		constraint.NewVanishingConstraint(handle, context, domain, expr))
+		constraint.NewVanishingConstraint(handle, num, context, domain, expr))
 }
 
 // AddRangeConstraint appends a new range constraint.
-func (p *Schema) AddRangeConstraint(handle string, context trace.Context, expr Expr, bound fr.Element) {
-	p.constraints = append(p.constraints, constraint.NewRangeConstraint(handle, context, expr, bound))
+func (p *Schema) AddRangeConstraint(handle string, casenum uint, context trace.Context, expr Expr, bound fr.Element) {
+	p.constraints = append(p.constraints, constraint.NewRangeConstraint(handle, casenum, context, expr, bound))
 }
 
 // AddPropertyAssertion appends a new property assertion.

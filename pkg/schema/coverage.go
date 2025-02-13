@@ -32,30 +32,23 @@ type Metric[T any] interface {
 	Empty() T
 }
 
-// Coverage provides branch coverage information for a given constraint.
-// Specifically, the number of unique branches coverage along with the total
-// number of branches.
-type Coverage struct {
-	// Number of branches Covered
-	Covered bit.Set
-	// Total number of branches
-	Total uint
-}
-
-// NewCoverage constructs a new piece of coverage data.
-func NewCoverage(covered bit.Set, total uint) Coverage {
-	return Coverage{covered, total}
+// CoverageKey unique identifiers a constraint within the system.
+type CoverageKey struct {
+	// Identifier for the enclosing module.
+	Module uint
+	// Name of the constraint
+	Name string
 }
 
 // CoverageMap is a simple datatype (for now) which associates each
 // constraint with a given set of covered branches.
 type CoverageMap struct {
-	items map[string]Coverage
+	items map[CoverageKey][]bit.Set
 }
 
 // NewBranchCoverage constructs an empty branch coverage set.
 func NewBranchCoverage() CoverageMap {
-	items := make(map[string]Coverage)
+	items := make(map[CoverageKey][]bit.Set)
 	return CoverageMap{items}
 }
 
@@ -65,42 +58,44 @@ func (p *CoverageMap) IsEmpty() bool {
 }
 
 // CoverageOf returns, for a given constraint, the recorded coverage data.
-func (p *CoverageMap) CoverageOf(name string) Coverage {
-	return p.items[name]
+func (p *CoverageMap) CoverageOf(module uint, name string) []bit.Set {
+	return p.items[CoverageKey{module, name}]
 }
 
-// Insert some raw coverage data into this set.
-func (p *CoverageMap) Insert(name string, data Coverage) {
-	p.items[name] = data
+// Record some raw coverage data into this set.
+func (p *CoverageMap) Record(module uint, name string, casenum uint, nData bit.Set) {
+	var (
+		entry    = CoverageKey{module, name}
+		items, _ = p.items[entry]
+	)
+	// Ensure enuough items
+	for uint(len(items)) <= casenum {
+		items = append(items, bit.Set{})
+	}
+	// Include specifc case coverage
+	items[casenum].Union(nData)
+	// Assign back.
+	p.items[entry] = items
 }
 
-// InsertAll entries from another (compatible) set of branch coverage data.
-func (p *CoverageMap) InsertAll(other CoverageMap) {
-	for k, v := range other.items {
-		var res bit.Set
-		// Check whether already record for this item
-		if data, ok := p.items[k]; ok {
-			res.InsertAll(data.Covered)
-			// Sanity check
-			if data.Total != v.Total {
-				msg := fmt.Sprintf("inconsistent branch count for %s (%d vs %d)", k, data.Total, v.Total)
-				panic(msg)
-			}
+// Union entries from another (compatible) set of branch coverage data.
+func (p *CoverageMap) Union(other CoverageMap) {
+	for key, bitsets := range other.items {
+		for i, entry := range bitsets {
+			p.Record(key.Module, key.Name, uint(i), entry)
 		}
-		//
-		res.InsertAll(v.Covered)
-		//
-		p.items[k] = Coverage{res, v.Total}
 	}
 }
 
-// Keys returns the set of constraints for which coverage data has been
+// KeysOf returns the set of constraints for which coverage data has been
 // obtained.
-func (p *CoverageMap) Keys() *set.SortedSet[string] {
+func (p *CoverageMap) KeysOf(mid uint) *set.SortedSet[string] {
 	keys := set.NewSortedSet[string]()
 	//
 	for k := range p.items {
-		keys.Insert(k)
+		if k.Module == mid {
+			keys.Insert(k.Name)
+		}
 	}
 	//
 	return keys
@@ -108,18 +103,28 @@ func (p *CoverageMap) Keys() *set.SortedSet[string] {
 
 // ToJson returns a representation of this coverage map suitable for being
 // converted into JSON.
-func (p *CoverageMap) ToJson() map[string]any {
-	var json map[string]any = make(map[string]any)
+func (p *CoverageMap) ToJson(schema Schema) map[string][]uint {
+	var json map[string][]uint = make(map[string][]uint)
 	//
-	keys := p.Keys()
-	// Print out the data
-	for iter := keys.Iter(); iter.HasNext(); {
-		ith := iter.Next()
-		cov := p.CoverageOf(ith)
-		json[ith] = cov.Covered.Iter().Collect()
+	for k, bitsets := range p.items {
+		for i, cov := range bitsets {
+			name := jsonConstraintName(k.Module, k.Name, uint(i), schema)
+			json[name] = cov.Iter().Collect()
+		}
 	}
 	//
 	return json
+}
+
+func jsonConstraintName(mid uint, name string, casenum uint, schema Schema) string {
+	mod := schema.Modules().Nth(mid)
+	name = fmt.Sprintf("%s#%d", name, casenum)
+	//
+	if mod.Name == "" {
+		return name
+	}
+	//
+	return fmt.Sprintf("%s.%s", mod.Name, name)
 }
 
 // ============================================================================

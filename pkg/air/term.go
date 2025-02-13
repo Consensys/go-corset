@@ -111,6 +111,12 @@ func (p *ColumnAccess) Lisp(schema sc.Schema) sexp.SExp {
 	return lispOfColumnAccess(p, schema)
 }
 
+// Branches returns the total number of logical branches this term can take
+// during evaluation.
+func (p *ColumnAccess) Branches() uint {
+	return 1
+}
+
 // RequiredColumns returns the set of columns on which this term depends.
 // That is, columns whose values may be accessed when evaluating this term
 // on a given trace.

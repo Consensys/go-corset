@@ -68,5 +68,5 @@ func ApplyColumnSortGadget(col uint, sign bool, bitwidth uint, schema *air.Schem
 	ApplyBitwidthGadget(deltaIndex, bitwidth, schema)
 	// Configure constraint: Delta[k] = X[k] - X[k-1]
 	Dk := air.NewColumnAccess(deltaIndex, 0)
-	schema.AddVanishingConstraint(deltaName, column.Context, util.None[int](), Dk.Equate(Xdiff))
+	schema.AddVanishingConstraint(deltaName, 0, column.Context, util.None[int](), Dk.Equate(Xdiff))
 }

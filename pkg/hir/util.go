@@ -136,6 +136,12 @@ func (e UnitExpr) Context(schema sc.Schema) tr.Context {
 	return e.Expr.Context(schema)
 }
 
+// Branches returns the total number of logical branches this term can take
+// during evaluation.
+func (e UnitExpr) Branches() uint {
+	return e.Expr.Branches()
+}
+
 // RequiredColumns returns the set of columns on which this term depends.
 // That is, columns whose values may be accessed when evaluating this term
 // on a given trace.
@@ -200,6 +206,12 @@ func (e MaxExpr) EvalAt(k int, trace tr.Trace) fr.Element {
 // direction (right).
 func (e MaxExpr) Bounds() util.Bounds {
 	return e.Expr.Bounds()
+}
+
+// Branches returns the total number of logical branches this term can take
+// during evaluation.
+func (e MaxExpr) Branches() uint {
+	return e.Expr.Branches()
 }
 
 // Context determines the evaluation context (i.e. enclosing module) for this

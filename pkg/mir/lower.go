@@ -106,7 +106,7 @@ func lowerVanishingConstraintToAir(v VanishingConstraint, mirSchema *Schema, air
 	if constant != nil && !constant.IsZero() {
 		panic(fmt.Sprintf("constraint %s cannot vanish!", v.Handle))
 	} else if constant == nil {
-		airSchema.AddVanishingConstraint(v.Handle, v.Context, v.Domain, air_expr)
+		airSchema.AddVanishingConstraint(v.Handle, v.Case, v.Context, v.Domain, air_expr)
 	}
 }
 
@@ -129,7 +129,7 @@ func lowerRangeConstraintToAir(v RangeConstraint, mirSchema *Schema, airSchema *
 		air_gadgets.ApplyBinaryGadget(column, airSchema)
 	} else if v.BoundedAtMost(256) {
 		// u2..8 use range constraints
-		airSchema.AddRangeConstraint(column, v.Bound)
+		airSchema.AddRangeConstraint(column, v.Case, v.Bound)
 	} else {
 		// u9+ use byte decompositions.
 		var bi big.Int
@@ -191,7 +191,7 @@ func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Sche
 		builder.WriteString(fmt.Sprintf(":%s", c_targets[i].Name))
 	}
 	//
-	airSchema.AddPermutationConstraint(builder.String(), targets, c.Sources)
+	airSchema.AddPermutationConstraint(builder.String(), c.Context(), targets, c.Sources)
 	// Add sorting constraints + computed columns as necessary.
 	if ncols == 1 {
 		// For a single column sort, its actually a bit easier because we don't

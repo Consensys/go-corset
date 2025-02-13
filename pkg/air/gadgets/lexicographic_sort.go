@@ -59,7 +59,7 @@ func ApplyLexicographicSortingGadget(columns []uint, signs []bool, bitwidth uint
 	constraint := constructLexicographicDeltaConstraint(deltaIndex, columns, signs)
 	// Add delta constraint
 	deltaName := fmt.Sprintf("%s:delta", prefix)
-	schema.AddVanishingConstraint(deltaName, ctx, util.None[int](), constraint)
+	schema.AddVanishingConstraint(deltaName, 0, ctx, util.None[int](), constraint)
 	// Add necessary bitwidth constraints
 	ApplyBitwidthGadget(deltaIndex, bitwidth, schema)
 }
@@ -115,12 +115,12 @@ func addLexicographicSelectorBits(prefix string, context trace.Context,
 		// (∀j<=i.Bj=0) ==> C[k]=C[k-1]
 		pterms[i] = air.NewColumnAccess(bitIndex+i, 0)
 		pDiff := air.NewColumnAccess(columns[i], 0).Sub(air.NewColumnAccess(columns[i], -1))
-		pName := fmt.Sprintf("%s:%d:a", prefix, i)
-		schema.AddVanishingConstraint(pName, context,
+		pName := fmt.Sprintf("%s:%d", prefix, i)
+		schema.AddVanishingConstraint(pName, 0, context,
 			util.None[int](), air.NewConst64(1).Sub(air.Sum(pterms...)).Mul(pDiff))
 		// (∀j<i.Bj=0) ∧ Bi=1 ==> C[k]≠C[k-1]
 		qDiff := Normalise(air.NewColumnAccess(columns[i], 0).Sub(air.NewColumnAccess(columns[i], -1)), schema)
-		qName := fmt.Sprintf("%s:%d:b", prefix, i)
+		qName := fmt.Sprintf("%s:%d", prefix, i)
 		// bi = 0 || C[k]≠C[k-1]
 		constraint := air.NewColumnAccess(bitIndex+i, 0).Mul(air.NewConst64(1).Sub(qDiff))
 
@@ -129,14 +129,14 @@ func addLexicographicSelectorBits(prefix string, context trace.Context,
 			constraint = air.NewConst64(1).Sub(air.Sum(qterms...)).Mul(constraint)
 		}
 
-		schema.AddVanishingConstraint(qName, context, util.None[int](), constraint)
+		schema.AddVanishingConstraint(qName, 1, context, util.None[int](), constraint)
 	}
 
 	sum := air.Sum(terms...)
 	// (sum = 0) ∨ (sum = 1)
 	constraint := sum.Mul(sum.Equate(air.NewConst64(1)))
 	name := fmt.Sprintf("%s:xor", prefix)
-	schema.AddVanishingConstraint(name, context, util.None[int](), constraint)
+	schema.AddVanishingConstraint(name, 0, context, util.None[int](), constraint)
 }
 
 // Construct the lexicographic delta constraint.  This states that the delta

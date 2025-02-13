@@ -19,6 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/util/sexp"
@@ -100,17 +101,27 @@ type Constraint interface {
 	// Accepts determines whether a given constraint accepts a given trace or
 	// not.  If not, a failure is produced.  Otherwise, a bitset indicating
 	// branch coverage is returned.
-	Accepts(tr.Trace) (Coverage, Failure)
+	Accepts(tr.Trace) (bit.Set, Failure)
+	// Contexts returns the evaluation contexts (i.e. enclosing module + length
+	// multiplier) for this constraint.  Most constraints have only a single
+	// evaluation context, though some (e.g. lookups) have more.  Note that all
+	// constraints have at least one context (which we can call the "primary"
+	// context).
+	Contexts() []tr.Context
 	// Determine the well-definedness bounds for this constraint in both the
 	// negative (left) or positive (right) directions.  For example, consider an
 	// expression such as "(shift X -1)".  This is technically undefined for the
 	// first row of any trace and, by association, any constraint evaluating
 	// this expression on that first row is also undefined (and hence must pass)
-	Bounds(modult uint) util.Bounds
-
-	// Name returns a unique name for a given constraint.  This is useful
-	// purely for identifying constraints in reports, etc.
-	Name() string
+	Bounds(module uint) util.Bounds
+	// Return the total number of logical branches this constraint can take
+	// during evaluation.
+	Branches() uint
+	// Name returns a unique name and case number for a given constraint.  This
+	// is useful purely for identifying constraints in reports, etc.  The case
+	// number is used to differentiate different low-level constraints which are
+	// extracted from the same high-level constraint.
+	Name() (string, uint)
 }
 
 // Failure embodies structured information about a failing constraint.
@@ -134,7 +145,9 @@ type Evaluable interface {
 	// row which does not exist (e.g. at index -1); secondly, if
 	// it accesses a column which does not exist.
 	EvalAt(int, tr.Trace) fr.Element
-
+	// Branches returns the number of unique evaluation paths through the given
+	// constraint.
+	Branches() uint
 	// RequiredCells returns the set of trace cells on which evaluation of this
 	// constraint element depends.
 	RequiredCells(int, tr.Trace) *set.AnySortedSet[tr.CellRef]
@@ -149,14 +162,12 @@ type Evaluable interface {
 type Testable interface {
 	util.Boundable
 	Contextual
-
 	// TestAt evaluates this expression in a given tabular context and checks it
 	// against zero. Observe that if this expression is *undefined* within this
 	// context then it returns "nil".  An expression can be undefined for
 	// several reasons: firstly, if it accesses a row which does not exist (e.g.
 	// at index -1); secondly, if it accesses a column which does not exist.
 	TestAt(int, tr.Trace) (bool, BranchMetric)
-
 	// Branches returns the number of unique evaluation paths through the given
 	// constraint.
 	Branches() uint

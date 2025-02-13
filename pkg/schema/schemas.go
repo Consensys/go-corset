@@ -17,6 +17,7 @@ import (
 
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 )
 
@@ -140,8 +141,11 @@ func sequentialAccepts(iter iter.Iterator[Constraint], trace tr.Trace) (Coverage
 		if err != nil {
 			errors = append(errors, err)
 		}
+		// Determine context to associate results with
+		ctx := ith.Contexts()[0]
+		name, n := ith.Name()
 		//
-		coverage.Insert(ith.Name(), data)
+		coverage.Record(ctx.Module(), name, n, data)
 	}
 	//
 	return coverage, errors
@@ -180,7 +184,9 @@ func processConstraintBatch(logtitle string, batch uint, batchsize uint, iter it
 		go func() {
 			// Send outcome back
 			cov, err := ith.Accepts(trace)
-			c <- pcOutcome{ith.Name(), cov, err}
+			ctx := ith.Contexts()[0]
+			name, n := ith.Name()
+			c <- pcOutcome{ctx.Module(), name, n, cov, err}
 		}()
 	}
 	//
@@ -191,7 +197,7 @@ func processConstraintBatch(logtitle string, batch uint, batchsize uint, iter it
 			errors = append(errors, p.error)
 		}
 		// Update coverage
-		coverage.Insert(p.handle, p.data)
+		coverage.Record(p.module, p.handle, p.casenum, p.data)
 	}
 	// Log stats about this batch
 	stats.Log(fmt.Sprintf("%s batch %d (%d items)", logtitle, batch, n))
@@ -200,9 +206,11 @@ func processConstraintBatch(logtitle string, batch uint, batchsize uint, iter it
 }
 
 type pcOutcome struct {
-	handle string
-	data   Coverage
-	error  Failure
+	module  uint
+	handle  string
+	casenum uint
+	data    bit.Set
+	error   Failure
 }
 
 // ColumnIndexOf returns the column index of the column with the given name, or

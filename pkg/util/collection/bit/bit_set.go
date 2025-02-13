@@ -38,8 +38,15 @@ func (p *Set) Insert(val uint) {
 	p.words[word] = p.words[word] | mask
 }
 
-// InsertAll inserts all elements from a given bitset into this bitset.
-func (p *Set) InsertAll(bits Set) {
+// InsertAll inserts zero or more elements into this bitset.
+func (p *Set) InsertAll(vals ...uint) {
+	for _, v := range vals {
+		p.Insert(v)
+	}
+}
+
+// Union inserts all elements from a given bitset into this bitset.
+func (p *Set) Union(bits Set) {
 	for len(p.words) < len(bits.words) {
 		p.words = append(p.words, 0)
 	}
@@ -93,6 +100,8 @@ func (p *Set) String() string {
 		first   = true
 	)
 	//
+	builder.WriteString("[")
+	//
 	for word := uint(0); word < uint(len(p.words)); word++ {
 		for bit := uint(0); bit < 64; bit++ {
 			value := (word * 64) + bit
@@ -108,6 +117,8 @@ func (p *Set) String() string {
 			}
 		}
 	}
+	//
+	builder.WriteString("]")
 	//
 	return builder.String()
 }
