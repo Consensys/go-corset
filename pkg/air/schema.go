@@ -146,9 +146,9 @@ func (p *Schema) AddLookupConstraint(handle string, source trace.Context,
 
 // AddPermutationConstraint appends a new permutation constraint which
 // ensures that one column is a permutation of another.
-func (p *Schema) AddPermutationConstraint(handle string, targets []uint, sources []uint) {
+func (p *Schema) AddPermutationConstraint(handle string, context trace.Context, targets []uint, sources []uint) {
 	// TODO: sanity target and source columns are in the same module.
-	p.constraints = append(p.constraints, constraint.NewPermutationConstraint(handle, targets, sources))
+	p.constraints = append(p.constraints, constraint.NewPermutationConstraint(handle, context, targets, sources))
 }
 
 // AddPropertyAssertion appends a new property assertion.

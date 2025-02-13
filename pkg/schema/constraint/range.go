@@ -19,6 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
+	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/sexp"
@@ -74,6 +75,15 @@ func NewRangeConstraint[E sc.Evaluable](handle string, context trace.Context,
 // purely for identifying constraints in reports, etc.
 func (p *RangeConstraint[E]) Name() string {
 	return p.Handle
+}
+
+// Contexts returns the evaluation contexts (i.e. enclosing module + length
+// multiplier) for this constraint.  Most constraints have only a single
+// evaluation context, though some (e.g. lookups) have more.  Note that all
+// constraints have at least one context (which we can call the "primary"
+// context).
+func (p *RangeConstraint[E]) Contexts() []tr.Context {
+	return []tr.Context{p.Context}
 }
 
 // BoundedAtMost determines whether the bound for this constraint is at most a given bound.

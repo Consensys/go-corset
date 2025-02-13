@@ -102,6 +102,12 @@ type Constraint interface {
 	// not.  If not, a failure is produced.  Otherwise, a bitset indicating
 	// branch coverage is returned.
 	Accepts(tr.Trace) (bit.Set, Failure)
+	// Contexts returns the evaluation contexts (i.e. enclosing module + length
+	// multiplier) for this constraint.  Most constraints have only a single
+	// evaluation context, though some (e.g. lookups) have more.  Note that all
+	// constraints have at least one context (which we can call the "primary"
+	// context).
+	Contexts() []tr.Context
 	// Determine the well-definedness bounds for this constraint in both the
 	// negative (left) or positive (right) directions.  For example, consider an
 	// expression such as "(shift X -1)".  This is technically undefined for the

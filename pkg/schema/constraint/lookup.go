@@ -19,6 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
+	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
@@ -84,6 +85,16 @@ func NewLookupConstraint[E schema.Evaluable](handle string, source trace.Context
 // purely for identifying constraints in reports, etc.
 func (p *LookupConstraint[E]) Name() string {
 	return p.Handle
+}
+
+// Contexts returns the evaluation contexts (i.e. enclosing module + length
+// multiplier) for this constraint.  Most constraints have only a single
+// evaluation context, though some (e.g. lookups) have more.  Note that all
+// constraints have at least one context (which we can call the "primary"
+// context).
+func (p *LookupConstraint[E]) Contexts() []tr.Context {
+	// source context designated as primary.
+	return []tr.Context{p.SourceContext, p.TargetContext}
 }
 
 // Bounds determines the well-definedness bounds for this constraint for both

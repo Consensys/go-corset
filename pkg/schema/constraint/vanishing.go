@@ -82,6 +82,15 @@ func (p *VanishingConstraint[E]) Name() string {
 	return p.Handle
 }
 
+// Contexts returns the evaluation contexts (i.e. enclosing module + length
+// multiplier) for this constraint.  Most constraints have only a single
+// evaluation context, though some (e.g. lookups) have more.  Note that all
+// constraints have at least one context (which we can call the "primary"
+// context).
+func (p *VanishingConstraint[E]) Contexts() []tr.Context {
+	return []tr.Context{p.Context}
+}
+
 // Bounds determines the well-definedness bounds for this constraint for both
 // the negative (left) or positive (right) directions.  For example, consider an
 // expression such as "(shift X -1)".  This is technically undefined for the

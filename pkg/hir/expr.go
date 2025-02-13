@@ -25,27 +25,6 @@ import (
 // Expressions
 // ============================================================================
 
-/* type Expr interface {
-	util.Boundable
-	sc.Contextual
-	// LowerTo lowers this expression into the Mid-Level Intermediate
-	// Representation.  Observe that a single expression at this
-	// level can expand into *multiple* expressions at the MIR
-	// level.
-	LowerTo(*mir.Schema) []mir.Expr
-	// EvalAt evaluates this expression in a given tabular context.
-	// Observe that if this expression is *undefined* within this
-	// context then it returns "nil".  An expression can be
-	// undefined for several reasons: firstly, if it accesses a
-	// row which does not exist (e.g. at index -1); secondly, if
-	// it accesses a column which does not exist.
-	EvalAllAt(int, trace.Trace) []fr.Element
-
-	// Multiplicity returns the number of underlyg expressions that this
-	// expression will expand to.
-	Multiplicity() uint
-} */
-
 // Expr is an expression in the High-Level Intermediate Representation (HIR).
 // Expressions at this level have a many-2-one correspondance with expressions
 // in the AIR level.  For example, an "if" expression at this level will be

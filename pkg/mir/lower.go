@@ -191,7 +191,7 @@ func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Sche
 		builder.WriteString(fmt.Sprintf(":%s", c_targets[i].Name))
 	}
 	//
-	airSchema.AddPermutationConstraint(builder.String(), targets, c.Sources)
+	airSchema.AddPermutationConstraint(builder.String(), c.Context(), targets, c.Sources)
 	// Add sorting constraints + computed columns as necessary.
 	if ncols == 1 {
 		// For a single column sort, its actually a bit easier because we don't

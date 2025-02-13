@@ -16,7 +16,7 @@ import (
 	"fmt"
 
 	sc "github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/trace"
+	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -41,6 +41,9 @@ func (p *PermutationFailure) String() string {
 // of another.
 type PermutationConstraint struct {
 	Handle string
+	// Evaluation Context for this constraint which must match that of the
+	// source and target expressions.
+	Context tr.Context
 	// Targets returns the indices of the columns composing the "left" table of the
 	// permutation.
 	Targets []uint
@@ -50,18 +53,28 @@ type PermutationConstraint struct {
 }
 
 // NewPermutationConstraint creates a new permutation
-func NewPermutationConstraint(handle string, targets []uint, sources []uint) *PermutationConstraint {
+func NewPermutationConstraint(handle string, context tr.Context, targets []uint,
+	sources []uint) *PermutationConstraint {
 	if len(targets) != len(sources) {
 		panic("differeng number of target / source permutation columns")
 	}
 
-	return &PermutationConstraint{handle, targets, sources}
+	return &PermutationConstraint{handle, context, targets, sources}
 }
 
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
 func (p *PermutationConstraint) Name() string {
 	return p.Handle
+}
+
+// Contexts returns the evaluation contexts (i.e. enclosing module + length
+// multiplier) for this constraint.  Most constraints have only a single
+// evaluation context, though some (e.g. lookups) have more.  Note that all
+// constraints have at least one context (which we can call the "primary"
+// context).
+func (p *PermutationConstraint) Contexts() []tr.Context {
+	return []tr.Context{p.Context}
 }
 
 // Bounds determines the well-definedness bounds for this constraint for both
@@ -75,20 +88,20 @@ func (p *PermutationConstraint) Bounds(module uint) util.Bounds {
 
 // Accepts checks whether a permutation holds between the source and
 // target columns.
-func (p *PermutationConstraint) Accepts(tr trace.Trace) (bit.Set, sc.Failure) {
+func (p *PermutationConstraint) Accepts(trace tr.Trace) (bit.Set, sc.Failure) {
 	// Coverage currently always empty for permutation constraints.
 	var coverage bit.Set
 	// Slice out data
-	src := sliceColumns(p.Sources, tr)
-	dst := sliceColumns(p.Targets, tr)
+	src := sliceColumns(p.Sources, trace)
+	dst := sliceColumns(p.Targets, trace)
 	// Sanity check whether column exists
 	if util.ArePermutationOf(dst, src) {
 		// Success
 		return coverage, nil
 	}
 	// Prepare suitable error message
-	src_names := trace.QualifiedColumnNamesToCommaSeparatedString(p.Sources, tr)
-	dst_names := trace.QualifiedColumnNamesToCommaSeparatedString(p.Targets, tr)
+	src_names := tr.QualifiedColumnNamesToCommaSeparatedString(p.Sources, trace)
+	dst_names := tr.QualifiedColumnNamesToCommaSeparatedString(p.Targets, trace)
 	//
 	msg := fmt.Sprintf("Target columns (%s) not permutation of source columns (%s)",
 		dst_names, src_names)
@@ -119,7 +132,7 @@ func (p *PermutationConstraint) Lisp(schema sc.Schema) sexp.SExp {
 	})
 }
 
-func sliceColumns(columns []uint, tr trace.Trace) []field.FrArray {
+func sliceColumns(columns []uint, tr tr.Trace) []field.FrArray {
 	// Allocate return array
 	cols := make([]field.FrArray, len(columns))
 	// Slice out the data
