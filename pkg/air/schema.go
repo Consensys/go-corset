@@ -157,20 +157,22 @@ func (p *Schema) AddPropertyAssertion(handle string, context trace.Context, asse
 }
 
 // AddVanishingConstraint appends a new vanishing constraint.
-func (p *Schema) AddVanishingConstraint(handle string, context trace.Context, domain util.Option[int], expr Expr) {
+func (p *Schema) AddVanishingConstraint(handle string, num uint, context trace.Context,
+	domain util.Option[int], expr Expr) {
+	//
 	if context.Module() >= uint(len(p.modules)) {
 		panic(fmt.Sprintf("invalid module index (%d)", context.Module()))
 	}
 	// TODO: sanity check expression enclosed by module
 	p.constraints = append(p.constraints,
-		constraint.NewVanishingConstraint(handle, context, domain, expr))
+		constraint.NewVanishingConstraint(handle, num, context, domain, expr))
 }
 
 // AddRangeConstraint appends a new range constraint.
-func (p *Schema) AddRangeConstraint(column uint, bound fr.Element) {
+func (p *Schema) AddRangeConstraint(column uint, casenum uint, bound fr.Element) {
 	col := p.Columns().Nth(column)
 	handle := col.QualifiedName(p)
-	tc := constraint.NewRangeConstraint(handle, col.Context, &ColumnAccess{Column: column, Shift: 0}, bound)
+	tc := constraint.NewRangeConstraint(handle, casenum, col.Context, &ColumnAccess{Column: column, Shift: 0}, bound)
 	p.constraints = append(p.constraints, tc)
 }
 

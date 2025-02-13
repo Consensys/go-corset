@@ -36,7 +36,7 @@ func ApplyBinaryGadget(col uint, schema *air.Schema) {
 	// Construct X * (X-1)
 	X_X_m1 := X.Mul(X_m1)
 	// Done!
-	schema.AddVanishingConstraint(fmt.Sprintf("%s:u1", name), column.Context, util.None[int](), X_X_m1)
+	schema.AddVanishingConstraint(fmt.Sprintf("%s:u1", name), 0, column.Context, util.None[int](), X_X_m1)
 }
 
 // ApplyBitwidthGadget ensures all values in a given column fit within a given
@@ -64,7 +64,7 @@ func ApplyBitwidthGadget(col uint, nbits uint, schema *air.Schema) {
 		// Create Column + Constraint
 		es[i] = air.NewColumnAccess(index+i, 0).Mul(air.NewConst(coefficient))
 
-		schema.AddRangeConstraint(index+i, fr256)
+		schema.AddRangeConstraint(index+i, 0, fr256)
 		// Update coefficient
 		coefficient.Mul(&coefficient, &fr256)
 	}
@@ -74,5 +74,5 @@ func ApplyBitwidthGadget(col uint, nbits uint, schema *air.Schema) {
 	X := air.NewColumnAccess(col, 0)
 	eq := X.Equate(sum)
 	// Construct column name
-	schema.AddVanishingConstraint(fmt.Sprintf("%s:u%d", name, nbits), column.Context, util.None[int](), eq)
+	schema.AddVanishingConstraint(fmt.Sprintf("%s:u%d", name, nbits), 0, column.Context, util.None[int](), eq)
 }

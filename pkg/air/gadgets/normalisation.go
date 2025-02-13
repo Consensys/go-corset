@@ -68,7 +68,7 @@ func applyPseudoInverseGadget(e air.Expr, schema *air.Schema) air.Expr {
 		// Construct (e != 0) ==> (1 == e/e)
 		e_implies_one_e_e := e.Mul(one_e_e) // Ensure (e != 0) ==> (1 == e/e)
 		l_name := fmt.Sprintf("%s <=", name)
-		schema.AddVanishingConstraint(l_name, ctx, util.None[int](), e_implies_one_e_e)
+		schema.AddVanishingConstraint(l_name, 0, ctx, util.None[int](), e_implies_one_e_e)
 	}
 	// Done
 	return air.NewColumnAccess(index, 0)
@@ -106,6 +106,12 @@ func (e *psuedoInverse) Bounds() util.Bounds { return e.Expr.Bounds() }
 // expression.
 func (e *psuedoInverse) Context(schema sc.Schema) tr.Context {
 	return e.Expr.Context(schema)
+}
+
+// Branches returns the total number of logical branches this constraint can
+// take during evaluation.
+func (e *psuedoInverse) Branches() uint {
+	return e.Expr.Branches()
 }
 
 // RequiredColumns returns the set of columns on which this term depends.

@@ -52,6 +52,9 @@ type RangeConstraint[E sc.Evaluable] struct {
 	// A unique identifier for this constraint.  This is primarily useful for
 	// debugging.
 	Handle string
+	// A further differentiator to manage distinct low-level constraints arising
+	// from high-level constraints.
+	Case uint
 	// Evaluation Context for this constraint which must match that of the
 	// constrained expression itself.
 	Context trace.Context
@@ -66,15 +69,15 @@ type RangeConstraint[E sc.Evaluable] struct {
 }
 
 // NewRangeConstraint constructs a new Range constraint!
-func NewRangeConstraint[E sc.Evaluable](handle string, context trace.Context,
+func NewRangeConstraint[E sc.Evaluable](handle string, casenum uint, context trace.Context,
 	expr E, bound fr.Element) *RangeConstraint[E] {
-	return &RangeConstraint[E]{handle, context, expr, bound}
+	return &RangeConstraint[E]{handle, casenum, context, expr, bound}
 }
 
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
-func (p *RangeConstraint[E]) Name() string {
-	return p.Handle
+func (p *RangeConstraint[E]) Name() (string, uint) {
+	return p.Handle, p.Case
 }
 
 // Contexts returns the evaluation contexts (i.e. enclosing module + length
@@ -84,6 +87,12 @@ func (p *RangeConstraint[E]) Name() string {
 // context).
 func (p *RangeConstraint[E]) Contexts() []tr.Context {
 	return []tr.Context{p.Context}
+}
+
+// Branches returns the total number of logical branches this constraint can
+// take during evaluation.
+func (p *RangeConstraint[E]) Branches() uint {
+	return p.Expr.Branches()
 }
 
 // BoundedAtMost determines whether the bound for this constraint is at most a given bound.

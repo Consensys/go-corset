@@ -64,8 +64,8 @@ func NewPermutationConstraint(handle string, context tr.Context, targets []uint,
 
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
-func (p *PermutationConstraint) Name() string {
-	return p.Handle
+func (p *PermutationConstraint) Name() (string, uint) {
+	return p.Handle, 0
 }
 
 // Contexts returns the evaluation contexts (i.e. enclosing module + length
@@ -75,6 +75,12 @@ func (p *PermutationConstraint) Name() string {
 // context).
 func (p *PermutationConstraint) Contexts() []tr.Context {
 	return []tr.Context{p.Context}
+}
+
+// Branches returns the total number of logical branches this constraint can
+// take during evaluation.
+func (p *PermutationConstraint) Branches() uint {
+	return 1
 }
 
 // Bounds determines the well-definedness bounds for this constraint for both

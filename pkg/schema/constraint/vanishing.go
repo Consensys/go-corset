@@ -58,6 +58,9 @@ type VanishingConstraint[T sc.Testable] struct {
 	// A unique identifier for this constraint.  This is primarily
 	// useful for debugging.
 	Handle string
+	// A further differentiator to manage distinct low-level constraints arising
+	// from high-level constraints.
+	Case uint
 	// Evaluation Context for this constraint which must match that of the
 	// constrained expression itself.
 	Context tr.Context
@@ -71,15 +74,15 @@ type VanishingConstraint[T sc.Testable] struct {
 }
 
 // NewVanishingConstraint constructs a new vanishing constraint!
-func NewVanishingConstraint[T sc.Testable](handle string, context tr.Context,
+func NewVanishingConstraint[T sc.Testable](handle string, casenum uint, context tr.Context,
 	domain util.Option[int], constraint T) *VanishingConstraint[T] {
-	return &VanishingConstraint[T]{handle, context, domain, constraint}
+	return &VanishingConstraint[T]{handle, casenum, context, domain, constraint}
 }
 
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
-func (p *VanishingConstraint[E]) Name() string {
-	return p.Handle
+func (p *VanishingConstraint[E]) Name() (string, uint) {
+	return p.Handle, p.Case
 }
 
 // Contexts returns the evaluation contexts (i.e. enclosing module + length
@@ -89,6 +92,12 @@ func (p *VanishingConstraint[E]) Name() string {
 // context).
 func (p *VanishingConstraint[E]) Contexts() []tr.Context {
 	return []tr.Context{p.Context}
+}
+
+// Branches returns the total number of logical branches this constraint can
+// take during evaluation.
+func (p *VanishingConstraint[E]) Branches() uint {
+	return p.Constraint.Branches()
 }
 
 // Bounds determines the well-definedness bounds for this constraint for both

@@ -18,6 +18,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/binfile"
@@ -169,19 +170,26 @@ func readCoverageReportSection(section map[string][]uint, schema sc.Schema) sc.C
 	//
 	for k, vals := range section {
 		var (
-			covered   bit.Set
-			mid, name = splitConstraintName(k, schema)
+			covered            bit.Set
+			mid, name, casenum = splitConstraintName(k, schema)
 		)
 		// Insert all elements
 		covered.InsertAll(vals...)
 		// Done
-		report.Record(mid, name, covered)
+		report.Record(mid, name, casenum, covered)
 	}
 	//
 	return report
 }
 
-func splitConstraintName(name string, schema sc.Schema) (uint, string) {
+func splitConstraintName(name string, schema sc.Schema) (uint, string, uint) {
+	mid, name := splitConstraintModuleName(name, schema)
+	name, casenum := splitConstraintNameNum(name)
+	// Done
+	return mid, name, casenum
+}
+
+func splitConstraintModuleName(name string, schema sc.Schema) (uint, string) {
 	var (
 		err    error
 		splits = strings.Split(name, ".")
@@ -205,6 +213,32 @@ func splitConstraintName(name string, schema sc.Schema) (uint, string) {
 	os.Exit(4)
 	// unreachable
 	return 0, ""
+}
+func splitConstraintNameNum(name string) (string, uint) {
+	var (
+		err    error
+		splits = strings.Split(name, "#")
+	)
+	//
+	switch len(splits) {
+	case 1:
+		return name, 0
+	case 2:
+		var num int
+		// Lookup the module identifier for the given module name
+		if num, err = strconv.Atoi(splits[1]); err == nil && num >= 0 {
+			return splits[0], uint(num)
+		}
+		// error
+		err = fmt.Errorf("unknown module %s in coverage report", splits[0])
+	default:
+		err = fmt.Errorf("unknown constraint %s in coverage report", name)
+	}
+	// Handle error
+	fmt.Println(err)
+	os.Exit(4)
+	// unreachable
+	return "", 0
 }
 
 // Write a given trace file to disk

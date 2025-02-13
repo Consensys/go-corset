@@ -47,7 +47,7 @@ func Expand(ctx trace.Context, bitwidth uint, e air.Expr, schema *air.Schema) ui
 		// Construct 1 == e/e
 		eq_e_v := v.Equate(e)
 		// Ensure (e - v) == 0, where v is value of computed column.
-		schema.AddVanishingConstraint(name, ctx, util.None[int](), eq_e_v)
+		schema.AddVanishingConstraint(name, 0, ctx, util.None[int](), eq_e_v)
 	}
 	//
 	return index

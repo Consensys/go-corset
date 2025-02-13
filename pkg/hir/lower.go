@@ -62,27 +62,13 @@ func lowerConstraintToMir(c sc.Constraint, schema *mir.Schema) {
 		mir_exprs := lowerTo(v.Constraint.Expr, schema)
 		// Add individual constraints arising
 		for i, mir_expr := range mir_exprs {
-			var handle string = v.Handle
-			// Only split the name when multiple distinct cases are extracted
-			// from the constraint.
-			if len(mir_exprs) > 1 {
-				handle = fmt.Sprintf("%s#%d", handle, i+1)
-			}
-			//
-			schema.AddVanishingConstraint(handle, v.Context, v.Domain, mir_expr)
+			schema.AddVanishingConstraint(v.Handle, uint(i), v.Context, v.Domain, mir_expr)
 		}
 	} else if v, ok := c.(RangeConstraint); ok {
 		mir_exprs := v.Expr.LowerTo(schema)
 		// Add individual constraints arising
 		for i, mir_expr := range mir_exprs {
-			var handle string = v.Handle
-			// Only split the name when multiple distinct cases are extracted
-			// from the constraint.
-			if len(mir_exprs) > 1 {
-				handle = fmt.Sprintf("%s#%d", handle, i+1)
-			}
-			//
-			schema.AddRangeConstraint(handle, v.Context, mir_expr, v.Bound)
+			schema.AddRangeConstraint(v.Handle, uint(i), v.Context, mir_expr, v.Bound)
 		}
 	} else {
 		// Should be unreachable as no other constraint types can be added to a

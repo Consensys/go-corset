@@ -66,6 +66,12 @@ func (e Expr) Context(schema sc.Schema) trace.Context {
 	return contextOfTerm(e.Term, schema)
 }
 
+// Branches returns the total number of logical branches this term can take
+// during evaluation.
+func (e Expr) Branches() uint {
+	panic("not implemented")
+}
+
 // Bounds returns max shift in either the negative (left) or positive
 // direction (right).
 func (e Expr) Bounds() util.Bounds { return e.Term.Bounds() }

@@ -15,7 +15,6 @@ package schema
 import (
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 )
@@ -33,15 +32,23 @@ type Metric[T any] interface {
 	Empty() T
 }
 
+// CoverageKey unique identifiers a constraint within the system.
+type CoverageKey struct {
+	// Identifier for the enclosing module.
+	Module uint
+	// Name of the constraint
+	Name string
+}
+
 // CoverageMap is a simple datatype (for now) which associates each
 // constraint with a given set of covered branches.
 type CoverageMap struct {
-	items map[util.Pair[uint, string]]bit.Set
+	items map[CoverageKey][]bit.Set
 }
 
 // NewBranchCoverage constructs an empty branch coverage set.
 func NewBranchCoverage() CoverageMap {
-	items := make(map[util.Pair[uint, string]]bit.Set)
+	items := make(map[CoverageKey][]bit.Set)
 	return CoverageMap{items}
 }
 
@@ -51,26 +58,32 @@ func (p *CoverageMap) IsEmpty() bool {
 }
 
 // CoverageOf returns, for a given constraint, the recorded coverage data.
-func (p *CoverageMap) CoverageOf(module uint, name string) bit.Set {
-	return p.items[util.NewPair(module, name)]
+func (p *CoverageMap) CoverageOf(module uint, name string) []bit.Set {
+	return p.items[CoverageKey{module, name}]
 }
 
 // Record some raw coverage data into this set.
-func (p *CoverageMap) Record(module uint, name string, nData bit.Set) {
+func (p *CoverageMap) Record(module uint, name string, casenum uint, nData bit.Set) {
 	var (
-		entry    = util.NewPair(module, name)
-		oData, _ = p.items[entry]
+		entry    = CoverageKey{module, name}
+		items, _ = p.items[entry]
 	)
-	// Include all new items
-	oData.Union(nData)
+	// Ensure enuough items
+	for uint(len(items)) <= casenum {
+		items = append(items, bit.Set{})
+	}
+	// Include specifc case coverage
+	items[casenum].Union(nData)
 	// Assign back.
-	p.items[entry] = oData
+	p.items[entry] = items
 }
 
 // Union entries from another (compatible) set of branch coverage data.
 func (p *CoverageMap) Union(other CoverageMap) {
-	for name, data := range other.items {
-		p.Record(name.Left, name.Right, data)
+	for key, bitsets := range other.items {
+		for i, entry := range bitsets {
+			p.Record(key.Module, key.Name, uint(i), entry)
+		}
 	}
 }
 
@@ -80,8 +93,8 @@ func (p *CoverageMap) KeysOf(mid uint) *set.SortedSet[string] {
 	keys := set.NewSortedSet[string]()
 	//
 	for k := range p.items {
-		if k.Left == mid {
-			keys.Insert(k.Right)
+		if k.Module == mid {
+			keys.Insert(k.Name)
 		}
 	}
 	//
@@ -93,17 +106,20 @@ func (p *CoverageMap) KeysOf(mid uint) *set.SortedSet[string] {
 func (p *CoverageMap) ToJson(schema Schema) map[string][]uint {
 	var json map[string][]uint = make(map[string][]uint)
 	//
-	for k, cov := range p.items {
-		name := jsonConstraintName(k.Left, k.Right, schema)
-		json[name] = cov.Iter().Collect()
+	for k, bitsets := range p.items {
+		for i, cov := range bitsets {
+			name := jsonConstraintName(k.Module, k.Name, uint(i), schema)
+			json[name] = cov.Iter().Collect()
+		}
 	}
 	//
 	return json
 }
 
-func jsonConstraintName(mid uint, name string, schema Schema) string {
+func jsonConstraintName(mid uint, name string, casenum uint, schema Schema) string {
 	mod := schema.Modules().Nth(mid)
-
+	name = fmt.Sprintf("%s#%d", name, casenum)
+	//
 	if mod.Name == "" {
 		return name
 	}

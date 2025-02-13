@@ -83,8 +83,8 @@ func NewLookupConstraint[E schema.Evaluable](handle string, source trace.Context
 
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
-func (p *LookupConstraint[E]) Name() string {
-	return p.Handle
+func (p *LookupConstraint[E]) Name() (string, uint) {
+	return p.Handle, 0
 }
 
 // Contexts returns the evaluation contexts (i.e. enclosing module + length
@@ -95,6 +95,22 @@ func (p *LookupConstraint[E]) Name() string {
 func (p *LookupConstraint[E]) Contexts() []tr.Context {
 	// source context designated as primary.
 	return []tr.Context{p.SourceContext, p.TargetContext}
+}
+
+// Branches returns the total number of logical branches this constraint can
+// take during evaluation.
+func (p *LookupConstraint[E]) Branches() uint {
+	sum := uint(1)
+	// Include source branches
+	for _, e := range p.Sources {
+		sum *= e.Branches()
+	}
+	// Include target branches
+	for _, e := range p.Targets {
+		sum *= e.Branches()
+	}
+	// Done
+	return sum
 }
 
 // Bounds determines the well-definedness bounds for this constraint for both
