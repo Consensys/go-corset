@@ -252,11 +252,15 @@ func lowerTermToInner(ctx trace.Context, e Term, mirSchema *Schema, airSchema *a
 		bounds := rangeOfTerm(e.Arg, mirSchema)
 		// Lower the expression being normalised
 		arg := lowerTermToInner(ctx, e.Arg, mirSchema, airSchema)
-		// Check whether normalisation actual required.  For example, if the
+		// Check whether normalisation actually required.  For example, if the
 		// argument is just a binary column then a normalisation is not actually
 		// required.
 		if bounds.Within(big.NewInt(0), big.NewInt(1)) {
+			// arg ∈ {0,1} ==> normalised already :)
 			return arg
+		} else if bounds.Within(big.NewInt(-1), big.NewInt(1)) {
+			// arg ∈ {-1,0,1} ==> (arg*arg) ∈ {0,1}
+			return air.Product(arg, arg)
 		}
 		// Construct an expression representing the normalised value of e.  That is,
 		// an expression which is 0 when e is 0, and 1 when e is non-zero.

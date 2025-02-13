@@ -50,6 +50,17 @@ func (p *Interval) Set(val *Interval) {
 	p.max.Set(&val.max)
 }
 
+// Size returns the number of elements contained within this interval.
+func (p *Interval) Size() big.Int {
+	var diff big.Int
+	//
+	diff.Set(&p.max)
+	diff.Sub(&diff, &p.min)
+	diff.Add(&diff, big.NewInt(1))
+	//
+	return diff
+}
+
 // Contains checks whether a given value is contained with this interval
 func (p *Interval) Contains(val *big.Int) bool {
 	return p.min.Cmp(val) <= 0 && p.max.Cmp(val) >= 0
