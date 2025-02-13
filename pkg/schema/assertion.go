@@ -78,8 +78,23 @@ func NewPropertyAssertion[T Testable](handle string, ctx tr.Context,
 
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
-func (p *PropertyAssertion[T]) Name() string {
-	return p.Handle
+func (p *PropertyAssertion[T]) Name() (string, uint) {
+	return p.Handle, 0
+}
+
+// Contexts returns the evaluation contexts (i.e. enclosing module + length
+// multiplier) for this constraint.  Most constraints have only a single
+// evaluation context, though some (e.g. lookups) have more.  Note that all
+// constraints have at least one context (which we can call the "primary"
+// context).
+func (p *PropertyAssertion[T]) Contexts() []tr.Context {
+	return []tr.Context{p.Context}
+}
+
+// Branches returns the total number of logical branches this term can take
+// during evaluation.
+func (p *PropertyAssertion[T]) Branches() uint {
+	return p.Property.Branches()
 }
 
 // Bounds is not required for a property assertion since these are not real
