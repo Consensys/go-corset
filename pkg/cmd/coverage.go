@@ -39,10 +39,10 @@ var coverageCmd = &cobra.Command{
 		stdlib := !GetFlag(cmd, "no-stdlib")
 		debug := GetFlag(cmd, "debug")
 		legacy := GetFlag(cmd, "legacy")
-		// Parse coverage file
-		coverage := readCoverageReport(args[0])
 		// Parse constraints
 		binfile := ReadConstraintFiles(stdlib, debug, legacy, args[1:])
+		// Parse coverage file
+		coverage := readCoverageReport(args[0], binfile)
 		//
 		hirSchema := &binfile.Schema
 		mirSchema := hirSchema.LowerToMir()
@@ -55,30 +55,64 @@ var coverageCmd = &cobra.Command{
 }
 
 func printCoverage(coverage sc.CoverageMap, schema sc.Schema) {
+	// Determine how many modules there are
+	nModules := schema.Modules().Count()
+	//
 	if !coverage.IsEmpty() {
-		for iter := coverage.Keys().Iter(); iter.HasNext(); {
-			// Determine constraint name
-			name := iter.Next()
-			// Extract coverage for this constraint
-			covered := coverage.CoverageOf(name)
-			// Identify constraint
-			index, ok := schema.Constraints().Find(func(c sc.Constraint) bool {
-				return c.Name() == name
-			})
-			//
-			if ok {
-				constraint := schema.Constraints().Nth(index)
-				// HACK
-				if vc, ok := constraint.(mir.VanishingConstraint); ok {
-					total := vc.Constraint.Branches()
-					fmt.Printf("%s: %d / %d\n", name, covered.Count(), total)
-				}
-			} else {
-				// print out data
-				fmt.Printf("%s: %d [MISSING]\n", name, covered.Count())
-			}
+		for mid := uint(0); mid < nModules; mid++ {
+			printModuleCoverage(mid, coverage, schema)
 		}
 	}
+}
+
+func printModuleCoverage(mid uint, coverage sc.CoverageMap, schema sc.Schema) {
+	mod := schema.Modules().Nth(mid)
+	// Print module header
+	if mod.Name != "" {
+		fmt.Printf("Module %s: \n", mod.Name)
+	} else {
+		fmt.Printf("Prelude:\n")
+	}
+	// Print matching entries
+	for iter := coverage.KeysOf(mid).Iter(); iter.HasNext(); {
+		// Determine constraint name
+		name := iter.Next()
+		//
+		printConstraintCoverage(mid, name, coverage, schema)
+	}
+	//
+	fmt.Println()
+}
+
+func printConstraintCoverage(mid uint, name string, coverage sc.CoverageMap, schema sc.Schema) {
+	// Find constraint in question
+	constraint := findConstraint(mid, name, schema)
+	// Extract coverage for this constraint
+	covered := coverage.CoverageOf(mid, name)
+	//
+	if constraint != nil {
+		// HACK
+		if vc, ok := constraint.(mir.VanishingConstraint); ok {
+			total := vc.Constraint.Branches()
+			fmt.Printf("\t%s: %d / %d\n", name, covered.Count(), total)
+		}
+	} else {
+		// print out data
+		fmt.Printf("\t%s: %d [MISSING]\n", name, covered.Count())
+	}
+}
+
+func findConstraint(mid uint, name string, schema sc.Schema) sc.Constraint {
+	// Identify constraint
+	index, ok := schema.Constraints().Find(func(c sc.Constraint) bool {
+		return c.Contexts()[0].Module() == mid && c.Name() == name
+	})
+	// Check whether we found it (or not)
+	if ok {
+		return schema.Constraints().Nth(index)
+	}
+	// Nope, failed to find it
+	return nil
 }
 
 //nolint:errcheck

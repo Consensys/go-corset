@@ -90,19 +90,28 @@ func GetStringArray(cmd *cobra.Command, flag string) []string {
 	return r
 }
 
-func writeCoverageReport(filename string, air sc.CoverageMap, mir sc.CoverageMap, hir sc.CoverageMap) {
-	var data map[string]any = make(map[string]any)
+func writeCoverageReport(filename string, binfile *binfile.BinaryFile, coverage [3]sc.CoverageMap) {
+	var (
+		air                 = coverage[0]
+		mir                 = coverage[1]
+		hir                 = coverage[2]
+		data map[string]any = make(map[string]any)
+	)
+	// Lower schemas
+	hirSchema := &binfile.Schema
+	mirSchema := hirSchema.LowerToMir()
+	airSchema := mirSchema.LowerToAir()
 	// Add AIR data (if applicable)
 	if !air.IsEmpty() {
-		data["air"] = air.ToJson()
+		data["air"] = air.ToJson(airSchema)
 	}
 	// Add MIR data (if applicable)
 	if !mir.IsEmpty() {
-		data["mir"] = mir.ToJson()
+		data["mir"] = mir.ToJson(mirSchema)
 	}
 	// Add HIR data (if applicable)
 	if !hir.IsEmpty() {
-		data["hir"] = hir.ToJson()
+		data["hir"] = hir.ToJson(hirSchema)
 	}
 	// write to disk
 	jsonString, err := enc_json.Marshal(data)
@@ -116,7 +125,7 @@ func writeCoverageReport(filename string, air sc.CoverageMap, mir sc.CoverageMap
 	}
 }
 
-func readCoverageReport(filename string) [3]sc.CoverageMap {
+func readCoverageReport(filename string, binfile *binfile.BinaryFile) [3]sc.CoverageMap {
 	var (
 		report map[string]map[string][]uint
 		air    sc.CoverageMap
@@ -125,20 +134,24 @@ func readCoverageReport(filename string) [3]sc.CoverageMap {
 	)
 	// Read data file
 	bytes, err := os.ReadFile(filename)
+	// Lower schemas
+	hirSchema := &binfile.Schema
+	mirSchema := hirSchema.LowerToMir()
+	airSchema := mirSchema.LowerToAir()
 	// Check success
 	if err == nil {
 		if err = enc_json.Unmarshal(bytes, &report); err == nil {
 			// Read air section
 			if section, ok := report["air"]; ok {
-				air = readCoverageReportSection(section)
+				air = readCoverageReportSection(section, airSchema)
 			}
 			// Read mir section
 			if section, ok := report["mir"]; ok {
-				mir = readCoverageReportSection(section)
+				mir = readCoverageReportSection(section, mirSchema)
 			}
 			// Read hir section
 			if section, ok := report["hir"]; ok {
-				hir = readCoverageReportSection(section)
+				hir = readCoverageReportSection(section, hirSchema)
 			}
 			// Done
 			return [3]sc.CoverageMap{air, mir, hir}
@@ -151,18 +164,47 @@ func readCoverageReport(filename string) [3]sc.CoverageMap {
 	return [3]sc.CoverageMap{air, mir, hir}
 }
 
-func readCoverageReportSection(section map[string][]uint) sc.CoverageMap {
+func readCoverageReportSection(section map[string][]uint, schema sc.Schema) sc.CoverageMap {
 	report := sc.NewBranchCoverage()
 	//
 	for k, vals := range section {
-		var covered bit.Set
+		var (
+			covered   bit.Set
+			mid, name = splitConstraintName(k, schema)
+		)
 		// Insert all elements
 		covered.InsertAll(vals...)
 		// Done
-		report.Insert(k, covered)
+		report.Record(mid, name, covered)
 	}
 	//
 	return report
+}
+
+func splitConstraintName(name string, schema sc.Schema) (uint, string) {
+	var (
+		err    error
+		splits = strings.Split(name, ".")
+	)
+	//
+	switch len(splits) {
+	case 1:
+		return 0, name
+	case 2:
+		// Lookup the module identifier for the given module name
+		if mid, ok := schema.Modules().Find(func(m sc.Module) bool { return m.Name == splits[0] }); ok {
+			return mid, splits[1]
+		}
+		// error
+		err = fmt.Errorf("unknown module %s in coverage report", splits[0])
+	default:
+		err = fmt.Errorf("unknown constraint %s in coverage report", name)
+	}
+	// Handle error
+	fmt.Println(err)
+	os.Exit(4)
+	// unreachable
+	return 0, ""
 }
 
 // Write a given trace file to disk

@@ -141,8 +141,10 @@ func sequentialAccepts(iter iter.Iterator[Constraint], trace tr.Trace) (Coverage
 		if err != nil {
 			errors = append(errors, err)
 		}
+		// Determine context to associate results with
+		ctx := ith.Contexts()[0]
 		//
-		coverage.Insert(ith.Name(), data)
+		coverage.Record(ctx.Module(), ith.Name(), data)
 	}
 	//
 	return coverage, errors
@@ -181,7 +183,8 @@ func processConstraintBatch(logtitle string, batch uint, batchsize uint, iter it
 		go func() {
 			// Send outcome back
 			cov, err := ith.Accepts(trace)
-			c <- pcOutcome{ith.Name(), cov, err}
+			ctx := ith.Contexts()[0]
+			c <- pcOutcome{ctx.Module(), ith.Name(), cov, err}
 		}()
 	}
 	//
@@ -192,7 +195,7 @@ func processConstraintBatch(logtitle string, batch uint, batchsize uint, iter it
 			errors = append(errors, p.error)
 		}
 		// Update coverage
-		coverage.Insert(p.handle, p.data)
+		coverage.Record(p.module, p.handle, p.data)
 	}
 	// Log stats about this batch
 	stats.Log(fmt.Sprintf("%s batch %d (%d items)", logtitle, batch, n))
@@ -201,6 +204,7 @@ func processConstraintBatch(logtitle string, batch uint, batchsize uint, iter it
 }
 
 type pcOutcome struct {
+	module uint
 	handle string
 	data   bit.Set
 	error  Failure

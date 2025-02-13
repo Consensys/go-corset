@@ -104,7 +104,7 @@ var checkCmd = &cobra.Command{
 		if !ok {
 			os.Exit(1)
 		} else if cfg.coverage.HasValue() {
-			writeCoverageReport(cfg.coverage.Unwrap(), coverage[0], coverage[1], coverage[2])
+			writeCoverageReport(cfg.coverage.Unwrap(), binfile, coverage)
 		}
 	},
 }
@@ -220,7 +220,7 @@ func checkTrace[K sc.Metric[K]](ir string, traces [][]tr.RawColumn, schema sc.Sc
 				reportFailures(ir, errs, trace, cfg)
 				return false, coverage
 			} else {
-				coverage.InsertAll(cov)
+				coverage.Union(cov)
 			}
 			// Check assertions
 			if _, errs := sc.Asserts(cfg.parallel, cfg.batchSize, schema, trace); len(errs) > 0 {
