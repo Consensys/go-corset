@@ -181,8 +181,8 @@ func (p BranchMetric) Empty() BranchMetric {
 
 // Join includes a given evalutation identifier as part of this identifier.
 func (p BranchMetric) Join(other BranchMetric) BranchMetric {
-	p.branchBound *= other.branchBound
-	p.branch = (p.branch * other.branchBound) + other.branch
+	p.branchBound += other.branchBound
+	p.branch += other.branch
 
 	return p
 }
