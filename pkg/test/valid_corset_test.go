@@ -1323,11 +1323,12 @@ var TESTFILE_EXTENSIONS []TestConfig = []TestConfig{
 	{"accepts", true, true, true},
 	{"accepts.bz2", true, true, true},
 	{"auto.accepts", true, true, true},
+	{"expanded.accepts", true, false, true},
 	// should all fail
 	{"rejects", false, true, false},
 	{"rejects.bz2", false, true, false},
 	{"auto.rejects", false, true, false},
-	{"expanded", false, false, false},
+	{"expanded.rejects", false, false, false},
 }
 
 // A trace identifier uniquely identifies a specific trace within a given test.
