@@ -20,6 +20,9 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/binfile"
+	"github.com/consensys/go-corset/pkg/corset"
+	"github.com/consensys/go-corset/pkg/hir"
+	sc "github.com/consensys/go-corset/pkg/schema"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -38,9 +41,15 @@ var generateCmd = &cobra.Command{
 		filename := GetString(cmd, "output")
 		pkgname := GetString(cmd, "package")
 		// Parse constraints
-		binfile := ReadConstraintFiles(stdlib, false, false, args)
+		binf := ReadConstraintFiles(stdlib, false, false, args)
+		// Sanity check debug information is available.
+		srcmap, srcmap_ok := binfile.GetAttribute[*corset.SourceMap](binf)
+		//
+		if !srcmap_ok {
+			fmt.Printf("constraints file(s) \"%s\" missing source map", args[1])
+		}
 		// Generate appropriate Java source
-		source, err := generateJavaIntegration(filename, pkgname, binfile)
+		source, err := generateJavaIntegration(filename, pkgname, srcmap, binf)
 		// check for errors / write out file.
 		if err != nil {
 			fmt.Println(err.Error())
@@ -53,7 +62,9 @@ var generateCmd = &cobra.Command{
 }
 
 // Generate a suitable tracefile integration.
-func generateJavaIntegration(filename string, pkgname string, binfile *binfile.BinaryFile) (string, error) {
+func generateJavaIntegration(filename string, pkgname string, srcmap *corset.SourceMap,
+	binfile *binfile.BinaryFile) (string, error) {
+	//
 	var builder strings.Builder
 	// Extract base of filename
 	basename := filepath.Base(filename)
@@ -64,13 +75,13 @@ func generateJavaIntegration(filename string, pkgname string, binfile *binfile.B
 	// Strip suffix to determine classname
 	classname := strings.TrimSuffix(basename, ".java")
 	// begin generation
-	generateJavaHeader(classname, pkgname, &builder)
-	generateJavaFooter(&builder)
+	generateJavaHeader(pkgname, &builder)
+	generateJavaModule(classname, srcmap.Root, &binfile.Schema, indentBuilder{0, &builder})
 	//
 	return builder.String(), nil
 }
 
-func generateJavaHeader(classname string, pkgname string, builder *strings.Builder) {
+func generateJavaHeader(pkgname string, builder *strings.Builder) {
 	builder.WriteString(license)
 	// Write package line
 	if pkgname != "" {
@@ -79,11 +90,73 @@ func generateJavaHeader(classname string, pkgname string, builder *strings.Build
 	//
 	builder.WriteString(javaImports)
 	builder.WriteString(javaWarning)
-	builder.WriteString(fmt.Sprintf("public class %s {\n", classname))
 }
 
-func generateJavaFooter(builder *strings.Builder) {
-	builder.WriteString("}\n")
+func generateJavaModule(classname string, mod corset.SourceModule, schema *hir.Schema, builder indentBuilder) {
+	generateJavaClassHeader(classname, builder)
+	// construct builder for within the claass
+	generateJavaModuleHeader(builder.Indent())
+	generateJavaRegisterDeclarations(mod, schema, builder.Indent())
+	// Generate any submodules
+	for _, submod := range mod.Submodules {
+		generateJavaModule(submod.Name, submod, schema, builder.Indent())
+	}
+	//
+	generateJavaClassFooter(builder)
+}
+
+func generateJavaClassHeader(classname string, builder indentBuilder) {
+	builder.WriteIndentedString("public class ", classname, " {\n")
+}
+
+func generateJavaClassFooter(builder indentBuilder) {
+	builder.WriteIndentedString("}\n")
+}
+
+func generateJavaModuleHeader(builder indentBuilder) {
+	builder.WriteIndentedString("private final BitSet filled = new BitSet();\n")
+	builder.WriteIndentedString("private int currentLine = 0;\n\n")
+}
+
+func generateJavaRegisterDeclarations(mod corset.SourceModule, schema *hir.Schema, builder indentBuilder) {
+	mid, ok := schema.Modules().Find(func(m sc.Module) bool { return m.Name == mod.Name })
+	//
+	if !ok {
+		panic(fmt.Sprintf("unable to find module %s", mod.Name))
+	}
+	//
+	for iter := schema.InputColumns(); iter.HasNext(); {
+		column := iter.Next()
+		// Check whether this is part of our module
+		if column.Context.Module() == mid {
+			// Yes, it is.
+			builder.WriteIndentedString("private final MappedByteBuffer ", column.Name, ";\n")
+		}
+	}
+}
+
+// A string builder which supports indentation.
+type indentBuilder struct {
+	indent  uint
+	builder *strings.Builder
+}
+
+func (p *indentBuilder) Indent() indentBuilder {
+	return indentBuilder{p.indent + 1, p.builder}
+}
+
+func (p *indentBuilder) WriteIndentedString(pieces ...string) {
+	p.WriteIndent()
+	//
+	for _, s := range pieces {
+		p.builder.WriteString(s)
+	}
+}
+
+func (p *indentBuilder) WriteIndent() {
+	for i := uint(0); i < p.indent; i++ {
+		p.builder.WriteString("   ")
+	}
 }
 
 const license string = `// Copyright Consensys Software Inc.
