@@ -13,6 +13,7 @@
 package cmd
 
 import (
+	"bytes"
 	enc_json "encoding/json"
 	"fmt"
 	"os"
@@ -239,6 +240,27 @@ func splitConstraintNameNum(name string) (string, uint) {
 	os.Exit(4)
 	// unreachable
 	return "", 0
+}
+
+func writeBatchedTracesFile(filename string, traces ...[]trace.RawColumn) {
+	var buf bytes.Buffer
+	// Check file extension
+	if len(traces) == 1 {
+		writeTraceFile(filename, traces[0])
+		return
+	}
+	// Always write JSON in batched mode
+	for _, trace := range traces {
+		js := json.ToJsonString(trace)
+		buf.WriteString(js)
+		buf.WriteString("\n")
+	}
+	// Write file
+	if err := os.WriteFile(filename, buf.Bytes(), 0644); err != nil {
+		// Handle error
+		fmt.Println(err)
+		os.Exit(4)
+	}
 }
 
 // Write a given trace file to disk
