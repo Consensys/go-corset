@@ -34,6 +34,7 @@ var traceCmd = &cobra.Command{
 	it from one format (e.g. lt) to another (e.g. json),
 	or filtering out modules, or listing columns, etc.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		var traces [][]trace.RawColumn
 		expand := GetFlag(cmd, "expand")
 		// Sanity check
 		if (expand && len(args) != 2) || (!expand && len(args) != 1) {
@@ -41,7 +42,6 @@ var traceCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		// Parse trace
-		cols := ReadTraceFile(args[0])
 		list := GetFlag(cmd, "list")
 		defensive := GetFlag(cmd, "defensive")
 		stats := GetFlag(cmd, "stats")
@@ -56,37 +56,52 @@ var traceCmd = &cobra.Command{
 		air := GetFlag(cmd, "air")
 		mir := GetFlag(cmd, "mir")
 		hir := GetFlag(cmd, "hir")
+		batched := GetFlag(cmd, "batched")
+		// Parse trace file(s)
+		if batched {
+			// batched mode
+			traces = ReadBatchedTraceFile(args[0])
+		} else {
+			// unbatched (i.e. normal) mode
+			columns := ReadTraceFile(args[0])
+			traces = [][]trace.RawColumn{columns}
+		}
 		//
 		if expand && !air && !mir && !hir {
 			fmt.Println("must specify --hir/mir/air for trace expansion")
 			os.Exit(2)
 		} else if expand {
 			level := determineAbstractionLevel(air, mir, hir)
-			cols = expandWithConstraints(level, cols, stdlib, defensive, args[1:])
+			for i, cols := range traces {
+				traces[i] = expandWithConstraints(level, cols, stdlib, defensive, args[1:])
+			}
 		} else if defensive {
 			fmt.Println("cannot apply defensive padding without trace expansion")
 			os.Exit(2)
 		}
-		// construct filters
-		if filter != "" {
-			cols = filterColumns(cols, filter)
-		}
-		if start != 0 || end != math.MaxUint {
-			sliceColumns(cols, start, end)
-		}
-		if list {
-			listColumns(cols, includes)
-		}
-		if stats {
-			summaryStats(cols)
-		}
-		//
-		if output != "" {
-			writeTraceFile(output, cols)
-		}
+		// Now manipulate traces
+		for i := range traces {
+			// construct filters
+			if filter != "" {
+				traces[i] = filterColumns(traces[i], filter)
+			}
+			if start != 0 || end != math.MaxUint {
+				sliceColumns(traces[i], start, end)
+			}
+			if list {
+				listColumns(traces[i], includes)
+			}
+			if stats {
+				summaryStats(traces[i])
+			}
 
-		if print {
-			printTrace(start, max_width, cols)
+			if print {
+				printTrace(start, max_width, traces[i])
+			}
+		}
+		// Write out results (if requested)
+		if output != "" {
+			writeBatchedTracesFile(output, traces...)
 		}
 	},
 }
@@ -108,6 +123,8 @@ func init() {
 	traceCmd.Flags().Bool("hir", false, "expand to HIR level")
 	traceCmd.Flags().Bool("mir", false, "expand to MIR level")
 	traceCmd.Flags().Bool("air", false, "expand to AIR level")
+	traceCmd.Flags().Bool("batched", false,
+		"specify trace file is batched (i.e. contains multiple traces, one for each line)")
 }
 
 const air_LEVEL = 0
