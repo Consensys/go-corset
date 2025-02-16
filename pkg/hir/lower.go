@@ -118,7 +118,7 @@ func lowerTo(e Expr, schema *mir.Schema) []mir.Expr {
 	for i, e := range es {
 		c := extractCondition(e, schema)
 		b := extractBody(e, schema)
-		mes[i] = mir.Product(c, b)
+		mes[i] = mir.Product(c, b).Simplify()
 	}
 	// Done
 	return mes

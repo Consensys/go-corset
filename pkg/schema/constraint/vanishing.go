@@ -195,6 +195,8 @@ func (p *VanishingConstraint[T]) Lisp(schema sc.Schema) sexp.SExp {
 	} else {
 		name = p.Handle
 	}
+	// Add case
+	name = fmt.Sprintf("%s#%d", name, p.Case)
 	// Handle attributes
 	if p.Domain.HasValue() {
 		domain := p.Domain.Unwrap()

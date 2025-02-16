@@ -118,6 +118,14 @@ func (e Expr) Branches() uint {
 	return pathsOfTerm(e.term)
 }
 
+// Simplify this expression by applying, for example, constant propagation.
+func (e Expr) Simplify() Expr {
+	// Apply constant propagation
+	term := constantPropagationForTerm(e.term, nil)
+	// That's all for now!
+	return Expr{term}
+}
+
 // Exponent raises a given expression to a given power.
 func Exponent(arg Expr, pow uint64) Expr {
 	return Expr{&Exp{arg.term, pow}}

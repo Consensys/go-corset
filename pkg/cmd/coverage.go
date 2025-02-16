@@ -238,11 +238,7 @@ func constraintBranchesSummariserCalc(mid uint, name string, coverage sc.Coverag
 	// Done
 	return branches
 }
-func constraintBranchesSummariser(mid uint, name string, coverage sc.CoverageMap, schema sc.Schema) string {
-	return fmt.Sprintf("%d", constraintBranchesSummariserCalc(mid, name, coverage, schema))
-}
-
-func constraintBranchesCounter(mid uint, name string, casenum uint, coverage sc.CoverageMap, schema sc.Schema) string {
+func constraintBranchesCounterCalc(mid uint, name string, casenum uint, schema sc.Schema) uint {
 	var branches uint = 1
 	//
 	if c := findConstraint(mid, name, casenum, schema); c != nil {
@@ -252,7 +248,14 @@ func constraintBranchesCounter(mid uint, name string, casenum uint, coverage sc.
 		log.Errorf("unknown constraint \"%s.%s#%d\" in coverage report", module, name, casenum)
 	}
 	// Done
-	return fmt.Sprintf("%d", branches)
+	return branches
+}
+func constraintBranchesSummariser(mid uint, name string, coverage sc.CoverageMap, schema sc.Schema) string {
+	return fmt.Sprintf("%d", constraintBranchesSummariserCalc(mid, name, coverage, schema))
+}
+
+func constraintBranchesCounter(mid uint, name string, casenum uint, coverage sc.CoverageMap, schema sc.Schema) string {
+	return fmt.Sprintf("%d", constraintBranchesCounterCalc(mid, name, casenum, schema))
 }
 
 func constraintPercentSummariser(mid uint, name string, coverage sc.CoverageMap, schema sc.Schema) string {
@@ -264,7 +267,11 @@ func constraintPercentSummariser(mid uint, name string, coverage sc.CoverageMap,
 }
 
 func constraintPercentCounter(mid uint, name string, casenum uint, coverage sc.CoverageMap, schema sc.Schema) string {
-	return "?"
+	val := coverage.CoverageOf(mid, name)[casenum].Count()
+	total := constraintBranchesCounterCalc(mid, name, casenum, schema)
+	percent := float32(val*100) / float32(total)
+
+	return fmt.Sprintf("%0.1f%%", percent)
 }
 
 func findConstraint(mid uint, name string, casenum uint, schema sc.Schema) sc.Constraint {
