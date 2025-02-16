@@ -388,6 +388,14 @@ func Test_If_15(t *testing.T) {
 	Check(t, false, "if_15")
 }
 
+func Test_If_16(t *testing.T) {
+	Check(t, false, "if_16")
+}
+
+func Test_If_17(t *testing.T) {
+	Check(t, false, "if_17")
+}
+
 // ===================================================================
 // Guards
 // ===================================================================
