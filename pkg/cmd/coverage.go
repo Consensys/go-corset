@@ -19,7 +19,6 @@ import (
 
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
-	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -41,6 +40,7 @@ var coverageCmd = &cobra.Command{
 		stdlib := !GetFlag(cmd, "no-stdlib")
 		debug := GetFlag(cmd, "debug")
 		legacy := GetFlag(cmd, "legacy")
+		expand := GetFlag(cmd, "expand")
 		filter := regexFilter(GetString(cmd, "filter"))
 		// Parse constraints
 		binfile := ReadConstraintFiles(stdlib, debug, legacy, args[1:])
@@ -51,9 +51,9 @@ var coverageCmd = &cobra.Command{
 		mirSchema := hirSchema.LowerToMir()
 		airSchema := mirSchema.LowerToAir()
 		//
-		printCoverage(coverage[0], airSchema, filter)
-		printCoverage(coverage[1], mirSchema, filter)
-		printCoverage(coverage[2], hirSchema, filter)
+		printCoverage(expand, coverage[0], airSchema, filter)
+		printCoverage(expand, coverage[1], mirSchema, filter)
+		printCoverage(expand, coverage[2], hirSchema, filter)
 	},
 }
 
@@ -71,7 +71,7 @@ func regexFilter(filter string) func(string, string) bool {
 	}
 }
 
-func printCoverage(coverage sc.CoverageMap, schema sc.Schema, filter func(string, string) bool) {
+func printCoverage(expand bool, coverage sc.CoverageMap, schema sc.Schema, filter func(string, string) bool) {
 	// Determine how many modules there are
 	nModules := schema.Modules().Count()
 	//
@@ -87,7 +87,7 @@ func printCoverage(coverage sc.CoverageMap, schema sc.Schema, filter func(string
 		rows := [][]string{row}
 		//
 		for mid := uint(0); mid < nModules; mid++ {
-			rs := generateModuleCoverage(mid, coverage, schema, filter)
+			rs := generateModuleCoverage(expand, mid, coverage, schema, filter)
 			rows = append(rows, rs...)
 		}
 		// Print matching entries
@@ -103,11 +103,10 @@ func printCoverage(coverage sc.CoverageMap, schema sc.Schema, filter func(string
 	}
 }
 
-func generateModuleCoverage(mid uint, coverage sc.CoverageMap, schema sc.Schema,
+func generateModuleCoverage(expand bool, mid uint, coverage sc.CoverageMap, schema sc.Schema,
 	filter func(string, string) bool) [][]string {
 	//
 	var (
-		n     = uint(len(coverageSummarisers))
 		rows  [][]string
 		title string
 	)
@@ -126,63 +125,153 @@ func generateModuleCoverage(mid uint, coverage sc.CoverageMap, schema sc.Schema,
 		// Filter out columns
 		if filter(mod.Name, name) {
 			// Construct row
-			vals := make([]string, n+2)
-			if len(rows) == 0 {
-				vals[0] = title
-			}
+			crows := generateConstraintCoverage(expand, mid, title, name, coverage, schema)
 			//
-			vals[1] = name
-			// Apply summarisers
-			for i, fn := range coverageSummarisers {
-				vals[i+2] = fn.summary(mid, name, coverage, schema)
-			}
-			//
-			rows = append(rows, vals)
+			rows = append(rows, crows...)
 		}
 	}
 	//
 	return rows
 }
 
-type coverageSummariser struct {
-	name    string
-	summary func(uint, string, sc.CoverageMap, sc.Schema) string
+func generateConstraintCoverage(expand bool, mid uint, mod string, name string, coverage sc.CoverageMap,
+	schema sc.Schema) [][]string {
+	//
+	if expand {
+		return generateExpandedConstraintCoverage(mid, mod, name, coverage, schema)
+	}
+	//
+	return generateUnexpandedConstraintCoverage(mid, mod, name, coverage, schema)
 }
 
-var coverageSummarisers []coverageSummariser = []coverageSummariser{
-	{"Coverage", constraintCoverageSummariser},
-	{"Branches", constraintBranchesSummariser},
+func generateExpandedConstraintCoverage(mid uint, mod string, name string, coverage sc.CoverageMap,
+	schema sc.Schema) [][]string {
+	//
+	var (
+		n      = uint(len(coverageSummarisers))
+		ncases = uint(len(coverage.CoverageOf(mid, name)))
+		vals   [][]string
+	)
+	//
+	for i := uint(0); i < ncases; i++ {
+		row := make([]string, n+2)
+		row[0], row[1] = mod, fmt.Sprintf("%s#%d", name, i)
+		// Apply summarisers
+		for j, fn := range coverageSummarisers {
+			row[j+2] = fn.expanded(mid, name, i, coverage, schema)
+		}
+		//
+		vals = append(vals, row)
+	}
+	// Done
+	return vals
 }
 
-func constraintCoverageSummariser(mid uint, name string, coverage sc.CoverageMap, schema sc.Schema) string {
-	var aggregated bit.Set
+func generateUnexpandedConstraintCoverage(mid uint, mod string, name string, coverage sc.CoverageMap,
+	schema sc.Schema) [][]string {
+	//
+	var (
+		n    = uint(len(coverageSummarisers))
+		vals = make([]string, n+2)
+	)
+	//
+	vals[0], vals[1] = mod, name
+	// Apply summarisers
+	for i, fn := range coverageSummarisers {
+		vals[i+2] = fn.summary(mid, name, coverage, schema)
+	}
+	// Done
+	return [][]string{vals}
+}
+
+type constraintSummariser struct {
+	name     string
+	summary  func(uint, string, sc.CoverageMap, sc.Schema) string
+	expanded func(uint, string, uint, sc.CoverageMap, sc.Schema) string
+}
+
+var coverageSummarisers []constraintSummariser = []constraintSummariser{
+	{"Coverage", constraintCoverageSummariser, constraintCoverageCounter},
+	{"Branches", constraintBranchesSummariser, constraintBranchesCounter},
+	{"Percentage", constraintPercentSummariser, constraintPercentCounter},
+}
+
+func constraintCoverageSummariserCalc(mid uint, name string, coverage sc.CoverageMap) uint {
+	var total uint
 	// Extract available coverage data
 	bitsets := coverage.CoverageOf(mid, name)
 	//
 	for _, b := range bitsets {
 		// Aggregated coverage for this case
-		aggregated.Union(b)
+		total += b.Count()
 	}
 	// Done
-	return fmt.Sprintf("%d", aggregated.Count())
+	return total
 }
 
-func constraintBranchesSummariser(mid uint, name string, coverage sc.CoverageMap, schema sc.Schema) string {
-	var branches uint = 1
+func constraintCoverageSummariser(mid uint, name string, coverage sc.CoverageMap, schema sc.Schema) string {
+	total := constraintCoverageSummariserCalc(mid, name, coverage)
+	return fmt.Sprintf("%d", total)
+}
+
+func constraintCoverageCounter(mid uint, name string, casenum uint, coverage sc.CoverageMap, schema sc.Schema) string {
+	// Extract available coverage data
+	bitsets := coverage.CoverageOf(mid, name)
+	//
+	return fmt.Sprintf("%d", bitsets[casenum].Count())
+}
+
+func constraintBranchesSummariserCalc(mid uint, name string, coverage sc.CoverageMap, schema sc.Schema) uint {
+	var branches uint = 0
 	// Extract available coverage data
 	bitsets := coverage.CoverageOf(mid, name)
 	//
 	for i := range bitsets {
 		// Lookup actual constraint
 		if c := findConstraint(mid, name, uint(i), schema); c != nil {
-			branches *= c.Branches()
+			branches += c.Branches()
 		} else {
 			module := schema.Modules().Nth(mid)
 			log.Errorf("unknown constraint \"%s.%s#%d\" in coverage report", module, name, i)
 		}
 	}
 	// Done
-	return fmt.Sprintf("%d", branches)
+	return branches
+}
+func constraintBranchesCounterCalc(mid uint, name string, casenum uint, schema sc.Schema) uint {
+	var branches uint = 1
+	//
+	if c := findConstraint(mid, name, casenum, schema); c != nil {
+		branches *= c.Branches()
+	} else {
+		module := schema.Modules().Nth(mid)
+		log.Errorf("unknown constraint \"%s.%s#%d\" in coverage report", module, name, casenum)
+	}
+	// Done
+	return branches
+}
+func constraintBranchesSummariser(mid uint, name string, coverage sc.CoverageMap, schema sc.Schema) string {
+	return fmt.Sprintf("%d", constraintBranchesSummariserCalc(mid, name, coverage, schema))
+}
+
+func constraintBranchesCounter(mid uint, name string, casenum uint, coverage sc.CoverageMap, schema sc.Schema) string {
+	return fmt.Sprintf("%d", constraintBranchesCounterCalc(mid, name, casenum, schema))
+}
+
+func constraintPercentSummariser(mid uint, name string, coverage sc.CoverageMap, schema sc.Schema) string {
+	val := constraintCoverageSummariserCalc(mid, name, coverage)
+	total := constraintBranchesSummariserCalc(mid, name, coverage, schema)
+	percent := float32(val*100) / float32(total)
+
+	return fmt.Sprintf("%0.1f%%", percent)
+}
+
+func constraintPercentCounter(mid uint, name string, casenum uint, coverage sc.CoverageMap, schema sc.Schema) string {
+	val := coverage.CoverageOf(mid, name)[casenum].Count()
+	total := constraintBranchesCounterCalc(mid, name, casenum, schema)
+	percent := float32(val*100) / float32(total)
+
+	return fmt.Sprintf("%0.1f%%", percent)
 }
 
 func findConstraint(mid uint, name string, casenum uint, schema sc.Schema) sc.Constraint {
@@ -203,5 +292,6 @@ func findConstraint(mid uint, name string, casenum uint, schema sc.Schema) sc.Co
 func init() {
 	rootCmd.AddCommand(coverageCmd)
 	coverageCmd.Flags().Bool("debug", false, "enable debugging constraints")
+	coverageCmd.Flags().BoolP("expand", "e", false, "show expanded constraints")
 	coverageCmd.Flags().StringP("filter", "f", "", "regex constraint filter")
 }

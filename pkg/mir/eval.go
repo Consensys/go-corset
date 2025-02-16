@@ -139,7 +139,10 @@ func pathsOfTerm(e Term) uint {
 		count := uint(0)
 		//
 		for _, arg := range e.Args {
-			count += pathsOfTerm(arg)
+			// Constants must be ignored since they are not real choices.
+			if _, ok := arg.(*Constant); !ok {
+				count += pathsOfTerm(arg)
+			}
 		}
 		//
 		return count
