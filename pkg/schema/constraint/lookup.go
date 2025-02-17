@@ -103,11 +103,11 @@ func (p *LookupConstraint[E]) Branches() uint {
 	sum := uint(1)
 	// Include source branches
 	for _, e := range p.Sources {
-		sum *= e.Branches()
+		sum += e.Branches()
 	}
 	// Include target branches
 	for _, e := range p.Targets {
-		sum *= e.Branches()
+		sum += e.Branches()
 	}
 	// Done
 	return sum
