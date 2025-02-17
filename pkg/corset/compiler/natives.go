@@ -94,12 +94,9 @@ func (p *NativeDefinition) HasArity(arity uint) bool {
 	return arity >= p.min_arity && arity <= p.max_arity
 }
 
-// Select the best fit signature based on the available parameter types.
-// Observe that, for valid arities, this always returns a signature.
-// However, that signature may not actually accept the provided parameters
-// (in which case, an error should be reported).  Furthermore, if no
-// appropriate signature exists then this will return nil.
-func (p *NativeDefinition) Select(args []ast.Type) *ast.FunctionSignature {
+// Select corresponding signature based on arity.  If no matching signature
+// exists then this will return nil.
+func (p *NativeDefinition) Select(arity uint) *ast.FunctionSignature {
 	// This is safe because natives can only (currently) be used in very
 	// specific situations.
 	return nil
@@ -115,7 +112,7 @@ func (p *NativeDefinition) Apply(args []NativeColumn) []NativeColumn {
 // (e.g. intrinsics) cannot be overloaded; (2) duplicate overloadings are
 // not permitted; (3) combinding pure and impure overloadings is also not
 // permitted.
-func (p *NativeDefinition) Overload(binding *ast.DefunBinding) (ast.FunctionBinding, bool) {
+func (p *NativeDefinition) Overload(*ast.DefunBinding) (ast.FunctionBinding, bool) {
 	// Easy case, as natives cannot be overloaded.
 	return nil, false
 }

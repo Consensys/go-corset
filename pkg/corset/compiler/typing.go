@@ -319,6 +319,8 @@ func (p *typeChecker) typeCheckIfInModule(expr *ast.If) (ast.Type, []SyntaxError
 }
 
 func (p *typeChecker) typeCheckInvokeInModule(expr *ast.Invoke) (ast.Type, []SyntaxError) {
+	arity := uint(len(expr.Args))
+	//
 	if binding, ok := expr.Name.Binding().(ast.FunctionBinding); !ok {
 		// We don't return an error here, since one would already have been
 		// generated during resolution.
@@ -328,7 +330,7 @@ func (p *typeChecker) typeCheckInvokeInModule(expr *ast.Invoke) (ast.Type, []Syn
 	} else if argTypes == nil {
 		// An upstream expression could not because of a resolution error.
 		return nil, nil
-	} else if signature := binding.Select(argTypes); signature != nil {
+	} else if signature := binding.Select(arity); signature != nil {
 		// Check arguments are accepted, based on their type.
 		for i := 0; i < len(argTypes); i++ {
 			expected := signature.Parameter(uint(i))
@@ -385,7 +387,7 @@ func (p *typeChecker) typeCheckReduceInModule(expr *ast.Reduce) (ast.Type, []Syn
 	// Following safe as resolver checked this already.
 	if binding, ok := expr.Name.Binding().(ast.FunctionBinding); ok && body_t != nil {
 		//
-		if signature = binding.Select([]ast.Type{body_t, body_t}); signature != nil {
+		if signature = binding.Select(2); signature != nil {
 			// Check left parameter type
 			if !body_t.SubtypeOf(signature.Parameter(0)) {
 				msg := fmt.Sprintf("expected type %s (found %s)", signature.Parameter(0), body_t)
