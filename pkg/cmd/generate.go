@@ -15,6 +15,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"math/big"
 	"os"
 	"path/filepath"
 	"strings"
@@ -93,13 +94,26 @@ func generateJavaHeader(pkgname string, builder *strings.Builder) {
 }
 
 func generateJavaModule(classname string, mod corset.SourceModule, schema *hir.Schema, builder indentBuilder) {
+	// Attempt to find module
+	mid, ok := schema.Modules().Find(func(m sc.Module) bool { return m.Name == mod.Name })
+	// Sanity check we found it
+	if !ok {
+		panic(fmt.Sprintf("unable to find module %s", mod.Name))
+	}
+	//
 	generateJavaClassHeader(classname, builder)
 	// construct builder for within the claass
 	generateJavaModuleHeader(builder.Indent())
-	generateJavaRegisterDeclarations(mod, schema, builder.Indent())
+	generateJavaModuleRegisterFields(mid, schema, builder.Indent())
+	generateJavaModuleHeaders(mid, schema, builder.Indent())
+	generateJavaModuleConstructor(classname, mid, schema, builder.Indent())
+	generateJavaModuleSize(builder.Indent())
+	generateJavaModuleColumnSetters(mid, schema, builder.Indent())
 	// Generate any submodules
 	for _, submod := range mod.Submodules {
-		generateJavaModule(submod.Name, submod, schema, builder.Indent())
+		if !submod.Virtual {
+			generateJavaModule(submod.Name, submod, schema, builder.Indent())
+		}
 	}
 	//
 	generateJavaClassFooter(builder)
@@ -118,13 +132,7 @@ func generateJavaModuleHeader(builder indentBuilder) {
 	builder.WriteIndentedString("private int currentLine = 0;\n\n")
 }
 
-func generateJavaRegisterDeclarations(mod corset.SourceModule, schema *hir.Schema, builder indentBuilder) {
-	mid, ok := schema.Modules().Find(func(m sc.Module) bool { return m.Name == mod.Name })
-	//
-	if !ok {
-		panic(fmt.Sprintf("unable to find module %s", mod.Name))
-	}
-	//
+func generateJavaModuleRegisterFields(mid uint, schema *hir.Schema, builder indentBuilder) {
 	for iter := schema.InputColumns(); iter.HasNext(); {
 		column := iter.Next()
 		// Check whether this is part of our module
@@ -132,6 +140,135 @@ func generateJavaRegisterDeclarations(mod corset.SourceModule, schema *hir.Schem
 			// Yes, it is.
 			builder.WriteIndentedString("private final MappedByteBuffer ", column.Name, ";\n")
 		}
+	}
+	//
+	builder.WriteString("\n")
+}
+
+func generateJavaModuleHeaders(mid uint, schema *hir.Schema, builder indentBuilder) {
+	innerBuilder := builder.Indent()
+	//
+	builder.WriteIndentedString("static List<ColumnHeader> headers(int length) {\n")
+	innerBuilder.WriteIndentedString("List<ColumnHeader> headers = new ArrayList<>();\n")
+	//
+	for iter := schema.InputColumns(); iter.HasNext(); {
+		column := iter.Next()
+		// Check whether this is part of our module
+		if column.Context.Module() == mid {
+			width := fmt.Sprintf("%d", column.DataType.ByteWidth())
+			// Yes, it is.
+			innerBuilder.WriteIndentedString("headers.add(new ColumnHeader(\"", column.Name, "\", ", width, ", length));\n")
+		}
+	}
+	//
+	innerBuilder.WriteIndentedString("return headers;\n")
+	builder.WriteIndentedString("}\n\n")
+}
+
+func generateJavaModuleConstructor(classname string, mid uint, schema *hir.Schema, builder indentBuilder) {
+	index := 0
+	innerBuilder := builder.Indent()
+	//
+	builder.WriteIndentedString("public ", classname, "(List<MappedByteBuffer> buffers) {\n")
+	//
+	for iter := schema.InputColumns(); iter.HasNext(); {
+		column := iter.Next()
+		// Check whether this is part of our module
+		if column.Context.Module() == mid {
+			indexStr := fmt.Sprintf("%d", index)
+			// Yes, it is.
+			innerBuilder.WriteIndentedString("this.", column.Name, " = buffers.get(", indexStr, ");\n")
+			//
+			index++
+		}
+	}
+	//
+	builder.WriteIndentedString("}\n\n")
+}
+
+func generateJavaModuleSize(builder indentBuilder) {
+	innerBuilder := builder.Indent()
+	//
+	builder.WriteIndentedString("public int size() {\n")
+	innerBuilder.WriteIndentedString("if(!filled.isEmpty()) {\n")
+	innerBuilder.WriteIndentedString(
+		"   throw new RuntimeException(\"Cannot measure a trace with a non-validated row.\");\n")
+	innerBuilder.WriteIndentedString("}\n")
+	innerBuilder.WriteIndentedString("\n")
+	innerBuilder.WriteIndentedString("return this.currentLine;\n")
+	builder.WriteIndentedString("}\n\n")
+}
+
+func generateJavaModuleColumnSetters(mid uint, schema *hir.Schema, builder indentBuilder) {
+	index := uint(0)
+	//
+	for iter := schema.InputColumns(); iter.HasNext(); {
+		column := iter.Next()
+		// Check whether this is part of our module
+		if column.Context.Module() == mid {
+			generateJavaModuleColumnSetter(index, column.Name, column.DataType.BitWidth(), builder)
+			//
+			index++
+		}
+	}
+}
+
+func generateJavaModuleColumnSetter(index uint, name string, bitwidth uint, builder indentBuilder) {
+	indexStr := fmt.Sprintf("%d", index)
+	typeStr := getJavaType(bitwidth)
+	i1Builder := builder.Indent()
+	i2Builder := i1Builder.Indent()
+	//
+	builder.WriteIndentedString("public int ", name, "(final ", typeStr, " val) {\n")
+	i1Builder.WriteIndentedString("if(filled.get(", indexStr, ")) {\n")
+	i2Builder.WriteIndentedString("throw new IllegalStateException(\"", name, " already set\")\n")
+	i1Builder.WriteIndentedString("} else {\n")
+	i2Builder.WriteIndentedString("filled.set(", indexStr, ");\n")
+	i1Builder.WriteIndentedString("}\n\n")
+	//
+	switch {
+	case bitwidth == 1:
+		i1Builder.WriteIndentedString(name, ".put((byte) (val ? 1 : 0));\n")
+	case bitwidth <= 8:
+		i1Builder.WriteIndentedString(name, ".put(val.toByte());\n")
+	case bitwidth <= 63:
+		generateJavaModuleLongPutter(name, bitwidth, i1Builder)
+	default:
+		i1Builder.WriteIndentedString("???")
+	}
+	//
+	builder.WriteIndentedString("}\n\n")
+}
+
+func generateJavaModuleLongPutter(name string, bitwidth uint, builder indentBuilder) {
+	i1Builder := builder.Indent()
+	builder.WriteIndentedString("if(val >= ", maxValueStr(bitwidth), "L) {\n")
+	i1Builder.WriteIndentedString("throw new IllegalArgumentException(\"", name+", has invalid value (\" + val + \")\")\n")
+	builder.WriteIndentedString("}\n")
+	//
+	for bitwidth > 0 {
+		bitwidth -= 8
+		builder.WriteIndentedString(name, ".put((byte) (val >> ", fmt.Sprintf("%d", bitwidth), "));\n")
+	}
+}
+
+func maxValueStr(bitwidth uint) string {
+	val := big.NewInt(2)
+	val.Exp(val, big.NewInt(int64(bitwidth)), nil)
+	//
+	return val.String()
+}
+
+func getJavaType(bitwidth uint) string {
+	switch {
+	case bitwidth == 1:
+		return "boolean"
+	case bitwidth <= 8:
+		return "UnsignedByte"
+	case bitwidth <= 63:
+		return "long"
+	default:
+		return "Bytes"
 	}
 }
 
@@ -143,6 +280,10 @@ type indentBuilder struct {
 
 func (p *indentBuilder) Indent() indentBuilder {
 	return indentBuilder{p.indent + 1, p.builder}
+}
+
+func (p *indentBuilder) WriteString(raw string) {
+	p.builder.WriteString(raw)
 }
 
 func (p *indentBuilder) WriteIndentedString(pieces ...string) {
