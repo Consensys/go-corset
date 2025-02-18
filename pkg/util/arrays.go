@@ -16,6 +16,7 @@ import (
 	"cmp"
 	"fmt"
 	"io"
+	"math"
 	"slices"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
@@ -109,6 +110,18 @@ func ReplaceFirstOrPanic[T comparable](columns []T, from T, to T) {
 	}
 	// Failure
 	panic(fmt.Sprintf("invalid replace (item %s not found)", any(from)))
+}
+
+// FindMatching determines the index of first matching item in a given array, or
+// returns max.MaxUint otherwise.
+func FindMatching[T any](items []T, predicate iter.Predicate[T]) uint {
+	for i, item := range items {
+		if predicate(item) {
+			return uint(i)
+		}
+	}
+	//
+	return math.MaxUint
 }
 
 // ContainsMatching checks whether a given array contains an item matching a given predicate.

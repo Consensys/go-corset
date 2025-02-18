@@ -14,6 +14,7 @@ package cmd
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"strings"
 
@@ -39,14 +40,18 @@ var coverageCmd = &cobra.Command{
 		if GetFlag(cmd, "verbose") {
 			log.SetLevel(log.DebugLevel)
 		}
-		//filter := defaultFilter()
+		filter := cov.DefaultFilter()
 		//
 		stdlib := !GetFlag(cmd, "no-stdlib")
 		debug := GetFlag(cmd, "debug")
 		legacy := GetFlag(cmd, "legacy")
 		expand := GetFlag(cmd, "expand")
 		module := GetFlag(cmd, "module")
-		//filter = regexFilter(filter, GetString(cmd, "filter"))
+		includes := GetStringArray(cmd, "include")
+		// Apply unit branch filter
+		filter = cov.UnitBranchFilter(filter)
+		// Apply regex filter
+		filter = cov.RegexFilter(filter, GetString(cmd, "filter"))
 		//
 		json, others := splitArgs(args)
 		// Parse constraints
@@ -71,13 +76,11 @@ var coverageCmd = &cobra.Command{
 			mode = EXPANDED_MODE
 		}
 		// Determine metrics to print
-		calcs := cov.DEFAULT_CALCS
+		calcs := determineIncludedCalcs(cov.DEFAULT_CALCS, includes)
 		// Determine relevant set of constraint identifiers
 		groups, depth := determineConstraintGroups(mode, mirSchema)
-		// Build the coverage reports
-		mirReports := buildReports(calcs, coverage[1], mirSchema)
 		//printCoverage(ids, calcs, []sc.CoverageMap{coverage[0]}, airSchema)
-		printCoverage(depth, groups, calcs, mirReports, mirSchema)
+		printCoverage(depth, groups, filter, calcs, coverage[1], mirSchema)
 		//printCoverage(ids, calcs, []sc.CoverageMap{coverage[2]}, hirSchema)
 	},
 }
@@ -99,6 +102,30 @@ func splitArgs(args []string) ([]string, []string) {
 	}
 	//
 	return args, nil
+}
+
+func determineIncludedCalcs(calcs []cov.ColumnCalc, includes []string) []cov.ColumnCalc {
+	var included []cov.ColumnCalc
+	// Handle case where no includes provided
+	if includes == nil {
+		return calcs
+	}
+	// Otherwise construct calcs to be included
+	for _, inc := range includes {
+		// Look for matching calc
+		index := util.FindMatching(calcs, func(calc cov.ColumnCalc) bool {
+			return inc == calc.Name
+		})
+		// Check whether is included (or not)
+		if index == math.MaxUint {
+			fmt.Printf("unknown metric \"%s\"\n", inc)
+			os.Exit(4)
+		}
+		// Append calc
+		included = append(included, calcs[index])
+	}
+	//
+	return included
 }
 
 func determineConstraintGroups(mode uint, schema sc.Schema) ([]cov.ConstraintGroup, uint) {
@@ -163,17 +190,6 @@ func determineExpandedGroups(schema sc.Schema) []cov.ConstraintGroup {
 	return groups
 }
 
-func buildReports(calcs []cov.ColumnCalc, coverage []sc.CoverageMap, schema sc.Schema) []cov.Report {
-	reports := make([]cov.Report, len(coverage))
-	//
-	for i, c := range coverage {
-		ith := cov.NewReport(calcs, c, schema)
-		reports[i] = *ith
-	}
-	//
-	return reports
-}
-
 func readCoverageReports(filenames []string, binf *binfile.BinaryFile) [3][]sc.CoverageMap {
 	var maps [3][]sc.CoverageMap
 	//
@@ -191,19 +207,29 @@ func readCoverageReports(filenames []string, binf *binfile.BinaryFile) [3][]sc.C
 	return maps
 }
 
-func printCoverage(depth uint, ids []cov.ConstraintGroup, calcs []cov.ColumnCalc,
-	coverage []cov.Report, schema sc.Schema) {
+func printCoverage(depth uint,
+	// Determines how constraints are grouped (e.g. by module, etc)
+	groups []cov.ConstraintGroup,
+	// Filter to use for selecting constraints.
+	filter cov.Filter,
+	// Determines which metrics to show (e.g. coverage only, or actually branch
+	// counts, etc)
+	calcs []cov.ColumnCalc,
+	// Distinct coverage reports to show side-by-side
+	coverages []sc.CoverageMap,
+	// Schema which defines what constraints are available, etc.
+	schema sc.Schema) {
 	//
 	var (
 		// Determine number of calculated columns per map
 		n = len(calcs)
 		// Total number of calculated columns
-		m = uint(len(coverage) * n)
+		m = uint(len(coverages) * n)
 	)
 	// Make column titles
 	titles := make([]string, m+depth)
 	// Configure titles
-	for i := range coverage {
+	for i := range coverages {
 		for j, s := range calcs {
 			offset := uint((i * n) + j)
 			titles[offset+depth] = s.Name
@@ -212,24 +238,32 @@ func printCoverage(depth uint, ids []cov.ConstraintGroup, calcs []cov.ColumnCalc
 	// Initialise row
 	rows := [][]string{titles}
 	//
-	for _, id := range ids {
-		row := make([]string, depth)
-		// initialise row title
-		row[0] = schema.Modules().Nth(id.ModuleId).Name
-		// Initialise name column
-		if depth >= 2 {
-			row[1] = id.Name
+	for _, grp := range groups {
+		// Determine constraints to summarise on this row.
+		constraints := grp.Select(schema, filter)
+		// Only generate row if there are matching constraints
+		if len(constraints) > 0 {
+			row := make([]string, depth)
+			// Initialise row title
+			row[0] = schema.Modules().Nth(grp.ModuleId).Name
+			// Initialise name column
+			if depth >= 2 {
+				row[1] = grp.Name
+			}
+			// Initialise case column
+			if depth >= 3 {
+				row[2] = fmt.Sprintf("%d", grp.Case)
+			}
+			// Build up reports
+			for _, coverage := range coverages {
+				// determine columns for this coverage map
+				crow := coverageRow(constraints, calcs, coverage, schema)
+				//
+				row = append(row, crow...)
+			}
+			//
+			rows = append(rows, row)
 		}
-		// Initialise case column
-		if depth >= 3 {
-			row[2] = fmt.Sprintf("%d", id.Case)
-		}
-		// Build up reports
-		for _, c := range coverage {
-			row = append(row, c.Row(id)...)
-		}
-		//
-		rows = append(rows, row)
 	}
 	// Print matching entries
 	tbl := util.NewTablePrinter(m+depth, uint(len(rows)))
@@ -243,6 +277,17 @@ func printCoverage(depth uint, ids []cov.ConstraintGroup, calcs []cov.ColumnCalc
 	tbl.Print()
 }
 
+func coverageRow(constraints []sc.Constraint, calcs []cov.ColumnCalc, cov sc.CoverageMap, schema sc.Schema) []string {
+	row := make([]string, len(calcs))
+	//
+	for i, calc := range calcs {
+		value := calc.Constructor(constraints, cov, schema)
+		row[i] = fmt.Sprintf("%d", value)
+	}
+	// Done
+	return row
+}
+
 //nolint:errcheck
 func init() {
 	rootCmd.AddCommand(coverageCmd)
@@ -250,4 +295,6 @@ func init() {
 	coverageCmd.Flags().BoolP("module", "m", false, "show module summaries")
 	coverageCmd.Flags().BoolP("expand", "e", false, "show expanded constraints")
 	coverageCmd.Flags().StringP("filter", "f", "", "regex constraint filter")
+	coverageCmd.Flags().StringArrayP("include", "i", []string{"covered", "branches", "coverage"},
+		"specify information to include in report")
 }
