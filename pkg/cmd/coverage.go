@@ -14,10 +14,12 @@ package cmd
 
 import (
 	"fmt"
-	"math"
 	"os"
 	"regexp"
+	"strings"
 
+	"github.com/consensys/go-corset/pkg/binfile"
+	cov "github.com/consensys/go-corset/pkg/cmd/coverage"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
 	log "github.com/sirupsen/logrus"
@@ -37,22 +39,24 @@ var coverageCmd = &cobra.Command{
 		if GetFlag(cmd, "verbose") {
 			log.SetLevel(log.DebugLevel)
 		}
-		filter := defaultFilter()
+		//filter := defaultFilter()
 		//
 		stdlib := !GetFlag(cmd, "no-stdlib")
 		debug := GetFlag(cmd, "debug")
 		legacy := GetFlag(cmd, "legacy")
 		expand := GetFlag(cmd, "expand")
 		module := GetFlag(cmd, "module")
-		filter = regexFilter(filter, GetString(cmd, "filter"))
+		//filter = regexFilter(filter, GetString(cmd, "filter"))
+		//
+		json, others := splitArgs(args)
 		// Parse constraints
-		binfile := ReadConstraintFiles(stdlib, debug, legacy, args[1:])
+		binfile := ReadConstraintFiles(stdlib, debug, legacy, others)
 		// Parse coverage file
-		coverage := readCoverageReport(args[0], binfile)
+		coverage := readCoverageReports(json, binfile)
 		//
 		hirSchema := &binfile.Schema
 		mirSchema := hirSchema.LowerToMir()
-		airSchema := mirSchema.LowerToAir()
+		//airSchema := mirSchema.LowerToAir()
 		// Calculate mode
 		mode := CONSTRAINT_MODE
 		if module && expand {
@@ -66,10 +70,15 @@ var coverageCmd = &cobra.Command{
 		} else if expand {
 			mode = EXPANDED_MODE
 		}
-		//
-		printCoverage(mode, coverage[0], airSchema, filter)
-		printCoverage(mode, coverage[1], mirSchema, filter)
-		printCoverage(mode, coverage[2], hirSchema, filter)
+		// Determine metrics to print
+		calcs := cov.DEFAULT_CALCS
+		// Determine relevant set of constraint identifiers
+		ids := determineConstraintIds(mode, mirSchema)
+		// Build the coverage reports
+		mirReports := buildReports(calcs, coverage[1], mirSchema)
+		//printCoverage(ids, calcs, []sc.CoverageMap{coverage[0]}, airSchema)
+		printCoverage(ids, calcs, mirReports, mirSchema)
+		//printCoverage(ids, calcs, []sc.CoverageMap{coverage[2]}, hirSchema)
 	},
 }
 
@@ -82,6 +91,57 @@ const (
 	EXPANDED_MODE = uint(2)
 )
 
+func splitArgs(args []string) ([]string, []string) {
+	for i, arg := range args {
+		if !strings.HasSuffix(arg, ".json") {
+			return args[0:i], args[i:]
+		}
+	}
+	//
+	return args, nil
+}
+
+func determineConstraintIds(_ uint, schema sc.Schema) []cov.ConstraintId {
+	var ids []cov.ConstraintId
+	//
+	for iter := schema.Constraints(); iter.HasNext(); {
+		ith := iter.Next()
+		mid := ith.Contexts()[0].Module()
+		name, num := ith.Name()
+		ids = append(ids, cov.ConstraintId{mid, name, num})
+	}
+	//
+	return ids
+}
+
+func buildReports(calcs []cov.ColumnCalc, coverage []sc.CoverageMap, schema sc.Schema) []cov.Report {
+	reports := make([]cov.Report, len(coverage))
+	//
+	for i, c := range coverage {
+		ith := cov.NewReport(calcs, c, schema)
+		reports[i] = *ith
+	}
+	//
+	return reports
+}
+
+func readCoverageReports(filenames []string, binf *binfile.BinaryFile) [3][]sc.CoverageMap {
+	var maps [3][]sc.CoverageMap
+	//
+	maps[0] = make([]sc.CoverageMap, len(filenames))
+	maps[1] = make([]sc.CoverageMap, len(filenames))
+	maps[2] = make([]sc.CoverageMap, len(filenames))
+	//
+	for i, n := range filenames {
+		tmp := readCoverageReport(n, binf)
+		maps[0][i] = tmp[0]
+		maps[1][i] = tmp[1]
+		maps[2][i] = tmp[2]
+	}
+	//
+	return maps
+}
+
 // Filter defines the type of a constraint filter.
 type Filter func(uint, string, sc.CoverageMap, sc.Schema) bool
 
@@ -89,7 +149,7 @@ func defaultFilter() Filter {
 	// The default filter eliminates any constraints which have only a single
 	// branch, as these simply dilute the outcome.
 	return func(mid uint, name string, cov sc.CoverageMap, schema sc.Schema) bool {
-		return determineConstraintBranches(mid, name, cov, schema) != 1
+		return true
 	}
 }
 
@@ -119,26 +179,39 @@ func and(lhs Filter, rhs Filter) Filter {
 	}
 }
 
-func printCoverage(mode uint, coverage []sc.CoverageMap, schema sc.Schema, filter Filter) {
-	// Determine how many modules there are
-	nModules := schema.Modules().Count()
-	//
-	var n = uint(len(coverage) * len(coverageSummarisers))
-	//
-	row := make([]string, n+2)
-	//
-	for i, s := range coverageSummarisers {
-		row[i+2] = s.name
+func printCoverage(ids []cov.ConstraintId, calcs []cov.ColumnCalc, coverage []cov.Report, schema sc.Schema) {
+	var (
+		// Determine number of calculated columns per map
+		n = len(calcs)
+		// Total number of calculated columns
+		m = uint(len(coverage) * n)
+	)
+	// Make column titles
+	titles := make([]string, m+3)
+	// Configure titles
+	for i := range coverage {
+		for j, s := range calcs {
+			titles[(i*n)+j+3] = s.Name
+		}
 	}
+	// Initialise row
+	rows := [][]string{titles}
 	//
-	rows := [][]string{row}
-	//
-	for mid := uint(0); mid < nModules; mid++ {
-		rs := generateCoverage(mode, mid, coverage, schema, filter)
-		rows = append(rows, rs...)
+	for _, id := range ids {
+		row := make([]string, 3)
+		// initialise row title
+		row[0] = "module"
+		row[1] = id.Name
+		row[2] = fmt.Sprintf("%d", id.Case)
+		// Build up reports
+		for _, c := range coverage {
+			row = append(row, c.Row(id)...)
+		}
+		//
+		rows = append(rows, row)
 	}
 	// Print matching entries
-	tbl := util.NewTablePrinter(n+2, uint(len(rows)))
+	tbl := util.NewTablePrinter(m+3, uint(len(rows)))
 	//
 	for i, row := range rows {
 		tbl.SetRow(uint(i), row...)
@@ -147,293 +220,6 @@ func printCoverage(mode uint, coverage []sc.CoverageMap, schema sc.Schema, filte
 	tbl.SetMaxWidth(1, 64)
 	//
 	tbl.Print()
-}
-
-func generateCoverage(mode uint, mid uint, coverage []sc.CoverageMap, schema sc.Schema, filter Filter) [][]string {
-	//
-	var (
-		rows  [][]string
-		title string
-	)
-	// Determine how many rows
-	mod := schema.Modules().Nth(mid)
-	// Print module header
-	if mod.Name != "" {
-		title = mod.Name
-	} else {
-		title = "<prelude>"
-	}
-	//
-	if mode == MODULE_MODE {
-		crows := generateModuleCoverage(mid, title, coverage, schema, filter)
-		rows = append(rows, crows...)
-	} else {
-		for iter := schema.Constraints(); iter.HasNext(); {
-			// Determine constraint name
-			ith := iter.Next()
-			name, _ := ith.Name()
-			// Filter out columns
-			if ith.Contexts()[0].Module() == mid && filter(mid, name, coverage, schema) {
-				// Construct row
-				crows := generateConstraintCoverage(mode, mid, title, name, coverage, schema)
-				//
-				rows = append(rows, crows...)
-			}
-		}
-	}
-	//
-	return rows
-}
-
-func generateModuleCoverage(mid uint, mod string, coverage []sc.CoverageMap,
-	schema sc.Schema, filter Filter) [][]string {
-	//
-	var (
-		n    = len(coverageSummarisers)
-		vals = make([]string, (len(coverage)*n)+2)
-	)
-	//
-	vals[0] = mod
-	// Apply summarisers
-	for i, cov := range coverage {
-		for j, fn := range coverageSummarisers {
-			vals[(i*n)+j+2] = fn.format(fn.module(mid, cov, schema, filter))
-		}
-	}
-	// Done
-	return [][]string{vals}
-}
-
-func generateConstraintCoverage(mode uint, mid uint, mod string, name string, coverage []sc.CoverageMap,
-	schema sc.Schema) [][]string {
-	//
-	switch mode {
-	case CONSTRAINT_MODE:
-		return generateUnexpandedConstraintCoverage(mid, mod, name, coverage, schema)
-	case EXPANDED_MODE:
-		return generateExpandedConstraintCoverage(mid, mod, name, coverage, schema)
-	}
-	//
-	panic("unreachable")
-}
-
-func generateUnexpandedConstraintCoverage(mid uint, mod string, name string, coverage []sc.CoverageMap,
-	schema sc.Schema) [][]string {
-	//
-	var (
-		n    = len(coverageSummarisers)
-		vals = make([]string, (len(coverage)*n)+2)
-	)
-	//
-	vals[0], vals[1] = mod, name
-	// Apply summarisers
-	for i, cov := range coverage {
-		for j, fn := range coverageSummarisers {
-			vals[(i*n)+j+2] = fn.format(fn.constraint(mid, name, cov, schema))
-		}
-	}
-	// Done
-	return [][]string{vals}
-}
-
-func generateExpandedConstraintCoverage(mid uint, mod string, name string, coverage []sc.CoverageMap,
-	schema sc.Schema) [][]string {
-	//
-	var (
-		n      = len(coverageSummarisers)
-		ncases = uint(len(coverage.CoverageOf(mid, name)))
-		vals   [][]string
-	)
-	//
-	for i := uint(0); i < ncases; i++ {
-		row := make([]string, (len(coverage)*n)+2)
-		row[0], row[1] = mod, fmt.Sprintf("%s#%d", name, i)
-		for j, cov := range coverage {
-			// Apply summarisers
-			for k, fn := range coverageSummarisers {
-				row[(j*n)+k+2] = fn.format(fn.expanded(mid, name, i, cov, schema))
-			}
-			//
-			vals = append(vals, row)
-		}
-	}
-	// Done
-	return vals
-}
-
-type constraintSummariser struct {
-	name       string
-	module     func(uint, sc.CoverageMap, sc.Schema, Filter) float64
-	constraint func(uint, string, sc.CoverageMap, sc.Schema) float64
-	expanded   func(uint, string, uint, sc.CoverageMap, sc.Schema) float64
-	format     func(float64) string
-}
-
-var coverageSummarisers []constraintSummariser = []constraintSummariser{
-	{"Coverage", moduleCoverageSummariser, constraintCoverageSummariser, expandedCoverageSummariser, uintFormatter},
-	{"Branches", moduleBranchesSummariser, constraintBranchesSummariser, expandedBranchesSummariser, uintFormatter},
-	{"Percentage", modulePercentSummariser, constraintPercentSummariser, expandedPercentSummariser, percentFormatter},
-}
-
-func uintFormatter(val float64) string {
-	return fmt.Sprintf("%.0f", val)
-}
-
-func percentFormatter(val float64) string {
-	if math.IsNaN(val) {
-		return "-"
-	}
-
-	return fmt.Sprintf("%.1f%%", val)
-}
-
-// ============================================================================
-// Module Summarisers
-// ============================================================================
-
-func moduleCoverageSummariser(mid uint, coverage sc.CoverageMap, schema sc.Schema, filter Filter) float64 {
-	total := float64(0)
-	//
-	for iter := coverage.KeysOf(mid).Iter(); iter.HasNext(); {
-		// Determine constraint name
-		name := iter.Next()
-		// Apply filter
-		if filter(mid, name, coverage, schema) {
-			total += constraintCoverageSummariser(mid, name, coverage, schema)
-		}
-	}
-	//
-	return total
-}
-
-func moduleBranchesSummariser(mid uint, coverage sc.CoverageMap, schema sc.Schema, filter Filter) float64 {
-	total := float64(0)
-	//
-	for iter := coverage.KeysOf(mid).Iter(); iter.HasNext(); {
-		// Determine constraint name
-		name := iter.Next()
-		// Apply filter
-		if filter(mid, name, coverage, schema) {
-			total += constraintBranchesSummariser(mid, name, coverage, schema)
-		}
-	}
-	//
-	return total
-}
-
-func modulePercentSummariser(mid uint, coverage sc.CoverageMap, schema sc.Schema, filter Filter) float64 {
-	val := moduleCoverageSummariser(mid, coverage, schema, filter)
-	total := moduleBranchesSummariser(mid, coverage, schema, filter)
-	percent := float64(val*100) / float64(total)
-	//
-	return percent
-}
-
-// ============================================================================
-// Constraint Summarisers
-// ============================================================================
-
-func constraintCoverageSummariser(mid uint, name string, coverage sc.CoverageMap, schema sc.Schema) float64 {
-	var total uint
-	// Extract available coverage data
-	bitsets := coverage.CoverageOf(mid, name)
-	//
-	for _, b := range bitsets {
-		// Aggregated coverage for this case
-		total += b.Count()
-	}
-	// Done
-	return float64(total)
-}
-
-func constraintBranchesSummariser(mid uint, name string, coverage sc.CoverageMap, schema sc.Schema) float64 {
-	var branches uint = 0
-	// Extract available coverage data
-	bitsets := coverage.CoverageOf(mid, name)
-	//
-	for i := range bitsets {
-		// Lookup actual constraint
-		if c := findConstraint(mid, name, uint(i), schema); c != nil {
-			branches += c.Branches()
-		} else {
-			module := schema.Modules().Nth(mid)
-			log.Errorf("unknown constraint \"%s.%s#%d\" in coverage report", module, name, i)
-		}
-	}
-	// Done
-	return float64(branches)
-}
-
-func constraintPercentSummariser(mid uint, name string, coverage sc.CoverageMap, schema sc.Schema) float64 {
-	val := constraintCoverageSummariser(mid, name, coverage, schema)
-	total := constraintBranchesSummariser(mid, name, coverage, schema)
-	percent := float64(val*100) / float64(total)
-	//
-	return percent
-}
-
-// ============================================================================
-// Expanded Summarisers
-// ============================================================================
-
-func expandedCoverageSummariser(mid uint, name string, casenum uint, coverage sc.CoverageMap,
-	schema sc.Schema) float64 {
-	//
-	return float64(coverage.CoverageOf(mid, name)[casenum].Count())
-}
-
-func expandedBranchesSummariser(mid uint, name string, casenum uint, coverage sc.CoverageMap,
-	schema sc.Schema) float64 {
-	//
-	if c := findConstraint(mid, name, casenum, schema); c != nil {
-		return float64(c.Branches())
-	} else {
-		module := schema.Modules().Nth(mid)
-		log.Errorf("unknown constraint \"%s.%s#%d\" in coverage report", module, name, casenum)
-	}
-	// Done
-	return 0
-}
-
-func expandedPercentSummariser(mid uint, name string, casenum uint, coverage sc.CoverageMap, schema sc.Schema) float64 {
-	val := expandedCoverageSummariser(mid, name, casenum, coverage, schema)
-	total := expandedBranchesSummariser(mid, name, casenum, coverage, schema)
-	percent := float64(val*100) / float64(total)
-	//
-	return percent
-}
-
-func determineConstraintBranches(mid uint, name string, coverage sc.CoverageMap, schema sc.Schema) uint {
-	var branches uint = 0
-	// Extract available coverage data
-	bitsets := coverage.CoverageOf(mid, name)
-	//
-	for i := range bitsets {
-		// Lookup actual constraint
-		c := findConstraint(mid, name, uint(i), schema)
-		if c == nil {
-			module := schema.Modules().Nth(mid)
-			panic(fmt.Sprintf("unknown constraint \"%s.%s#%d\" in coverage report", module, name, i))
-		}
-		//
-		branches += c.Branches()
-	}
-	// Done
-	return branches
-}
-
-func findConstraint(mid uint, name string, casenum uint, schema sc.Schema) sc.Constraint {
-	// Identify constraint
-	index, ok := schema.Constraints().Find(func(c sc.Constraint) bool {
-		n, m := c.Name()
-		return c.Contexts()[0].Module() == mid && n == name && m == casenum
-	})
-	// Check whether we found it (or not)
-	if ok {
-		return schema.Constraints().Nth(index)
-	}
-	// Nope, failed to find it
-	return nil
 }
 
 //nolint:errcheck
