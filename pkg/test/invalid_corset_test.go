@@ -550,6 +550,13 @@ func Test_Invalid_PureFun_13(t *testing.T) {
 	CheckInvalid(t, "purefun_invalid_13")
 }
 
+func Test_Invalid_PureFun_14(t *testing.T) {
+	CheckInvalid(t, "purefun_invalid_14")
+}
+func Test_Invalid_PureFun_15(t *testing.T) {
+	CheckInvalid(t, "purefun_invalid_15")
+}
+
 // ===================================================================
 // For Loops
 // ===================================================================
