@@ -15,13 +15,13 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"regexp"
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/binfile"
 	cov "github.com/consensys/go-corset/pkg/cmd/coverage"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/set"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -73,11 +73,11 @@ var coverageCmd = &cobra.Command{
 		// Determine metrics to print
 		calcs := cov.DEFAULT_CALCS
 		// Determine relevant set of constraint identifiers
-		ids := determineConstraintIds(mode, mirSchema)
+		groups, depth := determineConstraintGroups(mode, mirSchema)
 		// Build the coverage reports
 		mirReports := buildReports(calcs, coverage[1], mirSchema)
 		//printCoverage(ids, calcs, []sc.CoverageMap{coverage[0]}, airSchema)
-		printCoverage(ids, calcs, mirReports, mirSchema)
+		printCoverage(depth, groups, calcs, mirReports, mirSchema)
 		//printCoverage(ids, calcs, []sc.CoverageMap{coverage[2]}, hirSchema)
 	},
 }
@@ -101,17 +101,66 @@ func splitArgs(args []string) ([]string, []string) {
 	return args, nil
 }
 
-func determineConstraintIds(_ uint, schema sc.Schema) []cov.ConstraintId {
-	var ids []cov.ConstraintId
+func determineConstraintGroups(mode uint, schema sc.Schema) ([]cov.ConstraintGroup, uint) {
+	switch mode {
+	case MODULE_MODE:
+		return determineModuleGroups(schema), 1
+	case CONSTRAINT_MODE:
+		return determineUnexpandedGroups(schema), 2
+	case EXPANDED_MODE:
+		return determineExpandedGroups(schema), 3
+	}
+	//
+	panic("unreachable")
+}
+
+func determineModuleGroups(schema sc.Schema) []cov.ConstraintGroup {
+	var groups []cov.ConstraintGroup
+	// Determine how many modules
+	n := schema.Modules().Count()
+	//
+	for i := uint(0); i < n; i++ {
+		groups = append(groups, cov.NewModuleGroup(i))
+	}
+	//
+	return groups
+}
+
+func determineUnexpandedGroups(schema sc.Schema) []cov.ConstraintGroup {
+	var groups []cov.ConstraintGroup
+	// Determine how many modules
+	n := schema.Modules().Count()
+	//
+	for mid := uint(0); mid < n; mid++ {
+		names := set.NewSortedSet[string]()
+		// Construct set of unique names
+		for iter := schema.Constraints(); iter.HasNext(); {
+			ith := iter.Next()
+			if ith.Contexts()[0].Module() == mid {
+				name, _ := ith.Name()
+				names.Insert(name)
+			}
+		}
+		// Construct group for each unique name
+		for _, n := range *names {
+			groups = append(groups, cov.NewConstraintGroup(mid, n))
+		}
+	}
+	//
+	return groups
+}
+
+func determineExpandedGroups(schema sc.Schema) []cov.ConstraintGroup {
+	var groups []cov.ConstraintGroup
 	//
 	for iter := schema.Constraints(); iter.HasNext(); {
 		ith := iter.Next()
 		mid := ith.Contexts()[0].Module()
 		name, num := ith.Name()
-		ids = append(ids, cov.ConstraintId{mid, name, num})
+		groups = append(groups, cov.NewIndividualConstraintGroup(mid, name, num))
 	}
 	//
-	return ids
+	return groups
 }
 
 func buildReports(calcs []cov.ColumnCalc, coverage []sc.CoverageMap, schema sc.Schema) []cov.Report {
@@ -142,44 +191,9 @@ func readCoverageReports(filenames []string, binf *binfile.BinaryFile) [3][]sc.C
 	return maps
 }
 
-// Filter defines the type of a constraint filter.
-type Filter func(uint, string, sc.CoverageMap, sc.Schema) bool
-
-func defaultFilter() Filter {
-	// The default filter eliminates any constraints which have only a single
-	// branch, as these simply dilute the outcome.
-	return func(mid uint, name string, cov sc.CoverageMap, schema sc.Schema) bool {
-		return true
-	}
-}
-
-func regexFilter(filter Filter, regexStr string) Filter {
-	if regexStr == "" {
-		return filter
-	}
+func printCoverage(depth uint, ids []cov.ConstraintGroup, calcs []cov.ColumnCalc,
+	coverage []cov.Report, schema sc.Schema) {
 	//
-	regex, err := regexp.Compile(regexStr)
-	//
-	if err != nil {
-		fmt.Printf("invalid filter: %s", err)
-		os.Exit(0)
-	}
-	//
-	return and(filter, func(mid uint, name string, _ sc.CoverageMap, schema sc.Schema) bool {
-		modName := schema.Modules().Nth(mid).Name
-		name = fmt.Sprintf("%s.%s", modName, name)
-		//
-		return regex.MatchString(name)
-	})
-}
-
-func and(lhs Filter, rhs Filter) Filter {
-	return func(mid uint, name string, cov sc.CoverageMap, schema sc.Schema) bool {
-		return lhs(mid, name, cov, schema) && rhs(mid, name, cov, schema)
-	}
-}
-
-func printCoverage(ids []cov.ConstraintId, calcs []cov.ColumnCalc, coverage []cov.Report, schema sc.Schema) {
 	var (
 		// Determine number of calculated columns per map
 		n = len(calcs)
@@ -187,22 +201,29 @@ func printCoverage(ids []cov.ConstraintId, calcs []cov.ColumnCalc, coverage []co
 		m = uint(len(coverage) * n)
 	)
 	// Make column titles
-	titles := make([]string, m+3)
+	titles := make([]string, m+depth)
 	// Configure titles
 	for i := range coverage {
 		for j, s := range calcs {
-			titles[(i*n)+j+3] = s.Name
+			offset := uint((i * n) + j)
+			titles[offset+depth] = s.Name
 		}
 	}
 	// Initialise row
 	rows := [][]string{titles}
 	//
 	for _, id := range ids {
-		row := make([]string, 3)
+		row := make([]string, depth)
 		// initialise row title
-		row[0] = "module"
-		row[1] = id.Name
-		row[2] = fmt.Sprintf("%d", id.Case)
+		row[0] = schema.Modules().Nth(id.ModuleId).Name
+		// Initialise name column
+		if depth >= 2 {
+			row[1] = id.Name
+		}
+		// Initialise case column
+		if depth >= 3 {
+			row[2] = fmt.Sprintf("%d", id.Case)
+		}
 		// Build up reports
 		for _, c := range coverage {
 			row = append(row, c.Row(id)...)
@@ -211,7 +232,7 @@ func printCoverage(ids []cov.ConstraintId, calcs []cov.ColumnCalc, coverage []co
 		rows = append(rows, row)
 	}
 	// Print matching entries
-	tbl := util.NewTablePrinter(m+3, uint(len(rows)))
+	tbl := util.NewTablePrinter(m+depth, uint(len(rows)))
 	//
 	for i, row := range rows {
 		tbl.SetRow(uint(i), row...)

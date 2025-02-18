@@ -12,17 +12,11 @@
 // SPDX-License-Identifier: Apache-2.0
 package coverage
 
-import sc "github.com/consensys/go-corset/pkg/schema"
+import (
+	"fmt"
 
-// ConstraintId identifies an individual constraint, or a group of constraints.
-type ConstraintId struct {
-	// Identifier for module enclosing this constraint.
-	ModuleId uint
-	// Name of this constraint.
-	Name string
-	// Case number of this constraint.
-	Case uint
-}
+	sc "github.com/consensys/go-corset/pkg/schema"
+)
 
 // Report provides a raw form of coverage data which can subsequently be
 // manipulated to provide a "user friendly" printed report.
@@ -42,8 +36,15 @@ func NewReport(calcs []ColumnCalc, coverage sc.CoverageMap, schema sc.Schema) *R
 }
 
 // Row returns the formatted columns for a given constraint group.
-func (p *Report) Row(id ConstraintId) []string {
+func (p *Report) Row(group ConstraintGroup) []string {
 	row := make([]string, len(p.calcs))
+	//
+	constraints := group.Select(p.schema)
+	//
+	for i, calc := range p.calcs {
+		value := calc.Constructor(constraints, p.coverage, p.schema)
+		row[i] = fmt.Sprintf("%d", value)
+	}
 	// fill in data here :)
 	return row
 }
