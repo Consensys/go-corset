@@ -14,7 +14,6 @@ package ast
 
 import (
 	"math"
-	"reflect"
 
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -230,24 +229,26 @@ func (p *LocalVariableBinding) Finalise(index uint) {
 // OverloadedBinding represents the amalgamation of two or more user-define
 // function bindings.
 type OverloadedBinding struct {
+	pure bool
 	// Available specialiases organised by arity.
 	overloads []*DefunBinding
 }
 
 // IsPure checks whether this is a defpurefun or not
 func (p *OverloadedBinding) IsPure() bool {
-	return p.overloads[0].IsPure()
+	return p.pure
 }
 
 // IsNative checks whether this function binding is native (or not).
 func (p OverloadedBinding) IsNative() bool {
-	return p.overloads[0].IsNative()
+	// Cannot overload native
+	return false
 }
 
 // IsFinalised checks whether this binding has been finalised yet or not.
 func (p *OverloadedBinding) IsFinalised() bool {
 	for _, binding := range p.overloads {
-		if !binding.IsFinalised() {
+		if binding != nil && !binding.IsFinalised() {
 			return false
 		}
 	}
@@ -280,7 +281,7 @@ func (p *OverloadedBinding) Select(arity uint) *FunctionSignature {
 func (p *OverloadedBinding) Overload(overload *DefunBinding) (FunctionBinding, bool) {
 	arity := len(overload.paramTypes)
 	// Check matches purity
-	if overload.IsPure() != p.IsPure() {
+	if overload.IsPure() != p.pure {
 		return nil, false
 	}
 	// ensure arity is defined
@@ -372,15 +373,20 @@ func (p *DefunBinding) Select(arity uint) *FunctionSignature {
 // not permitted; (3) combinding pure and impure overloadings is also not
 // permitted.
 func (p *DefunBinding) Overload(overload *DefunBinding) (FunctionBinding, bool) {
+	var overloading = OverloadedBinding{p.IsPure(), nil}
+	// Check it makes sense to do this.
 	if p.IsPure() != overload.IsPure() {
 		// Purity is misaligned
 		return nil, false
-	} else if reflect.DeepEqual(p.paramTypes, overload.paramTypes) {
-		// Specialisation already exists!
+	} else if len(p.paramTypes) == len(overload.paramTypes) {
+		// Conflicting overlods
 		return nil, false
 	}
+	// Looks good
+	overloading.Overload(p)
+	overloading.Overload(overload)
 	//
-	return &OverloadedBinding{[]*DefunBinding{p, overload}}, true
+	return &overloading, true
 }
 
 // ============================================================================

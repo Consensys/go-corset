@@ -1,8 +1,5 @@
-;;error:8:23-25:ambiguous invocation
+;;error:5:26-27:expected type u1 (found 𝔽@loob)
 (defpurefun (fn (x :binary) y) (- x y))
-(defpurefun (fn x (y :binary)) (+ x y))
-(defpurefun (fn x y) (* x y))
 
 (defcolumns (X :@loob) (Y :@loob) (A :binary@loob) (B :binary@loob))
-(defconstraint c1 () (fn X Y)) ;; not ambiguous
-(defconstraint c2 () (fn A B)) ;; ambiguous
+(defconstraint c1 () (fn X Y))
