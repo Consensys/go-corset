@@ -392,10 +392,14 @@ func (p *Parser) parseColumnDeclaration(context util.Path, path util.Path, compu
 		if datatype, mustProve, display, error = p.parseColumnDeclarationAttributes(l.Elements[1:]); error != nil {
 			return nil, error
 		}
+		// Check that the column is typed
+		// Column is untyped if datatype contains Native type, we bubble up a syntax error
+		if datatype != nil && strings.Contains(datatype.String(), "𝔽") {
+			return nil, p.translator.SyntaxError(l, "Column is untyped.")
+		}
 	} else {
 		name = *path.Extend(e.String(false))
 	}
-	//
 	def := ast.NewDefColumn(context, name, datatype, mustProve, multiplier, computed, display)
 	// Update source mapping
 	p.mapSourceNode(e, def)
