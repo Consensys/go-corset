@@ -101,14 +101,16 @@ func (t *translator) translateInputColumns(circuit *ast.Circuit) {
 // specified to HIR at the point of allocation).
 func (t *translator) translateInputColumnsInModule(module string) {
 	// Process each register in turn.
+	untypedColumns := []string{}
 	for _, regIndex := range t.env.RegistersOf(module) {
 		regInfo := t.env.Register(regIndex)
 		// Sanity Check
 		if !regInfo.IsActive() {
 			panic("inactive register encountered")
 		} else if regInfo.IsInput() {
+			// Record if column is untyped, to error and list all untyped columns
 			if regInfo.DataType.String() == "𝔽" {
-				panic(fmt.Sprintf("Column %s is untyped. ", regInfo.Name()))
+				untypedColumns = append(untypedColumns, regInfo.Name())
 			}
 			// Declare column at HIR level.
 			cid := t.schema.AddDataColumn(regInfo.Context, regInfo.Name(), regInfo.DataType)
@@ -120,6 +122,10 @@ func (t *translator) translateInputColumnsInModule(module string) {
 				panic(fmt.Sprintf("inconsistent register index (%d versus %d)", cid, regIndex))
 			}
 		}
+	}
+	// Panics and list all untyped columns
+	if len(untypedColumns) > 0 {
+		panic(fmt.Sprintf("Columns %s are untyped. ", untypedColumns))
 	}
 }
 
