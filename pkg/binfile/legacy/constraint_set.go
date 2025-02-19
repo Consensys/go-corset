@@ -186,9 +186,6 @@ func allocateRegisters(cs *constraintSet, schema *hir.Schema) map[uint]uint {
 			mid := registerModule(schema, handle.module)
 			ctx := trace.NewContext(mid, c.LengthMultiplier)
 			col_type := c.Type.toHir()
-			if col_type.String() == "𝔽" {
-				panic(fmt.Sprintf("Column %s is untyped. ", handle.column))
-			}
 			// Add column for this
 			cid := schema.AddDataColumn(ctx, handle.column, col_type)
 			// Check whether a type constraint required or not.

@@ -106,6 +106,9 @@ func (t *translator) translateInputColumnsInModule(module string) {
 		if !regInfo.IsActive() {
 			panic("inactive register encountered")
 		} else if regInfo.IsInput() {
+			if regInfo.DataType.String() == "𝔽" {
+				panic(fmt.Sprintf("Column %s is untyped. ", regInfo.Name()))
+			}
 			// Declare column at HIR level.
 			cid := t.schema.AddDataColumn(regInfo.Context, regInfo.Name(), regInfo.DataType)
 			// Prove underlying types (as necessary)
