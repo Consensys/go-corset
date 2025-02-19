@@ -19,6 +19,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/consensys/go-corset/pkg/mir"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -41,7 +42,15 @@ var traceCmd = &cobra.Command{
 			fmt.Println(cmd.UsageString())
 			os.Exit(1)
 		}
-		// Parse trace
+		//
+		optimisation := GetUint(cmd, "opt")
+		// Set optimisation level
+		if optimisation >= uint(len(mir.OPTIMISATION_LEVELS)) {
+			fmt.Printf("invalid optimisation level %d\n", optimisation)
+			os.Exit(2)
+		}
+		//
+		optConfig := mir.OPTIMISATION_LEVELS[optimisation]
 		list := GetFlag(cmd, "list")
 		defensive := GetFlag(cmd, "defensive")
 		stats := GetFlag(cmd, "stats")
@@ -73,7 +82,7 @@ var traceCmd = &cobra.Command{
 		} else if expand {
 			level := determineAbstractionLevel(air, mir, hir)
 			for i, cols := range traces {
-				traces[i] = expandWithConstraints(level, cols, stdlib, defensive, args[1:])
+				traces[i] = expandWithConstraints(level, cols, stdlib, defensive, args[1:], optConfig)
 			}
 		} else if defensive {
 			fmt.Println("cannot apply defensive padding without trace expansion")
@@ -150,7 +159,7 @@ func determineAbstractionLevel(air, mir, hir bool) int {
 }
 
 func expandWithConstraints(level int, cols []trace.RawColumn, stdlib bool, defensive bool,
-	filenames []string) []trace.RawColumn {
+	filenames []string, optConfig mir.OptimisationConfig) []trace.RawColumn {
 	//
 	var schema sc.Schema
 	//
@@ -162,7 +171,7 @@ func expandWithConstraints(level int, cols []trace.RawColumn, stdlib bool, defen
 	case mir_LEVEL:
 		schema = binfile.Schema.LowerToMir()
 	case air_LEVEL:
-		schema = binfile.Schema.LowerToMir().LowerToAir()
+		schema = binfile.Schema.LowerToMir().LowerToAir(optConfig)
 	default:
 		panic("unreachable")
 	}

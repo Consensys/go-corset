@@ -22,6 +22,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/hir"
+	"github.com/consensys/go-corset/pkg/mir"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/json"
@@ -1264,7 +1265,7 @@ func CheckTraces(t *testing.T, test string, maxPadding uint, cfg TestConfig, tra
 			// Lower HIR => MIR
 			mirSchema := hirSchema.LowerToMir()
 			// Lower MIR => AIR
-			airSchema := mirSchema.LowerToAir()
+			airSchema := mirSchema.LowerToAir(mir.DEFAULT_OPTIMISATION_LEVEL)
 			// Align trace with schema, and check whether expanded or not.
 			for padding := uint(0); padding <= maxPadding; padding++ {
 				// Construct trace identifiers

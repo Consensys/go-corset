@@ -45,7 +45,14 @@ var debugCmd = &cobra.Command{
 		if GetFlag(cmd, "verbose") {
 			log.SetLevel(log.DebugLevel)
 		}
+		optimisation := GetUint(cmd, "opt")
+		// Set optimisation level
+		if optimisation >= uint(len(mir.OPTIMISATION_LEVELS)) {
+			fmt.Printf("invalid optimisation level %d\n", optimisation)
+			os.Exit(2)
+		}
 		//
+		optConfig := mir.OPTIMISATION_LEVELS[optimisation]
 		hir := GetFlag(cmd, "hir")
 		mir := GetFlag(cmd, "mir")
 		air := GetFlag(cmd, "air")
@@ -55,6 +62,7 @@ var debugCmd = &cobra.Command{
 		debug := GetFlag(cmd, "debug")
 		legacy := GetFlag(cmd, "legacy")
 		metadata := GetFlag(cmd, "metadata")
+
 		// Parse constraints
 		binfile := ReadConstraintFiles(stdlib, debug, legacy, args)
 		// Print meta-data (if requested)
@@ -63,7 +71,7 @@ var debugCmd = &cobra.Command{
 		}
 		// Print stats (if requested)
 		if stats {
-			printStats(&binfile.Schema, hir, mir, air)
+			printStats(&binfile.Schema, hir, mir, air, optConfig)
 		}
 		// Print embedded attributes (if requested
 		if attrs {
@@ -71,7 +79,7 @@ var debugCmd = &cobra.Command{
 		}
 		//
 		if !stats && !attrs {
-			printSchemas(&binfile.Schema, hir, mir, air)
+			printSchemas(&binfile.Schema, hir, mir, air, optConfig)
 		}
 	},
 }
@@ -87,7 +95,7 @@ func init() {
 	debugCmd.Flags().Bool("debug", false, "enable debugging constraints")
 }
 
-func printSchemas(hirSchema *hir.Schema, hir bool, mir bool, air bool) {
+func printSchemas(hirSchema *hir.Schema, hir bool, mir bool, air bool, optConfig mir.OptimisationConfig) {
 	if hir {
 		printSchema(hirSchema)
 	}
@@ -97,7 +105,7 @@ func printSchemas(hirSchema *hir.Schema, hir bool, mir bool, air bool) {
 	}
 
 	if air {
-		printSchema(hirSchema.LowerToMir().LowerToAir())
+		printSchema(hirSchema.LowerToMir().LowerToAir(optConfig))
 	}
 }
 
@@ -120,10 +128,10 @@ func printAttributes(attrs []binfile.Attribute) {
 	}
 }
 
-func printStats(hirSchema *hir.Schema, hir bool, mir bool, air bool) {
+func printStats(hirSchema *hir.Schema, hir bool, mir bool, air bool, optConfig mir.OptimisationConfig) {
 	schemas := make([]schema.Schema, 0)
 	mirSchema := hirSchema.LowerToMir()
-	airSchema := mirSchema.LowerToAir()
+	airSchema := mirSchema.LowerToAir(optConfig)
 	// Construct columns
 	if hir {
 		schemas = append(schemas, hirSchema)

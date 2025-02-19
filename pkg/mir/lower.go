@@ -24,10 +24,41 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 )
 
+// OptimisationConfig provides a mechanism for controlling how optimisations are
+// applied during MIR lowering.
+type OptimisationConfig struct {
+	// InverseEliminationLevel sets an upper bound on the range cardinality at
+	// which inverses will be eliminated in favour of constraints.  A level of 0
+	// means no inverses will be eliminated, a range of 1 means only trivial
+	// ranges (i.e. {-1,0}, {0,1} and {-1,0,1}) will be eliminated; Otherwise,
+	// the level indicates the range cardinality.  For example, level 2 means
+	// any range of cardinality 2 is eliminated (e.g. {1,2}, {5,6}, etc).
+	InverseEliminiationLevel uint
+	// MaxRangeConstraint determines an upper bound on which MIR range
+	// constraints are translated in AIR range constraints, versus using a
+	// horizontal bitwidth gadget.
+	MaxRangeConstraint uint
+}
+
+// OPTIMISATION_LEVELS provides a set of precanned optimisation configurations.
+// Here 0 implies no optimisation and, otherwise, increasing levels implies
+// increasingly aggressive optimisation (though that doesn't mean they will
+// always improve performance).
+var OPTIMISATION_LEVELS = []OptimisationConfig{
+	// Level 0 == nothing enabled
+	{0, 256},
+	// Level 1 == minimal optimisations applied.
+	{1, 256},
+}
+
+// DEFAULT_OPTIMISATION_LEVEL provides a default level of optimisation which
+// should be used in most cases.
+var DEFAULT_OPTIMISATION_LEVEL = OPTIMISATION_LEVELS[1]
+
 // LowerToAir lowers (or refines) an MIR table into an AIR schema.  That means
 // lowering all the columns and constraints, whilst adding additional columns /
 // constraints as necessary to preserve the original semantics.
-func (p *Schema) LowerToAir() *air.Schema {
+func (p *Schema) LowerToAir(cfg OptimisationConfig) *air.Schema {
 	airSchema := air.EmptySchema[Expr]()
 	// Copy modules
 	for _, mod := range p.modules {
@@ -51,7 +82,7 @@ func (p *Schema) LowerToAir() *air.Schema {
 	}
 	// Lower vanishing constraints
 	for _, c := range p.constraints {
-		lowerConstraintToAir(c, p, airSchema)
+		lowerConstraintToAir(c, p, airSchema, cfg)
 	}
 	// Add assertions (these do not need to be lowered)
 	for _, assertion := range p.assertions {
@@ -79,14 +110,14 @@ func lowerAssignmentToAir(c sc.Assignment, mirSchema *Schema, airSchema *air.Sch
 }
 
 // Lower a constraint to the AIR level.
-func lowerConstraintToAir(c sc.Constraint, mirSchema *Schema, airSchema *air.Schema) {
+func lowerConstraintToAir(c sc.Constraint, mirSchema *Schema, airSchema *air.Schema, cfg OptimisationConfig) {
 	// Check what kind of constraint we have
 	if v, ok := c.(LookupConstraint); ok {
-		lowerLookupConstraintToAir(v, mirSchema, airSchema)
+		lowerLookupConstraintToAir(v, mirSchema, airSchema, cfg)
 	} else if v, ok := c.(VanishingConstraint); ok {
-		lowerVanishingConstraintToAir(v, mirSchema, airSchema)
+		lowerVanishingConstraintToAir(v, mirSchema, airSchema, cfg)
 	} else if v, ok := c.(RangeConstraint); ok {
-		lowerRangeConstraintToAir(v, mirSchema, airSchema)
+		lowerRangeConstraintToAir(v, mirSchema, airSchema, cfg)
 	} else {
 		// Should be unreachable as no other constraint types can be added to a
 		// schema.
@@ -98,8 +129,10 @@ func lowerConstraintToAir(c sc.Constraint, mirSchema *Schema, airSchema *air.Sch
 // straightforward and simply relies on lowering the expression being
 // constrained.  This may result in the generation of computed columns, e.g. to
 // hold inverses, etc.
-func lowerVanishingConstraintToAir(v VanishingConstraint, mirSchema *Schema, airSchema *air.Schema) {
-	air_expr := lowerExprTo(v.Context, v.Constraint, mirSchema, airSchema)
+func lowerVanishingConstraintToAir(v VanishingConstraint, mirSchema *Schema, airSchema *air.Schema,
+	cfg OptimisationConfig) {
+	//
+	air_expr := lowerExprTo(v.Context, v.Constraint, mirSchema, airSchema, cfg)
 	// Check whether this is a constant
 	constant := air_expr.AsConstant()
 	// Check for compile-time constants
@@ -116,10 +149,10 @@ func lowerVanishingConstraintToAir(v VanishingConstraint, mirSchema *Schema, air
 // expression is encountered, we must generate a computed column to hold the
 // value of that expression, along with appropriate constraints to enforce the
 // expected value.
-func lowerRangeConstraintToAir(v RangeConstraint, mirSchema *Schema, airSchema *air.Schema) {
+func lowerRangeConstraintToAir(v RangeConstraint, mirSchema *Schema, airSchema *air.Schema, cfg OptimisationConfig) {
 	bitwidth := v.Expr.IntRange(mirSchema).BitWidth()
 	// Lower target expression
-	target := lowerExprTo(v.Context, v.Expr, mirSchema, airSchema)
+	target := lowerExprTo(v.Context, v.Expr, mirSchema, airSchema, cfg)
 	// Expand target expression (if necessary)
 	column := air_gadgets.Expand(v.Context, bitwidth, target, airSchema)
 	// Yes, a constraint is implied.  Now, decide whether to use a range
@@ -127,11 +160,11 @@ func lowerRangeConstraintToAir(v RangeConstraint, mirSchema *Schema, airSchema *
 	if v.BoundedAtMost(2) {
 		// u1 => use vanishing constraint X * (X - 1)
 		air_gadgets.ApplyBinaryGadget(column, airSchema)
-	} else if v.BoundedAtMost(256) {
-		// u2..8 use range constraints
+	} else if v.BoundedAtMost(cfg.MaxRangeConstraint) {
+		// u2..n use range constraints
 		airSchema.AddRangeConstraint(column, v.Case, v.Bound)
 	} else {
-		// u9+ use byte decompositions.
+		// remainder use horizontal byte decompositions.
 		var bi big.Int
 		// Convert bound into big int
 		elem := v.Bound
@@ -147,7 +180,7 @@ func lowerRangeConstraintToAir(v RangeConstraint, mirSchema *Schema, airSchema *
 // expression is encountered, we must generate a computed column to hold the
 // value of that expression, along with appropriate constraints to enforce the
 // expected value.
-func lowerLookupConstraintToAir(c LookupConstraint, mirSchema *Schema, airSchema *air.Schema) {
+func lowerLookupConstraintToAir(c LookupConstraint, mirSchema *Schema, airSchema *air.Schema, cfg OptimisationConfig) {
 	targets := make([]uint, len(c.Targets))
 	sources := make([]uint, len(c.Sources))
 	//
@@ -155,8 +188,8 @@ func lowerLookupConstraintToAir(c LookupConstraint, mirSchema *Schema, airSchema
 		targetBitwidth := c.Targets[i].IntRange(mirSchema).BitWidth()
 		sourceBitwidth := c.Sources[i].IntRange(mirSchema).BitWidth()
 		// Lower source and target expressions
-		target := lowerExprTo(c.TargetContext, c.Targets[i], mirSchema, airSchema)
-		source := lowerExprTo(c.SourceContext, c.Sources[i], mirSchema, airSchema)
+		target := lowerExprTo(c.TargetContext, c.Targets[i], mirSchema, airSchema, cfg)
+		source := lowerExprTo(c.SourceContext, c.Sources[i], mirSchema, airSchema, cfg)
 		// Expand them
 		targets[i] = air_gadgets.Expand(c.TargetContext, targetBitwidth, target, airSchema)
 		sources[i] = air_gadgets.Expand(c.SourceContext, sourceBitwidth, source, airSchema)
@@ -225,40 +258,43 @@ func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Sche
 // performs constant propagation to ensure lowering is as efficient as possible.
 // A module identifier is required to determine where any computed columns
 // should be located.
-func lowerExprTo(ctx trace.Context, e1 Expr, mirSchema *Schema, airSchema *air.Schema) air.Expr {
+func lowerExprTo(ctx trace.Context, e1 Expr, mirSchema *Schema, airSchema *air.Schema,
+	cfg OptimisationConfig) air.Expr {
 	// Apply constant propagation
 	t1 := constantPropagationForTerm(e1.term, airSchema)
 	// Lower properly
-	return lowerTermToInner(ctx, t1, mirSchema, airSchema)
+	return lowerTermToInner(ctx, t1, mirSchema, airSchema, cfg)
 }
 
 // Inner form is used for recursive calls and does not repeat the constant
 // propagation phase.
-func lowerTermToInner(ctx trace.Context, e Term, mirSchema *Schema, airSchema *air.Schema) air.Expr {
+func lowerTermToInner(ctx trace.Context, e Term, mirSchema *Schema, airSchema *air.Schema,
+	cfg OptimisationConfig) air.Expr {
+	//
 	switch e := e.(type) {
 	case *Add:
-		args := lowerTerms(ctx, e.Args, mirSchema, airSchema)
+		args := lowerTerms(ctx, e.Args, mirSchema, airSchema, cfg)
 		return air.Sum(args...)
 	case *Constant:
 		return air.NewConst(e.Value)
 	case *ColumnAccess:
 		return air.NewColumnAccess(e.Column, e.Shift)
 	case *Exp:
-		return lowerExpTo(ctx, e, mirSchema, airSchema)
+		return lowerExpTo(ctx, e, mirSchema, airSchema, cfg)
 	case *Mul:
-		args := lowerTerms(ctx, e.Args, mirSchema, airSchema)
+		args := lowerTerms(ctx, e.Args, mirSchema, airSchema, cfg)
 		return air.Product(args...)
 	case *Norm:
 		bounds := rangeOfTerm(e.Arg, mirSchema)
 		// Lower the expression being normalised
-		arg := lowerTermToInner(ctx, e.Arg, mirSchema, airSchema)
+		arg := lowerTermToInner(ctx, e.Arg, mirSchema, airSchema, cfg)
 		// Check whether normalisation actually required.  For example, if the
 		// argument is just a binary column then a normalisation is not actually
 		// required.
-		if bounds.Within(big.NewInt(0), big.NewInt(1)) {
+		if cfg.InverseEliminiationLevel > 0 && bounds.Within(big.NewInt(0), big.NewInt(1)) {
 			// arg ∈ {0,1} ==> normalised already :)
 			return arg
-		} else if bounds.Within(big.NewInt(-1), big.NewInt(1)) {
+		} else if cfg.InverseEliminiationLevel > 0 && bounds.Within(big.NewInt(-1), big.NewInt(1)) {
 			// arg ∈ {-1,0,1} ==> (arg*arg) ∈ {0,1}
 			return air.Product(arg, arg)
 		}
@@ -266,7 +302,7 @@ func lowerTermToInner(ctx trace.Context, e Term, mirSchema *Schema, airSchema *a
 		// an expression which is 0 when e is 0, and 1 when e is non-zero.
 		return air_gadgets.Normalise(arg, airSchema)
 	case *Sub:
-		args := lowerTerms(ctx, e.Args, mirSchema, airSchema)
+		args := lowerTerms(ctx, e.Args, mirSchema, airSchema, cfg)
 		return air.Subtract(args...)
 	default:
 		name := reflect.TypeOf(e).Name()
@@ -277,9 +313,9 @@ func lowerTermToInner(ctx trace.Context, e Term, mirSchema *Schema, airSchema *a
 // LowerTo lowers an exponent expression to the AIR level by lowering the
 // argument, and then constructing a multiplication.  This is because the AIR
 // level does not support an explicit exponent operator.
-func lowerExpTo(ctx trace.Context, e *Exp, mirSchema *Schema, airSchema *air.Schema) air.Expr {
+func lowerExpTo(ctx trace.Context, e *Exp, mirSchema *Schema, airSchema *air.Schema, cfg OptimisationConfig) air.Expr {
 	// Lower the expression being raised
-	le := lowerTermToInner(ctx, e.Arg, mirSchema, airSchema)
+	le := lowerTermToInner(ctx, e.Arg, mirSchema, airSchema, cfg)
 	// Multiply it out k times
 	es := make([]air.Expr, e.Pow)
 	//
@@ -291,12 +327,14 @@ func lowerExpTo(ctx trace.Context, e *Exp, mirSchema *Schema, airSchema *air.Sch
 }
 
 // Lower a set of zero or more MIR expressions.
-func lowerTerms(ctx trace.Context, exprs []Term, mirSchema *Schema, airSchema *air.Schema) []air.Expr {
+func lowerTerms(ctx trace.Context, exprs []Term, mirSchema *Schema, airSchema *air.Schema,
+	cfg OptimisationConfig) []air.Expr {
+	//
 	n := len(exprs)
 	nexprs := make([]air.Expr, n)
 
 	for i := 0; i < n; i++ {
-		nexprs[i] = lowerTermToInner(ctx, exprs[i], mirSchema, airSchema)
+		nexprs[i] = lowerTermToInner(ctx, exprs[i], mirSchema, airSchema, cfg)
 	}
 
 	return nexprs

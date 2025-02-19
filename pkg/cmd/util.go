@@ -26,6 +26,7 @@ import (
 	legacy_binfile "github.com/consensys/go-corset/pkg/binfile/legacy"
 	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/hir"
+	"github.com/consensys/go-corset/pkg/mir"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/json"
@@ -92,7 +93,9 @@ func GetStringArray(cmd *cobra.Command, flag string) []string {
 	return r
 }
 
-func writeCoverageReport(filename string, binfile *binfile.BinaryFile, coverage [3]sc.CoverageMap) {
+func writeCoverageReport(filename string, binfile *binfile.BinaryFile, coverage [3]sc.CoverageMap,
+	config mir.OptimisationConfig) {
+	//
 	var (
 		air                 = coverage[0]
 		mir                 = coverage[1]
@@ -102,7 +105,7 @@ func writeCoverageReport(filename string, binfile *binfile.BinaryFile, coverage 
 	// Lower schemas
 	hirSchema := &binfile.Schema
 	mirSchema := hirSchema.LowerToMir()
-	airSchema := mirSchema.LowerToAir()
+	airSchema := mirSchema.LowerToAir(config)
 	// Add AIR data (if applicable)
 	if !air.IsEmpty() {
 		data["air"] = air.ToJson(airSchema)
@@ -127,7 +130,7 @@ func writeCoverageReport(filename string, binfile *binfile.BinaryFile, coverage 
 	}
 }
 
-func readCoverageReport(filename string, binfile *binfile.BinaryFile) [3]sc.CoverageMap {
+func readCoverageReport(filename string, binfile *binfile.BinaryFile, config mir.OptimisationConfig) [3]sc.CoverageMap {
 	var (
 		report map[string]map[string][]uint
 		air    sc.CoverageMap
@@ -139,7 +142,7 @@ func readCoverageReport(filename string, binfile *binfile.BinaryFile) [3]sc.Cove
 	// Lower schemas
 	hirSchema := &binfile.Schema
 	mirSchema := hirSchema.LowerToMir()
-	airSchema := mirSchema.LowerToAir()
+	airSchema := mirSchema.LowerToAir(config)
 	// Check success
 	if err == nil {
 		if err = enc_json.Unmarshal(bytes, &report); err == nil {

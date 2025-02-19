@@ -19,6 +19,7 @@ import (
 	"os"
 
 	"github.com/consensys/go-corset/pkg/hir"
+	"github.com/consensys/go-corset/pkg/mir"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -50,8 +51,14 @@ var checkCmd = &cobra.Command{
 		if GetFlag(cmd, "verbose") {
 			log.SetLevel(log.DebugLevel)
 		}
+		optimisation := GetUint(cmd, "opt")
 		legacy := GetFlag(cmd, "legacy")
 		batched := GetFlag(cmd, "batched")
+		//
+		if optimisation >= uint(len(mir.OPTIMISATION_LEVELS)) {
+			fmt.Printf("invalid optimisation level %d\n", optimisation)
+			os.Exit(1)
+		}
 		//
 		cfg.air = GetFlag(cmd, "air")
 		cfg.mir = GetFlag(cmd, "mir")
@@ -70,6 +77,7 @@ var checkCmd = &cobra.Command{
 		cfg.parallel = !GetFlag(cmd, "sequential")
 		cfg.batchSize = GetUint(cmd, "batch")
 		cfg.ansiEscapes = GetFlag(cmd, "ansi-escapes")
+		cfg.optimisation = mir.OPTIMISATION_LEVELS[optimisation]
 		// TODO: support true ranges
 		cfg.padding.Left = cfg.padding.Right
 		// enable / disable coverage
@@ -104,7 +112,7 @@ var checkCmd = &cobra.Command{
 		if !ok {
 			os.Exit(1)
 		} else if cfg.coverage.HasValue() {
-			writeCoverageReport(cfg.coverage.Unwrap(), binfile, coverage)
+			writeCoverageReport(cfg.coverage.Unwrap(), binfile, coverage, cfg.optimisation)
 		}
 	},
 }
@@ -118,6 +126,8 @@ type checkConfig struct {
 	mir bool
 	// Performing checking at AIR level
 	air bool
+	// Set optimisation config to use.
+	optimisation mir.OptimisationConfig
 	// Determines whether or not to apply "defensive padding" to every module.
 	defensive bool
 	// Determines how much spillage to account for.  This gives the user the
@@ -183,7 +193,8 @@ func checkTraceWithLowering(traces [][]tr.RawColumn, schema *hir.Schema, cfg che
 	}
 
 	if cfg.air {
-		tmp, airCoverage = checkTrace[sc.NoMetric]("AIR", traces, schema.LowerToMir().LowerToAir(), cfg)
+		airSchema := schema.LowerToMir().LowerToAir(cfg.optimisation)
+		tmp, airCoverage = checkTrace[sc.NoMetric]("AIR", traces, airSchema, cfg)
 		//
 		res = res && tmp
 	}
