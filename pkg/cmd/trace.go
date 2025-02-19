@@ -24,6 +24,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
+	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/spf13/cobra"
 )
 
@@ -51,7 +52,9 @@ var traceCmd = &cobra.Command{
 		}
 		//
 		optConfig := mir.OPTIMISATION_LEVELS[optimisation]
-		list := GetFlag(cmd, "list")
+		// Parse trace
+		columns := GetFlag(cmd, "columns")
+		modules := GetFlag(cmd, "modules")
 		defensive := GetFlag(cmd, "defensive")
 		stats := GetFlag(cmd, "stats")
 		stdlib := !GetFlag(cmd, "no-stdlib")
@@ -97,8 +100,11 @@ var traceCmd = &cobra.Command{
 			if start != 0 || end != math.MaxUint {
 				sliceColumns(traces[i], start, end)
 			}
-			if list {
+			if columns {
 				listColumns(traces[i], includes)
+			}
+			if modules {
+				listModules(traces[i])
 			}
 			if stats {
 				summaryStats(traces[i])
@@ -117,10 +123,11 @@ var traceCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(traceCmd)
-	traceCmd.Flags().BoolP("list", "l", false, "list only the columns in the trace file")
+	traceCmd.Flags().BoolP("columns", "c", false, "show column stats for the trace file")
+	traceCmd.Flags().BoolP("modules", "m", false, "show module stats for the trace file")
 	traceCmd.Flags().StringArrayP("include", "i", []string{"lines", "bitwidth", "bytes", "elements"},
 		fmt.Sprintf("specify information to include in column listing: %s", summariserOptions()))
-	traceCmd.Flags().Bool("stats", false, "print summary information about the trace file")
+	traceCmd.Flags().Bool("stats", false, "show overall stats for the trace file")
 	traceCmd.Flags().BoolP("print", "p", false, "print entire trace file")
 	traceCmd.Flags().BoolP("expand", "e", false, "perform trace expansion (schema required)")
 	traceCmd.Flags().Bool("defensive", false, "perform defensive padding (schema required)")
@@ -268,6 +275,36 @@ func printTrace(start uint, max_width uint, cols []trace.RawColumn) {
 	tbl.Print()
 }
 
+func listModules(tr []trace.RawColumn) {
+	// Organise traces by their module ID
+	traces, modules := organiseTracesByModule(tr)
+	//
+	summarisers := moduleSumarisers
+	m := 1 + uint(len(summarisers))
+	n := uint(len(modules))
+	// Go!
+	tbl := util.NewTablePrinter(m, n+1)
+	// Set column titles
+	for i := uint(0); i < uint(len(summarisers)); i++ {
+		tbl.Set(i+1, 0, summarisers[i].name)
+	}
+	// Compute column data
+	for i, mod := range modules {
+		row := make([]string, m)
+		//
+		row[0] = mod
+		//
+		for j, s := range summarisers {
+			row[j+1] = s.summary(traces[mod])
+		}
+		//
+		tbl.SetRow(uint(i+1), row...)
+	}
+	//
+	tbl.SetMaxWidths(64)
+	tbl.Print()
+}
+
 func listColumns(tr []trace.RawColumn, includes []string) {
 	summarisers := selectColumnSummarisers(includes)
 	m := 1 + uint(len(summarisers))
@@ -303,13 +340,13 @@ func listColumns(tr []trace.RawColumn, includes []string) {
 	tbl.Print()
 }
 
-func selectColumnSummarisers(includes []string) []ColSummariser {
+func selectColumnSummarisers(includes []string) []ColumnSummariser {
 	includes = flattenIncludes(includes)
-	summarisers := make([]ColSummariser, len(includes))
+	summarisers := make([]ColumnSummariser, len(includes))
 	// Iterate included summarisers
 	for i, ss := range includes {
 		// Look them up
-		for _, cs := range colSummarisers {
+		for _, cs := range columnSummarisers {
 			if cs.name == ss {
 				summarisers[i] = cs
 				break
@@ -358,7 +395,7 @@ func flattenIncludes(includes []string) []string {
 	return includes
 }
 
-func summariseColumn(column trace.RawColumn, summarisers []ColSummariser) []string {
+func summariseColumn(column trace.RawColumn, summarisers []ColumnSummariser) []string {
 	m := 1 + uint(len(summarisers))
 	//
 	row := make([]string, m)
@@ -385,22 +422,117 @@ func summaryStats(tr []trace.RawColumn) {
 	tbl.Print()
 }
 
+func organiseTracesByModule(columns []trace.RawColumn) (map[string][]trace.RawColumn, []string) {
+	keys := set.NewSortedSet[string]()
+	mapping := make(map[string][]trace.RawColumn)
+	//
+	for _, col := range columns {
+		mod := col.Module
+		traces := mapping[mod]
+		//
+		mapping[mod] = append(traces, col)
+		// Insert module name
+		keys.Insert(mod)
+	}
+	//
+	return mapping, keys.Iter().Collect()
+}
+
+// ============================================================================
+// Module Summarisers
+// ============================================================================
+
+// ModuleSummariser abstracts the notion of a function which summarises the
+// contents of a given column.
+type ModuleSummariser struct {
+	name        string
+	description string
+	summary     func([]trace.RawColumn) string
+}
+
+var moduleSumarisers = []ModuleSummariser{
+	{"columns", "column count for module", moduleColumnSummariser},
+	{"lines", "line count for module", moduleLineSummariser},
+	{"bitwidth", "bitwidth of module", moduleBitwidthSummariser},
+	{"cells", "total number of cells traced for module", moduleCountSummariser},
+	{"bytes", "total number of bytes traced for module", moduleBytesSummariser},
+}
+
+func moduleCountSummariser(columns []trace.RawColumn) string {
+	count := 0
+
+	for _, col := range columns {
+		count += int(col.Data.Len())
+	}
+	//
+	return fmt.Sprintf("%d", count)
+}
+
+func moduleColumnSummariser(columns []trace.RawColumn) string {
+	return fmt.Sprintf("%d", len(columns))
+}
+
+func moduleLineSummariser(columns []trace.RawColumn) string {
+	var lines uint
+
+	if len(columns) == 0 {
+		lines = 0
+	} else {
+		lines = math.MaxUint
+		// NOTE: we take the minimum here because its possible that some columns
+		// have a multiplier, which means their length is a longer than the
+		// others.
+		for _, c := range columns {
+			lines = min(lines, c.Data.Len())
+		}
+	}
+	//
+	return fmt.Sprintf("%d", lines)
+}
+
+func moduleBitwidthSummariser(columns []trace.RawColumn) string {
+	total := uint(0)
+	//
+	for _, c := range columns {
+		total += c.Data.BitWidth()
+	}
+	//
+	return fmt.Sprintf("%d", total)
+}
+
+func moduleBytesSummariser(columns []trace.RawColumn) string {
+	total := uint(0)
+	//
+	for _, c := range columns {
+		bitwidth := c.Data.BitWidth()
+		byteWidth := bitwidth / 8
+		// Determine proper bytewidth
+		if bitwidth%8 != 0 {
+			byteWidth++
+		}
+		//
+		total += c.Data.Len() * byteWidth
+	}
+	//
+	return fmt.Sprintf("%d", total)
+}
+
 // ============================================================================
 // Column Summarisers
 // ============================================================================
 
-// ColSummariser abstracts the notion of a function which summarises the
+// ColumnSummariser abstracts the notion of a function which summarises the
 // contents of a given column.
-type ColSummariser struct {
+type ColumnSummariser struct {
 	name        string
 	description string
 	summary     func(trace.RawColumn) string
 }
 
-var colSummarisers []ColSummariser = []ColSummariser{
-	{"lines", "line count for column", lineCountSummariser},
-	{"bitwidth", "bitwidth for column as specified in trace file", bitWidthSummariser},
-	{"bytes", "total bytes required for column", bytesSummariser},
+var columnSummarisers = []ColumnSummariser{
+	{"lines", "line count for column", columnCountSummariser},
+	{"bitwidth", "bitwidth for column as specified in trace file", columnBitwidthSummariser},
+	{"bytes", "total bytes required for column", columnBytesSummariser},
 	{"elements", "number of unique elements in column", uniqueElementsSummariser},
 	{"entropy", "number of lines in column whose value differs from previous line", entropySummariser},
 }
@@ -409,22 +541,22 @@ var colSummarisers []ColSummariser = []ColSummariser{
 func summariserOptions() string {
 	summarisers := "\n"
 	//
-	for _, s := range colSummarisers {
+	for _, s := range columnSummarisers {
 		summarisers = fmt.Sprintf("%s--- %s (%s)\n", summarisers, s.name, s.description)
 	}
 	//
 	return summarisers
 }
 
-func lineCountSummariser(col trace.RawColumn) string {
+func columnCountSummariser(col trace.RawColumn) string {
 	return fmt.Sprintf("%d", col.Data.Len())
 }
 
-func bitWidthSummariser(col trace.RawColumn) string {
+func columnBitwidthSummariser(col trace.RawColumn) string {
 	return fmt.Sprintf("%d", col.Data.BitWidth())
 }
 
-func bytesSummariser(col trace.RawColumn) string {
+func columnBytesSummariser(col trace.RawColumn) string {
 	bitwidth := col.Data.BitWidth()
 	byteWidth := bitwidth / 8
 	// Determine proper bytewidth
@@ -479,6 +611,8 @@ type traceSummariser struct {
 }
 
 var trSummarisers []traceSummariser = []traceSummariser{
+	{"Cells", trCellCountSummariser},
+	{"Cells (raw)", trRawCellCountSummariser},
 	trWidthSummariser(1, 8),
 	trWidthSummariser(9, 16),
 	trWidthSummariser(17, 32),
@@ -486,9 +620,46 @@ var trSummarisers []traceSummariser = []traceSummariser{
 	trWidthSummariser(129, 256),
 }
 
+func trRawCellCount(cols []trace.RawColumn) uint {
+	total := uint(0)
+	//
+	for _, col := range cols {
+		total += col.Data.Len()
+	}
+	//
+	return total
+}
+
+func trRawCellCountSummariser(cols []trace.RawColumn) string {
+	total := trRawCellCount(cols)
+	return fmt.Sprintf("%d", total)
+}
+
+const one_K = 1000
+const one_M = one_K * one_K
+const one_G = one_M * one_M
+
+func trCellCountSummariser(cols []trace.RawColumn) string {
+	total := trRawCellCount(cols)
+	//
+	switch {
+	case total > one_G:
+		val := float64(total) / one_G
+		return fmt.Sprintf("%.01fG", val)
+	case total > one_M:
+		val := float64(total) / one_M
+		return fmt.Sprintf("%.01fM", val)
+	case total > one_K:
+		val := float64(total) / one_K
+		return fmt.Sprintf("%.01fK", val)
+	default:
+		return fmt.Sprintf("%d", total)
+	}
+}
+
 func trWidthSummariser(lowWidth uint, highWidth uint) traceSummariser {
 	return traceSummariser{
-		name: fmt.Sprintf("# Columns (%d..%d bits)", lowWidth, highWidth),
+		name: fmt.Sprintf("Columns (%d..%d bits)", lowWidth, highWidth),
 		summary: func(tr []trace.RawColumn) string {
 			count := 0
 			for i := 0; i < len(tr); i++ {
