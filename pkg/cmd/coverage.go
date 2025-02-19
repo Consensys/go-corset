@@ -20,6 +20,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/binfile"
 	cov "github.com/consensys/go-corset/pkg/cmd/coverage"
+	"github.com/consensys/go-corset/pkg/mir"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -40,6 +41,14 @@ var coverageCmd = &cobra.Command{
 		if GetFlag(cmd, "verbose") {
 			log.SetLevel(log.DebugLevel)
 		}
+		optimisation := GetUint(cmd, "opt")
+		// Set optimisation level
+		if optimisation >= uint(len(mir.OPTIMISATION_LEVELS)) {
+			fmt.Printf("invalid optimisation level %d\n", optimisation)
+			os.Exit(2)
+		}
+		optConfig := mir.OPTIMISATION_LEVELS[optimisation]
+		//
 		filter := cov.DefaultFilter()
 		//
 		stdlib := !GetFlag(cmd, "no-stdlib")
@@ -57,7 +66,7 @@ var coverageCmd = &cobra.Command{
 		// Parse constraints
 		binfile := ReadConstraintFiles(stdlib, debug, legacy, others)
 		// Parse coverage file
-		coverage := readCoverageReports(json, binfile)
+		coverage := readCoverageReports(json, binfile, optConfig)
 		//
 		hirSchema := &binfile.Schema
 		mirSchema := hirSchema.LowerToMir()
@@ -190,7 +199,9 @@ func determineExpandedGroups(schema sc.Schema) []cov.ConstraintGroup {
 	return groups
 }
 
-func readCoverageReports(filenames []string, binf *binfile.BinaryFile) [3][]sc.CoverageMap {
+func readCoverageReports(filenames []string, binf *binfile.BinaryFile,
+	optConfig mir.OptimisationConfig) [3][]sc.CoverageMap {
+	//
 	var maps [3][]sc.CoverageMap
 	//
 	maps[0] = make([]sc.CoverageMap, len(filenames))
@@ -198,7 +209,7 @@ func readCoverageReports(filenames []string, binf *binfile.BinaryFile) [3][]sc.C
 	maps[2] = make([]sc.CoverageMap, len(filenames))
 	//
 	for i, n := range filenames {
-		tmp := readCoverageReport(n, binf)
+		tmp := readCoverageReport(n, binf, optConfig)
 		maps[0][i] = tmp[0]
 		maps[1][i] = tmp[1]
 		maps[2][i] = tmp[2]

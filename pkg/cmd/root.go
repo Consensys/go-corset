@@ -39,4 +39,5 @@ func init() {
 	rootCmd.PersistentFlags().Bool("legacy", false, "use legacy binary format")
 	rootCmd.PersistentFlags().Bool("no-stdlib", false, "prevent standard library from being included")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "increase logging verbosity")
+	rootCmd.PersistentFlags().UintP("opt", "O", 1, "set optimisation level")
 }

@@ -19,6 +19,7 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/hir"
+	"github.com/consensys/go-corset/pkg/mir"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -45,6 +46,13 @@ var testCmd = &cobra.Command{
 		if GetFlag(cmd, "verbose") {
 			log.SetLevel(log.DebugLevel)
 		}
+		optimisation := GetUint(cmd, "opt")
+		// Set optimisation level
+		if optimisation >= uint(len(mir.OPTIMISATION_LEVELS)) {
+			fmt.Printf("invalid optimisation level %d\n", optimisation)
+			os.Exit(2)
+		}
+		//
 		legacy := GetFlag(cmd, "legacy")
 		// Setup check config
 		cfg.air = GetFlag(cmd, "air")
@@ -54,6 +62,7 @@ var testCmd = &cobra.Command{
 		cfg.stdlib = !GetFlag(cmd, "no-stdlib")
 		cfg.report = GetFlag(cmd, "report")
 		cfg.reportPadding = GetUint(cmd, "report-context")
+		cfg.optimisation = mir.OPTIMISATION_LEVELS[optimisation]
 		// cfg.strict = !GetFlag(cmd, "warn")
 		// cfg.quiet = GetFlag(cmd, "quiet")
 		cfg.padding.Right = GetUint(cmd, "padding")
@@ -110,7 +119,8 @@ func testTraceWithLowering(trace tr.Trace, schema *hir.Schema, cfg checkConfig) 
 	}
 
 	if cfg.air {
-		ok = testTrace("AIR", asserts, trace, schema.LowerToMir().LowerToAir(), cfg) && ok
+		airSchema := schema.LowerToMir().LowerToAir(cfg.optimisation)
+		ok = testTrace("AIR", asserts, trace, airSchema, cfg) && ok
 	}
 
 	return ok
