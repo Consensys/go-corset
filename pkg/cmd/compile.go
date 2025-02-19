@@ -13,6 +13,10 @@
 package cmd
 
 import (
+	"fmt"
+	"os"
+	"strings"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -32,11 +36,33 @@ var compileCmd = &cobra.Command{
 		debug := GetFlag(cmd, "debug")
 		legacy := GetFlag(cmd, "legacy")
 		output := GetString(cmd, "output")
+		defines := GetStringArray(cmd, "define")
 		// Parse constraints
 		binfile := ReadConstraintFiles(stdlib, debug, legacy, args)
+		// Write metadata
+		if err := binfile.Header.SetMetaData(buildMetadata(defines)); err != nil {
+			fmt.Printf("error writing metadata: %s\n", err.Error())
+			os.Exit(1)
+		}
 		// Serialise as a gob file.
 		WriteBinaryFile(binfile, legacy, output)
 	},
+}
+
+func buildMetadata(items []string) map[string]string {
+	metadata := make(map[string]string)
+	//
+	for _, item := range items {
+		split := strings.Split(item, "=")
+		if len(split) != 2 {
+			fmt.Printf("malformed definition \"%s\"\n", item)
+			os.Exit(2)
+		}
+		//
+		metadata[split[0]] = split[1]
+	}
+	//
+	return metadata
 }
 
 //nolint:errcheck
@@ -44,5 +70,6 @@ func init() {
 	rootCmd.AddCommand(compileCmd)
 	compileCmd.Flags().Bool("debug", false, "enable debugging constraints")
 	compileCmd.Flags().StringP("output", "o", "a.bin", "specify output file.")
+	compileCmd.Flags().StringArrayP("define", "D", []string{}, "define metadata attribute.")
 	compileCmd.MarkFlagRequired("output")
 }

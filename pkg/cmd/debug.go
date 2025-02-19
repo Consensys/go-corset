@@ -54,13 +54,18 @@ var debugCmd = &cobra.Command{
 		stdlib := !GetFlag(cmd, "no-stdlib")
 		debug := GetFlag(cmd, "debug")
 		legacy := GetFlag(cmd, "legacy")
+		metadata := GetFlag(cmd, "metadata")
 		// Parse constraints
 		binfile := ReadConstraintFiles(stdlib, debug, legacy, args)
-		// Print constraints
+		// Print meta-data (if requested)
+		if metadata {
+			printMetadata(&binfile.Header)
+		}
+		// Print stats (if requested)
 		if stats {
 			printStats(&binfile.Schema, hir, mir, air)
 		}
-		//
+		// Print embedded attributes (if requested
 		if attrs {
 			printAttributes(binfile.Attributes)
 		}
@@ -77,6 +82,7 @@ func init() {
 	debugCmd.Flags().Bool("mir", false, "Print constraints at MIR level")
 	debugCmd.Flags().Bool("air", false, "Print constraints at AIR level")
 	debugCmd.Flags().Bool("stats", false, "Print summary information")
+	debugCmd.Flags().Bool("metadata", false, "Print embedded metadata")
 	debugCmd.Flags().Bool("attributes", false, "Print attribute information")
 	debugCmd.Flags().Bool("debug", false, "enable debugging constraints")
 }
@@ -150,6 +156,23 @@ func printStats(hirSchema *hir.Schema, hir bool, mir bool, air bool) {
 	//
 	tbl.SetMaxWidths(64)
 	tbl.Print()
+}
+
+func printMetadata(header *binfile.Header) {
+	fmt.Printf("Format: %d.%d\n", header.MajorVersion, header.MinorVersion)
+	// Attempt to parse metadata
+	metadata, err := header.GetMetaData()
+	//
+	if err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	} else if metadata != nil {
+		fmt.Println("Metadata:")
+		//
+		for k, v := range metadata {
+			fmt.Printf("\t%s: %s\n", k, v)
+		}
+	}
 }
 
 // ============================================================================

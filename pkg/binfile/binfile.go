@@ -16,6 +16,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/gob"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -77,6 +78,39 @@ type Header struct {
 	MajorVersion uint16
 	MinorVersion uint16
 	MetaData     []byte
+}
+
+// GetMetaData attempts to parse the metadata bytes as JSON which is then
+// unmarshalled into a map.  This can fail if the embedded metadata bytes are
+// not, in fact, JSON.  Observe that, if there are no metadata bytes, then nil
+// will be returned.
+func (p *Header) GetMetaData() (map[string]string, error) {
+	var vmap map[string]string
+	// Check for empty metadata
+	if len(p.MetaData) == 0 {
+		return nil, nil
+	}
+	// Attempt to unmarshal metadata bytes
+	if err := json.Unmarshal(p.MetaData, &vmap); err != nil {
+		return nil, err
+	}
+	// Success
+	return vmap, nil
+}
+
+// SetMetaData attempts to set the metadata bytes for this header, using a JSON
+// encoding of the given map.  If this fails, an error is returned and the
+// metadata bytes are unaffected.
+func (p *Header) SetMetaData(metadata map[string]string) error {
+	bytes, err := json.Marshal(metadata)
+	// Check for error
+	if err != nil {
+		return err
+	}
+	// success
+	p.MetaData = bytes
+	//
+	return nil
 }
 
 // MarshalBinary converts the BinaryFile Header into a sequence of bytes.
