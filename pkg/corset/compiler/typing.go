@@ -286,8 +286,11 @@ func (p *typeChecker) typeCheckArrayAccessInModule(expr *ast.ArrayAccess) (ast.T
 	// ast.Type check index expression
 	_, errs := p.typeCheckExpressionInModule(expr.Arg)
 	// NOTE: following cast safe because resolver already checked them.
-	binding := expr.Binding().(*ast.ColumnBinding)
-	if arr_t, ok := binding.DataType.(*ast.ArrayType); !ok {
+	if binding, ok := expr.Binding().(*ast.ColumnBinding); !ok || !expr.IsResolved() {
+		// NOTE: we don't return an error here, since this case would have already
+		// been caught by the resolver and we don't want to double up on errors.
+		return nil, nil
+	} else if arr_t, ok := binding.DataType.(*ast.ArrayType); !ok {
 		return nil, append(errs, *p.srcmap.SyntaxError(expr, "expected array column"))
 	} else {
 		return arr_t.Element(), errs

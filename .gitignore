@@ -34,3 +34,7 @@ bin
 .idea
 
 .env
+
+# go-corset specific
+*.lt
+*.bin

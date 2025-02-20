@@ -131,10 +131,6 @@ func (e *ArrayAccess) Path() *util.Path {
 // Binding gets binding associated with this interface.  This will panic if this
 // symbol is not yet resolved.
 func (e *ArrayAccess) Binding() Binding {
-	if e.ArrayBinding == nil {
-		panic("variable access is unresolved")
-	}
-	//
 	return e.ArrayBinding
 }
 
