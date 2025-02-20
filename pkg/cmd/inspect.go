@@ -40,7 +40,8 @@ var inspectCmd = &cobra.Command{
 		//
 		stats := util.NewPerfStats()
 		// Parse constraints
-		binf := ReadConstraintFiles(stdlib, false, false, args[1:])
+		// Run compiler in strict mode
+		binf := ReadConstraintFiles(stdlib, false, false, args[1:], false)
 		// Sanity check debug information is available.
 		srcmap, srcmap_ok := binfile.GetAttribute[*corset.SourceMap](binf)
 		//
