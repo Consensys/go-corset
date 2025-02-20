@@ -7,9 +7,9 @@ import (
 
 // DEFAULT_CALCS provides the detault set of calculations which can be used.
 var DEFAULT_CALCS []ColumnCalc = []ColumnCalc{
-	{"Covered", coverageCalculator},
-	{"Branches", branchesCalculator},
-	{"Coverage", percentCalculator},
+	{"covered", coverageCalculator},
+	{"branches", branchesCalculator},
+	{"coverage", percentCalculator},
 }
 
 // ColumnCalc represents a calculation which can be done for a given constraint.
