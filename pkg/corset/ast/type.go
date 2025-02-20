@@ -40,6 +40,9 @@ type Type interface {
 	// SubtypeOf determines whether or not this type is a subtype of another.
 	SubtypeOf(Type) bool
 
+	// IsFieldType determines whether this type is a native field type.
+	IsFieldType() bool
+
 	// Access an underlying representation of this type (should one exist).  If
 	// this doesn't exist, then nil is returned.
 	AsUnderlying() sc.Type
@@ -189,6 +192,12 @@ func (p *NativeType) WithBooleanSemantics() Type {
 	return &NativeType{p.datatype, false, true}
 }
 
+// IsFieldType indicates indicates whether or not this type is a field type
+func (p *NativeType) IsFieldType() bool {
+	_, ok := p.AsUnderlying().(*sc.FieldType)
+	return ok
+}
+
 // Width returns the number of underlying columns represented by this column.
 // For example, an array of size n will expand into n underlying columns.
 func (p *NativeType) Width() uint {
@@ -266,6 +275,11 @@ func (p *ArrayType) WithLoobeanSemantics() Type {
 // semantics.
 func (p *ArrayType) WithBooleanSemantics() Type {
 	panic("unreachable")
+}
+
+// IsFieldType indicates indicates whether or not this array type is an array of field types
+func (p *ArrayType) IsFieldType() bool {
+	return p.element.String() == "𝔽"
 }
 
 // Width returns the number of underlying columns represented by this column.

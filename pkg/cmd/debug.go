@@ -64,7 +64,8 @@ var debugCmd = &cobra.Command{
 		metadata := GetFlag(cmd, "metadata")
 
 		// Parse constraints
-		binfile := ReadConstraintFiles(stdlib, debug, legacy, args)
+		// Run compiler in strict mode
+		binfile := ReadConstraintFiles(stdlib, debug, legacy, args, false)
 		// Print meta-data (if requested)
 		if metadata {
 			printMetadata(&binfile.Header)
