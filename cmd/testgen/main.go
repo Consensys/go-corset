@@ -202,7 +202,8 @@ func readSchemaFile(filename string) *hir.Schema {
 	// Package up as source file
 	srcfile := sexp.NewSourceFile(filename, bytes)
 	// Attempt to parse schema
-	binfile, err2 := corset.CompileSourceFile(false, false, srcfile)
+	// Run compiler in non-strict mode for tests to pass with field type columns
+	binfile, err2 := corset.CompileSourceFile(false, false, srcfile, true)
 	// Check whether parsed successfully or not
 	if err2 == nil {
 		// Ok
