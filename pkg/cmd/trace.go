@@ -187,7 +187,12 @@ func expandWithConstraints(level int, cols []trace.RawColumn, corsetConfig corse
 	//
 	var schema sc.Schema
 	//
+<<<<<<< HEAD
 	binfile := ReadConstraintFiles(corsetConfig, filenames)
+=======
+	// Run compiler in strict mode
+	binfile := ReadConstraintFiles(stdlib, false, false, filenames, false)
+>>>>>>> 428fdd6 (feat(reject): IsTypeField for Type, non strict mode for tests)
 	//
 	switch level {
 	case hir_LEVEL:

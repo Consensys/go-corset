@@ -38,7 +38,8 @@ import (
 // additional combines all fragments of the same module together into one place.
 // Thus, you should never expect to see duplicate module names in the returned
 // array.
-func ParseSourceFiles(files []*sexp.SourceFile) (ast.Circuit, *sexp.SourceMaps[ast.Node], []SyntaxError) {
+// If nonStrictMode is activated, parser accepts columns of field type 𝔽.
+func ParseSourceFiles(files []*sexp.SourceFile, nonStrictMode bool) (ast.Circuit, *sexp.SourceMaps[ast.Node], []SyntaxError) {
 	var circuit ast.Circuit
 	// (for now) at most one error per source file is supported.
 	var errors []SyntaxError
@@ -52,7 +53,7 @@ func ParseSourceFiles(files []*sexp.SourceFile) (ast.Circuit, *sexp.SourceMaps[a
 	names := make([]string, 0)
 	//
 	for _, file := range files {
-		c, srcmap, errs := ParseSourceFile(file)
+		c, srcmap, errs := ParseSourceFile(file, nonStrictMode)
 		// Handle errors
 		if len(errs) > 0 {
 			num_errs += uint(len(errs))
@@ -96,7 +97,8 @@ func ParseSourceFiles(files []*sexp.SourceFile) (ast.Circuit, *sexp.SourceMaps[a
 // ParseSourceFile parses the contents of a single lisp file into one or more
 // modules.  Observe that every lisp file starts in the "prelude" or "root"
 // module, and may declare items for additional modules as necessary.
-func ParseSourceFile(srcfile *sexp.SourceFile) (ast.Circuit, *sexp.SourceMap[ast.Node], []SyntaxError) {
+// If nonStrictMode is activated, parser accepts columns of field type 𝔽.
+func ParseSourceFile(srcfile *sexp.SourceFile, nonStrictMode bool) (ast.Circuit, *sexp.SourceMap[ast.Node], []SyntaxError) {
 	var (
 		circuit ast.Circuit
 		errors  []SyntaxError
@@ -112,7 +114,7 @@ func ParseSourceFile(srcfile *sexp.SourceFile) (ast.Circuit, *sexp.SourceMap[ast
 	p := NewParser(srcfile, srcmap)
 	// Parse whatever is declared at the beginning of the file before the first
 	// module declaration.  These declarations form part of the "prelude".
-	if circuit.Declarations, terms, errors = p.parseModuleContents(path, terms); len(errors) > 0 {
+	if circuit.Declarations, terms, errors = p.parseModuleContents(path, terms, nonStrictMode); len(errors) > 0 {
 		return circuit, nil, errors
 	}
 	// Continue parsing string until nothing remains.
@@ -127,7 +129,7 @@ func ParseSourceFile(srcfile *sexp.SourceFile) (ast.Circuit, *sexp.SourceMap[ast
 		}
 		// Parse module contents
 		path = util.NewAbsolutePath(name)
-		if decls, terms, errors = p.parseModuleContents(path, terms[1:]); len(errors) > 0 {
+		if decls, terms, errors = p.parseModuleContents(path, terms[1:], nonStrictMode); len(errors) > 0 {
 			return circuit, nil, errors
 		} else if len(decls) != 0 {
 			circuit.Modules = append(circuit.Modules, ast.Module{Name: name, Declarations: decls})
@@ -198,7 +200,8 @@ func (p *Parser) mapSourceNode(from sexp.SExp, to ast.Node) {
 }
 
 // Extract all declarations associated with a given module and package them up.
-func (p *Parser) parseModuleContents(path util.Path, terms []sexp.SExp) ([]ast.Declaration, []sexp.SExp,
+// If nonStrictMode is activated, parser accepts columns of field type 𝔽.
+func (p *Parser) parseModuleContents(path util.Path, terms []sexp.SExp, nonStrictMode bool) ([]ast.Declaration, []sexp.SExp,
 	[]SyntaxError) {
 	//
 	var errors []SyntaxError
@@ -213,7 +216,7 @@ func (p *Parser) parseModuleContents(path util.Path, terms []sexp.SExp) ([]ast.D
 			errors = append(errors, *err)
 		} else if e.MatchSymbols(2, "module") {
 			return decls, terms[i:], errors
-		} else if decl, errs := p.parseDeclaration(path, e); len(errs) > 0 {
+		} else if decl, errs := p.parseDeclaration(path, e, nonStrictMode); len(errs) > 0 {
 			errors = append(errors, errs...)
 		} else {
 			// Continue accumulating declarations for this module.
@@ -248,7 +251,8 @@ func (p *Parser) parseModuleStart(s sexp.SExp) (string, []SyntaxError) {
 	return name, nil
 }
 
-func (p *Parser) parseDeclaration(module util.Path, s *sexp.List) (ast.Declaration, []SyntaxError) {
+// If nonStrictMode is activated, parser accepts columns of field type 𝔽.
+func (p *Parser) parseDeclaration(module util.Path, s *sexp.List, nonStrictMode bool) (ast.Declaration, []SyntaxError) {
 	var (
 		decl   ast.Declaration
 		errors []SyntaxError
@@ -257,9 +261,9 @@ func (p *Parser) parseDeclaration(module util.Path, s *sexp.List) (ast.Declarati
 	if s.MatchSymbols(1, "defalias") {
 		decl, errors = p.parseDefAlias(false, s.Elements)
 	} else if s.MatchSymbols(1, "defcolumns") {
-		decl, errors = p.parseDefColumns(module, s)
+		decl, errors = p.parseDefColumns(module, s, nonStrictMode)
 	} else if s.Len() == 3 && s.MatchSymbols(1, "defcomputed") {
-		decl, errors = p.parseDefComputed(module, s.Elements)
+		decl, errors = p.parseDefComputed(module, s.Elements, nonStrictMode)
 	} else if s.Len() > 1 && s.MatchSymbols(1, "defconst") {
 		decl, errors = p.parseDefConst(module, s.Elements)
 	} else if s.Len() == 4 && s.MatchSymbols(2, "defconstraint") {
@@ -277,9 +281,9 @@ func (p *Parser) parseDeclaration(module util.Path, s *sexp.List) (ast.Declarati
 	} else if s.Len() == 4 && s.MatchSymbols(1, "deflookup") {
 		decl, errors = p.parseDefLookup(s.Elements)
 	} else if s.Len() == 3 && s.MatchSymbols(2, "defpermutation") {
-		decl, errors = p.parseDefPermutation(module, s.Elements)
+		decl, errors = p.parseDefPermutation(module, s.Elements, nonStrictMode)
 	} else if s.Len() == 4 && s.MatchSymbols(2, "defperspective") {
-		decl, errors = p.parseDefPerspective(module, s.Elements)
+		decl, errors = p.parseDefPerspective(module, s.Elements, nonStrictMode)
 	} else if s.Len() == 3 && s.MatchSymbols(2, "defproperty") {
 		decl, errors = p.parseDefProperty(s.Elements)
 	} else if s.Len() == 3 && s.MatchSymbols(2, "defsorted") {
@@ -333,7 +337,8 @@ func (p *Parser) parseDefAlias(functions bool, elements []sexp.SExp) (ast.Declar
 }
 
 // Parse a column declaration
-func (p *Parser) parseDefColumns(module util.Path, l *sexp.List) (ast.Declaration, []SyntaxError) {
+// If nonStrictMode is activated, parser accepts columns of field type 𝔽.
+func (p *Parser) parseDefColumns(module util.Path, l *sexp.List, nonStrictMode bool) (ast.Declaration, []SyntaxError) {
 	columns := make([]*ast.DefColumn, l.Len()-1)
 	// Sanity check declaration
 	if len(l.Elements) == 1 {
@@ -344,7 +349,7 @@ func (p *Parser) parseDefColumns(module util.Path, l *sexp.List) (ast.Declaratio
 	var errors []SyntaxError
 	// Process column declarations one by one.
 	for i := 1; i < len(l.Elements); i++ {
-		decl, err := p.parseColumnDeclaration(module, module, false, l.Elements[i])
+		decl, err := p.parseColumnDeclaration(module, module, false, l.Elements[i], nonStrictMode)
 		// Extract column name
 		if err != nil {
 			errors = append(errors, *err)
@@ -360,8 +365,9 @@ func (p *Parser) parseDefColumns(module util.Path, l *sexp.List) (ast.Declaratio
 	return ast.NewDefColumns(columns), nil
 }
 
+// If nonStrictMode is activated, parser accepts columns of field type 𝔽.
 func (p *Parser) parseColumnDeclaration(context util.Path, path util.Path, computed bool,
-	e sexp.SExp) (*ast.DefColumn, *SyntaxError) {
+	e sexp.SExp, nonStrictMode bool) (*ast.DefColumn, *SyntaxError) {
 	//
 	var (
 		error *SyntaxError
@@ -392,10 +398,12 @@ func (p *Parser) parseColumnDeclaration(context util.Path, path util.Path, compu
 		if datatype, mustProve, display, error = p.parseColumnDeclarationAttributes(l.Elements[1:]); error != nil {
 			return nil, error
 		}
-		// Check that the column is typed
-		// Column is untyped if datatype contains Native type, we bubble up a syntax error
-		if datatype != nil && strings.Contains(datatype.String(), "𝔽") {
-			return nil, p.translator.SyntaxError(l, "Column is untyped.")
+		// Type check of columns for strict mode only
+		if !nonStrictMode {
+			// Column is untyped if datatype is of FieldType
+			if datatype != nil && datatype.IsFieldType() {
+				return nil, p.translator.SyntaxError(l, "Column is untyped.")
+			}
 		}
 	} else {
 		name = *path.Extend(e.String(false))
@@ -489,7 +497,8 @@ func (p *Parser) parseArrayDimension(s sexp.SExp) (uint, uint, *SyntaxError) {
 }
 
 // Parse a defcomputed declaration
-func (p *Parser) parseDefComputed(module util.Path, elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
+// If nonStrictMode is activated, parser accepts columns of field type 𝔽.
+func (p *Parser) parseDefComputed(module util.Path, elements []sexp.SExp, nonStrictMode bool) (ast.Declaration, []SyntaxError) {
 	var (
 		errors      []SyntaxError
 		sexpTargets *sexp.List = elements[1].AsList()
@@ -506,7 +515,7 @@ func (p *Parser) parseDefComputed(module util.Path, elements []sexp.SExp) (ast.D
 		for i := 0; i < sexpTargets.Len(); i++ {
 			var err *SyntaxError
 			// Parse target declaration
-			if targets[i], err = p.parseColumnDeclaration(module, module, true, sexpTargets.Get(i)); err != nil {
+			if targets[i], err = p.parseColumnDeclaration(module, module, true, sexpTargets.Get(i), nonStrictMode); err != nil {
 				errors = append(errors, *err)
 			}
 		}
@@ -793,7 +802,8 @@ func (p *Parser) parseDefLookup(elements []sexp.SExp) (ast.Declaration, []Syntax
 }
 
 // Parse a permutation declaration
-func (p *Parser) parseDefPermutation(module util.Path, elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
+// If nonStrictMode is activated, parser accepts columns of field type 𝔽.
+func (p *Parser) parseDefPermutation(module util.Path, elements []sexp.SExp, nonStrictMode bool) (ast.Declaration, []SyntaxError) {
 	var (
 		errors  []SyntaxError
 		sources []ast.Symbol
@@ -833,7 +843,7 @@ func (p *Parser) parseDefPermutation(module util.Path, elements []sexp.SExp) (as
 			//
 			ith_src := sexpSources.Get(i)
 			// Parse target column
-			if targets[i], err = p.parseColumnDeclaration(module, module, true, sexpTargets.Get(i)); err != nil {
+			if targets[i], err = p.parseColumnDeclaration(module, module, true, sexpTargets.Get(i), nonStrictMode); err != nil {
 				errors = append(errors, *err)
 			}
 			// Parse source column
@@ -988,7 +998,8 @@ func (p *Parser) parsePermutedColumnSign(sign *sexp.Symbol) (*bool, *SyntaxError
 }
 
 // Parse a perspective declaration
-func (p *Parser) parseDefPerspective(module util.Path, elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
+// If nonStrictMode is activated, parser accepts columns of field type 𝔽.
+func (p *Parser) parseDefPerspective(module util.Path, elements []sexp.SExp, nonStrictMode bool) (ast.Declaration, []SyntaxError) {
 	var (
 		errors       []SyntaxError
 		sexp_columns *sexp.List = elements[3].AsList()
@@ -1013,7 +1024,7 @@ func (p *Parser) parseDefPerspective(module util.Path, elements []sexp.SExp) (as
 		columns = make([]*ast.DefColumn, sexp_columns.Len())
 
 		for i := 0; i < len(sexp_columns.Elements); i++ {
-			decl, err := p.parseColumnDeclaration(module, *perspective.Path(), false, sexp_columns.Elements[i])
+			decl, err := p.parseColumnDeclaration(module, *perspective.Path(), false, sexp_columns.Elements[i], nonStrictMode)
 			// Extract column name
 			if err != nil {
 				errors = append(errors, *err)

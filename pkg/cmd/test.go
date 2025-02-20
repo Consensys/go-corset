@@ -59,6 +59,7 @@ var testCmd = &cobra.Command{
 		cfg.expand = !GetFlag(cmd, "raw")
 		cfg.corsetConfig.Stdlib = !GetFlag(cmd, "no-stdlib")
 		cfg.corsetConfig.Legacy = GetFlag(cmd, "legacy")
+		cfg.corsetConfig.StrictMode = GetFlag(cmd, "strict")
 		cfg.report = GetFlag(cmd, "report")
 		cfg.reportPadding = GetUint(cmd, "report-context")
 		cfg.optimisation = mir.OPTIMISATION_LEVELS[optimisation]

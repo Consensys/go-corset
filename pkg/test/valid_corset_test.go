@@ -1309,6 +1309,7 @@ func Check(t *testing.T, stdlib bool, test string) {
 	//
 	corsetConfig.Legacy = true
 	corsetConfig.Stdlib = stdlib
+	corsetConfig.StrictMode = false
 	// Enable testing each trace in parallel
 	t.Parallel()
 	// Read constraints file
