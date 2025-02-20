@@ -383,6 +383,22 @@ func Test_Invalid_Permute_08(t *testing.T) {
 }
 
 // ===================================================================
+// Sortings
+// ===================================================================
+
+func Test_Invalid_Sorted_01(t *testing.T) {
+	CheckInvalid(t, "sorted_invalid_01")
+}
+
+func Test_Invalid_Sorted_02(t *testing.T) {
+	CheckInvalid(t, "sorted_invalid_02")
+}
+
+func Test_Invalid_Sorted_03(t *testing.T) {
+	CheckInvalid(t, "sorted_invalid_03")
+}
+
+// ===================================================================
 // Lookups
 // ===================================================================
 

@@ -14,7 +14,9 @@ package set
 
 import (
 	"cmp"
+	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 )
@@ -107,6 +109,30 @@ func UnionSortedSets[S any, T cmp.Ordered](elems []S, fn func(S) *SortedSet[T]) 
 	}
 	//
 	return set
+}
+
+//nolint:revive
+func (p *SortedSet[T]) String() string {
+	var r strings.Builder
+	//
+	first := true
+	// Write opening brace
+	r.WriteString("{")
+	// Iterate all buckets
+	for _, item := range *p {
+		// Iterate all items in bucket
+		if !first {
+			r.WriteString(",")
+		}
+
+		first = false
+
+		r.WriteString(fmt.Sprintf("%v", any(item)))
+	}
+	// Write closing brace
+	r.WriteString("}")
+	// Done
+	return r.String()
 }
 
 // Determine number of duplicate elements

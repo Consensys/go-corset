@@ -233,6 +233,8 @@ func (t *translator) translateDeclaration(decl ast.Declaration, module util.Path
 		// As for defcolumns, nothing generated here.
 	case *ast.DefProperty:
 		errors = t.translateDefProperty(d, module)
+	case *ast.DefSorted:
+		errors = t.translateDefSorted(d, module)
 	default:
 		// Error handling
 		panic("unknown declaration")
@@ -451,6 +453,20 @@ func (t *translator) translateDefProperty(decl *ast.DefProperty, module util.Pat
 		context := assertion.Context(t.schema)
 		// Add translated constraint
 		t.schema.AddPropertyAssertion(decl.Handle, context, assertion)
+	}
+	// Done
+	return errors
+}
+
+// Translate a "defsorted" declaration.
+func (t *translator) translateDefSorted(decl *ast.DefSorted, module util.Path) []SyntaxError {
+	// Translate source expressions
+	sources, errors := t.translateUnitExpressionsInModule(decl.Sources, module, 0)
+	// Create construct (assuming no errors thus far)
+	if len(errors) == 0 {
+		context := t.env.ContextOf(ast.ContextOfExpressions(decl.Sources))
+		// Add translated constraint
+		t.schema.AddSortedConstraint(decl.Handle, context, sources, decl.Signs)
 	}
 	// Done
 	return errors

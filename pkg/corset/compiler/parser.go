@@ -282,6 +282,8 @@ func (p *Parser) parseDeclaration(module util.Path, s *sexp.List) (ast.Declarati
 		decl, errors = p.parseDefPerspective(module, s.Elements)
 	} else if s.Len() == 3 && s.MatchSymbols(2, "defproperty") {
 		decl, errors = p.parseDefProperty(s.Elements)
+	} else if s.Len() == 3 && s.MatchSymbols(2, "defsorted") {
+		decl, errors = p.parseDefSorted(s.Elements)
 	} else {
 		errors = p.translator.SyntaxErrors(s, "malformed declaration")
 	}
@@ -780,7 +782,46 @@ func (p *Parser) parseDefPermutation(module util.Path, elements []sexp.SExp) (as
 	return ast.NewDefPermutation(targets, sources, signs), nil
 }
 
-func (p *Parser) parsePermutedColumnAccess(signRequired bool, e sexp.SExp) (ast.Symbol, bool, *SyntaxError) {
+// Parse a permutation declaration
+func (p *Parser) parseDefSorted(elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
+	var (
+		errors  []SyntaxError
+		sources []ast.Expr
+		signs   []bool
+	)
+	// Extract items
+	handle := elements[1]
+	sexpSources := elements[2].AsList()
+	// Check Handle
+	if !isIdentifier(handle) {
+		errors = append(errors, *p.translator.SyntaxError(elements[1], "malformed handle"))
+	}
+	// Check source Expressions
+	if sexpSources == nil {
+		errors = append(errors, *p.translator.SyntaxError(elements[3], "malformed source columns"))
+	}
+	// Sanity check number of columns matches
+	if sexpSources != nil {
+		sources = make([]ast.Expr, sexpSources.Len())
+		signs = make([]bool, sexpSources.Len())
+		// Translate source & target expressions
+		for i := 0; i < sexpSources.Len(); i++ {
+			var err *SyntaxError
+			// Translate source expressions
+			if sources[i], signs[i], err = p.parsePermutedColumnAccess(i == 0, sexpSources.Get(i)); err != nil {
+				errors = append(errors, *err)
+			}
+		}
+	}
+	// Error check
+	if len(errors) != 0 {
+		return nil, errors
+	}
+	// Done
+	return ast.NewDefSorted(handle.AsSymbol().Value, sources, signs), nil
+}
+
+func (p *Parser) parsePermutedColumnAccess(signRequired bool, e sexp.SExp) (*ast.VariableAccess, bool, *SyntaxError) {
 	//
 	var (
 		err  *SyntaxError

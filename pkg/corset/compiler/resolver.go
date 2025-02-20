@@ -387,6 +387,8 @@ func (r *resolver) finaliseDeclaration(scope *ModuleScope, decl ast.Declaration)
 		return r.finaliseDefPerspectiveInModule(scope, d)
 	case *ast.DefProperty:
 		return r.finaliseDefPropertyInModule(scope, d)
+	case *ast.DefSorted:
+		return r.finaliseDefSortedInModule(scope, d)
 	}
 	//
 	return nil
@@ -637,6 +639,20 @@ func (r *resolver) finaliseDefPropertyInModule(enclosing Scope, decl *ast.DefPro
 	scope := NewLocalScope(enclosing, false, false)
 	// Resolve assertion
 	return r.finaliseExpressionInModule(scope, decl.Assertion)
+}
+
+func (r *resolver) finaliseDefSortedInModule(enclosing Scope, decl *ast.DefSorted) []SyntaxError {
+	var (
+		sourceScope = NewLocalScope(enclosing, true, false)
+	)
+	// Resolve source expressions
+	errors := r.finaliseExpressionsInModule(sourceScope, decl.Sources)
+	// Error check
+	if len(errors) == 0 {
+		decl.Finalise()
+	}
+	//
+	return errors
 }
 
 // Resolve a sequence of zero or more expressions within a given module.  This

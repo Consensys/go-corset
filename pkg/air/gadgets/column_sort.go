@@ -32,12 +32,10 @@ import (
 // This gadget does not attempt to sort the column data during trace expansion,
 // and assumes the data either comes sorted or is sorted by some other
 // computation.
-func ApplyColumnSortGadget(col uint, sign bool, bitwidth uint, schema *air.Schema) {
+func ApplyColumnSortGadget(prefix string, col uint, sign bool, bitwidth uint, schema *air.Schema) {
 	var deltaName string
 	// Identify target column
 	column := schema.Columns().Nth(col)
-	// Determine column name
-	name := column.Name
 	// Configure computation
 	Xk := air.NewColumnAccess(col, 0)
 	Xkm1 := air.NewColumnAccess(col, -1)
@@ -45,10 +43,10 @@ func ApplyColumnSortGadget(col uint, sign bool, bitwidth uint, schema *air.Schem
 	var Xdiff air.Expr
 	if sign {
 		Xdiff = Xk.Sub(Xkm1)
-		deltaName = fmt.Sprintf("+%s", name)
+		deltaName = fmt.Sprintf("+%s", prefix)
 	} else {
 		Xdiff = Xkm1.Sub(Xk)
-		deltaName = fmt.Sprintf("-%s", name)
+		deltaName = fmt.Sprintf("-%s", prefix)
 	}
 	// Look up column
 	deltaIndex, ok := sc.ColumnIndexOf(schema, column.Context.Module(), deltaName)
