@@ -397,7 +397,9 @@ func constructLexicographicSortingPrefix(columns []uint, signs []bool, schema *a
 		ith := schema.Columns().Nth(columns[i])
 		id.WriteString(ith.Name)
 
-		if signs[i] {
+		if i >= len(signs) {
+
+		} else if signs[i] {
 			id.WriteString("+")
 		} else {
 			id.WriteString("-")

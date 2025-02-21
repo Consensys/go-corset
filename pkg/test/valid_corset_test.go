@@ -601,6 +601,10 @@ func Test_Permute_10(t *testing.T) {
 	Check(t, false, "permute_10")
 }
 
+func Test_Permute_11(t *testing.T) {
+	Check(t, false, "permute_11")
+}
+
 // ===================================================================
 // Sorting Constraints
 // ===================================================================
@@ -622,6 +626,10 @@ func Test_Sorted_05(t *testing.T) {
 }
 func Test_Sorted_06(t *testing.T) {
 	Check(t, false, "sorted_06")
+}
+
+func Test_Sorted_07(t *testing.T) {
+	Check(t, false, "sorted_07")
 }
 
 // ===================================================================

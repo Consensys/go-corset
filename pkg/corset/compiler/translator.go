@@ -15,6 +15,7 @@ package compiler
 import (
 	"fmt"
 	"math"
+	"slices"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/corset/ast"
@@ -414,7 +415,6 @@ func (t *translator) translateDefPermutation(decl *ast.DefPermutation, module ut
 	)
 	//
 	targets := make([]sc.Column, len(decl.Sources))
-	signs := make([]bool, len(decl.Sources))
 	sources := make([]uint, len(decl.Sources))
 	//
 	for i := 0; i < len(decl.Sources); i++ {
@@ -425,7 +425,6 @@ func (t *translator) translateDefPermutation(decl *ast.DefPermutation, module ut
 		targets[i] = sc.NewColumn(target.Context, target.Name(), target.DataType)
 		sourceBinding := decl.Sources[i].Binding().(*ast.ColumnBinding)
 		sources[i] = t.env.RegisterOf(&sourceBinding.Path)
-		signs[i] = decl.Signs[i]
 		// Record first CID
 		if i == 0 {
 			firstCid = targetId
@@ -433,6 +432,8 @@ func (t *translator) translateDefPermutation(decl *ast.DefPermutation, module ut
 		// Join contexts
 		context = context.Join(target.Context)
 	}
+	// Clone the signs
+	signs := slices.Clone(decl.Signs)
 	// Add the assignment and check the first identifier.
 	cid := t.schema.AddAssignment(assignment.NewSortedPermutation(context, targets, signs, sources))
 	// Sanity check column identifiers align.
@@ -465,8 +466,10 @@ func (t *translator) translateDefSorted(decl *ast.DefSorted, module util.Path) [
 	// Create construct (assuming no errors thus far)
 	if len(errors) == 0 {
 		context := t.env.ContextOf(ast.ContextOfExpressions(decl.Sources))
+		// Clone the signs
+		signs := slices.Clone(decl.Signs)
 		// Add translated constraint
-		t.schema.AddSortedConstraint(decl.Handle, context, sources, decl.Signs)
+		t.schema.AddSortedConstraint(decl.Handle, context, sources, signs)
 	}
 	// Done
 	return errors

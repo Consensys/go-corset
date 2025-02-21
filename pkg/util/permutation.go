@@ -117,7 +117,7 @@ func AreLexicographicallySorted(cols [][]fr.Element, signs []bool) bool {
 }
 
 func permutationSortFunc(lhs []fr.Element, rhs []fr.Element, signs []bool) int {
-	for i := 0; i < len(lhs); i++ {
+	for i := 0; i < len(signs); i++ {
 		// Compare ith elements
 		c := lhs[i].Cmp(&rhs[i])
 		// Check whether same
