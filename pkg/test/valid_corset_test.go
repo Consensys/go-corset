@@ -682,6 +682,14 @@ func Test_Lookup_14(t *testing.T) {
 	Check(t, false, "lookup_14")
 }
 
+func Test_Lookup_15(t *testing.T) {
+	Check(t, false, "lookup_15")
+}
+
+func Test_Lookup_16(t *testing.T) {
+	Check(t, false, "lookup_16")
+}
+
 // ===================================================================
 // Interleaving
 // ===================================================================
@@ -1283,6 +1291,12 @@ func BinCheckTraces(t *testing.T, test string, cfg TestConfig,
 // either accepted or rejected) by a given set of constraints.
 func CheckTraces(t *testing.T, test string, maxPadding uint, cfg TestConfig, traces [][]trace.RawColumn,
 	hirSchema *hir.Schema) {
+	// For unexpected traces, we never want to explore padding (because that's
+	// the whole point of unexpanded traces --- they are raw).
+	if !cfg.expand {
+		maxPadding = 0
+	}
+	//
 	for i, tr := range traces {
 		if tr != nil {
 			// Lower HIR => MIR
