@@ -381,6 +381,12 @@ func Test_Invalid_Permute_07(t *testing.T) {
 func Test_Invalid_Permute_08(t *testing.T) {
 	CheckInvalid(t, "permute_invalid_08")
 }
+func Test_Invalid_Permute_09(t *testing.T) {
+	CheckInvalid(t, "permute_invalid_09")
+}
+func Test_Invalid_Permute_10(t *testing.T) {
+	CheckInvalid(t, "permute_invalid_10")
+}
 
 // ===================================================================
 // Sortings
@@ -396,6 +402,12 @@ func Test_Invalid_Sorted_02(t *testing.T) {
 
 func Test_Invalid_Sorted_03(t *testing.T) {
 	CheckInvalid(t, "sorted_invalid_03")
+}
+func Test_Invalid_Sorted_04(t *testing.T) {
+	CheckInvalid(t, "sorted_invalid_04")
+}
+func Test_Invalid_Sorted_05(t *testing.T) {
+	CheckInvalid(t, "sorted_invalid_05")
 }
 
 // ===================================================================

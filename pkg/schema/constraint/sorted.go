@@ -157,9 +157,11 @@ func sorted[E schema.Evaluable](first, second uint, sources []E, signs []bool, t
 	for i := range sources {
 		// Compare value
 		c := lhs[i].Cmp(&rhs[i])
-		// Check as desired
-		if (signs[i] && c > 0) || (!signs[i] && c < 0) {
-			return false
+		// Check sorting criteria
+		if c > 0 {
+			return !signs[i]
+		} else if c < 0 {
+			return signs[i]
 		}
 	}
 	//

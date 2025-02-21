@@ -758,6 +758,7 @@ func (p *Parser) parseDefPermutation(module util.Path, elements []sexp.SExp) (as
 	}
 	//
 	if sexpTargets != nil && sexpSources != nil {
+		signing := true
 		targets = make([]*ast.DefColumn, sexpTargets.Len())
 		sources = make([]ast.Symbol, sexpSources.Len())
 		signs = make([]bool, sexpSources.Len())
@@ -769,9 +770,17 @@ func (p *Parser) parseDefPermutation(module util.Path, elements []sexp.SExp) (as
 				errors = append(errors, *err)
 			}
 			// Parse source column
-			if sources[i], signs[i], err = p.parsePermutedColumnAccess(i == 0, sexpSources.Get(i)); err != nil {
+			if !signing && sexpSources.Get(i).AsList() != nil {
+				// Cannot begin with a negative sign
+				errors = append(errors, *p.translator.SyntaxError(sexpSources.Get(i), "sorted columns must come first"))
+			} else if sources[i], signs[i], err = p.parsePermutedColumnAccess(i == 0, sexpSources.Get(i)); err != nil {
 				errors = append(errors, *err)
+			} else if i == 0 && !signs[i] {
+				// Cannot begin with a negative sign
+				errors = append(errors, *p.translator.SyntaxError(sexpSources.Get(i), "expected positive sort"))
 			}
+			// Check whether still signing
+			signing = sexpSources.Get(i).AsList() != nil
 		}
 	}
 	// Error Check
@@ -802,15 +811,26 @@ func (p *Parser) parseDefSorted(elements []sexp.SExp) (ast.Declaration, []Syntax
 	}
 	// Sanity check number of columns matches
 	if sexpSources != nil {
+		signing := true
 		sources = make([]ast.Expr, sexpSources.Len())
 		signs = make([]bool, sexpSources.Len())
 		// Translate source & target expressions
 		for i := 0; i < sexpSources.Len(); i++ {
 			var err *SyntaxError
-			// Translate source expressions
-			if sources[i], signs[i], err = p.parsePermutedColumnAccess(i == 0, sexpSources.Get(i)); err != nil {
+			//
+			ith := sexpSources.Get(i)
+			//
+			if !signing && ith.AsList() != nil {
+				// Cannot begin with a negative sign
+				errors = append(errors, *p.translator.SyntaxError(ith, "sorted columns must come first"))
+			} else if sources[i], signs[i], err = p.parsePermutedColumnAccess(i == 0, ith); err != nil {
 				errors = append(errors, *err)
+			} else if i == 0 && !signs[i] {
+				// Cannot begin with a negative sign
+				errors = append(errors, *p.translator.SyntaxError(ith, "expected positive sort"))
 			}
+			// Check whether still signing
+			signing = ith.AsList() != nil
 		}
 	}
 	// Error check

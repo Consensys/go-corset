@@ -608,6 +608,21 @@ func Test_Permute_10(t *testing.T) {
 func Test_Sorted_01(t *testing.T) {
 	Check(t, false, "sorted_01")
 }
+func Test_Sorted_02(t *testing.T) {
+	Check(t, false, "sorted_02")
+}
+func Test_Sorted_03(t *testing.T) {
+	Check(t, false, "sorted_03")
+}
+func Test_Sorted_04(t *testing.T) {
+	Check(t, false, "sorted_04")
+}
+func Test_Sorted_05(t *testing.T) {
+	Check(t, false, "sorted_05")
+}
+func Test_Sorted_06(t *testing.T) {
+	Check(t, false, "sorted_06")
+}
 
 // ===================================================================
 // Lookups

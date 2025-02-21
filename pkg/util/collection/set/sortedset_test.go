@@ -13,23 +13,10 @@
 package set
 
 import (
-	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/consensys/go-corset/pkg/util"
 )
-
-func Test_SortedSet(t *testing.T) {
-	for i := 0; i < 50; i++ {
-		for j := 0; j < 10; j++ {
-			items := util.GenerateRandomUints(uint(i), uint(5*(j+1)))
-			//
-			s := fmt.Sprintf("%v", items)
-			fmt.Printf("{ \"X\": %s }\n", strings.ReplaceAll(s, " ", ","))
-		}
-	}
-}
 
 func Test_SortedSet_00(t *testing.T) {
 	check_SortedSet_Insert(t, 5, 10)

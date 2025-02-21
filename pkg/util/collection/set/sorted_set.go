@@ -117,7 +117,7 @@ func (p *SortedSet[T]) String() string {
 	//
 	first := true
 	// Write opening brace
-	r.WriteString("{")
+	r.WriteString("[")
 	// Iterate all buckets
 	for _, item := range *p {
 		// Iterate all items in bucket
@@ -130,7 +130,7 @@ func (p *SortedSet[T]) String() string {
 		r.WriteString(fmt.Sprintf("%v", any(item)))
 	}
 	// Write closing brace
-	r.WriteString("}")
+	r.WriteString("]")
 	// Done
 	return r.String()
 }

@@ -643,10 +643,17 @@ func (r *resolver) finaliseDefPropertyInModule(enclosing Scope, decl *ast.DefPro
 
 func (r *resolver) finaliseDefSortedInModule(enclosing Scope, decl *ast.DefSorted) []SyntaxError {
 	var (
-		sourceScope = NewLocalScope(enclosing, true, false)
+		sourceScope = NewLocalScope(enclosing, false, false)
 	)
 	// Resolve source expressions
 	errors := r.finaliseExpressionsInModule(sourceScope, decl.Sources)
+	// Sanity check length multipliers
+	for _, e := range decl.Sources {
+		// Sanity check multiplier has size 1
+		if e.Context().Multiplier != 1 {
+			errors = append(errors, *r.srcmap.SyntaxError(e, "interleaved column access not permitted"))
+		}
+	}
 	// Error check
 	if len(errors) == 0 {
 		decl.Finalise()

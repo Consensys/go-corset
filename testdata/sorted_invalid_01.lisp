@@ -1,2 +1,2 @@
-;;error:2:12-17:unknown symbol
+;;error:2:16-21:unknown symbol
 (defsorted s1 ((↓ X)))
