@@ -27,7 +27,7 @@ import (
 // DataColumn captures the essence of a data column at the MIR level.
 type DataColumn = *assignment.DataColumn
 
-// LookupConstraint captures the essence of a lookup constraint at the HIR
+// LookupConstraint captures the essence of a lookup constraint at the MIR
 // level.
 type LookupConstraint = *constraint.LookupConstraint[Expr]
 
@@ -38,6 +38,10 @@ type VanishingConstraint = *constraint.VanishingConstraint[Expr]
 
 // RangeConstraint captures the essence of a range constraints at the MIR level.
 type RangeConstraint = *constraint.RangeConstraint[Expr]
+
+// SortedConstraint captures the essence of a sorted constraint at the MIR
+// level.
+type SortedConstraint = *constraint.SortedConstraint[Expr]
 
 // PropertyAssertion captures the notion of an arbitrary property which should
 // hold for all acceptable traces.  However, such a property is not enforced by
@@ -147,6 +151,13 @@ func (p *Schema) AddVanishingConstraint(handle string, num uint, context trace.C
 // AddRangeConstraint appends a new range constraint.
 func (p *Schema) AddRangeConstraint(handle string, casenum uint, context trace.Context, expr Expr, bound fr.Element) {
 	p.constraints = append(p.constraints, constraint.NewRangeConstraint(handle, casenum, context, expr, bound))
+}
+
+// AddSortedConstraint appends a new sorted constraint.
+func (p *Schema) AddSortedConstraint(handle string, context trace.Context, sources []Expr, signs []bool) {
+	// Finally add constraint
+	p.constraints = append(p.constraints,
+		constraint.NewSortedConstraint(handle, context, sources, signs))
 }
 
 // AddPropertyAssertion appends a new property assertion.

@@ -118,6 +118,8 @@ func lowerConstraintToAir(c sc.Constraint, mirSchema *Schema, airSchema *air.Sch
 		lowerVanishingConstraintToAir(v, mirSchema, airSchema, cfg)
 	} else if v, ok := c.(RangeConstraint); ok {
 		lowerRangeConstraintToAir(v, mirSchema, airSchema, cfg)
+	} else if v, ok := c.(SortedConstraint); ok {
+		lowerSortedConstraintToAir(v, mirSchema, airSchema, cfg)
 	} else {
 		// Should be unreachable as no other constraint types can be added to a
 		// schema.
@@ -198,6 +200,47 @@ func lowerLookupConstraintToAir(c LookupConstraint, mirSchema *Schema, airSchema
 	airSchema.AddLookupConstraint(c.Handle, c.SourceContext, c.TargetContext, sources, targets)
 }
 
+// Lower a sorted constraint to the AIR level.  The challenge here is that there
+// is not concept of sorting constraints at the AIR level.  Instead, we have to
+// generate the necessary machinery to enforce the sorting constraint.
+func lowerSortedConstraintToAir(c SortedConstraint, mirSchema *Schema, airSchema *air.Schema, cfg OptimisationConfig) {
+	ncols := len(c.Sources)
+	sources := make([]uint, ncols)
+	//
+	for i := 0; i < len(sources); i++ {
+		sourceBitwidth := c.Sources[i].IntRange(mirSchema).BitWidth()
+		// Lower source expression
+		source := lowerExprTo(c.Context, c.Sources[i], mirSchema, airSchema, cfg)
+		// Expand them
+		sources[i] = air_gadgets.Expand(c.Context, sourceBitwidth, source, airSchema)
+	}
+	// finally add the constraint
+	if ncols == 1 {
+		// For a single column sort, its actually a bit easier because we don't
+		// need to implement a multiplexor (i.e. to determine which column is
+		// differs, etc).  Instead, we just need a delta column which ensures
+		// there is a non-negative difference between consecutive rows.  This
+		// also requires bitwidth constraints.
+		bitwidth := mirSchema.Columns().Nth(sources[0]).DataType.AsUint().BitWidth()
+		// Add column sorting constraints
+		air_gadgets.ApplyColumnSortGadget(c.Handle, sources[0], c.Signs[0], bitwidth, airSchema)
+	} else {
+		// For a multi column sort, its a bit harder as we need additional
+		// logicl to ensure the target columns are lexicographally sorted.
+		bitwidth := uint(0)
+
+		for i := 0; i < ncols; i++ {
+			// Extract bitwidth of ith column
+			ith := mirSchema.Columns().Nth(sources[i]).DataType.AsUint().BitWidth()
+			if ith > bitwidth {
+				bitwidth = ith
+			}
+		}
+		// Add lexicographically sorted constraints
+		air_gadgets.ApplyLexicographicSortingGadget(c.Handle, sources, c.Signs, bitwidth, airSchema)
+	}
+}
+
 // Lower a permutation to the AIR level.  This has quite a few
 // effects.  Firstly, permutation constraints are added for all of the
 // new columns.  Secondly, sorting constraints (and their associated
@@ -233,8 +276,10 @@ func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Sche
 		// there is a non-negative difference between consecutive rows.  This
 		// also requires bitwidth constraints.
 		bitwidth := mirSchema.Columns().Nth(c.Sources[0]).DataType.AsUint().BitWidth()
+		// Identify target column name
+		target := mirSchema.Columns().Nth(targets[0]).Name
 		// Add column sorting constraints
-		air_gadgets.ApplyColumnSortGadget(targets[0], c.Signs[0], bitwidth, airSchema)
+		air_gadgets.ApplyColumnSortGadget(target, targets[0], c.Signs[0], bitwidth, airSchema)
 	} else {
 		// For a multi column sort, its a bit harder as we need additional
 		// logicl to ensure the target columns are lexicographally sorted.
@@ -247,8 +292,10 @@ func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Sche
 				bitwidth = ith
 			}
 		}
+		// Construct a unique prefix for this sort.
+		prefix := constructLexicographicSortingPrefix(targets, c.Signs, airSchema)
 		// Add lexicographically sorted constraints
-		air_gadgets.ApplyLexicographicSortingGadget(targets, c.Signs, bitwidth, airSchema)
+		air_gadgets.ApplyLexicographicSortingGadget(prefix, targets, c.Signs, bitwidth, airSchema)
 	}
 }
 
@@ -338,4 +385,24 @@ func lowerTerms(ctx trace.Context, exprs []Term, mirSchema *Schema, airSchema *a
 	}
 
 	return nexprs
+}
+
+// Construct a unique identifier for the given sort.  This should not conflict
+// with the identifier for any other sort.
+func constructLexicographicSortingPrefix(columns []uint, signs []bool, schema *air.Schema) string {
+	// Use string builder to try and make this vaguely efficient.
+	var id strings.Builder
+	// Concatenate column names with their signs.
+	for i := 0; i < len(columns); i++ {
+		ith := schema.Columns().Nth(columns[i])
+		id.WriteString(ith.Name)
+
+		if signs[i] {
+			id.WriteString("+")
+		} else {
+			id.WriteString("-")
+		}
+	}
+	// Done
+	return id.String()
 }

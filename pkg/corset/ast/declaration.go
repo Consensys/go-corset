@@ -1264,3 +1264,87 @@ func NewDefParameter(name string, datatype Type) *DefParameter {
 func (p *DefParameter) Lisp() sexp.SExp {
 	return sexp.NewSymbol(p.Binding.Name)
 }
+
+// ============================================================================
+// defsorted
+// ============================================================================
+
+// DefSorted ensures that a given set of columns are lexicographically sorted.
+// The sort direction for each of the source columns can be specified as
+// increasing or decreasing.
+type DefSorted struct {
+	// Unique handle given to this constraint.  This is primarily useful for
+	// debugging (i.e. so we know which constaint failed, etc).
+	Handle string
+	// Source expressions for lookup (i.e. these values must all be contained
+	// within the targets).
+	Sources []Expr
+	// Sorting signs
+	Signs []bool
+	// Indicates whether or not source expressions have been resolved.
+	finalised bool
+}
+
+// NewDefSorted constructs a new (unfinalised) sorted constraint.
+func NewDefSorted(handle string, sources []Expr, signs []bool) *DefSorted {
+	return &DefSorted{handle, sources, signs, false}
+}
+
+// Dependencies needed to signal declaration.
+func (p *DefSorted) Dependencies() iter.Iterator[Symbol] {
+	sourceDeps := DependenciesOfExpressions(p.Sources)
+	// Combine deps
+	return iter.NewArrayIterator(sourceDeps)
+}
+
+// IsFinalised checks whether this declaration has already been finalised.  If
+// so, then we don't need to finalise it again.
+func (p *DefSorted) IsFinalised() bool {
+	return p.finalised
+}
+
+// Finalise this declaration, which means that all source and target expressions
+// have been resolved.
+func (p *DefSorted) Finalise() {
+	p.finalised = true
+}
+
+// IsAssignment checks whether this declaration is an assignment or not.
+func (p *DefSorted) IsAssignment() bool {
+	return false
+}
+
+// Defines checks whether this declaration defines the given symbol.  The symbol
+// in question needs to have been resolved already for this to make sense.
+func (p *DefSorted) Defines(symbol Symbol) bool {
+	return false
+}
+
+// Definitions returns the set of symbols defined by this declaration.  Observe
+// that these may not yet have been finalised.
+func (p *DefSorted) Definitions() iter.Iterator[SymbolDefinition] {
+	return iter.NewArrayIterator[SymbolDefinition](nil)
+}
+
+// Lisp converts this node into its lisp representation.  This is primarily used
+// for debugging purposes.
+func (p *DefSorted) Lisp() sexp.SExp {
+	sources := make([]sexp.SExp, len(p.Sources))
+	// Sources
+	for i, t := range p.Sources {
+		var sign string
+		if p.Signs[i] {
+			sign = "+"
+		} else {
+			sign = "-"
+		}
+		//
+		sources[i] = sexp.NewList([]sexp.SExp{
+			sexp.NewSymbol(sign),
+			t.Lisp()})
+	}
+	//
+	return sexp.NewList([]sexp.SExp{
+		sexp.NewSymbol("defsorted"),
+		sexp.NewList(sources)})
+}

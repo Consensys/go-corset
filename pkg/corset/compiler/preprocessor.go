@@ -97,6 +97,8 @@ func (p *preprocessor) preprocessDeclaration(decl ast.Declaration) []SyntaxError
 		errors = p.preprocessDefPerspective(d)
 	case *ast.DefProperty:
 		errors = p.preprocessDefProperty(d)
+	case *ast.DefSorted:
+		// ignore
 	default:
 		// Error handling
 		panic("unknown declaration")

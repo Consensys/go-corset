@@ -101,6 +101,8 @@ func (p *typeChecker) typeCheckDeclaration(decl ast.Declaration) []SyntaxError {
 		errors = p.typeCheckDefPerspective(d)
 	case *ast.DefProperty:
 		errors = p.typeCheckDefProperty(d)
+	case *ast.DefSorted:
+		// ignore
 	default:
 		// Error handling
 		panic("unknown declaration")

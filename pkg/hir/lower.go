@@ -70,6 +70,8 @@ func lowerConstraintToMir(c sc.Constraint, schema *mir.Schema) {
 		for i, mir_expr := range mir_exprs {
 			schema.AddRangeConstraint(v.Handle, uint(i), v.Context, mir_expr, v.Bound)
 		}
+	} else if v, ok := c.(SortedConstraint); ok {
+		lowerSortedConstraint(v, schema)
 	} else {
 		// Should be unreachable as no other constraint types can be added to a
 		// schema.
@@ -87,6 +89,16 @@ func lowerLookupConstraint(c LookupConstraint, schema *mir.Schema) {
 	}
 	//
 	schema.AddLookupConstraint(c.Handle, c.SourceContext, c.TargetContext, from, into)
+}
+
+func lowerSortedConstraint(c SortedConstraint, schema *mir.Schema) {
+	sources := make([]mir.Expr, len(c.Sources))
+	// Convert general expressions into unit expressions.
+	for i := 0; i < len(sources); i++ {
+		sources[i] = lowerUnitTo(c.Sources[i], schema)
+	}
+	//
+	schema.AddSortedConstraint(c.Handle, c.Context, sources, c.Signs)
 }
 
 // Lower an expression which is expected to lower into a single expression.

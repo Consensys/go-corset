@@ -14,7 +14,6 @@ package gadgets
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/consensys/go-corset/pkg/air"
 	sc "github.com/consensys/go-corset/pkg/schema"
@@ -40,7 +39,7 @@ import (
 // case (see above).  The delta value captures the difference Ci[k]-Ci[k-1] to
 // ensure it is positive.  The delta column is constrained to a given bitwidth,
 // with constraints added as necessary to ensure this.
-func ApplyLexicographicSortingGadget(columns []uint, signs []bool, bitwidth uint, schema *air.Schema) {
+func ApplyLexicographicSortingGadget(prefix string, columns []uint, signs []bool, bitwidth uint, schema *air.Schema) {
 	ncols := len(columns)
 	// Check preconditions
 	if ncols != len(signs) {
@@ -48,8 +47,6 @@ func ApplyLexicographicSortingGadget(columns []uint, signs []bool, bitwidth uint
 	}
 	// Determine enclosing module for this gadget.
 	ctx := sc.ContextOfColumns(columns, schema)
-	// Construct a unique prefix for this sort.
-	prefix := constructLexicographicSortingPrefix(columns, signs, schema)
 	// Add trace computation
 	deltaIndex := schema.AddAssignment(
 		assignment.NewLexicographicSort(prefix, ctx, columns, signs, bitwidth))
@@ -62,26 +59,6 @@ func ApplyLexicographicSortingGadget(columns []uint, signs []bool, bitwidth uint
 	schema.AddVanishingConstraint(deltaName, 0, ctx, util.None[int](), constraint)
 	// Add necessary bitwidth constraints
 	ApplyBitwidthGadget(deltaIndex, bitwidth, schema)
-}
-
-// Construct a unique identifier for the given sort.  This should not conflict
-// with the identifier for any other sort.
-func constructLexicographicSortingPrefix(columns []uint, signs []bool, schema *air.Schema) string {
-	// Use string builder to try and make this vaguely efficient.
-	var id strings.Builder
-	// Concatenate column names with their signs.
-	for i := 0; i < len(columns); i++ {
-		ith := schema.Columns().Nth(columns[i])
-		id.WriteString(ith.Name)
-
-		if signs[i] {
-			id.WriteString("+")
-		} else {
-			id.WriteString("-")
-		}
-	}
-	// Done
-	return id.String()
 }
 
 // Add lexicographic selector bits, including the necessary constraints.  Each

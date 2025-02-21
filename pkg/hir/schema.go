@@ -43,6 +43,9 @@ type LookupConstraint = *constraint.LookupConstraint[UnitExpr]
 // RangeConstraint captures the essence of a range constraints at the HIR level.
 type RangeConstraint = *constraint.RangeConstraint[MaxExpr]
 
+// SortedConstraint captures the essence of a sorted constraints at the HIR level.
+type SortedConstraint = *constraint.SortedConstraint[UnitExpr]
+
 // PropertyAssertion captures the notion of an arbitrary property which should
 // hold for all acceptable traces.  However, such a property is not enforced by
 // the prover.
@@ -108,20 +111,6 @@ func (p *Schema) AddDataColumn(context trace.Context, name string, base sc.Type)
 	return cid
 }
 
-// AddLookupConstraint appends a new lookup constraint.
-func (p *Schema) AddLookupConstraint(handle string, source trace.Context, target trace.Context,
-	sources []UnitExpr, targets []UnitExpr) {
-	if len(targets) != len(sources) {
-		panic("differeng number of target / source lookup columns")
-	}
-	// TODO: sanity source columns are in the source module, and likewise target
-	// columns are in the target module (though source != target is permitted).
-
-	// Finally add constraint
-	p.constraints = append(p.constraints,
-		constraint.NewLookupConstraint(handle, source, target, sources, targets))
-}
-
 // AddAssignment appends a new assignment (i.e. set of computed columns) to be
 // used during trace expansion for this schema.  Computed columns are introduced
 // by the process of lowering from HIR / MIR to AIR.
@@ -134,6 +123,20 @@ func (p *Schema) AddAssignment(c sc.Assignment) uint {
 	}
 	// Done
 	return index
+}
+
+// AddLookupConstraint appends a new lookup constraint.
+func (p *Schema) AddLookupConstraint(handle string, source trace.Context, target trace.Context,
+	sources []UnitExpr, targets []UnitExpr) {
+	if len(targets) != len(sources) {
+		panic("differeng number of target / source lookup columns")
+	}
+	// TODO: sanity source columns are in the source module, and likewise target
+	// columns are in the target module (though source != target is permitted).
+
+	// Finally add constraint
+	p.constraints = append(p.constraints,
+		constraint.NewLookupConstraint(handle, source, target, sources, targets))
 }
 
 // AddVanishingConstraint appends a new vanishing constraint.
@@ -151,6 +154,13 @@ func (p *Schema) AddRangeConstraint(handle string, context trace.Context, expr E
 	// Check whether is a field type, as these can actually be ignored.
 	maxExpr := MaxExpr{expr}
 	p.constraints = append(p.constraints, constraint.NewRangeConstraint[MaxExpr](handle, 0, context, maxExpr, bound))
+}
+
+// AddSortedConstraint appends a new sorted constraint.
+func (p *Schema) AddSortedConstraint(handle string, context trace.Context, sources []UnitExpr, signs []bool) {
+	// Finally add constraint
+	p.constraints = append(p.constraints,
+		constraint.NewSortedConstraint(handle, context, sources, signs))
 }
 
 // AddPropertyAssertion appends a new property assertion.
@@ -299,4 +309,5 @@ func init() {
 	gob.Register(sc.Constraint(&constraint.RangeConstraint[MaxExpr]{}))
 	gob.Register(sc.Constraint(&constraint.PermutationConstraint{}))
 	gob.Register(sc.Constraint(&constraint.LookupConstraint[UnitExpr]{}))
+	gob.Register(sc.Constraint(&constraint.SortedConstraint[UnitExpr]{}))
 }
