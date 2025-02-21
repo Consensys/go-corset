@@ -41,8 +41,10 @@ type SortedPermutation struct {
 // NewSortedPermutation creates a new sorted permutation
 func NewSortedPermutation(context tr.Context, targets []sc.Column,
 	signs []bool, sources []uint) *SortedPermutation {
-	if len(targets) != len(signs) || len(signs) != len(sources) {
-		panic("target and source column widths must match")
+	if len(targets) != len(sources) {
+		panic("target and source column have differing lengths!")
+	} else if len(signs) == 0 || len(signs) > len(targets) {
+		panic("invalid sort directions")
 	}
 	// Check modules
 	for _, c := range targets {
@@ -147,7 +149,10 @@ func (p *SortedPermutation) Lisp(schema sc.Schema) sexp.SExp {
 
 	for i, s := range p.Sources {
 		ith := sc.QualifiedName(schema, s)
-		if p.Signs[i] {
+		//
+		if i >= len(p.Signs) {
+
+		} else if p.Signs[i] {
 			ith = fmt.Sprintf("+%s", ith)
 		} else {
 			ith = fmt.Sprintf("-%s", ith)

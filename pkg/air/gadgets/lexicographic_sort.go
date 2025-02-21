@@ -40,9 +40,8 @@ import (
 // ensure it is positive.  The delta column is constrained to a given bitwidth,
 // with constraints added as necessary to ensure this.
 func ApplyLexicographicSortingGadget(prefix string, columns []uint, signs []bool, bitwidth uint, schema *air.Schema) {
-	ncols := len(columns)
 	// Check preconditions
-	if ncols != len(signs) {
+	if len(columns) < len(signs) {
 		panic("Inconsistent number of columns and signs for lexicographic sort.")
 	}
 	// Determine enclosing module for this gadget.
@@ -51,7 +50,7 @@ func ApplyLexicographicSortingGadget(prefix string, columns []uint, signs []bool
 	deltaIndex := schema.AddAssignment(
 		assignment.NewLexicographicSort(prefix, ctx, columns, signs, bitwidth))
 	// Construct selecto bits.
-	addLexicographicSelectorBits(prefix, ctx, deltaIndex, columns, schema)
+	addLexicographicSelectorBits(prefix, ctx, deltaIndex, columns, signs, schema)
 	// Construct delta terms
 	constraint := constructLexicographicDeltaConstraint(deltaIndex, columns, signs)
 	// Add delta constraint
@@ -69,8 +68,8 @@ func ApplyLexicographicSortingGadget(prefix string, columns []uint, signs []bool
 // NOTE: this implementation differs from the original corset which used an
 // additional "Eq" bit to help ensure at most one selector bit was enabled.
 func addLexicographicSelectorBits(prefix string, context trace.Context,
-	deltaIndex uint, columns []uint, schema *air.Schema) {
-	ncols := uint(len(columns))
+	deltaIndex uint, columns []uint, signs []bool, schema *air.Schema) {
+	ncols := uint(len(signs))
 	// Calculate column index of first selector bit
 	bitIndex := deltaIndex + 1
 	// Add binary constraints for selector bits
@@ -122,7 +121,7 @@ func addLexicographicSelectorBits(prefix string, context trace.Context,
 // set. This is assumes that multiplexor bits are mutually exclusive (i.e. at
 // most is one).
 func constructLexicographicDeltaConstraint(deltaIndex uint, columns []uint, signs []bool) air.Expr {
-	ncols := uint(len(columns))
+	ncols := uint(len(signs))
 	// Calculate column index of first selector bit
 	bitIndex := deltaIndex + 1
 	// Construct delta terms
@@ -147,21 +146,4 @@ func constructLexicographicDeltaConstraint(deltaIndex uint, columns []uint, sign
 	}
 	// Construct final constraint
 	return Dk.Equate(air.Sum(terms...))
-}
-
-// AddBitArray adds an array of n bit columns using a given prefix, including
-// the necessary binarity constraints.
-func AddBitArray(prefix string, count int, schema *air.Schema) []uint {
-	bits := make([]uint, count)
-
-	for i := 0; i < count; i++ {
-		// // Construct bit column name
-		// ith := fmt.Sprintf("%s:%d", prefix, i)
-		// // Add (computed) column
-		// bits[i] = schema.AddColumn(ith, sc.NewUintType(1))
-		// Add binarity constraints (i.e. to enfoce that this column is a bit).
-		ApplyBinaryGadget(bits[i], schema)
-	}
-	//
-	return bits
 }

@@ -134,7 +134,10 @@ func (p *SortedConstraint[E]) Lisp(schema sc.Schema) sexp.SExp {
 	// Iterate source expressions
 	for i := 0; i < len(p.Sources); i++ {
 		ith := p.Sources[i].Lisp(schema)
-		if p.Signs[i] {
+		//
+		if i >= len(p.Signs) {
+			//
+		} else if p.Signs[i] {
 			ith = sexp.NewList([]sexp.SExp{sexp.NewSymbol("+"), ith})
 		} else {
 			ith = sexp.NewList([]sexp.SExp{sexp.NewSymbol("-"), ith})
@@ -154,7 +157,7 @@ func sorted[E schema.Evaluable](first, second uint, sources []E, signs []bool, t
 	lhs := evalExprsAt2(first, sources, trace)
 	rhs := evalExprsAt2(second, sources, trace)
 	//
-	for i := range sources {
+	for i := range signs {
 		// Compare value
 		c := lhs[i].Cmp(&rhs[i])
 		// Check sorting criteria

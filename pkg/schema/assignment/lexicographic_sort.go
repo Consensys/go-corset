@@ -45,11 +45,11 @@ type LexicographicSort struct {
 func NewLexicographicSort(prefix string, context tr.Context,
 	sources []uint, signs []bool, bitwidth uint) *LexicographicSort {
 	//
-	targets := make([]sc.Column, len(sources)+1)
+	targets := make([]sc.Column, len(signs)+1)
 	// Create delta column
 	targets[0] = sc.NewColumn(context, fmt.Sprintf("%s:delta", prefix), sc.NewUintType(bitwidth))
 	// Create selector columns
-	for i := range sources {
+	for i := range signs {
 		ithName := fmt.Sprintf("%s:%d", prefix, i)
 		targets[1+i] = sc.NewColumn(context, ithName, sc.NewUintType(1))
 	}
@@ -97,8 +97,8 @@ func (p *LexicographicSort) ComputeColumns(trace tr.Trace) ([]tr.ArrayColumn, er
 	zero := fr.NewElement(0)
 	one := fr.NewElement(1)
 	first := p.targets[0]
-	// Exact number of columns involved in the sort
-	nbits := len(p.sources)
+	// Exact number of (signed) columns involved in the sort
+	nbits := len(p.signs)
 	// Determine how many rows to be constrained.
 	nrows := trace.Height(p.context)
 	// Initialise new data columns
@@ -173,7 +173,10 @@ func (p *LexicographicSort) Lisp(schema sc.Schema) sexp.SExp {
 
 	for i, s := range p.sources {
 		ith := sc.QualifiedName(schema, s)
-		if p.signs[i] {
+		//
+		if i >= len(p.signs) {
+			// unsigned column
+		} else if p.signs[i] {
 			ith = fmt.Sprintf("+%s", ith)
 		} else {
 			ith = fmt.Sprintf("-%s", ith)
