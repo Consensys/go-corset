@@ -204,8 +204,7 @@ func lowerLookupConstraintToAir(c LookupConstraint, mirSchema *Schema, airSchema
 // is not concept of sorting constraints at the AIR level.  Instead, we have to
 // generate the necessary machinery to enforce the sorting constraint.
 func lowerSortedConstraintToAir(c SortedConstraint, mirSchema *Schema, airSchema *air.Schema, cfg OptimisationConfig) {
-	ncols := len(c.Sources)
-	sources := make([]uint, ncols)
+	sources := make([]uint, len(c.Sources))
 	//
 	for i := 0; i < len(sources); i++ {
 		sourceBitwidth := c.Sources[i].IntRange(mirSchema).BitWidth()
@@ -214,6 +213,8 @@ func lowerSortedConstraintToAir(c SortedConstraint, mirSchema *Schema, airSchema
 		// Expand them
 		sources[i] = air_gadgets.Expand(c.Context, sourceBitwidth, source, airSchema)
 	}
+	// Determine number of ordered columns
+	ncols := len(c.Signs)
 	// finally add the constraint
 	if ncols == 1 {
 		// For a single column sort, its actually a bit easier because we don't
@@ -221,23 +222,27 @@ func lowerSortedConstraintToAir(c SortedConstraint, mirSchema *Schema, airSchema
 		// differs, etc).  Instead, we just need a delta column which ensures
 		// there is a non-negative difference between consecutive rows.  This
 		// also requires bitwidth constraints.
-		bitwidth := mirSchema.Columns().Nth(sources[0]).DataType.AsUint().BitWidth()
-		// Add column sorting constraints
-		air_gadgets.ApplyColumnSortGadget(c.Handle, sources[0], c.Signs[0], bitwidth, airSchema)
+		air_gadgets.ApplyColumnSortGadget(c.Handle, sources[0], c.Signs[0], c.BitWidth, airSchema)
 	} else {
 		// For a multi column sort, its a bit harder as we need additional
 		// logicl to ensure the target columns are lexicographally sorted.
-		bitwidth := uint(0)
+		air_gadgets.ApplyLexicographicSortingGadget(c.Handle, sources, c.Signs, c.BitWidth, airSchema)
+	}
+	// Sanity check bitwidth
+	bitwidth := uint(0)
 
-		for i := 0; i < ncols; i++ {
-			// Extract bitwidth of ith column
-			ith := mirSchema.Columns().Nth(sources[i]).DataType.AsUint().BitWidth()
-			if ith > bitwidth {
-				bitwidth = ith
-			}
+	for i := 0; i < ncols; i++ {
+		// Extract bitwidth of ith column
+		ith := mirSchema.Columns().Nth(sources[i]).DataType.AsUint().BitWidth()
+		if ith > bitwidth {
+			bitwidth = ith
 		}
-		// Add lexicographically sorted constraints
-		air_gadgets.ApplyLexicographicSortingGadget(c.Handle, sources, c.Signs, bitwidth, airSchema)
+	}
+	//
+	if bitwidth != c.BitWidth {
+		// Should be unreachable.
+		msg := fmt.Sprintf("incompatible bitwidths (%d vs %d)", bitwidth, c.BitWidth)
+		panic(msg)
 	}
 }
 
@@ -250,12 +255,11 @@ func lowerSortedConstraintToAir(c SortedConstraint, mirSchema *Schema, airSchema
 func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Schema) {
 	builder := strings.Builder{}
 	c_targets := c.Targets
-	ncols := len(c_targets)
-	targets := make([]uint, ncols)
+	targets := make([]uint, len(c_targets))
 	//
 	builder.WriteString("permutation")
 	// Add individual permutation constraints
-	for i := 0; i < ncols; i++ {
+	for i := 0; i < len(c_targets); i++ {
 		var ok bool
 		// TODO: how best to avoid this lookup?
 		targets[i], ok = sc.ColumnIndexOf(airSchema, c.Module(), c_targets[i].Name)
@@ -268,8 +272,10 @@ func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Sche
 	}
 	//
 	airSchema.AddPermutationConstraint(builder.String(), c.Context(), targets, c.Sources)
+	// Determine number of ordered columns
+	numSignedCols := len(c.Signs)
 	// Add sorting constraints + computed columns as necessary.
-	if ncols == 1 {
+	if numSignedCols == 1 {
 		// For a single column sort, its actually a bit easier because we don't
 		// need to implement a multiplexor (i.e. to determine which column is
 		// differs, etc).  Instead, we just need a delta column which ensures
@@ -285,7 +291,7 @@ func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Sche
 		// logicl to ensure the target columns are lexicographally sorted.
 		bitwidth := uint(0)
 
-		for i := 0; i < ncols; i++ {
+		for i := 0; i < numSignedCols; i++ {
 			// Extract bitwidth of ith column
 			ith := mirSchema.Columns().Nth(c.Sources[i]).DataType.AsUint().BitWidth()
 			if ith > bitwidth {

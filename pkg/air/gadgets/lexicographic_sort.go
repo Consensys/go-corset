@@ -40,6 +40,7 @@ import (
 // ensure it is positive.  The delta column is constrained to a given bitwidth,
 // with constraints added as necessary to ensure this.
 func ApplyLexicographicSortingGadget(prefix string, columns []uint, signs []bool, bitwidth uint, schema *air.Schema) {
+	fmt.Printf("Columns: source (%d) vs signs (%d), bitwidth: %d\n", len(columns), len(signs), bitwidth)
 	// Check preconditions
 	if len(columns) < len(signs) {
 		panic("Inconsistent number of columns and signs for lexicographic sort.")

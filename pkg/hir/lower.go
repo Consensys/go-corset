@@ -98,7 +98,7 @@ func lowerSortedConstraint(c SortedConstraint, schema *mir.Schema) {
 		sources[i] = lowerUnitTo(c.Sources[i], schema)
 	}
 	//
-	schema.AddSortedConstraint(c.Handle, c.Context, sources, c.Signs)
+	schema.AddSortedConstraint(c.Handle, c.Context, c.BitWidth, sources, c.Signs)
 }
 
 // Lower an expression which is expected to lower into a single expression.

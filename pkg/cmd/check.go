@@ -64,6 +64,7 @@ var checkCmd = &cobra.Command{
 		cfg.mir = GetFlag(cmd, "mir")
 		cfg.hir = GetFlag(cmd, "hir")
 		cfg.defensive = GetFlag(cmd, "defensive")
+		cfg.validate = GetFlag(cmd, "validate")
 		cfg.expand = !GetFlag(cmd, "raw")
 		cfg.report = GetFlag(cmd, "report")
 		cfg.reportPadding = GetUint(cmd, "report-context")
@@ -148,6 +149,9 @@ type checkConfig struct {
 	// not required when a "raw" trace is given which already includes all
 	// implied columns.
 	expand bool
+	// Specifies whether or not to perform trace validation.  That is, to check
+	// all input values are within expected bounds.
+	validate bool
 	// Specifies whether or not to include the standard library.  The default is
 	// to include it.
 	stdlib bool
@@ -207,6 +211,7 @@ func checkTrace[K sc.Metric[K]](ir string, traces [][]tr.RawColumn, schema sc.Sc
 	//
 	coverage := sc.NewBranchCoverage()
 	builder := sc.NewTraceBuilder(schema).
+		Validate(cfg.validate).
 		Defensive(cfg.defensive).
 		Expand(cfg.expand).
 		Parallel(cfg.parallel).
@@ -341,6 +346,7 @@ func init() {
 	checkCmd.Flags().BoolP("quiet", "q", false, "suppress output (e.g. warnings)")
 	checkCmd.Flags().Bool("sequential", false, "perform sequential trace expansion")
 	checkCmd.Flags().Bool("defensive", true, "automatically apply defensive padding to every module")
+	checkCmd.Flags().Bool("validate", true, "apply trace validation")
 	checkCmd.Flags().String("coverage", "", "write JSON coverage data to file")
 	checkCmd.Flags().Uint("padding", 0, "specify amount of (front) padding to apply")
 	checkCmd.Flags().UintP("batch", "b", math.MaxUint, "specify batch size for constraint checking")

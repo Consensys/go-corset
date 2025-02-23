@@ -14,6 +14,7 @@ package constraint
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
@@ -46,6 +47,8 @@ type SortedConstraint[E schema.Evaluable] struct {
 	// Evaluation Context for this constraint which must match that of the
 	// source expressions.
 	Context tr.Context
+	// BitWidth of delta (i.e. maximum difference between columns)
+	BitWidth uint
 	// Sources returns the indices of the columns composing the "right" table of the
 	// Sorted.
 	Sources []E
@@ -54,10 +57,10 @@ type SortedConstraint[E schema.Evaluable] struct {
 }
 
 // NewSortedConstraint creates a new Sorted
-func NewSortedConstraint[E schema.Evaluable](handle string, context tr.Context, sources []E,
+func NewSortedConstraint[E schema.Evaluable](handle string, context tr.Context, bitwidth uint, sources []E,
 	signs []bool) *SortedConstraint[E] {
 	//
-	return &SortedConstraint[E]{handle, context, sources, signs}
+	return &SortedConstraint[E]{handle, context, bitwidth, sources, signs}
 }
 
 // Name returns a unique name for a given constraint.  This is useful
@@ -115,10 +118,12 @@ func (p *SortedConstraint[E]) Accepts(trace tr.Trace) (bit.Set, sc.Failure) {
 	bounds := p.Bounds(p.Context.Module())
 	// Sanity check enough rows
 	if bounds.End < height {
+		// Determine permitted range on delta value
+		deltaBound := p.deltaBound()
 		// Check all in-bounds values
 		for k := bounds.Start + 1; k < (height - bounds.End); k++ {
 			// Check sorting between rows k-1 and k
-			if !sorted(k-1, k, p.Sources, p.Signs, trace) {
+			if !sorted(k-1, k, deltaBound, p.Sources, p.Signs, trace) {
 				return coverage, &SortedFailure{fmt.Sprintf("sorted constraint \"%s\" failed (rows %d ~ %d)", p.Handle, k-1, k)}
 			}
 		}
@@ -153,18 +158,39 @@ func (p *SortedConstraint[E]) Lisp(schema sc.Schema) sexp.SExp {
 	})
 }
 
-func sorted[E schema.Evaluable](first, second uint, sources []E, signs []bool, trace tr.Trace) bool {
-	lhs := evalExprsAt2(first, sources, trace)
-	rhs := evalExprsAt2(second, sources, trace)
+func (p *SortedConstraint[E]) deltaBound() fr.Element {
+	var (
+		two   fr.Element = fr.NewElement(2)
+		bound fr.Element
+	)
+	//
+	bound.Exp(two, big.NewInt(int64(p.BitWidth)))
+	//
+	return bound
+}
+
+func sorted[E schema.Evaluable](first, second uint, bound fr.Element, sources []E, signs []bool,
+	trace tr.Trace) bool {
+	var (
+		delta fr.Element
+		lhs   = evalExprsAt2(first, sources, trace)
+		rhs   = evalExprsAt2(second, sources, trace)
+	)
 	//
 	for i := range signs {
 		// Compare value
 		c := lhs[i].Cmp(&rhs[i])
 		// Check sorting criteria
 		if c > 0 {
-			return !signs[i]
+			// Compute delta
+			delta.Sub(&lhs[i], &rhs[i])
+			//
+			return delta.Cmp(&bound) < 0 && !signs[i]
 		} else if c < 0 {
-			return signs[i]
+			// Compute delta
+			delta.Sub(&rhs[i], &lhs[i])
+			//
+			return delta.Cmp(&bound) < 0 && signs[i]
 		}
 	}
 	//
