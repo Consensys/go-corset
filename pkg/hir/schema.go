@@ -157,8 +157,8 @@ func (p *Schema) AddRangeConstraint(handle string, context trace.Context, expr E
 }
 
 // AddSortedConstraint appends a new sorted constraint.
-func (p *Schema) AddSortedConstraint(handle string, context trace.Context, bitwidth uint, selector util.Option[UnitExpr],
-	sources []UnitExpr, signs []bool, strict bool) {
+func (p *Schema) AddSortedConstraint(handle string, context trace.Context, bitwidth uint,
+	selector util.Option[UnitExpr], sources []UnitExpr, signs []bool, strict bool) {
 	// Finally add constraint
 	p.constraints = append(p.constraints,
 		constraint.NewSortedConstraint(handle, context, bitwidth, selector, sources, signs, strict))
