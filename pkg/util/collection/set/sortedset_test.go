@@ -130,9 +130,10 @@ func hasDeltaOverflow(words [N][]uint, bounds []uint) bool {
 
 func Test_SortedSet(t *testing.T) {
 	// Bounds determined by bitwidth of columns.
-	init := []uint{70000, 255}
-	bounds := []uint{65536, 65536}
-	//
+	bounds := []uint{262144, 262144}
+	init := []uint{300000, 1024}
+	//init := []uint{256, 256}
+	// //
 	for i := 3; i < 10; i++ {
 		for j := 0; j < 100000; j++ {
 			// Create words

@@ -34,18 +34,24 @@ type ByteDecomposition struct {
 }
 
 // NewByteDecomposition creates a new sorted permutation
-func NewByteDecomposition(prefix string, context trace.Context, source uint, width uint) *ByteDecomposition {
-	if width == 0 {
+func NewByteDecomposition(prefix string, context trace.Context, source uint, bitwidth uint) *ByteDecomposition {
+	var n uint = bitwidth / 8
+	//
+	if bitwidth == 0 {
 		panic("zero byte decomposition encountered")
 	}
-	// Define type of bytes
-	U8 := sc.NewUintType(8)
+	// Account for asymetric case
+	if bitwidth%8 != 0 {
+		n++
+	}
 	// Construct target names
-	targets := make([]sc.Column, width)
+	targets := make([]sc.Column, n)
 
-	for i := uint(0); i < width; i++ {
+	for i := uint(0); i < n; i++ {
 		name := fmt.Sprintf("%s:%d", prefix, i)
-		targets[i] = sc.NewColumn(context, name, U8)
+		utype := sc.NewUintType(min(8, bitwidth))
+		targets[i] = sc.NewColumn(context, name, utype)
+		bitwidth -= 8
 	}
 	// Done
 	return &ByteDecomposition{source, targets}
@@ -151,7 +157,12 @@ func decomposeIntoBytes(val fr.Element, n int) []fr.Element {
 func (p *ByteDecomposition) Lisp(schema sc.Schema) sexp.SExp {
 	targets := sexp.EmptyList()
 	for _, t := range p.targets {
-		targets.Append(sexp.NewSymbol(t.QualifiedName(schema)))
+		targets.Append(sexp.NewList([]sexp.SExp{
+			// name
+			sexp.NewSymbol(t.QualifiedName(schema)),
+			// type
+			sexp.NewSymbol(t.DataType.String()),
+		}))
 	}
 
 	return sexp.NewList(

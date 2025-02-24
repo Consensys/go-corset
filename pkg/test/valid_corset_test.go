@@ -465,6 +465,10 @@ func Test_Type_10(t *testing.T) {
 	Check(t, false, "type_10")
 }
 
+func Test_Type_11(t *testing.T) {
+	Check(t, false, "type_11")
+}
+
 // ===================================================================
 // Range Constraints
 // ===================================================================
