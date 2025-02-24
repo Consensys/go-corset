@@ -643,13 +643,13 @@ func (r *resolver) finaliseDefPropertyInModule(enclosing Scope, decl *ast.DefPro
 
 func (r *resolver) finaliseDefSortedInModule(enclosing Scope, decl *ast.DefSorted) []SyntaxError {
 	var (
-		sourceScope = NewLocalScope(enclosing, false, false)
+		scope = NewLocalScope(enclosing, false, false)
 	)
 	// Resolve source expressions
-	errors := r.finaliseExpressionsInModule(sourceScope, decl.Sources)
+	errors := r.finaliseExpressionsInModule(scope, decl.Sources)
 	// Resolve (optional) selector expression
 	if decl.Selector.HasValue() {
-		r.finaliseExpressionInModule(sourceScope, decl.Selector.Unwrap())
+		r.finaliseExpressionInModule(scope, decl.Selector.Unwrap())
 	}
 	// Sanity check length multipliers
 	for _, e := range decl.Sources {

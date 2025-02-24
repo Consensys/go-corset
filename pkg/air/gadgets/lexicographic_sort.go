@@ -57,7 +57,7 @@ func ApplyLexicographicSortingGadget(prefix string, columns []uint, signs []bool
 	deltaName := fmt.Sprintf("%s:delta", prefix)
 	schema.AddVanishingConstraint(deltaName, 0, ctx, util.None[int](), constraint)
 	// Add necessary bitwidth constraints
-	ApplyBitwidthGadget(deltaIndex, bitwidth, schema)
+	ApplyBitwidthGadget(deltaIndex, bitwidth, air.NewConst64(1), schema)
 }
 
 // Add lexicographic selector bits, including the necessary constraints.  Each

@@ -43,7 +43,7 @@ func ApplyBinaryGadget(col uint, schema *air.Schema) {
 // ApplyBitwidthGadget ensures all values in a given column fit within a given
 // number of bits.  This is implemented using a *byte decomposition* which adds
 // n columns and a vanishing constraint (where n*8 >= nbits).
-func ApplyBitwidthGadget(col uint, nbits uint, schema *air.Schema) {
+func ApplyBitwidthGadget(col uint, nbits uint, selector air.Expr, schema *air.Schema) {
 	var (
 		// Determine ranges required for the give bitwidth
 		ranges = splitColumnRanges(nbits)
@@ -76,7 +76,7 @@ func ApplyBitwidthGadget(col uint, nbits uint, schema *air.Schema) {
 	sum := air.Sum(es...)
 	// Construct X == (X:0 * 1) + ... + (X:n * 2^n)
 	X := air.NewColumnAccess(col, 0)
-	eq := X.Equate(sum)
+	eq := selector.Mul(X.Equate(sum))
 	// Construct column name
 	schema.AddVanishingConstraint(fmt.Sprintf("%s:u%d", name, nbits), 0, column.Context, util.None[int](), eq)
 }

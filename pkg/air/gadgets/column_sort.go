@@ -21,7 +21,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 )
 
-// ApplyColumnSortGadget adds sorting constraints for a column where the
+// ColumnSortGadget adds sorting constraints for a column where the
 // difference between any two rows (i.e. the delta) is constrained to fit within
 // a given bitwidth.  The target column is assumed to have an appropriate
 // (enforced) bitwidth to ensure overflow cannot arise.  The sorting constraint
@@ -32,39 +32,83 @@ import (
 // This gadget does not attempt to sort the column data during trace expansion,
 // and assumes the data either comes sorted or is sorted by some other
 // computation.
-func ApplyColumnSortGadget(prefix string, col uint, sign bool, bitwidth uint, schema *air.Schema) {
+type ColumnSortGadget struct {
+	// Prefix is used to construct the delta column name.
+	prefix string
+	// Identifies column being sorted
+	column uint
+	// Sign of sort (true = ascending, false = descending)
+	sign bool
+	// Bitwidth of delta column
+	bitwidth uint
+	// Strict implies equal values are not permitted.
+	strict bool
+	// Constraint active when selector is non-zero.
+	selector air.Expr
+}
+
+// NewColumnSortGadget constructs a new column sort gadget which can then be
+// configured.
+func NewColumnSortGadget(prefix string, column uint, bitwidth uint) ColumnSortGadget {
+	return ColumnSortGadget{
+		prefix,
+		column,
+		true,
+		bitwidth,
+		false,
+		air.NewConst64(1),
+	}
+}
+
+// SetSign configures the sort direction
+func (p *ColumnSortGadget) SetSign(sign bool) {
+	p.sign = sign
+}
+
+// SetStrict configures strictness
+func (p *ColumnSortGadget) SetStrict(strict bool) {
+	p.strict = strict
+}
+
+// SetSelector sets the selector for this constraint.
+func (p *ColumnSortGadget) SetSelector(selector air.Expr) {
+	p.selector = selector
+}
+
+// Apply a given ColumnSortGadget to a given schema.
+func (p *ColumnSortGadget) Apply(schema *air.Schema) {
 	var deltaName string
 	// Identify target column
-	column := schema.Columns().Nth(col)
+	column := schema.Columns().Nth(p.column)
 	// Configure computation
-	Xk := air.NewColumnAccess(col, 0)
-	Xkm1 := air.NewColumnAccess(col, -1)
+	Xk := air.NewColumnAccess(p.column, 0)
+	Xkm1 := air.NewColumnAccess(p.column, -1)
 	// Account for sign
 	var Xdiff air.Expr
-	if sign {
+	if p.sign {
 		Xdiff = Xk.Sub(Xkm1)
-		deltaName = fmt.Sprintf("+%s", prefix)
+		deltaName = fmt.Sprintf("+%s", p.prefix)
 	} else {
 		Xdiff = Xkm1.Sub(Xk)
-		deltaName = fmt.Sprintf("-%s", prefix)
+		deltaName = fmt.Sprintf("-%s", p.prefix)
+	}
+	// Apply strictness
+	if p.strict {
+		Xdiff = Xdiff.Sub(air.NewConst64(1))
 	}
 	// Look up column
 	deltaIndex, ok := sc.ColumnIndexOf(schema, column.Context.Module(), deltaName)
 	// Add new column (if it does not already exist)
 	if !ok {
-		// NOTE: require delta bitwidth is greater than 16 because, otherwise,
-		// failing traces can result in a panic when the (miscomputed) delta
-		// overflows the underlying column.  This works around the problem by
-		// ensuring the underlying column is an instanceof FrIndexColumn (since
-		// this can hold values of any width).
-		deltaBitwidth := max(17, bitwidth)
-		//
 		deltaIndex = schema.AddAssignment(
-			assignment.NewComputedColumn(column.Context, deltaName, sc.NewUintType(deltaBitwidth), Xdiff))
+			assignment.NewComputedColumn(column.Context, deltaName, &sc.FieldType{}, Xdiff))
 	}
 	// Add necessary bitwidth constraints
-	ApplyBitwidthGadget(deltaIndex, bitwidth, schema)
+	ApplyBitwidthGadget(deltaIndex, p.bitwidth, p.selector, schema)
 	// Configure constraint: Delta[k] = X[k] - X[k-1]
 	Dk := air.NewColumnAccess(deltaIndex, 0)
-	schema.AddVanishingConstraint(deltaName, 0, column.Context, util.None[int](), Dk.Equate(Xdiff))
+	// Apply selecto
+	e := p.selector.Mul(Dk.Equate(Xdiff))
+	// Done
+	schema.AddVanishingConstraint(deltaName, 0, column.Context, util.None[int](), e)
 }
