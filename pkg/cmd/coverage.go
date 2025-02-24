@@ -220,16 +220,16 @@ func readCoverageReports(filenames []string, binf *binfile.BinaryFile,
 }
 
 func printCoverage(depth uint,
-// Determines how constraints are grouped (e.g. by module, etc)
+	// Determines how constraints are grouped (e.g. by module, etc)
 	groups []cov.ConstraintGroup,
-// Filter to use for selecting constraints.
+	// Filter to use for selecting constraints.
 	filter cov.Filter,
-// Determines which metrics to show (e.g. coverage only, or actually branch
-// counts, etc)
+	// Determines which metrics to show (e.g. coverage only, or actually branch
+	// counts, etc)
 	calcs []cov.ColumnCalc,
-// Distinct coverage reports to show side-by-side
+	// Distinct coverage reports to show side-by-side
 	coverages []sc.CoverageMap,
-// Schema which defines what constraints are available, etc.
+	// Schema which defines what constraints are available, etc.
 	schema sc.Schema) {
 	//
 	var (
