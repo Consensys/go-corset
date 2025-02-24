@@ -214,9 +214,9 @@ func lowerSortedConstraintToAir(c SortedConstraint, mirSchema *Schema, airSchema
 		sources[i] = air_gadgets.Expand(c.Context, sourceBitwidth, source, airSchema)
 	}
 	// Determine number of ordered columns
-	ncols := len(c.Signs)
+	numSignedCols := len(c.Signs)
 	// finally add the constraint
-	if ncols == 1 {
+	if numSignedCols == 1 {
 		// For a single column sort, its actually a bit easier because we don't
 		// need to implement a multiplexor (i.e. to determine which column is
 		// differs, etc).  Instead, we just need a delta column which ensures
@@ -231,7 +231,7 @@ func lowerSortedConstraintToAir(c SortedConstraint, mirSchema *Schema, airSchema
 	// Sanity check bitwidth
 	bitwidth := uint(0)
 
-	for i := 0; i < ncols; i++ {
+	for i := 0; i < numSignedCols; i++ {
 		// Extract bitwidth of ith column
 		ith := mirSchema.Columns().Nth(sources[i]).DataType.AsUint().BitWidth()
 		if ith > bitwidth {
