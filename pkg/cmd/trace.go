@@ -56,6 +56,7 @@ var traceCmd = &cobra.Command{
 		columns := GetFlag(cmd, "columns")
 		modules := GetFlag(cmd, "modules")
 		defensive := GetFlag(cmd, "defensive")
+		validate := GetFlag(cmd, "validate")
 		stats := GetFlag(cmd, "stats")
 		stdlib := !GetFlag(cmd, "no-stdlib")
 		includes := GetStringArray(cmd, "include")
@@ -85,7 +86,7 @@ var traceCmd = &cobra.Command{
 		} else if expand {
 			level := determineAbstractionLevel(air, mir, hir)
 			for i, cols := range traces {
-				traces[i] = expandWithConstraints(level, cols, stdlib, defensive, args[1:], optConfig)
+				traces[i] = expandWithConstraints(level, cols, stdlib, validate, defensive, args[1:], optConfig)
 			}
 		} else if defensive {
 			fmt.Println("cannot apply defensive padding without trace expansion")
@@ -131,6 +132,7 @@ func init() {
 	traceCmd.Flags().BoolP("print", "p", false, "print entire trace file")
 	traceCmd.Flags().BoolP("expand", "e", false, "perform trace expansion (schema required)")
 	traceCmd.Flags().Bool("defensive", false, "perform defensive padding (schema required)")
+	traceCmd.Flags().Bool("validate", true, "apply trace validation")
 	traceCmd.Flags().Uint("start", 0, "filter out rows below this")
 	traceCmd.Flags().Uint("end", math.MaxUint, "filter out this and all following rows")
 	traceCmd.Flags().Uint("max-width", 32, "specify maximum display width for a column")
@@ -165,7 +167,7 @@ func determineAbstractionLevel(air, mir, hir bool) int {
 	panic("unreachable")
 }
 
-func expandWithConstraints(level int, cols []trace.RawColumn, stdlib bool, defensive bool,
+func expandWithConstraints(level int, cols []trace.RawColumn, stdlib bool, validate bool, defensive bool,
 	filenames []string, optConfig mir.OptimisationConfig) []trace.RawColumn {
 	//
 	var schema sc.Schema
@@ -183,11 +185,11 @@ func expandWithConstraints(level int, cols []trace.RawColumn, stdlib bool, defen
 		panic("unreachable")
 	}
 	// Done
-	return expandColumns(cols, schema, defensive)
+	return expandColumns(cols, schema, validate, defensive)
 }
 
-func expandColumns(cols []trace.RawColumn, schema sc.Schema, defensive bool) []trace.RawColumn {
-	builder := sc.NewTraceBuilder(schema).Expand(true).Defensive(defensive)
+func expandColumns(cols []trace.RawColumn, schema sc.Schema, validate bool, defensive bool) []trace.RawColumn {
+	builder := sc.NewTraceBuilder(schema).Expand(true).Validate(validate).Defensive(defensive)
 	tr, errs := builder.Build(cols)
 	//
 	if len(errs) > 0 {

@@ -468,8 +468,9 @@ func (t *translator) translateDefSorted(decl *ast.DefSorted, module util.Path) [
 		context := t.env.ContextOf(ast.ContextOfExpressions(decl.Sources))
 		// Clone the signs
 		signs := slices.Clone(decl.Signs)
+		bitwidth := determineMaxBitwidth(t.schema, sources[:len(signs)])
 		// Add translated constraint
-		t.schema.AddSortedConstraint(decl.Handle, context, sources, signs)
+		t.schema.AddSortedConstraint(decl.Handle, context, bitwidth, sources, signs)
 	}
 	// Done
 	return errors
@@ -684,4 +685,20 @@ func (t *translator) registerOfArrayAccess(expr *ast.ArrayAccess) (uint, []Synta
 	path = path.Parent().Extend(name)
 	// Lookup underlying column info
 	return t.env.RegisterOf(path), errors
+}
+
+func determineMaxBitwidth(schema sc.Schema, sources []hir.UnitExpr) uint {
+	// Sanity check bitwidth
+	bitwidth := uint(0)
+
+	for _, e := range sources {
+		// Determine bitwidth of nth term
+		ith := e.BitWidth(schema)
+		//
+		if ith > bitwidth {
+			bitwidth = ith
+		}
+	}
+	//
+	return bitwidth
 }

@@ -14,6 +14,7 @@ package gadgets
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/air"
@@ -43,30 +44,33 @@ func ApplyBinaryGadget(col uint, schema *air.Schema) {
 // number of bits.  This is implemented using a *byte decomposition* which adds
 // n columns and a vanishing constraint (where n*8 >= nbits).
 func ApplyBitwidthGadget(col uint, nbits uint, schema *air.Schema) {
-	if nbits%8 != 0 {
-		panic("asymmetric bitwidth constraints not yet supported")
-	} else if nbits == 0 {
+	var (
+		// Determine ranges required for the give bitwidth
+		ranges = splitColumnRanges(nbits)
+		// Identify number of columns required.
+		n = uint(len(ranges))
+	)
+	// Sanity check
+	if nbits == 0 {
 		panic("zero bitwidth constraint encountered")
 	}
 	// Identify target column
 	column := schema.Columns().Nth(col)
 	// Calculate how many bytes required.
-	n := nbits / 8
 	es := make([]air.Expr, n)
-	fr256 := fr.NewElement(256)
 	name := column.Name
 	coefficient := fr.NewElement(1)
 	// Add decomposition assignment
 	index := schema.AddAssignment(
-		assignment.NewByteDecomposition(name, column.Context, col, n))
+		assignment.NewByteDecomposition(name, column.Context, col, nbits))
 	// Construct Columns
 	for i := uint(0); i < n; i++ {
 		// Create Column + Constraint
 		es[i] = air.NewColumnAccess(index+i, 0).Mul(air.NewConst(coefficient))
 
-		schema.AddRangeConstraint(index+i, 0, fr256)
+		schema.AddRangeConstraint(index+i, 0, ranges[i])
 		// Update coefficient
-		coefficient.Mul(&coefficient, &fr256)
+		coefficient.Mul(&coefficient, &ranges[i])
 	}
 	// Construct (X:0 * 1) + ... + (X:n * 2^n)
 	sum := air.Sum(es...)
@@ -75,4 +79,31 @@ func ApplyBitwidthGadget(col uint, nbits uint, schema *air.Schema) {
 	eq := X.Equate(sum)
 	// Construct column name
 	schema.AddVanishingConstraint(fmt.Sprintf("%s:u%d", name, nbits), 0, column.Context, util.None[int](), eq)
+}
+
+func splitColumnRanges(nbits uint) []fr.Element {
+	var (
+		n      = nbits / 8
+		m      = int64(nbits % 8)
+		ranges []fr.Element
+		fr256  = fr.NewElement(256)
+	)
+	//
+	if m == 0 {
+		ranges = make([]fr.Element, n)
+	} else {
+		var last fr.Element
+		// Most significant column has smaller range.
+		ranges = make([]fr.Element, n+1)
+		// Determine final range
+		last.Exp(fr.NewElement(2), big.NewInt(m))
+		//
+		ranges[n] = last
+	}
+	//
+	for i := uint(0); i < n; i++ {
+		ranges[i] = fr256
+	}
+	//
+	return ranges
 }

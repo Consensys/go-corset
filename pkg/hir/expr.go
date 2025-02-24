@@ -76,6 +76,18 @@ func (e Expr) Branches() uint {
 // direction (right).
 func (e Expr) Bounds() util.Bounds { return e.Term.Bounds() }
 
+// BitWidth determines bitwidth required to hold the result of evaluating this expression.
+func (e Expr) BitWidth(schema sc.Schema) []uint {
+	switch e := e.Term.(type) {
+	case *ColumnAccess:
+		bitwidth := schema.Columns().Nth(e.Column).DataType.BitWidth()
+		return []uint{bitwidth}
+	default:
+		// For now, we only supports simple column accesses.
+		panic("bitwidth calculation only supported for column accesses")
+	}
+}
+
 // Lisp converts this schema element into a simple S-Termession, for example
 // so it can be printed.
 func (e Expr) Lisp(schema sc.Schema) sexp.SExp {

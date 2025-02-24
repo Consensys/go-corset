@@ -130,6 +130,11 @@ func (e UnitExpr) Bounds() util.Bounds {
 	return e.Expr.Bounds()
 }
 
+// BitWidth determines bitwidth required to hold the result of evaluating this expression.
+func (e UnitExpr) BitWidth(schema sc.Schema) uint {
+	return e.Expr.BitWidth(schema)[0]
+}
+
 // Context determines the evaluation context (i.e. enclosing module) for this
 // expression.
 func (e UnitExpr) Context(schema sc.Schema) tr.Context {
