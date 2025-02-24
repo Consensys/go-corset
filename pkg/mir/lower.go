@@ -235,8 +235,16 @@ func lowerSortedConstraintToAir(c SortedConstraint, mirSchema *Schema, airSchema
 	} else {
 		// For a multi column sort, its a bit harder as we need additional
 		// logic to ensure the target columns are lexicographally sorted.
-		//air_gadgets.ApplyLexicographicSortingGadget(c.Handle, sources, c.Signs, c.BitWidth, airSchema)
-		panic("todo")
+		gadget := air_gadgets.NewLexicographicSortingGadget(c.Handle, sources, c.BitWidth)
+		gadget.SetSigns(c.Signs...)
+		gadget.SetStrict(c.Strict)
+		// Add (optional) selector
+		if c.Selector.HasValue() {
+			selector := lowerExprTo(c.Context, c.Selector.Unwrap(), mirSchema, airSchema, cfg)
+			gadget.SetSelector(selector)
+		}
+		// Done
+		gadget.Apply(airSchema)
 	}
 	// Sanity check bitwidth
 	bitwidth := uint(0)
@@ -314,7 +322,12 @@ func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Sche
 		// Construct a unique prefix for this sort.
 		prefix := constructLexicographicSortingPrefix(targets, c.Signs, airSchema)
 		// Add lexicographically sorted constraints
-		air_gadgets.ApplyLexicographicSortingGadget(prefix, targets, c.Signs, bitwidth, airSchema)
+		// For a multi column sort, its a bit harder as we need additional
+		// logic to ensure the target columns are lexicographally sorted.
+		gadget := air_gadgets.NewLexicographicSortingGadget(prefix, targets, bitwidth)
+		gadget.SetSigns(c.Signs...)
+		// Done
+		gadget.Apply(airSchema)
 	}
 }
 

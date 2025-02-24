@@ -22,12 +22,12 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 )
 
-// ApplyLexicographicSortingGadget Add sorting constraints for a sequence of one
-// or more columns.  Sorting is done lexicographically starting from the
-// leftmost column.  For example, consider lexicographically sorting two columns
-// X and Y (in that order) in ascending (i.e. positive direction).  Then sorting
-// ensures (X[k-1] < X[k]) or (X[k-1] == X[k] and Y[k-1] <= Y[k]).  The sign for
-// each column determines whether its sorted into ascending (i.e. positive) or
+// LexicographicSortingGadget adds sorting constraints for a sequence of one or
+// more columns.  Sorting is done lexicographically starting from the leftmost
+// column.  For example, consider lexicographically sorting two columns X and Y
+// (in that order) in ascending (i.e. positive direction).  Then sorting ensures
+// (X[k-1] < X[k]) or (X[k-1] == X[k] and Y[k-1] <= Y[k]).  The sign for each
+// column determines whether its sorted into ascending (i.e. positive) or
 // descending (i.e. negative) order.
 //
 // To implement this sort, a kind of "bit multiplexing" is used.  Specifically,
@@ -36,28 +36,79 @@ import (
 // Ci[k-1] < C[k].  For all columns Cj where j < i, we must have Cj[k-1] =
 // Cj[k].  If all bits are zero then all columns match their previous row.
 // Finally, a delta column is used in a similar fashion as for the single column
-// case (see above).  The delta value captures the difference Ci[k]-Ci[k-1] to
-// ensure it is positive.  The delta column is constrained to a given bitwidth,
-// with constraints added as necessary to ensure this.
-func ApplyLexicographicSortingGadget(prefix string, columns []uint, signs []bool, bitwidth uint, schema *air.Schema) {
-	// Check preconditions
-	if len(columns) < len(signs) {
+// case.  The delta value captures the difference Ci[k]-Ci[k-1] to ensure it is
+// positive.  The delta column is constrained to a given bitwidth, with
+// constraints added as necessary to ensure this.
+type LexicographicSortingGadget struct {
+	// Prefix is used to construct the delta column name.
+	prefix string
+	// Identifies column(s) being sorted
+	columns []uint
+	// Sort direction given for columns (true = ascending, false = descending).
+	// Observe that it is not required for all columns to have a sort direction.
+	// Columns without a sort direction can be ordered arbitrarily.
+	signs []bool
+	// Bitwidth of delta column.  This restricts the maximum distance between
+	// any two sorted values.  A key requirement is to ensure the delta value is
+	// "small" to prevent overflow.
+	bitwidth uint
+	// Strict implies that equal elements are not permitted.
+	strict bool
+	// Constraint active when selector is non-zero.
+	selector air.Expr
+}
+
+// NewLexicographicSortingGadget constructs a default sorting gadget which can
+// then be configured.  The default gadget is non-strict and assumes all columns
+// are ascending.
+func NewLexicographicSortingGadget(prefix string, columns []uint, bitwidth uint) LexicographicSortingGadget {
+	signs := make([]bool, len(columns))
+
+	for i := range signs {
+		signs[i] = true
+	}
+	//
+	return LexicographicSortingGadget{prefix, columns, signs, bitwidth, false, air.NewConst64(1)}
+}
+
+// SetSigns configures the directions for all columns being sorted.
+func (p *LexicographicSortingGadget) SetSigns(signs ...bool) {
+	if len(p.columns) < len(signs) {
 		panic("Inconsistent number of columns and signs for lexicographic sort.")
 	}
+
+	p.signs = signs
+}
+
+// SetStrict configures strictness
+func (p *LexicographicSortingGadget) SetStrict(strict bool) {
+	p.strict = strict
+}
+
+// SetSelector sets the selector for this constraint.
+func (p *LexicographicSortingGadget) SetSelector(selector air.Expr) {
+	p.selector = selector
+}
+
+// Apply this lexicographic sorting gadget to a given schema.
+func (p *LexicographicSortingGadget) Apply(schema *air.Schema) {
+	// Check preconditions
 	// Determine enclosing module for this gadget.
-	ctx := sc.ContextOfColumns(columns, schema)
+	ctx := sc.ContextOfColumns(p.columns, schema)
 	// Add trace computation
 	deltaIndex := schema.AddAssignment(
-		assignment.NewLexicographicSort(prefix, ctx, columns, signs, bitwidth))
+		assignment.NewLexicographicSort(p.prefix, ctx, p.columns, p.signs, p.bitwidth))
 	// Construct selecto bits.
-	addLexicographicSelectorBits(prefix, ctx, deltaIndex, columns, signs, schema)
+	p.addLexicographicSelectorBits(ctx, deltaIndex, schema)
 	// Construct delta terms
-	constraint := constructLexicographicDeltaConstraint(deltaIndex, columns, signs)
+	constraint := constructLexicographicDeltaConstraint(deltaIndex, p.columns, p.signs)
+	// Apply selector
+	constraint = p.selector.Mul(constraint)
 	// Add delta constraint
-	deltaName := fmt.Sprintf("%s:delta", prefix)
+	deltaName := fmt.Sprintf("%s:delta", p.prefix)
 	schema.AddVanishingConstraint(deltaName, 0, ctx, util.None[int](), constraint)
 	// Add necessary bitwidth constraints
-	ApplyBitwidthGadget(deltaIndex, bitwidth, air.NewConst64(1), schema)
+	ApplyBitwidthGadget(deltaIndex, p.bitwidth, p.selector, schema)
 }
 
 // Add lexicographic selector bits, including the necessary constraints.  Each
@@ -67,9 +118,9 @@ func ApplyLexicographicSortingGadget(prefix string, columns []uint, signs []bool
 //
 // NOTE: this implementation differs from the original corset which used an
 // additional "Eq" bit to help ensure at most one selector bit was enabled.
-func addLexicographicSelectorBits(prefix string, context trace.Context,
-	deltaIndex uint, columns []uint, signs []bool, schema *air.Schema) {
-	ncols := uint(len(signs))
+func (p *LexicographicSortingGadget) addLexicographicSelectorBits(context trace.Context, deltaIndex uint,
+	schema *air.Schema) {
+	ncols := uint(len(p.signs))
 	// Calculate column index of first selector bit
 	bitIndex := deltaIndex + 1
 	// Add binary constraints for selector bits
@@ -90,13 +141,13 @@ func addLexicographicSelectorBits(prefix string, context trace.Context,
 		}
 		// (∀j<=i.Bj=0) ==> C[k]=C[k-1]
 		pterms[i] = air.NewColumnAccess(bitIndex+i, 0)
-		pDiff := air.NewColumnAccess(columns[i], 0).Sub(air.NewColumnAccess(columns[i], -1))
-		pName := fmt.Sprintf("%s:%d", prefix, i)
+		pDiff := air.NewColumnAccess(p.columns[i], 0).Sub(air.NewColumnAccess(p.columns[i], -1))
+		pName := fmt.Sprintf("%s:%d", p.prefix, i)
 		schema.AddVanishingConstraint(pName, 0, context,
-			util.None[int](), air.NewConst64(1).Sub(air.Sum(pterms...)).Mul(pDiff))
+			util.None[int](), p.selector.Mul(air.NewConst64(1).Sub(air.Sum(pterms...)).Mul(pDiff)))
 		// (∀j<i.Bj=0) ∧ Bi=1 ==> C[k]≠C[k-1]
-		qDiff := Normalise(air.NewColumnAccess(columns[i], 0).Sub(air.NewColumnAccess(columns[i], -1)), schema)
-		qName := fmt.Sprintf("%s:%d", prefix, i)
+		qDiff := Normalise(air.NewColumnAccess(p.columns[i], 0).Sub(air.NewColumnAccess(p.columns[i], -1)), schema)
+		qName := fmt.Sprintf("%s:%d", p.prefix, i)
 		// bi = 0 || C[k]≠C[k-1]
 		constraint := air.NewColumnAccess(bitIndex+i, 0).Mul(air.NewConst64(1).Sub(qDiff))
 
@@ -105,14 +156,24 @@ func addLexicographicSelectorBits(prefix string, context trace.Context,
 			constraint = air.NewConst64(1).Sub(air.Sum(qterms...)).Mul(constraint)
 		}
 
-		schema.AddVanishingConstraint(qName, 1, context, util.None[int](), constraint)
+		schema.AddVanishingConstraint(qName, 1, context, util.None[int](), p.selector.Mul(constraint))
 	}
-
-	sum := air.Sum(terms...)
-	// (sum = 0) ∨ (sum = 1)
-	constraint := sum.Mul(sum.Equate(air.NewConst64(1)))
-	name := fmt.Sprintf("%s:xor", prefix)
-	schema.AddVanishingConstraint(name, 0, context, util.None[int](), constraint)
+	//
+	var (
+		sum        = air.Sum(terms...)
+		constraint air.Expr
+	)
+	// Apply strictness
+	if p.strict {
+		// (sum = 1)
+		constraint = sum.Equate(air.NewConst64(1))
+	} else {
+		// (sum = 0) ∨ (sum = 1)
+		constraint = sum.Mul(sum.Equate(air.NewConst64(1)))
+	}
+	//
+	name := fmt.Sprintf("%s:xor", p.prefix)
+	schema.AddVanishingConstraint(name, 0, context, util.None[int](), p.selector.Mul(constraint))
 }
 
 // Construct the lexicographic delta constraint.  This states that the delta
