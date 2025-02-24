@@ -647,6 +647,10 @@ func (r *resolver) finaliseDefSortedInModule(enclosing Scope, decl *ast.DefSorte
 	)
 	// Resolve source expressions
 	errors := r.finaliseExpressionsInModule(sourceScope, decl.Sources)
+	// Resolve (optional) selector expression
+	if decl.Selector.HasValue() {
+		r.finaliseExpressionInModule(sourceScope, decl.Selector.Unwrap())
+	}
 	// Sanity check length multipliers
 	for _, e := range decl.Sources {
 		// Sanity check multiplier has size 1

@@ -49,18 +49,24 @@ type SortedConstraint[E schema.Evaluable] struct {
 	Context tr.Context
 	// BitWidth of delta (i.e. maximum difference between columns)
 	BitWidth uint
+	// Optional selector expression which determines on which rows this
+	// constraint is active.
+	Selector util.Option[E]
 	// Sources returns the indices of the columns composing the "right" table of the
 	// Sorted.
 	Sources []E
 	// Signs returns sorting direction of all columns.
 	Signs []bool
+	// Strict determines whether or not this constraint is strict (i.e. doesn't
+	// permit equal values).
+	Strict bool
 }
 
 // NewSortedConstraint creates a new Sorted
-func NewSortedConstraint[E schema.Evaluable](handle string, context tr.Context, bitwidth uint, sources []E,
-	signs []bool) *SortedConstraint[E] {
+func NewSortedConstraint[E schema.Evaluable](handle string, context tr.Context, bitwidth uint, selector util.Option[E],
+	sources []E, signs []bool, strict bool) *SortedConstraint[E] {
 	//
-	return &SortedConstraint[E]{handle, context, bitwidth, sources, signs}
+	return &SortedConstraint[E]{handle, context, bitwidth, selector, sources, signs, strict}
 }
 
 // Name returns a unique name for a given constraint.  This is useful
@@ -122,8 +128,17 @@ func (p *SortedConstraint[E]) Accepts(trace tr.Trace) (bit.Set, sc.Failure) {
 		deltaBound := p.deltaBound()
 		// Check all in-bounds values
 		for k := bounds.Start + 1; k < (height - bounds.End); k++ {
+			// Check selector
+			if p.Selector.HasValue() {
+				// Evaluate selector expression
+				val := p.Selector.Unwrap().EvalAt(int(k), trace)
+				// Check whether active (or not)
+				if val.IsZero() {
+					continue
+				}
+			}
 			// Check sorting between rows k-1 and k
-			if !sorted(k-1, k, deltaBound, p.Sources, p.Signs, trace) {
+			if !sorted(k-1, k, deltaBound, p.Sources, p.Signs, p.Strict, trace) {
 				return coverage, &SortedFailure{fmt.Sprintf("sorted constraint \"%s\" failed (rows %d ~ %d)", p.Handle, k-1, k)}
 			}
 		}
@@ -135,7 +150,14 @@ func (p *SortedConstraint[E]) Accepts(trace tr.Trace) (bit.Set, sc.Failure) {
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
 func (p *SortedConstraint[E]) Lisp(schema sc.Schema) sexp.SExp {
-	sources := sexp.EmptyList()
+	var (
+		kind    = "sorted"
+		sources = sexp.EmptyList()
+	)
+	//
+	if p.Strict {
+		kind = "strictsorted"
+	}
 	// Iterate source expressions
 	for i := 0; i < len(p.Sources); i++ {
 		ith := p.Sources[i].Lisp(schema)
@@ -150,12 +172,21 @@ func (p *SortedConstraint[E]) Lisp(schema sc.Schema) sexp.SExp {
 		//
 		sources.Append(ith)
 	}
-
-	return sexp.NewList([]sexp.SExp{
-		sexp.NewSymbol("sorted"),
-		sexp.NewSymbol(p.Handle),
-		sources,
-	})
+	// Handle optional selector
+	if p.Selector.IsEmpty() {
+		return sexp.NewList([]sexp.SExp{
+			sexp.NewSymbol(kind),
+			sexp.NewSymbol(p.Handle),
+			sources,
+		})
+	} else {
+		return sexp.NewList([]sexp.SExp{
+			sexp.NewSymbol(kind),
+			sexp.NewSymbol(p.Handle),
+			p.Selector.Unwrap().Lisp(schema),
+			sources,
+		})
+	}
 }
 
 func (p *SortedConstraint[E]) deltaBound() fr.Element {
@@ -169,12 +200,13 @@ func (p *SortedConstraint[E]) deltaBound() fr.Element {
 	return bound
 }
 
-func sorted[E schema.Evaluable](first, second uint, bound fr.Element, sources []E, signs []bool,
+func sorted[E schema.Evaluable](first, second uint, bound fr.Element, sources []E, signs []bool, strict bool,
 	trace tr.Trace) bool {
+	//
 	var (
 		delta fr.Element
-		lhs   = evalExprsAt2(first, sources, trace)
-		rhs   = evalExprsAt2(second, sources, trace)
+		lhs   = evalExprsAt(first, sources, trace)
+		rhs   = evalExprsAt(second, sources, trace)
 	)
 	//
 	for i := range signs {
@@ -191,13 +223,15 @@ func sorted[E schema.Evaluable](first, second uint, bound fr.Element, sources []
 			delta.Sub(&rhs[i], &lhs[i])
 			//
 			return delta.Cmp(&bound) < 0 && signs[i]
+		} else if strict {
+			return false
 		}
 	}
 	//
 	return true
 }
 
-func evalExprsAt2[E schema.Evaluable](k uint, sources []E, tr trace.Trace) []fr.Element {
+func evalExprsAt[E schema.Evaluable](k uint, sources []E, tr trace.Trace) []fr.Element {
 	values := make([]fr.Element, len(sources))
 	// Evaluate each expression in turn
 	for i := 0; i < len(sources); i++ {

@@ -151,12 +151,12 @@ func (p *LookupConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) 
 	rows := hash.NewSet[hash.BytesKey](tgt_height)
 	// Add all target columns to the set
 	for i := 0; i < int(tgt_height); i++ {
-		ith_bytes := evalExprsAt(i, p.Targets, tr)
+		ith_bytes := evalExprsAsBytes(i, p.Targets, tr)
 		rows.Insert(hash.NewBytesKey(ith_bytes))
 	}
 	// Check all source columns are contained
 	for i := 0; i < int(src_height); i++ {
-		ith_bytes := evalExprsAt(i, p.Sources, tr)
+		ith_bytes := evalExprsAsBytes(i, p.Sources, tr)
 		// Check whether contained.
 		if !rows.Contains(hash.NewBytesKey(ith_bytes)) {
 			return coverage, &LookupFailure{fmt.Sprintf("lookup \"%s\" failed (row %d)", p.Handle, i)}
@@ -166,7 +166,7 @@ func (p *LookupConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) 
 	return coverage, nil
 }
 
-func evalExprsAt[E schema.Evaluable](k int, sources []E, tr trace.Trace) []byte {
+func evalExprsAsBytes[E schema.Evaluable](k int, sources []E, tr trace.Trace) []byte {
 	// Each fr.Element is 4 x 64bit words.
 	bytes := make([]byte, 32*len(sources))
 	// Slice provides an access window for writing

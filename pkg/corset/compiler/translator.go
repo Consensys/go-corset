@@ -461,8 +461,16 @@ func (t *translator) translateDefProperty(decl *ast.DefProperty, module util.Pat
 
 // Translate a "defsorted" declaration.
 func (t *translator) translateDefSorted(decl *ast.DefSorted, module util.Path) []SyntaxError {
+	var selector util.Option[hir.UnitExpr]
 	// Translate source expressions
 	sources, errors := t.translateUnitExpressionsInModule(decl.Sources, module, 0)
+	// Translate (optional) selector expression
+	if decl.Selector.HasValue() {
+		sel, errs := t.translateExpressionInModule(decl.Selector.Unwrap(), module, 0)
+		selector = util.Some(hir.NewUnitExpr(sel))
+		//
+		errors = append(errors, errs...)
+	}
 	// Create construct (assuming no errors thus far)
 	if len(errors) == 0 {
 		context := t.env.ContextOf(ast.ContextOfExpressions(decl.Sources))
@@ -470,7 +478,7 @@ func (t *translator) translateDefSorted(decl *ast.DefSorted, module util.Path) [
 		signs := slices.Clone(decl.Signs)
 		bitwidth := determineMaxBitwidth(t.schema, sources[:len(signs)])
 		// Add translated constraint
-		t.schema.AddSortedConstraint(decl.Handle, context, bitwidth, sources, signs)
+		t.schema.AddSortedConstraint(decl.Handle, context, bitwidth, selector, sources, signs, decl.Strict)
 	}
 	// Done
 	return errors
