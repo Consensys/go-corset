@@ -1,3 +1,3 @@
-(defcolumns (P :binary@prove) (X :i16@prove))
-(defstrictsorted s1 P ((↓ X)))
-;;(defstrictsorted s2 P ((+ X)))
+(defcolumns (P :binary@prove) (W0 :i16@prove))
+(defstrictsorted s1 P ((↓ W0)))
+(defstrictsorted s2 P ((+ W0)))

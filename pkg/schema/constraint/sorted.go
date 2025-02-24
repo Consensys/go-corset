@@ -223,12 +223,11 @@ func sorted[E schema.Evaluable](first, second uint, bound fr.Element, sources []
 			delta.Sub(&rhs[i], &lhs[i])
 			//
 			return delta.Cmp(&bound) < 0 && signs[i]
-		} else if strict {
-			return false
 		}
 	}
-	//
-	return true
+	// If we get here, then the elements are considered equal.  Thus, this is
+	// only permitted if this is a non-strict ordering.
+	return !strict
 }
 
 func evalExprsAt[E schema.Evaluable](k uint, sources []E, tr trace.Trace) []fr.Element {
