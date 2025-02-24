@@ -401,8 +401,8 @@ func (p *Parser) parseColumnDeclaration(context util.Path, path util.Path, compu
 		// Type check of columns for strict mode only
 		if !nonStrictMode {
 			// Column is untyped if datatype is of FieldType
-			if datatype != nil && datatype.IsFieldType() {
-				return nil, p.translator.SyntaxError(l, "Column is untyped.")
+			if datatype != nil && datatype.ContainsFieldType() {
+				return nil, p.translator.SyntaxError(l, "column is untyped")
 			}
 		}
 	} else {
@@ -1321,23 +1321,27 @@ func (p *Parser) parseType(term sexp.SExp) (ast.Type, bool, *SyntaxError) {
 		datatype = ast.NewUintType(8)
 	case ":":
 		if len(parts) == 1 {
-			return nil, false, p.translator.SyntaxError(symbol, "unknown type")
+			return nil, false, p.translator.SyntaxError(symbol, "unknown typef")
 		}
-		//
+		// How is that reached ?
 		datatype = ast.NewFieldType()
 	default:
 		// Handle generic types like i16, i128, etc.
 		str := parts[0]
-		if !strings.HasPrefix(str, ":i") {
-			return nil, false, p.translator.SyntaxError(symbol, "unknown type")
+		if strings.HasPrefix(str, ":") {
+			//
+			datatype = ast.NewFieldType()
+		} else if !strings.HasPrefix(str, ":i") {
+			return nil, false, p.translator.SyntaxError(symbol, "unknown typer")
+		} else {
+			// Parse bitwidth
+			n, err := strconv.Atoi(str[2:])
+			if err != nil {
+				return nil, false, p.translator.SyntaxError(symbol, err.Error())
+			}
+			// Done
+			datatype = ast.NewUintType(uint(n))
 		}
-		// Parse bitwidth
-		n, err := strconv.Atoi(str[2:])
-		if err != nil {
-			return nil, false, p.translator.SyntaxError(symbol, err.Error())
-		}
-		// Done
-		datatype = ast.NewUintType(uint(n))
 	}
 	// Types not proven unless explicitly requested
 	var proven bool = false
