@@ -1276,18 +1276,25 @@ type DefSorted struct {
 	// Unique handle given to this constraint.  This is primarily useful for
 	// debugging (i.e. so we know which constaint failed, etc).
 	Handle string
+	// Optional selector expression which determines when a sorted constraint is active.
+	Selector util.Option[Expr]
 	// Source expressions for lookup (i.e. these values must all be contained
 	// within the targets).
 	Sources []Expr
 	// Sorting signs
 	Signs []bool
+	// Indicates whether sorting constraint is strict (or not).
+	Strict bool
 	// Indicates whether or not source expressions have been resolved.
 	finalised bool
 }
 
-// NewDefSorted constructs a new (unfinalised) sorted constraint.
-func NewDefSorted(handle string, sources []Expr, signs []bool) *DefSorted {
-	return &DefSorted{handle, sources, signs, false}
+// NewDefSorted constructs a new (unfinalised) sorted constraint which can
+// (optionally) be controlled by a given selector expression, and may be strict
+// or non-strict.  Observe that, for strict sorting, a selector is always needed
+// (i.e. because within padding we cannot guarantee strictness).
+func NewDefSorted(handle string, selector util.Option[Expr], sources []Expr, signs []bool, strict bool) *DefSorted {
+	return &DefSorted{handle, selector, sources, signs, strict, false}
 }
 
 // Dependencies needed to signal declaration.
