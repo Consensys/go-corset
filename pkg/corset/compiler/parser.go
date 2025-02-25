@@ -396,16 +396,17 @@ func (p *Parser) parseColumnDeclaration(context util.Path, path util.Path, compu
 		if datatype, mustProve, display, error = p.parseColumnDeclarationAttributes(l.Elements[1:]); error != nil {
 			return nil, error
 		}
-		// Type check of columns for strict mode only
-		if p.strictMode {
-			// Column is untyped if datatype is of FieldType
-			if datatype != nil && datatype.ContainsFieldType() {
-				return nil, p.translator.SyntaxError(l, "column is untyped")
-			}
-		}
 	} else {
 		name = *path.Extend(e.String(false))
 	}
+	// Type check of columns for strict mode only
+	if p.strictMode {
+		// Column is untyped if datatype is of FieldType
+		if datatype != nil && datatype.ContainsFieldType() {
+			return nil, p.translator.SyntaxError(e, "column is untyped")
+		}
+	}
+	//
 	def := ast.NewDefColumn(context, name, datatype, mustProve, multiplier, computed, display)
 	// Update source mapping
 	p.mapSourceNode(e, def)
