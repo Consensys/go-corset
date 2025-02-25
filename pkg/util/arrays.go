@@ -197,6 +197,33 @@ func RemoveMatching[T any](items []T, predicate iter.Predicate[T]) []T {
 	return items
 }
 
+// RemoveMatchingIndexed removes all elements from an array matching the given item.
+func RemoveMatchingIndexed[T any](items []T, predicate func(int, T) bool) []T {
+	count := 0
+	// Check how many matches we have
+	for i, r := range items {
+		if !predicate(i, r) {
+			count++
+		}
+	}
+	// Check for stuff to remove
+	if count != len(items) {
+		nitems := make([]T, count)
+		j := 0
+		// Remove items
+		for i, r := range items {
+			if !predicate(i, r) {
+				nitems[j] = items[i]
+				j++
+			}
+		}
+		//
+		items = nitems
+	}
+	//
+	return items
+}
+
 // Flatten flattens items from an array which expand into arrays of terms.
 func Flatten[T any](items []T, fn func(T) []T) []T {
 	for _, t := range items {

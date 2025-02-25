@@ -151,8 +151,8 @@ func constantPropagationForNorm(arg Term, schema sc.Schema) Term {
 
 func constantPropagationForSub(es []Term, schema sc.Schema) Term {
 	var sum fr.Element
-
-	is_const := true
+	// count non-constant terms
+	count := 0
 	rs := make([]Term, len(es))
 	//
 	for i, e := range es {
@@ -162,31 +162,37 @@ func constantPropagationForSub(es []Term, schema sc.Schema) Term {
 		// Try to continue sum
 		if ok && i == 0 {
 			sum = c.Value
-		} else if ok && is_const {
+		} else if ok {
 			sum.Sub(&sum, &c.Value)
 		} else {
-			is_const = false
+			count++
 		}
 	}
-	// Check if constant
-	if is_const {
+	// Check for any non-constant terms
+	if count == 0 {
 		// Propagate constant
 		return &Constant{sum}
+	} else if count != len(es) {
+		// Apply simplifications
+		rs = removeNonLeadingZeros(rs)
+	}
+	// Sanity check what's left
+	if len(rs) == 1 {
+		return rs[0]
 	}
 	// Done
 	return &Sub{rs}
 }
 
-// Remove all occurences of a given constant
-func removeConstants(constant fr.Element, es []Term) []Term {
-	var rs []Term = nil
-	//
-	for i := range es {
-		// Check for matching constant
-		if c, ok := es[i].(*Constant); ok && c.Value.Cmp(&constant) == 0 {
-
+// Remove all zeros which don't arise at the beginning.
+func removeNonLeadingZeros(terms []Term) []Term {
+	return util.RemoveMatchingIndexed(terms, func(i int, v Term) bool {
+		if c, ok := v.(*Constant); ok && i != 0 && c.Value.IsZero() {
+			return true
 		}
-	}
+		//
+		return false
+	})
 }
 
 // Replace all constants within a given sequence of expressions with a single
