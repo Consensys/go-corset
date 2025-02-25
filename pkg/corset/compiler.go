@@ -39,12 +39,12 @@ type SyntaxError = sexp.SyntaxError
 // CompileSourceFiles compiles one or more source files into a schema.  This
 // process can fail if the source files are mal-formed, or contain syntax errors
 // or other forms of error (e.g. type errors).
-// If nonStrictMode is activated, compiler accepts columns of field type 𝔽.
-func CompileSourceFiles(stdlib bool, debug bool, srcfiles []*sexp.SourceFile, nonStrictMode bool) (*binfile.BinaryFile, []SyntaxError) {
+// If strictMode is activated, compiler rejects columns of field type 𝔽.
+func CompileSourceFiles(stdlib bool, debug bool, srcfiles []*sexp.SourceFile, strictMode bool) (*binfile.BinaryFile, []SyntaxError) {
 	// Include the standard library (if requested)
 	srcfiles = includeStdlib(stdlib, srcfiles)
 	// Parse all source files (inc stdblib if applicable).
-	circuit, srcmap, errs := compiler.ParseSourceFiles(srcfiles, nonStrictMode)
+	circuit, srcmap, errs := compiler.ParseSourceFiles(srcfiles, strictMode)
 	// Check for parsing errors
 	if errs != nil {
 		return nil, errs
@@ -57,9 +57,9 @@ func CompileSourceFiles(stdlib bool, debug bool, srcfiles []*sexp.SourceFile, no
 // really helper function for e.g. the testing environment.   This process can
 // fail if the source file is mal-formed, or contains syntax errors or other
 // forms of error (e.g. type errors).
-// If nonStrictMode is activated, compiler accepts columns of field type 𝔽.
-func CompileSourceFile(stdlib bool, debug bool, srcfile *sexp.SourceFile, nonStrictMode bool) (*binfile.BinaryFile, []SyntaxError) {
-	schema, errs := CompileSourceFiles(stdlib, debug, []*sexp.SourceFile{srcfile}, nonStrictMode)
+// If strictMode is activated, compiler rejects columns of field type 𝔽.
+func CompileSourceFile(stdlib bool, debug bool, srcfile *sexp.SourceFile, strictMode bool) (*binfile.BinaryFile, []SyntaxError) {
+	schema, errs := CompileSourceFiles(stdlib, debug, []*sexp.SourceFile{srcfile}, strictMode)
 	// Check for errors
 	if errs != nil {
 		return nil, errs
