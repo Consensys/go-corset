@@ -151,12 +151,27 @@ func (p *LookupConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) 
 	rows := hash.NewSet[hash.BytesKey](tgt_height)
 	// Add all target columns to the set
 	for i := 0; i < int(tgt_height); i++ {
-		ith_bytes := evalExprsAsBytes(i, p.Targets, tr)
+		ith_bytes, err := evalExprsAsBytes(i, p.Targets, tr)
+		// error check
+		if err != nil {
+			return coverage, &sc.InternalFailure{
+				Handle: p.Handle, Row: uint(i), Error: err.Error(),
+			}
+		}
+
 		rows.Insert(hash.NewBytesKey(ith_bytes))
 	}
 	// Check all source columns are contained
 	for i := 0; i < int(src_height); i++ {
-		ith_bytes := evalExprsAsBytes(i, p.Sources, tr)
+		ith_bytes, err := evalExprsAsBytes(i, p.Sources, tr)
+		// error check
+		if err != nil {
+			return coverage, &sc.InternalFailure{
+				Handle: p.Handle,
+				Row:    uint(i),
+				Error:  err.Error(),
+			}
+		}
 		// Check whether contained.
 		if !rows.Contains(hash.NewBytesKey(ith_bytes)) {
 			return coverage, &LookupFailure{fmt.Sprintf("lookup \"%s\" failed (row %d)", p.Handle, i)}
@@ -166,14 +181,18 @@ func (p *LookupConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) 
 	return coverage, nil
 }
 
-func evalExprsAsBytes[E schema.Evaluable](k int, sources []E, tr trace.Trace) []byte {
+func evalExprsAsBytes[E schema.Evaluable](k int, sources []E, tr trace.Trace) ([]byte, error) {
 	// Each fr.Element is 4 x 64bit words.
 	bytes := make([]byte, 32*len(sources))
 	// Slice provides an access window for writing
 	slice := bytes
 	// Evaluate each expression in turn
 	for i := 0; i < len(sources); i++ {
-		ith := sources[i].EvalAt(k, tr)
+		ith, err := sources[i].EvalAt(k, tr)
+		// error check
+		if err != nil {
+			return nil, err
+		}
 		// Copy over each element
 		binary.BigEndian.PutUint64(slice, ith[0])
 		binary.BigEndian.PutUint64(slice[8:], ith[1])
@@ -183,7 +202,7 @@ func evalExprsAsBytes[E schema.Evaluable](k int, sources []E, tr trace.Trace) []
 		slice = slice[32:]
 	}
 	// Done
-	return bytes
+	return bytes, nil
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example

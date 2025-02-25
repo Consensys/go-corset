@@ -38,7 +38,7 @@
 (defunalias = eq!)
 
 (defpurefun ((eq :binary@bool :force) x y) (- 1 (~ (eq! x y))))
-(defpurefun ((neq :binary@bool :force) x y) (eq! x y))
+(defpurefun ((neq :@bool) x y) (- x y))
 
 ;; Variadic variations on and/or
 (defunalias any! *)

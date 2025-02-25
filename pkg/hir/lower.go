@@ -151,6 +151,8 @@ func extractCondition(e Term, schema *mir.Schema) mir.Expr {
 	switch e := e.(type) {
 	case *Add:
 		return extractConditions(e.Args, schema)
+	case *Cast:
+		return extractCondition(e.Arg, schema)
 	case *Constant:
 		return mir.ONE
 	case *ColumnAccess:
@@ -216,6 +218,8 @@ func extractBody(e Term, schema *mir.Schema) mir.Expr {
 	switch e := e.(type) {
 	case *Add:
 		return mir.Sum(extractBodies(e.Args, schema)...)
+	case *Cast:
+		return mir.CastOf(extractBody(e.Arg, schema), e.BitWidth)
 	case *Constant:
 		return mir.NewConst(e.Value)
 	case *ColumnAccess:
@@ -265,84 +269,123 @@ func extractBodies(es []Term, schema *mir.Schema) []mir.Expr {
 // expressions "(if X Y)" and "(ifnot X Z)".  These are necessary steps for the
 // conversion into a lower-level form.
 func expand(e Term, schema sc.Schema) []Term {
-	if p, ok := e.(*Add); ok {
-		return expandWithNaryConstructor(p.Args, func(nargs []Term) Term {
-			var args []Term
-			// Flatten nested sums
-			for _, e := range nargs {
-				if a, ok := e.(*Add); ok {
-					args = append(args, a.Args...)
-				} else {
-					args = append(args, e)
-				}
-			}
-			// Done
-			return &Add{Args: args}
-		}, schema)
-	} else if _, ok := e.(*Constant); ok {
+	switch e := e.(type) {
+	case *Add:
+		return expandAdd(e, schema)
+	case *Cast:
+		return expandCast(e, schema)
+	case *Constant:
 		return []Term{e}
-	} else if _, ok := e.(*ColumnAccess); ok {
+	case *ColumnAccess:
 		return []Term{e}
-	} else if p, ok := e.(*Mul); ok {
-		return expandWithNaryConstructor(p.Args, func(nargs []Term) Term {
-			var args []Term
-			// Flatten nested products
-			for _, e := range nargs {
-				if a, ok := e.(*Mul); ok {
-					args = append(args, a.Args...)
-				} else {
-					args = append(args, e)
-				}
-			}
-			// Done
-			return &Mul{Args: args}
-		}, schema)
-	} else if p, ok := e.(*List); ok {
-		ees := make([]Term, 0)
-		for _, arg := range p.Args {
-			ees = append(ees, expand(arg, schema)...)
-		}
-
-		return ees
-	} else if p, ok := e.(*Exp); ok {
-		ees := expand(p.Arg, schema)
-		for i, ee := range ees {
-			ees[i] = &Exp{ee, p.Pow}
-		}
-
-		return ees
-	} else if p, ok := e.(*Norm); ok {
-		ees := expand(p.Arg, schema)
-		for i, ee := range ees {
-			ees[i] = &Norm{ee}
-		}
-
-		return ees
-	} else if p, ok := e.(*IfZero); ok {
-		ees := make([]Term, 0)
-		if p.TrueBranch != nil {
-			// Expand true branch with condition
-			ees = expandWithBinaryConstructor(p.Condition, p.TrueBranch, func(c Term, tb Term) Term {
-				return &IfZero{c, tb, nil}
-			}, schema)
-		}
-
-		if p.FalseBranch != nil {
-			// Expand false branch with condition
-			fes := expandWithBinaryConstructor(p.Condition, p.FalseBranch, func(c Term, fb Term) Term {
-				return &IfZero{c, nil, fb}
-			}, schema)
-			ees = append(ees, fes...)
-		}
-		// Done
-		return ees
-	} else if p, ok := e.(*Sub); ok {
-		return expandWithNaryConstructor(p.Args, func(nargs []Term) Term {
-			return &Sub{Args: nargs}
-		}, schema)
+	case *Mul:
+		return expandMul(e, schema)
+	case *List:
+		return expandList(e, schema)
+	case *Exp:
+		return expandExp(e, schema)
+	case *Norm:
+		return expandNorm(e, schema)
+	case *IfZero:
+		return expandIfZero(e, schema)
+	case *Sub:
+		return expandSub(e, schema)
 	}
 	// Should be unreachable
 	panic(fmt.Sprintf("unknown expression: %s", lispOfTerm(e, schema)))
+}
+
+func expandSub(e *Sub, schema sc.Schema) []Term {
+	return expandWithNaryConstructor(e.Args, func(nargs []Term) Term {
+		return &Sub{Args: nargs}
+	}, schema)
+}
+
+func expandIfZero(e *IfZero, schema sc.Schema) []Term {
+	ees := make([]Term, 0)
+	// Expand true branch with condition
+	if e.TrueBranch != nil {
+		ees = expandWithBinaryConstructor(e.Condition, e.TrueBranch, func(c Term, tb Term) Term {
+			return &IfZero{c, tb, nil}
+		}, schema)
+	}
+	// Expand false branch with condition
+	if e.FalseBranch != nil {
+		fes := expandWithBinaryConstructor(e.Condition, e.FalseBranch, func(c Term, fb Term) Term {
+			return &IfZero{c, nil, fb}
+		}, schema)
+		ees = append(ees, fes...)
+	}
+	// Dne
+	return ees
+}
+
+func expandNorm(e *Norm, schema sc.Schema) []Term {
+	ees := expand(e.Arg, schema)
+	for i, ee := range ees {
+		ees[i] = &Norm{ee}
+	}
+
+	return ees
+}
+
+func expandExp(e *Exp, schema sc.Schema) []Term {
+	ees := expand(e.Arg, schema)
+	for i, ee := range ees {
+		ees[i] = &Exp{ee, e.Pow}
+	}
+
+	return ees
+}
+
+func expandList(e *List, schema sc.Schema) []Term {
+	ees := make([]Term, 0)
+	for _, arg := range e.Args {
+		ees = append(ees, expand(arg, schema)...)
+	}
+
+	return ees
+}
+
+func expandAdd(e *Add, schema sc.Schema) []Term {
+	return expandWithNaryConstructor(e.Args, func(nargs []Term) Term {
+		var args []Term
+		// Flatten nested sums
+		for _, e := range nargs {
+			if a, ok := e.(*Add); ok {
+				args = append(args, a.Args...)
+			} else {
+				args = append(args, e)
+			}
+		}
+		// Done
+		return &Add{Args: args}
+	}, schema)
+}
+
+func expandCast(e *Cast, schema sc.Schema) []Term {
+	ees := expand(e.Arg, schema)
+	for i, ee := range ees {
+		ees[i] = &Cast{ee, e.BitWidth}
+	}
+
+	return ees
+}
+
+func expandMul(e *Mul, schema sc.Schema) []Term {
+	return expandWithNaryConstructor(e.Args, func(nargs []Term) Term {
+		var args []Term
+		// Flatten nested products
+		for _, e := range nargs {
+			if a, ok := e.(*Mul); ok {
+				args = append(args, a.Args...)
+			} else {
+				args = append(args, e)
+			}
+		}
+		// Done
+		return &Mul{Args: args}
+	}, schema)
 }
 
 type binaryConstructor func(Term, Term) Term

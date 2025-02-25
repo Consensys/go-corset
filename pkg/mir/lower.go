@@ -22,6 +22,7 @@ import (
 	air_gadgets "github.com/consensys/go-corset/pkg/air/gadgets"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // OptimisationConfig provides a mechanism for controlling how optimisations are
@@ -354,6 +355,8 @@ func lowerTermToInner(ctx trace.Context, e Term, mirSchema *Schema, airSchema *a
 	case *Add:
 		args := lowerTerms(ctx, e.Args, mirSchema, airSchema, cfg)
 		return air.Sum(args...)
+	case *Cast:
+		return lowerTermToInner(ctx, e.Arg, mirSchema, airSchema, cfg)
 	case *Constant:
 		return air.NewConst(e.Value)
 	case *ColumnAccess:
@@ -370,10 +373,10 @@ func lowerTermToInner(ctx trace.Context, e Term, mirSchema *Schema, airSchema *a
 		// Check whether normalisation actually required.  For example, if the
 		// argument is just a binary column then a normalisation is not actually
 		// required.
-		if cfg.InverseEliminiationLevel > 0 && bounds.Within(big.NewInt(0), big.NewInt(1)) {
+		if cfg.InverseEliminiationLevel > 0 && bounds.Within(util.NewInterval64(0, 1)) {
 			// arg ∈ {0,1} ==> normalised already :)
 			return arg
-		} else if cfg.InverseEliminiationLevel > 0 && bounds.Within(big.NewInt(-1), big.NewInt(1)) {
+		} else if cfg.InverseEliminiationLevel > 0 && bounds.Within(util.NewInterval64(-1, 1)) {
 			// arg ∈ {-1,0,1} ==> (arg*arg) ∈ {0,1}
 			return air.Product(arg, arg)
 		}

@@ -183,6 +183,49 @@ func (e *ArrayAccess) Dependencies() []Symbol {
 }
 
 // ============================================================================
+// Cast
+// ============================================================================
+
+// Cast represents a user-supplied annotation indicating the given expression
+// has the given type.  This is only sound upto the user.
+type Cast struct {
+	Arg      Expr
+	BitWidth uint
+}
+
+// AsConstant attempts to evaluate this expression as a constant (signed) value.
+// If this expression is not constant, then nil is returned.
+func (e *Cast) AsConstant() *big.Int {
+	return e.Arg.AsConstant()
+}
+
+// Multiplicity determines the number of values that evaluating this expression
+// can generate.
+func (e *Cast) Multiplicity() uint {
+	return determineMultiplicity([]Expr{e.Arg})
+}
+
+// Context returns the context for this expression.  Observe that the
+// expression must have been resolved for this to be defined (i.e. it may
+// panic if it has not been resolved yet).
+func (e *Cast) Context() Context {
+	return ContextOfExpressions([]Expr{e.Arg})
+}
+
+// Lisp converts this schema element into a simple S-Expression, for example
+// so it can be printed.
+func (e *Cast) Lisp() sexp.SExp {
+	return sexp.NewList([]sexp.SExp{
+		sexp.NewSymbol(fmt.Sprintf(":u%d", e.BitWidth)),
+		e.Arg.Lisp()})
+}
+
+// Dependencies needed to signal declaration.
+func (e *Cast) Dependencies() []Symbol {
+	return e.Arg.Dependencies()
+}
+
+// ============================================================================
 // Constants
 // ============================================================================
 
@@ -367,7 +410,11 @@ func (e *For) Context() Context {
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
 func (e *For) Lisp() sexp.SExp {
-	panic("todo")
+	return sexp.NewList([]sexp.SExp{
+		sexp.NewSymbol("for"),
+		sexp.NewSymbol("..."),
+		e.Body.Lisp(),
+	})
 }
 
 // Dependencies needed to signal declaration.
@@ -588,7 +635,20 @@ func (e *Let) Context() Context {
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
 func (e *Let) Lisp() sexp.SExp {
-	panic("todo")
+	bindings := make([]sexp.SExp, len(e.Args))
+	//
+	for i := range e.Args {
+		bindings[i] = sexp.NewList([]sexp.SExp{
+			sexp.NewSymbol(e.Vars[i].Name),
+			e.Args[i].Lisp(),
+		})
+	}
+	//
+	return sexp.NewList([]sexp.SExp{
+		sexp.NewSymbol("let"),
+		sexp.NewList(bindings),
+		e.Body.Lisp(),
+	})
 }
 
 // Dependencies needed to signal declaration.
@@ -1035,6 +1095,9 @@ func Substitute(expr Expr, mapping map[uint]Expr, srcmap *sexp.SourceMaps[Node])
 	case *Add:
 		args := SubstituteAll(e.Args, mapping, srcmap)
 		nexpr = &Add{args}
+	case *Cast:
+		arg := Substitute(e.Arg, mapping, srcmap)
+		nexpr = &Cast{arg, e.BitWidth}
 	case *Constant:
 		return e
 	case *Debug:
@@ -1135,6 +1198,8 @@ func ShallowCopy(expr Expr) Expr {
 		return &ArrayAccess{e.Name, e.Arg, e.ArrayBinding}
 	case *Add:
 		return &Add{e.Args}
+	case *Cast:
+		return &Cast{e.Arg, e.BitWidth}
 	case *Constant:
 		return &Constant{e.Val}
 	case *Debug:

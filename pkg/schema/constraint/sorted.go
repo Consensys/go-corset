@@ -131,14 +131,18 @@ func (p *SortedConstraint[E]) Accepts(trace tr.Trace) (bit.Set, sc.Failure) {
 			// Check selector
 			if p.Selector.HasValue() {
 				// Evaluate selector expression
-				val := p.Selector.Unwrap().EvalAt(int(k), trace)
+				val, err := p.Selector.Unwrap().EvalAt(int(k), trace)
 				// Check whether active (or not)
-				if val.IsZero() {
+				if err != nil {
+					return coverage, &sc.InternalFailure{Handle: p.Handle, Row: k, Error: err.Error()}
+				} else if val.IsZero() {
 					continue
 				}
 			}
 			// Check sorting between rows k-1 and k
-			if !sorted(k-1, k, deltaBound, p.Sources, p.Signs, p.Strict, trace) {
+			if ok, err := sorted(k-1, k, deltaBound, p.Sources, p.Signs, p.Strict, trace); err != nil {
+				return coverage, &sc.InternalFailure{Handle: p.Handle, Row: k, Error: err.Error()}
+			} else if !ok {
 				return coverage, &SortedFailure{fmt.Sprintf("sorted constraint \"%s\" failed (rows %d ~ %d)", p.Handle, k-1, k)}
 			}
 		}
@@ -201,13 +205,21 @@ func (p *SortedConstraint[E]) deltaBound() fr.Element {
 }
 
 func sorted[E schema.Evaluable](first, second uint, bound fr.Element, sources []E, signs []bool, strict bool,
-	trace tr.Trace) bool {
+	trace tr.Trace) (bool, error) {
 	//
 	var (
-		delta fr.Element
-		lhs   = evalExprsAt(first, sources, trace)
-		rhs   = evalExprsAt(second, sources, trace)
+		delta    fr.Element
+		lhs, rhs []fr.Element
+		err      error
 	)
+	// Evaluate lhs
+	if lhs, err = evalExprsAt(first, sources, trace); err != nil {
+		return false, err
+	}
+	// Evaluate rhs
+	if rhs, err = evalExprsAt(second, sources, trace); err != nil {
+		return false, err
+	}
 	//
 	for i := range signs {
 		// Compare value
@@ -217,25 +229,27 @@ func sorted[E schema.Evaluable](first, second uint, bound fr.Element, sources []
 			// Compute delta
 			delta.Sub(&lhs[i], &rhs[i])
 			//
-			return delta.Cmp(&bound) < 0 && !signs[i]
+			return delta.Cmp(&bound) < 0 && !signs[i], nil
 		} else if c < 0 {
 			// Compute delta
 			delta.Sub(&rhs[i], &lhs[i])
 			//
-			return delta.Cmp(&bound) < 0 && signs[i]
+			return delta.Cmp(&bound) < 0 && signs[i], nil
 		}
 	}
 	// If we get here, then the elements are considered equal.  Thus, this is
 	// only permitted if this is a non-strict ordering.
-	return !strict
+	return !strict, nil
 }
 
-func evalExprsAt[E schema.Evaluable](k uint, sources []E, tr trace.Trace) []fr.Element {
+func evalExprsAt[E schema.Evaluable](k uint, sources []E, tr trace.Trace) ([]fr.Element, error) {
+	var err error
+	//
 	values := make([]fr.Element, len(sources))
 	// Evaluate each expression in turn
-	for i := 0; i < len(sources); i++ {
-		values[i] = sources[i].EvalAt(int(k), tr)
+	for i := 0; err == nil && i < len(sources); i++ {
+		values[i], err = sources[i].EvalAt(int(k), tr)
 	}
 	//
-	return values
+	return values, err
 }

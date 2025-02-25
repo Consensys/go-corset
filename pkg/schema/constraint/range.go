@@ -127,9 +127,15 @@ func (p *RangeConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
 	// Iterate every row
 	for k := 0; k < int(height); k++ {
 		// Get the value on the kth row
-		kth := p.Expr.EvalAt(k, tr)
+		kth, err := p.Expr.EvalAt(k, tr)
 		// Perform the range check
-		if kth.Cmp(&p.Bound) >= 0 {
+		if err != nil {
+			return coverage, &sc.InternalFailure{
+				Handle: p.Handle,
+				Row:    uint(k),
+				Error:  err.Error(),
+			}
+		} else if kth.Cmp(&p.Bound) >= 0 {
 			// Evaluation failure
 			return coverage, &RangeFailure{p.Handle, p.Expr, uint(k)}
 		}

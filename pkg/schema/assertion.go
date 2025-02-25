@@ -114,8 +114,10 @@ func (p *PropertyAssertion[T]) Accepts(tr tr.Trace) (bit.Set, Failure) {
 	// Iterate every row in the module
 	for k := uint(0); k < height; k++ {
 		// Check whether property holds (or was undefined)
-		if ok, id := p.Property.TestAt(int(k), tr); !ok {
+		if ok, id, err := p.Property.TestAt(int(k), tr); err != nil {
 			// Evaluation failure
+			return coverage, &InternalFailure{Handle: p.Handle, Row: k, Error: err.Error()}
+		} else if !ok {
 			return coverage, &AssertionFailure{p.Handle, p.Property, k}
 		} else {
 			// Update coverage

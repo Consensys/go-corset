@@ -14,6 +14,7 @@ package hir
 
 import (
 	"encoding/gob"
+	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/util"
@@ -94,6 +95,40 @@ func (p *Mul) multiplicity() uint {
 	}
 	//
 	return count
+}
+
+// ============================================================================
+// Cast
+// ============================================================================
+
+// Cast attempts to narrow the width a given expression.
+type Cast struct {
+	Arg      Term
+	BitWidth uint
+}
+
+// Bounds returns max shift in either the negative (left) or positive
+// direction (right).
+func (p *Cast) Bounds() util.Bounds { return p.Arg.Bounds() }
+
+// multiplicity returns the number of underlyg expressions that this
+// expression will expand to.
+func (p *Cast) multiplicity() uint {
+	return p.Arg.multiplicity()
+}
+
+// Range returns the range of values which this cast represents.
+func (p *Cast) Range() *util.Interval {
+	var (
+		zero  = big.NewInt(0)
+		bound = big.NewInt(2)
+	)
+	// Determine bound for static type check
+	bound.Exp(bound, big.NewInt(int64(p.BitWidth)), nil)
+	// Subtract 1 because interval is inclusive.
+	bound.Sub(bound, big.NewInt(1))
+	// Determine casted interval
+	return util.NewInterval(zero, bound)
 }
 
 // ============================================================================
@@ -258,6 +293,7 @@ func init() {
 	gob.Register(Term(&Add{}))
 	gob.Register(Term(&Mul{}))
 	gob.Register(Term(&Sub{}))
+	gob.Register(Term(&Cast{}))
 	gob.Register(Term(&Exp{}))
 	gob.Register(Term(&IfZero{}))
 	gob.Register(Term(&List{}))

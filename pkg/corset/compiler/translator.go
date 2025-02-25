@@ -553,6 +553,9 @@ func (t *translator) translateExpressionInModule(expr ast.Expr, module util.Path
 	case *ast.Add:
 		args, errs := t.translateExpressionsInModule(e.Args, module, shift)
 		return hir.Sum(args...), errs
+	case *ast.Cast:
+		arg, errs := t.translateExpressionInModule(e.Arg, module, shift)
+		return hir.CastOf(arg, e.BitWidth), errs
 	case *ast.Constant:
 		var val fr.Element
 		// Initialise field from bigint

@@ -25,7 +25,7 @@ type Interval struct {
 	max big.Int
 }
 
-// NewInterval creates an interval representing a single value.
+// NewInterval creates an interval representing a given range.
 func NewInterval(lower *big.Int, upper *big.Int) *Interval {
 	var (
 		min big.Int
@@ -36,6 +36,11 @@ func NewInterval(lower *big.Int, upper *big.Int) *Interval {
 	max.Set(upper)
 	//
 	return &Interval{min, max}
+}
+
+// NewInterval64 creates an interval representing a given range.
+func NewInterval64(lower int64, upper int64) *Interval {
+	return NewInterval(big.NewInt(lower), big.NewInt(upper))
 }
 
 // BitWidth returns the minimum number of bits required to store all elements in
@@ -67,8 +72,8 @@ func (p *Interval) Contains(val *big.Int) bool {
 }
 
 // Within checks whether this interval is contained within the given bounds.
-func (p *Interval) Within(lower *big.Int, upper *big.Int) bool {
-	return p.min.Cmp(lower) >= 0 && p.max.Cmp(upper) <= 0
+func (p *Interval) Within(other *Interval) bool {
+	return p.min.Cmp(&other.min) >= 0 && p.max.Cmp(&other.max) <= 0
 }
 
 // Insert a given value into this interval

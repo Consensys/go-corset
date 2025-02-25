@@ -95,17 +95,22 @@ func (p *ComputedColumn) ComputeColumns(tr trace.Trace) ([]trace.ArrayColumn, er
 	data := field.NewFrArray(height, p.target.DataType.BitWidth())
 	// Expand the trace
 	for i := uint(0); i < data.Len(); i++ {
-		val := p.expr.EvalAt(int(i), tr)
+		val, err := p.expr.EvalAt(int(i), tr)
+		// error check
+		if err != nil {
+			return nil, err
+		}
+		//
 		data.Set(i, val)
 	}
 	// Determine padding value.  A negative row index is used here to ensure
 	// that all columns return their padding value which is then used to compute
 	// the padding value for *this* column.
-	padding := p.expr.EvalAt(-1, tr)
+	padding, err := p.expr.EvalAt(-1, tr)
 	// Construct column
 	col := trace.NewArrayColumn(p.target.Context, p.Name(), data, padding)
 	// Done
-	return []trace.ArrayColumn{col}, nil
+	return []trace.ArrayColumn{col}, err
 }
 
 // Dependencies returns the set of columns that this assignment depends upon.

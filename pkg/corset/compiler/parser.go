@@ -1007,6 +1007,13 @@ func (p *Parser) parseDefFun(module util.Path, pure bool, elements []sexp.SExp) 
 	}
 	// Translate expression
 	body, errs := p.translator.Translate(elements[2])
+	// Apply return type
+	if ret != nil && ret.AsUnderlying() != nil && ret.AsUnderlying().AsUint() != nil {
+		underlying := ret.AsUnderlying().AsUint()
+		body = &ast.Cast{Arg: body, BitWidth: underlying.BitWidth()}
+		p.mapSourceNode(elements[2], body)
+	}
+	//
 	errors = append(errors, errs...)
 	// Check for errors
 	if len(errors) > 0 {

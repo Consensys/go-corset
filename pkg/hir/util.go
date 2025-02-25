@@ -36,18 +36,22 @@ type ZeroArrayTest struct {
 // TestAt determines whether or not every element from a given array of
 // expressions evaluates to zero. Observe that any expressions which are
 // undefined are assumed to hold.
-func (p ZeroArrayTest) TestAt(row int, trace tr.Trace) (bool, sc.BranchMetric) {
+func (p ZeroArrayTest) TestAt(row int, trace tr.Trace) (bool, sc.BranchMetric, error) {
 	// Evalues expression yielding zero or more values.
-	vals := evalAtTerm(p.Expr.Term, row, trace)
+	vals, err := evalAtTerm(p.Expr.Term, row, trace)
+	//
+	if err != nil {
+		return false, sc.EmptyBranchMetric(), err
+	}
 	// Check each value in turn against zero.
 	for _, val := range vals {
 		if !val.IsZero() {
 			// This expression does not evaluat to zero, hence failure.
-			return false, sc.BranchMetric{}
+			return false, sc.BranchMetric{}, nil
 		}
 	}
 	// Success
-	return true, sc.BranchMetric{}
+	return true, sc.BranchMetric{}, nil
 }
 
 // Branches returns the number of unique evaluation paths through the given
@@ -114,11 +118,11 @@ func NewUnitExpr(expr Expr) UnitExpr {
 // EvalAt evaluates a column access at a given row in a trace, which returns the
 // value at that row of the column in question or nil is that row is
 // out-of-bounds.
-func (e UnitExpr) EvalAt(k int, trace tr.Trace) fr.Element {
-	vals := evalAtTerm(e.Expr.Term, k, trace)
+func (e UnitExpr) EvalAt(k int, trace tr.Trace) (fr.Element, error) {
+	vals, err := evalAtTerm(e.Expr.Term, k, trace)
 	// Check we got exactly one thing
 	if len(vals) == 1 {
-		return vals[0]
+		return vals[0], err
 	}
 	// Fail
 	panic("invalid unitary expression")
@@ -193,8 +197,8 @@ func NewMaxExpr(expr Expr) MaxExpr {
 // EvalAt evaluates a column access at a given row in a trace, which returns the
 // value at that row of the column in question or nil is that row is
 // out-of-bounds.
-func (e MaxExpr) EvalAt(k int, trace tr.Trace) fr.Element {
-	vals := evalAtTerm(e.Expr.Term, k, trace)
+func (e MaxExpr) EvalAt(k int, trace tr.Trace) (fr.Element, error) {
+	vals, err := evalAtTerm(e.Expr.Term, k, trace)
 	//
 	max := fr.NewElement(0)
 	//
@@ -204,7 +208,7 @@ func (e MaxExpr) EvalAt(k int, trace tr.Trace) fr.Element {
 		}
 	}
 	//
-	return max
+	return max, err
 }
 
 // Bounds returns max shift in either the negative (left) or positive

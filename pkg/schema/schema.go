@@ -144,7 +144,7 @@ type Evaluable interface {
 	// undefined for several reasons: firstly, if it accesses a
 	// row which does not exist (e.g. at index -1); secondly, if
 	// it accesses a column which does not exist.
-	EvalAt(int, tr.Trace) fr.Element
+	EvalAt(int, tr.Trace) (fr.Element, error)
 	// Branches returns the number of unique evaluation paths through the given
 	// constraint.
 	Branches() uint
@@ -167,7 +167,7 @@ type Testable interface {
 	// context then it returns "nil".  An expression can be undefined for
 	// several reasons: firstly, if it accesses a row which does not exist (e.g.
 	// at index -1); secondly, if it accesses a column which does not exist.
-	TestAt(int, tr.Trace) (bool, BranchMetric)
+	TestAt(int, tr.Trace) (bool, BranchMetric, error)
 	// Branches returns the number of unique evaluation paths through the given
 	// constraint.
 	Branches() uint
@@ -260,4 +260,24 @@ type Module struct {
 // NewModule constructs a new column
 func NewModule(name string) Module {
 	return Module{name}
+}
+
+// ============================================================================
+// InternalFailure
+// ============================================================================
+
+// InternalFailure is a generic mechanism for reporting failures, particularly
+// as arising ferom evaluation of a given expression.
+type InternalFailure struct {
+	// Handle of the failing constraint
+	Handle string
+	// Row on which the constraint failed
+	Row uint
+	// Error message
+	Error string
+}
+
+// Message provides a suitable error message
+func (p *InternalFailure) Message() string {
+	return p.Error
 }

@@ -24,6 +24,8 @@ func lispOfTerm(e Term, schema sc.Schema) sexp.SExp {
 	switch e := e.(type) {
 	case *Add:
 		return nary2Lisp(schema, "+", e.Args)
+	case *Cast:
+		return lispOfCast(e, schema)
 	case *Constant:
 		return sexp.NewSymbol(e.Value.String())
 	case *ColumnAccess:
@@ -72,6 +74,13 @@ func nary2Lisp(schema sc.Schema, op string, exprs []Term) sexp.SExp {
 	}
 	// Done
 	return sexp.NewList(arr)
+}
+
+func lispOfCast(e *Cast, schema sc.Schema) sexp.SExp {
+	arg := lispOfTerm(e.Arg, schema)
+	name := sexp.NewSymbol(fmt.Sprintf(":u%d", e.BitWidth))
+
+	return sexp.NewList([]sexp.SExp{name, arg})
 }
 
 func lispOfNormalise(e *Norm, schema sc.Schema) sexp.SExp {
