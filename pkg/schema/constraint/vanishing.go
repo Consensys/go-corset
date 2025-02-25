@@ -174,9 +174,11 @@ func HoldsGlobally[T sc.Testable](handle string, ctx tr.Context, constraint T, t
 // HoldsLocally checks whether a given constraint holds (e.g. vanishes) on a
 // specific row of a trace. If not, report an appropriate error.
 func HoldsLocally[T sc.Testable](k uint, handle string, constraint T, tr tr.Trace) (sc.Failure, sc.BranchMetric) {
-	ok, id := constraint.TestAt(int(k), tr)
-	// Check whether it holds or not
-	if !ok {
+	ok, id, err := constraint.TestAt(int(k), tr)
+	// Check for errors
+	if err != nil {
+		return &sc.InternalFailure{Handle: handle, Row: k, Error: err.Error()}, id
+	} else if !ok {
 		// Evaluation failure
 		return &VanishingFailure{handle, constraint, k}, id
 	}

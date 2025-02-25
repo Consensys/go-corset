@@ -101,8 +101,8 @@ func (p *ColumnAccess) Bounds() util.Bounds {
 // EvalAt evaluates a column access at a given row in a trace, which returns the
 // value at that row of the column in question or nil is that row is
 // out-of-bounds.
-func (p *ColumnAccess) EvalAt(k int, tr trace.Trace) fr.Element {
-	return tr.Column(p.Column).Get(k + p.Shift)
+func (p *ColumnAccess) EvalAt(k int, tr trace.Trace) (fr.Element, error) {
+	return tr.Column(p.Column).Get(k + p.Shift), nil
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example

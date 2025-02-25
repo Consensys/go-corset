@@ -25,6 +25,8 @@ func rangeOfTerm(e Term, schema sc.Schema) *util.Interval {
 	switch e := e.(type) {
 	case *Add:
 		return rangeOfAdd(e.Args, schema)
+	case *Cast:
+		return rangeOfCast(e.Arg, e.Range(), schema)
 	case *Constant:
 		var c big.Int
 		// Extract big integer from field element
@@ -63,6 +65,17 @@ func rangeOfAdd(args []Term, schema sc.Schema) *util.Interval {
 	}
 	//
 	return &res
+}
+
+func rangeOfCast(arg Term, cast *util.Interval, schema sc.Schema) *util.Interval {
+	// Compute actual interval
+	res := rangeOfTerm(arg, schema)
+	// Check whether is within (or not)
+	if res.Within(cast) {
+		return res
+	}
+	//
+	return cast
 }
 
 func rangeOfColumnAccess(column uint, schema sc.Schema) *util.Interval {

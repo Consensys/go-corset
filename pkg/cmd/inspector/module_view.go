@@ -136,12 +136,17 @@ func (p *ModuleView) ValueAt(trace tr.Trace, trCol, trRow uint) fr.Element {
 func (p *ModuleView) IsActive(trace tr.Trace, trCol, trRow uint) bool {
 	selector := p.columns[trCol].Selector
 	//
-	if selector != nil {
-		val := selector.EvalAt(int(trRow), trace)
-		return !val.IsZero()
+	if selector == nil {
+		return true
 	}
 	//
-	return true
+	val, err := selector.EvalAt(int(trRow), trace)
+	// error check
+	if err != nil {
+		panic(err.Error())
+	}
+	//
+	return !val.IsZero()
 }
 
 // ============================================================================

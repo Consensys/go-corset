@@ -91,10 +91,10 @@ func (e Expr) RequiredCells(row int, tr trace.Trace) *set.AnySortedSet[trace.Cel
 // EvalAt evaluates a column access at a given row in a trace, which returns the
 // value at that row of the column in question or nil is that row is
 // out-of-bounds.
-func (e Expr) EvalAt(k int, tr trace.Trace) fr.Element {
+func (e Expr) EvalAt(k int, tr trace.Trace) (fr.Element, error) {
 	val, _ := evalAtTerm[sc.NoMetric](e.Term, k, tr)
 	//
-	return val
+	return val, nil
 }
 
 // TestAt evaluates this expression in a given tabular context and checks it
@@ -102,10 +102,10 @@ func (e Expr) EvalAt(k int, tr trace.Trace) fr.Element {
 // context then it returns "nil".  An expression can be undefined for
 // several reasons: firstly, if it accesses a row which does not exist (e.g.
 // at index -1); secondly, if it accesses a column which does not exist.
-func (e Expr) TestAt(k int, tr trace.Trace) (bool, sc.BranchMetric) {
+func (e Expr) TestAt(k int, tr trace.Trace) (bool, sc.BranchMetric, error) {
 	val, path := evalAtTerm[sc.BranchMetric](e.Term, k, tr)
 	//
-	return val.IsZero(), path
+	return val.IsZero(), path, nil
 }
 
 // Branches returns the number of unique evaluation paths through the given

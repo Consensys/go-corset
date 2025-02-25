@@ -27,6 +27,8 @@ func constantPropagationForTerm(e Term, schema sc.Schema) Term {
 	switch e := e.(type) {
 	case *Add:
 		return constantPropagationForAdd(e.Args, schema)
+	case *Cast:
+		return constantPropagationForCast(e.Arg, e.BitWidth, schema)
 	case *Constant:
 		return e
 	case *ColumnAccess:
@@ -70,6 +72,24 @@ func constantPropagationForAdd(es []Term, schema sc.Schema) Term {
 	}
 	// Done
 	return &Add{rs}
+}
+
+func constantPropagationForCast(arg Term, bitwidth uint, schema sc.Schema) Term {
+	var bound fr.Element = fr.NewElement(2)
+	// Determine bound for static type check
+	util.Pow(&bound, uint64(bitwidth))
+	// Propagate constants in the argument
+	arg = constantPropagationForTerm(arg, schema)
+	//
+	if c, ok := arg.(*Constant); ok && c.Value.Cmp(&bound) < 0 {
+		// Done
+		return c
+	} else if ok {
+		// Type failure
+		panic(fmt.Sprintf("type cast failure (have %s with expected bitwidth %d)", c.Value.String(), bitwidth))
+	}
+	//
+	return &Cast{arg, bitwidth}
 }
 
 func constantPropagationForExp(arg Term, pow uint64, schema sc.Schema) Term {

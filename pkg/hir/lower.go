@@ -219,7 +219,7 @@ func extractBody(e Term, schema *mir.Schema) mir.Expr {
 	case *Add:
 		return mir.Sum(extractBodies(e.Args, schema)...)
 	case *Cast:
-		return extractBody(e.Arg, schema)
+		return mir.CastOf(extractBody(e.Arg, schema), e.BitWidth)
 	case *Constant:
 		return mir.NewConst(e.Value)
 	case *ColumnAccess:
@@ -386,7 +386,6 @@ func expandMul(e *Mul, schema sc.Schema) []Term {
 		// Done
 		return &Mul{Args: args}
 	}, schema)
-
 }
 
 type binaryConstructor func(Term, Term) Term

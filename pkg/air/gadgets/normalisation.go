@@ -82,15 +82,15 @@ type psuedoInverse struct {
 
 // EvalAt computes the multiplicative inverse of a given expression at a given
 // row in the table.
-func (e *psuedoInverse) EvalAt(k int, tbl tr.Trace) fr.Element {
+func (e *psuedoInverse) EvalAt(k int, tbl tr.Trace) (fr.Element, error) {
 	var inv fr.Element
 	// Convert expression into something which can be evaluated, then evaluate
 	// it.
-	val := e.Expr.EvalAt(k, tbl)
+	val, err := e.Expr.EvalAt(k, tbl)
 	// Go syntax huh?
 	inv.Inverse(&val)
 	// Done
-	return inv
+	return inv, err
 }
 
 // AsConstant determines whether or not this is a constant expression.  If

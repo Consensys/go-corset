@@ -25,6 +25,8 @@ func contextOfTerm(e Term, schema sc.Schema) trace.Context {
 	switch e := e.(type) {
 	case *Add:
 		return contextOfTerms(e.Args, schema)
+	case *Cast:
+		return contextOfTerm(e.Arg, schema)
 	case *Constant:
 		return trace.VoidContext[uint]()
 	case *ColumnAccess:
