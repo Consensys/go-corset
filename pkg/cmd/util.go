@@ -389,7 +389,8 @@ func WriteBinaryFile(binfile *binfile.BinaryFile, legacy bool, filename string) 
 // compiled with (or without) the standard library.  Generally speaking, you
 // want to compile with the standard library.  However, some internal tests are
 // run without including the standard library to minimise the surface area.
-func ReadConstraintFiles(stdlib bool, debug bool, legacy bool, filenames []string, nonStrictMode bool) *binfile.BinaryFile {
+// If strictMode is activated, compiler rejects columns of field type 𝔽.
+func ReadConstraintFiles(stdlib bool, debug bool, legacy bool, filenames []string, strictMode bool) *binfile.BinaryFile {
 	var err error
 	//
 	if len(filenames) == 0 {
@@ -405,7 +406,7 @@ func ReadConstraintFiles(stdlib bool, debug bool, legacy bool, filenames []strin
 		os.Exit(1)
 	}
 	// Must be source files
-	return CompileSourceFiles(stdlib, debug, filenames, nonStrictMode)
+	return CompileSourceFiles(stdlib, debug, filenames, strictMode)
 }
 
 // ReadBinaryFile reads a binfile which includes the metadata bytes, along with
@@ -441,7 +442,8 @@ func ReadBinaryFile(legacy bool, filename string) *binfile.BinaryFile {
 // single schema.  This can result, for example, in a syntax error, etc.  This
 // can be done with (or without) including the standard library, and also with
 // (or without) debug constraints.
-func CompileSourceFiles(stdlib bool, debug bool, filenames []string, nonStrictMode bool) *binfile.BinaryFile {
+// If strictMode is activated, compiler rejects columns of field type 𝔽.
+func CompileSourceFiles(stdlib bool, debug bool, filenames []string, strictMode bool) *binfile.BinaryFile {
 	srcfiles := make([]*sexp.SourceFile, len(filenames))
 	// Read each file
 	for i, n := range filenames {
@@ -457,7 +459,7 @@ func CompileSourceFiles(stdlib bool, debug bool, filenames []string, nonStrictMo
 		srcfiles[i] = sexp.NewSourceFile(n, bytes)
 	}
 	// Parse and compile source files
-	binf, errs := corset.CompileSourceFiles(stdlib, debug, srcfiles, nonStrictMode)
+	binf, errs := corset.CompileSourceFiles(stdlib, debug, srcfiles, strictMode)
 	// Check for any errors
 	if len(errs) == 0 {
 		return binf
