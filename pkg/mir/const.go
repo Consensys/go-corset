@@ -177,6 +177,18 @@ func constantPropagationForSub(es []Term, schema sc.Schema) Term {
 	return &Sub{rs}
 }
 
+// Remove all occurences of a given constant
+func removeConstants(constant fr.Element, es []Term) []Term {
+	var rs []Term = nil
+	//
+	for i := range es {
+		// Check for matching constant
+		if c, ok := es[i].(*Constant); ok && c.Value.Cmp(&constant) == 0 {
+
+		}
+	}
+}
+
 // Replace all constants within a given sequence of expressions with a single
 // constant (whose value has been precomputed from those constants).  The new
 // value replaces the first constant in the list.
