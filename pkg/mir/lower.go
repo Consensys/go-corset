@@ -172,7 +172,7 @@ func lowerRangeConstraintToAir(v RangeConstraint, mirSchema *Schema, airSchema *
 		elem := v.Bound
 		elem.BigInt(&bi)
 		// Apply bitwidth gadget
-		air_gadgets.ApplyBitwidthGadget(column, uint(bi.BitLen()-1), airSchema)
+		air_gadgets.ApplyBitwidthGadget(column, uint(bi.BitLen()-1), air.NewConst64(1), airSchema)
 	}
 }
 
@@ -222,11 +222,29 @@ func lowerSortedConstraintToAir(c SortedConstraint, mirSchema *Schema, airSchema
 		// differs, etc).  Instead, we just need a delta column which ensures
 		// there is a non-negative difference between consecutive rows.  This
 		// also requires bitwidth constraints.
-		air_gadgets.ApplyColumnSortGadget(c.Handle, sources[0], c.Signs[0], c.BitWidth, airSchema)
+		gadget := air_gadgets.NewColumnSortGadget(c.Handle, sources[0], c.BitWidth)
+		gadget.SetSign(c.Signs[0])
+		gadget.SetStrict(c.Strict)
+		// Add (optional) selector
+		if c.Selector.HasValue() {
+			selector := lowerExprTo(c.Context, c.Selector.Unwrap(), mirSchema, airSchema, cfg)
+			gadget.SetSelector(selector)
+		}
+		// Done!
+		gadget.Apply(airSchema)
 	} else {
 		// For a multi column sort, its a bit harder as we need additional
-		// logicl to ensure the target columns are lexicographally sorted.
-		air_gadgets.ApplyLexicographicSortingGadget(c.Handle, sources, c.Signs, c.BitWidth, airSchema)
+		// logic to ensure the target columns are lexicographally sorted.
+		gadget := air_gadgets.NewLexicographicSortingGadget(c.Handle, sources, c.BitWidth)
+		gadget.SetSigns(c.Signs...)
+		gadget.SetStrict(c.Strict)
+		// Add (optional) selector
+		if c.Selector.HasValue() {
+			selector := lowerExprTo(c.Context, c.Selector.Unwrap(), mirSchema, airSchema, cfg)
+			gadget.SetSelector(selector)
+		}
+		// Done
+		gadget.Apply(airSchema)
 	}
 	// Sanity check bitwidth
 	bitwidth := uint(0)
@@ -285,10 +303,13 @@ func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Sche
 		// Identify target column name
 		target := mirSchema.Columns().Nth(targets[0]).Name
 		// Add column sorting constraints
-		air_gadgets.ApplyColumnSortGadget(target, targets[0], c.Signs[0], bitwidth, airSchema)
+		gadget := air_gadgets.NewColumnSortGadget(target, targets[0], bitwidth)
+		gadget.SetSign(c.Signs[0])
+		// Done!
+		gadget.Apply(airSchema)
 	} else {
 		// For a multi column sort, its a bit harder as we need additional
-		// logicl to ensure the target columns are lexicographally sorted.
+		// logic to ensure the target columns are lexicographally sorted.
 		bitwidth := uint(0)
 
 		for i := 0; i < numSignedCols; i++ {
@@ -301,7 +322,12 @@ func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Sche
 		// Construct a unique prefix for this sort.
 		prefix := constructLexicographicSortingPrefix(targets, c.Signs, airSchema)
 		// Add lexicographically sorted constraints
-		air_gadgets.ApplyLexicographicSortingGadget(prefix, targets, c.Signs, bitwidth, airSchema)
+		// For a multi column sort, its a bit harder as we need additional
+		// logic to ensure the target columns are lexicographally sorted.
+		gadget := air_gadgets.NewLexicographicSortingGadget(prefix, targets, bitwidth)
+		gadget.SetSigns(c.Signs...)
+		// Done
+		gadget.Apply(airSchema)
 	}
 }
 

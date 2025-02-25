@@ -283,7 +283,9 @@ func (p *Parser) parseDeclaration(module util.Path, s *sexp.List) (ast.Declarati
 	} else if s.Len() == 3 && s.MatchSymbols(2, "defproperty") {
 		decl, errors = p.parseDefProperty(s.Elements)
 	} else if s.Len() == 3 && s.MatchSymbols(2, "defsorted") {
-		decl, errors = p.parseDefSorted(s.Elements)
+		decl, errors = p.parseDefSorted(false, s.Elements)
+	} else if 3 <= s.Len() && s.Len() <= 4 && s.MatchSymbols(2, "defstrictsorted") {
+		decl, errors = p.parseDefSorted(true, s.Elements)
 	} else {
 		errors = p.translator.SyntaxErrors(s, "malformed declaration")
 	}
@@ -800,22 +802,39 @@ func (p *Parser) parseDefPermutation(module util.Path, elements []sexp.SExp) (as
 }
 
 // Parse a permutation declaration
-func (p *Parser) parseDefSorted(elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
+func (p *Parser) parseDefSorted(strict bool, elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
 	var (
-		errors  []SyntaxError
-		sources []ast.Expr
-		signs   []bool
+		selector           util.Option[ast.Expr]
+		errors             []SyntaxError
+		sources            []ast.Expr
+		sexpSourcesElement sexp.SExp
+		sexpSources        *sexp.List
+		signs              []bool
 	)
 	// Extract items
 	handle := elements[1]
-	sexpSources := elements[2].AsList()
+
+	if len(elements) == 3 {
+		// selector not provided
+		sexpSourcesElement = elements[2]
+	} else {
+		// selector provided
+		sexpSourcesElement = elements[3]
+		// Translate selector expression
+		expr, errs := p.translator.Translate(elements[2])
+		selector = util.Some(expr)
+		// update errors
+		errors = append(errors, errs...)
+	}
+	//
+	sexpSources = sexpSourcesElement.AsList()
 	// Check Handle
 	if !isIdentifier(handle) {
 		errors = append(errors, *p.translator.SyntaxError(elements[1], "malformed handle"))
 	}
 	// Check source Expressions
 	if sexpSources == nil {
-		errors = append(errors, *p.translator.SyntaxError(elements[3], "malformed source columns"))
+		errors = append(errors, *p.translator.SyntaxError(sexpSourcesElement, "malformed source columns"))
 	}
 	// Sanity check number of columns matches
 	if sexpSources != nil {
@@ -853,7 +872,7 @@ func (p *Parser) parseDefSorted(elements []sexp.SExp) (ast.Declaration, []Syntax
 		return nil, errors
 	}
 	// Done
-	return ast.NewDefSorted(handle.AsSymbol().Value, sources, signs), nil
+	return ast.NewDefSorted(handle.AsSymbol().Value, selector, sources, signs, strict), nil
 }
 
 func (p *Parser) parsePermutedColumnAccess(e sexp.SExp) (*ast.VariableAccess, *bool, *SyntaxError) {

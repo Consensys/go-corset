@@ -18,6 +18,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/mir"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // LowerToMir lowers (or refines) an HIR table into an MIR schema.  That means
@@ -92,13 +93,20 @@ func lowerLookupConstraint(c LookupConstraint, schema *mir.Schema) {
 }
 
 func lowerSortedConstraint(c SortedConstraint, schema *mir.Schema) {
-	sources := make([]mir.Expr, len(c.Sources))
+	var (
+		selector util.Option[mir.Expr] = util.None[mir.Expr]()
+		sources                        = make([]mir.Expr, len(c.Sources))
+	)
+	// Convert (optional) selector expression
+	if c.Selector.HasValue() {
+		selector = util.Some(lowerUnitTo(c.Selector.Unwrap(), schema))
+	}
 	// Convert general expressions into unit expressions.
 	for i := 0; i < len(sources); i++ {
 		sources[i] = lowerUnitTo(c.Sources[i], schema)
 	}
 	//
-	schema.AddSortedConstraint(c.Handle, c.Context, c.BitWidth, sources, c.Signs)
+	schema.AddSortedConstraint(c.Handle, c.Context, c.BitWidth, selector, sources, c.Signs, c.Strict)
 }
 
 // Lower an expression which is expected to lower into a single expression.
