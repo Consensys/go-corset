@@ -936,7 +936,11 @@ func (p *DefPermutation) Lisp() sexp.SExp {
 	// Sources
 	for i, t := range p.Sources {
 		var sign string
-		if p.Signs[i] {
+		//
+		if i >= len(p.Signs) {
+			sources[i] = t.Lisp()
+			continue
+		} else if p.Signs[i] {
 			sign = "+"
 		} else {
 			sign = "-"
@@ -1043,7 +1047,17 @@ func (p *DefPerspective) IsFinalised() bool {
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
 func (p *DefPerspective) Lisp() sexp.SExp {
-	panic("todo")
+	columns := make([]sexp.SExp, len(p.Columns))
+	//
+	for i := range columns {
+		columns[i] = p.Columns[i].Lisp()
+	}
+	//
+	return sexp.NewList([]sexp.SExp{
+		sexp.NewSymbol("defperspective"),
+		p.Selector.Lisp(),
+		sexp.NewList(columns),
+	})
 }
 
 // ============================================================================

@@ -118,6 +118,12 @@ func Exponent(arg Expr, pow uint64) Expr {
 	return Expr{&Exp{arg.Term, pow}}
 }
 
+// CastOf constructs a new expression which has been annotated by the user to be
+// within a given range.
+func CastOf(arg Expr, bitwidth uint) Expr {
+	return Expr{&Cast{arg.Term, bitwidth}}
+}
+
 // If a new conditional branch, where either the true branch or the false branch
 // can (optionally) be VOID (but both cannot).  Note, the true branch is taken
 // when the condition evaluates to zero.

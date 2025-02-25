@@ -237,8 +237,10 @@ func (p *typeChecker) typeCheckExpressionInModule(expr ast.Expr) (ast.Type, []Sy
 		types, errs := p.typeCheckExpressionsInModule(e.Args)
 		return ast.LeastUpperBoundAll(types), errs
 	case *ast.Cast:
-		_, errs := p.typeCheckExpressionInModule(e.Arg)
-		return e.DataType, errs
+		// No need to actually do anything here, since at this point in the
+		// compilation process a cast can only occur as the last item of a
+		// function body.
+		return p.typeCheckExpressionInModule(e.Arg)
 	case *ast.Constant:
 		nbits := e.Val.BitLen()
 		return ast.NewUintType(uint(nbits)), nil

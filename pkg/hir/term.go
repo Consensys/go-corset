@@ -97,6 +97,26 @@ func (p *Mul) multiplicity() uint {
 }
 
 // ============================================================================
+// Cast
+// ============================================================================
+
+// Cast attempts to narrow the width a given expression.
+type Cast struct {
+	Arg      Term
+	BitWidth uint
+}
+
+// Bounds returns max shift in either the negative (left) or positive
+// direction (right).
+func (p *Cast) Bounds() util.Bounds { return p.Arg.Bounds() }
+
+// multiplicity returns the number of underlyg expressions that this
+// expression will expand to.
+func (p *Cast) multiplicity() uint {
+	return p.Arg.multiplicity()
+}
+
+// ============================================================================
 // Exponentiation
 // ============================================================================
 

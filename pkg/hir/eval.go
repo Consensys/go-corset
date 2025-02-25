@@ -26,6 +26,8 @@ func evalAtTerm(e Term, k int, trace tr.Trace) []fr.Element {
 	switch e := e.(type) {
 	case *Add:
 		return evalAtAdd(e, k, trace)
+	case *Cast:
+		return evalAtTerm(e.Arg, k, trace)
 	case *Constant:
 		return []fr.Element{e.Value}
 	case *ColumnAccess:
