@@ -236,6 +236,9 @@ func (p *typeChecker) typeCheckExpressionInModule(expr ast.Expr) (ast.Type, []Sy
 	case *ast.Add:
 		types, errs := p.typeCheckExpressionsInModule(e.Args)
 		return ast.LeastUpperBoundAll(types), errs
+	case *ast.Cast:
+		_, errs := p.typeCheckExpressionInModule(e.Arg)
+		return e.DataType, errs
 	case *ast.Constant:
 		nbits := e.Val.BitLen()
 		return ast.NewUintType(uint(nbits)), nil

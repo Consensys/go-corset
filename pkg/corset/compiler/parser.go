@@ -1007,6 +1007,12 @@ func (p *Parser) parseDefFun(module util.Path, pure bool, elements []sexp.SExp) 
 	}
 	// Translate expression
 	body, errs := p.translator.Translate(elements[2])
+	// Apply return type
+	if ret != nil {
+		body = &ast.Cast{Arg: body, DataType: ret}
+		p.mapSourceNode(elements[2], body)
+	}
+	//
 	errors = append(errors, errs...)
 	// Check for errors
 	if len(errors) > 0 {

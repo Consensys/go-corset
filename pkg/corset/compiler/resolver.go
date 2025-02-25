@@ -694,6 +694,8 @@ func (r *resolver) finaliseExpressionInModule(scope LocalScope, expr ast.Expr) [
 		return r.finaliseArrayAccessInModule(scope, v)
 	case *ast.Add:
 		return r.finaliseExpressionsInModule(scope, v.Args)
+	case *ast.Cast:
+		return r.finaliseExpressionInModule(scope, v.Arg)
 	case *ast.Constant:
 		return nil
 	case *ast.Debug:
