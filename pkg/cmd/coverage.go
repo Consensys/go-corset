@@ -65,7 +65,7 @@ var coverageCmd = &cobra.Command{
 		json, others := splitArgs(args)
 		// Parse constraints
 		// Run compiler in strict mode
-		binfile := ReadConstraintFiles(stdlib, debug, legacy, others, false)
+		binfile := ReadConstraintFiles(stdlib, debug, legacy, others, true)
 		// Parse coverage file
 		coverage := readCoverageReports(json, binfile, optConfig)
 		//

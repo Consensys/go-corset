@@ -94,7 +94,7 @@ var checkCmd = &cobra.Command{
 		stats := util.NewPerfStats()
 		// Parse constraints
 		// Run compiler in strict mode
-		binfile := ReadConstraintFiles(cfg.stdlib, cfg.debug, legacy, args[1:], false)
+		binfile := ReadConstraintFiles(cfg.stdlib, cfg.debug, legacy, args[1:], true)
 		//
 		stats.Log("Reading constraints file")
 		// Parse trace file(s)

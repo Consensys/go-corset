@@ -173,7 +173,7 @@ func expandWithConstraints(level int, cols []trace.RawColumn, stdlib bool, valid
 	var schema sc.Schema
 	//
 	// Run compiler in strict mode
-	binfile := ReadConstraintFiles(stdlib, false, false, filenames, false)
+	binfile := ReadConstraintFiles(stdlib, false, false, filenames, true)
 	//
 	switch level {
 	case hir_LEVEL:
