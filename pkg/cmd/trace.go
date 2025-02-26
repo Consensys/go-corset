@@ -19,6 +19,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/mir"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -102,10 +103,10 @@ var traceCmd = &cobra.Command{
 				sliceColumns(traces[i], start, end)
 			}
 			if columns {
-				listColumns(traces[i], includes)
+				listColumns(max_width, traces[i], includes)
 			}
 			if modules {
-				listModules(traces[i])
+				listModules(max_width, traces[i])
 			}
 			if stats {
 				summaryStats(traces[i])
@@ -277,7 +278,7 @@ func printTrace(start uint, max_width uint, cols []trace.RawColumn) {
 	tbl.Print()
 }
 
-func listModules(tr []trace.RawColumn) {
+func listModules(max_width uint, tr []trace.RawColumn) {
 	// Organise traces by their module ID
 	traces, modules := organiseTracesByModule(tr)
 	//
@@ -303,11 +304,11 @@ func listModules(tr []trace.RawColumn) {
 		tbl.SetRow(uint(i+1), row...)
 	}
 	//
-	tbl.SetMaxWidths(64)
+	tbl.SetMaxWidths(max_width)
 	tbl.Print()
 }
 
-func listColumns(tr []trace.RawColumn, includes []string) {
+func listColumns(max_width uint, tr []trace.RawColumn, includes []string) {
 	summarisers := selectColumnSummarisers(includes)
 	m := 1 + uint(len(summarisers))
 	n := uint(len(tr))
@@ -338,7 +339,7 @@ func listColumns(tr []trace.RawColumn, includes []string) {
 		tbl.SetRow(res.Left+1, res.Right...)
 	}
 	//
-	tbl.SetMaxWidths(64)
+	tbl.SetMaxWidths(max_width)
 	tbl.Print()
 }
 
@@ -457,6 +458,7 @@ var moduleSumarisers = []ModuleSummariser{
 	{"lines", "line count for module", moduleLineSummariser},
 	{"bitwidth", "bitwidth of module", moduleBitwidthSummariser},
 	{"cells", "total number of cells traced for module", moduleCountSummariser},
+	{"nonzero", "total number of nonzero cells traced for module", moduleNonZeroCounter},
 	{"bytes", "total number of bytes traced for module", moduleBytesSummariser},
 }
 
@@ -519,6 +521,16 @@ func moduleBytesSummariser(columns []trace.RawColumn) string {
 	return fmt.Sprintf("%d", total)
 }
 
+func moduleNonZeroCounter(columns []trace.RawColumn) string {
+	count := uint(0)
+
+	for _, col := range columns {
+		count += nonZeroCount(col)
+	}
+	//
+	return fmt.Sprintf("%d", count)
+}
+
 // ============================================================================
 // Column Summarisers
 // ============================================================================
@@ -537,6 +549,7 @@ var columnSummarisers = []ColumnSummariser{
 	{"bytes", "total bytes required for column", columnBytesSummariser},
 	{"elements", "number of unique elements in column", uniqueElementsSummariser},
 	{"entropy", "number of lines in column whose value differs from previous line", entropySummariser},
+	{"nonzero", "number of lines in column whose value is not zero", nonZeroCounter},
 }
 
 // Used to show the available options on the command-line.
@@ -586,21 +599,48 @@ func entropySummariser(col trace.RawColumn) string {
 	entropy := 0.0
 	//
 	if data.Len() > 0 {
-		last := data.Get(0)
-		count := 1
-		// Count all rows which have same value as previous row.
+		var (
+			last  fr.Element = data.Get(0)
+			count            = 1
+		)
+		// Count all rows whose value differs from previous row.
 		for i := uint(1); i < data.Len(); i++ {
 			ith := data.Get(i)
-			if last.Cmp(&ith) == 0 {
+			if last.Cmp(&ith) != 0 {
 				count++
 			}
+			//
+			last = ith
 		}
 		// Calculate entropy
-		entropy = float64(count) / float64(data.Len())
-		entropy *= 100
+		entropy = float64(count*100) / float64(data.Len())
 	}
 	// Done
 	return fmt.Sprintf("%2.1f%%", entropy)
+}
+
+func nonZeroCounter(col trace.RawColumn) string {
+	return fmt.Sprintf("%d", nonZeroCount(col))
+}
+
+func nonZeroCount(col trace.RawColumn) uint {
+	var (
+		count = uint(0)
+		zero  = fr.NewElement(0)
+		data  = col.Data
+	)
+	//
+	if data.Len() > 0 {
+		// Count all rows which have same value as previous row.
+		for i := uint(1); i < data.Len(); i++ {
+			ith := data.Get(i)
+			if ith.Cmp(&zero) != 0 {
+				count++
+			}
+		}
+	}
+	//
+	return count
 }
 
 // ============================================================================
