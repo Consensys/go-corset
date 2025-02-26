@@ -15,10 +15,12 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode"
 
 	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/corset"
@@ -98,6 +100,7 @@ func generateJavaModule(className string, mod corset.SourceModule, schema *hir.S
 	//
 	generateJavaClassHeader(className, builder)
 	//
+	generateJavaModuleConstants(mod.Constants, builder.Indent())
 	generateJavaModuleSubmoduleFields(mod.Submodules, builder.Indent())
 	//
 	if !mod.Virtual {
@@ -119,11 +122,12 @@ func generateJavaModule(className string, mod corset.SourceModule, schema *hir.S
 		}
 
 		generateJavaModuleColumnSetters(className, mod, schema, builder.Indent())
-		generateJavaModuleValidateRow(className, builder.Indent())
-		generateJavaModuleFillAndValidateRow(className, builder.Indent())
 	} else {
 		generateJavaModuleColumnSetters(className, mod, schema, builder.Indent())
 	}
+	//
+	generateJavaModuleValidateRow(className, mod, builder.Indent())
+	generateJavaModuleFillAndValidateRow(className, mod, builder.Indent())
 	// Generate any submodules
 	for _, submod := range mod.Submodules {
 		generateJavaModule(toPascalCase(submod.Name), submod, schema, builder.Indent())
@@ -147,6 +151,35 @@ func generateJavaClassFooter(builder indentBuilder) {
 func generateJavaModuleHeader(builder indentBuilder) {
 	builder.WriteIndentedString("private final BitSet filled = new BitSet();\n")
 	builder.WriteIndentedString("private int currentLine = 0;\n\n")
+}
+
+func generateJavaModuleConstants(constants []corset.SourceConstant, builder indentBuilder) {
+	for _, constant := range constants {
+		var (
+			maxInt      = big.NewInt(math.MaxInt32)
+			javaType    string
+			constructor string
+			fieldName   string = strings.ReplaceAll(constant.Name, "-", "_")
+		)
+		// Determine suitable Java type
+		switch {
+		case constant.Value.Sign() < 0:
+			// TODO: for now, we always skip negative constants since it is
+			// entirely unclear how they should be interpreted.
+			continue
+		case constant.Value.Cmp(maxInt) <= 0:
+			constructor = fmt.Sprintf("0x%s", constant.Value.Text(16))
+			javaType = "int"
+		case constant.Value.IsInt64():
+			constructor = fmt.Sprintf("0x%sL", constant.Value.Text(16))
+			javaType = "long"
+		default:
+			constructor = fmt.Sprintf("new BigInteger(\"%s\")", constant.Value.String())
+			javaType = "BigInteger"
+		}
+		//
+		builder.WriteIndentedString("public static final ", javaType, " ", fieldName, " = ", constructor, ";\n")
+	}
 }
 
 func generateJavaModuleRegisterFields(mid uint, schema *hir.Schema, builder indentBuilder) uint {
@@ -190,26 +223,6 @@ func generateJavaModuleSubmoduleFields(submodules []corset.SourceModule, builder
 	}
 	//
 	builder.WriteString("\n")
-}
-
-func generateJavaModuleHeaders(mid uint, schema *hir.Schema, builder indentBuilder) {
-	innerBuilder := builder.Indent()
-	//
-	builder.WriteIndentedString("static List<ColumnHeader> headers(int length) {\n")
-	innerBuilder.WriteIndentedString("List<ColumnHeader> headers = new ArrayList<>();\n")
-	//
-	for iter := schema.InputColumns(); iter.HasNext(); {
-		column := iter.Next()
-		// Check whether this is part of our module
-		if column.Context.Module() == mid {
-			width := fmt.Sprintf("%d", column.DataType.ByteWidth())
-			// Yes, it is.
-			innerBuilder.WriteIndentedString("headers.add(new ColumnHeader(\"", column.Name, "\", ", width, ", length));\n")
-		}
-	}
-	//
-	innerBuilder.WriteIndentedString("return headers;\n")
-	builder.WriteIndentedString("}\n\n")
 }
 
 func generateJavaModuleConstructor(classname string, mid uint, mod corset.SourceModule,
@@ -297,7 +310,7 @@ func generateJavaModuleColumnSetter(className string, col corset.SourceColumn, s
 	case bitwidth == 1:
 		i1Builder.WriteIndentedString(fieldName, ".put((byte) (val ? 1 : 0));\n")
 	case bitwidth <= 8:
-		i1Builder.WriteIndentedString(fieldName, ".put(val.toByte());\n")
+		i1Builder.WriteIndentedString(fieldName, ".put((byte) val);\n")
 	case bitwidth <= 63:
 		generateJavaModuleLongPutter(col.Name, fieldName, bitwidth, i1Builder)
 	default:
@@ -308,12 +321,25 @@ func generateJavaModuleColumnSetter(className string, col corset.SourceColumn, s
 	i1Builder.WriteIndentedString("return this;\n")
 	// Done
 	builder.WriteIndentedString("}\n\n")
+	// Legacy case for bytes
+	if bitwidth == 8 {
+		generateJavaModuleLegacyColumnSetter(className, col, builder)
+	}
+}
+
+// legacy setter to support UnsignedByte.
+func generateJavaModuleLegacyColumnSetter(className string, col corset.SourceColumn, builder indentBuilder) {
+	i1Builder := builder.Indent()
+	methodName := toCamelCase(col.Name)
+	builder.WriteIndentedString("public ", className, " ", methodName, "(final UnsignedByte val) {\n")
+	i1Builder.WriteIndentedString("return ", methodName, "(val.toByte());\n")
+	builder.WriteIndentedString("}\n\n")
 }
 
 func generateJavaModuleLongPutter(columnName, fieldName string, bitwidth uint, builder indentBuilder) {
 	n := byteWidth(bitwidth)
 	i1Builder := builder.Indent()
-	builder.WriteIndentedString("if(val >= ", maxValueStr(bitwidth), "L) {\n")
+	builder.WriteIndentedString("if(val < 0 || val >= ", maxValueStr(bitwidth), "L) {\n")
 	i1Builder.WriteIndentedString(
 		"throw new IllegalArgumentException(\"", columnName+" has invalid value (\" + val + \")\");\n")
 	builder.WriteIndentedString("}\n")
@@ -345,7 +371,7 @@ func generateJavaModuleBytesPutter(columnName, fieldName string, bitwidth uint, 
 	builder.WriteIndentedString(fmt.Sprintf("for(int i=bs.size(); i<bs.size(); i++) { %s.put(bs.get(i)); }\n", fieldName))
 }
 
-func generateJavaModuleValidateRow(className string, builder indentBuilder) {
+func generateJavaModuleValidateRow(className string, mod corset.SourceModule, builder indentBuilder) {
 	i1Builder := builder.Indent()
 	//
 	builder.WriteIndentedString("public ", className, " validateRow() {\n")
@@ -353,7 +379,7 @@ func generateJavaModuleValidateRow(className string, builder indentBuilder) {
 	builder.WriteIndentedString("}\n\n")
 }
 
-func generateJavaModuleFillAndValidateRow(className string, builder indentBuilder) {
+func generateJavaModuleFillAndValidateRow(className string, mod corset.SourceModule, builder indentBuilder) {
 	i1Builder := builder.Indent()
 	//
 	builder.WriteIndentedString("public ", className, " fillAndValidateRow() {\n")
@@ -383,8 +409,6 @@ func getJavaType(bitwidth uint) string {
 	switch {
 	case bitwidth == 1:
 		return "boolean"
-	case bitwidth <= 8:
-		return "UnsignedByte"
 	case bitwidth <= 63:
 		return "long"
 	default:
@@ -404,10 +428,8 @@ func toPascalCase(name string) string {
 // Capitalise each word, except first.
 func toCamelCase(name string) string {
 	var word string
-	// Remove any invalid characters
-	name = strings.ReplaceAll(name, "-", "")
 	//
-	for i, w := range strings.Split(name, "_") {
+	for i, w := range splitWords(name) {
 		if i == 0 {
 			word = camelify(w, false)
 		} else {
@@ -430,6 +452,44 @@ func camelify(name string, first bool) string {
 	}
 	//
 	return strings.Join(letters, "")
+}
+
+func splitWords(name string) []string {
+	var (
+		words []string
+	)
+	//
+	for _, w1 := range strings.Split(name, "_") {
+		for _, w2 := range strings.Split(w1, "-") {
+			words = append(words, splitCaseChange(w2)...)
+		}
+	}
+	//
+	return words
+}
+
+func splitCaseChange(word string) []string {
+	var (
+		runes = []rune(word)
+		words []string
+		last  bool = true
+		start int
+	)
+	//
+	for i, r := range runes {
+		ith := unicode.IsUpper(r)
+		if !last && ith {
+			// case change
+			words = append(words, string(runes[start:i]))
+			start = i
+		}
+
+		last = ith
+	}
+	// Append whatever is left
+	words = append(words, string(runes[start:]))
+	//
+	return words
 }
 
 // Determine number of bytes the given bitwidth represents.

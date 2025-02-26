@@ -153,8 +153,9 @@ func constructSourceModule(scope *compiler.ModuleScope, env compiler.GlobalEnvir
 	var (
 		columns    []SourceColumn
 		submodules []SourceModule
+		constants  []SourceConstant
 	)
-	//
+	// Map source-level columns
 	for _, col := range scope.DestructuredColumns() {
 		// Determine register allocated to this (destructured) column.
 		regId := env.RegisterOf(&col.Name)
@@ -165,6 +166,14 @@ func constructSourceModule(scope *compiler.ModuleScope, env compiler.GlobalEnvir
 		// Translate register source into source column
 		srcCol := SourceColumn{name, col.Multiplier, col.DataType, col.MustProve, col.Computed, display, regId}
 		columns = append(columns, srcCol)
+	}
+	// Map source-level constants
+	for _, constant := range scope.DestructuredConstants() {
+		constants = append(constants, SourceConstant{
+			constant.Left,
+			constant.Right,
+			false,
+		})
 	}
 	//
 	for _, child := range scope.Children() {
@@ -178,6 +187,7 @@ func constructSourceModule(scope *compiler.ModuleScope, env compiler.GlobalEnvir
 		Selector:   compileSelector(env, scope.Selector()),
 		Submodules: submodules,
 		Columns:    columns,
+		Constants:  constants,
 	}
 }
 

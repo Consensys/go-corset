@@ -14,6 +14,7 @@ package corset
 
 import (
 	"encoding/gob"
+	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/binfile"
@@ -72,6 +73,8 @@ type SourceModule struct {
 	// Columns identifies any columns defined in this module.  Observe that
 	// columns across modules are mapped to registers in a many-to-one fashion.
 	Columns []SourceColumn
+	// Constants identifiers any constants defined in this module.
+	Constants []SourceConstant
 }
 
 // Flattern modules in this tree either including (or excluding) virtual
@@ -120,6 +123,15 @@ const DISPLAY_BYTES = uint(2)
 
 // DISPLAY_CUSTOM selects a custom layout
 const DISPLAY_CUSTOM = uint(256)
+
+type SourceConstant struct {
+	Name string
+	// value of the constant
+	Value big.Int
+	// Indicates whether this is an "externally visible" constant.  That is, one
+	// whose value can be changed after the fact.
+	Extern bool
+}
 
 func init() {
 	gob.Register(binfile.Attribute(&SourceMap{}))
