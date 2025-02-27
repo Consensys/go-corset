@@ -154,6 +154,7 @@ func generateJavaModuleHeaders(mid uint, mod corset.SourceModule, schema *hir.Sc
 	i1Builder := builder.Indent()
 	// Count of created registers
 	count := uint(0)
+	register := uint(0)
 	//
 	for iter := schema.InputColumns(); iter.HasNext(); {
 		column := iter.Next()
@@ -161,16 +162,20 @@ func generateJavaModuleHeaders(mid uint, mod corset.SourceModule, schema *hir.Sc
 		if column.Context.Module() == mid {
 			// Yes, include register
 			if count == 0 {
-				builder.WriteIndentedString("List<ColumnHeader> headers(int length) {\n")
+				builder.WriteIndentedString("public static List<ColumnHeader> headers(int length) {\n")
 				i1Builder.WriteIndentedString("List<ColumnHeader> headers = new ArrayList<>();\n")
 			}
 			//
 			width := fmt.Sprintf("%d", column.DataType.ByteWidth())
 			name := fmt.Sprintf("%s.%s", mod.Name, column.Name)
-			i1Builder.WriteIndentedString("headers.add(new ColumnHeader(\"", name, "\",", width, ",length));\n")
+			regStr := fmt.Sprintf("%d", register)
+			i1Builder.WriteIndentedString(
+				"headers.add(new ColumnHeader(\"", name, "\",", regStr, ",", width, ",length));\n")
 			//
 			count++
 		}
+		//
+		register++
 	}
 	//
 	if count > 0 {
@@ -655,11 +660,14 @@ const javaTraceOf string = `
     * Construct a new trace which will be written to a given file.
     *
     * @param file File into which the trace will be written.  Observe any previous contents of this file will be lost.
-    * @return {} object to use for writing column data.
+    * @return Trace object to use for writing column data.
     *
     * @throws IOException If an I/O error occurs.
     */
-   public static {} of(RandomAccessFile file, ColumnHeader[] headers) throws IOException {
+   public static Trace of(RandomAccessFile file, List<ColumnHeader> rawHeaders) throws IOException {
+      // First align headers according to register indices.
+      ColumnHeader[] headers = alignHeaders(rawHeaders);
+      // Second determine file size
       long headerSize = determineHeaderSize(headers);
       long dataSize = determineHeaderSize(headers);
       file.setLength(headerSize + dataSize);
@@ -668,7 +676,23 @@ const javaTraceOf string = `
       // Initialise buffers
       MappedByteBuffer[] buffers = initialiseByteBuffers(file,headers,headerSize);
       // Done
-      return new {}(buffers);
+      return new Trace(buffers);
+   }
+
+  /**
+   * Align headers ensures that the order in which columns are seen matches the order found in the trace schema.
+   *
+   * @param headers The headers to be aligned.
+   * @return The aligned headers.
+   */
+   private static ColumnHeader[] alignHeaders(List<ColumnHeader> headers) {
+     ColumnHeader[] alignedHeaders = new ColumnHeader[headers.size()];
+     //
+     for(ColumnHeader header : headers) {
+       alignedHeaders[header.register] = header;
+     }
+     //
+     return alignedHeaders;
    }
 
    /**
@@ -710,10 +734,10 @@ const javaTraceOf string = `
     * Write header information for the trace file.
     * @param file Trace file being written.
     * @param headers Column headers.
-    * @param headerSize Overall size of the header.
+    * @param size Overall size of the header.
     */
-   private static void writeHeader(RandomAccessFile file, ColumnHeader[] headers, long headerSize) throws IOException {
-      final var header = file.getChannel().map(FileChannel.MapMode.READ_WRITE, 0, headerSize);
+   private static void writeHeader(RandomAccessFile file, ColumnHeader[] headers, long size) throws IOException {
+      final var header = file.getChannel().map(FileChannel.MapMode.READ_WRITE, 0, size);
       // Write column count as uint32
       header.putInt(headers.length);
       // Write column headers one-by-one
@@ -752,7 +776,7 @@ const javaTraceOf string = `
     * @param name Name of the column, as found in the trace file.
     * @param bytesPerElement Bytes required for each element in the column.
     */
-   public record ColumnHeader(String name, long bytesPerElement, long length) { }
+   public record ColumnHeader(String name, int register, long bytesPerElement, long length) { }
 `
 
 //nolint:errcheck
