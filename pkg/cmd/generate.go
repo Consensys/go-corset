@@ -97,32 +97,30 @@ func generateJavaHeader(pkgname string, builder *strings.Builder) {
 
 func generateJavaModule(className string, mod corset.SourceModule, schema *hir.Schema, builder indentBuilder) {
 	var nFields uint
-	//
-	generateJavaClassHeader(className, builder)
-	//
-	generateJavaModuleConstants(mod.Constants, builder.Indent())
-	generateJavaModuleSubmoduleFields(mod.Submodules, builder.Indent())
 	// Attempt to find module
 	mid, ok := schema.Modules().Find(func(m sc.Module) bool { return m.Name == mod.Name })
 	// Sanity check we found it
 	if !ok {
 		panic(fmt.Sprintf("unable to find module %s", mod.Name))
 	}
+	// Generate what we need
+	generateJavaClassHeader(mod.Name == "", className, builder)
+	generateJavaModuleConstants(mod.Constants, builder.Indent())
+	generateJavaModuleSubmoduleFields(mod.Submodules, builder.Indent())
+	generateJavaModuleHeaders(mid, mod, schema, builder.Indent())
 	//
 	if nFields = generateJavaModuleRegisterFields(mid, schema, builder.Indent()); nFields > 0 {
 		generateJavaModuleHeader(builder.Indent())
 	}
 	//
 	generateJavaModuleConstructor(className, mid, mod, schema, builder.Indent())
+	generateJavaModuleColumnSetters(className, mod, schema, builder.Indent())
 
 	if nFields > 0 {
 		generateJavaModuleSize(builder.Indent())
+		generateJavaModuleValidateRow(className, mid, mod, schema, builder.Indent())
+		generateJavaModuleFillAndValidateRow(className, mid, schema, builder.Indent())
 	}
-
-	generateJavaModuleColumnSetters(className, mod, schema, builder.Indent())
-	//
-	generateJavaModuleValidateRow(className, mod, builder.Indent())
-	generateJavaModuleFillAndValidateRow(className, mod, builder.Indent())
 	// Generate any submodules
 	for _, submod := range mod.Submodules {
 		if !submod.Virtual {
@@ -133,18 +131,52 @@ func generateJavaModule(className string, mod corset.SourceModule, schema *hir.S
 	}
 	//
 	if mod.Name == "" {
-		generateJavaClassStaticBuilder(className, builder.Indent())
+		// Write out constructor function.
+		builder.WriteIndentedString(strings.ReplaceAll(javaTraceOf, "{}", className))
 	}
 	//
 	generateJavaClassFooter(builder)
 }
 
-func generateJavaClassHeader(classname string, builder indentBuilder) {
-	builder.WriteIndentedString("public class ", classname, " {\n")
+func generateJavaClassHeader(root bool, classname string, builder indentBuilder) {
+	if root {
+		builder.WriteIndentedString("public class ", classname, " {\n")
+	} else {
+		builder.WriteIndentedString("public static class ", classname, " {\n")
+	}
 }
 
 func generateJavaClassFooter(builder indentBuilder) {
 	builder.WriteIndentedString("}\n")
+}
+
+func generateJavaModuleHeaders(mid uint, mod corset.SourceModule, schema *hir.Schema, builder indentBuilder) {
+	i1Builder := builder.Indent()
+	// Count of created registers
+	count := uint(0)
+	//
+	for iter := schema.InputColumns(); iter.HasNext(); {
+		column := iter.Next()
+		// Check whether this is part of our module
+		if column.Context.Module() == mid {
+			// Yes, include register
+			if count == 0 {
+				builder.WriteIndentedString("List<ColumnHeader> headers(int length) {\n")
+				i1Builder.WriteIndentedString("List<ColumnHeader> headers = new ArrayList<>();\n")
+			}
+			//
+			width := fmt.Sprintf("%d", column.DataType.ByteWidth())
+			name := fmt.Sprintf("%s.%s", mod.Name, column.Name)
+			i1Builder.WriteIndentedString("headers.add(new ColumnHeader(\"", name, "\",", width, ",length));\n")
+			//
+			count++
+		}
+	}
+	//
+	if count > 0 {
+		i1Builder.WriteIndentedString("return headers;\n")
+		builder.WriteIndentedString("}\n\n")
+	}
 }
 
 func generateJavaModuleHeader(builder indentBuilder) {
@@ -386,31 +418,64 @@ func generateJavaModuleBytesPutter(columnName, fieldName string, bitwidth uint, 
 	builder.WriteIndentedString(fmt.Sprintf("for(int i=bs.size(); i<bs.size(); i++) { %s.put(bs.get(i)); }\n", fieldName))
 }
 
-func generateJavaModuleValidateRow(className string, mod corset.SourceModule, builder indentBuilder) {
+func generateJavaModuleValidateRow(className string, mid uint, mod corset.SourceModule, schema *hir.Schema,
+	builder indentBuilder) {
+	//
 	i1Builder := builder.Indent()
+	i2Builder := i1Builder.Indent()
+	register := uint(0)
 	//
 	builder.WriteIndentedString("public ", className, " validateRow() {\n")
+	//
+	for iter := schema.InputColumns(); iter.HasNext(); {
+		column := iter.Next()
+		// Check whether this is part of our module
+		if column.Context.Module() == mid {
+			name := fmt.Sprintf("%s.%s", mod.Name, column.Name)
+			regstr := fmt.Sprintf("%d", register)
+			// Yes, include register
+			i1Builder.WriteIndentedString("if(!filled.get(", regstr, ")) {\n")
+			i2Builder.WriteIndentedString("throw new IllegalStateException(\"", name, " has not been filled.\");\n")
+			i1Builder.WriteIndentedString("}\n")
+		}
+		//
+		register++
+	}
+	//
+	i1Builder.WriteIndentedString("this.filled.clear();\n")
+	i1Builder.WriteIndentedString("this.currentLine++;\n")
 	i1Builder.WriteIndentedString("return this;\n")
 	builder.WriteIndentedString("}\n\n")
 }
 
-func generateJavaModuleFillAndValidateRow(className string, mod corset.SourceModule, builder indentBuilder) {
+func generateJavaModuleFillAndValidateRow(className string, mid uint, schema *hir.Schema, builder indentBuilder) {
+	//
 	i1Builder := builder.Indent()
+	i2Builder := i1Builder.Indent()
+	register := uint(0)
 	//
 	builder.WriteIndentedString("public ", className, " fillAndValidateRow() {\n")
+	//
+	for iter := schema.InputColumns(); iter.HasNext(); {
+		column := iter.Next()
+		// Check whether this is part of our module
+		if column.Context.Module() == mid {
+			name := toRegisterName(register, column.Name)
+			regstr := fmt.Sprintf("%d", register)
+			width := fmt.Sprintf("%d", column.DataType.ByteWidth())
+			// Yes, include register
+			i1Builder.WriteIndentedString("if(!filled.get(", regstr, ")) {\n")
+			i2Builder.WriteIndentedString(name, ".position(", name, ".position() + ", width, ");\n")
+			i1Builder.WriteIndentedString("}\n")
+		}
+		//
+		register++
+	}
+	//
+	i1Builder.WriteIndentedString("this.filled.clear();\n")
+	i1Builder.WriteIndentedString("this.currentLine++;\n")
 	i1Builder.WriteIndentedString("return this;\n")
 	builder.WriteIndentedString("}\n\n")
-}
-
-func generateJavaClassStaticBuilder(className string, builder indentBuilder) {
-	i1Builder := builder.Indent()
-	//
-	builder.WriteIndentedString("/**\n")
-	builder.WriteIndentedString(" * Construct a new trace which will be written to a given file.\n")
-	builder.WriteIndentedString(" **/\n")
-	builder.WriteIndentedString("public static ", className, " of(RandomAccessFile file) throws IOException {\n")
-	i1Builder.WriteIndentedString("return null;\n")
-	builder.WriteIndentedString("}\n")
 }
 
 func maxValueStr(bitwidth uint) string {
@@ -559,7 +624,8 @@ const license string = `/*
  * specific language governing permissions and limitations under the License.
  *
  * SPDX-License-Identifier: Apache-2.0
- */`
+ */
+ `
 
 const javaWarning string = `
 /**
@@ -575,12 +641,118 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.math.BigInteger;
 import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.List;
 
 import net.consensys.linea.zktracer.types.UnsignedByte;
 import org.apache.tuweni.bytes.Bytes;
+`
+
+const javaTraceOf string = `
+   /**
+    * Construct a new trace which will be written to a given file.
+    *
+    * @param file File into which the trace will be written.  Observe any previous contents of this file will be lost.
+    * @return {} object to use for writing column data.
+    *
+    * @throws IOException If an I/O error occurs.
+    */
+   public static {} of(RandomAccessFile file, ColumnHeader[] headers) throws IOException {
+      long headerSize = determineHeaderSize(headers);
+      long dataSize = determineHeaderSize(headers);
+      file.setLength(headerSize + dataSize);
+      // Write header
+      writeHeader(file,headers,headerSize);
+      // Initialise buffers
+      MappedByteBuffer[] buffers = initialiseByteBuffers(file,headers,headerSize);
+      // Done
+      return new {}(buffers);
+   }
+
+   /**
+    * Precompute the size of the trace file in order to memory map the buffers.
+    *
+    * @param headers Set of headers for the columns being written.
+    * @return Number of bytes requires for the trace file header.
+    */
+   private static long determineHeaderSize(ColumnHeader[] headers) {
+      long nBytes = 4; // column count
+
+      for (ColumnHeader header : headers) {
+        nBytes += 2; // name length
+        nBytes += header.name.length();
+        nBytes += 1; // byte per element
+        nBytes += 4; // element count
+      }
+
+      return nBytes;
+   }
+
+   /**
+    * Precompute the size of the trace file in order to memory map the buffers.
+    *
+    * @param headers Set of headers for the columns being written.
+    * @return Number of bytes required for storing all column data, excluding the header.
+    */
+   private static long determineDataSize(ColumnHeader[] headers) {
+      long nBytes = 0;
+
+      for (ColumnHeader header : headers) {
+         nBytes += header.length * header.bytesPerElement;
+      }
+
+      return nBytes;
+   }
+
+   /**
+    * Write header information for the trace file.
+    * @param file Trace file being written.
+    * @param headers Column headers.
+    * @param headerSize Overall size of the header.
+    */
+   private static void writeHeader(RandomAccessFile file, ColumnHeader[] headers, long headerSize) throws IOException {
+      final var header = file.getChannel().map(FileChannel.MapMode.READ_WRITE, 0, headerSize);
+      // Write column count as uint32
+      header.putInt(headers.length);
+      // Write column headers one-by-one
+      for(ColumnHeader h : headers) {
+         header.putShort((short) h.name.length());
+         header.put(h.name.getBytes());
+         header.put((byte) h.bytesPerElement);
+         header.putInt((int) h.length);
+      }
+   }
+
+   /**
+    * Initialise one memory mapped byte buffer for each column to be written in the trace.
+    * @param headers Set of headers for the columns being written.
+    * @param headerSize Space required at start of trace file for header.
+    * @return Buffer array with one entry per header.
+    */
+   private static MappedByteBuffer[] initialiseByteBuffers(RandomAccessFile file, ColumnHeader[] headers,
+    long headerSize) throws IOException {
+      MappedByteBuffer[] buffers = new MappedByteBuffer[headers.length];
+      long offset = headerSize;
+      for(int i=0;i<headers.length;i++) {
+         // Determine size (in bytes) required to store all elements of this column.
+         long length = headers[i].length * headers[i].bytesPerElement;
+         // Preallocate space for this column.
+         buffers[i] = file.getChannel().map(FileChannel.MapMode.READ_WRITE, offset, length);
+         //
+         offset += length;
+      }
+      return buffers;
+   }
+
+   /**
+    * ColumnHeader contains information about a given column in the resulting trace file.
+    *
+    * @param name Name of the column, as found in the trace file.
+    * @param bytesPerElement Bytes required for each element in the column.
+    */
+   public record ColumnHeader(String name, long bytesPerElement, long length) { }
 `
 
 //nolint:errcheck
