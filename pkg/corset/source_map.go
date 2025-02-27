@@ -19,6 +19,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/hir"
+	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 )
 
@@ -131,6 +132,9 @@ type SourceConstant struct {
 	Name string
 	// value of the constant
 	Value big.Int
+	// Explicit type for this constant.  This maybe nil if no type was given
+	// and, instead, the type should be inferred from context.
+	DataType schema.Type
 	// Indicates whether this is an "externally visible" constant.  That is, one
 	// whose value can be changed after the fact.
 	Extern bool

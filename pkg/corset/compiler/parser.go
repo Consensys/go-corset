@@ -552,13 +552,9 @@ func (p *Parser) parseDefConst(module util.Path, elements []sexp.SExp) (ast.Decl
 		if i+1 == len(elements) {
 			// Uneven number of constant declarations!
 			errors = append(errors, *p.translator.SyntaxError(elements[i], "missing constant definition"))
-		} else if !isIdentifier(elements[i]) {
-			// ast.Symbol expected!
-			errors = append(errors, *p.translator.SyntaxError(elements[i], "invalid constant name"))
 		} else {
 			// Attempt to parse definition
-			path := module.Extend(elements[i].AsSymbol().Value)
-			constant, errs := p.parseDefConstUnit(*path, elements[i+1])
+			constant, errs := p.parseDefConstUnit(module, elements[i], elements[i+1])
 			errors = append(errors, errs...)
 			constants = append(constants, constant)
 		}
@@ -567,18 +563,55 @@ func (p *Parser) parseDefConst(module util.Path, elements []sexp.SExp) (ast.Decl
 	return &ast.DefConst{Constants: constants}, errors
 }
 
-func (p *Parser) parseDefConstUnit(name util.Path, value sexp.SExp) (*ast.DefConstUnit, []SyntaxError) {
-	expr, errors := p.translator.Translate(value)
-	// Check for errors
-	if len(errors) != 0 {
+func (p *Parser) parseDefConstUnit(module util.Path, head sexp.SExp,
+	value sexp.SExp) (*ast.DefConstUnit, []SyntaxError) {
+	//
+	var (
+		name     *sexp.Symbol
+		datatype ast.Type
+		errors   []SyntaxError
+		expr     ast.Expr
+	)
+	// Parse head
+	if name, datatype, errors = p.parseDefConstHead(head); len(errors) > 0 {
+		return nil, errors
+	}
+	// Parse tail
+	if expr, errors = p.translator.Translate(value); len(errors) > 0 {
 		return nil, errors
 	}
 	// Looks good
-	def := &ast.DefConstUnit{ConstBinding: ast.NewConstantBinding(name, expr)}
+	path := module.Extend(name.Value)
+	def := &ast.DefConstUnit{ConstBinding: ast.NewConstantBinding(*path, datatype, expr)}
 	// Map to source node
 	p.mapSourceNode(value, def)
 	// Done
 	return def, nil
+}
+
+func (p *Parser) parseDefConstHead(head sexp.SExp) (*sexp.Symbol, ast.Type, []SyntaxError) {
+	var list = head.AsList()
+	// Parse the head
+	if isIdentifier(head) {
+		// no attributes provided
+		return head.AsSymbol(), nil, nil
+	} else if list == nil {
+		return nil, nil, p.translator.SyntaxErrors(head, "invalid constant name")
+	} else if list.Len() != 2 {
+		return nil, nil, p.translator.SyntaxErrors(list, "invalid constant declaration")
+	} else if !isIdentifier(list.Get(0)) {
+		return nil, nil, p.translator.SyntaxErrors(list.Get(0), "invalid constant name")
+	}
+	//
+	datatype, prove, err := p.parseType(list.Get(1))
+	// Handle errors
+	if err != nil {
+		return nil, nil, []SyntaxError{*err}
+	} else if prove {
+		return nil, nil, p.translator.SyntaxErrors(list, "constants cannot have proven types")
+	}
+	// Done!
+	return list.Get(0).AsSymbol(), datatype, nil
 }
 
 // Parse a vanishing declaration

@@ -25,6 +25,7 @@ import (
 	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/hir"
+	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -192,30 +193,78 @@ func generateJavaModuleHeader(builder indentBuilder) {
 func generateJavaModuleConstants(constants []corset.SourceConstant, builder indentBuilder) {
 	for _, constant := range constants {
 		var (
-			maxInt      = big.NewInt(math.MaxInt32)
 			javaType    string
 			constructor string
 			fieldName   string = strings.ReplaceAll(constant.Name, "-", "_")
 		)
 		// Determine suitable Java type
-		switch {
-		case constant.Value.Sign() < 0:
+		if constant.Value.Sign() < 0 {
 			// TODO: for now, we always skip negative constants since it is
 			// entirely unclear how they should be interpreted.
 			continue
-		case constant.Value.Cmp(maxInt) <= 0:
-			constructor = fmt.Sprintf("0x%s", constant.Value.Text(16))
-			javaType = "int"
-		case constant.Value.IsInt64():
-			constructor = fmt.Sprintf("0x%sL", constant.Value.Text(16))
-			javaType = "long"
-		default:
-			constructor = fmt.Sprintf("new BigInteger(\"%s\")", constant.Value.String())
-			javaType = "BigInteger"
+		} else if constant.DataType != nil {
+			constructor, javaType = translateJavaType(constant.DataType, constant.Value)
+		} else {
+			constructor, javaType = inferJavaType(constant.Value)
 		}
 		//
 		builder.WriteIndentedString("public static final ", javaType, " ", fieldName, " = ", constructor, ";\n")
 	}
+}
+
+func translateJavaType(datatype schema.Type, value big.Int) (string, string) {
+	var (
+		constructor string
+		javaType    string
+	)
+	//
+	if datatype.AsUint() == nil {
+		// default fall back
+		constructor = fmt.Sprintf("new BigInteger(\"%s\")", value.String())
+		javaType = "BigInteger"
+	} else {
+		bitwidth := datatype.AsUint().BitWidth()
+		//
+		switch {
+		case bitwidth < 32:
+			// NOTE: cannot embed arbitrary unsigned 32bit constant into a Java
+			// "int" because this type is signed.
+			constructor = fmt.Sprintf("0x%s", value.Text(16))
+			javaType = "int"
+		case bitwidth < 64:
+			// NOTE: cannot embed arbitrary unsigned 64bit constant into a Java
+			// "long" because this type is signed.
+			constructor = fmt.Sprintf("0x%sL", value.Text(16))
+			javaType = "long"
+		default:
+			constructor = fmt.Sprintf("new BigInteger(\"%s\")", value.String())
+			javaType = "BigInteger"
+		}
+	}
+	//
+	return constructor, javaType
+}
+
+func inferJavaType(value big.Int) (string, string) {
+	var (
+		maxInt      = big.NewInt(math.MaxInt32)
+		constructor string
+		javaType    string
+	)
+	//
+	switch {
+	case value.Cmp(maxInt) <= 0:
+		constructor = fmt.Sprintf("0x%s", value.Text(16))
+		javaType = "int"
+	case value.IsInt64():
+		constructor = fmt.Sprintf("0x%sL", value.Text(16))
+		javaType = "long"
+	default:
+		constructor = fmt.Sprintf("new BigInteger(\"%s\")", value.String())
+		javaType = "BigInteger"
+	}
+	//
+	return constructor, javaType
 }
 
 func generateJavaModuleRegisterFields(mid uint, schema *hir.Schema, builder indentBuilder) uint {

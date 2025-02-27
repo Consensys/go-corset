@@ -14,7 +14,6 @@ package compiler
 
 import (
 	"fmt"
-	"math/big"
 
 	"github.com/consensys/go-corset/pkg/corset/ast"
 	sc "github.com/consensys/go-corset/pkg/schema"
@@ -141,14 +140,12 @@ func (p *ModuleScope) DestructuredColumns() []RegisterSource {
 
 // DestructuredConstants returns the set of (destructured) constant definitions
 // within this module scope.
-func (p *ModuleScope) DestructuredConstants() []util.Pair[string, big.Int] {
-	var constants []util.Pair[string, big.Int]
+func (p *ModuleScope) DestructuredConstants() []ast.ConstantBinding {
+	var constants []ast.ConstantBinding
 
 	for _, b := range p.bindings {
 		if binding, ok := b.(*ast.ConstantBinding); ok {
-			val := binding.Value.AsConstant()
-			//
-			constants = append(constants, util.NewPair(binding.Path.Tail(), *val))
+			constants = append(constants, *binding)
 		}
 	}
 

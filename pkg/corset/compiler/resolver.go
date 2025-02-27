@@ -14,6 +14,7 @@ package compiler
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
@@ -441,7 +442,10 @@ func (r *resolver) finaliseDefComputedInModule(decl *ast.DefComputed) []SyntaxEr
 // Specifically, we need to check that the constant values provided are indeed
 // constants.
 func (r *resolver) finaliseDefConstInModule(enclosing Scope, decl *ast.DefConst) []SyntaxError {
-	var errors []SyntaxError
+	var (
+		errors []SyntaxError
+		zero   = big.NewInt(0)
+	)
 	//
 	for _, c := range decl.Constants {
 		scope := NewLocalScope(enclosing, false, true)
@@ -449,9 +453,26 @@ func (r *resolver) finaliseDefConstInModule(enclosing Scope, decl *ast.DefConst)
 		errs := r.finaliseExpressionInModule(scope, c.ConstBinding.Value)
 		// Accumulate errors
 		errors = append(errors, errs...)
-		if len(errors) == 0 {
+		//
+		if len(errs) == 0 {
 			// Check it is indeed constant!
 			if constant := c.ConstBinding.Value.AsConstant(); constant != nil {
+				datatype := c.ConstBinding.DataType
+				// Sanity check explicit type (if given)
+				if datatype != nil && datatype.AsUnderlying().AsUint() != nil {
+					uintType := datatype.AsUnderlying().AsUint()
+					uintBound := uintType.IntBound()
+					// bounds check
+					if uintType != nil && constant.Cmp(&uintBound) >= 0 {
+						// error, constant value outside bounds of given type!
+						errors = append(errors, *r.srcmap.SyntaxError(c, "constant out-of-bounds (overflow)"))
+						continue
+					} else if uintType != nil && constant.Cmp(zero) < 0 {
+						// unsigned integer cannot be negative.
+						errors = append(errors, *r.srcmap.SyntaxError(c, "constant out-of-bounds (underflow)"))
+						continue
+					}
+				}
 				// Finalise constant binding.  Note, no need to register a syntax
 				// error for the error case, because it would have already been
 				// accounted for during resolution.

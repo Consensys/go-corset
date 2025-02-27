@@ -117,6 +117,16 @@ func (p *UintType) Bound() fr.Element {
 	return p.ValueBound
 }
 
+// IntBound determines the actual bound for all values which are in this type,
+// as a big.Int.
+func (p *UintType) IntBound() big.Int {
+	var val big.Int
+	// Copy over bigint
+	p.ValueBound.SetBigInt(&val)
+	// Done
+	return val
+}
+
 // SubtypeOf checks whether this subtypes another
 func (p *UintType) SubtypeOf(other Type) bool {
 	if other.AsField() != nil {
