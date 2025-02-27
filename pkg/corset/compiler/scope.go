@@ -14,6 +14,7 @@ package compiler
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/consensys/go-corset/pkg/corset/ast"
 	sc "github.com/consensys/go-corset/pkg/schema"
@@ -136,6 +137,22 @@ func (p *ModuleScope) DestructuredColumns() []RegisterSource {
 	}
 	//
 	return sources
+}
+
+// DestructuredConstants returns the set of (destructured) constant definitions
+// within this module scope.
+func (p *ModuleScope) DestructuredConstants() []util.Pair[string, big.Int] {
+	var constants []util.Pair[string, big.Int]
+
+	for _, b := range p.bindings {
+		if binding, ok := b.(*ast.ConstantBinding); ok {
+			val := binding.Value.AsConstant()
+			//
+			constants = append(constants, util.NewPair(binding.Path.Tail(), *val))
+		}
+	}
+
+	return constants
 }
 
 // Owner returns the enclosing non-virtual module of this module.  Observe
