@@ -122,7 +122,7 @@ func (p *UintType) Bound() fr.Element {
 func (p *UintType) IntBound() big.Int {
 	var val big.Int
 	// Copy over bigint
-	p.ValueBound.SetBigInt(&val)
+	p.ValueBound.BigInt(&val)
 	// Done
 	return val
 }
