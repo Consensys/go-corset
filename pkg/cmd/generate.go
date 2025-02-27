@@ -102,35 +102,34 @@ func generateJavaModule(className string, mod corset.SourceModule, schema *hir.S
 	//
 	generateJavaModuleConstants(mod.Constants, builder.Indent())
 	generateJavaModuleSubmoduleFields(mod.Submodules, builder.Indent())
-	//
-	if !mod.Virtual {
-		// Attempt to find module
-		mid, ok := schema.Modules().Find(func(m sc.Module) bool { return m.Name == mod.Name })
-		// Sanity check we found it
-		if !ok {
-			panic(fmt.Sprintf("unable to find module %s", mod.Name))
-		}
-		//
-		if nFields = generateJavaModuleRegisterFields(mid, schema, builder.Indent()); nFields > 0 {
-			generateJavaModuleHeader(builder.Indent())
-		}
-		//
-		generateJavaModuleConstructor(className, mid, mod, schema, builder.Indent())
-
-		if nFields > 0 {
-			generateJavaModuleSize(builder.Indent())
-		}
-
-		generateJavaModuleColumnSetters(className, mod, schema, builder.Indent())
-	} else {
-		generateJavaModuleColumnSetters(className, mod, schema, builder.Indent())
+	// Attempt to find module
+	mid, ok := schema.Modules().Find(func(m sc.Module) bool { return m.Name == mod.Name })
+	// Sanity check we found it
+	if !ok {
+		panic(fmt.Sprintf("unable to find module %s", mod.Name))
 	}
+	//
+	if nFields = generateJavaModuleRegisterFields(mid, schema, builder.Indent()); nFields > 0 {
+		generateJavaModuleHeader(builder.Indent())
+	}
+	//
+	generateJavaModuleConstructor(className, mid, mod, schema, builder.Indent())
+
+	if nFields > 0 {
+		generateJavaModuleSize(builder.Indent())
+	}
+
+	generateJavaModuleColumnSetters(className, mod, schema, builder.Indent())
 	//
 	generateJavaModuleValidateRow(className, mod, builder.Indent())
 	generateJavaModuleFillAndValidateRow(className, mod, builder.Indent())
 	// Generate any submodules
 	for _, submod := range mod.Submodules {
-		generateJavaModule(toPascalCase(submod.Name), submod, schema, builder.Indent())
+		if !submod.Virtual {
+			generateJavaModule(toPascalCase(submod.Name), submod, schema, builder.Indent())
+		} else {
+			generateJavaModuleColumnSetters(className, submod, schema, builder.Indent())
+		}
 	}
 	//
 	if mod.Name == "" {
@@ -187,15 +186,17 @@ func generateJavaModuleRegisterFields(mid uint, schema *hir.Schema, builder inde
 	// Count of created registers
 	count := uint(0)
 	//
-	builder.WriteIndentedString("// Registers\n")
-	//
 	for iter := schema.InputColumns(); iter.HasNext(); {
 		column := iter.Next()
 		// Check whether this is part of our module
 		if column.Context.Module() == mid {
+			// Yes, include register
+			if count == 0 {
+				builder.WriteIndentedString("// Registers\n")
+			}
 			// Determine suitable name for field
 			fieldName := toRegisterName(register, column.Name)
-			// Yes, it is.
+			//
 			builder.WriteIndentedString("private final MappedByteBuffer ", fieldName, ";\n")
 			// increase count
 			count++
@@ -204,25 +205,36 @@ func generateJavaModuleRegisterFields(mid uint, schema *hir.Schema, builder inde
 		register++
 	}
 	//
-	builder.WriteString("\n")
+	if count > 0 {
+		builder.WriteString("\n")
+	}
 	//
 	return count
 }
 
 func generateJavaModuleSubmoduleFields(submodules []corset.SourceModule, builder indentBuilder) {
-	if len(submodules) > 0 {
-		builder.WriteIndentedString("// Submodules\n")
-		//
-		for _, m := range submodules {
+	first := true
+	//
+	for _, m := range submodules {
+		// Only consider non-virtual modules (for now)
+		if !m.Virtual {
 			className := toPascalCase(m.Name)
 			// Determine suitable name for field
 			fieldName := toCamelCase(m.Name)
+			// Start submodules section
+			if first {
+				builder.WriteIndentedString("// Submodules\n")
+			}
 			// Yes, it is.
 			builder.WriteIndentedString("public final ", className, " ", fieldName, ";\n")
+			//
+			first = false
 		}
 	}
 	//
-	builder.WriteString("\n")
+	if !first {
+		builder.WriteString("\n")
+	}
 }
 
 func generateJavaModuleConstructor(classname string, mid uint, mod corset.SourceModule,
@@ -253,10 +265,8 @@ func generateJavaModuleConstructor(classname string, mid uint, mod corset.Source
 		className := toPascalCase(m.Name)
 		// Determine suitable name for field
 		fieldName := toCamelCase(m.Name)
-		// Yes, it is.
-		if m.Virtual {
-			innerBuilder.WriteIndentedString("this.", fieldName, " = new ", className, "();\n")
-		} else {
+		// Only support non-virtual modules for now
+		if !m.Virtual {
 			innerBuilder.WriteIndentedString("this.", fieldName, " = new ", className, "(registers);\n")
 		}
 	}
@@ -281,17 +291,23 @@ func generateJavaModuleColumnSetters(className string, mod corset.SourceModule, 
 	builder indentBuilder) {
 	//
 	for _, column := range mod.Columns {
+		var methodName string = column.Name
+		//
 		if !column.Computed {
-			generateJavaModuleColumnSetter(className, column, schema, builder)
+			if mod.Virtual {
+				methodName = toCamelCase(fmt.Sprintf("p_%s_%s", mod.Name, methodName))
+			}
+			//
+			generateJavaModuleColumnSetter(className, methodName, column, schema, builder)
 		}
 	}
 }
 
-func generateJavaModuleColumnSetter(className string, col corset.SourceColumn, schema *hir.Schema,
+func generateJavaModuleColumnSetter(className string, methodName string, col corset.SourceColumn, schema *hir.Schema,
 	builder indentBuilder) {
 	//
+	methodName = toCamelCase(methodName)
 	bitwidth := col.DataType.BitWidth()
-	methodName := toCamelCase(col.Name)
 	fieldName := toRegisterName(col.Register, schema.Columns().Nth(col.Register).Name)
 	//
 	indexStr := fmt.Sprintf("%d", col.Register) // BROKEN
@@ -323,14 +339,13 @@ func generateJavaModuleColumnSetter(className string, col corset.SourceColumn, s
 	builder.WriteIndentedString("}\n\n")
 	// Legacy case for bytes
 	if bitwidth == 8 {
-		generateJavaModuleLegacyColumnSetter(className, col, builder)
+		generateJavaModuleLegacyColumnSetter(className, methodName, builder)
 	}
 }
 
 // legacy setter to support UnsignedByte.
-func generateJavaModuleLegacyColumnSetter(className string, col corset.SourceColumn, builder indentBuilder) {
+func generateJavaModuleLegacyColumnSetter(className string, methodName string, builder indentBuilder) {
 	i1Builder := builder.Indent()
-	methodName := toCamelCase(col.Name)
 	builder.WriteIndentedString("public ", className, " ", methodName, "(final UnsignedByte val) {\n")
 	i1Builder.WriteIndentedString("return ", methodName, "(val.toByte());\n")
 	builder.WriteIndentedString("}\n\n")
@@ -531,19 +546,20 @@ func (p *indentBuilder) WriteIndent() {
 	}
 }
 
-const license string = `// Copyright Consensys Software Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
-// the License. You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
-// an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
-//
-// SPDX-License-Identifier: Apache-2.0
-`
+const license string = `/*
+ * Copyright Consensys Software Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+ * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */`
 
 const javaWarning string = `
 /**
@@ -563,7 +579,6 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.List;
 
-import net.consensys.linea.zktracer.ColumnHeader;
 import net.consensys.linea.zktracer.types.UnsignedByte;
 import org.apache.tuweni.bytes.Bytes;
 `
