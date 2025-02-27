@@ -124,6 +124,9 @@ const DISPLAY_BYTES = uint(2)
 // DISPLAY_CUSTOM selects a custom layout
 const DISPLAY_CUSTOM = uint(256)
 
+// SourceConstant provides information about constant values which are exposed
+// to the trace generator.  Such constants can, in some cases, be modified to
+// reflect different environments (e.g. different chains, gas limits, etc).
 type SourceConstant struct {
 	Name string
 	// value of the constant

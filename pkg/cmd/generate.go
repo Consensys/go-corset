@@ -420,7 +420,7 @@ func generateJavaModuleBytesPutter(columnName, fieldName string, bitwidth uint, 
 	builder.WriteIndentedString("// Write padding (if necessary)\n")
 	builder.WriteIndentedString(fmt.Sprintf("for(int i=bs.size(); i<%d; i++) { %s.put((byte) 0); }\n", n, fieldName))
 	builder.WriteIndentedString("// Write bytes\n")
-	builder.WriteIndentedString(fmt.Sprintf("for(int i=bs.size(); i<bs.size(); i++) { %s.put(bs.get(i)); }\n", fieldName))
+	builder.WriteIndentedString(fmt.Sprintf("for(int i=0; i<bs.size(); i++) { %s.put(bs.get(i)); }\n", fieldName))
 }
 
 func generateJavaModuleValidateRow(className string, mid uint, mod corset.SourceModule, schema *hir.Schema,
