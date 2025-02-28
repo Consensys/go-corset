@@ -23,9 +23,11 @@ import (
 	"github.com/consensys/go-corset/pkg/util/field"
 )
 
-// FromBytes parses a byte array representing a given LT trace file into an
-// columns, or produces an error if the original file was malformed in some way.
-func FromBytes(data []byte) ([]trace.RawColumn, error) {
+// FromBytesLegacy parses a byte array representing a given (legacy) LT trace
+// file into an columns, or produces an error if the original file was malformed
+// in some way.   The input represents the original legacy format of trace files
+// (i.e. without any additional header information prepended, etc).
+func FromBytesLegacy(data []byte) ([]trace.RawColumn, error) {
 	// Construct new bytes.Reader
 	buf := bytes.NewReader(data)
 	// Read Number of BytesColumns

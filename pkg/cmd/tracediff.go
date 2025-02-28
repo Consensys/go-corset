@@ -26,15 +26,15 @@ var traceDiffCmd = &cobra.Command{
 		filename1 := args[0]
 		filename2 := args[1]
 		// Read trace files
-		columns1 := ReadTraceFile(filename1)
-		columns2 := ReadTraceFile(filename2)
+		tracefile1 := ReadTraceFile(filename1)
+		tracefile2 := ReadTraceFile(filename2)
 		// Sanity check
-		if len(columns1) != len(columns2) {
-			fmt.Printf("differing number of columns (%d v %d)", len(columns1), len(columns2))
+		if len(tracefile1.Columns) != len(tracefile2.Columns) {
+			fmt.Printf("differing number of columns (%d v %d)", len(tracefile1.Columns), len(tracefile2.Columns))
 			os.Exit(2)
 		}
 		//
-		errors := parallelDiff(columns1, columns2)
+		errors := parallelDiff(tracefile1.Columns, tracefile2.Columns)
 		// report any differences
 		for _, err := range errors {
 			fmt.Println(err)

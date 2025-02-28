@@ -50,13 +50,13 @@ var inspectCmd = &cobra.Command{
 		//
 		stats.Log("Reading constraints file")
 		// Parse trace file
-		columns := ReadTraceFile(args[0])
+		tracefile := ReadTraceFile(args[0])
 		//
 		stats.Log("Reading trace file")
 		//
 		builder := sc.NewTraceBuilder(&binf.Schema).Expand(true).Defensive(defensive).Parallel(true)
 		//
-		trace, errors := builder.Build(columns)
+		trace, errors := builder.Build(tracefile.Columns)
 		//
 		if len(errors) == 0 {
 			// Run the inspector.
