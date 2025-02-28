@@ -44,9 +44,9 @@ type TraceFile struct {
 
 // NewTraceFile constructs a new trace file with the default header for the
 // currently supported version.
-func NewTraceFile(headerdata []byte, columns []trace.RawColumn) *TraceFile {
+func NewTraceFile(metadata []byte, columns []trace.RawColumn) *TraceFile {
 	return &TraceFile{
-		Header{ZKTRACER, LT_MAJOR_VERSION, LT_MINOR_VERSION, headerdata},
+		Header{ZKTRACER, LT_MAJOR_VERSION, LT_MINOR_VERSION, metadata},
 		columns,
 	}
 }
