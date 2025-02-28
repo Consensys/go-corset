@@ -102,8 +102,8 @@ var checkCmd = &cobra.Command{
 			traces = ReadBatchedTraceFile(args[0])
 		} else {
 			// unbatched (i.e. normal) mode
-			columns := ReadTraceFile(args[0])
-			traces = [][]trace.RawColumn{columns}
+			tracefile := ReadTraceFile(args[0])
+			traces = [][]trace.RawColumn{tracefile.Columns}
 		}
 		//
 		stats.Log("Reading trace file")

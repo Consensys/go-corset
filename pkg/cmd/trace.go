@@ -23,6 +23,7 @@ import (
 	"github.com/consensys/go-corset/pkg/mir"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -71,14 +72,19 @@ var traceCmd = &cobra.Command{
 		mir := GetFlag(cmd, "mir")
 		hir := GetFlag(cmd, "hir")
 		batched := GetFlag(cmd, "batched")
+		metadata := GetFlag(cmd, "metadata")
 		// Parse trace file(s)
 		if batched {
 			// batched mode
 			traces = ReadBatchedTraceFile(args[0])
 		} else {
 			// unbatched (i.e. normal) mode
-			columns := ReadTraceFile(args[0])
-			traces = [][]trace.RawColumn{columns}
+			tracefile := ReadTraceFile(args[0])
+			traces = [][]trace.RawColumn{tracefile.Columns}
+			// Print meta-data (if requested)
+			if metadata {
+				printTraceFileMetadata(&tracefile.Header)
+			}
 		}
 		//
 		if expand && !air && !mir && !hir {
@@ -144,6 +150,7 @@ func init() {
 	traceCmd.Flags().Bool("air", false, "expand to AIR level")
 	traceCmd.Flags().Bool("batched", false,
 		"specify trace file is batched (i.e. contains multiple traces, one for each line)")
+	traceCmd.Flags().Bool("metadata", false, "Print embedded metadata")
 }
 
 const air_LEVEL = 0
@@ -250,6 +257,23 @@ func sliceColumns(cols []trace.RawColumn, start uint, end uint) {
 			Module: ith.Module,
 			Name:   ith.Name,
 			Data:   ith.Data.Slice(s, e),
+		}
+	}
+}
+
+func printTraceFileMetadata(header *lt.Header) {
+	fmt.Printf("Format: %d.%d\n", header.MajorVersion, header.MinorVersion)
+	// Attempt to parse metadata
+	metadata, err := header.GetMetaData()
+	//
+	if err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	} else if metadata != nil {
+		fmt.Println("Metadata:")
+		//
+		for k, v := range metadata {
+			fmt.Printf("\t%s: %s\n", k, v)
 		}
 	}
 }
