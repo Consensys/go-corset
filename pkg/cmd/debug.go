@@ -67,7 +67,7 @@ var debugCmd = &cobra.Command{
 		binfile := ReadConstraintFiles(stdlib, debug, legacy, args)
 		// Print meta-data (if requested)
 		if metadata {
-			printMetadata(&binfile.Header)
+			printBinaryFileMetadata(&binfile.Header)
 		}
 		// Print stats (if requested)
 		if stats {
@@ -166,7 +166,7 @@ func printStats(hirSchema *hir.Schema, hir bool, mir bool, air bool, optConfig m
 	tbl.Print()
 }
 
-func printMetadata(header *binfile.Header) {
+func printBinaryFileMetadata(header *binfile.Header) {
 	fmt.Printf("Format: %d.%d\n", header.MajorVersion, header.MinorVersion)
 	// Attempt to parse metadata
 	metadata, err := header.GetMetaData()

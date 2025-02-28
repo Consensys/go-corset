@@ -249,7 +249,7 @@ func writeBatchedTracesFile(filename string, traces ...[]trace.RawColumn) {
 	var buf bytes.Buffer
 	// Check file extension
 	if len(traces) == 1 {
-		writeTraceFile(filename, traces[0])
+		writeTraceFile(filename, lt.NewTraceFile(nil, traces[0]))
 		return
 	}
 	// Always write JSON in batched mode
@@ -267,7 +267,7 @@ func writeBatchedTracesFile(filename string, traces ...[]trace.RawColumn) {
 }
 
 // Write a given trace file to disk
-func writeTraceFile(filename string, columns []trace.RawColumn) {
+func writeTraceFile(filename string, tracefile *lt.TraceFile) {
 	var err error
 
 	var bytes []byte
@@ -276,13 +276,13 @@ func writeTraceFile(filename string, columns []trace.RawColumn) {
 	//
 	switch ext {
 	case ".json":
-		js := json.ToJsonString(columns)
+		js := json.ToJsonString(tracefile.Columns)
 		//
 		if err = os.WriteFile(filename, []byte(js), 0644); err == nil {
 			return
 		}
 	case ".lt":
-		bytes, err = lt.ToBytes(columns)
+		bytes, err = tracefile.MarshalBinary()
 		//
 		if err == nil {
 			if err = os.WriteFile(filename, bytes, 0644); err == nil {
@@ -300,8 +300,8 @@ func writeTraceFile(filename string, columns []trace.RawColumn) {
 // ReadTraceFile reads a trace file (either binary lt or json), and parses it
 // into an array of raw columns.  The determination of what kind of trace file
 // (i.e. binary or json) is based on the extension.
-func ReadTraceFile(filename string) []trace.RawColumn {
-	var tr []trace.RawColumn
+func ReadTraceFile(filename string) *lt.TraceFile {
+	var columns []trace.RawColumn
 	// Read data file
 	bytes, err := os.ReadFile(filename)
 	// Check success
@@ -311,15 +311,27 @@ func ReadTraceFile(filename string) []trace.RawColumn {
 		//
 		switch ext {
 		case ".json":
-			tr, err = json.FromBytes(bytes)
+			columns, err = json.FromBytes(bytes)
 			if err == nil {
-				return tr
+				return lt.NewTraceFile(nil, columns)
 			}
 		case ".lt":
-			tr, err = lt.FromBytes(bytes)
-			if err == nil {
-				return tr
+			// Check for legacy format
+			if !lt.IsTraceFile(bytes) {
+				// legacy format
+				columns, err = lt.FromBytesLegacy(bytes)
+				if err == nil {
+					return lt.NewTraceFile(nil, columns)
+				}
+			} else {
+				// versioned format
+				var tracefile lt.TraceFile
+				//
+				if err = tracefile.UnmarshalBinary(bytes); err == nil {
+					return &tracefile
+				}
 			}
+			//
 		default:
 			err = fmt.Errorf("Unknown trace file format: %s", ext)
 		}

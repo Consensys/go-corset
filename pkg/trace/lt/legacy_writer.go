@@ -21,8 +21,10 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 )
 
-// ToBytes writes a given trace file as an array of bytes.
-func ToBytes(columns []trace.RawColumn) ([]byte, error) {
+// ToBytesLegacy writes a given trace file as an array of (legacy) bytes.  The
+// output represents the legacy format if the bytes are used "as is" without any
+// additional header information being preprended.
+func ToBytesLegacy(columns []trace.RawColumn) ([]byte, error) {
 	buf, err := ToBytesBuffer(columns)
 	if err != nil {
 		return nil, err
