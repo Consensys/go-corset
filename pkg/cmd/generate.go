@@ -78,14 +78,19 @@ func generateJavaIntegration(filename string, pkgname string, srcmap *corset.Sou
 	}
 	// Strip suffix to determine classname
 	classname := strings.TrimSuffix(basename, ".java")
+	metadata, err := binfile.Header.GetMetaData()
+	// Error check
+	if err != nil {
+		return "", err
+	}
 	// begin generation
-	generateJavaHeader(pkgname, &builder)
-	generateJavaModule(classname, srcmap.Root, &binfile.Schema, indentBuilder{0, &builder})
+	generateJavaHeader(pkgname, metadata, &builder)
+	generateJavaModule(classname, srcmap.Root, metadata, &binfile.Schema, indentBuilder{0, &builder})
 	//
 	return builder.String(), nil
 }
 
-func generateJavaHeader(pkgname string, builder *strings.Builder) {
+func generateJavaHeader(pkgname string, metadata map[string]string, builder *strings.Builder) {
 	builder.WriteString(license)
 	// Write package line
 	if pkgname != "" {
@@ -94,9 +99,29 @@ func generateJavaHeader(pkgname string, builder *strings.Builder) {
 	//
 	builder.WriteString(javaImports)
 	builder.WriteString(javaWarning)
+	//
+	if len(metadata) > 0 {
+		// Write embedded metadata for the record.
+		builder.WriteString(" * <p>Embedded Metata</p>\n")
+		builder.WriteString(" * <ul>\n")
+		//
+		for k, v := range metadata {
+			builder.WriteString(" * <li>")
+			builder.WriteString(k)
+			builder.WriteString(": ")
+			builder.WriteString(v)
+			builder.WriteString("</li>\n")
+		}
+		//
+		builder.WriteString(" * </ul>\n")
+	}
+	//
+	builder.WriteString(" */\n")
 }
 
-func generateJavaModule(className string, mod corset.SourceModule, schema *hir.Schema, builder indentBuilder) {
+func generateJavaModule(className string, mod corset.SourceModule, metadata map[string]string, schema *hir.Schema,
+	builder indentBuilder) {
+	//
 	var nFields uint
 	// Attempt to find module
 	mid, ok := schema.Modules().Find(func(m sc.Module) bool { return m.Name == mod.Name })
@@ -108,6 +133,10 @@ func generateJavaModule(className string, mod corset.SourceModule, schema *hir.S
 	generateJavaClassHeader(mod.Name == "", className, builder)
 	generateJavaModuleConstants(mod.Constants, builder.Indent())
 	generateJavaModuleSubmoduleFields(mod.Submodules, builder.Indent())
+	//
+	if mod.Name == "" {
+		generateJavaModuleMetadata(metadata, builder.Indent())
+	}
 	generateJavaModuleHeaders(mid, mod, schema, builder.Indent())
 	//
 	if nFields = generateJavaModuleRegisterFields(mid, schema, builder.Indent()); nFields > 0 {
@@ -125,7 +154,7 @@ func generateJavaModule(className string, mod corset.SourceModule, schema *hir.S
 	// Generate any submodules
 	for _, submod := range mod.Submodules {
 		if !submod.Virtual {
-			generateJavaModule(toPascalCase(submod.Name), submod, schema, builder.Indent())
+			generateJavaModule(toPascalCase(submod.Name), submod, metadata, schema, builder.Indent())
 		} else {
 			generateJavaModuleColumnSetters(className, submod, schema, builder.Indent())
 		}
@@ -320,6 +349,23 @@ func generateJavaModuleSubmoduleFields(submodules []corset.SourceModule, builder
 	//
 	if !first {
 		builder.WriteString("\n")
+	}
+}
+
+func generateJavaModuleMetadata(metadata map[string]string, builder indentBuilder) {
+	// Write field declaration
+	builder.WriteIndentedString("public static Map<String,String> metadata() {\n")
+	// Initialise map using Java static initialiser
+	if len(metadata) > 0 {
+		i1Builder := builder.Indent()
+		i1Builder.WriteIndentedString("Map<String,String> metadata = new HashMap<>();\n")
+
+		for k, v := range metadata {
+			i1Builder.WriteIndentedString("metadata.put(\"", k, "\",\"", v, "\");\n")
+		}
+		//
+		i1Builder.WriteIndentedString("return metadata;\n")
+		builder.WriteIndentedString("}\n\n")
 	}
 }
 
@@ -686,24 +732,28 @@ const javaWarning string = `
  * WARNING: This code is generated automatically.
  *
  * <p>Any modifications to this code may be overwritten and could lead to unexpected behavior.
- * Please DO NOT ATTEMPT TO MODIFY this code directly.
- */
+ * Please DO NOT ATTEMPT TO MODIFY this code directly</p>.
+ *
 `
 
 const javaImports string = `
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import net.consensys.linea.zktracer.types.UnsignedByte;
 import org.apache.tuweni.bytes.Bytes;
 `
 
+// nolint
 const javaTraceOf string = `
    /**
     * Construct a new trace which will be written to a given file.
@@ -713,19 +763,44 @@ const javaTraceOf string = `
     *
     * @throws IOException If an I/O error occurs.
     */
-   public static Trace of(RandomAccessFile file, List<ColumnHeader> rawHeaders) throws IOException {
-      // First align headers according to register indices.
-      ColumnHeader[] headers = alignHeaders(rawHeaders);
-      // Second determine file size
-      long headerSize = determineHeaderSize(headers);
-      long dataSize = determineHeaderSize(headers);
+   public static Trace of(RandomAccessFile file, List<ColumnHeader> rawHeaders, byte[] metadata) throws IOException {
+      // Construct trace file header bytes
+      byte[] header = constructTraceFileHeader(metadata);
+      // Align headers according to register indices.
+      ColumnHeader[] columnHeaders = alignHeaders(rawHeaders);
+      // Determine file size
+      long headerSize = determineColumnHeadersSize(columnHeaders) + header.length;
+      long dataSize = determineColumnDataSize(columnHeaders);
       file.setLength(headerSize + dataSize);
-      // Write header
-      writeHeader(file,headers,headerSize);
+      // Write headers
+      writeHeaders(file,header,columnHeaders,headerSize);
       // Initialise buffers
-      MappedByteBuffer[] buffers = initialiseByteBuffers(file,headers,headerSize);
+      MappedByteBuffer[] buffers = initialiseByteBuffers(file,columnHeaders,headerSize);
       // Done
       return new Trace(buffers);
+   }
+
+  /**
+   * Construct trace file header containing the given metadata bytes.
+   *
+   * @param metadata Metadata bytes to be embedded in the trace file.
+   *
+   * @return bytes making up the header.
+   */
+   private static byte[] constructTraceFileHeader(byte[] metadata) {
+     ByteBuffer buffer = ByteBuffer.allocate(16 + metadata.length);
+	 // File identifier
+     buffer.put(new byte[]{'z','k','t','r','a','c','e','r'});
+     // Major version
+     buffer.putShort((short) 1);
+     // Minor version
+     buffer.putShort((short) 0);
+     // Metadata length
+     buffer.putInt(metadata.length);
+     // Metadata
+     buffer.put(metadata);
+     // Done
+     return buffer.array();
    }
 
   /**
@@ -750,7 +825,7 @@ const javaTraceOf string = `
     * @param headers Set of headers for the columns being written.
     * @return Number of bytes requires for the trace file header.
     */
-   private static long determineHeaderSize(ColumnHeader[] headers) {
+   private static long determineColumnHeadersSize(ColumnHeader[] headers) {
       long nBytes = 4; // column count
 
       for (ColumnHeader header : headers) {
@@ -769,7 +844,7 @@ const javaTraceOf string = `
     * @param headers Set of headers for the columns being written.
     * @return Number of bytes required for storing all column data, excluding the header.
     */
-   private static long determineDataSize(ColumnHeader[] headers) {
+   private static long determineColumnDataSize(ColumnHeader[] headers) {
       long nBytes = 0;
 
       for (ColumnHeader header : headers) {
@@ -781,20 +856,24 @@ const javaTraceOf string = `
 
    /**
     * Write header information for the trace file.
+    *
     * @param file Trace file being written.
+    * @param header Trace file header
     * @param headers Column headers.
     * @param size Overall size of the header.
     */
-   private static void writeHeader(RandomAccessFile file, ColumnHeader[] headers, long size) throws IOException {
-      final var header = file.getChannel().map(FileChannel.MapMode.READ_WRITE, 0, size);
+   private static void writeHeaders(RandomAccessFile file, byte[] header, ColumnHeader[] headers, long size) throws IOException {
+      final var buffer = file.getChannel().map(FileChannel.MapMode.READ_WRITE, 0, size);
+      // Write trace file header
+      buffer.put(header);
       // Write column count as uint32
-      header.putInt(headers.length);
+      buffer.putInt(headers.length);
       // Write column headers one-by-one
       for(ColumnHeader h : headers) {
-         header.putShort((short) h.name.length());
-         header.put(h.name.getBytes());
-         header.put((byte) h.bytesPerElement);
-         header.putInt((int) h.length);
+         buffer.putShort((short) h.name.length());
+         buffer.put(h.name.getBytes());
+         buffer.put((byte) h.bytesPerElement);
+         buffer.putInt((int) h.length);
       }
    }
 
