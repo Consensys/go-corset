@@ -43,7 +43,7 @@ const TEXT_INPUT_MODE = 2
 // short period of time.
 const STATUS_MODE = 3
 
-// Inspector provides the necessary pacjkage
+// Inspector provides the necessary package
 type Inspector struct {
 	width  uint
 	height uint
@@ -160,8 +160,10 @@ func (p *Inspector) currentView() *ModuleState {
 // Actions goto row mode
 func (p *Inspector) gotoRow(row uint) bool {
 	module := p.tabs.Selected()
+	// if row is out of bound, then go to the last row
+	rowOrMaxHeight := min(p.height, row)
 	// Action change
-	return p.modules[module].setRowOffset(row)
+	return p.modules[module].setRowOffset(rowOrMaxHeight)
 }
 
 // filter columns based on a regex
