@@ -46,6 +46,16 @@ func (p *TablePrinter) Set(col uint, row uint, val string) {
 	p.rows[row][col] = val
 }
 
+// Get the contents of a given cell in this table
+func (p *TablePrinter) Get(col uint, row uint) string {
+	return p.rows[row][col]
+}
+
+// Height returns the height of this table.
+func (p *TablePrinter) Height() uint {
+	return uint(len(p.rows))
+}
+
 // SetEscape set the colour to use when printing the contents of a given cell
 func (p *TablePrinter) SetEscape(col uint, row uint, escape string) {
 	p.escapes[row][col] = escape

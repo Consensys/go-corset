@@ -24,6 +24,7 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/termio"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -33,6 +34,8 @@ var coverageCmd = &cobra.Command{
 	Short: "query coverage data generated for a given set of constraints.",
 	Long:  `Provides mechanisms for investigating the coverage data generated for a given set of constraints and traces.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		var cfg coverageConfig
+		//
 		if len(args) < 2 {
 			fmt.Println(cmd.UsageString())
 			os.Exit(1)
@@ -53,6 +56,7 @@ var coverageCmd = &cobra.Command{
 		//
 		stdlib := !GetFlag(cmd, "no-stdlib")
 		debug := GetFlag(cmd, "debug")
+		cfg.diff = GetFlag(cmd, "diff")
 		legacy := GetFlag(cmd, "legacy")
 		expand := GetFlag(cmd, "expand")
 		module := GetFlag(cmd, "module")
@@ -60,7 +64,7 @@ var coverageCmd = &cobra.Command{
 		// Apply unit branch filter
 		filter = cov.UnitBranchFilter(filter)
 		// Apply regex filter
-		filter = cov.RegexFilter(filter, GetString(cmd, "filter"))
+		cfg.filter = cov.RegexFilter(filter, GetString(cmd, "filter"))
 		//
 		json, others := splitArgs(args)
 		// Parse constraints
@@ -85,13 +89,26 @@ var coverageCmd = &cobra.Command{
 			mode = EXPANDED_MODE
 		}
 		// Determine metrics to print
-		calcs := determineIncludedCalcs(cov.DEFAULT_CALCS, includes)
+		cfg.calcs = determineIncludedCalcs(cov.DEFAULT_CALCS, includes)
 		// Determine relevant set of constraint identifiers
-		groups, depth := determineConstraintGroups(mode, mirSchema)
+		cfg.groups, cfg.depth = determineConstraintGroups(mode, mirSchema)
 		//printCoverage(ids, calcs, []sc.CoverageMap{coverage[0]}, airSchema)
-		printCoverage(depth, groups, filter, calcs, coverage[1], mirSchema)
+		printCoverage(cfg, coverage[1], mirSchema)
 		//printCoverage(ids, calcs, []sc.CoverageMap{coverage[2]}, hirSchema)
 	},
+}
+
+type coverageConfig struct {
+	depth uint
+	// Determines how constraints are grouped (e.g. by module, etc)
+	groups []cov.ConstraintGroup
+	// Filter to use for selecting constraints.
+	filter cov.Filter
+	// Determines which metrics to show (e.g. coverage only, or actually branch
+	// counts, etc)
+	calcs []cov.ColumnCalc
+	// Determines whether coverage diff mode is enabled.
+	diff bool
 }
 
 const (
@@ -218,14 +235,7 @@ func readCoverageReports(filenames []string, binf *binfile.BinaryFile,
 	return maps
 }
 
-func printCoverage(depth uint,
-	// Determines how constraints are grouped (e.g. by module, etc)
-	groups []cov.ConstraintGroup,
-	// Filter to use for selecting constraints.
-	filter cov.Filter,
-	// Determines which metrics to show (e.g. coverage only, or actually branch
-	// counts, etc)
-	calcs []cov.ColumnCalc,
+func printCoverage(cfg coverageConfig,
 	// Distinct coverage reports to show side-by-side
 	coverages []sc.CoverageMap,
 	// Schema which defines what constraints are available, etc.
@@ -233,42 +243,42 @@ func printCoverage(depth uint,
 	//
 	var (
 		// Determine number of calculated columns per map
-		n = len(calcs)
+		n = len(cfg.calcs)
 		// Total number of calculated columns
 		m = uint(len(coverages) * n)
 	)
 	// Make column titles
-	titles := make([]string, m+depth)
+	titles := make([]string, m+cfg.depth)
 	// Configure titles
 	for i := range coverages {
-		for j, s := range calcs {
+		for j, s := range cfg.calcs {
 			offset := uint((i * n) + j)
-			titles[offset+depth] = s.Name
+			titles[offset+cfg.depth] = s.Name
 		}
 	}
 	// Initialise row
 	rows := [][]string{titles}
 	//
-	for _, grp := range groups {
+	for _, grp := range cfg.groups {
 		// Determine constraints to summarise on this row.
-		constraints := grp.Select(schema, filter)
+		constraints := grp.Select(schema, cfg.filter)
 		// Only generate row if there are matching constraints
 		if len(constraints) > 0 {
-			row := make([]string, depth)
+			row := make([]string, cfg.depth)
 			// Initialise row title
 			row[0] = schema.Modules().Nth(grp.ModuleId).Name
 			// Initialise name column
-			if depth >= 2 {
+			if cfg.depth >= 2 {
 				row[1] = grp.Name
 			}
 			// Initialise case column
-			if depth >= 3 {
+			if cfg.depth >= 3 {
 				row[2] = fmt.Sprintf("%d", grp.Case)
 			}
 			// Build up reports
 			for _, coverage := range coverages {
 				// determine columns for this coverage map
-				crow := coverageRow(constraints, calcs, coverage, schema)
+				crow := coverageRow(constraints, cfg.calcs, coverage, schema)
 				//
 				row = append(row, crow...)
 			}
@@ -277,10 +287,16 @@ func printCoverage(depth uint,
 		}
 	}
 	// Print matching entries
-	tbl := util.NewTablePrinter(m+depth, uint(len(rows)))
+	tbl := util.NewTablePrinter(m+cfg.depth, uint(len(rows)))
 	//
 	for i, row := range rows {
 		tbl.SetRow(uint(i), row...)
+	}
+	//
+	setTitleColours(tbl, cfg, coverages)
+	//
+	if cfg.diff {
+		setDiffColours(tbl, cfg, coverages)
 	}
 	//
 	tbl.SetMaxWidth(1, 64)
@@ -299,10 +315,51 @@ func coverageRow(constraints []sc.Constraint, calcs []cov.ColumnCalc, cov sc.Cov
 	return row
 }
 
+func setTitleColours(tbl *util.TablePrinter, cfg coverageConfig, covs []sc.CoverageMap) {
+	escape := termio.NewAnsiEscape().FgColour(termio.TERM_BLUE).Build()
+	// Constraint groups
+	for i := uint(1); i < tbl.Height(); i++ {
+		for j := uint(0); j < cfg.depth; j++ {
+			tbl.SetEscape(j, i, escape)
+		}
+	}
+	// Calcs
+	for i := uint(0); i < uint(len(cfg.calcs)*(len(covs))); i++ {
+		tbl.SetEscape(i+1, 0, escape)
+	}
+}
+
+func setDiffColours(tbl *util.TablePrinter, cfg coverageConfig, covs []sc.CoverageMap) {
+	//
+	escape := termio.NewAnsiEscape().Fg256Colour(102).Build()
+	white := termio.BoldAnsiEscape().FgColour(termio.TERM_YELLOW).Build()
+	// Set all columns to hidden
+	for i := uint(1); i < tbl.Height(); i++ {
+		for j := uint(0); j < uint(len(covs)*len(cfg.calcs)); j++ {
+			tbl.SetEscape(cfg.depth+j, i, escape)
+		}
+	}
+	//
+	for i := uint(1); i < tbl.Height(); i++ {
+		for j := 1; j < len(covs); j++ {
+			for k := uint(0); k < uint(len(cfg.calcs)); k++ {
+				cur := cfg.depth + k + uint(j*len(cfg.calcs))
+				prev := cfg.depth + k + uint((j-1)*len(cfg.calcs))
+				//
+				if tbl.Get(prev, i) != tbl.Get(cur, i) {
+					tbl.SetEscape(prev, i, white)
+					tbl.SetEscape(cur, i, white)
+				}
+			}
+		}
+	}
+}
+
 //nolint:errcheck
 func init() {
 	rootCmd.AddCommand(coverageCmd)
 	coverageCmd.Flags().Bool("debug", false, "enable debugging constraints")
+	coverageCmd.Flags().Bool("diff", false, "highlight differences between coverage reports")
 	coverageCmd.Flags().BoolP("module", "m", false, "show module summaries")
 	coverageCmd.Flags().BoolP("expand", "e", false, "show expanded constraints")
 	coverageCmd.Flags().StringP("filter", "f", "", "regex constraint filter")
