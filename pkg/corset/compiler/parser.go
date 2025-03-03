@@ -1315,6 +1315,8 @@ func (p *Parser) parseType(term sexp.SExp) (ast.Type, bool, *SyntaxError) {
 		datatype = ast.NewUintType(1)
 	case ":byte":
 		datatype = ast.NewUintType(8)
+	case ":𝔽":
+		datatype = ast.NewFieldType()
 	case ":":
 		if len(parts) == 1 {
 			return nil, false, p.translator.SyntaxError(symbol, "unknown type")
@@ -1324,20 +1326,16 @@ func (p *Parser) parseType(term sexp.SExp) (ast.Type, bool, *SyntaxError) {
 	default:
 		// Handle generic types like i16, i128, etc.
 		str := parts[0]
-		if strings.HasPrefix(str, ":") {
-			//
-			datatype = ast.NewFieldType()
-		} else if !strings.HasPrefix(str, ":i") {
+		if !strings.HasPrefix(str, ":i") {
 			return nil, false, p.translator.SyntaxError(symbol, "unknown typer")
-		} else {
-			// Parse bitwidth
-			n, err := strconv.Atoi(str[2:])
-			if err != nil {
-				return nil, false, p.translator.SyntaxError(symbol, err.Error())
-			}
-			// Done
-			datatype = ast.NewUintType(uint(n))
 		}
+		// Parse bitwidth
+		n, err := strconv.Atoi(str[2:])
+		if err != nil {
+			return nil, false, p.translator.SyntaxError(symbol, err.Error())
+		}
+		// Done
+		datatype = ast.NewUintType(uint(n))
 	}
 	// Types not proven unless explicitly requested
 	var proven bool = false
