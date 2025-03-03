@@ -138,7 +138,7 @@ func lowerConstraintToAir(c sc.Constraint, mirSchema *Schema, airSchema *air.Sch
 func lowerVanishingConstraintToAir(v VanishingConstraint, mirSchema *Schema, airSchema *air.Schema,
 	cfg OptimisationConfig) {
 	//
-	air_expr := lowerExprTo(v.Context, v.Constraint, mirSchema, airSchema, cfg)
+	air_expr := lowerConstraintTo(v.Context, v.Constraint, mirSchema, airSchema, cfg)
 	// Check whether this is a constant
 	constant := air_expr.AsConstant()
 	// Check for compile-time constants
@@ -156,7 +156,7 @@ func lowerVanishingConstraintToAir(v VanishingConstraint, mirSchema *Schema, air
 // value of that expression, along with appropriate constraints to enforce the
 // expected value.
 func lowerRangeConstraintToAir(v RangeConstraint, mirSchema *Schema, airSchema *air.Schema, cfg OptimisationConfig) {
-	bitwidth := v.Expr.IntRange(mirSchema).BitWidth()
+	bitwidth := rangeOfTerm(v.Expr.term, mirSchema).BitWidth()
 	// Lower target expression
 	target := lowerExprTo(v.Context, v.Expr, mirSchema, airSchema, cfg)
 	// Expand target expression (if necessary)
@@ -191,8 +191,8 @@ func lowerLookupConstraintToAir(c LookupConstraint, mirSchema *Schema, airSchema
 	sources := make([]uint, len(c.Sources))
 	//
 	for i := 0; i < len(targets); i++ {
-		targetBitwidth := c.Targets[i].IntRange(mirSchema).BitWidth()
-		sourceBitwidth := c.Sources[i].IntRange(mirSchema).BitWidth()
+		targetBitwidth := rangeOfTerm(c.Targets[i].term, mirSchema).BitWidth()
+		sourceBitwidth := rangeOfTerm(c.Sources[i].term, mirSchema).BitWidth()
 		// Lower source and target expressions
 		target := lowerExprTo(c.TargetContext, c.Targets[i], mirSchema, airSchema, cfg)
 		source := lowerExprTo(c.SourceContext, c.Sources[i], mirSchema, airSchema, cfg)
@@ -211,7 +211,7 @@ func lowerSortedConstraintToAir(c SortedConstraint, mirSchema *Schema, airSchema
 	sources := make([]uint, len(c.Sources))
 	//
 	for i := 0; i < len(sources); i++ {
-		sourceBitwidth := c.Sources[i].IntRange(mirSchema).BitWidth()
+		sourceBitwidth := rangeOfTerm(c.Sources[i].term, mirSchema).BitWidth()
 		// Lower source expression
 		source := lowerExprTo(c.Context, c.Sources[i], mirSchema, airSchema, cfg)
 		// Expand them
@@ -333,6 +333,25 @@ func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Sche
 		// Done
 		gadget.Apply(airSchema)
 	}
+}
+
+func lowerConstraintTo(ctx trace.Context, c Constraint, mirSchema *Schema, airSchema *air.Schema,
+	cfg OptimisationConfig) air.Expr {
+	//
+	es := make([]air.Expr, len(c.terms))
+	//
+	for i, t := range c.terms {
+		// Apply constant propagation
+		t1 := constantPropagationForTerm(t, airSchema)
+		// Lower properly
+		es[i] = lowerTermToInner(ctx, t1, mirSchema, airSchema, cfg)
+	}
+	// Simple optimisation; we could do more here.
+	if len(es) == 1 {
+		return es[0]
+	}
+	//
+	return air.Product(es...)
 }
 
 // Lower an expression into the Arithmetic Intermediate Representation.

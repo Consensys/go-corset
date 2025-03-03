@@ -57,6 +57,21 @@ func NewConst64(val uint64) Expr {
 	return Expr{&Constant{element}}
 }
 
+// EqualsZero converts this expression into an equality test against zero.
+func (e Expr) EqualsZero() Constraint {
+	return Constraint{[]Term{e.term}}
+}
+
+// NotEqualsZero converts this expression into an inequality test against zero.
+func (e Expr) NotEqualsZero() Constraint {
+	// (1 - NORM(cb)) for true branch
+	normBody := Normalise(e)
+	one := NewConst64(1)
+	oneMinusNormBody := Subtract(one, normBody)
+	//
+	return Constraint{[]Term{oneMinusNormBody.term}}
+}
+
 // Context determines the evaluation context (i.e. enclosing module) for this
 func (e Expr) Context(schema sc.Schema) trace.Context {
 	return contextOfTerm(e.term, schema)
@@ -72,12 +87,6 @@ func (e Expr) Bounds() util.Bounds {
 	end := uint(max(0, maxShift))
 	//
 	return util.NewBounds(start, end)
-}
-
-// IntRange computes a conservative approximation for the set of possible
-// values that this expression can evaluate to.
-func (e Expr) IntRange(schema sc.Schema) *util.Interval {
-	return rangeOfTerm(e.term, schema)
 }
 
 // Lisp converts this schema element into a simple S-Termession, for example
@@ -104,20 +113,9 @@ func (e Expr) RequiredCells(row int, tr trace.Trace) *set.AnySortedSet[trace.Cel
 // value at that row of the column in question or nil is that row is
 // out-of-bounds.
 func (e Expr) EvalAt(k int, tr trace.Trace) (fr.Element, error) {
-	val, _, err := evalAtTerm[sc.NoMetric](e.term, k, tr)
+	val, err := evalAtTerm(e.term, k, tr)
 	//
 	return val, err
-}
-
-// TestAt evaluates this expression in a given tabular context and checks it
-// against zero. Observe that if this expression is *undefined* within this
-// context then it returns "nil".  An expression can be undefined for
-// several reasons: firstly, if it accesses a row which does not exist (e.g.
-// at index -1); secondly, if it accesses a column which does not exist.
-func (e Expr) TestAt(k int, tr trace.Trace) (bool, sc.BranchMetric, error) {
-	val, path, err := evalAtTerm[sc.BranchMetric](e.term, k, tr)
-	//
-	return val.IsZero(), path, err
 }
 
 // Branches returns the number of unique evaluation paths through the given
@@ -177,7 +175,10 @@ func Sum(exprs ...Expr) Expr {
 
 // Product returns the product of zero or more multiplications.
 func Product(exprs ...Expr) Expr {
-	terms := asTerms(exprs...)
+	return termProduct(asTerms(exprs...)...)
+}
+
+func termProduct(terms ...Term) Expr {
 	// flatten any nested products
 	terms = util.Flatten(terms, func(t Term) []Term {
 		if t, ok := t.(*Mul); ok {

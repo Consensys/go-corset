@@ -18,63 +18,55 @@ import (
 	"reflect"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
 
-func evalAtTerm[T sc.Metric[T]](e Term, k int, trace tr.Trace) (fr.Element, T, error) {
-	var id T
-	//
+func evalAtTerm(e Term, k int, trace tr.Trace) (fr.Element, error) {
 	switch e := e.(type) {
 	case *Add:
-		return evalAtAdd[T](e, k, trace)
+		return evalAtAdd(e, k, trace)
 	case *Cast:
-		return evalAtCast[T](e, k, trace)
+		return evalAtCast(e, k, trace)
 	case *Constant:
-		return e.Value, id.Empty(), nil
+		return e.Value, nil
 	case *ColumnAccess:
-		return trace.Column(e.Column).Get(k + e.Shift), id.Empty(), nil
+		return trace.Column(e.Column).Get(k + e.Shift), nil
 	case *Exp:
-		return evalAtExp[T](e, k, trace)
+		return evalAtExp(e, k, trace)
 	case *Mul:
-		return evalAtMul[T](e, k, trace)
+		return evalAtMul(e, k, trace)
 	case *Norm:
-		return evalAtNormalise[T](e, k, trace)
+		return evalAtNormalise(e, k, trace)
 	case *Sub:
-		return evalAtSub[T](e, k, trace)
+		return evalAtSub(e, k, trace)
 	default:
 		name := reflect.TypeOf(e).Name()
 		panic(fmt.Sprintf("unknown MIR expression \"%s\"", name))
 	}
 }
 
-func evalAtAdd[T sc.Metric[T]](e *Add, k int, trace tr.Trace) (fr.Element, T, error) {
+func evalAtAdd(e *Add, k int, trace tr.Trace) (fr.Element, error) {
 	// Evaluate first argument
-	val, metric, err := evalAtTerm[T](e.Args[0], k, trace)
+	val, err := evalAtTerm(e.Args[0], k, trace)
 	// Continue evaluating the rest
 	for i := 1; err == nil && i < len(e.Args); i++ {
-		var (
-			ith       fr.Element
-			ithmetric T
-		)
+		var ith fr.Element
 		// Evaluate ith argument
-		ith, ithmetric, err = evalAtTerm[T](e.Args[i], k, trace)
+		ith, err = evalAtTerm(e.Args[i], k, trace)
 		val.Add(&val, &ith)
-		// update metric
-		metric = metric.Join(ithmetric)
 	}
 	// Done
-	return val, metric, err
+	return val, err
 }
 
-func evalAtCast[T sc.Metric[T]](e *Cast, k int, tr trace.Trace) (fr.Element, T, error) {
+func evalAtCast(e *Cast, k int, tr trace.Trace) (fr.Element, error) {
 	var c big.Int
 	//
 	cast := e.Range()
 	// Check whether argument evaluates to zero or not.
-	val, metric, err := evalAtTerm[T](e.Arg, k, tr)
+	val, err := evalAtTerm(e.Arg, k, tr)
 	// Extract big integer from field element
 	val.BigInt(&c)
 	// Dynamic cast check
@@ -83,68 +75,63 @@ func evalAtCast[T sc.Metric[T]](e *Cast, k int, tr trace.Trace) (fr.Element, T, 
 		err = fmt.Errorf("cast failure (value %s not a u%d)", val.String(), e.BitWidth)
 	}
 	// All good
-	return val, metric, err
+	return val, err
 }
 
-func evalAtExp[T sc.Metric[T]](e *Exp, k int, tr trace.Trace) (fr.Element, T, error) {
+func evalAtExp(e *Exp, k int, tr trace.Trace) (fr.Element, error) {
 	// Check whether argument evaluates to zero or not.
-	val, metric, err := evalAtTerm[T](e.Arg, k, tr)
+	val, err := evalAtTerm(e.Arg, k, tr)
 	// Compute exponent
 	util.Pow(&val, e.Pow)
 	// Done
-	return val, metric, err
+	return val, err
 }
 
-func evalAtMul[T sc.Metric[T]](e *Mul, k int, trace tr.Trace) (fr.Element, T, error) {
+func evalAtMul(e *Mul, k int, trace tr.Trace) (fr.Element, error) {
 	n := uint(len(e.Args))
 	// Evaluate first argument
-	val, metric, err := evalAtTerm[T](e.Args[0], k, trace)
+	val, err := evalAtTerm(e.Args[0], k, trace)
 	// Continue evaluating the rest
 	for i := uint(1); err == nil && i < n; i++ {
 		var ith fr.Element
 		// Can short-circuit evaluation?
 		if val.IsZero() {
-			return val, metric.Mark(i-1, n), nil
+			return val, nil
 		}
 		// No
-		ith, metric, err = evalAtTerm[T](e.Args[i], k, trace)
+		ith, err = evalAtTerm(e.Args[i], k, trace)
 		val.Mul(&val, &ith)
 	}
 	// Done
-	return val, metric.Mark(n-1, n), err
+	return val, err
 }
 
 // EvalAt evaluates the normalisation of some expression by first evaluating
 // that expression.  Then, zero is returned if the result is zero; otherwise one
 // is returned.
-func evalAtNormalise[T sc.Metric[T]](e *Norm, k int, tr trace.Trace) (fr.Element, T, error) {
+func evalAtNormalise(e *Norm, k int, tr trace.Trace) (fr.Element, error) {
 	// Check whether argument evaluates to zero or not.
-	val, metric, err := evalAtTerm[T](e.Arg, k, tr)
+	val, err := evalAtTerm(e.Arg, k, tr)
 	// Normalise value (if necessary)
 	if !val.IsZero() {
 		val.SetOne()
 	}
 	// Done
-	return val, metric, err
+	return val, err
 }
 
-func evalAtSub[T sc.Metric[T]](e *Sub, k int, trace tr.Trace) (fr.Element, T, error) {
+func evalAtSub(e *Sub, k int, trace tr.Trace) (fr.Element, error) {
 	// Evaluate first argument
-	val, metric, err := evalAtTerm[T](e.Args[0], k, trace)
+	val, err := evalAtTerm(e.Args[0], k, trace)
 	// Continue evaluating the rest
 	for i := 1; err == nil && i < len(e.Args); i++ {
-		var (
-			ith       fr.Element
-			ithmetric T
-		)
+		var ith fr.Element
 		// Evaluate ith argument
-		ith, ithmetric, err = evalAtTerm[T](e.Args[i], k, trace)
+		ith, err = evalAtTerm(e.Args[i], k, trace)
 		val.Sub(&val, &ith)
-		// update metric
-		metric = metric.Join(ithmetric)
 	}
 	// Done
-	return val, metric, err
+	return val, err
 }
 
 // Determine the number of distinct evaluation paths through a given term.
