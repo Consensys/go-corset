@@ -39,6 +39,9 @@ type OptimisationConfig struct {
 	// constraints are translated in AIR range constraints, versus using a
 	// horizontal bitwidth gadget.
 	MaxRangeConstraint uint
+	// ShiftNormalisation is an optimisation for inverse columns involving
+	// shifts.
+	ShiftNormalisation bool
 }
 
 // OPTIMISATION_LEVELS provides a set of precanned optimisation configurations.
@@ -47,9 +50,9 @@ type OptimisationConfig struct {
 // always improve performance).
 var OPTIMISATION_LEVELS = []OptimisationConfig{
 	// Level 0 == nothing enabled
-	{0, 256},
+	{0, 256, false},
 	// Level 1 == minimal optimisations applied.
-	{1, 256},
+	{1, 256, true},
 }
 
 // DEFAULT_OPTIMISATION_LEVEL provides a default level of optimisation which
@@ -380,13 +383,24 @@ func lowerTermToInner(ctx trace.Context, e Term, mirSchema *Schema, airSchema *a
 			// arg ∈ {-1,0,1} ==> (arg*arg) ∈ {0,1}
 			return air.Product(arg, arg)
 		}
-		//
-		min, max := shiftRangeOfTerm(e.Arg)
-		//
-		fmt.Printf("Shift range: %d .. %d\n", min, max)
+		// Determine appropriate shift
+		shift := 0
+		//  Apply shift normalisation (if enabled)
+		if cfg.ShiftNormalisation {
+			// Determine shift ranges
+			min, max := shiftRangeOfTerm(e.Arg)
+			// determine shift amount
+			if max < 0 {
+				shift = max
+			} else if min > 0 {
+				shift = min
+			}
+		}
 		// Construct an expression representing the normalised value of e.  That is,
 		// an expression which is 0 when e is 0, and 1 when e is non-zero.
-		return air_gadgets.Normalise(arg, airSchema)
+		norm := air_gadgets.Normalise(arg.Shift(-shift), airSchema)
+		//
+		return norm.Shift(shift)
 	case *Sub:
 		args := lowerTerms(ctx, e.Args, mirSchema, airSchema, cfg)
 		return air.Subtract(args...)

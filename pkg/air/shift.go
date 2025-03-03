@@ -10,50 +10,40 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package mir
+package air
 
 import (
 	"fmt"
-	"math"
 	"reflect"
 )
 
-// ShiftRangeOfTerm returns the minimum and maximum shift value used anywhere in
-// the given term.
-func shiftRangeOfTerm(e Term) (int, int) {
+// shiftTerm shifts all variable accesses in a given term by a given amount.
+// This can be used to normalise shifting in certain circumstances.
+func shiftTerm(e Term, shift int) Term {
 	//
 	switch e := e.(type) {
 	case *Add:
-		return shiftRangeOfTerms(e.Args)
-	case *Cast:
-		return shiftRangeOfTerm(e.Arg)
+		return &Add{Args: shiftTerms(e.Args, shift)}
 	case *Constant:
-		return math.MaxInt, math.MinInt
+		return e
 	case *ColumnAccess:
-		return e.Shift, e.Shift
-	case *Exp:
-		return shiftRangeOfTerm(e.Arg)
+		return &ColumnAccess{Column: e.Column, Shift: e.Shift + shift}
 	case *Mul:
-		return shiftRangeOfTerms(e.Args)
-	case *Norm:
-		return shiftRangeOfTerm(e.Arg)
+		return &Mul{Args: shiftTerms(e.Args, shift)}
 	case *Sub:
-		return shiftRangeOfTerms(e.Args)
+		return &Sub{Args: shiftTerms(e.Args, shift)}
 	default:
 		name := reflect.TypeOf(e).Name()
-		panic(fmt.Sprintf("unknown MIR expression \"%s\"", name))
+		panic(fmt.Sprintf("unknown AIR expression \"%s\"", name))
 	}
 }
 
-func shiftRangeOfTerms(terms []Term) (int, int) {
-	minShift := math.MaxInt
-	maxShift := math.MinInt
+func shiftTerms(terms []Term, shift int) []Term {
+	nterms := make([]Term, len(terms))
 	//
-	for _, t := range terms {
-		tMin, tMax := shiftRangeOfTerm(t)
-		minShift = min(minShift, tMin)
-		maxShift = max(maxShift, tMax)
+	for i := range terms {
+		nterms[i] = shiftTerm(terms[i], shift)
 	}
 	//
-	return minShift, maxShift
+	return nterms
 }
