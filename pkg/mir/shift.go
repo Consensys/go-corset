@@ -45,6 +45,15 @@ func shiftRangeOfTerm(e Term) (int, int) {
 	}
 }
 
-func shiftRangeOfTerms(e []Term) (int, int) {
-	panic("todo")
+func shiftRangeOfTerms(terms []Term) (int, int) {
+	minShift := math.MaxInt
+	maxShift := math.MinInt
+	//
+	for _, t := range terms {
+		tMin, tMax := shiftRangeOfTerm(t)
+		minShift = min(minShift, tMin)
+		maxShift = max(maxShift, tMax)
+	}
+	//
+	return minShift, maxShift
 }

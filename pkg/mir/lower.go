@@ -380,6 +380,10 @@ func lowerTermToInner(ctx trace.Context, e Term, mirSchema *Schema, airSchema *a
 			// arg ∈ {-1,0,1} ==> (arg*arg) ∈ {0,1}
 			return air.Product(arg, arg)
 		}
+		//
+		min, max := shiftRangeOfTerm(e.Arg)
+		//
+		fmt.Printf("Shift range: %d .. %d\n", min, max)
 		// Construct an expression representing the normalised value of e.  That is,
 		// an expression which is 0 when e is 0, and 1 when e is non-zero.
 		return air_gadgets.Normalise(arg, airSchema)
