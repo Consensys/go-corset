@@ -655,6 +655,10 @@ func Test_StrictSorted_03(t *testing.T) {
 	Check(t, false, "strictsorted_03")
 }
 
+func Test_StrictSorted_04(t *testing.T) {
+	Check(t, false, "strictsorted_04")
+}
+
 // ===================================================================
 // Lookups
 // ===================================================================
