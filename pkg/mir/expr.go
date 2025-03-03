@@ -64,7 +64,15 @@ func (e Expr) Context(schema sc.Schema) trace.Context {
 
 // Bounds returns max shift in either the negative (left) or positive
 // direction (right).
-func (e Expr) Bounds() util.Bounds { return e.term.Bounds() }
+func (e Expr) Bounds() util.Bounds {
+	// Compute shift range
+	minShift, maxShift := shiftRangeOfTerm(e.term)
+	// Convert to bounds
+	start := uint(-min(0, minShift))
+	end := uint(max(0, maxShift))
+	//
+	return util.NewBounds(start, end)
+}
 
 // IntRange computes a conservative approximation for the set of possible
 // values that this expression can evaluate to.
