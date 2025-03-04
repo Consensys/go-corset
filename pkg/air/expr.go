@@ -97,6 +97,11 @@ func (e Expr) EvalAt(k int, tr trace.Trace) (fr.Element, error) {
 	return val, nil
 }
 
+// Shift all column accesses within the expression by a given amount.
+func (e Expr) Shift(shift int) Expr {
+	return Expr{shiftTerm(e.Term, shift)}
+}
+
 // TestAt evaluates this expression in a given tabular context and checks it
 // against zero. Observe that if this expression is *undefined* within this
 // context then it returns "nil".  An expression can be undefined for
