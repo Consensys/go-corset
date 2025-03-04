@@ -1295,7 +1295,7 @@ func Check(t *testing.T, stdlib bool, test string) {
 	srcfile := sexp.NewSourceFile(filename, bytes)
 	// Parse terms into an HIR schema
 	// Run compiler in non-strict mode
-	binfile, errs := corset.CompileSourceFile(stdlib, false, srcfile, true)
+	binfile, errs := corset.CompileSourceFile(stdlib, false, srcfile, false)
 	// Check terms parsed ok
 	if len(errs) > 0 {
 		t.Fatalf("Error parsing %s: %v\n", filename, errs)

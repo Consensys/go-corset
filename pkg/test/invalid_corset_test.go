@@ -785,7 +785,7 @@ func CheckInvalid(t *testing.T, test string) {
 	srcfile := sexp.NewSourceFile(filename, bytes)
 	// Parse terms into an HIR schema
 	// Run compiler in non-strict mode for tests to pass with field type columns
-	_, errs := corset.CompileSourceFile(false, false, srcfile, true)
+	_, errs := corset.CompileSourceFile(false, false, srcfile, false)
 	// Extract expected errors for comparison
 	expectedErrs, lineOffsets := extractExpectedErrors(bytes)
 	// Check program did not compile!
