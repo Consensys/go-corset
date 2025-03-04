@@ -121,7 +121,7 @@ func (e Expr) EvalAt(k int, tr trace.Trace) (fr.Element, error) {
 // Branches returns the number of unique evaluation paths through the given
 // constraint.
 func (e Expr) Branches() uint {
-	return pathsOfTerm(e.term)
+	return 1
 }
 
 // Simplify this expression by applying, for example, constant propagation.
