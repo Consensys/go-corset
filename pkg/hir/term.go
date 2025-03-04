@@ -240,6 +240,22 @@ func (p *Constant) Bounds() util.Bounds { return util.EMPTY_BOUND }
 func (p *Constant) multiplicity() uint { return 1 }
 
 // ============================================================================
+// ConstantAccess
+// ============================================================================
+
+// ConstantAccess represents an access of an (externalised) constant value
+// within an expression.
+type ConstantAccess struct{ ConstantId uint }
+
+// Bounds returns max shift in either the negative (left) or positive
+// direction (right).  A constant has zero shift.
+func (p *ConstantAccess) Bounds() util.Bounds { return util.EMPTY_BOUND }
+
+// multiplicity returns the number of underlyg expressions that this
+// expression will expand to.
+func (p *ConstantAccess) multiplicity() uint { return 1 }
+
+// ============================================================================
 // Normalise
 // ============================================================================
 

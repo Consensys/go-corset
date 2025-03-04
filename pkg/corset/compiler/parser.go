@@ -261,11 +261,11 @@ func (p *Parser) parseDeclaration(module util.Path, s *sexp.List) (ast.Declarati
 	} else if s.Len() == 3 && s.MatchSymbols(1, "defcomputed") {
 		decl, errors = p.parseDefComputed(module, s.Elements)
 	} else if s.Len() > 1 && s.MatchSymbols(1, "defconst") {
-		decl, errors = p.parseDefConst(module, s.Elements)
+		decl, errors = p.parseDefConst(module, s.Elements, false)
 	} else if s.Len() == 4 && s.MatchSymbols(2, "defconstraint") {
 		decl, errors = p.parseDefConstraint(module, s.Elements)
 	} else if s.Len() > 1 && s.MatchSymbols(1, "defextern") {
-		decl, errors = p.parseDefConst(module, s.Elements)
+		decl, errors = p.parseDefConst(module, s.Elements, true)
 	} else if s.MatchSymbols(1, "defunalias") {
 		decl, errors = p.parseDefAlias(true, s.Elements)
 	} else if s.Len() == 3 && s.MatchSymbols(1, "defpurefun") {
@@ -543,7 +543,7 @@ func (p *Parser) parseDefComputed(module util.Path, elements []sexp.SExp) (ast.D
 }
 
 // Parse a constant declaration
-func (p *Parser) parseDefConst(module util.Path, elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
+func (p *Parser) parseDefConst(module util.Path, elements []sexp.SExp, extern bool) (ast.Declaration, []SyntaxError) {
 	var (
 		errors    []SyntaxError
 		constants []*ast.DefConstUnit
@@ -556,7 +556,7 @@ func (p *Parser) parseDefConst(module util.Path, elements []sexp.SExp) (ast.Decl
 			errors = append(errors, *p.translator.SyntaxError(elements[i], "missing constant definition"))
 		} else {
 			// Attempt to parse definition
-			constant, errs := p.parseDefConstUnit(module, elements[i], elements[i+1])
+			constant, errs := p.parseDefConstUnit(module, elements[i], elements[i+1], extern)
 			errors = append(errors, errs...)
 			constants = append(constants, constant)
 		}
@@ -566,7 +566,7 @@ func (p *Parser) parseDefConst(module util.Path, elements []sexp.SExp) (ast.Decl
 }
 
 func (p *Parser) parseDefConstUnit(module util.Path, head sexp.SExp,
-	value sexp.SExp) (*ast.DefConstUnit, []SyntaxError) {
+	value sexp.SExp, extern bool) (*ast.DefConstUnit, []SyntaxError) {
 	//
 	var (
 		name     *sexp.Symbol
@@ -584,7 +584,7 @@ func (p *Parser) parseDefConstUnit(module util.Path, head sexp.SExp,
 	}
 	// Looks good
 	path := module.Extend(name.Value)
-	def := &ast.DefConstUnit{ConstBinding: ast.NewConstantBinding(*path, datatype, expr)}
+	def := &ast.DefConstUnit{ConstBinding: ast.NewConstantBinding(*path, datatype, expr, extern)}
 	// Map to source node
 	p.mapSourceNode(value, def)
 	// Done
