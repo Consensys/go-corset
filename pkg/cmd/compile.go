@@ -17,6 +17,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/consensys/go-corset/pkg/util/collection/typed"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -49,8 +50,8 @@ var compileCmd = &cobra.Command{
 	},
 }
 
-func buildMetadata(items []string) map[string]string {
-	metadata := make(map[string]string)
+func buildMetadata(items []string) typed.Map {
+	metadata := make(map[string]any)
 	//
 	for _, item := range items {
 		split := strings.Split(item, "=")
@@ -62,7 +63,7 @@ func buildMetadata(items []string) map[string]string {
 		metadata[split[0]] = split[1]
 	}
 	//
-	return metadata
+	return typed.NewMap(metadata)
 }
 
 //nolint:errcheck

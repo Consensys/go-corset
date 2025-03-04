@@ -15,8 +15,9 @@ package lt
 import (
 	"bytes"
 	"encoding/binary"
-	"encoding/json"
 	"errors"
+
+	"github.com/consensys/go-corset/pkg/util/collection/typed"
 )
 
 // Header provides a structured header for the binary file format.  In
@@ -32,25 +33,20 @@ type Header struct {
 // unmarshalled into a map.  This can fail if the embedded metadata bytes are
 // not, in fact, JSON.  Observe that, if there are no metadata bytes, then nil
 // will be returned.
-func (p *Header) GetMetaData() (map[string]string, error) {
-	var vmap map[string]string
+func (p *Header) GetMetaData() (typed.Map, error) {
 	// Check for empty metadata
 	if len(p.MetaData) == 0 {
-		return nil, nil
+		return typed.NewMap(nil), nil
 	}
 	// Attempt to unmarshal metadata bytes
-	if err := json.Unmarshal(p.MetaData, &vmap); err != nil {
-		return nil, err
-	}
-	// Success
-	return vmap, nil
+	return typed.FromJsonBytes(p.MetaData)
 }
 
 // SetMetaData attempts to set the metadata bytes for this header, using a JSON
 // encoding of the given map.  If this fails, an error is returned and the
 // metadata bytes are unaffected.
-func (p *Header) SetMetaData(metadata map[string]string) error {
-	bytes, err := json.Marshal(metadata)
+func (p *Header) SetMetaData(metadata typed.Map) error {
+	bytes, err := metadata.ToJsonBytes()
 	// Check for error
 	if err != nil {
 		return err
