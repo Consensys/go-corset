@@ -53,7 +53,7 @@ func lispOfConstantAccess(e *ConstantAccess, schema *Schema) sexp.SExp {
 	var name string
 	// Generate name, whilst allowing for schema to be nil.
 	if schema != nil {
-		name = schema.Constants().Nth(e.ConstantId).QualifiedName(schema)
+		name = schema.Constants().Nth(e.ConstantId).Name
 	} else {
 		name = fmt.Sprintf("#%d", e.ConstantId)
 	}
