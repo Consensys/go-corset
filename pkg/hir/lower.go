@@ -46,7 +46,7 @@ func (p *Schema) LowerToMir() *mir.Schema {
 	// Copy property assertions.  Observe, these do not require lowering
 	// because they are already MIR-level expressions.
 	for _, c := range p.assertions {
-		properties := lowerTo(c.Property.Expr, mirSchema)
+		properties := lowerToConstraints(c.Property.Expr, mirSchema)
 		for _, p := range properties {
 			mirSchema.AddPropertyAssertion(c.Handle, c.Context, p)
 		}
@@ -60,10 +60,10 @@ func lowerConstraintToMir(c sc.Constraint, schema *mir.Schema) {
 	if v, ok := c.(LookupConstraint); ok {
 		lowerLookupConstraint(v, schema)
 	} else if v, ok := c.(VanishingConstraint); ok {
-		mir_exprs := lowerTo(v.Constraint.Expr, schema)
+		mir_constraints := lowerToConstraints(v.Constraint.Expr, schema)
 		// Add individual constraints arising
-		for i, mir_expr := range mir_exprs {
-			schema.AddVanishingConstraint(v.Handle, uint(i), v.Context, v.Domain, mir_expr)
+		for i, mir_consrtaint := range mir_constraints {
+			schema.AddVanishingConstraint(v.Handle, uint(i), v.Context, v.Domain, mir_consrtaint)
 		}
 	} else if v, ok := c.(RangeConstraint); ok {
 		mir_exprs := v.Expr.LowerTo(schema)
@@ -129,6 +129,24 @@ func lowerUnitTo(e UnitExpr, schema *mir.Schema) mir.Expr {
 // Lowers a given expression to the MIR level.  The expression is first expanded
 // into one or more target expressions. Furthermore, conditions must be "lifted"
 // to the root.
+func lowerToConstraints(e Expr, schema *mir.Schema) []mir.Constraint {
+	// First expand expression
+	es := expand(e.Term, schema)
+	// Now lower each one (carefully)
+	mes := make([]mir.Constraint, len(es))
+	//
+	for i, e := range es {
+		c := extractCondition(e, schema)
+		b := extractBody(e, schema)
+		mes[i] = mir.Disjunct(c, b.EqualsZero())
+	}
+	// Done
+	return mes
+}
+
+// Lowers a given expression to the MIR level.  The expression is first expanded
+// into one or more target expressions. Furthermore, conditions must be "lifted"
+// to the root.
 func lowerTo(e Expr, schema *mir.Schema) []mir.Expr {
 	// First expand expression
 	es := expand(e.Term, schema)
@@ -136,7 +154,7 @@ func lowerTo(e Expr, schema *mir.Schema) []mir.Expr {
 	mes := make([]mir.Expr, len(es))
 	//
 	for i, e := range es {
-		c := extractCondition(e, schema)
+		c := extractCondition(e, schema).AsExpr()
 		b := extractBody(e, schema)
 		mes[i] = mir.Product(c, b).Simplify()
 	}
@@ -147,16 +165,16 @@ func lowerTo(e Expr, schema *mir.Schema) []mir.Expr {
 // Extract the "condition" of an expression.  Every expression can be view as a
 // conditional constraint of the form "if c then e", where "c" is the condition.
 // This is allowed to return nil if the body is unconditional.
-func extractCondition(e Term, schema *mir.Schema) mir.Expr {
+func extractCondition(e Term, schema *mir.Schema) mir.Constraint {
 	switch e := e.(type) {
 	case *Add:
 		return extractConditions(e.Args, schema)
 	case *Cast:
 		return extractCondition(e.Arg, schema)
 	case *Constant:
-		return mir.ONE
+		return mir.TRUE
 	case *ColumnAccess:
-		return mir.ONE
+		return mir.TRUE
 	case *Exp:
 		return extractCondition(e.Arg, schema)
 	case *IfZero:
@@ -173,11 +191,11 @@ func extractCondition(e Term, schema *mir.Schema) mir.Expr {
 	}
 }
 
-func extractConditions(es []Term, schema *mir.Schema) mir.Expr {
-	var r mir.Expr = mir.ONE
+func extractConditions(es []Term, schema *mir.Schema) mir.Constraint {
+	var r mir.Constraint = mir.TRUE
 	//
 	for _, e := range es {
-		r = mir.Product(r, extractCondition(e, schema))
+		r = mir.Disjunct(r, extractCondition(e, schema))
 	}
 	//
 	return r
@@ -185,30 +203,30 @@ func extractConditions(es []Term, schema *mir.Schema) mir.Expr {
 
 // Extracting from conditional expressions is slightly more complex than others,
 // so it gets a case of its own.
-func extractIfZeroCondition(e *IfZero, schema *mir.Schema) mir.Expr {
-	var bc mir.Expr
+func extractIfZeroCondition(e *IfZero, schema *mir.Schema) mir.Constraint {
+	var (
+		bc mir.Constraint
+		cb mir.Constraint
+	)
 	// Lower condition
 	cc := extractCondition(e.Condition, schema)
-	cb := extractBody(e.Condition, schema)
+	body := extractBody(e.Condition, schema)
 	// Add conditions arising
 	if e.TrueBranch != nil && e.FalseBranch != nil {
 		// Expansion should ensure this case does not exist.  This is necessary
 		// to ensure exactly one expression is generated from this expression.
 		panic(fmt.Sprintf("unexpanded expression (%s)", lispOfTerm(e, schema)))
 	} else if e.TrueBranch != nil {
-		// (1 - NORM(cb)) for true branch
-		normBody := mir.Normalise(cb)
-		one := mir.NewConst64(1)
-		oneMinusNormBody := mir.Subtract(one, normBody)
-		cb = oneMinusNormBody
 		// Lower conditional's arising from body
+		cb = body.NotEqualsZero()
 		bc = extractCondition(e.TrueBranch, schema)
 	} else {
 		// Lower conditional's arising from body
+		cb = body.EqualsZero()
 		bc = extractCondition(e.FalseBranch, schema)
 	}
 	//
-	return mir.Product(cc, cb, bc)
+	return mir.Disjunct(cc, cb, bc)
 }
 
 // Translate the "body" of an expression.  Every expression can be view as a

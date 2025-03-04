@@ -19,19 +19,6 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 )
 
-// Metric provides a unique identifier to distinguish different
-// evaluations of a given term.  Roughly speaking, different identifiers
-// correspond to different evaluation paths through the term.
-type Metric[T any] interface {
-	// Include a given evalutation identifier as part of this identifier.
-	Join(T) T
-	// Mark this evaluation id to indicate the ith branch out of n branches was
-	// taken.
-	Mark(i uint, n uint) T
-	// Return empty value of this metric
-	Empty() T
-}
-
 // CoverageKey unique identifiers a constraint within the system.
 type CoverageKey struct {
 	// Identifier for the enclosing module.
@@ -125,84 +112,4 @@ func jsonConstraintName(mid uint, name string, casenum uint, schema Schema) stri
 	}
 	//
 	return fmt.Sprintf("%s.%s", mod.Name, name)
-}
-
-// ============================================================================
-// NoMetric
-// ============================================================================
-
-// NoMetric is simply an implementation of Metric which does nothing, and costs
-// nothing.  This should be used when evaluation metrics are not required and,
-// hence, there should be no associated overhead.
-type NoMetric struct {
-}
-
-// Join includes a given evalutation identifier as part of this identifier.
-func (p NoMetric) Join(NoMetric) NoMetric {
-	// do nothing
-	return p
-}
-
-// Mark this evaluation id to indicate the ith branch out of n branches was
-// taken.
-func (p NoMetric) Mark(i uint, n uint) NoMetric {
-	// do nothing
-	return p
-}
-
-// Empty returns an initial (empty) value for this metric.
-func (p NoMetric) Empty() NoMetric {
-	// do nothing
-	return p
-}
-
-// ============================================================================
-// BranchMetric
-// ============================================================================
-
-// BranchMetric identifies a particular evaluation "branch" out of a given
-// number of possible evaluiation branches.  Here, an evaluation branch
-// identifies a particular evaluation path through a given term.
-type BranchMetric struct {
-	branch      uint
-	branchBound uint
-}
-
-// EmptyBranchMetric constructs a new branch metric which indicates 1 of 1 paths
-// taken.
-func EmptyBranchMetric() BranchMetric {
-	return BranchMetric{0, 1}
-}
-
-// Empty returns an initial (empty) value for this metric.
-func (p BranchMetric) Empty() BranchMetric {
-	return EmptyBranchMetric()
-}
-
-// Join includes a given evalutation identifier as part of this identifier.
-func (p BranchMetric) Join(other BranchMetric) BranchMetric {
-	p.branchBound *= other.branchBound
-	p.branch = (p.branch * other.branchBound) + other.branch
-
-	return p
-}
-
-// Mark this evaluation id to indicate the ith branch out of n branches was
-// taken.
-func (p BranchMetric) Mark(i uint, n uint) BranchMetric {
-	p.branchBound *= n
-	p.branch = (p.branch * n) + i
-	//
-	return p
-}
-
-// Key returns a unique value identifying a given evaluation path through a
-// constraint.
-func (p BranchMetric) Key() uint {
-	return p.branch
-}
-
-// Branches returns the number of potential branches encountered during this evaluation.
-func (p BranchMetric) Branches() uint {
-	return p.branchBound
 }

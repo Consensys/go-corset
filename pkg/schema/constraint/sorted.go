@@ -87,13 +87,9 @@ func (p *SortedConstraint[E]) Contexts() []tr.Context {
 // Branches returns the total number of logical branches this constraint can
 // take during evaluation.
 func (p *SortedConstraint[E]) Branches() uint {
-	sum := uint(1)
-	// Include source branches
-	for _, e := range p.Sources {
-		sum += e.Branches()
-	}
-	// Done
-	return sum
+	// NOTE: at the moment, we don't consider branches through sorted
+	// constraints.
+	return 1
 }
 
 // Bounds determines the well-definedness bounds for this constraint for both

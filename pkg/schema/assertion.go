@@ -121,7 +121,7 @@ func (p *PropertyAssertion[T]) Accepts(tr tr.Trace) (bit.Set, Failure) {
 			return coverage, &AssertionFailure{p.Handle, p.Property, k}
 		} else {
 			// Update coverage
-			coverage.Insert(id.Key())
+			coverage.Insert(id)
 		}
 	}
 	// All good

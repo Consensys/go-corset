@@ -34,7 +34,7 @@ type LookupConstraint = *constraint.LookupConstraint[Expr]
 // VanishingConstraint captures the essence of a vanishing constraint at the MIR
 // level. A vanishing constraint is a row constraint which must evaluate to
 // zero.
-type VanishingConstraint = *constraint.VanishingConstraint[Expr]
+type VanishingConstraint = *constraint.VanishingConstraint[Constraint]
 
 // RangeConstraint captures the essence of a range constraints at the MIR level.
 type RangeConstraint = *constraint.RangeConstraint[Expr]
@@ -46,7 +46,7 @@ type SortedConstraint = *constraint.SortedConstraint[Expr]
 // PropertyAssertion captures the notion of an arbitrary property which should
 // hold for all acceptable traces.  However, such a property is not enforced by
 // the prover.
-type PropertyAssertion = *schema.PropertyAssertion[Expr]
+type PropertyAssertion = *schema.PropertyAssertion[Constraint]
 
 // Permutation captures the notion of a (sorted) permutation at the MIR level.
 type Permutation = *assignment.SortedPermutation
@@ -138,14 +138,14 @@ func (p *Schema) AddLookupConstraint(handle string, source trace.Context, target
 
 // AddVanishingConstraint appends a new vanishing constraint.
 func (p *Schema) AddVanishingConstraint(handle string, num uint, context trace.Context,
-	domain util.Option[int], expr Expr) {
+	domain util.Option[int], c Constraint) {
 	//
 	if context.Module() >= uint(len(p.modules)) {
 		panic(fmt.Sprintf("invalid module index (%d)", context.Module()))
 	}
 
 	p.constraints = append(p.constraints,
-		constraint.NewVanishingConstraint(handle, num, context, domain, expr))
+		constraint.NewVanishingConstraint(handle, num, context, domain, c))
 }
 
 // AddRangeConstraint appends a new range constraint.
@@ -162,8 +162,8 @@ func (p *Schema) AddSortedConstraint(handle string, context trace.Context, bitwi
 }
 
 // AddPropertyAssertion appends a new property assertion.
-func (p *Schema) AddPropertyAssertion(handle string, context trace.Context, expr Expr) {
-	p.assertions = append(p.assertions, schema.NewPropertyAssertion(handle, context, expr))
+func (p *Schema) AddPropertyAssertion(handle string, context trace.Context, constraint Constraint) {
+	p.assertions = append(p.assertions, schema.NewPropertyAssertion(handle, context, constraint))
 }
 
 // ============================================================================
