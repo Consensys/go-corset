@@ -142,7 +142,7 @@ func (p *VanishingConstraint[T]) Accepts(tr tr.Trace) (bit.Set, sc.Failure) {
 	// Check specific row
 	err, id := HoldsLocally(start, p.Handle, p.Constraint, tr)
 	//
-	coverage.Insert(id.Key())
+	coverage.Insert(id)
 	//
 	return coverage, err
 }
@@ -164,7 +164,7 @@ func HoldsGlobally[T sc.Testable](handle string, ctx tr.Context, constraint T, t
 				return coverage, err
 			}
 			// Update coverage
-			coverage.Insert(id.Key())
+			coverage.Insert(id)
 		}
 	}
 	// Success
@@ -173,7 +173,7 @@ func HoldsGlobally[T sc.Testable](handle string, ctx tr.Context, constraint T, t
 
 // HoldsLocally checks whether a given constraint holds (e.g. vanishes) on a
 // specific row of a trace. If not, report an appropriate error.
-func HoldsLocally[T sc.Testable](k uint, handle string, constraint T, tr tr.Trace) (sc.Failure, sc.BranchMetric) {
+func HoldsLocally[T sc.Testable](k uint, handle string, constraint T, tr tr.Trace) (sc.Failure, uint) {
 	ok, id, err := constraint.TestAt(int(k), tr)
 	// Check for errors
 	if err != nil {

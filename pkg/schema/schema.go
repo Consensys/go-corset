@@ -167,7 +167,7 @@ type Testable interface {
 	// context then it returns "nil".  An expression can be undefined for
 	// several reasons: firstly, if it accesses a row which does not exist (e.g.
 	// at index -1); secondly, if it accesses a column which does not exist.
-	TestAt(int, tr.Trace) (bool, BranchMetric, error)
+	TestAt(int, tr.Trace) (bool, uint, error)
 	// Branches returns the number of unique evaluation paths through the given
 	// constraint.
 	Branches() uint

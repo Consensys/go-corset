@@ -92,7 +92,7 @@ func (e Expr) RequiredCells(row int, tr trace.Trace) *set.AnySortedSet[trace.Cel
 // value at that row of the column in question or nil is that row is
 // out-of-bounds.
 func (e Expr) EvalAt(k int, tr trace.Trace) (fr.Element, error) {
-	val, _ := evalAtTerm[sc.NoMetric](e.Term, k, tr)
+	val := evalAtTerm(e.Term, k, tr)
 	//
 	return val, nil
 }
@@ -107,16 +107,17 @@ func (e Expr) Shift(shift int) Expr {
 // context then it returns "nil".  An expression can be undefined for
 // several reasons: firstly, if it accesses a row which does not exist (e.g.
 // at index -1); secondly, if it accesses a column which does not exist.
-func (e Expr) TestAt(k int, tr trace.Trace) (bool, sc.BranchMetric, error) {
-	val, path := evalAtTerm[sc.BranchMetric](e.Term, k, tr)
+func (e Expr) TestAt(k int, tr trace.Trace) (bool, uint, error) {
+	val := evalAtTerm(e.Term, k, tr)
 	//
-	return val.IsZero(), path, nil
+	return val.IsZero(), 0, nil
 }
 
 // Branches returns the number of unique evaluation paths through the given
 // constraint.
 func (e Expr) Branches() uint {
-	return pathsOfTerm(e.Term)
+	// NOTE: currently branch coverage is not supported at the AIR level.
+	return 1
 }
 
 // Add two expressions together.

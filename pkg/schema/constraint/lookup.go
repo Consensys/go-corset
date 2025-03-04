@@ -100,17 +100,9 @@ func (p *LookupConstraint[E]) Contexts() []tr.Context {
 // Branches returns the total number of logical branches this constraint can
 // take during evaluation.
 func (p *LookupConstraint[E]) Branches() uint {
-	sum := uint(1)
-	// Include source branches
-	for _, e := range p.Sources {
-		sum += e.Branches()
-	}
-	// Include target branches
-	for _, e := range p.Targets {
-		sum += e.Branches()
-	}
-	// Done
-	return sum
+	// NOTE: at the moment, we don't consider branches through lookups.  This is
+	// perhaps a degree of imprecision as some lookups have selectors.
+	return 1
 }
 
 // Bounds determines the well-definedness bounds for this constraint for both

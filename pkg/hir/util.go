@@ -36,22 +36,22 @@ type ZeroArrayTest struct {
 // TestAt determines whether or not every element from a given array of
 // expressions evaluates to zero. Observe that any expressions which are
 // undefined are assumed to hold.
-func (p ZeroArrayTest) TestAt(row int, trace tr.Trace) (bool, sc.BranchMetric, error) {
+func (p ZeroArrayTest) TestAt(row int, trace tr.Trace) (bool, uint, error) {
 	// Evalues expression yielding zero or more values.
 	vals, err := evalAtTerm(p.Expr.Term, row, trace)
 	//
 	if err != nil {
-		return false, sc.EmptyBranchMetric(), err
+		return false, 0, err
 	}
 	// Check each value in turn against zero.
 	for _, val := range vals {
 		if !val.IsZero() {
 			// This expression does not evaluat to zero, hence failure.
-			return false, sc.BranchMetric{}, nil
+			return false, 0, nil
 		}
 	}
 	// Success
-	return true, sc.BranchMetric{}, nil
+	return true, 0, nil
 }
 
 // Branches returns the number of unique evaluation paths through the given

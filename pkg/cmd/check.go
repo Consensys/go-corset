@@ -187,18 +187,18 @@ func checkTraceWithLowering(traces [][]tr.RawColumn, schema *hir.Schema, cfg che
 	res := true
 	// Process individually
 	if cfg.hir {
-		res, hirCoverage = checkTrace[sc.NoMetric]("HIR", traces, schema, cfg)
+		res, hirCoverage = checkTrace("HIR", traces, schema, cfg)
 	}
 
 	if cfg.mir {
-		tmp, mirCoverage = checkTrace[sc.NoMetric]("MIR", traces, schema.LowerToMir(), cfg)
+		tmp, mirCoverage = checkTrace("MIR", traces, schema.LowerToMir(), cfg)
 		//
 		res = res && tmp
 	}
 
 	if cfg.air {
 		airSchema := schema.LowerToMir().LowerToAir(cfg.optimisation)
-		tmp, airCoverage = checkTrace[sc.NoMetric]("AIR", traces, airSchema, cfg)
+		tmp, airCoverage = checkTrace("AIR", traces, airSchema, cfg)
 		//
 		res = res && tmp
 	}
@@ -206,7 +206,7 @@ func checkTraceWithLowering(traces [][]tr.RawColumn, schema *hir.Schema, cfg che
 	return res, [3]sc.CoverageMap{airCoverage, mirCoverage, hirCoverage}
 }
 
-func checkTrace[K sc.Metric[K]](ir string, traces [][]tr.RawColumn, schema sc.Schema,
+func checkTrace(ir string, traces [][]tr.RawColumn, schema sc.Schema,
 	cfg checkConfig) (bool, sc.CoverageMap) {
 	//
 	coverage := sc.NewBranchCoverage()
