@@ -135,6 +135,57 @@ func Test_Constant_12(t *testing.T) {
 }
 
 // ===================================================================
+// Constants Tests
+// ===================================================================
+func Test_Extern_01(t *testing.T) {
+	Check(t, false, "extern_01")
+}
+
+func Test_Extern_02(t *testing.T) {
+	Check(t, false, "extern_02")
+}
+
+func Test_Extern_03(t *testing.T) {
+	Check(t, false, "extern_03")
+}
+
+func Test_Extern_04(t *testing.T) {
+	Check(t, false, "extern_04")
+}
+
+func Test_Extern_05(t *testing.T) {
+	Check(t, false, "extern_05")
+}
+
+func Test_Extern_06(t *testing.T) {
+	Check(t, false, "extern_06")
+}
+
+func Test_Extern_07(t *testing.T) {
+	Check(t, false, "extern_07")
+}
+
+func Test_Extern_08(t *testing.T) {
+	Check(t, false, "extern_08")
+}
+
+func Test_Extern_09(t *testing.T) {
+	Check(t, false, "extern_09")
+}
+
+func Test_Extern_10(t *testing.T) {
+	Check(t, false, "extern_10")
+}
+
+func Test_Extern_11(t *testing.T) {
+	Check(t, false, "extern_11")
+}
+
+func Test_Extern_12(t *testing.T) {
+	Check(t, false, "extern_11")
+}
+
+// ===================================================================
 // Alias Tests
 // ===================================================================
 func Test_Alias_01(t *testing.T) {
