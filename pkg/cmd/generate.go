@@ -27,6 +27,7 @@ import (
 	"github.com/consensys/go-corset/pkg/hir"
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/util/collection/typed"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -90,7 +91,7 @@ func generateJavaIntegration(filename string, pkgname string, srcmap *corset.Sou
 	return builder.String(), nil
 }
 
-func generateJavaHeader(pkgname string, metadata map[string]string, builder *strings.Builder) {
+func generateJavaHeader(pkgname string, metadata typed.Map, builder *strings.Builder) {
 	builder.WriteString(license)
 	// Write package line
 	if pkgname != "" {
@@ -100,16 +101,24 @@ func generateJavaHeader(pkgname string, metadata map[string]string, builder *str
 	builder.WriteString(javaImports)
 	builder.WriteString(javaWarning)
 	//
-	if len(metadata) > 0 {
+	if !metadata.IsEmpty() {
 		// Write embedded metadata for the record.
 		builder.WriteString(" * <p>Embedded Metata</p>\n")
 		builder.WriteString(" * <ul>\n")
 		//
-		for k, v := range metadata {
+		for _, k := range metadata.Keys() {
 			builder.WriteString(" * <li>")
 			builder.WriteString(k)
 			builder.WriteString(": ")
-			builder.WriteString(v)
+
+			if v, ok := metadata.String(k); ok {
+				builder.WriteString(v)
+			} else {
+				// NOTE: for now, we don't support nested maps.  This could be added
+				// relatively straightforwardly.
+				builder.WriteString("???")
+			}
+
 			builder.WriteString("</li>\n")
 		}
 		//
@@ -119,7 +128,7 @@ func generateJavaHeader(pkgname string, metadata map[string]string, builder *str
 	builder.WriteString(" */\n")
 }
 
-func generateJavaModule(className string, mod corset.SourceModule, metadata map[string]string, schema *hir.Schema,
+func generateJavaModule(className string, mod corset.SourceModule, metadata typed.Map, schema *hir.Schema,
 	builder indentBuilder) {
 	//
 	var nFields uint
@@ -353,18 +362,28 @@ func generateJavaModuleSubmoduleFields(submodules []corset.SourceModule, builder
 	}
 }
 
-func generateJavaModuleMetadata(metadata map[string]string, builder indentBuilder) {
+func generateJavaModuleMetadata(metadata typed.Map, builder indentBuilder) {
 	// Write field declaration
-	builder.WriteIndentedString("public static Map<String,String> metadata() {\n")
+	builder.WriteIndentedString("public static Map<String,Object> metadata() {\n")
 	// Initialise map using Java static initialiser
-	if len(metadata) > 0 {
+	if !metadata.IsEmpty() {
 		i1Builder := builder.Indent()
-		i1Builder.WriteIndentedString("Map<String,String> metadata = new HashMap<>();\n")
+		i1Builder.WriteIndentedString("Map<String,Object> metadata = new HashMap<>();\n")
+		i1Builder.WriteIndentedString("Map<String,String> constraints = new HashMap<>();\n")
 
-		for k, v := range metadata {
-			i1Builder.WriteIndentedString("metadata.put(\"", k, "\",\"", v, "\");\n")
+		for _, k := range metadata.Keys() {
+			val, ok := metadata.String(k)
+
+			if !ok {
+				// NOTE: for now, we don't support nested maps.  This could be added
+				// relatively straightforwardly.
+				panic("nested metadata not currently supported")
+			}
+			//
+			i1Builder.WriteIndentedString("constraints.put(\"", k, "\",\"", val, "\");\n")
 		}
 		//
+		i1Builder.WriteIndentedString("metadata.put(\"constraints\",constraints);\n")
 		i1Builder.WriteIndentedString("return metadata;\n")
 		builder.WriteIndentedString("}\n\n")
 	}

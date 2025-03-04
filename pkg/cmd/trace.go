@@ -83,7 +83,7 @@ var traceCmd = &cobra.Command{
 			traces = [][]trace.RawColumn{tracefile.Columns}
 			// Print meta-data (if requested)
 			if metadata {
-				printTraceFileMetadata(&tracefile.Header)
+				printTraceFileHeader(&tracefile.Header)
 			}
 		}
 		//
@@ -261,7 +261,7 @@ func sliceColumns(cols []trace.RawColumn, start uint, end uint) {
 	}
 }
 
-func printTraceFileMetadata(header *lt.Header) {
+func printTraceFileHeader(header *lt.Header) {
 	fmt.Printf("Format: %d.%d\n", header.MajorVersion, header.MinorVersion)
 	// Attempt to parse metadata
 	metadata, err := header.GetMetaData()
@@ -269,12 +269,10 @@ func printTraceFileMetadata(header *lt.Header) {
 	if err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
-	} else if metadata != nil {
+	} else if !metadata.IsEmpty() {
 		fmt.Println("Metadata:")
 		//
-		for k, v := range metadata {
-			fmt.Printf("\t%s: %s\n", k, v)
-		}
+		printTypedMetadata(1, metadata)
 	}
 }
 

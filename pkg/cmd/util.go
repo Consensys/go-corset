@@ -33,6 +33,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
+	"github.com/consensys/go-corset/pkg/util/collection/typed"
 	"github.com/consensys/go-corset/pkg/util/sexp"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -556,4 +557,27 @@ func maxHeightColumns(cols []trace.RawColumn) uint {
 	}
 	// Done
 	return h
+}
+
+func printTypedMetadata(indent uint, metadata typed.Map) {
+	for _, k := range metadata.Keys() {
+		printIndent(indent)
+		//
+		if val, ok := metadata.String(k); ok {
+			fmt.Printf("%s: %s\n", k, val)
+		} else if val, ok := metadata.Map(k); ok {
+			fmt.Printf("%s:\n", k)
+			printTypedMetadata(indent+1, val)
+		} else if metadata.Nil(k) {
+			fmt.Printf("%s: (nil)\n", k)
+		} else {
+			fmt.Printf("%s: ???\n", k)
+		}
+	}
+}
+
+func printIndent(indent uint) {
+	for i := uint(0); i < indent; i++ {
+		fmt.Print("\t")
+	}
 }
