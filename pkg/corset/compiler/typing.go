@@ -102,7 +102,7 @@ func (p *typeChecker) typeCheckDeclaration(decl ast.Declaration) []SyntaxError {
 	case *ast.DefProperty:
 		errors = p.typeCheckDefProperty(d)
 	case *ast.DefSorted:
-		// ignore
+		errors = p.typeCheckDefSorted(d)
 	default:
 		// Error handling
 		panic("unknown declaration")
@@ -187,6 +187,17 @@ func (p *typeChecker) typeCheckDefProperty(decl *ast.DefProperty) []SyntaxError 
 	// type check constraint body
 	_, errors := p.typeCheckExpressionInModule(decl.Assertion)
 	// Done
+	return errors
+}
+
+// typeCheck a "defproperty" declaration.
+func (p *typeChecker) typeCheckDefSorted(decl *ast.DefSorted) []SyntaxError {
+	var errors []SyntaxError
+	//
+	if decl.Selector.HasValue() {
+		_, errors = p.typeCheckExpressionInModule(decl.Selector.Unwrap())
+	}
+	//
 	return errors
 }
 
