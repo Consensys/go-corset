@@ -14,7 +14,6 @@ package hir
 
 import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/mir"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -166,8 +165,8 @@ func (e UnitExpr) RequiredCells(row int, trace tr.Trace) *set.AnySortedSet[tr.Ce
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (e UnitExpr) Lisp(schema *Schema) sexp.SExp {
-	return e.Expr.Lisp(schema)
+func (e UnitExpr) Lisp(schema sc.Schema) sexp.SExp {
+	return e.Expr.Lisp(schema.(*Schema))
 }
 
 // ============================================================================
@@ -240,11 +239,6 @@ func (e MaxExpr) RequiredColumns() *set.SortedSet[uint] {
 // In this case, that is the empty set.
 func (e MaxExpr) RequiredCells(row int, trace tr.Trace) *set.AnySortedSet[tr.CellRef] {
 	return e.Expr.RequiredCells(row, trace)
-}
-
-// LowerTo lowers a max expressions down to one or more expressions at the MIR level.
-func (e MaxExpr) LowerTo(schema *mir.Schema) []mir.Expr {
-	return lowerTo(e.Expr, schema)
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
