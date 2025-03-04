@@ -55,10 +55,10 @@ func (p *Schema) LowerToMir() *mir.Schema {
 	return mirSchema
 }
 
-func lowerConstraintToMir(c sc.Constraint, schema *mir.Schema) {
+func lowerConstraintToMir(c sc.Constraint, mirSchema *mir.Schema) {
 	// Check what kind of constraint we have
 	if v, ok := c.(LookupConstraint); ok {
-		lowerLookupConstraint(v, schema)
+		lowerLookupConstraint(v, mirSchema)
 	} else if v, ok := c.(VanishingConstraint); ok {
 		mir_constraints := lowerToConstraints(v.Constraint.Expr, schema)
 		// Add individual constraints arising
@@ -66,13 +66,13 @@ func lowerConstraintToMir(c sc.Constraint, schema *mir.Schema) {
 			schema.AddVanishingConstraint(v.Handle, uint(i), v.Context, v.Domain, mir_consrtaint)
 		}
 	} else if v, ok := c.(RangeConstraint); ok {
-		mir_exprs := v.Expr.LowerTo(schema)
+		mir_exprs := v.Expr.LowerTo(mirSchema)
 		// Add individual constraints arising
 		for i, mir_expr := range mir_exprs {
-			schema.AddRangeConstraint(v.Handle, uint(i), v.Context, mir_expr, v.Bound)
+			mirSchema.AddRangeConstraint(v.Handle, uint(i), v.Context, mir_expr, v.Bound)
 		}
 	} else if v, ok := c.(SortedConstraint); ok {
-		lowerSortedConstraint(v, schema)
+		lowerSortedConstraint(v, mirSchema)
 	} else {
 		// Should be unreachable as no other constraint types can be added to a
 		// schema.
@@ -80,33 +80,33 @@ func lowerConstraintToMir(c sc.Constraint, schema *mir.Schema) {
 	}
 }
 
-func lowerLookupConstraint(c LookupConstraint, schema *mir.Schema) {
+func lowerLookupConstraint(c LookupConstraint, mirSchema *mir.Schema) {
 	from := make([]mir.Expr, len(c.Sources))
 	into := make([]mir.Expr, len(c.Targets))
 	// Convert general expressions into unit expressions.
 	for i := 0; i < len(from); i++ {
-		from[i] = lowerUnitTo(c.Sources[i], schema)
-		into[i] = lowerUnitTo(c.Targets[i], schema)
+		from[i] = lowerUnitTo(c.Sources[i], mirSchema)
+		into[i] = lowerUnitTo(c.Targets[i], mirSchema)
 	}
 	//
-	schema.AddLookupConstraint(c.Handle, c.SourceContext, c.TargetContext, from, into)
+	mirSchema.AddLookupConstraint(c.Handle, c.SourceContext, c.TargetContext, from, into)
 }
 
-func lowerSortedConstraint(c SortedConstraint, schema *mir.Schema) {
+func lowerSortedConstraint(c SortedConstraint, mirSchema *mir.Schema) {
 	var (
 		selector util.Option[mir.Expr] = util.None[mir.Expr]()
 		sources                        = make([]mir.Expr, len(c.Sources))
 	)
 	// Convert (optional) selector expression
 	if c.Selector.HasValue() {
-		selector = util.Some(lowerUnitTo(c.Selector.Unwrap(), schema))
+		selector = util.Some(lowerUnitTo(c.Selector.Unwrap(), mirSchema))
 	}
 	// Convert general expressions into unit expressions.
 	for i := 0; i < len(sources); i++ {
-		sources[i] = lowerUnitTo(c.Sources[i], schema)
+		sources[i] = lowerUnitTo(c.Sources[i], mirSchema)
 	}
 	//
-	schema.AddSortedConstraint(c.Handle, c.Context, c.BitWidth, selector, sources, c.Signs, c.Strict)
+	mirSchema.AddSortedConstraint(c.Handle, c.Context, c.BitWidth, selector, sources, c.Signs, c.Strict)
 }
 
 // Lower an expression which is expected to lower into a single expression.
@@ -147,15 +147,15 @@ func lowerToConstraints(e Expr, schema *mir.Schema) []mir.Constraint {
 // Lowers a given expression to the MIR level.  The expression is first expanded
 // into one or more target expressions. Furthermore, conditions must be "lifted"
 // to the root.
-func lowerTo(e Expr, schema *mir.Schema) []mir.Expr {
+func lowerTo(e Expr, mirSchema *mir.Schema, hirSchema *Schema) []mir.Expr {
 	// First expand expression
-	es := expand(e.Term, schema)
+	es := expand(e.Term, mirSchema)
 	// Now lower each one (carefully)
 	mes := make([]mir.Expr, len(es))
 	//
 	for i, e := range es {
-		c := extractCondition(e, schema).AsExpr()
-		b := extractBody(e, schema)
+		c := extractCondition(e, mirSchema).AsExpr()
+		b := extractBody(e, mirSchema)
 		mes[i] = mir.Product(c, b).Simplify()
 	}
 	// Done
@@ -165,33 +165,33 @@ func lowerTo(e Expr, schema *mir.Schema) []mir.Expr {
 // Extract the "condition" of an expression.  Every expression can be view as a
 // conditional constraint of the form "if c then e", where "c" is the condition.
 // This is allowed to return nil if the body is unconditional.
-func extractCondition(e Term, schema *mir.Schema) mir.Constraint {
+func extractCondition(e Term, schema *mir.Schema, hirSchema *Schema) mir.Constraint {
 	switch e := e.(type) {
 	case *Add:
-		return extractConditions(e.Args, schema)
+		return extractConditions(e.Args, schema, hirSchema)
 	case *Cast:
-		return extractCondition(e.Arg, schema)
+		return extractCondition(e.Arg, schema, hirSchema)
 	case *Constant:
 		return mir.TRUE
 	case *ColumnAccess:
 		return mir.TRUE
 	case *Exp:
-		return extractCondition(e.Arg, schema)
+		return extractCondition(e.Arg, schema, hirSchema)
 	case *IfZero:
-		return extractIfZeroCondition(e, schema)
+		return extractIfZeroCondition(e, schema, hirSchema)
 	case *Mul:
-		return extractConditions(e.Args, schema)
+		return extractConditions(e.Args, schema, hirSchema)
 	case *Norm:
-		return extractCondition(e.Arg, schema)
+		return extractCondition(e.Arg, schema, hirSchema)
 	case *Sub:
-		return extractConditions(e.Args, schema)
+		return extractConditions(e.Args, schema, hirSchema)
 	default:
 		name := reflect.TypeOf(e).Name()
 		panic(fmt.Sprintf("unknown HIR expression \"%s\"", name))
 	}
 }
 
-func extractConditions(es []Term, schema *mir.Schema) mir.Constraint {
+func extractConditions(es []Term, schema *mir.Schema, hirSchema *Schema) mir.Constraint {
 	var r mir.Constraint = mir.TRUE
 	//
 	for _, e := range es {
@@ -203,27 +203,27 @@ func extractConditions(es []Term, schema *mir.Schema) mir.Constraint {
 
 // Extracting from conditional expressions is slightly more complex than others,
 // so it gets a case of its own.
-func extractIfZeroCondition(e *IfZero, schema *mir.Schema) mir.Constraint {
+func extractIfZeroCondition(e *IfZero, schema *mir.Schema, hirSchema *Schema) mir.Constraint {
 	var (
 		bc mir.Constraint
 		cb mir.Constraint
 	)
 	// Lower condition
-	cc := extractCondition(e.Condition, schema)
+	cc := extractCondition(e.Condition, schema, hirSchema)
 	body := extractBody(e.Condition, schema)
 	// Add conditions arising
 	if e.TrueBranch != nil && e.FalseBranch != nil {
 		// Expansion should ensure this case does not exist.  This is necessary
 		// to ensure exactly one expression is generated from this expression.
-		panic(fmt.Sprintf("unexpanded expression (%s)", lispOfTerm(e, schema)))
+		panic(fmt.Sprintf("unexpanded expression (%s)", lispOfTerm(e, hirSchema)))
 	} else if e.TrueBranch != nil {
 		// Lower conditional's arising from body
 		cb = body.NotEqualsZero()
-		bc = extractCondition(e.TrueBranch, schema)
+		bc = extractCondition(e.TrueBranch, schema, hirSchema)
 	} else {
 		// Lower conditional's arising from body
 		cb = body.EqualsZero()
-		bc = extractCondition(e.FalseBranch, schema)
+		bc = extractCondition(e.FalseBranch, schema, hirSchema)
 	}
 	//
 	return mir.Disjunct(cc, cb, bc)
