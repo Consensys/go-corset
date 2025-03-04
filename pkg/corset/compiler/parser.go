@@ -1327,7 +1327,7 @@ func (p *Parser) parseType(term sexp.SExp) (ast.Type, bool, *SyntaxError) {
 		// Handle generic types like i16, i128, etc.
 		str := parts[0]
 		if !strings.HasPrefix(str, ":i") {
-			return nil, false, p.translator.SyntaxError(symbol, "unknown typer")
+			return nil, false, p.translator.SyntaxError(symbol, "unknown type")
 		}
 		// Parse bitwidth
 		n, err := strconv.Atoi(str[2:])
