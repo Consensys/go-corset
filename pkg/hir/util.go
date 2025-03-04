@@ -88,7 +88,7 @@ func (p ZeroArrayTest) RequiredCells(row int, trace tr.Trace) *set.AnySortedSet[
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
 func (p ZeroArrayTest) Lisp(schema sc.Schema) sexp.SExp {
-	return p.Expr.Lisp(schema)
+	return p.Expr.Lisp(schema.(*Schema))
 }
 
 // ============================================================================
@@ -166,7 +166,7 @@ func (e UnitExpr) RequiredCells(row int, trace tr.Trace) *set.AnySortedSet[tr.Ce
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (e UnitExpr) Lisp(schema sc.Schema) sexp.SExp {
+func (e UnitExpr) Lisp(schema *Schema) sexp.SExp {
 	return e.Expr.Lisp(schema)
 }
 
@@ -250,5 +250,5 @@ func (e MaxExpr) LowerTo(schema *mir.Schema) []mir.Expr {
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
 func (e MaxExpr) Lisp(schema sc.Schema) sexp.SExp {
-	return e.Expr.Lisp(schema)
+	return e.Expr.Lisp(schema.(*Schema))
 }

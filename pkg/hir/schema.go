@@ -54,6 +54,15 @@ type PropertyAssertion = *sc.PropertyAssertion[ZeroArrayTest]
 // Permutation captures the notion of a (sorted) permutation at the HIR level.
 type Permutation = *assignment.SortedPermutation
 
+// ConstantDef defines an externalised constant.  That is, a constant which
+// persists at this level and can (in principle) be changed prior to lowering.
+type ConstantDef struct {
+	// Name of the given constant (this is mostly for debugging purposes)
+	Name string
+	// Value of the given constant.
+	Value fr.Element
+}
+
 // Schema for HIR constraints and columns.
 type Schema struct {
 	// The modules of the schema
@@ -65,8 +74,10 @@ type Schema struct {
 	// Constraints of this schema, which are either vanishing, lookup or type
 	// constraints.
 	constraints []sc.Constraint
-	// The property assertions for this schema.
+	// Property assertions for this schema.
 	assertions []PropertyAssertion
+	// Externalised constants for this schema.
+	constants []ConstantDef
 	// Cache list of columns declared in inputs and assignments.
 	column_cache []sc.Column
 }
@@ -195,6 +206,12 @@ func (p *Schema) Assertions() iter.Iterator[schema.Constraint] {
 // the inputs.
 func (p *Schema) Assignments() iter.Iterator[sc.Assignment] {
 	return iter.NewArrayIterator(p.assignments)
+}
+
+// Columns returns an array over the underlying columns of this sc.
+// Specifically, the index of a column in this array is its column index.
+func (p *Schema) Constants() iter.Iterator[ConstantDef] {
+	return iter.NewArrayIterator(p.constants)
 }
 
 // Columns returns an array over the underlying columns of this sc.
