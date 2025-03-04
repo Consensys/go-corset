@@ -264,6 +264,8 @@ func (p *Parser) parseDeclaration(module util.Path, s *sexp.List) (ast.Declarati
 		decl, errors = p.parseDefConst(module, s.Elements)
 	} else if s.Len() == 4 && s.MatchSymbols(2, "defconstraint") {
 		decl, errors = p.parseDefConstraint(module, s.Elements)
+	} else if s.Len() > 1 && s.MatchSymbols(1, "defextern") {
+		decl, errors = p.parseDefConst(module, s.Elements)
 	} else if s.MatchSymbols(1, "defunalias") {
 		decl, errors = p.parseDefAlias(true, s.Elements)
 	} else if s.Len() == 3 && s.MatchSymbols(1, "defpurefun") {
