@@ -261,11 +261,9 @@ func (p *Parser) parseDeclaration(module util.Path, s *sexp.List) (ast.Declarati
 	} else if s.Len() == 3 && s.MatchSymbols(1, "defcomputed") {
 		decl, errors = p.parseDefComputed(module, s.Elements)
 	} else if s.Len() > 1 && s.MatchSymbols(1, "defconst") {
-		decl, errors = p.parseDefConst(module, s.Elements, false)
+		decl, errors = p.parseDefConst(module, s.Elements)
 	} else if s.Len() == 4 && s.MatchSymbols(2, "defconstraint") {
 		decl, errors = p.parseDefConstraint(module, s.Elements)
-	} else if s.Len() > 1 && s.MatchSymbols(1, "defextern") {
-		decl, errors = p.parseDefConst(module, s.Elements, true)
 	} else if s.MatchSymbols(1, "defunalias") {
 		decl, errors = p.parseDefAlias(true, s.Elements)
 	} else if s.Len() == 3 && s.MatchSymbols(1, "defpurefun") {
@@ -543,7 +541,7 @@ func (p *Parser) parseDefComputed(module util.Path, elements []sexp.SExp) (ast.D
 }
 
 // Parse a constant declaration
-func (p *Parser) parseDefConst(module util.Path, elements []sexp.SExp, extern bool) (ast.Declaration, []SyntaxError) {
+func (p *Parser) parseDefConst(module util.Path, elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
 	var (
 		errors    []SyntaxError
 		constants []*ast.DefConstUnit
@@ -556,7 +554,7 @@ func (p *Parser) parseDefConst(module util.Path, elements []sexp.SExp, extern bo
 			errors = append(errors, *p.translator.SyntaxError(elements[i], "missing constant definition"))
 		} else {
 			// Attempt to parse definition
-			constant, errs := p.parseDefConstUnit(module, elements[i], elements[i+1], extern)
+			constant, errs := p.parseDefConstUnit(module, elements[i], elements[i+1])
 			errors = append(errors, errs...)
 			constants = append(constants, constant)
 		}
@@ -566,16 +564,17 @@ func (p *Parser) parseDefConst(module util.Path, elements []sexp.SExp, extern bo
 }
 
 func (p *Parser) parseDefConstUnit(module util.Path, head sexp.SExp,
-	value sexp.SExp, extern bool) (*ast.DefConstUnit, []SyntaxError) {
+	value sexp.SExp) (*ast.DefConstUnit, []SyntaxError) {
 	//
 	var (
 		name     *sexp.Symbol
 		datatype ast.Type
 		errors   []SyntaxError
 		expr     ast.Expr
+		extern   bool
 	)
 	// Parse head
-	if name, datatype, errors = p.parseDefConstHead(head); len(errors) > 0 {
+	if name, datatype, extern, errors = p.parseDefConstHead(head); len(errors) > 0 {
 		return nil, errors
 	}
 	// Parse tail
@@ -591,29 +590,52 @@ func (p *Parser) parseDefConstUnit(module util.Path, head sexp.SExp,
 	return def, nil
 }
 
-func (p *Parser) parseDefConstHead(head sexp.SExp) (*sexp.Symbol, ast.Type, []SyntaxError) {
-	var list = head.AsList()
+func (p *Parser) parseDefConstHead(head sexp.SExp) (*sexp.Symbol, ast.Type, bool, []SyntaxError) {
+	var (
+		list     = head.AsList()
+		datatype ast.Type
+		extern   bool
+	)
+
 	// Parse the head
 	if isIdentifier(head) {
 		// no attributes provided
-		return head.AsSymbol(), nil, nil
+		return head.AsSymbol(), nil, false, nil
 	} else if list == nil {
-		return nil, nil, p.translator.SyntaxErrors(head, "invalid constant name")
-	} else if list.Len() != 2 {
-		return nil, nil, p.translator.SyntaxErrors(list, "invalid constant declaration")
+		return nil, nil, false, p.translator.SyntaxErrors(head, "invalid constant name")
+	} else if list.Len() < 2 {
+		return nil, nil, false, p.translator.SyntaxErrors(list, "invalid constant declaration")
 	} else if !isIdentifier(list.Get(0)) {
-		return nil, nil, p.translator.SyntaxErrors(list.Get(0), "invalid constant name")
+		return nil, nil, false, p.translator.SyntaxErrors(list.Get(0), "invalid constant name")
 	}
 	//
-	datatype, prove, err := p.parseType(list.Get(1))
-	// Handle errors
-	if err != nil {
-		return nil, nil, []SyntaxError{*err}
-	} else if prove {
-		return nil, nil, p.translator.SyntaxErrors(list, "constants cannot have proven types")
+	for i := 1; i < list.Len(); i++ {
+		var (
+			prove bool
+			err   *SyntaxError
+		)
+		//
+		sym := list.Get(i).AsSymbol()
+		// Catch error
+		if sym == nil {
+			return nil, nil, false, p.translator.SyntaxErrors(list.Get(i), "invalid constant attribute")
+		}
+		// Parse attribute
+		switch sym.Value {
+		case ":extern":
+			extern = true
+		default:
+			datatype, prove, err = p.parseType(list.Get(1))
+			// Handle errors
+			if err != nil {
+				return nil, nil, false, []SyntaxError{*err}
+			} else if prove {
+				return nil, nil, false, p.translator.SyntaxErrors(list, "constants cannot have proven types")
+			}
+		}
 	}
 	// Done!
-	return list.Get(0).AsSymbol(), datatype, nil
+	return list.Get(0).AsSymbol(), datatype, extern, nil
 }
 
 // Parse a vanishing declaration

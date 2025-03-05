@@ -7,9 +7,9 @@
   (N :binary))
 
 ;; opcode values
-(defextern
-  LLARGE                                    16
-  LLARGEMO                                  (- LLARGE 1))
+(defconst
+  (LLARGE :extern)                                    16
+  (LLARGEMO :extern)                                  (- LLARGE 1))
 
 (defconstraint bits-and-negs (:guard L)
   (if (eq! C LLARGEMO)

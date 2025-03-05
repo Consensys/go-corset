@@ -1,6 +1,6 @@
 (defpurefun ((vanishes! :@loob) x) x)
 
-(defextern ONE 1)
+(defconst (ONE :extern) 1)
 (defcolumns CT)
 (defconstraint c1 ()
   (vanishes!
