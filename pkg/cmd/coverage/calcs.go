@@ -1,34 +1,48 @@
 package coverage
 
 import (
+	"fmt"
+
 	sc "github.com/consensys/go-corset/pkg/schema"
 	log "github.com/sirupsen/logrus"
 )
 
 // DEFAULT_CALCS provides the detault set of calculations which can be used.
 var DEFAULT_CALCS []ColumnCalc = []ColumnCalc{
-	{"covered", coverageCalculator},
-	{"branches", branchesCalculator},
-	{"coverage", percentCalculator},
+	{"covered", coveredCalc},
+	{"branches", branchesCalc},
+	{"coverage", coverageCalc},
 }
 
 // ColumnCalc represents a calculation which can be done for a given constraint.
 type ColumnCalc struct {
 	Name        string
-	Constructor func([]sc.Constraint, sc.CoverageMap, sc.Schema) uint
+	Constructor func([]sc.Constraint, sc.CoverageMap, sc.Schema) CalcValue
 }
 
-func branchesCalculator(constraints []sc.Constraint, cov sc.CoverageMap, schema sc.Schema) uint {
+func branchesCalc(constraints []sc.Constraint, cov sc.CoverageMap, schema sc.Schema) CalcValue {
+	return &IntegerValue{branchesCalculation(constraints)}
+}
+
+func coveredCalc(constraints []sc.Constraint, cov sc.CoverageMap, schema sc.Schema) CalcValue {
+	return &IntegerValue{coveredCalculation(constraints, cov)}
+}
+
+func coverageCalc(constraints []sc.Constraint, cov sc.CoverageMap, schema sc.Schema) CalcValue {
+	return &FloatValue{percentCalculation(constraints, cov)}
+}
+
+func branchesCalculation(constraints []sc.Constraint) int {
 	total := uint(0)
 	//
 	for _, c := range constraints {
 		total += c.Branches()
 	}
 	//
-	return total
+	return int(total)
 }
 
-func coverageCalculator(constraints []sc.Constraint, cov sc.CoverageMap, schema sc.Schema) uint {
+func coveredCalculation(constraints []sc.Constraint, cov sc.CoverageMap) int {
 	total := uint(0)
 	//
 	for _, c := range constraints {
@@ -44,16 +58,39 @@ func coverageCalculator(constraints []sc.Constraint, cov sc.CoverageMap, schema 
 		}
 	}
 	//
-	return total
+	return int(total)
 }
 
-func percentCalculator(constraints []sc.Constraint, cov sc.CoverageMap, schema sc.Schema) uint {
-	branches := branchesCalculator(constraints, cov, schema)
-	covered := coverageCalculator(constraints, cov, schema)
+func percentCalculation(constraints []sc.Constraint, cov sc.CoverageMap) float64 {
+	branches := branchesCalculation(constraints)
+	covered := coveredCalculation(constraints, cov)
 	// Sanity check
 	if branches == 0 {
 		return 0
 	}
 	//
-	return (covered * 100) / branches
+	return float64(100*covered) / float64(branches)
+}
+
+// CalcValue provides a wrapper around a specific kind of value.
+type CalcValue interface {
+	String() string
+}
+
+// IntegerValue is an example of a CalcValue which is just a plain number.
+type IntegerValue struct {
+	value int
+}
+
+func (p *IntegerValue) String() string {
+	return fmt.Sprintf("%d", p.value)
+}
+
+// FloatValue is an example of a CalcValue which is just a plain number.
+type FloatValue struct {
+	value float64
+}
+
+func (p *FloatValue) String() string {
+	return fmt.Sprintf("%0.1f", p.value)
 }
