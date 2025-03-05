@@ -16,6 +16,7 @@ import (
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/corset/ast"
+	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/sexp"
 )
 
@@ -98,7 +99,7 @@ func (p *preprocessor) preprocessDeclaration(decl ast.Declaration) []SyntaxError
 	case *ast.DefProperty:
 		errors = p.preprocessDefProperty(d)
 	case *ast.DefSorted:
-		// ignore
+		errors = p.preprocessDefSorted(d)
 	default:
 		// Error handling
 		panic("unknown declaration")
@@ -167,6 +168,18 @@ func (p *preprocessor) preprocessDefProperty(decl *ast.DefProperty) []SyntaxErro
 	decl.Assertion, errors = p.preprocessExpressionInModule(decl.Assertion)
 	// Done
 	return errors
+}
+
+func (p *preprocessor) preprocessDefSorted(decl *ast.DefSorted) []SyntaxError {
+	if decl.Selector.HasValue() {
+		selector, errors := p.preprocessExpressionInModule(decl.Selector.Unwrap())
+		//
+		decl.Selector = util.Some(selector)
+		//
+		return errors
+	}
+	//
+	return nil
 }
 
 // preprocess an optional expression in a given context.  That is an expression
