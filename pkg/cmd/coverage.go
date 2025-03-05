@@ -61,6 +61,7 @@ var coverageCmd = &cobra.Command{
 		expand := GetFlag(cmd, "expand")
 		module := GetFlag(cmd, "module")
 		includes := GetStringArray(cmd, "include")
+		cfg.titles = GetStringArray(cmd, "titles")
 		// Apply unit branch filter
 		filter = cov.UnitBranchFilter(filter)
 		// Apply regex filter
@@ -100,6 +101,8 @@ var coverageCmd = &cobra.Command{
 
 type coverageConfig struct {
 	depth uint
+	// Titles to use for each report
+	titles []string
 	// Determines how constraints are grouped (e.g. by module, etc)
 	groups []cov.ConstraintGroup
 	// Filter to use for selecting constraints.
@@ -247,17 +250,35 @@ func printCoverage(cfg coverageConfig,
 		// Total number of calculated columns
 		m = uint(len(coverages) * n)
 	)
-	// Make column titles
-	titles := make([]string, m+cfg.depth)
-	// Configure titles
+	// Initialise row
+	var rows [][]string
+	//
+	if len(cfg.titles) > 0 {
+		reportTitles := make([]string, m+cfg.depth)
+		//
+		for i := range coverages {
+			for j := range cfg.calcs {
+				offset := uint((i * n) + j)
+				//
+				if i < len(cfg.titles) {
+					reportTitles[offset+cfg.depth] = cfg.titles[i]
+				}
+			}
+		}
+		// Append row
+		rows = append(rows, reportTitles)
+	}
+	// Configure report & calc titles
+	calcTitles := make([]string, m+cfg.depth)
+	//
 	for i := range coverages {
 		for j, s := range cfg.calcs {
 			offset := uint((i * n) + j)
-			titles[offset+cfg.depth] = s.Name
+			calcTitles[offset+cfg.depth] = s.Name
 		}
 	}
-	// Initialise row
-	rows := [][]string{titles}
+	//
+	rows = append(rows, calcTitles)
 	//
 	for _, grp := range cfg.groups {
 		// Determine constraints to summarise on this row.
@@ -309,7 +330,7 @@ func coverageRow(constraints []sc.Constraint, calcs []cov.ColumnCalc, cov sc.Cov
 	//
 	for i, calc := range calcs {
 		value := calc.Constructor(constraints, cov, schema)
-		row[i] = fmt.Sprintf("%d", value)
+		row[i] = value.String()
 	}
 	// Done
 	return row
@@ -317,24 +338,36 @@ func coverageRow(constraints []sc.Constraint, calcs []cov.ColumnCalc, cov sc.Cov
 
 func setTitleColours(tbl *util.TablePrinter, cfg coverageConfig, covs []sc.CoverageMap) {
 	escape := termio.NewAnsiEscape().FgColour(termio.TERM_BLUE).Build()
+	n := uint(1)
+	// Check for report titles
+	if len(cfg.titles) > 0 {
+		n++
+	}
 	// Constraint groups
-	for i := uint(1); i < tbl.Height(); i++ {
+	for i := n; i < tbl.Height(); i++ {
 		for j := uint(0); j < cfg.depth; j++ {
 			tbl.SetEscape(j, i, escape)
 		}
 	}
 	// Calcs
-	for i := uint(0); i < uint(len(cfg.calcs)*(len(covs))); i++ {
-		tbl.SetEscape(i+1, 0, escape)
+	for i := uint(0); i < n; i++ {
+		for j := uint(0); j < uint(len(cfg.calcs)*(len(covs))); j++ {
+			tbl.SetEscape(j+1, i, escape)
+		}
 	}
 }
 
 func setDiffColours(tbl *util.TablePrinter, cfg coverageConfig, covs []sc.CoverageMap) {
+	n := uint(1)
+	// Check for report titles
+	if len(cfg.titles) > 0 {
+		n++
+	}
 	//
 	escape := termio.NewAnsiEscape().Fg256Colour(102).Build()
 	white := termio.BoldAnsiEscape().FgColour(termio.TERM_YELLOW).Build()
 	// Set all columns to hidden
-	for i := uint(1); i < tbl.Height(); i++ {
+	for i := n; i < tbl.Height(); i++ {
 		for j := uint(0); j < uint(len(covs)*len(cfg.calcs)); j++ {
 			tbl.SetEscape(cfg.depth+j, i, escape)
 		}
@@ -365,4 +398,6 @@ func init() {
 	coverageCmd.Flags().StringP("filter", "f", "", "regex constraint filter")
 	coverageCmd.Flags().StringArrayP("include", "i", []string{"covered", "branches", "coverage"},
 		"specify information to include in report")
+	coverageCmd.Flags().StringArrayP("titles", "t", nil,
+		"specify report titles")
 }
