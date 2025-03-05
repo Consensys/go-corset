@@ -180,7 +180,7 @@ func constructSourceModule(scope *compiler.ModuleScope, env compiler.GlobalEnvir
 			binding.Path.Tail(),
 			*binding.Value.AsConstant(),
 			datatype,
-			false,
+			binding.Extern,
 		})
 	}
 	//
