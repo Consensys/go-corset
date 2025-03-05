@@ -1,9 +1,9 @@
 (defpurefun ((vanishes! :@loob) x) x)
 
-(defextern
-  ONE_  1
+(defconst
+  (ONE_ :extern)  1
   ONE   ONE_
-  TWO   (+ 1 ONE)
+  (TWO :extern)   (+ 1 ONE)
   FOUR  (* 2 TWO)
 )
 

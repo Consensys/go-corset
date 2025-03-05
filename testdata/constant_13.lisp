@@ -1,7 +1,7 @@
 (defpurefun ((vanishes! :@loob) x) x)
 
-(defextern
-    ONE 1
+(defconst
+    (ONE :extern) 1
     TWO 2
 )
 

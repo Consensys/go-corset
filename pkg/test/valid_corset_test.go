@@ -134,55 +134,36 @@ func Test_Constant_12(t *testing.T) {
 	Check(t, false, "constant_12")
 }
 
-// ===================================================================
-// Constants Tests
-// ===================================================================
-func Test_Extern_01(t *testing.T) {
-	Check(t, false, "extern_01")
+func Test_Constant_13(t *testing.T) {
+	Check(t, false, "constant_13")
 }
 
-func Test_Extern_02(t *testing.T) {
-	Check(t, false, "extern_02")
+func Test_Constant_14(t *testing.T) {
+	Check(t, false, "constant_14")
 }
 
-func Test_Extern_03(t *testing.T) {
-	Check(t, false, "extern_03")
+func Test_Constant_15(t *testing.T) {
+	Check(t, false, "constant_15")
 }
 
-func Test_Extern_04(t *testing.T) {
-	Check(t, false, "extern_04")
+func Test_Constant_16(t *testing.T) {
+	Check(t, false, "constant_16")
 }
 
-func Test_Extern_05(t *testing.T) {
-	Check(t, false, "extern_05")
+func Test_Constant_17(t *testing.T) {
+	Check(t, false, "constant_17")
 }
 
-func Test_Extern_06(t *testing.T) {
-	Check(t, false, "extern_06")
+func Test_Constant_18(t *testing.T) {
+	Check(t, false, "constant_18")
 }
 
-func Test_Extern_07(t *testing.T) {
-	Check(t, false, "extern_07")
+func Test_Constant_19(t *testing.T) {
+	Check(t, false, "constant_19")
 }
 
-func Test_Extern_08(t *testing.T) {
-	Check(t, false, "extern_08")
-}
-
-func Test_Extern_09(t *testing.T) {
-	Check(t, false, "extern_09")
-}
-
-func Test_Extern_10(t *testing.T) {
-	Check(t, false, "extern_10")
-}
-
-func Test_Extern_11(t *testing.T) {
-	Check(t, false, "extern_11")
-}
-
-func Test_Extern_12(t *testing.T) {
-	Check(t, false, "extern_11")
+func Test_Constant_20(t *testing.T) {
+	Check(t, false, "constant_20")
 }
 
 // ===================================================================
