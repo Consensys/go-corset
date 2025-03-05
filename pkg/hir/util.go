@@ -45,7 +45,7 @@ func (p ZeroArrayTest) TestAt(row int, trace tr.Trace) (bool, uint, error) {
 	// Check each value in turn against zero.
 	for _, val := range vals {
 		if !val.IsZero() {
-			// This expression does not evaluat to zero, hence failure.
+			// This expression does not evaluate to zero, hence failure.
 			return false, 0, nil
 		}
 	}

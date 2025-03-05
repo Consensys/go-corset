@@ -54,9 +54,9 @@ func NewConst(val fr.Element) Expr {
 	return Expr{&Constant{val}}
 }
 
-// NewConstAccess construct an HIR expression representing a given constant.
-func NewConstAccess(constant uint) Expr {
-	return Expr{&ConstantAccess{constant}}
+// NewLabelledConst construct an HIR expression representing a constant with a given label.
+func NewLabelledConst(label string, val fr.Element) Expr {
+	return Expr{&LabelledConstant{label, val}}
 }
 
 // NewConst64 construct an HIR expression representing a given constant from a

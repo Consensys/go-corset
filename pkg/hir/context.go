@@ -29,7 +29,7 @@ func contextOfTerm(e Term, schema sc.Schema) trace.Context {
 		return contextOfTerm(e.Arg, schema)
 	case *Constant:
 		return trace.VoidContext[uint]()
-	case *ConstantAccess:
+	case *LabelledConstant:
 		return trace.VoidContext[uint]()
 	case *ColumnAccess:
 		col := schema.Columns().Nth(e.Column)

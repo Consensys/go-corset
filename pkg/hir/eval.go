@@ -38,6 +38,8 @@ func evalAtTerm(e Term, k int, trace tr.Trace) ([]fr.Element, error) {
 		return evalAtExp(e, k, trace)
 	case *IfZero:
 		return evalAtIfZero(e, k, trace)
+	case *LabelledConstant:
+		return []fr.Element{e.Value}, nil
 	case *List:
 		return evalAtList(e, k, trace)
 	case *Mul:
