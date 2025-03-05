@@ -179,6 +179,8 @@ func extractCondition(e Term, mirSchema *mir.Schema, hirSchema *Schema) mir.Cons
 		return extractCondition(e.Arg, mirSchema, hirSchema)
 	case *IfZero:
 		return extractIfZeroCondition(e, mirSchema, hirSchema)
+	case *LabelledConstant:
+		return mir.TRUE
 	case *Mul:
 		return extractConditions(e.Args, mirSchema, hirSchema)
 	case *Norm:
@@ -254,6 +256,8 @@ func extractBody(e Term, mirSchema *mir.Schema, hirSchema *Schema) mir.Expr {
 		}
 		// Done
 		return extractBody(e.FalseBranch, mirSchema, hirSchema)
+	case *LabelledConstant:
+		return mir.NewConst(e.Value)
 	case *Mul:
 		return mir.Product(extractBodies(e.Args, mirSchema, hirSchema)...)
 	case *Norm:
@@ -295,6 +299,8 @@ func expand(e Term, hirSchema *Schema) []Term {
 	case *Constant:
 		return []Term{e}
 	case *ColumnAccess:
+		return []Term{e}
+	case *LabelledConstant:
 		return []Term{e}
 	case *Mul:
 		return expandMul(e, hirSchema)

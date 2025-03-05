@@ -27,14 +27,15 @@ func lispOfTerm(e Term, schema *Schema) sexp.SExp {
 		return lispOfCast(e, schema)
 	case *Constant:
 		return sexp.NewSymbol(e.Value.String())
-	case *ConstantAccess:
-		return lispOfConstantAccess(e, schema)
 	case *ColumnAccess:
 		return lispOfColumnAccess(e, schema)
 	case *Exp:
 		return lispOfExp(e, schema)
 	case *IfZero:
 		return lispOfIfZero(e, schema)
+	case *LabelledConstant:
+		lab := fmt.Sprintf("%s:%s", e.Label, e.Value.String())
+		return sexp.NewSymbol(lab)
 	case *List:
 		return nary2Lisp(schema, "begin", e.Args)
 	case *Mul:
@@ -47,18 +48,6 @@ func lispOfTerm(e Term, schema *Schema) sexp.SExp {
 		name := reflect.TypeOf(e).Name()
 		panic(fmt.Sprintf("unknown HIR expression \"%s\"", name))
 	}
-}
-
-func lispOfConstantAccess(e *ConstantAccess, schema *Schema) sexp.SExp {
-	var name string
-	// Generate name, whilst allowing for schema to be nil.
-	if schema != nil {
-		name = schema.Constants().Nth(e.ConstantId).Name
-	} else {
-		name = fmt.Sprintf("#%d", e.ConstantId)
-	}
-	// Done
-	return sexp.NewSymbol(name)
 }
 
 func lispOfColumnAccess(e *ColumnAccess, schema *Schema) sexp.SExp {
