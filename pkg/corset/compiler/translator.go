@@ -636,6 +636,11 @@ func (t *translator) translateVariableAccessInModule(expr *ast.VariableAccess, s
 		var constant fr.Element
 		// Initialise field from bigint
 		constant.SetBigInt(binding.Value.AsConstant())
+		// Handle externalised constants slightly differently.
+		if binding.Extern {
+			//
+			return hir.NewLabelledConst(binding.Path.String(), constant), nil
+		}
 		//
 		return hir.NewConst(constant), nil
 	}

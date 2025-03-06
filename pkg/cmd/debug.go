@@ -19,6 +19,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/air"
 	"github.com/consensys/go-corset/pkg/binfile"
+	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/hir"
 	"github.com/consensys/go-corset/pkg/mir"
 	"github.com/consensys/go-corset/pkg/schema"
@@ -62,9 +63,16 @@ var debugCmd = &cobra.Command{
 		debug := GetFlag(cmd, "debug")
 		legacy := GetFlag(cmd, "legacy")
 		metadata := GetFlag(cmd, "metadata")
-
+		constants := GetFlag(cmd, "constants")
+		externs := GetStringArray(cmd, "set")
 		// Parse constraints
 		binfile := ReadConstraintFiles(stdlib, debug, legacy, args)
+		// Apply any user-specified values for externalised constants.
+		applyExternOverrides(externs, binfile)
+		// Print constant info (if requested)
+		if constants {
+			printExternalisedConstants(binfile)
+		}
 		// Print meta-data (if requested)
 		if metadata {
 			printBinaryFileHeader(&binfile.Header)
@@ -86,13 +94,15 @@ var debugCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(debugCmd)
-	debugCmd.Flags().Bool("hir", false, "Print constraints at HIR level")
-	debugCmd.Flags().Bool("mir", false, "Print constraints at MIR level")
 	debugCmd.Flags().Bool("air", false, "Print constraints at AIR level")
-	debugCmd.Flags().Bool("stats", false, "Print summary information")
-	debugCmd.Flags().Bool("metadata", false, "Print embedded metadata")
 	debugCmd.Flags().Bool("attributes", false, "Print attribute information")
+	debugCmd.Flags().Bool("constants", false, "Print information about externalised constants")
 	debugCmd.Flags().Bool("debug", false, "enable debugging constraints")
+	debugCmd.Flags().Bool("hir", false, "Print constraints at HIR level")
+	debugCmd.Flags().Bool("metadata", false, "Print embedded metadata")
+	debugCmd.Flags().Bool("mir", false, "Print constraints at MIR level")
+	debugCmd.Flags().Bool("stats", false, "Print summary information")
+	debugCmd.Flags().StringArrayP("set", "s", []string{}, "set value of externalised constant.")
 }
 
 func printSchemas(hirSchema *hir.Schema, hir bool, mir bool, air bool, optConfig mir.OptimisationConfig) {
@@ -125,6 +135,48 @@ func printSchema(schema schema.Schema) {
 func printAttributes(attrs []binfile.Attribute) {
 	for _, attr := range attrs {
 		fmt.Printf("attribute \"%s\":\n", attr.AttributeName())
+	}
+}
+
+func printExternalisedConstants(binf *binfile.BinaryFile) {
+	fmt.Println("External constants:")
+	// Sanity check debug information is available.
+	srcmap, srcmap_ok := binfile.GetAttribute[*corset.SourceMap](binf)
+	//
+	if !srcmap_ok {
+		fmt.Println("\t(no information available)")
+		return
+	}
+	//
+	printExternalisedModuleConstants(1, srcmap.Root)
+}
+
+func printExternalisedModuleConstants(indent uint, mod corset.SourceModule) {
+	first := true
+	// print constants in this module.
+	for _, c := range mod.Constants {
+		if c.Extern {
+			if first && mod.Name != "" {
+				printIndent(indent)
+				fmt.Printf("%s:\n", mod.Name)
+				//
+				indent++
+			}
+			//
+			printIndent(indent)
+			//
+			if c.DataType != nil {
+				fmt.Printf("%s (%s): %s\n", c.Name, c.DataType.String(), c.Value.String())
+			} else {
+				fmt.Printf("%s: %s\n", c.Name, c.Value.String())
+			}
+			//
+			first = false
+		}
+	}
+	// traverse submodules
+	for _, m := range mod.Submodules {
+		printExternalisedModuleConstants(indent, m)
 	}
 }
 

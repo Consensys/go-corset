@@ -14,7 +14,6 @@ package hir
 
 import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/mir"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -46,7 +45,7 @@ func (p ZeroArrayTest) TestAt(row int, trace tr.Trace) (bool, uint, error) {
 	// Check each value in turn against zero.
 	for _, val := range vals {
 		if !val.IsZero() {
-			// This expression does not evaluat to zero, hence failure.
+			// This expression does not evaluate to zero, hence failure.
 			return false, 0, nil
 		}
 	}
@@ -88,7 +87,7 @@ func (p ZeroArrayTest) RequiredCells(row int, trace tr.Trace) *set.AnySortedSet[
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
 func (p ZeroArrayTest) Lisp(schema sc.Schema) sexp.SExp {
-	return p.Expr.Lisp(schema)
+	return p.Expr.Lisp(schema.(*Schema))
 }
 
 // ============================================================================
@@ -167,7 +166,7 @@ func (e UnitExpr) RequiredCells(row int, trace tr.Trace) *set.AnySortedSet[tr.Ce
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
 func (e UnitExpr) Lisp(schema sc.Schema) sexp.SExp {
-	return e.Expr.Lisp(schema)
+	return e.Expr.Lisp(schema.(*Schema))
 }
 
 // ============================================================================
@@ -242,13 +241,8 @@ func (e MaxExpr) RequiredCells(row int, trace tr.Trace) *set.AnySortedSet[tr.Cel
 	return e.Expr.RequiredCells(row, trace)
 }
 
-// LowerTo lowers a max expressions down to one or more expressions at the MIR level.
-func (e MaxExpr) LowerTo(schema *mir.Schema) []mir.Expr {
-	return lowerTo(e.Expr, schema)
-}
-
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
 func (e MaxExpr) Lisp(schema sc.Schema) sexp.SExp {
-	return e.Expr.Lisp(schema)
+	return e.Expr.Lisp(schema.(*Schema))
 }

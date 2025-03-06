@@ -27,7 +27,7 @@ import (
 
 // Expr is an expression in the High-Level Intermediate Representation (HIR).
 // Expressions at this level have a many-2-one correspondance with expressions
-// in the AIR level.  For example, an "if" expression at this level will be
+// in the HIR level.  For example, an "if" expression at this level will be
 // "compiled out" into one or more expressions at the MIR level.
 type Expr struct {
 	// Termession to be evaluated, etc.
@@ -43,18 +43,23 @@ var ONE Expr
 // VOID represents the empty expression.
 var VOID Expr
 
-// NewColumnAccess constructs an AIR expression representing the value of a given
+// NewColumnAccess constructs an HIR expression representing the value of a given
 // column on the current row.
 func NewColumnAccess(column uint, shift int) Expr {
 	return Expr{&ColumnAccess{column, shift}}
 }
 
-// NewConst construct an AIR expression representing a given constant.
+// NewConst construct an HIR expression representing a given constant.
 func NewConst(val fr.Element) Expr {
 	return Expr{&Constant{val}}
 }
 
-// NewConst64 construct an AIR expression representing a given constant from a
+// NewLabelledConst construct an HIR expression representing a constant with a given label.
+func NewLabelledConst(label string, val fr.Element) Expr {
+	return Expr{&LabelledConstant{label, val}}
+}
+
+// NewConst64 construct an HIR expression representing a given constant from a
 // uint64.
 func NewConst64(val uint64) Expr {
 	element := fr.NewElement(val)
@@ -90,7 +95,7 @@ func (e Expr) BitWidth(schema sc.Schema) []uint {
 
 // Lisp converts this schema element into a simple S-Termession, for example
 // so it can be printed.
-func (e Expr) Lisp(schema sc.Schema) sexp.SExp {
+func (e Expr) Lisp(schema *Schema) sexp.SExp {
 	return lispOfTerm(e.Term, schema)
 }
 

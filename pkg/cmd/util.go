@@ -22,6 +22,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/binfile"
 	legacy_binfile "github.com/consensys/go-corset/pkg/binfile/legacy"
 	"github.com/consensys/go-corset/pkg/corset"
@@ -92,6 +93,65 @@ func GetStringArray(cmd *cobra.Command, flag string) []string {
 	}
 
 	return r
+}
+
+// Apply any user-specified values for the given externalised constants.  Each
+// constant should be checked that it exists, to ensure assignments are not
+// silently dropped.
+func applyExternOverrides(externs []string, binf *binfile.BinaryFile) {
+	var mapping = make(map[string]fr.Element)
+	// Sanity check debug information is available.
+	srcmap, srcmap_ok := binfile.GetAttribute[*corset.SourceMap](binf)
+	// Check if need to do anything.
+	if len(externs) > 0 {
+		//
+		for _, item := range externs {
+			var element fr.Element
+			//
+			split := strings.Split(item, "=")
+			if len(split) != 2 {
+				fmt.Printf("malformed definition \"%s\"\n", item)
+				os.Exit(2)
+			}
+			//
+			path := strings.Split(split[0], ".")
+			// More sanity checks
+			if srcmap_ok && !checkExternExists(path, srcmap.Root) {
+				fmt.Printf("unknown externalised constant \"%s\"\n", split[0])
+				os.Exit(2)
+			} else if _, err := element.SetString(split[1]); err != nil {
+				fmt.Println(err.Error())
+				os.Exit(2)
+			}
+			//
+			mapping[split[0]] = element
+		}
+		// Substitute through.
+		binf.Schema.SubstituteConstants(mapping)
+	}
+}
+
+func checkExternExists(name []string, mod corset.SourceModule) bool {
+	switch len(name) {
+	case 0:
+
+	case 1:
+		// look for it in this module
+		for _, c := range mod.Constants {
+			if name[0] == c.Name {
+				return true
+			}
+		}
+	default:
+		// look for suitable submodule
+		for _, submod := range mod.Submodules {
+			if name[0] == submod.Name {
+				return checkExternExists(name[1:], submod)
+			}
+		}
+	}
+	//
+	return false
 }
 
 func writeCoverageReport(filename string, binfile *binfile.BinaryFile, coverage [3]sc.CoverageMap,

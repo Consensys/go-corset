@@ -134,6 +134,22 @@ func Test_Constant_12(t *testing.T) {
 	Check(t, false, "constant_12")
 }
 
+func Test_Constant_13(t *testing.T) {
+	Check(t, false, "constant_13")
+}
+
+func Test_Constant_14(t *testing.T) {
+	Check(t, false, "constant_14")
+}
+
+func Test_Constant_15(t *testing.T) {
+	Check(t, false, "constant_15")
+}
+
+func Test_Constant_16(t *testing.T) {
+	Check(t, false, "constant_16")
+}
+
 // ===================================================================
 // Alias Tests
 // ===================================================================

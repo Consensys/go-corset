@@ -174,6 +174,26 @@ func Test_Invalid_Constant_21(t *testing.T) {
 	CheckInvalid(t, "constant_invalid_21")
 }
 
+func Test_Invalid_Constant_22(t *testing.T) {
+	CheckInvalid(t, "constant_invalid_22")
+}
+
+func Test_Invalid_Constant_23(t *testing.T) {
+	CheckInvalid(t, "constant_invalid_23")
+}
+
+func Test_Invalid_Constant_24(t *testing.T) {
+	CheckInvalid(t, "constant_invalid_24")
+}
+
+func Test_Invalid_Constant_25(t *testing.T) {
+	CheckInvalid(t, "constant_invalid_25")
+}
+
+func Test_Invalid_Constant_26(t *testing.T) {
+	CheckInvalid(t, "constant_invalid_26")
+}
+
 // ===================================================================
 // Alias Tests
 // ===================================================================

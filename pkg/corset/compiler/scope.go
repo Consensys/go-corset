@@ -402,6 +402,9 @@ type LocalScope struct {
 	// Determines whether or not this scope is "pure" (i.e. whether or not
 	// columns can be accessed, etc).
 	pure bool
+	// Determine whether or not this scope is defining a constant.  If so, then
+	// cannot access other externalised constants.
+	constant bool
 	// Represents the enclosing scope
 	enclosing Scope
 	// Context for this scope
@@ -416,12 +419,12 @@ type LocalScope struct {
 // local scope can have local variables declared within it.  A local scope can
 // also be "global" in the sense that accessing symbols from other modules is
 // permitted.
-func NewLocalScope(enclosing Scope, global bool, pure bool) LocalScope {
+func NewLocalScope(enclosing Scope, global bool, pure bool, constant bool) LocalScope {
 	context := tr.VoidContext[string]()
 	locals := make(map[string]uint)
 	bindings := make([]*ast.LocalVariableBinding, 0)
 	//
-	return LocalScope{global, pure, enclosing, &context, locals, bindings}
+	return LocalScope{global, pure, constant, enclosing, &context, locals, bindings}
 }
 
 // NestedScope creates a nested scope within this local scope.
@@ -435,12 +438,12 @@ func (p LocalScope) NestedScope() LocalScope {
 	// Copy over bindings.
 	copy(nbindings, p.bindings)
 	// Done
-	return LocalScope{p.global, p.pure, p, p.context, nlocals, nbindings}
+	return LocalScope{p.global, p.pure, p.constant, p, p.context, nlocals, nbindings}
 }
 
-// NestedPureScope creates a nested scope within this local scope which, in
-// addition, is always pure.
-func (p LocalScope) NestedPureScope() LocalScope {
+// NestedConstScope creates a nested scope within this local scope which, in
+// addition, is always pure and expects a constant value.
+func (p LocalScope) NestedConstScope() LocalScope {
 	nlocals := make(map[string]uint)
 	nbindings := make([]*ast.LocalVariableBinding, len(p.bindings))
 	// Clone allocated variables
@@ -450,7 +453,7 @@ func (p LocalScope) NestedPureScope() LocalScope {
 	// Copy over bindings.
 	copy(nbindings, p.bindings)
 	// Done
-	return LocalScope{p.global, true, p, p.context, nlocals, nbindings}
+	return LocalScope{p.global, true, true, p, p.context, nlocals, nbindings}
 }
 
 // IsGlobal determines whether symbols can be accessed in modules other than the
@@ -464,6 +467,12 @@ func (p LocalScope) IsGlobal() bool {
 // or indirectly via impure invocations).
 func (p LocalScope) IsPure() bool {
 	return p.pure
+}
+
+// IsConstant determines whether or not this scope is defining a constant.  This
+// places some restrictions on what variables can be accessed, etc.
+func (p LocalScope) IsConstant() bool {
+	return p.constant
 }
 
 // FixContext fixes the context for this scope.  Since every scope requires

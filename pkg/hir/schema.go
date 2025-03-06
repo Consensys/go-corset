@@ -65,7 +65,7 @@ type Schema struct {
 	// Constraints of this schema, which are either vanishing, lookup or type
 	// constraints.
 	constraints []sc.Constraint
-	// The property assertions for this schema.
+	// Property assertions for this schema.
 	assertions []PropertyAssertion
 	// Cache list of columns declared in inputs and assignments.
 	column_cache []sc.Column
@@ -167,6 +167,19 @@ func (p *Schema) AddSortedConstraint(handle string, context trace.Context, bitwi
 // AddPropertyAssertion appends a new property assertion.
 func (p *Schema) AddPropertyAssertion(handle string, context trace.Context, property Expr) {
 	p.assertions = append(p.assertions, sc.NewPropertyAssertion[ZeroArrayTest](handle, context, ZeroArrayTest{property}))
+}
+
+// SubstituteConstants substitutes the value of matching labelled constants for
+// all expressions used within the schema.
+func (p *Schema) SubstituteConstants(mapping map[string]fr.Element) {
+	// Constraints
+	for _, a := range p.constraints {
+		substituteConstraint(mapping, a)
+	}
+	// Assertions
+	for _, a := range p.assertions {
+		substituteConstraint(mapping, a)
+	}
 }
 
 // ============================================================================

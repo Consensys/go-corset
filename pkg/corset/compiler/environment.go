@@ -42,7 +42,7 @@ type Environment interface {
 	// Register returns information about a given register, based on its index
 	// (i.e. underlying HIR column identifier).
 	Register(index uint) *Register
-	// RegisterOf identifiers the register (i.e. underlying (HIR) column) to
+	// RegisterOf identifies the register (i.e. underlying (HIR) column) to
 	// which a given source-level (i.e. corset) column is allocated.  This
 	// expects an absolute path.
 	RegisterOf(path *util.Path) uint
@@ -62,7 +62,7 @@ type GlobalEnvironment struct {
 	modules map[string]*ModuleInfo
 	// Registers (i.e. HIR-level columns)
 	registers []Register
-	// Map source-level columnMap to registers
+	// Map source-level columns to registers
 	columnMap map[string]uint
 }
 

@@ -79,6 +79,7 @@ var checkCmd = &cobra.Command{
 		cfg.batchSize = GetUint(cmd, "batch")
 		cfg.ansiEscapes = GetFlag(cmd, "ansi-escapes")
 		cfg.optimisation = mir.OPTIMISATION_LEVELS[optimisation]
+		externs := GetStringArray(cmd, "set")
 		// TODO: support true ranges
 		cfg.padding.Left = cfg.padding.Right
 		// enable / disable coverage
@@ -107,6 +108,8 @@ var checkCmd = &cobra.Command{
 		}
 		//
 		stats.Log("Reading trace file")
+		// Apply any user-specified values for externalised constants.
+		applyExternOverrides(externs, binfile)
 		// Go!
 		ok, coverage := checkTraceWithLowering(traces, &binfile.Schema, cfg)
 		//
@@ -355,4 +358,5 @@ func init() {
 	checkCmd.Flags().Int("spillage", -1,
 		"specify amount of splillage to account for (where -1 indicates this should be inferred)")
 	checkCmd.Flags().Bool("ansi-escapes", true, "specify whether to allow ANSI escapes or not (e.g. for colour reports)")
+	checkCmd.Flags().StringArrayP("set", "S", []string{}, "set value of externalised constant.")
 }

@@ -240,6 +240,26 @@ func (p *Constant) Bounds() util.Bounds { return util.EMPTY_BOUND }
 func (p *Constant) multiplicity() uint { return 1 }
 
 // ============================================================================
+// ConstantAccess
+// ============================================================================
+
+// LabelledConstant represents a constant value which is labelled with a given
+// name.  The purpose of this is to allow labelled constants to be substituted
+// for different values when desired.
+type LabelledConstant struct {
+	Label string
+	Value fr.Element
+}
+
+// Bounds returns max shift in either the negative (left) or positive
+// direction (right).  A constant has zero shift.
+func (p *LabelledConstant) Bounds() util.Bounds { return util.EMPTY_BOUND }
+
+// multiplicity returns the number of underlyg expressions that this
+// expression will expand to.
+func (p *LabelledConstant) multiplicity() uint { return 1 }
+
+// ============================================================================
 // Normalise
 // ============================================================================
 
@@ -298,6 +318,7 @@ func init() {
 	gob.Register(Term(&IfZero{}))
 	gob.Register(Term(&List{}))
 	gob.Register(Term(&Constant{}))
+	gob.Register(Term(&LabelledConstant{}))
 	gob.Register(Term(&Norm{}))
 	gob.Register(Term(&ColumnAccess{}))
 }

@@ -23,8 +23,8 @@ import (
 
 // Expr represents an expression in the Mid-Level Intermediate Representation
 // (MIR).  Expressions at this level have a one-2-one correspondance with
-// expressions in the AIR level.  However, some expressions at this level do not
-// exist at the AIR level (e.g. normalise) and are "compiled out" by introducing
+// expressions in the HIR level.  However, some expressions at this level do not
+// exist at the HIR level (e.g. normalise) and are "compiled out" by introducing
 // appropriate computed columns and constraints.
 type Expr struct {
 	// Termession to be evaluated, etc.
@@ -39,18 +39,18 @@ var ZERO Expr
 // ONE represents the constant expression equivalent to 1.
 var ONE Expr
 
-// NewColumnAccess constructs an AIR expression representing the value of a given
+// NewColumnAccess constructs an HIR expression representing the value of a given
 // column on the current row.
 func NewColumnAccess(column uint, shift int) Expr {
 	return Expr{&ColumnAccess{column, shift}}
 }
 
-// NewConst construct an AIR expression representing a given constant.
+// NewConst construct an HIR expression representing a given constant.
 func NewConst(val fr.Element) Expr {
 	return Expr{&Constant{val}}
 }
 
-// NewConst64 construct an AIR expression representing a given constant from a
+// NewConst64 construct an HIR expression representing a given constant from a
 // uint64.
 func NewConst64(val uint64) Expr {
 	element := fr.NewElement(val)
