@@ -95,6 +95,29 @@ func GetStringArray(cmd *cobra.Command, flag string) []string {
 	return r
 }
 
+// Determine spillage required for a given schema and optimisation configuration
+// with (or without) defensive padding.
+func determineSpillage(hirSchema *hir.Schema, defensive bool, optConfig mir.OptimisationConfig) []uint {
+	// Compile constraints fully
+	airSchema := hirSchema.LowerToMir().LowerToAir(optConfig)
+	// Determine how many modules in schema.
+	nModules := airSchema.Modules().Count()
+	//
+	spillage := make([]uint, nModules)
+	// Iterate modules and print spillage
+	for mid := uint(0); mid < nModules; mid++ {
+		padding := sc.RequiredSpillage(mid, airSchema)
+		//
+		if defensive {
+			padding = max(padding, sc.DefensivePadding(mid, airSchema))
+		}
+		//
+		spillage[mid] = padding
+	}
+	//
+	return spillage
+}
+
 // Apply any user-specified values for the given externalised constants.  Each
 // constant should be checked that it exists, to ensure assignments are not
 // silently dropped.
