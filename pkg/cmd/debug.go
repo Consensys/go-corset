@@ -65,6 +65,7 @@ var debugCmd = &cobra.Command{
 		metadata := GetFlag(cmd, "metadata")
 		constants := GetFlag(cmd, "constants")
 		externs := GetStringArray(cmd, "set")
+		spillage := GetFlag(cmd, "spillage")
 		// Parse constraints
 		binfile := ReadConstraintFiles(stdlib, debug, legacy, args)
 		// Apply any user-specified values for externalised constants.
@@ -72,6 +73,10 @@ var debugCmd = &cobra.Command{
 		// Print constant info (if requested)
 		if constants {
 			printExternalisedConstants(binfile)
+		}
+		// Print spillage info (if requested)
+		if spillage {
+			printSpillage(binfile, true, optConfig)
 		}
 		// Print meta-data (if requested)
 		if metadata {
@@ -102,6 +107,7 @@ func init() {
 	debugCmd.Flags().Bool("metadata", false, "Print embedded metadata")
 	debugCmd.Flags().Bool("mir", false, "Print constraints at MIR level")
 	debugCmd.Flags().Bool("stats", false, "Print summary information")
+	debugCmd.Flags().Bool("spillage", false, "Print spillage information")
 	debugCmd.Flags().StringArrayP("set", "s", []string{}, "set value of externalised constant.")
 }
 
@@ -135,6 +141,26 @@ func printSchema(schema schema.Schema) {
 func printAttributes(attrs []binfile.Attribute) {
 	for _, attr := range attrs {
 		fmt.Printf("attribute \"%s\":\n", attr.AttributeName())
+	}
+}
+
+func printSpillage(binf *binfile.BinaryFile, defensive bool, optConfig mir.OptimisationConfig) {
+	fmt.Println("Spillage:")
+	// Compute spillage for optimisation level
+	spillage := determineSpillage(&binf.Schema, defensive, optConfig)
+	// Define module ID
+	mid := uint(0)
+	// Iterate modules and print spillage
+	for i := uint(0); i < uint(len(spillage)); i++ {
+		name := binf.Schema.Modules().Nth(i).Name
+		//
+		if name == "" {
+			name = "<prelude>"
+		}
+		//
+		fmt.Printf("\t%s: %d\n", name, spillage[i])
+		//
+		mid++
 	}
 }
 

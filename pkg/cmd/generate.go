@@ -25,6 +25,7 @@ import (
 	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/hir"
+	"github.com/consensys/go-corset/pkg/mir"
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/collection/typed"
@@ -84,11 +85,32 @@ func generateJavaIntegration(filename string, pkgname string, srcmap *corset.Sou
 	if err != nil {
 		return "", err
 	}
+	//
+	spillage := determineConservativeSpillage(&binfile.Schema)
 	// begin generation
 	generateJavaHeader(pkgname, metadata, &builder)
-	generateJavaModule(classname, srcmap.Root, metadata, &binfile.Schema, indentBuilder{0, &builder})
+	generateJavaModule(classname, srcmap.Root, metadata, spillage, &binfile.Schema, indentBuilder{0, &builder})
 	//
 	return builder.String(), nil
+}
+
+func determineConservativeSpillage(hirSchema *hir.Schema) []uint {
+	var spillage []uint
+
+	for i, opt := range mir.OPTIMISATION_LEVELS {
+		ith := determineSpillage(hirSchema, true, opt)
+		//
+		if i == 0 {
+			spillage = ith
+		} else {
+			// Conservative include all spillage
+			for j := range ith {
+				spillage[j] = max(spillage[j], ith[j])
+			}
+		}
+	}
+	//
+	return spillage
 }
 
 func generateJavaHeader(pkgname string, metadata typed.Map, builder *strings.Builder) {
@@ -128,8 +150,8 @@ func generateJavaHeader(pkgname string, metadata typed.Map, builder *strings.Bui
 	builder.WriteString(" */\n")
 }
 
-func generateJavaModule(className string, mod corset.SourceModule, metadata typed.Map, schema *hir.Schema,
-	builder indentBuilder) {
+func generateJavaModule(className string, mod corset.SourceModule, metadata typed.Map, spillage []uint,
+	schema *hir.Schema, builder indentBuilder) {
 	//
 	var nFields uint
 	// Attempt to find module
@@ -140,7 +162,7 @@ func generateJavaModule(className string, mod corset.SourceModule, metadata type
 	}
 	// Generate what we need
 	generateJavaClassHeader(mod.Name == "", className, builder)
-	generateJavaModuleConstants(mod.Constants, builder.Indent())
+	generateJavaModuleConstants(spillage[mid], mod.Constants, builder.Indent())
 	generateJavaModuleSubmoduleFields(mod.Submodules, builder.Indent())
 	//
 	if mod.Name == "" {
@@ -164,7 +186,7 @@ func generateJavaModule(className string, mod corset.SourceModule, metadata type
 	// Generate any submodules
 	for _, submod := range mod.Submodules {
 		if !submod.Virtual {
-			generateJavaModule(toPascalCase(submod.Name), submod, metadata, schema, builder.Indent())
+			generateJavaModule(toPascalCase(submod.Name), submod, metadata, spillage, schema, builder.Indent())
 		} else {
 			generateJavaModuleColumnSetters(className, submod, schema, builder.Indent())
 		}
@@ -229,7 +251,7 @@ func generateJavaModuleHeader(builder indentBuilder) {
 	builder.WriteIndentedString("private int currentLine = 0;\n\n")
 }
 
-func generateJavaModuleConstants(constants []corset.SourceConstant, builder indentBuilder) {
+func generateJavaModuleConstants(spillage uint, constants []corset.SourceConstant, builder indentBuilder) {
 	for _, constant := range constants {
 		var (
 			javaType    string
@@ -249,6 +271,8 @@ func generateJavaModuleConstants(constants []corset.SourceConstant, builder inde
 		//
 		builder.WriteIndentedString("public static final ", javaType, " ", fieldName, " = ", constructor, ";\n")
 	}
+	//
+	builder.WriteIndentedString("public static final int SPILLAGE = ", fmt.Sprintf("%d", spillage), ";\n")
 }
 
 func translateJavaType(datatype schema.Type, value big.Int) (string, string) {
