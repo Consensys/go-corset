@@ -64,9 +64,11 @@ var debugCmd = &cobra.Command{
 		legacy := GetFlag(cmd, "legacy")
 		metadata := GetFlag(cmd, "metadata")
 		constants := GetFlag(cmd, "constants")
-
+		externs := GetStringArray(cmd, "set")
 		// Parse constraints
 		binfile := ReadConstraintFiles(stdlib, debug, legacy, args)
+		// Apply any user-specified values for externalised constants.
+		applyExternOverrides(externs, binfile)
 		// Print constant info (if requested)
 		if constants {
 			printExternalisedConstants(binfile)
@@ -100,6 +102,7 @@ func init() {
 	debugCmd.Flags().Bool("metadata", false, "Print embedded metadata")
 	debugCmd.Flags().Bool("mir", false, "Print constraints at MIR level")
 	debugCmd.Flags().Bool("stats", false, "Print summary information")
+	debugCmd.Flags().StringArrayP("set", "s", []string{}, "set value of externalised constant.")
 }
 
 func printSchemas(hirSchema *hir.Schema, hir bool, mir bool, air bool, optConfig mir.OptimisationConfig) {

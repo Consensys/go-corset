@@ -1,3 +1,5 @@
+;;error:9:23-26:not permitted in const context
+;;error:9:53-56:not permitted in const context
 (defpurefun ((vanishes! :@loob) x) x)
 
 (defconst (ONE :extern) 1)

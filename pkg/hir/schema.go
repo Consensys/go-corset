@@ -169,6 +169,19 @@ func (p *Schema) AddPropertyAssertion(handle string, context trace.Context, prop
 	p.assertions = append(p.assertions, sc.NewPropertyAssertion[ZeroArrayTest](handle, context, ZeroArrayTest{property}))
 }
 
+// SubstituteConstants substitutes the value of matching labelled constants for
+// all expressions used within the schema.
+func (p *Schema) SubstituteConstants(mapping map[string]fr.Element) {
+	// Constraints
+	for _, a := range p.constraints {
+		substituteConstraint(mapping, a)
+	}
+	// Assertions
+	for _, a := range p.assertions {
+		substituteConstraint(mapping, a)
+	}
+}
+
 // ============================================================================
 // Schema Interface
 // ============================================================================

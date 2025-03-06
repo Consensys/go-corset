@@ -448,7 +448,7 @@ func (r *resolver) finaliseDefConstInModule(enclosing Scope, decl *ast.DefConst)
 	)
 	//
 	for _, c := range decl.Constants {
-		scope := NewLocalScope(enclosing, false, true)
+		scope := NewLocalScope(enclosing, false, true, true)
 		// Resolve constant body
 		errs := r.finaliseExpressionInModule(scope, c.ConstBinding.Value)
 		// Accumulate errors
@@ -496,7 +496,7 @@ func (r *resolver) finaliseDefConstraintInModule(enclosing *ModuleScope, decl *a
 		enclosing = enclosing.Enter(perspective)
 	}
 	// Construct scope in which to resolve constraint
-	scope := NewLocalScope(enclosing, false, false)
+	scope := NewLocalScope(enclosing, false, false, false)
 	// Resolve guard
 	if decl.Guard != nil {
 		guard_errors = r.finaliseExpressionInModule(scope, decl.Guard)
@@ -594,7 +594,7 @@ func (r *resolver) finaliseDefPermutationInModule(decl *ast.DefPermutation) []Sy
 
 // Resolve those variables appearing in the body of this property assertion.
 func (r *resolver) finaliseDefPerspectiveInModule(enclosing Scope, decl *ast.DefPerspective) []SyntaxError {
-	scope := NewLocalScope(enclosing, false, false)
+	scope := NewLocalScope(enclosing, false, false, false)
 	// Resolve assertion
 	errors := r.finaliseExpressionInModule(scope, decl.Selector)
 	// Error check
@@ -609,7 +609,7 @@ func (r *resolver) finaliseDefPerspectiveInModule(enclosing Scope, decl *ast.Def
 // resolved. This involves: (a) checking the context is valid; (b) checking the
 // expressions are well-typed.
 func (r *resolver) finaliseDefInRangeInModule(enclosing Scope, decl *ast.DefInRange) []SyntaxError {
-	var scope = NewLocalScope(enclosing, false, false)
+	var scope = NewLocalScope(enclosing, false, false, false)
 	// Resolve property body
 	errors := r.finaliseExpressionInModule(scope, decl.Expr)
 	// Error check
@@ -626,7 +626,7 @@ func (r *resolver) finaliseDefInRangeInModule(enclosing Scope, decl *ast.DefInRa
 // accessed; (d) finally, resolving any parameters used within the body of this
 // function.
 func (r *resolver) finaliseDefFunInModule(enclosing Scope, decl *ast.DefFun) []SyntaxError {
-	var scope = NewLocalScope(enclosing, true, decl.IsPure())
+	var scope = NewLocalScope(enclosing, true, decl.IsPure(), false)
 	// Declare parameters in local scope
 	for _, p := range decl.Parameters() {
 		scope.DeclareLocal(p.Binding.Name, &p.Binding)
@@ -644,8 +644,8 @@ func (r *resolver) finaliseDefFunInModule(enclosing Scope, decl *ast.DefFun) []S
 // Resolve those variables appearing in the body of this lookup constraint.
 func (r *resolver) finaliseDefLookupInModule(enclosing Scope, decl *ast.DefLookup) []SyntaxError {
 	var (
-		sourceScope = NewLocalScope(enclosing, true, false)
-		targetScope = NewLocalScope(enclosing, true, false)
+		sourceScope = NewLocalScope(enclosing, true, false, false)
+		targetScope = NewLocalScope(enclosing, true, false, false)
 	)
 	// Resolve source expressions
 	source_errors := r.finaliseExpressionsInModule(sourceScope, decl.Sources)
@@ -657,14 +657,14 @@ func (r *resolver) finaliseDefLookupInModule(enclosing Scope, decl *ast.DefLooku
 
 // Resolve those variables appearing in the body of this property assertion.
 func (r *resolver) finaliseDefPropertyInModule(enclosing Scope, decl *ast.DefProperty) []SyntaxError {
-	scope := NewLocalScope(enclosing, false, false)
+	scope := NewLocalScope(enclosing, false, false, false)
 	// Resolve assertion
 	return r.finaliseExpressionInModule(scope, decl.Assertion)
 }
 
 func (r *resolver) finaliseDefSortedInModule(enclosing Scope, decl *ast.DefSorted) []SyntaxError {
 	var (
-		scope = NewLocalScope(enclosing, false, false)
+		scope = NewLocalScope(enclosing, false, false, false)
 	)
 	// Resolve source expressions
 	errors := r.finaliseExpressionsInModule(scope, decl.Sources)
@@ -722,9 +722,9 @@ func (r *resolver) finaliseExpressionInModule(scope LocalScope, expr ast.Expr) [
 	case *ast.Debug:
 		return r.finaliseExpressionInModule(scope, v.Arg)
 	case *ast.Exp:
-		purescope := scope.NestedPureScope()
+		constscope := scope.NestedConstScope()
 		arg_errs := r.finaliseExpressionInModule(scope, v.Arg)
-		pow_errs := r.finaliseExpressionInModule(purescope, v.Pow)
+		pow_errs := r.finaliseExpressionInModule(constscope, v.Pow)
 		// combine errors
 		return append(arg_errs, pow_errs...)
 	case *ast.For:
@@ -748,9 +748,9 @@ func (r *resolver) finaliseExpressionInModule(scope LocalScope, expr ast.Expr) [
 	case *ast.Reduce:
 		return r.finaliseReduceInModule(scope, v)
 	case *ast.Shift:
-		purescope := scope.NestedPureScope()
+		constscope := scope.NestedConstScope()
 		arg_errs := r.finaliseExpressionInModule(scope, v.Arg)
-		shf_errs := r.finaliseExpressionInModule(purescope, v.Shift)
+		shf_errs := r.finaliseExpressionInModule(constscope, v.Shift)
 		// combine errors
 		return append(arg_errs, shf_errs...)
 	case *ast.Sub:
@@ -861,8 +861,12 @@ func (r *resolver) finaliseVariableInModule(scope LocalScope, expr *ast.Variable
 		}
 		//
 		return nil
-	} else if _, ok := expr.Binding().(*ast.ConstantBinding); ok {
+	} else if binding, ok := expr.Binding().(*ast.ConstantBinding); ok {
 		// Constant
+		if binding.Extern && scope.IsConstant() {
+			return r.srcmap.SyntaxErrors(expr, "not permitted in const context")
+		}
+		//
 		return nil
 	} else if _, ok := expr.Binding().(*ast.LocalVariableBinding); ok {
 		// Parameter, for or let variable

@@ -972,7 +972,7 @@ func NewVariableAccess(path util.Path, isFunction bool, binding Binding) *Variab
 // AsConstant attempts to evaluate this expression as a constant (signed) value.
 // If this expression is not constant, then nil is returned.
 func (e *VariableAccess) AsConstant() *big.Int {
-	if binding, ok := e.binding.(*ConstantBinding); ok {
+	if binding, ok := e.binding.(*ConstantBinding); ok && !binding.Extern {
 		return binding.Value.AsConstant()
 	}
 	// not a constant

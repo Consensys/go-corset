@@ -1,3 +1,4 @@
+;;error:13:58-64:not permitted in const context
 (defpurefun ((eq! :@loob) x y) (- x y))
 
 (defcolumns

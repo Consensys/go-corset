@@ -625,7 +625,7 @@ func (p *Parser) parseDefConstHead(head sexp.SExp) (*sexp.Symbol, ast.Type, bool
 		case ":extern":
 			extern = true
 		default:
-			datatype, prove, err = p.parseType(list.Get(1))
+			datatype, prove, err = p.parseType(list.Get(i))
 			// Handle errors
 			if err != nil {
 				return nil, nil, false, []SyntaxError{*err}

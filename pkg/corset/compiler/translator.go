@@ -632,20 +632,15 @@ func (t *translator) translateVariableAccessInModule(expr *ast.VariableAccess, s
 		// Done
 		return hir.NewColumnAccess(register_id, shift), nil
 	} else if binding, ok := expr.Binding().(*ast.ConstantBinding); ok {
-		// Handle externalised constants separaterly
-		if binding.Extern {
-			var val fr.Element
-			// Lookup constant id
-			constant := t.env.ConstantOf(&binding.Path)
-			// Initialise field from bigint
-			val.SetBigInt(&constant)
-			//
-			return hir.NewLabelledConst(binding.Path.String(), val), nil
-		}
 		// Just fill in the constant.
 		var constant fr.Element
 		// Initialise field from bigint
 		constant.SetBigInt(binding.Value.AsConstant())
+		// Handle externalised constants slightly differently.
+		if binding.Extern {
+			//
+			return hir.NewLabelledConst(binding.Path.String(), constant), nil
+		}
 		//
 		return hir.NewConst(constant), nil
 	}

@@ -1,13 +1,15 @@
-(defpurefun ((vanishes! :@loob) x) x)
+(defconst (CHAIN :extern) 1)
 
 (defconst
-  (ONE_ :extern)  1
-  ONE   ONE_
-  (TWO :extern)   (+ 1 ONE)
-  FOUR  (* 2 TWO)
-)
+  LIMIT_0 1000
+  LIMIT_1 1100)
 
-(defcolumns X Y Z)
-(defconstraint c1 () (vanishes! (* Z (- Z ONE))))
-(defconstraint c2 () (vanishes! (* (- Y Z) (- Y Z TWO))))
-(defconstraint c3 () (vanishes! (* (- X Y) (- X Y FOUR))))
+(defpurefun (LIMIT) (+
+           ;; CHAIN=0
+           (* (- 1 CHAIN) LIMIT_0)
+           ;; CHAIN=1
+           (* CHAIN LIMIT_1)))
+
+(defcolumns ST (X :@loob))
+
+(defconstraint c1 (:guard ST) (- X (LIMIT)))

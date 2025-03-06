@@ -13,8 +13,6 @@
 package compiler
 
 import (
-	"math/big"
-
 	"github.com/consensys/go-corset/pkg/corset/ast"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -51,9 +49,6 @@ type Environment interface {
 	// RegistersOf identifies the set of registers (i.e. underlying (HIR)
 	// columns) associated with a given module.
 	RegistersOf(module string) []uint
-	// ConstantOf identifies the value of a given externalised constant.  This
-	// expects an absolute path.
-	ConstantOf(path *util.Path) big.Int
 	// Convert a context from the high-level form into the lower level form
 	// suitable for HIR.
 	ContextOf(from ast.Context) tr.Context
@@ -69,8 +64,6 @@ type GlobalEnvironment struct {
 	registers []Register
 	// Map source-level columns to registers
 	columnMap map[string]uint
-	// Mapp source-level constants to ids
-	constantMap map[string]big.Int
 }
 
 // NewGlobalEnvironment constructs a new global environment from a global scope
@@ -86,7 +79,7 @@ func NewGlobalEnvironment(root *ModuleScope, allocator func(RegisterAllocation))
 	// Construct top-level module list.
 	modules := root.Flattern()
 	// Initialise the environment
-	env := GlobalEnvironment{nil, nil, nil, nil}
+	env := GlobalEnvironment{nil, nil, nil}
 	env.initModules(modules)
 	env.initColumnsAndRegisters(modules)
 	// Apply register allocation.
@@ -129,12 +122,6 @@ func (p GlobalEnvironment) RegistersOf(module string) []uint {
 	}
 	// Done
 	return regs
-}
-
-// ConstantOf identifies the id for a given externalised constant.  This
-// expects an absolute path.
-func (p GlobalEnvironment) ConstantOf(path *util.Path) big.Int {
-	return p.constantMap[path.String()]
 }
 
 // ColumnsOf returns the set of registers allocated to a given column.
@@ -183,7 +170,6 @@ func (p *GlobalEnvironment) initModules(modules []*ModuleScope) {
 // merged as necessary.
 func (p *GlobalEnvironment) initColumnsAndRegisters(modules []*ModuleScope) {
 	p.columnMap = make(map[string]uint)
-	p.constantMap = make(map[string]big.Int)
 	p.registers = make([]Register, 0)
 	// Allocate input columns first.
 	for _, m := range modules {
@@ -198,14 +184,6 @@ func (p *GlobalEnvironment) initColumnsAndRegisters(modules []*ModuleScope) {
 		for _, col := range m.DestructuredColumns() {
 			if col.Computed {
 				p.allocateRegister(col)
-			}
-		}
-	}
-	// Allocate constants
-	for _, m := range modules {
-		for _, binding_id := range m.ids {
-			if binding, ok := m.bindings[binding_id].(*ast.ConstantBinding); ok && binding.Extern {
-				p.constantMap[binding.Path.String()] = *binding.Value.AsConstant()
 			}
 		}
 	}
