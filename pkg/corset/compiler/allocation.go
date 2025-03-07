@@ -262,6 +262,9 @@ func DefaultAllocator(allocation RegisterAllocation) {
 	allocator.CompactBy(identicalType)
 	// Try to compact any unproven register
 	allocator.CompactBy(unprovenType)
+	// try to compact any unproven registers which fit within a proven register.
+	allocator.CompactBy(containedUnprovenType)
+	//
 	allocator.Finalise()
 }
 
@@ -278,6 +281,17 @@ func identicalType(lhs *RegisterGroup, rhs *RegisterGroup) bool {
 
 func unprovenType(lhs *RegisterGroup, rhs *RegisterGroup) bool {
 	return !lhs.mustProve && !rhs.mustProve
+}
+
+func containedUnprovenType(lhs *RegisterGroup, rhs *RegisterGroup) bool {
+	lIntType := lhs.dataType.AsUint()
+	rIntType := rhs.dataType.AsUint()
+	// Check whether both are int types, or not.
+	if lIntType != nil && rIntType != nil {
+		return !lhs.mustProve && rhs.mustProve && lIntType.BitWidth() <= rIntType.BitWidth()
+	}
+	//
+	return false
 }
 
 // Sort the registers into alphabetical order.
@@ -353,6 +367,21 @@ func NewRegisterAllocator(allocation RegisterAllocation) *RegisterAllocator {
 	}
 	// Done (for now)
 	return &allocator
+}
+
+// Width returns the current number of non-empty groups.
+func (p *RegisterAllocator) Width() uint {
+	count := uint(0)
+	//
+	for i := range p.allocations {
+		ith := &p.allocations[i]
+		// Ignore allocation if its already been merged into something else.
+		if !ith.IsEmpty() {
+			count++
+		}
+	}
+	//
+	return count
 }
 
 // CompactBy Greedily compact the given allocation using a given "compabitility" comparator.
