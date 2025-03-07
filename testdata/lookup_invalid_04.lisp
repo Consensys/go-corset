@@ -1,5 +1,5 @@
 ;;error:3:22-23:unknown symbol
-(defcolumns X)
+(defcolumns (X :i16))
 (deflookup test (X) (Y))
 
 (module m1)

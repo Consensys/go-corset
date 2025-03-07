@@ -9,7 +9,7 @@
     one ONE
     two TWO)
 
-(defcolumns X Y)
+(defcolumns (X :i16) (Y :i16))
 (defconstraint c1 () (vanishes! (+ X (* two Y))))
 (defconstraint c2 () (vanishes! (+ (* two Y) X)))
 (defconstraint c3 () (vanishes! (+ X Y Y)))

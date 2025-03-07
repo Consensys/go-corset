@@ -9,7 +9,7 @@
   FOUR  (* 2 TWO)
 )
 
-(defcolumns X Y Z)
+(defcolumns (X :i16) (Y :i16) (Z :i16))
 (defconstraint c1 () (vanishes! (* Z (- Z ONE))))
 (defconstraint c2 () (vanishes! (* (- Y Z) (- Y Z TWO))))
 (defconstraint c3 () (vanishes! (* (- X Y) (- X Y FOUR))))

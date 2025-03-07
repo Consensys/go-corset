@@ -1,4 +1,4 @@
-(defcolumns X Y)
+(defcolumns (X :i16) (Y :i16))
 (defun (Xm1) (- X 1))
 (defpurefun ((eq :i16@loob) x y) (- x y))
 ;; Y == X

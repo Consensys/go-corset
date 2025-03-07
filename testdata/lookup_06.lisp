@@ -1,5 +1,5 @@
 (module m1)
-(defcolumns X)
+(defcolumns (X :i16))
 
 (module m2)
 (defcolumns Y)

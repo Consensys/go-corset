@@ -1,5 +1,5 @@
 (module m1)
-(defcolumns X)
+(defcolumns (X :i16))
 ;; Module without any column declarations to test alignment.
 (module m2)
 (defcolumns (X :i16@loob))

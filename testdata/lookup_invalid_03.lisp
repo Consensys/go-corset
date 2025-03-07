@@ -1,3 +1,3 @@
 ;;error:3:12-14:malformed handle
-(defcolumns X Y)
+(defcolumns (X :i16) (Y :i16))
 (deflookup () (Y) (X))

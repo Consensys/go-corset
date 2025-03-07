@@ -1,4 +1,4 @@
-(defcolumns X Y)
+(defcolumns (X :i16) (Y :i16))
 (defun (double@d x) (+ x x))
 (defpurefun ((~eq :i16@loob) x y) (~ (- x y)))
 

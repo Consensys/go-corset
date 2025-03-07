@@ -1,7 +1,7 @@
 (defpurefun ((vanishes! :𝔽@loob) x) x)
 (defunalias and +)
 
-(defcolumns X Y)
+(defcolumns (X :i16) (Y :i16))
 (defconstraint c1 () (vanishes! (and X (* 2 Y))))
 (defconstraint c2 () (vanishes! (and (* 2 Y) X)))
 (defconstraint c3 () (vanishes! (and X Y Y)))

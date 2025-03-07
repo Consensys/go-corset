@@ -1,5 +1,5 @@
 (defpurefun ((vanishes! :𝔽@loob) x) x)
-(defcolumns X)
+(defcolumns (X :i16))
 (module m1)
 (defcolumns ST (X :i16@prove))
 (defpermutation (Y) ((+ X)))
