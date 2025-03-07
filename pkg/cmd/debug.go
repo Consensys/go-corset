@@ -38,6 +38,8 @@ var debugCmd = &cobra.Command{
 	expansion in order to debug them.  Constraints can be given
 	either as lisp or bin files.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		var corsetConfig corset.CompilationConfig
+		//
 		if len(args) != 1 {
 			fmt.Println(cmd.UsageString())
 			os.Exit(1)
@@ -59,15 +61,15 @@ var debugCmd = &cobra.Command{
 		air := GetFlag(cmd, "air")
 		stats := GetFlag(cmd, "stats")
 		attrs := GetFlag(cmd, "attributes")
-		stdlib := !GetFlag(cmd, "no-stdlib")
-		debug := GetFlag(cmd, "debug")
-		legacy := GetFlag(cmd, "legacy")
 		metadata := GetFlag(cmd, "metadata")
 		constants := GetFlag(cmd, "constants")
 		externs := GetStringArray(cmd, "set")
 		spillage := GetFlag(cmd, "spillage")
+		corsetConfig.Stdlib = !GetFlag(cmd, "no-stdlib")
+		corsetConfig.Debug = GetFlag(cmd, "debug")
+		corsetConfig.Legacy = GetFlag(cmd, "legacy")
 		// Parse constraints
-		binfile := ReadConstraintFiles(stdlib, debug, legacy, args)
+		binfile := ReadConstraintFiles(corsetConfig, args)
 		// Apply any user-specified values for externalised constants.
 		applyExternOverrides(externs, binfile)
 		// Print constant info (if requested)

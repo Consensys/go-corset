@@ -17,6 +17,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/util/collection/typed"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -28,25 +29,26 @@ var compileCmd = &cobra.Command{
 	Long: `Compile a given set of constraint file(s) into a single binary package which can
 	 be subsequently used without requiring a full compilation step.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		var corsetConfig corset.CompilationConfig
 		// Configure log level
 		if GetFlag(cmd, "verbose") {
 			log.SetLevel(log.DebugLevel)
 		}
 		//
-		stdlib := !GetFlag(cmd, "no-stdlib")
-		debug := GetFlag(cmd, "debug")
-		legacy := GetFlag(cmd, "legacy")
+		corsetConfig.Stdlib = !GetFlag(cmd, "no-stdlib")
+		corsetConfig.Debug = GetFlag(cmd, "debug")
+		corsetConfig.Legacy = GetFlag(cmd, "legacy")
 		output := GetString(cmd, "output")
 		defines := GetStringArray(cmd, "define")
 		// Parse constraints
-		binfile := ReadConstraintFiles(stdlib, debug, legacy, args)
+		binfile := ReadConstraintFiles(corsetConfig, args)
 		// Write metadata
 		if err := binfile.Header.SetMetaData(buildMetadata(defines)); err != nil {
 			fmt.Printf("error writing metadata: %s\n", err.Error())
 			os.Exit(1)
 		}
 		// Serialise as a gob file.
-		WriteBinaryFile(binfile, legacy, output)
+		WriteBinaryFile(binfile, false, output)
 	},
 }
 

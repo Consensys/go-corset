@@ -1302,7 +1302,12 @@ const MAX_PADDING uint = 7
 // expect to be accepted are accepted, and all traces that we expect
 // to be rejected are rejected.
 func Check(t *testing.T, stdlib bool, test string) {
-	filename := fmt.Sprintf("%s.lisp", test)
+	var (
+		corsetConfig corset.CompilationConfig
+		filename     = fmt.Sprintf("%s.lisp", test)
+	)
+	//
+	corsetConfig.Stdlib = stdlib
 	// Enable testing each trace in parallel
 	t.Parallel()
 	// Read constraints file
@@ -1314,7 +1319,7 @@ func Check(t *testing.T, stdlib bool, test string) {
 	// Package up as source file
 	srcfile := sexp.NewSourceFile(filename, bytes)
 	// Parse terms into an HIR schema
-	binfile, errs := corset.CompileSourceFile(stdlib, false, srcfile)
+	binfile, errs := corset.CompileSourceFile(corsetConfig, srcfile)
 	// Check terms parsed ok
 	if len(errs) > 0 {
 		t.Fatalf("Error parsing %s: %v\n", filename, errs)

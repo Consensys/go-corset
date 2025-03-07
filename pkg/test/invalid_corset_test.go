@@ -792,6 +792,8 @@ func Test_Invalid_Compute_07(t *testing.T) {
 // Check that a given source file fails to compiler.
 // nolint
 func CheckInvalid(t *testing.T, test string) {
+	var corsetConfig corset.CompilationConfig
+	//
 	filename := fmt.Sprintf("%s/%s.lisp", InvalidTestDir, test)
 	// Enable testing each trace in parallel
 	t.Parallel()
@@ -804,7 +806,7 @@ func CheckInvalid(t *testing.T, test string) {
 	// Package up as source file
 	srcfile := sexp.NewSourceFile(filename, bytes)
 	// Parse terms into an HIR schema
-	_, errs := corset.CompileSourceFile(false, false, srcfile)
+	_, errs := corset.CompileSourceFile(corsetConfig, srcfile)
 	// Extract expected errors for comparison
 	expectedErrs, lineOffsets := extractExpectedErrors(bytes)
 	// Check program did not compile!

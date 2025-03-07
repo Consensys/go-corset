@@ -20,6 +20,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/binfile"
 	cov "github.com/consensys/go-corset/pkg/cmd/coverage"
+	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/mir"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
@@ -34,7 +35,10 @@ var coverageCmd = &cobra.Command{
 	Short: "query coverage data generated for a given set of constraints.",
 	Long:  `Provides mechanisms for investigating the coverage data generated for a given set of constraints and traces.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		var cfg coverageConfig
+		var (
+			cfg          coverageConfig
+			corsetConfig corset.CompilationConfig
+		)
 		//
 		if len(args) < 2 {
 			fmt.Println(cmd.UsageString())
@@ -54,10 +58,10 @@ var coverageCmd = &cobra.Command{
 		//
 		filter := cov.DefaultFilter()
 		//
-		stdlib := !GetFlag(cmd, "no-stdlib")
-		debug := GetFlag(cmd, "debug")
+		corsetConfig.Stdlib = !GetFlag(cmd, "no-stdlib")
+		corsetConfig.Debug = GetFlag(cmd, "debug")
+		corsetConfig.Legacy = GetFlag(cmd, "legacy")
 		cfg.diff = GetFlag(cmd, "diff")
-		legacy := GetFlag(cmd, "legacy")
 		expand := GetFlag(cmd, "expand")
 		module := GetFlag(cmd, "module")
 		includes := GetStringArray(cmd, "include")
@@ -69,7 +73,7 @@ var coverageCmd = &cobra.Command{
 		//
 		json, others := splitArgs(args)
 		// Parse constraints
-		binfile := ReadConstraintFiles(stdlib, debug, legacy, others)
+		binfile := ReadConstraintFiles(corsetConfig, others)
 		// Parse coverage file
 		coverage := readCoverageReports(json, binfile, optConfig)
 		//

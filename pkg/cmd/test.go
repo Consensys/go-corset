@@ -52,14 +52,13 @@ var testCmd = &cobra.Command{
 			fmt.Printf("invalid optimisation level %d\n", optimisation)
 			os.Exit(2)
 		}
-		//
-		legacy := GetFlag(cmd, "legacy")
 		// Setup check config
 		cfg.air = GetFlag(cmd, "air")
 		cfg.mir = GetFlag(cmd, "mir")
 		cfg.hir = GetFlag(cmd, "hir")
 		cfg.expand = !GetFlag(cmd, "raw")
-		cfg.stdlib = !GetFlag(cmd, "no-stdlib")
+		cfg.corsetConfig.Stdlib = !GetFlag(cmd, "no-stdlib")
+		cfg.corsetConfig.Legacy = GetFlag(cmd, "legacy")
 		cfg.report = GetFlag(cmd, "report")
 		cfg.reportPadding = GetUint(cmd, "report-context")
 		cfg.optimisation = mir.OPTIMISATION_LEVELS[optimisation]
@@ -79,7 +78,7 @@ var testCmd = &cobra.Command{
 		//
 		stats := util.NewPerfStats()
 		// Parse constraints
-		binfile := ReadConstraintFiles(cfg.stdlib, false, legacy, args)
+		binfile := ReadConstraintFiles(cfg.corsetConfig, args)
 		//
 		stats.Log("Reading constraints file")
 		//

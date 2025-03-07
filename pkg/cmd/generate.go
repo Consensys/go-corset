@@ -37,16 +37,18 @@ var generateCmd = &cobra.Command{
 	Short: "generate suitable Java class(es) for integration.",
 	Long:  `Generate suitable Java class(es) for integration with a Java-based tracer generator.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		var corsetConfig corset.CompilationConfig
 		// Configure log level
 		if GetFlag(cmd, "verbose") {
 			log.SetLevel(log.DebugLevel)
 		}
 		//
-		stdlib := !GetFlag(cmd, "no-stdlib")
+		corsetConfig.Stdlib = !GetFlag(cmd, "no-stdlib")
+		corsetConfig.Legacy = GetFlag(cmd, "legacy")
 		filename := GetString(cmd, "output")
 		pkgname := GetString(cmd, "package")
 		// Parse constraints
-		binf := ReadConstraintFiles(stdlib, false, false, args)
+		binf := ReadConstraintFiles(corsetConfig, args)
 		// Sanity check debug information is available.
 		srcmap, srcmap_ok := binfile.GetAttribute[*corset.SourceMap](binf)
 		//

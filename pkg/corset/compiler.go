@@ -36,12 +36,22 @@ var STDLIB []byte
 // the S-Expression library.
 type SyntaxError = sexp.SyntaxError
 
+// CompilationConfig encapsulates various options which can affect compilation.
+type CompilationConfig struct {
+	// Enable standard library
+	Stdlib bool
+	// Enable debug constraints
+	Debug bool
+	// Enable legacy register allocator
+	Legacy bool
+}
+
 // CompileSourceFiles compiles one or more source files into a schema.  This
 // process can fail if the source files are mal-formed, or contain syntax errors
 // or other forms of error (e.g. type errors).
-func CompileSourceFiles(stdlib bool, debug bool, srcfiles []*sexp.SourceFile) (*binfile.BinaryFile, []SyntaxError) {
+func CompileSourceFiles(config CompilationConfig, srcfiles []*sexp.SourceFile) (*binfile.BinaryFile, []SyntaxError) {
 	// Include the standard library (if requested)
-	srcfiles = includeStdlib(stdlib, srcfiles)
+	srcfiles = includeStdlib(config.Stdlib, srcfiles)
 	// Parse all source files (inc stdblib if applicable).
 	circuit, srcmap, errs := compiler.ParseSourceFiles(srcfiles)
 	// Check for parsing errors
@@ -49,15 +59,21 @@ func CompileSourceFiles(stdlib bool, debug bool, srcfiles []*sexp.SourceFile) (*
 		return nil, errs
 	}
 	// Compile each module into the schema
-	return NewCompiler(circuit, srcmap).SetDebug(debug).Compile()
+	comp := NewCompiler(circuit, srcmap).SetDebug(config.Debug)
+	// Configure register allocator (if requested)
+	if config.Legacy {
+		comp.SetAllocator(compiler.LegacyAllocator)
+	}
+	//
+	return comp.Compile()
 }
 
 // CompileSourceFile compiles exactly one source file into a schema.  This is
 // really helper function for e.g. the testing environment.   This process can
 // fail if the source file is mal-formed, or contains syntax errors or other
 // forms of error (e.g. type errors).
-func CompileSourceFile(stdlib bool, debug bool, srcfile *sexp.SourceFile) (*binfile.BinaryFile, []SyntaxError) {
-	schema, errs := CompileSourceFiles(stdlib, debug, []*sexp.SourceFile{srcfile})
+func CompileSourceFile(config CompilationConfig, srcfile *sexp.SourceFile) (*binfile.BinaryFile, []SyntaxError) {
+	schema, errs := CompileSourceFiles(config, []*sexp.SourceFile{srcfile})
 	// Check for errors
 	if errs != nil {
 		return nil, errs

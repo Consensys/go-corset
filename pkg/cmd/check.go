@@ -18,6 +18,7 @@ import (
 	"math"
 	"os"
 
+	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/hir"
 	"github.com/consensys/go-corset/pkg/mir"
 	sc "github.com/consensys/go-corset/pkg/schema"
@@ -52,7 +53,6 @@ var checkCmd = &cobra.Command{
 			log.SetLevel(log.DebugLevel)
 		}
 		optimisation := GetUint(cmd, "opt")
-		legacy := GetFlag(cmd, "legacy")
 		batched := GetFlag(cmd, "batched")
 		//
 		if optimisation >= uint(len(mir.OPTIMISATION_LEVELS)) {
@@ -71,8 +71,9 @@ var checkCmd = &cobra.Command{
 		cfg.reportCellWidth = GetUint(cmd, "report-cellwidth")
 		cfg.spillage = GetInt(cmd, "spillage")
 		cfg.strict = !GetFlag(cmd, "warn")
-		cfg.stdlib = !GetFlag(cmd, "no-stdlib")
-		cfg.debug = GetFlag(cmd, "debug")
+		cfg.corsetConfig.Stdlib = !GetFlag(cmd, "no-stdlib")
+		cfg.corsetConfig.Debug = GetFlag(cmd, "debug")
+		cfg.corsetConfig.Legacy = GetFlag(cmd, "legacy")
 		cfg.quiet = GetFlag(cmd, "quiet")
 		cfg.padding.Right = GetUint(cmd, "padding")
 		cfg.parallel = !GetFlag(cmd, "sequential")
@@ -94,7 +95,7 @@ var checkCmd = &cobra.Command{
 		//
 		stats := util.NewPerfStats()
 		// Parse constraints
-		binfile := ReadConstraintFiles(cfg.stdlib, cfg.debug, legacy, args[1:])
+		binfile := ReadConstraintFiles(cfg.corsetConfig, args[1:])
 		//
 		stats.Log("Reading constraints file")
 		// Parse trace file(s)
@@ -140,8 +141,6 @@ type checkConfig struct {
 	spillage int
 	// Determines how much padding to use
 	padding util.Pair[uint, uint]
-	// Determines whether or not to enable debugging constraints
-	debug bool
 	// Suppress output (e.g. warnings)
 	quiet bool
 	// Specified whether strict checking is performed or not.  This is enabled
@@ -155,9 +154,8 @@ type checkConfig struct {
 	// Specifies whether or not to perform trace validation.  That is, to check
 	// all input values are within expected bounds.
 	validate bool
-	// Specifies whether or not to include the standard library.  The default is
-	// to include it.
-	stdlib bool
+	// Corset compilation options
+	corsetConfig corset.CompilationConfig
 	// Specifies whether to use coverage testing and, if so, where to write the
 	// coverage data.
 	coverage util.Option[string]
