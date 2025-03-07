@@ -60,8 +60,8 @@ func init() {
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	rootCmd.Flags().Bool("version", false, "Report version of this executable")
 	rootCmd.PersistentFlags().Bool("legacy", true, "use legacy binary format")
-	rootCmd.PersistentFlags().Bool("strict", true, "use strict typing mode")
 	rootCmd.PersistentFlags().Bool("no-stdlib", false, "prevent standard library from being included")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "increase logging verbosity")
 	rootCmd.PersistentFlags().UintP("opt", "O", 1, "set optimisation level")
+	rootCmd.PersistentFlags().Bool("strict", true, "enable/disable strict typing mode")
 }

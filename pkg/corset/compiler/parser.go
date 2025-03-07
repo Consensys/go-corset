@@ -39,7 +39,9 @@ import (
 // Thus, you should never expect to see duplicate module names in the returned
 // array.
 // If strictMode is activated, parser rejects columns of field type 𝔽.
-func ParseSourceFiles(files []*sexp.SourceFile, strictMode bool) (ast.Circuit, *sexp.SourceMaps[ast.Node], []SyntaxError) {
+func ParseSourceFiles(files []*sexp.SourceFile, strictMode bool) (ast.Circuit,
+	*sexp.SourceMaps[ast.Node], []SyntaxError) {
+	//
 	var circuit ast.Circuit
 	// (for now) at most one error per source file is supported.
 	var errors []SyntaxError
@@ -98,7 +100,9 @@ func ParseSourceFiles(files []*sexp.SourceFile, strictMode bool) (ast.Circuit, *
 // modules.  Observe that every lisp file starts in the "prelude" or "root"
 // module, and may declare items for additional modules as necessary.
 // If strictMode is activated, parser rejects columns of field type 𝔽.
-func ParseSourceFile(srcfile *sexp.SourceFile, strictMode bool) (ast.Circuit, *sexp.SourceMap[ast.Node], []SyntaxError) {
+func ParseSourceFile(srcfile *sexp.SourceFile, strictMode bool) (ast.Circuit,
+	*sexp.SourceMap[ast.Node], []SyntaxError) {
+	//
 	var (
 		circuit ast.Circuit
 		errors  []SyntaxError
@@ -368,20 +372,13 @@ func (p *Parser) parseColumnDeclaration(context util.Path, path util.Path, compu
 	e sexp.SExp) (*ast.DefColumn, *SyntaxError) {
 	//
 	var (
-		error *SyntaxError
-		//binding ast.ColumnBinding = ast.ColumnBinding{context, path, computed, false, 0, nil}
+		error      *SyntaxError
 		name       util.Path
-		multiplier uint
+		multiplier uint = 1
 		datatype   ast.Type
 		mustProve  bool
 		display    string
 	)
-	// Set defaults for input columns
-	if !computed {
-		// Input columns have defaults which are implicit unless explicitly overridden.
-		multiplier = 1
-		datatype = ast.NewFieldType()
-	}
 	// Check whether extended declaration or not.
 	if l := e.AsList(); l != nil {
 		// Check at least the name provided.
@@ -393,18 +390,25 @@ func (p *Parser) parseColumnDeclaration(context util.Path, path util.Path, compu
 		// Column name is always first
 		name = *path.Extend(l.Elements[0].String(false))
 		//	Parse type (if applicable)
-		if datatype, mustProve, display, error = p.parseColumnDeclarationAttributes(l.Elements[1:]); error != nil {
+		if datatype, mustProve, display, error = p.parseColumnDeclarationAttributes(e, l.Elements[1:]); error != nil {
 			return nil, error
 		}
-	} else {
+	} else if computed {
+		// Only computed columns can be given without attributes.
 		name = *path.Extend(e.String(false))
+	} else {
+		return nil, p.translator.SyntaxError(e, "column is untyped")
 	}
-	// Type check of columns for strict mode only
-	if p.strictMode {
-		// Column is untyped if datatype is of FieldType
-		if datatype != nil && datatype.ContainsFieldType() {
-			return nil, p.translator.SyntaxError(e, "column is untyped")
-		}
+	// Final sanity checks
+	if computed && datatype == nil {
+		// computed columns initially have multiplier 0 in order to signal that
+		// this needs to be subsequently determined from context.
+		multiplier = 0
+		datatype = ast.NewFieldType()
+	} else if computed {
+		return nil, p.translator.SyntaxError(e, "computed columns cannot be typed")
+	} else if !computed && p.strictMode && datatype.ContainsFieldType() {
+		return nil, p.translator.SyntaxError(e, "field type prohibited")
 	}
 	//
 	def := ast.NewDefColumn(context, name, datatype, mustProve, multiplier, computed, display)
@@ -414,10 +418,12 @@ func (p *Parser) parseColumnDeclaration(context util.Path, path util.Path, compu
 	return def, nil
 }
 
-func (p *Parser) parseColumnDeclarationAttributes(attrs []sexp.SExp) (ast.Type, bool, string, *SyntaxError) {
+func (p *Parser) parseColumnDeclarationAttributes(node sexp.SExp, attrs []sexp.SExp) (ast.Type, bool, string,
+	*SyntaxError) {
+	//
 	var (
-		dataType  ast.Type = ast.NewFieldType()
-		mustProve bool     = false
+		dataType  ast.Type
+		mustProve bool = false
 		array_min uint
 		array_max uint
 		display   string = "hex"
@@ -465,7 +471,9 @@ func (p *Parser) parseColumnDeclarationAttributes(attrs []sexp.SExp) (ast.Type, 
 		}
 	}
 	// Done
-	if array_max != 0 {
+	if dataType == nil {
+		return nil, false, "", p.translator.SyntaxError(node, "column is untyped")
+	} else if array_max != 0 {
 		return ast.NewArrayType(dataType, array_min, array_max), mustProve, display, nil
 	}
 	//
@@ -1316,12 +1324,6 @@ func (p *Parser) parseType(term sexp.SExp) (ast.Type, bool, *SyntaxError) {
 	case ":byte":
 		datatype = ast.NewUintType(8)
 	case ":𝔽":
-		datatype = ast.NewFieldType()
-	case ":":
-		if len(parts) == 1 {
-			return nil, false, p.translator.SyntaxError(symbol, "unknown type")
-		}
-		// How is that reached ?
 		datatype = ast.NewFieldType()
 	default:
 		// Handle generic types like i16, i128, etc.

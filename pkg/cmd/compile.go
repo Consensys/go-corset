@@ -42,12 +42,7 @@ var compileCmd = &cobra.Command{
 		output := GetString(cmd, "output")
 		defines := GetStringArray(cmd, "define")
 		// Parse constraints
-<<<<<<< HEAD
 		binfile := ReadConstraintFiles(corsetConfig, args)
-=======
-		// Run compiler in strict mode
-		binfile := ReadConstraintFiles(stdlib, debug, legacy, args, true)
->>>>>>> 1c02a8e (feat(reject): switch non strict to strict)
 		// Write metadata
 		if err := binfile.Header.SetMetaData(buildMetadata(defines)); err != nil {
 			fmt.Printf("error writing metadata: %s\n", err.Error())

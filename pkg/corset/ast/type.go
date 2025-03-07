@@ -284,6 +284,7 @@ func (p *ArrayType) ContainsFieldType() bool {
 			return true
 		}
 	}
+
 	return false
 }
 
