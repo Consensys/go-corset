@@ -25,7 +25,6 @@ import (
 	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/hir"
-	"github.com/consensys/go-corset/pkg/mir"
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/collection/typed"
@@ -85,32 +84,13 @@ func generateJavaIntegration(filename string, pkgname string, srcmap *corset.Sou
 	if err != nil {
 		return "", err
 	}
-	//
-	spillage := determineConservativeSpillage(&binfile.Schema)
+	// NOTE: assume defensive padding is enabled.
+	spillage := determineConservativeSpillage(true, &binfile.Schema)
 	// begin generation
 	generateJavaHeader(pkgname, metadata, &builder)
 	generateJavaModule(classname, srcmap.Root, metadata, spillage, &binfile.Schema, indentBuilder{0, &builder})
 	//
 	return builder.String(), nil
-}
-
-func determineConservativeSpillage(hirSchema *hir.Schema) []uint {
-	var spillage []uint
-
-	for i, opt := range mir.OPTIMISATION_LEVELS {
-		ith := determineSpillage(hirSchema, true, opt)
-		//
-		if i == 0 {
-			spillage = ith
-		} else {
-			// Conservative include all spillage
-			for j := range ith {
-				spillage[j] = max(spillage[j], ith[j])
-			}
-		}
-	}
-	//
-	return spillage
 }
 
 func generateJavaHeader(pkgname string, metadata typed.Map, builder *strings.Builder) {

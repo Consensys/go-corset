@@ -44,6 +44,10 @@ type TraceBuilder struct {
 	// that the values supplied for all columns (both input and computed) are
 	// within their declared type.
 	validate bool
+	// Indicates whether or not to apply other sanity checks, such as ensuring
+	// the number of lines actually added to a trace matches the expected
+	// amount.
+	checks bool
 	// Determines the amount of padding to apply to each module in the trace.
 	// At the moment, this is applied uniformly across all modules.  This is
 	// somewhat cumbersome, and it would make sense to support different
@@ -61,7 +65,7 @@ type TraceBuilder struct {
 // NewTraceBuilder constructs a default trace builder.  The idea is that this
 // could then be customized as needed following the builder pattern.
 func NewTraceBuilder(schema Schema) TraceBuilder {
-	return TraceBuilder{schema, true, true, true, 0, true, math.MaxUint}
+	return TraceBuilder{schema, true, true, true, true, 0, true, math.MaxUint}
 }
 
 // Defensive updates a given builder configuration to apply defensive padding
@@ -69,6 +73,14 @@ func NewTraceBuilder(schema Schema) TraceBuilder {
 func (tb TraceBuilder) Defensive(flag bool) TraceBuilder {
 	ntb := tb
 	ntb.defensive = flag
+	//
+	return ntb
+}
+
+// ExpansionChecks enables runtime safety checks on the expanded trace.
+func (tb TraceBuilder) ExpansionChecks(flag bool) TraceBuilder {
+	ntb := tb
+	ntb.checks = flag
 	//
 	return ntb
 }
@@ -121,13 +133,21 @@ func (tb TraceBuilder) BatchSize(batchSize uint) TraceBuilder {
 // columns and constructs a trace.
 func (tb TraceBuilder) Build(columns []trace.RawColumn) (trace.Trace, []error) {
 	tr, errors := tb.initialiseTrace(columns)
-
+	//
 	if tr == nil {
 		// Critical failure
 		return nil, errors
 	} else if tb.expand {
+		// Save original line counts
+		moduleHeights := determineModuleHeights(tr)
 		// Apply spillage
 		applySpillageAndDefensivePadding(tb.defensive, tr, tb.schema)
+		// Sanity checks
+		if tb.checks {
+			if err := checkModuleHeights(moduleHeights, tb.defensive, tr, tb.schema); err != nil {
+				return nil, append(errors, err)
+			}
+		}
 		// Expand trace
 		if tb.parallel {
 			// Run (parallel) trace expansion
@@ -297,15 +317,45 @@ func applySpillageAndDefensivePadding(defensive bool, tr *trace.ArrayTrace, sche
 	n := tr.Modules().Count()
 	// Iterate over modules
 	for i := uint(0); i < n; i++ {
-		padding := RequiredSpillage(i, schema)
-		//
-		if defensive {
-			// determine minimum levels of defensive padding required.
-			padding = max(padding, DefensivePadding(i, schema))
-		}
-		//
+		// Compute extra padding rows required
+		padding := RequiredPaddingRows(i, defensive, schema)
+		// Pad extract rows with 0
 		tr.Pad(i, padding, 0)
 	}
+}
+
+// determineModuleHeights returns the height for each module in the trace.
+func determineModuleHeights(tr *trace.ArrayTrace) []uint {
+	n := tr.Modules().Count()
+	mid := 0
+	heights := make([]uint, n)
+	// Iterate over modules
+	for iter := tr.Modules(); iter.HasNext(); {
+		ith := iter.Next()
+		heights[mid] = ith.Height()
+		mid++
+	}
+	//
+	return heights
+}
+
+// checkModuleHeights checks the expanded heights match exactly what was
+// expected.
+func checkModuleHeights(original []uint, defensive bool, tr *trace.ArrayTrace, schema Schema) error {
+	expanded := determineModuleHeights(tr)
+	//
+	for mid := uint(0); mid < uint(len(expanded)); mid++ {
+		spillage := RequiredPaddingRows(mid, defensive, schema)
+		expected := original[mid] + spillage
+		// Perform the check
+		if expected != expanded[mid] {
+			name := schema.Modules().Nth(mid).Name
+			return fmt.Errorf(
+				"inconsistent expanded trace height for %s (was %d but expected %d)", name, expanded[mid], expected)
+		}
+	}
+	//
+	return nil
 }
 
 // PadColumns pads every column in a given trace with a given amount of (front)

@@ -95,6 +95,27 @@ func GetStringArray(cmd *cobra.Command, flag string) []string {
 	return r
 }
 
+// Determine conservative amounts of spillage.  That is, enough spillage to
+// cover all optimisation levels.
+func determineConservativeSpillage(defensive bool, hirSchema *hir.Schema) []uint {
+	var spillage []uint
+
+	for i, opt := range mir.OPTIMISATION_LEVELS {
+		ith := determineSpillage(hirSchema, defensive, opt)
+		//
+		if i == 0 {
+			spillage = ith
+		} else {
+			// Conservative include all spillage
+			for j := range ith {
+				spillage[j] = max(spillage[j], ith[j])
+			}
+		}
+	}
+	//
+	return spillage
+}
+
 // Determine spillage required for a given schema and optimisation configuration
 // with (or without) defensive padding.
 func determineSpillage(hirSchema *hir.Schema, defensive bool, optConfig mir.OptimisationConfig) []uint {
@@ -106,13 +127,7 @@ func determineSpillage(hirSchema *hir.Schema, defensive bool, optConfig mir.Opti
 	spillage := make([]uint, nModules)
 	// Iterate modules and print spillage
 	for mid := uint(0); mid < nModules; mid++ {
-		padding := sc.RequiredSpillage(mid, airSchema)
-		//
-		if defensive {
-			padding = max(padding, sc.DefensivePadding(mid, airSchema))
-		}
-		//
-		spillage[mid] = padding
+		spillage[mid] = sc.RequiredPaddingRows(mid, defensive, airSchema)
 	}
 	//
 	return spillage
