@@ -1,4 +1,4 @@
-(defcolumns (X :i16@loob) Y)
+(defcolumns (X :i16@loob) (Y :i16))
 (defconst
   N 4
   TWO_N (^ 2 N))

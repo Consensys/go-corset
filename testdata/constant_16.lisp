@@ -10,6 +10,6 @@
            ;; CHAIN=1
            (* CHAIN LIMIT_1)))
 
-(defcolumns ST (X :i16@loob))
+(defcolumns (ST :i4) (X :i16@loob))
 
 (defconstraint c1 (:guard ST) (- X (LIMIT)))
