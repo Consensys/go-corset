@@ -21,11 +21,25 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 )
 
+// RequiredPaddingRows determines the number of additional (spillage / padding)
+// rows that will be added during trace expansion.  The exact value depends on
+// whether defensive padding is enabled or not.
+func RequiredPaddingRows(module uint, defensive bool, schema Schema) uint {
+	padding := requiredSpillage(module, schema)
+	//
+	if defensive {
+		// determine minimum levels of defensive padding required.
+		padding = max(padding, defensivePadding(module, schema))
+	}
+	//
+	return padding
+}
+
 // RequiredSpillage returns the minimum amount of spillage required for a given
 // module to ensure valid traces are accepted in the presence of arbitrary
 // padding.  Spillage can only arise from computations as this is where values
 // outside of the user's control are determined.
-func RequiredSpillage(module uint, schema Schema) uint {
+func requiredSpillage(module uint, schema Schema) uint {
 	// Ensures always at least one row of spillage (referred to as the "initial
 	// padding row")
 	mx := uint(1)
@@ -51,7 +65,7 @@ func RequiredSpillage(module uint, schema Schema) uint {
 // ensure no constraint operating in the active region is clipped.  Observe that
 // only front padding is considered because, for now, we assume the prover will
 // only pad at the front.
-func DefensivePadding(module uint, schema Schema) uint {
+func defensivePadding(module uint, schema Schema) uint {
 	front := uint(0)
 	// Determine maximum amounts of defensive padding required for constraints.
 	for i := schema.Constraints(); i.HasNext(); {
