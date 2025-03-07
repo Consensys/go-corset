@@ -1,4 +1,4 @@
-(defpurefun ((vanishes! :@loob) x) x)
+(defpurefun ((vanishes! :𝔽@loob) x) x)
 
 (defcolumns _X _Y)
 (defconstraint c1 () (vanishes! (- _X _Y)))

@@ -1,4 +1,4 @@
-(defpurefun ((vanishes! :@loob) x) x)
+(defpurefun ((vanishes! :𝔽@loob) x) x)
 (defcolumns (A :i2@loob@prove) B C)
 
 ;; returns non-zero value if A is zero

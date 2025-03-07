@@ -1,5 +1,5 @@
 ;;error:6:22-31:void expression not permitted here
-(defpurefun ((vanishes! :@loob :force) e0) e0)
+(defpurefun ((vanishes! :𝔽@loob :force) x) x)
 (defcolumns X Y)
 
 (defconstraint c1 ()

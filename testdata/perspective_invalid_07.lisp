@@ -1,5 +1,5 @@
 ;;error:7:33-35:unknown symbol
-(defpurefun ((vanishes! :@loob :force) e0) e0)
+(defpurefun ((vanishes! :𝔽@loob :force) x) x)
 ;;
 (defcolumns A (P :binary@prove))
 (defperspective p1 P ((B :byte)))

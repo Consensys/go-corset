@@ -1,5 +1,5 @@
 (defpurefun (not! x) (- 1 (~ x)))
-(defpurefun ((not_eq! :@loob) x y) (not! (- x y)))
+(defpurefun ((not_eq! :i16@loob) x y) (not! (- x y)))
 (defpurefun (f x y z) (for i [1] (not_eq! x i)))
 ;;
 (defcolumns X)

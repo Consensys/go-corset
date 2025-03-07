@@ -1,4 +1,4 @@
-(defcolumns (A :@loob) B C)
+(defcolumns (A :i16@loob) B C)
 
 ;; these constraints should all be equivalent
 (defconstraint c01 () (if A (eq! B C)))

@@ -1,4 +1,4 @@
-(defpurefun ((vanishes! :@loob :force) e0) e0)
+(defpurefun ((vanishes! :𝔽@loob :force) x) x)
 
 (module m1)
 (defcolumns A (P :binary@prove))

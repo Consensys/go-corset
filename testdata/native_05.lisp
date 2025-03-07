@@ -1,4 +1,4 @@
-(defpurefun ((eq! :@loob) x y) (- x y))
+(defpurefun ((eq! :𝔽@loob) x y) (- x y))
 
 (defcolumns P Q X Y)
 (defcomputed (Z) (fwd-fill-within P Q X))

@@ -1,4 +1,4 @@
-(defpurefun ((vanishes! :@loob) x) x)
+(defpurefun ((vanishes! :𝔽@loob) x) x)
 
 (defcolumns (X16 :i16@prove)
   (D8 :i8@prove))

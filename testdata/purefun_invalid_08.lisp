@@ -1,5 +1,5 @@
 ;;error:6:22-28:expected loobean constraint (found 𝔽)
-(defcolumns (X :@loob) Y)
+(defcolumns (X :i16@loob) Y)
 (defpurefun (fd x) x)
 
 (defconstraint c1 () (fd X))

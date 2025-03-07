@@ -1,6 +1,6 @@
-(defpurefun ((vanishes! :@loob) x) x)
+(defpurefun ((vanishes! :𝔽@loob) x) x)
 
-(defcolumns ST (A :@loob) B C)
+(defcolumns ST (A :i16@loob) B C)
 (defconstraint c1 (:guard ST)
   (if A
       (vanishes! B)

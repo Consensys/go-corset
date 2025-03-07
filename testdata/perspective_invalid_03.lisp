@@ -1,6 +1,6 @@
 ;;error:15:38-39:unknown symbol
 ;;error:16:38-39:unknown symbol
-(defpurefun ((vanishes! :@loob :force) e0) e0)
+(defpurefun ((vanishes! :𝔽@loob :force) x) x)
 ;;
 (defcolumns
     ;; Column (not in perspective)

@@ -1,4 +1,4 @@
-(defpurefun ((eq! :@loob) x y) (- x y))
+(defpurefun ((eq! :𝔽@loob) x y) (- x y))
 
 (defcolumns P X Y)
 (defcomputed (Z) (bwd-changes-within P X))
