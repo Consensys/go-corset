@@ -1307,6 +1307,7 @@ func Check(t *testing.T, stdlib bool, test string) {
 		filename     = fmt.Sprintf("%s.lisp", test)
 	)
 	//
+	corsetConfig.Legacy = true
 	corsetConfig.Stdlib = stdlib
 	// Enable testing each trace in parallel
 	t.Parallel()
