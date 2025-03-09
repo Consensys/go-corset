@@ -20,7 +20,6 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/hir"
-	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/assignment"
 	tr "github.com/consensys/go-corset/pkg/trace"
@@ -386,7 +385,6 @@ func (t *translator) translateDefInterleaved(decl *ast.DefInterleaved, module ut
 	for i, source := range decl.Sources {
 		var errs []SyntaxError
 		sources[i], errs = t.registerOfColumnAccess(source)
-		//
 		errors = append(errors, errs...)
 	}
 	// Register assignment
@@ -412,22 +410,13 @@ func (t *translator) translateDefPermutation(decl *ast.DefPermutation, module ut
 	sources := make([]uint, len(decl.Sources))
 	//
 	for i := 0; i < len(decl.Sources); i++ {
-		sourceBinding := decl.Sources[i].Binding().(*ast.ColumnBinding)
-		sources[i] = t.env.RegisterOf(&sourceBinding.Path)
 		targetPath := module.Extend(decl.Targets[i].Name())
 		targetId := t.env.RegisterOf(targetPath)
 		target := t.env.Register(targetId)
-		source := t.env.Register(sources[i])
-		targetType := target.DataType
-		// Sanity check and update target type
-		if targetType.Cmp(source.DataType) > 0 {
-			panic(fmt.Sprintf("mismatched types for column %s allocated to register %s of permutation sort (%s vs %s)",
-				target.Name(), source.Name(), targetType, source.DataType))
-		}
-		//
-		targetType = schema.Join(targetType, source.DataType)
 		// Construct columns
-		targets[i] = sc.NewColumn(target.Context, target.Name(), targetType)
+		targets[i] = sc.NewColumn(target.Context, target.Name(), target.DataType)
+		sourceBinding := decl.Sources[i].Binding().(*ast.ColumnBinding)
+		sources[i] = t.env.RegisterOf(&sourceBinding.Path)
 		// Record first CID
 		if i == 0 {
 			firstCid = targetId
