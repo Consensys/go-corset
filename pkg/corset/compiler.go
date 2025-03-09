@@ -92,6 +92,8 @@ type Compiler struct {
 	circuit ast.Circuit
 	// Determines whether debug
 	debug bool
+	// Determines whether to apply sanity checks
+	checks bool
 	// Source maps nodes in the circuit back to the spans in their original
 	// source files.  This is needed when reporting syntax errors to generate
 	// highlights of the relevant source line(s) in question.
@@ -100,7 +102,7 @@ type Compiler struct {
 
 // NewCompiler constructs a new compiler for a given set of modules.
 func NewCompiler(circuit ast.Circuit, srcmaps *sexp.SourceMaps[ast.Node]) *Compiler {
-	return &Compiler{compiler.DEFAULT_ALLOCATOR, circuit, false, srcmaps}
+	return &Compiler{compiler.DEFAULT_ALLOCATOR, circuit, false, true, srcmaps}
 }
 
 // SetDebug enables or disables debug mode.  In debug mode, debug constraints
@@ -141,6 +143,8 @@ func (p *Compiler) Compile() (*binfile.BinaryFile, []SyntaxError) {
 	// Sanity check for errors
 	if len(errs) > 0 {
 		return nil, errs
+	} else if err := schema.CheckConsistency(); err != nil {
+		panic(err.Error())
 	}
 	// Construct source map
 	source_map := constructSourceMap(scope, environment)

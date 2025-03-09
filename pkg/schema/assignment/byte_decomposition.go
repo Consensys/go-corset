@@ -128,6 +128,19 @@ func (p *ByteDecomposition) Dependencies() []uint {
 	return []uint{p.source}
 }
 
+// CheckConsistency performs some simple checks that the given schema is
+// consistent.  This provides a double check of certain key properties, such as
+// that registers used for assignments are large enough, etc.
+func (p *ByteDecomposition) CheckConsistency(schema sc.Schema) error {
+	n := schema.Columns().Nth(p.source).DataType.ByteWidth()
+	//
+	if uint(len(p.targets)) != n {
+		return fmt.Errorf("inconsistent byte decomposition (have %d byte columns, expected %d)", len(p.targets), n)
+	}
+	//
+	return nil
+}
+
 // Decompose a given element into n bytes in little endian form.  For example,
 // decomposing 41b into 2 bytes gives [0x1b,0x04].
 func decomposeIntoBytes(val fr.Element, n int) []fr.Element {

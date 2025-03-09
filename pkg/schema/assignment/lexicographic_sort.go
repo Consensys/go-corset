@@ -156,6 +156,33 @@ func (p *LexicographicSort) Dependencies() []uint {
 	return p.sources
 }
 
+// CheckConsistency performs some simple checks that the given schema is
+// consistent.  This provides a double check of certain key properties, such as
+// that registers used for assignments are large enough, etc.
+func (p *LexicographicSort) CheckConsistency(schema sc.Schema) error {
+	bitwidth := uint(0)
+	// Sanity check source types
+	for i := range p.sources {
+		source := schema.Columns().Nth(p.sources[i])
+		// i+1 because first target is selector
+		target := p.targets[i+1]
+		// Sanit checkout
+		if source.DataType.Cmp(target.DataType) != 0 {
+			return fmt.Errorf("lexicographic sort has inconsistent type for column %s (was %s, expected %s)",
+				source.Name, target.DataType, source.DataType)
+		}
+		//
+		bitwidth = max(bitwidth, source.DataType.BitWidth())
+	}
+	// sanity check bitwidth
+	if bitwidth != p.bitwidth {
+		return fmt.Errorf("lexicographic sort has inconsistent bitwidth (was %d, expected %d)",
+			p.bitwidth, bitwidth)
+	}
+	//
+	return nil
+}
+
 // ============================================================================
 // Lispify Interface
 // ============================================================================

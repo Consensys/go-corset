@@ -121,7 +121,7 @@ func (p *Interleaving) ComputeColumns(trace tr.Trace) ([]tr.ArrayColumn, error) 
 	}
 	// Padding for the entire column is determined by the padding for the first
 	// column in the interleaving.
-	padding := trace.Column(0).Padding()
+	padding := trace.Column(p.Sources[0]).Padding()
 	// Colunm needs to be expanded.
 	col := tr.NewArrayColumn(ctx, p.Target.Name, data, padding)
 	//
@@ -132,6 +132,30 @@ func (p *Interleaving) ComputeColumns(trace tr.Trace) ([]tr.ArrayColumn, error) 
 // That can include both input columns, as well as other computed columns.
 func (p *Interleaving) Dependencies() []uint {
 	return p.Sources
+}
+
+// CheckConsistency performs some simple checks that the given schema is
+// consistent.  This provides a double check of certain key properties, such as
+// that registers used for assignments are large enough, etc.
+func (p *Interleaving) CheckConsistency(schema sc.Schema) error {
+	var datatype sc.Type = nil
+	// Determine type of source registers
+	for _, src := range p.Sources {
+		// Determine src type
+		srcType := schema.Columns().Nth(src).DataType
+		//
+		if datatype == nil {
+			datatype = srcType
+		} else {
+			datatype = sc.Join(datatype, srcType)
+		}
+	}
+	// Check type matches
+	if datatype.Cmp(p.Target.DataType) != 0 {
+		return fmt.Errorf("inconsistent interleaving type (was %s, expected %s)", p.Target.DataType, datatype)
+	}
+	//
+	return nil
 }
 
 // ============================================================================
