@@ -63,6 +63,8 @@ func CompileSourceFiles(config CompilationConfig, srcfiles []*sexp.SourceFile) (
 	// Configure register allocator (if requested)
 	if config.Legacy {
 		comp.SetAllocator(compiler.LegacyAllocator)
+	} else {
+		comp.SetAllocator(compiler.ImprovedAllocator)
 	}
 	//
 	return comp.Compile()

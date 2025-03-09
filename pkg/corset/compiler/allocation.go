@@ -241,7 +241,7 @@ type RegisterAllocation interface {
 
 // DEFAULT_ALLOCATOR determines the register allocation algorithm to use by
 // default.
-var DEFAULT_ALLOCATOR func(RegisterAllocation) = DefaultAllocator
+var DEFAULT_ALLOCATOR func(RegisterAllocation) = LegacyAllocator
 
 // LegacyAllocator is the original register allocation algorithm used in Corset.
 // This is retained for backwards compatibility reasons, but should eventually
@@ -253,9 +253,9 @@ func LegacyAllocator(allocation RegisterAllocation) {
 	allocator.Finalise()
 }
 
-// DefaultAllocator provides the default register allocated used now.  This is
-// more aggressive than the original allocator.
-func DefaultAllocator(allocation RegisterAllocation) {
+// ImprovedAllocator provides an improved register allocation algorithm over the
+// legacy allocator.  However, it is not safe to use at this time.
+func ImprovedAllocator(allocation RegisterAllocation) {
 	sortRegisters(allocation.(*RegisterAllocationView))
 	allocator := NewRegisterAllocator(allocation)
 	// Always try to compact by type first.
