@@ -5,7 +5,7 @@
 (defun (getY) Y)
 (defun (nextX) (shift X 1))
 
-(defconstraint c1 () (vanishes! (* ST (+ (shift (getX) 1) Y))))
-(defconstraint c2 () (vanishes! (* ST (+ (shift X 1) (getY)))))
-(defconstraint c3 () (vanishes! (* ST (+ (shift (getX) 1) (getY)))))
-(defconstraint c4 () (vanishes! (* ST (+ (nextX) Y))))
+(defconstraint c1 () (vanishes! (* ST (- (shift (getX) 1) Y))))
+(defconstraint c2 () (vanishes! (* ST (- (shift X 1) (getY)))))
+(defconstraint c3 () (vanishes! (* ST (- (shift (getX) 1) (getY)))))
+(defconstraint c4 () (vanishes! (* ST (- (nextX) Y))))
