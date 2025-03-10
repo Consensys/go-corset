@@ -3,7 +3,7 @@
 (defpurefun ((vanishes! :𝔽@loob) x) x)
 
 (defconst (ONE :extern) 1)
-(defcolumns CT)
+(defcolumns (CT :i5))
 (defconstraint c1 ()
   (vanishes!
    (* (- CT (shift CT ONE)) (- (+ CT ONE) (shift CT ONE)))))

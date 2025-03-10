@@ -6,4 +6,4 @@
 (defcolumns (A :i16))
 
 (module m2)
-(defcolumns B)
+(defcolumns (B :i16))

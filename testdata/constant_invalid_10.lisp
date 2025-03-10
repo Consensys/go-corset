@@ -1,4 +1,4 @@
-;;error:9:13-14:symbol X already declared
+;;error:9:13-21:symbol X already declared
 (defconst
   X     1
   ONE   X

@@ -3,4 +3,4 @@
 (deflookup test (X) (Y))
 
 (module m1)
-(defcolumns Y)
+(defcolumns (Y :i16))

@@ -3,7 +3,7 @@
 ;;
 (defcolumns
     ;; Column (not in perspective)
-    A
+    (A :i16)
     ;; Selector column for perspective p1
     (P :binary@prove)
     ;; Selector column for perspective p2
