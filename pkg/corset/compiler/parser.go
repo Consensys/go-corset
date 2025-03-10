@@ -276,7 +276,7 @@ func (p *Parser) parseDeclaration(module util.Path, s *sexp.List) (ast.Declarati
 		decl, errors = p.parseDefAlias(true, s.Elements)
 	} else if s.Len() == 3 && s.MatchSymbols(1, "defpurefun") {
 		decl, errors = p.parseDefFun(module, true, s.Elements)
-	} else if s.Len() == 3 && s.MatchSymbols(1, "denonStrictModefun") {
+	} else if s.Len() == 3 && s.MatchSymbols(1, "defun") {
 		decl, errors = p.parseDefFun(module, false, s.Elements)
 	} else if s.Len() == 3 && s.MatchSymbols(1, "definrange") {
 		decl, errors = p.parseDefInRange(s.Elements)

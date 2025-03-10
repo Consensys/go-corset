@@ -1,5 +1,5 @@
 (defpurefun ((vanishes! :𝔽@loob) x) x)
-(defcolumns (A :i2@loob@prove) B C)
+(defcolumns (A :i2@loob@prove) (B :i16) (C :i16))
 
 ;; returns non-zero value if A is zero
 (defun (isz-A) (* (- A 1) (- A 2) (- A 3)))
