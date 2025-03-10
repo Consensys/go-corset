@@ -1,7 +1,7 @@
 ;; ===================================================
 ;; Constraints
 ;; ===================================================
-(defcolumns STAMP CT)
+(defcolumns (STAMP :i16) (CT :i4))
 
 ;; In the first row, STAMP is always zero.  This allows for an
 ;; arbitrary amount of padding at the beginning which has no function.

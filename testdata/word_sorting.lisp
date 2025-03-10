@@ -5,7 +5,7 @@
 (defcolumns (X :i16@prove))
 
 ;; Generated columns
-(defcolumns Delta) ;; implied i16
+(defcolumns (Delta :i16))
 (defcolumns (Byte_0 :i8@prove) (Byte_1 :i8@prove))
 
 ;; Ensure Delta is a u16
