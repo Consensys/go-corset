@@ -45,7 +45,7 @@ type CompilationConfig struct {
 	// Enable legacy register allocator
 	Legacy bool
 	// Enable strict handling of types
-	StrictMode bool
+	Strict bool
 }
 
 // CompileSourceFiles compiles one or more source files into a schema.  This
@@ -55,7 +55,7 @@ func CompileSourceFiles(config CompilationConfig, srcfiles []*sexp.SourceFile) (
 	// Include the standard library (if requested)
 	srcfiles = includeStdlib(config.Stdlib, srcfiles)
 	// Parse all source files (inc stdblib if applicable).
-	circuit, srcmap, errs := compiler.ParseSourceFiles(srcfiles, !config.StrictMode)
+	circuit, srcmap, errs := compiler.ParseSourceFiles(srcfiles, config.Strict)
 	// Check for parsing errors
 	if errs != nil {
 		return nil, errs

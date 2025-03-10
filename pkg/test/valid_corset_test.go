@@ -1309,7 +1309,7 @@ func Check(t *testing.T, stdlib bool, test string) {
 	//
 	corsetConfig.Legacy = true
 	corsetConfig.Stdlib = stdlib
-	corsetConfig.StrictMode = false
+	corsetConfig.Strict = false
 	// Enable testing each trace in parallel
 	t.Parallel()
 	// Read constraints file
@@ -1439,7 +1439,7 @@ var TESTFILE_EXTENSIONS []TestConfig = []TestConfig{
 	{"accepts", true, true, true},
 	{"accepts.bz2", true, true, true},
 	{"auto.accepts", true, true, true},
-	{"expanded.accepts", true, false, true},
+	{"expanded.accepts", true, false, false},
 	// should all fail
 	{"rejects", false, true, false},
 	{"rejects.bz2", false, true, false},

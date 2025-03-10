@@ -41,7 +41,7 @@ var inspectCmd = &cobra.Command{
 		//
 		corsetConfig.Stdlib = !GetFlag(cmd, "no-stdlib")
 		corsetConfig.Legacy = GetFlag(cmd, "legacy")
-		corsetConfig.StrictMode = GetFlag(cmd, "strict")
+		corsetConfig.Strict = GetFlag(cmd, "strict")
 		//
 		stats := util.NewPerfStats()
 		// Parse constraints

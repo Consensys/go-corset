@@ -3,7 +3,7 @@
 (deflookup test (m1.A m2.B) (X Y))
 
 (module m1)
-(defcolumns A)
+(defcolumns (A :i16))
 
 (module m2)
 (defcolumns B)

@@ -38,7 +38,7 @@ var compileCmd = &cobra.Command{
 		corsetConfig.Stdlib = !GetFlag(cmd, "no-stdlib")
 		corsetConfig.Debug = GetFlag(cmd, "debug")
 		corsetConfig.Legacy = GetFlag(cmd, "legacy")
-		corsetConfig.StrictMode = GetFlag(cmd, "strict")
+		corsetConfig.Strict = GetFlag(cmd, "strict")
 		output := GetString(cmd, "output")
 		defines := GetStringArray(cmd, "define")
 		// Parse constraints
