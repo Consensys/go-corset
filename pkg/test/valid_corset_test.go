@@ -843,11 +843,10 @@ func Test_PureFun_08(t *testing.T) {
 	Check(t, false, "purefun_08")
 }
 
-/* #479
 func Test_PureFun_09(t *testing.T) {
-	Check(t, false, "purefun_0")
+	Check(t, false, "purefun_09")
 }
-*/
+
 // ===================================================================
 // For Loops
 // ===================================================================
