@@ -1177,10 +1177,6 @@ func Test_Native_11(t *testing.T) {
 // Equivalence Tests
 // ===================================================================
 
-func Test_Equiv_01(t *testing.T) {
-	Check(t, true, "equiv_01")
-}
-
 // ===================================================================
 // Standard Library Tests
 // ===================================================================
@@ -1191,6 +1187,10 @@ func Test_Stdlib_01(t *testing.T) {
 
 func Test_Stdlib_02(t *testing.T) {
 	Check(t, true, "stdlib_02")
+}
+
+func Test_Stdlib_03(t *testing.T) {
+	Check(t, true, "stdlib_03")
 }
 
 // ===================================================================
