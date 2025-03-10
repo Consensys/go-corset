@@ -183,6 +183,25 @@ func (p *Schema) SubstituteConstants(mapping map[string]fr.Element) {
 }
 
 // ============================================================================
+// Consistency Check
+// ============================================================================
+
+// CheckConsistency performs some simple checks that the given schema is
+// consistent.  This provides a double check of certain key properties, such as
+// that registers used for assignments are large enough, etc.
+func (p *Schema) CheckConsistency() error {
+	// For now, the only consistency check is for assignments.  More could be
+	// done here.
+	for _, a := range p.assignments {
+		if err := a.CheckConsistency(p); err != nil {
+			return err
+		}
+	}
+	//
+	return nil
+}
+
+// ============================================================================
 // Schema Interface
 // ============================================================================
 

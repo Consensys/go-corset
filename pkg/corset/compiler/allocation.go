@@ -241,14 +241,30 @@ type RegisterAllocation interface {
 
 // DEFAULT_ALLOCATOR determines the register allocation algorithm to use by
 // default.
-var DEFAULT_ALLOCATOR func(RegisterAllocation) = originalAllocator
+var DEFAULT_ALLOCATOR func(RegisterAllocation) = LegacyAllocator
 
-// The original register allocation algorithm used in Corset.  This is retained
-// for backwards compatibility reasons, but should eventually be dropped.
-func originalAllocator(allocation RegisterAllocation) {
+// LegacyAllocator is the original register allocation algorithm used in Corset.
+// This is retained for backwards compatibility reasons, but should eventually
+// be dropped.
+func LegacyAllocator(allocation RegisterAllocation) {
 	sortRegisters(allocation.(*RegisterAllocationView))
 	allocator := NewRegisterAllocator(allocation)
 	allocator.CompactBy(identicalType)
+	allocator.Finalise()
+}
+
+// ImprovedAllocator provides an improved register allocation algorithm over the
+// legacy allocator.  However, it is not safe to use at this time.
+func ImprovedAllocator(allocation RegisterAllocation) {
+	sortRegisters(allocation.(*RegisterAllocationView))
+	allocator := NewRegisterAllocator(allocation)
+	// Always try to compact by type first.
+	allocator.CompactBy(identicalType)
+	// Try to compact any unproven register
+	allocator.CompactBy(unprovenType)
+	// try to compact any unproven registers which fit within a proven register.
+	allocator.CompactBy(containedUnprovenType)
+	//
 	allocator.Finalise()
 }
 
@@ -261,6 +277,21 @@ func identicalType(lhs *RegisterGroup, rhs *RegisterGroup) bool {
 	}
 	//
 	return lIntType == rIntType
+}
+
+func unprovenType(lhs *RegisterGroup, rhs *RegisterGroup) bool {
+	return !lhs.mustProve && !rhs.mustProve
+}
+
+func containedUnprovenType(lhs *RegisterGroup, rhs *RegisterGroup) bool {
+	lIntType := lhs.dataType.AsUint()
+	rIntType := rhs.dataType.AsUint()
+	// Check whether both are int types, or not.
+	if lIntType != nil && rIntType != nil {
+		return !lhs.mustProve && rhs.mustProve && lIntType.BitWidth() <= rIntType.BitWidth()
+	}
+	//
+	return false
 }
 
 // Sort the registers into alphabetical order.
@@ -338,6 +369,21 @@ func NewRegisterAllocator(allocation RegisterAllocation) *RegisterAllocator {
 	return &allocator
 }
 
+// Width returns the current number of non-empty groups.
+func (p *RegisterAllocator) Width() uint {
+	count := uint(0)
+	//
+	for i := range p.allocations {
+		ith := &p.allocations[i]
+		// Ignore allocation if its already been merged into something else.
+		if !ith.IsEmpty() {
+			count++
+		}
+	}
+	//
+	return count
+}
+
 // CompactBy Greedily compact the given allocation using a given "compabitility" comparator.
 func (p *RegisterAllocator) CompactBy(predicate AllocationComparator) {
 	for i := range p.allocations {
@@ -387,10 +433,15 @@ func (p *RegisterAllocator) allocateRegister(perspective string, regIndex uint) 
 	// Extract register info
 	regInfo := p.allocation.Register(regIndex)
 	regType := regInfo.DataType
+	regProve := false
+	// Check for provability
+	for _, col := range regInfo.Sources {
+		regProve = regProve || col.MustProve
+	}
 	// Determine perspective slot
 	slot := p.perspectives[perspective]
 	// Construct empty allocation
-	alloc := NewRegisterGroup(regType)
+	alloc := NewRegisterGroup(regType, regProve)
 	// Allocate this slot to the specified register
 	alloc.Assign(slot, regIndex)
 	// Done
@@ -426,6 +477,9 @@ type RegisterGroup struct {
 	// The enclosing type to use for this group, which should include the type
 	// for every allocated slot.
 	dataType sc.Type
+	// Indicates whether any register allocated to this group must have its type
+	// proven.
+	mustProve bool
 	// Identifies members of this group, where each member is a register
 	// allocated to a given slot (i.e. perspective). The intuition is that no
 	// two members of this group should be allocated to the same slot (i.e.
@@ -435,12 +489,13 @@ type RegisterGroup struct {
 }
 
 // NewRegisterGroup constructs a new (and empty) register group.
-func NewRegisterGroup(dataType sc.Type) RegisterGroup {
+func NewRegisterGroup(dataType sc.Type, mustProve bool) RegisterGroup {
 	// Create initially empty set of register slots.
 	slots := set.NewAnySortedSet[RegisterSlot]()
 	//
 	return RegisterGroup{
 		dataType,
+		mustProve,
 		*slots,
 	}
 }
@@ -525,6 +580,9 @@ func (p *RegisterGroup) Disjoint(other *RegisterGroup) bool {
 func (p *RegisterGroup) Merge(other *RegisterGroup) {
 	// Join their datatypes
 	p.dataType = schema.Join(p.dataType, other.dataType)
+	// If either group contains registers whose type must be proven, then so
+	// does this.
+	p.mustProve = p.mustProve || other.mustProve
 	// Join the two groups (via set union)
 	p.slots.InsertSorted(&other.slots)
 	// Mark other allocation as empty

@@ -92,6 +92,10 @@ type Assignment interface {
 	// Returns the set of columns that this assignment depends upon.  That can
 	// include both input columns, as well as other computed columns.
 	Dependencies() []uint
+
+	// CheckConsistent performs some simple checks of consistency against the
+	// given schema.
+	CheckConsistency(schema Schema) error
 }
 
 // Constraint represents an element which can "accept" a trace, or either reject

@@ -31,16 +31,20 @@ var inspectCmd = &cobra.Command{
 	Short: "Inspect a trace file",
 	Long:  `Inspect a trace file using an interactive (terminal-based) environment`,
 	Run: func(cmd *cobra.Command, args []string) {
+		var corsetConfig corset.CompilationConfig
+		//
 		if len(args) != 2 {
 			fmt.Println(cmd.UsageString())
 			os.Exit(1)
 		}
 		defensive := GetFlag(cmd, "defensive")
-		stdlib := !GetFlag(cmd, "no-stdlib")
+		//
+		corsetConfig.Stdlib = !GetFlag(cmd, "no-stdlib")
+		corsetConfig.Legacy = GetFlag(cmd, "legacy")
 		//
 		stats := util.NewPerfStats()
 		// Parse constraints
-		binf := ReadConstraintFiles(stdlib, false, false, args[1:])
+		binf := ReadConstraintFiles(corsetConfig, args[1:])
 		// Sanity check debug information is available.
 		srcmap, srcmap_ok := binfile.GetAttribute[*corset.SourceMap](binf)
 		//

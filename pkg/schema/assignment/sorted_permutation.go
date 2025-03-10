@@ -128,6 +128,24 @@ func (p *SortedPermutation) Dependencies() []uint {
 	return p.Sources
 }
 
+// CheckConsistency performs some simple checks that the given schema is
+// consistent.  This provides a double check of certain key properties, such as
+// that registers used for assignments are large enough, etc.
+func (p *SortedPermutation) CheckConsistency(schema sc.Schema) error {
+	// Sanity check source types
+	for i := range p.Sources {
+		source := schema.Columns().Nth(p.Sources[i])
+		target := p.Targets[i]
+		// Sanit checkout
+		if source.DataType.Cmp(target.DataType) != 0 {
+			return fmt.Errorf("sorted permutation has inconsistent type for column %s => %s (was %s, expected %s)",
+				source.Name, target.Name, target.DataType, source.DataType)
+		}
+	}
+	//
+	return nil
+}
+
 // ============================================================================
 // Lispify Interface
 // ============================================================================

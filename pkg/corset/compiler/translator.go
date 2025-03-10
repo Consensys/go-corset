@@ -141,13 +141,6 @@ func (t *translator) translateInputColumnsInModule(module string) {
 // lead to a panic.
 func (t *translator) translateTypeConstraints(regIndex uint) {
 	regInfo := t.env.Register(regIndex)
-	// NOTE: at the moment, a more restrictive set of requirements is assumed
-	// (compared with the description above).  Specifically we assume that, for
-	// any register needing a type constraint, the type of all source columns is
-	// the same.  The intention is that, in the future, the logic here (and
-	// potentially elsewhere) will be updated to support the weaker requirements
-	// above.  In particular, to make use of the weaker requirements requires a
-	// more powerful register allocator than currently implemented.
 	required := false
 	// Check for provability
 	for _, col := range regInfo.Sources {
@@ -164,9 +157,8 @@ func (t *translator) translateTypeConstraints(regIndex uint) {
 			// Determine bitwidth
 			col_width := col.DataType.AsUint().BitWidth()
 			// Sanity check (for now)
-			if col_width != reg_width {
-				// See above discussion of why this strong restriction is
-				// currently in place.
+			if col.MustProve && col_width != reg_width {
+				// Currently, mixed-width proving types are not supported.
 				panic("cannot (currently) prove type of mixed-width register")
 			}
 		}

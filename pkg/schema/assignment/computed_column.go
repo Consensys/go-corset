@@ -119,6 +119,19 @@ func (p *ComputedColumn) Dependencies() []uint {
 	return *p.expr.RequiredColumns()
 }
 
+// CheckConsistency performs some simple checks that the given schema is
+// consistent.  This provides a double check of certain key properties, such as
+// that registers used for assignments are large enough, etc.
+func (p *ComputedColumn) CheckConsistency(schema sc.Schema) error {
+	// NOTE: in principle, we could do more here if we computed the integer
+	// range of the expression in question.
+	if p.target.DataType.AsField() == nil {
+		return fmt.Errorf("computed column has non-field type %s", p.target.DataType.String())
+	}
+	//
+	return nil
+}
+
 // ============================================================================
 // Lispify Interface
 // ============================================================================

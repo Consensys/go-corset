@@ -192,6 +192,7 @@ func traceToColumns(schema sc.Schema, trace tr.Trace) []tr.RawColumn {
 }
 
 func readSchemaFile(filename string) *hir.Schema {
+	var corsetConfig corset.CompilationConfig
 	// Read schema file
 	bytes, err := os.ReadFile(filename)
 	// Handle errors
@@ -202,7 +203,7 @@ func readSchemaFile(filename string) *hir.Schema {
 	// Package up as source file
 	srcfile := sexp.NewSourceFile(filename, bytes)
 	// Attempt to parse schema
-	binfile, err2 := corset.CompileSourceFile(false, false, srcfile)
+	binfile, err2 := corset.CompileSourceFile(corsetConfig, srcfile)
 	// Check whether parsed successfully or not
 	if err2 == nil {
 		// Ok

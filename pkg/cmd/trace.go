@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/mir"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -38,7 +39,11 @@ var traceCmd = &cobra.Command{
 	it from one format (e.g. lt) to another (e.g. json),
 	or filtering out modules, or listing columns, etc.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		var traces [][]trace.RawColumn
+		var (
+			traces       [][]trace.RawColumn
+			corsetConfig corset.CompilationConfig
+		)
+		//
 		expand := GetFlag(cmd, "expand")
 		// Sanity check
 		if (expand && len(args) != 2) || (!expand && len(args) != 1) {
@@ -60,7 +65,6 @@ var traceCmd = &cobra.Command{
 		defensive := GetFlag(cmd, "defensive")
 		validate := GetFlag(cmd, "validate")
 		stats := GetFlag(cmd, "stats")
-		stdlib := !GetFlag(cmd, "no-stdlib")
 		includes := GetStringArray(cmd, "include")
 		print := GetFlag(cmd, "print")
 		start := GetUint(cmd, "start")
@@ -73,6 +77,9 @@ var traceCmd = &cobra.Command{
 		hir := GetFlag(cmd, "hir")
 		batched := GetFlag(cmd, "batched")
 		metadata := GetFlag(cmd, "metadata")
+		//
+		corsetConfig.Stdlib = !GetFlag(cmd, "no-stdlib")
+		corsetConfig.Legacy = GetFlag(cmd, "legacy")
 		// Parse trace file(s)
 		if batched {
 			// batched mode
@@ -93,7 +100,7 @@ var traceCmd = &cobra.Command{
 		} else if expand {
 			level := determineAbstractionLevel(air, mir, hir)
 			for i, cols := range traces {
-				traces[i] = expandWithConstraints(level, cols, stdlib, validate, defensive, args[1:], optConfig)
+				traces[i] = expandWithConstraints(level, cols, corsetConfig, validate, defensive, args[1:], optConfig)
 			}
 		} else if defensive {
 			fmt.Println("cannot apply defensive padding without trace expansion")
@@ -175,12 +182,12 @@ func determineAbstractionLevel(air, mir, hir bool) int {
 	panic("unreachable")
 }
 
-func expandWithConstraints(level int, cols []trace.RawColumn, stdlib bool, validate bool, defensive bool,
-	filenames []string, optConfig mir.OptimisationConfig) []trace.RawColumn {
+func expandWithConstraints(level int, cols []trace.RawColumn, corsetConfig corset.CompilationConfig, validate bool,
+	defensive bool, filenames []string, optConfig mir.OptimisationConfig) []trace.RawColumn {
 	//
 	var schema sc.Schema
 	//
-	binfile := ReadConstraintFiles(stdlib, false, false, filenames)
+	binfile := ReadConstraintFiles(corsetConfig, filenames)
 	//
 	switch level {
 	case hir_LEVEL:

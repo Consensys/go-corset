@@ -142,7 +142,16 @@ func (p *UintType) SubtypeOf(other Type) bool {
 // the other; 0 if they are equal, a positive value if this type is "above" the
 // other.
 func (p *UintType) Cmp(other Type) int {
-	panic("todo")
+	if it := other.AsUint(); it == nil {
+		// all uints lower and field
+		return -1
+	} else if p.BitWidth() < it.BitWidth() {
+		return -1
+	} else if p.BitWidth() > it.BitWidth() {
+		return 1
+	}
+	// equal
+	return 0
 }
 
 func (p *UintType) String() string {
@@ -186,7 +195,12 @@ func (p *FieldType) SubtypeOf(other Type) bool {
 // the other; 0 if they are equal, a positive value if this type is "above" the
 // other.
 func (p *FieldType) Cmp(other Type) int {
-	panic("todo")
+	if it := other.AsUint(); it != nil {
+		// all uints lower and field
+		return 1
+	}
+	// all field types equal
+	return 0
 }
 
 // Accept determines whether a given value is an element of this type.  In
