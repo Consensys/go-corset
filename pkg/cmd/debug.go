@@ -110,7 +110,7 @@ func init() {
 	debugCmd.Flags().Bool("mir", false, "Print constraints at MIR level")
 	debugCmd.Flags().Bool("stats", false, "Print summary information")
 	debugCmd.Flags().Bool("spillage", false, "Print spillage information")
-	debugCmd.Flags().StringArrayP("set", "s", []string{}, "set value of externalised constant.")
+	debugCmd.Flags().StringArrayP("set", "S", []string{}, "set value of externalised constant.")
 }
 
 func printSchemas(hirSchema *hir.Schema, hir bool, mir bool, air bool, optConfig mir.OptimisationConfig) {
