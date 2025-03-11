@@ -85,6 +85,8 @@ func requiredColumnsOfTerm(e Term) *set.SortedSet[uint] {
 		return set.NewSortedSet[uint]()
 	case *ColumnAccess:
 		return requiredColumnsOfColumnAccess(e)
+	case *LabelledConstant:
+		return set.NewSortedSet[uint]()
 	case *Exp:
 		return requiredColumnsOfTerm(e.Arg)
 	case *IfZero:
@@ -138,6 +140,8 @@ func requiredCellsOfTerm(e Term, row int, tr trace.Trace) *set.AnySortedSet[trac
 		return set.NewAnySortedSet[trace.CellRef]()
 	case *ColumnAccess:
 		return requiredCellsOfColumnAccess(e, row)
+	case *LabelledConstant:
+		return set.NewAnySortedSet[trace.CellRef]()
 	case *Exp:
 		return requiredCellsOfTerm(e.Arg, row, tr)
 	case *IfZero:

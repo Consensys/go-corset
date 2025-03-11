@@ -23,13 +23,13 @@ import (
 func substituteConstraint(mapping map[string]fr.Element, constraint sc.Constraint) {
 	switch e := constraint.(type) {
 	case LookupConstraint:
-		// Subistute through source expressions
+		// Substitute through source expressions
 		for _, source := range e.Sources {
 			substituteExpression(mapping, source.Expr)
 		}
-		// Subistute through target expressions
-		for _, source := range e.Targets {
-			substituteExpression(mapping, source.Expr)
+		// Substitute through target expressions
+		for _, target := range e.Targets {
+			substituteExpression(mapping, target.Expr)
 		}
 	case RangeConstraint:
 		substituteExpression(mapping, e.Expr.Expr)
@@ -37,7 +37,7 @@ func substituteConstraint(mapping map[string]fr.Element, constraint sc.Constrain
 		if e.Selector.HasValue() {
 			substituteExpression(mapping, e.Selector.Unwrap().Expr)
 		}
-		// Subistute through source expressions
+		// Substitute through source expressions
 		for _, source := range e.Sources {
 			substituteExpression(mapping, source.Expr)
 		}
