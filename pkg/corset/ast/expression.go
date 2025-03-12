@@ -49,6 +49,16 @@ type Expr interface {
 	Dependencies() []Symbol
 }
 
+// Condition is a special kind of expression which represents a logical
+// condition, such as an equality, etc.
+type Condition interface {
+	Expr
+	// LeftHandSide returns the left-hand side of this condition.
+	LeftHandSide() Expr
+	// RightHandSide returns the right-hand side of this condition.
+	RightHandSide() Expr
+}
+
 // Context represents the evaluation context for a given expression.
 type Context = tr.RawContext[string]
 
@@ -191,8 +201,8 @@ func (e *ArrayAccess) Dependencies() []Symbol {
 // Cast represents a user-supplied annotation indicating the given expression
 // has the given type.  This is only sound upto the user.
 type Cast struct {
-	Arg      Expr
-	BitWidth uint
+	Arg  Expr
+	Type Type
 }
 
 // AsConstant attempts to evaluate this expression as a constant (signed) value.
@@ -219,7 +229,7 @@ func (e *Cast) Context() Context {
 // so it can be printed.
 func (e *Cast) Lisp() sexp.SExp {
 	return sexp.NewList([]sexp.SExp{
-		sexp.NewSymbol(fmt.Sprintf(":u%d", e.BitWidth)),
+		sexp.NewSymbol(e.Type.String()),
 		e.Arg.Lisp()})
 }
 
@@ -306,6 +316,71 @@ func (e *Debug) Lisp() sexp.SExp {
 // Dependencies needed to signal declaration.
 func (e *Debug) Dependencies() []Symbol {
 	return e.Arg.Dependencies()
+}
+
+// ============================================================================
+// Equality
+// ============================================================================
+
+// Equals represents either an equality (e.g. X==Y) or an non-equality (X!=Y).
+type Equals struct {
+	// Indicates equality (true) or non-equality (false).
+	Sign bool
+	// Left-Hand Side
+	Lhs Expr
+	// Right-Hand Side
+	Rhs Expr
+}
+
+// AsConstant attempts to evaluate this expression as a constant (signed) value.
+// If this expression is not constant, then nil is returned.
+func (e *Equals) AsConstant() *big.Int {
+	panic("todo")
+}
+
+// Multiplicity determines the number of values that evaluating this expression
+// can generate.
+func (e *Equals) Multiplicity() uint {
+	return determineMultiplicity([]Expr{e.Lhs, e.Rhs})
+}
+
+// Context returns the context for this expression.  Observe that the
+// expression must have been resolved for this to be defined (i.e. it may
+// panic if it has not been resolved yet).
+func (e *Equals) Context() Context {
+	return ContextOfExpressions([]Expr{e.Lhs, e.Rhs})
+}
+
+// Lisp converts this schema element into a simple S-Expression, for example
+// so it can be printed.
+func (e *Equals) Lisp() sexp.SExp {
+	var symbol sexp.SExp
+	//
+	if e.Sign {
+		symbol = sexp.NewSymbol("==")
+	} else {
+		symbol = sexp.NewSymbol("!=")
+	}
+	//
+	return sexp.NewList([]sexp.SExp{
+		symbol,
+		e.Lhs.Lisp(),
+		e.Rhs.Lisp()})
+}
+
+// Dependencies needed to signal declaration.
+func (e *Equals) Dependencies() []Symbol {
+	return DependenciesOfExpressions([]Expr{e.Lhs, e.Rhs})
+}
+
+// LeftHandSide returns the left-hand side of this condition.
+func (e *Equals) LeftHandSide() Expr {
+	return e.Lhs
+}
+
+// RightHandSide returns the right-hand side of this condition.
+func (e *Equals) RightHandSide() Expr {
+	return e.Rhs
 }
 
 // ============================================================================
@@ -438,44 +513,18 @@ func (e *For) Dependencies() []Symbol {
 }
 
 // ============================================================================
-// IfZero
+// If
 // ============================================================================
 
 // If returns the (optional) true branch when the condition evaluates to zero, and
 // the (optional false branch otherwise.
 type If struct {
-	// Indicates whether this is an if-zero (Kind==1) or an if-notzero
-	// (Kind==2).  Any other Kind value implies this has not yet been
-	// determined.
-	Kind uint8
 	// Elements contained within this list.
 	Condition Expr
 	// True branch (optional).
 	TrueBranch Expr
 	// False branch (optional).
 	FalseBranch Expr
-}
-
-// IsIfZero determines whether or not this has been determined as an IfZero
-// condition.
-func (e *If) IsIfZero() bool {
-	return e.Kind == 1
-}
-
-// IsIfNotZero determines whether or not this has been determined as an
-// IfNotZero condition.
-func (e *If) IsIfNotZero() bool {
-	return e.Kind == 2
-}
-
-// FixSemantics fixes the semantics for this condition to be either "if-zero" or
-// "if-notzero".
-func (e *If) FixSemantics(ifzero bool) {
-	if ifzero {
-		e.Kind = 1
-	} else {
-		e.Kind = 2
-	}
 }
 
 // AsConstant attempts to evaluate this expression as a constant (signed) value.
@@ -515,6 +564,7 @@ func (e *If) Lisp() sexp.SExp {
 	if e.FalseBranch != nil {
 		return sexp.NewList([]sexp.SExp{
 			sexp.NewSymbol("if"),
+			e.Condition.Lisp(),
 			e.TrueBranch.Lisp(),
 			e.FalseBranch.Lisp()})
 	}
@@ -1111,12 +1161,17 @@ func Substitute(expr Expr, mapping map[uint]Expr, srcmap *source.Maps[Node]) Exp
 		nexpr = &Add{args}
 	case *Cast:
 		arg := Substitute(e.Arg, mapping, srcmap)
-		nexpr = &Cast{arg, e.BitWidth}
+		nexpr = &Cast{arg, e.Type}
 	case *Constant:
 		return e
 	case *Debug:
 		arg := Substitute(e.Arg, mapping, srcmap)
 		nexpr = &Debug{arg}
+	case *Equals:
+		lhs := Substitute(e.Lhs, mapping, srcmap)
+		rhs := Substitute(e.Rhs, mapping, srcmap)
+		// Done
+		nexpr = &Equals{e.Sign, lhs, rhs}
 	case *Exp:
 		arg := Substitute(e.Arg, mapping, srcmap)
 		pow := Substitute(e.Pow, mapping, srcmap)
@@ -1126,11 +1181,11 @@ func Substitute(expr Expr, mapping map[uint]Expr, srcmap *source.Maps[Node]) Exp
 		body := Substitute(e.Body, mapping, srcmap)
 		nexpr = &For{e.Binding, e.Start, e.End, body}
 	case *If:
-		condition := Substitute(e.Condition, mapping, srcmap)
+		cond := Substitute(e.Condition, mapping, srcmap)
 		trueBranch := SubstituteOptional(e.TrueBranch, mapping, srcmap)
 		falseBranch := SubstituteOptional(e.FalseBranch, mapping, srcmap)
 		// Construct appropriate if form
-		nexpr = &If{e.Kind, condition, trueBranch, falseBranch}
+		nexpr = &If{cond.(Condition), trueBranch, falseBranch}
 	case *Invoke:
 		args := SubstituteAll(e.Args, mapping, srcmap)
 		nexpr = &Invoke{e.Name, e.Signature, args}
@@ -1166,14 +1221,13 @@ func Substitute(expr Expr, mapping map[uint]Expr, srcmap *source.Maps[Node]) Exp
 		} else {
 			// Shallow copy the node to ensure it is unique and, hence, can have
 			// the source mapping associated with e.
-			nexpr = ShallowCopy(e2)
+			expr, nexpr = e2, ShallowCopy(e2)
 		}
 	default:
 		panic(fmt.Sprintf("unknown expression (%s)", reflect.TypeOf(expr)))
 	}
-	//
+	// Copy over source information
 	if srcmap != nil {
-		// Copy over source information
 		srcmap.Copy(expr, nexpr)
 	}
 	// Done
@@ -1213,17 +1267,19 @@ func ShallowCopy(expr Expr) Expr {
 	case *Add:
 		return &Add{e.Args}
 	case *Cast:
-		return &Cast{e.Arg, e.BitWidth}
+		return &Cast{e.Arg, e.Type}
 	case *Constant:
 		return &Constant{e.Val}
 	case *Debug:
 		return &Debug{e.Arg}
+	case *Equals:
+		return &Equals{e.Sign, e.Lhs, e.Rhs}
 	case *Exp:
 		return &Exp{e.Arg, e.Pow}
 	case *For:
 		return &For{e.Binding, e.Start, e.End, e.Body}
 	case *If:
-		return &If{e.Kind, e.Condition, e.TrueBranch, e.FalseBranch}
+		return &If{e.Condition, e.TrueBranch, e.FalseBranch}
 	case *Invoke:
 		return &Invoke{e.Name, e.Signature, e.Args}
 	case *List:

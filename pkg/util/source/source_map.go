@@ -66,6 +66,18 @@ func NewSourceMaps[T comparable]() *Maps[T] {
 	return &Maps[T]{[]Map[T]{}}
 }
 
+// Has checks whether a given node has a mapping in one of the source maps
+// embodied within.
+func (p *SourceMaps[T]) Has(node T) bool {
+	for _, m := range p.maps {
+		if m.Has(node) {
+			return true
+		}
+	}
+	//
+	return false
+}
+
 // SyntaxError constructs a syntax error for a given node contained within one
 // of the source files managed by this set of source maps.
 //

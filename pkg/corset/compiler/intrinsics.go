@@ -143,7 +143,7 @@ func intrinsicNaryBody(arity uint) []ast.Expr {
 	args := make([]ast.Expr, arity)
 	//
 	for i := uint(0); i != arity; i++ {
-		name := fmt.Sprintf("x%d", i)
+		name := fmt.Sprintf("$%d", i)
 		path := util.NewAbsolutePath(name)
 		binding := &ast.LocalVariableBinding{Name: name, DataType: nil, Index: i}
 		args[i] = ast.NewVariableAccess(path, true, binding)

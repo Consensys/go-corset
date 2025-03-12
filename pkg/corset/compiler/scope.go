@@ -348,8 +348,8 @@ func (p *ModuleScope) Flattern() []*ModuleScope {
 func (p *ModuleScope) destructureColumn(column *ast.ColumnBinding, ctx util.Path, path util.Path,
 	datatype ast.Type) []RegisterSource {
 	// Check for base base
-	if datatype.AsUnderlying() != nil {
-		return p.destructureAtomicColumn(column, ctx, path, datatype.AsUnderlying())
+	if int_t := datatype.(*ast.IntType); int_t != nil {
+		return p.destructureAtomicColumn(column, ctx, path, int_t.AsUnderlying())
 	} else if arraytype, ok := datatype.(*ast.ArrayType); ok {
 		// For now, assume must be an array
 		return p.destructureArrayColumn(column, ctx, path, arraytype)

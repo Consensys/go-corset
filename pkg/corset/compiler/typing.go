@@ -117,7 +117,7 @@ func (p *typeChecker) typeCheckDefConstInModule(decl *ast.DefConst) []SyntaxErro
 	//
 	for _, c := range decl.Constants {
 		// Resolve constant body
-		_, errs := p.typeCheckExpressionInModule(c.ConstBinding.Value)
+		_, errs := p.typeCheckExpressionInModule(ast.INT_TYPE, c.ConstBinding.Value)
 		// Accumulate errors
 		errors = append(errors, errs...)
 	}
@@ -128,20 +128,9 @@ func (p *typeChecker) typeCheckDefConstInModule(decl *ast.DefConst) []SyntaxErro
 // typeCheck a "defconstraint" declaration.
 func (p *typeChecker) typeCheckDefConstraint(decl *ast.DefConstraint) []SyntaxError {
 	// typeCheck (optional) guard
-	guard_t, guard_errors := p.typeCheckOptionalExpressionInModule(decl.Guard)
+	_, guard_errors := p.typeCheckOptionalExpressionInModule(ast.BOOLEAN_TYPE, decl.Guard)
 	// typeCheck constraint body
-	constraint_t, constraint_errors := p.typeCheckExpressionInModule(decl.Constraint)
-	// Check guard type
-	if guard_t != nil && guard_t.HasLoobeanSemantics() {
-		err := p.srcmap.SyntaxError(decl.Guard, "unexpected loobean guard")
-		guard_errors = append(guard_errors, *err)
-	}
-	// Check constraint type
-	if constraint_t != nil && !constraint_t.HasLoobeanSemantics() {
-		msg := fmt.Sprintf("expected loobean constraint (found %s)", constraint_t.String())
-		err := p.srcmap.SyntaxError(decl.Constraint, msg)
-		constraint_errors = append(constraint_errors, *err)
-	}
+	_, constraint_errors := p.typeCheckExpressionInModule(ast.BOOLEAN_TYPE, decl.Constraint)
 	// Combine errors
 	return append(constraint_errors, guard_errors...)
 }
@@ -149,7 +138,7 @@ func (p *typeChecker) typeCheckDefConstraint(decl *ast.DefConstraint) []SyntaxEr
 // ast.Type check the body of a function.
 func (p *typeChecker) typeCheckDefFunInModule(decl *ast.DefFun) []SyntaxError {
 	// Resolve property body
-	_, errors := p.typeCheckExpressionInModule(decl.Body())
+	_, errors := p.typeCheckExpressionInModule(nil, decl.Body())
 	// FIXME: type check return?
 	// Done
 	return errors
@@ -160,8 +149,8 @@ func (p *typeChecker) typeCheckDefFunInModule(decl *ast.DefFun) []SyntaxError {
 //nolint:staticcheck
 func (p *typeChecker) typeCheckDefLookup(decl *ast.DefLookup) []SyntaxError {
 	// typeCheck source expressions
-	_, source_errs := p.typeCheckExpressionsInModule(decl.Sources)
-	_, target_errs := p.typeCheckExpressionsInModule(decl.Targets)
+	_, source_errs := p.typeCheckExpressionsInModule(ast.INT_TYPE, decl.Sources)
+	_, target_errs := p.typeCheckExpressionsInModule(ast.INT_TYPE, decl.Targets)
 	// Combine errors
 	return append(source_errs, target_errs...)
 }
@@ -169,7 +158,7 @@ func (p *typeChecker) typeCheckDefLookup(decl *ast.DefLookup) []SyntaxError {
 // typeCheck a "definrange" declaration.
 func (p *typeChecker) typeCheckDefInRange(decl *ast.DefInRange) []SyntaxError {
 	// typeCheck constraint body
-	_, errors := p.typeCheckExpressionInModule(decl.Expr)
+	_, errors := p.typeCheckExpressionInModule(ast.INT_TYPE, decl.Expr)
 	// Done
 	return errors
 }
@@ -177,7 +166,7 @@ func (p *typeChecker) typeCheckDefInRange(decl *ast.DefInRange) []SyntaxError {
 // typeCheck a "defperspective" declaration.
 func (p *typeChecker) typeCheckDefPerspective(decl *ast.DefPerspective) []SyntaxError {
 	// typeCheck selector expression
-	_, errors := p.typeCheckExpressionInModule(decl.Selector)
+	_, errors := p.typeCheckExpressionInModule(ast.BOOLEAN_TYPE, decl.Selector)
 	// Combine errors
 	return errors
 }
@@ -185,7 +174,7 @@ func (p *typeChecker) typeCheckDefPerspective(decl *ast.DefPerspective) []Syntax
 // typeCheck a "defproperty" declaration.
 func (p *typeChecker) typeCheckDefProperty(decl *ast.DefProperty) []SyntaxError {
 	// type check constraint body
-	_, errors := p.typeCheckExpressionInModule(decl.Assertion)
+	_, errors := p.typeCheckExpressionInModule(ast.BOOLEAN_TYPE, decl.Assertion)
 	// Done
 	return errors
 }
@@ -195,7 +184,7 @@ func (p *typeChecker) typeCheckDefSorted(decl *ast.DefSorted) []SyntaxError {
 	var errors []SyntaxError
 	//
 	if decl.Selector.HasValue() {
-		_, errors = p.typeCheckExpressionInModule(decl.Selector.Unwrap())
+		_, errors = p.typeCheckExpressionInModule(ast.BOOLEAN_TYPE, decl.Selector.Unwrap())
 	}
 	//
 	return errors
@@ -204,10 +193,10 @@ func (p *typeChecker) typeCheckDefSorted(decl *ast.DefSorted) []SyntaxError {
 // typeCheck an optional expression in a given context.  That is an expression
 // which maybe nil (i.e. doesn't exist).  In such case, nil is returned (i.e.
 // without any errors).
-func (p *typeChecker) typeCheckOptionalExpressionInModule(expr ast.Expr) (ast.Type, []SyntaxError) {
+func (p *typeChecker) typeCheckOptionalExpressionInModule(expected ast.Type, expr ast.Expr) (ast.Type, []SyntaxError) {
 	//
 	if expr != nil {
-		return p.typeCheckExpressionInModule(expr)
+		return p.typeCheckExpressionInModule(expected, expr)
 	}
 	//
 	return nil, nil
@@ -216,7 +205,7 @@ func (p *typeChecker) typeCheckOptionalExpressionInModule(expr ast.Expr) (ast.Ty
 // typeCheck a sequence of zero or more expressions enclosed in a given module.
 // All expressions are expected to be non-voidable (see below for more on
 // voidability).
-func (p *typeChecker) typeCheckExpressionsInModule(exprs []ast.Expr) ([]ast.Type, []SyntaxError) {
+func (p *typeChecker) typeCheckExpressionsInModule(expected ast.Type, exprs []ast.Expr) ([]ast.Type, []SyntaxError) {
 	errors := []SyntaxError{}
 	types := make([]ast.Type, len(exprs))
 	// Iterate each expression in turn
@@ -226,7 +215,7 @@ func (p *typeChecker) typeCheckExpressionsInModule(exprs []ast.Expr) ([]ast.Type
 		}
 		//
 		var errs []SyntaxError
-		types[i], errs = p.typeCheckExpressionInModule(e)
+		types[i], errs = p.typeCheckExpressionInModule(expected, e)
 		errors = append(errors, errs...)
 		// Sanity check what we got back
 		if types[i] == nil {
@@ -240,69 +229,84 @@ func (p *typeChecker) typeCheckExpressionsInModule(exprs []ast.Expr) ([]ast.Type
 // typeCheck an expression situated in a given context.  The context is
 // necessary to resolve unqualified names (e.g. for column access, function
 // invocations, etc).
-func (p *typeChecker) typeCheckExpressionInModule(expr ast.Expr) (ast.Type, []SyntaxError) {
+func (p *typeChecker) typeCheckExpressionInModule(expected ast.Type, expr ast.Expr) (ast.Type, []SyntaxError) {
+	var (
+		result ast.Type
+		errors []SyntaxError
+	)
+	//
 	switch e := expr.(type) {
 	case *ast.ArrayAccess:
 		return p.typeCheckArrayAccessInModule(e)
 	case *ast.Add:
-		types, errs := p.typeCheckExpressionsInModule(e.Args)
-		return ast.LeastUpperBoundAll(types), errs
+		_, errors = p.typeCheckExpressionsInModule(ast.INT_TYPE, e.Args)
+		result = ast.INT_TYPE
 	case *ast.Cast:
-		// No need to actually do anything here, since at this point in the
-		// compilation process a cast can only occur as the last item of a
-		// function body.
-		return p.typeCheckExpressionInModule(e.Arg)
+		// FIXME: implement casts properly.
+		result, errors = p.typeCheckExpressionInModule(nil, e.Arg)
 	case *ast.Constant:
 		nbits := e.Val.BitLen()
-		return ast.NewUintType(uint(nbits)), nil
+		result = ast.NewUintType(uint(nbits))
 	case *ast.Debug:
-		return p.typeCheckExpressionInModule(e.Arg)
-	case *ast.Exp:
-		arg_t, errs1 := p.typeCheckExpressionInModule(e.Arg)
-		_, errs2 := p.typeCheckExpressionInModule(e.Pow)
+		result, errors = p.typeCheckExpressionInModule(nil, e.Arg)
+	case *ast.Equals:
+		_, errs1 := p.typeCheckExpressionInModule(ast.INT_TYPE, e.Lhs)
+		_, errs2 := p.typeCheckExpressionInModule(ast.INT_TYPE, e.Rhs)
 		// Done
-		return arg_t, append(errs1, errs2...)
+		result, errors = ast.BOOLEAN_TYPE, append(errs1, errs2...)
+	case *ast.Exp:
+		_, errs1 := p.typeCheckExpressionInModule(ast.INT_TYPE, e.Arg)
+		_, errs2 := p.typeCheckExpressionInModule(ast.INT_TYPE, e.Pow)
+		// Done
+		result, errors = ast.INT_TYPE, append(errs1, errs2...)
 	case *ast.For:
 		// TODO: update environment with type of index variable.
-		return p.typeCheckExpressionInModule(e.Body)
+		result, errors = p.typeCheckExpressionInModule(nil, e.Body)
 	case *ast.If:
-		return p.typeCheckIfInModule(e)
+		result, errors = p.typeCheckIfInModule(e)
 	case *ast.Invoke:
-		return p.typeCheckInvokeInModule(e)
+		result, errors = p.typeCheckInvokeInModule(e)
 	case *ast.Let:
-		return p.typeCheckLetInModule(e)
+		result, errors = p.typeCheckLetInModule(e)
 	case *ast.List:
-		types, errs := p.typeCheckExpressionsInModule(e.Args)
-		return ast.LeastUpperBoundAll(types), errs
+		types, errs := p.typeCheckExpressionsInModule(nil, e.Args)
+		result, errors = ast.LeastUpperBound(types...), errs
 	case *ast.Mul:
-		types, errs := p.typeCheckExpressionsInModule(e.Args)
-		return ast.GreatestLowerBoundAll(types), errs
+		_, errors = p.typeCheckExpressionsInModule(ast.INT_TYPE, e.Args)
+		result = ast.INT_TYPE
 	case *ast.Normalise:
-		_, errs := p.typeCheckExpressionInModule(e.Arg)
+		_, errors = p.typeCheckExpressionInModule(ast.INT_TYPE, e.Arg)
 		// Normalise guaranteed to return either 0 or 1.
-		return ast.NewUintType(1), errs
+		result = ast.NewUintType(1)
 	case *ast.Reduce:
-		return p.typeCheckReduceInModule(e)
+		result, errors = p.typeCheckReduceInModule(e)
 	case *ast.Shift:
-		arg_t, arg_errs := p.typeCheckExpressionInModule(e.Arg)
-		_, shf_errs := p.typeCheckExpressionInModule(e.Shift)
+		_, arg_errs := p.typeCheckExpressionInModule(ast.INT_TYPE, e.Arg)
+		_, shf_errs := p.typeCheckExpressionInModule(ast.INT_TYPE, e.Shift)
 		// combine errors
-		return arg_t, append(arg_errs, shf_errs...)
+		errors = append(arg_errs, shf_errs...)
 	case *ast.Sub:
-		types, errs := p.typeCheckExpressionsInModule(e.Args)
-		return ast.LeastUpperBoundAll(types), errs
+		_, errors = p.typeCheckExpressionsInModule(ast.INT_TYPE, e.Args)
+		result = ast.INT_TYPE
 	case *ast.VariableAccess:
-		return p.typeCheckVariableInModule(e)
+		result, errors = p.typeCheckVariableInModule(e)
 	default:
-		return nil, p.srcmap.SyntaxErrors(expr, "unknown expression encountered during translation")
+		return nil, p.srcmap.SyntaxErrors(expr, "unknown expression encountered during typing")
 	}
+	// Error check
+	if expected != nil && !result.SubtypeOf(expected) {
+		msg := fmt.Sprintf("expected %s, found %s", expected.String(), result.String())
+		return nil, p.srcmap.SyntaxErrors(expr, msg)
+	}
+	//
+	return result, errors
 }
 
 // ast.Type check an array access expression.  The main thing is to check that the
 // column being accessed was originally defined as an array column.
 func (p *typeChecker) typeCheckArrayAccessInModule(expr *ast.ArrayAccess) (ast.Type, []SyntaxError) {
 	// ast.Type check index expression
-	_, errs := p.typeCheckExpressionInModule(expr.Arg)
+	_, errs := p.typeCheckExpressionInModule(ast.INT_TYPE, expr.Arg)
 	// NOTE: following cast safe because resolver already checked them.
 	if binding, ok := expr.Binding().(*ast.ColumnBinding); !ok || !expr.IsResolved() {
 		// NOTE: we don't return an error here, since this case would have already
@@ -320,23 +324,24 @@ func (p *typeChecker) typeCheckArrayAccessInModule(expr *ast.ArrayAccess) (ast.T
 // the semantics of the condition, this is inferred as an "if-zero" or an
 // "if-notzero".
 func (p *typeChecker) typeCheckIfInModule(expr *ast.If) (ast.Type, []SyntaxError) {
-	types, errs := p.typeCheckExpressionsInModule([]ast.Expr{expr.Condition, expr.TrueBranch, expr.FalseBranch})
-	// Sanity check
-	if len(errs) != 0 || types == nil {
-		return nil, errs
+	// Check condition
+	_, errors := p.typeCheckExpressionInModule(ast.BOOLEAN_TYPE, expr.Condition)
+	// Check true branch
+	res_t, errs := p.typeCheckExpressionInModule(nil, expr.TrueBranch)
+	errors = append(errors, errs...)
+	//
+	if expr.FalseBranch != nil {
+		rhs_t, errs2 := p.typeCheckExpressionInModule(nil, expr.FalseBranch)
+		errors = append(errors, errs2...)
+		// Join result types
+		res_t = ast.LeastUpperBound(res_t, rhs_t)
 	}
-	// Check & Resolve Condition
-	if types[0].HasLoobeanSemantics() {
-		// if-zero
-		expr.FixSemantics(true)
-	} else if types[0].HasBooleanSemantics() {
-		// if-notzero
-		expr.FixSemantics(false)
-	} else {
-		return nil, p.srcmap.SyntaxErrors(expr.Condition, "invalid condition (neither loobean nor boolean)")
+	// sanity check
+	if len(errors) > 0 {
+		return nil, errors
 	}
-	// Join result types
-	return ast.GreatestLowerBoundAll(types[1:]), errs
+	// success
+	return res_t, nil
 }
 
 func (p *typeChecker) typeCheckInvokeInModule(expr *ast.Invoke) (ast.Type, []SyntaxError) {
@@ -346,7 +351,7 @@ func (p *typeChecker) typeCheckInvokeInModule(expr *ast.Invoke) (ast.Type, []Syn
 		// We don't return an error here, since one would already have been
 		// generated during resolution.
 		return nil, nil
-	} else if argTypes, errors := p.typeCheckExpressionsInModule(expr.Args); len(errors) > 0 {
+	} else if argTypes, errors := p.typeCheckExpressionsInModule(nil, expr.Args); len(errors) > 0 {
 		return nil, errors
 	} else if argTypes == nil {
 		// An upstream expression could not because of a resolution error.
@@ -375,7 +380,7 @@ func (p *typeChecker) typeCheckInvokeInModule(expr *ast.Invoke) (ast.Type, []Syn
 		// could avoid it.
 		body := signature.Apply(expr.Args, p.srcmap)
 		// Dig out the type
-		return p.typeCheckExpressionInModule(body)
+		return p.typeCheckExpressionInModule(nil, body)
 	}
 	// ambiguous invocation
 	return nil, p.srcmap.SyntaxErrors(expr.Name, "ambiguous invocation")
@@ -385,7 +390,7 @@ func (p *typeChecker) typeCheckLetInModule(expr *ast.Let) (ast.Type, []SyntaxErr
 	// NOTE: there is a limitation here since we are using the type of the
 	// assigned expressions.  It would be nice to retain this, but it would
 	// require a more flexible notion of environment than we currently have.
-	if types, arg_errors := p.typeCheckExpressionsInModule(expr.Args); types != nil {
+	if types, arg_errors := p.typeCheckExpressionsInModule(nil, expr.Args); types != nil {
 		// Update type for let-bound variables.
 		for i := range expr.Vars {
 			if types[i] != nil {
@@ -393,7 +398,7 @@ func (p *typeChecker) typeCheckLetInModule(expr *ast.Let) (ast.Type, []SyntaxErr
 			}
 		}
 		// ast.Type check body
-		body_t, body_errors := p.typeCheckExpressionInModule(expr.Body)
+		body_t, body_errors := p.typeCheckExpressionInModule(nil, expr.Body)
 		//
 		return body_t, append(arg_errors, body_errors...)
 	} else {
@@ -404,7 +409,7 @@ func (p *typeChecker) typeCheckLetInModule(expr *ast.Let) (ast.Type, []SyntaxErr
 func (p *typeChecker) typeCheckReduceInModule(expr *ast.Reduce) (ast.Type, []SyntaxError) {
 	var signature *ast.FunctionSignature
 	// ast.Type check body of reduction
-	body_t, errors := p.typeCheckExpressionInModule(expr.Arg)
+	body_t, errors := p.typeCheckExpressionInModule(nil, expr.Arg)
 	// Following safe as resolver checked this already.
 	if binding, ok := expr.Name.Binding().(ast.FunctionBinding); ok && body_t != nil {
 		//
@@ -445,7 +450,7 @@ func (p *typeChecker) typeCheckVariableInModule(expr *ast.VariableAccess) (ast.T
 		return binding.DataType, nil
 	} else if binding, ok := expr.Binding().(*ast.ConstantBinding); ok {
 		// Constant
-		return p.typeCheckExpressionInModule(binding.Value)
+		return p.typeCheckExpressionInModule(binding.DataType, binding.Value)
 	} else if binding, ok := expr.Binding().(*ast.LocalVariableBinding); ok {
 		// Parameter, for or let variable
 		return binding.DataType, nil

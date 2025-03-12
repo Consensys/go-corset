@@ -59,17 +59,18 @@ func NewConst64(val uint64) Expr {
 
 // EqualsZero converts this expression into an equality test against zero.
 func (e Expr) EqualsZero() Constraint {
-	return Constraint{[]Term{e.term}}
+	zero := &Constant{fr.NewElement(0)}
+	eqz := Equation{EQUALS, e.term, zero}
+
+	return Constraint{[]Equation{eqz}}
 }
 
 // NotEqualsZero converts this expression into an inequality test against zero.
 func (e Expr) NotEqualsZero() Constraint {
-	// (1 - NORM(cb)) for true branch
-	normBody := Normalise(e)
-	one := NewConst64(1)
-	oneMinusNormBody := Subtract(one, normBody)
-	//
-	return Constraint{[]Term{oneMinusNormBody.term}}
+	zero := &Constant{fr.NewElement(0)}
+	eqz := Equation{NOT_EQUALS, e.term, zero}
+
+	return Constraint{[]Equation{eqz}}
 }
 
 // Context determines the evaluation context (i.e. enclosing module) for this

@@ -23,6 +23,37 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 )
 
+func evalAtEquation(e Equation, k int, trace tr.Trace) (fr.Element, error) {
+	var (
+		zero fr.Element = fr.NewElement(0)
+		one  fr.Element = fr.NewElement(1)
+	)
+	//
+	lhs, err1 := evalAtTerm(e.lhs, k, trace)
+	rhs, err2 := evalAtTerm(e.rhs, k, trace)
+	// error check
+	if err1 != nil {
+		return fr.One(), err1
+	} else if err2 != nil {
+		return fr.One(), err2
+	}
+	// perform comparison
+	c := lhs.Cmp(&rhs)
+	//
+	switch e.kind {
+	case EQUALS:
+		if c == 0 {
+			return zero, nil
+		}
+	case NOT_EQUALS:
+		if c != 0 {
+			return zero, nil
+		}
+	}
+	// failure
+	return one, nil
+}
+
 func evalAtTerm(e Term, k int, trace tr.Trace) (fr.Element, error) {
 	switch e := e.(type) {
 	case *Add:
