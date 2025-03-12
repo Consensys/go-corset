@@ -1,8 +1,8 @@
 (defcolumns
-  ST
-  CT
+  (ST :i32)
+  (CT :i4)
   (BYTE :i8@prove)
-  (ARG))
+  (ARG :i32))
 
 ;; In the first row, ST is always zero.  This allows for an
 ;; arbitrary amount of padding at the beginning which has no function.

@@ -1,5 +1,5 @@
 ;;error:2:1-2:blah
-(defcolumns X)
+(defcolumns (X :i16))
 ;; recursive :)
 (defun (id x) (+ x (id x)))
 ;; infinite loop?

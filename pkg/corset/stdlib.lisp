@@ -16,8 +16,8 @@
 (defpurefun (if-not-zero cond then) (if (force-bool cond) then))
 (defpurefun (if-not-zero cond then else) (if (force-bool cond) then else))
 
-(defpurefun ((force-bool :@bool :force) x) x)
-(defpurefun ((is-binary :@loob :force) e0) (* e0 (- 1 e0)))
+(defpurefun ((force-bool :𝔽@bool :force) x) x)
+(defpurefun ((is-binary :𝔽@loob :force) e0) (* e0 (- 1 e0)))
 
 (defpurefun ((force-bin :binary :force) x) x)
 
@@ -27,18 +27,15 @@
 ;; !-suffix denotes loobean algebra (i.e. 0 == true)
 ;; ~-prefix denotes normalized-functions (i.e. output is 0/1)
 (defpurefun (and a b) (* a b))
-(defpurefun ((~and :binary@bool) a b) (~ (and a b)))
-(defpurefun ((or! :@loob) a b) (* a b))
-(defpurefun ((~or! :binary@loob) a b) (~ (or! a b)))
-
+(defpurefun ((or! :𝔽@loob) a b) (* a b))
 (defpurefun ((not :binary@bool :force) (x :binary)) (- 1 x))
 
-(defpurefun ((eq! :@loob) x y) (- x y))
+(defpurefun ((eq! :𝔽@loob) x y) (- x y))
 (defpurefun ((neq! :binary@loob :force) x y) (not (~ (eq! x y))))
 (defunalias = eq!)
 
 (defpurefun ((eq :binary@bool :force) x y) (- 1 (~ (eq! x y))))
-(defpurefun ((neq :@bool) x y) (- x y))
+(defpurefun ((neq :𝔽@bool) x y) (- x y))
 
 ;; Variadic variations on and/or
 (defunalias any! *)
@@ -90,18 +87,18 @@
 (defpurefun (will-eq e0 e1) (eq (next e0) e1))
 
 ;; Helpers
-(defpurefun ((vanishes! :@loob :force) e0) e0)
+(defpurefun ((vanishes! :𝔽@loob :force) e0) e0)
 (defpurefun (if-eq x val then) (if (eq! x val) then))
 (defpurefun (if-eq-else x val then else) (if (eq! x val) then else))
 (defpurefun (if-not-eq A B then) (if (neq A B) then))
 
 ;; counter constancy constraint
-(defpurefun ((counter-constancy :@loob) ct X)
+(defpurefun ((counter-constancy :𝔽@loob) ct X)
   (if-not-zero ct
                (remained-constant! X)))
 
 ;; perspective constancy constraint
-(defpurefun ((perspective-constancy :@loob) PERSPECTIVE_SELECTOR X)
+(defpurefun ((perspective-constancy :𝔽@loob) PERSPECTIVE_SELECTOR X)
             (if-not-zero (* PERSPECTIVE_SELECTOR (prev PERSPECTIVE_SELECTOR))
                          (remained-constant! X)))
 

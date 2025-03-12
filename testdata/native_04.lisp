@@ -1,5 +1,5 @@
-(defpurefun ((eq! :@loob) x y) (- x y))
+(defpurefun ((eq! :𝔽@loob) x y) (- x y))
 
-(defcolumns P X Y)
+(defcolumns (P :i2) (X :i16) (Y :i16))
 (defcomputed (Z) (fwd-unchanged-within P X))
 (defconstraint c1 () (eq! Y Z))

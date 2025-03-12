@@ -1,5 +1,5 @@
-(defpurefun ((vanishes! :@loob) x) x)
-(defcolumns P X)
+(defpurefun ((vanishes! :𝔽@loob) x) x)
+(defcolumns (P :i2) (X :i16))
 (defcomputed (Y) (filter X P))
 (defconstraint c1 (:guard P) (vanishes! (- X Y)))
 (defconstraint c2 (:guard P) (vanishes! (- Y X)))

@@ -2,7 +2,7 @@
 ;;error:11:10-14:invalid interval
 ;;error:14:10-14:invalid interval
 ;;error:17:10-17:invalid interval
-(defcolumns X)
+(defcolumns (X :i16))
 
 (defconstraint X_t1 ()
   (for i [] (not_eq! X i)))

@@ -1,3 +1,3 @@
-(defcolumns A)
-(defpurefun ((vanishes! :@loob) e) e)
+(defcolumns (A :i16))
+(defpurefun ((vanishes! :i16@loob) e) e)
 (defconstraint test () (vanishes! A))

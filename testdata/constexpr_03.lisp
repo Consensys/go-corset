@@ -1,6 +1,6 @@
-(defpurefun ((vanishes! :@loob) x) x)
+(defpurefun ((vanishes! :𝔽@loob) x) x)
 
-(defcolumns X Y)
+(defcolumns (X :i16) (Y :i16))
 ;; X == Y - 0
 (defconstraint c1 () (vanishes! (- X Y (* 0 1))))
 ;; X == Y - 0

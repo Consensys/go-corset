@@ -1,7 +1,7 @@
 (defpurefun (not! x) (- 1 (~ x)))
-(defpurefun ((not_eq! :@loob) x y) (not! (- x y)))
+(defpurefun ((not_eq! :i16@loob) x y) (not! (- x y)))
 ;;
-(defcolumns X)
+(defcolumns (X :i16))
 ;; X != 1
 (defconstraint X_t1 ()
   (let ((Xp1 (+ 1 X)))

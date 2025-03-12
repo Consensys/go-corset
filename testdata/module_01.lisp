@@ -1,3 +1,3 @@
 (module test)
-(defcolumns (X :@loob))
+(defcolumns (X :i16@loob))
 (defconstraint heartbeat () X)

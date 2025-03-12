@@ -1,6 +1,6 @@
-(defpurefun ((vanishes! :@loob) x) x)
+(defpurefun ((vanishes! :𝔽@loob) x) x)
 
-(defcolumns STAMP)
+(defcolumns (STAMP :i8))
 
 ;; STAMP[0] == 0
 (defconstraint start (:domain {0}) (vanishes! STAMP))

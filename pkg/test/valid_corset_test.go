@@ -843,11 +843,10 @@ func Test_PureFun_08(t *testing.T) {
 	Check(t, false, "purefun_08")
 }
 
-/* #479
 func Test_PureFun_09(t *testing.T) {
-	Check(t, false, "purefun_0")
+	Check(t, false, "purefun_09")
 }
-*/
+
 // ===================================================================
 // For Loops
 // ===================================================================
@@ -1178,10 +1177,6 @@ func Test_Native_11(t *testing.T) {
 // Equivalence Tests
 // ===================================================================
 
-func Test_Equiv_01(t *testing.T) {
-	Check(t, true, "equiv_01")
-}
-
 // ===================================================================
 // Standard Library Tests
 // ===================================================================
@@ -1192,6 +1187,10 @@ func Test_Stdlib_01(t *testing.T) {
 
 func Test_Stdlib_02(t *testing.T) {
 	Check(t, true, "stdlib_02")
+}
+
+func Test_Stdlib_03(t *testing.T) {
+	Check(t, true, "stdlib_03")
 }
 
 // ===================================================================
@@ -1309,6 +1308,7 @@ func Check(t *testing.T, stdlib bool, test string) {
 	//
 	corsetConfig.Legacy = true
 	corsetConfig.Stdlib = stdlib
+	corsetConfig.Strict = false
 	// Enable testing each trace in parallel
 	t.Parallel()
 	// Read constraints file
@@ -1438,7 +1438,7 @@ var TESTFILE_EXTENSIONS []TestConfig = []TestConfig{
 	{"accepts", true, true, true},
 	{"accepts.bz2", true, true, true},
 	{"auto.accepts", true, true, true},
-	{"expanded.accepts", true, false, true},
+	{"expanded.accepts", true, false, false},
 	// should all fail
 	{"rejects", false, true, false},
 	{"rejects.bz2", false, true, false},

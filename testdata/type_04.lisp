@@ -1,3 +1,3 @@
 (defcolumns
     (BIT :binary@prove)
-    ANY)
+    (ANY :i128))

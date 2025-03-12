@@ -1,3 +1,3 @@
 ;;error:3:14-16:malformed target columns
-(defcolumns X)
+(defcolumns (X :i16))
 (defcomputed () (id X))

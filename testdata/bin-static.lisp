@@ -1,17 +1,17 @@
 (module bin)
 
 (defcolumns
-  STAMP
+  (STAMP :i32)
   (ONE_LINE_INSTRUCTION :binary)
   (MLI :binary)
   (COUNTER :byte)
   (INST :byte)
-  ARGUMENT_1_HI
-  ARGUMENT_1_LO
-  ARGUMENT_2_HI
-  ARGUMENT_2_LO
-  RESULT_HI
-  RESULT_LO
+  (ARGUMENT_1_HI :i128)
+  (ARGUMENT_1_LO :i128)
+  (ARGUMENT_2_HI :i128)
+  (ARGUMENT_2_LO :i128)
+  (RESULT_HI :i128)
+  (RESULT_LO :i128)
   (IS_AND :binary)
   (IS_OR :binary)
   (IS_XOR :binary)
@@ -31,12 +31,12 @@
   (BYTE_4 :byte)
   (BYTE_5 :byte)
   (BYTE_6 :byte)
-  ACC_1
-  ACC_2
-  ACC_3
-  ACC_4
-  ACC_5
-  ACC_6
+  (ACC_1 :i128)
+  (ACC_2 :i128)
+  (ACC_3 :i128)
+  (ACC_4 :i128)
+  (ACC_5 :i128)
+  (ACC_6 :i128)
   ;; decoded bytes:
   (XXX_BYTE_HI :byte)
   (XXX_BYTE_LO :byte))

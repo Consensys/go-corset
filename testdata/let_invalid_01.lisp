@@ -1,6 +1,6 @@
 ;;error:6:8-9:expected list
-(defpurefun ((vanishes! :@loob) x) x)
-(defcolumns (A :@loob) B)
+(defpurefun ((vanishes! :𝔽@loob) x) x)
+(defcolumns (A :i16@loob) (B :i16))
 
 (defconstraint c1 ()
   (let C

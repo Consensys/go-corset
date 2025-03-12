@@ -1,4 +1,4 @@
-(defpurefun ((eq! :@loob) x y) (- x y))
+(defpurefun ((eq! :𝔽@loob) x y) (- x y))
 (defpurefun (if-eq x val then) (if (eq! x val) then))
 ;;
 (defcolumns

@@ -1,9 +1,9 @@
 ;;error:14:53-57:unknown symbol
-(defpurefun ((vanishes! :@loob :force) e0) e0)
+(defpurefun ((vanishes! :𝔽@loob :force) x) x)
 ;;
 (defcolumns
     ;; Column (not in perspective)
-    A
+    (A :i16)
     ;; Selector column for perspective p1
     (P :binary@prove)
     ;; Selector column for perspective p2

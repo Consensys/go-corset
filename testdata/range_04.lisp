@@ -1,2 +1,2 @@
-(defcolumns X)
+(defcolumns (X :i16))
 (definrange X 5)

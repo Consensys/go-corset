@@ -2,4 +2,4 @@
 (defpurefun (or x y) (* x y))
 (defunalias + or)
 
-(defcolumns X Y)
+(defcolumns (X :i16) (Y :i16))

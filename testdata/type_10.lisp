@@ -1,5 +1,5 @@
 (defcolumns
-  (A :display :dec)
-  (B :display :hex)
-  (C :display :bytes)
-  (D :display :opcode))
+  (A :display :dec :i16)
+  (B :display :hex :i16)
+  (C :display :bytes :i16)
+  (D :display :opcode :i16))

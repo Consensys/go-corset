@@ -1,5 +1,5 @@
 (module m1)
-(defcolumns X)
+(defcolumns (X :i16))
 (module m2)
-(defcolumns (X :@loob) (Y :@loob))
+(defcolumns (X :i16@loob) (Y :i16@loob))
 (defconstraint heartbeat () (* X Y))

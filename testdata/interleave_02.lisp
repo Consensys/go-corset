@@ -1,6 +1,6 @@
-(defpurefun ((vanishes! :@loob) x) x)
+(defpurefun ((vanishes! :𝔽@loob) x) x)
 ;;
-(defcolumns X Y)
+(defcolumns (X :i16) (Y :i16))
 (definterleaved Z (X Y))
 ;; Z[k]+1 == Z[k+1] || Z[k] == Z[k+1]
 (defconstraint c1 ()
