@@ -57,3 +57,22 @@ func shiftRangeOfTerms(terms []Term) (int, int) {
 	//
 	return minShift, maxShift
 }
+
+func shiftRangeOfEquations(equations []Equation) (int, int) {
+	minShift := math.MaxInt
+	maxShift := math.MinInt
+	// Do left-hand sides
+	for _, eq := range equations {
+		tMin, tMax := shiftRangeOfTerm(eq.lhs)
+		minShift = min(minShift, tMin)
+		maxShift = max(maxShift, tMax)
+	}
+	// do right-hand sides
+	for _, eq := range equations {
+		tMin, tMax := shiftRangeOfTerm(eq.rhs)
+		minShift = min(minShift, tMin)
+		maxShift = max(maxShift, tMax)
+	}
+	//
+	return minShift, maxShift
+}

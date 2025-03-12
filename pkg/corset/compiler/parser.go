@@ -176,12 +176,14 @@ func NewParser(srcfile *source.File, srcmap *source.Map[sexp.SExp], strictMode b
 	p.AddRecursiveListRule("*", mulParserRule)
 	p.AddRecursiveListRule("~", normParserRule)
 	p.AddRecursiveListRule("^", powParserRule)
+	p.AddRecursiveListRule("==", eqParserRule)
+	p.AddRecursiveListRule("!=", neqParserRule)
 	p.AddRecursiveListRule("begin", beginParserRule)
 	p.AddRecursiveListRule("debug", debugParserRule)
 	p.AddListRule("for", forParserRule(parser))
 	p.AddListRule("let", letParserRule(parser))
 	p.AddListRule("reduce", reduceParserRule(parser))
-	p.AddRecursiveListRule("if", ifParserRule)
+	p.AddListRule("if", ifParserRule(parser))
 	p.AddRecursiveListRule("shift", shiftParserRule)
 	p.AddDefaultListRule(invokeParserRule(parser))
 	p.AddDefaultRecursiveArrayRule(arrayAccessParserRule)
@@ -588,7 +590,7 @@ func (p *Parser) parseDefConstUnit(module util.Path, head sexp.SExp,
 	//
 	var (
 		name     *sexp.Symbol
-		datatype ast.Type
+		datatype *ast.IntType
 		errors   []SyntaxError
 		expr     ast.Expr
 		extern   bool
@@ -596,9 +598,7 @@ func (p *Parser) parseDefConstUnit(module util.Path, head sexp.SExp,
 	// Parse head
 	if name, datatype, extern, errors = p.parseDefConstHead(head); len(errors) > 0 {
 		return nil, errors
-	}
-	// Parse tail
-	if expr, errors = p.translator.Translate(value); len(errors) > 0 {
+	} else if expr, errors = p.translator.Translate(value); len(errors) > 0 {
 		return nil, errors
 	}
 	// Looks good
@@ -610,7 +610,7 @@ func (p *Parser) parseDefConstUnit(module util.Path, head sexp.SExp,
 	return def, nil
 }
 
-func (p *Parser) parseDefConstHead(head sexp.SExp) (*sexp.Symbol, ast.Type, bool, []SyntaxError) {
+func (p *Parser) parseDefConstHead(head sexp.SExp) (*sexp.Symbol, *ast.IntType, bool, []SyntaxError) {
 	var (
 		list     = head.AsList()
 		datatype ast.Type
@@ -654,8 +654,12 @@ func (p *Parser) parseDefConstHead(head sexp.SExp) (*sexp.Symbol, ast.Type, bool
 			}
 		}
 	}
+	// Sanity check type
+	if int_t, ok := datatype.(*ast.IntType); ok {
+		return list.Get(0).AsSymbol(), int_t, extern, nil
+	}
 	// Done!
-	return list.Get(0).AsSymbol(), datatype, extern, nil
+	return nil, nil, false, p.translator.SyntaxErrors(list, "expected integer type")
 }
 
 // Parse a vanishing declaration
@@ -1085,9 +1089,8 @@ func (p *Parser) parseDefFun(module util.Path, pure bool, elements []sexp.SExp) 
 	// Translate expression
 	body, errs := p.translator.Translate(elements[2])
 	// Apply return type
-	if ret != nil && ret.AsUnderlying() != nil && ret.AsUnderlying().AsUint() != nil {
-		underlying := ret.AsUnderlying().AsUint()
-		body = &ast.Cast{Arg: body, BitWidth: underlying.BitWidth()}
+	if ret != nil {
+		body = &ast.Cast{Arg: body, Type: ret}
 		p.mapSourceNode(elements[2], body)
 	}
 	//
@@ -1348,9 +1351,9 @@ func (p *Parser) parseType(term sexp.SExp) (ast.Type, bool, *SyntaxError) {
 		case "prove":
 			proven = true
 		case "loob":
-			datatype = datatype.WithLoobeanSemantics()
+			// FIXME: remove
 		case "bool":
-			datatype = datatype.WithBooleanSemantics()
+			// FIXME: remove
 		default:
 			msg := fmt.Sprintf("unknown modifier \"%s\"", parts[i])
 			return nil, false, p.translator.SyntaxError(symbol, msg)
@@ -1594,14 +1597,33 @@ func mulParserRule(_ string, args []ast.Expr) (ast.Expr, error) {
 	return &ast.Mul{Args: args}, nil
 }
 
-func ifParserRule(_ string, args []ast.Expr) (ast.Expr, error) {
-	if len(args) == 2 {
-		return &ast.If{Kind: 0, Condition: args[0], TrueBranch: args[1], FalseBranch: nil}, nil
-	} else if len(args) == 3 {
-		return &ast.If{Kind: 0, Condition: args[0], TrueBranch: args[1], FalseBranch: args[2]}, nil
+func ifParserRule(p *Parser) sexp.ListRule[ast.Expr] {
+	return func(list *sexp.List) (ast.Expr, []SyntaxError) {
+		var (
+			condition           ast.Expr
+			lhs, rhs            ast.Expr
+			errs1, errs2, errs3 []SyntaxError
+		)
+		// Can assume first item of list is "if"
+		if list.Len() != 3 && list.Len() != 4 {
+			return nil, p.translator.SyntaxErrors(list, "incorrect number of arguments")
+		}
+		// Translate condition
+		condition, errs1 = p.translator.Translate(list.Get(1))
+		lhs, errs2 = p.translator.Translate(list.Get(2))
+		//
+		if list.Len() == 4 {
+			rhs, errs3 = p.translator.Translate(list.Get(3))
+		}
+		//
+		errs := append(errs1, append(errs2, errs3...)...)
+		// Error Check
+		if len(errs) > 0 {
+			return nil, errs
+		}
+		//
+		return &ast.If{Condition: condition, TrueBranch: lhs, FalseBranch: rhs}, nil
 	}
-
-	return nil, errors.New("incorrect number of arguments")
 }
 
 func invokeParserRule(p *Parser) sexp.ListRule[ast.Expr] {
@@ -1660,6 +1682,22 @@ func powParserRule(_ string, args []ast.Expr) (ast.Expr, error) {
 	}
 	// Done
 	return &ast.Exp{Arg: args[0], Pow: args[1]}, nil
+}
+
+func eqParserRule(_ string, args []ast.Expr) (ast.Expr, error) {
+	if len(args) != 2 {
+		return nil, errors.New("incorrect number of arguments")
+	}
+	// Done
+	return &ast.Equals{Sign: true, Lhs: args[0], Rhs: args[1]}, nil
+}
+
+func neqParserRule(_ string, args []ast.Expr) (ast.Expr, error) {
+	if len(args) != 2 {
+		return nil, errors.New("incorrect number of arguments")
+	}
+	// Done
+	return &ast.Equals{Sign: false, Lhs: args[0], Rhs: args[1]}, nil
 }
 
 func normParserRule(_ string, args []ast.Expr) (ast.Expr, error) {

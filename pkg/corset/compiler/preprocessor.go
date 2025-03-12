@@ -279,7 +279,7 @@ func (p *preprocessor) preprocessExpressionInModule(expr ast.Expr) (ast.Expr, []
 		nexpr, errors = &ast.Add{Args: args}, errs
 	case *ast.Cast:
 		arg, errs := p.preprocessExpressionInModule(e.Arg)
-		nexpr, errors = &ast.Cast{Arg: arg, BitWidth: e.BitWidth}, errs
+		nexpr, errors = &ast.Cast{Arg: arg, Type: e.Type}, errs
 	case *ast.Constant:
 		return e, nil
 	case *ast.Debug:
@@ -288,6 +288,11 @@ func (p *preprocessor) preprocessExpressionInModule(expr ast.Expr) (ast.Expr, []
 		}
 		// When debug is not enabled, return "void".
 		return nil, nil
+	case *ast.Equals:
+		lhs, errs1 := p.preprocessExpressionInModule(e.Lhs)
+		rhs, errs2 := p.preprocessExpressionInModule(e.Rhs)
+		// Done
+		nexpr, errors = &ast.Equals{Sign: e.Sign, Lhs: lhs, Rhs: rhs}, append(errs1, errs2...)
 	case *ast.Exp:
 		arg, errs1 := p.preprocessExpressionInModule(e.Arg)
 		pow, errs2 := p.preprocessExpressionInModule(e.Pow)
@@ -296,9 +301,10 @@ func (p *preprocessor) preprocessExpressionInModule(expr ast.Expr) (ast.Expr, []
 	case *ast.For:
 		return p.preprocessForInModule(e)
 	case *ast.If:
-		args, errs := p.preprocessExpressionsInModule([]ast.Expr{e.Condition, e.TrueBranch, e.FalseBranch})
+		cond, errs1 := p.preprocessExpressionInModule(e.Condition)
+		args, errs2 := p.preprocessExpressionsInModule([]ast.Expr{e.TrueBranch, e.FalseBranch})
 		// Construct appropriate if form
-		nexpr, errors = &ast.If{Kind: e.Kind, Condition: args[0], TrueBranch: args[1], FalseBranch: args[2]}, errs
+		nexpr, errors = &ast.If{Condition: cond, TrueBranch: args[0], FalseBranch: args[1]}, append(errs1, errs2...)
 	case *ast.Invoke:
 		return p.preprocessInvokeInModule(e)
 	case *ast.Let:
@@ -323,7 +329,7 @@ func (p *preprocessor) preprocessExpressionInModule(expr ast.Expr) (ast.Expr, []
 	case *ast.VariableAccess:
 		return e, nil
 	default:
-		return nil, p.srcmap.SyntaxErrors(expr, "unknown expression encountered during translation")
+		return nil, p.srcmap.SyntaxErrors(expr, "unknown expression encountered during preprocessing")
 	}
 	// Copy over source information
 	p.srcmap.Copy(expr, nexpr)

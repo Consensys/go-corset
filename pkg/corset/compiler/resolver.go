@@ -14,7 +14,7 @@ package compiler
 
 import (
 	"fmt"
-	"math/big"
+	"reflect"
 
 	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
@@ -445,10 +445,7 @@ func (r *resolver) finaliseDefComputedInModule(decl *ast.DefComputed) []SyntaxEr
 // Specifically, we need to check that the constant values provided are indeed
 // constants.
 func (r *resolver) finaliseDefConstInModule(enclosing Scope, decl *ast.DefConst) []SyntaxError {
-	var (
-		errors []SyntaxError
-		zero   = big.NewInt(0)
-	)
+	var errors []SyntaxError
 	//
 	for _, c := range decl.Constants {
 		scope := NewLocalScope(enclosing, false, true, true)
@@ -461,20 +458,12 @@ func (r *resolver) finaliseDefConstInModule(enclosing Scope, decl *ast.DefConst)
 			// Check it is indeed constant!
 			if constant := c.ConstBinding.Value.AsConstant(); constant != nil {
 				datatype := c.ConstBinding.DataType
+				result := ast.NewIntType(constant, constant)
 				// Sanity check explicit type (if given)
-				if datatype != nil && datatype.AsUnderlying().AsUint() != nil {
-					uintType := datatype.AsUnderlying().AsUint()
-					uintBound := uintType.IntBound()
-					// bounds check
-					if uintType != nil && constant.Cmp(&uintBound) >= 0 {
-						// error, constant value outside bounds of given type!
-						errors = append(errors, *r.srcmap.SyntaxError(c, "constant out-of-bounds (overflow)"))
-						continue
-					} else if uintType != nil && constant.Cmp(zero) < 0 {
-						// unsigned integer cannot be negative.
-						errors = append(errors, *r.srcmap.SyntaxError(c, "constant out-of-bounds (underflow)"))
-						continue
-					}
+				if datatype != nil && !result.SubtypeOf(datatype) {
+					// error, constant value outside bounds of given type!
+					errors = append(errors, *r.srcmap.SyntaxError(c, "constant out-of-bounds"))
+					continue
 				}
 				// Finalise constant binding.  Note, no need to register a syntax
 				// error for the error case, because it would have already been
@@ -545,7 +534,7 @@ func (r *resolver) finaliseDefInterleavedInModule(decl *ast.DefInterleaved) []Sy
 			errors = append(errors, *err)
 		} else {
 			// Combine datatypes.
-			datatype = ast.GreatestLowerBound(datatype, source.Type())
+			datatype = ast.LeastUpperBound(datatype, source.Type())
 		}
 	}
 	// Finalise details only if no errors
@@ -576,7 +565,7 @@ func (r *resolver) finaliseDefPermutationInModule(decl *ast.DefPermutation) []Sy
 		if source, ok := ith.Binding().(*ast.ColumnBinding); !ok {
 			errors = append(errors, *r.srcmap.SyntaxError(ith, "invalid source column"))
 			return errors
-		} else if !started && source.DataType.AsUnderlying().AsUint() == nil {
+		} else if !started && source.DataType.(*ast.IntType) == nil {
 			errors = append(errors, *r.srcmap.SyntaxError(ith, "fixed-width type required"))
 		} else if started && multiplier != source.Multiplier {
 			// Problem
@@ -724,6 +713,11 @@ func (r *resolver) finaliseExpressionInModule(scope LocalScope, expr ast.Expr) [
 		return nil
 	case *ast.Debug:
 		return r.finaliseExpressionInModule(scope, v.Arg)
+	case *ast.Equals:
+		lhs_errs := r.finaliseExpressionInModule(scope, v.Lhs)
+		rhs_errs := r.finaliseExpressionInModule(scope, v.Rhs)
+		// combine errors
+		return append(lhs_errs, rhs_errs...)
 	case *ast.Exp:
 		constscope := scope.NestedConstScope()
 		arg_errs := r.finaliseExpressionInModule(scope, v.Arg)
@@ -761,7 +755,10 @@ func (r *resolver) finaliseExpressionInModule(scope LocalScope, expr ast.Expr) [
 	case *ast.VariableAccess:
 		return r.finaliseVariableInModule(scope, v)
 	default:
-		return r.srcmap.SyntaxErrors(expr, "unknown expression encountered during resolution")
+		typeStr := reflect.TypeOf(expr).String()
+		msg := fmt.Sprintf("unknown expression encountered during resolution (%s)", typeStr)
+
+		return r.srcmap.SyntaxErrors(expr, msg)
 	}
 }
 

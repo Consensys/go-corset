@@ -20,10 +20,40 @@ import (
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
+func lispOfEquations(schema sc.Schema, op string, exprs []Equation) sexp.SExp {
+	arr := make([]sexp.SExp, 1+len(exprs))
+	arr[0] = sexp.NewSymbol(op)
+	// Translate arguments
+	for i, e := range exprs {
+		arr[i+1] = lispOfEquation(e, schema)
+	}
+	// Done
+	return sexp.NewList(arr)
+}
+
+func lispOfEquation(e Equation, schema sc.Schema) sexp.SExp {
+	var symbol sexp.SExp
+
+	switch e.kind {
+	case EQUALS:
+		symbol = sexp.NewSymbol("==")
+	case NOT_EQUALS:
+		symbol = sexp.NewSymbol("!=")
+	default:
+		panic("unknown equation")
+	}
+	//
+	return sexp.NewList([]sexp.SExp{
+		symbol,
+		lispOfTerm(e.lhs, schema),
+		lispOfTerm(e.rhs, schema),
+	})
+}
+
 func lispOfTerm(e Term, schema sc.Schema) sexp.SExp {
 	switch e := e.(type) {
 	case *Add:
-		return nary2Lisp(schema, "+", e.Args)
+		return lispOfTerms(schema, "+", e.Args)
 	case *Cast:
 		return lispOfCast(e, schema)
 	case *Constant:
@@ -33,11 +63,11 @@ func lispOfTerm(e Term, schema sc.Schema) sexp.SExp {
 	case *Exp:
 		return lispOfExp(e, schema)
 	case *Mul:
-		return nary2Lisp(schema, "*", e.Args)
+		return lispOfTerms(schema, "*", e.Args)
 	case *Norm:
 		return lispOfNormalise(e, schema)
 	case *Sub:
-		return nary2Lisp(schema, "-", e.Args)
+		return lispOfTerms(schema, "-", e.Args)
 	default:
 		name := reflect.TypeOf(e).Name()
 		panic(fmt.Sprintf("unknown MIR expression \"%s\"", name))
@@ -65,7 +95,7 @@ func lispOfColumnAccess(e *ColumnAccess, schema sc.Schema) sexp.SExp {
 	return sexp.NewList([]sexp.SExp{sexp.NewSymbol("shift"), access, shift})
 }
 
-func nary2Lisp(schema sc.Schema, op string, exprs []Term) sexp.SExp {
+func lispOfTerms(schema sc.Schema, op string, exprs []Term) sexp.SExp {
 	arr := make([]sexp.SExp, 1+len(exprs))
 	arr[0] = sexp.NewSymbol(op)
 	// Translate arguments
