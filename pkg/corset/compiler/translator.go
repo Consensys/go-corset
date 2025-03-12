@@ -557,13 +557,13 @@ func (t *translator) translateExpressionInModule(expr ast.Expr, module util.Path
 	case *ast.Exp:
 		return t.translateExpInModule(e, module, shift)
 	case *ast.If:
-		args, errs := t.translateExpressionsInModule([]ast.Expr{e.Condition, e.TrueBranch, e.FalseBranch}, module, shift)
+		args, errs := t.translateExpressionsInModule([]ast.Expr{e.Condition.Lhs, e.Condition.Rhs, e.TrueBranch, e.FalseBranch}, module, shift)
 		// Construct appropriate if form
 		if e.IsIfZero() {
-			return hir.If(args[0], args[1], args[2]), errs
+			return hir.If(args[0], args[2], args[3]), errs
 		} else if e.IsIfNotZero() {
 			// In this case, switch the ordering.
-			return hir.If(args[0], args[2], args[1]), errs
+			return hir.If(args[0], args[3], args[2]), errs
 		}
 		// Should be unreachable
 		return hir.VOID, t.srcmap.SyntaxErrors(expr, "unresolved conditional encountered during translation")

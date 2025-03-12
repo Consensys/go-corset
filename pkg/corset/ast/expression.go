@@ -434,44 +434,37 @@ func (e *For) Dependencies() []Symbol {
 }
 
 // ============================================================================
-// IfZero
+// If
 // ============================================================================
+
+const (
+	EQUALS     uint8 = 0
+	NOT_EQUALS uint8 = 1
+)
+
+// Condition represents a condition, such as an equality or inequality,
+// Eventually, this will be generalised to a more powerful notion of logical
+// formula.
+type Condition struct {
+	// Current either EQUALS or NOT_EQUALS.
+	Kind uint8
+	Lhs  Expr
+	Rhs  Expr
+}
+
+func (c Condition) AsConstant() *big.Int {
+	panic("todo")
+}
 
 // If returns the (optional) true branch when the condition evaluates to zero, and
 // the (optional false branch otherwise.
 type If struct {
-	// Indicates whether this is an if-zero (Kind==1) or an if-notzero
-	// (Kind==2).  Any other Kind value implies this has not yet been
-	// determined.
-	Kind uint8
 	// Elements contained within this list.
-	Condition Expr
+	Condition Condition
 	// True branch (optional).
 	TrueBranch Expr
 	// False branch (optional).
 	FalseBranch Expr
-}
-
-// IsIfZero determines whether or not this has been determined as an IfZero
-// condition.
-func (e *If) IsIfZero() bool {
-	return e.Kind == 1
-}
-
-// IsIfNotZero determines whether or not this has been determined as an
-// IfNotZero condition.
-func (e *If) IsIfNotZero() bool {
-	return e.Kind == 2
-}
-
-// FixSemantics fixes the semantics for this condition to be either "if-zero" or
-// "if-notzero".
-func (e *If) FixSemantics(ifzero bool) {
-	if ifzero {
-		e.Kind = 1
-	} else {
-		e.Kind = 2
-	}
 }
 
 // AsConstant attempts to evaluate this expression as a constant (signed) value.
@@ -494,14 +487,14 @@ func (e *If) AsConstant() *big.Int {
 // Multiplicity determines the number of values that evaluating this expression
 // can generate.
 func (e *If) Multiplicity() uint {
-	return determineMultiplicity([]Expr{e.Condition, e.TrueBranch, e.FalseBranch})
+	return determineMultiplicity([]Expr{e.Condition.Lhs, e.Condition.Rhs, e.TrueBranch, e.FalseBranch})
 }
 
 // Context returns the context for this expression.  Observe that the
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
 func (e *If) Context() Context {
-	return ContextOfExpressions([]Expr{e.Condition, e.TrueBranch, e.FalseBranch})
+	return ContextOfExpressions([]Expr{e.Condition.Lhs, e.Condition.Rhs, e.TrueBranch, e.FalseBranch})
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
@@ -521,7 +514,7 @@ func (e *If) Lisp() sexp.SExp {
 
 // Dependencies needed to signal declaration.
 func (e *If) Dependencies() []Symbol {
-	return DependenciesOfExpressions([]Expr{e.Condition, e.TrueBranch, e.FalseBranch})
+	return DependenciesOfExpressions([]Expr{e.Condition.Lhs, e.Condition.Rhs, e.TrueBranch, e.FalseBranch})
 }
 
 // ============================================================================
@@ -1112,11 +1105,12 @@ func Substitute(expr Expr, mapping map[uint]Expr, srcmap *sexp.SourceMaps[Node])
 		body := Substitute(e.Body, mapping, srcmap)
 		nexpr = &For{e.Binding, e.Start, e.End, body}
 	case *If:
-		condition := Substitute(e.Condition, mapping, srcmap)
+		lhs := Substitute(e.Condition.Lhs, mapping, srcmap)
+		rhs := Substitute(e.Condition.Rhs, mapping, srcmap)
 		trueBranch := SubstituteOptional(e.TrueBranch, mapping, srcmap)
 		falseBranch := SubstituteOptional(e.FalseBranch, mapping, srcmap)
 		// Construct appropriate if form
-		nexpr = &If{e.Kind, condition, trueBranch, falseBranch}
+		nexpr = &If{Condition{e.Condition.Kind, lhs, rhs}, trueBranch, falseBranch}
 	case *Invoke:
 		args := SubstituteAll(e.Args, mapping, srcmap)
 		nexpr = &Invoke{e.Name, e.Signature, args}
@@ -1209,7 +1203,7 @@ func ShallowCopy(expr Expr) Expr {
 	case *For:
 		return &For{e.Binding, e.Start, e.End, e.Body}
 	case *If:
-		return &If{e.Kind, e.Condition, e.TrueBranch, e.FalseBranch}
+		return &If{e.Condition, e.TrueBranch, e.FalseBranch}
 	case *Invoke:
 		return &Invoke{e.Name, e.Signature, e.Args}
 	case *List:

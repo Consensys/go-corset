@@ -734,7 +734,7 @@ func (r *resolver) finaliseExpressionInModule(scope LocalScope, expr ast.Expr) [
 		// Continue resolution
 		return r.finaliseExpressionInModule(nestedscope, v.Body)
 	case *ast.If:
-		return r.finaliseExpressionsInModule(scope, []ast.Expr{v.Condition, v.TrueBranch, v.FalseBranch})
+		return r.finaliseExpressionsInModule(scope, []ast.Expr{v.Condition.Lhs, v.Condition.Rhs, v.TrueBranch, v.FalseBranch})
 	case *ast.Invoke:
 		return r.finaliseInvokeInModule(scope, v)
 	case *ast.Let:

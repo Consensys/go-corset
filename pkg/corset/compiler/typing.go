@@ -320,23 +320,13 @@ func (p *typeChecker) typeCheckArrayAccessInModule(expr *ast.ArrayAccess) (ast.T
 // the semantics of the condition, this is inferred as an "if-zero" or an
 // "if-notzero".
 func (p *typeChecker) typeCheckIfInModule(expr *ast.If) (ast.Type, []SyntaxError) {
-	types, errs := p.typeCheckExpressionsInModule([]ast.Expr{expr.Condition, expr.TrueBranch, expr.FalseBranch})
+	types, errs := p.typeCheckExpressionsInModule([]ast.Expr{expr.Condition.Lhs, expr.Condition.Rhs, expr.TrueBranch, expr.FalseBranch})
 	// Sanity check
 	if len(errs) != 0 || types == nil {
 		return nil, errs
 	}
-	// Check & Resolve Condition
-	if types[0].HasLoobeanSemantics() {
-		// if-zero
-		expr.FixSemantics(true)
-	} else if types[0].HasBooleanSemantics() {
-		// if-notzero
-		expr.FixSemantics(false)
-	} else {
-		return nil, p.srcmap.SyntaxErrors(expr.Condition, "invalid condition (neither loobean nor boolean)")
-	}
 	// Join result types
-	return ast.GreatestLowerBoundAll(types[1:]), errs
+	return ast.GreatestLowerBoundAll(types[2:]), errs
 }
 
 func (p *typeChecker) typeCheckInvokeInModule(expr *ast.Invoke) (ast.Type, []SyntaxError) {

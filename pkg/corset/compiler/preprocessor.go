@@ -296,9 +296,9 @@ func (p *preprocessor) preprocessExpressionInModule(expr ast.Expr) (ast.Expr, []
 	case *ast.For:
 		return p.preprocessForInModule(e)
 	case *ast.If:
-		args, errs := p.preprocessExpressionsInModule([]ast.Expr{e.Condition, e.TrueBranch, e.FalseBranch})
+		args, errs := p.preprocessExpressionsInModule([]ast.Expr{e.Condition.Lhs, e.Condition.Rhs, e.TrueBranch, e.FalseBranch})
 		// Construct appropriate if form
-		nexpr, errors = &ast.If{Kind: e.Kind, Condition: args[0], TrueBranch: args[1], FalseBranch: args[2]}, errs
+		nexpr, errors = &ast.If{Condition: ast.Condition{e.Condition.Kind, args[0], args[1]}, TrueBranch: args[2], FalseBranch: args[3]}, errs
 	case *ast.Invoke:
 		return p.preprocessInvokeInModule(e)
 	case *ast.Let:
