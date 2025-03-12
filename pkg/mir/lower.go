@@ -338,11 +338,11 @@ func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Sche
 func lowerConstraintTo(ctx trace.Context, c Constraint, mirSchema *Schema, airSchema *air.Schema,
 	cfg OptimisationConfig) air.Expr {
 	//
-	es := make([]air.Expr, len(c.terms))
+	es := make([]air.Expr, len(c.disjuncts))
 	//
-	for i, t := range c.terms {
+	for i, t := range c.disjuncts {
 		// Apply constant propagation
-		t1 := constantPropagationForTerm(t, airSchema)
+		t1 := constantPropagationForTerm(t.AsTerm(), airSchema)
 		// Lower properly
 		es[i] = lowerTermToInner(ctx, t1, mirSchema, airSchema, cfg)
 	}
