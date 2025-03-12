@@ -165,7 +165,7 @@ type ConstantBinding struct {
 	Path util.Path
 	// Explicit type for this constant.  This maybe nil if no type was given
 	// and, instead, the type should be inferred from context.
-	DataType Type
+	DataType *IntType
 	// Constant expression which, when evaluated, produces a constant Value.
 	Value Expr
 	// Determines whether this is an "externalised" constant, or not.
@@ -179,7 +179,7 @@ type ConstantBinding struct {
 
 // NewConstantBinding creates a new constant binding (which is initially not
 // finalised).
-func NewConstantBinding(path util.Path, datatype Type, value Expr, extern bool) ConstantBinding {
+func NewConstantBinding(path util.Path, datatype *IntType, value Expr, extern bool) ConstantBinding {
 	return ConstantBinding{path, datatype, value, extern, false}
 }
 

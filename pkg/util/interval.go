@@ -46,7 +46,7 @@ func NewInterval64(lower int64, upper int64) *Interval {
 // BitWidth returns the minimum number of bits required to store all elements in
 // this interval.
 func (p *Interval) BitWidth() uint {
-	return uint(p.max.BitLen())
+	return uint(max(p.min.BitLen(), p.max.BitLen()))
 }
 
 // Set assigns a given value to this interval.

@@ -264,9 +264,9 @@ func translateSExp[T comparable](p *Translator[T], s SExp) (T, []source.SyntaxEr
 
 	switch e := s.(type) {
 	case *List:
-		return translateSExpList[T](p, e)
+		return translateSExpList(p, e)
 	case *Array:
-		return translateSExpArray[T](p, e)
+		return translateSExpArray(p, e)
 	case *Symbol:
 		for i := 0; i != len(p.symbols); i++ {
 			node, ok, err := (p.symbols[i])(e.Value)
