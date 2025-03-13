@@ -48,6 +48,16 @@ type Expr interface {
 	Dependencies() []Symbol
 }
 
+// Condition is a special kind of expression which represents a logical
+// condition, such as an equality, etc.
+type Condition interface {
+	Expr
+	// LeftHandSide returns the left-hand side of this condition.
+	LeftHandSide() Expr
+	// RightHandSide returns the right-hand side of this condition.
+	RightHandSide() Expr
+}
+
 // Context represents the evaluation context for a given expression.
 type Context = tr.RawContext[string]
 
@@ -306,6 +316,71 @@ func (e *Debug) Dependencies() []Symbol {
 }
 
 // ============================================================================
+// Equality
+// ============================================================================
+
+// Equals represents either an equality (e.g. X==Y) or an non-equality (X!=Y).
+type Equals struct {
+	// Indicates equality (true) or non-equality (false).
+	Sign bool
+	// Left-Hand Side
+	Lhs Expr
+	// Right-Hand Side
+	Rhs Expr
+}
+
+// AsConstant attempts to evaluate this expression as a constant (signed) value.
+// If this expression is not constant, then nil is returned.
+func (e *Equals) AsConstant() *big.Int {
+	panic("todo")
+}
+
+// Multiplicity determines the number of values that evaluating this expression
+// can generate.
+func (e *Equals) Multiplicity() uint {
+	return determineMultiplicity([]Expr{e.Lhs, e.Rhs})
+}
+
+// Context returns the context for this expression.  Observe that the
+// expression must have been resolved for this to be defined (i.e. it may
+// panic if it has not been resolved yet).
+func (e *Equals) Context() Context {
+	return ContextOfExpressions([]Expr{e.Lhs, e.Rhs})
+}
+
+// Lisp converts this schema element into a simple S-Expression, for example
+// so it can be printed.
+func (e *Equals) Lisp() sexp.SExp {
+	var symbol sexp.SExp
+	//
+	if e.Sign {
+		symbol = sexp.NewSymbol("==")
+	} else {
+		symbol = sexp.NewSymbol("!=")
+	}
+	//
+	return sexp.NewList([]sexp.SExp{
+		symbol,
+		e.Lhs.Lisp(),
+		e.Rhs.Lisp()})
+}
+
+// Dependencies needed to signal declaration.
+func (e *Equals) Dependencies() []Symbol {
+	return DependenciesOfExpressions([]Expr{e.Lhs, e.Rhs})
+}
+
+// LeftHandSide returns the left-hand side of this condition.
+func (e *Equals) LeftHandSide() Expr {
+	return e.Lhs
+}
+
+// RightHandSide returns the right-hand side of this condition.
+func (e *Equals) RightHandSide() Expr {
+	return e.Rhs
+}
+
+// ============================================================================
 // Exponentiation
 // ============================================================================
 
@@ -437,25 +512,6 @@ func (e *For) Dependencies() []Symbol {
 // If
 // ============================================================================
 
-const (
-	EQUALS     uint8 = 0
-	NOT_EQUALS uint8 = 1
-)
-
-// Condition represents a condition, such as an equality or inequality,
-// Eventually, this will be generalised to a more powerful notion of logical
-// formula.
-type Condition struct {
-	// Current either EQUALS or NOT_EQUALS.
-	Kind uint8
-	Lhs  Expr
-	Rhs  Expr
-}
-
-func (c Condition) AsConstant() *big.Int {
-	panic("todo")
-}
-
 // If returns the (optional) true branch when the condition evaluates to zero, and
 // the (optional false branch otherwise.
 type If struct {
@@ -487,14 +543,14 @@ func (e *If) AsConstant() *big.Int {
 // Multiplicity determines the number of values that evaluating this expression
 // can generate.
 func (e *If) Multiplicity() uint {
-	return determineMultiplicity([]Expr{e.Condition.Lhs, e.Condition.Rhs, e.TrueBranch, e.FalseBranch})
+	return determineMultiplicity([]Expr{e.Condition, e.TrueBranch, e.FalseBranch})
 }
 
 // Context returns the context for this expression.  Observe that the
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
 func (e *If) Context() Context {
-	return ContextOfExpressions([]Expr{e.Condition.Lhs, e.Condition.Rhs, e.TrueBranch, e.FalseBranch})
+	return ContextOfExpressions([]Expr{e.Condition, e.TrueBranch, e.FalseBranch})
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
@@ -503,6 +559,7 @@ func (e *If) Lisp() sexp.SExp {
 	if e.FalseBranch != nil {
 		return sexp.NewList([]sexp.SExp{
 			sexp.NewSymbol("if"),
+			e.Condition.Lisp(),
 			e.TrueBranch.Lisp(),
 			e.FalseBranch.Lisp()})
 	}
@@ -514,7 +571,7 @@ func (e *If) Lisp() sexp.SExp {
 
 // Dependencies needed to signal declaration.
 func (e *If) Dependencies() []Symbol {
-	return DependenciesOfExpressions([]Expr{e.Condition.Lhs, e.Condition.Rhs, e.TrueBranch, e.FalseBranch})
+	return DependenciesOfExpressions([]Expr{e.Condition, e.TrueBranch, e.FalseBranch})
 }
 
 // ============================================================================
@@ -1096,6 +1153,11 @@ func Substitute(expr Expr, mapping map[uint]Expr, srcmap *sexp.SourceMaps[Node])
 	case *Debug:
 		arg := Substitute(e.Arg, mapping, srcmap)
 		nexpr = &Debug{arg}
+	case *Equals:
+		lhs := Substitute(e.Lhs, mapping, srcmap)
+		rhs := Substitute(e.Rhs, mapping, srcmap)
+		// Done
+		nexpr = &Equals{e.Sign, lhs, rhs}
 	case *Exp:
 		arg := Substitute(e.Arg, mapping, srcmap)
 		pow := Substitute(e.Pow, mapping, srcmap)
@@ -1105,12 +1167,11 @@ func Substitute(expr Expr, mapping map[uint]Expr, srcmap *sexp.SourceMaps[Node])
 		body := Substitute(e.Body, mapping, srcmap)
 		nexpr = &For{e.Binding, e.Start, e.End, body}
 	case *If:
-		lhs := Substitute(e.Condition.Lhs, mapping, srcmap)
-		rhs := Substitute(e.Condition.Rhs, mapping, srcmap)
+		cond := Substitute(e.Condition, mapping, srcmap)
 		trueBranch := SubstituteOptional(e.TrueBranch, mapping, srcmap)
 		falseBranch := SubstituteOptional(e.FalseBranch, mapping, srcmap)
 		// Construct appropriate if form
-		nexpr = &If{Condition{e.Condition.Kind, lhs, rhs}, trueBranch, falseBranch}
+		nexpr = &If{cond.(Condition), trueBranch, falseBranch}
 	case *Invoke:
 		args := SubstituteAll(e.Args, mapping, srcmap)
 		nexpr = &Invoke{e.Name, e.Signature, args}

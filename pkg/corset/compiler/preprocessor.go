@@ -261,6 +261,16 @@ func (p *preprocessor) preprocessVoidableExpressionsInModule(exprs []ast.Expr) (
 	return nHirExprs, errors
 }
 
+func (p *preprocessor) preprocessConditionInModule(cond ast.Condition) (ast.Condition, []SyntaxError) {
+	e, errs := p.preprocessExpressionInModule(cond)
+	// Error check
+	if len(errs) > 0 {
+		return nil, errs
+	}
+	// Cast should not be fallable
+	return e.(ast.Condition), nil
+}
+
 // preprocess an expression situated in a given context.  The context is
 // necessary to resolve unqualified names (e.g. for column access, function
 // invocations, etc).
@@ -288,6 +298,11 @@ func (p *preprocessor) preprocessExpressionInModule(expr ast.Expr) (ast.Expr, []
 		}
 		// When debug is not enabled, return "void".
 		return nil, nil
+	case *ast.Equals:
+		lhs, errs1 := p.preprocessExpressionInModule(e.Lhs)
+		rhs, errs2 := p.preprocessExpressionInModule(e.Rhs)
+		// Done
+		nexpr, errors = &ast.Equals{Sign: e.Sign, Lhs: lhs, Rhs: rhs}, append(errs1, errs2...)
 	case *ast.Exp:
 		arg, errs1 := p.preprocessExpressionInModule(e.Arg)
 		pow, errs2 := p.preprocessExpressionInModule(e.Pow)
@@ -296,9 +311,10 @@ func (p *preprocessor) preprocessExpressionInModule(expr ast.Expr) (ast.Expr, []
 	case *ast.For:
 		return p.preprocessForInModule(e)
 	case *ast.If:
-		args, errs := p.preprocessExpressionsInModule([]ast.Expr{e.Condition.Lhs, e.Condition.Rhs, e.TrueBranch, e.FalseBranch})
+		cond, errs1 := p.preprocessConditionInModule(e.Condition)
+		args, errs2 := p.preprocessExpressionsInModule([]ast.Expr{e.TrueBranch, e.FalseBranch})
 		// Construct appropriate if form
-		nexpr, errors = &ast.If{Condition: ast.Condition{e.Condition.Kind, args[0], args[1]}, TrueBranch: args[2], FalseBranch: args[3]}, errs
+		nexpr, errors = &ast.If{Condition: cond, TrueBranch: args[0], FalseBranch: args[1]}, append(errs1, errs2...)
 	case *ast.Invoke:
 		return p.preprocessInvokeInModule(e)
 	case *ast.Let:
@@ -323,7 +339,7 @@ func (p *preprocessor) preprocessExpressionInModule(expr ast.Expr) (ast.Expr, []
 	case *ast.VariableAccess:
 		return e, nil
 	default:
-		return nil, p.srcmap.SyntaxErrors(expr, "unknown expression encountered during translation")
+		return nil, p.srcmap.SyntaxErrors(expr, "unknown expression encountered during preprocessing")
 	}
 	// Copy over source information
 	p.srcmap.Copy(expr, nexpr)

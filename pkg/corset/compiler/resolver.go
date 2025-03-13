@@ -15,6 +15,7 @@ package compiler
 import (
 	"fmt"
 	"math/big"
+	"reflect"
 
 	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
@@ -721,6 +722,11 @@ func (r *resolver) finaliseExpressionInModule(scope LocalScope, expr ast.Expr) [
 		return nil
 	case *ast.Debug:
 		return r.finaliseExpressionInModule(scope, v.Arg)
+	case *ast.Equals:
+		lhs_errs := r.finaliseExpressionInModule(scope, v.Lhs)
+		rhs_errs := r.finaliseExpressionInModule(scope, v.Rhs)
+		// combine errors
+		return append(lhs_errs, rhs_errs...)
 	case *ast.Exp:
 		constscope := scope.NestedConstScope()
 		arg_errs := r.finaliseExpressionInModule(scope, v.Arg)
@@ -734,7 +740,7 @@ func (r *resolver) finaliseExpressionInModule(scope LocalScope, expr ast.Expr) [
 		// Continue resolution
 		return r.finaliseExpressionInModule(nestedscope, v.Body)
 	case *ast.If:
-		return r.finaliseExpressionsInModule(scope, []ast.Expr{v.Condition.Lhs, v.Condition.Rhs, v.TrueBranch, v.FalseBranch})
+		return r.finaliseExpressionsInModule(scope, []ast.Expr{v.Condition, v.TrueBranch, v.FalseBranch})
 	case *ast.Invoke:
 		return r.finaliseInvokeInModule(scope, v)
 	case *ast.Let:
@@ -758,7 +764,10 @@ func (r *resolver) finaliseExpressionInModule(scope LocalScope, expr ast.Expr) [
 	case *ast.VariableAccess:
 		return r.finaliseVariableInModule(scope, v)
 	default:
-		return r.srcmap.SyntaxErrors(expr, "unknown expression encountered during resolution")
+		typeStr := reflect.TypeOf(expr).String()
+		msg := fmt.Sprintf("unknown expression encountered during resolution (%s)", typeStr)
+
+		return r.srcmap.SyntaxErrors(expr, msg)
 	}
 }
 

@@ -257,6 +257,11 @@ func (p *typeChecker) typeCheckExpressionInModule(expr ast.Expr) (ast.Type, []Sy
 		return ast.NewUintType(uint(nbits)), nil
 	case *ast.Debug:
 		return p.typeCheckExpressionInModule(e.Arg)
+	case *ast.Equals:
+		lhs_t, errs1 := p.typeCheckExpressionInModule(e.Lhs)
+		rhs_t, errs2 := p.typeCheckExpressionInModule(e.Rhs)
+		// Done
+		return ast.LeastUpperBoundAll([]ast.Type{lhs_t, rhs_t}), append(errs1, errs2...)
 	case *ast.Exp:
 		arg_t, errs1 := p.typeCheckExpressionInModule(e.Arg)
 		_, errs2 := p.typeCheckExpressionInModule(e.Pow)
@@ -294,7 +299,7 @@ func (p *typeChecker) typeCheckExpressionInModule(expr ast.Expr) (ast.Type, []Sy
 	case *ast.VariableAccess:
 		return p.typeCheckVariableInModule(e)
 	default:
-		return nil, p.srcmap.SyntaxErrors(expr, "unknown expression encountered during translation")
+		return nil, p.srcmap.SyntaxErrors(expr, "unknown expression encountered during typing")
 	}
 }
 
@@ -320,13 +325,13 @@ func (p *typeChecker) typeCheckArrayAccessInModule(expr *ast.ArrayAccess) (ast.T
 // the semantics of the condition, this is inferred as an "if-zero" or an
 // "if-notzero".
 func (p *typeChecker) typeCheckIfInModule(expr *ast.If) (ast.Type, []SyntaxError) {
-	types, errs := p.typeCheckExpressionsInModule([]ast.Expr{expr.Condition.Lhs, expr.Condition.Rhs, expr.TrueBranch, expr.FalseBranch})
+	types, errs := p.typeCheckExpressionsInModule([]ast.Expr{expr.Condition, expr.TrueBranch, expr.FalseBranch})
 	// Sanity check
 	if len(errs) != 0 || types == nil {
 		return nil, errs
 	}
 	// Join result types
-	return ast.GreatestLowerBoundAll(types[2:]), errs
+	return ast.GreatestLowerBoundAll(types[1:]), errs
 }
 
 func (p *typeChecker) typeCheckInvokeInModule(expr *ast.Invoke) (ast.Type, []SyntaxError) {
