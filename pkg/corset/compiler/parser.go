@@ -1630,6 +1630,7 @@ func ifParserRule(p *Parser) sexp.ListRule[ast.Expr] {
 			cond = &ast.Equals{Sign: true, Lhs: condition, Rhs: &ast.Constant{Val: *constant}}
 			//
 			p.mapSourceNode(list.Get(1), cond)
+			p.mapSourceNode(list.Get(1), cond.RightHandSide())
 		}
 		//
 		return &ast.If{Condition: cond, TrueBranch: lhs, FalseBranch: rhs}, nil

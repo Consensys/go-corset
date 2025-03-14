@@ -556,7 +556,7 @@ func (t *translator) translateExpressionInModule(expr ast.Expr, module util.Path
 		//
 		return hir.NewConst(val), nil
 	case *ast.Equals:
-		panic("got here")
+		return hir.VOID, t.srcmap.SyntaxErrors(expr, "attempt to translate equals")
 	case *ast.Exp:
 		return t.translateExpInModule(e, module, shift)
 	case *ast.If:

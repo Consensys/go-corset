@@ -1207,14 +1207,13 @@ func Substitute(expr Expr, mapping map[uint]Expr, srcmap *sexp.SourceMaps[Node])
 		} else {
 			// Shallow copy the node to ensure it is unique and, hence, can have
 			// the source mapping associated with e.
-			nexpr = ShallowCopy(e2)
+			expr, nexpr = e2, ShallowCopy(e2)
 		}
 	default:
 		panic(fmt.Sprintf("unknown expression (%s)", reflect.TypeOf(expr)))
 	}
-	//
+	// Copy over source information
 	if srcmap != nil {
-		// Copy over source information
 		srcmap.Copy(expr, nexpr)
 	}
 	// Done
@@ -1259,6 +1258,8 @@ func ShallowCopy(expr Expr) Expr {
 		return &Constant{e.Val}
 	case *Debug:
 		return &Debug{e.Arg}
+	case *Equals:
+		return &Equals{e.Sign, e.Lhs, e.Rhs}
 	case *Exp:
 		return &Exp{e.Arg, e.Pow}
 	case *For:
