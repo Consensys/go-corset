@@ -556,7 +556,17 @@ func (t *translator) translateExpressionInModule(expr ast.Expr, module util.Path
 		//
 		return hir.NewConst(val), nil
 	case *ast.Equals:
-		return hir.VOID, t.srcmap.SyntaxErrors(expr, "attempt to translate equals")
+		lhs, errs1 := t.translateExpressionInModule(e.Lhs, module, shift)
+		rhs, errs2 := t.translateExpressionInModule(e.Rhs, module, shift)
+		errs := append(errs1, errs2...)
+		//
+		if len(errs) > 0 {
+			return hir.VOID, errs
+		} else if e.Sign {
+			return hir.Subtract(lhs, rhs), nil
+		}
+		//
+		return hir.VOID, t.srcmap.SyntaxErrors(expr, "unexpected not equals?")
 	case *ast.Exp:
 		return t.translateExpInModule(e, module, shift)
 	case *ast.If:
