@@ -57,20 +57,20 @@ the most useful top-level commands:
 - [`go-corset check`](#check) allows one to check whether a given
   trace (or batch of traces) satisfies a given set of constraints.  If
   a failure arises, a useful error report can be provided.
-- [Compile](#check).  This command allows one to compile a given set
+- [`go-corset compile`](#compile).  This command allows one to compile a given set
   of Corset source files into a single binary file.  This is useful
   for packaging up constraints for use with other tools, etc.
-- [Debug](#debug).  This command provides various ways of examining a
+- [`go-corset debug`](#debug).  This command provides various ways of examining a
   given set of constraints.  For example, one can print out the low
   level arithmetic intermediate representation (AIR) which is
   generated; or, one can generate summary statistics (e.g. number of
   columns, number of constraints, etc); or, look at any metadata
   embedded within a binary constraint file, etc.
-- [Inspect](#inspect).  This command provides an interactive trace
+- [`go-corset inspect`](#inspect).  This command provides an interactive trace
   visualisation tool to assist debugging.  This is not graphical, but
   runs in a terminal and supports general queries over the trace
   (e.g. find a row where column `CT > 0`, etc).
-- [Trace](#trace).  This command allows ones to inspect and/or
+- [`go-corset trace`](#trace).  This command allows ones to inspect and/or
   manipulate a given trace file in various ways.  For example, one can
   obtain statistical information such as the total number of cells
   contained within; or, the number of unique elements in a given
