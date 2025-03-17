@@ -1,14 +1,29 @@
 # Go Corset
 
-The `go-corset` tool is based upon the original [`corset` tool](https://github.com/Consensys/corset) and [language](https://github.com/Consensys/corset/wiki/The-Corset-Language).
+The `go-corset` tool is a compiler for arithmetic constraints written
+in a lisp-like [domain-specific
+language](https://en.wikipedia.org/wiki/Domain-specific_language))
+(called _Corset_).  The tool is specifically designed for used with
+the [Linea constraint
+system](https://github.com/Consensys/linea-constraints/) but could, in
+principle, be used elsewhere.  The tool is based upon (but now
+supercedes) the original Rust-based [`corset`
+compiler](https://github.com/Consensys/corset) and
+[language](https://github.com/Consensys/corset/wiki/The-Corset-Language).
 
 ### Table of Contents:
 
+- [Overview](#overview)
+- [Command-Line Interface](#command-line-interface)
 - [Contributing](CONTRIBUTING.md)
 - [Code of Conduct](CODE_OF_CONDUCT.md)
-- [Developers](#developers)
+- [Developers](#developer-setup)
 
-## Developers
+## Overview
+
+## Command-Line Interface
+
+## Developer Setup
 
 **Step 0.** Install [pre-commit](https://pre-commit.com/):
 
