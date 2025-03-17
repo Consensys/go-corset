@@ -41,6 +41,7 @@ var compileCmd = &cobra.Command{
 		corsetConfig.Strict = GetFlag(cmd, "strict")
 		output := GetString(cmd, "output")
 		defines := GetStringArray(cmd, "define")
+		externs := GetStringArray(cmd, "set")
 		// Parse constraints
 		binfile := ReadConstraintFiles(corsetConfig, args)
 		// Write metadata
@@ -48,6 +49,8 @@ var compileCmd = &cobra.Command{
 			fmt.Printf("error writing metadata: %s\n", err.Error())
 			os.Exit(1)
 		}
+		// Apply any user-specified values for externalised constants.
+		applyExternOverrides(externs, binfile)
 		// Serialise as a gob file.
 		WriteBinaryFile(binfile, false, output)
 	},
@@ -75,5 +78,6 @@ func init() {
 	compileCmd.Flags().Bool("debug", false, "enable debugging constraints")
 	compileCmd.Flags().StringP("output", "o", "a.bin", "specify output file.")
 	compileCmd.Flags().StringArrayP("define", "D", []string{}, "define metadata attribute.")
+	compileCmd.Flags().StringArrayP("set", "S", []string{}, "set value of externalised constant.")
 	compileCmd.MarkFlagRequired("output")
 }
