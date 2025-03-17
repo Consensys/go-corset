@@ -54,12 +54,12 @@ binary format; or, check traces against constraints; or, inspect a
 trace or binary constraint file, etc.  We now examine a selection of
 the most useful top-level commands:
 
-- [Check](#check).  This command allows one to check whether a given
+- [`go-corset check`](#check) allows one to check whether a given
   trace (or batch of traces) satisfies a given set of constraints.  If
   a failure arises, a useful error report can be provided.
 - [Compile](#check).  This command allows one to compile a given set
   of Corset source files into a single binary file.  This is useful
-  for packaging the constraints up for use with other tools, etc.
+  for packaging up constraints for use with other tools, etc.
 - [Debug](#debug).  This command provides various ways of examining a
   given set of constraints.  For example, one can print out the low
   level arithmetic intermediate representation (AIR) which is
