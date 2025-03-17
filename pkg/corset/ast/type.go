@@ -126,7 +126,7 @@ func (p *IntType) LeastUpperBound(other Type) Type {
 			values.Set(o.values)
 		default:
 			values.Set(p.values)
-			values.Add(o.values)
+			values.Insert(o.values)
 		}
 		//
 		return &IntType{&values}
@@ -154,12 +154,16 @@ func (p *IntType) SubtypeOf(other Type) bool {
 }
 
 func (p *IntType) String() string {
-	width := p.values.BitWidth()
-	if p.values.Contains(big.NewInt(-1)) {
-		return fmt.Sprintf("int%d", width)
+	if p.values != nil {
+		width := p.values.BitWidth()
+		if p.values.Contains(big.NewInt(-1)) {
+			return fmt.Sprintf("int%d", width)
+		}
+		//
+		return fmt.Sprintf("uint%d", width)
 	}
 	//
-	return fmt.Sprintf("uint%d", width)
+	return "int"
 }
 
 // ============================================================================

@@ -4,6 +4,6 @@
 ;;error:8:16-23:unknown type
 ;;error:9:13-30:column is untyped
 (defcolumns X ())
-(defcolumns (Y :@loob))
+(defcolumns (Y :))
 (defcolumns (Y :@prove))
 (defcolumns (Z :display :hex))

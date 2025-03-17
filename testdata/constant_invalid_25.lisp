@@ -1,5 +1,5 @@
 ;;error:13:58-64:not permitted in const context
-(defpurefun ((eq! :𝔽@loob) x y) (- x y))
+(defpurefun ((eq! :𝔽) x y) (- x y))
 
 (defcolumns
   (C :byte)

@@ -66,8 +66,8 @@ func (p *NativeDefinition) IsNative() bool {
 
 // Arity indicates whether or not this is a function and, if so, what arity
 // (i.e. how many arguments) the function has.
-func (e *NativeDefinition) Arity() util.Option[uint] {
-	return util.Some(e.arity)
+func (p *NativeDefinition) Arity() util.Option[uint] {
+	return util.Some(p.arity)
 }
 
 // IsFinalised checks whether this binding has been finalised yet or not.

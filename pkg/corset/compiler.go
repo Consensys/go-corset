@@ -21,7 +21,6 @@ import (
 	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/corset/compiler"
 	"github.com/consensys/go-corset/pkg/hir"
-	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
 
@@ -196,18 +195,15 @@ func constructSourceModule(scope *compiler.ModuleScope, env compiler.GlobalEnvir
 	}
 	// Map source-level constants
 	for _, binding := range scope.DestructuredConstants() {
-		var datatype sc.Type
 		// Convert data type
-		if binding.DataType != nil {
-			datatype = binding.DataType.AsUnderlying()
+		if datatype, ok := binding.DataType.(*ast.IntType); ok {
+			constants = append(constants, SourceConstant{
+				binding.Path.Tail(),
+				*binding.Value.AsConstant(),
+				datatype.AsUnderlying(),
+				binding.Extern,
+			})
 		}
-		//
-		constants = append(constants, SourceConstant{
-			binding.Path.Tail(),
-			*binding.Value.AsConstant(),
-			datatype,
-			binding.Extern,
-		})
 	}
 	//
 	for _, child := range scope.Children() {

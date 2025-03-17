@@ -77,7 +77,7 @@ type FunctionName = Name[*DefunBinding]
 
 // NewFunctionName construct a new column name which is (initially) unresolved.
 func NewFunctionName(path util.Path, binding *DefunBinding) *FunctionName {
-	arity := uint(len(binding.paramTypes))
+	arity := uint(len(binding.ParamTypes))
 	return &FunctionName{path, util.Some(arity), binding, true}
 }
 

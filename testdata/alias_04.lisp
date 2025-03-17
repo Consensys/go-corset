@@ -1,4 +1,4 @@
-(defpurefun ((vanishes! :𝔽@loob) x) x)
+(defpurefun (vanishes! x) (== 0 x))
 
 (defcolumns (COUNTER :i16))
 (defalias CT1 COUNTER)

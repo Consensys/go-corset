@@ -49,16 +49,6 @@ type Expr interface {
 	Dependencies() []Symbol
 }
 
-// Condition is a special kind of expression which represents a logical
-// condition, such as an equality, etc.
-type Condition interface {
-	Expr
-	// LeftHandSide returns the left-hand side of this condition.
-	LeftHandSide() Expr
-	// RightHandSide returns the right-hand side of this condition.
-	RightHandSide() Expr
-}
-
 // Context represents the evaluation context for a given expression.
 type Context = tr.RawContext[string]
 
@@ -1175,7 +1165,7 @@ func Substitute(expr Expr, mapping map[uint]Expr, srcmap *source.Maps[Node]) Exp
 		trueBranch := SubstituteOptional(e.TrueBranch, mapping, srcmap)
 		falseBranch := SubstituteOptional(e.FalseBranch, mapping, srcmap)
 		// Construct appropriate if form
-		nexpr = &If{cond.(Condition), trueBranch, falseBranch}
+		nexpr = &If{cond, trueBranch, falseBranch}
 	case *Invoke:
 		args := SubstituteAll(e.Args, mapping, srcmap)
 		nexpr = &Invoke{e.Name, args}
