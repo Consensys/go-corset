@@ -50,10 +50,9 @@ constraint (specified via the `@prove` modifier).
 
 The `go-corset` tool provides a toolbox of commands for working with
 constraints and traces.  For example, we can compile source files into
-a binary format; or, we can check a trace against a given set of
-constraints; or, we can inspect the contents of a trace or binary
-constraint file, etc.  We now examine a selection of the most useful
-top-level commands:
+binary format; or, check traces against constraints; or, inspect a
+trace or binary constraint file, etc.  We now examine a selection of
+the most useful top-level commands:
 
 - [Check](#check).  This command allows one to check whether a given
   trace (or batch of traces) satisfies a given set of constraints.  If
@@ -79,6 +78,16 @@ top-level commands:
   or, to convert the trace file into a different format (e.g. JSON) or
   trim the trace file in some way (e.g. keeping only the first `n`
   rows, etc); or, to view any metadata embedded within the trace file.
+
+### Check
+
+### Compile
+
+### Debug
+
+### Inspect
+
+### Trace
 
 ## Developer Setup
 
