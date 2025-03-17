@@ -799,7 +799,6 @@ func CheckInvalid(t *testing.T, test string) {
 	var corsetConfig corset.CompilationConfig
 	//
 	corsetConfig.Legacy = true
-	corsetConfig.Strict = false
 	filename := fmt.Sprintf("%s/%s.lisp", InvalidTestDir, test)
 	// Enable testing each trace in parallel
 	t.Parallel()

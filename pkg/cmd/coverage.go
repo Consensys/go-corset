@@ -61,7 +61,6 @@ var coverageCmd = &cobra.Command{
 		corsetConfig.Stdlib = !GetFlag(cmd, "no-stdlib")
 		corsetConfig.Debug = GetFlag(cmd, "debug")
 		corsetConfig.Legacy = GetFlag(cmd, "legacy")
-		corsetConfig.Strict = GetFlag(cmd, "strict")
 		cfg.diff = GetFlag(cmd, "diff")
 		expand := GetFlag(cmd, "expand")
 		module := GetFlag(cmd, "module")

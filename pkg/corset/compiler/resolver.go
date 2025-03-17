@@ -164,7 +164,7 @@ func (r *resolver) initialiseAliasesInModule(scope *ModuleScope, decls []ast.Dec
 				// Check whether it already exists (or not)
 				if d, ok := visited[alias.Name]; ok && d == decl {
 					continue
-				} else if scope.Binding(alias.Name, symbol.IsFunction()) != nil {
+				} else if scope.Binding(alias.Name, symbol.Arity()) != nil {
 					err := r.srcmap.SyntaxError(alias, "symbol already exists")
 					errors = append(errors, *err)
 				} else {
@@ -413,7 +413,7 @@ func (r *resolver) finaliseDefComputedInModule(decl *ast.DefComputed) []SyntaxEr
 	// Extract binding
 	binding = decl.Function.Binding().(*NativeDefinition)
 	//
-	if !binding.HasArity(uint(len(arguments))) {
+	if binding.arity != uint(len(arguments)) {
 		msg := fmt.Sprintf("incorrect number of arguments (found %d)", len(arguments))
 		errors = append(errors, *r.srcmap.SyntaxError(decl.Function, msg))
 	} else {
@@ -794,7 +794,7 @@ func (r *resolver) finaliseInvokeInModule(scope LocalScope, expr *ast.Invoke) []
 		errors = append(errors, *r.srcmap.SyntaxError(expr, "not permitted in pure context"))
 	}
 	// Check provide correct number of arguments
-	if !binding.HasArity(uint(len(expr.Args))) {
+	if binding.Signature().Arity() != uint(len(expr.Args)) {
 		msg := fmt.Sprintf("incorrect number of arguments (found %d)", len(expr.Args))
 		errors = append(errors, *r.srcmap.SyntaxError(expr, msg))
 	}

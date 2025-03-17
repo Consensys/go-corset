@@ -264,10 +264,6 @@ func (p *typeChecker) typeCheckExpressionInModule(expected ast.Type, expr ast.Ex
 		result, errors = p.typeCheckExpressionInModule(nil, e.Body)
 	case *ast.If:
 		result, errors = p.typeCheckIfInModule(e)
-	case *ast.Invoke:
-		result, errors = p.typeCheckInvokeInModule(e)
-	case *ast.Let:
-		result, errors = p.typeCheckLetInModule(e)
 	case *ast.List:
 		types, errs := p.typeCheckExpressionsInModule(nil, e.Args)
 		result, errors = ast.LeastUpperBound(types...), errs
@@ -278,8 +274,6 @@ func (p *typeChecker) typeCheckExpressionInModule(expected ast.Type, expr ast.Ex
 		_, errors = p.typeCheckExpressionInModule(ast.INT_TYPE, e.Arg)
 		// Normalise guaranteed to return either 0 or 1.
 		result = ast.NewUintType(1)
-	case *ast.Reduce:
-		result, errors = p.typeCheckReduceInModule(e)
 	case *ast.Shift:
 		_, arg_errs := p.typeCheckExpressionInModule(ast.INT_TYPE, e.Arg)
 		_, shf_errs := p.typeCheckExpressionInModule(ast.INT_TYPE, e.Shift)
@@ -290,6 +284,8 @@ func (p *typeChecker) typeCheckExpressionInModule(expected ast.Type, expr ast.Ex
 		result = ast.INT_TYPE
 	case *ast.VariableAccess:
 		result, errors = p.typeCheckVariableInModule(e)
+	case *ast.Let, *ast.Invoke, *ast.Reduce:
+		return nil, p.srcmap.SyntaxErrors(expr, "unexpected expression encountered during typing")
 	default:
 		return nil, p.srcmap.SyntaxErrors(expr, "unknown expression encountered during typing")
 	}
@@ -342,104 +338,6 @@ func (p *typeChecker) typeCheckIfInModule(expr *ast.If) (ast.Type, []SyntaxError
 	}
 	// success
 	return res_t, nil
-}
-
-func (p *typeChecker) typeCheckInvokeInModule(expr *ast.Invoke) (ast.Type, []SyntaxError) {
-	arity := uint(len(expr.Args))
-	//
-	if binding, ok := expr.Name.Binding().(ast.FunctionBinding); !ok {
-		// We don't return an error here, since one would already have been
-		// generated during resolution.
-		return nil, nil
-	} else if argTypes, errors := p.typeCheckExpressionsInModule(nil, expr.Args); len(errors) > 0 {
-		return nil, errors
-	} else if argTypes == nil {
-		// An upstream expression could not because of a resolution error.
-		return nil, nil
-	} else if signature := binding.Select(arity); signature != nil {
-		// Check arguments are accepted, based on their type.
-		for i := 0; i < len(argTypes); i++ {
-			expected := signature.Parameter(uint(i))
-			actual := argTypes[i]
-			// subtype check
-			if actual != nil && !actual.SubtypeOf(expected) {
-				msg := fmt.Sprintf("expected type %s (found %s)", expected, actual)
-				errors = append(errors, *p.srcmap.SyntaxError(expr.Args[i], msg))
-			}
-		}
-		// Finalise the selected signature for future reference.
-		expr.Finalise(signature)
-		//
-		if len(errors) != 0 {
-			return nil, errors
-		} else if signature.Return() != nil {
-			// no need, it was provided
-			return signature.Return(), nil
-		}
-		// TODO: this is potentially expensive, and it would likely be good if we
-		// could avoid it.
-		body := signature.Apply(expr.Args, p.srcmap)
-		// Dig out the type
-		return p.typeCheckExpressionInModule(nil, body)
-	}
-	// ambiguous invocation
-	return nil, p.srcmap.SyntaxErrors(expr.Name, "ambiguous invocation")
-}
-
-func (p *typeChecker) typeCheckLetInModule(expr *ast.Let) (ast.Type, []SyntaxError) {
-	// NOTE: there is a limitation here since we are using the type of the
-	// assigned expressions.  It would be nice to retain this, but it would
-	// require a more flexible notion of environment than we currently have.
-	if types, arg_errors := p.typeCheckExpressionsInModule(nil, expr.Args); types != nil {
-		// Update type for let-bound variables.
-		for i := range expr.Vars {
-			if types[i] != nil {
-				expr.Vars[i].DataType = types[i]
-			}
-		}
-		// ast.Type check body
-		body_t, body_errors := p.typeCheckExpressionInModule(nil, expr.Body)
-		//
-		return body_t, append(arg_errors, body_errors...)
-	} else {
-		return nil, arg_errors
-	}
-}
-
-func (p *typeChecker) typeCheckReduceInModule(expr *ast.Reduce) (ast.Type, []SyntaxError) {
-	var signature *ast.FunctionSignature
-	// ast.Type check body of reduction
-	body_t, errors := p.typeCheckExpressionInModule(nil, expr.Arg)
-	// Following safe as resolver checked this already.
-	if binding, ok := expr.Name.Binding().(ast.FunctionBinding); ok && body_t != nil {
-		//
-		if signature = binding.Select(2); signature != nil {
-			// Check left parameter type
-			if !body_t.SubtypeOf(signature.Parameter(0)) {
-				msg := fmt.Sprintf("expected type %s (found %s)", signature.Parameter(0), body_t)
-				errors = append(errors, *p.srcmap.SyntaxError(expr.Arg, msg))
-			}
-			// Check right parameter type
-			if !body_t.SubtypeOf(signature.Parameter(1)) {
-				msg := fmt.Sprintf("expected type %s (found %s)", signature.Parameter(1), body_t)
-				errors = append(errors, *p.srcmap.SyntaxError(expr.Arg, msg))
-			}
-		} else if !binding.HasArity(2) {
-			msg := "incorrect number of arguments (expected 2)"
-			errors = append(errors, *p.srcmap.SyntaxError(expr, msg))
-		} else {
-			msg := "ambiguous reduction"
-			errors = append(errors, *p.srcmap.SyntaxError(expr, msg))
-		}
-		// Error check
-		if len(errors) > 0 {
-			return nil, errors
-		}
-		// Lock in signature
-		expr.Finalise(signature)
-	}
-	//
-	return body_t, nil
 }
 
 func (p *typeChecker) typeCheckVariableInModule(expr *ast.VariableAccess) (ast.Type, []SyntaxError) {

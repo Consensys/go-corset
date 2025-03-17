@@ -582,31 +582,20 @@ func (t *translator) translateExpressionInModule(expr ast.Expr, module util.Path
 			return hir.Subtract(lhs, rhs), nil
 		}
 		//
-		return hir.VOID, t.srcmap.SyntaxErrors(expr, "unexpected not equals?")
+		return hir.Subtract(hir.ONE, hir.Normalise(hir.Subtract(lhs, rhs))), nil
 	case *ast.Exp:
 		return t.translateExpInModule(e, module, shift)
 	case *ast.If:
-		/* // Translate condition & args
-		args, errs := t.translateExpressionsInModule(module, shift,
-			e.Condition.LeftHandSide(),
-			e.Condition.RightHandSide(),
-			e.TrueBranch,
-			e.FalseBranch)
-		// TODO: should be dropped.
-		cond := hir.Subtract(args[0], args[1])
+		// Translate condition
+		condition, errs1 := t.translateExpressionInModule(e.Condition, module, shift)
+		// Translate args
+		args, errs2 := t.translateExpressionsInModule(module, shift, e.TrueBranch, e.FalseBranch)
+		//
+		if len(errs1)+len(errs2) > 0 {
+			return hir.VOID, append(errs1, errs2...)
+		}
 		// Construct appropriate if form
-		switch e := e.Condition.(type) {
-		case *ast.Equals:
-			if e.Sign {
-				return hir.If(cond, args[2], args[3]), errs
-			}
-			// In this case, switch the ordering.
-			return hir.If(cond, args[3], args[2]), errs
-		default:
-			// Should be unreachable
-			return hir.VOID, t.srcmap.SyntaxErrors(expr, "unresolved conditional encountered during translation")
-		} */
-		panic("ok --- got here")
+		return hir.If(condition, args[0], args[1]), nil
 	case *ast.List:
 		args, errs := t.translateExpressionsInModule(module, shift, e.Args...)
 		return hir.ListOf(args...), errs

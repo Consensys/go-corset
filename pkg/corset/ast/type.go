@@ -32,21 +32,12 @@ type Type interface {
 	// is returned.
 	LeastUpperBound(Type) Type
 
-	// ContainsFieldType determines whether this type contains a native field type.
-	ContainsFieldType() bool
-
 	// Returns the number of underlying columns represented by this column.  For
 	// example, an array of size n will expand into n underlying columns.
 	Width() uint
 
 	// Produce a string representation of this type.
 	String() string
-}
-
-// NewFieldType constructs a native field type which, initially, has no semantic
-// specified.
-func NewFieldType() Type {
-	panic("got here")
 }
 
 // LeastUpperBound computes the Least Upper Bound of two types.  This is
@@ -99,11 +90,6 @@ func NewUintType(nbits uint) Type {
 // lower and upper bounds (inclusive).
 func NewIntType(lower *big.Int, upper *big.Int) *IntType {
 	return &IntType{util.NewInterval(lower, upper)}
-}
-
-// ContainsFieldType indicates indicates whether or not this type contains(is=) a field type
-func (p *IntType) ContainsFieldType() bool {
-	return false
 }
 
 // AsUnderlying converts this integer type into an underlying type.
@@ -189,11 +175,6 @@ var BOOLEAN_TYPE = &BooleanType{}
 type BooleanType struct {
 }
 
-// ContainsFieldType indicates indicates whether or not this type contains(is=) a field type
-func (p *BooleanType) ContainsFieldType() bool {
-	return false
-}
-
 // Width returns the number of underlying columns represented by this column.
 // For example, an array of size n will expand into n underlying columns.
 func (p *BooleanType) Width() uint {
@@ -240,17 +221,6 @@ type ArrayType struct {
 // NewArrayType constructs a new array type of a given (fixed) size.
 func NewArrayType(element Type, min uint, max uint) *ArrayType {
 	return &ArrayType{element, min, max}
-}
-
-// ContainsFieldType indicates indicates whether or not this array type contains a field type
-func (p *ArrayType) ContainsFieldType() bool {
-	for i := p.min; i <= p.max; i++ {
-		if p.element.ContainsFieldType() {
-			return true
-		}
-	}
-
-	return false
 }
 
 // Width returns the number of underlying columns represented by this column.

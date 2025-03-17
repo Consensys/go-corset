@@ -45,7 +45,6 @@ var generateCmd = &cobra.Command{
 		//
 		corsetConfig.Stdlib = !GetFlag(cmd, "no-stdlib")
 		corsetConfig.Legacy = GetFlag(cmd, "legacy")
-		corsetConfig.Strict = GetFlag(cmd, "strict")
 		filename := GetString(cmd, "output")
 		pkgname := GetString(cmd, "package")
 		// Parse constraints

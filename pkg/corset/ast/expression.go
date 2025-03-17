@@ -112,10 +112,10 @@ type ArrayAccess struct {
 	ArrayBinding Binding
 }
 
-// IsFunction indicates whether or not this symbol refers to a function (which
-// of course it always does).
-func (e *ArrayAccess) IsFunction() bool {
-	return false
+// Arity indicates whether or not this is a function and, if so, what arity
+// (i.e. how many arguments) the function has.
+func (e *ArrayAccess) Arity() util.Option[uint] {
+	return NON_FUNCTION
 }
 
 // IsResolved checks whether this symbol has been resolved already, or not.
@@ -457,7 +457,7 @@ type For struct {
 // NewFor constructs a new for-expression given a variable name, a static index
 // range and a body.
 func NewFor(name string, start uint, end uint, body Expr) *For {
-	binding := NewLocalVariableBinding(name, NewFieldType())
+	binding := NewLocalVariableBinding(name, INT_TYPE)
 	return &For{binding, start, end, body}
 }
 
@@ -585,21 +585,14 @@ func (e *If) Dependencies() []Symbol {
 
 // Invoke represents an attempt to invoke a given function.
 type Invoke struct {
-	Name      *VariableAccess
-	Signature *FunctionSignature
-	Args      []Expr
+	Name *VariableAccess
+	Args []Expr
 }
 
 // AsConstant attempts to evaluate this expression as a constant (signed) value.
 // If this expression is not constant, then nil is returned.
 func (e *Invoke) AsConstant() *big.Int {
-	if e.Signature == nil {
-		panic("unresolved invocation")
-	}
-	// Unroll body
-	body := e.Signature.Apply(e.Args, nil)
-	// Attempt to evaluate as constant
-	return body.AsConstant()
+	panic("unreachable")
 }
 
 // Context returns the context for this expression.  Observe that the
@@ -621,11 +614,6 @@ func (e *Invoke) Multiplicity() uint {
 // so it can be printed.
 func (e *Invoke) Lisp() sexp.SExp {
 	return ListOfExpressions(e.Name.Lisp(), e.Args)
-}
-
-// Finalise the signature for this invocation.
-func (e *Invoke) Finalise(signature *FunctionSignature) {
-	e.Signature = signature
 }
 
 // Dependencies needed to signal declaration.
@@ -662,7 +650,7 @@ func NewLet(bindings []util.Pair[string, Expr], body Expr) *Let {
 	exprs := make([]Expr, len(bindings))
 	//
 	for i, p := range bindings {
-		vars[i] = NewLocalVariableBinding(p.Left, NewFieldType())
+		vars[i] = NewLocalVariableBinding(p.Left, INT_TYPE)
 		exprs[i] = p.Right
 	}
 	//
@@ -1017,16 +1005,16 @@ func (e *Shift) Dependencies() []Symbol {
 // VariableAccess represents reading the value of a given local variable (such
 // as a function parameter).
 type VariableAccess struct {
-	Name     util.Path
-	Function bool
-	binding  Binding
+	Name    util.Path
+	FnArity util.Option[uint]
+	binding Binding
 }
 
 // NewVariableAccess creates a new variable access with the given (optionally
 // qualified) path that may (or may not) refer to a function, and which has a
 // given initial binding (which can be nil).
-func NewVariableAccess(path util.Path, isFunction bool, binding Binding) *VariableAccess {
-	return &VariableAccess{path, isFunction, binding}
+func NewVariableAccess(path util.Path, arity util.Option[uint], binding Binding) *VariableAccess {
+	return &VariableAccess{path, arity, binding}
 }
 
 // AsConstant attempts to evaluate this expression as a constant (signed) value.
@@ -1044,10 +1032,10 @@ func (e *VariableAccess) Path() *util.Path {
 	return &e.Name
 }
 
-// IsFunction determines whether this symbol refers to a function (which, of
-// course, variable accesses never do).
-func (e *VariableAccess) IsFunction() bool {
-	return e.Function
+// Arity indicates whether or not this is a function and, if so, what arity
+// (i.e. how many arguments) the function has.
+func (e *VariableAccess) Arity() util.Option[uint] {
+	return e.FnArity
 }
 
 // IsResolved checks whether this symbol has been resolved already, or not.
@@ -1058,13 +1046,15 @@ func (e *VariableAccess) IsResolved() bool {
 // Resolve this symbol by associating it with the binding associated with
 // the definition of the symbol to which this refers.
 func (e *VariableAccess) Resolve(binding Binding) bool {
+	isFunction := e.FnArity.HasValue()
+	//
 	if binding == nil {
 		panic("empty binding")
 	} else if e.binding != nil {
 		panic("already resolved")
-	} else if _, ok := binding.(FunctionBinding); ok && !e.Function {
+	} else if _, ok := binding.(FunctionBinding); ok && !isFunction {
 		return false
-	} else if _, ok := binding.(FunctionBinding); !ok && e.Function {
+	} else if _, ok := binding.(FunctionBinding); !ok && isFunction {
 		return false
 	}
 	//
@@ -1188,7 +1178,7 @@ func Substitute(expr Expr, mapping map[uint]Expr, srcmap *source.Maps[Node]) Exp
 		nexpr = &If{cond.(Condition), trueBranch, falseBranch}
 	case *Invoke:
 		args := SubstituteAll(e.Args, mapping, srcmap)
-		nexpr = &Invoke{e.Name, e.Signature, args}
+		nexpr = &Invoke{e.Name, args}
 	case *Let:
 		args := SubstituteAll(e.Args, mapping, srcmap)
 		body := Substitute(e.Body, mapping, srcmap)
@@ -1281,7 +1271,7 @@ func ShallowCopy(expr Expr) Expr {
 	case *If:
 		return &If{e.Condition, e.TrueBranch, e.FalseBranch}
 	case *Invoke:
-		return &Invoke{e.Name, e.Signature, e.Args}
+		return &Invoke{e.Name, e.Args}
 	case *List:
 		return &List{e.Args}
 	case *Mul:
@@ -1295,7 +1285,7 @@ func ShallowCopy(expr Expr) Expr {
 	case *Shift:
 		return &Shift{e.Arg, e.Shift}
 	case *VariableAccess:
-		return &VariableAccess{e.Name, e.Function, e.binding}
+		return &VariableAccess{e.Name, e.FnArity, e.binding}
 	default:
 		panic(fmt.Sprintf("unknown expression (%s)", reflect.TypeOf(expr)))
 	}
