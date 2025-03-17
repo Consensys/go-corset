@@ -16,6 +16,7 @@ import (
 	"bytes"
 	enc_json "encoding/json"
 	"fmt"
+	"math/big"
 	"os"
 	"path"
 	"path/filepath"
@@ -137,14 +138,21 @@ func determineSpillage(hirSchema *hir.Schema, defensive bool, optConfig mir.Opti
 // constant should be checked that it exists, to ensure assignments are not
 // silently dropped.
 func applyExternOverrides(externs []string, binf *binfile.BinaryFile) {
-	var mapping = make(map[string]fr.Element)
+	// NOTE: frMapping is to be deprecated and removed.
+	var (
+		frMapping = make(map[string]fr.Element)
+		biMapping = make(map[string]big.Int)
+	)
 	// Sanity check debug information is available.
 	srcmap, srcmap_ok := binfile.GetAttribute[*corset.SourceMap](binf)
 	// Check if need to do anything.
 	if len(externs) > 0 {
 		//
 		for _, item := range externs {
-			var element fr.Element
+			var (
+				frElement fr.Element
+				biElement big.Int
+			)
 			//
 			split := strings.Split(item, "=")
 			if len(split) != 2 {
@@ -157,15 +165,21 @@ func applyExternOverrides(externs []string, binf *binfile.BinaryFile) {
 			if srcmap_ok && !checkExternExists(path, srcmap.Root) {
 				fmt.Printf("unknown externalised constant \"%s\"\n", split[0])
 				os.Exit(2)
-			} else if _, err := element.SetString(split[1]); err != nil {
+			} else if _, err := frElement.SetString(split[1]); err != nil {
 				fmt.Println(err.Error())
+				os.Exit(2)
+			} else if _, ok := biElement.SetString(split[1], 0); !ok {
+				fmt.Printf("error parsing string \"%s\"\n", split[1])
 				os.Exit(2)
 			}
 			//
-			mapping[split[0]] = element
+			frMapping[split[0]] = frElement
+			biMapping[split[0]] = biElement
 		}
-		// Substitute through.
-		binf.Schema.SubstituteConstants(mapping)
+		// Substitute through constraints
+		binf.Schema.SubstituteConstants(frMapping)
+		// Update source mapping
+		srcmap.SubstituteConstants(biMapping)
 	}
 }
 

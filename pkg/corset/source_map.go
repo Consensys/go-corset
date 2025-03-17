@@ -21,6 +21,7 @@ import (
 	"github.com/consensys/go-corset/pkg/hir"
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // SourceMap is a binary file attribute which provides debugging
@@ -45,6 +46,14 @@ func (p *SourceMap) AttributeName() string {
 // Flattern modules in this tree matching a given criteria
 func (p *SourceMap) Flattern(predicate func(*SourceModule) bool) []SourceModule {
 	return p.Root.Flattern(predicate)
+}
+
+// SubstituteConstants updates the recorded value of constants within this
+// source map.  This is typically done in conjunction with a substitution
+// through the schema, in order to keep them both in sync.
+func (p *SourceMap) SubstituteConstants(mapping map[string]big.Int) {
+	path := util.NewAbsolutePath()
+	p.Root.SubstituteConstants(path, mapping)
 }
 
 // Enumeration is a mapping from field elements to explicitly given names.  For
@@ -91,6 +100,28 @@ func (p *SourceModule) Flattern(predicate func(*SourceModule) bool) []SourceModu
 	}
 
 	return modules
+}
+
+// SubstituteConstants updates the recorded value of constants within this
+// source map.  This is typically done in conjunction with a substitution
+// through the schema, in order to keep them both in sync.
+func (p *SourceModule) SubstituteConstants(path util.Path, mapping map[string]big.Int) {
+	// check all local constants
+	for i := range p.Constants {
+		ith := &p.Constants[i]
+		if ith.Extern {
+			ith_name := path.Extend(ith.Name).String()
+			//
+			if nval, ok := mapping[ith_name]; ok {
+				ith.Value = nval
+			}
+		}
+	}
+	// recurse submodules
+	for i := range p.Submodules {
+		ith := &p.Submodules[i]
+		ith.SubstituteConstants(*path.Extend(ith.Name), mapping)
+	}
 }
 
 // SourceColumn represents a source-level column which is mapped to a given HIR
