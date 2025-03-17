@@ -14,6 +14,7 @@ package compiler
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/util/source"
@@ -127,8 +128,11 @@ func (p *typeChecker) typeCheckDefConstInModule(decl *ast.DefConst) []SyntaxErro
 
 // typeCheck a "defconstraint" declaration.
 func (p *typeChecker) typeCheckDefConstraint(decl *ast.DefConstraint) []SyntaxError {
+	// FIXME: eventually, the guard should be a BOOLEAN_TYPE in order to
+	// force a suitable interpetation.
+	//
 	// typeCheck (optional) guard
-	_, guard_errors := p.typeCheckOptionalExpressionInModule(ast.BOOLEAN_TYPE, decl.Guard)
+	_, guard_errors := p.typeCheckOptionalExpressionInModule(ast.INT_TYPE, decl.Guard)
 	// typeCheck constraint body
 	_, constraint_errors := p.typeCheckExpressionInModule(ast.BOOLEAN_TYPE, decl.Constraint)
 	// Combine errors
@@ -165,8 +169,11 @@ func (p *typeChecker) typeCheckDefInRange(decl *ast.DefInRange) []SyntaxError {
 
 // typeCheck a "defperspective" declaration.
 func (p *typeChecker) typeCheckDefPerspective(decl *ast.DefPerspective) []SyntaxError {
+	// FIXME: eventually, the selector should be a BOOLEAN_TYPE in order to
+	// force a suitable interpetation.
+	//
 	// typeCheck selector expression
-	_, errors := p.typeCheckExpressionInModule(ast.BOOLEAN_TYPE, decl.Selector)
+	_, errors := p.typeCheckExpressionInModule(ast.INT_TYPE, decl.Selector)
 	// Combine errors
 	return errors
 }
@@ -184,7 +191,9 @@ func (p *typeChecker) typeCheckDefSorted(decl *ast.DefSorted) []SyntaxError {
 	var errors []SyntaxError
 	//
 	if decl.Selector.HasValue() {
-		_, errors = p.typeCheckExpressionInModule(ast.BOOLEAN_TYPE, decl.Selector.Unwrap())
+		// FIXME: eventually, the selector should be a BOOLEAN_TYPE in order to
+		// force a suitable interpetation.
+		_, errors = p.typeCheckExpressionInModule(ast.INT_TYPE, decl.Selector.Unwrap())
 	}
 	//
 	return errors
@@ -237,13 +246,12 @@ func (p *typeChecker) typeCheckExpressionInModule(expected ast.Type, expr ast.Ex
 	//
 	switch e := expr.(type) {
 	case *ast.ArrayAccess:
-		return p.typeCheckArrayAccessInModule(e)
+		result, errors = p.typeCheckArrayAccessInModule(e)
 	case *ast.Add:
 		_, errors = p.typeCheckExpressionsInModule(ast.INT_TYPE, e.Args)
 		result = ast.INT_TYPE
 	case *ast.Cast:
-		// FIXME: implement casts properly.
-		result, errors = p.typeCheckExpressionInModule(nil, e.Arg)
+		result, errors = p.typeCheckExpressionInModule(e.Type, e.Arg)
 	case *ast.Constant:
 		nbits := e.Val.BitLen()
 		result = ast.NewUintType(uint(nbits))
@@ -275,22 +283,23 @@ func (p *typeChecker) typeCheckExpressionInModule(expected ast.Type, expr ast.Ex
 		// Normalise guaranteed to return either 0 or 1.
 		result = ast.NewUintType(1)
 	case *ast.Shift:
-		_, arg_errs := p.typeCheckExpressionInModule(ast.INT_TYPE, e.Arg)
+		lhs_t, arg_errs := p.typeCheckExpressionInModule(ast.INT_TYPE, e.Arg)
 		_, shf_errs := p.typeCheckExpressionInModule(ast.INT_TYPE, e.Shift)
 		// combine errors
-		errors = append(arg_errs, shf_errs...)
+		result, errors = lhs_t, append(arg_errs, shf_errs...)
 	case *ast.Sub:
 		_, errors = p.typeCheckExpressionsInModule(ast.INT_TYPE, e.Args)
 		result = ast.INT_TYPE
 	case *ast.VariableAccess:
 		result, errors = p.typeCheckVariableInModule(e)
-	case *ast.Let, *ast.Invoke, *ast.Reduce:
-		return nil, p.srcmap.SyntaxErrors(expr, "unexpected expression encountered during typing")
 	default:
-		return nil, p.srcmap.SyntaxErrors(expr, "unknown expression encountered during typing")
+		msg := fmt.Sprintf("unknown expression encountered during typing (%s)", reflect.TypeOf(expr).String())
+		return nil, p.srcmap.SyntaxErrors(expr, msg)
 	}
 	// Error check
-	if expected != nil && !result.SubtypeOf(expected) {
+	if result == nil && len(errors) == 0 {
+		return nil, p.srcmap.SyntaxErrors(expr, "internal failure")
+	} else if expected != nil && result != nil && !result.SubtypeOf(expected) {
 		msg := fmt.Sprintf("expected %s, found %s", expected.String(), result.String())
 		return nil, p.srcmap.SyntaxErrors(expr, msg)
 	}

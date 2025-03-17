@@ -85,7 +85,7 @@ func (p *preprocessor) preprocessDeclaration(decl ast.Declaration) []SyntaxError
 	case *ast.DefConstraint:
 		errors = p.preprocessDefConstraint(d)
 	case *ast.DefFun:
-		// ignore
+		errors = p.preprocessDefFun(d)
 	case *ast.DefInRange:
 		errors = p.preprocessDefInRange(d)
 	case *ast.DefInterleaved:
@@ -126,6 +126,19 @@ func (p *preprocessor) preprocessDefConstraint(decl *ast.DefConstraint) []Syntax
 	}
 	// Combine errors
 	return append(constraint_errors, guard_errors...)
+}
+
+// preprocess a "deflookup" declaration.
+//
+//nolint:staticcheck
+func (p *preprocessor) preprocessDefFun(decl *ast.DefFun) []SyntaxError {
+	var errors []SyntaxError
+	//
+	binding := decl.Binding().(*ast.DefunBinding)
+	// preprocess function body
+	binding.Body, errors = p.preprocessExpressionInModule(binding.Body)
+	// Combine errors
+	return errors
 }
 
 // preprocess a "deflookup" declaration.
@@ -383,7 +396,7 @@ func (p *preprocessor) preprocessLetInModule(expr *ast.Let) (ast.Expr, []SyntaxE
 }
 
 func (p *preprocessor) preprocessInvokeInModule(expr *ast.Invoke) (ast.Expr, []SyntaxError) {
-	/* if expr.Signature != nil {
+	if binding, ok := expr.Name.Binding().(ast.FunctionBinding); ok {
 		var (
 			args   []ast.Expr = make([]ast.Expr, len(expr.Args))
 			errors []SyntaxError
@@ -395,15 +408,14 @@ func (p *preprocessor) preprocessInvokeInModule(expr *ast.Invoke) (ast.Expr, []S
 			errors = append(errors, errs...)
 		}
 		// Substitute through body
-		body := expr.Signature.Apply(args, p.srcmap)
+		body := binding.Signature().Apply(args, p.srcmap)
 		// Preprocess body
 		body, errs = p.preprocessExpressionInModule(body)
 		// Done
 		return body, append(errors, errs...)
 	}
 	//
-	return nil, p.srcmap.SyntaxErrors(expr, "unbound function") */
-	panic("todo")
+	return nil, p.srcmap.SyntaxErrors(expr, "unbound function")
 }
 
 func (p *preprocessor) preprocessReduceInModule(expr *ast.Reduce) (ast.Expr, []SyntaxError) {

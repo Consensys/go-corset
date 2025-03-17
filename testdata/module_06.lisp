@@ -1,4 +1,4 @@
-(defpurefun ((vanishes! :𝔽@loob) x) x)
+(defpurefun (vanishes! x) (== 0 x))
 (defcolumns (X :i16))
 (module m1)
 (defcolumns (ST :i4) (X :i16@prove))

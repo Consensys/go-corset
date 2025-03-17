@@ -39,14 +39,7 @@ import (
 // additional combines all fragments of the same module together into one place.
 // Thus, you should never expect to see duplicate module names in the returned
 // array.
-<<<<<<< HEAD
-// If strictMode is activated, parser rejects columns of field type 𝔽.
-func ParseSourceFiles(files []*source.File, strictMode bool) (ast.Circuit,
-	*source.Maps[ast.Node], []SyntaxError) {
-=======
-func ParseSourceFiles(files []*sexp.SourceFile) (ast.Circuit,
-	*sexp.SourceMaps[ast.Node], []SyntaxError) {
->>>>>>> 6f14a14 (remove strict mode + @loob types)
+func ParseSourceFiles(files []*source.File) (ast.Circuit, *source.Maps[ast.Node], []SyntaxError) {
 	//
 	var circuit ast.Circuit
 	// (for now) at most one error per source file is supported.
@@ -105,8 +98,7 @@ func ParseSourceFiles(files []*sexp.SourceFile) (ast.Circuit,
 // ParseSourceFile parses the contents of a single lisp file into one or more
 // modules.  Observe that every lisp file starts in the "prelude" or "root"
 // module, and may declare items for additional modules as necessary.
-func ParseSourceFile(srcfile *sexp.SourceFile) (ast.Circuit,
-	*source.SourceMap[ast.Node], []SyntaxError) {
+func ParseSourceFile(srcfile *source.File) (ast.Circuit, *source.Map[ast.Node], []SyntaxError) {
 	//
 	var (
 		circuit ast.Circuit
@@ -159,22 +151,12 @@ type Parser struct {
 	// Translator used for recursive expressions.
 	translator *sexp.Translator[ast.Expr]
 	// Mapping from constructed S-Expressions to their spans in the original text.
-<<<<<<< HEAD
 	nodemap *source.Map[ast.Node]
-	// Mode for the parser to reject columns of field type 𝔽.
-	strictMode bool
-=======
-	nodemap *sexp.SourceMap[ast.Node]
->>>>>>> 6f14a14 (remove strict mode + @loob types)
 }
 
 // NewParser constructs a new parser using a given mapping from S-Expressions to
 // spans in the underlying source file.
-<<<<<<< HEAD
-func NewParser(srcfile *source.File, srcmap *source.Map[sexp.SExp], strictMode bool) *Parser {
-=======
-func NewParser(srcfile *sexp.SourceFile, srcmap *sexp.SourceMap[sexp.SExp]) *Parser {
->>>>>>> 6f14a14 (remove strict mode + @loob types)
+func NewParser(srcfile *source.File, srcmap *source.Map[sexp.SExp]) *Parser {
 	p := sexp.NewTranslator[ast.Expr](srcfile, srcmap)
 	// Construct (initially empty) node map
 	nodemap := source.NewSourceMap[ast.Node](srcmap.Source())
@@ -603,7 +585,7 @@ func (p *Parser) parseDefConstUnit(module util.Path, head sexp.SExp,
 	//
 	var (
 		name     *sexp.Symbol
-		datatype *ast.IntType
+		datatype ast.Type
 		errors   []SyntaxError
 		expr     ast.Expr
 		extern   bool
@@ -623,7 +605,7 @@ func (p *Parser) parseDefConstUnit(module util.Path, head sexp.SExp,
 	return def, nil
 }
 
-func (p *Parser) parseDefConstHead(head sexp.SExp) (*sexp.Symbol, *ast.IntType, bool, []SyntaxError) {
+func (p *Parser) parseDefConstHead(head sexp.SExp) (*sexp.Symbol, ast.Type, bool, []SyntaxError) {
 	var (
 		list     = head.AsList()
 		datatype ast.Type
@@ -668,11 +650,7 @@ func (p *Parser) parseDefConstHead(head sexp.SExp) (*sexp.Symbol, *ast.IntType, 
 		}
 	}
 	// Sanity check type
-	if int_t, ok := datatype.(*ast.IntType); ok {
-		return list.Get(0).AsSymbol(), int_t, extern, nil
-	}
-	// Done!
-	return nil, nil, false, p.translator.SyntaxErrors(list, "expected integer type")
+	return list.Get(0).AsSymbol(), datatype, extern, nil
 }
 
 // Parse a vanishing declaration

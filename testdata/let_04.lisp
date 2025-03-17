@@ -1,16 +1,14 @@
-(defpurefun ((vanishes! :𝔽@loob) x) x)
-
-(defcolumns (X :i16@loob) (Y :i16) (Z :i16))
+(defcolumns (X :i16) (Y :i16) (Z :i16))
 (defconstraint c1 ()
   (let ((XeqY (- X Y)))
-    (if X
+    (if (== 0 X)
         ;; if X==0 then Y == Z
         (begin
-         (vanishes! Y)
-         (vanishes! Z))
+         (== 0 Y)
+         (== 0 Z))
         ;; else X == Y && (Y == 0 || Z == 0)
         (begin
-         (vanishes! XeqY)
-         (vanishes! (* Y Z))))))
+         (== 0 XeqY)
+         (== 0 (* Y Z))))))
   ;; Z is always 0!
-(defproperty a1 Z)
+(defproperty a1 (== 0 Z))

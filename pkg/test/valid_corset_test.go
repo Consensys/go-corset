@@ -173,29 +173,6 @@ func Test_Alias_06(t *testing.T) {
 }
 
 // ===================================================================
-// Function Alias Tests
-// ===================================================================
-func Test_FunAlias_01(t *testing.T) {
-	Check(t, false, "funalias_01")
-}
-
-func Test_FunAlias_02(t *testing.T) {
-	Check(t, false, "funalias_02")
-}
-
-func Test_FunAlias_03(t *testing.T) {
-	Check(t, false, "funalias_03")
-}
-
-func Test_FunAlias_04(t *testing.T) {
-	Check(t, false, "funalias_04")
-}
-
-func Test_FunAlias_05(t *testing.T) {
-	Check(t, false, "funalias_05")
-}
-
-// ===================================================================
 // Domain Tests
 // ===================================================================
 

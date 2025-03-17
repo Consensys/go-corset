@@ -486,9 +486,10 @@ type DefConstUnit struct {
 	ConstBinding ConstantBinding
 }
 
-// IsFunction is never true for a constant definition.
-func (e *DefConstUnit) IsFunction() bool {
-	return false
+// Arity indicates whether or not this is a function and, if so, what arity
+// (i.e. how many arguments) the function has.
+func (e *DefConstUnit) Arity() util.Option[uint] {
+	return NON_FUNCTION
 }
 
 // Binding returns the allocated binding for this symbol (which may or may not
@@ -982,7 +983,7 @@ func (p *DefPerspective) Path() *util.Path {
 
 // Arity indicates whether or not this is a function and, if so, what arity
 // (i.e. how many arguments) the function has.
-func (e *DefPerspective) Arity() util.Option[uint] {
+func (p *DefPerspective) Arity() util.Option[uint] {
 	return NON_FUNCTION
 }
 
@@ -1147,15 +1148,15 @@ func NewDefFun(name *FunctionName, parameters []*DefParameter) *DefFun {
 
 // Arity indicates whether or not this is a function and, if so, what arity
 // (i.e. how many arguments) the function has.
-func (e *DefFun) Arity() util.Option[uint] {
-	return util.Some(uint(len(e.parameters)))
+func (p *DefFun) Arity() util.Option[uint] {
+	return util.Some(uint(len(p.parameters)))
 }
 
 // IsPure indicates whether or not this is a pure function.  That is, a function
 // which is not permitted to access any columns from the enclosing environment
 // (either directly itself, or indirectly via functions it calls).
 func (p *DefFun) IsPure() bool {
-	return p.symbol.binding.pure
+	return p.symbol.binding.Pure
 }
 
 // Parameters returns information about the parameters defined by this
@@ -1166,7 +1167,7 @@ func (p *DefFun) Parameters() []*DefParameter {
 
 // Body Access information about the parameters defined by this declaration.
 func (p *DefFun) Body() Expr {
-	return p.symbol.binding.body
+	return p.symbol.binding.Body
 }
 
 // Binding returns the allocated binding for this symbol (which may or may not
@@ -1201,7 +1202,7 @@ func (p *DefFun) Definitions() iter.Iterator[SymbolDefinition] {
 
 // Dependencies needed to signal declaration.
 func (p *DefFun) Dependencies() iter.Iterator[Symbol] {
-	deps := p.symbol.binding.body.Dependencies()
+	deps := p.symbol.binding.Body.Dependencies()
 	ndeps := make([]Symbol, 0)
 	// Filter out all parameters declared in this function, since these are not
 	// external dependencies.

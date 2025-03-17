@@ -1,5 +1,5 @@
 (defcolumns
-    (BIT :binary@loob)
-    (X :i8@loob))
+    (BIT :binary)
+    (X :i8))
 
-(defconstraint c1 () (if (+ 1 BIT) X))
+(defconstraint c1 () (if (== 0 (+ 1 BIT)) (== 0 X)))

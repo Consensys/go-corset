@@ -1,3 +1,3 @@
-(defcolumns (X :i16@loob) (Y :i16@loob))
+(defcolumns (X :i16) (Y :i16))
 (defpurefun (op x y) (+ x y))
 (defconstraint c1 () (reduce op (begin X Y)))
