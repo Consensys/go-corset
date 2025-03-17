@@ -39,8 +39,15 @@ type Scope interface {
 type BindingId struct {
 	// Name of the binding
 	name string
-	// Indicates whether function binding or other.
-	fn bool
+	// Indicates whether function binding (or not) and, if so, what arity the
+	// function has.
+	arity util.Option[uint]
+}
+
+// IsFunction checks whether or not this binding identifier refers to a function
+// definition or not.
+func (b BindingId) IsFunction() bool {
+	return b.arity.HasValue()
 }
 
 // =============================================================================
@@ -193,9 +200,9 @@ func (p *ModuleScope) Declare(submodule string, selector ast.Expr) bool {
 
 // Binding returns information about the binding of a particular symbol defined
 // in this module.
-func (p *ModuleScope) Binding(name string, function bool) ast.Binding {
+func (p *ModuleScope) Binding(name string, arity util.Option[uint]) ast.Binding {
 	// construct binding identifier
-	if bid, ok := p.ids[BindingId{name, function}]; ok {
+	if bid, ok := p.ids[BindingId{name, arity}]; ok {
 		return p.bindings[bid]
 	}
 	// Failure
@@ -230,7 +237,7 @@ func (p *ModuleScope) innerBind(path *util.Path, symbol ast.Symbol) bool {
 	// something in a subscope.
 	if path.Depth() == 1 {
 		// Must be something in this scope,.
-		id := BindingId{symbol.Path().Tail(), symbol.IsFunction()}
+		id := BindingId{symbol.Path().Tail(), symbol.Arity()}
 		// Look for it.
 		if bid, ok := p.ids[id]; ok {
 			// Extract binding
@@ -268,9 +275,9 @@ func (p *ModuleScope) Alias(alias string, symbol ast.Symbol) bool {
 	// Extract symbol name
 	name := symbol.Path().Head()
 	// construct symbol identifier
-	symbol_id := BindingId{name, symbol.IsFunction()}
+	symbol_id := BindingId{name, symbol.Arity()}
 	// construct alias identifier
-	alias_id := BindingId{alias, symbol.IsFunction()}
+	alias_id := BindingId{alias, symbol.Arity()}
 	// Check alias does not already exist
 	if _, ok := p.ids[alias_id]; !ok {
 		// Check symbol being aliased exists
@@ -306,23 +313,10 @@ func (p *ModuleScope) Define(symbol ast.SymbolDefinition) bool {
 		return false
 	}
 	// construct binding identifier
-	id := BindingId{symbol.Name(), symbol.IsFunction()}
+	id := BindingId{symbol.Name(), symbol.Arity()}
 	// Sanity check not already declared
-	if bid, ok := p.ids[id]; ok && !symbol.IsFunction() {
-		// ast.Symbol already declared, and not a function.
-		return false
-	} else if ok {
-		// Following must be true because we internally never attempt to
-		// redeclare an intrinsic.
-		def_binding := p.bindings[bid].(ast.FunctionBinding)
-		sym_binding := symbol.Binding().(*ast.DefunBinding)
-		// Attempt to overload the existing definition.
-		if overloaded_binding, ok := def_binding.Overload(sym_binding); ok {
-			// Success
-			p.bindings[bid] = overloaded_binding
-			return true
-		}
-		// Failed
+	if _, ok := p.ids[id]; ok {
+		// Yes, already declared.
 		return false
 	}
 	// ast.Symbol not previously declared, so no need to consider overloadings.
@@ -489,7 +483,7 @@ func (p LocalScope) FixContext(context ast.Context) bool {
 func (p LocalScope) Bind(symbol ast.Symbol) bool {
 	path := symbol.Path()
 	// Determine whether this symbol could be a local variable or not.
-	localVar := !symbol.IsFunction() && !path.IsAbsolute() && path.Depth() == 1
+	localVar := symbol.Arity().IsEmpty() && !path.IsAbsolute() && path.Depth() == 1
 	// Check whether this is a local variable access.
 	if id, ok := p.locals[path.Head()]; ok && localVar {
 		// Yes, this is a local variable access.

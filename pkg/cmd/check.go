@@ -73,7 +73,6 @@ var checkCmd = &cobra.Command{
 		cfg.corsetConfig.Stdlib = !GetFlag(cmd, "no-stdlib")
 		cfg.corsetConfig.Debug = GetFlag(cmd, "debug")
 		cfg.corsetConfig.Legacy = GetFlag(cmd, "legacy")
-		cfg.corsetConfig.Strict = GetFlag(cmd, "strict")
 		cfg.padding.Right = GetUint(cmd, "padding")
 		cfg.parallel = !GetFlag(cmd, "sequential")
 		cfg.batchSize = GetUint(cmd, "batch")

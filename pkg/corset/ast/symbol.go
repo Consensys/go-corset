@@ -17,6 +17,9 @@ import (
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
+// NON_FUNCTION is used to signal a symbol which does not represent a function.
+var NON_FUNCTION util.Option[uint] = util.None[uint]()
+
 // Symbol represents a variable or function access within a declaration.
 // Initially, such the proper interpretation of such accesses is unclear and it
 // is only later when we can distinguish them (e.g. whether its a column access,
@@ -25,8 +28,9 @@ type Symbol interface {
 	Node
 	// Path returns the given path of this symbol.
 	Path() *util.Path
-	// Indicates whether or not this is a function.
-	IsFunction() bool
+	// Indicates whether or not this is a function and, if so, what arity (i.e.
+	// how many arguments) the function has.
+	Arity() util.Option[uint]
 	// Checks whether this symbol has been resolved already, or not.
 	IsResolved() bool
 	// Get binding associated with this interface.  This will panic if this
@@ -60,8 +64,9 @@ type SymbolDefinition interface {
 	// Path returns the qualified name (i.e. absolute path) of this symbol.  For
 	// example, "m1.X" for a column X defined in module m1.
 	Path() *util.Path
-	// Indicates whether or not this is a function definition.
-	IsFunction() bool
+	// Indicates whether or not this is a function and, if so, what arity (i.e.
+	// how many arguments) the function has.
+	Arity() util.Option[uint]
 	// Allocated binding for the symbol which may or may not be finalised.
 	Binding() Binding
 }
@@ -72,7 +77,8 @@ type FunctionName = Name[*DefunBinding]
 
 // NewFunctionName construct a new column name which is (initially) unresolved.
 func NewFunctionName(path util.Path, binding *DefunBinding) *FunctionName {
-	return &FunctionName{path, true, binding, true}
+	arity := uint(len(binding.paramTypes))
+	return &FunctionName{path, util.Some(arity), binding, true}
 }
 
 // PerspectiveName represents a name used in a position where it can only be
@@ -81,7 +87,7 @@ type PerspectiveName = Name[*PerspectiveBinding]
 
 // NewPerspectiveName construct a new column name which is (initially) unresolved.
 func NewPerspectiveName(path util.Path, binding *PerspectiveBinding) *PerspectiveName {
-	return &PerspectiveName{path, true, binding, true}
+	return &PerspectiveName{path, NON_FUNCTION, binding, true}
 }
 
 // Name represents a name within some syntactic item.  Essentially this wraps a
@@ -91,7 +97,7 @@ type Name[T Binding] struct {
 	// Name of symbol
 	path util.Path
 	// Indicates whether represents function or something else.
-	function bool
+	arity util.Option[uint]
 	// Binding constructed for symbol.
 	binding T
 	// Indicates whether resolved.
@@ -99,17 +105,17 @@ type Name[T Binding] struct {
 }
 
 // NewUnboundName construct a new name which is (initially) unresolved.
-func NewUnboundName[T Binding](path util.Path, function bool) *Name[T] {
+func NewUnboundName[T Binding](path util.Path, arity util.Option[uint]) *Name[T] {
 	// Default value for type T
 	var empty T
 	// Construct the name
-	return &Name[T]{path, function, empty, false}
+	return &Name[T]{path, arity, empty, false}
 }
 
 // NewBoundName construct a new name which is already unresolved.
-func NewBoundName[T Binding](path util.Path, function bool, binding T) *Name[T] {
+func NewBoundName[T Binding](path util.Path, arity util.Option[uint], binding T) *Name[T] {
 	// Construct the name
-	return &Name[T]{path, function, binding, false}
+	return &Name[T]{path, arity, binding, false}
 }
 
 // Name returns the (unqualified) name of this symbol.  For example, "X" for
@@ -124,10 +130,10 @@ func (e *Name[T]) Path() *util.Path {
 	return &e.path
 }
 
-// IsFunction indicates whether or not this symbol refers to a function (which
-// of course it never does).
-func (e *Name[T]) IsFunction() bool {
-	return e.function
+// Arity indicates whether or not this is a function and, if so, what arity
+// (i.e. how many arguments) the function has.
+func (e *Name[T]) Arity() util.Option[uint] {
+	return e.arity
 }
 
 // IsResolved checks whether this symbol has been resolved already, or not.
