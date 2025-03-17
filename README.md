@@ -1,31 +1,14 @@
-# go-corset
+# Go Corset
 
-## Overview
+The `go-corset` tool is based upon the original [`corset` tool](https://github.com/Consensys/corset) and [language](https://github.com/Consensys/corset/wiki/The-Corset-Language).
 
-A (partial) port of the Corset tool into Go.
+### Table of Contents:
 
-## How to contribute
+- [Contributing](CONTRIBUTING.md)
+- [Code of Conduct](CODE_OF_CONDUCT.md)
+- [Developers](#developers)
 
-Contributions are welcome!
-
-### Guidelines for Non-Code and other Trivial Contributions
-Please keep in mind that we do not accept non-code contributions like fixing comments, typos or some other trivial fixes. Although we appreciate the extra help, managing lots of these small contributions is unfeasible, and puts extra pressure in our continuous delivery systems (running all tests, etc). Feel free to open an issue pointing to any of those errors, and we will batch them into a single change.
-
-1. [Create an issue](https://github.com/Consensys/go-corset/issues).
-> If the proposed update requires input, also tag us for discussion.
-2. Submit the update as a pull request from your [fork of this repo](https://github.com/Consensys/go-corset/fork), and tag us for review. 
-> Include the issue number in the pull request description and (optionally) in the branch name.
-
-Consider starting with a ["good first issue"](https://github.com/ConsenSys/go-corset/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
-
-Before contributing, ensure you're familiar with:
-
-- Our [Linea contribution guide](https://github.com/Consensys/linea-monorepo/blob/main/docs/contribute.md)
-- Our [Linea code of conduct](https://github.com/Consensys/linea-monorepo/blob/main/docs/code-of-conduct.md)
-- Our [Security policy](https://github.com/Consensys/linea-monorepo/blob/main/docs/security.md)
-
-
-## Development Setup
+## Developers
 
 **Step 0.** Install [pre-commit](https://pre-commit.com/):
 
