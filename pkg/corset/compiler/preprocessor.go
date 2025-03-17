@@ -383,7 +383,7 @@ func (p *preprocessor) preprocessLetInModule(expr *ast.Let) (ast.Expr, []SyntaxE
 }
 
 func (p *preprocessor) preprocessInvokeInModule(expr *ast.Invoke) (ast.Expr, []SyntaxError) {
-	if expr.Signature != nil {
+	/* if expr.Signature != nil {
 		var (
 			args   []ast.Expr = make([]ast.Expr, len(expr.Args))
 			errors []SyntaxError
@@ -402,7 +402,8 @@ func (p *preprocessor) preprocessInvokeInModule(expr *ast.Invoke) (ast.Expr, []S
 		return body, append(errors, errs...)
 	}
 	//
-	return nil, p.srcmap.SyntaxErrors(expr, "unbound function")
+	return nil, p.srcmap.SyntaxErrors(expr, "unbound function") */
+	panic("todo")
 }
 
 func (p *preprocessor) preprocessReduceInModule(expr *ast.Reduce) (ast.Expr, []SyntaxError) {

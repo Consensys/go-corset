@@ -71,8 +71,6 @@ type Declaration interface {
 // DefAliases represents the declaration of one or more aliases.  That is,
 // alternate names for existing symbols.
 type DefAliases struct {
-	// Distinguishes defalias from defunalias
-	Functions bool
 	// Aliases
 	Aliases []*DefAlias
 	// Symbols being aliased
@@ -80,8 +78,8 @@ type DefAliases struct {
 }
 
 // NewDefAliases constructs a new instance of DefAliases.
-func NewDefAliases(functions bool, aliases []*DefAlias, symbols []Symbol) *DefAliases {
-	return &DefAliases{functions, aliases, symbols}
+func NewDefAliases(aliases []*DefAlias, symbols []Symbol) *DefAliases {
+	return &DefAliases{aliases, symbols}
 }
 
 // Dependencies needed to signal declaration.
@@ -128,16 +126,8 @@ func (p *DefAliases) Lisp() sexp.SExp {
 		pairs.Append(p.Symbols[i].Lisp())
 	}
 	//
-	var name *sexp.Symbol
-	//
-	if p.Functions {
-		name = sexp.NewSymbol("defunalias")
-	} else {
-		name = sexp.NewSymbol("defalias")
-	}
-	//
 	return sexp.NewList([]sexp.SExp{
-		name, pairs,
+		sexp.NewSymbol("defalias"), pairs,
 	})
 }
 
@@ -248,9 +238,10 @@ func NewDefComputedColumn(context util.Path, name util.Path) *DefColumn {
 	return &DefColumn{binding}
 }
 
-// IsFunction is never true for a column definition.
-func (e *DefColumn) IsFunction() bool {
-	return false
+// Arity indicates whether or not this is a function and, if so, what arity
+// (i.e. how many arguments) the function has.
+func (e *DefColumn) Arity() util.Option[uint] {
+	return NON_FUNCTION
 }
 
 // Binding returns the allocated binding for this symbol (which may or may not
@@ -989,9 +980,10 @@ func (p *DefPerspective) Path() *util.Path {
 	return &p.symbol.path
 }
 
-// IsFunction is always true for a function definition!
-func (p *DefPerspective) IsFunction() bool {
-	return false
+// Arity indicates whether or not this is a function and, if so, what arity
+// (i.e. how many arguments) the function has.
+func (e *DefPerspective) Arity() util.Option[uint] {
+	return NON_FUNCTION
 }
 
 // Finalise this perspective, which indicates the selector expression has been
@@ -1153,9 +1145,10 @@ func NewDefFun(name *FunctionName, parameters []*DefParameter) *DefFun {
 	return &DefFun{name, parameters}
 }
 
-// IsFunction is always true for a function definition!
-func (p *DefFun) IsFunction() bool {
-	return true
+// Arity indicates whether or not this is a function and, if so, what arity
+// (i.e. how many arguments) the function has.
+func (e *DefFun) Arity() util.Option[uint] {
+	return util.Some(uint(len(e.parameters)))
 }
 
 // IsPure indicates whether or not this is a pure function.  That is, a function
@@ -1214,7 +1207,7 @@ func (p *DefFun) Dependencies() iter.Iterator[Symbol] {
 	// external dependencies.
 	for _, d := range deps {
 		n := d.Path()
-		if n.IsAbsolute() || d.IsFunction() || n.Depth() > 1 || !p.hasParameter(n.Head()) {
+		if n.IsAbsolute() || d.Arity().HasValue() || n.Depth() > 1 || !p.hasParameter(n.Head()) {
 			ndeps = append(ndeps, d)
 		}
 	}

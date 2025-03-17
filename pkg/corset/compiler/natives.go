@@ -14,7 +14,6 @@ package compiler
 
 import (
 	"fmt"
-	"math"
 
 	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/util"
@@ -35,10 +34,8 @@ type NativeColumn struct {
 type NativeDefinition struct {
 	// Name of the intrinsic (e.g. "+")
 	name string
-	// Minimum number of arguments this native can accept.
-	min_arity uint
-	// Maximum number of arguments this native can accept.
-	max_arity uint
+	// Number of arguments this native can accept.
+	arity uint
 	// Responsible for doing whatever the function does.
 	constructor func([]NativeColumn) []NativeColumn
 }
@@ -67,10 +64,10 @@ func (p *NativeDefinition) IsNative() bool {
 	return true
 }
 
-// IsFunction identifies whether or not the intrinsic being defined is a
-// function.  At this time, all intrinsics are functions.
-func (p *NativeDefinition) IsFunction() bool {
-	return true
+// Arity indicates whether or not this is a function and, if so, what arity
+// (i.e. how many arguments) the function has.
+func (e *NativeDefinition) Arity() util.Option[uint] {
+	return util.Some(e.arity)
 }
 
 // IsFinalised checks whether this binding has been finalised yet or not.
@@ -88,33 +85,16 @@ func (p *NativeDefinition) Lisp() sexp.SExp {
 	panic("unreachable")
 }
 
-// HasArity checks whether this function accepts a given number of arguments (or
-// not).
-func (p *NativeDefinition) HasArity(arity uint) bool {
-	return arity >= p.min_arity && arity <= p.max_arity
-}
-
-// Select corresponding signature based on arity.  If no matching signature
-// exists then this will return nil.
-func (p *NativeDefinition) Select(arity uint) *ast.FunctionSignature {
-	// This is safe because natives can only (currently) be used in very
-	// specific situations.
-	return nil
-}
-
 // Apply returns the output columns given a set of input columns.
 func (p *NativeDefinition) Apply(args []NativeColumn) []NativeColumn {
 	return p.constructor(args)
 }
 
-// Overload (a.k.a specialise) this function binding to incorporate another
-// function binding.  This can fail for a few reasons: (1) some bindings
-// (e.g. intrinsics) cannot be overloaded; (2) duplicate overloadings are
-// not permitted; (3) combinding pure and impure overloadings is also not
-// permitted.
-func (p *NativeDefinition) Overload(*ast.DefunBinding) (ast.FunctionBinding, bool) {
-	// Easy case, as natives cannot be overloaded.
-	return nil, false
+// Signature returns the function signature for this binding.
+func (p *NativeDefinition) Signature() *ast.FunctionSignature {
+	// This is safe because natives can only (currently) be used in very
+	// specific situations.
+	panic("unreachable")
 }
 
 // ============================================================================
@@ -125,21 +105,25 @@ func (p *NativeDefinition) Overload(*ast.DefunBinding) (ast.FunctionBinding, boo
 // defcomputed assignments.
 var NATIVES []NativeDefinition = []NativeDefinition{
 	// Simple identity function.
-	{"id", 1, 1, nativeId},
+	{"id", 1, nativeId},
 	// Filter based on second argument
-	{"filter", 2, 2, nativeFilter},
+	{"filter", 2, nativeFilter},
 	// Guarded map
-	{"map-if", 3, math.MaxUint, nativeMapIf},
+	{"map-if", 3, nativeMapIf},
+	{"map-if", 4, nativeMapIf},
 	// Identify changes of a column within a given region (in forwards direction).
-	{"fwd-changes-within", 2, math.MaxUint, nativeChangeWithin},
+	{"fwd-changes-within", 2, nativeChangeWithin},
+	{"fwd-changes-within", 3, nativeChangeWithin},
 	// Identify rows which don't change within a given region (in forwards direction).
-	{"fwd-unchanged-within", 2, math.MaxUint, nativeChangeWithin},
+	{"fwd-unchanged-within", 2, nativeChangeWithin},
+	{"fwd-unchanged-within", 3, nativeChangeWithin},
 	// Identify changes of a column within a given region (in backwards direction).
-	{"bwd-changes-within", 2, math.MaxUint, nativeChangeWithin},
+	{"bwd-changes-within", 2, nativeChangeWithin},
+	{"bwd-changes-within", 3, nativeChangeWithin},
 	// Flood fill (forwards) within a given region
-	{"fwd-fill-within", 3, 3, nativeFillWithin},
+	{"fwd-fill-within", 3, nativeFillWithin},
 	// Flood fill (backwards) within a given region
-	{"bwd-fill-within", 3, 3, nativeFillWithin},
+	{"bwd-fill-within", 3, nativeFillWithin},
 }
 
 func nativeId(inputs []NativeColumn) []NativeColumn {
