@@ -1,6 +1,6 @@
 ;;error:9:23-26:not permitted in const context
 ;;error:9:53-56:not permitted in const context
-(defpurefun ((vanishes! :𝔽@loob) x) x)
+(defpurefun (vanishes! x) (== 0 x))
 
 (defconst (ONE :extern) 1)
 (defcolumns (CT :i5))

@@ -153,7 +153,7 @@ type ConstantBinding struct {
 	Path util.Path
 	// Explicit type for this constant.  This maybe nil if no type was given
 	// and, instead, the type should be inferred from context.
-	DataType *IntType
+	DataType Type
 	// Constant expression which, when evaluated, produces a constant Value.
 	Value Expr
 	// Determines whether this is an "externalised" constant, or not.
@@ -167,7 +167,7 @@ type ConstantBinding struct {
 
 // NewConstantBinding creates a new constant binding (which is initially not
 // finalised).
-func NewConstantBinding(path util.Path, datatype *IntType, value Expr, extern bool) ConstantBinding {
+func NewConstantBinding(path util.Path, datatype Type, value Expr, extern bool) ConstantBinding {
 	return ConstantBinding{path, datatype, value, extern, false}
 }
 
@@ -224,29 +224,29 @@ func (p *LocalVariableBinding) Finalise(index uint) {
 // DefunBinding is a function binding arising from a user-defined function (as
 // opposed, for example, to a function binding arising from an intrinsic).
 type DefunBinding struct {
-	// Flag whether or not is pure function
-	pure bool
+	// Flag whether or not is Pure function
+	Pure bool
 	// Types of parameters (optional)
-	paramTypes []Type
+	ParamTypes []Type
 	// Type of return (optional)
-	returnType Type
+	ReturnType Type
+	// Body of the function in question.
+	Body Expr
 	// Indicates whether this symbol is finalised (i.e. all expressions have
 	// been resolved).
 	finalised bool
-	// body of the function in question.
-	body Expr
 }
 
 var _ FunctionBinding = &DefunBinding{}
 
 // NewDefunBinding constructs a new function binding.
 func NewDefunBinding(pure bool, paramTypes []Type, returnType Type, body Expr) DefunBinding {
-	return DefunBinding{pure, paramTypes, returnType, false, body}
+	return DefunBinding{pure, paramTypes, returnType, body, false}
 }
 
 // IsPure checks whether this is a defpurefun or not
 func (p *DefunBinding) IsPure() bool {
-	return p.pure
+	return p.Pure
 }
 
 // IsNative checks whether this function binding is native (or not).
@@ -259,16 +259,10 @@ func (p *DefunBinding) IsFinalised() bool {
 	return p.finalised
 }
 
-// HasArity checks whether this function accepts a given number of arguments (or
-// not).
-func (p *DefunBinding) HasArity(arity uint) bool {
-	return arity == uint(len(p.paramTypes))
-}
-
 // Signature returns the corresponding function signature for this user-defined
 // function.
 func (p *DefunBinding) Signature() *FunctionSignature {
-	return &FunctionSignature{p.pure, p.paramTypes, p.returnType, p.body}
+	return &FunctionSignature{p.Pure, p.ParamTypes, p.ReturnType, p.Body}
 }
 
 // Finalise this binding by providing the necessary missing information.

@@ -1,6 +1,6 @@
 ;;error:15:38-39:unknown symbol
 ;;error:16:38-39:unknown symbol
-(defpurefun ((vanishes! :𝔽@loob :force) x) x)
+;;
 ;;
 (defcolumns
     ;; Column (not in perspective)
@@ -12,5 +12,5 @@
 
 (defperspective p1 P ((B :byte)))
 (defperspective p2 Q ((C :byte)))
-(defconstraint c1 () (vanishes! (- A B)))
+(defconstraint c1 () (== A B))
 (defconstraint c2 () (vanishes! (- A C)))

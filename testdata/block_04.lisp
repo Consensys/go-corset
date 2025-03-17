@@ -1,4 +1,4 @@
-(defcolumns (X :i16@loob) (Y :i16@loob))
+(defcolumns (X :i16) (Y :i16))
 
 (defconstraint c1 ()
-  (begin (- X Y) (- Y X)))
+  (begin (== X Y) (== Y X)))

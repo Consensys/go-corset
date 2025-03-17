@@ -49,8 +49,8 @@ func (p *IntrinsicDefinition) Path() *util.Path {
 
 // Arity indicates whether or not this is a function and, if so, what arity
 // (i.e. how many arguments) the function has.
-func (e *IntrinsicDefinition) Arity() util.Option[uint] {
-	return util.Some(e.arity)
+func (p *IntrinsicDefinition) Arity() util.Option[uint] {
+	return util.Some(p.arity)
 }
 
 // IsPure checks whether this pure (which intrinsics always are).

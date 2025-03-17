@@ -68,7 +68,7 @@ func NewSourceMaps[T comparable]() *Maps[T] {
 
 // Has checks whether a given node has a mapping in one of the source maps
 // embodied within.
-func (p *SourceMaps[T]) Has(node T) bool {
+func (p *Maps[T]) Has(node T) bool {
 	for _, m := range p.maps {
 		if m.Has(node) {
 			return true

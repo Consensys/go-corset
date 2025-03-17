@@ -1,5 +1,5 @@
 ;;error:14:53-57:unknown symbol
-(defpurefun ((vanishes! :𝔽@loob :force) x) x)
+;;
 ;;
 (defcolumns
     ;; Column (not in perspective)

@@ -1,4 +1,4 @@
-(defcolumns (ST :binary) (X :i16@loob) (Y :i16@loob))
+(defcolumns (ST :binary) (X :i16) (Y :i16))
 
 (defconstraint c1 (:guard ST) (- 16 (reduce + (begin X (* 2 Y)))))
 (defconstraint c2 (:guard ST) (- 16 (reduce + (begin (* 2 Y) X))))

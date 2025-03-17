@@ -10,11 +10,11 @@
 ;; specific language governing permissions and limitations under the License.
 ;;
 ;; SPDX-License-Identifier: Apache-2.0
-(defpurefun (if-zero cond then) (if (vanishes! cond) then))
-(defpurefun (if-zero cond then else) (if (vanishes! cond) then else))
+(defpurefun (if-zero cond then) (if (== 0 cond) then))
+(defpurefun (if-zero cond then else) (if (== 0 cond) then else))
 
-(defpurefun (if-not-zero cond then) (if (force-bool cond) then))
-(defpurefun (if-not-zero cond then else) (if (force-bool cond) then else))
+(defpurefun (if-not-zero cond then) (if (!= 0 cond) then))
+(defpurefun (if-not-zero cond then else) (if (!= 0 cond) then else))
 
 (defpurefun ((force-bool :𝔽@bool :force) x) x)
 (defpurefun ((is-binary :𝔽@loob :force) e0) (* e0 (- 1 e0)))

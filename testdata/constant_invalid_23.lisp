@@ -1,5 +1,5 @@
 ;;error:7:43-46:not permitted in const context
-(defpurefun ((vanishes! :𝔽@loob) x) x)
+(defpurefun (vanishes! x) (== 0 x))
 
 (defconst (TWO :extern) 2)
 (defcolumns (X :i16) (Y :i16))

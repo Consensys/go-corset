@@ -11,7 +11,7 @@
 ;; written.
 
 ;; Program Counter (always increases by one)
-(defcolumns (PC :i16@loob@prove))
+(defcolumns (PC :i16@prove))
 ;; Read/Write flag (0=READ, 1=WRITE)
 (defcolumns (RW :i1@prove))
 ;; Address being Read/Written
