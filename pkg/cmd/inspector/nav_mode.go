@@ -29,6 +29,8 @@ func (p *NavigationMode) Activate(parent *Inspector) {
 	parent.cmdBar.Add(termio.NewText("ilter :: "))
 	parent.cmdBar.Add(termio.NewColouredText("[#]", termio.TERM_YELLOW))
 	parent.cmdBar.Add(termio.NewText("clear filter :: "))
+	parent.cmdBar.Add(termio.NewColouredText("[s]", termio.TERM_YELLOW))
+	parent.cmdBar.Add(termio.NewText("scan :: "))
 	//p.cmdbar.Add(termio.NewFormattedText("[p]erspectives"))
 	parent.cmdBar.Add(termio.NewColouredText("[q]", termio.TERM_RED))
 	parent.cmdBar.Add(termio.NewText("uit"))
@@ -71,6 +73,8 @@ func (p *NavigationMode) KeyPressed(parent *Inspector, key uint16) bool {
 		parent.EnterMode(p.gotoInputMode(parent))
 	case 'f':
 		parent.EnterMode(p.filterInputMode(parent))
+	case 's':
+		parent.EnterMode(p.scanInputMode(parent))
 	case '#':
 		parent.clearColumnFilter()
 	}
@@ -86,7 +90,7 @@ func (p *NavigationMode) gotoInputMode(parent *Inspector) Mode {
 	return newInputMode(prompt, history_index, history, newUintHandler(parent.gotoRow))
 }
 
-func (p *NavigationMode) filterInputMode(parent *Inspector) Mode { //
+func (p *NavigationMode) filterInputMode(parent *Inspector) Mode {
 	prompt := termio.NewColouredText("[history ↑/↓] regex? ", termio.TERM_YELLOW)
 	// Determine current active filter
 	filter := parent.currentView().columnFilter
@@ -98,4 +102,12 @@ func (p *NavigationMode) filterInputMode(parent *Inspector) Mode { //
 	}
 	//
 	return newInputMode(prompt, history_index, history, newRegexHandler(parent.filterColumns))
+}
+
+func (p *NavigationMode) scanInputMode(parent *Inspector) Mode {
+	prompt := termio.NewColouredText("[history ↑/↓] expression? ", termio.TERM_YELLOW)
+	history := parent.currentView().scanHistory
+	history_index := uint(len(history))
+	//
+	return newInputMode(prompt, history_index, history, newUintHandler(parent.gotoRow))
 }

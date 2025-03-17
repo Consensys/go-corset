@@ -39,6 +39,8 @@ type ModuleState struct {
 	columnFilter string
 	// Set of column filters used.
 	columnFilterHistory []string
+	// Histor for scan commands
+	scanHistory []string
 }
 
 // SourceColumn provides key information to the inspector about source-level
