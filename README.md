@@ -2,7 +2,7 @@
 
 The `go-corset` tool is a compiler for arithmetic constraints written
 in a lisp-like [domain-specific
-language](https://en.wikipedia.org/wiki/Domain-specific_language))
+language](https://en.wikipedia.org/wiki/Domain-specific_language)
 (called _Corset_).  The tool is specifically designed for used with
 the [Linea constraint
 system](https://github.com/Consensys/linea-constraints/) but could, in
@@ -20,6 +20,32 @@ compiler](https://github.com/Consensys/corset) and
 - [Developers](#developer-setup)
 
 ## Overview
+
+The purpose of the Corset language is to provide a more human-friendly
+interface for writing arithmetic constraints.  Corset constraints are
+compiled down into an Arithmetic Intermediate Representation (AIR)
+consisting of vanishing constraints, range constraints, lookup
+arguments and permutation arguments.
+
+An example program written in Corset is:
+
+```lisp
+(defcolumns
+  (NIBBLE :i4)
+  (BIT_0 :i1@prove)
+  (BIT_1 :i1@prove)
+  (BIT_2 :i1@prove)
+  (BIT_3 :i1@prove))
+
+;; NIBBLE = 8*BIT_3 + 4*BIT_2 + 2*BIT_1 + BIT_0
+(defconstraint decomp () (eq! NIBBLE (+ BIT_0 (* 2 BIT_1) (* 4 BIT_2) (* 8 BIT_3))))
+```
+
+This program ensures all values in the column `NIBBLE` are in the
+range `0..15` (inclusive).  This is done by decomposing the value of
+`NIBBLE` on any given row into exactly four bits.  In turn, the values
+of each `BIT_X` column are enforced using a range constraint
+(specified via the `@prove` modifier).
 
 ## Command-Line Interface
 
