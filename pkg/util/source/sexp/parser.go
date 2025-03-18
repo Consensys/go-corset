@@ -20,7 +20,7 @@ import (
 
 // Parse a given string into an S-expression, or return an error if the string
 // is malformed.  A source map is also returned for debugging purposes.
-func Parse(s *source.SourceFile) (SExp, *source.SourceMap[SExp], *source.SyntaxError) {
+func Parse(s *source.File) (SExp, *source.Map[SExp], *source.SyntaxError) {
 	p := NewParser(s)
 	// Parse the input
 	sExp, err := p.Parse()
@@ -36,7 +36,7 @@ func Parse(s *source.SourceFile) (SExp, *source.SourceMap[SExp], *source.SyntaxE
 // an error if the string is malformed.  A source map is also returned for
 // debugging purposes.  The key distinction from Parse is that this function
 // continues parsing after the first S-expression is encountered.
-func ParseAll(s *source.SourceFile) ([]SExp, *source.SourceMap[SExp], *source.SyntaxError) {
+func ParseAll(s *source.File) ([]SExp, *source.Map[SExp], *source.SyntaxError) {
 	p := NewParser(s)
 	//
 	terms := make([]SExp, 0)
@@ -59,17 +59,17 @@ func ParseAll(s *source.SourceFile) ([]SExp, *source.SourceMap[SExp], *source.Sy
 // or more S-expressions.
 type Parser struct {
 	// Source file being parsed
-	srcfile *source.SourceFile
+	srcfile *source.File
 	// Cache (for simplicity)
 	text []rune
 	// Determine current position within text
 	index int
 	// Mapping from constructed S-Expressions to their spans in the original text.
-	srcmap *source.SourceMap[SExp]
+	srcmap *source.Map[SExp]
 }
 
 // NewParser constructs a new instance of Parser
-func NewParser(srcfile *source.SourceFile) *Parser {
+func NewParser(srcfile *source.File) *Parser {
 	// Construct initial parser.
 	return &Parser{
 		srcfile: srcfile,
@@ -82,7 +82,7 @@ func NewParser(srcfile *source.SourceFile) *Parser {
 // SourceMap returns the internal source map constructing during parsing.  Using
 // this one can determine, for each SExp, where in the original text it
 // originated.  This is helpful, for example, when reporting syntax errors.
-func (p *Parser) SourceMap() *source.SourceMap[SExp] {
+func (p *Parser) SourceMap() *source.Map[SExp] {
 	return p.srcmap
 }
 

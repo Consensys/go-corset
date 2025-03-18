@@ -53,24 +53,24 @@ func (p *Span) Length() int {
 	return p.end - p.start
 }
 
-// SourceMaps provides a mechanism for mapping terms from an AST to multiple
+// Maps provides a mechanism for mapping terms from an AST to multiple
 // source files.
-type SourceMaps[T comparable] struct {
+type Maps[T comparable] struct {
 	// Arrray of known source maps.
-	maps []SourceMap[T]
+	maps []Map[T]
 }
 
 // NewSourceMaps constructs an (initially empty) set of source maps.  The
 // intention is that this is populated as each file is parsed.
-func NewSourceMaps[T comparable]() *SourceMaps[T] {
-	return &SourceMaps[T]{[]SourceMap[T]{}}
+func NewSourceMaps[T comparable]() *Maps[T] {
+	return &Maps[T]{[]Map[T]{}}
 }
 
 // SyntaxError constructs a syntax error for a given node contained within one
 // of the source files managed by this set of source maps.
 //
 //nolint:revive
-func (p *SourceMaps[T]) SyntaxError(node T, msg string) *SyntaxError {
+func (p *Maps[T]) SyntaxError(node T, msg string) *SyntaxError {
 	for _, m := range p.maps {
 		if m.Has(node) {
 			span := m.Get(node)
@@ -86,21 +86,21 @@ func (p *SourceMaps[T]) SyntaxError(node T, msg string) *SyntaxError {
 // SyntaxErrors is really just a helper that construct a syntax error and then
 // places it into an array of size one.  This is helpful for situations where
 // sets of syntax errors are being passed around.
-func (p *SourceMaps[T]) SyntaxErrors(node T, msg string) []SyntaxError {
+func (p *Maps[T]) SyntaxErrors(node T, msg string) []SyntaxError {
 	err := p.SyntaxError(node, msg)
 	return []SyntaxError{*err}
 }
 
 // Join a given source map into this set of source maps.  The effect of this is
 // that nodes recorded in the given source map can be accessed from this set.
-func (p *SourceMaps[T]) Join(srcmap *SourceMap[T]) {
+func (p *Maps[T]) Join(srcmap *Map[T]) {
 	p.maps = append(p.maps, *srcmap)
 }
 
 // Copy copies the source mapping for one node to the source mapping for
 // another.  The main use of this is when an existing node is expanded into some
 // other nodes (e.g. during preprocessing).
-func (p *SourceMaps[T]) Copy(from T, to T) {
+func (p *Maps[T]) Copy(from T, to T) {
 	for _, m := range p.maps {
 		if m.Has(from) {
 			span := m.Get(from)
@@ -111,33 +111,33 @@ func (p *SourceMaps[T]) Copy(from T, to T) {
 	}
 }
 
-// SourceMap maps terms from an AST to slices of their originating string.  This
+// Map maps terms from an AST to slices of their originating string.  This
 // is important for error handling when we wish to highlight exactly where, in
 // the original source file, a given error has arisen.
 //
 // This provides various useful functions to aid reporting syntax errors, such
 // as identifying the enclosing line for a given span, etc.
-type SourceMap[T comparable] struct {
+type Map[T comparable] struct {
 	// Maps a given AST object to a span in the original string.
 	mapping map[T]Span
 	// Enclosing source file
-	srcfile SourceFile
+	srcfile File
 }
 
 // NewSourceMap constructs an initially empty source map for a given string.
-func NewSourceMap[T comparable](srcfile SourceFile) *SourceMap[T] {
+func NewSourceMap[T comparable](srcfile File) *Map[T] {
 	mapping := make(map[T]Span)
-	return &SourceMap[T]{mapping, srcfile}
+	return &Map[T]{mapping, srcfile}
 }
 
 // Source returns the underlying source file on which this map operates.
-func (p *SourceMap[T]) Source() SourceFile {
+func (p *Map[T]) Source() File {
 	return p.srcfile
 }
 
 // Put registers a new AST item with a given span.  Note, if the item exists
 // already, then it will panic.
-func (p *SourceMap[T]) Put(item T, span Span) {
+func (p *Map[T]) Put(item T, span Span) {
 	if _, ok := p.mapping[item]; ok {
 		panic(fmt.Sprintf("source map key already exists: %s", any(item)))
 	}
@@ -146,7 +146,7 @@ func (p *SourceMap[T]) Put(item T, span Span) {
 }
 
 // Has checks whether a given item is contained within this source map.
-func (p *SourceMap[T]) Has(item T) bool {
+func (p *Map[T]) Has(item T) bool {
 	_, ok := p.mapping[item]
 	return ok
 }
@@ -154,7 +154,7 @@ func (p *SourceMap[T]) Has(item T) bool {
 // Get determines the span associated with a given AST item extract from the
 // original text.  Note, if the item is not registered with this source map,
 // then it will panic.
-func (p *SourceMap[T]) Get(item T) Span {
+func (p *Map[T]) Get(item T) Span {
 	if s, ok := p.mapping[item]; ok {
 		return s
 	}
@@ -165,7 +165,7 @@ func (p *SourceMap[T]) Get(item T) Span {
 // JoinMaps incorporates all mappings from one source map (the source) into
 // another source map (the target), whilst applying a given mapping to the node
 // types.
-func JoinMaps[S comparable, T comparable](target *SourceMap[S], source *SourceMap[T], mapping func(T) S) {
+func JoinMaps[S comparable, T comparable](target *Map[S], source *Map[T], mapping func(T) S) {
 	for i, k := range source.mapping {
 		target.Put(mapping(i), k)
 	}

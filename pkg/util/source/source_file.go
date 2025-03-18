@@ -52,8 +52,8 @@ func (p *Line) Length() int {
 	return p.span.Length()
 }
 
-// SourceFile represents a given source file (typically stored on disk).
-type SourceFile struct {
+// File represents a given source file (typically stored on disk).
+type File struct {
 	// File name for this source file.
 	filename string
 	// Contents of this file.
@@ -61,25 +61,25 @@ type SourceFile struct {
 }
 
 // NewSourceFile constructs a new source file from a given byte array.
-func NewSourceFile(filename string, bytes []byte) *SourceFile {
+func NewSourceFile(filename string, bytes []byte) *File {
 	// Convert bytes into runes for easier parsing
 	contents := []rune(string(bytes))
-	return &SourceFile{filename, contents}
+	return &File{filename, contents}
 }
 
 // Filename returns the filename associated with this source file.
-func (s *SourceFile) Filename() string {
+func (s *File) Filename() string {
 	return s.filename
 }
 
 // Contents returns the contents of this source file.
-func (s *SourceFile) Contents() []rune {
+func (s *File) Contents() []rune {
 	return s.contents
 }
 
 // SyntaxError constructs a syntax error over a given span of this file with a
 // given message.
-func (s *SourceFile) SyntaxError(span Span, msg string) *SyntaxError {
+func (s *File) SyntaxError(span Span, msg string) *SyntaxError {
 	return &SyntaxError{s, span, msg}
 }
 
@@ -88,7 +88,7 @@ func (s *SourceFile) SyntaxError(span Span, msg string) *SyntaxError {
 // bounds of the source file then the last physical line is returned.  Also,
 // the returned line is not guaranteed to enclose the entire span, as these can
 // cross multiple lines.
-func (s *SourceFile) FindFirstEnclosingLine(span Span) Line {
+func (s *File) FindFirstEnclosingLine(span Span) Line {
 	// Index identifies the current position within the original text.
 	index := span.start
 	// Num records the line number, counting from 1.
@@ -112,7 +112,7 @@ func (s *SourceFile) FindFirstEnclosingLine(span Span) Line {
 // SyntaxError is a structured error which retains the index into the original
 // string where an error occurred, along with an error message.
 type SyntaxError struct {
-	srcfile *SourceFile
+	srcfile *File
 	// Byte index into string being parsed where error arose.
 	span Span
 	// Error message being reported
@@ -120,7 +120,7 @@ type SyntaxError struct {
 }
 
 // SourceFile returns the underlying source file that this syntax error covers.
-func (p *SyntaxError) SourceFile() *SourceFile {
+func (p *SyntaxError) SourceFile() *File {
 	return p.srcfile
 }
 

@@ -30,7 +30,7 @@ type DeclPredicate = iter.Predicate[ast.Declaration]
 // a symbol (e.g. a column) is referred to which doesn't exist.  Likewise, if
 // two modules or columns with identical names are declared in the same scope,
 // etc.
-func ResolveCircuit(srcmap *source.SourceMaps[ast.Node], circuit *ast.Circuit) (*ModuleScope, []SyntaxError) {
+func ResolveCircuit(srcmap *source.Maps[ast.Node], circuit *ast.Circuit) (*ModuleScope, []SyntaxError) {
 	// Construct top-level scope
 	scope := NewModuleScope(nil)
 	// Define natives
@@ -69,7 +69,7 @@ type resolver struct {
 	// Source maps nodes in the circuit back to the spans in their original
 	// source files.  This is needed when reporting syntax errors to generate
 	// highlights of the relevant source line(s) in question.
-	srcmap *source.SourceMaps[ast.Node]
+	srcmap *source.Maps[ast.Node]
 }
 
 // Initialise all columns from their declaring constructs.

@@ -40,8 +40,8 @@ import (
 // Thus, you should never expect to see duplicate module names in the returned
 // array.
 // If strictMode is activated, parser rejects columns of field type 𝔽.
-func ParseSourceFiles(files []*source.SourceFile, strictMode bool) (ast.Circuit,
-	*source.SourceMaps[ast.Node], []SyntaxError) {
+func ParseSourceFiles(files []*source.File, strictMode bool) (ast.Circuit,
+	*source.Maps[ast.Node], []SyntaxError) {
 	//
 	var circuit ast.Circuit
 	// (for now) at most one error per source file is supported.
@@ -101,8 +101,8 @@ func ParseSourceFiles(files []*source.SourceFile, strictMode bool) (ast.Circuit,
 // modules.  Observe that every lisp file starts in the "prelude" or "root"
 // module, and may declare items for additional modules as necessary.
 // If strictMode is activated, parser rejects columns of field type 𝔽.
-func ParseSourceFile(srcfile *source.SourceFile, strictMode bool) (ast.Circuit,
-	*source.SourceMap[ast.Node], []SyntaxError) {
+func ParseSourceFile(srcfile *source.File, strictMode bool) (ast.Circuit,
+	*source.Map[ast.Node], []SyntaxError) {
 	//
 	var (
 		circuit ast.Circuit
@@ -155,14 +155,14 @@ type Parser struct {
 	// Translator used for recursive expressions.
 	translator *sexp.Translator[ast.Expr]
 	// Mapping from constructed S-Expressions to their spans in the original text.
-	nodemap *source.SourceMap[ast.Node]
+	nodemap *source.Map[ast.Node]
 	// Mode for the parser to reject columns of field type 𝔽.
 	strictMode bool
 }
 
 // NewParser constructs a new parser using a given mapping from S-Expressions to
 // spans in the underlying source file.
-func NewParser(srcfile *source.SourceFile, srcmap *source.SourceMap[sexp.SExp], strictMode bool) *Parser {
+func NewParser(srcfile *source.File, srcmap *source.Map[sexp.SExp], strictMode bool) *Parser {
 	p := sexp.NewTranslator[ast.Expr](srcfile, srcmap)
 	// Construct (initially empty) node map
 	nodemap := source.NewSourceMap[ast.Node](srcmap.Source())
@@ -192,7 +192,7 @@ func NewParser(srcfile *source.SourceFile, srcmap *source.SourceMap[sexp.SExp], 
 // NodeMap extract the node map constructec by this parser.  A key task here is
 // to copy all mappings from the expression translator, which maintains its own
 // map.
-func (p *Parser) NodeMap() *source.SourceMap[ast.Node] {
+func (p *Parser) NodeMap() *source.Map[ast.Node] {
 	// Copy all mappings from translator's source map into this map.  A mapping
 	// function is required to coerce the types.
 	source.JoinMaps(p.nodemap, p.translator.SourceMap(), func(e ast.Expr) ast.Node { return e })

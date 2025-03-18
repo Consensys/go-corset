@@ -567,7 +567,7 @@ func ReadBinaryFile(filename string) *binfile.BinaryFile {
 // can be done with (or without) including the standard library, and also with
 // (or without) debug constraints.
 func CompileSourceFiles(config corset.CompilationConfig, filenames []string) *binfile.BinaryFile {
-	srcfiles := make([]*source.SourceFile, len(filenames))
+	srcfiles := make([]*source.File, len(filenames))
 	// Read each file
 	for i, n := range filenames {
 		log.Debug(fmt.Sprintf("including source file %s", n))

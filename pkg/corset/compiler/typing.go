@@ -28,7 +28,7 @@ type SyntaxError = source.SyntaxError
 // TypeCheckCircuit performs a type checking pass over the circuit to ensure
 // types are used correctly.  Additionally, this resolves some ambiguities
 // arising from the possibility of overloading function calls, etc.
-func TypeCheckCircuit(srcmap *source.SourceMaps[ast.Node],
+func TypeCheckCircuit(srcmap *source.Maps[ast.Node],
 	circuit *ast.Circuit) []SyntaxError {
 	// Construct fresh typeCheckor
 	p := typeChecker{srcmap}
@@ -43,7 +43,7 @@ type typeChecker struct {
 	// Source maps nodes in the circuit back to the spans in their original
 	// source files.  This is needed when reporting syntax errors to generate
 	// highlights of the relevant source line(s) in question.
-	srcmap *source.SourceMaps[ast.Node]
+	srcmap *source.Maps[ast.Node]
 }
 
 // typeCheck all assignment or constraint declarations in the circuit.

@@ -52,7 +52,7 @@ type RecursiveRule[T comparable] func(string, []T) (T, error)
 // Translator is a generic mechanism for translating S-Expressions into a structured
 // form.
 type Translator[T comparable] struct {
-	srcfile *source.SourceFile
+	srcfile *source.File
 	// Rules for parsing lists
 	lists map[string]ListRule[T]
 	// Fallback rule for generic user-defined lists.
@@ -65,14 +65,14 @@ type Translator[T comparable] struct {
 	symbols []SymbolRule[T]
 	// Maps S-Expressions to their spans in the original source file.  This is
 	// used to build the new source map.
-	old_srcmap *source.SourceMap[SExp]
+	old_srcmap *source.Map[SExp]
 	// Maps translated expressions to their spans in the original source file.
 	// This is constructed using the old source map.
-	new_srcmap *source.SourceMap[T]
+	new_srcmap *source.Map[T]
 }
 
 // NewTranslator constructs a new Translator instance.
-func NewTranslator[T comparable](srcfile *source.SourceFile, srcmap *source.SourceMap[SExp]) *Translator[T] {
+func NewTranslator[T comparable](srcfile *source.File, srcmap *source.Map[SExp]) *Translator[T] {
 	return &Translator[T]{
 		srcfile:       srcfile,
 		lists:         make(map[string]ListRule[T]),
@@ -86,7 +86,7 @@ func NewTranslator[T comparable](srcfile *source.SourceFile, srcmap *source.Sour
 
 // SourceMap returns the source map maintained for terms constructed by this
 // translator.
-func (p *Translator[T]) SourceMap() *source.SourceMap[T] {
+func (p *Translator[T]) SourceMap() *source.Map[T] {
 	return p.new_srcmap
 }
 

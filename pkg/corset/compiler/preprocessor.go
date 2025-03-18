@@ -23,7 +23,7 @@ import (
 // PreprocessCircuit performs preprocessing prior to final translation.
 // Specifically, it expands all invocations, reductions and for loops.  Thus,
 // final translation is greatly simplified after this step.
-func PreprocessCircuit(debug bool, srcmap *source.SourceMaps[ast.Node],
+func PreprocessCircuit(debug bool, srcmap *source.Maps[ast.Node],
 	circuit *ast.Circuit) []SyntaxError {
 	// Construct fresh preprocessor
 	p := preprocessor{debug, srcmap}
@@ -40,7 +40,7 @@ type preprocessor struct {
 	// Source maps nodes in the circuit back to the spans in their original
 	// source files.  This is needed when reporting syntax errors to generate
 	// highlights of the relevant source line(s) in question.
-	srcmap *source.SourceMaps[ast.Node]
+	srcmap *source.Maps[ast.Node]
 }
 
 // preprocess all assignment or constraint declarations in the circuit.

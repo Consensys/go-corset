@@ -98,7 +98,7 @@ func (p *FunctionSignature) Arity() uint {
 
 // Apply a set of concreate arguments to this function.  This substitutes
 // them through the body of the function producing a single expression.
-func (p *FunctionSignature) Apply(args []Expr, srcmap *source.SourceMaps[Node]) Expr {
+func (p *FunctionSignature) Apply(args []Expr, srcmap *source.Maps[Node]) Expr {
 	mapping := make(map[uint]Expr)
 	// Setup the mapping
 	for i, e := range args {
