@@ -159,11 +159,9 @@ func (p *Inspector) currentView() *ModuleState {
 
 // Actions goto row mode
 func (p *Inspector) gotoRow(row uint) bool {
-	module := p.tabs.Selected()
-	// if row is out of bound, then go to the last row
-	rowOrMaxHeight := min(p.height, row)
+	mid := p.tabs.Selected()
 	// Action change
-	return p.modules[module].setRowOffset(rowOrMaxHeight)
+	return p.modules[mid].setRowOffset(row)
 }
 
 // filter columns based on a regex
