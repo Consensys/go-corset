@@ -41,3 +41,13 @@ func NewLexer[T any](input []T, scanner Scanner[T]) *Lexer[T] {
 		scanner,
 	}
 }
+
+// Check whether or not there are any items remaining to visit.
+func (p *Lexer[T]) HasNext() bool {
+	panic("todo")
+}
+
+// Next returns the next item and advances the lexer.
+func (p *Lexer[T]) Next() T {
+	panic("todo")
+}
