@@ -17,7 +17,7 @@ import (
 
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
-	"github.com/consensys/go-corset/pkg/util/sexp"
+	"github.com/consensys/go-corset/pkg/util/source"
 )
 
 // Binding represents an association between a name, as found in a source file,
@@ -98,7 +98,7 @@ func (p *FunctionSignature) Arity() uint {
 
 // Apply a set of concreate arguments to this function.  This substitutes
 // them through the body of the function producing a single expression.
-func (p *FunctionSignature) Apply(args []Expr, srcmap *sexp.SourceMaps[Node]) Expr {
+func (p *FunctionSignature) Apply(args []Expr, srcmap *source.SourceMaps[Node]) Expr {
 	mapping := make(map[uint]Expr)
 	// Setup the mapping
 	for i, e := range args {

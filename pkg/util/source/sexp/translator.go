@@ -15,6 +15,8 @@ package sexp
 import (
 	"fmt"
 	"reflect"
+
+	"github.com/consensys/go-corset/pkg/util/source"
 )
 
 // SymbolRule is a symbol generator is responsible for converting a terminating
@@ -26,12 +28,12 @@ type SymbolRule[T comparable] func(string) (T, bool, error)
 // sequence of zero or more arguments into an expression type T.
 // Observe that the arguments are already translated into the correct
 // form.
-type ListRule[T comparable] func(*List) (T, []SyntaxError)
+type ListRule[T comparable] func(*List) (T, []source.SyntaxError)
 
 // ArrayRule is an array translator which is responsible converting an array
 // with a given sequence of zero or more arguments into an expression type T.
 // Observe that the arguments are already translated into the correct form.
-type ArrayRule[T comparable] func(*Array) (T, []SyntaxError)
+type ArrayRule[T comparable] func(*Array) (T, []source.SyntaxError)
 
 // BinaryRule is a binary translator is a wrapper for translating lists which must
 // have exactly two symbol arguments.  The wrapper takes care of
@@ -50,7 +52,7 @@ type RecursiveRule[T comparable] func(string, []T) (T, error)
 // Translator is a generic mechanism for translating S-Expressions into a structured
 // form.
 type Translator[T comparable] struct {
-	srcfile *SourceFile
+	srcfile *source.SourceFile
 	// Rules for parsing lists
 	lists map[string]ListRule[T]
 	// Fallback rule for generic user-defined lists.
@@ -63,14 +65,14 @@ type Translator[T comparable] struct {
 	symbols []SymbolRule[T]
 	// Maps S-Expressions to their spans in the original source file.  This is
 	// used to build the new source map.
-	old_srcmap *SourceMap[SExp]
+	old_srcmap *source.SourceMap[SExp]
 	// Maps translated expressions to their spans in the original source file.
 	// This is constructed using the old source map.
-	new_srcmap *SourceMap[T]
+	new_srcmap *source.SourceMap[T]
 }
 
 // NewTranslator constructs a new Translator instance.
-func NewTranslator[T comparable](srcfile *SourceFile, srcmap *SourceMap[SExp]) *Translator[T] {
+func NewTranslator[T comparable](srcfile *source.SourceFile, srcmap *source.SourceMap[SExp]) *Translator[T] {
 	return &Translator[T]{
 		srcfile:       srcfile,
 		lists:         make(map[string]ListRule[T]),
@@ -78,25 +80,25 @@ func NewTranslator[T comparable](srcfile *SourceFile, srcmap *SourceMap[SExp]) *
 		array_default: nil,
 		symbols:       make([]SymbolRule[T], 0),
 		old_srcmap:    srcmap,
-		new_srcmap:    NewSourceMap[T](srcmap.srcfile),
+		new_srcmap:    source.NewSourceMap[T](srcmap.Source()),
 	}
 }
 
 // SourceMap returns the source map maintained for terms constructed by this
 // translator.
-func (p *Translator[T]) SourceMap() *SourceMap[T] {
+func (p *Translator[T]) SourceMap() *source.SourceMap[T] {
 	return p.new_srcmap
 }
 
 // SpanOf gets the span associated with a given S-Expression in the original
 // source file.
-func (p *Translator[T]) SpanOf(sexp SExp) Span {
+func (p *Translator[T]) SpanOf(sexp SExp) source.Span {
 	return p.old_srcmap.Get(sexp)
 }
 
 // Translate a given string into a given structured representation T
 // using an appropriately configured.
-func (p *Translator[T]) Translate(sexp SExp) (T, []SyntaxError) {
+func (p *Translator[T]) Translate(sexp SExp) (T, []source.SyntaxError) {
 	// Process S-expression into target expression
 	return translateSExp(p, sexp)
 }
@@ -128,10 +130,10 @@ func (p *Translator[T]) AddDefaultRecursiveArrayRule(t RecursiveRule[T]) {
 
 func (p *Translator[T]) createRecursiveListRule(t RecursiveRule[T]) ListRule[T] {
 	// Construct a recursive list translator as a wrapper around a generic list translator.
-	return func(l *List) (T, []SyntaxError) {
+	return func(l *List) (T, []source.SyntaxError) {
 		var (
 			empty  T
-			errors []SyntaxError
+			errors []source.SyntaxError
 		)
 		// Extract the "head" of the list.
 		if len(l.Elements) == 0 || l.Elements[0].AsSymbol() == nil {
@@ -143,7 +145,7 @@ func (p *Translator[T]) createRecursiveListRule(t RecursiveRule[T]) ListRule[T] 
 		args := make([]T, len(l.Elements)-1)
 		//
 		for i, s := range l.Elements[1:] {
-			var errs []SyntaxError
+			var errs []source.SyntaxError
 			args[i], errs = translateSExp(p, s)
 			errors = append(errors, errs...)
 		}
@@ -164,10 +166,10 @@ func (p *Translator[T]) createRecursiveListRule(t RecursiveRule[T]) ListRule[T] 
 
 func (p *Translator[T]) createRecursiveArrayRule(t RecursiveRule[T]) ArrayRule[T] {
 	// Construct a recursive list translator as a wrapper around a generic list translator.
-	return func(l *Array) (T, []SyntaxError) {
+	return func(l *Array) (T, []source.SyntaxError) {
 		var (
 			empty  T
-			errors []SyntaxError
+			errors []source.SyntaxError
 		)
 		// Extract the "head" of the list.
 		if len(l.Elements) == 0 || l.Elements[0].AsSymbol() == nil {
@@ -179,7 +181,7 @@ func (p *Translator[T]) createRecursiveArrayRule(t RecursiveRule[T]) ArrayRule[T
 		args := make([]T, len(l.Elements)-1)
 		//
 		for i, s := range l.Elements[1:] {
-			var errs []SyntaxError
+			var errs []source.SyntaxError
 			args[i], errs = translateSExp(p, s)
 			errors = append(errors, errs...)
 		}
@@ -202,7 +204,7 @@ func (p *Translator[T]) createRecursiveArrayRule(t RecursiveRule[T]) ArrayRule[T
 func (p *Translator[T]) AddBinaryRule(name string, t BinaryRule[T]) {
 	var empty T
 	//
-	p.lists[name] = func(l *List) (T, []SyntaxError) {
+	p.lists[name] = func(l *List) (T, []source.SyntaxError) {
 		if len(l.Elements) != 3 {
 			// Should be unreachable.
 			return empty, p.SyntaxErrors(l, "Incorrect number of arguments")
@@ -236,7 +238,7 @@ func (p *Translator[T]) AddSymbolRule(t SymbolRule[T]) {
 // SyntaxError constructs a suitable syntax error for a given S-Expression.
 //
 //nolint:revive
-func (p *Translator[T]) SyntaxError(s SExp, msg string) *SyntaxError {
+func (p *Translator[T]) SyntaxError(s SExp, msg string) *source.SyntaxError {
 	// Get span of enclosing list
 	span := p.old_srcmap.Get(s)
 	// Construct syntax error
@@ -246,8 +248,8 @@ func (p *Translator[T]) SyntaxError(s SExp, msg string) *SyntaxError {
 // SyntaxErrors constructs a suitable syntax error for a given S-Expression.
 //
 //nolint:revive
-func (p *Translator[T]) SyntaxErrors(s SExp, msg string) []SyntaxError {
-	return []SyntaxError{*p.SyntaxError(s, msg)}
+func (p *Translator[T]) SyntaxErrors(s SExp, msg string) []source.SyntaxError {
+	return []source.SyntaxError{*p.SyntaxError(s, msg)}
 }
 
 // ===================================================================
@@ -257,7 +259,7 @@ func (p *Translator[T]) SyntaxErrors(s SExp, msg string) []SyntaxError {
 // Translate an S-Expression into an IR expression.  Observe that
 // this can still fail in the event that the given S-Expression does
 // not describe a well-formed IR expression.
-func translateSExp[T comparable](p *Translator[T], s SExp) (T, []SyntaxError) {
+func translateSExp[T comparable](p *Translator[T], s SExp) (T, []source.SyntaxError) {
 	var empty T
 
 	switch e := s.(type) {
@@ -289,11 +291,11 @@ func translateSExp[T comparable](p *Translator[T], s SExp) (T, []SyntaxError) {
 // expression of some kind.  This type of expression is determined by
 // the first element of the list.  The remaining elements are treated
 // as arguments which are first recursively translated.
-func translateSExpList[T comparable](p *Translator[T], l *List) (T, []SyntaxError) {
+func translateSExpList[T comparable](p *Translator[T], l *List) (T, []source.SyntaxError) {
 	var (
 		empty  T
 		node   T
-		errors []SyntaxError
+		errors []source.SyntaxError
 	)
 	// Sanity check this list makes sense
 	if len(l.Elements) == 0 || l.Elements[0].AsSymbol() == nil {
@@ -331,11 +333,11 @@ func translateSExpList[T comparable](p *Translator[T], l *List) (T, []SyntaxErro
 // expression of some kind.  This type of expression is determined by
 // the first element of the list.  The remaining elements are treated
 // as arguments which are first recursively translated.
-func translateSExpArray[T comparable](p *Translator[T], l *Array) (T, []SyntaxError) {
+func translateSExpArray[T comparable](p *Translator[T], l *Array) (T, []source.SyntaxError) {
 	var (
 		empty  T
 		node   T
-		errors []SyntaxError
+		errors []source.SyntaxError
 	)
 	// Sanity check this list makes sense
 	if len(l.Elements) == 0 || l.Elements[0].AsSymbol() == nil {

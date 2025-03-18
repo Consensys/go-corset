@@ -14,7 +14,7 @@ package ast
 
 import (
 	"github.com/consensys/go-corset/pkg/util"
-	"github.com/consensys/go-corset/pkg/util/sexp"
+	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
 // Symbol represents a variable or function access within a declaration.

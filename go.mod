@@ -1,6 +1,6 @@
 module github.com/consensys/go-corset
 
-go 1.24.1
+go 1.22.7
 
 require (
 	github.com/consensys/gnark-crypto v0.14.0

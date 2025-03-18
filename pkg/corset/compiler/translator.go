@@ -24,7 +24,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema/assignment"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
-	"github.com/consensys/go-corset/pkg/util/sexp"
+	"github.com/consensys/go-corset/pkg/util/source"
 )
 
 // TranslateCircuit translates the components of a Corset circuit and add them
@@ -33,7 +33,7 @@ import (
 // easily.  Thus, whilst syntax errors can be returned here, this should never
 // happen.  The mechanism is supported, however, to simplify development of new
 // features, etc.
-func TranslateCircuit(env Environment, srcmap *sexp.SourceMaps[ast.Node],
+func TranslateCircuit(env Environment, srcmap *source.SourceMaps[ast.Node],
 	circuit *ast.Circuit) (*hir.Schema, []SyntaxError) {
 	//
 	t := translator{env, srcmap, hir.EmptySchema()}
@@ -58,7 +58,7 @@ type translator struct {
 	// Source maps nodes in the circuit back to the spans in their original
 	// source files.  This is needed when reporting syntax errors to generate
 	// highlights of the relevant source line(s) in question.
-	srcmap *sexp.SourceMaps[ast.Node]
+	srcmap *source.SourceMaps[ast.Node]
 	// Represents the schema being constructed by this translator.
 	schema *hir.Schema
 }

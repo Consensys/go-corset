@@ -17,13 +17,13 @@ import (
 
 	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/util"
-	"github.com/consensys/go-corset/pkg/util/sexp"
+	"github.com/consensys/go-corset/pkg/util/source"
 )
 
 // PreprocessCircuit performs preprocessing prior to final translation.
 // Specifically, it expands all invocations, reductions and for loops.  Thus,
 // final translation is greatly simplified after this step.
-func PreprocessCircuit(debug bool, srcmap *sexp.SourceMaps[ast.Node],
+func PreprocessCircuit(debug bool, srcmap *source.SourceMaps[ast.Node],
 	circuit *ast.Circuit) []SyntaxError {
 	// Construct fresh preprocessor
 	p := preprocessor{debug, srcmap}
@@ -40,7 +40,7 @@ type preprocessor struct {
 	// Source maps nodes in the circuit back to the spans in their original
 	// source files.  This is needed when reporting syntax errors to generate
 	// highlights of the relevant source line(s) in question.
-	srcmap *sexp.SourceMaps[ast.Node]
+	srcmap *source.SourceMaps[ast.Node]
 }
 
 // preprocess all assignment or constraint declarations in the circuit.

@@ -18,7 +18,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/util"
-	"github.com/consensys/go-corset/pkg/util/sexp"
+	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
 // IntrinsicDefinition is a SymbolDefinition for an intrinsic (i.e. built-in)

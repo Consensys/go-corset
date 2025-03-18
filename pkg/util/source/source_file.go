@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package sexp
+package source
 
 import (
 	"fmt"
@@ -75,43 +75,6 @@ func (s *SourceFile) Filename() string {
 // Contents returns the contents of this source file.
 func (s *SourceFile) Contents() []rune {
 	return s.contents
-}
-
-// Parse a given string into an S-expression, or return an error if the string
-// is malformed.  A source map is also returned for debugging purposes.
-func (s *SourceFile) Parse() (SExp, *SourceMap[SExp], *SyntaxError) {
-	p := NewParser(s)
-	// Parse the input
-	sExp, err := p.Parse()
-	// Sanity check everything was parsed
-	if err == nil && p.index != len(p.text) {
-		return nil, nil, p.error("unexpected remainder")
-	}
-	// Done
-	return sExp, p.SourceMap(), err
-}
-
-// ParseAll converts a given string into zero or more S-expressions, or returns
-// an error if the string is malformed.  A source map is also returned for
-// debugging purposes.  The key distinction from Parse is that this function
-// continues parsing after the first S-expression is encountered.
-func (s *SourceFile) ParseAll() ([]SExp, *SourceMap[SExp], *SyntaxError) {
-	p := NewParser(s)
-	//
-	terms := make([]SExp, 0)
-	// Parse the input
-	for {
-		term, err := p.Parse()
-		// Sanity check everything was parsed
-		if err != nil {
-			return terms, p.srcmap, err
-		} else if term == nil {
-			// EOF reached
-			return terms, p.srcmap, nil
-		}
-
-		terms = append(terms, term)
-	}
 }
 
 // SyntaxError constructs a syntax error over a given span of this file with a

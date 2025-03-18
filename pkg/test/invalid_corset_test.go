@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	"github.com/consensys/go-corset/pkg/corset"
-	"github.com/consensys/go-corset/pkg/util/sexp"
+	"github.com/consensys/go-corset/pkg/util/source"
 )
 
 // Determines the (relative) location of the test directory.  That is
@@ -806,7 +806,7 @@ func CheckInvalid(t *testing.T, test string) {
 		t.Fatal(err)
 	}
 	// Package up as source file
-	srcfile := sexp.NewSourceFile(filename, bytes)
+	srcfile := source.NewSourceFile(filename, bytes)
 	// Parse terms into an HIR schema
 	_, errs := corset.CompileSourceFile(corsetConfig, srcfile)
 	// Extract expected errors for comparison
@@ -852,7 +852,7 @@ func CheckInvalid(t *testing.T, test string) {
 type SyntaxError struct {
 	// The range of bytes in the original file to which this error is
 	// associated.
-	span sexp.Span
+	span source.Span
 	// The error message reported.
 	msg string
 }
@@ -916,7 +916,7 @@ func extractSyntaxError(line string, offsets []int) *SyntaxError {
 // Determine the span that the the given line string and span string corresponds
 // to.  We need the line offsets so that the computed span includes the starting
 // offset of the relevant line.
-func determineFileSpan(line_str string, span_str string, offsets []int) sexp.Span {
+func determineFileSpan(line_str string, span_str string, offsets []int) source.Span {
 	line, err := strconv.Atoi(line_str)
 	if err != nil {
 		panic(err)
@@ -944,11 +944,11 @@ func determineFileSpan(line_str string, span_str string, offsets []int) sexp.Spa
 	}
 	// Create span, recalling that span's start from zero whereas column numbers
 	// start from 1.
-	return sexp.NewSpan(start-1, end-1)
+	return source.NewSpan(start-1, end-1)
 }
 
 // Convert a span into a useful human readable string.
-func spanToString(span sexp.Span, offsets []int) string {
+func spanToString(span source.Span, offsets []int) string {
 	line := 0
 	last := 0
 	start := span.Start()

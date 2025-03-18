@@ -17,7 +17,7 @@ import (
 	"reflect"
 
 	sc "github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/util/sexp"
+	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
 func lispOfTerm(e Term, schema sc.Schema) sexp.SExp {

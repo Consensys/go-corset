@@ -16,19 +16,19 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/corset/ast"
-	"github.com/consensys/go-corset/pkg/util/sexp"
+	"github.com/consensys/go-corset/pkg/util/source"
 )
 
 // SyntaxError defines the kind of errors that can be reported by this compiler.
 // Syntax errors are always associated with some line in one of the original
 // source files.  For simplicity, we reuse existing notion of syntax error from
 // the S-Expression library.
-type SyntaxError = sexp.SyntaxError
+type SyntaxError = source.SyntaxError
 
 // TypeCheckCircuit performs a type checking pass over the circuit to ensure
 // types are used correctly.  Additionally, this resolves some ambiguities
 // arising from the possibility of overloading function calls, etc.
-func TypeCheckCircuit(srcmap *sexp.SourceMaps[ast.Node],
+func TypeCheckCircuit(srcmap *source.SourceMaps[ast.Node],
 	circuit *ast.Circuit) []SyntaxError {
 	// Construct fresh typeCheckor
 	p := typeChecker{srcmap}
@@ -43,7 +43,7 @@ type typeChecker struct {
 	// Source maps nodes in the circuit back to the spans in their original
 	// source files.  This is needed when reporting syntax errors to generate
 	// highlights of the relevant source line(s) in question.
-	srcmap *sexp.SourceMaps[ast.Node]
+	srcmap *source.SourceMaps[ast.Node]
 }
 
 // typeCheck all assignment or constraint declarations in the circuit.
