@@ -180,6 +180,10 @@ func (p *Inspector) clearColumnFilter() bool {
 	return true
 }
 
+func (p *Inspector) matchQuery(prop *Query) bool {
+	panic("got here")
+}
+
 // ==================================================================
 // TableSource
 // ==================================================================

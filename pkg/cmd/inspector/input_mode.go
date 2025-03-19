@@ -17,6 +17,7 @@ import (
 	"strconv"
 
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/source/bexp"
 	"github.com/consensys/go-corset/pkg/util/termio"
 )
 
@@ -203,4 +204,39 @@ func (p *regexHandler) Convert(input string) (*regexp.Regexp, bool) {
 
 func (p *regexHandler) Apply(regex *regexp.Regexp) {
 	p.callback(regex)
+}
+
+// ==================================================================
+// Proposition (i.e. Boolean Expression) Handler
+// ==================================================================
+
+type queryHandler struct {
+	callback func(*Query) bool
+}
+
+func newQueryHandler(callback func(*Query) bool) InputHandler[*Query] {
+	return &queryHandler{callback}
+}
+
+func (p *queryHandler) Convert(input string) (*Query, bool) {
+	if prop, errs := bexp.Parse[*Query](input); len(errs) == 0 {
+		return prop, true
+	}
+
+	return nil, false
+}
+
+func (p *queryHandler) Apply(query *Query) {
+	p.callback(query)
+}
+
+// Query represents a boolean expression which can be evaluated over a
+// given set of columns.
+type Query struct {
+	//
+}
+
+// Or constructs a disjunction of the given proposition.
+func (p *Query) Or(queries ...*Query) *Query {
+	panic("todo")
 }

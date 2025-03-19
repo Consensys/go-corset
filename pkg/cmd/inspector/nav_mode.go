@@ -109,5 +109,5 @@ func (p *NavigationMode) scanInputMode(parent *Inspector) Mode {
 	history := parent.currentView().scanHistory
 	history_index := uint(len(history))
 	//
-	return newInputMode(prompt, history_index, history, newUintHandler(parent.gotoRow))
+	return newInputMode(prompt, history_index, history, newQueryHandler(parent.matchQuery))
 }

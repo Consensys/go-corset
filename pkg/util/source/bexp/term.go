@@ -12,21 +12,22 @@
 // SPDX-License-Identifier: Apache-2.0
 package bexp
 
-import "math/big"
-
-type Logical interface {
-	Or(...Logical) Logical
-	And(...Logical) Logical
-	Not(...Logical) Logical
+// Proposition represents an abstraction over boolean expressions.
+type Proposition[T any] interface {
+	Or(...T) T
+	// And(...Proposition) Proposition
+	// Not(...Proposition) Proposition
 }
 
+/*
 type Arithmetic interface {
 	Const(big.Int) Arithmetic
 	Add(...Arithmetic) Arithmetic
 	Mul(...Arithmetic) Arithmetic
 	//
-	Equals(Arithmetic) Logical
-	NotEquals(Arithmetic) Logical
-	LessThan(Arithmetic) Logical
-	LessThanOrEqual(Arithmetic) Logical
+	Equals(Arithmetic) Proposition
+	NotEquals(Arithmetic) Proposition
+	LessThan(Arithmetic) Proposition
+	LessThanOrEqual(Arithmetic) Proposition
 }
+*/

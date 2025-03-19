@@ -37,6 +37,11 @@ func NewLexer[T any](input []T, scanner Scanner[T]) *Lexer[T] {
 	}
 }
 
+// Index returns the current index within the items array.
+func (p *Lexer[T]) Index() uint {
+	return uint(p.index)
+}
+
 // Remaining determines how many characters from the original sequence were
 // left.
 func (p *Lexer[T]) Remaining() uint {
