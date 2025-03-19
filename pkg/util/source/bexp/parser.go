@@ -17,6 +17,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/source"
+	"github.com/consensys/go-corset/pkg/util/source/lex"
 )
 
 // Parse a given input string into logical proposition.
@@ -24,7 +25,7 @@ func Parse[T Term[T]](input string) (T, []source.SyntaxError) {
 	var (
 		empty   T
 		srcfile = source.NewSourceFile("expr", []byte(input))
-		lexer   = source.NewLexer[rune](srcfile.Contents(), scanner)
+		lexer   = lex.NewLexer[rune](srcfile.Contents(), rules...)
 		// Lex as many tokens as possible
 		tokens = lexer.Collect()
 	)
@@ -36,7 +37,7 @@ func Parse[T Term[T]](input string) (T, []source.SyntaxError) {
 		return empty, []source.SyntaxError{*err}
 	}
 	// Remove any whitespace
-	tokens = util.RemoveMatching(tokens, func(t source.Token) bool { return t.Kind == WHITESPACE })
+	tokens = util.RemoveMatching(tokens, func(t lex.Token) bool { return t.Kind == WHITESPACE })
 	//
 	parser := &Parser[T]{srcfile, tokens, 0}
 	// Parse term
@@ -73,19 +74,35 @@ const EQUALS uint = 6
 // NOT_EQUALS signals a non-equality
 const NOT_EQUALS uint = 7
 
-var scanner source.Scanner[rune] = source.Or(
-	source.One(LBRACE, '('),
-	source.One(RBRACE, ')'),
-	source.Many(WHITESPACE, ' ', '\t'),
-	source.ManyWith(NUMBER, '0', '9'),
-	source.ManyWith(IDENTIFIER, 'a', 'z'),
-	source.Eof[rune](END_OF))
+// Rule for describing whitespace
+var whitespace lex.Scanner[rune] = lex.Many(lex.Or(lex.Unit(' '), lex.Unit('\t')))
+
+// Rule for describing numbers
+var number lex.Scanner[rune] = lex.Many(lex.Within('0', '9'))
+
+// Rule for describing identifiers
+var identifier lex.Scanner[rune] = lex.Many(
+	lex.Or(
+		lex.Within('a', 'z'),
+		lex.Within('A', 'Z')))
+
+// lexing rules
+var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
+	lex.Rule(lex.Unit('('), LBRACE),
+	lex.Rule(lex.Unit(')'), RBRACE),
+	lex.Rule(lex.Unit('=', '='), EQUALS),
+	lex.Rule(lex.Unit('!', '='), EQUALS),
+	lex.Rule(whitespace, WHITESPACE),
+	lex.Rule(number, NUMBER),
+	lex.Rule(identifier, IDENTIFIER),
+	lex.Rule(lex.Eof[rune](), END_OF),
+}
 
 // Parser provides a general-purpose parser for propositions and arithmetic
 // expressions.
 type Parser[T Term[T]] struct {
 	srcfile *source.File
-	tokens  []source.Token
+	tokens  []lex.Token
 	// Position within the tokens
 	index int
 }
@@ -105,9 +122,6 @@ func (p *Parser[T]) parseTerm() (T, []source.SyntaxError) {
 		switch token.Kind {
 		case EQUALS, NOT_EQUALS:
 			return p.parseEquality(token.Kind, term)
-		default:
-			var empty T
-			return empty, p.syntaxErrors(token, "unknown expression")
 		}
 	}
 	//
@@ -178,13 +192,13 @@ func (p *Parser[T]) parseNumber() T {
 }
 
 // Get the text representing the given token as a string.
-func (p *Parser[T]) string(token source.Token) string {
+func (p *Parser[T]) string(token lex.Token) string {
 	start, end := token.Span.Start(), token.Span.End()
 	return string(p.srcfile.Contents()[start:end])
 }
 
 // Get the text representing the given token as a string.
-func (p *Parser[T]) number(token source.Token) big.Int {
+func (p *Parser[T]) number(token lex.Token) big.Int {
 	var number big.Int
 	//
 	number.SetString(p.string(token), 0)
@@ -192,13 +206,13 @@ func (p *Parser[T]) number(token source.Token) big.Int {
 	return number
 }
 
-func (p *Parser[T]) lookahead() source.Token {
+func (p *Parser[T]) lookahead() lex.Token {
 	// NOTE: there is always a lookahead expression because EOF is always
 	// appended at the end of the token stream.
 	return p.tokens[p.index]
 }
 
-func (p *Parser[T]) expect(kind uint) source.Token {
+func (p *Parser[T]) expect(kind uint) lex.Token {
 	if p.lookahead().Kind != kind {
 		panic("internal failure")
 	}
@@ -218,6 +232,6 @@ func (p *Parser[T]) match(kind uint) bool {
 	return false
 }
 
-func (p *Parser[T]) syntaxErrors(token source.Token, msg string) []source.SyntaxError {
+func (p *Parser[T]) syntaxErrors(token lex.Token, msg string) []source.SyntaxError {
 	return []source.SyntaxError{*p.srcfile.SyntaxError(token.Span, msg)}
 }

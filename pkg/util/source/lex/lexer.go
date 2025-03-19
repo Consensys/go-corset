@@ -10,29 +10,44 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package source
+package lex
+
+import "github.com/consensys/go-corset/pkg/util/source"
 
 // Token associates a piece of information with a given range of characters in
 // the string being scanned.
 type Token struct {
 	Kind uint
-	Span Span
+	Span source.Span
+}
+
+// LexRule is simply a rule for associating groups of characters with a given
+// tag.
+type LexRule[T any] struct {
+	scanner Scanner[T]
+	tag     uint
+}
+
+// Rule constructs a new lexing rule which maps matching characters to a given
+// tag.
+func Rule[T any](scanner Scanner[T], tag uint) LexRule[T] {
+	return LexRule[T]{scanner, tag}
 }
 
 // Lexer provides a top-level construct for tokenising a given input string.
 type Lexer[T any] struct {
-	items   []T
-	index   int
-	scanner Scanner[T]
-	buffer  []Token
+	items  []T
+	index  int
+	rules  []LexRule[T]
+	buffer []Token
 }
 
-// NewLexer constructs a new lexer with a given scanner.
-func NewLexer[T any](input []T, scanner Scanner[T]) *Lexer[T] {
+// NewLexer constructs a new lexer with a given set of lexing rules.
+func NewLexer[T any](input []T, rules ...LexRule[T]) *Lexer[T] {
 	return &Lexer[T]{
 		input,
 		0,
-		scanner,
+		rules,
 		nil,
 	}
 }
@@ -85,14 +100,15 @@ func (p *Lexer[T]) Collect() []Token {
 func (p *Lexer[T]) scan() {
 	if len(p.buffer) == 0 && p.index <= len(p.items) {
 		// Look for item
-		next := p.scanner.Scan(p.items[p.index:])
-		// Check what we got
-		if next.HasValue() {
-			n := next.Unwrap()
-			// Shift span into correct position
-			n.Span = NewSpan(n.Span.Start()+p.index, n.Span.End()+p.index)
-			// Insert into buffer
-			p.buffer = append(p.buffer, n)
+		for _, r := range p.rules {
+			if n := r.scanner(p.items[p.index:]); n > 0 {
+				end := min(len(p.items), p.index+int(n))
+				span := source.NewSpan(p.index, end)
+				// Insert into buffer
+				p.buffer = append(p.buffer, Token{r.tag, span})
+				// Done
+				return
+			}
 		}
 	}
 }

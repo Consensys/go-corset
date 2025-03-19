@@ -180,8 +180,15 @@ func (p *Inspector) clearColumnFilter() bool {
 	return true
 }
 
-func (p *Inspector) matchQuery(prop *Query) bool {
-	panic("got here")
+func (p *Inspector) matchQuery(query *Query) bool {
+	module := p.tabs.Selected()
+	//
+	if err := p.modules[module].matchQuery(query, p.trace); err != nil {
+		// some kind of error arose during evaluation
+		p.statusBar.Add(termio.NewColouredText(err.Error(), termio.TERM_RED))
+	}
+	//
+	return true
 }
 
 // ==================================================================

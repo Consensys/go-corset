@@ -123,6 +123,29 @@ func (p *ModuleState) applyColumnFilter(trace tr.Trace, regex *regexp.Regexp, hi
 	}
 }
 
+func (p *ModuleState) matchQuery(query *Query, trace tr.Trace) error {
+	env := make(map[string]tr.Column)
+	// construct environment
+	for _, col := range p.columns {
+		env[col.Name] = trace.Column(col.Register)
+	}
+	// Determine module height
+	n := uint(len(p.view.columns))
+	// evaluate forward
+	for i := uint(0); i < n; i++ {
+		matched, err := query.Matches(i, env)
+		//
+		if err != nil {
+			return err
+		} else if matched {
+			p.setRowOffset(i)
+			break
+		}
+	}
+	//
+	return nil
+}
+
 // History append will append a given item to the end of the history.  However,
 // if that item already existed in the history, then that is removed.  This is
 // to avoid duplicates in the history.

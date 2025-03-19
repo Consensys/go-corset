@@ -13,10 +13,13 @@
 package inspector
 
 import (
+	"fmt"
 	"math/big"
 	"regexp"
 	"strconv"
 
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/source/bexp"
 	"github.com/consensys/go-corset/pkg/util/termio"
@@ -231,20 +234,92 @@ func (p *queryHandler) Apply(query *Query) {
 	p.callback(query)
 }
 
+const QUERY_VAR = 0
+const QUERY_CONST = 1
+const QUERY_OR = 2
+const QUERY_AND = 3
+const QUERY_EQ = 4
+const QUERY_NEQ = 5
+const QUERY_LT = 6
+const QUERY_LTEQ = 6
+
 // Query represents a boolean expression which can be evaluated over a
 // given set of columns.
 type Query struct {
+	// operation
+	op int
+	// arguments (if applicable)
+	args []Query
+	// constant value (if applicable)
+	number fr.Element
+	// variable name (if applicable)
+	name string
+}
+
+func (p *Query) Matches(row uint, env map[string]tr.Column) (bool, error) {
+	val, err := p.Eval(row, env)
 	//
+	if err != nil {
+		return false, err
+	}
+	//
+	return val.IsZero(), nil
+}
+
+func (p *Query) Eval(row uint, env map[string]tr.Column) (fr.Element, error) {
+	var zero = fr.NewElement(0)
+	//
+	switch p.op {
+	case QUERY_VAR:
+		if col, ok := env[p.name]; ok {
+			return col.Get(int(row)), nil
+		}
+
+		return fr.One(), fmt.Errorf("unknown column \"%s\"", p.name)
+	case QUERY_CONST:
+		return p.number, nil
+	case QUERY_EQ:
+		lhs, err1 := p.args[0].Eval(row, env)
+		rhs, err2 := p.args[1].Eval(row, env)
+		//
+		if err1 == nil && err2 == nil {
+			if lhs.Cmp(&rhs) == 0 {
+				return zero, nil
+			}
+			//
+			return fr.One(), nil
+		} else if err1 != nil {
+			return fr.One(), err1
+		}
+		//
+		return fr.One(), err2
+	default:
+		return fr.One(), fmt.Errorf("unknown operator (%d)", p.op)
+	}
 }
 
 // Variable constructs a variable of the given name.
 func (p *Query) Variable(name string) *Query {
-	return &Query{}
+	var query Query
+	query.op = QUERY_VAR
+	query.name = name
+	//
+	return &query
 }
 
 // Number constructs a number with the given value
 func (p *Query) Number(number big.Int) *Query {
-	return &Query{}
+	var (
+		val   fr.Element
+		query Query
+	)
+	//
+	val.SetBigInt(&number)
+	//
+	query.op = QUERY_VAR
+	query.number = val
+	//
+	return &query
 }
 
 // Or constructs a disjunction of the given proposition.
@@ -254,10 +329,18 @@ func (p *Query) Or(queries ...*Query) *Query {
 
 // Equals constructs an equality between two queries.
 func (p *Query) Equals(rhs *Query) *Query {
-	return &Query{}
+	var query Query
+	query.op = QUERY_EQ
+	query.args = []Query{*p, *rhs}
+	//
+	return &query
 }
 
 // NotEquals constructs a non-equality between two queries.
 func (p *Query) NotEquals(rhs *Query) *Query {
-	return &Query{}
+	var query Query
+	query.op = QUERY_NEQ
+	query.args = []Query{*p, *rhs}
+	//
+	return &query
 }
