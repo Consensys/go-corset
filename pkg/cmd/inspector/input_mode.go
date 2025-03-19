@@ -13,6 +13,7 @@
 package inspector
 
 import (
+	"math/big"
 	"regexp"
 	"strconv"
 
@@ -236,7 +237,27 @@ type Query struct {
 	//
 }
 
+// Variable constructs a variable of the given name.
+func (p *Query) Variable(name string) *Query {
+	return &Query{}
+}
+
+// Number constructs a number with the given value
+func (p *Query) Number(number big.Int) *Query {
+	return &Query{}
+}
+
 // Or constructs a disjunction of the given proposition.
 func (p *Query) Or(queries ...*Query) *Query {
 	panic("todo")
+}
+
+// Equals constructs an equality between two queries.
+func (p *Query) Equals(rhs *Query) *Query {
+	return &Query{}
+}
+
+// NotEquals constructs a non-equality between two queries.
+func (p *Query) NotEquals(rhs *Query) *Query {
+	return &Query{}
 }

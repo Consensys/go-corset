@@ -12,11 +12,22 @@
 // SPDX-License-Identifier: Apache-2.0
 package bexp
 
-// Proposition represents an abstraction over boolean expressions.
-type Proposition[T any] interface {
+import "math/big"
+
+// Term represents an abstraction over boolean expressions.
+type Term[T any] interface {
+	// Set this term to a new variable.
+	Variable(string) T
+	// Set this term to a new constant.
+	Number(big.Int) T
+	// Logical
 	Or(...T) T
 	// And(...Proposition) Proposition
 	// Not(...Proposition) Proposition
+	// Relational
+	Equals(T) T
+	NotEquals(T) T
+	// Arithmetic
 }
 
 /*
