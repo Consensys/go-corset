@@ -60,34 +60,94 @@ the most useful top-level commands:
 - [`go-corset compile`](#compile).  This command allows one to compile a given set
   of Corset source files into a single binary file.  This is useful
   for packaging up constraints for use with other tools, etc.
-- [`go-corset debug`](#debug).  This command provides various ways of examining a
-  given set of constraints.  For example, one can print out the low
-  level arithmetic intermediate representation (AIR) which is
-  generated; or, one can generate summary statistics (e.g. number of
-  columns, number of constraints, etc); or, look at any metadata
-  embedded within a binary constraint file, etc.
+- [`go-corset debug`](#debug).  This command provides various ways of
+  examining a given set of constraints.  This is useful (amongst other
+  things) for checking how certain constraints are compiled, or to
+  look at summary statistics, etc.
 - [`go-corset inspect`](#inspect).  This command provides an interactive trace
-  visualisation tool to assist debugging.  This is not graphical, but
-  runs in a terminal and supports general queries over the trace
-  (e.g. find a row where column `CT > 0`, etc).
+  visualisation tool to assist debugging.
 - [`go-corset trace`](#trace).  This command allows ones to inspect and/or
-  manipulate a given trace file in various ways.  For example, one can
-  obtain statistical information such as the total number of cells
-  contained within; or, the number of unique elements in a given
-  column; or, to print the values of certain columns on specific rows;
-  or, to convert the trace file into a different format (e.g. JSON) or
-  trim the trace file in some way (e.g. keeping only the first `n`
-  rows, etc); or, to view any metadata embedded within the trace file.
+  manipulate a given trace file in various ways.
 
 ### Check
 
+The `go-corset check` command is used to check that one (or more)
+traces satisfy (i.e. are accepted by) a set of constraints.
+
 ### Compile
+
+The `go-corset compile` command is used to build a binary constraint
+(`bin`) file from a given set of source constraint (`lisp`) files.
+During this process, metadata can be added to the `bin` file as
+desired (e.g. `-Dcommit="0xabcdef01234"`).  Likewise, the default
+value of any externalised constants can be set
+(e.g. `-Smyevm.GAS_LIMIT=0x1000`).
 
 ### Debug
 
+The `go-corset debug` command provides insights into a given set of
+constraints.  For example, one can print out the low level arithmetic
+intermediate representation (AIR) which is generated; or, one can
+generate summary statistics (e.g. number of columns, number of
+constraints, etc); or, look at any metadata embedded within a binary
+constraint file, etc.
+
+Useful options here include:
+
+- `--constrants` will show the set of externalised constants defined
+  in the given constraints, along with their default values.
+
+- `--metadata` for a `bin` file, this will show any embedded metadata.
+
+- `--stats` will show summary statistics for a given set of
+  constraints, such as the number of columns, constraints, lookups,
+  etc.  **NOTE:** this requires one of `--air/--mir/--hir` to be
+  specified (i.e. as lower level representations have more columns and
+  constraints, etc).
+
+- `--spillage` will show the spillage determined for each module in
+  the given constraints.
+
 ### Inspect
 
+The `go-corset inspect` command provides an interactive trace
+visualisation tool, primarily intended to assist debugging.  The tool
+is not graphical and runs in a terminal.  The tool supports general
+queries over the trace (e.g. find a row where column `CT > 0`, etc).
+
 ### Trace
+
+The `go-corset trace` command allows ones to inspect and/or manipulate
+a given trace file in various ways.  For example, one can obtain
+statistical information such as the total number of cells contained
+within; or, the number of unique elements in a given column; or, to
+print the values of certain columns on specific rows; or, to convert
+the trace file into a different format (e.g. JSON) or trim the trace
+file in some way (e.g. keeping only the first `n` rows, etc); or, to
+view any metadata embedded within the trace file.
+
+Useful options here include:
+
+- `--columns` shows column-level statistics (e.g. number of lines,
+  unique elements, etc).  Use `-f` to filter columns of interest.
+
+- `--metadata` shows any embedded metadata within the trace.
+
+- `--modules` shows module-level statistics (e.g. number of columns,
+  lines, or cells, etc)
+
+- `--out` allows one to write out the trace file in a given format
+  (currently either `lt` or `json`).  This can be used to convert one
+  (or more traces) into a different format, and/or trim a given trace
+  to some range of rows, or set of columns, etc.
+
+- `--print` shows actual rows of the trace.  Use `--start` and `--end`
+  to determine the range of rows to show, along with `-f` to filter by
+  module or column name, etc.
+
+In addition, the `go-corset trace diff` subcommand allows one to
+compare two traces, which is useful to identify any small differences
+between traces.
 
 ## Developer Setup
 
