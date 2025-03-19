@@ -21,13 +21,13 @@ compiler](https://github.com/Consensys/corset) and
 
 ## Overview
 
-The purpose of the Corset language is to provide a more human-friendly
-interface for writing arithmetic constraints.  Corset constraints are
-compiled down into an Arithmetic Intermediate Representation (AIR)
-consisting of vanishing constraints, range constraints, lookup
-arguments and permutation arguments.
+The purpose of Corset is to provide a human-friendly language for
+writing arithmetic constraints.  Corset constraints are compiled down
+into an _Arithmetic Intermediate Representation (AIR)_ consisting of:
+(1) _vanishing constraints_; (2) _range constraints_; (3) _lookup
+arguments_; and (4) _permutation arguments_.
 
-An example program written in Corset is:
+An example constraint set written in Corset is:
 
 ```lisp
 (defcolumns
@@ -41,18 +41,19 @@ An example program written in Corset is:
 (defconstraint decomp () (eq! NIBBLE (+ BIT_0 (* 2 BIT_1) (* 4 BIT_2) (* 8 BIT_3))))
 ```
 
-This program ensures all rows of the column `NIBBLE` are in the range
-`0..15` (inclusive) by decomposing its value into exactly four bits.
-In turn, the rows of each `BIT_X` column are enforced using a range
-constraint (specified via the `@prove` modifier).
+This constraint set ensures all rows of the column `NIBBLE` are in the
+range `0..15` (inclusive) by decomposing its value into exactly four
+bits.  In turn, the row of each `BIT_X` column are enforced using a
+range constraint (specified via the `@prove` modifier).
 
 ## Command-Line Interface
 
-The `go-corset` tool provides a toolbox of commands for working with
-constraints and traces.  For example, we can compile source files into
-binary format; or, check traces against constraints; or, inspect a
-trace or binary constraint file, etc.  We now examine a selection of
-the most useful top-level commands:
+The `go-corset` tool provides a toolbox for working with constraints
+and traces.  For example, we can compile source constraint files
+(`lisp`) into binary constraint files (`bin`); or, check a trace is
+accepted by a set of constraints; or, inspect the contents of a trace
+or binary constraint file, etc.  We now examine a selection of the
+most useful top-level commands:
 
 - [`go-corset check`](#check) allows one to check whether a given
   trace (or batch of traces) satisfies a given set of constraints.  If
@@ -72,7 +73,11 @@ the most useful top-level commands:
 ### Check
 
 The `go-corset check` command is used to check that one (or more)
-traces satisfy (i.e. are accepted by) a set of constraints.
+traces satisfy (i.e. are accepted by) a set of constraints.  The
+_level_ at which checking is performed can be specified using `--air`
+(lowest), `--mir` (middle) or `--hir` (highest).  Generally speaking,
+high-levels require less work to check but, at the same time, are
+further removed from the actual constraints used by the prover.
 
 ### Compile
 
@@ -86,27 +91,28 @@ value of any externalised constants can be set
 ### Debug
 
 The `go-corset debug` command provides insights into a given set of
-constraints.  For example, one can print out the low level arithmetic
-intermediate representation (AIR) which is generated; or, one can
-generate summary statistics (e.g. number of columns, number of
-constraints, etc); or, look at any metadata embedded within a binary
-constraint file, etc.
+constraints.  For example, one can see the low level arithmetic
+intermediate representation (AIR) generated; or, one can see summary
+statistics (e.g. number of columns, number of constraints, etc); or,
+look at any metadata embedded within a binary constraint file, etc.
 
 Useful options here include:
 
-- `--constrants` will show the set of externalised constants defined
+- `--constants` will show the set of externalised constants defined
   in the given constraints, along with their default values.
 
-- `--metadata` for a `bin` file, this will show any embedded metadata.
+- `--metadata` for a `bin` file, this will show any metadata that was
+  embedded during compilation.
 
 - `--stats` will show summary statistics for a given set of
   constraints, such as the number of columns, constraints, lookups,
   etc.  **NOTE:** this requires one of `--air/--mir/--hir` to be
-  specified (i.e. as lower level representations have more columns and
-  constraints, etc).
+  specified (i.e. lower level representations have more
+  columns/constraints which affects the stats, etc).
 
 - `--spillage` will show the spillage determined for each module in
-  the given constraints.
+  the given constraints.  This is the number of additional rows
+  prepended to each module by `go-corset` during trace expansion.
 
 ### Inspect
 
@@ -119,12 +125,12 @@ queries over the trace (e.g. find a row where column `CT > 0`, etc).
 
 The `go-corset trace` command allows ones to inspect and/or manipulate
 a given trace file in various ways.  For example, one can obtain
-statistical information such as the total number of cells contained
-within; or, the number of unique elements in a given column; or, to
-print the values of certain columns on specific rows; or, to convert
-the trace file into a different format (e.g. JSON) or trim the trace
-file in some way (e.g. keeping only the first `n` rows, etc); or, to
-view any metadata embedded within the trace file.
+statistical information such as the total number of cells; or, the
+number of unique elements in a given column; or, print the values of
+certain columns on specific rows; or, convert the trace file into a
+different format (e.g. JSON); or, trim the trace file in some way
+(e.g. keeping only the first `n` rows, etc); or, view any metadata
+embedded within the trace file when it was generated.
 
 Useful options here include:
 
@@ -138,7 +144,7 @@ Useful options here include:
 
 - `--out` allows one to write out the trace file in a given format
   (currently either `lt` or `json`).  This can be used to convert one
-  (or more traces) into a different format, and/or trim a given trace
+  (or more) traces into a different format, and/or trim a given trace
   to some range of rows, or set of columns, etc.
 
 - `--print` shows actual rows of the trace.  Use `--start` and `--end`
