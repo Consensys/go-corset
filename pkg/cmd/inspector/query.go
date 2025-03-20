@@ -143,16 +143,16 @@ func (p *Query) String() string {
 }
 
 // Eval evaluates the given query in the given environment.
-func (p *Query) Eval(row uint, env map[string]tr.Column) (fr.Element, error) {
+func (p *Query) Eval(row uint, env map[string]tr.Column) fr.Element {
 	switch p.op {
 	case qVAR:
 		if col, ok := env[p.name]; ok {
-			return col.Get(int(row)), nil
+			return col.Get(int(row))
 		}
 		// error
-		return fr.One(), fmt.Errorf("unknown column \"%s\"", p.name)
+		panic("unknown column \"%s\"")
 	case qNUM:
-		return p.number, nil
+		return p.number
 	case qEQ:
 		return eval_binary(row, env, p.args[0], p.args[1], eval_eq)
 	case qNEQ:
@@ -172,43 +172,30 @@ func (p *Query) Eval(row uint, env map[string]tr.Column) (fr.Element, error) {
 	case qSUB:
 		return eval_nary(row, env, p.args, eval_sub)
 	default:
-		return fr.One(), fmt.Errorf("unknown operator (%d)", p.op)
+		panic(fmt.Sprintf("unknown operator (%d)", p.op))
 	}
 }
 
 type binary_op = func(fr.Element, fr.Element) fr.Element
 type nary_op = func([]fr.Element) fr.Element
 
-func eval_binary(row uint, env map[string]tr.Column, lhs Query, rhs Query, fn binary_op) (fr.Element, error) {
-	var (
-		lv, rv fr.Element
-		err    error
-	)
+func eval_binary(row uint, env map[string]tr.Column, lhs Query, rhs Query, fn binary_op) fr.Element {
 	// Evaluate left-hand side
-	if lv, err = lhs.Eval(row, env); err != nil {
-		return lv, err
-	}
+	lv := lhs.Eval(row, env)
 	// Evaluate right-hand side
-	if rv, err = rhs.Eval(row, env); err != nil {
-		return rv, err
-	}
+	rv := rhs.Eval(row, env)
 	// Performan binary operation
-	return fn(lv, rv), nil
+	return fn(lv, rv)
 }
 
-func eval_nary(row uint, env map[string]tr.Column, args []Query, fn nary_op) (fr.Element, error) {
-	var (
-		vals = make([]fr.Element, len(args))
-		err  error
-	)
+func eval_nary(row uint, env map[string]tr.Column, args []Query, fn nary_op) fr.Element {
+	vals := make([]fr.Element, len(args))
 	// Evaluate arguments
 	for i, arg := range args {
-		if vals[i], err = arg.Eval(row, env); err != nil {
-			return vals[i], err
-		}
+		vals[i] = arg.Eval(row, env)
 	}
 	//
-	return fn(vals), nil
+	return fn(vals)
 }
 
 func eval_eq(lhs fr.Element, rhs fr.Element) fr.Element {

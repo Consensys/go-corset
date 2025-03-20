@@ -87,6 +87,10 @@ func newModuleState(module *corset.SourceModule, trace tr.Trace, enums []corset.
 	return state
 }
 
+func (p *ModuleState) height() uint {
+	return uint(len(p.view.rowWidths))
+}
+
 func (p *ModuleState) setColumnOffset(colOffset uint) {
 	p.view.SetColumn(colOffset)
 }
@@ -135,17 +139,13 @@ func (p *ModuleState) matchQuery(query *Query, trace tr.Trace) error {
 	for _, col := range p.columns {
 		env[col.Name] = trace.Column(col.Register)
 	}
-	// Determine module height
-	n := uint(len(p.view.columns))
 	// evaluate forward
-	for i := uint(0); i < n; i++ {
-		val, err := query.Eval(i, env)
+	for i := uint(0); i < p.height(); i++ {
+		val := query.Eval(i, env)
 		//
-		if err != nil {
-			return err
-		} else if val.IsZero() {
+		if val.IsZero() {
 			p.setRowOffset(i)
-			return fmt.Errorf("matched row %d", i)
+			return nil
 		}
 	}
 	//
