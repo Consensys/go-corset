@@ -13,6 +13,7 @@
 package inspector
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"slices"
@@ -123,8 +124,9 @@ func (p *ModuleState) applyColumnFilter(trace tr.Trace, regex *regexp.Regexp, hi
 	}
 }
 
+// Evaluate a query on the current module using those values from the given
+// trace, looking for the first row where the query holds.
 func (p *ModuleState) matchQuery(query *Query, trace tr.Trace) error {
-	vals := make([]string, 0)
 	env := make(map[string]tr.Column)
 	// construct environment
 	for _, col := range p.columns {
@@ -142,11 +144,9 @@ func (p *ModuleState) matchQuery(query *Query, trace tr.Trace) error {
 			p.setRowOffset(i)
 			return fmt.Errorf("matched row %d", i)
 		}
-		//
-		vals = append(vals, val.String())
 	}
 	//
-	return fmt.Errorf("no match: %v", vals)
+	return errors.New("matched nothing")
 }
 
 // History append will append a given item to the end of the history.  However,

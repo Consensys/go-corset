@@ -150,6 +150,11 @@ func (p *Inspector) KeyPressed(key uint16) bool {
 	return len(p.modes) == 0
 }
 
+func (p *Inspector) SetStatus(msg termio.FormattedText) {
+	p.statusBar.Clear()
+	p.statusBar.Add(msg)
+}
+
 // Access currently selected view
 func (p *Inspector) currentView() *ModuleState {
 	module := p.tabs.Selected()
