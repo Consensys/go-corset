@@ -114,7 +114,7 @@ func (p *InputMode[T]) KeyPressed(parent *Inspector, key uint16) bool {
 		val, err := p.handler.Convert(input)
 		//
 		if err != nil {
-			parent.SetStatus(termio.NewText(err.Error()))
+			parent.SetStatus(termio.NewColouredText(err.Error(), termio.TERM_RED))
 			return false
 		}
 		// Looks good, to fire the value

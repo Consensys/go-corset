@@ -183,11 +183,9 @@ func (p *Parser[T]) parseTerm() (T, []source.SyntaxError) {
 	// initialise lookahead
 	kind := p.lookahead().Kind
 	//
-	for len(errs) == 0 && !p.follows(END_OF, RBRACE) {
+	for len(errs) == 0 && p.follows(CONNECTIVES...) {
 		// Sanity check
-		if !p.follows(CONNECTIVES...) {
-			return tmp, p.syntaxErrors(p.lookahead(), "expected logical connective")
-		} else if !p.follows(kind) {
+		if !p.follows(kind) {
 			return tmp, p.syntaxErrors(p.lookahead(), "braces required")
 		}
 		// Consume connective
@@ -222,7 +220,7 @@ func (p *Parser[T]) parseCondition() (T, []source.SyntaxError) {
 		return lhs, errs
 	} else if !p.follows(CONDITIONS...) {
 		// Not a binary condition
-		return lhs, p.syntaxErrors(token, "condition expected")
+		return lhs, nil
 	}
 	// Accept binary condition
 	p.expect(token.Kind)
