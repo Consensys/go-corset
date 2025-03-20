@@ -13,6 +13,7 @@
 package inspector
 
 import (
+	"fmt"
 	"regexp"
 	"time"
 
@@ -126,6 +127,13 @@ func (p *Inspector) Close() error {
 	return p.term.Restore()
 }
 
+// CurrentModule returns the currently selected module
+func (p *Inspector) CurrentModule() *ModuleState {
+	module := p.tabs.Selected()
+	//
+	return &p.modules[module]
+}
+
 // EnterMode pushes a new mode onto the mode stack.
 func (p *Inspector) EnterMode(mode Mode) {
 	// Append mode to stack of active modes
@@ -163,37 +171,29 @@ func (p *Inspector) currentView() *ModuleState {
 }
 
 // Actions goto row mode
-func (p *Inspector) gotoRow(row uint) bool {
-	mid := p.tabs.Selected()
+func (p *Inspector) gotoRow(row uint) error {
 	// Action change
-	return p.modules[mid].setRowOffset(row)
+	row = p.CurrentModule().setRowOffset(row)
+	//
+	return fmt.Errorf("row %d", row)
 }
 
 // filter columns based on a regex
-func (p *Inspector) filterColumns(regex *regexp.Regexp) bool {
-	module := p.tabs.Selected()
-	p.modules[module].applyColumnFilter(p.trace, regex, true)
+func (p *Inspector) filterColumns(regex *regexp.Regexp) error {
+	p.CurrentModule().applyColumnFilter(p.trace, regex, true)
 	// Success
-	return true
+	return nil
 }
 
 func (p *Inspector) clearColumnFilter() bool {
-	module := p.tabs.Selected()
 	regex := regexp.MustCompile("")
-	p.modules[module].applyColumnFilter(p.trace, regex, false)
+	p.CurrentModule().applyColumnFilter(p.trace, regex, false)
 	// Success
 	return true
 }
 
-func (p *Inspector) matchQuery(query *Query) bool {
-	module := p.tabs.Selected()
-	//
-	if err := p.modules[module].matchQuery(query, p.trace); err != nil {
-		// some kind of error arose during evaluation
-		p.statusBar.Add(termio.NewColouredText(err.Error(), termio.TERM_RED))
-	}
-	//
-	return true
+func (p *Inspector) matchQuery(query *Query) error {
+	return p.CurrentModule().matchQuery(query, p.trace)
 }
 
 // ==================================================================

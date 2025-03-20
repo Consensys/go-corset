@@ -15,6 +15,8 @@ package inspector
 import (
 	"fmt"
 	"math/big"
+	"slices"
+	"strings"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	tr "github.com/consensys/go-corset/pkg/trace"
@@ -71,7 +73,7 @@ func (p *Query) Number(number big.Int) *Query {
 
 // Or constructs a disjunction of queries.
 func (p *Query) Or(queries ...*Query) *Query {
-	args := make([]Query, 1+len(queries))
+	args := build_args(p, queries)
 	//
 	return &Query{qOR, args, fr.Element{}, ""}
 }
@@ -133,6 +135,11 @@ func build_args(q *Query, queries []*Query) []Query {
 	}
 	//
 	return args
+}
+
+// String produces a parseable string from this query.
+func (p *Query) String() string {
+	return query_string(*p)
 }
 
 // Eval evaluates the given query in the given environment.
@@ -291,4 +298,59 @@ func eval_sub(vals []fr.Element) fr.Element {
 	}
 	//
 	return val
+}
+
+func query_string(p Query, braces ...int) string {
+	var str string
+	//
+	switch p.op {
+	case qVAR:
+		return p.name
+	case qNUM:
+		return p.number.String()
+	case qEQ:
+		str = query_strings("==", false, p.args)
+	case qNEQ:
+		str = query_strings("!=", false, p.args)
+	case qLT:
+		str = query_strings("<", false, p.args)
+	case qLTEQ:
+		str = query_strings("<=", false, p.args)
+	case qOR:
+		str = query_strings("∨", true, p.args, qOR, qAND)
+	case qAND:
+		str = query_strings("∧", true, p.args, qOR, qAND)
+	case qADD:
+		str = query_strings("+", false, p.args, qADD, qMUL, qSUB)
+	case qMUL:
+		str = query_strings("*", false, p.args, qADD, qMUL, qSUB)
+	case qSUB:
+		str = query_strings("-", false, p.args, qADD, qMUL, qSUB)
+	default:
+		panic(fmt.Sprintf("unknown operator (%d)", p.op))
+	}
+	// Check whether braces required
+	if slices.Contains(braces, p.op) {
+		return fmt.Sprintf("(%s)", str)
+	}
+	// nope
+	return str
+}
+
+func query_strings(op string, spacing bool, queries []Query, braces ...int) string {
+	var builder strings.Builder
+	//
+	for i, q := range queries {
+		if i != 0 && spacing {
+			builder.WriteString(" ")
+			builder.WriteString(op)
+			builder.WriteString(" ")
+		} else if i != 0 {
+			builder.WriteString(op)
+		}
+
+		builder.WriteString(query_string(q, braces...))
+	}
+	//
+	return builder.String()
 }

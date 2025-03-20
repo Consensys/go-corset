@@ -21,8 +21,9 @@ import (
 	"github.com/consensys/go-corset/pkg/util/source/lex"
 )
 
-// Parse a given input string into logical proposition.
-func Parse[T Term[T]](input string) (T, []source.SyntaxError) {
+// Parse a given input string into logical proposition.  The environment
+// determines the set of permitted variable names.
+func Parse[T Term[T]](input string, environment func(string) bool) (T, []source.SyntaxError) {
 	var (
 		empty   T
 		srcfile = source.NewSourceFile("expr", []byte(input))
@@ -40,7 +41,7 @@ func Parse[T Term[T]](input string) (T, []source.SyntaxError) {
 	// Remove any whitespace
 	tokens = util.RemoveMatching(tokens, func(t lex.Token) bool { return t.Kind == WHITESPACE })
 	//
-	parser := &Parser[T]{srcfile, tokens, 0}
+	parser := &Parser[T]{environment, srcfile, tokens, 0}
 	// Parse term
 	p, errs := parser.parseTerm()
 	// Check all parsed
@@ -117,11 +118,21 @@ var whitespace lex.Scanner[rune] = lex.Many(lex.Or(lex.Unit(' '), lex.Unit('\t')
 // Rule for describing numbers
 var number lex.Scanner[rune] = lex.Many(lex.Within('0', '9'))
 
+var identifierStart lex.Scanner[rune] = lex.Or(
+	lex.Unit('_'),
+	lex.Unit('\''),
+	lex.Within('a', 'z'),
+	lex.Within('A', 'Z'))
+
+var identifierRest lex.Scanner[rune] = lex.Many(lex.Or(
+	lex.Unit('_'),
+	lex.Unit('\''),
+	lex.Within('0', '9'),
+	lex.Within('a', 'z'),
+	lex.Within('A', 'Z')))
+
 // Rule for describing identifiers
-var identifier lex.Scanner[rune] = lex.Many(
-	lex.Or(
-		lex.Within('a', 'z'),
-		lex.Within('A', 'Z')))
+var identifier lex.Scanner[rune] = lex.And(identifierStart, identifierRest)
 
 // lexing rules
 var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
@@ -137,7 +148,9 @@ var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
 	lex.Rule(lex.Unit('>'), GREATERTHAN),
 	lex.Rule(lex.Unit('>', '='), GREATERTHAN_EQUALS),
 	lex.Rule(lex.Unit('|', '|'), OR),
+	lex.Rule(lex.Unit('∨'), OR),
 	lex.Rule(lex.Unit('&', '&'), AND),
+	lex.Rule(lex.Unit('∧'), AND),
 	lex.Rule(whitespace, WHITESPACE),
 	lex.Rule(number, NUMBER),
 	lex.Rule(identifier, IDENTIFIER),
@@ -147,8 +160,9 @@ var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
 // Parser provides a general-purpose parser for propositions and arithmetic
 // expressions.
 type Parser[T Term[T]] struct {
-	srcfile *source.File
-	tokens  []lex.Token
+	environment func(string) bool
+	srcfile     *source.File
+	tokens      []lex.Token
 	// Position within the tokens
 	index int
 }
@@ -203,7 +217,10 @@ func (p *Parser[T]) parseCondition() (T, []source.SyntaxError) {
 	// See whether binary or not.
 	token := p.lookahead()
 	// Check for infix expression
-	if len(errs) != 0 || !p.follows(CONDITIONS...) {
+	if len(errs) != 0 {
+		// Not a binary condition
+		return lhs, errs
+	} else if !p.follows(CONDITIONS...) {
 		// Not a binary condition
 		return lhs, p.syntaxErrors(token, "condition expected")
 	}
@@ -284,7 +301,7 @@ func (p *Parser[T]) parseUnitTerm() (T, []source.SyntaxError) {
 	case LBRACE:
 		return p.parseBracketedTerm()
 	case IDENTIFIER:
-		return p.parseIdentifier(), nil
+		return p.parseVariable()
 	case NUMBER:
 		return p.parseNumber(), nil
 	}
@@ -306,12 +323,17 @@ func (p *Parser[T]) parseBracketedTerm() (T, []source.SyntaxError) {
 	return term, errs
 }
 
-func (p *Parser[T]) parseIdentifier() T {
+func (p *Parser[T]) parseVariable() (T, []source.SyntaxError) {
 	var variable T
 	//
 	id := p.expect(IDENTIFIER)
-	//
-	return variable.Variable(p.string(id))
+	name := p.string(id)
+	// Check variable valid
+	if p.environment(name) {
+		return variable.Variable(name), nil
+	}
+	// Nope
+	return variable, p.syntaxErrors(id, "unknown variable")
 }
 
 func (p *Parser[T]) parseNumber() T {

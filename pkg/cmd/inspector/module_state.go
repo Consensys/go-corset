@@ -91,16 +91,16 @@ func (p *ModuleState) setColumnOffset(colOffset uint) {
 	p.view.SetColumn(colOffset)
 }
 
-func (p *ModuleState) setRowOffset(rowOffset uint) bool {
-	if p.view.SetRow(rowOffset) {
+func (p *ModuleState) setRowOffset(rowOffset uint) uint {
+	row := p.view.SetRow(rowOffset)
+	//
+	if row != rowOffset {
 		// Update history
 		rowOffsetStr := fmt.Sprintf("%d", rowOffset)
 		p.targetRowHistory = history_append(p.targetRowHistory, rowOffsetStr)
-		//
-		return true
 	}
 	// failed
-	return false
+	return row
 }
 
 // Apply a new column filter to the module view.  This determines which columns
@@ -127,6 +127,9 @@ func (p *ModuleState) applyColumnFilter(trace tr.Trace, regex *regexp.Regexp, hi
 // Evaluate a query on the current module using those values from the given
 // trace, looking for the first row where the query holds.
 func (p *ModuleState) matchQuery(query *Query, trace tr.Trace) error {
+	// Always update history
+	p.scanHistory = history_append(p.scanHistory, query.String())
+	// Proceed
 	env := make(map[string]tr.Column)
 	// construct environment
 	for _, col := range p.columns {

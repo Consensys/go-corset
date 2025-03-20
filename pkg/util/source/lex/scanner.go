@@ -19,6 +19,23 @@ import (
 // Scanner is a function which accepts a given item or not.
 type Scanner[T any] func(item []T) uint
 
+// And combines zero or more scanners such that the resulting scanner succeeds if
+// all of the scanners succeed.  Observe, however, that there is an implicit
+// left-to-right order of evaluation.
+func And[T any](scanners ...Scanner[T]) Scanner[T] {
+	return func(items []T) uint {
+		n := uint(0)
+
+		for _, scanner := range scanners {
+			if m := scanner(items); m > 0 {
+				n = max(n, m)
+			}
+		}
+		// fail
+		return n
+	}
+}
+
 // Or combines zero or more scanners such that the resulting scanner succeeds if
 // any of the scanners succeeds.  Observe, however, that there is an implicit
 // left-to-right order of evaluation.

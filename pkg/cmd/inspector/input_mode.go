@@ -16,8 +16,10 @@ import (
 	"errors"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/util/source/bexp"
 	"github.com/consensys/go-corset/pkg/util/termio"
 )
@@ -70,11 +72,13 @@ func (p *InputMode[T]) Activate(parent *Inspector) {
 	colour := termio.TERM_GREEN
 	invColour := termio.TERM_BLACK
 	input := string(p.input)
-	//
-	if _, err := p.handler.Convert(input); err != nil {
+	// indicate validity of input
+	if _, err := p.handler.Convert(input); len(input) != 0 && err != nil {
 		colour = termio.TERM_RED
 		//
-		parent.SetStatus(termio.NewText(err.Error()))
+		parent.SetStatus(termio.NewColouredText(err.Error(), termio.TERM_RED))
+	} else {
+		parent.SetStatus(termio.NewText(""))
 	}
 	// construct cursor escape code
 	escape := termio.NewAnsiEscape().FgColour(invColour).BgColour(termio.TERM_YELLOW)
@@ -214,23 +218,53 @@ func (p *regexHandler) Apply(regex *regexp.Regexp) {
 // ==================================================================
 
 type queryHandler struct {
+	// environment determines which variables are permitted
+	env func(string) bool
+	//
 	callback func(*Query) error
 }
 
-func newQueryHandler(callback func(*Query) error) InputHandler[*Query] {
-	return &queryHandler{callback}
+func newQueryHandler(env func(string) bool, callback func(*Query) error) InputHandler[*Query] {
+	return &queryHandler{env, callback}
 }
 
 func (p *queryHandler) Convert(input string) (*Query, error) {
-	prop, errs := bexp.Parse[*Query](input)
-	//
+	prop, errs := bexp.Parse[*Query](input, p.env)
+	// Check whether any errors reported
 	if len(errs) == 0 {
 		return prop, nil
 	}
-
-	return nil, errors.New(errs[0].Error())
+	// Yes, so take the first one only (as no space for anything else).
+	return nil, errors.New(query_error(errs[0]))
 }
 
 func (p *queryHandler) Apply(query *Query) {
 	p.callback(query)
+}
+
+func query_error(err source.SyntaxError) string {
+	var builder strings.Builder
+	//
+	span := err.Span()
+	// Determine start and end
+	start, end := span.Start(), span.End()
+	//
+	if start == end {
+		end = end + 1
+	}
+	//
+	builder.WriteString("                          ")
+	//
+	for i := 0; i < start; i++ {
+		builder.WriteString(" ")
+	}
+	//
+	for i := start; i < end; i++ {
+		builder.WriteString("^")
+	}
+	//
+	builder.WriteString(" ")
+	builder.WriteString(err.Message())
+	//
+	return builder.String()
 }

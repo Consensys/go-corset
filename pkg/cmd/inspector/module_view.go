@@ -52,12 +52,10 @@ func (p *ModuleView) SetColumn(col uint) {
 
 // SetRow the row offset if its valid (otherwise ignore).  This affects which
 // rows are visible in the view.  Note: column titles are always visible though.
-func (p *ModuleView) SetRow(row uint) bool {
-	nrow := min(row, uint(len(p.rowWidths)-1))
-	changed := p.row != nrow
-	p.row = nrow
+func (p *ModuleView) SetRow(row uint) uint {
+	p.row = min(row, uint(len(p.rowWidths)-1))
 	//
-	return changed
+	return p.row
 }
 
 // SetActiveColumns sets the currently active set of columns.  This updates the

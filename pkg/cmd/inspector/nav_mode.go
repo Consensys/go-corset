@@ -12,7 +12,10 @@
 // SPDX-License-Identifier: Apache-2.0
 package inspector
 
-import "github.com/consensys/go-corset/pkg/util/termio"
+import (
+	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/termio"
+)
 
 // NavigationMode is the default mode of the inspector.  In this mode, the user
 // is navigating the trace in the normal fashion.
@@ -35,7 +38,7 @@ func (p *NavigationMode) Activate(parent *Inspector) {
 	parent.cmdBar.Add(termio.NewColouredText("[q]", termio.TERM_RED))
 	parent.cmdBar.Add(termio.NewText("uit"))
 	//
-	//parent.statusBar.Clear()
+	parent.statusBar.Clear()
 }
 
 // Clock navitation mode, which does nothing at this time.
@@ -105,9 +108,20 @@ func (p *NavigationMode) filterInputMode(parent *Inspector) Mode {
 }
 
 func (p *NavigationMode) scanInputMode(parent *Inspector) Mode {
-	prompt := termio.NewColouredText("[history ↑/↓] expression? ", termio.TERM_YELLOW)
-	history := parent.currentView().scanHistory
-	history_index := uint(len(history))
-	//
-	return newInputMode(prompt, history_index, history, newQueryHandler(parent.matchQuery))
+	var (
+		prompt        = termio.NewColouredText("[history ↑/↓] expression? ", termio.TERM_YELLOW)
+		history       = parent.currentView().scanHistory
+		history_index = uint(len(history))
+		columns       set.SortedSet[string]
+	)
+	// Identify available columns
+	for _, c := range parent.CurrentModule().columns {
+		columns.Insert(c.Name)
+	}
+	// Construct environment
+	env := func(col string) bool {
+		return columns.Contains(col)
+	}
+	// Construct input mode
+	return newInputMode(prompt, history_index, history, newQueryHandler(env, parent.matchQuery))
 }
