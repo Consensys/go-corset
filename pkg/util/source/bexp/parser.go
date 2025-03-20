@@ -14,6 +14,7 @@ package bexp
 
 import (
 	"math/big"
+	"slices"
 
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/source"
@@ -74,6 +75,30 @@ const EQUALS uint = 6
 // NOT_EQUALS signals a non-equality
 const NOT_EQUALS uint = 7
 
+// LESSTHAN signals a (strict) inequality X < Y
+const LESSTHAN uint = 8
+
+// LESSTHAN_EQUALS signals a (non-strict) inequality X <= Y
+const LESSTHAN_EQUALS uint = 9
+
+// GREATERTHAN signals a (strict) inequality X > Y
+const GREATERTHAN uint = 10
+
+// GREATERTHAN_EQUALS signals a (non-strict) inequality X >= Y
+const GREATERTHAN_EQUALS uint = 11
+
+// OR represents logical disjunction
+const OR uint = 12
+
+// AND represents logical conjunction
+const AND uint = 13
+
+// CONDITIONS captures the set of conditions.
+var CONDITIONS = []uint{EQUALS, NOT_EQUALS, LESSTHAN, LESSTHAN_EQUALS, GREATERTHAN, GREATERTHAN_EQUALS}
+
+// CONNECTIVES captures the set of logical connectives.
+var CONNECTIVES = []uint{AND, OR}
+
 // Rule for describing whitespace
 var whitespace lex.Scanner[rune] = lex.Many(lex.Or(lex.Unit(' '), lex.Unit('\t')))
 
@@ -91,7 +116,13 @@ var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
 	lex.Rule(lex.Unit('('), LBRACE),
 	lex.Rule(lex.Unit(')'), RBRACE),
 	lex.Rule(lex.Unit('=', '='), EQUALS),
-	lex.Rule(lex.Unit('!', '='), EQUALS),
+	lex.Rule(lex.Unit('!', '='), NOT_EQUALS),
+	lex.Rule(lex.Unit('<'), LESSTHAN),
+	lex.Rule(lex.Unit('<', '='), LESSTHAN_EQUALS),
+	lex.Rule(lex.Unit('>'), GREATERTHAN),
+	lex.Rule(lex.Unit('>', '='), GREATERTHAN_EQUALS),
+	lex.Rule(lex.Unit('|', '|'), OR),
+	lex.Rule(lex.Unit('&', '&'), AND),
 	lex.Rule(whitespace, WHITESPACE),
 	lex.Rule(number, NUMBER),
 	lex.Rule(identifier, IDENTIFIER),
@@ -114,32 +145,78 @@ func (p *Parser[T]) Done() bool {
 }
 
 func (p *Parser[T]) parseTerm() (T, []source.SyntaxError) {
-	term, errs := p.parseUnitTerm()
-	// check for infix expression
-	if len(errs) == 0 && !p.Done() {
-		var token = p.lookahead()
-		//
-		switch token.Kind {
-		case EQUALS, NOT_EQUALS:
-			return p.parseEquality(token.Kind, term)
+	var (
+		tmp        T
+		term, errs = p.parseCondition()
+	)
+	// match all terms
+	terms := []T{}
+	// initialise lookahead
+	kind := p.lookahead().Kind
+	//
+	for len(errs) == 0 && !p.follows(END_OF, RBRACE) {
+		// Sanity check
+		if !p.follows(CONNECTIVES...) {
+			return tmp, p.syntaxErrors(p.lookahead(), "expected logical connective")
+		} else if !p.follows(kind) {
+			return tmp, p.syntaxErrors(p.lookahead(), "braces required")
 		}
+		// Consume connective
+		p.expect(p.lookahead().Kind)
+		//
+		tmp, errs = p.parseCondition()
+		// Accumulate arguments
+		terms = append(terms, tmp)
 	}
 	//
-	return term, errs
+	switch {
+	case len(errs) != 0:
+		return term, errs
+	case len(terms) == 0:
+		return term, nil
+	case kind == OR:
+		return term.Or(terms...), nil
+	case kind == AND:
+		return term.And(terms...), nil
+	}
+	//
+	panic("unreachable")
 }
 
-func (p *Parser[T]) parseEquality(kind uint, lhs T) (T, []source.SyntaxError) {
-	p.expect(kind)
-	//
+func (p *Parser[T]) parseCondition() (T, []source.SyntaxError) {
+	lhs, errs := p.parseUnitTerm()
+	// See whether binary or not.
+	token := p.lookahead()
+	// Check for infix expression
+	if len(errs) != 0 || !p.follows(CONDITIONS...) {
+		// Not a binary condition
+		return lhs, p.syntaxErrors(token, "condition expected")
+	}
+	// Accept binary condition
+	p.expect(token.Kind)
+	// Parse rhs
 	rhs, errs := p.parseUnitTerm()
 	//
-	if len(errs) == 0 && kind == EQUALS {
-		return lhs.Equals(rhs), nil
-	} else if len(errs) == 0 {
-		return lhs.NotEquals(rhs), nil
+	if len(errs) == 0 {
+		switch token.Kind {
+		case EQUALS:
+			lhs = lhs.Equals(rhs)
+		case NOT_EQUALS:
+			lhs = lhs.NotEquals(rhs)
+		case LESSTHAN:
+			lhs = lhs.LessThan(rhs)
+		case LESSTHAN_EQUALS:
+			lhs = lhs.LessThanEquals(rhs)
+		case GREATERTHAN:
+			lhs = rhs.LessThan(lhs)
+		case GREATERTHAN_EQUALS:
+			lhs = rhs.LessThanEquals(lhs)
+		default:
+			errs = p.syntaxErrors(token, "unknown condition")
+		}
 	}
-	//
-	return rhs, errs
+	// Done
+	return lhs, errs
 }
 
 // ParseTerm parses an expression.
@@ -206,9 +283,14 @@ func (p *Parser[T]) number(token lex.Token) big.Int {
 	return number
 }
 
+// Follows checks whether one of the given token kinds is next.
+func (p *Parser[T]) follows(options ...uint) bool {
+	return slices.Contains(options, p.lookahead().Kind)
+}
+
+// Lookahead returns the next token.  This must exist because EOF is always
+// appended at the end of the token stream.
 func (p *Parser[T]) lookahead() lex.Token {
-	// NOTE: there is always a lookahead expression because EOF is always
-	// appended at the end of the token stream.
 	return p.tokens[p.index]
 }
 

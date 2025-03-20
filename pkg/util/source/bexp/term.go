@@ -16,17 +16,18 @@ import "math/big"
 
 // Term represents an abstraction over boolean expressions.
 type Term[T any] interface {
-	// Set this term to a new variable.
+	// Create new variable.
 	Variable(string) T
-	// Set this term to a new constant.
+	// Create new constant.
 	Number(big.Int) T
 	// Logical
 	Or(...T) T
-	// And(...Proposition) Proposition
-	// Not(...Proposition) Proposition
+	And(...T) T
 	// Relational
 	Equals(T) T
 	NotEquals(T) T
+	LessThan(T) T
+	LessThanEquals(T) T
 	// Arithmetic
 }
 
