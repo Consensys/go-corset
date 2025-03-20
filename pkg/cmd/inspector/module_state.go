@@ -124,6 +124,7 @@ func (p *ModuleState) applyColumnFilter(trace tr.Trace, regex *regexp.Regexp, hi
 }
 
 func (p *ModuleState) matchQuery(query *Query, trace tr.Trace) error {
+	vals := make([]string, 0)
 	env := make(map[string]tr.Column)
 	// construct environment
 	for _, col := range p.columns {
@@ -133,17 +134,19 @@ func (p *ModuleState) matchQuery(query *Query, trace tr.Trace) error {
 	n := uint(len(p.view.columns))
 	// evaluate forward
 	for i := uint(0); i < n; i++ {
-		matched, err := query.Matches(i, env)
+		val, err := query.Eval(i, env)
 		//
 		if err != nil {
 			return err
-		} else if matched {
+		} else if val.IsZero() {
 			p.setRowOffset(i)
-			break
+			return fmt.Errorf("matched row %d", i)
 		}
+		//
+		vals = append(vals, val.String())
 	}
 	//
-	return nil
+	return fmt.Errorf("no match: %v", vals)
 }
 
 // History append will append a given item to the end of the history.  However,

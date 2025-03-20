@@ -45,18 +45,6 @@ type Query struct {
 	name string
 }
 
-// Matches determines whether or not this query holds on the given row, assuming
-// the given column values.
-func (p *Query) Matches(row uint, env map[string]tr.Column) (bool, error) {
-	val, err := p.Eval(row, env)
-	//
-	if err != nil {
-		return false, err
-	}
-	//
-	return val.IsZero(), nil
-}
-
 // Variable constructs a variable of the given name.
 func (p *Query) Variable(name string) *Query {
 	var query Query
