@@ -22,6 +22,7 @@ import (
 	"github.com/consensys/go-corset/pkg/hir"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/termio"
 )
 
 // ModuleState provides state regarding how to display the trace for a given
@@ -39,6 +40,8 @@ type ModuleState struct {
 	columnFilter string
 	// Set of column filters used.
 	columnFilterHistory []string
+	// Histor for scan commands
+	scanHistory []string
 }
 
 // SourceColumn provides key information to the inspector about source-level
@@ -84,20 +87,24 @@ func newModuleState(module *corset.SourceModule, trace tr.Trace, enums []corset.
 	return state
 }
 
+func (p *ModuleState) height() uint {
+	return uint(len(p.view.rowWidths))
+}
+
 func (p *ModuleState) setColumnOffset(colOffset uint) {
 	p.view.SetColumn(colOffset)
 }
 
-func (p *ModuleState) setRowOffset(rowOffset uint) bool {
-	if p.view.SetRow(rowOffset) {
+func (p *ModuleState) setRowOffset(rowOffset uint) uint {
+	row := p.view.SetRow(rowOffset)
+	//
+	if row != rowOffset {
 		// Update history
 		rowOffsetStr := fmt.Sprintf("%d", rowOffset)
 		p.targetRowHistory = history_append(p.targetRowHistory, rowOffsetStr)
-		//
-		return true
 	}
 	// failed
-	return false
+	return row
 }
 
 // Apply a new column filter to the module view.  This determines which columns
@@ -119,6 +126,30 @@ func (p *ModuleState) applyColumnFilter(trace tr.Trace, regex *regexp.Regexp, hi
 	if history {
 		p.columnFilterHistory = history_append(p.columnFilterHistory, regex.String())
 	}
+}
+
+// Evaluate a query on the current module using those values from the given
+// trace, looking for the first row where the query holds.
+func (p *ModuleState) matchQuery(query *Query, trace tr.Trace) termio.FormattedText {
+	// Always update history
+	p.scanHistory = history_append(p.scanHistory, query.String())
+	// Proceed
+	env := make(map[string]tr.Column)
+	// construct environment
+	for _, col := range p.columns {
+		env[col.Name] = trace.Column(col.Register)
+	}
+	// evaluate forward
+	for i := uint(0); i < p.height(); i++ {
+		val := query.Eval(i, env)
+		//
+		if val.IsZero() {
+			r := p.setRowOffset(i)
+			return termio.NewColouredText(fmt.Sprintf("Matched row %d", r), termio.TERM_GREEN)
+		}
+	}
+	//
+	return termio.NewColouredText("Matched nothing", termio.TERM_YELLOW)
 }
 
 // History append will append a given item to the end of the history.  However,

@@ -13,10 +13,14 @@
 package inspector
 
 import (
+	"errors"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/source"
+	"github.com/consensys/go-corset/pkg/util/source/bexp"
 	"github.com/consensys/go-corset/pkg/util/termio"
 )
 
@@ -41,9 +45,9 @@ type InputMode[T any] struct {
 // for checking that input is well formed.
 type InputHandler[T any] interface {
 	// Convert attempts to convert the input string into a valid value.
-	Convert(string) (T, bool)
+	Convert(string) (T, error)
 	// Apply the given input, which will activate some kind of callback.
-	Apply(T)
+	Apply(T) termio.FormattedText
 }
 
 func newInputMode[T any](prompt termio.FormattedText, index uint, history []string,
@@ -68,9 +72,13 @@ func (p *InputMode[T]) Activate(parent *Inspector) {
 	colour := termio.TERM_GREEN
 	invColour := termio.TERM_BLACK
 	input := string(p.input)
-	//
-	if _, ok := p.handler.Convert(input); !ok {
+	// indicate validity of input
+	if _, err := p.handler.Convert(input); len(input) != 0 && err != nil {
 		colour = termio.TERM_RED
+		//
+		parent.SetStatus(termio.NewColouredText(err.Error(), termio.TERM_RED))
+	} else {
+		parent.SetStatus(termio.NewText(""))
 	}
 	// construct cursor escape code
 	escape := termio.NewAnsiEscape().FgColour(invColour).BgColour(termio.TERM_YELLOW)
@@ -103,10 +111,16 @@ func (p *InputMode[T]) KeyPressed(parent *Inspector, key uint16) bool {
 	case key == termio.CARRIAGE_RETURN:
 		input := string(p.input)
 		// Attempt conversion
-		if val, ok := p.handler.Convert(input); ok {
-			// Looks good, to fire the value
-			p.handler.Apply(val)
+		val, err := p.handler.Convert(input)
+		//
+		if err != nil {
+			parent.SetStatus(termio.NewColouredText(err.Error(), termio.TERM_RED))
+			return false
 		}
+		// Looks good, to fire the value
+		outcome := p.handler.Apply(val)
+		//
+		parent.SetStatus(outcome)
 		// Success
 		return true
 	case key == termio.CURSOR_LEFT:
@@ -160,25 +174,25 @@ func (p *InputMode[T]) insertCharacterAtCursor(char byte) {
 // ==================================================================
 
 type uintHandler struct {
-	callback func(uint) bool
+	callback func(uint) termio.FormattedText
 }
 
-func newUintHandler(callback func(uint) bool) InputHandler[uint] {
+func newUintHandler(callback func(uint) termio.FormattedText) InputHandler[uint] {
 	return &uintHandler{callback}
 }
 
-func (p *uintHandler) Convert(input string) (uint, bool) {
+func (p *uintHandler) Convert(input string) (uint, error) {
 	val, err := strconv.Atoi(input)
 	//
 	if val < 0 || err != nil {
-		return 0, false
+		return 0, errors.New("invalid integer")
 	}
 	//
-	return uint(val), true
+	return uint(val), nil
 }
 
-func (p *uintHandler) Apply(value uint) {
-	p.callback(value)
+func (p *uintHandler) Apply(value uint) termio.FormattedText {
+	return p.callback(value)
 }
 
 // ==================================================================
@@ -186,21 +200,73 @@ func (p *uintHandler) Apply(value uint) {
 // ==================================================================
 
 type regexHandler struct {
-	callback func(*regexp.Regexp) bool
+	callback func(*regexp.Regexp) termio.FormattedText
 }
 
-func newRegexHandler(callback func(*regexp.Regexp) bool) InputHandler[*regexp.Regexp] {
+func newRegexHandler(callback func(*regexp.Regexp) termio.FormattedText) InputHandler[*regexp.Regexp] {
 	return &regexHandler{callback}
 }
 
-func (p *regexHandler) Convert(input string) (*regexp.Regexp, bool) {
-	if regex, err := regexp.Compile(input); err == nil {
-		return regex, true
-	}
-
-	return nil, false
+func (p *regexHandler) Convert(input string) (*regexp.Regexp, error) {
+	return regexp.Compile(input)
 }
 
-func (p *regexHandler) Apply(regex *regexp.Regexp) {
-	p.callback(regex)
+func (p *regexHandler) Apply(regex *regexp.Regexp) termio.FormattedText {
+	return p.callback(regex)
+}
+
+// ==================================================================
+// Proposition (i.e. Boolean Expression) Handler
+// ==================================================================
+
+type queryHandler struct {
+	// environment determines which variables are permitted
+	env func(string) bool
+	//
+	callback func(*Query) termio.FormattedText
+}
+
+func newQueryHandler(env func(string) bool, callback func(*Query) termio.FormattedText) InputHandler[*Query] {
+	return &queryHandler{env, callback}
+}
+
+func (p *queryHandler) Convert(input string) (*Query, error) {
+	prop, errs := bexp.Parse[*Query](input, p.env)
+	// Check whether any errors reported
+	if len(errs) == 0 {
+		return prop, nil
+	}
+	// Yes, so take the first one only (as no space for anything else).
+	return nil, errors.New(query_error(errs[0]))
+}
+
+func (p *queryHandler) Apply(query *Query) termio.FormattedText {
+	return p.callback(query)
+}
+
+func query_error(err source.SyntaxError) string {
+	var builder strings.Builder
+	//
+	span := err.Span()
+	// Determine start and end
+	start, end := span.Start(), span.End()
+	//
+	if start == end {
+		end = end + 1
+	}
+	//
+	builder.WriteString("                          ")
+	//
+	for i := 0; i < start; i++ {
+		builder.WriteString(" ")
+	}
+	//
+	for i := start; i < end; i++ {
+		builder.WriteString("^")
+	}
+	//
+	builder.WriteString(" ")
+	builder.WriteString(err.Message())
+	//
+	return builder.String()
 }

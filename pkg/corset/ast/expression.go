@@ -19,7 +19,8 @@ import (
 
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
-	"github.com/consensys/go-corset/pkg/util/sexp"
+	"github.com/consensys/go-corset/pkg/util/source"
+	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
 // Expr represents an arbitrary expression over the columns of a given context
@@ -1085,7 +1086,7 @@ func ContextOfExpressions(exprs []Expr) Context {
 // based on a mapping of said variables to expressions.  Furthermore, an
 // (optional) source map is provided which will be updated, such that the
 // freshly created expressions are mapped to their corresponding nodes.
-func Substitute(expr Expr, mapping map[uint]Expr, srcmap *sexp.SourceMaps[Node]) Expr {
+func Substitute(expr Expr, mapping map[uint]Expr, srcmap *source.Maps[Node]) Expr {
 	var nexpr Expr
 	//
 	switch e := expr.(type) {
@@ -1168,7 +1169,7 @@ func Substitute(expr Expr, mapping map[uint]Expr, srcmap *sexp.SourceMaps[Node])
 
 // SubstituteAll substitutes all variables found in a given set of
 // expressions.
-func SubstituteAll(exprs []Expr, mapping map[uint]Expr, srcmap *sexp.SourceMaps[Node]) []Expr {
+func SubstituteAll(exprs []Expr, mapping map[uint]Expr, srcmap *source.Maps[Node]) []Expr {
 	nexprs := make([]Expr, len(exprs))
 	//
 	for i := 0; i < len(nexprs); i++ {
@@ -1180,7 +1181,7 @@ func SubstituteAll(exprs []Expr, mapping map[uint]Expr, srcmap *sexp.SourceMaps[
 
 // SubstituteOptional substitutes through an expression which is
 // optional (i.e. might be nil).  In such case, nil is returned.
-func SubstituteOptional(expr Expr, mapping map[uint]Expr, srcmap *sexp.SourceMaps[Node]) Expr {
+func SubstituteOptional(expr Expr, mapping map[uint]Expr, srcmap *source.Maps[Node]) Expr {
 	if expr != nil {
 		expr = Substitute(expr, mapping, srcmap)
 	}

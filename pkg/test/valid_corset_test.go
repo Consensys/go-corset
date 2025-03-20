@@ -27,7 +27,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/json"
 	"github.com/consensys/go-corset/pkg/util"
-	"github.com/consensys/go-corset/pkg/util/sexp"
+	"github.com/consensys/go-corset/pkg/util/source"
 )
 
 // Determines the (relative) location of the test directory.  That is
@@ -1318,7 +1318,7 @@ func Check(t *testing.T, stdlib bool, test string) {
 		t.Fatal(err)
 	}
 	// Package up as source file
-	srcfile := sexp.NewSourceFile(filename, bytes)
+	srcfile := source.NewSourceFile(filename, bytes)
 	// Parse terms into an HIR schema
 	binfile, errs := corset.CompileSourceFile(corsetConfig, srcfile)
 	// Check terms parsed ok

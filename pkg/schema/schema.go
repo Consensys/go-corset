@@ -22,7 +22,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
-	"github.com/consensys/go-corset/pkg/util/sexp"
+	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
 // Schema represents a schema which can be used to manipulate a trace.

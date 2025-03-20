@@ -26,7 +26,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 	"github.com/consensys/go-corset/pkg/util/field"
-	"github.com/consensys/go-corset/pkg/util/sexp"
+	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
 // Computation currently describes a native computation which accepts a set of

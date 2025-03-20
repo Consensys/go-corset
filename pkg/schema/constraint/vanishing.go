@@ -20,7 +20,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
-	"github.com/consensys/go-corset/pkg/util/sexp"
+	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
 // VanishingFailure provides structural information about a failing vanishing constraint.

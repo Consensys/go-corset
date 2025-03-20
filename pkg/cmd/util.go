@@ -36,7 +36,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/typed"
-	"github.com/consensys/go-corset/pkg/util/sexp"
+	"github.com/consensys/go-corset/pkg/util/source"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -567,7 +567,7 @@ func ReadBinaryFile(filename string) *binfile.BinaryFile {
 // can be done with (or without) including the standard library, and also with
 // (or without) debug constraints.
 func CompileSourceFiles(config corset.CompilationConfig, filenames []string) *binfile.BinaryFile {
-	srcfiles := make([]*sexp.SourceFile, len(filenames))
+	srcfiles := make([]*source.File, len(filenames))
 	// Read each file
 	for i, n := range filenames {
 		log.Debug(fmt.Sprintf("including source file %s", n))
@@ -579,7 +579,7 @@ func CompileSourceFiles(config corset.CompilationConfig, filenames []string) *bi
 			os.Exit(3)
 		}
 		//
-		srcfiles[i] = sexp.NewSourceFile(n, bytes)
+		srcfiles[i] = source.NewSourceFile(n, bytes)
 	}
 	// Parse and compile source files
 	binf, errs := corset.CompileSourceFiles(config, srcfiles)
@@ -642,7 +642,7 @@ func expandDirectory(dirname string) ([]string, error) {
 }
 
 // Print a syntax error with appropriate highlighting.
-func printSyntaxError(err *sexp.SyntaxError) {
+func printSyntaxError(err *source.SyntaxError) {
 	span := err.Span()
 	line := err.FirstEnclosingLine()
 	lineOffset := span.Start() - line.Start()

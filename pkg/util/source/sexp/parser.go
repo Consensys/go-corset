@@ -14,36 +14,75 @@ package sexp
 
 import (
 	"unicode"
+
+	"github.com/consensys/go-corset/pkg/util/source"
 )
+
+// Parse a given string into an S-expression, or return an error if the string
+// is malformed.  A source map is also returned for debugging purposes.
+func Parse(s *source.File) (SExp, *source.Map[SExp], *source.SyntaxError) {
+	p := NewParser(s)
+	// Parse the input
+	sExp, err := p.Parse()
+	// Sanity check everything was parsed
+	if err == nil && p.index != len(p.text) {
+		return nil, nil, p.error("unexpected remainder")
+	}
+	// Done
+	return sExp, p.SourceMap(), err
+}
+
+// ParseAll converts a given string into zero or more S-expressions, or returns
+// an error if the string is malformed.  A source map is also returned for
+// debugging purposes.  The key distinction from Parse is that this function
+// continues parsing after the first S-expression is encountered.
+func ParseAll(s *source.File) ([]SExp, *source.Map[SExp], *source.SyntaxError) {
+	p := NewParser(s)
+	//
+	terms := make([]SExp, 0)
+	// Parse the input
+	for {
+		term, err := p.Parse()
+		// Sanity check everything was parsed
+		if err != nil {
+			return terms, p.srcmap, err
+		} else if term == nil {
+			// EOF reached
+			return terms, p.srcmap, nil
+		}
+
+		terms = append(terms, term)
+	}
+}
 
 // Parser represents a parser in the process of parsing a given string into one
 // or more S-expressions.
 type Parser struct {
 	// Source file being parsed
-	srcfile *SourceFile
+	srcfile *source.File
 	// Cache (for simplicity)
 	text []rune
 	// Determine current position within text
 	index int
 	// Mapping from constructed S-Expressions to their spans in the original text.
-	srcmap *SourceMap[SExp]
+	srcmap *source.Map[SExp]
 }
 
 // NewParser constructs a new instance of Parser
-func NewParser(srcfile *SourceFile) *Parser {
+func NewParser(srcfile *source.File) *Parser {
 	// Construct initial parser.
 	return &Parser{
 		srcfile: srcfile,
 		text:    srcfile.Contents(),
 		index:   0,
-		srcmap:  NewSourceMap[SExp](*srcfile),
+		srcmap:  source.NewSourceMap[SExp](*srcfile),
 	}
 }
 
 // SourceMap returns the internal source map constructing during parsing.  Using
 // this one can determine, for each SExp, where in the original text it
 // originated.  This is helpful, for example, when reporting syntax errors.
-func (p *Parser) SourceMap() *SourceMap[SExp] {
+func (p *Parser) SourceMap() *source.Map[SExp] {
 	return p.srcmap
 }
 
@@ -53,7 +92,7 @@ func (p *Parser) Text() []rune {
 }
 
 // Parse a given string into an S-Expression, or produce an error.
-func (p *Parser) Parse() (SExp, *SyntaxError) {
+func (p *Parser) Parse() (SExp, *source.SyntaxError) {
 	var term SExp
 	// Skip over any whitespace.  This is import to get the correct starting
 	// point for this term.
@@ -103,7 +142,7 @@ func (p *Parser) Parse() (SExp, *SyntaxError) {
 		term = &Symbol{string(token)}
 	}
 	// Register item in source map
-	p.srcmap.Put(term, NewSpan(start, p.index))
+	p.srcmap.Put(term, source.NewSpan(start, p.index))
 	// Done
 	return term, nil
 }
@@ -185,7 +224,7 @@ func (p *Parser) parseSymbol() []rune {
 	return token
 }
 
-func (p *Parser) parseSequence(terminator rune) ([]SExp, *SyntaxError) {
+func (p *Parser) parseSequence(terminator rune) ([]SExp, *source.SyntaxError) {
 	var elements []SExp
 
 	for c := p.Lookahead(0); c == nil || *c != terminator; c = p.Lookahead(0) {
@@ -209,7 +248,7 @@ func (p *Parser) parseSequence(terminator rune) ([]SExp, *SyntaxError) {
 }
 
 // Construct a parser error at the current position in the input stream.
-func (p *Parser) error(msg string) *SyntaxError {
-	span := NewSpan(p.index, p.index+1)
+func (p *Parser) error(msg string) *source.SyntaxError {
+	span := source.NewSpan(p.index, p.index+1)
 	return p.srcfile.SyntaxError(span, msg)
 }

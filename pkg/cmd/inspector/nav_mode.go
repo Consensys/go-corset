@@ -12,7 +12,10 @@
 // SPDX-License-Identifier: Apache-2.0
 package inspector
 
-import "github.com/consensys/go-corset/pkg/util/termio"
+import (
+	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/termio"
+)
 
 // NavigationMode is the default mode of the inspector.  In this mode, the user
 // is navigating the trace in the normal fashion.
@@ -29,11 +32,11 @@ func (p *NavigationMode) Activate(parent *Inspector) {
 	parent.cmdBar.Add(termio.NewText("ilter :: "))
 	parent.cmdBar.Add(termio.NewColouredText("[#]", termio.TERM_YELLOW))
 	parent.cmdBar.Add(termio.NewText("clear filter :: "))
+	parent.cmdBar.Add(termio.NewColouredText("[s]", termio.TERM_YELLOW))
+	parent.cmdBar.Add(termio.NewText("scan :: "))
 	//p.cmdbar.Add(termio.NewFormattedText("[p]erspectives"))
 	parent.cmdBar.Add(termio.NewColouredText("[q]", termio.TERM_RED))
 	parent.cmdBar.Add(termio.NewText("uit"))
-	//
-	parent.statusBar.Clear()
 }
 
 // Clock navitation mode, which does nothing at this time.
@@ -71,6 +74,8 @@ func (p *NavigationMode) KeyPressed(parent *Inspector, key uint16) bool {
 		parent.EnterMode(p.gotoInputMode(parent))
 	case 'f':
 		parent.EnterMode(p.filterInputMode(parent))
+	case 's':
+		parent.EnterMode(p.scanInputMode(parent))
 	case '#':
 		parent.clearColumnFilter()
 	}
@@ -86,7 +91,7 @@ func (p *NavigationMode) gotoInputMode(parent *Inspector) Mode {
 	return newInputMode(prompt, history_index, history, newUintHandler(parent.gotoRow))
 }
 
-func (p *NavigationMode) filterInputMode(parent *Inspector) Mode { //
+func (p *NavigationMode) filterInputMode(parent *Inspector) Mode {
 	prompt := termio.NewColouredText("[history ↑/↓] regex? ", termio.TERM_YELLOW)
 	// Determine current active filter
 	filter := parent.currentView().columnFilter
@@ -98,4 +103,23 @@ func (p *NavigationMode) filterInputMode(parent *Inspector) Mode { //
 	}
 	//
 	return newInputMode(prompt, history_index, history, newRegexHandler(parent.filterColumns))
+}
+
+func (p *NavigationMode) scanInputMode(parent *Inspector) Mode {
+	var (
+		prompt        = termio.NewColouredText("[history ↑/↓] expression? ", termio.TERM_YELLOW)
+		history       = parent.currentView().scanHistory
+		history_index = uint(len(history))
+		columns       set.SortedSet[string]
+	)
+	// Identify available columns
+	for _, c := range parent.CurrentModule().columns {
+		columns.Insert(c.Name)
+	}
+	// Construct environment
+	env := func(col string) bool {
+		return columns.Contains(col)
+	}
+	// Construct input mode
+	return newInputMode(prompt, history_index, history, newQueryHandler(env, parent.matchQuery))
 }

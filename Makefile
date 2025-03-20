@@ -1,6 +1,6 @@
 GOCORSET_VERSION:=$(shell git describe --always --tags)
 GOCORSET_VERSION_PATH:="github.com/consensys/go-corset/pkg/cmd"
-GOLANGCI_VERSION:=1.64.3
+GOLANGCI_VERSION:=1.64.8
 PROJECT_NAME:=go-corset
 GOPATH_BIN:=$(shell go env GOPATH)/bin
 

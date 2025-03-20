@@ -24,7 +24,8 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/util"
-	"github.com/consensys/go-corset/pkg/util/sexp"
+	"github.com/consensys/go-corset/pkg/util/source"
+	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
 // ===================================================================
@@ -39,14 +40,14 @@ import (
 // Thus, you should never expect to see duplicate module names in the returned
 // array.
 // If strictMode is activated, parser rejects columns of field type 𝔽.
-func ParseSourceFiles(files []*sexp.SourceFile, strictMode bool) (ast.Circuit,
-	*sexp.SourceMaps[ast.Node], []SyntaxError) {
+func ParseSourceFiles(files []*source.File, strictMode bool) (ast.Circuit,
+	*source.Maps[ast.Node], []SyntaxError) {
 	//
 	var circuit ast.Circuit
 	// (for now) at most one error per source file is supported.
 	var errors []SyntaxError
 	// Construct an initially empty source map
-	srcmaps := sexp.NewSourceMaps[ast.Node]()
+	srcmaps := source.NewSourceMaps[ast.Node]()
 	// num_errs counts the number of errors reported
 	var num_errs uint
 	// Contents map holds the combined fragments of each module.
@@ -100,8 +101,8 @@ func ParseSourceFiles(files []*sexp.SourceFile, strictMode bool) (ast.Circuit,
 // modules.  Observe that every lisp file starts in the "prelude" or "root"
 // module, and may declare items for additional modules as necessary.
 // If strictMode is activated, parser rejects columns of field type 𝔽.
-func ParseSourceFile(srcfile *sexp.SourceFile, strictMode bool) (ast.Circuit,
-	*sexp.SourceMap[ast.Node], []SyntaxError) {
+func ParseSourceFile(srcfile *source.File, strictMode bool) (ast.Circuit,
+	*source.Map[ast.Node], []SyntaxError) {
 	//
 	var (
 		circuit ast.Circuit
@@ -109,7 +110,7 @@ func ParseSourceFile(srcfile *sexp.SourceFile, strictMode bool) (ast.Circuit,
 		path    util.Path = util.NewAbsolutePath()
 	)
 	// Parse bytes into an S-Expression
-	terms, srcmap, err := srcfile.ParseAll()
+	terms, srcmap, err := sexp.ParseAll(srcfile)
 	// Check test file parsed ok
 	if err != nil {
 		return circuit, nil, []SyntaxError{*err}
@@ -154,17 +155,17 @@ type Parser struct {
 	// Translator used for recursive expressions.
 	translator *sexp.Translator[ast.Expr]
 	// Mapping from constructed S-Expressions to their spans in the original text.
-	nodemap *sexp.SourceMap[ast.Node]
+	nodemap *source.Map[ast.Node]
 	// Mode for the parser to reject columns of field type 𝔽.
 	strictMode bool
 }
 
 // NewParser constructs a new parser using a given mapping from S-Expressions to
 // spans in the underlying source file.
-func NewParser(srcfile *sexp.SourceFile, srcmap *sexp.SourceMap[sexp.SExp], strictMode bool) *Parser {
+func NewParser(srcfile *source.File, srcmap *source.Map[sexp.SExp], strictMode bool) *Parser {
 	p := sexp.NewTranslator[ast.Expr](srcfile, srcmap)
 	// Construct (initially empty) node map
-	nodemap := sexp.NewSourceMap[ast.Node](srcmap.Source())
+	nodemap := source.NewSourceMap[ast.Node](srcmap.Source())
 	// Construct parser
 	parser := &Parser{p, nodemap, strictMode}
 	// Configure expression translator
@@ -191,10 +192,10 @@ func NewParser(srcfile *sexp.SourceFile, srcmap *sexp.SourceMap[sexp.SExp], stri
 // NodeMap extract the node map constructec by this parser.  A key task here is
 // to copy all mappings from the expression translator, which maintains its own
 // map.
-func (p *Parser) NodeMap() *sexp.SourceMap[ast.Node] {
+func (p *Parser) NodeMap() *source.Map[ast.Node] {
 	// Copy all mappings from translator's source map into this map.  A mapping
 	// function is required to coerce the types.
-	sexp.JoinMaps(p.nodemap, p.translator.SourceMap(), func(e ast.Expr) ast.Node { return e })
+	source.JoinMaps(p.nodemap, p.translator.SourceMap(), func(e ast.Expr) ast.Node { return e })
 	// Done
 	return p.nodemap
 }

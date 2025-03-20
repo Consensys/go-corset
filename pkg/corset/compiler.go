@@ -22,7 +22,7 @@ import (
 	"github.com/consensys/go-corset/pkg/corset/compiler"
 	"github.com/consensys/go-corset/pkg/hir"
 	sc "github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/util/sexp"
+	"github.com/consensys/go-corset/pkg/util/source"
 )
 
 // STDLIB is an import of the standard library.
@@ -34,7 +34,7 @@ var STDLIB []byte
 // Syntax errors are always associated with some line in one of the original
 // source files.  For simplicity, we reuse existing notion of syntax error from
 // the S-Expression library.
-type SyntaxError = sexp.SyntaxError
+type SyntaxError = source.SyntaxError
 
 // CompilationConfig encapsulates various options which can affect compilation.
 type CompilationConfig struct {
@@ -51,7 +51,7 @@ type CompilationConfig struct {
 // CompileSourceFiles compiles one or more source files into a schema.  This
 // process can fail if the source files are mal-formed, or contain syntax errors
 // or other forms of error (e.g. type errors).
-func CompileSourceFiles(config CompilationConfig, srcfiles []*sexp.SourceFile) (*binfile.BinaryFile, []SyntaxError) {
+func CompileSourceFiles(config CompilationConfig, srcfiles []*source.File) (*binfile.BinaryFile, []SyntaxError) {
 	// Include the standard library (if requested)
 	srcfiles = includeStdlib(config.Stdlib, srcfiles)
 	// Parse all source files (inc stdblib if applicable).
@@ -76,8 +76,8 @@ func CompileSourceFiles(config CompilationConfig, srcfiles []*sexp.SourceFile) (
 // really helper function for e.g. the testing environment.   This process can
 // fail if the source file is mal-formed, or contains syntax errors or other
 // forms of error (e.g. type errors).
-func CompileSourceFile(config CompilationConfig, srcfile *sexp.SourceFile) (*binfile.BinaryFile, []SyntaxError) {
-	schema, errs := CompileSourceFiles(config, []*sexp.SourceFile{srcfile})
+func CompileSourceFile(config CompilationConfig, srcfile *source.File) (*binfile.BinaryFile, []SyntaxError) {
+	schema, errs := CompileSourceFiles(config, []*source.File{srcfile})
 	// Check for errors
 	if errs != nil {
 		return nil, errs
@@ -101,11 +101,11 @@ type Compiler struct {
 	// Source maps nodes in the circuit back to the spans in their original
 	// source files.  This is needed when reporting syntax errors to generate
 	// highlights of the relevant source line(s) in question.
-	srcmap *sexp.SourceMaps[ast.Node]
+	srcmap *source.Maps[ast.Node]
 }
 
 // NewCompiler constructs a new compiler for a given set of modules.
-func NewCompiler(circuit ast.Circuit, srcmaps *sexp.SourceMaps[ast.Node]) *Compiler {
+func NewCompiler(circuit ast.Circuit, srcmaps *source.Maps[ast.Node]) *Compiler {
 	return &Compiler{compiler.DEFAULT_ALLOCATOR, circuit, false, true, srcmaps}
 }
 
@@ -158,10 +158,10 @@ func (p *Compiler) Compile() (*binfile.BinaryFile, []SyntaxError) {
 	return binfile.NewBinaryFile(nil, attributes, schema), errs
 }
 
-func includeStdlib(stdlib bool, srcfiles []*sexp.SourceFile) []*sexp.SourceFile {
+func includeStdlib(stdlib bool, srcfiles []*source.File) []*source.File {
 	if stdlib {
 		// Include stdlib file
-		srcfile := sexp.NewSourceFile("stdlib.lisp", STDLIB)
+		srcfile := source.NewSourceFile("stdlib.lisp", STDLIB)
 		// Append to srcfile list
 		srcfiles = append(srcfiles, srcfile)
 	}

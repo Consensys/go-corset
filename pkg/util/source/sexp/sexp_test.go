@@ -15,6 +15,8 @@ package sexp
 import (
 	"reflect"
 	"testing"
+
+	"github.com/consensys/go-corset/pkg/util/source"
 )
 
 // ============================================================================
@@ -153,8 +155,8 @@ func TestSexp_Err4(t *testing.T) {
 // ============================================================================
 
 func CheckOk(t *testing.T, sexp1 SExp, input string) {
-	src := NewSourceFile("test", []byte(input))
-	sexp2, _, err := src.Parse()
+	src := source.NewSourceFile("test", []byte(input))
+	sexp2, _, err := Parse(src)
 	//
 	if err != nil {
 		t.Error(err)
@@ -164,8 +166,8 @@ func CheckOk(t *testing.T, sexp1 SExp, input string) {
 }
 
 func CheckErr(t *testing.T, input string) {
-	src := NewSourceFile("test", []byte(input))
-	_, _, err := src.Parse()
+	src := source.NewSourceFile("test", []byte(input))
+	_, _, err := Parse(src)
 
 	//
 	if err == nil {
