@@ -29,17 +29,7 @@ type Term[T any] interface {
 	LessThan(T) T
 	LessThanEquals(T) T
 	// Arithmetic
+	Add(...T) T
+	Mul(...T) T
+	Sub(...T) T
 }
-
-/*
-type Arithmetic interface {
-	Const(big.Int) Arithmetic
-	Add(...Arithmetic) Arithmetic
-	Mul(...Arithmetic) Arithmetic
-	//
-	Equals(Arithmetic) Proposition
-	NotEquals(Arithmetic) Proposition
-	LessThan(Arithmetic) Proposition
-	LessThanOrEqual(Arithmetic) Proposition
-}
-*/

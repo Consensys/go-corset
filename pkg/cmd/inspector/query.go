@@ -28,6 +28,9 @@ const qEQ = 4
 const qNEQ = 5
 const qLT = 6
 const qLTEQ = 7
+const qADD = 8
+const qMUL = 9
+const qSUB = 10
 
 // Query represents a boolean expression which can be evaluated over a
 // given set of columns.
@@ -81,23 +84,13 @@ func (p *Query) Number(number big.Int) *Query {
 // Or constructs a disjunction of queries.
 func (p *Query) Or(queries ...*Query) *Query {
 	args := make([]Query, 1+len(queries))
-	args[0] = *p
-	//
-	for i := range queries {
-		args[i+1] = *queries[i]
-	}
 	//
 	return &Query{qOR, args, fr.Element{}, ""}
 }
 
 // And constructs a conjunction of queries.
 func (p *Query) And(queries ...*Query) *Query {
-	args := make([]Query, 1+len(queries))
-	args[0] = *p
-	//
-	for i := range queries {
-		args[i+1] = *queries[i]
-	}
+	args := build_args(p, queries)
 	//
 	return &Query{qAND, args, fr.Element{}, ""}
 }
@@ -120,6 +113,38 @@ func (p *Query) LessThan(rhs *Query) *Query {
 // LessThanEquals constructs a (non-strict) inequality between two queries.
 func (p *Query) LessThanEquals(rhs *Query) *Query {
 	return &Query{qLTEQ, []Query{*p, *rhs}, fr.Element{}, ""}
+}
+
+// Add constructs the sum of one or more queries
+func (p *Query) Add(queries ...*Query) *Query {
+	args := build_args(p, queries)
+	//
+	return &Query{qADD, args, fr.Element{}, ""}
+}
+
+// Mul constructs the product of one or more queries
+func (p *Query) Mul(queries ...*Query) *Query {
+	args := build_args(p, queries)
+	//
+	return &Query{qMUL, args, fr.Element{}, ""}
+}
+
+// Sub constructs the subtraction of one or more queries
+func (p *Query) Sub(queries ...*Query) *Query {
+	args := build_args(p, queries)
+	//
+	return &Query{qSUB, args, fr.Element{}, ""}
+}
+
+func build_args(q *Query, queries []*Query) []Query {
+	args := make([]Query, 1+len(queries))
+	args[0] = *q
+	//
+	for i := range queries {
+		args[i+1] = *queries[i]
+	}
+	//
+	return args
 }
 
 // Eval evaluates the given query in the given environment.
@@ -145,6 +170,12 @@ func (p *Query) Eval(row uint, env map[string]tr.Column) (fr.Element, error) {
 		return eval_nary(row, env, p.args, eval_or)
 	case qAND:
 		return eval_nary(row, env, p.args, eval_and)
+	case qADD:
+		return eval_nary(row, env, p.args, eval_add)
+	case qMUL:
+		return eval_nary(row, env, p.args, eval_mul)
+	case qSUB:
+		return eval_nary(row, env, p.args, eval_sub)
 	default:
 		return fr.One(), fmt.Errorf("unknown operator (%d)", p.op)
 	}
@@ -242,4 +273,34 @@ func eval_and(vals []fr.Element) fr.Element {
 	}
 	// Success
 	return fr.NewElement(0)
+}
+
+func eval_add(vals []fr.Element) fr.Element {
+	val := fr.NewElement(0)
+	//
+	for _, v := range vals {
+		val.Add(&val, &v)
+	}
+	//
+	return val
+}
+
+func eval_mul(vals []fr.Element) fr.Element {
+	val := fr.NewElement(1)
+	//
+	for _, v := range vals {
+		val.Mul(&val, &v)
+	}
+	//
+	return val
+}
+
+func eval_sub(vals []fr.Element) fr.Element {
+	val := vals[0]
+	//
+	for _, v := range vals[1:] {
+		val.Sub(&val, &v)
+	}
+	//
+	return val
 }

@@ -93,8 +93,20 @@ const OR uint = 12
 // AND represents logical conjunction
 const AND uint = 13
 
+// ADD represents integer addition
+const ADD uint = 14
+
+// SUB represents integer subtraction
+const SUB uint = 15
+
+// MUL represents integer multiplication
+const MUL uint = 16
+
 // CONDITIONS captures the set of conditions.
 var CONDITIONS = []uint{EQUALS, NOT_EQUALS, LESSTHAN, LESSTHAN_EQUALS, GREATERTHAN, GREATERTHAN_EQUALS}
+
+// BINOPS captures the set of binary operations
+var BINOPS = []uint{SUB, MUL, ADD}
 
 // CONNECTIVES captures the set of logical connectives.
 var CONNECTIVES = []uint{AND, OR}
@@ -115,6 +127,9 @@ var identifier lex.Scanner[rune] = lex.Many(
 var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
 	lex.Rule(lex.Unit('('), LBRACE),
 	lex.Rule(lex.Unit(')'), RBRACE),
+	lex.Rule(lex.Unit('+'), ADD),
+	lex.Rule(lex.Unit('*'), MUL),
+	lex.Rule(lex.Unit('-'), SUB),
 	lex.Rule(lex.Unit('=', '='), EQUALS),
 	lex.Rule(lex.Unit('!', '='), NOT_EQUALS),
 	lex.Rule(lex.Unit('<'), LESSTHAN),
@@ -184,7 +199,7 @@ func (p *Parser[T]) parseTerm() (T, []source.SyntaxError) {
 }
 
 func (p *Parser[T]) parseCondition() (T, []source.SyntaxError) {
-	lhs, errs := p.parseUnitTerm()
+	lhs, errs := p.parseArithmeticTerm()
 	// See whether binary or not.
 	token := p.lookahead()
 	// Check for infix expression
@@ -195,7 +210,7 @@ func (p *Parser[T]) parseCondition() (T, []source.SyntaxError) {
 	// Accept binary condition
 	p.expect(token.Kind)
 	// Parse rhs
-	rhs, errs := p.parseUnitTerm()
+	rhs, errs := p.parseArithmeticTerm()
 	//
 	if len(errs) == 0 {
 		switch token.Kind {
@@ -217,6 +232,45 @@ func (p *Parser[T]) parseCondition() (T, []source.SyntaxError) {
 	}
 	// Done
 	return lhs, errs
+}
+
+func (p *Parser[T]) parseArithmeticTerm() (T, []source.SyntaxError) {
+	var (
+		tmp        T
+		term, errs = p.parseUnitTerm()
+	)
+	// match all terms
+	terms := []T{}
+	// initialise lookahead
+	kind := p.lookahead().Kind
+	//
+	for len(errs) == 0 && p.follows(BINOPS...) {
+		// Sanity check
+		if !p.follows(kind) {
+			return tmp, p.syntaxErrors(p.lookahead(), "braces required")
+		}
+		// Consume connective
+		p.expect(p.lookahead().Kind)
+		//
+		tmp, errs = p.parseUnitTerm()
+		// Accumulate arguments
+		terms = append(terms, tmp)
+	}
+	//
+	switch {
+	case len(errs) != 0:
+		return term, errs
+	case len(terms) == 0:
+		return term, nil
+	case kind == ADD:
+		return term.Add(terms...), nil
+	case kind == MUL:
+		return term.Mul(terms...), nil
+	case kind == SUB:
+		return term.Sub(terms...), nil
+	}
+	//
+	panic("unreachable")
 }
 
 // ParseTerm parses an expression.
