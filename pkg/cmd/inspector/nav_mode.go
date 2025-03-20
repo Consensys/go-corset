@@ -37,8 +37,6 @@ func (p *NavigationMode) Activate(parent *Inspector) {
 	//p.cmdbar.Add(termio.NewFormattedText("[p]erspectives"))
 	parent.cmdBar.Add(termio.NewColouredText("[q]", termio.TERM_RED))
 	parent.cmdBar.Add(termio.NewText("uit"))
-	//
-	parent.statusBar.Clear()
 }
 
 // Clock navitation mode, which does nothing at this time.

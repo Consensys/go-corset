@@ -23,6 +23,8 @@ type Token struct {
 
 // LexRule is simply a rule for associating groups of characters with a given
 // tag.
+//
+// nolint
 type LexRule[T any] struct {
 	scanner Scanner[T]
 	tag     uint

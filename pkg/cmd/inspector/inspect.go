@@ -58,6 +58,7 @@ type Inspector struct {
 	table     *widget.Table
 	cmdBar    *widget.TextLine
 	statusBar *widget.TextLine
+	statusClk uint
 	// The stack of "modes" in which the inspector is operating.  The root modes
 	// is the first in the stack.  When this is terminated, then the inspector
 	// closes.
@@ -92,7 +93,7 @@ func NewInspector(term *termio.Terminal, schema sc.Schema, trace tr.Trace, srcma
 	//
 	tabs, table, cmdbar, statusbar := initInspectorWidgets(term, states)
 	//
-	inspector := &Inspector{0, 0, term, trace, states, tabs, table, cmdbar, statusbar, nil}
+	inspector := &Inspector{0, 0, term, trace, states, tabs, table, cmdbar, statusbar, 0, nil}
 	table.SetSource(inspector)
 	// Put the inspector into default mode.
 	inspector.EnterMode(&NavigationMode{})
@@ -102,12 +103,24 @@ func NewInspector(term *termio.Terminal, schema sc.Schema, trace tr.Trace, srcma
 
 // Clock the inspector
 func (p *Inspector) Clock() error {
+	dirty := false
 	mode := len(p.modes) - 1
 	nWidth, nHeight := p.term.GetSize()
 	// Pass on clock
 	p.modes[mode].Clock(p)
+	//
+	if p.statusClk != 0 {
+		p.statusClk = p.statusClk - 1
+		// Clear status when clock expired
+		if p.statusClk == 0 {
+			p.statusClk = 0
+			p.statusBar.Clear()
+			// Force render
+			dirty = true
+		}
+	}
 	// Only force rerender if dimensions have changed.
-	if nWidth != p.width || nHeight != p.height {
+	if dirty || nWidth != p.width || nHeight != p.height {
 		// Update cached dimensions
 		p.width, p.height = nWidth, nHeight
 		// Render
@@ -158,9 +171,12 @@ func (p *Inspector) KeyPressed(key uint16) bool {
 	return len(p.modes) == 0
 }
 
+// SetStatus puts a message on the status bar.  Messages remain visible for some
+// number of clock cycles.
 func (p *Inspector) SetStatus(msg termio.FormattedText) {
 	p.statusBar.Clear()
 	p.statusBar.Add(msg)
+	p.statusClk = 5
 }
 
 // Access currently selected view
@@ -171,18 +187,18 @@ func (p *Inspector) currentView() *ModuleState {
 }
 
 // Actions goto row mode
-func (p *Inspector) gotoRow(row uint) error {
+func (p *Inspector) gotoRow(row uint) termio.FormattedText {
 	// Action change
 	row = p.CurrentModule().setRowOffset(row)
 	//
-	return fmt.Errorf("row %d", row)
+	return termio.NewColouredText(fmt.Sprintf("At row %d", row), termio.TERM_GREEN)
 }
 
 // filter columns based on a regex
-func (p *Inspector) filterColumns(regex *regexp.Regexp) error {
+func (p *Inspector) filterColumns(regex *regexp.Regexp) termio.FormattedText {
 	p.CurrentModule().applyColumnFilter(p.trace, regex, true)
 	// Success
-	return nil
+	return termio.NewText("")
 }
 
 func (p *Inspector) clearColumnFilter() bool {
@@ -192,7 +208,7 @@ func (p *Inspector) clearColumnFilter() bool {
 	return true
 }
 
-func (p *Inspector) matchQuery(query *Query) error {
+func (p *Inspector) matchQuery(query *Query) termio.FormattedText {
 	return p.CurrentModule().matchQuery(query, p.trace)
 }
 

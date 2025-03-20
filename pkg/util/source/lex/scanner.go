@@ -81,6 +81,7 @@ func Within[T cmp.Ordered](lowest T, highest T) Scanner[T] {
 	}
 }
 
+// Many matches one or more of a given item.
 func Many[T any](acceptor Scanner[T]) Scanner[T] {
 	return func(items []T) uint {
 		index := uint(0)

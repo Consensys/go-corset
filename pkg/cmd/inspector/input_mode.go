@@ -47,7 +47,7 @@ type InputHandler[T any] interface {
 	// Convert attempts to convert the input string into a valid value.
 	Convert(string) (T, error)
 	// Apply the given input, which will activate some kind of callback.
-	Apply(T)
+	Apply(T) termio.FormattedText
 }
 
 func newInputMode[T any](prompt termio.FormattedText, index uint, history []string,
@@ -118,7 +118,9 @@ func (p *InputMode[T]) KeyPressed(parent *Inspector, key uint16) bool {
 			return false
 		}
 		// Looks good, to fire the value
-		p.handler.Apply(val)
+		outcome := p.handler.Apply(val)
+		//
+		parent.SetStatus(outcome)
 		// Success
 		return true
 	case key == termio.CURSOR_LEFT:
@@ -172,10 +174,10 @@ func (p *InputMode[T]) insertCharacterAtCursor(char byte) {
 // ==================================================================
 
 type uintHandler struct {
-	callback func(uint) error
+	callback func(uint) termio.FormattedText
 }
 
-func newUintHandler(callback func(uint) error) InputHandler[uint] {
+func newUintHandler(callback func(uint) termio.FormattedText) InputHandler[uint] {
 	return &uintHandler{callback}
 }
 
@@ -189,8 +191,8 @@ func (p *uintHandler) Convert(input string) (uint, error) {
 	return uint(val), nil
 }
 
-func (p *uintHandler) Apply(value uint) {
-	p.callback(value)
+func (p *uintHandler) Apply(value uint) termio.FormattedText {
+	return p.callback(value)
 }
 
 // ==================================================================
@@ -198,10 +200,10 @@ func (p *uintHandler) Apply(value uint) {
 // ==================================================================
 
 type regexHandler struct {
-	callback func(*regexp.Regexp) error
+	callback func(*regexp.Regexp) termio.FormattedText
 }
 
-func newRegexHandler(callback func(*regexp.Regexp) error) InputHandler[*regexp.Regexp] {
+func newRegexHandler(callback func(*regexp.Regexp) termio.FormattedText) InputHandler[*regexp.Regexp] {
 	return &regexHandler{callback}
 }
 
@@ -209,8 +211,8 @@ func (p *regexHandler) Convert(input string) (*regexp.Regexp, error) {
 	return regexp.Compile(input)
 }
 
-func (p *regexHandler) Apply(regex *regexp.Regexp) {
-	p.callback(regex)
+func (p *regexHandler) Apply(regex *regexp.Regexp) termio.FormattedText {
+	return p.callback(regex)
 }
 
 // ==================================================================
@@ -221,10 +223,10 @@ type queryHandler struct {
 	// environment determines which variables are permitted
 	env func(string) bool
 	//
-	callback func(*Query) error
+	callback func(*Query) termio.FormattedText
 }
 
-func newQueryHandler(env func(string) bool, callback func(*Query) error) InputHandler[*Query] {
+func newQueryHandler(env func(string) bool, callback func(*Query) termio.FormattedText) InputHandler[*Query] {
 	return &queryHandler{env, callback}
 }
 
@@ -238,8 +240,8 @@ func (p *queryHandler) Convert(input string) (*Query, error) {
 	return nil, errors.New(query_error(errs[0]))
 }
 
-func (p *queryHandler) Apply(query *Query) {
-	p.callback(query)
+func (p *queryHandler) Apply(query *Query) termio.FormattedText {
+	return p.callback(query)
 }
 
 func query_error(err source.SyntaxError) string {

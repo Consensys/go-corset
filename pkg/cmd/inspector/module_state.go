@@ -13,7 +13,6 @@
 package inspector
 
 import (
-	"errors"
 	"fmt"
 	"regexp"
 	"slices"
@@ -23,6 +22,7 @@ import (
 	"github.com/consensys/go-corset/pkg/hir"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/termio"
 )
 
 // ModuleState provides state regarding how to display the trace for a given
@@ -130,7 +130,7 @@ func (p *ModuleState) applyColumnFilter(trace tr.Trace, regex *regexp.Regexp, hi
 
 // Evaluate a query on the current module using those values from the given
 // trace, looking for the first row where the query holds.
-func (p *ModuleState) matchQuery(query *Query, trace tr.Trace) error {
+func (p *ModuleState) matchQuery(query *Query, trace tr.Trace) termio.FormattedText {
 	// Always update history
 	p.scanHistory = history_append(p.scanHistory, query.String())
 	// Proceed
@@ -144,12 +144,12 @@ func (p *ModuleState) matchQuery(query *Query, trace tr.Trace) error {
 		val := query.Eval(i, env)
 		//
 		if val.IsZero() {
-			p.setRowOffset(i)
-			return nil
+			r := p.setRowOffset(i)
+			return termio.NewColouredText(fmt.Sprintf("Matched row %d", r), termio.TERM_GREEN)
 		}
 	}
 	//
-	return errors.New("matched nothing")
+	return termio.NewColouredText("Matched nothing", termio.TERM_YELLOW)
 }
 
 // History append will append a given item to the end of the history.  However,
