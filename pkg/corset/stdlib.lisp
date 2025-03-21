@@ -10,88 +10,70 @@
 ;; specific language governing permissions and limitations under the License.
 ;;
 ;; SPDX-License-Identifier: Apache-2.0
+
+(defpurefun (vanishes! e0) (== 0 e0))
+;;(defpurefun ((force-bin :binary :force) x) x)
+
+;; =============================================================================
+;; Conditionals
+;; =============================================================================
 (defpurefun (if-zero cond then) (if (== 0 cond) then))
 (defpurefun (if-zero cond then else) (if (== 0 cond) then else))
-
 (defpurefun (if-not-zero cond then) (if (!= 0 cond) then))
 (defpurefun (if-not-zero cond then else) (if (!= 0 cond) then else))
-
-(defpurefun ((force-bool :𝔽@bool :force) x) x)
-(defpurefun ((is-binary :𝔽@loob :force) e0) (* e0 (- 1 e0)))
-
-(defpurefun ((force-bin :binary :force) x) x)
-
-;;
-;; Boolean functions
-;;
-;; !-suffix denotes loobean algebra (i.e. 0 == true)
-;; ~-prefix denotes normalized-functions (i.e. output is 0/1)
-(defpurefun (and a b) (* a b))
-(defpurefun ((or! :𝔽@loob) a b) (* a b))
-(defpurefun ((not :binary@bool :force) (x :binary)) (- 1 x))
-
-(defpurefun ((eq! :𝔽@loob) x y) (== x y))
-(defpurefun ((neq! :binary@loob :force) x y) (!= x y))
-(defunalias = eq!)
-
-(defpurefun ((eq :binary@bool :force) x y) (- 1 (~ (eq! x y))))
-(defpurefun ((neq :𝔽@bool) x y) (- x y))
-
-;; Variadic variations on and/or
-(defunalias any! *)
-(defunalias all *)
-
-;; Boolean functions
-(defpurefun ((is-not-zero :binary@bool) x) (~ x))
-(defpurefun ((is-not-zero! :binary@loob :force) x) (- 1 (is-not-zero x)))
-(defpurefun ((is-zero :binary@bool :force) x) (- 1 (~ x)))
-
-;; Chronological functions
-(defpurefun (next X) (shift X 1))
-(defpurefun (prev X) (shift X -1))
-
-;; Ensure that e0 has (resp. will) increase (resp. decrease) of offset
-;; w.r.t. the previous (resp. next) row.
-(defpurefun (did-inc! e0 offset) (eq! e0 (+ (prev e0) offset)))
-(defpurefun (did-dec! e0 offset) (eq!  e0 (- (prev e0) offset)))
-(defpurefun (will-inc! e0 offset) (will-eq! e0 (+ e0 offset)))
-(defpurefun (will-dec! e0 offset) (eq! (next e0) (- e0 offset)))
-
-;; Ensure that e0 remained (resp. will be) constant
-;; with regards to the previous (resp. next) row.
-(defpurefun (remained-constant! e0) (eq! e0 (prev e0)))
-(defpurefun (will-remain-constant! e0) (will-eq! e0 e0))
-
-;; Ensure (in loobean logic) that e0 has changed (resp. will change) its value
-;; with regards to the previous (resp. next) row.
-(defpurefun (did-change! e0) (neq! e0 (prev e0)))
-
-;; Ensure (in loobean logic) that e0 was (resp. will be) equal to e1 in the
-;; previous (resp. next) row.
-(defpurefun (was-eq! e0 e1) (eq! (prev e0) e1))
-(defpurefun (will-eq! e0 e1) (eq! (next e0) e1))
-
-;; Helpers
-(defpurefun ((vanishes! :𝔽@loob :force) e0) e0)
 (defpurefun (if-eq x val then) (if (eq! x val) then))
 (defpurefun (if-eq-else x val then else) (if (eq! x val) then else))
-(defpurefun (if-not-eq A B then) (if (neq A B) then))
+(defpurefun (if-not-eq A B then) (if (!= A B) then))
+
+;; =============================================================================
+;; Boolean connectives
+;; =============================================================================
+(defpurefun (or! a b) (* a b))
+(defpurefun (eq! x y) (== x y))
+
+;; =============================================================================
+;; Chronological functions
+;; =============================================================================
+(defpurefun (next X) (shift X 1))
+(defpurefun (prev X) (shift X -1))
+;; Ensure e0 has increased by offset w.r.t previous row.
+(defpurefun (did-inc! e0 offset) (== e0 (+ (prev e0) offset)))
+;; Ensure e0 has decreased by offset w.r.t previous row.
+(defpurefun (did-dec! e0 offset) (==  e0 (- (prev e0) offset)))
+;; Ensure e0 will increase by offset w.r.t next row.
+(defpurefun (will-inc! e0 offset) (will-eq! e0 (+ e0 offset)))
+;; Ensure e0 will decrease by offset w.r.t next row.
+(defpurefun (will-dec! e0 offset) (== (next e0) (- e0 offset)))
+;; Ensure e0 remained constant w.r.t previous row.
+(defpurefun (remained-constant! e0) (== e0 (prev e0)))
+;; Ensure e0 will remain constant w.r.t next row.
+(defpurefun (will-remain-constant! e0) (will-eq! e0 e0))
+;; Ensure e0 has changed its value w.r.t previous row.
+(defpurefun (did-change! e0) (!= e0 (prev e0)))
+;; Ensure e1 equals value of e0 in previous row.
+(defpurefun (was-eq! e0 e1) (== (prev e0) e1))
+;; Ensure e1 wil equal value of e0 in next row.
+(defpurefun (will-eq! e0 e1) (== (next e0) e1))
+
+;; =============================================================================
+;; Helpers
+;; =============================================================================
 
 ;; counter constancy constraint
-(defpurefun ((counter-constancy :𝔽@loob) ct X)
+(defpurefun (counter-constancy ct X)
   (if-not-zero ct
                (remained-constant! X)))
 
 ;; perspective constancy constraint
-(defpurefun ((perspective-constancy :𝔽@loob) PERSPECTIVE_SELECTOR X)
+(defpurefun (perspective-constancy PERSPECTIVE_SELECTOR X)
             (if-not-zero (* PERSPECTIVE_SELECTOR (prev PERSPECTIVE_SELECTOR))
                          (remained-constant! X)))
 
 ;; base-X decomposition constraints
 (defpurefun (base-X-decomposition ct base acc digits)
   (if-zero ct
-           (eq! acc digits)
-           (eq! acc (+ (* base (prev acc)) digits))))
+           (== acc digits)
+           (== acc (+ (* base (prev acc)) digits))))
 
 ;; byte decomposition constraint
 (defpurefun (byte-decomposition ct acc bytes) (base-X-decomposition ct 256 acc bytes))
@@ -103,10 +85,10 @@
 (defpurefun (plateau-constraint CT (X :binary) C)
             (begin (debug (stamp-constancy CT C))
                    (if-zero C
-                            (eq! X 1)
-                            (if (eq! CT 0)
+                            (== X 1)
+                            (if (== CT 0)
                                 (vanishes! X)
-                              (if (eq!  CT C)
+                              (if (==  CT C)
                                   (did-inc! X 1)
                                 (remained-constant! X))))))
 
