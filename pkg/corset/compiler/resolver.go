@@ -250,27 +250,32 @@ func (r *resolver) finaliseDeclarationsInModule(scope *ModuleScope, decls []ast.
 	var (
 		incomplete ast.Node = nil
 		counter    uint     = 32
+		errors     []SyntaxError
+		// Failed indicates declarations which are already considered to have
+		// failed.
+		failed = make([]bool, len(decls))
 	)
 	//
 	for changed && !complete && counter > 0 {
-		errors := make([]SyntaxError, 0)
 		changed = false
 		complete = true
 		//
-		for _, decl := range decls {
+		for i, decl := range decls {
 			// Check whether included and already finalised
-			if includes(decl) && !decl.IsFinalised() {
+			if includes(decl) && !failed[i] && !decl.IsFinalised() {
 				// No, so attempt to finalise
 				ready, errs := r.declarationDependenciesAreFinalised(scope, decl)
 				// Check what we found
 				if errs != nil {
 					errors = append(errors, errs...)
+					failed[i] = true
 				} else if ready {
 					// Finalise declaration and handle errors
 					errs := r.finaliseDeclaration(scope, decl)
 					errors = append(errors, errs...)
 					// Record that a new assignment is available.
 					changed = changed || len(errs) == 0
+					failed[i] = (len(errs) != 0)
 				} else {
 					// ast.Declaration not ready yet
 					complete = false
@@ -278,15 +283,13 @@ func (r *resolver) finaliseDeclarationsInModule(scope *ModuleScope, decls []ast.
 				}
 			}
 		}
-		// Sanity check for any errors caught during this iteration.
-		if len(errors) > 0 {
-			return errors
-		}
 		// Decrement counter
 		counter--
 	}
 	// Check whether we actually finished the allocation.
-	if counter == 0 {
+	if len(errors) > 0 {
+		return errors
+	} else if counter == 0 {
 		err := r.srcmap.SyntaxError(incomplete, "unable to complete resolution")
 		return []SyntaxError{*err}
 	} else if !complete {
