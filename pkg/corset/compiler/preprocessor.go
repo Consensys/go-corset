@@ -373,7 +373,11 @@ func (p *preprocessor) preprocessForInModule(expr *ast.For) (ast.Expr, []SyntaxE
 		return nil, errors
 	}
 	// Done
-	return &ast.List{Args: args}, nil
+	nexpr := &ast.List{Args: args}
+	// Copy source mapping
+	p.srcmap.Copy(expr, nexpr)
+	//
+	return nexpr, nil
 }
 
 func (p *preprocessor) preprocessLetInModule(expr *ast.Let) (ast.Expr, []SyntaxError) {
@@ -423,15 +427,22 @@ func (p *preprocessor) preprocessReduceInModule(expr *ast.Reduce) (ast.Expr, []S
 	//
 	if list, ok := body.(*ast.List); !ok {
 		return nil, append(errors, *p.srcmap.SyntaxError(expr.Arg, "expected list"))
-	} else if sig := expr.Signature; sig == nil {
-		return nil, append(errors, *p.srcmap.SyntaxError(expr.Arg, "unbound function"))
-	} else {
+	} else if binding, ok := expr.Name.Binding().(ast.FunctionBinding); ok {
 		reduction := list.Args[0]
 		// Build reduction
 		for i := 1; i < len(list.Args); i++ {
-			reduction = sig.Apply([]ast.Expr{reduction, list.Args[i]}, p.srcmap)
+			arg, errs := p.preprocessExpressionInModule(list.Args[i])
+			reduction = binding.Signature().Apply([]ast.Expr{reduction, arg}, p.srcmap)
+			// Copy source mapping (if none exists)
+			if !p.srcmap.Has(reduction) {
+				p.srcmap.Copy(expr, reduction)
+			}
+			//
+			errors = append(errors, errs...)
 		}
 		// done
 		return reduction, errors
 	}
+	// failure
+	return nil, append(errors, *p.srcmap.SyntaxError(expr.Arg, "unbound function"))
 }

@@ -240,7 +240,7 @@ type DefunBinding struct {
 var _ FunctionBinding = &DefunBinding{}
 
 // NewDefunBinding constructs a new function binding.
-func NewDefunBinding(pure bool, paramTypes []Type, returnType Type, body Expr) DefunBinding {
+func NewDefunBinding(pure bool, paramTypes []Type, returnType Type, forced bool, body Expr) DefunBinding {
 	return DefunBinding{pure, paramTypes, returnType, body, false}
 }
 

@@ -2,5 +2,5 @@
 
 (defconstraint c1 ()
   (if (== X 0)
-      (if (== 0 (shift X -1))
+      (if (== (shift X -1) 0)
           (== 0 Y))))

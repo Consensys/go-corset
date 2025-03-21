@@ -96,15 +96,24 @@ func (p *IntrinsicDefinition) Signature() *ast.FunctionSignature {
 // ============================================================================
 
 // INTRINSICS identifies all of the built-in functions used within the corset
-// language, such as "+", "-", etc.  This is needed for two reasons: firstly, so
+// language, such as "+", "*", etc.  This is needed for two reasons: firstly, so
 // we can alias them; secondly, so they can be used in reductions.
 var INTRINSICS []IntrinsicDefinition = []IntrinsicDefinition{
 	// Addition
 	{"+", 1, intrinsicAdd},
+	{"+", 2, intrinsicAdd},
+	{"+", 3, intrinsicAdd},
+	{"+", 4, intrinsicAdd},
 	// Subtraction
 	{"-", 1, intrinsicSub},
+	{"-", 2, intrinsicSub},
+	{"-", 3, intrinsicSub},
+	{"-", 4, intrinsicSub},
 	// Multiplication
 	{"*", 1, intrinsicMul},
+	{"*", 2, intrinsicMul},
+	{"*", 3, intrinsicMul},
+	{"*", 4, intrinsicMul},
 }
 
 func intrinsicAdd(arity uint) ast.Expr {

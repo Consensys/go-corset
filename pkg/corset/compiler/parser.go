@@ -1066,6 +1066,7 @@ func (p *Parser) parseDefFun(module util.Path, pure bool, elements []sexp.SExp) 
 	var (
 		name      *sexp.Symbol
 		ret       ast.Type
+		forced    bool
 		params    []*ast.DefParameter
 		errors    []SyntaxError
 		signature *sexp.List = elements[1].AsList()
@@ -1075,13 +1076,15 @@ func (p *Parser) parseDefFun(module util.Path, pure bool, elements []sexp.SExp) 
 		err := p.translator.SyntaxError(elements[1], "malformed function signature")
 		errors = append(errors, *err)
 	} else {
-		name, ret, params, errors = p.parseFunSignature(signature.Elements)
+		name, ret, forced, params, errors = p.parseFunSignature(signature.Elements)
 	}
 	// Translate expression
 	body, errs := p.translator.Translate(elements[2])
 	// Apply return type
 	if ret != nil {
-		body = &ast.Cast{Arg: body, Type: ret}
+		// TODO: the notion of "forcing" should be deprecated in favour of
+		// explicit type casts.
+		body = &ast.Cast{Arg: body, Type: ret, Unsafe: forced}
 		p.mapSourceNode(elements[2], body)
 	}
 	//
@@ -1097,18 +1100,18 @@ func (p *Parser) parseDefFun(module util.Path, pure bool, elements []sexp.SExp) 
 	}
 	// Construct binding
 	path := module.Extend(name.Value)
-	binding := ast.NewDefunBinding(pure, paramTypes, ret, body)
+	binding := ast.NewDefunBinding(pure, paramTypes, ret, forced, body)
 	fn_name := ast.NewFunctionName(*path, &binding)
 	// Update source mapping
 	p.mapSourceNode(name, fn_name)
 	//
-	return ast.NewDefFun(fn_name, params), nil
+	return ast.NewDefFun(fn_name, params, ret), nil
 }
 
-func (p *Parser) parseFunSignature(elements []sexp.SExp) (*sexp.Symbol, ast.Type, []*ast.DefParameter, []SyntaxError) {
+func (p *Parser) parseFunSignature(elements []sexp.SExp) (*sexp.Symbol, ast.Type, bool, []*ast.DefParameter, []SyntaxError) {
 	var params []*ast.DefParameter = make([]*ast.DefParameter, len(elements)-1)
 	// Parse name and (optional) return type
-	name, ret, _, errors := p.parseFunctionNameReturn(elements[0])
+	name, ret, forced, errors := p.parseFunctionNameReturn(elements[0])
 	// Parse parameters
 	for i := 0; i < len(params); i = i + 1 {
 		var errs []SyntaxError
@@ -1119,10 +1122,10 @@ func (p *Parser) parseFunSignature(elements []sexp.SExp) (*sexp.Symbol, ast.Type
 	}
 	// Check for any errors arising
 	if len(errors) > 0 {
-		return nil, nil, nil, errors
+		return nil, nil, false, nil, errors
 	}
 	//
-	return name, ret, params, nil
+	return name, ret, forced, params, nil
 }
 
 func (p *Parser) parseFunctionNameReturn(element sexp.SExp) (*sexp.Symbol, ast.Type, bool, []SyntaxError) {
@@ -1314,6 +1317,8 @@ func (p *Parser) parseType(term sexp.SExp) (ast.Type, bool, *SyntaxError) {
 	var datatype ast.Type
 	// See what we've got.
 	switch parts[0] {
+	case ":bool":
+		datatype = ast.BOOLEAN_TYPE
 	case ":binary":
 		datatype = ast.NewUintType(1)
 	case ":byte":
@@ -1513,7 +1518,7 @@ func reduceParserRule(p *Parser) sexp.ListRule[ast.Expr] {
 		varaccess := ast.NewVariableAccess(path, arity, nil)
 		p.mapSourceNode(name, varaccess)
 		// Done
-		return &ast.Reduce{Name: varaccess, Signature: nil, Arg: body}, nil
+		return &ast.Reduce{Name: varaccess, Arg: body}, nil
 	}
 }
 

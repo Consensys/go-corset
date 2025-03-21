@@ -193,6 +193,9 @@ func (e *ArrayAccess) Dependencies() []Symbol {
 type Cast struct {
 	Arg  Expr
 	Type Type
+	// Unsafe indicates this is an unsafe cast added explicitly within the
+	// constraints based on some developer knowledge.
+	Unsafe bool
 }
 
 // AsConstant attempts to evaluate this expression as a constant (signed) value.
@@ -325,7 +328,21 @@ type Equals struct {
 // AsConstant attempts to evaluate this expression as a constant (signed) value.
 // If this expression is not constant, then nil is returned.
 func (e *Equals) AsConstant() *big.Int {
-	panic("todo")
+	lhs := e.Lhs.AsConstant()
+	rhs := e.Lhs.AsConstant()
+	//
+	if lhs == nil || rhs == nil {
+		return nil
+	}
+	// Determine relationship
+	cmp := (lhs.Cmp(rhs) == 0)
+	//
+	if e.Sign == cmp {
+		// true
+		return big.NewInt(0)
+	}
+	// false
+	return big.NewInt(1)
 }
 
 // Multiplicity determines the number of values that evaluating this expression
@@ -847,9 +864,8 @@ func (e *Normalise) Dependencies() []Symbol {
 
 // Reduce reduces (i.e. folds) a list using a given binary function.
 type Reduce struct {
-	Name      *VariableAccess
-	Signature *FunctionSignature
-	Arg       Expr
+	Name *VariableAccess
+	Arg  Expr
 }
 
 // AsConstant attempts to evaluate this expression as a constant (signed) value.
@@ -879,17 +895,6 @@ func (e *Reduce) Lisp() sexp.SExp {
 		sexp.NewSymbol("reduce"),
 		sexp.NewSymbol(e.Name.Path().String()),
 		e.Arg.Lisp()})
-}
-
-// Finalise the signature for this reduction.
-func (e *Reduce) Finalise(signature *FunctionSignature) {
-	if signature == nil {
-		panic("cannot finalise with nil signature")
-	} else if e.Signature != nil && !reflect.DeepEqual(e.Signature, signature) {
-		panic("reduce has already been finalised")
-	}
-
-	e.Signature = signature
 }
 
 // Dependencies needed to signal declaration.
@@ -1141,7 +1146,7 @@ func Substitute(expr Expr, mapping map[uint]Expr, srcmap *source.Maps[Node]) Exp
 		nexpr = &Add{args}
 	case *Cast:
 		arg := Substitute(e.Arg, mapping, srcmap)
-		nexpr = &Cast{arg, e.Type}
+		nexpr = &Cast{arg, e.Type, e.Unsafe}
 	case *Constant:
 		return e
 	case *Debug:
@@ -1184,7 +1189,7 @@ func Substitute(expr Expr, mapping map[uint]Expr, srcmap *source.Maps[Node]) Exp
 		nexpr = &Normalise{arg}
 	case *Reduce:
 		arg := Substitute(e.Arg, mapping, srcmap)
-		nexpr = &Reduce{e.Name, e.Signature, arg}
+		nexpr = &Reduce{e.Name, arg}
 	case *Sub:
 		args := SubstituteAll(e.Args, mapping, srcmap)
 		nexpr = &Sub{args}
@@ -1247,7 +1252,7 @@ func ShallowCopy(expr Expr) Expr {
 	case *Add:
 		return &Add{e.Args}
 	case *Cast:
-		return &Cast{e.Arg, e.Type}
+		return &Cast{e.Arg, e.Type, e.Unsafe}
 	case *Constant:
 		return &Constant{e.Val}
 	case *Debug:
@@ -1269,7 +1274,7 @@ func ShallowCopy(expr Expr) Expr {
 	case *Normalise:
 		return &Normalise{e.Arg}
 	case *Reduce:
-		return &Reduce{e.Name, e.Signature, e.Arg}
+		return &Reduce{e.Name, e.Arg}
 	case *Sub:
 		return &Sub{e.Args}
 	case *Shift:

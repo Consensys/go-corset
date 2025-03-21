@@ -111,15 +111,34 @@ var NATIVES []NativeDefinition = []NativeDefinition{
 	// Guarded map
 	{"map-if", 3, nativeMapIf},
 	{"map-if", 4, nativeMapIf},
+	{"map-if", 5, nativeMapIf},
+	{"map-if", 6, nativeMapIf},
+	{"map-if", 7, nativeMapIf},
+	{"map-if", 8, nativeMapIf},
 	// Identify changes of a column within a given region (in forwards direction).
 	{"fwd-changes-within", 2, nativeChangeWithin},
 	{"fwd-changes-within", 3, nativeChangeWithin},
+	{"fwd-changes-within", 4, nativeChangeWithin},
+	{"fwd-changes-within", 5, nativeChangeWithin},
+	{"fwd-changes-within", 6, nativeChangeWithin},
+	{"fwd-changes-within", 7, nativeChangeWithin},
+	{"fwd-changes-within", 8, nativeChangeWithin},
 	// Identify rows which don't change within a given region (in forwards direction).
 	{"fwd-unchanged-within", 2, nativeChangeWithin},
 	{"fwd-unchanged-within", 3, nativeChangeWithin},
+	{"fwd-unchanged-within", 4, nativeChangeWithin},
+	{"fwd-unchanged-within", 5, nativeChangeWithin},
+	{"fwd-unchanged-within", 6, nativeChangeWithin},
+	{"fwd-unchanged-within", 7, nativeChangeWithin},
+	{"fwd-unchanged-within", 8, nativeChangeWithin},
 	// Identify changes of a column within a given region (in backwards direction).
 	{"bwd-changes-within", 2, nativeChangeWithin},
 	{"bwd-changes-within", 3, nativeChangeWithin},
+	{"bwd-changes-within", 4, nativeChangeWithin},
+	{"bwd-changes-within", 5, nativeChangeWithin},
+	{"bwd-changes-within", 6, nativeChangeWithin},
+	{"bwd-changes-within", 7, nativeChangeWithin},
+	{"bwd-changes-within", 8, nativeChangeWithin},
 	// Flood fill (forwards) within a given region
 	{"fwd-fill-within", 3, nativeFillWithin},
 	// Flood fill (backwards) within a given region

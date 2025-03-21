@@ -1,5 +1,5 @@
 (defcolumns
-    (ST :binary@prove@bool)
+    (ST :binary@prove)
     ;; Words
     (X :i8@prove)
     (Y :i8@prove)
@@ -11,7 +11,7 @@
 
 ;; Property: X == Y + 1
 (defproperty p1
-    (if ST
+    (if (!= 0 ST)
         (eq! X (+ Y 1))))
 
 ;; Constructs two nibbles into a byte
