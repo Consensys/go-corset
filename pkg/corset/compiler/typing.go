@@ -141,9 +141,8 @@ func (p *typeChecker) typeCheckDefConstraint(decl *ast.DefConstraint) []SyntaxEr
 
 // ast.Type check the body of a function.
 func (p *typeChecker) typeCheckDefFunInModule(decl *ast.DefFun) []SyntaxError {
-	// Resolve property body
-	_, errors := p.typeCheckExpressionInModule(nil, decl.Body())
-	// FIXME: type check return?
+	// Resolve body and check return
+	_, errors := p.typeCheckExpressionInModule(decl.Return(), decl.Body())
 	// Done
 	return errors
 }
@@ -251,7 +250,9 @@ func (p *typeChecker) typeCheckExpressionInModule(expected ast.Type, expr ast.Ex
 		_, errors = p.typeCheckExpressionsInModule(ast.INT_TYPE, e.Args)
 		result = ast.INT_TYPE
 	case *ast.Cast:
-		result, errors = p.typeCheckExpressionInModule(e.Type, e.Arg)
+		_, errors = p.typeCheckExpressionInModule(nil, e.Arg)
+		// Discard actual type in favour of coerced type
+		result = e.Type
 	case *ast.Constant:
 		nbits := e.Val.BitLen()
 		result = ast.NewUintType(uint(nbits))

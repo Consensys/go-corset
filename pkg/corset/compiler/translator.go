@@ -549,7 +549,7 @@ func (t *translator) translateExpressionInModule(expr ast.Expr, module util.Path
 	case *ast.Cast:
 		//arg, errs := t.translateExpressionInModule(e.Arg, module, shift)
 		//return hir.CastOf(arg, e.BitWidth), errs
-		panic("todo")
+		panic(fmt.Sprintf("CAST %s", e.Type.String()))
 	case *ast.Constant:
 		var val fr.Element
 		// Initialise field from bigint

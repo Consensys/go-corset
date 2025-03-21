@@ -1137,13 +1137,15 @@ type DefFun struct {
 	symbol *FunctionName
 	// Parameters
 	parameters []*DefParameter
+	// Return
+	ret Type
 }
 
 var _ SymbolDefinition = &DefFun{}
 
 // NewDefFun constructs a new (unfinalised) function declaration.
-func NewDefFun(name *FunctionName, parameters []*DefParameter) *DefFun {
-	return &DefFun{name, parameters}
+func NewDefFun(name *FunctionName, parameters []*DefParameter, ret Type) *DefFun {
+	return &DefFun{name, parameters, ret}
 }
 
 // Arity indicates whether or not this is a function and, if so, what arity
@@ -1163,6 +1165,12 @@ func (p *DefFun) IsPure() bool {
 // declaration.
 func (p *DefFun) Parameters() []*DefParameter {
 	return p.parameters
+}
+
+// Return returns the return type of this declaration, which can be nil if no
+// return type was given explicitly.
+func (p *DefFun) Return() Type {
+	return p.ret
 }
 
 // Body Access information about the parameters defined by this declaration.
