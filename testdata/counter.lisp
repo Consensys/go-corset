@@ -12,14 +12,14 @@
 (defconstraint last (:domain {-1} :guard STAMP) (eq! CT 3))
 
 ;; STAMP either remains constant, or increments by one.
-(defconstraint increment () (*
+(defconstraint increment () (or!
                       ;; STAMP[k] == STAMP[k+1]
                       (will-inc! STAMP 0)
                       ;; Or, STAMP[k]+1 == STAMP[k+1]
                       (will-inc! STAMP 1)))
 
 ;; If STAMP changes, counter resets to zero.
-(defconstraint reset () (*
+(defconstraint reset () (or!
                   ;; STAMP[k] == STAMP[k+1]
                   (will-remain-constant! STAMP)
                   ;; Or, CT[k+1] == 0

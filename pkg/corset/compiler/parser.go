@@ -1518,7 +1518,7 @@ func reduceParserRule(p *Parser) sexp.ListRule[ast.Expr] {
 		varaccess := ast.NewVariableAccess(path, arity, nil)
 		p.mapSourceNode(name, varaccess)
 		// Done
-		return &ast.Reduce{Name: varaccess, Signature: nil, Arg: body}, nil
+		return &ast.Reduce{Name: varaccess, Arg: body}, nil
 	}
 }
 

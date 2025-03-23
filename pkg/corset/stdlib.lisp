@@ -28,9 +28,8 @@
 ;; =============================================================================
 ;; Boolean connectives
 ;; =============================================================================
-(defpurefun ((or! :𝔽@loob) (a :𝔽@loob) (b :𝔽@loob)) (* a b))
-(defpurefun ((or! :𝔽@loob) (a :𝔽@loob) (b :𝔽@loob) (c :𝔽@loob)) (* a b c))
-(defpurefun (eq! x y) (== x y))
+(defpurefun (or! (a :bool) (b :bool)) (if a (== 0 0) b))
+(defpurefun ((eq! :bool) x y) (== x y))
 
 ;; =============================================================================
 ;; Chronological functions
