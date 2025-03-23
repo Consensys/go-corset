@@ -547,9 +547,14 @@ func (t *translator) translateExpressionInModule(expr ast.Expr, module util.Path
 		args, errs := t.translateExpressionsInModule(module, shift, e.Args...)
 		return hir.Sum(args...), errs
 	case *ast.Cast:
-		//arg, errs := t.translateExpressionInModule(e.Arg, module, shift)
-		//return hir.CastOf(arg, e.BitWidth), errs
-		panic(fmt.Sprintf("CAST %s", e.Type.String()))
+		if int_t, ok := e.Type.(*ast.IntType); ok {
+			arg, errs := t.translateExpressionInModule(e.Arg, module, shift)
+			return hir.CastOf(arg, int_t.AsUnderlying().BitWidth()), errs
+		}
+		// Should be unreachable.
+		msg := fmt.Sprintf("cannot translate cast (%s)", e.Type.String())
+		//
+		return hir.VOID, t.srcmap.SyntaxErrors(expr, msg)
 	case *ast.Constant:
 		var val fr.Element
 		// Initialise field from bigint

@@ -257,7 +257,7 @@ func (p *typeChecker) typeCheckExpressionInModule(expected ast.Type, expr ast.Ex
 		nbits := e.Val.BitLen()
 		result = ast.NewUintType(uint(nbits))
 	case *ast.Debug:
-		result, errors = p.typeCheckExpressionInModule(nil, e.Arg)
+		result, errors = p.typeCheckExpressionInModule(expected, e.Arg)
 	case *ast.Equals:
 		_, errs1 := p.typeCheckExpressionInModule(ast.INT_TYPE, e.Lhs)
 		_, errs2 := p.typeCheckExpressionInModule(ast.INT_TYPE, e.Rhs)
