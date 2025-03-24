@@ -192,6 +192,9 @@ func (e *ArrayAccess) Dependencies() []Symbol {
 type Cast struct {
 	Arg  Expr
 	Type Type
+	// Unsafe indicates this is an unsafe cast added explicitly within the
+	// constraints based on some developer knowledge.
+	Unsafe bool
 }
 
 // AsConstant attempts to evaluate this expression as a constant (signed) value.
@@ -1130,7 +1133,7 @@ func Substitute(expr Expr, mapping map[uint]Expr, srcmap *source.Maps[Node]) Exp
 		nexpr = &Add{args}
 	case *Cast:
 		arg := Substitute(e.Arg, mapping, srcmap)
-		nexpr = &Cast{arg, e.Type}
+		nexpr = &Cast{arg, e.Type, e.Unsafe}
 	case *Constant:
 		return e
 	case *Debug:
@@ -1236,7 +1239,7 @@ func ShallowCopy(expr Expr) Expr {
 	case *Add:
 		return &Add{e.Args}
 	case *Cast:
-		return &Cast{e.Arg, e.Type}
+		return &Cast{e.Arg, e.Type, e.Unsafe}
 	case *Constant:
 		return &Constant{e.Val}
 	case *Debug:

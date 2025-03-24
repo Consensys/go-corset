@@ -50,10 +50,14 @@
 (defpurefun (will-remain-constant! e0) (will-eq! e0 e0))
 ;; Ensure e0 has changed its value w.r.t previous row.
 (defpurefun (did-change! e0) (!= e0 (prev e0)))
+;; Ensure e0 will remain constant w.r.t next row.
+(defpurefun (will-change! e0) (will-neq! e0 e0))
 ;; Ensure e1 equals value of e0 in previous row.
 (defpurefun (was-eq! e0 e1) (== (prev e0) e1))
-;; Ensure e1 wil equal value of e0 in next row.
+;; Ensure e1 will equal value of e0 in next row.
 (defpurefun (will-eq! e0 e1) (== (next e0) e1))
+;; Ensure e1 will not equal value of e0 in next row.
+(defpurefun (will-neq! e0 e1) (!= (next e0) e1))
 
 ;; =============================================================================
 ;; Helpers

@@ -250,9 +250,14 @@ func (p *typeChecker) typeCheckExpressionInModule(expected ast.Type, expr ast.Ex
 		_, errors = p.typeCheckExpressionsInModule(ast.INT_TYPE, e.Args)
 		result = ast.INT_TYPE
 	case *ast.Cast:
-		_, errors = p.typeCheckExpressionInModule(nil, e.Arg)
+		actual, errs := p.typeCheckExpressionInModule(nil, e.Arg)
+		// Check safe casts
+		if !e.Unsafe && expected != nil && !actual.SubtypeOf(expected) {
+			msg := fmt.Sprintf("expected type %s, found %s", expected.String(), actual.String())
+			return nil, p.srcmap.SyntaxErrors(expr, msg)
+		}
 		// Discard actual type in favour of coerced type
-		result = e.Type
+		result, errors = e.Type, errs
 	case *ast.Constant:
 		nbits := e.Val.BitLen()
 		result = ast.NewUintType(uint(nbits))

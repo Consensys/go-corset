@@ -547,8 +547,15 @@ func (t *translator) translateExpressionInModule(expr ast.Expr, module util.Path
 		args, errs := t.translateExpressionsInModule(module, shift, e.Args...)
 		return hir.Sum(args...), errs
 	case *ast.Cast:
-		if int_t, ok := e.Type.(*ast.IntType); ok {
-			arg, errs := t.translateExpressionInModule(e.Arg, module, shift)
+		arg, errs := t.translateExpressionInModule(e.Arg, module, shift)
+		//
+		if !e.Unsafe {
+			// safe casts are compiled out since they have already been checked
+			// by the type checker.
+			return arg, errs
+		} else if int_t, ok := e.Type.(*ast.IntType); ok {
+			// unsafe casts cannot be checked by the type checker, but can be
+			// exploited for the purposes of optimisation.
 			return hir.CastOf(arg, int_t.AsUnderlying().BitWidth()), errs
 		}
 		// Should be unreachable.

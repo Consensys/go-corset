@@ -1081,10 +1081,10 @@ func (p *Parser) parseDefFun(module util.Path, pure bool, elements []sexp.SExp) 
 	// Translate expression
 	body, errs := p.translator.Translate(elements[2])
 	// Apply return type
-	if ret != nil && forced {
+	if ret != nil {
 		// TODO: the notion of "forcing" should be deprecated in favour of
 		// explicit type casts.
-		body = &ast.Cast{Arg: body, Type: ret}
+		body = &ast.Cast{Arg: body, Type: ret, Unsafe: forced}
 		p.mapSourceNode(elements[2], body)
 	}
 	//
@@ -1100,7 +1100,7 @@ func (p *Parser) parseDefFun(module util.Path, pure bool, elements []sexp.SExp) 
 	}
 	// Construct binding
 	path := module.Extend(name.Value)
-	binding := ast.NewDefunBinding(pure, paramTypes, ret, body)
+	binding := ast.NewDefunBinding(pure, paramTypes, ret, forced, body)
 	fn_name := ast.NewFunctionName(*path, &binding)
 	// Update source mapping
 	p.mapSourceNode(name, fn_name)
