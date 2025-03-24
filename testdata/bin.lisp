@@ -97,11 +97,11 @@
   (vanishes! STAMP))
 
 (defconstraint stamp-increments ()
-  (vanishes! (* (will-inc! STAMP 0) (will-inc! STAMP 1))))
+  (or! (will-inc! STAMP 0) (will-inc! STAMP 1)))
 
 (defconstraint new-stamp-reset-ct ()
-  (if-not-zero (- (next STAMP) STAMP)
-               (vanishes! (next CT))))
+  (if (!= (next STAMP) STAMP)
+           (vanishes! (next CT))))
 
 (defconstraint isnot-ctmax ()
   (if-eq IS_NOT 1 (eq! CT_MAX LLARGEMO)))

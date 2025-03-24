@@ -189,12 +189,12 @@
 
 (defun (set-negative zHi zLo yHi yLo)
   (if-not-zero yLo
-               (begin (eq! zHi (- THETA2 yHi 1))
-                      (eq! zLo (- THETA2 yLo)))
+               (begin (== zHi (- THETA2 yHi 1))
+                      (== zLo (- THETA2 yLo)))
                (begin (vanishes! zLo)
                       (if-zero (* yHi (- THETA_SQUARED_OVER_TWO yHi))
-                               (eq! zHi yHi)
-                               (eq! zHi (- THETA2 yHi))))))
+                               (== zHi yHi)
+                               (== zHi (- THETA2 yHi))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                                ;;
@@ -237,8 +237,8 @@
   (vanishes! STAMP))
 
 (defconstraint heartbeat ()
-  (begin (* (will-remain-constant! STAMP) (will-inc! STAMP 1))
-         (if-not-zero (will-remain-constant! STAMP)
+  (begin (or! (will-remain-constant! STAMP) (will-inc! STAMP 1))
+         (if-not (will-remain-constant! STAMP)
                       (vanishes! (next CT)))
          (if-eq OLI 1 (will-inc! STAMP 1))
          (if-eq MLI 1
@@ -327,17 +327,17 @@
 
 (defconstraint target-constraints (:guard STAMP)
   (if-eq CT MMEDIUMMO
-         (begin (eq! ARG_1_HI
+         (begin (== ARG_1_HI
                    (+ (* THETA (ARG1_3)) (ARG1_2)))
-                (eq! ARG_2_HI
+                (== ARG_2_HI
                    (+ (* THETA (ARG2_3)) (ARG2_2)))
                 ;
-                (eq! (shift BYTE_1_3 -7) (bit-dec-msb1))
-                (eq! (shift BYTE_2_3 -7) (bit-dec-msb2))
+                (== (shift BYTE_1_3 -7) (bit-dec-msb1))
+                (== (shift BYTE_2_3 -7) (bit-dec-msb2))
                 ;
-                (eq! (+ (* (B_0) (Q_1)) (* (B_1) (Q_0)))
+                (== (+ (* (B_0) (Q_1)) (* (B_1) (Q_0)))
                    (+ (* THETA2 (alpha)) (* THETA (H_1)) (H_0)))
-                (eq! (+ (* (B_0) (Q_3)) (* (B_1) (Q_2)) (* (B_2) (Q_1)) (* (B_3) (Q_0)))
+                (== (+ (* (B_0) (Q_3)) (* (B_1) (Q_2)) (* (B_2) (Q_1)) (* (B_3) (Q_0)))
                    (H_2))
                 (vanishes! (+ (* (B_1) (Q_3))
                               (* (B_2) (Q_2))
@@ -366,11 +366,11 @@
                 (eq! (+ (Delta_0) (lt_0))
                      (* (- (* 2 (lt_0)) 1)
                         (- (B_0) (R_0))))
-                (if-eq-else (B_3) (R_3) (eq! (eq_3) 1) (vanishes! (eq_3)))
-                (if-eq-else (B_2) (R_2) (eq! (eq_2) 1) (vanishes! (eq_2)))
-                (if-eq-else (B_1) (R_1) (eq! (eq_1) 1) (vanishes! (eq_1)))
-                (if-eq-else (B_0) (R_0) (eq! (eq_0) 1) (vanishes! (eq_0)))
-                (eq! 1
+                (if-eq-else (B_3) (R_3) (== (eq_3) 1) (vanishes! (eq_3)))
+                (if-eq-else (B_2) (R_2) (== (eq_2) 1) (vanishes! (eq_2)))
+                (if-eq-else (B_1) (R_1) (== (eq_1) 1) (vanishes! (eq_1)))
+                (if-eq-else (B_0) (R_0) (== (eq_0) 1) (vanishes! (eq_0)))
+                (== 1
                    (+ (lt_3)
                       (* (eq_3) (lt_2))
                       (* (eq_3) (eq_2) (lt_1))

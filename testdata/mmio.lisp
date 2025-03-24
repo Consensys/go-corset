@@ -145,14 +145,14 @@
   )
 
 (defconstraint memory-consistency (:guard CN_ABC_SORTED)
-  (begin (if-zero (will-remain-constant! CN_ABC_SORTED)
-                  (if-zero (will-remain-constant! INDEX_ABC_SORTED)
-                           (if-not-zero (will-remain-constant! MMIO_STAMP_3_SORTED)
-                                        (will-eq! VAL_ABC_SORTED VAL_ABC_NEW_SORTED))))
-         (if-not-zero (will-remain-constant! CN_ABC_SORTED)
-                      (will-eq! VAL_ABC_SORTED 0))
-         (if-not-zero (will-remain-constant! INDEX_ABC_SORTED)
-                      (will-eq! VAL_ABC_SORTED 0))))
+  (begin (if (will-remain-constant! CN_ABC_SORTED)
+                  (if (will-remain-constant! INDEX_ABC_SORTED)
+                           (if-not (will-remain-constant! MMIO_STAMP_3_SORTED)
+                                   (will-eq! VAL_ABC_SORTED VAL_ABC_NEW_SORTED))))
+         (if-not (will-remain-constant! CN_ABC_SORTED)
+                 (will-eq! VAL_ABC_SORTED 0))
+         (if-not (will-remain-constant! INDEX_ABC_SORTED)
+                 (will-eq! VAL_ABC_SORTED 0))))
 
 
 (module mmio)
@@ -238,8 +238,8 @@
   (or! (will-remain-constant! STAMP) (will-inc! STAMP 1)))
 
 (defconstraint stamp-reset-ct ()
-  (if-not-zero (- STAMP (prev STAMP))
-               (vanishes! CT)))
+  (if (!=  STAMP (prev STAMP))
+      (vanishes! CT)))
 
 (defconstraint fast-is-one-row (:guard FAST)
   (will-inc! STAMP 1))
@@ -248,8 +248,8 @@
   (if-eq-else CT LLARGEMO (will-inc! STAMP 1) (will-inc! CT 1)))
 
 (defconstraint last-row-is-finish (:domain {-1})
-  (if-not-zero STAMP
-               (if-eq SLOW 1 (eq! CT LLARGEMO))))
+  (if (!= 0 STAMP)
+      (if-eq SLOW 1 (eq! CT LLARGEMO))))
 
 ;;
 ;; Byte decompsition

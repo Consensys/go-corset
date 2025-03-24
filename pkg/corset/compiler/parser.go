@@ -1108,7 +1108,9 @@ func (p *Parser) parseDefFun(module util.Path, pure bool, elements []sexp.SExp) 
 	return ast.NewDefFun(fn_name, params, ret), nil
 }
 
-func (p *Parser) parseFunSignature(elements []sexp.SExp) (*sexp.Symbol, ast.Type, bool, []*ast.DefParameter, []SyntaxError) {
+func (p *Parser) parseFunSignature(elements []sexp.SExp) (*sexp.Symbol,
+	ast.Type, bool, []*ast.DefParameter, []SyntaxError) {
+	//
 	var params []*ast.DefParameter = make([]*ast.DefParameter, len(elements)-1)
 	// Parse name and (optional) return type
 	name, ret, forced, errors := p.parseFunctionNameReturn(elements[0])

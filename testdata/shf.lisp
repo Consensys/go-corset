@@ -86,7 +86,7 @@
 
 ;; 2.1.2
 (defconstraint    stamp-increments ()
-                  (vanishes! (* (will-inc! STAMP 0) (will-inc! STAMP 1))))
+                  (or! (will-inc! STAMP 0) (will-inc! STAMP 1)))
 
 ;; 2.1.3 and 4
 (defconstraint    zero-row ()
@@ -96,8 +96,8 @@
 
 ;; 2.1.5
 (defconstraint    counter-reset ()
-                  (if-not-zero (will-remain-constant! STAMP)
-                               (vanishes! (shift CT 1))))
+                  (if-not (will-remain-constant! STAMP)
+                          (vanishes! (shift CT 1))))
 
 ;; 2.1.6
 (defconstraint    INST-inside-and-outside-of-padding ()
@@ -129,7 +129,7 @@
 (defconstraint last-row (:domain {-1})
                (if-not-zero STAMP
                             (if-zero OLI
-                                     (eq! CT LLARGEMO))))
+                                     (== CT LLARGEMO))))
 
 ;; counter-constancy constraints
 (defun (counter-constancy ct X)
@@ -183,8 +183,8 @@
 (defconstraint bits_constraints (:guard STAMP)
                (if-zero OLI
                         (begin (if-zero CT
-                                        (begin (eq! NEG BITS)
-                                               (eq! BYTE_2
+                                        (begin (== NEG BITS)
+                                               (== BYTE_2
                                                   (+ (* 128 BITS)
                                                      (* 64 (shift BITS 1))
                                                      (* 32 (shift BITS 2))
@@ -194,7 +194,7 @@
                                                      (* 2 (shift BITS 6))
                                                      (shift BITS 7))))
                                         (if-eq CT LLARGEMO
-                                               (eq! BYTE_1
+                                               (== BYTE_1
                                                   (+ (* 128 (shift BITS -7))
                                                      (* 64 (shift BITS -6))
                                                      (* 32 (shift BITS -5))
@@ -206,27 +206,27 @@
 
 (defconstraint setting_stuff ()
                (if-eq CT LLARGEMO
-                      (begin (eq! LOW_3
+                      (begin (== LOW_3
                                 (+ (* 4 (shift BITS -2))
                                    (* 2 (shift BITS -1))
                                    BITS))
                              (if-zero SHD
-                                      (eq! µSHP (- 8 LOW_3))
-                                      (eq! µSHP LOW_3))
-                             (eq! BIT_B_3 (shift BITS -3))
-                             (eq! BIT_B_4 (shift BITS -4))
-                             (eq! BIT_B_5 (shift BITS -5))
-                             (eq! BIT_B_6 (shift BITS -6))
-                             (eq! BIT_B_7 (shift BITS -7)))))
+                                      (== µSHP (- 8 LOW_3))
+                                      (== µSHP LOW_3))
+                             (== BIT_B_3 (shift BITS -3))
+                             (== BIT_B_4 (shift BITS -4))
+                             (== BIT_B_5 (shift BITS -5))
+                             (== BIT_B_6 (shift BITS -6))
+                             (== BIT_B_7 (shift BITS -7)))))
 
 ;; 2.2.5 KNOWN constraints
 (defconstraint known_constraint ()
                (if-eq CT LLARGEMO
                       (if-eq-else INST EVM_INST_SAR
                                   (if-zero ARG_1_HI
-                                           (if-eq-else ARG_1_LO BYTE_1 (vanishes! KNOWN) (eq! KNOWN 1))
-                                           (eq! KNOWN 1))
-                                  (if-eq-else ARG_1_LO BYTE_1 (vanishes! KNOWN) (eq! KNOWN 1)))))
+                                           (if-eq-else ARG_1_LO BYTE_1 (vanishes! KNOWN) (== KNOWN 1))
+                                           (== KNOWN 1))
+                                  (if-eq-else ARG_1_LO BYTE_1 (vanishes! KNOWN) (== KNOWN 1)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                              ;;
@@ -255,11 +255,11 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defconstraint target_constraints ()
                (if-eq CT LLARGEMO
-                      (begin (eq! ACC_1 ARG_1_LO)
-                             (eq! ACC_2 ARG_2_HI)
-                             (eq! ACC_3 ARG_2_LO)
-                             (eq! ACC_4 RES_HI)
-                             (eq! ACC_5 RES_LO))))
+                      (begin (== ACC_1 ARG_1_LO)
+                             (== ACC_2 ARG_2_HI)
+                             (== ACC_3 ARG_2_LO)
+                             (== ACC_4 RES_HI)
+                             (== ACC_5 RES_LO))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                               ;;
@@ -269,33 +269,33 @@
 (defun (left-shift-by k ct bit_b (bit_n :binary) B1_init B2_init B1_shft B2_shft)
   (begin (plateau-constraint ct bit_n (- LLARGE k))
          (if-zero bit_b
-                  (begin (eq! B1_shft B1_init)
-                         (eq! B2_shft B2_init))
+                  (begin (== B1_shft B1_init)
+                         (== B2_shft B2_init))
                   (if-zero bit_n
-                           (begin (eq! B1_shft (shift B1_init k))
-                                  (eq! B2_shft (shift B2_init k)))
-                           (begin (eq! B1_shft
+                           (begin (== B1_shft (shift B1_init k))
+                                  (== B2_shft (shift B2_init k)))
+                           (begin (== B1_shft
                                      (shift B2_init (- k LLARGE)))
                                   (vanishes! B2_shft))))))
 
 (defun (right-shift-by k ct neg inst bit_b (bit_n :binary) B1_init B2_init B1_shft B2_shft)
   (begin (plateau-constraint ct bit_n k)
          (if-zero bit_b
-                  (begin (eq! B1_shft B1_init)
-                         (eq! B2_shft B2_init))
+                  (begin (== B1_shft B1_init)
+                         (== B2_shft B2_init))
                   (if-zero bit_n
                            ;; bit_n == 0
                            (begin (if-eq-else inst EVM_INST_SAR
                                               ;; INST == SAR
-                                              (eq! B1_shft (* 255 neg))
+                                              (== B1_shft (* 255 neg))
                                               ;; INST != SAR
                                               (vanishes! B1_shft))
-                                  (eq! B2_shft
+                                  (== B2_shft
                                      (shift B1_init (- LLARGE k))))
                            ;; bit_n == 1
-                           (begin (eq! B1_shft
+                           (begin (== B1_shft
                                      (shift B1_init (- 0 k)))
-                                  (eq! B2_shft
+                                  (== B2_shft
                                      (shift B2_init (- 0 k))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -308,30 +308,30 @@
            ;; SHD == 0
            (if-eq-else CT LLARGEMO
                        ;; CT == 15
-                       (begin (eq! SHB_3_HI
+                       (begin (== SHB_3_HI
                                  (+ LA_HI
                                     (shift RA_LO (- 0 LLARGEMO))))
-                              (eq! SHB_3_LO LA_LO))
+                              (== SHB_3_LO LA_LO))
                        ;; CT != 15
-                       (begin (eq! SHB_3_HI
+                       (begin (== SHB_3_HI
                                  (+ LA_HI (shift RA_HI 1)))
-                              (eq! SHB_3_LO
+                              (== SHB_3_LO
                                  (+ LA_LO (shift RA_LO 1)))))
            ;; SHD == 1
            (if-zero CT
                     ;; CT == 0
                     (begin (if-not-zero (- INST EVM_INST_SHR)
-                                        (eq! SHB_3_HI
+                                        (== SHB_3_HI
                                            (+ (* NEG ONES) RA_HI)))
                            (if-not-zero (- INST EVM_INST_SAR)
-                                        (eq! SHB_3_HI RA_HI))
-                           (eq! SHB_3_LO
+                                        (== SHB_3_HI RA_HI))
+                           (== SHB_3_LO
                               (+ (shift LA_HI LLARGEMO) RA_LO)))
                     ;; CT != 0
-                    (begin (eq! SHB_3_HI
+                    (begin (== SHB_3_HI
                               (+ (shift LA_HI (- 0 1))
                                  RA_HI))
-                           (eq! SHB_3_LO
+                           (== SHB_3_LO
                               (+ (shift LA_LO (- 0 1))
                                  RA_LO))))))
 
@@ -361,18 +361,18 @@
            (if-zero SHD
                     ;; SHD == 0
                     (if-zero BIT_B_7
-                             (begin (eq! BYTE_4 SHB_7_HI)
-                                    (eq! BYTE_5 SHB_7_LO))
-                             (begin (eq! BYTE_4 SHB_7_LO)
+                             (begin (== BYTE_4 SHB_7_HI)
+                                    (== BYTE_5 SHB_7_LO))
+                             (begin (== BYTE_4 SHB_7_LO)
                                     (vanishes! BYTE_5)))
                     ;; SHD == 1
                     (if-zero BIT_B_7
-                             (begin (eq! BYTE_4 SHB_7_HI)
-                                    (eq! BYTE_5 SHB_7_LO))
+                             (begin (== BYTE_4 SHB_7_HI)
+                                    (== BYTE_5 SHB_7_LO))
                              (begin (if-eq-else INST EVM_INST_SHR
                                                 (vanishes! BYTE_4)
-                                                (eq! BYTE_4 (* 255 NEG)))
-                                    (eq! BYTE_5 SHB_7_HI))))
+                                                (== BYTE_4 (* 255 NEG)))
+                                    (== BYTE_5 SHB_7_HI))))
            ;; KNOWN == 1
            (if-eq-else INST EVM_INST_SAR
                        ;; INST == SAR

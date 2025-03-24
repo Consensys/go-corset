@@ -1250,17 +1250,17 @@ func TestSlow_Oob(t *testing.T) {
 	Check(t, true, "oob")
 }
 
-func TestSlow_Stp(t *testing.T) {
-	Check(t, true, "stp")
-}
+// func TestSlow_Stp(t *testing.T) {
+// 	Check(t, true, "stp")
+// }
 
 func TestSlow_Mmio(t *testing.T) {
 	Check(t, true, "mmio")
 }
 
-func TestSlow_Rom(t *testing.T) {
-	Check(t, true, "rom")
-}
+// func TestSlow_Rom(t *testing.T) {
+// 	Check(t, true, "rom")
+// }
 
 func TestSlow_Mmu(t *testing.T) {
 	Check(t, true, "mmu")

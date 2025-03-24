@@ -133,12 +133,12 @@ func (p *Compiler) Compile() (*binfile.BinaryFile, []SyntaxError) {
 	if scope, errors = compiler.ResolveCircuit(p.srcmap, &p.circuit); len(errors) > 0 {
 		return nil, errors
 	}
-	// Preprocess circuit to remove invocations, reductions, etc.
-	if errors = compiler.PreprocessCircuit(p.debug, p.srcmap, &p.circuit); len(errors) > 0 {
-		return nil, errors
-	}
 	// Type check circuit.
 	if errors := compiler.TypeCheckCircuit(p.srcmap, &p.circuit); len(errors) > 0 {
+		return nil, errors
+	}
+	// Preprocess circuit to remove invocations, reductions, etc.
+	if errors = compiler.PreprocessCircuit(p.debug, p.srcmap, &p.circuit); len(errors) > 0 {
 		return nil, errors
 	}
 	// Convert global scope into an environment by allocating all columns.
