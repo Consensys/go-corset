@@ -1206,7 +1206,15 @@ func Substitute(expr Expr, mapping map[uint]Expr, srcmap *source.Maps[Node]) Exp
 		} else {
 			// Shallow copy the node to ensure it is unique and, hence, can have
 			// the source mapping associated with e.
-			expr, nexpr = e2, ShallowCopy(e2)
+			nexpr = ShallowCopy(e2)
+			// Copy source mapping from e2 (if such mapping exists).
+			if srcmap.Has(e2) {
+				// NOTE: in some unexpected situations (particularly around
+				// intrinsics) e2 may not have any source mapping.  Whilst this
+				// is the preferred source of mapping information, we can use
+				// the original expression as a backup.
+				expr = e2
+			}
 		}
 	default:
 		panic(fmt.Sprintf("unknown expression (%s)", reflect.TypeOf(expr)))

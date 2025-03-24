@@ -94,7 +94,7 @@ func (p *NativeDefinition) Apply(args []NativeColumn) []NativeColumn {
 func (p *NativeDefinition) Signature() *ast.FunctionSignature {
 	// This is safe because natives can only (currently) be used in very
 	// specific situations.
-	panic("unreachable")
+	return nil
 }
 
 // ============================================================================

@@ -1,5 +1,3 @@
-(defpurefun ((vanishes! :𝔽@loob :force) e0) e0)
-
 (module m1)
 
 (defcolumns (SEL :binary))
@@ -14,4 +12,4 @@
   [test/BYTE 1])
 
 (defconstraint check (:perspective test)
-  (vanishes! (hi)))
+  (== 0 (hi)))

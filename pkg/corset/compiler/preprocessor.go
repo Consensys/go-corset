@@ -428,12 +428,18 @@ func (p *preprocessor) preprocessReduceInModule(expr *ast.Reduce) (ast.Expr, []S
 	if list, ok := body.(*ast.List); !ok {
 		return nil, append(errors, *p.srcmap.SyntaxError(expr.Arg, "expected list"))
 	} else if binding, ok := expr.Name.Binding().(ast.FunctionBinding); ok {
-		reduction := list.Args[0]
+		var reduction ast.Expr
 		// Build reduction
-		for i := 1; i < len(list.Args); i++ {
-			arg, errs := p.preprocessExpressionInModule(list.Args[i])
-			reduction = binding.Signature().Apply([]ast.Expr{reduction, arg}, p.srcmap)
-			// Copy source mapping (if none exists)
+		for i, arg := range list.Args {
+			arg, errs := p.preprocessExpressionInModule(arg)
+			//
+			if i == 0 {
+				reduction = arg
+			} else {
+				reduction = binding.Signature().Apply([]ast.Expr{reduction, arg}, p.srcmap)
+			}
+			// Copy source mapping (if none exists, which can arise when e.g.
+			// intrinsic applied).
 			if !p.srcmap.Has(reduction) {
 				p.srcmap.Copy(expr, reduction)
 			}

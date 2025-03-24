@@ -12,7 +12,10 @@
 ;; SPDX-License-Identifier: Apache-2.0
 
 (defpurefun (vanishes! e0) (== 0 e0))
-;;(defpurefun ((force-bin :binary :force) x) x)
+(defpurefun ((force-bin :binary :force) x) x)
+(defpurefun (is-binary e0) (or! (== 0 e0) (== 1 e0)))
+;; NOTE: following should be deprecated as counterintuitive.
+(defpurefun (is-zero e0) (if (== 0 e0) 1 0))
 
 ;; =============================================================================
 ;; Conditionals
@@ -24,12 +27,15 @@
 (defpurefun (if-eq x val then) (if (eq! x val) then))
 (defpurefun (if-eq-else x val then else) (if (eq! x val) then else))
 (defpurefun (if-not-eq A B then) (if (!= A B) then))
+(defpurefun (if-not (cond :bool) then) (if (not! cond) then))
 
 ;; =============================================================================
 ;; Boolean connectives
 ;; =============================================================================
 (defpurefun (or! (a :bool) (b :bool)) (if a (== 0 0) b))
+;;(defpurefun (and! (a :bool) (b :bool)) (if a b (!= 0 0)))
 (defpurefun ((eq! :bool) x y) (== x y))
+(defpurefun ((not! :bool) (x :bool)) (if x (!= 0 0) (== 0 0)))
 
 ;; =============================================================================
 ;; Chronological functions
@@ -65,17 +71,17 @@
 
 ;; counter constancy constraint
 (defpurefun (counter-constancy ct X)
-  (if-not-zero ct
+  (if (!= 0 ct)
                (remained-constant! X)))
 
 ;; perspective constancy constraint
 (defpurefun (perspective-constancy PERSPECTIVE_SELECTOR X)
-            (if-not-zero (* PERSPECTIVE_SELECTOR (prev PERSPECTIVE_SELECTOR))
+            (if (!= 0 (* PERSPECTIVE_SELECTOR (prev PERSPECTIVE_SELECTOR)))
                          (remained-constant! X)))
 
 ;; base-X decomposition constraints
-(defpurefun (base-X-decomposition ct base acc digits)
-  (if-zero ct
+(defpurefun ((base-X-decomposition :bool) ct base acc digits)
+  (if (== 0 ct)
            (== acc digits)
            (== acc (+ (* base (prev acc)) digits))))
 
@@ -88,7 +94,7 @@
 ;; plateau constraints
 (defpurefun (plateau-constraint CT (X :binary) C)
             (begin (debug (stamp-constancy CT C))
-                   (if-zero C
+                   (if (== C 0)
                             (== X 1)
                             (if (== CT 0)
                                 (vanishes! X)

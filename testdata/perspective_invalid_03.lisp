@@ -1,5 +1,5 @@
-;;error:15:38-39:unknown symbol
-;;error:16:38-39:unknown symbol
+;;error:15:28-29:unknown symbol
+;;error:16:28-29:unknown symbol
 ;;
 ;;
 (defcolumns
@@ -13,4 +13,4 @@
 (defperspective p1 P ((B :byte)))
 (defperspective p2 Q ((C :byte)))
 (defconstraint c1 () (== A B))
-(defconstraint c2 () (vanishes! (- A C)))
+(defconstraint c2 () (== A C))

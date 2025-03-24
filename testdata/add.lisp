@@ -51,11 +51,11 @@
                          ;; (debug (vanishes! CT_MAX))
                          ))
          (or! (will-remain-constant! STAMP) (will-inc! STAMP 1))
-         (if (will-change! STAMP)
-                      (vanishes! (next CT)))
+         (if-not (will-remain-constant! STAMP)
+                 (vanishes! (next CT)))
          (if-not-zero STAMP
                       (begin (or! (eq! INST EVM_INST_ADD) (eq! INST EVM_INST_SUB))
-                             (if (== CT CT_MAX)
+                             (if-eq-else CT CT_MAX
                                  (will-inc! STAMP 1)
                                  (will-inc! CT 1))
                              (eq! (~ (* (- CT LLARGE) CT_MAX))

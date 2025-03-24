@@ -402,6 +402,8 @@ func (p *Parser) parseColumnDeclaration(context util.Path, path util.Path, compu
 		datatype = ast.INT_TYPE
 	} else if computed {
 		return nil, p.translator.SyntaxError(e, "computed columns cannot be typed")
+	} else if !datatype.HasUnderlying() {
+		return nil, p.translator.SyntaxError(e, "invalid column type")
 	}
 	//
 	def := ast.NewDefColumn(context, name, datatype, mustProve, multiplier, computed, display)
@@ -1108,7 +1110,9 @@ func (p *Parser) parseDefFun(module util.Path, pure bool, elements []sexp.SExp) 
 	return ast.NewDefFun(fn_name, params, ret), nil
 }
 
-func (p *Parser) parseFunSignature(elements []sexp.SExp) (*sexp.Symbol, ast.Type, bool, []*ast.DefParameter, []SyntaxError) {
+func (p *Parser) parseFunSignature(elements []sexp.SExp) (*sexp.Symbol,
+	ast.Type, bool, []*ast.DefParameter, []SyntaxError) {
+	//
 	var params []*ast.DefParameter = make([]*ast.DefParameter, len(elements)-1)
 	// Parse name and (optional) return type
 	name, ret, forced, errors := p.parseFunctionNameReturn(elements[0])
