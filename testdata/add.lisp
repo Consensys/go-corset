@@ -45,7 +45,7 @@
   (vanishes! STAMP))
 
 (defconstraint heartbeat ()
-  (begin (if-zero STAMP
+  (begin (if (== 0 STAMP)
                   (begin (vanishes! INST)
                          ;; (debug (vanishes! CT))
                          ;; (debug (vanishes! CT_MAX))
@@ -53,7 +53,7 @@
          (or! (will-remain-constant! STAMP) (will-inc! STAMP 1))
          (if (will-change! STAMP)
                       (vanishes! (next CT)))
-         (if-not-zero STAMP
+         (if (!= 0 STAMP)
                       (begin (or! (eq! INST EVM_INST_ADD) (eq! INST EVM_INST_SUB))
                              (if (== CT CT_MAX)
                                  (will-inc! STAMP 1)
@@ -83,13 +83,13 @@
   (if-eq CT CT_MAX
          (begin (eq! RES_HI ACC_1)
                 (eq! RES_LO ACC_2)
-                (if-not-zero (- INST EVM_INST_SUB)
+                (if (!= INST EVM_INST_SUB)
                              (begin (eq! (+ ARG_1_LO ARG_2_LO)
                                          (+ RES_LO (* THETA OVERFLOW)))
                                     (eq! (+ ARG_1_HI ARG_2_HI OVERFLOW)
                                          (+ RES_HI
                                             (* THETA (prev OVERFLOW))))))
-                (if-not-zero (- INST EVM_INST_ADD)
+                (if (!= INST EVM_INST_ADD)
                              (begin (eq! (+ RES_LO ARG_2_LO)
                                          (+ ARG_1_LO (* THETA OVERFLOW)))
                                     (eq! (+ RES_HI ARG_2_HI OVERFLOW)

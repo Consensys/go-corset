@@ -71,17 +71,17 @@
 
 ;; counter constancy constraint
 (defpurefun (counter-constancy ct X)
-  (if-not-zero ct
+  (if (!= 0 ct)
                (remained-constant! X)))
 
 ;; perspective constancy constraint
 (defpurefun (perspective-constancy PERSPECTIVE_SELECTOR X)
-            (if-not-zero (* PERSPECTIVE_SELECTOR (prev PERSPECTIVE_SELECTOR))
+            (if (!= 0 (* PERSPECTIVE_SELECTOR (prev PERSPECTIVE_SELECTOR)))
                          (remained-constant! X)))
 
 ;; base-X decomposition constraints
 (defpurefun ((base-X-decomposition :bool) ct base acc digits)
-  (if-zero ct
+  (if (== 0 ct)
            (== acc digits)
            (== acc (+ (* base (prev acc)) digits))))
 
@@ -94,7 +94,7 @@
 ;; plateau constraints
 (defpurefun (plateau-constraint CT (X :binary) C)
             (begin (debug (stamp-constancy CT C))
-                   (if-zero C
+                   (if (== C 0)
                             (== X 1)
                             (if (== CT 0)
                                 (vanishes! X)

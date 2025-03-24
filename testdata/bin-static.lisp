@@ -65,7 +65,7 @@
   LLARGEMO   15)
 
 (defpurefun (if-eq-else A B THEN ELSE)
-  (if-zero (- A B)
+  (if (== A B)
            THEN
            ELSE))
 
@@ -83,7 +83,7 @@
 
 ;; 2.3 Instruction decoding
 (defconstraint no-bin-no-flag ()
-  (if-zero STAMP
+  (if (== 0 STAMP)
            (vanishes! (flag-sum))
            (eq! (flag-sum) 1)))
 
@@ -148,9 +148,9 @@
 ;;                                     ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defconstraint set-oli-mli ()
-  (if-zero (+ IS_BYTE IS_SIGNEXTEND)
+  (if (== 0 (+ IS_BYTE IS_SIGNEXTEND))
            (vanishes! OLI)
-           (if-zero ARG_1_HI
+           (if (== 0 ARG_1_HI)
                     (vanishes! OLI)
                     (eq! OLI 1))))
 
@@ -195,7 +195,7 @@
 ;; 2.8.4 SMALL constraints
 (defconstraint small ()
   (if-eq CT LLARGEMO
-         (if-zero ARG_1_HI
+         (if (== 0 ARG_1_HI)
                   (if-eq-else ARG_1_LO (+ (* 16 (shift BITS -4))
                                  (* 8 (shift BITS -3))
                                  (* 4 (shift BITS -2))
