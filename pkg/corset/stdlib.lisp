@@ -13,10 +13,10 @@
 (defpurefun (if-zero cond then) (if (vanishes! cond) then))
 (defpurefun (if-zero cond then else) (if (vanishes! cond) then else))
 
-(defpurefun (if-not-zero cond then) (if (force-bool cond) then))
-(defpurefun (if-not-zero cond then else) (if (force-bool cond) then else))
+(defpurefun (if-not-zero cond then) (if (as-bool cond) then))
+(defpurefun (if-not-zero cond then else) (if (as-bool cond) then else))
 
-(defpurefun ((force-bool :𝔽@bool :force) x) x)
+(defpurefun ((as-bool :𝔽@bool :force) x) x)
 (defpurefun ((is-binary :𝔽@loob :force) e0) (* e0 (- 1 e0)))
 
 (defpurefun ((force-bin :binary :force) x) x)
@@ -27,19 +27,15 @@
 ;; !-suffix denotes loobean algebra (i.e. 0 == true)
 ;; ~-prefix denotes normalized-functions (i.e. output is 0/1)
 (defpurefun (and a b) (* a b))
-(defpurefun ((or! :𝔽@loob) a b) (* a b))
+(defpurefun ((or! :𝔽@loob) (a :𝔽@loob) (b :𝔽@loob)) (* a b))
+(defpurefun ((or! :𝔽@loob) (a :𝔽@loob) (b :𝔽@loob) (c :𝔽@loob)) (* a b c))
 (defpurefun ((not :binary@bool :force) (x :binary)) (- 1 x))
 
 (defpurefun ((eq! :𝔽@loob) x y) (- x y))
 (defpurefun ((neq! :binary@loob :force) x y) (not (~ (eq! x y))))
-(defunalias = eq!)
 
 (defpurefun ((eq :binary@bool :force) x y) (- 1 (~ (eq! x y))))
 (defpurefun ((neq :𝔽@bool) x y) (- x y))
-
-;; Variadic variations on and/or
-(defunalias any! *)
-(defunalias all *)
 
 ;; Boolean functions
 (defpurefun ((is-not-zero :binary@bool) x) (~ x))

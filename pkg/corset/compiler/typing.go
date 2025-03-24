@@ -373,7 +373,7 @@ func (p *typeChecker) typeCheckInvokeInModule(expr *ast.Invoke) (ast.Type, []Syn
 		}
 		// TODO: this is potentially expensive, and it would likely be good if we
 		// could avoid it.
-		body := signature.Apply(expr.Args, nil)
+		body := signature.Apply(expr.Args, p.srcmap)
 		// Dig out the type
 		return p.typeCheckExpressionInModule(body)
 	}
