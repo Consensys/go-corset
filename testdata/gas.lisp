@@ -48,7 +48,7 @@
 
 ;; 2
 (defconstraint iomf-increments ()
-  (any! (will-remain-constant! IOMF) (will-inc! IOMF 1)))
+  (or! (will-remain-constant! IOMF) (will-inc! IOMF 1)))
 
 ;; 3
 (defconstraint iomf-vanishing-values ()
