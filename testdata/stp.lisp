@@ -139,7 +139,7 @@
   (vanishes! STAMP))
 
 (defconstraint stamp-increments ()
-  (or! (will-inc! STAMP 1) (will-remain-constant! STAMP)))
+  (vanishes! (or! (will-inc! STAMP 1) (will-remain-constant! STAMP))))
 
 (defconstraint initial-vanishings ()
   (if-zero STAMP
@@ -148,8 +148,8 @@
                   (vanishes! (+ WCP_FLAG MOD_FLAG)))))
 
 (defconstraint counter-reset ()
-  (if-not (will-remain-constant! STAMP)
-          (vanishes! (next CT))))
+  (if-not-zero (will-remain-constant! STAMP)
+               (vanishes! (next CT))))
 
 (defconstraint heartbeat (:guard STAMP)
   (begin (if-eq-else CT CT_MAX (will-inc! STAMP 1) (will-inc! CT 1))

@@ -12,18 +12,18 @@
   (ARGUMENT_2_LO :i128)
   (RESULT_HI :i128)
   (RESULT_LO :i128)
-  (IS_AND :binary@prove)
-  (IS_OR :binary@prove)
-  (IS_XOR :binary@prove)
-  (IS_NOT :binary@prove)
-  (IS_BYTE :binary@prove)
-  (IS_SIGNEXTEND :binary@prove)
-  (SMALL :binary@prove)
-  (BITS :binary@prove)
-  (BIT_B_4 :binary@prove)
+  (IS_AND :binary)
+  (IS_OR :binary)
+  (IS_XOR :binary)
+  (IS_NOT :binary)
+  (IS_BYTE :binary)
+  (IS_SIGNEXTEND :binary)
+  (SMALL :binary)
+  (BITS :binary)
+  (BIT_B_4 :binary)
   (LOW_4 :byte)
   (NEG :binary)
-  (BIT_1 :binary@prove)
+  (BIT_1 :binary)
   (PIVOT :byte)
   (BYTE_1 :byte)
   (BYTE_2 :byte)
@@ -65,9 +65,24 @@
   LLARGEMO   15)
 
 (defpurefun (if-eq-else A B THEN ELSE)
-  (if (== A B)
+  (if-zero (- A B)
            THEN
            ELSE))
+
+;;   2.1 binary constraints
+;; binary constraints
+(defconstraint binary_constraints ()
+  (begin (is-binary IS_AND)
+         (is-binary IS_OR)
+         (is-binary IS_XOR)
+         (is-binary IS_NOT)
+         (is-binary IS_BYTE)
+         (is-binary IS_SIGNEXTEND)
+         (is-binary SMALL)
+         (is-binary BITS)
+         (is-binary NEG)
+         (is-binary BIT_B_4)
+         (is-binary BIT_1)))
 
 ;; 2.2  Shorthands
 (defun (flag-sum)
@@ -83,7 +98,7 @@
 
 ;; 2.3 Instruction decoding
 (defconstraint no-bin-no-flag ()
-  (if (== 0 STAMP)
+  (if-zero STAMP
            (vanishes! (flag-sum))
            (eq! (flag-sum) 1)))
 
@@ -95,10 +110,10 @@
   (vanishes! STAMP))
 
 (defconstraint stamp-increments ()
-  (or! (will-inc! STAMP 0) (will-inc! STAMP 1)))
+  (vanishes! (* (will-inc! STAMP 0) (will-inc! STAMP 1))))
 
 (defconstraint countereset ()
-  (if-not (will-remain-constant! STAMP)
+  (if-not-zero (will-remain-constant! STAMP)
                (vanishes! (next CT))))
 
 (defconstraint oli-incrementation (:guard OLI)
@@ -148,9 +163,9 @@
 ;;                                     ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defconstraint set-oli-mli ()
-  (if (== 0 (+ IS_BYTE IS_SIGNEXTEND))
+  (if-zero (+ IS_BYTE IS_SIGNEXTEND)
            (vanishes! OLI)
-           (if (== 0 ARG_1_HI)
+           (if-zero ARG_1_HI
                     (vanishes! OLI)
                     (eq! OLI 1))))
 
@@ -195,7 +210,7 @@
 ;; 2.8.4 SMALL constraints
 (defconstraint small ()
   (if-eq CT LLARGEMO
-         (if (== 0 ARG_1_HI)
+         (if-zero ARG_1_HI
                   (if-eq-else ARG_1_LO (+ (* 16 (shift BITS -4))
                                  (* 8 (shift BITS -3))
                                  (* 4 (shift BITS -2))

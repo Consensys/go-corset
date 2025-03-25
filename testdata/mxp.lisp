@@ -163,8 +163,8 @@
 (defconstraint noop-consequences (:guard NOOP)
   (begin (vanishes! QUAD_COST)
          (vanishes! LIN_COST)
-         (== WORDS_NEW WORDS)
-         (== C_MEM_NEW C_MEM)))
+         (eq! WORDS_NEW WORDS)
+         (eq! C_MEM_NEW C_MEM)))
 
 ;;;;;;;;;;;;;;;;;;;;
 ;;                ;;
@@ -238,7 +238,7 @@
        (reduce + (for i [5] [MXP_TYPE i]))))
 
 (defconstraint counter-reset ()
-  (if-not (will-remain-constant! STAMP)
+  (if-not-zero (will-remain-constant! STAMP)
                (vanishes! (next CT))))
 
 (defconstraint stamp-increment-when-roob-or-noop ()

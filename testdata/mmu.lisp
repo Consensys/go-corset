@@ -307,8 +307,8 @@
      (* 13 IS_BLAKE)))
 
 (defun (is-any-to-ram-with-padding)
-  (+ IS_ANY_TO_RAM_WITH_PADDING_SOME_DATA
-     IS_ANY_TO_RAM_WITH_PADDING_PURE_PADDING))
+  (+    IS_ANY_TO_RAM_WITH_PADDING_SOME_DATA
+        IS_ANY_TO_RAM_WITH_PADDING_PURE_PADDING))
 
 (defun (inst-flag-sum)
   (+ IS_MLOAD
