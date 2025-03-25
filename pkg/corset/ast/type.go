@@ -214,7 +214,7 @@ func (p *NativeType) AsUnderlying() sc.Type {
 func (p *NativeType) SubtypeOf(other Type) bool {
 	if o, ok := other.(*NativeType); ok && p.datatype.SubtypeOf(o.datatype) {
 		// An interpreted type can flow into an uninterpreted type.
-		return (!o.loobean && !o.boolean) || p == o
+		return (!o.loobean && !o.boolean) || (p.loobean == o.loobean && p.boolean == o.boolean)
 	}
 	//
 	return false

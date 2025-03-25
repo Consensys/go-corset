@@ -163,8 +163,8 @@
 (defconstraint noop-consequences (:guard NOOP)
   (begin (vanishes! QUAD_COST)
          (vanishes! LIN_COST)
-         (= WORDS_NEW WORDS)
-         (= C_MEM_NEW C_MEM)))
+         (eq! WORDS_NEW WORDS)
+         (eq! C_MEM_NEW C_MEM)))
 
 ;;;;;;;;;;;;;;;;;;;;
 ;;                ;;
@@ -225,7 +225,7 @@
   (vanishes! STAMP))
 
 (defconstraint stamp-increments ()
-  (any! (will-remain-constant! STAMP) (will-inc! STAMP 1)))
+  (or! (will-remain-constant! STAMP) (will-inc! STAMP 1)))
 
 (defconstraint automatic-vanishing-when-padding ()
   (if-zero STAMP
@@ -260,7 +260,7 @@
 
 (defconstraint final-row (:domain {-1})
   (if-not-zero STAMP
-               (if-zero (force-bool (+ ROOB NOOP))
+               (if-zero (+ ROOB NOOP)
                         (eq! CT (if-zero MXPX
                                       CT_MAX_NON_TRIVIAL
                                       CT_MAX_NON_TRIVIAL_BUT_MXPX)))))

@@ -137,8 +137,8 @@
   (if-eq BIT_NUM ONETWOEIGHT (vanishes! 1)))
 
 (defconstraint last-row (:domain {-1} :guard STAMP) ;; ""
-  (begin (debug (= OLI 1))
-         (= INST EVM_INST_EXP)
+  (begin (debug (eq! OLI 1))
+         (eq! INST EVM_INST_EXP)
          (vanishes! ARG_1_HI)
          (vanishes! ARG_1_LO)
          (vanishes! ARG_2_HI)
@@ -148,11 +148,11 @@
 
 (defun (first-row)
   (if-not-zero (- (prev STAMP) STAMP)
-               (begin (= SNM 1)
-                      (= EBIT 1)
-                      (= EACC 1)
+               (begin (eq! SNM 1)
+                      (eq! EBIT 1)
+                      (eq! EACC 1)
                       (if-zero ARG_2_HI
-                               (= ESRC 1)
+                               (eq! ESRC 1)
                                (vanishes! ESRC)))))
 
 ;; exponent-bit-source-is-high-limb applies when ESRC == 0
@@ -173,7 +173,7 @@
                (if-eq-else BIT_NUM ONETWOSEVEN
                            ;; (ARG_2_HI != 0) et (BIT_NUM == 127)
                            (begin (will-inc! STAMP 1)
-                                  (= EACC ARG_2_LO))
+                                  (eq! EACC ARG_2_LO))
                            ;; (ARG_2_HI != 0) et (BIT_NUM != 127)
                            (begin (vanishes! (next SNM))
                                   (will-remain-constant! STAMP)
@@ -251,24 +251,24 @@
                (vanishes! TINYB)
                (if-not-zero (* ARG_1_LO (- 1 ARG_1_LO))
                             (vanishes! TINYB)
-                            (= TINYB 1))))
+                            (eq! TINYB 1))))
 
 (defconstraint tiny-exponent (:guard STAMP)
   (if-not-zero ARG_2_HI
                (vanishes! TINYE)
                (if-not-zero (* ARG_2_LO (- 1 ARG_2_LO))
                             (vanishes! TINYE)
-                            (= TINYE 1))))
+                            (eq! TINYE 1))))
 
 (defconstraint result-vanishes! (:guard STAMP)
   (if-not-zero RES_HI
                (vanishes! RESV)
                (if-not-zero RES_LO
                             (vanishes! RESV)
-                            (= RESV 1))))
+                            (eq! RESV 1))))
 
 (defconstraint one-line-instruction (:guard STAMP)
-  (= (+ OLI (* TINYB TINYE))
+  (eq! (+ OLI (* TINYB TINYE))
      (+ TINYB TINYE)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -285,12 +285,12 @@
                              ;; i.e. INST == MUL
                              (begin (if-eq TINYE 1
                                            ;; i.e. ARG_2 = ARG_2_LO ∈ {0, 1}
-                                           (begin (= RES_HI (* ARG_2_LO ARG_1_HI))
-                                                  (= RES_LO (* ARG_2_LO ARG_1_LO))))
+                                           (begin (eq! RES_HI (* ARG_2_LO ARG_1_HI))
+                                                  (eq! RES_LO (* ARG_2_LO ARG_1_LO))))
                                     (if-eq TINYB 1
                                            ;; i.e. ARG_1 = ARG_1_LO ∈ {0, 1}
-                                           (begin (= RES_HI (* ARG_1_LO ARG_2_HI))
-                                                  (= RES_LO (* ARG_1_LO ARG_2_LO))))))
+                                           (begin (eq! RES_HI (* ARG_1_LO ARG_2_HI))
+                                                  (eq! RES_LO (* ARG_1_LO ARG_2_LO))))))
                 (if-not-zero (- INST EVM_INST_MUL)
                              ;; i.e. INST == EXP
                              (begin (if-eq-else TINYE 1
@@ -298,14 +298,14 @@
                                                 (begin (if-not-zero (- ARG_2_LO 1)
                                                                     ;; Thus ARG_2_LO != 1 <=> ARG_2_LO == 0
                                                                     (begin (vanishes! RES_HI)
-                                                                           (= RES_LO 1)))
+                                                                           (eq! RES_LO 1)))
                                                        (if-not-zero ARG_2_LO
                                                                     ;; Thus ARG_2_LO != 0 <=> ARG_2_LO == 1
-                                                                    (begin (= RES_HI ARG_1_HI)
-                                                                           (= RES_LO ARG_1_LO))))
+                                                                    (begin (eq! RES_HI ARG_1_HI)
+                                                                           (eq! RES_LO ARG_1_LO))))
                                                 ;; TINYE == 0 but OLI == 1 thus TINYB == 1
-                                                (begin (= RES_HI ARG_1_HI)
-                                                       (= RES_LO ARG_1_LO))))))))
+                                                (begin (eq! RES_HI ARG_1_HI)
+                                                       (eq! RES_LO ARG_1_LO))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;
 ;;                   ;;
@@ -365,17 +365,17 @@
          ;; i.e. if INST == MUL
          (if-not-zero (- INST EVM_INST_EXP)
                       ;; byte decomposition constraints
-                      (begin (= ARG_1_HI
+                      (begin (eq! ARG_1_HI
                                 (+ (* THETA (A_3)) (A_2)))
-                             (= ARG_1_LO
+                             (eq! ARG_1_LO
                                 (+ (* THETA (A_1)) (A_0)))
-                             (= ARG_2_HI
+                             (eq! ARG_2_HI
                                 (+ (* THETA (B_3)) (B_2)))
-                             (= ARG_2_LO
+                             (eq! ARG_2_LO
                                 (+ (* THETA (B_1)) (B_0)))
-                             (= RES_HI
+                             (eq! RES_HI
                                 (+ (* THETA (C_3)) (C_2)))
-                             (= RES_LO
+                             (eq! RES_LO
                                 (+ (* THETA (C_1)) (C_0)))
                              ;; multiplication per se
                              (set-multiplication (A_3)
@@ -409,7 +409,7 @@
   (if-eq-else CT MMEDIUMMO
               (if-zero (A_0)
                        (vanishes! BYTE_C_0)
-                       (= BYTE_C_0 1))
+                       (eq! BYTE_C_0 1))
               (will-remain-constant! BYTE_C_0)))
 
 (defun (preparations-for-a-lower-bound-on-the-2-adicity-of-the-base)
@@ -445,14 +445,14 @@
          (if-eq-else (test-for-bytehood-of-arg-2) BYTE_B_0
                      ;; ARG_2 is a byte
                      (begin (if-not-zero BYTE_C_0
-                                         (= (* (B_0) (nu2-byte-c-0-equals-1)) (+ 256 (H_1))))
+                                         (eq! (* (B_0) (nu2-byte-c-0-equals-1)) (+ 256 (H_1))))
                             (if-not-zero (- 1 BYTE_C_0)
-                                         (= (* (B_0) (nu2-byte-c-0-equals-0)) (+ 256 (H_1)))))
+                                         (eq! (* (B_0) (nu2-byte-c-0-equals-0)) (+ 256 (H_1)))))
                      ;; ARG_2 isn't a byte
                      (begin (if-not-zero BYTE_C_0
-                                         (= (nu2-byte-c-0-equals-1) (+ 1 (H_1))))
+                                         (eq! (nu2-byte-c-0-equals-1) (+ 1 (H_1))))
                             (debug (if-not-zero (- 1 BYTE_C_0)
-                                                (= (nu2-byte-c-0-equals-0) (+ 1 (H_1)))))))))
+                                                (eq! (nu2-byte-c-0-equals-0) (+ 1 (H_1)))))))))
 
 (defconstraint prepare-lower-bound-on-the-2-adicity-of-the-base ()
   ;; sincde we will later impose RESV == 1 we will have
@@ -463,14 +463,14 @@
                         (if-not-zero RESV
                                      ;; target constraints
                                      (begin (if-eq CT MMEDIUMMO
-                                                   (begin (= ARG_1_HI
+                                                   (begin (eq! ARG_1_HI
                                                              (+ (* THETA (A_3)) (A_2)))
-                                                          (= ARG_1_LO
+                                                          (eq! ARG_1_LO
                                                              (+ (* THETA (A_1)) (A_0)))
                                                           ;;
-                                                          (= ARG_2_HI
+                                                          (eq! ARG_2_HI
                                                              (+ (* THETA (B_3)) (B_2)))
-                                                          (= ARG_2_LO
+                                                          (eq! ARG_2_LO
                                                              (+ (* THETA (B_1)) (B_0)))))
                                             (if-not-zero ARG_1_LO
                                                          (begin (special-constraints-for-byte-c-0)
@@ -484,16 +484,16 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun (target-arg1)
-  (begin (= ARG_1_HI
+  (begin (eq! ARG_1_HI
             (+ (* THETA (A_3)) (A_2)))
-         (= ARG_1_LO
+         (eq! ARG_1_LO
             (+ (* THETA (A_1)) (A_0)))))
 
 (defun (first-square-and-multiply)
   (if-not-zero (- (shift STAMP -8) STAMP)
-               (begin (= ARG_1_HI
+               (begin (eq! ARG_1_HI
                          (+ (* THETA (C_3)) (C_2)))
-                      (= ARG_1_LO
+                      (eq! ARG_1_LO
                          (+ (* THETA (C_1)) (C_0))))))
 
 (defun (subsequent-square-and-multiply)
@@ -544,9 +544,9 @@
 
 (defun (final-square-and-multiply)
   (if-not-zero (will-remain-constant! STAMP)
-               (begin (= RES_HI
+               (begin (eq! RES_HI
                          (+ (* THETA (C_3)) (C_2)))
-                      (= RES_LO
+                      (eq! RES_LO
                          (+ (* THETA (C_1)) (C_0))))))
 
 (defconstraint nontrivial-exp-regime-nonzero-result ()
@@ -568,16 +568,16 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                 (begin
                     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-                    (=  (+ (* a_1 b_0) (* a_0 b_1))
+                    (eq!  (+ (* a_1 b_0) (* a_0 b_1))
                         (+ (* THETA2 alpha) (* THETA h_1) h_0))
                     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-                    (=  (+ (* a_3 b_0) (* a_2 b_1) (* a_1 b_2) (* a_0 b_3))
+                    (eq!  (+ (* a_3 b_0) (* a_2 b_1) (* a_1 b_2) (* a_0 b_3))
                         (+ (* THETA2 beta) (* THETA h_3) h_2))
                     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-                    (=  (+ (* a_0 b_0) (* THETA h_0))
+                    (eq!  (+ (* a_0 b_0) (* THETA h_0))
                         (+ (* THETA2 eta) (* THETA p_1) p_0))
                     ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-                    (=  (+ eta h_1 (* THETA alpha) (* a_2 b_0) (* a_1 b_1) (* a_0 b_2) (* THETA h_2))
+                    (eq!  (+ eta h_1 (* THETA alpha) (* a_2 b_0) (* a_1 b_1) (* a_0 b_2) (* THETA h_2))
                         (+ (* THETA2 mu) (* THETA p_3) p_2))))
 
 
@@ -594,12 +594,12 @@
                         (if-not-zero (- ct MMEDIUMMO)
                             (if-not-zero (- 1 x)            ; (see REMARK)
                                 (if-not-zero (next x)       ; (see REMARK)
-                                    (= cst bytes))))
+                                    (eq! cst bytes))))
                         (if-eq ct MMEDIUMMO
                             (begin
                                 (if-not-zero (- 1 x)        ; (see REMARK)
-                                    (= cst bytes))
-                                (= cst (bit-decomposition-of-byte bits))))))
+                                    (eq! cst bytes))
+                                (eq! cst (bit-decomposition-of-byte bits))))))
 ;; REMARK:
 ;; within the scope of prepare-lower-bound-on-two-adicity
 ;; the running-total applies so that x and y are forced to
