@@ -5,7 +5,7 @@
     (ARG :i16))
 
 (defconstraint bits ()
-  (- ARG
+  (== ARG
      (+
       (* 1 [BIT 1])
       (* 2 [BIT 2])

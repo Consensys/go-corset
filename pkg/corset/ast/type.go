@@ -36,6 +36,10 @@ type Type interface {
 	// example, an array of size n will expand into n underlying columns.
 	Width() uint
 
+	// Determines whether or not this type has an underlying representation, or
+	// not.
+	HasUnderlying() bool
+
 	// Produce a string representation of this type.
 	String() string
 }
@@ -90,6 +94,12 @@ func NewUintType(nbits uint) Type {
 // lower and upper bounds (inclusive).
 func NewIntType(lower *big.Int, upper *big.Int) *IntType {
 	return &IntType{util.NewInterval(lower, upper)}
+}
+
+// HasUnderlying determines whether or not this type has an underlying
+// representation, or not.
+func (p *IntType) HasUnderlying() bool {
+	return p.values != nil
 }
 
 // AsUnderlying converts this integer type into an underlying type.
@@ -157,10 +167,10 @@ func (p *IntType) String() string {
 	if p.values != nil {
 		width := p.values.BitWidth()
 		if p.values.Contains(big.NewInt(-1)) {
-			return fmt.Sprintf("int%d", width)
+			return fmt.Sprintf("i%d", width)
 		}
 		//
-		return fmt.Sprintf("uint%d", width)
+		return fmt.Sprintf("u%d", width)
 	}
 	//
 	return "int"
@@ -183,6 +193,12 @@ type BooleanType struct {
 // For example, an array of size n will expand into n underlying columns.
 func (p *BooleanType) Width() uint {
 	return 1
+}
+
+// HasUnderlying determines whether or not this type has an underlying
+// representation, or not.
+func (p *BooleanType) HasUnderlying() bool {
+	return false
 }
 
 // LeastUpperBound computes the least upper bound of this type and another. This
@@ -225,6 +241,12 @@ type ArrayType struct {
 // NewArrayType constructs a new array type of a given (fixed) size.
 func NewArrayType(element Type, min uint, max uint) *ArrayType {
 	return &ArrayType{element, min, max}
+}
+
+// HasUnderlying determines whether or not this type has an underlying
+// representation, or not.
+func (p *ArrayType) HasUnderlying() bool {
+	return p.element.HasUnderlying()
 }
 
 // Width returns the number of underlying columns represented by this column.

@@ -785,16 +785,20 @@ func (r *resolver) finaliseInvokeInModule(scope LocalScope, expr *ast.Invoke) []
 	errors := r.finaliseExpressionsInModule(scope, expr.Args)
 	// Lookup the corresponding function definition.
 	if !expr.Name.IsResolved() && !scope.Bind(expr.Name) {
-		return append(errors, *r.srcmap.SyntaxError(expr, "unknown function"))
+		return append(errors, *r.srcmap.SyntaxError(expr.Name, "unknown function"))
 	}
 	// Following must be true if we get here.
 	binding := expr.Name.Binding().(ast.FunctionBinding)
 	// Check purity
 	if scope.IsPure() && !binding.IsPure() {
-		errors = append(errors, *r.srcmap.SyntaxError(expr, "not permitted in pure context"))
+		errors = append(errors, *r.srcmap.SyntaxError(expr.Name, "not permitted in pure context"))
 	}
 	// Check provide correct number of arguments
-	if binding.Signature().Arity() != uint(len(expr.Args)) {
+	if binding.Signature() == nil {
+		// NOTE: this should only be possible for native definitions which, at
+		// the time of writing, cannot be called from arbitrary expressions.
+		errors = append(errors, *r.srcmap.SyntaxError(expr.Name, "native invocation not permitted"))
+	} else if binding.Signature().Arity() != uint(len(expr.Args)) {
 		msg := fmt.Sprintf("incorrect number of arguments (found %d)", len(expr.Args))
 		errors = append(errors, *r.srcmap.SyntaxError(expr, msg))
 	}

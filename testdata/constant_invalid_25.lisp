@@ -1,5 +1,4 @@
-;;error:13:58-64:not permitted in const context
-(defpurefun ((eq! :𝔽) x y) (- x y))
+;;error:12:58-64:not permitted in const context
 
 (defcolumns
   (C :byte)
@@ -13,6 +12,6 @@
   (LLARGEMO :extern)                                  (- LLARGE 1))
 
 (defconstraint bits-and-negs (:guard L)
-  (if (eq! C LLARGEMO)
-      (eq! N
+  (if (== C LLARGEMO)
+      (== N
 	   (shift B (- 0 LLARGEMO)))))

@@ -1,4 +1,4 @@
-;;error:6:26-29:invalid condition (neither loobean nor boolean)
+;;error:6:26-29:expected bool, found u8
 (defcolumns
     (BIT :i8)
     (X :i8))

@@ -309,9 +309,7 @@ func (p *typeChecker) typeCheckExpressionInModule(expected ast.Type, expr ast.Ex
 		return nil, p.srcmap.SyntaxErrors(expr, msg)
 	}
 	// Error check
-	if result == nil && len(errors) == 0 {
-		return nil, p.srcmap.SyntaxErrors(expr, "internal failure")
-	} else if expected != nil && result != nil && !result.SubtypeOf(expected) {
+	if expected != nil && result != nil && !result.SubtypeOf(expected) {
 		msg := fmt.Sprintf("expected %s, found %s", expected.String(), result.String())
 		return nil, p.srcmap.SyntaxErrors(expr, msg)
 	}
@@ -365,24 +363,28 @@ func (p *typeChecker) typeCheckInvokeInModule(expr *ast.Invoke) (ast.Type, []Syn
 	var errors []SyntaxError
 	//
 	if binding, ok := expr.Name.Binding().(ast.FunctionBinding); ok {
-		sig := binding.Signature()
-		//
-		for i := uint(0); i != sig.Arity(); i++ {
-			_, errs := p.typeCheckExpressionInModule(sig.Parameter(i), expr.Args[i])
-			errors = append(errors, errs...)
+		// Sanity check this is not an invocation on a native definition (which,
+		// currently, do not have signatures).
+		if sig := binding.Signature(); sig != nil {
+			//
+			for i := uint(0); i != sig.Arity(); i++ {
+				_, errs := p.typeCheckExpressionInModule(sig.Parameter(i), expr.Args[i])
+				errors = append(errors, errs...)
+			}
+			// Check whether return type given (or not).
+			if ret := sig.Return(); ret != nil {
+				return ret, errors
+			}
+			// TODO: this is potentially expensive, and it would likely be good if we
+			// could avoid it.
+			body := sig.Apply(expr.Args, p.srcmap)
+			// Dig out the type
+			return p.typeCheckExpressionInModule(nil, body)
 		}
-		// Check whether return type given (or not).
-		if ret := sig.Return(); ret != nil {
-			return ret, errors
-		}
-		// TODO: this is potentially expensive, and it would likely be good if we
-		// could avoid it.
-		body := sig.Apply(expr.Args, p.srcmap)
-		// Dig out the type
-		return p.typeCheckExpressionInModule(nil, body)
 	}
-	//
-	return nil, p.srcmap.SyntaxErrors(expr, "unbound function")
+	// No need to report an error here, as one would already have been reported
+	// during resolution.
+	return nil, nil
 }
 
 func (p *typeChecker) typeCheckLetInModule(expr *ast.Let) (ast.Type, []SyntaxError) {
@@ -431,8 +433,9 @@ func (p *typeChecker) typeCheckReduceInModule(expr *ast.Reduce) (ast.Type, []Syn
 		//
 		return body_t, nil
 	}
-	//
-	return nil, p.srcmap.SyntaxErrors(expr, "unbound function")
+	// No need to report an error here, as one would already have been reported
+	// during resolution.
+	return nil, nil
 }
 
 func (p *typeChecker) typeCheckVariableInModule(expr *ast.VariableAccess) (ast.Type, []SyntaxError) {

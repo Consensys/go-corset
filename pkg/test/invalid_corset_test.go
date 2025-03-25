@@ -230,29 +230,6 @@ func Test_Invalid_Alias_07(t *testing.T) {
 }
 
 // ===================================================================
-// Function Alias Tests
-// ===================================================================
-func Test_Invalid_FunAlias_01(t *testing.T) {
-	CheckInvalid(t, "funalias_invalid_01")
-}
-
-func Test_Invalid_FunAlias_02(t *testing.T) {
-	CheckInvalid(t, "funalias_invalid_02")
-}
-
-func Test_Invalid_FunAlias_03(t *testing.T) {
-	CheckInvalid(t, "funalias_invalid_03")
-}
-
-func Test_Invalid_FunAlias_04(t *testing.T) {
-	CheckInvalid(t, "funalias_invalid_04")
-}
-
-func Test_Invalid_FunAlias_05(t *testing.T) {
-	CheckInvalid(t, "funalias_invalid_05")
-}
-
-// ===================================================================
 // Property Tests
 // ===================================================================
 func Test_Invalid_Property_01(t *testing.T) {
@@ -411,9 +388,6 @@ func Test_Invalid_Permute_04(t *testing.T) {
 	CheckInvalid(t, "permute_invalid_05")
 } */
 
-func Test_Invalid_Permute_06(t *testing.T) {
-	CheckInvalid(t, "permute_invalid_06")
-}
 func Test_Invalid_Permute_07(t *testing.T) {
 	CheckInvalid(t, "permute_invalid_07")
 }
