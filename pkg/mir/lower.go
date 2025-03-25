@@ -342,7 +342,7 @@ func lowerConstraintTo(ctx trace.Context, c Constraint, mirSchema *Schema, airSc
 	//
 	for i, t := range c.terms {
 		// Apply constant propagation
-		t1 := constantPropagationForTerm(t, airSchema)
+		t1 := constantPropagationForTerm(t, false, airSchema)
 		// Lower properly
 		es[i] = lowerTermToInner(ctx, t1, mirSchema, airSchema, cfg)
 	}
@@ -363,7 +363,7 @@ func lowerConstraintTo(ctx trace.Context, c Constraint, mirSchema *Schema, airSc
 func lowerExprTo(ctx trace.Context, e1 Expr, mirSchema *Schema, airSchema *air.Schema,
 	cfg OptimisationConfig) air.Expr {
 	// Apply constant propagation
-	t1 := constantPropagationForTerm(e1.term, airSchema)
+	t1 := constantPropagationForTerm(e1.term, false, airSchema)
 	// Lower properly
 	return lowerTermToInner(ctx, t1, mirSchema, airSchema, cfg)
 }
