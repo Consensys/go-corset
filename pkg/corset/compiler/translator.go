@@ -305,7 +305,7 @@ func (t *translator) translateDefConstraint(decl *ast.DefConstraint, module util
 		// NOTE: using an ifnot (as above) would be preferable here.  However,
 		// this is currently done just to ensure constraints identical to the
 		// original are generated.
-		constraint = hir.Product(selector, constraint)
+		constraint = hir.If(selector, hir.VOID, constraint)
 	}
 	//
 	if len(errors) == 0 {
