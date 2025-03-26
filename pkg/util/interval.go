@@ -46,6 +46,11 @@ func NewInterval64(lower int64, upper int64) *Interval {
 // BitWidth returns the minimum number of bits required to store all elements in
 // this interval.
 func (p *Interval) BitWidth() uint {
+	// If range includes a negative number, then bitwidth is maximum possible.
+	if p.min.Cmp(big.NewInt(0)) < 0 {
+		return 256
+	}
+	//
 	return uint(p.max.BitLen())
 }
 
