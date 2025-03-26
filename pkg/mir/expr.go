@@ -126,7 +126,7 @@ func (e Expr) Branches() uint {
 
 // Simplify this expression by applying, for example, constant propagation.
 func (e Expr) Simplify() Expr {
-	// Apply constant propagation
+	// Apply constant propagation (whilst retaining casts)
 	term := constantPropagationForTerm(e.term, true, nil)
 	// That's all for now!
 	return Expr{term}

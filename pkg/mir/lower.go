@@ -22,42 +22,7 @@ import (
 	air_gadgets "github.com/consensys/go-corset/pkg/air/gadgets"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
-	"github.com/consensys/go-corset/pkg/util"
 )
-
-// OptimisationConfig provides a mechanism for controlling how optimisations are
-// applied during MIR lowering.
-type OptimisationConfig struct {
-	// InverseEliminationLevel sets an upper bound on the range cardinality at
-	// which inverses will be eliminated in favour of constraints.  A level of 0
-	// means no inverses will be eliminated, a range of 1 means only trivial
-	// ranges (i.e. {-1,0}, {0,1} and {-1,0,1}) will be eliminated; Otherwise,
-	// the level indicates the range cardinality.  For example, level 2 means
-	// any range of cardinality 2 is eliminated (e.g. {1,2}, {5,6}, etc).
-	InverseEliminiationLevel uint
-	// MaxRangeConstraint determines an upper bound on which MIR range
-	// constraints are translated in AIR range constraints, versus using a
-	// horizontal bitwidth gadget.
-	MaxRangeConstraint uint
-	// ShiftNormalisation is an optimisation for inverse columns involving
-	// shifts.
-	ShiftNormalisation bool
-}
-
-// OPTIMISATION_LEVELS provides a set of precanned optimisation configurations.
-// Here 0 implies no optimisation and, otherwise, increasing levels implies
-// increasingly aggressive optimisation (though that doesn't mean they will
-// always improve performance).
-var OPTIMISATION_LEVELS = []OptimisationConfig{
-	// Level 0 == nothing enabled
-	{0, 256, false},
-	// Level 1 == minimal optimisations applied.
-	{1, 256, true},
-}
-
-// DEFAULT_OPTIMISATION_LEVEL provides a default level of optimisation which
-// should be used in most cases.
-var DEFAULT_OPTIMISATION_LEVEL = OPTIMISATION_LEVELS[1]
 
 // LowerToAir lowers (or refines) an MIR table into an AIR schema.  That means
 // lowering all the columns and constraints, whilst adding additional columns /
@@ -341,8 +306,10 @@ func lowerConstraintTo(ctx trace.Context, c Constraint, mirSchema *Schema, airSc
 	es := make([]air.Expr, len(c.terms))
 	//
 	for i, t := range c.terms {
+		// Optimise normalisations
+		t1 := eliminateNormalisationInTerm(t, mirSchema, cfg)
 		// Apply constant propagation
-		t1 := constantPropagationForTerm(t, false, airSchema)
+		t1 = constantPropagationForTerm(t1, false, airSchema)
 		// Lower properly
 		es[i] = lowerTermToInner(ctx, t1, mirSchema, airSchema, cfg)
 	}
@@ -362,8 +329,10 @@ func lowerConstraintTo(ctx trace.Context, c Constraint, mirSchema *Schema, airSc
 // should be located.
 func lowerExprTo(ctx trace.Context, e1 Expr, mirSchema *Schema, airSchema *air.Schema,
 	cfg OptimisationConfig) air.Expr {
+	// Optimise normalisations
+	t1 := eliminateNormalisationInTerm(e1.term, mirSchema, cfg)
 	// Apply constant propagation
-	t1 := constantPropagationForTerm(e1.term, false, airSchema)
+	t1 = constantPropagationForTerm(t1, false, airSchema)
 	// Lower properly
 	return lowerTermToInner(ctx, t1, mirSchema, airSchema, cfg)
 }
@@ -389,19 +358,8 @@ func lowerTermToInner(ctx trace.Context, e Term, mirSchema *Schema, airSchema *a
 		args := lowerTerms(ctx, e.Args, mirSchema, airSchema, cfg)
 		return air.Product(args...)
 	case *Norm:
-		bounds := rangeOfTerm(e.Arg, mirSchema)
 		// Lower the expression being normalised
 		arg := lowerTermToInner(ctx, e.Arg, mirSchema, airSchema, cfg)
-		// Check whether normalisation actually required.  For example, if the
-		// argument is just a binary column then a normalisation is not actually
-		// required.
-		if cfg.InverseEliminiationLevel > 0 && bounds.Within(util.NewInterval64(0, 1)) {
-			// arg ∈ {0,1} ==> normalised already :)
-			return arg
-		} else if cfg.InverseEliminiationLevel > 0 && bounds.Within(util.NewInterval64(-1, 1)) {
-			// arg ∈ {-1,0,1} ==> (arg*arg) ∈ {0,1}
-			return air.Product(arg, arg)
-		}
 		// Determine appropriate shift
 		shift := 0
 		//  Apply shift normalisation (if enabled)
