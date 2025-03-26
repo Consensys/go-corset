@@ -133,6 +133,7 @@ func (p *RangeConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
 			return coverage, &sc.InternalFailure{
 				Handle: p.Handle,
 				Row:    uint(k),
+				Term:   p.Expr,
 				Error:  err.Error(),
 			}
 		} else if kth.Cmp(&p.Bound) >= 0 {

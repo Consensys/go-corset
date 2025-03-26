@@ -143,26 +143,20 @@ func (p *LookupConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) 
 	rows := hash.NewSet[hash.BytesKey](tgt_height)
 	// Add all target columns to the set
 	for i := 0; i < int(tgt_height); i++ {
-		ith_bytes, err := evalExprsAsBytes(i, p.Targets, tr)
+		ith_bytes, err := evalExprsAsBytes(i, p.Targets, p.Handle, tr)
 		// error check
 		if err != nil {
-			return coverage, &sc.InternalFailure{
-				Handle: p.Handle, Row: uint(i), Error: err.Error(),
-			}
+			return coverage, err
 		}
 
 		rows.Insert(hash.NewBytesKey(ith_bytes))
 	}
 	// Check all source columns are contained
 	for i := 0; i < int(src_height); i++ {
-		ith_bytes, err := evalExprsAsBytes(i, p.Sources, tr)
+		ith_bytes, err := evalExprsAsBytes(i, p.Sources, p.Handle, tr)
 		// error check
 		if err != nil {
-			return coverage, &sc.InternalFailure{
-				Handle: p.Handle,
-				Row:    uint(i),
-				Error:  err.Error(),
-			}
+			return coverage, err
 		}
 		// Check whether contained.
 		if !rows.Contains(hash.NewBytesKey(ith_bytes)) {
@@ -173,7 +167,7 @@ func (p *LookupConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) 
 	return coverage, nil
 }
 
-func evalExprsAsBytes[E schema.Evaluable](k int, sources []E, tr trace.Trace) ([]byte, error) {
+func evalExprsAsBytes[E schema.Evaluable](k int, sources []E, handle string, tr trace.Trace) ([]byte, schema.Failure) {
 	// Each fr.Element is 4 x 64bit words.
 	bytes := make([]byte, 32*len(sources))
 	// Slice provides an access window for writing
@@ -183,7 +177,9 @@ func evalExprsAsBytes[E schema.Evaluable](k int, sources []E, tr trace.Trace) ([
 		ith, err := sources[i].EvalAt(k, tr)
 		// error check
 		if err != nil {
-			return nil, err
+			return nil, &sc.InternalFailure{
+				Handle: handle, Row: uint(i), Term: sources[i], Error: err.Error(),
+			}
 		}
 		// Copy over each element
 		binary.BigEndian.PutUint64(slice, ith[0])
