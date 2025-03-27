@@ -70,12 +70,10 @@ var checkCmd = &cobra.Command{
 		cfg.reportPadding = GetUint(cmd, "report-context")
 		cfg.reportCellWidth = GetUint(cmd, "report-cellwidth")
 		cfg.spillage = GetInt(cmd, "spillage")
-		cfg.strict = !GetFlag(cmd, "warn")
 		cfg.corsetConfig.Stdlib = !GetFlag(cmd, "no-stdlib")
 		cfg.corsetConfig.Debug = GetFlag(cmd, "debug")
 		cfg.corsetConfig.Legacy = GetFlag(cmd, "legacy")
 		cfg.corsetConfig.Strict = GetFlag(cmd, "strict")
-		cfg.quiet = GetFlag(cmd, "quiet")
 		cfg.padding.Right = GetUint(cmd, "padding")
 		cfg.parallel = !GetFlag(cmd, "sequential")
 		cfg.batchSize = GetUint(cmd, "batch")
@@ -142,12 +140,6 @@ type checkConfig struct {
 	spillage int
 	// Determines how much padding to use
 	padding util.Pair[uint, uint]
-	// Suppress output (e.g. warnings)
-	quiet bool
-	// Specified whether strict checking is performed or not.  This is enabled
-	// by default, and ensures the tool fails with an error in any unexpected or
-	// unusual case.
-	strict bool
 	// Specifies whether or not to perform trace expansion.  Trace expansion is
 	// not required when a "raw" trace is given which already includes all
 	// implied columns.
@@ -226,9 +218,9 @@ func checkTrace(ir string, traces [][]tr.RawColumn, schema sc.Schema,
 			// Log cost of expansion
 			stats.Log("Expanding trace columns")
 			// Report any errors
-			reportErrors(cfg.strict, ir, errs)
+			reportErrors(ir, errs)
 			// Check whether considered unrecoverable
-			if trace == nil || (cfg.strict && len(errs) > 0) {
+			if trace == nil || len(errs) > 0 {
 				return false, coverage
 			}
 			//
@@ -260,7 +252,7 @@ func reportFailures(ir string, failures []sc.Failure, trace tr.Trace, cfg checkC
 		errs[i] = errors.New(f.Message())
 	}
 	// First, log errors
-	reportErrors(true, ir, errs)
+	reportErrors(ir, errs)
 	// Second, produce report (if requested)
 	if cfg.report {
 		for _, f := range failures {
@@ -318,7 +310,7 @@ func reportRelevantCells(cells *set.AnySortedSet[tr.CellRef], trace tr.Trace, cf
 	fmt.Println()
 }
 
-func reportErrors(error bool, ir string, errs []error) {
+func reportErrors(ir string, errs []error) {
 	// Construct set to ensure deduplicate errors
 	set := make(map[string]bool, len(errs))
 	//
@@ -328,11 +320,7 @@ func reportErrors(error bool, ir string, errs []error) {
 	}
 	// Report each one
 	for e := range set {
-		if error {
-			log.Errorln(e)
-		} else {
-			log.Warnln(e)
-		}
+		log.Errorln(e)
 	}
 }
 
@@ -345,11 +333,8 @@ func init() {
 	checkCmd.Flags().Bool("hir", false, "check at HIR level")
 	checkCmd.Flags().Bool("mir", false, "check at MIR level")
 	checkCmd.Flags().Bool("air", false, "check at AIR level")
-	checkCmd.Flags().BoolP("warn", "w", false, "report warnings instead of failing for certain errors"+
-		"(e.g. unknown columns in the trace)")
 	checkCmd.Flags().Bool("no-stdlib", false, "prevents the standard library from being included")
 	checkCmd.Flags().Bool("debug", false, "enable debugging constraints")
-	checkCmd.Flags().BoolP("quiet", "q", false, "suppress output (e.g. warnings)")
 	checkCmd.Flags().Bool("sequential", false, "perform sequential trace expansion")
 	checkCmd.Flags().Bool("defensive", true, "automatically apply defensive padding to every module")
 	checkCmd.Flags().Bool("validate", true, "apply trace validation")
