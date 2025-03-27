@@ -14,6 +14,7 @@ package compiler
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 
 	"github.com/consensys/go-corset/pkg/corset/ast"
@@ -326,7 +327,8 @@ func (r *resolver) declarationDependenciesAreFinalised(scope *ModuleScope,
 		symbol := iter.Next()
 		// Attempt to resolve
 		if !symbol.IsResolved() && !scope.Bind(symbol) {
-			errors = append(errors, *r.srcmap.SyntaxError(symbol, "unknown symbol"))
+			// try to report more useful error
+			errors = append(errors, r.constructUnknownSymbolError(symbol, scope))
 			// not finalised yet
 			finalised = false
 		} else {
@@ -881,4 +883,67 @@ func (r *resolver) finaliseVariableInModule(scope LocalScope, expr *ast.Variable
 	}
 	// Should be unreachable.
 	return r.srcmap.SyntaxErrors(expr, "unknown symbol kind")
+}
+
+// The purpose of this function is to construct a much more useful error message
+// than the default "unknown symbol".  For example, if we have use a function
+// but given an incorrect number of arguments, then we want to know this.
+func (r *resolver) constructUnknownSymbolError(symbol ast.Symbol, scope Scope) SyntaxError {
+	name := symbol.Path().Tail()
+	parent := symbol.Path().Parent()
+	//
+	if symbol.Arity().HasValue() {
+		var (
+			aboveArity int = math.MaxInt
+			belowArity int = math.MinInt
+			belowCount     = 0
+			aboveCount     = 0
+			arity          = symbol.Arity().Unwrap()
+		)
+		//
+		for _, bid := range scope.Bindings(*parent) {
+			if bid.name == name && bid.arity.HasValue() {
+				bidArity := bid.arity.Unwrap()
+				//
+				if bidArity < arity {
+					belowArity = max(belowArity, int(bidArity))
+					belowCount++
+				} else if bidArity > arity {
+					aboveArity = min(aboveArity, int(bidArity))
+					aboveCount++
+				}
+			}
+		}
+		// Report useful error if we found something.
+		if belowCount > 0 || aboveCount > 0 {
+			var (
+				str      string
+				belowStr = fmt.Sprintf("%d", belowArity)
+				aboveStr = fmt.Sprintf("%d", aboveArity)
+			)
+			//
+			if belowCount > 1 {
+				belowStr = fmt.Sprintf("%s (or less)", belowStr)
+			}
+			//
+			if aboveCount > 1 {
+				aboveStr = fmt.Sprintf("%s (or more)", aboveStr)
+			}
+			// Determine best error
+			if belowCount > 0 && aboveCount > 0 {
+				str = fmt.Sprintf("%s or %s", belowStr, aboveStr)
+			} else if aboveArity != math.MaxInt {
+				str = aboveStr
+			} else if belowArity != math.MinInt {
+				str = belowStr
+			}
+			//
+			msg := fmt.Sprintf("found %d arguments, expected %s", arity, str)
+			//
+			return *r.srcmap.SyntaxError(symbol, msg)
+		}
+	}
+	// Fall back on default.  We actually could do better here by trying to find
+	// the closest match.
+	return *r.srcmap.SyntaxError(symbol, "unknown symbol")
 }

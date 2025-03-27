@@ -531,10 +531,9 @@ func Test_Invalid_Fun_03(t *testing.T) {
 	CheckInvalid(t, "fun_invalid_03")
 }
 
-/*
 func Test_Invalid_Fun_04(t *testing.T) {
 	CheckInvalid(t, "fun_invalid_04")
-} */
+}
 
 // ===================================================================
 // Pure Functions

@@ -30,6 +30,9 @@ type Scope interface {
 	// symbol is then resolved with the appropriate binding.  Return value
 	// indicates whether successful or not.
 	Bind(ast.Symbol) bool
+
+	// Bindings returns all binding identifiers within a given path.
+	Bindings(util.Path) []BindingId
 }
 
 // BindingId is an identifier is used to distinguish different forms of binding,
@@ -251,6 +254,38 @@ func (p *ModuleScope) innerBind(path *util.Path, symbol ast.Symbol) bool {
 	}
 	// Otherwise, try traversing upwards.
 	return false
+}
+
+// Bindings returns all binding identifiers within a given path.
+func (p *ModuleScope) Bindings(path util.Path) []BindingId {
+	var bindings []BindingId
+	// Split the two cases: absolute versus relative.
+	if path.IsAbsolute() && p.parent != nil {
+		// Absolute path, and this is not the root scope.  Therefore, simply
+		// pass this up to the root scope for further processing.
+		return p.parent.Bindings(path)
+	} else if p.parent != nil {
+		bindings = p.parent.Bindings(path)
+	}
+	//
+	return append(bindings, p.innerBindings(path)...)
+}
+
+func (p *ModuleScope) innerBindings(path util.Path) []BindingId {
+	if path.Depth() == 0 {
+		var bindings []BindingId
+		//
+		for id, _ := range p.ids {
+			bindings = append(bindings, id)
+		}
+		//
+		return bindings
+	} else if submod, ok := p.submodmap[path.Head()]; ok {
+		// Looks like this could be in the child scope, so continue searching there.
+		return submod.innerBindings(*path.Dehead())
+	}
+	//
+	return nil
 }
 
 // Enter returns a given submodule within this module.
@@ -491,6 +526,29 @@ func (p LocalScope) Bind(symbol ast.Symbol) bool {
 	}
 	// No, this is not a local variable access.
 	return p.enclosing.Bind(symbol)
+}
+
+// Bindings returns all binding identifiers within a given path.
+func (p LocalScope) Bindings(path util.Path) []BindingId {
+	// Split the two cases: absolute versus relative.
+	if path.IsAbsolute() && p.enclosing != nil {
+		// Absolute path, and this is not the root scope.  Therefore, simply
+		// pass this up to the root scope for further processing.
+		return p.enclosing.Bindings(path)
+	} else if path.Depth() == 0 {
+		// Collage all binding ids.
+		bindings := make([]BindingId, len(p.locals))
+		i := 0
+		//
+		for name := range p.locals {
+			bindings[i] = BindingId{name, util.None[uint]()}
+			i++
+		}
+		//
+		return bindings
+	}
+	// nothing found
+	return nil
 }
 
 // DeclareLocal registers a new local variable (e.g. a parameter).
