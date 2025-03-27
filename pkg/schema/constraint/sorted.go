@@ -126,11 +126,12 @@ func (p *SortedConstraint[E]) Accepts(trace tr.Trace) (bit.Set, sc.Failure) {
 		for k := bounds.Start + 1; k < (height - bounds.End); k++ {
 			// Check selector
 			if p.Selector.HasValue() {
+				selector := p.Selector.Unwrap()
 				// Evaluate selector expression
-				val, err := p.Selector.Unwrap().EvalAt(int(k), trace)
+				val, err := selector.EvalAt(int(k), trace)
 				// Check whether active (or not)
 				if err != nil {
-					return coverage, &sc.InternalFailure{Handle: p.Handle, Row: k, Error: err.Error()}
+					return coverage, &sc.InternalFailure{Handle: p.Handle, Row: k, Term: selector, Error: err.Error()}
 				} else if val.IsZero() {
 					continue
 				}

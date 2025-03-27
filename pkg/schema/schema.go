@@ -271,12 +271,14 @@ func NewModule(name string) Module {
 // ============================================================================
 
 // InternalFailure is a generic mechanism for reporting failures, particularly
-// as arising ferom evaluation of a given expression.
+// as arising from evaluation of a given expression.
 type InternalFailure struct {
 	// Handle of the failing constraint
 	Handle string
 	// Row on which the constraint failed
 	Row uint
+	// Cells involved (if any)
+	Term Contextual
 	// Error message
 	Error string
 }
@@ -284,4 +286,13 @@ type InternalFailure struct {
 // Message provides a suitable error message
 func (p *InternalFailure) Message() string {
 	return p.Error
+}
+
+// RequiredCells identifies the cells required to evaluate the failing constraint at the failing row.
+func (p *InternalFailure) RequiredCells(trace tr.Trace) *set.AnySortedSet[tr.CellRef] {
+	if p.Term != nil {
+		return p.Term.RequiredCells(int(p.Row), trace)
+	}
+	// Empty set
+	return set.NewAnySortedSet[tr.CellRef]()
 }

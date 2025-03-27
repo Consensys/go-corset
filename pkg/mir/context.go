@@ -60,6 +60,8 @@ func requiredColumnsOfTerm(e Term) *set.SortedSet[uint] {
 	switch e := e.(type) {
 	case *Add:
 		return requiredColumnsOfTerms(e.Args)
+	case *Cast:
+		return requiredColumnsOfTerm(e.Arg)
 	case *Constant:
 		return set.NewSortedSet[uint]()
 	case *ColumnAccess:
@@ -91,10 +93,12 @@ func requiredColumnsOfColumnAccess(e *ColumnAccess) *set.SortedSet[uint] {
 	return r
 }
 
-func requiredCellsOfTerm(e Term, row int, tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
-	switch e := e.(type) {
+func requiredCellsOfTerm(t Term, row int, tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
+	switch e := t.(type) {
 	case *Add:
 		return requiredCellsOfTerms(e.Args, row, tr)
+	case *Cast:
+		return requiredCellsOfTerm(e.Arg, row, tr)
 	case *Constant:
 		return set.NewAnySortedSet[trace.CellRef]()
 	case *ColumnAccess:
@@ -108,7 +112,7 @@ func requiredCellsOfTerm(e Term, row int, tr trace.Trace) *set.AnySortedSet[trac
 	case *Sub:
 		return requiredCellsOfTerms(e.Args, row, tr)
 	default:
-		name := reflect.TypeOf(e).Name()
+		name := reflect.TypeOf(t).Name()
 		panic(fmt.Sprintf("unknown MIR expression \"%s\"", name))
 	}
 }

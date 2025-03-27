@@ -273,16 +273,21 @@ func reportFailures(ir string, failures []sc.Failure, trace tr.Trace, cfg checkC
 func reportFailure(failure sc.Failure, trace tr.Trace, cfg checkConfig) {
 	if f, ok := failure.(*constraint.VanishingFailure); ok {
 		cells := f.RequiredCells(trace)
-		reportConstraintFailure("constraint", f.Handle, cells, trace, cfg)
+		fmt.Printf("failing constraint %s:\n", f.Handle)
+		reportRelevantCells(cells, trace, cfg)
 	} else if f, ok := failure.(*sc.AssertionFailure); ok {
 		cells := f.RequiredCells(trace)
-		reportConstraintFailure("assertion", f.Handle, cells, trace, cfg)
+		fmt.Printf("failing assertion %s:\n", f.Handle)
+		reportRelevantCells(cells, trace, cfg)
+	} else if f, ok := failure.(*sc.InternalFailure); ok {
+		cells := f.RequiredCells(trace)
+		fmt.Printf("%s in %s:\n", f.Error, f.Handle)
+		reportRelevantCells(cells, trace, cfg)
 	}
 }
 
 // Print a human-readable report detailing the given failure with a vanishing constraint.
-func reportConstraintFailure(kind string, handle string, cells *set.AnySortedSet[tr.CellRef],
-	trace tr.Trace, cfg checkConfig) {
+func reportRelevantCells(cells *set.AnySortedSet[tr.CellRef], trace tr.Trace, cfg checkConfig) {
 	var start uint = math.MaxUint
 	// Determine all (input) cells involved in evaluating the given constraint
 	end := uint(0)
@@ -309,7 +314,6 @@ func reportConstraintFailure(kind string, handle string, cells *set.AnySortedSet
 		return cells.Contains(cell)
 	})
 	// Print out report
-	fmt.Printf("failing %s %s:\n", kind, handle)
 	tp.Print(trace)
 	fmt.Println()
 }
