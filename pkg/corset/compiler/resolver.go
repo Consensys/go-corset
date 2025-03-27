@@ -890,38 +890,55 @@ func (r *resolver) finaliseVariableInModule(scope LocalScope, expr *ast.Variable
 // but given an incorrect number of arguments, then we want to know this.
 func (r *resolver) constructUnknownSymbolError(symbol ast.Symbol, scope Scope) SyntaxError {
 	name := symbol.Path().Tail()
+	parent := symbol.Path().Parent()
 	//
 	if symbol.Arity().HasValue() {
 		var (
 			aboveArity int = math.MaxInt
 			belowArity int = math.MinInt
+			belowCount     = 0
+			aboveCount     = 0
 			arity          = symbol.Arity().Unwrap()
 		)
 		//
-		for _, bid := range scope.Bindings(*symbol.Path().Dehead()) {
+		for _, bid := range scope.Bindings(*parent) {
 			if bid.name == name && bid.arity.HasValue() {
 				bidArity := bid.arity.Unwrap()
 				//
 				if bidArity < arity {
 					belowArity = max(belowArity, int(bidArity))
+					belowCount++
 				} else if bidArity > arity {
 					aboveArity = min(aboveArity, int(bidArity))
+					aboveCount++
 				}
 			}
 		}
 		// Report useful error if we found something.
-		if aboveArity != math.MinInt || belowArity != math.MaxInt {
-			var str string
-			// Determine best error
-			if aboveArity != math.MaxInt && belowArity != math.MinInt {
-				str = fmt.Sprintf("%d or %d", belowArity, aboveArity)
-			} else if aboveArity != math.MaxInt {
-				str = fmt.Sprintf("%d", aboveArity)
-			} else if belowArity != math.MinInt {
-				str = fmt.Sprintf("%d", belowArity)
+		if belowCount > 0 || aboveCount > 0 {
+			var (
+				str      string
+				belowStr = fmt.Sprintf("%d", belowArity)
+				aboveStr = fmt.Sprintf("%d", aboveArity)
+			)
+			//
+			if belowCount > 1 {
+				belowStr = fmt.Sprintf("%s (or less)", belowStr)
 			}
 			//
-			msg := fmt.Sprintf("incorrect arguments (found %d, expected %s)", arity, str)
+			if aboveCount > 1 {
+				aboveStr = fmt.Sprintf("%s (or more)", aboveStr)
+			}
+			// Determine best error
+			if belowCount > 0 && aboveCount > 0 {
+				str = fmt.Sprintf("%s or %s", belowStr, aboveStr)
+			} else if aboveArity != math.MaxInt {
+				str = aboveStr
+			} else if belowArity != math.MinInt {
+				str = belowStr
+			}
+			//
+			msg := fmt.Sprintf("found %d arguments, expected %s", arity, str)
 			//
 			return *r.srcmap.SyntaxError(symbol, msg)
 		}

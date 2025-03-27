@@ -258,27 +258,33 @@ func (p *ModuleScope) innerBind(path *util.Path, symbol ast.Symbol) bool {
 
 // Bindings returns all binding identifiers within a given path.
 func (p *ModuleScope) Bindings(path util.Path) []BindingId {
+	var bindings []BindingId
 	// Split the two cases: absolute versus relative.
 	if path.IsAbsolute() && p.parent != nil {
 		// Absolute path, and this is not the root scope.  Therefore, simply
 		// pass this up to the root scope for further processing.
 		return p.parent.Bindings(path)
-	} else if path.Depth() == 0 {
-		// Collage all binding ids.
-		bindings := make([]BindingId, len(p.ids))
-		i := 0
+	} else if p.parent != nil {
+		bindings = p.parent.Bindings(path)
+	}
+	//
+	return append(bindings, p.innerBindings(path)...)
+}
+
+func (p *ModuleScope) innerBindings(path util.Path) []BindingId {
+	if path.Depth() == 0 {
+		var bindings []BindingId
 		//
-		for id := range p.ids {
-			bindings[i] = id
-			i++
+		for id, _ := range p.ids {
+			bindings = append(bindings, id)
 		}
 		//
 		return bindings
 	} else if submod, ok := p.submodmap[path.Head()]; ok {
 		// Looks like this could be in the child scope, so continue searching there.
-		return submod.Bindings(*path.Dehead())
+		return submod.innerBindings(*path.Dehead())
 	}
-	// nothing found
+	//
 	return nil
 }
 
