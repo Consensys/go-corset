@@ -76,7 +76,8 @@ func (e *Add) Multiplicity() uint {
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
 func (e *Add) Context() Context {
-	return ContextOfExpressions(e.Args)
+	ctx, _ := ContextOfExpressions(e.Args...)
+	return ctx
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
@@ -210,7 +211,8 @@ func (e *Cast) Multiplicity() uint {
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
 func (e *Cast) Context() Context {
-	return ContextOfExpressions([]Expr{e.Arg})
+	ctx, _ := ContextOfExpressions(e.Arg)
+	return ctx
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
@@ -290,7 +292,7 @@ func (e *Debug) Multiplicity() uint {
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
 func (e *Debug) Context() Context {
-	return ContextOfExpressions([]Expr{e.Arg})
+	return e.Arg.Context()
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
@@ -343,7 +345,8 @@ func (e *Exp) Multiplicity() uint {
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
 func (e *Exp) Context() Context {
-	return ContextOfExpressions([]Expr{e.Arg, e.Pow})
+	ctx, _ := ContextOfExpressions(e.Arg, e.Pow)
+	return ctx
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
@@ -502,7 +505,8 @@ func (e *If) Multiplicity() uint {
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
 func (e *If) Context() Context {
-	return ContextOfExpressions([]Expr{e.Condition, e.TrueBranch, e.FalseBranch})
+	ctx, _ := ContextOfExpressions(e.Condition, e.TrueBranch, e.FalseBranch)
+	return ctx
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
@@ -552,7 +556,8 @@ func (e *Invoke) AsConstant() *big.Int {
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
 func (e *Invoke) Context() Context {
-	return ContextOfExpressions(e.Args)
+	ctx, _ := ContextOfExpressions(e.Args...)
+	return ctx
 }
 
 // Multiplicity determines the number of values that evaluating this expression
@@ -706,7 +711,8 @@ func (e *List) Multiplicity() uint {
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
 func (e *List) Context() Context {
-	return ContextOfExpressions(e.Args)
+	ctx, _ := ContextOfExpressions(e.Args...)
+	return ctx
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
@@ -744,7 +750,8 @@ func (e *Mul) Multiplicity() uint {
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
 func (e *Mul) Context() Context {
-	return ContextOfExpressions(e.Args)
+	ctx, _ := ContextOfExpressions(e.Args...)
+	return ctx
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
@@ -790,7 +797,7 @@ func (e *Normalise) Multiplicity() uint {
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
 func (e *Normalise) Context() Context {
-	return ContextOfExpressions([]Expr{e.Arg})
+	return e.Arg.Context()
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
@@ -887,7 +894,8 @@ func (e *Sub) Multiplicity() uint {
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
 func (e *Sub) Context() Context {
-	return ContextOfExpressions(e.Args)
+	ctx, _ := ContextOfExpressions(e.Args...)
+	return ctx
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
@@ -935,7 +943,8 @@ func (e *Shift) Multiplicity() uint {
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
 func (e *Shift) Context() Context {
-	return ContextOfExpressions([]Expr{e.Arg, e.Shift})
+	ctx, _ := ContextOfExpressions(e.Arg, e.Shift)
+	return ctx
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
@@ -1072,14 +1081,18 @@ func (e *VariableAccess) Type() Type {
 // they are all constants) then the void context is returned.  Likewise, if
 // there are expressions with different contexts then the conflicted context
 // will be returned.  Otherwise, the one consistent context will be returned.
-func ContextOfExpressions(exprs []Expr) Context {
+func ContextOfExpressions(exprs ...Expr) (Context, uint) {
 	context := tr.VoidContext[string]()
 	//
-	for _, e := range exprs {
+	for i, e := range exprs {
 		context = context.Join(e.Context())
+		//
+		if context.IsConflicted() {
+			return context, uint(i)
+		}
 	}
 	//
-	return context
+	return context, uint(len(exprs))
 }
 
 // Substitute variables (such as for function parameters) in this expression
