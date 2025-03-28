@@ -481,6 +481,10 @@ func Test_Invalid_Lookup_09(t *testing.T) {
 	CheckInvalid(t, "lookup_invalid_09")
 }
 
+func Test_Invalid_Lookup_10(t *testing.T) {
+	CheckInvalid(t, "lookup_invalid_10")
+}
+
 // ===================================================================
 // Interleavings
 // ===================================================================

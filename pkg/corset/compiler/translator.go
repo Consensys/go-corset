@@ -345,14 +345,23 @@ func (t *translator) translateDefLookup(decl *ast.DefLookup, module util.Path) [
 	// Translate source expressions
 	sources, src_errs := t.translateUnitExpressionsInModule(decl.Sources, module, 0)
 	targets, tgt_errs := t.translateUnitExpressionsInModule(decl.Targets, module, 0)
+	src_ctx, i := ast.ContextOfExpressions(decl.Sources...)
+	dst_ctx, j := ast.ContextOfExpressions(decl.Targets...)
 	// Combine errors
 	errors := append(src_errs, tgt_errs...)
+	// Check for conflicting contexts.  This can arise here, rather than in the
+	// resolve, in some unusual situations (e.g. source expression is a function).
+	if src_ctx.IsConflicted() {
+		errors = append(errors, *t.srcmap.SyntaxError(decl.Sources[i], "conflicting context"))
+	}
+	//
+	if dst_ctx.IsConflicted() {
+		errors = append(errors, *t.srcmap.SyntaxError(decl.Targets[j], "conflicting context"))
+	}
 	//
 	if len(errors) == 0 {
-		src_context := t.env.ContextOf(ast.ContextOfExpressions(decl.Sources))
-		target_context := t.env.ContextOf(ast.ContextOfExpressions(decl.Targets))
 		// Add translated constraint
-		t.schema.AddLookupConstraint(decl.Handle, src_context, target_context, sources, targets)
+		t.schema.AddLookupConstraint(decl.Handle, t.env.ContextOf(src_ctx), t.env.ContextOf(dst_ctx), sources, targets)
 	}
 	// Done
 	return errors
@@ -463,9 +472,15 @@ func (t *translator) translateDefSorted(decl *ast.DefSorted, module util.Path) [
 		//
 		errors = append(errors, errs...)
 	}
+	// Determine source context
+	src_ctx, i := ast.ContextOfExpressions(decl.Sources...)
+	// Sanity check
+	if src_ctx.IsConflicted() {
+		errors = append(errors, *t.srcmap.SyntaxError(decl.Sources[i], "conflicting context"))
+	}
 	// Create construct (assuming no errors thus far)
 	if len(errors) == 0 {
-		context := t.env.ContextOf(ast.ContextOfExpressions(decl.Sources))
+		context := t.env.ContextOf(src_ctx)
 		// Clone the signs
 		signs := slices.Clone(decl.Signs)
 		bitwidth := determineMaxBitwidth(t.schema, sources[:len(signs)])
