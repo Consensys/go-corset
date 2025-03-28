@@ -295,10 +295,10 @@ func (p *typeChecker) typeCheckExpressionInModule(expected ast.Type, expr ast.Ex
 	case *ast.Reduce:
 		result, errors = p.typeCheckReduceInModule(e)
 	case *ast.Shift:
-		lhs_t, arg_errs := p.typeCheckExpressionInModule(ast.INT_TYPE, e.Arg)
+		res, arg_errs := p.typeCheckExpressionInModule(nil, e.Arg)
 		_, shf_errs := p.typeCheckExpressionInModule(ast.INT_TYPE, e.Shift)
 		// combine errors
-		result, errors = lhs_t, append(arg_errs, shf_errs...)
+		result, errors = res, append(arg_errs, shf_errs...)
 	case *ast.Sub:
 		_, errors = p.typeCheckExpressionsInModule(ast.INT_TYPE, e.Args)
 		result = ast.INT_TYPE

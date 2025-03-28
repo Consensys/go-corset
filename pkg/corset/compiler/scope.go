@@ -275,7 +275,7 @@ func (p *ModuleScope) innerBindings(path util.Path) []BindingId {
 	if path.Depth() == 0 {
 		var bindings []BindingId
 		//
-		for id, _ := range p.ids {
+		for id := range p.ids {
 			bindings = append(bindings, id)
 		}
 		//

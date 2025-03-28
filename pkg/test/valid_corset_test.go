@@ -1186,6 +1186,14 @@ func Test_Stdlib_03(t *testing.T) {
 	Check(t, true, "stdlib_03")
 }
 
+func Test_Stdlib_04(t *testing.T) {
+	Check(t, true, "stdlib_04")
+}
+
+func Test_Stdlib_05(t *testing.T) {
+	Check(t, true, "stdlib_05")
+}
+
 // ===================================================================
 // Complex Tests
 // ===================================================================

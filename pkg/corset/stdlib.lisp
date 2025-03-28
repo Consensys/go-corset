@@ -11,31 +11,39 @@
 ;;
 ;; SPDX-License-Identifier: Apache-2.0
 
-(defpurefun (vanishes! e0) (== 0 e0))
+(defpurefun (vanishes! e0) (== e0 0))
 (defpurefun ((force-bin :binary :force) x) x)
-(defpurefun (is-binary e0) (or! (== 0 e0) (== 1 e0)))
-;; NOTE: following should be deprecated as counterintuitive.
-(defpurefun (is-zero e0) (if (== 0 e0) 1 0))
-
+(defpurefun (is-binary e0) (or! (== e0 0) (== e0 1)))
 ;; =============================================================================
 ;; Conditionals
 ;; =============================================================================
-(defpurefun (if-zero cond then) (if (== 0 cond) then))
-(defpurefun (if-zero cond then else) (if (== 0 cond) then else))
-(defpurefun (if-not-zero cond then) (if (!= 0 cond) then))
-(defpurefun (if-not-zero cond then else) (if (!= 0 cond) then else))
+(defpurefun (if-zero cond then) (if (== cond 0) then))
+(defpurefun (if-zero cond then else) (if (== cond 0) then else))
+(defpurefun (if-not-zero cond then) (if (!= cond 0) then))
+(defpurefun (if-not-zero cond then else) (if (!= cond 0) then else))
 (defpurefun (if-eq x val then) (if (eq! x val) then))
 (defpurefun (if-eq-else x val then else) (if (eq! x val) then else))
 (defpurefun (if-not-eq A B then) (if (!= A B) then))
+(defpurefun (if-not-eq A B then else) (if (!= A B) then else))
 (defpurefun (if-not (cond :bool) then) (if (not! cond) then))
+(defpurefun (if-not (cond :bool) then else) (if (not! cond) then else))
+;; DEPRECATED: will be removed in near future
+(defpurefun (is-zero e0) (if (== e0 0) 1 0))
+(defpurefun (is-not-zero e0) (~ e0))
 
 ;; =============================================================================
 ;; Boolean connectives
 ;; =============================================================================
 (defpurefun (or! (a :bool) (b :bool)) (if a (== 0 0) b))
-;;(defpurefun (and! (a :bool) (b :bool)) (if a b (!= 0 0)))
+(defpurefun (or! (a :bool) (b :bool) (c :bool)) (or! a (or! b c)))
+(defpurefun (or! (a :bool) (b :bool) (c :bool) (d :bool)) (or! a (or! b c d)))
+(defpurefun (or! (a :bool) (b :bool) (c :bool) (d :bool) (e :bool)) (or! a (or! b c d e)))
+(defpurefun (or! (a :bool) (b :bool) (c :bool) (d :bool) (e :bool) (f :bool)) (or! a (or! b c d e f)))
+(defpurefun (and! (a :bool) (b :bool)) (if a b (!= 0 0)))
 (defpurefun ((eq! :bool) x y) (== x y))
+(defpurefun ((neq! :bool) x y) (!= x y))
 (defpurefun ((not! :bool) (x :bool)) (if x (!= 0 0) (== 0 0)))
+(defpurefun ((is-not-zero! :bool) x) (!= x 0))
 
 ;; =============================================================================
 ;; Chronological functions
@@ -45,7 +53,7 @@
 ;; Ensure e0 has increased by offset w.r.t previous row.
 (defpurefun (did-inc! e0 offset) (== e0 (+ (prev e0) offset)))
 ;; Ensure e0 has decreased by offset w.r.t previous row.
-(defpurefun (did-dec! e0 offset) (==  e0 (- (prev e0) offset)))
+(defpurefun (did-dec! e0 offset) (== e0 (- (prev e0) offset)))
 ;; Ensure e0 will increase by offset w.r.t next row.
 (defpurefun (will-inc! e0 offset) (will-eq! e0 (+ e0 offset)))
 ;; Ensure e0 will decrease by offset w.r.t next row.
@@ -71,17 +79,17 @@
 
 ;; counter constancy constraint
 (defpurefun (counter-constancy ct X)
-  (if (!= 0 ct)
+  (if (!= ct 0)
                (remained-constant! X)))
 
 ;; perspective constancy constraint
 (defpurefun (perspective-constancy PERSPECTIVE_SELECTOR X)
-            (if (!= 0 (* PERSPECTIVE_SELECTOR (prev PERSPECTIVE_SELECTOR)))
+            (if (!= (* PERSPECTIVE_SELECTOR (prev PERSPECTIVE_SELECTOR)) 0)
                          (remained-constant! X)))
 
 ;; base-X decomposition constraints
 (defpurefun ((base-X-decomposition :bool) ct base acc digits)
-  (if (== 0 ct)
+  (if (== ct 0)
            (== acc digits)
            (== acc (+ (* base (prev acc)) digits))))
 
@@ -98,7 +106,7 @@
                             (== X 1)
                             (if (== CT 0)
                                 (vanishes! X)
-                              (if (==  CT C)
+                              (if (== CT C)
                                   (did-inc! X 1)
                                 (remained-constant! X))))))
 

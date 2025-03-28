@@ -355,7 +355,8 @@ func (e *Equals) Multiplicity() uint {
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
 func (e *Equals) Context() Context {
-	return ContextOfExpressions([]Expr{e.Lhs, e.Rhs})
+	ctx, _ := ContextOfExpressions(e.Lhs, e.Rhs)
+	return ctx
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example

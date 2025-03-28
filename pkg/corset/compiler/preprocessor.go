@@ -337,8 +337,10 @@ func (p *preprocessor) preprocessExpressionInModule(expr ast.Expr) (ast.Expr, []
 		args, errs := p.preprocessExpressionsInModule(e.Args)
 		nexpr, errors = &ast.Sub{Args: args}, errs
 	case *ast.Shift:
-		arg, errs := p.preprocessExpressionInModule(e.Arg)
-		nexpr, errors = &ast.Shift{Arg: arg, Shift: e.Shift}, errs
+		arg, errs1 := p.preprocessExpressionInModule(e.Arg)
+		shift, errs2 := p.preprocessExpressionInModule(e.Shift)
+		// Done
+		nexpr, errors = &ast.Shift{Arg: arg, Shift: shift}, append(errs1, errs2...)
 	case *ast.VariableAccess:
 		return e, nil
 	default:
