@@ -106,12 +106,20 @@ func (p *FrPoolArray[K, P]) Pad(n uint, m uint, padding fr.Element) util.Array[f
 // Write the raw bytes of this column to a given writer, returning an error
 // if this failed (for some reason).
 func (p *FrPoolArray[K, P]) Write(w io.Writer) error {
+	// Determine bytewidth
+	byteWidth := p.bitwidth / 8
+	if p.bitwidth%8 != 0 {
+		byteWidth++
+	}
+	//
+	n := 32 - byteWidth
+	//
 	for _, i := range p.elements {
 		ith := p.pool.Get(i)
 		// Read exactly 32 bytes
 		bytes := ith.Bytes()
 		// Write them out
-		if _, err := w.Write(bytes[:]); err != nil {
+		if _, err := w.Write(bytes[n:]); err != nil {
 			return err
 		}
 	}

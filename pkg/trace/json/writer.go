@@ -13,6 +13,7 @@
 package json
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/trace"
@@ -34,6 +35,11 @@ func ToJsonString(columns []trace.RawColumn) string {
 		builder.WriteString("\"")
 		// Construct qualified column name
 		name := trace.QualifiedColumnName(ith.Module, ith.Name)
+		// Apply bitwidth restrictions (if applicable)
+		if bitwidth := ith.Data.BitWidth(); bitwidth < 256 {
+			// For now, always assume unsigned int.
+			name = fmt.Sprintf("%s@u%d", name, bitwidth)
+		}
 		// Write out column name
 		builder.WriteString(name)
 		//
