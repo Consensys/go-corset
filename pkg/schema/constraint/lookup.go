@@ -23,21 +23,38 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
+	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
 // LookupFailure provides structural information about a failing lookup constraint.
 type LookupFailure struct {
-	Msg string
+	// Handle of the failing constraint
+	Handle string
+	// Source expressions which were missing
+	Sources []sc.Evaluable
+	// Row on which the constraint failed
+	Row uint
 }
 
 // Message provides a suitable error message
 func (p *LookupFailure) Message() string {
-	return p.Msg
+	return fmt.Sprintf("lookup \"%s\" failed (row %d)", p.Handle, p.Row)
 }
 
 func (p *LookupFailure) String() string {
-	return p.Msg
+	return p.Message()
+}
+
+// RequiredCells identifies the cells required to evaluate the failing constraint at the failing row.
+func (p *LookupFailure) RequiredCells(trace tr.Trace) *set.AnySortedSet[tr.CellRef] {
+	res := set.NewAnySortedSet[tr.CellRef]()
+	//
+	for _, e := range p.Sources {
+		res.InsertSorted(e.RequiredCells(int(p.Row), trace))
+	}
+	//
+	return res
 }
 
 // LookupConstraint (sometimes also called an inclusion constraint) constrains
@@ -160,7 +177,16 @@ func (p *LookupConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) 
 		}
 		// Check whether contained.
 		if !rows.Contains(hash.NewBytesKey(ith_bytes)) {
-			return coverage, &LookupFailure{fmt.Sprintf("lookup \"%s\" failed (row %d)", p.Handle, i)}
+			sources := make([]sc.Evaluable, len(p.Sources))
+			for i, e := range p.Sources {
+				sources[i] = e
+			}
+			// Construct failures
+			return coverage, &LookupFailure{
+				p.Handle,
+				sources,
+				uint(i),
+			}
 		}
 	}
 	//

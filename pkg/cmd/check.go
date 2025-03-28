@@ -267,6 +267,14 @@ func reportFailure(failure sc.Failure, trace tr.Trace, cfg checkConfig) {
 		cells := f.RequiredCells(trace)
 		fmt.Printf("failing constraint %s:\n", f.Handle)
 		reportRelevantCells(cells, trace, cfg)
+	} else if f, ok := failure.(*constraint.RangeFailure); ok {
+		cells := f.RequiredCells(trace)
+		fmt.Printf("failing range constraint %s:\n", f.Handle)
+		reportRelevantCells(cells, trace, cfg)
+	} else if f, ok := failure.(*constraint.LookupFailure); ok {
+		cells := f.RequiredCells(trace)
+		fmt.Printf("failing lookup constraint %s:\n", f.Handle)
+		reportRelevantCells(cells, trace, cfg)
 	} else if f, ok := failure.(*sc.AssertionFailure); ok {
 		cells := f.RequiredCells(trace)
 		fmt.Printf("failing assertion %s:\n", f.Handle)

@@ -22,6 +22,7 @@ import (
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
+	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -31,6 +32,8 @@ type RangeFailure struct {
 	Handle string
 	// Constraint expression
 	Expr sc.Evaluable
+	// Range restriction
+	Bound fr.Element
 	// Row on which the constraint failed
 	Row uint
 }
@@ -38,11 +41,16 @@ type RangeFailure struct {
 // Message provides a suitable error message
 func (p *RangeFailure) Message() string {
 	// Construct useful error message
-	return fmt.Sprintf("expression \"%s\" out-of-bounds (row %d)", p.Handle, p.Row)
+	return fmt.Sprintf("constraint \"%s\" < %s does not hold (row %d)", p.Handle, p.Bound.String(), p.Row)
 }
 
 func (p *RangeFailure) String() string {
 	return p.Message()
+}
+
+// RequiredCells identifies the cells required to evaluate the failing constraint at the failing row.
+func (p *RangeFailure) RequiredCells(trace tr.Trace) *set.AnySortedSet[tr.CellRef] {
+	return p.Expr.RequiredCells(int(p.Row), trace)
 }
 
 // RangeConstraint restricts all values for a given expression to be within a
@@ -138,7 +146,7 @@ func (p *RangeConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
 			}
 		} else if kth.Cmp(&p.Bound) >= 0 {
 			// Evaluation failure
-			return coverage, &RangeFailure{p.Handle, p.Expr, uint(k)}
+			return coverage, &RangeFailure{p.Handle, p.Expr, p.Bound, uint(k)}
 		}
 	}
 	// All good
