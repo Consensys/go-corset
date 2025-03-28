@@ -36,20 +36,8 @@ type FunctionBinding interface {
 	IsPure() bool
 	// IsNative checks whether this function binding is native (or not).
 	IsNative() bool
-	// HasArity checks whether this binding supports a given number of
-	// parameters.  For example, intrinsic functions are often nary --- meaning
-	// they can accept any number of arguments.  In contrast, a user-defined
-	// function may only accept a specific number of arguments, etc.
-	HasArity(uint) bool
-	// Select corresponding signature based on arity.  If no matching signature
-	// exists then this will return nil.
-	Select(uint) *FunctionSignature
-	// Overload (a.k.a specialise) this function binding to incorporate another
-	// function signature.  This can fail for a few reasons: (1) some bindings
-	// (e.g. intrinsics) cannot be overloaded; (2) duplicate overloadings are
-	// not permitted; (3) combinding pure and impure overloadings is also not
-	// permitted.
-	Overload(*DefunBinding) (FunctionBinding, bool)
+	// Signature returns the function signature for this binding.
+	Signature() *FunctionSignature
 }
 
 // FunctionSignature embodies a concrete function instance.  It is necessary to
@@ -230,111 +218,35 @@ func (p *LocalVariableBinding) Finalise(index uint) {
 }
 
 // ============================================================================
-// OverloadedBinding
-// ============================================================================
-
-// OverloadedBinding represents the amalgamation of two or more user-define
-// function bindings.
-type OverloadedBinding struct {
-	pure bool
-	// Available specialiases organised by arity.
-	overloads []*DefunBinding
-}
-
-// IsPure checks whether this is a defpurefun or not
-func (p *OverloadedBinding) IsPure() bool {
-	return p.pure
-}
-
-// IsNative checks whether this function binding is native (or not).
-func (p OverloadedBinding) IsNative() bool {
-	// Cannot overload native
-	return false
-}
-
-// IsFinalised checks whether this binding has been finalised yet or not.
-func (p *OverloadedBinding) IsFinalised() bool {
-	for _, binding := range p.overloads {
-		if binding != nil && !binding.IsFinalised() {
-			return false
-		}
-	}
-	//
-	return true
-}
-
-// HasArity checks whether this function accepts a given number of arguments (or
-// not).
-func (p *OverloadedBinding) HasArity(arity uint) bool {
-	return arity < uint(len(p.overloads)) && p.overloads[arity] != nil
-}
-
-// Select corresponding signature based on arity.  If no matching signature
-// exists then this will return nil.
-func (p *OverloadedBinding) Select(arity uint) *FunctionSignature {
-	if arity < uint(len(p.overloads)) && p.overloads[arity] != nil {
-		signature := p.overloads[arity].Signature()
-		return &signature
-	}
-	// failed
-	return nil
-}
-
-// Overload (a.k.a specialise) this function binding to incorporate another
-// function binding.  This can fail for a few reasons: (1) some bindings
-// (e.g. intrinsics) cannot be overloaded; (2) duplicate overloadings are
-// not permitted; (3) combinding pure and impure overloadings is also not
-// permitted.
-func (p *OverloadedBinding) Overload(overload *DefunBinding) (FunctionBinding, bool) {
-	arity := len(overload.paramTypes)
-	// Check matches purity
-	if overload.IsPure() != p.pure {
-		return nil, false
-	}
-	// ensure arity is defined
-	for len(p.overloads) <= arity {
-		p.overloads = append(p.overloads, nil)
-	}
-	// Check whether arity already defined
-	if p.overloads[arity] != nil {
-		return nil, false
-	}
-	// Nope, so define it
-	p.overloads[arity] = overload
-	// Done
-	return p, true
-}
-
-// ============================================================================
 // DefunBinding
 // ============================================================================
 
 // DefunBinding is a function binding arising from a user-defined function (as
 // opposed, for example, to a function binding arising from an intrinsic).
 type DefunBinding struct {
-	// Flag whether or not is pure function
-	pure bool
+	// Flag whether or not is Pure function
+	Pure bool
 	// Types of parameters (optional)
-	paramTypes []Type
+	ParamTypes []Type
 	// Type of return (optional)
-	returnType Type
+	ReturnType Type
+	// Body of the function in question.
+	Body Expr
 	// Indicates whether this symbol is finalised (i.e. all expressions have
 	// been resolved).
 	finalised bool
-	// body of the function in question.
-	body Expr
 }
 
 var _ FunctionBinding = &DefunBinding{}
 
 // NewDefunBinding constructs a new function binding.
-func NewDefunBinding(pure bool, paramTypes []Type, returnType Type, body Expr) DefunBinding {
-	return DefunBinding{pure, paramTypes, returnType, false, body}
+func NewDefunBinding(pure bool, paramTypes []Type, returnType Type, forced bool, body Expr) DefunBinding {
+	return DefunBinding{pure, paramTypes, returnType, body, false}
 }
 
 // IsPure checks whether this is a defpurefun or not
 func (p *DefunBinding) IsPure() bool {
-	return p.pure
+	return p.Pure
 }
 
 // IsNative checks whether this function binding is native (or not).
@@ -347,53 +259,15 @@ func (p *DefunBinding) IsFinalised() bool {
 	return p.finalised
 }
 
-// HasArity checks whether this function accepts a given number of arguments (or
-// not).
-func (p *DefunBinding) HasArity(arity uint) bool {
-	return arity == uint(len(p.paramTypes))
-}
-
 // Signature returns the corresponding function signature for this user-defined
 // function.
-func (p *DefunBinding) Signature() FunctionSignature {
-	return FunctionSignature{p.pure, p.paramTypes, p.returnType, p.body}
+func (p *DefunBinding) Signature() *FunctionSignature {
+	return &FunctionSignature{p.Pure, p.ParamTypes, p.ReturnType, p.Body}
 }
 
 // Finalise this binding by providing the necessary missing information.
 func (p *DefunBinding) Finalise() {
 	p.finalised = true
-}
-
-// Select corresponding signature based on arity.  If no matching signature
-// exists then this will return nil.
-func (p *DefunBinding) Select(arity uint) *FunctionSignature {
-	if arity == uint(len(p.paramTypes)) {
-		return &FunctionSignature{p.pure, p.paramTypes, p.returnType, p.body}
-	}
-	// Ambiguous
-	return nil
-}
-
-// Overload (a.k.a specialise) this function binding to incorporate another
-// function binding.  This can fail for a few reasons: (1) some bindings
-// (e.g. intrinsics) cannot be overloaded; (2) duplicate overloadings are
-// not permitted; (3) combinding pure and impure overloadings is also not
-// permitted.
-func (p *DefunBinding) Overload(overload *DefunBinding) (FunctionBinding, bool) {
-	var overloading = OverloadedBinding{p.IsPure(), nil}
-	// Check it makes sense to do this.
-	if p.IsPure() != overload.IsPure() {
-		// Purity is misaligned
-		return nil, false
-	} else if len(p.paramTypes) == len(overload.paramTypes) {
-		// Conflicting overlods
-		return nil, false
-	}
-	// Looks good
-	overloading.Overload(p)
-	overloading.Overload(overload)
-	//
-	return &overloading, true
 }
 
 // ============================================================================

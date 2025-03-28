@@ -1,5 +1,5 @@
-(defpurefun ((eq :binary@loob) (x :binary) (y :binary)) (^ (- x y) 2))
+(defpurefun ((eq :binary :force) (x :binary) (y :binary)) (^ (- x y) 2))
 ;;
-(defcolumns (X :binary@loob) (Y :binary))
+(defcolumns (X :binary) (Y :binary))
 ;; X == 1 || X == Y
-(defconstraint c1 () (* (- X 1) (eq X Y)))
+(defconstraint c1 () (== 0 (* (- X 1) (eq X Y))))

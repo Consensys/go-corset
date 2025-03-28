@@ -1,5 +1,5 @@
-;;error:14:53-57:unknown symbol
-(defpurefun ((vanishes! :𝔽@loob :force) x) x)
+;;error:14:43-47:unknown symbol
+;;
 ;;
 (defcolumns
     ;; Column (not in perspective)
@@ -11,7 +11,7 @@
 
 ;; Section 1
 (defperspective p1 P ((B :binary)))
-(defconstraint c1 (:perspective p1) (vanishes! (- A p2/B)))
+(defconstraint c1 (:perspective p1) (== A p2/B))
 
 ;; Section 2
 (defperspective p2 Q ((C :binary)))

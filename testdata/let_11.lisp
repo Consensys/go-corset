@@ -1,7 +1,5 @@
-(defpurefun ((vanishes! :𝔽@loob) x) x)
-
-(defcolumns (A :i16@loob) (B :i16))
+(defcolumns (A :i16) (B :i16))
 (defconstraint c1 ()
   (let ((C A) (D B))
-    (if C
-        (vanishes! D))))
+    (if (== 0 C)
+        (== 0 D))))

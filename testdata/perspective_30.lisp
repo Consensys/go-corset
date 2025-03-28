@@ -1,4 +1,4 @@
-(defpurefun ((vanishes! :𝔽@loob) x) x)
+(defpurefun (vanishes! x) (== 0 x))
 ;;
 (defcolumns (P :binary@prove))
 (defperspective p1 P ((X :i16@prove)))

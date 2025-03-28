@@ -1,4 +1,4 @@
-(defcolumns (X :i16@loob))
+(defcolumns (X :i16))
 (defconstraint c1 ()
   (begin
    (debug X)

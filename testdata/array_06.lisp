@@ -1,6 +1,3 @@
-(defpurefun ((vanishes! :𝔽@loob :force) e0) e0)
-(defpurefun ((eq! :𝔽@loob) x y) (- x y))
-
 (module m1)
 
 (defcolumns
@@ -8,4 +5,4 @@
     (BYTE :byte :array [0:2])
 )
 
-(defconstraint c1 () (vanishes! (if (eq! ACC_1 1) [BYTE 0])))
+(defconstraint c1 () (== 0 (if (== ACC_1 1) [BYTE 0])))

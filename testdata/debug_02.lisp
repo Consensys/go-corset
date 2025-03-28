@@ -1,2 +1,2 @@
-(defcolumns (X :i16@loob))
-(defconstraint c1 () (debug X))
+(defcolumns (X :i16))
+(defconstraint c1 () (debug (== 0 X)))

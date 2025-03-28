@@ -1,4 +1,4 @@
-;;error:2:1-2:blah
+;;error:4:9-11:symbol id already declared
 (defcolumns (X :i16))
 ;; recursive :)
 (defun (id x) (+ x (id x)))

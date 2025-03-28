@@ -86,7 +86,7 @@
 
 ;; 2.1.2
 (defconstraint    stamp-increments ()
-                  (vanishes! (* (will-inc! STAMP 0) (will-inc! STAMP 1))))
+                  (or! (will-inc! STAMP 0) (will-inc! STAMP 1)))
 
 ;; 2.1.3 and 4
 (defconstraint    zero-row ()
@@ -96,8 +96,8 @@
 
 ;; 2.1.5
 (defconstraint    counter-reset ()
-                  (if-not-zero (will-remain-constant! STAMP)
-                               (vanishes! (shift CT 1))))
+                  (if-not (will-remain-constant! STAMP)
+                          (vanishes! (shift CT 1))))
 
 ;; 2.1.6
 (defconstraint    INST-inside-and-outside-of-padding ()

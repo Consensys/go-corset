@@ -1,5 +1,5 @@
-(defpurefun ((vanishes! :𝔽@loob) x) x)
+(defpurefun (vanishes! x) (== 0 x))
 
-(defcolumns (X :𝔽) (Y :𝔽))
-(defconstraint c1 () (vanishes! (+ X Y)))
-(defconstraint c2 () (vanishes! (+ Y X)))
+(defcolumns (X :i32) (Y :i32))
+(defconstraint c1 () (vanishes! (+ X (- 0 Y))))
+(defconstraint c2 () (vanishes! (+ (- 0 Y) X)))

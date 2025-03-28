@@ -14,220 +14,214 @@ package ast
 
 import (
 	"fmt"
+	"math/big"
 
-	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // Type embodies a richer notion of type found at the Corset level, compared
 // with that found at lower levels (e.g. HIR). below.
 type Type interface {
-	// Determines whether or not this type supports "loobean" semantics.  If so,
-	// this means that 0 is treated as true, with anything else being false.
-	HasLoobeanSemantics() bool
-
-	// Determines whether or not this type supports "boolean" semantics.  If so,
-	// this means that 0 is treated as false, with anything else being true.
-	HasBooleanSemantics() bool
-
-	// Construct a variant of this type which employs loobean semantics.  This
-	// will panic if the type has already been given boolean semantics.
-	WithLoobeanSemantics() Type
-
-	// Construct a variant of this type which employs boolean semantics.  This
-	// will panic if the type has already been given loobean semantics.
-	WithBooleanSemantics() Type
-
 	// SubtypeOf determines whether or not this type is a subtype of another.
 	SubtypeOf(Type) bool
 
-	// ContainsFieldType determines whether this type contains a native field type.
-	ContainsFieldType() bool
-
-	// Access an underlying representation of this type (should one exist).  If
-	// this doesn't exist, then nil is returned.
-	AsUnderlying() sc.Type
+	// LeastUpperBound computes the least upper bound of this type and another. This
+	// is smallest type which contains both of the arguments.  For example, i32 is
+	// the least upper bound of i1 and i32, etc.  If no such type exists, then nil
+	// is returned.
+	LeastUpperBound(Type) Type
 
 	// Returns the number of underlying columns represented by this column.  For
 	// example, an array of size n will expand into n underlying columns.
 	Width() uint
 
+	// Determines whether or not this type has an underlying representation, or
+	// not.
+	HasUnderlying() bool
+
 	// Produce a string representation of this type.
 	String() string
 }
 
-// NewFieldType constructs a native field type which, initially, has no semantic
-// specified.
-func NewFieldType() Type {
-	return &NativeType{&sc.FieldType{}, false, false}
+// LeastUpperBound computes the Least Upper Bound of two types.  This is
+// deliberately coarse-grained and does not, for example, attempt to perform any
+// kind of range analysis for integer types (as this would not make sense).
+func LeastUpperBound(types ...Type) Type {
+	var datatype Type
+	//
+	for i, t := range types {
+		if i == 0 {
+			datatype = t
+		} else {
+			datatype = datatype.LeastUpperBound(t)
+		}
+		// sanity check
+		if t == nil {
+			return nil
+		}
+	}
+	//
+	return datatype
+}
+
+// ============================================================================
+// IntType
+// ============================================================================
+
+// INT_TYPE represents the infinite integer range.  This cannot be translated
+// into a concrete type at the lower level, and therefore can only be used
+// internally (e.g. for type checking).
+var INT_TYPE = &IntType{nil}
+
+// IntType represents a set of signed integer values.
+type IntType struct {
+	values *util.Interval
 }
 
 // NewUintType constructs a native uint type of the given width which,
 // initially, has no semantic specified.
 func NewUintType(nbits uint) Type {
-	return &NativeType{sc.NewUintType(nbits), false, false}
+	bound := big.NewInt(2)
+	bound.Exp(bound, big.NewInt(int64(nbits)), nil)
+	// Subtract 1 because interval is inclusive.
+	bound.Sub(bound, big.NewInt(1))
+	//
+	return &IntType{util.NewInterval(big.NewInt(0), bound)}
 }
 
-// GreatestLowerBoundAll joins zero or more types together using the GLB
-// operator.
-func GreatestLowerBoundAll(types []Type) Type {
-	var datatype Type
-	//
-	for _, t := range types {
-		if datatype == nil {
-			datatype = t
-		} else if t != nil {
-			datatype = GreatestLowerBound(datatype, t)
-		}
+// NewIntType constructs a new integer type containing all values between the
+// lower and upper bounds (inclusive).
+func NewIntType(lower *big.Int, upper *big.Int) *IntType {
+	return &IntType{util.NewInterval(lower, upper)}
+}
+
+// HasUnderlying determines whether or not this type has an underlying
+// representation, or not.
+func (p *IntType) HasUnderlying() bool {
+	return p.values != nil
+}
+
+// AsUnderlying converts this integer type into an underlying type.
+func (p *IntType) AsUnderlying() schema.Type {
+	width := p.values.BitWidth()
+	// Sanity check (for now)
+	if p.values.Contains(big.NewInt(-1)) {
+		panic("cannot convert signed integer type")
 	}
 	//
-	return datatype
-}
-
-// GreatestLowerBound computes the Greatest Lower Bound of two types.  For
-// example, the lub of u16 and u128 is u128, etc.  This means that, when joining
-// the bottom type with a type that has semantics, you get the former.
-func GreatestLowerBound(lhs Type, rhs Type) Type {
-	// Sanity checks
-	if lhs == nil || rhs == nil {
-		return nil
-	}
-	// Proceed
-	var (
-		l_loobean bool = lhs.HasLoobeanSemantics()
-		r_loobean bool = rhs.HasLoobeanSemantics()
-		l_boolean bool = lhs.HasBooleanSemantics()
-		r_boolean bool = rhs.HasBooleanSemantics()
-	)
-	// Determine join of underlying types
-	underlying := sc.Join(lhs.AsUnderlying(), rhs.AsUnderlying())
-	//
-	return &NativeType{underlying, l_loobean && r_loobean, l_boolean && r_boolean}
-}
-
-// LeastUpperBoundAll joins zero or more types together using the LUB operator.
-func LeastUpperBoundAll(types []Type) Type {
-	var datatype Type
-	//
-	for _, t := range types {
-		if datatype == nil {
-			datatype = t
-		} else if t != nil {
-			datatype = LeastUpperBound(datatype, t)
-		}
-	}
-	//
-	return datatype
-}
-
-// LeastUpperBound computes the Least Upper Bound of two types.  For example,
-// the lub of u16 and u128 is u128, etc.    This means that, when joining the
-// bottom type with a type that has semantics, you get the latter.
-func LeastUpperBound(lhs Type, rhs Type) Type {
-	// Sanity checks
-	if lhs == nil || rhs == nil {
-		return nil
-	}
-	// Proceed
-	var (
-		l_loobean bool = lhs.HasLoobeanSemantics()
-		r_loobean bool = rhs.HasLoobeanSemantics()
-		l_boolean bool = lhs.HasBooleanSemantics()
-		r_boolean bool = rhs.HasBooleanSemantics()
-	)
-	// Determine join of underlying types
-	underlying := sc.Join(lhs.AsUnderlying(), rhs.AsUnderlying())
-	//
-	return &NativeType{underlying, l_loobean || r_loobean, l_boolean || r_boolean}
-}
-
-// ============================================================================
-// NativeType
-// ============================================================================
-
-// NativeType simply wraps one of the types available at the HIR level (and below).
-type NativeType struct {
-	// The underlying type
-	datatype sc.Type
-	// Determines whether or not this type supports "loobean" semantics.  If so,
-	// this means that 0 is treated as true, with anything else being false.
-	loobean bool
-	// Determines whether or not this type supports "boolean" semantics.  If so,
-	// this means that 0 is treated as false, with anything else being true.
-	boolean bool
-}
-
-// HasLoobeanSemantics indicates whether or not this type supports "loobean"
-// semantics or not. If so, this means that 0 is treated as true, with anything
-// else being false.
-func (p *NativeType) HasLoobeanSemantics() bool {
-	return p.loobean && !p.boolean
-}
-
-// HasBooleanSemantics indicates whether or not this type supports "boolean"
-// semantics. If so, this means that 0 is treated as false, with anything else
-// being true.
-func (p *NativeType) HasBooleanSemantics() bool {
-	return p.boolean && !p.loobean
-}
-
-// WithLoobeanSemantics constructs a variant of this type which employs loobean
-// semantics.  This will panic if the type has already been given boolean
-// semantics.
-func (p *NativeType) WithLoobeanSemantics() Type {
-	if p.HasBooleanSemantics() {
-		panic("type already given boolean semantics")
-	}
-	// Done
-	return &NativeType{p.datatype, true, false}
-}
-
-// WithBooleanSemantics constructs a variant of this type which employs boolean
-// semantics.  This will panic if the type has already been given boolean
-// semantics.
-func (p *NativeType) WithBooleanSemantics() Type {
-	if p.HasLoobeanSemantics() {
-		panic("type already given loobean semantics")
-	}
-	// Done
-	return &NativeType{p.datatype, false, true}
-}
-
-// ContainsFieldType indicates indicates whether or not this type contains(is=) a field type
-func (p *NativeType) ContainsFieldType() bool {
-	_, ok := p.AsUnderlying().(*sc.FieldType)
-	return ok
+	return schema.NewUintType(width)
 }
 
 // Width returns the number of underlying columns represented by this column.
 // For example, an array of size n will expand into n underlying columns.
-func (p *NativeType) Width() uint {
+func (p *IntType) Width() uint {
 	return 1
 }
 
-// AsUnderlying attempts to convert this type into an underlying type.  If this
-// is not possible, then nil is returned.
-func (p *NativeType) AsUnderlying() sc.Type {
-	return p.datatype
+// LeastUpperBound computes the least upper bound of this type and another. This
+// is smallest type which contains both of the arguments.  For example, i32 is
+// the least upper bound of i1 and i32, etc.  If no such type exists, then nil
+// is returned.
+func (p *IntType) LeastUpperBound(other Type) Type {
+	if o, ok := other.(*IntType); ok {
+		var values util.Interval
+		//
+		switch {
+		case p.values == nil && o.values == nil:
+			return &IntType{nil}
+		case o.values == nil:
+			values.Set(p.values)
+		case p.values == nil:
+			values.Set(o.values)
+		default:
+			values.Set(p.values)
+			values.Insert(o.values)
+		}
+		//
+		return &IntType{&values}
+	}
+
+	return nil
 }
 
 // SubtypeOf determines whether or not this type is a subtype of another.
-func (p *NativeType) SubtypeOf(other Type) bool {
-	if o, ok := other.(*NativeType); ok && p.datatype.SubtypeOf(o.datatype) {
-		// An interpreted type can flow into an uninterpreted type.
-		return (!o.loobean && !o.boolean) || (p.loobean == o.loobean && p.boolean == o.boolean)
+func (p *IntType) SubtypeOf(other Type) bool {
+	if o, ok := other.(*IntType); ok {
+		switch {
+		case p.values == nil && o.values == nil:
+			return true
+		case o.values == nil:
+			return true
+		case p.values == nil:
+			return false
+		default:
+			return p.values.Within(o.values)
+		}
 	}
 	//
 	return false
 }
 
-func (p *NativeType) String() string {
-	if p.loobean {
-		return fmt.Sprintf("%s@loob", p.datatype.String())
-	} else if p.boolean {
-		return fmt.Sprintf("%s@bool", p.datatype.String())
+func (p *IntType) String() string {
+	if p.values != nil {
+		width := p.values.BitWidth()
+		if p.values.Contains(big.NewInt(-1)) {
+			return fmt.Sprintf("i%d", width)
+		}
+		//
+		return fmt.Sprintf("u%d", width)
 	}
 	//
-	return p.datatype.String()
+	return "int"
+}
+
+// ============================================================================
+// BooleanType
+// ============================================================================
+
+// BOOLEAN_TYPE provides a convenient singleone to use instead of creating a
+// fresh boolean type, etc.
+var BOOLEAN_TYPE = &BooleanType{}
+
+// BooleanType represents the type of logical conditions, such as equality,
+// logical or, etc.
+type BooleanType struct {
+}
+
+// Width returns the number of underlying columns represented by this column.
+// For example, an array of size n will expand into n underlying columns.
+func (p *BooleanType) Width() uint {
+	return 1
+}
+
+// HasUnderlying determines whether or not this type has an underlying
+// representation, or not.
+func (p *BooleanType) HasUnderlying() bool {
+	return false
+}
+
+// LeastUpperBound computes the least upper bound of this type and another. This
+// is smallest type which contains both of the arguments.  For example, i32 is
+// the least upper bound of i1 and i32, etc.  If no such type exists, then nil
+// is returned.
+func (p *BooleanType) LeastUpperBound(other Type) Type {
+	if _, ok := other.(*BooleanType); ok {
+		return BOOLEAN_TYPE
+	}
+	//
+	return nil
+}
+
+// SubtypeOf determines whether or not this type is a subtype of another.
+func (p *BooleanType) SubtypeOf(other Type) bool {
+	_, ok := other.(*BooleanType)
+	//
+	return ok
+}
+
+func (p *BooleanType) String() string {
+	return "bool"
 }
 
 // ============================================================================
@@ -249,55 +243,16 @@ func NewArrayType(element Type, min uint, max uint) *ArrayType {
 	return &ArrayType{element, min, max}
 }
 
-// HasLoobeanSemantics indicates whether or not this type supports "loobean"
-// semantics or not. If so, this means that 0 is treated as true, with anything
-// else being false.
-func (p *ArrayType) HasLoobeanSemantics() bool {
-	return false
-}
-
-// HasBooleanSemantics indicates whether or not this type supports "boolean"
-// semantics. If so, this means that 0 is treated as false, with anything else
-// being true.
-func (p *ArrayType) HasBooleanSemantics() bool {
-	return false
-}
-
-// WithLoobeanSemantics constructs a variant of this type which employs loobean
-// semantics.  This will panic if the type has already been given boolean
-// semantics.
-func (p *ArrayType) WithLoobeanSemantics() Type {
-	panic("unreachable")
-}
-
-// WithBooleanSemantics constructs a variant of this type which employs boolean
-// semantics.  This will panic if the type has already been given boolean
-// semantics.
-func (p *ArrayType) WithBooleanSemantics() Type {
-	panic("unreachable")
-}
-
-// ContainsFieldType indicates indicates whether or not this array type contains a field type
-func (p *ArrayType) ContainsFieldType() bool {
-	for i := p.min; i <= p.max; i++ {
-		if p.element.ContainsFieldType() {
-			return true
-		}
-	}
-
-	return false
+// HasUnderlying determines whether or not this type has an underlying
+// representation, or not.
+func (p *ArrayType) HasUnderlying() bool {
+	return p.element.HasUnderlying()
 }
 
 // Width returns the number of underlying columns represented by this column.
 // For example, an array of size n will expand into n underlying columns.
 func (p *ArrayType) Width() uint {
 	return p.max - p.min + 1
-}
-
-// AsUnderlying attempts to convert this type into an underlying type.  If this
-// is not possible, then nil is returned.
-func (p *ArrayType) AsUnderlying() sc.Type {
-	return nil
 }
 
 // Element returns the element of this array type.
@@ -313,6 +268,20 @@ func (p *ArrayType) MinIndex() uint {
 // MaxIndex returns the largest index of elements in this array type.
 func (p *ArrayType) MaxIndex() uint {
 	return p.max
+}
+
+// LeastUpperBound computes the least upper bound of this type and another. This
+// is smallest type which contains both of the arguments.  For example, i32 is
+// the least upper bound of i1 and i32, etc.  If no such type exists, then nil
+// is returned.
+func (p *ArrayType) LeastUpperBound(other Type) Type {
+	if o, ok := other.(*ArrayType); ok && p.min == o.min && p.max == o.max {
+		if element := p.element.LeastUpperBound(o.element); element != nil {
+			return NewArrayType(element, p.min, p.max)
+		}
+	}
+	//
+	return nil
 }
 
 // SubtypeOf determines whether or not this type is a subtype of another.

@@ -2,9 +2,9 @@
 ;;
 (defcolumns
     (BIT :binary@prove :array [4])
-    (ARG :i16@loob))
+    (ARG :i16))
 
 (defconstraint bits ()
-  (- ARG
+  (== ARG
      (reduce +
       (for i [0:3] (* (^ 2 i) [BIT i])))))

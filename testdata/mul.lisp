@@ -80,7 +80,7 @@
   (vanishes! STAMP))
 
 (defconstraint stamp-update ()
-  (vanishes! (* (will-inc! STAMP 1) (will-remain-constant! STAMP))))
+  (or! (will-inc! STAMP 1) (will-remain-constant! STAMP)))
 
 (defconstraint vanishing ()
   (if-zero STAMP
@@ -102,7 +102,7 @@
                (vanishes! (* (- INST EVM_INST_MUL) (- INST EVM_INST_EXP)))))
 
 (defconstraint reset-stuff ()
-  (if-not-zero (will-remain-constant! STAMP)
+  (if-not (will-remain-constant! STAMP)
                (begin (vanishes! (next CT))
                       (vanishes! (next BIT_NUM)))))
 
@@ -543,7 +543,7 @@
                                       (mu)))))
 
 (defun (final-square-and-multiply)
-  (if-not-zero (will-remain-constant! STAMP)
+  (if-not (will-remain-constant! STAMP)
                (begin (eq! RES_HI
                          (+ (* THETA (C_3)) (C_2)))
                       (eq! RES_LO
@@ -626,6 +626,5 @@
                                 (vanishes! sumx)))
                         (if-not-zero (- ct MMEDIUMMO)
                             (begin
-                             (vanishes! (* (will-remain-constant! x)
-                                          (will-inc! x 1)))
+                             (or! (will-remain-constant! x) (will-inc! x 1))
                              (will-eq! sumx (+ sumx (next x)))))))

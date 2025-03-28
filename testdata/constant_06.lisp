@@ -1,4 +1,4 @@
-(defpurefun ((vanishes! :𝔽@loob) x) x)
+(defpurefun (vanishes! x) (== 0 x))
 
 (defconst TWO 2)
 (defcolumns (X :i16) (Y :i32))

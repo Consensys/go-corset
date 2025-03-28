@@ -1,5 +1,5 @@
-;;error:5:26-27:expected type u1 (found u16@loob)
+;;error:5:22-30:expected bool, found int
 (defpurefun (fn (x :binary) y) (- x y))
 
-(defcolumns (X :i16@loob) (Y :i16@loob) (A :binary@loob) (B :binary@loob))
+(defcolumns (X :i16) (Y :i16) (A :binary) (B :binary))
 (defconstraint c1 () (fn X Y))

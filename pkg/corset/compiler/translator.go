@@ -15,6 +15,7 @@ package compiler
 import (
 	"fmt"
 	"math"
+	"reflect"
 	"slices"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
@@ -511,8 +512,8 @@ func (t *translator) translateUnitExpressionsInModule(exprs []ast.Expr, module u
 }
 
 // Translate a sequence of zero or more expressions enclosed in a given module.
-func (t *translator) translateExpressionsInModule(exprs []ast.Expr, module util.Path,
-	shift int) ([]hir.Expr, []SyntaxError) {
+func (t *translator) translateExpressionsInModule(module util.Path, shift int,
+	exprs ...ast.Expr) ([]hir.Expr, []SyntaxError) {
 	//
 	errors := []SyntaxError{}
 	hirExprs := make([]hir.Expr, len(exprs))
@@ -543,48 +544,76 @@ func (t *translator) translateExpressionInModule(expr ast.Expr, module util.Path
 		// Done
 		return hir.NewColumnAccess(registerId, shift), errors
 	case *ast.Add:
-		args, errs := t.translateExpressionsInModule(e.Args, module, shift)
+		args, errs := t.translateExpressionsInModule(module, shift, e.Args...)
 		return hir.Sum(args...), errs
 	case *ast.Cast:
 		arg, errs := t.translateExpressionInModule(e.Arg, module, shift)
-		return hir.CastOf(arg, e.BitWidth), errs
+		//
+		if !e.Unsafe {
+			// safe casts are compiled out since they have already been checked
+			// by the type checker.
+			return arg, errs
+		} else if int_t, ok := e.Type.(*ast.IntType); ok {
+			// unsafe casts cannot be checked by the type checker, but can be
+			// exploited for the purposes of optimisation.
+			return hir.CastOf(arg, int_t.AsUnderlying().BitWidth()), errs
+		}
+		// Should be unreachable.
+		msg := fmt.Sprintf("cannot translate cast (%s)", e.Type.String())
+		//
+		return hir.VOID, t.srcmap.SyntaxErrors(expr, msg)
 	case *ast.Constant:
 		var val fr.Element
 		// Initialise field from bigint
 		val.SetBigInt(&e.Val)
 		//
 		return hir.NewConst(val), nil
+	case *ast.Equals:
+		lhs, errs1 := t.translateExpressionInModule(e.Lhs, module, shift)
+		rhs, errs2 := t.translateExpressionInModule(e.Rhs, module, shift)
+		errs := append(errs1, errs2...)
+		//
+		if len(errs) > 0 {
+			return hir.VOID, errs
+		} else if e.Sign {
+			return hir.Subtract(lhs, rhs), nil
+		}
+		//
+		return hir.Subtract(hir.ONE, hir.Normalise(hir.Subtract(lhs, rhs))), nil
 	case *ast.Exp:
 		return t.translateExpInModule(e, module, shift)
 	case *ast.If:
-		args, errs := t.translateExpressionsInModule([]ast.Expr{e.Condition, e.TrueBranch, e.FalseBranch}, module, shift)
-		// Construct appropriate if form
-		if e.IsIfZero() {
-			return hir.If(args[0], args[1], args[2]), errs
-		} else if e.IsIfNotZero() {
-			// In this case, switch the ordering.
-			return hir.If(args[0], args[2], args[1]), errs
+		// Translate condition
+		condition, errs1 := t.translateExpressionInModule(e.Condition, module, shift)
+		// Translate args
+		args, errs2 := t.translateExpressionsInModule(module, shift, e.TrueBranch, e.FalseBranch)
+		//
+		if len(errs1)+len(errs2) > 0 {
+			return hir.VOID, append(errs1, errs2...)
 		}
-		// Should be unreachable
-		return hir.VOID, t.srcmap.SyntaxErrors(expr, "unresolved conditional encountered during translation")
+		// Construct appropriate if form
+		return hir.If(condition, args[0], args[1]), nil
 	case *ast.List:
-		args, errs := t.translateExpressionsInModule(e.Args, module, shift)
+		args, errs := t.translateExpressionsInModule(module, shift, e.Args...)
 		return hir.ListOf(args...), errs
 	case *ast.Mul:
-		args, errs := t.translateExpressionsInModule(e.Args, module, shift)
+		args, errs := t.translateExpressionsInModule(module, shift, e.Args...)
 		return hir.Product(args...), errs
 	case *ast.Normalise:
 		arg, errs := t.translateExpressionInModule(e.Arg, module, shift)
 		return hir.Normalise(arg), errs
 	case *ast.Sub:
-		args, errs := t.translateExpressionsInModule(e.Args, module, shift)
+		args, errs := t.translateExpressionsInModule(module, shift, e.Args...)
 		return hir.Subtract(args...), errs
 	case *ast.Shift:
 		return t.translateShiftInModule(e, module, shift)
 	case *ast.VariableAccess:
 		return t.translateVariableAccessInModule(e, shift)
 	default:
-		return hir.VOID, t.srcmap.SyntaxErrors(expr, "unknown expression encountered during translation")
+		typeStr := reflect.TypeOf(expr).String()
+		msg := fmt.Sprintf("unknown expression encountered during translation (%s)", typeStr)
+		//
+		return hir.VOID, t.srcmap.SyntaxErrors(expr, msg)
 	}
 }
 

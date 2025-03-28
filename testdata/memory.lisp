@@ -11,7 +11,7 @@
 ;; written.
 
 ;; Program Counter (always increases by one)
-(defcolumns (PC :i16@loob@prove))
+(defcolumns (PC :i16@prove))
 ;; Read/Write flag (0=READ, 1=WRITE)
 (defcolumns (RW :i1@prove))
 ;; Address being Read/Written
@@ -33,13 +33,13 @@
 
 ;; PC[k]=0 ==> PC[k-1]=0
 (defconstraint heartbeat_3 ()
-  (if PC
+  (if (== 0 PC)
       (eq! (prev PC) 0)))
 
 ;; PC[k]=0 ==> (RW[k]=0 && ADDR[k]=0 && VAL[k]=0)
 (defconstraint heartbeat_4 ()
-  (if PC
-      (+
+  (if (== 0 PC)
+      (begin
        (eq! RW 0)
        (eq! ADDR 0)
        (eq! VAL 0))))

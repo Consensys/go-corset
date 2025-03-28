@@ -1,6 +1,6 @@
-;;error:6:26-35:invalid condition (neither loobean nor boolean)
+;;error:6:26-35:expected bool, found int
 (defcolumns
     (BIT :binary)
-    (X :binary@loob))
+    (X :binary))
 
 (defconstraint c1 () (if (+ 2 BIT) X))

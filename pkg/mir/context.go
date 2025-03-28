@@ -56,6 +56,17 @@ func contextOfTerms(args []Term, schema sc.Schema) trace.Context {
 	return ctx
 }
 
+func contextOfEquations(args []Equation, schema sc.Schema) trace.Context {
+	ctx := trace.VoidContext[uint]()
+	//
+	for _, e := range args {
+		ctx = ctx.Join(contextOfTerm(e.lhs, schema))
+		ctx = ctx.Join(contextOfTerm(e.rhs, schema))
+	}
+	// If we get here, then no conflicts were detected.
+	return ctx
+}
+
 func requiredColumnsOfTerm(e Term) *set.SortedSet[uint] {
 	switch e := e.(type) {
 	case *Add:
@@ -83,6 +94,15 @@ func requiredColumnsOfTerm(e Term) *set.SortedSet[uint] {
 func requiredColumnsOfTerms(args []Term) *set.SortedSet[uint] {
 	return set.UnionSortedSets(args, func(e Term) *set.SortedSet[uint] {
 		return requiredColumnsOfTerm(e)
+	})
+}
+
+func requiredColumnsOfEquations(args []Equation) *set.SortedSet[uint] {
+	return set.UnionSortedSets(args, func(e Equation) *set.SortedSet[uint] {
+		cols := requiredColumnsOfTerm(e.lhs)
+		cols.InsertSorted(requiredColumnsOfTerm(e.rhs))
+
+		return cols
 	})
 }
 
@@ -120,6 +140,15 @@ func requiredCellsOfTerm(t Term, row int, tr trace.Trace) *set.AnySortedSet[trac
 func requiredCellsOfTerms(args []Term, row int, tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
 	return set.UnionAnySortedSets(args, func(e Term) *set.AnySortedSet[trace.CellRef] {
 		return requiredCellsOfTerm(e, row, tr)
+	})
+}
+
+func requiredCellsOfEquations(args []Equation, row int, tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
+	return set.UnionAnySortedSets(args, func(e Equation) *set.AnySortedSet[trace.CellRef] {
+		cells := requiredCellsOfTerm(e.lhs, row, tr)
+		cells.InsertSorted(requiredCellsOfTerm(e.rhs, row, tr))
+
+		return cells
 	})
 }
 
