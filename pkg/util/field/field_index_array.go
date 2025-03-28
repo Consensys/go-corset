@@ -145,12 +145,20 @@ func (p *FrIndexArray) Pad(n uint, m uint, padding fr.Element) util.Array[fr.Ele
 // Write the raw bytes of this column to a given writer, returning an error
 // if this failed (for some reason).
 func (p *FrIndexArray) Write(w io.Writer) error {
+	// Determine bytewidth
+	byteWidth := p.bitwidth / 8
+	if p.bitwidth%8 != 0 {
+		byteWidth++
+	}
+	//
+	n := 32 - byteWidth
+	//
 	for _, e := range p.elements {
 		element := p.heap[e]
 		// Read exactly 32 bytes
 		bytes := element.Bytes()
 		// Write them out
-		if _, err := w.Write(bytes[:]); err != nil {
+		if _, err := w.Write(bytes[n:]); err != nil {
 			return err
 		}
 	}
