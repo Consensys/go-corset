@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/field"
 )
@@ -45,6 +46,8 @@ func FromBytes(bytes []byte) ([]trace.RawColumn, error) {
 		if error != nil {
 			return nil, error
 		}
+		// Manage negative numbers
+		normaliseBigInts(rawInts)
 		// Validate data array
 		if row := validateBigInts(bitwidth, rawInts); row != math.MaxUint {
 			return nil, fmt.Errorf("column %s out-of-bounds (row %d, value %s)",
@@ -118,4 +121,17 @@ func validateBigInts(bitwidth uint, data []*big.Int) uint {
 	}
 	//
 	return math.MaxUint
+}
+
+func normaliseBigInts(data []*big.Int) {
+	var (
+		zero    = big.NewInt(0)
+		modulus = fr.Modulus()
+	)
+	//
+	for i, val := range data {
+		if val.Cmp(zero) < 0 {
+			data[i].Add(modulus, data[i])
+		}
+	}
 }
