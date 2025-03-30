@@ -17,7 +17,6 @@ import (
 	"math"
 	"unicode/utf8"
 
-	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/termio"
 )
 
@@ -129,7 +128,7 @@ func (p *Printer) Print(trace Trace) {
 		}
 	}
 	// Construct table
-	tp := util.NewTablePrinter(width, uint(1+len(columns)))
+	tp := termio.NewTablePrinter(width, uint(1+len(columns)))
 	// Configure escapes
 	tp.AnsiEscapes(p.ansiEscapes)
 	// Initialise row indices

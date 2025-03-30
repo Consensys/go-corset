@@ -28,6 +28,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/termio"
 	"github.com/spf13/cobra"
 )
 
@@ -286,7 +287,7 @@ func printTraceFileHeader(header *lt.Header) {
 func printTrace(start uint, max_width uint, cols []trace.RawColumn) {
 	n := uint(len(cols))
 	height := maxHeightColumns(cols)
-	tbl := util.NewTablePrinter(1+height, 1+n)
+	tbl := termio.NewTablePrinter(1+height, 1+n)
 
 	for j := uint(0); j < height; j++ {
 		tbl.Set(j+1, 0, fmt.Sprintf("#%d", j+start))
@@ -315,7 +316,7 @@ func listModules(max_width uint, tr []trace.RawColumn) {
 	m := 1 + uint(len(summarisers))
 	n := uint(len(modules))
 	// Go!
-	tbl := util.NewTablePrinter(m, n+1)
+	tbl := termio.NewTablePrinter(m, n+1)
 	// Set column titles
 	for i := uint(0); i < uint(len(summarisers)); i++ {
 		tbl.Set(i+1, 0, summarisers[i].name)
@@ -342,7 +343,7 @@ func listColumns(max_width uint, tr []trace.RawColumn, includes []string) {
 	m := 1 + uint(len(summarisers))
 	n := uint(len(tr))
 	// Go!
-	tbl := util.NewTablePrinter(m, n+1)
+	tbl := termio.NewTablePrinter(m, n+1)
 	c := make(chan util.Pair[uint, []string], n)
 	// Set titles
 	tbl.Set(0, 0, "Column")
@@ -442,7 +443,7 @@ func summariseColumn(column trace.RawColumn, summarisers []ColumnSummariser) []s
 
 func summaryStats(tr []trace.RawColumn) {
 	m := uint(len(trSummarisers))
-	tbl := util.NewTablePrinter(2, m)
+	tbl := termio.NewTablePrinter(2, m)
 	// Go!
 	for i := uint(0); i < m; i++ {
 		ith := trSummarisers[i]

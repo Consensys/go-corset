@@ -313,7 +313,7 @@ func printCoverage(cfg coverageConfig,
 		}
 	}
 	// Print matching entries
-	tbl := util.NewTablePrinter(m+cfg.depth, uint(len(rows)))
+	tbl := termio.NewTablePrinter(m+cfg.depth, uint(len(rows)))
 	//
 	for i, row := range rows {
 		tbl.SetRow(uint(i), row...)
@@ -341,7 +341,7 @@ func coverageRow(constraints []sc.Constraint, calcs []cov.ColumnCalc, cov sc.Cov
 	return row
 }
 
-func setTitleColours(tbl *util.TablePrinter, cfg coverageConfig, covs []sc.CoverageMap) {
+func setTitleColours(tbl *termio.TablePrinter, cfg coverageConfig, covs []sc.CoverageMap) {
 	escape := termio.NewAnsiEscape().FgColour(termio.TERM_BLUE).Build()
 	n := uint(1)
 	// Check for report titles
@@ -362,7 +362,7 @@ func setTitleColours(tbl *util.TablePrinter, cfg coverageConfig, covs []sc.Cover
 	}
 }
 
-func setDiffColours(tbl *util.TablePrinter, cfg coverageConfig, covs []sc.CoverageMap) {
+func setDiffColours(tbl *termio.TablePrinter, cfg coverageConfig, covs []sc.CoverageMap) {
 	n := uint(1)
 	// Check for report titles
 	if len(cfg.titles) > 0 {

@@ -10,12 +10,10 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package util
+package termio
 
 import (
 	"fmt"
-
-	"github.com/consensys/go-corset/pkg/util/termio"
 )
 
 // TablePrinter is useful for printing tables to the terminal.
@@ -118,7 +116,7 @@ func (p *TablePrinter) Print() {
 			}
 			// Cancel colour (if applicable)
 			if p.enableEscapes && jth_escape != "" {
-				fmt.Print(termio.ResetAnsiEscape().Build())
+				fmt.Print(ResetAnsiEscape().Build())
 			}
 
 			fmt.Print(" |")
