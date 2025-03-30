@@ -140,8 +140,11 @@ func lowerRangeConstraintToAir(v RangeConstraint, mirSchema *Schema, airSchema *
 		// Convert bound into big int
 		elem := v.Bound
 		elem.BigInt(&bi)
+		// Subtract one here, so that e.g. a bound of 65536 reports a bitwidth
+		// of 16, not 17.
+		bi.Sub(&bi, big.NewInt(1))
 		// Apply bitwidth gadget
-		air_gadgets.ApplyBitwidthGadget(column, uint(bi.BitLen()-1), air.NewConst64(1), airSchema)
+		air_gadgets.ApplyBitwidthGadget(column, uint(bi.BitLen()), air.NewConst64(1), airSchema)
 	}
 }
 
