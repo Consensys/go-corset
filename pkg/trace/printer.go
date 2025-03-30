@@ -117,8 +117,9 @@ func (p *Printer) Print(trace Trace) {
 	} else {
 		start = p.startRow
 	}
-
-	end := min(MaxHeight(trace), p.startRow+p.padding+1)
+	//
+	end := min(MaxHeight(trace), p.endRow+p.padding+1)
+	//
 	columns := make([]uint, 0)
 	width := 1 + end - start
 	// Filter columns
