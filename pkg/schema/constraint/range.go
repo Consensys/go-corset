@@ -41,7 +41,7 @@ type RangeFailure struct {
 // Message provides a suitable error message
 func (p *RangeFailure) Message() string {
 	// Construct useful error message
-	return fmt.Sprintf("constraint \"%s\" < %s does not hold (row %d)", p.Handle, p.Bound.String(), p.Row)
+	return fmt.Sprintf("range \"%s\" < %s does not hold (row %d)", p.Handle, p.Bound.String(), p.Row)
 }
 
 func (p *RangeFailure) String() string {
