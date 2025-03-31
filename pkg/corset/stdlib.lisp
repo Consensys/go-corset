@@ -16,6 +16,9 @@
 (defpurefun (if-not-zero cond then) (if (as-bool cond) then))
 (defpurefun (if-not-zero cond then else) (if (as-bool cond) then else))
 
+(defpurefun (if-not (cond :𝔽@loob) then) (if (as-bool cond) then))
+(defpurefun (if-not (cond :𝔽@loob) then else) (if (as-bool cond) then else))
+
 (defpurefun ((as-bool :𝔽@bool :force) x) x)
 (defpurefun ((is-binary :𝔽@loob :force) e0) (* e0 (- 1 e0)))
 
