@@ -129,22 +129,22 @@ func (p *Printer) Print(trace Trace) {
 	}
 	// Construct table
 	tp := termio.NewTablePrinter(width, uint(1+len(columns)))
-	// Configure escapes
-	tp.AnsiEscapes(p.ansiEscapes)
 	// Initialise row indices
 	for j := start; j < end; j++ {
-		tp.Set(1+j-start, 0, fmt.Sprintf("%d", j))
-		tp.SetEscape(1+j-start, 0, termio.NewAnsiEscape().FgColour(termio.TERM_WHITE).Build())
+		escape := termio.NewAnsiEscape().FgColour(termio.TERM_WHITE)
+		text := termio.NewFormattedText(fmt.Sprintf("%d", j), escape)
+		tp.Set(1+j-start, 0, text)
 	}
 	// Construct suitable highlighting escape
-	highlightEscape := termio.BoldAnsiEscape().FgColour(termio.TERM_RED).Build()
+	highlightEscape := termio.BoldAnsiEscape().FgColour(termio.TERM_RED)
 	// Fill table
 	for i, col := range columns {
 		column := trace.Column(col)
 		maxRow := min(end, column.Data().Len())
 		// Set columns names
-		tp.Set(0, uint(i+1), column.Name())
-		tp.SetEscape(0, uint(i+1), termio.NewAnsiEscape().FgColour(termio.TERM_WHITE).Build())
+		escape := termio.NewAnsiEscape().FgColour(termio.TERM_WHITE)
+		text := termio.NewFormattedText(column.Name(), escape)
+		tp.Set(0, uint(i+1), text)
 		//
 		for row := start; row < maxRow; row++ {
 			var hex string
@@ -157,14 +157,10 @@ func (p *Printer) Print(trace Trace) {
 				// In a non-ANSI environment, use a marker "*" to identify which cells were depended upon.
 				hex = fmt.Sprintf("*0x%s", jth.Text(16))
 			} else {
-				if highlight {
-					tp.SetEscape(1+row-start, uint(i+1), highlightEscape)
-				}
-				//
 				hex = fmt.Sprintf("0x%s", jth.Text(16))
 			}
 			//
-			tp.Set(1+row-start, uint(i+1), hex)
+			tp.Set(1+row-start, uint(i+1), termio.NewFormattedText(hex, highlightEscape))
 		}
 	}
 	// Cap cells
@@ -172,7 +168,7 @@ func (p *Printer) Print(trace Trace) {
 		tp.SetMaxWidth(1+j-start, p.maxCellWidth)
 	}
 	// Done
-	tp.Print()
+	tp.Print(p.ansiEscapes)
 }
 
 // PrintTrace prints a trace in a more human-friendly fashion.

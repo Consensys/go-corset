@@ -315,11 +315,20 @@ func printCoverage(cfg coverageConfig,
 	// Print matching entries
 	tbl := termio.NewTablePrinter(m+cfg.depth, uint(len(rows)))
 	//
-	for i, row := range rows {
-		tbl.SetRow(uint(i), row...)
-	}
+	escape := termio.NewAnsiEscape().FgColour(termio.TERM_BLUE)
 	//
-	setTitleColours(tbl, cfg, coverages)
+	for i, row := range rows {
+		for j, cell := range row {
+			var text termio.FormattedText
+			if i == 0 || uint(j) < cfg.depth {
+				text = termio.NewFormattedText(cell, escape)
+			} else {
+				text = termio.NewText(cell)
+			}
+			//
+			tbl.Set(uint(j), uint(i), text)
+		}
+	}
 	//
 	if cfg.diff {
 		setDiffColours(tbl, cfg, coverages)
@@ -327,7 +336,7 @@ func printCoverage(cfg coverageConfig,
 	//
 	tbl.SetMaxWidth(1, 64)
 	//
-	tbl.Print()
+	tbl.Print(true)
 }
 
 func coverageRow(constraints []sc.Constraint, calcs []cov.ColumnCalc, cov sc.CoverageMap, schema sc.Schema) []string {
@@ -341,40 +350,19 @@ func coverageRow(constraints []sc.Constraint, calcs []cov.ColumnCalc, cov sc.Cov
 	return row
 }
 
-func setTitleColours(tbl *termio.TablePrinter, cfg coverageConfig, covs []sc.CoverageMap) {
-	escape := termio.NewAnsiEscape().FgColour(termio.TERM_BLUE).Build()
-	n := uint(1)
-	// Check for report titles
-	if len(cfg.titles) > 0 {
-		n++
-	}
-	// Constraint groups
-	for i := n; i < tbl.Height(); i++ {
-		for j := uint(0); j < cfg.depth; j++ {
-			tbl.SetEscape(j, i, escape)
-		}
-	}
-	// Calcs
-	for i := uint(0); i < n; i++ {
-		for j := uint(0); j < uint(len(cfg.calcs)*(len(covs))); j++ {
-			tbl.SetEscape(j+1, i, escape)
-		}
-	}
-}
-
-func setDiffColours(tbl *termio.TablePrinter, cfg coverageConfig, covs []sc.CoverageMap) {
+func setDiffColours(tbl *termio.FormattedTable, cfg coverageConfig, covs []sc.CoverageMap) {
 	n := uint(1)
 	// Check for report titles
 	if len(cfg.titles) > 0 {
 		n++
 	}
 	//
-	escape := termio.NewAnsiEscape().Fg256Colour(102).Build()
-	white := termio.BoldAnsiEscape().FgColour(termio.TERM_YELLOW).Build()
+	hidden := termio.NewAnsiEscape().Fg256Colour(102)
+	white := termio.BoldAnsiEscape().FgColour(termio.TERM_YELLOW)
 	// Set all columns to hidden
 	for i := n; i < tbl.Height(); i++ {
 		for j := uint(0); j < uint(len(covs)*len(cfg.calcs)); j++ {
-			tbl.SetEscape(cfg.depth+j, i, escape)
+			tbl.Format(cfg.depth+j, i, hidden)
 		}
 	}
 	//
@@ -384,9 +372,9 @@ func setDiffColours(tbl *termio.TablePrinter, cfg coverageConfig, covs []sc.Cove
 				cur := cfg.depth + k + uint(j*len(cfg.calcs))
 				prev := cfg.depth + k + uint((j-1)*len(cfg.calcs))
 				//
-				if tbl.Get(prev, i) != tbl.Get(cur, i) {
-					tbl.SetEscape(prev, i, white)
-					tbl.SetEscape(cur, i, white)
+				if tbl.Text(prev, i) != tbl.Text(cur, i) {
+					tbl.Format(prev, i, white)
+					tbl.Format(cur, i, white)
 				}
 			}
 		}

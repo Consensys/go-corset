@@ -12,6 +12,8 @@
 // SPDX-License-Identifier: Apache-2.0
 package termio
 
+import "fmt"
+
 // Window provides an abstraction over an interactive terminal session.  This
 // is fairly simplistic at this stage, and supports layout of widges in a
 // vertical direction only.
@@ -82,16 +84,34 @@ func (p *FormattedText) Format(format AnsiEscape) {
 }
 
 // Clip removes text from the start and end.
-func (p *FormattedText) Clip(start uint, end uint) {
-	len := p.Len()
+func (p *FormattedText) Clip(start uint, end uint) FormattedText {
+	var (
+		text []rune
+		len  = p.Len()
+	)
 	// clip text entirely
 	if start >= len {
-		p.text = []rune{}
+		text = []rune{}
 	} else if end >= len {
-		p.text = p.text[start:]
+		text = p.text[start:]
 	} else {
-		p.text = p.text[start:end]
+		text = p.text[start:end]
 	}
+	//
+	return FormattedText{p.format, text}
+}
+
+// Pad ensures the text is at least a given width, by prepending spaces.
+func (p *FormattedText) Pad(width uint) FormattedText {
+	var (
+		text []rune = p.text
+	)
+	// Pad only if necessary
+	if uint(len(text)) < width {
+		text = []rune(fmt.Sprintf("%*s", width, string(text)))
+	}
+	//
+	return FormattedText{p.format, text}
 }
 
 // Bytes returns an ANSI-formatted byte representing of this chunk.

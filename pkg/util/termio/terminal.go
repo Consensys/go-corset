@@ -233,7 +233,7 @@ func (p *terminalCanvas) Write(x, y uint, text FormattedText) {
 	if x < w && y < h {
 		mx := x + text.Len()
 		if mx > w {
-			text.Clip(0, w-x)
+			text = text.Clip(0, w-x)
 		}
 		//
 		p.lines[y] = append(p.lines[y], terminalChunk{x, text})
@@ -266,7 +266,7 @@ func (p *terminalCanvas) renderLine(line uint) []byte {
 		// Clip chunk if it overlaps
 		if c.xpos < xpos {
 			diff := xpos - c.xpos
-			c_text.Clip(diff, math.MaxUint)
+			c_text = c_text.Clip(diff, math.MaxUint)
 		}
 		// Construct
 		bytes = append(bytes, c_text.Bytes()...)

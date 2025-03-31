@@ -232,19 +232,19 @@ func printStats(hirSchema *hir.Schema, hir bool, mir bool, air bool, optConfig m
 	// Go!
 	for i := uint(0); i < m; i++ {
 		ith := schemaSummarisers[i]
-		row := make([]string, n)
-		row[0] = ith.name
+		row := make([]termio.FormattedText, n)
+		row[0] = termio.NewText(ith.name)
 
 		for j := 0; j < len(schemas); j++ {
 			count := ith.summary(schemas[j])
-			row[j+1] = fmt.Sprintf("%d", count)
+			row[j+1] = termio.NewText(fmt.Sprintf("%d", count))
 		}
 
 		tbl.SetRow(i, row...)
 	}
 	//
 	tbl.SetMaxWidths(64)
-	tbl.Print()
+	tbl.Print(true)
 }
 
 func printBinaryFileHeader(header *binfile.Header) {

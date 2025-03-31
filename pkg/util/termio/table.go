@@ -16,110 +16,99 @@ import (
 	"fmt"
 )
 
-// TablePrinter is useful for printing tables to the terminal.
-type TablePrinter struct {
-	widths        []uint
-	rows          [][]string
-	escapes       [][]string
-	enableEscapes bool
+// FormattedTable is useful for printing tables to the terminal.
+type FormattedTable struct {
+	// Maximum width of each column.
+	widths []uint
+	// Table data stored in row-major format.
+	rows [][]FormattedText
 }
 
 // NewTablePrinter constructs a new table with given dimensions.
-func NewTablePrinter(width uint, height uint) *TablePrinter {
+func NewTablePrinter(width uint, height uint) *FormattedTable {
 	widths := make([]uint, width)
-	rows := make([][]string, height)
-	escapes := make([][]string, height)
+	rows := make([][]FormattedText, height)
 	// Construct the table
 	for i := uint(0); i < height; i++ {
-		rows[i] = make([]string, width)
-		escapes[i] = make([]string, width)
+		rows[i] = make([]FormattedText, width)
 	}
 
-	return &TablePrinter{widths, rows, escapes, true}
+	return &FormattedTable{widths, rows}
 }
 
 // Set the contents of a given cell in this table
-func (p *TablePrinter) Set(col uint, row uint, val string) {
-	p.widths[col] = max(p.widths[col], uint(len(val)))
+func (p *FormattedTable) Set(col uint, row uint, val FormattedText) {
+	p.widths[col] = max(p.widths[col], uint(len(val.text)))
 	p.rows[row][col] = val
 }
 
-// Get the contents of a given cell in this table
-func (p *TablePrinter) Get(col uint, row uint) string {
-	return p.rows[row][col]
+// Format the contents of a given cell in this table
+func (p *FormattedTable) Format(col uint, row uint, escape AnsiEscape) {
+	p.rows[row][col] = FormattedText{&escape, p.rows[row][col].text}
+}
+
+// Text returns the unformatted text contents of a given cell in this table
+func (p *FormattedTable) Text(col uint, row uint) string {
+	return string(p.rows[row][col].text)
 }
 
 // Height returns the height of this table.
-func (p *TablePrinter) Height() uint {
+func (p *FormattedTable) Height() uint {
 	return uint(len(p.rows))
 }
 
-// SetEscape set the colour to use when printing the contents of a given cell
-func (p *TablePrinter) SetEscape(col uint, row uint, escape string) {
-	p.escapes[row][col] = escape
-}
-
-// AnsiEscapes enables or disables the use of ANSI escapes (e.g. for showing
-// colour).  Disabling escapes is useful in environments that don't support
-// escapes as, otherwise, you get a lot of visible excape characters being
-// printed.
-func (p *TablePrinter) AnsiEscapes(enable bool) {
-	p.enableEscapes = enable
-}
-
 // SetRow sets the contents of an entire row in this table
-func (p *TablePrinter) SetRow(row uint, vals ...string) {
+func (p *FormattedTable) SetRow(row uint, vals ...FormattedText) {
 	if len(vals) != len(p.widths) {
 		panic("incorrect number of columns")
 	}
 	// Update column widths
 	for i := 0; i < len(p.widths); i++ {
-		p.widths[i] = max(p.widths[i], uint(len(vals[i])))
+		p.widths[i] = max(p.widths[i], uint(len(vals[i].text)))
 	}
 	// Done
 	p.rows[row] = vals
 }
 
 // SetMaxWidths puts an upper bound on the width of any column.
-func (p *TablePrinter) SetMaxWidths(width uint) {
+func (p *FormattedTable) SetMaxWidths(width uint) {
 	for i := uint(0); i < uint(len(p.widths)); i++ {
 		p.SetMaxWidth(i, width)
 	}
 }
 
 // SetMaxWidth puts an upper bound on the width of any column.
-func (p *TablePrinter) SetMaxWidth(col uint, width uint) {
+func (p *FormattedTable) SetMaxWidth(col uint, width uint) {
 	p.widths[col] = min(p.widths[col], width)
 }
 
-// Print the table.
-func (p *TablePrinter) Print() {
+// Print the table with or without the use of ANSI escapes (e.g. for showing
+// colour).  Disabling escapes is useful in environments that don't support
+// escapes as, otherwise, you get a lot of visible excape characters being
+// printed.
+func (p *FormattedTable) Print(escapes bool) {
 	//
-	for i := 0; i < len(p.rows); i++ {
+	for i := range p.rows {
 		row := p.rows[i]
-		escapes := p.escapes[i]
 		//
 		for j, col := range row {
-			jth := col
-			jth_width := p.widths[j]
-			jth_escape := escapes[j]
+			var (
+				jth       = col
+				jth_width = p.widths[j]
+				text      string
+			)
+			// Clip anything longer than given width
+			jth = jth.Clip(0, jth_width)
+			// Pad out anything shorter than given width
+			jth = jth.Pad(jth_width)
 			// Print colour (if applicable)
-			if p.enableEscapes && jth_escape != "" {
-				fmt.Print(jth_escape)
-			}
-			// Print data
-			if uint(len(col)) > jth_width {
-				jth = col[0 : jth_width-2]
-				fmt.Printf(" %*s..", jth_width-2, jth)
+			if escapes {
+				text = string(jth.Bytes())
 			} else {
-				fmt.Printf(" %*s", jth_width, jth)
+				text = string(jth.text)
 			}
-			// Cancel colour (if applicable)
-			if p.enableEscapes && jth_escape != "" {
-				fmt.Print(ResetAnsiEscape().Build())
-			}
-
-			fmt.Print(" |")
+			//
+			fmt.Printf(" %s |", text)
 		}
 
 		fmt.Println()
