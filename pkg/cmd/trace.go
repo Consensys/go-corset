@@ -28,6 +28,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/termio"
 	"github.com/spf13/cobra"
 )
 
@@ -286,25 +287,25 @@ func printTraceFileHeader(header *lt.Header) {
 func printTrace(start uint, max_width uint, cols []trace.RawColumn) {
 	n := uint(len(cols))
 	height := maxHeightColumns(cols)
-	tbl := util.NewTablePrinter(1+height, 1+n)
+	tbl := termio.NewTablePrinter(1+height, 1+n)
 
 	for j := uint(0); j < height; j++ {
-		tbl.Set(j+1, 0, fmt.Sprintf("#%d", j+start))
+		tbl.Set(j+1, 0, termio.NewText(fmt.Sprintf("#%d", j+start)))
 	}
 
 	for i := uint(0); i < n; i++ {
 		ith := cols[i].Data
-		tbl.Set(0, i+1, cols[i].QualifiedName())
+		tbl.Set(0, i+1, termio.NewText(cols[i].QualifiedName()))
 
 		for j := uint(0); j < ith.Len(); j++ {
 			jth := ith.Get(j)
 
-			tbl.Set(j+1, i+1, jth.Text(16))
+			tbl.Set(j+1, i+1, termio.NewText(jth.Text(16)))
 		}
 	}
 	//
 	tbl.SetMaxWidths(max_width)
-	tbl.Print()
+	tbl.Print(true)
 }
 
 func listModules(max_width uint, tr []trace.RawColumn) {
@@ -315,26 +316,26 @@ func listModules(max_width uint, tr []trace.RawColumn) {
 	m := 1 + uint(len(summarisers))
 	n := uint(len(modules))
 	// Go!
-	tbl := util.NewTablePrinter(m, n+1)
+	tbl := termio.NewTablePrinter(m, n+1)
 	// Set column titles
 	for i := uint(0); i < uint(len(summarisers)); i++ {
-		tbl.Set(i+1, 0, summarisers[i].name)
+		tbl.Set(i+1, 0, termio.NewText(summarisers[i].name))
 	}
 	// Compute column data
 	for i, mod := range modules {
-		row := make([]string, m)
+		row := make([]termio.FormattedText, m)
 		//
-		row[0] = mod
+		row[0] = termio.NewText(mod)
 		//
 		for j, s := range summarisers {
-			row[j+1] = s.summary(traces[mod])
+			row[j+1] = termio.NewText(s.summary(traces[mod]))
 		}
 		//
 		tbl.SetRow(uint(i+1), row...)
 	}
 	//
 	tbl.SetMaxWidths(max_width)
-	tbl.Print()
+	tbl.Print(true)
 }
 
 func listColumns(max_width uint, tr []trace.RawColumn, includes []string) {
@@ -342,13 +343,13 @@ func listColumns(max_width uint, tr []trace.RawColumn, includes []string) {
 	m := 1 + uint(len(summarisers))
 	n := uint(len(tr))
 	// Go!
-	tbl := util.NewTablePrinter(m, n+1)
-	c := make(chan util.Pair[uint, []string], n)
+	tbl := termio.NewTablePrinter(m, n+1)
+	c := make(chan util.Pair[uint, []termio.FormattedText], n)
 	// Set titles
-	tbl.Set(0, 0, "Column")
+	tbl.Set(0, 0, termio.NewText("Column"))
 
 	for i := uint(0); i < uint(len(summarisers)); i++ {
-		tbl.Set(i+1, 0, summarisers[i].name)
+		tbl.Set(i+1, 0, termio.NewText(summarisers[i].name))
 	}
 	// Compute data
 	for i := uint(0); i < n; i++ {
@@ -369,7 +370,7 @@ func listColumns(max_width uint, tr []trace.RawColumn, includes []string) {
 	}
 	//
 	tbl.SetMaxWidths(max_width)
-	tbl.Print()
+	tbl.Print(true)
 }
 
 func selectColumnSummarisers(includes []string) []ColumnSummariser {
@@ -427,14 +428,14 @@ func flattenIncludes(includes []string) []string {
 	return includes
 }
 
-func summariseColumn(column trace.RawColumn, summarisers []ColumnSummariser) []string {
+func summariseColumn(column trace.RawColumn, summarisers []ColumnSummariser) []termio.FormattedText {
 	m := 1 + uint(len(summarisers))
 	//
-	row := make([]string, m)
-	row[0] = column.QualifiedName()
+	row := make([]termio.FormattedText, m)
+	row[0] = termio.NewText(column.QualifiedName())
 	// Generate each summary
 	for j := 0; j < len(summarisers); j++ {
-		row[j+1] = summarisers[j].summary(column)
+		row[j+1] = termio.NewText(summarisers[j].summary(column))
 	}
 	// Done
 	return row
@@ -442,16 +443,16 @@ func summariseColumn(column trace.RawColumn, summarisers []ColumnSummariser) []s
 
 func summaryStats(tr []trace.RawColumn) {
 	m := uint(len(trSummarisers))
-	tbl := util.NewTablePrinter(2, m)
+	tbl := termio.NewTablePrinter(2, m)
 	// Go!
 	for i := uint(0); i < m; i++ {
 		ith := trSummarisers[i]
 		summary := ith.summary(tr)
-		tbl.SetRow(i, ith.name, summary)
+		tbl.SetRow(i, termio.NewText(ith.name), termio.NewText(summary))
 	}
 	//
 	tbl.SetMaxWidths(64)
-	tbl.Print()
+	tbl.Print(true)
 }
 
 func organiseTracesByModule(columns []trace.RawColumn) (map[string][]trace.RawColumn, []string) {

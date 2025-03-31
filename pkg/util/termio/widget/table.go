@@ -59,7 +59,7 @@ func (p *Table) Render(canvas termio.Canvas) {
 		//
 		for row := uint(0); row < height; row++ {
 			cell := p.source.CellAt(col, row)
-			cell.Clip(0, colWidth)
+			cell = cell.Clip(0, colWidth)
 			canvas.Write(xpos, row, cell)
 		}
 		//

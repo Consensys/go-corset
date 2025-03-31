@@ -67,6 +67,7 @@ var coverageCmd = &cobra.Command{
 		module := GetFlag(cmd, "module")
 		includes := GetStringArray(cmd, "include")
 		cfg.titles = GetStringArray(cmd, "titles")
+		cfg.sorted = GetIntArray(cmd, "sort")
 		// Apply unit branch filter
 		filter = cov.UnitBranchFilter(filter)
 		// Apply regex filter
@@ -110,6 +111,8 @@ type coverageConfig struct {
 	titles []string
 	// Determines how constraints are grouped (e.g. by module, etc)
 	groups []cov.ConstraintGroup
+	// Determines any sorted columns
+	sorted []int
 	// Filter to use for selecting constraints.
 	filter cov.Filter
 	// Determines which metrics to show (e.g. coverage only, or actually branch
@@ -313,13 +316,22 @@ func printCoverage(cfg coverageConfig,
 		}
 	}
 	// Print matching entries
-	tbl := util.NewTablePrinter(m+cfg.depth, uint(len(rows)))
+	tbl := termio.NewTablePrinter(m+cfg.depth, uint(len(rows)))
+	//
+	escape := termio.NewAnsiEscape().FgColour(termio.TERM_BLUE)
 	//
 	for i, row := range rows {
-		tbl.SetRow(uint(i), row...)
+		for j, cell := range row {
+			var text termio.FormattedText
+			if i == 0 || uint(j) < cfg.depth {
+				text = termio.NewFormattedText(cell, escape)
+			} else {
+				text = termio.NewText(cell)
+			}
+			//
+			tbl.Set(uint(j), uint(i), text)
+		}
 	}
-	//
-	setTitleColours(tbl, cfg, coverages)
 	//
 	if cfg.diff {
 		setDiffColours(tbl, cfg, coverages)
@@ -327,7 +339,9 @@ func printCoverage(cfg coverageConfig,
 	//
 	tbl.SetMaxWidth(1, 64)
 	//
-	tbl.Print()
+	tbl.Sort(1, constructTableSorter(cfg))
+	//
+	tbl.Print(true)
 }
 
 func coverageRow(constraints []sc.Constraint, calcs []cov.ColumnCalc, cov sc.CoverageMap, schema sc.Schema) []string {
@@ -341,40 +355,19 @@ func coverageRow(constraints []sc.Constraint, calcs []cov.ColumnCalc, cov sc.Cov
 	return row
 }
 
-func setTitleColours(tbl *util.TablePrinter, cfg coverageConfig, covs []sc.CoverageMap) {
-	escape := termio.NewAnsiEscape().FgColour(termio.TERM_BLUE).Build()
-	n := uint(1)
-	// Check for report titles
-	if len(cfg.titles) > 0 {
-		n++
-	}
-	// Constraint groups
-	for i := n; i < tbl.Height(); i++ {
-		for j := uint(0); j < cfg.depth; j++ {
-			tbl.SetEscape(j, i, escape)
-		}
-	}
-	// Calcs
-	for i := uint(0); i < n; i++ {
-		for j := uint(0); j < uint(len(cfg.calcs)*(len(covs))); j++ {
-			tbl.SetEscape(j+1, i, escape)
-		}
-	}
-}
-
-func setDiffColours(tbl *util.TablePrinter, cfg coverageConfig, covs []sc.CoverageMap) {
+func setDiffColours(tbl *termio.FormattedTable, cfg coverageConfig, covs []sc.CoverageMap) {
 	n := uint(1)
 	// Check for report titles
 	if len(cfg.titles) > 0 {
 		n++
 	}
 	//
-	escape := termio.NewAnsiEscape().Fg256Colour(102).Build()
-	white := termio.BoldAnsiEscape().FgColour(termio.TERM_YELLOW).Build()
+	hidden := termio.NewAnsiEscape().Fg256Colour(102)
+	white := termio.BoldAnsiEscape().FgColour(termio.TERM_YELLOW)
 	// Set all columns to hidden
 	for i := n; i < tbl.Height(); i++ {
 		for j := uint(0); j < uint(len(covs)*len(cfg.calcs)); j++ {
-			tbl.SetEscape(cfg.depth+j, i, escape)
+			tbl.Format(cfg.depth+j, i, hidden)
 		}
 	}
 	//
@@ -384,13 +377,23 @@ func setDiffColours(tbl *util.TablePrinter, cfg coverageConfig, covs []sc.Covera
 				cur := cfg.depth + k + uint(j*len(cfg.calcs))
 				prev := cfg.depth + k + uint((j-1)*len(cfg.calcs))
 				//
-				if tbl.Get(prev, i) != tbl.Get(cur, i) {
-					tbl.SetEscape(prev, i, white)
-					tbl.SetEscape(cur, i, white)
+				if tbl.Text(prev, i) != tbl.Text(cur, i) {
+					tbl.Format(prev, i, white)
+					tbl.Format(cur, i, white)
 				}
 			}
 		}
 	}
+}
+
+func constructTableSorter(cfg coverageConfig) termio.TableSorter {
+	sorter := termio.NewTableSorter()
+	//
+	for _, col := range cfg.sorted {
+		sorter = sorter.SortNumericalColumn(col)
+	}
+	//
+	return sorter.SortColumn(0)
 }
 
 //nolint:errcheck
@@ -403,6 +406,7 @@ func init() {
 	coverageCmd.Flags().StringP("filter", "f", "", "regex constraint filter")
 	coverageCmd.Flags().StringArrayP("include", "i", []string{"covered", "branches", "coverage"},
 		"specify information to include in report")
+	coverageCmd.Flags().StringArrayP("sort", "s", nil, "specify column to sort (by index, starting from 0)")
 	coverageCmd.Flags().StringArrayP("titles", "t", nil,
 		"specify report titles")
 }

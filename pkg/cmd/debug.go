@@ -25,8 +25,8 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/assignment"
-	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
+	"github.com/consensys/go-corset/pkg/util/termio"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -228,23 +228,23 @@ func printStats(hirSchema *hir.Schema, hir bool, mir bool, air bool, optConfig m
 	//
 	n := 1 + uint(len(schemas))
 	m := uint(len(schemaSummarisers))
-	tbl := util.NewTablePrinter(n, m)
+	tbl := termio.NewTablePrinter(n, m)
 	// Go!
 	for i := uint(0); i < m; i++ {
 		ith := schemaSummarisers[i]
-		row := make([]string, n)
-		row[0] = ith.name
+		row := make([]termio.FormattedText, n)
+		row[0] = termio.NewText(ith.name)
 
 		for j := 0; j < len(schemas); j++ {
 			count := ith.summary(schemas[j])
-			row[j+1] = fmt.Sprintf("%d", count)
+			row[j+1] = termio.NewText(fmt.Sprintf("%d", count))
 		}
 
 		tbl.SetRow(i, row...)
 	}
 	//
 	tbl.SetMaxWidths(64)
-	tbl.Print()
+	tbl.Print(true)
 }
 
 func printBinaryFileHeader(header *binfile.Header) {
