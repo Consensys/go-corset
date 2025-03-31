@@ -14,6 +14,8 @@ package termio
 
 import (
 	"fmt"
+	"slices"
+	"strings"
 )
 
 // FormattedTable is useful for printing tables to the terminal.
@@ -55,6 +57,11 @@ func (p *FormattedTable) Text(col uint, row uint) string {
 // Height returns the height of this table.
 func (p *FormattedTable) Height() uint {
 	return uint(len(p.rows))
+}
+
+// Sort the data in this table according to a given table sorted.
+func (p *FormattedTable) Sort(start uint, sorter TableSorter) {
+	slices.SortStableFunc(p.rows[start:], sorter)
 }
 
 // SetRow sets the contents of an entire row in this table
@@ -112,5 +119,64 @@ func (p *FormattedTable) Print(escapes bool) {
 		}
 
 		fmt.Println()
+	}
+}
+
+// ============================================================================
+// Table Sorted
+// ============================================================================
+
+// TableSorter represents a mechanism for sorting tables in some way.
+type TableSorter func([]FormattedText, []FormattedText) int
+
+// NewTableSorter constructs a new table sorter which actually does nothing.
+// The goal is then to further refine this as necessary.
+func NewTableSorter() TableSorter {
+	return func(lhs []FormattedText, rhs []FormattedText) int {
+		return 0
+	}
+}
+
+// SortColumn adds a sort by the given column to the table sorter.
+func (p TableSorter) SortColumn(col int) TableSorter {
+	return func(lhs []FormattedText, rhs []FormattedText) int {
+		var l, r string
+		// Try parent sort
+		if c := p(lhs, rhs); c != 0 {
+			return c
+		} else if col < 0 {
+			r = string(lhs[-col].text)
+			l = string(rhs[-col].text)
+		} else {
+			l = string(lhs[col].text)
+			r = string(rhs[col].text)
+		}
+		//
+		return strings.Compare(l, r)
+	}
+}
+
+// SortNumericalColumn adds a sort by the given column to the table sorter.
+func (p TableSorter) SortNumericalColumn(col int) TableSorter {
+	return func(lhs []FormattedText, rhs []FormattedText) int {
+		var l, r string
+		// Try parent sort
+		if c := p(lhs, rhs); c != 0 {
+			return c
+		} else if col < 0 {
+			r = string(lhs[-col].text)
+			l = string(rhs[-col].text)
+		} else {
+			l = string(lhs[col].text)
+			r = string(rhs[col].text)
+		}
+		//
+		if len(l) < len(r) {
+			return -1
+		} else if len(l) > len(r) {
+			return 1
+		}
+		// Now try this sort
+		return strings.Compare(l, r)
 	}
 }

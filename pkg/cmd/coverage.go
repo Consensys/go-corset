@@ -67,6 +67,7 @@ var coverageCmd = &cobra.Command{
 		module := GetFlag(cmd, "module")
 		includes := GetStringArray(cmd, "include")
 		cfg.titles = GetStringArray(cmd, "titles")
+		cfg.sorted = GetIntArray(cmd, "sort")
 		// Apply unit branch filter
 		filter = cov.UnitBranchFilter(filter)
 		// Apply regex filter
@@ -110,6 +111,8 @@ type coverageConfig struct {
 	titles []string
 	// Determines how constraints are grouped (e.g. by module, etc)
 	groups []cov.ConstraintGroup
+	// Determines any sorted columns
+	sorted []int
 	// Filter to use for selecting constraints.
 	filter cov.Filter
 	// Determines which metrics to show (e.g. coverage only, or actually branch
@@ -336,6 +339,8 @@ func printCoverage(cfg coverageConfig,
 	//
 	tbl.SetMaxWidth(1, 64)
 	//
+	tbl.Sort(1, constructTableSorter(cfg))
+	//
 	tbl.Print(true)
 }
 
@@ -381,6 +386,16 @@ func setDiffColours(tbl *termio.FormattedTable, cfg coverageConfig, covs []sc.Co
 	}
 }
 
+func constructTableSorter(cfg coverageConfig) termio.TableSorter {
+	sorter := termio.NewTableSorter()
+	//
+	for _, col := range cfg.sorted {
+		sorter = sorter.SortNumericalColumn(col)
+	}
+	//
+	return sorter.SortColumn(0)
+}
+
 //nolint:errcheck
 func init() {
 	rootCmd.AddCommand(coverageCmd)
@@ -391,6 +406,7 @@ func init() {
 	coverageCmd.Flags().StringP("filter", "f", "", "regex constraint filter")
 	coverageCmd.Flags().StringArrayP("include", "i", []string{"covered", "branches", "coverage"},
 		"specify information to include in report")
+	coverageCmd.Flags().StringArrayP("sort", "s", nil, "specify column to sort (by index, starting from 0)")
 	coverageCmd.Flags().StringArrayP("titles", "t", nil,
 		"specify report titles")
 }

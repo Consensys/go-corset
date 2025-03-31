@@ -96,6 +96,29 @@ func GetStringArray(cmd *cobra.Command, flag string) []string {
 	return r
 }
 
+// GetIntArray gets an expected int array, or panic if an error arises.
+func GetIntArray(cmd *cobra.Command, flag string) []int {
+	tmp, err := cmd.Flags().GetStringArray(flag)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(4)
+	}
+	//
+	r := make([]int, len(tmp))
+	//
+	for i, str := range tmp {
+		ith, err := strconv.ParseInt(str, 16, 8)
+		// Error check
+		if err != nil {
+			panic(err.Error())
+		}
+		//
+		r[i] = int(ith)
+	}
+	//
+	return r
+}
+
 // Determine conservative amounts of spillage.  That is, enough spillage to
 // cover all optimisation levels.
 func determineConservativeSpillage(defensive bool, hirSchema *hir.Schema) []uint {
