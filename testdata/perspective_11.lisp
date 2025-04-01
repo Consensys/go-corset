@@ -1,4 +1,4 @@
-(defpurefun ((vanishes! :𝔽@loob :force) x) x)
+;;
 ;;
 (defcolumns
     ;; Column (not in perspective)
@@ -10,8 +10,8 @@
 
 ;; Section 1
 (defperspective p1 P ((B :byte)))
-(defconstraint c1 (:perspective p1) (vanishes! (- A B)))
+(defconstraint c1 (:perspective p1) (== A B))
 
 ;; Section 2
 (defperspective p2 Q ((C :byte@prove)))
-(defconstraint c2 (:perspective p2) (vanishes! (* A C)))
+(defconstraint c2 (:perspective p2) (== 0 (* A C)))

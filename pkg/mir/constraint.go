@@ -13,6 +13,7 @@
 package mir
 
 import (
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -27,20 +28,26 @@ var TRUE Constraint
 // one term holds.
 type Constraint struct {
 	// Terms here are disjuncted to formulate the final logical result.
-	terms []Term
+	disjuncts []Equation
 }
 
 // AsExpr converts a constraint into an equivalent expression by taking the
 // product of all disjuncted terms.
 func (e Constraint) AsExpr() Expr {
-	return termProduct(e.terms...)
+	terms := make([]Term, len(e.disjuncts))
+	//
+	for i, t := range e.disjuncts {
+		terms[i] = t.AsTerm()
+	}
+	//
+	return termProduct(terms...)
 }
 
 // Bounds returns max shift in either the negative (left) or positive
 // direction (right).
 func (e Constraint) Bounds() util.Bounds {
 	// Determine min/max shift
-	minShift, maxShift := shiftRangeOfTerms(e.terms)
+	minShift, maxShift := shiftRangeOfEquations(e.disjuncts)
 	// Convert to bounds
 	start := uint(-min(0, minShift))
 	end := uint(max(0, maxShift))
@@ -51,24 +58,24 @@ func (e Constraint) Bounds() util.Bounds {
 // Branches returns the number of unique evaluation paths through the given
 // constraint.
 func (e Constraint) Branches() uint {
-	return uint(len(e.terms))
+	return uint(len(e.disjuncts))
 }
 
 // Context determines the evaluation context (i.e. enclosing module) for this
 func (e Constraint) Context(schema sc.Schema) trace.Context {
-	return contextOfTerms(e.terms, schema)
+	return contextOfEquations(e.disjuncts, schema)
 }
 
 // Lisp converts this schema element into a simple S-Termession, for example
 // so it can be printed.
 func (e Constraint) Lisp(schema sc.Schema) sexp.SExp {
-	switch len(e.terms) {
+	switch len(e.disjuncts) {
 	case 0:
 		return sexp.NewSymbol("⊤")
 	case 1:
-		return lispOfTerm(e.terms[0], schema)
+		return lispOfEquation(e.disjuncts[0], schema)
 	default:
-		return nary2Lisp(schema, "∨", e.terms)
+		return lispOfEquations(schema, "∨", e.disjuncts)
 	}
 }
 
@@ -76,14 +83,14 @@ func (e Constraint) Lisp(schema sc.Schema) sexp.SExp {
 // That is, evaluating this term at the given row in the given trace will read
 // these cells.
 func (e Constraint) RequiredCells(row int, tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
-	return requiredCellsOfTerms(e.terms, row, tr)
+	return requiredCellsOfEquations(e.disjuncts, row, tr)
 }
 
 // RequiredColumns returns the set of columns on which this term depends.
 // That is, columns whose values may be accessed when evaluating this term
 // on a given trace.
 func (e Constraint) RequiredColumns() *set.SortedSet[uint] {
-	return requiredColumnsOfTerms(e.terms)
+	return requiredColumnsOfEquations(e.disjuncts)
 }
 
 // TestAt evaluates this constraint in a given tabular context and checks it
@@ -92,8 +99,8 @@ func (e Constraint) RequiredColumns() *set.SortedSet[uint] {
 // several reasons: firstly, if it accesses a row which does not exist (e.g.
 // at index -1); secondly, if it accesses a column which does not exist.
 func (e Constraint) TestAt(k int, tr trace.Trace) (bool, uint, error) {
-	for i, t := range e.terms {
-		val, err := evalAtTerm(t, k, tr)
+	for i, t := range e.disjuncts {
+		val, err := evalAtEquation(t, k, tr)
 		//
 		if err != nil {
 			return false, uint(i), err
@@ -102,7 +109,7 @@ func (e Constraint) TestAt(k int, tr trace.Trace) (bool, uint, error) {
 		}
 	}
 	//
-	return false, uint(len(e.terms)), nil
+	return false, uint(len(e.disjuncts)), nil
 }
 
 func init() {
@@ -116,12 +123,51 @@ func init() {
 // Disjunct creates a constraint representing the disjunction of a given set of
 // constraints.
 func Disjunct(constraints ...Constraint) Constraint {
-	var nterms []Term
+	var equations []Equation
 	//
 	for _, c := range constraints {
-		nterms = append(nterms, c.terms...)
+		equations = append(equations, c.disjuncts...)
 	}
 	// TODO: opportunity here for simplification?
 	//
-	return Constraint{nterms}
+	return Constraint{equations}
+}
+
+// ============================================================================
+// Equation
+// ============================================================================
+
+const (
+	// EQUALS indicates an equals relationship
+	EQUALS uint8 = 0
+	// NOT_EQUALS indicates a not-equals relationship
+	NOT_EQUALS uint8 = 1
+)
+
+// Equation represents an equation between two terms (e.g. "X==Y", or "X!=Y+1",
+// etc).  Equations are either equalities (or negated equalities) or
+// inequalities.
+type Equation struct {
+	kind uint8
+	lhs  Term
+	rhs  Term
+}
+
+// AsTerm translates this equation into a raw term.
+func (e Equation) AsTerm() Term {
+	t := &Sub{[]Term{e.lhs, e.rhs}}
+	//
+	switch e.kind {
+	case EQUALS:
+		// don't do anything
+	case NOT_EQUALS:
+		// (1 - NORM(cb))
+		normBody := &Norm{t}
+		one := &Constant{fr.NewElement(1)}
+		t = &Sub{[]Term{one, normBody}}
+	default:
+		panic("unknown equation")
+	}
+	//
+	return t
 }

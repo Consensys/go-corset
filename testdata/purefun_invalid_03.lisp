@@ -1,5 +1,4 @@
-;;error:5:24-32:incorrect number of arguments (found 2)
-;;error:5:25-27:ambiguous invocation
+;;error:4:25-27:found 2 arguments, expected 1
 (defcolumns (A :i16))
 (defpurefun (fd x) x)
 (defconstraint test () (fd A A))

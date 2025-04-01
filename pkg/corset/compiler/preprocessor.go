@@ -85,7 +85,7 @@ func (p *preprocessor) preprocessDeclaration(decl ast.Declaration) []SyntaxError
 	case *ast.DefConstraint:
 		errors = p.preprocessDefConstraint(d)
 	case *ast.DefFun:
-		// ignore
+		errors = p.preprocessDefFun(d)
 	case *ast.DefInRange:
 		errors = p.preprocessDefInRange(d)
 	case *ast.DefInterleaved:
@@ -126,6 +126,19 @@ func (p *preprocessor) preprocessDefConstraint(decl *ast.DefConstraint) []Syntax
 	}
 	// Combine errors
 	return append(constraint_errors, guard_errors...)
+}
+
+// preprocess a "deflookup" declaration.
+//
+//nolint:staticcheck
+func (p *preprocessor) preprocessDefFun(decl *ast.DefFun) []SyntaxError {
+	var errors []SyntaxError
+	//
+	binding := decl.Binding().(*ast.DefunBinding)
+	// preprocess function body
+	binding.Body, errors = p.preprocessExpressionInModule(binding.Body)
+	// Combine errors
+	return errors
 }
 
 // preprocess a "deflookup" declaration.
@@ -279,7 +292,7 @@ func (p *preprocessor) preprocessExpressionInModule(expr ast.Expr) (ast.Expr, []
 		nexpr, errors = &ast.Add{Args: args}, errs
 	case *ast.Cast:
 		arg, errs := p.preprocessExpressionInModule(e.Arg)
-		nexpr, errors = &ast.Cast{Arg: arg, BitWidth: e.BitWidth}, errs
+		nexpr, errors = &ast.Cast{Arg: arg, Type: e.Type}, errs
 	case *ast.Constant:
 		return e, nil
 	case *ast.Debug:
@@ -288,6 +301,11 @@ func (p *preprocessor) preprocessExpressionInModule(expr ast.Expr) (ast.Expr, []
 		}
 		// When debug is not enabled, return "void".
 		return nil, nil
+	case *ast.Equals:
+		lhs, errs1 := p.preprocessExpressionInModule(e.Lhs)
+		rhs, errs2 := p.preprocessExpressionInModule(e.Rhs)
+		// Done
+		nexpr, errors = &ast.Equals{Sign: e.Sign, Lhs: lhs, Rhs: rhs}, append(errs1, errs2...)
 	case *ast.Exp:
 		arg, errs1 := p.preprocessExpressionInModule(e.Arg)
 		pow, errs2 := p.preprocessExpressionInModule(e.Pow)
@@ -296,9 +314,10 @@ func (p *preprocessor) preprocessExpressionInModule(expr ast.Expr) (ast.Expr, []
 	case *ast.For:
 		return p.preprocessForInModule(e)
 	case *ast.If:
-		args, errs := p.preprocessExpressionsInModule([]ast.Expr{e.Condition, e.TrueBranch, e.FalseBranch})
+		cond, errs1 := p.preprocessExpressionInModule(e.Condition)
+		args, errs2 := p.preprocessExpressionsInModule([]ast.Expr{e.TrueBranch, e.FalseBranch})
 		// Construct appropriate if form
-		nexpr, errors = &ast.If{Kind: e.Kind, Condition: args[0], TrueBranch: args[1], FalseBranch: args[2]}, errs
+		nexpr, errors = &ast.If{Condition: cond, TrueBranch: args[0], FalseBranch: args[1]}, append(errs1, errs2...)
 	case *ast.Invoke:
 		return p.preprocessInvokeInModule(e)
 	case *ast.Let:
@@ -318,12 +337,14 @@ func (p *preprocessor) preprocessExpressionInModule(expr ast.Expr) (ast.Expr, []
 		args, errs := p.preprocessExpressionsInModule(e.Args)
 		nexpr, errors = &ast.Sub{Args: args}, errs
 	case *ast.Shift:
-		arg, errs := p.preprocessExpressionInModule(e.Arg)
-		nexpr, errors = &ast.Shift{Arg: arg, Shift: e.Shift}, errs
+		arg, errs1 := p.preprocessExpressionInModule(e.Arg)
+		shift, errs2 := p.preprocessExpressionInModule(e.Shift)
+		// Done
+		nexpr, errors = &ast.Shift{Arg: arg, Shift: shift}, append(errs1, errs2...)
 	case *ast.VariableAccess:
 		return e, nil
 	default:
-		return nil, p.srcmap.SyntaxErrors(expr, "unknown expression encountered during translation")
+		return nil, p.srcmap.SyntaxErrors(expr, "unknown expression encountered during preprocessing")
 	}
 	// Copy over source information
 	p.srcmap.Copy(expr, nexpr)
@@ -354,7 +375,11 @@ func (p *preprocessor) preprocessForInModule(expr *ast.For) (ast.Expr, []SyntaxE
 		return nil, errors
 	}
 	// Done
-	return &ast.List{Args: args}, nil
+	nexpr := &ast.List{Args: args}
+	// Copy source mapping
+	p.srcmap.Copy(expr, nexpr)
+	//
+	return nexpr, nil
 }
 
 func (p *preprocessor) preprocessLetInModule(expr *ast.Let) (ast.Expr, []SyntaxError) {
@@ -377,7 +402,7 @@ func (p *preprocessor) preprocessLetInModule(expr *ast.Let) (ast.Expr, []SyntaxE
 }
 
 func (p *preprocessor) preprocessInvokeInModule(expr *ast.Invoke) (ast.Expr, []SyntaxError) {
-	if expr.Signature != nil {
+	if binding, ok := expr.Name.Binding().(ast.FunctionBinding); ok {
 		var (
 			args   []ast.Expr = make([]ast.Expr, len(expr.Args))
 			errors []SyntaxError
@@ -389,7 +414,7 @@ func (p *preprocessor) preprocessInvokeInModule(expr *ast.Invoke) (ast.Expr, []S
 			errors = append(errors, errs...)
 		}
 		// Substitute through body
-		body := expr.Signature.Apply(args, p.srcmap)
+		body := binding.Signature().Apply(args, p.srcmap)
 		// Preprocess body
 		body, errs = p.preprocessExpressionInModule(body)
 		// Done
@@ -404,15 +429,28 @@ func (p *preprocessor) preprocessReduceInModule(expr *ast.Reduce) (ast.Expr, []S
 	//
 	if list, ok := body.(*ast.List); !ok {
 		return nil, append(errors, *p.srcmap.SyntaxError(expr.Arg, "expected list"))
-	} else if sig := expr.Signature; sig == nil {
-		return nil, append(errors, *p.srcmap.SyntaxError(expr.Arg, "unbound function"))
-	} else {
-		reduction := list.Args[0]
+	} else if binding, ok := expr.Name.Binding().(ast.FunctionBinding); ok {
+		var reduction ast.Expr
 		// Build reduction
-		for i := 1; i < len(list.Args); i++ {
-			reduction = sig.Apply([]ast.Expr{reduction, list.Args[i]}, p.srcmap)
+		for i, arg := range list.Args {
+			arg, errs := p.preprocessExpressionInModule(arg)
+			//
+			if i == 0 {
+				reduction = arg
+			} else {
+				reduction = binding.Signature().Apply([]ast.Expr{reduction, arg}, p.srcmap)
+			}
+			// Copy source mapping (if none exists, which can arise when e.g.
+			// intrinsic applied).
+			if !p.srcmap.Has(reduction) {
+				p.srcmap.Copy(expr, reduction)
+			}
+			//
+			errors = append(errors, errs...)
 		}
 		// done
 		return reduction, errors
 	}
+	// failure
+	return nil, append(errors, *p.srcmap.SyntaxError(expr.Arg, "unbound function"))
 }

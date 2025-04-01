@@ -63,5 +63,4 @@ func init() {
 	rootCmd.PersistentFlags().Bool("no-stdlib", false, "prevent standard library from being included")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "increase logging verbosity")
 	rootCmd.PersistentFlags().UintP("opt", "O", 1, "set optimisation level")
-	rootCmd.PersistentFlags().Bool("strict", true, "enable/disable strict typing mode")
 }

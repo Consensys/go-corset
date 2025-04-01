@@ -68,7 +68,6 @@ var debugCmd = &cobra.Command{
 		corsetConfig.Stdlib = !GetFlag(cmd, "no-stdlib")
 		corsetConfig.Debug = GetFlag(cmd, "debug")
 		corsetConfig.Legacy = GetFlag(cmd, "legacy")
-		corsetConfig.Strict = GetFlag(cmd, "strict")
 		// Parse constraints
 		binfile := ReadConstraintFiles(corsetConfig, args)
 		// Apply any user-specified values for externalised constants.

@@ -14,7 +14,6 @@ package compiler
 
 import (
 	"fmt"
-	"math"
 
 	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/util"
@@ -27,10 +26,8 @@ import (
 type IntrinsicDefinition struct {
 	// Name of the intrinsic (e.g. "+")
 	name string
-	// Minimum number of arguments this intrinsic can accept.
-	min_arity uint
-	// Maximum number of arguments this intrinsic can accept.
-	max_arity uint
+	// Number of arguments this intrinsic can accept.
+	arity uint
 	// Construct an instance of this intrinsic for a given arity (i.e. number of
 	// arguments).
 	constructor func(uint) ast.Expr
@@ -50,6 +47,12 @@ func (p *IntrinsicDefinition) Path() *util.Path {
 	return &path
 }
 
+// Arity indicates whether or not this is a function and, if so, what arity
+// (i.e. how many arguments) the function has.
+func (p *IntrinsicDefinition) Arity() util.Option[uint] {
+	return util.Some(p.arity)
+}
+
 // IsPure checks whether this pure (which intrinsics always are).
 func (p *IntrinsicDefinition) IsPure() bool {
 	return true
@@ -58,12 +61,6 @@ func (p *IntrinsicDefinition) IsPure() bool {
 // IsNative checks whether this function binding is native (or not).
 func (p *IntrinsicDefinition) IsNative() bool {
 	return false
-}
-
-// IsFunction identifies whether or not the intrinsic being defined is a
-// function.  At this time, all intrinsics are functions.
-func (p *IntrinsicDefinition) IsFunction() bool {
-	return true
 }
 
 // IsFinalised checks whether this binding has been finalised yet or not.
@@ -81,34 +78,17 @@ func (p *IntrinsicDefinition) Lisp() sexp.SExp {
 	panic("unreachable")
 }
 
-// HasArity checks whether this function accepts a given number of arguments (or
-// not).
-func (p *IntrinsicDefinition) HasArity(arity uint) bool {
-	return arity >= p.min_arity && arity <= p.max_arity
-}
-
-// Select corresponding signature based on arity.  If no matching signature
-// exists then this will return nil.
-func (p *IntrinsicDefinition) Select(arity uint) *ast.FunctionSignature {
+// Signature returns the function signature for this binding.
+func (p *IntrinsicDefinition) Signature() *ast.FunctionSignature {
 	// construct the body
-	body := p.constructor(arity)
-	types := make([]ast.Type, arity)
+	body := p.constructor(p.arity)
+	types := make([]ast.Type, p.arity)
 	//
 	for i := 0; i < len(types); i++ {
-		types[i] = ast.NewFieldType()
+		types[i] = ast.INT_TYPE
 	}
 	// Allow return type to be inferred.
 	return ast.NewFunctionSignature(true, types, nil, body)
-}
-
-// Overload (a.k.a specialise) this function binding to incorporate another
-// function signature.  This can fail for a few reasons: (1) some bindings
-// (e.g. intrinsics) cannot be overloaded; (2) duplicate overloadings are
-// not permitted; (3) combinding pure and impure overloadings is also not
-// permitted.
-func (p *IntrinsicDefinition) Overload(*ast.DefunBinding) (ast.FunctionBinding, bool) {
-	// Easy case, as intrinsics cannot be overloaded.
-	return nil, false
 }
 
 // ============================================================================
@@ -116,15 +96,24 @@ func (p *IntrinsicDefinition) Overload(*ast.DefunBinding) (ast.FunctionBinding, 
 // ============================================================================
 
 // INTRINSICS identifies all of the built-in functions used within the corset
-// language, such as "+", "-", etc.  This is needed for two reasons: firstly, so
+// language, such as "+", "*", etc.  This is needed for two reasons: firstly, so
 // we can alias them; secondly, so they can be used in reductions.
 var INTRINSICS []IntrinsicDefinition = []IntrinsicDefinition{
 	// Addition
-	{"+", 1, math.MaxUint, intrinsicAdd},
+	{"+", 1, intrinsicAdd},
+	{"+", 2, intrinsicAdd},
+	{"+", 3, intrinsicAdd},
+	{"+", 4, intrinsicAdd},
 	// Subtraction
-	{"-", 1, math.MaxUint, intrinsicSub},
+	{"-", 1, intrinsicSub},
+	{"-", 2, intrinsicSub},
+	{"-", 3, intrinsicSub},
+	{"-", 4, intrinsicSub},
 	// Multiplication
-	{"*", 1, math.MaxUint, intrinsicMul},
+	{"*", 1, intrinsicMul},
+	{"*", 2, intrinsicMul},
+	{"*", 3, intrinsicMul},
+	{"*", 4, intrinsicMul},
 }
 
 func intrinsicAdd(arity uint) ast.Expr {
@@ -143,10 +132,10 @@ func intrinsicNaryBody(arity uint) []ast.Expr {
 	args := make([]ast.Expr, arity)
 	//
 	for i := uint(0); i != arity; i++ {
-		name := fmt.Sprintf("x%d", i)
+		name := fmt.Sprintf("$%d", i)
 		path := util.NewAbsolutePath(name)
 		binding := &ast.LocalVariableBinding{Name: name, DataType: nil, Index: i}
-		args[i] = ast.NewVariableAccess(path, true, binding)
+		args[i] = ast.NewVariableAccess(path, util.Some(arity), binding)
 	}
 	//
 	return args

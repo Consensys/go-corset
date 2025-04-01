@@ -1,6 +1,6 @@
-(defcolumns (X :i16@loob) (Y :i16@loob))
+(defcolumns (X :i16) (Y :i16))
 
 (defconstraint c1 ()
-  (if X
-      (if (shift X -1)
-          Y)))
+  (if (== X 0)
+      (if (== (shift X -1) 0)
+          (== 0 Y))))

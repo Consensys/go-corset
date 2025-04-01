@@ -286,8 +286,8 @@
   (or! (remained-constant! STAMP) (did-inc! STAMP 1)))
 
 (defconstraint counter-reset ()
-  (if-not-zero (remained-constant! STAMP)
-               (vanishes! CT)))
+  (if-not (remained-constant! STAMP)
+          (vanishes! CT)))
 
 (defconstraint ct-max ()
   (eq! CT_MAX (maxct-sum)))

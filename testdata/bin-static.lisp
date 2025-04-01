@@ -110,11 +110,11 @@
   (vanishes! STAMP))
 
 (defconstraint stamp-increments ()
-  (vanishes! (* (will-inc! STAMP 0) (will-inc! STAMP 1))))
+  (or! (will-inc! STAMP 0) (will-inc! STAMP 1)))
 
 (defconstraint countereset ()
-  (if-not-zero (will-remain-constant! STAMP)
-               (vanishes! (next CT))))
+  (if-not (will-remain-constant! STAMP)
+          (vanishes! (next CT))))
 
 (defconstraint oli-incrementation (:guard OLI)
   (will-inc! STAMP 1))

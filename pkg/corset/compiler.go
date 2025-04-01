@@ -21,7 +21,6 @@ import (
 	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/corset/compiler"
 	"github.com/consensys/go-corset/pkg/hir"
-	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
 
@@ -44,8 +43,6 @@ type CompilationConfig struct {
 	Debug bool
 	// Enable legacy register allocator
 	Legacy bool
-	// Enable strict handling of types
-	Strict bool
 }
 
 // CompileSourceFiles compiles one or more source files into a schema.  This
@@ -55,7 +52,7 @@ func CompileSourceFiles(config CompilationConfig, srcfiles []*source.File) (*bin
 	// Include the standard library (if requested)
 	srcfiles = includeStdlib(config.Stdlib, srcfiles)
 	// Parse all source files (inc stdblib if applicable).
-	circuit, srcmap, errs := compiler.ParseSourceFiles(srcfiles, config.Strict)
+	circuit, srcmap, errs := compiler.ParseSourceFiles(srcfiles)
 	// Check for parsing errors
 	if errs != nil {
 		return nil, errs
@@ -128,17 +125,21 @@ func (p *Compiler) SetAllocator(allocator func(compiler.RegisterAllocation)) *Co
 // expression refers to a non-existent module or column, or is not well-typed,
 // etc.
 func (p *Compiler) Compile() (*binfile.BinaryFile, []SyntaxError) {
+	var (
+		scope  *compiler.ModuleScope
+		errors []SyntaxError
+	)
 	// Resolve variables (via nested scopes)
-	scope, res_errs := compiler.ResolveCircuit(p.srcmap, &p.circuit)
+	scope, errors = compiler.ResolveCircuit(p.srcmap, &p.circuit)
 	// Type check circuit.
-	type_errs := compiler.TypeCheckCircuit(p.srcmap, &p.circuit)
-	// Don't proceed if errors at this point.
-	if len(res_errs) > 0 || len(type_errs) > 0 {
-		return nil, append(res_errs, type_errs...)
+	errors = append(errors, compiler.TypeCheckCircuit(p.srcmap, &p.circuit)...)
+	// Catch errors
+	if len(errors) > 0 {
+		return nil, errors
 	}
 	// Preprocess circuit to remove invocations, reductions, etc.
-	if errs := compiler.PreprocessCircuit(p.debug, p.srcmap, &p.circuit); len(errs) > 0 {
-		return nil, errs
+	if errors = compiler.PreprocessCircuit(p.debug, p.srcmap, &p.circuit); len(errors) > 0 {
+		return nil, errors
 	}
 	// Convert global scope into an environment by allocating all columns.
 	environment := compiler.NewGlobalEnvironment(scope, p.allocator)
@@ -194,18 +195,15 @@ func constructSourceModule(scope *compiler.ModuleScope, env compiler.GlobalEnvir
 	}
 	// Map source-level constants
 	for _, binding := range scope.DestructuredConstants() {
-		var datatype sc.Type
 		// Convert data type
-		if binding.DataType != nil {
-			datatype = binding.DataType.AsUnderlying()
+		if datatype, ok := binding.DataType.(*ast.IntType); ok {
+			constants = append(constants, SourceConstant{
+				binding.Path.Tail(),
+				*binding.Value.AsConstant(),
+				datatype.AsUnderlying(),
+				binding.Extern,
+			})
 		}
-		//
-		constants = append(constants, SourceConstant{
-			binding.Path.Tail(),
-			*binding.Value.AsConstant(),
-			datatype,
-			binding.Extern,
-		})
 	}
 	//
 	for _, child := range scope.Children() {

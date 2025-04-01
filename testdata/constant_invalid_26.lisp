@@ -1,6 +1,6 @@
 ;;error:7:9-13:not permitted in const context
 ;;error:9:14-17:not permitted in const context
-(defpurefun ((vanishes! :𝔽@loob) x) x)
+(defpurefun (vanishes! x) (== 0 x))
 
 (defconst
   (ONE_ :extern)  1

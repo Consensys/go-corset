@@ -1,8 +1,8 @@
-(defpurefun ((vanishes! :𝔽@loob) x) x)
+(defpurefun (vanishes! x) (== 0 x))
 
-(defcolumns (X :i16@loob) (Y :i16) (Z :i16))
+(defcolumns (X :i16) (Y :i16) (Z :i16))
 (defconstraint c1 ()
-  (if X
+  (if (== X 0)
       ;; if X==0 then Y == Z
       (begin
        (vanishes! Y)
@@ -12,4 +12,4 @@
        (vanishes! (- X Y))
        (vanishes! (* Y Z)))))
 ;; Z is always 0!
-(defproperty a1 Z)
+(defproperty a1 (== 0 Z))

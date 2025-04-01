@@ -102,10 +102,10 @@ type ArrayAccess struct {
 	ArrayBinding Binding
 }
 
-// IsFunction indicates whether or not this symbol refers to a function (which
-// of course it always does).
-func (e *ArrayAccess) IsFunction() bool {
-	return false
+// Arity indicates whether or not this is a function and, if so, what arity
+// (i.e. how many arguments) the function has.
+func (e *ArrayAccess) Arity() util.Option[uint] {
+	return NON_FUNCTION
 }
 
 // IsResolved checks whether this symbol has been resolved already, or not.
@@ -191,8 +191,11 @@ func (e *ArrayAccess) Dependencies() []Symbol {
 // Cast represents a user-supplied annotation indicating the given expression
 // has the given type.  This is only sound upto the user.
 type Cast struct {
-	Arg      Expr
-	BitWidth uint
+	Arg  Expr
+	Type Type
+	// Unsafe indicates this is an unsafe cast added explicitly within the
+	// constraints based on some developer knowledge.
+	Unsafe bool
 }
 
 // AsConstant attempts to evaluate this expression as a constant (signed) value.
@@ -219,7 +222,7 @@ func (e *Cast) Context() Context {
 // so it can be printed.
 func (e *Cast) Lisp() sexp.SExp {
 	return sexp.NewList([]sexp.SExp{
-		sexp.NewSymbol(fmt.Sprintf(":u%d", e.BitWidth)),
+		sexp.NewSymbol(e.Type.String()),
 		e.Arg.Lisp()})
 }
 
@@ -309,6 +312,86 @@ func (e *Debug) Dependencies() []Symbol {
 }
 
 // ============================================================================
+// Equality
+// ============================================================================
+
+// Equals represents either an equality (e.g. X==Y) or an non-equality (X!=Y).
+type Equals struct {
+	// Indicates equality (true) or non-equality (false).
+	Sign bool
+	// Left-Hand Side
+	Lhs Expr
+	// Right-Hand Side
+	Rhs Expr
+}
+
+// AsConstant attempts to evaluate this expression as a constant (signed) value.
+// If this expression is not constant, then nil is returned.
+func (e *Equals) AsConstant() *big.Int {
+	lhs := e.Lhs.AsConstant()
+	rhs := e.Lhs.AsConstant()
+	//
+	if lhs == nil || rhs == nil {
+		return nil
+	}
+	// Determine relationship
+	cmp := (lhs.Cmp(rhs) == 0)
+	//
+	if e.Sign == cmp {
+		// true
+		return big.NewInt(0)
+	}
+	// false
+	return big.NewInt(1)
+}
+
+// Multiplicity determines the number of values that evaluating this expression
+// can generate.
+func (e *Equals) Multiplicity() uint {
+	return determineMultiplicity([]Expr{e.Lhs, e.Rhs})
+}
+
+// Context returns the context for this expression.  Observe that the
+// expression must have been resolved for this to be defined (i.e. it may
+// panic if it has not been resolved yet).
+func (e *Equals) Context() Context {
+	ctx, _ := ContextOfExpressions(e.Lhs, e.Rhs)
+	return ctx
+}
+
+// Lisp converts this schema element into a simple S-Expression, for example
+// so it can be printed.
+func (e *Equals) Lisp() sexp.SExp {
+	var symbol sexp.SExp
+	//
+	if e.Sign {
+		symbol = sexp.NewSymbol("==")
+	} else {
+		symbol = sexp.NewSymbol("!=")
+	}
+	//
+	return sexp.NewList([]sexp.SExp{
+		symbol,
+		e.Lhs.Lisp(),
+		e.Rhs.Lisp()})
+}
+
+// Dependencies needed to signal declaration.
+func (e *Equals) Dependencies() []Symbol {
+	return DependenciesOfExpressions([]Expr{e.Lhs, e.Rhs})
+}
+
+// LeftHandSide returns the left-hand side of this condition.
+func (e *Equals) LeftHandSide() Expr {
+	return e.Lhs
+}
+
+// RightHandSide returns the right-hand side of this condition.
+func (e *Equals) RightHandSide() Expr {
+	return e.Rhs
+}
+
+// ============================================================================
 // Exponentiation
 // ============================================================================
 
@@ -382,7 +465,7 @@ type For struct {
 // NewFor constructs a new for-expression given a variable name, a static index
 // range and a body.
 func NewFor(name string, start uint, end uint, body Expr) *For {
-	binding := NewLocalVariableBinding(name, NewFieldType())
+	binding := NewLocalVariableBinding(name, INT_TYPE)
 	return &For{binding, start, end, body}
 }
 
@@ -438,44 +521,18 @@ func (e *For) Dependencies() []Symbol {
 }
 
 // ============================================================================
-// IfZero
+// If
 // ============================================================================
 
 // If returns the (optional) true branch when the condition evaluates to zero, and
 // the (optional false branch otherwise.
 type If struct {
-	// Indicates whether this is an if-zero (Kind==1) or an if-notzero
-	// (Kind==2).  Any other Kind value implies this has not yet been
-	// determined.
-	Kind uint8
 	// Elements contained within this list.
 	Condition Expr
 	// True branch (optional).
 	TrueBranch Expr
 	// False branch (optional).
 	FalseBranch Expr
-}
-
-// IsIfZero determines whether or not this has been determined as an IfZero
-// condition.
-func (e *If) IsIfZero() bool {
-	return e.Kind == 1
-}
-
-// IsIfNotZero determines whether or not this has been determined as an
-// IfNotZero condition.
-func (e *If) IsIfNotZero() bool {
-	return e.Kind == 2
-}
-
-// FixSemantics fixes the semantics for this condition to be either "if-zero" or
-// "if-notzero".
-func (e *If) FixSemantics(ifzero bool) {
-	if ifzero {
-		e.Kind = 1
-	} else {
-		e.Kind = 2
-	}
 }
 
 // AsConstant attempts to evaluate this expression as a constant (signed) value.
@@ -515,6 +572,7 @@ func (e *If) Lisp() sexp.SExp {
 	if e.FalseBranch != nil {
 		return sexp.NewList([]sexp.SExp{
 			sexp.NewSymbol("if"),
+			e.Condition.Lisp(),
 			e.TrueBranch.Lisp(),
 			e.FalseBranch.Lisp()})
 	}
@@ -535,21 +593,14 @@ func (e *If) Dependencies() []Symbol {
 
 // Invoke represents an attempt to invoke a given function.
 type Invoke struct {
-	Name      *VariableAccess
-	Signature *FunctionSignature
-	Args      []Expr
+	Name *VariableAccess
+	Args []Expr
 }
 
 // AsConstant attempts to evaluate this expression as a constant (signed) value.
 // If this expression is not constant, then nil is returned.
 func (e *Invoke) AsConstant() *big.Int {
-	if e.Signature == nil {
-		panic("unresolved invocation")
-	}
-	// Unroll body
-	body := e.Signature.Apply(e.Args, nil)
-	// Attempt to evaluate as constant
-	return body.AsConstant()
+	panic("unreachable")
 }
 
 // Context returns the context for this expression.  Observe that the
@@ -571,11 +622,6 @@ func (e *Invoke) Multiplicity() uint {
 // so it can be printed.
 func (e *Invoke) Lisp() sexp.SExp {
 	return ListOfExpressions(e.Name.Lisp(), e.Args)
-}
-
-// Finalise the signature for this invocation.
-func (e *Invoke) Finalise(signature *FunctionSignature) {
-	e.Signature = signature
 }
 
 // Dependencies needed to signal declaration.
@@ -612,7 +658,7 @@ func NewLet(bindings []util.Pair[string, Expr], body Expr) *Let {
 	exprs := make([]Expr, len(bindings))
 	//
 	for i, p := range bindings {
-		vars[i] = NewLocalVariableBinding(p.Left, NewFieldType())
+		vars[i] = NewLocalVariableBinding(p.Left, INT_TYPE)
 		exprs[i] = p.Right
 	}
 	//
@@ -819,9 +865,8 @@ func (e *Normalise) Dependencies() []Symbol {
 
 // Reduce reduces (i.e. folds) a list using a given binary function.
 type Reduce struct {
-	Name      *VariableAccess
-	Signature *FunctionSignature
-	Arg       Expr
+	Name *VariableAccess
+	Arg  Expr
 }
 
 // AsConstant attempts to evaluate this expression as a constant (signed) value.
@@ -851,17 +896,6 @@ func (e *Reduce) Lisp() sexp.SExp {
 		sexp.NewSymbol("reduce"),
 		sexp.NewSymbol(e.Name.Path().String()),
 		e.Arg.Lisp()})
-}
-
-// Finalise the signature for this reduction.
-func (e *Reduce) Finalise(signature *FunctionSignature) {
-	if signature == nil {
-		panic("cannot finalise with nil signature")
-	} else if e.Signature != nil && !reflect.DeepEqual(e.Signature, signature) {
-		panic("reduce has already been finalised")
-	}
-
-	e.Signature = signature
 }
 
 // Dependencies needed to signal declaration.
@@ -967,16 +1001,16 @@ func (e *Shift) Dependencies() []Symbol {
 // VariableAccess represents reading the value of a given local variable (such
 // as a function parameter).
 type VariableAccess struct {
-	Name     util.Path
-	Function bool
-	binding  Binding
+	Name    util.Path
+	FnArity util.Option[uint]
+	binding Binding
 }
 
 // NewVariableAccess creates a new variable access with the given (optionally
 // qualified) path that may (or may not) refer to a function, and which has a
 // given initial binding (which can be nil).
-func NewVariableAccess(path util.Path, isFunction bool, binding Binding) *VariableAccess {
-	return &VariableAccess{path, isFunction, binding}
+func NewVariableAccess(path util.Path, arity util.Option[uint], binding Binding) *VariableAccess {
+	return &VariableAccess{path, arity, binding}
 }
 
 // AsConstant attempts to evaluate this expression as a constant (signed) value.
@@ -994,10 +1028,10 @@ func (e *VariableAccess) Path() *util.Path {
 	return &e.Name
 }
 
-// IsFunction determines whether this symbol refers to a function (which, of
-// course, variable accesses never do).
-func (e *VariableAccess) IsFunction() bool {
-	return e.Function
+// Arity indicates whether or not this is a function and, if so, what arity
+// (i.e. how many arguments) the function has.
+func (e *VariableAccess) Arity() util.Option[uint] {
+	return e.FnArity
 }
 
 // IsResolved checks whether this symbol has been resolved already, or not.
@@ -1008,13 +1042,15 @@ func (e *VariableAccess) IsResolved() bool {
 // Resolve this symbol by associating it with the binding associated with
 // the definition of the symbol to which this refers.
 func (e *VariableAccess) Resolve(binding Binding) bool {
+	isFunction := e.FnArity.HasValue()
+	//
 	if binding == nil {
 		panic("empty binding")
 	} else if e.binding != nil {
 		panic("already resolved")
-	} else if _, ok := binding.(FunctionBinding); ok && !e.Function {
+	} else if _, ok := binding.(FunctionBinding); ok && !isFunction {
 		return false
-	} else if _, ok := binding.(FunctionBinding); !ok && e.Function {
+	} else if _, ok := binding.(FunctionBinding); !ok && isFunction {
 		return false
 	}
 	//
@@ -1111,12 +1147,17 @@ func Substitute(expr Expr, mapping map[uint]Expr, srcmap *source.Maps[Node]) Exp
 		nexpr = &Add{args}
 	case *Cast:
 		arg := Substitute(e.Arg, mapping, srcmap)
-		nexpr = &Cast{arg, e.BitWidth}
+		nexpr = &Cast{arg, e.Type, e.Unsafe}
 	case *Constant:
 		return e
 	case *Debug:
 		arg := Substitute(e.Arg, mapping, srcmap)
 		nexpr = &Debug{arg}
+	case *Equals:
+		lhs := Substitute(e.Lhs, mapping, srcmap)
+		rhs := Substitute(e.Rhs, mapping, srcmap)
+		// Done
+		nexpr = &Equals{e.Sign, lhs, rhs}
 	case *Exp:
 		arg := Substitute(e.Arg, mapping, srcmap)
 		pow := Substitute(e.Pow, mapping, srcmap)
@@ -1126,14 +1167,14 @@ func Substitute(expr Expr, mapping map[uint]Expr, srcmap *source.Maps[Node]) Exp
 		body := Substitute(e.Body, mapping, srcmap)
 		nexpr = &For{e.Binding, e.Start, e.End, body}
 	case *If:
-		condition := Substitute(e.Condition, mapping, srcmap)
+		cond := Substitute(e.Condition, mapping, srcmap)
 		trueBranch := SubstituteOptional(e.TrueBranch, mapping, srcmap)
 		falseBranch := SubstituteOptional(e.FalseBranch, mapping, srcmap)
 		// Construct appropriate if form
-		nexpr = &If{e.Kind, condition, trueBranch, falseBranch}
+		nexpr = &If{cond, trueBranch, falseBranch}
 	case *Invoke:
 		args := SubstituteAll(e.Args, mapping, srcmap)
-		nexpr = &Invoke{e.Name, e.Signature, args}
+		nexpr = &Invoke{e.Name, args}
 	case *Let:
 		args := SubstituteAll(e.Args, mapping, srcmap)
 		body := Substitute(e.Body, mapping, srcmap)
@@ -1149,7 +1190,7 @@ func Substitute(expr Expr, mapping map[uint]Expr, srcmap *source.Maps[Node]) Exp
 		nexpr = &Normalise{arg}
 	case *Reduce:
 		arg := Substitute(e.Arg, mapping, srcmap)
-		nexpr = &Reduce{e.Name, e.Signature, arg}
+		nexpr = &Reduce{e.Name, arg}
 	case *Sub:
 		args := SubstituteAll(e.Args, mapping, srcmap)
 		nexpr = &Sub{args}
@@ -1167,13 +1208,20 @@ func Substitute(expr Expr, mapping map[uint]Expr, srcmap *source.Maps[Node]) Exp
 			// Shallow copy the node to ensure it is unique and, hence, can have
 			// the source mapping associated with e.
 			nexpr = ShallowCopy(e2)
+			// Copy source mapping from e2 (if such mapping exists).
+			if srcmap.Has(e2) {
+				// NOTE: in some unexpected situations (particularly around
+				// intrinsics) e2 may not have any source mapping.  Whilst this
+				// is the preferred source of mapping information, we can use
+				// the original expression as a backup.
+				expr = e2
+			}
 		}
 	default:
 		panic(fmt.Sprintf("unknown expression (%s)", reflect.TypeOf(expr)))
 	}
-	//
+	// Copy over source information
 	if srcmap != nil {
-		// Copy over source information
 		srcmap.Copy(expr, nexpr)
 	}
 	// Done
@@ -1213,19 +1261,21 @@ func ShallowCopy(expr Expr) Expr {
 	case *Add:
 		return &Add{e.Args}
 	case *Cast:
-		return &Cast{e.Arg, e.BitWidth}
+		return &Cast{e.Arg, e.Type, e.Unsafe}
 	case *Constant:
 		return &Constant{e.Val}
 	case *Debug:
 		return &Debug{e.Arg}
+	case *Equals:
+		return &Equals{e.Sign, e.Lhs, e.Rhs}
 	case *Exp:
 		return &Exp{e.Arg, e.Pow}
 	case *For:
 		return &For{e.Binding, e.Start, e.End, e.Body}
 	case *If:
-		return &If{e.Kind, e.Condition, e.TrueBranch, e.FalseBranch}
+		return &If{e.Condition, e.TrueBranch, e.FalseBranch}
 	case *Invoke:
-		return &Invoke{e.Name, e.Signature, e.Args}
+		return &Invoke{e.Name, e.Args}
 	case *List:
 		return &List{e.Args}
 	case *Mul:
@@ -1233,13 +1283,13 @@ func ShallowCopy(expr Expr) Expr {
 	case *Normalise:
 		return &Normalise{e.Arg}
 	case *Reduce:
-		return &Reduce{e.Name, e.Signature, e.Arg}
+		return &Reduce{e.Name, e.Arg}
 	case *Sub:
 		return &Sub{e.Args}
 	case *Shift:
 		return &Shift{e.Arg, e.Shift}
 	case *VariableAccess:
-		return &VariableAccess{e.Name, e.Function, e.binding}
+		return &VariableAccess{e.Name, e.FnArity, e.binding}
 	default:
 		panic(fmt.Sprintf("unknown expression (%s)", reflect.TypeOf(expr)))
 	}

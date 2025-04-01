@@ -1,6 +1,5 @@
-(defpurefun ((vanishes! :𝔽@loob) x) x)
 (defcolumns (A :i16) (B :i16))
 (module m1)
 (defcolumns (A :i16) (B :i16))
-(defconstraint eq () (vanishes! (- A B)))
-(defproperty lem (- A B))
+(defconstraint eq () (== A B))
+(defproperty lem (== A B))

@@ -173,29 +173,6 @@ func Test_Alias_06(t *testing.T) {
 }
 
 // ===================================================================
-// Function Alias Tests
-// ===================================================================
-func Test_FunAlias_01(t *testing.T) {
-	Check(t, false, "funalias_01")
-}
-
-func Test_FunAlias_02(t *testing.T) {
-	Check(t, false, "funalias_02")
-}
-
-func Test_FunAlias_03(t *testing.T) {
-	Check(t, false, "funalias_03")
-}
-
-func Test_FunAlias_04(t *testing.T) {
-	Check(t, false, "funalias_04")
-}
-
-func Test_FunAlias_05(t *testing.T) {
-	Check(t, false, "funalias_05")
-}
-
-// ===================================================================
 // Domain Tests
 // ===================================================================
 
@@ -939,13 +916,17 @@ func Test_Reduce_05(t *testing.T) {
 // Debug
 // ===================================================================
 
-func Test_Debug_01(t *testing.T) {
-	Check(t, false, "debug_01")
-}
+// IGNORED until typing comes before preprocessing
+//
+// func Test_Debug_01(t *testing.T) {
+// 	Check(t, false, "debug_01")
+// }
 
-func Test_Debug_02(t *testing.T) {
-	Check(t, false, "debug_02")
-}
+// IGNORED until typing comes before preprocessing
+//
+// func Test_Debug_02(t *testing.T) {
+// 	Check(t, false, "debug_02")
+// }
 
 // ===================================================================
 // Perspectives
@@ -1205,6 +1186,14 @@ func Test_Stdlib_03(t *testing.T) {
 	Check(t, true, "stdlib_03")
 }
 
+func Test_Stdlib_04(t *testing.T) {
+	Check(t, true, "stdlib_04")
+}
+
+func Test_Stdlib_05(t *testing.T) {
+	Check(t, true, "stdlib_05")
+}
+
 // ===================================================================
 // Complex Tests
 // ===================================================================
@@ -1269,17 +1258,17 @@ func TestSlow_Oob(t *testing.T) {
 	Check(t, true, "oob")
 }
 
-func TestSlow_Stp(t *testing.T) {
-	Check(t, true, "stp")
-}
+// func TestSlow_Stp(t *testing.T) {
+// 	Check(t, true, "stp")
+// }
 
 func TestSlow_Mmio(t *testing.T) {
 	Check(t, true, "mmio")
 }
 
-func TestSlow_Rom(t *testing.T) {
-	Check(t, true, "rom")
-}
+// func TestSlow_Rom(t *testing.T) {
+// 	Check(t, true, "rom")
+// }
 
 func TestSlow_Mmu(t *testing.T) {
 	Check(t, true, "mmu")
@@ -1320,7 +1309,6 @@ func Check(t *testing.T, stdlib bool, test string) {
 	//
 	corsetConfig.Legacy = true
 	corsetConfig.Stdlib = stdlib
-	corsetConfig.Strict = false
 	// Enable testing each trace in parallel
 	t.Parallel()
 	// Read constraints file

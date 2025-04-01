@@ -1,5 +1,4 @@
-(defpurefun (not! x) (- 1 (~ x)))
-(defpurefun ((not_eq! :i16@loob) x y) (not! (- x y)))
+(defpurefun ((not_eq! :bool) x y) (!= x y))
 ;;
 (defcolumns (X :i16))
 ;; X != 2 && X != 4 && X != 8

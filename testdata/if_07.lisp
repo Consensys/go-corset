@@ -1,7 +1,7 @@
-(defpurefun ((vanishes! :𝔽@loob) x) x)
+(defpurefun (vanishes! x) (== 0 x))
 
-(defcolumns (X :i16@loob) (Y :i16@loob) (Z :i16))
+(defcolumns (X :i16) (Y :i16) (Z :i16))
 (defconstraint test ()
-  (if X
+  (if (== 0 X)
       (vanishes! 0)
-      (vanishes! (- Z (if Y 3 16)))))
+      (== Z (if (== 0 Y) 3 16))))

@@ -1,6 +1,6 @@
-;;error:6:22-32:expected loobean constraint (found u1@bool)
+;;error:6:26-29:expected bool, found u1
 (defcolumns
-    (BIT :binary@loob)
-    (X :binary@bool))
+    (BIT :binary)
+    (X :binary))
 
 (defconstraint c1 () (if BIT X))

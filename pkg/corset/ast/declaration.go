@@ -71,8 +71,6 @@ type Declaration interface {
 // DefAliases represents the declaration of one or more aliases.  That is,
 // alternate names for existing symbols.
 type DefAliases struct {
-	// Distinguishes defalias from defunalias
-	Functions bool
 	// Aliases
 	Aliases []*DefAlias
 	// Symbols being aliased
@@ -80,8 +78,8 @@ type DefAliases struct {
 }
 
 // NewDefAliases constructs a new instance of DefAliases.
-func NewDefAliases(functions bool, aliases []*DefAlias, symbols []Symbol) *DefAliases {
-	return &DefAliases{functions, aliases, symbols}
+func NewDefAliases(aliases []*DefAlias, symbols []Symbol) *DefAliases {
+	return &DefAliases{aliases, symbols}
 }
 
 // Dependencies needed to signal declaration.
@@ -128,16 +126,8 @@ func (p *DefAliases) Lisp() sexp.SExp {
 		pairs.Append(p.Symbols[i].Lisp())
 	}
 	//
-	var name *sexp.Symbol
-	//
-	if p.Functions {
-		name = sexp.NewSymbol("defunalias")
-	} else {
-		name = sexp.NewSymbol("defalias")
-	}
-	//
 	return sexp.NewList([]sexp.SExp{
-		name, pairs,
+		sexp.NewSymbol("defalias"), pairs,
 	})
 }
 
@@ -248,9 +238,10 @@ func NewDefComputedColumn(context util.Path, name util.Path) *DefColumn {
 	return &DefColumn{binding}
 }
 
-// IsFunction is never true for a column definition.
-func (e *DefColumn) IsFunction() bool {
-	return false
+// Arity indicates whether or not this is a function and, if so, what arity
+// (i.e. how many arguments) the function has.
+func (e *DefColumn) Arity() util.Option[uint] {
+	return NON_FUNCTION
 }
 
 // Binding returns the allocated binding for this symbol (which may or may not
@@ -495,9 +486,10 @@ type DefConstUnit struct {
 	ConstBinding ConstantBinding
 }
 
-// IsFunction is never true for a constant definition.
-func (e *DefConstUnit) IsFunction() bool {
-	return false
+// Arity indicates whether or not this is a function and, if so, what arity
+// (i.e. how many arguments) the function has.
+func (e *DefConstUnit) Arity() util.Option[uint] {
+	return NON_FUNCTION
 }
 
 // Binding returns the allocated binding for this symbol (which may or may not
@@ -989,9 +981,10 @@ func (p *DefPerspective) Path() *util.Path {
 	return &p.symbol.path
 }
 
-// IsFunction is always true for a function definition!
-func (p *DefPerspective) IsFunction() bool {
-	return false
+// Arity indicates whether or not this is a function and, if so, what arity
+// (i.e. how many arguments) the function has.
+func (p *DefPerspective) Arity() util.Option[uint] {
+	return NON_FUNCTION
 }
 
 // Finalise this perspective, which indicates the selector expression has been
@@ -1144,25 +1137,28 @@ type DefFun struct {
 	symbol *FunctionName
 	// Parameters
 	parameters []*DefParameter
+	// Return
+	ret Type
 }
 
 var _ SymbolDefinition = &DefFun{}
 
 // NewDefFun constructs a new (unfinalised) function declaration.
-func NewDefFun(name *FunctionName, parameters []*DefParameter) *DefFun {
-	return &DefFun{name, parameters}
+func NewDefFun(name *FunctionName, parameters []*DefParameter, ret Type) *DefFun {
+	return &DefFun{name, parameters, ret}
 }
 
-// IsFunction is always true for a function definition!
-func (p *DefFun) IsFunction() bool {
-	return true
+// Arity indicates whether or not this is a function and, if so, what arity
+// (i.e. how many arguments) the function has.
+func (p *DefFun) Arity() util.Option[uint] {
+	return util.Some(uint(len(p.parameters)))
 }
 
 // IsPure indicates whether or not this is a pure function.  That is, a function
 // which is not permitted to access any columns from the enclosing environment
 // (either directly itself, or indirectly via functions it calls).
 func (p *DefFun) IsPure() bool {
-	return p.symbol.binding.pure
+	return p.symbol.binding.Pure
 }
 
 // Parameters returns information about the parameters defined by this
@@ -1171,9 +1167,15 @@ func (p *DefFun) Parameters() []*DefParameter {
 	return p.parameters
 }
 
+// Return returns the return type of this declaration, which can be nil if no
+// return type was given explicitly.
+func (p *DefFun) Return() Type {
+	return p.ret
+}
+
 // Body Access information about the parameters defined by this declaration.
 func (p *DefFun) Body() Expr {
-	return p.symbol.binding.body
+	return p.symbol.binding.Body
 }
 
 // Binding returns the allocated binding for this symbol (which may or may not
@@ -1208,13 +1210,13 @@ func (p *DefFun) Definitions() iter.Iterator[SymbolDefinition] {
 
 // Dependencies needed to signal declaration.
 func (p *DefFun) Dependencies() iter.Iterator[Symbol] {
-	deps := p.symbol.binding.body.Dependencies()
+	deps := p.symbol.binding.Body.Dependencies()
 	ndeps := make([]Symbol, 0)
 	// Filter out all parameters declared in this function, since these are not
 	// external dependencies.
 	for _, d := range deps {
 		n := d.Path()
-		if n.IsAbsolute() || d.IsFunction() || n.Depth() > 1 || !p.hasParameter(n.Head()) {
+		if n.IsAbsolute() || d.Arity().HasValue() || n.Depth() > 1 || !p.hasParameter(n.Head()) {
 			ndeps = append(ndeps, d)
 		}
 	}

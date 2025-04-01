@@ -14,7 +14,8 @@ package compiler
 
 import (
 	"fmt"
-	"math/big"
+	"math"
+	"reflect"
 
 	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
@@ -164,7 +165,7 @@ func (r *resolver) initialiseAliasesInModule(scope *ModuleScope, decls []ast.Dec
 				// Check whether it already exists (or not)
 				if d, ok := visited[alias.Name]; ok && d == decl {
 					continue
-				} else if scope.Binding(alias.Name, symbol.IsFunction()) != nil {
+				} else if scope.Binding(alias.Name, symbol.Arity()) != nil {
 					err := r.srcmap.SyntaxError(alias, "symbol already exists")
 					errors = append(errors, *err)
 				} else {
@@ -326,7 +327,8 @@ func (r *resolver) declarationDependenciesAreFinalised(scope *ModuleScope,
 		symbol := iter.Next()
 		// Attempt to resolve
 		if !symbol.IsResolved() && !scope.Bind(symbol) {
-			errors = append(errors, *r.srcmap.SyntaxError(symbol, "unknown symbol"))
+			// try to report more useful error
+			errors = append(errors, r.constructUnknownSymbolError(symbol, scope))
 			// not finalised yet
 			finalised = false
 		} else {
@@ -413,7 +415,7 @@ func (r *resolver) finaliseDefComputedInModule(decl *ast.DefComputed) []SyntaxEr
 	// Extract binding
 	binding = decl.Function.Binding().(*NativeDefinition)
 	//
-	if !binding.HasArity(uint(len(arguments))) {
+	if binding.arity != uint(len(arguments)) {
 		msg := fmt.Sprintf("incorrect number of arguments (found %d)", len(arguments))
 		errors = append(errors, *r.srcmap.SyntaxError(decl.Function, msg))
 	} else {
@@ -445,10 +447,7 @@ func (r *resolver) finaliseDefComputedInModule(decl *ast.DefComputed) []SyntaxEr
 // Specifically, we need to check that the constant values provided are indeed
 // constants.
 func (r *resolver) finaliseDefConstInModule(enclosing Scope, decl *ast.DefConst) []SyntaxError {
-	var (
-		errors []SyntaxError
-		zero   = big.NewInt(0)
-	)
+	var errors []SyntaxError
 	//
 	for _, c := range decl.Constants {
 		scope := NewLocalScope(enclosing, false, true, true)
@@ -461,20 +460,12 @@ func (r *resolver) finaliseDefConstInModule(enclosing Scope, decl *ast.DefConst)
 			// Check it is indeed constant!
 			if constant := c.ConstBinding.Value.AsConstant(); constant != nil {
 				datatype := c.ConstBinding.DataType
+				result := ast.NewIntType(constant, constant)
 				// Sanity check explicit type (if given)
-				if datatype != nil && datatype.AsUnderlying().AsUint() != nil {
-					uintType := datatype.AsUnderlying().AsUint()
-					uintBound := uintType.IntBound()
-					// bounds check
-					if uintType != nil && constant.Cmp(&uintBound) >= 0 {
-						// error, constant value outside bounds of given type!
-						errors = append(errors, *r.srcmap.SyntaxError(c, "constant out-of-bounds (overflow)"))
-						continue
-					} else if uintType != nil && constant.Cmp(zero) < 0 {
-						// unsigned integer cannot be negative.
-						errors = append(errors, *r.srcmap.SyntaxError(c, "constant out-of-bounds (underflow)"))
-						continue
-					}
+				if datatype != nil && !result.SubtypeOf(datatype) {
+					// error, constant value outside bounds of given type!
+					errors = append(errors, *r.srcmap.SyntaxError(c, "constant out-of-bounds"))
+					continue
 				}
 				// Finalise constant binding.  Note, no need to register a syntax
 				// error for the error case, because it would have already been
@@ -545,7 +536,7 @@ func (r *resolver) finaliseDefInterleavedInModule(decl *ast.DefInterleaved) []Sy
 			errors = append(errors, *err)
 		} else {
 			// Combine datatypes.
-			datatype = ast.GreatestLowerBound(datatype, source.Type())
+			datatype = ast.LeastUpperBound(datatype, source.Type())
 		}
 	}
 	// Finalise details only if no errors
@@ -576,7 +567,7 @@ func (r *resolver) finaliseDefPermutationInModule(decl *ast.DefPermutation) []Sy
 		if source, ok := ith.Binding().(*ast.ColumnBinding); !ok {
 			errors = append(errors, *r.srcmap.SyntaxError(ith, "invalid source column"))
 			return errors
-		} else if !started && source.DataType.AsUnderlying().AsUint() == nil {
+		} else if !started && source.DataType.(*ast.IntType) == nil {
 			errors = append(errors, *r.srcmap.SyntaxError(ith, "fixed-width type required"))
 		} else if started && multiplier != source.Multiplier {
 			// Problem
@@ -724,6 +715,11 @@ func (r *resolver) finaliseExpressionInModule(scope LocalScope, expr ast.Expr) [
 		return nil
 	case *ast.Debug:
 		return r.finaliseExpressionInModule(scope, v.Arg)
+	case *ast.Equals:
+		lhs_errs := r.finaliseExpressionInModule(scope, v.Lhs)
+		rhs_errs := r.finaliseExpressionInModule(scope, v.Rhs)
+		// combine errors
+		return append(lhs_errs, rhs_errs...)
 	case *ast.Exp:
 		constscope := scope.NestedConstScope()
 		arg_errs := r.finaliseExpressionInModule(scope, v.Arg)
@@ -761,7 +757,10 @@ func (r *resolver) finaliseExpressionInModule(scope LocalScope, expr ast.Expr) [
 	case *ast.VariableAccess:
 		return r.finaliseVariableInModule(scope, v)
 	default:
-		return r.srcmap.SyntaxErrors(expr, "unknown expression encountered during resolution")
+		typeStr := reflect.TypeOf(expr).String()
+		msg := fmt.Sprintf("unknown expression encountered during resolution (%s)", typeStr)
+
+		return r.srcmap.SyntaxErrors(expr, msg)
 	}
 }
 
@@ -788,16 +787,20 @@ func (r *resolver) finaliseInvokeInModule(scope LocalScope, expr *ast.Invoke) []
 	errors := r.finaliseExpressionsInModule(scope, expr.Args)
 	// Lookup the corresponding function definition.
 	if !expr.Name.IsResolved() && !scope.Bind(expr.Name) {
-		return append(errors, *r.srcmap.SyntaxError(expr, "unknown function"))
+		return append(errors, *r.srcmap.SyntaxError(expr.Name, "unknown function"))
 	}
 	// Following must be true if we get here.
 	binding := expr.Name.Binding().(ast.FunctionBinding)
 	// Check purity
 	if scope.IsPure() && !binding.IsPure() {
-		errors = append(errors, *r.srcmap.SyntaxError(expr, "not permitted in pure context"))
+		errors = append(errors, *r.srcmap.SyntaxError(expr.Name, "not permitted in pure context"))
 	}
 	// Check provide correct number of arguments
-	if !binding.HasArity(uint(len(expr.Args))) {
+	if binding.Signature() == nil {
+		// NOTE: this should only be possible for native definitions which, at
+		// the time of writing, cannot be called from arbitrary expressions.
+		errors = append(errors, *r.srcmap.SyntaxError(expr.Name, "native invocation not permitted"))
+	} else if binding.Signature().Arity() != uint(len(expr.Args)) {
 		msg := fmt.Sprintf("incorrect number of arguments (found %d)", len(expr.Args))
 		errors = append(errors, *r.srcmap.SyntaxError(expr, msg))
 	}
@@ -880,4 +883,67 @@ func (r *resolver) finaliseVariableInModule(scope LocalScope, expr *ast.Variable
 	}
 	// Should be unreachable.
 	return r.srcmap.SyntaxErrors(expr, "unknown symbol kind")
+}
+
+// The purpose of this function is to construct a much more useful error message
+// than the default "unknown symbol".  For example, if we have use a function
+// but given an incorrect number of arguments, then we want to know this.
+func (r *resolver) constructUnknownSymbolError(symbol ast.Symbol, scope Scope) SyntaxError {
+	name := symbol.Path().Tail()
+	parent := symbol.Path().Parent()
+	//
+	if symbol.Arity().HasValue() {
+		var (
+			aboveArity int = math.MaxInt
+			belowArity int = math.MinInt
+			belowCount     = 0
+			aboveCount     = 0
+			arity          = symbol.Arity().Unwrap()
+		)
+		//
+		for _, bid := range scope.Bindings(*parent) {
+			if bid.name == name && bid.arity.HasValue() {
+				bidArity := bid.arity.Unwrap()
+				//
+				if bidArity < arity {
+					belowArity = max(belowArity, int(bidArity))
+					belowCount++
+				} else if bidArity > arity {
+					aboveArity = min(aboveArity, int(bidArity))
+					aboveCount++
+				}
+			}
+		}
+		// Report useful error if we found something.
+		if belowCount > 0 || aboveCount > 0 {
+			var (
+				str      string
+				belowStr = fmt.Sprintf("%d", belowArity)
+				aboveStr = fmt.Sprintf("%d", aboveArity)
+			)
+			//
+			if belowCount > 1 {
+				belowStr = fmt.Sprintf("%s (or less)", belowStr)
+			}
+			//
+			if aboveCount > 1 {
+				aboveStr = fmt.Sprintf("%s (or more)", aboveStr)
+			}
+			// Determine best error
+			if belowCount > 0 && aboveCount > 0 {
+				str = fmt.Sprintf("%s or %s", belowStr, aboveStr)
+			} else if aboveArity != math.MaxInt {
+				str = aboveStr
+			} else if belowArity != math.MinInt {
+				str = belowStr
+			}
+			//
+			msg := fmt.Sprintf("found %d arguments, expected %s", arity, str)
+			//
+			return *r.srcmap.SyntaxError(symbol, msg)
+		}
+	}
+	// Fall back on default.  We actually could do better here by trying to find
+	// the closest match.
+	return *r.srcmap.SyntaxError(symbol, "unknown symbol")
 }

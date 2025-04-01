@@ -119,8 +119,8 @@
   (or! (will-remain-constant! STAMP) (will-inc! STAMP 1)))
 
 (defconstraint counter-reset ()
-  (if-not-zero (will-remain-constant! STAMP)
-               (vanishes! (next CT))))
+  (if-not (will-remain-constant! STAMP)
+          (vanishes! (next CT))))
 
 (defconstraint setting-ct-max ()
   (if-eq OLI 1 (vanishes! CT_MAX)))
@@ -129,8 +129,7 @@
   (if-eq-else CT CT_MAX (will-inc! STAMP 1) (will-inc! CT 1)))
 
 (defconstraint ct-upper-bond ()
-  (eq! (~ (- LLARGE CT))
-       1))
+  (neq! LLARGE CT))
 
 (defconstraint lastRow (:domain {-1})
   (eq! CT CT_MAX))
@@ -166,9 +165,9 @@
                      (shift BITS (- 0 7))))))
 
 (defconstraint no-neg-if-small ()
-  (if-not-zero (- CT_MAX LLARGEMO)
-               (begin (vanishes! NEG_1)
-                      (vanishes! NEG_2))))
+  (if-not (eq! CT_MAX LLARGEMO)
+          (begin (vanishes! NEG_1)
+                 (vanishes! NEG_2))))
 
 (defun (first-eight-bits-bit-dec)
   (reduce +

@@ -237,9 +237,9 @@
   (vanishes! STAMP))
 
 (defconstraint heartbeat ()
-  (begin (* (will-remain-constant! STAMP) (will-inc! STAMP 1))
-         (if-not-zero (will-remain-constant! STAMP)
-                      (vanishes! (next CT)))
+  (begin (or! (will-remain-constant! STAMP) (will-inc! STAMP 1))
+         (if-not (will-remain-constant! STAMP)
+                 (vanishes! (next CT)))
          (if-eq OLI 1 (will-inc! STAMP 1))
          (if-eq MLI 1
                 (if-eq-else CT MMEDIUMMO (will-inc! STAMP 1) (will-inc! CT 1)))))

@@ -1,4 +1,4 @@
-(defcolumns (P :binary@loob) (X :i16@loob))
-(defperspective p1 P ((Y :i16@loob)))
+(defcolumns (P :binary) (X :i16))
+(defperspective p1 P ((Y :i16)))
 (definterleaved Z (X p1/Y))
-(defconstraint c1 () Z)
+(defconstraint c1 () (== 0 Z))

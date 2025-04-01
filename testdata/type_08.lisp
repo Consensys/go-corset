@@ -1,3 +1,3 @@
-(defcolumns (BIT :i1) (X :i1@loob))
+(defcolumns (BIT :i1) (X :i1))
 
-(defconstraint c1 (:guard BIT) X)
+(defconstraint c1 (:guard BIT) (== 0 X))
