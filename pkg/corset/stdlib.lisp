@@ -27,9 +27,6 @@
 (defpurefun (if-not-eq A B then else) (if (!= A B) then else))
 (defpurefun (if-not (cond :bool) then) (if (not! cond) then))
 (defpurefun (if-not (cond :bool) then else) (if (not! cond) then else))
-;; DEPRECATED: will be removed in near future
-(defpurefun (is-zero e0) (if (== e0 0) 1 0))
-(defpurefun (is-not-zero e0) (~ e0))
 
 ;; =============================================================================
 ;; Boolean connectives
