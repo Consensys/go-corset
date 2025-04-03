@@ -12,6 +12,10 @@
 // SPDX-License-Identifier: Apache-2.0
 package iter
 
+import (
+	utilmath "github.com/consensys/go-corset/pkg/util/math"
+)
+
 // Enumerator abstracts the process of iterating over a sequence of elements.
 type Enumerator[T any] interface {
 	// Check whether or not there are any items remaining to visit.
@@ -19,19 +23,25 @@ type Enumerator[T any] interface {
 
 	// Get the next item, and advanced the iterator.
 	Next() T
+
+	// Count the number of items left.  Note, this does not modify the iterator.
+	Count() uint
 }
 
 // EnumerateElements returns an iterator which enumerates all arrays of size n
 // over the given set of elements.  For example, if n==2 and elems contained two
-// elements A and B, then this will return [[A,A],[A,B][B,A],[B,B]].
+// elements A and B, then this will return [[A,A],[A,B],[B,A],[B,B]].
 func EnumerateElements[E any](n uint, elems []E) Enumerator[[]E] {
 	counters := make([]uint, n)
-	return &enumerator[E]{counters, elems}
+	remaining := utilmath.PowUint64(uint64(len(elems)), uint64(n))
+	//
+	return &enumerator[E]{remaining, counters, elems}
 }
 
 type enumerator[E any] struct {
-	counters []uint
-	elements []E
+	remaining uint64
+	counters  []uint
+	elements  []E
 }
 
 // HasNext checks whether or not there are any items remaining to visit.
@@ -39,6 +49,13 @@ type enumerator[E any] struct {
 //nolint:revive
 func (p *enumerator[E]) HasNext() bool {
 	return p.counters != nil
+}
+
+// Count returns the number of items left in this enumeration.
+//
+//nolint:revive
+func (p *enumerator[E]) Count() uint {
+	return uint(p.remaining)
 }
 
 // Next returns the next item, and advance the iterator.
@@ -72,6 +89,8 @@ func (p *enumerator[E]) Next() []E {
 		// Yes, signal end of enumeration
 		p.counters = nil
 	}
+	//
+	p.remaining -= 1
 	//
 	return rs
 }

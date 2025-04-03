@@ -12,7 +12,9 @@
 // SPDX-License-Identifier: Apache-2.0
 package util
 
-import "math/rand/v2"
+import (
+	"math/rand/v2"
+)
 
 // GenerateRandomUints generates n random unsigned integers in the range 0..m.
 func GenerateRandomUints(n, m uint) []uint {
@@ -47,4 +49,29 @@ func GenerateRandomElements[E any](n uint, elems []E) []E {
 	}
 
 	return items
+}
+
+// SampleElements selects exactly n elements from the given array when its
+// length is greater (otherwise returns the array untouched).
+func SampleElements[E comparable](n uint, elems []E) []E {
+	if n >= uint(len(elems)) {
+		return elems
+	}
+	//
+	m := len(elems)
+	res := make([]E, n)
+	index := -1
+	//
+	for i := uint(0); i < n; i++ {
+		// Number of items still to choose
+		r := int(n - i)
+		// Number of items can choose from
+		left := m - index - r
+		// Choose and update index
+		index += 1 + rand.IntN(left)
+		//
+		res[i] = elems[index]
+	}
+	//
+	return res
 }

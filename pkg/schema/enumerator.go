@@ -40,9 +40,16 @@ type TraceEnumerator struct {
 func NewTraceEnumerator(lines uint, schema Schema, pool []fr.Element) iter.Enumerator[tr.Trace] {
 	ncells := schema.InputColumns().Count() * lines
 	// Construct the enumerator
-	enumerator := iter.EnumerateElements[fr.Element](ncells, pool)
+	enumerator := iter.EnumerateElements(ncells, pool)
 	// Done
 	return &TraceEnumerator{schema, lines, enumerator}
+}
+
+// Count returns the number of items left in this enumeration.
+//
+//nolint:revive
+func (p *TraceEnumerator) Count() uint {
+	return p.enumerator.Count()
 }
 
 // Next returns the next trace in the enumeration

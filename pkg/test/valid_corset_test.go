@@ -1219,7 +1219,7 @@ func Test_WordSorting(t *testing.T) {
 }
 
 func Test_Multiplier(t *testing.T) {
-	Check(t, true, "multiplier")
+	Check(t, false, "multiplier")
 }
 
 func Test_Memory(t *testing.T) {
