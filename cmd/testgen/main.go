@@ -98,6 +98,7 @@ type Model struct {
 var models []Model = []Model{
 	{"bit_decomposition", bitDecompositionModel},
 	{"byte_decomposition", fixedFunctionModel("ST", "CT", 4, byteDecompositionModel)},
+	{"multiplier", multiplierModel},
 	{"memory", memoryModel},
 	{"word_sorting", wordSortingModel},
 	{"counter", functionalModel("STAMP", counterModel)},
@@ -308,6 +309,16 @@ func checkType(bitwidth uint64, name string, schema sc.Schema, trace tr.Trace) b
 	return true
 }
 
+func checkTypes(bitwidth uint64, schema sc.Schema, trace tr.Trace, names ...string) bool {
+	for _, n := range names {
+		if !checkType(bitwidth, n, schema, trace) {
+			return false
+		}
+	}
+	//
+	return true
+}
+
 // ============================================================================
 // Models
 // ============================================================================
@@ -337,10 +348,7 @@ func bitDecompositionModel(schema sc.Schema, trace tr.Trace) bool {
 		BIT_2_i := BIT_2.Get(i)
 		BIT_3_i := BIT_3.Get(i)
 		//
-		b1 := mul(BIT_1_i, TWO_1)
-		b2 := mul(BIT_2_i, TWO_2)
-		b3 := mul(BIT_3_i, TWO_3)
-		sum := add(add(add(b3, b2), b1), BIT_0_i)
+		sum := add(mul(BIT_3_i, TWO_3), mul(BIT_2_i, TWO_2), mul(BIT_1_i, TWO_1), BIT_0_i)
 		// Check decomposition matches
 		if NIBBLE_i.Cmp(&sum) != 0 {
 			return false
@@ -368,7 +376,47 @@ func byteDecompositionModel(first uint, last uint, schema sc.Schema, trace tr.Tr
 	//
 	return true
 }
-
+func multiplierModel(schema sc.Schema, trace tr.Trace) bool {
+	TWO_4 := fr.NewElement(16)
+	TWO_8 := fr.NewElement(256)
+	TWO_12 := fr.NewElement(4096)
+	//
+	ARG1_0 := findColumn(0, "ARG1_0", schema, trace).Data()
+	ARG1_1 := findColumn(0, "ARG1_1", schema, trace).Data()
+	ARG2_0 := findColumn(0, "ARG2_0", schema, trace).Data()
+	ARG2_1 := findColumn(0, "ARG2_1", schema, trace).Data()
+	RES_0 := findColumn(0, "RES_0", schema, trace).Data()
+	RES_1 := findColumn(0, "RES_1", schema, trace).Data()
+	RES_2 := findColumn(0, "RES_2", schema, trace).Data()
+	RES_3 := findColumn(0, "RES_3", schema, trace).Data()
+	// Check column types
+	if !checkTypes(4, schema, trace, "ARG1_0", "ARG1_1", "ARG2_0", "ARG2_1") ||
+		!checkTypes(4, schema, trace, "RES_0", "RES_1", "RES_2", "RES_3") {
+		return false
+	}
+	// Check decomposition
+	for i := uint(0); i < RES_0.Len(); i++ {
+		ARG1_0_i := ARG1_0.Get(i)
+		ARG1_1_i := ARG1_1.Get(i)
+		ARG2_0_i := ARG2_0.Get(i)
+		ARG2_1_i := ARG2_1.Get(i)
+		RES_0_i := RES_0.Get(i)
+		RES_1_i := RES_1.Get(i)
+		RES_2_i := RES_2.Get(i)
+		RES_3_i := RES_3.Get(i)
+		//
+		res := add(mul(TWO_12, RES_3_i), mul(TWO_8, RES_2_i), mul(TWO_4, RES_1_i), RES_0_i)
+		arg1 := add(mul(TWO_4, ARG1_1_i), ARG1_0_i)
+		arg2 := add(mul(TWO_4, ARG2_1_i), ARG2_0_i)
+		arg1.Mul(&arg1, &arg2)
+		// Check decomposition matches
+		if res.Cmp(&arg1) != 0 {
+			return false
+		}
+	}
+	// Success
+	return true
+}
 func memoryModel(schema sc.Schema, trace tr.Trace) bool {
 	TWO_1 := fr.NewElement(2)
 	TWO_8 := fr.NewElement(256)
@@ -488,9 +536,13 @@ func isIncremented(before fr.Element, after fr.Element) bool {
 	return after.IsOne()
 }
 
-func add(lhs fr.Element, rhs fr.Element) fr.Element {
-	lhs.Add(&lhs, &rhs)
-	return lhs
+func add(items ...fr.Element) fr.Element {
+	var acc = fr.NewElement(0)
+	for _, item := range items {
+		acc.Add(&acc, &item)
+	}
+
+	return acc
 }
 
 func sub(lhs fr.Element, rhs fr.Element) fr.Element {
