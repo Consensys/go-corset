@@ -26,7 +26,6 @@ import (
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/json"
 	"github.com/consensys/go-corset/pkg/util"
-	"github.com/consensys/go-corset/pkg/util/collection/iter"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/source"
 	log "github.com/sirupsen/logrus"
@@ -71,6 +70,9 @@ var rootCmd = &cobra.Command{
 		schema := readSchemaFile(path.Join("testdata", filename))
 		// Generate & split traces
 		valid, invalid := generateTestTraces(cfg, schema)
+		// Sample
+		valid = util.SampleElements(cfg.sample, valid)
+		invalid = util.SampleElements(cfg.sample, invalid)
 		// Write out
 		writeTestTraces(cfg.model, "accepts", schema, valid)
 		writeTestTraces(cfg.model, "rejects", schema, invalid)
@@ -129,8 +131,6 @@ func generateTestTraces(cfg TestGenConfig, schema sc.Schema) ([]tr.Trace, []tr.T
 	//
 	for n := cfg.min_lines; n < cfg.max_lines; n++ {
 		enumerator := sc.NewTraceEnumerator(n, schema, pool)
-		fmt.Printf("N=%d, M=%d\n", n, enumerator.Count())
-		enumerator = iter.SampleElements(cfg.sample, enumerator)
 		// Generate and split the traces
 		for enumerator.HasNext() {
 			trace := enumerator.Next()

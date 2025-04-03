@@ -24,6 +24,9 @@ type Enumerator[T any] interface {
 	// Get the next item, and advanced the iterator.
 	Next() T
 
+	// Get the nth item in this iterator.  This will mutate the iterator.
+	Nth(uint) T
+
 	// Count the number of items left.  Note, this does not modify the iterator.
 	Count() uint
 }
@@ -56,6 +59,11 @@ func (p *enumerator[E]) HasNext() bool {
 //nolint:revive
 func (p *enumerator[E]) Count() uint {
 	return uint(p.remaining)
+}
+
+// Nth returns the nth item in this iterator.  This will mutate the iterator.
+func (p *enumerator[E]) Nth(n uint) []E {
+	return Nth(p, n)
 }
 
 // Next returns the next item, and advance the iterator.
@@ -93,4 +101,71 @@ func (p *enumerator[E]) Next() []E {
 	p.remaining -= 1
 	//
 	return rs
+}
+
+// Find provides a default implementation of Iterator.Find which can be used by
+// other iterator implementations.
+//
+//nolint:revive
+func Find[T any, S Enumerator[T]](iter S, predicate Predicate[T]) (uint, bool) {
+	index := uint(0)
+
+	for iter.HasNext() {
+		if predicate(iter.Next()) {
+			return index, true
+		}
+
+		index++
+	}
+	// Failed to find it
+	return 0, false
+}
+
+// Nth provides a default implementation of Iterator.Nth which can be used by
+// other iterator implementations.
+//
+//nolint:revive
+func Nth[T any, S Enumerator[T]](iter S, n uint) T {
+	index := uint(0)
+
+	for iter.HasNext() {
+		ith := iter.Next()
+		if index == n {
+			return ith
+		}
+
+		index++
+	}
+	// Issue!
+	panic("iterator out-of-bounds")
+}
+
+// Count provides a default implementation of Iterator.Count which can be used by
+// other iterator implementations.
+//
+//nolint:revive
+func Count[T any, S Enumerator[T]](iter S) uint {
+	count := uint(0)
+
+	for iter.HasNext() {
+		iter.Next()
+		//
+		count++
+	}
+	// Issue!
+	return count
+}
+
+// Collect provides a default implementation of Iterator.Collect which can be used by
+// other iterator implementations.
+//
+//nolint:revive
+func Collect[T any, S Enumerator[T]](iter S) []T {
+	var items []T = make([]T, 0)
+	//
+	for iter.HasNext() {
+		items = append(items, iter.Next())
+	}
+	//
+	return items
 }

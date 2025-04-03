@@ -45,6 +45,11 @@ func NewTraceEnumerator(lines uint, schema Schema, pool []fr.Element) iter.Enume
 	return &TraceEnumerator{schema, lines, enumerator}
 }
 
+// Nth returns the nth item in this iterator.  This will mutate the iterator.
+func (p *TraceEnumerator) Nth(n uint) tr.Trace {
+	return p.buildTrace(p.enumerator.Nth(n))
+}
+
 // Count returns the number of items left in this enumeration.
 //
 //nolint:revive
@@ -54,8 +59,11 @@ func (p *TraceEnumerator) Count() uint {
 
 // Next returns the next trace in the enumeration
 func (p *TraceEnumerator) Next() tr.Trace {
+	return p.buildTrace(p.enumerator.Next())
+}
+
+func (p *TraceEnumerator) buildTrace(elems []fr.Element) tr.Trace {
 	ncols := p.schema.InputColumns().Count()
-	elems := p.enumerator.Next()
 	cols := make([]tr.RawColumn, ncols)
 	//
 	i, j := 0, 0
