@@ -12,13 +12,15 @@
 // SPDX-License-Identifier: Apache-2.0
 package iter
 
-// Predicate abstracts the notion of a function which identifies something.
-type Predicate[T any] func(T) bool
+import (
+	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/enum"
+)
 
 // Iterator is an adapter which sits on top of a BaseIterator and provides
 // various useful and reusable functions.
 type Iterator[T any] interface {
-	Enumerator[T]
+	enum.Enumerator[T]
 
 	// Append another iterator onto the end of this iterator.  Thus, when all
 	// items are visited in this iterator, iteration continues into the other.
@@ -35,7 +37,7 @@ type Iterator[T any] interface {
 
 	// Find returns the index of the first match for a given predicate, or
 	// return false if no match is found.  This will mutate the iterator.
-	Find(Predicate[T]) (uint, bool)
+	Find(util.Predicate[T]) (uint, bool)
 
 	// Count the number of items left.  Note, this does not modify the iterator.
 	Count() uint

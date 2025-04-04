@@ -12,6 +12,11 @@
 // SPDX-License-Identifier: Apache-2.0
 package iter
 
+import (
+	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/enum"
+)
+
 type appendIterator[T any] struct {
 	left  Iterator[T]
 	right Iterator[T]
@@ -54,7 +59,7 @@ func (p *appendIterator[T]) Append(iter Iterator[T]) Iterator[T] {
 //
 //nolint:revive
 func (p *appendIterator[T]) Clone() Iterator[T] {
-	return NewAppendIterator[T](p.left.Clone(), p.right.Clone())
+	return NewAppendIterator(p.left.Clone(), p.right.Clone())
 }
 
 // Collect allocates a new array containing all items of this iterator.
@@ -79,8 +84,8 @@ func (p *appendIterator[T]) Count() uint {
 // return false if no match is found.
 //
 //nolint:revive
-func (p *appendIterator[T]) Find(predicate Predicate[T]) (uint, bool) {
-	return Find(p, predicate)
+func (p *appendIterator[T]) Find(predicate util.Predicate[T]) (uint, bool) {
+	return enum.Find(p, predicate)
 }
 
 // Nth returns the nth item in this iterator
@@ -88,5 +93,5 @@ func (p *appendIterator[T]) Find(predicate Predicate[T]) (uint, bool) {
 //nolint:revive
 func (p *appendIterator[T]) Nth(n uint) T {
 	// TODO: improve performance.
-	return Nth(p, n)
+	return enum.Nth(p, n)
 }

@@ -20,8 +20,10 @@ import (
 	"slices"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/util/collection/iter"
 )
+
+// Predicate abstracts the notion of a function which identifies something.
+type Predicate[T any] func(T) bool
 
 // Array provides a generice interface to an array of elements.  Typically, we
 // are interested in arrays of field elements here.
@@ -114,7 +116,7 @@ func ReplaceFirstOrPanic[T comparable](columns []T, from T, to T) {
 
 // FindMatching determines the index of first matching item in a given array, or
 // returns max.MaxUint otherwise.
-func FindMatching[T any](items []T, predicate iter.Predicate[T]) uint {
+func FindMatching[T any](items []T, predicate Predicate[T]) uint {
 	for i, item := range items {
 		if predicate(item) {
 			return uint(i)
@@ -125,7 +127,7 @@ func FindMatching[T any](items []T, predicate iter.Predicate[T]) uint {
 }
 
 // ContainsMatching checks whether a given array contains an item matching a given predicate.
-func ContainsMatching[T any](items []T, predicate iter.Predicate[T]) bool {
+func ContainsMatching[T any](items []T, predicate Predicate[T]) bool {
 	for _, item := range items {
 		if predicate(item) {
 			return true
@@ -171,7 +173,7 @@ func RemoveAt[T any](items []T, index uint) []T {
 }
 
 // RemoveMatching removes all elements from an array matching the given item.
-func RemoveMatching[T any](items []T, predicate iter.Predicate[T]) []T {
+func RemoveMatching[T any](items []T, predicate Predicate[T]) []T {
 	count := 0
 	// Check how many matches we have
 	for _, r := range items {

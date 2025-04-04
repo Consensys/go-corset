@@ -16,6 +16,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/enum"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 )
 
@@ -187,27 +189,27 @@ func (p *iterator) Clone() iter.Iterator[uint] {
 //
 //nolint:revive
 func (p *iterator) Collect() []uint {
-	return iter.Collect(p)
+	return enum.Collect(p)
 }
 
 // Count returns the number of items left in the iterator
 //
 //nolint:revive
 func (p *iterator) Count() uint {
-	return iter.Count(p)
+	return enum.Count(p)
 }
 
 // Find returns the index of the first match for a given predicate, or
 // return false if no match is found.
 //
 //nolint:revive
-func (p *iterator) Find(predicate iter.Predicate[uint]) (uint, bool) {
-	return iter.Find(p, predicate)
+func (p *iterator) Find(predicate util.Predicate[uint]) (uint, bool) {
+	return enum.Find(p, predicate)
 }
 
 // Nth returns the nth item in this iterator
 //
 //nolint:revive
 func (p *iterator) Nth(n uint) uint {
-	return iter.Nth(p, n)
+	return enum.Nth(p, n)
 }

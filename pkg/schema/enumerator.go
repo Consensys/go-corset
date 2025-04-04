@@ -15,7 +15,7 @@ package schema
 import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	tr "github.com/consensys/go-corset/pkg/trace"
-	"github.com/consensys/go-corset/pkg/util/collection/iter"
+	"github.com/consensys/go-corset/pkg/util/collection/enum"
 	"github.com/consensys/go-corset/pkg/util/field"
 	log "github.com/sirupsen/logrus"
 )
@@ -32,15 +32,15 @@ type TraceEnumerator struct {
 	// Number of lines
 	lines uint
 	// Enumerate sequences of elements
-	enumerator iter.Enumerator[[]fr.Element]
+	enumerator enum.Enumerator[[]fr.Element]
 }
 
 // NewTraceEnumerator constructs an enumerator for all traces matching the
 // given column specifications using elements sourced from the given pool.
-func NewTraceEnumerator(lines uint, schema Schema, pool []fr.Element) iter.Enumerator[tr.Trace] {
+func NewTraceEnumerator(lines uint, schema Schema, pool []fr.Element) enum.Enumerator[tr.Trace] {
 	ncells := schema.InputColumns().Count() * lines
 	// Construct the enumerator
-	enumerator := iter.EnumerateElements(ncells, pool)
+	enumerator := enum.Power(ncells, pool)
 	// Done
 	return &TraceEnumerator{schema, lines, enumerator}
 }

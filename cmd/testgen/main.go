@@ -26,6 +26,7 @@ import (
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/json"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/enum"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/source"
 	log "github.com/sirupsen/logrus"
@@ -71,8 +72,8 @@ var rootCmd = &cobra.Command{
 		// Generate & split traces
 		valid, invalid := generateTestTraces(cfg, schema)
 		// Sample
-		valid = util.SampleElements(cfg.sample, valid)
-		invalid = util.SampleElements(cfg.sample, invalid)
+		// valid = util.SampleElements(cfg.sample, valid)
+		// invalid = util.SampleElements(cfg.sample, invalid)
 		// Write out
 		writeTestTraces(cfg.model, "accepts", schema, valid)
 		writeTestTraces(cfg.model, "rejects", schema, invalid)
@@ -128,18 +129,21 @@ func generateTestTraces(cfg TestGenConfig, schema sc.Schema) ([]tr.Trace, []tr.T
 	pool := generatePool(cfg)
 	valid := make([]tr.Trace, 0)
 	invalid := make([]tr.Trace, 0)
-	//
+	enums := make([]enum.Enumerator[tr.Trace], 0)
+	// Construct enumeration
 	for n := cfg.min_lines; n < cfg.max_lines; n++ {
-		enumerator := sc.NewTraceEnumerator(n, schema, pool)
-		// Generate and split the traces
-		for enumerator.HasNext() {
-			trace := enumerator.Next()
-			// Check whether trace is valid or not (according to the oracle)
-			if cfg.model.Oracle(schema, trace) {
-				valid = append(valid, trace)
-			} else {
-				invalid = append(invalid, trace)
-			}
+		enums = append(enums, sc.NewTraceEnumerator(n, schema, pool))
+	}
+	// Construct sampling enumerator
+	enum := enum.Sample(cfg.sample, enum.Append(enums...))
+	// Generate and split the traces
+	for enum.HasNext() {
+		trace := enum.Next()
+		// Check whether trace is valid or not (according to the oracle)
+		if cfg.model.Oracle(schema, trace) {
+			valid = append(valid, trace)
+		} else {
+			invalid = append(invalid, trace)
 		}
 	}
 	// Done

@@ -18,12 +18,12 @@ import (
 	"reflect"
 
 	"github.com/consensys/go-corset/pkg/corset/ast"
-	"github.com/consensys/go-corset/pkg/util/collection/iter"
+	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
 
 // DeclPredicate is a shorthand notation.
-type DeclPredicate = iter.Predicate[ast.Declaration]
+type DeclPredicate = util.Predicate[ast.Declaration]
 
 // ResolveCircuit resolves all symbols declared and used within a circuit,
 // producing an environment which can subsequently be used to look up the

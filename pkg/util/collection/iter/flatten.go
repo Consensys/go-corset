@@ -12,6 +12,11 @@
 // SPDX-License-Identifier: Apache-2.0
 package iter
 
+import (
+	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/enum"
+)
+
 // FlattenIterator provides an iterator implementation for an Array.
 type flattenIterator[S, T comparable] struct {
 	// Outermost iterator
@@ -112,8 +117,8 @@ func (p *flattenIterator[S, T]) Count() uint {
 // return false if no match is found.
 //
 //nolint:revive
-func (p *flattenIterator[S, T]) Find(predicate Predicate[T]) (uint, bool) {
-	return Find(p, predicate)
+func (p *flattenIterator[S, T]) Find(predicate util.Predicate[T]) (uint, bool) {
+	return enum.Find(p, predicate)
 }
 
 // Nth returns the nth item in this iterator
