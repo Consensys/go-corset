@@ -12,6 +12,11 @@
 // SPDX-License-Identifier: Apache-2.0
 package iter
 
+import (
+	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/enum"
+)
+
 // ArrayIterator provides an iterator implementation for an Array.
 type arrayIterator[T any] struct {
 	items []T
@@ -79,8 +84,8 @@ func (p *arrayIterator[T]) Count() uint {
 // return false if no match is found.
 //
 //nolint:revive
-func (p *arrayIterator[T]) Find(predicate Predicate[T]) (uint, bool) {
-	return Find(p, predicate)
+func (p *arrayIterator[T]) Find(predicate util.Predicate[T]) (uint, bool) {
+	return enum.Find(p, predicate)
 }
 
 // Nth returns the nth item in this iterator

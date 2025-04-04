@@ -1218,6 +1218,10 @@ func Test_WordSorting(t *testing.T) {
 	Check(t, true, "word_sorting")
 }
 
+func Test_Multiplier(t *testing.T) {
+	Check(t, false, "multiplier")
+}
+
 func Test_Memory(t *testing.T) {
 	Check(t, true, "memory")
 }

@@ -26,6 +26,8 @@ import (
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/json"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/enum"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/source"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -43,6 +45,7 @@ func init() {
 	rootCmd.Flags().Uint("max-elem", 2, "Maximum element")
 	rootCmd.Flags().Uint("min-lines", 1, "Minimum number of lines")
 	rootCmd.Flags().Uint("max-lines", 4, "Maximum number of lines")
+	rootCmd.Flags().Uint("sample", 100, "Sample (atmost) n traces with a given number of lines")
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
@@ -62,16 +65,19 @@ var rootCmd = &cobra.Command{
 		cfg.max_elem = cmdutil.GetUint(cmd, "max-elem")
 		cfg.min_lines = cmdutil.GetUint(cmd, "min-lines")
 		cfg.max_lines = cmdutil.GetUint(cmd, "max-lines")
+		cfg.sample = cmdutil.GetUint(cmd, "sample")
 		// Read schema
 		filename := fmt.Sprintf("%s.lisp", cfg.model.Name)
 		schema := readSchemaFile(path.Join("testdata", filename))
 		// Generate & split traces
 		valid, invalid := generateTestTraces(cfg, schema)
+		// Sample
+		// valid = util.SampleElements(cfg.sample, valid)
+		// invalid = util.SampleElements(cfg.sample, invalid)
 		// Write out
 		writeTestTraces(cfg.model, "accepts", schema, valid)
 		writeTestTraces(cfg.model, "rejects", schema, invalid)
 		os.Exit(0)
-
 	},
 }
 
@@ -82,6 +88,7 @@ type TestGenConfig struct {
 	max_elem  uint
 	min_lines uint
 	max_lines uint
+	sample    uint
 }
 
 // OracleFn defines function which determines whether or not a given trace is accepted by the model (or not).
@@ -98,6 +105,7 @@ type Model struct {
 var models []Model = []Model{
 	{"bit_decomposition", bitDecompositionModel},
 	{"byte_decomposition", fixedFunctionModel("ST", "CT", 4, byteDecompositionModel)},
+	{"multiplier", fixedFunctionModel("ST", "CT", 4, multiplierModel)},
 	{"memory", memoryModel},
 	{"word_sorting", wordSortingModel},
 	{"counter", functionalModel("STAMP", counterModel)},
@@ -121,18 +129,21 @@ func generateTestTraces(cfg TestGenConfig, schema sc.Schema) ([]tr.Trace, []tr.T
 	pool := generatePool(cfg)
 	valid := make([]tr.Trace, 0)
 	invalid := make([]tr.Trace, 0)
-	//
+	enums := make([]enum.Enumerator[tr.Trace], 0)
+	// Construct enumeration
 	for n := cfg.min_lines; n < cfg.max_lines; n++ {
-		enumerator := sc.NewTraceEnumerator(n, schema, pool)
-		// Generate and split the traces
-		for enumerator.HasNext() {
-			trace := enumerator.Next()
-			// Check whether trace is valid or not (according to the oracle)
-			if cfg.model.Oracle(schema, trace) {
-				valid = append(valid, trace)
-			} else {
-				invalid = append(invalid, trace)
-			}
+		enums = append(enums, sc.NewTraceEnumerator(n, schema, pool))
+	}
+	// Construct sampling enumerator
+	enum := enum.Sample(cfg.sample, enum.Append(enums...))
+	// Generate and split the traces
+	for enum.HasNext() {
+		trace := enum.Next()
+		// Check whether trace is valid or not (according to the oracle)
+		if cfg.model.Oracle(schema, trace) {
+			valid = append(valid, trace)
+		} else {
+			invalid = append(invalid, trace)
 		}
 	}
 	// Done
@@ -308,6 +319,16 @@ func checkType(bitwidth uint64, name string, schema sc.Schema, trace tr.Trace) b
 	return true
 }
 
+func checkTypes(bitwidth uint64, schema sc.Schema, trace tr.Trace, names ...string) bool {
+	for _, n := range names {
+		if !checkType(bitwidth, n, schema, trace) {
+			return false
+		}
+	}
+	//
+	return true
+}
+
 // ============================================================================
 // Models
 // ============================================================================
@@ -337,10 +358,7 @@ func bitDecompositionModel(schema sc.Schema, trace tr.Trace) bool {
 		BIT_2_i := BIT_2.Get(i)
 		BIT_3_i := BIT_3.Get(i)
 		//
-		b1 := mul(BIT_1_i, TWO_1)
-		b2 := mul(BIT_2_i, TWO_2)
-		b3 := mul(BIT_3_i, TWO_3)
-		sum := add(add(add(b3, b2), b1), BIT_0_i)
+		sum := add(mul(BIT_3_i, TWO_3), mul(BIT_2_i, TWO_2), mul(BIT_1_i, TWO_1), BIT_0_i)
 		// Check decomposition matches
 		if NIBBLE_i.Cmp(&sum) != 0 {
 			return false
@@ -369,6 +387,75 @@ func byteDecompositionModel(first uint, last uint, schema sc.Schema, trace tr.Tr
 	return true
 }
 
+func multiplierModel(first uint, last uint, schema sc.Schema, trace tr.Trace) bool {
+	TWO_4 := fr.NewElement(16)
+	TWO_8 := fr.NewElement(256)
+	TWO_12 := fr.NewElement(4096)
+	//
+	ARG1_0 := findColumn(0, "ARG1_0", schema, trace).Data()
+	ARG1_1 := findColumn(0, "ARG1_1", schema, trace).Data()
+	ARG2_0 := findColumn(0, "ARG2_0", schema, trace).Data()
+	ARG2_1 := findColumn(0, "ARG2_1", schema, trace).Data()
+	RES_0 := findColumn(0, "RES_0", schema, trace).Data()
+	RES_1 := findColumn(0, "RES_1", schema, trace).Data()
+	RES_2 := findColumn(0, "RES_2", schema, trace).Data()
+	RES_3 := findColumn(0, "RES_3", schema, trace).Data()
+	// Check column types
+	if !checkTypes(4, schema, trace, "ARG1_0", "ARG1_1", "ARG2_0", "ARG2_1") ||
+		!checkTypes(4, schema, trace, "RES_0", "RES_1", "RES_2", "RES_3") {
+		return false
+	}
+	//
+	acc := fr.NewElement(0)
+	// Check decomposition
+	for i := first; i <= last; i++ {
+		var val fr.Element
+		//
+		ARG1_0_i := ARG1_0.Get(i)
+		ARG1_1_i := ARG1_1.Get(i)
+		ARG2_0_i := ARG2_0.Get(i)
+		ARG2_1_i := ARG2_1.Get(i)
+		RES_0_i := RES_0.Get(i)
+		RES_1_i := RES_1.Get(i)
+		RES_2_i := RES_2.Get(i)
+		RES_3_i := RES_3.Get(i)
+		// Check counter constancies
+		if i > first && !unchanged(i-1, i, ARG1_0, ARG1_1, ARG2_0, ARG2_1) {
+			return false
+		}
+		// Apply lines
+		switch i - first {
+		case 0:
+			val = mul(ARG1_0_i, ARG2_0_i)
+		case 1:
+			val = mul(TWO_4, ARG1_0_i, ARG2_1_i)
+		case 2:
+			val = mul(TWO_4, ARG1_1_i, ARG2_0_i)
+		case 3:
+			val = mul(TWO_8, ARG1_1_i, ARG2_1_i)
+		}
+		// Check
+		acc.Add(&acc, &val)
+		//
+		res := add(mul(TWO_12, RES_3_i), mul(TWO_8, RES_2_i), mul(TWO_4, RES_1_i), RES_0_i)
+		// Check accumulate matches result
+		if res.Cmp(&acc) != 0 {
+			return false
+		} else if i == last {
+			// sanity check result
+			arg1 := add(mul(TWO_4, ARG1_1_i), ARG1_0_i)
+			arg2 := add(mul(TWO_4, ARG2_1_i), ARG2_0_i)
+			arg1.Mul(&arg1, &arg2)
+			//
+			if res.Cmp(&arg1) != 0 {
+				err := fmt.Sprintf("invalid calculation: %s * %s != %s", arg1.String(), arg2.String(), res.String())
+				panic(err)
+			}
+		}
+	}
+	// Success
+	return true
+}
 func memoryModel(schema sc.Schema, trace tr.Trace) bool {
 	TWO_1 := fr.NewElement(2)
 	TWO_8 := fr.NewElement(256)
@@ -488,9 +575,27 @@ func isIncremented(before fr.Element, after fr.Element) bool {
 	return after.IsOne()
 }
 
-func add(lhs fr.Element, rhs fr.Element) fr.Element {
-	lhs.Add(&lhs, &rhs)
-	return lhs
+// Check whether some set of columns are unchanged between two rows.
+func unchanged(i, j uint, columns ...field.FrArray) bool {
+	for _, col := range columns {
+		ith := col.Get(i)
+		jth := col.Get(j)
+		//
+		if ith.Cmp(&jth) != 0 {
+			return false
+		}
+	}
+	//
+	return true
+}
+
+func add(items ...fr.Element) fr.Element {
+	var acc = fr.NewElement(0)
+	for _, item := range items {
+		acc.Add(&acc, &item)
+	}
+
+	return acc
 }
 
 func sub(lhs fr.Element, rhs fr.Element) fr.Element {
@@ -498,7 +603,11 @@ func sub(lhs fr.Element, rhs fr.Element) fr.Element {
 	return lhs
 }
 
-func mul(lhs fr.Element, rhs fr.Element) fr.Element {
-	lhs.Mul(&lhs, &rhs)
-	return lhs
+func mul(items ...fr.Element) fr.Element {
+	var acc = fr.NewElement(1)
+	for _, item := range items {
+		acc.Mul(&acc, &item)
+	}
+
+	return acc
 }

@@ -10,49 +10,49 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package iter
+package enum
 
 import (
 	"testing"
 )
 
-func Test_Enumerator_1_1(t *testing.T) {
-	enumerator := EnumerateElements[uint](1, []uint{0})
+func Test_Power_1_1(t *testing.T) {
+	enumerator := Power(1, []uint{0})
 	checkEnumerator(t, enumerator, [][]uint{{0}}, arrayEquals)
 }
 
-func Test_Enumerator_1_2(t *testing.T) {
-	enumerator := EnumerateElements[uint](1, []uint{0, 1})
+func Test_Power_1_2(t *testing.T) {
+	enumerator := Power(1, []uint{0, 1})
 	checkEnumerator(t, enumerator, [][]uint{{0}, {1}}, arrayEquals)
 }
 
-func Test_Enumerator_1_3(t *testing.T) {
-	enumerator := EnumerateElements[uint](1, []uint{0, 1, 2})
+func Test_Power_1_3(t *testing.T) {
+	enumerator := Power(1, []uint{0, 1, 2})
 	checkEnumerator(t, enumerator, [][]uint{{0}, {1}, {2}}, arrayEquals)
 }
 
-func Test_Enumerator_2_1(t *testing.T) {
-	enumerator := EnumerateElements[uint](2, []uint{0})
+func Test_Power_2_1(t *testing.T) {
+	enumerator := Power(2, []uint{0})
 	checkEnumerator(t, enumerator, [][]uint{{0, 0}}, arrayEquals)
 }
 
-func Test_Enumerator_2_2(t *testing.T) {
-	enumerator := EnumerateElements[uint](2, []uint{0, 1})
+func Test_Power_2_2(t *testing.T) {
+	enumerator := Power(2, []uint{0, 1})
 	checkEnumerator(t, enumerator, [][]uint{{0, 0}, {1, 0}, {0, 1}, {1, 1}}, arrayEquals)
 }
 
-func Test_Enumerator_2_3(t *testing.T) {
-	enumerator := EnumerateElements[uint](2, []uint{0, 1, 2})
+func Test_Power_2_3(t *testing.T) {
+	enumerator := Power(2, []uint{0, 1, 2})
 	checkEnumerator(t, enumerator, [][]uint{
 		{0, 0}, {1, 0}, {2, 0}, {0, 1}, {1, 1}, {2, 1}, {0, 2}, {1, 2}, {2, 2}}, arrayEquals)
 }
 
-func Test_Enumerator_3_1(t *testing.T) {
-	enumerator := EnumerateElements[uint](3, []uint{0})
+func Test_Power_3_1(t *testing.T) {
+	enumerator := Power(3, []uint{0})
 	checkEnumerator(t, enumerator, [][]uint{{0, 0, 0}}, arrayEquals)
 }
-func Test_Enumerator_3_2(t *testing.T) {
-	enumerator := EnumerateElements[uint](3, []uint{0, 1})
+func Test_Power_3_2(t *testing.T) {
+	enumerator := Power(3, []uint{0, 1})
 	checkEnumerator(t, enumerator, [][]uint{
 		{0, 0, 0}, {1, 0, 0}, {0, 1, 0}, {1, 1, 0}, {0, 0, 1}, {1, 0, 1}, {0, 1, 1}, {1, 1, 1}}, arrayEquals)
 }
@@ -65,7 +65,7 @@ func checkEnumerator[E any](t *testing.T, enumerator Enumerator[E], expected []E
 	for i := 0; i < len(expected); i++ {
 		ith := enumerator.Next()
 		if !eq(ith, expected[i]) {
-			t.Errorf("expected %s, got %s", any(expected[i]), any(ith))
+			t.Errorf("expected %v, got %v", expected[i], ith)
 		}
 	}
 	// Sanity check lengths match

@@ -12,6 +12,8 @@
 // SPDX-License-Identifier: Apache-2.0
 package iter
 
+import "github.com/consensys/go-corset/pkg/util"
+
 type castIterator[S, T any] struct {
 	iter Iterator[S]
 }
@@ -80,7 +82,7 @@ func (p *castIterator[S, T]) Count() uint {
 // return false if no match is found.
 //
 //nolint:revive
-func (p *castIterator[S, T]) Find(predicate Predicate[T]) (uint, bool) {
+func (p *castIterator[S, T]) Find(predicate util.Predicate[T]) (uint, bool) {
 	return p.iter.Find(func(item S) bool {
 		tmp := any(item)
 		return predicate(tmp.(T))
