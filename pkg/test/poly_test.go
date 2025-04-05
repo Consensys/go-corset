@@ -6,8 +6,8 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/consensys/go-corset/pkg/sexp"
 	"github.com/consensys/go-corset/pkg/util/poly"
+	"github.com/consensys/go-corset/pkg/util/source"
 )
 
 type Poly = poly.Polynomial[string, *poly.ArrayTerm[string]]
@@ -61,12 +61,12 @@ func check(t *testing.T, input string, points [][]uint) {
 }
 
 // Parse a given input string into a polynomial.
-func parse(input string) (Poly, []sexp.SyntaxError) {
-	srcfile := sexp.NewSourceFile("test", []byte(input))
+func parse(input string) (Poly, []source.SyntaxError) {
+	srcfile := source.NewSourceFile("test", []byte(input))
 	// Parse input as S-expression
 	term, srcmap, err := srcfile.Parse()
 	if err != nil {
-		return nil, []sexp.SyntaxError{*err}
+		return nil, []source.SyntaxError{*err}
 	}
 	// Now, convert S-expression into polynomial
 	parser := poly.NewParser(srcmap, termConstructor)

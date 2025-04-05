@@ -1,30 +1,31 @@
 package poly
 
 import (
-	"github.com/consensys/go-corset/pkg/sexp"
+	"github.com/consensys/go-corset/pkg/util/source"
+	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
 // Parser is responsible for parsing S-expressions into polynomials.
 type Parser[S comparable, T Term[S]] struct {
 	// Maps S-Expressions to their spans in the original source file.  This is
 	// used for reporting syntax errors.
-	srcmap *sexp.SourceMap[sexp.SExp]
+	srcmap *source.Map[sexp.SExp]
 	// Function for constructing constant terms from strings
 	constructor func(string) (T, error)
 }
 
 // NewParser constructs a new parser for a given source map.
-func NewParser[S comparable, T Term[S]](srcmap *sexp.SourceMap[sexp.SExp],
+func NewParser[S comparable, T Term[S]](srcmap *source.Map[sexp.SExp],
 	constructor func(string) (T, error)) *Parser[S, T] {
 	return &Parser[S, T]{srcmap, constructor}
 }
 
 // Parse a given S-expression into a polynomial, or produce one or more syntax errors.
-func (p *Parser[S, T]) Parse(sexp sexp.SExp) (*ArrayPoly[S, T], []sexp.SyntaxError) {
+func (p *Parser[S, T]) Parse(sexp sexp.SExp) (*ArrayPoly[S, T], []source.SyntaxError) {
 	return p.parsePoly(sexp)
 }
 
-func (p *Parser[S, T]) parsePoly(expr sexp.SExp) (*ArrayPoly[S, T], []sexp.SyntaxError) {
+func (p *Parser[S, T]) parsePoly(expr sexp.SExp) (*ArrayPoly[S, T], []source.SyntaxError) {
 	switch e := expr.(type) {
 	case *sexp.Symbol:
 		return p.parseSymbol(e)
@@ -35,7 +36,7 @@ func (p *Parser[S, T]) parsePoly(expr sexp.SExp) (*ArrayPoly[S, T], []sexp.Synta
 	}
 }
 
-func (p *Parser[S, T]) parseSymbol(symbol *sexp.Symbol) (*ArrayPoly[S, T], []sexp.SyntaxError) {
+func (p *Parser[S, T]) parseSymbol(symbol *sexp.Symbol) (*ArrayPoly[S, T], []source.SyntaxError) {
 	term, err := p.constructor(symbol.Value)
 	// Check for errors
 	if err == nil {
@@ -45,7 +46,7 @@ func (p *Parser[S, T]) parseSymbol(symbol *sexp.Symbol) (*ArrayPoly[S, T], []sex
 	return nil, p.srcmap.SyntaxErrors(symbol, err.Error())
 }
 
-func (p *Parser[S, T]) parseList(list *sexp.List) (*ArrayPoly[S, T], []sexp.SyntaxError) {
+func (p *Parser[S, T]) parseList(list *sexp.List) (*ArrayPoly[S, T], []source.SyntaxError) {
 	if list.Len() <= 1 {
 		return nil, p.srcmap.SyntaxErrors(list, "malformed expression")
 	} else if list.Get(0).AsSymbol() == nil {
@@ -76,7 +77,7 @@ func (p *Parser[S, T]) parseList(list *sexp.List) (*ArrayPoly[S, T], []sexp.Synt
 // Type of operators to be used with fold.
 type foldOp[S comparable, T Term[S]] func(*ArrayPoly[S, T], *ArrayPoly[S, T])
 
-func (p *Parser[S, T]) foldList(elements []sexp.SExp, op foldOp[S, T]) (*ArrayPoly[S, T], []sexp.SyntaxError) {
+func (p *Parser[S, T]) foldList(elements []sexp.SExp, op foldOp[S, T]) (*ArrayPoly[S, T], []source.SyntaxError) {
 	var res *ArrayPoly[S, T]
 	// Fold over each element
 	for i := 0; i < len(elements); i++ {

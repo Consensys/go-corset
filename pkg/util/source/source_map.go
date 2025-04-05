@@ -178,7 +178,7 @@ func (p *Map[T]) Get(item T) Span {
 // source file associated with this source map.
 //
 //nolint:revive
-func (p *SourceMap[T]) SyntaxError(item T, msg string) *SyntaxError {
+func (p *Map[T]) SyntaxError(item T, msg string) *SyntaxError {
 	span := p.Get(item)
 	return &SyntaxError{&p.srcfile, span, msg}
 }
@@ -186,7 +186,7 @@ func (p *SourceMap[T]) SyntaxError(item T, msg string) *SyntaxError {
 // SyntaxErrors is really just a helper that construct a syntax error and then
 // places it into an array of size one.  This is helpful for situations where
 // sets of syntax errors are being passed around.
-func (p *SourceMap[T]) SyntaxErrors(item T, msg string) []SyntaxError {
+func (p *Map[T]) SyntaxErrors(item T, msg string) []SyntaxError {
 	err := p.SyntaxError(item, msg)
 	return []SyntaxError{*err}
 }
