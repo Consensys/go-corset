@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
@@ -51,7 +52,9 @@ func (p *ArrayPoly[S, T]) Add(other Polynomial[S, T]) {
 
 // Sub another polynomial from this polynomil
 func (p *ArrayPoly[S, T]) Sub(other Polynomial[S, T]) {
-	panic("todo")
+	for i := uint(0); i < other.Len(); i++ {
+		p.SubTerm(other.Term(i))
+	}
 }
 
 // Mul this polynomial by another polynomial.
@@ -61,19 +64,40 @@ func (p *ArrayPoly[S, T]) Mul(other Polynomial[S, T]) {
 
 // AddTerm adds a single term into this polynomial.
 func (p *ArrayPoly[S, T]) AddTerm(other T) {
-	for _, term := range p.terms {
+	for i, term := range p.terms {
 		if term.Matches(other) {
 			// Add term at this position
 			term.Add(other.Coefficient())
 			// Check whether its now zero (or not)
 			if term.IsZero() {
-				// Yes zero, so remove this term.
-				panic("todo")
+				util.RemoveAt(p.terms, uint(i))
 			}
 			//
 			return
 		}
 	}
+	// Append to end
+	p.terms = append(p.terms, other)
+	// Sort?
+}
+
+// SubTerm subtracts a single term from this polynomial.
+func (p *ArrayPoly[S, T]) SubTerm(other T) {
+	//
+	for i, term := range p.terms {
+		if term.Matches(other) {
+			// Add term at this position
+			term.Sub(other.Coefficient())
+			// Check whether its now zero (or not)
+			if term.IsZero() {
+				util.RemoveAt(p.terms, uint(i))
+			}
+			//
+			return
+		}
+	}
+	// Negate
+	other.Neg()
 	// Append to end
 	p.terms = append(p.terms, other)
 	// Sort?

@@ -21,6 +21,12 @@ type Term[T any] interface {
 	// Add updates the cofficient for this term.
 	Add(coeff big.Int)
 
+	// Sub updates the cofficient for this term.
+	Sub(coeff big.Int)
+
+	// Neg negates the coefficient of this term
+	Neg()
+
 	// IsZero checks whether the coefficient for this term is zero or not.
 	IsZero() bool
 }

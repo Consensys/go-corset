@@ -1,4 +1,4 @@
-package test
+package poly
 
 import (
 	"errors"
@@ -6,11 +6,11 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/consensys/go-corset/pkg/util/poly"
 	"github.com/consensys/go-corset/pkg/util/source"
+	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
-type Poly = poly.Polynomial[string, *poly.ArrayTerm[string]]
+type Poly = Polynomial[string, *ArrayTerm[string]]
 
 func Test_Poly_01(t *testing.T) {
 	points := [][]uint{{123, 0}, {123, 1}}
@@ -49,7 +49,7 @@ func check(t *testing.T, input string, points [][]uint) {
 		for _, pnt := range points {
 			env := make(map[string]big.Int)
 			env["a"] = *big.NewInt(int64(pnt[1]))
-			actual := poly.Eval(p, env)
+			actual := Eval(p, env)
 			expected := big.NewInt(int64(pnt[0]))
 			// Evaluate and check
 			if actual.Cmp(expected) != 0 {
@@ -64,34 +64,34 @@ func check(t *testing.T, input string, points [][]uint) {
 func parse(input string) (Poly, []source.SyntaxError) {
 	srcfile := source.NewSourceFile("test", []byte(input))
 	// Parse input as S-expression
-	term, srcmap, err := srcfile.Parse()
+	term, srcmap, err := sexp.Parse(srcfile)
 	if err != nil {
 		return nil, []source.SyntaxError{*err}
 	}
 	// Now, convert S-expression into polynomial
-	parser := poly.NewParser(srcmap, termConstructor)
+	parser := NewParser(srcmap, termConstructor)
 	//
 	return parser.Parse(term)
 }
 
 // Default construct for terms.
-func termConstructor(symbol string) (*poly.ArrayTerm[string], error) {
+func termConstructor(symbol string) (*ArrayTerm[string], error) {
 	// Check for constant
 	if (symbol[0] >= '0' && symbol[0] <= '9') || symbol[0] == '-' {
 		return constantConstructor(symbol)
 	}
 	// Construct variable
 	one := big.NewInt(1)
-	return poly.NewArrayTerm[string](*one, []string{symbol}), nil
+	return NewArrayTerm[string](*one, []string{symbol}), nil
 }
 
 // Constructor for constant literals.
-func constantConstructor(symbol string) (*poly.ArrayTerm[string], error) {
+func constantConstructor(symbol string) (*ArrayTerm[string], error) {
 	var num big.Int
 	//
 	if _, ok := num.SetString(symbol, 10); !ok {
 		return nil, errors.New("invalid constant")
 	}
 	//
-	return poly.NewArrayTerm[string](num, nil), nil
+	return NewArrayTerm[string](num, nil), nil
 }

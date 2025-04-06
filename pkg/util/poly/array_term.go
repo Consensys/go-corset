@@ -47,10 +47,21 @@ func (p *ArrayTerm[S]) Matches(other Term[S]) bool {
 
 // Add updates the cofficient for this term.
 func (p *ArrayTerm[S]) Add(coeff big.Int) {
-	panic("todo")
+	p.coefficient.Add(&p.coefficient, &coeff)
+}
+
+// Sub updates the cofficient for this term.
+func (p *ArrayTerm[S]) Sub(coeff big.Int) {
+	p.coefficient.Sub(&p.coefficient, &coeff)
+}
+
+// Neg negates the coefficient for this term.
+func (p *ArrayTerm[S]) Neg() {
+	p.coefficient.Neg(&p.coefficient)
 }
 
 // IsZero checks whether the coefficient for this term is zero or not.
 func (p *ArrayTerm[S]) IsZero() bool {
-	panic("todo")
+	var zero = big.NewInt(0)
+	return p.coefficient.Cmp(zero) == 0
 }
