@@ -1,3 +1,15 @@
+// Copyright Consensys Software Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+// the License. You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+// an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
+//
+// SPDX-License-Identifier: Apache-2.0
 package poly
 
 import (
@@ -10,7 +22,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
-type Poly = Polynomial[string, *ArrayTerm[string]]
+type Poly = *ArrayPoly[string]
 
 func Test_Poly_01(t *testing.T) {
 	points := [][]uint{{123, 0}, {123, 1}}
@@ -69,29 +81,33 @@ func parse(input string) (Poly, []source.SyntaxError) {
 		return nil, []source.SyntaxError{*err}
 	}
 	// Now, convert S-expression into polynomial
-	parser := NewParser(srcmap, termConstructor)
+	parser := NewParser[string, Monomial[string], Poly](srcmap, termConstructor)
 	//
 	return parser.Parse(term)
 }
 
 // Default construct for terms.
-func termConstructor(symbol string) (*ArrayTerm[string], error) {
+func termConstructor(symbol string) (Monomial[string], error) {
 	// Check for constant
 	if (symbol[0] >= '0' && symbol[0] <= '9') || symbol[0] == '-' {
 		return constantConstructor(symbol)
 	}
 	// Construct variable
 	one := big.NewInt(1)
-	return NewArrayTerm[string](*one, []string{symbol}), nil
+	//
+	return NewMonomial(*one, symbol), nil
 }
 
 // Constructor for constant literals.
-func constantConstructor(symbol string) (*ArrayTerm[string], error) {
-	var num big.Int
+func constantConstructor(symbol string) (Monomial[string], error) {
+	var (
+		num  big.Int
+		term Monomial[string]
+	)
 	//
 	if _, ok := num.SetString(symbol, 10); !ok {
-		return nil, errors.New("invalid constant")
+		return term, errors.New("invalid constant")
 	}
 	//
-	return NewArrayTerm[string](num, nil), nil
+	return NewMonomial[string](num), nil
 }
