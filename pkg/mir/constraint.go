@@ -13,6 +13,8 @@
 package mir
 
 import (
+	"reflect"
+
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -23,6 +25,9 @@ import (
 
 // TRUE represents a constraint which holds (i.e. evaluates to 0)
 var TRUE Constraint
+
+// FALSE represents a constraint which does not hold (i.e. evaluates to 0)
+var FALSE Constraint
 
 // Constraint represents a logical disjunction of terms which holds if at least
 // one term holds.
@@ -41,6 +46,19 @@ func (e Constraint) AsExpr() Expr {
 	}
 	//
 	return termProduct(terms...)
+}
+
+// Is checks whether this constraint trivially evaluates to true or false.
+func (e Constraint) Is(val bool) bool {
+	for _, d := range e.disjuncts {
+		if d.Is(true) {
+			return true
+		} else if !d.Is(false) {
+			return false
+		}
+	}
+	//
+	return !val
 }
 
 // Bounds returns max shift in either the negative (left) or positive
@@ -113,7 +131,10 @@ func (e Constraint) TestAt(k int, tr trace.Trace) (bool, uint, error) {
 }
 
 func init() {
-	TRUE = Constraint{nil}
+	zero := Constant{frZERO}
+	eq := Equation{kind: EQUALS, lhs: &zero, rhs: &zero}
+	TRUE = Constraint{[]Equation{eq}}
+	FALSE = Constraint{nil}
 }
 
 // ============================================================================
@@ -126,11 +147,22 @@ func Disjunct(constraints ...Constraint) Constraint {
 	var equations []Equation
 	//
 	for _, c := range constraints {
-		equations = append(equations, c.disjuncts...)
+		for _, d := range c.disjuncts {
+			d = d.Simplify()
+			//
+			if d.Is(true) {
+				return TRUE
+			} else if !d.Is(false) {
+				equations = append(equations, d)
+			}
+		}
 	}
-	// TODO: opportunity here for simplification?
 	//
-	return Constraint{equations}
+	if len(equations) > 0 {
+		return Constraint{equations}
+	}
+	//
+	return FALSE
 }
 
 // ============================================================================
@@ -151,6 +183,22 @@ type Equation struct {
 	kind uint8
 	lhs  Term
 	rhs  Term
+}
+
+// Simplify this equation as much as reasonably possible.
+func (e Equation) Simplify() Equation {
+	// Apply constant propagation (whilst retaining casts)
+	lhs := constantPropagationForTerm(e.lhs, true, nil)
+	rhs := constantPropagationForTerm(e.rhs, true, nil)
+	//
+	return Equation{e.kind, lhs, rhs}
+}
+
+// Is determines whether or not this equation is known to evaluate to true or
+// false.  For example, "0 == 0" evaluates to true, whilst "0 != 0" evaluates to
+// false.
+func (e Equation) Is(val bool) bool {
+	return reflect.DeepEqual(e.lhs, e.rhs)
 }
 
 // AsTerm translates this equation into a raw term.

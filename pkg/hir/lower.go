@@ -133,12 +133,16 @@ func lowerToConstraints(e Expr, mirSchema *mir.Schema, hirSchema *Schema) []mir.
 	// First expand expression
 	es := expand(e.Term, hirSchema)
 	// Now lower each one (carefully)
-	mes := make([]mir.Constraint, len(es))
+	mes := make([]mir.Constraint, 0)
 	//
-	for i, e := range es {
+	for _, e := range es {
 		c := extractCondition(e, mirSchema, hirSchema)
 		b := extractBody(e, mirSchema, hirSchema)
-		mes[i] = mir.Disjunct(c, b.EqualsZero())
+		d := mir.Disjunct(c, b.EqualsZero())
+		//
+		if !d.Is(true) {
+			mes = append(mes, d)
+		}
 	}
 	// Done
 	return mes
@@ -172,15 +176,15 @@ func extractCondition(e Term, mirSchema *mir.Schema, hirSchema *Schema) mir.Cons
 	case *Cast:
 		return extractCondition(e.Arg, mirSchema, hirSchema)
 	case *Constant:
-		return mir.TRUE
+		return mir.FALSE
 	case *ColumnAccess:
-		return mir.TRUE
+		return mir.FALSE
 	case *Exp:
 		return extractCondition(e.Arg, mirSchema, hirSchema)
 	case *IfZero:
 		return extractIfZeroCondition(e, mirSchema, hirSchema)
 	case *LabelledConstant:
-		return mir.TRUE
+		return mir.FALSE
 	case *Mul:
 		return extractConditions(e.Args, mirSchema, hirSchema)
 	case *Norm:
@@ -194,7 +198,7 @@ func extractCondition(e Term, mirSchema *mir.Schema, hirSchema *Schema) mir.Cons
 }
 
 func extractConditions(es []Term, mirSchema *mir.Schema, hirSchema *Schema) mir.Constraint {
-	var r mir.Constraint = mir.TRUE
+	var r mir.Constraint = mir.FALSE
 	//
 	for _, e := range es {
 		r = mir.Disjunct(r, extractCondition(e, mirSchema, hirSchema))
