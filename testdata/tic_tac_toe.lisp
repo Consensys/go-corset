@@ -107,7 +107,7 @@
 ;; game is won if sum is 3 and multiplication is 1 (to discard [0,1,2] combination)
 ;; game is won if sum is 6
 ;; TODO: and! not working with command line
-(defun (no-one-has-won-yet-or-finished-or-draw-version1)
+(defun (no-one-has-won-yet-or-finished-or-draw)
         (if (and! (eq! 3 (sum-column-1)) (eq! 1 (multiply-column-1))) 0
            (if (eq! 6 (sum-column-1)) 0
         (if (and! (eq! 3 (sum-column-2)) (eq! 1 (multiply-column-2))) 0
@@ -164,7 +164,7 @@
         (if (eq! 1 (multiply-diagonal-right-left)) 0 1) 1)
 )
 
-(defun (no-one-has-won-yet-or-finished-or-draw)
+(defun (no-one-has-won-yet-or-finished-or-draw-version2)
  (* (* (* (* (* (* (* (* (* (* (check-column-1) (check-column-2))
                     (check-column-3))
                     (check-row-1))
@@ -206,16 +206,6 @@
                     (if-not-zero (prev [BOXES 9]) (remained-constant! [BOXES 9]))
                  )
 )
-
-;; cannot play once game is finished
-;; player-take-turns is violated
-;;(defconstraint   game-is-finished
-;;                 (:guard (no-one-has-won-yet-or-finished_or-draw))
-;;                (begin
-;;                     (if (eq! (sum-boxes) 13) (vanishes!  (sum-boxes-next)))
-;;                     (if (eq! (sum-boxes) 14) (vanishes!  (sum-boxes-next)))
-;;                )
-;;)
 
 ;; game stops when a player has won
 (defconstraint game-is-finished
