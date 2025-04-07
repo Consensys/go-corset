@@ -19,3 +19,8 @@
 ;; constraint "game-is-finished" does not hold
 ;; TODO: trace accepted but not in go-corset command line
 ;;{"STAMP": [1,1,1, 1,1,1, 1,1], "BOXES_1": [1,1,1, 1,1,1, 1,1], "BOXES_2": [0,2,2, 2,2,2, 2,2], "BOXES_3": [0,0,1 ,1,1,1, 1,1], "BOXES_4": [0,0,0, 2,2,2, 2,2], "BOXES_5": [0,0,0, 0,1,1, 1,1], "BOXES_6": [0,0,0, 0,0,2, 2,2], "BOXES_7": [0,0,0, 0,0,0, 1,1], "BOXES_8": [0,0,0, 0,0,0, 0,2], "BOXES_9": [0,0,0, 0,0,0, 0,0]}
+
+;; player 2 does not play in empty box
+;; constraint "player-plays-in-empty-box" does not hold
+;; constraint "players-take-turns" does not hold
+{"STAMP": [1,1,1, 1,1,1, 1,1], "BOXES_1": [1,1,1, 1,1,1, 1,1], "BOXES_2": [0,2,2, 2,2,2, 2,2], "BOXES_3": [0,0,1 ,1,1,1, 1,1], "BOXES_4": [0,0,0, 2,2,2, 2,2], "BOXES_5": [0,0,0, 0,1,1, 1,2], "BOXES_6": [0,0,0, 0,0,2, 2,2], "BOXES_7": [0,0,0, 0,0,0, 0,0], "BOXES_8": [0,0,0, 0,0,0, 1,1], "BOXES_9": [0,0,0, 0,0,0, 0,0]}

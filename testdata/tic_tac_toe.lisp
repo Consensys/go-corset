@@ -107,7 +107,7 @@
 ;; game is won if sum is 3 and multiplication is 1 (to discard [0,1,2] combination)
 ;; game is won if sum is 6
 ;; TODO: and! not working with command line
-(defun (no-one-has-won-yet-or-finished-or-draw)
+(defun (no-one-has-won-yet-or-finished-or-draw-version1)
         (if (and! (eq! 3 (sum-column-1)) (eq! 1 (multiply-column-1))) 0
            (if (eq! 6 (sum-column-1)) 0
         (if (and! (eq! 3 (sum-column-2)) (eq! 1 (multiply-column-2))) 0
@@ -129,42 +129,51 @@
         (if (vanishes! (sum-boxes)) 0 1)))))))))))))))))))
 )
 
+
 (defun (check-column-1)
         (if (eq! 3 (sum-column-1))
-        (if (eq! 1 (multiply-column-1)) 0 1) 1)
+        (if (eq! 1 (multiply-column-1)) 0 1)
+        (if (eq! 6 (sum-column-1)) 0 1))
 )
 
 (defun (check-column-2)
         (if (eq! 3 (sum-column-2))
-        (if (eq! 1 (multiply-column-2)) 0 1) 1)
+        (if (eq! 1 (multiply-column-2)) 0 1)
+        (if (eq! 6 (sum-column-2)) 0 1))
 )
 
 (defun (check-column-3)
         (if (eq! 3 (sum-column-3))
-        (if (eq! 1 (multiply-column-3)) 0 1) 1)
+        (if (eq! 1 (multiply-column-3)) 0 1)
+        (if (eq! 6 (sum-column-3)) 0 1))
 )
 (defun (check-row-1)
         (if (eq! 3 (sum-row-1))
-        (if (eq! 1 (multiply-row-1)) 0 1) 1)
+        (if (eq! 1 (multiply-row-1)) 0 1)
+        (if (eq! 6 (sum-row-1)) 0 1))
 )
 (defun (check-row-2)
         (if (eq! 3 (sum-row-2))
-        (if (eq! 1 (multiply-row-2)) 0 1) 1)
+        (if (eq! 1 (multiply-row-2)) 0 1)
+        (if (eq! 6 (sum-row-2)) 0 1))
 )
 (defun (check-row-3)
         (if (eq! 3 (sum-row-3))
-        (if (eq! 1 (multiply-row-3)) 0 1) 1)
+        (if (eq! 1 (multiply-row-3)) 0 1)
+        (if (eq! 6 (sum-row-3)) 0 1))
 )
 (defun (check-diagonal-left-right)
         (if (eq! 3 (sum-diagonal-left-right))
-        (if (eq! 1 (multiply-diagonal-left-right)) 0 1) 1)
+        (if (eq! 1 (multiply-diagonal-left-right)) 0 1)
+        (if (eq! 6 (sum-diagonal-left-right)) 0 1))
 )
 (defun (check-diagonal-right-left)
         (if (eq! 3 (sum-diagonal-right-left))
-        (if (eq! 1 (multiply-diagonal-right-left)) 0 1) 1)
+        (if (eq! 1 (multiply-diagonal-right-left)) 0 1)
+        (if (eq! 6 (sum-diagonal-right-left)) 0 1))
 )
 
-(defun (no-one-has-won-yet-or-finished-or-draw-version2)
+(defun (no-one-has-won-yet-or-finished-or-draw)
  (* (* (* (* (* (* (* (* (* (* (check-column-1) (check-column-2))
                     (check-column-3))
                     (check-row-1))
@@ -193,7 +202,7 @@
 ;; a player cannot change the value of a box is it's already played
 ;; a non-zero box cannot be changed
 (defconstraint player-plays-in-empty-box
-                 (:guard (no-one-has-won-yet-or-finished-or-draw))
+                 ()
                  (begin
                     (if-not-zero (prev [BOXES 1]) (remained-constant! [BOXES 1]))
                     (if-not-zero (prev [BOXES 2]) (remained-constant! [BOXES 2]))
