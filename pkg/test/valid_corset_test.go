@@ -95,9 +95,9 @@ func Test_Constant_02(t *testing.T) {
 }
 
 func Test_Constant_03(t *testing.T) {
+
 	Check(t, false, "constant_03")
 }
-
 func Test_Constant_04(t *testing.T) {
 	Check(t, false, "constant_04")
 }
@@ -1320,6 +1320,10 @@ func TestSlow_Mul(t *testing.T) {
 
 func TestSlow_Mod(t *testing.T) {
 	Check(t, true, "mod")
+}
+
+func Test_TicTacToe(t *testing.T) {
+	Check(t, true, "tic_tac_toe")
 }
 
 // ===================================================================
