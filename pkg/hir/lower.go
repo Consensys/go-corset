@@ -162,6 +162,7 @@ func lowerTo(e Expr, mirSchema *mir.Schema, hirSchema *Schema) []mir.Expr {
 		b := extractBody(e, mirSchema, hirSchema)
 		mes[i] = mir.Product(c, b).Simplify()
 	}
+	//
 	// Done
 	return mes
 }

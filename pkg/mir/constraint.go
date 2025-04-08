@@ -57,7 +57,8 @@ func (e Constraint) Is(val bool) bool {
 			return false
 		}
 	}
-	//
+	// If we get here, either there are no disjuncts or every disjunct was
+	// provably false.
 	return !val
 }
 
@@ -89,7 +90,7 @@ func (e Constraint) Context(schema sc.Schema) trace.Context {
 func (e Constraint) Lisp(schema sc.Schema) sexp.SExp {
 	switch len(e.disjuncts) {
 	case 0:
-		return sexp.NewSymbol("⊤")
+		return sexp.NewSymbol("⊥")
 	case 1:
 		return lispOfEquation(e.disjuncts[0], schema)
 	default:
