@@ -299,13 +299,12 @@ func (t *translator) translateDefConstraint(decl *ast.DefConstraint, module util
 	}
 	// Apply guard (if applicable)
 	if guard != hir.VOID {
+		guard = hir.Equals(guard, hir.NewConst64(0))
 		constraint = hir.If(guard, hir.VOID, constraint)
 	}
 	// Apply perspective selector (if applicable)
 	if selector != hir.VOID {
-		// NOTE: using an ifnot (as above) would be preferable here.  However,
-		// this is currently done just to ensure constraints identical to the
-		// original are generated.
+		selector = hir.Equals(selector, hir.NewConst64(0))
 		constraint = hir.If(selector, hir.VOID, constraint)
 	}
 	//

@@ -132,9 +132,9 @@ func (e Constraint) TestAt(k int, tr trace.Trace) (bool, uint, error) {
 
 func init() {
 	// True is the empty conjunct
-	TRUE = Conjunct()
+	TRUE = Constraint{nil}
 	// False is the empty disjunct
-	FALSE = Disjunct()
+	FALSE = Constraint{[]Disjunction{Disjunction{nil}}}
 }
 
 // ============================================================================
@@ -176,6 +176,12 @@ func Disjunct(constraints ...Constraint) Constraint {
 
 // Negate constructs the logical negation of the given constraint.
 func Negate(constraint Constraint) Constraint {
+	if constraint.Is(true) {
+		return FALSE
+	} else if constraint.Is(false) {
+		return TRUE
+	}
+	//
 	conjuncts := make([]Constraint, len(constraint.disjuncts))
 	//
 	for i, disjunct := range constraint.disjuncts {

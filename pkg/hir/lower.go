@@ -119,21 +119,22 @@ func lowerToConstraint(e Expr, mirSchema *mir.Schema, hirSchema *Schema) mir.Con
 // to the root.
 func lowerToUnit(e Expr, mirSchema *mir.Schema, hirSchema *Schema) mir.Expr {
 	c, b := extractExpression(e.Term, mirSchema, hirSchema)
+	c = mir.Negate(c)
 	//
 	exprs := c.AsExprs()
 	//
 	if len(exprs) != 1 {
 		panic("attempting to lower non-unit expression")
 	}
-
+	//
 	return mir.Product(exprs[0], b).Simplify()
 }
 
 // Extract the "condition" of an expression.  Every expression can be view as a
 // conditional constraint of the form "if c then e", where "c" is the condition.
 // This is allowed to return nil if the body is unconditional.
-func extractConstraint(e Term, mirSchema *mir.Schema, hirSchema *Schema) mir.Constraint {
-	switch e := e.(type) {
+func extractConstraint(t Term, mirSchema *mir.Schema, hirSchema *Schema) mir.Constraint {
+	switch e := t.(type) {
 	case *Cast:
 		return extractConstraint(e.Arg, mirSchema, hirSchema)
 	case *Equation:
@@ -156,8 +157,7 @@ func extractConstraint(e Term, mirSchema *mir.Schema, hirSchema *Schema) mir.Con
 		//
 		return mir.Conjunct(constraints...)
 	default:
-		name := reflect.TypeOf(e).Name()
-		panic(fmt.Sprintf("unknown HIR expression \"%s\"", name))
+		panic(fmt.Sprintf("unknown HIR constraint \"%s\"", lispOfTerm(t, hirSchema).String(false)))
 	}
 }
 
@@ -189,9 +189,9 @@ func extractExpression(e Term, mirSchema *mir.Schema, hirSchema *Schema) (mir.Co
 		c, arg := extractExpression(e.Arg, mirSchema, hirSchema)
 		return c, mir.CastOf(arg, e.BitWidth)
 	case *Constant:
-		return mir.FALSE, mir.NewConst(e.Value)
+		return mir.TRUE, mir.NewConst(e.Value)
 	case *ColumnAccess:
-		return mir.FALSE, mir.NewColumnAccess(e.Column, e.Shift)
+		return mir.TRUE, mir.NewColumnAccess(e.Column, e.Shift)
 	case *Exp:
 		c, arg := extractExpression(e.Arg, mirSchema, hirSchema)
 		return c, mir.Exponent(arg, e.Pow)
@@ -207,16 +207,15 @@ func extractExpression(e Term, mirSchema *mir.Schema, hirSchema *Schema) (mir.Co
 			// to ensure exactly one expression is generated from this expression.
 			panic(fmt.Sprintf("unexpanded expression (%s)", lispOfTerm(e, hirSchema)))
 		} else if e.TrueBranch != nil {
-			condition = mir.Negate(condition)
 			bodycond, body = extractExpression(e.TrueBranch, mirSchema, hirSchema)
 		} else {
-			// Done
+			condition = mir.Negate(condition)
 			bodycond, body = extractExpression(e.FalseBranch, mirSchema, hirSchema)
 		}
 		//
-		return mir.Disjunct(condition, bodycond), body
+		return mir.Conjunct(condition, bodycond), body
 	case *LabelledConstant:
-		return mir.FALSE, mir.NewConst(e.Value)
+		return mir.TRUE, mir.NewConst(e.Value)
 	case *Mul:
 		c, args := extractBodies(e.Args, mirSchema, hirSchema)
 		return c, mir.Product(args...)
