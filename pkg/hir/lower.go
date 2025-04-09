@@ -196,24 +196,25 @@ func extractExpression(e Term, mirSchema *mir.Schema, hirSchema *Schema) (mir.Co
 		c, arg := extractExpression(e.Arg, mirSchema, hirSchema)
 		return c, mir.Exponent(arg, e.Pow)
 	case *IfZero:
-		var (
-			condition = extractConstraint(e.Condition, mirSchema, hirSchema)
-			bodycond  mir.Constraint
-			body      mir.Expr
-		)
+		// var (
+		// 	condition = extractConstraint(e.Condition, mirSchema, hirSchema)
+		// 	bodycond  mir.Constraint
+		// 	body      mir.Expr
+		// )
 
-		if e.TrueBranch != nil && e.FalseBranch != nil {
-			// Expansion should ensure this case does not exist.  This is necessary
-			// to ensure exactly one expression is generated from this expression.
-			panic(fmt.Sprintf("unexpanded expression (%s)", lispOfTerm(e, hirSchema)))
-		} else if e.TrueBranch != nil {
-			bodycond, body = extractExpression(e.TrueBranch, mirSchema, hirSchema)
-		} else {
-			condition = mir.Negate(condition)
-			bodycond, body = extractExpression(e.FalseBranch, mirSchema, hirSchema)
-		}
-		//
-		return mir.Conjunct(condition, bodycond), body
+		// if e.TrueBranch != nil && e.FalseBranch != nil {
+		// 	// Expansion should ensure this case does not exist.  This is necessary
+		// 	// to ensure exactly one expression is generated from this expression.
+		// 	panic(fmt.Sprintf("unexpanded expression (%s)", lispOfTerm(e, hirSchema)))
+		// } else if e.TrueBranch != nil {
+		// 	bodycond, body = extractExpression(e.TrueBranch, mirSchema, hirSchema)
+		// } else {
+		// 	condition = mir.Negate(condition)
+		// 	bodycond, body = extractExpression(e.FalseBranch, mirSchema, hirSchema)
+		// }
+		// //
+		// return mir.Conjunct(condition, bodycond), body
+		panic("not needed?")
 	case *LabelledConstant:
 		return mir.TRUE, mir.NewConst(e.Value)
 	case *Mul:
