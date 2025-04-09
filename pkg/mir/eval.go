@@ -23,6 +23,47 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 )
 
+func evalAtConstraint(e Constraint, k int, trace tr.Trace) (fr.Element, uint, error) {
+	var (
+		zero  fr.Element = fr.NewElement(0)
+		one   fr.Element = fr.NewElement(1)
+		index uint       = 0
+	)
+	//
+	for _, disjunct := range e.disjuncts {
+		n := uint(len(disjunct.atoms))
+		val, j, err := evalAtDisjunction(disjunct, k, trace)
+		//
+		index = (index * n) + j
+		//
+		if err != nil {
+			return one, index, err
+		} else if !val.IsZero() {
+			// Failure
+			return val, index, nil
+		}
+	}
+	// Success
+	return zero, index, nil
+}
+
+func evalAtDisjunction(e Disjunction, k int, trace tr.Trace) (fr.Element, uint, error) {
+	var one fr.Element = fr.NewElement(1)
+	//
+	for i, eq := range e.atoms {
+		val, err := evalAtEquation(eq, k, trace)
+		//
+		if err != nil {
+			return one, uint(i), err
+		} else if val.IsZero() {
+			// Success
+			return val, uint(i), nil
+		}
+	}
+	// Failure
+	return one, uint(len(e.atoms)), nil
+}
+
 func evalAtEquation(e Equation, k int, trace tr.Trace) (fr.Element, error) {
 	var (
 		zero fr.Element = fr.NewElement(0)

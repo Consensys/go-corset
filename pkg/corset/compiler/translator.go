@@ -299,13 +299,12 @@ func (t *translator) translateDefConstraint(decl *ast.DefConstraint, module util
 	}
 	// Apply guard (if applicable)
 	if guard != hir.VOID {
+		guard = hir.Equals(guard, hir.NewConst64(0))
 		constraint = hir.If(guard, hir.VOID, constraint)
 	}
 	// Apply perspective selector (if applicable)
 	if selector != hir.VOID {
-		// NOTE: using an ifnot (as above) would be preferable here.  However,
-		// this is currently done just to ensure constraints identical to the
-		// original are generated.
+		selector = hir.Equals(selector, hir.NewConst64(0))
 		constraint = hir.If(selector, hir.VOID, constraint)
 	}
 	//
@@ -591,10 +590,10 @@ func (t *translator) translateExpressionInModule(expr ast.Expr, module util.Path
 		if len(errs) > 0 {
 			return hir.VOID, errs
 		} else if e.Sign {
-			return hir.Subtract(lhs, rhs), nil
+			return hir.Equals(lhs, rhs), nil
 		}
 		//
-		return hir.Subtract(hir.ONE, hir.Normalise(hir.Subtract(lhs, rhs))), nil
+		return hir.NotEquals(lhs, rhs), nil
 	case *ast.Exp:
 		return t.translateExpInModule(e, module, shift)
 	case *ast.If:
@@ -641,22 +640,6 @@ func (t *translator) translateExpInModule(expr *ast.Exp, module util.Path, shift
 }
 
 func (t *translator) translateIfInModule(expr *ast.If, module util.Path, shift int) (hir.Expr, []SyntaxError) {
-	// Apply special cases
-	if eq, ok := expr.Condition.(*ast.Equals); ok {
-		args, errs := t.translateExpressionsInModule(module, shift, eq.Lhs, eq.Rhs, expr.TrueBranch, expr.FalseBranch)
-		// error check
-		if len(errs) > 0 {
-			return hir.VOID, errs
-		}
-		// Construct condition as subtraction (for now)
-		cond := hir.Subtract(args[0], args[1])
-		// Handle sign
-		if eq.Sign {
-			return hir.If(cond, args[2], args[3]), nil
-		}
-		//
-		return hir.If(cond, args[3], args[2]), nil
-	}
 	// fall-back translation condition
 	args, errs := t.translateExpressionsInModule(module, shift, expr.Condition, expr.TrueBranch, expr.FalseBranch)
 	//

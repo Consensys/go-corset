@@ -129,6 +129,16 @@ func CastOf(arg Expr, bitwidth uint) Expr {
 	return Expr{&Cast{arg.Term, bitwidth}}
 }
 
+// Equals constructs an equality between two expressions.
+func Equals(lhs Expr, rhs Expr) Expr {
+	return Expr{&Equation{true, lhs.Term, rhs.Term}}
+}
+
+// NotEquals constructs a non-equality between two expressions.
+func NotEquals(lhs Expr, rhs Expr) Expr {
+	return Expr{&Equation{false, lhs.Term, rhs.Term}}
+}
+
 // If a new conditional branch, where either the true branch or the false branch
 // can (optionally) be VOID (but both cannot).  Note, the true branch is taken
 // when the condition evaluates to zero.

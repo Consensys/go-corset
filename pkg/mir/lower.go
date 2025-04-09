@@ -103,14 +103,17 @@ func lowerConstraintToAir(c sc.Constraint, mirSchema *Schema, airSchema *air.Sch
 func lowerVanishingConstraintToAir(v VanishingConstraint, mirSchema *Schema, airSchema *air.Schema,
 	cfg OptimisationConfig) {
 	//
-	air_expr := lowerConstraintTo(v.Context, v.Constraint, mirSchema, airSchema, cfg)
-	// Check whether this is a constant
-	constant := air_expr.AsConstant()
-	// Check for compile-time constants
-	if constant != nil && !constant.IsZero() {
-		panic(fmt.Sprintf("constraint %s cannot vanish!", v.Handle))
-	} else if constant == nil {
-		airSchema.AddVanishingConstraint(v.Handle, v.Case, v.Context, v.Domain, air_expr)
+	air_exprs := lowerConstraintTo(v.Context, v.Constraint, mirSchema, airSchema, cfg)
+	//
+	for _, air_expr := range air_exprs {
+		// Check whether this is a constant
+		constant := air_expr.AsConstant()
+		// Check for compile-time constants
+		if constant != nil && !constant.IsZero() {
+			panic(fmt.Sprintf("constraint %s cannot vanish!", v.Handle))
+		} else if constant == nil {
+			airSchema.AddVanishingConstraint(v.Handle, v.Case, v.Context, v.Domain, air_expr)
+		}
 	}
 }
 
@@ -304,9 +307,15 @@ func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Sche
 }
 
 func lowerConstraintTo(ctx trace.Context, c Constraint, mirSchema *Schema, airSchema *air.Schema,
-	cfg OptimisationConfig) air.Expr {
+	cfg OptimisationConfig) []air.Expr {
+	mir_exprs := c.AsExprs()
+	air_exprs := make([]air.Expr, len(mir_exprs))
+
+	for i, e := range mir_exprs {
+		air_exprs[i] = lowerExprTo(ctx, e, mirSchema, airSchema, cfg)
+	}
 	// Convert constraint into expression, then lower.
-	return lowerExprTo(ctx, c.AsExpr(), mirSchema, airSchema, cfg)
+	return air_exprs
 }
 
 // Lower an expression into the Arithmetic Intermediate Representation.

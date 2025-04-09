@@ -20,18 +20,43 @@ import (
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
-func lispOfEquations(schema sc.Schema, op string, exprs []Equation) sexp.SExp {
-	arr := make([]sexp.SExp, 1+len(exprs))
-	arr[0] = sexp.NewSymbol(op)
-	// Translate arguments
-	for i, e := range exprs {
-		arr[i+1] = lispOfEquation(e, schema)
+func lispOfConjunction(schema sc.Schema, conjunction Constraint) sexp.SExp {
+	switch len(conjunction.disjuncts) {
+	case 0:
+		return sexp.NewSymbol("⊤")
+	case 1:
+		return lispOfDisjunction(schema, conjunction.disjuncts[0])
+	default:
+		arr := make([]sexp.SExp, 1+len(conjunction.disjuncts))
+		arr[0] = sexp.NewSymbol("∧")
+		// Translate arguments
+		for i, e := range conjunction.disjuncts {
+			arr[i+1] = lispOfDisjunction(schema, e)
+		}
+		// Done
+		return sexp.NewList(arr)
 	}
-	// Done
-	return sexp.NewList(arr)
 }
 
-func lispOfEquation(e Equation, schema sc.Schema) sexp.SExp {
+func lispOfDisjunction(schema sc.Schema, disjunction Disjunction) sexp.SExp {
+	switch len(disjunction.atoms) {
+	case 0:
+		return sexp.NewSymbol("⊥")
+	case 1:
+		return lispOfEquation(schema, disjunction.atoms[0])
+	default:
+		arr := make([]sexp.SExp, 1+len(disjunction.atoms))
+		arr[0] = sexp.NewSymbol("∨")
+		// Translate arguments
+		for i, e := range disjunction.atoms {
+			arr[i+1] = lispOfEquation(schema, e)
+		}
+		// Done
+		return sexp.NewList(arr)
+	}
+}
+
+func lispOfEquation(schema sc.Schema, e Equation) sexp.SExp {
 	var symbol sexp.SExp
 
 	switch e.kind {
