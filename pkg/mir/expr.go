@@ -57,22 +57,6 @@ func NewConst64(val uint64) Expr {
 	return Expr{&Constant{element}}
 }
 
-// EqualsZero converts this expression into an equality test against zero.
-func (e Expr) EqualsZero() Constraint {
-	zero := &Constant{fr.NewElement(0)}
-	eqz := Equation{EQUALS, e.term, zero}
-
-	return Constraint{[]Equation{eqz}}
-}
-
-// NotEqualsZero converts this expression into an inequality test against zero.
-func (e Expr) NotEqualsZero() Constraint {
-	zero := &Constant{fr.NewElement(0)}
-	eqz := Equation{NOT_EQUALS, e.term, zero}
-
-	return Constraint{[]Equation{eqz}}
-}
-
 // Context determines the evaluation context (i.e. enclosing module) for this
 func (e Expr) Context(schema sc.Schema) trace.Context {
 	return contextOfTerm(e.term, schema)

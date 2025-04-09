@@ -81,6 +81,24 @@ func Append[T any](slice []T, item T) []T {
 	return nslice
 }
 
+// Append creates a new slice containing the result of appending the given item
+// onto the end of the given slice.  Observe that, unlike the built-in append()
+// function, this will never modify the given slice.
+//
+//nolint:revive
+func AppendAll[T any](lhs []T, rhs ...T) []T {
+	n := len(lhs)
+	m := len(rhs)
+	// Make space for new slice
+	nslice := make([]T, n+m)
+	// Copy left values
+	copy(nslice[:n], lhs)
+	// Copy right values
+	copy(nslice[n:], rhs)
+	// Done
+	return nslice
+}
+
 // CountUnique counts the number of unique items within a given slice.
 func CountUnique[T cmp.Ordered](items []T) uint {
 	// First sort them

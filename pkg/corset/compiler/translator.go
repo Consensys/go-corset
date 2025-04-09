@@ -591,10 +591,10 @@ func (t *translator) translateExpressionInModule(expr ast.Expr, module util.Path
 		if len(errs) > 0 {
 			return hir.VOID, errs
 		} else if e.Sign {
-			return hir.Subtract(lhs, rhs), nil
+			return hir.Equals(lhs, rhs), nil
 		}
 		//
-		return hir.Subtract(hir.ONE, hir.Normalise(hir.Subtract(lhs, rhs))), nil
+		return hir.NotEquals(lhs, rhs), nil
 	case *ast.Exp:
 		return t.translateExpInModule(e, module, shift)
 	case *ast.If:
@@ -641,22 +641,6 @@ func (t *translator) translateExpInModule(expr *ast.Exp, module util.Path, shift
 }
 
 func (t *translator) translateIfInModule(expr *ast.If, module util.Path, shift int) (hir.Expr, []SyntaxError) {
-	// Apply special cases
-	if eq, ok := expr.Condition.(*ast.Equals); ok {
-		args, errs := t.translateExpressionsInModule(module, shift, eq.Lhs, eq.Rhs, expr.TrueBranch, expr.FalseBranch)
-		// error check
-		if len(errs) > 0 {
-			return hir.VOID, errs
-		}
-		// Construct condition as subtraction (for now)
-		cond := hir.Subtract(args[0], args[1])
-		// Handle sign
-		if eq.Sign {
-			return hir.If(cond, args[2], args[3]), nil
-		}
-		//
-		return hir.If(cond, args[3], args[2]), nil
-	}
 	// fall-back translation condition
 	args, errs := t.translateExpressionsInModule(module, shift, expr.Condition, expr.TrueBranch, expr.FalseBranch)
 	//

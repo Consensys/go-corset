@@ -58,6 +58,19 @@ func shiftRangeOfTerms(terms []Term) (int, int) {
 	return minShift, maxShift
 }
 
+func shiftRangeOfDisjuncts(disjuncts ...Disjunction) (int, int) {
+	minShift := math.MaxInt
+	maxShift := math.MinInt
+	// Do left-hand sides
+	for _, d := range disjuncts {
+		tMin, tMax := shiftRangeOfEquations(d.atoms)
+		minShift = min(minShift, tMin)
+		maxShift = max(maxShift, tMax)
+	}
+	//
+	return minShift, maxShift
+}
+
 func shiftRangeOfEquations(equations []Equation) (int, int) {
 	minShift := math.MaxInt
 	maxShift := math.MinInt

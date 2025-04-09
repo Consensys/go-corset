@@ -22,13 +22,19 @@ import (
 func lispOfTerm(e Term, schema *Schema) sexp.SExp {
 	switch e := e.(type) {
 	case *Add:
-		return nary2Lisp(schema, "+", e.Args)
+		return nary2Lisp(schema, "+", e.Args...)
 	case *Cast:
 		return lispOfCast(e, schema)
 	case *Constant:
 		return sexp.NewSymbol(e.Value.String())
 	case *ColumnAccess:
 		return lispOfColumnAccess(e, schema)
+	case *Equation:
+		if e.Sign {
+			return nary2Lisp(schema, "==", e.Lhs, e.Rhs)
+		}
+		//
+		return nary2Lisp(schema, "!=", e.Lhs, e.Rhs)
 	case *Exp:
 		return lispOfExp(e, schema)
 	case *IfZero:
@@ -37,13 +43,13 @@ func lispOfTerm(e Term, schema *Schema) sexp.SExp {
 		lab := fmt.Sprintf("%s:%s", e.Label, e.Value.String())
 		return sexp.NewSymbol(lab)
 	case *List:
-		return nary2Lisp(schema, "begin", e.Args)
+		return nary2Lisp(schema, "begin", e.Args...)
 	case *Mul:
-		return nary2Lisp(schema, "*", e.Args)
+		return nary2Lisp(schema, "*", e.Args...)
 	case *Norm:
 		return lispOfNormalise(e, schema)
 	case *Sub:
-		return nary2Lisp(schema, "-", e.Args)
+		return nary2Lisp(schema, "-", e.Args...)
 	default:
 		name := reflect.TypeOf(e).Name()
 		panic(fmt.Sprintf("unknown HIR expression \"%s\"", name))
@@ -118,7 +124,7 @@ func lispOfExp(e *Exp, schema *Schema) sexp.SExp {
 	return sexp.NewList([]sexp.SExp{sexp.NewSymbol("^"), arg, pow})
 }
 
-func nary2Lisp(schema *Schema, op string, exprs []Term) sexp.SExp {
+func nary2Lisp(schema *Schema, op string, exprs ...Term) sexp.SExp {
 	arr := make([]sexp.SExp, 1+len(exprs))
 	arr[0] = sexp.NewSymbol(op)
 	// Translate arguments
