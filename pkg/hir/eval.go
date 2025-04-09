@@ -34,6 +34,8 @@ func evalAtTerm(e Term, k int, trace tr.Trace) ([]fr.Element, error) {
 	case *ColumnAccess:
 		val := trace.Column(e.Column).Get(k + e.Shift)
 		return []fr.Element{val}, nil
+	case *Equation:
+		return evalAtEquation(e, k, trace)
 	case *Exp:
 		return evalAtExp(e, k, trace)
 	case *IfZero:
@@ -78,6 +80,13 @@ func evalAtCast(e *Cast, k int, tr trace.Trace) ([]fr.Element, error) {
 	}
 	// All good
 	return vals, err
+}
+
+func evalAtEquation(e *Equation, k int, tr trace.Trace) ([]fr.Element, error) {
+	args := []Term{e.Lhs, e.Rhs}
+	fn := func(l fr.Element, r fr.Element) fr.Element { l.Sub(&l, &r); return l }
+	//
+	return evalAtTerms(k, tr, args, fn)
 }
 
 func evalAtExp(e *Exp, k int, tr trace.Trace) ([]fr.Element, error) {

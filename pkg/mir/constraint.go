@@ -40,18 +40,21 @@ func NewConstraint(equation Equation) Constraint {
 	return Constraint{[]Disjunction{disjunct}}
 }
 
-// AsExpr converts a constraint into an equivalent expression by taking the
+// AsExprs converts a constraint into an equivalent expression by taking the
 // product of all disjuncted terms.
-func (e Constraint) AsExpr() Expr {
-	switch len(e.disjuncts) {
-	case 0:
+func (e Constraint) AsExprs() []Expr {
+	if len(e.disjuncts) == 0 {
 		// True
-		return NewConst64(0)
-	case 1:
-		return e.disjuncts[0].AsExpr()
-	default:
-		panic("cannot convert conjunction into expression")
+		return []Expr{NewConst64(0)}
 	}
+	//
+	exprs := make([]Expr, len(e.disjuncts))
+	//
+	for i, d := range e.disjuncts {
+		exprs[i] = d.AsExpr()
+	}
+	//
+	return exprs
 }
 
 // Is checks whether this constraint trivially evaluates to true or false.

@@ -62,7 +62,7 @@ func lowerConstraintToMir(c sc.Constraint, mirSchema *mir.Schema, hirSchema *Sch
 		// Add translated constraint
 		mirSchema.AddVanishingConstraint(v.Handle, 0, v.Context, v.Domain, mir_constraint)
 	} else if v, ok := c.(RangeConstraint); ok {
-		mir_expr := lowerTo(v.Expr.Expr, mirSchema, hirSchema)
+		mir_expr := lowerToUnit(v.Expr.Expr, mirSchema, hirSchema)
 		// Add individual constraints arising
 		mirSchema.AddRangeConstraint(v.Handle, 0, v.Context, mir_expr, v.Bound)
 	} else if v, ok := c.(SortedConstraint); ok {
@@ -79,8 +79,8 @@ func lowerLookupConstraint(c LookupConstraint, mirSchema *mir.Schema, hirSchema 
 	into := make([]mir.Expr, len(c.Targets))
 	// Convert general expressions into unit expressions.
 	for i := 0; i < len(from); i++ {
-		from[i] = lowerTo(c.Sources[i].Expr, mirSchema, hirSchema)
-		into[i] = lowerTo(c.Targets[i].Expr, mirSchema, hirSchema)
+		from[i] = lowerToUnit(c.Sources[i].Expr, mirSchema, hirSchema)
+		into[i] = lowerToUnit(c.Targets[i].Expr, mirSchema, hirSchema)
 	}
 	//
 	mirSchema.AddLookupConstraint(c.Handle, c.SourceContext, c.TargetContext, from, into)
@@ -93,11 +93,11 @@ func lowerSortedConstraint(c SortedConstraint, mirSchema *mir.Schema, hirSchema 
 	)
 	// Convert (optional) selector expression
 	if c.Selector.HasValue() {
-		selector = util.Some(lowerTo(c.Selector.Unwrap().Expr, mirSchema, hirSchema))
+		selector = util.Some(lowerToUnit(c.Selector.Unwrap().Expr, mirSchema, hirSchema))
 	}
 	// Convert general expressions into unit expressions.
 	for i := 0; i < len(sources); i++ {
-		sources[i] = lowerTo(c.Sources[i].Expr, mirSchema, hirSchema)
+		sources[i] = lowerToUnit(c.Sources[i].Expr, mirSchema, hirSchema)
 	}
 	//
 	mirSchema.AddSortedConstraint(c.Handle, c.Context, c.BitWidth, selector, sources, c.Signs, c.Strict)
@@ -117,9 +117,16 @@ func lowerToConstraint(e Expr, mirSchema *mir.Schema, hirSchema *Schema) mir.Con
 // Lowers a given expression to the MIR level.  The expression is first expanded
 // into one or more target expressions. Furthermore, conditions must be "lifted"
 // to the root.
-func lowerTo(e Expr, mirSchema *mir.Schema, hirSchema *Schema) mir.Expr {
+func lowerToUnit(e Expr, mirSchema *mir.Schema, hirSchema *Schema) mir.Expr {
 	c, b := extractExpression(e.Term, mirSchema, hirSchema)
-	return mir.Product(c.AsExpr(), b).Simplify()
+	//
+	exprs := c.AsExprs()
+	//
+	if len(exprs) != 1 {
+		panic("attempting to lower non-unit expression")
+	}
+
+	return mir.Product(exprs[0], b).Simplify()
 }
 
 // Extract the "condition" of an expression.  Every expression can be view as a
@@ -140,6 +147,14 @@ func extractConstraint(e Term, mirSchema *mir.Schema, hirSchema *Schema) mir.Con
 		return mir.Disjunct(cl, cr, mir.NotEquals(l, r))
 	case *IfZero:
 		return extractIfZeroCondition(e, mirSchema, hirSchema)
+	case *List:
+		constraints := make([]mir.Constraint, len(e.Args))
+		//
+		for i, t := range e.Args {
+			constraints[i] = extractConstraint(t, mirSchema, hirSchema)
+		}
+		//
+		return mir.Conjunct(constraints...)
 	default:
 		name := reflect.TypeOf(e).Name()
 		panic(fmt.Sprintf("unknown HIR expression \"%s\"", name))

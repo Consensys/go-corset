@@ -343,6 +343,7 @@ func init() {
 	gob.Register(Term(&Mul{}))
 	gob.Register(Term(&Sub{}))
 	gob.Register(Term(&Cast{}))
+	gob.Register(Term(&Equation{}))
 	gob.Register(Term(&Exp{}))
 	gob.Register(Term(&IfZero{}))
 	gob.Register(Term(&List{}))
