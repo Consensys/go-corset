@@ -1,15 +1,21 @@
+;; Game of tic-tac-toe
+;; game representation
+;; - X is 1
+;; - O is 2
+;; board is an array of size 9, counting from left to right, top to bottom like so
+;; 1 | 2 | 3
+;; 4 | 5 | 6
+;; 7 | 8 | 9
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Columns
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; TODO: does not accept field type
+
 (defcolumns
     (BOXES :i3 :array [9])
     (STAMP :i1)
 )
-
-;;X is 1
-;;O is 2
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Shorthands
@@ -18,10 +24,6 @@
 (defun (sum-boxes)
        (reduce + (for i [9] [BOXES i]))
 )
-
-;; (defun (sum-boxes-test)
-;;       (reduce + (for i [1:9:1] [BOXES i]))
-;;)
 
 (defun (sum-boxes-next)
        (reduce + (for i [9] (next [BOXES i])))
@@ -103,32 +105,11 @@
  (* (* [BOXES 3] [BOXES 5]) [BOXES 7])
 )
 
-;; check if the game is won or finished (0)
+;; function to check if the game is won or finished or draw
 ;; game is won if sum is 3 and multiplication is 1 (to discard [0,1,2] combination)
 ;; game is won if sum is 6
-;; TODO: and! not working with command line
-(defun (no-one-has-won-yet-or-finished-or-draw-version1)
-        (if (and! (eq! 3 (sum-column-1)) (eq! 1 (multiply-column-1))) 0
-           (if (eq! 6 (sum-column-1)) 0
-        (if (and! (eq! 3 (sum-column-2)) (eq! 1 (multiply-column-2))) 0
-            (if (eq! 6 (sum-column-2)) 0
-        (if (and! (eq! 3 (sum-column-3)) (eq! 1 (multiply-column-3))) 0
-            (if (eq! 6 (sum-column-3)) 0
-        (if (and! (eq! 3 (sum-row-1)) (eq! 1 (multiply-row-1))) 0
-            (if (eq! 6 (sum-row-1)) 0
-        (if (and! (eq! 3 (sum-row-2)) (eq! 1 (multiply-row-2))) 0
-            (if (eq! 6 (sum-row-2)) 0
-        (if (and! (eq! 3 (sum-row-3)) (eq! 1 (multiply-row-3))) 0
-            (if (eq! 6 (sum-row-3)) 0
-        (if (and! (eq! 3 (sum-diagonal-left-right)) (eq! 1 (multiply-diagonal-left-right))) 0
-            (if (eq! 6 (sum-diagonal-left-right)) 0
-        (if (and! (eq! 3 (sum-diagonal-right-left)) (eq! 1 (multiply-diagonal-right-left))) 0
-            (if (eq! 6 (sum-diagonal-right-left)) 0
-        (if (eq! 13 (sum-boxes)) 0
-        (if (eq! 14 (sum-boxes)) 0
-        (if (vanishes! (sum-boxes)) 0 1)))))))))))))))))))
-)
-
+;; game is finished if sum of all boxes is 0
+;; game is a draw if sum of all boxes is 13 (if player X(1) started) or 14 (if player O(2) started)
 
 (defun (check-column-1)
         (if (eq! 3 (sum-column-1))
@@ -185,12 +166,60 @@
                     (- 14 (sum-boxes)))
                     (sum-boxes))
 )
+
+;; this version might be les verbose or more readable than the previous one
+;; TODO: and! not working with command line
+(defun (no-one-has-won-yet-or-finished-or-draw-version2)
+        (if (and! (eq! 3 (sum-column-1)) (eq! 1 (multiply-column-1))) 0
+           (if (eq! 6 (sum-column-1)) 0
+        (if (and! (eq! 3 (sum-column-2)) (eq! 1 (multiply-column-2))) 0
+            (if (eq! 6 (sum-column-2)) 0
+        (if (and! (eq! 3 (sum-column-3)) (eq! 1 (multiply-column-3))) 0
+            (if (eq! 6 (sum-column-3)) 0
+        (if (and! (eq! 3 (sum-row-1)) (eq! 1 (multiply-row-1))) 0
+            (if (eq! 6 (sum-row-1)) 0
+        (if (and! (eq! 3 (sum-row-2)) (eq! 1 (multiply-row-2))) 0
+            (if (eq! 6 (sum-row-2)) 0
+        (if (and! (eq! 3 (sum-row-3)) (eq! 1 (multiply-row-3))) 0
+            (if (eq! 6 (sum-row-3)) 0
+        (if (and! (eq! 3 (sum-diagonal-left-right)) (eq! 1 (multiply-diagonal-left-right))) 0
+            (if (eq! 6 (sum-diagonal-left-right)) 0
+        (if (and! (eq! 3 (sum-diagonal-right-left)) (eq! 1 (multiply-diagonal-right-left))) 0
+            (if (eq! 6 (sum-diagonal-right-left)) 0
+        (if (eq! 13 (sum-boxes)) 0
+        (if (eq! 14 (sum-boxes)) 0
+        (if (vanishes! (sum-boxes)) 0 1)))))))))))))))))))
+)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Constraints
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;; range check
+;; this constraint enforces that BOXES in the range [0, 1, 2]
+(definrange  [BOXES 1]   3)
+(definrange  [BOXES 2]   3)
+(definrange  [BOXES 3]   3)
+(definrange  [BOXES 4]   3)
+(definrange  [BOXES 5]   3)
+(definrange  [BOXES 6]   3)
+(definrange  [BOXES 7]   3)
+(definrange  [BOXES 8]   3)
+(definrange  [BOXES 9]   3)
+
+;; constaints for STAMP
+
+(defconstraint   stamp-initially-vanishes (:domain {0})
+                 (vanishes! STAMP))
+
+(defconstraint   stamp-is-non-decreasing ()
+                 (if-not-zero STAMP
+                    (eq! (next STAMP) 1)))
+
+
+;; Game constraints
+
 ;; a player cannot play twice in a row
-;; the diff-all cannot remain constant (1 -> 1) or (2 ->2), it has to alternate
+;; the diff-all cannot remain constant, such as (1 -> 1) or (2 ->2), it has to alternate
 (defconstraint players-take-turns
                     (:guard (no-one-has-won-yet-or-finished-or-draw))
                     (begin
@@ -199,7 +228,7 @@
                     )
 )
 
-;; a player cannot change the value of a box is it's already played
+;; a player cannot change the value of a box if it's already played
 ;; a non-zero box cannot be changed
 (defconstraint player-plays-in-empty-box
                  ()
@@ -231,32 +260,5 @@
                  (:domain {-1})
                  (vanishes! (no-one-has-won-yet-or-finished-or-draw))
 )
-
-;; after the game is finished, no one can play
-;; once the trace has been 0 once, it stays 0
-
-;; constraint on stamp - not go back to 0
-
-;; this constraint enforces that BOXES in the range [0, 1, 2]
-;; TODO: not working
-;;(definrange  [BOXES 1]   2)
-
-(defconstraint range-check
-                 ()
-                 (begin
-                    (if-not-eq [BOXES 1] 0 (if-not-eq [BOXES 1] 1 (eq! [BOXES 1] 2)))
-                    (if-not-eq [BOXES 2] 0 (if-not-eq [BOXES 2] 1 (eq! [BOXES 2] 2)))
-                    (if-not-eq [BOXES 3] 0 (if-not-eq [BOXES 3] 1 (eq! [BOXES 3] 2)))
-                    (if-not-eq [BOXES 4] 0 (if-not-eq [BOXES 4] 1 (eq! [BOXES 4] 2)))
-                    (if-not-eq [BOXES 5] 0 (if-not-eq [BOXES 5] 1 (eq! [BOXES 5] 2)))
-                    (if-not-eq [BOXES 6] 0 (if-not-eq [BOXES 6] 1 (eq! [BOXES 6] 2)))
-                    (if-not-eq [BOXES 7] 0 (if-not-eq [BOXES 7] 1 (eq! [BOXES 7] 2)))
-                    (if-not-eq [BOXES 8] 0 (if-not-eq [BOXES 8] 1 (eq! [BOXES 8] 2)))
-                    (if-not-eq [BOXES 9] 0 (if-not-eq [BOXES 9] 1 (eq! [BOXES 9] 2)))
-                 )
-)
-
-;; same winning row twice -- check
-
 
 
