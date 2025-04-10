@@ -105,10 +105,9 @@
  (* (* [BOXES 3] [BOXES 5]) [BOXES 7])
 )
 
-;; function to check if the game is won or finished or draw
+;; function to check if the game is won or draw
 ;; game is won if sum is 3 and multiplication is 1 (to discard [0,1,2] combination)
 ;; game is won if sum is 6
-;; game is finished if sum of all boxes is 0
 ;; game is a draw if sum of all boxes is 13 (if player X(1) started) or 14 (if player O(2) started)
 
 (defun (check-column-1)
@@ -154,7 +153,7 @@
         (if (eq! 6 (sum-diagonal-right-left)) 0 1))
 )
 
-(defun (no-one-has-won-yet-or-finished-or-draw)
+(defun (check-win-or-draw)
  (* (* (* (* (* (* (* (* (* (* (check-column-1) (check-column-2))
                     (check-column-3))
                     (check-row-1))
@@ -163,13 +162,12 @@
                     (check-diagonal-left-right))
                     (check-diagonal-right-left))
                     (- 13 (sum-boxes)))
-                    (- 14 (sum-boxes)))
-                    (sum-boxes))
+                    (- 14 (sum-boxes))))
 )
 
 ;; this version might be les verbose or more readable than the previous one
 ;; TODO: and! not working with command line
-(defun (no-one-has-won-yet-or-finished-or-draw-version2)
+(defun (check-win-or-draw-version2)
         (if (and! (eq! 3 (sum-column-1)) (eq! 1 (multiply-column-1))) 0
            (if (eq! 6 (sum-column-1)) 0
         (if (and! (eq! 3 (sum-column-2)) (eq! 1 (multiply-column-2))) 0
@@ -221,7 +219,7 @@
 ;; a player cannot play twice in a row
 ;; the diff-all cannot remain constant, such as (1 -> 1) or (2 ->2), it has to alternate
 (defconstraint players-take-turns
-                    (:guard (no-one-has-won-yet-or-finished-or-draw))
+                    ()
                     (begin
                         (if (eq! (diff-all) 1) (eq! (diff-all-next) 2))
                         (if (eq! (diff-all) 2) (eq! (diff-all-next) 1))
@@ -233,32 +231,33 @@
 (defconstraint player-plays-in-empty-box
                  ()
                  (begin
-                    (if-not-zero (prev [BOXES 1]) (remained-constant! [BOXES 1]))
-                    (if-not-zero (prev [BOXES 2]) (remained-constant! [BOXES 2]))
-                    (if-not-zero (prev [BOXES 3]) (remained-constant! [BOXES 3]))
-                    (if-not-zero (prev [BOXES 4]) (remained-constant! [BOXES 4]))
-                    (if-not-zero (prev [BOXES 5]) (remained-constant! [BOXES 5]))
-                    (if-not-zero (prev [BOXES 6]) (remained-constant! [BOXES 6]))
-                    (if-not-zero (prev [BOXES 7]) (remained-constant! [BOXES 7]))
-                    (if-not-zero (prev [BOXES 8]) (remained-constant! [BOXES 8]))
-                    (if-not-zero (prev [BOXES 9]) (remained-constant! [BOXES 9]))
+                    (if-not-zero [BOXES 1] (will-remain-constant! [BOXES 1]))
+                    (if-not-zero [BOXES 2] (will-remain-constant! [BOXES 2]))
+                    (if-not-zero [BOXES 3] (will-remain-constant! [BOXES 3]))
+                    (if-not-zero [BOXES 4] (will-remain-constant! [BOXES 4]))
+                    (if-not-zero [BOXES 5] (will-remain-constant! [BOXES 5]))
+                    (if-not-zero [BOXES 6] (will-remain-constant! [BOXES 6]))
+                    (if-not-zero [BOXES 7] (will-remain-constant! [BOXES 7]))
+                    (if-not-zero [BOXES 8] (will-remain-constant! [BOXES 8]))
+                    (if-not-zero [BOXES 9] (will-remain-constant! [BOXES 9]))
                  )
 )
 
 ;; game stops when a player has won
-(defconstraint game-is-finished
+;; check on STAMP to avoid testing row 0
+(defconstraint game-stops-after-win-or-draw
                  ()
                  (if-not-zero STAMP
-                    (if-zero (no-one-has-won-yet-or-finished-or-draw)
+                    (if-zero (check-win-or-draw)
                             (vanishes! (sum-boxes-next)))
                  )
 )
 
+
 ;; last row has to be either a win, a draw or an empty row
 ;; should fail if game is mid-way
-(defconstraint last-row
+(defconstraint game-stops-with-win-or-draw
                  (:domain {-1})
-                 (vanishes! (no-one-has-won-yet-or-finished-or-draw))
+                 (vanishes! (check-win-or-draw))
 )
-
 
