@@ -51,7 +51,7 @@ type SourceColumn struct {
 	// Column name
 	Name string
 	// Selector determines when column active.
-	Selector *hir.UnitExpr
+	Selector *hir.Expr
 	// Display modifier
 	Display uint
 	// Register to which this column is allocated
@@ -162,7 +162,7 @@ func history_append[T comparable](history []T, item T) []T {
 	return append(history, item)
 }
 
-func extractSourceColumns(path util.Path, selector *hir.UnitExpr, columns []corset.SourceColumn,
+func extractSourceColumns(path util.Path, selector *hir.Expr, columns []corset.SourceColumn,
 	submodules []corset.SourceModule) []SourceColumn {
 	//
 	var srcColumns []SourceColumn

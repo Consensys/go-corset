@@ -13,18 +13,18 @@
 
 (defpurefun (vanishes! e0) (== e0 0))
 (defpurefun ((force-bin :binary :force) x) x)
-(defpurefun (is-binary e0) (or! (== e0 0) (== e0 1)))
+(defpurefun (is-binary (e0 :int)) (or! (== e0 0) (== e0 1)))
 ;; =============================================================================
 ;; Conditionals
 ;; =============================================================================
-(defpurefun (if-zero cond then) (if (== cond 0) then))
-(defpurefun (if-zero cond then else) (if (== cond 0) then else))
-(defpurefun (if-not-zero cond then) (if (!= cond 0) then))
-(defpurefun (if-not-zero cond then else) (if (!= cond 0) then else))
-(defpurefun (if-eq x val then) (if (eq! x val) then))
-(defpurefun (if-eq-else x val then else) (if (eq! x val) then else))
-(defpurefun (if-not-eq A B then) (if (!= A B) then))
-(defpurefun (if-not-eq A B then else) (if (!= A B) then else))
+(defpurefun (if-zero (cond :int) then) (if (== cond 0) then))
+(defpurefun (if-zero (cond :int) then else) (if (== cond 0) then else))
+(defpurefun (if-not-zero (cond :int) then) (if (!= cond 0) then))
+(defpurefun (if-not-zero (cond :int) then else) (if (!= cond 0) then else))
+(defpurefun (if-eq (x :int) (y :int) then) (if (eq! x y) then))
+(defpurefun (if-eq-else (x :int) (y :int) then else) (if (eq! x y) then else))
+(defpurefun (if-not-eq (x :int) (y :int) then) (if (!= x y) then))
+(defpurefun (if-not-eq (x :int) (y :int) then else) (if (!= x y) then else))
 (defpurefun (if-not (cond :bool) then) (if (not! cond) then))
 (defpurefun (if-not (cond :bool) then else) (if (not! cond) then else))
 
@@ -48,28 +48,29 @@
 (defpurefun (next X) (shift X 1))
 (defpurefun (prev X) (shift X -1))
 ;; Ensure e0 has increased by offset w.r.t previous row.
-(defpurefun (did-inc! e0 offset) (== e0 (+ (prev e0) offset)))
+(defpurefun ((did-inc! :bool) e0 offset) (== e0 (+ (prev e0) offset)))
 ;; Ensure e0 has decreased by offset w.r.t previous row.
-(defpurefun (did-dec! e0 offset) (== e0 (- (prev e0) offset)))
+(defpurefun ((did-dec! :bool) e0 offset) (== e0 (- (prev e0) offset)))
 ;; Ensure e0 will increase by offset w.r.t next row.
-(defpurefun (will-inc! e0 offset) (will-eq! e0 (+ e0 offset)))
+(defpurefun ((will-inc! :bool) e0 offset) (will-eq! e0 (+ e0 offset)))
 ;; Ensure e0 will decrease by offset w.r.t next row.
-(defpurefun (will-dec! e0 offset) (== (next e0) (- e0 offset)))
+(defpurefun ((will-dec! :bool) e0 offset) (== (next e0) (- e0 offset)))
 ;; Ensure e0 remained constant w.r.t previous row.
-(defpurefun (remained-constant! e0) (== e0 (prev e0)))
+(defpurefun ((remained-constant! :bool) e0) (== e0 (prev e0)))
 ;; Ensure e0 will remain constant w.r.t next row.
-(defpurefun (will-remain-constant! e0) (will-eq! e0 e0))
+(defpurefun ((will-remain-constant! :bool) e0) (will-eq! e0 e0))
 ;; Ensure e0 has changed its value w.r.t previous row.
-(defpurefun (did-change! e0) (!= e0 (prev e0)))
+(defpurefun ((did-change! :bool) e0) (!= e0 (prev e0)))
 ;; Ensure e0 will remain constant w.r.t next row.
-(defpurefun (will-change! e0) (will-neq! e0 e0))
+(defpurefun ((will-change! :bool) e0) (will-neq! e0 e0))
 ;; Ensure e1 equals value of e0 in previous row.
-(defpurefun (was-eq! e0 e1) (== (prev e0) e1))
+(defpurefun ((was-eq! :bool) e0 e1) (== (prev e0) e1))
 ;; Ensure e1 will equal value of e0 in next row.
-(defpurefun (will-eq! e0 e1) (== (next e0) e1))
+(defpurefun ((will-eq! :bool) e0 e1) (== (next e0) e1))
 ;; Ensure e1 will not equal value of e0 in next row.
-(defpurefun (will-neq! e0 e1) (!= (next e0) e1))
-
+(defpurefun ((will-neq! :bool) e0 e1) (!= (next e0) e1))
+;; SHOULD BE DEPRECATED
+(defpurefun ((remained-constant :int) e0) (- e0 (prev e0)))
 ;; =============================================================================
 ;; Helpers
 ;; =============================================================================

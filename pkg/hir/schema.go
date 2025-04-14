@@ -33,23 +33,23 @@ type DataColumn = *assignment.DataColumn
 // VanishingConstraint captures the essence of a vanishing constraint at the HIR
 // level. A vanishing constraint is a row constraint which must evaluate to
 // zero.
-type VanishingConstraint = *constraint.VanishingConstraint[ZeroArrayTest]
+type VanishingConstraint = *constraint.VanishingConstraint[Expr]
 
 // LookupConstraint captures the essence of a lookup constraint at the HIR
 // level.  To make this work, the UnitExpr adaptor is required, and this means
 // certain expression forms cannot be permitted (e.g. the use of lists).
-type LookupConstraint = *constraint.LookupConstraint[UnitExpr]
+type LookupConstraint = *constraint.LookupConstraint[Expr]
 
 // RangeConstraint captures the essence of a range constraints at the HIR level.
-type RangeConstraint = *constraint.RangeConstraint[MaxExpr]
+type RangeConstraint = *constraint.RangeConstraint[Expr]
 
 // SortedConstraint captures the essence of a sorted constraints at the HIR level.
-type SortedConstraint = *constraint.SortedConstraint[UnitExpr]
+type SortedConstraint = *constraint.SortedConstraint[Expr]
 
 // PropertyAssertion captures the notion of an arbitrary property which should
 // hold for all acceptable traces.  However, such a property is not enforced by
 // the prover.
-type PropertyAssertion = *sc.PropertyAssertion[ZeroArrayTest]
+type PropertyAssertion = *sc.PropertyAssertion[Expr]
 
 // Permutation captures the notion of a (sorted) permutation at the HIR level.
 type Permutation = *assignment.SortedPermutation
@@ -127,7 +127,7 @@ func (p *Schema) AddAssignment(c sc.Assignment) uint {
 
 // AddLookupConstraint appends a new lookup constraint.
 func (p *Schema) AddLookupConstraint(handle string, source trace.Context, target trace.Context,
-	sources []UnitExpr, targets []UnitExpr) {
+	sources []Expr, targets []Expr) {
 	if len(targets) != len(sources) {
 		panic("differeng number of target / source lookup columns")
 	}
@@ -146,19 +146,18 @@ func (p *Schema) AddVanishingConstraint(handle string, context trace.Context, do
 	}
 
 	p.constraints = append(p.constraints,
-		constraint.NewVanishingConstraint(handle, 0, context, domain, ZeroArrayTest{expr}))
+		constraint.NewVanishingConstraint(handle, 0, context, domain, expr))
 }
 
 // AddRangeConstraint appends a new range constraint with a raw bound.
 func (p *Schema) AddRangeConstraint(handle string, context trace.Context, expr Expr, bound fr.Element) {
 	// Check whether is a field type, as these can actually be ignored.
-	maxExpr := MaxExpr{expr}
-	p.constraints = append(p.constraints, constraint.NewRangeConstraint[MaxExpr](handle, 0, context, maxExpr, bound))
+	p.constraints = append(p.constraints, constraint.NewRangeConstraint(handle, 0, context, expr, bound))
 }
 
 // AddSortedConstraint appends a new sorted constraint.
 func (p *Schema) AddSortedConstraint(handle string, context trace.Context, bitwidth uint,
-	selector util.Option[UnitExpr], sources []UnitExpr, signs []bool, strict bool) {
+	selector util.Option[Expr], sources []Expr, signs []bool, strict bool) {
 	// Finally add constraint
 	p.constraints = append(p.constraints,
 		constraint.NewSortedConstraint(handle, context, bitwidth, selector, sources, signs, strict))
@@ -166,7 +165,7 @@ func (p *Schema) AddSortedConstraint(handle string, context trace.Context, bitwi
 
 // AddPropertyAssertion appends a new property assertion.
 func (p *Schema) AddPropertyAssertion(handle string, context trace.Context, property Expr) {
-	p.assertions = append(p.assertions, sc.NewPropertyAssertion[ZeroArrayTest](handle, context, ZeroArrayTest{property}))
+	p.assertions = append(p.assertions, sc.NewPropertyAssertion(handle, context, property))
 }
 
 // SubstituteConstants substitutes the value of matching labelled constants for
@@ -338,9 +337,9 @@ func (p *Schema) rebuildCaches() {
 // ============================================================================
 
 func init() {
-	gob.Register(sc.Constraint(&constraint.VanishingConstraint[ZeroArrayTest]{}))
-	gob.Register(sc.Constraint(&constraint.RangeConstraint[MaxExpr]{}))
+	gob.Register(sc.Constraint(&constraint.VanishingConstraint[Expr]{}))
+	gob.Register(sc.Constraint(&constraint.RangeConstraint[Expr]{}))
 	gob.Register(sc.Constraint(&constraint.PermutationConstraint{}))
-	gob.Register(sc.Constraint(&constraint.LookupConstraint[UnitExpr]{}))
-	gob.Register(sc.Constraint(&constraint.SortedConstraint[UnitExpr]{}))
+	gob.Register(sc.Constraint(&constraint.LookupConstraint[Expr]{}))
+	gob.Register(sc.Constraint(&constraint.SortedConstraint[Expr]{}))
 }

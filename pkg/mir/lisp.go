@@ -21,16 +21,16 @@ import (
 )
 
 func lispOfConjunction(schema sc.Schema, conjunction Constraint) sexp.SExp {
-	switch len(conjunction.disjuncts) {
+	switch len(conjunction.conjuncts) {
 	case 0:
 		return sexp.NewSymbol("⊤")
 	case 1:
-		return lispOfDisjunction(schema, conjunction.disjuncts[0])
+		return lispOfDisjunction(schema, conjunction.conjuncts[0])
 	default:
-		arr := make([]sexp.SExp, 1+len(conjunction.disjuncts))
+		arr := make([]sexp.SExp, 1+len(conjunction.conjuncts))
 		arr[0] = sexp.NewSymbol("∧")
 		// Translate arguments
-		for i, e := range conjunction.disjuncts {
+		for i, e := range conjunction.conjuncts {
 			arr[i+1] = lispOfDisjunction(schema, e)
 		}
 		// Done

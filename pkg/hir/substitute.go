@@ -25,24 +25,24 @@ func substituteConstraint(mapping map[string]fr.Element, constraint sc.Constrain
 	case LookupConstraint:
 		// Substitute through source expressions
 		for _, source := range e.Sources {
-			substituteExpression(mapping, source.Expr)
+			substituteExpression(mapping, source)
 		}
 		// Substitute through target expressions
 		for _, target := range e.Targets {
-			substituteExpression(mapping, target.Expr)
+			substituteExpression(mapping, target)
 		}
 	case RangeConstraint:
-		substituteExpression(mapping, e.Expr.Expr)
+		substituteExpression(mapping, e.Expr)
 	case SortedConstraint:
 		if e.Selector.HasValue() {
-			substituteExpression(mapping, e.Selector.Unwrap().Expr)
+			substituteExpression(mapping, e.Selector.Unwrap())
 		}
 		// Substitute through source expressions
 		for _, source := range e.Sources {
-			substituteExpression(mapping, source.Expr)
+			substituteExpression(mapping, source)
 		}
 	case VanishingConstraint:
-		substituteExpression(mapping, e.Constraint.Expr)
+		substituteExpression(mapping, e.Constraint)
 	default:
 		name := reflect.TypeOf(e)
 		panic(fmt.Sprintf("unknown HIR constraint \"%s\"", name.String()))

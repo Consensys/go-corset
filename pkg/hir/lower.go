@@ -46,7 +46,7 @@ func (p *Schema) LowerToMir() *mir.Schema {
 	// Copy property assertions.  Observe, these do not require lowering
 	// because they are already MIR-level expressions.
 	for _, c := range p.assertions {
-		p := lowerToConstraint(c.Property.Expr, mirSchema, p)
+		p := lowerToConstraint(c.Property, mirSchema, p)
 		mirSchema.AddPropertyAssertion(c.Handle, c.Context, p)
 	}
 	//
@@ -58,11 +58,11 @@ func lowerConstraintToMir(c sc.Constraint, mirSchema *mir.Schema, hirSchema *Sch
 	if v, ok := c.(LookupConstraint); ok {
 		lowerLookupConstraint(v, mirSchema, hirSchema)
 	} else if v, ok := c.(VanishingConstraint); ok {
-		mir_constraint := lowerToConstraint(v.Constraint.Expr, mirSchema, hirSchema)
+		mir_constraint := lowerToConstraint(v.Constraint, mirSchema, hirSchema)
 		// Add translated constraint
 		mirSchema.AddVanishingConstraint(v.Handle, 0, v.Context, v.Domain, mir_constraint)
 	} else if v, ok := c.(RangeConstraint); ok {
-		mir_expr := lowerToUnit(v.Expr.Expr, mirSchema, hirSchema)
+		mir_expr := lowerToUnit(v.Expr, mirSchema, hirSchema)
 		// Add individual constraints arising
 		mirSchema.AddRangeConstraint(v.Handle, 0, v.Context, mir_expr, v.Bound)
 	} else if v, ok := c.(SortedConstraint); ok {
@@ -79,8 +79,8 @@ func lowerLookupConstraint(c LookupConstraint, mirSchema *mir.Schema, hirSchema 
 	into := make([]mir.Expr, len(c.Targets))
 	// Convert general expressions into unit expressions.
 	for i := 0; i < len(from); i++ {
-		from[i] = lowerToUnit(c.Sources[i].Expr, mirSchema, hirSchema)
-		into[i] = lowerToUnit(c.Targets[i].Expr, mirSchema, hirSchema)
+		from[i] = lowerToUnit(c.Sources[i], mirSchema, hirSchema)
+		into[i] = lowerToUnit(c.Targets[i], mirSchema, hirSchema)
 	}
 	//
 	mirSchema.AddLookupConstraint(c.Handle, c.SourceContext, c.TargetContext, from, into)
@@ -93,11 +93,11 @@ func lowerSortedConstraint(c SortedConstraint, mirSchema *mir.Schema, hirSchema 
 	)
 	// Convert (optional) selector expression
 	if c.Selector.HasValue() {
-		selector = util.Some(lowerToUnit(c.Selector.Unwrap().Expr, mirSchema, hirSchema))
+		selector = util.Some(lowerToUnit(c.Selector.Unwrap(), mirSchema, hirSchema))
 	}
 	// Convert general expressions into unit expressions.
 	for i := 0; i < len(sources); i++ {
-		sources[i] = lowerToUnit(c.Sources[i].Expr, mirSchema, hirSchema)
+		sources[i] = lowerToUnit(c.Sources[i], mirSchema, hirSchema)
 	}
 	//
 	mirSchema.AddSortedConstraint(c.Handle, c.Context, c.BitWidth, selector, sources, c.Signs, c.Strict)
@@ -118,16 +118,9 @@ func lowerToConstraint(e Expr, mirSchema *mir.Schema, hirSchema *Schema) mir.Con
 // into one or more target expressions. Furthermore, conditions must be "lifted"
 // to the root.
 func lowerToUnit(e Expr, mirSchema *mir.Schema, hirSchema *Schema) mir.Expr {
-	c, b := extractExpression(e.Term, mirSchema, hirSchema)
-	c = mir.Negate(c)
+	b := extractExpression(e.Term, mirSchema, hirSchema)
 	//
-	exprs := c.AsExprs()
-	//
-	if len(exprs) != 1 {
-		panic("attempting to lower non-unit expression")
-	}
-	//
-	return mir.Product(exprs[0], b).Simplify()
+	return b.Simplify()
 }
 
 // Extract the "condition" of an expression.  Every expression can be view as a
@@ -138,14 +131,14 @@ func extractConstraint(t Term, mirSchema *mir.Schema, hirSchema *Schema) mir.Con
 	case *Cast:
 		return extractConstraint(e.Arg, mirSchema, hirSchema)
 	case *Equation:
-		cl, l := extractExpression(e.Lhs, mirSchema, hirSchema)
-		cr, r := extractExpression(e.Rhs, mirSchema, hirSchema)
+		l := extractExpression(e.Lhs, mirSchema, hirSchema)
+		r := extractExpression(e.Rhs, mirSchema, hirSchema)
 		//
 		if e.Sign {
-			return mir.Disjunct(cl, cr, mir.Equals(l, r))
+			return mir.Equals(l, r)
 		}
 		//
-		return mir.Disjunct(cl, cr, mir.NotEquals(l, r))
+		return mir.NotEquals(l, r)
 	case *IfZero:
 		return extractIfZeroCondition(e, mirSchema, hirSchema)
 	case *List:
@@ -180,52 +173,70 @@ func extractIfZeroCondition(e *IfZero, mirSchema *mir.Schema, hirSchema *Schema)
 	return mir.Conjunct(cases...)
 }
 
-func extractExpression(e Term, mirSchema *mir.Schema, hirSchema *Schema) (mir.Constraint, mir.Expr) {
+func extractExpression(e Term, mirSchema *mir.Schema, hirSchema *Schema) mir.Expr {
 	switch e := e.(type) {
 	case *Add:
-		c, args := extractBodies(e.Args, mirSchema, hirSchema)
-		return c, mir.Sum(args...)
+		args := extractBodies(e.Args, mirSchema, hirSchema)
+		return mir.Sum(args...)
 	case *Cast:
-		c, arg := extractExpression(e.Arg, mirSchema, hirSchema)
-		return c, mir.CastOf(arg, e.BitWidth)
+		arg := extractExpression(e.Arg, mirSchema, hirSchema)
+		return mir.CastOf(arg, e.BitWidth)
 	case *Constant:
-		return mir.TRUE, mir.NewConst(e.Value)
+		return mir.NewConst(e.Value)
 	case *ColumnAccess:
-		return mir.TRUE, mir.NewColumnAccess(e.Column, e.Shift)
+		return mir.NewColumnAccess(e.Column, e.Shift)
 	case *Exp:
-		c, arg := extractExpression(e.Arg, mirSchema, hirSchema)
-		return c, mir.Exponent(arg, e.Pow)
+		arg := extractExpression(e.Arg, mirSchema, hirSchema)
+		return mir.Exponent(arg, e.Pow)
 	case *IfZero:
-		// var (
-		// 	condition = extractConstraint(e.Condition, mirSchema, hirSchema)
-		// 	bodycond  mir.Constraint
-		// 	body      mir.Expr
-		// )
-
-		// if e.TrueBranch != nil && e.FalseBranch != nil {
-		// 	// Expansion should ensure this case does not exist.  This is necessary
-		// 	// to ensure exactly one expression is generated from this expression.
-		// 	panic(fmt.Sprintf("unexpanded expression (%s)", lispOfTerm(e, hirSchema)))
-		// } else if e.TrueBranch != nil {
-		// 	bodycond, body = extractExpression(e.TrueBranch, mirSchema, hirSchema)
-		// } else {
-		// 	condition = mir.Negate(condition)
-		// 	bodycond, body = extractExpression(e.FalseBranch, mirSchema, hirSchema)
-		// }
-		// //
-		// return mir.Conjunct(condition, bodycond), body
-		panic("not needed?")
+		// Translate the condition
+		c := extractAtomicExpression(true, e.Condition, mirSchema, hirSchema)
+		neg_c := extractAtomicExpression(false, e.Condition, mirSchema, hirSchema)
+		//
+		if e.TrueBranch == nil || e.FalseBranch == nil {
+			// Expansion should ensure this case does not exist.  This is necessary
+			// to ensure exactly one expression is generated from this expression.
+			panic(fmt.Sprintf("unbalanced condition encountered (%s)", lispOfTerm(e, hirSchema)))
+		}
+		//
+		tb := extractExpression(e.TrueBranch, mirSchema, hirSchema)
+		fb := extractExpression(e.FalseBranch, mirSchema, hirSchema)
+		//
+		tb = mir.Product(neg_c, tb)
+		fb = mir.Product(c, fb)
+		//
+		return mir.Sum(tb, fb)
 	case *LabelledConstant:
-		return mir.TRUE, mir.NewConst(e.Value)
+		return mir.NewConst(e.Value)
 	case *Mul:
-		c, args := extractBodies(e.Args, mirSchema, hirSchema)
-		return c, mir.Product(args...)
+		args := extractBodies(e.Args, mirSchema, hirSchema)
+		return mir.Product(args...)
 	case *Norm:
-		c, arg := extractExpression(e.Arg, mirSchema, hirSchema)
-		return c, mir.Normalise(arg)
+		arg := extractExpression(e.Arg, mirSchema, hirSchema)
+		return mir.Normalise(arg)
 	case *Sub:
-		c, args := extractBodies(e.Args, mirSchema, hirSchema)
-		return c, mir.Subtract(args...)
+		args := extractBodies(e.Args, mirSchema, hirSchema)
+		return mir.Subtract(args...)
+	default:
+		name := reflect.TypeOf(e).Name()
+		panic(fmt.Sprintf("unknown HIR expression \"%s\"", name))
+	}
+}
+
+func extractAtomicExpression(sign bool, e Term, mirSchema *mir.Schema, hirSchema *Schema) mir.Expr {
+	switch e := e.(type) {
+	case *IfZero:
+		panic("todo")
+	case *Equation:
+		l := extractExpression(e.Lhs, mirSchema, hirSchema)
+		r := extractExpression(e.Rhs, mirSchema, hirSchema)
+		t := mir.Normalise(mir.Subtract(l, r))
+		//
+		if e.Sign == sign {
+			return t
+		}
+		//
+		return mir.Subtract(mir.NewConst64(1), t)
 	default:
 		name := reflect.TypeOf(e).Name()
 		panic(fmt.Sprintf("unknown HIR expression \"%s\"", name))
@@ -233,13 +244,12 @@ func extractExpression(e Term, mirSchema *mir.Schema, hirSchema *Schema) (mir.Co
 }
 
 // Extract a vector of expanded expressions to the MIR level.
-func extractBodies(es []Term, mirSchema *mir.Schema, hirSchema *Schema) (mir.Constraint, []mir.Expr) {
+func extractBodies(es []Term, mirSchema *mir.Schema, hirSchema *Schema) []mir.Expr {
 	rs := make([]mir.Expr, len(es))
-	cs := make([]mir.Constraint, len(es))
 
 	for i, e := range es {
-		cs[i], rs[i] = extractExpression(e, mirSchema, hirSchema)
+		rs[i] = extractExpression(e, mirSchema, hirSchema)
 	}
 	//
-	return mir.Disjunct(cs...), rs
+	return rs
 }

@@ -59,7 +59,7 @@ func contextOfTerms(args []Term, schema sc.Schema) trace.Context {
 func contextOfConjunction(conjunction Constraint, schema sc.Schema) trace.Context {
 	ctx := trace.VoidContext[uint]()
 	//
-	for _, e := range conjunction.disjuncts {
+	for _, e := range conjunction.conjuncts {
 		ctx = ctx.Join(contextOfDisjunction(e, schema))
 	}
 	//
@@ -108,7 +108,7 @@ func requiredColumnsOfTerms(args []Term) *set.SortedSet[uint] {
 }
 
 func requiredColumnsOfConjunction(conjunction Constraint) *set.SortedSet[uint] {
-	return set.UnionSortedSets(conjunction.disjuncts, func(d Disjunction) *set.SortedSet[uint] {
+	return set.UnionSortedSets(conjunction.conjuncts, func(d Disjunction) *set.SortedSet[uint] {
 		return requiredColumnsOfDisjunction(d)
 	})
 }
@@ -160,7 +160,7 @@ func requiredCellsOfTerms(args []Term, row int, tr trace.Trace) *set.AnySortedSe
 }
 
 func requiredCellsOfConjunction(conjunction Constraint, row int, tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
-	return set.UnionAnySortedSets(conjunction.disjuncts, func(d Disjunction) *set.AnySortedSet[trace.CellRef] {
+	return set.UnionAnySortedSets(conjunction.conjuncts, func(d Disjunction) *set.AnySortedSet[trace.CellRef] {
 		return requiredCellsOfDisjunction(d, row, tr)
 	})
 }

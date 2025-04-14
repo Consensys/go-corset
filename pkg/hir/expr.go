@@ -82,20 +82,36 @@ func (e Expr) Branches() uint {
 func (e Expr) Bounds() util.Bounds { return e.Term.Bounds() }
 
 // BitWidth determines bitwidth required to hold the result of evaluating this expression.
-func (e Expr) BitWidth(schema sc.Schema) []uint {
+func (e Expr) BitWidth(schema sc.Schema) uint {
 	switch e := e.Term.(type) {
 	case *ColumnAccess:
 		bitwidth := schema.Columns().Nth(e.Column).DataType.BitWidth()
-		return []uint{bitwidth}
+		return bitwidth
 	default:
 		// For now, we only supports simple column accesses.
 		panic("bitwidth calculation only supported for column accesses")
 	}
 }
 
+// EvalAt evaluates an expression at a given row in a trace, returning the
+// resulting value.
+func (e Expr) EvalAt(k int, tr trace.Trace) (fr.Element, error) {
+	val, err := evalAtTerm(e.Term, k, tr)
+	//
+	return val, err
+}
+
+// TestAt checks whether a given expression holds (i.e. evaluates to zero) on a
+// given row in the trace.
+func (e Expr) TestAt(k int, tr trace.Trace) (bool, uint, error) {
+	val, err := evalAtTerm(e.Term, k, tr)
+	//
+	return val.IsZero(), 0, err
+}
+
 // Lisp converts this schema element into a simple S-Termession, for example
 // so it can be printed.
-func (e Expr) Lisp(schema *Schema) sexp.SExp {
+func (e Expr) Lisp(schema sc.Schema) sexp.SExp {
 	return lispOfTerm(e.Term, schema)
 }
 

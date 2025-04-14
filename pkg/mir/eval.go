@@ -30,7 +30,7 @@ func evalAtConstraint(e Constraint, k int, trace tr.Trace) (fr.Element, uint, er
 		index uint       = 0
 	)
 	//
-	for _, disjunct := range e.disjuncts {
+	for _, disjunct := range e.conjuncts {
 		n := uint(len(disjunct.atoms))
 		val, j, err := evalAtDisjunction(disjunct, k, trace)
 		//

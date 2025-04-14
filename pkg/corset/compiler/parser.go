@@ -1180,7 +1180,7 @@ func (p *Parser) parseFunctionParameter(element sexp.SExp) (*ast.DefParameter, [
 	list := element.AsList()
 	//
 	if isIdentifier(element) {
-		return ast.NewDefParameter(element.AsSymbol().Value, ast.INT_TYPE), nil
+		return ast.NewDefParameter(element.AsSymbol().Value, ast.ANY_TYPE), nil
 	} else if list == nil || list.Len() != 2 || !isIdentifier(list.Get(0)) {
 		// Construct error message (for now)
 		err := p.translator.SyntaxError(element, "malformed parameter declaration")
@@ -1322,7 +1322,7 @@ func (p *Parser) parseType(term sexp.SExp) (ast.Type, bool, *SyntaxError) {
 	// See what we've got.
 	switch parts[0] {
 	case ":bool":
-		datatype = ast.BOOLEAN_TYPE
+		datatype = ast.BOOL_TYPE
 	case ":binary":
 		datatype = ast.NewUintType(1)
 	case ":byte":

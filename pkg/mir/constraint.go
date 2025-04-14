@@ -30,7 +30,7 @@ var FALSE Constraint
 // Constraint represents a formula in conjunctive normal form.
 type Constraint struct {
 	// Terms here are disjuncted to formulate the final logical result.
-	disjuncts []Disjunction
+	conjuncts []Disjunction
 }
 
 // NewConstraint constructs a new atomic constraint representing a given
@@ -40,17 +40,18 @@ func NewConstraint(equation Equation) Constraint {
 	return Constraint{[]Disjunction{disjunct}}
 }
 
-// AsExprs converts a constraint into an equivalent expression by taking the
-// product of all disjuncted terms.
+// AsExprs converts a constraint represented in conjunctive normal form into a
+// set of zero or more expressions, where each expression represents a given
+// conjunct.  For example, (x==0||x==1) && (y==0) becomes [x*(x-1),y].
 func (e Constraint) AsExprs() []Expr {
-	if len(e.disjuncts) == 0 {
+	if len(e.conjuncts) == 0 {
 		// True
 		return []Expr{NewConst64(0)}
 	}
 	//
-	exprs := make([]Expr, len(e.disjuncts))
+	exprs := make([]Expr, len(e.conjuncts))
 	//
-	for i, d := range e.disjuncts {
+	for i, d := range e.conjuncts {
 		exprs[i] = d.AsExpr()
 	}
 	//
@@ -59,10 +60,10 @@ func (e Constraint) AsExprs() []Expr {
 
 // Is checks whether this constraint trivially evaluates to true or false.
 func (e Constraint) Is(val bool) bool {
-	if len(e.disjuncts) == 0 {
+	if len(e.conjuncts) == 0 {
 		// true
 		return val
-	} else if len(e.disjuncts) == 1 && len(e.disjuncts[0].atoms) == 0 {
+	} else if len(e.conjuncts) == 1 && len(e.conjuncts[0].atoms) == 0 {
 		// false
 		return !val
 	}
@@ -74,7 +75,7 @@ func (e Constraint) Is(val bool) bool {
 // direction (right).
 func (e Constraint) Bounds() util.Bounds {
 	// Determine min/max shift
-	minShift, maxShift := shiftRangeOfDisjuncts(e.disjuncts...)
+	minShift, maxShift := shiftRangeOfDisjuncts(e.conjuncts...)
 	// Convert to bounds
 	start := uint(-min(0, minShift))
 	end := uint(max(0, maxShift))
@@ -150,7 +151,7 @@ func Conjunct(constraints ...Constraint) Constraint {
 			return FALSE
 		} else if !c.Is(true) {
 			//
-			disjuncts = append(disjuncts, c.disjuncts...)
+			disjuncts = append(disjuncts, c.conjuncts...)
 		}
 	}
 	//
@@ -182,9 +183,9 @@ func Negate(constraint Constraint) Constraint {
 		return TRUE
 	}
 	//
-	conjuncts := make([]Constraint, len(constraint.disjuncts))
+	conjuncts := make([]Constraint, len(constraint.conjuncts))
 	//
-	for i, disjunct := range constraint.disjuncts {
+	for i, disjunct := range constraint.conjuncts {
 		conjuncts[i] = disjunct.Negate()
 	}
 	//
@@ -341,15 +342,15 @@ func (e Equation) Lisp() sexp.SExp {
 //
 // nolint
 func disjunct(lhs Constraint, rhs Constraint) Constraint {
-	if len(lhs.disjuncts) == 0 {
+	if len(lhs.conjuncts) == 0 {
 		return rhs
-	} else if len(rhs.disjuncts) == 0 {
+	} else if len(rhs.conjuncts) == 0 {
 		return lhs
 	}
 	//
 	var disjuncts []Disjunction
 	//
-	for _, l_d := range lhs.disjuncts {
+	for _, l_d := range lhs.conjuncts {
 		var l_atoms []Equation
 		// left atoms
 		for _, l_atom := range l_d.atoms {
@@ -360,7 +361,7 @@ func disjunct(lhs Constraint, rhs Constraint) Constraint {
 			}
 		}
 		//
-		for _, r_d := range rhs.disjuncts {
+		for _, r_d := range rhs.conjuncts {
 			var atoms []Equation = make([]Equation, len(l_atoms))
 			//
 			copy(atoms, l_atoms)

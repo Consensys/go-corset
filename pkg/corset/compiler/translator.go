@@ -462,13 +462,13 @@ func (t *translator) translateDefProperty(decl *ast.DefProperty, module util.Pat
 
 // Translate a "defsorted" declaration.
 func (t *translator) translateDefSorted(decl *ast.DefSorted, module util.Path) []SyntaxError {
-	var selector util.Option[hir.UnitExpr]
+	var selector util.Option[hir.Expr]
 	// Translate source expressions
 	sources, errors := t.translateUnitExpressionsInModule(decl.Sources, module, 0)
 	// Translate (optional) selector expression
 	if decl.Selector.HasValue() {
 		sel, errs := t.translateExpressionInModule(decl.Selector.Unwrap(), module, 0)
-		selector = util.Some(hir.NewUnitExpr(sel))
+		selector = util.Some(sel)
 		//
 		errors = append(errors, errs...)
 	}
@@ -508,17 +508,17 @@ func (t *translator) translateOptionalExpressionInModule(expr ast.Expr, module u
 // which maybe nil (i.e. doesn't exist).  In such case, nil is returned (i.e.
 // without any errors).
 func (t *translator) translateUnitExpressionsInModule(exprs []ast.Expr, module util.Path,
-	shift int) ([]hir.UnitExpr, []SyntaxError) {
+	shift int) ([]hir.Expr, []SyntaxError) {
 	//
 	errors := []SyntaxError{}
-	hirExprs := make([]hir.UnitExpr, len(exprs))
+	hirExprs := make([]hir.Expr, len(exprs))
 	// Iterate each expression in turn
 	for i, e := range exprs {
 		if e != nil {
 			var errs []SyntaxError
 			expr, errs := t.translateExpressionInModule(e, module, shift)
 			errors = append(errors, errs...)
-			hirExprs[i] = hir.NewUnitExpr(expr)
+			hirExprs[i] = expr
 		}
 	}
 	// Done
@@ -740,7 +740,7 @@ func (t *translator) registerOfArrayAccess(expr *ast.ArrayAccess) (uint, []Synta
 	return t.env.RegisterOf(path), errors
 }
 
-func determineMaxBitwidth(schema sc.Schema, sources []hir.UnitExpr) uint {
+func determineMaxBitwidth(schema sc.Schema, sources []hir.Expr) uint {
 	// Sanity check bitwidth
 	bitwidth := uint(0)
 

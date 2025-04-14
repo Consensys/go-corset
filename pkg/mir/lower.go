@@ -105,14 +105,14 @@ func lowerVanishingConstraintToAir(v VanishingConstraint, mirSchema *Schema, air
 	//
 	air_exprs := lowerConstraintTo(v.Context, v.Constraint, mirSchema, airSchema, cfg)
 	//
-	for _, air_expr := range air_exprs {
+	for i, air_expr := range air_exprs {
 		// Check whether this is a constant
 		constant := air_expr.AsConstant()
 		// Check for compile-time constants
 		if constant != nil && !constant.IsZero() {
 			panic(fmt.Sprintf("constraint %s cannot vanish!", v.Handle))
 		} else if constant == nil {
-			airSchema.AddVanishingConstraint(v.Handle, v.Case, v.Context, v.Domain, air_expr)
+			airSchema.AddVanishingConstraint(v.Handle, uint(i), v.Context, v.Domain, air_expr)
 		}
 	}
 }
