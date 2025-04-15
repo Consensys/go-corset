@@ -74,7 +74,7 @@ func (e Expr) Context(schema sc.Schema) trace.Context {
 // Branches returns the total number of logical branches this term can take
 // during evaluation.
 func (e Expr) Branches() uint {
-	panic("not implemented")
+	return 0
 }
 
 // Bounds returns max shift in either the negative (left) or positive

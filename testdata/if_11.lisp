@@ -1,5 +1,5 @@
 (defpurefun (eq! x y) (== x y))
-(defpurefun (if-eq x val then) (if (eq! x val) then))
+(defpurefun (if-eq x (val :int) (then :any)) (if (eq! x val) then))
 ;;
 (defcolumns
   (CT :byte)
@@ -9,4 +9,4 @@
 
 (defconstraint bits-and-negs (:guard IS_SLT)
   (if-eq CT 15
-	 (eq! NEG_2 (shift BITS (- 0 7)))))
+    (eq! NEG_2 (shift BITS (- 0 7)))))

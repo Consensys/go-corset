@@ -3,4 +3,4 @@
 (definterleaved Z (X Y))
 (definterleaved C (A B))
 ;;
-(defconstraint c1 () (if Z C))
+(defconstraint c1 () (if Z (== 0 C)))

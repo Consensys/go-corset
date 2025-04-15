@@ -2,7 +2,5 @@
 
 (defconstraint test ()
   ;; if x == 0 && y == 0 then z == 0
-  (if (== 0 X) (== Z (if (== 0 Y) 0))))
-
-(defconstraint test ()
+  ;; else if x == 0 && y != 0 then z == 16
   (if (== 0 X) (== Z (if (== 0 Y) 0 16))))

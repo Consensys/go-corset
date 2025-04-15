@@ -86,7 +86,13 @@ func (e Constraint) Bounds() util.Bounds {
 // Branches returns the number of unique evaluation paths through the given
 // constraint.
 func (e Constraint) Branches() uint {
-	panic("todo")
+	n := uint(1)
+
+	for _, conjunct := range e.conjuncts {
+		n *= uint(len(conjunct.atoms))
+	}
+	//
+	return n
 }
 
 // Context determines the evaluation context (i.e. enclosing module) for this
@@ -120,15 +126,15 @@ func (e Constraint) RequiredColumns() *set.SortedSet[uint] {
 // several reasons: firstly, if it accesses a row which does not exist (e.g.
 // at index -1); secondly, if it accesses a column which does not exist.
 func (e Constraint) TestAt(k int, tr trace.Trace) (bool, uint, error) {
-	val, i, err := evalAtConstraint(e, k, tr)
+	val, err := evalAtConstraint(e, k, tr)
 	//
 	if err != nil {
-		return false, i, err
+		return false, 0, err
 	} else if val.IsZero() {
-		return true, i, nil
+		return true, 0, nil
 	}
 	//
-	return false, i, nil
+	return false, 0, nil
 }
 
 func init() {

@@ -188,7 +188,7 @@ func (p *typeChecker) typeCheckDefPerspective(decl *ast.DefPerspective) []Syntax
 // typeCheck a "defproperty" declaration.
 func (p *typeChecker) typeCheckDefProperty(decl *ast.DefProperty) []SyntaxError {
 	// type check constraint body
-	_, errors := p.typeCheckExpressionInModule(ast.BOOL_TYPE, decl.Assertion, true)
+	_, errors := p.typeCheckExpressionInModule(ast.BOOL_TYPE, decl.Assertion, false)
 	// Done
 	return errors
 }
@@ -263,7 +263,7 @@ func (p *typeChecker) typeCheckExpressionInModule(expected ast.Type, expr ast.Ex
 	case *ast.Cast:
 		actual, errs := p.typeCheckExpressionInModule(nil, e.Arg, functional)
 		// Check safe casts
-		if len(errs) == 0 && !e.Unsafe && expected != nil && !actual.SubtypeOf(expected) {
+		if len(errs) == 0 && actual != nil && !e.Unsafe && expected != nil && !actual.SubtypeOf(expected) {
 			msg := fmt.Sprintf("expected type %s, found %s", expected.String(), actual.String())
 			return nil, p.srcmap.SyntaxErrors(expr, msg)
 		}
@@ -378,7 +378,10 @@ func (p *typeChecker) typeCheckIfInModule(expected ast.Type, expr *ast.If, funct
 
 func (p *typeChecker) typeCheckInvokeInModule(expected ast.Type, expr *ast.Invoke,
 	functional bool) (ast.Type, []SyntaxError) {
-	var errors []SyntaxError
+	var (
+		ret    ast.Type
+		errors []SyntaxError
+	)
 	//
 	if binding, ok := expr.Name.Binding().(ast.FunctionBinding); ok {
 		// Sanity check this is not an invocation on a native definition (which,
@@ -392,14 +395,23 @@ func (p *typeChecker) typeCheckInvokeInModule(expected ast.Type, expr *ast.Invok
 			// Check whether return type given (or not).
 			if len(errors) > 0 {
 				return nil, errors
-			} else if ret := sig.Return(); ret != nil {
+			} else if ret = sig.Return(); ret != nil {
 				return ret, errors
 			}
 			// TODO: this is potentially expensive, and it would likely be good if we
 			// could avoid it.
 			body := sig.Apply(expr.Args, p.srcmap)
 			// Dig out the type
-			return p.typeCheckExpressionInModule(expected, body, functional)
+			ret, errors = p.typeCheckExpressionInModule(nil, body, functional)
+			//
+			if len(errors) > 0 {
+				return nil, errors
+			} else if expected != nil && ret != nil && !ret.SubtypeOf(expected) {
+				msg := fmt.Sprintf("expected %s, found %s", expected.String(), ret.String())
+				return nil, p.srcmap.SyntaxErrors(expr, msg)
+			}
+			//
+			return ret, nil
 		}
 	}
 	// No need to report an error here, as one would already have been reported
@@ -430,7 +442,7 @@ func (p *typeChecker) typeCheckLetInModule(expr *ast.Let, functional bool) (ast.
 func (p *typeChecker) typeCheckReduceInModule(expr *ast.Reduce) (ast.Type, []SyntaxError) {
 	var signature *ast.FunctionSignature
 	// ast.Type check body of reduction
-	body_t, errors := p.typeCheckExpressionInModule(nil, expr.Arg, true)
+	body_t, errors := p.typeCheckExpressionInModule(nil, expr.Arg, false)
 	// Following safe as resolver checked this already.
 	if binding, ok := expr.Name.Binding().(ast.FunctionBinding); ok && body_t != nil {
 		//
@@ -455,7 +467,7 @@ func (p *typeChecker) typeCheckReduceInModule(expr *ast.Reduce) (ast.Type, []Syn
 	}
 	// No need to report an error here, as one would already have been reported
 	// during resolution.
-	return nil, nil
+	return nil, errors
 }
 
 func (p *typeChecker) typeCheckVariableInModule(expr *ast.VariableAccess) (ast.Type, []SyntaxError) {

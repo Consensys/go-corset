@@ -3,4 +3,4 @@
     (BIT :binary)
     (X :binary))
 
-(defconstraint c1 () (if BIT X))
+(defconstraint c1 () (if BIT (== 0 X)))

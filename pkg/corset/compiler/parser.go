@@ -1180,7 +1180,7 @@ func (p *Parser) parseFunctionParameter(element sexp.SExp) (*ast.DefParameter, [
 	list := element.AsList()
 	//
 	if isIdentifier(element) {
-		return ast.NewDefParameter(element.AsSymbol().Value, ast.ANY_TYPE), nil
+		return ast.NewDefParameter(element.AsSymbol().Value, ast.INT_TYPE), nil
 	} else if list == nil || list.Len() != 2 || !isIdentifier(list.Get(0)) {
 		// Construct error message (for now)
 		err := p.translator.SyntaxError(element, "malformed parameter declaration")
@@ -1329,6 +1329,8 @@ func (p *Parser) parseType(term sexp.SExp) (ast.Type, bool, *SyntaxError) {
 		datatype = ast.NewUintType(8)
 	case ":int":
 		datatype = ast.INT_TYPE
+	case ":any":
+		datatype = ast.ANY_TYPE
 	default:
 		// Handle generic types like i16, i128, etc.
 		str := parts[0]

@@ -75,7 +75,7 @@ type AnyType struct{}
 
 // ANY_TYPE represents the top of the lattice.  That is, any type can flow into
 // any.
-var ANY_TYPE Type = nil
+var ANY_TYPE Type = &AnyType{}
 
 // HasUnderlying determines whether or not this type has an underlying
 // representation, or not.
@@ -192,6 +192,8 @@ func (p *IntType) LeastUpperBound(other Type) Type {
 		}
 		//
 		return &IntType{&values}
+	} else if _, ok := other.(*AnyType); ok {
+		return p
 	}
 
 	return nil
@@ -210,6 +212,8 @@ func (p *IntType) SubtypeOf(other Type) bool {
 		default:
 			return p.values.Within(o.values)
 		}
+	} else if _, ok := other.(*AnyType); ok {
+		return true
 	}
 	//
 	return false
@@ -260,6 +264,8 @@ func (p *BoolType) HasUnderlying() bool {
 func (p *BoolType) LeastUpperBound(other Type) Type {
 	if _, ok := other.(*BoolType); ok {
 		return BOOL_TYPE
+	} else if _, ok := other.(*AnyType); ok {
+		return BOOL_TYPE
 	}
 	//
 	return nil
@@ -267,9 +273,12 @@ func (p *BoolType) LeastUpperBound(other Type) Type {
 
 // SubtypeOf determines whether or not this type is a subtype of another.
 func (p *BoolType) SubtypeOf(other Type) bool {
-	_, ok := other.(*BoolType)
-	//
-	return ok
+	switch other.(type) {
+	case *BoolType, *AnyType:
+		return true
+	default:
+		return false
+	}
 }
 
 func (p *BoolType) String() string {
@@ -331,6 +340,8 @@ func (p *ArrayType) LeastUpperBound(other Type) Type {
 		if element := p.element.LeastUpperBound(o.element); element != nil {
 			return NewArrayType(element, p.min, p.max)
 		}
+	} else if _, ok := other.(*AnyType); ok {
+		return p
 	}
 	//
 	return nil
@@ -340,6 +351,8 @@ func (p *ArrayType) LeastUpperBound(other Type) Type {
 func (p *ArrayType) SubtypeOf(other Type) bool {
 	if o, ok := other.(*ArrayType); ok {
 		return p.element.SubtypeOf(o.element)
+	} else if _, ok := other.(*AnyType); ok {
+		return true
 	}
 	//
 	return false
