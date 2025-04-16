@@ -52,18 +52,28 @@ func contextOfTerms(args []Term, schema sc.Schema) trace.Context {
 	for _, e := range args {
 		ctx = ctx.Join(contextOfTerm(e, schema))
 	}
-	// If we get here, then no conflicts were detected.
+	//
 	return ctx
 }
 
-func contextOfEquations(args []Equation, schema sc.Schema) trace.Context {
+func contextOfConjunction(conjunction Constraint, schema sc.Schema) trace.Context {
 	ctx := trace.VoidContext[uint]()
 	//
-	for _, e := range args {
+	for _, e := range conjunction.conjuncts {
+		ctx = ctx.Join(contextOfDisjunction(e, schema))
+	}
+	//
+	return ctx
+}
+
+func contextOfDisjunction(disjunction Disjunction, schema sc.Schema) trace.Context {
+	ctx := trace.VoidContext[uint]()
+	//
+	for _, e := range disjunction.atoms {
 		ctx = ctx.Join(contextOfTerm(e.lhs, schema))
 		ctx = ctx.Join(contextOfTerm(e.rhs, schema))
 	}
-	// If we get here, then no conflicts were detected.
+	//
 	return ctx
 }
 
@@ -97,8 +107,14 @@ func requiredColumnsOfTerms(args []Term) *set.SortedSet[uint] {
 	})
 }
 
-func requiredColumnsOfEquations(args []Equation) *set.SortedSet[uint] {
-	return set.UnionSortedSets(args, func(e Equation) *set.SortedSet[uint] {
+func requiredColumnsOfConjunction(conjunction Constraint) *set.SortedSet[uint] {
+	return set.UnionSortedSets(conjunction.conjuncts, func(d Disjunction) *set.SortedSet[uint] {
+		return requiredColumnsOfDisjunction(d)
+	})
+}
+
+func requiredColumnsOfDisjunction(disjunction Disjunction) *set.SortedSet[uint] {
+	return set.UnionSortedSets(disjunction.atoms, func(e Equation) *set.SortedSet[uint] {
 		cols := requiredColumnsOfTerm(e.lhs)
 		cols.InsertSorted(requiredColumnsOfTerm(e.rhs))
 
@@ -143,8 +159,14 @@ func requiredCellsOfTerms(args []Term, row int, tr trace.Trace) *set.AnySortedSe
 	})
 }
 
-func requiredCellsOfEquations(args []Equation, row int, tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
-	return set.UnionAnySortedSets(args, func(e Equation) *set.AnySortedSet[trace.CellRef] {
+func requiredCellsOfConjunction(conjunction Constraint, row int, tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
+	return set.UnionAnySortedSets(conjunction.conjuncts, func(d Disjunction) *set.AnySortedSet[trace.CellRef] {
+		return requiredCellsOfDisjunction(d, row, tr)
+	})
+}
+
+func requiredCellsOfDisjunction(disjunction Disjunction, row int, tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
+	return set.UnionAnySortedSets(disjunction.atoms, func(e Equation) *set.AnySortedSet[trace.CellRef] {
 		cells := requiredCellsOfTerm(e.lhs, row, tr)
 		cells.InsertSorted(requiredCellsOfTerm(e.rhs, row, tr))
 

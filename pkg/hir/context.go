@@ -24,11 +24,13 @@ import (
 func contextOfTerm(e Term, schema sc.Schema) trace.Context {
 	switch e := e.(type) {
 	case *Add:
-		return contextOfTerms(e.Args, schema)
+		return contextOfTerms(schema, e.Args...)
 	case *Cast:
 		return contextOfTerm(e.Arg, schema)
 	case *Constant:
 		return trace.VoidContext[uint]()
+	case *Equation:
+		return contextOfTerms(schema, e.Lhs, e.Rhs)
 	case *LabelledConstant:
 		return trace.VoidContext[uint]()
 	case *ColumnAccess:
@@ -39,20 +41,20 @@ func contextOfTerm(e Term, schema sc.Schema) trace.Context {
 	case *IfZero:
 		return contextOfIfZero(e, schema)
 	case *List:
-		return contextOfTerms(e.Args, schema)
+		return contextOfTerms(schema, e.Args...)
 	case *Mul:
-		return contextOfTerms(e.Args, schema)
+		return contextOfTerms(schema, e.Args...)
 	case *Norm:
 		return contextOfTerm(e.Arg, schema)
 	case *Sub:
-		return contextOfTerms(e.Args, schema)
+		return contextOfTerms(schema, e.Args...)
 	default:
 		name := reflect.TypeOf(e).Name()
 		panic(fmt.Sprintf("unknown HIR expression \"%s\"", name))
 	}
 }
 
-func contextOfTerms(args []Term, schema sc.Schema) trace.Context {
+func contextOfTerms(schema sc.Schema, args ...Term) trace.Context {
 	ctx := trace.VoidContext[uint]()
 	//
 	for _, e := range args {
@@ -75,37 +77,39 @@ func contextOfIfZero(p *IfZero, schema sc.Schema) trace.Context {
 		args = []Term{p.Condition, p.FalseBranch}
 	}
 	//
-	return contextOfTerms(args, schema)
+	return contextOfTerms(schema, args...)
 }
 func requiredColumnsOfTerm(e Term) *set.SortedSet[uint] {
 	switch e := e.(type) {
 	case *Add:
-		return requiredColumnsOfTerms(e.Args)
+		return requiredColumnsOfTerms(e.Args...)
 	case *Constant:
 		return set.NewSortedSet[uint]()
 	case *ColumnAccess:
 		return requiredColumnsOfColumnAccess(e)
 	case *LabelledConstant:
 		return set.NewSortedSet[uint]()
+	case *Equation:
+		return requiredColumnsOfTerms(e.Lhs, e.Rhs)
 	case *Exp:
 		return requiredColumnsOfTerm(e.Arg)
 	case *IfZero:
 		return requiredColumnsOfIfZero(e)
 	case *List:
-		return requiredColumnsOfTerms(e.Args)
+		return requiredColumnsOfTerms(e.Args...)
 	case *Mul:
-		return requiredColumnsOfTerms(e.Args)
+		return requiredColumnsOfTerms(e.Args...)
 	case *Norm:
 		return requiredColumnsOfTerm(e.Arg)
 	case *Sub:
-		return requiredColumnsOfTerms(e.Args)
+		return requiredColumnsOfTerms(e.Args...)
 	default:
 		name := reflect.TypeOf(e).Name()
 		panic(fmt.Sprintf("unknown HIR expression \"%s\"", name))
 	}
 }
 
-func requiredColumnsOfTerms(args []Term) *set.SortedSet[uint] {
+func requiredColumnsOfTerms(args ...Term) *set.SortedSet[uint] {
 	return set.UnionSortedSets(args, func(e Term) *set.SortedSet[uint] {
 		return requiredColumnsOfTerm(e)
 	})
@@ -135,32 +139,34 @@ func requiredColumnsOfIfZero(p *IfZero) *set.SortedSet[uint] {
 func requiredCellsOfTerm(e Term, row int, tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
 	switch e := e.(type) {
 	case *Add:
-		return requiredCellsOfTerms(e.Args, row, tr)
+		return requiredCellsOfTerms(row, tr, e.Args...)
 	case *Constant:
 		return set.NewAnySortedSet[trace.CellRef]()
 	case *ColumnAccess:
 		return requiredCellsOfColumnAccess(e, row)
 	case *LabelledConstant:
 		return set.NewAnySortedSet[trace.CellRef]()
+	case *Equation:
+		return requiredCellsOfTerms(row, tr, e.Lhs, e.Rhs)
 	case *Exp:
 		return requiredCellsOfTerm(e.Arg, row, tr)
 	case *IfZero:
 		return requiredCellsOfIfZero(e, row, tr)
 	case *List:
-		return requiredCellsOfTerms(e.Args, row, tr)
+		return requiredCellsOfTerms(row, tr, e.Args...)
 	case *Mul:
-		return requiredCellsOfTerms(e.Args, row, tr)
+		return requiredCellsOfTerms(row, tr, e.Args...)
 	case *Norm:
 		return requiredCellsOfTerm(e.Arg, row, tr)
 	case *Sub:
-		return requiredCellsOfTerms(e.Args, row, tr)
+		return requiredCellsOfTerms(row, tr, e.Args...)
 	default:
 		name := reflect.TypeOf(e).Name()
 		panic(fmt.Sprintf("unknown HIR expression \"%s\"", name))
 	}
 }
 
-func requiredCellsOfTerms(args []Term, row int, tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
+func requiredCellsOfTerms(row int, tr trace.Trace, args ...Term) *set.AnySortedSet[trace.CellRef] {
 	return set.UnionAnySortedSets(args, func(e Term) *set.AnySortedSet[trace.CellRef] {
 		return requiredCellsOfTerm(e, row, tr)
 	})

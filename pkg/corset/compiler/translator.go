@@ -299,13 +299,12 @@ func (t *translator) translateDefConstraint(decl *ast.DefConstraint, module util
 	}
 	// Apply guard (if applicable)
 	if guard != hir.VOID {
+		guard = hir.Equals(guard, hir.NewConst64(0))
 		constraint = hir.If(guard, hir.VOID, constraint)
 	}
 	// Apply perspective selector (if applicable)
 	if selector != hir.VOID {
-		// NOTE: using an ifnot (as above) would be preferable here.  However,
-		// this is currently done just to ensure constraints identical to the
-		// original are generated.
+		selector = hir.Equals(selector, hir.NewConst64(0))
 		constraint = hir.If(selector, hir.VOID, constraint)
 	}
 	//
@@ -463,13 +462,13 @@ func (t *translator) translateDefProperty(decl *ast.DefProperty, module util.Pat
 
 // Translate a "defsorted" declaration.
 func (t *translator) translateDefSorted(decl *ast.DefSorted, module util.Path) []SyntaxError {
-	var selector util.Option[hir.UnitExpr]
+	var selector util.Option[hir.Expr]
 	// Translate source expressions
 	sources, errors := t.translateUnitExpressionsInModule(decl.Sources, module, 0)
 	// Translate (optional) selector expression
 	if decl.Selector.HasValue() {
 		sel, errs := t.translateExpressionInModule(decl.Selector.Unwrap(), module, 0)
-		selector = util.Some(hir.NewUnitExpr(sel))
+		selector = util.Some(sel)
 		//
 		errors = append(errors, errs...)
 	}
@@ -509,17 +508,17 @@ func (t *translator) translateOptionalExpressionInModule(expr ast.Expr, module u
 // which maybe nil (i.e. doesn't exist).  In such case, nil is returned (i.e.
 // without any errors).
 func (t *translator) translateUnitExpressionsInModule(exprs []ast.Expr, module util.Path,
-	shift int) ([]hir.UnitExpr, []SyntaxError) {
+	shift int) ([]hir.Expr, []SyntaxError) {
 	//
 	errors := []SyntaxError{}
-	hirExprs := make([]hir.UnitExpr, len(exprs))
+	hirExprs := make([]hir.Expr, len(exprs))
 	// Iterate each expression in turn
 	for i, e := range exprs {
 		if e != nil {
 			var errs []SyntaxError
 			expr, errs := t.translateExpressionInModule(e, module, shift)
 			errors = append(errors, errs...)
-			hirExprs[i] = hir.NewUnitExpr(expr)
+			hirExprs[i] = expr
 		}
 	}
 	// Done
@@ -591,10 +590,10 @@ func (t *translator) translateExpressionInModule(expr ast.Expr, module util.Path
 		if len(errs) > 0 {
 			return hir.VOID, errs
 		} else if e.Sign {
-			return hir.Subtract(lhs, rhs), nil
+			return hir.Equals(lhs, rhs), nil
 		}
 		//
-		return hir.Subtract(hir.ONE, hir.Normalise(hir.Subtract(lhs, rhs))), nil
+		return hir.NotEquals(lhs, rhs), nil
 	case *ast.Exp:
 		return t.translateExpInModule(e, module, shift)
 	case *ast.If:
@@ -641,22 +640,6 @@ func (t *translator) translateExpInModule(expr *ast.Exp, module util.Path, shift
 }
 
 func (t *translator) translateIfInModule(expr *ast.If, module util.Path, shift int) (hir.Expr, []SyntaxError) {
-	// Apply special cases
-	if eq, ok := expr.Condition.(*ast.Equals); ok {
-		args, errs := t.translateExpressionsInModule(module, shift, eq.Lhs, eq.Rhs, expr.TrueBranch, expr.FalseBranch)
-		// error check
-		if len(errs) > 0 {
-			return hir.VOID, errs
-		}
-		// Construct condition as subtraction (for now)
-		cond := hir.Subtract(args[0], args[1])
-		// Handle sign
-		if eq.Sign {
-			return hir.If(cond, args[2], args[3]), nil
-		}
-		//
-		return hir.If(cond, args[3], args[2]), nil
-	}
 	// fall-back translation condition
 	args, errs := t.translateExpressionsInModule(module, shift, expr.Condition, expr.TrueBranch, expr.FalseBranch)
 	//
@@ -757,7 +740,7 @@ func (t *translator) registerOfArrayAccess(expr *ast.ArrayAccess) (uint, []Synta
 	return t.env.RegisterOf(path), errors
 }
 
-func determineMaxBitwidth(schema sc.Schema, sources []hir.UnitExpr) uint {
+func determineMaxBitwidth(schema sc.Schema, sources []hir.Expr) uint {
 	// Sanity check bitwidth
 	bitwidth := uint(0)
 

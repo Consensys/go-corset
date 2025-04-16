@@ -243,7 +243,7 @@ func constructDisplayModifier(modifier string) uint {
 // This is really broken.  The problem is that we need to translate the selector
 // expression within the translator.  But, setting that all up is not
 // straightforward.  This should be done in the future!
-func compileSelector(env compiler.Environment, selector ast.Expr) *hir.UnitExpr {
+func compileSelector(env compiler.Environment, selector ast.Expr) *hir.Expr {
 	if selector == nil {
 		return nil
 	}
@@ -255,7 +255,7 @@ func compileSelector(env compiler.Environment, selector ast.Expr) *hir.UnitExpr 
 			// Done
 			expr := hir.NewColumnAccess(register_id, 0)
 			//
-			return &hir.UnitExpr{Expr: expr}
+			return &expr
 		}
 	}
 	// FIXME: #630

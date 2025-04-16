@@ -52,52 +52,6 @@ func (p *Add) multiplicity() uint {
 }
 
 // ============================================================================
-// Subtraction
-// ============================================================================
-
-// Sub represents the subtraction over zero or more expressions.
-type Sub struct{ Args []Term }
-
-// Bounds returns max shift in either the negative (left) or positive
-// direction (right).
-func (p *Sub) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
-
-// multiplicity returns the number of underlyg expressions that this
-// expression will expand to.
-func (p *Sub) multiplicity() uint {
-	count := uint(1)
-	//
-	for _, e := range p.Args {
-		count *= e.multiplicity()
-	}
-	//
-	return count
-}
-
-// ============================================================================
-// Multiplication
-// ============================================================================
-
-// Mul represents the product over zero or more expressions.
-type Mul struct{ Args []Term }
-
-// Bounds returns max shift in either the negative (left) or positive
-// direction (right).
-func (p *Mul) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
-
-// multiplicity returns the number of underlying expressions that this
-// expression will expand to.
-func (p *Mul) multiplicity() uint {
-	count := uint(1)
-	//
-	for _, e := range p.Args {
-		count *= e.multiplicity()
-	}
-	//
-	return count
-}
-
-// ============================================================================
 // Cast
 // ============================================================================
 
@@ -129,6 +83,80 @@ func (p *Cast) Range() *util.Interval {
 	bound.Sub(bound, big.NewInt(1))
 	// Determine casted interval
 	return util.NewInterval(zero, bound)
+}
+
+// ============================================================================
+// Constant
+// ============================================================================
+
+// Constant represents a constant value within an expression.
+type Constant struct{ Value fr.Element }
+
+// Bounds returns max shift in either the negative (left) or positive
+// direction (right).  A constant has zero shift.
+func (p *Constant) Bounds() util.Bounds { return util.EMPTY_BOUND }
+
+// multiplicity returns the number of underlyg expressions that this
+// expression will expand to.
+func (p *Constant) multiplicity() uint { return 1 }
+
+// ============================================================================
+// ColumnAccess
+// ============================================================================
+
+// ColumnAccess represents reading the value held at a given column in the
+// tabular context.  Furthermore, the current row maybe shifted up (or down) by
+// a given amount. Suppose we are evaluating a constraint on row k=5 which
+// contains the column accesses "STAMP(0)" and "CT(-1)".  Then, STAMP(0)
+// accesses the STAMP column at row 5, whilst CT(-1) accesses the CT column at
+// row 4.
+type ColumnAccess struct {
+	Column uint
+	Shift  int
+}
+
+// Bounds returns max shift in either the negative (left) or positive
+// direction (right).
+func (p *ColumnAccess) Bounds() util.Bounds {
+	if p.Shift >= 0 {
+		// Positive shift
+		return util.NewBounds(0, uint(p.Shift))
+	}
+	// Negative shift
+	return util.NewBounds(uint(-p.Shift), 0)
+}
+
+// multiplicity returns the number of underlyg expressions that this
+// expression will expand to.
+func (p *ColumnAccess) multiplicity() uint { return 1 }
+
+// ============================================================================
+// Equation
+// ============================================================================
+
+// Equation represents an equality (e.g. X == Y) or non-equality (e.g. X != Y)
+// relationship between two terms.
+type Equation struct {
+	Sign bool
+	Lhs  Term
+	Rhs  Term
+}
+
+// Bounds returns max shift in either the negative (left) or positive
+// direction (right).
+func (p *Equation) Bounds() util.Bounds {
+	l := p.Lhs.Bounds()
+	r := p.Rhs.Bounds()
+	//
+	l.Union(&r)
+	//
+	return l
+}
+
+// multiplicity returns the number of underlyg expressions that this
+// expression will expand to.
+func (p *Equation) multiplicity() uint {
+	return p.Lhs.multiplicity() * p.Rhs.multiplicity()
 }
 
 // ============================================================================
@@ -202,6 +230,26 @@ func (p *IfZero) multiplicity() uint {
 }
 
 // ============================================================================
+// LabelledConstant
+// ============================================================================
+
+// LabelledConstant represents a constant value which is labelled with a given
+// name.  The purpose of this is to allow labelled constants to be substituted
+// for different values when desired.
+type LabelledConstant struct {
+	Label string
+	Value fr.Element
+}
+
+// Bounds returns max shift in either the negative (left) or positive
+// direction (right).  A constant has zero shift.
+func (p *LabelledConstant) Bounds() util.Bounds { return util.EMPTY_BOUND }
+
+// multiplicity returns the number of underlyg expressions that this
+// expression will expand to.
+func (p *LabelledConstant) multiplicity() uint { return 1 }
+
+// ============================================================================
 // List
 // ============================================================================
 
@@ -225,39 +273,27 @@ func (p *List) multiplicity() uint {
 }
 
 // ============================================================================
-// Constant
+// Multiplication
 // ============================================================================
 
-// Constant represents a constant value within an expression.
-type Constant struct{ Value fr.Element }
+// Mul represents the product over zero or more expressions.
+type Mul struct{ Args []Term }
 
 // Bounds returns max shift in either the negative (left) or positive
-// direction (right).  A constant has zero shift.
-func (p *Constant) Bounds() util.Bounds { return util.EMPTY_BOUND }
+// direction (right).
+func (p *Mul) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
 
-// multiplicity returns the number of underlyg expressions that this
+// multiplicity returns the number of underlying expressions that this
 // expression will expand to.
-func (p *Constant) multiplicity() uint { return 1 }
-
-// ============================================================================
-// ConstantAccess
-// ============================================================================
-
-// LabelledConstant represents a constant value which is labelled with a given
-// name.  The purpose of this is to allow labelled constants to be substituted
-// for different values when desired.
-type LabelledConstant struct {
-	Label string
-	Value fr.Element
+func (p *Mul) multiplicity() uint {
+	count := uint(1)
+	//
+	for _, e := range p.Args {
+		count *= e.multiplicity()
+	}
+	//
+	return count
 }
-
-// Bounds returns max shift in either the negative (left) or positive
-// direction (right).  A constant has zero shift.
-func (p *LabelledConstant) Bounds() util.Bounds { return util.EMPTY_BOUND }
-
-// multiplicity returns the number of underlyg expressions that this
-// expression will expand to.
-func (p *LabelledConstant) multiplicity() uint { return 1 }
 
 // ============================================================================
 // Normalise
@@ -276,34 +312,27 @@ func (p *Norm) Bounds() util.Bounds { return p.Arg.Bounds() }
 func (p *Norm) multiplicity() uint { return p.Arg.multiplicity() }
 
 // ============================================================================
-// ColumnAccess
+// Subtraction
 // ============================================================================
 
-// ColumnAccess represents reading the value held at a given column in the
-// tabular context.  Furthermore, the current row maybe shifted up (or down) by
-// a given amount. Suppose we are evaluating a constraint on row k=5 which
-// contains the column accesses "STAMP(0)" and "CT(-1)".  Then, STAMP(0)
-// accesses the STAMP column at row 5, whilst CT(-1) accesses the CT column at
-// row 4.
-type ColumnAccess struct {
-	Column uint
-	Shift  int
-}
+// Sub represents the subtraction over zero or more expressions.
+type Sub struct{ Args []Term }
 
 // Bounds returns max shift in either the negative (left) or positive
 // direction (right).
-func (p *ColumnAccess) Bounds() util.Bounds {
-	if p.Shift >= 0 {
-		// Positive shift
-		return util.NewBounds(0, uint(p.Shift))
-	}
-	// Negative shift
-	return util.NewBounds(uint(-p.Shift), 0)
-}
+func (p *Sub) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
 
 // multiplicity returns the number of underlyg expressions that this
 // expression will expand to.
-func (p *ColumnAccess) multiplicity() uint { return 1 }
+func (p *Sub) multiplicity() uint {
+	count := uint(1)
+	//
+	for _, e := range p.Args {
+		count *= e.multiplicity()
+	}
+	//
+	return count
+}
 
 // ============================================================================
 // Encoding / Decoding
@@ -314,6 +343,7 @@ func init() {
 	gob.Register(Term(&Mul{}))
 	gob.Register(Term(&Sub{}))
 	gob.Register(Term(&Cast{}))
+	gob.Register(Term(&Equation{}))
 	gob.Register(Term(&Exp{}))
 	gob.Register(Term(&IfZero{}))
 	gob.Register(Term(&List{}))

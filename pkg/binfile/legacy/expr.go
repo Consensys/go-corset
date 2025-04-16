@@ -205,10 +205,10 @@ func jsonListToHir(Args []jsonTypedExpr, colmap map[uint]uint, schema *hir.Schem
 	return hir.ListOf(args...)
 }
 
-func jsonExprsToHirUnit(Args []jsonTypedExpr, colmap map[uint]uint, schema *hir.Schema) []hir.UnitExpr {
-	args := make([]hir.UnitExpr, len(Args))
+func jsonExprsToHirUnit(Args []jsonTypedExpr, colmap map[uint]uint, schema *hir.Schema) []hir.Expr {
+	args := make([]hir.Expr, len(Args))
 	for i := 0; i < len(Args); i++ {
-		args[i] = hir.NewUnitExpr(Args[i].ToHir(colmap, schema))
+		args[i] = Args[i].ToHir(colmap, schema)
 	}
 
 	return args

@@ -23,23 +23,25 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 )
 
-func evalAtTerm(e Term, k int, trace tr.Trace) ([]fr.Element, error) {
+func evalAtTerm(e Term, k int, trace tr.Trace) (fr.Element, error) {
 	switch e := e.(type) {
 	case *Add:
 		return evalAtAdd(e, k, trace)
 	case *Cast:
 		return evalAtCast(e, k, trace)
 	case *Constant:
-		return []fr.Element{e.Value}, nil
+		return e.Value, nil
 	case *ColumnAccess:
 		val := trace.Column(e.Column).Get(k + e.Shift)
-		return []fr.Element{val}, nil
+		return val, nil
+	case *Equation:
+		return evalAtEquation(e, k, trace)
 	case *Exp:
 		return evalAtExp(e, k, trace)
 	case *IfZero:
 		return evalAtIfZero(e, k, trace)
 	case *LabelledConstant:
-		return []fr.Element{e.Value}, nil
+		return e.Value, nil
 	case *List:
 		return evalAtList(e, k, trace)
 	case *Mul:
@@ -54,139 +56,139 @@ func evalAtTerm(e Term, k int, trace tr.Trace) ([]fr.Element, error) {
 	}
 }
 
-func evalAtAdd(e *Add, k int, tr trace.Trace) ([]fr.Element, error) {
-	fn := func(l fr.Element, r fr.Element) fr.Element { l.Add(&l, &r); return l }
-	return evalAtTerms(k, tr, e.Args, fn)
+func evalAtAdd(e *Add, k int, tr trace.Trace) (fr.Element, error) {
+	// Evaluate first argument
+	val, err := evalAtTerm(e.Args[0], k, tr)
+	// Continue evaluating the rest
+	for i := 1; err == nil && i < len(e.Args); i++ {
+		var ith fr.Element
+		// Evaluate ith argument
+		ith, err = evalAtTerm(e.Args[i], k, tr)
+		val.Add(&val, &ith)
+	}
+	// Done
+	return val, err
 }
 
-func evalAtCast(e *Cast, k int, tr trace.Trace) ([]fr.Element, error) {
+func evalAtCast(e *Cast, k int, tr trace.Trace) (fr.Element, error) {
 	var c big.Int
 	//
 	cast := e.Range()
 	// Check whether argument evaluates to zero or not.
-	vals, err := evalAtTerm(e.Arg, k, tr)
+	val, err := evalAtTerm(e.Arg, k, tr)
 	//
-	for i := 0; err == nil && i < len(vals); i++ {
-		val := vals[i]
-		// Extract big integer from field element
-		val.BigInt(&c)
-		// Dynamic cast check
-		if !cast.Contains(&c) {
-			// Construct error
-			err = fmt.Errorf("cast failure (value %s not a u%d)", val.String(), e.BitWidth)
-		}
+	// Extract big integer from field element
+	val.BigInt(&c)
+	// Dynamic cast check
+	if !cast.Contains(&c) {
+		// Construct error
+		err = fmt.Errorf("cast failure (value %s not a u%d)", val.String(), e.BitWidth)
 	}
 	// All good
-	return vals, err
+	return val, err
 }
 
-func evalAtExp(e *Exp, k int, tr trace.Trace) ([]fr.Element, error) {
-	// Check whether argument evaluates to zero or not.
-	vals, err := evalAtTerm(e.Arg, k, tr)
+func evalAtEquation(e *Equation, k int, tr trace.Trace) (fr.Element, error) {
+	var (
+		zero fr.Element = fr.NewElement(0)
+		one  fr.Element = fr.NewElement(1)
+	)
 	//
-	for i := range vals {
-		// Compute exponent
-		util.Pow(&vals[i], e.Pow)
+	lhs, err1 := evalAtTerm(e.Lhs, k, tr)
+	rhs, err2 := evalAtTerm(e.Rhs, k, tr)
+	// error check
+	if err1 != nil {
+		return fr.One(), err1
+	} else if err2 != nil {
+		return fr.One(), err2
 	}
-	// Done
-	return vals, err
+	// perform comparison
+	c := lhs.Cmp(&rhs)
+	//
+	if e.Sign == (c == 0) {
+		return zero, nil
+	}
+	// failure
+	return one, nil
 }
 
-func evalAtIfZero(e *IfZero, k int, tr trace.Trace) ([]fr.Element, error) {
-	vals := make([]fr.Element, 0)
+func evalAtExp(e *Exp, k int, tr trace.Trace) (fr.Element, error) {
+	// Check whether argument evaluates to zero or not.
+	val, err := evalAtTerm(e.Arg, k, tr)
+	// Compute exponent
+	util.Pow(&val, e.Pow)
+	// Done
+	return val, err
+}
+
+func evalAtIfZero(e *IfZero, k int, tr trace.Trace) (fr.Element, error) {
 	// Evaluate condition
-	conditions, err := evalAtTerm(e.Condition, k, tr)
-	// Check all results
-	for i := 0; err == nil && i < len(conditions); i++ {
-		var (
-			vs   []fr.Element
-			cond = conditions[i]
-		)
-		//q
-		if cond.IsZero() && e.TrueBranch != nil {
-			vs, err = evalAtTerm(e.TrueBranch, k, tr)
-		} else if !cond.IsZero() && e.FalseBranch != nil {
-			vs, err = evalAtTerm(e.FalseBranch, k, tr)
-		}
-		//
-		vals = append(vals, vs...)
+	cond, err := evalAtTerm(e.Condition, k, tr)
+	//
+	if err != nil {
+		return cond, err
+	} else if cond.IsZero() && e.TrueBranch != nil {
+		return evalAtTerm(e.TrueBranch, k, tr)
+	} else if !cond.IsZero() && e.FalseBranch != nil {
+		return evalAtTerm(e.FalseBranch, k, tr)
 	}
-
-	return vals, err
+	//
+	return fr.NewElement(0), nil
 }
 
-func evalAtMul(e *Mul, k int, tr trace.Trace) ([]fr.Element, error) {
-	fn := func(l fr.Element, r fr.Element) fr.Element { l.Mul(&l, &r); return l }
-	return evalAtTerms(k, tr, e.Args, fn)
-}
-
-func evalAtNormalise(e *Norm, k int, tr trace.Trace) ([]fr.Element, error) {
-	// Check whether argument evaluates to zero or not.
-	vals, err := evalAtTerm(e.Arg, k, tr)
-	// Normalise value (if necessary)
-	for i := range vals {
-		if !vals[i].IsZero() {
-			vals[i].SetOne()
+func evalAtMul(e *Mul, k int, tr trace.Trace) (fr.Element, error) {
+	n := uint(len(e.Args))
+	// Evaluate first argument
+	val, err := evalAtTerm(e.Args[0], k, tr)
+	// Continue evaluating the rest
+	for i := uint(1); err == nil && i < n; i++ {
+		var ith fr.Element
+		// Can short-circuit evaluation?
+		if val.IsZero() {
+			return val, nil
 		}
+		// No
+		ith, err = evalAtTerm(e.Args[i], k, tr)
+		val.Mul(&val, &ith)
 	}
 	// Done
-	return vals, err
+	return val, err
 }
 
-func evalAtList(e *List, k int, tr trace.Trace) ([]fr.Element, error) {
-	var vals []fr.Element
-	//
+func evalAtNormalise(e *Norm, k int, tr trace.Trace) (fr.Element, error) {
+	// Check whether argument evaluates to zero or not.
+	val, err := evalAtTerm(e.Arg, k, tr)
+	// Normalise value (if necessary)
+	if !val.IsZero() {
+		val.SetOne()
+	}
+	// Done
+	return val, err
+}
+
+func evalAtList(e *List, k int, tr trace.Trace) (fr.Element, error) {
 	for _, arg := range e.Args {
-		if vs, err := evalAtTerm(arg, k, tr); err != nil {
+		val, err := evalAtTerm(arg, k, tr)
+		// Catch short circuits
+		if err != nil || !val.IsZero() {
 			// error case
-			return nil, err
-		} else {
-			vals = append(vals, vs...)
+			return val, err
 		}
 	}
 	//
-	return vals, nil
+	return fr.NewElement(0), nil
 }
 
-func evalAtSub(e *Sub, k int, tr trace.Trace) ([]fr.Element, error) {
-	fn := func(l fr.Element, r fr.Element) fr.Element { l.Sub(&l, &r); return l }
-	return evalAtTerms(k, tr, e.Args, fn)
-}
-
-// EvalExprsAt evaluates all expressions in a given slice at a given row on the
-// table, and fold their results together using a combinator.
-func evalAtTerms(k int, tr trace.Trace, terms []Term,
-	fn func(fr.Element, fr.Element) fr.Element) ([]fr.Element, error) {
-	// Evaluate first argument.
-	vals, err := evalAtTerm(terms[0], k, tr)
-	// Continue evaluating the rest.
-	for i := 1; err == nil && i < len(terms); i++ {
-		var vs []fr.Element
-		vs, err = evalAtTerm(terms[i], k, tr)
-		vals = evalAtTermsApply(vals, vs, fn)
+func evalAtSub(e *Sub, k int, tr trace.Trace) (fr.Element, error) {
+	// Evaluate first argument
+	val, err := evalAtTerm(e.Args[0], k, tr)
+	// Continue evaluating the rest
+	for i := 1; err == nil && i < len(e.Args); i++ {
+		var ith fr.Element
+		// Evaluate ith argument
+		ith, err = evalAtTerm(e.Args[i], k, tr)
+		val.Sub(&val, &ith)
 	}
-	// Done.
-	return vals, err
-}
-
-// Perform a vector operation using the given primitive operator "fn".
-func evalAtTermsApply(lhs []fr.Element, rhs []fr.Element, fn func(fr.Element, fr.Element) fr.Element) []fr.Element {
-	if len(rhs) == 1 {
-		// Optimise for common case.
-		for i, ith := range lhs {
-			lhs[i] = fn(ith, rhs[0])
-		}
-
-		return lhs
-	}
-	// Harder case
-	vals := make([]fr.Element, 0)
-	// Perform n x m operations
-	for _, ith := range lhs {
-		for _, jth := range rhs {
-			vals = append(vals, fn(ith, jth))
-		}
-	}
-
-	return vals
+	// Done
+	return val, err
 }

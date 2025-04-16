@@ -64,11 +64,6 @@
   LLARGE     16
   LLARGEMO   15)
 
-(defpurefun (if-eq-else A B THEN ELSE)
-  (if-zero (- A B)
-           THEN
-           ELSE))
-
 ;;   2.1 binary constraints
 ;; binary constraints
 (defconstraint binary_constraints ()

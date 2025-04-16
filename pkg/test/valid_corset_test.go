@@ -398,6 +398,10 @@ func Test_If_18(t *testing.T) {
 	Check(t, false, "if_18")
 }
 
+func Test_If_19(t *testing.T) {
+	Check(t, false, "if_19")
+}
+
 // ===================================================================
 // Guards
 // ===================================================================
@@ -1226,6 +1230,10 @@ func Test_Memory(t *testing.T) {
 	Check(t, true, "memory")
 }
 
+func Test_Adder(t *testing.T) {
+	Check(t, true, "adder")
+}
+
 func TestSlow_Fields(t *testing.T) {
 	Check(t, true, "fields")
 }
@@ -1410,7 +1418,7 @@ func checkTrace(t *testing.T, inputs []trace.RawColumn, id traceId, schema sc.Sc
 			id.ir, id.test, id.line, id.padding, errs)
 	} else {
 		// Check Constraints
-		_, errs1 := sc.Accepts(true, 100, schema, tr)
+		_, errs1 := sc.Accepts(false, 100, schema, tr)
 		// Check assertions
 		_, errs2 := sc.Asserts(true, 100, schema, tr)
 		errs := append(errs1, errs2...)

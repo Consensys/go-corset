@@ -66,6 +66,58 @@ func LeastUpperBound(types ...Type) Type {
 }
 
 // ============================================================================
+// AnyType
+// ============================================================================
+
+// AnyType represents the top of the type lattice.  This is the type into which
+// values of any other type can flow.
+type AnyType struct{}
+
+// ANY_TYPE represents the top of the lattice.  That is, any type can flow into
+// any.
+var ANY_TYPE Type = &AnyType{}
+
+// HasUnderlying determines whether or not this type has an underlying
+// representation, or not.
+func (p *AnyType) HasUnderlying() bool {
+	return false
+}
+
+// AsUnderlying converts this integer type into an underlying type.
+func (p *AnyType) AsUnderlying() schema.Type {
+	panic("cannot convert any type")
+}
+
+// Width returns the number of underlying columns represented by this column.
+// For example, an array of size n will expand into n underlying columns.
+func (p *AnyType) Width() uint {
+	return 0
+}
+
+// LeastUpperBound computes the least upper bound of this type and another. This
+// is smallest type which contains both of the arguments.  For example, i32 is
+// the least upper bound of i1 and i32, etc.  If no such type exists, then nil
+// is returned.
+func (p *AnyType) LeastUpperBound(other Type) Type {
+	return p
+}
+
+// SubtypeOf determines whether or not this type is a subtype of another.
+func (p *AnyType) SubtypeOf(other Type) bool {
+	if other == nil {
+		return true
+	} else if _, ok := other.(*AnyType); ok {
+		return true
+	}
+	//
+	return false
+}
+
+func (p *AnyType) String() string {
+	return "any"
+}
+
+// ============================================================================
 // IntType
 // ============================================================================
 
@@ -140,6 +192,8 @@ func (p *IntType) LeastUpperBound(other Type) Type {
 		}
 		//
 		return &IntType{&values}
+	} else if _, ok := other.(*AnyType); ok {
+		return p
 	}
 
 	return nil
@@ -158,6 +212,8 @@ func (p *IntType) SubtypeOf(other Type) bool {
 		default:
 			return p.values.Within(o.values)
 		}
+	} else if _, ok := other.(*AnyType); ok {
+		return true
 	}
 	//
 	return false
@@ -180,24 +236,24 @@ func (p *IntType) String() string {
 // BooleanType
 // ============================================================================
 
-// BOOLEAN_TYPE provides a convenient singleone to use instead of creating a
+// BOOL_TYPE provides a convenient singleone to use instead of creating a
 // fresh boolean type, etc.
-var BOOLEAN_TYPE = &BooleanType{}
+var BOOL_TYPE = &BoolType{}
 
-// BooleanType represents the type of logical conditions, such as equality,
+// BoolType represents the type of logical conditions, such as equality,
 // logical or, etc.
-type BooleanType struct {
+type BoolType struct {
 }
 
 // Width returns the number of underlying columns represented by this column.
 // For example, an array of size n will expand into n underlying columns.
-func (p *BooleanType) Width() uint {
+func (p *BoolType) Width() uint {
 	return 1
 }
 
 // HasUnderlying determines whether or not this type has an underlying
 // representation, or not.
-func (p *BooleanType) HasUnderlying() bool {
+func (p *BoolType) HasUnderlying() bool {
 	return false
 }
 
@@ -205,22 +261,27 @@ func (p *BooleanType) HasUnderlying() bool {
 // is smallest type which contains both of the arguments.  For example, i32 is
 // the least upper bound of i1 and i32, etc.  If no such type exists, then nil
 // is returned.
-func (p *BooleanType) LeastUpperBound(other Type) Type {
-	if _, ok := other.(*BooleanType); ok {
-		return BOOLEAN_TYPE
+func (p *BoolType) LeastUpperBound(other Type) Type {
+	if _, ok := other.(*BoolType); ok {
+		return BOOL_TYPE
+	} else if _, ok := other.(*AnyType); ok {
+		return BOOL_TYPE
 	}
 	//
 	return nil
 }
 
 // SubtypeOf determines whether or not this type is a subtype of another.
-func (p *BooleanType) SubtypeOf(other Type) bool {
-	_, ok := other.(*BooleanType)
-	//
-	return ok
+func (p *BoolType) SubtypeOf(other Type) bool {
+	switch other.(type) {
+	case *BoolType, *AnyType:
+		return true
+	default:
+		return false
+	}
 }
 
-func (p *BooleanType) String() string {
+func (p *BoolType) String() string {
 	return "bool"
 }
 
@@ -279,6 +340,8 @@ func (p *ArrayType) LeastUpperBound(other Type) Type {
 		if element := p.element.LeastUpperBound(o.element); element != nil {
 			return NewArrayType(element, p.min, p.max)
 		}
+	} else if _, ok := other.(*AnyType); ok {
+		return p
 	}
 	//
 	return nil
@@ -288,6 +351,8 @@ func (p *ArrayType) LeastUpperBound(other Type) Type {
 func (p *ArrayType) SubtypeOf(other Type) bool {
 	if o, ok := other.(*ArrayType); ok {
 		return p.element.SubtypeOf(o.element)
+	} else if _, ok := other.(*AnyType); ok {
+		return true
 	}
 	//
 	return false

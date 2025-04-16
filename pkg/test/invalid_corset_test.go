@@ -88,6 +88,10 @@ func Test_Invalid_Basic_14(t *testing.T) {
 	CheckInvalid(t, "basic_invalid_14")
 }
 
+func Test_Invalid_Basic_15(t *testing.T) {
+	CheckInvalid(t, "basic_invalid_15")
+}
+
 // ===================================================================
 // Constant Tests
 // ===================================================================

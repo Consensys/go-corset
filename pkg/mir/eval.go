@@ -23,11 +23,43 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 )
 
-func evalAtEquation(e Equation, k int, trace tr.Trace) (fr.Element, error) {
+func evalAtConstraint(e Constraint, k int, trace tr.Trace) (fr.Element, error) {
 	var (
 		zero fr.Element = fr.NewElement(0)
-		one  fr.Element = fr.NewElement(1)
 	)
+	//
+	for _, disjunct := range e.conjuncts {
+		val, _, err := evalAtDisjunction(disjunct, k, trace)
+		//
+		if err != nil {
+			return fr.One(), err
+		} else if !val.IsZero() {
+			// Failure
+			return val, nil
+		}
+	}
+	// Success
+	return zero, nil
+}
+
+func evalAtDisjunction(e Disjunction, k int, trace tr.Trace) (fr.Element, uint, error) {
+	//
+	for i, eq := range e.atoms {
+		val, err := evalAtEquation(eq, k, trace)
+		//
+		if err != nil {
+			return fr.One(), uint(i), err
+		} else if val.IsZero() {
+			// Success
+			return val, uint(i), nil
+		}
+	}
+	// Failure
+	return fr.One(), uint(0), nil
+}
+
+func evalAtEquation(e Equation, k int, trace tr.Trace) (fr.Element, error) {
+	var zero fr.Element = fr.NewElement(0)
 	//
 	lhs, err1 := evalAtTerm(e.lhs, k, trace)
 	rhs, err2 := evalAtTerm(e.rhs, k, trace)
@@ -51,7 +83,7 @@ func evalAtEquation(e Equation, k int, trace tr.Trace) (fr.Element, error) {
 		}
 	}
 	// failure
-	return one, nil
+	return fr.One(), nil
 }
 
 func evalAtTerm(e Term, k int, trace tr.Trace) (fr.Element, error) {
@@ -119,11 +151,10 @@ func evalAtExp(e *Exp, k int, tr trace.Trace) (fr.Element, error) {
 }
 
 func evalAtMul(e *Mul, k int, trace tr.Trace) (fr.Element, error) {
-	n := uint(len(e.Args))
 	// Evaluate first argument
 	val, err := evalAtTerm(e.Args[0], k, trace)
 	// Continue evaluating the rest
-	for i := uint(1); err == nil && i < n; i++ {
+	for i := 1; err == nil && i < len(e.Args); i++ {
 		var ith fr.Element
 		// Can short-circuit evaluation?
 		if val.IsZero() {

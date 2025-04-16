@@ -5,4 +5,4 @@
     (BYTE :byte :array [0:2])
 )
 
-(defconstraint c1 () (== 0 (if (== ACC_1 1) [BYTE 0])))
+(defconstraint c1 () (if (== ACC_1 1) (== 0 [BYTE 0])))

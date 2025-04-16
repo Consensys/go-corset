@@ -21,6 +21,12 @@ import (
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
+// ZERO represents the constant expression equivalent to 1.
+var ZERO Expr
+
+// ONE represents the constant expression equivalent to 1.
+var ONE Expr
+
 // Expr represents an expression in the Arithmetic Intermediate Representation
 // (AIR). Any expression in this form can be lowered into a polynomial.
 // Expressions at this level are split into those which can be arithmetised and
@@ -142,20 +148,31 @@ func (e Expr) Equate(arg Expr) Expr {
 
 // Sum zero or more expressions together.
 func Sum(exprs ...Expr) Expr {
-	if len(exprs) == 0 {
+	terms := asTerms(exprs...)
+	// flatten any nested sums
+	terms = util.Flatten(terms, func(t Term) []Term {
+		if t, ok := t.(*Add); ok {
+			return t.Args
+		}
+		//
+		return nil
+	})
+	// Remove any zeros
+	terms = util.RemoveMatching(terms, isZero)
+	// Final optimisation
+	switch len(terms) {
+	case 0:
 		return NewConst64(0)
+	case 1:
+		return Expr{terms[0]}
+	default:
+		return Expr{&Add{terms}}
 	}
-	//
-	return Expr{&Add{asTerms(exprs...)}}
 }
 
 // Product returns the product of zero or more multiplications.
 func Product(exprs ...Expr) Expr {
-	if len(exprs) == 0 {
-		return NewConst64(1)
-	}
-	//
-	return Expr{&Mul{asTerms(exprs...)}}
+	return termProduct(asTerms(exprs...)...)
 }
 
 // Subtract returns the subtraction of the subsequent expressions from the
@@ -176,4 +193,55 @@ func asTerms(exprs ...Expr) []Term {
 	}
 	//
 	return terms
+}
+
+// =============================================================
+// Helpers
+// =============================================================
+
+func termProduct(terms ...Term) Expr {
+	// flatten any nested products
+	terms = util.Flatten(terms, func(t Term) []Term {
+		if t, ok := t.(*Mul); ok {
+			return t.Args
+		}
+		//
+		return nil
+	})
+	// Remove all multiplications by one
+	terms = util.RemoveMatching(terms, isOne)
+	// Check for zero
+	if util.ContainsMatching(terms, isZero) {
+		return ZERO
+	}
+	// Final optimisation
+	switch len(terms) {
+	case 0:
+		return NewConst64(1)
+	case 1:
+		return Expr{terms[0]}
+	default:
+		return Expr{&Mul{terms}}
+	}
+}
+
+func isOne(term Term) bool {
+	if t, ok := term.(*Constant); ok {
+		return t.Value.IsOne()
+	}
+	//
+	return false
+}
+
+func isZero(term Term) bool {
+	if t, ok := term.(*Constant); ok {
+		return t.Value.IsZero()
+	}
+	//
+	return false
+}
+
+func init() {
+	ONE = NewConst64(1)
+	ZERO = NewConst64(0)
 }
