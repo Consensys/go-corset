@@ -45,8 +45,8 @@
 ;; =============================================================================
 ;; Chronological functions
 ;; =============================================================================
-(defpurefun (next X) (shift X 1))
-(defpurefun (prev X) (shift X -1))
+(defpurefun (next (X :any)) (shift X 1))
+(defpurefun (prev (X :any)) (shift X -1))
 ;; Ensure e0 has increased by offset w.r.t previous row.
 (defpurefun ((did-inc! :bool) (e0 :int) (offset :int)) (== e0 (+ (prev e0) offset)))
 ;; Ensure e0 has decreased by offset w.r.t previous row.
