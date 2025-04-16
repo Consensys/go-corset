@@ -23,6 +23,9 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 )
 
+var frZERO fr.Element = fr.NewElement(0)
+var frONE fr.Element = fr.NewElement(1)
+
 func evalAtTerm(e Term, k int, trace tr.Trace) (fr.Element, error) {
 	switch e := e.(type) {
 	case *Add:
@@ -89,11 +92,6 @@ func evalAtCast(e *Cast, k int, tr trace.Trace) (fr.Element, error) {
 }
 
 func evalAtEquation(e *Equation, k int, tr trace.Trace) (fr.Element, error) {
-	var (
-		zero fr.Element = fr.NewElement(0)
-		one  fr.Element = fr.NewElement(1)
-	)
-	//
 	lhs, err1 := evalAtTerm(e.Lhs, k, tr)
 	rhs, err2 := evalAtTerm(e.Rhs, k, tr)
 	// error check
@@ -105,11 +103,36 @@ func evalAtEquation(e *Equation, k int, tr trace.Trace) (fr.Element, error) {
 	// perform comparison
 	c := lhs.Cmp(&rhs)
 	//
-	if e.Sign == (c == 0) {
-		return zero, nil
+	switch e.Kind {
+	case EQUALS:
+		if c == 0 {
+			return frZERO, nil
+		}
+	case NOT_EQUALS:
+		if c != 0 {
+			return frZERO, nil
+		}
+	case LESS_THAN:
+		if c < 0 {
+			return frZERO, nil
+		}
+	case LESS_THAN_EQUALS:
+		if c <= 0 {
+			return frZERO, nil
+		}
+	case GREATER_THAN_EQUALS:
+		if c >= 0 {
+			return frZERO, nil
+		}
+	case GREATER_THAN:
+		if c > 0 {
+			return frZERO, nil
+		}
+	default:
+		panic("unreachable")
 	}
 	// failure
-	return one, nil
+	return frONE, nil
 }
 
 func evalAtExp(e *Exp, k int, tr trace.Trace) (fr.Element, error) {
@@ -133,7 +156,7 @@ func evalAtIfZero(e *IfZero, k int, tr trace.Trace) (fr.Element, error) {
 		return evalAtTerm(e.FalseBranch, k, tr)
 	}
 	//
-	return fr.NewElement(0), nil
+	return frZERO, nil
 }
 
 func evalAtMul(e *Mul, k int, tr trace.Trace) (fr.Element, error) {
@@ -176,7 +199,7 @@ func evalAtList(e *List, k int, tr trace.Trace) (fr.Element, error) {
 		}
 	}
 	//
-	return fr.NewElement(0), nil
+	return frZERO, nil
 }
 
 func evalAtSub(e *Sub, k int, tr trace.Trace) (fr.Element, error) {

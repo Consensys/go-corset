@@ -215,6 +215,42 @@ func NotEquals(lhs Expr, rhs Expr) Constraint {
 	return Constraint{[]Disjunction{dis}}
 }
 
+// LessThan constructs an equation representing the inequality of two
+// expressions.
+func LessThan(lhs Expr, rhs Expr) Constraint {
+	eq := Equation{LESS_THAN, lhs.term, rhs.term}
+	dis := Disjunction{[]Equation{eq}}
+
+	return Constraint{[]Disjunction{dis}}
+}
+
+// LessThanOrEquals constructs an equation representing the inequality of two
+// expressions.
+func LessThanOrEquals(lhs Expr, rhs Expr) Constraint {
+	eq := Equation{LESS_THAN_EQUALS, lhs.term, rhs.term}
+	dis := Disjunction{[]Equation{eq}}
+
+	return Constraint{[]Disjunction{dis}}
+}
+
+// GreaterThanOrEquals constructs an equation representing the inequality of two
+// expressions.
+func GreaterThanOrEquals(lhs Expr, rhs Expr) Constraint {
+	eq := Equation{GREATER_THAN_EQUALS, lhs.term, rhs.term}
+	dis := Disjunction{[]Equation{eq}}
+
+	return Constraint{[]Disjunction{dis}}
+}
+
+// GreaterThan constructs an equation representing the inequality of two
+// expressions.
+func GreaterThan(lhs Expr, rhs Expr) Constraint {
+	eq := Equation{GREATER_THAN, lhs.term, rhs.term}
+	dis := Disjunction{[]Equation{eq}}
+
+	return Constraint{[]Disjunction{dis}}
+}
+
 // ============================================================================
 // Disjunction
 // ============================================================================
@@ -252,10 +288,18 @@ func (e *Disjunction) Negate() Constraint {
 // ============================================================================
 
 const (
-	// EQUALS indicates an equals relationship
+	// EQUALS indicates an equals (==) relationship
 	EQUALS uint8 = 0
-	// NOT_EQUALS indicates a not-equals relationship
+	// NOT_EQUALS indicates a not-equals (!=) relationship
 	NOT_EQUALS uint8 = 1
+	// LESS_THAN indicates a less-than (<) relationship
+	LESS_THAN uint8 = 2
+	// LESS_THAN_EQUALS indicates a less-than-or-equals (<=) relationship
+	LESS_THAN_EQUALS uint8 = 3
+	// GREATER_THAN indicates a greater-than (>) relationship
+	GREATER_THAN uint8 = 4
+	// GREATER_THAN_EQUALS indicates a greater-than-or-equals (>=) relationship
+	GREATER_THAN_EQUALS uint8 = 5
 )
 
 // Equation represents an equation between two terms (e.g. "X==Y", or "X!=Y+1",
@@ -278,11 +322,24 @@ func (e Equation) Simplify() Equation {
 
 // Negate a given equation
 func (e Equation) Negate() Equation {
-	if e.kind == EQUALS {
-		return Equation{NOT_EQUALS, e.lhs, e.rhs}
+	var kind uint8
+	//
+	switch e.kind {
+	case EQUALS:
+		kind = NOT_EQUALS
+	case NOT_EQUALS:
+		kind = EQUALS
+	case LESS_THAN:
+		kind = GREATER_THAN_EQUALS
+	case LESS_THAN_EQUALS:
+		kind = GREATER_THAN
+	case GREATER_THAN_EQUALS:
+		kind = LESS_THAN
+	case GREATER_THAN:
+		kind = LESS_THAN_EQUALS
 	}
 	//
-	return Equation{EQUALS, e.lhs, e.rhs}
+	return Equation{kind, e.lhs, e.rhs}
 }
 
 // Is determines whether or not this equation is known to evaluate to true or
@@ -294,13 +351,29 @@ func (e Equation) Is(val bool) bool {
 	rc, r_ok := e.rhs.(*Constant)
 	//
 	if l_ok && r_ok {
-		eq := lc.Value.Cmp(&rc.Value) == 0
+		var (
+			cmp  = lc.Value.Cmp(&rc.Value)
+			sign bool
+		)
 		//
-		if e.kind == EQUALS {
-			return val == eq
+		switch e.kind {
+		case EQUALS:
+			sign = (cmp == 0)
+		case NOT_EQUALS:
+			sign = (cmp != 0)
+		case LESS_THAN:
+			sign = (cmp < 0)
+		case LESS_THAN_EQUALS:
+			sign = (cmp <= 0)
+		case GREATER_THAN:
+			sign = (cmp > 0)
+		case GREATER_THAN_EQUALS:
+			sign = (cmp >= 0)
+		default:
+			panic("unreachable")
 		}
 		//
-		return val == !eq
+		return val == sign
 	}
 	// Give up
 	return false
@@ -328,16 +401,31 @@ func (e Equation) AsTerm() Term {
 // Lisp returns a lisp representation of this equation, which is useful for
 // debugging.
 func (e Equation) Lisp() sexp.SExp {
-	l := lispOfTerm(e.lhs, nil)
-	r := lispOfTerm(e.rhs, nil)
+	var (
+		symbol string
+		l      = lispOfTerm(e.lhs, nil)
+		r      = lispOfTerm(e.rhs, nil)
+	)
 	//
-	if e.kind == EQUALS {
-		return sexp.NewList([]sexp.SExp{
-			sexp.NewSymbol("=="), l, r})
+	switch e.kind {
+	case EQUALS:
+		symbol = "=="
+	case NOT_EQUALS:
+		symbol = "!="
+	case LESS_THAN:
+		symbol = "<"
+	case LESS_THAN_EQUALS:
+		symbol = "<="
+	case GREATER_THAN:
+		symbol = ">"
+	case GREATER_THAN_EQUALS:
+		symbol = ">="
+	default:
+		panic("unreachable")
 	}
 	//
 	return sexp.NewList([]sexp.SExp{
-		sexp.NewSymbol("!="), l, r})
+		sexp.NewSymbol(symbol), l, r})
 }
 
 // ============================================================================

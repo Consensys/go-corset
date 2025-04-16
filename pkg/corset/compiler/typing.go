@@ -274,7 +274,7 @@ func (p *typeChecker) typeCheckExpressionInModule(expected ast.Type, expr ast.Ex
 		result = ast.NewUintType(uint(nbits))
 	case *ast.Debug:
 		result, errors = p.typeCheckExpressionInModule(expected, e.Arg, functional)
-	case *ast.Equals:
+	case *ast.Equation:
 		_, errs1 := p.typeCheckExpressionInModule(ast.INT_TYPE, e.Lhs, true)
 		_, errs2 := p.typeCheckExpressionInModule(ast.INT_TYPE, e.Rhs, true)
 		// Done

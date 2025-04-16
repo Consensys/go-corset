@@ -582,18 +582,31 @@ func (t *translator) translateExpressionInModule(expr ast.Expr, module util.Path
 		val.SetBigInt(&e.Val)
 		//
 		return hir.NewConst(val), nil
-	case *ast.Equals:
+	case *ast.Equation:
 		lhs, errs1 := t.translateExpressionInModule(e.Lhs, module, shift)
 		rhs, errs2 := t.translateExpressionInModule(e.Rhs, module, shift)
 		errs := append(errs1, errs2...)
 		//
 		if len(errs) > 0 {
 			return hir.VOID, errs
-		} else if e.Sign {
-			return hir.Equals(lhs, rhs), nil
 		}
 		//
-		return hir.NotEquals(lhs, rhs), nil
+		switch e.Kind {
+		case ast.EQUALS:
+			return hir.Equals(lhs, rhs), nil
+		case ast.NOT_EQUALS:
+			return hir.NotEquals(lhs, rhs), nil
+		case ast.LESS_THAN:
+			return hir.LessThan(lhs, rhs), nil
+		case ast.LESS_THAN_EQUALS:
+			return hir.LessThanOrEquals(lhs, rhs), nil
+		case ast.GREATER_THAN_EQUALS:
+			return hir.GreaterThanOrEquals(lhs, rhs), nil
+		case ast.GREATER_THAN:
+			return hir.GreaterThan(lhs, rhs), nil
+		default:
+			panic("unreachable")
+		}
 	case *ast.Exp:
 		return t.translateExpInModule(e, module, shift)
 	case *ast.If:

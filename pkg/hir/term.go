@@ -134,10 +134,25 @@ func (p *ColumnAccess) multiplicity() uint { return 1 }
 // Equation
 // ============================================================================
 
+const (
+	// EQUALS indicates an equals (==) relationship
+	EQUALS uint8 = 0
+	// NOT_EQUALS indicates a not-equals (!=) relationship
+	NOT_EQUALS uint8 = 1
+	// LESS_THAN indicates a less-than (<) relationship
+	LESS_THAN uint8 = 2
+	// LESS_THAN_EQUALS indicates a less-than-or-equals (<=) relationship
+	LESS_THAN_EQUALS uint8 = 3
+	// GREATER_THAN indicates a greater-than (>) relationship
+	GREATER_THAN uint8 = 4
+	// GREATER_THAN_EQUALS indicates a greater-than-or-equals (>=) relationship
+	GREATER_THAN_EQUALS uint8 = 5
+)
+
 // Equation represents an equality (e.g. X == Y) or non-equality (e.g. X != Y)
 // relationship between two terms.
 type Equation struct {
-	Sign bool
+	Kind uint8
 	Lhs  Term
 	Rhs  Term
 }

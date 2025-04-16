@@ -147,12 +147,32 @@ func CastOf(arg Expr, bitwidth uint) Expr {
 
 // Equals constructs an equality between two expressions.
 func Equals(lhs Expr, rhs Expr) Expr {
-	return Expr{&Equation{true, lhs.Term, rhs.Term}}
+	return Expr{&Equation{EQUALS, lhs.Term, rhs.Term}}
 }
 
 // NotEquals constructs a non-equality between two expressions.
 func NotEquals(lhs Expr, rhs Expr) Expr {
-	return Expr{&Equation{false, lhs.Term, rhs.Term}}
+	return Expr{&Equation{NOT_EQUALS, lhs.Term, rhs.Term}}
+}
+
+// LessThan constructs an inequality between two expressions.
+func LessThan(lhs Expr, rhs Expr) Expr {
+	return Expr{&Equation{LESS_THAN, lhs.Term, rhs.Term}}
+}
+
+// LessThanOrEquals constructs an inequality between two expressions.
+func LessThanOrEquals(lhs Expr, rhs Expr) Expr {
+	return Expr{&Equation{LESS_THAN_EQUALS, lhs.Term, rhs.Term}}
+}
+
+// GreaterThan constructs an inequality between two expressions.
+func GreaterThan(lhs Expr, rhs Expr) Expr {
+	return Expr{&Equation{GREATER_THAN, lhs.Term, rhs.Term}}
+}
+
+// GreaterThanOrEquals constructs an inequality between two expressions.
+func GreaterThanOrEquals(lhs Expr, rhs Expr) Expr {
+	return Expr{&Equation{GREATER_THAN_EQUALS, lhs.Term, rhs.Term}}
 }
 
 // If a new conditional branch, where either the true branch or the false branch

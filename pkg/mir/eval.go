@@ -23,23 +23,23 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 )
 
+var frZERO fr.Element = fr.NewElement(0)
+var frONE fr.Element = fr.NewElement(1)
+
 func evalAtConstraint(e Constraint, k int, trace tr.Trace) (fr.Element, error) {
-	var (
-		zero fr.Element = fr.NewElement(0)
-	)
 	//
 	for _, disjunct := range e.conjuncts {
 		val, _, err := evalAtDisjunction(disjunct, k, trace)
 		//
 		if err != nil {
-			return fr.One(), err
+			return frONE, err
 		} else if !val.IsZero() {
 			// Failure
 			return val, nil
 		}
 	}
 	// Success
-	return zero, nil
+	return frZERO, nil
 }
 
 func evalAtDisjunction(e Disjunction, k int, trace tr.Trace) (fr.Element, uint, error) {
@@ -48,26 +48,24 @@ func evalAtDisjunction(e Disjunction, k int, trace tr.Trace) (fr.Element, uint, 
 		val, err := evalAtEquation(eq, k, trace)
 		//
 		if err != nil {
-			return fr.One(), uint(i), err
+			return frONE, uint(i), err
 		} else if val.IsZero() {
 			// Success
 			return val, uint(i), nil
 		}
 	}
 	// Failure
-	return fr.One(), uint(0), nil
+	return frONE, uint(0), nil
 }
 
 func evalAtEquation(e Equation, k int, trace tr.Trace) (fr.Element, error) {
-	var zero fr.Element = fr.NewElement(0)
-	//
 	lhs, err1 := evalAtTerm(e.lhs, k, trace)
 	rhs, err2 := evalAtTerm(e.rhs, k, trace)
 	// error check
 	if err1 != nil {
-		return fr.One(), err1
+		return frONE, err1
 	} else if err2 != nil {
-		return fr.One(), err2
+		return frONE, err2
 	}
 	// perform comparison
 	c := lhs.Cmp(&rhs)
@@ -75,15 +73,31 @@ func evalAtEquation(e Equation, k int, trace tr.Trace) (fr.Element, error) {
 	switch e.kind {
 	case EQUALS:
 		if c == 0 {
-			return zero, nil
+			return frZERO, nil
 		}
 	case NOT_EQUALS:
 		if c != 0 {
-			return zero, nil
+			return frZERO, nil
+		}
+	case LESS_THAN:
+		if c < 0 {
+			return frZERO, nil
+		}
+	case LESS_THAN_EQUALS:
+		if c <= 0 {
+			return frZERO, nil
+		}
+	case GREATER_THAN_EQUALS:
+		if c >= 0 {
+			return frZERO, nil
+		}
+	case GREATER_THAN:
+		if c > 0 {
+			return frZERO, nil
 		}
 	}
 	// failure
-	return fr.One(), nil
+	return frONE, nil
 }
 
 func evalAtTerm(e Term, k int, trace tr.Trace) (fr.Element, error) {

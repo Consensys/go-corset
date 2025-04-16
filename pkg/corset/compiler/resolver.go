@@ -715,7 +715,7 @@ func (r *resolver) finaliseExpressionInModule(scope LocalScope, expr ast.Expr) [
 		return nil
 	case *ast.Debug:
 		return r.finaliseExpressionInModule(scope, v.Arg)
-	case *ast.Equals:
+	case *ast.Equation:
 		lhs_errs := r.finaliseExpressionInModule(scope, v.Lhs)
 		rhs_errs := r.finaliseExpressionInModule(scope, v.Rhs)
 		// combine errors

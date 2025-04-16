@@ -171,7 +171,11 @@ func NewParser(srcfile *source.File, srcmap *source.Map[sexp.SExp]) *Parser {
 	p.AddRecursiveListRule("~", normParserRule)
 	p.AddRecursiveListRule("^", powParserRule)
 	p.AddRecursiveListRule("==", eqParserRule)
-	p.AddRecursiveListRule("!=", neqParserRule)
+	p.AddRecursiveListRule("!=", eqParserRule)
+	p.AddRecursiveListRule("<", eqParserRule)
+	p.AddRecursiveListRule("<=", eqParserRule)
+	p.AddRecursiveListRule(">", eqParserRule)
+	p.AddRecursiveListRule(">=", eqParserRule)
 	p.AddRecursiveListRule("begin", beginParserRule)
 	p.AddRecursiveListRule("debug", debugParserRule)
 	p.AddListRule("for", forParserRule(parser))
@@ -1684,20 +1688,27 @@ func powParserRule(_ string, args []ast.Expr) (ast.Expr, error) {
 	return &ast.Exp{Arg: args[0], Pow: args[1]}, nil
 }
 
-func eqParserRule(_ string, args []ast.Expr) (ast.Expr, error) {
+func eqParserRule(op string, args []ast.Expr) (ast.Expr, error) {
 	if len(args) != 2 {
 		return nil, errors.New("incorrect number of arguments")
 	}
-	// Done
-	return &ast.Equals{Sign: true, Lhs: args[0], Rhs: args[1]}, nil
-}
-
-func neqParserRule(_ string, args []ast.Expr) (ast.Expr, error) {
-	if len(args) != 2 {
-		return nil, errors.New("incorrect number of arguments")
+	//
+	switch op {
+	case "==":
+		return &ast.Equation{Kind: ast.EQUALS, Lhs: args[0], Rhs: args[1]}, nil
+	case "!=":
+		return &ast.Equation{Kind: ast.NOT_EQUALS, Lhs: args[0], Rhs: args[1]}, nil
+	case "<":
+		return &ast.Equation{Kind: ast.LESS_THAN, Lhs: args[0], Rhs: args[1]}, nil
+	case "<=":
+		return &ast.Equation{Kind: ast.LESS_THAN_EQUALS, Lhs: args[0], Rhs: args[1]}, nil
+	case ">=":
+		return &ast.Equation{Kind: ast.GREATER_THAN_EQUALS, Lhs: args[0], Rhs: args[1]}, nil
+	case ">":
+		return &ast.Equation{Kind: ast.GREATER_THAN, Lhs: args[0], Rhs: args[1]}, nil
 	}
-	// Done
-	return &ast.Equals{Sign: false, Lhs: args[0], Rhs: args[1]}, nil
+	//
+	panic("unreachable")
 }
 
 func normParserRule(_ string, args []ast.Expr) (ast.Expr, error) {

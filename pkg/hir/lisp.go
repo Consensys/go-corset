@@ -31,11 +31,7 @@ func lispOfTerm(e Term, schema sc.Schema) sexp.SExp {
 	case *ColumnAccess:
 		return lispOfColumnAccess(e, schema)
 	case *Equation:
-		if e.Sign {
-			return nary2Lisp(schema, "==", e.Lhs, e.Rhs)
-		}
-		//
-		return nary2Lisp(schema, "!=", e.Lhs, e.Rhs)
+		return lispOfEquation(e, schema)
 	case *Exp:
 		return lispOfExp(e, schema)
 	case *IfZero:
@@ -76,6 +72,32 @@ func lispOfColumnAccess(e *ColumnAccess, schema sc.Schema) sexp.SExp {
 	shift := sexp.NewSymbol(fmt.Sprintf("%d", e.Shift))
 
 	return sexp.NewList([]sexp.SExp{sexp.NewSymbol("shift"), access, shift})
+}
+
+func lispOfEquation(e *Equation, schema sc.Schema) sexp.SExp {
+	var symbol string
+
+	switch e.Kind {
+	case EQUALS:
+		symbol = "=="
+	case NOT_EQUALS:
+		symbol = "!="
+	case LESS_THAN:
+		symbol = "<"
+	case LESS_THAN_EQUALS:
+		symbol = "<="
+	case GREATER_THAN_EQUALS:
+		symbol = ">="
+	case GREATER_THAN:
+		symbol = ">"
+	default:
+		panic("unreachable")
+	}
+	//
+	return sexp.NewList([]sexp.SExp{
+		sexp.NewSymbol(symbol),
+		lispOfTerm(e.Lhs, schema),
+		lispOfTerm(e.Rhs, schema)})
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example

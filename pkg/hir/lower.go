@@ -131,14 +131,25 @@ func extractConstraint(t Term, mirSchema *mir.Schema, hirSchema *Schema) mir.Con
 	case *Cast:
 		return extractConstraint(e.Arg, mirSchema, hirSchema)
 	case *Equation:
-		l := extractExpression(e.Lhs, mirSchema, hirSchema)
-		r := extractExpression(e.Rhs, mirSchema, hirSchema)
+		lhs := extractExpression(e.Lhs, mirSchema, hirSchema)
+		rhs := extractExpression(e.Rhs, mirSchema, hirSchema)
 		//
-		if e.Sign {
-			return mir.Equals(l, r)
+		switch e.Kind {
+		case EQUALS:
+			return mir.Equals(lhs, rhs)
+		case NOT_EQUALS:
+			return mir.NotEquals(lhs, rhs)
+		case LESS_THAN:
+			return mir.LessThan(lhs, rhs)
+		case LESS_THAN_EQUALS:
+			return mir.LessThanOrEquals(lhs, rhs)
+		case GREATER_THAN_EQUALS:
+			return mir.GreaterThanOrEquals(lhs, rhs)
+		case GREATER_THAN:
+			return mir.GreaterThan(lhs, rhs)
+		default:
+			panic("unreachable")
 		}
-		//
-		return mir.NotEquals(l, r)
 	case *IfZero:
 		return extractIfZeroCondition(e, mirSchema, hirSchema)
 	case *List:
@@ -232,14 +243,42 @@ func extractAtomicExpression(sign bool, e Term, mirSchema *mir.Schema, hirSchema
 		r := extractExpression(e.Rhs, mirSchema, hirSchema)
 		t := mir.Normalise(mir.Subtract(l, r))
 		//
-		if e.Sign == sign {
-			return t
-		}
+		kind := invertAtomicEquation(sign, e.Kind)
 		//
-		return mir.Subtract(mir.NewConst64(1), t)
+		switch kind {
+		case EQUALS:
+			return t
+		case NOT_EQUALS:
+			return mir.Subtract(mir.NewConst64(1), t)
+		default:
+			panic("unreachable")
+		}
 	default:
 		name := reflect.TypeOf(e).Name()
 		panic(fmt.Sprintf("unknown HIR expression \"%s\"", name))
+	}
+}
+
+func invertAtomicEquation(sign bool, kind uint8) uint8 {
+	if sign {
+		return kind
+	}
+	//
+	switch kind {
+	case EQUALS:
+		return NOT_EQUALS
+	case NOT_EQUALS:
+		return EQUALS
+	case LESS_THAN:
+		return GREATER_THAN_EQUALS
+	case LESS_THAN_EQUALS:
+		return GREATER_THAN
+	case GREATER_THAN:
+		return LESS_THAN_EQUALS
+	case GREATER_THAN_EQUALS:
+		return LESS_THAN
+	default:
+		panic("unreachable")
 	}
 }
 
