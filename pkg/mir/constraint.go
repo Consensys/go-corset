@@ -13,7 +13,6 @@
 package mir
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -38,24 +37,6 @@ type Constraint struct {
 func NewConstraint(equation Equation) Constraint {
 	disjunct := Disjunction{[]Equation{equation}}
 	return Constraint{[]Disjunction{disjunct}}
-}
-
-// AsExprs converts a constraint represented in conjunctive normal form into a
-// set of zero or more expressions, where each expression represents a given
-// conjunct.  For example, (x==0||x==1) && (y==0) becomes [x*(x-1),y].
-func (e Constraint) AsExprs() []Expr {
-	if len(e.conjuncts) == 0 {
-		// True
-		return []Expr{NewConst64(0)}
-	}
-	//
-	exprs := make([]Expr, len(e.conjuncts))
-	//
-	for i, d := range e.conjuncts {
-		exprs[i] = d.AsExpr()
-	}
-	//
-	return exprs
 }
 
 // Is checks whether this constraint trivially evaluates to true or false.
@@ -260,18 +241,6 @@ type Disjunction struct {
 	atoms []Equation
 }
 
-// AsExpr converts a constraint into an equivalent expression by taking the
-// product of all disjuncted terms.
-func (e *Disjunction) AsExpr() Expr {
-	terms := make([]Term, len(e.atoms))
-	//
-	for i, t := range e.atoms {
-		terms[i] = t.AsTerm()
-	}
-	//
-	return termProduct(terms...)
-}
-
 // Negate a given disjunction
 func (e *Disjunction) Negate() Constraint {
 	conjuncts := make([]Constraint, len(e.atoms))
@@ -377,25 +346,6 @@ func (e Equation) Is(val bool) bool {
 	}
 	// Give up
 	return false
-}
-
-// AsTerm translates this equation into a raw term.
-func (e Equation) AsTerm() Term {
-	t := &Sub{[]Term{e.lhs, e.rhs}}
-	//
-	switch e.kind {
-	case EQUALS:
-		// don't do anything
-	case NOT_EQUALS:
-		// (1 - NORM(cb))
-		normBody := &Norm{t}
-		one := &Constant{fr.NewElement(1)}
-		t = &Sub{[]Term{one, normBody}}
-	default:
-		panic("unknown equation")
-	}
-	//
-	return t
 }
 
 // Lisp returns a lisp representation of this equation, which is useful for

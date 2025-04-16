@@ -308,14 +308,51 @@ func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Sche
 
 func lowerConstraintTo(ctx trace.Context, c Constraint, mirSchema *Schema, airSchema *air.Schema,
 	cfg OptimisationConfig) []air.Expr {
-	mir_exprs := c.AsExprs()
-	air_exprs := make([]air.Expr, len(mir_exprs))
+	// One expression for each conjunct.
+	air_exprs := make([]air.Expr, len(c.conjuncts))
 
-	for i, e := range mir_exprs {
-		air_exprs[i] = lowerExprTo(ctx, e, mirSchema, airSchema, cfg)
+	for i, c := range c.conjuncts {
+		air_exprs[i] = lowerDisjunctTo(ctx, c, mirSchema, airSchema, cfg)
 	}
 	// Convert constraint into expression, then lower.
 	return air_exprs
+}
+
+func lowerDisjunctTo(ctx trace.Context, c Disjunction, mirSchema *Schema, airSchema *air.Schema,
+	cfg OptimisationConfig) air.Expr {
+	air_terms := make([]air.Expr, len(c.atoms))
+	//
+	for i, t := range c.atoms {
+		air_terms[i] = lowerEquationTo(ctx, t, mirSchema, airSchema, cfg)
+	}
+	//
+	return air.Product(air_terms...)
+}
+
+func lowerEquationTo(ctx trace.Context, e Equation, mirSchema *Schema, airSchema *air.Schema,
+	cfg OptimisationConfig) air.Expr {
+	var (
+		lhs = lowerTermTo(ctx, e.lhs, mirSchema, airSchema, cfg)
+		rhs = lowerTermTo(ctx, e.rhs, mirSchema, airSchema, cfg)
+	)
+	//
+	switch e.kind {
+	case EQUALS:
+		// NOTE: the ordering of this subtraction can have certain impacts, such as
+		// aligning computed columns (or not).  Therefore, ideally, we'd take
+		// greater care at this point to chose the best way around.
+		return air.Subtract(lhs, rhs)
+	case NOT_EQUALS:
+		// (1 - NORM(lhs - rhs))
+		tmp := &Norm{&Sub{[]Term{e.lhs, e.rhs}}}
+		norm := lowerTermTo(ctx, tmp, mirSchema, airSchema, cfg)
+		//
+		return air.Subtract(air.NewConst64(1), norm)
+	case GREATER_THAN, GREATER_THAN_EQUALS, LESS_THAN, LESS_THAN_EQUALS:
+		panic("translation of inequalities not supported")
+	default:
+		panic("unknown equation")
+	}
 }
 
 // Lower an expression into the Arithmetic Intermediate Representation.
@@ -326,12 +363,17 @@ func lowerConstraintTo(ctx trace.Context, c Constraint, mirSchema *Schema, airSc
 // should be located.
 func lowerExprTo(ctx trace.Context, e1 Expr, mirSchema *Schema, airSchema *air.Schema,
 	cfg OptimisationConfig) air.Expr {
+	return lowerTermTo(ctx, e1.term, mirSchema, airSchema, cfg)
+}
+
+func lowerTermTo(ctx trace.Context, term Term, mirSchema *Schema, airSchema *air.Schema,
+	cfg OptimisationConfig) air.Expr {
 	// Optimise normalisations
-	t1 := eliminateNormalisationInTerm(e1.term, mirSchema, cfg)
+	term = eliminateNormalisationInTerm(term, mirSchema, cfg)
 	// Apply constant propagation
-	t1 = constantPropagationForTerm(t1, false, airSchema)
+	term = constantPropagationForTerm(term, false, airSchema)
 	// Lower properly
-	return lowerTermToInner(ctx, t1, mirSchema, airSchema, cfg)
+	return lowerTermToInner(ctx, term, mirSchema, airSchema, cfg)
 }
 
 // Inner form is used for recursive calls and does not repeat the constant
@@ -355,26 +397,7 @@ func lowerTermToInner(ctx trace.Context, e Term, mirSchema *Schema, airSchema *a
 		args := lowerTerms(ctx, e.Args, mirSchema, airSchema, cfg)
 		return air.Product(args...)
 	case *Norm:
-		// Lower the expression being normalised
-		arg := lowerTermToInner(ctx, e.Arg, mirSchema, airSchema, cfg)
-		// Determine appropriate shift
-		shift := 0
-		//  Apply shift normalisation (if enabled)
-		if cfg.ShiftNormalisation {
-			// Determine shift ranges
-			min, max := shiftRangeOfTerm(e.Arg)
-			// determine shift amount
-			if max < 0 {
-				shift = max
-			} else if min > 0 {
-				shift = min
-			}
-		}
-		// Construct an expression representing the normalised value of e.  That is,
-		// an expression which is 0 when e is 0, and 1 when e is non-zero.
-		norm := air_gadgets.Normalise(arg.Shift(-shift), airSchema)
-		//
-		return norm.Shift(shift)
+		return lowerNormTo(ctx, e, mirSchema, airSchema, cfg)
 	case *Sub:
 		args := lowerTerms(ctx, e.Args, mirSchema, airSchema, cfg)
 		return air.Subtract(args...)
@@ -398,6 +421,30 @@ func lowerExpTo(ctx trace.Context, e *Exp, mirSchema *Schema, airSchema *air.Sch
 	}
 	// Done
 	return air.Product(es...)
+}
+
+func lowerNormTo(ctx trace.Context, e *Norm, mirSchema *Schema, airSchema *air.Schema,
+	cfg OptimisationConfig) air.Expr {
+	// Lower the expression being normalised
+	arg := lowerTermToInner(ctx, e.Arg, mirSchema, airSchema, cfg)
+	// Determine appropriate shift
+	shift := 0
+	// Apply shift normalisation (if enabled)
+	if cfg.ShiftNormalisation {
+		// Determine shift ranges
+		min, max := shiftRangeOfTerm(e.Arg)
+		// determine shift amount
+		if max < 0 {
+			shift = max
+		} else if min > 0 {
+			shift = min
+		}
+	}
+	// Construct an expression representing the normalised value of e.  That is,
+	// an expression which is 0 when e is 0, and 1 when e is non-zero.
+	norm := air_gadgets.Normalise(arg.Shift(-shift), airSchema)
+	//
+	return norm.Shift(shift)
 }
 
 // Lower a set of zero or more MIR expressions.

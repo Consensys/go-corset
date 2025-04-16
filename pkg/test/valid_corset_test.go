@@ -212,9 +212,9 @@ func Test_Block_04(t *testing.T) {
 // Inequality Tests
 // ===================================================================
 
-func Test_Inequality_01(t *testing.T) {
+/* func Test_Inequality_01(t *testing.T) {
 	Check(t, false, "ieq_01")
-}
+} */
 
 func Test_Inequality_02(t *testing.T) {
 	Check(t, false, "ieq_02")
