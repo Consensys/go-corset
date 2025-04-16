@@ -65,6 +65,9 @@ func substituteTerm(mapping map[string]fr.Element, e Term) {
 		// do nout
 	case *Exp:
 		substituteTerm(mapping, e.Arg)
+	case *Equation:
+		substituteTerm(mapping, e.Lhs)
+		substituteTerm(mapping, e.Rhs)
 	case *IfZero:
 		substituteTerm(mapping, e.Condition)
 		// Subsitute true branch (if applicable)
