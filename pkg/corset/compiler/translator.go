@@ -600,6 +600,11 @@ func (t *translator) translateExpressionInModule(expr ast.Expr, module util.Path
 		return t.translateIfInModule(e, module, shift)
 	case *ast.List:
 		args, errs := t.translateExpressionsInModule(module, shift, e.Args...)
+		// Sanity check void
+		if len(args) == 0 {
+			return hir.VOID, errs
+		}
+		//
 		return hir.ListOf(args...), errs
 	case *ast.Mul:
 		args, errs := t.translateExpressionsInModule(module, shift, e.Args...)
@@ -645,6 +650,10 @@ func (t *translator) translateIfInModule(expr *ast.If, module util.Path, shift i
 	//
 	if len(errs) > 0 {
 		return hir.VOID, errs
+	}
+	// Propagate emptiness (if applicable)
+	if args[1] == hir.VOID && args[2] == hir.VOID {
+		return hir.VOID, nil
 	}
 	// Construct appropriate if form
 	return hir.If(args[0], args[1], args[2]), nil

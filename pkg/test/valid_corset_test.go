@@ -920,17 +920,17 @@ func Test_Reduce_05(t *testing.T) {
 // Debug
 // ===================================================================
 
-// IGNORED until typing comes before preprocessing
-//
-// func Test_Debug_01(t *testing.T) {
-// 	Check(t, false, "debug_01")
-// }
+func Test_Debug_01(t *testing.T) {
+	Check(t, false, "debug_01")
+}
 
-// IGNORED until typing comes before preprocessing
-//
-// func Test_Debug_02(t *testing.T) {
-// 	Check(t, false, "debug_02")
-// }
+func Test_Debug_02(t *testing.T) {
+	Check(t, false, "debug_02")
+}
+
+func Test_Debug_03(t *testing.T) {
+	Check(t, false, "debug_03")
+}
 
 // ===================================================================
 // Perspectives
