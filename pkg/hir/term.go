@@ -217,10 +217,6 @@ type LabelledConstant struct {
 // direction (right).  A constant has zero shift.
 func (p *LabelledConstant) Bounds() util.Bounds { return util.EMPTY_BOUND }
 
-// multiplicity returns the number of underlyg expressions that this
-// expression will expand to.
-func (p *LabelledConstant) multiplicity() uint { return 1 }
-
 // ============================================================================
 // List
 // ============================================================================
