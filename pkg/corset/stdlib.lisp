@@ -37,7 +37,8 @@
 (defpurefun ((eq! :𝔽@loob) x y) (- x y))
 (defpurefun ((neq! :binary@loob :force) x y) (not (~ (eq! x y))))
 
-(defpurefun ((eq :binary@bool :force) x y) (- 1 (~ (eq! x y))))
+;;(defpurefun ((eq :binary@bool :force) x y) (- 1 (~ (eq! x y))))
+(defpurefun ((eq :binary@bool :force) x y) (if (eq! x y) 1 0))
 (defpurefun ((neq :𝔽@bool) x y) (- x y))
 
 ;; Boolean functions
