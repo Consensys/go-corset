@@ -32,6 +32,8 @@ func evalAtTerm(e Term, k int, trace tr.Trace) (fr.Element, error) {
 		return evalAtAdd(e, k, trace)
 	case *Cast:
 		return evalAtCast(e, k, trace)
+	case *Connective:
+		return evalAtConnective(e, k, trace)
 	case *Constant:
 		return e.Value, nil
 	case *ColumnAccess:
@@ -89,6 +91,38 @@ func evalAtCast(e *Cast, k int, tr trace.Trace) (fr.Element, error) {
 	}
 	// All good
 	return val, err
+}
+
+func evalAtConnective(e *Connective, k int, tr trace.Trace) (fr.Element, error) {
+	if e.Sign {
+		return evalAtDisjunction(e, k, tr)
+	}
+	//
+	return evalAtConjunction(e, k, tr)
+}
+
+func evalAtDisjunction(e *Connective, k int, tr trace.Trace) (fr.Element, error) {
+	for _, arg := range e.Args {
+		ith, err := evalAtTerm(arg, k, tr)
+		//
+		if err != nil || ith.IsZero() {
+			return ith, err
+		}
+	}
+	//
+	return frONE, nil
+}
+
+func evalAtConjunction(e *Connective, k int, tr trace.Trace) (fr.Element, error) {
+	for _, arg := range e.Args {
+		ith, err := evalAtTerm(arg, k, tr)
+		//
+		if err != nil || !ith.IsZero() {
+			return ith, err
+		}
+	}
+	//
+	return frZERO, nil
 }
 
 func evalAtEquation(e *Equation, k int, tr trace.Trace) (fr.Element, error) {

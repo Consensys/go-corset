@@ -27,6 +27,8 @@ func contextOfTerm(e Term, schema sc.Schema) trace.Context {
 		return contextOfTerms(schema, e.Args...)
 	case *Cast:
 		return contextOfTerm(e.Arg, schema)
+	case *Connective:
+		return contextOfTerms(schema, e.Args...)
 	case *Constant:
 		return trace.VoidContext[uint]()
 	case *Equation:
@@ -82,6 +84,8 @@ func contextOfIfZero(p *IfZero, schema sc.Schema) trace.Context {
 func requiredColumnsOfTerm(e Term) *set.SortedSet[uint] {
 	switch e := e.(type) {
 	case *Add:
+		return requiredColumnsOfTerms(e.Args...)
+	case *Connective:
 		return requiredColumnsOfTerms(e.Args...)
 	case *Constant:
 		return set.NewSortedSet[uint]()
@@ -139,6 +143,8 @@ func requiredColumnsOfIfZero(p *IfZero) *set.SortedSet[uint] {
 func requiredCellsOfTerm(e Term, row int, tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
 	switch e := e.(type) {
 	case *Add:
+		return requiredCellsOfTerms(row, tr, e.Args...)
+	case *Connective:
 		return requiredCellsOfTerms(row, tr, e.Args...)
 	case *Constant:
 		return set.NewAnySortedSet[trace.CellRef]()

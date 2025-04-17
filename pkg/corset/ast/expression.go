@@ -35,12 +35,6 @@ type Expr interface {
 	// Evaluates this expression as a constant (signed) value.  If this
 	// expression is not constant, then nil is returned.
 	AsConstant() *big.Int
-	// Multiplicity defines the number of values which will be returned when
-	// evaluating this expression.  Due to the nature of expressions in Corset,
-	// they can (perhaps surprisingly) return multiple values.  For example,
-	// lists return one value for each element in the list.  Note, every
-	// expression must return at least one value.
-	Multiplicity() uint
 	// Context returns the context for this expression.  Observe that the
 	// expression must have been resolved for this to be defined (i.e. it may
 	// panic if it has not been resolved yet).
@@ -64,12 +58,6 @@ type Add struct{ Args []Expr }
 func (e *Add) AsConstant() *big.Int {
 	fn := func(l *big.Int, r *big.Int) { l.Add(l, r) }
 	return AsConstantOfExpressions(e.Args, fn)
-}
-
-// Multiplicity determines the number of values that evaluating this expression
-// can generate.
-func (e *Add) Multiplicity() uint {
-	return determineMultiplicity(e.Args)
 }
 
 // Context returns the context for this expression.  Observe that the
@@ -117,12 +105,6 @@ func (e *ArrayAccess) IsResolved() bool {
 // If this expression is not constant, then nil is returned.
 func (e *ArrayAccess) AsConstant() *big.Int {
 	return nil
-}
-
-// Multiplicity determines the number of values that evaluating this expression
-// can generate.
-func (e *ArrayAccess) Multiplicity() uint {
-	return determineMultiplicity([]Expr{e.Arg})
 }
 
 // Path returns the given path of this symbol.
@@ -204,12 +186,6 @@ func (e *Cast) AsConstant() *big.Int {
 	return e.Arg.AsConstant()
 }
 
-// Multiplicity determines the number of values that evaluating this expression
-// can generate.
-func (e *Cast) Multiplicity() uint {
-	return determineMultiplicity([]Expr{e.Arg})
-}
-
 // Context returns the context for this expression.  Observe that the
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
@@ -232,6 +208,47 @@ func (e *Cast) Dependencies() []Symbol {
 }
 
 // ============================================================================
+// Connective
+// ============================================================================
+
+// Connective represents a logical connective, such as logical AND / logical OR.
+type Connective struct {
+	Sign bool // true = OR, false = AND
+	Args []Expr
+}
+
+// AsConstant attempts to evaluate this expression as a constant (signed) value.
+// If this expression is not constant, then nil is returned.
+func (e *Connective) AsConstant() *big.Int {
+	fn := func(l *big.Int, r *big.Int) { l.Mul(l, r) }
+	return AsConstantOfExpressions(e.Args, fn)
+}
+
+// Context returns the context for this expression.  Observe that the
+// expression must have been resolved for this to be defined (i.e. it may
+// panic if it has not been resolved yet).
+func (e *Connective) Context() Context {
+	ctx, _ := ContextOfExpressions(e.Args...)
+	return ctx
+}
+
+// Lisp converts this schema element into a simple S-Expression, for example
+// so it can be printed.
+func (e *Connective) Lisp() sexp.SExp {
+	var symbol = "∧"
+	if e.Sign {
+		symbol = "∨"
+	}
+
+	return ListOfExpressions(sexp.NewSymbol(symbol), e.Args)
+}
+
+// Dependencies needed to signal declaration.
+func (e *Connective) Dependencies() []Symbol {
+	return DependenciesOfExpressions(e.Args)
+}
+
+// ============================================================================
 // Constants
 // ============================================================================
 
@@ -242,12 +259,6 @@ type Constant struct{ Val big.Int }
 // If this expression is not constant, then nil is returned.
 func (e *Constant) AsConstant() *big.Int {
 	return &e.Val
-}
-
-// Multiplicity determines the number of values that evaluating this expression
-// can generate.
-func (e *Constant) Multiplicity() uint {
-	return 1
 }
 
 // Context returns the context for this expression.  Observe that the
@@ -283,12 +294,6 @@ type Debug struct{ Arg Expr }
 // If this expression is not constant, then nil is returned.
 func (e *Debug) AsConstant() *big.Int {
 	return nil
-}
-
-// Multiplicity determines the number of values that evaluating this expression
-// can generate.
-func (e *Debug) Multiplicity() uint {
-	return determineMultiplicity([]Expr{e.Arg})
 }
 
 // Context returns the context for this expression.  Observe that the
@@ -385,12 +390,6 @@ func (e *Equation) AsConstant() *big.Int {
 	return big.NewInt(1)
 }
 
-// Multiplicity determines the number of values that evaluating this expression
-// can generate.
-func (e *Equation) Multiplicity() uint {
-	return determineMultiplicity([]Expr{e.Lhs, e.Rhs})
-}
-
 // Context returns the context for this expression.  Observe that the
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
@@ -467,12 +466,6 @@ func (e *Exp) AsConstant() *big.Int {
 	}
 	//
 	return nil
-}
-
-// Multiplicity determines the number of values that evaluating this expression
-// can generate.
-func (e *Exp) Multiplicity() uint {
-	return determineMultiplicity([]Expr{e.Arg})
 }
 
 // Context returns the context for this expression.  Observe that the
@@ -603,12 +596,6 @@ func (e *If) AsConstant() *big.Int {
 	return nil
 }
 
-// Multiplicity determines the number of values that evaluating this expression
-// can generate.
-func (e *If) Multiplicity() uint {
-	return determineMultiplicity([]Expr{e.Condition, e.TrueBranch, e.FalseBranch})
-}
-
 // Context returns the context for this expression.  Observe that the
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
@@ -662,13 +649,6 @@ func (e *Invoke) Context() Context {
 	return ctx
 }
 
-// Multiplicity determines the number of values that evaluating this expression
-// can generate.
-func (e *Invoke) Multiplicity() uint {
-	// FIXME: is this always correct?
-	return 1
-}
-
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
 func (e *Invoke) Lisp() sexp.SExp {
@@ -720,12 +700,6 @@ func NewLet(bindings []util.Pair[string, Expr], body Expr) *Let {
 // If this expression is not constant, then nil is returned.
 func (e *Let) AsConstant() *big.Int {
 	panic("todo")
-}
-
-// Multiplicity determines the number of values that evaluating this expression
-// can generate.
-func (e *Let) Multiplicity() uint {
-	return e.Body.Multiplicity()
 }
 
 // Context returns the context for this expression.  Observe that the
@@ -798,12 +772,6 @@ func (e *List) AsConstant() *big.Int {
 	return nil
 }
 
-// Multiplicity determines the number of values that evaluating this expression
-// can generate.
-func (e *List) Multiplicity() uint {
-	return determineMultiplicity(e.Args)
-}
-
 // Context returns the context for this expression.  Observe that the
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
@@ -835,12 +803,6 @@ type Mul struct{ Args []Expr }
 func (e *Mul) AsConstant() *big.Int {
 	fn := func(l *big.Int, r *big.Int) { l.Mul(l, r) }
 	return AsConstantOfExpressions(e.Args, fn)
-}
-
-// Multiplicity determines the number of values that evaluating this expression
-// can generate.
-func (e *Mul) Multiplicity() uint {
-	return determineMultiplicity(e.Args)
 }
 
 // Context returns the context for this expression.  Observe that the
@@ -884,12 +846,6 @@ func (e *Normalise) AsConstant() *big.Int {
 	return nil
 }
 
-// Multiplicity determines the number of values that evaluating this expression
-// can generate.
-func (e *Normalise) Multiplicity() uint {
-	return determineMultiplicity([]Expr{e.Arg})
-}
-
 // Context returns the context for this expression.  Observe that the
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
@@ -927,12 +883,6 @@ func (e *Reduce) AsConstant() *big.Int {
 	return nil
 }
 
-// Multiplicity determines the number of values that evaluating this expression
-// can generate.
-func (e *Reduce) Multiplicity() uint {
-	return 1
-}
-
 // Context returns the context for this expression.  Observe that the
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
@@ -967,12 +917,6 @@ type Sub struct{ Args []Expr }
 func (e *Sub) AsConstant() *big.Int {
 	fn := func(l *big.Int, r *big.Int) { l.Sub(l, r) }
 	return AsConstantOfExpressions(e.Args, fn)
-}
-
-// Multiplicity determines the number of values that evaluating this expression
-// can generate.
-func (e *Sub) Multiplicity() uint {
-	return determineMultiplicity(e.Args)
 }
 
 // Context returns the context for this expression.  Observe that the
@@ -1016,12 +960,6 @@ func (e *Shift) AsConstant() *big.Int {
 	// Observe the shift doesn't matter as, in the case that the argument is a
 	// constant, then the shift has no effect anyway.
 	return e.Arg.AsConstant()
-}
-
-// Multiplicity determines the number of values that evaluating this expression
-// can generate.
-func (e *Shift) Multiplicity() uint {
-	return determineMultiplicity([]Expr{e.Arg})
 }
 
 // Context returns the context for this expression.  Observe that the
@@ -1116,12 +1054,6 @@ func (e *VariableAccess) Binding() Binding {
 	return e.binding
 }
 
-// Multiplicity determines the number of values that evaluating this expression
-// can generate.
-func (e *VariableAccess) Multiplicity() uint {
-	return 1
-}
-
 // Context returns the context for this expression.  Observe that the
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
@@ -1199,6 +1131,9 @@ func Substitute(expr Expr, mapping map[uint]Expr, srcmap *source.Maps[Node]) Exp
 	case *Cast:
 		arg := Substitute(e.Arg, mapping, srcmap)
 		nexpr = &Cast{arg, e.Type, e.Unsafe}
+	case *Connective:
+		args := SubstituteAll(e.Args, mapping, srcmap)
+		nexpr = &Connective{e.Sign, args}
 	case *Constant:
 		return e
 	case *Debug:
@@ -1313,6 +1248,8 @@ func ShallowCopy(expr Expr) Expr {
 		return &Add{e.Args}
 	case *Cast:
 		return &Cast{e.Arg, e.Type, e.Unsafe}
+	case *Connective:
+		return &Connective{e.Sign, e.Args}
 	case *Constant:
 		return &Constant{e.Val}
 	case *Debug:
@@ -1394,16 +1331,4 @@ func AsConstantOfExpressions(exprs []Expr, fn func(*big.Int, *big.Int)) *big.Int
 	}
 	//
 	return &val
-}
-
-func determineMultiplicity(exprs []Expr) uint {
-	width := uint(1)
-	//
-	for _, e := range exprs {
-		if e != nil {
-			width *= e.Multiplicity()
-		}
-	}
-	//
-	return width
 }

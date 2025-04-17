@@ -115,10 +115,6 @@ func (e Expr) Lisp(schema sc.Schema) sexp.SExp {
 	return lispOfTerm(e.Term, schema)
 }
 
-// Multiplicity returns the number of underlying expressions that this
-// expression will expand to.
-func (e Expr) Multiplicity() uint { return e.Term.multiplicity() }
-
 // RequiredColumns returns the set of columns on which this term depends.
 // That is, columns whose values may be accessed when evaluating this term
 // on a given trace.
@@ -143,6 +139,16 @@ func Exponent(arg Expr, pow uint64) Expr {
 // within a given range.
 func CastOf(arg Expr, bitwidth uint) Expr {
 	return Expr{&Cast{arg.Term, bitwidth}}
+}
+
+// Disjunction constructs a logical disjunction of one or more terms.
+func Disjunction(exprs ...Expr) Expr {
+	return Expr{&Connective{true, asTerms(exprs...)}}
+}
+
+// Conjunction constructs a logical conjunction of one or more terms.
+func Conjunction(exprs ...Expr) Expr {
+	return Expr{&Connective{false, asTerms(exprs...)}}
 }
 
 // Equals constructs an equality between two expressions.

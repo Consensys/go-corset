@@ -269,6 +269,9 @@ func (p *typeChecker) typeCheckExpressionInModule(expected ast.Type, expr ast.Ex
 		}
 		// Discard actual type in favour of coerced type
 		result, errors = e.Type, errs
+	case *ast.Connective:
+		_, errors = p.typeCheckExpressionsInModule(ast.BOOL_TYPE, e.Args, true)
+		result = ast.BOOL_TYPE
 	case *ast.Constant:
 		nbits := e.Val.BitLen()
 		result = ast.NewUintType(uint(nbits))
