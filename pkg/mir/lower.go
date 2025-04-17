@@ -331,28 +331,25 @@ func lowerDisjunctTo(ctx trace.Context, c Disjunction, mirSchema *Schema, airSch
 
 func lowerEquationTo(ctx trace.Context, e Equation, mirSchema *Schema, airSchema *air.Schema,
 	cfg OptimisationConfig) air.Expr {
-	var (
-		lhs = lowerTermTo(ctx, e.lhs, mirSchema, airSchema, cfg)
-		rhs = lowerTermTo(ctx, e.rhs, mirSchema, airSchema, cfg)
-	)
+	var term Term
 	//
 	switch e.kind {
 	case EQUALS:
 		// NOTE: the ordering of this subtraction can have certain impacts, such as
 		// aligning computed columns (or not).  Therefore, ideally, we'd take
 		// greater care at this point to chose the best way around.
-		return air.Subtract(lhs, rhs)
+		term = &Sub{[]Term{e.lhs, e.rhs}}
 	case NOT_EQUALS:
 		// (1 - NORM(lhs - rhs))
-		tmp := &Norm{&Sub{[]Term{e.lhs, e.rhs}}}
-		norm := lowerTermTo(ctx, tmp, mirSchema, airSchema, cfg)
-		//
-		return air.Subtract(air.NewConst64(1), norm)
+		term = &Norm{&Sub{[]Term{e.lhs, e.rhs}}}
+		term = &Sub{[]Term{ONE.term, term}}
 	case GREATER_THAN, GREATER_THAN_EQUALS, LESS_THAN, LESS_THAN_EQUALS:
 		panic("translation of inequalities not supported")
 	default:
 		panic("unknown equation")
 	}
+	//
+	return lowerTermTo(ctx, term, mirSchema, airSchema, cfg)
 }
 
 // Lower an expression into the Arithmetic Intermediate Representation.
