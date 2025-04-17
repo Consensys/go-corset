@@ -57,19 +57,27 @@ func lispOfDisjunction(schema sc.Schema, disjunction Disjunction) sexp.SExp {
 }
 
 func lispOfEquation(schema sc.Schema, e Equation) sexp.SExp {
-	var symbol sexp.SExp
+	var symbol string
 
 	switch e.kind {
 	case EQUALS:
-		symbol = sexp.NewSymbol("==")
+		symbol = "=="
 	case NOT_EQUALS:
-		symbol = sexp.NewSymbol("!=")
+		symbol = "!="
+	case LESS_THAN:
+		symbol = "<"
+	case LESS_THAN_EQUALS:
+		symbol = "<="
+	case GREATER_THAN_EQUALS:
+		symbol = ">="
+	case GREATER_THAN:
+		symbol = ">"
 	default:
-		panic("unknown equation")
+		panic("unreachable")
 	}
 	//
 	return sexp.NewList([]sexp.SExp{
-		symbol,
+		sexp.NewSymbol(symbol),
 		lispOfTerm(e.lhs, schema),
 		lispOfTerm(e.rhs, schema),
 	})

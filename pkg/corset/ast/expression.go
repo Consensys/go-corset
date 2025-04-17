@@ -315,10 +315,26 @@ func (e *Debug) Dependencies() []Symbol {
 // Equality
 // ============================================================================
 
-// Equals represents either an equality (e.g. X==Y) or an non-equality (X!=Y).
-type Equals struct {
+const (
+	// EQUALS indicates an equals (==) relationship
+	EQUALS uint8 = 0
+	// NOT_EQUALS indicates a not-equals (!=) relationship
+	NOT_EQUALS uint8 = 1
+	// LESS_THAN indicates a less-than (<) relationship
+	LESS_THAN uint8 = 2
+	// LESS_THAN_EQUALS indicates a less-than-or-equals (<=) relationship
+	LESS_THAN_EQUALS uint8 = 3
+	// GREATER_THAN indicates a greater-than (>) relationship
+	GREATER_THAN uint8 = 4
+	// GREATER_THAN_EQUALS indicates a greater-than-or-equals (>=) relationship
+	GREATER_THAN_EQUALS uint8 = 5
+)
+
+// Equation represents either an equality (e.g. X==Y), a non-equality (X!=Y), or
+// an inequality (X<=Y, X<Y, etc).
+type Equation struct {
 	// Indicates equality (true) or non-equality (false).
-	Sign bool
+	Kind uint8
 	// Left-Hand Side
 	Lhs Expr
 	// Right-Hand Side
@@ -327,7 +343,7 @@ type Equals struct {
 
 // AsConstant attempts to evaluate this expression as a constant (signed) value.
 // If this expression is not constant, then nil is returned.
-func (e *Equals) AsConstant() *big.Int {
+func (e *Equation) AsConstant() *big.Int {
 	lhs := e.Lhs.AsConstant()
 	rhs := e.Lhs.AsConstant()
 	//
@@ -335,11 +351,35 @@ func (e *Equals) AsConstant() *big.Int {
 		return nil
 	}
 	// Determine relationship
-	cmp := (lhs.Cmp(rhs) == 0)
+	cmp := lhs.Cmp(rhs)
 	//
-	if e.Sign == cmp {
-		// true
-		return big.NewInt(0)
+	switch e.Kind {
+	case EQUALS:
+		if cmp == 0 {
+			return big.NewInt(0)
+		}
+	case NOT_EQUALS:
+		if cmp != 0 {
+			return big.NewInt(0)
+		}
+	case LESS_THAN:
+		if cmp < 0 {
+			return big.NewInt(0)
+		}
+	case LESS_THAN_EQUALS:
+		if cmp <= 0 {
+			return big.NewInt(0)
+		}
+	case GREATER_THAN_EQUALS:
+		if cmp >= 0 {
+			return big.NewInt(0)
+		}
+	case GREATER_THAN:
+		if cmp > 0 {
+			return big.NewInt(0)
+		}
+	default:
+		panic("unreachable")
 	}
 	// false
 	return big.NewInt(1)
@@ -347,27 +387,38 @@ func (e *Equals) AsConstant() *big.Int {
 
 // Multiplicity determines the number of values that evaluating this expression
 // can generate.
-func (e *Equals) Multiplicity() uint {
+func (e *Equation) Multiplicity() uint {
 	return determineMultiplicity([]Expr{e.Lhs, e.Rhs})
 }
 
 // Context returns the context for this expression.  Observe that the
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
-func (e *Equals) Context() Context {
+func (e *Equation) Context() Context {
 	ctx, _ := ContextOfExpressions(e.Lhs, e.Rhs)
 	return ctx
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (e *Equals) Lisp() sexp.SExp {
+func (e *Equation) Lisp() sexp.SExp {
 	var symbol sexp.SExp
 	//
-	if e.Sign {
+	switch e.Kind {
+	case EQUALS:
 		symbol = sexp.NewSymbol("==")
-	} else {
+	case NOT_EQUALS:
 		symbol = sexp.NewSymbol("!=")
+	case LESS_THAN:
+		symbol = sexp.NewSymbol("<")
+	case LESS_THAN_EQUALS:
+		symbol = sexp.NewSymbol("<=")
+	case GREATER_THAN_EQUALS:
+		symbol = sexp.NewSymbol(">=")
+	case GREATER_THAN:
+		symbol = sexp.NewSymbol(">")
+	default:
+		panic("unreachable")
 	}
 	//
 	return sexp.NewList([]sexp.SExp{
@@ -377,17 +428,17 @@ func (e *Equals) Lisp() sexp.SExp {
 }
 
 // Dependencies needed to signal declaration.
-func (e *Equals) Dependencies() []Symbol {
+func (e *Equation) Dependencies() []Symbol {
 	return DependenciesOfExpressions([]Expr{e.Lhs, e.Rhs})
 }
 
 // LeftHandSide returns the left-hand side of this condition.
-func (e *Equals) LeftHandSide() Expr {
+func (e *Equation) LeftHandSide() Expr {
 	return e.Lhs
 }
 
 // RightHandSide returns the right-hand side of this condition.
-func (e *Equals) RightHandSide() Expr {
+func (e *Equation) RightHandSide() Expr {
 	return e.Rhs
 }
 
@@ -1153,11 +1204,11 @@ func Substitute(expr Expr, mapping map[uint]Expr, srcmap *source.Maps[Node]) Exp
 	case *Debug:
 		arg := Substitute(e.Arg, mapping, srcmap)
 		nexpr = &Debug{arg}
-	case *Equals:
+	case *Equation:
 		lhs := Substitute(e.Lhs, mapping, srcmap)
 		rhs := Substitute(e.Rhs, mapping, srcmap)
 		// Done
-		nexpr = &Equals{e.Sign, lhs, rhs}
+		nexpr = &Equation{e.Kind, lhs, rhs}
 	case *Exp:
 		arg := Substitute(e.Arg, mapping, srcmap)
 		pow := Substitute(e.Pow, mapping, srcmap)
@@ -1266,8 +1317,8 @@ func ShallowCopy(expr Expr) Expr {
 		return &Constant{e.Val}
 	case *Debug:
 		return &Debug{e.Arg}
-	case *Equals:
-		return &Equals{e.Sign, e.Lhs, e.Rhs}
+	case *Equation:
+		return &Equation{e.Kind, e.Lhs, e.Rhs}
 	case *Exp:
 		return &Exp{e.Arg, e.Pow}
 	case *For:

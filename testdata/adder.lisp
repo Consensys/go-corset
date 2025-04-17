@@ -72,6 +72,9 @@
               ;; Else, CT[k]+1 == CT[k+1]
               (eq! (+ 1 CT) (next CT))))
 
+;; This should always be true for CT.
+(defproperty ct-bound (or! (== ST 0) (<= CT CT_MAX)))
+
 ;; ===================================================================
 ;; Decompositions & Constancies
 ;; ===================================================================

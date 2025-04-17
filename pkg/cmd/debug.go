@@ -138,6 +138,11 @@ func printSchema(schema schema.Schema) {
 		ith := i.Next()
 		fmt.Println(ith.Lisp(schema).String(true))
 	}
+
+	for i := schema.Assertions(); i.HasNext(); {
+		ith := i.Next()
+		fmt.Println(ith.Lisp(schema).String(true))
+	}
 }
 
 func printAttributes(attrs []binfile.Attribute) {

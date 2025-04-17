@@ -301,11 +301,11 @@ func (p *preprocessor) preprocessExpressionInModule(expr ast.Expr) (ast.Expr, []
 		}
 		// When debug is not enabled, return "void".
 		return nil, nil
-	case *ast.Equals:
+	case *ast.Equation:
 		lhs, errs1 := p.preprocessExpressionInModule(e.Lhs)
 		rhs, errs2 := p.preprocessExpressionInModule(e.Rhs)
 		// Done
-		nexpr, errors = &ast.Equals{Sign: e.Sign, Lhs: lhs, Rhs: rhs}, append(errs1, errs2...)
+		nexpr, errors = &ast.Equation{Kind: e.Kind, Lhs: lhs, Rhs: rhs}, append(errs1, errs2...)
 	case *ast.Exp:
 		arg, errs1 := p.preprocessExpressionInModule(e.Arg)
 		pow, errs2 := p.preprocessExpressionInModule(e.Pow)

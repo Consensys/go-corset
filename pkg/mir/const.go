@@ -21,9 +21,6 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 )
 
-var frZERO = fr.NewElement(0)
-var frONE = fr.NewElement(1)
-
 // Constant Propagation simply collapses constant expressions down to single
 // values.  For example, "(+ 1 2)" would be collapsed down to "3".  This is then
 // progagated throughout an expression, so that e.g. "(+ X (+ 1 2))" becomes "(+
