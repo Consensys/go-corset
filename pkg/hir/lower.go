@@ -130,6 +130,18 @@ func extractConstraint(t Term, mirSchema *mir.Schema, hirSchema *Schema) mir.Con
 	switch e := t.(type) {
 	case *Cast:
 		return extractConstraint(e.Arg, mirSchema, hirSchema)
+	case *Connective:
+		constraints := make([]mir.Constraint, len(e.Args))
+		//
+		for i, t := range e.Args {
+			constraints[i] = extractConstraint(t, mirSchema, hirSchema)
+		}
+		//
+		if e.Sign {
+			return mir.Disjunct(constraints...)
+		}
+		//
+		return mir.Conjunct(constraints...)
 	case *Equation:
 		lhs := extractExpression(e.Lhs, mirSchema, hirSchema)
 		rhs := extractExpression(e.Rhs, mirSchema, hirSchema)

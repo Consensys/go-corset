@@ -26,6 +26,12 @@ func lispOfTerm(e Term, schema sc.Schema) sexp.SExp {
 		return nary2Lisp(schema, "+", e.Args...)
 	case *Cast:
 		return lispOfCast(e, schema)
+	case *Connective:
+		if e.Sign {
+			return nary2Lisp(schema, "∨", e.Args...)
+		}
+		//
+		return nary2Lisp(schema, "∧", e.Args...)
 	case *Constant:
 		return sexp.NewSymbol(e.Value.String())
 	case *ColumnAccess:

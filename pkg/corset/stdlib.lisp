@@ -15,7 +15,7 @@
 (defpurefun ((force-bin :binary :force) x) x)
 (defpurefun (is-binary (e0 :int)) (or! (== e0 0) (== e0 1)))
 ;; =============================================================================
-;; Conditionals
+;; Conditionals (DEPRECATED)
 ;; =============================================================================
 (defpurefun (if-zero (cond :int) (then :any)) (if (== cond 0) then))
 (defpurefun (if-zero (cond :int) (then :any) (else :any)) (if (== cond 0) then else))
@@ -29,14 +29,18 @@
 (defpurefun (if-not (cond :bool) (then :any) (else :any)) (if (not! cond) then else))
 
 ;; =============================================================================
-;; Boolean connectives
+;; Boolean connectives (DEPRECATED)
 ;; =============================================================================
-(defpurefun (or! (a :bool) (b :bool)) (if a (== 0 0) b))
-(defpurefun (or! (a :bool) (b :bool) (c :bool)) (or! a (or! b c)))
-(defpurefun (or! (a :bool) (b :bool) (c :bool) (d :bool)) (or! a (or! b c d)))
-(defpurefun (or! (a :bool) (b :bool) (c :bool) (d :bool) (e :bool)) (or! a (or! b c d e)))
-(defpurefun (or! (a :bool) (b :bool) (c :bool) (d :bool) (e :bool) (f :bool)) (or! a (or! b c d e f)))
-(defpurefun (and! (a :bool) (b :bool)) (if a b (!= 0 0)))
+(defpurefun (or! (a :bool) (b :bool)) (∨ a b))
+(defpurefun (or! (a :bool) (b :bool) (c :bool)) (∨ a b c))
+(defpurefun (or! (a :bool) (b :bool) (c :bool) (d :bool)) (∨ a b c d))
+(defpurefun (or! (a :bool) (b :bool) (c :bool) (d :bool) (e :bool)) (∨ a b c d e))
+(defpurefun (or! (a :bool) (b :bool) (c :bool) (d :bool) (e :bool) (f :bool)) (∨ a b c d e f))
+(defpurefun (and! (a :bool) (b :bool)) (∧ a b))
+(defpurefun (and! (a :bool) (b :bool) (c :bool)) (∧ a b c))
+(defpurefun (and! (a :bool) (b :bool) (c :bool) (d :bool)) (∧ a b c d))
+(defpurefun (and! (a :bool) (b :bool) (c :bool) (d :bool) (e :bool)) (∧ a b c d e))
+(defpurefun (and! (a :bool) (b :bool) (c :bool) (d :bool) (e :bool) (f :bool)) (∧ a b c d e f))
 (defpurefun ((eq! :bool) (x :int) (y :int)) (== x y))
 (defpurefun ((neq! :bool) (x :int) (y :int)) (!= x y))
 (defpurefun ((not! :bool) (x :bool)) (if x (!= 0 0) (== 0 0)))

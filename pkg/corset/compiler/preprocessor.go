@@ -293,6 +293,9 @@ func (p *preprocessor) preprocessExpressionInModule(expr ast.Expr) (ast.Expr, []
 	case *ast.Cast:
 		arg, errs := p.preprocessExpressionInModule(e.Arg)
 		nexpr, errors = &ast.Cast{Arg: arg, Type: e.Type, Unsafe: e.Unsafe}, errs
+	case *ast.Connective:
+		args, errs := p.preprocessExpressionsInModule(e.Args)
+		nexpr, errors = &ast.Connective{Sign: e.Sign, Args: args}, errs
 	case *ast.Constant:
 		return e, nil
 	case *ast.Debug:
