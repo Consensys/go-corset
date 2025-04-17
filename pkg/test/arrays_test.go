@@ -64,3 +64,35 @@ func check_RemoveMatching(t *testing.T, original []int, item int, expected []int
 		t.Errorf("removing %d from %v got %v", item, original, actual)
 	}
 }
+
+// ============================================================================
+// Reverse
+// ============================================================================
+
+func Test_Reverse_01(t *testing.T) {
+	check_Reverse(t, []int{}, []int{})
+}
+
+func Test_Reverse_02(t *testing.T) {
+	check_Reverse(t, []int{1}, []int{1})
+}
+
+func Test_Reverse_03(t *testing.T) {
+	check_Reverse(t, []int{1, 2}, []int{2, 1})
+}
+
+func Test_Reverse_04(t *testing.T) {
+	check_Reverse(t, []int{1, 2, 3}, []int{3, 2, 1})
+}
+
+func Test_Reverse_05(t *testing.T) {
+	check_Reverse(t, []int{1, 2, 3, 4}, []int{4, 3, 2, 1})
+}
+
+func check_Reverse(t *testing.T, original []int, expected []int) {
+	actual := util.Reverse(original)
+	//
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf("reversing %v gave %v", original, actual)
+	}
+}

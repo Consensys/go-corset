@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/go-corset/pkg/asm"
 	"github.com/consensys/go-corset/pkg/binfile"
 	legacy_binfile "github.com/consensys/go-corset/pkg/binfile/legacy"
 	"github.com/consensys/go-corset/pkg/corset"
@@ -546,6 +547,9 @@ func ReadConstraintFiles(config corset.CompilationConfig, filenames []string) *b
 	} else if len(filenames) == 1 && path.Ext(filenames[0]) == ".bin" {
 		// Single (binary) file supplied
 		return ReadBinaryFile(filenames[0])
+	} else if len(filenames) == 1 && path.Ext(filenames[0]) == ".zkasm" {
+		// Single (asm) file supplied
+		return ReadAssemblyFile(filenames[0])
 	}
 	// Recursively expand any directories given in the list of filenames.
 	if filenames, err = expandSourceFiles(filenames); err != nil {
@@ -554,6 +558,34 @@ func ReadConstraintFiles(config corset.CompilationConfig, filenames []string) *b
 	}
 	// Must be source files
 	return CompileSourceFiles(config, filenames)
+}
+
+// ReadAssemblyFile reads a set of constraints which are expressed as an
+// assembly file.
+func ReadAssemblyFile(filename string) *binfile.BinaryFile {
+	// Read schema file
+	bytes, err := os.ReadFile(filename)
+	// Sanity check for errors
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(3)
+	}
+	// Construct source file
+	srcfile := source.NewSourceFile(filename, bytes)
+	// Attempt to assemble source file
+	fns, errs := asm.Assemble(srcfile)
+	// Check for any errors
+	if len(errs) == 0 {
+		panic(fmt.Sprintf("parsed %d functions.", len(fns)))
+	}
+	// Report errors
+	for _, err := range errs {
+		printSyntaxError(&err)
+	}
+	// Fail
+	os.Exit(4)
+	// unreachable
+	return nil
 }
 
 // ReadBinaryFile reads a binfile which includes the metadata bytes, along with

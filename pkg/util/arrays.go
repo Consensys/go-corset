@@ -244,6 +244,20 @@ func RemoveMatchingIndexed[T any](items []T, predicate func(int, T) bool) []T {
 	return items
 }
 
+// Reverse reverses the contents of an array.
+func Reverse[T any](items []T) []T {
+	var (
+		n      = len(items) - 1
+		nitems = make([]T, len(items))
+	)
+	// Write in reverse order
+	for i := range items {
+		nitems[i] = items[n-i]
+	}
+	//
+	return nitems
+}
+
 // Flatten flattens items from an array which expand into arrays of terms.
 func Flatten[T any](items []T, fn func(T) []T) []T {
 	for _, t := range items {
