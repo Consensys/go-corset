@@ -170,9 +170,9 @@
                      (shift BITS (- 0 7))))))
 
 (defconstraint no-neg-if-small ()
-  (if-not (== CT_MAX LLARGEMO)
-          (begin (== NEG_1 0)
-                 (== NEG_2 0))))
+  (if (!= CT_MAX LLARGEMO)
+      (begin (== NEG_1 0)
+             (== NEG_2 0))))
 
 (defun (first-eight-bits-bit-dec)
   (reduce +
