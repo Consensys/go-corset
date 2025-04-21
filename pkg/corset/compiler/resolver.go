@@ -746,6 +746,8 @@ func (r *resolver) finaliseExpressionInModule(scope LocalScope, expr ast.Expr) [
 		return r.finaliseExpressionsInModule(scope, v.Args)
 	case *ast.Normalise:
 		return r.finaliseExpressionInModule(scope, v.Arg)
+	case *ast.Not:
+		return r.finaliseExpressionInModule(scope, v.Arg)
 	case *ast.Reduce:
 		return r.finaliseReduceInModule(scope, v)
 	case *ast.Shift:

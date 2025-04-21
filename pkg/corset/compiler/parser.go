@@ -170,6 +170,7 @@ func NewParser(srcfile *source.File, srcmap *source.Map[sexp.SExp]) *Parser {
 	p.AddRecursiveListRule("*", mulParserRule)
 	p.AddRecursiveListRule("~", normParserRule)
 	p.AddRecursiveListRule("^", powParserRule)
+	p.AddRecursiveListRule("¬", logicalNegationRule)
 	p.AddRecursiveListRule("∨", logicalParserRule)
 	p.AddRecursiveListRule("∧", logicalParserRule)
 	p.AddRecursiveListRule("==", eqParserRule)
@@ -1726,6 +1727,14 @@ func logicalParserRule(op string, args []ast.Expr) (ast.Expr, error) {
 	}
 	//
 	panic("unreachable")
+}
+
+func logicalNegationRule(op string, args []ast.Expr) (ast.Expr, error) {
+	if len(args) != 1 {
+		return nil, errors.New("incorrect number of arguments")
+	}
+	//
+	return &ast.Not{Arg: args[0]}, nil
 }
 
 func normParserRule(_ string, args []ast.Expr) (ast.Expr, error) {

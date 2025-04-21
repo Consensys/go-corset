@@ -48,6 +48,8 @@ func contextOfTerm(e Term, schema sc.Schema) trace.Context {
 		return contextOfTerms(schema, e.Args...)
 	case *Norm:
 		return contextOfTerm(e.Arg, schema)
+	case *Not:
+		return contextOfTerm(e.Arg, schema)
 	case *Sub:
 		return contextOfTerms(schema, e.Args...)
 	default:
@@ -104,6 +106,8 @@ func requiredColumnsOfTerm(e Term) *set.SortedSet[uint] {
 	case *Mul:
 		return requiredColumnsOfTerms(e.Args...)
 	case *Norm:
+		return requiredColumnsOfTerm(e.Arg)
+	case *Not:
 		return requiredColumnsOfTerm(e.Arg)
 	case *Sub:
 		return requiredColumnsOfTerms(e.Args...)
@@ -163,6 +167,8 @@ func requiredCellsOfTerm(e Term, row int, tr trace.Trace) *set.AnySortedSet[trac
 	case *Mul:
 		return requiredCellsOfTerms(row, tr, e.Args...)
 	case *Norm:
+		return requiredCellsOfTerm(e.Arg, row, tr)
+	case *Not:
 		return requiredCellsOfTerm(e.Arg, row, tr)
 	case *Sub:
 		return requiredCellsOfTerms(row, tr, e.Args...)

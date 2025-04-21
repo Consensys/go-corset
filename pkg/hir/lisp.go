@@ -51,6 +51,8 @@ func lispOfTerm(e Term, schema sc.Schema) sexp.SExp {
 		return nary2Lisp(schema, "*", e.Args...)
 	case *Norm:
 		return lispOfNormalise(e, schema)
+	case *Not:
+		return nary2Lisp(schema, "¬", e.Arg)
 	case *Sub:
 		return nary2Lisp(schema, "-", e.Args...)
 	default:

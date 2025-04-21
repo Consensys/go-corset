@@ -91,6 +91,8 @@ func substituteTerm(mapping map[string]fr.Element, e Term) {
 		substituteTerms(mapping, e.Args)
 	case *Norm:
 		substituteTerm(mapping, e.Arg)
+	case *Not:
+		substituteTerm(mapping, e.Arg)
 	case *Sub:
 		substituteTerms(mapping, e.Args)
 	default:

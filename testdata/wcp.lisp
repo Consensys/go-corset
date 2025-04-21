@@ -121,7 +121,7 @@
   (∨ (will-remain-constant! STAMP) (will-inc! STAMP 1)))
 
 (defconstraint counter-reset ()
-  (if (not! (will-remain-constant! STAMP))
+  (if (¬ (will-remain-constant! STAMP))
       (== (next CT) 0)))
 
 (defconstraint setting-ct-max ()

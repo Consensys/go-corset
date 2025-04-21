@@ -252,6 +252,17 @@ type Norm struct{ Arg Term }
 func (p *Norm) Bounds() util.Bounds { return p.Arg.Bounds() }
 
 // ============================================================================
+// Not
+// ============================================================================
+
+// Not represents the logical negation of its argument.
+type Not struct{ Arg Term }
+
+// Bounds returns max shift in either the negative (left) or positive
+// direction (right).
+func (p *Not) Bounds() util.Bounds { return p.Arg.Bounds() }
+
+// ============================================================================
 // Subtraction
 // ============================================================================
 
@@ -271,6 +282,7 @@ func init() {
 	gob.Register(Term(&Mul{}))
 	gob.Register(Term(&Sub{}))
 	gob.Register(Term(&Cast{}))
+	gob.Register(Term(&Connective{}))
 	gob.Register(Term(&Equation{}))
 	gob.Register(Term(&Exp{}))
 	gob.Register(Term(&IfZero{}))
@@ -278,5 +290,6 @@ func init() {
 	gob.Register(Term(&Constant{}))
 	gob.Register(Term(&LabelledConstant{}))
 	gob.Register(Term(&Norm{}))
+	gob.Register(Term(&Not{}))
 	gob.Register(Term(&ColumnAccess{}))
 }

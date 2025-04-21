@@ -628,6 +628,9 @@ func (t *translator) translateExpressionInModule(expr ast.Expr, module util.Path
 	case *ast.Normalise:
 		arg, errs := t.translateExpressionInModule(e.Arg, module, shift)
 		return hir.Normalise(arg), errs
+	case *ast.Not:
+		arg, errs := t.translateExpressionInModule(e.Arg, module, shift)
+		return hir.Negation(arg), errs
 	case *ast.Sub:
 		args, errs := t.translateExpressionsInModule(module, shift, e.Args...)
 		return hir.Subtract(args...), errs

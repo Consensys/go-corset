@@ -867,6 +867,48 @@ func (e *Normalise) Dependencies() []Symbol {
 }
 
 // ============================================================================
+// Not
+// ============================================================================
+
+// Not performs a logical negation on its argument.
+type Not struct{ Arg Expr }
+
+// AsConstant attempts to evaluate this expression as a constant (signed) value.
+// If this expression is not constant, then nil is returned.
+func (e *Not) AsConstant() *big.Int {
+	if arg := e.Arg.AsConstant(); arg != nil {
+		if arg.Cmp(big.NewInt(0)) != 0 {
+			// false => true
+			return big.NewInt(0)
+		}
+		// true => false
+		return big.NewInt(1)
+	}
+	//
+	return nil
+}
+
+// Context returns the context for this expression.  Observe that the
+// expression must have been resolved for this to be defined (i.e. it may
+// panic if it has not been resolved yet).
+func (e *Not) Context() Context {
+	return e.Arg.Context()
+}
+
+// Lisp converts this schema element into a simple S-Expression, for example
+// so it can be printed.
+func (e *Not) Lisp() sexp.SExp {
+	return sexp.NewList([]sexp.SExp{
+		sexp.NewSymbol("¬"),
+		e.Arg.Lisp()})
+}
+
+// Dependencies needed to signal declaration.
+func (e *Not) Dependencies() []Symbol {
+	return e.Arg.Dependencies()
+}
+
+// ============================================================================
 // Reduction
 // ============================================================================
 
@@ -1174,6 +1216,9 @@ func Substitute(expr Expr, mapping map[uint]Expr, srcmap *source.Maps[Node]) Exp
 	case *Normalise:
 		arg := Substitute(e.Arg, mapping, srcmap)
 		nexpr = &Normalise{arg}
+	case *Not:
+		arg := Substitute(e.Arg, mapping, srcmap)
+		nexpr = &Not{arg}
 	case *Reduce:
 		arg := Substitute(e.Arg, mapping, srcmap)
 		nexpr = &Reduce{e.Name, arg}
@@ -1270,6 +1315,8 @@ func ShallowCopy(expr Expr) Expr {
 		return &Mul{e.Args}
 	case *Normalise:
 		return &Normalise{e.Arg}
+	case *Not:
+		return &Not{e.Arg}
 	case *Reduce:
 		return &Reduce{e.Name, e.Arg}
 	case *Sub:

@@ -334,6 +334,9 @@ func (p *preprocessor) preprocessExpressionInModule(expr ast.Expr) (ast.Expr, []
 	case *ast.Normalise:
 		arg, errs := p.preprocessExpressionInModule(e.Arg)
 		nexpr, errors = &ast.Normalise{Arg: arg}, errs
+	case *ast.Not:
+		arg, errs := p.preprocessExpressionInModule(e.Arg)
+		nexpr, errors = &ast.Not{Arg: arg}, errs
 	case *ast.Reduce:
 		return p.preprocessReduceInModule(e)
 	case *ast.Sub:

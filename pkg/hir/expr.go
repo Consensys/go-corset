@@ -151,6 +151,11 @@ func Conjunction(exprs ...Expr) Expr {
 	return Expr{&Connective{false, asTerms(exprs...)}}
 }
 
+// Negation construct the logical negation of a given term
+func Negation(expr Expr) Expr {
+	return Expr{&Not{expr.Term}}
+}
+
 // Equals constructs an equality between two expressions.
 func Equals(lhs Expr, rhs Expr) Expr {
 	return Expr{&Equation{EQUALS, lhs.Term, rhs.Term}}

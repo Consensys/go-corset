@@ -172,6 +172,9 @@ func extractConstraint(t Term, mirSchema *mir.Schema, hirSchema *Schema) mir.Con
 		}
 		//
 		return mir.Conjunct(constraints...)
+	case *Not:
+		arg := extractConstraint(e.Arg, mirSchema, hirSchema)
+		return mir.Negate(arg)
 	default:
 		panic(fmt.Sprintf("unknown HIR constraint \"%s\"", lispOfTerm(t, hirSchema).String(false)))
 	}

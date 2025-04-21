@@ -53,6 +53,8 @@ func evalAtTerm(e Term, k int, trace tr.Trace) (fr.Element, error) {
 		return evalAtMul(e, k, trace)
 	case *Norm:
 		return evalAtNormalise(e, k, trace)
+	case *Not:
+		return evalAtNot(e, k, trace)
 	case *Sub:
 		return evalAtSub(e, k, trace)
 	default:
@@ -221,6 +223,18 @@ func evalAtNormalise(e *Norm, k int, tr trace.Trace) (fr.Element, error) {
 	}
 	// Done
 	return val, err
+}
+
+func evalAtNot(e *Not, k int, tr trace.Trace) (fr.Element, error) {
+	// Check whether argument evaluates to zero or not.
+	val, err := evalAtTerm(e.Arg, k, tr)
+	// Negate value
+	if val.IsZero() {
+		// 0 => 1
+		return frONE, nil
+	}
+	// 1+ => 0
+	return frZERO, err
 }
 
 func evalAtList(e *List, k int, tr trace.Trace) (fr.Element, error) {

@@ -310,6 +310,9 @@ func (p *typeChecker) typeCheckExpressionInModule(expected ast.Type, expr ast.Ex
 		_, errors = p.typeCheckExpressionInModule(ast.INT_TYPE, e.Arg, true)
 		// Normalise guaranteed to return either 0 or 1.
 		result = ast.NewUintType(1)
+	case *ast.Not:
+		_, errors = p.typeCheckExpressionInModule(ast.BOOL_TYPE, e.Arg, true)
+		result = ast.BOOL_TYPE
 	case *ast.Reduce:
 		result, errors = p.typeCheckReduceInModule(e)
 	case *ast.Shift:
