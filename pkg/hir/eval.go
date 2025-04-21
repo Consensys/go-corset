@@ -32,6 +32,8 @@ func evalAtTerm(e Term, k int, trace tr.Trace) (fr.Element, error) {
 		return evalAtAdd(e, k, trace)
 	case *Cast:
 		return evalAtCast(e, k, trace)
+	case *Connective:
+		return evalAtConnective(e, k, trace)
 	case *Constant:
 		return e.Value, nil
 	case *ColumnAccess:
@@ -51,6 +53,8 @@ func evalAtTerm(e Term, k int, trace tr.Trace) (fr.Element, error) {
 		return evalAtMul(e, k, trace)
 	case *Norm:
 		return evalAtNormalise(e, k, trace)
+	case *Not:
+		return evalAtNot(e, k, trace)
 	case *Sub:
 		return evalAtSub(e, k, trace)
 	default:
@@ -89,6 +93,38 @@ func evalAtCast(e *Cast, k int, tr trace.Trace) (fr.Element, error) {
 	}
 	// All good
 	return val, err
+}
+
+func evalAtConnective(e *Connective, k int, tr trace.Trace) (fr.Element, error) {
+	if e.Sign {
+		return evalAtDisjunction(e, k, tr)
+	}
+	//
+	return evalAtConjunction(e, k, tr)
+}
+
+func evalAtDisjunction(e *Connective, k int, tr trace.Trace) (fr.Element, error) {
+	for _, arg := range e.Args {
+		ith, err := evalAtTerm(arg, k, tr)
+		//
+		if err != nil || ith.IsZero() {
+			return ith, err
+		}
+	}
+	//
+	return frONE, nil
+}
+
+func evalAtConjunction(e *Connective, k int, tr trace.Trace) (fr.Element, error) {
+	for _, arg := range e.Args {
+		ith, err := evalAtTerm(arg, k, tr)
+		//
+		if err != nil || !ith.IsZero() {
+			return ith, err
+		}
+	}
+	//
+	return frZERO, nil
 }
 
 func evalAtEquation(e *Equation, k int, tr trace.Trace) (fr.Element, error) {
@@ -187,6 +223,18 @@ func evalAtNormalise(e *Norm, k int, tr trace.Trace) (fr.Element, error) {
 	}
 	// Done
 	return val, err
+}
+
+func evalAtNot(e *Not, k int, tr trace.Trace) (fr.Element, error) {
+	// Check whether argument evaluates to zero or not.
+	val, err := evalAtTerm(e.Arg, k, tr)
+	// Negate value
+	if val.IsZero() {
+		// 0 => 1
+		return frONE, nil
+	}
+	// 1+ => 0
+	return frZERO, err
 }
 
 func evalAtList(e *List, k int, tr trace.Trace) (fr.Element, error) {

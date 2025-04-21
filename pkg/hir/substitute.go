@@ -59,6 +59,8 @@ func substituteTerm(mapping map[string]fr.Element, e Term) {
 		substituteTerms(mapping, e.Args)
 	case *Cast:
 		substituteTerm(mapping, e.Arg)
+	case *Connective:
+		substituteTerms(mapping, e.Args)
 	case *Constant:
 		// do not
 	case *ColumnAccess:
@@ -88,6 +90,8 @@ func substituteTerm(mapping map[string]fr.Element, e Term) {
 	case *Mul:
 		substituteTerms(mapping, e.Args)
 	case *Norm:
+		substituteTerm(mapping, e.Arg)
+	case *Not:
 		substituteTerm(mapping, e.Arg)
 	case *Sub:
 		substituteTerms(mapping, e.Args)

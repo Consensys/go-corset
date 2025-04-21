@@ -42,27 +42,33 @@
 ;;                     ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 (defconstraint first-row (:domain {0})
-  (vanishes! STAMP))
+  (== STAMP 0))
 
 (defconstraint heartbeat ()
-  (begin (if-zero STAMP
-                  (begin (vanishes! INST)
-                         ;; (debug (vanishes! CT))
-                         ;; (debug (vanishes! CT_MAX))
-                         ))
-         (or! (will-remain-constant! STAMP) (will-inc! STAMP 1))
-         (if-not (will-remain-constant! STAMP)
-                 (vanishes! (next CT)))
-         (if-not-zero STAMP
-                      (begin (or! (eq! INST EVM_INST_ADD) (eq! INST EVM_INST_SUB))
-                             (if-eq-else CT CT_MAX
-                                 (will-inc! STAMP 1)
-                                 (will-inc! CT 1))
-                             (eq! (~ (* (- CT LLARGE) CT_MAX))
-                                  1)))))
+  (begin
+   (if (== STAMP 0)
+       (== INST 0))
+   ;; Stamp either constant is increases by 1
+   (∨ (will-remain-constant! STAMP) (will-inc! STAMP 1))
+   ;; When stamp increases, counter is reset
+   (if (¬ (will-remain-constant! STAMP))
+       (== (next CT) 0))
+   ;;
+   (if (!= STAMP 0)
+       (begin
+        ;; outside of padding, instruction either ADD or SUB
+        (∨ (eq! INST EVM_INST_ADD) (eq! INST EVM_INST_SUB))
+        ;;
+        (if (== CT CT_MAX)
+            ;; After last row of frame, stamp increases
+            (will-inc! STAMP 1)
+            ;; On rows within frame, counter increases
+            (will-inc! CT 1))
+        ;; (CT < LLARGE) ∧ (CT_MAX > 0)
+        (∧ (!= CT LLARGE) (!= CT_MAX 0))))))
 
 (defconstraint last-row (:domain {-1})
-  (eq! CT CT_MAX))
+  (== CT CT_MAX))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                                                   ;;
@@ -80,18 +86,22 @@
 ;;                       ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defconstraint adder-constraints (:guard STAMP)
-  (if-eq CT CT_MAX
-         (begin (eq! RES_HI ACC_1)
-                (eq! RES_LO ACC_2)
-                (if-not-zero (- INST EVM_INST_SUB)
-                             (begin (eq! (+ ARG_1_LO ARG_2_LO)
-                                         (+ RES_LO (* THETA OVERFLOW)))
-                                    (eq! (+ ARG_1_HI ARG_2_HI OVERFLOW)
-                                         (+ RES_HI
-                                            (* THETA (prev OVERFLOW))))))
-                (if-not-zero (- INST EVM_INST_ADD)
-                             (begin (eq! (+ RES_LO ARG_2_LO)
-                                         (+ ARG_1_LO (* THETA OVERFLOW)))
-                                    (eq! (+ RES_HI ARG_2_HI OVERFLOW)
-                                         (+ ARG_1_HI
-                                            (* THETA (prev OVERFLOW)))))))))
+  (if (== CT CT_MAX)
+      (begin
+       ;;
+       (== RES_HI ACC_1)
+       (== RES_LO ACC_2)
+       ;;
+       (if (!= INST EVM_INST_SUB)
+           (begin (== (+ ARG_1_LO ARG_2_LO)
+                      (+ RES_LO (* THETA OVERFLOW)))
+                  (== (+ ARG_1_HI ARG_2_HI OVERFLOW)
+                      (+ RES_HI
+                          (* THETA (prev OVERFLOW))))))
+       ;;
+       (if (!= INST EVM_INST_ADD)
+           (begin (== (+ RES_LO ARG_2_LO)
+                      (+ ARG_1_LO (* THETA OVERFLOW)))
+                  (== (+ RES_HI ARG_2_HI OVERFLOW)
+                      (+ ARG_1_HI
+                         (* THETA (prev OVERFLOW)))))))))

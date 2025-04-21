@@ -27,6 +27,8 @@ func contextOfTerm(e Term, schema sc.Schema) trace.Context {
 		return contextOfTerms(schema, e.Args...)
 	case *Cast:
 		return contextOfTerm(e.Arg, schema)
+	case *Connective:
+		return contextOfTerms(schema, e.Args...)
 	case *Constant:
 		return trace.VoidContext[uint]()
 	case *Equation:
@@ -45,6 +47,8 @@ func contextOfTerm(e Term, schema sc.Schema) trace.Context {
 	case *Mul:
 		return contextOfTerms(schema, e.Args...)
 	case *Norm:
+		return contextOfTerm(e.Arg, schema)
+	case *Not:
 		return contextOfTerm(e.Arg, schema)
 	case *Sub:
 		return contextOfTerms(schema, e.Args...)
@@ -83,6 +87,8 @@ func requiredColumnsOfTerm(e Term) *set.SortedSet[uint] {
 	switch e := e.(type) {
 	case *Add:
 		return requiredColumnsOfTerms(e.Args...)
+	case *Connective:
+		return requiredColumnsOfTerms(e.Args...)
 	case *Constant:
 		return set.NewSortedSet[uint]()
 	case *ColumnAccess:
@@ -100,6 +106,8 @@ func requiredColumnsOfTerm(e Term) *set.SortedSet[uint] {
 	case *Mul:
 		return requiredColumnsOfTerms(e.Args...)
 	case *Norm:
+		return requiredColumnsOfTerm(e.Arg)
+	case *Not:
 		return requiredColumnsOfTerm(e.Arg)
 	case *Sub:
 		return requiredColumnsOfTerms(e.Args...)
@@ -140,6 +148,8 @@ func requiredCellsOfTerm(e Term, row int, tr trace.Trace) *set.AnySortedSet[trac
 	switch e := e.(type) {
 	case *Add:
 		return requiredCellsOfTerms(row, tr, e.Args...)
+	case *Connective:
+		return requiredCellsOfTerms(row, tr, e.Args...)
 	case *Constant:
 		return set.NewAnySortedSet[trace.CellRef]()
 	case *ColumnAccess:
@@ -157,6 +167,8 @@ func requiredCellsOfTerm(e Term, row int, tr trace.Trace) *set.AnySortedSet[trac
 	case *Mul:
 		return requiredCellsOfTerms(row, tr, e.Args...)
 	case *Norm:
+		return requiredCellsOfTerm(e.Arg, row, tr)
+	case *Not:
 		return requiredCellsOfTerm(e.Arg, row, tr)
 	case *Sub:
 		return requiredCellsOfTerms(row, tr, e.Args...)

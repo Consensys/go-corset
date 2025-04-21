@@ -23,9 +23,6 @@ import (
 // Term represents a component of an AIR expression.
 type Term interface {
 	util.Boundable
-	// multiplicity returns the number of underlying expressions that this
-	// expression will expand to.
-	multiplicity() uint
 }
 
 // ============================================================================
@@ -38,18 +35,6 @@ type Add struct{ Args []Term }
 // Bounds returns max shift in either the negative (left) or positive
 // direction (right).
 func (p *Add) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
-
-// multiplicity returns the number of underlyg expressions that this
-// expression will expand to.
-func (p *Add) multiplicity() uint {
-	count := uint(1)
-	//
-	for _, e := range p.Args {
-		count *= e.multiplicity()
-	}
-	//
-	return count
-}
 
 // ============================================================================
 // Cast
@@ -64,12 +49,6 @@ type Cast struct {
 // Bounds returns max shift in either the negative (left) or positive
 // direction (right).
 func (p *Cast) Bounds() util.Bounds { return p.Arg.Bounds() }
-
-// multiplicity returns the number of underlyg expressions that this
-// expression will expand to.
-func (p *Cast) multiplicity() uint {
-	return p.Arg.multiplicity()
-}
 
 // Range returns the range of values which this cast represents.
 func (p *Cast) Range() *util.Interval {
@@ -86,6 +65,21 @@ func (p *Cast) Range() *util.Interval {
 }
 
 // ============================================================================
+// Connective
+// ============================================================================
+
+// Connective represents a logical connective (either conjunction or
+// disjunction).
+type Connective struct {
+	Sign bool
+	Args []Term
+}
+
+// Bounds returns max shift in either the negative (left) or positive
+// direction (right).
+func (p *Connective) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
+
+// ============================================================================
 // Constant
 // ============================================================================
 
@@ -95,10 +89,6 @@ type Constant struct{ Value fr.Element }
 // Bounds returns max shift in either the negative (left) or positive
 // direction (right).  A constant has zero shift.
 func (p *Constant) Bounds() util.Bounds { return util.EMPTY_BOUND }
-
-// multiplicity returns the number of underlyg expressions that this
-// expression will expand to.
-func (p *Constant) multiplicity() uint { return 1 }
 
 // ============================================================================
 // ColumnAccess
@@ -125,10 +115,6 @@ func (p *ColumnAccess) Bounds() util.Bounds {
 	// Negative shift
 	return util.NewBounds(uint(-p.Shift), 0)
 }
-
-// multiplicity returns the number of underlyg expressions that this
-// expression will expand to.
-func (p *ColumnAccess) multiplicity() uint { return 1 }
 
 // ============================================================================
 // Equation
@@ -168,12 +154,6 @@ func (p *Equation) Bounds() util.Bounds {
 	return l
 }
 
-// multiplicity returns the number of underlyg expressions that this
-// expression will expand to.
-func (p *Equation) multiplicity() uint {
-	return p.Lhs.multiplicity() * p.Rhs.multiplicity()
-}
-
 // ============================================================================
 // Exponentiation
 // ============================================================================
@@ -187,12 +167,6 @@ type Exp struct {
 // Bounds returns max shift in either the negative (left) or positive
 // direction (right).
 func (p *Exp) Bounds() util.Bounds { return p.Arg.Bounds() }
-
-// multiplicity returns the number of underlyg expressions that this
-// expression will expand to.
-func (p *Exp) multiplicity() uint {
-	return p.Arg.multiplicity()
-}
 
 // ============================================================================
 // IfZero
@@ -227,23 +201,6 @@ func (p *IfZero) Bounds() util.Bounds {
 	return c
 }
 
-// multiplicity returns the number of underlyg expressions that this
-// expression will expand to.
-func (p *IfZero) multiplicity() uint {
-	cond := p.Condition.multiplicity()
-	count := uint(0)
-	// TrueBranch (if applicable)
-	if p.TrueBranch != nil {
-		count += cond * p.TrueBranch.multiplicity()
-	}
-	// FalseBranch (if applicable)
-	if p.FalseBranch != nil {
-		count += cond * p.FalseBranch.multiplicity()
-	}
-	// done
-	return count
-}
-
 // ============================================================================
 // LabelledConstant
 // ============================================================================
@@ -260,10 +217,6 @@ type LabelledConstant struct {
 // direction (right).  A constant has zero shift.
 func (p *LabelledConstant) Bounds() util.Bounds { return util.EMPTY_BOUND }
 
-// multiplicity returns the number of underlyg expressions that this
-// expression will expand to.
-func (p *LabelledConstant) multiplicity() uint { return 1 }
-
 // ============================================================================
 // List
 // ============================================================================
@@ -275,18 +228,6 @@ type List struct{ Args []Term }
 // direction (right).
 func (p *List) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
 
-// multiplicity returns the number of underlyg expressions that this
-// expression will expand to.
-func (p *List) multiplicity() uint {
-	count := uint(0)
-	//
-	for _, e := range p.Args {
-		count += e.multiplicity()
-	}
-	//
-	return count
-}
-
 // ============================================================================
 // Multiplication
 // ============================================================================
@@ -297,18 +238,6 @@ type Mul struct{ Args []Term }
 // Bounds returns max shift in either the negative (left) or positive
 // direction (right).
 func (p *Mul) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
-
-// multiplicity returns the number of underlying expressions that this
-// expression will expand to.
-func (p *Mul) multiplicity() uint {
-	count := uint(1)
-	//
-	for _, e := range p.Args {
-		count *= e.multiplicity()
-	}
-	//
-	return count
-}
 
 // ============================================================================
 // Normalise
@@ -322,9 +251,16 @@ type Norm struct{ Arg Term }
 // direction (right).
 func (p *Norm) Bounds() util.Bounds { return p.Arg.Bounds() }
 
-// multiplicity returns the number of underlyg expressions that this
-// expression will expand to.
-func (p *Norm) multiplicity() uint { return p.Arg.multiplicity() }
+// ============================================================================
+// Not
+// ============================================================================
+
+// Not represents the logical negation of its argument.
+type Not struct{ Arg Term }
+
+// Bounds returns max shift in either the negative (left) or positive
+// direction (right).
+func (p *Not) Bounds() util.Bounds { return p.Arg.Bounds() }
 
 // ============================================================================
 // Subtraction
@@ -337,18 +273,6 @@ type Sub struct{ Args []Term }
 // direction (right).
 func (p *Sub) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
 
-// multiplicity returns the number of underlyg expressions that this
-// expression will expand to.
-func (p *Sub) multiplicity() uint {
-	count := uint(1)
-	//
-	for _, e := range p.Args {
-		count *= e.multiplicity()
-	}
-	//
-	return count
-}
-
 // ============================================================================
 // Encoding / Decoding
 // ============================================================================
@@ -358,6 +282,7 @@ func init() {
 	gob.Register(Term(&Mul{}))
 	gob.Register(Term(&Sub{}))
 	gob.Register(Term(&Cast{}))
+	gob.Register(Term(&Connective{}))
 	gob.Register(Term(&Equation{}))
 	gob.Register(Term(&Exp{}))
 	gob.Register(Term(&IfZero{}))
@@ -365,5 +290,6 @@ func init() {
 	gob.Register(Term(&Constant{}))
 	gob.Register(Term(&LabelledConstant{}))
 	gob.Register(Term(&Norm{}))
+	gob.Register(Term(&Not{}))
 	gob.Register(Term(&ColumnAccess{}))
 }

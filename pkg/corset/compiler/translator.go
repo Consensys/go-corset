@@ -311,12 +311,7 @@ func (t *translator) translateDefConstraint(decl *ast.DefConstraint, module util
 	if len(errors) == 0 {
 		context := constraint.Context(t.schema)
 		//
-		if context.IsVoid() {
-			// Constraint is a constant (for some reason).
-			if constraint.Multiplicity() != 0 {
-				return t.srcmap.SyntaxErrors(decl, "constraint is a constant")
-			}
-		} else {
+		if !context.IsVoid() {
 			// Add translated constraint
 			t.schema.AddVanishingConstraint(decl.Handle, context, decl.Domain, constraint)
 		}
@@ -576,6 +571,14 @@ func (t *translator) translateExpressionInModule(expr ast.Expr, module util.Path
 		msg := fmt.Sprintf("cannot translate cast (%s)", e.Type.String())
 		//
 		return hir.VOID, t.srcmap.SyntaxErrors(expr, msg)
+	case *ast.Connective:
+		args, errs := t.translateExpressionsInModule(module, shift, e.Args...)
+		//
+		if e.Sign {
+			return hir.Disjunction(args...), errs
+		}
+		//
+		return hir.Conjunction(args...), errs
 	case *ast.Constant:
 		var val fr.Element
 		// Initialise field from bigint
@@ -625,6 +628,9 @@ func (t *translator) translateExpressionInModule(expr ast.Expr, module util.Path
 	case *ast.Normalise:
 		arg, errs := t.translateExpressionInModule(e.Arg, module, shift)
 		return hir.Normalise(arg), errs
+	case *ast.Not:
+		arg, errs := t.translateExpressionInModule(e.Arg, module, shift)
+		return hir.Negation(arg), errs
 	case *ast.Sub:
 		args, errs := t.translateExpressionsInModule(module, shift, e.Args...)
 		return hir.Subtract(args...), errs
