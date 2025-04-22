@@ -111,48 +111,51 @@
 ;; game is a draw if sum of all boxes is 13 (if player X(1) started) or 14 (if player O(2) started)
 
 (defun (check-column-1)
-        (if (eq! 3 (sum-column-1))
-        (if (eq! 1 (multiply-column-1)) 0 1)
-        (if (eq! 6 (sum-column-1)) 0 1))
+        (if (== 3 (sum-column-1))
+        (if (== 1 (multiply-column-1)) 0 1)
+        (if (== 6 (sum-column-1)) 0 1))
 )
 
 (defun (check-column-2)
-        (if (eq! 3 (sum-column-2))
-        (if (eq! 1 (multiply-column-2)) 0 1)
-        (if (eq! 6 (sum-column-2)) 0 1))
+        (if (== 3 (sum-column-2))
+        (if (== 1 (multiply-column-2)) 0 1)
+        (if (== 6 (sum-column-2)) 0 1))
 )
 
 (defun (check-column-3)
-        (if (eq! 3 (sum-column-3))
-        (if (eq! 1 (multiply-column-3)) 0 1)
-        (if (eq! 6 (sum-column-3)) 0 1))
+        (if (== 3 (sum-column-3))
+        (if (== 1 (multiply-column-3)) 0 1)
+        (if (== 6 (sum-column-3)) 0 1))
 )
 (defun (check-row-1)
-        (if (eq! 3 (sum-row-1))
-        (if (eq! 1 (multiply-row-1)) 0 1)
-        (if (eq! 6 (sum-row-1)) 0 1))
+        (if (== 3 (sum-row-1))
+        (if (== 1 (multiply-row-1)) 0 1)
+        (if (== 6 (sum-row-1)) 0 1))
 )
 (defun (check-row-2)
-        (if (eq! 3 (sum-row-2))
-        (if (eq! 1 (multiply-row-2)) 0 1)
-        (if (eq! 6 (sum-row-2)) 0 1))
+        (if (== 3 (sum-row-2))
+        (if (== 1 (multiply-row-2)) 0 1)
+        (if (== 6 (sum-row-2)) 0 1))
 )
 (defun (check-row-3)
-        (if (eq! 3 (sum-row-3))
-        (if (eq! 1 (multiply-row-3)) 0 1)
-        (if (eq! 6 (sum-row-3)) 0 1))
+        (if (== 3 (sum-row-3))
+        (if (== 1 (multiply-row-3)) 0 1)
+        (if (== 6 (sum-row-3)) 0 1))
 )
 (defun (check-diagonal-left-right)
-        (if (eq! 3 (sum-diagonal-left-right))
-        (if (eq! 1 (multiply-diagonal-left-right)) 0 1)
-        (if (eq! 6 (sum-diagonal-left-right)) 0 1))
+        (if (== 3 (sum-diagonal-left-right))
+        (if (== 1 (multiply-diagonal-left-right)) 0 1)
+        (if (== 6 (sum-diagonal-left-right)) 0 1))
 )
 (defun (check-diagonal-right-left)
-        (if (eq! 3 (sum-diagonal-right-left))
-        (if (eq! 1 (multiply-diagonal-right-left)) 0 1)
-        (if (eq! 6 (sum-diagonal-right-left)) 0 1))
+        (if (== 3 (sum-diagonal-right-left))
+        (if (== 1 (multiply-diagonal-right-left)) 0 1)
+        (if (== 6 (sum-diagonal-right-left)) 0 1))
 )
 
+;; check-win-or-draw returns
+;; 0 if the game is won or if it's a draw
+;; else 1
 (defun (check-win-or-draw)
  (* (* (* (* (* (* (* (* (* (* (check-column-1) (check-column-2))
                     (check-column-3))
@@ -168,26 +171,27 @@
 ;; this version might be les verbose or more readable than the previous one
 ;; TODO: and! not working with command line
 (defun (check-win-or-draw-version2)
-        (if (and! (eq! 3 (sum-column-1)) (eq! 1 (multiply-column-1))) 0
-           (if (eq! 6 (sum-column-1)) 0
-        (if (and! (eq! 3 (sum-column-2)) (eq! 1 (multiply-column-2))) 0
-            (if (eq! 6 (sum-column-2)) 0
-        (if (and! (eq! 3 (sum-column-3)) (eq! 1 (multiply-column-3))) 0
-            (if (eq! 6 (sum-column-3)) 0
-        (if (and! (eq! 3 (sum-row-1)) (eq! 1 (multiply-row-1))) 0
-            (if (eq! 6 (sum-row-1)) 0
-        (if (and! (eq! 3 (sum-row-2)) (eq! 1 (multiply-row-2))) 0
-            (if (eq! 6 (sum-row-2)) 0
-        (if (and! (eq! 3 (sum-row-3)) (eq! 1 (multiply-row-3))) 0
-            (if (eq! 6 (sum-row-3)) 0
-        (if (and! (eq! 3 (sum-diagonal-left-right)) (eq! 1 (multiply-diagonal-left-right))) 0
-            (if (eq! 6 (sum-diagonal-left-right)) 0
-        (if (and! (eq! 3 (sum-diagonal-right-left)) (eq! 1 (multiply-diagonal-right-left))) 0
-            (if (eq! 6 (sum-diagonal-right-left)) 0
-        (if (eq! 13 (sum-boxes)) 0
-        (if (eq! 14 (sum-boxes)) 0
-        (if (vanishes! (sum-boxes)) 0 1)))))))))))))))))))
+        (if (∨ (∨ (∨ (∨ (∨ (∨ (∨ (∨ (∨ (∨ (∨ (∨ (∨ (∨ (∨ (∨ (∨
+            (∧ (== 3 (sum-column-1)) (== 1 (multiply-column-1)))
+            (== 6 (sum-column-1)))
+            (∧ (== 3 (sum-column-2)) (== 1 (multiply-column-2))))
+            (== 6 (sum-column-2)))
+            (∧ (== 3 (sum-column-3)) (== 1 (multiply-column-3))))
+            (== 6 (sum-column-3)))
+            (∧ (== 3 (sum-row-1)) (== 1 (multiply-row-1))))
+            (== 6 (sum-row-1)))
+            (∧ (== 3 (sum-row-2)) (== 1 (multiply-row-2))))
+            (== 6 (sum-row-2)))
+            (∧ (== 3 (sum-row-3)) (== 1 (multiply-row-3))))
+            (== 6 (sum-row-3)))
+            (∧ (== 3 (sum-diagonal-left-right)) (== 1 (multiply-diagonal-left-right))))
+            (== 6 (sum-diagonal-left-right)))
+            (∧ (== 3 (sum-diagonal-right-left)) (== 1 (multiply-diagonal-right-left))))
+            (== 6 (sum-diagonal-right-left)))
+            (== 13 (sum-boxes)))
+            (== 14 (sum-boxes))) 0 1)
 )
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Constraints
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -207,11 +211,11 @@
 ;; constaints for STAMP
 
 (defconstraint   stamp-initially-vanishes (:domain {0})
-                 (vanishes! STAMP))
+                 (== STAMP 0))
 
 (defconstraint   stamp-is-non-decreasing ()
-                 (if-not-zero STAMP
-                    (eq! (next STAMP) 1)))
+                 (if (!= STAMP 0)
+                    (== (next STAMP) 1)))
 
 
 ;; Game constraints
@@ -221,8 +225,8 @@
 (defconstraint players-take-turns
                     ()
                     (begin
-                        (if (eq! (diff-all) 1) (eq! (diff-all-next) 2))
-                        (if (eq! (diff-all) 2) (eq! (diff-all-next) 1))
+                        (if (== (diff-all) 1) (== (diff-all-next) 2))
+                        (if (== (diff-all) 2) (== (diff-all-next) 1))
                     )
 )
 
@@ -231,15 +235,15 @@
 (defconstraint player-plays-in-empty-box
                  ()
                  (begin
-                    (if-not-zero [BOXES 1] (will-remain-constant! [BOXES 1]))
-                    (if-not-zero [BOXES 2] (will-remain-constant! [BOXES 2]))
-                    (if-not-zero [BOXES 3] (will-remain-constant! [BOXES 3]))
-                    (if-not-zero [BOXES 4] (will-remain-constant! [BOXES 4]))
-                    (if-not-zero [BOXES 5] (will-remain-constant! [BOXES 5]))
-                    (if-not-zero [BOXES 6] (will-remain-constant! [BOXES 6]))
-                    (if-not-zero [BOXES 7] (will-remain-constant! [BOXES 7]))
-                    (if-not-zero [BOXES 8] (will-remain-constant! [BOXES 8]))
-                    (if-not-zero [BOXES 9] (will-remain-constant! [BOXES 9]))
+                    (if (!= [BOXES 1] 0) (will-remain-constant! [BOXES 1]))
+                    (if (!= [BOXES 2] 0) (will-remain-constant! [BOXES 2]))
+                    (if (!= [BOXES 3] 0) (will-remain-constant! [BOXES 3]))
+                    (if (!= [BOXES 4] 0) (will-remain-constant! [BOXES 4]))
+                    (if (!= [BOXES 5] 0) (will-remain-constant! [BOXES 5]))
+                    (if (!= [BOXES 6] 0) (will-remain-constant! [BOXES 6]))
+                    (if (!= [BOXES 7] 0) (will-remain-constant! [BOXES 7]))
+                    (if (!= [BOXES 8] 0) (will-remain-constant! [BOXES 8]))
+                    (if (!= [BOXES 9] 0) (will-remain-constant! [BOXES 9]))
                  )
 )
 
@@ -247,9 +251,9 @@
 ;; check on STAMP to avoid testing row 0
 (defconstraint game-stops-after-win-or-draw
                  ()
-                 (if-not-zero STAMP
-                    (if-zero (check-win-or-draw)
-                            (vanishes! (sum-boxes-next)))
+                 (if (!= STAMP 0)
+                    (if (== (check-win-or-draw) 0)
+                            (== (sum-boxes-next) 0))
                  )
 )
 
@@ -258,6 +262,6 @@
 ;; should fail if game is mid-way
 (defconstraint game-stops-with-win-or-draw
                  (:domain {-1})
-                 (vanishes! (check-win-or-draw))
+                 (== (check-win-or-draw) 0)
 )
 
