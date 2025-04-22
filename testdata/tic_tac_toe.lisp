@@ -156,7 +156,7 @@
 ;; check-win-or-draw returns
 ;; 0 if the game is won or if it's a draw
 ;; else 1
-(defun (check-win-or-draw-version2)
+(defun (check-win-or-draw)
  (* (* (* (* (* (* (* (* (* (* (check-column-1) (check-column-2))
                     (check-column-3))
                     (check-row-1))
@@ -169,8 +169,8 @@
 )
 
 ;; this version might be les verbose or more readable than the previous one
-;; TODO: and! not working with command line
-(defun (check-win-or-draw)
+;; TODO: not working through CI or command line
+(defun (check-win-or-draw-version2)
         (if (∨ (∨ (∨ (∨ (∨ (∨ (∨ (∨ (∨ (∨ (∨ (∨ (∨ (∨ (∨ (∨ (∨
             (∧ (== 3 (sum-column-1)) (== 1 (multiply-column-1)))
             (== 6 (sum-column-1)))
