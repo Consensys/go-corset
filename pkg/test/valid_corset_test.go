@@ -1322,6 +1322,10 @@ func TestSlow_Mod(t *testing.T) {
 	Check(t, true, "mod")
 }
 
+func Test_TicTacToe(t *testing.T) {
+	Check(t, true, "tic_tac_toe")
+}
+
 // ===================================================================
 // Test Helpers
 // ===================================================================
