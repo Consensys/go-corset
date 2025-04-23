@@ -42,15 +42,15 @@
 )
 
 (defun (sum-column-1)
- (+ [BOXES 1] [BOXES 4] [BOXES 7])
+       (+ [BOXES 1] [BOXES 4] [BOXES 7])
 )
 
 (defun (sum-column-2)
- (+ [BOXES 2] [BOXES 5] [BOXES 8])
+       (+ [BOXES 2] [BOXES 5] [BOXES 8])
 )
 
 (defun (sum-column-3)
- (+ [BOXES 3] [BOXES 6] [BOXES 9])
+       (+ [BOXES 3] [BOXES 6] [BOXES 9])
 )
 
 (defun (sum-row-1)
@@ -66,19 +66,23 @@
 )
 
 (defun (sum-diagonal-left-right)
- (+ [BOXES 1] [BOXES 5] [BOXES 9]))
+       (+ [BOXES 1] [BOXES 5] [BOXES 9]))
 
 (defun (sum-diagonal-right-left)
- (+ [BOXES 3] [BOXES 5] [BOXES 7]))
+       (+ [BOXES 3] [BOXES 5] [BOXES 7])
+)
 
 (defun (multiply-column-1)
- (* [BOXES 1] [BOXES 4] [BOXES 7]))
+       (* [BOXES 1] [BOXES 4] [BOXES 7])
+)
 
 (defun (multiply-column-2)
- (* [BOXES 2] [BOXES 5] [BOXES 8]))
+       (* [BOXES 2] [BOXES 5] [BOXES 8])
+)
 
 (defun (multiply-column-3)
- (* [BOXES 3] [BOXES 6] [BOXES 9]))
+       (* [BOXES 3] [BOXES 6] [BOXES 9])
+)
 
 (defun (multiply-row-1)
        (reduce * (for i [1:3] [BOXES i]))
@@ -93,10 +97,12 @@
 )
 
 (defun (multiply-diagonal-left-right)
- (* [BOXES 1] [BOXES 5] [BOXES 9]))
+       (* [BOXES 1] [BOXES 5] [BOXES 9])
+)
 
 (defun (multiply-diagonal-right-left)
- (* [BOXES 3] [BOXES 5] [BOXES 7]))
+       (* [BOXES 3] [BOXES 5] [BOXES 7])
+)
 
 
 ;; function to check if the game is won or draw
@@ -163,7 +169,7 @@
 )
 
 ;; this version might be les verbose or more readable than the previous one
-;; TODO: not working through CI or command line
+;; TODO: not working through CI or command line, can be used once issue #833 and #834 are closed
 (defun (check-win-or-draw-version2)
     (∨
      ;; Win on column 1
@@ -178,11 +184,11 @@
      (∧ (== 3 (sum-row-2)) (== 1 (multiply-row-2))) (== 6 (sum-row-2))
      ;; Win on row 3
      (∧ (== 3 (sum-row-3)) (== 1 (multiply-row-3))) (== 6 (sum-row-3))
-     ;; Win on diagonol left -> right
+     ;; Win on diagonal left -> right
      (∧ (== 3 (sum-diagonal-left-right)) (== 1 (multiply-diagonal-left-right))) (== 6 (sum-diagonal-left-right))
-     ;; Win on diagonol right -> left
+     ;; Win on diagonal right -> left
      (∧ (== 3 (sum-diagonal-right-left)) (== 1 (multiply-diagonal-right-left))) (== 6 (sum-diagonal-right-left))
-     ;; Draw
+     ;; Draw, if player 1 starts total is 13, if player 2 starts (different game rules) total is 14
      (== 13 (sum-boxes)) (== 14 (sum-boxes))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
