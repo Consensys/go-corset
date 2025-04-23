@@ -216,8 +216,8 @@ func extractExpression(e Term, mirSchema *mir.Schema, hirSchema *Schema) mir.Exp
 		return mir.Exponent(arg, e.Pow)
 	case *IfZero:
 		// Translate the condition
-		c := extractAtomicExpression(true, e.Condition, mirSchema, hirSchema)
-		neg_c := extractAtomicExpression(false, e.Condition, mirSchema, hirSchema)
+		c := extractCondition(true, e.Condition, mirSchema, hirSchema)
+		neg_c := extractCondition(false, e.Condition, mirSchema, hirSchema)
 		//
 		if e.TrueBranch == nil || e.FalseBranch == nil {
 			// Expansion should ensure this case does not exist.  This is necessary
@@ -249,10 +249,21 @@ func extractExpression(e Term, mirSchema *mir.Schema, hirSchema *Schema) mir.Exp
 	}
 }
 
-func extractAtomicExpression(sign bool, e Term, mirSchema *mir.Schema, hirSchema *Schema) mir.Expr {
+func extractCondition(sign bool, e Term, mirSchema *mir.Schema, hirSchema *Schema) mir.Expr {
 	switch e := e.(type) {
 	case *IfZero:
 		panic("todo")
+	case *Connective:
+		if sign == e.Sign {
+			// Disjunction
+			args := extractConditions(sign, e.Args, mirSchema, hirSchema)
+			//
+			return mir.Product(args...)
+		}
+		// Conjunction
+		args := extractConditions(!sign, e.Args, mirSchema, hirSchema)
+		// P && Q ==> !(!P || Q!) ==> 1 - ~(!P || !Q)
+		return mir.Subtract(mir.NewConst64(1), mir.Normalise(mir.Product(args...)))
 	case *Equation:
 		l := extractExpression(e.Lhs, mirSchema, hirSchema)
 		r := extractExpression(e.Rhs, mirSchema, hirSchema)
@@ -272,6 +283,16 @@ func extractAtomicExpression(sign bool, e Term, mirSchema *mir.Schema, hirSchema
 		name := reflect.TypeOf(e).Name()
 		panic(fmt.Sprintf("unknown HIR expression \"%s\"", name))
 	}
+}
+
+func extractConditions(sign bool, es []Term, mirSchema *mir.Schema, hirSchema *Schema) []mir.Expr {
+	exprs := make([]mir.Expr, len(es))
+	//
+	for i, e := range es {
+		exprs[i] = extractCondition(sign, e, mirSchema, hirSchema)
+	}
+	//
+	return exprs
 }
 
 func invertAtomicEquation(sign bool, kind uint8) uint8 {
