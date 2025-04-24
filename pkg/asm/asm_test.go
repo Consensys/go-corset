@@ -60,7 +60,7 @@ func check(t *testing.T, test string) {
 	// Package up as source file
 	srcfile := source.NewSourceFile(filename, bytes)
 	// Parse terms into an HIR schema
-	fns, errs := Assemble(srcfile)
+	fns, errs := Parse(srcfile)
 	// Check terms parsed ok
 	if len(errs) > 0 {
 		t.Fatalf("Error parsing %s: %v\n", filename, errs)

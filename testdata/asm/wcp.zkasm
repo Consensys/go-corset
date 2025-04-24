@@ -6,7 +6,7 @@
 ;; ISZERO                           0x15
 fn wcp(inst u8, arg1 u32, arg2 u32) -> (res u1) {
    var tmp u8
-   var targ u256
+   var targ u32
    var b u1
    ;; inst == EVM_INST_LT
    tmp = inst - 16
