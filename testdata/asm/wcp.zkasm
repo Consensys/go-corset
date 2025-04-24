@@ -1,0 +1,43 @@
+;; LT                               0x10
+;; GT                               0x11
+;; SLT                              0x12
+;; SGT                              0x13
+;; EQ                               0x14
+;; ISZERO                           0x15
+fn wcp(inst u8, arg1 u32, arg2 u32) -> (res u1) {
+   var tmp u8
+   var targ u256
+   var b u1
+   ;; inst == EVM_INST_LT
+   tmp = inst - 16
+   ifz tmp goto lt
+   ;; inst == EVM_INST_GT
+   tmp = inst - 17
+   ifz tmp goto gt
+   ;; inst == EVM_INST_EQ
+   tmp = inst - 20
+   ifz tmp goto eq
+   ;; else
+   goto isz
+lt:
+   b,targ = arg1 - arg2
+   ifnz b goto exit_1
+   goto exit_0
+gt:
+   b,targ = arg2 - arg1
+   ifnz b goto exit_1
+   goto exit_0
+eq:
+   b,targ = arg1 - arg2
+   ifnz b goto exit_0
+   ifnz targ goto exit_0
+   goto exit_1
+isz:
+   ifz arg1 goto exit_1
+exit_0:
+   res = 0
+   ret
+exit_1:
+   res = 1
+   ret
+}

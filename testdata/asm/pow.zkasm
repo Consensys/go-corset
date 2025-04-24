@@ -1,0 +1,11 @@
+;; compute n^k
+fn pow(n u16, k u16) -> (res u16) {
+   res = 1
+loop:
+   ifz k goto exit
+   res = res * n
+   k = k - 1
+   goto loop
+exit:
+   ret
+}

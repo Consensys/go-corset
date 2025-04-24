@@ -27,9 +27,13 @@ func And[T any](scanners ...Scanner[T]) Scanner[T] {
 		n := uint(0)
 
 		for _, scanner := range scanners {
-			if m := scanner(items); m > 0 {
-				n = max(n, m)
+			m := scanner(items)
+			if m == 0 {
+				// fail
+				return 0
 			}
+			//
+			n = max(n, m)
 		}
 		// fail
 		return n
@@ -93,6 +97,23 @@ func Many[T any](acceptor Scanner[T]) Scanner[T] {
 			}
 			//
 			break
+		}
+		// done
+		return index
+	}
+}
+
+// Until matches everything until a particular item is matched.
+func Until[T comparable](item T) Scanner[T] {
+	return func(items []T) uint {
+		index := uint(0)
+		//
+		for index < uint(len(items)) {
+			if items[index] == item {
+				break
+			}
+			// continue match
+			index = index + 1
 		}
 		// done
 		return index
