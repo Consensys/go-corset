@@ -563,6 +563,7 @@ func ReadConstraintFiles(config corset.CompilationConfig, filenames []string) *b
 // ReadAssemblyFile reads a set of constraints which are expressed as an
 // assembly file.
 func ReadAssemblyFile(filename string) *binfile.BinaryFile {
+	var binf *binfile.BinaryFile
 	// Read schema file
 	bytes, err := os.ReadFile(filename)
 	// Sanity check for errors
@@ -573,10 +574,10 @@ func ReadAssemblyFile(filename string) *binfile.BinaryFile {
 	// Construct source file
 	srcfile := source.NewSourceFile(filename, bytes)
 	// Attempt to assemble source file
-	fns, errs := asm.Assemble(srcfile)
-	// Check for any errors
+	binf, errs := asm.CompileAssembly(*srcfile)
+	// Check for any assembly errors
 	if len(errs) == 0 {
-		panic(fmt.Sprintf("parsed %d functions.", len(fns)))
+		return binf
 	}
 	// Report errors
 	for _, err := range errs {
