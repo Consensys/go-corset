@@ -12,7 +12,11 @@
 // SPDX-License-Identifier: Apache-2.0
 package asm
 
-import "math/big"
+import (
+	"math/big"
+
+	"github.com/consensys/go-corset/pkg/asm/instruction"
+)
 
 // Instruction provides an abstract notion of a "machine instruction".
 type Instruction interface {
@@ -22,7 +26,7 @@ type Instruction interface {
 	// given set of register values.  This may update the register values, and
 	// returns the next program counter position.  If the program counter is
 	// math.MaxUint then a return is signaled.
-	Execute(pc uint, regs []big.Int, regWidths []uint) uint
+	Execute(pc uint, state []big.Int, regs []instruction.Register) uint
 	// Registers returns the set of registers read/written by this instruction.
 	Registers() []uint
 }

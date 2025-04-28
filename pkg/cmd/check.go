@@ -17,7 +17,9 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"path"
 
+	"github.com/consensys/go-corset/pkg/asm"
 	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/hir"
 	"github.com/consensys/go-corset/pkg/mir"
@@ -27,6 +29,7 @@ import (
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/source"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -39,10 +42,7 @@ var checkCmd = &cobra.Command{
 	Traces can be given either as JSON or binary lt files.
 	Constraints can be given either as lisp or bin files.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		var (
-			cfg    checkConfig
-			traces [][]trace.RawColumn
-		)
+		var cfg checkConfig
 
 		if len(args) != 2 {
 			fmt.Println(cmd.UsageString())
@@ -85,37 +85,21 @@ var checkCmd = &cobra.Command{
 		if covfile := GetString(cmd, "coverage"); covfile != "" {
 			cfg.coverage = util.Some(covfile)
 		}
-		// Configure Intermediate Representations
-		if !cfg.hir && !cfg.mir && !cfg.air {
-			// If IR not specified default to running all.
-			cfg.hir, cfg.mir, cfg.air = true, true, true
-		}
 		//
-		stats := util.NewPerfStats()
-		// Parse constraints
-		binfile := ReadConstraintFiles(cfg.corsetConfig, args[1:])
-		//
-		stats.Log("Reading constraints file")
-		// Parse trace file(s)
-		if batched {
-			// batched mode
-			traces = ReadBatchedTraceFile(args[0])
+		tracefile := args[0]
+		constraints := args[1:]
+		// Determine which pipeline to use
+		if len(constraints) == 1 && path.Ext(constraints[0]) == ".zkasm" {
+			// Single (asm) file supplied
+			checkWithAsmPipeline(cfg, args[0], constraints[0])
 		} else {
-			// unbatched (i.e. normal) mode
-			tracefile := ReadTraceFile(args[0])
-			traces = [][]trace.RawColumn{tracefile.Columns}
-		}
-		//
-		stats.Log("Reading trace file")
-		// Apply any user-specified values for externalised constants.
-		applyExternOverrides(externs, binfile)
-		// Go!
-		ok, coverage := checkTraceWithLowering(traces, &binfile.Schema, cfg)
-		//
-		if !ok {
-			os.Exit(1)
-		} else if cfg.coverage.HasValue() {
-			writeCoverageReport(cfg.coverage.Unwrap(), binfile, coverage, cfg.optimisation)
+			// Configure Intermediate Representations
+			if !cfg.hir && !cfg.mir && !cfg.air {
+				// If IR not specified default to running all.
+				cfg.hir, cfg.mir, cfg.air = true, true, true
+			}
+			//
+			checkWithLegacyPipeline(cfg, batched, externs, tracefile, constraints)
 		}
 	},
 }
@@ -165,6 +149,100 @@ type checkConfig struct {
 	batchSize uint
 	// Enable ansi escape codes in reports
 	ansiEscapes bool
+}
+
+func checkWithAsmPipeline(cfg checkConfig, tracefile string, constraints string) {
+	var ok bool = true
+	// read trace & constraints
+	trace, functions := readTraceAndConstraints(tracefile, constraints)
+	//
+	for _, instance := range trace {
+		if outcome, err := asm.CheckInstance(instance, functions); outcome == math.MaxUint {
+			// Internal failure
+			panic(err)
+		} else if outcome != 0 {
+			fmt.Printf("trace rejected: %s\n", err)
+			//
+			ok = false
+		}
+	}
+	//
+	binfile, errs := asm.NewCompiler().Compile(functions...)
+	// Check constraints
+	if len(errs) > 0 {
+		for _, err := range errs {
+			printSyntaxError(&err)
+		}
+	} else if cfg.hir || cfg.mir || cfg.air {
+		builder := asm.NewTraceBuilder(functions...)
+		hirTrace := builder.Build(trace)
+		ok, _ = checkTraceWithLowering([][]tr.RawColumn{hirTrace}, &binfile.Schema, cfg)
+	}
+	// Fail if a problem
+	if !ok {
+		os.Exit(1)
+	}
+}
+
+func readTraceAndConstraints(tracefile string, constraints string) ([]asm.FunctionInstance, []asm.Function) {
+	var (
+		functions []asm.Function
+		trace     []asm.FunctionInstance
+		errors    []source.SyntaxError
+	)
+	// Read schema file
+	bytes, err := os.ReadFile(constraints)
+	// Sanity check for errors
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(3)
+	}
+	//
+	srcfile := source.NewSourceFile(constraints, bytes)
+	// Attempt to parse source file
+	if functions, errors = asm.Assemble(*srcfile); len(errors) > 0 {
+		for _, err := range errors {
+			printSyntaxError(&err)
+		}
+	}
+	// Now, attempt to parse constraint file
+	if trace, err = asm.ReadTraceFile(tracefile, functions); err != nil {
+		panic(err)
+	}
+	//
+	return trace, functions
+}
+
+// Check raw constraints using the legacy pipeline.
+func checkWithLegacyPipeline(cfg checkConfig, batched bool, externs []string, tracefile string, constraints []string) {
+	var traces [][]trace.RawColumn
+	//
+	stats := util.NewPerfStats()
+	// Parse constraints
+	binfile := ReadConstraintFiles(cfg.corsetConfig, constraints)
+	//
+	stats.Log("Reading constraints file")
+	// Parse trace file(s)
+	if batched {
+		// batched mode
+		traces = ReadBatchedTraceFile(tracefile)
+	} else {
+		// unbatched (i.e. normal) mode
+		tracefile := ReadTraceFile(tracefile)
+		traces = [][]trace.RawColumn{tracefile.Columns}
+	}
+	//
+	stats.Log("Reading trace file")
+	// Apply any user-specified values for externalised constants.
+	applyExternOverrides(externs, binfile)
+	// Go!
+	ok, coverage := checkTraceWithLowering(traces, &binfile.Schema, cfg)
+	//
+	if !ok {
+		os.Exit(1)
+	} else if cfg.coverage.HasValue() {
+		writeCoverageReport(cfg.coverage.Unwrap(), binfile, coverage, cfg.optimisation)
+	}
 }
 
 // Check a given trace is consistently accepted (or rejected) at the different

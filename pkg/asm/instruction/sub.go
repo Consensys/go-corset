@@ -48,16 +48,18 @@ func (p *Sub) Bind(labels []uint) {
 // given set of register values.  This may update the register values, and
 // returns the next program counter position.  If the program counter is
 // math.MaxUint then a return is signaled.
-func (p *Sub) Execute(pc uint, regs []big.Int, widths []uint) uint {
-	var value big.Int = regs[p.Sources[0]]
+func (p *Sub) Execute(pc uint, state []big.Int, regs []Register) uint {
+	var value big.Int
+	// Clone initial value
+	value.Set(&state[p.Sources[0]])
 	// Subtract register values
 	for _, src := range p.Sources[1:] {
-		value.Sub(&value, &regs[src])
+		value.Sub(&value, &state[src])
 	}
 	// Subtract constant
 	value.Sub(&value, &p.Constant)
 	// Write value
-	writeTargetRegisters(p.Targets, regs, widths, value)
+	writeTargetRegisters(p.Targets, state, regs, value)
 	//
 	return pc + 1
 }

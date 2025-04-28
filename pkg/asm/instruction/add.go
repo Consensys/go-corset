@@ -12,7 +12,9 @@
 // SPDX-License-Identifier: Apache-2.0
 package instruction
 
-import "math/big"
+import (
+	"math/big"
+)
 
 // Add represents a generic operation of the following form:
 //
@@ -48,16 +50,16 @@ func (p *Add) Bind(labels []uint) {
 // given set of register values.  This may update the register values, and
 // returns the next program counter position.  If the program counter is
 // math.MaxUint then a return is signaled.
-func (p *Add) Execute(pc uint, regs []big.Int, widths []uint) uint {
-	var value big.Int = zero
+func (p *Add) Execute(pc uint, state []big.Int, regs []Register) uint {
+	var value big.Int
 	// Add register values
 	for _, src := range p.Sources {
-		value.Add(&value, &regs[src])
+		value.Add(&value, &state[src])
 	}
 	// Add constant
 	value.Add(&value, &p.Constant)
 	// Write value
-	writeTargetRegisters(p.Targets, regs, widths, value)
+	writeTargetRegisters(p.Targets, state, regs, value)
 	//
 	return pc + 1
 }

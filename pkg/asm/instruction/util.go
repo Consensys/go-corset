@@ -14,19 +14,44 @@ package instruction
 
 import "math/big"
 
+// Register describes a single register within a function.
+type Register struct {
+	// Kind of register (input / output)
+	Kind uint8
+	// Given name of this register.
+	Name string
+	// Width (in bits) of this register
+	Width uint
+}
+
+// NewRegister creates a new register of a given kind with a given width.
+func NewRegister(kind uint8, name string, width uint) Register {
+	return Register{kind, name, width}
+}
+
+// Bound returns the first value which cannot be represented by the given
+// bitwidth.  For example, the bound of an 8bit register is 256.
+func (p *Register) Bound() *big.Int {
+	var (
+		bound = big.NewInt(2)
+		width = big.NewInt(int64(p.Width))
+	)
+	// Compute 2^n
+	return bound.Exp(bound, width, nil)
+}
+
 var zero = *big.NewInt(0)
-var one = *big.NewInt(1)
 
 // Write the value to a given set of target registers, splitting its bits as
 // necessary.  The target registers are given with the least significant first.
-func writeTargetRegisters(targets []uint, regs []big.Int, widths []uint, value big.Int) {
+func writeTargetRegisters(targets []uint, state []big.Int, regs []Register, value big.Int) {
 	var (
 		offset uint = 0
 	)
 	//
 	for _, reg := range targets {
-		width := widths[reg]
-		regs[reg] = readBitSlice(offset, width, value)
+		width := regs[reg].Width
+		state[reg] = readBitSlice(offset, width, value)
 		offset += width
 	}
 }

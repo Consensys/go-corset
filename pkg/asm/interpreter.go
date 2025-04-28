@@ -17,50 +17,130 @@ import (
 	"math/big"
 )
 
+// InterpreterState represents the state of a function being executed by the interpreter.
+type InterpreterState struct {
+	// Function index determines which function this state corresponds with.
+	fid uint
+	// Program counter
+	pc uint
+	// Current register values
+	registers []big.Int
+}
+
+// Registers returns the current state of all registers.
+func (p *InterpreterState) Registers() []big.Int {
+	return p.registers
+}
+
+// PC returns the current Program Counter position.
+func (p *InterpreterState) PC() uint {
+	return p.pc
+}
+
 // Interpreter encapsulates all state needed for executing a given instruction
 // sequence.
 type Interpreter struct {
 	// Set of functions being interpreted
 	functions []Function
+	// Set of interpreter states
+	states []InterpreterState
 }
 
 // NewInterpreter intialises an interpreter for executing a given instruction
 // sequence.
 func NewInterpreter(fns ...Function) *Interpreter {
-	return &Interpreter{fns}
+	return &Interpreter{fns, nil}
 }
 
-// Execute the given instruction sequence embodied by this interpreter with the
-// given set of initial arguments (i.e. register values), producing the given
-// set of outputs.
-func (p *Interpreter) Execute(fn uint, arguments map[string]big.Int) map[string]big.Int {
+// Bind converts a set of name inputs into the internal state as needed by the
+// interpreter.
+func (p *Interpreter) Bind(fn uint, arguments map[string]big.Int) []big.Int {
 	var (
-		f      = p.functions[fn]
-		pc     = uint(0)
-		regs   = make([]big.Int, len(f.Registers))
-		widths = make([]uint, len(f.Registers))
+		f     = p.functions[fn]
+		state = make([]big.Int, len(f.Registers))
 	)
 	// Initialise arguments
 	for i, reg := range f.Registers {
 		if reg.Kind == INPUT_REGISTER {
-			regs[i] = arguments[reg.Name]
+			var (
+				val = arguments[reg.Name]
+				ith big.Int
+			)
+			// Clone big int
+			ith.Set(&val)
+			//
+			state[i] = ith
 		}
-		//
-		widths[i] = reg.Width
 	}
-	// Continue executing until return signalled.
-	for pc != math.MaxUint {
-		insn := f.Code[pc]
-		pc = insn.Execute(pc, regs, widths)
-	}
+	//
+	return state
+}
+
+// State returns the interpreter's (raw) register state for the currently
+// executing function.  This state is raw, hence changes to this can impact the
+// interpreter's subsequent execution.
+func (p *Interpreter) State() InterpreterState {
+	var n = len(p.states) - 1
+	return p.states[n]
+}
+
+// Enter beings execution of a given function, using a given initial state.  The
+// currently executing function (if any) is paused.
+func (p *Interpreter) Enter(fn uint, state []big.Int) {
+	//
+	p.states = append(p.states, InterpreterState{
+		fn, uint(0), state,
+	})
+}
+
+// Leave exits the currently executing function, extracting its output values.
+func (p *Interpreter) Leave() map[string]big.Int {
+	var (
+		n  = len(p.states) - 1
+		st = p.states[n]
+		f  = p.functions[st.fid]
+	)
 	// Construct outputs
 	outputs := make(map[string]big.Int, 0)
 	//
 	for i, reg := range f.Registers {
 		if reg.Kind == OUTPUT_REGISTER {
-			outputs[reg.Name] = regs[i]
+			outputs[reg.Name] = st.registers[i]
 		}
 	}
+	// Remove last state
+	p.states = p.states[:n]
 	//
 	return outputs
+}
+
+// Execute n steps of the given program, returning the number of steps actually
+// executed.  The number of steps can differ from that requested if: the
+// enclosing function has already terminated; the enclosing function terminates
+// before executing all steps.
+func (p *Interpreter) Execute(nsteps uint) uint {
+	var (
+		n    = len(p.states) - 1
+		st   = &p.states[n]
+		f    = p.functions[st.fid]
+		step = uint(0)
+	)
+	//
+	for st.pc != math.MaxUint && step < nsteps {
+		insn := f.Code[st.pc]
+		st.pc = insn.Execute(st.pc, st.registers, f.Registers)
+		step++
+	}
+	//
+	return step
+}
+
+// HasTerminated checks whether or not the enclosing function has terminated.
+func (p *Interpreter) HasTerminated() bool {
+	var (
+		n  = len(p.states) - 1
+		st = p.states[n]
+	)
+	//
+	return st.pc == math.MaxUint
 }

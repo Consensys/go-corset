@@ -26,7 +26,7 @@ func (p *Jmp) Bind(labels []uint) {
 
 // Execute an unconditional branch instruction by returning the destination
 // program counter.
-func (p *Jmp) Execute(pc uint, regs []big.Int, widths []uint) uint {
+func (p *Jmp) Execute(pc uint, state []big.Int, regs []Register) uint {
 	return p.Target
 }
 

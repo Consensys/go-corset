@@ -26,7 +26,7 @@ func (p *Ret) Bind(labels []uint) {
 }
 
 // Execute a ret instruction by signaling a return from the enclosing function.
-func (p *Ret) Execute(pc uint, regs []big.Int, widths []uint) uint {
+func (p *Ret) Execute(pc uint, state []big.Int, regs []Register) uint {
 	return math.MaxUint
 }
 
