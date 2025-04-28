@@ -50,16 +50,18 @@ func (p *Mul) Bind(labels []uint) {
 // given set of register values.  This may update the register values, and
 // returns the next program counter position.  If the program counter is
 // math.MaxUint then a return is signaled.
-func (p *Mul) Execute(pc uint, regs []big.Int, widths []uint) uint {
-	var value big.Int = one
+func (p *Mul) Execute(pc uint, state []big.Int, regs []Register) uint {
+	var value big.Int
+	// Assign first value
+	value.Set(&state[p.Sources[0]])
 	// Multiply register values
-	for _, src := range p.Sources {
-		value.Mul(&value, &regs[src])
+	for _, src := range p.Sources[1:] {
+		value.Mul(&value, &state[src])
 	}
 	// Multiply constant
 	value.Mul(&value, &p.Constant)
 	// Write value
-	writeTargetRegisters(p.Targets, regs, widths, value)
+	writeTargetRegisters(p.Targets, state, regs, value)
 	//
 	return pc + 1
 }

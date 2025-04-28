@@ -29,7 +29,7 @@ import (
 // [0], "Y": [1]} is a trace containing one row of data each for two columns "X"
 // and "Y".
 func FromBytes(bytes []byte) ([]trace.RawColumn, error) {
-	var rawData map[string][]*big.Int
+	var rawData map[string][]big.Int
 	// Unmarshall
 	jsonErr := json.Unmarshal(bytes, &rawData)
 	if jsonErr != nil {
@@ -109,7 +109,7 @@ func splitColumnBitwidth(name string) (string, uint, error) {
 	return bits[0], uint(bitwidth), nil
 }
 
-func validateBigInts(bitwidth uint, data []*big.Int) uint {
+func validateBigInts(bitwidth uint, data []big.Int) uint {
 	var zero = big.NewInt(0)
 	//
 	for i, val := range data {
@@ -123,7 +123,7 @@ func validateBigInts(bitwidth uint, data []*big.Int) uint {
 	return math.MaxUint
 }
 
-func normaliseBigInts(data []*big.Int) {
+func normaliseBigInts(data []big.Int) {
 	var (
 		zero    = big.NewInt(0)
 		modulus = fr.Modulus()
@@ -131,7 +131,7 @@ func normaliseBigInts(data []*big.Int) {
 	//
 	for i, val := range data {
 		if val.Cmp(zero) < 0 {
-			data[i].Add(modulus, data[i])
+			data[i].Add(modulus, &data[i])
 		}
 	}
 }

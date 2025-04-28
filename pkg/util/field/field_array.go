@@ -43,13 +43,13 @@ func NewFrArray(height uint, bitWidth uint) FrArray {
 
 // FrArrayFromBigInts converts an array of big integers into an array of
 // field elements.
-func FrArrayFromBigInts(bitWidth uint, ints []*big.Int) FrArray {
+func FrArrayFromBigInts(bitWidth uint, ints []big.Int) FrArray {
 	elements := NewFrArray(uint(len(ints)), bitWidth)
 	// Convert each integer in turn.
 	for i, v := range ints {
 		var element fr.Element
 
-		element.SetBigInt(v)
+		element.SetBigInt(&v)
 		elements.Set(uint(i), element)
 	}
 

@@ -200,7 +200,7 @@ func (p *Parser) parseFunction() (Function, []source.SyntaxError) {
 		fn              Function
 		env             Environment
 		insn            Instruction
-		inputs, outputs []Register
+		inputs, outputs []instruction.Register
 		errs            []source.SyntaxError
 		pc              uint
 	)
@@ -252,12 +252,12 @@ func (p *Parser) parseFunction() (Function, []source.SyntaxError) {
 	return fn, nil
 }
 
-func (p *Parser) parseArgsList(kind uint8) ([]Register, []source.SyntaxError) {
+func (p *Parser) parseArgsList(kind uint8) ([]instruction.Register, []source.SyntaxError) {
 	var (
 		arg   string
 		width uint
 		errs  []source.SyntaxError
-		regs  []Register
+		regs  []instruction.Register
 	)
 	// Parse start of list
 	if _, errs = p.expect(LBRACE); len(errs) > 0 {
@@ -278,7 +278,7 @@ func (p *Parser) parseArgsList(kind uint8) ([]Register, []source.SyntaxError) {
 			return nil, errs
 		}
 		//
-		regs = append(regs, Register{kind, arg, width})
+		regs = append(regs, instruction.NewRegister(kind, arg, width))
 	}
 	// Advance past "}"
 	p.match(RBRACE)
@@ -651,7 +651,7 @@ type Environment struct {
 	// Labels identifies branch targets.
 	labels []Label
 	// Registers identifies set of declared registers.
-	registers []Register
+	registers []instruction.Register
 }
 
 // Bind associates a label with a given index which can subsequently be used to
@@ -696,7 +696,7 @@ func (p *Environment) DeclareRegister(kind uint8, name string, width uint) {
 		panic(fmt.Sprintf("register %s already declared", name))
 	}
 	//
-	p.registers = append(p.registers, Register{kind, name, width})
+	p.registers = append(p.registers, instruction.NewRegister(kind, name, width))
 }
 
 // IsRegister checks whether or not a given name is already declared as a

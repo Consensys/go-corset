@@ -36,8 +36,9 @@ isz:
    ifz arg1 goto exit_1
 exit_0:
    res = 0
-   ret
+   goto exit
 exit_1:
    res = 1
+exit:
    ret
 }

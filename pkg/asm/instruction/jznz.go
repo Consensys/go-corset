@@ -35,9 +35,9 @@ func (p *Jznz) Bind(labels []uint) {
 
 // Execute an unconditional branch instruction by returning the destination
 // program counter.
-func (p *Jznz) Execute(pc uint, regs []big.Int, widths []uint) uint {
+func (p *Jznz) Execute(pc uint, state []big.Int, regs []Register) uint {
 	var (
-		val     = regs[p.Source]
+		val     = state[p.Source]
 		is_zero = val.Cmp(&zero) == 0
 	)
 	//

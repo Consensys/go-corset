@@ -12,7 +12,13 @@
 // SPDX-License-Identifier: Apache-2.0
 package asm
 
-import "math/big"
+import (
+	"fmt"
+	"math"
+	"math/big"
+
+	"github.com/consensys/go-corset/pkg/asm/instruction"
+)
 
 // Function defines a distinct functional entity within the system.  Functions
 // accepts zero or more inputs and produce zero or more outputs.  Functions
@@ -23,35 +29,16 @@ type Function struct {
 	Name string
 	// Registers describes zero or more registers of a given width.  Each
 	// register can be designated as an input / output or temporary.
-	Registers []Register
+	Registers []instruction.Register
 	// Code defines the body of this function.
 	Code []Instruction
-}
-
-// Register describes a single register within a function.
-type Register struct {
-	// Kind of register (input / output)
-	Kind uint8
-	// Given name of this register.
-	Name string
-	// Width (in bits) of this register
-	Width uint
-}
-
-// Bound returns the first value which cannot be represented by the given
-// bitwidth.  For example, the bound of an 8bit register is 256.
-func (p *Register) Bound() *big.Int {
-	var (
-		bound = big.NewInt(2)
-		width = big.NewInt(int64(p.Width))
-	)
-	// Compute 2^n
-	return bound.Exp(bound, width, nil)
 }
 
 // FunctionInstance represents a specific instance of a function.  That is, a
 // mapping from input values to expected output values.
 type FunctionInstance struct {
+	// Identifies corresponding function.
+	Function uint
 	// Inputs identifies the input arguments
 	Inputs map[string]big.Int
 	// Outputs identifies the outputs
@@ -69,3 +56,39 @@ const (
 	// computation.
 	TEMP_REGISTER = uint8(2)
 )
+
+// CheckInstance checks whether a given function instance is valid with respect
+// to a given set of functions.  It returns an error if something goes wrong
+// (e.g. the instance is malformed), and either true or false to indicate
+// whether the trace is accepted or not.
+func CheckInstance(instance FunctionInstance, fns []Function) (uint, error) {
+	// Initialise a new interpreter
+	interpreter := NewInterpreter(fns...)
+	//
+	init := interpreter.Bind(instance.Function, instance.Inputs)
+	// Enter function
+	interpreter.Enter(instance.Function, init)
+	// Execute function to completion
+	interpreter.Execute(math.MaxUint)
+	// Extract outputs
+	outputs := interpreter.Leave()
+	// Checkout results
+	for r, actual := range outputs {
+		expected, ok := instance.Outputs[r]
+		outcome := expected.Cmp(&actual) == 0
+		// Check actual output matches expected output
+		if !ok {
+			return math.MaxUint, fmt.Errorf("missing output (%s)", r)
+		} else if !outcome {
+			// failure
+			return 1, fmt.Errorf("incorrect output \"%s\" (was %s, expected %s)", r, actual.String(), expected.String())
+		}
+	}
+	//
+	if len(outputs) != len(instance.Outputs) {
+		msg := fmt.Errorf("incorrect number of outputs (was %d but expected %d)", len(outputs), len(instance.Outputs))
+		return math.MaxUint, msg
+	}
+	// Success
+	return 0, nil
+}
