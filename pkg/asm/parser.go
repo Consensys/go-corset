@@ -333,14 +333,14 @@ func (p *Parser) parseInstruction(pc uint, env *Environment) (Instruction, []sou
 	switch first {
 	case "var":
 		insn, errs = p.parseVar(env)
-	case "ifz":
-		insn, errs = p.parseIf(env, true)
-	case "ifnz":
-		insn, errs = p.parseIf(env, false)
-	case "goto":
-		insn, errs = p.parseGoto(env)
+	case "jz":
+		insn, errs = p.parseJznz(env, true)
+	case "jnz":
+		insn, errs = p.parseJznz(env, false)
+	case "jmp":
+		insn, errs = p.parseJmp(env)
 	case "ret":
-		return &instruction.Ret{}, nil
+		insn, errs = &instruction.Ret{}, nil
 	default:
 		isLabel := p.lookahead().Kind == COLON
 		// Backtrack
@@ -360,7 +360,7 @@ func (p *Parser) parseInstruction(pc uint, env *Environment) (Instruction, []sou
 	return insn, errs
 }
 
-func (p *Parser) parseGoto(env *Environment) (Instruction, []source.SyntaxError) {
+func (p *Parser) parseJmp(env *Environment) (Instruction, []source.SyntaxError) {
 	lab, errs := p.parseIdentifier()
 	//
 	if len(errs) > 0 {
@@ -410,7 +410,7 @@ func (p *Parser) parseVar(env *Environment) (Instruction, []source.SyntaxError) 
 	return nil, nil
 }
 
-func (p *Parser) parseIf(env *Environment, sign bool) (Instruction, []source.SyntaxError) {
+func (p *Parser) parseJznz(env *Environment, sign bool) (Instruction, []source.SyntaxError) {
 	var (
 		errs     []source.SyntaxError
 		register string
@@ -423,10 +423,6 @@ func (p *Parser) parseIf(env *Environment, sign bool) (Instruction, []source.Syn
 		return nil, errs
 	} else if !env.IsRegister(register) {
 		return nil, p.syntaxErrors(lookahead, "unknown register")
-	}
-	// Parse "goto"
-	if errs = p.parseKeyword("goto"); len(errs) > 0 {
-		return nil, errs
 	}
 	// Parse target label
 	if label, errs = p.parseIdentifier(); len(errs) > 0 {

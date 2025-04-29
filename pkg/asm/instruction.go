@@ -31,4 +31,8 @@ type Instruction interface {
 	IsBalanced(regs []instruction.Register) error
 	// Registers returns the set of registers read/written by this instruction.
 	Registers() []uint
+	// Registers returns the set of registers read this instruction.
+	RegistersRead() []uint
+	// Registers returns the set of registers written by this instruction.
+	RegistersWritten() []uint
 }

@@ -98,6 +98,16 @@ func (p *Sub) Registers() []uint {
 	return append(p.Targets, p.Sources...)
 }
 
+// RegistersRead returns the set of registers read by this instruction.
+func (p *Sub) RegistersRead() []uint {
+	return p.Sources
+}
+
+// RegistersWritten returns the set of registers written by this instruction.
+func (p *Sub) RegistersWritten() []uint {
+	return p.Targets
+}
+
 // the pivot check is necessary to ensure we can properly rebalance a
 // subtraction.  Consider "c,x = y-z" which is rebalanced to "x+z = y+256*c".
 // The issue is that, for example, x cannot be split across both sides.  Thus,

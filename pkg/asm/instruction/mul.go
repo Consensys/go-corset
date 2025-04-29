@@ -95,3 +95,13 @@ func (p *Mul) IsBalanced(regs []Register) error {
 func (p *Mul) Registers() []uint {
 	return append(p.Targets, p.Sources...)
 }
+
+// RegistersRead returns the set of registers read by this instruction.
+func (p *Mul) RegistersRead() []uint {
+	return p.Sources
+}
+
+// RegistersWritten returns the set of registers written by this instruction.
+func (p *Mul) RegistersWritten() []uint {
+	return p.Targets
+}

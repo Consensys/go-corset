@@ -18,7 +18,11 @@ import (
 )
 
 // Ret signals a return from the enclosing function.
-type Ret struct{}
+type Ret struct {
+	// dummy is included to force Ret structs to be stored in the heap.
+	//nolint
+	dummy uint
+}
 
 // Bind any labels contained within this instruction using the given label map.
 func (p *Ret) Bind(labels []uint) {
@@ -37,5 +41,15 @@ func (p *Ret) IsBalanced(regs []Register) error {
 
 // Registers returns the set of registers read/written by this instruction.
 func (p *Ret) Registers() []uint {
+	return nil
+}
+
+// RegistersRead returns the set of registers read by this instruction.
+func (p *Ret) RegistersRead() []uint {
+	return nil
+}
+
+// RegistersWritten returns the set of registers written by this instruction.
+func (p *Ret) RegistersWritten() []uint {
 	return nil
 }

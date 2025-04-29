@@ -57,3 +57,13 @@ func (p *Jznz) IsBalanced(regs []Register) error {
 func (p *Jznz) Registers() []uint {
 	return []uint{p.Source}
 }
+
+// RegistersRead returns the set of registers read by this instruction.
+func (p *Jznz) RegistersRead() []uint {
+	return []uint{p.Source}
+}
+
+// RegistersWritten returns the set of registers written by this instruction.
+func (p *Jznz) RegistersWritten() []uint {
+	return nil
+}

@@ -39,3 +39,13 @@ func (p *Jmp) IsBalanced(regs []Register) error {
 func (p *Jmp) Registers() []uint {
 	return nil
 }
+
+// RegistersRead returns the set of registers read by this instruction.
+func (p *Jmp) RegistersRead() []uint {
+	return nil
+}
+
+// RegistersWritten returns the set of registers written by this instruction.
+func (p *Jmp) RegistersWritten() []uint {
+	return nil
+}

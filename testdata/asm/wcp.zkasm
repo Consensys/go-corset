@@ -9,34 +9,34 @@ fn wcp(inst u8, arg1 u32, arg2 u32) -> (res u1) {
    var targ u32
    var b u1
    ;; inst == EVM_INST_LT
-   tmp = inst - 16
-   ifz tmp goto lt
+   b,tmp = inst - 16
+   jz tmp lt
    ;; inst == EVM_INST_GT
-   tmp = inst - 17
-   ifz tmp goto gt
+   b,tmp = inst - 17
+   jz tmp gt
    ;; inst == EVM_INST_EQ
-   tmp = inst - 20
-   ifz tmp goto eq
+   b,tmp = inst - 20
+   jz tmp eq
    ;; else
-   goto isz
+   jmp isz
 lt:
    b,targ = arg1 - arg2
-   ifnz b goto exit_1
-   goto exit_0
+   jnz b exit_1
+   jmp exit_0
 gt:
    b,targ = arg2 - arg1
-   ifnz b goto exit_1
-   goto exit_0
+   jnz b exit_1
+   jmp exit_0
 eq:
    b,targ = arg1 - arg2
-   ifnz b goto exit_0
-   ifnz targ goto exit_0
-   goto exit_1
+   jnz b exit_0
+   jnz targ exit_0
+   jmp exit_1
 isz:
-   ifz arg1 goto exit_1
+   jz arg1 exit_1
 exit_0:
    res = 0
-   goto exit
+   jmp exit
 exit_1:
    res = 1
 exit:

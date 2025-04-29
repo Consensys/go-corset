@@ -14,6 +14,7 @@ package bit
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/util"
@@ -25,6 +26,12 @@ import (
 // (unsigned) integer values implemented as an array of bits.
 type Set struct {
 	words []uint64
+}
+
+// Clone creates a true copy of this bitset which ensures no aliasing between
+// this set and the result.
+func (p *Set) Clone() Set {
+	return Set{slices.Clone(p.words)}
 }
 
 // Insert a given value into this set.
@@ -47,15 +54,34 @@ func (p *Set) InsertAll(vals ...uint) {
 	}
 }
 
-// Union inserts all elements from a given bitset into this bitset.
-func (p *Set) Union(bits Set) {
+// Remove a given value from this set.
+func (p *Set) Remove(val uint) {
+	word := val / 64
+	bit := val % 64
+	// Check whether need to do anything.
+	if uint(len(p.words)) > word {
+		// unset bit
+		mask := uint64(1) << bit
+		p.words[word] = p.words[word] & ^mask
+	}
+}
+
+// Union inserts all elements from a given bitset into this bitset, return true
+// if there is some change.
+func (p *Set) Union(bits Set) bool {
+	changed := false
+	//
 	for len(p.words) < len(bits.words) {
 		p.words = append(p.words, 0)
 	}
 	// Insert all
-	for w := 0; w < len(bits.words); w++ {
-		p.words[w] = p.words[w] | bits.words[w]
+	for w := range bits.words {
+		tmp := p.words[w] | bits.words[w]
+		changed = changed || tmp != p.words[w]
+		p.words[w] = tmp
 	}
+	//
+	return changed
 }
 
 // Contains checks whether a given value is contained, or not.

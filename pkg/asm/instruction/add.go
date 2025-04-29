@@ -92,6 +92,16 @@ func (p *Add) Registers() []uint {
 	return append(p.Targets, p.Sources...)
 }
 
+// RegistersRead returns the set of registers read by this instruction.
+func (p *Add) RegistersRead() []uint {
+	return p.Sources
+}
+
+// RegistersWritten returns the set of registers written by this instruction.
+func (p *Add) RegistersWritten() []uint {
+	return p.Targets
+}
+
 // Sum the total number of bits used by the given set of target registers.
 func sum_bits(targets []uint, regs []Register) uint {
 	sum := uint(0)
