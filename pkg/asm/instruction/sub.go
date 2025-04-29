@@ -89,8 +89,12 @@ func (p *Sub) IsBalanced(regs []Register) error {
 	if lhs_bits < rhs_bits {
 		return fmt.Errorf("bit overflow (%d bits into %d bits)", rhs_bits, lhs_bits)
 	}
-	// Finally, run the pivot check
-	return checkPivot(p.Sources[0], p.Targets, regs)
+	// Run the pivot check
+	if err := checkPivot(p.Sources[0], p.Targets, regs); err != nil {
+		return err
+	}
+	// Finally, ensure unique targets
+	return checkUniqueTargets(p.Targets, regs)
 }
 
 // Registers returns the set of registers read/written by this instruction.

@@ -88,7 +88,7 @@ func (p *Mul) IsBalanced(regs []Register) error {
 		return fmt.Errorf("bit overflow (%d bits into %d bits)", rhs_bits, lhs_bits)
 	}
 	//
-	return nil
+	return checkUniqueTargets(p.Targets, regs)
 }
 
 // Registers returns the set of registers read/written by this instruction.

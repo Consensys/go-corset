@@ -12,7 +12,10 @@
 // SPDX-License-Identifier: Apache-2.0
 package instruction
 
-import "math/big"
+import (
+	"fmt"
+	"math/big"
+)
 
 // Register describes a single register within a function.
 type Register struct {
@@ -77,4 +80,17 @@ func readBitSlice(offset uint, width uint, value big.Int) big.Int {
 	}
 	//
 	return slice
+}
+
+// Ensure a given
+func checkUniqueTargets(targets []uint, regs []Register) error {
+	for i := range targets {
+		for j := i + 1; j < len(targets); j++ {
+			if targets[i] == targets[j] {
+				return fmt.Errorf("conflicting write to %s", regs[targets[i]].Name)
+			}
+		}
+	}
+	//
+	return nil
 }

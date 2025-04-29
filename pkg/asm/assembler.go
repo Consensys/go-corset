@@ -104,6 +104,7 @@ func checkInstructionsFlow(fn Function, srcmaps source.Maps[Instruction]) []sour
 	for !worklist.Empty() {
 		// Pop the next item from the stack
 		pc, state := worklist.Pop()
+		//
 		nstate, errs := applyInstructionFlow(pc, state, fn, srcmaps)
 		errors = append(errors, errs...)
 		// Update control flow
@@ -115,12 +116,20 @@ func checkInstructionsFlow(fn Function, srcmaps source.Maps[Instruction]) []sour
 			// Conditional jump target
 			worklist.Join(insn.Target, nstate)
 			// Unconditional jump target
-			worklist.Join(pc+1, nstate)
+			if pc+1 < n {
+				worklist.Join(pc+1, nstate)
+			} else {
+				errors = append(errors, *srcmaps.SyntaxError(fn.Code[pc], "missing ret"))
+			}
 		case *instruction.Ret:
 			// Terminate
 		default:
 			// All others fall through
-			worklist.Join(pc+1, nstate)
+			if pc+1 < n {
+				worklist.Join(pc+1, nstate)
+			} else {
+				errors = append(errors, *srcmaps.SyntaxError(fn.Code[pc], "missing ret"))
+			}
 		}
 	}
 	// Sanity check all instructions reachable.
