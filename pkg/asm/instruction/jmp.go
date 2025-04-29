@@ -30,8 +30,8 @@ func (p *Jmp) Execute(pc uint, state []big.Int, regs []Register) uint {
 	return p.Target
 }
 
-// IsBalanced checks whether or not this instruction is correctly balanced.
-func (p *Jmp) IsBalanced(regs []Register) error {
+// IsWellFormed checks whether or not this instruction is correctly balanced.
+func (p *Jmp) IsWellFormed(regs []Register) error {
 	return nil
 }
 

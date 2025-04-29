@@ -70,7 +70,7 @@ func checkInstructionsBalance(fn Function, srcmaps source.Maps[Instruction]) []s
 	var errors []source.SyntaxError
 
 	for _, insn := range fn.Code {
-		err := insn.IsBalanced(fn.Registers)
+		err := insn.IsWellFormed(fn.Registers)
 		//
 		if err != nil {
 			errors = append(errors, *srcmaps.SyntaxError(insn, err.Error()))
@@ -123,6 +123,7 @@ func checkInstructionsFlow(fn Function, srcmaps source.Maps[Instruction]) []sour
 			}
 		case *instruction.Ret:
 			// Terminate
+			errors = append(errors, checkOutputsAssigned(pc, state, fn, srcmaps)...)
 		default:
 			// All others fall through
 			if pc+1 < n {
@@ -136,6 +137,21 @@ func checkInstructionsFlow(fn Function, srcmaps source.Maps[Instruction]) []sour
 	for pc := 0; pc < len(fn.Code); pc++ {
 		if !worklist.Visited(uint(pc)) {
 			errors = append(errors, *srcmaps.SyntaxError(fn.Code[pc], "unreachable"))
+		}
+	}
+	//
+	return errors
+}
+
+// Check that all output registers have been definitely assigned at the point of
+// a return.
+func checkOutputsAssigned(pc uint, state bit.Set, fn Function, srcmaps source.Maps[Instruction]) []source.SyntaxError {
+	var errors []source.SyntaxError
+	//
+	for i, r := range fn.Registers {
+		if r.Kind == OUTPUT_REGISTER && state.Contains(uint(i)) {
+			msg := fmt.Sprintf("output %s possibly undefined", r.Name)
+			errors = append(errors, *srcmaps.SyntaxError(fn.Code[pc], msg))
 		}
 	}
 	//
@@ -183,6 +199,8 @@ func NewWorklist(nstates uint, start uint, init bit.Set) Worklist {
 	//
 	states := make([]bit.Set, nstates)
 	states[start] = init
+	// mark start visited
+	visited.Insert(start)
 	//
 	return Worklist{
 		visited,
@@ -208,8 +226,6 @@ func (p *Worklist) Pop() (uint, bit.Set) {
 	pc := p.stack[n]
 	bs := p.states[pc]
 	p.stack = p.stack[:n]
-	// mark item as visited
-	p.visited.Insert(pc)
 	//
 	return pc, bs.Clone()
 }
@@ -219,7 +235,9 @@ func (p *Worklist) Join(pc uint, state bit.Set) {
 	pcState := &p.states[pc]
 	// Visit state if it hasn't been visited before, or there is an update to
 	// its dataflow state.
-	if !p.visited.Contains(pc) || pcState.Union(state) {
+	if pcState.Union(state) || !p.visited.Contains(pc) {
+		// mark item as visited
+		p.visited.Insert(pc)
 		// push item on stack
 		p.stack = append(p.stack, pc)
 	}

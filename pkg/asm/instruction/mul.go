@@ -67,8 +67,8 @@ func (p *Mul) Execute(pc uint, state []big.Int, regs []Register) uint {
 	return pc + 1
 }
 
-// IsBalanced checks whether or not this instruction is correctly balanced.
-func (p *Mul) IsBalanced(regs []Register) error {
+// IsWellFormed checks whether or not this instruction is correctly balanced.
+func (p *Mul) IsWellFormed(regs []Register) error {
 	var (
 		lhs_bits = sum_bits(p.Targets, regs)
 		rhs      big.Int

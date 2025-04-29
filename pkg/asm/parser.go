@@ -332,7 +332,7 @@ func (p *Parser) parseInstruction(pc uint, env *Environment) (Instruction, []sou
 	//
 	switch first {
 	case "var":
-		insn, errs = p.parseVar(env)
+		return nil, p.parseVar(env)
 	case "jz":
 		insn, errs = p.parseJznz(env, true)
 	case "jnz":
@@ -388,7 +388,7 @@ func (p *Parser) parseLabel(pc uint, env *Environment) (Instruction, []source.Sy
 	return nil, nil
 }
 
-func (p *Parser) parseVar(env *Environment) (Instruction, []source.SyntaxError) {
+func (p *Parser) parseVar(env *Environment) []source.SyntaxError {
 	var (
 		errs  []source.SyntaxError
 		name  string
@@ -398,16 +398,16 @@ func (p *Parser) parseVar(env *Environment) (Instruction, []source.SyntaxError) 
 	lookahead := p.lookahead()
 	// Parse name and width
 	if name, errs = p.parseIdentifier(); len(errs) > 0 {
-		return nil, errs
+		return errs
 	} else if width, errs = p.parseType(); len(errs) > 0 {
-		return nil, errs
+		return errs
 	} else if env.IsRegister(name) {
-		return nil, p.syntaxErrors(lookahead, "variable already declared")
+		return p.syntaxErrors(lookahead, "variable already declared")
 	}
 	//
 	env.DeclareRegister(TEMP_REGISTER, name, width)
 	//
-	return nil, nil
+	return nil
 }
 
 func (p *Parser) parseJznz(env *Environment, sign bool) (Instruction, []source.SyntaxError) {
@@ -562,18 +562,6 @@ func (p *Parser) parseRegister(env *Environment) (uint, []source.SyntaxError) {
 	}
 	// Done
 	return env.LookupRegister(reg), nil
-}
-
-func (p *Parser) parseKeyword(keyword string) []source.SyntaxError {
-	tok, errs := p.expect(IDENTIFIER)
-	//
-	if len(errs) > 0 {
-		return errs
-	} else if p.string(tok) != keyword {
-		return p.syntaxErrors(tok, fmt.Sprintf("expected \"%s\"", keyword))
-	}
-	//
-	return nil
 }
 
 func (p *Parser) parseIdentifier() (string, []source.SyntaxError) {

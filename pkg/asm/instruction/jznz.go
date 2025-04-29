@@ -48,8 +48,8 @@ func (p *Jznz) Execute(pc uint, state []big.Int, regs []Register) uint {
 	return pc + 1
 }
 
-// IsBalanced checks whether or not this instruction is correctly balanced.
-func (p *Jznz) IsBalanced(regs []Register) error {
+// IsWellFormed checks whether or not this instruction is correctly balanced.
+func (p *Jznz) IsWellFormed(regs []Register) error {
 	return nil
 }
 

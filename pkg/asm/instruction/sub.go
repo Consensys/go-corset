@@ -67,11 +67,11 @@ func (p *Sub) Execute(pc uint, state []big.Int, regs []Register) uint {
 	return pc + 1
 }
 
-// IsBalanced checks whether or not this instruction is correctly balanced.  The
+// IsWellFormed checks whether or not this instruction is correctly balanced.  The
 // algorithm here may seem a little odd at first.  It counts the number of
 // *unique values* required to hold both the positive and negative components of
 // the right-hand side.  This gives the minimum bitwidth required.
-func (p *Sub) IsBalanced(regs []Register) error {
+func (p *Sub) IsWellFormed(regs []Register) error {
 	var (
 		lhs_bits = sum_bits(p.Targets, regs)
 		// Initially, include positive component of rhs.

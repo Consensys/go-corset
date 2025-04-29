@@ -34,8 +34,8 @@ func (p *Ret) Execute(pc uint, state []big.Int, regs []Register) uint {
 	return math.MaxUint
 }
 
-// IsBalanced checks whether or not this instruction is correctly balanced.
-func (p *Ret) IsBalanced(regs []Register) error {
+// IsWellFormed checks whether or not this instruction is correctly balanced.
+func (p *Ret) IsWellFormed(regs []Register) error {
 	return nil
 }
 
