@@ -48,6 +48,11 @@ func (p *Jznz) Execute(pc uint, state []big.Int, regs []Register) uint {
 	return pc + 1
 }
 
+// IsBalanced checks whether or not this instruction is correctly balanced.
+func (p *Jznz) IsBalanced(regs []Register) error {
+	return nil
+}
+
 // Registers returns the set of registers read/written by this instruction.
 func (p *Jznz) Registers() []uint {
 	return []uint{p.Source}

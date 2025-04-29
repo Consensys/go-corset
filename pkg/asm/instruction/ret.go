@@ -30,6 +30,11 @@ func (p *Ret) Execute(pc uint, state []big.Int, regs []Register) uint {
 	return math.MaxUint
 }
 
+// IsBalanced checks whether or not this instruction is correctly balanced.
+func (p *Ret) IsBalanced(regs []Register) error {
+	return nil
+}
+
 // Registers returns the set of registers read/written by this instruction.
 func (p *Ret) Registers() []uint {
 	return nil

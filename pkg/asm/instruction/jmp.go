@@ -30,6 +30,11 @@ func (p *Jmp) Execute(pc uint, state []big.Int, regs []Register) uint {
 	return p.Target
 }
 
+// IsBalanced checks whether or not this instruction is correctly balanced.
+func (p *Jmp) IsBalanced(regs []Register) error {
+	return nil
+}
+
 // Registers returns the set of registers read/written by this instruction.
 func (p *Jmp) Registers() []uint {
 	return nil
