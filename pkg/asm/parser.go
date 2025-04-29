@@ -28,7 +28,7 @@ import (
 // Parse accepts a given source file representing an assembly language
 // program, and assembles it into an instruction sequence which can then the
 // executed.
-func Parse(srcfile *source.File) ([]Function, []source.SyntaxError) {
+func Parse(srcfile *source.File) ([]Function, *source.Map[Instruction], []source.SyntaxError) {
 	parser := NewParser(srcfile)
 	// Parse functions
 	return parser.parse()
@@ -144,33 +144,38 @@ var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
 type Parser struct {
 	srcfile *source.File
 	tokens  []lex.Token
+	// Source mapping
+	srcmap *source.Map[Instruction]
 	// Position within the tokens
 	index int
 }
 
 // NewParser constructs a new parser for a given source file.
 func NewParser(srcfile *source.File) *Parser {
-	return &Parser{srcfile, nil, 0}
+	// Construct (initially empty) source mapping
+	srcmap := source.NewSourceMap[Instruction](*srcfile)
+	//
+	return &Parser{srcfile, nil, srcmap, 0}
 }
 
-func (p *Parser) parse() ([]Function, []source.SyntaxError) {
+func (p *Parser) parse() ([]Function, *source.Map[Instruction], []source.SyntaxError) {
 	var fns []Function
 	// Initialise tokens array
 	if errs := p.lex(); len(errs) > 0 {
-		return nil, errs
+		return nil, p.srcmap, errs
 	}
 	// Continue going until all consumed
 	for p.lookahead().Kind != END_OF {
 		fn, errs := p.parseFunction()
 		//
 		if len(errs) > 0 {
-			return nil, errs
+			return nil, p.srcmap, errs
 		}
 		//
 		fns = append(fns, fn)
 	}
 	//
-	return fns, nil
+	return fns, p.srcmap, nil
 }
 
 // Initialise lexer and lex contents
@@ -318,6 +323,7 @@ func (p *Parser) parseInstruction(pc uint, env *Environment) (Instruction, []sou
 		start = p.index
 		errs  []source.SyntaxError
 		first string
+		insn  Instruction
 	)
 	//
 	if first, errs = p.parseIdentifier(); len(errs) > 0 {
@@ -326,13 +332,13 @@ func (p *Parser) parseInstruction(pc uint, env *Environment) (Instruction, []sou
 	//
 	switch first {
 	case "var":
-		return p.parseVar(env)
+		insn, errs = p.parseVar(env)
 	case "ifz":
-		return p.parseIf(env, true)
+		insn, errs = p.parseIf(env, true)
 	case "ifnz":
-		return p.parseIf(env, false)
+		insn, errs = p.parseIf(env, false)
 	case "goto":
-		return p.parseGoto(env)
+		insn, errs = p.parseGoto(env)
 	case "ret":
 		return &instruction.Ret{}, nil
 	default:
@@ -342,10 +348,16 @@ func (p *Parser) parseInstruction(pc uint, env *Environment) (Instruction, []sou
 		// Distinguish label from assignment
 		if isLabel {
 			return p.parseLabel(pc, env)
+		} else {
+			insn, errs = p.parseAssignment(env)
 		}
-		//
-		return p.parseAssignment(env)
 	}
+	// Record source mapping
+	if insn != nil {
+		p.srcmap.Put(insn, p.spanOf(start, p.index))
+	}
+	//
+	return insn, errs
 }
 
 func (p *Parser) parseGoto(env *Environment) (Instruction, []source.SyntaxError) {
@@ -621,6 +633,13 @@ func (p *Parser) match(kind uint) bool {
 	}
 	//
 	return false
+}
+
+func (p *Parser) spanOf(firstToken, lastToken int) source.Span {
+	start := p.tokens[firstToken].Span.Start()
+	end := p.tokens[lastToken].Span.End()
+	//
+	return source.NewSpan(start, end)
 }
 
 func (p *Parser) syntaxErrors(token lex.Token, msg string) []source.SyntaxError {

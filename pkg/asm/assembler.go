@@ -13,34 +13,35 @@
 package asm
 
 import (
-	"fmt"
-
 	"github.com/consensys/go-corset/pkg/util/source"
 )
 
 // Assemble takes a given set of assembly files, and parses them into a given
 // set of functions.  This includes performing various checks on the files, such
 // as type checking, etc.
-func Assemble(assembly ...source.File) ([]Function, []source.SyntaxError) {
+func Assemble(assembly ...source.File) ([]Function, source.Maps[Instruction], []source.SyntaxError) {
 	var (
-		fns    []Function
-		errors []source.SyntaxError
+		fns     []Function
+		errors  []source.SyntaxError
+		srcmaps source.Maps[Instruction] = *source.NewSourceMaps[Instruction]()
 	)
 	// Parse each file in turn.
 	for _, asm := range assembly {
-		fn, errs := Parse(&asm)
+		fn, srcmap, errs := Parse(&asm)
 		if len(errs) == 0 {
 			fns = append(fns, fn...)
 		}
+		// Join srcmap
+		srcmaps.Join(srcmap)
 		//
 		errors = append(errors, errs...)
 	}
 	// Well-formedness checks
 	for _, fn := range fns {
-		errors = append(errors, checkWellFormed(fn)...)
+		errors = append(errors, checkWellFormed(fn, srcmaps)...)
 	}
 	// Done
-	return fns, errors
+	return fns, srcmaps, errors
 }
 
 // check that a given set of functions are well-formed.  For example, an
@@ -48,8 +49,8 @@ func Assemble(assembly ...source.File) ([]Function, []source.SyntaxError) {
 // number on rhs).  Likewise, registers cannot be used before they are defined,
 // and all control-flow paths must reach a "ret" instruction.  Finally, we
 // cannot assign to an input register under the current calling convention.
-func checkWellFormed(fn Function) []source.SyntaxError {
-	errors := checkInstructionsBalance(fn)
+func checkWellFormed(fn Function, srcmaps source.Maps[Instruction]) []source.SyntaxError {
+	errors := checkInstructionsBalance(fn, srcmaps)
 	//
 	return errors
 }
@@ -60,14 +61,14 @@ func checkWellFormed(fn Function) []source.SyntaxError {
 // y + 1" where both x and y are byte registers.  This does not balance because
 // the right-hand side generates 9 bits but the left-hand side can only consume
 // 8bits.
-func checkInstructionsBalance(fn Function) []source.SyntaxError {
+func checkInstructionsBalance(fn Function, srcmaps source.Maps[Instruction]) []source.SyntaxError {
 	var errors []source.SyntaxError
 
 	for _, insn := range fn.Code {
 		err := insn.IsBalanced(fn.Registers)
 		//
 		if err != nil {
-			panic(fmt.Sprintf("unbalanced instruction! %s", err.Error()))
+			errors = append(errors, *srcmaps.SyntaxError(insn, err.Error()))
 		}
 	}
 	//

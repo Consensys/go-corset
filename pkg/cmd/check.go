@@ -200,7 +200,7 @@ func readTraceAndConstraints(tracefile string, constraints string) ([]asm.Functi
 	//
 	srcfile := source.NewSourceFile(constraints, bytes)
 	// Attempt to parse source file
-	if functions, errors = asm.Assemble(*srcfile); len(errors) > 0 {
+	if functions, _, errors = asm.Assemble(*srcfile); len(errors) > 0 {
 		for _, err := range errors {
 			printSyntaxError(&err)
 		}
