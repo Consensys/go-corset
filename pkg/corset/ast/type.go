@@ -171,6 +171,12 @@ func (p *IntType) Width() uint {
 	return 1
 }
 
+// Values returns the interval of integers contained within this type
+// represents.
+func (p *IntType) Values() util.Interval {
+	return *p.values
+}
+
 // LeastUpperBound computes the least upper bound of this type and another. This
 // is smallest type which contains both of the arguments.  For example, i32 is
 // the least upper bound of i1 and i32, etc.  If no such type exists, then nil
