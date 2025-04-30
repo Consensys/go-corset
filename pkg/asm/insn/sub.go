@@ -137,8 +137,6 @@ func (p *Sub) Translate(pc uint, st StateTranslator) {
 	st.Constrain("sub", pc, eqn)
 	// increment program counter
 	st.pcIncrement(pc)
-	// register constancies
-	st.constantExcept(pc, p.Targets)
 }
 
 // Consider an assignment b, X := Y - 1.  This should be translated into the

@@ -124,8 +124,6 @@ func (p *Add) Translate(pc uint, st StateTranslator) {
 	st.Constrain("add", pc, eqn)
 	// increment program counter
 	st.pcIncrement(pc)
-	// register constancies
-	st.constantExcept(pc, p.Targets)
 }
 
 // Sum the total number of bits used by the given set of target registers.

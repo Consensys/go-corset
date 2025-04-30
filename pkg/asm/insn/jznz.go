@@ -92,8 +92,6 @@ func (p *Jznz) translateJz(pc uint, st StateTranslator) {
 	// not taken
 	st.Constrain("jnz", pc,
 		hir.Disjunction(hir.Equals(reg_i, hir.ZERO), hir.Equals(pc_ip1, hir.Sum(pc_i, hir.ONE))))
-	// register constancies
-	st.constantExcept(pc, nil)
 }
 
 func (p *Jznz) translateJnz(pc uint, st StateTranslator) {
@@ -111,5 +109,5 @@ func (p *Jznz) translateJnz(pc uint, st StateTranslator) {
 	st.Constrain("jz", pc,
 		hir.Disjunction(hir.NotEquals(reg_i, hir.ZERO), hir.Equals(pc_ip1, hir.Sum(pc_i, hir.ONE))))
 	// register constancies
-	st.constantExcept(pc, nil)
+	st.ConstantExcept(pc, nil)
 }

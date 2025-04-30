@@ -128,6 +128,4 @@ func (p *Mul) Translate(pc uint, st StateTranslator) {
 	st.Constrain("mul", pc, eqn)
 	// increment program counter
 	st.pcIncrement(pc)
-	// register constancies
-	st.constantExcept(pc, p.Targets)
 }

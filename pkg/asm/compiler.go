@@ -99,8 +99,11 @@ func (p *Compiler) compileFunction(id uint, functions []Function) {
 	// Setup framing columns / constraints
 	state.StampID, state.PcID = p.initFunctionFraming(ctx, fn)
 	//
-	for i, inst := range fn.Code {
-		inst.Translate(uint(i), state)
+	for pc, inst := range fn.Code {
+		// Core translation
+		inst.Translate(uint(pc), state)
+		// Apply constancies
+		state.ConstantExcept(uint(pc), inst.RegistersWritten())
 	}
 }
 

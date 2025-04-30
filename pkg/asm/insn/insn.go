@@ -109,8 +109,8 @@ func (p *StateTranslator) buildAssignmentRhs(sources []uint) []hir.Expr {
 	return rhs
 }
 
-// Add constancy constraints for all registers not assigned by a given insn.
-func (p *StateTranslator) constantExcept(pc uint, targets []uint) {
+// ConstantExcept adds constancy constraints for all registers not assigned by a given insn.
+func (p *StateTranslator) ConstantExcept(pc uint, targets []uint) {
 	//
 	var (
 		pc_i       = hir.NewColumnAccess(p.PcID, 0)

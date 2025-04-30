@@ -62,6 +62,4 @@ func (p *Jmp) Translate(pc uint, state StateTranslator) {
 	)
 	// Jump PC
 	state.Constrain("jmp", pc, hir.Equals(pc_ip1, target))
-	// register constancies
-	state.constantExcept(pc, nil)
 }
