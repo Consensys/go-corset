@@ -12,7 +12,10 @@
 // SPDX-License-Identifier: Apache-2.0
 package instruction
 
-import "math/big"
+import (
+	"fmt"
+	"math/big"
+)
 
 // Sub represents a generic operation of the following form:
 //
@@ -64,7 +67,72 @@ func (p *Sub) Execute(pc uint, state []big.Int, regs []Register) uint {
 	return pc + 1
 }
 
+// IsWellFormed checks whether or not this instruction is correctly balanced.  The
+// algorithm here may seem a little odd at first.  It counts the number of
+// *unique values* required to hold both the positive and negative components of
+// the right-hand side.  This gives the minimum bitwidth required.
+func (p *Sub) IsWellFormed(regs []Register) error {
+	var (
+		lhs_bits = sum_bits(p.Targets, regs)
+		// Initially, include positive component of rhs.
+		rhs = *regs[p.Sources[0]].MaxValue()
+	)
+	// Now, add negative components
+	for _, target := range p.Sources[1:] {
+		rhs.Add(&rhs, regs[target].MaxValue())
+	}
+	// Include constant (if relevant)
+	rhs.Add(&rhs, &p.Constant)
+	// lhs must be able to hold both.
+	rhs_bits := uint(rhs.BitLen())
+	// check
+	if lhs_bits < rhs_bits {
+		return fmt.Errorf("bit overflow (%d bits into %d bits)", rhs_bits, lhs_bits)
+	}
+	// Run the pivot check
+	if err := checkPivot(p.Sources[0], p.Targets, regs); err != nil {
+		return err
+	}
+	// Finally, ensure unique targets
+	return checkUniqueTargets(p.Targets, regs)
+}
+
 // Registers returns the set of registers read/written by this instruction.
 func (p *Sub) Registers() []uint {
 	return append(p.Targets, p.Sources...)
+}
+
+// RegistersRead returns the set of registers read by this instruction.
+func (p *Sub) RegistersRead() []uint {
+	return p.Sources
+}
+
+// RegistersWritten returns the set of registers written by this instruction.
+func (p *Sub) RegistersWritten() []uint {
+	return p.Targets
+}
+
+// the pivot check is necessary to ensure we can properly rebalance a
+// subtraction.  Consider "c,x = y-z" which is rebalanced to "x+z = y+256*c".
+// The issue is that, for example, x cannot be split across both sides.  Thus,
+// we need x to align with y.  For a case like "c,y,x = a-b" then we need either
+// x to align with a, or y,x to align with a.
+func checkPivot(source uint, targets []uint, regs []Register) error {
+	var (
+		rhs_width = regs[source].Width
+		lhs_width = uint(0)
+		pivot     = 0
+	)
+	// Consume source bits
+	for lhs_width < rhs_width {
+		lhs_width += regs[targets[pivot]].Width
+		pivot = pivot + 1
+	}
+	// Check for alignment
+	if lhs_width == rhs_width {
+		// Yes, aligned.
+		return nil
+	}
+	// Problem, no alignment.
+	return fmt.Errorf("incorrect alignment (%d bits versus %d bits)", lhs_width, rhs_width)
 }

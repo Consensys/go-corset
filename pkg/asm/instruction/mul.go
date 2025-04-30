@@ -13,6 +13,7 @@
 package instruction
 
 import (
+	"fmt"
 	"math/big"
 )
 
@@ -66,7 +67,41 @@ func (p *Mul) Execute(pc uint, state []big.Int, regs []Register) uint {
 	return pc + 1
 }
 
+// IsWellFormed checks whether or not this instruction is correctly balanced.
+func (p *Mul) IsWellFormed(regs []Register) error {
+	var (
+		lhs_bits = sum_bits(p.Targets, regs)
+		rhs      big.Int
+	)
+	//
+	rhs.Set(&one)
+	//
+	for _, target := range p.Sources {
+		rhs.Mul(&rhs, regs[target].MaxValue())
+	}
+	// Include constant (if relevant)
+	rhs.Mul(&rhs, &p.Constant)
+	//
+	rhs_bits := uint(rhs.BitLen())
+	// check
+	if lhs_bits < rhs_bits {
+		return fmt.Errorf("bit overflow (%d bits into %d bits)", rhs_bits, lhs_bits)
+	}
+	//
+	return checkUniqueTargets(p.Targets, regs)
+}
+
 // Registers returns the set of registers read/written by this instruction.
 func (p *Mul) Registers() []uint {
 	return append(p.Targets, p.Sources...)
+}
+
+// RegistersRead returns the set of registers read by this instruction.
+func (p *Mul) RegistersRead() []uint {
+	return p.Sources
+}
+
+// RegistersWritten returns the set of registers written by this instruction.
+func (p *Mul) RegistersWritten() []uint {
+	return p.Targets
 }

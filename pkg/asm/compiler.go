@@ -36,7 +36,7 @@ type Register = instruction.Register
 // CompileAssembly compiles a given set of assembly functions into a binary
 // constraint file.
 func CompileAssembly(assembly ...source.File) (*binfile.BinaryFile, []source.SyntaxError) {
-	functions, errs := Assemble(assembly...)
+	functions, _, errs := Assemble(assembly...)
 	//
 	if len(errs) > 0 {
 		return nil, errs

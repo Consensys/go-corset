@@ -12,7 +12,10 @@
 // SPDX-License-Identifier: Apache-2.0
 package instruction
 
-import "math/big"
+import (
+	"fmt"
+	"math/big"
+)
 
 // Register describes a single register within a function.
 type Register struct {
@@ -40,7 +43,17 @@ func (p *Register) Bound() *big.Int {
 	return bound.Exp(bound, width, nil)
 }
 
+// MaxValue returns the largest value expressible in this register (i.e. Bound() -
+// 1).  For example, the max value of an 8bit register is 255.
+func (p *Register) MaxValue() *big.Int {
+	max := p.Bound()
+	max.Sub(max, &one)
+	//
+	return max
+}
+
 var zero = *big.NewInt(0)
+var one = *big.NewInt(1)
 
 // Write the value to a given set of target registers, splitting its bits as
 // necessary.  The target registers are given with the least significant first.
@@ -67,4 +80,17 @@ func readBitSlice(offset uint, width uint, value big.Int) big.Int {
 	}
 	//
 	return slice
+}
+
+// Ensure a given
+func checkUniqueTargets(targets []uint, regs []Register) error {
+	for i := range targets {
+		for j := i + 1; j < len(targets); j++ {
+			if targets[i] == targets[j] {
+				return fmt.Errorf("conflicting write to %s", regs[targets[i]].Name)
+			}
+		}
+	}
+	//
+	return nil
 }

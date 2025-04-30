@@ -13,6 +13,7 @@
 package instruction
 
 import (
+	"fmt"
 	"math/big"
 )
 
@@ -64,7 +65,50 @@ func (p *Add) Execute(pc uint, state []big.Int, regs []Register) uint {
 	return pc + 1
 }
 
+// IsWellFormed checks whether or not this instruction is correctly balanced.
+func (p *Add) IsWellFormed(regs []Register) error {
+	var (
+		lhs_bits = sum_bits(p.Targets, regs)
+		rhs      big.Int
+	)
+	//
+	for _, target := range p.Sources {
+		rhs.Add(&rhs, regs[target].MaxValue())
+	}
+	// Include constant (if relevant)
+	rhs.Add(&rhs, &p.Constant)
+	//
+	rhs_bits := uint(rhs.BitLen())
+	// check
+	if lhs_bits < rhs_bits {
+		return fmt.Errorf("bit overflow (%d bits into %d bits)", rhs_bits, lhs_bits)
+	}
+	//
+	return checkUniqueTargets(p.Targets, regs)
+}
+
 // Registers returns the set of registers read/written by this instruction.
 func (p *Add) Registers() []uint {
 	return append(p.Targets, p.Sources...)
+}
+
+// RegistersRead returns the set of registers read by this instruction.
+func (p *Add) RegistersRead() []uint {
+	return p.Sources
+}
+
+// RegistersWritten returns the set of registers written by this instruction.
+func (p *Add) RegistersWritten() []uint {
+	return p.Targets
+}
+
+// Sum the total number of bits used by the given set of target registers.
+func sum_bits(targets []uint, regs []Register) uint {
+	sum := uint(0)
+	//
+	for _, target := range targets {
+		sum += regs[target].Width
+	}
+	//
+	return sum
 }

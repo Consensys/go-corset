@@ -27,6 +27,12 @@ type Instruction interface {
 	// returns the next program counter position.  If the program counter is
 	// math.MaxUint then a return is signaled.
 	Execute(pc uint, state []big.Int, regs []instruction.Register) uint
+	// Check whether or not this instruction is well-formed (e.g. correctly balanced).
+	IsWellFormed(regs []instruction.Register) error
 	// Registers returns the set of registers read/written by this instruction.
 	Registers() []uint
+	// Registers returns the set of registers read this instruction.
+	RegistersRead() []uint
+	// Registers returns the set of registers written by this instruction.
+	RegistersWritten() []uint
 }
