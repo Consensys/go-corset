@@ -1,0 +1,64 @@
+// Copyright Consensys Software Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+// the License. You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+// an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
+//
+// SPDX-License-Identifier: Apache-2.0
+package insn
+
+import (
+	"math"
+	"math/big"
+
+	"github.com/consensys/go-corset/pkg/hir"
+)
+
+// Ret signals a return from the enclosing function.
+type Ret struct {
+	// dummy is included to force Ret structs to be stored in the heap.
+	//nolint
+	dummy uint
+}
+
+// Bind any labels contained within this instruction using the given label map.
+func (p *Ret) Bind(labels []uint) {
+	// no-op
+}
+
+// Execute a ret instruction by signaling a return from the enclosing function.
+func (p *Ret) Execute(pc uint, state []big.Int, regs []Register) uint {
+	return math.MaxUint
+}
+
+// IsWellFormed checks whether or not this instruction is correctly balanced.
+func (p *Ret) IsWellFormed(regs []Register) error {
+	return nil
+}
+
+// Registers returns the set of registers read/written by this instruction.
+func (p *Ret) Registers() []uint {
+	return nil
+}
+
+// RegistersRead returns the set of registers read by this instruction.
+func (p *Ret) RegistersRead() []uint {
+	return nil
+}
+
+// RegistersWritten returns the set of registers written by this instruction.
+func (p *Ret) RegistersWritten() []uint {
+	return nil
+}
+
+// Translate this instruction into low-level constraints.
+func (p *Ret) Translate(pc uint, st StateTranslator) {
+	var pc_ip1 = hir.NewColumnAccess(st.PcID, 1)
+	// Reset PC
+	st.Constrain("ret", pc, hir.Equals(pc_ip1, hir.ZERO))
+}
