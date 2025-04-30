@@ -122,6 +122,7 @@ var comment lex.Scanner[rune] = lex.And(commentStart, commentRest)
 
 // lexing rules
 var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
+	lex.Rule(comment, COMMENT),
 	lex.Rule(lex.Unit('('), LBRACE),
 	lex.Rule(lex.Unit(')'), RBRACE),
 	lex.Rule(lex.Unit('{'), LCURLY),
@@ -134,7 +135,6 @@ var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
 	lex.Rule(lex.Unit('+'), ADD),
 	lex.Rule(lex.Unit('-'), SUB),
 	lex.Rule(lex.Unit('*'), MUL),
-	lex.Rule(comment, COMMENT),
 	lex.Rule(whitespace, WHITESPACE),
 	lex.Rule(number, NUMBER),
 	lex.Rule(identifier, IDENTIFIER),

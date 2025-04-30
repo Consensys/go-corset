@@ -5,8 +5,7 @@ fn pow(n u16, k u16) -> (res u16) {
    res = 1
 loop:
    jz k exit
-   tmp, res = res * n
-   b,k = k - 1
+   tmp, res = res * n ; b,k = k - 1
    jmp loop
 exit:
    ret
