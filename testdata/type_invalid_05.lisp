@@ -1,4 +1,4 @@
-;;error:6:26-35:expected bool, found int
+;;error:6:26-35:expected bool, found u2
 (defcolumns
     (BIT :binary)
     (X :binary))

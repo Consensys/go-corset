@@ -43,6 +43,16 @@ func NewInterval64(lower int64, upper int64) *Interval {
 	return NewInterval(big.NewInt(lower), big.NewInt(upper))
 }
 
+// MinValue returns the minimum value that this interval includes.
+func (p *Interval) MinValue() big.Int {
+	return p.min
+}
+
+// MaxValue returns the maximum value that this interval includes.
+func (p *Interval) MaxValue() big.Int {
+	return p.max
+}
+
 // BitWidth returns the minimum number of bits required to store all elements in
 // this interval.
 func (p *Interval) BitWidth() uint {

@@ -17,6 +17,7 @@ import (
 	"reflect"
 
 	"github.com/consensys/go-corset/pkg/corset/ast"
+	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
 
@@ -251,6 +252,7 @@ func (p *typeChecker) typeCheckExpressionInModule(expected ast.Type, expr ast.Ex
 	functional bool) (ast.Type, []SyntaxError) {
 	var (
 		result ast.Type
+		types  []ast.Type
 		errors []SyntaxError
 	)
 	//
@@ -258,8 +260,8 @@ func (p *typeChecker) typeCheckExpressionInModule(expected ast.Type, expr ast.Ex
 	case *ast.ArrayAccess:
 		result, errors = p.typeCheckArrayAccessInModule(e)
 	case *ast.Add:
-		_, errors = p.typeCheckExpressionsInModule(ast.INT_TYPE, e.Args, true)
-		result = ast.INT_TYPE
+		types, errors = p.typeCheckExpressionsInModule(ast.INT_TYPE, e.Args, true)
+		result = typeOfSum(types...)
 	case *ast.Cast:
 		actual, errs := p.typeCheckExpressionInModule(nil, e.Arg, functional)
 		// Check safe casts
@@ -273,8 +275,7 @@ func (p *typeChecker) typeCheckExpressionInModule(expected ast.Type, expr ast.Ex
 		_, errors = p.typeCheckExpressionsInModule(ast.BOOL_TYPE, e.Args, true)
 		result = ast.BOOL_TYPE
 	case *ast.Constant:
-		nbits := e.Val.BitLen()
-		result = ast.NewUintType(uint(nbits))
+		result = ast.NewIntType(&e.Val, &e.Val)
 	case *ast.Debug:
 		result, errors = p.typeCheckExpressionInModule(expected, e.Arg, functional)
 	case *ast.Equation:
@@ -304,8 +305,8 @@ func (p *typeChecker) typeCheckExpressionInModule(expected ast.Type, expr ast.Ex
 		types, errs := p.typeCheckExpressionsInModule(nil, e.Args, functional)
 		result, errors = ast.LeastUpperBound(types...), errs
 	case *ast.Mul:
-		_, errors = p.typeCheckExpressionsInModule(ast.INT_TYPE, e.Args, true)
-		result = ast.INT_TYPE
+		types, errors = p.typeCheckExpressionsInModule(ast.INT_TYPE, e.Args, true)
+		result = typeOfProduct(types...)
 	case *ast.Normalise:
 		_, errors = p.typeCheckExpressionInModule(ast.INT_TYPE, e.Arg, true)
 		// Normalise guaranteed to return either 0 or 1.
@@ -321,8 +322,8 @@ func (p *typeChecker) typeCheckExpressionInModule(expected ast.Type, expr ast.Ex
 		// combine errors
 		result, errors = res, append(arg_errs, shf_errs...)
 	case *ast.Sub:
-		_, errors = p.typeCheckExpressionsInModule(ast.INT_TYPE, e.Args, true)
-		result = ast.INT_TYPE
+		types, errors = p.typeCheckExpressionsInModule(ast.INT_TYPE, e.Args, true)
+		result = typeOfSubtraction(types...)
 	case *ast.VariableAccess:
 		result, errors = p.typeCheckVariableInModule(e)
 	default:
@@ -492,4 +493,82 @@ func (p *typeChecker) typeCheckVariableInModule(expr *ast.VariableAccess) (ast.T
 	// NOTE: we don't return an error here, since this case would have already
 	// been caught by the resolver and we don't want to double up on errors.
 	return nil, nil
+}
+
+// Calculate the actual return type for a given set of input values with the
+// given types.
+func typeOfSum(types ...ast.Type) ast.Type {
+	var values util.Interval
+	//
+	for i, t := range types {
+		if t == ast.INT_TYPE {
+			return t
+		}
+		//
+		it := t.(*ast.IntType)
+		vals := it.Values()
+		//
+		if i == 0 {
+			values.Set(&vals)
+		} else {
+			values.Add(&vals)
+		}
+	}
+	//
+	min := values.MinValue()
+	max := values.MaxValue()
+	//
+	return ast.NewIntType(&min, &max)
+}
+
+// Calculate the actual return type for a given set of input values with the
+// given types.
+func typeOfSubtraction(types ...ast.Type) ast.Type {
+	var values util.Interval
+	//
+	for i, t := range types {
+		if t == ast.INT_TYPE {
+			return t
+		}
+		//
+		it := t.(*ast.IntType)
+		vals := it.Values()
+		//
+		if i == 0 {
+			values.Set(&vals)
+		} else {
+			values.Sub(&vals)
+		}
+	}
+	//
+	min := values.MinValue()
+	max := values.MaxValue()
+	//
+	return ast.NewIntType(&min, &max)
+}
+
+// Calculate the actual return type for a given set of input values with the
+// given types.
+func typeOfProduct(types ...ast.Type) ast.Type {
+	var values util.Interval
+	//
+	for i, t := range types {
+		if t == ast.INT_TYPE {
+			return t
+		}
+		//
+		it := t.(*ast.IntType)
+		vals := it.Values()
+		//
+		if i == 0 {
+			values.Set(&vals)
+		} else {
+			values.Mul(&vals)
+		}
+	}
+	//
+	min := values.MinValue()
+	max := values.MaxValue()
+	//
+	return ast.NewIntType(&min, &max)
 }
