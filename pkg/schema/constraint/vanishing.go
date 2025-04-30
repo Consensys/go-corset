@@ -190,12 +190,22 @@ func HoldsLocally[T sc.Testable](k uint, handle string, constraint T, tr tr.Trac
 //
 //nolint:revive
 func (p *VanishingConstraint[T]) Lisp(schema sc.Schema) sexp.SExp {
-	var name string
+	var (
+		name       string
+		multiplier uint
+	)
 	// Construct qualified name
-	if module := schema.Modules().Nth(p.Context.Module()); module.Name != "" {
-		name = fmt.Sprintf("%s:%s", module.Name, p.Handle)
-	} else {
+	if p.Context.IsVoid() {
 		name = p.Handle
+		multiplier = 1
+	} else {
+		if module := schema.Modules().Nth(p.Context.Module()); module.Name != "" {
+			name = fmt.Sprintf("%s:%s", module.Name, p.Handle)
+		} else {
+			name = p.Handle
+		}
+		//
+		multiplier = p.Context.LengthMultiplier()
 	}
 	// Add case
 	name = fmt.Sprintf("%s#%d", name, p.Case)
@@ -210,12 +220,12 @@ func (p *VanishingConstraint[T]) Lisp(schema sc.Schema) sexp.SExp {
 			panic(fmt.Sprintf("domain value %d not supported for local constraint", domain))
 		}
 	}
-	// Determine multiplier
-	multiplier := fmt.Sprintf("x%d", p.Context.LengthMultiplier())
 	// Construct the list
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("vanish"),
-		sexp.NewList([]sexp.SExp{sexp.NewSymbol(name), sexp.NewSymbol(multiplier)}),
+		sexp.NewList([]sexp.SExp{
+			sexp.NewSymbol(name),
+			sexp.NewSymbol(fmt.Sprintf("x%d", multiplier))}),
 		p.Constraint.Lisp(schema),
 	})
 }

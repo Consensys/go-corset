@@ -310,11 +310,8 @@ func (t *translator) translateDefConstraint(decl *ast.DefConstraint, module util
 	//
 	if len(errors) == 0 {
 		context := constraint.Context(t.schema)
-		//
-		if !context.IsVoid() {
-			// Add translated constraint
-			t.schema.AddVanishingConstraint(decl.Handle, context, decl.Domain, constraint)
-		}
+		// Add translated constraint
+		t.schema.AddVanishingConstraint(decl.Handle, context, decl.Domain, constraint)
 	}
 	// Done
 	return errors

@@ -140,7 +140,7 @@ func (p *Schema) AddLookupConstraint(handle string, source trace.Context, target
 func (p *Schema) AddVanishingConstraint(handle string, num uint, context trace.Context,
 	domain util.Option[int], c Constraint) {
 	//
-	if context.Module() >= uint(len(p.modules)) {
+	if !context.IsVoid() && context.Module() >= uint(len(p.modules)) {
 		panic(fmt.Sprintf("invalid module index (%d)", context.Module()))
 	}
 
