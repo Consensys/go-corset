@@ -39,6 +39,28 @@ func NewConstraint(equation Equation) Constraint {
 	return Constraint{[]Disjunction{disjunct}}
 }
 
+// Simplify a given constraint.  Observe this can result in the given constraint
+// being reduced to TRUE or FALSE.
+func (e Constraint) Simplify() Constraint {
+	var ne Constraint
+	//
+	for _, c := range e.conjuncts {
+		d, tt := c.Simplify()
+		//
+		if !tt {
+			ne.conjuncts = append(ne.conjuncts, d)
+		}
+	}
+	//
+	if ne.Is(true) {
+		return TRUE
+	} else if ne.Is(false) {
+		return FALSE
+	}
+	//
+	return ne
+}
+
 // Is checks whether this constraint trivially evaluates to true or false.
 func (e Constraint) Is(val bool) bool {
 	if len(e.conjuncts) == 0 {
@@ -250,6 +272,26 @@ func (e *Disjunction) Negate() Constraint {
 	}
 	//
 	return Conjunct(conjuncts...)
+}
+
+// Simplify a disjunction, either returning the simplified result or an
+// indicator that the disjunction is trivially true.  Observe that, if the
+// disjunction is trivially false, then it returns an empty disjunction.  This
+// is consistent with the representation used in Constraint.
+func (e *Disjunction) Simplify() (Disjunction, bool) {
+	var natoms []Equation
+	//
+	for _, atom := range e.atoms {
+		natom := atom.Simplify()
+		if natom.Is(true) {
+			// trivially true
+			return Disjunction{}, true
+		} else if !natom.Is(false) {
+			natoms = append(natoms, natom)
+		}
+	}
+	//
+	return Disjunction{natoms}, false
 }
 
 // ============================================================================
