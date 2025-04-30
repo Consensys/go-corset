@@ -17,7 +17,7 @@ import (
 	"math"
 	"math/big"
 
-	"github.com/consensys/go-corset/pkg/asm/instruction"
+	"github.com/consensys/go-corset/pkg/asm/insn"
 )
 
 // Function defines a distinct functional entity within the system.  Functions
@@ -29,7 +29,7 @@ type Function struct {
 	Name string
 	// Registers describes zero or more registers of a given width.  Each
 	// register can be designated as an input / output or temporary.
-	Registers []instruction.Register
+	Registers []insn.Register
 	// Code defines the body of this function.
 	Code []Instruction
 }

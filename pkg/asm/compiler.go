@@ -18,7 +18,7 @@ import (
 	"slices"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/asm/instruction"
+	"github.com/consensys/go-corset/pkg/asm/insn"
 	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/hir"
 	"github.com/consensys/go-corset/pkg/schema"
@@ -29,9 +29,6 @@ import (
 
 var zero = *big.NewInt(0)
 var one = *big.NewInt(1)
-
-// Register describes a single register within a function.
-type Register = instruction.Register
 
 // CompileAssembly compiles a given set of assembly functions into a binary
 // constraint file.
@@ -129,32 +126,32 @@ func (p *Compiler) initFunctionFraming(ctx trace.Context, fn Function) (uint, ui
 }
 
 func (p *Compiler) translateInsn(pc uint, stampid uint, pcid uint, ctx trace.Context, rids []uint, regs []Register,
-	insn Instruction) {
+	inst Instruction) {
 	//
-	switch insn := insn.(type) {
-	case *instruction.Add:
-		p.translateAddInsn(pc, stampid, pcid, ctx, rids, regs, insn)
-	case *instruction.Jmp:
-		p.translateJmpInsn(pc, stampid, pcid, ctx, rids, regs, insn)
-	case *instruction.Jznz:
-		if insn.Sign {
-			p.translateJzInsn(pc, stampid, pcid, ctx, rids, regs, insn)
+	switch i := inst.(type) {
+	case *insn.Add:
+		p.translateAddInsn(pc, stampid, pcid, ctx, rids, regs, i)
+	case *insn.Jmp:
+		p.translateJmpInsn(pc, stampid, pcid, ctx, rids, regs, i)
+	case *insn.Jznz:
+		if i.Sign {
+			p.translateJzInsn(pc, stampid, pcid, ctx, rids, regs, i)
 		} else {
-			p.translateJnzInsn(pc, stampid, pcid, ctx, rids, regs, insn)
+			p.translateJnzInsn(pc, stampid, pcid, ctx, rids, regs, i)
 		}
-	case *instruction.Mul:
-		p.translateMulInsn(pc, stampid, pcid, ctx, rids, regs, insn)
-	case *instruction.Ret:
+	case *insn.Mul:
+		p.translateMulInsn(pc, stampid, pcid, ctx, rids, regs, i)
+	case *insn.Ret:
 		p.translateRetInsn(pc, stampid, pcid, ctx)
-	case *instruction.Sub:
-		p.translateSubInsn(pc, stampid, pcid, ctx, rids, regs, insn)
+	case *insn.Sub:
+		p.translateSubInsn(pc, stampid, pcid, ctx, rids, regs, i)
 	default:
 		panic("unknown instruction encountered")
 	}
 }
 
 func (p *Compiler) translateAddInsn(pc uint, stampid uint, pcid uint, ctx trace.Context, rids []uint, regs []Register,
-	insn *instruction.Add) {
+	insn *insn.Add) {
 	//
 	var (
 		name       = fmt.Sprintf("pc%d_add", pc)
@@ -185,7 +182,7 @@ func (p *Compiler) translateAddInsn(pc uint, stampid uint, pcid uint, ctx trace.
 }
 
 func (p *Compiler) translateJmpInsn(pc uint, stampid uint, pcid uint, ctx trace.Context, rids []uint, regs []Register,
-	insn *instruction.Jmp) {
+	insn *insn.Jmp) {
 	//
 	var (
 		pc_i       = hir.NewColumnAccess(pcid, 0)
@@ -204,7 +201,7 @@ func (p *Compiler) translateJmpInsn(pc uint, stampid uint, pcid uint, ctx trace.
 }
 
 func (p *Compiler) translateJzInsn(pc uint, stampid uint, pcid uint, ctx trace.Context, rids []uint, regs []Register,
-	insn *instruction.Jznz) {
+	insn *insn.Jznz) {
 	//
 	var (
 		pc_i       = hir.NewColumnAccess(pcid, 0)
@@ -230,7 +227,7 @@ func (p *Compiler) translateJzInsn(pc uint, stampid uint, pcid uint, ctx trace.C
 }
 
 func (p *Compiler) translateJnzInsn(pc uint, stampid uint, pcid uint, ctx trace.Context, rids []uint, regs []Register,
-	insn *instruction.Jznz) {
+	insn *insn.Jznz) {
 	//
 	var (
 		pc_i       = hir.NewColumnAccess(pcid, 0)
@@ -256,7 +253,7 @@ func (p *Compiler) translateJnzInsn(pc uint, stampid uint, pcid uint, ctx trace.
 }
 
 func (p *Compiler) translateMulInsn(pc uint, stampid uint, pcid uint, ctx trace.Context, rids []uint, regs []Register,
-	insn *instruction.Mul) {
+	insn *insn.Mul) {
 	//
 	var (
 		name       = fmt.Sprintf("pc%d_add", pc)
@@ -301,7 +298,7 @@ func (p *Compiler) translateRetInsn(pc uint, stampid uint, pcid uint, ctx trace.
 }
 
 func (p *Compiler) translateSubInsn(pc uint, stampid uint, pcid uint, ctx trace.Context, rids []uint, regs []Register,
-	insn *instruction.Sub) {
+	insn *insn.Sub) {
 	//
 	var (
 		name       = fmt.Sprintf("pc%d_sub", pc)
@@ -336,7 +333,7 @@ func (p *Compiler) translateSubInsn(pc uint, stampid uint, pcid uint, ctx trace.
 // Consider an assignment b, X := Y - 1.  This should be translated into the
 // constraint: X + 1 == Y - 256.b (assuming b is u1, and X/Y are u8).
 func rebalanceSubtraction(lhs []hir.Expr, rhs []hir.Expr, regs []Register,
-	insn *instruction.Sub) ([]hir.Expr, []hir.Expr) {
+	insn *insn.Sub) ([]hir.Expr, []hir.Expr) {
 	//
 	pivot := 0
 	width := int(regs[insn.Sources[0]].Width)
@@ -409,7 +406,7 @@ func (p *Compiler) buildAssignmentRhs(sources []uint, rids []uint) []hir.Expr {
 	return rhs
 }
 
-// Add constancy constraints for all registers not assigned by a given instruction.
+// Add constancy constraints for all registers not assigned by a given insn.
 func (p *Compiler) constantExcept(pc uint, stampid uint, pcid uint, ctx trace.Context,
 	targets []uint, rids []uint, regs []Register) {
 	//

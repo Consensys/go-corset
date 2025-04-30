@@ -15,10 +15,16 @@ package asm
 import (
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/asm/instruction"
+	"github.com/consensys/go-corset/pkg/asm/insn"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
+
+// Instruction is an alias for instruction.Instruction
+type Instruction = insn.Instruction
+
+// Register describes a single register within a function.
+type Register = insn.Register
 
 // Assemble takes a given set of assembly files, and parses them into a given
 // set of functions.  This includes performing various checks on the files, such
@@ -109,10 +115,10 @@ func checkInstructionsFlow(fn Function, srcmaps source.Maps[Instruction]) []sour
 		errors = append(errors, errs...)
 		// Update control flow
 		switch insn := fn.Code[pc].(type) {
-		case *instruction.Jmp:
+		case *insn.Jmp:
 			// Unconditional jump target
 			worklist.Join(insn.Target, nstate)
-		case *instruction.Jznz:
+		case *insn.Jznz:
 			// Conditional jump target
 			worklist.Join(insn.Target, nstate)
 			// Unconditional jump target
@@ -121,7 +127,7 @@ func checkInstructionsFlow(fn Function, srcmaps source.Maps[Instruction]) []sour
 			} else {
 				errors = append(errors, *srcmaps.SyntaxError(fn.Code[pc], "missing ret"))
 			}
-		case *instruction.Ret:
+		case *insn.Ret:
 			// Terminate
 			errors = append(errors, checkOutputsAssigned(pc, state, fn, srcmaps)...)
 		default:

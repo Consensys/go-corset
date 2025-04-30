@@ -19,7 +19,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/consensys/go-corset/pkg/asm/instruction"
+	"github.com/consensys/go-corset/pkg/asm/insn"
+	instruction "github.com/consensys/go-corset/pkg/asm/insn"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/util/source/lex"
@@ -65,26 +66,29 @@ const COMMA uint = 7
 // COLON signals ":"
 const COLON uint = 8
 
+// SEMICOLON signals ":"
+const SEMICOLON uint = 9
+
 // NUMBER signals an integer number
-const NUMBER uint = 9
+const NUMBER uint = 10
 
 // IDENTIFIER signals a column variable.
-const IDENTIFIER uint = 10
+const IDENTIFIER uint = 11
 
 // RIGHTARROW signals "->"
-const RIGHTARROW uint = 11
+const RIGHTARROW uint = 12
 
 // EQUALS signals "="
-const EQUALS uint = 12
+const EQUALS uint = 13
 
 // ADD signals "+"
-const ADD uint = 13
+const ADD uint = 14
 
 // SUB signals "-"
-const SUB uint = 14
+const SUB uint = 15
 
 // MUL signals "*"
-const MUL uint = 15
+const MUL uint = 16
 
 // Rule for describing whitespace
 var whitespace lex.Scanner[rune] = lex.Many(lex.Or(lex.Unit(' '), lex.Unit('\t'), lex.Unit('\n')))
@@ -124,6 +128,7 @@ var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
 	lex.Rule(lex.Unit('}'), RCURLY),
 	lex.Rule(lex.Unit(','), COMMA),
 	lex.Rule(lex.Unit(':'), COLON),
+	lex.Rule(lex.Unit(';'), SEMICOLON),
 	lex.Rule(lex.Unit('-', '>'), RIGHTARROW),
 	lex.Rule(lex.Unit('='), EQUALS),
 	lex.Rule(lex.Unit('+'), ADD),
@@ -205,7 +210,7 @@ func (p *Parser) parseFunction() (Function, []source.SyntaxError) {
 		fn              Function
 		env             Environment
 		insn            Instruction
-		inputs, outputs []instruction.Register
+		inputs, outputs []Register
 		errs            []source.SyntaxError
 		pc              uint
 	)
@@ -237,7 +242,7 @@ func (p *Parser) parseFunction() (Function, []source.SyntaxError) {
 	}
 	// Parse instructions until end of block
 	for p.lookahead().Kind != RCURLY {
-		if insn, errs = p.parseInstruction(pc, &env); len(errs) > 0 {
+		if insn, errs = p.parseVectorInstruction(pc, &env); len(errs) > 0 {
 			return fn, errs
 		}
 		//
@@ -257,12 +262,12 @@ func (p *Parser) parseFunction() (Function, []source.SyntaxError) {
 	return fn, nil
 }
 
-func (p *Parser) parseArgsList(kind uint8) ([]instruction.Register, []source.SyntaxError) {
+func (p *Parser) parseArgsList(kind uint8) ([]Register, []source.SyntaxError) {
 	var (
 		arg   string
 		width uint
 		errs  []source.SyntaxError
-		regs  []instruction.Register
+		regs  []Register
 	)
 	// Parse start of list
 	if _, errs = p.expect(LBRACE); len(errs) > 0 {
@@ -283,7 +288,7 @@ func (p *Parser) parseArgsList(kind uint8) ([]instruction.Register, []source.Syn
 			return nil, errs
 		}
 		//
-		regs = append(regs, instruction.NewRegister(kind, arg, width))
+		regs = append(regs, insn.NewRegister(kind, arg, width))
 	}
 	// Advance past "}"
 	p.match(RBRACE)
@@ -315,6 +320,31 @@ func (p *Parser) parseType() (uint, []source.SyntaxError) {
 	default:
 		return 0, p.syntaxErrors(lookahead, "unknown type")
 	}
+}
+
+func (p *Parser) parseVectorInstruction(pc uint, env *Environment) (Instruction, []source.SyntaxError) {
+	var (
+		start                = p.index
+		insns  []Instruction = make([]Instruction, 1)
+		errors []source.SyntaxError
+	)
+	// parse first instruction
+	insns[0], errors = p.parseInstruction(pc, env)
+	//
+	for len(errors) == 0 && p.match(SEMICOLON) {
+		i, errs := p.parseInstruction(pc, env)
+		insns = append(insns, i)
+		errors = append(errors, errs...)
+	}
+	//
+	if len(insns) == 1 {
+		return insns[0], errors
+	}
+	//
+	insn := &insn.Vec{Code: insns}
+	p.srcmap.Put(insn, p.spanOf(start, p.index))
+
+	return insn, errors
 }
 
 func (p *Parser) parseInstruction(pc uint, env *Environment) (Instruction, []source.SyntaxError) {
@@ -654,7 +684,7 @@ type Environment struct {
 	// Labels identifies branch targets.
 	labels []Label
 	// Registers identifies set of declared registers.
-	registers []instruction.Register
+	registers []Register
 }
 
 // Bind associates a label with a given index which can subsequently be used to
