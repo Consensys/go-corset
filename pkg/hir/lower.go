@@ -265,6 +265,8 @@ func extractCondition(sign bool, e Term, mirSchema *mir.Schema, hirSchema *Schem
 		// P && Q ==> !(!P || Q!) ==> 1 - ~(!P || !Q)
 		return mir.Subtract(mir.NewConst64(1), mir.Normalise(mir.Product(args...)))
 	case *Equation:
+		var ieq mir.Constraint
+		//
 		l := extractExpression(e.Lhs, mirSchema, hirSchema)
 		r := extractExpression(e.Rhs, mirSchema, hirSchema)
 		t := mir.Normalise(mir.Subtract(l, r))
@@ -276,9 +278,27 @@ func extractCondition(sign bool, e Term, mirSchema *mir.Schema, hirSchema *Schem
 			return t
 		case NOT_EQUALS:
 			return mir.Subtract(mir.NewConst64(1), t)
+		case LESS_THAN:
+			ieq = mir.LessThan(l, r)
+		case LESS_THAN_EQUALS:
+			ieq = mir.LessThanOrEquals(l, r)
+		case GREATER_THAN_EQUALS:
+			ieq = mir.GreaterThanOrEquals(l, r)
+		case GREATER_THAN:
+			ieq = mir.GreaterThan(l, r)
 		default:
 			panic("unreachable")
 		}
+		//
+		ieq = ieq.Simplify()
+		//
+		if ieq.Is(true) {
+			return mir.ZERO
+		} else if ieq.Is(false) {
+			return mir.ONE
+		}
+		// Cannot proceed at this time.
+		panic(fmt.Sprintf("failed translating inequality into constraints (%s)", ieq.Lisp(mirSchema).String(false)))
 	default:
 		name := reflect.TypeOf(e).Name()
 		panic(fmt.Sprintf("unknown HIR expression \"%s\"", name))
