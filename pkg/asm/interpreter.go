@@ -61,7 +61,7 @@ func (p *Interpreter) Bind(fn uint, arguments map[string]big.Int) []big.Int {
 	)
 	// Initialise arguments
 	for i, reg := range f.Registers {
-		if reg.Kind == INPUT_REGISTER {
+		if reg.IsInput() {
 			var (
 				val = arguments[reg.Name]
 				ith big.Int
@@ -104,7 +104,7 @@ func (p *Interpreter) Leave() map[string]big.Int {
 	outputs := make(map[string]big.Int, 0)
 	//
 	for i, reg := range f.Registers {
-		if reg.Kind == OUTPUT_REGISTER {
+		if reg.IsOutput() {
 			outputs[reg.Name] = st.registers[i]
 		}
 	}

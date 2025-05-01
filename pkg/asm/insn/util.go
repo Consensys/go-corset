@@ -17,6 +17,18 @@ import (
 	"math/big"
 )
 
+const (
+	// INPUT_REGISTER signals a register used for holding the input values of a
+	// function.
+	INPUT_REGISTER = uint8(0)
+	// OUTPUT_REGISTER signals a register used for holding the output values of
+	// a function.
+	OUTPUT_REGISTER = uint8(1)
+	// TEMP_REGISTER signals a register used for holding temporary values during
+	// computation.
+	TEMP_REGISTER = uint8(2)
+)
+
 // Register describes a single register within a function.
 type Register struct {
 	// Kind of register (input / output)
@@ -30,6 +42,16 @@ type Register struct {
 // NewRegister creates a new register of a given kind with a given width.
 func NewRegister(kind uint8, name string, width uint) Register {
 	return Register{kind, name, width}
+}
+
+// IsInput determines whether or not this is an input register
+func (p *Register) IsInput() bool {
+	return p.Kind == INPUT_REGISTER
+}
+
+// IsOutput determines whether or not this is an output register
+func (p *Register) IsOutput() bool {
+	return p.Kind == OUTPUT_REGISTER
 }
 
 // Bound returns the first value which cannot be represented by the given
@@ -83,8 +105,13 @@ func readBitSlice(offset uint, width uint, value big.Int) big.Int {
 }
 
 // Ensure a given
-func checkUniqueTargets(targets []uint, regs []Register) error {
+func checkTargetRegisters(targets []uint, regs []Register) error {
 	for i := range targets {
+		//
+		if regs[targets[i]].IsInput() {
+			return fmt.Errorf("cannot write input %s", regs[targets[i]].Name)
+		}
+		//
 		for j := i + 1; j < len(targets); j++ {
 			if targets[i] == targets[j] {
 				return fmt.Errorf("conflicting write to %s", regs[targets[i]].Name)

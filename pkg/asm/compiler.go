@@ -90,24 +90,35 @@ func (p *Compiler) compileFunction(id uint, functions []Function) {
 		p.schema.AddRangeConstraint(typeName, ctx,
 			hir.NewColumnAccess(rids[i], 0), datatype.Bound())
 	}
-	// Initialise state translator
-	state := insn.StateTranslator{
+	// Setup framing columns / constraints
+	stampID, pcID := p.initFunctionFraming(ctx, rids, fn)
+	// Construct appropriate mapping
+	mapping := insn.StateMapping{
 		Schema:    &p.schema,
+		StampID:   stampID,
+		PcID:      pcID,
 		Context:   ctx,
 		RegIDs:    rids,
-		Registers: fn.Registers}
-	// Setup framing columns / constraints
-	state.StampID, state.PcID = p.initFunctionFraming(ctx, fn)
-	//
+		Registers: fn.Registers,
+	}
+	// Compile each instruction in turn
 	for pc, inst := range fn.Code {
+		// Initialise state translator
+		state := insn.NewStateTranslator(mapping, uint(pc))
 		// Core translation
-		inst.Translate(uint(pc), state)
-		// Apply constancies
-		state.ConstantExcept(uint(pc), inst.RegistersWritten())
+		p.compileInstruction(inst, state)
 	}
 }
 
-func (p *Compiler) initFunctionFraming(ctx trace.Context, fn Function) (uint, uint) {
+func (p *Compiler) compileInstruction(inst Instruction, st insn.StateTranslator) {
+	for _, microinsn := range inst.Instructions {
+		microinsn.Translate(&st)
+	}
+	// Finalise state translation
+	st.Finalise()
+}
+
+func (p *Compiler) initFunctionFraming(ctx trace.Context, rids []uint, fn Function) (uint, uint) {
 	// Determine max width of PC
 	pcMax := uint64(len(fn.Code) - 1)
 	pcWidth := uint(big.NewInt(int64(pcMax)).BitLen())
@@ -130,6 +141,19 @@ func (p *Compiler) initFunctionFraming(ctx trace.Context, fn Function) (uint, ui
 	// next($stamp) == $stamp || next($pc) == 0
 	p.schema.AddVanishingConstraint("reset", ctx, util.None[int](),
 		hir.Disjunction(hir.Equals(stamp_ip1, stamp_i), hir.Equals(pc_ip1, hir.ZERO)))
+	// Add constancies for all input registers
+	for i, r := range fn.Registers {
+		rid := rids[i]
+		//
+		if r.IsInput() {
+			name := fmt.Sprintf("const_%s", r.Name)
+			reg_i := hir.NewColumnAccess(rid, 0)
+			reg_ip1 := hir.NewColumnAccess(rid, 1)
+			//
+			p.schema.AddVanishingConstraint(name, ctx, util.None[int](),
+				hir.Disjunction(hir.Equals(pc_ip1, hir.ZERO), hir.Equals(reg_ip1, reg_i)))
+		}
+	}
 	//
 	return stamp, pc
 }

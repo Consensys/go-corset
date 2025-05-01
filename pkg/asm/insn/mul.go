@@ -50,6 +50,18 @@ func (p *Mul) Bind(labels []uint) {
 	// no-op
 }
 
+// Sequential indicates whether or not this microinstruction can execute
+// sequentially onto the ne
+func (p *Mul) Sequential() bool {
+	return true
+}
+
+// Terminal indicates whether or not this microinstruction terminates the
+// enclosing function.
+func (p *Mul) Terminal() bool {
+	return false
+}
+
 // Execute a given instruction at a given program counter position, using a
 // given set of register values.  This may update the register values, and
 // returns the next program counter position.  If the program counter is
@@ -91,7 +103,7 @@ func (p *Mul) IsWellFormed(regs []Register) error {
 		return fmt.Errorf("bit overflow (%d bits into %d bits)", rhs_bits, lhs_bits)
 	}
 	//
-	return checkUniqueTargets(p.Targets, regs)
+	return checkTargetRegisters(p.Targets, regs)
 }
 
 // Registers returns the set of registers read/written by this instruction.
@@ -110,11 +122,11 @@ func (p *Mul) RegistersWritten() []uint {
 }
 
 // Translate this instruction into low-level constraints.
-func (p *Mul) Translate(pc uint, st StateTranslator) {
-	// build up the lhs
-	lhs := st.buildAssignmentLhs(p.Targets)
-	// build up the rhs
-	rhs := st.buildAssignmentRhs(p.Sources)
+func (p *Mul) Translate(st *StateTranslator) {
+	// build rhs
+	rhs := st.ReadRegisters(p.Sources)
+	// build lhs (must be after rhs)
+	lhs := st.WriteRegisters(p.Targets)
 	// include constant if this makes sense
 	if p.Constant.Cmp(&one) != 0 {
 		var elem fr.Element
@@ -125,7 +137,5 @@ func (p *Mul) Translate(pc uint, st StateTranslator) {
 	// construct equation
 	eqn := hir.Equals(hir.Sum(lhs...), hir.Product(rhs...))
 	// construct constraint
-	st.Constrain("mul", pc, eqn)
-	// increment program counter
-	st.pcIncrement(pc)
+	st.Constrain("mul", eqn)
 }

@@ -15,8 +15,6 @@ package insn
 import (
 	"math"
 	"math/big"
-
-	"github.com/consensys/go-corset/pkg/hir"
 )
 
 // Ret signals a return from the enclosing function.
@@ -29,6 +27,18 @@ type Ret struct {
 // Bind any labels contained within this instruction using the given label map.
 func (p *Ret) Bind(labels []uint) {
 	// no-op
+}
+
+// Sequential indicates whether or not this microinstruction can execute
+// sequentially onto the next.
+func (p *Ret) Sequential() bool {
+	return false
+}
+
+// Terminal indicates whether or not this microinstruction terminates the
+// enclosing function.
+func (p *Ret) Terminal() bool {
+	return false
 }
 
 // Execute a ret instruction by signaling a return from the enclosing function.
@@ -57,8 +67,6 @@ func (p *Ret) RegistersWritten() []uint {
 }
 
 // Translate this instruction into low-level constraints.
-func (p *Ret) Translate(pc uint, st StateTranslator) {
-	var pc_ip1 = hir.NewColumnAccess(st.PcID, 1)
-	// Reset PC
-	st.Constrain("ret", pc, hir.Equals(pc_ip1, hir.ZERO))
+func (p *Ret) Translate(st *StateTranslator) {
+	st.Terminate()
 }

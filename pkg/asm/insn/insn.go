@@ -14,17 +14,16 @@ package insn
 
 import (
 	"fmt"
+	"math"
 	"math/big"
-	"slices"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/hir"
-	"github.com/consensys/go-corset/pkg/trace"
-	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/bit"
 )
 
-// Instruction provides an abstract notion of a "machine instruction".
-type Instruction interface {
+// MicroInstruction provides an abstract notion of an atomic "machine
+// instruction".  In practice, we want to pack as many microinstructions
+// together as we can into a single vector instruction.
+type MicroInstruction interface {
 	// Bind any labels contained within this instruction using the given label map.
 	Bind(labels []uint)
 	// Execute a given instruction at a given program counter position, using a
@@ -32,117 +31,114 @@ type Instruction interface {
 	// returns the next program counter position.  If the program counter is
 	// math.MaxUint then a return is signaled.
 	Execute(pc uint, state []big.Int, regs []Register) uint
-	// Check whether or not this instruction is well-formed (e.g. correctly balanced).
+	// Sequential indicates whether or not this microinstruction can execute
+	// sequentially onto the next.
+	Sequential() bool
+	// Terminal indicates whether or not this microinstruction terminates the
+	// enclosing function.
+	Terminal() bool
+	// Validate that this micro-instruction is well-formed.  For example, that
+	// it is balanced.
 	IsWellFormed(regs []Register) error
-	// Registers returns the set of registers read/written by this instruction.
+	// Registers returns the set of registers read/written by this micro instruction.
 	Registers() []uint
-	// Registers returns the set of registers read this instruction.
+	// Registers returns the set of registers read this micro instruction.
 	RegistersRead() []uint
-	// Registers returns the set of registers written by this instruction.
+	// Registers returns the set of registers written by this micro instruction.
 	RegistersWritten() []uint
-	// Translate this instruction into constraints.
-	Translate(pc uint, st StateTranslator)
+	// Translate this micro instruction into constraints using the given state
+	// translator.
+	Translate(st *StateTranslator)
 }
 
-// StateTranslator packages up key information regarding how an individual state
-// of the machine is compiled down to the lower level.
-type StateTranslator struct {
-	// Enclosing schema to which constraints are added.
-	Schema *hir.Schema
-	// Column ID for STAMP HIR column.
-	StampID uint
-	// Column ID for PC HIR column.
-	PcID uint
-	// Context of enclosing HIR module.
-	Context trace.Context
-	// Mapping from registers to respective HIR column IDs.
-	RegIDs []uint
-	// Registers of the given machine
-	Registers []Register
+// Instruction represents the composition of one or more micro instructions
+// which are to be executed "in parallel".  This roughly following the ideas of
+// vector machines and vectorisation.  In order to ensure parallel execution is
+// safe, there are restrictions on how microinstructions can be combined.  For
+// example, two microinstructions writing to the same register are said to be
+// "conflicting" and, hence, this is not permitted.  Likewise, it is not
+// possible to branch into the middle of a microinstruction.
+type Instruction struct {
+	Instructions []MicroInstruction
 }
 
-// Constrain a given state in some way (for example, relating the forward state
-// with the current state, etc).
-func (p *StateTranslator) Constrain(name string, pc uint, constraint hir.Expr) {
-	var (
-		pc_i       = hir.NewColumnAccess(p.PcID, 0)
-		pcGuard    = hir.NotEquals(pc_i, hir.NewConst64(uint64(pc)))
-		stamp_i    = hir.NewColumnAccess(p.StampID, 0)
-		stampGuard = hir.Equals(stamp_i, hir.ZERO)
-	)
-	//
-	name = fmt.Sprintf("pc%d_%s", pc, name)
-	// Apply necessary guards to ensure the given constraint only applies in the given state.
-	constraint = hir.Disjunction(stampGuard, pcGuard, constraint)
-	//
-	p.Schema.AddVanishingConstraint(name, p.Context, util.None[int](), constraint)
+// Sequential indicates whether or not this microinstruction can execute
+// sequentially onto the next.
+func (p *Instruction) Sequential() bool {
+	n := len(p.Instructions) - 1
+	// Only need to check last instruction to determine this.
+	return p.Instructions[n].Sequential()
 }
 
-// Construct a suitable left-hand side
-func (p *StateTranslator) buildAssignmentLhs(targets []uint) []hir.Expr {
-	lhs := make([]hir.Expr, len(targets))
-	offset := big.NewInt(1)
-	// build up the lhs
-	for i, dst := range targets {
-		lhs[i] = hir.NewColumnAccess(p.RegIDs[dst], 1)
+// Terminal indicates whether or not this instruction is a terminating
+// instruction (or not).  That is, whether or not its possible for control-flow
+// to "fall through" to the next instruction.
+func (p *Instruction) Terminal() bool {
+	n := len(p.Instructions) - 1
+	// Only need to check last instruction to determine this.
+	return p.Instructions[n].Terminal()
+}
+
+// Bind any labels contained within this instruction using the given label map.
+func (p *Instruction) Bind(labels []uint) {
+	for _, insn := range p.Instructions {
+		insn.Bind(labels)
+	}
+}
+
+// Execute a given instruction at a given program counter position, using a
+// given set of register values.  This may update the register values, and
+// returns the next program counter position.  If the program counter is
+// math.MaxUint then a return is signaled.
+func (p *Instruction) Execute(pc uint, state []big.Int, regs []Register) uint {
+	var npc uint = pc + 1
+
+	for _, r := range p.Instructions {
+		p := r.Execute(pc, state, regs)
+		// Sanity check
+		if p != pc+1 && npc != pc+1 {
+			panic("conflicting jump targets")
+		}
 		//
-		if i != 0 {
-			var elem fr.Element
-			//
-			elem.SetBigInt(offset)
-			lhs[i] = hir.Product(hir.NewConst(elem), lhs[i])
-		}
-		// left shift offset by given register width.
-		offset.Lsh(offset, p.Registers[dst].Width)
+		npc = p
 	}
 	//
-	return lhs
+	return npc
 }
 
-func (p *StateTranslator) buildAssignmentRhs(sources []uint) []hir.Expr {
-	rhs := make([]hir.Expr, len(sources))
-	// build up the lhs
-	for i, src := range sources {
-		rhs[i] = hir.NewColumnAccess(p.RegIDs[src], 0)
-	}
-	//
-	return rhs
-}
-
-// ConstantExcept adds constancy constraints for all registers not assigned by a given insn.
-func (p *StateTranslator) ConstantExcept(pc uint, targets []uint) {
-	//
+// Validate that this micro-instruction is well-formed.  For example, each
+// micro-instruction contained within must be well-formed, and the overall
+// requirements for a vector instruction must be met, etc.
+func (p *Instruction) Validate(regs []Register) (uint, error) {
 	var (
-		pc_i       = hir.NewColumnAccess(p.PcID, 0)
-		pcGuard    = hir.NotEquals(pc_i, hir.NewConst64(uint64(pc)))
-		stamp_i    = hir.NewColumnAccess(p.StampID, 0)
-		stampGuard = hir.Equals(stamp_i, hir.ZERO)
+		written bit.Set
+		n       = len(p.Instructions) - 1
 	)
 	//
-	for i, r := range p.Registers {
-		if !slices.Contains(targets, uint(i)) {
-			r_i := hir.NewColumnAccess(p.RegIDs[i], 0)
-			r_ip1 := hir.NewColumnAccess(p.RegIDs[i], 1)
-			eqn := hir.Equals(r_i, r_ip1)
-			name := fmt.Sprintf("pc%d_%s", pc, r.Name)
-			p.Schema.AddVanishingConstraint(name, p.Context, util.None[int](), hir.Disjunction(stampGuard, pcGuard, eqn))
+	for i, r := range p.Instructions {
+		if err := r.IsWellFormed(regs); err != nil {
+			return uint(i), err
 		}
 	}
-}
-
-// pc = pc + 1
-func (p *StateTranslator) pcIncrement(pc uint) {
-	stamp_i := hir.NewColumnAccess(p.StampID, 0)
-	pc_i := hir.NewColumnAccess(p.PcID, 0)
-	pc_ip1 := hir.NewColumnAccess(p.PcID, 1)
+	// Check read-after-write conflicts
+	for i, r := range p.Instructions {
+		for _, src := range r.RegistersRead() {
+			if written.Contains(src) {
+				// Forwarding required for this
+				return uint(i), fmt.Errorf("conflicting reading (requires forwarding)")
+			}
+		}
+		//
+		for _, dst := range r.RegistersWritten() {
+			written.Insert(dst)
+		}
+	}
+	// Check for unreachable instructions
+	for i, r := range p.Instructions {
+		if i != n && !r.Sequential() {
+			return uint(i), fmt.Errorf("unreachable")
+		}
+	}
 	//
-	name := fmt.Sprintf("pc%d_clk", pc)
-	//
-	stGuard := hir.Equals(stamp_i, hir.ZERO)
-	// pc != $PC
-	pcGuard := hir.NotEquals(pc_i, hir.NewConst64(uint64(pc)))
-	// pc = pc + 1
-	inc := hir.Equals(pc_ip1, hir.Sum(hir.ONE, pc_i))
-	//
-	p.Schema.AddVanishingConstraint(name, p.Context, util.None[int](), hir.Disjunction(stGuard, pcGuard, inc))
+	return math.MaxUint, nil
 }

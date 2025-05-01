@@ -14,8 +14,6 @@ package insn
 
 import (
 	"math/big"
-
-	"github.com/consensys/go-corset/pkg/hir"
 )
 
 // Jmp provides an unconditional branching instruction to a given instructon.
@@ -26,6 +24,18 @@ type Jmp struct {
 // Bind any labels contained within this instruction using the given label map.
 func (p *Jmp) Bind(labels []uint) {
 	p.Target = labels[p.Target]
+}
+
+// Sequential indicates whether or not this microinstruction can execute
+// sequentially onto the next.
+func (p *Jmp) Sequential() bool {
+	return false
+}
+
+// Terminal indicates whether or not this microinstruction terminates the
+// enclosing function.
+func (p *Jmp) Terminal() bool {
+	return false
 }
 
 // Execute an unconditional branch instruction by returning the destination
@@ -55,11 +65,6 @@ func (p *Jmp) RegistersWritten() []uint {
 }
 
 // Translate this instruction into low-level constraints.
-func (p *Jmp) Translate(pc uint, state StateTranslator) {
-	var (
-		pc_ip1 = hir.NewColumnAccess(state.PcID, 1)
-		target = hir.NewConst64(uint64(p.Target))
-	)
-	// Jump PC
-	state.Constrain("jmp", pc, hir.Equals(pc_ip1, target))
+func (p *Jmp) Translate(st *StateTranslator) {
+	st.Jump(p.Target)
 }

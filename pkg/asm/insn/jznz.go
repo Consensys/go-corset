@@ -35,6 +35,18 @@ func (p *Jznz) Bind(labels []uint) {
 	p.Target = labels[p.Target]
 }
 
+// Sequential indicates whether or not this microinstruction can execute
+// sequentially onto the next.
+func (p *Jznz) Sequential() bool {
+	return true
+}
+
+// Terminal indicates whether or not this microinstruction terminates the
+// enclosing function.
+func (p *Jznz) Terminal() bool {
+	return false
+}
+
 // Execute an unconditional branch instruction by returning the destination
 // program counter.
 func (p *Jznz) Execute(pc uint, state []big.Int, regs []Register) uint {
@@ -71,43 +83,14 @@ func (p *Jznz) RegistersWritten() []uint {
 }
 
 // Translate this instruction into low-level constraints.
-func (p *Jznz) Translate(pc uint, state StateTranslator) {
+func (p *Jznz) Translate(st *StateTranslator) {
+	var reg_i = st.ReadRegister(p.Source)
+	//
 	if p.Sign {
-		p.translateJz(pc, state)
+		// Jump If Zero
+		st.JumpEq(p.Target, reg_i, hir.ZERO)
 	} else {
-		p.translateJnz(pc, state)
+		// Jump If Not Zero
+		st.JumpNe(p.Target, reg_i, hir.ZERO)
 	}
-}
-
-func (p *Jznz) translateJz(pc uint, st StateTranslator) {
-	//
-	var (
-		pc_i   = hir.NewColumnAccess(st.PcID, 0)
-		pc_ip1 = hir.NewColumnAccess(st.PcID, 1)
-		reg_i  = hir.NewColumnAccess(st.RegIDs[p.Source], 0)
-		target = hir.NewConst64(uint64(p.Target))
-	)
-	// taken
-	st.Constrain("jz", pc, hir.Disjunction(hir.NotEquals(reg_i, hir.ZERO), hir.Equals(pc_ip1, target)))
-	// not taken
-	st.Constrain("jnz", pc,
-		hir.Disjunction(hir.Equals(reg_i, hir.ZERO), hir.Equals(pc_ip1, hir.Sum(pc_i, hir.ONE))))
-}
-
-func (p *Jznz) translateJnz(pc uint, st StateTranslator) {
-	//
-	var (
-		pc_i   = hir.NewColumnAccess(st.PcID, 0)
-		pc_ip1 = hir.NewColumnAccess(st.PcID, 1)
-		reg_i  = hir.NewColumnAccess(st.RegIDs[p.Source], 0)
-		target = hir.NewConst64(uint64(p.Target))
-	)
-	// taken
-	st.Constrain("jnz", pc,
-		hir.Disjunction(hir.Equals(reg_i, hir.ZERO), hir.Equals(pc_ip1, target)))
-	// not taken
-	st.Constrain("jz", pc,
-		hir.Disjunction(hir.NotEquals(reg_i, hir.ZERO), hir.Equals(pc_ip1, hir.Sum(pc_i, hir.ONE))))
-	// register constancies
-	st.ConstantExcept(pc, nil)
 }

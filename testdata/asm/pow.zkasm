@@ -1,12 +1,12 @@
 ;; compute n^k
 fn pow(n u16, k u16) -> (res u16) {
-   var tmp u16
+   var tmp, i u16
    var b u1
-   res = 1
+   ;;
+   i = k ; res = 1
 loop:
-   jz k exit
-   tmp, res = res * n ; b,k = k - 1
-   jmp loop
+   jz i exit
+   tmp, res = res * n ; b,i = i - 1 ; jmp loop
 exit:
    ret
 }
