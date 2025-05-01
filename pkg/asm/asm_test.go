@@ -98,7 +98,7 @@ func check(t *testing.T, test string) {
 }
 
 // Check the given traces for all function instances.
-func checkTraces(t *testing.T, test string, cfg TestConfig, traces [][]FunctionInstance, fns ...Function) {
+func checkTraces(t *testing.T, test string, cfg TestConfig, traces [][]FunctionInstance, fns ...MacroFunction) {
 	//
 	for i, tr := range traces {
 		id := traceId{"ASM", test, cfg.expected, i + 1, 0}
@@ -111,7 +111,7 @@ func checkTraces(t *testing.T, test string, cfg TestConfig, traces [][]FunctionI
 
 // Check a given set of tests have an expected outcome (i.e. are
 // either accepted or rejected) by a given set of constraints.
-func checkIrTraces(t *testing.T, test string, cfg TestConfig, instances [][]FunctionInstance, fns ...Function) {
+func checkIrTraces(t *testing.T, test string, cfg TestConfig, instances [][]FunctionInstance, fns ...MacroFunction) {
 	var (
 		maxPadding = MAX_PADDING
 		builder    = &TraceBuilder{fns}
@@ -185,7 +185,7 @@ func checkTrace(t *testing.T, inputs []trace.RawColumn, id traceId, schema sc.Sc
 }
 
 // Check the given traces for a particular function instance.
-func checkFunction(t *testing.T, id traceId, instance FunctionInstance, fns ...Function) {
+func checkFunction(t *testing.T, id traceId, instance FunctionInstance, fns ...MacroFunction) {
 	outcome, err := CheckInstance(instance, fns)
 	//
 	if outcome == math.MaxUint {

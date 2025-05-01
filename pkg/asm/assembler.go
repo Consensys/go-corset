@@ -32,9 +32,9 @@ type Register = insn.Register
 // Assemble takes a given set of assembly files, and parses them into a given
 // set of functions.  This includes performing various checks on the files, such
 // as type checking, etc.
-func Assemble(assembly ...source.File) ([]Function, source.Maps[MicroInstruction], []source.SyntaxError) {
+func Assemble(assembly ...source.File) ([]MacroFunction, source.Maps[MicroInstruction], []source.SyntaxError) {
 	var (
-		fns     []Function
+		fns     []MacroFunction
 		errors  []source.SyntaxError
 		srcmaps source.Maps[MicroInstruction] = *source.NewSourceMaps[MicroInstruction]()
 	)
@@ -62,7 +62,7 @@ func Assemble(assembly ...source.File) ([]Function, source.Maps[MicroInstruction
 // number on rhs).  Likewise, registers cannot be used before they are defined,
 // and all control-flow paths must reach a "ret" instruction.  Finally, we
 // cannot assign to an input register under the current calling convention.
-func checkWellFormed(fn Function, srcmaps source.Maps[MicroInstruction]) []source.SyntaxError {
+func checkWellFormed(fn MacroFunction, srcmaps source.Maps[MicroInstruction]) []source.SyntaxError {
 	balance_errs := checkInstructionsBalance(fn, srcmaps)
 	flow_errs := checkInstructionsFlow(fn, srcmaps)
 	//
@@ -75,7 +75,7 @@ func checkWellFormed(fn Function, srcmaps source.Maps[MicroInstruction]) []sourc
 // y + 1" where both x and y are byte registers.  This does not balance because
 // the right-hand side generates 9 bits but the left-hand side can only consume
 // 8bits.
-func checkInstructionsBalance(fn Function, srcmaps source.Maps[MicroInstruction]) []source.SyntaxError {
+func checkInstructionsBalance(fn MacroFunction, srcmaps source.Maps[MicroInstruction]) []source.SyntaxError {
 	var errors []source.SyntaxError
 
 	for _, insn := range fn.Code {
@@ -96,7 +96,7 @@ func checkInstructionsBalance(fn Function, srcmaps source.Maps[MicroInstruction]
 // implemented using a straightforward dataflow analysis.  One aspect worth
 // noting is that the dataflow sets hold true for registers which are undefined,
 // and false for registers which are defined.
-func checkInstructionsFlow(fn Function, srcmaps source.Maps[MicroInstruction]) []source.SyntaxError {
+func checkInstructionsFlow(fn MacroFunction, srcmaps source.Maps[MicroInstruction]) []source.SyntaxError {
 	var (
 		n          = uint(len(fn.Code))
 		errors     []source.SyntaxError
@@ -130,7 +130,7 @@ func checkInstructionsFlow(fn Function, srcmaps source.Maps[MicroInstruction]) [
 
 // Abstractly execute a given vector instruction with respect to a given state
 // at the beginning of the instruction.
-func applyInstructionSemantics(worklist *Worklist, fn Function,
+func applyInstructionSemantics(worklist *Worklist, fn MacroFunction,
 	srcmaps source.Maps[MicroInstruction]) []source.SyntaxError {
 	//
 	var errors []source.SyntaxError
@@ -160,7 +160,7 @@ func applyInstructionSemantics(worklist *Worklist, fn Function,
 
 // Apply the dataflow transfer function (i.e. the effects of given instruction
 // on the record of which registesr are definitely assigned).
-func applyInstructionFlow(microinsn MicroInstruction, state bit.Set, fn Function,
+func applyInstructionFlow(microinsn MicroInstruction, state bit.Set, fn MacroFunction,
 	srcmaps source.Maps[MicroInstruction]) (bit.Set, []source.SyntaxError) {
 	//
 	var errors []source.SyntaxError
@@ -196,7 +196,7 @@ func applyInstructionBranching(microinsn MicroInstruction, worklist *Worklist, s
 
 // Check that all output registers have been definitely assigned at the point of
 // a return.
-func checkOutputsAssigned(inst Instruction, state bit.Set, fn Function,
+func checkOutputsAssigned(inst Instruction, state bit.Set, fn MacroFunction,
 	srcmaps source.Maps[MicroInstruction]) []source.SyntaxError {
 	//
 	var (

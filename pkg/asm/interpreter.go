@@ -41,14 +41,14 @@ func (p *InterpreterState) PC() uint {
 // sequence.
 type Interpreter struct {
 	// Set of functions being interpreted
-	functions []Function
+	functions []MacroFunction
 	// Set of interpreter states
 	states []InterpreterState
 }
 
 // NewInterpreter intialises an interpreter for executing a given instruction
 // sequence.
-func NewInterpreter(fns ...Function) *Interpreter {
+func NewInterpreter(fns ...MacroFunction) *Interpreter {
 	return &Interpreter{fns, nil}
 }
 

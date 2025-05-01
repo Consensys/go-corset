@@ -20,18 +20,23 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/insn"
 )
 
+// MacroFunction is a function whose instructions are themselves macro
+// instructions.  A macro function must be compiled down into a micro function
+// before we can generate constraints.
+type MacroFunction Function[Instruction]
+
 // Function defines a distinct functional entity within the system.  Functions
 // accepts zero or more inputs and produce zero or more outputs.  Functions
 // declare zero or more internal registers for use, and their interpretation is
 // given by a sequence of zero or more instructions.
-type Function struct {
+type Function[T any] struct {
 	// Unique name of this function.
 	Name string
 	// Registers describes zero or more registers of a given width.  Each
 	// register can be designated as an input / output or temporary.
 	Registers []insn.Register
 	// Code defines the body of this function.
-	Code []insn.Instruction
+	Code []T
 }
 
 // FunctionInstance represents a specific instance of a function.  That is, a
@@ -49,7 +54,7 @@ type FunctionInstance struct {
 // to a given set of functions.  It returns an error if something goes wrong
 // (e.g. the instance is malformed), and either true or false to indicate
 // whether the trace is accepted or not.
-func CheckInstance(instance FunctionInstance, fns []Function) (uint, error) {
+func CheckInstance(instance FunctionInstance, fns []MacroFunction) (uint, error) {
 	// Initialise a new interpreter
 	interpreter := NewInterpreter(fns...)
 	//

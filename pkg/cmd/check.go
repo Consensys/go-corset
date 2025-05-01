@@ -184,9 +184,9 @@ func checkWithAsmPipeline(cfg checkConfig, tracefile string, constraints string)
 	}
 }
 
-func readTraceAndConstraints(tracefile string, constraints string) ([]asm.FunctionInstance, []asm.Function) {
+func readTraceAndConstraints(tracefile string, constraints string) ([]asm.FunctionInstance, []asm.MacroFunction) {
 	var (
-		functions []asm.Function
+		functions []asm.MacroFunction
 		trace     []asm.FunctionInstance
 		errors    []source.SyntaxError
 	)

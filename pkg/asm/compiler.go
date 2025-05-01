@@ -58,7 +58,7 @@ func NewCompiler() *Compiler {
 }
 
 // Compile compiles a given set of functions into a binary file.
-func (p *Compiler) Compile(functions ...Function) (*binfile.BinaryFile, []source.SyntaxError) {
+func (p *Compiler) Compile(functions ...MacroFunction) (*binfile.BinaryFile, []source.SyntaxError) {
 	for i := range functions {
 		p.compileFunction(uint(i), functions)
 	}
@@ -66,7 +66,7 @@ func (p *Compiler) Compile(functions ...Function) (*binfile.BinaryFile, []source
 	return binfile.NewBinaryFile(nil, nil, &p.schema), nil
 }
 
-func (p *Compiler) compileFunction(id uint, functions []Function) {
+func (p *Compiler) compileFunction(id uint, functions []MacroFunction) {
 	var (
 		fn = functions[id]
 		// Allocate module id
@@ -115,7 +115,7 @@ func (p *Compiler) compileInstruction(inst Instruction, st insn.StateTranslator)
 	st.Finalise()
 }
 
-func (p *Compiler) initFunctionFraming(ctx trace.Context, rids []uint, fn Function) (uint, uint) {
+func (p *Compiler) initFunctionFraming(ctx trace.Context, rids []uint, fn MacroFunction) (uint, uint) {
 	pcMax := uint64(len(fn.Code) - 1)
 	// Determine max width of PC
 	pcWidth := uint(big.NewInt(int64(pcMax)).BitLen())
@@ -157,7 +157,7 @@ func (p *Compiler) initFunctionFraming(ctx trace.Context, rids []uint, fn Functi
 	return stamp, pc
 }
 
-func terminators(fn Function) []uint64 {
+func terminators(fn MacroFunction) []uint64 {
 	var terminals []uint64
 	//
 	for pc, insn := range fn.Code {

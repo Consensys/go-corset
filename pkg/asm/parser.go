@@ -29,7 +29,7 @@ import (
 // Parse accepts a given source file representing an assembly language
 // program, and assembles it into an instruction sequence which can then the
 // executed.
-func Parse(srcfile *source.File) ([]Function, *source.Map[MicroInstruction], []source.SyntaxError) {
+func Parse(srcfile *source.File) ([]MacroFunction, *source.Map[MicroInstruction], []source.SyntaxError) {
 	parser := NewParser(srcfile)
 	// Parse functions
 	return parser.parse()
@@ -163,8 +163,8 @@ func NewParser(srcfile *source.File) *Parser {
 	return &Parser{srcfile, nil, srcmap, 0}
 }
 
-func (p *Parser) parse() ([]Function, *source.Map[MicroInstruction], []source.SyntaxError) {
-	var fns []Function
+func (p *Parser) parse() ([]MacroFunction, *source.Map[MicroInstruction], []source.SyntaxError) {
+	var fns []MacroFunction
 	// Initialise tokens array
 	if errs := p.lex(); len(errs) > 0 {
 		return nil, p.srcmap, errs
@@ -205,9 +205,9 @@ func (p *Parser) lex() []source.SyntaxError {
 	return nil
 }
 
-func (p *Parser) parseFunction() (Function, []source.SyntaxError) {
+func (p *Parser) parseFunction() (MacroFunction, []source.SyntaxError) {
 	var (
-		fn              Function
+		fn              MacroFunction
 		env             Environment
 		inst            Instruction
 		inputs, outputs []Register

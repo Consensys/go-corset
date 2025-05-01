@@ -26,11 +26,11 @@ const pc_width = uint(8)
 // schema and set of input columns.  The goal is to encapsulate all of the logic
 // around building a trace.
 type TraceBuilder struct {
-	functions []Function
+	functions []MacroFunction
 }
 
 // NewTraceBuilder constructs a new trace builder for a given set of functions.
-func NewTraceBuilder(functions ...Function) *TraceBuilder {
+func NewTraceBuilder(functions ...MacroFunction) *TraceBuilder {
 	return &TraceBuilder{functions}
 }
 
@@ -46,7 +46,7 @@ func (p *TraceBuilder) Build(instances []FunctionInstance) []trace.RawColumn {
 	return columns
 }
 
-func expandFunctionInstances(fid uint, fns []Function, instances []FunctionInstance) []trace.RawColumn {
+func expandFunctionInstances(fid uint, fns []MacroFunction, instances []FunctionInstance) []trace.RawColumn {
 	var (
 		fn      = fns[fid]
 		data    = make([][]big.Int, len(fn.Registers)+2)
@@ -85,7 +85,7 @@ func expandFunctionInstances(fid uint, fns []Function, instances []FunctionInsta
 	return columns
 }
 
-func traceFunction(fid uint, stamp uint, trace [][]big.Int, fns []Function, instance FunctionInstance) [][]big.Int {
+func traceFunction(fid uint, stamp uint, trace [][]big.Int, fns []MacroFunction, instance FunctionInstance) [][]big.Int {
 	interpreter := NewInterpreter(fns...)
 	// Initialise state
 	init := interpreter.Bind(fid, instance.Inputs)
