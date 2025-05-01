@@ -40,7 +40,7 @@ func (p *Jmp) Terminal() bool {
 
 // Execute an unconditional branch instruction by returning the destination
 // program counter.
-func (p *Jmp) Execute(pc uint, state []big.Int, regs []Register) uint {
+func (p *Jmp) Execute(state []big.Int, regs []Register) uint {
 	return p.Target
 }
 

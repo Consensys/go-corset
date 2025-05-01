@@ -25,9 +25,6 @@ import (
 	"github.com/consensys/go-corset/pkg/util/source"
 )
 
-var zero = *big.NewInt(0)
-var one = *big.NewInt(1)
-
 // CompileAssembly compiles a given set of assembly functions into a binary
 // constraint file.
 func CompileAssembly(assembly ...source.File) (*binfile.BinaryFile, []source.SyntaxError) {
@@ -119,8 +116,8 @@ func (p *Compiler) compileInstruction(inst Instruction, st insn.StateTranslator)
 }
 
 func (p *Compiler) initFunctionFraming(ctx trace.Context, rids []uint, fn Function) (uint, uint) {
-	// Determine max width of PC
 	pcMax := uint64(len(fn.Code) - 1)
+	// Determine max width of PC
 	pcWidth := uint(big.NewInt(int64(pcMax)).BitLen())
 	// Allocate book keeping columns
 	stamp := p.schema.AddDataColumn(ctx, "$stamp", schema.NewUintType(p.maxInstances))
@@ -133,8 +130,10 @@ func (p *Compiler) initFunctionFraming(ctx trace.Context, rids []uint, fn Functi
 	// $stamp == 0 on first row
 	p.schema.AddVanishingConstraint("first", ctx, util.Some(0), hir.Equals(stamp_i, hir.ZERO))
 	// $stamp == 0 || $pc == pc_max on last row [BROKEN]
-	p.schema.AddVanishingConstraint("last", ctx, util.Some(-1),
-		hir.Disjunction(hir.Equals(stamp_i, hir.ZERO), hir.Equals(pc_i, hir.NewConst64(pcMax))))
+	for _, tpc := range terminators(fn) {
+		p.schema.AddVanishingConstraint("last", ctx, util.Some(-1),
+			hir.Disjunction(hir.Equals(stamp_i, hir.ZERO), hir.Equals(pc_i, hir.NewConst64(tpc))))
+	}
 	// next($stamp) == $stamp || next($stamp) == $stamp+1
 	p.schema.AddVanishingConstraint("increment", ctx, util.None[int](),
 		hir.Disjunction(hir.Equals(stamp_ip1, stamp_i), hir.Equals(stamp_ip1, hir.Sum(hir.ONE, stamp_i))))
@@ -156,4 +155,16 @@ func (p *Compiler) initFunctionFraming(ctx trace.Context, rids []uint, fn Functi
 	}
 	//
 	return stamp, pc
+}
+
+func terminators(fn Function) []uint64 {
+	var terminals []uint64
+	//
+	for pc, insn := range fn.Code {
+		if insn.Terminal() {
+			terminals = append(terminals, uint64(pc))
+		}
+	}
+	//
+	return terminals
 }

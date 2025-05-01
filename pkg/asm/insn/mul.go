@@ -14,6 +14,7 @@ package insn
 
 import (
 	"fmt"
+	"math"
 	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
@@ -66,7 +67,7 @@ func (p *Mul) Terminal() bool {
 // given set of register values.  This may update the register values, and
 // returns the next program counter position.  If the program counter is
 // math.MaxUint then a return is signaled.
-func (p *Mul) Execute(pc uint, state []big.Int, regs []Register) uint {
+func (p *Mul) Execute(state []big.Int, regs []Register) uint {
 	var value big.Int
 	// Assign first value
 	value.Set(&state[p.Sources[0]])
@@ -79,7 +80,7 @@ func (p *Mul) Execute(pc uint, state []big.Int, regs []Register) uint {
 	// Write value
 	writeTargetRegisters(p.Targets, state, regs, value)
 	//
-	return pc + 1
+	return math.MaxUint - 1
 }
 
 // IsWellFormed checks whether or not this instruction is correctly balanced.

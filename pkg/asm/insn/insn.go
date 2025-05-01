@@ -30,7 +30,7 @@ type MicroInstruction interface {
 	// given set of register values.  This may update the register values, and
 	// returns the next program counter position.  If the program counter is
 	// math.MaxUint then a return is signaled.
-	Execute(pc uint, state []big.Int, regs []Register) uint
+	Execute(state []big.Int, regs []Register) uint
 	// Sequential indicates whether or not this microinstruction can execute
 	// sequentially onto the next.
 	Sequential() bool
@@ -91,19 +91,17 @@ func (p *Instruction) Bind(labels []uint) {
 // returns the next program counter position.  If the program counter is
 // math.MaxUint then a return is signaled.
 func (p *Instruction) Execute(pc uint, state []big.Int, regs []Register) uint {
-	var npc uint = pc + 1
-
-	for _, r := range p.Instructions {
-		p := r.Execute(pc, state, regs)
-		// Sanity check
-		if p != pc+1 && npc != pc+1 {
-			panic("conflicting jump targets")
-		}
-		//
-		npc = p
-	}
+	var fallThru uint = math.MaxUint - 1
 	//
-	return npc
+	for _, r := range p.Instructions {
+		npc := r.Execute(state, regs)
+		// Sanity check
+		if npc != fallThru {
+			return npc
+		}
+	}
+	// Fall through
+	return pc + 1
 }
 
 // Validate that this micro-instruction is well-formed.  For example, each
@@ -122,14 +120,12 @@ func (p *Instruction) Validate(regs []Register) (uint, error) {
 	}
 	// Check read-after-write conflicts
 	for i, r := range p.Instructions {
-		for _, src := range r.RegistersRead() {
-			if written.Contains(src) {
-				// Forwarding required for this
-				return uint(i), fmt.Errorf("conflicting reading (requires forwarding)")
-			}
-		}
-		//
 		for _, dst := range r.RegistersWritten() {
+			if written.Contains(dst) {
+				// Forwarding required for this
+				return uint(i), fmt.Errorf("conflicting write")
+			}
+			//
 			written.Insert(dst)
 		}
 	}

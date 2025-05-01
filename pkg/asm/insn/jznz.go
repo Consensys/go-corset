@@ -13,6 +13,7 @@
 package insn
 
 import (
+	"math"
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/hir"
@@ -49,7 +50,7 @@ func (p *Jznz) Terminal() bool {
 
 // Execute an unconditional branch instruction by returning the destination
 // program counter.
-func (p *Jznz) Execute(pc uint, state []big.Int, regs []Register) uint {
+func (p *Jznz) Execute(state []big.Int, regs []Register) uint {
 	var (
 		val     = state[p.Source]
 		is_zero = val.Cmp(&zero) == 0
@@ -59,7 +60,7 @@ func (p *Jznz) Execute(pc uint, state []big.Int, regs []Register) uint {
 		return p.Target
 	}
 	//
-	return pc + 1
+	return math.MaxUint - 1
 }
 
 // IsWellFormed checks whether or not this instruction is correctly balanced.

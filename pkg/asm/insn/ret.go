@@ -42,7 +42,7 @@ func (p *Ret) Terminal() bool {
 }
 
 // Execute a ret instruction by signaling a return from the enclosing function.
-func (p *Ret) Execute(pc uint, state []big.Int, regs []Register) uint {
+func (p *Ret) Execute(state []big.Int, regs []Register) uint {
 	return math.MaxUint
 }
 

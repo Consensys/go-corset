@@ -150,7 +150,7 @@ func (p *StateTranslator) ReadRegister(reg uint) hir.Expr {
 	//
 	if p.forwarded.Contains(reg) {
 		// Forwarded
-		return hir.NewColumnAccess(rid, 0)
+		return hir.NewColumnAccess(rid, 1)
 	}
 	// Not forwarded
 	return hir.NewColumnAccess(rid, 0)

@@ -16,10 +16,12 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"path"
 	"regexp"
 	"strings"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/go-corset/pkg/asm"
 	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/mir"
 	sc "github.com/consensys/go-corset/pkg/schema"
@@ -85,6 +87,12 @@ var traceCmd = &cobra.Command{
 		if batched {
 			// batched mode
 			traces = ReadBatchedTraceFile(args[0])
+		} else if len(args) == 2 && path.Ext(args[1]) == ".zkasm" {
+			// read trace & constraints
+			asmTrace, functions := readTraceAndConstraints(args[0], args[1])
+			builder := asm.NewTraceBuilder(functions...)
+			hirTrace := builder.Build(asmTrace)
+			traces = [][]trace.RawColumn{hirTrace}
 		} else {
 			// unbatched (i.e. normal) mode
 			tracefile := ReadTraceFile(args[0])
