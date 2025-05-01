@@ -15,19 +15,28 @@ package asm
 import (
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/asm/instruction"
+	"github.com/consensys/go-corset/pkg/asm/insn"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
 
+// Instruction is an alias for insn.Instruction
+type Instruction = insn.Instruction
+
+// MicroInstruction is an alias for insn.MicroInstruction
+type MicroInstruction = insn.MicroInstruction
+
+// Register describes a single register within a function.
+type Register = insn.Register
+
 // Assemble takes a given set of assembly files, and parses them into a given
 // set of functions.  This includes performing various checks on the files, such
 // as type checking, etc.
-func Assemble(assembly ...source.File) ([]Function, source.Maps[Instruction], []source.SyntaxError) {
+func Assemble(assembly ...source.File) ([]Function, source.Maps[MicroInstruction], []source.SyntaxError) {
 	var (
 		fns     []Function
 		errors  []source.SyntaxError
-		srcmaps source.Maps[Instruction] = *source.NewSourceMaps[Instruction]()
+		srcmaps source.Maps[MicroInstruction] = *source.NewSourceMaps[MicroInstruction]()
 	)
 	// Parse each file in turn.
 	for _, asm := range assembly {
@@ -53,7 +62,7 @@ func Assemble(assembly ...source.File) ([]Function, source.Maps[Instruction], []
 // number on rhs).  Likewise, registers cannot be used before they are defined,
 // and all control-flow paths must reach a "ret" instruction.  Finally, we
 // cannot assign to an input register under the current calling convention.
-func checkWellFormed(fn Function, srcmaps source.Maps[Instruction]) []source.SyntaxError {
+func checkWellFormed(fn Function, srcmaps source.Maps[MicroInstruction]) []source.SyntaxError {
 	balance_errs := checkInstructionsBalance(fn, srcmaps)
 	flow_errs := checkInstructionsFlow(fn, srcmaps)
 	//
@@ -66,14 +75,15 @@ func checkWellFormed(fn Function, srcmaps source.Maps[Instruction]) []source.Syn
 // y + 1" where both x and y are byte registers.  This does not balance because
 // the right-hand side generates 9 bits but the left-hand side can only consume
 // 8bits.
-func checkInstructionsBalance(fn Function, srcmaps source.Maps[Instruction]) []source.SyntaxError {
+func checkInstructionsBalance(fn Function, srcmaps source.Maps[MicroInstruction]) []source.SyntaxError {
 	var errors []source.SyntaxError
 
 	for _, insn := range fn.Code {
-		err := insn.IsWellFormed(fn.Registers)
+		mi, err := insn.Validate(fn.Registers)
 		//
 		if err != nil {
-			errors = append(errors, *srcmaps.SyntaxError(insn, err.Error()))
+			microinsn := insn.Instructions[mi]
+			errors = append(errors, *srcmaps.SyntaxError(microinsn, err.Error()))
 		}
 	}
 	//
@@ -86,7 +96,7 @@ func checkInstructionsBalance(fn Function, srcmaps source.Maps[Instruction]) []s
 // implemented using a straightforward dataflow analysis.  One aspect worth
 // noting is that the dataflow sets hold true for registers which are undefined,
 // and false for registers which are defined.
-func checkInstructionsFlow(fn Function, srcmaps source.Maps[Instruction]) []source.SyntaxError {
+func checkInstructionsFlow(fn Function, srcmaps source.Maps[MicroInstruction]) []source.SyntaxError {
 	var (
 		n          = uint(len(fn.Code))
 		errors     []source.SyntaxError
@@ -94,7 +104,7 @@ func checkInstructionsFlow(fn Function, srcmaps source.Maps[Instruction]) []sour
 	)
 	// Initialise entry state (since these are assigned on entry)
 	for i, r := range fn.Registers {
-		if r.Kind != INPUT_REGISTER {
+		if !r.IsInput() {
 			entryState.Insert(uint(i))
 		}
 	}
@@ -102,57 +112,47 @@ func checkInstructionsFlow(fn Function, srcmaps source.Maps[Instruction]) []sour
 	worklist := NewWorklist(n, 0, entryState)
 	// Continue until all reachable instructions visited
 	for !worklist.Empty() {
-		// Pop the next item from the stack
-		pc, state := worklist.Pop()
-		//
-		nstate, errs := applyInstructionFlow(pc, state, fn, srcmaps)
+		// Abstract execute instruction
+		errs := applyInstructionSemantics(&worklist, fn, srcmaps)
+		// Collect any errors
 		errors = append(errors, errs...)
-		// Update control flow
-		switch insn := fn.Code[pc].(type) {
-		case *instruction.Jmp:
-			// Unconditional jump target
-			worklist.Join(insn.Target, nstate)
-		case *instruction.Jznz:
-			// Conditional jump target
-			worklist.Join(insn.Target, nstate)
-			// Unconditional jump target
-			if pc+1 < n {
-				worklist.Join(pc+1, nstate)
-			} else {
-				errors = append(errors, *srcmaps.SyntaxError(fn.Code[pc], "missing ret"))
-			}
-		case *instruction.Ret:
-			// Terminate
-			errors = append(errors, checkOutputsAssigned(pc, state, fn, srcmaps)...)
-		default:
-			// All others fall through
-			if pc+1 < n {
-				worklist.Join(pc+1, nstate)
-			} else {
-				errors = append(errors, *srcmaps.SyntaxError(fn.Code[pc], "missing ret"))
-			}
-		}
 	}
 	// Sanity check all instructions reachable.
 	for pc := 0; pc < len(fn.Code); pc++ {
 		if !worklist.Visited(uint(pc)) {
-			errors = append(errors, *srcmaps.SyntaxError(fn.Code[pc], "unreachable"))
+			microinsn := fn.Code[pc].Instructions[0]
+			errors = append(errors, *srcmaps.SyntaxError(microinsn, "unreachable"))
 		}
 	}
 	//
 	return errors
 }
 
-// Check that all output registers have been definitely assigned at the point of
-// a return.
-func checkOutputsAssigned(pc uint, state bit.Set, fn Function, srcmaps source.Maps[Instruction]) []source.SyntaxError {
-	var errors []source.SyntaxError
+// Abstractly execute a given vector instruction with respect to a given state
+// at the beginning of the instruction.
+func applyInstructionSemantics(worklist *Worklist, fn Function,
+	srcmaps source.Maps[MicroInstruction]) []source.SyntaxError {
 	//
-	for i, r := range fn.Registers {
-		if r.Kind == OUTPUT_REGISTER && state.Contains(uint(i)) {
-			msg := fmt.Sprintf("output %s possibly undefined", r.Name)
-			errors = append(errors, *srcmaps.SyntaxError(fn.Code[pc], msg))
-		}
+	var errors []source.SyntaxError
+	// Pop the next item from the stack
+	pc, state := worklist.Pop()
+	insn := fn.Code[pc]
+	//
+	for _, microinsn := range insn.Instructions {
+		var errs []source.SyntaxError
+		//
+		state, errs = applyInstructionFlow(microinsn, state, fn, srcmaps)
+		errors = append(errors, errs...)
+		//
+		applyInstructionBranching(microinsn, worklist, state)
+	}
+	// If fall through, propagate
+	if insn.Sequential() {
+		worklist.Join(pc+1, state)
+	} else if insn.Terminal() {
+		// Sanity check outputs assigned by function end
+		errs := checkOutputsAssigned(insn, state, fn, srcmaps)
+		errors = append(errors, errs...)
 	}
 	//
 	return errors
@@ -160,28 +160,59 @@ func checkOutputsAssigned(pc uint, state bit.Set, fn Function, srcmaps source.Ma
 
 // Apply the dataflow transfer function (i.e. the effects of given instruction
 // on the record of which registesr are definitely assigned).
-func applyInstructionFlow(pc uint, regs bit.Set, fn Function,
-	srcmaps source.Maps[Instruction]) (bit.Set, []source.SyntaxError) {
+func applyInstructionFlow(microinsn MicroInstruction, state bit.Set, fn Function,
+	srcmaps source.Maps[MicroInstruction]) (bit.Set, []source.SyntaxError) {
 	//
-	var (
-		errors []source.SyntaxError
-		insn   = fn.Code[pc]
-	)
+	var errors []source.SyntaxError
 	// Ensure every register read has been defined.
-	for _, r := range insn.RegistersRead() {
-		if regs.Contains(r) {
+	for _, r := range microinsn.RegistersRead() {
+		if state.Contains(r) {
 			msg := fmt.Sprintf("register %s possibly undefined", fn.Registers[r].Name)
-			errors = append(errors, *srcmaps.SyntaxError(insn, msg))
+			errors = append(errors, *srcmaps.SyntaxError(microinsn, msg))
 			// mark as defined to avoid follow on errors
-			regs.Remove(r)
+			state.Remove(r)
 		}
 	}
 	// Mark all target registers as written.
-	for _, r := range insn.RegistersWritten() {
-		regs.Remove(r)
+	for _, r := range microinsn.RegistersWritten() {
+		state.Remove(r)
 	}
 	// Done
-	return regs, errors
+	return state, errors
+}
+
+// Apply the effect of any branches.
+func applyInstructionBranching(microinsn MicroInstruction, worklist *Worklist, state bit.Set) {
+	//
+	switch insn := microinsn.(type) {
+	case *insn.Jmp:
+		// Unconditional jump target
+		worklist.Join(insn.Target, state)
+	case *insn.Jznz:
+		// Conditional jump target
+		worklist.Join(insn.Target, state)
+	}
+}
+
+// Check that all output registers have been definitely assigned at the point of
+// a return.
+func checkOutputsAssigned(inst Instruction, state bit.Set, fn Function,
+	srcmaps source.Maps[MicroInstruction]) []source.SyntaxError {
+	//
+	var (
+		errors    []source.SyntaxError
+		last      = len(inst.Instructions) - 1
+		microinsn = inst.Instructions[last]
+	)
+	//
+	for i, r := range fn.Registers {
+		if r.IsOutput() && state.Contains(uint(i)) {
+			msg := fmt.Sprintf("output %s possibly undefined", r.Name)
+			errors = append(errors, *srcmaps.SyntaxError(microinsn, msg))
+		}
+	}
+	//
+	return errors
 }
 
 // Worklist encapsulates the notion of a worklist, along with the necessary

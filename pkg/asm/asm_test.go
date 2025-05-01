@@ -24,6 +24,12 @@ import (
 	"github.com/consensys/go-corset/pkg/util/source"
 )
 
+func Test_Counter(t *testing.T) {
+	check(t, "counter")
+}
+func Test_Max(t *testing.T) {
+	check(t, "max")
+}
 func Test_Pow(t *testing.T) {
 	check(t, "pow")
 }

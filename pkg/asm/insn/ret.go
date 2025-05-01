@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package instruction
+package insn
 
 import (
 	"math"
@@ -29,8 +29,20 @@ func (p *Ret) Bind(labels []uint) {
 	// no-op
 }
 
+// Sequential indicates whether or not this microinstruction can execute
+// sequentially onto the next.
+func (p *Ret) Sequential() bool {
+	return false
+}
+
+// Terminal indicates whether or not this microinstruction terminates the
+// enclosing function.
+func (p *Ret) Terminal() bool {
+	return false
+}
+
 // Execute a ret instruction by signaling a return from the enclosing function.
-func (p *Ret) Execute(pc uint, state []big.Int, regs []Register) uint {
+func (p *Ret) Execute(state []big.Int, regs []Register) uint {
 	return math.MaxUint
 }
 
@@ -52,4 +64,9 @@ func (p *Ret) RegistersRead() []uint {
 // RegistersWritten returns the set of registers written by this instruction.
 func (p *Ret) RegistersWritten() []uint {
 	return nil
+}
+
+// Translate this instruction into low-level constraints.
+func (p *Ret) Translate(st *StateTranslator) {
+	st.Terminate()
 }

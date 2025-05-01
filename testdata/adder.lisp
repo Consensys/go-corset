@@ -67,8 +67,8 @@
 (defconstraint heartbeat (:guard ST)
   ;; If CT[k] == CT_MAX
   (if-eq-else CT CT_MAX
-              ;; Then, CT[k+1] == 0
-              (eq! (next CT) 0)
+              ;; Then, ST[k]+1 = ST[k+1]
+              (eq! (next ST) (+ 1 ST))
               ;; Else, CT[k]+1 == CT[k+1]
               (eq! (+ 1 CT) (next CT))))
 

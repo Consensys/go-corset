@@ -102,7 +102,7 @@ func readTraceInstances(trace traceMap, fid uint, fn Function) ([]FunctionInstan
 	)
 	// Initialise register map
 	for _, reg := range fn.Registers {
-		is_ioreg := (reg.Kind == INPUT_REGISTER || reg.Kind == OUTPUT_REGISTER)
+		is_ioreg := (reg.IsInput() || reg.IsOutput())
 		//
 		if _, ok := trace[reg.Name]; !ok && is_ioreg {
 			return nil, fmt.Errorf("missing register from trace: %s", reg.Name)
@@ -135,7 +135,7 @@ func readTraceInstances(trace traceMap, fid uint, fn Function) ([]FunctionInstan
 		instance.Outputs = make(map[string]big.Int)
 
 		for _, reg := range fn.Registers {
-			is_ioreg := (reg.Kind == INPUT_REGISTER || reg.Kind == OUTPUT_REGISTER)
+			is_ioreg := (reg.IsInput() || reg.IsOutput())
 			// Only consider input / output registers
 			if is_ioreg {
 				v := trace[reg.Name][i]
@@ -144,7 +144,7 @@ func readTraceInstances(trace traceMap, fid uint, fn Function) ([]FunctionInstan
 					return nil, fmt.Errorf("value %s out-of-bounds for %dbit register %s", v.String(), reg.Width, reg.Name)
 				}
 				// Assign as input or output
-				if reg.Kind == INPUT_REGISTER {
+				if reg.IsInput() {
 					instance.Inputs[reg.Name] = v
 				} else {
 					instance.Outputs[reg.Name] = v

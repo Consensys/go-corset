@@ -17,7 +17,7 @@ import (
 	"math"
 	"math/big"
 
-	"github.com/consensys/go-corset/pkg/asm/instruction"
+	"github.com/consensys/go-corset/pkg/asm/insn"
 )
 
 // Function defines a distinct functional entity within the system.  Functions
@@ -29,9 +29,9 @@ type Function struct {
 	Name string
 	// Registers describes zero or more registers of a given width.  Each
 	// register can be designated as an input / output or temporary.
-	Registers []instruction.Register
+	Registers []insn.Register
 	// Code defines the body of this function.
-	Code []Instruction
+	Code []insn.Instruction
 }
 
 // FunctionInstance represents a specific instance of a function.  That is, a
@@ -44,18 +44,6 @@ type FunctionInstance struct {
 	// Outputs identifies the outputs
 	Outputs map[string]big.Int
 }
-
-const (
-	// INPUT_REGISTER signals a register used for holding the input values of a
-	// function.
-	INPUT_REGISTER = uint8(0)
-	// OUTPUT_REGISTER signals a register used for holding the output values of
-	// a function.
-	OUTPUT_REGISTER = uint8(1)
-	// TEMP_REGISTER signals a register used for holding temporary values during
-	// computation.
-	TEMP_REGISTER = uint8(2)
-)
 
 // CheckInstance checks whether a given function instance is valid with respect
 // to a given set of functions.  It returns an error if something goes wrong

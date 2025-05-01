@@ -10,9 +10,11 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package instruction
+package insn
 
-import "math/big"
+import (
+	"math/big"
+)
 
 // Jmp provides an unconditional branching instruction to a given instructon.
 type Jmp struct {
@@ -24,9 +26,21 @@ func (p *Jmp) Bind(labels []uint) {
 	p.Target = labels[p.Target]
 }
 
+// Sequential indicates whether or not this microinstruction can execute
+// sequentially onto the next.
+func (p *Jmp) Sequential() bool {
+	return false
+}
+
+// Terminal indicates whether or not this microinstruction terminates the
+// enclosing function.
+func (p *Jmp) Terminal() bool {
+	return false
+}
+
 // Execute an unconditional branch instruction by returning the destination
 // program counter.
-func (p *Jmp) Execute(pc uint, state []big.Int, regs []Register) uint {
+func (p *Jmp) Execute(state []big.Int, regs []Register) uint {
 	return p.Target
 }
 
@@ -48,4 +62,9 @@ func (p *Jmp) RegistersRead() []uint {
 // RegistersWritten returns the set of registers written by this instruction.
 func (p *Jmp) RegistersWritten() []uint {
 	return nil
+}
+
+// Translate this instruction into low-level constraints.
+func (p *Jmp) Translate(st *StateTranslator) {
+	st.Jump(p.Target)
 }

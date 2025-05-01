@@ -10,16 +10,20 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package instruction
+package insn
 
 import (
 	"fmt"
+	"math"
 	"math/big"
+
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/go-corset/pkg/hir"
 )
 
-// Mul represents a generic operation of the following form:
+// Add represents a generic operation of the following form:
 //
-// tn, .., t0 := s0 * ... * sm * c
+// tn, .., t0 := s0 + ... + sm + c
 //
 // Here, t0 .. tn are the *target registers*, of which tn is the *most
 // significant*.  These must be disjoint as we cannot assign simultaneously to
@@ -27,13 +31,13 @@ import (
 // given (non-negative) constant. Observe the n == m is not required, meaning
 // one can assign multiple registers.  For example, consider this case:
 //
-// c, r0 := r1 * 2
+// c, r0 := r1 + 1
 //
 // Suppose that r0 and r1 are 16bit registers, whilst c is a 1bit register. The
-// result of r1 * 2 occupies 17bits, of which the first 16 are written to r0
+// result of r1 + 1 occupies 17bits, of which the first 16 are written to r0
 // with the most significant (i.e. 16th) bit written to c.  Thus, in this
 // particular example, c represents a carry flag.
-type Mul struct {
+type Add struct {
 	// Target registers for addition
 	Targets []uint
 	// Source register for addition
@@ -43,44 +47,52 @@ type Mul struct {
 }
 
 // Bind any labels contained within this instruction using the given label map.
-func (p *Mul) Bind(labels []uint) {
+func (p *Add) Bind(labels []uint) {
 	// no-op
+}
+
+// Sequential indicates whether or not this microinstruction can execute
+// sequentially onto the next.
+func (p *Add) Sequential() bool {
+	return true
+}
+
+// Terminal indicates whether or not this microinstruction terminates the
+// enclosing function.
+func (p *Add) Terminal() bool {
+	return false
 }
 
 // Execute a given instruction at a given program counter position, using a
 // given set of register values.  This may update the register values, and
 // returns the next program counter position.  If the program counter is
 // math.MaxUint then a return is signaled.
-func (p *Mul) Execute(pc uint, state []big.Int, regs []Register) uint {
+func (p *Add) Execute(state []big.Int, regs []Register) uint {
 	var value big.Int
-	// Assign first value
-	value.Set(&state[p.Sources[0]])
-	// Multiply register values
-	for _, src := range p.Sources[1:] {
-		value.Mul(&value, &state[src])
+	// Add register values
+	for _, src := range p.Sources {
+		value.Add(&value, &state[src])
 	}
-	// Multiply constant
-	value.Mul(&value, &p.Constant)
+	// Add constant
+	value.Add(&value, &p.Constant)
 	// Write value
 	writeTargetRegisters(p.Targets, state, regs, value)
 	//
-	return pc + 1
+	return math.MaxUint - 1
 }
 
 // IsWellFormed checks whether or not this instruction is correctly balanced.
-func (p *Mul) IsWellFormed(regs []Register) error {
+func (p *Add) IsWellFormed(regs []Register) error {
 	var (
 		lhs_bits = sum_bits(p.Targets, regs)
 		rhs      big.Int
 	)
 	//
-	rhs.Set(&one)
-	//
 	for _, target := range p.Sources {
-		rhs.Mul(&rhs, regs[target].MaxValue())
+		rhs.Add(&rhs, regs[target].MaxValue())
 	}
 	// Include constant (if relevant)
-	rhs.Mul(&rhs, &p.Constant)
+	rhs.Add(&rhs, &p.Constant)
 	//
 	rhs_bits := uint(rhs.BitLen())
 	// check
@@ -88,20 +100,50 @@ func (p *Mul) IsWellFormed(regs []Register) error {
 		return fmt.Errorf("bit overflow (%d bits into %d bits)", rhs_bits, lhs_bits)
 	}
 	//
-	return checkUniqueTargets(p.Targets, regs)
+	return checkTargetRegisters(p.Targets, regs)
 }
 
 // Registers returns the set of registers read/written by this instruction.
-func (p *Mul) Registers() []uint {
+func (p *Add) Registers() []uint {
 	return append(p.Targets, p.Sources...)
 }
 
 // RegistersRead returns the set of registers read by this instruction.
-func (p *Mul) RegistersRead() []uint {
+func (p *Add) RegistersRead() []uint {
 	return p.Sources
 }
 
 // RegistersWritten returns the set of registers written by this instruction.
-func (p *Mul) RegistersWritten() []uint {
+func (p *Add) RegistersWritten() []uint {
 	return p.Targets
+}
+
+// Translate this instruction into low-level constraints.
+func (p *Add) Translate(st *StateTranslator) {
+	// build rhs
+	rhs := st.ReadRegisters(p.Sources)
+	// build lhs (must be after rhs)
+	lhs := st.WriteRegisters(p.Targets)
+	// include constant if this makes sense
+	if p.Constant.Cmp(&zero) != 0 {
+		var elem fr.Element
+		//
+		elem.SetBigInt(&p.Constant)
+		rhs = append(rhs, hir.NewConst(elem))
+	}
+	// construct equation
+	eqn := hir.Equals(hir.Sum(lhs...), hir.Sum(rhs...))
+	// construct constraint
+	st.Constrain("add", eqn)
+}
+
+// Sum the total number of bits used by the given set of target registers.
+func sum_bits(targets []uint, regs []Register) uint {
+	sum := uint(0)
+	//
+	for _, target := range targets {
+		sum += regs[target].Width
+	}
+	//
+	return sum
 }
