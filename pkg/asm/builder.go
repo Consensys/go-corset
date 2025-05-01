@@ -15,6 +15,7 @@ package asm
 import (
 	"math/big"
 
+	"github.com/consensys/go-corset/pkg/asm/insn"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/field"
 )
@@ -25,30 +26,30 @@ const pc_width = uint(8)
 // TraceBuilder provides a mechanical means of constructing a trace from a given
 // schema and set of input columns.  The goal is to encapsulate all of the logic
 // around building a trace.
-type TraceBuilder struct {
-	functions []MacroFunction
+type TraceBuilder[T insn.Instruction] struct {
+	functions []Function[T]
 }
 
 // NewTraceBuilder constructs a new trace builder for a given set of functions.
-func NewTraceBuilder(functions ...MacroFunction) *TraceBuilder {
-	return &TraceBuilder{functions}
+func NewTraceBuilder[T insn.Instruction](functions ...Function[T]) *TraceBuilder[T] {
+	return &TraceBuilder[T]{functions}
 }
 
 // Build constructs a complete trace, given a set of function instances.
-func (p *TraceBuilder) Build(instances []FunctionInstance) []trace.RawColumn {
+func (p *TraceBuilder[T]) Build(instances []FunctionInstance) []trace.RawColumn {
 	var columns []trace.RawColumn
 	//
 	for i := range p.functions {
-		fncols := expandFunctionInstances(uint(i), p.functions, instances)
+		fncols := p.expandFunctionInstances(uint(i), instances)
 		columns = append(columns, fncols...)
 	}
 	//
 	return columns
 }
 
-func expandFunctionInstances(fid uint, fns []MacroFunction, instances []FunctionInstance) []trace.RawColumn {
+func (p *TraceBuilder[T]) expandFunctionInstances(fid uint, instances []FunctionInstance) []trace.RawColumn {
 	var (
-		fn      = fns[fid]
+		fn      = p.functions[fid]
 		data    = make([][]big.Int, len(fn.Registers)+2)
 		columns = make([]trace.RawColumn, len(fn.Registers)+2)
 		stamp   = uint(1)
@@ -56,7 +57,7 @@ func expandFunctionInstances(fid uint, fns []MacroFunction, instances []Function
 	//
 	for _, inst := range instances {
 		if inst.Function == fid {
-			data = traceFunction(fid, stamp, data, fns, inst)
+			data = p.traceFunction(fid, stamp, data, inst)
 			stamp = stamp + 1
 		}
 	}
@@ -85,8 +86,10 @@ func expandFunctionInstances(fid uint, fns []MacroFunction, instances []Function
 	return columns
 }
 
-func traceFunction(fid uint, stamp uint, trace [][]big.Int, fns []MacroFunction, instance FunctionInstance) [][]big.Int {
-	interpreter := NewInterpreter(fns...)
+func (p *TraceBuilder[T]) traceFunction(fid uint, stamp uint, trace [][]big.Int,
+	instance FunctionInstance) [][]big.Int {
+	//
+	interpreter := NewInterpreter(p.functions...)
 	// Initialise state
 	init := interpreter.Bind(fid, instance.Inputs)
 	biStamp := big.NewInt(int64(stamp))

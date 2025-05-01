@@ -21,6 +21,8 @@ import (
 
 	"github.com/consensys/go-corset/pkg/asm/insn"
 	instruction "github.com/consensys/go-corset/pkg/asm/insn"
+	"github.com/consensys/go-corset/pkg/asm/macro"
+	"github.com/consensys/go-corset/pkg/asm/micro"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/util/source/lex"
@@ -29,7 +31,7 @@ import (
 // Parse accepts a given source file representing an assembly language
 // program, and assembles it into an instruction sequence which can then the
 // executed.
-func Parse(srcfile *source.File) ([]MacroFunction, *source.Map[MicroInstruction], []source.SyntaxError) {
+func Parse(srcfile *source.File) ([]MacroFunction, *source.Map[macro.Instruction], []source.SyntaxError) {
 	parser := NewParser(srcfile)
 	// Parse functions
 	return parser.parse()
@@ -150,7 +152,7 @@ type Parser struct {
 	srcfile *source.File
 	tokens  []lex.Token
 	// Source mapping
-	srcmap *source.Map[MicroInstruction]
+	srcmap *source.Map[macro.Instruction]
 	// Position within the tokens
 	index int
 }
@@ -158,12 +160,12 @@ type Parser struct {
 // NewParser constructs a new parser for a given source file.
 func NewParser(srcfile *source.File) *Parser {
 	// Construct (initially empty) source mapping
-	srcmap := source.NewSourceMap[MicroInstruction](*srcfile)
+	srcmap := source.NewSourceMap[macro.Instruction](*srcfile)
 	//
 	return &Parser{srcfile, nil, srcmap, 0}
 }
 
-func (p *Parser) parse() ([]MacroFunction, *source.Map[MicroInstruction], []source.SyntaxError) {
+func (p *Parser) parse() ([]MacroFunction, *source.Map[macro.Instruction], []source.SyntaxError) {
 	var fns []MacroFunction
 	// Initialise tokens array
 	if errs := p.lex(); len(errs) > 0 {
@@ -209,7 +211,7 @@ func (p *Parser) parseFunction() (MacroFunction, []source.SyntaxError) {
 	var (
 		fn              MacroFunction
 		env             Environment
-		inst            Instruction
+		inst            macro.Instruction
 		inputs, outputs []Register
 		errs            []source.SyntaxError
 		pc              uint
@@ -242,11 +244,11 @@ func (p *Parser) parseFunction() (MacroFunction, []source.SyntaxError) {
 	}
 	// Parse instructions until end of block
 	for p.lookahead().Kind != RCURLY {
-		if inst, errs = p.parseVectorInstruction(pc, &env); len(errs) > 0 {
+		if inst, errs = p.parseMacroInstruction(pc, &env); len(errs) > 0 {
 			return fn, errs
 		}
 		//
-		if len(inst.Instructions) > 0 {
+		if inst != nil {
 			fn.Code = append(fn.Code, inst)
 			// inc pc only for real instructions.
 			pc = pc + 1
@@ -322,34 +324,35 @@ func (p *Parser) parseType() (uint, []source.SyntaxError) {
 	}
 }
 
-func (p *Parser) parseVectorInstruction(pc uint, env *Environment) (Instruction, []source.SyntaxError) {
-	var (
-		insns  []insn.MicroInstruction = make([]MicroInstruction, 1)
-		errors []source.SyntaxError
-	)
-	// parse first instruction
-	insns[0], errors = p.parseMicroInstruction(pc, env)
-	// check real instruction parsed
-	if insns[0] == nil {
-		return Instruction{Instructions: nil}, errors
+/*
+	func (p *Parser) parseVectorInstruction(pc uint, env *Environment) (Instruction, []source.SyntaxError) {
+		var (
+			insns  []macro.Instruction = make([]macro.Instruction, 1)
+			errors []source.SyntaxError
+		)
+		// parse first instruction
+		return insn, errors := p.parseMacroInstruction(pc, env)
+		// check real instruction parsed
+		if insns[0] == nil {
+			return Instruction{Instructions: nil}, errors
+		}
+		//
+		for len(errors) == 0 && p.match(SEMICOLON) {
+			i, errs := p.parsemacro.Instruction(pc, env)
+			insns = append(insns, i)
+			errors = append(errors, errs...)
+		}
+		//
+		return Instruction{Instructions: insns}, errors
 	}
-	//
-	for len(errors) == 0 && p.match(SEMICOLON) {
-		i, errs := p.parseMicroInstruction(pc, env)
-		insns = append(insns, i)
-		errors = append(errors, errs...)
-	}
-	//
-	return Instruction{Instructions: insns}, errors
-}
-
-func (p *Parser) parseMicroInstruction(pc uint, env *Environment) (MicroInstruction, []source.SyntaxError) {
+*/
+func (p *Parser) parseMacroInstruction(pc uint, env *Environment) (macro.Instruction, []source.SyntaxError) {
 	var (
 		// Save current position for backtracking
-		start     = p.index
-		errs      []source.SyntaxError
-		first     string
-		microinsn MicroInstruction
+		start = p.index
+		errs  []source.SyntaxError
+		first string
+		insn  macro.Instruction
 	)
 	//
 	if first, errs = p.parseIdentifier(); len(errs) > 0 {
@@ -360,13 +363,13 @@ func (p *Parser) parseMicroInstruction(pc uint, env *Environment) (MicroInstruct
 	case "var":
 		return nil, p.parseVar(env)
 	case "jz":
-		microinsn, errs = p.parseJznz(env, true)
+		insn, errs = p.parseJznz(env, true)
 	case "jnz":
-		microinsn, errs = p.parseJznz(env, false)
+		insn, errs = p.parseJznz(env, false)
 	case "jmp":
-		microinsn, errs = p.parseJmp(env)
+		insn, errs = p.parseJmp(env)
 	case "ret":
-		microinsn, errs = &insn.Ret{}, nil
+		insn, errs = &micro.Ret{}, nil
 	default:
 		isLabel := p.lookahead().Kind == COLON
 		// Backtrack
@@ -375,29 +378,29 @@ func (p *Parser) parseMicroInstruction(pc uint, env *Environment) (MicroInstruct
 		if isLabel {
 			return p.parseLabel(pc, env)
 		} else {
-			microinsn, errs = p.parseAssignment(env)
+			insn, errs = p.parseAssignment(env)
 		}
 	}
 	// Record source mapping
-	if microinsn != nil {
-		p.srcmap.Put(microinsn, p.spanOf(start, p.index))
+	if insn != nil {
+		p.srcmap.Put(insn, p.spanOf(start, p.index))
 	}
 	//
-	return microinsn, errs
+	return insn, errs
 }
 
-func (p *Parser) parseJmp(env *Environment) (MicroInstruction, []source.SyntaxError) {
+func (p *Parser) parseJmp(env *Environment) (macro.Instruction, []source.SyntaxError) {
 	lab, errs := p.parseIdentifier()
 	//
 	if len(errs) > 0 {
 		return nil, errs
 	}
 	//
-	return &insn.Jmp{
+	return &micro.Jmp{
 		Target: env.Bind(lab)}, nil
 }
 
-func (p *Parser) parseLabel(pc uint, env *Environment) (MicroInstruction, []source.SyntaxError) {
+func (p *Parser) parseLabel(pc uint, env *Environment) (macro.Instruction, []source.SyntaxError) {
 	// Observe, following cannot fail
 	tok, _ := p.expect(IDENTIFIER)
 	// Likewise, this cannot fail
@@ -447,7 +450,7 @@ func (p *Parser) parseVar(env *Environment) []source.SyntaxError {
 	return nil
 }
 
-func (p *Parser) parseJznz(env *Environment, sign bool) (MicroInstruction, []source.SyntaxError) {
+func (p *Parser) parseJznz(env *Environment, sign bool) (macro.Instruction, []source.SyntaxError) {
 	var (
 		errs     []source.SyntaxError
 		register string
@@ -466,21 +469,21 @@ func (p *Parser) parseJznz(env *Environment, sign bool) (MicroInstruction, []sou
 		return nil, errs
 	}
 	//
-	return &instruction.Jznz{
+	return &macro.Jznz{
 		Sign:   sign,
 		Source: env.LookupRegister(register),
 		Target: env.Bind(label),
 	}, nil
 }
 
-func (p *Parser) parseAssignment(env *Environment) (MicroInstruction, []source.SyntaxError) {
+func (p *Parser) parseAssignment(env *Environment) (macro.Instruction, []source.SyntaxError) {
 	var (
 		lhs      []uint
 		rhs      []uint
 		constant big.Int
 		errs     []source.SyntaxError
 		kind     uint
-		insn     MicroInstruction
+		insn     macro.Instruction
 	)
 	// parse left-hand side
 	if lhs, errs = p.parseAssignmentLhs(env); len(errs) > 0 {
@@ -497,11 +500,11 @@ func (p *Parser) parseAssignment(env *Environment) (MicroInstruction, []source.S
 	//
 	switch kind {
 	case ADD:
-		insn = &instruction.Add{Targets: lhs, Sources: rhs, Constant: constant}
+		insn = &micro.Add{Targets: lhs, Sources: rhs, Constant: constant}
 	case SUB:
-		insn = &instruction.Sub{Targets: lhs, Sources: rhs, Constant: constant}
+		insn = &micro.Sub{Targets: lhs, Sources: rhs, Constant: constant}
 	case MUL:
-		insn = &instruction.Mul{Targets: lhs, Sources: rhs, Constant: constant}
+		insn = &micro.Mul{Targets: lhs, Sources: rhs, Constant: constant}
 	default:
 		panic("unreachable")
 	}
@@ -776,7 +779,7 @@ func (p *Environment) LookupRegister(name string) uint {
 
 // BindLabels processes a given set of instructions by mapping their label
 // indexes to concrete program counter locations.
-func (p *Environment) BindLabels(insns []insn.Instruction) {
+func (p *Environment) BindLabels(insns []macro.Instruction) {
 	labels := make([]uint, len(p.labels))
 	// Initial the label map
 	for i := range labels {

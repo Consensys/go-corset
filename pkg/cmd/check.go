@@ -152,31 +152,35 @@ type checkConfig struct {
 }
 
 func checkWithAsmPipeline(cfg checkConfig, tracefile string, constraints string) {
-	var ok bool = true
 	// read trace & constraints
-	trace, functions := readTraceAndConstraints(tracefile, constraints)
+	ok, trace, functions := readTraceAndConstraints(tracefile, constraints)
 	//
-	for _, instance := range trace {
-		if outcome, err := asm.CheckInstance(instance, functions); outcome == math.MaxUint {
-			// Internal failure
-			panic(err)
-		} else if outcome != 0 {
-			fmt.Printf("trace rejected: %s\n", err)
-			//
-			ok = false
+	if ok {
+		//
+		for _, instance := range trace {
+			if outcome, err := asm.CheckInstance(instance, functions); outcome == math.MaxUint {
+				// Internal failure
+				panic(err)
+			} else if outcome != 0 {
+				fmt.Printf("trace rejected: %s\n", err)
+				//
+				ok = false
+			}
 		}
-	}
-	//
-	binfile, errs := asm.NewCompiler().Compile(functions...)
-	// Check constraints
-	if len(errs) > 0 {
-		for _, err := range errs {
-			printSyntaxError(&err)
+		//
+		if cfg.hir || cfg.mir || cfg.air {
+			binfile, errs := asm.NewCompiler().Compile(functions...)
+			// Check constraints
+			if len(errs) > 0 {
+				for _, err := range errs {
+					printSyntaxError(&err)
+				}
+			} else {
+				builder := asm.NewTraceBuilder(functions...)
+				hirTrace := builder.Build(trace)
+				ok, _ = checkTraceWithLowering([][]tr.RawColumn{hirTrace}, &binfile.Schema, cfg)
+			}
 		}
-	} else if cfg.hir || cfg.mir || cfg.air {
-		builder := asm.NewTraceBuilder(functions...)
-		hirTrace := builder.Build(trace)
-		ok, _ = checkTraceWithLowering([][]tr.RawColumn{hirTrace}, &binfile.Schema, cfg)
 	}
 	// Fail if a problem
 	if !ok {
@@ -184,7 +188,7 @@ func checkWithAsmPipeline(cfg checkConfig, tracefile string, constraints string)
 	}
 }
 
-func readTraceAndConstraints(tracefile string, constraints string) ([]asm.FunctionInstance, []asm.MacroFunction) {
+func readTraceAndConstraints(tracefile string, constraints string) (bool, []asm.FunctionInstance, []asm.MacroFunction) {
 	var (
 		functions []asm.MacroFunction
 		trace     []asm.FunctionInstance
@@ -204,13 +208,15 @@ func readTraceAndConstraints(tracefile string, constraints string) ([]asm.Functi
 		for _, err := range errors {
 			printSyntaxError(&err)
 		}
+		//
+		return false, trace, functions
 	}
 	// Now, attempt to parse constraint file
 	if trace, err = asm.ReadTraceFile(tracefile, functions); err != nil {
 		panic(err)
 	}
 	//
-	return trace, functions
+	return true, trace, functions
 }
 
 // Check raw constraints using the legacy pipeline.

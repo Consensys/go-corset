@@ -17,6 +17,7 @@ import (
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/asm/insn"
+	"github.com/consensys/go-corset/pkg/asm/macro"
 	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/hir"
 	"github.com/consensys/go-corset/pkg/schema"
@@ -107,12 +108,13 @@ func (p *Compiler) compileFunction(id uint, functions []MacroFunction) {
 	}
 }
 
-func (p *Compiler) compileInstruction(inst Instruction, st insn.StateTranslator) {
-	for _, microinsn := range inst.Instructions {
+func (p *Compiler) compileInstruction(inst macro.Instruction, st insn.StateTranslator) {
+	/* for _, microinsn := range inst.Instructions {
 		microinsn.Translate(&st)
 	}
 	// Finalise state translation
-	st.Finalise()
+	st.Finalise() */
+	panic("got here")
 }
 
 func (p *Compiler) initFunctionFraming(ctx trace.Context, rids []uint, fn MacroFunction) (uint, uint) {
@@ -158,7 +160,7 @@ func (p *Compiler) initFunctionFraming(ctx trace.Context, rids []uint, fn MacroF
 }
 
 func terminators(fn MacroFunction) []uint64 {
-	var terminals []uint64
+	/* var terminals []uint64
 	//
 	for pc, insn := range fn.Code {
 		if insn.Terminal() {
@@ -166,5 +168,6 @@ func terminators(fn MacroFunction) []uint64 {
 		}
 	}
 	//
-	return terminals
+	return terminals */
+	panic("TODO")
 }

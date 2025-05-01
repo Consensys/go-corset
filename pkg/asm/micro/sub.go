@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package insn
+package micro
 
 import (
 	"fmt"
@@ -18,7 +18,7 @@ import (
 	"math/big"
 	"slices"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/go-corset/pkg/asm/insn"
 	"github.com/consensys/go-corset/pkg/hir"
 )
 
@@ -79,16 +79,31 @@ func (p *Sub) Execute(state []big.Int, regs []Register) uint {
 	// Subtract constant
 	value.Sub(&value, &p.Constant)
 	// Write value
-	writeTargetRegisters(p.Targets, state, regs, value)
+	insn.WriteTargetRegisters(p.Targets, state, regs, value)
 	//
 	return math.MaxUint - 1
 }
 
-// IsWellFormed checks whether or not this instruction is correctly balanced.  The
+// Registers returns the set of registers read/written by this instruction.
+func (p *Sub) Registers() []uint {
+	return append(p.Targets, p.Sources...)
+}
+
+// RegistersRead returns the set of registers read by this instruction.
+func (p *Sub) RegistersRead() []uint {
+	return p.Sources
+}
+
+// RegistersWritten returns the set of registers written by this instruction.
+func (p *Sub) RegistersWritten() []uint {
+	return p.Targets
+}
+
+// Validate checks whether or not this instruction is correctly balanced.  The
 // algorithm here may seem a little odd at first.  It counts the number of
 // *unique values* required to hold both the positive and negative components of
 // the right-hand side.  This gives the minimum bitwidth required.
-func (p *Sub) IsWellFormed(regs []Register) error {
+func (p *Sub) Validate(regs []Register) error {
 	var (
 		lhs_bits = sum_bits(p.Targets, regs)
 		// Initially, include positive component of rhs.
@@ -111,24 +126,10 @@ func (p *Sub) IsWellFormed(regs []Register) error {
 		return err
 	}
 	// Finally, ensure unique targets
-	return checkTargetRegisters(p.Targets, regs)
+	return insn.CheckTargetRegisters(p.Targets, regs)
 }
 
-// Registers returns the set of registers read/written by this instruction.
-func (p *Sub) Registers() []uint {
-	return append(p.Targets, p.Sources...)
-}
-
-// RegistersRead returns the set of registers read by this instruction.
-func (p *Sub) RegistersRead() []uint {
-	return p.Sources
-}
-
-// RegistersWritten returns the set of registers written by this instruction.
-func (p *Sub) RegistersWritten() []uint {
-	return p.Targets
-}
-
+/*
 // Translate this instruction into low-level constraints.
 func (p *Sub) Translate(st *StateTranslator) {
 	// build rhs
@@ -149,7 +150,7 @@ func (p *Sub) Translate(st *StateTranslator) {
 	// construct constraint
 	st.Constrain("sub", eqn)
 }
-
+*/
 // Consider an assignment b, X := Y - 1.  This should be translated into the
 // constraint: X + 1 == Y - 256.b (assuming b is u1, and X/Y are u8).
 func rebalanceSubtraction(lhs []hir.Expr, rhs []hir.Expr, regs []Register, insn *Sub) ([]hir.Expr, []hir.Expr) {

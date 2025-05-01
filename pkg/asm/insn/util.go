@@ -74,24 +74,26 @@ func (p *Register) MaxValue() *big.Int {
 	return max
 }
 
-var zero = *big.NewInt(0)
 var one = *big.NewInt(1)
 
-// Write the value to a given set of target registers, splitting its bits as
-// necessary.  The target registers are given with the least significant first.
-func writeTargetRegisters(targets []uint, state []big.Int, regs []Register, value big.Int) {
-	var (
-		offset uint = 0
-	)
+// WriteTargetRegisters writes a given value to a given set of registers,
+// splitting its bits as necessary.  The target registers are given with the
+// least significant first.  For example, consider writing 01100010 to registers
+// [R1, R2] of type u4.  Then, after the write, we have R1=0010 and R2=0110.
+func WriteTargetRegisters(targets []uint, state []big.Int, regs []Register, value big.Int) {
+	var offset uint = 0
 	//
 	for _, reg := range targets {
 		width := regs[reg].Width
-		state[reg] = readBitSlice(offset, width, value)
+		state[reg] = ReadBitSlice(offset, width, value)
 		offset += width
 	}
 }
 
-func readBitSlice(offset uint, width uint, value big.Int) big.Int {
+// ReadBitSlice reads a slice of bits starting at a given offset in a give
+// value.  For example, consider the value is 10111000 and we have offset=1 and
+// width=4, then the result is 1100.
+func ReadBitSlice(offset uint, width uint, value big.Int) big.Int {
 	var slice big.Int
 	//
 	for i := 0; uint(i) < width; i++ {
@@ -104,8 +106,11 @@ func readBitSlice(offset uint, width uint, value big.Int) big.Int {
 	return slice
 }
 
-// Ensure a given
-func checkTargetRegisters(targets []uint, regs []Register) error {
+// CheckTargetRegisters performs some simple checks on a set of target registers
+// being written.  Firstly, they cannot be input registers (as this are always
+// constant).  Secondly, we cannot write to the same register more than once
+// (i.e. a conflicting write).
+func CheckTargetRegisters(targets []uint, regs []Register) error {
 	for i := range targets {
 		//
 		if regs[targets[i]].IsInput() {

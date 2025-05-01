@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package insn
+package micro
 
 import (
 	"math"
@@ -46,11 +46,6 @@ func (p *Ret) Execute(state []big.Int, regs []Register) uint {
 	return math.MaxUint
 }
 
-// IsWellFormed checks whether or not this instruction is correctly balanced.
-func (p *Ret) IsWellFormed(regs []Register) error {
-	return nil
-}
-
 // Registers returns the set of registers read/written by this instruction.
 func (p *Ret) Registers() []uint {
 	return nil
@@ -66,7 +61,7 @@ func (p *Ret) RegistersWritten() []uint {
 	return nil
 }
 
-// Translate this instruction into low-level constraints.
-func (p *Ret) Translate(st *StateTranslator) {
-	st.Terminate()
+// Validate checks whether or not this instruction is correctly balanced.
+func (p *Ret) Validate(regs []Register) error {
+	return nil
 }

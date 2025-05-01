@@ -18,12 +18,19 @@ import (
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/asm/insn"
+	"github.com/consensys/go-corset/pkg/asm/macro"
+	"github.com/consensys/go-corset/pkg/asm/micro"
 )
 
 // MacroFunction is a function whose instructions are themselves macro
 // instructions.  A macro function must be compiled down into a micro function
 // before we can generate constraints.
-type MacroFunction Function[Instruction]
+type MacroFunction = Function[macro.Instruction]
+
+// MicroFunction is a function whose instructions are themselves micro
+// instructions.  A micro function represents the lowest representation of a
+// function, where each instruction is made up of microcodes.
+type MicroFunction = Function[micro.Instruction]
 
 // Function defines a distinct functional entity within the system.  Functions
 // accepts zero or more inputs and produce zero or more outputs.  Functions

@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package insn
+package micro
 
 import (
 	"math/big"
@@ -44,11 +44,6 @@ func (p *Jmp) Execute(state []big.Int, regs []Register) uint {
 	return p.Target
 }
 
-// IsWellFormed checks whether or not this instruction is correctly balanced.
-func (p *Jmp) IsWellFormed(regs []Register) error {
-	return nil
-}
-
 // Registers returns the set of registers read/written by this instruction.
 func (p *Jmp) Registers() []uint {
 	return nil
@@ -64,7 +59,14 @@ func (p *Jmp) RegistersWritten() []uint {
 	return nil
 }
 
+// Validate checks whether or not this instruction is correctly balanced.
+func (p *Jmp) Validate(regs []Register) error {
+	return nil
+}
+
+/*
 // Translate this instruction into low-level constraints.
 func (p *Jmp) Translate(st *StateTranslator) {
 	st.Jump(p.Target)
 }
+*/

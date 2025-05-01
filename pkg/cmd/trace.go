@@ -89,7 +89,7 @@ var traceCmd = &cobra.Command{
 			traces = ReadBatchedTraceFile(args[0])
 		} else if len(args) == 2 && path.Ext(args[1]) == ".zkasm" {
 			// read trace & constraints
-			asmTrace, functions := readTraceAndConstraints(args[0], args[1])
+			_, asmTrace, functions := readTraceAndConstraints(args[0], args[1])
 			builder := asm.NewTraceBuilder(functions...)
 			hirTrace := builder.Build(asmTrace)
 			traces = [][]trace.RawColumn{hirTrace}

@@ -2,9 +2,13 @@
 fn counter(n u16, m u16) -> (r u16) {
   var i u16
   var c u1
-  r = n ; i = m
+  r = n
+  i = m
 loop:
-  jz i exit ; c,r = r + 1 ; c,i = i - 1 ; jmp loop
+  jz i exit
+  c,r = r + 1
+  c,i = i - 1
+  jmp loop
 exit:
   ret
 }

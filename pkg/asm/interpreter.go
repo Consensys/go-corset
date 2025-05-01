@@ -15,6 +15,8 @@ package asm
 import (
 	"math"
 	"math/big"
+
+	"github.com/consensys/go-corset/pkg/asm/insn"
 )
 
 // InterpreterState represents the state of a function being executed by the interpreter.
@@ -39,22 +41,22 @@ func (p *InterpreterState) PC() uint {
 
 // Interpreter encapsulates all state needed for executing a given instruction
 // sequence.
-type Interpreter struct {
+type Interpreter[T insn.Instruction] struct {
 	// Set of functions being interpreted
-	functions []MacroFunction
+	functions []Function[T]
 	// Set of interpreter states
 	states []InterpreterState
 }
 
 // NewInterpreter intialises an interpreter for executing a given instruction
 // sequence.
-func NewInterpreter(fns ...MacroFunction) *Interpreter {
-	return &Interpreter{fns, nil}
+func NewInterpreter[T insn.Instruction](fns ...Function[T]) *Interpreter[T] {
+	return &Interpreter[T]{fns, nil}
 }
 
 // Bind converts a set of name inputs into the internal state as needed by the
 // interpreter.
-func (p *Interpreter) Bind(fn uint, arguments map[string]big.Int) []big.Int {
+func (p *Interpreter[T]) Bind(fn uint, arguments map[string]big.Int) []big.Int {
 	var (
 		f     = p.functions[fn]
 		state = make([]big.Int, len(f.Registers))
@@ -79,14 +81,14 @@ func (p *Interpreter) Bind(fn uint, arguments map[string]big.Int) []big.Int {
 // State returns the interpreter's (raw) register state for the currently
 // executing function.  This state is raw, hence changes to this can impact the
 // interpreter's subsequent execution.
-func (p *Interpreter) State() InterpreterState {
+func (p *Interpreter[T]) State() InterpreterState {
 	var n = len(p.states) - 1
 	return p.states[n]
 }
 
 // Enter beings execution of a given function, using a given initial state.  The
 // currently executing function (if any) is paused.
-func (p *Interpreter) Enter(fn uint, state []big.Int) {
+func (p *Interpreter[T]) Enter(fn uint, state []big.Int) {
 	//
 	p.states = append(p.states, InterpreterState{
 		fn, uint(0), state,
@@ -94,7 +96,7 @@ func (p *Interpreter) Enter(fn uint, state []big.Int) {
 }
 
 // Leave exits the currently executing function, extracting its output values.
-func (p *Interpreter) Leave() map[string]big.Int {
+func (p *Interpreter[T]) Leave() map[string]big.Int {
 	var (
 		n  = len(p.states) - 1
 		st = p.states[n]
@@ -118,7 +120,7 @@ func (p *Interpreter) Leave() map[string]big.Int {
 // executed.  The number of steps can differ from that requested if: the
 // enclosing function has already terminated; the enclosing function terminates
 // before executing all steps.
-func (p *Interpreter) Execute(nsteps uint) uint {
+func (p *Interpreter[T]) Execute(nsteps uint) uint {
 	var (
 		n    = len(p.states) - 1
 		st   = &p.states[n]
@@ -127,8 +129,7 @@ func (p *Interpreter) Execute(nsteps uint) uint {
 	)
 	//
 	for st.pc != math.MaxUint && step < nsteps {
-		insn := f.Code[st.pc]
-		st.pc = insn.Execute(st.pc, st.registers, f.Registers)
+		st.pc = execute(st.pc, st.registers, f)
 		step++
 	}
 	//
@@ -136,11 +137,21 @@ func (p *Interpreter) Execute(nsteps uint) uint {
 }
 
 // HasTerminated checks whether or not the enclosing function has terminated.
-func (p *Interpreter) HasTerminated() bool {
+func (p *Interpreter[T]) HasTerminated() bool {
 	var (
 		n  = len(p.states) - 1
 		st = p.states[n]
 	)
 	//
 	return st.pc == math.MaxUint
+}
+
+func execute[T insn.Instruction](pc uint, state []big.Int, f Function[T]) uint {
+	npc := f.Code[pc].Execute(state, f.Registers)
+	// Handle return values
+	if npc == insn.FALL_THRU {
+		return pc + 1
+	}
+	//
+	return npc
 }

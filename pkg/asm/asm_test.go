@@ -114,7 +114,7 @@ func checkTraces(t *testing.T, test string, cfg TestConfig, traces [][]FunctionI
 func checkIrTraces(t *testing.T, test string, cfg TestConfig, instances [][]FunctionInstance, fns ...MacroFunction) {
 	var (
 		maxPadding = MAX_PADDING
-		builder    = &TraceBuilder{fns}
+		builder    = NewTraceBuilder(fns...)
 		traces     [][]trace.RawColumn
 	)
 	//
