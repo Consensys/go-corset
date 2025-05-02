@@ -64,6 +64,7 @@ var debugCmd = &cobra.Command{
 		air := GetFlag(cmd, "air")
 		asm := GetFlag(cmd, "asm")
 		uasm := GetFlag(cmd, "uasm")
+		vectorize := GetFlag(cmd, "vectorize")
 		stats := GetFlag(cmd, "stats")
 		attrs := GetFlag(cmd, "attributes")
 		metadata := GetFlag(cmd, "metadata")
@@ -75,7 +76,7 @@ var debugCmd = &cobra.Command{
 		corsetConfig.Legacy = GetFlag(cmd, "legacy")
 		// Parse constraints
 		if asm || uasm {
-			printAssemblyFiles(uasm, args)
+			printAssemblyFiles(uasm, vectorize, args)
 		} else {
 			binfile := ReadConstraintFiles(corsetConfig, args)
 			// Apply any user-specified values for externalised constants.
@@ -122,14 +123,16 @@ func init() {
 	debugCmd.Flags().Bool("spillage", false, "Print spillage information")
 	debugCmd.Flags().StringArrayP("set", "S", []string{}, "set value of externalised constant.")
 	debugCmd.Flags().Bool("uasm", false, "Print constraints at micro ASM level")
+	debugCmd.Flags().Bool("vectorize", true, "Apply instruction vectorization")
 }
 
-func printAssemblyFiles(lower bool, asmfiles []string) {
+func printAssemblyFiles(lower bool, vectorize bool, asmfiles []string) {
 	program, _ := ReadAssemblyProgram(asmfiles...)
 	//
 	if lower {
+		config := asm.LoweringConfig{MaxWidth: math.MaxUint, Vectorize: vectorize}
 		// Lower the program.
-		uprogram := program.Lower(math.MaxUint)
+		uprogram := program.Lower(config)
 		//
 		printAssemblyFunctions(uprogram.Functions)
 	} else {

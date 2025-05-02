@@ -15,6 +15,7 @@ package micro
 import (
 	"fmt"
 	"math/big"
+	"slices"
 
 	"github.com/consensys/go-corset/pkg/asm/insn"
 )
@@ -47,6 +48,19 @@ type Add struct {
 // Bind any labels contained within this instruction using the given label map.
 func (p *Add) Bind(labels []uint) {
 	// no-op
+}
+
+// Clone this micro code.
+func (p *Add) Clone() Code {
+	var constant big.Int
+	//
+	constant.Set(&p.Constant)
+	//
+	return &Add{
+		slices.Clone(p.Targets),
+		slices.Clone(p.Sources),
+		constant,
+	}
 }
 
 // Sequential indicates whether or not this microinstruction can execute

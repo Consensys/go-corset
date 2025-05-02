@@ -51,6 +51,19 @@ func (p *Sub) Bind(labels []uint) {
 	// no-op
 }
 
+// Clone this micro code.
+func (p *Sub) Clone() Code {
+	var constant big.Int
+	//
+	constant.Set(&p.Constant)
+	//
+	return &Sub{
+		slices.Clone(p.Targets),
+		slices.Clone(p.Sources),
+		constant,
+	}
+}
+
 // Sequential indicates whether or not this microinstruction can execute
 // sequentially onto the next.
 func (p *Sub) Sequential() bool {

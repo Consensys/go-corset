@@ -27,6 +27,11 @@ func (p *Jmp) Bind(labels []uint) {
 	p.Target = labels[p.Target]
 }
 
+// Clone this micro code.
+func (p *Jmp) Clone() Code {
+	return &Jmp{p.Target}
+}
+
 // Sequential indicates whether or not this microinstruction can execute
 // sequentially onto the next.
 func (p *Jmp) Sequential() bool {

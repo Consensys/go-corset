@@ -1,13 +1,13 @@
 ;; count up m steps from n modulo u16
 fn counter(n u16, m u16) -> (r u16) {
   var i u16
-  var c u1
+  var c0,c1 u1
   r = n
   i = m
 loop:
   jc i==0 exit
-  c,r = r + 1
-  c,i = i - 1
+  c0,r = r + 1
+  c1,i = i - 1
   jmp loop
 exit:
   ret

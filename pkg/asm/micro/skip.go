@@ -32,6 +32,20 @@ type Skip struct {
 	Skip uint
 }
 
+// Clone this micro code.
+func (p *Skip) Clone() Code {
+	var constant big.Int
+	//
+	constant.Set(&p.Constant)
+	//
+	return &Skip{
+		Left:     p.Left,
+		Right:    p.Right,
+		Constant: constant,
+		Skip:     p.Skip,
+	}
+}
+
 // Sequential indicates whether or not this microinstruction can execute
 // sequentially onto the next.
 func (p *Skip) Sequential() bool {

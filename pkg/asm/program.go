@@ -14,10 +14,12 @@ package asm
 
 import (
 	"fmt"
+	"math"
 	"slices"
 
 	"github.com/consensys/go-corset/pkg/asm/macro"
 	"github.com/consensys/go-corset/pkg/asm/micro"
+	"github.com/consensys/go-corset/pkg/util/collection/bit"
 )
 
 // MacroProgram represents a set of functions at the macro level.  Thus, a macro
@@ -31,6 +33,15 @@ type MicroProgram struct {
 	Functions []Function[micro.Instruction]
 }
 
+// LoweringConfig provides configuration options for configuring the lowering
+// process.
+type LoweringConfig struct {
+	// Maximum bitwidth for any assignment and/or register.
+	MaxWidth uint
+	// Vectorize determines whether or not to enable vectorisation.
+	Vectorize bool
+}
+
 // Lower a given macro program into a micro program which only uses registers of
 // a given width.  This is a relatively involved procress consisting of several
 // steps: firstly, all macro instructions are lowered to micro instructions;
@@ -38,17 +49,17 @@ type MicroProgram struct {
 // registers exceeding the target width (and instructions which use them) are
 // split accordingly.  The latter can introduce additional registers, for
 // example to hold carry values.
-func (p *MacroProgram) Lower(maxwidth uint) MicroProgram {
+func (p *MacroProgram) Lower(cfg LoweringConfig) MicroProgram {
 	functions := make([]MicroFunction, len(p.Functions))
 	//
 	for i, f := range p.Functions {
-		functions[i] = lowerFunction(maxwidth, f)
+		functions[i] = lowerFunction(cfg, f)
 	}
 	//
 	return MicroProgram{Functions: functions}
 }
 
-func lowerFunction(maxwidth uint, f MacroFunction) MicroFunction {
+func lowerFunction(cfg LoweringConfig, f MacroFunction) MicroFunction {
 	insns := make([]micro.Instruction, len(f.Code))
 	//
 	for pc, insn := range f.Code {
@@ -56,12 +67,245 @@ func lowerFunction(maxwidth uint, f MacroFunction) MicroFunction {
 	}
 	// Sanity checks (for now)
 	for _, reg := range f.Registers {
-		if reg.Width > maxwidth {
+		if reg.Width > cfg.MaxWidth {
 			panic(fmt.Sprintf("register %s exceeds max width", reg.Name))
 		}
 	}
 	//
 	regs := slices.Clone(f.Registers)
+	fn := MicroFunction{f.Name, regs, insns}
+	// Apply vectorisation (if requested).
+	if cfg.Vectorize {
+		fn = vectorizeFunction(fn)
+	}
 	//
-	return MicroFunction{f.Name, regs, insns}
+	return fn
+}
+
+// Vectorize a given function by merging as many instructions together as
+// possible.
+func vectorizeFunction(f MicroFunction) MicroFunction {
+	var insns = slices.Clone(f.Code)
+	// Vectorize instructions as much as possible.
+	for pc := range insns {
+		insns[pc] = vectorizeInstruction(uint(pc), f.Code)
+	}
+	// Remove all uncreachable instructions and compact remainder.
+	insns = pruneUnreachableInstructions(insns, f)
+	//
+	return MicroFunction{Name: f.Name, Registers: f.Registers, Code: insns}
+}
+
+func vectorizeInstruction(pc uint, insns []micro.Instruction) micro.Instruction {
+	var (
+		insn    = insns[pc]
+		changed = true
+	)
+	// Keep vectorizing until worklist empty.
+	for changed {
+		changed = false
+		//
+		for _, target := range insn.JumpTargets() {
+			targetInsn := insns[target]
+			//
+			if target != pc && !conflictingInstructions(0, insn.Codes, bit.Set{}, target, targetInsn) {
+				insn = inlineInstruction(insn, target, insns[target])
+				changed = true
+			}
+		}
+	}
+	//
+	return insn
+}
+
+func conflictingInstructions(cc uint, codes []micro.Code, writes bit.Set, target uint, insn micro.Instruction) bool {
+	// set of written registers
+	var written []uint
+	//
+	switch code := codes[cc].(type) {
+	case *micro.Add:
+		written = code.RegistersWritten()
+	case *micro.Jmp:
+		if code.Target == target {
+			// Prevent inlining multiple times.
+			return conflictingInstructions(0, insn.Codes, writes, math.MaxUint, insn)
+		}
+		//
+		return false
+	case *micro.Mul:
+		written = code.RegistersWritten()
+	case *micro.Skip:
+		// Check target location
+		if conflictingInstructions(cc+1+code.Skip, codes, writes.Clone(), target, insn) {
+			return true
+		}
+		// Fall through
+	case *micro.Sub:
+		written = code.RegistersWritten()
+	case *micro.Ret:
+		return false
+	}
+	// Check conflicts, and update mutated registers
+	for _, r := range written {
+		if writes.Contains(r) {
+			return true
+		}
+		//
+		writes.Insert(r)
+	}
+	// Proceed
+	return conflictingInstructions(cc+1, codes, writes, target, insn)
+}
+
+// Inline a given target instruction into existing instruction.  This means
+// going through the existing instruction and replacing all jump's to the target
+// address with the contents of the target instruction.  This is non-trivial as
+// we must also correctly update internal code offsets for skip instructions,
+// otherwise they could now skip over the wrong number of codes.
+func inlineInstruction(insn micro.Instruction, target uint, targetInsn micro.Instruction) micro.Instruction {
+	var (
+		codes   = slices.Clone(insn.Codes)
+		mapping = make([]uint, len(codes))
+		npc     int
+	)
+	// First determine length of final sequence, and construct an appropriate
+	// mapping from code offsets in the original instruction to those in the new
+	// instruction.
+	for cc := 0; cc < len(codes); cc, npc = cc+1, npc+1 {
+		mapping[cc] = uint(npc)
+		// Look for jump instruction
+		if jmp, ok := codes[cc].(*micro.Jmp); ok {
+			// Check whether its going to the right place
+			if jmp.Target == target {
+				// NOTE: -1 as will overwrite the jmp.
+				npc += len(targetInsn.Codes) - 1
+			}
+		}
+	}
+	//
+	ninsns := make([]micro.Code, npc)
+	//
+	for cc, npc := 0, 0; cc < len(codes); cc++ {
+		code := codes[cc]
+		//
+		switch c := code.(type) {
+		case *micro.Jmp:
+			if c.Target == target {
+				// copy over target instructions
+				for _, c := range targetInsn.Codes {
+					ninsns[npc] = c.Clone()
+					npc++
+				}
+				//
+				continue
+			}
+		case *micro.Skip:
+			code = retargetSkip(uint(cc), uint(npc), *c, mapping)
+		}
+		//
+		ninsns[npc] = code
+		npc++
+	}
+	// Skip instructions may need updating here.
+	return micro.Instruction{Codes: ninsns}
+}
+
+// Calculate the updated skip offset based on the mapping of old code offsets to
+// new code offsets.
+func retargetSkip(cc uint, npc uint, code micro.Skip, mapping []uint) micro.Code {
+	// Determine absolute target
+	target := mapping[cc+1+code.Skip]
+	// Recalculate as relative offset
+	target = target - npc - 1
+	//
+	return &micro.Skip{
+		Left:     code.Left,
+		Right:    code.Right,
+		Constant: code.Constant,
+		Skip:     target,
+	}
+}
+
+// Identify and remove all unreachable instructions.  A tricky aspect of this is
+// that we must updating jump targets accordingly.
+func pruneUnreachableInstructions(insns []micro.Instruction, f Function[micro.Instruction]) []micro.Instruction {
+	var (
+		reachable bit.Set = determineReachableInstructions(insns)
+		ninsns    []micro.Instruction
+		mapping   []uint = make([]uint, len(insns))
+	)
+	// Remove all unreachable
+	for i, insn := range insns {
+		if reachable.Contains(uint(i)) {
+			mapping[i] = uint(len(ninsns))
+			ninsns = append(ninsns, insn)
+		}
+	}
+	// Rebinding all existing jump targets
+	for _, insn := range ninsns {
+		for i := range insn.Codes {
+			code := insn.Codes[i]
+			if jmp, ok := code.(*micro.Jmp); ok {
+				jmp.Target = mapping[jmp.Target]
+				insn.Codes[i] = jmp
+			}
+		}
+	}
+	//
+	return ninsns
+}
+
+func determineReachableInstructions(insns []micro.Instruction) bit.Set {
+	var (
+		worklist = VecWorklist{}
+	)
+	// Start with entry block
+	worklist.Push(0)
+	//
+	for !worklist.Empty() {
+		pc := worklist.Pop()
+		//
+		worklist.PushAll(insns[pc].JumpTargets())
+	}
+	// Done
+	return worklist.visited
+}
+
+// VecWorklist is a worklist suitable for the vectorisation algorithm.
+type VecWorklist struct {
+	// Set of target pc locations yet to be explored
+	targets []uint
+	// Set of target pc locations already explored.
+	visited bit.Set
+}
+
+// Empty determines whether or not the worklist is empty.
+func (p *VecWorklist) Empty() bool {
+	return len(p.targets) == 0
+}
+
+// Pop returns the next item off the worklist.
+func (p *VecWorklist) Pop() uint {
+	n := len(p.targets) - 1
+	item := p.targets[n]
+	p.targets = p.targets[:n]
+	//
+	return item
+}
+
+// Push pushes a new target onto the worklist, provided it has not been
+// previously visited.
+func (p *VecWorklist) Push(target uint) {
+	if !p.visited.Contains(target) {
+		p.visited.Insert(target)
+		p.targets = append(p.targets, target)
+	}
+}
+
+// PushAll attempts to push all targets onto the worklist, whilst excluding
+// those which have been visited already.
+func (p *VecWorklist) PushAll(targets []uint) {
+	for _, target := range targets {
+		p.Push(target)
+	}
 }

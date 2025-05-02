@@ -30,6 +30,11 @@ func (p *Ret) Bind(labels []uint) {
 	// no-op
 }
 
+// Clone this micro code.
+func (p *Ret) Clone() Code {
+	return p
+}
+
 // Sequential indicates whether or not this microinstruction can execute
 // sequentially onto the next.
 func (p *Ret) Sequential() bool {

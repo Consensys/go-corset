@@ -37,6 +37,8 @@ type Register = insn.Register
 // same register).
 type Code interface {
 	insn.Instruction
+	//
+	Clone() Code
 	// Sequential indicates whether or not this microinstruction can execute
 	// sequentially onto the next.
 	Sequential() bool
@@ -88,6 +90,20 @@ func (p Instruction) Execute(state []big.Int, regs []Register) uint {
 	}
 	// Fall through
 	return insn.FALL_THRU
+}
+
+// JumpTargets returns the set of all jump targets used within this instruction.
+// This is relatively easy to determine simply by looking for jmp codes.
+func (p Instruction) JumpTargets() []uint {
+	var targets []uint
+	//
+	for _, code := range p.Codes {
+		if jmp, ok := code.(*Jmp); ok {
+			targets = append(targets, jmp.Target)
+		}
+	}
+	//
+	return targets
 }
 
 // Registers returns the set of registers read/written by this instruction.

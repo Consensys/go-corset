@@ -15,6 +15,7 @@ package micro
 import (
 	"fmt"
 	"math/big"
+	"slices"
 
 	"github.com/consensys/go-corset/pkg/asm/insn"
 )
@@ -42,6 +43,19 @@ type Mul struct {
 	Sources []uint
 	// Constant value (if applicable)
 	Constant big.Int
+}
+
+// Clone this micro code.
+func (p *Mul) Clone() Code {
+	var constant big.Int
+	//
+	constant.Set(&p.Constant)
+	//
+	return &Mul{
+		slices.Clone(p.Targets),
+		slices.Clone(p.Sources),
+		constant,
+	}
 }
 
 // Bind any labels contained within this instruction using the given label map.
