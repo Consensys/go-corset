@@ -34,5 +34,5 @@ type Instruction interface {
 	Bind(labels []uint)
 	// Lower this (macro) instruction into a sequence of one or more micro
 	// instructions.
-	Lower() micro.Instruction
+	Lower(pc uint) micro.Instruction
 }

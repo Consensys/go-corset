@@ -17,6 +17,7 @@ import (
 	"math"
 	"math/big"
 
+	"github.com/consensys/go-corset/pkg/asm/insn"
 	"github.com/consensys/go-corset/pkg/asm/micro"
 )
 
@@ -54,8 +55,24 @@ func (p *Jznz) Execute(state []big.Int, regs []Register) uint {
 
 // Lower this (macro) instruction into a sequence of one or more micro
 // instructions.
-func (p *Jznz) Lower() micro.Instruction {
-	panic("todo")
+func (p *Jznz) Lower(pc uint) micro.Instruction {
+	var codes []micro.Code
+	//
+	if p.Sign {
+		codes = []micro.Code{
+			&micro.Skip{Left: p.Source, Right: insn.UNUSED_REGISTER, Constant: zero, Skip: 1},
+			&micro.Jmp{Target: p.Target},
+			&micro.Jmp{Target: pc + 1},
+		}
+	} else {
+		codes = []micro.Code{
+			&micro.Skip{Left: p.Source, Right: insn.UNUSED_REGISTER, Constant: zero, Skip: 1},
+			&micro.Jmp{Target: pc + 1},
+			&micro.Jmp{Target: p.Target},
+		}
+	}
+	//
+	return micro.Instruction{Codes: codes}
 }
 
 // Registers returns the set of registers read/written by this instruction.

@@ -48,7 +48,7 @@ func (p *Ret) Execute(state []big.Int, regs []Register) uint {
 }
 
 // Lower this instruction into a exactly one more micro instruction.
-func (p *Ret) Lower() Instruction {
+func (p *Ret) Lower(pc uint) Instruction {
 	// Lowering here produces an instruction containing a single microcode.
 	return Instruction{[]Code{p}}
 }

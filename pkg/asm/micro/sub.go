@@ -84,9 +84,9 @@ func (p *Sub) Execute(state []big.Int, regs []Register) uint {
 }
 
 // Lower this instruction into a exactly one more micro instruction.
-func (p *Sub) Lower() Instruction {
+func (p *Sub) Lower(pc uint) Instruction {
 	// Lowering here produces an instruction containing a single microcode.
-	return Instruction{[]Code{p}}
+	return Instruction{[]Code{p, &Jmp{Target: pc + 1}}}
 }
 
 // Registers returns the set of registers read/written by this instruction.

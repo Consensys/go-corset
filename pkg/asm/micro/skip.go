@@ -15,69 +15,78 @@ package micro
 import (
 	"fmt"
 	"math/big"
+
+	"github.com/consensys/go-corset/pkg/asm/insn"
 )
 
-// Jmp provides an unconditional branching instruction to a given instructon.
-type Jmp struct {
-	Target uint
-}
-
-// Bind any labels contained within this instruction using the given label map.
-func (p *Jmp) Bind(labels []uint) {
-	p.Target = labels[p.Target]
+// Skip microcode performs a conditional skip over a given number of codes. The
+// condition is either that two registers are equal, or that they are not equal.
+// This has two variants: register-register; and, register-constant.  The latter
+// is indiciated when the right register is marked as UNUSED.
+type Skip struct {
+	// Left and right comparisons
+	Left, Right uint
+	//
+	Constant big.Int
+	// Skip
+	Skip uint
 }
 
 // Sequential indicates whether or not this microinstruction can execute
 // sequentially onto the next.
-func (p *Jmp) Sequential() bool {
+func (p *Skip) Sequential() bool {
 	return false
 }
 
 // Terminal indicates whether or not this microinstruction terminates the
 // enclosing function.
-func (p *Jmp) Terminal() bool {
+func (p *Skip) Terminal() bool {
 	return false
 }
 
 // Execute an unconditional branch instruction by returning the destination
 // program counter.
-func (p *Jmp) Execute(state []big.Int, regs []Register) uint {
-	return p.Target
-}
-
-// Lower this instruction into a exactly one more micro instruction.
-func (p *Jmp) Lower(pc uint) Instruction {
-	// Lowering here produces an instruction containing a single microcode.
-	return Instruction{[]Code{p}}
+func (p *Skip) Execute(state []big.Int, regs []Register) uint {
+	panic("goto")
 }
 
 // Registers returns the set of registers read/written by this instruction.
-func (p *Jmp) Registers() []uint {
-	return nil
+func (p *Skip) Registers() []uint {
+	return p.RegistersRead()
 }
 
 // RegistersRead returns the set of registers read by this instruction.
-func (p *Jmp) RegistersRead() []uint {
-	return nil
+func (p *Skip) RegistersRead() []uint {
+	if p.Right != insn.UNUSED_REGISTER {
+		return []uint{p.Left}
+	}
+	//
+	return []uint{p.Left, p.Right}
 }
 
 // RegistersWritten returns the set of registers written by this instruction.
-func (p *Jmp) RegistersWritten() []uint {
+func (p *Skip) RegistersWritten() []uint {
 	return nil
 }
 
-func (p *Jmp) String(regs []Register) string {
-	return fmt.Sprintf("jmp %d", p.Target)
+func (p *Skip) String(regs []Register) string {
+	var l = regs[p.Left].Name
+	//
+	if p.Right != insn.UNUSED_REGISTER {
+		return fmt.Sprintf("skip %s!=%s %d", l, regs[p.Right].Name, p.Skip)
+	}
+	//
+	return fmt.Sprintf("skip %s!=%s %d", l, p.Constant.String(), p.Skip)
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Jmp) Validate(regs []Register) error {
+func (p *Skip) Validate(regs []Register) error {
 	return nil
 }
 
 /*
 // Translate this instruction into low-level constraints.
-func (p *Jmp) Translate(st *StateTranslator) {
+func (p *Skip) Translate(st *StateTranslator) {
 	st.Jump(p.Target)
 }
 */

@@ -51,8 +51,8 @@ func (p *MacroProgram) Lower(maxwidth uint) MicroProgram {
 func lowerFunction(maxwidth uint, f MacroFunction) MicroFunction {
 	insns := make([]micro.Instruction, len(f.Code))
 	//
-	for i, insn := range f.Code {
-		insns[i] = insn.Lower()
+	for pc, insn := range f.Code {
+		insns[pc] = insn.Lower(uint(pc))
 	}
 	// Sanity checks (for now)
 	for _, reg := range f.Registers {
