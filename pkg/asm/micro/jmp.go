@@ -13,6 +13,7 @@
 package micro
 
 import (
+	"fmt"
 	"math/big"
 )
 
@@ -44,6 +45,12 @@ func (p *Jmp) Execute(state []big.Int, regs []Register) uint {
 	return p.Target
 }
 
+// Lower this instruction into a exactly one more micro instruction.
+func (p *Jmp) Lower() Instruction {
+	// Lowering here produces an instruction containing a single microcode.
+	return Instruction{[]Code{p}}
+}
+
 // Registers returns the set of registers read/written by this instruction.
 func (p *Jmp) Registers() []uint {
 	return nil
@@ -57,6 +64,10 @@ func (p *Jmp) RegistersRead() []uint {
 // RegistersWritten returns the set of registers written by this instruction.
 func (p *Jmp) RegistersWritten() []uint {
 	return nil
+}
+
+func (p *Jmp) String(regs []Register) string {
+	return fmt.Sprintf("jmp %d", p.Target)
 }
 
 // Validate checks whether or not this instruction is correctly balanced.

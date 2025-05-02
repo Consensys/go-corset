@@ -16,6 +16,7 @@ import (
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/asm/insn"
+	"github.com/consensys/go-corset/pkg/asm/micro"
 )
 
 // Register is an alias for insn.Register
@@ -31,4 +32,7 @@ type Instruction interface {
 	insn.Instruction
 	// Bind any labels contained within this instruction using the given label map.
 	Bind(labels []uint)
+	// Lower this (macro) instruction into a sequence of one or more micro
+	// instructions.
+	Lower() micro.Instruction
 }

@@ -14,7 +14,6 @@ package micro
 
 import (
 	"fmt"
-	"math"
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/asm/insn"
@@ -77,7 +76,13 @@ func (p *Add) Execute(state []big.Int, regs []Register) uint {
 	// Write value
 	insn.WriteTargetRegisters(p.Targets, state, regs, value)
 	//
-	return math.MaxUint - 1
+	return insn.FALL_THRU
+}
+
+// Lower this instruction into a exactly one more micro instruction.
+func (p *Add) Lower() Instruction {
+	// Lowering here produces an instruction containing a single microcode.
+	return Instruction{[]Code{p}}
 }
 
 // Registers returns the set of registers read/written by this instruction.
@@ -93,6 +98,10 @@ func (p *Add) RegistersRead() []uint {
 // RegistersWritten returns the set of registers written by this instruction.
 func (p *Add) RegistersWritten() []uint {
 	return p.Targets
+}
+
+func (p *Add) String(regs []Register) string {
+	return assignmentToString(p.Targets, p.Sources, p.Constant, regs, zero, " + ")
 }
 
 // Validate checks whether or not this instruction is correctly balanced.

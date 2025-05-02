@@ -13,8 +13,9 @@
 package micro
 
 import (
-	"math"
 	"math/big"
+
+	"github.com/consensys/go-corset/pkg/asm/insn"
 )
 
 // Ret signals a return from the enclosing function.
@@ -43,7 +44,13 @@ func (p *Ret) Terminal() bool {
 
 // Execute a ret instruction by signaling a return from the enclosing function.
 func (p *Ret) Execute(state []big.Int, regs []Register) uint {
-	return math.MaxUint
+	return insn.RETURN
+}
+
+// Lower this instruction into a exactly one more micro instruction.
+func (p *Ret) Lower() Instruction {
+	// Lowering here produces an instruction containing a single microcode.
+	return Instruction{[]Code{p}}
 }
 
 // Registers returns the set of registers read/written by this instruction.
@@ -59,6 +66,10 @@ func (p *Ret) RegistersRead() []uint {
 // RegistersWritten returns the set of registers written by this instruction.
 func (p *Ret) RegistersWritten() []uint {
 	return nil
+}
+
+func (p *Ret) String(regs []Register) string {
+	return "ret"
 }
 
 // Validate checks whether or not this instruction is correctly balanced.

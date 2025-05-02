@@ -45,4 +45,7 @@ type Instruction interface {
 	// balanced, that there are no conflicting writes, that all temporaries have
 	// been allocated, etc.
 	Validate(regs []Register) error
+	// Produce a suitable string representation of this instruction.  This is
+	// primarily used for debugging.
+	String(regs []Register) string
 }

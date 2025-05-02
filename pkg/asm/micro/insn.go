@@ -12,12 +12,15 @@ package micro
 
 import (
 	"fmt"
-	"math"
 	"math/big"
+	"strings"
 
 	"github.com/consensys/go-corset/pkg/asm/insn"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 )
+
+// Alias for big integer representation of 0.
+var zero big.Int = *big.NewInt(0)
 
 // Alias for big integer representation of 1.
 var one big.Int = *big.NewInt(1)
@@ -64,7 +67,7 @@ func (p *Instruction) Sequential() bool {
 // Terminal indicates whether or not this instruction is a terminating
 // instruction (or not).  That is, whether or not its possible for control-flow
 // to "fall through" to the next instruction.
-func (p *Instruction) Terminal() bool {
+func (p Instruction) Terminal() bool {
 	n := len(p.Codes) - 1
 	// Only need to check last instruction to determine this.
 	return p.Codes[n].Terminal()
@@ -74,40 +77,80 @@ func (p *Instruction) Terminal() bool {
 // given set of register values.  This may update the register values, and
 // returns the next program counter position.  If the program counter is
 // math.MaxUint then a return is signaled.
-func (p *Instruction) Execute(pc uint, state []big.Int, regs []Register) uint {
-	var fallThru uint = math.MaxUint - 1
+func (p Instruction) Execute(state []big.Int, regs []Register) uint {
 	//
 	for _, r := range p.Codes {
 		npc := r.Execute(state, regs)
 		// Sanity check
-		if npc != fallThru {
+		if npc != insn.FALL_THRU {
 			return npc
 		}
 	}
 	// Fall through
-	return pc + 1
+	return insn.FALL_THRU
+}
+
+// Registers returns the set of registers read/written by this instruction.
+func (p Instruction) Registers() []uint {
+	return append(p.RegistersRead(), p.RegistersWritten()...)
+}
+
+// RegistersRead returns the set of registers read by this instruction.
+func (p Instruction) RegistersRead() []uint {
+	var regs bit.Set
+	//
+	for _, c := range p.Codes {
+		regs.InsertAll(c.RegistersRead()...)
+	}
+	//
+	return regs.Iter().Collect()
+}
+
+// RegistersWritten returns the set of registers written by this instruction.
+func (p Instruction) RegistersWritten() []uint {
+	var regs bit.Set
+	//
+	for _, c := range p.Codes {
+		regs.InsertAll(c.RegistersWritten()...)
+	}
+	//
+	return regs.Iter().Collect()
+}
+
+func (p Instruction) String(regs []Register) string {
+	var builder strings.Builder
+	//
+	for i, code := range p.Codes {
+		if i != 0 {
+			builder.WriteString(" ; ")
+		}
+		//
+		builder.WriteString(code.String(regs))
+	}
+	//
+	return builder.String()
 }
 
 // Validate that this micro-instruction is well-formed.  For example, each
 // micro-instruction contained within must be well-formed, and the overall
 // requirements for a vector instruction must be met, etc.
-func (p *Instruction) Validate(regs []Register) (uint, error) {
+func (p Instruction) Validate(regs []Register) error {
 	var (
 		written bit.Set
 		n       = len(p.Codes) - 1
 	)
 	//
-	for i, r := range p.Codes {
+	for _, r := range p.Codes {
 		if err := r.Validate(regs); err != nil {
-			return uint(i), err
+			return err
 		}
 	}
 	// Check read-after-write conflicts
-	for i, r := range p.Codes {
+	for _, r := range p.Codes {
 		for _, dst := range r.RegistersWritten() {
 			if written.Contains(dst) {
 				// Forwarding required for this
-				return uint(i), fmt.Errorf("conflicting write")
+				return fmt.Errorf("conflicting write")
 			}
 			//
 			written.Insert(dst)
@@ -116,9 +159,9 @@ func (p *Instruction) Validate(regs []Register) (uint, error) {
 	// Check for unreachable instructions
 	for i, r := range p.Codes {
 		if i != n && !r.Sequential() {
-			return uint(i), fmt.Errorf("unreachable")
+			return fmt.Errorf("unreachable")
 		}
 	}
 	//
-	return math.MaxUint, nil
+	return nil
 }

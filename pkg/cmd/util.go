@@ -25,6 +25,7 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/asm"
+	"github.com/consensys/go-corset/pkg/asm/macro"
 	"github.com/consensys/go-corset/pkg/binfile"
 	legacy_binfile "github.com/consensys/go-corset/pkg/binfile/legacy"
 	"github.com/consensys/go-corset/pkg/corset"
@@ -587,6 +588,29 @@ func ReadAssemblyFile(filename string) *binfile.BinaryFile {
 	os.Exit(4)
 	// unreachable
 	return nil
+}
+
+// ReadAssemblyProgram reads a given set of assembly files into a (macro) assembly program.
+func ReadAssemblyProgram(filenames ...string) (asm.MacroProgram, source.Maps[macro.Instruction]) {
+	srcfiles, err := source.ReadFiles(filenames...)
+	//
+	if err != nil {
+		panic(err)
+	}
+	//
+	fns, srcmaps, errs := asm.Assemble(srcfiles...)
+	//
+	if len(errs) == 0 {
+		return asm.MacroProgram{Functions: fns}, srcmaps
+	}
+	// Report errors
+	for _, err := range errs {
+		printSyntaxError(&err)
+	}
+	// Fail
+	os.Exit(4)
+	// Unreachable
+	return asm.MacroProgram{}, srcmaps
 }
 
 // ReadBinaryFile reads a binfile which includes the metadata bytes, along with

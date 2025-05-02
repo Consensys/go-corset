@@ -13,8 +13,11 @@
 package macro
 
 import (
+	"fmt"
 	"math"
 	"math/big"
+
+	"github.com/consensys/go-corset/pkg/asm/micro"
 )
 
 // Jznz describes a conditional branch, which is either jz ("Jump if Zero") or
@@ -49,6 +52,12 @@ func (p *Jznz) Execute(state []big.Int, regs []Register) uint {
 	return math.MaxUint - 1
 }
 
+// Lower this (macro) instruction into a sequence of one or more micro
+// instructions.
+func (p *Jznz) Lower() micro.Instruction {
+	panic("todo")
+}
+
 // Registers returns the set of registers read/written by this instruction.
 func (p *Jznz) Registers() []uint {
 	return []uint{p.Source}
@@ -62,6 +71,18 @@ func (p *Jznz) RegistersRead() []uint {
 // RegistersWritten returns the set of registers written by this instruction.
 func (p *Jznz) RegistersWritten() []uint {
 	return nil
+}
+
+func (p *Jznz) String(regs []Register) string {
+	var jmp string
+
+	if p.Sign {
+		jmp = "jz"
+	} else {
+		jmp = "jnz"
+	}
+	//
+	return fmt.Sprintf("%s %s %d", jmp, regs[p.Source].Name, p.Target)
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
