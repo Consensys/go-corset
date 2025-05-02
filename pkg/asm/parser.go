@@ -83,14 +83,32 @@ const RIGHTARROW uint = 12
 // EQUALS signals "="
 const EQUALS uint = 13
 
+// EQUALS_EQUALS signals "=="
+const EQUALS_EQUALS uint = 14
+
+// NOT_EQUALS signals "!="
+const NOT_EQUALS uint = 15
+
+// LESS_THAN signals "<"
+const LESS_THAN uint = 16
+
+// LESS_THAN_EQUALS signals "<="
+const LESS_THAN_EQUALS uint = 17
+
+// GREATER_THAN signals ">"
+const GREATER_THAN uint = 18
+
+// GREATER_THAN_EQUALS signals ">="
+const GREATER_THAN_EQUALS uint = 19
+
 // ADD signals "+"
-const ADD uint = 14
+const ADD uint = 20
 
 // SUB signals "-"
-const SUB uint = 15
+const SUB uint = 21
 
 // MUL signals "*"
-const MUL uint = 16
+const MUL uint = 22
 
 // Rule for describing whitespace
 var whitespace lex.Scanner[rune] = lex.Many(lex.Or(lex.Unit(' '), lex.Unit('\t'), lex.Unit('\n')))
@@ -133,6 +151,12 @@ var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
 	lex.Rule(lex.Unit(':'), COLON),
 	lex.Rule(lex.Unit(';'), SEMICOLON),
 	lex.Rule(lex.Unit('-', '>'), RIGHTARROW),
+	lex.Rule(lex.Unit('=', '='), EQUALS_EQUALS),
+	lex.Rule(lex.Unit('!', '='), NOT_EQUALS),
+	lex.Rule(lex.Unit('<', '='), LESS_THAN_EQUALS),
+	lex.Rule(lex.Unit('>', '='), GREATER_THAN_EQUALS),
+	lex.Rule(lex.Unit('<'), LESS_THAN),
+	lex.Rule(lex.Unit('>'), GREATER_THAN),
 	lex.Rule(lex.Unit('='), EQUALS),
 	lex.Rule(lex.Unit('+'), ADD),
 	lex.Rule(lex.Unit('-'), SUB),
@@ -362,10 +386,8 @@ func (p *Parser) parseMacroInstruction(pc uint, env *Environment) (macro.Instruc
 	switch first {
 	case "var":
 		return nil, p.parseVar(env)
-	case "jz":
-		insn, errs = p.parseJznz(env, true)
-	case "jnz":
-		insn, errs = p.parseJznz(env, false)
+	case "jc":
+		insn, errs = p.parseJCond(env)
 	case "jmp":
 		insn, errs = p.parseJmp(env)
 	case "ret":
@@ -450,29 +472,37 @@ func (p *Parser) parseVar(env *Environment) []source.SyntaxError {
 	return nil
 }
 
-func (p *Parser) parseJznz(env *Environment, sign bool) (macro.Instruction, []source.SyntaxError) {
+func (p *Parser) parseJCond(env *Environment) (macro.Instruction, []source.SyntaxError) {
 	var (
 		errs     []source.SyntaxError
-		register string
+		lhs, rhs uint
+		constant big.Int
 		label    string
+		cond     uint8
 	)
-	// save lookahead for error reporting
-	lookahead := p.lookahead()
-	// Parse register name
-	if register, errs = p.parseIdentifier(); len(errs) > 0 {
+	// Parse left hand side
+	if lhs, errs = p.parseRegister(env); len(errs) > 0 {
 		return nil, errs
-	} else if !env.IsRegister(register) {
-		return nil, p.syntaxErrors(lookahead, "unknown register")
+	}
+	// save lookahead for error reporting
+	if cond, errs = p.parseComparator(); len(errs) > 0 {
+		return nil, errs
+	}
+	// Parse right hand side
+	if rhs, constant, errs = p.parseRegisterOrConstant(env); len(errs) > 0 {
+		return nil, errs
 	}
 	// Parse target label
 	if label, errs = p.parseIdentifier(); len(errs) > 0 {
 		return nil, errs
 	}
 	//
-	return &macro.Jznz{
-		Sign:   sign,
-		Source: env.LookupRegister(register),
-		Target: env.Bind(label),
+	return &macro.JCond{
+		Cond:     cond,
+		Left:     lhs,
+		Right:    rhs,
+		Constant: constant,
+		Target:   env.Bind(label),
 	}, nil
 }
 
@@ -591,6 +621,30 @@ func (p *Parser) parseAssignmentOp() (lex.Token, bool) {
 	}
 }
 
+func (p *Parser) parseRegisterOrConstant(env *Environment) (uint, big.Int, []source.SyntaxError) {
+	var (
+		reg      uint
+		constant big.Int
+		errs     []source.SyntaxError
+	)
+	//
+	lookahead := p.lookahead()
+	//
+	switch lookahead.Kind {
+	case IDENTIFIER:
+		reg, errs = p.parseRegister(env)
+	case NUMBER:
+		p.match(NUMBER)
+		//
+		reg = insn.UNUSED_REGISTER
+		constant = p.number(lookahead)
+	default:
+		errs = p.syntaxErrors(lookahead, "expecting register or constant")
+	}
+	//
+	return reg, constant, errs
+}
+
 func (p *Parser) parseRegister(env *Environment) (uint, []source.SyntaxError) {
 	lookahead := p.lookahead()
 	reg, errs := p.parseIdentifier()
@@ -612,6 +666,34 @@ func (p *Parser) parseIdentifier() (string, []source.SyntaxError) {
 	}
 	//
 	return p.string(tok), nil
+}
+
+func (p *Parser) parseComparator() (uint8, []source.SyntaxError) {
+	var (
+		lookahead = p.lookahead()
+		op        uint8
+	)
+	// Parse operation
+	switch lookahead.Kind {
+	case EQUALS_EQUALS:
+		op = macro.EQ
+	case NOT_EQUALS:
+		op = macro.NEQ
+	case LESS_THAN:
+		op = macro.LT
+	case LESS_THAN_EQUALS:
+		op = macro.LTEQ
+	case GREATER_THAN:
+		op = macro.GT
+	case GREATER_THAN_EQUALS:
+		op = macro.GTEQ
+	default:
+		return math.MaxUint8, p.syntaxErrors(lookahead, "unknown comparator")
+	}
+	//
+	p.match(lookahead.Kind)
+	//
+	return op, nil
 }
 
 // Get the text representing the given token as a string.

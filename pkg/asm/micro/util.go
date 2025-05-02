@@ -39,7 +39,7 @@ func assignmentToString(dsts []uint, srcs []uint, constant big.Int, regs []Regis
 		builder.WriteString(regs[r].Name)
 	}
 	//
-	if constant.Cmp(&c) != 0 {
+	if len(srcs) == 0 || constant.Cmp(&c) != 0 {
 		if len(srcs) > 0 {
 			builder.WriteString(op)
 		}

@@ -5,7 +5,7 @@ fn counter(n u16, m u16) -> (r u16) {
   r = n
   i = m
 loop:
-  jz i exit
+  jc i==0 exit
   c,r = r + 1
   c,i = i - 1
   jmp loop

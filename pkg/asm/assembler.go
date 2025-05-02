@@ -138,7 +138,7 @@ func applyInstructionSemantics(worklist *Worklist, fn MacroFunction,
 	case *micro.Jmp:
 		// Unconditional jump target
 		worklist.Join(insn.Target, state)
-	case *macro.Jznz:
+	case *macro.JCond:
 		// Conditional jump target
 		worklist.Join(insn.Target, state)
 		// Fall thru
