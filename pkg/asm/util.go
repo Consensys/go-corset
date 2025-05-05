@@ -28,14 +28,14 @@ type traceMap map[string][]big.Int
 
 // ReadBatchedTraceFile reads a file containing zero or more traces expressed as JSON, where
 // each trace is on a separate line.
-func ReadBatchedTraceFile(filename string, fns []MacroFunction) [][]FunctionInstance {
+func ReadBatchedTraceFile[T any](filename string, program Program[T]) [][]FunctionInstance {
 	lines := util.ReadInputFile(filename)
 	traces := make([][]FunctionInstance, len(lines))
 	// Read constraints line by line
 	for i, line := range lines {
 		// Parse input line as JSON
 		if line != "" && !strings.HasPrefix(line, ";;") {
-			tr, err := ReadTrace([]byte(line), fns)
+			tr, err := ReadTrace([]byte(line), program)
 			if err != nil {
 				msg := fmt.Sprintf("%s:%d: %s", filename, i+1, err)
 				panic(msg)
@@ -49,7 +49,7 @@ func ReadBatchedTraceFile(filename string, fns []MacroFunction) [][]FunctionInst
 }
 
 // ReadTraceFile reads a file containing a single trace.
-func ReadTraceFile(filename string, fns []MacroFunction) ([]FunctionInstance, error) {
+func ReadTraceFile[T any](filename string, program Program[T]) ([]FunctionInstance, error) {
 	// Read data file
 	bytes, err := os.ReadFile(filename)
 	// Check for errors
@@ -57,12 +57,12 @@ func ReadTraceFile(filename string, fns []MacroFunction) ([]FunctionInstance, er
 		return nil, err
 	}
 	//
-	return ReadTrace(bytes, fns)
+	return ReadTrace(bytes, program)
 }
 
 // ReadTrace reads a given set of function instances from JSON-encoded byte
 // sequence.
-func ReadTrace(bytes []byte, fns []MacroFunction) ([]FunctionInstance, error) {
+func ReadTrace[T any](bytes []byte, program Program[T]) ([]FunctionInstance, error) {
 	var (
 		err     error
 		traces  tracesMap
@@ -76,7 +76,7 @@ func ReadTrace(bytes []byte, fns []MacroFunction) ([]FunctionInstance, error) {
 	//
 	instances := make([]FunctionInstance, 0)
 	//
-	for i, fn := range fns {
+	for i, fn := range program.Functions() {
 		tr, ok := traces[fn.Name]
 		// Sanity check
 		if !ok {
@@ -95,7 +95,7 @@ func ReadTrace(bytes []byte, fns []MacroFunction) ([]FunctionInstance, error) {
 	return instances, nil
 }
 
-func readTraceInstances(trace traceMap, fid uint, fn MacroFunction) ([]FunctionInstance, error) {
+func readTraceInstances[T any](trace traceMap, fid uint, fn Function[T]) ([]FunctionInstance, error) {
 	var (
 		height uint = math.MaxUint
 		count       = 0

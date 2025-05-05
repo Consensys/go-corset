@@ -18,6 +18,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/consensys/go-corset/pkg/asm/insn"
+	"github.com/consensys/go-corset/pkg/asm/micro"
 	"github.com/consensys/go-corset/pkg/mir"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -57,6 +59,12 @@ const TestDir = "../../testdata/asm"
 func check(t *testing.T, test string) {
 	var (
 		filename = fmt.Sprintf("%s.zkasm", test)
+		// default config (for now)
+		loweringConfig = LoweringConfig{
+			MaxFieldWidth:    252,
+			MaxRegisterWidth: 128,
+			Vectorize:        true,
+		}
 	)
 	// Enable testing each trace in parallel
 	t.Parallel()
@@ -68,26 +76,31 @@ func check(t *testing.T, test string) {
 	}
 	// Package up as source file
 	srcfile := source.NewSourceFile(filename, bytes)
-	// Parse terms into an HIR schema
-	fns, _, errs := Parse(srcfile)
+	// Parse terms into an assembly macroProgram
+	macroProgram, _, errs := Parse(srcfile)
 	// Check terms parsed ok
 	if len(errs) > 0 {
 		t.Fatalf("Error parsing %s: %v\n", filename, errs)
-	} else if len(fns) == 0 {
+	} else if len(macroProgram.Functions()) == 0 {
 		t.Fatalf("Empty test file: %s\n", filename)
-	} else if len(fns) > 1 {
+	} else if len(macroProgram.Functions()) > 1 {
 		t.Fatalf("Multi-function tests not (yet) supported: %s\n", filename)
 	}
+	// Lower micro program
+	microProgram := macroProgram.Lower(loweringConfig)
 	// Record how many tests executed.
 	nTests := 0
 	// Iterate possible testfile extensions
 	for _, cfg := range TESTFILE_EXTENSIONS {
 		// Construct test filename
 		testFilename := fmt.Sprintf("%s/%s.%s", TestDir, test, cfg.extension)
-		traces := ReadBatchedTraceFile(testFilename, fns)
-		// Run tests
-		checkTraces(t, test, cfg, traces, fns...)
-		checkIrTraces(t, test, cfg, traces, fns...)
+		traces := ReadBatchedTraceFile(testFilename, &macroProgram)
+		// Check traces at ASM level
+		checkTraces(t, test, cfg, traces, &macroProgram)
+		// Check traces at uASM level
+		checkTraces(t, test, cfg, traces, &microProgram)
+		// Check traces at HIR/MIR/AIR levels
+		checkIrTraces(t, test, cfg, traces, microProgram)
 		// Record how many tests we found
 		nTests += len(traces)
 	}
@@ -98,27 +111,28 @@ func check(t *testing.T, test string) {
 }
 
 // Check the given traces for all function instances.
-func checkTraces(t *testing.T, test string, cfg TestConfig, traces [][]FunctionInstance, fns ...MacroFunction) {
+func checkTraces[T insn.Instruction](t *testing.T, test string, cfg TestConfig, traces [][]FunctionInstance,
+	program Program[T]) {
 	//
 	for i, tr := range traces {
 		id := traceId{"ASM", test, cfg.expected, i + 1, 0}
 
 		for _, instance := range tr {
-			checkFunction(t, id, instance, fns...)
+			checkFunction(t, id, instance, program)
 		}
 	}
 }
 
 // Check a given set of tests have an expected outcome (i.e. are
 // either accepted or rejected) by a given set of constraints.
-func checkIrTraces(t *testing.T, test string, cfg TestConfig, instances [][]FunctionInstance, fns ...MacroFunction) {
+func checkIrTraces(t *testing.T, test string, cfg TestConfig, instances [][]FunctionInstance, program MicroProgram) {
 	var (
 		maxPadding = MAX_PADDING
-		builder    = NewTraceBuilder(fns...)
+		builder    = NewTraceBuilder[micro.Instruction](&program)
 		traces     [][]trace.RawColumn
 	)
 	//
-	binFile, errs := NewCompiler().Compile(fns...)
+	binFile, errs := NewCompiler().Compile(program)
 	hirSchema := &binFile.Schema
 	//
 	if len(errs) > 0 {
@@ -185,8 +199,8 @@ func checkTrace(t *testing.T, inputs []trace.RawColumn, id traceId, schema sc.Sc
 }
 
 // Check the given traces for a particular function instance.
-func checkFunction(t *testing.T, id traceId, instance FunctionInstance, fns ...MacroFunction) {
-	outcome, err := CheckInstance(instance, fns)
+func checkFunction[T insn.Instruction](t *testing.T, id traceId, instance FunctionInstance, program Program[T]) {
+	outcome, err := CheckInstance(instance, program)
 	//
 	if outcome == math.MaxUint {
 		t.Errorf("Failure (%s, line %d with padding %d): %s",

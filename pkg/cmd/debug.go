@@ -14,7 +14,6 @@ package cmd
 
 import (
 	"fmt"
-	"math"
 	"os"
 	"reflect"
 
@@ -62,9 +61,8 @@ var debugCmd = &cobra.Command{
 		hir := GetFlag(cmd, "hir")
 		mir := GetFlag(cmd, "mir")
 		air := GetFlag(cmd, "air")
-		asm := GetFlag(cmd, "asm")
+		masm := GetFlag(cmd, "asm")
 		uasm := GetFlag(cmd, "uasm")
-		vectorize := GetFlag(cmd, "vectorize")
 		stats := GetFlag(cmd, "stats")
 		attrs := GetFlag(cmd, "attributes")
 		metadata := GetFlag(cmd, "metadata")
@@ -74,11 +72,12 @@ var debugCmd = &cobra.Command{
 		corsetConfig.Stdlib = !GetFlag(cmd, "no-stdlib")
 		corsetConfig.Debug = GetFlag(cmd, "debug")
 		corsetConfig.Legacy = GetFlag(cmd, "legacy")
+		asmConfig := parseLoweringConfig(cmd)
 		// Parse constraints
-		if asm || uasm {
-			printAssemblyFiles(uasm, vectorize, args)
+		if masm || uasm {
+			printAssemblyFiles(uasm, asmConfig, args)
 		} else {
-			binfile := ReadConstraintFiles(corsetConfig, args)
+			binfile := ReadConstraintFiles(corsetConfig, asmConfig, args)
 			// Apply any user-specified values for externalised constants.
 			applyExternOverrides(externs, binfile)
 			// Print constant info (if requested)
@@ -123,20 +122,18 @@ func init() {
 	debugCmd.Flags().Bool("spillage", false, "Print spillage information")
 	debugCmd.Flags().StringArrayP("set", "S", []string{}, "set value of externalised constant.")
 	debugCmd.Flags().Bool("uasm", false, "Print constraints at micro ASM level")
-	debugCmd.Flags().Bool("vectorize", true, "Apply instruction vectorization")
 }
 
-func printAssemblyFiles(lower bool, vectorize bool, asmfiles []string) {
+func printAssemblyFiles(lower bool, cfg asm.LoweringConfig, asmfiles []string) {
 	program, _ := ReadAssemblyProgram(asmfiles...)
 	//
 	if lower {
-		config := asm.LoweringConfig{MaxWidth: math.MaxUint, Vectorize: vectorize}
 		// Lower the program.
-		uprogram := program.Lower(config)
+		uprogram := program.Lower(cfg)
 		//
-		printAssemblyFunctions(uprogram.Functions)
+		printAssemblyFunctions(uprogram.Functions())
 	} else {
-		printAssemblyFunctions(program.Functions)
+		printAssemblyFunctions(program.Functions())
 	}
 }
 
@@ -195,7 +192,9 @@ func printAssemblySignature[T any](f asm.Function[T]) {
 
 func printAssemblyRegisters[T any](f asm.Function[T]) {
 	for _, r := range f.Registers {
-		fmt.Printf("\tvar %s u%d\n", r.Name, r.Width)
+		if !r.IsInput() && !r.IsOutput() {
+			fmt.Printf("\tvar %s u%d\n", r.Name, r.Width)
+		}
 	}
 }
 

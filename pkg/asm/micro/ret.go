@@ -73,11 +73,17 @@ func (p *Ret) RegistersWritten() []uint {
 	return nil
 }
 
+// Split this micro code using registers of arbirary width into one or more
+// micro codes using registers of a fixed maximum width.
+func (p *Ret) Split(env *RegisterSplittingEnvironment) []Code {
+	return []Code{p}
+}
+
 func (p *Ret) String(regs []Register) string {
 	return "ret"
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Ret) Validate(regs []Register) error {
+func (p *Ret) Validate(fieldWidth uint, regs []Register) error {
 	return nil
 }

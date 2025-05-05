@@ -14,6 +14,7 @@ package micro
 
 import (
 	"fmt"
+	"math"
 	"math/big"
 	"slices"
 
@@ -117,6 +118,58 @@ func (p *Sub) RegistersWritten() []uint {
 	return p.Targets
 }
 
+// Split this micro code using registers of arbirary width into one or more
+// micro codes using registers of a fixed maximum width.  Here, regsBefore
+// represents the registers are they are for this code, whilst regsAfter
+// represent those for the resulting split codes.  The regMap provides a
+// mapping from registers in regsBefore to those in regsAfter.
+func (p *Sub) Split(env *RegisterSplittingEnvironment) []Code {
+	/* if len(p.Sources) == 0 {
+		// Actually just an assignment, so easy.
+		panic("todo")
+	} else { */
+	var (
+		ncodes        []Code
+		targetLimbs        = env.SplitTargetRegisters(p.Targets...)
+		sourcePackets      = env.SplitSourceRegisters(p.Sources...)
+		constantLimbs      = env.SplitConstant(p.Constant, uint(len(sourcePackets)))
+		carry         uint = math.MaxUint
+	)
+	// Allocate all source packets
+	for i, pkt := range sourcePackets {
+		var (
+			targets     []uint
+			targetWidth uint
+		)
+		//
+		targetWidth, targets, targetLimbs = env.AllocateTargetLimbs(targetLimbs)
+		//
+		if i != 0 && carry != math.MaxUint {
+			// Include carry from previous round
+			pkt = append(pkt, carry)
+		}
+		// Allocate carry flag (if applicable).
+		if i+1 != len(sourcePackets) {
+			sourceWidth := subSourceBits(p.Sources, constantLimbs[i], env.RegistersAfter())
+			carry = env.AllocateCarryRegister(targetWidth, sourceWidth)
+			//
+			if carry != math.MaxUint {
+				targets = append(targets, carry)
+			}
+		} else {
+			// Allocate all outstanding limbs for final packet.
+			targets = append(targets, targetLimbs...)
+		}
+		// Construct split micro code
+		code := &Sub{targets, pkt, constantLimbs[i]}
+		// Done
+		ncodes = append(ncodes, code)
+	}
+	//
+	return ncodes
+	//}
+}
+
 func (p *Sub) String(regs []Register) string {
 	return assignmentToString(p.Targets, p.Sources, p.Constant, regs, zero, " - ")
 }
@@ -125,26 +178,17 @@ func (p *Sub) String(regs []Register) string {
 // algorithm here may seem a little odd at first.  It counts the number of
 // *unique values* required to hold both the positive and negative components of
 // the right-hand side.  This gives the minimum bitwidth required.
-func (p *Sub) Validate(regs []Register) error {
+func (p *Sub) Validate(fieldWidth uint, regs []Register) error {
 	var (
-		lhs_bits = sum_bits(p.Targets, regs)
-		// Initially, include positive component of rhs.
-		rhs = *regs[p.Sources[0]].MaxValue()
+		lhs_bits = sumTargetBits(p.Targets, regs)
+		rhs_bits = subSourceBits(p.Sources, p.Constant, regs)
 	)
-	// Now, add negative components
-	for _, target := range p.Sources[1:] {
-		rhs.Add(&rhs, regs[target].MaxValue())
-	}
-	// Include constant (if relevant)
-	rhs.Add(&rhs, &p.Constant)
-	// lhs must be able to hold both.
-	rhs_bits := uint(rhs.BitLen())
 	// check
 	if lhs_bits < rhs_bits {
 		return fmt.Errorf("bit overflow (%d bits into %d bits)", rhs_bits, lhs_bits)
-	}
-	// Run the pivot check
-	if err := checkPivot(p.Sources[0], p.Targets, regs); err != nil {
+	} else if rhs_bits > fieldWidth {
+		return fmt.Errorf("field overflow (%d bits into %d bit field)", rhs_bits, fieldWidth)
+	} else if err := checkPivot(p.Sources[0], p.Targets, regs); err != nil {
 		return err
 	}
 	// Finally, ensure unique targets
@@ -224,4 +268,16 @@ func checkPivot(source uint, targets []uint, regs []Register) error {
 	}
 	// Problem, no alignment.
 	return fmt.Errorf("incorrect alignment (%d bits versus %d bits)", lhs_width, rhs_width)
+}
+
+func subSourceBits(sources []uint, constant big.Int, regs []Register) uint {
+	var rhs big.Int = *regs[sources[0]].MaxValue()
+	// Now, add negative components
+	for _, target := range sources[1:] {
+		rhs.Add(&rhs, regs[target].MaxValue())
+	}
+	// Include constant (if relevant)
+	rhs.Add(&rhs, &constant)
+	// lhs must be able to hold both.
+	return uint(rhs.BitLen())
 }

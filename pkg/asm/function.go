@@ -61,9 +61,9 @@ type FunctionInstance struct {
 // to a given set of functions.  It returns an error if something goes wrong
 // (e.g. the instance is malformed), and either true or false to indicate
 // whether the trace is accepted or not.
-func CheckInstance(instance FunctionInstance, fns []MacroFunction) (uint, error) {
+func CheckInstance[T insn.Instruction](instance FunctionInstance, program Program[T]) (uint, error) {
 	// Initialise a new interpreter
-	interpreter := NewInterpreter(fns...)
+	interpreter := NewInterpreter(program)
 	//
 	init := interpreter.Bind(instance.Function, instance.Inputs)
 	// Enter function

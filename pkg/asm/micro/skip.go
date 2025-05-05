@@ -83,6 +83,34 @@ func (p *Skip) RegistersWritten() []uint {
 	return nil
 }
 
+// Split this micro code using registers of arbirary width into one or more
+// micro codes using registers of a fixed maximum width.
+func (p *Skip) Split(env *RegisterSplittingEnvironment) []Code {
+	// NOTE: we can assume left and right have matching bitwidths
+	var (
+		lhsLimbs = env.SplitTargetRegisters(p.Left)
+		ncodes   []Code
+		n        = uint(len(lhsLimbs))
+		skip     = p.Skip + n - 1
+	)
+	//
+	if p.Right != insn.UNUSED_REGISTER {
+		rhsLimbs := env.SplitTargetRegisters(p.Right)
+		for i := uint(0); i < n; i++ {
+			ncode := &Skip{lhsLimbs[i], rhsLimbs[i], p.Constant, skip - i}
+			ncodes = append(ncodes, ncode)
+		}
+	} else {
+		constantLimbs := env.SplitConstant(p.Constant, n)
+		for i := uint(0); i < n; i++ {
+			ncode := &Skip{lhsLimbs[i], insn.UNUSED_REGISTER, constantLimbs[i], skip - i}
+			ncodes = append(ncodes, ncode)
+		}
+	}
+	//
+	return ncodes
+}
+
 func (p *Skip) String(regs []Register) string {
 	var l = regs[p.Left].Name
 	//
@@ -94,7 +122,23 @@ func (p *Skip) String(regs []Register) string {
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Skip) Validate(regs []Register) error {
+func (p *Skip) Validate(fieldWidth uint, regs []Register) error {
+	lw := regs[p.Left].Width
+	//
+	if p.Right != insn.UNUSED_REGISTER {
+		rw := regs[p.Right].Width
+		//
+		if lw != rw {
+			return fmt.Errorf("bit mismatch (%dbits vs %dbits)", lw, rw)
+		}
+	} else {
+		cw := uint(p.Constant.BitLen())
+		//
+		if lw < cw {
+			return fmt.Errorf("bit overflow (%dbits vs %dbits)", lw, cw)
+		}
+	}
+	//
 	return nil
 }
 

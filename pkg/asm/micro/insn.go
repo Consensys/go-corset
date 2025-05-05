@@ -42,6 +42,9 @@ type Code interface {
 	// Sequential indicates whether or not this microinstruction can execute
 	// sequentially onto the next.
 	Sequential() bool
+	// Split this micro code using registers of arbirary width into one or more
+	// micro codes using registers of a fixed maximum width.
+	Split(env *RegisterSplittingEnvironment) []Code
 	// Terminal indicates whether or not this microinstruction terminates the
 	// enclosing function.
 	Terminal() bool
@@ -150,14 +153,14 @@ func (p Instruction) String(regs []Register) string {
 // Validate that this micro-instruction is well-formed.  For example, each
 // micro-instruction contained within must be well-formed, and the overall
 // requirements for a vector instruction must be met, etc.
-func (p Instruction) Validate(regs []Register) error {
+func (p Instruction) Validate(fieldWidth uint, regs []Register) error {
 	var (
 		written bit.Set
 		n       = len(p.Codes) - 1
 	)
 	//
 	for _, r := range p.Codes {
-		if err := r.Validate(regs); err != nil {
+		if err := r.Validate(fieldWidth, regs); err != nil {
 			return err
 		}
 	}

@@ -31,7 +31,7 @@ import (
 // Parse accepts a given source file representing an assembly language
 // program, and assembles it into an instruction sequence which can then the
 // executed.
-func Parse(srcfile *source.File) ([]MacroFunction, *source.Map[macro.Instruction], []source.SyntaxError) {
+func Parse(srcfile *source.File) (MacroProgram, *source.Map[macro.Instruction], []source.SyntaxError) {
 	parser := NewParser(srcfile)
 	// Parse functions
 	return parser.parse()
@@ -189,24 +189,24 @@ func NewParser(srcfile *source.File) *Parser {
 	return &Parser{srcfile, nil, srcmap, 0}
 }
 
-func (p *Parser) parse() ([]MacroFunction, *source.Map[macro.Instruction], []source.SyntaxError) {
-	var fns []MacroFunction
+func (p *Parser) parse() (MacroProgram, *source.Map[macro.Instruction], []source.SyntaxError) {
+	var program MacroProgram
 	// Initialise tokens array
 	if errs := p.lex(); len(errs) > 0 {
-		return nil, p.srcmap, errs
+		return program, p.srcmap, errs
 	}
 	// Continue going until all consumed
 	for p.lookahead().Kind != END_OF {
 		fn, errs := p.parseFunction()
 		//
 		if len(errs) > 0 {
-			return nil, p.srcmap, errs
+			return program, p.srcmap, errs
 		}
 		//
-		fns = append(fns, fn)
+		program.functions = append(program.functions, fn)
 	}
 	//
-	return fns, p.srcmap, nil
+	return program, p.srcmap, nil
 }
 
 // Initialise lexer and lex contents

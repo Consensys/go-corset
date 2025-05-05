@@ -42,23 +42,23 @@ func (p *InterpreterState) PC() uint {
 // Interpreter encapsulates all state needed for executing a given instruction
 // sequence.
 type Interpreter[T insn.Instruction] struct {
-	// Set of functions being interpreted
-	functions []Function[T]
+	// Program being interpreted
+	program Program[T]
 	// Set of interpreter states
 	states []InterpreterState
 }
 
 // NewInterpreter intialises an interpreter for executing a given instruction
 // sequence.
-func NewInterpreter[T insn.Instruction](fns ...Function[T]) *Interpreter[T] {
-	return &Interpreter[T]{fns, nil}
+func NewInterpreter[T insn.Instruction](program Program[T]) *Interpreter[T] {
+	return &Interpreter[T]{program, nil}
 }
 
 // Bind converts a set of name inputs into the internal state as needed by the
 // interpreter.
 func (p *Interpreter[T]) Bind(fn uint, arguments map[string]big.Int) []big.Int {
 	var (
-		f     = p.functions[fn]
+		f     = p.program.Function(fn)
 		state = make([]big.Int, len(f.Registers))
 	)
 	// Initialise arguments
@@ -100,7 +100,7 @@ func (p *Interpreter[T]) Leave() map[string]big.Int {
 	var (
 		n  = len(p.states) - 1
 		st = p.states[n]
-		f  = p.functions[st.fid]
+		f  = p.program.Function(st.fid)
 	)
 	// Construct outputs
 	outputs := make(map[string]big.Int, 0)
@@ -124,7 +124,7 @@ func (p *Interpreter[T]) Execute(nsteps uint) uint {
 	var (
 		n    = len(p.states) - 1
 		st   = &p.states[n]
-		f    = p.functions[st.fid]
+		f    = p.program.Function(st.fid)
 		step = uint(0)
 	)
 	//

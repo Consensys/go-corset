@@ -41,8 +41,9 @@ var compileCmd = &cobra.Command{
 		output := GetString(cmd, "output")
 		defines := GetStringArray(cmd, "define")
 		externs := GetStringArray(cmd, "set")
+		asmConfig := parseLoweringConfig(cmd)
 		// Parse constraints
-		binfile := ReadConstraintFiles(corsetConfig, args)
+		binfile := ReadConstraintFiles(corsetConfig, asmConfig, args)
 		// Write metadata
 		if err := binfile.Header.SetMetaData(buildMetadata(defines)); err != nil {
 			fmt.Printf("error writing metadata: %s\n", err.Error())

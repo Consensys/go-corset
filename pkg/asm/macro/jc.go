@@ -172,7 +172,7 @@ func (p *JCond) String(regs []Register) string {
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *JCond) Validate(regs []Register) error {
+func (p *JCond) Validate(fieldWidth uint, regs []Register) error {
 	if p.Left == p.Right {
 		switch p.Cond {
 		case EQ, LTEQ, GTEQ:

@@ -20,6 +20,7 @@ import (
 	"path"
 
 	"github.com/consensys/go-corset/pkg/asm"
+	"github.com/consensys/go-corset/pkg/asm/insn"
 	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/hir"
 	"github.com/consensys/go-corset/pkg/mir"
@@ -29,7 +30,6 @@ import (
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
-	"github.com/consensys/go-corset/pkg/util/source"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -60,6 +60,7 @@ var checkCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		//
+		cfg.uasm = GetFlag(cmd, "uasm")
 		cfg.air = GetFlag(cmd, "air")
 		cfg.mir = GetFlag(cmd, "mir")
 		cfg.hir = GetFlag(cmd, "hir")
@@ -78,6 +79,7 @@ var checkCmd = &cobra.Command{
 		cfg.batchSize = GetUint(cmd, "batch")
 		cfg.ansiEscapes = GetFlag(cmd, "ansi-escapes")
 		cfg.optimisation = mir.OPTIMISATION_LEVELS[optimisation]
+		cfg.asmConfig = parseLoweringConfig(cmd)
 		externs := GetStringArray(cmd, "set")
 		// TODO: support true ranges
 		cfg.padding.Left = cfg.padding.Right
@@ -107,12 +109,16 @@ var checkCmd = &cobra.Command{
 // check config encapsulates certain parameters to be used when
 // checking traces.
 type checkConfig struct {
-	// Performing checking at HIR level
+	// Perform checking at µASM level
+	uasm bool
+	// Perform checking at HIR level
 	hir bool
-	// Performing checking at MIR level
+	// Perform checking at MIR level
 	mir bool
-	// Performing checking at AIR level
+	// Perform checking at AIR level
 	air bool
+	// Lowering config
+	asmConfig asm.LoweringConfig
 	// Set optimisation config to use.
 	optimisation mir.OptimisationConfig
 	// Determines whether or not to apply "defensive padding" to every module.
@@ -151,72 +157,53 @@ type checkConfig struct {
 	ansiEscapes bool
 }
 
-func checkWithAsmPipeline(cfg checkConfig, tracefile string, constraints string) {
-	// read trace & constraints
-	ok, trace, functions := readTraceAndConstraints(tracefile, constraints)
+func checkWithAsmPipeline(cfg checkConfig, tracefile string, asmfiles ...string) {
+	var (
+		ok              bool = true
+		macroProgram, _      = ReadAssemblyProgram(asmfiles...)
+		microProgram         = macroProgram.Lower(cfg.asmConfig)
+		trace                = ReadAssemblyTrace(tracefile, &macroProgram)
+	)
 	//
-	if ok {
-		//
-		for _, instance := range trace {
-			if outcome, err := asm.CheckInstance(instance, functions); outcome == math.MaxUint {
-				// Internal failure
-				panic(err)
-			} else if outcome != 0 {
-				fmt.Printf("trace rejected: %s\n", err)
-				//
-				ok = false
-			}
-		}
-		//
-		if cfg.hir || cfg.mir || cfg.air {
-			binfile, errs := asm.NewCompiler().Compile(functions...)
-			// Check constraints
-			if len(errs) > 0 {
-				for _, err := range errs {
-					printSyntaxError(&err)
-				}
-			} else {
-				builder := asm.NewTraceBuilder(functions...)
-				hirTrace := builder.Build(trace)
-				ok, _ = checkTraceWithLowering([][]tr.RawColumn{hirTrace}, &binfile.Schema, cfg)
-			}
+	for _, instance := range trace {
+		// Macro check
+		ok = checkFunctionInstance("ASM", instance, &macroProgram) && ok
+		// Micro check
+		if cfg.uasm {
+			ok = checkFunctionInstance("µASM", instance, &microProgram) && ok
 		}
 	}
-	// Fail if a problem
+	//
+	if cfg.hir || cfg.mir || cfg.air {
+		binfile, errs := asm.NewCompiler().Compile(microProgram)
+		// Check constraints
+		if len(errs) > 0 {
+			for _, err := range errs {
+				printSyntaxError(&err)
+			}
+		} else {
+			builder := asm.NewTraceBuilder(&microProgram)
+			hirTrace := builder.Build(trace)
+			ok, _ = checkTraceWithLowering([][]tr.RawColumn{hirTrace}, &binfile.Schema, cfg)
+		}
+	}
+	//
 	if !ok {
-		os.Exit(1)
+		os.Exit(4)
 	}
 }
 
-func readTraceAndConstraints(tracefile string, constraints string) (bool, []asm.FunctionInstance, []asm.MacroFunction) {
-	var (
-		functions []asm.MacroFunction
-		trace     []asm.FunctionInstance
-		errors    []source.SyntaxError
-	)
-	// Read schema file
-	bytes, err := os.ReadFile(constraints)
-	// Sanity check for errors
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(3)
-	}
-	//
-	srcfile := source.NewSourceFile(constraints, bytes)
-	// Attempt to parse source file
-	if functions, _, errors = asm.Assemble(*srcfile); len(errors) > 0 {
-		for _, err := range errors {
-			printSyntaxError(&err)
-		}
-		//
-		return false, trace, functions
-	}
-	// Now, attempt to parse constraint file
-	if trace, err = asm.ReadTraceFile(tracefile, functions); err != nil {
+func checkFunctionInstance[T insn.Instruction](ir string, instance asm.FunctionInstance, program asm.Program[T]) bool {
+	// Macro check
+	if outcome, err := asm.CheckInstance(instance, program); outcome == math.MaxUint {
+		// Internal failure
 		panic(err)
+	} else if outcome != 0 {
+		fmt.Printf("trace rejected (%s): %s\n", ir, err)
+		return false
 	}
-	//
-	return true, trace, functions
+	// success
+	return true
 }
 
 // Check raw constraints using the legacy pipeline.
@@ -225,7 +212,7 @@ func checkWithLegacyPipeline(cfg checkConfig, batched bool, externs []string, tr
 	//
 	stats := util.NewPerfStats()
 	// Parse constraints
-	binfile := ReadConstraintFiles(cfg.corsetConfig, constraints)
+	binfile := ReadConstraintFiles(cfg.corsetConfig, cfg.asmConfig, constraints)
 	//
 	stats.Log("Reading constraints file")
 	// Parse trace file(s)
@@ -421,6 +408,7 @@ func init() {
 	checkCmd.Flags().Uint("report-context", 2, "specify number of rows to show eitherside of failure in report")
 	checkCmd.Flags().Uint("report-cellwidth", 32, "specify max number of bytes to show in a given cell in the report")
 	checkCmd.Flags().Bool("raw", false, "assume input trace already expanded")
+	checkCmd.Flags().Bool("uasm", false, "check at µASM level")
 	checkCmd.Flags().Bool("hir", false, "check at HIR level")
 	checkCmd.Flags().Bool("mir", false, "check at MIR level")
 	checkCmd.Flags().Bool("air", false, "check at AIR level")

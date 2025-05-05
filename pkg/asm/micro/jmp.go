@@ -71,12 +71,18 @@ func (p *Jmp) RegistersWritten() []uint {
 	return nil
 }
 
+// Split this micro code using registers of arbirary width into one or more
+// micro codes using registers of a fixed maximum width.
+func (p *Jmp) Split(env *RegisterSplittingEnvironment) []Code {
+	return []Code{p}
+}
+
 func (p *Jmp) String(regs []Register) string {
 	return fmt.Sprintf("jmp %d", p.Target)
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Jmp) Validate(regs []Register) error {
+func (p *Jmp) Validate(fieldWidth uint, regs []Register) error {
 	return nil
 }
 

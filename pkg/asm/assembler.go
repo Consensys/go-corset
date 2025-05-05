@@ -14,6 +14,7 @@ package asm
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/consensys/go-corset/pkg/asm/insn"
 	"github.com/consensys/go-corset/pkg/asm/macro"
@@ -28,17 +29,17 @@ type Register = insn.Register
 // Assemble takes a given set of assembly files, and parses them into a given
 // set of functions.  This includes performing various checks on the files, such
 // as type checking, etc.
-func Assemble(assembly ...source.File) ([]MacroFunction, source.Maps[macro.Instruction], []source.SyntaxError) {
+func Assemble(assembly ...source.File) (MacroProgram, source.Maps[macro.Instruction], []source.SyntaxError) {
 	var (
-		fns     []MacroFunction
+		program MacroProgram
 		errors  []source.SyntaxError
 		srcmaps source.Maps[macro.Instruction] = *source.NewSourceMaps[macro.Instruction]()
 	)
 	// Parse each file in turn.
 	for _, asm := range assembly {
-		fn, srcmap, errs := Parse(&asm)
+		p, srcmap, errs := Parse(&asm)
 		if len(errs) == 0 {
-			fns = append(fns, fn...)
+			program.functions = append(program.functions, p.functions...)
 		}
 		// Join srcmap
 		srcmaps.Join(srcmap)
@@ -46,11 +47,11 @@ func Assemble(assembly ...source.File) ([]MacroFunction, source.Maps[macro.Instr
 		errors = append(errors, errs...)
 	}
 	// Well-formedness checks
-	for _, fn := range fns {
+	for _, fn := range program.functions {
 		errors = append(errors, checkWellFormed(fn, srcmaps)...)
 	}
 	// Done
-	return fns, srcmaps, errors
+	return program, srcmaps, errors
 }
 
 // check that a given set of functions are well-formed.  For example, an
@@ -75,7 +76,7 @@ func checkInstructionsBalance(fn MacroFunction, srcmaps source.Maps[macro.Instru
 	var errors []source.SyntaxError
 
 	for _, insn := range fn.Code {
-		err := insn.Validate(fn.Registers)
+		err := insn.Validate(math.MaxUint, fn.Registers)
 		//
 		if err != nil {
 			errors = append(errors, *srcmaps.SyntaxError(insn, err.Error()))

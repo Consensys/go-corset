@@ -58,8 +58,10 @@ type Instruction interface {
 	RegistersWritten() []uint
 	// Validate that this instruction is well-formed.  For example, that it is
 	// balanced, that there are no conflicting writes, that all temporaries have
-	// been allocated, etc.
-	Validate(regs []Register) error
+	// been allocated, etc.  The maximum bit capacity of the underlying field is
+	// needed for this calculation, so as to allow an instruction to check it
+	// does not overflow the underlying field.
+	Validate(fieldWidth uint, regs []Register) error
 	// Produce a suitable string representation of this instruction.  This is
 	// primarily used for debugging.
 	String(regs []Register) string

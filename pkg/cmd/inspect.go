@@ -41,10 +41,11 @@ var inspectCmd = &cobra.Command{
 		//
 		corsetConfig.Stdlib = !GetFlag(cmd, "no-stdlib")
 		corsetConfig.Legacy = GetFlag(cmd, "legacy")
+		asmConfig := parseLoweringConfig(cmd)
 		//
 		stats := util.NewPerfStats()
 		// Parse constraints
-		binf := ReadConstraintFiles(corsetConfig, args[1:])
+		binf := ReadConstraintFiles(corsetConfig, asmConfig, args[1:])
 		// Sanity check debug information is available.
 		srcmap, srcmap_ok := binfile.GetAttribute[*corset.SourceMap](binf)
 		//

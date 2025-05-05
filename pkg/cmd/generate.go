@@ -45,10 +45,11 @@ var generateCmd = &cobra.Command{
 		//
 		corsetConfig.Stdlib = !GetFlag(cmd, "no-stdlib")
 		corsetConfig.Legacy = GetFlag(cmd, "legacy")
+		asmConfig := parseLoweringConfig(cmd)
 		filename := GetString(cmd, "output")
 		pkgname := GetString(cmd, "package")
 		// Parse constraints
-		binf := ReadConstraintFiles(corsetConfig, args)
+		binf := ReadConstraintFiles(corsetConfig, asmConfig, args)
 		// Sanity check debug information is available.
 		srcmap, srcmap_ok := binfile.GetAttribute[*corset.SourceMap](binf)
 		//

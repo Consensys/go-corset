@@ -17,7 +17,7 @@ import (
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/asm/insn"
-	"github.com/consensys/go-corset/pkg/asm/macro"
+	"github.com/consensys/go-corset/pkg/asm/micro"
 	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/hir"
 	"github.com/consensys/go-corset/pkg/schema"
@@ -28,14 +28,14 @@ import (
 
 // CompileAssembly compiles a given set of assembly functions into a binary
 // constraint file.
-func CompileAssembly(assembly ...source.File) (*binfile.BinaryFile, []source.SyntaxError) {
-	functions, _, errs := Assemble(assembly...)
+func CompileAssembly(cfg LoweringConfig, assembly ...source.File) (*binfile.BinaryFile, []source.SyntaxError) {
+	program, _, errs := Assemble(assembly...)
 	//
 	if len(errs) > 0 {
 		return nil, errs
 	}
 	//
-	return NewCompiler().Compile(functions...)
+	return NewCompiler().Compile(program.Lower(cfg))
 }
 
 // Compiler packages up everything needed to compile a given assembly down into
@@ -59,17 +59,17 @@ func NewCompiler() *Compiler {
 }
 
 // Compile compiles a given set of functions into a binary file.
-func (p *Compiler) Compile(functions ...MacroFunction) (*binfile.BinaryFile, []source.SyntaxError) {
-	for i := range functions {
-		p.compileFunction(uint(i), functions)
+func (p *Compiler) Compile(program MicroProgram) (*binfile.BinaryFile, []source.SyntaxError) {
+	for i := range program.Functions() {
+		p.compileFunction(uint(i), program)
 	}
 
 	return binfile.NewBinaryFile(nil, nil, &p.schema), nil
 }
 
-func (p *Compiler) compileFunction(id uint, functions []MacroFunction) {
+func (p *Compiler) compileFunction(id uint, program MicroProgram) {
 	var (
-		fn = functions[id]
+		fn = program.Function(id)
 		// Allocate module id
 		mid = p.schema.AddModule(fn.Name)
 		// Map fn registers to schema columns
@@ -108,7 +108,7 @@ func (p *Compiler) compileFunction(id uint, functions []MacroFunction) {
 	}
 }
 
-func (p *Compiler) compileInstruction(inst macro.Instruction, st insn.StateTranslator) {
+func (p *Compiler) compileInstruction(inst micro.Instruction, st insn.StateTranslator) {
 	/* for _, microinsn := range inst.Instructions {
 		microinsn.Translate(&st)
 	}
@@ -117,7 +117,7 @@ func (p *Compiler) compileInstruction(inst macro.Instruction, st insn.StateTrans
 	panic("got here")
 }
 
-func (p *Compiler) initFunctionFraming(ctx trace.Context, rids []uint, fn MacroFunction) (uint, uint) {
+func (p *Compiler) initFunctionFraming(ctx trace.Context, rids []uint, fn MicroFunction) (uint, uint) {
 	pcMax := uint64(len(fn.Code) - 1)
 	// Determine max width of PC
 	pcWidth := uint(big.NewInt(int64(pcMax)).BitLen())
@@ -159,7 +159,7 @@ func (p *Compiler) initFunctionFraming(ctx trace.Context, rids []uint, fn MacroF
 	return stamp, pc
 }
 
-func terminators(fn MacroFunction) []uint64 {
+func terminators(fn MicroFunction) []uint64 {
 	/* var terminals []uint64
 	//
 	for pc, insn := range fn.Code {

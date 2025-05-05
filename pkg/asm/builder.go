@@ -27,19 +27,19 @@ const pc_width = uint(8)
 // schema and set of input columns.  The goal is to encapsulate all of the logic
 // around building a trace.
 type TraceBuilder[T insn.Instruction] struct {
-	functions []Function[T]
+	program Program[T]
 }
 
 // NewTraceBuilder constructs a new trace builder for a given set of functions.
-func NewTraceBuilder[T insn.Instruction](functions ...Function[T]) *TraceBuilder[T] {
-	return &TraceBuilder[T]{functions}
+func NewTraceBuilder[T insn.Instruction](program Program[T]) *TraceBuilder[T] {
+	return &TraceBuilder[T]{program}
 }
 
 // Build constructs a complete trace, given a set of function instances.
 func (p *TraceBuilder[T]) Build(instances []FunctionInstance) []trace.RawColumn {
 	var columns []trace.RawColumn
 	//
-	for i := range p.functions {
+	for i := range p.program.Functions() {
 		fncols := p.expandFunctionInstances(uint(i), instances)
 		columns = append(columns, fncols...)
 	}
@@ -49,7 +49,7 @@ func (p *TraceBuilder[T]) Build(instances []FunctionInstance) []trace.RawColumn 
 
 func (p *TraceBuilder[T]) expandFunctionInstances(fid uint, instances []FunctionInstance) []trace.RawColumn {
 	var (
-		fn      = p.functions[fid]
+		fn      = p.program.Function(fid)
 		data    = make([][]big.Int, len(fn.Registers)+2)
 		columns = make([]trace.RawColumn, len(fn.Registers)+2)
 		stamp   = uint(1)
@@ -89,7 +89,7 @@ func (p *TraceBuilder[T]) expandFunctionInstances(fid uint, instances []Function
 func (p *TraceBuilder[T]) traceFunction(fid uint, stamp uint, trace [][]big.Int,
 	instance FunctionInstance) [][]big.Int {
 	//
-	interpreter := NewInterpreter(p.functions...)
+	interpreter := NewInterpreter(p.program)
 	// Initialise state
 	init := interpreter.Bind(fid, instance.Inputs)
 	biStamp := big.NewInt(int64(stamp))

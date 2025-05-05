@@ -14,6 +14,7 @@ package micro
 
 import (
 	"fmt"
+	"math"
 	"math/big"
 	"slices"
 
@@ -118,23 +119,87 @@ func (p *Add) String(regs []Register) string {
 	return assignmentToString(p.Targets, p.Sources, p.Constant, regs, zero, " + ")
 }
 
-// Validate checks whether or not this instruction is correctly balanced.
-func (p *Add) Validate(regs []Register) error {
-	var (
-		lhs_bits = sum_bits(p.Targets, regs)
-		rhs      big.Int
-	)
+// Split this micro code using registers of arbirary width into one or more
+// micro codes using registers of a fixed maximum width.  Here, regsBefore
+// represents the registers are they are for this code, whilst regsAfter
+// represent those for the resulting split codes.  The regMap provides a
+// mapping from registers in regsBefore to those in regsAfter.
+//
+// Split up target registers according to the given maximum width.  There is a
+// problem if the resulting targets are not aligned with respect to the maximum
+// width.  For example, consider (where x,y,z are 16bit registers and b a 1 bit
+// register):
+//
+// > b, x := y + z + 1
+//
+// Then, splitting to a maximum register width of 8bits yields the following:
+//
+// > b,x1,x0 := (256*y1+y0) + (256*z1+z0) + 1
+//
+// This is then factored as such:
+//
+// > b,x1,x0 := 256*(y1+z1) + (y0+z0+1)
+//
+// Thus, y0+z0+1 define all of the bits for x0 and some of the bits for x1.
+func (p *Add) Split(env *RegisterSplittingEnvironment) []Code {
 	//
-	for _, target := range p.Sources {
-		rhs.Add(&rhs, regs[target].MaxValue())
+	if len(p.Sources) == 0 {
+		// Actually just an assignment, so easy.
+		return p.splitAssignment(env)
+	} else {
+		var (
+			ncodes        []Code
+			targetLimbs        = env.SplitTargetRegisters(p.Targets...)
+			sourcePackets      = env.SplitSourceRegisters(p.Sources...)
+			constantLimbs      = env.SplitConstant(p.Constant, uint(len(sourcePackets)))
+			carry         uint = math.MaxUint
+		)
+		// Allocate all source packets
+		for i, pkt := range sourcePackets {
+			var (
+				targets     []uint
+				targetWidth uint
+			)
+			//
+			targetWidth, targets, targetLimbs = env.AllocateTargetLimbs(targetLimbs)
+			//
+			if i != 0 && carry != math.MaxUint {
+				// Include carry from previous round
+				pkt = append(pkt, carry)
+			}
+			// Allocate carry flag (if applicable).
+			if i+1 != len(sourcePackets) {
+				sourceWidth := sumSourceBits(p.Sources, constantLimbs[i], env.RegistersAfter())
+				carry = env.AllocateCarryRegister(targetWidth, sourceWidth)
+				//
+				if carry != math.MaxUint {
+					targets = append(targets, carry)
+				}
+			} else {
+				// Allocate all outstanding limbs for final packet.
+				targets = append(targets, targetLimbs...)
+			}
+			// Construct split micro code
+			code := &Add{targets, pkt, constantLimbs[i]}
+			// Done
+			ncodes = append(ncodes, code)
+		}
+		//
+		return ncodes
 	}
-	// Include constant (if relevant)
-	rhs.Add(&rhs, &p.Constant)
-	//
-	rhs_bits := uint(rhs.BitLen())
+}
+
+// Validate checks whether or not this instruction is correctly balanced.
+func (p *Add) Validate(fieldWidth uint, regs []Register) error {
+	var (
+		lhs_bits = sumTargetBits(p.Targets, regs)
+		rhs_bits = sumSourceBits(p.Sources, p.Constant, regs)
+	)
 	// check
 	if lhs_bits < rhs_bits {
 		return fmt.Errorf("bit overflow (%d bits into %d bits)", rhs_bits, lhs_bits)
+	} else if rhs_bits > fieldWidth {
+		return fmt.Errorf("field overflow (%d bits into %d bit field)", rhs_bits, fieldWidth)
 	}
 	//
 	return insn.CheckTargetRegisters(p.Targets, regs)
@@ -160,8 +225,35 @@ func (p *Add) Translate(st *StateTranslator) {
 	st.Constrain("add", eqn)
 } */
 
+func (p *Add) splitAssignment(env *RegisterSplittingEnvironment) []Code {
+	var (
+		ncodes        []Code
+		targetLimbs   = env.SplitTargetRegisters(p.Targets...)
+		constantLimbs = env.SplitConstantVariable(p.Constant, targetLimbs...)
+	)
+	//
+	for i, target := range targetLimbs {
+		code := &Add{Targets: []uint{target}, Sources: nil, Constant: constantLimbs[i]}
+		ncodes = append(ncodes, code)
+	}
+	//
+	return ncodes
+}
+
+func sumSourceBits(sources []uint, constant big.Int, regs []Register) uint {
+	var rhs big.Int
+	//
+	for _, target := range sources {
+		rhs.Add(&rhs, regs[target].MaxValue())
+	}
+	// Include constant (if relevant)
+	rhs.Add(&rhs, &constant)
+	//
+	return uint(rhs.BitLen())
+}
+
 // Sum the total number of bits used by the given set of target registers.
-func sum_bits(targets []uint, regs []Register) uint {
+func sumTargetBits(targets []uint, regs []Register) uint {
 	sum := uint(0)
 	//
 	for _, target := range targets {

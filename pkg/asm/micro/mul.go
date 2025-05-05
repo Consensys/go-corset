@@ -116,29 +116,27 @@ func (p *Mul) RegistersWritten() []uint {
 	return p.Targets
 }
 
+// Split this micro code using registers of arbirary width into one or more
+// micro codes using registers of a fixed maximum width.
+func (p *Mul) Split(env *RegisterSplittingEnvironment) []Code {
+	panic("GOT HERE")
+}
+
 func (p *Mul) String(regs []Register) string {
 	return assignmentToString(p.Targets, p.Sources, p.Constant, regs, one, " * ")
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Mul) Validate(regs []Register) error {
+func (p *Mul) Validate(fieldWidth uint, regs []Register) error {
 	var (
-		lhs_bits = sum_bits(p.Targets, regs)
-		rhs      big.Int
+		lhs_bits = sumTargetBits(p.Targets, regs)
+		rhs_bits = mulSourceBits(p.Sources, p.Constant, regs)
 	)
-	//
-	rhs.Set(&one)
-	//
-	for _, target := range p.Sources {
-		rhs.Mul(&rhs, regs[target].MaxValue())
-	}
-	// Include constant (if relevant)
-	rhs.Mul(&rhs, &p.Constant)
-	//
-	rhs_bits := uint(rhs.BitLen())
 	// check
 	if lhs_bits < rhs_bits {
 		return fmt.Errorf("bit overflow (%d bits into %d bits)", rhs_bits, lhs_bits)
+	} else if rhs_bits > fieldWidth {
+		return fmt.Errorf("field overflow (%d bits into %d bit field)", rhs_bits, fieldWidth)
 	}
 	//
 	return insn.CheckTargetRegisters(p.Targets, regs)
@@ -164,3 +162,17 @@ func (p *Mul) Translate(st *StateTranslator) {
 	st.Constrain("mul", eqn)
 }
 */
+
+func mulSourceBits(sources []uint, constant big.Int, regs []Register) uint {
+	var rhs big.Int
+	//
+	rhs.Set(&one)
+	//
+	for _, target := range sources {
+		rhs.Mul(&rhs, regs[target].MaxValue())
+	}
+	// Include constant (if relevant)
+	rhs.Mul(&rhs, &constant)
+	//
+	return uint(rhs.BitLen())
+}
