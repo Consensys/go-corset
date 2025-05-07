@@ -17,9 +17,6 @@ import (
 	"math/big"
 )
 
-// FALL_THRU is used to signal that a given instruction will fall through to the next
-const FALL_THRU = math.MaxUint - 1
-
 // RETURN is used to signal that a given instruction returns from the enclosing
 // function.
 const RETURN = math.MaxUint
@@ -45,11 +42,7 @@ type Instruction interface {
 	// given set of register values.  This may update the register values, and
 	// returns the next program counter position.  If the program counter is
 	// math.MaxUint then a return is signaled.
-	//
-	// Executing an instruction produces an updated program counter position, or
-	// signals a fall through to the next instruction (MaxUint-1) or signals a
-	// return from the enclosing function.
-	Execute(state []big.Int, regs []Register) uint
+	Execute(pc uint, state []big.Int, regs []Register) uint
 	// Registers returns the set of registers read/written by this micro instruction.
 	Registers() []uint
 	// Registers returns the set of registers read this micro instruction.

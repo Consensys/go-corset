@@ -186,10 +186,16 @@ func GreaterThanOrEquals(lhs Expr, rhs Expr) Expr {
 	return Expr{&Equation{GREATER_THAN_EQUALS, lhs.Term, rhs.Term}}
 }
 
-// If a new conditional branch, where either the true branch or the false branch
-// can (optionally) be VOID (but both cannot).  Note, the true branch is taken
-// when the condition evaluates to zero.
-func If(condition Expr, trueBranch Expr, falseBranch Expr) Expr {
+// If constructs a new conditional branch, where the true branch is taken when
+// the condition evaluates to zero.
+func If(condition Expr, trueBranch Expr) Expr {
+	return Expr{&IfZero{condition.Term, trueBranch.Term, nil}}
+}
+
+// IfElse constructs a new conditional branch, where either the true branch or
+// the false branch can (optionally) be VOID (but both cannot).  Note, the true
+// branch is taken when the condition evaluates to zero.
+func IfElse(condition Expr, trueBranch Expr, falseBranch Expr) Expr {
 	return Expr{&IfZero{condition.Term, trueBranch.Term, falseBranch.Term}}
 }
 

@@ -16,7 +16,7 @@ import (
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/asm/insn"
-	"github.com/consensys/go-corset/pkg/trace"
+	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/field"
 )
 
@@ -36,39 +36,39 @@ func NewTraceBuilder[T insn.Instruction](program Program[T]) *TraceBuilder[T] {
 }
 
 // Build constructs a complete trace, given a set of function instances.
-func (p *TraceBuilder[T]) Build(instances []FunctionInstance) []trace.RawColumn {
-	var columns []trace.RawColumn
+func (p *TraceBuilder[T]) Build(trace Trace[T]) []tr.RawColumn {
+	var columns []tr.RawColumn
 	//
 	for i := range p.program.Functions() {
-		fncols := p.expandFunctionInstances(uint(i), instances)
+		fncols := p.expandFunctionInstances(uint(i), trace)
 		columns = append(columns, fncols...)
 	}
 	//
 	return columns
 }
 
-func (p *TraceBuilder[T]) expandFunctionInstances(fid uint, instances []FunctionInstance) []trace.RawColumn {
+func (p *TraceBuilder[T]) expandFunctionInstances(fid uint, trace Trace[T]) []tr.RawColumn {
 	var (
 		fn      = p.program.Function(fid)
 		data    = make([][]big.Int, len(fn.Registers)+2)
-		columns = make([]trace.RawColumn, len(fn.Registers)+2)
+		columns = make([]tr.RawColumn, len(fn.Registers)+2)
 		stamp   = uint(1)
 	)
 	//
-	for _, inst := range instances {
+	for _, inst := range trace.Instances() {
 		if inst.Function == fid {
 			data = p.traceFunction(fid, stamp, data, inst)
 			stamp = stamp + 1
 		}
 	}
 	// Construct stamp column
-	columns[0] = trace.RawColumn{
+	columns[0] = tr.RawColumn{
 		Module: fn.Name,
 		Name:   "$stamp",
 		Data:   field.FrArrayFromBigInts(32, data[0]),
 	}
 	// Construct PC column
-	columns[1] = trace.RawColumn{
+	columns[1] = tr.RawColumn{
 		Module: fn.Name,
 		Name:   "$pc",
 		Data:   field.FrArrayFromBigInts(pc_width, data[1]),
@@ -76,7 +76,7 @@ func (p *TraceBuilder[T]) expandFunctionInstances(fid uint, instances []Function
 	// Construct register columns.
 	for i, r := range fn.Registers {
 		data := field.FrArrayFromBigInts(r.Width, data[i+2])
-		columns[i+2] = trace.RawColumn{
+		columns[i+2] = tr.RawColumn{
 			Module: fn.Name,
 			Name:   r.Name,
 			Data:   data,
@@ -97,14 +97,14 @@ func (p *TraceBuilder[T]) traceFunction(fid uint, stamp uint, trace [][]big.Int,
 	interpreter.Enter(fid, init)
 	//
 	for !interpreter.HasTerminated() {
-		// Record state
-		state := interpreter.State()
-		pc := big.NewInt(int64(state.pc))
+		pc := big.NewInt(int64(interpreter.State().pc))
 		//
 		trace[0] = append(trace[0], *biStamp)
 		trace[1] = append(trace[1], *pc)
-		//
-		for i, v := range state.registers {
+		// Execute
+		interpreter.Execute(1)
+		// Record register state
+		for i, v := range interpreter.State().registers {
 			// Clone value to prevent side-effects
 			var ith big.Int
 			//
@@ -112,8 +112,6 @@ func (p *TraceBuilder[T]) traceFunction(fid uint, stamp uint, trace [][]big.Int,
 			// Update column for this register.
 			trace[i+2] = append(trace[i+2], ith)
 		}
-		// Execute
-		interpreter.Execute(1)
 	}
 	//
 	return trace

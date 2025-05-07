@@ -13,11 +13,49 @@
 package asm
 
 import (
+	"fmt"
 	"math"
 	"math/big"
+	"strings"
 
 	"github.com/consensys/go-corset/pkg/asm/insn"
 )
+
+// CheckInstance checks whether a given function instance is valid with respect
+// to a given set of functions.  It returns an error if something goes wrong
+// (e.g. the instance is malformed), and either true or false to indicate
+// whether the trace is accepted or not.
+func CheckInstance[T insn.Instruction](instance FunctionInstance, program Program[T]) (uint, error) {
+	// Initialise a new interpreter
+	interpreter := NewInterpreter(program)
+	//
+	init := interpreter.Bind(instance.Function, instance.Inputs)
+	// Enter function
+	interpreter.Enter(instance.Function, init)
+	// Execute function to completion
+	interpreter.Execute(math.MaxUint)
+	// Extract outputs
+	outputs := interpreter.Leave()
+	// Checkout results
+	for r, actual := range outputs {
+		expected, ok := instance.Outputs[r]
+		outcome := expected.Cmp(&actual) == 0
+		// Check actual output matches expected output
+		if !ok {
+			return math.MaxUint, fmt.Errorf("missing output (%s)", r)
+		} else if !outcome {
+			// failure
+			return 1, fmt.Errorf("incorrect output \"%s\" (was %s, expected %s)", r, actual.String(), expected.String())
+		}
+	}
+	//
+	if len(outputs) != len(instance.Outputs) {
+		msg := fmt.Errorf("incorrect number of outputs (was %d but expected %d)", len(outputs), len(instance.Outputs))
+		return math.MaxUint, msg
+	}
+	// Success
+	return 0, nil
+}
 
 // InterpreterState represents the state of a function being executed by the interpreter.
 type InterpreterState struct {
@@ -65,9 +103,13 @@ func (p *Interpreter[T]) Bind(fn uint, arguments map[string]big.Int) []big.Int {
 	for i, reg := range f.Registers {
 		if reg.IsInput() {
 			var (
-				val = arguments[reg.Name]
-				ith big.Int
+				val, ok = arguments[reg.Name]
+				ith     big.Int
 			)
+			// Sanity check
+			if !ok {
+				panic(fmt.Sprintf("missing value for input register %s", reg.Name))
+			}
 			// Clone big int
 			ith.Set(&val)
 			//
@@ -128,8 +170,9 @@ func (p *Interpreter[T]) Execute(nsteps uint) uint {
 		step = uint(0)
 	)
 	//
-	for st.pc != math.MaxUint && step < nsteps {
-		st.pc = execute(st.pc, st.registers, f)
+	for st.pc != insn.RETURN && step < nsteps {
+		insn := f.Code[st.pc]
+		st.pc = insn.Execute(st.pc, st.registers, f.Registers)
 		step++
 	}
 	//
@@ -146,12 +189,32 @@ func (p *Interpreter[T]) HasTerminated() bool {
 	return st.pc == math.MaxUint
 }
 
-func execute[T insn.Instruction](pc uint, state []big.Int, f Function[T]) uint {
-	npc := f.Code[pc].Execute(state, f.Registers)
-	// Handle return values
-	if npc == insn.FALL_THRU {
-		return pc + 1
+func (p *Interpreter[T]) String() string {
+	var (
+		builder strings.Builder
+		state   = p.State()
+		fn      = p.program.Function(state.fid)
+	)
+	//
+	for i := 1; i < len(p.states); i++ {
+		builder.WriteString("\t")
 	}
 	//
-	return npc
+	if p.State().pc == math.MaxUint {
+		builder.WriteString("------- ")
+	} else {
+		pc := fmt.Sprintf("(pc=%02x) ", p.State().pc)
+		builder.WriteString(pc)
+	}
+	//
+	for i := 0; i != len(fn.Registers); i++ {
+		if i != 0 {
+			builder.WriteString(", ")
+		}
+		//
+		val := state.registers[i].Text(16)
+		builder.WriteString(fmt.Sprintf("%s=0x%s", fn.Registers[i].Name, val))
+	}
+	//
+	return builder.String()
 }

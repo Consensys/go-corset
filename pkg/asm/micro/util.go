@@ -25,12 +25,22 @@ func assignmentToString(dsts []uint, srcs []uint, constant big.Int, regs []Regis
 		n       = len(dsts) - 1
 	)
 	//
+	if zero.Cmp(big.NewInt(0)) != 0 {
+		panic("")
+	}
+	//
 	for i := 0; i != len(dsts); i++ {
+		var r = dsts[n-i]
+		//
 		if i != 0 {
 			builder.WriteString(", ")
 		}
 		//
-		builder.WriteString(regs[dsts[n-i]].Name)
+		if r < uint(len(regs)) {
+			builder.WriteString(regs[r].Name)
+		} else {
+			builder.WriteString(fmt.Sprintf("?%d", r))
+		}
 	}
 	//
 	builder.WriteString(" = ")
@@ -40,7 +50,11 @@ func assignmentToString(dsts []uint, srcs []uint, constant big.Int, regs []Regis
 			builder.WriteString(op)
 		}
 		//
-		builder.WriteString(regs[r].Name)
+		if r < uint(len(regs)) {
+			builder.WriteString(regs[r].Name)
+		} else {
+			builder.WriteString(fmt.Sprintf("?%d", r))
+		}
 	}
 	//
 	if len(srcs) == 0 || constant.Cmp(&c) != 0 {
@@ -48,7 +62,8 @@ func assignmentToString(dsts []uint, srcs []uint, constant big.Int, regs []Regis
 			builder.WriteString(op)
 		}
 		//
-		builder.WriteString(constant.String())
+		builder.WriteString("0x")
+		builder.WriteString(constant.Text(16))
 	}
 	//
 	return builder.String()
@@ -118,7 +133,7 @@ func NewRegisterSplittingEnvironment(maxWidth uint, registers []Register) *Regis
 		// Check whether splitting required.
 		if reg.Width > maxWidth {
 			// Yes!
-			splitRegisters = append(splitRegisters, splitRegister(maxWidth, reg)...)
+			splitRegisters = append(splitRegisters, SplitRegister(maxWidth, reg)...)
 		} else {
 			splitRegisters = append(splitRegisters, reg)
 		}
@@ -162,13 +177,16 @@ func (p *RegisterSplittingEnvironment) SplitConstant(constant big.Int, nLimbs ui
 // SplitConstantVariable splits a given constant into a given set of (variable)
 // bitwidths.  For example, splitting 0x107 into 8bit and 1bit limbs gives
 // [0x07,0x1].
-func (p *RegisterSplittingEnvironment) SplitConstantVariable(constant big.Int, limbWidths ...uint) []big.Int {
+func (p *RegisterSplittingEnvironment) SplitConstantVariable(constant *big.Int, limbWidths ...uint) []big.Int {
 	var (
 		limb  big.Int
 		limbs []big.Int = make([]big.Int, len(limbWidths))
+		acc   big.Int
 	)
 	//
-	for i := 0; constant.Cmp(&zero) != 0; i++ {
+	acc.Set(constant)
+	//for i := 0; constant.Cmp(&zero) != 0; i++ {
+	for i := 0; i != len(limbWidths); i++ {
 		var (
 			bound     = big.NewInt(2)
 			limbWidth = limbWidths[i]
@@ -176,10 +194,14 @@ func (p *RegisterSplittingEnvironment) SplitConstantVariable(constant big.Int, l
 		// Determine upper bound
 		bound.Exp(bound, big.NewInt(int64(limbWidth)), nil)
 		//
-		limb.Mod(&constant, bound)
+		limb.Mod(&acc, bound)
 		limbs[i] = limb
-
-		constant.Rsh(&constant, limbWidth)
+		//
+		acc.Rsh(&acc, limbWidth)
+	}
+	//
+	if acc.Cmp(&zero) != 0 {
+		panic("constant overflows registers")
 	}
 	//
 	return limbs
@@ -281,12 +303,12 @@ func (p *RegisterSplittingEnvironment) AllocateCarryRegister(targetWidth uint, s
 	return overflowRegId
 }
 
-// Split a register into a number of limbs with the given maximum bitwidth.  For
-// the resulting array, the least significant register is first.  Since
-// registers are always split to the maximum width as much as possible, it is
-// only the most significant register which may (in some cases) have fewer bits
-// than the maximum allowed.
-func splitRegister(maxWidth uint, r Register) []Register {
+// SplitRegister splits a register into a number of limbs with the given maximum
+// bitwidth.  For the resulting array, the least significant register is first.
+// Since registers are always split to the maximum width as much as possible, it
+// is only the most significant register which may (in some cases) have fewer
+// bits than the maximum allowed.
+func SplitRegister(maxWidth uint, r Register) []Register {
 	var (
 		nlimbs = NumberOfLimbs(maxWidth, r.Width)
 		limbs  = make([]Register, nlimbs)
@@ -298,6 +320,39 @@ func splitRegister(maxWidth uint, r Register) []Register {
 		ith_width := min(maxWidth, width)
 		limbs[i] = Register{Name: ith_name, Kind: r.Kind, Width: ith_width}
 		width -= maxWidth
+	}
+	//
+	return limbs
+}
+
+// SplitValueAcrossRegisters splits a given value across a set of registers,
+// where the least significant register comes first.  This will panic if the
+// value does not fit into the given registers.
+func SplitValueAcrossRegisters(constant *big.Int, registers ...Register) []big.Int {
+	var (
+		limb  big.Int
+		limbs []big.Int = make([]big.Int, len(registers))
+		acc   big.Int
+	)
+	//
+	acc.Set(constant)
+	//
+	for i := 0; acc.Cmp(&zero) != 0; i++ {
+		var (
+			bound     = big.NewInt(2)
+			limbWidth = registers[i].Width
+		)
+		// Determine upper bound
+		bound.Exp(bound, big.NewInt(int64(limbWidth)), nil)
+		//
+		limb.Mod(&acc, bound)
+		limbs[i] = limb
+
+		acc.Rsh(&acc, limbWidth)
+	}
+	// Sanity check nothing is left.
+	if acc.Cmp(&zero) != 0 {
+		panic("value overflows given registers")
 	}
 	//
 	return limbs

@@ -36,18 +36,30 @@ type Register = insn.Register
 // microcodes together which have conflicting writes (i.e. both write to the
 // same register).
 type Code interface {
-	insn.Instruction
-	//
+	// Clone this instruction
 	Clone() Code
-	// Sequential indicates whether or not this microinstruction can execute
-	// sequentially onto the next.
-	Sequential() bool
+	// Execute a given micro-code, using a given set of register values.  This
+	// may update the register values, and returns either the number of
+	// micro-codes to "skip over" when executing the enclosing instruction or,
+	// if skip==0, a destination program counter (which can signal return of
+	// enclosing function).
+	MicroExecute(state []big.Int, regs []Register) (skip uint, pc uint)
+	// Registers returns the set of registers read this micro instruction.
+	RegistersRead() []uint
+	// Registers returns the set of registers written by this micro instruction.
+	RegistersWritten() []uint
+	// Produce a suitable string representation of this instruction.  This is
+	// primarily used for debugging.
+	String(regs []Register) string
 	// Split this micro code using registers of arbirary width into one or more
 	// micro codes using registers of a fixed maximum width.
 	Split(env *RegisterSplittingEnvironment) []Code
-	// Terminal indicates whether or not this microinstruction terminates the
-	// enclosing function.
-	Terminal() bool
+	// Validate that this instruction is well-formed.  For example, that it is
+	// balanced, that there are no conflicting writes, that all temporaries have
+	// been allocated, etc.  The maximum bit capacity of the underlying field is
+	// needed for this calculation, so as to allow an instruction to check it
+	// does not overflow the underlying field.
+	Validate(fieldWidth uint, regs []Register) error
 }
 
 // Instruction represents the composition of one or more micro instructions
@@ -61,38 +73,36 @@ type Instruction struct {
 	Codes []Code
 }
 
-// Sequential indicates whether or not this microinstruction can execute
-// sequentially onto the next.
-func (p *Instruction) Sequential() bool {
-	n := len(p.Codes) - 1
-	// Only need to check last instruction to determine this.
-	return p.Codes[n].Sequential()
-}
-
-// Terminal indicates whether or not this instruction is a terminating
-// instruction (or not).  That is, whether or not its possible for control-flow
-// to "fall through" to the next instruction.
+// Terminal checks whether or not this instruction can result in a return from
+// the enclosing function.  That is, whether or not this instruction contains a
+// "ret" micro-code.
 func (p Instruction) Terminal() bool {
-	n := len(p.Codes) - 1
-	// Only need to check last instruction to determine this.
-	return p.Codes[n].Terminal()
+	for _, c := range p.Codes {
+		if _, ok := c.(*Ret); ok {
+			return true
+		}
+	}
+	//
+	return false
 }
 
 // Execute a given instruction at a given program counter position, using a
 // given set of register values.  This may update the register values, and
 // returns the next program counter position.  If the program counter is
 // math.MaxUint then a return is signaled.
-func (p Instruction) Execute(state []big.Int, regs []Register) uint {
+func (p Instruction) Execute(pc uint, state []big.Int, regs []Register) uint {
+	var skip uint = 1
 	//
-	for _, r := range p.Codes {
-		npc := r.Execute(state, regs)
-		// Sanity check
-		if npc != insn.FALL_THRU {
-			return npc
-		}
+	for cc := uint(0); skip != 0; {
+		// Decode next micro-code
+		code := p.Codes[cc]
+		// Execut micro-code
+		skip, pc = code.MicroExecute(state, regs)
+		// Skip as requested
+		cc += skip
 	}
-	// Fall through
-	return insn.FALL_THRU
+	//
+	return pc
 }
 
 // JumpTargets returns the set of all jump targets used within this instruction.
@@ -154,10 +164,7 @@ func (p Instruction) String(regs []Register) string {
 // micro-instruction contained within must be well-formed, and the overall
 // requirements for a vector instruction must be met, etc.
 func (p Instruction) Validate(fieldWidth uint, regs []Register) error {
-	var (
-		written bit.Set
-		n       = len(p.Codes) - 1
-	)
+	var written bit.Set
 	//
 	for _, r := range p.Codes {
 		if err := r.Validate(fieldWidth, regs); err != nil {
@@ -175,12 +182,6 @@ func (p Instruction) Validate(fieldWidth uint, regs []Register) error {
 			written.Insert(dst)
 		}
 	}
-	// Check for unreachable instructions
-	for i, r := range p.Codes {
-		if i != n && !r.Sequential() {
-			return fmt.Errorf("unreachable")
-		}
-	}
-	//
+	// TODO: check for unreachable instructions
 	return nil
 }

@@ -35,21 +35,17 @@ func (p *Ret) Clone() Code {
 	return p
 }
 
-// Sequential indicates whether or not this microinstruction can execute
-// sequentially onto the next.
-func (p *Ret) Sequential() bool {
-	return false
-}
-
-// Terminal indicates whether or not this microinstruction terminates the
-// enclosing function.
-func (p *Ret) Terminal() bool {
-	return false
-}
-
 // Execute a ret instruction by signaling a return from the enclosing function.
-func (p *Ret) Execute(state []big.Int, regs []Register) uint {
+func (p *Ret) Execute(pc uint, state []big.Int, regs []Register) uint {
 	return insn.RETURN
+}
+
+// MicroExecute a given micro-code, using a given set of register values.  This
+// may update the register values, and returns either the number of micro-codes
+// to "skip over" when executing the enclosing instruction or, if skip==0, a
+// destination program counter (which can signal return of enclosing function).
+func (p *Ret) MicroExecute(state []big.Int, regs []Register) (uint, uint) {
+	return 0, insn.RETURN
 }
 
 // Lower this instruction into a exactly one more micro instruction.

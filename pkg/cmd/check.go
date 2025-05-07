@@ -159,38 +159,39 @@ type checkConfig struct {
 
 func checkWithAsmPipeline(cfg checkConfig, tracefile string, asmfiles ...string) {
 	var (
-		ok              bool = true
-		macroProgram, _      = ReadAssemblyProgram(asmfiles...)
-		microProgram         = macroProgram.Lower(cfg.asmConfig)
-		trace                = ReadAssemblyTrace(tracefile, &macroProgram)
+		ok              bool
+		macroProgram, _ = ReadAssemblyProgram(asmfiles...)
+		macroTrace      = ReadAssemblyTrace(tracefile, macroProgram)
+		microTrace      = macroTrace.Lower(cfg.asmConfig)
 	)
-	//
-	for _, instance := range trace {
-		// Macro check
-		ok = checkFunctionInstance("ASM", instance, &macroProgram) && ok
-		// Micro check
-		if cfg.uasm {
-			ok = checkFunctionInstance("µASM", instance, &microProgram) && ok
-		}
+	// Macro check
+	ok = checkProgram("ASM", &macroTrace)
+	// Micro check
+	if cfg.uasm {
+		ok = checkProgram("µASM", &microTrace) && ok
 	}
 	//
 	if cfg.hir || cfg.mir || cfg.air {
-		binfile, errs := asm.NewCompiler().Compile(microProgram)
-		// Check constraints
-		if len(errs) > 0 {
-			for _, err := range errs {
-				printSyntaxError(&err)
-			}
-		} else {
-			builder := asm.NewTraceBuilder(&microProgram)
-			hirTrace := builder.Build(trace)
-			ok, _ = checkTraceWithLowering([][]tr.RawColumn{hirTrace}, &binfile.Schema, cfg)
-		}
+		binfile := asm.Compile(microTrace.Program())
+		builder := asm.NewTraceBuilder(microTrace.Program())
+		hirTrace := builder.Build(&microTrace)
+		ok, _ = checkTraceWithLowering([][]tr.RawColumn{hirTrace}, &binfile.Schema, cfg)
 	}
 	//
 	if !ok {
 		os.Exit(4)
 	}
+}
+
+func checkProgram[T insn.Instruction](ir string, trace asm.Trace[T]) bool {
+	var ok = true
+	//
+	for _, instance := range trace.Instances() {
+		// Macro check
+		ok = checkFunctionInstance(ir, instance, trace.Program()) && ok
+	}
+	//
+	return ok
 }
 
 func checkFunctionInstance[T insn.Instruction](ir string, instance asm.FunctionInstance, program asm.Program[T]) bool {

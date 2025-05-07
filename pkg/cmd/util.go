@@ -616,9 +616,9 @@ func ReadAssemblyProgram(filenames ...string) (asm.MacroProgram, source.Maps[mac
 }
 
 // ReadAssemblyTrace reads a top-level trace file which consists only of function instances.
-func ReadAssemblyTrace[T any](filename string, program asm.Program[T]) []asm.FunctionInstance {
+func ReadAssemblyTrace(filename string, program asm.MacroProgram) asm.MacroTrace {
 	var (
-		trace []asm.FunctionInstance
+		trace asm.MacroTrace
 		err   error
 	)
 	// Now, attempt to parse constraint file

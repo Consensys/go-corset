@@ -64,34 +64,31 @@ func (p *Add) Clone() Code {
 	}
 }
 
-// Sequential indicates whether or not this microinstruction can execute
-// sequentially onto the next.
-func (p *Add) Sequential() bool {
-	return true
-}
-
-// Terminal indicates whether or not this microinstruction terminates the
-// enclosing function.
-func (p *Add) Terminal() bool {
-	return false
-}
-
 // Execute a given instruction at a given program counter position, using a
 // given set of register values.  This may update the register values, and
 // returns the next program counter position.  If the program counter is
 // math.MaxUint then a return is signaled.
-func (p *Add) Execute(state []big.Int, regs []Register) uint {
+func (p *Add) Execute(pc uint, state []big.Int, regs []Register) uint {
+	p.MicroExecute(state, regs)
+	return pc + 1
+}
+
+// MicroExecute a given micro-code, using a given set of register values.  This
+// may update the register values, and returns either the number of micro-codes
+// to "skip over" when executing the enclosing instruction or, if skip==0, a
+// destination program counter (which can signal return of enclosing function).
+func (p *Add) MicroExecute(state []big.Int, regs []Register) (uint, uint) {
 	var value big.Int
+	// Add constant
+	value.Set(&p.Constant)
 	// Add register values
 	for _, src := range p.Sources {
 		value.Add(&value, &state[src])
 	}
-	// Add constant
-	value.Add(&value, &p.Constant)
 	// Write value
 	insn.WriteTargetRegisters(p.Targets, state, regs, value)
 	//
-	return insn.FALL_THRU
+	return 1, 0
 }
 
 // Lower this instruction into a exactly one more micro instruction.
@@ -205,31 +202,11 @@ func (p *Add) Validate(fieldWidth uint, regs []Register) error {
 	return insn.CheckTargetRegisters(p.Targets, regs)
 }
 
-/*
-// Translate this instruction into low-level constraints.
-func (p *Add) Translate(st *StateTranslator) {
-	// build rhs
-	rhs := st.ReadRegisters(p.Sources)
-	// build lhs (must be after rhs)
-	lhs := st.WriteRegisters(p.Targets)
-	// include constant if this makes sense
-	if p.Constant.Cmp(&zero) != 0 {
-		var elem fr.Element
-		//
-		elem.SetBigInt(&p.Constant)
-		rhs = append(rhs, hir.NewConst(elem))
-	}
-	// construct equation
-	eqn := hir.Equals(hir.Sum(lhs...), hir.Sum(rhs...))
-	// construct constraint
-	st.Constrain("add", eqn)
-} */
-
 func (p *Add) splitAssignment(env *RegisterSplittingEnvironment) []Code {
 	var (
 		ncodes        []Code
 		targetLimbs   = env.SplitTargetRegisters(p.Targets...)
-		constantLimbs = env.SplitConstantVariable(p.Constant, targetLimbs...)
+		constantLimbs = env.SplitConstantVariable(&p.Constant, targetLimbs...)
 	)
 	//
 	for i, target := range targetLimbs {

@@ -20,6 +20,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/consensys/go-corset/pkg/asm/macro"
 	"github.com/consensys/go-corset/pkg/util"
 )
 
@@ -28,9 +29,11 @@ type traceMap map[string][]big.Int
 
 // ReadBatchedTraceFile reads a file containing zero or more traces expressed as JSON, where
 // each trace is on a separate line.
-func ReadBatchedTraceFile[T any](filename string, program Program[T]) [][]FunctionInstance {
-	lines := util.ReadInputFile(filename)
-	traces := make([][]FunctionInstance, len(lines))
+func ReadBatchedTraceFile(filename string, program MacroProgram) []Trace[macro.Instruction] {
+	var (
+		lines  = util.ReadInputFile(filename)
+		traces []Trace[macro.Instruction]
+	)
 	// Read constraints line by line
 	for i, line := range lines {
 		// Parse input line as JSON
@@ -40,8 +43,8 @@ func ReadBatchedTraceFile[T any](filename string, program Program[T]) [][]Functi
 				msg := fmt.Sprintf("%s:%d: %s", filename, i+1, err)
 				panic(msg)
 			}
-
-			traces[i] = tr
+			//
+			traces = append(traces, &tr)
 		}
 	}
 
@@ -49,12 +52,12 @@ func ReadBatchedTraceFile[T any](filename string, program Program[T]) [][]Functi
 }
 
 // ReadTraceFile reads a file containing a single trace.
-func ReadTraceFile[T any](filename string, program Program[T]) ([]FunctionInstance, error) {
+func ReadTraceFile(filename string, program MacroProgram) (MacroTrace, error) {
 	// Read data file
 	bytes, err := os.ReadFile(filename)
 	// Check for errors
 	if err != nil {
-		return nil, err
+		return MacroTrace{}, err
 	}
 	//
 	return ReadTrace(bytes, program)
@@ -62,37 +65,34 @@ func ReadTraceFile[T any](filename string, program Program[T]) ([]FunctionInstan
 
 // ReadTrace reads a given set of function instances from JSON-encoded byte
 // sequence.
-func ReadTrace[T any](bytes []byte, program Program[T]) ([]FunctionInstance, error) {
+func ReadTrace(bytes []byte, program MacroProgram) (MacroTrace, error) {
 	var (
-		err     error
-		traces  tracesMap
-		fnInsts []FunctionInstance
+		traces tracesMap
+		trace  MacroTrace = MacroTrace{program, nil}
 	)
 	// Unmarshall
 	jsonErr := json.Unmarshal(bytes, &traces)
 	if jsonErr != nil {
-		return nil, jsonErr
+		return trace, jsonErr
 	}
-	//
-	instances := make([]FunctionInstance, 0)
 	//
 	for i, fn := range program.Functions() {
 		tr, ok := traces[fn.Name]
 		// Sanity check
 		if !ok {
-			return nil, fmt.Errorf("missing inputs/outputs for function %s\n", fn.Name)
+			return trace, fmt.Errorf("missing inputs/outputs for function %s\n", fn.Name)
 		}
 		//
-		fnInsts, err = readTraceInstances(tr, uint(i), fn)
+		fnInsts, err := readTraceInstances(tr, uint(i), fn)
 		//
 		if err != nil {
-			return nil, err
+			return trace, err
 		}
 		//
-		instances = append(instances, fnInsts...)
+		trace.InsertAll(fnInsts)
 	}
 	//
-	return instances, nil
+	return trace, nil
 }
 
 func readTraceInstances[T any](trace traceMap, fid uint, fn Function[T]) ([]FunctionInstance, error) {

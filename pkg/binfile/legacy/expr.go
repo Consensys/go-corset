@@ -177,17 +177,17 @@ func (e *jsonExprFuncall) ToHir(colmap map[uint]uint, schema *hir.Schema) hir.Ex
 		return hir.Exponent(args[0], k.Uint64())
 	case "IfZero":
 		if len(args) == 2 {
-			return hir.If(args[0], args[1], hir.VOID)
+			return hir.IfElse(args[0], args[1], hir.VOID)
 		} else if len(args) == 3 {
-			return hir.If(args[0], args[1], args[2])
+			return hir.IfElse(args[0], args[1], args[2])
 		} else {
 			panic(fmt.Sprintf("incorrect number of arguments for IfZero (%d)", len(args)))
 		}
 	case "IfNotZero":
 		if len(args) == 2 {
-			return hir.If(args[0], hir.VOID, args[1])
+			return hir.IfElse(args[0], hir.VOID, args[1])
 		} else if len(args) == 3 {
-			return hir.If(args[0], args[2], args[1])
+			return hir.IfElse(args[0], args[2], args[1])
 		} else {
 			panic(fmt.Sprintf("incorrect number of arguments for IfNotZero (%d)", len(args)))
 		}

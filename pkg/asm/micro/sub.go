@@ -19,7 +19,6 @@ import (
 	"slices"
 
 	"github.com/consensys/go-corset/pkg/asm/insn"
-	"github.com/consensys/go-corset/pkg/hir"
 )
 
 // Sub represents a generic operation of the following form:
@@ -65,23 +64,20 @@ func (p *Sub) Clone() Code {
 	}
 }
 
-// Sequential indicates whether or not this microinstruction can execute
-// sequentially onto the next.
-func (p *Sub) Sequential() bool {
-	return true
-}
-
-// Terminal indicates whether or not this microinstruction terminates the
-// enclosing function.
-func (p *Sub) Terminal() bool {
-	return false
-}
-
 // Execute a given instruction at a given program counter position, using a
 // given set of register values.  This may update the register values, and
 // returns the next program counter position.  If the program counter is
 // math.MaxUint then a return is signaled.
-func (p *Sub) Execute(state []big.Int, regs []Register) uint {
+func (p *Sub) Execute(pc uint, state []big.Int, regs []Register) uint {
+	p.MicroExecute(state, regs)
+	return pc + 1
+}
+
+// MicroExecute a given micro-code, using a given set of register values.  This
+// may update the register values, and returns either the number of micro-codes
+// to "skip over" when executing the enclosing instruction or, if skip==0, a
+// destination program counter (which can signal return of enclosing function).
+func (p *Sub) MicroExecute(state []big.Int, regs []Register) (uint, uint) {
 	var value big.Int
 	// Clone initial value
 	value.Set(&state[p.Sources[0]])
@@ -94,7 +90,7 @@ func (p *Sub) Execute(state []big.Int, regs []Register) uint {
 	// Write value
 	insn.WriteTargetRegisters(p.Targets, state, regs, value)
 	//
-	return insn.FALL_THRU
+	return 1, 0
 }
 
 // Lower this instruction into a exactly one more micro instruction.
@@ -124,10 +120,11 @@ func (p *Sub) RegistersWritten() []uint {
 // represent those for the resulting split codes.  The regMap provides a
 // mapping from registers in regsBefore to those in regsAfter.
 func (p *Sub) Split(env *RegisterSplittingEnvironment) []Code {
-	/* if len(p.Sources) == 0 {
+	if len(p.Sources) == 0 {
 		// Actually just an assignment, so easy.
 		panic("todo")
-	} else { */
+	}
+	//
 	var (
 		ncodes        []Code
 		targetLimbs        = env.SplitTargetRegisters(p.Targets...)
@@ -167,7 +164,6 @@ func (p *Sub) Split(env *RegisterSplittingEnvironment) []Code {
 	}
 	//
 	return ncodes
-	//}
 }
 
 func (p *Sub) String(regs []Register) string {
@@ -193,56 +189,6 @@ func (p *Sub) Validate(fieldWidth uint, regs []Register) error {
 	}
 	// Finally, ensure unique targets
 	return insn.CheckTargetRegisters(p.Targets, regs)
-}
-
-/*
-// Translate this instruction into low-level constraints.
-func (p *Sub) Translate(st *StateTranslator) {
-	// build rhs
-	rhs := st.ReadRegisters(p.Sources)
-	// build lhs (must be after rhs)
-	lhs := st.WriteRegisters(p.Targets)
-	// include constant if this makes sense
-	if p.Constant.Cmp(&zero) != 0 {
-		var elem fr.Element
-		//
-		elem.SetBigInt(&p.Constant)
-		rhs = append(rhs, hir.NewConst(elem))
-	}
-	// Rebalance the subtraction
-	lhs, rhs = rebalanceSubtraction(lhs, rhs, st.mapping.Registers, p)
-	// construct (balanced) equation
-	eqn := hir.Equals(hir.Sum(lhs...), hir.Sum(rhs...))
-	// construct constraint
-	st.Constrain("sub", eqn)
-}
-*/
-// Consider an assignment b, X := Y - 1.  This should be translated into the
-// constraint: X + 1 == Y - 256.b (assuming b is u1, and X/Y are u8).
-func rebalanceSubtraction(lhs []hir.Expr, rhs []hir.Expr, regs []Register, insn *Sub) ([]hir.Expr, []hir.Expr) {
-	//
-	pivot := 0
-	width := int(regs[insn.Sources[0]].Width)
-	//
-	for width > 0 {
-		reg := regs[insn.Targets[pivot]]
-		//
-		pivot++
-		width -= int(reg.Width)
-	}
-	// Sanity check
-	if width < 0 {
-		// Should be caught earlier, hence unreachable.
-		panic("failed rebalancing subtraction")
-	}
-	//
-	nlhs := slices.Clone(lhs[:pivot])
-	nrhs := []hir.Expr{rhs[0]}
-	// rebalance
-	nlhs = append(nlhs, rhs[1:]...)
-	nrhs = append(nrhs, lhs[pivot:]...)
-	// done
-	return nlhs, nrhs
 }
 
 // the pivot check is necessary to ensure we can properly rebalance a

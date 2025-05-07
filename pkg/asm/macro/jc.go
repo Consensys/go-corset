@@ -57,7 +57,7 @@ func (p *JCond) Bind(labels []uint) {
 
 // Execute an unconditional branch instruction by returning the destination
 // program counter.
-func (p *JCond) Execute(state []big.Int, regs []Register) uint {
+func (p *JCond) Execute(pc uint, state []big.Int, regs []Register) uint {
 	var (
 		lhs   big.Int = state[p.Left]
 		rhs   big.Int
@@ -91,7 +91,7 @@ func (p *JCond) Execute(state []big.Int, regs []Register) uint {
 		return p.Target
 	}
 	//
-	return insn.FALL_THRU
+	return pc + 1
 }
 
 // Lower this (macro) instruction into a sequence of one or more micro
@@ -102,13 +102,13 @@ func (p *JCond) Lower(pc uint) micro.Instruction {
 	switch p.Cond {
 	case EQ:
 		codes = []micro.Code{
-			&micro.Skip{Left: p.Left, Right: p.Right, Constant: zero, Skip: 1},
+			&micro.Skip{Left: p.Left, Right: p.Right, Constant: p.Constant, Skip: 1},
 			&micro.Jmp{Target: p.Target},
 			&micro.Jmp{Target: pc + 1},
 		}
 	case NEQ:
 		codes = []micro.Code{
-			&micro.Skip{Left: p.Left, Right: p.Right, Constant: zero, Skip: 1},
+			&micro.Skip{Left: p.Left, Right: p.Right, Constant: p.Constant, Skip: 1},
 			&micro.Jmp{Target: pc + 1},
 			&micro.Jmp{Target: p.Target},
 		}

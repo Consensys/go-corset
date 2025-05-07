@@ -46,22 +46,27 @@ func (p *Skip) Clone() Code {
 	}
 }
 
-// Sequential indicates whether or not this microinstruction can execute
-// sequentially onto the next.
-func (p *Skip) Sequential() bool {
-	return false
-}
-
-// Terminal indicates whether or not this microinstruction terminates the
-// enclosing function.
-func (p *Skip) Terminal() bool {
-	return false
-}
-
-// Execute an unconditional branch instruction by returning the destination
-// program counter.
-func (p *Skip) Execute(state []big.Int, regs []Register) uint {
-	panic("goto")
+// MicroExecute a given micro-code, using a given set of register values.  This
+// may update the register values, and returns either the number of micro-codes
+// to "skip over" when executing the enclosing instruction or, if skip==0, a
+// destination program counter (which can signal return of enclosing function).
+func (p *Skip) MicroExecute(state []big.Int, regs []Register) (uint, uint) {
+	var (
+		lhs = state[p.Left]
+		rhs big.Int
+	)
+	//
+	if p.Right != insn.UNUSED_REGISTER {
+		rhs = state[p.Right]
+	} else {
+		rhs = p.Constant
+	}
+	//
+	if lhs.Cmp(&rhs) != 0 {
+		return 1 + p.Skip, 0
+	} else {
+		return 1, 0
+	}
 }
 
 // Registers returns the set of registers read/written by this instruction.
@@ -141,10 +146,3 @@ func (p *Skip) Validate(fieldWidth uint, regs []Register) error {
 	//
 	return nil
 }
-
-/*
-// Translate this instruction into low-level constraints.
-func (p *Skip) Translate(st *StateTranslator) {
-	st.Jump(p.Target)
-}
-*/

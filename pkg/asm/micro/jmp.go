@@ -32,22 +32,18 @@ func (p *Jmp) Clone() Code {
 	return &Jmp{p.Target}
 }
 
-// Sequential indicates whether or not this microinstruction can execute
-// sequentially onto the next.
-func (p *Jmp) Sequential() bool {
-	return false
-}
-
-// Terminal indicates whether or not this microinstruction terminates the
-// enclosing function.
-func (p *Jmp) Terminal() bool {
-	return false
-}
-
 // Execute an unconditional branch instruction by returning the destination
 // program counter.
-func (p *Jmp) Execute(state []big.Int, regs []Register) uint {
+func (p *Jmp) Execute(pc uint, state []big.Int, regs []Register) uint {
 	return p.Target
+}
+
+// MicroExecute a given micro-code, using a given set of register values.  This
+// may update the register values, and returns either the number of micro-codes
+// to "skip over" when executing the enclosing instruction or, if skip==0, a
+// destination program counter (which can signal return of enclosing function).
+func (p *Jmp) MicroExecute(state []big.Int, regs []Register) (uint, uint) {
+	return 0, p.Target
 }
 
 // Lower this instruction into a exactly one more micro instruction.
@@ -85,10 +81,3 @@ func (p *Jmp) String(regs []Register) string {
 func (p *Jmp) Validate(fieldWidth uint, regs []Register) error {
 	return nil
 }
-
-/*
-// Translate this instruction into low-level constraints.
-func (p *Jmp) Translate(st *StateTranslator) {
-	st.Jump(p.Target)
-}
-*/

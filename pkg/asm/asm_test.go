@@ -86,23 +86,25 @@ func check(t *testing.T, test string) {
 	} else if len(macroProgram.Functions()) > 1 {
 		t.Fatalf("Multi-function tests not (yet) supported: %s\n", filename)
 	}
-	// Lower micro program
-	microProgram := macroProgram.Lower(loweringConfig)
 	// Record how many tests executed.
 	nTests := 0
 	// Iterate possible testfile extensions
 	for _, cfg := range TESTFILE_EXTENSIONS {
 		// Construct test filename
 		testFilename := fmt.Sprintf("%s/%s.%s", TestDir, test, cfg.extension)
-		traces := ReadBatchedTraceFile(testFilename, &macroProgram)
+		macroTraces := ReadBatchedTraceFile(testFilename, macroProgram)
+		microTraces := LowerTraces(loweringConfig, macroTraces...)
 		// Check traces at ASM level
-		checkTraces(t, test, cfg, traces, &macroProgram)
+		checkTraces(t, test, "ASM", cfg, macroTraces)
 		// Check traces at uASM level
-		checkTraces(t, test, cfg, traces, &microProgram)
-		// Check traces at HIR/MIR/AIR levels
-		checkIrTraces(t, test, cfg, traces, microProgram)
+		checkTraces(t, test, "µASM", cfg, microTraces)
+		//
+		if len(microTraces) > 0 {
+			// Check traces at HIR/MIR/AIR levels
+			checkIrTraces(t, test, cfg, microTraces)
+		}
 		// Record how many tests we found
-		nTests += len(traces)
+		nTests += len(macroTraces)
 	}
 	// Sanity check at least one trace found.
 	if nTests == 0 {
@@ -111,40 +113,35 @@ func check(t *testing.T, test string) {
 }
 
 // Check the given traces for all function instances.
-func checkTraces[T insn.Instruction](t *testing.T, test string, cfg TestConfig, traces [][]FunctionInstance,
-	program Program[T]) {
+func checkTraces[T insn.Instruction](t *testing.T, test string, ir string, cfg TestConfig, traces []Trace[T]) {
 	//
 	for i, tr := range traces {
-		id := traceId{"ASM", test, cfg.expected, i + 1, 0}
+		id := traceId{ir, test, cfg.expected, i + 1, 0}
 
-		for _, instance := range tr {
-			checkFunction(t, id, instance, program)
+		for _, instance := range tr.Instances() {
+			checkFunction(t, id, instance, tr.Program())
 		}
 	}
 }
 
 // Check a given set of tests have an expected outcome (i.e. are
 // either accepted or rejected) by a given set of constraints.
-func checkIrTraces(t *testing.T, test string, cfg TestConfig, instances [][]FunctionInstance, program MicroProgram) {
+func checkIrTraces(t *testing.T, test string, cfg TestConfig, traces []Trace[micro.Instruction]) {
 	var (
 		maxPadding = MAX_PADDING
-		builder    = NewTraceBuilder[micro.Instruction](&program)
-		traces     [][]trace.RawColumn
+		program    = traces[0].Program()
+		hirTraces  [][]trace.RawColumn
 	)
 	//
-	binFile, errs := NewCompiler().Compile(program)
+	binFile := Compile(program)
 	hirSchema := &binFile.Schema
 	//
-	if len(errs) > 0 {
-		// should be unreachable.
-		t.Fatalf("Error compiling %s: %v\n", test, errs)
+	for _, tr := range traces {
+		utr := tr.(*MicroTrace)
+		hirTraces = append(hirTraces, utr.Lower())
 	}
 	//
-	for _, inst := range instances {
-		traces = append(traces, builder.Build(inst))
-	}
-	//
-	for i, tr := range traces {
+	for i, tr := range hirTraces {
 		if tr != nil {
 			// Lower HIR => MIR
 			mirSchema := hirSchema.LowerToMir()
@@ -203,14 +200,14 @@ func checkFunction[T insn.Instruction](t *testing.T, id traceId, instance Functi
 	outcome, err := CheckInstance(instance, program)
 	//
 	if outcome == math.MaxUint {
-		t.Errorf("Failure (%s, line %d with padding %d): %s",
-			id.test, id.line, id.padding, err)
+		t.Errorf("Failure (%s, %s, line %d with padding %d): %s",
+			id.ir, id.test, id.line, id.padding, err)
 	} else if outcome == 0 && !id.expected {
-		t.Errorf("Trace accepted incorrectly (%s, line %d with padding %d)",
-			id.test, id.line, id.padding)
+		t.Errorf("Trace accepted incorrectly (%s, %s, line %d with padding %d)",
+			id.ir, id.test, id.line, id.padding)
 	} else if outcome != 0 && id.expected {
-		t.Errorf("Trace rejected incorrectly (%s, line %d with padding %d)",
-			id.test, id.line, id.padding)
+		t.Errorf("Trace rejected incorrectly (%s, %s, line %d with padding %d)",
+			id.ir, id.test, id.line, id.padding)
 	}
 }
 
