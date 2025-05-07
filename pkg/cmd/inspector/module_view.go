@@ -98,6 +98,10 @@ func (p *ModuleView) CellAt(trace tr.Trace, col, row uint) termio.FormattedText 
 	if row == 0 && trCol < uint(len(p.columns)) {
 		// Column title
 		name := p.columns[trCol].Name
+		if p.columns[trCol].Computed {
+			return termio.NewColouredText(name, termio.TERM_GREEN)
+		}
+		//
 		return termio.NewColouredText(name, termio.TERM_BLUE)
 	} else if col == 0 {
 		// Row title
