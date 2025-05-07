@@ -375,6 +375,10 @@ func (t *terminalInput) processCsiCommand(buffer []byte) int {
 		key = CURSOR_RIGHT
 	case 'D':
 		key = CURSOR_LEFT
+	case '5':
+		key = SCROLL_UP
+	case '6':
+		key = SCROLL_DOWN
 	case 'Z':
 		key = BACKTAB
 	default:

@@ -68,6 +68,14 @@ func (p *NavigationMode) KeyPressed(parent *Inspector, key uint16) bool {
 	case termio.CURSOR_RIGHT:
 		row := parent.modules[module].view.row
 		parent.modules[module].setRowOffset(row + 1)
+	case termio.SCROLL_UP:
+		n := parent.height / 2
+		col := parent.modules[module].view.col
+		parent.modules[module].setColumnOffset(col - n)
+	case termio.SCROLL_DOWN:
+		n := parent.height / 2
+		col := parent.modules[module].view.col
+		parent.modules[module].setColumnOffset(col + n)
 	// quit
 	case 'q':
 		return true
