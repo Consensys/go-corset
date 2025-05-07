@@ -196,14 +196,42 @@ func (p *Inspector) gotoRow(row uint) termio.FormattedText {
 
 // filter columns based on a regex
 func (p *Inspector) filterColumns(regex *regexp.Regexp) termio.FormattedText {
-	p.CurrentModule().applyColumnFilter(p.trace, regex, true)
+	filter := p.CurrentModule().columnFilter
+	filter.Regex = regex
+	p.CurrentModule().applyColumnFilter(p.trace, filter, true)
 	// Success
 	return termio.NewText("")
 }
 
 func (p *Inspector) clearColumnFilter() bool {
-	regex := regexp.MustCompile("")
-	p.CurrentModule().applyColumnFilter(p.trace, regex, false)
+	filter := p.CurrentModule().columnFilter
+	filter.Regex = nil
+	p.CurrentModule().applyColumnFilter(p.trace, filter, false)
+	// Success
+	return true
+}
+
+func (p *Inspector) toggleColumnFilter() bool {
+	var (
+		filter = p.CurrentModule().columnFilter
+		msg    string
+	)
+	// Implement toggle semantics
+	switch {
+	case !filter.Computed && filter.UserDefined:
+		filter.Computed = true
+		filter.UserDefined = false
+		msg = "Showing computed columns only"
+	case filter.Computed && !filter.UserDefined:
+		filter.UserDefined = true
+		msg = "Showing all columns"
+	case filter.Computed && filter.UserDefined:
+		filter.Computed = false
+		msg = "Showing non-computed columns only"
+	}
+	//
+	p.CurrentModule().applyColumnFilter(p.trace, filter, false)
+	p.SetStatus(termio.NewColouredText(msg, termio.TERM_GREEN))
 	// Success
 	return true
 }

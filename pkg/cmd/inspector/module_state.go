@@ -37,8 +37,8 @@ type ModuleState struct {
 	// History for goto row commands
 	targetRowHistory []string
 	// Active column filter
-	columnFilter string
-	// Set of column filters used.
+	columnFilter SourceColumnFilter
+	// Set of column filters used (regexes only).
 	columnFilterHistory []string
 	// Histor for scan commands
 	scanHistory []string
@@ -50,12 +50,39 @@ type ModuleState struct {
 type SourceColumn struct {
 	// Column name
 	Name string
+	// Determines whether this is a Computed column.
+	Computed bool
 	// Selector determines when column active.
 	Selector *hir.Expr
 	// Display modifier
 	Display uint
 	// Register to which this column is allocated
 	Register uint
+}
+
+// SourceColumnFilter packages up everything needed for filtering columns in a
+// given module.
+type SourceColumnFilter struct {
+	// Regex filters columns based on whether their name matches the regex or
+	// not.
+	Regex *regexp.Regexp
+	// Computed filters columns based on whether they are computed.
+	Computed bool
+	// UserDefined filters columns based on whether they are non-computed columns.
+	UserDefined bool
+}
+
+// Match this filter against a given column.
+func (p *SourceColumnFilter) Match(col SourceColumn) bool {
+	if p.Regex == nil || p.Regex.MatchString(col.Name) {
+		if p.Computed && col.Computed {
+			return true
+		} else if p.UserDefined && !col.Computed {
+			return true
+		}
+	}
+	// failed
+	return false
 }
 
 func newModuleState(module *corset.SourceModule, trace tr.Trace, enums []corset.Enumeration,
@@ -71,6 +98,9 @@ func newModuleState(module *corset.SourceModule, trace tr.Trace, enums []corset.
 	}
 	//
 	state.name = module.Name
+	// Include all columns initially
+	state.columnFilter.Computed = true
+	state.columnFilter.UserDefined = true
 	// Extract source columns from module tree
 	state.columns = extractSourceColumns(util.NewAbsolutePath(""), module.Selector, module.Columns, submodules)
 	// Sort all column names so that, for example, columns in the same
@@ -109,22 +139,26 @@ func (p *ModuleState) setRowOffset(rowOffset uint) uint {
 
 // Apply a new column filter to the module view.  This determines which columns
 // are currently visible.
-func (p *ModuleState) applyColumnFilter(trace tr.Trace, regex *regexp.Regexp, history bool) {
+func (p *ModuleState) applyColumnFilter(trace tr.Trace, filter SourceColumnFilter, history bool) {
 	filteredColumns := make([]SourceColumn, 0)
 	// Apply filter
 	for _, col := range p.columns {
 		// Check whether it matches the regex or not.
-		if name := col.Name; regex.MatchString(name) {
+		if filter.Match(col) {
 			filteredColumns = append(filteredColumns, col)
 		}
 	}
 	// Update the view
 	p.view.SetActiveColumns(trace, filteredColumns)
+	// Save active filter
+	p.columnFilter = filter
 	// Update selection and history
-	p.columnFilter = regex.String()
-	//
-	if history {
-		p.columnFilterHistory = history_append(p.columnFilterHistory, regex.String())
+	if filter.Regex != nil {
+		//
+		if history {
+			regex_string := filter.Regex.String()
+			p.columnFilterHistory = history_append(p.columnFilterHistory, regex_string)
+		}
 	}
 }
 
@@ -169,7 +203,7 @@ func extractSourceColumns(path util.Path, selector *hir.Expr, columns []corset.S
 	//
 	for _, col := range columns {
 		name := path.Extend(col.Name).String()[1:]
-		srcCol := SourceColumn{name, selector, col.Display, col.Register}
+		srcCol := SourceColumn{name, col.Computed, selector, col.Display, col.Register}
 		srcColumns = append(srcColumns, srcCol)
 	}
 	//
