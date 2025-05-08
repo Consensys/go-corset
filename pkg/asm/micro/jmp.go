@@ -10,9 +10,10 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package insn
+package micro
 
 import (
+	"fmt"
 	"math/big"
 )
 
@@ -26,27 +27,29 @@ func (p *Jmp) Bind(labels []uint) {
 	p.Target = labels[p.Target]
 }
 
-// Sequential indicates whether or not this microinstruction can execute
-// sequentially onto the next.
-func (p *Jmp) Sequential() bool {
-	return false
-}
-
-// Terminal indicates whether or not this microinstruction terminates the
-// enclosing function.
-func (p *Jmp) Terminal() bool {
-	return false
+// Clone this micro code.
+func (p *Jmp) Clone() Code {
+	return &Jmp{p.Target}
 }
 
 // Execute an unconditional branch instruction by returning the destination
 // program counter.
-func (p *Jmp) Execute(state []big.Int, regs []Register) uint {
+func (p *Jmp) Execute(pc uint, state []big.Int, regs []Register) uint {
 	return p.Target
 }
 
-// IsWellFormed checks whether or not this instruction is correctly balanced.
-func (p *Jmp) IsWellFormed(regs []Register) error {
-	return nil
+// MicroExecute a given micro-code, using a given set of register values.  This
+// may update the register values, and returns either the number of micro-codes
+// to "skip over" when executing the enclosing instruction or, if skip==0, a
+// destination program counter (which can signal return of enclosing function).
+func (p *Jmp) MicroExecute(state []big.Int, regs []Register) (uint, uint) {
+	return 0, p.Target
+}
+
+// Lower this instruction into a exactly one more micro instruction.
+func (p *Jmp) Lower(pc uint) Instruction {
+	// Lowering here produces an instruction containing a single microcode.
+	return Instruction{[]Code{p}}
 }
 
 // Registers returns the set of registers read/written by this instruction.
@@ -64,7 +67,17 @@ func (p *Jmp) RegistersWritten() []uint {
 	return nil
 }
 
-// Translate this instruction into low-level constraints.
-func (p *Jmp) Translate(st *StateTranslator) {
-	st.Jump(p.Target)
+// Split this micro code using registers of arbirary width into one or more
+// micro codes using registers of a fixed maximum width.
+func (p *Jmp) Split(env *RegisterSplittingEnvironment) []Code {
+	return []Code{p}
+}
+
+func (p *Jmp) String(regs []Register) string {
+	return fmt.Sprintf("jmp %d", p.Target)
+}
+
+// Validate checks whether or not this instruction is correctly balanced.
+func (p *Jmp) Validate(fieldWidth uint, regs []Register) error {
+	return nil
 }

@@ -175,6 +175,27 @@ func InsertAt[T any](items []T, element T, index uint) []T {
 	return items
 }
 
+// InsertAllAt constructs an identical slice, except with the given elements
+// inserted at the given index.  If the index is beyond the bounds of the array,
+// then the element is simply appended.
+func InsertAllAt[T any](items []T, elements []T, index uint) []T {
+	n := uint(len(items))
+	m := uint(len(elements))
+	//
+	if index < n {
+		first := items[:index]
+		second := items[index:]
+		items = make([]T, n+m)
+		copy(items, first)
+		copy(items[index:], elements)
+		copy(items[index+m:], second)
+	} else {
+		items = append(items, elements...)
+	}
+	//
+	return items
+}
+
 // RemoveAt constructs an identical slice, except with the element at the given
 // index removed.  If the index is beyond the bounds of the array, then there is
 // no change.

@@ -83,16 +83,17 @@ var traceCmd = &cobra.Command{
 		//
 		corsetConfig.Stdlib = !GetFlag(cmd, "no-stdlib")
 		corsetConfig.Legacy = GetFlag(cmd, "legacy")
+		asmConfig := parseLoweringConfig(cmd)
 		// Parse trace file(s)
 		if batched {
 			// batched mode
 			traces = ReadBatchedTraceFile(args[0])
 		} else if len(args) == 2 && path.Ext(args[1]) == ".zkasm" {
 			// read trace & constraints
-			asmTrace, functions := readTraceAndConstraints(args[0], args[1])
-			builder := asm.NewTraceBuilder(functions...)
-			hirTrace := builder.Build(asmTrace)
-			traces = [][]trace.RawColumn{hirTrace}
+			macroProgram, _ := ReadAssemblyProgram(args[1])
+			macroTrace := ReadAssemblyTrace(args[1], macroProgram)
+			microTrace := macroTrace.Lower(asmConfig)
+			traces = [][]trace.RawColumn{microTrace.Lower()}
 		} else {
 			// unbatched (i.e. normal) mode
 			tracefile := ReadTraceFile(args[0])
@@ -109,7 +110,7 @@ var traceCmd = &cobra.Command{
 		} else if expand {
 			level := determineAbstractionLevel(air, mir, hir)
 			for i, cols := range traces {
-				traces[i] = expandWithConstraints(level, cols, corsetConfig, validate, defensive, args[1:], optConfig)
+				traces[i] = expandWithConstraints(level, cols, corsetConfig, asmConfig, validate, defensive, args[1:], optConfig)
 			}
 		} else if defensive {
 			fmt.Println("cannot apply defensive padding without trace expansion")
@@ -191,12 +192,13 @@ func determineAbstractionLevel(air, mir, hir bool) int {
 	panic("unreachable")
 }
 
-func expandWithConstraints(level int, cols []trace.RawColumn, corsetConfig corset.CompilationConfig, validate bool,
-	defensive bool, filenames []string, optConfig mir.OptimisationConfig) []trace.RawColumn {
+func expandWithConstraints(level int, cols []trace.RawColumn, corsetConfig corset.CompilationConfig,
+	asmConfig asm.LoweringConfig,
+	validate bool, defensive bool, filenames []string, optConfig mir.OptimisationConfig) []trace.RawColumn {
 	//
 	var schema sc.Schema
 	//
-	binfile := ReadConstraintFiles(corsetConfig, filenames)
+	binfile := ReadConstraintFiles(corsetConfig, asmConfig, filenames)
 	//
 	switch level {
 	case hir_LEVEL:

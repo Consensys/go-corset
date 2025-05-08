@@ -58,6 +58,7 @@ var coverageCmd = &cobra.Command{
 		//
 		filter := cov.DefaultFilter()
 		//
+		asmConfig := parseLoweringConfig(cmd)
 		corsetConfig.Stdlib = !GetFlag(cmd, "no-stdlib")
 		corsetConfig.Debug = GetFlag(cmd, "debug")
 		corsetConfig.Legacy = GetFlag(cmd, "legacy")
@@ -74,7 +75,7 @@ var coverageCmd = &cobra.Command{
 		//
 		json, others := splitArgs(args)
 		// Parse constraints
-		binfile := ReadConstraintFiles(corsetConfig, others)
+		binfile := ReadConstraintFiles(corsetConfig, asmConfig, others)
 		// Parse coverage file
 		coverage := readCoverageReports(json, binfile, optConfig)
 		//

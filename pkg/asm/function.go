@@ -14,24 +14,35 @@ package asm
 
 import (
 	"fmt"
-	"math"
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/asm/insn"
+	"github.com/consensys/go-corset/pkg/asm/macro"
+	"github.com/consensys/go-corset/pkg/asm/micro"
 )
+
+// MacroFunction is a function whose instructions are themselves macro
+// instructions.  A macro function must be compiled down into a micro function
+// before we can generate constraints.
+type MacroFunction = Function[macro.Instruction]
+
+// MicroFunction is a function whose instructions are themselves micro
+// instructions.  A micro function represents the lowest representation of a
+// function, where each instruction is made up of microcodes.
+type MicroFunction = Function[micro.Instruction]
 
 // Function defines a distinct functional entity within the system.  Functions
 // accepts zero or more inputs and produce zero or more outputs.  Functions
 // declare zero or more internal registers for use, and their interpretation is
 // given by a sequence of zero or more instructions.
-type Function struct {
+type Function[T any] struct {
 	// Unique name of this function.
 	Name string
 	// Registers describes zero or more registers of a given width.  Each
 	// register can be designated as an input / output or temporary.
 	Registers []insn.Register
 	// Code defines the body of this function.
-	Code []insn.Instruction
+	Code []T
 }
 
 // FunctionInstance represents a specific instance of a function.  That is, a
@@ -45,38 +56,56 @@ type FunctionInstance struct {
 	Outputs map[string]big.Int
 }
 
-// CheckInstance checks whether a given function instance is valid with respect
-// to a given set of functions.  It returns an error if something goes wrong
-// (e.g. the instance is malformed), and either true or false to indicate
-// whether the trace is accepted or not.
-func CheckInstance(instance FunctionInstance, fns []Function) (uint, error) {
-	// Initialise a new interpreter
-	interpreter := NewInterpreter(fns...)
+// Lower a function instance for a given program to a function instance for the
+// corresponding microprogram.
+func (p *FunctionInstance) Lower(cfg LoweringConfig, program MacroProgram) FunctionInstance {
+	var (
+		maxWidth                    = cfg.MaxRegisterWidth
+		inputs   map[string]big.Int = make(map[string]big.Int)
+		outputs  map[string]big.Int = make(map[string]big.Int)
+		fn                          = program.Function(p.Function)
+	)
 	//
-	init := interpreter.Bind(instance.Function, instance.Inputs)
-	// Enter function
-	interpreter.Enter(instance.Function, init)
-	// Execute function to completion
-	interpreter.Execute(math.MaxUint)
-	// Extract outputs
-	outputs := interpreter.Leave()
-	// Checkout results
-	for r, actual := range outputs {
-		expected, ok := instance.Outputs[r]
-		outcome := expected.Cmp(&actual) == 0
-		// Check actual output matches expected output
-		if !ok {
-			return math.MaxUint, fmt.Errorf("missing output (%s)", r)
-		} else if !outcome {
-			// failure
-			return 1, fmt.Errorf("incorrect output \"%s\" (was %s, expected %s)", r, actual.String(), expected.String())
+	for _, reg := range fn.Registers {
+		if reg.IsInput() {
+			input, ok := p.Inputs[reg.Name]
+			//
+			if !ok {
+				panic(fmt.Sprintf("missing value for input register %s", reg.Name))
+			}
+			//
+			inputs = splitRegisterValue(maxWidth, reg, input, inputs)
+		} else if reg.IsOutput() {
+			output, ok := p.Outputs[reg.Name]
+			//
+			if !ok {
+				panic(fmt.Sprintf("missing value for output register %s", reg.Name))
+			}
+			//
+			outputs = splitRegisterValue(maxWidth, reg, output, outputs)
 		}
 	}
 	//
-	if len(outputs) != len(instance.Outputs) {
-		msg := fmt.Errorf("incorrect number of outputs (was %d but expected %d)", len(outputs), len(instance.Outputs))
-		return math.MaxUint, msg
+	return FunctionInstance{Function: p.Function, Inputs: inputs, Outputs: outputs}
+}
+
+func splitRegisterValue(maxWidth uint, reg Register, value big.Int, iomap map[string]big.Int) map[string]big.Int {
+	var (
+		nlimbs = micro.NumberOfLimbs(maxWidth, reg.Width)
+	)
+	//
+	if nlimbs == 1 {
+		// no splitting required
+		iomap[reg.Name] = value
+	} else {
+		// splitting required
+		regs := micro.SplitRegister(maxWidth, reg)
+		values := micro.SplitValueAcrossRegisters(&value, regs...)
+		//
+		for i, limb := range regs {
+			iomap[limb.Name] = values[i]
+		}
 	}
-	// Success
-	return 0, nil
+	//
+	return iomap
 }

@@ -17,6 +17,7 @@ import (
 	"os"
 	"runtime/debug"
 
+	"github.com/consensys/go-corset/pkg/asm"
 	"github.com/spf13/cobra"
 )
 
@@ -63,4 +64,20 @@ func init() {
 	rootCmd.PersistentFlags().Bool("no-stdlib", false, "prevent standard library from being included")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "increase logging verbosity")
 	rootCmd.PersistentFlags().UintP("opt", "O", 1, "set optimisation level")
+	rootCmd.PersistentFlags().Bool("vectorize", true, "Apply instruction vectorization")
+	rootCmd.PersistentFlags().Uint("field-width", 252, "Maximum usable bitwidth of underlying field element")
+	rootCmd.PersistentFlags().Uint("register-width", 128, "Maximum bitwidth for registers")
+}
+
+// Generic function for parsing lowering configuration from the persistent flags.
+func parseLoweringConfig(cmd *cobra.Command) asm.LoweringConfig {
+	vectorize := GetFlag(cmd, "vectorize")
+	fieldWidth := GetUint(cmd, "field-width")
+	registerWidth := GetUint(cmd, "register-width")
+	//
+	return asm.LoweringConfig{
+		MaxFieldWidth:    fieldWidth,
+		MaxRegisterWidth: registerWidth,
+		Vectorize:        vectorize,
+	}
 }

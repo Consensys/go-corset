@@ -10,15 +10,14 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package insn
+package micro
 
 import (
 	"fmt"
-	"math"
 	"math/big"
+	"slices"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/hir"
+	"github.com/consensys/go-corset/pkg/asm/insn"
 )
 
 // Mul represents a generic operation of the following form:
@@ -46,28 +45,38 @@ type Mul struct {
 	Constant big.Int
 }
 
+// Clone this micro code.
+func (p *Mul) Clone() Code {
+	var constant big.Int
+	//
+	constant.Set(&p.Constant)
+	//
+	return &Mul{
+		slices.Clone(p.Targets),
+		slices.Clone(p.Sources),
+		constant,
+	}
+}
+
 // Bind any labels contained within this instruction using the given label map.
 func (p *Mul) Bind(labels []uint) {
 	// no-op
-}
-
-// Sequential indicates whether or not this microinstruction can execute
-// sequentially onto the ne
-func (p *Mul) Sequential() bool {
-	return true
-}
-
-// Terminal indicates whether or not this microinstruction terminates the
-// enclosing function.
-func (p *Mul) Terminal() bool {
-	return false
 }
 
 // Execute a given instruction at a given program counter position, using a
 // given set of register values.  This may update the register values, and
 // returns the next program counter position.  If the program counter is
 // math.MaxUint then a return is signaled.
-func (p *Mul) Execute(state []big.Int, regs []Register) uint {
+func (p *Mul) Execute(pc uint, state []big.Int, regs []Register) uint {
+	p.MicroExecute(state, regs)
+	return pc + 1
+}
+
+// MicroExecute a given micro-code, using a given set of register values.  This
+// may update the register values, and returns either the number of micro-codes
+// to "skip over" when executing the enclosing instruction or, if skip==0, a
+// destination program counter (which can signal return of enclosing function).
+func (p *Mul) MicroExecute(state []big.Int, regs []Register) (uint, uint) {
 	var value big.Int
 	// Assign first value
 	value.Set(&state[p.Sources[0]])
@@ -78,33 +87,15 @@ func (p *Mul) Execute(state []big.Int, regs []Register) uint {
 	// Multiply constant
 	value.Mul(&value, &p.Constant)
 	// Write value
-	writeTargetRegisters(p.Targets, state, regs, value)
+	insn.WriteTargetRegisters(p.Targets, state, regs, value)
 	//
-	return math.MaxUint - 1
+	return 1, 0
 }
 
-// IsWellFormed checks whether or not this instruction is correctly balanced.
-func (p *Mul) IsWellFormed(regs []Register) error {
-	var (
-		lhs_bits = sum_bits(p.Targets, regs)
-		rhs      big.Int
-	)
-	//
-	rhs.Set(&one)
-	//
-	for _, target := range p.Sources {
-		rhs.Mul(&rhs, regs[target].MaxValue())
-	}
-	// Include constant (if relevant)
-	rhs.Mul(&rhs, &p.Constant)
-	//
-	rhs_bits := uint(rhs.BitLen())
-	// check
-	if lhs_bits < rhs_bits {
-		return fmt.Errorf("bit overflow (%d bits into %d bits)", rhs_bits, lhs_bits)
-	}
-	//
-	return checkTargetRegisters(p.Targets, regs)
+// Lower this instruction into a exactly one more micro instruction.
+func (p *Mul) Lower(pc uint) Instruction {
+	// Lowering here produces an instruction containing a single microcode.
+	return Instruction{[]Code{p, &Jmp{Target: pc + 1}}}
 }
 
 // Registers returns the set of registers read/written by this instruction.
@@ -122,21 +113,49 @@ func (p *Mul) RegistersWritten() []uint {
 	return p.Targets
 }
 
-// Translate this instruction into low-level constraints.
-func (p *Mul) Translate(st *StateTranslator) {
-	// build rhs
-	rhs := st.ReadRegisters(p.Sources)
-	// build lhs (must be after rhs)
-	lhs := st.WriteRegisters(p.Targets)
-	// include constant if this makes sense
-	if p.Constant.Cmp(&one) != 0 {
-		var elem fr.Element
-		//
-		elem.SetBigInt(&p.Constant)
-		rhs = append(rhs, hir.NewConst(elem))
+// Split this micro code using registers of arbirary width into one or more
+// micro codes using registers of a fixed maximum width.
+func (p *Mul) Split(env *RegisterSplittingEnvironment) []Code {
+	// Temporary hack
+	for _, r := range p.Registers() {
+		if env.regsBefore[r].Width >= env.maxWidth {
+			panic("splitting multiplication not supported")
+		}
 	}
-	// construct equation
-	eqn := hir.Equals(hir.Sum(lhs...), hir.Product(rhs...))
-	// construct constraint
-	st.Constrain("mul", eqn)
+	//
+	return []Code{p}
+}
+
+func (p *Mul) String(regs []Register) string {
+	return assignmentToString(p.Targets, p.Sources, p.Constant, regs, one, " * ")
+}
+
+// Validate checks whether or not this instruction is correctly balanced.
+func (p *Mul) Validate(fieldWidth uint, regs []Register) error {
+	var (
+		lhs_bits = sumTargetBits(p.Targets, regs)
+		rhs_bits = mulSourceBits(p.Sources, p.Constant, regs)
+	)
+	// check
+	if lhs_bits < rhs_bits {
+		return fmt.Errorf("bit overflow (%d bits into %d bits)", rhs_bits, lhs_bits)
+	} else if rhs_bits > fieldWidth {
+		return fmt.Errorf("field overflow (%d bits into %d bit field)", rhs_bits, fieldWidth)
+	}
+	//
+	return insn.CheckTargetRegisters(p.Targets, regs)
+}
+
+func mulSourceBits(sources []uint, constant big.Int, regs []Register) uint {
+	var rhs big.Int
+	//
+	rhs.Set(&one)
+	//
+	for _, target := range sources {
+		rhs.Mul(&rhs, regs[target].MaxValue())
+	}
+	// Include constant (if relevant)
+	rhs.Mul(&rhs, &constant)
+	//
+	return uint(rhs.BitLen())
 }

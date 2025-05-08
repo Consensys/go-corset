@@ -18,6 +18,8 @@ import (
 	"reflect"
 
 	"github.com/consensys/go-corset/pkg/air"
+	"github.com/consensys/go-corset/pkg/asm"
+	"github.com/consensys/go-corset/pkg/asm/insn"
 	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/hir"
@@ -59,6 +61,8 @@ var debugCmd = &cobra.Command{
 		hir := GetFlag(cmd, "hir")
 		mir := GetFlag(cmd, "mir")
 		air := GetFlag(cmd, "air")
+		masm := GetFlag(cmd, "asm")
+		uasm := GetFlag(cmd, "uasm")
 		stats := GetFlag(cmd, "stats")
 		attrs := GetFlag(cmd, "attributes")
 		metadata := GetFlag(cmd, "metadata")
@@ -68,33 +72,38 @@ var debugCmd = &cobra.Command{
 		corsetConfig.Stdlib = !GetFlag(cmd, "no-stdlib")
 		corsetConfig.Debug = GetFlag(cmd, "debug")
 		corsetConfig.Legacy = GetFlag(cmd, "legacy")
+		asmConfig := parseLoweringConfig(cmd)
 		// Parse constraints
-		binfile := ReadConstraintFiles(corsetConfig, args)
-		// Apply any user-specified values for externalised constants.
-		applyExternOverrides(externs, binfile)
-		// Print constant info (if requested)
-		if constants {
-			printExternalisedConstants(binfile)
-		}
-		// Print spillage info (if requested)
-		if spillage {
-			printSpillage(binfile, true, optConfig)
-		}
-		// Print meta-data (if requested)
-		if metadata {
-			printBinaryFileHeader(&binfile.Header)
-		}
-		// Print stats (if requested)
-		if stats {
-			printStats(&binfile.Schema, hir, mir, air, optConfig)
-		}
-		// Print embedded attributes (if requested
-		if attrs {
-			printAttributes(binfile.Attributes)
-		}
-		//
-		if !stats && !attrs {
-			printSchemas(&binfile.Schema, hir, mir, air, optConfig)
+		if masm || uasm {
+			printAssemblyFiles(uasm, asmConfig, args)
+		} else {
+			binfile := ReadConstraintFiles(corsetConfig, asmConfig, args)
+			// Apply any user-specified values for externalised constants.
+			applyExternOverrides(externs, binfile)
+			// Print constant info (if requested)
+			if constants {
+				printExternalisedConstants(binfile)
+			}
+			// Print spillage info (if requested)
+			if spillage {
+				printSpillage(binfile, true, optConfig)
+			}
+			// Print meta-data (if requested)
+			if metadata {
+				printBinaryFileHeader(&binfile.Header)
+			}
+			// Print stats (if requested)
+			if stats {
+				printStats(&binfile.Schema, hir, mir, air, optConfig)
+			}
+			// Print embedded attributes (if requested
+			if attrs {
+				printAttributes(binfile.Attributes)
+			}
+			//
+			if !stats && !attrs {
+				printSchemas(&binfile.Schema, hir, mir, air, optConfig)
+			}
 		}
 	},
 }
@@ -102,6 +111,7 @@ var debugCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(debugCmd)
 	debugCmd.Flags().Bool("air", false, "Print constraints at AIR level")
+	debugCmd.Flags().Bool("asm", false, "Print constraints at ASM level")
 	debugCmd.Flags().Bool("attributes", false, "Print attribute information")
 	debugCmd.Flags().Bool("constants", false, "Print information about externalised constants")
 	debugCmd.Flags().Bool("debug", false, "enable debugging constraints")
@@ -111,6 +121,81 @@ func init() {
 	debugCmd.Flags().Bool("stats", false, "Print summary information")
 	debugCmd.Flags().Bool("spillage", false, "Print spillage information")
 	debugCmd.Flags().StringArrayP("set", "S", []string{}, "set value of externalised constant.")
+	debugCmd.Flags().Bool("uasm", false, "Print constraints at micro ASM level")
+}
+
+func printAssemblyFiles(lower bool, cfg asm.LoweringConfig, asmfiles []string) {
+	program, _ := ReadAssemblyProgram(asmfiles...)
+	//
+	if lower {
+		// Lower the program.
+		uprogram := program.Lower(cfg)
+		//
+		printAssemblyFunctions(uprogram.Functions())
+	} else {
+		printAssemblyFunctions(program.Functions())
+	}
+}
+
+func printAssemblyFunctions[T insn.Instruction](fns []asm.Function[T]) {
+	for _, f := range fns {
+		printAssemblyFunction(f)
+	}
+}
+
+func printAssemblyFunction[T insn.Instruction](f asm.Function[T]) {
+	printAssemblySignature(f)
+	printAssemblyRegisters(f)
+	//
+	for pc, insn := range f.Code {
+		fmt.Printf("[%d]\t%s\n", pc, insn.String(f.Registers))
+	}
+	//
+	fmt.Println("}")
+}
+
+func printAssemblySignature[T any](f asm.Function[T]) {
+	first := true
+	//
+	fmt.Printf("fn %s(", f.Name)
+	//
+	for _, r := range f.Registers {
+		if r.IsInput() {
+			if !first {
+				fmt.Printf(", ")
+			} else {
+				first = false
+			}
+			//
+			fmt.Printf("%s u%d", r.Name, r.Width)
+		}
+	}
+	//
+	fmt.Printf(") -> (")
+	// reset
+	first = true
+	//
+	for _, r := range f.Registers {
+		if r.IsOutput() {
+			if !first {
+				fmt.Printf(", ")
+			} else {
+				first = false
+			}
+			//
+			fmt.Printf("%s u%d", r.Name, r.Width)
+		}
+	}
+	//
+	fmt.Println(") {")
+}
+
+func printAssemblyRegisters[T any](f asm.Function[T]) {
+	for _, r := range f.Registers {
+		if !r.IsInput() && !r.IsOutput() {
+			fmt.Printf("\tvar %s u%d\n", r.Name, r.Width)
+		}
+	}
 }
 
 func printSchemas(hirSchema *hir.Schema, hir bool, mir bool, air bool, optConfig mir.OptimisationConfig) {

@@ -14,7 +14,24 @@ package source
 
 import (
 	"fmt"
+	"os"
 )
+
+// ReadFiles reads a given set of source files, or produces an error.
+func ReadFiles(filenames ...string) ([]File, error) {
+	files := make([]File, len(filenames))
+	//
+	for i, n := range filenames {
+		bytes, err := os.ReadFile(n)
+		if err != nil {
+			return nil, err
+		}
+		//
+		files[i] = *NewSourceFile(n, bytes)
+	}
+	//
+	return files, nil
+}
 
 // Line provides information about a given line within the original string.
 // This includes the line number (counting from 1), and the span of the line

@@ -300,12 +300,12 @@ func (t *translator) translateDefConstraint(decl *ast.DefConstraint, module util
 	// Apply guard (if applicable)
 	if guard != hir.VOID {
 		guard = hir.Equals(guard, hir.NewConst64(0))
-		constraint = hir.If(guard, hir.VOID, constraint)
+		constraint = hir.IfElse(guard, hir.VOID, constraint)
 	}
 	// Apply perspective selector (if applicable)
 	if selector != hir.VOID {
 		selector = hir.Equals(selector, hir.NewConst64(0))
-		constraint = hir.If(selector, hir.VOID, constraint)
+		constraint = hir.IfElse(selector, hir.VOID, constraint)
 	}
 	//
 	if len(errors) == 0 {
@@ -672,7 +672,7 @@ func (t *translator) translateIfInModule(expr *ast.If, module util.Path, shift i
 		return hir.VOID, nil
 	}
 	// Construct appropriate if form
-	return hir.If(args[0], args[1], args[2]), nil
+	return hir.IfElse(args[0], args[1], args[2]), nil
 }
 
 func (t *translator) translateShiftInModule(expr *ast.Shift, module util.Path, shift int) (hir.Expr, []SyntaxError) {

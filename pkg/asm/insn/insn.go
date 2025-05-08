@@ -13,128 +13,96 @@
 package insn
 
 import (
-	"fmt"
 	"math"
 	"math/big"
-
-	"github.com/consensys/go-corset/pkg/util/collection/bit"
 )
 
-// MicroInstruction provides an abstract notion of an atomic "machine
-// instruction".  In practice, we want to pack as many microinstructions
-// together as we can into a single vector instruction.
-type MicroInstruction interface {
-	// Bind any labels contained within this instruction using the given label map.
-	Bind(labels []uint)
+// RETURN is used to signal that a given instruction returns from the enclosing
+// function.
+const RETURN = math.MaxUint
+
+// UNUSED_REGISTER is used to signal that a given register operand is unused.
+const UNUSED_REGISTER = math.MaxUint
+
+const (
+	// INPUT_REGISTER signals a register used for holding the input values of a
+	// function.
+	INPUT_REGISTER = uint8(0)
+	// OUTPUT_REGISTER signals a register used for holding the output values of
+	// a function.
+	OUTPUT_REGISTER = uint8(1)
+	// TEMP_REGISTER signals a register used for holding temporary values during
+	// computation.
+	TEMP_REGISTER = uint8(2)
+)
+
+// Instruction provides an abstract notion of an executable "machine instruction".
+type Instruction interface {
 	// Execute a given instruction at a given program counter position, using a
 	// given set of register values.  This may update the register values, and
 	// returns the next program counter position.  If the program counter is
 	// math.MaxUint then a return is signaled.
-	Execute(state []big.Int, regs []Register) uint
-	// Sequential indicates whether or not this microinstruction can execute
-	// sequentially onto the next.
-	Sequential() bool
-	// Terminal indicates whether or not this microinstruction terminates the
-	// enclosing function.
-	Terminal() bool
-	// Validate that this micro-instruction is well-formed.  For example, that
-	// it is balanced.
-	IsWellFormed(regs []Register) error
+	Execute(pc uint, state []big.Int, regs []Register) uint
 	// Registers returns the set of registers read/written by this micro instruction.
 	Registers() []uint
 	// Registers returns the set of registers read this micro instruction.
 	RegistersRead() []uint
 	// Registers returns the set of registers written by this micro instruction.
 	RegistersWritten() []uint
-	// Translate this micro instruction into constraints using the given state
-	// translator.
-	Translate(st *StateTranslator)
+	// Validate that this instruction is well-formed.  For example, that it is
+	// balanced, that there are no conflicting writes, that all temporaries have
+	// been allocated, etc.  The maximum bit capacity of the underlying field is
+	// needed for this calculation, so as to allow an instruction to check it
+	// does not overflow the underlying field.
+	Validate(fieldWidth uint, regs []Register) error
+	// Produce a suitable string representation of this instruction.  This is
+	// primarily used for debugging.
+	String(regs []Register) string
 }
 
-// Instruction represents the composition of one or more micro instructions
-// which are to be executed "in parallel".  This roughly following the ideas of
-// vector machines and vectorisation.  In order to ensure parallel execution is
-// safe, there are restrictions on how microinstructions can be combined.  For
-// example, two microinstructions writing to the same register are said to be
-// "conflicting" and, hence, this is not permitted.  Likewise, it is not
-// possible to branch into the middle of a microinstruction.
-type Instruction struct {
-	Instructions []MicroInstruction
+// Register describes a single register within a function.
+type Register struct {
+	// Kind of register (input / output)
+	Kind uint8
+	// Given name of this register.
+	Name string
+	// Width (in bits) of this register
+	Width uint
 }
 
-// Sequential indicates whether or not this microinstruction can execute
-// sequentially onto the next.
-func (p *Instruction) Sequential() bool {
-	n := len(p.Instructions) - 1
-	// Only need to check last instruction to determine this.
-	return p.Instructions[n].Sequential()
+// NewRegister creates a new register of a given kind with a given width.
+func NewRegister(kind uint8, name string, width uint) Register {
+	return Register{kind, name, width}
 }
 
-// Terminal indicates whether or not this instruction is a terminating
-// instruction (or not).  That is, whether or not its possible for control-flow
-// to "fall through" to the next instruction.
-func (p *Instruction) Terminal() bool {
-	n := len(p.Instructions) - 1
-	// Only need to check last instruction to determine this.
-	return p.Instructions[n].Terminal()
+// IsInput determines whether or not this is an input register
+func (p *Register) IsInput() bool {
+	return p.Kind == INPUT_REGISTER
 }
 
-// Bind any labels contained within this instruction using the given label map.
-func (p *Instruction) Bind(labels []uint) {
-	for _, insn := range p.Instructions {
-		insn.Bind(labels)
-	}
+// IsOutput determines whether or not this is an output register
+func (p *Register) IsOutput() bool {
+	return p.Kind == OUTPUT_REGISTER
 }
 
-// Execute a given instruction at a given program counter position, using a
-// given set of register values.  This may update the register values, and
-// returns the next program counter position.  If the program counter is
-// math.MaxUint then a return is signaled.
-func (p *Instruction) Execute(pc uint, state []big.Int, regs []Register) uint {
-	var fallThru uint = math.MaxUint - 1
-	//
-	for _, r := range p.Instructions {
-		npc := r.Execute(state, regs)
-		// Sanity check
-		if npc != fallThru {
-			return npc
-		}
-	}
-	// Fall through
-	return pc + 1
-}
-
-// Validate that this micro-instruction is well-formed.  For example, each
-// micro-instruction contained within must be well-formed, and the overall
-// requirements for a vector instruction must be met, etc.
-func (p *Instruction) Validate(regs []Register) (uint, error) {
+// Bound returns the first value which cannot be represented by the given
+// bitwidth.  For example, the bound of an 8bit register is 256.
+func (p *Register) Bound() *big.Int {
 	var (
-		written bit.Set
-		n       = len(p.Instructions) - 1
+		bound = big.NewInt(2)
+		width = big.NewInt(int64(p.Width))
 	)
-	//
-	for i, r := range p.Instructions {
-		if err := r.IsWellFormed(regs); err != nil {
-			return uint(i), err
-		}
-	}
-	// Check read-after-write conflicts
-	for i, r := range p.Instructions {
-		for _, dst := range r.RegistersWritten() {
-			if written.Contains(dst) {
-				// Forwarding required for this
-				return uint(i), fmt.Errorf("conflicting write")
-			}
-			//
-			written.Insert(dst)
-		}
-	}
-	// Check for unreachable instructions
-	for i, r := range p.Instructions {
-		if i != n && !r.Sequential() {
-			return uint(i), fmt.Errorf("unreachable")
-		}
-	}
-	//
-	return math.MaxUint, nil
+	// Compute 2^n
+	return bound.Exp(bound, width, nil)
 }
+
+// MaxValue returns the largest value expressible in this register (i.e. Bound() -
+// 1).  For example, the max value of an 8bit register is 255.
+func (p *Register) MaxValue() *big.Int {
+	max := p.Bound()
+	max.Sub(max, &one)
+	//
+	return max
+}
+
+var one = *big.NewInt(1)
