@@ -15,32 +15,13 @@ package check
 import (
 	"fmt"
 	"math"
-	"unicode/utf8"
 
-	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/termio"
 )
-
-// ColumnFilter is a predicate which determines whether a given column should be
-// included in the print out, or not.
-type ColumnFilter = func(uint, tr.Trace) bool
-
-// Highlighter identifies cells which should be highlighted.
-type Highlighter = func(tr.CellRef, tr.Trace) bool
 
 // Printer encapsulates various configuration options useful for printing out
 // traces in human-readable forms.
 type Printer struct {
-	// First row to print
-	startRow uint
-	// Last row to print
-	endRow uint
-	// Additional rows either side
-	padding uint
-	// Which columns to include
-	colFilter ColumnFilter
-	// Which columns to highlight
-	highlighter Highlighter
 	// Determine maximum width to print
 	maxCellWidth uint
 	// Enable ANSI
@@ -49,55 +30,14 @@ type Printer struct {
 
 // NewPrinter constructs a default printer
 func NewPrinter() *Printer {
-	// Include all colunms by default
-	emptyFilter := func(row uint, t tr.Trace) bool {
-		return true
-	}
-	// Highlight nothing by default
-	emptyHighlighter := func(cell tr.CellRef, t tr.Trace) bool {
-		return false
-	}
 	// Return an empty printer
-	return &Printer{0, math.MaxInt, 2, emptyFilter, emptyHighlighter, math.MaxUint, true}
-}
-
-// Start configures the starting row for this printer.
-func (p *Printer) Start(start uint) *Printer {
-	p.startRow = start
-	return p
-}
-
-// End configures the ending row (inclusive) for this printer.
-func (p *Printer) End(end uint) *Printer {
-	p.endRow = end
-	return p
-}
-
-// Padding configures the number of padding rows (i.e. rows outside the affected
-// area) to include for additional context.
-func (p *Printer) Padding(padding uint) *Printer {
-	p.padding = padding
-	return p
-}
-
-// Columns configures a filter which selects columns to be included in the final
-// print out.
-func (p *Printer) Columns(filter ColumnFilter) *Printer {
-	p.colFilter = filter
-	return p
+	return &Printer{math.MaxUint, true}
 }
 
 // AnsiEscapes can be used to enable or disable the use of ANSI escape sequences
 // (e.g. for showing colour in a terminal, etc)
 func (p *Printer) AnsiEscapes(enable bool) *Printer {
 	p.ansiEscapes = enable
-	return p
-}
-
-// Highlight configures a filter for cells which should be highlighted.  By
-// default, no cells are highlighted.
-func (p *Printer) Highlight(highlighter Highlighter) *Printer {
-	p.highlighter = highlighter
 	return p
 }
 
@@ -108,139 +48,51 @@ func (p *Printer) MaxCellWidth(width uint) *Printer {
 }
 
 // Print a given trace using the configured printer
-func (p *Printer) Print(trace tr.Trace) {
-	var start uint
-	if p.startRow >= p.padding {
-		start = p.startRow - p.padding
-	} else if p.padding > 0 {
-		start = 0
-	} else {
-		start = p.startRow
-	}
-	//
-	end := min(tr.MaxHeight(trace), p.endRow+p.padding+1)
-	//
-	columns := make([]uint, 0)
-	width := 1 + end - start
-	// Filter columns
-	for i := uint(0); i < trace.Width(); i++ {
-		if p.colFilter(i, trace) {
-			columns = append(columns, i)
-		}
-	}
+func (p *Printer) Print(trace TraceWindow) {
+	var height = trace.Height()
 	// Construct table
-	tp := termio.NewTablePrinter(width, uint(1+len(columns)))
-	// Initialise row indices
-	for j := start; j < end; j++ {
+	tp := termio.NewTablePrinter(1+height, 1+trace.Width())
+	// Initialise row titles
+	for j := uint(0); j < height; j++ {
+		title := trace.Row(j)
 		escape := termio.NewAnsiEscape().FgColour(termio.TERM_WHITE)
-		text := termio.NewFormattedText(fmt.Sprintf("%d", j), escape)
-		tp.Set(1+j-start, 0, text)
+		text := termio.NewFormattedText(title, escape)
+		tp.Set(1+j, 0, text)
 	}
 	// Construct suitable highlighting escape
 	highlightEscape := termio.BoldAnsiEscape().FgColour(termio.TERM_RED)
 	// Fill table
-	for i, col := range columns {
-		column := trace.Column(col)
-		maxRow := min(end, column.Data().Len())
+	for col := uint(0); col != trace.Width(); col++ {
+		title := trace.Column(col)
 		// Set columns names
 		escape := termio.NewAnsiEscape().FgColour(termio.TERM_WHITE)
-		text := termio.NewFormattedText(column.Name(), escape)
-		tp.Set(0, uint(i+1), text)
+		text := termio.NewFormattedText(title, escape)
+		tp.Set(0, col+1, text)
 		//
-		for row := start; row < maxRow; row++ {
+		for row := uint(0); row < height; row++ {
 			var text termio.FormattedText
-			// Extract data for cell
-			jth := column.Data().Get(row)
+			// Extract contents of cell
+			contents := trace.CellAt(col, row)
 			// Determine text of cell
-			highlight := p.highlighter(tr.NewCellRef(col, int(row)), trace)
+			highlight := trace.Highlighted(col, row)
 			//
 			if highlight && !p.ansiEscapes {
 				// In a non-ANSI environment, use a marker "*" to identify which cells were depended upon.
-				text = termio.NewText(fmt.Sprintf("*0x%s", jth.Text(16)))
+				text = termio.NewText(fmt.Sprintf("*0x%s", contents))
 			} else if highlight {
-				hex := fmt.Sprintf("0x%s", jth.Text(16))
+				hex := fmt.Sprintf("0x%s", contents)
 				text = termio.NewFormattedText(hex, highlightEscape)
 			} else {
-				text = termio.NewText(fmt.Sprintf("0x%s", jth.Text(16)))
+				text = termio.NewText(fmt.Sprintf("0x%s", contents))
 			}
 			//
-			tp.Set(1+row-start, uint(i+1), text)
-			//
+			tp.Set(1+row, col+1, text)
 		}
 	}
-	// Cap cells
-	for j := start; j < end; j++ {
-		tp.SetMaxWidth(1+j-start, p.maxCellWidth)
+	// Cap cell widths
+	for j := uint(0); j < height; j++ {
+		tp.SetMaxWidth(1+j, p.maxCellWidth)
 	}
 	// Done
 	tp.Print(p.ansiEscapes)
-}
-
-// PrintTrace prints a trace in a more human-friendly fashion.
-func PrintTrace(trace tr.Trace) {
-	n := trace.Width()
-	m := tr.MaxHeight(trace)
-	//
-	rows := make([][]string, n)
-	for i := uint(0); i < n; i++ {
-		rows[i] = traceColumnData(trace, i)
-	}
-	//
-	widths := traceRowWidths(m, rows)
-	//
-	printHorizontalRule(widths)
-	//
-	for _, r := range rows {
-		printTraceRow(r, widths)
-		printHorizontalRule(widths)
-	}
-}
-
-func traceColumnData(trace tr.Trace, col uint) []string {
-	n := tr.MaxHeight(trace)
-	data := make([]string, n+2)
-	data[0] = fmt.Sprintf("#%d", col)
-	data[1] = trace.Column(col).Name()
-
-	for row := 0; row < int(n); row++ {
-		ith := trace.Column(col).Get(row)
-		data[row+2] = ith.String()
-	}
-
-	return data
-}
-
-func traceRowWidths(height uint, rows [][]string) []int {
-	widths := make([]int, height+2)
-
-	for _, row := range rows {
-		for i, col := range row {
-			w := utf8.RuneCountInString(col)
-			widths[i] = max(w, widths[i])
-		}
-	}
-
-	return widths
-}
-
-func printTraceRow(row []string, widths []int) {
-	for i, col := range row {
-		fmt.Printf(" %*s |", widths[i], col)
-	}
-
-	fmt.Println()
-}
-
-func printHorizontalRule(widths []int) {
-	for _, w := range widths {
-		fmt.Print("-")
-
-		for i := 0; i < w; i++ {
-			fmt.Print("-")
-		}
-
-		fmt.Print("-+")
-	}
-
-	fmt.Println()
 }

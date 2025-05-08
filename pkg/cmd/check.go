@@ -360,33 +360,14 @@ func reportFailure(failure sc.Failure, trace tr.Trace, cfg checkConfig) {
 
 // Print a human-readable report detailing the given failure with a vanishing constraint.
 func reportRelevantCells(cells *set.AnySortedSet[tr.CellRef], trace tr.Trace, cfg checkConfig) {
-	var start uint = math.MaxUint
-	// Determine all (input) cells involved in evaluating the given constraint
-	end := uint(0)
-	// Determine row bounds
-	for _, c := range cells.ToArray() {
-		start = min(start, uint(c.Row))
-		end = max(end, uint(c.Row))
-	}
-	// Determine columns to show
-	cols := set.NewSortedSet[uint]()
-	for _, c := range cells.ToArray() {
-		cols.Insert(c.Column)
-	}
+	// Construct trace window
+	window := check.NewTraceWindow(cells, trace, cfg.reportPadding)
 	// Construct & configure printer
-	tp := check.NewPrinter().Start(start).End(end).MaxCellWidth(cfg.reportCellWidth).Padding(cfg.reportPadding)
+	tp := check.NewPrinter().MaxCellWidth(cfg.reportCellWidth)
 	// Determine whether to enable ANSI escapes (e.g. for colour in the terminal)
 	tp = tp.AnsiEscapes(cfg.ansiEscapes)
-	// Filter out columns not used in evaluating the constraint.
-	tp = tp.Columns(func(col uint, trace tr.Trace) bool {
-		return cols.Contains(col)
-	})
-	// Highlight failing cells
-	tp = tp.Highlight(func(cell tr.CellRef, trace tr.Trace) bool {
-		return cells.Contains(cell)
-	})
 	// Print out report
-	tp.Print(trace)
+	tp.Print(window)
 	fmt.Println()
 }
 
