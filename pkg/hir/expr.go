@@ -143,12 +143,32 @@ func CastOf(arg Expr, bitwidth uint) Expr {
 
 // Disjunction constructs a logical disjunction of one or more terms.
 func Disjunction(exprs ...Expr) Expr {
-	return Expr{&Connective{true, asTerms(exprs...)}}
+	terms := asTerms(exprs...)
+	//
+	terms = util.Flatten(terms, func(t Term) []Term {
+		if d, ok := t.(*Connective); ok && d.Sign {
+			return d.Args
+		}
+		//
+		return nil
+	})
+	//
+	return Expr{&Connective{true, terms}}
 }
 
 // Conjunction constructs a logical conjunction of one or more terms.
 func Conjunction(exprs ...Expr) Expr {
-	return Expr{&Connective{false, asTerms(exprs...)}}
+	terms := asTerms(exprs...)
+	//
+	terms = util.Flatten(terms, func(t Term) []Term {
+		if d, ok := t.(*Connective); ok && !d.Sign {
+			return d.Args
+		}
+		//
+		return nil
+	})
+	//
+	return Expr{&Connective{false, terms}}
 }
 
 // Negation construct the logical negation of a given term
