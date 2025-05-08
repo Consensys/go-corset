@@ -13,17 +13,12 @@
 package macro
 
 import (
-	"math/big"
-
 	"github.com/consensys/go-corset/pkg/asm/insn"
 	"github.com/consensys/go-corset/pkg/asm/micro"
 )
 
 // Register is an alias for insn.Register
 type Register = insn.Register
-
-// Alias for big integer representation of 1.
-var zero big.Int = *big.NewInt(0)
 
 // Instruction provides an abstract notion of a macro "machine instruction".
 // Here, macro is intended to imply that the instruction may break down into

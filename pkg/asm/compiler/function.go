@@ -49,6 +49,8 @@ func (p *Compiler) Schema() *hir.Schema {
 	return &p.schema
 }
 
+// Compile a function with the given name, registers and micro-instructions into
+// constraints.
 func (p *Compiler) Compile(name string, regs []insn.Register, code []micro.Instruction) {
 	var (
 		// Allocate module id

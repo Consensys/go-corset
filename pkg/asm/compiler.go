@@ -27,11 +27,13 @@ func CompileAssembly(cfg LoweringConfig, assembly ...source.File) (*binfile.Bina
 	if len(errs) > 0 {
 		return nil, errs
 	}
-	//
+	// Lower macro program into a binary program.
 	microProgram := macroProgram.Lower(cfg)
+	//
 	return Compile(&microProgram), nil
 }
 
+// Compile a microprogram into a binary constraint file.
 func Compile(microProgram Program[micro.Instruction]) *binfile.BinaryFile {
 	compiler := compiler.NewCompiler()
 	//

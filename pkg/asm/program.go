@@ -196,7 +196,7 @@ func vectorizeFunction(f MicroFunction) MicroFunction {
 		insns[pc] = vectorizeInstruction(uint(pc), f.Code)
 	}
 	// Remove all uncreachable instructions and compact remainder.
-	insns = pruneUnreachableInstructions(insns, f)
+	insns = pruneUnreachableInstructions(insns)
 	//
 	return MicroFunction{Name: f.Name, Registers: f.Registers, Code: insns}
 }
@@ -333,7 +333,7 @@ func retargetSkip(cc uint, npc uint, code micro.Skip, mapping []uint) micro.Code
 
 // Identify and remove all unreachable instructions.  A tricky aspect of this is
 // that we must updating jump targets accordingly.
-func pruneUnreachableInstructions(insns []micro.Instruction, f Function[micro.Instruction]) []micro.Instruction {
+func pruneUnreachableInstructions(insns []micro.Instruction) []micro.Instruction {
 	var (
 		reachable bit.Set = determineReachableInstructions(insns)
 		ninsns    []micro.Instruction
