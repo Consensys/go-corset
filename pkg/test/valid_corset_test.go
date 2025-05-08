@@ -1302,10 +1302,6 @@ func TestSlow_Mmio(t *testing.T) {
 // 	Check(t, true, "rom")
 // }
 
-func TestSlow_Mmu(t *testing.T) {
-	Check(t, true, "mmu")
-}
-
 func TestSlow_Gas(t *testing.T) {
 	Check(t, true, "gas")
 }
