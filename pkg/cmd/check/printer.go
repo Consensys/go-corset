@@ -10,22 +10,23 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package trace
+package check
 
 import (
 	"fmt"
 	"math"
 	"unicode/utf8"
 
+	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/termio"
 )
 
 // ColumnFilter is a predicate which determines whether a given column should be
 // included in the print out, or not.
-type ColumnFilter = func(uint, Trace) bool
+type ColumnFilter = func(uint, tr.Trace) bool
 
 // Highlighter identifies cells which should be highlighted.
-type Highlighter = func(CellRef, Trace) bool
+type Highlighter = func(tr.CellRef, tr.Trace) bool
 
 // Printer encapsulates various configuration options useful for printing out
 // traces in human-readable forms.
@@ -49,11 +50,11 @@ type Printer struct {
 // NewPrinter constructs a default printer
 func NewPrinter() *Printer {
 	// Include all colunms by default
-	emptyFilter := func(row uint, t Trace) bool {
+	emptyFilter := func(row uint, t tr.Trace) bool {
 		return true
 	}
 	// Highlight nothing by default
-	emptyHighlighter := func(cell CellRef, t Trace) bool {
+	emptyHighlighter := func(cell tr.CellRef, t tr.Trace) bool {
 		return false
 	}
 	// Return an empty printer
@@ -107,7 +108,7 @@ func (p *Printer) MaxCellWidth(width uint) *Printer {
 }
 
 // Print a given trace using the configured printer
-func (p *Printer) Print(trace Trace) {
+func (p *Printer) Print(trace tr.Trace) {
 	var start uint
 	if p.startRow >= p.padding {
 		start = p.startRow - p.padding
@@ -117,7 +118,7 @@ func (p *Printer) Print(trace Trace) {
 		start = p.startRow
 	}
 	//
-	end := min(MaxHeight(trace), p.endRow+p.padding+1)
+	end := min(tr.MaxHeight(trace), p.endRow+p.padding+1)
 	//
 	columns := make([]uint, 0)
 	width := 1 + end - start
@@ -151,7 +152,7 @@ func (p *Printer) Print(trace Trace) {
 			// Extract data for cell
 			jth := column.Data().Get(row)
 			// Determine text of cell
-			highlight := p.highlighter(NewCellRef(col, int(row)), trace)
+			highlight := p.highlighter(tr.NewCellRef(col, int(row)), trace)
 			//
 			if highlight && !p.ansiEscapes {
 				// In a non-ANSI environment, use a marker "*" to identify which cells were depended upon.
@@ -176,13 +177,13 @@ func (p *Printer) Print(trace Trace) {
 }
 
 // PrintTrace prints a trace in a more human-friendly fashion.
-func PrintTrace(tr Trace) {
-	n := tr.Width()
-	m := MaxHeight(tr)
+func PrintTrace(trace tr.Trace) {
+	n := trace.Width()
+	m := tr.MaxHeight(trace)
 	//
 	rows := make([][]string, n)
 	for i := uint(0); i < n; i++ {
-		rows[i] = traceColumnData(tr, i)
+		rows[i] = traceColumnData(trace, i)
 	}
 	//
 	widths := traceRowWidths(m, rows)
@@ -195,14 +196,14 @@ func PrintTrace(tr Trace) {
 	}
 }
 
-func traceColumnData(tr Trace, col uint) []string {
-	n := MaxHeight(tr)
+func traceColumnData(trace tr.Trace, col uint) []string {
+	n := tr.MaxHeight(trace)
 	data := make([]string, n+2)
 	data[0] = fmt.Sprintf("#%d", col)
-	data[1] = tr.Column(col).Name()
+	data[1] = trace.Column(col).Name()
 
 	for row := 0; row < int(n); row++ {
-		ith := tr.Column(col).Get(row)
+		ith := trace.Column(col).Get(row)
 		data[row+2] = ith.String()
 	}
 

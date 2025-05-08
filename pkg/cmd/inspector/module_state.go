@@ -102,7 +102,7 @@ func newModuleState(module *corset.SourceModule, trace tr.Trace, enums []corset.
 	state.columnFilter.Computed = true
 	state.columnFilter.UserDefined = true
 	// Extract source columns from module tree
-	state.columns = extractSourceColumns(util.NewAbsolutePath(""), module.Selector, module.Columns, submodules)
+	state.columns = ExtractSourceColumns(util.NewAbsolutePath(""), module.Selector, module.Columns, submodules)
 	// Sort all column names so that, for example, columns in the same
 	// perspective are grouped together.
 	slices.SortFunc(state.columns, func(l SourceColumn, r SourceColumn) int {
@@ -196,7 +196,11 @@ func history_append[T comparable](history []T, item T) []T {
 	return append(history, item)
 }
 
-func extractSourceColumns(path util.Path, selector *hir.Expr, columns []corset.SourceColumn,
+// ExtractSourceColumns extracts source column descriptions for a given module
+// based on the corset source mapping.  This is particularly useful when you
+// want to show the original name for a column (e.g. when its in a perspective),
+// rather than the raw register name.
+func ExtractSourceColumns(path util.Path, selector *hir.Expr, columns []corset.SourceColumn,
 	submodules []corset.SourceModule) []SourceColumn {
 	//
 	var srcColumns []SourceColumn
@@ -209,7 +213,7 @@ func extractSourceColumns(path util.Path, selector *hir.Expr, columns []corset.S
 	//
 	for _, submod := range submodules {
 		subpath := path.Extend(submod.Name)
-		subSrcColumns := extractSourceColumns(*subpath, submod.Selector, submod.Columns, submod.Submodules)
+		subSrcColumns := ExtractSourceColumns(*subpath, submod.Selector, submod.Columns, submod.Submodules)
 		srcColumns = append(srcColumns, subSrcColumns...)
 	}
 	//

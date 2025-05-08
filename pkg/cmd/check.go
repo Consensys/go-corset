@@ -21,6 +21,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/asm"
 	"github.com/consensys/go-corset/pkg/asm/insn"
+	"github.com/consensys/go-corset/pkg/cmd/check"
 	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/hir"
 	"github.com/consensys/go-corset/pkg/mir"
@@ -373,7 +374,7 @@ func reportRelevantCells(cells *set.AnySortedSet[tr.CellRef], trace tr.Trace, cf
 		cols.Insert(c.Column)
 	}
 	// Construct & configure printer
-	tp := tr.NewPrinter().Start(start).End(end).MaxCellWidth(cfg.reportCellWidth).Padding(cfg.reportPadding)
+	tp := check.NewPrinter().Start(start).End(end).MaxCellWidth(cfg.reportCellWidth).Padding(cfg.reportPadding)
 	// Determine whether to enable ANSI escapes (e.g. for colour in the terminal)
 	tp = tp.AnsiEscapes(cfg.ansiEscapes)
 	// Filter out columns not used in evaluating the constraint.
