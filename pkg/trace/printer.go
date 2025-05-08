@@ -147,7 +147,7 @@ func (p *Printer) Print(trace Trace) {
 		tp.Set(0, uint(i+1), text)
 		//
 		for row := start; row < maxRow; row++ {
-			var hex string
+			var text termio.FormattedText
 			// Extract data for cell
 			jth := column.Data().Get(row)
 			// Determine text of cell
@@ -155,12 +155,16 @@ func (p *Printer) Print(trace Trace) {
 			//
 			if highlight && !p.ansiEscapes {
 				// In a non-ANSI environment, use a marker "*" to identify which cells were depended upon.
-				hex = fmt.Sprintf("*0x%s", jth.Text(16))
+				text = termio.NewText(fmt.Sprintf("*0x%s", jth.Text(16)))
+			} else if highlight {
+				hex := fmt.Sprintf("0x%s", jth.Text(16))
+				text = termio.NewFormattedText(hex, highlightEscape)
 			} else {
-				hex = fmt.Sprintf("0x%s", jth.Text(16))
+				text = termio.NewText(fmt.Sprintf("0x%s", jth.Text(16)))
 			}
 			//
-			tp.Set(1+row-start, uint(i+1), termio.NewFormattedText(hex, highlightEscape))
+			tp.Set(1+row-start, uint(i+1), text)
+			//
 		}
 	}
 	// Cap cells
