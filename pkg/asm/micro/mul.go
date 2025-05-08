@@ -116,7 +116,14 @@ func (p *Mul) RegistersWritten() []uint {
 // Split this micro code using registers of arbirary width into one or more
 // micro codes using registers of a fixed maximum width.
 func (p *Mul) Split(env *RegisterSplittingEnvironment) []Code {
-	panic("GOT HERE")
+	// Temporary hack
+	for _, r := range p.Registers() {
+		if env.regsBefore[r].Width >= env.maxWidth {
+			panic("splitting multiplication not supported")
+		}
+	}
+	//
+	return []Code{p}
 }
 
 func (p *Mul) String(regs []Register) string {
