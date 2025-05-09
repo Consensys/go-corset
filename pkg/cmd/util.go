@@ -27,7 +27,6 @@ import (
 	"github.com/consensys/go-corset/pkg/asm"
 	"github.com/consensys/go-corset/pkg/asm/macro"
 	"github.com/consensys/go-corset/pkg/binfile"
-	legacy_binfile "github.com/consensys/go-corset/pkg/binfile/legacy"
 	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/hir"
 	"github.com/consensys/go-corset/pkg/mir"
@@ -507,16 +506,11 @@ func ReadBatchedTraceFile(filename string) [][]trace.RawColumn {
 // binfile versioning defined in the binfile package.
 //
 //nolint:errcheck
-func WriteBinaryFile(binfile *binfile.BinaryFile, legacy bool, filename string) {
+func WriteBinaryFile(binfile *binfile.BinaryFile, filename string) {
 	var (
 		bytes []byte
 		err   error
 	)
-	// Sanity checks
-	if legacy {
-		// Currently, there is no support for this.
-		fmt.Println("legacy binary format not supported for writing")
-	}
 	// Encode binary file as bytes
 	if bytes, err = binfile.MarshalBinary(); err != nil {
 		fmt.Println(err.Error())
@@ -533,12 +527,10 @@ func WriteBinaryFile(binfile *binfile.BinaryFile, legacy bool, filename string) 
 // in one of two ways.  If a single file is provided with the "bin" extension
 // then this is treated as a binfile (e.g. zkevm.bin).  Otherwise, the files are
 // assumed to be source (i.e. lisp) files and are read in and then compiled into
-// a binfile.  NOTES: (1) when reading a binfile, the legacy format can be
-// explicitly specified (though it is also detected automatically so this is
-// largely redundant now); (2) when source files are provided, they can be
-// compiled with (or without) the standard library.  Generally speaking, you
-// want to compile with the standard library.  However, some internal tests are
-// run without including the standard library to minimise the surface area.
+// a binfile.  NOTES:  when source files are provided, they can be compiled with
+// (or without) the standard library.  Generally speaking, you want to compile
+// with the standard library.  However, some internal tests are run without
+// including the standard library to minimise the surface area.
 func ReadConstraintFiles(config corset.CompilationConfig, lowering asm.LoweringConfig,
 	filenames []string) *binfile.BinaryFile {
 	//
@@ -630,21 +622,13 @@ func ReadAssemblyTrace(filename string, program asm.MacroProgram) asm.MacroTrace
 }
 
 // ReadBinaryFile reads a binfile which includes the metadata bytes, along with
-// the schema, and any included attributes.  The legacy format can be explicitly
-// requested, though this function will now automatically detect whether it is a
-// legeacy or non-legacy binfile.
+// the schema, and any included attributes.
 func ReadBinaryFile(filename string) *binfile.BinaryFile {
 	var binf binfile.BinaryFile
 	// Read schema file
 	data, err := os.ReadFile(filename)
 	// Handle errors
-	if err == nil && !binfile.IsBinaryFile(data) {
-		var schema *hir.Schema
-		// Read the binary file
-		schema, err = legacy_binfile.HirSchemaFromJson(data)
-		//
-		binf.Schema = *schema
-	} else if err == nil {
+	if err == nil {
 		err = binf.UnmarshalBinary(data)
 	}
 	// Return if no errors
