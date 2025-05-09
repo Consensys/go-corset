@@ -87,6 +87,18 @@ type SourceModule struct {
 	Constants []SourceConstant
 }
 
+// Submodule returns the matching submodule with the given name, or nil if no
+// such module exists.
+func (p *SourceModule) Submodule(name string) *SourceModule {
+	for _, m := range p.Submodules {
+		if m.Name == name {
+			return &m
+		}
+	}
+	//
+	return nil
+}
+
 // Flattern modules in this tree either including (or excluding) virtual
 // modules.
 func (p *SourceModule) Flattern(predicate func(*SourceModule) bool) []SourceModule {
