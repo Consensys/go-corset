@@ -92,8 +92,8 @@ var traceCmd = &cobra.Command{
 			// read trace & constraints
 			macroProgram, _ := ReadAssemblyProgram(args[1])
 			macroTrace := ReadAssemblyTrace(args[1], macroProgram)
-			microTrace := macroTrace.Lower(asmConfig)
-			traces = [][]trace.RawColumn{microTrace.Lower()}
+			microTrace := asm.LowerMacroTrace(asmConfig, macroTrace)
+			traces = [][]trace.RawColumn{asm.LowerMicroTrace(microTrace)}
 		} else {
 			// unbatched (i.e. normal) mode
 			tracefile := ReadTraceFile(args[0])

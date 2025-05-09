@@ -36,7 +36,7 @@ func NewTraceBuilder[T io.Instruction](program io.Program[T]) *TraceBuilder[T] {
 }
 
 // Build constructs a complete trace, given a set of function instances.
-func (p *TraceBuilder[T]) Build(trace Trace[T]) []tr.RawColumn {
+func (p *TraceBuilder[T]) Build(trace io.Trace[T]) []tr.RawColumn {
 	var columns []tr.RawColumn
 	//
 	for i := range p.program.Functions() {
@@ -47,7 +47,7 @@ func (p *TraceBuilder[T]) Build(trace Trace[T]) []tr.RawColumn {
 	return columns
 }
 
-func (p *TraceBuilder[T]) expandFunctionInstances(fid uint, trace Trace[T]) []tr.RawColumn {
+func (p *TraceBuilder[T]) expandFunctionInstances(fid uint, trace io.Trace[T]) []tr.RawColumn {
 	var (
 		fn      = p.program.Function(fid)
 		data    = make([][]big.Int, len(fn.Registers)+2)
@@ -87,7 +87,7 @@ func (p *TraceBuilder[T]) expandFunctionInstances(fid uint, trace Trace[T]) []tr
 }
 
 func (p *TraceBuilder[T]) traceFunction(fid uint, stamp uint, trace [][]big.Int,
-	instance FunctionInstance) [][]big.Int {
+	instance io.FunctionInstance) [][]big.Int {
 	//
 	interpreter := NewInterpreter(p.program)
 	// Initialise state

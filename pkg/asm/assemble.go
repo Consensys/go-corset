@@ -30,6 +30,16 @@ import (
 // Register describes a single register within a function.
 type Register = io.Register
 
+// MacroFunction is a function whose instructions are themselves macro
+// instructions.  A macro function must be compiled down into a micro function
+// before we can generate constraints.
+type MacroFunction = io.Function[macro.Instruction]
+
+// MicroFunction is a function whose instructions are themselves micro
+// instructions.  A micro function represents the lowest representation of a
+// function, where each instruction is made up of microcodes.
+type MicroFunction = io.Function[micro.Instruction]
+
 // MacroProgram represents a set of components at the macro level.
 type MacroProgram = io.Program[macro.Instruction]
 

@@ -12,6 +12,10 @@
 // SPDX-License-Identifier: Apache-2.0
 package io
 
+import (
+	"math/big"
+)
+
 // Function defines a distinct functional entity within the system.  Functions
 // accepts zero or more inputs and produce zero or more outputs.  Functions
 // declare zero or more internal registers for use, and their interpretation is
@@ -40,6 +44,10 @@ func NewProgram[T any](components ...Function[T]) Program[T] {
 	return &program[T]{components}
 }
 
+// ============================================================================
+// Helpers
+// ============================================================================
+
 // Simple implementation of Program[T]
 type program[T any] struct {
 	functions []Function[T]
@@ -53,4 +61,25 @@ func (p *program[T]) Function(id uint) Function[T] {
 // Functions returns all functions making up this program.
 func (p *program[T]) Functions() []Function[T] {
 	return p.functions
+}
+
+func splitRegisterValue(maxWidth uint, reg Register, value big.Int, iomap map[string]big.Int) map[string]big.Int {
+	var (
+		nlimbs = NumberOfLimbs(maxWidth, reg.Width)
+	)
+	//
+	if nlimbs == 1 {
+		// no splitting required
+		iomap[reg.Name] = value
+	} else {
+		// splitting required
+		regs := SplitRegister(maxWidth, reg)
+		values := SplitValueAcrossRegisters(&value, regs...)
+		//
+		for i, limb := range regs {
+			iomap[limb.Name] = values[i]
+		}
+	}
+	//
+	return iomap
 }
