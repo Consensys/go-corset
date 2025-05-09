@@ -10,161 +10,34 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package asm
+package assembler
 
 import (
-	"fmt"
 	"math"
 	"math/big"
 	"strconv"
 	"strings"
 
-	"github.com/consensys/go-corset/pkg/asm/insn"
-	instruction "github.com/consensys/go-corset/pkg/asm/insn"
-	"github.com/consensys/go-corset/pkg/asm/macro"
-	"github.com/consensys/go-corset/pkg/asm/micro"
+	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/asm/io/macro"
+	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/util/source/lex"
 )
 
+// MacroFunction is a function whose instructions are themselves macro
+// instructions.  A macro function must be compiled down into a micro function
+// before we can generate constraints.
+type MacroFunction = io.Function[macro.Instruction]
+
 // Parse accepts a given source file representing an assembly language
 // program, and assembles it into an instruction sequence which can then the
 // executed.
-func Parse(srcfile *source.File) (MacroProgram, *source.Map[macro.Instruction], []source.SyntaxError) {
+func Parse(srcfile *source.File) ([]MacroFunction, *source.Map[macro.Instruction], []source.SyntaxError) {
 	parser := NewParser(srcfile)
 	// Parse functions
-	return parser.parse()
-}
-
-// ============================================================================
-// Lexer
-// ============================================================================
-
-// END_OF signals "end of file"
-const END_OF uint = 0
-
-// WHITESPACE signals whitespace
-const WHITESPACE uint = 1
-
-// COMMENT signals ";; ... \n"
-const COMMENT uint = 2
-
-// LBRACE signals "("
-const LBRACE uint = 3
-
-// RBRACE signals ")"
-const RBRACE uint = 4
-
-// LCURLY signals "{"
-const LCURLY uint = 5
-
-// RCURLY signals "}"
-const RCURLY uint = 6
-
-// COMMA signals ","
-const COMMA uint = 7
-
-// COLON signals ":"
-const COLON uint = 8
-
-// SEMICOLON signals ":"
-const SEMICOLON uint = 9
-
-// NUMBER signals an integer number
-const NUMBER uint = 10
-
-// IDENTIFIER signals a column variable.
-const IDENTIFIER uint = 11
-
-// RIGHTARROW signals "->"
-const RIGHTARROW uint = 12
-
-// EQUALS signals "="
-const EQUALS uint = 13
-
-// EQUALS_EQUALS signals "=="
-const EQUALS_EQUALS uint = 14
-
-// NOT_EQUALS signals "!="
-const NOT_EQUALS uint = 15
-
-// LESS_THAN signals "<"
-const LESS_THAN uint = 16
-
-// LESS_THAN_EQUALS signals "<="
-const LESS_THAN_EQUALS uint = 17
-
-// GREATER_THAN signals ">"
-const GREATER_THAN uint = 18
-
-// GREATER_THAN_EQUALS signals ">="
-const GREATER_THAN_EQUALS uint = 19
-
-// ADD signals "+"
-const ADD uint = 20
-
-// SUB signals "-"
-const SUB uint = 21
-
-// MUL signals "*"
-const MUL uint = 22
-
-// Rule for describing whitespace
-var whitespace lex.Scanner[rune] = lex.Many(lex.Or(lex.Unit(' '), lex.Unit('\t'), lex.Unit('\n')))
-
-// Rule for describing numbers
-var number lex.Scanner[rune] = lex.Many(lex.Within('0', '9'))
-
-var identifierStart lex.Scanner[rune] = lex.Or(
-	lex.Unit('_'),
-	lex.Unit('\''),
-	lex.Within('a', 'z'),
-	lex.Within('A', 'Z'))
-
-var identifierRest lex.Scanner[rune] = lex.Many(lex.Or(
-	lex.Unit('_'),
-	lex.Unit('\''),
-	lex.Within('0', '9'),
-	lex.Within('a', 'z'),
-	lex.Within('A', 'Z')))
-
-// Rule for describing identifiers
-var identifier lex.Scanner[rune] = lex.And(identifierStart, identifierRest)
-
-// Comments start with ';;'
-var commentStart lex.Scanner[rune] = lex.Unit(';', ';')
-
-// Comments continue until a newline or EOF.
-var commentRest lex.Scanner[rune] = lex.Until('\n')
-
-var comment lex.Scanner[rune] = lex.And(commentStart, commentRest)
-
-// lexing rules
-var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
-	lex.Rule(comment, COMMENT),
-	lex.Rule(lex.Unit('('), LBRACE),
-	lex.Rule(lex.Unit(')'), RBRACE),
-	lex.Rule(lex.Unit('{'), LCURLY),
-	lex.Rule(lex.Unit('}'), RCURLY),
-	lex.Rule(lex.Unit(','), COMMA),
-	lex.Rule(lex.Unit(':'), COLON),
-	lex.Rule(lex.Unit(';'), SEMICOLON),
-	lex.Rule(lex.Unit('-', '>'), RIGHTARROW),
-	lex.Rule(lex.Unit('=', '='), EQUALS_EQUALS),
-	lex.Rule(lex.Unit('!', '='), NOT_EQUALS),
-	lex.Rule(lex.Unit('<', '='), LESS_THAN_EQUALS),
-	lex.Rule(lex.Unit('>', '='), GREATER_THAN_EQUALS),
-	lex.Rule(lex.Unit('<'), LESS_THAN),
-	lex.Rule(lex.Unit('>'), GREATER_THAN),
-	lex.Rule(lex.Unit('='), EQUALS),
-	lex.Rule(lex.Unit('+'), ADD),
-	lex.Rule(lex.Unit('-'), SUB),
-	lex.Rule(lex.Unit('*'), MUL),
-	lex.Rule(whitespace, WHITESPACE),
-	lex.Rule(number, NUMBER),
-	lex.Rule(identifier, IDENTIFIER),
-	lex.Rule(lex.Eof[rune](), END_OF),
+	return parser.Parse()
 }
 
 // ============================================================================
@@ -189,46 +62,29 @@ func NewParser(srcfile *source.File) *Parser {
 	return &Parser{srcfile, nil, srcmap, 0}
 }
 
-func (p *Parser) parse() (MacroProgram, *source.Map[macro.Instruction], []source.SyntaxError) {
-	var program MacroProgram
-	// Initialise tokens array
-	if errs := p.lex(); len(errs) > 0 {
-		return program, p.srcmap, errs
+// Parse the given source file into a sequence of zero or more components and/or
+// some number of syntax errors.
+func (p *Parser) Parse() ([]MacroFunction, *source.Map[macro.Instruction], []source.SyntaxError) {
+	var (
+		components []MacroFunction
+		errors     []source.SyntaxError
+	)
+	// Convert source file into tokens
+	if p.tokens, errors = Lex(*p.srcfile); len(errors) > 0 {
+		return components, p.srcmap, errors
 	}
 	// Continue going until all consumed
 	for p.lookahead().Kind != END_OF {
 		fn, errs := p.parseFunction()
 		//
 		if len(errs) > 0 {
-			return program, p.srcmap, errs
+			return components, p.srcmap, errs
 		}
 		//
-		program.functions = append(program.functions, fn)
+		components = append(components, fn)
 	}
 	//
-	return program, p.srcmap, nil
-}
-
-// Initialise lexer and lex contents
-func (p *Parser) lex() []source.SyntaxError {
-	var (
-		lexer = lex.NewLexer(p.srcfile.Contents(), rules...)
-		// Lex as many tokens as possible
-		tokens = lexer.Collect()
-	)
-	// Check whether anything was left (if so this is an error)
-	if lexer.Remaining() != 0 {
-		start, end := lexer.Index(), lexer.Index()+lexer.Remaining()
-		err := p.srcfile.SyntaxError(source.NewSpan(int(start), int(end)), "unknown text encountered")
-		// errors
-		return []source.SyntaxError{*err}
-	}
-	// Remove any whitespace
-	tokens = util.RemoveMatching(tokens, func(t lex.Token) bool { return t.Kind == WHITESPACE })
-	// Remove any comments
-	p.tokens = util.RemoveMatching(tokens, func(t lex.Token) bool { return t.Kind == COMMENT })
-	//
-	return nil
+	return components, p.srcmap, nil
 }
 
 func (p *Parser) parseFunction() (MacroFunction, []source.SyntaxError) {
@@ -236,7 +92,7 @@ func (p *Parser) parseFunction() (MacroFunction, []source.SyntaxError) {
 		fn              MacroFunction
 		env             Environment
 		inst            macro.Instruction
-		inputs, outputs []Register
+		inputs, outputs []io.Register
 		errs            []source.SyntaxError
 		pc              uint
 	)
@@ -249,7 +105,7 @@ func (p *Parser) parseFunction() (MacroFunction, []source.SyntaxError) {
 		return fn, errs
 	}
 	// Parse inputs
-	if inputs, errs = p.parseArgsList(insn.INPUT_REGISTER); len(errs) > 0 {
+	if inputs, errs = p.parseArgsList(io.INPUT_REGISTER); len(errs) > 0 {
 		return fn, errs
 	}
 	// Parse '->'
@@ -257,7 +113,7 @@ func (p *Parser) parseFunction() (MacroFunction, []source.SyntaxError) {
 		return fn, errs
 	}
 	// Parse outputs
-	if outputs, errs = p.parseArgsList(insn.OUTPUT_REGISTER); len(errs) > 0 {
+	if outputs, errs = p.parseArgsList(io.OUTPUT_REGISTER); len(errs) > 0 {
 		return fn, errs
 	}
 	// Initialise register list from inputs/outputs
@@ -288,12 +144,12 @@ func (p *Parser) parseFunction() (MacroFunction, []source.SyntaxError) {
 	return fn, nil
 }
 
-func (p *Parser) parseArgsList(kind uint8) ([]Register, []source.SyntaxError) {
+func (p *Parser) parseArgsList(kind uint8) ([]io.Register, []source.SyntaxError) {
 	var (
 		arg   string
 		width uint
 		errs  []source.SyntaxError
-		regs  []Register
+		regs  []io.Register
 	)
 	// Parse start of list
 	if _, errs = p.expect(LBRACE); len(errs) > 0 {
@@ -314,7 +170,7 @@ func (p *Parser) parseArgsList(kind uint8) ([]Register, []source.SyntaxError) {
 			return nil, errs
 		}
 		//
-		regs = append(regs, insn.NewRegister(kind, arg, width))
+		regs = append(regs, io.NewRegister(kind, arg, width))
 	}
 	// Advance past "}"
 	p.match(RBRACE)
@@ -348,28 +204,6 @@ func (p *Parser) parseType() (uint, []source.SyntaxError) {
 	}
 }
 
-/*
-	func (p *Parser) parseVectorInstruction(pc uint, env *Environment) (Instruction, []source.SyntaxError) {
-		var (
-			insns  []macro.Instruction = make([]macro.Instruction, 1)
-			errors []source.SyntaxError
-		)
-		// parse first instruction
-		return insn, errors := p.parseMacroInstruction(pc, env)
-		// check real instruction parsed
-		if insns[0] == nil {
-			return Instruction{Instructions: nil}, errors
-		}
-		//
-		for len(errors) == 0 && p.match(SEMICOLON) {
-			i, errs := p.parsemacro.Instruction(pc, env)
-			insns = append(insns, i)
-			errors = append(errors, errs...)
-		}
-		//
-		return Instruction{Instructions: insns}, errors
-	}
-*/
 func (p *Parser) parseMacroInstruction(pc uint, env *Environment) (macro.Instruction, []source.SyntaxError) {
 	var (
 		// Save current position for backtracking
@@ -384,14 +218,14 @@ func (p *Parser) parseMacroInstruction(pc uint, env *Environment) (macro.Instruc
 	}
 	//
 	switch first {
-	case "var":
-		return nil, p.parseVar(env)
 	case "jc":
 		insn, errs = p.parseJCond(env)
 	case "jmp":
 		insn, errs = p.parseJmp(env)
 	case "ret":
 		insn, errs = &micro.Ret{}, nil
+	case "var":
+		return nil, p.parseVar(env)
 	default:
 		isLabel := p.lookahead().Kind == COLON
 		// Backtrack
@@ -419,7 +253,7 @@ func (p *Parser) parseJmp(env *Environment) (macro.Instruction, []source.SyntaxE
 	}
 	//
 	return &micro.Jmp{
-		Target: env.Bind(lab)}, nil
+		Target: env.BindLabel(lab)}, nil
 }
 
 func (p *Parser) parseLabel(pc uint, env *Environment) (macro.Instruction, []source.SyntaxError) {
@@ -466,7 +300,7 @@ func (p *Parser) parseVar(env *Environment) []source.SyntaxError {
 	}
 	//
 	for _, name := range names {
-		env.DeclareRegister(insn.TEMP_REGISTER, name, width)
+		env.DeclareRegister(io.TEMP_REGISTER, name, width)
 	}
 	//
 	return nil
@@ -502,7 +336,7 @@ func (p *Parser) parseJCond(env *Environment) (macro.Instruction, []source.Synta
 		Left:     lhs,
 		Right:    rhs,
 		Constant: constant,
-		Target:   env.Bind(label),
+		Target:   env.BindLabel(label),
 	}, nil
 }
 
@@ -523,47 +357,37 @@ func (p *Parser) parseAssignment(env *Environment) (macro.Instruction, []source.
 	if _, errs = p.expect(EQUALS); len(errs) > 0 {
 		return nil, errs
 	}
-	// Parse right-hand side
-	if kind, rhs, constant, errs = p.parseAssignmentRhs(env); len(errs) > 0 {
-		return nil, errs
+	// Check what we've got
+	if p.follows(IDENTIFIER, LBRACE) {
+		// function call
+		return p.parseCallRhs(lhs, env)
+	} else {
+		// Parse right-hand side
+		if kind, rhs, constant, errs = p.parseAssignmentRhs(env); len(errs) > 0 {
+			return nil, errs
+		}
+		//
+		switch kind {
+		case ADD:
+			insn = &micro.Add{Targets: lhs, Sources: rhs, Constant: constant}
+		case SUB:
+			insn = &micro.Sub{Targets: lhs, Sources: rhs, Constant: constant}
+		case MUL:
+			insn = &micro.Mul{Targets: lhs, Sources: rhs, Constant: constant}
+		default:
+			panic("unreachable")
+		}
+		// Done
+		return insn, nil
 	}
-	//
-	switch kind {
-	case ADD:
-		insn = &micro.Add{Targets: lhs, Sources: rhs, Constant: constant}
-	case SUB:
-		insn = &micro.Sub{Targets: lhs, Sources: rhs, Constant: constant}
-	case MUL:
-		insn = &micro.Mul{Targets: lhs, Sources: rhs, Constant: constant}
-	default:
-		panic("unreachable")
-	}
-	// Done
-	return insn, nil
 }
 
 func (p *Parser) parseAssignmentLhs(env *Environment) ([]uint, []source.SyntaxError) {
-	var (
-		lhs  []uint = make([]uint, 1)
-		errs []source.SyntaxError
-		reg  uint
-	)
-	// lhs always starts with a register
-	if lhs[0], errs = p.parseRegister(env); len(errs) > 0 {
-		return nil, errs
-	}
-	// lhs may have additional registers
-	for p.match(COMMA) {
-		if reg, errs = p.parseRegister(env); len(errs) > 0 {
-			return nil, errs
-		}
-		// Add register to lhs
-		lhs = append(lhs, reg)
-	}
+	lhs, errs := p.parseRegisterList(env)
 	// Reverse items so that least significant comes first.
 	lhs = util.Reverse(lhs)
 	//
-	return lhs, nil
+	return lhs, errs
 }
 
 func (p *Parser) parseAssignmentRhs(env *Environment) (uint, []uint, big.Int, []source.SyntaxError) {
@@ -621,6 +445,51 @@ func (p *Parser) parseAssignmentOp() (lex.Token, bool) {
 	}
 }
 
+func (p *Parser) parseCallRhs(lhs []uint, env *Environment) (macro.Instruction, []source.SyntaxError) {
+	var (
+		errs []source.SyntaxError
+		rhs  []uint
+		fn   string
+	)
+	//
+	if fn, errs = p.parseIdentifier(); len(errs) > 0 {
+		return nil, errs
+	} else if _, errs = p.expect(LBRACE); len(errs) > 0 {
+		return nil, errs
+	} else if rhs, errs = p.parseRegisterList(env); len(errs) > 0 {
+		return nil, errs
+	} else if _, errs = p.expect(RBRACE); len(errs) > 0 {
+		return nil, errs
+	}
+	// Generate temporary bus identifier
+	bus := env.BindBus(fn)
+	// Done
+	return &micro.Call{Bus: bus, Targets: lhs, Sources: rhs}, nil
+}
+
+// Parse sequence of one or more registers separated by a comma.
+func (p *Parser) parseRegisterList(env *Environment) ([]uint, []source.SyntaxError) {
+	var (
+		lhs  []uint = make([]uint, 1)
+		errs []source.SyntaxError
+		reg  uint
+	)
+	// lhs always starts with a register
+	if lhs[0], errs = p.parseRegister(env); len(errs) > 0 {
+		return nil, errs
+	}
+	// lhs may have additional registers
+	for p.match(COMMA) {
+		if reg, errs = p.parseRegister(env); len(errs) > 0 {
+			return nil, errs
+		}
+		// Add register to lhs
+		lhs = append(lhs, reg)
+	}
+	//
+	return lhs, nil
+}
+
 func (p *Parser) parseRegisterOrConstant(env *Environment) (uint, big.Int, []source.SyntaxError) {
 	var (
 		reg      uint
@@ -636,7 +505,7 @@ func (p *Parser) parseRegisterOrConstant(env *Environment) (uint, big.Int, []sou
 	case NUMBER:
 		p.match(NUMBER)
 		//
-		reg = insn.UNUSED_REGISTER
+		reg = io.UNUSED_REGISTER
 		constant = p.number(lookahead)
 	default:
 		errs = p.syntaxErrors(lookahead, "expecting register or constant")
@@ -741,6 +610,19 @@ func (p *Parser) match(kind uint) bool {
 	return false
 }
 
+// Follows attempts to check what follows the current position.
+func (p *Parser) follows(kinds ...uint) bool {
+	for i, kind := range kinds {
+		n := i + p.index
+		if n >= len(p.tokens) {
+			return false
+		} else if p.tokens[n].Kind != kind {
+			return false
+		}
+	}
+	//
+	return true
+}
 func (p *Parser) spanOf(firstToken, lastToken int) source.Span {
 	start := p.tokens[firstToken].Span.Start()
 	end := p.tokens[lastToken].Span.End()
@@ -769,110 +651,4 @@ func UnboundLabel(name string) Label {
 // BoundLabel constructs a label whose PC location is known.
 func BoundLabel(name string, pc uint) Label {
 	return Label{name, pc}
-}
-
-// Environment captures useful information used during the assembling process.
-type Environment struct {
-	// Labels identifies branch targets.
-	labels []Label
-	// Registers identifies set of declared registers.
-	registers []Register
-}
-
-// Bind associates a label with a given index which can subsequently be used to
-// determine a concrete program counter value.
-func (p *Environment) Bind(name string) uint {
-	// Check whether label already declared.
-	for i, lab := range p.labels {
-		if lab.name == name {
-			return uint(i)
-		}
-	}
-	// Determine index for new label
-	index := uint(len(p.labels))
-	// Create new label
-	p.labels = append(p.labels, UnboundLabel(name))
-	// Done
-	return index
-}
-
-// DeclareLabel declares a given label at a given program counter position.  If
-// a label with the same name already exists, this will panic.
-func (p *Environment) DeclareLabel(name string, pc uint) {
-	// First, check whether the label already exists
-	for i, lab := range p.labels {
-		if lab.name == name {
-			if lab.pc == math.MaxUint {
-				p.labels[i].pc = pc
-				return
-			}
-			//
-			panic("label already bound")
-		}
-	}
-	// Create new label
-	p.labels = append(p.labels, BoundLabel(name, pc))
-}
-
-// DeclareRegister declares a new register with the given name and bitwidth.  If
-// a register with the same name already exists, this panics.
-func (p *Environment) DeclareRegister(kind uint8, name string, width uint) {
-	if p.IsRegister(name) {
-		panic(fmt.Sprintf("register %s already declared", name))
-	}
-	//
-	p.registers = append(p.registers, instruction.NewRegister(kind, name, width))
-}
-
-// IsRegister checks whether or not a given name is already declared as a
-// register.
-func (p *Environment) IsRegister(name string) bool {
-	for _, reg := range p.registers {
-		if reg.Name == name {
-			return true
-		}
-	}
-	//
-	return false
-}
-
-// IsBoundLabel checks whether or not a given label has already been bound to a
-// given PC.
-func (p *Environment) IsBoundLabel(name string) bool {
-	for _, l := range p.labels {
-		if l.name == name && l.pc != math.MaxUint {
-			return true
-		}
-	}
-	//
-	return false
-}
-
-// LookupRegister looks up the index for a given register.
-func (p *Environment) LookupRegister(name string) uint {
-	for i, reg := range p.registers {
-		if reg.Name == name {
-			return uint(i)
-		}
-	}
-	//
-	panic(fmt.Sprintf("unknown register %s", name))
-}
-
-// BindLabels processes a given set of instructions by mapping their label
-// indexes to concrete program counter locations.
-func (p *Environment) BindLabels(insns []macro.Instruction) {
-	labels := make([]uint, len(p.labels))
-	// Initial the label map
-	for i := range labels {
-		labels[i] = p.labels[i].pc
-		// sanity check
-		if labels[i] == math.MaxUint {
-			panic(fmt.Sprintf("unbound label \"%s\"", p.labels[i].name))
-		}
-	}
-	// Bind labels using the map
-	for _, insn := range insns {
-		insn.Bind(labels)
-	}
 }

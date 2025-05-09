@@ -18,7 +18,7 @@ import (
 	"math/big"
 	"slices"
 
-	"github.com/consensys/go-corset/pkg/asm/insn"
+	"github.com/consensys/go-corset/pkg/asm/io"
 )
 
 // Sub represents a generic operation of the following form:
@@ -68,7 +68,7 @@ func (p *Sub) Clone() Code {
 // given set of register values.  This may update the register values, and
 // returns the next program counter position.  If the program counter is
 // math.MaxUint then a return is signaled.
-func (p *Sub) Execute(pc uint, state []big.Int, regs []Register) uint {
+func (p *Sub) Execute(pc uint, state []big.Int, regs []io.Register) uint {
 	p.MicroExecute(state, regs)
 	return pc + 1
 }
@@ -77,7 +77,7 @@ func (p *Sub) Execute(pc uint, state []big.Int, regs []Register) uint {
 // may update the register values, and returns either the number of micro-codes
 // to "skip over" when executing the enclosing instruction or, if skip==0, a
 // destination program counter (which can signal return of enclosing function).
-func (p *Sub) MicroExecute(state []big.Int, regs []Register) (uint, uint) {
+func (p *Sub) MicroExecute(state []big.Int, regs []io.Register) (uint, uint) {
 	var value big.Int
 	// Clone initial value
 	value.Set(&state[p.Sources[0]])
@@ -88,7 +88,7 @@ func (p *Sub) MicroExecute(state []big.Int, regs []Register) (uint, uint) {
 	// Subtract constant
 	value.Sub(&value, &p.Constant)
 	// Write value
-	insn.WriteTargetRegisters(p.Targets, state, regs, value)
+	io.WriteTargetRegisters(p.Targets, state, regs, value)
 	//
 	return 1, 0
 }
@@ -166,7 +166,7 @@ func (p *Sub) Split(env *RegisterSplittingEnvironment) []Code {
 	return ncodes
 }
 
-func (p *Sub) String(regs []Register) string {
+func (p *Sub) String(regs []io.Register) string {
 	return assignmentToString(p.Targets, p.Sources, p.Constant, regs, zero, " - ")
 }
 
@@ -174,7 +174,7 @@ func (p *Sub) String(regs []Register) string {
 // algorithm here may seem a little odd at first.  It counts the number of
 // *unique values* required to hold both the positive and negative components of
 // the right-hand side.  This gives the minimum bitwidth required.
-func (p *Sub) Validate(fieldWidth uint, regs []Register) error {
+func (p *Sub) Validate(fieldWidth uint, regs []io.Register) error {
 	var (
 		lhs_bits = sumTargetBits(p.Targets, regs)
 		rhs_bits = subSourceBits(p.Sources, p.Constant, regs)
@@ -188,7 +188,7 @@ func (p *Sub) Validate(fieldWidth uint, regs []Register) error {
 		return err
 	}
 	// Finally, ensure unique targets
-	return insn.CheckTargetRegisters(p.Targets, regs)
+	return io.CheckTargetRegisters(p.Targets, regs)
 }
 
 // the pivot check is necessary to ensure we can properly rebalance a
@@ -196,7 +196,7 @@ func (p *Sub) Validate(fieldWidth uint, regs []Register) error {
 // The issue is that, for example, x cannot be split across both sides.  Thus,
 // we need x to align with y.  For a case like "c,y,x = a-b" then we need either
 // x to align with a, or y,x to align with a.
-func checkPivot(source uint, targets []uint, regs []Register) error {
+func checkPivot(source uint, targets []uint, regs []io.Register) error {
 	var (
 		rhs_width = regs[source].Width
 		lhs_width = uint(0)
@@ -216,7 +216,7 @@ func checkPivot(source uint, targets []uint, regs []Register) error {
 	return fmt.Errorf("incorrect alignment (%d bits versus %d bits)", lhs_width, rhs_width)
 }
 
-func subSourceBits(sources []uint, constant big.Int, regs []Register) uint {
+func subSourceBits(sources []uint, constant big.Int, regs []io.Register) uint {
 	var rhs big.Int = *regs[sources[0]].MaxValue()
 	// Now, add negative components
 	for _, target := range sources[1:] {

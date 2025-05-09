@@ -15,7 +15,7 @@ package asm
 import (
 	"math/big"
 
-	"github.com/consensys/go-corset/pkg/asm/insn"
+	"github.com/consensys/go-corset/pkg/asm/io"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/field"
 )
@@ -26,17 +26,17 @@ const pc_width = uint(8)
 // TraceBuilder provides a mechanical means of constructing a trace from a given
 // schema and set of input columns.  The goal is to encapsulate all of the logic
 // around building a trace.
-type TraceBuilder[T insn.Instruction] struct {
-	program Program[T]
+type TraceBuilder[T io.Instruction] struct {
+	program io.Program[T]
 }
 
 // NewTraceBuilder constructs a new trace builder for a given set of functions.
-func NewTraceBuilder[T insn.Instruction](program Program[T]) *TraceBuilder[T] {
+func NewTraceBuilder[T io.Instruction](program io.Program[T]) *TraceBuilder[T] {
 	return &TraceBuilder[T]{program}
 }
 
 // Build constructs a complete trace, given a set of function instances.
-func (p *TraceBuilder[T]) Build(trace Trace[T]) []tr.RawColumn {
+func (p *TraceBuilder[T]) Build(trace io.Trace[T]) []tr.RawColumn {
 	var columns []tr.RawColumn
 	//
 	for i := range p.program.Functions() {
@@ -47,7 +47,7 @@ func (p *TraceBuilder[T]) Build(trace Trace[T]) []tr.RawColumn {
 	return columns
 }
 
-func (p *TraceBuilder[T]) expandFunctionInstances(fid uint, trace Trace[T]) []tr.RawColumn {
+func (p *TraceBuilder[T]) expandFunctionInstances(fid uint, trace io.Trace[T]) []tr.RawColumn {
 	var (
 		fn      = p.program.Function(fid)
 		data    = make([][]big.Int, len(fn.Registers)+2)
@@ -87,7 +87,7 @@ func (p *TraceBuilder[T]) expandFunctionInstances(fid uint, trace Trace[T]) []tr
 }
 
 func (p *TraceBuilder[T]) traceFunction(fid uint, stamp uint, trace [][]big.Int,
-	instance FunctionInstance) [][]big.Int {
+	instance io.FunctionInstance) [][]big.Int {
 	//
 	interpreter := NewInterpreter(p.program)
 	// Initialise state

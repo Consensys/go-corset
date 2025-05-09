@@ -18,8 +18,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/consensys/go-corset/pkg/asm/insn"
-	"github.com/consensys/go-corset/pkg/asm/micro"
+	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/mir"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -77,7 +77,7 @@ func check(t *testing.T, test string) {
 	// Package up as source file
 	srcfile := source.NewSourceFile(filename, bytes)
 	// Parse terms into an assembly macroProgram
-	macroProgram, _, errs := Parse(srcfile)
+	macroProgram, _, errs := Assemble(*srcfile)
 	// Check terms parsed ok
 	if len(errs) > 0 {
 		t.Fatalf("Error parsing %s: %v\n", filename, errs)
@@ -113,7 +113,7 @@ func check(t *testing.T, test string) {
 }
 
 // Check the given traces for all function instances.
-func checkTraces[T insn.Instruction](t *testing.T, test string, ir string, cfg TestConfig, traces []Trace[T]) {
+func checkTraces[T io.Instruction](t *testing.T, test string, ir string, cfg TestConfig, traces []io.Trace[T]) {
 	//
 	for i, tr := range traces {
 		id := traceId{ir, test, cfg.expected, i + 1, 0}
@@ -126,7 +126,7 @@ func checkTraces[T insn.Instruction](t *testing.T, test string, ir string, cfg T
 
 // Check a given set of tests have an expected outcome (i.e. are
 // either accepted or rejected) by a given set of constraints.
-func checkIrTraces(t *testing.T, test string, cfg TestConfig, traces []Trace[micro.Instruction]) {
+func checkIrTraces(t *testing.T, test string, cfg TestConfig, traces []io.Trace[micro.Instruction]) {
 	var (
 		maxPadding = MAX_PADDING
 		program    = traces[0].Program()
@@ -137,8 +137,7 @@ func checkIrTraces(t *testing.T, test string, cfg TestConfig, traces []Trace[mic
 	hirSchema := &binFile.Schema
 	//
 	for _, tr := range traces {
-		utr := tr.(*MicroTrace)
-		hirTraces = append(hirTraces, utr.Lower())
+		hirTraces = append(hirTraces, LowerMicroTrace(tr))
 	}
 	//
 	for i, tr := range hirTraces {
@@ -196,7 +195,7 @@ func checkTrace(t *testing.T, inputs []trace.RawColumn, id traceId, schema sc.Sc
 }
 
 // Check the given traces for a particular function instance.
-func checkFunction[T insn.Instruction](t *testing.T, id traceId, instance FunctionInstance, program Program[T]) {
+func checkFunction[T io.Instruction](t *testing.T, id traceId, instance io.FunctionInstance, program io.Program[T]) {
 	outcome, err := CheckInstance(instance, program)
 	//
 	if outcome == math.MaxUint {

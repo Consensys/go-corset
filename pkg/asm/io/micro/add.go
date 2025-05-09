@@ -18,7 +18,7 @@ import (
 	"math/big"
 	"slices"
 
-	"github.com/consensys/go-corset/pkg/asm/insn"
+	"github.com/consensys/go-corset/pkg/asm/io"
 )
 
 // Add represents a generic operation of the following form:
@@ -68,7 +68,7 @@ func (p *Add) Clone() Code {
 // given set of register values.  This may update the register values, and
 // returns the next program counter position.  If the program counter is
 // math.MaxUint then a return is signaled.
-func (p *Add) Execute(pc uint, state []big.Int, regs []Register) uint {
+func (p *Add) Execute(pc uint, state []big.Int, regs []io.Register) uint {
 	p.MicroExecute(state, regs)
 	return pc + 1
 }
@@ -77,7 +77,7 @@ func (p *Add) Execute(pc uint, state []big.Int, regs []Register) uint {
 // may update the register values, and returns either the number of micro-codes
 // to "skip over" when executing the enclosing instruction or, if skip==0, a
 // destination program counter (which can signal return of enclosing function).
-func (p *Add) MicroExecute(state []big.Int, regs []Register) (uint, uint) {
+func (p *Add) MicroExecute(state []big.Int, regs []io.Register) (uint, uint) {
 	var value big.Int
 	// Add constant
 	value.Set(&p.Constant)
@@ -86,7 +86,7 @@ func (p *Add) MicroExecute(state []big.Int, regs []Register) (uint, uint) {
 		value.Add(&value, &state[src])
 	}
 	// Write value
-	insn.WriteTargetRegisters(p.Targets, state, regs, value)
+	io.WriteTargetRegisters(p.Targets, state, regs, value)
 	//
 	return 1, 0
 }
@@ -112,7 +112,7 @@ func (p *Add) RegistersWritten() []uint {
 	return p.Targets
 }
 
-func (p *Add) String(regs []Register) string {
+func (p *Add) String(regs []io.Register) string {
 	return assignmentToString(p.Targets, p.Sources, p.Constant, regs, zero, " + ")
 }
 
@@ -187,7 +187,7 @@ func (p *Add) Split(env *RegisterSplittingEnvironment) []Code {
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Add) Validate(fieldWidth uint, regs []Register) error {
+func (p *Add) Validate(fieldWidth uint, regs []io.Register) error {
 	var (
 		lhs_bits = sumTargetBits(p.Targets, regs)
 		rhs_bits = sumSourceBits(p.Sources, p.Constant, regs)
@@ -199,7 +199,7 @@ func (p *Add) Validate(fieldWidth uint, regs []Register) error {
 		return fmt.Errorf("field overflow (%d bits into %d bit field)", rhs_bits, fieldWidth)
 	}
 	//
-	return insn.CheckTargetRegisters(p.Targets, regs)
+	return io.CheckTargetRegisters(p.Targets, regs)
 }
 
 func (p *Add) splitAssignment(env *RegisterSplittingEnvironment) []Code {
@@ -217,7 +217,7 @@ func (p *Add) splitAssignment(env *RegisterSplittingEnvironment) []Code {
 	return ncodes
 }
 
-func sumSourceBits(sources []uint, constant big.Int, regs []Register) uint {
+func sumSourceBits(sources []uint, constant big.Int, regs []io.Register) uint {
 	var rhs big.Int
 	//
 	for _, target := range sources {
@@ -230,7 +230,7 @@ func sumSourceBits(sources []uint, constant big.Int, regs []Register) uint {
 }
 
 // Sum the total number of bits used by the given set of target registers.
-func sumTargetBits(targets []uint, regs []Register) uint {
+func sumTargetBits(targets []uint, regs []io.Register) uint {
 	sum := uint(0)
 	//
 	for _, target := range targets {

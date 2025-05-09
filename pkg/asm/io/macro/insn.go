@@ -13,18 +13,18 @@
 package macro
 
 import (
-	"github.com/consensys/go-corset/pkg/asm/insn"
-	"github.com/consensys/go-corset/pkg/asm/micro"
+	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/asm/io/micro"
 )
 
 // Register is an alias for insn.Register
-type Register = insn.Register
+type Register = io.Register
 
 // Instruction provides an abstract notion of a macro "machine instruction".
 // Here, macro is intended to imply that the instruction may break down into
 // multiple underlying "micro instructions".
 type Instruction interface {
-	insn.Instruction
+	io.Instruction
 	// Bind any labels contained within this instruction using the given label map.
 	Bind(labels []uint)
 	// Lower this (macro) instruction into a sequence of one or more micro

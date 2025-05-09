@@ -18,14 +18,14 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/consensys/go-corset/pkg/asm/insn"
+	"github.com/consensys/go-corset/pkg/asm/io"
 )
 
 // CheckInstance checks whether a given function instance is valid with respect
 // to a given set of functions.  It returns an error if something goes wrong
 // (e.g. the instance is malformed), and either true or false to indicate
 // whether the trace is accepted or not.
-func CheckInstance[T insn.Instruction](instance FunctionInstance, program Program[T]) (uint, error) {
+func CheckInstance[T io.Instruction](instance io.FunctionInstance, program io.Program[T]) (uint, error) {
 	// Initialise a new interpreter
 	interpreter := NewInterpreter(program)
 	//
@@ -79,16 +79,16 @@ func (p *InterpreterState) PC() uint {
 
 // Interpreter encapsulates all state needed for executing a given instruction
 // sequence.
-type Interpreter[T insn.Instruction] struct {
+type Interpreter[T io.Instruction] struct {
 	// Program being interpreted
-	program Program[T]
+	program io.Program[T]
 	// Set of interpreter states
 	states []InterpreterState
 }
 
 // NewInterpreter intialises an interpreter for executing a given instruction
 // sequence.
-func NewInterpreter[T insn.Instruction](program Program[T]) *Interpreter[T] {
+func NewInterpreter[T io.Instruction](program io.Program[T]) *Interpreter[T] {
 	return &Interpreter[T]{program, nil}
 }
 
@@ -170,7 +170,7 @@ func (p *Interpreter[T]) Execute(nsteps uint) uint {
 		step = uint(0)
 	)
 	//
-	for st.pc != insn.RETURN && step < nsteps {
+	for st.pc != io.RETURN && step < nsteps {
 		insn := f.Code[st.pc]
 		st.pc = insn.Execute(st.pc, st.registers, f.Registers)
 		step++
