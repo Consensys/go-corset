@@ -52,7 +52,7 @@ var compileCmd = &cobra.Command{
 		// Apply any user-specified values for externalised constants.
 		applyExternOverrides(externs, binfile)
 		// Serialise as a gob file.
-		WriteBinaryFile(binfile, false, output)
+		WriteBinaryFile(binfile, output)
 	},
 }
 
