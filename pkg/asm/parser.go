@@ -348,28 +348,6 @@ func (p *Parser) parseType() (uint, []source.SyntaxError) {
 	}
 }
 
-/*
-	func (p *Parser) parseVectorInstruction(pc uint, env *Environment) (Instruction, []source.SyntaxError) {
-		var (
-			insns  []macro.Instruction = make([]macro.Instruction, 1)
-			errors []source.SyntaxError
-		)
-		// parse first instruction
-		return insn, errors := p.parseMacroInstruction(pc, env)
-		// check real instruction parsed
-		if insns[0] == nil {
-			return Instruction{Instructions: nil}, errors
-		}
-		//
-		for len(errors) == 0 && p.match(SEMICOLON) {
-			i, errs := p.parsemacro.Instruction(pc, env)
-			insns = append(insns, i)
-			errors = append(errors, errs...)
-		}
-		//
-		return Instruction{Instructions: insns}, errors
-	}
-*/
 func (p *Parser) parseMacroInstruction(pc uint, env *Environment) (macro.Instruction, []source.SyntaxError) {
 	var (
 		// Save current position for backtracking
@@ -384,14 +362,14 @@ func (p *Parser) parseMacroInstruction(pc uint, env *Environment) (macro.Instruc
 	}
 	//
 	switch first {
-	case "var":
-		return nil, p.parseVar(env)
 	case "jc":
 		insn, errs = p.parseJCond(env)
 	case "jmp":
 		insn, errs = p.parseJmp(env)
 	case "ret":
 		insn, errs = &micro.Ret{}, nil
+	case "var":
+		return nil, p.parseVar(env)
 	default:
 		isLabel := p.lookahead().Kind == COLON
 		// Backtrack
@@ -523,47 +501,37 @@ func (p *Parser) parseAssignment(env *Environment) (macro.Instruction, []source.
 	if _, errs = p.expect(EQUALS); len(errs) > 0 {
 		return nil, errs
 	}
-	// Parse right-hand side
-	if kind, rhs, constant, errs = p.parseAssignmentRhs(env); len(errs) > 0 {
-		return nil, errs
+	// Check what we've got
+	if p.follows(IDENTIFIER, LBRACE) {
+		// function call
+		return p.parseCallRhs(lhs, env)
+	} else {
+		// Parse right-hand side
+		if kind, rhs, constant, errs = p.parseAssignmentRhs(env); len(errs) > 0 {
+			return nil, errs
+		}
+		//
+		switch kind {
+		case ADD:
+			insn = &micro.Add{Targets: lhs, Sources: rhs, Constant: constant}
+		case SUB:
+			insn = &micro.Sub{Targets: lhs, Sources: rhs, Constant: constant}
+		case MUL:
+			insn = &micro.Mul{Targets: lhs, Sources: rhs, Constant: constant}
+		default:
+			panic("unreachable")
+		}
+		// Done
+		return insn, nil
 	}
-	//
-	switch kind {
-	case ADD:
-		insn = &micro.Add{Targets: lhs, Sources: rhs, Constant: constant}
-	case SUB:
-		insn = &micro.Sub{Targets: lhs, Sources: rhs, Constant: constant}
-	case MUL:
-		insn = &micro.Mul{Targets: lhs, Sources: rhs, Constant: constant}
-	default:
-		panic("unreachable")
-	}
-	// Done
-	return insn, nil
 }
 
 func (p *Parser) parseAssignmentLhs(env *Environment) ([]uint, []source.SyntaxError) {
-	var (
-		lhs  []uint = make([]uint, 1)
-		errs []source.SyntaxError
-		reg  uint
-	)
-	// lhs always starts with a register
-	if lhs[0], errs = p.parseRegister(env); len(errs) > 0 {
-		return nil, errs
-	}
-	// lhs may have additional registers
-	for p.match(COMMA) {
-		if reg, errs = p.parseRegister(env); len(errs) > 0 {
-			return nil, errs
-		}
-		// Add register to lhs
-		lhs = append(lhs, reg)
-	}
+	lhs, errs := p.parseRegisterList(env)
 	// Reverse items so that least significant comes first.
 	lhs = util.Reverse(lhs)
 	//
-	return lhs, nil
+	return lhs, errs
 }
 
 func (p *Parser) parseAssignmentRhs(env *Environment) (uint, []uint, big.Int, []source.SyntaxError) {
@@ -619,6 +587,49 @@ func (p *Parser) parseAssignmentOp() (lex.Token, bool) {
 	default:
 		return lex.Token{}, false
 	}
+}
+
+func (p *Parser) parseCallRhs(lhs []uint, env *Environment) (macro.Instruction, []source.SyntaxError) {
+	var (
+		errs []source.SyntaxError
+		rhs  []uint
+		fn   string
+	)
+	//
+	if fn, errs = p.parseIdentifier(); len(errs) > 0 {
+		return nil, errs
+	} else if _, errs = p.expect(LBRACE); len(errs) > 0 {
+		return nil, errs
+	} else if rhs, errs = p.parseRegisterList(env); len(errs) > 0 {
+		return nil, errs
+	} else if _, errs = p.expect(RBRACE); len(errs) > 0 {
+		return nil, errs
+	}
+	//
+	return &micro.Call{Name: fn, Targets: lhs, Sources: rhs}, nil
+}
+
+// Parse sequence of one or more registers separated by a comma.
+func (p *Parser) parseRegisterList(env *Environment) ([]uint, []source.SyntaxError) {
+	var (
+		lhs  []uint = make([]uint, 1)
+		errs []source.SyntaxError
+		reg  uint
+	)
+	// lhs always starts with a register
+	if lhs[0], errs = p.parseRegister(env); len(errs) > 0 {
+		return nil, errs
+	}
+	// lhs may have additional registers
+	for p.match(COMMA) {
+		if reg, errs = p.parseRegister(env); len(errs) > 0 {
+			return nil, errs
+		}
+		// Add register to lhs
+		lhs = append(lhs, reg)
+	}
+	//
+	return lhs, nil
 }
 
 func (p *Parser) parseRegisterOrConstant(env *Environment) (uint, big.Int, []source.SyntaxError) {
@@ -741,6 +752,19 @@ func (p *Parser) match(kind uint) bool {
 	return false
 }
 
+// Follows attempts to check what follows the current position.
+func (p *Parser) follows(kinds ...uint) bool {
+	for i, kind := range kinds {
+		n := i + p.index
+		if n >= len(p.tokens) {
+			return false
+		} else if p.tokens[n].Kind != kind {
+			return false
+		}
+	}
+	//
+	return true
+}
 func (p *Parser) spanOf(firstToken, lastToken int) source.Span {
 	start := p.tokens[firstToken].Span.Start()
 	end := p.tokens[lastToken].Span.End()
