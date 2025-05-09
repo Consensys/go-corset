@@ -24,6 +24,8 @@ import (
 type Printer struct {
 	// Determine maximum width to print
 	maxCellWidth uint
+	// Determine maximum width to print
+	maxTitleWidth uint
 	// Enable ANSI
 	ansiEscapes bool
 }
@@ -31,7 +33,7 @@ type Printer struct {
 // NewPrinter constructs a default printer
 func NewPrinter() *Printer {
 	// Return an empty printer
-	return &Printer{math.MaxUint, true}
+	return &Printer{math.MaxUint, math.MaxUint, true}
 }
 
 // AnsiEscapes can be used to enable or disable the use of ANSI escape sequences
@@ -44,6 +46,12 @@ func (p *Printer) AnsiEscapes(enable bool) *Printer {
 // MaxCellWidth sets the maximum width to use for the cell data.
 func (p *Printer) MaxCellWidth(width uint) *Printer {
 	p.maxCellWidth = width
+	return p
+}
+
+// MaxTitleWidth sets the maximum width to use for column titles.
+func (p *Printer) MaxTitleWidth(width uint) *Printer {
+	p.maxTitleWidth = width
 	return p
 }
 
@@ -93,6 +101,8 @@ func (p *Printer) Print(trace TraceWindow) {
 	for j := uint(0); j < height; j++ {
 		tp.SetMaxWidth(1+j, p.maxCellWidth)
 	}
+	//
+	tp.SetMaxWidth(0, p.maxTitleWidth)
 	// Done
 	tp.Print(p.ansiEscapes)
 }

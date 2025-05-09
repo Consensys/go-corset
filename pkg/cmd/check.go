@@ -21,6 +21,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/asm"
 	"github.com/consensys/go-corset/pkg/asm/insn"
+	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/cmd/check"
 	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/hir"
@@ -71,6 +72,7 @@ var checkCmd = &cobra.Command{
 		cfg.report = GetFlag(cmd, "report")
 		cfg.reportPadding = GetUint(cmd, "report-context")
 		cfg.reportCellWidth = GetUint(cmd, "report-cellwidth")
+		cfg.reportTitleWidth = GetUint(cmd, "report-titlewidth")
 		cfg.spillage = GetInt(cmd, "spillage")
 		cfg.corsetConfig.Stdlib = !GetFlag(cmd, "no-stdlib")
 		cfg.corsetConfig.Debug = GetFlag(cmd, "debug")
@@ -122,6 +124,8 @@ type checkConfig struct {
 	asmConfig asm.LoweringConfig
 	// Set optimisation config to use.
 	optimisation mir.OptimisationConfig
+	// Corset source mapping (maybe nil if non available).
+	corsetSourceMap *corset.SourceMap
 	// Determines whether or not to apply "defensive padding" to every module.
 	defensive bool
 	// Determines how much spillage to account for.  This gives the user the
@@ -150,6 +154,8 @@ type checkConfig struct {
 	reportPadding uint
 	// Specifies the width of a cell to show.
 	reportCellWidth uint
+	// Specifies the width of a column title to show.
+	reportTitleWidth uint
 	// Perform trace expansion in parallel (or not)
 	parallel bool
 	// Size of constraint batches to execute in parallel
@@ -214,7 +220,9 @@ func checkWithLegacyPipeline(cfg checkConfig, batched bool, externs []string, tr
 	//
 	stats := util.NewPerfStats()
 	// Parse constraints
-	binfile := ReadConstraintFiles(cfg.corsetConfig, cfg.asmConfig, constraints)
+	binf := ReadConstraintFiles(cfg.corsetConfig, cfg.asmConfig, constraints)
+	// Extract debug information (if available)
+	cfg.corsetSourceMap, _ = binfile.GetAttribute[*corset.SourceMap](binf)
 	//
 	stats.Log("Reading constraints file")
 	// Parse trace file(s)
@@ -229,14 +237,14 @@ func checkWithLegacyPipeline(cfg checkConfig, batched bool, externs []string, tr
 	//
 	stats.Log("Reading trace file")
 	// Apply any user-specified values for externalised constants.
-	applyExternOverrides(externs, binfile)
+	applyExternOverrides(externs, binf)
 	// Go!
-	ok, coverage := checkTraceWithLowering(traces, &binfile.Schema, cfg)
+	ok, coverage := checkTraceWithLowering(traces, &binf.Schema, cfg)
 	//
 	if !ok {
 		os.Exit(1)
 	} else if cfg.coverage.HasValue() {
-		writeCoverageReport(cfg.coverage.Unwrap(), binfile, coverage, cfg.optimisation)
+		writeCoverageReport(cfg.coverage.Unwrap(), binf, coverage, cfg.optimisation)
 	}
 }
 
@@ -361,9 +369,9 @@ func reportFailure(failure sc.Failure, trace tr.Trace, cfg checkConfig) {
 // Print a human-readable report detailing the given failure with a vanishing constraint.
 func reportRelevantCells(cells *set.AnySortedSet[tr.CellRef], trace tr.Trace, cfg checkConfig) {
 	// Construct trace window
-	window := check.NewTraceWindow(cells, trace, cfg.reportPadding)
+	window := check.NewTraceWindow(cells, trace, cfg.reportPadding, cfg.corsetSourceMap)
 	// Construct & configure printer
-	tp := check.NewPrinter().MaxCellWidth(cfg.reportCellWidth)
+	tp := check.NewPrinter().MaxCellWidth(cfg.reportCellWidth).MaxTitleWidth(cfg.reportTitleWidth)
 	// Determine whether to enable ANSI escapes (e.g. for colour in the terminal)
 	tp = tp.AnsiEscapes(cfg.ansiEscapes)
 	// Print out report
@@ -389,7 +397,8 @@ func init() {
 	rootCmd.AddCommand(checkCmd)
 	checkCmd.Flags().Bool("report", false, "report details of failure for debugging")
 	checkCmd.Flags().Uint("report-context", 2, "specify number of rows to show eitherside of failure in report")
-	checkCmd.Flags().Uint("report-cellwidth", 32, "specify max number of bytes to show in a given cell in the report")
+	checkCmd.Flags().Uint("report-cellwidth", 32, "specify max number of bytes to show in a given cell in report")
+	checkCmd.Flags().Uint("report-titlewidth", 40, "specify maximum width of column titles in report")
 	checkCmd.Flags().Bool("raw", false, "assume input trace already expanded")
 	checkCmd.Flags().Bool("uasm", false, "check at µASM level")
 	checkCmd.Flags().Bool("hir", false, "check at HIR level")

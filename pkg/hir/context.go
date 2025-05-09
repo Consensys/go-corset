@@ -87,6 +87,8 @@ func requiredColumnsOfTerm(e Term) *set.SortedSet[uint] {
 	switch e := e.(type) {
 	case *Add:
 		return requiredColumnsOfTerms(e.Args...)
+	case *Cast:
+		return requiredColumnsOfTerm(e.Arg)
 	case *Connective:
 		return requiredColumnsOfTerms(e.Args...)
 	case *Constant:
@@ -148,6 +150,8 @@ func requiredCellsOfTerm(e Term, row int, tr trace.Trace) *set.AnySortedSet[trac
 	switch e := e.(type) {
 	case *Add:
 		return requiredCellsOfTerms(row, tr, e.Args...)
+	case *Cast:
+		return requiredCellsOfTerm(e.Arg, row, tr)
 	case *Connective:
 		return requiredCellsOfTerms(row, tr, e.Args...)
 	case *Constant:
