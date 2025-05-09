@@ -17,8 +17,8 @@ import (
 	"slices"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/asm/insn"
-	"github.com/consensys/go-corset/pkg/asm/micro"
+	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/hir"
 )
 
@@ -121,7 +121,7 @@ func translateSkip(cc uint, codes []micro.Code, st StateTranslator) hir.Expr {
 		elem  fr.Element
 	)
 	//
-	if code.Right == insn.UNUSED_REGISTER {
+	if code.Right == io.UNUSED_REGISTER {
 		elem.SetBigInt(&code.Constant)
 		right = hir.NewConst(elem)
 	} else {
@@ -156,7 +156,7 @@ func translateSub(cc uint, codes []micro.Code, st StateTranslator) hir.Expr {
 
 // Consider an assignment b, X := Y - 1.  This should be translated into the
 // constraint: X + 1 == Y - 256.b (assuming b is u1, and X/Y are u8).
-func rebalanceSub(lhs []hir.Expr, rhs []hir.Expr, regs []insn.Register, code *micro.Sub) ([]hir.Expr, []hir.Expr) {
+func rebalanceSub(lhs []hir.Expr, rhs []hir.Expr, regs []io.Register, code *micro.Sub) ([]hir.Expr, []hir.Expr) {
 	//
 	pivot := 0
 	width := int(regs[code.Sources[0]].Width)

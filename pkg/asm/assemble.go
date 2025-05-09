@@ -17,69 +17,88 @@ import (
 	"math"
 	"slices"
 
-	"github.com/consensys/go-corset/pkg/asm/macro"
-	"github.com/consensys/go-corset/pkg/asm/micro"
+	"github.com/consensys/go-corset/pkg/asm/assembler"
+	"github.com/consensys/go-corset/pkg/asm/compiler"
+	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/asm/io/macro"
+	"github.com/consensys/go-corset/pkg/asm/io/micro"
+	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
+	"github.com/consensys/go-corset/pkg/util/source"
 )
 
-// Program represents a complete set of functions and related declarations
-// defining a program.
-type Program[T any] interface {
-	// Function returns the ith function in this program.
-	Function(uint) Function[T]
-	// Functions returns the set of functions defined in this program.
-	Functions() []Function[T]
+// Register describes a single register within a function.
+type Register = io.Register
+
+// MacroFunction is a function whose instructions are themselves macro
+// instructions.  A macro function must be compiled down into a micro function
+// before we can generate constraints.
+type MacroFunction = io.Function[macro.Instruction]
+
+// MicroFunction is a function whose instructions are themselves micro
+// instructions.  A micro function represents the lowest representation of a
+// function, where each instruction is made up of microcodes.
+type MicroFunction = io.Function[micro.Instruction]
+
+// MacroProgram represents a set of components at the macro level.
+type MacroProgram = io.Program[macro.Instruction]
+
+// MicroProgram represents a set of components at the micro level.
+type MicroProgram = io.Program[micro.Instruction]
+
+// Assemble takes a given set of assembly files, and parses them into a given
+// set of functions.  This includes performing various checks on the files, such
+// as type checking, etc.
+func Assemble(assembly ...source.File) (io.Program[macro.Instruction], source.Maps[macro.Instruction], []source.SyntaxError) {
+	var (
+		components []MacroFunction
+		errors     []source.SyntaxError
+		srcmaps    source.Maps[macro.Instruction] = *source.NewSourceMaps[macro.Instruction]()
+	)
+	// Parse each file in turn.
+	for _, asm := range assembly {
+		// Parse source file
+		cs, srcmap, errs := assembler.Parse(&asm)
+		if len(errs) == 0 {
+			components = append(components, cs...)
+		}
+		// Join srcmap
+		srcmaps.Join(srcmap)
+		//
+		errors = append(errors, errs...)
+	}
+	// Well-formedness checks
+	for _, fn := range components {
+		errors = append(errors, assembler.Validate(fn, srcmaps)...)
+	}
+	// Done
+	return io.NewProgram(components...), srcmaps, errors
 }
 
-// =============================================================================
-// MicroProgram
-// =============================================================================
-
-// MicroProgram represents a set of functions at the micro level.
-type MicroProgram struct {
-	functions []Function[micro.Instruction]
+// CompileAssembly compiles a given set of assembly functions into a binary
+// constraint file.
+func CompileAssembly(cfg LoweringConfig, assembly ...source.File) (*binfile.BinaryFile, []source.SyntaxError) {
+	macroProgram, _, errs := Assemble(assembly...)
+	//
+	if len(errs) > 0 {
+		return nil, errs
+	}
+	// Lower macro program into a binary program.
+	microProgram := Lower(cfg, macroProgram)
+	//
+	return Compile(microProgram), nil
 }
 
-// NewMicroProgram constructs a new micro program from a given set of micro
-// functions.
-func NewMicroProgram(functions ...Function[micro.Instruction]) MicroProgram {
-	return MicroProgram{functions}
-}
+// Compile a microprogram into a binary constraint file.
+func Compile(microProgram io.Program[micro.Instruction]) *binfile.BinaryFile {
+	compiler := compiler.NewCompiler()
+	//
+	for i := range microProgram.Functions() {
+		fn := microProgram.Function(uint(i))
+		compiler.Compile(fn.Name, fn.Registers, fn.Code)
+	}
 
-// Function returns the ith function in this program.
-func (p *MicroProgram) Function(id uint) Function[micro.Instruction] {
-	return p.functions[id]
-}
-
-// Functions returns all functions making up this program.
-func (p *MicroProgram) Functions() []Function[micro.Instruction] {
-	return p.functions
-}
-
-// =============================================================================
-// MacroProgram
-// =============================================================================
-
-// MacroProgram represents a set of functions at the macro level.  Thus, a macro
-// program can be lowered to a given micro program, etc.
-type MacroProgram struct {
-	functions []Function[macro.Instruction]
-}
-
-// NewMacroProgram constructs a new macro program from a given set of macro
-// functions.
-func NewMacroProgram(functions ...Function[macro.Instruction]) MacroProgram {
-	return MacroProgram{functions}
-}
-
-// Function returns the ith function in this program.
-func (p *MacroProgram) Function(id uint) Function[macro.Instruction] {
-	return p.functions[id]
-}
-
-// Functions returns all functions making up this program.
-func (p *MacroProgram) Functions() []Function[macro.Instruction] {
-	return p.functions
+	return binfile.NewBinaryFile(nil, nil, compiler.Schema())
 }
 
 // LoweringConfig provides configuration options for configuring the lowering
@@ -106,20 +125,24 @@ type LoweringConfig struct {
 // registers exceeding the target width (and instructions which use them) are
 // split accordingly.  The latter can introduce additional registers, for
 // example to hold carry values.
-func (p *MacroProgram) Lower(cfg LoweringConfig) MicroProgram {
-	functions := make([]MicroFunction, len(p.functions))
+func Lower(cfg LoweringConfig, p MacroProgram) MicroProgram {
+	functions := make([]MicroFunction, len(p.Functions()))
 	// Sanity checks
 	if cfg.MaxFieldWidth < cfg.MaxRegisterWidth {
 		panic(
 			fmt.Sprintf("field width (%dbits) smaller than register width (%dbits)", cfg.MaxFieldWidth, cfg.MaxRegisterWidth))
 	}
 	//
-	for i, f := range p.functions {
+	for i, f := range p.Functions() {
 		functions[i] = lowerFunction(cfg, f)
 	}
 	//
-	return NewMicroProgram(functions...)
+	return io.NewProgram(functions...)
 }
+
+// ============================================================================
+// Helpers
+// ============================================================================
 
 func lowerFunction(cfg LoweringConfig, f MacroFunction) MicroFunction {
 	insns := make([]micro.Instruction, len(f.Code))

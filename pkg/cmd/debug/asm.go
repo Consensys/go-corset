@@ -16,7 +16,7 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/asm"
-	"github.com/consensys/go-corset/pkg/asm/insn"
+	"github.com/consensys/go-corset/pkg/asm/io"
 )
 
 // PrintAssemblyProgram is responsible for printing out a given assembly program
@@ -27,8 +27,8 @@ import (
 func PrintAssemblyProgram(micro bool, cfg asm.LoweringConfig, program asm.MacroProgram) {
 	//
 	if micro {
-		// Lower the program.
-		uprogram := program.Lower(cfg)
+		// Lower macro-program to micro-program.
+		uprogram := asm.Lower(cfg, program)
 		//
 		printAssemblyFunctions(uprogram.Functions())
 	} else {
@@ -36,13 +36,13 @@ func PrintAssemblyProgram(micro bool, cfg asm.LoweringConfig, program asm.MacroP
 	}
 }
 
-func printAssemblyFunctions[T insn.Instruction](fns []asm.Function[T]) {
+func printAssemblyFunctions[T io.Instruction](fns []io.Function[T]) {
 	for _, f := range fns {
 		printAssemblyFunction(f)
 	}
 }
 
-func printAssemblyFunction[T insn.Instruction](f asm.Function[T]) {
+func printAssemblyFunction[T io.Instruction](f io.Function[T]) {
 	printAssemblySignature(f)
 	printAssemblyRegisters(f)
 	//
@@ -53,7 +53,7 @@ func printAssemblyFunction[T insn.Instruction](f asm.Function[T]) {
 	fmt.Println("}")
 }
 
-func printAssemblySignature[T any](f asm.Function[T]) {
+func printAssemblySignature[T any](f io.Function[T]) {
 	first := true
 	//
 	fmt.Printf("fn %s(", f.Name)
@@ -89,7 +89,7 @@ func printAssemblySignature[T any](f asm.Function[T]) {
 	fmt.Println(") {")
 }
 
-func printAssemblyRegisters[T any](f asm.Function[T]) {
+func printAssemblyRegisters[T any](f io.Function[T]) {
 	for _, r := range f.Registers {
 		if !r.IsInput() && !r.IsOutput() {
 			fmt.Printf("\tvar %s u%d\n", r.Name, r.Width)

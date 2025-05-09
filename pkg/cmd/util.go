@@ -25,7 +25,7 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/asm"
-	"github.com/consensys/go-corset/pkg/asm/macro"
+	"github.com/consensys/go-corset/pkg/asm/io/macro"
 	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/hir"
@@ -604,7 +604,7 @@ func ReadAssemblyProgram(filenames ...string) (asm.MacroProgram, source.Maps[mac
 	// Fail
 	os.Exit(4)
 	// Unreachable
-	return asm.MacroProgram{}, srcmaps
+	return nil, srcmaps
 }
 
 // ReadAssemblyTrace reads a top-level trace file which consists only of function instances.

@@ -17,7 +17,7 @@ import (
 	"math/big"
 	"slices"
 
-	"github.com/consensys/go-corset/pkg/asm/insn"
+	"github.com/consensys/go-corset/pkg/asm/io"
 )
 
 // Mul represents a generic operation of the following form:
@@ -67,7 +67,7 @@ func (p *Mul) Bind(labels []uint) {
 // given set of register values.  This may update the register values, and
 // returns the next program counter position.  If the program counter is
 // math.MaxUint then a return is signaled.
-func (p *Mul) Execute(pc uint, state []big.Int, regs []Register) uint {
+func (p *Mul) Execute(pc uint, state []big.Int, regs []io.Register) uint {
 	p.MicroExecute(state, regs)
 	return pc + 1
 }
@@ -76,7 +76,7 @@ func (p *Mul) Execute(pc uint, state []big.Int, regs []Register) uint {
 // may update the register values, and returns either the number of micro-codes
 // to "skip over" when executing the enclosing instruction or, if skip==0, a
 // destination program counter (which can signal return of enclosing function).
-func (p *Mul) MicroExecute(state []big.Int, regs []Register) (uint, uint) {
+func (p *Mul) MicroExecute(state []big.Int, regs []io.Register) (uint, uint) {
 	var value big.Int
 	// Assign first value
 	value.Set(&state[p.Sources[0]])
@@ -87,7 +87,7 @@ func (p *Mul) MicroExecute(state []big.Int, regs []Register) (uint, uint) {
 	// Multiply constant
 	value.Mul(&value, &p.Constant)
 	// Write value
-	insn.WriteTargetRegisters(p.Targets, state, regs, value)
+	io.WriteTargetRegisters(p.Targets, state, regs, value)
 	//
 	return 1, 0
 }
@@ -126,12 +126,12 @@ func (p *Mul) Split(env *RegisterSplittingEnvironment) []Code {
 	return []Code{p}
 }
 
-func (p *Mul) String(regs []Register) string {
+func (p *Mul) String(regs []io.Register) string {
 	return assignmentToString(p.Targets, p.Sources, p.Constant, regs, one, " * ")
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Mul) Validate(fieldWidth uint, regs []Register) error {
+func (p *Mul) Validate(fieldWidth uint, regs []io.Register) error {
 	var (
 		lhs_bits = sumTargetBits(p.Targets, regs)
 		rhs_bits = mulSourceBits(p.Sources, p.Constant, regs)
@@ -143,10 +143,10 @@ func (p *Mul) Validate(fieldWidth uint, regs []Register) error {
 		return fmt.Errorf("field overflow (%d bits into %d bit field)", rhs_bits, fieldWidth)
 	}
 	//
-	return insn.CheckTargetRegisters(p.Targets, regs)
+	return io.CheckTargetRegisters(p.Targets, regs)
 }
 
-func mulSourceBits(sources []uint, constant big.Int, regs []Register) uint {
+func mulSourceBits(sources []uint, constant big.Int, regs []io.Register) uint {
 	var rhs big.Int
 	//
 	rhs.Set(&one)

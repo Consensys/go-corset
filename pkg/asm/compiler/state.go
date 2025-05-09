@@ -17,8 +17,8 @@ import (
 	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/asm/insn"
-	"github.com/consensys/go-corset/pkg/asm/micro"
+	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/hir"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -39,7 +39,7 @@ type Translator struct {
 	// Mapping from registers to respective HIR column IDs.
 	RegIDs []uint
 	// Registers of the given machine
-	Registers []insn.Register
+	Registers []io.Register
 }
 
 // Translate a micro-instruction at a given program counter position.

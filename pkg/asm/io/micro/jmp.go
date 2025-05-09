@@ -13,73 +13,73 @@
 package micro
 
 import (
+	"fmt"
 	"math/big"
 
-	"github.com/consensys/go-corset/pkg/asm/insn"
+	"github.com/consensys/go-corset/pkg/asm/io"
 )
 
-// Ret signals a return from the enclosing function.
-type Ret struct {
-	// dummy is included to force Ret structs to be stored in the heap.
-	//nolint
-	dummy uint
+// Jmp provides an unconditional branching instruction to a given instructon.
+type Jmp struct {
+	Target uint
 }
 
 // Bind any labels contained within this instruction using the given label map.
-func (p *Ret) Bind(labels []uint) {
-	// no-op
+func (p *Jmp) Bind(labels []uint) {
+	p.Target = labels[p.Target]
 }
 
 // Clone this micro code.
-func (p *Ret) Clone() Code {
-	return p
+func (p *Jmp) Clone() Code {
+	return &Jmp{p.Target}
 }
 
-// Execute a ret instruction by signaling a return from the enclosing function.
-func (p *Ret) Execute(pc uint, state []big.Int, regs []Register) uint {
-	return insn.RETURN
+// Execute an unconditional branch instruction by returning the destination
+// program counter.
+func (p *Jmp) Execute(pc uint, state []big.Int, regs []io.Register) uint {
+	return p.Target
 }
 
 // MicroExecute a given micro-code, using a given set of register values.  This
 // may update the register values, and returns either the number of micro-codes
 // to "skip over" when executing the enclosing instruction or, if skip==0, a
 // destination program counter (which can signal return of enclosing function).
-func (p *Ret) MicroExecute(state []big.Int, regs []Register) (uint, uint) {
-	return 0, insn.RETURN
+func (p *Jmp) MicroExecute(state []big.Int, regs []io.Register) (uint, uint) {
+	return 0, p.Target
 }
 
 // Lower this instruction into a exactly one more micro instruction.
-func (p *Ret) Lower(pc uint) Instruction {
+func (p *Jmp) Lower(pc uint) Instruction {
 	// Lowering here produces an instruction containing a single microcode.
 	return Instruction{[]Code{p}}
 }
 
 // Registers returns the set of registers read/written by this instruction.
-func (p *Ret) Registers() []uint {
+func (p *Jmp) Registers() []uint {
 	return nil
 }
 
 // RegistersRead returns the set of registers read by this instruction.
-func (p *Ret) RegistersRead() []uint {
+func (p *Jmp) RegistersRead() []uint {
 	return nil
 }
 
 // RegistersWritten returns the set of registers written by this instruction.
-func (p *Ret) RegistersWritten() []uint {
+func (p *Jmp) RegistersWritten() []uint {
 	return nil
 }
 
 // Split this micro code using registers of arbirary width into one or more
 // micro codes using registers of a fixed maximum width.
-func (p *Ret) Split(env *RegisterSplittingEnvironment) []Code {
+func (p *Jmp) Split(env *RegisterSplittingEnvironment) []Code {
 	return []Code{p}
 }
 
-func (p *Ret) String(regs []Register) string {
-	return "ret"
+func (p *Jmp) String(regs []io.Register) string {
+	return fmt.Sprintf("jmp %d", p.Target)
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Ret) Validate(fieldWidth uint, regs []Register) error {
+func (p *Jmp) Validate(fieldWidth uint, regs []io.Register) error {
 	return nil
 }

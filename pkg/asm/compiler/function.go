@@ -16,8 +16,8 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/consensys/go-corset/pkg/asm/insn"
-	"github.com/consensys/go-corset/pkg/asm/micro"
+	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/hir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -51,7 +51,7 @@ func (p *Compiler) Schema() *hir.Schema {
 
 // Compile a function with the given name, registers and micro-instructions into
 // constraints.
-func (p *Compiler) Compile(name string, regs []insn.Register, code []micro.Instruction) {
+func (p *Compiler) Compile(name string, regs []io.Register, code []micro.Instruction) {
 	var (
 		// Allocate module id
 		mid = p.schema.AddModule(name, hir.VOID)
@@ -89,7 +89,7 @@ func (p *Compiler) Compile(name string, regs []insn.Register, code []micro.Instr
 	}
 }
 
-func (p *Compiler) initFunctionFraming(ctx trace.Context, rids []uint, regs []insn.Register,
+func (p *Compiler) initFunctionFraming(ctx trace.Context, rids []uint, regs []io.Register,
 	code []micro.Instruction) (uint, uint) {
 	//
 	pcMax := uint64(len(code) - 1)

@@ -16,8 +16,8 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/consensys/go-corset/pkg/asm/insn"
-	"github.com/consensys/go-corset/pkg/asm/micro"
+	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/asm/io/micro"
 )
 
 const (
@@ -64,7 +64,7 @@ func (p *JCond) Execute(pc uint, state []big.Int, regs []Register) uint {
 		taken bool
 	)
 	//
-	if p.Right != insn.UNUSED_REGISTER {
+	if p.Right != io.UNUSED_REGISTER {
 		rhs = state[p.Right]
 	} else {
 		rhs = p.Constant
@@ -126,7 +126,7 @@ func (p *JCond) Registers() []uint {
 
 // RegistersRead returns the set of registers read by this instruction.
 func (p *JCond) RegistersRead() []uint {
-	if p.Right != insn.UNUSED_REGISTER {
+	if p.Right != io.UNUSED_REGISTER {
 		return []uint{p.Left}
 	}
 	//
@@ -162,7 +162,7 @@ func (p *JCond) String(regs []Register) string {
 		panic("unreachable")
 	}
 	//
-	if p.Right != insn.UNUSED_REGISTER {
+	if p.Right != io.UNUSED_REGISTER {
 		r = regs[p.Right].Name
 	} else {
 		r = p.Constant.String()

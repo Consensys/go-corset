@@ -10,56 +10,25 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package asm
+package assembler
 
 import (
 	"fmt"
 	"math"
 
-	"github.com/consensys/go-corset/pkg/asm/insn"
-	"github.com/consensys/go-corset/pkg/asm/macro"
-	"github.com/consensys/go-corset/pkg/asm/micro"
+	"github.com/consensys/go-corset/pkg/asm/io/macro"
+	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
 
-// Register describes a single register within a function.
-type Register = insn.Register
-
-// Assemble takes a given set of assembly files, and parses them into a given
-// set of functions.  This includes performing various checks on the files, such
-// as type checking, etc.
-func Assemble(assembly ...source.File) (MacroProgram, source.Maps[macro.Instruction], []source.SyntaxError) {
-	var (
-		program MacroProgram
-		errors  []source.SyntaxError
-		srcmaps source.Maps[macro.Instruction] = *source.NewSourceMaps[macro.Instruction]()
-	)
-	// Parse each file in turn.
-	for _, asm := range assembly {
-		p, srcmap, errs := Parse(&asm)
-		if len(errs) == 0 {
-			program.functions = append(program.functions, p.functions...)
-		}
-		// Join srcmap
-		srcmaps.Join(srcmap)
-		//
-		errors = append(errors, errs...)
-	}
-	// Well-formedness checks
-	for _, fn := range program.functions {
-		errors = append(errors, checkWellFormed(fn, srcmaps)...)
-	}
-	// Done
-	return program, srcmaps, errors
-}
-
-// check that a given set of functions are well-formed.  For example, an
-// assignment "x,y = z" must be balanced (i.e. number of bits on lhs must match
-// number on rhs).  Likewise, registers cannot be used before they are defined,
-// and all control-flow paths must reach a "ret" instruction.  Finally, we
-// cannot assign to an input register under the current calling convention.
-func checkWellFormed(fn MacroFunction, srcmaps source.Maps[macro.Instruction]) []source.SyntaxError {
+// Validate checks that a given set of functions are well-formed.  For
+// example, an assignment "x,y = z" must be balanced (i.e. number of bits on lhs
+// must match number on rhs).  Likewise, registers cannot be used before they
+// are defined, and all control-flow paths must reach a "ret" instruction.
+// Finally, we cannot assign to an input register under the current calling
+// convention.
+func Validate(fn MacroFunction, srcmaps source.Maps[macro.Instruction]) []source.SyntaxError {
 	balance_errs := checkInstructionsBalance(fn, srcmaps)
 	flow_errs := checkInstructionsFlow(fn, srcmaps)
 	//
