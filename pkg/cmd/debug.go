@@ -63,6 +63,7 @@ var debugCmd = &cobra.Command{
 		corsetConfig.Stdlib = !GetFlag(cmd, "no-stdlib")
 		corsetConfig.Debug = GetFlag(cmd, "debug")
 		corsetConfig.Legacy = GetFlag(cmd, "legacy")
+		textWidth := GetUint(cmd, "textwidth")
 		asmConfig := parseLoweringConfig(cmd)
 		// Parse constraints
 		if masm || uasm {
@@ -96,7 +97,7 @@ var debugCmd = &cobra.Command{
 			}
 			//
 			if !stats && !attrs {
-				debug.PrintSchemas(&binfile.Schema, hir, mir, air, optConfig)
+				debug.PrintSchemas(&binfile.Schema, hir, mir, air, optConfig, textWidth)
 			}
 		}
 	},
@@ -114,6 +115,7 @@ func init() {
 	debugCmd.Flags().Bool("mir", false, "Print constraints at MIR level")
 	debugCmd.Flags().Bool("stats", false, "Print summary information")
 	debugCmd.Flags().Bool("spillage", false, "Print spillage information")
+	debugCmd.Flags().Uint("textwidth", 130, "Set maximum textwidth to use")
 	debugCmd.Flags().StringArrayP("set", "S", []string{}, "set value of externalised constant.")
 	debugCmd.Flags().Bool("uasm", false, "Print constraints at micro ASM level")
 }
