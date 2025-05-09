@@ -15,6 +15,8 @@ package micro
 import (
 	"math/big"
 	"slices"
+
+	"github.com/consensys/go-corset/pkg/asm/io"
 )
 
 // Call represents a function call providing one or more arguments and accepting
@@ -50,7 +52,7 @@ func (p *Call) Clone() Code {
 // given set of register values.  This may update the register values, and
 // returns the next program counter position.  If the program counter is
 // math.MaxUint then a return is signaled.
-func (p *Call) Execute(pc uint, state []big.Int, regs []Register) uint {
+func (p *Call) Execute(pc uint, state []big.Int, regs []io.Register) uint {
 	p.MicroExecute(state, regs)
 	return pc + 1
 }
@@ -59,7 +61,7 @@ func (p *Call) Execute(pc uint, state []big.Int, regs []Register) uint {
 // may update the register values, and returns either the number of micro-codes
 // to "skip over" when executing the enclosing instruction or, if skip==0, a
 // destination program counter (which can signal return of enclosing function).
-func (p *Call) MicroExecute(state []big.Int, regs []Register) (uint, uint) {
+func (p *Call) MicroExecute(state []big.Int, regs []io.Register) (uint, uint) {
 	panic("todo")
 }
 
@@ -83,7 +85,7 @@ func (p *Call) RegistersWritten() []uint {
 	return p.Targets
 }
 
-func (p *Call) String(regs []Register) string {
+func (p *Call) String(regs []io.Register) string {
 	panic("todo")
 }
 
@@ -97,6 +99,6 @@ func (p *Call) Split(env *RegisterSplittingEnvironment) []Code {
 }
 
 // Validate checks whether or not this instruction well-formed.
-func (p *Call) Validate(fieldWidth uint, regs []Register) error {
+func (p *Call) Validate(fieldWidth uint, regs []io.Register) error {
 	panic("todo")
 }

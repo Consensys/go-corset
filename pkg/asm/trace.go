@@ -13,15 +13,16 @@
 package asm
 
 import (
-	"github.com/consensys/go-corset/pkg/asm/macro"
-	"github.com/consensys/go-corset/pkg/asm/micro"
+	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/asm/io/macro"
+	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	tr "github.com/consensys/go-corset/pkg/trace"
 )
 
 // Trace represents the trace of a given program (either macro or micro).
 type Trace[T any] interface {
 	// Program for which this is a trace of
-	Program() Program[T]
+	Program() io.Program[T]
 	// Input / Outputs of all functions
 	Instances() []FunctionInstance
 	// Insert all instances into this trace
@@ -54,8 +55,8 @@ type MicroTrace struct {
 }
 
 // Program for which this is a trace of
-func (p *MicroTrace) Program() Program[micro.Instruction] {
-	return &p.program
+func (p *MicroTrace) Program() MicroProgram {
+	return p.program
 }
 
 // Instances returns the input / outputs of all functions
@@ -71,7 +72,7 @@ func (p *MicroTrace) InsertAll(instances []FunctionInstance) {
 
 // Lower this micro trace to a set of raw columns.
 func (p *MicroTrace) Lower() []tr.RawColumn {
-	builder := NewTraceBuilder(&p.program)
+	builder := NewTraceBuilder(p.program)
 	return builder.Build(p)
 }
 
@@ -88,8 +89,8 @@ type MacroTrace struct {
 }
 
 // Program for which this is a trace of
-func (p *MacroTrace) Program() Program[macro.Instruction] {
-	return &p.program
+func (p *MacroTrace) Program() MacroProgram {
+	return p.program
 }
 
 // Instances returns the input / outputs of all functions
@@ -107,7 +108,7 @@ func (p *MacroTrace) InsertAll(instances []FunctionInstance) {
 // config.
 func (p *MacroTrace) Lower(cfg LoweringConfig) MicroTrace {
 	var (
-		microProgram                      = p.program.Lower(cfg)
+		microProgram                      = Lower(cfg, p.program)
 		microInstances []FunctionInstance = make([]FunctionInstance, len(p.instances))
 	)
 	//

@@ -17,7 +17,7 @@ import (
 	"math"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
-	"github.com/consensys/go-corset/pkg/asm/macro"
+	"github.com/consensys/go-corset/pkg/asm/io/macro"
 )
 
 // Environment captures useful information used during the assembling process.

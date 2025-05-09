@@ -27,11 +27,11 @@ const pc_width = uint(8)
 // schema and set of input columns.  The goal is to encapsulate all of the logic
 // around building a trace.
 type TraceBuilder[T io.Instruction] struct {
-	program Program[T]
+	program io.Program[T]
 }
 
 // NewTraceBuilder constructs a new trace builder for a given set of functions.
-func NewTraceBuilder[T io.Instruction](program Program[T]) *TraceBuilder[T] {
+func NewTraceBuilder[T io.Instruction](program io.Program[T]) *TraceBuilder[T] {
 	return &TraceBuilder[T]{program}
 }
 

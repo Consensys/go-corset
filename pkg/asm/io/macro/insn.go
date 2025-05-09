@@ -14,7 +14,7 @@ package macro
 
 import (
 	"github.com/consensys/go-corset/pkg/asm/io"
-	"github.com/consensys/go-corset/pkg/asm/micro"
+	"github.com/consensys/go-corset/pkg/asm/io/micro"
 )
 
 // Register is an alias for insn.Register

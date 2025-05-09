@@ -50,7 +50,7 @@ func (p *Skip) Clone() Code {
 // may update the register values, and returns either the number of micro-codes
 // to "skip over" when executing the enclosing instruction or, if skip==0, a
 // destination program counter (which can signal return of enclosing function).
-func (p *Skip) MicroExecute(state []big.Int, regs []Register) (uint, uint) {
+func (p *Skip) MicroExecute(state []big.Int, regs []io.Register) (uint, uint) {
 	var (
 		lhs = state[p.Left]
 		rhs big.Int
@@ -116,7 +116,7 @@ func (p *Skip) Split(env *RegisterSplittingEnvironment) []Code {
 	return ncodes
 }
 
-func (p *Skip) String(regs []Register) string {
+func (p *Skip) String(regs []io.Register) string {
 	var l = regs[p.Left].Name
 	//
 	if p.Right != io.UNUSED_REGISTER {
@@ -127,7 +127,7 @@ func (p *Skip) String(regs []Register) string {
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Skip) Validate(fieldWidth uint, regs []Register) error {
+func (p *Skip) Validate(fieldWidth uint, regs []io.Register) error {
 	lw := regs[p.Left].Width
 	//
 	if p.Right != io.UNUSED_REGISTER {

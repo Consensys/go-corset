@@ -25,7 +25,7 @@ import (
 // to a given set of functions.  It returns an error if something goes wrong
 // (e.g. the instance is malformed), and either true or false to indicate
 // whether the trace is accepted or not.
-func CheckInstance[T io.Instruction](instance FunctionInstance, program Program[T]) (uint, error) {
+func CheckInstance[T io.Instruction](instance FunctionInstance, program io.Program[T]) (uint, error) {
 	// Initialise a new interpreter
 	interpreter := NewInterpreter(program)
 	//
@@ -81,14 +81,14 @@ func (p *InterpreterState) PC() uint {
 // sequence.
 type Interpreter[T io.Instruction] struct {
 	// Program being interpreted
-	program Program[T]
+	program io.Program[T]
 	// Set of interpreter states
 	states []InterpreterState
 }
 
 // NewInterpreter intialises an interpreter for executing a given instruction
 // sequence.
-func NewInterpreter[T io.Instruction](program Program[T]) *Interpreter[T] {
+func NewInterpreter[T io.Instruction](program io.Program[T]) *Interpreter[T] {
 	return &Interpreter[T]{program, nil}
 }
 

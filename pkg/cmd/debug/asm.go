@@ -27,8 +27,8 @@ import (
 func PrintAssemblyProgram(micro bool, cfg asm.LoweringConfig, program asm.MacroProgram) {
 	//
 	if micro {
-		// Lower the program.
-		uprogram := program.Lower(cfg)
+		// Lower macro-program to micro-program.
+		uprogram := asm.Lower(cfg, program)
 		//
 		printAssemblyFunctions(uprogram.Functions())
 	} else {

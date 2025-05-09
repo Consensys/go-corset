@@ -25,3 +25,32 @@ type Function[T any] struct {
 	// Code defines the body of this function.
 	Code []T
 }
+
+// Program represents a complete set of functions and related declarations
+// defining a program.
+type Program[T any] interface {
+	// Function returns the ith function in this program.
+	Function(uint) Function[T]
+	// Functions returns the set of functions defined in this program.
+	Functions() []Function[T]
+}
+
+// NewProgram constructs a new program using a given level of instruction.
+func NewProgram[T any](components ...Function[T]) Program[T] {
+	return &program[T]{components}
+}
+
+// Simple implementation of Program[T]
+type program[T any] struct {
+	functions []Function[T]
+}
+
+// Function returns the ith function in this program.
+func (p *program[T]) Function(id uint) Function[T] {
+	return p.functions[id]
+}
+
+// Functions returns all functions making up this program.
+func (p *program[T]) Functions() []Function[T] {
+	return p.functions
+}

@@ -201,7 +201,7 @@ func checkProgram[T io.Instruction](ir string, trace asm.Trace[T]) bool {
 	return ok
 }
 
-func checkFunctionInstance[T io.Instruction](ir string, instance asm.FunctionInstance, program asm.Program[T]) bool {
+func checkFunctionInstance[T io.Instruction](ir string, instance asm.FunctionInstance, program io.Program[T]) bool {
 	// Macro check
 	if outcome, err := asm.CheckInstance(instance, program); outcome == math.MaxUint {
 		// Internal failure

@@ -19,7 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io"
 )
 
-func assignmentToString(dsts []uint, srcs []uint, constant big.Int, regs []Register, c big.Int, op string) string {
+func assignmentToString(dsts []uint, srcs []uint, constant big.Int, regs []io.Register, c big.Int, op string) string {
 	var (
 		builder strings.Builder
 		n       = len(dsts) - 1
@@ -73,7 +73,7 @@ func assignmentToString(dsts []uint, srcs []uint, constant big.Int, regs []Regis
 // register in the given target registers.  For example, given registers r0 and
 // r1 of bitwidths 16bits and 8bits (respectively), then 2 is maximum number of
 // limbs for an 8bit maximum register width.
-func MaxNumberOfLimbs(maxWidth uint, regs []Register, targets []uint) uint {
+func MaxNumberOfLimbs(maxWidth uint, regs []io.Register, targets []uint) uint {
 	var n = uint(0)
 	//
 	for _, target := range targets {
@@ -108,23 +108,23 @@ type RegisterSplittingEnvironment struct {
 	// Maximum permitted width for a register.
 	maxWidth uint
 	// Set of unsplit registers (i.e. as they were before).
-	regsBefore []Register
+	regsBefore []io.Register
 	// Set of split registers (i.e. as they are after splitting).  Observe that
 	// this can include extra registers are allocated to implement the split
 	// (e.g. for holding carry flags).
-	regsAfter []Register
+	regsAfter []io.Register
 	// Mapping from indices in regsBefore to indices in regsAfter
 	regMap []uint
 }
 
 // NewRegisterSplittingEnvironment constructs a new register splitting environment for a given set
 // of registers and a desired maximum register width.
-func NewRegisterSplittingEnvironment(maxWidth uint, registers []Register) *RegisterSplittingEnvironment {
+func NewRegisterSplittingEnvironment(maxWidth uint, registers []io.Register) *RegisterSplittingEnvironment {
 	var (
 		// Mapping from old register ids to new register ids.
 		mapping []uint = make([]uint, len(registers))
 		//
-		splitRegisters []Register
+		splitRegisters []io.Register
 	)
 	//
 	for i, reg := range registers {
@@ -148,7 +148,7 @@ func NewRegisterSplittingEnvironment(maxWidth uint, registers []Register) *Regis
 }
 
 // RegistersAfter returns the set of registers as they appear after splitting.
-func (p *RegisterSplittingEnvironment) RegistersAfter() []Register {
+func (p *RegisterSplittingEnvironment) RegistersAfter() []io.Register {
 	return p.regsAfter
 }
 
@@ -296,7 +296,7 @@ func (p *RegisterSplittingEnvironment) AllocateCarryRegister(targetWidth uint, s
 	// Determine number of bits of overflow
 	overflowWidth := sourceWidth - targetWidth
 	// Construct register for holding overflow
-	overflowRegister := Register{Name: fmt.Sprintf("c$%d", overflowRegId), Kind: io.TEMP_REGISTER, Width: overflowWidth}
+	overflowRegister := io.Register{Name: fmt.Sprintf("c$%d", overflowRegId), Kind: io.TEMP_REGISTER, Width: overflowWidth}
 	// Allocate overflow register
 	p.regsAfter = append(p.regsAfter, overflowRegister)
 	//
@@ -308,17 +308,17 @@ func (p *RegisterSplittingEnvironment) AllocateCarryRegister(targetWidth uint, s
 // Since registers are always split to the maximum width as much as possible, it
 // is only the most significant register which may (in some cases) have fewer
 // bits than the maximum allowed.
-func SplitRegister(maxWidth uint, r Register) []Register {
+func SplitRegister(maxWidth uint, r io.Register) []io.Register {
 	var (
 		nlimbs = NumberOfLimbs(maxWidth, r.Width)
-		limbs  = make([]Register, nlimbs)
+		limbs  = make([]io.Register, nlimbs)
 		width  = r.Width
 	)
 	//
 	for i := uint(0); i < nlimbs; i++ {
 		ith_name := fmt.Sprintf("%s'%d", r.Name, i)
 		ith_width := min(maxWidth, width)
-		limbs[i] = Register{Name: ith_name, Kind: r.Kind, Width: ith_width}
+		limbs[i] = io.Register{Name: ith_name, Kind: r.Kind, Width: ith_width}
 		width -= maxWidth
 	}
 	//
@@ -328,7 +328,7 @@ func SplitRegister(maxWidth uint, r Register) []Register {
 // SplitValueAcrossRegisters splits a given value across a set of registers,
 // where the least significant register comes first.  This will panic if the
 // value does not fit into the given registers.
-func SplitValueAcrossRegisters(constant *big.Int, registers ...Register) []big.Int {
+func SplitValueAcrossRegisters(constant *big.Int, registers ...io.Register) []big.Int {
 	var (
 		limb  big.Int
 		limbs []big.Int = make([]big.Int, len(registers))

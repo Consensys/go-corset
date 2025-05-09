@@ -19,7 +19,7 @@ import (
 	"testing"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
-	"github.com/consensys/go-corset/pkg/asm/micro"
+	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/mir"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -196,7 +196,7 @@ func checkTrace(t *testing.T, inputs []trace.RawColumn, id traceId, schema sc.Sc
 }
 
 // Check the given traces for a particular function instance.
-func checkFunction[T io.Instruction](t *testing.T, id traceId, instance FunctionInstance, program Program[T]) {
+func checkFunction[T io.Instruction](t *testing.T, id traceId, instance FunctionInstance, program io.Program[T]) {
 	outcome, err := CheckInstance(instance, program)
 	//
 	if outcome == math.MaxUint {
