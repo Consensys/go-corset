@@ -16,7 +16,8 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/consensys/go-corset/pkg/asm/insn"
+	"github.com/consensys/go-corset/pkg/asm/assembler"
+	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/macro"
 	"github.com/consensys/go-corset/pkg/asm/micro"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
@@ -24,22 +25,23 @@ import (
 )
 
 // Register describes a single register within a function.
-type Register = insn.Register
+type Register = io.Register
 
 // Assemble takes a given set of assembly files, and parses them into a given
 // set of functions.  This includes performing various checks on the files, such
 // as type checking, etc.
 func Assemble(assembly ...source.File) (MacroProgram, source.Maps[macro.Instruction], []source.SyntaxError) {
 	var (
-		program MacroProgram
-		errors  []source.SyntaxError
-		srcmaps source.Maps[macro.Instruction] = *source.NewSourceMaps[macro.Instruction]()
+		components []MacroFunction
+		errors     []source.SyntaxError
+		srcmaps    source.Maps[macro.Instruction] = *source.NewSourceMaps[macro.Instruction]()
 	)
 	// Parse each file in turn.
 	for _, asm := range assembly {
-		p, srcmap, errs := Parse(&asm)
+		// Parse source file
+		cs, srcmap, errs := assembler.Parse(&asm)
 		if len(errs) == 0 {
-			program.functions = append(program.functions, p.functions...)
+			components = append(components, cs...)
 		}
 		// Join srcmap
 		srcmaps.Join(srcmap)
@@ -47,11 +49,11 @@ func Assemble(assembly ...source.File) (MacroProgram, source.Maps[macro.Instruct
 		errors = append(errors, errs...)
 	}
 	// Well-formedness checks
-	for _, fn := range program.functions {
+	for _, fn := range components {
 		errors = append(errors, checkWellFormed(fn, srcmaps)...)
 	}
 	// Done
-	return program, srcmaps, errors
+	return NewMacroProgram(components...), srcmaps, errors
 }
 
 // check that a given set of functions are well-formed.  For example, an

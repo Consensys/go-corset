@@ -18,7 +18,7 @@ import (
 	"math/big"
 	"slices"
 
-	"github.com/consensys/go-corset/pkg/asm/insn"
+	"github.com/consensys/go-corset/pkg/asm/io"
 )
 
 // Add represents a generic operation of the following form:
@@ -86,7 +86,7 @@ func (p *Add) MicroExecute(state []big.Int, regs []Register) (uint, uint) {
 		value.Add(&value, &state[src])
 	}
 	// Write value
-	insn.WriteTargetRegisters(p.Targets, state, regs, value)
+	io.WriteTargetRegisters(p.Targets, state, regs, value)
 	//
 	return 1, 0
 }
@@ -199,7 +199,7 @@ func (p *Add) Validate(fieldWidth uint, regs []Register) error {
 		return fmt.Errorf("field overflow (%d bits into %d bit field)", rhs_bits, fieldWidth)
 	}
 	//
-	return insn.CheckTargetRegisters(p.Targets, regs)
+	return io.CheckTargetRegisters(p.Targets, regs)
 }
 
 func (p *Add) splitAssignment(env *RegisterSplittingEnvironment) []Code {

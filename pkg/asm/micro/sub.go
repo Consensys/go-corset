@@ -18,7 +18,7 @@ import (
 	"math/big"
 	"slices"
 
-	"github.com/consensys/go-corset/pkg/asm/insn"
+	"github.com/consensys/go-corset/pkg/asm/io"
 )
 
 // Sub represents a generic operation of the following form:
@@ -88,7 +88,7 @@ func (p *Sub) MicroExecute(state []big.Int, regs []Register) (uint, uint) {
 	// Subtract constant
 	value.Sub(&value, &p.Constant)
 	// Write value
-	insn.WriteTargetRegisters(p.Targets, state, regs, value)
+	io.WriteTargetRegisters(p.Targets, state, regs, value)
 	//
 	return 1, 0
 }
@@ -188,7 +188,7 @@ func (p *Sub) Validate(fieldWidth uint, regs []Register) error {
 		return err
 	}
 	// Finally, ensure unique targets
-	return insn.CheckTargetRegisters(p.Targets, regs)
+	return io.CheckTargetRegisters(p.Targets, regs)
 }
 
 // the pivot check is necessary to ensure we can properly rebalance a

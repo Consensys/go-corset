@@ -18,7 +18,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/consensys/go-corset/pkg/asm/insn"
+	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/micro"
 	"github.com/consensys/go-corset/pkg/mir"
 	sc "github.com/consensys/go-corset/pkg/schema"
@@ -77,7 +77,7 @@ func check(t *testing.T, test string) {
 	// Package up as source file
 	srcfile := source.NewSourceFile(filename, bytes)
 	// Parse terms into an assembly macroProgram
-	macroProgram, _, errs := Parse(srcfile)
+	macroProgram, _, errs := Assemble(*srcfile)
 	// Check terms parsed ok
 	if len(errs) > 0 {
 		t.Fatalf("Error parsing %s: %v\n", filename, errs)
@@ -113,7 +113,7 @@ func check(t *testing.T, test string) {
 }
 
 // Check the given traces for all function instances.
-func checkTraces[T insn.Instruction](t *testing.T, test string, ir string, cfg TestConfig, traces []Trace[T]) {
+func checkTraces[T io.Instruction](t *testing.T, test string, ir string, cfg TestConfig, traces []Trace[T]) {
 	//
 	for i, tr := range traces {
 		id := traceId{ir, test, cfg.expected, i + 1, 0}
@@ -196,7 +196,7 @@ func checkTrace(t *testing.T, inputs []trace.RawColumn, id traceId, schema sc.Sc
 }
 
 // Check the given traces for a particular function instance.
-func checkFunction[T insn.Instruction](t *testing.T, id traceId, instance FunctionInstance, program Program[T]) {
+func checkFunction[T io.Instruction](t *testing.T, id traceId, instance FunctionInstance, program Program[T]) {
 	outcome, err := CheckInstance(instance, program)
 	//
 	if outcome == math.MaxUint {

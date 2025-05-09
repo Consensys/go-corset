@@ -23,7 +23,8 @@ import (
 // providing an I/O communication channel to a given peripheral (in this case,
 // another function).
 type Call struct {
-	Name string
+	// Bus identifies the relevant bus for this instruction.
+	Bus uint
 	// Target registers for addition
 	Targets []uint
 	// Source registers (i.e. arguments) for call
@@ -39,7 +40,7 @@ func (p *Call) Bind(labels []uint) {
 func (p *Call) Clone() Code {
 	//
 	return &Call{
-		p.Name,
+		p.Bus,
 		slices.Clone(p.Targets),
 		slices.Clone(p.Sources),
 	}

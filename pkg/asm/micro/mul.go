@@ -17,7 +17,7 @@ import (
 	"math/big"
 	"slices"
 
-	"github.com/consensys/go-corset/pkg/asm/insn"
+	"github.com/consensys/go-corset/pkg/asm/io"
 )
 
 // Mul represents a generic operation of the following form:
@@ -87,7 +87,7 @@ func (p *Mul) MicroExecute(state []big.Int, regs []Register) (uint, uint) {
 	// Multiply constant
 	value.Mul(&value, &p.Constant)
 	// Write value
-	insn.WriteTargetRegisters(p.Targets, state, regs, value)
+	io.WriteTargetRegisters(p.Targets, state, regs, value)
 	//
 	return 1, 0
 }
@@ -143,7 +143,7 @@ func (p *Mul) Validate(fieldWidth uint, regs []Register) error {
 		return fmt.Errorf("field overflow (%d bits into %d bit field)", rhs_bits, fieldWidth)
 	}
 	//
-	return insn.CheckTargetRegisters(p.Targets, regs)
+	return io.CheckTargetRegisters(p.Targets, regs)
 }
 
 func mulSourceBits(sources []uint, constant big.Int, regs []Register) uint {

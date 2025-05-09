@@ -20,6 +20,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/macro"
 	"github.com/consensys/go-corset/pkg/util"
 )
@@ -95,7 +96,7 @@ func ReadTrace(bytes []byte, program MacroProgram) (MacroTrace, error) {
 	return trace, nil
 }
 
-func readTraceInstances[T any](trace traceMap, fid uint, fn Function[T]) ([]FunctionInstance, error) {
+func readTraceInstances[T any](trace traceMap, fid uint, fn io.Function[T]) ([]FunctionInstance, error) {
 	var (
 		height uint = math.MaxUint
 		count       = 0

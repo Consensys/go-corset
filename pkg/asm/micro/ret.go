@@ -15,7 +15,7 @@ package micro
 import (
 	"math/big"
 
-	"github.com/consensys/go-corset/pkg/asm/insn"
+	"github.com/consensys/go-corset/pkg/asm/io"
 )
 
 // Ret signals a return from the enclosing function.
@@ -37,7 +37,7 @@ func (p *Ret) Clone() Code {
 
 // Execute a ret instruction by signaling a return from the enclosing function.
 func (p *Ret) Execute(pc uint, state []big.Int, regs []Register) uint {
-	return insn.RETURN
+	return io.RETURN
 }
 
 // MicroExecute a given micro-code, using a given set of register values.  This
@@ -45,7 +45,7 @@ func (p *Ret) Execute(pc uint, state []big.Int, regs []Register) uint {
 // to "skip over" when executing the enclosing instruction or, if skip==0, a
 // destination program counter (which can signal return of enclosing function).
 func (p *Ret) MicroExecute(state []big.Int, regs []Register) (uint, uint) {
-	return 0, insn.RETURN
+	return 0, io.RETURN
 }
 
 // Lower this instruction into a exactly one more micro instruction.

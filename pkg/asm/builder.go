@@ -15,7 +15,7 @@ package asm
 import (
 	"math/big"
 
-	"github.com/consensys/go-corset/pkg/asm/insn"
+	"github.com/consensys/go-corset/pkg/asm/io"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/field"
 )
@@ -26,12 +26,12 @@ const pc_width = uint(8)
 // TraceBuilder provides a mechanical means of constructing a trace from a given
 // schema and set of input columns.  The goal is to encapsulate all of the logic
 // around building a trace.
-type TraceBuilder[T insn.Instruction] struct {
+type TraceBuilder[T io.Instruction] struct {
 	program Program[T]
 }
 
 // NewTraceBuilder constructs a new trace builder for a given set of functions.
-func NewTraceBuilder[T insn.Instruction](program Program[T]) *TraceBuilder[T] {
+func NewTraceBuilder[T io.Instruction](program Program[T]) *TraceBuilder[T] {
 	return &TraceBuilder[T]{program}
 }
 

@@ -16,7 +16,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/consensys/go-corset/pkg/asm/insn"
+	"github.com/consensys/go-corset/pkg/asm/io"
 )
 
 // Skip microcode performs a conditional skip over a given number of codes. The
@@ -56,7 +56,7 @@ func (p *Skip) MicroExecute(state []big.Int, regs []Register) (uint, uint) {
 		rhs big.Int
 	)
 	//
-	if p.Right != insn.UNUSED_REGISTER {
+	if p.Right != io.UNUSED_REGISTER {
 		rhs = state[p.Right]
 	} else {
 		rhs = p.Constant
@@ -76,7 +76,7 @@ func (p *Skip) Registers() []uint {
 
 // RegistersRead returns the set of registers read by this instruction.
 func (p *Skip) RegistersRead() []uint {
-	if p.Right != insn.UNUSED_REGISTER {
+	if p.Right != io.UNUSED_REGISTER {
 		return []uint{p.Left}
 	}
 	//
@@ -99,7 +99,7 @@ func (p *Skip) Split(env *RegisterSplittingEnvironment) []Code {
 		skip     = p.Skip + n - 1
 	)
 	//
-	if p.Right != insn.UNUSED_REGISTER {
+	if p.Right != io.UNUSED_REGISTER {
 		rhsLimbs := env.SplitTargetRegisters(p.Right)
 		for i := uint(0); i < n; i++ {
 			ncode := &Skip{lhsLimbs[i], rhsLimbs[i], p.Constant, skip - i}
@@ -108,7 +108,7 @@ func (p *Skip) Split(env *RegisterSplittingEnvironment) []Code {
 	} else {
 		constantLimbs := env.SplitConstant(p.Constant, n)
 		for i := uint(0); i < n; i++ {
-			ncode := &Skip{lhsLimbs[i], insn.UNUSED_REGISTER, constantLimbs[i], skip - i}
+			ncode := &Skip{lhsLimbs[i], io.UNUSED_REGISTER, constantLimbs[i], skip - i}
 			ncodes = append(ncodes, ncode)
 		}
 	}
@@ -119,7 +119,7 @@ func (p *Skip) Split(env *RegisterSplittingEnvironment) []Code {
 func (p *Skip) String(regs []Register) string {
 	var l = regs[p.Left].Name
 	//
-	if p.Right != insn.UNUSED_REGISTER {
+	if p.Right != io.UNUSED_REGISTER {
 		return fmt.Sprintf("skip %s!=%s %d", l, regs[p.Right].Name, p.Skip)
 	}
 	//
@@ -130,7 +130,7 @@ func (p *Skip) String(regs []Register) string {
 func (p *Skip) Validate(fieldWidth uint, regs []Register) error {
 	lw := regs[p.Left].Width
 	//
-	if p.Right != insn.UNUSED_REGISTER {
+	if p.Right != io.UNUSED_REGISTER {
 		rw := regs[p.Right].Width
 		//
 		if lw != rw {

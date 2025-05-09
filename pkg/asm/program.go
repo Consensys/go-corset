@@ -17,6 +17,7 @@ import (
 	"math"
 	"slices"
 
+	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/macro"
 	"github.com/consensys/go-corset/pkg/asm/micro"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
@@ -26,9 +27,9 @@ import (
 // defining a program.
 type Program[T any] interface {
 	// Function returns the ith function in this program.
-	Function(uint) Function[T]
+	Function(uint) io.Function[T]
 	// Functions returns the set of functions defined in this program.
-	Functions() []Function[T]
+	Functions() []io.Function[T]
 }
 
 // =============================================================================
@@ -37,22 +38,22 @@ type Program[T any] interface {
 
 // MicroProgram represents a set of functions at the micro level.
 type MicroProgram struct {
-	functions []Function[micro.Instruction]
+	functions []io.Function[micro.Instruction]
 }
 
 // NewMicroProgram constructs a new micro program from a given set of micro
 // functions.
-func NewMicroProgram(functions ...Function[micro.Instruction]) MicroProgram {
+func NewMicroProgram(functions ...io.Function[micro.Instruction]) MicroProgram {
 	return MicroProgram{functions}
 }
 
 // Function returns the ith function in this program.
-func (p *MicroProgram) Function(id uint) Function[micro.Instruction] {
+func (p *MicroProgram) Function(id uint) io.Function[micro.Instruction] {
 	return p.functions[id]
 }
 
 // Functions returns all functions making up this program.
-func (p *MicroProgram) Functions() []Function[micro.Instruction] {
+func (p *MicroProgram) Functions() []io.Function[micro.Instruction] {
 	return p.functions
 }
 
@@ -63,22 +64,22 @@ func (p *MicroProgram) Functions() []Function[micro.Instruction] {
 // MacroProgram represents a set of functions at the macro level.  Thus, a macro
 // program can be lowered to a given micro program, etc.
 type MacroProgram struct {
-	functions []Function[macro.Instruction]
+	functions []io.Function[macro.Instruction]
 }
 
 // NewMacroProgram constructs a new macro program from a given set of macro
 // functions.
-func NewMacroProgram(functions ...Function[macro.Instruction]) MacroProgram {
+func NewMacroProgram(functions ...io.Function[macro.Instruction]) MacroProgram {
 	return MacroProgram{functions}
 }
 
 // Function returns the ith function in this program.
-func (p *MacroProgram) Function(id uint) Function[macro.Instruction] {
+func (p *MacroProgram) Function(id uint) io.Function[macro.Instruction] {
 	return p.functions[id]
 }
 
 // Functions returns all functions making up this program.
-func (p *MacroProgram) Functions() []Function[macro.Instruction] {
+func (p *MacroProgram) Functions() []io.Function[macro.Instruction] {
 	return p.functions
 }
 

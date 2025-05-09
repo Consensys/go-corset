@@ -20,7 +20,7 @@ import (
 	"path"
 
 	"github.com/consensys/go-corset/pkg/asm"
-	"github.com/consensys/go-corset/pkg/asm/insn"
+	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/cmd/check"
 	"github.com/consensys/go-corset/pkg/corset"
@@ -190,7 +190,7 @@ func checkWithAsmPipeline(cfg checkConfig, tracefile string, asmfiles ...string)
 	}
 }
 
-func checkProgram[T insn.Instruction](ir string, trace asm.Trace[T]) bool {
+func checkProgram[T io.Instruction](ir string, trace asm.Trace[T]) bool {
 	var ok = true
 	//
 	for _, instance := range trace.Instances() {
@@ -201,7 +201,7 @@ func checkProgram[T insn.Instruction](ir string, trace asm.Trace[T]) bool {
 	return ok
 }
 
-func checkFunctionInstance[T insn.Instruction](ir string, instance asm.FunctionInstance, program asm.Program[T]) bool {
+func checkFunctionInstance[T io.Instruction](ir string, instance asm.FunctionInstance, program asm.Program[T]) bool {
 	// Macro check
 	if outcome, err := asm.CheckInstance(instance, program); outcome == math.MaxUint {
 		// Internal failure

@@ -15,7 +15,7 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/consensys/go-corset/pkg/asm/insn"
+	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 )
 
@@ -26,7 +26,7 @@ var zero big.Int = *big.NewInt(0)
 var one big.Int = *big.NewInt(1)
 
 // Register is an alias for insn.Register
-type Register = insn.Register
+type Register = io.Register
 
 // Code provides an abstract notion of an atomic "machine operation", where a
 // single instruction is comprised of multiple such microcodes.  To ensure

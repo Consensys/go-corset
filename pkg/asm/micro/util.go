@@ -16,7 +16,7 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/consensys/go-corset/pkg/asm/insn"
+	"github.com/consensys/go-corset/pkg/asm/io"
 )
 
 func assignmentToString(dsts []uint, srcs []uint, constant big.Int, regs []Register, c big.Int, op string) string {
@@ -296,7 +296,7 @@ func (p *RegisterSplittingEnvironment) AllocateCarryRegister(targetWidth uint, s
 	// Determine number of bits of overflow
 	overflowWidth := sourceWidth - targetWidth
 	// Construct register for holding overflow
-	overflowRegister := Register{Name: fmt.Sprintf("c$%d", overflowRegId), Kind: insn.TEMP_REGISTER, Width: overflowWidth}
+	overflowRegister := Register{Name: fmt.Sprintf("c$%d", overflowRegId), Kind: io.TEMP_REGISTER, Width: overflowWidth}
 	// Allocate overflow register
 	p.regsAfter = append(p.regsAfter, overflowRegister)
 	//
