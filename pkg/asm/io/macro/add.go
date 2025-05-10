@@ -54,7 +54,7 @@ func (p *Add) Bind(labels []uint) {
 // given set of register values.  This may update the register values, and
 // returns the next program counter position.  If the program counter is
 // math.MaxUint then a return is signaled.
-func (p *Add) Execute(pc uint, state []big.Int, regs []io.Register) uint {
+func (p *Add) Execute(pc uint, state []big.Int, regs []io.Register, iomap io.Map) uint {
 	var value big.Int
 	// Add constant
 	value.Set(&p.Constant)

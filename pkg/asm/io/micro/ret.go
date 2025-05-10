@@ -34,7 +34,7 @@ func (p *Ret) Clone() Code {
 // may update the register values, and returns either the number of micro-codes
 // to "skip over" when executing the enclosing instruction or, if skip==0, a
 // destination program counter (which can signal return of enclosing function).
-func (p *Ret) MicroExecute(state []big.Int, regs []io.Register) (uint, uint) {
+func (p *Ret) MicroExecute(state []big.Int, regs []io.Register, iomap io.Map) (uint, uint) {
 	return 0, io.RETURN
 }
 

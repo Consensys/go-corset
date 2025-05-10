@@ -26,6 +26,7 @@ import (
 // (e.g. the instance is malformed), and either true or false to indicate
 // whether the trace is accepted or not.
 func CheckInstance[T io.Instruction[T]](instance io.FunctionInstance, program io.Program[T]) (uint, error) {
+	fn := program.Function(instance.Function)
 	// Initialise a new interpreter
 	interpreter := NewInterpreter(program)
 	//
@@ -36,16 +37,16 @@ func CheckInstance[T io.Instruction[T]](instance io.FunctionInstance, program io
 	interpreter.Execute(math.MaxUint)
 	// Extract outputs
 	outputs := interpreter.Leave()
-	// Checkout results
-	for r, actual := range outputs {
-		expected, ok := instance.Outputs[r]
-		outcome := expected.Cmp(&actual) == 0
+	// Check results
+	for i, reg := range fn.Outputs() {
+		expected, ok := instance.Outputs[reg.Name]
+		actual := outputs[i]
 		// Check actual output matches expected output
 		if !ok {
-			return math.MaxUint, fmt.Errorf("missing output (%s)", r)
-		} else if !outcome {
+			return math.MaxUint, fmt.Errorf("missing output (%s)", reg.Name)
+		} else if expected.Cmp(&actual) != 0 {
 			// failure
-			return 1, fmt.Errorf("incorrect output \"%s\" (was %s, expected %s)", r, actual.String(), expected.String())
+			return 1, fmt.Errorf("incorrect output \"%s\" (was %s, expected %s)", reg.Name, actual.String(), expected.String())
 		}
 	}
 	//
@@ -92,7 +93,7 @@ func NewInterpreter[T io.Instruction[T]](program io.Program[T]) *Interpreter[T] 
 	return &Interpreter[T]{program, nil}
 }
 
-// Bind converts a set of name inputs into the internal state as needed by the
+// Bind converts a set of named inputs into the internal state as needed by the
 // interpreter.
 func (p *Interpreter[T]) Bind(fn uint, arguments map[string]big.Int) []big.Int {
 	var (
@@ -120,6 +121,32 @@ func (p *Interpreter[T]) Bind(fn uint, arguments map[string]big.Int) []big.Int {
 	return state
 }
 
+// BindInner binds input arguments represented as an array into a true internal
+// state.
+func (p *Interpreter[T]) BindInner(fn uint, arguments []big.Int) []big.Int {
+	var (
+		f     = p.program.Function(fn)
+		state = make([]big.Int, len(f.Registers))
+		index = 0
+	)
+	// Initialise arguments
+	for i, reg := range f.Registers {
+		if reg.IsInput() {
+			var (
+				val = arguments[index]
+				ith big.Int
+			)
+			// Clone big int
+			ith.Set(&val)
+			//
+			state[i] = ith
+			index = index + 1
+		}
+	}
+	//
+	return state
+}
+
 // State returns the interpreter's (raw) register state for the currently
 // executing function.  This state is raw, hence changes to this can impact the
 // interpreter's subsequent execution.
@@ -138,18 +165,18 @@ func (p *Interpreter[T]) Enter(fn uint, state []big.Int) {
 }
 
 // Leave exits the currently executing function, extracting its output values.
-func (p *Interpreter[T]) Leave() map[string]big.Int {
+func (p *Interpreter[T]) Leave() []big.Int {
 	var (
 		n  = len(p.states) - 1
 		st = p.states[n]
 		f  = p.program.Function(st.fid)
 	)
 	// Construct outputs
-	outputs := make(map[string]big.Int, 0)
+	outputs := make([]big.Int, 0)
 	//
 	for i, reg := range f.Registers {
 		if reg.IsOutput() {
-			outputs[reg.Name] = st.registers[i]
+			outputs = append(outputs, st.registers[i])
 		}
 	}
 	// Remove last state
@@ -164,15 +191,14 @@ func (p *Interpreter[T]) Leave() map[string]big.Int {
 // before executing all steps.
 func (p *Interpreter[T]) Execute(nsteps uint) uint {
 	var (
-		n    = len(p.states) - 1
-		st   = &p.states[n]
+		st   = p.State()
 		f    = p.program.Function(st.fid)
 		step = uint(0)
 	)
 	//
 	for st.pc != io.RETURN && step < nsteps {
 		insn := f.Code[st.pc]
-		st.pc = insn.Execute(st.pc, st.registers, f.Registers)
+		st.pc = insn.Execute(st.pc, st.registers, f.Registers, p)
 		step++
 	}
 	//
@@ -187,6 +213,23 @@ func (p *Interpreter[T]) HasTerminated() bool {
 	)
 	//
 	return st.pc == math.MaxUint
+}
+
+// Read a set of values at a given address on a bus.
+func (p *Interpreter[T]) Read(bus uint, address []big.Int) []big.Int {
+	// Convert address into true internal state
+	state := p.BindInner(bus, address)
+	// Enter function
+	p.Enter(bus, state)
+	// Execute function to completion
+	p.Execute(math.MaxUint)
+	// Extract outputs
+	return p.Leave()
+}
+
+// Write a set of values to a given address on a bus.
+func (p *Interpreter[T]) Write(bus uint, address []big.Int, values []big.Int) {
+	panic("to do")
 }
 
 func (p *Interpreter[T]) String() string {

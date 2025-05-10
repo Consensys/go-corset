@@ -62,7 +62,7 @@ func (p *IfGoto) Link(buses []uint) {
 
 // Execute an unconditional branch instruction by returning the destination
 // program counter.
-func (p *IfGoto) Execute(pc uint, state []big.Int, regs []Register) uint {
+func (p *IfGoto) Execute(pc uint, state []big.Int, regs []Register, iomap io.Map) uint {
 	var (
 		lhs   big.Int = state[p.Left]
 		rhs   big.Int

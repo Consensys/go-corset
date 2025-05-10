@@ -32,7 +32,7 @@ func (p *Goto) Bind(labels []uint) {
 
 // Execute an unconditional branch instruction by returning the destination
 // program counter.
-func (p *Goto) Execute(pc uint, state []big.Int, regs []io.Register) uint {
+func (p *Goto) Execute(pc uint, state []big.Int, regs []io.Register, iomap io.Map) uint {
 	return p.Target
 }
 

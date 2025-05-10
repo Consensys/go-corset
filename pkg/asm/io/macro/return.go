@@ -32,7 +32,7 @@ func (p *Return) Bind(labels []uint) {
 }
 
 // Execute a ret instruction by signaling a return from the enclosing function.
-func (p *Return) Execute(pc uint, state []big.Int, regs []io.Register) uint {
+func (p *Return) Execute(pc uint, state []big.Int, regs []io.Register, iomap io.Map) uint {
 	return io.RETURN
 }
 

@@ -40,7 +40,7 @@ type Code interface {
 	// micro-codes to "skip over" when executing the enclosing instruction or,
 	// if skip==0, a destination program counter (which can signal return of
 	// enclosing function).
-	MicroExecute(state []big.Int, regs []io.Register) (skip uint, pc uint)
+	MicroExecute(state []big.Int, regs []io.Register, iomap io.Map) (skip uint, pc uint)
 	// Registers returns the set of registers read this micro instruction.
 	RegistersRead() []uint
 	// Registers returns the set of registers written by this micro instruction.
@@ -92,14 +92,14 @@ func (p Instruction) Terminal() bool {
 // given set of register values.  This may update the register values, and
 // returns the next program counter position.  If the program counter is
 // math.MaxUint then a return is signaled.
-func (p Instruction) Execute(pc uint, state []big.Int, regs []io.Register) uint {
+func (p Instruction) Execute(pc uint, state []big.Int, regs []io.Register, iomap io.Map) uint {
 	var skip uint = 1
 	//
 	for cc := uint(0); skip != 0; {
 		// Decode next micro-code
 		code := p.Codes[cc]
 		// Execut micro-code
-		skip, pc = code.MicroExecute(state, regs)
+		skip, pc = code.MicroExecute(state, regs, iomap)
 		// Skip as requested
 		cc += skip
 	}

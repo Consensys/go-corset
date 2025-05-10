@@ -40,13 +40,35 @@ func (p *Environment[T]) Enclosing() Function[T] {
 	return p.Program.Function(p.Function)
 }
 
+// Map represents the interface between the different components of a program.
+// It provides a way to send messages to and from components.  The core
+// abstraction of a bus are the "address lines" and the "data lines".  For
+// example, to read from a bus we set the desired address on the address lines
+// and then read off the result from the data lines.  Likewise, to write to a
+// bus, we set both the address and data lines, etc.  This mechanism abstracts
+// the various I/O peripherals found within a program, such as functions, Random
+// Access Memory, etc.
+type Map interface {
+	// Read a set of values at a given address on a bus.  The exact meaning of
+	// this depends upon the I/O peripheral connected to the bus.  For example,
+	// if its a function then the function is executed with the given address as
+	// its arguments, producing some number of outputs.  Likewise, if its a
+	// memory, then this will return the current value stored in that address,
+	// etc.
+	Read(bus uint, address []big.Int) []big.Int
+	// Write a set of values to a given address on a bus.  This only makes sense
+	// for writeable memory, such Random Access Memory (RAM).  In contrast,
+	// functions and Read-Only Memory (ROM) are not considered writeable.
+	Write(bus uint, address []big.Int, values []big.Int)
+}
+
 // Instruction provides an abstract notion of an executable "machine instruction".
 type Instruction[T any] interface {
 	// Execute a given instruction at a given program counter position, using a
 	// given set of register values.  This may update the register values, and
 	// returns the next program counter position.  If the program counter is
 	// math.MaxUint then a return is signaled.
-	Execute(pc uint, state []big.Int, regs []Register) uint
+	Execute(pc uint, state []big.Int, regs []Register, iomap Map) uint
 	// Registers returns the set of registers read this micro instruction.
 	RegistersRead() []uint
 	// Registers returns the set of registers written by this micro instruction.

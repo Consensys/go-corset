@@ -44,8 +44,20 @@ func (p *Call) Bind(labels []uint) {
 // given set of register values.  This may update the register values, and
 // returns the next program counter position.  If the program counter is
 // math.MaxUint then a return is signaled.
-func (p *Call) Execute(pc uint, state []big.Int, regs []io.Register) uint {
-	panic("todo")
+func (p *Call) Execute(pc uint, state []big.Int, regs []io.Register, iomap io.Map) uint {
+	address := make([]big.Int, len(p.Sources))
+	// Setup read address
+	for i, src := range p.Sources {
+		address[i] = state[src]
+	}
+	// Perform I/O read
+	values := iomap.Read(p.Bus, address)
+	// Write back results
+	for i, dst := range p.Targets {
+		state[dst] = values[i]
+	}
+	//
+	return pc + 1
 }
 
 // Lower this instruction into a exactly one more micro instruction.
