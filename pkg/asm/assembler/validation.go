@@ -147,15 +147,15 @@ func applyInstructionSemantics(worklist *Worklist, fn MacroFunction,
 	state, errors = applyInstructionFlow(insn, state, fn, srcmaps)
 	// Propagate state along branches
 	switch insn := insn.(type) {
-	case *macro.Jmp:
+	case *macro.Goto:
 		// Unconditional jump target
 		worklist.Join(insn.Target, state)
-	case *macro.JCond:
+	case *macro.IfGoto:
 		// Conditional jump target
 		worklist.Join(insn.Target, state)
 		// Fall thru
 		worklist.Join(pc+1, state)
-	case *macro.Ret:
+	case *macro.Return:
 		// Check all outputs are assigned
 		errs := checkOutputsAssigned(insn, state, fn, srcmaps)
 		errors = append(errors, errs...)

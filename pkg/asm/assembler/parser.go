@@ -13,6 +13,7 @@
 package assembler
 
 import (
+	"fmt"
 	"math"
 	"math/big"
 	"strconv"
@@ -220,12 +221,12 @@ func (p *Parser) parseMacroInstruction(pc uint, env *Environment) (macro.Instruc
 	}
 	//
 	switch first {
-	case "jc":
-		insn, errs = p.parseJCond(env)
-	case "jmp":
-		insn, errs = p.parseJmp(env)
-	case "ret":
-		insn, errs = &macro.Ret{}, nil
+	case "if":
+		insn, errs = p.parseIfGoto(env)
+	case "goto":
+		insn, errs = p.parseGoto(env)
+	case "return":
+		insn, errs = &macro.Return{}, nil
 	case "var":
 		return nil, p.parseVar(env)
 	default:
@@ -247,14 +248,14 @@ func (p *Parser) parseMacroInstruction(pc uint, env *Environment) (macro.Instruc
 	return insn, errs
 }
 
-func (p *Parser) parseJmp(env *Environment) (macro.Instruction, []source.SyntaxError) {
+func (p *Parser) parseGoto(env *Environment) (macro.Instruction, []source.SyntaxError) {
 	lab, errs := p.parseIdentifier()
 	//
 	if len(errs) > 0 {
 		return nil, errs
 	}
 	//
-	return &macro.Jmp{
+	return &macro.Goto{
 		Target: env.BindLabel(lab)}, nil
 }
 
@@ -308,7 +309,7 @@ func (p *Parser) parseVar(env *Environment) []source.SyntaxError {
 	return nil
 }
 
-func (p *Parser) parseJCond(env *Environment) (macro.Instruction, []source.SyntaxError) {
+func (p *Parser) parseIfGoto(env *Environment) (macro.Instruction, []source.SyntaxError) {
 	var (
 		errs     []source.SyntaxError
 		lhs, rhs uint
@@ -328,12 +329,16 @@ func (p *Parser) parseJCond(env *Environment) (macro.Instruction, []source.Synta
 	if rhs, constant, errs = p.parseRegisterOrConstant(env); len(errs) > 0 {
 		return nil, errs
 	}
+	// Parse "goto"
+	if errs = p.parseKeyword("goto"); len(errs) > 0 {
+		return nil, errs
+	}
 	// Parse target label
 	if label, errs = p.parseIdentifier(); len(errs) > 0 {
 		return nil, errs
 	}
 	//
-	return &macro.JCond{
+	return &macro.IfGoto{
 		Cond:     cond,
 		Left:     lhs,
 		Right:    rhs,
@@ -527,6 +532,18 @@ func (p *Parser) parseRegister(env *Environment) (uint, []source.SyntaxError) {
 	}
 	// Done
 	return env.LookupRegister(reg), nil
+}
+
+func (p *Parser) parseKeyword(keyword string) []source.SyntaxError {
+	tok, errs := p.expect(IDENTIFIER)
+	//
+	if len(errs) > 0 {
+		return errs
+	} else if p.string(tok) != keyword {
+		return p.syntaxErrors(tok, fmt.Sprintf("expected \"%s\"", keyword))
+	}
+	//
+	return nil
 }
 
 func (p *Parser) parseIdentifier() (string, []source.SyntaxError) {

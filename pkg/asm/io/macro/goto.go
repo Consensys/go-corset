@@ -20,48 +20,48 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
 )
 
-// Jmp provides an unconditional branching instruction to a given instructon.
-type Jmp struct {
+// Goto provides an unconditional branching instruction to a given instructon.
+type Goto struct {
 	Target uint
 }
 
 // Bind any labels contained within this instruction using the given label map.
-func (p *Jmp) Bind(labels []uint) {
+func (p *Goto) Bind(labels []uint) {
 	p.Target = labels[p.Target]
 }
 
 // Execute an unconditional branch instruction by returning the destination
 // program counter.
-func (p *Jmp) Execute(pc uint, state []big.Int, regs []io.Register) uint {
+func (p *Goto) Execute(pc uint, state []big.Int, regs []io.Register) uint {
 	return p.Target
 }
 
 // Lower this instruction into a exactly one more micro instruction.
-func (p *Jmp) Lower(pc uint) micro.Instruction {
+func (p *Goto) Lower(pc uint) micro.Instruction {
 	// Lowering here produces an instruction containing a single microcode.
 	return micro.NewInstruction(&micro.Jmp{Target: p.Target})
 }
 
 // Link any buses used within this instruction using the given bus map.
-func (p *Jmp) Link(buses []uint) {
+func (p *Goto) Link(buses []uint) {
 	// nothing to link
 }
 
 // RegistersRead returns the set of registers read by this instruction.
-func (p *Jmp) RegistersRead() []uint {
+func (p *Goto) RegistersRead() []uint {
 	return nil
 }
 
 // RegistersWritten returns the set of registers written by this instruction.
-func (p *Jmp) RegistersWritten() []uint {
+func (p *Goto) RegistersWritten() []uint {
 	return nil
 }
 
-func (p *Jmp) String(env io.Environment[Instruction]) string {
+func (p *Goto) String(env io.Environment[Instruction]) string {
 	return fmt.Sprintf("goto %d", p.Target)
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Jmp) Validate(env io.Environment[Instruction]) error {
+func (p *Goto) Validate(env io.Environment[Instruction]) error {
 	return nil
 }

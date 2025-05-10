@@ -35,11 +35,11 @@ const (
 	GTEQ uint8 = 5
 )
 
-// JCond describes a conditional branch, which is either jeq ("Jump if equal") or
+// IfGoto describes a conditional branch, which is either jeq ("Jump if equal") or
 // jne ("Jump if not equal").  This has two variants: register-register; and,
 // register-constant.  The latter is indiciated when the right register is
 // marked as UNUSED.
-type JCond struct {
+type IfGoto struct {
 	// Cond indicates the condition
 	Cond uint8
 	// Left and right comparisons
@@ -51,18 +51,18 @@ type JCond struct {
 }
 
 // Bind any labels contained within this instruction using the given label map.
-func (p *JCond) Bind(labels []uint) {
+func (p *IfGoto) Bind(labels []uint) {
 	p.Target = labels[p.Target]
 }
 
 // Link any buses used within this instruction using the given bus map.
-func (p *JCond) Link(buses []uint) {
+func (p *IfGoto) Link(buses []uint) {
 	// nothing to link
 }
 
 // Execute an unconditional branch instruction by returning the destination
 // program counter.
-func (p *JCond) Execute(pc uint, state []big.Int, regs []Register) uint {
+func (p *IfGoto) Execute(pc uint, state []big.Int, regs []Register) uint {
 	var (
 		lhs   big.Int = state[p.Left]
 		rhs   big.Int
@@ -101,7 +101,7 @@ func (p *JCond) Execute(pc uint, state []big.Int, regs []Register) uint {
 
 // Lower this (macro) instruction into a sequence of one or more micro
 // instructions.
-func (p *JCond) Lower(pc uint) micro.Instruction {
+func (p *IfGoto) Lower(pc uint) micro.Instruction {
 	var codes []micro.Code
 	//
 	switch p.Cond {
@@ -125,7 +125,7 @@ func (p *JCond) Lower(pc uint) micro.Instruction {
 }
 
 // RegistersRead returns the set of registers read by this instruction.
-func (p *JCond) RegistersRead() []uint {
+func (p *IfGoto) RegistersRead() []uint {
 	if p.Right != io.UNUSED_REGISTER {
 		return []uint{p.Left}
 	}
@@ -134,11 +134,11 @@ func (p *JCond) RegistersRead() []uint {
 }
 
 // RegistersWritten returns the set of registers written by this instruction.
-func (p *JCond) RegistersWritten() []uint {
+func (p *IfGoto) RegistersWritten() []uint {
 	return nil
 }
 
-func (p *JCond) String(env io.Environment[Instruction]) string {
+func (p *IfGoto) String(env io.Environment[Instruction]) string {
 	var (
 		regs = env.Enclosing().Registers
 		l    = regs[p.Left].Name
@@ -173,7 +173,7 @@ func (p *JCond) String(env io.Environment[Instruction]) string {
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *JCond) Validate(env io.Environment[Instruction]) error {
+func (p *IfGoto) Validate(env io.Environment[Instruction]) error {
 	if p.Left == p.Right {
 		switch p.Cond {
 		case EQ, LTEQ, GTEQ:

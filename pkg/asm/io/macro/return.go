@@ -19,49 +19,49 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
 )
 
-// Ret signals a return from the enclosing function.
-type Ret struct {
+// Return signals a return from the enclosing function.
+type Return struct {
 	// dummy is included to force Ret structs to be stored in the heap.
 	//nolint
 	dummy uint
 }
 
 // Bind any labels contained within this instruction using the given label map.
-func (p *Ret) Bind(labels []uint) {
+func (p *Return) Bind(labels []uint) {
 	// no-op
 }
 
 // Execute a ret instruction by signaling a return from the enclosing function.
-func (p *Ret) Execute(pc uint, state []big.Int, regs []io.Register) uint {
+func (p *Return) Execute(pc uint, state []big.Int, regs []io.Register) uint {
 	return io.RETURN
 }
 
 // Lower this instruction into a exactly one more micro instruction.
-func (p *Ret) Lower(pc uint) micro.Instruction {
+func (p *Return) Lower(pc uint) micro.Instruction {
 	// Lowering here produces an instruction containing a single microcode.
 	return micro.NewInstruction(&micro.Ret{})
 }
 
 // Link any buses used within this instruction using the given bus map.
-func (p *Ret) Link(buses []uint) {
+func (p *Return) Link(buses []uint) {
 	// nothing to link
 }
 
 // RegistersRead returns the set of registers read by this instruction.
-func (p *Ret) RegistersRead() []uint {
+func (p *Return) RegistersRead() []uint {
 	return nil
 }
 
 // RegistersWritten returns the set of registers written by this instruction.
-func (p *Ret) RegistersWritten() []uint {
+func (p *Return) RegistersWritten() []uint {
 	return nil
 }
 
-func (p *Ret) String(env io.Environment[Instruction]) string {
+func (p *Return) String(env io.Environment[Instruction]) string {
 	return "return"
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Ret) Validate(env io.Environment[Instruction]) error {
+func (p *Return) Validate(env io.Environment[Instruction]) error {
 	return nil
 }
