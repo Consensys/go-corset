@@ -49,30 +49,35 @@ type MicroProgram = io.Program[micro.Instruction]
 // Assemble takes a given set of assembly files, and parses them into a given
 // set of functions.  This includes performing various checks on the files, such
 // as type checking, etc.
-func Assemble(assembly ...source.File) (io.Program[macro.Instruction], source.Maps[macro.Instruction], []source.SyntaxError) {
+func Assemble(assembly ...source.File) (
+	MacroProgram, source.Maps[any], []source.SyntaxError) {
+	//
 	var (
-		components []MacroFunction
-		errors     []source.SyntaxError
-		srcmaps    source.Maps[macro.Instruction] = *source.NewSourceMaps[macro.Instruction]()
+		items   []assembler.AssemblyItem
+		errors  []source.SyntaxError
+		program MacroProgram
+		srcmaps source.Maps[any]
 	)
 	// Parse each file in turn.
 	for _, asm := range assembly {
 		// Parse source file
-		cs, srcmap, errs := assembler.Parse(&asm)
+		cs, errs := assembler.Parse(&asm)
 		if len(errs) == 0 {
-			components = append(components, cs...)
+			items = append(items, cs)
 		}
-		// Join srcmap
-		srcmaps.Join(srcmap)
 		//
 		errors = append(errors, errs...)
 	}
-	// Well-formedness checks
-	for _, fn := range components {
-		errors = append(errors, assembler.Validate(fn, srcmaps)...)
+	// Link assembly
+	if len(errors) != 0 {
+		return program, srcmaps, errors
 	}
+	// Link assembly and resolve buses
+	program, srcmaps = assembler.Link(items...)
+	// Well-formedness checks (assuming unlimited field width).
+	errors = assembler.Validate(math.MaxUint, program, srcmaps)
 	// Done
-	return io.NewProgram(components...), srcmaps, errors
+	return program, srcmaps, errors
 }
 
 // CompileAssembly compiles a given set of assembly functions into a binary
@@ -92,7 +97,13 @@ func CompileAssembly(cfg LoweringConfig, assembly ...source.File) (*binfile.Bina
 // Compile a microprogram into a binary constraint file.
 func Compile(microProgram io.Program[micro.Instruction]) *binfile.BinaryFile {
 	compiler := compiler.NewCompiler()
-	//
+	// Configure buses
+	for i := range microProgram.Functions() {
+		fn := microProgram.Function(uint(i))
+		// Register bus
+		compiler.RegisterBus(fn.Name, fn.Inputs(), fn.Outputs())
+	}
+	// Compile functions
 	for i := range microProgram.Functions() {
 		fn := microProgram.Function(uint(i))
 		compiler.Compile(fn.Name, fn.Registers, fn.Code)
@@ -137,7 +148,14 @@ func Lower(cfg LoweringConfig, p MacroProgram) MicroProgram {
 		functions[i] = lowerFunction(cfg, f)
 	}
 	//
-	return io.NewProgram(functions...)
+	program := io.NewProgram(functions...)
+	// Validate generated program.  Whilst not strictly necessary, it is useful
+	// from a debugging perspective.  In particular, for catching situations
+	// where registers have not been split incorrectly, or the resulting
+	// assignments don't fit the underlying field.
+	assembler.ValidateMicro(cfg.MaxFieldWidth, program)
+	//
+	return program
 }
 
 // ============================================================================
@@ -151,7 +169,7 @@ func lowerFunction(cfg LoweringConfig, f MacroFunction) MicroFunction {
 		insns[pc] = insn.Lower(uint(pc))
 	}
 	// Sanity checks (for now)
-	fn := MicroFunction{f.Name, f.Registers, insns}
+	fn := MicroFunction{Name: f.Name, Registers: f.Registers, Code: insns}
 	// Split registers as necessary to meet limits.
 	fn = splitRegisters(cfg, fn)
 	// Apply vectorisation (if enabled).
@@ -185,7 +203,7 @@ func splitRegisters(cfg LoweringConfig, f MicroFunction) MicroFunction {
 		ninsns = append(ninsns, ninsn)
 	}
 	// Done
-	return MicroFunction{f.Name, env.RegistersAfter(), ninsns}
+	return MicroFunction{Name: f.Name, Registers: env.RegistersAfter(), Code: ninsns}
 }
 
 func splitMicroInstruction(insn micro.Instruction, cfg LoweringConfig,
@@ -196,13 +214,6 @@ func splitMicroInstruction(insn micro.Instruction, cfg LoweringConfig,
 	for _, code := range insn.Codes {
 		split := code.Split(env)
 		ncodes = append(ncodes, split...)
-	}
-	// Sanity check split codes are valid.  This is not strictly necessary, but
-	// is useful for debugging.
-	for _, code := range ncodes {
-		if err := code.Validate(cfg.MaxFieldWidth, env.RegistersAfter()); err != nil {
-			panic(err.Error())
-		}
 	}
 	//
 	return micro.Instruction{Codes: ncodes}

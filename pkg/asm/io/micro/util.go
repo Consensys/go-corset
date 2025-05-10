@@ -20,29 +20,9 @@ import (
 )
 
 func assignmentToString(dsts []uint, srcs []uint, constant big.Int, regs []io.Register, c big.Int, op string) string {
-	var (
-		builder strings.Builder
-		n       = len(dsts) - 1
-	)
+	var builder strings.Builder
 	//
-	if zero.Cmp(big.NewInt(0)) != 0 {
-		panic("")
-	}
-	//
-	for i := 0; i != len(dsts); i++ {
-		var r = dsts[n-i]
-		//
-		if i != 0 {
-			builder.WriteString(", ")
-		}
-		//
-		if r < uint(len(regs)) {
-			builder.WriteString(regs[r].Name)
-		} else {
-			builder.WriteString(fmt.Sprintf("?%d", r))
-		}
-	}
-	//
+	builder.WriteString(io.RegistersReversedToString(dsts, regs))
 	builder.WriteString(" = ")
 	//
 	for i, r := range srcs {

@@ -35,11 +35,11 @@ const (
 	GTEQ uint8 = 5
 )
 
-// JCond describes a conditional branch, which is either jeq ("Jump if equal") or
+// IfGoto describes a conditional branch, which is either jeq ("Jump if equal") or
 // jne ("Jump if not equal").  This has two variants: register-register; and,
 // register-constant.  The latter is indiciated when the right register is
 // marked as UNUSED.
-type JCond struct {
+type IfGoto struct {
 	// Cond indicates the condition
 	Cond uint8
 	// Left and right comparisons
@@ -51,38 +51,45 @@ type JCond struct {
 }
 
 // Bind any labels contained within this instruction using the given label map.
-func (p *JCond) Bind(labels []uint) {
+func (p *IfGoto) Bind(labels []uint) {
 	p.Target = labels[p.Target]
 }
 
-// Execute an unconditional branch instruction by returning the destination
-// program counter.
-func (p *JCond) Execute(pc uint, state []big.Int, regs []Register) uint {
+// Link any buses used within this instruction using the given bus map.
+func (p *IfGoto) Link(buses []uint) {
+	// nothing to link
+}
+
+// Execute this instruction with the given local and global state.  The next
+// program counter position is returned, or io.RETURN if the enclosing
+// function has terminated (i.e. because a return instruction was
+// encountered).
+func (p *IfGoto) Execute(state io.State, iomap io.Map) uint {
 	var (
-		lhs   big.Int = state[p.Left]
-		rhs   big.Int
+		lhs   *big.Int = state.Read(p.Left)
+		rhs   *big.Int
 		taken bool
 	)
 	//
 	if p.Right != io.UNUSED_REGISTER {
-		rhs = state[p.Right]
+		rhs = state.Read(p.Right)
 	} else {
-		rhs = p.Constant
+		rhs = &p.Constant
 	}
 	//
 	switch p.Cond {
 	case EQ:
-		taken = lhs.Cmp(&rhs) == 0
+		taken = lhs.Cmp(rhs) == 0
 	case NEQ:
-		taken = lhs.Cmp(&rhs) != 0
+		taken = lhs.Cmp(rhs) != 0
 	case LT:
-		taken = lhs.Cmp(&rhs) < 0
+		taken = lhs.Cmp(rhs) < 0
 	case LTEQ:
-		taken = lhs.Cmp(&rhs) <= 0
+		taken = lhs.Cmp(rhs) <= 0
 	case GT:
-		taken = lhs.Cmp(&rhs) > 0
+		taken = lhs.Cmp(rhs) > 0
 	case GTEQ:
-		taken = lhs.Cmp(&rhs) >= 0
+		taken = lhs.Cmp(rhs) >= 0
 	default:
 		panic("unreachable")
 	}
@@ -91,12 +98,12 @@ func (p *JCond) Execute(pc uint, state []big.Int, regs []Register) uint {
 		return p.Target
 	}
 	//
-	return pc + 1
+	return state.Next()
 }
 
 // Lower this (macro) instruction into a sequence of one or more micro
 // instructions.
-func (p *JCond) Lower(pc uint) micro.Instruction {
+func (p *IfGoto) Lower(pc uint) micro.Instruction {
 	var codes []micro.Code
 	//
 	switch p.Cond {
@@ -119,13 +126,8 @@ func (p *JCond) Lower(pc uint) micro.Instruction {
 	return micro.Instruction{Codes: codes}
 }
 
-// Registers returns the set of registers read/written by this instruction.
-func (p *JCond) Registers() []uint {
-	return p.RegistersRead()
-}
-
 // RegistersRead returns the set of registers read by this instruction.
-func (p *JCond) RegistersRead() []uint {
+func (p *IfGoto) RegistersRead() []uint {
 	if p.Right != io.UNUSED_REGISTER {
 		return []uint{p.Left}
 	}
@@ -134,15 +136,16 @@ func (p *JCond) RegistersRead() []uint {
 }
 
 // RegistersWritten returns the set of registers written by this instruction.
-func (p *JCond) RegistersWritten() []uint {
+func (p *IfGoto) RegistersWritten() []uint {
 	return nil
 }
 
-func (p *JCond) String(regs []Register) string {
+func (p *IfGoto) String(env io.Environment[Instruction]) string {
 	var (
-		l  = regs[p.Left].Name
-		r  string
-		op string
+		regs = env.Enclosing().Registers
+		l    = regs[p.Left].Name
+		r    string
+		op   string
 	)
 	//
 	switch p.Cond {
@@ -168,11 +171,11 @@ func (p *JCond) String(regs []Register) string {
 		r = p.Constant.String()
 	}
 	//
-	return fmt.Sprintf("jc %s%s%s %d", l, op, r, p.Target)
+	return fmt.Sprintf("if %s%s%s goto %d", l, op, r, p.Target)
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *JCond) Validate(fieldWidth uint, regs []Register) error {
+func (p *IfGoto) Validate(env io.Environment[Instruction]) error {
 	if p.Left == p.Right {
 		switch p.Cond {
 		case EQ, LTEQ, GTEQ:

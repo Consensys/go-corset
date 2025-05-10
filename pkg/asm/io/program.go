@@ -30,6 +30,32 @@ type Function[T any] struct {
 	Code []T
 }
 
+// Inputs returns the set of input registers for this function.
+func (p *Function[T]) Inputs() []Register {
+	var inputs []Register
+	//
+	for _, r := range p.Registers {
+		if r.IsInput() {
+			inputs = append(inputs, r)
+		}
+	}
+	//
+	return inputs
+}
+
+// Outputs returns the set of output registers for this function.
+func (p *Function[T]) Outputs() []Register {
+	var outputs []Register
+	//
+	for _, r := range p.Registers {
+		if r.IsOutput() {
+			outputs = append(outputs, r)
+		}
+	}
+	//
+	return outputs
+}
+
 // Program represents a complete set of functions and related declarations
 // defining a program.
 type Program[T any] interface {

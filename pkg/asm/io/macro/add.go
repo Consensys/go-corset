@@ -10,19 +10,19 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package micro
+package macro
 
 import (
 	"fmt"
 	"math/big"
-	"slices"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/asm/io/micro"
 )
 
-// Mul represents a generic operation of the following form:
+// Add represents a generic operation of the following form:
 //
-// tn, .., t0 := s0 * ... * sm * c
+// tn, .., t0 := s0 + ... + sm + c
 //
 // Here, t0 .. tn are the *target registers*, of which tn is the *most
 // significant*.  These must be disjoint as we cannot assign simultaneously to
@@ -30,13 +30,13 @@ import (
 // given (non-negative) constant. Observe the n == m is not required, meaning
 // one can assign multiple registers.  For example, consider this case:
 //
-// c, r0 := r1 * 2
+// c, r0 := r1 + 1
 //
 // Suppose that r0 and r1 are 16bit registers, whilst c is a 1bit register. The
-// result of r1 * 2 occupies 17bits, of which the first 16 are written to r0
+// result of r1 + 1 occupies 17bits, of which the first 16 are written to r0
 // with the most significant (i.e. 16th) bit written to c.  Thus, in this
 // particular example, c represents a carry flag.
-type Mul struct {
+type Add struct {
 	// Target registers for addition
 	Targets []uint
 	// Source register for addition
@@ -45,74 +45,66 @@ type Mul struct {
 	Constant big.Int
 }
 
-// Clone this micro code.
-func (p *Mul) Clone() Code {
-	var constant big.Int
-	//
-	constant.Set(&p.Constant)
-	//
-	return &Mul{
-		slices.Clone(p.Targets),
-		slices.Clone(p.Sources),
-		constant,
-	}
+// Bind any labels contained within this instruction using the given label map.
+func (p *Add) Bind(labels []uint) {
+	// no-op
 }
 
-// MicroExecute a given micro-code, using a given local state.  This may update
-// the register values, and returns either the number of micro-codes to "skip
-// over" when executing the enclosing instruction or, if skip==0, a destination
-// program counter (which can signal return of enclosing function).
-func (p *Mul) MicroExecute(state io.State, iomap io.Map) (uint, uint) {
+// Execute this instruction with the given local and global state.  The next
+// program counter position is returned, or io.RETURN if the enclosing
+// function has terminated (i.e. because a return instruction was
+// encountered).
+func (p *Add) Execute(state io.State, iomap io.Map) uint {
 	var value big.Int
-	// Assign first value
-	value.Set(state.Read(p.Sources[0]))
-	// Multiply register values
-	for _, src := range p.Sources[1:] {
-		value.Mul(&value, state.Read(src))
+	// Add constant
+	value.Set(&p.Constant)
+	// Add register values
+	for _, src := range p.Sources {
+		value.Add(&value, state.Read(src))
 	}
-	// Multiply constant
-	value.Mul(&value, &p.Constant)
-	// Write value
+	// Write value across targets
 	state.Write(value, p.Targets...)
 	//
-	return 1, 0
+	return state.Next()
+}
+
+// Lower this instruction into a exactly one more micro instruction.
+func (p *Add) Lower(pc uint) micro.Instruction {
+	code := &micro.Add{
+		Targets:  p.Targets,
+		Sources:  p.Sources,
+		Constant: p.Constant,
+	}
+	// Lowering here produces an instruction containing a single microcode.
+	return micro.NewInstruction(code, &micro.Jmp{Target: pc + 1})
+}
+
+// Link any buses used within this instruction using the given bus map.
+func (p *Add) Link(buses []uint) {
+	// nothing to link
 }
 
 // RegistersRead returns the set of registers read by this instruction.
-func (p *Mul) RegistersRead() []uint {
+func (p *Add) RegistersRead() []uint {
 	return p.Sources
 }
 
 // RegistersWritten returns the set of registers written by this instruction.
-func (p *Mul) RegistersWritten() []uint {
+func (p *Add) RegistersWritten() []uint {
 	return p.Targets
 }
 
-// Split this micro code using registers of arbirary width into one or more
-// micro codes using registers of a fixed maximum width.
-func (p *Mul) Split(env *RegisterSplittingEnvironment) []Code {
-	regs := append(p.RegistersRead(), p.RegistersWritten()...)
-	// Temporary hack
-	for _, r := range regs {
-		if env.regsBefore[r].Width >= env.maxWidth {
-			panic("splitting multiplication not supported")
-		}
-	}
-	//
-	return []Code{p}
-}
-
-func (p *Mul) String(env io.Environment[Instruction]) string {
+func (p *Add) String(env io.Environment[Instruction]) string {
 	regs := env.Enclosing().Registers
-	return assignmentToString(p.Targets, p.Sources, p.Constant, regs, one, " * ")
+	return assignmentToString(p.Targets, p.Sources, p.Constant, regs, zero, " + ")
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Mul) Validate(env io.Environment[Instruction]) error {
+func (p *Add) Validate(env io.Environment[Instruction]) error {
 	var (
 		regs     = env.Enclosing().Registers
 		lhs_bits = sumTargetBits(p.Targets, regs)
-		rhs_bits = mulSourceBits(p.Sources, p.Constant, regs)
+		rhs_bits = sumSourceBits(p.Sources, p.Constant, regs)
 	)
 	// check
 	if lhs_bits < rhs_bits {
@@ -124,16 +116,25 @@ func (p *Mul) Validate(env io.Environment[Instruction]) error {
 	return io.CheckTargetRegisters(p.Targets, regs)
 }
 
-func mulSourceBits(sources []uint, constant big.Int, regs []io.Register) uint {
+func sumSourceBits(sources []uint, constant big.Int, regs []io.Register) uint {
 	var rhs big.Int
 	//
-	rhs.Set(&one)
-	//
 	for _, target := range sources {
-		rhs.Mul(&rhs, regs[target].MaxValue())
+		rhs.Add(&rhs, regs[target].MaxValue())
 	}
 	// Include constant (if relevant)
-	rhs.Mul(&rhs, &constant)
+	rhs.Add(&rhs, &constant)
 	//
 	return uint(rhs.BitLen())
+}
+
+// Sum the total number of bits used by the given set of target registers.
+func sumTargetBits(targets []uint, regs []io.Register) uint {
+	sum := uint(0)
+	//
+	for _, target := range targets {
+		sum += regs[target].Width
+	}
+	//
+	return sum
 }
