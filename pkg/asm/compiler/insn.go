@@ -13,6 +13,7 @@
 package compiler
 
 import (
+	"fmt"
 	"math/big"
 	"slices"
 
@@ -30,6 +31,8 @@ func translate(cc uint, codes []micro.Code, st StateTranslator) hir.Expr {
 	switch codes[cc].(type) {
 	case *micro.Add:
 		return translateAdd(cc, codes, st)
+	case *micro.Call:
+		return translateCall(cc, codes, st)
 	case *micro.Jmp:
 		return translateJmp(cc, codes, st)
 	case *micro.Mul:
@@ -52,7 +55,7 @@ func translateAdd(cc uint, codes []micro.Code, st StateTranslator) hir.Expr {
 		// build rhs
 		rhs = st.ReadRegisters(code.Sources)
 		// build lhs (must be after rhs)
-		lhs = st.WriteRegisters(code.Targets)
+		lhs = st.WriteAndShiftRegisters(code.Targets)
 	)
 	// include constant if this makes sense
 	if code.Constant.Cmp(&zero) != 0 {
@@ -65,6 +68,37 @@ func translateAdd(cc uint, codes []micro.Code, st StateTranslator) hir.Expr {
 	eqn := hir.Equals(hir.Sum(lhs...), hir.Sum(rhs...))
 	// Continue
 	return hir.Conjunction(eqn, translate(cc+1, codes, st))
+}
+
+// Translate this instruction into low-level constraints.
+func translateCall(cc uint, codes []micro.Code, st StateTranslator) hir.Expr {
+	var (
+		code = codes[cc].(*micro.Call)
+		// build address
+		address = st.ReadRegisters(code.Sources)
+		// build value (must be after rhs)
+		value = st.WriteRegisters(code.Targets)
+		//
+		width = len(value) + len(address)
+		//
+		conjuncts = make([]hir.Expr, 0)
+	)
+	// Lookup bus info
+	bus := st.Bus(code.Bus)
+	// Sanity check
+	if width != len(bus) {
+		panic(fmt.Sprintf("incompatible bus width (was %d, expected %d)", width, len(bus)))
+	}
+	// Setup address writes
+	for i, line := range address {
+		conjuncts = append(conjuncts, hir.Equals(bus[i], line))
+	}
+	// Setup value reads
+	for i, line := range value {
+		conjuncts = append(conjuncts, hir.Equals(line, bus[i+len(address)]))
+	}
+	// Done
+	return hir.Conjunction(conjuncts...)
 }
 
 func translateJmp(cc uint, codes []micro.Code, st StateTranslator) hir.Expr {
@@ -85,7 +119,7 @@ func translateMul(cc uint, codes []micro.Code, st StateTranslator) hir.Expr {
 		// build rhs
 		rhs = st.ReadRegisters(code.Sources)
 		// build lhs (must be after rhs)
-		lhs = st.WriteRegisters(code.Targets)
+		lhs = st.WriteAndShiftRegisters(code.Targets)
 	)
 	// include constant if this makes sense
 	if code.Constant.Cmp(&one) != 0 {
@@ -137,7 +171,7 @@ func translateSub(cc uint, codes []micro.Code, st StateTranslator) hir.Expr {
 		// build rhs
 		rhs = st.ReadRegisters(code.Sources)
 		// build lhs (must be after rhs)
-		lhs = st.WriteRegisters(code.Targets)
+		lhs = st.WriteAndShiftRegisters(code.Targets)
 	)
 	// include constant if this makes sense
 	if code.Constant.Cmp(&zero) != 0 {

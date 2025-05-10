@@ -35,19 +35,19 @@ var one big.Int = *big.NewInt(1)
 type Code interface {
 	// Clone this instruction
 	Clone() Code
-	// Execute a given micro-code, using a given set of register values.  This
-	// may update the register values, and returns either the number of
-	// micro-codes to "skip over" when executing the enclosing instruction or,
-	// if skip==0, a destination program counter (which can signal return of
-	// enclosing function).
-	MicroExecute(state []big.Int, regs []io.Register) (skip uint, pc uint)
+	// Execute a given micro-code, using a given local state.  This may update
+	// the register values, and returns either the number of micro-codes to
+	// "skip over" when executing the enclosing instruction or, if skip==0, a
+	// destination program counter (which can signal return of enclosing
+	// function).
+	MicroExecute(state io.State, iomap io.Map) (skip uint, pc uint)
 	// Registers returns the set of registers read this micro instruction.
 	RegistersRead() []uint
 	// Registers returns the set of registers written by this micro instruction.
 	RegistersWritten() []uint
 	// Produce a suitable string representation of this instruction.  This is
 	// primarily used for debugging.
-	String(regs []io.Register) string
+	String(io.Environment[Instruction]) string
 	// Split this micro code using registers of arbirary width into one or more
 	// micro codes using registers of a fixed maximum width.
 	Split(env *RegisterSplittingEnvironment) []Code
@@ -56,7 +56,7 @@ type Code interface {
 	// been allocated, etc.  The maximum bit capacity of the underlying field is
 	// needed for this calculation, so as to allow an instruction to check it
 	// does not overflow the underlying field.
-	Validate(fieldWidth uint, regs []io.Register) error
+	Validate(io.Environment[Instruction]) error
 }
 
 // Instruction represents the composition of one or more micro instructions
@@ -68,6 +68,11 @@ type Code interface {
 // the middle of a microinstruction.
 type Instruction struct {
 	Codes []Code
+}
+
+// NewInstruction constructs a new instruction from a given set of micro-codes.
+func NewInstruction(codes ...Code) Instruction {
+	return Instruction{codes}
 }
 
 // Terminal checks whether or not this instruction can result in a return from
@@ -83,23 +88,36 @@ func (p Instruction) Terminal() bool {
 	return false
 }
 
-// Execute a given instruction at a given program counter position, using a
-// given set of register values.  This may update the register values, and
-// returns the next program counter position.  If the program counter is
-// math.MaxUint then a return is signaled.
-func (p Instruction) Execute(pc uint, state []big.Int, regs []io.Register) uint {
+// Buses returns the set of buses accessed by this instruction (if any).
+func (p Instruction) Buses() bit.Set {
+	var buses bit.Set
+	// Look for bus instructions.
+	for _, code := range p.Codes {
+		if bi, ok := code.(io.BusInstruction); ok {
+			buses.Insert(bi.BusId())
+		}
+	}
+	//
+	return buses
+}
+
+// Execute this instruction with the given local and global state.  The next
+// program counter position is returned, or io.RETURN if the enclosing
+// function has terminated (i.e. because a return instruction was
+// encountered).
+func (p Instruction) Execute(state io.State, iomap io.Map) uint {
 	var skip uint = 1
 	//
 	for cc := uint(0); skip != 0; {
 		// Decode next micro-code
 		code := p.Codes[cc]
 		// Execut micro-code
-		skip, pc = code.MicroExecute(state, regs)
+		skip, state.Pc = code.MicroExecute(state, iomap)
 		// Skip as requested
 		cc += skip
 	}
 	//
-	return pc
+	return state.Pc
 }
 
 // JumpTargets returns the set of all jump targets used within this instruction.
@@ -143,7 +161,7 @@ func (p Instruction) RegistersWritten() []uint {
 	return regs.Iter().Collect()
 }
 
-func (p Instruction) String(regs []io.Register) string {
+func (p Instruction) String(env io.Environment[Instruction]) string {
 	var builder strings.Builder
 	//
 	for i, code := range p.Codes {
@@ -151,7 +169,7 @@ func (p Instruction) String(regs []io.Register) string {
 			builder.WriteString(" ; ")
 		}
 		//
-		builder.WriteString(code.String(regs))
+		builder.WriteString(code.String(env))
 	}
 	//
 	return builder.String()
@@ -160,25 +178,42 @@ func (p Instruction) String(regs []io.Register) string {
 // Validate that this micro-instruction is well-formed.  For example, each
 // micro-instruction contained within must be well-formed, and the overall
 // requirements for a vector instruction must be met, etc.
-func (p Instruction) Validate(fieldWidth uint, regs []io.Register) error {
+func (p Instruction) Validate(env io.Environment[Instruction]) error {
 	var written bit.Set
-	//
+	// Validate individual instructions
 	for _, r := range p.Codes {
-		if err := r.Validate(fieldWidth, regs); err != nil {
+		if err := r.Validate(env); err != nil {
 			return err
 		}
 	}
-	// Check read-after-write conflicts
-	for _, r := range p.Codes {
-		for _, dst := range r.RegistersWritten() {
-			if written.Contains(dst) {
-				// Forwarding required for this
-				return fmt.Errorf("conflicting write")
+	//
+	// TODO: check for unreachable instructions
+	// TODO: check for conflicting function calls
+	//
+	// Check Write conflicts
+	return validateWrites(0, written, p.Codes, env)
+}
+
+func validateWrites(cc uint, writes bit.Set, codes []Code, env io.Environment[Instruction]) error {
+	switch code := codes[cc].(type) {
+	case *Ret, *Jmp:
+		return nil
+	case *Skip:
+		if err := validateWrites(cc+code.Skip, writes.Clone(), codes, env); err != nil {
+			return err
+		}
+	default:
+		for _, dst := range code.RegistersWritten() {
+			if writes.Contains(dst) {
+				// Extract register name
+				name := env.Enclosing().Registers[dst].Name
+				//
+				return fmt.Errorf("Conflicting write on register %s in %s", name, code.String(env))
 			}
 			//
-			written.Insert(dst)
+			writes.Insert(dst)
 		}
 	}
-	// TODO: check for unreachable instructions
-	return nil
+	// Fall through to next micro-code
+	return validateWrites(cc+1, writes, codes, env)
 }

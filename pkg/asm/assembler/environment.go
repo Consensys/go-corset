@@ -22,10 +22,10 @@ import (
 
 // Environment captures useful information used during the assembling process.
 type Environment struct {
-	// Labels identifies branch targets.
-	labels []Label
 	// Buses identifies connections with external peripherals.
 	buses []string
+	// Labels identifies branch targets.
+	labels []Label
 	// Registers identifies set of declared registers.
 	registers []io.Register
 }
@@ -33,7 +33,19 @@ type Environment struct {
 // BindBus associates a bus name with an abstract bus index.  The latter needs
 // to be subsequently "aligned" with external bus definitions.
 func (p *Environment) BindBus(name string) uint {
-	panic("todo")
+	// Check whether bus already encountered
+	for i, bus := range p.buses {
+		if bus == name {
+			// Yes!
+			return uint(i)
+		}
+	}
+	// Determine index for new bus
+	index := uint(len(p.buses))
+	// Create new bus
+	p.buses = append(p.buses, name)
+	// Done
+	return index
 }
 
 // BindLabel associates a label with a given index which can subsequently be

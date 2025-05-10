@@ -13,6 +13,7 @@
 package assembler
 
 import (
+	"fmt"
 	"math"
 	"math/big"
 	"strconv"
@@ -20,7 +21,6 @@ import (
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/macro"
-	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/util/source/lex"
@@ -34,7 +34,7 @@ type MacroFunction = io.Function[macro.Instruction]
 // Parse accepts a given source file representing an assembly language
 // program, and assembles it into an instruction sequence which can then the
 // executed.
-func Parse(srcfile *source.File) ([]MacroFunction, *source.Map[macro.Instruction], []source.SyntaxError) {
+func Parse(srcfile *source.File) (AssemblyItem, []source.SyntaxError) {
 	parser := NewParser(srcfile)
 	// Parse functions
 	return parser.Parse()
@@ -49,7 +49,7 @@ type Parser struct {
 	srcfile *source.File
 	tokens  []lex.Token
 	// Source mapping
-	srcmap *source.Map[macro.Instruction]
+	srcmap *source.Map[any]
 	// Position within the tokens
 	index int
 }
@@ -57,40 +57,43 @@ type Parser struct {
 // NewParser constructs a new parser for a given source file.
 func NewParser(srcfile *source.File) *Parser {
 	// Construct (initially empty) source mapping
-	srcmap := source.NewSourceMap[macro.Instruction](*srcfile)
+	srcmap := source.NewSourceMap[any](*srcfile)
 	//
 	return &Parser{srcfile, nil, srcmap, 0}
 }
 
 // Parse the given source file into a sequence of zero or more components and/or
 // some number of syntax errors.
-func (p *Parser) Parse() ([]MacroFunction, *source.Map[macro.Instruction], []source.SyntaxError) {
+func (p *Parser) Parse() (AssemblyItem, []source.SyntaxError) {
 	var (
-		components []MacroFunction
-		errors     []source.SyntaxError
+		item   AssemblyItem
+		errors []source.SyntaxError
+		fn     MacroFunction
 	)
 	// Convert source file into tokens
 	if p.tokens, errors = Lex(*p.srcfile); len(errors) > 0 {
-		return components, p.srcmap, errors
+		return item, errors
 	}
 	// Continue going until all consumed
 	for p.lookahead().Kind != END_OF {
-		fn, errs := p.parseFunction()
+		fn, item.Buses, errors = p.parseFunction(item.Buses)
 		//
-		if len(errs) > 0 {
-			return components, p.srcmap, errs
+		if len(errors) > 0 {
+			return item, errors
 		}
 		//
-		components = append(components, fn)
+		item.Components = append(item.Components, fn)
 	}
+	// Copy over source map
+	item.SourceMap = *p.srcmap
 	//
-	return components, p.srcmap, nil
+	return item, nil
 }
 
-func (p *Parser) parseFunction() (MacroFunction, []source.SyntaxError) {
+func (p *Parser) parseFunction(buses []string) (MacroFunction, []string, []source.SyntaxError) {
 	var (
 		fn              MacroFunction
-		env             Environment
+		env             Environment = Environment{buses, nil, nil}
 		inst            macro.Instruction
 		inputs, outputs []io.Register
 		errs            []source.SyntaxError
@@ -98,34 +101,34 @@ func (p *Parser) parseFunction() (MacroFunction, []source.SyntaxError) {
 	)
 	// Parse function declaration
 	if fn.Name, errs = p.parseIdentifier(); len(errs) > 0 || fn.Name != "fn" {
-		return fn, errs
+		return fn, nil, errs
 	}
 	// Parse function name
 	if fn.Name, errs = p.parseIdentifier(); len(errs) > 0 {
-		return fn, errs
+		return fn, nil, errs
 	}
 	// Parse inputs
 	if inputs, errs = p.parseArgsList(io.INPUT_REGISTER); len(errs) > 0 {
-		return fn, errs
+		return fn, nil, errs
 	}
 	// Parse '->'
 	if _, errs = p.expect(RIGHTARROW); len(errs) > 0 {
-		return fn, errs
+		return fn, nil, errs
 	}
 	// Parse outputs
 	if outputs, errs = p.parseArgsList(io.OUTPUT_REGISTER); len(errs) > 0 {
-		return fn, errs
+		return fn, nil, errs
 	}
 	// Initialise register list from inputs/outputs
 	env.registers = append(inputs, outputs...)
 	// Parse start of block
 	if _, errs = p.expect(LCURLY); len(errs) > 0 {
-		return fn, errs
+		return fn, nil, errs
 	}
 	// Parse instructions until end of block
 	for p.lookahead().Kind != RCURLY {
 		if inst, errs = p.parseMacroInstruction(pc, &env); len(errs) > 0 {
-			return fn, errs
+			return fn, nil, errs
 		}
 		//
 		if inst != nil {
@@ -141,7 +144,7 @@ func (p *Parser) parseFunction() (MacroFunction, []source.SyntaxError) {
 	// Assign registers
 	fn.Registers = env.registers
 	//
-	return fn, nil
+	return fn, env.buses, nil
 }
 
 func (p *Parser) parseArgsList(kind uint8) ([]io.Register, []source.SyntaxError) {
@@ -218,12 +221,12 @@ func (p *Parser) parseMacroInstruction(pc uint, env *Environment) (macro.Instruc
 	}
 	//
 	switch first {
-	case "jc":
-		insn, errs = p.parseJCond(env)
-	case "jmp":
-		insn, errs = p.parseJmp(env)
-	case "ret":
-		insn, errs = &micro.Ret{}, nil
+	case "if":
+		insn, errs = p.parseIfGoto(env)
+	case "goto":
+		insn, errs = p.parseGoto(env)
+	case "return":
+		insn, errs = &macro.Return{}, nil
 	case "var":
 		return nil, p.parseVar(env)
 	default:
@@ -245,14 +248,14 @@ func (p *Parser) parseMacroInstruction(pc uint, env *Environment) (macro.Instruc
 	return insn, errs
 }
 
-func (p *Parser) parseJmp(env *Environment) (macro.Instruction, []source.SyntaxError) {
+func (p *Parser) parseGoto(env *Environment) (macro.Instruction, []source.SyntaxError) {
 	lab, errs := p.parseIdentifier()
 	//
 	if len(errs) > 0 {
 		return nil, errs
 	}
 	//
-	return &micro.Jmp{
+	return &macro.Goto{
 		Target: env.BindLabel(lab)}, nil
 }
 
@@ -306,7 +309,7 @@ func (p *Parser) parseVar(env *Environment) []source.SyntaxError {
 	return nil
 }
 
-func (p *Parser) parseJCond(env *Environment) (macro.Instruction, []source.SyntaxError) {
+func (p *Parser) parseIfGoto(env *Environment) (macro.Instruction, []source.SyntaxError) {
 	var (
 		errs     []source.SyntaxError
 		lhs, rhs uint
@@ -326,12 +329,16 @@ func (p *Parser) parseJCond(env *Environment) (macro.Instruction, []source.Synta
 	if rhs, constant, errs = p.parseRegisterOrConstant(env); len(errs) > 0 {
 		return nil, errs
 	}
+	// Parse "goto"
+	if errs = p.parseKeyword("goto"); len(errs) > 0 {
+		return nil, errs
+	}
 	// Parse target label
 	if label, errs = p.parseIdentifier(); len(errs) > 0 {
 		return nil, errs
 	}
 	//
-	return &macro.JCond{
+	return &macro.IfGoto{
 		Cond:     cond,
 		Left:     lhs,
 		Right:    rhs,
@@ -369,11 +376,11 @@ func (p *Parser) parseAssignment(env *Environment) (macro.Instruction, []source.
 		//
 		switch kind {
 		case ADD:
-			insn = &micro.Add{Targets: lhs, Sources: rhs, Constant: constant}
+			insn = &macro.Add{Targets: lhs, Sources: rhs, Constant: constant}
 		case SUB:
-			insn = &micro.Sub{Targets: lhs, Sources: rhs, Constant: constant}
+			insn = &macro.Sub{Targets: lhs, Sources: rhs, Constant: constant}
 		case MUL:
-			insn = &micro.Mul{Targets: lhs, Sources: rhs, Constant: constant}
+			insn = &macro.Mul{Targets: lhs, Sources: rhs, Constant: constant}
 		default:
 			panic("unreachable")
 		}
@@ -464,7 +471,7 @@ func (p *Parser) parseCallRhs(lhs []uint, env *Environment) (macro.Instruction, 
 	// Generate temporary bus identifier
 	bus := env.BindBus(fn)
 	// Done
-	return &micro.Call{Bus: bus, Targets: lhs, Sources: rhs}, nil
+	return &macro.Call{Bus: bus, Targets: lhs, Sources: rhs}, nil
 }
 
 // Parse sequence of one or more registers separated by a comma.
@@ -525,6 +532,18 @@ func (p *Parser) parseRegister(env *Environment) (uint, []source.SyntaxError) {
 	}
 	// Done
 	return env.LookupRegister(reg), nil
+}
+
+func (p *Parser) parseKeyword(keyword string) []source.SyntaxError {
+	tok, errs := p.expect(IDENTIFIER)
+	//
+	if len(errs) > 0 {
+		return errs
+	} else if p.string(tok) != keyword {
+		return p.syntaxErrors(tok, fmt.Sprintf("expected \"%s\"", keyword))
+	}
+	//
+	return nil
 }
 
 func (p *Parser) parseIdentifier() (string, []source.SyntaxError) {

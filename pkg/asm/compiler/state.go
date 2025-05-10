@@ -40,6 +40,10 @@ type Translator struct {
 	RegIDs []uint
 	// Registers of the given machine
 	Registers []io.Register
+	// Mapping of buses to their respective HIR columns IDs.  Observe that only
+	// those buses which are actively used in the given function will be
+	// present.
+	Buses [][]hir.Expr
 }
 
 // Translate a micro-instruction at a given program counter position.
@@ -124,10 +128,35 @@ func (p *StateTranslator) Clone() StateTranslator {
 	}
 }
 
-// WriteRegisters identifies the set of registers written by the current microinstruction
-// being translated.  This activates forwarding for those registers for all
-// states after this, and returns suitable expressions for the assignment.
+// Bus returns the set of lines representing a given bus.  The convention is
+// that address lines come first, then value lines.
+func (p *StateTranslator) Bus(busId uint) []hir.Expr {
+	return p.mapping.Buses[busId]
+}
+
+// WriteRegisters constructs suitable accessors for the those registers written
+// by a given microinstruction.  This activates forwarding for those registers
+// for all states after this, and returns suitable expressions for the
+// assignment.
 func (p *StateTranslator) WriteRegisters(targets []uint) []hir.Expr {
+	lhs := make([]hir.Expr, len(targets))
+	// build up the lhs
+	for i, dst := range targets {
+		lhs[i] = hir.NewColumnAccess(p.mapping.RegIDs[dst], 0)
+		// Activate forwarding for this register
+		p.forwarded.Insert(dst)
+		// Mark register as having been written.
+		p.mutated.Insert(dst)
+	}
+	//
+	return lhs
+}
+
+// WriteAndShiftRegisters constructs suitable accessors for the those registers
+// written by a given microinstruction, and also shifts them (i.e. so they can
+// be combined in a sum).  This activates forwarding for those registers for all
+// states after this, and returns suitable expressions for the assignment.
+func (p *StateTranslator) WriteAndShiftRegisters(targets []uint) []hir.Expr {
 	lhs := make([]hir.Expr, len(targets))
 	offset := big.NewInt(1)
 	// build up the lhs

@@ -2,10 +2,10 @@ fn max(arg1 u16, arg2 u16) -> (res u16) {
    var b u1
    var tmp u16
    b,tmp = arg1 - arg2
-   jc b!=0 exit1
+   if b!=0 goto exit1
    res = arg1
-   ret
+   return
 exit1:
    res = arg2
-   ret
+   return
 }

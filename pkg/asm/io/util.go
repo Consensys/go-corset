@@ -15,40 +15,13 @@ package io
 import (
 	"fmt"
 	"math/big"
+	"strings"
+
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // Alias for big integer representation of 0.
 var zero big.Int = *big.NewInt(0)
-
-// WriteTargetRegisters writes a given value to a given set of registers,
-// splitting its bits as necessary.  The target registers are given with the
-// least significant first.  For example, consider writing 01100010 to registers
-// [R1, R2] of type u4.  Then, after the write, we have R1=0010 and R2=0110.
-func WriteTargetRegisters(targets []uint, state []big.Int, regs []Register, value big.Int) {
-	var offset uint = 0
-	//
-	for _, reg := range targets {
-		width := regs[reg].Width
-		state[reg] = ReadBitSlice(offset, width, value)
-		offset += width
-	}
-}
-
-// ReadBitSlice reads a slice of bits starting at a given offset in a give
-// value.  For example, consider the value is 10111000 and we have offset=1 and
-// width=4, then the result is 1100.
-func ReadBitSlice(offset uint, width uint, value big.Int) big.Int {
-	var slice big.Int
-	//
-	for i := 0; uint(i) < width; i++ {
-		// Read appropriate bit
-		bit := value.Bit(i + int(offset))
-		// set appropriate bit
-		slice.SetBit(&slice, i, bit)
-	}
-	//
-	return slice
-}
 
 // CheckTargetRegisters performs some simple checks on a set of target registers
 // being written.  Firstly, they cannot be input registers (as this are always
@@ -155,4 +128,33 @@ func SplitValueAcrossRegisters(constant *big.Int, registers ...Register) []big.I
 	}
 	//
 	return limbs
+}
+
+// RegistersToString returns a string representation for zero or more registers
+// separated by a comma.
+func RegistersToString(rids []uint, regs []Register) string {
+	var builder strings.Builder
+	//
+	for i := 0; i < len(rids); i++ {
+		var rid = rids[i]
+		//
+		if i != 0 {
+			builder.WriteString(", ")
+		}
+		//
+		if i < len(regs) {
+			builder.WriteString(regs[rid].Name)
+		} else {
+			builder.WriteString(fmt.Sprintf("?%d", rid))
+		}
+	}
+	//
+	return builder.String()
+}
+
+// RegistersReversedToString returns a string representation for zero or more
+// registers in reverse order, separated by a comma.  This is useful, for
+// example, when printing the left-hand side of an assignment.
+func RegistersReversedToString(rids []uint, regs []Register) string {
+	return RegistersToString(util.Reverse(rids), regs)
 }

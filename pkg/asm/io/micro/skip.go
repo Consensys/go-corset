@@ -46,32 +46,27 @@ func (p *Skip) Clone() Code {
 	}
 }
 
-// MicroExecute a given micro-code, using a given set of register values.  This
-// may update the register values, and returns either the number of micro-codes
-// to "skip over" when executing the enclosing instruction or, if skip==0, a
-// destination program counter (which can signal return of enclosing function).
-func (p *Skip) MicroExecute(state []big.Int, regs []io.Register) (uint, uint) {
+// MicroExecute a given micro-code, using a given local state.  This may update
+// the register values, and returns either the number of micro-codes to "skip
+// over" when executing the enclosing instruction or, if skip==0, a destination
+// program counter (which can signal return of enclosing function).
+func (p *Skip) MicroExecute(state io.State, iomap io.Map) (uint, uint) {
 	var (
-		lhs = state[p.Left]
-		rhs big.Int
+		lhs = state.Read(p.Left)
+		rhs *big.Int
 	)
 	//
 	if p.Right != io.UNUSED_REGISTER {
-		rhs = state[p.Right]
+		rhs = state.Read(p.Right)
 	} else {
-		rhs = p.Constant
+		rhs = &p.Constant
 	}
 	//
-	if lhs.Cmp(&rhs) != 0 {
+	if lhs.Cmp(rhs) != 0 {
 		return 1 + p.Skip, 0
 	} else {
 		return 1, 0
 	}
-}
-
-// Registers returns the set of registers read/written by this instruction.
-func (p *Skip) Registers() []uint {
-	return p.RegistersRead()
 }
 
 // RegistersRead returns the set of registers read by this instruction.
@@ -116,8 +111,11 @@ func (p *Skip) Split(env *RegisterSplittingEnvironment) []Code {
 	return ncodes
 }
 
-func (p *Skip) String(regs []io.Register) string {
-	var l = regs[p.Left].Name
+func (p *Skip) String(env io.Environment[Instruction]) string {
+	var (
+		regs = env.Enclosing().Registers
+		l    = regs[p.Left].Name
+	)
 	//
 	if p.Right != io.UNUSED_REGISTER {
 		return fmt.Sprintf("skip %s!=%s %d", l, regs[p.Right].Name, p.Skip)
@@ -127,8 +125,11 @@ func (p *Skip) String(regs []io.Register) string {
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Skip) Validate(fieldWidth uint, regs []io.Register) error {
-	lw := regs[p.Left].Width
+func (p *Skip) Validate(env io.Environment[Instruction]) error {
+	var (
+		regs = env.Enclosing().Registers
+		lw   = regs[p.Left].Width
+	)
 	//
 	if p.Right != io.UNUSED_REGISTER {
 		rw := regs[p.Right].Width

@@ -14,13 +14,19 @@ package assembler
 
 import (
 	"fmt"
-	"math"
 
+	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/macro"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
+
+// MicroProgram is a program using micro instructions.
+type MicroProgram = io.Program[micro.Instruction]
+
+// MacroProgram is a program using macro instructions.
+type MacroProgram = io.Program[macro.Instruction]
 
 // Validate checks that a given set of functions are well-formed.  For
 // example, an assignment "x,y = z" must be balanced (i.e. number of bits on lhs
@@ -28,11 +34,40 @@ import (
 // are defined, and all control-flow paths must reach a "ret" instruction.
 // Finally, we cannot assign to an input register under the current calling
 // convention.
-func Validate(fn MacroFunction, srcmaps source.Maps[macro.Instruction]) []source.SyntaxError {
-	balance_errs := checkInstructionsBalance(fn, srcmaps)
-	flow_errs := checkInstructionsFlow(fn, srcmaps)
+func Validate(fieldWidth uint, program MacroProgram, srcmaps source.Maps[any]) []source.SyntaxError {
+	var errors []source.SyntaxError
 	//
-	return append(balance_errs, flow_errs...)
+	for i, fn := range program.Functions() {
+		// Construct suitable environment
+		env := io.Environment[macro.Instruction]{
+			FieldWidth: fieldWidth,
+			Function:   uint(i),
+			Program:    program,
+		}
+		//
+		errors = append(errors, validateInstructions(env, srcmaps)...)
+		errors = append(errors, validateControlFlow(fn, srcmaps)...)
+	}
+	//
+	return errors
+}
+
+// ValidateMicro a micro program.  This is more challenging as we have no
+// available source mapping information.  Instead, we just panic upon
+// encountering an error.
+func ValidateMicro(fieldWidth uint, program MicroProgram) {
+	var srcmap source.Maps[any]
+	//
+	for i := range program.Functions() {
+		// Construct suitable environment
+		env := io.Environment[micro.Instruction]{
+			FieldWidth: fieldWidth,
+			Function:   uint(i),
+			Program:    program,
+		}
+		// TODO: support control-flow checks as well.
+		validateInstructions(env, srcmap)
+	}
 }
 
 // Check that each instruction in the function's body is correctly balanced.
@@ -41,13 +76,20 @@ func Validate(fn MacroFunction, srcmaps source.Maps[macro.Instruction]) []source
 // y + 1" where both x and y are byte registers.  This does not balance because
 // the right-hand side generates 9 bits but the left-hand side can only consume
 // 8bits.
-func checkInstructionsBalance(fn MacroFunction, srcmaps source.Maps[macro.Instruction]) []source.SyntaxError {
-	var errors []source.SyntaxError
+func validateInstructions[T io.Instruction[T]](env io.Environment[T], srcmaps source.Maps[any]) []source.SyntaxError {
+	var (
+		errors []source.SyntaxError
+		fn     = env.Enclosing()
+	)
 
 	for _, insn := range fn.Code {
-		err := insn.Validate(math.MaxUint, fn.Registers)
+		err := insn.Validate(env)
 		//
 		if err != nil {
+			if !srcmaps.Has(insn) {
+				panic(err)
+			}
+			//
 			errors = append(errors, *srcmaps.SyntaxError(insn, err.Error()))
 		}
 	}
@@ -61,7 +103,7 @@ func checkInstructionsBalance(fn MacroFunction, srcmaps source.Maps[macro.Instru
 // implemented using a straightforward dataflow analysis.  One aspect worth
 // noting is that the dataflow sets hold true for registers which are undefined,
 // and false for registers which are defined.
-func checkInstructionsFlow(fn MacroFunction, srcmaps source.Maps[macro.Instruction]) []source.SyntaxError {
+func validateControlFlow(fn MacroFunction, srcmaps source.Maps[any]) []source.SyntaxError {
 	var (
 		n          = uint(len(fn.Code))
 		errors     []source.SyntaxError
@@ -95,7 +137,7 @@ func checkInstructionsFlow(fn MacroFunction, srcmaps source.Maps[macro.Instructi
 // Abstractly execute a given vector instruction with respect to a given state
 // at the beginning of the instruction.
 func applyInstructionSemantics(worklist *Worklist, fn MacroFunction,
-	srcmaps source.Maps[macro.Instruction]) []source.SyntaxError {
+	srcmaps source.Maps[any]) []source.SyntaxError {
 	//
 	var errors []source.SyntaxError
 	// Pop the next item from the stack
@@ -105,15 +147,15 @@ func applyInstructionSemantics(worklist *Worklist, fn MacroFunction,
 	state, errors = applyInstructionFlow(insn, state, fn, srcmaps)
 	// Propagate state along branches
 	switch insn := insn.(type) {
-	case *micro.Jmp:
+	case *macro.Goto:
 		// Unconditional jump target
 		worklist.Join(insn.Target, state)
-	case *macro.JCond:
+	case *macro.IfGoto:
 		// Conditional jump target
 		worklist.Join(insn.Target, state)
 		// Fall thru
 		worklist.Join(pc+1, state)
-	case *micro.Ret:
+	case *macro.Return:
 		// Check all outputs are assigned
 		errs := checkOutputsAssigned(insn, state, fn, srcmaps)
 		errors = append(errors, errs...)
@@ -133,7 +175,7 @@ func applyInstructionSemantics(worklist *Worklist, fn MacroFunction,
 // Apply the dataflow transfer function (i.e. the effects of given instruction
 // on the record of which registesr are definitely assigned).
 func applyInstructionFlow(microinsn macro.Instruction, state bit.Set, fn MacroFunction,
-	srcmaps source.Maps[macro.Instruction]) (bit.Set, []source.SyntaxError) {
+	srcmaps source.Maps[any]) (bit.Set, []source.SyntaxError) {
 	//
 	var errors []source.SyntaxError
 	// Ensure every register read has been defined.
@@ -156,7 +198,7 @@ func applyInstructionFlow(microinsn macro.Instruction, state bit.Set, fn MacroFu
 // Check that all output registers have been definitely assigned at the point of
 // a return.
 func checkOutputsAssigned(insn macro.Instruction, state bit.Set, fn MacroFunction,
-	srcmaps source.Maps[macro.Instruction]) []source.SyntaxError {
+	srcmaps source.Maps[any]) []source.SyntaxError {
 	//
 	var errors []source.SyntaxError
 	//

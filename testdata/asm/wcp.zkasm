@@ -8,27 +8,27 @@ fn wcp(inst u8, arg1 u32, arg2 u32) -> (res u1) {
    var tmp u8
    var targ u32
    var b u1
-   jc inst==16 lt
-   jc inst==17 gt
-   jc inst==20 eq
-   jmp isz
+   if inst==16 goto lt
+   if inst==17 goto gt
+   if inst==20 goto eq
+   goto isz
 lt:
    b,targ = arg1 - arg2
-   jc b!=0 exit_1
-   jmp exit_0
+   if b!=0 goto exit_1
+   goto exit_0
 gt:
    b,targ = arg2 - arg1
-   jc b!=0 exit_1
-   jmp exit_0
+   if b!=0 goto exit_1
+   goto exit_0
 eq:
-   jc arg1==arg2 exit_1
-   jmp exit_0
+   if arg1==arg2 goto exit_1
+   goto exit_0
 isz:
-   jc arg1==0 exit_1
+   if arg1==0 goto exit_1
 exit_0:
    res = 0
-   ret
+   return
 exit_1:
    res = 1
-   ret
+   return
 }

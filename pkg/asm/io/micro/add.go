@@ -46,11 +46,6 @@ type Add struct {
 	Constant big.Int
 }
 
-// Bind any labels contained within this instruction using the given label map.
-func (p *Add) Bind(labels []uint) {
-	// no-op
-}
-
 // Clone this micro code.
 func (p *Add) Clone() Code {
 	var constant big.Int
@@ -64,42 +59,22 @@ func (p *Add) Clone() Code {
 	}
 }
 
-// Execute a given instruction at a given program counter position, using a
-// given set of register values.  This may update the register values, and
-// returns the next program counter position.  If the program counter is
-// math.MaxUint then a return is signaled.
-func (p *Add) Execute(pc uint, state []big.Int, regs []io.Register) uint {
-	p.MicroExecute(state, regs)
-	return pc + 1
-}
-
-// MicroExecute a given micro-code, using a given set of register values.  This
-// may update the register values, and returns either the number of micro-codes
-// to "skip over" when executing the enclosing instruction or, if skip==0, a
-// destination program counter (which can signal return of enclosing function).
-func (p *Add) MicroExecute(state []big.Int, regs []io.Register) (uint, uint) {
+// MicroExecute a given micro-code, using a given state.  This may update the
+// register values, and returns either the number of micro-codes to "skip over"
+// when executing the enclosing instruction or, if skip==0, a destination
+// program counter (which can signal return of enclosing function).
+func (p *Add) MicroExecute(state io.State, iomap io.Map) (uint, uint) {
 	var value big.Int
 	// Add constant
 	value.Set(&p.Constant)
 	// Add register values
 	for _, src := range p.Sources {
-		value.Add(&value, &state[src])
+		value.Add(&value, state.Read(src))
 	}
 	// Write value
-	io.WriteTargetRegisters(p.Targets, state, regs, value)
+	state.Write(value, p.Targets...)
 	//
 	return 1, 0
-}
-
-// Lower this instruction into a exactly one more micro instruction.
-func (p *Add) Lower(pc uint) Instruction {
-	// Lowering here produces an instruction containing a single microcode.
-	return Instruction{[]Code{p, &Jmp{Target: pc + 1}}}
-}
-
-// Registers returns the set of registers read/written by this instruction.
-func (p *Add) Registers() []uint {
-	return append(p.Targets, p.Sources...)
 }
 
 // RegistersRead returns the set of registers read by this instruction.
@@ -112,7 +87,8 @@ func (p *Add) RegistersWritten() []uint {
 	return p.Targets
 }
 
-func (p *Add) String(regs []io.Register) string {
+func (p *Add) String(env io.Environment[Instruction]) string {
+	regs := env.Enclosing().Registers
 	return assignmentToString(p.Targets, p.Sources, p.Constant, regs, zero, " + ")
 }
 
@@ -187,16 +163,17 @@ func (p *Add) Split(env *RegisterSplittingEnvironment) []Code {
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Add) Validate(fieldWidth uint, regs []io.Register) error {
+func (p *Add) Validate(env io.Environment[Instruction]) error {
 	var (
+		regs     = env.Enclosing().Registers
 		lhs_bits = sumTargetBits(p.Targets, regs)
 		rhs_bits = sumSourceBits(p.Sources, p.Constant, regs)
 	)
 	// check
 	if lhs_bits < rhs_bits {
 		return fmt.Errorf("bit overflow (%d bits into %d bits)", rhs_bits, lhs_bits)
-	} else if rhs_bits > fieldWidth {
-		return fmt.Errorf("field overflow (%d bits into %d bit field)", rhs_bits, fieldWidth)
+	} else if rhs_bits > env.FieldWidth {
+		return fmt.Errorf("field overflow (%d bits into %d bit field)", rhs_bits, env.FieldWidth)
 	}
 	//
 	return io.CheckTargetRegisters(p.Targets, regs)

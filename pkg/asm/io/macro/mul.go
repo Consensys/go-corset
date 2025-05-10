@@ -10,14 +10,14 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package micro
+package macro
 
 import (
 	"fmt"
 	"math/big"
-	"slices"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/asm/io/micro"
 )
 
 // Mul represents a generic operation of the following form:
@@ -45,24 +45,16 @@ type Mul struct {
 	Constant big.Int
 }
 
-// Clone this micro code.
-func (p *Mul) Clone() Code {
-	var constant big.Int
-	//
-	constant.Set(&p.Constant)
-	//
-	return &Mul{
-		slices.Clone(p.Targets),
-		slices.Clone(p.Sources),
-		constant,
-	}
+// Bind any labels contained within this instruction using the given label map.
+func (p *Mul) Bind(labels []uint) {
+	// no-op
 }
 
-// MicroExecute a given micro-code, using a given local state.  This may update
-// the register values, and returns either the number of micro-codes to "skip
-// over" when executing the enclosing instruction or, if skip==0, a destination
-// program counter (which can signal return of enclosing function).
-func (p *Mul) MicroExecute(state io.State, iomap io.Map) (uint, uint) {
+// Execute this instruction with the given local and global state.  The next
+// program counter position is returned, or io.RETURN if the enclosing
+// function has terminated (i.e. because a return instruction was
+// encountered).
+func (p *Mul) Execute(state io.State, iomap io.Map) uint {
 	var value big.Int
 	// Assign first value
 	value.Set(state.Read(p.Sources[0]))
@@ -75,7 +67,23 @@ func (p *Mul) MicroExecute(state io.State, iomap io.Map) (uint, uint) {
 	// Write value
 	state.Write(value, p.Targets...)
 	//
-	return 1, 0
+	return state.Next()
+}
+
+// Lower this instruction into a exactly one more micro instruction.
+func (p *Mul) Lower(pc uint) micro.Instruction {
+	code := &micro.Mul{
+		Targets:  p.Targets,
+		Sources:  p.Sources,
+		Constant: p.Constant,
+	}
+	// Lowering here produces an instruction containing a single microcode.
+	return micro.NewInstruction(code, &micro.Jmp{Target: pc + 1})
+}
+
+// Link any buses used within this instruction using the given bus map.
+func (p *Mul) Link(buses []uint) {
+	// nothing to link
 }
 
 // RegistersRead returns the set of registers read by this instruction.
@@ -86,20 +94,6 @@ func (p *Mul) RegistersRead() []uint {
 // RegistersWritten returns the set of registers written by this instruction.
 func (p *Mul) RegistersWritten() []uint {
 	return p.Targets
-}
-
-// Split this micro code using registers of arbirary width into one or more
-// micro codes using registers of a fixed maximum width.
-func (p *Mul) Split(env *RegisterSplittingEnvironment) []Code {
-	regs := append(p.RegistersRead(), p.RegistersWritten()...)
-	// Temporary hack
-	for _, r := range regs {
-		if env.regsBefore[r].Width >= env.maxWidth {
-			panic("splitting multiplication not supported")
-		}
-	}
-	//
-	return []Code{p}
 }
 
 func (p *Mul) String(env io.Environment[Instruction]) string {

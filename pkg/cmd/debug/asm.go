@@ -30,24 +30,27 @@ func PrintAssemblyProgram(micro bool, cfg asm.LoweringConfig, program asm.MacroP
 		// Lower macro-program to micro-program.
 		uprogram := asm.Lower(cfg, program)
 		//
-		printAssemblyFunctions(uprogram.Functions())
+		printAssemblyFunctions(uprogram)
 	} else {
-		printAssemblyFunctions(program.Functions())
+		printAssemblyFunctions(program)
 	}
 }
 
-func printAssemblyFunctions[T io.Instruction](fns []io.Function[T]) {
-	for _, f := range fns {
-		printAssemblyFunction(f)
+func printAssemblyFunctions[T io.Instruction[T]](program io.Program[T]) {
+	for i := range program.Functions() {
+		env := io.Environment[T]{FieldWidth: 0, Function: uint(i), Program: program}
+		printAssemblyFunction(env)
 	}
 }
 
-func printAssemblyFunction[T io.Instruction](f io.Function[T]) {
+func printAssemblyFunction[T io.Instruction[T]](env io.Environment[T]) {
+	var f = env.Enclosing()
+	//
 	printAssemblySignature(f)
 	printAssemblyRegisters(f)
 	//
 	for pc, insn := range f.Code {
-		fmt.Printf("[%d]\t%s\n", pc, insn.String(f.Registers))
+		fmt.Printf("[%d]\t%s\n", pc, insn.String(env))
 	}
 	//
 	fmt.Println("}")

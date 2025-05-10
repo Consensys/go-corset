@@ -189,7 +189,7 @@ func checkWithAsmPipeline(cfg checkConfig, tracefile string, asmfiles ...string)
 	}
 }
 
-func checkProgram[T io.Instruction](ir string, trace io.Trace[T]) bool {
+func checkProgram[T io.Instruction[T]](ir string, trace io.Trace[T]) bool {
 	var ok = true
 	//
 	for _, instance := range trace.Instances() {
@@ -200,7 +200,7 @@ func checkProgram[T io.Instruction](ir string, trace io.Trace[T]) bool {
 	return ok
 }
 
-func checkFunctionInstance[T io.Instruction](ir string, instance io.FunctionInstance, program io.Program[T]) bool {
+func checkFunctionInstance[T io.Instruction[T]](ir string, instance io.FunctionInstance, program io.Program[T]) bool {
 	// Macro check
 	if outcome, err := asm.CheckInstance(instance, program); outcome == math.MaxUint {
 		// Internal failure

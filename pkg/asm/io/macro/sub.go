@@ -10,15 +10,14 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package micro
+package macro
 
 import (
 	"fmt"
-	"math"
 	"math/big"
-	"slices"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/asm/io/micro"
 )
 
 // Sub represents a generic operation of the following form:
@@ -46,24 +45,16 @@ type Sub struct {
 	Constant big.Int
 }
 
-// Clone this micro code.
-func (p *Sub) Clone() Code {
-	var constant big.Int
-	//
-	constant.Set(&p.Constant)
-	//
-	return &Sub{
-		slices.Clone(p.Targets),
-		slices.Clone(p.Sources),
-		constant,
-	}
+// Bind any labels contained within this instruction using the given label map.
+func (p *Sub) Bind(labels []uint) {
+	// no-op
 }
 
-// MicroExecute a given micro-code, using a given local state.  This may update
-// the register values, and returns either the number of micro-codes to "skip
-// over" when executing the enclosing instruction or, if skip==0, a destination
-// program counter (which can signal return of enclosing function).
-func (p *Sub) MicroExecute(state io.State, iomap io.Map) (uint, uint) {
+// Execute this instruction with the given local and global state.  The next
+// program counter position is returned, or io.RETURN if the enclosing
+// function has terminated (i.e. because a return instruction was
+// encountered).
+func (p *Sub) Execute(state io.State, iomap io.Map) uint {
 	var value big.Int
 	// Clone initial value
 	value.Set(state.Read(p.Sources[0]))
@@ -76,7 +67,23 @@ func (p *Sub) MicroExecute(state io.State, iomap io.Map) (uint, uint) {
 	// Write value
 	state.Write(value, p.Targets...)
 	//
-	return 1, 0
+	return state.Next()
+}
+
+// Lower this instruction into a exactly one more micro instruction.
+func (p *Sub) Lower(pc uint) micro.Instruction {
+	code := &micro.Mul{
+		Targets:  p.Targets,
+		Sources:  p.Sources,
+		Constant: p.Constant,
+	}
+	// Lowering here produces an instruction containing a single microcode.
+	return micro.NewInstruction(code, &micro.Jmp{Target: pc + 1})
+}
+
+// Link any buses used within this instruction using the given bus map.
+func (p *Sub) Link(buses []uint) {
+	// nothing to link
 }
 
 // RegistersRead returns the set of registers read by this instruction.
@@ -87,58 +94,6 @@ func (p *Sub) RegistersRead() []uint {
 // RegistersWritten returns the set of registers written by this instruction.
 func (p *Sub) RegistersWritten() []uint {
 	return p.Targets
-}
-
-// Split this micro code using registers of arbirary width into one or more
-// micro codes using registers of a fixed maximum width.  Here, regsBefore
-// represents the registers are they are for this code, whilst regsAfter
-// represent those for the resulting split codes.  The regMap provides a
-// mapping from registers in regsBefore to those in regsAfter.
-func (p *Sub) Split(env *RegisterSplittingEnvironment) []Code {
-	if len(p.Sources) == 0 {
-		// Actually just an assignment, so easy.
-		panic("todo")
-	}
-	//
-	var (
-		ncodes        []Code
-		targetLimbs        = env.SplitTargetRegisters(p.Targets...)
-		sourcePackets      = env.SplitSourceRegisters(p.Sources...)
-		constantLimbs      = env.SplitConstant(p.Constant, uint(len(sourcePackets)))
-		carry         uint = math.MaxUint
-	)
-	// Allocate all source packets
-	for i, pkt := range sourcePackets {
-		var (
-			targets     []uint
-			targetWidth uint
-		)
-		//
-		targetWidth, targets, targetLimbs = env.AllocateTargetLimbs(targetLimbs)
-		//
-		if i != 0 && carry != math.MaxUint {
-			// Include carry from previous round
-			pkt = append(pkt, carry)
-		}
-		// Allocate carry flag (if applicable).
-		if i+1 != len(sourcePackets) {
-			sourceWidth := subSourceBits(p.Sources, constantLimbs[i], env.RegistersAfter())
-			carry = env.AllocateCarryRegister(targetWidth, sourceWidth)
-			//
-			if carry != math.MaxUint {
-				targets = append(targets, carry)
-			}
-		} else {
-			// Allocate all outstanding limbs for final packet.
-			targets = append(targets, targetLimbs...)
-		}
-		// Construct split micro code
-		code := &Sub{targets, pkt, constantLimbs[i]}
-		// Done
-		ncodes = append(ncodes, code)
-	}
-	//
-	return ncodes
 }
 
 func (p *Sub) String(env io.Environment[Instruction]) string {

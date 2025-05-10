@@ -68,27 +68,30 @@ func ReadTraceFile(filename string, program MacroProgram) (MacroTrace, error) {
 func ReadTrace(bytes []byte, program MacroProgram) (MacroTrace, error) {
 	var (
 		traces tracesMap
-		trace  MacroTrace = io.NewTrace(program)
+		fnMap  map[string]uint = make(map[string]uint, 0)
+		trace  MacroTrace      = io.NewTrace(program)
 	)
 	// Unmarshall
 	jsonErr := json.Unmarshal(bytes, &traces)
 	if jsonErr != nil {
 		return trace, jsonErr
 	}
-	//
+	// Build function map
 	for i, fn := range program.Functions() {
-		tr, ok := traces[fn.Name]
-		// Sanity check
+		fnMap[fn.Name] = uint(i)
+	}
+	// Read trace instances
+	for f, tr := range traces {
+		fid, ok := fnMap[f]
 		if !ok {
-			return trace, fmt.Errorf("missing inputs/outputs for function %s", fn.Name)
+			return nil, fmt.Errorf("unknown function %s in trace", f)
 		}
-		//
-		fnInsts, err := readTraceInstances(tr, uint(i), fn)
-		//
+		// Read instances
+		fnInsts, err := readTraceInstances(tr, fid, program.Function(fid))
 		if err != nil {
 			return trace, err
 		}
-		//
+		// Insert all
 		trace.InsertAll(fnInsts)
 	}
 	//
