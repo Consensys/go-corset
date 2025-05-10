@@ -10,12 +10,13 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package micro
+package macro
 
 import (
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/asm/io/micro"
 )
 
 // Ret signals a return from the enclosing function.
@@ -25,17 +26,25 @@ type Ret struct {
 	dummy uint
 }
 
-// Clone this micro code.
-func (p *Ret) Clone() Code {
-	return p
+// Bind any labels contained within this instruction using the given label map.
+func (p *Ret) Bind(labels []uint) {
+	// no-op
 }
 
-// MicroExecute a given micro-code, using a given set of register values.  This
-// may update the register values, and returns either the number of micro-codes
-// to "skip over" when executing the enclosing instruction or, if skip==0, a
-// destination program counter (which can signal return of enclosing function).
-func (p *Ret) MicroExecute(state []big.Int, regs []io.Register) (uint, uint) {
-	return 0, io.RETURN
+// Execute a ret instruction by signaling a return from the enclosing function.
+func (p *Ret) Execute(pc uint, state []big.Int, regs []io.Register) uint {
+	return io.RETURN
+}
+
+// Lower this instruction into a exactly one more micro instruction.
+func (p *Ret) Lower(pc uint) micro.Instruction {
+	// Lowering here produces an instruction containing a single microcode.
+	return micro.NewInstruction(&micro.Ret{})
+}
+
+// Link any buses used within this instruction using the given bus map.
+func (p *Ret) Link(buses []uint) {
+	// nothing to link
 }
 
 // RegistersRead returns the set of registers read by this instruction.
@@ -48,14 +57,8 @@ func (p *Ret) RegistersWritten() []uint {
 	return nil
 }
 
-// Split this micro code using registers of arbirary width into one or more
-// micro codes using registers of a fixed maximum width.
-func (p *Ret) Split(env *RegisterSplittingEnvironment) []Code {
-	return []Code{p}
-}
-
 func (p *Ret) String(env io.Environment[Instruction]) string {
-	return "ret"
+	return "return"
 }
 
 // Validate checks whether or not this instruction is correctly balanced.

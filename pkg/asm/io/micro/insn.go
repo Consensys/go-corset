@@ -47,7 +47,7 @@ type Code interface {
 	RegistersWritten() []uint
 	// Produce a suitable string representation of this instruction.  This is
 	// primarily used for debugging.
-	String(regs []io.Register) string
+	String(io.Environment[Instruction]) string
 	// Split this micro code using registers of arbirary width into one or more
 	// micro codes using registers of a fixed maximum width.
 	Split(env *RegisterSplittingEnvironment) []Code
@@ -56,7 +56,7 @@ type Code interface {
 	// been allocated, etc.  The maximum bit capacity of the underlying field is
 	// needed for this calculation, so as to allow an instruction to check it
 	// does not overflow the underlying field.
-	Validate(fieldWidth uint, regs []io.Register) error
+	Validate(io.Environment[Instruction]) error
 }
 
 // Instruction represents the composition of one or more micro instructions
@@ -68,6 +68,11 @@ type Code interface {
 // the middle of a microinstruction.
 type Instruction struct {
 	Codes []Code
+}
+
+// NewInstruction constructs a new instruction from a given set of micro-codes.
+func NewInstruction(codes ...Code) Instruction {
+	return Instruction{codes}
 }
 
 // Terminal checks whether or not this instruction can result in a return from
@@ -143,7 +148,7 @@ func (p Instruction) RegistersWritten() []uint {
 	return regs.Iter().Collect()
 }
 
-func (p Instruction) String(regs []io.Register) string {
+func (p Instruction) String(env io.Environment[Instruction]) string {
 	var builder strings.Builder
 	//
 	for i, code := range p.Codes {
@@ -151,7 +156,7 @@ func (p Instruction) String(regs []io.Register) string {
 			builder.WriteString(" ; ")
 		}
 		//
-		builder.WriteString(code.String(regs))
+		builder.WriteString(code.String(env))
 	}
 	//
 	return builder.String()
@@ -160,11 +165,11 @@ func (p Instruction) String(regs []io.Register) string {
 // Validate that this micro-instruction is well-formed.  For example, each
 // micro-instruction contained within must be well-formed, and the overall
 // requirements for a vector instruction must be met, etc.
-func (p Instruction) Validate(fieldWidth uint, regs []io.Register) error {
+func (p Instruction) Validate(env io.Environment[Instruction]) error {
 	var written bit.Set
 	//
 	for _, r := range p.Codes {
-		if err := r.Validate(fieldWidth, regs); err != nil {
+		if err := r.Validate(env); err != nil {
 			return err
 		}
 	}

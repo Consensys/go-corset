@@ -15,6 +15,9 @@ package io
 import (
 	"fmt"
 	"math/big"
+	"strings"
+
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // Alias for big integer representation of 0.
@@ -155,4 +158,33 @@ func SplitValueAcrossRegisters(constant *big.Int, registers ...Register) []big.I
 	}
 	//
 	return limbs
+}
+
+// RegistersToString returns a string representation for zero or more registers
+// separated by a comma.
+func RegistersToString(rids []uint, regs []Register) string {
+	var builder strings.Builder
+	//
+	for i := 0; i < len(rids); i++ {
+		var rid = rids[i]
+		//
+		if i != 0 {
+			builder.WriteString(", ")
+		}
+		//
+		if i < len(regs) {
+			builder.WriteString(regs[rid].Name)
+		} else {
+			builder.WriteString(fmt.Sprintf("?%d", rid))
+		}
+	}
+	//
+	return builder.String()
+}
+
+// RegistersReversedToString returns a string representation for zero or more
+// registers in reverse order, separated by a comma.  This is useful, for
+// example, when printing the left-hand side of an assignment.
+func RegistersReversedToString(rids []uint, regs []Register) string {
+	return RegistersToString(util.Reverse(rids), regs)
 }

@@ -10,13 +10,14 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package micro
+package macro
 
 import (
 	"fmt"
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/asm/io/micro"
 )
 
 // Jmp provides an unconditional branching instruction to a given instructon.
@@ -24,17 +25,26 @@ type Jmp struct {
 	Target uint
 }
 
-// Clone this micro code.
-func (p *Jmp) Clone() Code {
-	return &Jmp{p.Target}
+// Bind any labels contained within this instruction using the given label map.
+func (p *Jmp) Bind(labels []uint) {
+	p.Target = labels[p.Target]
 }
 
-// MicroExecute a given micro-code, using a given set of register values.  This
-// may update the register values, and returns either the number of micro-codes
-// to "skip over" when executing the enclosing instruction or, if skip==0, a
-// destination program counter (which can signal return of enclosing function).
-func (p *Jmp) MicroExecute(state []big.Int, regs []io.Register) (uint, uint) {
-	return 0, p.Target
+// Execute an unconditional branch instruction by returning the destination
+// program counter.
+func (p *Jmp) Execute(pc uint, state []big.Int, regs []io.Register) uint {
+	return p.Target
+}
+
+// Lower this instruction into a exactly one more micro instruction.
+func (p *Jmp) Lower(pc uint) micro.Instruction {
+	// Lowering here produces an instruction containing a single microcode.
+	return micro.NewInstruction(&micro.Jmp{Target: p.Target})
+}
+
+// Link any buses used within this instruction using the given bus map.
+func (p *Jmp) Link(buses []uint) {
+	// nothing to link
 }
 
 // RegistersRead returns the set of registers read by this instruction.
@@ -47,14 +57,8 @@ func (p *Jmp) RegistersWritten() []uint {
 	return nil
 }
 
-// Split this micro code using registers of arbirary width into one or more
-// micro codes using registers of a fixed maximum width.
-func (p *Jmp) Split(env *RegisterSplittingEnvironment) []Code {
-	return []Code{p}
-}
-
 func (p *Jmp) String(env io.Environment[Instruction]) string {
-	return fmt.Sprintf("jmp %d", p.Target)
+	return fmt.Sprintf("goto %d", p.Target)
 }
 
 // Validate checks whether or not this instruction is correctly balanced.

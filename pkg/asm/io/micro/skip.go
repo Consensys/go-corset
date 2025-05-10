@@ -69,11 +69,6 @@ func (p *Skip) MicroExecute(state []big.Int, regs []io.Register) (uint, uint) {
 	}
 }
 
-// Registers returns the set of registers read/written by this instruction.
-func (p *Skip) Registers() []uint {
-	return p.RegistersRead()
-}
-
 // RegistersRead returns the set of registers read by this instruction.
 func (p *Skip) RegistersRead() []uint {
 	if p.Right != io.UNUSED_REGISTER {
@@ -116,8 +111,11 @@ func (p *Skip) Split(env *RegisterSplittingEnvironment) []Code {
 	return ncodes
 }
 
-func (p *Skip) String(regs []io.Register) string {
-	var l = regs[p.Left].Name
+func (p *Skip) String(env io.Environment[Instruction]) string {
+	var (
+		regs = env.Enclosing().Registers
+		l    = regs[p.Left].Name
+	)
 	//
 	if p.Right != io.UNUSED_REGISTER {
 		return fmt.Sprintf("skip %s!=%s %d", l, regs[p.Right].Name, p.Skip)
@@ -127,8 +125,11 @@ func (p *Skip) String(regs []io.Register) string {
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Skip) Validate(fieldWidth uint, regs []io.Register) error {
-	lw := regs[p.Left].Width
+func (p *Skip) Validate(env io.Environment[Instruction]) error {
+	var (
+		regs = env.Enclosing().Registers
+		lw   = regs[p.Left].Width
+	)
 	//
 	if p.Right != io.UNUSED_REGISTER {
 		rw := regs[p.Right].Width

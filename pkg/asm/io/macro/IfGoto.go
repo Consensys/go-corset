@@ -55,6 +55,11 @@ func (p *JCond) Bind(labels []uint) {
 	p.Target = labels[p.Target]
 }
 
+// Link any buses used within this instruction using the given bus map.
+func (p *JCond) Link(buses []uint) {
+	// nothing to link
+}
+
 // Execute an unconditional branch instruction by returning the destination
 // program counter.
 func (p *JCond) Execute(pc uint, state []big.Int, regs []Register) uint {
@@ -119,11 +124,6 @@ func (p *JCond) Lower(pc uint) micro.Instruction {
 	return micro.Instruction{Codes: codes}
 }
 
-// Registers returns the set of registers read/written by this instruction.
-func (p *JCond) Registers() []uint {
-	return p.RegistersRead()
-}
-
 // RegistersRead returns the set of registers read by this instruction.
 func (p *JCond) RegistersRead() []uint {
 	if p.Right != io.UNUSED_REGISTER {
@@ -138,11 +138,12 @@ func (p *JCond) RegistersWritten() []uint {
 	return nil
 }
 
-func (p *JCond) String(regs []Register) string {
+func (p *JCond) String(env io.Environment[Instruction]) string {
 	var (
-		l  = regs[p.Left].Name
-		r  string
-		op string
+		regs = env.Enclosing().Registers
+		l    = regs[p.Left].Name
+		r    string
+		op   string
 	)
 	//
 	switch p.Cond {
@@ -168,11 +169,11 @@ func (p *JCond) String(regs []Register) string {
 		r = p.Constant.String()
 	}
 	//
-	return fmt.Sprintf("jc %s%s%s %d", l, op, r, p.Target)
+	return fmt.Sprintf("if %s%s%s goto %d", l, op, r, p.Target)
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *JCond) Validate(fieldWidth uint, regs []Register) error {
+func (p *JCond) Validate(env io.Environment[Instruction]) error {
 	if p.Left == p.Right {
 		switch p.Cond {
 		case EQ, LTEQ, GTEQ:

@@ -113,7 +113,7 @@ func check(t *testing.T, test string) {
 }
 
 // Check the given traces for all function instances.
-func checkTraces[T io.Instruction](t *testing.T, test string, ir string, cfg TestConfig, traces []io.Trace[T]) {
+func checkTraces[T io.Instruction[T]](t *testing.T, test string, ir string, cfg TestConfig, traces []io.Trace[T]) {
 	//
 	for i, tr := range traces {
 		id := traceId{ir, test, cfg.expected, i + 1, 0}
@@ -195,7 +195,7 @@ func checkTrace(t *testing.T, inputs []trace.RawColumn, id traceId, schema sc.Sc
 }
 
 // Check the given traces for a particular function instance.
-func checkFunction[T io.Instruction](t *testing.T, id traceId, instance io.FunctionInstance, program io.Program[T]) {
+func checkFunction[T io.Instruction[T]](t *testing.T, id traceId, instance io.FunctionInstance, program io.Program[T]) {
 	outcome, err := CheckInstance(instance, program)
 	//
 	if outcome == math.MaxUint {
