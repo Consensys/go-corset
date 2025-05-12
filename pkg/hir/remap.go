@@ -15,6 +15,9 @@ package hir
 import (
 	"math"
 
+	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/assignment"
+	"github.com/consensys/go-corset/pkg/schema/constraint"
 	tr "github.com/consensys/go-corset/pkg/trace"
 )
 
@@ -25,6 +28,12 @@ func Remap(schema *Schema, criteria func(Module) bool) {
 	remapper.remapModules(*schema, criteria)
 	// Remap columns
 	remapper.remapColumns(*schema)
+	// Remap assignments
+	remapper.remapAssignments(*schema)
+	// Remap constraints
+	remapper.remapConstraints(*schema)
+	// Remap assertions
+	remapper.remapAssertions(*schema)
 	// Done
 	*schema = remapper.schema
 }
@@ -79,6 +88,75 @@ func (p *Remapper) remapColumns(oSchema Schema) {
 		//
 		p.colmap[i] = cid
 	}
+}
+
+func (p *Remapper) remapAssignments(oSchema Schema) {
+	for _, a := range oSchema.assignments {
+		p.schema.AddAssignment(p.remapAssignment(a))
+	}
+}
+
+func (p *Remapper) remapConstraints(oSchema Schema) {
+	for _, c := range oSchema.constraints {
+		nc := p.remapConstraint(c)
+		p.schema.constraints = append(p.schema.constraints, nc)
+	}
+}
+
+func (p *Remapper) remapAssertions(oSchema Schema) {
+	for _, c := range oSchema.assertions {
+		nc := p.remapAssertion(c)
+		p.schema.constraints = append(p.schema.constraints, nc)
+	}
+}
+
+func (p *Remapper) remapAssignment(a sc.Assignment) sc.Assignment {
+	switch a.(type) {
+	case *assignment.Computation:
+		panic("todo")
+	case *assignment.Interleaving:
+		panic("todo")
+	case *assignment.SortedPermutation:
+		panic("todo")
+	default:
+		// All other cases are not used at the HIR level, only at lower levels.
+		// Hence, they can be ignored.
+		panic("unreachable")
+	}
+}
+
+func (p *Remapper) remapConstraint(c sc.Constraint) sc.Constraint {
+	switch c := c.(type) {
+	case LookupConstraint:
+		panic("todo")
+	case RangeConstraint:
+		panic("todo")
+	case SortedConstraint:
+		panic("todo")
+	case VanishingConstraint:
+		return p.remapVanishing(c)
+	default:
+		// should be no other cases
+		panic("unreachable")
+	}
+}
+
+func (p *Remapper) remapAssertion(a PropertyAssertion) PropertyAssertion {
+	panic("todo")
+}
+
+func (p *Remapper) remapVanishing(c VanishingConstraint) sc.Constraint {
+	return &constraint.VanishingConstraint[Expr]{
+		Handle:     c.Handle,
+		Case:       c.Case,
+		Context:    p.remapContext(c.Context),
+		Domain:     c.Domain,
+		Constraint: p.remapExpression(c.Constraint),
+	}
+}
+
+func (p *Remapper) remapExpression(expr Expr) Expr {
+	panic("got here")
 }
 
 func (p *Remapper) remapContext(ctx tr.Context) tr.Context {
