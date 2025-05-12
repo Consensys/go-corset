@@ -206,12 +206,14 @@ func (r *resolver) resolveConstraints(scope *ModuleScope, circuit *ast.Circuit) 
 	errs := r.finaliseDeclarationsInModule(scope, circuit.Declarations, isNotAssigmentDeclaration)
 	//
 	for _, m := range circuit.Modules {
-		// Finalise module conditions
-		cerrs := r.finaliseExpressionInModule(NewLocalScope(scope, false, true, false), m.Condition)
+		if m.Condition != nil {
+			// Finalise module conditions
+			cerrs := r.finaliseExpressionInModule(NewLocalScope(scope, false, true, false), m.Condition)
+			errs = append(errs, cerrs...)
+		}
 		// Process all declarations in the module
 		merrs := r.finaliseDeclarationsInModule(scope.Enter(m.Name), m.Declarations, isNotAssigmentDeclaration)
 		// Package up all errors
-		errs = append(errs, cerrs...)
 		errs = append(errs, merrs...)
 	}
 	//

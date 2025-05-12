@@ -65,11 +65,20 @@ type translator struct {
 }
 
 func (t *translator) translateModules(circuit *ast.Circuit) {
+	path := util.NewAbsolutePath()
 	// Add root module
-	t.schema.AddModule("")
+	t.schema.AddModule("", hir.VOID)
 	// Add nested modules
 	for _, m := range circuit.Modules {
-		mid := t.schema.AddModule(m.Name)
+		var (
+			condition hir.Expr = hir.VOID
+			modPath            = path.Extend(m.Name)
+		)
+		if m.Condition != nil {
+			// Translate constraint body
+			condition, errors = t.translateExpressionInModule(m.Condition, *modPath, 0)
+		}
+		mid := t.schema.AddModule(m.Name, condition)
 		info := t.env.Module(m.Name)
 		// Sanity check everything lines up.
 		if info.Id != mid {

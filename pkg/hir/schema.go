@@ -54,10 +54,17 @@ type PropertyAssertion = *sc.PropertyAssertion[Expr]
 // Permutation captures the notion of a (sorted) permutation at the HIR level.
 type Permutation = *assignment.SortedPermutation
 
+type Module struct {
+	// Name of module
+	Name string
+	// Condition determines when module is enabled.
+	Condition Expr
+}
+
 // Schema for HIR constraints and columns.
 type Schema struct {
 	// The modules of the schema
-	modules []sc.Module
+	modules []Module
 	// The data columns of this schema.
 	inputs []sc.Declaration
 	// The sorted permutations of this schema.
@@ -75,7 +82,7 @@ type Schema struct {
 // constraints will be added.
 func EmptySchema() *Schema {
 	p := new(Schema)
-	p.modules = make([]sc.Module, 0)
+	p.modules = make([]Module, 0)
 	p.inputs = make([]sc.Declaration, 0)
 	p.assignments = make([]sc.Assignment, 0)
 	p.constraints = make([]sc.Constraint, 0)
@@ -86,9 +93,9 @@ func EmptySchema() *Schema {
 }
 
 // AddModule adds a new module to this schema, returning its module index.
-func (p *Schema) AddModule(name string) uint {
+func (p *Schema) AddModule(name string, condition Expr) uint {
 	mid := uint(len(p.modules))
-	p.modules = append(p.modules, sc.NewModule(name))
+	p.modules = append(p.modules, Module{name, condition})
 
 	return mid
 }
@@ -252,7 +259,10 @@ func (p *Schema) Declarations() iter.Iterator[sc.Declaration] {
 // Modules returns an iterator over the declared set of modules within this
 // schema.
 func (p *Schema) Modules() iter.Iterator[sc.Module] {
-	return iter.NewArrayIterator(p.modules)
+	arr := iter.NewArrayIterator(p.modules)
+	return iter.NewProjectIterator(arr, func(m Module) sc.Module {
+		return sc.NewModule(m.Name)
+	})
 }
 
 // ============================================================================
