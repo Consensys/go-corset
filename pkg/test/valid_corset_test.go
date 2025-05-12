@@ -1528,7 +1528,7 @@ func ReadTracesFile(filename string) [][]trace.RawColumn {
 func encodeDecodeSchema(t *testing.T, schema *hir.Schema) *hir.Schema {
 	var (
 		buffer     bytes.Buffer
-		gobEncoder *gob.Encoder = gob.NewEncoder(&buffer)
+		gobEncoder = gob.NewEncoder(&buffer)
 		binSchema  hir.Schema
 	)
 	// Encode schema

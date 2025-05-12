@@ -54,6 +54,7 @@ type PropertyAssertion = *sc.PropertyAssertion[Expr]
 // Permutation captures the notion of a (sorted) permutation at the HIR level.
 type Permutation = *assignment.SortedPermutation
 
+// Module defines the notion of a module within the HIR schema.
 type Module struct {
 	// Name of module
 	Name string
@@ -249,7 +250,7 @@ func (p *Schema) CheckConsistency() error {
 // user.
 func (p *Schema) InputColumns() iter.Iterator[sc.Column] {
 	inputs := iter.NewArrayIterator(p.inputs)
-	return iter.NewFlattenIterator[schema.Declaration, schema.Column](inputs,
+	return iter.NewFlattenIterator(inputs,
 		func(d schema.Declaration) iter.Iterator[schema.Column] { return d.Columns() })
 }
 

@@ -1303,7 +1303,7 @@ func parseSymbolName[T ast.Binding](p *Parser, symbol sexp.SExp, module util.Pat
 	}
 	// Extract
 	path := module.Extend(symbol.AsSymbol().Value)
-	name := ast.NewBoundName[T](*path, arity, binding)
+	name := ast.NewBoundName(*path, arity, binding)
 	// Update source mapping
 	p.mapSourceNode(symbol, name)
 	// Construct

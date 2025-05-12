@@ -87,7 +87,7 @@ func splitColumnBitwidth(name string) (string, uint, error) {
 	var (
 		err      error
 		bitwidth uint64
-		bits     []string = strings.Split(name, "@")
+		bits     = strings.Split(name, "@")
 	)
 	//
 	if len(bits) == 1 {

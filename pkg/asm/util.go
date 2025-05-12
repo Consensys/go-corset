@@ -80,7 +80,7 @@ func ReadTrace(bytes []byte, program MacroProgram) (MacroTrace, error) {
 		tr, ok := traces[fn.Name]
 		// Sanity check
 		if !ok {
-			return trace, fmt.Errorf("missing inputs/outputs for function %s\n", fn.Name)
+			return trace, fmt.Errorf("missing inputs/outputs for function %s", fn.Name)
 		}
 		//
 		fnInsts, err := readTraceInstances(tr, uint(i), fn)

@@ -211,12 +211,13 @@ func (p *VanishingConstraint[T]) Lisp(schema sc.Schema) sexp.SExp {
 	name = fmt.Sprintf("%s#%d", name, p.Case)
 	// Handle attributes
 	if p.Domain.HasValue() {
-		domain := p.Domain.Unwrap()
-		if domain == 0 {
+		switch p.Domain.Unwrap() {
+		case 0:
 			name = fmt.Sprintf("%s:first", name)
-		} else if domain == -1 {
+		case -1:
 			name = fmt.Sprintf("%s:last", name)
-		} else {
+		default:
+			domain := p.Domain.Unwrap()
 			panic(fmt.Sprintf("domain value %d not supported for local constraint", domain))
 		}
 	}

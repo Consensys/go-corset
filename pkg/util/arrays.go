@@ -81,7 +81,7 @@ func Append[T any](slice []T, item T) []T {
 	return nslice
 }
 
-// Append creates a new slice containing the result of appending the given item
+// AppendAll creates a new slice containing the result of appending the given items
 // onto the end of the given slice.  Observe that, unlike the built-in append()
 // function, this will never modify the given slice.
 //

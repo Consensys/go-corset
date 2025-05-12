@@ -108,7 +108,7 @@ func (p *UintType) BitWidth() uint {
 // example, a u8 fits within a bound of 256 and also 65536.  However, it does
 // not fit within a bound of 255.
 func (p *UintType) HasBound(bound uint) bool {
-	var n fr.Element = fr.NewElement(uint64(bound))
+	var n = fr.NewElement(uint64(bound))
 	return p.ValueBound.Cmp(&n) <= 0
 }
 

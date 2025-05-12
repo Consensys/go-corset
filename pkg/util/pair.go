@@ -25,6 +25,6 @@ func NewPair[S any, T any](left S, right T) Pair[S, T] {
 
 // NewPairRef returns a reference to a new instance of Pair.
 func NewPairRef[S any, T any](left S, right T) *Pair[S, T] {
-	var p Pair[S, T] = NewPair(left, right)
+	var p = NewPair(left, right)
 	return &p
 }

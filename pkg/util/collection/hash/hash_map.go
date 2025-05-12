@@ -73,7 +73,7 @@ func (p *Map[K, V]) Insert(key K, value V) bool {
 	return r
 }
 
-// Contains checks whether the given item is contained within this map, or not.
+// ContainsKey checks whether the given item is contained within this map, or not.
 //
 //nolint:revive
 func (p *Map[K, V]) ContainsKey(key K) bool {
@@ -92,7 +92,7 @@ func (p *Map[K, V]) ContainsKey(key K) bool {
 func (p *Map[K, V]) Get(key K) (V, bool) {
 	var (
 		empty V
-		hash  uint64 = key.Hash()
+		hash  = key.Hash()
 	)
 	// Look for bucket
 	if bucket, ok := p.buckets[hash]; ok {

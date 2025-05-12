@@ -28,13 +28,13 @@ type FrArray = util.Array[fr.Element]
 func NewFrArray(height uint, bitWidth uint) FrArray {
 	switch {
 	case bitWidth <= 1:
-		var pool FrBitPool = NewFrBitPool()
+		var pool = NewFrBitPool()
 		return NewFrPoolArray[bool](height, bitWidth, pool)
 	case bitWidth <= 8:
-		var pool FrIndexPool[uint8] = NewFrIndexPool[uint8]()
+		var pool = NewFrIndexPool[uint8]()
 		return NewFrPoolArray[uint8](height, bitWidth, pool)
 	case bitWidth <= 16:
-		var pool FrIndexPool[uint16] = NewFrIndexPool[uint16]()
+		var pool = NewFrIndexPool[uint16]()
 		return NewFrPoolArray[uint16](height, bitWidth, pool)
 	default:
 		return NewFrIndexArray(height, bitWidth)

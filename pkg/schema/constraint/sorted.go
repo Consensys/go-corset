@@ -17,9 +17,7 @@ import (
 	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/trace"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
@@ -42,7 +40,7 @@ func (p *SortedFailure) String() string {
 
 // SortedConstraint declares a constraint that one (or more) columns are
 // lexicographically sorted.
-type SortedConstraint[E schema.Evaluable] struct {
+type SortedConstraint[E sc.Evaluable] struct {
 	Handle string
 	// Evaluation Context for this constraint which must match that of the
 	// source expressions.
@@ -63,7 +61,7 @@ type SortedConstraint[E schema.Evaluable] struct {
 }
 
 // NewSortedConstraint creates a new Sorted
-func NewSortedConstraint[E schema.Evaluable](handle string, context tr.Context, bitwidth uint, selector util.Option[E],
+func NewSortedConstraint[E sc.Evaluable](handle string, context tr.Context, bitwidth uint, selector util.Option[E],
 	sources []E, signs []bool, strict bool) *SortedConstraint[E] {
 	//
 	return &SortedConstraint[E]{handle, context, bitwidth, selector, sources, signs, strict}
@@ -201,7 +199,7 @@ func (p *SortedConstraint[E]) deltaBound() fr.Element {
 	return bound
 }
 
-func sorted[E schema.Evaluable](first, second uint, bound fr.Element, sources []E, signs []bool, strict bool,
+func sorted[E sc.Evaluable](first, second uint, bound fr.Element, sources []E, signs []bool, strict bool,
 	trace tr.Trace) (bool, error) {
 	//
 	var (
@@ -239,13 +237,13 @@ func sorted[E schema.Evaluable](first, second uint, bound fr.Element, sources []
 	return !strict, nil
 }
 
-func evalExprsAt[E schema.Evaluable](k uint, sources []E, tr trace.Trace) ([]fr.Element, error) {
+func evalExprsAt[E sc.Evaluable](k uint, sources []E, trace tr.Trace) ([]fr.Element, error) {
 	var err error
 	//
 	values := make([]fr.Element, len(sources))
 	// Evaluate each expression in turn
 	for i := 0; err == nil && i < len(sources); i++ {
-		values[i], err = sources[i].EvalAt(int(k), tr)
+		values[i], err = sources[i].EvalAt(int(k), trace)
 	}
 	//
 	return values, err

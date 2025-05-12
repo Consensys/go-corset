@@ -100,7 +100,7 @@ func generateJavaHeader(pkgname string, metadata typed.Map, builder *strings.Bui
 	builder.WriteString(license)
 	// Write package line
 	if pkgname != "" {
-		builder.WriteString(fmt.Sprintf("package %s;\n", pkgname))
+		fmt.Fprintf(builder, "package %s;\n", pkgname)
 	}
 	//
 	builder.WriteString(javaImports)

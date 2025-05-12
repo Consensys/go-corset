@@ -13,11 +13,12 @@
 package hir
 
 import (
+	"fmt"
 	"math"
+	"reflect"
 
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/assignment"
-	"github.com/consensys/go-corset/pkg/schema/constraint"
 	tr "github.com/consensys/go-corset/pkg/trace"
 )
 
@@ -77,7 +78,7 @@ func (p *Remapper) remapColumns(oSchema Schema) {
 			cid uint
 		)
 		// Add column (if applicable)
-		if p.modmap[ith.Context.ModuleId] != math.MaxUint {
+		if p.isActive(ith.Context) {
 			ctx := p.remapContext(ith.Context)
 			cid = p.schema.AddDataColumn(ctx, ith.Name, ith.DataType)
 		} else {
@@ -92,22 +93,40 @@ func (p *Remapper) remapColumns(oSchema Schema) {
 
 func (p *Remapper) remapAssignments(oSchema Schema) {
 	for _, a := range oSchema.assignments {
-		p.schema.AddAssignment(p.remapAssignment(a))
+		if p.isActive(a.Context()) {
+			p.schema.AddAssignment(p.remapAssignment(a))
+		}
 	}
 }
 
 func (p *Remapper) remapConstraints(oSchema Schema) {
 	for _, c := range oSchema.constraints {
-		nc := p.remapConstraint(c)
-		p.schema.constraints = append(p.schema.constraints, nc)
+		if p.isActive(c.Contexts()...) {
+			nc := p.remapConstraint(c)
+			p.schema.constraints = append(p.schema.constraints, nc)
+		}
 	}
 }
 
 func (p *Remapper) remapAssertions(oSchema Schema) {
 	for _, c := range oSchema.assertions {
-		nc := p.remapAssertion(c)
-		p.schema.constraints = append(p.schema.constraints, nc)
+		if p.isActive(c.Context) {
+			nc := p.remapAssertion(c)
+			p.schema.constraints = append(p.schema.constraints, nc)
+		}
 	}
+}
+
+// isActive checks whether the given contexts all reference active modules (i.e.
+// which have not been deleted).
+func (p *Remapper) isActive(contexts ...tr.Context) bool {
+	for _, ctx := range contexts {
+		if p.modmap[ctx.ModuleId] == math.MaxUint {
+			return false
+		}
+	}
+	//
+	return true
 }
 
 func (p *Remapper) remapAssignment(a sc.Assignment) sc.Assignment {
@@ -128,7 +147,7 @@ func (p *Remapper) remapAssignment(a sc.Assignment) sc.Assignment {
 func (p *Remapper) remapConstraint(c sc.Constraint) sc.Constraint {
 	switch c := c.(type) {
 	case LookupConstraint:
-		panic("todo")
+		return p.remapLookup(c)
 	case RangeConstraint:
 		panic("todo")
 	case SortedConstraint:
@@ -145,18 +164,87 @@ func (p *Remapper) remapAssertion(a PropertyAssertion) PropertyAssertion {
 	panic("todo")
 }
 
+func (p *Remapper) remapLookup(c LookupConstraint) sc.Constraint {
+	c.SourceContext = p.remapContext(c.SourceContext)
+	c.TargetContext = p.remapContext(c.TargetContext)
+	// Remap source terms
+	for _, e := range c.Sources {
+		p.remapExpression(e)
+	}
+	// Remap target terms
+	for _, e := range c.Targets {
+		p.remapExpression(e)
+	}
+	//
+	return c
+}
+
 func (p *Remapper) remapVanishing(c VanishingConstraint) sc.Constraint {
-	return &constraint.VanishingConstraint[Expr]{
-		Handle:     c.Handle,
-		Case:       c.Case,
-		Context:    p.remapContext(c.Context),
-		Domain:     c.Domain,
-		Constraint: p.remapExpression(c.Constraint),
+	// Remap context
+	c.Context = p.remapContext(c.Context)
+	// Remap constraint
+	p.remapExpression(c.Constraint)
+	//
+	return c
+}
+
+func (p *Remapper) remapExpression(expr Expr) {
+	p.remapTerm(expr.Term)
+}
+
+func (p *Remapper) remapTerm(e Term) {
+	switch e := e.(type) {
+	case *Add:
+		p.remapTerms(e.Args...)
+	case *Cast:
+		p.remapTerm(e.Arg)
+	case *Connective:
+		p.remapTerms(e.Args...)
+	case *Constant:
+		// nothing
+	case *Equation:
+		p.remapTerms(e.Lhs, e.Rhs)
+	case *LabelledConstant:
+		// nothing
+	case *ColumnAccess:
+		// Remap column ID
+		e.Column = p.colmap[e.Column]
+		// sanity check
+		if e.Column == math.MaxUint {
+			panic("remapping deleted column")
+		}
+	case *Exp:
+		p.remapTerm(e.Arg)
+	case *IfZero:
+		p.remapTerm(e.Condition)
+		p.remapOptionalTerm(e.TrueBranch)
+		p.remapOptionalTerm(e.FalseBranch)
+	case *List:
+		p.remapTerms(e.Args...)
+	case *Mul:
+		p.remapTerms(e.Args...)
+	case *Norm:
+		p.remapTerm(e.Arg)
+	case *Not:
+		p.remapTerm(e.Arg)
+	case *Sub:
+		p.remapTerms(e.Args...)
+	default:
+		name := reflect.TypeOf(e).Name()
+		panic(fmt.Sprintf("unknown HIR expression \"%s\"", name))
 	}
 }
 
-func (p *Remapper) remapExpression(expr Expr) Expr {
-	panic("got here")
+func (p *Remapper) remapOptionalTerm(e Term) {
+	if e != nil {
+		p.remapTerm(e)
+	}
+}
+
+func (p *Remapper) remapTerms(terms ...Term) {
+	for _, term := range terms {
+		p.remapTerm(term)
+	}
 }
 
 func (p *Remapper) remapContext(ctx tr.Context) tr.Context {

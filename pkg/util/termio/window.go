@@ -103,9 +103,7 @@ func (p *FormattedText) Clip(start uint, end uint) FormattedText {
 
 // Pad ensures the text is at least a given width, by prepending spaces.
 func (p *FormattedText) Pad(width uint) FormattedText {
-	var (
-		text []rune = p.text
-	)
+	var text = p.text
 	// Pad only if necessary
 	if uint(len(text)) < width {
 		text = []rune(fmt.Sprintf("%*s", width, string(text)))
