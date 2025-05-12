@@ -39,7 +39,9 @@ func TranslateCircuit(env Environment, srcmap *source.Maps[ast.Node],
 	//
 	t := translator{env, srcmap, hir.EmptySchema()}
 	// Allocate all modules into schema
-	t.translateModules(circuit)
+	if errs := t.translateModules(circuit); len(errs) > 0 {
+		return nil, errs
+	}
 	// Translate input columns
 	t.translateInputColumns(circuit)
 	// Translate everything else
@@ -64,20 +66,27 @@ type translator struct {
 	schema *hir.Schema
 }
 
-func (t *translator) translateModules(circuit *ast.Circuit) {
-	path := util.NewAbsolutePath()
+func (t *translator) translateModules(circuit *ast.Circuit) []source.SyntaxError {
+	var (
+		errors []source.SyntaxError
+		path   = util.NewAbsolutePath()
+	)
 	// Add root module
 	t.schema.AddModule("", hir.VOID)
 	// Add nested modules
 	for _, m := range circuit.Modules {
 		var (
 			condition hir.Expr = hir.VOID
-			modPath            = path.Extend(m.Name)
+			errs      []source.SyntaxError
+			modPath   = path.Extend(m.Name)
 		)
+		// Translate module condition (if applicable)
 		if m.Condition != nil {
 			// Translate constraint body
-			condition, errors = t.translateExpressionInModule(m.Condition, *modPath, 0)
+			condition, errs = t.translateExpressionInModule(m.Condition, *modPath, 0)
+			errors = append(errors, errs...)
 		}
+		//
 		mid := t.schema.AddModule(m.Name, condition)
 		info := t.env.Module(m.Name)
 		// Sanity check everything lines up.
@@ -85,6 +94,8 @@ func (t *translator) translateModules(circuit *ast.Circuit) {
 			panic(fmt.Sprintf("Invalid module identifier: %d vs %d", mid, info.Id))
 		}
 	}
+	//
+	return errors
 }
 
 // Translate all input column declarations in the entire circuit.

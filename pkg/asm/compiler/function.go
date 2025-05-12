@@ -54,7 +54,7 @@ func (p *Compiler) Schema() *hir.Schema {
 func (p *Compiler) Compile(name string, regs []insn.Register, code []micro.Instruction) {
 	var (
 		// Allocate module id
-		mid = p.schema.AddModule(name)
+		mid = p.schema.AddModule(name, hir.VOID)
 		// Map fn registers to schema columns
 		rids = make([]uint, len(regs))
 	)

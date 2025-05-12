@@ -175,9 +175,40 @@ func (p *Schema) AddPropertyAssertion(handle string, context trace.Context, prop
 	p.assertions = append(p.assertions, sc.NewPropertyAssertion(handle, context, property))
 }
 
+// Consolidate removes all modules (and related columns / constraints) which are
+// not active in this configuration.  That is, modules whose condition is a
+// compile-time non-zero constant.  Any columns and/or constraints in such
+// modules are also removed.
+func (p *Schema) Consolidate() {
+	activeModule := func(m Module) bool {
+		if m.Condition == VOID {
+			return true
+		}
+		// NOTE: since module constants are, by construction, constant
+		// expressions we can safely provide an empty trace here since it will
+		// never be dereferenced.
+		val, err := m.Condition.EvalAt(0, nil)
+		//
+		if err != nil {
+			// Should be unreachable
+			panic(err.Error())
+		}
+		// Keep module if condition is zero.
+		return val.IsZero()
+	}
+	//
+	Remap(p, activeModule)
+}
+
 // SubstituteConstants substitutes the value of matching labelled constants for
 // all expressions used within the schema.
 func (p *Schema) SubstituteConstants(mapping map[string]fr.Element) {
+	// Conditional modules
+	for _, m := range p.modules {
+		if m.Condition != VOID {
+			substituteExpression(mapping, m.Condition)
+		}
+	}
 	// Constraints
 	for _, a := range p.constraints {
 		substituteConstraint(mapping, a)
@@ -186,6 +217,8 @@ func (p *Schema) SubstituteConstants(mapping map[string]fr.Element) {
 	for _, a := range p.assertions {
 		substituteConstraint(mapping, a)
 	}
+	// Consolidate
+	p.Consolidate()
 }
 
 // ============================================================================
@@ -260,6 +293,7 @@ func (p *Schema) Declarations() iter.Iterator[sc.Declaration] {
 // schema.
 func (p *Schema) Modules() iter.Iterator[sc.Module] {
 	arr := iter.NewArrayIterator(p.modules)
+	//
 	return iter.NewProjectIterator(arr, func(m Module) sc.Module {
 		return sc.NewModule(m.Name)
 	})
