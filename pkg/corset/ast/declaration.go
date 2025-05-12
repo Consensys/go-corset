@@ -34,6 +34,9 @@ type Circuit struct {
 type Module struct {
 	Name         string
 	Declarations []Declaration
+	// Condition determines when this module is enabled.  The condition must be
+	// a constant expression, as nothing else could be typed.
+	Condition Expr
 }
 
 // Node provides common functionality across all elements of the Abstract Syntax
