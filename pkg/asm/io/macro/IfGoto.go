@@ -55,24 +55,19 @@ func (p *IfGoto) Bind(labels []uint) {
 	p.Target = labels[p.Target]
 }
 
-// Link any buses used within this instruction using the given bus map.
-func (p *IfGoto) Link(buses []uint) {
-	// nothing to link
-}
-
 // Execute this instruction with the given local and global state.  The next
 // program counter position is returned, or io.RETURN if the enclosing
 // function has terminated (i.e. because a return instruction was
 // encountered).
-func (p *IfGoto) Execute(state io.State, iomap io.Map) uint {
+func (p *IfGoto) Execute(state io.State) uint {
 	var (
-		lhs   *big.Int = state.Read(p.Left)
+		lhs   *big.Int = state.Load(p.Left)
 		rhs   *big.Int
 		taken bool
 	)
 	//
 	if p.Right != io.UNUSED_REGISTER {
-		rhs = state.Read(p.Right)
+		rhs = state.Load(p.Right)
 	} else {
 		rhs = &p.Constant
 	}
@@ -140,12 +135,11 @@ func (p *IfGoto) RegistersWritten() []uint {
 	return nil
 }
 
-func (p *IfGoto) String(env io.Environment[Instruction]) string {
+func (p *IfGoto) String(fn io.Function[Instruction]) string {
 	var (
-		regs = env.Enclosing().Registers
-		l    = regs[p.Left].Name
-		r    string
-		op   string
+		l  = fn.Register(p.Left).Name
+		r  string
+		op string
 	)
 	//
 	switch p.Cond {
@@ -166,7 +160,7 @@ func (p *IfGoto) String(env io.Environment[Instruction]) string {
 	}
 	//
 	if p.Right != io.UNUSED_REGISTER {
-		r = regs[p.Right].Name
+		r = fn.Register(p.Right).Name
 	} else {
 		r = p.Constant.String()
 	}
@@ -175,7 +169,7 @@ func (p *IfGoto) String(env io.Environment[Instruction]) string {
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *IfGoto) Validate(env io.Environment[Instruction]) error {
+func (p *IfGoto) Validate(fieldWidth uint, fn io.Function[Instruction]) error {
 	if p.Left == p.Right {
 		switch p.Cond {
 		case EQ, LTEQ, GTEQ:

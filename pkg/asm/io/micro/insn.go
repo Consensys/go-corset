@@ -40,14 +40,14 @@ type Code interface {
 	// "skip over" when executing the enclosing instruction or, if skip==0, a
 	// destination program counter (which can signal return of enclosing
 	// function).
-	MicroExecute(state io.State, iomap io.Map) (skip uint, pc uint)
+	MicroExecute(state io.State) (skip uint, pc uint)
 	// Registers returns the set of registers read this micro instruction.
 	RegistersRead() []uint
 	// Registers returns the set of registers written by this micro instruction.
 	RegistersWritten() []uint
 	// Produce a suitable string representation of this instruction.  This is
 	// primarily used for debugging.
-	String(io.Environment[Instruction]) string
+	String(io.Function[Instruction]) string
 	// Split this micro code using registers of arbirary width into one or more
 	// micro codes using registers of a fixed maximum width.
 	Split(env *RegisterSplittingEnvironment) []Code
@@ -56,7 +56,7 @@ type Code interface {
 	// been allocated, etc.  The maximum bit capacity of the underlying field is
 	// needed for this calculation, so as to allow an instruction to check it
 	// does not overflow the underlying field.
-	Validate(io.Environment[Instruction]) error
+	Validate(fieldWidth uint, fn io.Function[Instruction]) error
 }
 
 // Instruction represents the composition of one or more micro instructions
@@ -88,31 +88,18 @@ func (p Instruction) Terminal() bool {
 	return false
 }
 
-// Buses returns the set of buses accessed by this instruction (if any).
-func (p Instruction) Buses() bit.Set {
-	var buses bit.Set
-	// Look for bus instructions.
-	for _, code := range p.Codes {
-		if bi, ok := code.(io.BusInstruction); ok {
-			buses.Insert(bi.BusId())
-		}
-	}
-	//
-	return buses
-}
-
 // Execute this instruction with the given local and global state.  The next
 // program counter position is returned, or io.RETURN if the enclosing
 // function has terminated (i.e. because a return instruction was
 // encountered).
-func (p Instruction) Execute(state io.State, iomap io.Map) uint {
+func (p Instruction) Execute(state io.State) uint {
 	var skip uint = 1
 	//
 	for cc := uint(0); skip != 0; {
 		// Decode next micro-code
 		code := p.Codes[cc]
 		// Execut micro-code
-		skip, state.Pc = code.MicroExecute(state, iomap)
+		skip, state.Pc = code.MicroExecute(state)
 		// Skip as requested
 		cc += skip
 	}
@@ -161,7 +148,7 @@ func (p Instruction) RegistersWritten() []uint {
 	return regs.Iter().Collect()
 }
 
-func (p Instruction) String(env io.Environment[Instruction]) string {
+func (p Instruction) String(fn io.Function[Instruction]) string {
 	var builder strings.Builder
 	//
 	for i, code := range p.Codes {
@@ -169,7 +156,7 @@ func (p Instruction) String(env io.Environment[Instruction]) string {
 			builder.WriteString(" ; ")
 		}
 		//
-		builder.WriteString(code.String(env))
+		builder.WriteString(code.String(fn))
 	}
 	//
 	return builder.String()
@@ -178,11 +165,11 @@ func (p Instruction) String(env io.Environment[Instruction]) string {
 // Validate that this micro-instruction is well-formed.  For example, each
 // micro-instruction contained within must be well-formed, and the overall
 // requirements for a vector instruction must be met, etc.
-func (p Instruction) Validate(env io.Environment[Instruction]) error {
+func (p Instruction) Validate(fieldWidth uint, fn io.Function[Instruction]) error {
 	var written bit.Set
 	// Validate individual instructions
 	for _, r := range p.Codes {
-		if err := r.Validate(env); err != nil {
+		if err := r.Validate(fieldWidth, fn); err != nil {
 			return err
 		}
 	}
@@ -191,29 +178,30 @@ func (p Instruction) Validate(env io.Environment[Instruction]) error {
 	// TODO: check for conflicting function calls
 	//
 	// Check Write conflicts
-	return validateWrites(0, written, p.Codes, env)
+	return validateWrites(0, written, p.Codes, fn)
 }
 
-func validateWrites(cc uint, writes bit.Set, codes []Code, env io.Environment[Instruction]) error {
+func validateWrites(cc uint, writes bit.Set, codes []Code, fn io.Function[Instruction]) error {
 	switch code := codes[cc].(type) {
 	case *Ret, *Jmp:
 		return nil
 	case *Skip:
-		if err := validateWrites(cc+code.Skip, writes.Clone(), codes, env); err != nil {
+		if err := validateWrites(cc+code.Skip, writes.Clone(), codes, fn); err != nil {
 			return err
 		}
 	default:
+		//
 		for _, dst := range code.RegistersWritten() {
 			if writes.Contains(dst) {
 				// Extract register name
-				name := env.Enclosing().Registers[dst].Name
+				name := fn.Register(dst).Name
 				//
-				return fmt.Errorf("Conflicting write on register %s in %s", name, code.String(env))
+				return fmt.Errorf("conflicting write on register %s in %s", name, code.String(fn))
 			}
 			//
 			writes.Insert(dst)
 		}
 	}
 	// Fall through to next micro-code
-	return validateWrites(cc+1, writes, codes, env)
+	return validateWrites(cc+1, writes, codes, fn)
 }

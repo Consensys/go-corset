@@ -78,7 +78,7 @@ func ReadTrace(bytes []byte, program MacroProgram) (MacroTrace, error) {
 	}
 	// Build function map
 	for i, fn := range program.Functions() {
-		fnMap[fn.Name] = uint(i)
+		fnMap[fn.Name()] = uint(i)
 	}
 	// Read trace instances
 	for f, tr := range traces {
@@ -104,7 +104,7 @@ func readTraceInstances[T any](trace traceMap, fid uint, fn io.Function[T]) ([]i
 		count       = 0
 	)
 	// Initialise register map
-	for _, reg := range fn.Registers {
+	for _, reg := range fn.Registers() {
 		is_ioreg := (reg.IsInput() || reg.IsOutput())
 		//
 		if _, ok := trace[reg.Name]; !ok && is_ioreg {
@@ -137,7 +137,7 @@ func readTraceInstances[T any](trace traceMap, fid uint, fn io.Function[T]) ([]i
 		instance.Inputs = make(map[string]big.Int)
 		instance.Outputs = make(map[string]big.Int)
 
-		for _, reg := range fn.Registers {
+		for _, reg := range fn.Registers() {
 			is_ioreg := (reg.IsInput() || reg.IsOutput())
 			// Only consider input / output registers
 			if is_ioreg {

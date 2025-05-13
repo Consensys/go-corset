@@ -33,7 +33,7 @@ func (p *Goto) Bind(labels []uint) {
 // program counter position is returned, or io.RETURN if the enclosing
 // function has terminated (i.e. because a return instruction was
 // encountered).
-func (p *Goto) Execute(state io.State, iomap io.Map) uint {
+func (p *Goto) Execute(state io.State) uint {
 	return p.Target
 }
 
@@ -41,11 +41,6 @@ func (p *Goto) Execute(state io.State, iomap io.Map) uint {
 func (p *Goto) Lower(pc uint) micro.Instruction {
 	// Lowering here produces an instruction containing a single microcode.
 	return micro.NewInstruction(&micro.Jmp{Target: p.Target})
-}
-
-// Link any buses used within this instruction using the given bus map.
-func (p *Goto) Link(buses []uint) {
-	// nothing to link
 }
 
 // RegistersRead returns the set of registers read by this instruction.
@@ -58,11 +53,11 @@ func (p *Goto) RegistersWritten() []uint {
 	return nil
 }
 
-func (p *Goto) String(env io.Environment[Instruction]) string {
+func (p *Goto) String(fn io.Function[Instruction]) string {
 	return fmt.Sprintf("goto %d", p.Target)
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Goto) Validate(env io.Environment[Instruction]) error {
+func (p *Goto) Validate(fieldWidth uint, fn io.Function[Instruction]) error {
 	return nil
 }

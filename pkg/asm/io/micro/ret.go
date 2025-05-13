@@ -32,7 +32,7 @@ func (p *Ret) Clone() Code {
 // the register values, and returns either the number of micro-codes to "skip
 // over" when executing the enclosing instruction or, if skip==0, a destination
 // program counter (which can signal return of enclosing function).
-func (p *Ret) MicroExecute(state io.State, iomap io.Map) (uint, uint) {
+func (p *Ret) MicroExecute(state io.State) (uint, uint) {
 	return 0, io.RETURN
 }
 
@@ -52,11 +52,11 @@ func (p *Ret) Split(env *RegisterSplittingEnvironment) []Code {
 	return []Code{p}
 }
 
-func (p *Ret) String(env io.Environment[Instruction]) string {
+func (p *Ret) String(fn io.Function[Instruction]) string {
 	return "ret"
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Ret) Validate(env io.Environment[Instruction]) error {
+func (p *Ret) Validate(fieldWidth uint, fn io.Function[Instruction]) error {
 	return nil
 }

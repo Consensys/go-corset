@@ -20,22 +20,6 @@ import (
 // UNKNOWN_BUS signals a bus which is unknown.
 const UNKNOWN_BUS = math.MaxUint
 
-// Environment captures all things necessary to validate a particular
-// instruction is well-formed.
-type Environment[T any] struct {
-	// Maximum width of the underlying field
-	FieldWidth uint
-	// Id of enclosing function
-	Function uint
-	// Enclosing program
-	Program Program[T]
-}
-
-// Enclosing returns the enclosing component for this environment.
-func (p *Environment[T]) Enclosing() Function[T] {
-	return p.Program.Function(p.Function)
-}
-
 // Map represents the interface between the different components of a program.
 // It provides a way to send messages to and from components.  The core
 // abstraction of a bus are the "address lines" and the "data lines".  For
@@ -64,7 +48,7 @@ type Instruction[T any] interface {
 	// program counter position is returned, or io.RETURN if the enclosing
 	// function has terminated (i.e. because a return instruction was
 	// encountered).
-	Execute(state State, iomap Map) uint
+	Execute(state State) uint
 	// Registers returns the set of registers read this micro instruction.
 	RegistersRead() []uint
 	// Registers returns the set of registers written by this micro instruction.
@@ -74,14 +58,16 @@ type Instruction[T any] interface {
 	// been allocated, etc.  The maximum bit capacity of the underlying field is
 	// needed for this calculation, so as to allow an instruction to check it
 	// does not overflow the underlying field.
-	Validate(env Environment[T]) error
+	Validate(fieldWidth uint, fn Function[T]) error
 	// Produce a suitable string representation of this instruction.  This is
 	// primarily used for debugging.
-	String(env Environment[T]) string
+	String(fn Function[T]) string
 }
 
-// BusInstruction is simply a kind of instruction which can access a given bus.
-type BusInstruction interface {
-	// BusId returns the bus identifier accessed by this instruction.
-	BusId() uint
+// InOutInstruction is simply a kind of instruction which performs some kind of I/O
+// operation via a bus.
+type InOutInstruction interface {
+	// Bus returns information about the bus.  Observe that prior to Link being
+	// called, this will return an unlinked bus.
+	Bus() Bus
 }

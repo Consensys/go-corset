@@ -35,17 +35,34 @@ type Register = io.Register
 // multiple underlying "micro instructions".
 type Instruction interface {
 	io.Instruction[Instruction]
-	// Bind any labels contained within this instruction using the given label map.
-	Bind(labels []uint)
-	// Link any buses used within this instruction using the given bus map.
-	Link(buses []uint)
 	// Lower this (macro) instruction into a sequence of one or more micro
 	// instructions.
 	Lower(pc uint) micro.Instruction
 }
 
-func assignmentToString(dsts []uint, srcs []uint, constant big.Int, regs []io.Register, c big.Int, op string) string {
-	var builder strings.Builder
+// BranchInstruction captures those instructions which may branch to some
+// location.
+type BranchInstruction interface {
+	// Bind any labels contained within this instruction using the given label map.
+	Bind(labels []uint)
+}
+
+// IoInstruction provides an abstraction notion of a macro instruction which
+// uses a bus (e.g. to implement a function call).
+type IoInstruction interface {
+	io.InOutInstruction
+	// Link links the bus.  Observe that this can only be called once on any
+	// given instruction.
+	Link(bus io.Bus)
+}
+
+func assignmentToString(dsts []uint, srcs []uint, constant big.Int, fn io.Function[Instruction],
+	c big.Int, op string) string {
+	//
+	var (
+		builder strings.Builder
+		regs    = fn.Registers()
+	)
 	//
 	builder.WriteString(io.RegistersReversedToString(dsts, regs))
 	builder.WriteString(" = ")

@@ -23,7 +23,7 @@ import (
 // Environment captures useful information used during the assembling process.
 type Environment struct {
 	// Buses identifies connections with external peripherals.
-	buses []string
+	buses []io.Bus
 	// Labels identifies branch targets.
 	labels []Label
 	// Registers identifies set of declared registers.
@@ -32,20 +32,20 @@ type Environment struct {
 
 // BindBus associates a bus name with an abstract bus index.  The latter needs
 // to be subsequently "aligned" with external bus definitions.
-func (p *Environment) BindBus(name string) uint {
+func (p *Environment) BindBus(name string) io.Bus {
 	// Check whether bus already encountered
-	for i, bus := range p.buses {
-		if bus == name {
+	for _, bus := range p.buses {
+		if bus.Name == name {
 			// Yes!
-			return uint(i)
+			return bus
 		}
 	}
-	// Determine index for new bus
-	index := uint(len(p.buses))
+	//
+	bus := io.UnlinkedBus(name)
 	// Create new bus
-	p.buses = append(p.buses, name)
+	p.buses = append(p.buses, bus)
 	// Done
-	return index
+	return bus
 }
 
 // BindLabel associates a label with a given index which can subsequently be
@@ -142,6 +142,8 @@ func (p *Environment) BindLabels(insns []macro.Instruction) {
 	}
 	// Bind labels using the map
 	for _, insn := range insns {
-		insn.Bind(labels)
+		if bi, ok := insn.(macro.BranchInstruction); ok {
+			bi.Bind(labels)
+		}
 	}
 }

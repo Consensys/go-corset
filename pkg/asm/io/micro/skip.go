@@ -50,14 +50,14 @@ func (p *Skip) Clone() Code {
 // the register values, and returns either the number of micro-codes to "skip
 // over" when executing the enclosing instruction or, if skip==0, a destination
 // program counter (which can signal return of enclosing function).
-func (p *Skip) MicroExecute(state io.State, iomap io.Map) (uint, uint) {
+func (p *Skip) MicroExecute(state io.State) (uint, uint) {
 	var (
-		lhs = state.Read(p.Left)
+		lhs = state.Load(p.Left)
 		rhs *big.Int
 	)
 	//
 	if p.Right != io.UNUSED_REGISTER {
-		rhs = state.Read(p.Right)
+		rhs = state.Load(p.Right)
 	} else {
 		rhs = &p.Constant
 	}
@@ -111,28 +111,24 @@ func (p *Skip) Split(env *RegisterSplittingEnvironment) []Code {
 	return ncodes
 }
 
-func (p *Skip) String(env io.Environment[Instruction]) string {
+func (p *Skip) String(fn io.Function[Instruction]) string {
 	var (
-		regs = env.Enclosing().Registers
-		l    = regs[p.Left].Name
+		l = fn.Register(p.Left).Name
 	)
 	//
 	if p.Right != io.UNUSED_REGISTER {
-		return fmt.Sprintf("skip %s!=%s %d", l, regs[p.Right].Name, p.Skip)
+		return fmt.Sprintf("skip %s!=%s %d", l, fn.Register(p.Right).Name, p.Skip)
 	}
 	//
 	return fmt.Sprintf("skip %s!=%s %d", l, p.Constant.String(), p.Skip)
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Skip) Validate(env io.Environment[Instruction]) error {
-	var (
-		regs = env.Enclosing().Registers
-		lw   = regs[p.Left].Width
-	)
+func (p *Skip) Validate(fieldWidth uint, fn io.Function[Instruction]) error {
+	var lw = fn.Register(p.Left).Width
 	//
 	if p.Right != io.UNUSED_REGISTER {
-		rw := regs[p.Right].Width
+		rw := fn.Register(p.Right).Width
 		//
 		if lw != rw {
 			return fmt.Errorf("bit mismatch (%dbits vs %dbits)", lw, rw)

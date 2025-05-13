@@ -42,7 +42,7 @@ func LowerTraces(config LoweringConfig, traces ...io.Trace[macro.Instruction]) [
 
 // LowerMicroTrace this micro trace to a set of raw columns.
 func LowerMicroTrace(p MicroTrace) []tr.RawColumn {
-	builder := NewTraceBuilder(p.Program())
+	builder := NewTraceExpander(p.Program())
 	return builder.Build(p)
 }
 
@@ -69,20 +69,20 @@ func LowerMacroTrace(cfg LoweringConfig, trace MacroTrace) MicroTrace {
 // sets the maximum width of the program counter.
 const pc_width = uint(8)
 
-// TraceBuilder provides a mechanical means of constructing a trace from a given
+// TraceExpander provides a mechanical means of constructing a trace from a given
 // schema and set of input columns.  The goal is to encapsulate all of the logic
 // around building a trace.
-type TraceBuilder[T io.Instruction[T]] struct {
+type TraceExpander[T io.Instruction[T]] struct {
 	program io.Program[T]
 }
 
-// NewTraceBuilder constructs a new trace builder for a given set of functions.
-func NewTraceBuilder[T io.Instruction[T]](program io.Program[T]) *TraceBuilder[T] {
-	return &TraceBuilder[T]{program}
+// NewTraceExpander constructs a new trace builder for a given set of functions.
+func NewTraceExpander[T io.Instruction[T]](program io.Program[T]) *TraceExpander[T] {
+	return &TraceExpander[T]{program}
 }
 
 // Build constructs a complete trace, given a set of function instances.
-func (p *TraceBuilder[T]) Build(trace io.Trace[T]) []tr.RawColumn {
+func (p *TraceExpander[T]) Build(trace io.Trace[T]) []tr.RawColumn {
 	var columns []tr.RawColumn
 	//
 	for i := range p.program.Functions() {
@@ -93,11 +93,11 @@ func (p *TraceBuilder[T]) Build(trace io.Trace[T]) []tr.RawColumn {
 	return columns
 }
 
-func (p *TraceBuilder[T]) expandFunctionInstances(fid uint, trace io.Trace[T]) []tr.RawColumn {
+func (p *TraceExpander[T]) expandFunctionInstances(fid uint, trace io.Trace[T]) []tr.RawColumn {
 	var (
 		fn      = p.program.Function(fid)
-		data    = make([][]big.Int, len(fn.Registers)+2)
-		columns = make([]tr.RawColumn, len(fn.Registers)+2)
+		data    = make([][]big.Int, len(fn.Registers())+2)
+		columns = make([]tr.RawColumn, len(fn.Registers())+2)
 		stamp   = uint(1)
 	)
 	//
@@ -109,21 +109,21 @@ func (p *TraceBuilder[T]) expandFunctionInstances(fid uint, trace io.Trace[T]) [
 	}
 	// Construct stamp column
 	columns[0] = tr.RawColumn{
-		Module: fn.Name,
+		Module: fn.Name(),
 		Name:   "$stamp",
 		Data:   field.FrArrayFromBigInts(32, data[0]),
 	}
 	// Construct PC column
 	columns[1] = tr.RawColumn{
-		Module: fn.Name,
+		Module: fn.Name(),
 		Name:   "$pc",
 		Data:   field.FrArrayFromBigInts(pc_width, data[1]),
 	}
 	// Construct register columns.
-	for i, r := range fn.Registers {
+	for i, r := range fn.Registers() {
 		data := field.FrArrayFromBigInts(r.Width, data[i+2])
 		columns[i+2] = tr.RawColumn{
-			Module: fn.Name,
+			Module: fn.Name(),
 			Name:   r.Name,
 			Data:   data,
 		}
@@ -132,7 +132,7 @@ func (p *TraceBuilder[T]) expandFunctionInstances(fid uint, trace io.Trace[T]) [
 	return columns
 }
 
-func (p *TraceBuilder[T]) traceFunction(fid uint, stamp uint, trace [][]big.Int,
+func (p *TraceExpander[T]) traceFunction(fid uint, stamp uint, trace [][]big.Int,
 	instance io.FunctionInstance) [][]big.Int {
 	//
 	interpreter := NewInterpreter(p.program)

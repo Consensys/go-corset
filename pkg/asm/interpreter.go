@@ -98,10 +98,10 @@ func NewInterpreter[T io.Instruction[T]](program io.Program[T]) *Interpreter[T] 
 func (p *Interpreter[T]) Bind(fn uint, arguments map[string]big.Int) []big.Int {
 	var (
 		f     = p.program.Function(fn)
-		state = make([]big.Int, len(f.Registers))
+		state = make([]big.Int, len(f.Registers()))
 	)
 	// Initialise arguments
-	for i, reg := range f.Registers {
+	for i, reg := range f.Registers() {
 		if reg.IsInput() {
 			var (
 				val, ok = arguments[reg.Name]
@@ -126,11 +126,11 @@ func (p *Interpreter[T]) Bind(fn uint, arguments map[string]big.Int) []big.Int {
 func (p *Interpreter[T]) BindInner(fn uint, arguments []big.Int) []big.Int {
 	var (
 		f     = p.program.Function(fn)
-		state = make([]big.Int, len(f.Registers))
+		state = make([]big.Int, len(f.Registers()))
 		index = 0
 	)
 	// Initialise arguments
-	for i, reg := range f.Registers {
+	for i, reg := range f.Registers() {
 		if reg.IsInput() {
 			var (
 				val = arguments[index]
@@ -174,7 +174,7 @@ func (p *Interpreter[T]) Leave() []big.Int {
 	// Construct outputs
 	outputs := make([]big.Int, 0)
 	//
-	for i, reg := range f.Registers {
+	for i, reg := range f.Registers() {
 		if reg.IsOutput() {
 			outputs = append(outputs, st.registers[i])
 		}
@@ -195,17 +195,18 @@ func (p *Interpreter[T]) Execute(nsteps uint) uint {
 		st   = &p.states[n]
 		f    = p.program.Function(st.fid)
 		step = uint(0)
+		code = f.Code()
 	)
 	// Construct local state
-	state := io.State{Pc: st.pc, State: st.registers, Registers: f.Registers}
+	state := io.State{Pc: st.pc, State: st.registers, Registers: f.Registers(), Io: p}
 	//
 	for state.Pc != io.RETURN && step < nsteps {
-		insn := f.Code[state.Pc]
-		state.Pc = insn.Execute(state, p)
+		insn := code[state.Pc]
+		state.Pc = insn.Execute(state)
 		step++
 	}
 	// Write back local state
-	st.pc = state.Pc
+	p.states[n].pc = state.Pc
 	// Done
 	return step
 }
@@ -250,13 +251,13 @@ func (p *Interpreter[T]) String() string {
 		builder.WriteString(pc)
 	}
 	//
-	for i := 0; i != len(fn.Registers); i++ {
+	for i := 0; i != len(fn.Registers()); i++ {
 		if i != 0 {
 			builder.WriteString(", ")
 		}
 		//
 		val := state.registers[i].Text(16)
-		builder.WriteString(fmt.Sprintf("%s=0x%s", fn.Registers[i].Name, val))
+		builder.WriteString(fmt.Sprintf("%s=0x%s", fn.Register(uint(i)).Name, val))
 	}
 	//
 	return builder.String()

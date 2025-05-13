@@ -284,9 +284,6 @@ func fillTraceColumns(modmap map[string]uint, colmap map[columnKey]uint,
 
 // nolint
 func checkForMissingInputColumns(schema Schema, tr *trace.ArrayTrace) (error, []error) {
-	//
-	fmt.Println(tr.String())
-	//
 	var zero fr.Element = fr.NewElement(0)
 	// Determine how many input columns to expect
 	ninputs := schema.InputColumns().Count()

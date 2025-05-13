@@ -101,12 +101,12 @@ func Compile(microProgram io.Program[micro.Instruction]) *binfile.BinaryFile {
 	for i := range microProgram.Functions() {
 		fn := microProgram.Function(uint(i))
 		// Register bus
-		compiler.RegisterBus(fn.Name, fn.Inputs(), fn.Outputs())
+		compiler.RegisterBus(fn.Name(), fn.Inputs(), fn.Outputs())
 	}
 	// Compile functions
 	for i := range microProgram.Functions() {
 		fn := microProgram.Function(uint(i))
-		compiler.Compile(fn.Name, fn.Registers, fn.Code)
+		compiler.Compile(fn)
 	}
 
 	return binfile.NewBinaryFile(nil, nil, compiler.Schema())
@@ -163,13 +163,13 @@ func Lower(cfg LoweringConfig, p MacroProgram) MicroProgram {
 // ============================================================================
 
 func lowerFunction(cfg LoweringConfig, f MacroFunction) MicroFunction {
-	insns := make([]micro.Instruction, len(f.Code))
+	insns := make([]micro.Instruction, len(f.Code()))
 	// Lower macro instructions to micro instructions.
-	for pc, insn := range f.Code {
+	for pc, insn := range f.Code() {
 		insns[pc] = insn.Lower(uint(pc))
 	}
 	// Sanity checks (for now)
-	fn := MicroFunction{Name: f.Name, Registers: f.Registers, Code: insns}
+	fn := io.NewFunction(f.Name(), f.Registers(), insns)
 	// Split registers as necessary to meet limits.
 	fn = splitRegisters(cfg, fn)
 	// Apply vectorisation (if enabled).
@@ -190,24 +190,23 @@ func lowerFunction(cfg LoweringConfig, f MacroFunction) MicroFunction {
 // between the split instructions.
 func splitRegisters(cfg LoweringConfig, f MicroFunction) MicroFunction {
 	var (
-		env = micro.NewRegisterSplittingEnvironment(cfg.MaxRegisterWidth, f.Registers)
+		env = micro.NewRegisterSplittingEnvironment(cfg.MaxRegisterWidth, f.Registers())
 		// Updated instruction sequence
 		ninsns []micro.Instruction
 		//
 		ninsn micro.Instruction
 	)
 	// Split instructions
-	for _, insn := range f.Code {
-		ninsn = splitMicroInstruction(insn, cfg, env)
+	for _, insn := range f.Code() {
+		ninsn = splitMicroInstruction(insn, env)
 		// Split instruction based on split registers
 		ninsns = append(ninsns, ninsn)
 	}
 	// Done
-	return MicroFunction{Name: f.Name, Registers: env.RegistersAfter(), Code: ninsns}
+	return io.NewFunction(f.Name(), env.RegistersAfter(), ninsns)
 }
 
-func splitMicroInstruction(insn micro.Instruction, cfg LoweringConfig,
-	env *micro.RegisterSplittingEnvironment) micro.Instruction {
+func splitMicroInstruction(insn micro.Instruction, env *micro.RegisterSplittingEnvironment) micro.Instruction {
 	//
 	var ncodes []micro.Code
 	//
@@ -224,15 +223,15 @@ func splitMicroInstruction(insn micro.Instruction, cfg LoweringConfig,
 // Since this instructions do not conflict over any assigned register, they can
 // be combined into a vector instruction "x=y;a=b".
 func vectorizeFunction(f MicroFunction) MicroFunction {
-	var insns = slices.Clone(f.Code)
+	var insns = slices.Clone(f.Code())
 	// Vectorize instructions as much as possible.
 	for pc := range insns {
-		insns[pc] = vectorizeInstruction(uint(pc), f.Code)
+		insns[pc] = vectorizeInstruction(uint(pc), f.Code())
 	}
 	// Remove all uncreachable instructions and compact remainder.
 	insns = pruneUnreachableInstructions(insns)
 	//
-	return MicroFunction{Name: f.Name, Registers: f.Registers, Code: insns}
+	return io.NewFunction(f.Name(), f.Registers(), insns)
 }
 
 func vectorizeInstruction(pc uint, insns []micro.Instruction) micro.Instruction {
