@@ -176,8 +176,11 @@ func generateJavaModule(className string, mod corset.SourceModule, metadata type
 	}
 	//
 	if mod.Name == "" {
+		ninputs := schema.InputColumns().Count()
 		// Write out constructor function.
-		builder.WriteIndentedString(strings.ReplaceAll(javaTraceOf, "{}", className))
+		constructor := strings.ReplaceAll(javaTraceOf, "{class}", className)
+		constructor = strings.ReplaceAll(constructor, "{ninputs}", fmt.Sprintf("%d", ninputs))
+		builder.WriteIndentedString(constructor)
 	}
 	//
 	generateJavaClassFooter(builder)
@@ -790,7 +793,7 @@ const javaTraceOf string = `
     *
     * @throws IOException If an I/O error occurs.
     */
-   public static Trace of(RandomAccessFile file, List<ColumnHeader> rawHeaders, byte[] metadata) throws IOException {
+   public static {class} of(RandomAccessFile file, List<ColumnHeader> rawHeaders, byte[] metadata) throws IOException {
       // Construct trace file header bytes
       byte[] header = constructTraceFileHeader(metadata);
       // Align headers according to register indices.
@@ -804,7 +807,7 @@ const javaTraceOf string = `
       // Initialise buffers
       MappedByteBuffer[] buffers = initialiseByteBuffers(file,columnHeaders,headerSize);
       // Done
-      return new Trace(buffers);
+      return new {class}(buffers);
    }
 
   /**
@@ -837,7 +840,7 @@ const javaTraceOf string = `
    * @return The aligned headers.
    */
    private static ColumnHeader[] alignHeaders(List<ColumnHeader> headers) {
-     ColumnHeader[] alignedHeaders = new ColumnHeader[headers.size()];
+     ColumnHeader[] alignedHeaders = new ColumnHeader[{ninputs}];
      //
      for(ColumnHeader header : headers) {
        alignedHeaders[header.register] = header;
@@ -856,10 +859,12 @@ const javaTraceOf string = `
       long nBytes = 4; // column count
 
       for (ColumnHeader header : headers) {
-        nBytes += 2; // name length
-        nBytes += header.name.length();
-        nBytes += 1; // byte per element
-        nBytes += 4; // element count
+	    if(header != null) {
+          nBytes += 2; // name length
+          nBytes += header.name.length();
+          nBytes += 1; // byte per element
+          nBytes += 4; // element count
+        }
       }
 
       return nBytes;
@@ -875,7 +880,9 @@ const javaTraceOf string = `
       long nBytes = 0;
 
       for (ColumnHeader header : headers) {
-         nBytes += header.length * header.bytesPerElement;
+	    if(header != null) {
+           nBytes += header.length * header.bytesPerElement;
+        }
       }
 
       return nBytes;
@@ -894,13 +901,15 @@ const javaTraceOf string = `
       // Write trace file header
       buffer.put(header);
       // Write column count as uint32
-      buffer.putInt(headers.length);
+      buffer.putInt(countHeaders(headers));
       // Write column headers one-by-one
       for(ColumnHeader h : headers) {
-         buffer.putShort((short) h.name.length());
-         buffer.put(h.name.getBytes());
-         buffer.put((byte) h.bytesPerElement);
-         buffer.putInt((int) h.length);
+	    if(h != null) {
+          buffer.putShort((short) h.name.length());
+          buffer.put(h.name.getBytes());
+          buffer.put((byte) h.bytesPerElement);
+          buffer.putInt((int) h.length);
+        }
       }
    }
 
@@ -912,17 +921,31 @@ const javaTraceOf string = `
     */
    private static MappedByteBuffer[] initialiseByteBuffers(RandomAccessFile file, ColumnHeader[] headers,
     long headerSize) throws IOException {
-      MappedByteBuffer[] buffers = new MappedByteBuffer[headers.length];
+      MappedByteBuffer[] buffers = new MappedByteBuffer[{ninputs}];
       long offset = headerSize;
       for(int i=0;i<headers.length;i++) {
-         // Determine size (in bytes) required to store all elements of this column.
-         long length = headers[i].length * headers[i].bytesPerElement;
-         // Preallocate space for this column.
-         buffers[i] = file.getChannel().map(FileChannel.MapMode.READ_WRITE, offset, length);
-         //
-         offset += length;
+	    if(headers[i] != null) {
+          // Determine size (in bytes) required to store all elements of this column.
+          long length = headers[i].length * headers[i].bytesPerElement;
+          // Preallocate space for this column.
+          buffers[i] = file.getChannel().map(FileChannel.MapMode.READ_WRITE, offset, length);
+          //
+          offset += length;
+        }
       }
       return buffers;
+   }
+
+   /**
+    * Counter number of active (i.e. non-null) headers.  A header can be null if
+    * it represents a column in a module which is not activated for this trace.
+	*/
+   private static int countHeaders(ColumnHeader[] headers) throws IOException {
+     int count = 0;
+	 for(ColumnHeader h : headers) {
+	    if(h != null) { count++; }
+	 }
+     return count;
    }
 
    /**
