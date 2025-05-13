@@ -28,7 +28,7 @@ func Remap(schema *Schema, criteria func(Module) bool) {
 	// Remap modules
 	remapper.remapModules(*schema, criteria)
 	// Remap columns
-	remapper.remapColumns(*schema)
+	remapper.remapInputAndComputedColumns(*schema)
 	// Remap constraints
 	remapper.remapConstraints(*schema)
 	// Remap assertions
@@ -38,7 +38,8 @@ func Remap(schema *Schema, criteria func(Module) bool) {
 }
 
 // Remapper is a tool for remapping modules and columns in a schema after one or
-// more modules have been deleted.
+// more modules have been deleted.  The key challenge is that we have to update
+// all module and column ids used within the schema for the new layout.
 type Remapper struct {
 	// Mapping from module identifiers before to module identifiers after.
 	modmap []uint
@@ -66,7 +67,7 @@ func (p *Remapper) remapModules(oSchema Schema, criteria func(Module) bool) {
 	}
 }
 
-func (p *Remapper) remapColumns(oSchema Schema) {
+func (p *Remapper) remapInputAndComputedColumns(oSchema Schema) {
 	// Initialise colmap
 	p.colmap = make([]uint, oSchema.Columns().Count())
 	// Remap input columns
@@ -101,7 +102,6 @@ func (p *Remapper) remapColumns(oSchema Schema) {
 			}
 			//
 			p.schema.AddAssignment(p.remapAssignment(a))
-			//
 		} else {
 			// Delete all inactive columns
 			for i := uint(0); i < a.Columns().Count(); i++ {
@@ -125,7 +125,7 @@ func (p *Remapper) remapAssertions(oSchema Schema) {
 	for _, c := range oSchema.assertions {
 		if p.isActive(c.Context) {
 			nc := p.remapAssertion(c)
-			p.schema.constraints = append(p.schema.constraints, nc)
+			p.schema.assertions = append(p.schema.assertions, nc)
 		}
 	}
 }
@@ -145,11 +145,11 @@ func (p *Remapper) isActive(contexts ...tr.Context) bool {
 func (p *Remapper) remapAssignment(a sc.Assignment) sc.Assignment {
 	switch a := a.(type) {
 	case *assignment.Computation:
-		panic("todo")
+		return p.remapComputation(a)
 	case *assignment.Interleaving:
 		return p.remapInterleaving(a)
 	case *assignment.SortedPermutation:
-		panic("todo")
+		return p.remapSortedPermutation(a)
 	default:
 		// All other cases are not used at the HIR level, only at lower levels.
 		// Hence, they can be ignored.
@@ -157,8 +157,30 @@ func (p *Remapper) remapAssignment(a sc.Assignment) sc.Assignment {
 	}
 }
 
+func (p *Remapper) remapComputation(c *assignment.Computation) sc.Assignment {
+	c.ColumnContext = p.remapContext(c.ColumnContext)
+	// Remap target context's to be safe
+	p.remapColumns(c.Targets)
+	// Remap source columns
+	p.remapColumnIds(c.Sources)
+	//
+	return c
+}
+
 func (p *Remapper) remapInterleaving(c *assignment.Interleaving) sc.Assignment {
-	c.Target.Context = p.remapContext(c.Target.Context)
+	p.remapColumn(&c.Target)
+	// Remap source columns
+	p.remapColumnIds(c.Sources)
+	//
+	return c
+}
+
+func (p *Remapper) remapSortedPermutation(c *assignment.SortedPermutation) sc.Assignment {
+	c.ColumnContext = p.remapContext(c.ColumnContext)
+	// Remap target context's to be safe
+	p.remapColumns(c.Targets)
+	// Remap source columns
+	p.remapColumnIds(c.Sources)
 	//
 	return c
 }
@@ -179,8 +201,11 @@ func (p *Remapper) remapConstraint(c sc.Constraint) sc.Constraint {
 	}
 }
 
-func (p *Remapper) remapAssertion(a PropertyAssertion) PropertyAssertion {
-	panic("todo")
+func (p *Remapper) remapAssertion(c PropertyAssertion) PropertyAssertion {
+	c.Context = p.remapContext(c.Context)
+	p.remapExpression(c.Property)
+	//
+	return c
 }
 
 func (p *Remapper) remapLookup(c LookupConstraint) sc.Constraint {
@@ -251,11 +276,7 @@ func (p *Remapper) remapTerm(e Term) {
 		// nothing
 	case *ColumnAccess:
 		// Remap column ID
-		e.Column = p.colmap[e.Column]
-		// sanity check
-		if e.Column == math.MaxUint {
-			panic("remapping deleted column")
-		}
+		e.Column = p.remapColumnId(e.Column)
 	case *Exp:
 		p.remapTerm(e.Arg)
 	case *IfZero:
@@ -288,6 +309,32 @@ func (p *Remapper) remapTerms(terms ...Term) {
 	for _, term := range terms {
 		p.remapTerm(term)
 	}
+}
+
+func (p *Remapper) remapColumns(columns []sc.Column) {
+	for i := range columns {
+		p.remapColumn(&columns[i])
+	}
+}
+
+func (p *Remapper) remapColumn(column *sc.Column) {
+	column.Context = p.remapContext(column.Context)
+}
+
+func (p *Remapper) remapColumnIds(cids []uint) {
+	for i := range cids {
+		cids[i] = p.remapColumnId(cids[i])
+	}
+}
+
+func (p *Remapper) remapColumnId(cid uint) uint {
+	cid = p.colmap[cid]
+	// sanity check
+	if cid == math.MaxUint {
+		panic("remapping deleted column")
+	}
+
+	return cid
 }
 
 func (p *Remapper) remapContext(ctx tr.Context) tr.Context {

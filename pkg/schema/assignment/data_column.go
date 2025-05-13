@@ -67,7 +67,7 @@ func (p *DataColumn) Type() sc.Type {
 func (p *DataColumn) Columns() iter.Iterator[sc.Column] {
 	// Datacolumns always have a multiplier of 1.
 	column := sc.NewColumn(p.TraceContext, p.ColumnName, p.DataType)
-	return iter.NewUnitIterator[sc.Column](column)
+	return iter.NewUnitIterator(column)
 }
 
 // IsComputed Determines whether or not this declaration is computed (which data
