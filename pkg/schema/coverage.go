@@ -91,7 +91,7 @@ func (p *CoverageMap) KeysOf(mid uint) *set.SortedSet[string] {
 // ToJson returns a representation of this coverage map suitable for being
 // converted into JSON.
 func (p *CoverageMap) ToJson(schema Schema) map[string][]uint {
-	var json map[string][]uint = make(map[string][]uint)
+	var json = make(map[string][]uint)
 	//
 	for k, bitsets := range p.items {
 		for i, cov := range bitsets {

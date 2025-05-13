@@ -69,7 +69,7 @@ func (p *ByteDecomposition) Context() trace.Context {
 // Columns returns the columns declared by this byte decomposition (in the order
 // of declaration).
 func (p *ByteDecomposition) Columns() iter.Iterator[sc.Column] {
-	return iter.NewArrayIterator[sc.Column](p.targets)
+	return iter.NewArrayIterator(p.targets)
 }
 
 // IsComputed Determines whether or not this declaration is computed.

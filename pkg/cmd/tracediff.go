@@ -84,7 +84,7 @@ func diffColumns(index int, columns1 []trace.RawColumn, columns2 []trace.RawColu
 		count2, ok2 := set2[val]
 		//
 		if ok1 != ok2 || count1 != count2 {
-			err := fmt.Errorf("Column %s, element %s occurs %d or %d times.", name, val.String(), count1, count2)
+			err := fmt.Errorf("column %s, element %s occurs %d or %d times", name, val.String(), count1, count2)
 			errors = append(errors, err)
 		}
 	}

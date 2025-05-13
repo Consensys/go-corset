@@ -90,7 +90,7 @@ func Count[T any, S Enumerator[T]](iter S) uint {
 //
 //nolint:revive
 func Collect[T any, S Enumerator[T]](iter S) []T {
-	var items []T = make([]T, 0)
+	var items = make([]T, 0)
 	//
 	for iter.HasNext() {
 		items = append(items, iter.Next())

@@ -68,7 +68,7 @@ func (p *Computation) Context() trace.Context {
 
 // Columns returns the columns declared by this computed column.
 func (p *Computation) Columns() iter.Iterator[sc.Column] {
-	return iter.NewArrayIterator[sc.Column](p.Targets)
+	return iter.NewArrayIterator(p.Targets)
 }
 
 // IsComputed Determines whether or not this declaration is computed (which it

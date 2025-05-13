@@ -119,8 +119,8 @@ func (p *Header) UnmarshalBinary(buffer *bytes.Buffer) error {
 	}
 	// Make space for the metadata
 	var (
-		metaLength        = binary.BigEndian.Uint32(metaLengthBytes[:])
-		metaBytes  []byte = make([]byte, metaLength)
+		metaLength = binary.BigEndian.Uint32(metaLengthBytes[:])
+		metaBytes  = make([]byte, metaLength)
 	)
 	// Read metadata itself
 	if n, err := buffer.Read(metaBytes[:]); err != nil {

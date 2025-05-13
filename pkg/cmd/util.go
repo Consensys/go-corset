@@ -427,7 +427,7 @@ func writeTraceFile(filename string, tracefile *lt.TraceFile) {
 			}
 		}
 	default:
-		err = fmt.Errorf("Unknown trace file format: %s", ext)
+		err = fmt.Errorf("unknown trace file format: %s", ext)
 	}
 	// Handle error
 	fmt.Println(err)
@@ -470,7 +470,7 @@ func ReadTraceFile(filename string) *lt.TraceFile {
 			}
 			//
 		default:
-			err = fmt.Errorf("Unknown trace file format: %s", ext)
+			err = fmt.Errorf("unknown trace file format: %s", ext)
 		}
 	}
 	// Handle error

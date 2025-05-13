@@ -63,7 +63,7 @@ func (p *ComputedColumn) Context() trace.Context {
 // Columns returns the columns declared by this computed column.
 func (p *ComputedColumn) Columns() iter.Iterator[sc.Column] {
 	// TODO: figure out appropriate type for computed column
-	return iter.NewUnitIterator[sc.Column](p.target)
+	return iter.NewUnitIterator(p.target)
 }
 
 // IsComputed Determines whether or not this declaration is computed (which it

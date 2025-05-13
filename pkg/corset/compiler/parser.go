@@ -46,8 +46,6 @@ func ParseSourceFiles(files []*source.File) (ast.Circuit, *source.Maps[ast.Node]
 	var errors []SyntaxError
 	// Construct an initially empty source map
 	srcmaps := source.NewSourceMaps[ast.Node]()
-	// num_errs counts the number of errors reported
-	var num_errs uint
 	// Contents map holds the combined fragments of each module.
 	contents := make(map[string]ast.Module, 0)
 	// Names identifies the names of each unique module.
@@ -57,7 +55,6 @@ func ParseSourceFiles(files []*source.File) (ast.Circuit, *source.Maps[ast.Node]
 		c, srcmap, errs := ParseSourceFile(file)
 		// Handle errors
 		if len(errs) > 0 {
-			num_errs += uint(len(errs))
 			// Report any errors encountered
 			errors = append(errors, errs...)
 		} else {
@@ -73,6 +70,14 @@ func ParseSourceFiles(files []*source.File) (ast.Circuit, *source.Maps[ast.Node]
 				names = append(names, m.Name)
 			} else {
 				om.Declarations = append(om.Declarations, m.Declarations...)
+				//
+				if om.Condition == nil {
+					om.Condition = m.Condition
+				} else if m.Condition != nil {
+					// Sanity check
+					errors = append(errors, *srcmaps.SyntaxError(m.Condition, "conflicting module conditions"))
+				}
+				//
 				contents[m.Name] = om
 			}
 		}
@@ -88,7 +93,7 @@ func ParseSourceFiles(files []*source.File) (ast.Circuit, *source.Maps[ast.Node]
 		circuit.Modules[i] = contents[n]
 	}
 	// Done
-	if num_errs > 0 {
+	if len(errors) > 0 {
 		return circuit, srcmaps, errors
 	}
 	// no errors
@@ -121,11 +126,12 @@ func ParseSourceFile(srcfile *source.File) (ast.Circuit, *source.Map[ast.Node], 
 	// Continue parsing string until nothing remains.
 	for len(terms) != 0 {
 		var (
-			name  string
-			decls []ast.Declaration
+			name      string
+			decls     []ast.Declaration
+			condition ast.Expr
 		)
 		// Extract module name
-		if name, errors = p.parseModuleStart(terms[0]); len(errors) > 0 {
+		if name, condition, errors = p.parseModuleStart(terms[0]); len(errors) > 0 {
 			return circuit, nil, errors
 		}
 		// Parse module contents
@@ -133,7 +139,11 @@ func ParseSourceFile(srcfile *source.File) (ast.Circuit, *source.Map[ast.Node], 
 		if decls, terms, errors = p.parseModuleContents(path, terms[1:]); len(errors) > 0 {
 			return circuit, nil, errors
 		} else if len(decls) != 0 {
-			circuit.Modules = append(circuit.Modules, ast.Module{Name: name, Declarations: decls})
+			circuit.Modules = append(circuit.Modules, ast.Module{
+				Name:         name,
+				Declarations: decls,
+				Condition:    condition,
+			})
 		}
 	}
 	// Done
@@ -242,22 +252,32 @@ func (p *Parser) parseModuleContents(path util.Path, terms []sexp.SExp) ([]ast.D
 
 // Parse a module declaration of the form "(module m1)" which indicates the
 // start of module m1.
-func (p *Parser) parseModuleStart(s sexp.SExp) (string, []SyntaxError) {
+func (p *Parser) parseModuleStart(s sexp.SExp) (string, ast.Expr, []SyntaxError) {
+	var (
+		condition ast.Expr
+		name      string
+		errors    []SyntaxError
+	)
+
 	l, ok := s.(*sexp.List)
 	// Check for error
 	if !ok {
 		err := p.translator.SyntaxError(s, "unexpected or malformed declaration")
-		return "", []SyntaxError{*err}
+		return "", nil, []SyntaxError{*err}
 	}
 	// Sanity check declaration
-	if len(l.Elements) > 2 {
+	if len(l.Elements) != 2 && len(l.Elements) != 3 {
 		err := p.translator.SyntaxError(l, "malformed module declaration")
-		return "", []SyntaxError{*err}
+		return "", nil, []SyntaxError{*err}
 	}
 	// Extract column name
-	name := l.Elements[1].AsSymbol().Value
+	name = l.Elements[1].AsSymbol().Value
 	//
-	return name, nil
+	if len(l.Elements) == 3 {
+		condition, errors = p.translator.Translate(l.Elements[2])
+	}
+	//
+	return name, condition, errors
 }
 
 func (p *Parser) parseDeclaration(module util.Path, s *sexp.List) (ast.Declaration, []SyntaxError) {
@@ -1283,7 +1303,7 @@ func parseSymbolName[T ast.Binding](p *Parser, symbol sexp.SExp, module util.Pat
 	}
 	// Extract
 	path := module.Extend(symbol.AsSymbol().Value)
-	name := ast.NewBoundName[T](*path, arity, binding)
+	name := ast.NewBoundName(*path, arity, binding)
 	// Update source mapping
 	p.mapSourceNode(symbol, name)
 	// Construct

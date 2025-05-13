@@ -45,7 +45,7 @@ type Line struct {
 	number int
 }
 
-// Get the string representing this line.
+// String returns a string representing this line.
 func (p *Line) String() string {
 	// Extract runes representing line
 	runes := p.text[p.span.start:p.span.end]

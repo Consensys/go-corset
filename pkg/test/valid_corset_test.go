@@ -585,6 +585,9 @@ func Test_Module_09(t *testing.T) {
 func Test_Module_10(t *testing.T) {
 	Check(t, false, "module_10")
 }
+func Test_Module_11(t *testing.T) {
+	Check(t, false, "module_11")
+}
 
 // ===================================================================
 // Permutations
@@ -1397,6 +1400,8 @@ func CheckTraces(t *testing.T, test string, maxPadding uint, cfg TestConfig, tra
 	if !cfg.expand {
 		maxPadding = 0
 	}
+	// Consolidate schema
+	hirSchema.Consolidate()
 	//
 	for i, tr := range traces {
 		if tr != nil {
@@ -1528,7 +1533,7 @@ func ReadTracesFile(filename string) [][]trace.RawColumn {
 func encodeDecodeSchema(t *testing.T, schema *hir.Schema) *hir.Schema {
 	var (
 		buffer     bytes.Buffer
-		gobEncoder *gob.Encoder = gob.NewEncoder(&buffer)
+		gobEncoder = gob.NewEncoder(&buffer)
 		binSchema  hir.Schema
 	)
 	// Encode schema

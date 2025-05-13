@@ -54,10 +54,18 @@ type PropertyAssertion = *sc.PropertyAssertion[Expr]
 // Permutation captures the notion of a (sorted) permutation at the HIR level.
 type Permutation = *assignment.SortedPermutation
 
+// Module defines the notion of a module within the HIR schema.
+type Module struct {
+	// Name of module
+	Name string
+	// Condition determines when module is enabled.
+	Condition Expr
+}
+
 // Schema for HIR constraints and columns.
 type Schema struct {
 	// The modules of the schema
-	modules []sc.Module
+	modules []Module
 	// The data columns of this schema.
 	inputs []sc.Declaration
 	// The sorted permutations of this schema.
@@ -75,7 +83,7 @@ type Schema struct {
 // constraints will be added.
 func EmptySchema() *Schema {
 	p := new(Schema)
-	p.modules = make([]sc.Module, 0)
+	p.modules = make([]Module, 0)
 	p.inputs = make([]sc.Declaration, 0)
 	p.assignments = make([]sc.Assignment, 0)
 	p.constraints = make([]sc.Constraint, 0)
@@ -86,9 +94,9 @@ func EmptySchema() *Schema {
 }
 
 // AddModule adds a new module to this schema, returning its module index.
-func (p *Schema) AddModule(name string) uint {
+func (p *Schema) AddModule(name string, condition Expr) uint {
 	mid := uint(len(p.modules))
-	p.modules = append(p.modules, sc.NewModule(name))
+	p.modules = append(p.modules, Module{name, condition})
 
 	return mid
 }
@@ -168,9 +176,40 @@ func (p *Schema) AddPropertyAssertion(handle string, context trace.Context, prop
 	p.assertions = append(p.assertions, sc.NewPropertyAssertion(handle, context, property))
 }
 
+// Consolidate removes all modules (and related columns / constraints) which are
+// not active in this configuration.  That is, modules whose condition is a
+// compile-time non-zero constant.  Any columns and/or constraints in such
+// modules are also removed.
+func (p *Schema) Consolidate() {
+	activeModule := func(m Module) bool {
+		if m.Condition == VOID {
+			return true
+		}
+		// NOTE: since module constants are, by construction, constant
+		// expressions we can safely provide an empty trace here since it will
+		// never be dereferenced.
+		val, err := m.Condition.EvalAt(0, nil)
+		//
+		if err != nil {
+			// Should be unreachable
+			panic(err.Error())
+		}
+		// Keep module if condition is zero.
+		return val.IsZero()
+	}
+	//
+	Remap(p, activeModule)
+}
+
 // SubstituteConstants substitutes the value of matching labelled constants for
 // all expressions used within the schema.
 func (p *Schema) SubstituteConstants(mapping map[string]fr.Element) {
+	// Conditional modules
+	for _, m := range p.modules {
+		if m.Condition != VOID {
+			substituteExpression(mapping, m.Condition)
+		}
+	}
 	// Constraints
 	for _, a := range p.constraints {
 		substituteConstraint(mapping, a)
@@ -209,7 +248,7 @@ func (p *Schema) CheckConsistency() error {
 // user.
 func (p *Schema) InputColumns() iter.Iterator[sc.Column] {
 	inputs := iter.NewArrayIterator(p.inputs)
-	return iter.NewFlattenIterator[schema.Declaration, schema.Column](inputs,
+	return iter.NewFlattenIterator(inputs,
 		func(d schema.Declaration) iter.Iterator[schema.Column] { return d.Columns() })
 }
 
@@ -252,7 +291,11 @@ func (p *Schema) Declarations() iter.Iterator[sc.Declaration] {
 // Modules returns an iterator over the declared set of modules within this
 // schema.
 func (p *Schema) Modules() iter.Iterator[sc.Module] {
-	return iter.NewArrayIterator(p.modules)
+	arr := iter.NewArrayIterator(p.modules)
+	//
+	return iter.NewProjectIterator(arr, func(m Module) sc.Module {
+		return sc.NewModule(m.Name)
+	})
 }
 
 // ============================================================================

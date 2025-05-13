@@ -16,7 +16,6 @@ import (
 	"fmt"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/trace"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
@@ -87,7 +86,7 @@ type Assignment interface {
 	// assignment depends must exist (e.g. are either inputs or have been
 	// computed already).  Computed columns do not exist in the original trace,
 	// but are added during trace expansion to form the final trace.
-	ComputeColumns(tr.Trace) ([]trace.ArrayColumn, error)
+	ComputeColumns(tr.Trace) ([]tr.ArrayColumn, error)
 
 	// Returns the set of columns that this assignment depends upon.  That can
 	// include both input columns, as well as other computed columns.

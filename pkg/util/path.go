@@ -141,7 +141,7 @@ func (p *Path) Extend(tail string) *Path {
 	return &Path{p.absolute, Append(p.segments, tail)}
 }
 
-// Return a string representation of this path.
+// String returns a string representation of this path.
 func (p *Path) String() string {
 	if p.IsAbsolute() {
 		switch len(p.segments) {
