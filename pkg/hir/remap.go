@@ -29,8 +29,6 @@ func Remap(schema *Schema, criteria func(Module) bool) {
 	remapper.remapModules(*schema, criteria)
 	// Remap columns
 	remapper.remapColumns(*schema)
-	// Remap assignments
-	remapper.remapAssignments(*schema)
 	// Remap constraints
 	remapper.remapConstraints(*schema)
 	// Remap assertions
@@ -70,8 +68,8 @@ func (p *Remapper) remapModules(oSchema Schema, criteria func(Module) bool) {
 
 func (p *Remapper) remapColumns(oSchema Schema) {
 	// Initialise colmap
-	p.colmap = make([]uint, len(oSchema.inputs))
-	//
+	p.colmap = make([]uint, oSchema.Columns().Count())
+	// Remap input columns
 	for iter, i := oSchema.InputColumns(), 0; iter.HasNext(); i++ {
 		var (
 			ith = iter.Next()
@@ -89,12 +87,27 @@ func (p *Remapper) remapColumns(oSchema Schema) {
 		//
 		p.colmap[i] = cid
 	}
-}
-
-func (p *Remapper) remapAssignments(oSchema Schema) {
+	// Remap computed columns
+	oldColId := oSchema.InputColumns().Count()
+	newColId := p.schema.InputColumns().Count()
+	//
 	for _, a := range oSchema.assignments {
 		if p.isActive(a.Context()) {
+			// Remap all active columns
+			for i := uint(0); i < a.Columns().Count(); i++ {
+				p.colmap[oldColId] = newColId
+				oldColId++
+				newColId++
+			}
+			//
 			p.schema.AddAssignment(p.remapAssignment(a))
+			//
+		} else {
+			// Delete all inactive columns
+			for i := uint(0); i < a.Columns().Count(); i++ {
+				p.colmap[oldColId] = math.MaxUint
+				oldColId++
+			}
 		}
 	}
 }
@@ -130,11 +143,11 @@ func (p *Remapper) isActive(contexts ...tr.Context) bool {
 }
 
 func (p *Remapper) remapAssignment(a sc.Assignment) sc.Assignment {
-	switch a.(type) {
+	switch a := a.(type) {
 	case *assignment.Computation:
 		panic("todo")
 	case *assignment.Interleaving:
-		panic("todo")
+		return p.remapInterleaving(a)
 	case *assignment.SortedPermutation:
 		panic("todo")
 	default:
@@ -144,14 +157,20 @@ func (p *Remapper) remapAssignment(a sc.Assignment) sc.Assignment {
 	}
 }
 
+func (p *Remapper) remapInterleaving(c *assignment.Interleaving) sc.Assignment {
+	c.Target.Context = p.remapContext(c.Target.Context)
+	//
+	return c
+}
+
 func (p *Remapper) remapConstraint(c sc.Constraint) sc.Constraint {
 	switch c := c.(type) {
 	case LookupConstraint:
 		return p.remapLookup(c)
 	case RangeConstraint:
-		panic("todo")
+		return p.remapRange(c)
 	case SortedConstraint:
-		panic("todo")
+		return p.remapSorted(c)
 	case VanishingConstraint:
 		return p.remapVanishing(c)
 	default:
@@ -173,6 +192,30 @@ func (p *Remapper) remapLookup(c LookupConstraint) sc.Constraint {
 	}
 	// Remap target terms
 	for _, e := range c.Targets {
+		p.remapExpression(e)
+	}
+	//
+	return c
+}
+
+func (p *Remapper) remapRange(c RangeConstraint) sc.Constraint {
+	// Remap context
+	c.Context = p.remapContext(c.Context)
+	// Remap expression
+	p.remapExpression(c.Expr)
+	//
+	return c
+}
+
+func (p *Remapper) remapSorted(c SortedConstraint) sc.Constraint {
+	// Remap context
+	c.Context = p.remapContext(c.Context)
+	// Remap selector (if applicable)
+	if c.Selector.HasValue() {
+		p.remapExpression(c.Selector.Unwrap())
+	}
+	// Remap source terms
+	for _, e := range c.Sources {
 		p.remapExpression(e)
 	}
 	//

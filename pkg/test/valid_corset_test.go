@@ -1397,6 +1397,8 @@ func CheckTraces(t *testing.T, test string, maxPadding uint, cfg TestConfig, tra
 	if !cfg.expand {
 		maxPadding = 0
 	}
+	// Consolidate schema
+	hirSchema.Consolidate()
 	//
 	for i, tr := range traces {
 		if tr != nil {
