@@ -19,8 +19,13 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io"
 )
 
-func assignmentToString(dsts []uint, srcs []uint, constant big.Int, regs []io.Register, c big.Int, op string) string {
-	var builder strings.Builder
+func assignmentToString(dsts []uint, srcs []uint, constant big.Int, fn io.Function[Instruction],
+	c big.Int, op string) string {
+	//
+	var (
+		builder strings.Builder
+		regs    = fn.Registers()
+	)
 	//
 	builder.WriteString(io.RegistersReversedToString(dsts, regs))
 	builder.WriteString(" = ")

@@ -37,15 +37,8 @@ type MacroProgram = io.Program[macro.Instruction]
 func Validate(fieldWidth uint, program MacroProgram, srcmaps source.Maps[any]) []source.SyntaxError {
 	var errors []source.SyntaxError
 	//
-	for i, fn := range program.Functions() {
-		// Construct suitable environment
-		env := io.Environment[macro.Instruction]{
-			FieldWidth: fieldWidth,
-			Function:   uint(i),
-			Program:    program,
-		}
-		//
-		errors = append(errors, validateInstructions(env, srcmaps)...)
+	for _, fn := range program.Functions() {
+		errors = append(errors, validateInstructions(fieldWidth, fn, srcmaps)...)
 		errors = append(errors, validateControlFlow(fn, srcmaps)...)
 	}
 	//
@@ -58,15 +51,9 @@ func Validate(fieldWidth uint, program MacroProgram, srcmaps source.Maps[any]) [
 func ValidateMicro(fieldWidth uint, program MicroProgram) {
 	var srcmap source.Maps[any]
 	//
-	for i := range program.Functions() {
-		// Construct suitable environment
-		env := io.Environment[micro.Instruction]{
-			FieldWidth: fieldWidth,
-			Function:   uint(i),
-			Program:    program,
-		}
+	for _, fn := range program.Functions() {
 		// TODO: support control-flow checks as well.
-		validateInstructions(env, srcmap)
+		validateInstructions(fieldWidth, fn, srcmap)
 	}
 }
 
@@ -76,14 +63,13 @@ func ValidateMicro(fieldWidth uint, program MicroProgram) {
 // y + 1" where both x and y are byte registers.  This does not balance because
 // the right-hand side generates 9 bits but the left-hand side can only consume
 // 8bits.
-func validateInstructions[T io.Instruction[T]](env io.Environment[T], srcmaps source.Maps[any]) []source.SyntaxError {
-	var (
-		errors []source.SyntaxError
-		fn     = env.Enclosing()
-	)
+func validateInstructions[T io.Instruction[T]](fieldWidth uint, fn io.Function[T],
+	srcmaps source.Maps[any]) []source.SyntaxError {
+	//
+	var errors []source.SyntaxError
 
-	for _, insn := range fn.Code {
-		err := insn.Validate(env)
+	for _, insn := range fn.Code() {
+		err := insn.Validate(fieldWidth, fn)
 		//
 		if err != nil {
 			if !srcmaps.Has(insn) {
@@ -105,12 +91,12 @@ func validateInstructions[T io.Instruction[T]](env io.Environment[T], srcmaps so
 // and false for registers which are defined.
 func validateControlFlow(fn MacroFunction, srcmaps source.Maps[any]) []source.SyntaxError {
 	var (
-		n          = uint(len(fn.Code))
+		n          = uint(len(fn.Code()))
 		errors     []source.SyntaxError
 		entryState bit.Set
 	)
 	// Initialise entry state (since these are assigned on entry)
-	for i, r := range fn.Registers {
+	for i, r := range fn.Registers() {
 		if !r.IsInput() {
 			entryState.Insert(uint(i))
 		}
@@ -125,9 +111,9 @@ func validateControlFlow(fn MacroFunction, srcmaps source.Maps[any]) []source.Sy
 		errors = append(errors, errs...)
 	}
 	// Sanity check all instructions reachable.
-	for pc := 0; pc < len(fn.Code); pc++ {
+	for pc, insn := range fn.Code() {
 		if !worklist.Visited(uint(pc)) {
-			errors = append(errors, *srcmaps.SyntaxError(fn.Code[pc], "unreachable"))
+			errors = append(errors, *srcmaps.SyntaxError(insn, "unreachable"))
 		}
 	}
 	//
@@ -142,7 +128,7 @@ func applyInstructionSemantics(worklist *Worklist, fn MacroFunction,
 	var errors []source.SyntaxError
 	// Pop the next item from the stack
 	pc, state := worklist.Pop()
-	insn := fn.Code[pc]
+	insn := fn.CodeAt(pc)
 	// Apply effect of instruction on state
 	state, errors = applyInstructionFlow(insn, state, fn, srcmaps)
 	// Propagate state along branches
@@ -161,7 +147,7 @@ func applyInstructionSemantics(worklist *Worklist, fn MacroFunction,
 		errors = append(errors, errs...)
 	default:
 		// Check not falling off the end
-		if pc+1 == uint(len(fn.Code)) {
+		if pc+1 == uint(len(fn.Code())) {
 			errors = append(errors, *srcmaps.SyntaxError(insn, "missing ret"))
 		} else {
 			// fall through cases
@@ -181,7 +167,7 @@ func applyInstructionFlow(microinsn macro.Instruction, state bit.Set, fn MacroFu
 	// Ensure every register read has been defined.
 	for _, r := range microinsn.RegistersRead() {
 		if state.Contains(r) {
-			msg := fmt.Sprintf("register %s possibly undefined", fn.Registers[r].Name)
+			msg := fmt.Sprintf("register %s possibly undefined", fn.Register(r).Name)
 			errors = append(errors, *srcmaps.SyntaxError(microinsn, msg))
 			// mark as defined to avoid follow on errors
 			state.Remove(r)
@@ -202,7 +188,7 @@ func checkOutputsAssigned(insn macro.Instruction, state bit.Set, fn MacroFunctio
 	//
 	var errors []source.SyntaxError
 	//
-	for i, r := range fn.Registers {
+	for i, r := range fn.Registers() {
 		if r.IsOutput() && state.Contains(uint(i)) {
 			msg := fmt.Sprintf("output %s possibly undefined", r.Name)
 			errors = append(errors, *srcmaps.SyntaxError(insn, msg))

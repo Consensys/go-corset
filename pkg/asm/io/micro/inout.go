@@ -18,45 +18,84 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io"
 )
 
-// Jmp provides an unconditional branching instruction to a given instructon.
-type Jmp struct {
-	Target uint
+// InOut captures input / output instructions for reading / writing to a bus.
+type InOut struct {
+	// Indicates whether input or output instruction.
+	input bool
+	// Local bus
+	bus io.Bus
+}
+
+// NewIoRead constructs an instruction responsible for reading data to a given
+// bus.
+func NewIoRead(bus io.Bus) *InOut {
+	return &InOut{true, bus}
+}
+
+// NewIoWrite constructs an instruction responsible for writing data to a given
+// bus.
+func NewIoWrite(bus io.Bus) *InOut {
+	return &InOut{false, bus}
+}
+
+// Bus returns information about the bus.  Observe that prior to Link being
+// called, this will return an unlinked bus.
+func (p *InOut) Bus() io.Bus {
+	return p.bus
 }
 
 // Clone this micro code.
-func (p *Jmp) Clone() Code {
-	return &Jmp{p.Target}
+func (p *InOut) Clone() Code {
+	return &InOut{p.input, p.bus}
 }
 
 // MicroExecute a given micro-code, using a given local state.  This may update
 // the register values, and returns either the number of micro-codes to "skip
 // over" when executing the enclosing instruction or, if skip==0, a destination
 // program counter (which can signal return of enclosing function).
-func (p *Jmp) MicroExecute(state io.State) (uint, uint) {
-	return 0, p.Target
+func (p *InOut) MicroExecute(state io.State) (uint, uint) {
+	if p.input {
+		state.In(p.bus)
+	} else {
+		state.Out(p.bus)
+	}
+	//
+	return 1, 0
 }
 
 // RegistersRead returns the set of registers read by this instruction.
-func (p *Jmp) RegistersRead() []uint {
-	return nil
+func (p *InOut) RegistersRead() []uint {
+	if p.input {
+		return p.bus.Address()
+	}
+	//
+	return append(p.bus.Address(), p.bus.Data()...)
 }
 
 // RegistersWritten returns the set of registers written by this instruction.
-func (p *Jmp) RegistersWritten() []uint {
+func (p *InOut) RegistersWritten() []uint {
+	if p.input {
+		return p.bus.Data()
+	}
+	//
 	return nil
 }
 
 // Split this micro code using registers of arbirary width into one or more
 // micro codes using registers of a fixed maximum width.
-func (p *Jmp) Split(env *RegisterSplittingEnvironment) []Code {
+func (p *InOut) Split(env *RegisterSplittingEnvironment) []Code {
 	return []Code{p}
 }
 
-func (p *Jmp) String(fn io.Function[Instruction]) string {
-	return fmt.Sprintf("jmp %d", p.Target)
+func (p *InOut) String(fn io.Function[Instruction]) string {
+	if p.input {
+		return fmt.Sprintf("in %s", p.bus.Name)
+	}
+
+	return fmt.Sprintf("out %s", p.bus.Name)
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Jmp) Validate(fieldWidth uint, fn io.Function[Instruction]) error {
+func (p *InOut) Validate(fieldWidth uint, fn io.Function[Instruction]) error {
 	return nil
 }

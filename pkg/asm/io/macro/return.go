@@ -24,16 +24,11 @@ type Return struct {
 	dummy uint
 }
 
-// Bind any labels contained within this instruction using the given label map.
-func (p *Return) Bind(labels []uint) {
-	// no-op
-}
-
 // Execute this instruction with the given local and global state.  The next
 // program counter position is returned, or io.RETURN if the enclosing
 // function has terminated (i.e. because a return instruction was
 // encountered).
-func (p *Return) Execute(state io.State, iomap io.Map) uint {
+func (p *Return) Execute(state io.State) uint {
 	return io.RETURN
 }
 
@@ -41,11 +36,6 @@ func (p *Return) Execute(state io.State, iomap io.Map) uint {
 func (p *Return) Lower(pc uint) micro.Instruction {
 	// Lowering here produces an instruction containing a single microcode.
 	return micro.NewInstruction(&micro.Ret{})
-}
-
-// Link any buses used within this instruction using the given bus map.
-func (p *Return) Link(buses []uint) {
-	// nothing to link
 }
 
 // RegistersRead returns the set of registers read by this instruction.
@@ -58,11 +48,11 @@ func (p *Return) RegistersWritten() []uint {
 	return nil
 }
 
-func (p *Return) String(env io.Environment[Instruction]) string {
+func (p *Return) String(fn io.Function[Instruction]) string {
 	return "return"
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Return) Validate(env io.Environment[Instruction]) error {
+func (p *Return) Validate(fieldWidth uint, fn io.Function[Instruction]) error {
 	return nil
 }

@@ -45,27 +45,22 @@ type Sub struct {
 	Constant big.Int
 }
 
-// Bind any labels contained within this instruction using the given label map.
-func (p *Sub) Bind(labels []uint) {
-	// no-op
-}
-
 // Execute this instruction with the given local and global state.  The next
 // program counter position is returned, or io.RETURN if the enclosing
 // function has terminated (i.e. because a return instruction was
 // encountered).
-func (p *Sub) Execute(state io.State, iomap io.Map) uint {
+func (p *Sub) Execute(state io.State) uint {
 	var value big.Int
 	// Clone initial value
-	value.Set(state.Read(p.Sources[0]))
+	value.Set(state.Load(p.Sources[0]))
 	// Subtract register values
 	for _, src := range p.Sources[1:] {
-		value.Sub(&value, state.Read(src))
+		value.Sub(&value, state.Load(src))
 	}
 	// Subtract constant
 	value.Sub(&value, &p.Constant)
 	// Write value
-	state.Write(value, p.Targets...)
+	state.Store(value, p.Targets...)
 	//
 	return state.Next()
 }
@@ -81,11 +76,6 @@ func (p *Sub) Lower(pc uint) micro.Instruction {
 	return micro.NewInstruction(code, &micro.Jmp{Target: pc + 1})
 }
 
-// Link any buses used within this instruction using the given bus map.
-func (p *Sub) Link(buses []uint) {
-	// nothing to link
-}
-
 // RegistersRead returns the set of registers read by this instruction.
 func (p *Sub) RegistersRead() []uint {
 	return p.Sources
@@ -96,26 +86,25 @@ func (p *Sub) RegistersWritten() []uint {
 	return p.Targets
 }
 
-func (p *Sub) String(env io.Environment[Instruction]) string {
-	regs := env.Enclosing().Registers
-	return assignmentToString(p.Targets, p.Sources, p.Constant, regs, zero, " - ")
+func (p *Sub) String(fn io.Function[Instruction]) string {
+	return assignmentToString(p.Targets, p.Sources, p.Constant, fn, zero, " - ")
 }
 
 // Validate checks whether or not this instruction is correctly balanced.  The
 // algorithm here may seem a little odd at first.  It counts the number of
 // *unique values* required to hold both the positive and negative components of
 // the right-hand side.  This gives the minimum bitwidth required.
-func (p *Sub) Validate(env io.Environment[Instruction]) error {
+func (p *Sub) Validate(fieldWidth uint, fn io.Function[Instruction]) error {
 	var (
-		regs     = env.Enclosing().Registers
+		regs     = fn.Registers()
 		lhs_bits = sumTargetBits(p.Targets, regs)
 		rhs_bits = subSourceBits(p.Sources, p.Constant, regs)
 	)
 	// check
 	if lhs_bits < rhs_bits {
 		return fmt.Errorf("bit overflow (%d bits into %d bits)", rhs_bits, lhs_bits)
-	} else if rhs_bits > env.FieldWidth {
-		return fmt.Errorf("field overflow (%d bits into %d bit field)", rhs_bits, env.FieldWidth)
+	} else if rhs_bits > fieldWidth {
+		return fmt.Errorf("field overflow (%d bits into %d bit field)", rhs_bits, fieldWidth)
 	} else if err := checkPivot(p.Sources[0], p.Targets, regs); err != nil {
 		return err
 	}

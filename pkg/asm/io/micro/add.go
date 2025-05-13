@@ -63,16 +63,16 @@ func (p *Add) Clone() Code {
 // register values, and returns either the number of micro-codes to "skip over"
 // when executing the enclosing instruction or, if skip==0, a destination
 // program counter (which can signal return of enclosing function).
-func (p *Add) MicroExecute(state io.State, iomap io.Map) (uint, uint) {
+func (p *Add) MicroExecute(state io.State) (uint, uint) {
 	var value big.Int
 	// Add constant
 	value.Set(&p.Constant)
 	// Add register values
 	for _, src := range p.Sources {
-		value.Add(&value, state.Read(src))
+		value.Add(&value, state.Load(src))
 	}
 	// Write value
-	state.Write(value, p.Targets...)
+	state.Store(value, p.Targets...)
 	//
 	return 1, 0
 }
@@ -87,9 +87,8 @@ func (p *Add) RegistersWritten() []uint {
 	return p.Targets
 }
 
-func (p *Add) String(env io.Environment[Instruction]) string {
-	regs := env.Enclosing().Registers
-	return assignmentToString(p.Targets, p.Sources, p.Constant, regs, zero, " + ")
+func (p *Add) String(fn io.Function[Instruction]) string {
+	return assignmentToString(p.Targets, p.Sources, p.Constant, fn, zero, " + ")
 }
 
 // Split this micro code using registers of arbirary width into one or more
@@ -163,17 +162,17 @@ func (p *Add) Split(env *RegisterSplittingEnvironment) []Code {
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Add) Validate(env io.Environment[Instruction]) error {
+func (p *Add) Validate(fieldWidth uint, fn io.Function[Instruction]) error {
 	var (
-		regs     = env.Enclosing().Registers
+		regs     = fn.Registers()
 		lhs_bits = sumTargetBits(p.Targets, regs)
 		rhs_bits = sumSourceBits(p.Sources, p.Constant, regs)
 	)
 	// check
 	if lhs_bits < rhs_bits {
 		return fmt.Errorf("bit overflow (%d bits into %d bits)", rhs_bits, lhs_bits)
-	} else if rhs_bits > env.FieldWidth {
-		return fmt.Errorf("field overflow (%d bits into %d bit field)", rhs_bits, env.FieldWidth)
+	} else if rhs_bits > fieldWidth {
+		return fmt.Errorf("field overflow (%d bits into %d bit field)", rhs_bits, fieldWidth)
 	}
 	//
 	return io.CheckTargetRegisters(p.Targets, regs)

@@ -40,10 +40,6 @@ type Translator struct {
 	RegIDs []uint
 	// Registers of the given machine
 	Registers []io.Register
-	// Mapping of buses to their respective HIR columns IDs.  Observe that only
-	// those buses which are actively used in the given function will be
-	// present.
-	Buses [][]hir.Expr
 }
 
 // Translate a micro-instruction at a given program counter position.
@@ -126,12 +122,6 @@ func (p *StateTranslator) Clone() StateTranslator {
 		mutated:   p.mutated.Clone(),
 		forwarded: p.forwarded.Clone(),
 	}
-}
-
-// Bus returns the set of lines representing a given bus.  The convention is
-// that address lines come first, then value lines.
-func (p *StateTranslator) Bus(busId uint) []hir.Expr {
-	return p.mapping.Buses[busId]
 }
 
 // WriteRegisters constructs suitable accessors for the those registers written

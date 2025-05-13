@@ -76,7 +76,7 @@ func (p *Parser) Parse() (AssemblyItem, []source.SyntaxError) {
 	}
 	// Continue going until all consumed
 	for p.lookahead().Kind != END_OF {
-		fn, item.Buses, errors = p.parseFunction(item.Buses)
+		fn, errors = p.parseFunction()
 		//
 		if len(errors) > 0 {
 			return item, errors
@@ -90,49 +90,50 @@ func (p *Parser) Parse() (AssemblyItem, []source.SyntaxError) {
 	return item, nil
 }
 
-func (p *Parser) parseFunction(buses []string) (MacroFunction, []string, []source.SyntaxError) {
+func (p *Parser) parseFunction() (MacroFunction, []source.SyntaxError) {
 	var (
-		fn              MacroFunction
-		env             Environment = Environment{buses, nil, nil}
+		env             Environment
 		inst            macro.Instruction
+		name            string
 		inputs, outputs []io.Register
+		code            []macro.Instruction
 		errs            []source.SyntaxError
 		pc              uint
 	)
 	// Parse function declaration
-	if fn.Name, errs = p.parseIdentifier(); len(errs) > 0 || fn.Name != "fn" {
-		return fn, nil, errs
+	if name, errs = p.parseIdentifier(); len(errs) > 0 || name != "fn" {
+		return MacroFunction{}, errs
 	}
 	// Parse function name
-	if fn.Name, errs = p.parseIdentifier(); len(errs) > 0 {
-		return fn, nil, errs
+	if name, errs = p.parseIdentifier(); len(errs) > 0 {
+		return MacroFunction{}, errs
 	}
 	// Parse inputs
 	if inputs, errs = p.parseArgsList(io.INPUT_REGISTER); len(errs) > 0 {
-		return fn, nil, errs
+		return MacroFunction{}, errs
 	}
 	// Parse '->'
 	if _, errs = p.expect(RIGHTARROW); len(errs) > 0 {
-		return fn, nil, errs
+		return MacroFunction{}, errs
 	}
 	// Parse outputs
 	if outputs, errs = p.parseArgsList(io.OUTPUT_REGISTER); len(errs) > 0 {
-		return fn, nil, errs
+		return MacroFunction{}, errs
 	}
 	// Initialise register list from inputs/outputs
 	env.registers = append(inputs, outputs...)
 	// Parse start of block
 	if _, errs = p.expect(LCURLY); len(errs) > 0 {
-		return fn, nil, errs
+		return MacroFunction{}, errs
 	}
 	// Parse instructions until end of block
 	for p.lookahead().Kind != RCURLY {
 		if inst, errs = p.parseMacroInstruction(pc, &env); len(errs) > 0 {
-			return fn, nil, errs
+			return MacroFunction{}, errs
 		}
 		//
 		if inst != nil {
-			fn.Code = append(fn.Code, inst)
+			code = append(code, inst)
 			// inc pc only for real instructions.
 			pc = pc + 1
 		}
@@ -140,11 +141,9 @@ func (p *Parser) parseFunction(buses []string) (MacroFunction, []string, []sourc
 	// Advance past "}"
 	p.match(RCURLY)
 	// Finalise labels
-	env.BindLabels(fn.Code)
-	// Assign registers
-	fn.Registers = env.registers
-	//
-	return fn, env.buses, nil
+	env.BindLabels(code)
+	// Done
+	return io.NewFunction(name, env.registers, code), nil
 }
 
 func (p *Parser) parseArgsList(kind uint8) ([]io.Register, []source.SyntaxError) {
@@ -471,7 +470,7 @@ func (p *Parser) parseCallRhs(lhs []uint, env *Environment) (macro.Instruction, 
 	// Generate temporary bus identifier
 	bus := env.BindBus(fn)
 	// Done
-	return &macro.Call{Bus: bus, Targets: lhs, Sources: rhs}, nil
+	return macro.NewCall(bus, lhs, rhs), nil
 }
 
 // Parse sequence of one or more registers separated by a comma.

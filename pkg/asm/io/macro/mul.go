@@ -45,27 +45,22 @@ type Mul struct {
 	Constant big.Int
 }
 
-// Bind any labels contained within this instruction using the given label map.
-func (p *Mul) Bind(labels []uint) {
-	// no-op
-}
-
 // Execute this instruction with the given local and global state.  The next
 // program counter position is returned, or io.RETURN if the enclosing
 // function has terminated (i.e. because a return instruction was
 // encountered).
-func (p *Mul) Execute(state io.State, iomap io.Map) uint {
+func (p *Mul) Execute(state io.State) uint {
 	var value big.Int
 	// Assign first value
-	value.Set(state.Read(p.Sources[0]))
+	value.Set(state.Load(p.Sources[0]))
 	// Multiply register values
 	for _, src := range p.Sources[1:] {
-		value.Mul(&value, state.Read(src))
+		value.Mul(&value, state.Load(src))
 	}
 	// Multiply constant
 	value.Mul(&value, &p.Constant)
 	// Write value
-	state.Write(value, p.Targets...)
+	state.Store(value, p.Targets...)
 	//
 	return state.Next()
 }
@@ -81,11 +76,6 @@ func (p *Mul) Lower(pc uint) micro.Instruction {
 	return micro.NewInstruction(code, &micro.Jmp{Target: pc + 1})
 }
 
-// Link any buses used within this instruction using the given bus map.
-func (p *Mul) Link(buses []uint) {
-	// nothing to link
-}
-
 // RegistersRead returns the set of registers read by this instruction.
 func (p *Mul) RegistersRead() []uint {
 	return p.Sources
@@ -96,23 +86,22 @@ func (p *Mul) RegistersWritten() []uint {
 	return p.Targets
 }
 
-func (p *Mul) String(env io.Environment[Instruction]) string {
-	regs := env.Enclosing().Registers
-	return assignmentToString(p.Targets, p.Sources, p.Constant, regs, one, " * ")
+func (p *Mul) String(fn io.Function[Instruction]) string {
+	return assignmentToString(p.Targets, p.Sources, p.Constant, fn, one, " * ")
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Mul) Validate(env io.Environment[Instruction]) error {
+func (p *Mul) Validate(fieldWidth uint, fn io.Function[Instruction]) error {
 	var (
-		regs     = env.Enclosing().Registers
+		regs     = fn.Registers()
 		lhs_bits = sumTargetBits(p.Targets, regs)
 		rhs_bits = mulSourceBits(p.Sources, p.Constant, regs)
 	)
 	// check
 	if lhs_bits < rhs_bits {
 		return fmt.Errorf("bit overflow (%d bits into %d bits)", rhs_bits, lhs_bits)
-	} else if rhs_bits > env.FieldWidth {
-		return fmt.Errorf("field overflow (%d bits into %d bit field)", rhs_bits, env.FieldWidth)
+	} else if rhs_bits > fieldWidth {
+		return fmt.Errorf("field overflow (%d bits into %d bit field)", rhs_bits, fieldWidth)
 	}
 	//
 	return io.CheckTargetRegisters(p.Targets, regs)

@@ -53,7 +53,7 @@ func SplitInstance[T any](maxRegisterWidth uint, instance FunctionInstance, prog
 		fn                         = program.Function(instance.Function)
 	)
 	//
-	for _, reg := range fn.Registers {
+	for _, reg := range fn.Registers() {
 		if reg.IsInput() {
 			input, ok := instance.Inputs[reg.Name]
 			//

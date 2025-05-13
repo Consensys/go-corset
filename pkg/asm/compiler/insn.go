@@ -13,7 +13,6 @@
 package compiler
 
 import (
-	"fmt"
 	"math/big"
 	"slices"
 
@@ -31,8 +30,8 @@ func translate(cc uint, codes []micro.Code, st StateTranslator) hir.Expr {
 	switch codes[cc].(type) {
 	case *micro.Add:
 		return translateAdd(cc, codes, st)
-	case *micro.Call:
-		return translateCall(cc, codes, st)
+	case *micro.InOut:
+		return translateInOut(cc, codes, st)
 	case *micro.Jmp:
 		return translateJmp(cc, codes, st)
 	case *micro.Mul:
@@ -70,35 +69,16 @@ func translateAdd(cc uint, codes []micro.Code, st StateTranslator) hir.Expr {
 	return hir.Conjunction(eqn, translate(cc+1, codes, st))
 }
 
-// Translate this instruction into low-level constraints.
-func translateCall(cc uint, codes []micro.Code, st StateTranslator) hir.Expr {
-	var (
-		code = codes[cc].(*micro.Call)
-		// build address
-		address = st.ReadRegisters(code.Sources)
-		// build value (must be after rhs)
-		value = st.WriteRegisters(code.Targets)
-		//
-		width = len(value) + len(address)
-		//
-		conjuncts = make([]hir.Expr, 0)
-	)
-	// Lookup bus info
-	bus := st.Bus(code.Bus)
-	// Sanity check
-	if width != len(bus) {
-		panic(fmt.Sprintf("incompatible bus width (was %d, expected %d)", width, len(bus)))
-	}
-	// Setup address writes
-	for i, line := range address {
-		conjuncts = append(conjuncts, hir.Equals(bus[i], line))
-	}
-	// Setup value reads
-	for i, line := range value {
-		conjuncts = append(conjuncts, hir.Equals(line, bus[i+len(address)]))
-	}
-	// Done
-	return hir.Conjunction(conjuncts...)
+func translateInOut(cc uint, codes []micro.Code, st StateTranslator) hir.Expr {
+	var code = codes[cc].(*micro.InOut)
+	// In/Out codes are really nops from the perspective of compilation.  Their
+	// primary purposes is to assist trace expansion.
+	//
+	// NOTE: we have to pretend that we've written registers here, otherwise
+	// forwarding will not be enabled.
+	st.WriteRegisters(code.RegistersWritten())
+	//
+	return translate(cc+1, codes, st)
 }
 
 func translateJmp(cc uint, codes []micro.Code, st StateTranslator) hir.Expr {

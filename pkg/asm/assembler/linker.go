@@ -16,6 +16,7 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/asm/io/macro"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
 
@@ -24,8 +25,6 @@ import (
 // not fully known.  Hence, when multiple assembly items come together we must
 // "align buses appropriately between them.
 type AssemblyItem struct {
-	// Buses maps bus names to the concrete identifiers used within this item.
-	Buses []string
 	// Components making up this assembly item.
 	Components []MacroFunction
 	// Mapping of instructions back to the source file.
@@ -47,43 +46,91 @@ func Link(items ...AssemblyItem) (MacroProgram, source.Maps[any]) {
 		srcmap.Join(&item.SourceMap)
 		//
 		for _, c := range item.Components {
-			if _, ok := busmap[c.Name]; ok {
+			if _, ok := busmap[c.Name()]; ok {
 				// Indicates component of same name already exists.  It would be
 				// good to report a source error here, but the problem is that
 				// our source map doesn't contain the right information.
-				panic(fmt.Sprintf("duplicate component %s", c.Name))
+				panic(fmt.Sprintf("duplicate component %s", c.Name()))
 			}
 			// Allocate bus entry
-			busmap[c.Name] = uint(len(busmap))
+			busmap[c.Name()] = uint(len(busmap))
 			//
 			components = append(components, c)
 		}
 	}
 	// Link all assembly items
-	for _, item := range items {
-		linkAssemblyItem(item, busmap)
+	for i := range components {
+		linkComponent(uint(i), components, busmap)
 	}
 	//
 	return io.NewProgram(components...), srcmap
 }
 
-func linkAssemblyItem(item AssemblyItem, busmap map[string]uint) {
+// Link all buses used within this function to their intended targets.  This
+// means, for every bus used locally, settings the global bus identifier and
+// also allocated regisers for the address/data lines.
+func linkComponent(index uint, components []MacroFunction, busmap map[string]uint) {
+	// Mapping of bus names to allocated buses
+	var (
+		fn         = &components[index]
+		code       = fn.Code()
+		localBuses = make(map[uint]io.Bus, 0)
+	)
 	//
-	var buses = make([]uint, len(item.Buses))
+	for i := range code {
+		insn := code[i]
+		//
+		if bi, ok := insn.(macro.IoInstruction); ok {
+			// Determine global bus identifier
+			busId := busmap[bi.Bus().Name]
+			// allocate & link bus
+			bi.Link(allocateBus(busId, localBuses, index, components))
+		}
+	}
+}
+
+// Get the local bus declared for the given function, either by allocating a new
+// bus (if was not already allocated) or returning the existing bus (if it was
+// previously allocated).  Allocating a new bus requires allocating
+// corresponding I/O registers within the given function.
+func allocateBus(busId uint, localBuses map[uint]io.Bus, index uint, components []MacroFunction) io.Bus {
+	var (
+		fn      = &components[index]
+		busName = components[busId].Name()
+		inputs  = components[busId].Inputs()
+		outputs = components[busId].Outputs()
+	)
+	// Check whether previously allocated, or not.
+	if bus, ok := localBuses[busId]; ok {
+		// Yes, so just return previously created bus.
+		return bus
+	}
+	// No, therefore create new bus.
+	addressLines := allocateIoRegisters(busName, inputs, fn)
+	dataLines := allocateIoRegisters(busName, outputs, fn)
+	bus := io.NewBus(busName, busId, addressLines, dataLines)
+	// Update local bus map
+	localBuses[busId] = bus
+	// Done
+	return bus
+}
+
+func allocateIoRegisters(busName string, registers []io.Register, fn *MacroFunction) []uint {
+	var lines []uint
 	//
-	for i, name := range item.Buses {
-		bid, ok := busmap[name]
-		//
-		if !ok {
-			bid = io.UNKNOWN_BUS
+	for _, reg := range registers {
+		var regName string
+		// Determine suitable register name
+		if reg.IsInput() {
+			regName = fmt.Sprintf("%s>%s[%s]", fn.Name(), busName, reg.Name)
+		} else if reg.IsOutput() {
+			regName = fmt.Sprintf("%s<%s[%s]", fn.Name(), busName, reg.Name)
+		} else {
+			panic("unreachable")
 		}
-		//
-		buses[i] = bid
+		// Allocate register
+		lines = append(lines, fn.AllocateRegister(io.TEMP_REGISTER, regName, reg.Width))
 	}
-	// Link each component
-	for _, fn := range item.Components {
-		for i := range fn.Code {
-			fn.Code[i].Link(buses)
-		}
-	}
+	//
+	return lines
 }
