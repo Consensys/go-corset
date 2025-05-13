@@ -218,8 +218,6 @@ func (p *Schema) SubstituteConstants(mapping map[string]fr.Element) {
 	for _, a := range p.assertions {
 		substituteConstraint(mapping, a)
 	}
-	// Consolidate
-	p.Consolidate()
 }
 
 // ============================================================================

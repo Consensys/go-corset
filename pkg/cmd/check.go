@@ -257,6 +257,8 @@ func checkTraceWithLowering(traces [][]tr.RawColumn, schema *hir.Schema, cfg che
 		mirCoverage sc.CoverageMap
 		hirCoverage sc.CoverageMap
 	)
+	// Consolidate schema
+	schema.Consolidate()
 	//
 	res := true
 	// Process individually

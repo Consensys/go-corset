@@ -585,6 +585,9 @@ func Test_Module_09(t *testing.T) {
 func Test_Module_10(t *testing.T) {
 	Check(t, false, "module_10")
 }
+func Test_Module_11(t *testing.T) {
+	Check(t, false, "module_11")
+}
 
 // ===================================================================
 // Permutations
