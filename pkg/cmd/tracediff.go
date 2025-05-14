@@ -3,10 +3,12 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"slices"
 	"sort"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/spf13/cobra"
 )
@@ -28,10 +30,20 @@ var traceDiffCmd = &cobra.Command{
 		// Read trace files
 		tracefile1 := ReadTraceFile(filename1)
 		tracefile2 := ReadTraceFile(filename2)
+		// Extract column names
+		trace1cols := extractColumnNames(tracefile1.Columns)
+		trace2cols := extractColumnNames(tracefile2.Columns)
 		// Sanity check
-		if len(tracefile1.Columns) != len(tracefile2.Columns) {
-			fmt.Printf("differing number of columns (%d v %d)", len(tracefile1.Columns), len(tracefile2.Columns))
-			os.Exit(2)
+		if !slices.Equal(trace1cols, trace2cols) {
+			var common set.SortedSet[string]
+			//
+			common.InsertSorted(&trace1cols)
+			common.Intersect(&trace2cols)
+			//
+			reportExtraColumns(filename1, trace1cols, common)
+			reportExtraColumns(filename2, trace2cols, common)
+			tracefile1.Columns = filterCommonColumns(tracefile1.Columns, common)
+			tracefile2.Columns = filterCommonColumns(tracefile2.Columns, common)
 		}
 		//
 		errors := parallelDiff(tracefile1.Columns, tracefile2.Columns)
@@ -40,6 +52,36 @@ var traceDiffCmd = &cobra.Command{
 			fmt.Println(err)
 		}
 	},
+}
+
+func extractColumnNames(columns []trace.RawColumn) set.SortedSet[string] {
+	var names set.SortedSet[string]
+	//
+	for _, c := range columns {
+		names.Insert(c.QualifiedName())
+	}
+	//
+	return names
+}
+
+func reportExtraColumns(name string, columns []string, common set.SortedSet[string]) {
+	for _, c := range columns {
+		if !common.Contains(c) {
+			fmt.Printf("column %s only in trace %s\n", c, name)
+		}
+	}
+}
+
+func filterCommonColumns(columns []trace.RawColumn, common set.SortedSet[string]) []trace.RawColumn {
+	var ncolumns []trace.RawColumn
+	//
+	for _, c := range columns {
+		if common.Contains(c.QualifiedName()) {
+			ncolumns = append(ncolumns, c)
+		}
+	}
+	//
+	return ncolumns
 }
 
 func parallelDiff(columns1 []trace.RawColumn, columns2 []trace.RawColumn) []error {
