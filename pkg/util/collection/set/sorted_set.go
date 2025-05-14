@@ -79,7 +79,27 @@ func (p *SortedSet[T]) InsertSorted(q *SortedSet[T]) {
 	// Allocate space
 	ndata := make([]T, len(left)+len(right)-n)
 	// Merge
-	mergeSorted(ndata, left, right)
+	unionSorted(ndata, left, right)
+	// Finally copy over new data
+	*p = ndata
+}
+
+// Intersect removes all elements from this set which are not in the given set.
+func (p *SortedSet[T]) Intersect(q *SortedSet[T]) {
+	left := *p
+	right := *q
+	// Check containment
+	n := countDuplicates(left, right)
+	// Check for total inclusion
+	if n == len(left) {
+		// Left set completely included within right, so actually there is
+		// nothing to do.
+		return
+	}
+	// Allocate space
+	ndata := make([]T, n)
+	// Intersect
+	intersectSorted(ndata, left, right)
 	// Finally copy over new data
 	*p = ndata
 }
@@ -157,9 +177,9 @@ func countDuplicates[T cmp.Ordered](left []T, right []T) int {
 	return n
 }
 
-// Merge two sets of sorted arrays (left and right) into a target array.  This
+// Union two sets of sorted arrays (left and right) into a target array.  This
 // assumes the target array is big enough.
-func mergeSorted[T cmp.Ordered](target []T, left []T, right []T) {
+func unionSorted[T cmp.Ordered](target []T, left []T, right []T) {
 	i := 0
 	j := 0
 	k := 0
@@ -182,5 +202,26 @@ func mergeSorted[T cmp.Ordered](target []T, left []T, right []T) {
 		copy(target[k:], left[i:])
 	} else if j < len(right) {
 		copy(target[k:], right[j:])
+	}
+}
+
+// Intersect two sets of sorted arrays (left and right) into a target array.
+// This assumes the target array is big enough.
+func intersectSorted[T cmp.Ordered](target []T, left []T, right []T) {
+	i := 0
+	j := 0
+	k := 0
+	// Merge overlap of both sets
+	for i < len(left) && j < len(right) {
+		if left[i] < right[j] {
+			i++
+		} else if left[i] > right[j] {
+			j++
+		} else {
+			target[k] = left[i]
+			i++
+			j++
+			k++
+		}
 	}
 }
