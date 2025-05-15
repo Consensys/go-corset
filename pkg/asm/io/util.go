@@ -97,34 +97,50 @@ func SplitRegister(maxWidth uint, r Register) []Register {
 	return limbs
 }
 
-// SplitValueAcrossRegisters splits a given value across a set of registers,
-// where the least significant register comes first.  This will panic if the
-// value does not fit into the given registers.
-func SplitValueAcrossRegisters(constant *big.Int, registers ...Register) []big.Int {
+// SplitRegisterValue takes a value assigned to a given register and splits it
+// across the determined target registers.
+func SplitRegisterValue(maxWidth uint, reg Register, value big.Int, regmap map[string]big.Int) map[string]big.Int {
 	var (
-		limb  big.Int
-		limbs []big.Int = make([]big.Int, len(registers))
-		acc   big.Int
+		nlimbs = NumberOfLimbs(maxWidth, reg.Width)
 	)
 	//
-	acc.Set(constant)
+	if nlimbs == 1 {
+		// no splitting required
+		regmap[reg.Name] = value
+	} else {
+		// splitting required
+		regs := SplitRegister(maxWidth, reg)
+		values := SplitConstant(uint(len(regs)), maxWidth, value)
+		//
+		for i, limb := range regs {
+			regmap[limb.Name] = values[i]
+		}
+	}
+	//
+	return regmap
+}
+
+// SplitConstant splits a given constant into a number of "limbs" of a given
+// maximum width. For example, consider splitting the constant 0x7b2d into 8bit
+// limbs.  Then, this function returns the array [0x2d,0x7b].
+func SplitConstant(nLimbs uint, maxWidth uint, constant big.Int) []big.Int {
+	var (
+		bound = big.NewInt(2)
+		acc   big.Int
+		limbs []big.Int = make([]big.Int, nLimbs)
+	)
+	// Clone constant
+	acc.Set(&constant)
+	// Determine upper bound
+	bound.Exp(bound, big.NewInt(int64(maxWidth)), nil)
 	//
 	for i := 0; acc.Cmp(&zero) != 0; i++ {
-		var (
-			bound     = big.NewInt(2)
-			limbWidth = registers[i].Width
-		)
-		// Determine upper bound
-		bound.Exp(bound, big.NewInt(int64(limbWidth)), nil)
-		//
+		var limb big.Int
+		//limb.Set(&acc)
 		limb.Mod(&acc, bound)
 		limbs[i] = limb
 
-		acc.Rsh(&acc, limbWidth)
-	}
-	// Sanity check nothing is left.
-	if acc.Cmp(&zero) != 0 {
-		panic("value overflows given registers")
+		acc.Rsh(&acc, maxWidth)
 	}
 	//
 	return limbs

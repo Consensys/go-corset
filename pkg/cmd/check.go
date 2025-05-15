@@ -171,11 +171,13 @@ func checkWithAsmPipeline(cfg checkConfig, tracefile string, asmfiles ...string)
 		macroTrace      = ReadAssemblyTrace(tracefile, macroProgram)
 		microTrace      = asm.LowerMacroTrace(cfg.asmConfig, macroTrace)
 	)
-	// Macro check
-	ok = checkProgram("ASM", macroTrace)
-	// Micro check
+	//
 	if cfg.uasm {
-		ok = checkProgram("µASM", microTrace) && ok
+		// Micro check
+		ok = checkProgram("µASM", microTrace)
+	} else {
+		// Macro check
+		ok = checkProgram("ASM", macroTrace)
 	}
 	//
 	if cfg.hir || cfg.mir || cfg.air {

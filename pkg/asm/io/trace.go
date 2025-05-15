@@ -61,7 +61,7 @@ func SplitInstance[T any](maxRegisterWidth uint, instance FunctionInstance, prog
 				panic(fmt.Sprintf("missing value for input register %s", reg.Name))
 			}
 			//
-			inputs = splitRegisterValue(maxRegisterWidth, reg, input, inputs)
+			inputs = SplitRegisterValue(maxRegisterWidth, reg, input, inputs)
 		} else if reg.IsOutput() {
 			output, ok := instance.Outputs[reg.Name]
 			//
@@ -69,7 +69,7 @@ func SplitInstance[T any](maxRegisterWidth uint, instance FunctionInstance, prog
 				panic(fmt.Sprintf("missing value for output register %s", reg.Name))
 			}
 			//
-			outputs = splitRegisterValue(maxRegisterWidth, reg, output, outputs)
+			outputs = SplitRegisterValue(maxRegisterWidth, reg, output, outputs)
 		}
 	}
 	//

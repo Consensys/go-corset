@@ -123,7 +123,7 @@ func (p *Add) Split(env *RegisterSplittingEnvironment) []Code {
 			ncodes        []Code
 			targetLimbs        = env.SplitTargetRegisters(p.Targets...)
 			sourcePackets      = env.SplitSourceRegisters(p.Sources...)
-			constantLimbs      = env.SplitConstant(p.Constant, uint(len(sourcePackets)))
+			constantLimbs      = io.SplitConstant(uint(len(sourcePackets)), env.maxWidth, p.Constant)
 			carry         uint = math.MaxUint
 		)
 		// Allocate all source packets
@@ -182,7 +182,7 @@ func (p *Add) splitAssignment(env *RegisterSplittingEnvironment) []Code {
 	var (
 		ncodes        []Code
 		targetLimbs   = env.SplitTargetRegisters(p.Targets...)
-		constantLimbs = env.SplitConstantVariable(&p.Constant, targetLimbs...)
+		constantLimbs = io.SplitConstant(uint(len(targetLimbs)), env.maxWidth, p.Constant)
 	)
 	//
 	for i, target := range targetLimbs {

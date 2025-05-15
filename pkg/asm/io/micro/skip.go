@@ -101,7 +101,7 @@ func (p *Skip) Split(env *RegisterSplittingEnvironment) []Code {
 			ncodes = append(ncodes, ncode)
 		}
 	} else {
-		constantLimbs := env.SplitConstant(p.Constant, n)
+		constantLimbs := io.SplitConstant(n, env.maxWidth, p.Constant)
 		for i := uint(0); i < n; i++ {
 			ncode := &Skip{lhsLimbs[i], io.UNUSED_REGISTER, constantLimbs[i], skip - i}
 			ncodes = append(ncodes, ncode)
