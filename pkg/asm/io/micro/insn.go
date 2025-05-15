@@ -182,11 +182,12 @@ func (p Instruction) Validate(fieldWidth uint, fn io.Function[Instruction]) erro
 }
 
 func validateWrites(cc uint, writes bit.Set, codes []Code, fn io.Function[Instruction]) error {
+	//
 	switch code := codes[cc].(type) {
 	case *Ret, *Jmp:
 		return nil
 	case *Skip:
-		if err := validateWrites(cc+code.Skip, writes.Clone(), codes, fn); err != nil {
+		if err := validateWrites(cc+code.Skip+1, writes.Clone(), codes, fn); err != nil {
 			return err
 		}
 	default:

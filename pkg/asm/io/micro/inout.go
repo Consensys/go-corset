@@ -84,7 +84,12 @@ func (p *InOut) RegistersWritten() []uint {
 // Split this micro code using registers of arbirary width into one or more
 // micro codes using registers of a fixed maximum width.
 func (p *InOut) Split(env *RegisterSplittingEnvironment) []Code {
-	return []Code{p}
+	// Split bus
+	address := env.SplitTargetRegisters(p.bus.Address()...)
+	data := env.SplitTargetRegisters(p.bus.Data()...)
+	bus := io.NewBus(p.bus.Name, p.bus.BusId, address, data)
+	// Done
+	return []Code{&InOut{p.input, bus}}
 }
 
 func (p *InOut) String(fn io.Function[Instruction]) string {
