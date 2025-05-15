@@ -67,7 +67,7 @@ func (p *Sub) Execute(state io.State) uint {
 
 // Lower this instruction into a exactly one more micro instruction.
 func (p *Sub) Lower(pc uint) micro.Instruction {
-	code := &micro.Mul{
+	code := &micro.Sub{
 		Targets:  p.Targets,
 		Sources:  p.Sources,
 		Constant: p.Constant,
