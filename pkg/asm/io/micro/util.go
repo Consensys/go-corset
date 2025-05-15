@@ -106,61 +106,6 @@ func (p *RegisterSplittingEnvironment) RegistersAfter() []io.Register {
 	return p.regsAfter
 }
 
-// SplitConstant splits a given constant into a number of "limbs" of a given
-// maximum width. For example, consider splitting the constant 0x7b2d into 8bit
-// limbs.  Then, this function returns the array [0x2d,0x7b].
-func (p *RegisterSplittingEnvironment) SplitConstant(constant big.Int, nLimbs uint) []big.Int {
-	var (
-		bound = big.NewInt(2)
-		limb  big.Int
-		limbs []big.Int = make([]big.Int, nLimbs)
-	)
-	// Determine upper bound
-	bound.Exp(bound, big.NewInt(int64(p.maxWidth)), nil)
-	//
-	for i := 0; constant.Cmp(&zero) != 0; i++ {
-		limb.Mod(&constant, bound)
-		limbs[i] = limb
-
-		constant.Rsh(&constant, p.maxWidth)
-	}
-	//
-	return limbs
-}
-
-// SplitConstantVariable splits a given constant into a given set of (variable)
-// bitwidths.  For example, splitting 0x107 into 8bit and 1bit limbs gives
-// [0x07,0x1].
-func (p *RegisterSplittingEnvironment) SplitConstantVariable(constant *big.Int, limbWidths ...uint) []big.Int {
-	var (
-		limb  big.Int
-		limbs []big.Int = make([]big.Int, len(limbWidths))
-		acc   big.Int
-	)
-	//
-	acc.Set(constant)
-	//for i := 0; constant.Cmp(&zero) != 0; i++ {
-	for i := 0; i != len(limbWidths); i++ {
-		var (
-			bound     = big.NewInt(2)
-			limbWidth = limbWidths[i]
-		)
-		// Determine upper bound
-		bound.Exp(bound, big.NewInt(int64(limbWidth)), nil)
-		//
-		limb.Mod(&acc, bound)
-		limbs[i] = limb
-		//
-		acc.Rsh(&acc, limbWidth)
-	}
-	//
-	if acc.Cmp(&zero) != 0 {
-		panic("constant overflows registers")
-	}
-	//
-	return limbs
-}
-
 // SplitSourceRegisters splits a given set of source registers into "packets" of
 // limbs.  For example, suppose r0 and r1 are source registers of bitwidth
 // (respectively) 16bits and 8bits.  Then, splitting for a maximum width of 8

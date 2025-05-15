@@ -12,10 +12,6 @@
 // SPDX-License-Identifier: Apache-2.0
 package io
 
-import (
-	"math/big"
-)
-
 // Program represents a complete set of functions and related declarations
 // defining a program.
 type Program[T any] interface {
@@ -47,25 +43,4 @@ func (p *program[T]) Function(id uint) Function[T] {
 // Functions returns all functions making up this program.
 func (p *program[T]) Functions() []Function[T] {
 	return p.functions
-}
-
-func splitRegisterValue(maxWidth uint, reg Register, value big.Int, iomap map[string]big.Int) map[string]big.Int {
-	var (
-		nlimbs = NumberOfLimbs(maxWidth, reg.Width)
-	)
-	//
-	if nlimbs == 1 {
-		// no splitting required
-		iomap[reg.Name] = value
-	} else {
-		// splitting required
-		regs := SplitRegister(maxWidth, reg)
-		values := SplitValueAcrossRegisters(&value, regs...)
-		//
-		for i, limb := range regs {
-			iomap[limb.Name] = values[i]
-		}
-	}
-	//
-	return iomap
 }
