@@ -13,9 +13,7 @@
 package micro
 
 import (
-	"math/big"
-
-	"github.com/consensys/go-corset/pkg/asm/insn"
+	"github.com/consensys/go-corset/pkg/asm/io"
 )
 
 // Ret signals a return from the enclosing function.
@@ -25,38 +23,17 @@ type Ret struct {
 	dummy uint
 }
 
-// Bind any labels contained within this instruction using the given label map.
-func (p *Ret) Bind(labels []uint) {
-	// no-op
-}
-
 // Clone this micro code.
 func (p *Ret) Clone() Code {
 	return p
 }
 
-// Execute a ret instruction by signaling a return from the enclosing function.
-func (p *Ret) Execute(pc uint, state []big.Int, regs []Register) uint {
-	return insn.RETURN
-}
-
-// MicroExecute a given micro-code, using a given set of register values.  This
-// may update the register values, and returns either the number of micro-codes
-// to "skip over" when executing the enclosing instruction or, if skip==0, a
-// destination program counter (which can signal return of enclosing function).
-func (p *Ret) MicroExecute(state []big.Int, regs []Register) (uint, uint) {
-	return 0, insn.RETURN
-}
-
-// Lower this instruction into a exactly one more micro instruction.
-func (p *Ret) Lower(pc uint) Instruction {
-	// Lowering here produces an instruction containing a single microcode.
-	return Instruction{[]Code{p}}
-}
-
-// Registers returns the set of registers read/written by this instruction.
-func (p *Ret) Registers() []uint {
-	return nil
+// MicroExecute a given micro-code, using a given local state.  This may update
+// the register values, and returns either the number of micro-codes to "skip
+// over" when executing the enclosing instruction or, if skip==0, a destination
+// program counter (which can signal return of enclosing function).
+func (p *Ret) MicroExecute(state io.State) (uint, uint) {
+	return 0, io.RETURN
 }
 
 // RegistersRead returns the set of registers read by this instruction.
@@ -75,11 +52,11 @@ func (p *Ret) Split(env *RegisterSplittingEnvironment) []Code {
 	return []Code{p}
 }
 
-func (p *Ret) String(regs []Register) string {
+func (p *Ret) String(fn io.Function[Instruction]) string {
 	return "ret"
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Ret) Validate(fieldWidth uint, regs []Register) error {
+func (p *Ret) Validate(fieldWidth uint, fn io.Function[Instruction]) error {
 	return nil
 }

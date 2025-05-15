@@ -16,7 +16,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/consensys/go-corset/pkg/asm/insn"
+	"github.com/consensys/go-corset/pkg/asm/io"
 )
 
 // Skip microcode performs a conditional skip over a given number of codes. The
@@ -46,37 +46,32 @@ func (p *Skip) Clone() Code {
 	}
 }
 
-// MicroExecute a given micro-code, using a given set of register values.  This
-// may update the register values, and returns either the number of micro-codes
-// to "skip over" when executing the enclosing instruction or, if skip==0, a
-// destination program counter (which can signal return of enclosing function).
-func (p *Skip) MicroExecute(state []big.Int, regs []Register) (uint, uint) {
+// MicroExecute a given micro-code, using a given local state.  This may update
+// the register values, and returns either the number of micro-codes to "skip
+// over" when executing the enclosing instruction or, if skip==0, a destination
+// program counter (which can signal return of enclosing function).
+func (p *Skip) MicroExecute(state io.State) (uint, uint) {
 	var (
-		lhs = state[p.Left]
-		rhs big.Int
+		lhs = state.Load(p.Left)
+		rhs *big.Int
 	)
 	//
-	if p.Right != insn.UNUSED_REGISTER {
-		rhs = state[p.Right]
+	if p.Right != io.UNUSED_REGISTER {
+		rhs = state.Load(p.Right)
 	} else {
-		rhs = p.Constant
+		rhs = &p.Constant
 	}
 	//
-	if lhs.Cmp(&rhs) != 0 {
+	if lhs.Cmp(rhs) != 0 {
 		return 1 + p.Skip, 0
 	} else {
 		return 1, 0
 	}
 }
 
-// Registers returns the set of registers read/written by this instruction.
-func (p *Skip) Registers() []uint {
-	return p.RegistersRead()
-}
-
 // RegistersRead returns the set of registers read by this instruction.
 func (p *Skip) RegistersRead() []uint {
-	if p.Right != insn.UNUSED_REGISTER {
+	if p.Right != io.UNUSED_REGISTER {
 		return []uint{p.Left}
 	}
 	//
@@ -99,16 +94,16 @@ func (p *Skip) Split(env *RegisterSplittingEnvironment) []Code {
 		skip     = p.Skip + n - 1
 	)
 	//
-	if p.Right != insn.UNUSED_REGISTER {
+	if p.Right != io.UNUSED_REGISTER {
 		rhsLimbs := env.SplitTargetRegisters(p.Right)
 		for i := uint(0); i < n; i++ {
 			ncode := &Skip{lhsLimbs[i], rhsLimbs[i], p.Constant, skip - i}
 			ncodes = append(ncodes, ncode)
 		}
 	} else {
-		constantLimbs := env.SplitConstant(p.Constant, n)
+		constantLimbs := io.SplitConstant(n, env.maxWidth, p.Constant)
 		for i := uint(0); i < n; i++ {
-			ncode := &Skip{lhsLimbs[i], insn.UNUSED_REGISTER, constantLimbs[i], skip - i}
+			ncode := &Skip{lhsLimbs[i], io.UNUSED_REGISTER, constantLimbs[i], skip - i}
 			ncodes = append(ncodes, ncode)
 		}
 	}
@@ -116,22 +111,24 @@ func (p *Skip) Split(env *RegisterSplittingEnvironment) []Code {
 	return ncodes
 }
 
-func (p *Skip) String(regs []Register) string {
-	var l = regs[p.Left].Name
+func (p *Skip) String(fn io.Function[Instruction]) string {
+	var (
+		l = fn.Register(p.Left).Name
+	)
 	//
-	if p.Right != insn.UNUSED_REGISTER {
-		return fmt.Sprintf("skip %s!=%s %d", l, regs[p.Right].Name, p.Skip)
+	if p.Right != io.UNUSED_REGISTER {
+		return fmt.Sprintf("skip %s!=%s %d", l, fn.Register(p.Right).Name, p.Skip)
 	}
 	//
 	return fmt.Sprintf("skip %s!=%s %d", l, p.Constant.String(), p.Skip)
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Skip) Validate(fieldWidth uint, regs []Register) error {
-	lw := regs[p.Left].Width
+func (p *Skip) Validate(fieldWidth uint, fn io.Function[Instruction]) error {
+	var lw = fn.Register(p.Left).Width
 	//
-	if p.Right != insn.UNUSED_REGISTER {
-		rw := regs[p.Right].Width
+	if p.Right != io.UNUSED_REGISTER {
+		rw := fn.Register(p.Right).Width
 		//
 		if lw != rw {
 			return fmt.Errorf("bit mismatch (%dbits vs %dbits)", lw, rw)

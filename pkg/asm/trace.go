@@ -13,107 +13,152 @@
 package asm
 
 import (
-	"github.com/consensys/go-corset/pkg/asm/macro"
-	"github.com/consensys/go-corset/pkg/asm/micro"
+	"math/big"
+
+	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/asm/io/macro"
+	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	tr "github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/util/field"
 )
 
-// Trace represents the trace of a given program (either macro or micro).
-type Trace[T any] interface {
-	// Program for which this is a trace of
-	Program() Program[T]
-	// Input / Outputs of all functions
-	Instances() []FunctionInstance
-	// Insert all instances into this trace
-	InsertAll(instances []FunctionInstance)
-}
+// MacroTrace represents a program trace at the macro level.
+type MacroTrace = io.Trace[macro.Instruction]
+
+// MicroTrace represents a program trace at the micro level.
+type MicroTrace = io.Trace[micro.Instruction]
 
 // LowerTraces lowers macro-level traces to micro-level traces according to a given lowering config.
-func LowerTraces(config LoweringConfig, traces ...Trace[macro.Instruction]) []Trace[micro.Instruction] {
-	utraces := make([]Trace[micro.Instruction], len(traces))
+func LowerTraces(config LoweringConfig, traces ...io.Trace[macro.Instruction]) []io.Trace[micro.Instruction] {
+	utraces := make([]MicroTrace, len(traces))
 	//
 	for i, tr := range traces {
-		mtr := tr.(*MacroTrace) // ugly
-		utrace := mtr.Lower(config)
-		utraces[i] = &utrace
+		utrace := LowerMacroTrace(config, tr)
+		utraces[i] = utrace
 	}
 	//
 	return utraces
 }
 
-// ============================================================================
-// Micro trace
-// ============================================================================
-
-// MicroTrace represents the trace of a micro program.
-type MicroTrace struct {
-	// Program for which this is a trace of
-	program MicroProgram
-	// Input / Outputs of given function
-	instances []FunctionInstance
-}
-
-// Program for which this is a trace of
-func (p *MicroTrace) Program() Program[micro.Instruction] {
-	return &p.program
-}
-
-// Instances returns the input / outputs of all functions
-func (p *MicroTrace) Instances() []FunctionInstance {
-	return p.instances
-}
-
-// InsertAll inserts all the given function instances into this trace.
-func (p *MicroTrace) InsertAll(instances []FunctionInstance) {
-	// FIXME: sort and remove duplicates
-	p.instances = append(p.instances, instances...)
-}
-
-// Lower this micro trace to a set of raw columns.
-func (p *MicroTrace) Lower() []tr.RawColumn {
-	builder := NewTraceBuilder(&p.program)
+// LowerMicroTrace this micro trace to a set of raw columns.
+func LowerMicroTrace(p MicroTrace) []tr.RawColumn {
+	builder := NewTraceExpander(p.Program())
 	return builder.Build(p)
 }
 
-// ============================================================================
-// Macro trace
-// ============================================================================
-
-// MacroTrace represents the trace of a macro program.
-type MacroTrace struct {
-	// Program for which this is a trace of
-	program MacroProgram
-	// Input / Outputs of given function
-	instances []FunctionInstance
-}
-
-// Program for which this is a trace of
-func (p *MacroTrace) Program() Program[macro.Instruction] {
-	return &p.program
-}
-
-// Instances returns the input / outputs of all functions
-func (p *MacroTrace) Instances() []FunctionInstance {
-	return p.instances
-}
-
-// InsertAll inserts all the given function instances into this trace.
-func (p *MacroTrace) InsertAll(instances []FunctionInstance) {
-	// FIXME: sort and remove duplicates
-	p.instances = append(p.instances, instances...)
-}
-
-// Lower this macro trace into a micro trace according to a given lowering
-// config.
-func (p *MacroTrace) Lower(cfg LoweringConfig) MicroTrace {
+// LowerMacroTrace this macro trace into a micro trace according to a given
+// lowering config.
+func LowerMacroTrace(cfg LoweringConfig, trace MacroTrace) MicroTrace {
 	var (
-		microProgram                      = p.program.Lower(cfg)
-		microInstances []FunctionInstance = make([]FunctionInstance, len(p.instances))
+		macroProgram   = trace.Program()
+		microProgram   = Lower(cfg, trace.Program())
+		microInstances = make([]io.FunctionInstance, len(trace.Instances()))
 	)
 	//
-	for i, inst := range p.instances {
-		microInstances[i] = inst.Lower(cfg, p.program)
+	for i, inst := range trace.Instances() {
+		microInstances[i] = io.SplitInstance(cfg.MaxRegisterWidth, inst, macroProgram)
+	}
+	// Done
+	return io.NewTrace(microProgram, microInstances...)
+}
+
+// ============================================================================
+// Helper
+// ============================================================================
+
+// sets the maximum width of the program counter.
+const pc_width = uint(8)
+
+// TraceExpander provides a mechanical means of constructing a trace from a given
+// schema and set of input columns.  The goal is to encapsulate all of the logic
+// around building a trace.
+type TraceExpander[T io.Instruction[T]] struct {
+	program io.Program[T]
+}
+
+// NewTraceExpander constructs a new trace builder for a given set of functions.
+func NewTraceExpander[T io.Instruction[T]](program io.Program[T]) *TraceExpander[T] {
+	return &TraceExpander[T]{program}
+}
+
+// Build constructs a complete trace, given a set of function instances.
+func (p *TraceExpander[T]) Build(trace io.Trace[T]) []tr.RawColumn {
+	var columns []tr.RawColumn
+	//
+	for i := range p.program.Functions() {
+		fncols := p.expandFunctionInstances(uint(i), trace)
+		columns = append(columns, fncols...)
 	}
 	//
-	return MicroTrace{microProgram, microInstances}
+	return columns
+}
+
+func (p *TraceExpander[T]) expandFunctionInstances(fid uint, trace io.Trace[T]) []tr.RawColumn {
+	var (
+		fn      = p.program.Function(fid)
+		data    = make([][]big.Int, len(fn.Registers())+2)
+		columns = make([]tr.RawColumn, len(fn.Registers())+2)
+		stamp   = uint(1)
+	)
+	//
+	for _, inst := range trace.Instances() {
+		if inst.Function == fid {
+			data = p.traceFunction(fid, stamp, data, inst)
+			stamp = stamp + 1
+		}
+	}
+	// Construct stamp column
+	columns[0] = tr.RawColumn{
+		Module: fn.Name(),
+		Name:   "$stamp",
+		Data:   field.FrArrayFromBigInts(32, data[0]),
+	}
+	// Construct PC column
+	columns[1] = tr.RawColumn{
+		Module: fn.Name(),
+		Name:   "$pc",
+		Data:   field.FrArrayFromBigInts(pc_width, data[1]),
+	}
+	// Construct register columns.
+	for i, r := range fn.Registers() {
+		data := field.FrArrayFromBigInts(r.Width, data[i+2])
+		columns[i+2] = tr.RawColumn{
+			Module: fn.Name(),
+			Name:   r.Name,
+			Data:   data,
+		}
+	}
+	//
+	return columns
+}
+
+func (p *TraceExpander[T]) traceFunction(fid uint, stamp uint, trace [][]big.Int,
+	instance io.FunctionInstance) [][]big.Int {
+	//
+	interpreter := NewInterpreter(p.program)
+	// Initialise state
+	init := interpreter.Bind(fid, instance.Inputs)
+	biStamp := big.NewInt(int64(stamp))
+	//
+	interpreter.Enter(fid, init)
+	//
+	for !interpreter.HasTerminated() {
+		pc := big.NewInt(int64(interpreter.State().pc))
+		//
+		trace[0] = append(trace[0], *biStamp)
+		trace[1] = append(trace[1], *pc)
+		// Execute
+		interpreter.Execute(1)
+		// Record register state
+		for i, v := range interpreter.State().registers {
+			// Clone value to prevent side-effects
+			var ith big.Int
+			//
+			ith.Set(&v)
+			// Update column for this register.
+			trace[i+2] = append(trace[i+2], ith)
+		}
+	}
+	//
+	return trace
 }

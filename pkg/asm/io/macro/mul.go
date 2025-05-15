@@ -10,14 +10,14 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package micro
+package macro
 
 import (
 	"fmt"
 	"math/big"
-	"slices"
 
-	"github.com/consensys/go-corset/pkg/asm/insn"
+	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/asm/io/micro"
 )
 
 // Mul represents a generic operation of the following form:
@@ -45,62 +45,35 @@ type Mul struct {
 	Constant big.Int
 }
 
-// Clone this micro code.
-func (p *Mul) Clone() Code {
-	var constant big.Int
-	//
-	constant.Set(&p.Constant)
-	//
-	return &Mul{
-		slices.Clone(p.Targets),
-		slices.Clone(p.Sources),
-		constant,
-	}
-}
-
-// Bind any labels contained within this instruction using the given label map.
-func (p *Mul) Bind(labels []uint) {
-	// no-op
-}
-
-// Execute a given instruction at a given program counter position, using a
-// given set of register values.  This may update the register values, and
-// returns the next program counter position.  If the program counter is
-// math.MaxUint then a return is signaled.
-func (p *Mul) Execute(pc uint, state []big.Int, regs []Register) uint {
-	p.MicroExecute(state, regs)
-	return pc + 1
-}
-
-// MicroExecute a given micro-code, using a given set of register values.  This
-// may update the register values, and returns either the number of micro-codes
-// to "skip over" when executing the enclosing instruction or, if skip==0, a
-// destination program counter (which can signal return of enclosing function).
-func (p *Mul) MicroExecute(state []big.Int, regs []Register) (uint, uint) {
+// Execute this instruction with the given local and global state.  The next
+// program counter position is returned, or io.RETURN if the enclosing
+// function has terminated (i.e. because a return instruction was
+// encountered).
+func (p *Mul) Execute(state io.State) uint {
 	var value big.Int
 	// Assign first value
-	value.Set(&state[p.Sources[0]])
+	value.Set(state.Load(p.Sources[0]))
 	// Multiply register values
 	for _, src := range p.Sources[1:] {
-		value.Mul(&value, &state[src])
+		value.Mul(&value, state.Load(src))
 	}
 	// Multiply constant
 	value.Mul(&value, &p.Constant)
 	// Write value
-	insn.WriteTargetRegisters(p.Targets, state, regs, value)
+	state.Store(value, p.Targets...)
 	//
-	return 1, 0
+	return state.Next()
 }
 
 // Lower this instruction into a exactly one more micro instruction.
-func (p *Mul) Lower(pc uint) Instruction {
+func (p *Mul) Lower(pc uint) micro.Instruction {
+	code := &micro.Mul{
+		Targets:  p.Targets,
+		Sources:  p.Sources,
+		Constant: p.Constant,
+	}
 	// Lowering here produces an instruction containing a single microcode.
-	return Instruction{[]Code{p, &Jmp{Target: pc + 1}}}
-}
-
-// Registers returns the set of registers read/written by this instruction.
-func (p *Mul) Registers() []uint {
-	return append(p.Targets, p.Sources...)
+	return micro.NewInstruction(code, &micro.Jmp{Target: pc + 1})
 }
 
 // RegistersRead returns the set of registers read by this instruction.
@@ -113,26 +86,14 @@ func (p *Mul) RegistersWritten() []uint {
 	return p.Targets
 }
 
-// Split this micro code using registers of arbirary width into one or more
-// micro codes using registers of a fixed maximum width.
-func (p *Mul) Split(env *RegisterSplittingEnvironment) []Code {
-	// Temporary hack
-	for _, r := range p.Registers() {
-		if env.regsBefore[r].Width >= env.maxWidth {
-			panic("splitting multiplication not supported")
-		}
-	}
-	//
-	return []Code{p}
-}
-
-func (p *Mul) String(regs []Register) string {
-	return assignmentToString(p.Targets, p.Sources, p.Constant, regs, one, " * ")
+func (p *Mul) String(fn io.Function[Instruction]) string {
+	return assignmentToString(p.Targets, p.Sources, p.Constant, fn, one, " * ")
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Mul) Validate(fieldWidth uint, regs []Register) error {
+func (p *Mul) Validate(fieldWidth uint, fn io.Function[Instruction]) error {
 	var (
+		regs     = fn.Registers()
 		lhs_bits = sumTargetBits(p.Targets, regs)
 		rhs_bits = mulSourceBits(p.Sources, p.Constant, regs)
 	)
@@ -143,10 +104,10 @@ func (p *Mul) Validate(fieldWidth uint, regs []Register) error {
 		return fmt.Errorf("field overflow (%d bits into %d bit field)", rhs_bits, fieldWidth)
 	}
 	//
-	return insn.CheckTargetRegisters(p.Targets, regs)
+	return io.CheckTargetRegisters(p.Targets, regs)
 }
 
-func mulSourceBits(sources []uint, constant big.Int, regs []Register) uint {
+func mulSourceBits(sources []uint, constant big.Int, regs []io.Register) uint {
 	var rhs big.Int
 	//
 	rhs.Set(&one)

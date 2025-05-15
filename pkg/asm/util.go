@@ -20,7 +20,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/consensys/go-corset/pkg/asm/macro"
+	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/util"
 )
 
@@ -29,10 +29,10 @@ type traceMap map[string][]big.Int
 
 // ReadBatchedTraceFile reads a file containing zero or more traces expressed as JSON, where
 // each trace is on a separate line.
-func ReadBatchedTraceFile(filename string, program MacroProgram) []Trace[macro.Instruction] {
+func ReadBatchedTraceFile(filename string, program MacroProgram) []MacroTrace {
 	var (
 		lines  = util.ReadInputFile(filename)
-		traces []Trace[macro.Instruction]
+		traces []MacroTrace
 	)
 	// Read constraints line by line
 	for i, line := range lines {
@@ -44,7 +44,7 @@ func ReadBatchedTraceFile(filename string, program MacroProgram) []Trace[macro.I
 				panic(msg)
 			}
 			//
-			traces = append(traces, &tr)
+			traces = append(traces, tr)
 		}
 	}
 
@@ -57,7 +57,7 @@ func ReadTraceFile(filename string, program MacroProgram) (MacroTrace, error) {
 	bytes, err := os.ReadFile(filename)
 	// Check for errors
 	if err != nil {
-		return MacroTrace{}, err
+		return nil, err
 	}
 	//
 	return ReadTrace(bytes, program)
@@ -68,40 +68,43 @@ func ReadTraceFile(filename string, program MacroProgram) (MacroTrace, error) {
 func ReadTrace(bytes []byte, program MacroProgram) (MacroTrace, error) {
 	var (
 		traces tracesMap
-		trace  MacroTrace = MacroTrace{program, nil}
+		fnMap  map[string]uint = make(map[string]uint, 0)
+		trace  MacroTrace      = io.NewTrace(program)
 	)
 	// Unmarshall
 	jsonErr := json.Unmarshal(bytes, &traces)
 	if jsonErr != nil {
 		return trace, jsonErr
 	}
-	//
+	// Build function map
 	for i, fn := range program.Functions() {
-		tr, ok := traces[fn.Name]
-		// Sanity check
+		fnMap[fn.Name()] = uint(i)
+	}
+	// Read trace instances
+	for f, tr := range traces {
+		fid, ok := fnMap[f]
 		if !ok {
-			return trace, fmt.Errorf("missing inputs/outputs for function %s", fn.Name)
+			return nil, fmt.Errorf("unknown function %s in trace", f)
 		}
-		//
-		fnInsts, err := readTraceInstances(tr, uint(i), fn)
-		//
+		// Read instances
+		fnInsts, err := readTraceInstances(tr, fid, program.Function(fid))
 		if err != nil {
 			return trace, err
 		}
-		//
+		// Insert all
 		trace.InsertAll(fnInsts)
 	}
 	//
 	return trace, nil
 }
 
-func readTraceInstances[T any](trace traceMap, fid uint, fn Function[T]) ([]FunctionInstance, error) {
+func readTraceInstances[T any](trace traceMap, fid uint, fn io.Function[T]) ([]io.FunctionInstance, error) {
 	var (
 		height uint = math.MaxUint
 		count       = 0
 	)
 	// Initialise register map
-	for _, reg := range fn.Registers {
+	for _, reg := range fn.Registers() {
 		is_ioreg := (reg.IsInput() || reg.IsOutput())
 		//
 		if _, ok := trace[reg.Name]; !ok && is_ioreg {
@@ -124,17 +127,17 @@ func readTraceInstances[T any](trace traceMap, fid uint, fn Function[T]) ([]Func
 		}
 	}
 	//
-	instances := make([]FunctionInstance, height)
+	instances := make([]io.FunctionInstance, height)
 	// Parse the trace
 	for i := uint(0); i < height; i++ {
 		// Initialise ith function instance
-		var instance FunctionInstance
+		var instance io.FunctionInstance
 		//
 		instance.Function = fid
 		instance.Inputs = make(map[string]big.Int)
 		instance.Outputs = make(map[string]big.Int)
 
-		for _, reg := range fn.Registers {
+		for _, reg := range fn.Registers() {
 			is_ioreg := (reg.IsInput() || reg.IsOutput())
 			// Only consider input / output registers
 			if is_ioreg {

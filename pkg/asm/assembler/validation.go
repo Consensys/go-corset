@@ -10,60 +10,51 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package asm
+package assembler
 
 import (
 	"fmt"
-	"math"
 
-	"github.com/consensys/go-corset/pkg/asm/insn"
-	"github.com/consensys/go-corset/pkg/asm/macro"
-	"github.com/consensys/go-corset/pkg/asm/micro"
+	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/asm/io/macro"
+	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
 
-// Register describes a single register within a function.
-type Register = insn.Register
+// MicroProgram is a program using micro instructions.
+type MicroProgram = io.Program[micro.Instruction]
 
-// Assemble takes a given set of assembly files, and parses them into a given
-// set of functions.  This includes performing various checks on the files, such
-// as type checking, etc.
-func Assemble(assembly ...source.File) (MacroProgram, source.Maps[macro.Instruction], []source.SyntaxError) {
-	var (
-		program MacroProgram
-		errors  []source.SyntaxError
-		srcmaps source.Maps[macro.Instruction] = *source.NewSourceMaps[macro.Instruction]()
-	)
-	// Parse each file in turn.
-	for _, asm := range assembly {
-		p, srcmap, errs := Parse(&asm)
-		if len(errs) == 0 {
-			program.functions = append(program.functions, p.functions...)
-		}
-		// Join srcmap
-		srcmaps.Join(srcmap)
-		//
-		errors = append(errors, errs...)
+// MacroProgram is a program using macro instructions.
+type MacroProgram = io.Program[macro.Instruction]
+
+// Validate checks that a given set of functions are well-formed.  For
+// example, an assignment "x,y = z" must be balanced (i.e. number of bits on lhs
+// must match number on rhs).  Likewise, registers cannot be used before they
+// are defined, and all control-flow paths must reach a "ret" instruction.
+// Finally, we cannot assign to an input register under the current calling
+// convention.
+func Validate(fieldWidth uint, program MacroProgram, srcmaps source.Maps[any]) []source.SyntaxError {
+	var errors []source.SyntaxError
+	//
+	for _, fn := range program.Functions() {
+		errors = append(errors, validateInstructions(fieldWidth, fn, srcmaps)...)
+		errors = append(errors, validateControlFlow(fn, srcmaps)...)
 	}
-	// Well-formedness checks
-	for _, fn := range program.functions {
-		errors = append(errors, checkWellFormed(fn, srcmaps)...)
-	}
-	// Done
-	return program, srcmaps, errors
+	//
+	return errors
 }
 
-// check that a given set of functions are well-formed.  For example, an
-// assignment "x,y = z" must be balanced (i.e. number of bits on lhs must match
-// number on rhs).  Likewise, registers cannot be used before they are defined,
-// and all control-flow paths must reach a "ret" instruction.  Finally, we
-// cannot assign to an input register under the current calling convention.
-func checkWellFormed(fn MacroFunction, srcmaps source.Maps[macro.Instruction]) []source.SyntaxError {
-	balance_errs := checkInstructionsBalance(fn, srcmaps)
-	flow_errs := checkInstructionsFlow(fn, srcmaps)
+// ValidateMicro a micro program.  This is more challenging as we have no
+// available source mapping information.  Instead, we just panic upon
+// encountering an error.
+func ValidateMicro(fieldWidth uint, program MicroProgram) {
+	var srcmap source.Maps[any]
 	//
-	return append(balance_errs, flow_errs...)
+	for _, fn := range program.Functions() {
+		// TODO: support control-flow checks as well.
+		validateInstructions(fieldWidth, fn, srcmap)
+	}
 }
 
 // Check that each instruction in the function's body is correctly balanced.
@@ -72,13 +63,19 @@ func checkWellFormed(fn MacroFunction, srcmaps source.Maps[macro.Instruction]) [
 // y + 1" where both x and y are byte registers.  This does not balance because
 // the right-hand side generates 9 bits but the left-hand side can only consume
 // 8bits.
-func checkInstructionsBalance(fn MacroFunction, srcmaps source.Maps[macro.Instruction]) []source.SyntaxError {
+func validateInstructions[T io.Instruction[T]](fieldWidth uint, fn io.Function[T],
+	srcmaps source.Maps[any]) []source.SyntaxError {
+	//
 	var errors []source.SyntaxError
 
-	for _, insn := range fn.Code {
-		err := insn.Validate(math.MaxUint, fn.Registers)
+	for _, insn := range fn.Code() {
+		err := insn.Validate(fieldWidth, fn)
 		//
 		if err != nil {
+			if !srcmaps.Has(insn) {
+				panic(err)
+			}
+			//
 			errors = append(errors, *srcmaps.SyntaxError(insn, err.Error()))
 		}
 	}
@@ -92,14 +89,14 @@ func checkInstructionsBalance(fn MacroFunction, srcmaps source.Maps[macro.Instru
 // implemented using a straightforward dataflow analysis.  One aspect worth
 // noting is that the dataflow sets hold true for registers which are undefined,
 // and false for registers which are defined.
-func checkInstructionsFlow(fn MacroFunction, srcmaps source.Maps[macro.Instruction]) []source.SyntaxError {
+func validateControlFlow(fn MacroFunction, srcmaps source.Maps[any]) []source.SyntaxError {
 	var (
-		n          = uint(len(fn.Code))
+		n          = uint(len(fn.Code()))
 		errors     []source.SyntaxError
 		entryState bit.Set
 	)
 	// Initialise entry state (since these are assigned on entry)
-	for i, r := range fn.Registers {
+	for i, r := range fn.Registers() {
 		if !r.IsInput() {
 			entryState.Insert(uint(i))
 		}
@@ -114,9 +111,9 @@ func checkInstructionsFlow(fn MacroFunction, srcmaps source.Maps[macro.Instructi
 		errors = append(errors, errs...)
 	}
 	// Sanity check all instructions reachable.
-	for pc := 0; pc < len(fn.Code); pc++ {
+	for pc, insn := range fn.Code() {
 		if !worklist.Visited(uint(pc)) {
-			errors = append(errors, *srcmaps.SyntaxError(fn.Code[pc], "unreachable"))
+			errors = append(errors, *srcmaps.SyntaxError(insn, "unreachable"))
 		}
 	}
 	//
@@ -126,31 +123,31 @@ func checkInstructionsFlow(fn MacroFunction, srcmaps source.Maps[macro.Instructi
 // Abstractly execute a given vector instruction with respect to a given state
 // at the beginning of the instruction.
 func applyInstructionSemantics(worklist *Worklist, fn MacroFunction,
-	srcmaps source.Maps[macro.Instruction]) []source.SyntaxError {
+	srcmaps source.Maps[any]) []source.SyntaxError {
 	//
 	var errors []source.SyntaxError
 	// Pop the next item from the stack
 	pc, state := worklist.Pop()
-	insn := fn.Code[pc]
+	insn := fn.CodeAt(pc)
 	// Apply effect of instruction on state
 	state, errors = applyInstructionFlow(insn, state, fn, srcmaps)
 	// Propagate state along branches
 	switch insn := insn.(type) {
-	case *micro.Jmp:
+	case *macro.Goto:
 		// Unconditional jump target
 		worklist.Join(insn.Target, state)
-	case *macro.JCond:
+	case *macro.IfGoto:
 		// Conditional jump target
 		worklist.Join(insn.Target, state)
 		// Fall thru
 		worklist.Join(pc+1, state)
-	case *micro.Ret:
+	case *macro.Return:
 		// Check all outputs are assigned
 		errs := checkOutputsAssigned(insn, state, fn, srcmaps)
 		errors = append(errors, errs...)
 	default:
 		// Check not falling off the end
-		if pc+1 == uint(len(fn.Code)) {
+		if pc+1 == uint(len(fn.Code())) {
 			errors = append(errors, *srcmaps.SyntaxError(insn, "missing ret"))
 		} else {
 			// fall through cases
@@ -164,13 +161,13 @@ func applyInstructionSemantics(worklist *Worklist, fn MacroFunction,
 // Apply the dataflow transfer function (i.e. the effects of given instruction
 // on the record of which registesr are definitely assigned).
 func applyInstructionFlow(microinsn macro.Instruction, state bit.Set, fn MacroFunction,
-	srcmaps source.Maps[macro.Instruction]) (bit.Set, []source.SyntaxError) {
+	srcmaps source.Maps[any]) (bit.Set, []source.SyntaxError) {
 	//
 	var errors []source.SyntaxError
 	// Ensure every register read has been defined.
 	for _, r := range microinsn.RegistersRead() {
 		if state.Contains(r) {
-			msg := fmt.Sprintf("register %s possibly undefined", fn.Registers[r].Name)
+			msg := fmt.Sprintf("register %s possibly undefined", fn.Register(r).Name)
 			errors = append(errors, *srcmaps.SyntaxError(microinsn, msg))
 			// mark as defined to avoid follow on errors
 			state.Remove(r)
@@ -187,11 +184,11 @@ func applyInstructionFlow(microinsn macro.Instruction, state bit.Set, fn MacroFu
 // Check that all output registers have been definitely assigned at the point of
 // a return.
 func checkOutputsAssigned(insn macro.Instruction, state bit.Set, fn MacroFunction,
-	srcmaps source.Maps[macro.Instruction]) []source.SyntaxError {
+	srcmaps source.Maps[any]) []source.SyntaxError {
 	//
 	var errors []source.SyntaxError
 	//
-	for i, r := range fn.Registers {
+	for i, r := range fn.Registers() {
 		if r.IsOutput() && state.Contains(uint(i)) {
 			msg := fmt.Sprintf("output %s possibly undefined", r.Name)
 			errors = append(errors, *srcmaps.SyntaxError(insn, msg))

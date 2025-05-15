@@ -25,7 +25,6 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/asm"
-	"github.com/consensys/go-corset/pkg/asm/macro"
 	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/hir"
@@ -585,7 +584,7 @@ func ReadAssemblyFile(cfg asm.LoweringConfig, filename string) *binfile.BinaryFi
 }
 
 // ReadAssemblyProgram reads a given set of assembly files into a (macro) assembly program.
-func ReadAssemblyProgram(filenames ...string) (asm.MacroProgram, source.Maps[macro.Instruction]) {
+func ReadAssemblyProgram(filenames ...string) (asm.MacroProgram, source.Maps[any]) {
 	srcfiles, err := source.ReadFiles(filenames...)
 	//
 	if err != nil {
@@ -604,7 +603,7 @@ func ReadAssemblyProgram(filenames ...string) (asm.MacroProgram, source.Maps[mac
 	// Fail
 	os.Exit(4)
 	// Unreachable
-	return asm.MacroProgram{}, srcmaps
+	return nil, srcmaps
 }
 
 // ReadAssemblyTrace reads a top-level trace file which consists only of function instances.
