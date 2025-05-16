@@ -55,6 +55,17 @@ import org.apache.tuweni.bytes.Bytes;
 `
 
 // nolint
+const javaColumnHeader string = `
+   /**
+    * ColumnHeader contains information about a given column in the resulting trace file.
+    *
+    * @param name Name of the column, as found in the trace file.
+    * @param bytesPerElement Bytes required for each element in the column.
+    */
+   public record ColumnHeader(String name, int register, long bytesPerElement, long length) { }
+`
+
+// nolint
 const javaTraceOf string = `
    /**
     * Construct a new trace which will be written to a given file.
@@ -114,7 +125,7 @@ const javaTraceOf string = `
      ColumnHeader[] alignedHeaders = new ColumnHeader[{ninputs}];
      //
      for(ColumnHeader header : headers) {
-       alignedHeaders[header.register] = header;
+       alignedHeaders[header.register()] = header;
      }
      //
      return alignedHeaders;
@@ -132,7 +143,7 @@ const javaTraceOf string = `
       for (ColumnHeader header : headers) {
 	    if(header != null) {
           nBytes += 2; // name length
-          nBytes += header.name.length();
+          nBytes += header.name().length();
           nBytes += 1; // byte per element
           nBytes += 4; // element count
         }
@@ -152,7 +163,7 @@ const javaTraceOf string = `
 
       for (ColumnHeader header : headers) {
 	    if(header != null) {
-           nBytes += header.length * header.bytesPerElement;
+           nBytes += header.length() * header.bytesPerElement();
         }
       }
 
@@ -176,10 +187,10 @@ const javaTraceOf string = `
       // Write column headers one-by-one
       for(ColumnHeader h : headers) {
 	    if(h != null) {
-          buffer.putShort((short) h.name.length());
-          buffer.put(h.name.getBytes());
-          buffer.put((byte) h.bytesPerElement);
-          buffer.putInt((int) h.length);
+          buffer.putShort((short) h.name().length());
+          buffer.put(h.name().getBytes());
+          buffer.put((byte) h.bytesPerElement());
+          buffer.putInt((int) h.length());
         }
       }
    }
@@ -197,7 +208,7 @@ const javaTraceOf string = `
       for(int i=0;i<headers.length;i++) {
 	    if(headers[i] != null) {
           // Determine size (in bytes) required to store all elements of this column.
-          long length = headers[i].length * headers[i].bytesPerElement;
+          long length = headers[i].length() * headers[i].bytesPerElement();
           // Preallocate space for this column.
           buffers[i] = file.getChannel().map(FileChannel.MapMode.READ_WRITE, offset, length);
           //
@@ -218,12 +229,4 @@ const javaTraceOf string = `
 	 }
      return count;
    }
-
-   /**
-    * ColumnHeader contains information about a given column in the resulting trace file.
-    *
-    * @param name Name of the column, as found in the trace file.
-    * @param bytesPerElement Bytes required for each element in the column.
-    */
-   public record ColumnHeader(String name, int register, long bytesPerElement, long length) { }
 `

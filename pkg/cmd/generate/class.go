@@ -175,7 +175,7 @@ func generateJavaModuleHeaders(mid uint, mod corset.SourceModule, schema *hir.Sc
 		if column.Context.Module() == mid {
 			// Yes, include register
 			if count == 0 {
-				builder.WriteIndentedString("public static List<ColumnHeader> headers(int length) {\n")
+				builder.WriteIndentedString("public List<ColumnHeader> headers(int length) {\n")
 				i1Builder.WriteIndentedString("List<ColumnHeader> headers = new ArrayList<>();\n")
 			}
 			//
@@ -224,6 +224,7 @@ func generateJavaModuleConstants(spillage uint, constants []corset.SourceConstan
 	}
 	//
 	builder.WriteIndentedString("public static final int SPILLAGE = ", fmt.Sprintf("%d", spillage), ";\n")
+	builder.WriteIndentedString("public int spillage() { return SPILLAGE; }\n")
 }
 
 func translateJavaType(datatype schema.Type, value big.Int) (string, string) {

@@ -76,7 +76,9 @@ func generateInterfaceContents(className string, mod corset.SourceModule, builde
 	//
 	generateInterfaceConstants(mod.Constants, builder.Indent())
 	generateInterfaceSubmoduleAccessors(mod.Submodules, builder.Indent())
+	generateInterfaceHeaders(builder.Indent())
 	generateInterfaceColumnSetters(className, mod, builder.Indent())
+	generateInterfaceValidateRow(className, builder.Indent())
 	// Generate any submodules
 	for _, submod := range mod.Submodules {
 		if !submod.Virtual {
@@ -84,6 +86,10 @@ func generateInterfaceContents(className string, mod corset.SourceModule, builde
 		} else {
 			generateInterfaceColumnSetters(className, submod, builder.Indent())
 		}
+	}
+	//
+	if mod.Name == "" {
+		builder.WriteString(javaColumnHeader)
 	}
 	//
 	builder.WriteIndentedString("}\n")
@@ -113,6 +119,10 @@ func generateInterfaceSubmoduleAccessors(submodules []corset.SourceModule, build
 	}
 }
 
+func generateInterfaceHeaders(builder indentBuilder) {
+	builder.WriteIndentedString("public List<ColumnHeader> headers(int length);\n")
+}
+
 func generateInterfaceConstants(constants []corset.SourceConstant, builder indentBuilder) {
 	for _, constant := range constants {
 		var (
@@ -133,6 +143,8 @@ func generateInterfaceConstants(constants []corset.SourceConstant, builder inden
 		//
 		builder.WriteIndentedString("public final ", javaType, " ", fieldName, " = ", constructor, ";\n")
 	}
+	//
+	builder.WriteIndentedString("public int spillage();\n")
 }
 
 func generateInterfaceColumnSetters(className string, mod corset.SourceModule,
@@ -159,4 +171,14 @@ func generateInterfaceColumnSetter(className string, methodName string, col cors
 	typeStr := getJavaType(bitwidth)
 	//
 	builder.WriteIndentedString("public ", className, " ", methodName, "(final ", typeStr, " val);\n")
+	// Legacy case for bytes
+	if bitwidth == 8 {
+		builder.WriteIndentedString("public ", className, " ", methodName, "(final UnsignedByte val);\n")
+	}
+}
+
+func generateInterfaceValidateRow(className string, builder indentBuilder) {
+	//
+	builder.WriteIndentedString("public ", className, " validateRow();\n")
+	builder.WriteIndentedString("public ", className, " fillAndValidateRow();\n")
 }
