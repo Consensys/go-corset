@@ -18,13 +18,30 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/corset"
 )
 
 // JavaTraceInterface generates a suitable interface capturing the given schema,
 // as outlined in the source map.
-func JavaTraceInterface(filename string, pkgname string, srcmap *corset.SourceMap) (string, error) {
-	//
+func JavaTraceInterface(filename string, pkgname string, binfiles []binfile.BinaryFile) (string, error) {
+	var root corset.SourceModule
+	// Intersect roots to determine set of common functionality.
+	for i, bf := range binfiles {
+		// Extract source map (which we assume is present)
+		srcmap, _ := binfile.GetAttribute[*corset.SourceMap](&bf)
+		//
+		if i == 0 {
+			root = srcmap.Root
+		} else {
+			root = *intersectModules(root, srcmap.Root)
+		}
+	}
+	// Finally, generate the interface
+	return generateInterface(filename, pkgname, root)
+}
+
+func generateInterface(filename string, pkgname string, root corset.SourceModule) (string, error) {
 	var builder strings.Builder
 	// Extract base of filename
 	basename := filepath.Base(filename)
@@ -36,7 +53,7 @@ func JavaTraceInterface(filename string, pkgname string, srcmap *corset.SourceMa
 	classname := strings.TrimSuffix(basename, ".java")
 	// begin generation
 	generateInterfaceHeader(pkgname, &builder)
-	generateInterfaceContents(classname, srcmap.Root, indentBuilder{0, &builder})
+	generateInterfaceContents(classname, root, indentBuilder{0, &builder})
 
 	return builder.String(), nil
 }
@@ -50,11 +67,15 @@ func generateInterfaceHeader(pkgname string, builder *strings.Builder) {
 	//
 	builder.WriteString(javaImports)
 	builder.WriteString(javaWarning)
+	//
+	builder.WriteString(" */\n")
 }
 
 func generateInterfaceContents(className string, mod corset.SourceModule, builder indentBuilder) {
 	builder.WriteIndentedString("public interface ", className, " {\n")
 	//
+	generateInterfaceConstants(mod.Constants, builder.Indent())
+	generateInterfaceSubmoduleAccessors(mod.Submodules, builder.Indent())
 	generateInterfaceColumnSetters(className, mod, builder.Indent())
 	// Generate any submodules
 	for _, submod := range mod.Submodules {
@@ -66,6 +87,52 @@ func generateInterfaceContents(className string, mod corset.SourceModule, builde
 	}
 	//
 	builder.WriteIndentedString("}\n")
+}
+func generateInterfaceSubmoduleAccessors(submodules []corset.SourceModule, builder indentBuilder) {
+	first := true
+	//
+	for _, m := range submodules {
+		// Only consider non-virtual modules (for now)
+		if !m.Virtual {
+			className := toPascalCase(m.Name)
+			// Determine suitable name for field
+			fieldName := toCamelCase(m.Name)
+			// Start submodules section
+			if first {
+				builder.WriteIndentedString("// Submodules\n")
+			}
+			// Yes, it is.
+			builder.WriteIndentedString("public ", className, " ", fieldName, "();\n")
+			//
+			first = false
+		}
+	}
+	//
+	if !first {
+		builder.WriteString("\n")
+	}
+}
+
+func generateInterfaceConstants(constants []corset.SourceConstant, builder indentBuilder) {
+	for _, constant := range constants {
+		var (
+			javaType    string
+			constructor string
+			fieldName   string = strings.ReplaceAll(constant.Name, "-", "_")
+		)
+		// Determine suitable Java type
+		if constant.Value.Sign() < 0 {
+			// TODO: for now, we always skip negative constants since it is
+			// entirely unclear how they should be interpreted.
+			continue
+		} else if constant.DataType != nil {
+			constructor, javaType = translateJavaType(constant.DataType, constant.Value)
+		} else {
+			constructor, javaType = inferJavaType(constant.Value)
+		}
+		//
+		builder.WriteIndentedString("public final ", javaType, " ", fieldName, " = ", constructor, ";\n")
+	}
 }
 
 func generateInterfaceColumnSetters(className string, mod corset.SourceModule,

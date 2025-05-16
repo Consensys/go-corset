@@ -15,7 +15,9 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path"
 
+	"github.com/consensys/go-corset/pkg/asm"
 	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/cmd/generate"
 	"github.com/consensys/go-corset/pkg/corset"
@@ -33,6 +35,7 @@ var generateCmd = &cobra.Command{
 			genInterface bool
 			source       string
 			err          error
+			binfiles     []binfile.BinaryFile
 		)
 		// Configure log level
 		if GetFlag(cmd, "verbose") {
@@ -44,25 +47,24 @@ var generateCmd = &cobra.Command{
 		asmConfig := parseLoweringConfig(cmd)
 		filename := GetString(cmd, "output")
 		pkgname := GetString(cmd, "package")
+		extends := GetString(cmd, "extend")
 		//
 		if inteface := GetString(cmd, "interface"); inteface != "" {
 			genInterface = true
 			filename = inteface
 		}
 		// Parse constraints
-		binf := ReadConstraintFiles(corsetConfig, asmConfig, args)
-		// Sanity check debug information is available.
-		srcmap, srcmap_ok := binfile.GetAttribute[*corset.SourceMap](binf)
+		binfiles = readConstraintFiles(corsetConfig, asmConfig, args)
 		//
-		if !srcmap_ok {
-			fmt.Printf("constraints file(s) \"%s\" missing source map", args[1])
-		} else if genInterface {
-			source, err = generate.JavaTraceInterface(filename, pkgname, srcmap)
+		if genInterface {
+			source, err = generate.JavaTraceInterface(filename, pkgname, binfiles)
 		} else {
-			// NOTE: assume defensive padding is enabled.
-			spillage := determineConservativeSpillage(true, &binf.Schema)
-			// Generate appropriate Java source
-			source, err = generate.JavaTraceClass(filename, pkgname, spillage, srcmap, binf)
+			for _, bf := range binfiles {
+				// NOTE: assume defensive padding is enabled.
+				spillage := determineConservativeSpillage(true, &bf.Schema)
+				// Generate appropriate Java source
+				source, err = generate.JavaTraceClass(filename, pkgname, extends, spillage, &bf)
+			}
 		}
 		// check for errors / write out file.
 		if err != nil {
@@ -73,6 +75,33 @@ var generateCmd = &cobra.Command{
 			os.Exit(1)
 		}
 	},
+}
+
+// Attempt to figure out what the user intended from the given files.  Two easy
+// cases: (1) all lisp files; (2) all binary files.  In the first case, we meant
+// to generate a single binary file from the lisp files.  In the second case,
+// well we just have multiple binary files.  If there's a mixture, it will abort
+// for now.
+func readConstraintFiles(corsetCfg corset.CompilationConfig, asmCfg asm.LoweringConfig,
+	filenames []string) []binfile.BinaryFile {
+	var binfiles []binfile.BinaryFile = make([]binfile.BinaryFile, len(filenames))
+	//
+	for i, f := range filenames {
+		if path.Ext(f) == ".lisp" {
+			binf := ReadConstraintFiles(corsetCfg, asmCfg, filenames)
+			return []binfile.BinaryFile{*binf}
+		}
+		//
+		binfiles[i] = *ReadBinaryFile(f)
+		// Check we have source mapping info.
+		// Sanity check debug information is available.
+		if _, srcmap_ok := binfile.GetAttribute[*corset.SourceMap](&binfiles[i]); !srcmap_ok {
+			fmt.Printf("constraints file(s) \"%s\" missing source map", f)
+			os.Exit(1)
+		}
+	}
+	//
+	return binfiles
 }
 
 //nolint:errcheck

@@ -28,26 +28,29 @@ import (
 )
 
 // JavaTraceClass generates a suitable trace class for Java integration.
-func JavaTraceClass(filename string, pkgname string, spillage []uint, srcmap *corset.SourceMap,
-	binfile *binfile.BinaryFile) (string, error) {
-	//
-	var builder strings.Builder
-	// Extract base of filename
-	basename := filepath.Base(filename)
+func JavaTraceClass(filename string, pkgname string, super string, spillage []uint,
+	binf *binfile.BinaryFile) (string, error) {
+	var (
+		builder strings.Builder
+		// Extract source map (which we assume is present)
+		srcmap, _ = binfile.GetAttribute[*corset.SourceMap](binf)
+		// Extract base of filename
+		basename = filepath.Base(filename)
+	)
 	// Sanity check a request is made to generate a java source file.
 	if !strings.HasSuffix(basename, ".java") {
 		return "", errors.New("invalid Java classname")
 	}
 	// Strip suffix to determine classname
 	classname := strings.TrimSuffix(basename, ".java")
-	metadata, err := binfile.Header.GetMetaData()
+	metadata, err := binf.Header.GetMetaData()
 	// Error check
 	if err != nil {
 		return "", err
 	}
 	// begin generation
 	generateClassHeader(pkgname, metadata, &builder)
-	generateClassContents(classname, srcmap.Root, metadata, spillage, &binfile.Schema, indentBuilder{0, &builder})
+	generateClassContents(classname, super, srcmap.Root, metadata, spillage, &binf.Schema, indentBuilder{0, &builder})
 	//
 	return builder.String(), nil
 }
@@ -89,7 +92,7 @@ func generateClassHeader(pkgname string, metadata typed.Map, builder *strings.Bu
 	builder.WriteString(" */\n")
 }
 
-func generateClassContents(className string, mod corset.SourceModule, metadata typed.Map, spillage []uint,
+func generateClassContents(className string, super string, mod corset.SourceModule, metadata typed.Map, spillage []uint,
 	hirSchema *hir.Schema, builder indentBuilder) {
 	//
 	var nFields uint
@@ -100,7 +103,7 @@ func generateClassContents(className string, mod corset.SourceModule, metadata t
 		panic(fmt.Sprintf("unable to find module %s", mod.Name))
 	}
 	// Generate what we need
-	generateJavaClassHeader(mod.Name == "", className, builder)
+	generateJavaClassHeader(mod.Name == "", className, super, builder)
 	generateJavaModuleConstants(spillage[mid], mod.Constants, builder.Indent())
 	generateJavaModuleSubmoduleFields(mod.Submodules, builder.Indent())
 	//
@@ -125,7 +128,9 @@ func generateClassContents(className string, mod corset.SourceModule, metadata t
 	// Generate any submodules
 	for _, submod := range mod.Submodules {
 		if !submod.Virtual {
-			generateClassContents(toPascalCase(submod.Name), submod, metadata, spillage, hirSchema, builder.Indent())
+			name := toPascalCase(submod.Name)
+			superSub := fmt.Sprintf("%s.%s", super, name)
+			generateClassContents(name, superSub, submod, metadata, spillage, hirSchema, builder.Indent())
 		} else {
 			generateJavaModuleColumnSetters(className, submod, hirSchema, builder.Indent())
 		}
@@ -142,11 +147,15 @@ func generateClassContents(className string, mod corset.SourceModule, metadata t
 	generateJavaClassFooter(builder)
 }
 
-func generateJavaClassHeader(root bool, classname string, builder indentBuilder) {
+func generateJavaClassHeader(root bool, classname string, super string, builder indentBuilder) {
+	var extends string
+	if super != "" {
+		extends = fmt.Sprintf(" implements %s", super)
+	}
 	if root {
-		builder.WriteIndentedString("public class ", classname, " {\n")
+		builder.WriteIndentedString("public class ", classname, extends, " {\n")
 	} else {
-		builder.WriteIndentedString("public static class ", classname, " {\n")
+		builder.WriteIndentedString("public static class ", classname, extends, " {\n")
 	}
 }
 
@@ -318,6 +327,7 @@ func generateJavaModuleSubmoduleFields(submodules []corset.SourceModule, builder
 			}
 			// Yes, it is.
 			builder.WriteIndentedString("public final ", className, " ", fieldName, ";\n")
+			builder.WriteIndentedString("public ", className, " ", fieldName, "() { return "+fieldName, "; }\n")
 			//
 			first = false
 		}
