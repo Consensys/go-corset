@@ -94,8 +94,6 @@ func generateClassHeader(pkgname string, metadata typed.Map, builder *strings.Bu
 
 func generateClassContents(className string, super string, mod corset.SourceModule, metadata typed.Map, spillage []uint,
 	hirSchema *hir.Schema, builder indentBuilder) {
-	//
-	var nFields uint
 	// Attempt to find module
 	mid, ok := hirSchema.Modules().Find(func(m schema.Module) bool { return m.Name == mod.Name })
 	// Sanity check we found it
@@ -113,18 +111,14 @@ func generateClassContents(className string, super string, mod corset.SourceModu
 	//
 	generateJavaModuleHeaders(mid, mod, hirSchema, builder.Indent())
 	//
-	if nFields = generateJavaModuleRegisterFields(mid, hirSchema, builder.Indent()); nFields > 0 {
-		generateJavaModuleHeader(builder.Indent())
-	}
-	//
-	generateJavaModuleConstructor(className, mid, mod, hirSchema, builder.Indent())
+	generateJavaModuleRegisterFields(mid, hirSchema, builder.Indent())
+	generateJavaModuleHeader(builder.Indent())
+	generateJavaModuleConstructor(className, mod, builder.Indent())
+	generateJavaModuleOpen(mid, mod, hirSchema, builder.Indent())
 	generateJavaModuleColumnSetters(className, mod, hirSchema, builder.Indent())
-
-	if nFields > 0 {
-		generateJavaModuleSize(builder.Indent())
-		generateJavaModuleValidateRow(className, mid, mod, hirSchema, builder.Indent())
-		generateJavaModuleFillAndValidateRow(className, mid, hirSchema, builder.Indent())
-	}
+	generateJavaModuleSize(builder.Indent())
+	generateJavaModuleValidateRow(className, mid, mod, hirSchema, builder.Indent())
+	generateJavaModuleFillAndValidateRow(className, mid, hirSchema, builder.Indent())
 	// Generate any submodules
 	for _, submod := range mod.Submodules {
 		if !submod.Virtual {
@@ -139,7 +133,7 @@ func generateClassContents(className string, super string, mod corset.SourceModu
 	if mod.Name == "" {
 		ninputs := hirSchema.InputColumns().Count()
 		// Write out constructor function.
-		constructor := strings.ReplaceAll(javaTraceOf, "{class}", className)
+		constructor := strings.ReplaceAll(javaTraceOpen, "{class}", className)
 		constructor = strings.ReplaceAll(constructor, "{ninputs}", fmt.Sprintf("%d", ninputs))
 		builder.WriteIndentedString(constructor)
 	}
@@ -152,6 +146,7 @@ func generateJavaClassHeader(root bool, classname string, super string, builder 
 	if super != "" {
 		extends = fmt.Sprintf(" implements %s", super)
 	}
+	//
 	if root {
 		builder.WriteIndentedString("public class ", classname, extends, " {\n")
 	} else {
@@ -169,16 +164,13 @@ func generateJavaModuleHeaders(mid uint, mod corset.SourceModule, schema *hir.Sc
 	count := uint(0)
 	register := uint(0)
 	//
+	builder.WriteIndentedString("public List<ColumnHeader> headers(int length) {\n")
+	i1Builder.WriteIndentedString("List<ColumnHeader> headers = new ArrayList<>();\n")
+	//
 	for iter := schema.InputColumns(); iter.HasNext(); {
 		column := iter.Next()
 		// Check whether this is part of our module
 		if column.Context.Module() == mid {
-			// Yes, include register
-			if count == 0 {
-				builder.WriteIndentedString("public List<ColumnHeader> headers(int length) {\n")
-				i1Builder.WriteIndentedString("List<ColumnHeader> headers = new ArrayList<>();\n")
-			}
-			//
 			width := fmt.Sprintf("%d", column.DataType.ByteWidth())
 			name := fmt.Sprintf("%s.%s", mod.Name, column.Name)
 			regStr := fmt.Sprintf("%d", register)
@@ -191,10 +183,8 @@ func generateJavaModuleHeaders(mid uint, mod corset.SourceModule, schema *hir.Sc
 		register++
 	}
 	//
-	if count > 0 {
-		i1Builder.WriteIndentedString("return headers;\n")
-		builder.WriteIndentedString("}\n\n")
-	}
+	i1Builder.WriteIndentedString("return headers;\n")
+	builder.WriteIndentedString("}\n\n")
 }
 
 func generateJavaModuleHeader(builder indentBuilder) {
@@ -298,7 +288,7 @@ func generateJavaModuleRegisterFields(mid uint, schema *hir.Schema, builder inde
 			// Determine suitable name for field
 			fieldName := toRegisterName(register, column.Name)
 			//
-			builder.WriteIndentedString("private final MappedByteBuffer ", fieldName, ";\n")
+			builder.WriteIndentedString("private MappedByteBuffer ", fieldName, ";\n")
 			// increase count
 			count++
 		}
@@ -341,11 +331,11 @@ func generateJavaModuleSubmoduleFields(submodules []corset.SourceModule, builder
 
 func generateJavaModuleMetadata(metadata typed.Map, builder indentBuilder) {
 	// Write field declaration
-	builder.WriteIndentedString("public static Map<String,Object> metadata() {\n")
+	builder.WriteIndentedString("private final Map<String,Object> metadata = new HashMap<>();\n")
 	// Initialise map using Java static initialiser
 	if !metadata.IsEmpty() {
 		i1Builder := builder.Indent()
-		i1Builder.WriteIndentedString("Map<String,Object> metadata = new HashMap<>();\n")
+		builder.WriteIndentedString("{\n")
 		i1Builder.WriteIndentedString("Map<String,String> constraints = new HashMap<>();\n")
 
 		for _, k := range metadata.Keys() {
@@ -361,18 +351,39 @@ func generateJavaModuleMetadata(metadata typed.Map, builder indentBuilder) {
 		}
 		//
 		i1Builder.WriteIndentedString("metadata.put(\"constraints\",constraints);\n")
-		i1Builder.WriteIndentedString("return metadata;\n")
 		builder.WriteIndentedString("}\n\n")
 	}
+
+	builder.WriteIndentedString("public void addMetadata(String key, Object value) { metadata.put(key,value); }\n")
 }
 
-func generateJavaModuleConstructor(classname string, mid uint, mod corset.SourceModule,
-	schema *hir.Schema, builder indentBuilder) {
+func generateJavaModuleConstructor(classname string, mod corset.SourceModule, builder indentBuilder) {
+	//
+	innerBuilder := builder.Indent()
+	//
+	builder.WriteIndentedString("public ", classname, "() {\n")
+	//
+	innerBuilder.WriteIndentedString("// initialise submodule(s)\n")
+	// Write submodule initialisers
+	for _, m := range mod.Submodules {
+		className := toPascalCase(m.Name)
+		// Determine suitable name for field
+		fieldName := toCamelCase(m.Name)
+		// Only support non-virtual modules for now
+		if !m.Virtual {
+			innerBuilder.WriteIndentedString("this.", fieldName, " = new ", className, "();\n")
+		}
+	}
+	//
+	builder.WriteIndentedString("}\n\n")
+}
+
+func generateJavaModuleOpen(mid uint, mod corset.SourceModule, schema *hir.Schema, builder indentBuilder) {
 	//
 	register := uint(0)
 	innerBuilder := builder.Indent()
 	//
-	builder.WriteIndentedString("private ", classname, "(MappedByteBuffer[] registers) {\n")
+	builder.WriteIndentedString("private void open(MappedByteBuffer[] registers) {\n")
 	innerBuilder.WriteIndentedString("// initialise register(s)\n")
 	// Write register initialisers
 	for iter := schema.InputColumns(); iter.HasNext(); {
@@ -391,12 +402,11 @@ func generateJavaModuleConstructor(classname string, mid uint, mod corset.Source
 	innerBuilder.WriteIndentedString("// initialise submodule(s)\n")
 	// Write submodule initialisers
 	for _, m := range mod.Submodules {
-		className := toPascalCase(m.Name)
 		// Determine suitable name for field
 		fieldName := toCamelCase(m.Name)
 		// Only support non-virtual modules for now
 		if !m.Virtual {
-			innerBuilder.WriteIndentedString("this.", fieldName, " = new ", className, "(registers);\n")
+			innerBuilder.WriteIndentedString("this.", fieldName, "().open(registers);\n")
 		}
 	}
 	//

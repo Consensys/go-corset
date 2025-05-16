@@ -54,7 +54,7 @@ var generateCmd = &cobra.Command{
 			filename = inteface
 		}
 		// Parse constraints
-		binfiles = readConstraintFiles(corsetConfig, asmConfig, args)
+		binfiles = readConstraintSets(corsetConfig, asmConfig, args)
 		//
 		if genInterface {
 			source, err = generate.JavaTraceInterface(filename, pkgname, binfiles)
@@ -82,7 +82,7 @@ var generateCmd = &cobra.Command{
 // to generate a single binary file from the lisp files.  In the second case,
 // well we just have multiple binary files.  If there's a mixture, it will abort
 // for now.
-func readConstraintFiles(corsetCfg corset.CompilationConfig, asmCfg asm.LoweringConfig,
+func readConstraintSets(corsetCfg corset.CompilationConfig, asmCfg asm.LoweringConfig,
 	filenames []string) []binfile.BinaryFile {
 	var binfiles []binfile.BinaryFile = make([]binfile.BinaryFile, len(filenames))
 	//

@@ -50,6 +50,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectWriter;
 import net.consensys.linea.zktracer.types.UnsignedByte;
 import org.apache.tuweni.bytes.Bytes;
 `
@@ -66,7 +68,7 @@ const javaColumnHeader string = `
 `
 
 // nolint
-const javaTraceOf string = `
+const javaTraceOpen string = `
    /**
     * Construct a new trace which will be written to a given file.
     *
@@ -75,9 +77,11 @@ const javaTraceOf string = `
     *
     * @throws IOException If an I/O error occurs.
     */
-   public static {class} of(RandomAccessFile file, List<ColumnHeader> rawHeaders, byte[] metadata) throws IOException {
+   public void open(RandomAccessFile file, List<ColumnHeader> rawHeaders) throws IOException {
+      // Convert metadata into JSON bytes
+      byte[] metadataBytes = getMetadataBytes(metadata);
       // Construct trace file header bytes
-      byte[] header = constructTraceFileHeader(metadata);
+      byte[] header = constructTraceFileHeader(metadataBytes);
       // Align headers according to register indices.
       ColumnHeader[] columnHeaders = alignHeaders(rawHeaders);
       // Determine file size
@@ -89,7 +93,7 @@ const javaTraceOf string = `
       // Initialise buffers
       MappedByteBuffer[] buffers = initialiseByteBuffers(file,columnHeaders,headerSize);
       // Done
-      return new {class}(buffers);
+      this.open(buffers);
    }
 
   /**
@@ -228,5 +232,14 @@ const javaTraceOf string = `
 	    if(h != null) { count++; }
 	 }
      return count;
+   }
+
+  /**
+   * Object writer is used for generating JSON byte strings.
+   */
+   private static final ObjectWriter objectWriter = new ObjectMapper().writer();
+
+   public static byte[] getMetadataBytes(Map<String, Object> metadata) throws IOException {
+     return objectWriter.writeValueAsBytes(metadata);
    }
 `
