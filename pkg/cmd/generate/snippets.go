@@ -68,6 +68,27 @@ const javaColumnHeader string = `
 `
 
 // nolint
+const javaAddMetadataSignature string = `
+  /**
+   * Add an item of metadata to this trace.
+   */
+  public void addMetadata(String key, Object value);
+`
+
+// nolint
+const javaOpenSignature string = `
+  /**
+   * Construct a new trace which will be written to a given file.
+   *
+   * @param file File into which the trace will be written.  Observe any previous contents of this file will be lost.
+   * @return Trace object to use for writing column data.
+   *
+   * @throws IOException If an I/O error occurs.
+   */
+  public void open(RandomAccessFile file, List<ColumnHeader> rawHeaders) throws IOException;
+`
+
+// nolint
 const javaTraceOpen string = `
    /**
     * Construct a new trace which will be written to a given file.
