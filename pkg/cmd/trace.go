@@ -91,9 +91,9 @@ var traceCmd = &cobra.Command{
 		} else if len(args) == 2 && path.Ext(args[1]) == ".zkasm" {
 			// read trace & constraints
 			macroProgram, _ := ReadAssemblyProgram(args[1])
-			macroTrace := ReadAssemblyTrace(args[1], macroProgram)
-			microTrace := macroTrace.Lower(asmConfig)
-			traces = [][]trace.RawColumn{microTrace.Lower()}
+			macroTrace := ReadAssemblyTrace(args[0], macroProgram)
+			microTrace := asm.LowerMacroTrace(asmConfig, macroTrace)
+			traces = [][]trace.RawColumn{asm.LowerMicroTrace(microTrace)}
 		} else {
 			// unbatched (i.e. normal) mode
 			tracefile := ReadTraceFile(args[0])

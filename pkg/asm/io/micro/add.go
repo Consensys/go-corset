@@ -18,7 +18,7 @@ import (
 	"math/big"
 	"slices"
 
-	"github.com/consensys/go-corset/pkg/asm/insn"
+	"github.com/consensys/go-corset/pkg/asm/io"
 )
 
 // Add represents a generic operation of the following form:
@@ -46,11 +46,6 @@ type Add struct {
 	Constant big.Int
 }
 
-// Bind any labels contained within this instruction using the given label map.
-func (p *Add) Bind(labels []uint) {
-	// no-op
-}
-
 // Clone this micro code.
 func (p *Add) Clone() Code {
 	var constant big.Int
@@ -64,42 +59,22 @@ func (p *Add) Clone() Code {
 	}
 }
 
-// Execute a given instruction at a given program counter position, using a
-// given set of register values.  This may update the register values, and
-// returns the next program counter position.  If the program counter is
-// math.MaxUint then a return is signaled.
-func (p *Add) Execute(pc uint, state []big.Int, regs []Register) uint {
-	p.MicroExecute(state, regs)
-	return pc + 1
-}
-
-// MicroExecute a given micro-code, using a given set of register values.  This
-// may update the register values, and returns either the number of micro-codes
-// to "skip over" when executing the enclosing instruction or, if skip==0, a
-// destination program counter (which can signal return of enclosing function).
-func (p *Add) MicroExecute(state []big.Int, regs []Register) (uint, uint) {
+// MicroExecute a given micro-code, using a given state.  This may update the
+// register values, and returns either the number of micro-codes to "skip over"
+// when executing the enclosing instruction or, if skip==0, a destination
+// program counter (which can signal return of enclosing function).
+func (p *Add) MicroExecute(state io.State) (uint, uint) {
 	var value big.Int
 	// Add constant
 	value.Set(&p.Constant)
 	// Add register values
 	for _, src := range p.Sources {
-		value.Add(&value, &state[src])
+		value.Add(&value, state.Load(src))
 	}
 	// Write value
-	insn.WriteTargetRegisters(p.Targets, state, regs, value)
+	state.Store(value, p.Targets...)
 	//
 	return 1, 0
-}
-
-// Lower this instruction into a exactly one more micro instruction.
-func (p *Add) Lower(pc uint) Instruction {
-	// Lowering here produces an instruction containing a single microcode.
-	return Instruction{[]Code{p, &Jmp{Target: pc + 1}}}
-}
-
-// Registers returns the set of registers read/written by this instruction.
-func (p *Add) Registers() []uint {
-	return append(p.Targets, p.Sources...)
 }
 
 // RegistersRead returns the set of registers read by this instruction.
@@ -112,8 +87,8 @@ func (p *Add) RegistersWritten() []uint {
 	return p.Targets
 }
 
-func (p *Add) String(regs []Register) string {
-	return assignmentToString(p.Targets, p.Sources, p.Constant, regs, zero, " + ")
+func (p *Add) String(fn io.Function[Instruction]) string {
+	return assignmentToString(p.Targets, p.Sources, p.Constant, fn, zero, " + ")
 }
 
 // Split this micro code using registers of arbirary width into one or more
@@ -148,7 +123,7 @@ func (p *Add) Split(env *RegisterSplittingEnvironment) []Code {
 			ncodes        []Code
 			targetLimbs        = env.SplitTargetRegisters(p.Targets...)
 			sourcePackets      = env.SplitSourceRegisters(p.Sources...)
-			constantLimbs      = env.SplitConstant(p.Constant, uint(len(sourcePackets)))
+			constantLimbs      = io.SplitConstant(uint(len(sourcePackets)), env.maxWidth, p.Constant)
 			carry         uint = math.MaxUint
 		)
 		// Allocate all source packets
@@ -187,8 +162,9 @@ func (p *Add) Split(env *RegisterSplittingEnvironment) []Code {
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Add) Validate(fieldWidth uint, regs []Register) error {
+func (p *Add) Validate(fieldWidth uint, fn io.Function[Instruction]) error {
 	var (
+		regs     = fn.Registers()
 		lhs_bits = sumTargetBits(p.Targets, regs)
 		rhs_bits = sumSourceBits(p.Sources, p.Constant, regs)
 	)
@@ -199,14 +175,14 @@ func (p *Add) Validate(fieldWidth uint, regs []Register) error {
 		return fmt.Errorf("field overflow (%d bits into %d bit field)", rhs_bits, fieldWidth)
 	}
 	//
-	return insn.CheckTargetRegisters(p.Targets, regs)
+	return io.CheckTargetRegisters(p.Targets, regs)
 }
 
 func (p *Add) splitAssignment(env *RegisterSplittingEnvironment) []Code {
 	var (
 		ncodes        []Code
 		targetLimbs   = env.SplitTargetRegisters(p.Targets...)
-		constantLimbs = env.SplitConstantVariable(&p.Constant, targetLimbs...)
+		constantLimbs = io.SplitConstant(uint(len(targetLimbs)), env.maxWidth, p.Constant)
 	)
 	//
 	for i, target := range targetLimbs {
@@ -217,7 +193,7 @@ func (p *Add) splitAssignment(env *RegisterSplittingEnvironment) []Code {
 	return ncodes
 }
 
-func sumSourceBits(sources []uint, constant big.Int, regs []Register) uint {
+func sumSourceBits(sources []uint, constant big.Int, regs []io.Register) uint {
 	var rhs big.Int
 	//
 	for _, target := range sources {
@@ -230,7 +206,7 @@ func sumSourceBits(sources []uint, constant big.Int, regs []Register) uint {
 }
 
 // Sum the total number of bits used by the given set of target registers.
-func sumTargetBits(targets []uint, regs []Register) uint {
+func sumTargetBits(targets []uint, regs []io.Register) uint {
 	sum := uint(0)
 	//
 	for _, target := range targets {

@@ -16,7 +16,7 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/asm"
-	"github.com/consensys/go-corset/pkg/asm/insn"
+	"github.com/consensys/go-corset/pkg/asm/io"
 )
 
 // PrintAssemblyProgram is responsible for printing out a given assembly program
@@ -27,38 +27,38 @@ import (
 func PrintAssemblyProgram(micro bool, cfg asm.LoweringConfig, program asm.MacroProgram) {
 	//
 	if micro {
-		// Lower the program.
-		uprogram := program.Lower(cfg)
+		// Lower macro-program to micro-program.
+		uprogram := asm.Lower(cfg, program)
 		//
-		printAssemblyFunctions(uprogram.Functions())
+		printAssemblyFunctions(uprogram)
 	} else {
-		printAssemblyFunctions(program.Functions())
+		printAssemblyFunctions(program)
 	}
 }
 
-func printAssemblyFunctions[T insn.Instruction](fns []asm.Function[T]) {
-	for _, f := range fns {
-		printAssemblyFunction(f)
+func printAssemblyFunctions[T io.Instruction[T]](program io.Program[T]) {
+	for _, fn := range program.Functions() {
+		printAssemblyFunction(fn)
 	}
 }
 
-func printAssemblyFunction[T insn.Instruction](f asm.Function[T]) {
+func printAssemblyFunction[T io.Instruction[T]](f io.Function[T]) {
 	printAssemblySignature(f)
 	printAssemblyRegisters(f)
 	//
-	for pc, insn := range f.Code {
-		fmt.Printf("[%d]\t%s\n", pc, insn.String(f.Registers))
+	for pc, insn := range f.Code() {
+		fmt.Printf("[%d]\t%s\n", pc, insn.String(f))
 	}
 	//
 	fmt.Println("}")
 }
 
-func printAssemblySignature[T any](f asm.Function[T]) {
+func printAssemblySignature[T any](f io.Function[T]) {
 	first := true
 	//
-	fmt.Printf("fn %s(", f.Name)
+	fmt.Printf("fn %s(", f.Name())
 	//
-	for _, r := range f.Registers {
+	for _, r := range f.Registers() {
 		if r.IsInput() {
 			if !first {
 				fmt.Printf(", ")
@@ -74,7 +74,7 @@ func printAssemblySignature[T any](f asm.Function[T]) {
 	// reset
 	first = true
 	//
-	for _, r := range f.Registers {
+	for _, r := range f.Registers() {
 		if r.IsOutput() {
 			if !first {
 				fmt.Printf(", ")
@@ -89,8 +89,8 @@ func printAssemblySignature[T any](f asm.Function[T]) {
 	fmt.Println(") {")
 }
 
-func printAssemblyRegisters[T any](f asm.Function[T]) {
-	for _, r := range f.Registers {
+func printAssemblyRegisters[T any](f io.Function[T]) {
+	for _, r := range f.Registers() {
 		if !r.IsInput() && !r.IsOutput() {
 			fmt.Printf("\tvar %s u%d\n", r.Name, r.Width)
 		}

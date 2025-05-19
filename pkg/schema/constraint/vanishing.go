@@ -120,9 +120,11 @@ func (p *VanishingConstraint[T]) Bounds(module uint) util.Bounds {
 //
 //nolint:revive
 func (p *VanishingConstraint[T]) Accepts(tr tr.Trace) (bit.Set, sc.Failure) {
+	handle := determineHandle(p.Handle, p.Context, tr)
+	//
 	if p.Domain.IsEmpty() {
 		// Global Constraint
-		return HoldsGlobally(p.Handle, p.Context, p.Constraint, tr)
+		return HoldsGlobally(handle, p.Context, p.Constraint, tr)
 	}
 	// Extract domain
 	domain := p.Domain.Unwrap()
@@ -140,7 +142,7 @@ func (p *VanishingConstraint[T]) Accepts(tr tr.Trace) (bit.Set, sc.Failure) {
 	//
 	var coverage bit.Set
 	// Check specific row
-	err, id := HoldsLocally(start, p.Handle, p.Constraint, tr)
+	err, id := HoldsLocally(start, handle, p.Constraint, tr)
 	//
 	coverage.Insert(id)
 	//
@@ -229,4 +231,8 @@ func (p *VanishingConstraint[T]) Lisp(schema sc.Schema) sexp.SExp {
 			sexp.NewSymbol(fmt.Sprintf("x%d", multiplier))}),
 		p.Constraint.Lisp(schema),
 	})
+}
+
+func determineHandle(handle string, ctx tr.Context, trace tr.Trace) string {
+	return fmt.Sprintf("%s.%s", trace.Modules().Nth(ctx.ModuleId).Name(), handle)
 }

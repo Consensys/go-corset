@@ -14,7 +14,8 @@ package micro
 
 import (
 	"fmt"
-	"math/big"
+
+	"github.com/consensys/go-corset/pkg/asm/io"
 )
 
 // Jmp provides an unconditional branching instruction to a given instructon.
@@ -22,39 +23,17 @@ type Jmp struct {
 	Target uint
 }
 
-// Bind any labels contained within this instruction using the given label map.
-func (p *Jmp) Bind(labels []uint) {
-	p.Target = labels[p.Target]
-}
-
 // Clone this micro code.
 func (p *Jmp) Clone() Code {
 	return &Jmp{p.Target}
 }
 
-// Execute an unconditional branch instruction by returning the destination
-// program counter.
-func (p *Jmp) Execute(pc uint, state []big.Int, regs []Register) uint {
-	return p.Target
-}
-
-// MicroExecute a given micro-code, using a given set of register values.  This
-// may update the register values, and returns either the number of micro-codes
-// to "skip over" when executing the enclosing instruction or, if skip==0, a
-// destination program counter (which can signal return of enclosing function).
-func (p *Jmp) MicroExecute(state []big.Int, regs []Register) (uint, uint) {
+// MicroExecute a given micro-code, using a given local state.  This may update
+// the register values, and returns either the number of micro-codes to "skip
+// over" when executing the enclosing instruction or, if skip==0, a destination
+// program counter (which can signal return of enclosing function).
+func (p *Jmp) MicroExecute(state io.State) (uint, uint) {
 	return 0, p.Target
-}
-
-// Lower this instruction into a exactly one more micro instruction.
-func (p *Jmp) Lower(pc uint) Instruction {
-	// Lowering here produces an instruction containing a single microcode.
-	return Instruction{[]Code{p}}
-}
-
-// Registers returns the set of registers read/written by this instruction.
-func (p *Jmp) Registers() []uint {
-	return nil
 }
 
 // RegistersRead returns the set of registers read by this instruction.
@@ -73,11 +52,11 @@ func (p *Jmp) Split(env *RegisterSplittingEnvironment) []Code {
 	return []Code{p}
 }
 
-func (p *Jmp) String(regs []Register) string {
+func (p *Jmp) String(fn io.Function[Instruction]) string {
 	return fmt.Sprintf("jmp %d", p.Target)
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Jmp) Validate(fieldWidth uint, regs []Register) error {
+func (p *Jmp) Validate(fieldWidth uint, fn io.Function[Instruction]) error {
 	return nil
 }

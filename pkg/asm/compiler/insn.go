@@ -17,8 +17,8 @@ import (
 	"slices"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/asm/insn"
-	"github.com/consensys/go-corset/pkg/asm/micro"
+	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/hir"
 )
 
@@ -30,6 +30,8 @@ func translate(cc uint, codes []micro.Code, st StateTranslator) hir.Expr {
 	switch codes[cc].(type) {
 	case *micro.Add:
 		return translateAdd(cc, codes, st)
+	case *micro.InOut:
+		return translateInOut(cc, codes, st)
 	case *micro.Jmp:
 		return translateJmp(cc, codes, st)
 	case *micro.Mul:
@@ -52,7 +54,7 @@ func translateAdd(cc uint, codes []micro.Code, st StateTranslator) hir.Expr {
 		// build rhs
 		rhs = st.ReadRegisters(code.Sources)
 		// build lhs (must be after rhs)
-		lhs = st.WriteRegisters(code.Targets)
+		lhs = st.WriteAndShiftRegisters(code.Targets)
 	)
 	// include constant if this makes sense
 	if code.Constant.Cmp(&zero) != 0 {
@@ -65,6 +67,18 @@ func translateAdd(cc uint, codes []micro.Code, st StateTranslator) hir.Expr {
 	eqn := hir.Equals(hir.Sum(lhs...), hir.Sum(rhs...))
 	// Continue
 	return hir.Conjunction(eqn, translate(cc+1, codes, st))
+}
+
+func translateInOut(cc uint, codes []micro.Code, st StateTranslator) hir.Expr {
+	var code = codes[cc].(*micro.InOut)
+	// In/Out codes are really nops from the perspective of compilation.  Their
+	// primary purposes is to assist trace expansion.
+	//
+	// NOTE: we have to pretend that we've written registers here, otherwise
+	// forwarding will not be enabled.
+	st.WriteRegisters(code.RegistersWritten())
+	//
+	return translate(cc+1, codes, st)
 }
 
 func translateJmp(cc uint, codes []micro.Code, st StateTranslator) hir.Expr {
@@ -85,7 +99,7 @@ func translateMul(cc uint, codes []micro.Code, st StateTranslator) hir.Expr {
 		// build rhs
 		rhs = st.ReadRegisters(code.Sources)
 		// build lhs (must be after rhs)
-		lhs = st.WriteRegisters(code.Targets)
+		lhs = st.WriteAndShiftRegisters(code.Targets)
 	)
 	// include constant if this makes sense
 	if code.Constant.Cmp(&one) != 0 {
@@ -121,7 +135,7 @@ func translateSkip(cc uint, codes []micro.Code, st StateTranslator) hir.Expr {
 		elem  fr.Element
 	)
 	//
-	if code.Right == insn.UNUSED_REGISTER {
+	if code.Right == io.UNUSED_REGISTER {
 		elem.SetBigInt(&code.Constant)
 		right = hir.NewConst(elem)
 	} else {
@@ -137,7 +151,7 @@ func translateSub(cc uint, codes []micro.Code, st StateTranslator) hir.Expr {
 		// build rhs
 		rhs = st.ReadRegisters(code.Sources)
 		// build lhs (must be after rhs)
-		lhs = st.WriteRegisters(code.Targets)
+		lhs = st.WriteAndShiftRegisters(code.Targets)
 	)
 	// include constant if this makes sense
 	if code.Constant.Cmp(&zero) != 0 {
@@ -156,7 +170,7 @@ func translateSub(cc uint, codes []micro.Code, st StateTranslator) hir.Expr {
 
 // Consider an assignment b, X := Y - 1.  This should be translated into the
 // constraint: X + 1 == Y - 256.b (assuming b is u1, and X/Y are u8).
-func rebalanceSub(lhs []hir.Expr, rhs []hir.Expr, regs []insn.Register, code *micro.Sub) ([]hir.Expr, []hir.Expr) {
+func rebalanceSub(lhs []hir.Expr, rhs []hir.Expr, regs []io.Register, code *micro.Sub) ([]hir.Expr, []hir.Expr) {
 	//
 	pivot := 0
 	width := int(regs[code.Sources[0]].Width)

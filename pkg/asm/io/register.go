@@ -10,19 +10,12 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package insn
+package io
 
 import (
 	"math"
 	"math/big"
 )
-
-// RETURN is used to signal that a given instruction returns from the enclosing
-// function.
-const RETURN = math.MaxUint
-
-// UNUSED_REGISTER is used to signal that a given register operand is unused.
-const UNUSED_REGISTER = math.MaxUint
 
 const (
 	// INPUT_REGISTER signals a register used for holding the input values of a
@@ -34,31 +27,9 @@ const (
 	// TEMP_REGISTER signals a register used for holding temporary values during
 	// computation.
 	TEMP_REGISTER = uint8(2)
+	// UNUSED_REGISTER is used to signal that a given register operand is unused.
+	UNUSED_REGISTER = math.MaxUint
 )
-
-// Instruction provides an abstract notion of an executable "machine instruction".
-type Instruction interface {
-	// Execute a given instruction at a given program counter position, using a
-	// given set of register values.  This may update the register values, and
-	// returns the next program counter position.  If the program counter is
-	// math.MaxUint then a return is signaled.
-	Execute(pc uint, state []big.Int, regs []Register) uint
-	// Registers returns the set of registers read/written by this micro instruction.
-	Registers() []uint
-	// Registers returns the set of registers read this micro instruction.
-	RegistersRead() []uint
-	// Registers returns the set of registers written by this micro instruction.
-	RegistersWritten() []uint
-	// Validate that this instruction is well-formed.  For example, that it is
-	// balanced, that there are no conflicting writes, that all temporaries have
-	// been allocated, etc.  The maximum bit capacity of the underlying field is
-	// needed for this calculation, so as to allow an instruction to check it
-	// does not overflow the underlying field.
-	Validate(fieldWidth uint, regs []Register) error
-	// Produce a suitable string representation of this instruction.  This is
-	// primarily used for debugging.
-	String(regs []Register) string
-}
 
 // Register describes a single register within a function.
 type Register struct {

@@ -17,8 +17,8 @@ import (
 	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/asm/insn"
-	"github.com/consensys/go-corset/pkg/asm/micro"
+	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/hir"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -39,13 +39,13 @@ type Translator struct {
 	// Mapping from registers to respective HIR column IDs.
 	RegIDs []uint
 	// Registers of the given machine
-	Registers []insn.Register
+	Registers []io.Register
 }
 
 // Translate a micro-instruction at a given program counter position.
 func (p *Translator) Translate(pc uint, insn micro.Instruction) {
 	var (
-		tr         = NewStateTranslator(*p, insn)
+		tr         = NewStateTranslator(*p, pc, insn)
 		constraint = translate(0, insn.Codes, tr)
 		pcGuard    = hir.Equals(tr.Pc(false), hir.NewConst64(uint64(pc)))
 		stampGuard = hir.NotEquals(tr.Stamp(false), hir.ZERO)
@@ -63,6 +63,8 @@ func (p *Translator) Translate(pc uint, insn micro.Instruction) {
 // of the machine is compiled down to the lower level.
 type StateTranslator struct {
 	mapping Translator
+	// Program counter
+	pc uint
 	// Set of registers not mutated by the enclosing instruction.
 	constants bit.Set
 	// Set of registers mutated on the current branch.
@@ -73,7 +75,7 @@ type StateTranslator struct {
 
 // NewStateTranslator constructs a new translated for a given state (i.e.
 // program counter location) with a given mapping.
-func NewStateTranslator(mapping Translator, insn micro.Instruction) StateTranslator {
+func NewStateTranslator(mapping Translator, pc uint, insn micro.Instruction) StateTranslator {
 	var constants bit.Set
 	// Initially include all registers
 	for i := range mapping.Registers {
@@ -88,6 +90,7 @@ func NewStateTranslator(mapping Translator, insn micro.Instruction) StateTransla
 	//
 	return StateTranslator{
 		mapping:   mapping,
+		pc:        pc,
 		constants: constants,
 		mutated:   bit.Set{},
 		forwarded: bit.Set{},
@@ -124,10 +127,29 @@ func (p *StateTranslator) Clone() StateTranslator {
 	}
 }
 
-// WriteRegisters identifies the set of registers written by the current microinstruction
-// being translated.  This activates forwarding for those registers for all
-// states after this, and returns suitable expressions for the assignment.
+// WriteRegisters constructs suitable accessors for the those registers written
+// by a given microinstruction.  This activates forwarding for those registers
+// for all states after this, and returns suitable expressions for the
+// assignment.
 func (p *StateTranslator) WriteRegisters(targets []uint) []hir.Expr {
+	lhs := make([]hir.Expr, len(targets))
+	// build up the lhs
+	for i, dst := range targets {
+		lhs[i] = hir.NewColumnAccess(p.mapping.RegIDs[dst], 0)
+		// Activate forwarding for this register
+		p.forwarded.Insert(dst)
+		// Mark register as having been written.
+		p.mutated.Insert(dst)
+	}
+	//
+	return lhs
+}
+
+// WriteAndShiftRegisters constructs suitable accessors for the those registers
+// written by a given microinstruction, and also shifts them (i.e. so they can
+// be combined in a sum).  This activates forwarding for those registers for all
+// states after this, and returns suitable expressions for the assignment.
+func (p *StateTranslator) WriteAndShiftRegisters(targets []uint) []hir.Expr {
 	lhs := make([]hir.Expr, len(targets))
 	offset := big.NewInt(1)
 	// build up the lhs
@@ -182,16 +204,18 @@ func (p *StateTranslator) ReadRegisters(sources []uint) []hir.Expr {
 // WithLocalConstancies adds constancy constraints for all registers not
 // mutated by a given branch through an instruction.
 func (p *StateTranslator) WithLocalConstancies(condition hir.Expr) hir.Expr {
-	//
-	for i, r := range p.mapping.Registers {
-		rid := p.mapping.RegIDs[i]
-		//
-		if !r.IsInput() && !p.constants.Contains(uint(i)) && !p.mutated.Contains(uint(i)) {
-			r_i := hir.NewColumnAccess(rid, 0)
-			r_im1 := hir.NewColumnAccess(rid, -1)
-			constancy := hir.Equals(r_i, r_im1)
+	// FIXME: following check is temporary hack
+	if p.pc > 0 {
+		for i, r := range p.mapping.Registers {
+			rid := p.mapping.RegIDs[i]
 			//
-			condition = hir.Conjunction(condition, constancy)
+			if !r.IsInput() && !p.constants.Contains(uint(i)) && !p.mutated.Contains(uint(i)) {
+				r_i := hir.NewColumnAccess(rid, 0)
+				r_im1 := hir.NewColumnAccess(rid, -1)
+				constancy := hir.Equals(r_i, r_im1)
+				//
+				condition = hir.Conjunction(condition, constancy)
+			}
 		}
 	}
 	//
@@ -201,16 +225,18 @@ func (p *StateTranslator) WithLocalConstancies(condition hir.Expr) hir.Expr {
 // WithGlobalConstancies adds constancy constraints for all registers not
 // mutated at all by an instruction.
 func (p *StateTranslator) WithGlobalConstancies(condition hir.Expr) hir.Expr {
-	//
-	for i, r := range p.mapping.Registers {
-		rid := p.mapping.RegIDs[i]
-		//
-		if !r.IsInput() && p.constants.Contains(uint(i)) {
-			r_i := hir.NewColumnAccess(rid, 0)
-			r_im1 := hir.NewColumnAccess(rid, -1)
-			constancy := hir.Equals(r_i, r_im1)
+	// FIXME: following check is temporary hack
+	if p.pc > 0 {
+		for i, r := range p.mapping.Registers {
+			rid := p.mapping.RegIDs[i]
 			//
-			condition = hir.Conjunction(condition, constancy)
+			if !r.IsInput() && p.constants.Contains(uint(i)) {
+				r_i := hir.NewColumnAccess(rid, 0)
+				r_im1 := hir.NewColumnAccess(rid, -1)
+				constancy := hir.Equals(r_i, r_im1)
+				//
+				condition = hir.Conjunction(condition, constancy)
+			}
 		}
 	}
 	//

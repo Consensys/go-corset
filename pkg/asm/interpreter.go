@@ -16,36 +16,32 @@ import (
 	"fmt"
 	"math"
 	"math/big"
-	"strings"
 
-	"github.com/consensys/go-corset/pkg/asm/insn"
+	"github.com/consensys/go-corset/pkg/asm/io"
 )
 
 // CheckInstance checks whether a given function instance is valid with respect
 // to a given set of functions.  It returns an error if something goes wrong
 // (e.g. the instance is malformed), and either true or false to indicate
 // whether the trace is accepted or not.
-func CheckInstance[T insn.Instruction](instance FunctionInstance, program Program[T]) (uint, error) {
-	// Initialise a new interpreter
-	interpreter := NewInterpreter(program)
+func CheckInstance[T io.Instruction[T]](instance io.FunctionInstance, program io.Program[T]) (uint, error) {
+	fn := program.Function(instance.Function)
 	//
-	init := interpreter.Bind(instance.Function, instance.Inputs)
-	// Enter function
-	interpreter.Enter(instance.Function, init)
-	// Execute function to completion
-	interpreter.Execute(math.MaxUint)
-	// Extract outputs
-	outputs := interpreter.Leave()
-	// Checkout results
-	for r, actual := range outputs {
-		expected, ok := instance.Outputs[r]
-		outcome := expected.Cmp(&actual) == 0
+	exec := &SystematicExecutor[T]{program}
+	//
+	arguments := extractInstanceArguments(instance, fn)
+	// Run function using given executor
+	outputs := exec.Read(instance.Function, arguments)
+	// Check results
+	for i, reg := range fn.Outputs() {
+		expected, ok := instance.Outputs[reg.Name]
+		actual := outputs[i]
 		// Check actual output matches expected output
 		if !ok {
-			return math.MaxUint, fmt.Errorf("missing output (%s)", r)
-		} else if !outcome {
+			return math.MaxUint, fmt.Errorf("missing output (%s)", reg.Name)
+		} else if expected.Cmp(&actual) != 0 {
 			// failure
-			return 1, fmt.Errorf("incorrect output \"%s\" (was %s, expected %s)", r, actual.String(), expected.String())
+			return 1, fmt.Errorf("incorrect output \"%s\" (was %s, expected %s)", reg.Name, actual.String(), expected.String())
 		}
 	}
 	//
@@ -57,53 +53,121 @@ func CheckInstance[T insn.Instruction](instance FunctionInstance, program Progra
 	return 0, nil
 }
 
-// InterpreterState represents the state of a function being executed by the interpreter.
-type InterpreterState struct {
-	// Function index determines which function this state corresponds with.
-	fid uint
-	// Program counter
-	pc uint
-	// Current register values
-	registers []big.Int
+// Execute a given function with the given arguments in a given I/O environment
+// to produce a given set of output values.
+func Execute[T io.Instruction[T]](arguments []big.Int, fn io.Function[T], iomap io.Map) []big.Int {
+	var code = fn.Code()
+	// Construct local state
+	state := io.InitialState(arguments, fn, iomap)
+	// Keep executing until we're done.
+	for state.Pc != io.RETURN {
+		insn := code[state.Pc]
+		state.Pc = insn.Execute(state)
+	}
+	// Done
+	return state.Outputs()
 }
 
-// Registers returns the current state of all registers.
-func (p *InterpreterState) Registers() []big.Int {
-	return p.registers
-}
-
-// PC returns the current Program Counter position.
-func (p *InterpreterState) PC() uint {
-	return p.pc
-}
-
-// Interpreter encapsulates all state needed for executing a given instruction
-// sequence.
-type Interpreter[T insn.Instruction] struct {
-	// Program being interpreted
-	program Program[T]
-	// Set of interpreter states
-	states []InterpreterState
-}
-
-// NewInterpreter intialises an interpreter for executing a given instruction
-// sequence.
-func NewInterpreter[T insn.Instruction](program Program[T]) *Interpreter[T] {
-	return &Interpreter[T]{program, nil}
-}
-
-// Bind converts a set of name inputs into the internal state as needed by the
-// interpreter.
-func (p *Interpreter[T]) Bind(fn uint, arguments map[string]big.Int) []big.Int {
+// Trace a given function with the given arguments in a given I/O environment to
+// produce a given set of output values, along with the complete set of internal
+// traces.
+func Trace[T io.Instruction[T]](arguments []big.Int, fn io.Function[T], iomap io.Map) ([]big.Int, []io.State) {
 	var (
-		f     = p.program.Function(fn)
-		state = make([]big.Int, len(f.Registers))
+		code   = fn.Code()
+		states []io.State
+		// Construct local state
+		state = io.InitialState(arguments, fn, iomap)
 	)
+	// Keep executing until we're done.
+	for state.Pc != io.RETURN {
+		insn := code[state.Pc]
+		// execute given instruction
+		pc := insn.Execute(state)
+		// record internal state
+		states = append(states, state.Clone())
+		// advance to next instruction
+		state.Pc = pc
+	}
+	// Done
+	return state.Outputs(), states
+}
+
+// ============================================================================
+// Base Executor
+// ============================================================================
+
+// SystematicExecutor executes functions exactly in the order they arise.  For
+// example, if a given function is called twice with the same set of arguments,
+// then it is executed twice accordingly.
+type SystematicExecutor[T io.Instruction[T]] struct {
+	program io.Program[T]
+}
+
+// Read a set of values at a given address on a bus.
+func (p *SystematicExecutor[T]) Read(bus uint, address []big.Int) []big.Int {
+	fn := p.program.Function(bus)
+	//
+	return Execute(address, fn, p)
+}
+
+// Write a set of values to a given address on a bus.
+func (p *SystematicExecutor[T]) Write(bus uint, address []big.Int, values []big.Int) {
+	// Placeholder until mutable bus components are supported.
+	panic("cannot write to read-only bus")
+}
+
+// ============================================================================
+// Trace Executor
+// ============================================================================
+
+// TracingExecutor is an executor which additionally traces (i.e. records) the
+// internal state of all functions executed.  Thus, it can be used to fill (i.e.
+// expand) the trace for a function.
+type TracingExecutor[T io.Instruction[T]] struct {
+	program io.Program[T]
+	//
+	traces [][]io.State
+}
+
+// NewTracingExecutor constrcts a new tracing executor for a given program.
+func NewTracingExecutor[T io.Instruction[T]](program io.Program[T]) *TracingExecutor[T] {
+	traces := make([][]io.State, len(program.Functions()))
+	return &TracingExecutor[T]{program, traces}
+}
+
+// Read a set of values at a given address on a bus.
+func (p *TracingExecutor[T]) Read(bus uint, address []big.Int) []big.Int {
+	fn := p.program.Function(bus)
+	// Trace the given function
+	outputs, states := Trace(address, fn, p)
+	// Append all generated internal states
+	p.traces[bus] = append(p.traces[bus], states...)
+	// Done
+	return outputs
+}
+
+// Write a set of values to a given address on a bus.
+func (p *TracingExecutor[T]) Write(bus uint, address []big.Int, values []big.Int) {
+	// Placeholder until mutable bus components are supported.
+	panic("cannot write to read-only bus")
+}
+
+// Traces returns all recorded states for a given bus.
+func (p *TracingExecutor[T]) Traces(bus uint) []io.State {
+	return p.traces[bus]
+}
+
+// ============================================================================
+// Helpers
+// ============================================================================
+
+func extractInstanceArguments[T io.Instruction[T]](instance io.FunctionInstance, fn io.Function[T]) []big.Int {
+	var state = make([]big.Int, len(fn.Registers()))
 	// Initialise arguments
-	for i, reg := range f.Registers {
+	for i, reg := range fn.Registers() {
 		if reg.IsInput() {
 			var (
-				val, ok = arguments[reg.Name]
+				val, ok = instance.Inputs[reg.Name]
 				ith     big.Int
 			)
 			// Sanity check
@@ -118,103 +182,4 @@ func (p *Interpreter[T]) Bind(fn uint, arguments map[string]big.Int) []big.Int {
 	}
 	//
 	return state
-}
-
-// State returns the interpreter's (raw) register state for the currently
-// executing function.  This state is raw, hence changes to this can impact the
-// interpreter's subsequent execution.
-func (p *Interpreter[T]) State() InterpreterState {
-	var n = len(p.states) - 1
-	return p.states[n]
-}
-
-// Enter beings execution of a given function, using a given initial state.  The
-// currently executing function (if any) is paused.
-func (p *Interpreter[T]) Enter(fn uint, state []big.Int) {
-	//
-	p.states = append(p.states, InterpreterState{
-		fn, uint(0), state,
-	})
-}
-
-// Leave exits the currently executing function, extracting its output values.
-func (p *Interpreter[T]) Leave() map[string]big.Int {
-	var (
-		n  = len(p.states) - 1
-		st = p.states[n]
-		f  = p.program.Function(st.fid)
-	)
-	// Construct outputs
-	outputs := make(map[string]big.Int, 0)
-	//
-	for i, reg := range f.Registers {
-		if reg.IsOutput() {
-			outputs[reg.Name] = st.registers[i]
-		}
-	}
-	// Remove last state
-	p.states = p.states[:n]
-	//
-	return outputs
-}
-
-// Execute n steps of the given program, returning the number of steps actually
-// executed.  The number of steps can differ from that requested if: the
-// enclosing function has already terminated; the enclosing function terminates
-// before executing all steps.
-func (p *Interpreter[T]) Execute(nsteps uint) uint {
-	var (
-		n    = len(p.states) - 1
-		st   = &p.states[n]
-		f    = p.program.Function(st.fid)
-		step = uint(0)
-	)
-	//
-	for st.pc != insn.RETURN && step < nsteps {
-		insn := f.Code[st.pc]
-		st.pc = insn.Execute(st.pc, st.registers, f.Registers)
-		step++
-	}
-	//
-	return step
-}
-
-// HasTerminated checks whether or not the enclosing function has terminated.
-func (p *Interpreter[T]) HasTerminated() bool {
-	var (
-		n  = len(p.states) - 1
-		st = p.states[n]
-	)
-	//
-	return st.pc == math.MaxUint
-}
-
-func (p *Interpreter[T]) String() string {
-	var (
-		builder strings.Builder
-		state   = p.State()
-		fn      = p.program.Function(state.fid)
-	)
-	//
-	for i := 1; i < len(p.states); i++ {
-		builder.WriteString("\t")
-	}
-	//
-	if p.State().pc == math.MaxUint {
-		builder.WriteString("------- ")
-	} else {
-		pc := fmt.Sprintf("(pc=%02x) ", p.State().pc)
-		builder.WriteString(pc)
-	}
-	//
-	for i := 0; i != len(fn.Registers); i++ {
-		if i != 0 {
-			builder.WriteString(", ")
-		}
-		//
-		val := state.registers[i].Text(16)
-		builder.WriteString(fmt.Sprintf("%s=0x%s", fn.Registers[i].Name, val))
-	}
-	//
-	return builder.String()
 }

@@ -16,33 +16,18 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/consensys/go-corset/pkg/asm/insn"
+	"github.com/consensys/go-corset/pkg/asm/io"
 )
 
-func assignmentToString(dsts []uint, srcs []uint, constant big.Int, regs []Register, c big.Int, op string) string {
+func assignmentToString(dsts []uint, srcs []uint, constant big.Int, fn io.Function[Instruction],
+	c big.Int, op string) string {
+	//
 	var (
 		builder strings.Builder
-		n       = len(dsts) - 1
+		regs    = fn.Registers()
 	)
 	//
-	if zero.Cmp(big.NewInt(0)) != 0 {
-		panic("")
-	}
-	//
-	for i := 0; i != len(dsts); i++ {
-		var r = dsts[n-i]
-		//
-		if i != 0 {
-			builder.WriteString(", ")
-		}
-		//
-		if r < uint(len(regs)) {
-			builder.WriteString(regs[r].Name)
-		} else {
-			builder.WriteString(fmt.Sprintf("?%d", r))
-		}
-	}
-	//
+	builder.WriteString(io.RegistersReversedToString(dsts, regs))
 	builder.WriteString(" = ")
 	//
 	for i, r := range srcs {
@@ -69,37 +54,6 @@ func assignmentToString(dsts []uint, srcs []uint, constant big.Int, regs []Regis
 	return builder.String()
 }
 
-// MaxNumberOfLimbs returns the maximum number of limbs required for any
-// register in the given target registers.  For example, given registers r0 and
-// r1 of bitwidths 16bits and 8bits (respectively), then 2 is maximum number of
-// limbs for an 8bit maximum register width.
-func MaxNumberOfLimbs(maxWidth uint, regs []Register, targets []uint) uint {
-	var n = uint(0)
-	//
-	for _, target := range targets {
-		regWidth := regs[target].Width
-		n = max(n, NumberOfLimbs(maxWidth, regWidth))
-	}
-	//
-	return n
-}
-
-// NumberOfLimbs determines the number of limbs required for a given bitwidth.
-// For example, a 64bit register splits into two limbs for a maximum register
-// width of 32bits. Observe that an e.g. 60bit register also splits into two
-// limbs here as well, where the most significant limb is 28bits wide and the
-// least significant is 32bits width.
-func NumberOfLimbs(maxWidth uint, regWidth uint) uint {
-	n := regWidth / maxWidth
-	m := regWidth % maxWidth
-	// Check for uneven split
-	if m != 0 {
-		return n + 1
-	}
-	//
-	return n
-}
-
 // RegisterSplittingEnvironment represents an environment to assist with register splitting.
 // Specifically, it maintains the list of registers as they were before
 // splitting, along with the list as they are after splitting and, finally, a
@@ -108,23 +62,23 @@ type RegisterSplittingEnvironment struct {
 	// Maximum permitted width for a register.
 	maxWidth uint
 	// Set of unsplit registers (i.e. as they were before).
-	regsBefore []Register
+	regsBefore []io.Register
 	// Set of split registers (i.e. as they are after splitting).  Observe that
 	// this can include extra registers are allocated to implement the split
 	// (e.g. for holding carry flags).
-	regsAfter []Register
+	regsAfter []io.Register
 	// Mapping from indices in regsBefore to indices in regsAfter
 	regMap []uint
 }
 
 // NewRegisterSplittingEnvironment constructs a new register splitting environment for a given set
 // of registers and a desired maximum register width.
-func NewRegisterSplittingEnvironment(maxWidth uint, registers []Register) *RegisterSplittingEnvironment {
+func NewRegisterSplittingEnvironment(maxWidth uint, registers []io.Register) *RegisterSplittingEnvironment {
 	var (
 		// Mapping from old register ids to new register ids.
 		mapping []uint = make([]uint, len(registers))
 		//
-		splitRegisters []Register
+		splitRegisters []io.Register
 	)
 	//
 	for i, reg := range registers {
@@ -133,7 +87,7 @@ func NewRegisterSplittingEnvironment(maxWidth uint, registers []Register) *Regis
 		// Check whether splitting required.
 		if reg.Width > maxWidth {
 			// Yes!
-			splitRegisters = append(splitRegisters, SplitRegister(maxWidth, reg)...)
+			splitRegisters = append(splitRegisters, io.SplitRegister(maxWidth, reg)...)
 		} else {
 			splitRegisters = append(splitRegisters, reg)
 		}
@@ -148,63 +102,8 @@ func NewRegisterSplittingEnvironment(maxWidth uint, registers []Register) *Regis
 }
 
 // RegistersAfter returns the set of registers as they appear after splitting.
-func (p *RegisterSplittingEnvironment) RegistersAfter() []Register {
+func (p *RegisterSplittingEnvironment) RegistersAfter() []io.Register {
 	return p.regsAfter
-}
-
-// SplitConstant splits a given constant into a number of "limbs" of a given
-// maximum width. For example, consider splitting the constant 0x7b2d into 8bit
-// limbs.  Then, this function returns the array [0x2d,0x7b].
-func (p *RegisterSplittingEnvironment) SplitConstant(constant big.Int, nLimbs uint) []big.Int {
-	var (
-		bound = big.NewInt(2)
-		limb  big.Int
-		limbs []big.Int = make([]big.Int, nLimbs)
-	)
-	// Determine upper bound
-	bound.Exp(bound, big.NewInt(int64(p.maxWidth)), nil)
-	//
-	for i := 0; constant.Cmp(&zero) != 0; i++ {
-		limb.Mod(&constant, bound)
-		limbs[i] = limb
-
-		constant.Rsh(&constant, p.maxWidth)
-	}
-	//
-	return limbs
-}
-
-// SplitConstantVariable splits a given constant into a given set of (variable)
-// bitwidths.  For example, splitting 0x107 into 8bit and 1bit limbs gives
-// [0x07,0x1].
-func (p *RegisterSplittingEnvironment) SplitConstantVariable(constant *big.Int, limbWidths ...uint) []big.Int {
-	var (
-		limb  big.Int
-		limbs []big.Int = make([]big.Int, len(limbWidths))
-		acc   big.Int
-	)
-	//
-	acc.Set(constant)
-	//for i := 0; constant.Cmp(&zero) != 0; i++ {
-	for i := 0; i != len(limbWidths); i++ {
-		var (
-			bound     = big.NewInt(2)
-			limbWidth = limbWidths[i]
-		)
-		// Determine upper bound
-		bound.Exp(bound, big.NewInt(int64(limbWidth)), nil)
-		//
-		limb.Mod(&acc, bound)
-		limbs[i] = limb
-		//
-		acc.Rsh(&acc, limbWidth)
-	}
-	//
-	if acc.Cmp(&zero) != 0 {
-		panic("constant overflows registers")
-	}
-	//
-	return limbs
 }
 
 // SplitSourceRegisters splits a given set of source registers into "packets" of
@@ -212,13 +111,13 @@ func (p *RegisterSplittingEnvironment) SplitConstantVariable(constant *big.Int, 
 // (respectively) 16bits and 8bits.  Then, splitting for a maximum width of 8
 // yields 2 packets: {{r0'0,r1'0}, {r0'1}}
 func (p *RegisterSplittingEnvironment) SplitSourceRegisters(sources ...uint) [][]uint {
-	ntargets := make([][]uint, MaxNumberOfLimbs(p.maxWidth, p.regsBefore, sources))
+	ntargets := make([][]uint, io.MaxNumberOfLimbs(p.maxWidth, p.regsBefore, sources))
 	//
 	for _, target := range sources {
 		ntarget := p.regMap[target]
 		reg := p.regsBefore[target]
 		// Determine split parameters
-		n := NumberOfLimbs(p.maxWidth, reg.Width)
+		n := io.NumberOfLimbs(p.maxWidth, reg.Width)
 		// Split up n limbs
 		for j := uint(0); j != n; j++ {
 			ntargets[j] = append(ntargets[j], ntarget+j)
@@ -245,7 +144,7 @@ func (p *RegisterSplittingEnvironment) SplitTargetRegisters(targets ...uint) []u
 	for _, target := range targets {
 		ntarget := p.regMap[target]
 		reg := p.regsBefore[target]
-		n := NumberOfLimbs(p.maxWidth, reg.Width)
+		n := io.NumberOfLimbs(p.maxWidth, reg.Width)
 		// Split into n limbs
 		for j := uint(0); j != n; j++ {
 			ntargets = append(ntargets, ntarget+j)
@@ -296,64 +195,9 @@ func (p *RegisterSplittingEnvironment) AllocateCarryRegister(targetWidth uint, s
 	// Determine number of bits of overflow
 	overflowWidth := sourceWidth - targetWidth
 	// Construct register for holding overflow
-	overflowRegister := Register{Name: fmt.Sprintf("c$%d", overflowRegId), Kind: insn.TEMP_REGISTER, Width: overflowWidth}
+	overflowRegister := io.Register{Name: fmt.Sprintf("c$%d", overflowRegId), Kind: io.TEMP_REGISTER, Width: overflowWidth}
 	// Allocate overflow register
 	p.regsAfter = append(p.regsAfter, overflowRegister)
 	//
 	return overflowRegId
-}
-
-// SplitRegister splits a register into a number of limbs with the given maximum
-// bitwidth.  For the resulting array, the least significant register is first.
-// Since registers are always split to the maximum width as much as possible, it
-// is only the most significant register which may (in some cases) have fewer
-// bits than the maximum allowed.
-func SplitRegister(maxWidth uint, r Register) []Register {
-	var (
-		nlimbs = NumberOfLimbs(maxWidth, r.Width)
-		limbs  = make([]Register, nlimbs)
-		width  = r.Width
-	)
-	//
-	for i := uint(0); i < nlimbs; i++ {
-		ith_name := fmt.Sprintf("%s'%d", r.Name, i)
-		ith_width := min(maxWidth, width)
-		limbs[i] = Register{Name: ith_name, Kind: r.Kind, Width: ith_width}
-		width -= maxWidth
-	}
-	//
-	return limbs
-}
-
-// SplitValueAcrossRegisters splits a given value across a set of registers,
-// where the least significant register comes first.  This will panic if the
-// value does not fit into the given registers.
-func SplitValueAcrossRegisters(constant *big.Int, registers ...Register) []big.Int {
-	var (
-		limb  big.Int
-		limbs []big.Int = make([]big.Int, len(registers))
-		acc   big.Int
-	)
-	//
-	acc.Set(constant)
-	//
-	for i := 0; acc.Cmp(&zero) != 0; i++ {
-		var (
-			bound     = big.NewInt(2)
-			limbWidth = registers[i].Width
-		)
-		// Determine upper bound
-		bound.Exp(bound, big.NewInt(int64(limbWidth)), nil)
-		//
-		limb.Mod(&acc, bound)
-		limbs[i] = limb
-
-		acc.Rsh(&acc, limbWidth)
-	}
-	// Sanity check nothing is left.
-	if acc.Cmp(&zero) != 0 {
-		panic("value overflows given registers")
-	}
-	//
-	return limbs
 }

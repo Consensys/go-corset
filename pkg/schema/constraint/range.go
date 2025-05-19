@@ -129,7 +129,10 @@ func (p *RangeConstraint[E]) Bounds(module uint) util.Bounds {
 //
 //nolint:revive
 func (p *RangeConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
-	var coverage bit.Set
+	var (
+		coverage bit.Set
+		handle   = determineHandle(p.Handle, p.Context, tr)
+	)
 	// Determine height of enclosing module
 	height := tr.Height(p.Context)
 	// Iterate every row
@@ -146,7 +149,7 @@ func (p *RangeConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
 			}
 		} else if kth.Cmp(&p.Bound) >= 0 {
 			// Evaluation failure
-			return coverage, &RangeFailure{p.Handle, p.Expr, p.Bound, uint(k)}
+			return coverage, &RangeFailure{handle, p.Expr, p.Bound, uint(k)}
 		}
 	}
 	// All good
