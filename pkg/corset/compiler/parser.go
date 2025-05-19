@@ -1361,7 +1361,7 @@ func (p *Parser) parseType(term sexp.SExp) (ast.Type, bool, *SyntaxError) {
 	default:
 		// Handle generic types like i16, i128, etc.
 		str := parts[0]
-		if !strings.HasPrefix(str, ":i") {
+		if !strings.HasPrefix(str, ":i") && !strings.HasPrefix(str, ":u") {
 			return nil, false, p.translator.SyntaxError(symbol, "unknown type")
 		}
 		// Parse bitwidth
@@ -1849,7 +1849,7 @@ func isFunIdentifier(sexp sexp.SExp) bool {
 }
 
 func isIdentifierStart(c rune) bool {
-	return unicode.IsLetter(c) || c == '_' || c == '\''
+	return unicode.IsLetter(c) || c == '_' || c == '\'' || c == '$'
 }
 
 func isIdentifierMiddle(c rune) bool {

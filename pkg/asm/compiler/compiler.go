@@ -18,106 +18,119 @@ import (
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
-	"github.com/consensys/go-corset/pkg/hir"
-	"github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 )
 
+// STAMP_NAME determines the name used in the underlying constraint system for
+// stamp column.
+const STAMP_NAME = "$stamp"
+
+// PC_NAME determines the name used in the underlying constraint system for the
+// Program Counter (PC) column.
+const PC_NAME = "$pc"
+
 // MicroFunction is a function composed entirely of micro instructions.
 type MicroFunction = io.Function[micro.Instruction]
 
-type busInfo struct {
-	// Name of the bus
+// FunctionMapping provides information regarding the mapping of a
+// assembly-level component (e.g. a function) to the corresponding columns in
+// the underlying constraint system.
+type FunctionMapping[T any] struct {
+	// Name of the Bus
 	name string
 	// Registers
 	registers []io.Register
-	// Underlying HIR column ids
-	columns []uint
+	// Underlying column ids for registers
+	columns []T
 }
 
-// Width returns the width of this bus.  That is, the number of input/output
-// registers.
-func (p *busInfo) Width() uint {
-	return uint(len(p.registers))
+// ColumnsOf returns the underlying column identifiers for a given set of zero
+// or more registers.
+func (p *FunctionMapping[T]) ColumnsOf(registers ...uint) []T {
+	columns := make([]T, len(registers))
+	//
+	for i, r := range registers {
+		columns[i] = p.columns[r]
+	}
+	//
+	return columns
+}
+
+// Bus returns the set of input/output columns which represent the "Bus" for
+// this component.
+func (p *FunctionMapping[T]) Bus() []T {
+	var columns []T
+	//
+	for i, r := range p.registers {
+		if r.IsInput() || r.IsOutput() {
+			columns = append(columns, p.columns[i])
+		}
+	}
+	//
+	return columns
 }
 
 // Compiler packages up everything needed to compile a given assembly down into
 // an HIR schema.  Observe that the compiler may fail if the assembly files are
 // malformed in some way (e.g. fail type checking).
-type Compiler struct {
-	schema hir.Schema
+type Compiler[T any, E Expr[T, E], M Module[T, E, M]] struct {
+	modules []M
 	// maxInstances determines the maximum number of instances permitted for any
 	// given function.
 	maxInstances uint
 	// Bus records
-	buses []busInfo
-	// Mapping  of bus names to bus records.
-	busMap map[string]trace.Context
+	buses []FunctionMapping[T]
+	// Mapping  of Bus names to Bus records.
+	busMap map[string]uint
 	// types & reftables
 	// sourcemap
 }
 
 // NewCompiler constructs a new compiler
-func NewCompiler() *Compiler {
-	schema := hir.EmptySchema()
-	//
-	return &Compiler{
-		schema:       *schema,
+func NewCompiler[T any, E Expr[T, E], M Module[T, E, M]]() *Compiler[T, E, M] {
+	return &Compiler[T, E, M]{
+		modules:      nil,
 		maxInstances: 32,
 		buses:        nil,
-		busMap:       make(map[string]trace.Context),
+		busMap:       make(map[string]uint),
 	}
 }
 
-// Schema returns the generated schema
-func (p *Compiler) Schema() *hir.Schema {
-	return &p.schema
+// Modules returns the abstract modules constructed during compilation.
+func (p *Compiler[T, E, M]) Modules() []M {
+	return p.modules
 }
 
-// RegisterBus registers a bus with a given name and width (i.e. number of
-// address / value lines).
-func (p *Compiler) RegisterBus(name string, inputs []io.Register, outputs []io.Register) {
-	// Allocate module id
-	id := p.schema.AddModule(name, hir.VOID)
-	// sanity check bus id matches module id
-	if id != uint(len(p.buses)) {
-		panic("invalid module <=> bus mapping")
+// Compile a given set of micro functions
+func (p *Compiler[T, E, M]) Compile(fns ...MicroFunction) {
+	p.modules = make([]M, len(fns))
+	p.buses = make([]FunctionMapping[T], len(fns))
+	// Initialise buses
+	for i, f := range fns {
+		p.initModule(uint(i), f)
 	}
-	//
-	ctx := trace.NewContext(id, 1)
-	// Add I/O lines only
-	inputColumns := p.allocateIoLines(ctx, inputs, true)
-	outputColumns := p.allocateIoLines(ctx, outputs, false)
-	//
-	p.buses = append(p.buses, busInfo{
-		name,
-		append(inputs, outputs...),
-		append(inputColumns, outputColumns...),
-	})
-	// Allocate bus context
-	p.busMap[name] = ctx
+	// Compiler functions
+	for _, fn := range fns {
+		p.compileFunction(fn)
+	}
 }
 
 // Compile a function with the given name, registers and micro-instructions into
 // constraints.
-func (p *Compiler) Compile(fn MicroFunction) {
-	ctx := p.busMap[fn.Name()]
-	// Determine correct register ids
-	rids := p.initFunctionRegisters(ctx, fn.Registers())
+func (p *Compiler[T, E, M]) compileFunction(fn MicroFunction) {
+	busId := p.busMap[fn.Name()]
 	// Setup framing columns / constraints
-	stampID, pcID := p.initFunctionFraming(ctx, rids, fn)
+	stamp, pc := p.initFunctionFraming(busId, fn)
 	// Initialise buses required for this code sequence
-	p.initBuses(ctx, fn, rids)
+	p.initBuses(busId, fn)
 	// Construct appropriate mapping
-	mapping := Translator{
-		Schema:    &p.schema,
-		StampID:   stampID,
-		PcID:      pcID,
-		Context:   ctx,
-		RegIDs:    rids,
-		Registers: fn.Registers(),
+	mapping := Translator[T, E, M]{
+		Module:         p.modules[busId],
+		Stamp:          stamp,
+		ProgramCounter: pc,
+		Registers:      fn.Registers(),
+		Columns:        p.buses[busId].columns,
 	}
 	// Compile each instruction in turn
 	for pc, inst := range fn.Code() {
@@ -126,133 +139,96 @@ func (p *Compiler) Compile(fn MicroFunction) {
 	}
 }
 
-// Initialise the mapping from registers to HIR column identifiers.  Observe
-// that input / output registers will have already been allocated during bus
-// initialisation.  Therefore, we have to extract their identifiers rather than
-// allocate new columns.
-func (p *Compiler) initFunctionRegisters(ctx trace.Context, regs []io.Register) []uint {
+// Create columns in the respective module for all registers associated with a
+// given Bus component (e.g. function).
+func (p *Compiler[T, E, M]) initModule(busId uint, fn MicroFunction) {
 	var (
-		bus     = p.buses[ctx.ModuleId]
-		columns = make([]uint, len(regs))
-		ioreg   uint
+		module M
+		bus    FunctionMapping[T]
 	)
+	// Initialise module correctly
+	module = module.Initialise(fn.Name())
+	p.modules[busId] = module
 	//
-	for i, reg := range regs {
-		// Sanity checks
-		if reg.IsInput() || reg.IsOutput() {
-			ioName := bus.registers[ioreg].Name
-			// sanity check
-			if reg.Name != ioName {
-				panic(fmt.Sprintf("mis-aligned I/O register %s <=> %s", reg.Name, ioName))
-			}
-			// input / output register, so lookup existing line.
-			columns[i] = bus.columns[ioreg]
-			ioreg++
-		} else {
-			// internal register, so allocate new line.
-			columns[i] = p.allocateRegisterLine(ctx, reg)
-		}
+	bus.name = fn.Name()
+	bus.registers = fn.Registers()
+	bus.columns = make([]T, len(fn.Registers()))
+	//
+	for i, reg := range fn.Registers() {
+		bus.columns[i] = module.NewColumn(reg.Name, reg.Width)
 	}
-	// Done
-	return columns
+	//
+	p.buses[busId] = bus
+	p.busMap[bus.name] = busId
 }
 
-func (p *Compiler) initFunctionFraming(ctx trace.Context, rids []uint, fn MicroFunction) (uint, uint) {
-	//
-	pcMax := uint64(len(fn.Code()) - 1)
-	// Determine max width of PC
-	pcWidth := uint(big.NewInt(int64(pcMax)).BitLen())
+func (p *Compiler[T, E, M]) initFunctionFraming(busId uint, fn MicroFunction) (stamp T, pc T) {
+	var (
+		pcMax = uint64(len(fn.Code()) - 1)
+		// Determine max width of PC
+		pcWidth = uint(big.NewInt(int64(pcMax)).BitLen())
+		//
+		Bus    = p.buses[busId]
+		module = p.modules[busId]
+	)
 	// Allocate book keeping columns
-	stamp := p.schema.AddDataColumn(ctx, "$stamp", schema.NewUintType(p.maxInstances))
-	pc := p.schema.AddDataColumn(ctx, "$pc", schema.NewUintType(pcWidth))
+	stamp = module.NewColumn(STAMP_NAME, p.maxInstances)
+	pc = module.NewColumn(PC_NAME, pcWidth)
 	//
-	stamp_i := hir.NewColumnAccess(stamp, 0)
-	stamp_im1 := hir.NewColumnAccess(stamp, -1)
-	pc_i := hir.NewColumnAccess(pc, 0)
-	// $stamp == 0 on first row
-	p.schema.AddVanishingConstraint("first", ctx, util.Some(0), hir.Equals(stamp_i, hir.ZERO))
-	// $stamp == 0 || $pc == ...
-	p.schema.AddVanishingConstraint("last", ctx, util.Some(-1),
-		hir.If(hir.NotEquals(stamp_i, hir.ZERO), terminators(pc_i, fn)))
-	//
-	// prev($stamp) == $stamp || prev($stamp)+1== $stamp
-	p.schema.AddVanishingConstraint("increment", ctx, util.None[int](),
-		hir.If(hir.NotEquals(stamp_im1, stamp_i), hir.Equals(hir.Sum(hir.ONE, stamp_im1), stamp_i)))
-	// prev($stamp) == $stamp || $pc == 0
-	p.schema.AddVanishingConstraint("reset", ctx, util.None[int](),
-		hir.If(hir.NotEquals(stamp_im1, stamp_i), hir.Equals(pc_i, hir.ZERO)))
+	stamp_i := Variable[T, E](stamp, 0)
+	stamp_im1 := Variable[T, E](stamp, -1)
+	pc_i := Variable[T, E](pc, 0)
+	zero := Number[T, E](0)
+	one := Number[T, E](1)
+	// stamp[0] == 0
+	module.NewConstraint("first", util.Some(0), stamp_i.Equals(zero))
+	// stamp[i] == 0 || pc[i] == ... [BROKEN]
+	// module.NewConstraint("last", util.Some(-1),
+	//	If(stamp_i.NotEquals(zero), terminators(pc_i, fn)))
+	// stamp[i-1] != stamp[i] ==> stamp[i-1]+1 == stamp[i]
+	module.NewConstraint("increment", util.None[int](),
+		If(stamp_im1.NotEquals(stamp_i), one.Add(stamp_im1).Equals(stamp_i)))
+	// stamp[i-1] != stamp[i] ==> pc[i] == 0
+	module.NewConstraint("reset", util.None[int](),
+		If(stamp_im1.NotEquals(stamp_i), pc_i.Equals(zero)))
 	// Add constancies for all input registers
 	for i, r := range fn.Registers() {
-		rid := rids[i]
-		//
 		if r.IsInput() {
 			name := fmt.Sprintf("const_%s", r.Name)
-			reg_i := hir.NewColumnAccess(rid, 0)
-			reg_im1 := hir.NewColumnAccess(rid, -1)
+			reg_i := Variable[T, E](Bus.columns[i], 0)
+			reg_im1 := Variable[T, E](Bus.columns[i], -1)
 			//
-			p.schema.AddVanishingConstraint(name, ctx, util.None[int](),
-				hir.If(hir.NotEquals(pc_i, hir.ZERO), hir.Equals(reg_im1, reg_i)))
+			module.NewConstraint(name, util.None[int](),
+				If(pc_i.NotEquals(zero), reg_im1.Equals(reg_i)))
 		}
 	}
 	//
 	return stamp, pc
 }
 
-func (p *Compiler) allocateIoLines(ctx trace.Context, lines []io.Register, inputs bool) []uint {
-	var columns []uint
-	//
-	for _, reg := range lines {
-		// Sanity checks
-		if inputs && !reg.IsInput() {
-			panic(fmt.Sprintf("invalid input register %s", reg.Name))
-		} else if !inputs && !reg.IsOutput() {
-			panic(fmt.Sprintf("invalid output register %s", reg.Name))
-		}
-		// Allocate register
-		columns = append(columns, p.allocateRegisterLine(ctx, reg))
-	}
-
-	return columns
-}
-
-// Allocate a given register into the underlying schema, producing an HIR column
-// identifier.
-func (p *Compiler) allocateRegisterLine(ctx trace.Context, reg io.Register) uint {
-	typeName := fmt.Sprintf("%s:u%d", reg.Name, reg.Width)
-	// Construct appropriate datatype
-	datatype := schema.NewUintType(reg.Width)
-	// Allocate register
-	cid := p.schema.AddDataColumn(ctx, reg.Name, datatype)
-	// Add range constraint
-	p.schema.AddRangeConstraint(typeName, ctx,
-		hir.NewColumnAccess(cid, 0), datatype.Bound())
-	// Done
-	return cid
-}
-
 // Initialise the buses linked in a given function.
-func (p *Compiler) initBuses(caller trace.Context, fn MicroFunction, columns []uint) {
+func (p *Compiler[T, E, M]) initBuses(caller uint, fn MicroFunction) {
+	var module = p.modules[caller]
 	//
 	for _, bus := range localBuses(fn) {
-		// Callee represents the function being called by this bus.
+		// Callee represents the function being called by this Bus.
 		var (
-			callee        = trace.NewContext(bus.BusId, 1)
-			name          = fmt.Sprintf("%s=>%s", fn.Name(), bus.Name)
-			callerRegs    = append(bus.Address(), bus.Data()...)
-			callerLines   = make([]hir.Expr, len(callerRegs))
-			calleeColumns = p.buses[bus.BusId].columns
-			calleeLines   = make([]hir.Expr, len(calleeColumns))
+			name        = fmt.Sprintf("%s=>%s", fn.Name(), bus.Name)
+			callerBus   = p.buses[caller].ColumnsOf(bus.AddressData()...)
+			callerLines = make([]E, len(callerBus))
+			calleeBus   = p.buses[bus.BusId].Bus()
+			calleeLines = make([]E, len(calleeBus))
 		)
 		// Initialise caller lines
-		for i, r := range callerRegs {
-			callerLines[i] = hir.NewColumnAccess(columns[r], 0)
+		for i, r := range callerBus {
+			callerLines[i] = Variable[T, E](r, 0)
 		}
 		// Initialise callee lines
-		for i, c := range calleeColumns {
-			calleeLines[i] = hir.NewColumnAccess(c, 0)
+		for i, r := range calleeBus {
+			calleeLines[i] = Variable[T, E](r, 0)
 		}
 		// Add lookup constraint
-		p.schema.AddLookupConstraint(name, caller, callee, callerLines, calleeLines)
+		module.NewLookup(name, callerLines, calleeLines)
 	}
 }
 
@@ -271,36 +247,15 @@ func localBuses(fn MicroFunction) []io.Bus {
 	for _, insn := range insns {
 		for _, ucode := range insn.Codes {
 			if bi, ok := ucode.(io.InOutInstruction); ok {
-				bus := bi.Bus()
+				Bus := bi.Bus()
 				//
-				if !seen.Contains(bus.BusId) {
-					buses = append(buses, bus)
-					seen.Insert(bus.BusId)
+				if !seen.Contains(Bus.BusId) {
+					buses = append(buses, Bus)
+					seen.Insert(Bus.BusId)
 				}
 			}
 		}
 	}
 	//
 	return buses
-}
-
-func terminators(pc_i hir.Expr, fn MicroFunction) hir.Expr {
-	var (
-		terminator hir.Expr
-		first      = true
-	)
-	//
-	for pc, insn := range fn.Code() {
-		if insn.Terminal() {
-			ith := hir.Equals(pc_i, hir.NewConst64(uint64(pc)))
-			if first {
-				terminator = ith
-				first = false
-			} else {
-				terminator = hir.Disjunction(terminator, ith)
-			}
-		}
-	}
-	//
-	return terminator
 }

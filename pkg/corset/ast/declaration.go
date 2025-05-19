@@ -39,6 +39,11 @@ type Module struct {
 	Condition Expr
 }
 
+// Add a new declaration into this module.
+func (p *Module) Add(decl Declaration) {
+	p.Declarations = append(p.Declarations, decl)
+}
+
 // Node provides common functionality across all elements of the Abstract Syntax
 // Tree.  For example, it ensures every element can converted back into Lisp
 // form for debugging.  Furthermore, it provides a reference point for
@@ -306,7 +311,7 @@ func (e *DefColumn) Lisp() sexp.SExp {
 	if e.binding.DataType != nil {
 		datatype := e.binding.DataType.String()
 		if e.binding.MustProve {
-			datatype = fmt.Sprintf("%s@prove", datatype)
+			datatype = fmt.Sprintf(":%s@prove", datatype)
 		}
 
 		list.Append(sexp.NewSymbol(datatype))

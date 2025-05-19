@@ -857,7 +857,7 @@ func (r *resolver) finaliseReduceInModule(scope LocalScope, expr *ast.Reduce) []
 // permitted in a global context.
 func (r *resolver) finaliseVariableInModule(scope LocalScope, expr *ast.VariableAccess) []SyntaxError {
 	// Check whether this is a qualified access, or not.
-	if !scope.IsGlobal() && expr.Path().IsAbsolute() {
+	if !scope.IsGlobal() && expr.Path().IsAbsolute() && !scope.IsLocal(*expr.Path()) {
 		return r.srcmap.SyntaxErrors(expr, "qualified access not permitted here")
 	}
 	// Symbol should be resolved at this point, but we'd better sanity check this.

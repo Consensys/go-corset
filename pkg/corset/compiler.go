@@ -49,11 +49,14 @@ type CompilationConfig struct {
 // CompileSourceFiles compiles one or more source files into a schema.  This
 // process can fail if the source files are mal-formed, or contain syntax errors
 // or other forms of error (e.g. type errors).
-func CompileSourceFiles(config CompilationConfig, srcfiles []*source.File) (*binfile.BinaryFile, []SyntaxError) {
+func CompileSourceFiles(config CompilationConfig, srcfiles []*source.File,
+	externs ...ast.Module) (*binfile.BinaryFile, []SyntaxError) {
 	// Include the standard library (if requested)
 	srcfiles = includeStdlib(config.Stdlib, srcfiles)
 	// Parse all source files (inc stdblib if applicable).
 	circuit, srcmap, errs := compiler.ParseSourceFiles(srcfiles)
+	// Include any external declarations.
+	circuit.Modules = append(circuit.Modules, externs...)
 	// Check for parsing errors
 	if errs != nil {
 		return nil, errs

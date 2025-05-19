@@ -33,6 +33,9 @@ type Scope interface {
 
 	// Bindings returns all binding identifiers within a given path.
 	Bindings(util.Path) []BindingId
+
+	// Check whether a given path is local to the enclosing module, or not.
+	IsLocal(util.Path) bool
 }
 
 // BindingId is an identifier is used to distinguish different forms of binding,
@@ -110,6 +113,11 @@ func (p *ModuleScope) Name() string {
 // Virtual identifies whether or not this is a virtual module.
 func (p *ModuleScope) Virtual() bool {
 	return p.selector != nil
+}
+
+// IsLocal checks whether a given path is local to the enclosing module, or not.
+func (p *ModuleScope) IsLocal(path util.Path) bool {
+	return p.parent != nil && p.path.PrefixOf(path)
 }
 
 // IsRoot checks whether or not this is the root of the module tree.
@@ -502,6 +510,11 @@ func (p LocalScope) IsPure() bool {
 // places some restrictions on what variables can be accessed, etc.
 func (p LocalScope) IsConstant() bool {
 	return p.constant
+}
+
+// IsLocal checks whether a given path is local to the enclosing module, or not.
+func (p LocalScope) IsLocal(path util.Path) bool {
+	return p.enclosing.IsLocal(path)
 }
 
 // FixContext fixes the context for this scope.  Since every scope requires

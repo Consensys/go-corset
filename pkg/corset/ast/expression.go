@@ -617,6 +617,7 @@ func (e *If) Lisp() sexp.SExp {
 	//
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("if"),
+		e.Condition.Lisp(),
 		e.TrueBranch.Lisp()})
 }
 

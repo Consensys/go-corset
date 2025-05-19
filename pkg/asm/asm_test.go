@@ -144,7 +144,7 @@ func checkIrTraces(t *testing.T, test string, cfg TestConfig, traces []io.Trace[
 		hirTraces  [][]trace.RawColumn
 	)
 	//
-	binFile := Compile(program)
+	binFile := CompileBinary(fmt.Sprintf("%s.lisp", test), program)
 	hirSchema := &binFile.Schema
 	//
 	for _, tr := range traces {
