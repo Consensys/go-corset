@@ -32,10 +32,15 @@ func Test_Counter(t *testing.T) {
 func Test_Max(t *testing.T) {
 	check(t, "max")
 }
-func Test_Pow(t *testing.T) {
-	check(t, "pow")
+func Test_SlowPow(t *testing.T) {
+	check(t, "slow_pow")
 }
-
+func Test_FastPow(t *testing.T) {
+	check(t, "fast_pow")
+}
+func Test_RecPow(t *testing.T) {
+	check(t, "rec_pow")
+}
 func Test_Wcp(t *testing.T) {
 	check(t, "wcp")
 }
