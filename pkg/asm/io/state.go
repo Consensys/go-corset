@@ -13,8 +13,11 @@
 package io
 
 import (
+	"fmt"
 	"math"
 	"math/big"
+	"slices"
+	"strings"
 )
 
 // RETURN is used to signal that a given instruction returns from the enclosing
@@ -36,6 +39,41 @@ type State struct {
 	Io Map
 }
 
+// InitialState constructs a suitable initial state for executing a given
+// function with the given arguments.
+func InitialState[T Instruction[T]](arguments []big.Int, fn Function[T], io Map) State {
+	var (
+		state = make([]big.Int, len(fn.Registers()))
+		index = 0
+	)
+	// Initialise arguments
+	for i, reg := range fn.Registers() {
+		if reg.IsInput() {
+			var (
+				val = arguments[index]
+				ith big.Int
+			)
+			// Clone big int
+			ith.Set(&val)
+			//
+			state[i] = ith
+			index = index + 1
+		}
+	}
+	// Construct state
+	return State{0, state, fn.Registers(), io}
+}
+
+// Clone this state, producing a disjoint state.
+func (p *State) Clone() State {
+	return State{
+		p.Pc,
+		slices.Clone(p.State),
+		p.Registers,
+		p.Io,
+	}
+}
+
 // In performs an I/O read across a given bus.  More specifically, it reads the
 // value at a given address on the bus.
 func (p *State) In(bus Bus) {
@@ -44,6 +82,20 @@ func (p *State) In(bus Bus) {
 	values := p.Io.Read(bus.BusId, address)
 	// Write them back
 	p.StoreN(bus.Data(), values)
+}
+
+// Outputs extracts values from output registers of the given state.
+func (p *State) Outputs() []big.Int {
+	// Construct outputs
+	outputs := make([]big.Int, 0)
+	//
+	for i, reg := range p.Registers {
+		if reg.IsOutput() {
+			outputs = append(outputs, p.State[i])
+		}
+	}
+	//
+	return outputs
 }
 
 // Load value of a given register from this state.
@@ -98,6 +150,36 @@ func (p *State) StoreN(registers []uint, values []big.Int) {
 	for i, dst := range registers {
 		p.State[dst] = values[i]
 	}
+}
+
+// String produces a string representation of the given execution state.
+func (p *State) String() string {
+	var builder strings.Builder
+	//
+	if p.Terminated() {
+		builder.WriteString("(pc=--) ")
+	} else {
+		pc := fmt.Sprintf("(pc=%02x) ", p.Pc)
+		builder.WriteString(pc)
+	}
+	//
+	for i := 0; i != len(p.Registers); i++ {
+		if i != 0 {
+			builder.WriteString(", ")
+		}
+		//
+		val := p.State[i].Text(16)
+		reg := p.Registers[i].Name
+		builder.WriteString(fmt.Sprintf("%s=0x%s", reg, val))
+	}
+	//
+	return builder.String()
+}
+
+// Terminated determines whether this state represents a terminated function
+// execution.
+func (p *State) Terminated() bool {
+	return p.Pc == RETURN
 }
 
 // ReadBitSlice reads a slice of bits starting at a given offset in a give

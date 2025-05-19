@@ -42,8 +42,7 @@ func LowerTraces(config LoweringConfig, traces ...io.Trace[macro.Instruction]) [
 
 // LowerMicroTrace this micro trace to a set of raw columns.
 func LowerMicroTrace(p MicroTrace) []tr.RawColumn {
-	builder := NewTraceExpander(p.Program())
-	return builder.Build(p)
+	return expandTrace(p)
 }
 
 // LowerMacroTrace this macro trace into a micro trace according to a given
@@ -69,96 +68,76 @@ func LowerMacroTrace(cfg LoweringConfig, trace MacroTrace) MicroTrace {
 // sets the maximum width of the program counter.
 const pc_width = uint(8)
 
-// TraceExpander provides a mechanical means of constructing a trace from a given
-// schema and set of input columns.  The goal is to encapsulate all of the logic
-// around building a trace.
-type TraceExpander[T io.Instruction[T]] struct {
-	program io.Program[T]
-}
-
-// NewTraceExpander constructs a new trace builder for a given set of functions.
-func NewTraceExpander[T io.Instruction[T]](program io.Program[T]) *TraceExpander[T] {
-	return &TraceExpander[T]{program}
-}
-
-// Build constructs a complete trace, given a set of function instances.
-func (p *TraceExpander[T]) Build(trace io.Trace[T]) []tr.RawColumn {
-	var columns []tr.RawColumn
-	//
-	for i := range p.program.Functions() {
-		fncols := p.expandFunctionInstances(uint(i), trace)
-		columns = append(columns, fncols...)
-	}
-	//
-	return columns
-}
-
-func (p *TraceExpander[T]) expandFunctionInstances(fid uint, trace io.Trace[T]) []tr.RawColumn {
+func expandTrace[T io.Instruction[T]](trace io.Trace[T]) []tr.RawColumn {
 	var (
-		fn      = p.program.Function(fid)
-		data    = make([][]big.Int, len(fn.Registers())+2)
-		columns = make([]tr.RawColumn, len(fn.Registers())+2)
-		stamp   = uint(1)
+		columns []tr.RawColumn
+		program = trace.Program()
+		tracer  = NewTracingExecutor(program)
 	)
 	//
-	for _, inst := range trace.Instances() {
-		if inst.Function == fid {
-			data = p.traceFunction(fid, stamp, data, inst)
-			stamp = stamp + 1
-		}
+	for _, instance := range trace.Instances() {
+		fn := trace.Program().Function(instance.Function)
+		//
+		arguments := extractInstanceArguments(instance, fn)
+		// Trace function (and any subsequent calls)
+		tracer.Read(instance.Function, arguments)
 	}
-	// Construct stamp column
-	columns[0] = tr.RawColumn{
-		Module: fn.Name(),
-		Name:   "$stamp",
-		Data:   field.FrArrayFromBigInts(32, data[0]),
-	}
-	// Construct PC column
-	columns[1] = tr.RawColumn{
-		Module: fn.Name(),
-		Name:   "$pc",
-		Data:   field.FrArrayFromBigInts(pc_width, data[1]),
-	}
-	// Construct register columns.
-	for i, r := range fn.Registers() {
-		data := field.FrArrayFromBigInts(r.Width, data[i+2])
-		columns[i+2] = tr.RawColumn{
-			Module: fn.Name(),
-			Name:   r.Name,
-			Data:   data,
-		}
+	//
+	for i, fn := range program.Functions() {
+		ith_traces := tracer.Traces(uint(i))
+		ith_columns := expandFunctionTrace(fn, ith_traces)
+		columns = append(columns, ith_columns...)
 	}
 	//
 	return columns
 }
 
-func (p *TraceExpander[T]) traceFunction(fid uint, stamp uint, trace [][]big.Int,
-	instance io.FunctionInstance) [][]big.Int {
-	//
-	interpreter := NewInterpreter(p.program)
-	// Initialise state
-	init := interpreter.Bind(fid, instance.Inputs)
-	biStamp := big.NewInt(int64(stamp))
-	//
-	interpreter.Enter(fid, init)
-	//
-	for !interpreter.HasTerminated() {
-		pc := big.NewInt(int64(interpreter.State().pc))
+func expandFunctionTrace[T io.Instruction[T]](fn io.Function[T], traces []io.State) []tr.RawColumn {
+	var (
+		n       = len(fn.Registers())
+		data    = make([][]big.Int, n+2)
+		columns = make([]tr.RawColumn, n+2)
+		stamp   = int64(0)
+	)
+	// Initialise data columns
+	for i := 0; i < n+2; i++ {
+		data[i] = make([]big.Int, len(traces))
+	}
+	// Fill data columns
+	for i, ith := range traces {
+		pc := big.NewInt(int64(ith.Pc))
+		// Check for new instance
+		if ith.Pc == 0 {
+			stamp++
+		}
 		//
-		trace[0] = append(trace[0], *biStamp)
-		trace[1] = append(trace[1], *pc)
-		// Execute
-		interpreter.Execute(1)
-		// Record register state
-		for i, v := range interpreter.State().registers {
+		st := big.NewInt(stamp)
+		// Write control values
+		data[n][i] = *st
+		data[n+1][i] = *pc
+		// Write registers
+		for j, v := range ith.State {
 			// Clone value to prevent side-effects
 			var ith big.Int
-			//
-			ith.Set(&v)
 			// Update column for this register.
-			trace[i+2] = append(trace[i+2], ith)
+			data[j][i] = *ith.Set(&v)
 		}
 	}
-	//
-	return trace
+	// Finalise stamp column
+	columns[n] = tr.RawColumn{Module: fn.Name(), Name: "$stamp",
+		Data: field.FrArrayFromBigInts(32, data[n]),
+	}
+	// Finalise pc column
+	columns[n+1] = tr.RawColumn{Module: fn.Name(), Name: "$pc",
+		Data: field.FrArrayFromBigInts(pc_width, data[n+1]),
+	}
+	// Finalise register columns.
+	for i, r := range fn.Registers() {
+		data := field.FrArrayFromBigInts(r.Width, data[i])
+		columns[i] = tr.RawColumn{Module: fn.Name(), Name: r.Name,
+			Data: data,
+		}
+	}
+	// Done
+	return columns
 }
