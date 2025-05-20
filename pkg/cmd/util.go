@@ -27,6 +27,7 @@ import (
 	"github.com/consensys/go-corset/pkg/asm"
 	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/corset"
+	corset_ast "github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/hir"
 	"github.com/consensys/go-corset/pkg/mir"
 	sc "github.com/consensys/go-corset/pkg/schema"
@@ -541,9 +542,6 @@ func ReadConstraintFiles(config corset.CompilationConfig, lowering asm.LoweringC
 	} else if len(filenames) == 1 && path.Ext(filenames[0]) == ".bin" {
 		// Single (binary) file supplied
 		return ReadBinaryFile(filenames[0])
-	} else if len(filenames) == 1 && path.Ext(filenames[0]) == ".zkasm" {
-		// Single (asm) file supplied
-		return ReadAssemblyFile(lowering, filenames[0])
 	}
 	// Recursively expand any directories given in the list of filenames.
 	if filenames, err = expandSourceFiles(filenames); err != nil {
@@ -551,36 +549,7 @@ func ReadConstraintFiles(config corset.CompilationConfig, lowering asm.LoweringC
 		os.Exit(1)
 	}
 	// Must be source files
-	return CompileSourceFiles(config, filenames)
-}
-
-// ReadAssemblyFile reads a set of constraints which are expressed as an
-// assembly file.
-func ReadAssemblyFile(cfg asm.LoweringConfig, filename string) *binfile.BinaryFile {
-	var binf *binfile.BinaryFile
-	// Read schema file
-	bytes, err := os.ReadFile(filename)
-	// Sanity check for errors
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(3)
-	}
-	// Construct source file
-	srcfile := source.NewSourceFile(filename, bytes)
-	// Attempt to assemble source file
-	binf, errs := asm.CompileAssembly(cfg, *srcfile)
-	// Check for any assembly errors
-	if len(errs) == 0 {
-		return binf
-	}
-	// Report errors
-	for _, err := range errs {
-		printSyntaxError(&err)
-	}
-	// Fail
-	os.Exit(4)
-	// unreachable
-	return nil
+	return CompileSourceFiles(config, lowering, filenames)
 }
 
 // ReadAssemblyProgram reads a given set of assembly files into a (macro) assembly program.
@@ -645,8 +614,15 @@ func ReadBinaryFile(filename string) *binfile.BinaryFile {
 // single schema.  This can result, for example, in a syntax error, etc.  This
 // can be done with (or without) including the standard library, and also with
 // (or without) debug constraints.
-func CompileSourceFiles(config corset.CompilationConfig, filenames []string) *binfile.BinaryFile {
-	srcfiles := make([]*source.File, len(filenames))
+func CompileSourceFiles(config corset.CompilationConfig, asmConfig asm.LoweringConfig,
+	filenames []string) *binfile.BinaryFile {
+	//
+	var (
+		errors   []source.SyntaxError
+		binf     *binfile.BinaryFile
+		srcfiles = make([]*source.File, len(filenames))
+		externs  []corset_ast.Module
+	)
 	// Read each file
 	for i, n := range filenames {
 		log.Debug(fmt.Sprintf("including source file %s", n))
@@ -660,14 +636,30 @@ func CompileSourceFiles(config corset.CompilationConfig, filenames []string) *bi
 		//
 		srcfiles[i] = source.NewSourceFile(n, bytes)
 	}
-	// Parse and compile source files
-	binf, errs := corset.CompileSourceFiles(config, srcfiles)
-	// Check for any errors
-	if len(errs) == 0 {
-		return binf
+	// Expand assembly programs
+	for i, n := range filenames {
+		if path.Ext(n) == ".zkasm" {
+			var circuit corset_ast.Circuit
+			//
+			m := strings.ReplaceAll(n, "zkasm", "lisp")
+			circuit, errors = asm.Compile2Circuit(m, asmConfig, *srcfiles[i])
+			externs = append(externs, circuit.Modules...)
+			srcfiles[i] = nil
+		}
+	}
+	// Remove any nil source files
+	srcfiles = util.RemoveMatching(srcfiles, func(f *source.File) bool { return f == nil })
+	// Continue if no errors
+	if len(errors) == 0 {
+		// Parse and compile source files
+		binf, errors = corset.CompileSourceFiles(config, srcfiles, externs...)
+		// Check for any errors
+		if len(errors) == 0 {
+			return binf
+		}
 	}
 	// Report errors
-	for _, err := range errs {
+	for _, err := range errors {
 		printSyntaxError(&err)
 	}
 	// Fail

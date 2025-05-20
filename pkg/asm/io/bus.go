@@ -59,3 +59,10 @@ func (p *Bus) Address() []uint {
 func (p *Bus) Data() []uint {
 	return p.data
 }
+
+// AddressData returns the "address" and "data" lines for this bus (in that
+// order).  That is, the registers which hold the various components of the
+// address.
+func (p *Bus) AddressData() []uint {
+	return append(p.address, p.data...)
+}

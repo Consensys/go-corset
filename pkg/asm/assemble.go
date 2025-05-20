@@ -22,7 +22,7 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/macro"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
-	"github.com/consensys/go-corset/pkg/binfile"
+	corset_ast "github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
@@ -80,36 +80,21 @@ func Assemble(assembly ...source.File) (
 	return program, srcmaps, errors
 }
 
-// CompileAssembly compiles a given set of assembly functions into a binary
-// constraint file.
-func CompileAssembly(cfg LoweringConfig, assembly ...source.File) (*binfile.BinaryFile, []source.SyntaxError) {
+// Compile2Circuit compiles a given assembly file into a corresponding set of
+// corset constraints.
+func Compile2Circuit(filename string, cfg LoweringConfig,
+	assembly ...source.File) (corset_ast.Circuit, []source.SyntaxError) {
+	var circuit corset_ast.Circuit
+	//
 	macroProgram, _, errs := Assemble(assembly...)
 	//
 	if len(errs) > 0 {
-		return nil, errs
+		return circuit, errs
 	}
 	// Lower macro program into a binary program.
 	microProgram := Lower(cfg, macroProgram)
-	//
-	return Compile(microProgram), nil
-}
-
-// Compile a microprogram into a binary constraint file.
-func Compile(microProgram io.Program[micro.Instruction]) *binfile.BinaryFile {
-	compiler := compiler.NewCompiler()
-	// Configure buses
-	for i := range microProgram.Functions() {
-		fn := microProgram.Function(uint(i))
-		// Register bus
-		compiler.RegisterBus(fn.Name(), fn.Inputs(), fn.Outputs())
-	}
-	// Compile functions
-	for i := range microProgram.Functions() {
-		fn := microProgram.Function(uint(i))
-		compiler.Compile(fn)
-	}
-
-	return binfile.NewBinaryFile(nil, nil, compiler.Schema())
+	// Compile the circuit
+	return compiler.Compile2Circuit(microProgram.Functions()), nil
 }
 
 // LoweringConfig provides configuration options for configuring the lowering

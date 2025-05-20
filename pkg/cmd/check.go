@@ -17,7 +17,6 @@ import (
 	"fmt"
 	"math"
 	"os"
-	"path"
 
 	"github.com/consensys/go-corset/pkg/asm"
 	"github.com/consensys/go-corset/pkg/asm/io"
@@ -62,6 +61,7 @@ var checkCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		//
+		cfg.asm = GetFlag(cmd, "asm")
 		cfg.uasm = GetFlag(cmd, "uasm")
 		cfg.air = GetFlag(cmd, "air")
 		cfg.mir = GetFlag(cmd, "mir")
@@ -84,6 +84,11 @@ var checkCmd = &cobra.Command{
 		cfg.optimisation = mir.OPTIMISATION_LEVELS[optimisation]
 		cfg.asmConfig = parseLoweringConfig(cmd)
 		externs := GetStringArray(cmd, "set")
+		// Configure Intermediate Representations
+		if !cfg.asm && !cfg.uasm && !cfg.hir && !cfg.mir && !cfg.air {
+			// If IR not specified default to running all.
+			cfg.asm, cfg.uasm, cfg.hir, cfg.mir, cfg.air = true, true, true, true, true
+		}
 		// TODO: support true ranges
 		cfg.padding.Left = cfg.padding.Right
 		// enable / disable coverage
@@ -93,25 +98,17 @@ var checkCmd = &cobra.Command{
 		//
 		tracefile := args[0]
 		constraints := args[1:]
-		// Determine which pipeline to use
-		if len(constraints) == 1 && path.Ext(constraints[0]) == ".zkasm" {
-			// Single (asm) file supplied
-			checkWithAsmPipeline(cfg, args[0], constraints[0])
-		} else {
-			// Configure Intermediate Representations
-			if !cfg.hir && !cfg.mir && !cfg.air {
-				// If IR not specified default to running all.
-				cfg.hir, cfg.mir, cfg.air = true, true, true
-			}
-			//
-			checkWithLegacyPipeline(cfg, batched, externs, tracefile, constraints)
-		}
+		//
+		checkWithAsmPipeline(cfg, args[0], constraints[0])
+		checkWithLegacyPipeline(cfg, batched, externs, tracefile, constraints)
 	},
 }
 
 // check config encapsulates certain parameters to be used when
 // checking traces.
 type checkConfig struct {
+	// Perform checking at ASM level
+	asm bool
 	// Perform checking at µASM level
 	uasm bool
 	// Perform checking at HIR level
@@ -166,24 +163,20 @@ type checkConfig struct {
 
 func checkWithAsmPipeline(cfg checkConfig, tracefile string, asmfiles ...string) {
 	var (
-		ok              bool
+		ok              = true
 		macroProgram, _ = ReadAssemblyProgram(asmfiles...)
 		macroTrace      = ReadAssemblyTrace(tracefile, macroProgram)
-		microTrace      = asm.LowerMacroTrace(cfg.asmConfig, macroTrace)
 	)
 	//
-	if cfg.uasm {
-		// Micro check
-		ok = checkProgram("µASM", microTrace)
-	} else {
+	if cfg.asm {
 		// Macro check
 		ok = checkProgram("ASM", macroTrace)
 	}
 	//
-	if cfg.hir || cfg.mir || cfg.air {
-		binfile := asm.Compile(microTrace.Program())
-		hirTrace := asm.LowerMicroTrace(microTrace)
-		ok, _ = checkTraceWithLowering([][]tr.RawColumn{hirTrace}, &binfile.Schema, cfg)
+	if cfg.uasm {
+		// Micro check
+		microTrace := asm.LowerMacroTrace(cfg.asmConfig, macroTrace)
+		ok = checkProgram("µASM", microTrace)
 	}
 	//
 	if !ok {

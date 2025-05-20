@@ -16,161 +16,150 @@ import (
 	"math/big"
 	"slices"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
-	"github.com/consensys/go-corset/pkg/hir"
 )
 
 var zero = *big.NewInt(0)
 
 var one = *big.NewInt(1)
 
-func translate(cc uint, codes []micro.Code, st StateTranslator) hir.Expr {
+func (p *StateTranslator[T, E, M]) translateCode(cc uint, codes []micro.Code) E {
 	switch codes[cc].(type) {
 	case *micro.Add:
-		return translateAdd(cc, codes, st)
+		return p.translateAdd(cc, codes)
 	case *micro.InOut:
-		return translateInOut(cc, codes, st)
+		return p.translateInOut(cc, codes)
 	case *micro.Jmp:
-		return translateJmp(cc, codes, st)
+		return p.translateJmp(cc, codes)
 	case *micro.Mul:
-		return translateMul(cc, codes, st)
+		return p.translateMul(cc, codes)
 	case *micro.Ret:
-		return translateRet(st)
+		return p.translateRet()
 	case *micro.Skip:
-		return translateSkip(cc, codes, st)
+		return p.translateSkip(cc, codes)
 	case *micro.Sub:
-		return translateSub(cc, codes, st)
+		return p.translateSub(cc, codes)
 	default:
 		panic("unreachable")
 	}
 }
 
 // Translate this instruction into low-level constraints.
-func translateAdd(cc uint, codes []micro.Code, st StateTranslator) hir.Expr {
+func (p *StateTranslator[T, E, M]) translateAdd(cc uint, codes []micro.Code) E {
 	var (
 		code = codes[cc].(*micro.Add)
 		// build rhs
-		rhs = st.ReadRegisters(code.Sources)
+		rhs = p.ReadRegisters(code.Sources)
 		// build lhs (must be after rhs)
-		lhs = st.WriteAndShiftRegisters(code.Targets)
+		lhs = p.WriteAndShiftRegisters(code.Targets)
 	)
 	// include constant if this makes sense
 	if code.Constant.Cmp(&zero) != 0 {
-		var elem fr.Element
-		//
-		elem.SetBigInt(&code.Constant)
-		rhs = append(rhs, hir.NewConst(elem))
+		rhs = append(rhs, BigNumber[T, E](&code.Constant))
 	}
 	// Construct equation
-	eqn := hir.Equals(hir.Sum(lhs...), hir.Sum(rhs...))
+	eqn := Sum(lhs).Equals(Sum(rhs))
 	// Continue
-	return hir.Conjunction(eqn, translate(cc+1, codes, st))
+	return eqn.And(p.translateCode(cc+1, codes))
 }
 
-func translateInOut(cc uint, codes []micro.Code, st StateTranslator) hir.Expr {
+func (p *StateTranslator[T, E, M]) translateInOut(cc uint, codes []micro.Code) E {
 	var code = codes[cc].(*micro.InOut)
 	// In/Out codes are really nops from the perspective of compilation.  Their
 	// primary purposes is to assist trace expansion.
 	//
 	// NOTE: we have to pretend that we've written registers here, otherwise
 	// forwarding will not be enabled.
-	st.WriteRegisters(code.RegistersWritten())
+	p.WriteRegisters(code.RegistersWritten())
 	//
-	return translate(cc+1, codes, st)
+	return p.translateCode(cc+1, codes)
 }
 
-func translateJmp(cc uint, codes []micro.Code, st StateTranslator) hir.Expr {
+func (p *StateTranslator[T, E, M]) translateJmp(cc uint, codes []micro.Code) E {
 	var (
 		code   = codes[cc].(*micro.Jmp)
-		pc_ip1 = st.Pc(true)
-		dst    = hir.NewConst64(uint64(code.Target))
+		pc_ip1 = p.Pc(true)
+		dst    = Number[T, E](code.Target)
 	)
 	// PC[i+1] = target
-	eqn := hir.Equals(pc_ip1, dst)
+	eqn := pc_ip1.Equals(dst)
 	//
-	return st.WithLocalConstancies(eqn)
+	return p.WithLocalConstancies(eqn)
 }
 
-func translateMul(cc uint, codes []micro.Code, st StateTranslator) hir.Expr {
+func (p *StateTranslator[T, E, M]) translateMul(cc uint, codes []micro.Code) E {
 	var (
 		code = codes[cc].(*micro.Mul)
 		// build rhs
-		rhs = st.ReadRegisters(code.Sources)
+		rhs = p.ReadRegisters(code.Sources)
 		// build lhs (must be after rhs)
-		lhs = st.WriteAndShiftRegisters(code.Targets)
+		lhs = p.WriteAndShiftRegisters(code.Targets)
 	)
 	// include constant if this makes sense
 	if code.Constant.Cmp(&one) != 0 {
-		var elem fr.Element
-		//
-		elem.SetBigInt(&code.Constant)
-		rhs = append(rhs, hir.NewConst(elem))
+		rhs = append(rhs, BigNumber[T, E](&code.Constant))
 	}
 	// Construct equation
-	eqn := hir.Equals(hir.Sum(lhs...), hir.Product(rhs...))
+	eqn := Sum(lhs).Equals(Product(rhs))
 	// Continue
-	return hir.Conjunction(eqn, translate(cc+1, codes, st))
+	return eqn.And(p.translateCode(cc+1, codes))
 }
 
-func translateRet(st StateTranslator) hir.Expr {
+func (p *StateTranslator[T, E, M]) translateRet() E {
 	var (
-		stamp_i   = st.Stamp(false)
-		stamp_ip1 = st.Stamp(true)
+		stamp_i   = p.Stamp(false)
+		stamp_ip1 = p.Stamp(true)
+		one       = Number[T, E](1)
 	)
 	// STAMP[i]+1 == STAMP[i+1]
-	eqn := hir.Equals(hir.Sum(hir.ONE, stamp_i), stamp_ip1)
+	eqn := one.Add(stamp_i).Equals(stamp_ip1)
 	// force stamp increment
-	return st.WithLocalConstancies(eqn)
+	return p.WithLocalConstancies(eqn)
 }
 
-func translateSkip(cc uint, codes []micro.Code, st StateTranslator) hir.Expr {
+func (p *StateTranslator[T, E, M]) translateSkip(cc uint, codes []micro.Code) E {
 	var (
 		code  = codes[cc].(*micro.Skip)
-		lhs   = translate(cc+1, codes, st.Clone())
-		rhs   = translate(cc+1+code.Skip, codes, st)
-		left  = st.ReadRegister(code.Left)
-		right hir.Expr
-		elem  fr.Element
+		clone = p.Clone()
+		lhs   = clone.translateCode(cc+1, codes)
+		rhs   = p.translateCode(cc+1+code.Skip, codes)
+		left  = p.ReadRegister(code.Left)
+		right E
 	)
 	//
 	if code.Right == io.UNUSED_REGISTER {
-		elem.SetBigInt(&code.Constant)
-		right = hir.NewConst(elem)
+		right = BigNumber[T, E](&code.Constant)
 	} else {
-		right = st.ReadRegister(code.Right)
+		right = p.ReadRegister(code.Right)
 	}
 	//
-	return hir.IfElse(hir.Equals(left, right), lhs, rhs)
+	return IfElse(left.Equals(right), lhs, rhs)
 }
 
-func translateSub(cc uint, codes []micro.Code, st StateTranslator) hir.Expr {
+func (p *StateTranslator[T, E, M]) translateSub(cc uint, codes []micro.Code) E {
 	var (
 		code = codes[cc].(*micro.Sub)
 		// build rhs
-		rhs = st.ReadRegisters(code.Sources)
+		rhs = p.ReadRegisters(code.Sources)
 		// build lhs (must be after rhs)
-		lhs = st.WriteAndShiftRegisters(code.Targets)
+		lhs = p.WriteAndShiftRegisters(code.Targets)
 	)
 	// include constant if this makes sense
 	if code.Constant.Cmp(&zero) != 0 {
-		var elem fr.Element
-		//
-		elem.SetBigInt(&code.Constant)
-		rhs = append(rhs, hir.NewConst(elem))
+		rhs = append(rhs, BigNumber[T, E](&code.Constant))
 	}
 	// Rebalance the subtraction
-	lhs, rhs = rebalanceSub(lhs, rhs, st.mapping.Registers, code)
+	lhs, rhs = p.rebalanceSub(lhs, rhs, p.mapping.Registers, code)
 	// construct (balanced) equation
-	eqn := hir.Equals(hir.Sum(lhs...), hir.Sum(rhs...))
+	eqn := Sum(lhs).Equals(Sum(rhs))
 	// continue
-	return hir.Conjunction(eqn, translate(cc+1, codes, st))
+	return eqn.And(p.translateCode(cc+1, codes))
 }
 
 // Consider an assignment b, X := Y - 1.  This should be translated into the
 // constraint: X + 1 == Y - 256.b (assuming b is u1, and X/Y are u8).
-func rebalanceSub(lhs []hir.Expr, rhs []hir.Expr, regs []io.Register, code *micro.Sub) ([]hir.Expr, []hir.Expr) {
+func (p *StateTranslator[T, E, M]) rebalanceSub(lhs []E, rhs []E, regs []io.Register, code *micro.Sub) ([]E, []E) {
 	//
 	pivot := 0
 	width := int(regs[code.Sources[0]].Width)
@@ -188,7 +177,7 @@ func rebalanceSub(lhs []hir.Expr, rhs []hir.Expr, regs []io.Register, code *micr
 	}
 	//
 	nlhs := slices.Clone(lhs[:pivot])
-	nrhs := []hir.Expr{rhs[0]}
+	nrhs := []E{rhs[0]}
 	// rebalance
 	nlhs = append(nlhs, rhs[1:]...)
 	nrhs = append(nrhs, lhs[pivot:]...)

@@ -33,7 +33,7 @@ var debugCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		var corsetConfig corset.CompilationConfig
 		//
-		if len(args) != 1 {
+		if len(args) < 1 {
 			fmt.Println(cmd.UsageString())
 			os.Exit(1)
 		}
@@ -71,7 +71,9 @@ var debugCmd = &cobra.Command{
 			program, _ := ReadAssemblyProgram(args...)
 			// Print it out
 			debug.PrintAssemblyProgram(uasm, asmConfig, program)
-		} else {
+		}
+		//
+		if hir || mir || air {
 			binfile := ReadConstraintFiles(corsetConfig, asmConfig, args)
 			// Apply any user-specified values for externalised constants.
 			applyExternOverrides(externs, binfile)

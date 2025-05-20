@@ -92,7 +92,7 @@ func (p *Maps[T]) SyntaxError(node T, msg string) *SyntaxError {
 	// If we get here, then it means the node on which the error occurrs is not
 	// present in any of the source maps.  This should not be possible, provided
 	// the parser is implemented correctly.
-	panic("missing mapping for source node")
+	panic(fmt.Sprintf("missing mapping for source node (error was %s)", msg))
 }
 
 // SyntaxErrors is really just a helper that construct a syntax error and then
