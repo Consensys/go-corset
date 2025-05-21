@@ -55,12 +55,12 @@ func (p CorsetModule) Initialise(name string) CorsetModule {
 
 // NewColumn constructs a new column of the given name and bitwidth within
 // this module.
-func (p CorsetModule) NewColumn(name string, bitwidth uint) util.Path {
+func (p CorsetModule) NewColumn(name string, bitwidth uint, internal bool) util.Path {
 	path := util.NewAbsolutePath(p.module.Name)
 	name_path := *path.Extend(name)
 	datatype := corset_ast.NewUintType(bitwidth)
 	columns := []*corset_ast.DefColumn{
-		corset_ast.NewDefColumn(path, name_path, datatype, true, 1, false, "hex"),
+		corset_ast.NewDefColumn(path, name_path, datatype, true, 1, false, internal, "hex"),
 	}
 	//
 	p.module.Add(corset_ast.NewDefColumns(columns))

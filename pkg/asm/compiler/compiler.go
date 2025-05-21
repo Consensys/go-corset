@@ -155,7 +155,8 @@ func (p *Compiler[T, E, M]) initModule(busId uint, fn MicroFunction) {
 	bus.columns = make([]T, len(fn.Registers()))
 	//
 	for i, reg := range fn.Registers() {
-		bus.columns[i] = module.NewColumn(reg.Name, reg.Width)
+		computed := !(reg.IsInput() || reg.IsOutput())
+		bus.columns[i] = module.NewColumn(reg.Name, reg.Width, computed)
 	}
 	//
 	p.buses[busId] = bus
@@ -172,8 +173,8 @@ func (p *Compiler[T, E, M]) initFunctionFraming(busId uint, fn MicroFunction) (s
 		module = p.modules[busId]
 	)
 	// Allocate book keeping columns
-	stamp = module.NewColumn(STAMP_NAME, p.maxInstances)
-	pc = module.NewColumn(PC_NAME, pcWidth)
+	stamp = module.NewColumn(STAMP_NAME, p.maxInstances, true)
+	pc = module.NewColumn(PC_NAME, pcWidth, true)
 	//
 	stamp_i := Variable[T, E](stamp, 0)
 	stamp_im1 := Variable[T, E](stamp, -1)
