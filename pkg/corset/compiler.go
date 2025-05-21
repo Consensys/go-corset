@@ -194,7 +194,14 @@ func constructSourceModule(scope *compiler.ModuleScope, env compiler.GlobalEnvir
 		//
 		display := constructDisplayModifier(col.Display)
 		// Translate register source into source column
-		srcCol := SourceColumn{name, col.Multiplier, col.DataType, col.MustProve, col.Computed, display, regId}
+		srcCol := SourceColumn{name,
+			col.Multiplier,
+			col.DataType,
+			col.MustProve,
+			col.Computed,
+			col.Internal,
+			display,
+			regId}
 		columns = append(columns, srcCol)
 	}
 	// Map source-level constants

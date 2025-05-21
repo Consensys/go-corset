@@ -118,6 +118,10 @@ type ColumnBinding struct {
 	Multiplier uint
 	// Determines whether this is a Computed column, or not.
 	Computed bool
+	// Determines whether this is considered to be an "internal" column.  This
+	// is a form of computed column which is filled externally (i.e. at the
+	// assembly level).
+	Internal bool
 	// Display modifier
 	Display string
 }

@@ -99,7 +99,9 @@ var checkCmd = &cobra.Command{
 		tracefile := args[0]
 		constraints := args[1:]
 		//
-		checkWithAsmPipeline(cfg, args[0], constraints[0])
+		if cfg.asm || cfg.uasm {
+			checkWithAsmPipeline(cfg, args[0], constraints[0])
+		}
 		//
 		if cfg.air || cfg.mir || cfg.hir {
 			checkWithLegacyPipeline(cfg, batched, externs, tracefile, constraints)

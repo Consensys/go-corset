@@ -433,7 +433,7 @@ func (p *Parser) parseColumnDeclaration(context util.Path, path util.Path, compu
 		return nil, p.translator.SyntaxError(e, "invalid column type")
 	}
 	//
-	def := ast.NewDefColumn(context, name, datatype, mustProve, multiplier, computed, display)
+	def := ast.NewDefColumn(context, name, datatype, mustProve, multiplier, computed, false, display)
 	// Update source mapping
 	p.mapSourceNode(e, def)
 	//

@@ -55,6 +55,9 @@ func toCamelCase(name string) string {
 	var word string
 	//
 	for i, w := range splitWords(name) {
+		//
+		w = replaceSymbols(w)
+		//
 		if i == 0 {
 			word = camelify(w, false)
 		} else {
@@ -63,6 +66,12 @@ func toCamelCase(name string) string {
 	}
 	//
 	return word
+}
+
+// Replace symbols which are permitted in column names, but not in Java
+// identifiers.
+func replaceSymbols(name string) string {
+	return strings.ReplaceAll(name, "'", "_")
 }
 
 // Make all letters lowercase, and optionally capitalise the first letter.

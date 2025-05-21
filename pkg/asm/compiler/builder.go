@@ -26,7 +26,7 @@ type Module[T any, E Expr[T, E], M any] interface {
 
 	// NewColumn constructs a new column of the given name and bitwidth within
 	// this module.
-	NewColumn(name string, bitwidth uint) T
+	NewColumn(name string, bitwidth uint, internal bool) T
 
 	// NewConstraint constructs a new vanishing constraint with the given name
 	// within this module.  An optional "domain" can be given which determines

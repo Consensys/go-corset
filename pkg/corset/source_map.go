@@ -149,6 +149,10 @@ type SourceColumn struct {
 	MustProve bool
 	// Determines whether this is a Computed column.
 	Computed bool
+	// Determines whether this is considered to be an "internal" column.  This
+	// is a form of computed column which is filled externally (i.e. at the
+	// assembly level).
+	Internal bool
 	// Display modifier for column. Here 0-256 are reserved, and values >256 are
 	// entries in Enumerations map.  More specifically, 0=hex, 1=dec, 2=bytes.
 	Display uint
