@@ -1,11 +1,29 @@
-;; GEQ                              0x0E
-;; LEQ                              0x0F
-;; LT                               0x10
-;; GT                               0x11
-;; SLT                              0x12
-;; SGT                              0x13
-;; EQ                               0x14
-;; ISZERO                           0x15
+;; The Word Comparison Module (WCP) deals with six word comparison
+;; instructions of the EVM as well as two word comparison instructions
+;; that the zkEVM may use but which aren’t part of the EVM proper.
+;; For any call to wcp, the "inst" argument indicates which of these
+;; instructions is being computed:
+;;
+;; GEQ    (ARG_1 >= ARG_2; not EVM)                 0x0E
+;; LEQ    (ARG_1 <= ARG_2; not EVM)                 0x0F
+;; LT     (ARG_1 < ARG_2)                           0x10
+;; GT     (ARG_1 > ARG_2)                           0x11
+;; SLT    (ARG_1 < ARG_2; signed arithmetic)        0x12
+;; SGT    (ARG_1 > ARG_2; signed arithmetic)        0x13
+;; EQ     (ARG_1 == ARG_2)                          0x14
+;; ISZERO (ARG_1 == 0)                              0x15
+;;
+;; As in most machine architectures, comparisons are implemented by
+;; checking the borrow flag after a subtraction.  For example, to
+;; check X < Y it suffices to check whether (Y - X) underflows.
+;;
+;; Signed comparisons follow two's-complement arithmetic where the
+;; most significant bit of a word indicates (when set) that it is
+;; negative or (when unset) that it is positive.
+;;
+;; NOTE: an undocumented feature of the WCP module is that it is often
+;; used by other modules to additionally ensure that the given
+;; arguments are "small" (i.e. within their designated bitwidths).
 fn wcp(INST u8, ARGUMENT_1 u256, ARGUMENT_2 u256) -> (RESULT u1) {
    var delta u256
    var arg1bits, arg2bits u255
