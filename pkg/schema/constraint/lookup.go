@@ -47,7 +47,7 @@ func (p *LookupFailure) String() string {
 }
 
 // RequiredCells identifies the cells required to evaluate the failing constraint at the failing row.
-func (p *LookupFailure) RequiredCells(trace tr.Trace) *set.AnySortedSet[tr.CellRef] {
+func (p *LookupFailure) RequiredCells(trace tr.Module) *set.AnySortedSet[tr.CellRef] {
 	res := set.NewAnySortedSet[tr.CellRef]()
 	//
 	for _, e := range p.Sources {
@@ -152,15 +152,19 @@ func (p *LookupConstraint[E]) Bounds(module uint) util.Bounds {
 //
 //nolint:revive
 func (p *LookupConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
-	var coverage bit.Set
-	// Determine height of enclosing module for source columns
-	src_height := tr.Height(p.SourceContext)
-	tgt_height := tr.Height(p.TargetContext)
-	//
-	rows := hash.NewSet[hash.BytesKey](tgt_height)
+	var (
+		coverage  bit.Set
+		srcModule = tr.Module(p.SourceContext.ModuleId)
+		tgtModule = tr.Module(p.TargetContext.ModuleId)
+		// Determine height of enclosing module for source columns
+		srcHeight = tr.Height(p.SourceContext)
+		tgtHeight = tr.Height(p.TargetContext)
+		//
+		rows = hash.NewSet[hash.BytesKey](tgtHeight)
+	)
 	// Add all target columns to the set
-	for i := 0; i < int(tgt_height); i++ {
-		ith_bytes, err := evalExprsAsBytes(i, p.Targets, p.Handle, tr)
+	for i := 0; i < int(tgtHeight); i++ {
+		ith_bytes, err := evalExprsAsBytes(i, p.Targets, p.Handle, tgtModule)
 		// error check
 		if err != nil {
 			return coverage, err
@@ -169,8 +173,8 @@ func (p *LookupConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) 
 		rows.Insert(hash.NewBytesKey(ith_bytes))
 	}
 	// Check all source columns are contained
-	for i := 0; i < int(src_height); i++ {
-		ith_bytes, err := evalExprsAsBytes(i, p.Sources, p.Handle, tr)
+	for i := 0; i < int(srcHeight); i++ {
+		ith_bytes, err := evalExprsAsBytes(i, p.Sources, p.Handle, srcModule)
 		// error check
 		if err != nil {
 			return coverage, err
@@ -193,14 +197,14 @@ func (p *LookupConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) 
 	return coverage, nil
 }
 
-func evalExprsAsBytes[E schema.Evaluable](k int, sources []E, handle string, tr trace.Trace) ([]byte, schema.Failure) {
+func evalExprsAsBytes[E schema.Evaluable](k int, sources []E, handle string, module trace.Module) ([]byte, schema.Failure) {
 	// Each fr.Element is 4 x 64bit words.
 	bytes := make([]byte, 32*len(sources))
 	// Slice provides an access window for writing
 	slice := bytes
 	// Evaluate each expression in turn
 	for i := 0; i < len(sources); i++ {
-		ith, err := sources[i].EvalAt(k, tr)
+		ith, err := sources[i].EvalAt(k, module)
 		// error check
 		if err != nil {
 			return nil, &sc.InternalFailure{

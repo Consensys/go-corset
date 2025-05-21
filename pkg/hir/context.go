@@ -146,7 +146,7 @@ func requiredColumnsOfIfZero(p *IfZero) *set.SortedSet[uint] {
 	return set
 }
 
-func requiredCellsOfTerm(e Term, row int, tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
+func requiredCellsOfTerm(e Term, row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
 	switch e := e.(type) {
 	case *Add:
 		return requiredCellsOfTerms(row, tr, e.Args...)
@@ -182,7 +182,7 @@ func requiredCellsOfTerm(e Term, row int, tr trace.Trace) *set.AnySortedSet[trac
 	}
 }
 
-func requiredCellsOfTerms(row int, tr trace.Trace, args ...Term) *set.AnySortedSet[trace.CellRef] {
+func requiredCellsOfTerms(row int, tr trace.Module, args ...Term) *set.AnySortedSet[trace.CellRef] {
 	return set.UnionAnySortedSets(args, func(e Term) *set.AnySortedSet[trace.CellRef] {
 		return requiredCellsOfTerm(e, row, tr)
 	})
@@ -198,7 +198,7 @@ func requiredCellsOfColumnAccess(e *ColumnAccess, row int) *set.AnySortedSet[tra
 // RequiredCells returns the set of trace cells on which this term depends.
 // That is, evaluating this term at the given row in the given trace will read
 // these cells.
-func requiredCellsOfIfZero(p *IfZero, row int, tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
+func requiredCellsOfIfZero(p *IfZero, row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
 	set := requiredCellsOfTerm(p.Condition, row, tr)
 	// Include true branch (if applicable)
 	if p.TrueBranch != nil {

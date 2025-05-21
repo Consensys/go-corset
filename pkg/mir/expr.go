@@ -90,14 +90,14 @@ func (e Expr) RequiredColumns() *set.SortedSet[uint] {
 // RequiredCells returns the set of trace cells on which this term depends.
 // That is, evaluating this term at the given row in the given trace will read
 // these cells.
-func (e Expr) RequiredCells(row int, tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
+func (e Expr) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
 	return requiredCellsOfTerm(e.term, row, tr)
 }
 
 // EvalAt evaluates a column access at a given row in a trace, which returns the
 // value at that row of the column in question or nil is that row is
 // out-of-bounds.
-func (e Expr) EvalAt(k int, tr trace.Trace) (fr.Element, error) {
+func (e Expr) EvalAt(k int, tr trace.Module) (fr.Element, error) {
 	val, err := evalAtTerm(e.term, k, tr)
 	//
 	return val, err

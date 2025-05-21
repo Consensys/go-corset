@@ -15,7 +15,7 @@ package schema
 import (
 	"fmt"
 
-	tr "github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -39,7 +39,7 @@ func (p *AssertionFailure) Message() string {
 }
 
 // RequiredCells identifies the cells required to evaluate the failing constraint at the failing row.
-func (p *AssertionFailure) RequiredCells(trace tr.Trace) *set.AnySortedSet[tr.CellRef] {
+func (p *AssertionFailure) RequiredCells(trace trace.Module) *set.AnySortedSet[trace.CellRef] {
 	return p.Constraint.RequiredCells(int(p.Row), trace)
 }
 
@@ -60,7 +60,7 @@ type PropertyAssertion[T Testable] struct {
 	Handle string
 	// Enclosing module for this assertion.  This restricts the asserted
 	// property to access only columns from within this module.
-	Context tr.Context
+	Context trace.Context
 	// The actual assertion itself, namely an expression which
 	// should hold (i.e. vanish) for every row of a trace.
 	// Observe that this can be any function which is computable
@@ -70,7 +70,7 @@ type PropertyAssertion[T Testable] struct {
 }
 
 // NewPropertyAssertion constructs a new property assertion!
-func NewPropertyAssertion[T Testable](handle string, ctx tr.Context,
+func NewPropertyAssertion[T Testable](handle string, ctx trace.Context,
 	property T) *PropertyAssertion[T] {
 	//
 	return &PropertyAssertion[T]{handle, ctx, property}
@@ -87,8 +87,8 @@ func (p *PropertyAssertion[T]) Name() (string, uint) {
 // evaluation context, though some (e.g. lookups) have more.  Note that all
 // constraints have at least one context (which we can call the "primary"
 // context).
-func (p *PropertyAssertion[T]) Contexts() []tr.Context {
-	return []tr.Context{p.Context}
+func (p *PropertyAssertion[T]) Contexts() []trace.Context {
+	return []trace.Context{p.Context}
 }
 
 // Branches returns the total number of logical branches this term can take
@@ -107,14 +107,17 @@ func (p *PropertyAssertion[T]) Bounds(module uint) util.Bounds {
 // of a table. If so, return nil otherwise return an error.
 //
 //nolint:revive
-func (p *PropertyAssertion[T]) Accepts(tr tr.Trace) (bit.Set, Failure) {
-	var coverage bit.Set
-	// Determine height of enclosing module
-	height := tr.Height(p.Context)
+func (p *PropertyAssertion[T]) Accepts(tr trace.Trace) (bit.Set, Failure) {
+	var (
+		coverage bit.Set
+		module   trace.Module = tr.Module(p.Context.ModuleId)
+		// Determine height of enclosing module
+		height = tr.Height(p.Context)
+	)
 	// Iterate every row in the module
 	for k := uint(0); k < height; k++ {
 		// Check whether property holds (or was undefined)
-		if ok, id, err := p.Property.TestAt(int(k), tr); err != nil {
+		if ok, id, err := p.Property.TestAt(int(k), module); err != nil {
 			// Evaluation failure
 			return coverage, &InternalFailure{Handle: p.Handle, Row: k, Error: err.Error()}
 		} else if !ok {

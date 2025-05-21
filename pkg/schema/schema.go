@@ -147,13 +147,10 @@ type Evaluable interface {
 	// undefined for several reasons: firstly, if it accesses a
 	// row which does not exist (e.g. at index -1); secondly, if
 	// it accesses a column which does not exist.
-	EvalAt(int, tr.Trace) (fr.Element, error)
+	EvalAt(int, tr.Module) (fr.Element, error)
 	// Branches returns the number of unique evaluation paths through the given
 	// constraint.
 	Branches() uint
-	// RequiredCells returns the set of trace cells on which evaluation of this
-	// constraint element depends.
-	RequiredCells(int, tr.Trace) *set.AnySortedSet[tr.CellRef]
 }
 
 // Testable captures the notion of a constraint which can be tested on a given
@@ -170,7 +167,7 @@ type Testable interface {
 	// context then it returns "nil".  An expression can be undefined for
 	// several reasons: firstly, if it accesses a row which does not exist (e.g.
 	// at index -1); secondly, if it accesses a column which does not exist.
-	TestAt(int, tr.Trace) (bool, uint, error)
+	TestAt(int, tr.Module) (bool, uint, error)
 	// Branches returns the number of unique evaluation paths through the given
 	// constraint.
 	Branches() uint
@@ -201,7 +198,7 @@ type Contextual interface {
 	RequiredColumns() *set.SortedSet[uint]
 	// RequiredCells returns the set of trace cells on which evaluation of this
 	// constraint element depends.
-	RequiredCells(int, tr.Trace) *set.AnySortedSet[tr.CellRef]
+	RequiredCells(int, tr.Module) *set.AnySortedSet[tr.CellRef]
 }
 
 // Lispifiable captures a schema element which can be turned into a stand alone
@@ -210,6 +207,25 @@ type Lispifiable interface {
 	// Lisp converts this schema element into a simple S-Expression, for example
 	// so it can be printed.
 	Lisp(sc Schema) sexp.SExp
+}
+
+// ============================================================================
+// Module
+// ============================================================================
+
+// Module represents a specific module in the schema that groups columns
+// together.  Modules don't serve a huge function in a schema at this time.
+// They could, however, be used to iterate over the things they contain (e.g.
+// their columns, their constraints, etc).  Potentially, they might also do
+// things like identify input / output columns, etc.
+type Module struct {
+	// Returns the name of this column
+	Name string
+}
+
+// NewModule constructs a new column
+func NewModule(name string) Module {
+	return Module{name}
 }
 
 // ============================================================================
@@ -244,25 +260,6 @@ func (p Column) QualifiedName(schema Schema) string {
 
 func (p Column) String() string {
 	return fmt.Sprintf("%s:%s", p.Name, p.DataType.String())
-}
-
-// ============================================================================
-// Module
-// ============================================================================
-
-// Module represents a specific module in the schema that groups columns
-// together.  Modules don't serve a huge function in a schema at this time.
-// They could, however, be used to iterate over the things they contain (e.g.
-// their columns, their constraints, etc).  Potentially, they might also do
-// things like identify input / output columns, etc.
-type Module struct {
-	// Returns the name of this column
-	Name string
-}
-
-// NewModule constructs a new column
-func NewModule(name string) Module {
-	return Module{name}
 }
 
 // ============================================================================

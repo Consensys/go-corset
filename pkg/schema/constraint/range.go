@@ -49,8 +49,8 @@ func (p *RangeFailure) String() string {
 }
 
 // RequiredCells identifies the cells required to evaluate the failing constraint at the failing row.
-func (p *RangeFailure) RequiredCells(trace tr.Trace) *set.AnySortedSet[tr.CellRef] {
-	return p.Expr.RequiredCells(int(p.Row), trace)
+func (p *RangeFailure) RequiredCells(module tr.Module) *set.AnySortedSet[tr.CellRef] {
+	return p.Expr.RequiredCells(int(p.Row), module)
 }
 
 // RangeConstraint restricts all values for a given expression to be within a
@@ -131,6 +131,7 @@ func (p *RangeConstraint[E]) Bounds(module uint) util.Bounds {
 func (p *RangeConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
 	var (
 		coverage bit.Set
+		module   = tr.Module(p.Context.ModuleId)
 		handle   = determineHandle(p.Handle, p.Context, tr)
 	)
 	// Determine height of enclosing module
@@ -138,7 +139,7 @@ func (p *RangeConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
 	// Iterate every row
 	for k := 0; k < int(height); k++ {
 		// Get the value on the kth row
-		kth, err := p.Expr.EvalAt(k, tr)
+		kth, err := p.Expr.EvalAt(k, module)
 		// Perform the range check
 		if err != nil {
 			return coverage, &sc.InternalFailure{

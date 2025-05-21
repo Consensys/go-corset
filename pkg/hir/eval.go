@@ -19,51 +19,50 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/trace"
-	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
 
 var frZERO fr.Element = fr.NewElement(0)
 var frONE fr.Element = fr.NewElement(1)
 
-func evalAtTerm(e Term, k int, trace tr.Trace) (fr.Element, error) {
+func evalAtTerm(e Term, k int, tr trace.Module) (fr.Element, error) {
 	switch e := e.(type) {
 	case *Add:
-		return evalAtAdd(e, k, trace)
+		return evalAtAdd(e, k, tr)
 	case *Cast:
-		return evalAtCast(e, k, trace)
+		return evalAtCast(e, k, tr)
 	case *Connective:
-		return evalAtConnective(e, k, trace)
+		return evalAtConnective(e, k, tr)
 	case *Constant:
 		return e.Value, nil
 	case *ColumnAccess:
-		val := trace.Column(e.Column).Get(k + e.Shift)
+		val := tr.Column(e.Column).Get(k + e.Shift)
 		return val, nil
 	case *Equation:
-		return evalAtEquation(e, k, trace)
+		return evalAtEquation(e, k, tr)
 	case *Exp:
-		return evalAtExp(e, k, trace)
+		return evalAtExp(e, k, tr)
 	case *IfZero:
-		return evalAtIfZero(e, k, trace)
+		return evalAtIfZero(e, k, tr)
 	case *LabelledConstant:
 		return e.Value, nil
 	case *List:
-		return evalAtList(e, k, trace)
+		return evalAtList(e, k, tr)
 	case *Mul:
-		return evalAtMul(e, k, trace)
+		return evalAtMul(e, k, tr)
 	case *Norm:
-		return evalAtNormalise(e, k, trace)
+		return evalAtNormalise(e, k, tr)
 	case *Not:
-		return evalAtNot(e, k, trace)
+		return evalAtNot(e, k, tr)
 	case *Sub:
-		return evalAtSub(e, k, trace)
+		return evalAtSub(e, k, tr)
 	default:
 		name := reflect.TypeOf(e).Name()
 		panic(fmt.Sprintf("unknown HIR expression \"%s\"", name))
 	}
 }
 
-func evalAtAdd(e *Add, k int, tr trace.Trace) (fr.Element, error) {
+func evalAtAdd(e *Add, k int, tr trace.Module) (fr.Element, error) {
 	// Evaluate first argument
 	val, err := evalAtTerm(e.Args[0], k, tr)
 	// Continue evaluating the rest
@@ -77,7 +76,7 @@ func evalAtAdd(e *Add, k int, tr trace.Trace) (fr.Element, error) {
 	return val, err
 }
 
-func evalAtCast(e *Cast, k int, tr trace.Trace) (fr.Element, error) {
+func evalAtCast(e *Cast, k int, tr trace.Module) (fr.Element, error) {
 	var c big.Int
 	//
 	cast := e.Range()
@@ -95,7 +94,7 @@ func evalAtCast(e *Cast, k int, tr trace.Trace) (fr.Element, error) {
 	return val, err
 }
 
-func evalAtConnective(e *Connective, k int, tr trace.Trace) (fr.Element, error) {
+func evalAtConnective(e *Connective, k int, tr trace.Module) (fr.Element, error) {
 	if e.Sign {
 		return evalAtDisjunction(e, k, tr)
 	}
@@ -103,7 +102,7 @@ func evalAtConnective(e *Connective, k int, tr trace.Trace) (fr.Element, error) 
 	return evalAtConjunction(e, k, tr)
 }
 
-func evalAtDisjunction(e *Connective, k int, tr trace.Trace) (fr.Element, error) {
+func evalAtDisjunction(e *Connective, k int, tr trace.Module) (fr.Element, error) {
 	for _, arg := range e.Args {
 		ith, err := evalAtTerm(arg, k, tr)
 		//
@@ -115,7 +114,7 @@ func evalAtDisjunction(e *Connective, k int, tr trace.Trace) (fr.Element, error)
 	return frONE, nil
 }
 
-func evalAtConjunction(e *Connective, k int, tr trace.Trace) (fr.Element, error) {
+func evalAtConjunction(e *Connective, k int, tr trace.Module) (fr.Element, error) {
 	for _, arg := range e.Args {
 		ith, err := evalAtTerm(arg, k, tr)
 		//
@@ -127,7 +126,7 @@ func evalAtConjunction(e *Connective, k int, tr trace.Trace) (fr.Element, error)
 	return frZERO, nil
 }
 
-func evalAtEquation(e *Equation, k int, tr trace.Trace) (fr.Element, error) {
+func evalAtEquation(e *Equation, k int, tr trace.Module) (fr.Element, error) {
 	lhs, err1 := evalAtTerm(e.Lhs, k, tr)
 	rhs, err2 := evalAtTerm(e.Rhs, k, tr)
 	// error check
@@ -171,7 +170,7 @@ func evalAtEquation(e *Equation, k int, tr trace.Trace) (fr.Element, error) {
 	return frONE, nil
 }
 
-func evalAtExp(e *Exp, k int, tr trace.Trace) (fr.Element, error) {
+func evalAtExp(e *Exp, k int, tr trace.Module) (fr.Element, error) {
 	// Check whether argument evaluates to zero or not.
 	val, err := evalAtTerm(e.Arg, k, tr)
 	// Compute exponent
@@ -180,7 +179,7 @@ func evalAtExp(e *Exp, k int, tr trace.Trace) (fr.Element, error) {
 	return val, err
 }
 
-func evalAtIfZero(e *IfZero, k int, tr trace.Trace) (fr.Element, error) {
+func evalAtIfZero(e *IfZero, k int, tr trace.Module) (fr.Element, error) {
 	// Evaluate condition
 	cond, err := evalAtTerm(e.Condition, k, tr)
 	//
@@ -195,7 +194,7 @@ func evalAtIfZero(e *IfZero, k int, tr trace.Trace) (fr.Element, error) {
 	return frZERO, nil
 }
 
-func evalAtMul(e *Mul, k int, tr trace.Trace) (fr.Element, error) {
+func evalAtMul(e *Mul, k int, tr trace.Module) (fr.Element, error) {
 	n := uint(len(e.Args))
 	// Evaluate first argument
 	val, err := evalAtTerm(e.Args[0], k, tr)
@@ -214,7 +213,7 @@ func evalAtMul(e *Mul, k int, tr trace.Trace) (fr.Element, error) {
 	return val, err
 }
 
-func evalAtNormalise(e *Norm, k int, tr trace.Trace) (fr.Element, error) {
+func evalAtNormalise(e *Norm, k int, tr trace.Module) (fr.Element, error) {
 	// Check whether argument evaluates to zero or not.
 	val, err := evalAtTerm(e.Arg, k, tr)
 	// Normalise value (if necessary)
@@ -225,7 +224,7 @@ func evalAtNormalise(e *Norm, k int, tr trace.Trace) (fr.Element, error) {
 	return val, err
 }
 
-func evalAtNot(e *Not, k int, tr trace.Trace) (fr.Element, error) {
+func evalAtNot(e *Not, k int, tr trace.Module) (fr.Element, error) {
 	// Check whether argument evaluates to zero or not.
 	val, err := evalAtTerm(e.Arg, k, tr)
 	// Negate value
@@ -237,7 +236,7 @@ func evalAtNot(e *Not, k int, tr trace.Trace) (fr.Element, error) {
 	return frZERO, err
 }
 
-func evalAtList(e *List, k int, tr trace.Trace) (fr.Element, error) {
+func evalAtList(e *List, k int, tr trace.Module) (fr.Element, error) {
 	for _, arg := range e.Args {
 		val, err := evalAtTerm(arg, k, tr)
 		// Catch short circuits
@@ -250,7 +249,7 @@ func evalAtList(e *List, k int, tr trace.Trace) (fr.Element, error) {
 	return frZERO, nil
 }
 
-func evalAtSub(e *Sub, k int, tr trace.Trace) (fr.Element, error) {
+func evalAtSub(e *Sub, k int, tr trace.Module) (fr.Element, error) {
 	// Evaluate first argument
 	val, err := evalAtTerm(e.Args[0], k, tr)
 	// Continue evaluating the rest

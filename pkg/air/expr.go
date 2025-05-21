@@ -90,14 +90,14 @@ func (e Expr) RequiredColumns() *set.SortedSet[uint] {
 // RequiredCells returns the set of trace cells on which this term depends.
 // That is, evaluating this term at the given row in the given trace will read
 // these cells.
-func (e Expr) RequiredCells(row int, tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
+func (e Expr) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
 	return requiredCellsOfTerm(e.Term, row, tr)
 }
 
 // EvalAt evaluates a column access at a given row in a trace, which returns the
 // value at that row of the column in question or nil is that row is
 // out-of-bounds.
-func (e Expr) EvalAt(k int, tr trace.Trace) (fr.Element, error) {
+func (e Expr) EvalAt(k int, tr trace.Module) (fr.Element, error) {
 	val := evalAtTerm(e.Term, k, tr)
 	//
 	return val, nil
@@ -113,7 +113,7 @@ func (e Expr) Shift(shift int) Expr {
 // context then it returns "nil".  An expression can be undefined for
 // several reasons: firstly, if it accesses a row which does not exist (e.g.
 // at index -1); secondly, if it accesses a column which does not exist.
-func (e Expr) TestAt(k int, tr trace.Trace) (bool, uint, error) {
+func (e Expr) TestAt(k int, tr trace.Module) (bool, uint, error) {
 	val := evalAtTerm(e.Term, k, tr)
 	//
 	return val.IsZero(), 0, nil

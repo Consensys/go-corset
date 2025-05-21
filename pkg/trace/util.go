@@ -24,8 +24,11 @@ func MaxHeight(tr Trace) uint {
 	h := uint(0)
 	// Iterate over modules
 	for i := uint(0); i < tr.Width(); i++ {
-		ctx := tr.Column(i).Context()
-		h = max(h, tr.Height(ctx))
+		m := tr.Module(i)
+		// Iterate over columns
+		for c := uint(0); c < m.Width(); c++ {
+			h = max(h, tr.Height(m.Column(c).Context()))
+		}
 	}
 	// Done
 	return h
@@ -33,7 +36,7 @@ func MaxHeight(tr Trace) uint {
 
 // QualifiedColumnNamesToCommaSeparatedString produces a suitable string for use
 // in error messages from a list of one or more column identifies.
-func QualifiedColumnNamesToCommaSeparatedString(columns []uint, trace Trace) string {
+func QualifiedColumnNamesToCommaSeparatedString(columns []uint, module Module) string {
 	var names strings.Builder
 
 	for i, c := range columns {
@@ -41,7 +44,7 @@ func QualifiedColumnNamesToCommaSeparatedString(columns []uint, trace Trace) str
 			names.WriteString(",")
 		}
 
-		names.WriteString(trace.Column(c).Name())
+		names.WriteString(module.Column(c).Name())
 	}
 	// Done
 	return names.String()

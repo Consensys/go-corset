@@ -19,17 +19,16 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/trace"
-	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
 
 var frZERO fr.Element = fr.NewElement(0)
 var frONE fr.Element = fr.NewElement(1)
 
-func evalAtConstraint(e Constraint, k int, trace tr.Trace) (fr.Element, error) {
+func evalAtConstraint(e Constraint, k int, tr trace.Module) (fr.Element, error) {
 	//
 	for _, disjunct := range e.conjuncts {
-		val, _, err := evalAtDisjunction(disjunct, k, trace)
+		val, _, err := evalAtDisjunction(disjunct, k, tr)
 		//
 		if err != nil {
 			return frONE, err
@@ -42,10 +41,10 @@ func evalAtConstraint(e Constraint, k int, trace tr.Trace) (fr.Element, error) {
 	return frZERO, nil
 }
 
-func evalAtDisjunction(e Disjunction, k int, trace tr.Trace) (fr.Element, uint, error) {
+func evalAtDisjunction(e Disjunction, k int, tr trace.Module) (fr.Element, uint, error) {
 	//
 	for i, eq := range e.atoms {
-		val, err := evalAtEquation(eq, k, trace)
+		val, err := evalAtEquation(eq, k, tr)
 		//
 		if err != nil {
 			return frONE, uint(i), err
@@ -58,9 +57,9 @@ func evalAtDisjunction(e Disjunction, k int, trace tr.Trace) (fr.Element, uint, 
 	return frONE, uint(0), nil
 }
 
-func evalAtEquation(e Equation, k int, trace tr.Trace) (fr.Element, error) {
-	lhs, err1 := evalAtTerm(e.lhs, k, trace)
-	rhs, err2 := evalAtTerm(e.rhs, k, trace)
+func evalAtEquation(e Equation, k int, tr trace.Module) (fr.Element, error) {
+	lhs, err1 := evalAtTerm(e.lhs, k, tr)
+	rhs, err2 := evalAtTerm(e.rhs, k, tr)
 	// error check
 	if err1 != nil {
 		return frONE, err1
@@ -100,45 +99,45 @@ func evalAtEquation(e Equation, k int, trace tr.Trace) (fr.Element, error) {
 	return frONE, nil
 }
 
-func evalAtTerm(e Term, k int, trace tr.Trace) (fr.Element, error) {
+func evalAtTerm(e Term, k int, tr trace.Module) (fr.Element, error) {
 	switch e := e.(type) {
 	case *Add:
-		return evalAtAdd(e, k, trace)
+		return evalAtAdd(e, k, tr)
 	case *Cast:
-		return evalAtCast(e, k, trace)
+		return evalAtCast(e, k, tr)
 	case *Constant:
 		return e.Value, nil
 	case *ColumnAccess:
-		return trace.Column(e.Column).Get(k + e.Shift), nil
+		return tr.Column(e.Column).Get(k + e.Shift), nil
 	case *Exp:
-		return evalAtExp(e, k, trace)
+		return evalAtExp(e, k, tr)
 	case *Mul:
-		return evalAtMul(e, k, trace)
+		return evalAtMul(e, k, tr)
 	case *Norm:
-		return evalAtNormalise(e, k, trace)
+		return evalAtNormalise(e, k, tr)
 	case *Sub:
-		return evalAtSub(e, k, trace)
+		return evalAtSub(e, k, tr)
 	default:
 		name := reflect.TypeOf(e).Name()
 		panic(fmt.Sprintf("unknown MIR expression \"%s\"", name))
 	}
 }
 
-func evalAtAdd(e *Add, k int, trace tr.Trace) (fr.Element, error) {
+func evalAtAdd(e *Add, k int, tr trace.Module) (fr.Element, error) {
 	// Evaluate first argument
-	val, err := evalAtTerm(e.Args[0], k, trace)
+	val, err := evalAtTerm(e.Args[0], k, tr)
 	// Continue evaluating the rest
 	for i := 1; err == nil && i < len(e.Args); i++ {
 		var ith fr.Element
 		// Evaluate ith argument
-		ith, err = evalAtTerm(e.Args[i], k, trace)
+		ith, err = evalAtTerm(e.Args[i], k, tr)
 		val.Add(&val, &ith)
 	}
 	// Done
 	return val, err
 }
 
-func evalAtCast(e *Cast, k int, tr trace.Trace) (fr.Element, error) {
+func evalAtCast(e *Cast, k int, tr trace.Module) (fr.Element, error) {
 	var c big.Int
 	//
 	cast := e.Range()
@@ -155,7 +154,7 @@ func evalAtCast(e *Cast, k int, tr trace.Trace) (fr.Element, error) {
 	return val, err
 }
 
-func evalAtExp(e *Exp, k int, tr trace.Trace) (fr.Element, error) {
+func evalAtExp(e *Exp, k int, tr trace.Module) (fr.Element, error) {
 	// Check whether argument evaluates to zero or not.
 	val, err := evalAtTerm(e.Arg, k, tr)
 	// Compute exponent
@@ -164,9 +163,9 @@ func evalAtExp(e *Exp, k int, tr trace.Trace) (fr.Element, error) {
 	return val, err
 }
 
-func evalAtMul(e *Mul, k int, trace tr.Trace) (fr.Element, error) {
+func evalAtMul(e *Mul, k int, tr trace.Module) (fr.Element, error) {
 	// Evaluate first argument
-	val, err := evalAtTerm(e.Args[0], k, trace)
+	val, err := evalAtTerm(e.Args[0], k, tr)
 	// Continue evaluating the rest
 	for i := 1; err == nil && i < len(e.Args); i++ {
 		var ith fr.Element
@@ -175,7 +174,7 @@ func evalAtMul(e *Mul, k int, trace tr.Trace) (fr.Element, error) {
 			return val, nil
 		}
 		// No
-		ith, err = evalAtTerm(e.Args[i], k, trace)
+		ith, err = evalAtTerm(e.Args[i], k, tr)
 		val.Mul(&val, &ith)
 	}
 	// Done
@@ -185,7 +184,7 @@ func evalAtMul(e *Mul, k int, trace tr.Trace) (fr.Element, error) {
 // EvalAt evaluates the normalisation of some expression by first evaluating
 // that expression.  Then, zero is returned if the result is zero; otherwise one
 // is returned.
-func evalAtNormalise(e *Norm, k int, tr trace.Trace) (fr.Element, error) {
+func evalAtNormalise(e *Norm, k int, tr trace.Module) (fr.Element, error) {
 	// Check whether argument evaluates to zero or not.
 	val, err := evalAtTerm(e.Arg, k, tr)
 	// Normalise value (if necessary)
@@ -196,14 +195,14 @@ func evalAtNormalise(e *Norm, k int, tr trace.Trace) (fr.Element, error) {
 	return val, err
 }
 
-func evalAtSub(e *Sub, k int, trace tr.Trace) (fr.Element, error) {
+func evalAtSub(e *Sub, k int, tr trace.Module) (fr.Element, error) {
 	// Evaluate first argument
-	val, err := evalAtTerm(e.Args[0], k, trace)
+	val, err := evalAtTerm(e.Args[0], k, tr)
 	// Continue evaluating the rest
 	for i := 1; err == nil && i < len(e.Args); i++ {
 		var ith fr.Element
 		// Evaluate ith argument
-		ith, err = evalAtTerm(e.Args[i], k, trace)
+		ith, err = evalAtTerm(e.Args[i], k, tr)
 		val.Sub(&val, &ith)
 	}
 	// Done

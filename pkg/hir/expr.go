@@ -95,7 +95,7 @@ func (e Expr) BitWidth(schema sc.Schema) uint {
 
 // EvalAt evaluates an expression at a given row in a trace, returning the
 // resulting value.
-func (e Expr) EvalAt(k int, tr trace.Trace) (fr.Element, error) {
+func (e Expr) EvalAt(k int, tr trace.Module) (fr.Element, error) {
 	val, err := evalAtTerm(e.Term, k, tr)
 	//
 	return val, err
@@ -103,7 +103,7 @@ func (e Expr) EvalAt(k int, tr trace.Trace) (fr.Element, error) {
 
 // TestAt checks whether a given expression holds (i.e. evaluates to zero) on a
 // given row in the trace.
-func (e Expr) TestAt(k int, tr trace.Trace) (bool, uint, error) {
+func (e Expr) TestAt(k int, tr trace.Module) (bool, uint, error) {
 	val, err := evalAtTerm(e.Term, k, tr)
 	//
 	return val.IsZero(), 0, err
@@ -125,7 +125,7 @@ func (e Expr) RequiredColumns() *set.SortedSet[uint] {
 // RequiredCells returns the set of trace cells on which this term depends.
 // That is, evaluating this term at the given row in the given trace will read
 // these cells.
-func (e Expr) RequiredCells(row int, tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
+func (e Expr) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
 	return requiredCellsOfTerm(e.Term, row, tr)
 }
 

@@ -112,7 +112,7 @@ func (e Constraint) Lisp(schema sc.Schema) sexp.SExp {
 // RequiredCells returns the set of trace cells on which this term depends.
 // That is, evaluating this term at the given row in the given trace will read
 // these cells.
-func (e Constraint) RequiredCells(row int, tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
+func (e Constraint) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
 	return requiredCellsOfConjunction(e, row, tr)
 }
 
@@ -128,7 +128,7 @@ func (e Constraint) RequiredColumns() *set.SortedSet[uint] {
 // context then it returns "nil".  An expression can be undefined for
 // several reasons: firstly, if it accesses a row which does not exist (e.g.
 // at index -1); secondly, if it accesses a column which does not exist.
-func (e Constraint) TestAt(k int, tr trace.Trace) (bool, uint, error) {
+func (e Constraint) TestAt(k int, tr trace.Module) (bool, uint, error) {
 	val, err := evalAtConstraint(e, k, tr)
 	//
 	if err != nil {

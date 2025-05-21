@@ -19,7 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/air"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/assignment"
-	tr "github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
@@ -82,7 +82,7 @@ type psuedoInverse struct {
 
 // EvalAt computes the multiplicative inverse of a given expression at a given
 // row in the table.
-func (e *psuedoInverse) EvalAt(k int, tbl tr.Trace) (fr.Element, error) {
+func (e *psuedoInverse) EvalAt(k int, tbl trace.Module) (fr.Element, error) {
 	var inv fr.Element
 	// Convert expression into something which can be evaluated, then evaluate
 	// it.
@@ -104,7 +104,7 @@ func (e *psuedoInverse) Bounds() util.Bounds { return e.Expr.Bounds() }
 
 // Context determines the evaluation context (i.e. enclosing module) for this
 // expression.
-func (e *psuedoInverse) Context(schema sc.Schema) tr.Context {
+func (e *psuedoInverse) Context(schema sc.Schema) trace.Context {
 	return e.Expr.Context(schema)
 }
 
@@ -123,7 +123,7 @@ func (e *psuedoInverse) RequiredColumns() *set.SortedSet[uint] {
 
 // RequiredCells returns the set of trace cells on which this term depends.
 // In this case, that is the empty set.
-func (e *psuedoInverse) RequiredCells(row int, trace tr.Trace) *set.AnySortedSet[tr.CellRef] {
+func (e *psuedoInverse) RequiredCells(row int, trace trace.Module) *set.AnySortedSet[trace.CellRef] {
 	return e.Expr.RequiredCells(row, trace)
 }
 

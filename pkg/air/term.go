@@ -101,7 +101,7 @@ func (p *ColumnAccess) Bounds() util.Bounds {
 // EvalAt evaluates a column access at a given row in a trace, which returns the
 // value at that row of the column in question or nil is that row is
 // out-of-bounds.
-func (p *ColumnAccess) EvalAt(k int, tr trace.Trace) (fr.Element, error) {
+func (p *ColumnAccess) EvalAt(k int, tr trace.Module) (fr.Element, error) {
 	return tr.Column(p.Column).Get(k + p.Shift), nil
 }
 
@@ -126,6 +126,6 @@ func (p *ColumnAccess) RequiredColumns() *set.SortedSet[uint] {
 
 // RequiredCells returns the set of trace cells on which this term depends.
 // In this case, that is the empty set.
-func (p *ColumnAccess) RequiredCells(row int, tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
+func (p *ColumnAccess) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
 	return requiredCellsOfColumnAccess(p, row)
 }

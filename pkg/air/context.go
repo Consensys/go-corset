@@ -81,7 +81,7 @@ func requiredColumnsOfColumnAccess(e *ColumnAccess) *set.SortedSet[uint] {
 	return r
 }
 
-func requiredCellsOfTerm(e Term, row int, tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
+func requiredCellsOfTerm(e Term, row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
 	switch e := e.(type) {
 	case *Add:
 		return requiredCellsOfTerms(e.Args, row, tr)
@@ -99,7 +99,7 @@ func requiredCellsOfTerm(e Term, row int, tr trace.Trace) *set.AnySortedSet[trac
 	}
 }
 
-func requiredCellsOfTerms(args []Term, row int, tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
+func requiredCellsOfTerms(args []Term, row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
 	return set.UnionAnySortedSets(args, func(e Term) *set.AnySortedSet[trace.CellRef] {
 		return requiredCellsOfTerm(e, row, tr)
 	})

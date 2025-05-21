@@ -95,19 +95,23 @@ func (p *PermutationConstraint) Bounds(module uint) util.Bounds {
 // Accepts checks whether a permutation holds between the source and
 // target columns.
 func (p *PermutationConstraint) Accepts(trace tr.Trace) (bit.Set, sc.Failure) {
-	// Coverage currently always empty for permutation constraints.
-	var coverage bit.Set
+	var (
+		// Coverage currently always empty for permutation constraints.
+		coverage bit.Set
+		// Determine enclosing module
+		module tr.Module = trace.Module(p.Context.ModuleId)
+	)
 	// Slice out data
-	src := sliceColumns(p.Sources, trace)
-	dst := sliceColumns(p.Targets, trace)
+	src := sliceColumns(p.Sources, module)
+	dst := sliceColumns(p.Targets, module)
 	// Sanity check whether column exists
 	if util.ArePermutationOf(dst, src) {
 		// Success
 		return coverage, nil
 	}
 	// Prepare suitable error message
-	src_names := tr.QualifiedColumnNamesToCommaSeparatedString(p.Sources, trace)
-	dst_names := tr.QualifiedColumnNamesToCommaSeparatedString(p.Targets, trace)
+	src_names := tr.QualifiedColumnNamesToCommaSeparatedString(p.Sources, module)
+	dst_names := tr.QualifiedColumnNamesToCommaSeparatedString(p.Targets, module)
 	//
 	msg := fmt.Sprintf("Target columns (%s) not permutation of source columns (%s)",
 		dst_names, src_names)
@@ -138,7 +142,7 @@ func (p *PermutationConstraint) Lisp(schema sc.Schema) sexp.SExp {
 	})
 }
 
-func sliceColumns(columns []uint, tr tr.Trace) []field.FrArray {
+func sliceColumns(columns []uint, tr tr.Module) []field.FrArray {
 	// Allocate return array
 	cols := make([]field.FrArray, len(columns))
 	// Slice out the data
