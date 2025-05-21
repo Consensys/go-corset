@@ -100,7 +100,10 @@ var checkCmd = &cobra.Command{
 		constraints := args[1:]
 		//
 		checkWithAsmPipeline(cfg, args[0], constraints[0])
-		checkWithLegacyPipeline(cfg, batched, externs, tracefile, constraints)
+		//
+		if cfg.air || cfg.mir || cfg.hir {
+			checkWithLegacyPipeline(cfg, batched, externs, tracefile, constraints)
+		}
 	},
 }
 
@@ -396,6 +399,7 @@ func init() {
 	checkCmd.Flags().Uint("report-cellwidth", 32, "specify max number of bytes to show in a given cell in report")
 	checkCmd.Flags().Uint("report-titlewidth", 40, "specify maximum width of column titles in report")
 	checkCmd.Flags().Bool("raw", false, "assume input trace already expanded")
+	checkCmd.Flags().Bool("asm", false, "check at ASM level")
 	checkCmd.Flags().Bool("uasm", false, "check at µASM level")
 	checkCmd.Flags().Bool("hir", false, "check at HIR level")
 	checkCmd.Flags().Bool("mir", false, "check at MIR level")
