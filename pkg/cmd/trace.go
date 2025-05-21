@@ -23,7 +23,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/asm"
 	"github.com/consensys/go-corset/pkg/corset"
-	"github.com/consensys/go-corset/pkg/mir"
+	"github.com/consensys/go-corset/pkg/ir/mir"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/lt"
@@ -201,12 +201,10 @@ func expandWithConstraints(level int, cols []trace.RawColumn, corsetConfig corse
 	binfile := ReadConstraintFiles(corsetConfig, asmConfig, filenames)
 	//
 	switch level {
-	case hir_LEVEL:
-		schema = &binfile.Schema
 	case mir_LEVEL:
-		schema = binfile.Schema.LowerToMir()
+		schema = binfile.Schema
 	case air_LEVEL:
-		schema = binfile.Schema.LowerToMir().LowerToAir(optConfig)
+		schema = mir.LowerToAir(&binfile.Schema, optConfig)
 	default:
 		panic("unreachable")
 	}

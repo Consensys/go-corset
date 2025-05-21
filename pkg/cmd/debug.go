@@ -136,7 +136,7 @@ func printSpillage(binf *binfile.BinaryFile, defensive bool, optConfig mir.Optim
 	mid := uint(0)
 	// Iterate modules and print spillage
 	for i := uint(0); i < uint(len(spillage)); i++ {
-		name := binf.Schema.Modules().Nth(i).Name
+		name := binf.Schema.Module(i).Name()
 		//
 		if name == "" {
 			name = "<prelude>"

@@ -163,17 +163,18 @@ func typeOfCounter[T any](iter iter.Iterator[T], dyntype reflect.Type) int {
 }
 
 func columnCounter() schemaSummariser {
-	return schemaSummariser{
-		name: "Columns (all)",
-		summary: func(schema sc.Schema) int {
-			count := 0
-			for i := schema.Columns(); i.HasNext(); {
-				i.Next()
-				count++
-			}
-			return count
-		},
-	}
+	// return schemaSummariser{
+	// 	name: "Columns (all)",
+	// 	summary: func(schema sc.Schema) int {
+	// 		count := 0
+	// 		for i := schema.Columns(); i.HasNext(); {
+	// 			i.Next()
+	// 			count++
+	// 		}
+	// 		return count
+	// 	},
+	// }
+	panic("todo")
 }
 
 func columnWidthSummariser(lowWidth uint, highWidth uint) schemaSummariser {
@@ -181,11 +182,14 @@ func columnWidthSummariser(lowWidth uint, highWidth uint) schemaSummariser {
 		name: fmt.Sprintf("Columns (%d..%d bits)", lowWidth, highWidth),
 		summary: func(schema sc.Schema) int {
 			count := 0
-			for i := schema.Columns(); i.HasNext(); {
-				ith := i.Next()
-				ithWidth := ith.DataType.BitWidth()
-				if ithWidth >= lowWidth && ithWidth <= highWidth {
-					count++
+			for i := schema.Modules(); i.HasNext(); {
+				m := i.Next()
+				for c := uint(0); c < m.Width(); c++ {
+					ith := m.Column(c)
+					ithWidth := ith.DataType.BitWidth()
+					if ithWidth >= lowWidth && ithWidth <= highWidth {
+						count++
+					}
 				}
 			}
 			return count

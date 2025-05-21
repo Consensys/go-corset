@@ -21,14 +21,27 @@ import (
 // Trace describes a set of named columns.  Columns are not required to have the
 // same height and can be either "data" columns or "computed" columns.
 type Trace interface {
-	// Access a given column in this trace.
-	Column(uint) Column
-	// Returns the number of columns in this trace.
+	// Access a given module in this trace.
+	Module(uint) Module
+	// Returns the number of modules in this trace.
 	Width() uint
-	// Returns the height of the given context (i.e. module).
+	// Determine height of a given context
 	Height(Context) uint
-	// Module returns the list of assigned modules and their respective heights
-	Modules() iter.Iterator[ArrayModule]
+	// Returns an iterator over the contained modules
+	Modules() iter.Iterator[Module]
+}
+
+// Module describes a module within the trace.  Every module is composed of some
+// number of columns, and has a specific height.
+type Module interface {
+	// Module name
+	Name() string
+	// Access a given column in this module.
+	Column(uint) Column
+	// Returns the number of columns in this module.
+	Width() uint
+	// Returns the height of this module.
+	Height() uint
 }
 
 // Column describes an individual column of data within a trace table.

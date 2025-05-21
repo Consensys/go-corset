@@ -20,8 +20,8 @@ import (
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
-	"github.com/consensys/go-corset/pkg/mir"
-	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/ir/mir"
+	sc "github.com/consensys/go-corset/pkg/ir/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
@@ -145,7 +145,7 @@ func checkIrTraces(t *testing.T, test string, cfg TestConfig, traces []io.Trace[
 	)
 	//
 	binFile := CompileBinary(fmt.Sprintf("%s.lisp", test), program)
-	hirSchema := &binFile.Schema
+	mirSchema := &binFile.Schema
 	//
 	for _, tr := range traces {
 		hirTraces = append(hirTraces, LowerMicroTrace(tr))
@@ -153,10 +153,8 @@ func checkIrTraces(t *testing.T, test string, cfg TestConfig, traces []io.Trace[
 	//
 	for i, tr := range hirTraces {
 		if tr != nil {
-			// Lower HIR => MIR
-			mirSchema := hirSchema.LowerToMir()
 			// Lower MIR => AIR
-			airSchema := mirSchema.LowerToAir(mir.DEFAULT_OPTIMISATION_LEVEL)
+			airSchema := mir.LowerToAir(mirSchema, mir.DEFAULT_OPTIMISATION_LEVEL)
 			// Align trace with schema, and check whether expanded or not.
 			for padding := uint(0); padding <= maxPadding; padding++ {
 				// Construct trace identifiers
@@ -165,7 +163,7 @@ func checkIrTraces(t *testing.T, test string, cfg TestConfig, traces []io.Trace[
 				airID := traceId{"AIR", test, cfg.expected, i + 1, padding}
 				// Only HIR / MIR constraints for traces which must be
 				// expanded.  They don't really make sense otherwise.
-				checkTrace(t, tr, hirID, hirSchema)
+				checkTrace(t, tr, hirID, mirSchema)
 				checkTrace(t, tr, mirID, mirSchema)
 				// Always check AIR constraints
 				checkTrace(t, tr, airID, airSchema)

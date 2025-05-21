@@ -20,8 +20,8 @@ import (
 	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/corset/compiler"
-	"github.com/consensys/go-corset/pkg/hir"
-	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/ir/mir"
+	sc "github.com/consensys/go-corset/pkg/ir/schema"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
 
@@ -253,7 +253,7 @@ func constructDisplayModifier(modifier string) uint {
 // This is really broken.  The problem is that we need to translate the selector
 // expression within the translator.  But, setting that all up is not
 // straightforward.  This should be done in the future!
-func compileSelector(env compiler.Environment, selector ast.Expr) *hir.Expr {
+func compileSelector(env compiler.Environment, selector ast.Expr) *mir.Expr {
 	if selector == nil {
 		return nil
 	}
@@ -263,7 +263,7 @@ func compileSelector(env compiler.Environment, selector ast.Expr) *hir.Expr {
 			// Lookup column binding
 			register_id := env.RegisterOf(binding.AbsolutePath())
 			// Done
-			expr := hir.NewColumnAccess(register_id, 0)
+			expr := mir.NewColumnAccess(register_id, 0)
 			//
 			return &expr
 		}
