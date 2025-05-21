@@ -90,9 +90,13 @@ func (p *Interleaving) Bounds() util.Bounds {
 // This requires copying the data in the source columns to create the
 // interleaved column.
 func (p *Interleaving) ComputeColumns(trace tr.Trace) ([]tr.ArrayColumn, error) {
-	ctx := p.Target.Context
-	// Byte width records the largest width of any column.
-	bit_width := uint(0)
+	var (
+		ctx = p.Target.Context
+		// Extract enclosing module
+		module = trace.Module(ctx.ModuleId)
+		// Byte width records the largest width of any column.
+		bit_width = uint(0)
+	)
 	// Ensure target column doesn't exist
 	for i := p.Columns(); i.HasNext(); {
 		ith := i.Next()
@@ -111,7 +115,7 @@ func (p *Interleaving) ComputeColumns(trace tr.Trace) ([]tr.ArrayColumn, error) 
 	// Copy interleaved data
 	for i := uint(0); i < width; i++ {
 		// Lookup source column
-		col := trace.Column(p.Sources[i])
+		col := module.Column(p.Sources[i])
 		// Copy over
 		for j := uint(0); j < height; j++ {
 			data.Set(offset+(j*width), col.Get(int(j)))
@@ -121,7 +125,7 @@ func (p *Interleaving) ComputeColumns(trace tr.Trace) ([]tr.ArrayColumn, error) 
 	}
 	// Padding for the entire column is determined by the padding for the first
 	// column in the interleaving.
-	padding := trace.Column(p.Sources[0]).Padding()
+	padding := module.Column(p.Sources[0]).Padding()
 	// Colunm needs to be expanded.
 	col := tr.NewArrayColumn(ctx, p.Target.Name, data, padding)
 	//

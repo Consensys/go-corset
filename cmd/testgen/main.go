@@ -233,7 +233,7 @@ func findColumn(mod uint, col string, schema sc.Schema, trace tr.Trace) tr.Colum
 		panic(fmt.Sprintf("unknown column \"%s\"", col))
 	}
 	// Done
-	return trace.Column(cid)
+	return trace.Module(mod).Column(cid)
 }
 
 func functionalModel(stamp string, model func(uint, uint, sc.Schema, tr.Trace) bool) OracleFn {

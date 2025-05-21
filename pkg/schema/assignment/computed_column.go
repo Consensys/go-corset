@@ -89,13 +89,16 @@ func (p *ComputedColumn) Bounds() util.Bounds {
 // Specifically, this creates a new column which contains the result of
 // evaluating a given expression on each row.
 func (p *ComputedColumn) ComputeColumns(tr trace.Trace) ([]trace.ArrayColumn, error) {
-	// Determine multiplied height
-	height := tr.Height(p.target.Context)
-	// Make space for computed data
-	data := field.NewFrArray(height, p.target.DataType.BitWidth())
+	var (
+		module = tr.Module(p.target.Context.ModuleId)
+		// Determine multiplied height
+		height = tr.Height(p.target.Context)
+		// Make space for computed data
+		data = field.NewFrArray(height, p.target.DataType.BitWidth())
+	)
 	// Expand the trace
 	for i := uint(0); i < data.Len(); i++ {
-		val, err := p.expr.EvalAt(int(i), tr)
+		val, err := p.expr.EvalAt(int(i), module)
 		// error check
 		if err != nil {
 			return nil, err
@@ -106,7 +109,7 @@ func (p *ComputedColumn) ComputeColumns(tr trace.Trace) ([]trace.ArrayColumn, er
 	// Determine padding value.  A negative row index is used here to ensure
 	// that all columns return their padding value which is then used to compute
 	// the padding value for *this* column.
-	padding, err := p.expr.EvalAt(-1, tr)
+	padding, err := p.expr.EvalAt(-1, module)
 	// Construct column
 	col := trace.NewArrayColumn(p.target.Context, p.Name(), data, padding)
 	// Done

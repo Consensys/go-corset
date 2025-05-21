@@ -98,12 +98,16 @@ func (p *SortedPermutation) Bounds() util.Bounds {
 // This requires copying the data in the source columns, and sorting that data
 // according to the permutation criteria.
 func (p *SortedPermutation) ComputeColumns(trace tr.Trace) ([]tr.ArrayColumn, error) {
-	data := make([]field.FrArray, len(p.Sources))
+	var (
+		data = make([]field.FrArray, len(p.Sources))
+		// Extract enclosing module
+		module = trace.Module(p.Context().ModuleId)
+	)
 	// Construct target columns
 	for i := 0; i < len(p.Sources); i++ {
 		src := p.Sources[i]
 		// Read column data
-		src_data := trace.Column(src).Data()
+		src_data := module.Column(src).Data()
 		// Clone it to initialise permutation.
 		data[i] = src_data.Clone()
 	}
@@ -115,7 +119,7 @@ func (p *SortedPermutation) ComputeColumns(trace tr.Trace) ([]tr.ArrayColumn, er
 	for i, iter := 0, p.Columns(); iter.HasNext(); i++ {
 		ith := iter.Next()
 		dstColName := ith.Name
-		srcCol := trace.Column(p.Sources[i])
+		srcCol := module.Column(p.Sources[i])
 		cols[i] = tr.NewArrayColumn(ith.Context, dstColName, data[i], srcCol.Padding())
 	}
 	//

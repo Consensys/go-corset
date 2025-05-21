@@ -84,16 +84,19 @@ func (p *ByteDecomposition) IsComputed() bool {
 // ComputeColumns computes the values of columns defined by this assignment.
 // This requires computing the value of each byte column in the decomposition.
 func (p *ByteDecomposition) ComputeColumns(tr trace.Trace) ([]trace.ArrayColumn, error) {
-	// Calculate how many bytes required.
-	n := len(p.targets)
-	// Identify source column
-	source := tr.Column(p.source)
-	// Determine height of column
-	height := tr.Height(source.Context())
-	// Determine padding values
-	padding := decomposeIntoBytes(source.Padding(), n)
-	// Construct byte column data
-	cols := make([]trace.ArrayColumn, n)
+	var (
+		module = tr.Module(p.Context().ModuleId)
+		// Calculate how many bytes required.
+		n = len(p.targets)
+		// Identify source column
+		source = module.Column(p.source)
+		// Determine height of column
+		height = tr.Height(source.Context())
+		// Determine padding values
+		padding = decomposeIntoBytes(source.Padding(), n)
+		// Construct byte column data
+		cols = make([]trace.ArrayColumn, n)
+	)
 	// Initialise columns
 	for i := 0; i < n; i++ {
 		ith := p.targets[i]

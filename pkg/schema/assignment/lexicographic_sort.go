@@ -94,24 +94,28 @@ func (p *LexicographicSort) Bounds() util.Bounds {
 // the LexicographicSortingGadget. That includes the delta column, and the bit
 // selectors.
 func (p *LexicographicSort) ComputeColumns(trace tr.Trace) ([]tr.ArrayColumn, error) {
-	zero := fr.NewElement(0)
-	one := fr.NewElement(1)
-	first := p.targets[0]
-	// Exact number of (signed) columns involved in the sort
-	nbits := len(p.signs)
-	// Determine how many rows to be constrained.
-	nrows := trace.Height(p.context)
-	// Initialise new data columns
-	cols := make([]tr.ArrayColumn, nbits+1)
-	// Byte width records the largest width of any column.
-	bit_width := uint(0)
+	var (
+		zero  = fr.NewElement(0)
+		one   = fr.NewElement(1)
+		first = p.targets[0]
+		// Extract enclosing module
+		module = trace.Module(p.Context().ModuleId)
+		// Exact number of (signed) columns involved in the sort
+		nbits = len(p.signs)
+		// Determine how many rows to be constrained.
+		nrows = trace.Height(p.context)
+		// Initialise new data columns
+		cols = make([]tr.ArrayColumn, nbits+1)
+		// Byte width records the largest width of any column.
+		bit_width = uint(0)
+	)
 	// Configure data columns
 	for i := 0; i < nbits; i++ {
 		target := p.targets[1+i]
 		data := field.NewFrArray(nrows, 1)
 		cols[i+1] = tr.NewArrayColumn(target.Context, target.Name, data, zero)
 		// Update bitwidth
-		source := trace.Column(p.sources[i])
+		source := module.Column(p.sources[i])
 		bit_width = max(bit_width, source.Data().BitWidth())
 	}
 	// Configure data column
@@ -124,8 +128,8 @@ func (p *LexicographicSort) ComputeColumns(trace tr.Trace) ([]tr.ArrayColumn, er
 		delta.Set(i, zero)
 		// Decide which row is the winner (if any)
 		for j := 0; j < nbits; j++ {
-			prev := trace.Column(p.sources[j]).Get(int(i - 1))
-			curr := trace.Column(p.sources[j]).Get(int(i))
+			prev := module.Column(p.sources[j]).Get(int(i - 1))
+			curr := module.Column(p.sources[j]).Get(int(i))
 
 			if !set && prev.Cmp(&curr) != 0 {
 				var diff fr.Element
