@@ -21,12 +21,12 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 )
 
-func rangeOfTerm(e Term, schema sc.Schema) *util.Interval {
+func rangeOfTerm(e Term, module sc.Module) *util.Interval {
 	switch e := e.(type) {
 	case *Add:
-		return rangeOfAdd(e.Args, schema)
+		return rangeOfAdd(e.Args, module)
 	case *Cast:
-		return rangeOfCast(e.Arg, e.Range(), schema)
+		return rangeOfCast(e.Arg, e.Range(), module)
 	case *Constant:
 		var c big.Int
 		// Extract big integer from field element
@@ -34,29 +34,29 @@ func rangeOfTerm(e Term, schema sc.Schema) *util.Interval {
 		// Return as interval
 		return util.NewInterval(&c, &c)
 	case *ColumnAccess:
-		return rangeOfColumnAccess(e.Column, schema)
+		return rangeOfColumnAccess(e.Column, module)
 	case *Exp:
-		bounds := rangeOfTerm(e.Arg, schema)
+		bounds := rangeOfTerm(e.Arg, module)
 		bounds.Exp(uint(e.Pow))
 		//
 		return bounds
 	case *Mul:
-		return rangeOfMul(e.Args, schema)
+		return rangeOfMul(e.Args, module)
 	case *Norm:
 		return util.NewInterval(big.NewInt(0), big.NewInt(1))
 	case *Sub:
-		return rangeOfSub(e.Args, schema)
+		return rangeOfSub(e.Args, module)
 	default:
 		name := reflect.TypeOf(e).Name()
 		panic(fmt.Sprintf("unknown MIR expression \"%s\"", name))
 	}
 }
 
-func rangeOfAdd(args []Term, schema sc.Schema) *util.Interval {
+func rangeOfAdd(args []Term, module sc.Module) *util.Interval {
 	var res util.Interval
 
 	for i, arg := range args {
-		ith := rangeOfTerm(arg, schema)
+		ith := rangeOfTerm(arg, module)
 		if i == 0 {
 			res.Set(ith)
 		} else {
@@ -67,9 +67,9 @@ func rangeOfAdd(args []Term, schema sc.Schema) *util.Interval {
 	return &res
 }
 
-func rangeOfCast(arg Term, cast *util.Interval, schema sc.Schema) *util.Interval {
+func rangeOfCast(arg Term, cast *util.Interval, module sc.Module) *util.Interval {
 	// Compute actual interval
-	res := rangeOfTerm(arg, schema)
+	res := rangeOfTerm(arg, module)
 	// Check whether is within (or not)
 	if res.Within(cast) {
 		return res
@@ -78,9 +78,9 @@ func rangeOfCast(arg Term, cast *util.Interval, schema sc.Schema) *util.Interval
 	return cast
 }
 
-func rangeOfColumnAccess(column uint, schema sc.Schema) *util.Interval {
+func rangeOfColumnAccess(column uint, module sc.Module) *util.Interval {
 	bound := big.NewInt(2)
-	width := int64(schema.Columns().Nth(column).DataType.BitWidth())
+	width := int64(module.Columns().Nth(column).DataType.BitWidth())
 	bound.Exp(bound, big.NewInt(width), nil)
 	// Subtract 1 because interval is inclusive.
 	bound.Sub(bound, big.NewInt(1))
@@ -88,11 +88,11 @@ func rangeOfColumnAccess(column uint, schema sc.Schema) *util.Interval {
 	return util.NewInterval(big.NewInt(0), bound)
 }
 
-func rangeOfMul(args []Term, schema sc.Schema) *util.Interval {
+func rangeOfMul(args []Term, module sc.Module) *util.Interval {
 	var res util.Interval
 
 	for i, arg := range args {
-		ith := rangeOfTerm(arg, schema)
+		ith := rangeOfTerm(arg, module)
 		if i == 0 {
 			res.Set(ith)
 		} else {
@@ -103,11 +103,11 @@ func rangeOfMul(args []Term, schema sc.Schema) *util.Interval {
 	return &res
 }
 
-func rangeOfSub(args []Term, schema sc.Schema) *util.Interval {
+func rangeOfSub(args []Term, module sc.Module) *util.Interval {
 	var res util.Interval
 
 	for i, arg := range args {
-		ith := rangeOfTerm(arg, schema)
+		ith := rangeOfTerm(arg, module)
 		if i == 0 {
 			res.Set(ith)
 		} else {

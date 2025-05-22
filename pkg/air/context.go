@@ -21,30 +21,30 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 )
 
-func contextOfTerm(e Term, schema sc.Schema) trace.Context {
+func contextOfTerm(e Term, module sc.Module) trace.Context {
 	switch e := e.(type) {
 	case *Add:
-		return contextOfTerms(e.Args, schema)
+		return contextOfTerms(e.Args, module)
 	case *Constant:
 		return trace.VoidContext[uint]()
 	case *ColumnAccess:
-		col := schema.Columns().Nth(e.Column)
+		col := module.Columns().Nth(e.Column)
 		return col.Context
 	case *Mul:
-		return contextOfTerms(e.Args, schema)
+		return contextOfTerms(e.Args, module)
 	case *Sub:
-		return contextOfTerms(e.Args, schema)
+		return contextOfTerms(e.Args, module)
 	default:
 		name := reflect.TypeOf(e).Name()
 		panic(fmt.Sprintf("unknown AIR expression \"%s\"", name))
 	}
 }
 
-func contextOfTerms(args []Term, schema sc.Schema) trace.Context {
+func contextOfTerms(args []Term, module sc.Module) trace.Context {
 	ctx := trace.VoidContext[uint]()
 	//
 	for _, e := range args {
-		ctx = ctx.Join(contextOfTerm(e, schema))
+		ctx = ctx.Join(contextOfTerm(e, module))
 	}
 	// If we get here, then no conflicts were detected.
 	return ctx

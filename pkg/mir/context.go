@@ -21,57 +21,57 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 )
 
-func contextOfTerm(e Term, schema sc.Schema) trace.Context {
+func contextOfTerm(e Term, module sc.Module) trace.Context {
 	switch e := e.(type) {
 	case *Add:
-		return contextOfTerms(e.Args, schema)
+		return contextOfTerms(e.Args, module)
 	case *Cast:
-		return contextOfTerm(e.Arg, schema)
+		return contextOfTerm(e.Arg, module)
 	case *Constant:
 		return trace.VoidContext[uint]()
 	case *ColumnAccess:
-		col := schema.Columns().Nth(e.Column)
+		col := module.Columns().Nth(e.Column)
 		return col.Context
 	case *Exp:
-		return contextOfTerm(e.Arg, schema)
+		return contextOfTerm(e.Arg, module)
 	case *Mul:
-		return contextOfTerms(e.Args, schema)
+		return contextOfTerms(e.Args, module)
 	case *Norm:
-		return contextOfTerm(e.Arg, schema)
+		return contextOfTerm(e.Arg, module)
 	case *Sub:
-		return contextOfTerms(e.Args, schema)
+		return contextOfTerms(e.Args, module)
 	default:
 		name := reflect.TypeOf(e).Name()
 		panic(fmt.Sprintf("unknown MIR expression \"%s\"", name))
 	}
 }
 
-func contextOfTerms(args []Term, schema sc.Schema) trace.Context {
+func contextOfTerms(args []Term, module sc.Module) trace.Context {
 	ctx := trace.VoidContext[uint]()
 	//
 	for _, e := range args {
-		ctx = ctx.Join(contextOfTerm(e, schema))
+		ctx = ctx.Join(contextOfTerm(e, module))
 	}
 	//
 	return ctx
 }
 
-func contextOfConjunction(conjunction Constraint, schema sc.Schema) trace.Context {
+func contextOfConjunction(conjunction Constraint, module sc.Module) trace.Context {
 	ctx := trace.VoidContext[uint]()
 	//
 	for _, e := range conjunction.conjuncts {
-		ctx = ctx.Join(contextOfDisjunction(e, schema))
+		ctx = ctx.Join(contextOfDisjunction(e, module))
 	}
 	//
 	return ctx
 }
 
-func contextOfDisjunction(disjunction Disjunction, schema sc.Schema) trace.Context {
+func contextOfDisjunction(disjunction Disjunction, module sc.Module) trace.Context {
 	ctx := trace.VoidContext[uint]()
 	//
 	for _, e := range disjunction.atoms {
-		ctx = ctx.Join(contextOfTerm(e.lhs, schema))
-		ctx = ctx.Join(contextOfTerm(e.rhs, schema))
+		ctx = ctx.Join(contextOfTerm(e.lhs, module))
+		ctx = ctx.Join(contextOfTerm(e.rhs, module))
 	}
 	//
 	return ctx

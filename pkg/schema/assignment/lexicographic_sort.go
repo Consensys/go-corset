@@ -163,11 +163,11 @@ func (p *LexicographicSort) Dependencies() []uint {
 // CheckConsistency performs some simple checks that the given schema is
 // consistent.  This provides a double check of certain key properties, such as
 // that registers used for assignments are large enough, etc.
-func (p *LexicographicSort) CheckConsistency(schema sc.Schema) error {
+func (p *LexicographicSort) CheckConsistency(module sc.Module) error {
 	bitwidth := uint(0)
 	// Sanity check source types
 	for i := range p.sources {
-		source := schema.Columns().Nth(p.sources[i])
+		source := module.Columns().Nth(p.sources[i])
 		// i+1 because first target is selector
 		target := p.targets[i+1]
 		// Sanit checkout
@@ -193,17 +193,17 @@ func (p *LexicographicSort) CheckConsistency(schema sc.Schema) error {
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (p *LexicographicSort) Lisp(schema sc.Schema) sexp.SExp {
+func (p *LexicographicSort) Lisp(module sc.Module) sexp.SExp {
 	targets := sexp.EmptyList()
 	sources := sexp.EmptyList()
 
 	for i := 0; i != len(p.targets); i++ {
-		ith := p.targets[i].QualifiedName(schema)
+		ith := p.targets[i].QualifiedName(module)
 		targets.Append(sexp.NewSymbol(ith))
 	}
 
 	for i, s := range p.sources {
-		ith := sc.QualifiedName(schema, s)
+		ith := sc.QualifiedName(module, s)
 		//
 		if i >= len(p.signs) {
 			// unsigned column

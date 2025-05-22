@@ -107,7 +107,7 @@ func jsonConstraintName(mid uint, name string, casenum uint, schema Schema) stri
 	mod := schema.Modules().Nth(mid)
 	name = fmt.Sprintf("%s#%d", name, casenum)
 	//
-	if mod.Name == "" {
+	if mod.Name() == "" {
 		return name
 	}
 	//

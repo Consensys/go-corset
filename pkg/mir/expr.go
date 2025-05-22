@@ -58,8 +58,8 @@ func NewConst64(val uint64) Expr {
 }
 
 // Context determines the evaluation context (i.e. enclosing module) for this
-func (e Expr) Context(schema sc.Schema) trace.Context {
-	return contextOfTerm(e.term, schema)
+func (e Expr) Context(module sc.Module) trace.Context {
+	return contextOfTerm(e.term, module)
 }
 
 // Bounds returns max shift in either the negative (left) or positive
@@ -76,8 +76,8 @@ func (e Expr) Bounds() util.Bounds {
 
 // Lisp converts this schema element into a simple S-Termession, for example
 // so it can be printed.
-func (e Expr) Lisp(schema sc.Schema) sexp.SExp {
-	return lispOfTerm(e.term, schema)
+func (e Expr) Lisp(module sc.Module) sexp.SExp {
+	return lispOfTerm(e.term, module)
 }
 
 // RequiredColumns returns the set of columns on which this term depends.

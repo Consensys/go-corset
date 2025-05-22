@@ -13,12 +13,7 @@
 package gadgets
 
 import (
-	"fmt"
-
 	"github.com/consensys/go-corset/pkg/air"
-	sc "github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/schema/assignment"
-	"github.com/consensys/go-corset/pkg/util"
 )
 
 // ColumnSortGadget adds sorting constraints for a column where the
@@ -77,38 +72,39 @@ func (p *ColumnSortGadget) SetSelector(selector air.Expr) {
 
 // Apply a given ColumnSortGadget to a given schema.
 func (p *ColumnSortGadget) Apply(schema *air.Schema) {
-	var deltaName string
-	// Identify target column
-	column := schema.Columns().Nth(p.column)
-	// Configure computation
-	Xk := air.NewColumnAccess(p.column, 0)
-	Xkm1 := air.NewColumnAccess(p.column, -1)
-	// Account for sign
-	var Xdiff air.Expr
-	if p.sign {
-		Xdiff = Xk.Sub(Xkm1)
-		deltaName = fmt.Sprintf("+%s", p.prefix)
-	} else {
-		Xdiff = Xkm1.Sub(Xk)
-		deltaName = fmt.Sprintf("-%s", p.prefix)
-	}
-	// Apply strictness
-	if p.strict {
-		Xdiff = Xdiff.Sub(air.NewConst64(1))
-	}
-	// Look up column
-	deltaIndex, ok := sc.ColumnIndexOf(schema, column.Context.Module(), deltaName)
-	// Add new column (if it does not already exist)
-	if !ok {
-		deltaIndex = schema.AddAssignment(
-			assignment.NewComputedColumn(column.Context, deltaName, &sc.FieldType{}, Xdiff))
-	}
-	// Add necessary bitwidth constraints
-	ApplyBitwidthGadget(deltaIndex, p.bitwidth, p.selector, schema)
-	// Configure constraint: Delta[k] = X[k] - X[k-1]
-	Dk := air.NewColumnAccess(deltaIndex, 0)
-	// Apply selecto
-	e := p.selector.Mul(Dk.Equate(Xdiff))
-	// Done
-	schema.AddVanishingConstraint(deltaName, 0, column.Context, util.None[int](), e)
+	// var deltaName string
+	// // Identify target column
+	// column := schema.Columns().Nth(p.column)
+	// // Configure computation
+	// Xk := air.NewColumnAccess(p.column, 0)
+	// Xkm1 := air.NewColumnAccess(p.column, -1)
+	// // Account for sign
+	// var Xdiff air.Expr
+	// if p.sign {
+	// 	Xdiff = Xk.Sub(Xkm1)
+	// 	deltaName = fmt.Sprintf("+%s", p.prefix)
+	// } else {
+	// 	Xdiff = Xkm1.Sub(Xk)
+	// 	deltaName = fmt.Sprintf("-%s", p.prefix)
+	// }
+	// // Apply strictness
+	// if p.strict {
+	// 	Xdiff = Xdiff.Sub(air.NewConst64(1))
+	// }
+	// // Look up column
+	// deltaIndex, ok := sc.ColumnIndexOf(schema, column.Context.Module(), deltaName)
+	// // Add new column (if it does not already exist)
+	// if !ok {
+	// 	deltaIndex = schema.AddAssignment(
+	// 		assignment.NewComputedColumn(column.Context, deltaName, &sc.FieldType{}, Xdiff))
+	// }
+	// // Add necessary bitwidth constraints
+	// ApplyBitwidthGadget(deltaIndex, p.bitwidth, p.selector, schema)
+	// // Configure constraint: Delta[k] = X[k] - X[k-1]
+	// Dk := air.NewColumnAccess(deltaIndex, 0)
+	// // Apply selecto
+	// e := p.selector.Mul(Dk.Equate(Xdiff))
+	// // Done
+	// schema.AddVanishingConstraint(deltaName, 0, column.Context, util.None[int](), e)
+	panic("todo")
 }

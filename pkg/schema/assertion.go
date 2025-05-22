@@ -134,11 +134,11 @@ func (p *PropertyAssertion[T]) Accepts(tr trace.Trace) (bit.Set, Failure) {
 // Lisp converts this constraint into an S-Expression.
 //
 //nolint:revive
-func (p *PropertyAssertion[T]) Lisp(schema Schema) sexp.SExp {
+func (p *PropertyAssertion[T]) Lisp(module Module) sexp.SExp {
 	// Construct the list
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("assert"),
 		sexp.NewSymbol(p.Handle),
-		p.Property.Lisp(schema),
+		p.Property.Lisp(module),
 	})
 }

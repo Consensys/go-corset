@@ -134,8 +134,8 @@ func (p *ByteDecomposition) Dependencies() []uint {
 // CheckConsistency performs some simple checks that the given schema is
 // consistent.  This provides a double check of certain key properties, such as
 // that registers used for assignments are large enough, etc.
-func (p *ByteDecomposition) CheckConsistency(schema sc.Schema) error {
-	n := schema.Columns().Nth(p.source).DataType.ByteWidth()
+func (p *ByteDecomposition) CheckConsistency(module sc.Module) error {
+	n := module.Columns().Nth(p.source).DataType.ByteWidth()
 	//
 	if uint(len(p.targets)) != n {
 		return fmt.Errorf("inconsistent byte decomposition (have %d byte columns, expected %d)", len(p.targets), n)
@@ -170,12 +170,12 @@ func decomposeIntoBytes(val fr.Element, n int) []fr.Element {
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (p *ByteDecomposition) Lisp(schema sc.Schema) sexp.SExp {
+func (p *ByteDecomposition) Lisp(module sc.Module) sexp.SExp {
 	targets := sexp.EmptyList()
 	for _, t := range p.targets {
 		targets.Append(sexp.NewList([]sexp.SExp{
 			// name
-			sexp.NewSymbol(t.QualifiedName(schema)),
+			sexp.NewSymbol(t.QualifiedName(module)),
 			// type
 			sexp.NewSymbol(t.DataType.String()),
 		}))
@@ -184,6 +184,6 @@ func (p *ByteDecomposition) Lisp(schema sc.Schema) sexp.SExp {
 	return sexp.NewList(
 		[]sexp.SExp{sexp.NewSymbol("decompose"),
 			targets,
-			sexp.NewSymbol(sc.QualifiedName(schema, p.source)),
+			sexp.NewSymbol(sc.QualifiedName(module, p.source)),
 		})
 }

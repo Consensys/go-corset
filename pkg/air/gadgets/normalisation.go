@@ -13,12 +13,9 @@
 package gadgets
 
 import (
-	"fmt"
-
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/air"
 	sc "github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/schema/assignment"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -42,36 +39,37 @@ func Normalise(e air.Expr, schema *air.Schema) air.Expr {
 // column which holds the multiplicative inverse.  Constraints are also added to
 // ensure it really holds the inverted value.
 func applyPseudoInverseGadget(e air.Expr, schema *air.Schema) air.Expr {
-	// Determine enclosing module.
-	ctx := e.Context(schema)
-	// Sanity check
-	if ctx.IsVoid() || ctx.IsConflicted() {
-		panic("conflicting (or void) context")
-	}
-	// Construct inverse computation
-	ie := &psuedoInverse{Expr: e}
-	// Determine computed column name
-	name := ie.Lisp(schema).String(false)
-	// Look up column
-	index, ok := sc.ColumnIndexOf(schema, ctx.Module(), name)
-	// Add new column (if it does not already exist)
-	if !ok {
-		// Add computed column, noting that inverses often require the full
-		// 256bits available.
-		index = schema.AddAssignment(assignment.NewComputedColumn(ctx, name, &sc.FieldType{}, ie))
-		// Construct 1/e
-		inv_e := air.NewColumnAccess(index, 0)
-		// Construct e/e
-		e_inv_e := e.Mul(inv_e)
-		// Construct 1 == e/e
-		one_e_e := air.NewConst64(1).Equate(e_inv_e)
-		// Construct (e != 0) ==> (1 == e/e)
-		e_implies_one_e_e := e.Mul(one_e_e) // Ensure (e != 0) ==> (1 == e/e)
-		l_name := fmt.Sprintf("%s <=", name)
-		schema.AddVanishingConstraint(l_name, 0, ctx, util.None[int](), e_implies_one_e_e)
-	}
-	// Done
-	return air.NewColumnAccess(index, 0)
+	// // Determine enclosing module.
+	// ctx := e.Context(schema)
+	// // Sanity check
+	// if ctx.IsVoid() || ctx.IsConflicted() {
+	// 	panic("conflicting (or void) context")
+	// }
+	// // Construct inverse computation
+	// ie := &psuedoInverse{Expr: e}
+	// // Determine computed column name
+	// name := ie.Lisp(schema).String(false)
+	// // Look up column
+	// index, ok := sc.ColumnIndexOf(schema, ctx.Module(), name)
+	// // Add new column (if it does not already exist)
+	// if !ok {
+	// 	// Add computed column, noting that inverses often require the full
+	// 	// 256bits available.
+	// 	index = schema.AddAssignment(assignment.NewComputedColumn(ctx, name, &sc.FieldType{}, ie))
+	// 	// Construct 1/e
+	// 	inv_e := air.NewColumnAccess(index, 0)
+	// 	// Construct e/e
+	// 	e_inv_e := e.Mul(inv_e)
+	// 	// Construct 1 == e/e
+	// 	one_e_e := air.NewConst64(1).Equate(e_inv_e)
+	// 	// Construct (e != 0) ==> (1 == e/e)
+	// 	e_implies_one_e_e := e.Mul(one_e_e) // Ensure (e != 0) ==> (1 == e/e)
+	// 	l_name := fmt.Sprintf("%s <=", name)
+	// 	schema.AddVanishingConstraint(l_name, 0, ctx, util.None[int](), e_implies_one_e_e)
+	// }
+	// // Done
+	// return air.NewColumnAccess(index, 0)
+	panic("todo")
 }
 
 // psuedoInverse represents a computation which computes the multiplicative
@@ -104,8 +102,8 @@ func (e *psuedoInverse) Bounds() util.Bounds { return e.Expr.Bounds() }
 
 // Context determines the evaluation context (i.e. enclosing module) for this
 // expression.
-func (e *psuedoInverse) Context(schema sc.Schema) trace.Context {
-	return e.Expr.Context(schema)
+func (e *psuedoInverse) Context(module sc.Module) trace.Context {
+	return e.Expr.Context(module)
 }
 
 // Branches returns the total number of logical branches this constraint can
@@ -129,9 +127,9 @@ func (e *psuedoInverse) RequiredCells(row int, trace trace.Module) *set.AnySorte
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (e *psuedoInverse) Lisp(schema sc.Schema) sexp.SExp {
+func (e *psuedoInverse) Lisp(module sc.Module) sexp.SExp {
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("inv"),
-		e.Expr.Lisp(schema),
+		e.Expr.Lisp(module),
 	})
 }

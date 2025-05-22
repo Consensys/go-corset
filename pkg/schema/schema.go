@@ -110,7 +110,7 @@ type Assignment interface {
 
 	// CheckConsistent performs some simple checks of consistency against the
 	// given schema.
-	CheckConsistency(schema Schema) error
+	CheckConsistency(Module) error
 }
 
 // Constraint represents an element which can "accept" a trace, or either reject
@@ -206,7 +206,7 @@ type Contextual interface {
 	// to signal this.  Likewise, the expression could have a single enclosing
 	// module but multiple conflicting length multipliers, in which case it also
 	// returns false.
-	Context(Schema) tr.Context
+	Context(Module) tr.Context
 
 	// RequiredColumns returns the set of columns on which this term depends.
 	// That is, columns whose values may be accessed when evaluating this term
@@ -222,7 +222,7 @@ type Contextual interface {
 type Lispifiable interface {
 	// Lisp converts this schema element into a simple S-Expression, for example
 	// so it can be printed.
-	Lisp(sc Schema) sexp.SExp
+	Lisp(Module) sexp.SExp
 }
 
 // ============================================================================
@@ -246,8 +246,7 @@ func NewColumn(context tr.Context, name string, datatype Type) Column {
 }
 
 // QualifiedName returns the fully qualified name of this column
-func (p Column) QualifiedName(schema Schema) string {
-	mod := schema.Modules().Nth(p.Context.Module())
+func (p Column) QualifiedName(mod Module) string {
 	if mod.Name() != "" {
 		return fmt.Sprintf("%s:%s", mod.Name, p.Name)
 	}

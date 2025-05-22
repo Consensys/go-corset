@@ -99,14 +99,14 @@ func (e Constraint) Branches() uint {
 }
 
 // Context determines the evaluation context (i.e. enclosing module) for this
-func (e Constraint) Context(schema sc.Schema) trace.Context {
-	return contextOfConjunction(e, schema)
+func (e Constraint) Context(module sc.Module) trace.Context {
+	return contextOfConjunction(e, module)
 }
 
 // Lisp converts this schema element into a simple S-Termession, for example
 // so it can be printed.
-func (e Constraint) Lisp(schema sc.Schema) sexp.SExp {
-	return lispOfConjunction(schema, e)
+func (e Constraint) Lisp(module sc.Module) sexp.SExp {
+	return lispOfConjunction(module, e)
 }
 
 // RequiredCells returns the set of trace cells on which this term depends.

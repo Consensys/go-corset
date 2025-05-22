@@ -21,54 +21,54 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 )
 
-func contextOfTerm(e Term, schema sc.Schema) trace.Context {
+func contextOfTerm(e Term, module sc.Module) trace.Context {
 	switch e := e.(type) {
 	case *Add:
-		return contextOfTerms(schema, e.Args...)
+		return contextOfTerms(module, e.Args...)
 	case *Cast:
-		return contextOfTerm(e.Arg, schema)
+		return contextOfTerm(e.Arg, module)
 	case *Connective:
-		return contextOfTerms(schema, e.Args...)
+		return contextOfTerms(module, e.Args...)
 	case *Constant:
 		return trace.VoidContext[uint]()
 	case *Equation:
-		return contextOfTerms(schema, e.Lhs, e.Rhs)
+		return contextOfTerms(module, e.Lhs, e.Rhs)
 	case *LabelledConstant:
 		return trace.VoidContext[uint]()
 	case *ColumnAccess:
-		col := schema.Columns().Nth(e.Column)
+		col := module.Columns().Nth(e.Column)
 		return col.Context
 	case *Exp:
-		return contextOfTerm(e.Arg, schema)
+		return contextOfTerm(e.Arg, module)
 	case *IfZero:
-		return contextOfIfZero(e, schema)
+		return contextOfIfZero(e, module)
 	case *List:
-		return contextOfTerms(schema, e.Args...)
+		return contextOfTerms(module, e.Args...)
 	case *Mul:
-		return contextOfTerms(schema, e.Args...)
+		return contextOfTerms(module, e.Args...)
 	case *Norm:
-		return contextOfTerm(e.Arg, schema)
+		return contextOfTerm(e.Arg, module)
 	case *Not:
-		return contextOfTerm(e.Arg, schema)
+		return contextOfTerm(e.Arg, module)
 	case *Sub:
-		return contextOfTerms(schema, e.Args...)
+		return contextOfTerms(module, e.Args...)
 	default:
 		name := reflect.TypeOf(e).Name()
 		panic(fmt.Sprintf("unknown HIR expression \"%s\"", name))
 	}
 }
 
-func contextOfTerms(schema sc.Schema, args ...Term) trace.Context {
+func contextOfTerms(module sc.Module, args ...Term) trace.Context {
 	ctx := trace.VoidContext[uint]()
 	//
 	for _, e := range args {
-		ctx = ctx.Join(contextOfTerm(e, schema))
+		ctx = ctx.Join(contextOfTerm(e, module))
 	}
 	// If we get here, then no conflicts were detected.
 	return ctx
 }
 
-func contextOfIfZero(p *IfZero, schema sc.Schema) trace.Context {
+func contextOfIfZero(p *IfZero, schema sc.Module) trace.Context {
 	var args []Term
 	//
 	if p.TrueBranch != nil && p.FalseBranch != nil {

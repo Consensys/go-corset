@@ -56,29 +56,29 @@ var DEFAULT_OPTIMISATION_LEVEL = OPTIMISATION_LEVELS[1]
 
 // attempt to eliminate normalisations by undertaking a range analysis on their
 // arguments to see whether they have sufficiently small ranges.
-func eliminateNormalisationInTerm(term Term, schema sc.Schema,
+func eliminateNormalisationInTerm(term Term, module sc.Module,
 	cfg OptimisationConfig) Term {
 	switch term := term.(type) {
 	case *Add:
-		args := eliminateNormalisationInTerms(term.Args, schema, cfg)
+		args := eliminateNormalisationInTerms(term.Args, module, cfg)
 		return &Add{args}
 	case *Cast:
-		arg := eliminateNormalisationInTerm(term.Arg, schema, cfg)
+		arg := eliminateNormalisationInTerm(term.Arg, module, cfg)
 		return &Cast{arg, term.BitWidth}
 	case *Constant:
 		return term
 	case *ColumnAccess:
 		return term
 	case *Exp:
-		arg := eliminateNormalisationInTerm(term.Arg, schema, cfg)
+		arg := eliminateNormalisationInTerm(term.Arg, module, cfg)
 		return &Exp{arg, term.Pow}
 	case *Mul:
-		args := eliminateNormalisationInTerms(term.Args, schema, cfg)
+		args := eliminateNormalisationInTerms(term.Args, module, cfg)
 		return &Mul{args}
 	case *Norm:
-		return eliminateNormalisationInNorm(term.Arg, schema, cfg)
+		return eliminateNormalisationInNorm(term.Arg, module, cfg)
 	case *Sub:
-		args := eliminateNormalisationInTerms(term.Args, schema, cfg)
+		args := eliminateNormalisationInTerms(term.Args, module, cfg)
 		return &Sub{args}
 	default:
 		name := reflect.TypeOf(term).Name()
@@ -86,21 +86,21 @@ func eliminateNormalisationInTerm(term Term, schema sc.Schema,
 	}
 }
 
-func eliminateNormalisationInTerms(terms []Term, schema sc.Schema,
+func eliminateNormalisationInTerms(terms []Term, module sc.Module,
 	cfg OptimisationConfig) []Term {
 	nterms := make([]Term, len(terms))
 	//
 	for i, t := range terms {
-		nterms[i] = eliminateNormalisationInTerm(t, schema, cfg)
+		nterms[i] = eliminateNormalisationInTerm(t, module, cfg)
 	}
 	//
 	return nterms
 }
 
-func eliminateNormalisationInNorm(arg Term, schema sc.Schema, cfg OptimisationConfig) Term {
-	bounds := rangeOfTerm(arg, schema)
+func eliminateNormalisationInNorm(arg Term, module sc.Module, cfg OptimisationConfig) Term {
+	bounds := rangeOfTerm(arg, module)
 	// optimise argument
-	arg = eliminateNormalisationInTerm(arg, schema, cfg)
+	arg = eliminateNormalisationInTerm(arg, module, cfg)
 	// Check whether normalisation actually required.  For example, if the
 	// argument is just a binary column then a normalisation is not actually
 	// required.

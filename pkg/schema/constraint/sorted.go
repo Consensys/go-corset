@@ -152,7 +152,7 @@ func (p *SortedConstraint[E]) Accepts(trace trace.Trace) (bit.Set, sc.Failure) {
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (p *SortedConstraint[E]) Lisp(schema sc.Schema) sexp.SExp {
+func (p *SortedConstraint[E]) Lisp(module sc.Module) sexp.SExp {
 	var (
 		kind    = "sorted"
 		sources = sexp.EmptyList()
@@ -163,7 +163,7 @@ func (p *SortedConstraint[E]) Lisp(schema sc.Schema) sexp.SExp {
 	}
 	// Iterate source expressions
 	for i := 0; i < len(p.Sources); i++ {
-		ith := p.Sources[i].Lisp(schema)
+		ith := p.Sources[i].Lisp(module)
 		//
 		if i >= len(p.Signs) {
 			//
@@ -186,7 +186,7 @@ func (p *SortedConstraint[E]) Lisp(schema sc.Schema) sexp.SExp {
 		return sexp.NewList([]sexp.SExp{
 			sexp.NewSymbol(kind),
 			sexp.NewSymbol(p.Handle),
-			p.Selector.Unwrap().Lisp(schema),
+			p.Selector.Unwrap().Lisp(module),
 			sources,
 		})
 	}

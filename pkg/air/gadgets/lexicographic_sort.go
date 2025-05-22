@@ -16,8 +16,6 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/air"
-	sc "github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/schema/assignment"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
@@ -92,23 +90,24 @@ func (p *LexicographicSortingGadget) SetSelector(selector air.Expr) {
 
 // Apply this lexicographic sorting gadget to a given schema.
 func (p *LexicographicSortingGadget) Apply(schema *air.Schema) {
-	// Check preconditions
-	// Determine enclosing module for this gadget.
-	ctx := sc.ContextOfColumns(p.columns, schema)
-	// Add trace computation
-	deltaIndex := schema.AddAssignment(
-		assignment.NewLexicographicSort(p.prefix, ctx, p.columns, p.signs, p.bitwidth))
-	// Construct selecto bits.
-	p.addLexicographicSelectorBits(ctx, deltaIndex, schema)
-	// Construct delta terms
-	constraint := constructLexicographicDeltaConstraint(deltaIndex, p.columns, p.signs)
-	// Apply selector
-	constraint = p.selector.Mul(constraint)
-	// Add delta constraint
-	deltaName := fmt.Sprintf("%s:delta", p.prefix)
-	schema.AddVanishingConstraint(deltaName, 0, ctx, util.None[int](), constraint)
-	// Add necessary bitwidth constraints
-	ApplyBitwidthGadget(deltaIndex, p.bitwidth, p.selector, schema)
+	// // Check preconditions
+	// // Determine enclosing module for this gadget.
+	// ctx := sc.ContextOfColumns(p.columns, schema)
+	// // Add trace computation
+	// deltaIndex := schema.AddAssignment(
+	// 	assignment.NewLexicographicSort(p.prefix, ctx, p.columns, p.signs, p.bitwidth))
+	// // Construct selecto bits.
+	// p.addLexicographicSelectorBits(ctx, deltaIndex, schema)
+	// // Construct delta terms
+	// constraint := constructLexicographicDeltaConstraint(deltaIndex, p.columns, p.signs)
+	// // Apply selector
+	// constraint = p.selector.Mul(constraint)
+	// // Add delta constraint
+	// deltaName := fmt.Sprintf("%s:delta", p.prefix)
+	// schema.AddVanishingConstraint(deltaName, 0, ctx, util.None[int](), constraint)
+	// // Add necessary bitwidth constraints
+	// ApplyBitwidthGadget(deltaIndex, p.bitwidth, p.selector, schema)
+	panic("todo")
 }
 
 // Add lexicographic selector bits, including the necessary constraints.  Each

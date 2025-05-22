@@ -227,16 +227,16 @@ func evalExprsAsBytes[E schema.Evaluable](k int, sources []E, handle string, mod
 // so it can be printed.
 //
 //nolint:revive
-func (p *LookupConstraint[E]) Lisp(schema sc.Schema) sexp.SExp {
+func (p *LookupConstraint[E]) Lisp(module sc.Module) sexp.SExp {
 	sources := sexp.EmptyList()
 	targets := sexp.EmptyList()
 	// Iterate source expressions
 	for i := 0; i < len(p.Sources); i++ {
-		sources.Append(p.Sources[i].Lisp(schema))
+		sources.Append(p.Sources[i].Lisp(module))
 	}
 	// Iterate source expressions
 	for i := 0; i < len(p.Targets); i++ {
-		targets.Append(p.Targets[i].Lisp(schema))
+		targets.Append(p.Targets[i].Lisp(module))
 	}
 	// Done
 	return sexp.NewList([]sexp.SExp{

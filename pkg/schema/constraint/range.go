@@ -161,11 +161,11 @@ func (p *RangeConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
 // it can be printed.
 //
 //nolint:revive
-func (p *RangeConstraint[E]) Lisp(schema sc.Schema) sexp.SExp {
+func (p *RangeConstraint[E]) Lisp(module sc.Module) sexp.SExp {
 	//
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("range"),
-		p.Expr.Lisp(schema),
+		p.Expr.Lisp(module),
 		sexp.NewSymbol(p.Bound.String()),
 	})
 }

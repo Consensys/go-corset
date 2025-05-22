@@ -198,7 +198,7 @@ func HoldsLocally[T sc.Testable](k uint, handle string, constraint T, tr trace.M
 // Lisp converts this constraint into an S-Expression.
 //
 //nolint:revive
-func (p *VanishingConstraint[T]) Lisp(schema sc.Schema) sexp.SExp {
+func (p *VanishingConstraint[T]) Lisp(module sc.Module) sexp.SExp {
 	var (
 		name       string
 		multiplier uint
@@ -208,8 +208,8 @@ func (p *VanishingConstraint[T]) Lisp(schema sc.Schema) sexp.SExp {
 		name = p.Handle
 		multiplier = 1
 	} else {
-		if module := schema.Modules().Nth(p.Context.Module()); module.Name() != "" {
-			name = fmt.Sprintf("%s:%s", module.Name, p.Handle)
+		if module.Name() != "" {
+			name = fmt.Sprintf("%s:%s", module.Name(), p.Handle)
 		} else {
 			name = p.Handle
 		}
@@ -236,7 +236,7 @@ func (p *VanishingConstraint[T]) Lisp(schema sc.Schema) sexp.SExp {
 		sexp.NewList([]sexp.SExp{
 			sexp.NewSymbol(name),
 			sexp.NewSymbol(fmt.Sprintf("x%d", multiplier))}),
-		p.Constraint.Lisp(schema),
+		p.Constraint.Lisp(module),
 	})
 }
 

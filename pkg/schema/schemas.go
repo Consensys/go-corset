@@ -78,9 +78,9 @@ func defensivePadding(module uint, schema Schema) uint {
 }
 
 // QualifiedName returns the fully qualified name for a given (indexed) column in a given schema.
-func QualifiedName(schema Schema, column uint) string {
-	col := schema.Columns().Nth(column)
-	return col.QualifiedName(schema)
+func QualifiedName(module Module, column uint) string {
+	col := module.Columns().Nth(column)
+	return col.QualifiedName(module)
 }
 
 // JoinContexts combines one or more evaluation contexts together.  If all

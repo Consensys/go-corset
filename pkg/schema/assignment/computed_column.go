@@ -141,13 +141,13 @@ func (p *ComputedColumn) CheckConsistency(schema sc.Schema) error {
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (p *ComputedColumn) Lisp(schema sc.Schema) sexp.SExp {
+func (p *ComputedColumn) Lisp(module sc.Module) sexp.SExp {
 	col := sexp.NewSymbol("computed")
-	name := sexp.NewSymbol(p.Columns().Next().QualifiedName(schema))
+	name := sexp.NewSymbol(p.Columns().Next().QualifiedName(module))
 	datatype := sexp.NewSymbol(p.target.DataType.String())
 	multiplier := sexp.NewSymbol(fmt.Sprintf("x%d", p.target.Context.LengthMultiplier()))
 	def := sexp.NewList([]sexp.SExp{name, datatype, multiplier})
-	expr := p.expr.Lisp(schema)
+	expr := p.expr.Lisp(module)
 
 	return sexp.NewList([]sexp.SExp{col, def, expr})
 }

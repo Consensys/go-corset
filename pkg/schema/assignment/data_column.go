@@ -82,9 +82,9 @@ func (p *DataColumn) IsComputed() bool {
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (p *DataColumn) Lisp(schema sc.Schema) sexp.SExp {
+func (p *DataColumn) Lisp(module sc.Module) sexp.SExp {
 	col := sexp.NewSymbol("column")
-	name := sexp.NewSymbol(p.Columns().Next().QualifiedName(schema))
+	name := sexp.NewSymbol(p.Columns().Next().QualifiedName(module))
 	//
 	datatype := sexp.NewSymbol(p.DataType.String())
 	multiplier := sexp.NewSymbol(fmt.Sprintf("x%d", p.TraceContext.LengthMultiplier()))

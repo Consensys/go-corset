@@ -126,7 +126,7 @@ func (p *Computation) Dependencies() []uint {
 // CheckConsistency performs some simple checks that the given schema is
 // consistent.  This provides a double check of certain key properties, such as
 // that registers used for assignments are large enough, etc.
-func (p *Computation) CheckConsistency(schema sc.Schema) error {
+func (p *Computation) CheckConsistency(module sc.Module) error {
 	// NOTE: this is where we could (in principle) check the type of the
 	// function being defined to ensure it is, for example, typed correctly.
 	return nil
@@ -138,13 +138,13 @@ func (p *Computation) CheckConsistency(schema sc.Schema) error {
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (p *Computation) Lisp(schema sc.Schema) sexp.SExp {
+func (p *Computation) Lisp(module sc.Module) sexp.SExp {
 	targets := sexp.EmptyList()
 	sources := sexp.EmptyList()
 
 	for i := 0; i != len(p.Targets); i++ {
 		ith := p.Targets[i]
-		name := sexp.NewSymbol(ith.QualifiedName(schema))
+		name := sexp.NewSymbol(ith.QualifiedName(module))
 		datatype := sexp.NewSymbol(ith.DataType.String())
 		multiplier := sexp.NewSymbol(fmt.Sprintf("x%d", ith.Context.LengthMultiplier()))
 		def := sexp.NewList([]sexp.SExp{name, datatype, multiplier})
@@ -152,7 +152,7 @@ func (p *Computation) Lisp(schema sc.Schema) sexp.SExp {
 	}
 
 	for _, s := range p.Sources {
-		ith := sc.QualifiedName(schema, s)
+		ith := sc.QualifiedName(module, s)
 		sources.Append(sexp.NewSymbol(ith))
 	}
 

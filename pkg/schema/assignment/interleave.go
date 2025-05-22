@@ -141,12 +141,12 @@ func (p *Interleaving) Dependencies() []uint {
 // CheckConsistency performs some simple checks that the given schema is
 // consistent.  This provides a double check of certain key properties, such as
 // that registers used for assignments are large enough, etc.
-func (p *Interleaving) CheckConsistency(schema sc.Schema) error {
+func (p *Interleaving) CheckConsistency(module sc.Module) error {
 	var datatype sc.Type = nil
 	// Determine type of source registers
 	for _, src := range p.Sources {
 		// Determine src type
-		srcType := schema.Columns().Nth(src).DataType
+		srcType := module.Columns().Nth(src).DataType
 		//
 		if datatype == nil {
 			datatype = srcType
@@ -168,7 +168,7 @@ func (p *Interleaving) CheckConsistency(schema sc.Schema) error {
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (p *Interleaving) Lisp(schema sc.Schema) sexp.SExp {
+func (p *Interleaving) Lisp(schema sc.Module) sexp.SExp {
 	target := sexp.NewSymbol(p.Target.QualifiedName(schema))
 	sources := sexp.EmptyList()
 	// Convert source columns

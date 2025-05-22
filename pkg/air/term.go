@@ -82,8 +82,8 @@ type ColumnAccess struct {
 }
 
 // Context determines the evaluation context (i.e. enclosing module) for this
-func (p *ColumnAccess) Context(schema sc.Schema) trace.Context {
-	col := schema.Columns().Nth(p.Column)
+func (p *ColumnAccess) Context(module sc.Module) trace.Context {
+	col := module.Column(p.Column)
 	return col.Context
 }
 
@@ -107,8 +107,8 @@ func (p *ColumnAccess) EvalAt(k int, tr trace.Module) (fr.Element, error) {
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (p *ColumnAccess) Lisp(schema sc.Schema) sexp.SExp {
-	return lispOfColumnAccess(p, schema)
+func (p *ColumnAccess) Lisp(module sc.Module) sexp.SExp {
+	return lispOfColumnAccess(p, module)
 }
 
 // Branches returns the total number of logical branches this term can take
