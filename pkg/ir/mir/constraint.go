@@ -13,7 +13,7 @@
 package mir
 
 import (
-	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/ir/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -99,13 +99,13 @@ func (e Constraint) Branches() uint {
 }
 
 // Context determines the evaluation context (i.e. enclosing module) for this
-func (e Constraint) Context(module sc.Module) trace.Context {
+func (e Constraint) Context(module schema.Module) trace.Context {
 	return contextOfConjunction(e, module)
 }
 
 // Lisp converts this schema element into a simple S-Termession, for example
 // so it can be printed.
-func (e Constraint) Lisp(module sc.Module) sexp.SExp {
+func (e Constraint) Lisp(module schema.Module) sexp.SExp {
 	return lispOfConjunction(module, e)
 }
 
@@ -325,8 +325,8 @@ type Equation struct {
 // Simplify this equation as much as reasonably possible.
 func (e Equation) Simplify() Equation {
 	// Apply constant propagation (whilst retaining casts)
-	lhs := constantPropagationForTerm(e.lhs, true, nil)
-	rhs := constantPropagationForTerm(e.rhs, true, nil)
+	lhs := constantPropagationForTerm(e.lhs, true)
+	rhs := constantPropagationForTerm(e.rhs, true)
 	//
 	return Equation{e.kind, lhs, rhs}
 }

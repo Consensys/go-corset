@@ -16,46 +16,40 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 )
 
-type TableSchema[M Module] struct {
+type Schema[M any, C any] struct {
+	modules     []M
+	constraints []C
 }
 
-func (p *TableSchema[M]) AddModule(name string) uint {
+func (p *Schema[M, C]) AddModule(name string) uint {
 	panic("todo")
 }
 
 // Access a given module in this schema.
-func (p *TableSchema[M]) Module(uint) Module {
+func (p *Schema[M, C]) Module(uint) M {
 	panic("todo")
 }
 
 // Returns the number of modules in this schema.
-func (p *TableSchema[M]) Width() uint {
+func (p *Schema[M, C]) Width() uint {
 	panic("todo")
 }
 
 // Constraints returns an iterator over all constraints defined in this
 // schema.
-func (p *TableSchema[M]) Constraints() iter.Iterator[Constraint] {
+func (p *Schema[M, C]) Constraints() iter.Iterator[C] {
 	panic("todo")
 }
 
 // Assertions returns an iterator over the property assertions of this
 // schema.  These are properties which should hold true for any valid trace
 // (though, of course, may not hold true for an invalid trace).
-func (p *TableSchema[M]) Assertions() iter.Iterator[Constraint] {
+func (p *Schema[M, C]) Assertions() iter.Iterator[C] {
 	panic("todo")
 }
 
 // Modules returns an iterator over the declared set of modules within this
 // schema.
-func (p *TableSchema[M]) Modules() iter.Iterator[Module] {
+func (p *Schema[M, C]) Modules() iter.Iterator[M] {
 	panic("todo")
-}
-
-// ========================================================================
-
-// ========================================================================
-
-// fixed set of data
-type StaticModule struct {
 }

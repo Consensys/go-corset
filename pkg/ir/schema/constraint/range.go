@@ -16,10 +16,8 @@ import (
 	"fmt"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/schema"
-	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/ir/schema"
 	"github.com/consensys/go-corset/pkg/trace"
-	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -31,7 +29,7 @@ type RangeFailure struct {
 	// Handle of the failing constraint
 	Handle string
 	// Constraint expression
-	Expr sc.Evaluable
+	Expr schema.Evaluable
 	// Range restriction
 	Bound fr.Element
 	// Row on which the constraint failed
@@ -49,14 +47,14 @@ func (p *RangeFailure) String() string {
 }
 
 // RequiredCells identifies the cells required to evaluate the failing constraint at the failing row.
-func (p *RangeFailure) RequiredCells(module tr.Module) *set.AnySortedSet[tr.CellRef] {
+func (p *RangeFailure) RequiredCells(module trace.Module) *set.AnySortedSet[trace.CellRef] {
 	return p.Expr.RequiredCells(int(p.Row), module)
 }
 
 // RangeConstraint restricts all values for a given expression to be within a
 // range [0..n) for some bound n.  Any bound is supported, and the system will
 // choose the best underlying implementation as needed.
-type RangeConstraint[E sc.Evaluable] struct {
+type RangeConstraint[E schema.Evaluable] struct {
 	// A unique identifier for this constraint.  This is primarily useful for
 	// debugging.
 	Handle string
@@ -77,7 +75,7 @@ type RangeConstraint[E sc.Evaluable] struct {
 }
 
 // NewRangeConstraint constructs a new Range constraint!
-func NewRangeConstraint[E sc.Evaluable](handle string, casenum uint, context trace.Context,
+func NewRangeConstraint[E schema.Evaluable](handle string, casenum uint, context trace.Context,
 	expr E, bound fr.Element) *RangeConstraint[E] {
 	return &RangeConstraint[E]{handle, casenum, context, expr, bound}
 }
@@ -93,8 +91,8 @@ func (p *RangeConstraint[E]) Name() (string, uint) {
 // evaluation context, though some (e.g. lookups) have more.  Note that all
 // constraints have at least one context (which we can call the "primary"
 // context).
-func (p *RangeConstraint[E]) Contexts() []tr.Context {
-	return []tr.Context{p.Context}
+func (p *RangeConstraint[E]) Contexts() []trace.Context {
+	return []trace.Context{p.Context}
 }
 
 // Branches returns the total number of logical branches this constraint can
@@ -142,7 +140,7 @@ func (p *RangeConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
 		kth, err := p.Expr.EvalAt(k, module)
 		// Perform the range check
 		if err != nil {
-			return coverage, &sc.InternalFailure{
+			return coverage, &schema.InternalFailure{
 				Handle: p.Handle,
 				Row:    uint(k),
 				Term:   p.Expr,
@@ -161,7 +159,7 @@ func (p *RangeConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
 // it can be printed.
 //
 //nolint:revive
-func (p *RangeConstraint[E]) Lisp(module sc.Module) sexp.SExp {
+func (p *RangeConstraint[E]) Lisp(module schema.Module) sexp.SExp {
 	//
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("range"),

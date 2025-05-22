@@ -17,11 +17,11 @@ import (
 	"math/big"
 	"reflect"
 
-	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/ir/schema"
 	"github.com/consensys/go-corset/pkg/util"
 )
 
-func rangeOfTerm(e Term, module sc.Module) *util.Interval {
+func rangeOfTerm(e Term, module schema.Module) *util.Interval {
 	switch e := e.(type) {
 	case *Add:
 		return rangeOfAdd(e.Args, module)
@@ -52,7 +52,7 @@ func rangeOfTerm(e Term, module sc.Module) *util.Interval {
 	}
 }
 
-func rangeOfAdd(args []Term, module sc.Module) *util.Interval {
+func rangeOfAdd(args []Term, module schema.Module) *util.Interval {
 	var res util.Interval
 
 	for i, arg := range args {
@@ -67,7 +67,7 @@ func rangeOfAdd(args []Term, module sc.Module) *util.Interval {
 	return &res
 }
 
-func rangeOfCast(arg Term, cast *util.Interval, module sc.Module) *util.Interval {
+func rangeOfCast(arg Term, cast *util.Interval, module schema.Module) *util.Interval {
 	// Compute actual interval
 	res := rangeOfTerm(arg, module)
 	// Check whether is within (or not)
@@ -78,7 +78,7 @@ func rangeOfCast(arg Term, cast *util.Interval, module sc.Module) *util.Interval
 	return cast
 }
 
-func rangeOfColumnAccess(column uint, module sc.Module) *util.Interval {
+func rangeOfColumnAccess(column uint, module schema.Module) *util.Interval {
 	bound := big.NewInt(2)
 	width := int64(module.Columns().Nth(column).DataType.BitWidth())
 	bound.Exp(bound, big.NewInt(width), nil)
@@ -88,7 +88,7 @@ func rangeOfColumnAccess(column uint, module sc.Module) *util.Interval {
 	return util.NewInterval(big.NewInt(0), bound)
 }
 
-func rangeOfMul(args []Term, module sc.Module) *util.Interval {
+func rangeOfMul(args []Term, module schema.Module) *util.Interval {
 	var res util.Interval
 
 	for i, arg := range args {
@@ -103,7 +103,7 @@ func rangeOfMul(args []Term, module sc.Module) *util.Interval {
 	return &res
 }
 
-func rangeOfSub(args []Term, module sc.Module) *util.Interval {
+func rangeOfSub(args []Term, module schema.Module) *util.Interval {
 	var res util.Interval
 
 	for i, arg := range args {

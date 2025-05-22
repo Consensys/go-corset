@@ -16,10 +16,8 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/schema"
-	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/ir/schema"
 	"github.com/consensys/go-corset/pkg/trace"
-	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
@@ -32,7 +30,7 @@ type LookupFailure struct {
 	// Handle of the failing constraint
 	Handle string
 	// Source expressions which were missing
-	Sources []sc.Evaluable
+	Sources []schema.Evaluable
 	// Row on which the constraint failed
 	Row uint
 }
@@ -47,11 +45,11 @@ func (p *LookupFailure) String() string {
 }
 
 // RequiredCells identifies the cells required to evaluate the failing constraint at the failing row.
-func (p *LookupFailure) RequiredCells(trace tr.Module) *set.AnySortedSet[tr.CellRef] {
-	res := set.NewAnySortedSet[tr.CellRef]()
+func (p *LookupFailure) RequiredCells(tr trace.Module) *set.AnySortedSet[trace.CellRef] {
+	res := set.NewAnySortedSet[trace.CellRef]()
 	//
 	for _, e := range p.Sources {
-		res.InsertSorted(e.RequiredCells(int(p.Row), trace))
+		res.InsertSorted(e.RequiredCells(int(p.Row), tr))
 	}
 	//
 	return res
@@ -109,9 +107,9 @@ func (p *LookupConstraint[E]) Name() (string, uint) {
 // evaluation context, though some (e.g. lookups) have more.  Note that all
 // constraints have at least one context (which we can call the "primary"
 // context).
-func (p *LookupConstraint[E]) Contexts() []tr.Context {
+func (p *LookupConstraint[E]) Contexts() []trace.Context {
 	// source context designated as primary.
-	return []tr.Context{p.SourceContext, p.TargetContext}
+	return []trace.Context{p.SourceContext, p.TargetContext}
 }
 
 // Branches returns the total number of logical branches this constraint can
@@ -181,7 +179,7 @@ func (p *LookupConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) 
 		}
 		// Check whether contained.
 		if !rows.Contains(hash.NewBytesKey(ith_bytes)) {
-			sources := make([]sc.Evaluable, len(p.Sources))
+			sources := make([]schema.Evaluable, len(p.Sources))
 			for i, e := range p.Sources {
 				sources[i] = e
 			}
@@ -207,7 +205,7 @@ func evalExprsAsBytes[E schema.Evaluable](k int, sources []E, handle string, mod
 		ith, err := sources[i].EvalAt(k, module)
 		// error check
 		if err != nil {
-			return nil, &sc.InternalFailure{
+			return nil, &schema.InternalFailure{
 				Handle: handle, Row: uint(i), Term: sources[i], Error: err.Error(),
 			}
 		}
@@ -227,7 +225,7 @@ func evalExprsAsBytes[E schema.Evaluable](k int, sources []E, handle string, mod
 // so it can be printed.
 //
 //nolint:revive
-func (p *LookupConstraint[E]) Lisp(module sc.Module) sexp.SExp {
+func (p *LookupConstraint[E]) Lisp(module schema.Module) sexp.SExp {
 	sources := sexp.EmptyList()
 	targets := sexp.EmptyList()
 	// Iterate source expressions

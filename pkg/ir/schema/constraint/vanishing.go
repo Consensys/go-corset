@@ -15,7 +15,7 @@ package constraint
 import (
 	"fmt"
 
-	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/ir/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
@@ -28,7 +28,7 @@ type VanishingFailure struct {
 	// Handle of the failing constraint
 	Handle string
 	// Constraint expression
-	Constraint sc.Testable
+	Constraint schema.Testable
 	// Row on which the constraint failed
 	Row uint
 }
@@ -54,7 +54,7 @@ func (p *VanishingFailure) String() string {
 // ignored.  This is parameterised by the type of the constraint expression.
 // Thus, we can reuse this definition across the various intermediate
 // representations (e.g. Mid-Level IR, Arithmetic IR, etc).
-type VanishingConstraint[T sc.Testable] struct {
+type VanishingConstraint[T schema.Testable] struct {
 	// A unique identifier for this constraint.  This is primarily
 	// useful for debugging.
 	Handle string
@@ -74,7 +74,7 @@ type VanishingConstraint[T sc.Testable] struct {
 }
 
 // NewVanishingConstraint constructs a new vanishing constraint!
-func NewVanishingConstraint[T sc.Testable](handle string, casenum uint, context trace.Context,
+func NewVanishingConstraint[T schema.Testable](handle string, casenum uint, context trace.Context,
 	domain util.Option[int], constraint T) *VanishingConstraint[T] {
 	return &VanishingConstraint[T]{handle, casenum, context, domain, constraint}
 }
@@ -119,7 +119,7 @@ func (p *VanishingConstraint[T]) Bounds(module uint) util.Bounds {
 // of a table.  If so, return nil otherwise return an error.
 //
 //nolint:revive
-func (p *VanishingConstraint[T]) Accepts(tr trace.Trace) (bit.Set, sc.Failure) {
+func (p *VanishingConstraint[T]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
 	var (
 		// Handle is used for error reporting.
 		handle = determineHandle(p.Handle, p.Context, tr)
@@ -156,7 +156,7 @@ func (p *VanishingConstraint[T]) Accepts(tr trace.Trace) (bit.Set, sc.Failure) {
 
 // HoldsGlobally checks whether a given expression vanishes (i.e. evaluates to
 // zero) for all rows of a trace.  If not, report an appropriate error.
-func HoldsGlobally[T sc.Testable](handle string, ctx trace.Context, constraint T, module trace.Module) (bit.Set, sc.Failure) {
+func HoldsGlobally[T schema.Testable](handle string, ctx trace.Context, constraint T, module trace.Module) (bit.Set, schema.Failure) {
 	var (
 		coverage bit.Set
 		// Determine height of enclosing module
@@ -182,11 +182,11 @@ func HoldsGlobally[T sc.Testable](handle string, ctx trace.Context, constraint T
 
 // HoldsLocally checks whether a given constraint holds (e.g. vanishes) on a
 // specific row of a trace. If not, report an appropriate error.
-func HoldsLocally[T sc.Testable](k uint, handle string, constraint T, tr trace.Module) (sc.Failure, uint) {
+func HoldsLocally[T schema.Testable](k uint, handle string, constraint T, tr trace.Module) (schema.Failure, uint) {
 	ok, id, err := constraint.TestAt(int(k), tr)
 	// Check for errors
 	if err != nil {
-		return &sc.InternalFailure{Handle: handle, Row: k, Term: constraint, Error: err.Error()}, id
+		return &schema.InternalFailure{Handle: handle, Row: k, Term: constraint, Error: err.Error()}, id
 	} else if !ok {
 		// Evaluation failure
 		return &VanishingFailure{handle, constraint, k}, id
@@ -198,7 +198,7 @@ func HoldsLocally[T sc.Testable](k uint, handle string, constraint T, tr trace.M
 // Lisp converts this constraint into an S-Expression.
 //
 //nolint:revive
-func (p *VanishingConstraint[T]) Lisp(module sc.Module) sexp.SExp {
+func (p *VanishingConstraint[T]) Lisp(module schema.Module) sexp.SExp {
 	var (
 		name       string
 		multiplier uint

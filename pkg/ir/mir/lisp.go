@@ -16,11 +16,11 @@ import (
 	"fmt"
 	"reflect"
 
-	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/ir/schema"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
-func lispOfConjunction(module sc.Module, conjunction Constraint) sexp.SExp {
+func lispOfConjunction(module schema.Module, conjunction Constraint) sexp.SExp {
 	switch len(conjunction.conjuncts) {
 	case 0:
 		return sexp.NewSymbol("⊤")
@@ -38,7 +38,7 @@ func lispOfConjunction(module sc.Module, conjunction Constraint) sexp.SExp {
 	}
 }
 
-func lispOfDisjunction(module sc.Module, disjunction Disjunction) sexp.SExp {
+func lispOfDisjunction(module schema.Module, disjunction Disjunction) sexp.SExp {
 	switch len(disjunction.atoms) {
 	case 0:
 		return sexp.NewSymbol("⊥")
@@ -56,7 +56,7 @@ func lispOfDisjunction(module sc.Module, disjunction Disjunction) sexp.SExp {
 	}
 }
 
-func lispOfEquation(module sc.Module, e Equation) sexp.SExp {
+func lispOfEquation(module schema.Module, e Equation) sexp.SExp {
 	var symbol string
 
 	switch e.kind {
@@ -83,7 +83,7 @@ func lispOfEquation(module sc.Module, e Equation) sexp.SExp {
 	})
 }
 
-func lispOfTerm(e Term, module sc.Module) sexp.SExp {
+func lispOfTerm(e Term, module schema.Module) sexp.SExp {
 	switch e := e.(type) {
 	case *Add:
 		return lispOfTerms(module, "+", e.Args)
@@ -107,7 +107,7 @@ func lispOfTerm(e Term, module sc.Module) sexp.SExp {
 	}
 }
 
-func lispOfColumnAccess(e *ColumnAccess, module sc.Module) sexp.SExp {
+func lispOfColumnAccess(e *ColumnAccess, module schema.Module) sexp.SExp {
 	var name string
 	// Generate name, whilst allowing for schema to be nil.
 	if module != nil {
@@ -128,7 +128,7 @@ func lispOfColumnAccess(e *ColumnAccess, module sc.Module) sexp.SExp {
 	return sexp.NewList([]sexp.SExp{sexp.NewSymbol("shift"), access, shift})
 }
 
-func lispOfTerms(module sc.Module, op string, exprs []Term) sexp.SExp {
+func lispOfTerms(module schema.Module, op string, exprs []Term) sexp.SExp {
 	arr := make([]sexp.SExp, 1+len(exprs))
 	arr[0] = sexp.NewSymbol(op)
 	// Translate arguments
@@ -139,19 +139,19 @@ func lispOfTerms(module sc.Module, op string, exprs []Term) sexp.SExp {
 	return sexp.NewList(arr)
 }
 
-func lispOfCast(e *Cast, module sc.Module) sexp.SExp {
+func lispOfCast(e *Cast, module schema.Module) sexp.SExp {
 	arg := lispOfTerm(e.Arg, module)
 	name := sexp.NewSymbol(fmt.Sprintf(":u%d", e.BitWidth))
 
 	return sexp.NewList([]sexp.SExp{name, arg})
 }
 
-func lispOfNormalise(e *Norm, module sc.Module) sexp.SExp {
+func lispOfNormalise(e *Norm, module schema.Module) sexp.SExp {
 	arg := lispOfTerm(e.Arg, module)
 	return sexp.NewList([]sexp.SExp{sexp.NewSymbol("~"), arg})
 }
 
-func lispOfExp(e *Exp, module sc.Module) sexp.SExp {
+func lispOfExp(e *Exp, module schema.Module) sexp.SExp {
 	arg := lispOfTerm(e.Arg, module)
 	pow := sexp.NewSymbol(fmt.Sprintf("%d", e.Pow))
 

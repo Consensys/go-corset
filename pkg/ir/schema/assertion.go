@@ -47,14 +47,14 @@ func (p *AssertionFailure) String() string {
 	return p.Message()
 }
 
-// PropertyAssertion is similar to a vanishing constraint but is used only for
+// Assertion is similar to a vanishing constraint but is used only for
 // debugging / testing / verification.  Unlike vanishing constraints, property
 // assertions do not represent something that the prover can enforce.  Rather,
 // they represent properties which are expected to hold for every valid trace.
 // That is, they should be implied by the actual constraints.  Thus, whilst the
 // prover cannot enforce such properties, external tools (such as for formal
 // verification) can attempt to ensure they do indeed always hold.
-type PropertyAssertion[T Testable] struct {
+type Assertion[T Testable] struct {
 	// A unique identifier for this constraint.  This is primarily
 	// useful for debugging.
 	Handle string
@@ -69,16 +69,15 @@ type PropertyAssertion[T Testable] struct {
 	Property T
 }
 
-// NewPropertyAssertion constructs a new property assertion!
-func NewPropertyAssertion[T Testable](handle string, ctx trace.Context,
-	property T) *PropertyAssertion[T] {
+// NewAssertion constructs a new property assertion!
+func NewAssertion[T Testable](handle string, ctx trace.Context, property T) *Assertion[T] {
 	//
-	return &PropertyAssertion[T]{handle, ctx, property}
+	return &Assertion[T]{handle, ctx, property}
 }
 
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
-func (p *PropertyAssertion[T]) Name() (string, uint) {
+func (p *Assertion[T]) Name() (string, uint) {
 	return p.Handle, 0
 }
 
@@ -87,19 +86,19 @@ func (p *PropertyAssertion[T]) Name() (string, uint) {
 // evaluation context, though some (e.g. lookups) have more.  Note that all
 // constraints have at least one context (which we can call the "primary"
 // context).
-func (p *PropertyAssertion[T]) Contexts() []trace.Context {
+func (p *Assertion[T]) Contexts() []trace.Context {
 	return []trace.Context{p.Context}
 }
 
 // Branches returns the total number of logical branches this term can take
 // during evaluation.
-func (p *PropertyAssertion[T]) Branches() uint {
+func (p *Assertion[T]) Branches() uint {
 	return p.Property.Branches()
 }
 
 // Bounds is not required for a property assertion since these are not real
 // constraints.
-func (p *PropertyAssertion[T]) Bounds(module uint) util.Bounds {
+func (p *Assertion[T]) Bounds(module uint) util.Bounds {
 	return util.EMPTY_BOUND
 }
 
@@ -107,7 +106,7 @@ func (p *PropertyAssertion[T]) Bounds(module uint) util.Bounds {
 // of a table. If so, return nil otherwise return an error.
 //
 //nolint:revive
-func (p *PropertyAssertion[T]) Accepts(tr trace.Trace) (bit.Set, Failure) {
+func (p *Assertion[T]) Accepts(tr trace.Trace) (bit.Set, Failure) {
 	var (
 		coverage bit.Set
 		module   trace.Module = tr.Module(p.Context.ModuleId)
@@ -134,7 +133,7 @@ func (p *PropertyAssertion[T]) Accepts(tr trace.Trace) (bit.Set, Failure) {
 // Lisp converts this constraint into an S-Expression.
 //
 //nolint:revive
-func (p *PropertyAssertion[T]) Lisp(module Module) sexp.SExp {
+func (p *Assertion[T]) Lisp(module Module) sexp.SExp {
 	// Construct the list
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("assert"),

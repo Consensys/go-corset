@@ -16,12 +16,12 @@ import (
 	"fmt"
 	"reflect"
 
-	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/ir/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 )
 
-func contextOfTerm(e Term, module sc.Module) trace.Context {
+func contextOfTerm(e Term, module schema.Module) trace.Context {
 	switch e := e.(type) {
 	case *Add:
 		return contextOfTerms(e.Args, module)
@@ -46,7 +46,7 @@ func contextOfTerm(e Term, module sc.Module) trace.Context {
 	}
 }
 
-func contextOfTerms(args []Term, module sc.Module) trace.Context {
+func contextOfTerms(args []Term, module schema.Module) trace.Context {
 	ctx := trace.VoidContext[uint]()
 	//
 	for _, e := range args {
@@ -56,7 +56,7 @@ func contextOfTerms(args []Term, module sc.Module) trace.Context {
 	return ctx
 }
 
-func contextOfConjunction(conjunction Constraint, module sc.Module) trace.Context {
+func contextOfConjunction(conjunction Constraint, module schema.Module) trace.Context {
 	ctx := trace.VoidContext[uint]()
 	//
 	for _, e := range conjunction.conjuncts {
@@ -66,7 +66,7 @@ func contextOfConjunction(conjunction Constraint, module sc.Module) trace.Contex
 	return ctx
 }
 
-func contextOfDisjunction(disjunction Disjunction, module sc.Module) trace.Context {
+func contextOfDisjunction(disjunction Disjunction, module schema.Module) trace.Context {
 	ctx := trace.VoidContext[uint]()
 	//
 	for _, e := range disjunction.atoms {

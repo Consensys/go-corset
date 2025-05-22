@@ -16,7 +16,7 @@ import (
 	"fmt"
 	"reflect"
 
-	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/ir/schema"
 	"github.com/consensys/go-corset/pkg/util"
 )
 
@@ -56,7 +56,7 @@ var DEFAULT_OPTIMISATION_LEVEL = OPTIMISATION_LEVELS[1]
 
 // attempt to eliminate normalisations by undertaking a range analysis on their
 // arguments to see whether they have sufficiently small ranges.
-func eliminateNormalisationInTerm(term Term, module sc.Module,
+func eliminateNormalisationInTerm(term Term, module schema.Module,
 	cfg OptimisationConfig) Term {
 	switch term := term.(type) {
 	case *Add:
@@ -86,7 +86,7 @@ func eliminateNormalisationInTerm(term Term, module sc.Module,
 	}
 }
 
-func eliminateNormalisationInTerms(terms []Term, module sc.Module,
+func eliminateNormalisationInTerms(terms []Term, module schema.Module,
 	cfg OptimisationConfig) []Term {
 	nterms := make([]Term, len(terms))
 	//
@@ -97,7 +97,7 @@ func eliminateNormalisationInTerms(terms []Term, module sc.Module,
 	return nterms
 }
 
-func eliminateNormalisationInNorm(arg Term, module sc.Module, cfg OptimisationConfig) Term {
+func eliminateNormalisationInNorm(arg Term, module schema.Module, cfg OptimisationConfig) Term {
 	bounds := rangeOfTerm(arg, module)
 	// optimise argument
 	arg = eliminateNormalisationInTerm(arg, module, cfg)

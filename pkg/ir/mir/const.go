@@ -17,7 +17,6 @@ import (
 	"reflect"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
 )
 
@@ -25,32 +24,32 @@ import (
 // values.  For example, "(+ 1 2)" would be collapsed down to "3".  This is then
 // progagated throughout an expression, so that e.g. "(+ X (+ 1 2))" becomes "(+
 // X 3)"", etc.  There is also an option to retain casts, or not.
-func constantPropagationForTerm(e Term, casts bool, schema sc.Schema) Term {
+func constantPropagationForTerm(e Term, casts bool) Term {
 	switch e := e.(type) {
 	case *Add:
-		return constantPropagationForAdd(e.Args, casts, schema)
+		return constantPropagationForAdd(e.Args, casts)
 	case *Cast:
-		return constantPropagationForCast(e.Arg, casts, e.BitWidth, schema)
+		return constantPropagationForCast(e.Arg, casts, e.BitWidth)
 	case *Constant:
 		return e
 	case *ColumnAccess:
 		return e
 	case *Exp:
-		return constantPropagationForExp(e.Arg, casts, e.Pow, schema)
+		return constantPropagationForExp(e.Arg, casts, e.Pow)
 	case *Mul:
-		return constantPropagationForMul(e.Args, casts, schema)
+		return constantPropagationForMul(e.Args, casts)
 	case *Norm:
-		return constantPropagationForNorm(e.Arg, casts, schema)
+		return constantPropagationForNorm(e.Arg, casts)
 	case *Sub:
-		return constantPropagationForSub(e.Args, casts, schema)
+		return constantPropagationForSub(e.Args, casts)
 	default:
 		name := reflect.TypeOf(e).Name()
 		panic(fmt.Sprintf("unknown MIR expression \"%s\"", name))
 	}
 }
 
-func constantPropagationForAdd(terms []Term, casts bool, schema sc.Schema) Term {
-	terms = constantPropagation(terms, addBinOp, frZERO, casts, schema)
+func constantPropagationForAdd(terms []Term, casts bool) Term {
+	terms = constantPropagation(terms, addBinOp, frZERO, casts)
 	// Flatten any nested sums
 	terms = util.Flatten(terms, flattern[*Add])
 	// Remove any zeros
@@ -67,12 +66,12 @@ func constantPropagationForAdd(terms []Term, casts bool, schema sc.Schema) Term 
 	}
 }
 
-func constantPropagationForCast(arg Term, casts bool, bitwidth uint, schema sc.Schema) Term {
+func constantPropagationForCast(arg Term, casts bool, bitwidth uint) Term {
 	var bound fr.Element = fr.NewElement(2)
 	// Determine bound for static type check
 	util.Pow(&bound, uint64(bitwidth))
 	// Propagate constants in the argument
-	arg = constantPropagationForTerm(arg, casts, schema)
+	arg = constantPropagationForTerm(arg, casts)
 	//
 	if c, ok := arg.(*Constant); ok && c.Value.Cmp(&bound) < 0 {
 		// Done
@@ -88,8 +87,8 @@ func constantPropagationForCast(arg Term, casts bool, bitwidth uint, schema sc.S
 	return &Cast{arg, bitwidth}
 }
 
-func constantPropagationForExp(arg Term, casts bool, pow uint64, schema sc.Schema) Term {
-	arg = constantPropagationForTerm(arg, casts, schema)
+func constantPropagationForExp(arg Term, casts bool, pow uint64) Term {
+	arg = constantPropagationForTerm(arg, casts)
 	//
 	if c, ok := arg.(*Constant); ok {
 		var val fr.Element
@@ -104,8 +103,8 @@ func constantPropagationForExp(arg Term, casts bool, pow uint64, schema sc.Schem
 	return &Exp{arg, pow}
 }
 
-func constantPropagationForMul(terms []Term, casts bool, schema sc.Schema) Term {
-	terms = constantPropagation(terms, mulBinOp, frONE, casts, schema)
+func constantPropagationForMul(terms []Term, casts bool) Term {
+	terms = constantPropagation(terms, mulBinOp, frONE, casts)
 	// Flatten any nested products
 	terms = util.Flatten(terms, flattern[*Mul])
 	// Check for zero
@@ -127,8 +126,8 @@ func constantPropagationForMul(terms []Term, casts bool, schema sc.Schema) Term 
 	}
 }
 
-func constantPropagationForNorm(arg Term, casts bool, schema sc.Schema) Term {
-	arg = constantPropagationForTerm(arg, casts, schema)
+func constantPropagationForNorm(arg Term, casts bool) Term {
+	arg = constantPropagationForTerm(arg, casts)
 	//
 	if c, ok := arg.(*Constant); ok {
 		var val fr.Element
@@ -145,11 +144,11 @@ func constantPropagationForNorm(arg Term, casts bool, schema sc.Schema) Term {
 	return &Norm{arg}
 }
 
-func constantPropagationForSub(terms []Term, casts bool, schema sc.Schema) Term {
-	lhs := constantPropagationForTerm(terms[0], casts, schema)
+func constantPropagationForSub(terms []Term, casts bool) Term {
+	lhs := constantPropagationForTerm(terms[0], casts)
 	// Subtraction is harder to optimise for.  What we do is view "a - b - c" as
 	// "a - (b+c)", and optimise the right-hand side as though it were addition.
-	rhs := constantPropagationForAdd(terms[1:], casts, schema)
+	rhs := constantPropagationForAdd(terms[1:], casts)
 	// Check what's left
 	lc, l_const := lhs.(*Constant)
 	rc, r_const := rhs.(*Constant)
@@ -199,13 +198,13 @@ type binop func(fr.Element, fr.Element) fr.Element
 // General purpose constant propagation mechanism.  This reduces all terms to
 // constants (where possible) and combines terms according to a given
 // combinator.
-func constantPropagation(terms []Term, fn binop, acc fr.Element, casts bool, schema sc.Schema) []Term {
+func constantPropagation(terms []Term, fn binop, acc fr.Element, casts bool) []Term {
 	// Count how many terms reduced to constants.
 	count := 0
 	nterms := make([]Term, len(terms))
 	// Propagate through all children
 	for i, e := range terms {
-		nterms[i] = constantPropagationForTerm(e, casts, schema)
+		nterms[i] = constantPropagationForTerm(e, casts)
 		// Check for constant
 		c, ok := nterms[i].(*Constant)
 		// Try to continue sum

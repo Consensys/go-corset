@@ -17,7 +17,7 @@ import (
 	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/ir/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
@@ -40,7 +40,7 @@ func (p *SortedFailure) String() string {
 
 // SortedConstraint declares a constraint that one (or more) columns are
 // lexicographically sorted.
-type SortedConstraint[E sc.Evaluable] struct {
+type SortedConstraint[E schema.Evaluable] struct {
 	Handle string
 	// Evaluation Context for this constraint which must match that of the
 	// source expressions.
@@ -61,7 +61,7 @@ type SortedConstraint[E sc.Evaluable] struct {
 }
 
 // NewSortedConstraint creates a new Sorted
-func NewSortedConstraint[E sc.Evaluable](handle string, context trace.Context, bitwidth uint, selector util.Option[E],
+func NewSortedConstraint[E schema.Evaluable](handle string, context trace.Context, bitwidth uint, selector util.Option[E],
 	sources []E, signs []bool, strict bool) *SortedConstraint[E] {
 	//
 	return &SortedConstraint[E]{handle, context, bitwidth, selector, sources, signs, strict}
@@ -110,7 +110,7 @@ func (p *SortedConstraint[E]) Bounds(module uint) util.Bounds {
 
 // Accepts checks whether a Sorted holds between the source and
 // target columns.
-func (p *SortedConstraint[E]) Accepts(trace trace.Trace) (bit.Set, sc.Failure) {
+func (p *SortedConstraint[E]) Accepts(trace trace.Trace) (bit.Set, schema.Failure) {
 	var (
 		coverage bit.Set
 		// Determine enclosing module
@@ -133,14 +133,14 @@ func (p *SortedConstraint[E]) Accepts(trace trace.Trace) (bit.Set, sc.Failure) {
 				val, err := selector.EvalAt(int(k), module)
 				// Check whether active (or not)
 				if err != nil {
-					return coverage, &sc.InternalFailure{Handle: p.Handle, Row: k, Term: selector, Error: err.Error()}
+					return coverage, &schema.InternalFailure{Handle: p.Handle, Row: k, Term: selector, Error: err.Error()}
 				} else if val.IsZero() {
 					continue
 				}
 			}
 			// Check sorting between rows k-1 and k
 			if ok, err := sorted(k-1, k, deltaBound, p.Sources, p.Signs, p.Strict, module); err != nil {
-				return coverage, &sc.InternalFailure{Handle: p.Handle, Row: k, Error: err.Error()}
+				return coverage, &schema.InternalFailure{Handle: p.Handle, Row: k, Error: err.Error()}
 			} else if !ok {
 				return coverage, &SortedFailure{fmt.Sprintf("sorted constraint \"%s\" failed (rows %d ~ %d)", p.Handle, k-1, k)}
 			}
@@ -152,7 +152,7 @@ func (p *SortedConstraint[E]) Accepts(trace trace.Trace) (bit.Set, sc.Failure) {
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (p *SortedConstraint[E]) Lisp(module sc.Module) sexp.SExp {
+func (p *SortedConstraint[E]) Lisp(module schema.Module) sexp.SExp {
 	var (
 		kind    = "sorted"
 		sources = sexp.EmptyList()
@@ -203,7 +203,7 @@ func (p *SortedConstraint[E]) deltaBound() fr.Element {
 	return bound
 }
 
-func sorted[E sc.Evaluable](first, second uint, bound fr.Element, sources []E, signs []bool, strict bool,
+func sorted[E schema.Evaluable](first, second uint, bound fr.Element, sources []E, signs []bool, strict bool,
 	module trace.Module) (bool, error) {
 	//
 	var (
@@ -241,7 +241,7 @@ func sorted[E sc.Evaluable](first, second uint, bound fr.Element, sources []E, s
 	return !strict, nil
 }
 
-func evalExprsAt[E sc.Evaluable](k uint, sources []E, module trace.Module) ([]fr.Element, error) {
+func evalExprsAt[E schema.Evaluable](k uint, sources []E, module trace.Module) ([]fr.Element, error) {
 	var err error
 	//
 	values := make([]fr.Element, len(sources))

@@ -14,7 +14,7 @@ package mir
 
 import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/ir/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -31,7 +31,7 @@ type Expr struct {
 	term Term
 }
 
-var _ sc.Evaluable = Expr{}
+var _ schema.Evaluable = Expr{}
 
 // ZERO represents the constant expression equivalent to 1.
 var ZERO Expr
@@ -58,7 +58,7 @@ func NewConst64(val uint64) Expr {
 }
 
 // Context determines the evaluation context (i.e. enclosing module) for this
-func (e Expr) Context(module sc.Module) trace.Context {
+func (e Expr) Context(module schema.Module) trace.Context {
 	return contextOfTerm(e.term, module)
 }
 
@@ -76,7 +76,7 @@ func (e Expr) Bounds() util.Bounds {
 
 // Lisp converts this schema element into a simple S-Termession, for example
 // so it can be printed.
-func (e Expr) Lisp(module sc.Module) sexp.SExp {
+func (e Expr) Lisp(module schema.Module) sexp.SExp {
 	return lispOfTerm(e.term, module)
 }
 
@@ -112,7 +112,7 @@ func (e Expr) Branches() uint {
 // Simplify this expression by applying, for example, constant propagation.
 func (e Expr) Simplify() Expr {
 	// Apply constant propagation (whilst retaining casts)
-	term := constantPropagationForTerm(e.term, true, nil)
+	term := constantPropagationForTerm(e.term, true)
 	// That's all for now!
 	return Expr{term}
 }
