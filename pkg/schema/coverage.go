@@ -13,8 +13,6 @@
 package schema
 
 import (
-	"fmt"
-
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 )
@@ -90,26 +88,26 @@ func (p *CoverageMap) KeysOf(mid uint) *set.SortedSet[string] {
 
 // ToJson returns a representation of this coverage map suitable for being
 // converted into JSON.
-func (p *CoverageMap) ToJson(schema Schema) map[string][]uint {
-	var json = make(map[string][]uint)
-	//
-	for k, bitsets := range p.items {
-		for i, cov := range bitsets {
-			name := jsonConstraintName(k.Module, k.Name, uint(i), schema)
-			json[name] = cov.Iter().Collect()
-		}
-	}
-	//
-	return json
-}
+// func (p *CoverageMap) ToJson(schema Schema) map[string][]uint {
+// 	var json = make(map[string][]uint)
+// 	//
+// 	for k, bitsets := range p.items {
+// 		for i, cov := range bitsets {
+// 			name := jsonConstraintName(k.Module, k.Name, uint(i), schema)
+// 			json[name] = cov.Iter().Collect()
+// 		}
+// 	}
+// 	//
+// 	return json
+// }
 
-func jsonConstraintName(mid uint, name string, casenum uint, schema Schema) string {
-	mod := schema.Modules().Nth(mid)
-	name = fmt.Sprintf("%s#%d", name, casenum)
-	//
-	if mod.Name() == "" {
-		return name
-	}
-	//
-	return fmt.Sprintf("%s.%s", mod.Name, name)
-}
+// func jsonConstraintName(mid uint, name string, casenum uint, schema Schema) string {
+// 	mod := schema.Modules().Nth(mid)
+// 	name = fmt.Sprintf("%s#%d", name, casenum)
+// 	//
+// 	if mod.Name() == "" {
+// 		return name
+// 	}
+// 	//
+// 	return fmt.Sprintf("%s.%s", mod.Name, name)
+// }

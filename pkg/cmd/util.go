@@ -239,32 +239,33 @@ func writeCoverageReport(filename string, binfile *binfile.BinaryFile, coverage 
 		hir                 = coverage[2]
 		data map[string]any = make(map[string]any)
 	)
-	// Lower schemas
-	hirSchema := &binfile.Schema
-	mirSchema := hirSchema.LowerToMir()
-	airSchema := mirSchema.LowerToAir(config)
-	// Add AIR data (if applicable)
-	if !air.IsEmpty() {
-		data["air"] = air.ToJson(airSchema)
-	}
-	// Add MIR data (if applicable)
-	if !mir.IsEmpty() {
-		data["mir"] = mir.ToJson(mirSchema)
-	}
-	// Add HIR data (if applicable)
-	if !hir.IsEmpty() {
-		data["hir"] = hir.ToJson(hirSchema)
-	}
-	// write to disk
-	jsonString, err := enc_json.Marshal(data)
-	//
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(5)
-	} else if err := os.WriteFile(filename, jsonString, 0644); err != nil {
-		fmt.Println(err)
-		os.Exit(6)
-	}
+	// // Lower schemas
+	// hirSchema := &binfile.Schema
+	// mirSchema := hirSchema.LowerToMir()
+	// airSchema := mirSchema.LowerToAir(config)
+	// // Add AIR data (if applicable)
+	// if !air.IsEmpty() {
+	// 	data["air"] = air.ToJson(airSchema)
+	// }
+	// // Add MIR data (if applicable)
+	// if !mir.IsEmpty() {
+	// 	data["mir"] = mir.ToJson(mirSchema)
+	// }
+	// // Add HIR data (if applicable)
+	// if !hir.IsEmpty() {
+	// 	data["hir"] = hir.ToJson(hirSchema)
+	// }
+	// // write to disk
+	// jsonString, err := enc_json.Marshal(data)
+	// //
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	os.Exit(5)
+	// } else if err := os.WriteFile(filename, jsonString, 0644); err != nil {
+	// 	fmt.Println(err)
+	// 	os.Exit(6)
+	// }
+	panic("todo")
 }
 
 func readCoverageReport(filename string, binfile *binfile.BinaryFile, config mir.OptimisationConfig) [3]sc.CoverageMap {

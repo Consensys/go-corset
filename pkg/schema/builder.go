@@ -216,13 +216,13 @@ func (tb TraceBuilder) initialiseTraceModules() ([]trace.ArrayModule, map[string
 		// Initialise an empty module.  Such modules have an (as yet)
 		// unspecified height.  For such a module to be usable, it needs at
 		// least one (or more) filled columns.
-		modules[i] = trace.EmptyArrayModule(m.Name)
+		modules[i] = trace.EmptyArrayModule(m.Name())
 		// Sanity check module
-		if _, ok := modmap[m.Name]; ok {
+		if _, ok := modmap[m.Name()]; ok {
 			panic(fmt.Sprintf("duplicate module '%s' in schema", m.Name))
 		}
 
-		modmap[m.Name] = i
+		modmap[m.Name()] = i
 	}
 	// Done
 	return modules, modmap

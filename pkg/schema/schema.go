@@ -25,25 +25,26 @@ import (
 )
 
 // Schema represents a schema which can be used to manipulate a trace.
-type Schema interface {
+type Schema[M Module, C Constraint] interface {
+
+	// // Assertions returns an iterator over the property assertions of this
+	// // schema.  These are properties which should hold true for any valid trace
+	// // (though, of course, may not hold true for an invalid trace).
+	// Assertions() iter.Iterator[Constraint]
+
+	// Constraints returns an iterator over all constraints defined in this
+	// schema.
+	Constraints() iter.Iterator[C]
+
 	// Access a given module in this schema.
-	Module(uint) Module
+	Module(uint) M
 
 	// Returns the number of modules in this schema.
 	Width() uint
 
-	// Constraints returns an iterator over all constraints defined in this
-	// schema.
-	Constraints() iter.Iterator[Constraint]
-
-	// Assertions returns an iterator over the property assertions of this
-	// schema.  These are properties which should hold true for any valid trace
-	// (though, of course, may not hold true for an invalid trace).
-	Assertions() iter.Iterator[Constraint]
-
 	// Modules returns an iterator over the declared set of modules within this
 	// schema.
-	Modules() iter.Iterator[Module]
+	Modules() iter.Iterator[M]
 }
 
 // Module represents a "table" within a schema which contains zero or more rows
@@ -52,21 +53,12 @@ type Module interface {
 	// Module name
 	Name() string
 
-	// Assertions returns an iterator over the property assertions of this
-	// schema.  These are properties which should hold true for any valid trace
-	// (though, of course, may not hold true for an invalid trace).
-	Assertions() iter.Iterator[Constraint]
-
 	// Access a given column in this module.
 	Column(uint) Column
 
 	// Columns returns an iterator over the underlying columns of this schema.
 	// Specifically, the index of a column in this array is its column index.
 	Columns() iter.Iterator[Column]
-
-	// Constraints returns an iterator over the underlying constraints of this
-	// schema.
-	Constraints() iter.Iterator[Constraint]
 
 	// Returns the number of columns in this module.
 	Width() uint
@@ -110,7 +102,7 @@ type Assignment interface {
 
 	// CheckConsistent performs some simple checks of consistency against the
 	// given schema.
-	CheckConsistency(Module) error
+	//CheckConsistency(Module) error
 }
 
 // Constraint represents an element which can "accept" a trace, or either reject
@@ -238,6 +230,7 @@ type Column struct {
 	Name string
 	// Returns the expected type of data in this column
 	DataType Type
+	// Need to know if computed, or not.
 }
 
 // NewColumn constructs a new column
@@ -282,9 +275,10 @@ func (p *InternalFailure) Message() string {
 
 // RequiredCells identifies the cells required to evaluate the failing constraint at the failing row.
 func (p *InternalFailure) RequiredCells(trace tr.Trace) *set.AnySortedSet[tr.CellRef] {
-	if p.Term != nil {
-		return p.Term.RequiredCells(int(p.Row), trace)
-	}
-	// Empty set
-	return set.NewAnySortedSet[tr.CellRef]()
+	// if p.Term != nil {
+	// 	return p.Term.RequiredCells(int(p.Row), trace)
+	// }
+	// // Empty set
+	// return set.NewAnySortedSet[tr.CellRef]()
+	panic("todo")
 }

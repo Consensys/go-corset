@@ -23,6 +23,8 @@ import (
 	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/hir"
+
+	//"github.com/consensys/go-corset/pkg/hir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/typed"
@@ -99,7 +101,7 @@ func generateClassHeader(pkgname string, metadata typed.Map, builder *strings.Bu
 func generateClassContents(className string, super string, mod corset.SourceModule, metadata typed.Map, spillage []uint,
 	hirSchema *hir.Schema, visible bit.Set, builder indentBuilder) {
 	// Attempt to find module
-	mid, ok := hirSchema.Modules().Find(func(m schema.Module) bool { return m.Name == mod.Name })
+	mid, ok := hirSchema.Modules().Find(func(m schema.Module) bool { return m.Name() == mod.Name })
 	// Sanity check we found it
 	if !ok {
 		panic(fmt.Sprintf("unable to find module %s", mod.Name))
