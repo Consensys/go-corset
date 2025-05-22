@@ -230,7 +230,7 @@ type pcOutcome struct {
 // ColumnIndexOf returns the column index of the column with the given name, or
 // returns false if no matching column exists.
 func ColumnIndexOf(schema Schema, module uint, name string) (uint, bool) {
-	return schema.Columns().Find(func(c Column) bool {
+	return schema.Module(module).Columns().Find(func(c Column) bool {
 		return c.Context.Module() == module && c.Name == name
 	})
 }

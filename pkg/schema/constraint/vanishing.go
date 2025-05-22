@@ -208,7 +208,7 @@ func (p *VanishingConstraint[T]) Lisp(schema sc.Schema) sexp.SExp {
 		name = p.Handle
 		multiplier = 1
 	} else {
-		if module := schema.Modules().Nth(p.Context.Module()); module.Name != "" {
+		if module := schema.Modules().Nth(p.Context.Module()); module.Name() != "" {
 			name = fmt.Sprintf("%s:%s", module.Name, p.Handle)
 		} else {
 			name = p.Handle

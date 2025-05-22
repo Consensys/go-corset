@@ -122,11 +122,14 @@ func (p *PermutationConstraint) Accepts(trace tr.Trace) (bit.Set, sc.Failure) {
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
 func (p *PermutationConstraint) Lisp(schema sc.Schema) sexp.SExp {
-	targets := sexp.EmptyList()
-	sources := sexp.EmptyList()
+	var (
+		module  = schema.Module(p.Context.ModuleId)
+		targets = sexp.EmptyList()
+		sources = sexp.EmptyList()
+	)
 
 	for _, tid := range p.Targets {
-		target := schema.Columns().Nth(tid)
+		target := module.Column(tid)
 		targets.Append(sexp.NewSymbol(target.QualifiedName(schema)))
 	}
 

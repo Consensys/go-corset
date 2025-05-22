@@ -26,15 +26,39 @@ import (
 
 // Schema represents a schema which can be used to manipulate a trace.
 type Schema interface {
+	// Access a given module in this schema.
+	Module(uint) Module
+
+	// Returns the number of modules in this schema.
+	Width() uint
+
+	// Constraints returns an iterator over all constraints defined in this
+	// schema.
+	Constraints() iter.Iterator[Constraint]
+
 	// Assertions returns an iterator over the property assertions of this
 	// schema.  These are properties which should hold true for any valid trace
 	// (though, of course, may not hold true for an invalid trace).
 	Assertions() iter.Iterator[Constraint]
 
-	// Assignments returns an iterator over the assignments of this schema.  That
-	// is, the subset of declarations whose trace values can be computed from
-	// the inputs.
-	Assignments() iter.Iterator[Assignment]
+	// Modules returns an iterator over the declared set of modules within this
+	// schema.
+	Modules() iter.Iterator[Module]
+}
+
+// Module represents a "table" within a schema which contains zero or more rows
+// for a given set of columns.
+type Module interface {
+	// Module name
+	Name() string
+
+	// Assertions returns an iterator over the property assertions of this
+	// schema.  These are properties which should hold true for any valid trace
+	// (though, of course, may not hold true for an invalid trace).
+	Assertions() iter.Iterator[Constraint]
+
+	// Access a given column in this module.
+	Column(uint) Column
 
 	// Columns returns an iterator over the underlying columns of this schema.
 	// Specifically, the index of a column in this array is its column index.
@@ -44,16 +68,8 @@ type Schema interface {
 	// schema.
 	Constraints() iter.Iterator[Constraint]
 
-	// Declarations returns an iterator over the column declarations of this
-	// schema.
-	Declarations() iter.Iterator[Declaration]
-
-	// Iterator over the input (i.e. non-computed) columns of the schema.
-	InputColumns() iter.Iterator[Column]
-
-	// Modules returns an iterator over the declared set of modules within this
-	// schema.
-	Modules() iter.Iterator[Module]
+	// Returns the number of columns in this module.
+	Width() uint
 }
 
 // Declaration represents an element which declares one (or more) columns in the
@@ -210,25 +226,6 @@ type Lispifiable interface {
 }
 
 // ============================================================================
-// Module
-// ============================================================================
-
-// Module represents a specific module in the schema that groups columns
-// together.  Modules don't serve a huge function in a schema at this time.
-// They could, however, be used to iterate over the things they contain (e.g.
-// their columns, their constraints, etc).  Potentially, they might also do
-// things like identify input / output columns, etc.
-type Module struct {
-	// Returns the name of this column
-	Name string
-}
-
-// NewModule constructs a new column
-func NewModule(name string) Module {
-	return Module{name}
-}
-
-// ============================================================================
 // Column
 // ============================================================================
 
@@ -251,7 +248,7 @@ func NewColumn(context tr.Context, name string, datatype Type) Column {
 // QualifiedName returns the fully qualified name of this column
 func (p Column) QualifiedName(schema Schema) string {
 	mod := schema.Modules().Nth(p.Context.Module())
-	if mod.Name != "" {
+	if mod.Name() != "" {
 		return fmt.Sprintf("%s:%s", mod.Name, p.Name)
 	}
 	//
