@@ -16,7 +16,6 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/corset/ast"
-	sc "github.com/consensys/go-corset/pkg/ir/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
@@ -386,7 +385,7 @@ func (p *ModuleScope) destructureColumn(column *ast.ColumnBinding, ctx util.Path
 	datatype ast.Type) []RegisterSource {
 	// Check for base base
 	if int_t, ok := datatype.(*ast.IntType); ok {
-		return p.destructureAtomicColumn(column, ctx, path, int_t.AsUnderlying())
+		return p.destructureAtomicColumn(column, ctx, path, int_t.BitWidth())
 	} else if arraytype, ok := datatype.(*ast.ArrayType); ok {
 		// For now, assume must be an array
 		return p.destructureArrayColumn(column, ctx, path, arraytype)
@@ -412,13 +411,13 @@ func (p *ModuleScope) destructureArrayColumn(col *ast.ColumnBinding, ctx util.Pa
 
 // Destructure atomic column
 func (p *ModuleScope) destructureAtomicColumn(column *ast.ColumnBinding, ctx util.Path, path util.Path,
-	datatype sc.Type) []RegisterSource {
+	bitwidth uint) []RegisterSource {
 	// Construct register source.
 	source := RegisterSource{
 		ctx,
 		path,
 		column.Multiplier,
-		datatype,
+		bitwidth,
 		column.MustProve,
 		column.Computed,
 		column.Internal,

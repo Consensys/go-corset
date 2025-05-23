@@ -18,6 +18,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/macro"
+	"github.com/consensys/go-corset/pkg/schema"
 )
 
 // Environment captures useful information used during the assembling process.
@@ -90,7 +91,7 @@ func (p *Environment) DeclareRegister(kind uint8, name string, width uint) {
 		panic(fmt.Sprintf("register %s already declared", name))
 	}
 	//
-	p.registers = append(p.registers, io.NewRegister(kind, name, width))
+	p.registers = append(p.registers, schema.NewRegister(kind, name, width))
 }
 
 // IsRegister checks whether or not a given name is already declared as a

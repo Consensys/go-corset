@@ -16,7 +16,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/consensys/go-corset/pkg/ir/schema"
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
 )
 
@@ -67,7 +67,7 @@ func eliminateNormalisationInTerm(term Term, module schema.Module,
 		return &Cast{Arg: arg, BitWidth: term.BitWidth}
 	case *Constant:
 		return term
-	case *ColumnAccess:
+	case *RegisterAccess:
 		return term
 	case *Exp:
 		arg := eliminateNormalisationInTerm(term.Arg, module, cfg)

@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/schema"
 )
 
 func assignmentToString(dsts []uint, srcs []uint, constant big.Int, fn io.Function[Instruction],
@@ -195,7 +196,7 @@ func (p *RegisterSplittingEnvironment) AllocateCarryRegister(targetWidth uint, s
 	// Determine number of bits of overflow
 	overflowWidth := sourceWidth - targetWidth
 	// Construct register for holding overflow
-	overflowRegister := io.Register{Name: fmt.Sprintf("c$%d", overflowRegId), Kind: io.TEMP_REGISTER, Width: overflowWidth}
+	overflowRegister := schema.NewComputedRegister(fmt.Sprintf("c$%d", overflowRegId), overflowWidth)
 	// Allocate overflow register
 	p.regsAfter = append(p.regsAfter, overflowRegister)
 	//

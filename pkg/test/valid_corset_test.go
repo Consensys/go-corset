@@ -20,9 +20,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/consensys/go-corset/pkg/asm"
 	"github.com/consensys/go-corset/pkg/corset"
-	"github.com/consensys/go-corset/pkg/hir"
-	"github.com/consensys/go-corset/pkg/mir"
+	"github.com/consensys/go-corset/pkg/ir/mir"
+	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/json"
@@ -1355,7 +1356,7 @@ func Check(t *testing.T, stdlib bool, test string) {
 	// Package up as source file
 	srcfile := source.NewSourceFile(filename, bytes)
 	// Parse terms into an HIR schema
-	binfile, errs := corset.CompileSourceFile(corsetConfig, srcfile)
+	schema, _, errs := corset.CompileSourceFile[*asm.MacroFunction](corsetConfig, srcfile)
 	// Check terms parsed ok
 	if len(errs) > 0 {
 		t.Fatalf("Error parsing %s: %v\n", filename, errs)
@@ -1369,7 +1370,7 @@ func Check(t *testing.T, stdlib bool, test string) {
 		testFilename := fmt.Sprintf("%s/%s.%s", TestDir, test, cfg.extension)
 		traces = ReadTracesFile(testFilename)
 		// Run tests
-		BinCheckTraces(t, testFilename, cfg, traces, &binfile.Schema)
+		BinCheckTraces(t, testFilename, cfg, traces, schema)
 		// Record how many tests we found
 		nTests += len(traces)
 	}
@@ -1380,46 +1381,43 @@ func Check(t *testing.T, stdlib bool, test string) {
 }
 
 func BinCheckTraces(t *testing.T, test string, cfg TestConfig,
-	traces [][]trace.RawColumn, srcSchema *hir.Schema) {
+	traces [][]trace.RawColumn, mixSchema asm.MixedMacroProgram) {
+	// Strip off any externally defined modules (for which there should be
+	// none).
+	mirSchema := schema.NewUniformSchema(mixSchema.RightModules())
 	// Run checks using schema compiled from source
-	CheckTraces(t, test, MAX_PADDING, cfg, traces, srcSchema)
+	CheckTraces(t, test, MAX_PADDING, cfg, traces, mirSchema)
 	// Construct binary schema
-	if binSchema := encodeDecodeSchema(t, srcSchema); binSchema != nil {
+	if binSchema := encodeDecodeSchema(t, mirSchema); binSchema != nil {
 		// Run checks using schema from binary file.  Observe, to try and reduce
 		// overhead of repeating all the tests we don't consider padding.
-		CheckTraces(t, test, 0, cfg, traces, binSchema)
+		CheckTraces(t, test, 0, cfg, traces, *binSchema)
 	}
 }
 
 // Check a given set of tests have an expected outcome (i.e. are
 // either accepted or rejected) by a given set of constraints.
 func CheckTraces(t *testing.T, test string, maxPadding uint, cfg TestConfig, traces [][]trace.RawColumn,
-	hirSchema *hir.Schema) {
+	mirSchema mir.Schema) {
 	// For unexpected traces, we never want to explore padding (because that's
 	// the whole point of unexpanded traces --- they are raw).
 	if !cfg.expand {
 		maxPadding = 0
 	}
-	// Consolidate schema
-	hirSchema.Consolidate()
 	//
 	for i, tr := range traces {
 		if tr != nil {
-			// Lower HIR => MIR
-			mirSchema := hirSchema.LowerToMir()
 			// Lower MIR => AIR
-			airSchema := mirSchema.LowerToAir(mir.DEFAULT_OPTIMISATION_LEVEL)
+			airSchema := mir.LowerToAir(mirSchema, mir.DEFAULT_OPTIMISATION_LEVEL)
 			// Align trace with schema, and check whether expanded or not.
 			for padding := uint(0); padding <= maxPadding; padding++ {
 				// Construct trace identifiers
-				hirID := traceId{"HIR", test, cfg.expected, cfg.expand, cfg.validate, i + 1, padding}
 				mirID := traceId{"MIR", test, cfg.expected, cfg.expand, cfg.validate, i + 1, padding}
 				airID := traceId{"AIR", test, cfg.expected, cfg.expand, cfg.validate, i + 1, padding}
 				//
 				if cfg.expand {
 					// Only HIR / MIR constraints for traces which must be
 					// expanded.  They don't really make sense otherwise.
-					checkTrace(t, tr, hirID, hirSchema)
 					checkTrace(t, tr, mirID, mirSchema)
 				}
 				// Always check AIR constraints
@@ -1429,13 +1427,13 @@ func CheckTraces(t *testing.T, test string, maxPadding uint, cfg TestConfig, tra
 	}
 }
 
-func checkTrace(t *testing.T, inputs []trace.RawColumn, id traceId, schema sc.Schema) {
+func checkTrace[C sc.Constraint](t *testing.T, inputs []trace.RawColumn, id traceId, schema sc.Schema[C]) {
 	// Construct the trace
 	tr, errs := sc.NewTraceBuilder(schema).
 		Expand(id.expand).
 		Validate(id.validate).
 		Padding(id.padding).
-		Parallel(true).
+		//Parallel(true).
 		Build(inputs)
 	// Sanity check construction
 	if len(errs) > 0 {
@@ -1443,9 +1441,9 @@ func checkTrace(t *testing.T, inputs []trace.RawColumn, id traceId, schema sc.Sc
 			id.ir, id.test, id.line, id.padding, errs)
 	} else {
 		// Check Constraints
-		_, errs1 := sc.Accepts(false, 100, schema, tr)
+		errs1 := sc.Accepts(false, 100, schema, tr)
 		// Check assertions
-		_, errs2 := sc.Asserts(true, 100, schema, tr)
+		errs2 := sc.Asserts(true, 100, schema, tr)
 		errs := append(errs1, errs2...)
 		// Determine whether trace accepted or not.
 		accepted := len(errs) == 0
@@ -1530,11 +1528,11 @@ func ReadTracesFile(filename string) [][]trace.RawColumn {
 
 // This is a little test to ensure the binary file format (specifically the
 // binary encoder / decoder) works as expected.
-func encodeDecodeSchema(t *testing.T, schema *hir.Schema) *hir.Schema {
+func encodeDecodeSchema(t *testing.T, schema mir.Schema) *mir.Schema {
 	var (
 		buffer     bytes.Buffer
 		gobEncoder = gob.NewEncoder(&buffer)
-		binSchema  hir.Schema
+		binSchema  mir.Schema
 	)
 	// Encode schema
 	if err := gobEncoder.Encode(schema); err != nil {

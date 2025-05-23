@@ -13,18 +13,69 @@
 package mir
 
 import (
+	"fmt"
+	"reflect"
+
+	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/air"
+	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/trace"
 )
 
-// LowerToAir lowers (or refines) an MIR table into an AIR schema.  That means
+// LowerToAir lowers (or refines) an MIR schema into an AIR schema.  That means
 // lowering all the columns and constraints, whilst adding additional columns /
 // constraints as necessary to preserve the original semantics.
-func LowerToAir(schema *Schema, cfg OptimisationConfig) *air.Schema {
-	// airSchema := air.EmptySchema[Expr]()
-	// // Copy modules
-	// for _, mod := range p.modules {
-	// 	airSchema.AddModule(mod.Name())
-	// }
+func LowerToAir(schema Schema, config OptimisationConfig) air.Schema {
+	lowering := NewAirLowering(schema)
+	// Configure optimisations
+	lowering.ConfigureOptimisation(config)
+	//
+	return lowering.Lower()
+}
+
+// AirLowering captures all auxiliary state required in the process of lowering
+// modules from MIR to AIR.  This state is because, as part of the lowering
+// process, we may introduce some number of additional modules (e.g. for
+// managing type proofs).
+type AirLowering struct {
+	config OptimisationConfig
+	// Modules we are lowering from
+	mirModules []Module
+	// Modules we are lowering to
+	airModules []air.Module
+}
+
+// NewAirLowering constructs an initial state for lowering a given MIR schema.
+func NewAirLowering(mirSchema Schema) AirLowering {
+	var (
+		mirModules = mirSchema.RawModules()
+		airModules = make([]air.Module, mirSchema.Width())
+	)
+	// Initialise AIR modules
+	for i, m := range mirModules {
+		airModules[i] = schema.NewTable[air.Constraint](m.Name())
+	}
+	//
+	return AirLowering{
+		DEFAULT_OPTIMISATION_LEVEL,
+		mirModules,
+		airModules,
+	}
+}
+
+// ConfigureOptimisation configures the amount of optimisation to apply during
+// the lowering process.
+func (p *AirLowering) ConfigureOptimisation(config OptimisationConfig) {
+	p.config = config
+}
+
+// Lower the MIR schema provide when this lowering instance was created into an
+// equivalent AIR schema.
+func (p *AirLowering) Lower() air.Schema {
+	// Initialise modules
+	for i := range p.mirModules {
+		p.LowerModule(uint(i))
+	}
 	// // Add data columns.
 	// for _, c := range p.inputs {
 	// 	col := c.(DataColumn)
@@ -49,9 +100,29 @@ func LowerToAir(schema *Schema, cfg OptimisationConfig) *air.Schema {
 	// for _, assertion := range p.assertions {
 	// 	airSchema.AddPropertyAssertion(assertion.Handle, assertion.Context, assertion.Property)
 	// }
-	// // Done
-	// return airSchema
-	panic("todo")
+	// Done
+	return schema.NewUniformSchema(p.airModules)
+}
+
+// LowerModule lowers the given MIR module into the correspondind AIR module.
+// This includes all registers, constraints and assignments.
+func (p *AirLowering) LowerModule(index uint) {
+	var (
+		mirModule = p.mirModules[index]
+		airModule = &p.airModules[index]
+	)
+	// Initialise registers in AIR module
+	airModule.AddRegisters(mirModule.Registers()...)
+	// Lower constraints
+	for iter := mirModule.Constraints(); iter.HasNext(); {
+		// Following should always hold
+		constraint := iter.Next().(Constraint)
+		//
+		p.lowerConstraintToAir(constraint, airModule)
+	}
+	// Lower assignments
+	// Assertions?
+	return
 }
 
 // // Lower an assignment to the AIR level.
@@ -71,78 +142,83 @@ func LowerToAir(schema *Schema, cfg OptimisationConfig) *air.Schema {
 // 	}
 // }
 
-// // Lower a constraint to the AIR level.
-// func lowerConstraintToAir(c sc.Constraint, mirSchema *Schema, airSchema *air.Schema, cfg OptimisationConfig) {
-// 	// Check what kind of constraint we have
-// 	if v, ok := c.(LookupConstraint); ok {
-// 		lowerLookupConstraintToAir(v, mirSchema, airSchema, cfg)
-// 	} else if v, ok := c.(VanishingConstraint); ok {
-// 		lowerVanishingConstraintToAir(v, mirSchema, airSchema, cfg)
-// 	} else if v, ok := c.(RangeConstraint); ok {
-// 		lowerRangeConstraintToAir(v, mirSchema, airSchema, cfg)
-// 	} else if v, ok := c.(SortedConstraint); ok {
-// 		lowerSortedConstraintToAir(v, mirSchema, airSchema, cfg)
-// 	} else {
-// 		// Should be unreachable as no other constraint types can be added to a
-// 		// schema.
-// 		panic("unreachable")
-// 	}
-// }
+// Lower a constraint to the AIR level.
+func (p *AirLowering) lowerConstraintToAir(c Constraint, airModule *air.Module) {
+	// Check what kind of constraint we have
+	if _, ok := c.constraint.(LookupConstraint); ok {
+		//lowerLookupConstraintToAir(v, mirSchema, airSchema, cfg)
+	} else if v, ok := c.constraint.(VanishingConstraint); ok {
+		p.lowerVanishingConstraintToAir(v, airModule)
+	} else if v, ok := c.constraint.(RangeConstraint); ok {
+		p.lowerRangeConstraintToAir(v, airModule)
+	} else if _, ok := c.constraint.(SortedConstraint); ok {
+		//lowerSortedConstraintToAir(v, mirSchema, airSchema, cfg)
+	} else {
+		// Should be unreachable as no other constraint types can be added to a
+		// schema.
+		panic("unreachable")
+	}
+}
 
-// // Lower a vanishing constraint to the AIR level.  This is relatively
-// // straightforward and simply relies on lowering the expression being
-// // constrained.  This may result in the generation of computed columns, e.g. to
-// // hold inverses, etc.
-// func lowerVanishingConstraintToAir(v VanishingConstraint, mirSchema *Schema, airSchema *air.Schema,
-// 	cfg OptimisationConfig) {
-// 	//
-// 	air_exprs := lowerConstraintTo(v.Context, v.Constraint, mirSchema, airSchema, cfg)
-// 	//
-// 	for i, air_expr := range air_exprs {
-// 		// Check whether this is a constant
-// 		constant := air_expr.AsConstant()
-// 		// Check for compile-time constants
-// 		if constant != nil && !constant.IsZero() {
-// 			panic(fmt.Sprintf("constraint %s cannot vanish!", v.Handle))
-// 		} else if constant == nil {
-// 			airSchema.AddVanishingConstraint(v.Handle, uint(i), v.Context, v.Domain, air_expr)
-// 		}
-// 	}
-// }
+// Lower a vanishing constraint to the AIR level.  This is relatively
+// straightforward and simply relies on lowering the expression being
+// constrained.  This may result in the generation of computed columns, e.g. to
+// hold inverses, etc.
+func (p *AirLowering) lowerVanishingConstraintToAir(v VanishingConstraint, airModule *air.Module) {
+	//
+	var (
+		terms = p.lowerLogicalTo(v.Context, v.Constraint, airModule)
+	)
+	//
+	for i, air_expr := range terms {
+		// // Check whether this is a constant
+		// constant := air_expr.AsConstant()
+		// // Check for compile-time constants
+		// if constant != nil && !constant.IsZero() {
+		// 	panic(fmt.Sprintf("constraint %s cannot vanish!", v.Handle))
+		// } else if constant == nil {
+		// Construct suitable handle to distinguish this case
+		handle := fmt.Sprintf("%s#%d", v.Handle, i)
+		// Add constraint
+		airModule.AddConstraints(
+			air.NewVanishingConstraint(handle, v.Context, v.Domain, air_expr))
+	}
+}
 
-// // Lower a range constraint to the AIR level.  The challenge here is that a
-// // range constraint at the AIR level cannot use arbitrary expressions; rather it
-// // can only constrain columns directly.  Therefore, whenever a general
-// // expression is encountered, we must generate a computed column to hold the
-// // value of that expression, along with appropriate constraints to enforce the
-// // expected value.
-// func lowerRangeConstraintToAir(v RangeConstraint, mirSchema *Schema, airSchema *air.Schema, cfg OptimisationConfig) {
-// 	bitwidth := rangeOfTerm(v.Expr.term, mirSchema).BitWidth()
-// 	// Lower target expression
-// 	target := lowerExprTo(v.Context, v.Expr, mirSchema, airSchema, cfg)
-// 	// Expand target expression (if necessary)
-// 	column := air_gadgets.Expand(v.Context, bitwidth, target, airSchema)
-// 	// Yes, a constraint is implied.  Now, decide whether to use a range
-// 	// constraint or just a vanishing constraint.
-// 	if v.BoundedAtMost(2) {
-// 		// u1 => use vanishing constraint X * (X - 1)
-// 		air_gadgets.ApplyBinaryGadget(column, airSchema)
-// 	} else if v.BoundedAtMost(cfg.MaxRangeConstraint) {
-// 		// u2..n use range constraints
-// 		airSchema.AddRangeConstraint(column, v.Case, v.Bound)
-// 	} else {
-// 		// remainder use horizontal byte decompositions.
-// 		var bi big.Int
-// 		// Convert bound into big int
-// 		elem := v.Bound
-// 		elem.BigInt(&bi)
-// 		// Subtract one here, so that e.g. a bound of 65536 reports a bitwidth
-// 		// of 16, not 17.
-// 		bi.Sub(&bi, big.NewInt(1))
-// 		// Apply bitwidth gadget
-// 		air_gadgets.ApplyBitwidthGadget(column, uint(bi.BitLen()), air.NewConst64(1), airSchema)
-// 	}
-// }
+// Lower a range constraint to the AIR level.  The challenge here is that a
+// range constraint at the AIR level cannot use arbitrary expressions; rather it
+// can only constrain columns directly.  Therefore, whenever a general
+// expression is encountered, we must generate a computed column to hold the
+// value of that expression, along with appropriate constraints to enforce the
+// expected value.
+func (p *AirLowering) lowerRangeConstraintToAir(v RangeConstraint, airModule *air.Module) {
+	// bitwidth := rangeOfTerm(v.Expr.term, mirSchema).BitWidth()
+	// // Lower target expression
+	// target := lowerExprTo(v.Context, v.Expr, mirSchema, airSchema, cfg)
+	// // Expand target expression (if necessary)
+	// column := air_gadgets.Expand(v.Context, bitwidth, target, airSchema)
+	// // Yes, a constraint is implied.  Now, decide whether to use a range
+	// // constraint or just a vanishing constraint.
+	// if v.BoundedAtMost(2) {
+	// 	// u1 => use vanishing constraint X * (X - 1)
+	// 	air_gadgets.ApplyBinaryGadget(column, airSchema)
+	// } else if v.BoundedAtMost(cfg.MaxRangeConstraint) {
+	// 	// u2..n use range constraints
+	// 	airSchema.AddRangeConstraint(column, v.Case, v.Bound)
+	// } else {
+	// 	// remainder use horizontal byte decompositions.
+	// 	var bi big.Int
+	// 	// Convert bound into big int
+	// 	elem := v.Bound
+	// 	elem.BigInt(&bi)
+	// 	// Subtract one here, so that e.g. a bound of 65536 reports a bitwidth
+	// 	// of 16, not 17.
+	// 	bi.Sub(&bi, big.NewInt(1))
+	// 	// Apply bitwidth gadget
+	// 	air_gadgets.ApplyBitwidthGadget(column, uint(bi.BitLen()), air.NewConst64(1), airSchema)
+	// }
+	panic("todo")
+}
 
 // // Lower a lookup constraint to the AIR level.  The challenge here is that a
 // // lookup constraint at the AIR level cannot use arbitrary expressions; rather,
@@ -150,7 +226,7 @@ func LowerToAir(schema *Schema, cfg OptimisationConfig) *air.Schema {
 // // expression is encountered, we must generate a computed column to hold the
 // // value of that expression, along with appropriate constraints to enforce the
 // // expected value.
-// func lowerLookupConstraintToAir(c LookupConstraint, mirSchema *Schema, airSchema *air.Schema, cfg OptimisationConfig) {
+// func lowerLookupConstraintToAir(c LookupConstraint, mirSchema *Schema,airSchema *air.Schema,cfg OptimisationConfig) {
 // 	targets := make([]uint, len(c.Targets))
 // 	sources := make([]uint, len(c.Sources))
 // 	//
@@ -171,7 +247,7 @@ func LowerToAir(schema *Schema, cfg OptimisationConfig) *air.Schema {
 // // Lower a sorted constraint to the AIR level.  The challenge here is that there
 // // is not concept of sorting constraints at the AIR level.  Instead, we have to
 // // generate the necessary machinery to enforce the sorting constraint.
-// func lowerSortedConstraintToAir(c SortedConstraint, mirSchema *Schema, airSchema *air.Schema, cfg OptimisationConfig) {
+// func lowerSortedConstraintToAir(c SortedConstraint, mirSchema *Schema,airSchema *air.Schema,cfg OptimisationConfig) {
 // 	sources := make([]uint, len(c.Sources))
 // 	//
 // 	for i := 0; i < len(sources); i++ {
@@ -299,17 +375,21 @@ func LowerToAir(schema *Schema, cfg OptimisationConfig) *air.Schema {
 // 	}
 // }
 
-// func lowerConstraintTo(ctx trace.Context, c Constraint, mirSchema *Schema, airSchema *air.Schema,
-// 	cfg OptimisationConfig) []air.Expr {
-// 	// One expression for each conjunct.
-// 	air_exprs := make([]air.Expr, len(c.conjuncts))
-
-// 	for i, c := range c.conjuncts {
-// 		air_exprs[i] = lowerDisjunctTo(ctx, c, mirSchema, airSchema, cfg)
-// 	}
-// 	// Convert constraint into expression, then lower.
-// 	return air_exprs
-// }
+func (p *AirLowering) lowerLogicalTo(ctx trace.Context, e LogicalTerm, airModule *air.Module) []air.LogicalTerm {
+	switch e := e.(type) {
+	case *Conjunct:
+		panic("got here")
+	case *Disjunct:
+		panic("got here")
+	case *Equal:
+		return []air.LogicalTerm{p.lowerEqualTo(ctx, *e, airModule)}
+	case *NotEqual:
+		return []air.LogicalTerm{p.lowerNotEqualTo(ctx, *e, airModule)}
+	default:
+		name := reflect.TypeOf(e).Name()
+		panic(fmt.Sprintf("unknown MIR expression \"%s\"", name))
+	}
+}
 
 // func lowerDisjunctTo(ctx trace.Context, c Disjunction, mirSchema *Schema, airSchema *air.Schema,
 // 	cfg OptimisationConfig) air.Expr {
@@ -322,28 +402,23 @@ func LowerToAir(schema *Schema, cfg OptimisationConfig) *air.Schema {
 // 	return air.Product(air_terms...)
 // }
 
-// func lowerEquationTo(ctx trace.Context, e Equation, mirSchema *Schema, airSchema *air.Schema,
-// 	cfg OptimisationConfig) air.Expr {
-// 	var term Term
-// 	//
-// 	switch e.kind {
-// 	case EQUALS:
-// 		// NOTE: the ordering of this subtraction can have certain impacts, such as
-// 		// aligning computed columns (or not).  Therefore, ideally, we'd take
-// 		// greater care at this point to chose the best way around.
-// 		term = &Sub{[]Term{e.lhs, e.rhs}}
-// 	case NOT_EQUALS:
-// 		// (1 - NORM(lhs - rhs))
-// 		term = &Norm{&Sub{[]Term{e.lhs, e.rhs}}}
-// 		term = &Sub{[]Term{ONE.term, term}}
-// 	case GREATER_THAN, GREATER_THAN_EQUALS, LESS_THAN, LESS_THAN_EQUALS:
-// 		panic("translation of inequalities not supported")
-// 	default:
-// 		panic("unknown equation")
-// 	}
-// 	//
-// 	return lowerTermTo(ctx, term, mirSchema, airSchema, cfg)
-// }
+func (p *AirLowering) lowerEqualTo(ctx trace.Context, e Equal, airModule *air.Module) air.LogicalTerm {
+	var (
+		lhs air.Term = p.lowerTermTo(ctx, e.Lhs, airModule)
+		rhs air.Term = p.lowerTermTo(ctx, e.Rhs, airModule)
+	)
+	//
+	return ir.Equals[air.LogicalTerm](lhs, rhs)
+}
+
+func (p *AirLowering) lowerNotEqualTo(ctx trace.Context, e NotEqual, airModule *air.Module) air.LogicalTerm {
+	// var (
+	// 	lhs air.Term = p.lowerTermTo(ctx, e.Lhs, airModule)
+	// 	rhs air.Term = p.lowerTermTo(ctx, e.Rhs, airModule)
+	// )
+	//
+	panic("how does this make sense?")
+}
 
 // // Lower an expression into the Arithmetic Intermediate Representation.
 // // Essentially, this means eliminating normalising expressions by introducing
@@ -356,51 +431,67 @@ func LowerToAir(schema *Schema, cfg OptimisationConfig) *air.Schema {
 // 	return lowerTermTo(ctx, e1.term, mirSchema, airSchema, cfg)
 // }
 
-// func lowerTermTo(ctx trace.Context, term Term, mirSchema *Schema, airSchema *air.Schema,
-// 	cfg OptimisationConfig) air.Expr {
-// 	// Optimise normalisations
-// 	term = eliminateNormalisationInTerm(term, mirSchema, cfg)
-// 	// Apply constant propagation
-// 	term = constantPropagationForTerm(term, false, airSchema)
-// 	// Lower properly
-// 	return lowerTermToInner(ctx, term, mirSchema, airSchema, cfg)
-// }
+func (p *AirLowering) lowerTermTo(ctx trace.Context, term Term, airModule *air.Module) air.Term {
+	// Optimise normalisations
+	// term = eliminateNormalisationInTerm(term, mirSchema, cfg)
+	// Apply constant propagation
+	//term = constantPropagationForTerm(term, false, airSchema)
+	// Lower properly
+	return p.lowerTermToInner(ctx, term, airModule)
+}
 
-// // Inner form is used for recursive calls and does not repeat the constant
-// // propagation phase.
-// func lowerTermToInner(ctx trace.Context, e Term, mirSchema *Schema, airSchema *air.Schema,
-// 	cfg OptimisationConfig) air.Expr {
-// 	//
-// 	switch e := e.(type) {
-// 	case *Add:
-// 		args := lowerTerms(ctx, e.Args, mirSchema, airSchema, cfg)
-// 		return air.Sum(args...)
-// 	case *Cast:
-// 		return lowerTermToInner(ctx, e.Arg, mirSchema, airSchema, cfg)
-// 	case *Constant:
-// 		return air.NewConst(e.Value)
-// 	case *ColumnAccess:
-// 		return air.NewColumnAccess(e.Column, e.Shift)
-// 	case *Exp:
-// 		return lowerExpTo(ctx, e, mirSchema, airSchema, cfg)
-// 	case *Mul:
-// 		args := lowerTerms(ctx, e.Args, mirSchema, airSchema, cfg)
-// 		return air.Product(args...)
-// 	case *Norm:
-// 		return lowerNormTo(ctx, e, mirSchema, airSchema, cfg)
-// 	case *Sub:
-// 		args := lowerTerms(ctx, e.Args, mirSchema, airSchema, cfg)
-// 		return air.Subtract(args...)
-// 	default:
-// 		name := reflect.TypeOf(e).Name()
-// 		panic(fmt.Sprintf("unknown MIR expression \"%s\"", name))
-// 	}
-// }
+// Inner form is used for recursive calls and does not repeat the constant
+// propagation phase.
+func (p *AirLowering) lowerTermToInner(ctx trace.Context, e Term, airModule *air.Module) air.Term {
+	//
+	switch e := e.(type) {
+	case *Add:
+		args := p.lowerTerms(ctx, e.Args, airModule)
+		return ir.Sum(args...)
+	case *Cast:
+		// 	return lowerTermToInner(ctx, e.Arg, airModule)
+		panic("got here")
+	case *Constant:
+		return ir.Const[air.Term](e.Value)
+	case *RegisterAccess:
+		return ir.NewRegisterAccess[air.Term](e.Register, e.Shift)
+	case *Exp:
+		// 	return lowerExpTo(ctx, e, airModule)
+		panic("got here")
+	case *IfZero:
+		panic("got here")
+	case *LabelledConst:
+		panic("got here")
+	case *Mul:
+		args := p.lowerTerms(ctx, e.Args, airModule)
+		return ir.Product(args...)
+	case *Norm:
+		// 	return lowerNormTo(ctx, e, airModule)
+		panic("got here")
+	case *Sub:
+		args := p.lowerTerms(ctx, e.Args, airModule)
+		return ir.Subtract(args...)
+	default:
+		name := reflect.TypeOf(e).Name()
+		panic(fmt.Sprintf("unknown MIR expression \"%s\"", name))
+	}
+}
+
+// Lower a set of zero or more MIR expressions.
+func (p *AirLowering) lowerTerms(ctx trace.Context, exprs []Term, airModule *air.Module) []air.Term {
+	nexprs := make([]air.Term, len(exprs))
+
+	for i := range len(exprs) {
+		nexprs[i] = p.lowerTermToInner(ctx, exprs[i], airModule)
+	}
+
+	return nexprs
+}
 
 // // LowerTo lowers an exponent expression to the AIR level by lowering the
 // // argument, and then constructing a multiplication.  This is because the AIR
 // // level does not support an explicit exponent operator.
-// func lowerExpTo(ctx trace.Context, e *Exp, mirSchema *Schema, airSchema *air.Schema, cfg OptimisationConfig) air.Expr {
+// func lowerExpTo(ctx trace.Context, e *Exp, mirSchema *Schema,airSchema *air.Schema,cfg OptimisationConfig) air.Expr {
 // 	// Lower the expression being raised
 // 	le := lowerTermToInner(ctx, e.Arg, mirSchema, airSchema, cfg)
 // 	// Multiply it out k times
@@ -435,20 +526,6 @@ func LowerToAir(schema *Schema, cfg OptimisationConfig) *air.Schema {
 // 	norm := air_gadgets.Normalise(arg.Shift(-shift), airSchema)
 // 	//
 // 	return norm.Shift(shift)
-// }
-
-// // Lower a set of zero or more MIR expressions.
-// func lowerTerms(ctx trace.Context, exprs []Term, mirSchema *Schema, airSchema *air.Schema,
-// 	cfg OptimisationConfig) []air.Expr {
-// 	//
-// 	n := len(exprs)
-// 	nexprs := make([]air.Expr, n)
-
-// 	for i := 0; i < n; i++ {
-// 		nexprs[i] = lowerTermToInner(ctx, exprs[i], mirSchema, airSchema, cfg)
-// 	}
-
-// 	return nexprs
 // }
 
 // // Construct a unique identifier for the given sort.  This should not conflict

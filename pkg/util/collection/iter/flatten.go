@@ -18,7 +18,7 @@ import (
 )
 
 // FlattenIterator provides an iterator implementation for an Array.
-type flattenIterator[S, T comparable] struct {
+type flattenIterator[S, T any] struct {
 	// Outermost iterator
 	iter Iterator[S]
 	// Innermost iterator
@@ -29,7 +29,7 @@ type flattenIterator[S, T comparable] struct {
 
 // NewFlattenIterator adapts a sequence of items S which themselves can be
 // iterated as items T, into a flat sequence of items T.
-func NewFlattenIterator[S, T comparable](iter Iterator[S], fn func(S) Iterator[T]) Iterator[T] {
+func NewFlattenIterator[S, T any](iter Iterator[S], fn func(S) Iterator[T]) Iterator[T] {
 	return &flattenIterator[S, T]{iter, nil, fn}
 }
 
@@ -64,7 +64,7 @@ func (p *flattenIterator[S, T]) Next() T {
 //
 //nolint:revive
 func (p *flattenIterator[S, T]) Append(iter Iterator[T]) Iterator[T] {
-	return NewAppendIterator[T](p, iter)
+	return NewAppendIterator(p, iter)
 }
 
 // Clone creates a copy of this iterator at the given cursor position.

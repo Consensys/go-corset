@@ -20,10 +20,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/consensys/go-corset/pkg/asm/compiler"
 	"github.com/consensys/go-corset/pkg/asm/io"
-	"github.com/consensys/go-corset/pkg/binfile"
-	"github.com/consensys/go-corset/pkg/corset"
+	"github.com/consensys/go-corset/pkg/ir/mir"
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
@@ -33,24 +32,25 @@ type traceMap map[string][]big.Int
 
 // CompileBinary compiles a given microprogram directly into a binary file, and
 // panics if there any syntax errors arise.
-func CompileBinary(filename string, program MicroProgram) binfile.BinaryFile {
-	var corsetConfig corset.CompilationConfig
-	//
-	corsetConfig.Legacy = true
-	//
-	circuit := compiler.Compile2Circuit(program.Functions())
-	// Parse and compile source files
-	binFile, errors := corset.CompileSourceFiles(corsetConfig, nil, circuit.Modules...)
-	// Should not be any errors
-	if len(errors) > 0 {
-		for _, err := range errors {
-			printSyntaxError(&err)
-		}
-		//
-		panic("errors")
-	}
-	//
-	return *binFile
+func CompileBinary(filename string, program MicroProgram) schema.MixedSchema[*MacroFunction, mir.Module] {
+	// var corsetConfig corset.CompilationConfig
+	// //
+	// corsetConfig.Legacy = true
+	// //
+	// circuit := compiler.Compile2Circuit(program.Functions())
+	// // Parse and compile source files
+	// binFile, errors := corset.CompileSourceFiles(corsetConfig, nil, circuit.Modules...)
+	// // Should not be any errors
+	// if len(errors) > 0 {
+	// 	for _, err := range errors {
+	// 		printSyntaxError(&err)
+	// 	}
+	// 	//
+	// 	panic("errors")
+	// }
+	// //
+	// return *binFile
+	panic("todo")
 }
 
 // ReadBatchedTraceFile reads a file containing zero or more traces expressed as JSON, where

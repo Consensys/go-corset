@@ -21,6 +21,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/macro"
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/util/source/lex"
@@ -109,7 +110,7 @@ func (p *Parser) parseFunction() (MacroFunction, []source.SyntaxError) {
 		return MacroFunction{}, errs
 	}
 	// Parse inputs
-	if inputs, errs = p.parseArgsList(io.INPUT_REGISTER); len(errs) > 0 {
+	if inputs, errs = p.parseArgsList(schema.INPUT_REGISTER); len(errs) > 0 {
 		return MacroFunction{}, errs
 	}
 	// Parse '->'
@@ -117,7 +118,7 @@ func (p *Parser) parseFunction() (MacroFunction, []source.SyntaxError) {
 		return MacroFunction{}, errs
 	}
 	// Parse outputs
-	if outputs, errs = p.parseArgsList(io.OUTPUT_REGISTER); len(errs) > 0 {
+	if outputs, errs = p.parseArgsList(schema.OUTPUT_REGISTER); len(errs) > 0 {
 		return MacroFunction{}, errs
 	}
 	// Initialise register list from inputs/outputs
@@ -172,7 +173,7 @@ func (p *Parser) parseArgsList(kind uint8) ([]io.Register, []source.SyntaxError)
 			return nil, errs
 		}
 		//
-		regs = append(regs, io.NewRegister(kind, arg, width))
+		regs = append(regs, schema.NewRegister(kind, arg, width))
 	}
 	// Advance past "}"
 	p.match(RBRACE)
@@ -302,7 +303,7 @@ func (p *Parser) parseVar(env *Environment) []source.SyntaxError {
 	}
 	//
 	for _, name := range names {
-		env.DeclareRegister(io.TEMP_REGISTER, name, width)
+		env.DeclareRegister(schema.COMPUTED_REGISTER, name, width)
 	}
 	//
 	return nil

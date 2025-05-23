@@ -27,18 +27,19 @@ import (
 func PrintAssemblyProgram(micro bool, cfg asm.LoweringConfig, program asm.MacroProgram) {
 	//
 	if micro {
-		// Lower macro-program to micro-program.
-		uprogram := asm.Lower(cfg, program)
-		//
-		printAssemblyFunctions(uprogram)
-	} else {
-		printAssemblyFunctions(program)
+		// // Lower macro-program to micro-program.
+		// uprogram := asm.Lower(cfg, program)
+		// //
+		// printAssemblyFunctions(uprogram)
+		panic("todo")
 	}
+	//
+	printAssemblyFunctions(program)
 }
 
 func printAssemblyFunctions[T io.Instruction[T]](program io.Program[T]) {
 	for _, fn := range program.Functions() {
-		printAssemblyFunction(fn)
+		printAssemblyFunction(*fn)
 	}
 }
 

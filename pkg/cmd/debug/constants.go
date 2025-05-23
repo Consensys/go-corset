@@ -14,14 +14,18 @@ package debug
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/consensys/go-corset/pkg/binfile"
+	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
 	"github.com/consensys/go-corset/pkg/corset"
 )
 
 // PrintExternalisedConstants is responsible for printing any externalised
 // constants contained within the given binary file.
-func PrintExternalisedConstants(binf *binfile.BinaryFile) {
+func PrintExternalisedConstants(schemas cmd_util.SchemaStack) {
+	binf := schemas.BinaryFile()
+	//
 	fmt.Println("External constants:")
 	// Sanity check debug information is available.
 	srcmap, srcmap_ok := binfile.GetAttribute[*corset.SourceMap](binf)
@@ -48,8 +52,8 @@ func printExternalisedModuleConstants(indent uint, mod corset.SourceModule) {
 			//
 			printIndent(indent)
 			//
-			if c.DataType != nil {
-				fmt.Printf("%s (%s): %s\n", c.Name, c.DataType.String(), c.Value.String())
+			if c.Bitwidth != math.MaxUint {
+				fmt.Printf("%s (%s): u%d\n", c.Name, c.Value.String(), c.Bitwidth)
 			} else {
 				fmt.Printf("%s: %s\n", c.Name, c.Value.String())
 			}

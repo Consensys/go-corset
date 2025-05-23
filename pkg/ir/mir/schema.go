@@ -13,29 +13,124 @@
 package mir
 
 import (
-	"github.com/consensys/go-corset/pkg/ir/schema"
-	"github.com/consensys/go-corset/pkg/ir/schema/constraint"
+	"encoding/gob"
+
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/constraint"
 )
 
-// LookupConstraint captures the essence of a lookup constraint at the MIR
-// level.
-type LookupConstraint = *constraint.LookupConstraint[Expr]
+// Following types capture top-level abstractions at the MIR level.
+type (
+	// Module captures the essence of a module at the MIR level.  Specifically, it
+	// is limited to only those constraint forms permitted at the MIR level.
+	Module = schema.Table[Constraint]
+	// Schema captures the notion of an MIR schema which is uniform and consists of
+	// MIR modules only.
+	Schema = schema.UniformSchema[Module]
+	// Term represents the fundamental for arithmetic expressions in the MIR
+	// representation.
+	Term interface {
+		ir.Term[Term]
+	}
+	// LogicalTerm represents the fundamental for logical expressions in the MIR
+	// representation.
+	LogicalTerm interface {
+		ir.LogicalTerm[LogicalTerm]
+	}
+)
 
-// VanishingConstraint captures the essence of a vanishing constraint at the MIR
-// level. A vanishing constraint is a row constraint which must evaluate to
-// zero.
-type VanishingConstraint = *constraint.VanishingConstraint[Logical]
+// Following types capture permitted constraint forms at the MIR level.
+type (
+	// Assertion captures the notion of an arbitrary property which should hold for
+	// all acceptable traces.  However, such a property is not enforced by the
+	// prover.
+	Assertion = constraint.Assertion[LogicalTerm]
+	// LookupConstraint captures the essence of a lookup constraint at the MIR
+	// level.
+	LookupConstraint = constraint.LookupConstraint[Term]
+	// PermutationConstraint captures the essence of a permutation constraint at the
+	// MIR level.
+	PermutationConstraint = constraint.PermutationConstraint
+	// RangeConstraint captures the essence of a range constraints at the MIR level.
+	RangeConstraint = constraint.RangeConstraint[Term]
+	// SortedConstraint captures the essence of a sorted constraint at the MIR
+	// level.
+	SortedConstraint = constraint.SortedConstraint[Term]
+	// VanishingConstraint captures the essence of a vanishing constraint at the MIR
+	// level. A vanishing constraint is a row constraint which must evaluate to
+	// zero.
+	VanishingConstraint = constraint.VanishingConstraint[LogicalTerm]
+)
 
-// RangeConstraint captures the essence of a range constraints at the MIR level.
-type RangeConstraint = *constraint.RangeConstraint[Expr]
+// Following types capture permitted expression forms at the MIR level.
+type (
+	// Add represents the addition of zero or more expressions.
+	Add = ir.Add[Term]
+	// Cast attempts to narrow the width a given expression.
+	Cast = ir.Cast[Term]
+	// Constant represents a constant value within an expression.
+	Constant = ir.Constant[Term]
+	// IfZero represents a conditional branch at the MIR level.
+	IfZero = ir.IfZero[Term]
+	// LabelledConst represents a labelled constant at the MIR level.
+	LabelledConst = ir.LabelledConst[Term]
+	// RegisterAccess represents reading the value held at a given column in the
+	// tabular context.  Furthermore, the current row maybe shifted up (or down) by
+	// a given amount.
+	RegisterAccess = ir.RegisterAccess[Term]
+	// Exp represents the a given value taken to a power.
+	Exp = ir.Exp[Term]
+	// Mul represents the product over zero or more expressions.
+	Mul = ir.Mul[Term]
+	// Norm reduces the value of an expression to either zero (if it was zero)
+	// or one (otherwise).
+	Norm = ir.Norm[Term]
+	// Sub represents the subtraction over zero or more expressions.
+	Sub = ir.Sub[Term]
+)
 
-// SortedConstraint captures the essence of a sorted constraint at the MIR
-// level.
-type SortedConstraint = *constraint.SortedConstraint[Expr]
+// Following types capture permitted logical forms at the MIR level.
+type (
+	// Conjunct represents a logical conjunction at the MIR level.
+	Conjunct = ir.Conjunct[LogicalTerm]
+	// Disjunct represents a logical conjunction at the MIR level.
+	Disjunct = ir.Disjunct[LogicalTerm]
+	// Equal represents an equality comparator between two arithmetic terms
+	// at the MIR level.
+	Equal = ir.Equal[Term]
+	// NotEqual represents a non-equality comparator between two arithmetic terms
+	// at the MIR level.
+	NotEqual = ir.NotEqual[Term]
+)
 
-// PropertyAssertion captures the notion of an arbitrary property which should
-// hold for all acceptable traces.  However, such a property is not enforced by
-// the prover.
-type Assertion = *schema.Assertion[Logical]
+// SubstituteConstants substitutes the value of matching labelled constants for
+// all expressions used within the schema.
+func SubstituteConstants[M schema.Module](schema schema.MixedSchema[M, Module], mapping map[string]fr.Element) {
+	panic("todo")
+}
 
-type Schema = schema.Schema[*schema.Table, schema.Constraint]
+func init() {
+	gob.Register(schema.Constraint(&VanishingConstraint{}))
+	gob.Register(schema.Constraint(&RangeConstraint{}))
+	gob.Register(schema.Constraint(&PermutationConstraint{}))
+	gob.Register(schema.Constraint(&LookupConstraint{}))
+	gob.Register(schema.Constraint(&SortedConstraint{}))
+	//
+	gob.Register(Term(&Add{}))
+	gob.Register(Term(&Mul{}))
+	gob.Register(Term(&Sub{}))
+	gob.Register(Term(&Cast{}))
+	gob.Register(Term(&Exp{}))
+	gob.Register(Term(&IfZero{}))
+	gob.Register(Term(&Constant{}))
+	gob.Register(Term(&LabelledConst{}))
+	gob.Register(Term(&Norm{}))
+	gob.Register(Term(&RegisterAccess{}))
+	//
+	gob.Register(LogicalTerm(&Conjunct{}))
+	gob.Register(LogicalTerm(&Disjunct{}))
+	gob.Register(LogicalTerm(&Equal{}))
+	gob.Register(LogicalTerm(&NotEqual{}))
+}

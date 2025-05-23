@@ -16,7 +16,6 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/consensys/go-corset/pkg/ir/schema"
 	"github.com/consensys/go-corset/pkg/util"
 )
 
@@ -81,11 +80,6 @@ var ANY_TYPE Type = &AnyType{}
 // representation, or not.
 func (p *AnyType) HasUnderlying() bool {
 	return false
-}
-
-// AsUnderlying converts this integer type into an underlying type.
-func (p *AnyType) AsUnderlying() schema.Type {
-	panic("cannot convert any type")
 }
 
 // Width returns the number of underlying columns represented by this column.
@@ -154,15 +148,15 @@ func (p *IntType) HasUnderlying() bool {
 	return p.values != nil
 }
 
-// AsUnderlying converts this integer type into an underlying type.
-func (p *IntType) AsUnderlying() schema.Type {
+// BitWidth attempts to determine an appropriate bitwidth for this type.
+func (p *IntType) BitWidth() uint {
 	width := p.values.BitWidth()
 	// Sanity check (for now)
 	if p.values.Contains(big.NewInt(-1)) {
 		panic("cannot convert signed integer type")
 	}
 	//
-	return schema.NewUintType(width)
+	return width
 }
 
 // Width returns the number of underlying columns represented by this column.

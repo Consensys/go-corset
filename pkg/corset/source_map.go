@@ -18,9 +18,7 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/binfile"
-	"github.com/consensys/go-corset/pkg/hir"
-	"github.com/consensys/go-corset/pkg/schema"
-	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/util"
 )
 
@@ -75,7 +73,7 @@ type SourceModule struct {
 	Virtual bool
 	// Selector determines when this (sub)module is active.  Specifically, when
 	// it evaluates to a non-zero value the module is active.
-	Selector *hir.Expr
+	Selector mir.Term
 	// Submodules identifies any (virtual) submodules contained within this.
 	// Currently, perspectives are the only form of submodule currently
 	// supported.
@@ -136,15 +134,15 @@ func (p *SourceModule) SubstituteConstants(path util.Path, mapping map[string]bi
 	}
 }
 
-// SourceColumn represents a source-level column which is mapped to a given HIR
+// SourceColumn represents a source-level column which is mapped to a given MIR
 // register.  Observe that multiplie source-level columns can be mapped to the
 // same register.
 type SourceColumn struct {
 	Name string
 	// Length Multiplier of source-level column.
 	Multiplier uint
-	// Underlying DataType of the source-level column.
-	DataType sc.Type
+	// Underlying bitwidth of the source-level column.
+	Bitwidth uint
 	// Provability requirement for source-level column.
 	MustProve bool
 	// Determines whether this is a Computed column.
@@ -179,9 +177,9 @@ type SourceConstant struct {
 	Name string
 	// value of the constant
 	Value big.Int
-	// Explicit type for this constant.  This maybe nil if no type was given
-	// and, instead, the type should be inferred from context.
-	DataType schema.Type
+	// Explicit bitwidth for this constant.  This maybe math.MaxUint if no type
+	// was given and, instead, the type should be inferred from context.
+	Bitwidth uint
 	// Indicates whether this is an "externally visible" constant.  That is, one
 	// whose value can be changed after the fact.
 	Extern bool

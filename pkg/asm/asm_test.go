@@ -20,8 +20,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
-	"github.com/consensys/go-corset/pkg/ir/mir"
-	sc "github.com/consensys/go-corset/pkg/ir/schema"
+	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
@@ -111,7 +110,7 @@ func check(t *testing.T, test string) {
 		checkTraces(t, test, "µASM", cfg, microTraces)
 		//
 		if len(microTraces) > 0 {
-			// Check traces at HIR/MIR/AIR levels
+			// Check traces at MIR/AIR levels
 			checkIrTraces(t, test, cfg, microTraces)
 		}
 		// Record how many tests we found
@@ -138,45 +137,43 @@ func checkTraces[T io.Instruction[T]](t *testing.T, test string, ir string, cfg 
 // Check a given set of tests have an expected outcome (i.e. are
 // either accepted or rejected) by a given set of constraints.
 func checkIrTraces(t *testing.T, test string, cfg TestConfig, traces []io.Trace[micro.Instruction]) {
-	var (
-		maxPadding = MAX_PADDING
-		program    = traces[0].Program()
-		hirTraces  [][]trace.RawColumn
-	)
-	//
-	binFile := CompileBinary(fmt.Sprintf("%s.lisp", test), program)
-	mirSchema := &binFile.Schema
-	//
-	for _, tr := range traces {
-		hirTraces = append(hirTraces, LowerMicroTrace(tr))
-	}
-	//
-	for i, tr := range hirTraces {
-		if tr != nil {
-			// Lower MIR => AIR
-			airSchema := mir.LowerToAir(mirSchema, mir.DEFAULT_OPTIMISATION_LEVEL)
-			// Align trace with schema, and check whether expanded or not.
-			for padding := uint(0); padding <= maxPadding; padding++ {
-				// Construct trace identifiers
-				hirID := traceId{"HIR", test, cfg.expected, i + 1, padding}
-				mirID := traceId{"MIR", test, cfg.expected, i + 1, padding}
-				airID := traceId{"AIR", test, cfg.expected, i + 1, padding}
-				// Only HIR / MIR constraints for traces which must be
-				// expanded.  They don't really make sense otherwise.
-				checkTrace(t, tr, hirID, mirSchema)
-				checkTrace(t, tr, mirID, mirSchema)
-				// Always check AIR constraints
-				checkTrace(t, tr, airID, airSchema)
-			}
-		}
-	}
+	// var (
+	// 	maxPadding = MAX_PADDING
+	// 	program    = traces[0].Program()
+	// 	rawTraces  [][]trace.RawColumn
+	// )
+	// //
+	// mirSchema := CompileBinary(fmt.Sprintf("%s.lisp", test), program)
+	// //
+	// for _, tr := range traces {
+	// 	rawTraces = append(rawTraces, LowerMicroTrace(tr))
+	// }
+	// //
+	// for i, tr := range rawTraces {
+	// 	if tr != nil {
+	// 		// Lower MIR => AIR
+	// 		airSchema := mir.LowerToAir(&mirSchema, mir.DEFAULT_OPTIMISATION_LEVEL)
+	// 		// Align trace with schema, and check whether expanded or not.
+	// 		for padding := uint(0); padding <= maxPadding; padding++ {
+	// 			// Construct trace identifiers
+	// 			mirID := traceId{"MIR", test, cfg.expected, i + 1, padding}
+	// 			airID := traceId{"AIR", test, cfg.expected, i + 1, padding}
+	// 			// Only MIR constraints for traces which must be
+	// 			// expanded.  They don't really make sense otherwise.
+	// 			checkTrace(t, tr, mirID, mirSchema)
+	// 			// Always check AIR constraints
+	// 			checkTrace(t, tr, airID, airSchema)
+	// 		}
+	// 	}
+	// }
+	panic("todo")
 }
 
-func checkTrace(t *testing.T, inputs []trace.RawColumn, id traceId, schema sc.Schema) {
+func checkTrace[C sc.Constraint](t *testing.T, inputs []trace.RawColumn, id traceId, schema sc.Schema[C]) {
 	// Construct the trace
 	tr, errs := sc.NewTraceBuilder(schema).
 		Padding(id.padding).
-		Parallel(true).
+		//Parallel(true).
 		Build(inputs)
 	// Sanity check construction
 	if len(errs) > 0 {
@@ -184,9 +181,9 @@ func checkTrace(t *testing.T, inputs []trace.RawColumn, id traceId, schema sc.Sc
 			id.ir, id.test, id.line, id.padding, errs)
 	} else {
 		// Check Constraints
-		_, errs1 := sc.Accepts(false, 100, schema, tr)
+		errs1 := sc.Accepts(false, 100, schema, tr)
 		// Check assertions
-		_, errs2 := sc.Asserts(true, 100, schema, tr)
+		errs2 := sc.Asserts(true, 100, schema, tr)
 		errs := append(errs1, errs2...)
 		// Determine whether trace accepted or not.
 		accepted := len(errs) == 0
