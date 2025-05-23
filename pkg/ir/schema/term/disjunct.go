@@ -10,29 +10,30 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package air
+package term
 
 import (
-	"fmt"
-	"reflect"
-
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/go-corset/pkg/ir/schema"
+	"github.com/consensys/go-corset/pkg/trace"
 )
 
-func constantOfTerm(e Term) *fr.Element {
-	switch e := e.(type) {
-	case *Add:
-		return nil
-	case *Constant:
-		return &e.Value
-	case *ColumnAccess:
-		return nil
-	case *Mul:
-		return nil
-	case *Sub:
-		return nil
-	default:
-		name := reflect.TypeOf(e).Name()
-		panic(fmt.Sprintf("unknown AIR expression \"%s\"", name))
+// Disjunct represents a logical disjunction
+type Disjunct[T schema.LogicalTerm[T]] struct {
+	disjuncts []T
+}
+
+func (p *Disjunct[T]) TestAt(k int, tr trace.Module) (bool, error) {
+	//
+	for _, disjunct := range p.disjuncts {
+		val, _, err := disjunct.TestAt(k, tr)
+		//
+		if err != nil {
+			return val, err
+		} else if val {
+			// Success
+			return val, nil
+		}
 	}
+	// Failure
+	return false, nil
 }

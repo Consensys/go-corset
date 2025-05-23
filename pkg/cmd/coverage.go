@@ -21,8 +21,8 @@ import (
 	"github.com/consensys/go-corset/pkg/binfile"
 	cov "github.com/consensys/go-corset/pkg/cmd/coverage"
 	"github.com/consensys/go-corset/pkg/corset"
-	"github.com/consensys/go-corset/pkg/mir"
-	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/ir/mir"
+	sc "github.com/consensys/go-corset/pkg/ir/schema"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/util/termio"
@@ -79,8 +79,7 @@ var coverageCmd = &cobra.Command{
 		// Parse coverage file
 		coverage := readCoverageReports(json, binfile, optConfig)
 		//
-		hirSchema := &binfile.Schema
-		mirSchema := hirSchema.LowerToMir()
+		mirSchema := binfile.Schema
 		//airSchema := mirSchema.LowerToAir()
 		// Calculate mode
 		mode := CONSTRAINT_MODE
@@ -165,7 +164,7 @@ func determineIncludedCalcs(calcs []cov.ColumnCalc, includes []string) []cov.Col
 	return included
 }
 
-func determineConstraintGroups(mode uint, schema sc.Schema) ([]cov.ConstraintGroup, uint) {
+func determineConstraintGroups(mode uint, schema mir.Schema) ([]cov.ConstraintGroup, uint) {
 	switch mode {
 	case MODULE_MODE:
 		return determineModuleGroups(schema), 1
@@ -178,7 +177,7 @@ func determineConstraintGroups(mode uint, schema sc.Schema) ([]cov.ConstraintGro
 	panic("unreachable")
 }
 
-func determineModuleGroups(schema sc.Schema) []cov.ConstraintGroup {
+func determineModuleGroups(schema mir.Schema) []cov.ConstraintGroup {
 	var groups []cov.ConstraintGroup
 	// Determine how many modules
 	n := schema.Modules().Count()
@@ -190,7 +189,7 @@ func determineModuleGroups(schema sc.Schema) []cov.ConstraintGroup {
 	return groups
 }
 
-func determineUnexpandedGroups(schema sc.Schema) []cov.ConstraintGroup {
+func determineUnexpandedGroups(schema mir.Schema) []cov.ConstraintGroup {
 	var groups []cov.ConstraintGroup
 	// Determine how many modules
 	n := schema.Modules().Count()
@@ -214,7 +213,7 @@ func determineUnexpandedGroups(schema sc.Schema) []cov.ConstraintGroup {
 	return groups
 }
 
-func determineExpandedGroups(schema sc.Schema) []cov.ConstraintGroup {
+func determineExpandedGroups(schema mir.Schema) []cov.ConstraintGroup {
 	var groups []cov.ConstraintGroup
 	//
 	for iter := schema.Constraints(); iter.HasNext(); {

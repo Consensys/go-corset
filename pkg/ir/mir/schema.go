@@ -24,7 +24,7 @@ type LookupConstraint = *constraint.LookupConstraint[Expr]
 // VanishingConstraint captures the essence of a vanishing constraint at the MIR
 // level. A vanishing constraint is a row constraint which must evaluate to
 // zero.
-type VanishingConstraint = *constraint.VanishingConstraint[Constraint]
+type VanishingConstraint = *constraint.VanishingConstraint[Logical]
 
 // RangeConstraint captures the essence of a range constraints at the MIR level.
 type RangeConstraint = *constraint.RangeConstraint[Expr]
@@ -36,6 +36,6 @@ type SortedConstraint = *constraint.SortedConstraint[Expr]
 // PropertyAssertion captures the notion of an arbitrary property which should
 // hold for all acceptable traces.  However, such a property is not enforced by
 // the prover.
-type Assertion = *schema.Assertion[Constraint]
+type Assertion = *schema.Assertion[Logical]
 
-type Schema = schema.Schema[schema.Table, schema.Constraint]
+type Schema = schema.Schema[*schema.Table, schema.Constraint]

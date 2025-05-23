@@ -76,13 +76,13 @@ type RangeConstraint[E schema.Evaluable] struct {
 
 // NewRangeConstraint constructs a new Range constraint!
 func NewRangeConstraint[E schema.Evaluable](handle string, casenum uint, context trace.Context,
-	expr E, bound fr.Element) *RangeConstraint[E] {
-	return &RangeConstraint[E]{handle, casenum, context, expr, bound}
+	expr E, bound fr.Element) RangeConstraint[E] {
+	return RangeConstraint[E]{handle, casenum, context, expr, bound}
 }
 
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
-func (p *RangeConstraint[E]) Name() (string, uint) {
+func (p RangeConstraint[E]) Name() (string, uint) {
 	return p.Handle, p.Case
 }
 
@@ -91,18 +91,18 @@ func (p *RangeConstraint[E]) Name() (string, uint) {
 // evaluation context, though some (e.g. lookups) have more.  Note that all
 // constraints have at least one context (which we can call the "primary"
 // context).
-func (p *RangeConstraint[E]) Contexts() []trace.Context {
+func (p RangeConstraint[E]) Contexts() []trace.Context {
 	return []trace.Context{p.Context}
 }
 
 // Branches returns the total number of logical branches this constraint can
 // take during evaluation.
-func (p *RangeConstraint[E]) Branches() uint {
+func (p RangeConstraint[E]) Branches() uint {
 	return p.Expr.Branches()
 }
 
 // BoundedAtMost determines whether the bound for this constraint is at most a given bound.
-func (p *RangeConstraint[E]) BoundedAtMost(bound uint) bool {
+func (p RangeConstraint[E]) BoundedAtMost(bound uint) bool {
 	var n fr.Element = fr.NewElement(uint64(bound))
 	return p.Bound.Cmp(&n) <= 0
 }
@@ -114,7 +114,7 @@ func (p *RangeConstraint[E]) BoundedAtMost(bound uint) bool {
 // expression on that first row is also undefined (and hence must pass).
 //
 //nolint:revive
-func (p *RangeConstraint[E]) Bounds(module uint) util.Bounds {
+func (p RangeConstraint[E]) Bounds(module uint) util.Bounds {
 	if p.Context.Module() == module {
 		return p.Expr.Bounds()
 	}
@@ -126,7 +126,7 @@ func (p *RangeConstraint[E]) Bounds(module uint) util.Bounds {
 // nil otherwise return an error.
 //
 //nolint:revive
-func (p *RangeConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
+func (p RangeConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
 	var (
 		coverage bit.Set
 		module   = tr.Module(p.Context.ModuleId)
@@ -159,7 +159,7 @@ func (p *RangeConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
 // it can be printed.
 //
 //nolint:revive
-func (p *RangeConstraint[E]) Lisp(module schema.Module) sexp.SExp {
+func (p RangeConstraint[E]) Lisp(module schema.Module) sexp.SExp {
 	//
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("range"),

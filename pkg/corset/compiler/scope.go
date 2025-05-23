@@ -16,7 +16,7 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/corset/ast"
-	sc "github.com/consensys/go-corset/pkg/schema"
+	sc "github.com/consensys/go-corset/pkg/ir/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )

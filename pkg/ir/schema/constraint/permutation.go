@@ -54,17 +54,17 @@ type PermutationConstraint struct {
 
 // NewPermutationConstraint creates a new permutation
 func NewPermutationConstraint(handle string, context trace.Context, targets []uint,
-	sources []uint) *PermutationConstraint {
+	sources []uint) PermutationConstraint {
 	if len(targets) != len(sources) {
 		panic("differeng number of target / source permutation columns")
 	}
 
-	return &PermutationConstraint{handle, context, targets, sources}
+	return PermutationConstraint{handle, context, targets, sources}
 }
 
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
-func (p *PermutationConstraint) Name() (string, uint) {
+func (p PermutationConstraint) Name() (string, uint) {
 	return p.Handle, 0
 }
 
@@ -73,13 +73,13 @@ func (p *PermutationConstraint) Name() (string, uint) {
 // evaluation context, though some (e.g. lookups) have more.  Note that all
 // constraints have at least one context (which we can call the "primary"
 // context).
-func (p *PermutationConstraint) Contexts() []trace.Context {
+func (p PermutationConstraint) Contexts() []trace.Context {
 	return []trace.Context{p.Context}
 }
 
 // Branches returns the total number of logical branches this constraint can
 // take during evaluation.
-func (p *PermutationConstraint) Branches() uint {
+func (p PermutationConstraint) Branches() uint {
 	return 1
 }
 
@@ -88,13 +88,13 @@ func (p *PermutationConstraint) Branches() uint {
 // expression such as "(shift X -1)".  This is technically undefined for the
 // first row of any trace and, by association, any constraint evaluating this
 // expression on that first row is also undefined (and hence must pass).
-func (p *PermutationConstraint) Bounds(module uint) util.Bounds {
+func (p PermutationConstraint) Bounds(module uint) util.Bounds {
 	return util.EMPTY_BOUND
 }
 
 // Accepts checks whether a permutation holds between the source and
 // target columns.
-func (p *PermutationConstraint) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
+func (p PermutationConstraint) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
 	var (
 		// Coverage currently always empty for permutation constraints.
 		coverage bit.Set
@@ -121,7 +121,7 @@ func (p *PermutationConstraint) Accepts(tr trace.Trace) (bit.Set, schema.Failure
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (p *PermutationConstraint) Lisp(module schema.Module) sexp.SExp {
+func (p PermutationConstraint) Lisp(module schema.Module) sexp.SExp {
 	var (
 		targets = sexp.EmptyList()
 		sources = sexp.EmptyList()

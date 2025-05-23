@@ -66,12 +66,6 @@ type Constraint interface {
 	// not.  If not, a failure is produced.  Otherwise, a bitset indicating
 	// branch coverage is returned.
 	Accepts(trace.Trace) (bit.Set, Failure)
-	// Contexts returns the evaluation contexts (i.e. enclosing module + length
-	// multiplier) for this constraint.  Most constraints have only a single
-	// evaluation context, though some (e.g. lookups) have more.  Note that all
-	// constraints have at least one context (which we can call the "primary"
-	// context).
-	Contexts() []trace.Context
 	// Determine the well-definedness bounds for this constraint in both the
 	// negative (left) or positive (right) directions.  For example, consider an
 	// expression such as "(shift X -1)".  This is technically undefined for the
@@ -81,6 +75,12 @@ type Constraint interface {
 	// Return the total number of logical branches this constraint can take
 	// during evaluation.
 	Branches() uint
+	// Contexts returns the evaluation contexts (i.e. enclosing module + length
+	// multiplier) for this constraint.  Most constraints have only a single
+	// evaluation context, though some (e.g. lookups) have more.  Note that all
+	// constraints have at least one context (which we can call the "primary"
+	// context).
+	Contexts() []trace.Context
 	// Name returns a unique name and case number for a given constraint.  This
 	// is useful purely for identifying constraints in reports, etc.  The case
 	// number is used to differentiate different low-level constraints which are

@@ -15,217 +15,81 @@ package mir
 import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir/schema"
-	"github.com/consensys/go-corset/pkg/trace"
-	"github.com/consensys/go-corset/pkg/util"
-	"github.com/consensys/go-corset/pkg/util/collection/set"
-	"github.com/consensys/go-corset/pkg/util/source/sexp"
+	"github.com/consensys/go-corset/pkg/ir/schema/expr"
+	"github.com/consensys/go-corset/pkg/ir/schema/term"
 )
 
-// Expr represents an expression in the Mid-Level Intermediate Representation
-// (MIR).  Expressions at this level have a one-2-one correspondance with
-// expressions in the HIR level.  However, some expressions at this level do not
-// exist at the HIR level (e.g. normalise) and are "compiled out" by introducing
-// appropriate computed columns and constraints.
-type Expr struct {
-	// Termession to be evaluated, etc.
-	term Term
+// Term represents the fundamental for arithmetic expressions in the MIR
+// representation.
+type Term interface {
+	schema.Term[Term]
 }
 
-var _ schema.Evaluable = Expr{}
+type Expr = expr.Expr[Term]
 
-// ZERO represents the constant expression equivalent to 1.
-var ZERO Expr
+// Add represents the addition of zero or more expressions.
+type Add = term.Add[Term]
 
-// ONE represents the constant expression equivalent to 1.
-var ONE Expr
+// Cast attempts to narrow the width a given expression.
+type Cast = term.Cast[Term]
 
-// NewColumnAccess constructs an HIR expression representing the value of a given
+// Constant represents a constant value within an expression.
+type Constant = term.Constant[Term]
+
+// ColumnAccess represents reading the value held at a given column in the
+// tabular context.  Furthermore, the current row maybe shifted up (or down) by
+// a given amount.
+type ColumnAccess = term.ColumnAccess[Term]
+
+// Exp represents the a given value taken to a power.
+type Exp = term.Exp[Term]
+
+// Mul represents the product over zero or more expressions.
+type Mul = term.Mul[Term]
+
+// Norm reduces the value of an expression to either zero (if it was zero)
+// or one (otherwise).
+type Norm = term.Norm[Term]
+
+// Sub represents the subtraction over zero or more expressions.
+type Sub = term.Sub[Term]
+
+// Void represents the empty expression.
+var VOID Expr
+
+// NewColumnAccess constructs an AIR expression representing the value of a given
 // column on the current row.
 func NewColumnAccess(column uint, shift int) Expr {
-	return Expr{&ColumnAccess{column, shift}}
+	term := &ColumnAccess{Column: column, Shift: shift}
+	return Expr{Term: term}
 }
 
-// NewConst construct an HIR expression representing a given constant.
+// NewConst construct an AIR expression representing a given constant.
 func NewConst(val fr.Element) Expr {
-	return Expr{&Constant{val}}
+	term := &Constant{Value: val}
+	return Expr{Term: term}
 }
 
-// NewConst64 construct an HIR expression representing a given constant from a
+// NewConst64 construct an AIR expression representing a given constant from a
 // uint64.
 func NewConst64(val uint64) Expr {
 	element := fr.NewElement(val)
-	return Expr{&Constant{element}}
-}
-
-// Context determines the evaluation context (i.e. enclosing module) for this
-func (e Expr) Context(module schema.Module) trace.Context {
-	return contextOfTerm(e.term, module)
-}
-
-// Bounds returns max shift in either the negative (left) or positive
-// direction (right).
-func (e Expr) Bounds() util.Bounds {
-	// Compute shift range
-	minShift, maxShift := shiftRangeOfTerm(e.term)
-	// Convert to bounds
-	start := uint(-min(0, minShift))
-	end := uint(max(0, maxShift))
-	//
-	return util.NewBounds(start, end)
-}
-
-// Lisp converts this schema element into a simple S-Termession, for example
-// so it can be printed.
-func (e Expr) Lisp(module schema.Module) sexp.SExp {
-	return lispOfTerm(e.term, module)
-}
-
-// RequiredColumns returns the set of columns on which this term depends.
-// That is, columns whose values may be accessed when evaluating this term
-// on a given trace.
-func (e Expr) RequiredColumns() *set.SortedSet[uint] {
-	return requiredColumnsOfTerm(e.term)
-}
-
-// RequiredCells returns the set of trace cells on which this term depends.
-// That is, evaluating this term at the given row in the given trace will read
-// these cells.
-func (e Expr) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
-	return requiredCellsOfTerm(e.term, row, tr)
-}
-
-// EvalAt evaluates a column access at a given row in a trace, which returns the
-// value at that row of the column in question or nil is that row is
-// out-of-bounds.
-func (e Expr) EvalAt(k int, tr trace.Module) (fr.Element, error) {
-	val, err := evalAtTerm(e.term, k, tr)
-	//
-	return val, err
-}
-
-// Branches returns the number of unique evaluation paths through the given
-// constraint.
-func (e Expr) Branches() uint {
-	return 1
-}
-
-// Simplify this expression by applying, for example, constant propagation.
-func (e Expr) Simplify() Expr {
-	// Apply constant propagation (whilst retaining casts)
-	term := constantPropagationForTerm(e.term, true)
-	// That's all for now!
-	return Expr{term}
-}
-
-// CastOf constructs a new expression which has been annotated by the user to be
-// within a given range.
-func CastOf(arg Expr, bitwidth uint) Expr {
-	return Expr{&Cast{arg.term, bitwidth}}
-}
-
-// Exponent raises a given expression to a given power.
-func Exponent(arg Expr, pow uint64) Expr {
-	return Expr{&Exp{arg.term, pow}}
-}
-
-// Normalise normalises the result of evaluating a given expression to be either 0
-// (if its value was 0) or 1 (otherwise).
-func Normalise(arg Expr) Expr {
-	return Expr{&Norm{arg.term}}
+	term := &Constant{Value: element}
+	return Expr{Term: term}
 }
 
 // Sum zero or more expressions together.
 func Sum(exprs ...Expr) Expr {
-	terms := asTerms(exprs...)
-	// flatten any nested sums
-	terms = util.Flatten(terms, func(t Term) []Term {
-		if t, ok := t.(*Add); ok {
-			return t.Args
-		}
-		//
-		return nil
-	})
-	// Remove any zeros
-	terms = util.RemoveMatching(terms, isZero)
-	// Final optimisation
-	switch len(terms) {
-	case 0:
-		return NewConst64(0)
-	case 1:
-		return Expr{terms[0]}
-	default:
-		return Expr{&Add{terms}}
-	}
+	panic("todo")
 }
 
 // Product returns the product of zero or more multiplications.
 func Product(exprs ...Expr) Expr {
-	return termProduct(asTerms(exprs...)...)
-}
-
-func termProduct(terms ...Term) Expr {
-	// flatten any nested products
-	terms = util.Flatten(terms, func(t Term) []Term {
-		if t, ok := t.(*Mul); ok {
-			return t.Args
-		}
-		//
-		return nil
-	})
-	// Remove all multiplications by one
-	terms = util.RemoveMatching(terms, isOne)
-	// Check for zero
-	if util.ContainsMatching(terms, isZero) {
-		return ZERO
-	}
-	// Final optimisation
-	switch len(terms) {
-	case 0:
-		return NewConst64(1)
-	case 1:
-		return Expr{terms[0]}
-	default:
-		return Expr{&Mul{terms}}
-	}
+	panic("todo")
 }
 
 // Subtract returns the subtraction of the subsequent expressions from the
 // first.
 func Subtract(exprs ...Expr) Expr {
-	if len(exprs) == 0 {
-		return NewConst64(0)
-	}
-	//
-	return Expr{&Sub{asTerms(exprs...)}}
-}
-
-func asTerms(exprs ...Expr) []Term {
-	terms := make([]Term, len(exprs))
-	//
-	for i, e := range exprs {
-		terms[i] = e.term
-	}
-	//
-	return terms
-}
-
-func isOne(term Term) bool {
-	if t, ok := term.(*Constant); ok {
-		return t.Value.IsOne()
-	}
-	//
-	return false
-}
-
-func isZero(term Term) bool {
-	if t, ok := term.(*Constant); ok {
-		return t.Value.IsZero()
-	}
-	//
-	return false
-}
-
-func init() {
-	ONE = NewConst64(1)
-	ZERO = NewConst64(0)
+	panic("todo")
 }

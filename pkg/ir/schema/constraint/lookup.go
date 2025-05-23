@@ -88,17 +88,17 @@ type LookupConstraint[E schema.Evaluable] struct {
 
 // NewLookupConstraint creates a new lookup constraint with a given handle.
 func NewLookupConstraint[E schema.Evaluable](handle string, source trace.Context,
-	target trace.Context, sources []E, targets []E) *LookupConstraint[E] {
+	target trace.Context, sources []E, targets []E) LookupConstraint[E] {
 	if len(targets) != len(sources) {
 		panic("differeng number of target / source lookup columns")
 	}
 
-	return &LookupConstraint[E]{handle, source, target, sources, targets}
+	return LookupConstraint[E]{handle, source, target, sources, targets}
 }
 
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
-func (p *LookupConstraint[E]) Name() (string, uint) {
+func (p LookupConstraint[E]) Name() (string, uint) {
 	return p.Handle, 0
 }
 
@@ -107,14 +107,14 @@ func (p *LookupConstraint[E]) Name() (string, uint) {
 // evaluation context, though some (e.g. lookups) have more.  Note that all
 // constraints have at least one context (which we can call the "primary"
 // context).
-func (p *LookupConstraint[E]) Contexts() []trace.Context {
+func (p LookupConstraint[E]) Contexts() []trace.Context {
 	// source context designated as primary.
 	return []trace.Context{p.SourceContext, p.TargetContext}
 }
 
 // Branches returns the total number of logical branches this constraint can
 // take during evaluation.
-func (p *LookupConstraint[E]) Branches() uint {
+func (p LookupConstraint[E]) Branches() uint {
 	// NOTE: at the moment, we don't consider branches through lookups.  This is
 	// perhaps a degree of imprecision as some lookups have selectors.
 	return 1
@@ -127,7 +127,7 @@ func (p *LookupConstraint[E]) Branches() uint {
 // expression on that first row is also undefined (and hence must pass).
 //
 //nolint:revive
-func (p *LookupConstraint[E]) Bounds(module uint) util.Bounds {
+func (p LookupConstraint[E]) Bounds(module uint) util.Bounds {
 	var bound util.Bounds
 	//
 	if module == p.SourceContext.Module() {
@@ -149,7 +149,7 @@ func (p *LookupConstraint[E]) Bounds(module uint) util.Bounds {
 // all rows of the source columns.
 //
 //nolint:revive
-func (p *LookupConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
+func (p LookupConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
 	var (
 		coverage  bit.Set
 		srcModule = tr.Module(p.SourceContext.ModuleId)
@@ -225,7 +225,7 @@ func evalExprsAsBytes[E schema.Evaluable](k int, sources []E, handle string, mod
 // so it can be printed.
 //
 //nolint:revive
-func (p *LookupConstraint[E]) Lisp(module schema.Module) sexp.SExp {
+func (p LookupConstraint[E]) Lisp(module schema.Module) sexp.SExp {
 	sources := sexp.EmptyList()
 	targets := sexp.EmptyList()
 	// Iterate source expressions

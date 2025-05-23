@@ -10,14 +10,31 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package air
+package term
 
-import "github.com/consensys/go-corset/pkg/ir/schema"
+import (
+	"github.com/consensys/go-corset/pkg/ir/schema"
+	"github.com/consensys/go-corset/pkg/trace"
+)
 
-type Constraint interface {
-	schema.Constraint
-	// Air marks the constraints as been valid for the AIR representation.
-	Air()
+// Constraint represents a formula in conjunctive normal form.
+type Conjunct[T schema.LogicalTerm[T]] struct {
+	// Terms here are disjuncted to formulate the final logical result.
+	conjuncts []T
 }
 
-type Schema = schema.Schema[schema.Table, Constraint]
+func (p *Conjunct[T]) TestAt(k int, tr trace.Module) (bool, error) {
+	//
+	for _, disjunct := range p.conjuncts {
+		val, _, err := disjunct.TestAt(k, tr)
+		//
+		if err != nil {
+			return val, err
+		} else if !val {
+			// Failure
+			return val, nil
+		}
+	}
+	// Success
+	return true, nil
+}

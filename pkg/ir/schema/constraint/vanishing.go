@@ -75,13 +75,13 @@ type VanishingConstraint[T schema.Testable] struct {
 
 // NewVanishingConstraint constructs a new vanishing constraint!
 func NewVanishingConstraint[T schema.Testable](handle string, casenum uint, context trace.Context,
-	domain util.Option[int], constraint T) *VanishingConstraint[T] {
-	return &VanishingConstraint[T]{handle, casenum, context, domain, constraint}
+	domain util.Option[int], constraint T) VanishingConstraint[T] {
+	return VanishingConstraint[T]{handle, casenum, context, domain, constraint}
 }
 
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
-func (p *VanishingConstraint[E]) Name() (string, uint) {
+func (p VanishingConstraint[E]) Name() (string, uint) {
 	return p.Handle, p.Case
 }
 
@@ -90,13 +90,13 @@ func (p *VanishingConstraint[E]) Name() (string, uint) {
 // evaluation context, though some (e.g. lookups) have more.  Note that all
 // constraints have at least one context (which we can call the "primary"
 // context).
-func (p *VanishingConstraint[E]) Contexts() []trace.Context {
+func (p VanishingConstraint[E]) Contexts() []trace.Context {
 	return []trace.Context{p.Context}
 }
 
 // Branches returns the total number of logical branches this constraint can
 // take during evaluation.
-func (p *VanishingConstraint[E]) Branches() uint {
+func (p VanishingConstraint[E]) Branches() uint {
 	return p.Constraint.Branches()
 }
 
@@ -107,7 +107,7 @@ func (p *VanishingConstraint[E]) Branches() uint {
 // expression on that first row is also undefined (and hence must pass).
 //
 //nolint:revive
-func (p *VanishingConstraint[T]) Bounds(module uint) util.Bounds {
+func (p VanishingConstraint[T]) Bounds(module uint) util.Bounds {
 	if p.Context.Module() == module {
 		return p.Constraint.Bounds()
 	}
@@ -119,7 +119,7 @@ func (p *VanishingConstraint[T]) Bounds(module uint) util.Bounds {
 // of a table.  If so, return nil otherwise return an error.
 //
 //nolint:revive
-func (p *VanishingConstraint[T]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
+func (p VanishingConstraint[T]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
 	var (
 		// Handle is used for error reporting.
 		handle = determineHandle(p.Handle, p.Context, tr)
@@ -198,7 +198,7 @@ func HoldsLocally[T schema.Testable](k uint, handle string, constraint T, tr tra
 // Lisp converts this constraint into an S-Expression.
 //
 //nolint:revive
-func (p *VanishingConstraint[T]) Lisp(module schema.Module) sexp.SExp {
+func (p VanishingConstraint[T]) Lisp(module schema.Module) sexp.SExp {
 	var (
 		name       string
 		multiplier uint

@@ -53,3 +53,8 @@ func (p *Schema[M, C]) Assertions() iter.Iterator[C] {
 func (p *Schema[M, C]) Modules() iter.Iterator[M] {
 	panic("todo")
 }
+
+// Add a new constraint into this schema.
+func (p *Schema[M, C]) Add(constraint C) {
+	p.constraints = append(p.constraints, constraint)
+}

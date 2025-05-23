@@ -19,7 +19,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/hir"
+	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/util/collection/typed"
 )
 
@@ -35,12 +35,12 @@ type BinaryFile struct {
 	// debugging, etc.
 	Attributes []Attribute
 	// The HIR Schema itself.
-	Schema hir.Schema
+	Schema mir.Schema
 }
 
 // NewBinaryFile constructs a new binary file with the default header for the
 // currently supported version.
-func NewBinaryFile(metadata []byte, attributes []Attribute, schema *hir.Schema) *BinaryFile {
+func NewBinaryFile(metadata []byte, attributes []Attribute, schema *mir.Schema) *BinaryFile {
 	return &BinaryFile{
 		Header{ZKBINARY, BINFILE_MAJOR_VERSION, BINFILE_MINOR_VERSION, metadata},
 		attributes,

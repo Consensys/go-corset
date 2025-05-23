@@ -61,25 +61,25 @@ func eliminateNormalisationInTerm(term Term, module schema.Module,
 	switch term := term.(type) {
 	case *Add:
 		args := eliminateNormalisationInTerms(term.Args, module, cfg)
-		return &Add{args}
+		return &Add{Args: args}
 	case *Cast:
 		arg := eliminateNormalisationInTerm(term.Arg, module, cfg)
-		return &Cast{arg, term.BitWidth}
+		return &Cast{Arg: arg, BitWidth: term.BitWidth}
 	case *Constant:
 		return term
 	case *ColumnAccess:
 		return term
 	case *Exp:
 		arg := eliminateNormalisationInTerm(term.Arg, module, cfg)
-		return &Exp{arg, term.Pow}
+		return &Exp{Arg: arg, Pow: term.Pow}
 	case *Mul:
 		args := eliminateNormalisationInTerms(term.Args, module, cfg)
-		return &Mul{args}
+		return &Mul{Args: args}
 	case *Norm:
 		return eliminateNormalisationInNorm(term.Arg, module, cfg)
 	case *Sub:
 		args := eliminateNormalisationInTerms(term.Args, module, cfg)
-		return &Sub{args}
+		return &Sub{Args: args}
 	default:
 		name := reflect.TypeOf(term).Name()
 		panic(fmt.Sprintf("unknown MIR expression \"%s\"", name))
@@ -98,7 +98,7 @@ func eliminateNormalisationInTerms(terms []Term, module schema.Module,
 }
 
 func eliminateNormalisationInNorm(arg Term, module schema.Module, cfg OptimisationConfig) Term {
-	bounds := rangeOfTerm(arg, module)
+	bounds := arg.ValueRange(module)
 	// optimise argument
 	arg = eliminateNormalisationInTerm(arg, module, cfg)
 	// Check whether normalisation actually required.  For example, if the
@@ -109,8 +109,8 @@ func eliminateNormalisationInNorm(arg Term, module schema.Module, cfg Optimisati
 		return arg
 	} else if cfg.InverseEliminiationLevel > 0 && bounds.Within(util.NewInterval64(-1, 1)) {
 		// arg ∈ {-1,0,1} ==> (arg*arg) ∈ {0,1}
-		return &Mul{[]Term{arg, arg}}
+		return &Mul{Args: []Term{arg, arg}}
 	}
 	// Nothing happening
-	return &Norm{arg}
+	return &Norm{Arg: arg}
 }
