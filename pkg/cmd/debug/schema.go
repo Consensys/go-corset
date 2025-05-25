@@ -15,32 +15,27 @@ package debug
 import (
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/hir"
-	"github.com/consensys/go-corset/pkg/mir"
-	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/ir/mir"
+	"github.com/consensys/go-corset/pkg/ir/schema"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
 // PrintSchemas is responsible for printing out a human-readable description of
 // a given schema.
-func PrintSchemas(hirSchema *hir.Schema, hir bool, mir bool, air bool,
+func PrintSchemas(mirSchema mir.Schema, mirEnable bool, airEnable bool,
 	optConfig mir.OptimisationConfig, textwidth uint) {
 	//
-	if hir {
-		printSchema(hirSchema, textwidth)
+	if mirEnable {
+		printSchema(mirSchema, textwidth)
 	}
 
-	if mir {
-		printSchema(hirSchema.LowerToMir(), textwidth)
-	}
-
-	if air {
-		printSchema(hirSchema.LowerToMir().LowerToAir(optConfig), textwidth)
+	if airEnable {
+		printSchema(mir.LowerToAir(&mirSchema, optConfig), textwidth)
 	}
 }
 
 // Print out all declarations included in a given
-func printSchema(schema schema.Schema, width uint) {
+func printSchema[M schema.Module, C schema.Constraint](schema schema.Schema[M, C], width uint) {
 	formatter := sexp.NewFormatter(width)
 	formatter.Add(&sexp.SFormatter{Head: "if", Priority: 0})
 	formatter.Add(&sexp.SFormatter{Head: "ifnot", Priority: 0})

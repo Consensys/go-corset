@@ -20,4 +20,4 @@ type Constraint interface {
 	Air()
 }
 
-type Schema = schema.Schema[schema.Table, Constraint]
+type Schema = schema.Schema[*schema.Table, Constraint]

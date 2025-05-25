@@ -19,7 +19,7 @@ import (
 // LowerToAir lowers (or refines) an MIR table into an AIR schema.  That means
 // lowering all the columns and constraints, whilst adding additional columns /
 // constraints as necessary to preserve the original semantics.
-func LowerToAir(schema *Schema, cfg OptimisationConfig) *air.Schema {
+func LowerToAir(schema *Schema, cfg OptimisationConfig) air.Schema {
 	// airSchema := air.EmptySchema[Expr]()
 	// // Copy modules
 	// for _, mod := range p.modules {

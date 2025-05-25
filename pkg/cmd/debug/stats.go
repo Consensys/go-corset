@@ -16,10 +16,9 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/consensys/go-corset/pkg/air"
-	"github.com/consensys/go-corset/pkg/hir"
-	"github.com/consensys/go-corset/pkg/mir"
-	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/ir/air"
+	"github.com/consensys/go-corset/pkg/ir/mir"
+	sc "github.com/consensys/go-corset/pkg/ir/schema"
 	"github.com/consensys/go-corset/pkg/schema/assignment"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 	"github.com/consensys/go-corset/pkg/util/termio"
@@ -27,20 +26,15 @@ import (
 
 // PrintStats is used for printing summary information about a constraint set,
 // such as the number and type of constraints, etc.
-func PrintStats(hirSchema *hir.Schema, hir bool, mir bool, air bool, optConfig mir.OptimisationConfig) {
+func PrintStats(mirSchema mir.Schema, mirEnable bool, airEnable bool, optConfig mir.OptimisationConfig) {
 	schemas := make([]sc.Schema, 0)
-	mirSchema := hirSchema.LowerToMir()
-	airSchema := mirSchema.LowerToAir(optConfig)
+	airSchema := mir.LowerToAir(&mirSchema, optConfig)
 	// Construct columns
-	if hir {
-		schemas = append(schemas, hirSchema)
-	}
-
-	if mir {
+	if mirEnable {
 		schemas = append(schemas, mirSchema)
 	}
 
-	if air {
+	if airEnable {
 		schemas = append(schemas, airSchema)
 	}
 	//
@@ -101,17 +95,14 @@ var schemaSummarisers []schemaSummariser = []schemaSummariser{
 }
 
 var vanishingConstraints = []reflect.Type{
-	reflect.TypeOf((hir.VanishingConstraint)(nil)),
 	reflect.TypeOf((mir.VanishingConstraint)(nil)),
 	reflect.TypeOf((air.VanishingConstraint)(nil))}
 
 var lookupConstraints = []reflect.Type{
-	reflect.TypeOf((hir.LookupConstraint)(nil)),
 	reflect.TypeOf((mir.LookupConstraint)(nil)),
 	reflect.TypeOf((air.LookupConstraint)(nil))}
 
 var rangeConstraints = []reflect.Type{
-	reflect.TypeOf((hir.RangeConstraint)(nil)),
 	reflect.TypeOf((mir.RangeConstraint)(nil)),
 	reflect.TypeOf((air.RangeConstraint)(nil))}
 

@@ -14,7 +14,6 @@ package cmd
 
 import (
 	"bytes"
-	enc_json "encoding/json"
 	"fmt"
 	"math/big"
 	"os"
@@ -28,14 +27,12 @@ import (
 	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/corset"
 	corset_ast "github.com/consensys/go-corset/pkg/corset/ast"
-	"github.com/consensys/go-corset/pkg/hir"
-	"github.com/consensys/go-corset/pkg/mir"
-	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/ir/mir"
+	sc "github.com/consensys/go-corset/pkg/ir/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/json"
 	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util"
-	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/typed"
 	"github.com/consensys/go-corset/pkg/util/source"
 	log "github.com/sirupsen/logrus"
@@ -122,11 +119,11 @@ func GetIntArray(cmd *cobra.Command, flag string) []int {
 
 // Determine conservative amounts of spillage.  That is, enough spillage to
 // cover all optimisation levels.
-func determineConservativeSpillage(defensive bool, hirSchema *hir.Schema) []uint {
+func determineConservativeSpillage(defensive bool, mirSchema mir.Schema) []uint {
 	var spillage []uint
 
 	for i, opt := range mir.OPTIMISATION_LEVELS {
-		ith := determineSpillage(hirSchema, defensive, opt)
+		ith := determineSpillage(mirSchema, defensive, opt)
 		//
 		if i == 0 {
 			spillage = ith
@@ -143,9 +140,9 @@ func determineConservativeSpillage(defensive bool, hirSchema *hir.Schema) []uint
 
 // Determine spillage required for a given schema and optimisation configuration
 // with (or without) defensive padding.
-func determineSpillage(hirSchema *hir.Schema, defensive bool, optConfig mir.OptimisationConfig) []uint {
+func determineSpillage(mirSchema mir.Schema, defensive bool, optConfig mir.OptimisationConfig) []uint {
 	// Compile constraints fully
-	airSchema := hirSchema.LowerToMir().LowerToAir(optConfig)
+	airSchema := mir.LowerToAir(&mirSchema, optConfig)
 	// Determine how many modules in schema.
 	nModules := airSchema.Modules().Count()
 	//
@@ -230,158 +227,157 @@ func checkExternExists(name []string, mod corset.SourceModule) bool {
 	return false
 }
 
-func writeCoverageReport(filename string, binfile *binfile.BinaryFile, coverage [3]sc.CoverageMap,
-	config mir.OptimisationConfig) {
-	//
-	var (
-		air                 = coverage[0]
-		mir                 = coverage[1]
-		hir                 = coverage[2]
-		data map[string]any = make(map[string]any)
-	)
-	// // Lower schemas
-	// hirSchema := &binfile.Schema
-	// mirSchema := hirSchema.LowerToMir()
-	// airSchema := mirSchema.LowerToAir(config)
-	// // Add AIR data (if applicable)
-	// if !air.IsEmpty() {
-	// 	data["air"] = air.ToJson(airSchema)
-	// }
-	// // Add MIR data (if applicable)
-	// if !mir.IsEmpty() {
-	// 	data["mir"] = mir.ToJson(mirSchema)
-	// }
-	// // Add HIR data (if applicable)
-	// if !hir.IsEmpty() {
-	// 	data["hir"] = hir.ToJson(hirSchema)
-	// }
-	// // write to disk
-	// jsonString, err := enc_json.Marshal(data)
-	// //
-	// if err != nil {
-	// 	fmt.Println(err)
-	// 	os.Exit(5)
-	// } else if err := os.WriteFile(filename, jsonString, 0644); err != nil {
-	// 	fmt.Println(err)
-	// 	os.Exit(6)
-	// }
-	panic("todo")
-}
+// func writeCoverageReport(filename string, binfile *binfile.BinaryFile, coverage [3]sc.CoverageMap,
+// 	config mir.OptimisationConfig) {
+// 	//
+// 	var (
+// 		air                 = coverage[0]
+// 		mir                 = coverage[1]
+// 		hir                 = coverage[2]
+// 		data map[string]any = make(map[string]any)
+// 	)
+// 	// Lower schemas
+// 	hirSchema := &binfile.Schema
+// 	mirSchema := hirSchema.LowerToMir()
+// 	airSchema := mirSchema.LowerToAir(config)
+// 	// Add AIR data (if applicable)
+// 	if !air.IsEmpty() {
+// 		data["air"] = air.ToJson(airSchema)
+// 	}
+// 	// Add MIR data (if applicable)
+// 	if !mir.IsEmpty() {
+// 		data["mir"] = mir.ToJson(mirSchema)
+// 	}
+// 	// Add HIR data (if applicable)
+// 	if !hir.IsEmpty() {
+// 		data["hir"] = hir.ToJson(hirSchema)
+// 	}
+// 	// write to disk
+// 	jsonString, err := enc_json.Marshal(data)
+// 	//
+// 	if err != nil {
+// 		fmt.Println(err)
+// 		os.Exit(5)
+// 	} else if err := os.WriteFile(filename, jsonString, 0644); err != nil {
+// 		fmt.Println(err)
+// 		os.Exit(6)
+// 	}
+// }
 
-func readCoverageReport(filename string, binfile *binfile.BinaryFile, config mir.OptimisationConfig) [3]sc.CoverageMap {
-	var (
-		report map[string]map[string][]uint
-		air    sc.CoverageMap
-		mir    sc.CoverageMap
-		hir    sc.CoverageMap
-	)
-	// Read data file
-	bytes, err := os.ReadFile(filename)
-	// Lower schemas
-	hirSchema := &binfile.Schema
-	mirSchema := hirSchema.LowerToMir()
-	airSchema := mirSchema.LowerToAir(config)
-	// Check success
-	if err == nil {
-		if err = enc_json.Unmarshal(bytes, &report); err == nil {
-			// Read air section
-			if section, ok := report["air"]; ok {
-				air = readCoverageReportSection(section, airSchema)
-			}
-			// Read mir section
-			if section, ok := report["mir"]; ok {
-				mir = readCoverageReportSection(section, mirSchema)
-			}
-			// Read hir section
-			if section, ok := report["hir"]; ok {
-				hir = readCoverageReportSection(section, hirSchema)
-			}
-			// Done
-			return [3]sc.CoverageMap{air, mir, hir}
-		}
-	}
-	// Handle error
-	fmt.Println(err)
-	os.Exit(4)
-	// unreachable
-	return [3]sc.CoverageMap{air, mir, hir}
-}
+// func readCoverageReport(filename string, binfile *binfile.BinaryFile, config mir.OptimisationConfig) [3]sc.CoverageMap {
+// 	var (
+// 		report map[string]map[string][]uint
+// 		air    sc.CoverageMap
+// 		mir    sc.CoverageMap
+// 		hir    sc.CoverageMap
+// 	)
+// 	// Read data file
+// 	bytes, err := os.ReadFile(filename)
+// 	// Lower schemas
+// 	hirSchema := &binfile.Schema
+// 	mirSchema := hirSchema.LowerToMir()
+// 	airSchema := mirSchema.LowerToAir(config)
+// 	// Check success
+// 	if err == nil {
+// 		if err = enc_json.Unmarshal(bytes, &report); err == nil {
+// 			// Read air section
+// 			if section, ok := report["air"]; ok {
+// 				air = readCoverageReportSection(section, airSchema)
+// 			}
+// 			// Read mir section
+// 			if section, ok := report["mir"]; ok {
+// 				mir = readCoverageReportSection(section, mirSchema)
+// 			}
+// 			// Read hir section
+// 			if section, ok := report["hir"]; ok {
+// 				hir = readCoverageReportSection(section, hirSchema)
+// 			}
+// 			// Done
+// 			return [3]sc.CoverageMap{air, mir, hir}
+// 		}
+// 	}
+// 	// Handle error
+// 	fmt.Println(err)
+// 	os.Exit(4)
+// 	// unreachable
+// 	return [3]sc.CoverageMap{air, mir, hir}
+// }
 
-func readCoverageReportSection(section map[string][]uint, schema sc.Schema) sc.CoverageMap {
-	report := sc.NewBranchCoverage()
-	//
-	for k, vals := range section {
-		var (
-			covered            bit.Set
-			mid, name, casenum = splitConstraintName(k, schema)
-		)
-		// Insert all elements
-		covered.InsertAll(vals...)
-		// Done
-		report.Record(mid, name, casenum, covered)
-	}
-	//
-	return report
-}
+// func readCoverageReportSection(section map[string][]uint, schema sc.Schema) sc.CoverageMap {
+// 	report := sc.NewBranchCoverage()
+// 	//
+// 	for k, vals := range section {
+// 		var (
+// 			covered            bit.Set
+// 			mid, name, casenum = splitConstraintName(k, schema)
+// 		)
+// 		// Insert all elements
+// 		covered.InsertAll(vals...)
+// 		// Done
+// 		report.Record(mid, name, casenum, covered)
+// 	}
+// 	//
+// 	return report
+// }
 
-func splitConstraintName(name string, schema sc.Schema) (uint, string, uint) {
-	mid, name := splitConstraintModuleName(name, schema)
-	name, casenum := splitConstraintNameNum(name)
-	// Done
-	return mid, name, casenum
-}
+// func splitConstraintName(name string, schema sc.Schema) (uint, string, uint) {
+// 	mid, name := splitConstraintModuleName(name, schema)
+// 	name, casenum := splitConstraintNameNum(name)
+// 	// Done
+// 	return mid, name, casenum
+// }
 
-func splitConstraintModuleName(name string, schema sc.Schema) (uint, string) {
-	var (
-		err    error
-		splits = strings.Split(name, ".")
-	)
-	//
-	switch len(splits) {
-	case 1:
-		return 0, name
-	case 2:
-		// Lookup the module identifier for the given module name
-		if mid, ok := schema.Modules().Find(func(m sc.Module) bool { return m.Name == splits[0] }); ok {
-			return mid, splits[1]
-		}
-		// error
-		err = fmt.Errorf("unknown module %s in coverage report", splits[0])
-	default:
-		err = fmt.Errorf("unknown constraint %s in coverage report", name)
-	}
-	// Handle error
-	fmt.Println(err)
-	os.Exit(4)
-	// unreachable
-	return 0, ""
-}
-func splitConstraintNameNum(name string) (string, uint) {
-	var (
-		err    error
-		splits = strings.Split(name, "#")
-	)
-	//
-	switch len(splits) {
-	case 1:
-		return name, 0
-	case 2:
-		var num int
-		// Lookup the module identifier for the given module name
-		if num, err = strconv.Atoi(splits[1]); err == nil && num >= 0 {
-			return splits[0], uint(num)
-		}
-		// error
-		err = fmt.Errorf("unknown module %s in coverage report", splits[0])
-	default:
-		err = fmt.Errorf("unknown constraint %s in coverage report", name)
-	}
-	// Handle error
-	fmt.Println(err)
-	os.Exit(4)
-	// unreachable
-	return "", 0
-}
+// func splitConstraintModuleName(name string, schema sc.Schema) (uint, string) {
+// 	var (
+// 		err    error
+// 		splits = strings.Split(name, ".")
+// 	)
+// 	//
+// 	switch len(splits) {
+// 	case 1:
+// 		return 0, name
+// 	case 2:
+// 		// Lookup the module identifier for the given module name
+// 		if mid, ok := schema.Modules().Find(func(m sc.Module) bool { return m.Name == splits[0] }); ok {
+// 			return mid, splits[1]
+// 		}
+// 		// error
+// 		err = fmt.Errorf("unknown module %s in coverage report", splits[0])
+// 	default:
+// 		err = fmt.Errorf("unknown constraint %s in coverage report", name)
+// 	}
+// 	// Handle error
+// 	fmt.Println(err)
+// 	os.Exit(4)
+// 	// unreachable
+// 	return 0, ""
+// }
+// func splitConstraintNameNum(name string) (string, uint) {
+// 	var (
+// 		err    error
+// 		splits = strings.Split(name, "#")
+// 	)
+// 	//
+// 	switch len(splits) {
+// 	case 1:
+// 		return name, 0
+// 	case 2:
+// 		var num int
+// 		// Lookup the module identifier for the given module name
+// 		if num, err = strconv.Atoi(splits[1]); err == nil && num >= 0 {
+// 			return splits[0], uint(num)
+// 		}
+// 		// error
+// 		err = fmt.Errorf("unknown module %s in coverage report", splits[0])
+// 	default:
+// 		err = fmt.Errorf("unknown constraint %s in coverage report", name)
+// 	}
+// 	// Handle error
+// 	fmt.Println(err)
+// 	os.Exit(4)
+// 	// unreachable
+// 	return "", 0
+// }
 
 func writeBatchedTracesFile(filename string, traces ...[]trace.RawColumn) {
 	var buf bytes.Buffer

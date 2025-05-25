@@ -19,7 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/cmd/debug"
 	"github.com/consensys/go-corset/pkg/corset"
-	"github.com/consensys/go-corset/pkg/mir"
+	"github.com/consensys/go-corset/pkg/ir/mir"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -49,7 +49,6 @@ var debugCmd = &cobra.Command{
 		}
 		//
 		optConfig := mir.OPTIMISATION_LEVELS[optimisation]
-		hir := GetFlag(cmd, "hir")
 		mir := GetFlag(cmd, "mir")
 		air := GetFlag(cmd, "air")
 		masm := GetFlag(cmd, "asm")
@@ -73,7 +72,7 @@ var debugCmd = &cobra.Command{
 			debug.PrintAssemblyProgram(uasm, asmConfig, program)
 		}
 		//
-		if hir || mir || air {
+		if mir || air {
 			binfile := ReadConstraintFiles(corsetConfig, asmConfig, args)
 			// Apply any user-specified values for externalised constants.
 			applyExternOverrides(externs, binfile)
@@ -91,7 +90,7 @@ var debugCmd = &cobra.Command{
 			}
 			// Print stats (if requested)
 			if stats {
-				debug.PrintStats(&binfile.Schema, hir, mir, air, optConfig)
+				debug.PrintStats(binfile.Schema, mir, air, optConfig)
 			}
 			// Print embedded attributes (if requested
 			if attrs {
@@ -99,7 +98,7 @@ var debugCmd = &cobra.Command{
 			}
 			//
 			if !stats && !attrs {
-				debug.PrintSchemas(&binfile.Schema, hir, mir, air, optConfig, textWidth)
+				debug.PrintSchemas(binfile.Schema, mir, air, optConfig, textWidth)
 			}
 		}
 	},
@@ -112,7 +111,6 @@ func init() {
 	debugCmd.Flags().Bool("attributes", false, "Print attribute information")
 	debugCmd.Flags().Bool("constants", false, "Print information about externalised constants")
 	debugCmd.Flags().Bool("debug", false, "enable debugging constraints")
-	debugCmd.Flags().Bool("hir", false, "Print constraints at HIR level")
 	debugCmd.Flags().Bool("metadata", false, "Print embedded metadata")
 	debugCmd.Flags().Bool("mir", false, "Print constraints at MIR level")
 	debugCmd.Flags().Bool("stats", false, "Print summary information")

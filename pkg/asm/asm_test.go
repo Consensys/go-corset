@@ -111,7 +111,7 @@ func check(t *testing.T, test string) {
 		checkTraces(t, test, "µASM", cfg, microTraces)
 		//
 		if len(microTraces) > 0 {
-			// Check traces at HIR/MIR/AIR levels
+			// Check traces at MIR/AIR levels
 			checkIrTraces(t, test, cfg, microTraces)
 		}
 		// Record how many tests we found
@@ -141,29 +141,27 @@ func checkIrTraces(t *testing.T, test string, cfg TestConfig, traces []io.Trace[
 	var (
 		maxPadding = MAX_PADDING
 		program    = traces[0].Program()
-		hirTraces  [][]trace.RawColumn
+		rawTraces  [][]trace.RawColumn
 	)
 	//
 	binFile := CompileBinary(fmt.Sprintf("%s.lisp", test), program)
-	mirSchema := &binFile.Schema
+	mirSchema := binFile.Schema
 	//
 	for _, tr := range traces {
-		hirTraces = append(hirTraces, LowerMicroTrace(tr))
+		rawTraces = append(rawTraces, LowerMicroTrace(tr))
 	}
 	//
-	for i, tr := range hirTraces {
+	for i, tr := range rawTraces {
 		if tr != nil {
 			// Lower MIR => AIR
-			airSchema := mir.LowerToAir(mirSchema, mir.DEFAULT_OPTIMISATION_LEVEL)
+			airSchema := mir.LowerToAir(&mirSchema, mir.DEFAULT_OPTIMISATION_LEVEL)
 			// Align trace with schema, and check whether expanded or not.
 			for padding := uint(0); padding <= maxPadding; padding++ {
 				// Construct trace identifiers
-				hirID := traceId{"HIR", test, cfg.expected, i + 1, padding}
 				mirID := traceId{"MIR", test, cfg.expected, i + 1, padding}
 				airID := traceId{"AIR", test, cfg.expected, i + 1, padding}
-				// Only HIR / MIR constraints for traces which must be
+				// Only MIR constraints for traces which must be
 				// expanded.  They don't really make sense otherwise.
-				checkTrace(t, tr, hirID, mirSchema)
 				checkTrace(t, tr, mirID, mirSchema)
 				// Always check AIR constraints
 				checkTrace(t, tr, airID, airSchema)
@@ -172,7 +170,7 @@ func checkIrTraces(t *testing.T, test string, cfg TestConfig, traces []io.Trace[
 	}
 }
 
-func checkTrace(t *testing.T, inputs []trace.RawColumn, id traceId, schema sc.Schema) {
+func checkTrace[M sc.Module, C sc.Constraint](t *testing.T, inputs []trace.RawColumn, id traceId, schema sc.Schema[M, C]) {
 	// Construct the trace
 	tr, errs := sc.NewTraceBuilder(schema).
 		Padding(id.padding).
