@@ -88,6 +88,7 @@ func getSchemaStack(cmd *cobra.Command, filenames ...string) *cmd_util.SchemaSta
 	// Configure the stack
 	schemaStack.WithAssemblyConfig(asmConfig)
 	schemaStack.WithCorsetConfig(corsetConfig)
+	schemaStack.WithOptimisationConfig(mir.OPTIMISATION_LEVELS[optimisation])
 	schemaStack.WithConstantDefinitions(externs)
 	//
 	if asmEnable {

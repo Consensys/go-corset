@@ -25,6 +25,7 @@ import (
 	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/corset"
 	corset_ast "github.com/consensys/go-corset/pkg/corset/ast"
+	"github.com/consensys/go-corset/pkg/ir/air"
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
@@ -59,6 +60,8 @@ type SchemaStack struct {
 	corsetConfig corset.CompilationConfig
 	// Asm lowering config options
 	asmConfig asm.LoweringConfig
+	// Mir optimisation config options
+	mirConfig mir.OptimisationConfig
 	// Externalised constant definitions
 	externs []string
 	// Layers identifies which layers are included in the stack.
@@ -85,6 +88,13 @@ func (p *SchemaStack) WithAssemblyConfig(config asm.LoweringConfig) *SchemaStack
 // WithCorsetConfig determines the compilation configuration to use for Corset.
 func (p *SchemaStack) WithCorsetConfig(config corset.CompilationConfig) *SchemaStack {
 	p.corsetConfig = config
+	return p
+}
+
+// WithOptimisationConfig determines the optimisation level to apply at the MIR
+// layer.
+func (p *SchemaStack) WithOptimisationConfig(config mir.OptimisationConfig) *SchemaStack {
+	p.mirConfig = config
 	return p
 }
 
@@ -115,7 +125,41 @@ func (p *SchemaStack) Schemas() []schema.AnySchema {
 
 // ReadConstraintFiles reads one or more constraints files into this stack.
 func (p *SchemaStack) Read(filenames ...string) {
+	var (
+		asmSchema  asm.MacroProgram
+		uasmSchema asm.MicroProgram
+		mirSchema  mir.Schema
+		airSchema  air.Schema
+		errors     []source.SyntaxError
+	)
 	p.binfile = ReadConstraintFiles(p.corsetConfig, p.asmConfig, filenames)
+	//
+	asmSchema = p.BinaryFile().Schema
+	uasmSchema = asm.Lower(p.asmConfig, asmSchema)
+	mirSchema, errors = asm.Compile2Circuit(m, p.asmConfig, *srcfiles[i])
+	airSchema = mir.LowerToAir(&mirSchema, p.mirConfig)
+	// Check for lowering errors
+	if len(errors) > 0 {
+		// Report errors
+		for _, err := range errors {
+			printSyntaxError(&err)
+		}
+		// Fail
+		os.Exit(4)
+	}
+	//
+	if p.layers.Contains(MACRO_ASM_LAYER) {
+		p.schemas = append(p.schemas, asmSchema)
+	}
+	if p.layers.Contains(MICRO_ASM_LAYER) {
+		p.schemas = append(p.schemas, uasmSchema)
+	}
+	if p.layers.Contains(MIR_LAYER) {
+		p.schemas = append(p.schemas, mirSchema)
+	}
+	if p.layers.Contains(AIR_LAYER) {
+		p.schemas = append(p.schemas, schema.Any(airSchema))
+	}
 	// Apply any user-specified values for externalised constants.
 	applyExternOverrides(p.externs, &p.binfile)
 }
