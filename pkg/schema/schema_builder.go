@@ -21,7 +21,11 @@ func NewSchemaBuilder[C Constraint]() SchemaBuilder[C] {
 	panic("todo")
 }
 
-func (p *SchemaBuilder[C]) NewModule(name string) *ModuleBuilder {
+func (p *SchemaBuilder[C]) NewModule(name string) uint {
+	panic("todo")
+}
+
+func (p *SchemaBuilder[C]) AddConstraint(constraint C) {
 	panic("todo")
 }
 

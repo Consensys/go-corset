@@ -177,7 +177,7 @@ func (t *translator) translateTypeConstraints(regIndex uint) {
 		// Add appropriate type constraint
 		bound := regInfo.DataType.AsUint().Bound()
 		constraint := constraint.NewRangeConstraint(regInfo.Name(), regInfo.Context, ir.NewColumnAccess[mir.Term](regIndex, 0), bound)
-		t.schema.Add(constraint)
+		t.schema.AddConstraint(constraint)
 	}
 }
 
@@ -367,7 +367,7 @@ func (t *translator) translateDefLookup(decl *ast.DefLookup, module util.Path) [
 	//
 	if len(errors) == 0 {
 		// Add translated constraint
-		t.schema.Add(constraint.NewLookupConstraint(decl.Handle,
+		t.schema.AddConstraint(constraint.NewLookupConstraint(decl.Handle,
 			t.env.ContextOf(src_ctx),
 			t.env.ContextOf(dst_ctx),
 			sources,
