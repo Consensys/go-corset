@@ -12,71 +12,24 @@
 // SPDX-License-Identifier: Apache-2.0
 package schema
 
-import (
-	"github.com/consensys/go-corset/pkg/trace"
-	"github.com/consensys/go-corset/pkg/util/collection/iter"
-)
-
-type MutableSchema[M any, C any] struct {
-	modules     []M
+type SchemaBuilder[M Module, C Constraint] struct {
+	modules     []ModuleBuilder
 	constraints []C
-	// Expander is responsible for expanding a given trace according to this
-	// schema.  Specifically, given a well-formed set of input columns, this
-	// means computing values for all computed columns in the schema.
-	expander Expander[M, C]
 }
 
-// Add a new constraint into this schema.
-func (p *MutableSchema[M, C]) Add(constraint C) {
-	p.constraints = append(p.constraints, constraint)
-}
-
-func (p *MutableSchema[M, C]) AddModule(name string) uint {
+func (p *SchemaBuilder[M, C]) NewModule(name string) *ModuleBuilder {
 	panic("todo")
 }
 
-// Expand a given trace according to this schema by computing the values for all
-// computed columns.  Observe that this can result in modules having different
-// heights after the expansion, for a variety of reasons.  For example, spillage
-// and/or defensive padding maybe applied.  Likewise, function instances may be
-// fleshed out with their full trace, etc.
-func (p *MutableSchema[M, C]) Expand(tr trace.Trace) trace.Trace {
-	//return p.expander(*p, tr)
+func (p *SchemaBuilder[M, C]) Build() Schema[M, C] {
 	panic("todo")
 }
 
-// Access a given module in this schema.
-func (p *MutableSchema[M, C]) Module(module uint) M {
-	return p.modules[module]
+type ModuleBuilder struct {
+	name    string
+	columns []Column
 }
 
-// Returns the number of modules in this schema.
-func (p *MutableSchema[M, C]) Width() uint {
-	return uint(len(p.modules))
-}
-
-// Consistent applies a number of internal consistency checks.  Whilst not
-// strictly necessary, these can highlight otherwise hidden problems as an aid
-// to debugging.
-func (p *MutableSchema[M, C]) Consistent() error {
+func (p *ModuleBuilder) NewColumn(column Column) uint {
 	panic("todo")
-}
-
-// Constraints returns an iterator over all constraints defined in this
-// schema.
-func (p *MutableSchema[M, C]) Constraints() iter.Iterator[C] {
-	return iter.NewArrayIterator(p.constraints)
-}
-
-// Assertions returns an iterator over the property assertions of this
-// schema.  These are properties which should hold true for any valid trace
-// (though, of course, may not hold true for an invalid trace).
-func (p *MutableSchema[M, C]) Assertions() iter.Iterator[C] {
-	panic("todo")
-}
-
-// Modules returns an iterator over the declared set of modules within this
-// schema.
-func (p *MutableSchema[M, C]) Modules() iter.Iterator[M] {
-	return iter.NewArrayIterator(p.modules)
 }
