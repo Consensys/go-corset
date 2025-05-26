@@ -10,14 +10,14 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package term
+package ir
 
 import (
 	"fmt"
 	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/ir/schema"
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -30,7 +30,7 @@ import (
 // contains the column accesses "STAMP(0)" and "CT(-1)".  Then, STAMP(0)
 // accesses the STAMP column at row 5, whilst CT(-1) accesses the CT column at
 // row 4.
-type ColumnAccess[T schema.Term[T]] struct {
+type ColumnAccess[T Term[T]] struct {
 	Column uint
 	Shift  int
 }
@@ -52,16 +52,6 @@ func (p *ColumnAccess[T]) Bounds() util.Bounds {
 	}
 	// Negative shift
 	return util.NewBounds(uint(-p.Shift), 0)
-}
-
-// Branches implementation for Evaluable interface.
-func (p *ColumnAccess[T]) Branches() uint {
-	panic("todo")
-}
-
-// Context implementation for Contextual interface.
-func (p *ColumnAccess[T]) Context(module schema.Module) trace.Context {
-	return module.Column(p.Column).Context
 }
 
 // EvalAt implementation for Evaluable interface.

@@ -10,15 +10,14 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package term
+package ir
 
 import (
-	"github.com/consensys/go-corset/pkg/ir/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 )
 
 // Constraint represents a formula in conjunctive normal form.
-type Conjunct[T schema.LogicalTerm[T]] struct {
+type Conjunct[T LogicalTerm[T]] struct {
 	// Terms here are disjuncted to formulate the final logical result.
 	conjuncts []T
 }

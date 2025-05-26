@@ -16,26 +16,24 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/consensys/go-corset/pkg/ir/air"
 	"github.com/consensys/go-corset/pkg/ir/mir"
-	sc "github.com/consensys/go-corset/pkg/ir/schema"
-	"github.com/consensys/go-corset/pkg/schema/assignment"
-	"github.com/consensys/go-corset/pkg/util/collection/iter"
+	"github.com/consensys/go-corset/pkg/schema"
+	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/termio"
 )
 
 // PrintStats is used for printing summary information about a constraint set,
 // such as the number and type of constraints, etc.
 func PrintStats(mirSchema mir.Schema, mirEnable bool, airEnable bool, optConfig mir.OptimisationConfig) {
-	schemas := make([]sc.Schema, 0)
+	schemas := make([]sc.AnySchema, 0)
 	airSchema := mir.LowerToAir(&mirSchema, optConfig)
 	// Construct columns
 	if mirEnable {
-		schemas = append(schemas, mirSchema)
+		schemas = append(schemas, sc.Any(mirSchema))
 	}
 
 	if airEnable {
-		schemas = append(schemas, airSchema)
+		schemas = append(schemas, sc.Any(airSchema))
 	}
 	//
 	n := 1 + uint(len(schemas))
@@ -65,23 +63,23 @@ func PrintStats(mirSchema mir.Schema, mirEnable bool, airEnable bool, optConfig 
 
 type schemaSummariser struct {
 	name    string
-	summary func(sc.Schema) int
+	summary func(sc.AnySchema) int
 }
 
 var schemaSummarisers []schemaSummariser = []schemaSummariser{
 	// Constraints
-	constraintCounter("Constraints", vanishingConstraints...),
-	constraintCounter("Lookups", lookupConstraints...),
-	constraintCounter("Permutations", permutationConstraints...),
-	constraintCounter("Range", rangeConstraints...),
+	constraintCounter("Constraints", isVanishingConstraint),
+	constraintCounter("Lookups", isLookupConstraint),
+	constraintCounter("Permutations", isPermutationConstraint),
+	constraintCounter("Range", isRangeConstraint),
 	// Assignments
-	assignmentCounter("Decompositions", reflect.TypeOf((*assignment.ByteDecomposition)(nil))),
-	assignmentCounter("Committed Columns", reflect.TypeOf((*assignment.DataColumn)(nil))),
-	assignmentCounter("Computed Columns", computedColumns...),
-	assignmentCounter("Computation Columns", reflect.TypeOf((*assignment.Computation)(nil))),
-	assignmentCounter("Interleavings", reflect.TypeOf((*assignment.Interleaving)(nil))),
-	assignmentCounter("Lexicographic Orderings", reflect.TypeOf((*assignment.LexicographicSort)(nil))),
-	assignmentCounter("Sorted Permutations", reflect.TypeOf((*assignment.SortedPermutation)(nil))),
+	// assignmentCounter("Decompositions", reflect.TypeOf((*assignment.ByteDecomposition)(nil))),
+	// assignmentCounter("Committed Columns", reflect.TypeOf((*assignment.DataColumn)(nil))),
+	// assignmentCounter("Computed Columns", computedColumns...),
+	// assignmentCounter("Computation Columns", reflect.TypeOf((*assignment.Computation)(nil))),
+	// assignmentCounter("Interleavings", reflect.TypeOf((*assignment.Interleaving)(nil))),
+	// assignmentCounter("Lexicographic Orderings", reflect.TypeOf((*assignment.LexicographicSort)(nil))),
+	// assignmentCounter("Sorted Permutations", reflect.TypeOf((*assignment.SortedPermutation)(nil))),
 	// Columns
 	columnCounter(),
 	columnWidthSummariser(1, 1),
@@ -94,33 +92,31 @@ var schemaSummarisers []schemaSummariser = []schemaSummariser{
 	columnWidthSummariser(129, 256),
 }
 
-var vanishingConstraints = []reflect.Type{
-	reflect.TypeOf((mir.VanishingConstraint)(nil)),
-	reflect.TypeOf((air.VanishingConstraint)(nil))}
+func isVanishingConstraint(c schema.Constraint) bool {
+	panic("todo")
+}
 
-var lookupConstraints = []reflect.Type{
-	reflect.TypeOf((mir.LookupConstraint)(nil)),
-	reflect.TypeOf((air.LookupConstraint)(nil))}
+func isLookupConstraint(c schema.Constraint) bool {
+	panic("todo")
+}
 
-var rangeConstraints = []reflect.Type{
-	reflect.TypeOf((mir.RangeConstraint)(nil)),
-	reflect.TypeOf((air.RangeConstraint)(nil))}
+func isPermutationConstraint(c schema.Constraint) bool {
+	panic("todo")
+}
 
-var permutationConstraints = []reflect.Type{
-	// permutation constraints only exist at AIR level
-	reflect.TypeOf((air.PermutationConstraint)(nil))}
+func isRangeConstraint(c schema.Constraint) bool {
+	panic("todo")
+}
 
-var computedColumns = []reflect.Type{
-	// permutation constraints only exist at AIR level
-	reflect.TypeOf((*assignment.ComputedColumn)(nil))}
-
-func constraintCounter(title string, types ...reflect.Type) schemaSummariser {
+func constraintCounter(title string, includes func(schema.Constraint) bool) schemaSummariser {
 	return schemaSummariser{
 		name: title,
-		summary: func(schema sc.Schema) int {
+		summary: func(schema sc.AnySchema) int {
 			sum := 0
-			for _, t := range types {
-				sum += typeOfCounter(schema.Constraints(), t)
+			for iter := schema.Constraints(); iter.HasNext(); {
+				if includes(iter.Next()) {
+					sum++
+				}
 			}
 			return sum
 		},
@@ -128,29 +124,17 @@ func constraintCounter(title string, types ...reflect.Type) schemaSummariser {
 }
 
 func assignmentCounter(title string, types ...reflect.Type) schemaSummariser {
-	return schemaSummariser{
-		name: title,
-		summary: func(schema sc.Schema) int {
-			sum := 0
-			for _, t := range types {
-				sum += typeOfCounter(schema.Declarations(), t)
-			}
-			return sum
-		},
-	}
-}
-
-func typeOfCounter[T any](iter iter.Iterator[T], dyntype reflect.Type) int {
-	count := 0
-
-	for iter.HasNext() {
-		ith := iter.Next()
-		if dyntype == reflect.TypeOf(ith) {
-			count++
-		}
-	}
-
-	return count
+	// return schemaSummariser{
+	// 	name: title,
+	// 	summary: func(schema sc.Schema) int {
+	// 		sum := 0
+	// 		for _, t := range types {
+	// 			sum += typeOfCounter(schema.Declarations(), t)
+	// 		}
+	// 		return sum
+	// 	},
+	// }
+	panic("todo")
 }
 
 func columnCounter() schemaSummariser {
@@ -171,7 +155,7 @@ func columnCounter() schemaSummariser {
 func columnWidthSummariser(lowWidth uint, highWidth uint) schemaSummariser {
 	return schemaSummariser{
 		name: fmt.Sprintf("Columns (%d..%d bits)", lowWidth, highWidth),
-		summary: func(schema sc.Schema) int {
+		summary: func(schema sc.AnySchema) int {
 			count := 0
 			for i := schema.Modules(); i.HasNext(); {
 				m := i.Next()

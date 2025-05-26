@@ -21,7 +21,7 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/ir/mir"
-	sc "github.com/consensys/go-corset/pkg/ir/schema"
+	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
@@ -174,7 +174,7 @@ func checkTrace[M sc.Module, C sc.Constraint](t *testing.T, inputs []trace.RawCo
 	// Construct the trace
 	tr, errs := sc.NewTraceBuilder(schema).
 		Padding(id.padding).
-		Parallel(true).
+		//Parallel(true).
 		Build(inputs)
 	// Sanity check construction
 	if len(errs) > 0 {
@@ -182,9 +182,9 @@ func checkTrace[M sc.Module, C sc.Constraint](t *testing.T, inputs []trace.RawCo
 			id.ir, id.test, id.line, id.padding, errs)
 	} else {
 		// Check Constraints
-		_, errs1 := sc.Accepts(false, 100, schema, tr)
+		errs1 := sc.Accepts(false, 100, schema, tr)
 		// Check assertions
-		_, errs2 := sc.Asserts(true, 100, schema, tr)
+		errs2 := sc.Asserts(true, 100, schema, tr)
 		errs := append(errs1, errs2...)
 		// Determine whether trace accepted or not.
 		accepted := len(errs) == 0

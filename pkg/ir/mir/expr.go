@@ -13,83 +13,43 @@
 package mir
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/ir/schema"
-	"github.com/consensys/go-corset/pkg/ir/schema/expr"
-	"github.com/consensys/go-corset/pkg/ir/schema/term"
+	"github.com/consensys/go-corset/pkg/ir"
 )
 
 // Term represents the fundamental for arithmetic expressions in the MIR
 // representation.
 type Term interface {
-	schema.Term[Term]
+	ir.Term[Term]
 }
 
-type Expr = expr.Expr[Term]
+type Expr = ir.Expr[Term]
 
 // Add represents the addition of zero or more expressions.
-type Add = term.Add[Term]
+type Add = ir.Add[Term]
 
 // Cast attempts to narrow the width a given expression.
-type Cast = term.Cast[Term]
+type Cast = ir.Cast[Term]
 
 // Constant represents a constant value within an expression.
-type Constant = term.Constant[Term]
+type Constant = ir.Constant[Term]
 
 // ColumnAccess represents reading the value held at a given column in the
 // tabular context.  Furthermore, the current row maybe shifted up (or down) by
 // a given amount.
-type ColumnAccess = term.ColumnAccess[Term]
+type ColumnAccess = ir.ColumnAccess[Term]
 
 // Exp represents the a given value taken to a power.
-type Exp = term.Exp[Term]
+type Exp = ir.Exp[Term]
 
 // Mul represents the product over zero or more expressions.
-type Mul = term.Mul[Term]
+type Mul = ir.Mul[Term]
 
 // Norm reduces the value of an expression to either zero (if it was zero)
 // or one (otherwise).
-type Norm = term.Norm[Term]
+type Norm = ir.Norm[Term]
 
 // Sub represents the subtraction over zero or more expressions.
-type Sub = term.Sub[Term]
+type Sub = ir.Sub[Term]
 
 // Void represents the empty expression.
 var VOID Expr
-
-// NewColumnAccess constructs an AIR expression representing the value of a given
-// column on the current row.
-func NewColumnAccess(column uint, shift int) Expr {
-	term := &ColumnAccess{Column: column, Shift: shift}
-	return Expr{Term: term}
-}
-
-// NewConst construct an AIR expression representing a given constant.
-func NewConst(val fr.Element) Expr {
-	term := &Constant{Value: val}
-	return Expr{Term: term}
-}
-
-// NewConst64 construct an AIR expression representing a given constant from a
-// uint64.
-func NewConst64(val uint64) Expr {
-	element := fr.NewElement(val)
-	term := &Constant{Value: element}
-	return Expr{Term: term}
-}
-
-// Sum zero or more expressions together.
-func Sum(exprs ...Expr) Expr {
-	panic("todo")
-}
-
-// Product returns the product of zero or more multiplications.
-func Product(exprs ...Expr) Expr {
-	panic("todo")
-}
-
-// Subtract returns the subtraction of the subsequent expressions from the
-// first.
-func Subtract(exprs ...Expr) Expr {
-	panic("todo")
-}

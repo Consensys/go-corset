@@ -18,8 +18,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/consensys/go-corset/pkg/ir/schema"
-	sc "github.com/consensys/go-corset/pkg/ir/schema"
+	"github.com/consensys/go-corset/pkg/schema"
+	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"

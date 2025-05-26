@@ -10,83 +10,77 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package term
+package ir
 
 import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/ir/schema"
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
-// Sub represents the subtraction over zero or more expressions.
-type Sub[T schema.Term[T]] struct{ Args []T }
+// Mul represents the product over zero or more expressions.
+type Mul[T Term[T]] struct{ Args []T }
 
 // Air indicates this term can be used at the AIR level.
-func (p *Sub[T]) Air() {}
+func (p *Mul[T]) Air() {}
 
 // ApplyShift implementation for Term interface.
-func (p *Sub[T]) ApplyShift(int) T {
+func (p *Mul[T]) ApplyShift(int) T {
 	panic("todo")
 }
 
 // Bounds implementation for Boundable interface.
-func (p *Sub[T]) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
-
-// Branches implementation for Evaluable interface.
-func (p *Sub[T]) Branches() uint {
-	panic("todo")
-}
-
-// Context implementation for Contextual interface.
-func (p *Sub[T]) Context(module schema.Module) trace.Context {
-	return contextOfTerms(p.Args, module)
-}
+func (p *Mul[T]) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
 
 // EvalAt implementation for Evaluable interface.
-func (p *Sub[T]) EvalAt(k int, tr trace.Module) (fr.Element, error) {
+func (p *Mul[T]) EvalAt(k int, tr trace.Module) (fr.Element, error) {
 	// Evaluate first argument
 	val, err := p.Args[0].EvalAt(k, tr)
 	// Continue evaluating the rest
 	for i := 1; err == nil && i < len(p.Args); i++ {
 		var ith fr.Element
-		// Evaluate ith argument
+		// Can short-circuit evaluation?
+		if val.IsZero() {
+			return val, nil
+		}
+		// No
 		ith, err = p.Args[i].EvalAt(k, tr)
-		val.Sub(&val, &ith)
+		val.Mul(&val, &ith)
 	}
 	// Done
 	return val, err
 }
 
 // Lisp implementation for Lispifiable interface.
-func (p *Sub[T]) Lisp(module schema.Module) sexp.SExp {
-	return lispOfTerms(module, "-", p.Args)
+func (p *Mul[T]) Lisp(module schema.Module) sexp.SExp {
+	return lispOfTerms(module, "*", p.Args)
 }
 
 // RequiredColumns implementation for Contextual interface.
-func (p *Sub[T]) RequiredColumns() *set.SortedSet[uint] {
+func (p *Mul[T]) RequiredColumns() *set.SortedSet[uint] {
 	return requiredColumnsOfTerms(p.Args)
 }
 
 // RequiredCells implementation for Contextual interface
-func (p *Sub[T]) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
+func (p *Mul[T]) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
 	return requiredCellsOfTerms(p.Args, row, tr)
 }
 
 // ShiftRange implementation for Term interface.
-func (p *Sub[T]) ShiftRange() (int, int) {
+func (p *Mul[T]) ShiftRange() (int, int) {
 	return shiftRangeOfTerms(p.Args)
 }
 
 // Simplify implementation for Term interface.
-func (p *Sub[T]) Simplify(casts bool) T {
+func (p *Mul[T]) Simplify(casts bool) T {
 	panic("todo")
 }
 
 // ValueRange implementation for Term interface.
-func (p *Sub[T]) ValueRange(module schema.Module) *util.Interval {
+func (p *Mul[T]) ValueRange(module schema.Module) *util.Interval {
 	var res util.Interval
 
 	for i, arg := range p.Args {
@@ -94,7 +88,7 @@ func (p *Sub[T]) ValueRange(module schema.Module) *util.Interval {
 		if i == 0 {
 			res.Set(ith)
 		} else {
-			res.Sub(ith)
+			res.Mul(ith)
 		}
 	}
 	//

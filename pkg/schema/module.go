@@ -12,7 +12,9 @@
 // SPDX-License-Identifier: Apache-2.0
 package schema
 
-import "github.com/consensys/go-corset/pkg/util/collection/iter"
+import (
+	"github.com/consensys/go-corset/pkg/util/collection/iter"
+)
 
 // Module represents a "table" within a schema which contains zero or more rows
 // for a given set of columns.
@@ -39,26 +41,26 @@ type Table struct {
 }
 
 // Module name
-func (p *Table) Name() string {
+func (p Table) Name() string {
 	panic("todo")
 }
 
 // Access a given column in this Table.
-func (p *Table) Column(uint) Column {
+func (p Table) Column(uint) Column {
 	panic("todo")
 }
 
 // Columns returns an iterator over the underlying columns of this schema.
 // Specifically, the index of a column in this array is its column index.
-func (p *Table) Columns() iter.Iterator[Column] {
+func (p Table) Columns() iter.Iterator[Column] {
 	panic("todo")
 }
 
 // Returns the number of columns in this Table.
-func (p *Table) Width() uint {
+func (p Table) Width() uint {
 	panic("todo")
 }
 
-func (p *Table) New(column Column) uint {
+func (p Table) New(column Column) uint {
 	panic("todo")
 }

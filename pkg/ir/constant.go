@@ -10,13 +10,14 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package term
+package ir
 
 import (
 	"math"
+	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/ir/schema"
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -24,7 +25,7 @@ import (
 )
 
 // Constant represents a constant value within an expression.
-type Constant[T schema.Term[T]] struct{ Value fr.Element }
+type Constant[T Term[T]] struct{ Value fr.Element }
 
 // Air indicates this term can be used at the AIR level.
 func (p *Constant[T]) Air() {}
@@ -37,16 +38,6 @@ func (p *Constant[T]) ApplyShift(int) T {
 // Bounds implementation for Boundable interface.
 func (p *Constant[T]) Bounds() util.Bounds {
 	return util.EMPTY_BOUND
-}
-
-// Branches implementation for Evaluable interface.
-func (p *Constant[T]) Branches() uint {
-	panic("todo")
-}
-
-// Context implementation for Contextual interface.
-func (p *Constant[T]) Context(module schema.Module) trace.Context {
-	return trace.VoidContext[uint]()
 }
 
 // EvalAt implementation for Evaluable interface.
@@ -81,5 +72,9 @@ func (p *Constant[T]) Simplify(casts bool) T {
 
 // ValueRange implementation for Term interface.
 func (p *Constant[T]) ValueRange(module schema.Module) *util.Interval {
-	panic("todo")
+	var c big.Int
+	// Extract big integer from field element
+	p.Value.BigInt(&c)
+	// Return as interval
+	return util.NewInterval(&c, &c)
 }

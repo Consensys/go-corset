@@ -16,7 +16,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/consensys/go-corset/pkg/ir/schema"
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
 )
 

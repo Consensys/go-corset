@@ -10,11 +10,11 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package term
+package ir
 
 import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/ir/schema"
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -23,7 +23,7 @@ import (
 
 // Norm reduces the value of an expression to either zero (if it was zero)
 // or one (otherwise).
-type Norm[T schema.Term[T]] struct{ Arg T }
+type Norm[T Term[T]] struct{ Arg T }
 
 // ApplyShift implementation for Term interface.
 func (p *Norm[T]) ApplyShift(int) T {
@@ -33,16 +33,6 @@ func (p *Norm[T]) ApplyShift(int) T {
 // Bounds implementation for Boundable interface.
 func (p *Norm[T]) Bounds() util.Bounds {
 	panic("todo")
-}
-
-// Branches implementation for Evaluable interface.
-func (p *Norm[T]) Branches() uint {
-	panic("todo")
-}
-
-// Context implementation for Contextual interface.
-func (p *Norm[T]) Context(module schema.Module) trace.Context {
-	return p.Arg.Context(module)
 }
 
 // EvalAt implementation for Evaluable interface.

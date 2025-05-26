@@ -10,11 +10,13 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package schema
+package constraint
 
 import (
 	"fmt"
 
+	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
@@ -27,7 +29,7 @@ type AssertionFailure struct {
 	// Handle of the failing constraint
 	Handle string
 	// Constraint expression
-	Constraint Testable
+	Constraint ir.Testable
 	// Row on which the constraint failed
 	Row uint
 }
@@ -54,7 +56,7 @@ func (p *AssertionFailure) String() string {
 // That is, they should be implied by the actual constraints.  Thus, whilst the
 // prover cannot enforce such properties, external tools (such as for formal
 // verification) can attempt to ensure they do indeed always hold.
-type Assertion[T Testable] struct {
+type Assertion[T ir.Testable] struct {
 	// A unique identifier for this constraint.  This is primarily
 	// useful for debugging.
 	Handle string
@@ -70,7 +72,7 @@ type Assertion[T Testable] struct {
 }
 
 // NewAssertion constructs a new property assertion!
-func NewAssertion[T Testable](handle string, ctx trace.Context, property T) *Assertion[T] {
+func NewAssertion[T ir.Testable](handle string, ctx trace.Context, property T) *Assertion[T] {
 	//
 	return &Assertion[T]{handle, ctx, property}
 }
@@ -90,12 +92,6 @@ func (p *Assertion[T]) Contexts() []trace.Context {
 	return []trace.Context{p.Context}
 }
 
-// Branches returns the total number of logical branches this term can take
-// during evaluation.
-func (p *Assertion[T]) Branches() uint {
-	return p.Property.Branches()
-}
-
 // Bounds is not required for a property assertion since these are not real
 // constraints.
 func (p *Assertion[T]) Bounds(module uint) util.Bounds {
@@ -106,7 +102,7 @@ func (p *Assertion[T]) Bounds(module uint) util.Bounds {
 // of a table. If so, return nil otherwise return an error.
 //
 //nolint:revive
-func (p *Assertion[T]) Accepts(tr trace.Trace) (bit.Set, Failure) {
+func (p *Assertion[T]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
 	var (
 		coverage bit.Set
 		module   trace.Module = tr.Module(p.Context.ModuleId)
@@ -118,7 +114,7 @@ func (p *Assertion[T]) Accepts(tr trace.Trace) (bit.Set, Failure) {
 		// Check whether property holds (or was undefined)
 		if ok, id, err := p.Property.TestAt(int(k), module); err != nil {
 			// Evaluation failure
-			return coverage, &InternalFailure{Handle: p.Handle, Row: k, Error: err.Error()}
+			return coverage, &schema.InternalFailure{Handle: p.Handle, Row: k, Error: err.Error()}
 		} else if !ok {
 			return coverage, &AssertionFailure{p.Handle, p.Property, k}
 		} else {
@@ -133,7 +129,7 @@ func (p *Assertion[T]) Accepts(tr trace.Trace) (bit.Set, Failure) {
 // Lisp converts this constraint into an S-Expression.
 //
 //nolint:revive
-func (p *Assertion[T]) Lisp(module Module) sexp.SExp {
+func (p *Assertion[T]) Lisp(module schema.Module) sexp.SExp {
 	// Construct the list
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("assert"),

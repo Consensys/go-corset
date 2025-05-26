@@ -17,7 +17,8 @@ import (
 	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/ir/schema"
+	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
@@ -40,7 +41,7 @@ func (p *SortedFailure) String() string {
 
 // SortedConstraint declares a constraint that one (or more) columns are
 // lexicographically sorted.
-type SortedConstraint[E schema.Evaluable] struct {
+type SortedConstraint[E ir.Evaluable] struct {
 	Handle string
 	// Evaluation Context for this constraint which must match that of the
 	// source expressions.
@@ -61,7 +62,7 @@ type SortedConstraint[E schema.Evaluable] struct {
 }
 
 // NewSortedConstraint creates a new Sorted
-func NewSortedConstraint[E schema.Evaluable](handle string, context trace.Context, bitwidth uint, selector util.Option[E],
+func NewSortedConstraint[E ir.Evaluable](handle string, context trace.Context, bitwidth uint, selector util.Option[E],
 	sources []E, signs []bool, strict bool) *SortedConstraint[E] {
 	//
 	return &SortedConstraint[E]{handle, context, bitwidth, selector, sources, signs, strict}
@@ -69,8 +70,8 @@ func NewSortedConstraint[E schema.Evaluable](handle string, context trace.Contex
 
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
-func (p *SortedConstraint[E]) Name() (string, uint) {
-	return p.Handle, 0
+func (p *SortedConstraint[E]) Name() string {
+	return p.Handle
 }
 
 // Contexts returns the evaluation contexts (i.e. enclosing module + length
@@ -80,14 +81,6 @@ func (p *SortedConstraint[E]) Name() (string, uint) {
 // context).
 func (p *SortedConstraint[E]) Contexts() []trace.Context {
 	return []trace.Context{p.Context}
-}
-
-// Branches returns the total number of logical branches this constraint can
-// take during evaluation.
-func (p *SortedConstraint[E]) Branches() uint {
-	// NOTE: at the moment, we don't consider branches through sorted
-	// constraints.
-	return 1
 }
 
 // Bounds determines the well-definedness bounds for this constraint for both
@@ -152,8 +145,9 @@ func (p *SortedConstraint[E]) Accepts(trace trace.Trace) (bit.Set, schema.Failur
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (p *SortedConstraint[E]) Lisp(module schema.Module) sexp.SExp {
+func (p *SortedConstraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
 	var (
+		module  = schema.Module(p.Context.ModuleId)
 		kind    = "sorted"
 		sources = sexp.EmptyList()
 	)
@@ -203,7 +197,7 @@ func (p *SortedConstraint[E]) deltaBound() fr.Element {
 	return bound
 }
 
-func sorted[E schema.Evaluable](first, second uint, bound fr.Element, sources []E, signs []bool, strict bool,
+func sorted[E ir.Evaluable](first, second uint, bound fr.Element, sources []E, signs []bool, strict bool,
 	module trace.Module) (bool, error) {
 	//
 	var (
@@ -241,7 +235,7 @@ func sorted[E schema.Evaluable](first, second uint, bound fr.Element, sources []
 	return !strict, nil
 }
 
-func evalExprsAt[E schema.Evaluable](k uint, sources []E, module trace.Module) ([]fr.Element, error) {
+func evalExprsAt[E ir.Evaluable](k uint, sources []E, module trace.Module) ([]fr.Element, error) {
 	var err error
 	//
 	values := make([]fr.Element, len(sources))

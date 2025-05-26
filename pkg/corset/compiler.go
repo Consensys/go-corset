@@ -20,8 +20,9 @@ import (
 	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/corset/compiler"
+	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/mir"
-	sc "github.com/consensys/go-corset/pkg/ir/schema"
+	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
 
@@ -152,7 +153,7 @@ func (p *Compiler) Compile() (*binfile.BinaryFile, []SyntaxError) {
 	// Sanity check for errors
 	if len(errs) > 0 {
 		return nil, errs
-	} else if err := schema.CheckConsistency(); err != nil {
+	} else if err := schema.Consistent(); err != nil {
 		panic(err.Error())
 	}
 	// Construct source map
@@ -263,7 +264,7 @@ func compileSelector(env compiler.Environment, selector ast.Expr) *mir.Expr {
 			// Lookup column binding
 			register_id := env.RegisterOf(binding.AbsolutePath())
 			// Done
-			expr := mir.NewColumnAccess(register_id, 0)
+			expr := ir.NewColumnAccess[mir.Term](register_id, 0)
 			//
 			return &expr
 		}

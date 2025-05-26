@@ -13,10 +13,9 @@
 package air
 
 import (
-	"github.com/consensys/go-corset/pkg/ir/schema"
-	"github.com/consensys/go-corset/pkg/ir/schema/constraint"
-	"github.com/consensys/go-corset/pkg/ir/schema/expr"
-	"github.com/consensys/go-corset/pkg/ir/schema/term"
+	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
@@ -26,7 +25,7 @@ import (
 // LookupConstraint captures the essence of a lookup constraint at the AIR
 // level.  At the AIR level, lookup constraints are only permitted between
 // columns (i.e. not arbitrary expressions).
-type LookupConstraint = Air[constraint.LookupConstraint[*term.ColumnAccess[Term]]]
+type LookupConstraint = Air[constraint.LookupConstraint[*ir.ColumnAccess[Term]]]
 
 // PermutationConstraint captures the essence of a permutation constraint at the
 // AIR level. Specifically, it represents a constraint that one (or more)
@@ -34,10 +33,10 @@ type LookupConstraint = Air[constraint.LookupConstraint[*term.ColumnAccess[Term]
 type PermutationConstraint = Air[constraint.PermutationConstraint]
 
 // RangeConstraint captures the essence of a range constraints at the AIR level.
-type RangeConstraint = Air[constraint.RangeConstraint[*term.ColumnAccess[Term]]]
+type RangeConstraint = Air[constraint.RangeConstraint[*ir.ColumnAccess[Term]]]
 
 // VanishingConstraint captures the essence of a vanishing constraint at the AIR level.
-type VanishingConstraint = Air[constraint.VanishingConstraint[expr.Expr[Term]]]
+type VanishingConstraint = Air[constraint.VanishingConstraint[ir.Expr[Term]]]
 
 // ============================================================================
 // Helpers
@@ -49,10 +48,10 @@ type VanishingConstraint = Air[constraint.VanishingConstraint[expr.Expr[Term]]]
 type AirConstraint interface {
 	schema.Constraint
 
-	constraint.LookupConstraint[*term.ColumnAccess[Term]] |
+	constraint.LookupConstraint[*ir.ColumnAccess[Term]] |
 		constraint.PermutationConstraint |
-		constraint.RangeConstraint[*term.ColumnAccess[Term]] |
-		constraint.VanishingConstraint[expr.Expr[Term]]
+		constraint.RangeConstraint[*ir.ColumnAccess[Term]] |
+		constraint.VanishingConstraint[ir.Expr[Term]]
 }
 
 // Air attempts to encapsulate the notion of a valid constraint at the AIR
@@ -89,12 +88,6 @@ func (p *Air[C]) Bounds(module uint) util.Bounds {
 	return p.constraint.Bounds(module)
 }
 
-// Return the total number of logical branches this constraint can take
-// during evaluation.
-func (p *Air[C]) Branches() uint {
-	return p.constraint.Branches()
-}
-
 // Contexts returns the evaluation contexts (i.e. enclosing module + length
 // multiplier) for this constraint.  Most constraints have only a single
 // evaluation context, though some (e.g. lookups) have more.  Note that all
@@ -105,10 +98,8 @@ func (p *Air[C]) Contexts() []trace.Context {
 }
 
 // Name returns a unique name and case number for a given constraint.  This
-// is useful purely for identifying constraints in reports, etc.  The case
-// number is used to differentiate different low-level constraints which are
-// extracted from the same high-level constraint.
-func (p *Air[C]) Name() (string, uint) {
+// is useful purely for identifying constraints in reports, etc.
+func (p *Air[C]) Name() string {
 	return p.constraint.Name()
 }
 
@@ -116,8 +107,8 @@ func (p *Air[C]) Name() (string, uint) {
 // so it can be printed.
 //
 //nolint:revive
-func (p Air[C]) Lisp(module schema.Module) sexp.SExp {
-	return p.constraint.Lisp(module)
+func (p Air[C]) Lisp(schema schema.AnySchema) sexp.SExp {
+	return p.constraint.Lisp(schema)
 }
 
 // ============================================================================
@@ -127,7 +118,7 @@ func (p Air[C]) Lisp(module schema.Module) sexp.SExp {
 // Assertion captures the notion of an arbitrary property which should hold for
 // all acceptable traces.  However, such a property is not enforced by the
 // prover.
-type Assertion = *schema.Assertion[schema.Testable]
+type Assertion = *constraint.Assertion[ir.Testable]
 
 var _ schema.Constraint = &LookupConstraint{}
 var _ schema.Constraint = &VanishingConstraint{}

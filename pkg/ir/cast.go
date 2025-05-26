@@ -10,14 +10,14 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package term
+package ir
 
 import (
 	"fmt"
 	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/ir/schema"
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -25,7 +25,7 @@ import (
 )
 
 // Cast attempts to narrow the width a given expression.
-type Cast[T schema.Term[T]] struct {
+type Cast[T Term[T]] struct {
 	Arg      T
 	BitWidth uint
 }
@@ -38,16 +38,6 @@ func (p *Cast[T]) ApplyShift(int) T {
 // Bounds implementation for Boundable interface.
 func (p *Cast[T]) Bounds() util.Bounds {
 	panic("todo")
-}
-
-// Branches implementation for Evaluable interface.
-func (p *Cast[T]) Branches() uint {
-	panic("todo")
-}
-
-// Context implementation for Contextual interface.
-func (p *Cast[T]) Context(module schema.Module) trace.Context {
-	return p.Arg.Context(module)
 }
 
 // EvalAt implementation for Evaluable interface.

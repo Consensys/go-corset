@@ -19,8 +19,10 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/corset/ast"
+	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/mir"
-	"github.com/consensys/go-corset/pkg/ir/schema/constraint"
+	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
@@ -32,9 +34,9 @@ import (
 // happen.  The mechanism is supported, however, to simplify development of new
 // features, etc.
 func TranslateCircuit(env Environment, srcmap *source.Maps[ast.Node],
-	circuit *ast.Circuit) (*mir.Schema, []SyntaxError) {
+	circuit *ast.Circuit) (mir.Schema, []SyntaxError) {
 	//
-	t := translator{env, srcmap, mir.EmptySchema()}
+	t := translator{env, srcmap, schema.Empty[schema.Table, schema.Constraint]()}
 	// Allocate all modules into schema
 	if errs := t.translateModules(circuit); len(errs) > 0 {
 		return nil, errs
@@ -66,25 +68,17 @@ type translator struct {
 func (t *translator) translateModules(circuit *ast.Circuit) []source.SyntaxError {
 	var (
 		errors []source.SyntaxError
-		path   = util.NewAbsolutePath()
 	)
 	// Add root module
-	t.schema.AddModule("", mir.VOID)
+	t.schema.AddModule("")
 	// Add nested modules
 	for _, m := range circuit.Modules {
-		var (
-			condition mir.Expr = mir.VOID
-			errs      []source.SyntaxError
-			modPath   = path.Extend(m.Name)
-		)
 		// Translate module condition (if applicable)
 		if m.Condition != nil {
-			// Translate constraint body
-			condition, errs = t.translateExpressionInModule(m.Condition, *modPath, 0)
-			errors = append(errors, errs...)
+			panic("conditional modules not supported")
 		}
 		//
-		mid := t.schema.AddModule(m.Name, condition)
+		mid := t.schema.AddModule(m.Name)
 		info := t.env.Module(m.Name)
 		// Sanity check everything lines up.
 		if info.Id != mid {
@@ -182,7 +176,8 @@ func (t *translator) translateTypeConstraints(regIndex uint) {
 		}
 		// Add appropriate type constraint
 		bound := regInfo.DataType.AsUint().Bound()
-		t.schema.AddRangeConstraint(regInfo.Name(), regInfo.Context, mir.NewColumnAccess(regIndex, 0), bound)
+		constraint := constraint.NewRangeConstraint(regInfo.Name(), regInfo.Context, ir.NewColumnAccess[mir.Term](regIndex, 0), bound)
+		t.schema.Add(constraint)
 	}
 }
 
@@ -384,16 +379,17 @@ func (t *translator) translateDefLookup(decl *ast.DefLookup, module util.Path) [
 
 // Translate a "definrange" declaration.
 func (t *translator) translateDefInRange(decl *ast.DefInRange, module util.Path) []SyntaxError {
-	// Translate constraint body
-	expr, errors := t.translateExpressionInModule(decl.Expr, module, 0)
-	//
-	if len(errors) == 0 {
-		context := expr.Context(t.schema)
-		// Add translated constraint
-		t.schema.Add(constraint.NewRangeConstraint("", 0, context, expr, decl.Bound))
-	}
-	// Done
-	return errors
+	// // Translate constraint body
+	// expr, errors := t.translateExpressionInModule(decl.Expr, module, 0)
+	// //
+	// if len(errors) == 0 {
+	// 	context := expr.Context(t.schema)
+	// 	// Add translated constraint
+	// 	t.schema.Add(constraint.NewRangeConstraint("", 0, context, expr, decl.Bound))
+	// }
+	// // Done
+	// return errors
+	panic("todo")
 }
 
 // Translate a "definterleaved" declaration.
@@ -575,10 +571,10 @@ func (t *translator) translateExpressionInModule(expr ast.Expr, module util.Path
 		// Lookup underlying column info
 		registerId, errors := t.registerOfColumnAccess(e)
 		// Done
-		return mir.NewColumnAccess(registerId, shift), errors
+		return ir.NewColumnAccess[mir.Term](registerId, shift), errors
 	case *ast.Add:
 		args, errs := t.translateExpressionsInModule(module, shift, e.Args...)
-		return mir.Sum(args...), errs
+		return ir.Sum(args...), errs
 	case *ast.Cast:
 		arg, errs := t.translateExpressionInModule(e.Arg, module, shift)
 		//
@@ -589,75 +585,31 @@ func (t *translator) translateExpressionInModule(expr ast.Expr, module util.Path
 		} else if int_t, ok := e.Type.(*ast.IntType); ok {
 			// unsafe casts cannot be checked by the type checker, but can be
 			// exploited for the purposes of optimisation.
-			return mir.CastOf(arg, int_t.AsUnderlying().BitWidth()), errs
+			return ir.CastOf(arg, int_t.AsUnderlying().BitWidth()), errs
 		}
 		// Should be unreachable.
 		msg := fmt.Sprintf("cannot translate cast (%s)", e.Type.String())
 		//
 		return mir.VOID, t.srcmap.SyntaxErrors(expr, msg)
-	case *ast.Connective:
-		args, errs := t.translateExpressionsInModule(module, shift, e.Args...)
-		//
-		if e.Sign {
-			return mir.Disjunction(args...), errs
-		}
-		//
-		return mir.Conjunction(args...), errs
 	case *ast.Constant:
 		var val fr.Element
 		// Initialise field from bigint
 		val.SetBigInt(&e.Val)
 		//
-		return mir.NewConst(val), nil
-	case *ast.Equation:
-		lhs, errs1 := t.translateExpressionInModule(e.Lhs, module, shift)
-		rhs, errs2 := t.translateExpressionInModule(e.Rhs, module, shift)
-		errs := append(errs1, errs2...)
-		//
-		if len(errs) > 0 {
-			return mir.VOID, errs
-		}
-		//
-		switch e.Kind {
-		case ast.EQUALS:
-			return mir.Equals(lhs, rhs), nil
-		case ast.NOT_EQUALS:
-			return mir.NotEquals(lhs, rhs), nil
-		case ast.LESS_THAN:
-			return mir.LessThan(lhs, rhs), nil
-		case ast.LESS_THAN_EQUALS:
-			return mir.LessThanOrEquals(lhs, rhs), nil
-		case ast.GREATER_THAN_EQUALS:
-			return mir.GreaterThanOrEquals(lhs, rhs), nil
-		case ast.GREATER_THAN:
-			return mir.GreaterThan(lhs, rhs), nil
-		default:
-			panic("unreachable")
-		}
+		return ir.Const[mir.Term](val), nil
 	case *ast.Exp:
 		return t.translateExpInModule(e, module, shift)
 	case *ast.If:
 		return t.translateIfInModule(e, module, shift)
-	case *ast.List:
-		args, errs := t.translateExpressionsInModule(module, shift, e.Args...)
-		// Sanity check void
-		if len(args) == 0 {
-			return mir.VOID, errs
-		}
-		//
-		return mir.Conjunction(args...), errs
 	case *ast.Mul:
 		args, errs := t.translateExpressionsInModule(module, shift, e.Args...)
-		return mir.Product(args...), errs
+		return ir.Product(args...), errs
 	case *ast.Normalise:
 		arg, errs := t.translateExpressionInModule(e.Arg, module, shift)
-		return mir.Normalise(arg), errs
-	case *ast.Not:
-		arg, errs := t.translateExpressionInModule(e.Arg, module, shift)
-		return mir.Negation(arg), errs
+		return ir.Normalise(arg), errs
 	case *ast.Sub:
 		args, errs := t.translateExpressionsInModule(module, shift, e.Args...)
-		return mir.Subtract(args...), errs
+		return ir.Subtract(args...), errs
 	case *ast.Shift:
 		return t.translateShiftInModule(e, module, shift)
 	case *ast.VariableAccess:
@@ -681,7 +633,7 @@ func (t *translator) translateExpInModule(expr *ast.Exp, module util.Path, shift
 	}
 	// Sanity check errors
 	if len(errs) == 0 {
-		return mir.Exponent(arg, pow.Uint64()), errs
+		return ir.Exponent(arg, pow.Uint64()), errs
 	}
 	//
 	return mir.VOID, errs
@@ -699,7 +651,7 @@ func (t *translator) translateIfInModule(expr *ast.If, module util.Path, shift i
 		return mir.VOID, nil
 	}
 	// Construct appropriate if form
-	return mir.IfElse(args[0], args[1], args[2]), nil
+	return ir.IfElse(args[0], args[1], args[2]), nil
 }
 
 func (t *translator) translateShiftInModule(expr *ast.Shift, module util.Path, shift int) (mir.Expr, []SyntaxError) {
@@ -719,7 +671,7 @@ func (t *translator) translateVariableAccessInModule(expr *ast.VariableAccess, s
 		// Lookup column binding
 		register_id := t.env.RegisterOf(binding.AbsolutePath())
 		// Done
-		return mir.NewColumnAccess(register_id, shift), nil
+		return ir.NewColumnAccess[mir.Term](register_id, shift), nil
 	} else if binding, ok := expr.Binding().(*ast.ConstantBinding); ok {
 		// Just fill in the constant.
 		var constant fr.Element
@@ -728,13 +680,86 @@ func (t *translator) translateVariableAccessInModule(expr *ast.VariableAccess, s
 		// Handle externalised constants slightly differently.
 		if binding.Extern {
 			//
-			return mir.NewLabelledConst(binding.Path.String(), constant), nil
+			return ir.LabelledConstant[mir.Term](binding.Path.String(), constant), nil
 		}
 		//
-		return mir.NewConst(constant), nil
+		return ir.Const[mir.Term](constant), nil
 	}
 	// error
 	return mir.VOID, t.srcmap.SyntaxErrors(expr, "unbound variable")
+}
+
+// Translate a sequence of zero or more logical expressions enclosed in a given module.
+func (t *translator) translateLogicalExpressionsInModule(module util.Path, shift int,
+	exprs ...ast.Expr) ([]mir.Logical, []SyntaxError) {
+	//
+	errors := []SyntaxError{}
+	logicals := make([]mir.Logical, len(exprs))
+	// Iterate each expression in turn
+	for i, e := range exprs {
+		var errs []SyntaxError
+		logicals[i], errs = t.translateLogicalExpressionInModule(e, module, shift)
+		errors = append(errors, errs...)
+	}
+	//
+	return logicals, errors
+}
+
+// Translate an expression situated in a given context.  The context is
+// necessary to resolve unqualified names (e.g. for column access, function
+// invocations, etc).
+func (t *translator) translateLogicalExpressionInModule(expr ast.Expr, module util.Path, shift int) (mir.Logical, []SyntaxError) {
+	switch e := expr.(type) {
+	case *ast.Connective:
+		args, errs := t.translateLogicalExpressionsInModule(module, shift, e.Args...)
+		//
+		if e.Sign {
+			return ir.Disjunction(args...), errs
+		}
+		//
+		return ir.Conjunction(args...), errs
+	case *ast.Equation:
+		lhs, errs1 := t.translateExpressionInModule(e.Lhs, module, shift)
+		rhs, errs2 := t.translateExpressionInModule(e.Rhs, module, shift)
+		errs := append(errs1, errs2...)
+		//
+		if len(errs) > 0 {
+			return mir.BOTTOM, errs
+		}
+		//
+		switch e.Kind {
+		case ast.EQUALS:
+			return ir.Equals[mir.LogicalTerm](lhs, rhs), nil
+		case ast.NOT_EQUALS:
+			return ir.NotEquals[mir.LogicalTerm](lhs, rhs), nil
+		case ast.LESS_THAN:
+			return ir.LessThan[mir.LogicalTerm](lhs, rhs), nil
+		case ast.LESS_THAN_EQUALS:
+			return ir.LessThanOrEquals[mir.LogicalTerm](lhs, rhs), nil
+		case ast.GREATER_THAN_EQUALS:
+			return ir.GreaterThanOrEquals[mir.LogicalTerm](lhs, rhs), nil
+		case ast.GREATER_THAN:
+			return ir.GreaterThan[mir.LogicalTerm](lhs, rhs), nil
+		default:
+			panic("unreachable")
+		}
+	case *ast.List:
+		args, errs := t.translateLogicalExpressionsInModule(module, shift, e.Args...)
+		// Sanity check void
+		if len(args) == 0 {
+			return mir.BOTTOM, errs
+		}
+		//
+		return ir.Conjunction(args...), errs
+	case *ast.Not:
+		arg, errs := t.translateLogicalExpressionInModule(e.Arg, module, shift)
+		return ir.Negate[mir.LogicalTerm](arg), errs
+	default:
+		typeStr := reflect.TypeOf(expr).String()
+		msg := fmt.Sprintf("unknown expression encountered during translation (%s)", typeStr)
+		//
+		return mir.BOTTOM, t.srcmap.SyntaxErrors(expr, msg)
+	}
 }
 
 // Determine the underlying register for a symbol which represents a column access.
@@ -790,20 +815,4 @@ func (t *translator) registerOfArrayAccess(expr *ast.ArrayAccess) (uint, []Synta
 	path = path.Parent().Extend(name)
 	// Lookup underlying column info
 	return t.env.RegisterOf(path), errors
-}
-
-func determineMaxBitwidth(schema mir.Schema, sources []mir.Expr) uint {
-	// Sanity check bitwidth
-	bitwidth := uint(0)
-
-	for _, e := range sources {
-		// Determine bitwidth of nth term
-		ith := e.BitWidth(schema)
-		//
-		if ith > bitwidth {
-			bitwidth = ith
-		}
-	}
-	//
-	return bitwidth
 }

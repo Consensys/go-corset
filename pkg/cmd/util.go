@@ -28,7 +28,6 @@ import (
 	"github.com/consensys/go-corset/pkg/corset"
 	corset_ast "github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/ir/mir"
-	sc "github.com/consensys/go-corset/pkg/ir/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/json"
 	"github.com/consensys/go-corset/pkg/trace/lt"
@@ -117,44 +116,6 @@ func GetIntArray(cmd *cobra.Command, flag string) []int {
 	return r
 }
 
-// Determine conservative amounts of spillage.  That is, enough spillage to
-// cover all optimisation levels.
-func determineConservativeSpillage(defensive bool, mirSchema mir.Schema) []uint {
-	var spillage []uint
-
-	for i, opt := range mir.OPTIMISATION_LEVELS {
-		ith := determineSpillage(mirSchema, defensive, opt)
-		//
-		if i == 0 {
-			spillage = ith
-		} else {
-			// Conservative include all spillage
-			for j := range ith {
-				spillage[j] = max(spillage[j], ith[j])
-			}
-		}
-	}
-	//
-	return spillage
-}
-
-// Determine spillage required for a given schema and optimisation configuration
-// with (or without) defensive padding.
-func determineSpillage(mirSchema mir.Schema, defensive bool, optConfig mir.OptimisationConfig) []uint {
-	// Compile constraints fully
-	airSchema := mir.LowerToAir(&mirSchema, optConfig)
-	// Determine how many modules in schema.
-	nModules := airSchema.Modules().Count()
-	//
-	spillage := make([]uint, nModules)
-	// Iterate modules and print spillage
-	for mid := uint(0); mid < nModules; mid++ {
-		spillage[mid] = sc.RequiredPaddingRows(mid, defensive, airSchema)
-	}
-	//
-	return spillage
-}
-
 // Apply any user-specified values for the given externalised constants.  Each
 // constant should be checked that it exists, to ensure assignments are not
 // silently dropped.
@@ -198,7 +159,7 @@ func applyExternOverrides(externs []string, binf *binfile.BinaryFile) {
 			biMapping[split[0]] = biElement
 		}
 		// Substitute through constraints
-		binf.Schema.SubstituteConstants(frMapping)
+		mir.SubstituteConstants(&binf.Schema, frMapping)
 		// Update source mapping
 		srcmap.SubstituteConstants(biMapping)
 	}

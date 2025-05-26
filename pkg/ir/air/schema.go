@@ -12,7 +12,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package air
 
-import "github.com/consensys/go-corset/pkg/ir/schema"
+import "github.com/consensys/go-corset/pkg/schema"
 
 type Constraint interface {
 	schema.Constraint
@@ -20,4 +20,4 @@ type Constraint interface {
 	Air()
 }
 
-type Schema = schema.Schema[*schema.Table, Constraint]
+type Schema = schema.Schema[schema.Table, Constraint]

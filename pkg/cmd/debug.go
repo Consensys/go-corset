@@ -127,23 +127,24 @@ func printAttributes(attrs []binfile.Attribute) {
 }
 
 func printSpillage(binf *binfile.BinaryFile, defensive bool, optConfig mir.OptimisationConfig) {
-	fmt.Println("Spillage:")
-	// Compute spillage for optimisation level
-	spillage := determineSpillage(&binf.Schema, defensive, optConfig)
-	// Define module ID
-	mid := uint(0)
-	// Iterate modules and print spillage
-	for i := uint(0); i < uint(len(spillage)); i++ {
-		name := binf.Schema.Module(i).Name()
-		//
-		if name == "" {
-			name = "<prelude>"
-		}
-		//
-		fmt.Printf("\t%s: %d\n", name, spillage[i])
-		//
-		mid++
-	}
+	// fmt.Println("Spillage:")
+	// // Compute spillage for optimisation level
+	// spillage := determineSpillage(&binf.Schema, defensive, optConfig)
+	// // Define module ID
+	// mid := uint(0)
+	// // Iterate modules and print spillage
+	// for i := uint(0); i < uint(len(spillage)); i++ {
+	// 	name := binf.Schema.Module(i).Name()
+	// 	//
+	// 	if name == "" {
+	// 		name = "<prelude>"
+	// 	}
+	// 	//
+	// 	fmt.Printf("\t%s: %d\n", name, spillage[i])
+	// 	//
+	// 	mid++
+	// }
+	panic("todo")
 }
 
 func printBinaryFileHeader(header *binfile.Header) {

@@ -32,7 +32,7 @@ type InternalFailure struct {
 	// Row on which the constraint failed
 	Row uint
 	// Cells involved (if any)
-	Term Contextual
+	Term any //Contextual
 	// Error message
 	Error string
 }

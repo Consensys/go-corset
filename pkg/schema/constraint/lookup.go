@@ -16,7 +16,8 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/ir/schema"
+	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
@@ -30,7 +31,7 @@ type LookupFailure struct {
 	// Handle of the failing constraint
 	Handle string
 	// Source expressions which were missing
-	Sources []schema.Evaluable
+	Sources []ir.Evaluable
 	// Row on which the constraint failed
 	Row uint
 }
@@ -70,7 +71,7 @@ func (p *LookupFailure) RequiredCells(tr trace.Module) *set.AnySortedSet[trace.C
 // pairs (and perhaps other constraints to ensure the required relationship) and
 // the source module is just checking that a given set of input/output pairs
 // makes sense.
-type LookupConstraint[E schema.Evaluable] struct {
+type LookupConstraint[E ir.Evaluable] struct {
 	// Handle returns the handle for this lookup constraint which is simply an
 	// identifier useful when debugging (i.e. to know which lookup failed, etc).
 	Handle string
@@ -87,7 +88,7 @@ type LookupConstraint[E schema.Evaluable] struct {
 }
 
 // NewLookupConstraint creates a new lookup constraint with a given handle.
-func NewLookupConstraint[E schema.Evaluable](handle string, source trace.Context,
+func NewLookupConstraint[E ir.Evaluable](handle string, source trace.Context,
 	target trace.Context, sources []E, targets []E) LookupConstraint[E] {
 	if len(targets) != len(sources) {
 		panic("differeng number of target / source lookup columns")
@@ -98,8 +99,8 @@ func NewLookupConstraint[E schema.Evaluable](handle string, source trace.Context
 
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
-func (p LookupConstraint[E]) Name() (string, uint) {
-	return p.Handle, 0
+func (p LookupConstraint[E]) Name() string {
+	return p.Handle
 }
 
 // Contexts returns the evaluation contexts (i.e. enclosing module + length
@@ -110,14 +111,6 @@ func (p LookupConstraint[E]) Name() (string, uint) {
 func (p LookupConstraint[E]) Contexts() []trace.Context {
 	// source context designated as primary.
 	return []trace.Context{p.SourceContext, p.TargetContext}
-}
-
-// Branches returns the total number of logical branches this constraint can
-// take during evaluation.
-func (p LookupConstraint[E]) Branches() uint {
-	// NOTE: at the moment, we don't consider branches through lookups.  This is
-	// perhaps a degree of imprecision as some lookups have selectors.
-	return 1
 }
 
 // Bounds determines the well-definedness bounds for this constraint for both
@@ -179,7 +172,7 @@ func (p LookupConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
 		}
 		// Check whether contained.
 		if !rows.Contains(hash.NewBytesKey(ith_bytes)) {
-			sources := make([]schema.Evaluable, len(p.Sources))
+			sources := make([]ir.Evaluable, len(p.Sources))
 			for i, e := range p.Sources {
 				sources[i] = e
 			}
@@ -195,7 +188,7 @@ func (p LookupConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
 	return coverage, nil
 }
 
-func evalExprsAsBytes[E schema.Evaluable](k int, sources []E, handle string, module trace.Module) ([]byte, schema.Failure) {
+func evalExprsAsBytes[E ir.Evaluable](k int, sources []E, handle string, module trace.Module) ([]byte, schema.Failure) {
 	// Each fr.Element is 4 x 64bit words.
 	bytes := make([]byte, 32*len(sources))
 	// Slice provides an access window for writing
@@ -225,16 +218,20 @@ func evalExprsAsBytes[E schema.Evaluable](k int, sources []E, handle string, mod
 // so it can be printed.
 //
 //nolint:revive
-func (p LookupConstraint[E]) Lisp(module schema.Module) sexp.SExp {
-	sources := sexp.EmptyList()
-	targets := sexp.EmptyList()
+func (p LookupConstraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
+	var (
+		sourceModule = schema.Module(p.SourceContext.ModuleId)
+		targetModule = schema.Module(p.TargetContext.ModuleId)
+		sources      = sexp.EmptyList()
+		targets      = sexp.EmptyList()
+	)
 	// Iterate source expressions
 	for i := 0; i < len(p.Sources); i++ {
-		sources.Append(p.Sources[i].Lisp(module))
+		sources.Append(p.Sources[i].Lisp(sourceModule))
 	}
 	// Iterate source expressions
 	for i := 0; i < len(p.Targets); i++ {
-		targets.Append(p.Targets[i].Lisp(module))
+		targets.Append(p.Targets[i].Lisp(targetModule))
 	}
 	// Done
 	return sexp.NewList([]sexp.SExp{

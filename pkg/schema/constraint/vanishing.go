@@ -15,7 +15,8 @@ package constraint
 import (
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/ir/schema"
+	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
@@ -28,7 +29,7 @@ type VanishingFailure struct {
 	// Handle of the failing constraint
 	Handle string
 	// Constraint expression
-	Constraint schema.Testable
+	Constraint ir.Testable
 	// Row on which the constraint failed
 	Row uint
 }
@@ -54,13 +55,10 @@ func (p *VanishingFailure) String() string {
 // ignored.  This is parameterised by the type of the constraint expression.
 // Thus, we can reuse this definition across the various intermediate
 // representations (e.g. Mid-Level IR, Arithmetic IR, etc).
-type VanishingConstraint[T schema.Testable] struct {
+type VanishingConstraint[T ir.Testable] struct {
 	// A unique identifier for this constraint.  This is primarily
 	// useful for debugging.
 	Handle string
-	// A further differentiator to manage distinct low-level constraints arising
-	// from high-level constraints.
-	Case uint
 	// Evaluation Context for this constraint which must match that of the
 	// constrained expression itself.
 	Context trace.Context
@@ -74,15 +72,15 @@ type VanishingConstraint[T schema.Testable] struct {
 }
 
 // NewVanishingConstraint constructs a new vanishing constraint!
-func NewVanishingConstraint[T schema.Testable](handle string, casenum uint, context trace.Context,
+func NewVanishingConstraint[T ir.Testable](handle string, context trace.Context,
 	domain util.Option[int], constraint T) VanishingConstraint[T] {
-	return VanishingConstraint[T]{handle, casenum, context, domain, constraint}
+	return VanishingConstraint[T]{handle, context, domain, constraint}
 }
 
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
-func (p VanishingConstraint[E]) Name() (string, uint) {
-	return p.Handle, p.Case
+func (p VanishingConstraint[E]) Name() string {
+	return p.Handle
 }
 
 // Contexts returns the evaluation contexts (i.e. enclosing module + length
@@ -92,12 +90,6 @@ func (p VanishingConstraint[E]) Name() (string, uint) {
 // context).
 func (p VanishingConstraint[E]) Contexts() []trace.Context {
 	return []trace.Context{p.Context}
-}
-
-// Branches returns the total number of logical branches this constraint can
-// take during evaluation.
-func (p VanishingConstraint[E]) Branches() uint {
-	return p.Constraint.Branches()
 }
 
 // Bounds determines the well-definedness bounds for this constraint for both
@@ -156,7 +148,7 @@ func (p VanishingConstraint[T]) Accepts(tr trace.Trace) (bit.Set, schema.Failure
 
 // HoldsGlobally checks whether a given expression vanishes (i.e. evaluates to
 // zero) for all rows of a trace.  If not, report an appropriate error.
-func HoldsGlobally[T schema.Testable](handle string, ctx trace.Context, constraint T, module trace.Module) (bit.Set, schema.Failure) {
+func HoldsGlobally[T ir.Testable](handle string, ctx trace.Context, constraint T, module trace.Module) (bit.Set, schema.Failure) {
 	var (
 		coverage bit.Set
 		// Determine height of enclosing module
@@ -182,7 +174,7 @@ func HoldsGlobally[T schema.Testable](handle string, ctx trace.Context, constrai
 
 // HoldsLocally checks whether a given constraint holds (e.g. vanishes) on a
 // specific row of a trace. If not, report an appropriate error.
-func HoldsLocally[T schema.Testable](k uint, handle string, constraint T, tr trace.Module) (schema.Failure, uint) {
+func HoldsLocally[T ir.Testable](k uint, handle string, constraint T, tr trace.Module) (schema.Failure, uint) {
 	ok, id, err := constraint.TestAt(int(k), tr)
 	// Check for errors
 	if err != nil {
@@ -198,8 +190,9 @@ func HoldsLocally[T schema.Testable](k uint, handle string, constraint T, tr tra
 // Lisp converts this constraint into an S-Expression.
 //
 //nolint:revive
-func (p VanishingConstraint[T]) Lisp(module schema.Module) sexp.SExp {
+func (p VanishingConstraint[T]) Lisp(schema schema.AnySchema) sexp.SExp {
 	var (
+		module     = schema.Module(p.Context.ModuleId)
 		name       string
 		multiplier uint
 	)
@@ -217,7 +210,7 @@ func (p VanishingConstraint[T]) Lisp(module schema.Module) sexp.SExp {
 		multiplier = p.Context.LengthMultiplier()
 	}
 	// Add case
-	name = fmt.Sprintf("%s#%d", name, p.Case)
+	name = fmt.Sprintf("%s", name)
 	// Handle attributes
 	if p.Domain.HasValue() {
 		switch p.Domain.Unwrap() {

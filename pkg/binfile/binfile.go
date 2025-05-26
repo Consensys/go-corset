@@ -40,11 +40,11 @@ type BinaryFile struct {
 
 // NewBinaryFile constructs a new binary file with the default header for the
 // currently supported version.
-func NewBinaryFile(metadata []byte, attributes []Attribute, schema *mir.Schema) *BinaryFile {
+func NewBinaryFile(metadata []byte, attributes []Attribute, schema mir.Schema) *BinaryFile {
 	return &BinaryFile{
 		Header{ZKBINARY, BINFILE_MAJOR_VERSION, BINFILE_MINOR_VERSION, metadata},
 		attributes,
-		*schema,
+		schema,
 	}
 }
 

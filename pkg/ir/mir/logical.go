@@ -12,50 +12,13 @@
 // SPDX-License-Identifier: Apache-2.0
 package mir
 
-import (
-	"github.com/consensys/go-corset/pkg/ir/schema"
-	"github.com/consensys/go-corset/pkg/ir/schema/expr"
-	"github.com/consensys/go-corset/pkg/ir/schema/term"
-)
+import "github.com/consensys/go-corset/pkg/ir"
 
 type LogicalTerm interface {
-	schema.LogicalTerm[LogicalTerm]
+	ir.LogicalTerm[LogicalTerm]
 }
 
-type Logical = expr.Logical[LogicalTerm]
+type Logical = ir.Logical[LogicalTerm]
 
-func Conjunction(terms ...Logical) Logical {
-	panic("todo")
-}
-
-func Disjunction(terms ...Logical) Logical {
-	panic("todo")
-}
-
-// Equals constructs an equation representing the equality of two expressions.
-func Equals(lhs Expr, rhs Expr) Logical {
-	term := &term.Equation[Term]{
-		Kind: term.EQUALS,
-		Lhs:  lhs.Term,
-		Rhs:  rhs.Term,
-	}
-	//
-	return Logical{Term: term}
-}
-
-// Negate constructs the logical negation of the given Logical[T].
-func Negate(expr Logical) Logical {
-	panic("todo")
-}
-
-// NotEquals constructs an equation representing the non-equality of two
-// expressions.
-func NotEquals(lhs Expr, rhs Expr) Logical {
-	term := &term.Equation[Term]{
-		Kind: term.EQUALS,
-		Lhs:  lhs.Term,
-		Rhs:  rhs.Term,
-	}
-	//
-	return Logical{Term: term}
-}
+// Void represents the empty logical expression.
+var BOTTOM Logical

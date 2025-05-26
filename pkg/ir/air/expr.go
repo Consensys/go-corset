@@ -14,37 +14,35 @@ package air
 
 import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/ir/schema"
-	"github.com/consensys/go-corset/pkg/ir/schema/expr"
-	"github.com/consensys/go-corset/pkg/ir/schema/term"
+	"github.com/consensys/go-corset/pkg/ir"
 )
 
 // Term represents the fundamental for arithmetic expressions in the AIR
 // representation.
 type Term interface {
-	schema.Term[Term]
+	ir.Term[Term]
 	// Air marks terms which are valid for the AIR representation.
 	Air()
 }
 
-type Expr = expr.Expr[Term]
+type Expr = ir.Expr[Term]
 
 // Add represents the addition of zero or more expressions.
-type Add = term.Add[Term]
+type Add = ir.Add[Term]
 
 // Constant represents a constant value within an expression.
-type Constant = term.Constant[Term]
+type Constant = ir.Constant[Term]
 
 // ColumnAccess represents reading the value held at a given column in the
 // tabular context.  Furthermore, the current row maybe shifted up (or down) by
 // a given amount.
-type ColumnAccess = term.ColumnAccess[Term]
+type ColumnAccess = ir.ColumnAccess[Term]
 
 // Mul represents the product over zero or more expressions.
-type Mul = term.Mul[Term]
+type Mul = ir.Mul[Term]
 
 // Sub represents the subtraction over zero or more expressions.
-type Sub = term.Sub[Term]
+type Sub = ir.Sub[Term]
 
 // NewColumnAccess constructs an AIR expression representing the value of a given
 // column on the current row.
@@ -68,17 +66,17 @@ func NewConst64(val uint64) Expr {
 }
 
 // Sum zero or more expressions together.
-func Sum[T schema.Term[T]](exprs ...Expr) Expr {
+func Sum[T ir.Term[T]](exprs ...Expr) Expr {
 	panic("todo")
 }
 
 // Product returns the product of zero or more multiplications.
-func Product[T schema.Term[T]](exprs ...Expr) Expr {
+func Product[T ir.Term[T]](exprs ...Expr) Expr {
 	panic("todo")
 }
 
 // Subtract returns the subtraction of the subsequent expressions from the
 // first.
-func Subtract[T schema.Term[T]](exprs ...Expr) Expr {
+func Subtract[T ir.Term[T]](exprs ...Expr) Expr {
 	panic("todo")
 }

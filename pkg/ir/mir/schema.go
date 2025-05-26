@@ -13,8 +13,9 @@
 package mir
 
 import (
-	"github.com/consensys/go-corset/pkg/ir/schema"
-	"github.com/consensys/go-corset/pkg/ir/schema/constraint"
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/constraint"
 )
 
 // LookupConstraint captures the essence of a lookup constraint at the MIR
@@ -36,6 +37,12 @@ type SortedConstraint = *constraint.SortedConstraint[Expr]
 // PropertyAssertion captures the notion of an arbitrary property which should
 // hold for all acceptable traces.  However, such a property is not enforced by
 // the prover.
-type Assertion = *schema.Assertion[Logical]
+type Assertion = *constraint.Assertion[Logical]
 
-type Schema = schema.Schema[*schema.Table, schema.Constraint]
+type Schema = schema.Schema[schema.Table, schema.Constraint]
+
+// SubstituteConstants substitutes the value of matching labelled constants for
+// all expressions used within the schema.
+func SubstituteConstants(schema *Schema, mapping map[string]fr.Element) {
+	panic("todo")
+}

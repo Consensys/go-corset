@@ -10,18 +10,21 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package term
+package ir
 
 import (
 	"math"
 
-	"github.com/consensys/go-corset/pkg/ir/schema"
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
-func applyShiftTerms[T schema.Term[T]](terms []T, shift int) []T {
+var frZERO fr.Element = fr.NewElement(0)
+
+func applyShiftTerms[T Term[T]](terms []T, shift int) []T {
 	nterms := make([]T, len(terms))
 	//
 	for i := range terms {
@@ -31,17 +34,7 @@ func applyShiftTerms[T schema.Term[T]](terms []T, shift int) []T {
 	return nterms
 }
 
-func contextOfTerms[T schema.Term[T]](args []T, module schema.Module) trace.Context {
-	ctx := trace.VoidContext[uint]()
-	//
-	for _, term := range args {
-		ctx = ctx.Join(term.Context(module))
-	}
-	// If we get here, then no conflicts were detected.
-	return ctx
-}
-
-func lispOfTerms[T schema.Term[T]](module schema.Module, op string, exprs []T) sexp.SExp {
+func lispOfTerms[T Term[T]](module schema.Module, op string, exprs []T) sexp.SExp {
 	arr := make([]sexp.SExp, 1+len(exprs))
 	arr[0] = sexp.NewSymbol(op)
 	// Translate arguments
@@ -52,19 +45,19 @@ func lispOfTerms[T schema.Term[T]](module schema.Module, op string, exprs []T) s
 	return sexp.NewList(arr)
 }
 
-func requiredColumnsOfTerms[T schema.Term[T]](args []T) *set.SortedSet[uint] {
+func requiredColumnsOfTerms[T Term[T]](args []T) *set.SortedSet[uint] {
 	return set.UnionSortedSets(args, func(term T) *set.SortedSet[uint] {
 		return term.RequiredColumns()
 	})
 }
 
-func requiredCellsOfTerms[T schema.Term[T]](args []T, row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
+func requiredCellsOfTerms[T Term[T]](args []T, row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
 	return set.UnionAnySortedSets(args, func(term T) *set.AnySortedSet[trace.CellRef] {
 		return term.RequiredCells(row, tr)
 	})
 }
 
-func shiftRangeOfTerms[T schema.Term[T]](terms []T) (int, int) {
+func shiftRangeOfTerms[T Term[T]](terms []T) (int, int) {
 	minShift := math.MaxInt
 	maxShift := math.MinInt
 	//

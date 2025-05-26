@@ -10,10 +10,10 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package term
+package ir
 
 import (
-	"github.com/consensys/go-corset/pkg/ir/schema"
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -38,24 +38,14 @@ const (
 // Equation represents an equation between two terms (e.g. "X==Y", or "X!=Y+1",
 // etc).  Equations are either equalities (or negated equalities) or
 // inequalities.
-type Equation[T schema.Term[T]] struct {
+type Equation[T Term[T]] struct {
 	Kind uint8
-	Lhs  schema.Term[T]
-	Rhs  schema.Term[T]
+	Lhs  Term[T]
+	Rhs  Term[T]
 }
 
 // Bounds implementation for Boundable interface.
 func (p *Equation[T]) Bounds() util.Bounds {
-	panic("todo")
-}
-
-// Branches implementation for Evaluable interface.
-func (p *Equation[T]) Branches() uint {
-	panic("todo")
-}
-
-// Context implementation for Contextual interface.
-func (p *Equation[T]) Context(module schema.Module) trace.Context {
 	panic("todo")
 }
 

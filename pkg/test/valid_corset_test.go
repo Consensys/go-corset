@@ -22,7 +22,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/ir/mir"
-	sc "github.com/consensys/go-corset/pkg/ir/schema"
+	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/json"
 	"github.com/consensys/go-corset/pkg/util"
@@ -1399,8 +1399,6 @@ func CheckTraces(t *testing.T, test string, maxPadding uint, cfg TestConfig, tra
 	if !cfg.expand {
 		maxPadding = 0
 	}
-	// Consolidate schema
-	mirSchema.Consolidate()
 	//
 	for i, tr := range traces {
 		if tr != nil {
@@ -1426,21 +1424,22 @@ func CheckTraces(t *testing.T, test string, maxPadding uint, cfg TestConfig, tra
 
 func checkTrace[M sc.Module, C sc.Constraint](t *testing.T, inputs []trace.RawColumn, id traceId, schema sc.Schema[M, C]) {
 	// Construct the trace
-	tr, errs := sc.NewTraceBuilder(schema).
-		Expand(id.expand).
-		Validate(id.validate).
-		Padding(id.padding).
-		Parallel(true).
-		Build(inputs)
+	/* tr, errs := sc.NewTraceBuilder(schema).
+	Expand(id.expand).
+	Validate(id.validate).
+	Padding(id.padding).
+	Parallel(true).
+	Build(inputs) */
+	tr, errs := schema.Expand(nil)
 	// Sanity check construction
 	if len(errs) > 0 {
 		t.Errorf("Trace expansion failed (%s, %s, line %d with padding %d): %s",
 			id.ir, id.test, id.line, id.padding, errs)
 	} else {
 		// Check Constraints
-		_, errs1 := sc.Accepts(false, 100, schema, tr)
+		errs1 := sc.Accepts(false, 100, schema, tr)
 		// Check assertions
-		_, errs2 := sc.Asserts(true, 100, schema, tr)
+		errs2 := sc.Asserts(true, 100, schema, tr)
 		errs := append(errs1, errs2...)
 		// Determine whether trace accepted or not.
 		accepted := len(errs) == 0

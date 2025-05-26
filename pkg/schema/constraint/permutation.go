@@ -15,7 +15,7 @@ package constraint
 import (
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/ir/schema"
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
@@ -64,8 +64,8 @@ func NewPermutationConstraint(handle string, context trace.Context, targets []ui
 
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
-func (p PermutationConstraint) Name() (string, uint) {
-	return p.Handle, 0
+func (p PermutationConstraint) Name() string {
+	return p.Handle
 }
 
 // Contexts returns the evaluation contexts (i.e. enclosing module + length
@@ -75,12 +75,6 @@ func (p PermutationConstraint) Name() (string, uint) {
 // context).
 func (p PermutationConstraint) Contexts() []trace.Context {
 	return []trace.Context{p.Context}
-}
-
-// Branches returns the total number of logical branches this constraint can
-// take during evaluation.
-func (p PermutationConstraint) Branches() uint {
-	return 1
 }
 
 // Bounds determines the well-definedness bounds for this constraint for both
@@ -121,8 +115,9 @@ func (p PermutationConstraint) Accepts(tr trace.Trace) (bit.Set, schema.Failure)
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (p PermutationConstraint) Lisp(module schema.Module) sexp.SExp {
+func (p PermutationConstraint) Lisp(schema schema.AnySchema) sexp.SExp {
 	var (
+		module  = schema.Module(p.Context.ModuleId)
 		targets = sexp.EmptyList()
 		sources = sexp.EmptyList()
 	)
