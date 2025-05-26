@@ -170,7 +170,7 @@ func checkIrTraces(t *testing.T, test string, cfg TestConfig, traces []io.Trace[
 	}
 }
 
-func checkTrace[M sc.Module, C sc.Constraint](t *testing.T, inputs []trace.RawColumn, id traceId, schema sc.Schema[M, C]) {
+func checkTrace[C sc.Constraint](t *testing.T, inputs []trace.RawColumn, id traceId, schema sc.Schema[C]) {
 	// Construct the trace
 	tr, errs := sc.NewTraceBuilder(schema).
 		Padding(id.padding).

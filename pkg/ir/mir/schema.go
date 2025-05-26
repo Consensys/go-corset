@@ -39,7 +39,9 @@ type SortedConstraint = *constraint.SortedConstraint[Expr]
 // the prover.
 type Assertion = *constraint.Assertion[Logical]
 
-type Schema = schema.Schema[schema.Table, schema.Constraint]
+type Constraint = schema.Constraint
+
+type Schema = schema.Schema[Constraint]
 
 // SubstituteConstants substitutes the value of matching labelled constants for
 // all expressions used within the schema.

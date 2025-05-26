@@ -1422,7 +1422,7 @@ func CheckTraces(t *testing.T, test string, maxPadding uint, cfg TestConfig, tra
 	}
 }
 
-func checkTrace[M sc.Module, C sc.Constraint](t *testing.T, inputs []trace.RawColumn, id traceId, schema sc.Schema[M, C]) {
+func checkTrace[C sc.Constraint](t *testing.T, inputs []trace.RawColumn, id traceId, schema sc.Schema[C]) {
 	// Construct the trace
 	/* tr, errs := sc.NewTraceBuilder(schema).
 	Expand(id.expand).

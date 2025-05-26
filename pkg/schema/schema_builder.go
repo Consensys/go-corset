@@ -12,16 +12,20 @@
 // SPDX-License-Identifier: Apache-2.0
 package schema
 
-type SchemaBuilder[M Module, C Constraint] struct {
+type SchemaBuilder[C Constraint] struct {
 	modules     []ModuleBuilder
 	constraints []C
 }
 
-func (p *SchemaBuilder[M, C]) NewModule(name string) *ModuleBuilder {
+func NewSchemaBuilder[C Constraint]() SchemaBuilder[C] {
 	panic("todo")
 }
 
-func (p *SchemaBuilder[M, C]) Build() Schema[M, C] {
+func (p *SchemaBuilder[C]) NewModule(name string) *ModuleBuilder {
+	panic("todo")
+}
+
+func (p *SchemaBuilder[C]) Build() Schema[C] {
 	panic("todo")
 }
 

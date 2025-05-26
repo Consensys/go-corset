@@ -62,7 +62,7 @@ type columnId struct {
 
 // NewTraceBuilder constructs a default trace builder.  The idea is that this
 // could then be customized as needed following the builder pattern.
-func NewTraceBuilder[M Module, C Constraint](schema Schema[M, C]) TraceBuilder {
+func NewTraceBuilder[C Constraint](schema Schema[C]) TraceBuilder {
 	return TraceBuilder{Any(schema), true, true, true, 0}
 }
 

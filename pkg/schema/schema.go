@@ -19,10 +19,10 @@ import (
 
 // AnySchema captures a generic view of a schema, which is useful in situations
 // where exactly details about the schema are not important.
-type AnySchema = Schema[Module, Constraint]
+type AnySchema = Schema[Constraint]
 
 // Any converts a concrete schema into a generic view of the schema.
-func Any[M Module, C Constraint](schema Schema[M, C]) AnySchema {
+func Any[C Constraint](schema Schema[C]) AnySchema {
 	// var (
 	// 	modules     []Module
 	// 	constraints []Constraint
@@ -43,11 +43,11 @@ func Any[M Module, C Constraint](schema Schema[M, C]) AnySchema {
 
 // Expander functions are responsible for "filling" traces according to a given
 // schema.  More specifically, the determine values for all computed columns.
-type Expander[M any, C any] func(Schema[M, C], trace.Trace) trace.Trace
+type Expander[M any, C any] func(Schema[C], trace.Trace) trace.Trace
 
 // ============================================================================
 
-type Schema[M any, C any] interface {
+type Schema[C any] interface {
 	// Assertions returns an iterator over the property assertions of this
 	// schema.  These are properties which should hold true for any valid trace
 	// (though, of course, may not hold true for an invalid trace).
@@ -63,15 +63,10 @@ type Schema[M any, C any] interface {
 	// values for all computed columns within the schema.
 	Expand(trace.Trace) (trace.Trace, []error)
 	// Access a given module in this schema.
-	Module(module uint) M
+	Module(module uint) Module
 	// Modules returns an iterator over the declared set of modules within this
 	// schema.
-	Modules() iter.Iterator[M]
+	Modules() iter.Iterator[Module]
 	// Returns the number of modules in this schema.
 	Width() uint
-}
-
-// Empty constructs an empty schema.
-func Empty[M any, C any](expander Expander[M, C]) Schema[M, C] {
-	panic("got here")
 }

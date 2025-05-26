@@ -28,13 +28,13 @@ import (
 // within the schema hold.
 //
 //nolint:revive
-func Accepts[M Module, C Constraint](parallel bool, batchsize uint, schema Schema[M, C], trace tr.Trace) []Failure {
+func Accepts[C Constraint](parallel bool, batchsize uint, schema Schema[C], trace tr.Trace) []Failure {
 	return accepts(parallel, batchsize, schema.Constraints(), trace, "Constraint")
 }
 
 // Asserts determines whether or not this schema will "assert" a given trace.
 // That is, whether or not the given trace adheres to the schema assertions.
-func Asserts[M Module, C Constraint](parallel bool, batchsize uint, schema Schema[M, C], trace tr.Trace) []Failure {
+func Asserts[C Constraint](parallel bool, batchsize uint, schema Schema[C], trace tr.Trace) []Failure {
 	return accepts(parallel, batchsize, schema.Assertions(), trace, "Assertion")
 }
 

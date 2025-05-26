@@ -36,7 +36,7 @@ import (
 func TranslateCircuit(env Environment, srcmap *source.Maps[ast.Node],
 	circuit *ast.Circuit) (mir.Schema, []SyntaxError) {
 	//
-	t := translator{env, srcmap, schema.Empty[schema.Table, schema.Constraint]()}
+	t := translator{env, srcmap, schema.NewSchemaBuilder[mir.Constraint]()}
 	// Allocate all modules into schema
 	if errs := t.translateModules(circuit); len(errs) > 0 {
 		return nil, errs
@@ -48,7 +48,7 @@ func TranslateCircuit(env Environment, srcmap *source.Maps[ast.Node],
 		return nil, errs
 	}
 	// Done
-	return t.schema, nil
+	return t.schema.Build(), nil
 }
 
 // Translator packages up information necessary for translating a circuit into
@@ -62,7 +62,7 @@ type translator struct {
 	// highlights of the relevant source line(s) in question.
 	srcmap *source.Maps[ast.Node]
 	// Represents the schema being constructed by this translator.
-	schema *mir.Schema
+	schema schema.SchemaBuilder[mir.Constraint]
 }
 
 func (t *translator) translateModules(circuit *ast.Circuit) []source.SyntaxError {
@@ -70,7 +70,7 @@ func (t *translator) translateModules(circuit *ast.Circuit) []source.SyntaxError
 		errors []source.SyntaxError
 	)
 	// Add root module
-	t.schema.AddModule("")
+	t.schema.NewModule("")
 	// Add nested modules
 	for _, m := range circuit.Modules {
 		// Translate module condition (if applicable)
@@ -78,7 +78,7 @@ func (t *translator) translateModules(circuit *ast.Circuit) []source.SyntaxError
 			panic("conditional modules not supported")
 		}
 		//
-		mid := t.schema.AddModule(m.Name)
+		mid := t.schema.NewModule(m.Name)
 		info := t.env.Module(m.Name)
 		// Sanity check everything lines up.
 		if info.Id != mid {
