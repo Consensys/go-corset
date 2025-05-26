@@ -112,24 +112,25 @@ func (t *translator) translateInputColumns(circuit *ast.Circuit) {
 // identifiers used at the HIR level; or, requiring the column identifier be
 // specified to HIR at the point of allocation).
 func (t *translator) translateInputColumnsInModule(module string) {
-	// // Process each register in turn.
-	// for _, regIndex := range t.env.RegistersOf(module) {
-	// 	regInfo := t.env.Register(regIndex)
-	// 	// Sanity Check
-	// 	if !regInfo.IsActive() {
-	// 		panic("inactive register encountered")
-	// 	} else if regInfo.IsInput() {
-	// 		// Declare column at HIR level.
-	// 		cid := t.schema.AddDataColumn(regInfo.Context, regInfo.Name(), regInfo.DataType)
-	// 		// Prove underlying types (as necessary)
-	// 		t.translateTypeConstraints(regIndex)
-	// 		// Sanity check
-	// 		if cid != regIndex {
-	// 			// Should be unreachable
-	// 			panic(fmt.Sprintf("inconsistent register index (%d versus %d)", cid, regIndex))
-	// 		}
-	// 	}
-	// }
+	builder := t.schema.ModuleOf(module)
+	// Process each register in turn.
+	for _, regIndex := range t.env.RegistersOf(module) {
+		regInfo := t.env.Register(regIndex)
+		// Sanity Check
+		if !regInfo.IsActive() {
+			panic("inactive register encountered")
+		} else if regInfo.IsInput() {
+			// Declare column at HIR level.
+			cid := builder.NewColumn(schema.NewInputColumn(regInfo.Context, regInfo.Name(), regInfo.DataType))
+			// Prove underlying types (as necessary)
+			t.translateTypeConstraints(regIndex)
+			// Sanity check
+			if cid != regIndex {
+				// Should be unreachable
+				panic(fmt.Sprintf("inconsistent register index (%d versus %d)", cid, regIndex))
+			}
+		}
+	}
 }
 
 // Translate any type constraints applicable for the given register.  Type

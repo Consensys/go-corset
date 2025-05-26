@@ -16,12 +16,15 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/binfile"
+	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
 	"github.com/consensys/go-corset/pkg/corset"
 )
 
 // PrintExternalisedConstants is responsible for printing any externalised
 // constants contained within the given binary file.
-func PrintExternalisedConstants(binf *binfile.BinaryFile) {
+func PrintExternalisedConstants(schemas cmd_util.SchemaStack) {
+	binf := schemas.BinaryFile()
+	//
 	fmt.Println("External constants:")
 	// Sanity check debug information is available.
 	srcmap, srcmap_ok := binfile.GetAttribute[*corset.SourceMap](binf)

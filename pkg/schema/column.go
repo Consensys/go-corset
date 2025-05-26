@@ -38,9 +38,12 @@ type Column struct {
 	Kind uint8
 }
 
-// NewColumn constructs a new column
-func NewColumn(context trace.Context, name string, datatype Type, kind uint8) Column {
-	return Column{context, name, datatype, kind}
+func NewInputColumn(context trace.Context, name string, datatype Type) Column {
+	return Column{context, name, datatype, INPUT_COLUMN}
+}
+
+func NewComputedColumn(context trace.Context, name string, datatype Type) Column {
+	return Column{context, name, datatype, COMPUTED_COLUMN}
 }
 
 // QualifiedName returns the fully qualified name of this column

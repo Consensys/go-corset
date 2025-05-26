@@ -16,7 +16,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/consensys/go-corset/pkg/ir/mir"
+	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/termio"
@@ -24,17 +24,8 @@ import (
 
 // PrintStats is used for printing summary information about a constraint set,
 // such as the number and type of constraints, etc.
-func PrintStats(mirSchema mir.Schema, mirEnable bool, airEnable bool, optConfig mir.OptimisationConfig) {
-	schemas := make([]sc.AnySchema, 0)
-	airSchema := mir.LowerToAir(&mirSchema, optConfig)
-	// Construct columns
-	if mirEnable {
-		schemas = append(schemas, sc.Any(mirSchema))
-	}
-
-	if airEnable {
-		schemas = append(schemas, sc.Any(airSchema))
-	}
+func PrintStats(stack cmd_util.SchemaStack) {
+	schemas := stack.Schemas()
 	//
 	n := 1 + uint(len(schemas))
 	m := uint(len(schemaSummarisers))

@@ -13,6 +13,7 @@
 package schema
 
 type SchemaBuilder[C Constraint] struct {
+	modmap      map[string]uint
 	modules     []ModuleBuilder
 	constraints []C
 }
@@ -22,6 +23,14 @@ func NewSchemaBuilder[C Constraint]() SchemaBuilder[C] {
 }
 
 func (p *SchemaBuilder[C]) NewModule(name string) uint {
+	panic("todo")
+}
+
+func (p *SchemaBuilder[C]) Module(mid uint) *ModuleBuilder {
+	return &p.modules[mid]
+}
+
+func (p *SchemaBuilder[C]) ModuleOf(name string) *ModuleBuilder {
 	panic("todo")
 }
 

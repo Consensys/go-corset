@@ -15,23 +15,17 @@ package debug
 import (
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/ir/mir"
+	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
 // PrintSchemas is responsible for printing out a human-readable description of
 // a given schema.
-func PrintSchemas(mirSchema mir.Schema, mirEnable bool, airEnable bool,
-	optConfig mir.OptimisationConfig, textwidth uint) {
+func PrintSchemas(stack cmd_util.SchemaStack, textwidth uint) {
 	//
-	if mirEnable {
-		printSchema(schema.Any(mirSchema), textwidth)
-	}
-
-	if airEnable {
-		airSchema := mir.LowerToAir(&mirSchema, optConfig)
-		printSchema(schema.Any(airSchema), textwidth)
+	for _, schema := range stack.Schemas() {
+		printSchema(schema, textwidth)
 	}
 }
 
