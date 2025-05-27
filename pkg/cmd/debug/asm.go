@@ -39,7 +39,7 @@ func PrintAssemblyProgram(micro bool, cfg asm.LoweringConfig, program asm.MacroP
 
 func printAssemblyFunctions[T io.Instruction[T]](program io.Program[T]) {
 	for _, fn := range program.Functions() {
-		printAssemblyFunction(fn)
+		printAssemblyFunction(*fn)
 	}
 }
 

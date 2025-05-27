@@ -86,7 +86,7 @@ func expandTrace[T io.Instruction[T]](trace io.Trace[T]) []tr.RawColumn {
 	//
 	for i, fn := range program.Functions() {
 		ith_traces := tracer.Traces(uint(i))
-		ith_columns := expandFunctionTrace(fn, ith_traces)
+		ith_columns := expandFunctionTrace(*fn, ith_traces)
 		columns = append(columns, ith_columns...)
 	}
 	//

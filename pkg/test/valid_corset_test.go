@@ -1354,7 +1354,7 @@ func Check(t *testing.T, stdlib bool, test string) {
 	// Package up as source file
 	srcfile := source.NewSourceFile(filename, bytes)
 	// Parse terms into an HIR schema
-	binfile, errs := corset.CompileSourceFile(corsetConfig, srcfile)
+	schema, _, errs := corset.CompileSourceFile[sc.Module](corsetConfig, srcfile)
 	// Check terms parsed ok
 	if len(errs) > 0 {
 		t.Fatalf("Error parsing %s: %v\n", filename, errs)
@@ -1368,7 +1368,7 @@ func Check(t *testing.T, stdlib bool, test string) {
 		testFilename := fmt.Sprintf("%s/%s.%s", TestDir, test, cfg.extension)
 		traces = ReadTracesFile(testFilename)
 		// Run tests
-		BinCheckTraces(t, testFilename, cfg, traces, binfile.Schema)
+		BinCheckTraces(t, testFilename, cfg, traces, schema)
 		// Record how many tests we found
 		nTests += len(traces)
 	}

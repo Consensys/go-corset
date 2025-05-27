@@ -24,7 +24,6 @@ import (
 	"github.com/consensys/go-corset/pkg/asm"
 	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/corset"
-	corset_ast "github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/ir/air"
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
@@ -263,9 +262,10 @@ func CompileSourceFiles(config corset.CompilationConfig, asmConfig asm.LoweringC
 	//
 	var (
 		errors   []source.SyntaxError
-		binf     *binfile.BinaryFile
+		schema   schema.MixedSchema[*asm.MacroFunction, mir.Module]
+		srcmap   corset.SourceMap
 		srcfiles = make([]*source.File, len(filenames))
-		externs  []corset_ast.Module
+		externs  []*asm.MacroFunction
 	)
 	// Read each file
 	for i, n := range filenames {
@@ -283,11 +283,10 @@ func CompileSourceFiles(config corset.CompilationConfig, asmConfig asm.LoweringC
 	// Expand assembly programs
 	for i, n := range filenames {
 		if path.Ext(n) == ".zkasm" {
-			var circuit corset_ast.Circuit
+			var program asm.MacroProgram
 			//
-			m := strings.ReplaceAll(n, "zkasm", "lisp")
-			circuit, errors = asm.Compile2Circuit(m, asmConfig, *srcfiles[i])
-			externs = append(externs, circuit.Modules...)
+			program, _, errors = asm.Assemble(*srcfiles[i])
+			externs = append(externs, program.Functions()...)
 			srcfiles[i] = nil
 		}
 	}
@@ -296,10 +295,11 @@ func CompileSourceFiles(config corset.CompilationConfig, asmConfig asm.LoweringC
 	// Continue if no errors
 	if len(errors) == 0 {
 		// Parse and compile source files
-		binf, errors = corset.CompileSourceFiles(config, srcfiles, externs...)
+		schema, srcmap, errors = corset.CompileSourceFiles(config, srcfiles, externs...)
 		// Check for any errors
 		if len(errors) == 0 {
-			return *binf
+			attributes := []binfile.Attribute{&srcmap}
+			return *binfile.NewBinaryFile(nil, attributes, schema)
 		}
 	}
 	// Report errors
@@ -399,7 +399,7 @@ func applyExternOverrides(externs []string, binf *binfile.BinaryFile) {
 			biMapping[split[0]] = biElement
 		}
 		// Substitute through constraints
-		mir.SubstituteConstants(&binf.Schema, frMapping)
+		mir.SubstituteConstants(binf.Schema, frMapping)
 		// Update source mapping
 		srcmap.SubstituteConstants(biMapping)
 	}

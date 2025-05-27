@@ -83,3 +83,7 @@ type MixedSchema[M1 Module, M2 Module] interface {
 	// LeftModules provides an iterator over the modules of type M2.
 	RightModules() iter.Iterator[M2]
 }
+
+func NewMixedSchema[M1 Module, M2 Module](leftModules []M1, rightModules []M2) MixedSchema[M1, M2] {
+	panic("todo")
+}

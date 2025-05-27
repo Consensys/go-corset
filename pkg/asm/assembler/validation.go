@@ -38,8 +38,8 @@ func Validate(fieldWidth uint, program MacroProgram, srcmaps source.Maps[any]) [
 	var errors []source.SyntaxError
 	//
 	for _, fn := range program.Functions() {
-		errors = append(errors, validateInstructions(fieldWidth, fn, srcmaps)...)
-		errors = append(errors, validateControlFlow(fn, srcmaps)...)
+		errors = append(errors, validateInstructions(fieldWidth, *fn, srcmaps)...)
+		errors = append(errors, validateControlFlow(*fn, srcmaps)...)
 	}
 	//
 	return errors
@@ -53,7 +53,7 @@ func ValidateMicro(fieldWidth uint, program MicroProgram) {
 	//
 	for _, fn := range program.Functions() {
 		// TODO: support control-flow checks as well.
-		validateInstructions(fieldWidth, fn, srcmap)
+		validateInstructions(fieldWidth, *fn, srcmap)
 	}
 }
 

@@ -18,11 +18,11 @@ import (
 	"math"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/corset/compiler"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/mir"
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
 
@@ -50,20 +50,18 @@ type CompilationConfig struct {
 // CompileSourceFiles compiles one or more source files into a schema.  This
 // process can fail if the source files are mal-formed, or contain syntax errors
 // or other forms of error (e.g. type errors).
-func CompileSourceFiles(config CompilationConfig, srcfiles []*source.File,
-	externs ...ast.Module) (*binfile.BinaryFile, []SyntaxError) {
+func CompileSourceFiles[M schema.Module](config CompilationConfig, srcfiles []*source.File,
+	externs ...M) (schema.MixedSchema[M, mir.Module], SourceMap, []SyntaxError) {
 	// Include the standard library (if requested)
 	srcfiles = includeStdlib(config.Stdlib, srcfiles)
 	// Parse all source files (inc stdblib if applicable).
 	circuit, srcmap, errs := compiler.ParseSourceFiles(srcfiles)
-	// Include any external declarations.
-	circuit.Modules = append(circuit.Modules, externs...)
 	// Check for parsing errors
 	if errs != nil {
-		return nil, errs
+		return nil, SourceMap{}, errs
 	}
 	// Compile each module into the schema
-	comp := NewCompiler(circuit, srcmap).SetDebug(config.Debug)
+	comp := NewCompiler[M](circuit, srcmap, externs).SetDebug(config.Debug)
 	// Configure register allocator (if requested)
 	if config.Legacy {
 		comp.SetAllocator(compiler.LegacyAllocator)
@@ -78,24 +76,22 @@ func CompileSourceFiles(config CompilationConfig, srcfiles []*source.File,
 // really helper function for e.g. the testing environment.   This process can
 // fail if the source file is mal-formed, or contains syntax errors or other
 // forms of error (e.g. type errors).
-func CompileSourceFile(config CompilationConfig, srcfile *source.File) (*binfile.BinaryFile, []SyntaxError) {
-	schema, errs := CompileSourceFiles(config, []*source.File{srcfile})
-	// Check for errors
-	if errs != nil {
-		return nil, errs
-	}
+func CompileSourceFile[M schema.Module](config CompilationConfig, srcfile *source.File) (schema.MixedSchema[M, mir.Module],
+	SourceMap, []SyntaxError) {
 	//
-	return schema, nil
+	return CompileSourceFiles[M](config, []*source.File{srcfile})
 }
 
 // Compiler packages up everything needed to compile a given set of module
 // definitions down into an HIR schema.  Observe that the compiler may fail if
 // the modules definitions are malformed in some way (e.g. fail type checking).
-type Compiler struct {
+type Compiler[M schema.Module] struct {
 	// The register allocation algorithm to be used by this compiler.
 	allocator func(compiler.RegisterAllocation)
 	// A high-level definition of a Corset circuit.
 	circuit ast.Circuit
+	// Externally defined modules
+	externs []M
 	// Determines whether debug
 	debug bool
 	// Determines whether to apply sanity checks
@@ -107,19 +103,19 @@ type Compiler struct {
 }
 
 // NewCompiler constructs a new compiler for a given set of modules.
-func NewCompiler(circuit ast.Circuit, srcmaps *source.Maps[ast.Node]) *Compiler {
-	return &Compiler{compiler.DEFAULT_ALLOCATOR, circuit, false, true, srcmaps}
+func NewCompiler[M schema.Module](circuit ast.Circuit, srcmaps *source.Maps[ast.Node], externs []M) *Compiler[M] {
+	return &Compiler[M]{compiler.DEFAULT_ALLOCATOR, circuit, externs, false, true, srcmaps}
 }
 
 // SetDebug enables or disables debug mode.  In debug mode, debug constraints
 // will be compiled in.
-func (p *Compiler) SetDebug(flag bool) *Compiler {
+func (p *Compiler[M]) SetDebug(flag bool) *Compiler[M] {
 	p.debug = flag
 	return p
 }
 
 // SetAllocator overides the default register allocator.
-func (p *Compiler) SetAllocator(allocator func(compiler.RegisterAllocation)) *Compiler {
+func (p *Compiler[M]) SetAllocator(allocator func(compiler.RegisterAllocation)) *Compiler[M] {
 	p.allocator = allocator
 	return p
 }
@@ -129,7 +125,7 @@ func (p *Compiler) SetAllocator(allocator func(compiler.RegisterAllocation)) *Co
 // ways if the given modules are malformed in some way.  For example, if some
 // expression refers to a non-existent module or column, or is not well-typed,
 // etc.
-func (p *Compiler) Compile() (*binfile.BinaryFile, []SyntaxError) {
+func (p *Compiler[M]) Compile() (schema.MixedSchema[M, mir.Module], SourceMap, []SyntaxError) {
 	var (
 		scope  *compiler.ModuleScope
 		errors []SyntaxError
@@ -140,28 +136,26 @@ func (p *Compiler) Compile() (*binfile.BinaryFile, []SyntaxError) {
 	errors = append(errors, compiler.TypeCheckCircuit(p.srcmap, &p.circuit)...)
 	// Catch errors
 	if len(errors) > 0 {
-		return nil, errors
+		return nil, SourceMap{}, errors
 	}
 	// Preprocess circuit to remove invocations, reductions, etc.
 	if errors = compiler.PreprocessCircuit(p.debug, p.srcmap, &p.circuit); len(errors) > 0 {
-		return nil, errors
+		return nil, SourceMap{}, errors
 	}
 	// Convert global scope into an environment by allocating all columns.
 	environment := compiler.NewGlobalEnvironment(scope, p.allocator)
 	// Translate everything and add it to the schema.
-	schema, errs := compiler.TranslateCircuit(environment, p.srcmap, &p.circuit)
+	schema, errs := compiler.TranslateCircuit(environment, p.srcmap, &p.circuit, p.externs...)
 	// Sanity check for errors
 	if len(errs) > 0 {
-		return nil, errs
+		return nil, SourceMap{}, errs
 	} else if err := schema.Consistent(); err != nil {
 		panic(err.Error())
 	}
 	// Construct source map
 	source_map := constructSourceMap(scope, environment)
-	// Extract key attributes (for debugging purposes)
-	attributes := []binfile.Attribute{source_map}
 	// Construct binary file
-	return binfile.NewBinaryFile(nil, attributes, schema), errs
+	return schema, *source_map, errs
 }
 
 func includeStdlib(stdlib bool, srcfiles []*source.File) []*source.File {
@@ -197,7 +191,7 @@ func constructSourceModule(scope *compiler.ModuleScope, env compiler.GlobalEnvir
 		// Translate register source into source column
 		srcCol := SourceColumn{name,
 			col.Multiplier,
-			col.DataType,
+			col.Bitwidth,
 			col.MustProve,
 			col.Computed,
 			col.Internal,
