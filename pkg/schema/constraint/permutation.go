@@ -123,12 +123,12 @@ func (p PermutationConstraint) Lisp(schema schema.AnySchema) sexp.SExp {
 	)
 
 	for _, tid := range p.Targets {
-		target := module.Column(tid)
+		target := module.Register(tid)
 		targets.Append(sexp.NewSymbol(target.QualifiedName(module)))
 	}
 
 	for _, sid := range p.Sources {
-		source := module.Column(sid)
+		source := module.Register(sid)
 		sources.Append(sexp.NewSymbol(source.QualifiedName(module)))
 	}
 

@@ -19,10 +19,10 @@ type Module interface {
 	Name() string
 
 	// Access a given column in this module.
-	Column(uint) Column
+	Register(uint) Column
 
-	// Columns providers access to the underlying columns of this schema.
-	Columns() []Column
+	// Registers providers access to the underlying columns of this schema.
+	Registers() []Column
 
 	// Returns the number of columns in this module.
 	Width() uint
@@ -102,13 +102,13 @@ func (p Table[C]) Name() string {
 }
 
 // Access a given column in this Table.
-func (p Table[C]) Column(index uint) Column {
+func (p Table[C]) Register(index uint) Column {
 	return p.registers[index]
 }
 
 // Columns returns an iterator over the underlying columns of this schema.
 // Specifically, the index of a column in this array is its column index.
-func (p Table[C]) Columns() []Column {
+func (p Table[C]) Registers() []Column {
 	panic("todo")
 }
 

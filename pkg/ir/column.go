@@ -64,7 +64,7 @@ func (p *ColumnAccess[T]) Lisp(module schema.Module) sexp.SExp {
 	var name string
 	// Generate name, whilst allowing for schema to be nil.
 	if module != nil {
-		name = module.Column(p.Column).QualifiedName(module)
+		name = module.Register(p.Column).QualifiedName(module)
 	} else {
 		name = fmt.Sprintf("#%d", p.Column)
 	}
@@ -110,7 +110,7 @@ func (p *ColumnAccess[T]) Simplify(casts bool) T {
 // ValueRange implementation for Term interface.
 func (p *ColumnAccess[T]) ValueRange(module schema.Module) *util.Interval {
 	bound := big.NewInt(2)
-	width := int64(module.Column(p.Column).Width)
+	width := int64(module.Register(p.Column).Width)
 	bound.Exp(bound, big.NewInt(width), nil)
 	// Subtract 1 because interval is inclusive.
 	bound.Sub(bound, big.NewInt(1))

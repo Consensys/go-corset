@@ -90,16 +90,6 @@ func (p *Function[T]) Outputs() []Register {
 	return outputs
 }
 
-// Column returns the ith register used in this function.
-func (p *Function[T]) Column(i uint) Register {
-	return p.registers[i]
-}
-
-// Column returns the ith register used in this function.
-func (p *Function[T]) Columns() []Register {
-	panic("todo")
-}
-
 // Register returns the ith register used in this function.
 func (p *Function[T]) Register(i uint) Register {
 	return p.registers[i]

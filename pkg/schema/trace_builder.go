@@ -201,7 +201,7 @@ func initialiseColumnMap(schema AnySchema) (map[columnKey]columnId, [][]trace.Ra
 		columns := make([]trace.RawColumn, m.Width())
 		//
 		for j := uint(0); j != m.Width(); j++ {
-			col := m.Column(j)
+			col := m.Register(j)
 			key := columnKey{m.Name(), col.Name}
 			id := columnId{i, j}
 			if _, ok := colmap[key]; ok {
