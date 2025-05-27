@@ -41,7 +41,7 @@ type Assertion = *constraint.Assertion[Logical]
 
 type Constraint = schema.Constraint
 
-type Module = schema.Table
+type Module = schema.Table[Constraint]
 
 type Schema = schema.Schema[Constraint]
 

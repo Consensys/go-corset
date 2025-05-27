@@ -37,30 +37,41 @@ type Module interface {
 //
 // ============================================================================
 
-type Table struct {
+// Table provides a straightforward, reusable module implementation.  There is
+// nothing fancy here: we simply have a set of columns, constraints and
+// assignments.
+type Table[C Constraint] struct {
+	name        string
+	columns     []Column
+	constraints []C
+}
+
+// NewTable constructs an empty table module.
+func NewTable[C Constraint](name string, columns []Column, constraints []C) Table[C] {
+	return Table[C]{name, columns, constraints}
 }
 
 // Module name
-func (p Table) Name() string {
-	panic("todo")
+func (p Table[C]) Name() string {
+	return p.name
 }
 
 // Access a given column in this Table.
-func (p Table) Column(uint) Column {
-	panic("todo")
+func (p Table[C]) Column(index uint) Column {
+	return p.columns[index]
 }
 
 // Columns returns an iterator over the underlying columns of this schema.
 // Specifically, the index of a column in this array is its column index.
-func (p Table) Columns() iter.Iterator[Column] {
+func (p Table[C]) Columns() iter.Iterator[Column] {
 	panic("todo")
 }
 
 // Returns the number of columns in this Table.
-func (p Table) Width() uint {
-	panic("todo")
+func (p Table[C]) Width() uint {
+	return uint(len(p.columns))
 }
 
-func (p Table) New(column Column) uint {
+func (p *Table[C]) New(column Column) uint {
 	panic("todo")
 }

@@ -72,7 +72,7 @@ var schemaSummarisers []schemaSummariser = []schemaSummariser{
 	// assignmentCounter("Lexicographic Orderings", reflect.TypeOf((*assignment.LexicographicSort)(nil))),
 	// assignmentCounter("Sorted Permutations", reflect.TypeOf((*assignment.SortedPermutation)(nil))),
 	// Columns
-	columnCounter(),
+	//columnCounter(),
 	columnWidthSummariser(1, 1),
 	columnWidthSummariser(2, 4),
 	columnWidthSummariser(5, 8),

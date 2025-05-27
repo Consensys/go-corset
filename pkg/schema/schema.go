@@ -76,14 +76,53 @@ type Schema[C any] interface {
 // MixedSchema represents a schema comprised of modules from different layers.
 // In particular, we might have assembly and constraint (i.e. MIR) modules mixed
 // together.
-type MixedSchema[M1 Module, M2 Module] interface {
-	Schema[Constraint]
-	// LeftModules provides an iterator over the modules of type M1.
-	LeftModules() iter.Iterator[M1]
-	// LeftModules provides an iterator over the modules of type M2.
-	RightModules() iter.Iterator[M2]
+type MixedSchema[M1 Module, M2 Module] struct {
 }
 
+var _ Schema[Constraint] = MixedSchema[Module, Module]{}
+
 func NewMixedSchema[M1 Module, M2 Module](leftModules []M1, rightModules []M2) MixedSchema[M1, M2] {
+	panic("todo")
+}
+
+// Assertions returns an iterator over the property assertions of this
+// schema.  These are properties which should hold true for any valid trace
+// (though, of course, may not hold true for an invalid trace).
+func (p MixedSchema[M1, M2]) Assertions() iter.Iterator[Constraint] {
+	panic("todo")
+}
+
+// Consistent applies a number of internal consistency checks.  Whilst not
+// strictly necessary, these can highlight otherwise hidden problems as an aid
+// to debugging.
+func (p MixedSchema[M1, M2]) Consistent() error {
+	panic("todo")
+}
+
+// Constraints returns an iterator over all constraints defined in this
+// schema.
+func (p MixedSchema[M1, M2]) Constraints() iter.Iterator[Constraint] {
+	panic("todo")
+}
+
+// Expand a given trace according to this schema by determining appropriate
+// values for all computed columns within the schema.
+func (p MixedSchema[M1, M2]) Expand(trace.Trace) (trace.Trace, []error) {
+	panic("todo")
+}
+
+// Access a given module in this schema.
+func (p MixedSchema[M1, M2]) Module(module uint) Module {
+	panic("todo")
+}
+
+// Modules returns an iterator over the declared set of modules within this
+// schema.
+func (p MixedSchema[M1, M2]) Modules() iter.Iterator[Module] {
+	panic("todo")
+}
+
+// Returns the number of modules in this schema.
+func (p MixedSchema[M1, M2]) Width() uint {
 	panic("todo")
 }

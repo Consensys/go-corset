@@ -45,7 +45,7 @@ var debugCmd = &cobra.Command{
 		spillage := GetFlag(cmd, "spillage")
 		textWidth := GetUint(cmd, "textwidth")
 		// Read in constraint files
-		schemas := *getSchemaStack(cmd)
+		schemas := *getSchemaStack(cmd, args...)
 		// Print constant info (if requested)
 		if constants {
 			debug.PrintExternalisedConstants(schemas)

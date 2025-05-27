@@ -125,8 +125,8 @@ func init() {
 	rootCmd.PersistentFlags().Uint("field-width", 252, "Maximum usable bitwidth of underlying field element")
 	rootCmd.PersistentFlags().Uint("register-width", 128, "Maximum bitwidth for registers")
 	// Schema stack
-	rootCmd.Flags().Bool("air", false, "include constraints at AIR level")
-	rootCmd.Flags().Bool("asm", false, "include constraints at ASM level")
-	rootCmd.Flags().Bool("mir", false, "include constraints at MIR level")
-	rootCmd.Flags().Bool("uasm", false, "include constraints at micro ASM level")
+	rootCmd.PersistentFlags().Bool("air", false, "include constraints at AIR level")
+	rootCmd.PersistentFlags().Bool("asm", false, "include constraints at ASM level")
+	rootCmd.PersistentFlags().Bool("mir", false, "include constraints at MIR level")
+	rootCmd.PersistentFlags().Bool("uasm", false, "include constraints at micro ASM level")
 }

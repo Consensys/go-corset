@@ -46,11 +46,11 @@ func TranslateCircuit[M schema.Module](
 	t := translator{env, srcmap, builder}
 	// Allocate all modules into schema
 	if errs := t.translateModules(circuit); len(errs) > 0 {
-		return nil, errs
+		return schema.MixedSchema[M, mir.Module]{}, errs
 	}
 	// Translate everything else
 	if errs := t.translateDeclarations(circuit); len(errs) > 0 {
-		return nil, errs
+		return schema.MixedSchema[M, mir.Module]{}, errs
 	}
 	// Finally, construct the mixed schema
 	return schema.NewMixedSchema(externs, t.schema.Modules()), nil

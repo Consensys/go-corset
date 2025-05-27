@@ -58,7 +58,7 @@ func CompileSourceFiles[M schema.Module](config CompilationConfig, srcfiles []*s
 	circuit, srcmap, errs := compiler.ParseSourceFiles(srcfiles)
 	// Check for parsing errors
 	if errs != nil {
-		return nil, SourceMap{}, errs
+		return schema.MixedSchema[M, mir.Module]{}, SourceMap{}, errs
 	}
 	// Compile each module into the schema
 	comp := NewCompiler[M](circuit, srcmap, externs).SetDebug(config.Debug)
@@ -136,26 +136,26 @@ func (p *Compiler[M]) Compile() (schema.MixedSchema[M, mir.Module], SourceMap, [
 	errors = append(errors, compiler.TypeCheckCircuit(p.srcmap, &p.circuit)...)
 	// Catch errors
 	if len(errors) > 0 {
-		return nil, SourceMap{}, errors
+		return schema.MixedSchema[M, mir.Module]{}, SourceMap{}, errors
 	}
 	// Preprocess circuit to remove invocations, reductions, etc.
 	if errors = compiler.PreprocessCircuit(p.debug, p.srcmap, &p.circuit); len(errors) > 0 {
-		return nil, SourceMap{}, errors
+		return schema.MixedSchema[M, mir.Module]{}, SourceMap{}, errors
 	}
 	// Convert global scope into an environment by allocating all columns.
 	environment := compiler.NewGlobalEnvironment(scope, p.allocator)
 	// Translate everything and add it to the schema.
-	schema, errs := compiler.TranslateCircuit(environment, p.srcmap, &p.circuit, p.externs...)
+	mixedSchema, errs := compiler.TranslateCircuit(environment, p.srcmap, &p.circuit, p.externs...)
 	// Sanity check for errors
 	if len(errs) > 0 {
-		return nil, SourceMap{}, errs
-	} else if err := schema.Consistent(); err != nil {
+		return schema.MixedSchema[M, mir.Module]{}, SourceMap{}, errs
+	} else if err := mixedSchema.Consistent(); err != nil {
 		panic(err.Error())
 	}
 	// Construct source map
 	source_map := constructSourceMap(scope, environment)
 	// Construct binary file
-	return schema, *source_map, errs
+	return mixedSchema, *source_map, errs
 }
 
 func includeStdlib(stdlib bool, srcfiles []*source.File) []*source.File {
