@@ -110,7 +110,7 @@ func (p *ColumnAccess[T]) Simplify(casts bool) T {
 // ValueRange implementation for Term interface.
 func (p *ColumnAccess[T]) ValueRange(module schema.Module) *util.Interval {
 	bound := big.NewInt(2)
-	width := int64(module.Column(p.Column).DataType.BitWidth())
+	width := int64(module.Column(p.Column).Width)
 	bound.Exp(bound, big.NewInt(width), nil)
 	// Subtract 1 because interval is inclusive.
 	bound.Sub(bound, big.NewInt(1))

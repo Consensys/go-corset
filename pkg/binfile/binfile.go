@@ -19,7 +19,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/ir/mir"
+	"github.com/consensys/go-corset/pkg/asm"
 	"github.com/consensys/go-corset/pkg/util/collection/typed"
 )
 
@@ -34,13 +34,13 @@ type BinaryFile struct {
 	// Attributes for the binary file.  These hold, for example, information for
 	// debugging, etc.
 	Attributes []Attribute
-	// The HIR Schema itself.
-	Schema mir.Schema
+	// The mixed assembly schema.
+	Schema asm.MixedMacroSchema
 }
 
 // NewBinaryFile constructs a new binary file with the default header for the
 // currently supported version.
-func NewBinaryFile(metadata []byte, attributes []Attribute, schema mir.Schema) *BinaryFile {
+func NewBinaryFile(metadata []byte, attributes []Attribute, schema asm.MixedMacroSchema) *BinaryFile {
 	return &BinaryFile{
 		Header{ZKBINARY, BINFILE_MAJOR_VERSION, BINFILE_MINOR_VERSION, metadata},
 		attributes,

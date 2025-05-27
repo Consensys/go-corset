@@ -152,7 +152,7 @@ func columnWidthSummariser(lowWidth uint, highWidth uint) schemaSummariser {
 				m := i.Next()
 				for c := uint(0); c < m.Width(); c++ {
 					ith := m.Column(c)
-					ithWidth := ith.DataType.BitWidth()
+					ithWidth := ith.Width
 					if ithWidth >= lowWidth && ithWidth <= highWidth {
 						count++
 					}

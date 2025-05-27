@@ -12,6 +12,25 @@
 // SPDX-License-Identifier: Apache-2.0
 package io
 
+import (
+	"math"
+
+	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/util/collection/iter"
+)
+
+// Register defines the notion of a register within a function.
+type Register = schema.Column
+
+const (
+	// UNUSED_REGISTER provides a simple way to distinguish registers and
+	// constants in certain instructions.
+	UNUSED_REGISTER = math.MaxUint
+)
+
+// Sanity check
+var _ schema.Module = &Function[uint]{}
+
 // Function defines a distinct functional entity within the system.  Functions
 // accepts zero or more inputs and produce zero or more outputs.  Functions
 // declare zero or more internal registers for use, and their interpretation is
@@ -72,6 +91,16 @@ func (p *Function[T]) Outputs() []Register {
 	return outputs
 }
 
+// Column returns the ith register used in this function.
+func (p *Function[T]) Column(i uint) Register {
+	return p.registers[i]
+}
+
+// Column returns the ith register used in this function.
+func (p *Function[T]) Columns() iter.Iterator[Register] {
+	panic("todo")
+}
+
 // Register returns the ith register used in this function.
 func (p *Function[T]) Register(i uint) Register {
 	return p.registers[i]
@@ -83,11 +112,16 @@ func (p *Function[T]) Registers() []Register {
 	return p.registers
 }
 
+// Width identifiers the number of registers in this function.
+func (p *Function[T]) Width() uint {
+	return uint(len(p.registers))
+}
+
 // AllocateRegister allocates a new register of the given kind, name and width
 // into this function.
 func (p *Function[T]) AllocateRegister(kind uint8, name string, width uint) uint {
 	index := uint(len(p.registers))
-	p.registers = append(p.registers, NewRegister(kind, name, width))
+	p.registers = append(p.registers, schema.NewColumn(kind, name, width))
 	// Done
 	return index
 }

@@ -41,6 +41,8 @@ type Assertion = *constraint.Assertion[Logical]
 
 type Constraint = schema.Constraint
 
+type Module = schema.Table
+
 type Schema = schema.Schema[Constraint]
 
 // SubstituteConstants substitutes the value of matching labelled constants for

@@ -70,3 +70,16 @@ type Schema[C any] interface {
 	// Returns the number of modules in this schema.
 	Width() uint
 }
+
+// ============================================================================
+
+// MixedSchema represents a schema comprised of modules from different layers.
+// In particular, we might have assembly and constraint (i.e. MIR) modules mixed
+// together.
+type MixedSchema[M1 Module, M2 Module] interface {
+	Schema[Constraint]
+	// LeftModules provides an iterator over the modules of type M1.
+	LeftModules() iter.Iterator[M1]
+	// LeftModules provides an iterator over the modules of type M2.
+	RightModules() iter.Iterator[M2]
+}

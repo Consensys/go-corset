@@ -13,16 +13,15 @@
 package asm
 
 import (
-	"fmt"
 	"math"
 	"slices"
 
 	"github.com/consensys/go-corset/pkg/asm/assembler"
-	"github.com/consensys/go-corset/pkg/asm/compiler"
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/macro"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
-	corset_ast "github.com/consensys/go-corset/pkg/corset/ast"
+	"github.com/consensys/go-corset/pkg/ir/mir"
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
@@ -45,6 +44,14 @@ type MacroProgram = io.Program[macro.Instruction]
 
 // MicroProgram represents a set of components at the micro level.
 type MicroProgram = io.Program[micro.Instruction]
+
+// MixedMacroSchema is a schema comprised of both macro assembly components and
+// MIR components (hence the term mixed).
+type MixedMacroSchema = schema.MixedSchema[*MacroFunction, mir.Module]
+
+// MixedMicroSchema is a schema comprised of both micro assembly components and
+// MIR components (hence the term mixed).
+type MixedMicroSchema = schema.MixedSchema[*MicroFunction, mir.Module]
 
 // Assemble takes a given set of assembly files, and parses them into a given
 // set of functions.  This includes performing various checks on the files, such
@@ -80,23 +87,6 @@ func Assemble(assembly ...source.File) (
 	return program, srcmaps, errors
 }
 
-// Compile2Circuit compiles a given assembly file into a corresponding set of
-// corset constraints.
-func Compile2Circuit(filename string, cfg LoweringConfig,
-	assembly ...source.File) (corset_ast.Circuit, []source.SyntaxError) {
-	var circuit corset_ast.Circuit
-	//
-	macroProgram, _, errs := Assemble(assembly...)
-	//
-	if len(errs) > 0 {
-		return circuit, errs
-	}
-	// Lower macro program into a binary program.
-	microProgram := Lower(cfg, macroProgram)
-	// Compile the circuit
-	return compiler.Compile2Circuit(microProgram.Functions()), nil
-}
-
 // LoweringConfig provides configuration options for configuring the lowering
 // process.
 type LoweringConfig struct {
@@ -121,26 +111,48 @@ type LoweringConfig struct {
 // registers exceeding the target width (and instructions which use them) are
 // split accordingly.  The latter can introduce additional registers, for
 // example to hold carry values.
-func Lower(cfg LoweringConfig, p MacroProgram) MicroProgram {
-	functions := make([]MicroFunction, len(p.Functions()))
-	// Sanity checks
-	if cfg.MaxFieldWidth < cfg.MaxRegisterWidth {
-		panic(
-			fmt.Sprintf("field width (%dbits) smaller than register width (%dbits)", cfg.MaxFieldWidth, cfg.MaxRegisterWidth))
-	}
-	//
-	for i, f := range p.Functions() {
-		functions[i] = lowerFunction(cfg, f)
-	}
-	//
-	program := io.NewProgram(functions...)
-	// Validate generated program.  Whilst not strictly necessary, it is useful
-	// from a debugging perspective.  In particular, for catching situations
-	// where registers have not been split incorrectly, or the resulting
-	// assignments don't fit the underlying field.
-	assembler.ValidateMicro(cfg.MaxFieldWidth, program)
-	//
-	return program
+func Lower(cfg LoweringConfig, p MixedMacroSchema) MixedMicroSchema {
+	// functions := make([]MicroFunction, len(p.Functions()))
+	// // Sanity checks
+	// if cfg.MaxFieldWidth < cfg.MaxRegisterWidth {
+	// 	panic(
+	// 		fmt.Sprintf("field width (%dbits) smaller than register width (%dbits)", cfg.MaxFieldWidth, cfg.MaxRegisterWidth))
+	// }
+	// //
+	// for i, f := range p.Functions() {
+	// 	functions[i] = lowerFunction(cfg, f)
+	// }
+	// //
+	// program := io.NewProgram(functions...)
+	// // Validate generated program.  Whilst not strictly necessary, it is useful
+	// // from a debugging perspective.  In particular, for catching situations
+	// // where registers have not been split incorrectly, or the resulting
+	// // assignments don't fit the underlying field.
+	// assembler.ValidateMicro(cfg.MaxFieldWidth, program)
+	// //
+	// return program
+
+	// NOTE: there is a problem here because we wont have split registers yet,
+	// meaning that the mixed constraints will not be able to see them?  Perhaps
+	// we can hack that when configuring the environment.
+	panic("todo")
+}
+
+// Compile2Circuit compiles a given assembly file into a corresponding set of
+// corset constraints.
+func Lower2Circuit(schema MixedMicroSchema) mir.Schema {
+	// var circuit corset_ast.Circuit
+	// //
+	// macroProgram, _, errs := Assemble(assembly...)
+	// //
+	// if len(errs) > 0 {
+	// 	return circuit, errs
+	// }
+	// // Lower macro program into a binary program.
+	// microProgram := Lower(cfg, macroProgram)
+	// // Compile the circuit
+	// return compiler.Compile2Circuit(microProgram.Functions()), nil
+	panic("TODO")
 }
 
 // ============================================================================
