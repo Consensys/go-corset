@@ -14,6 +14,7 @@ package debug
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/consensys/go-corset/pkg/binfile"
 	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
@@ -51,8 +52,8 @@ func printExternalisedModuleConstants(indent uint, mod corset.SourceModule) {
 			//
 			printIndent(indent)
 			//
-			if c.DataType != nil {
-				fmt.Printf("%s (%s): %s\n", c.Name, c.DataType.String(), c.Value.String())
+			if c.Bitwidth != math.MaxUint {
+				fmt.Printf("%s (%s): u%d\n", c.Name, c.Bitwidth, c.Value.String())
 			} else {
 				fmt.Printf("%s: %s\n", c.Name, c.Value.String())
 			}

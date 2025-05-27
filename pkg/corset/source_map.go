@@ -19,7 +19,6 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/ir/mir"
-	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
 )
 
@@ -142,8 +141,8 @@ type SourceColumn struct {
 	Name string
 	// Length Multiplier of source-level column.
 	Multiplier uint
-	// Underlying DataType of the source-level column.
-	DataType schema.Type
+	// Underlying bitwidth of the source-level column.
+	Bitwidth uint
 	// Provability requirement for source-level column.
 	MustProve bool
 	// Determines whether this is a Computed column.
@@ -178,9 +177,9 @@ type SourceConstant struct {
 	Name string
 	// value of the constant
 	Value big.Int
-	// Explicit type for this constant.  This maybe nil if no type was given
-	// and, instead, the type should be inferred from context.
-	DataType schema.Type
+	// Explicit bitwidth for this constant.  This maybe math.MaxUint if no type
+	// was given and, instead, the type should be inferred from context.
+	Bitwidth uint
 	// Indicates whether this is an "externally visible" constant.  That is, one
 	// whose value can be changed after the fact.
 	Extern bool

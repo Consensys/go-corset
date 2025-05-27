@@ -121,7 +121,7 @@ func (t *translator) translateInputColumnsInModule(module string) {
 			panic("inactive register encountered")
 		} else if regInfo.IsInput() {
 			// Declare column at HIR level.
-			cid := builder.NewColumn(schema.NewInputColumn(regInfo.Context, regInfo.Name(), regInfo.DataType))
+			cid := builder.NewColumn(schema.NewInputColumn(regInfo.Name(), regInfo.Bitwidth))
 			// Prove underlying types (as necessary)
 			t.translateTypeConstraints(regIndex)
 			// Sanity check
@@ -164,11 +164,11 @@ func (t *translator) translateTypeConstraints(regIndex uint) {
 	}
 	// Apply provability (if it is required)
 	if required {
-		reg_width := regInfo.DataType.AsUint().BitWidth()
+		reg_width := regInfo.Bitwidth
 		// For now, enforce all source columns have matching bitwidth.
 		for _, col := range regInfo.Sources {
 			// Determine bitwidth
-			col_width := col.DataType.AsUint().BitWidth()
+			col_width := col.Bitwidth
 			// Sanity check (for now)
 			if col.MustProve && col_width != reg_width {
 				// Currently, mixed-width proving types are not supported.
@@ -176,8 +176,10 @@ func (t *translator) translateTypeConstraints(regIndex uint) {
 			}
 		}
 		// Add appropriate type constraint
-		bound := regInfo.DataType.AsUint().Bound()
-		constraint := constraint.NewRangeConstraint(regInfo.Name(), regInfo.Context, ir.NewColumnAccess[mir.Term](regIndex, 0), bound)
+		constraint := constraint.NewRangeConstraint(regInfo.Name(),
+			regInfo.Context,
+			ir.NewColumnAccess[mir.Term](regIndex, 0),
+			regInfo.Bitwidth)
 		t.schema.AddConstraint(constraint)
 	}
 }
@@ -586,7 +588,7 @@ func (t *translator) translateExpressionInModule(expr ast.Expr, module util.Path
 		} else if int_t, ok := e.Type.(*ast.IntType); ok {
 			// unsafe casts cannot be checked by the type checker, but can be
 			// exploited for the purposes of optimisation.
-			return ir.CastOf(arg, int_t.AsUnderlying().BitWidth()), errs
+			return ir.CastOf(arg, int_t.BitWidth()), errs
 		}
 		// Should be unreachable.
 		msg := fmt.Sprintf("cannot translate cast (%s)", e.Type.String())

@@ -211,7 +211,7 @@ func (p *GlobalEnvironment) allocateRegister(source RegisterSource) {
 	// Allocate register
 	p.registers = append(p.registers, Register{
 		tr.NewContext(moduleId, source.Multiplier),
-		source.DataType,
+		source.Bitwidth,
 		[]RegisterSource{source},
 		nil,
 	})

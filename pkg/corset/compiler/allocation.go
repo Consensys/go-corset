@@ -18,8 +18,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/consensys/go-corset/pkg/schema"
-	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
@@ -36,8 +34,8 @@ import (
 type Register struct {
 	// Context (i.e. module + multiplier) of this register.
 	Context tr.Context
-	// Underlying datatype of this register.
-	DataType sc.Type
+	// Underlying width of this register.
+	Bitwidth uint
 	// Source columns of this register
 	Sources []RegisterSource
 	// Cached name
@@ -47,7 +45,7 @@ type Register struct {
 // IsActive determines whether or not this register is "active".  Inactive
 // registers should not generally be visible outside of register allocation.
 func (r *Register) IsActive() bool {
-	return r.DataType != nil
+	return r.Bitwidth != math.MaxUint
 }
 
 // IsInput determines whether or not this register represents an input column,
@@ -74,7 +72,7 @@ func (r *Register) Merge(other *Register) {
 		panic("cannot merge registers from different context")
 	}
 	//
-	r.DataType = schema.Join(r.DataType, other.DataType)
+	r.Bitwidth = max(r.Bitwidth, other.Bitwidth)
 	r.Sources = append(r.Sources, other.Sources...)
 	// Reset the cached name
 	r.cached_name = nil
@@ -85,7 +83,7 @@ func (r *Register) Merge(other *Register) {
 // Deactivate marks a given register as no longer being required.  This happens
 // when one register is merged into another.
 func (r *Register) Deactivate() {
-	r.DataType = nil
+	r.Bitwidth = math.MaxUint
 	r.Sources = nil
 }
 
@@ -144,8 +142,8 @@ type RegisterSource struct {
 	Name util.Path
 	// Length Multiplier of source-level column.
 	Multiplier uint
-	// Underlying DataType of the source-level column.
-	DataType sc.Type
+	// Underlying bitwidth of the source-level column.
+	Bitwidth uint
 	// Provability requirement for source-level column.
 	MustProve bool
 	// Determines whether this is a Computed column.
@@ -280,14 +278,7 @@ func ImprovedAllocator(allocation RegisterAllocation) {
 }
 
 func identicalType(lhs *RegisterGroup, rhs *RegisterGroup) bool {
-	lIntType := lhs.dataType.AsUint()
-	rIntType := rhs.dataType.AsUint()
-	// Check whether both are int types, or not.
-	if lIntType != nil && rIntType != nil {
-		return lIntType.BitWidth() == rIntType.BitWidth()
-	}
-	//
-	return lIntType == rIntType
+	return lhs.bitwidth == rhs.bitwidth
 }
 
 func unprovenType(lhs *RegisterGroup, rhs *RegisterGroup) bool {
@@ -295,14 +286,7 @@ func unprovenType(lhs *RegisterGroup, rhs *RegisterGroup) bool {
 }
 
 func containedUnprovenType(lhs *RegisterGroup, rhs *RegisterGroup) bool {
-	lIntType := lhs.dataType.AsUint()
-	rIntType := rhs.dataType.AsUint()
-	// Check whether both are int types, or not.
-	if lIntType != nil && rIntType != nil {
-		return !lhs.mustProve && rhs.mustProve && lIntType.BitWidth() <= rIntType.BitWidth()
-	}
-	//
-	return false
+	return !lhs.mustProve && rhs.mustProve && lhs.bitwidth <= rhs.bitwidth
 }
 
 // Sort the registers into alphabetical order.
@@ -443,7 +427,7 @@ func (p *RegisterAllocator) allocatePerspective(perspective string) {
 func (p *RegisterAllocator) allocateRegister(perspective string, regIndex uint) {
 	// Extract register info
 	regInfo := p.allocation.Register(regIndex)
-	regType := regInfo.DataType
+	regWidth := regInfo.Bitwidth
 	regProve := false
 	// Check for provability
 	for _, col := range regInfo.Sources {
@@ -452,7 +436,7 @@ func (p *RegisterAllocator) allocateRegister(perspective string, regIndex uint) 
 	// Determine perspective slot
 	slot := p.perspectives[perspective]
 	// Construct empty allocation
-	alloc := NewRegisterGroup(regType, regProve)
+	alloc := NewRegisterGroup(regWidth, regProve)
 	// Allocate this slot to the specified register
 	alloc.Assign(slot, regIndex)
 	// Done
@@ -485,9 +469,8 @@ func (p RegisterSlot) LessEq(other RegisterSlot) bool {
 // with a single group for each register.  Then, groups are merged together
 // according to the high-level allocation algorithm.
 type RegisterGroup struct {
-	// The enclosing type to use for this group, which should include the type
-	// for every allocated slot.
-	dataType sc.Type
+	// The bitwidth for all registers in this group.
+	bitwidth uint
 	// Indicates whether any register allocated to this group must have its type
 	// proven.
 	mustProve bool
@@ -500,12 +483,12 @@ type RegisterGroup struct {
 }
 
 // NewRegisterGroup constructs a new (and empty) register group.
-func NewRegisterGroup(dataType sc.Type, mustProve bool) RegisterGroup {
+func NewRegisterGroup(bitwidth uint, mustProve bool) RegisterGroup {
 	// Create initially empty set of register slots.
 	slots := set.NewAnySortedSet[RegisterSlot]()
 	//
 	return RegisterGroup{
-		dataType,
+		bitwidth,
 		mustProve,
 		*slots,
 	}
@@ -590,7 +573,7 @@ func (p *RegisterGroup) Disjoint(other *RegisterGroup) bool {
 // allocation in the unused state (i.e. it will be ignored from now on).
 func (p *RegisterGroup) Merge(other *RegisterGroup) {
 	// Join their datatypes
-	p.dataType = schema.Join(p.dataType, other.dataType)
+	p.bitwidth = max(p.bitwidth, other.bitwidth)
 	// If either group contains registers whose type must be proven, then so
 	// does this.
 	p.mustProve = p.mustProve || other.mustProve

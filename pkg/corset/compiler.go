@@ -15,6 +15,7 @@ package corset
 import (
 	_ "embed"
 	"fmt"
+	"math"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/binfile"
@@ -22,7 +23,6 @@ import (
 	"github.com/consensys/go-corset/pkg/corset/compiler"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/mir"
-	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
 
@@ -207,16 +207,16 @@ func constructSourceModule(scope *compiler.ModuleScope, env compiler.GlobalEnvir
 	}
 	// Map source-level constants
 	for _, binding := range scope.DestructuredConstants() {
-		var datatype sc.Type
+		var bitwidth uint = math.MaxUint
 		// Convert data type
 		if dt, ok := binding.DataType.(*ast.IntType); ok {
-			datatype = dt.AsUnderlying()
+			bitwidth = dt.BitWidth()
 		}
 		//
 		constants = append(constants, SourceConstant{
 			binding.Path.Tail(),
 			*binding.Value.AsConstant(),
-			datatype,
+			bitwidth,
 			binding.Extern,
 		})
 	}
