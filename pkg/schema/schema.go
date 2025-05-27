@@ -77,12 +77,14 @@ type Schema[C any] interface {
 // In particular, we might have assembly and constraint (i.e. MIR) modules mixed
 // together.
 type MixedSchema[M1 Module, M2 Module] struct {
+	left  []M1
+	right []M2
 }
 
 var _ Schema[Constraint] = MixedSchema[Module, Module]{}
 
 func NewMixedSchema[M1 Module, M2 Module](leftModules []M1, rightModules []M2) MixedSchema[M1, M2] {
-	panic("todo")
+	return MixedSchema[M1, M2]{leftModules, rightModules}
 }
 
 // Assertions returns an iterator over the property assertions of this
@@ -96,7 +98,8 @@ func (p MixedSchema[M1, M2]) Assertions() iter.Iterator[Constraint] {
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
 func (p MixedSchema[M1, M2]) Consistent() error {
-	panic("todo")
+	// TODO: implement safety checks
+	return nil
 }
 
 // Constraints returns an iterator over all constraints defined in this
