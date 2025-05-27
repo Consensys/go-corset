@@ -40,7 +40,7 @@ func Link(items ...AssemblyItem) (MacroProgram, source.Maps[any]) {
 	var (
 		srcmap     source.Maps[any] = *source.NewSourceMaps[any]()
 		busmap     map[string]uint  = make(map[string]uint)
-		components []MacroFunction
+		components []*MacroFunction
 	)
 	// Constuct bus and source mappings
 	for _, item := range items {
@@ -56,7 +56,7 @@ func Link(items ...AssemblyItem) (MacroProgram, source.Maps[any]) {
 			// Allocate bus entry
 			busmap[c.Name()] = uint(len(busmap))
 			//
-			components = append(components, c)
+			components = append(components, &c)
 		}
 	}
 	// Link all assembly items
@@ -70,10 +70,10 @@ func Link(items ...AssemblyItem) (MacroProgram, source.Maps[any]) {
 // Link all buses used within this function to their intended targets.  This
 // means, for every bus used locally, settings the global bus identifier and
 // also allocated regisers for the address/data lines.
-func linkComponent(index uint, components []MacroFunction, busmap map[string]uint) {
+func linkComponent(index uint, components []*MacroFunction, busmap map[string]uint) {
 	// Mapping of bus names to allocated buses
 	var (
-		fn         = &components[index]
+		fn         = components[index]
 		code       = fn.Code()
 		localBuses = make(map[uint]io.Bus, 0)
 	)
@@ -94,9 +94,9 @@ func linkComponent(index uint, components []MacroFunction, busmap map[string]uin
 // bus (if was not already allocated) or returning the existing bus (if it was
 // previously allocated).  Allocating a new bus requires allocating
 // corresponding I/O registers within the given function.
-func allocateBus(busId uint, localBuses map[uint]io.Bus, index uint, components []MacroFunction) io.Bus {
+func allocateBus(busId uint, localBuses map[uint]io.Bus, index uint, components []*MacroFunction) io.Bus {
 	var (
-		fn      = &components[index]
+		fn      = components[index]
 		busName = components[busId].Name()
 		inputs  = components[busId].Inputs()
 		outputs = components[busId].Outputs()

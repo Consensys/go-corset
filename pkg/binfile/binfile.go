@@ -35,12 +35,12 @@ type BinaryFile struct {
 	// debugging, etc.
 	Attributes []Attribute
 	// The mixed assembly schema.
-	Schema asm.MixedMacroSchema
+	Schema asm.MixedMacroProgram
 }
 
 // NewBinaryFile constructs a new binary file with the default header for the
 // currently supported version.
-func NewBinaryFile(metadata []byte, attributes []Attribute, schema asm.MixedMacroSchema) *BinaryFile {
+func NewBinaryFile(metadata []byte, attributes []Attribute, schema asm.MixedMacroProgram) *BinaryFile {
 	return &BinaryFile{
 		Header{ZKBINARY, BINFILE_MAJOR_VERSION, BINFILE_MINOR_VERSION, metadata},
 		attributes,

@@ -14,17 +14,61 @@ package mir
 
 import (
 	"github.com/consensys/go-corset/pkg/ir/air"
+	"github.com/consensys/go-corset/pkg/schema"
 )
 
-// LowerToAir lowers (or refines) an MIR table into an AIR schema.  That means
+// LowerToAir lowers (or refines) an MIR schema into an AIR schema.  That means
 // lowering all the columns and constraints, whilst adding additional columns /
 // constraints as necessary to preserve the original semantics.
-func LowerToAir(schema *Schema, cfg OptimisationConfig) air.Schema {
-	// airSchema := air.EmptySchema[Expr]()
-	// // Copy modules
-	// for _, mod := range p.modules {
-	// 	airSchema.AddModule(mod.Name())
-	// }
+func LowerToAir(schema Schema, config OptimisationConfig) air.Schema {
+	lowering := NewAirLowering(schema)
+	// Configure optimisations
+	lowering.ConfigureOptimisation(config)
+	//
+	return lowering.Lower()
+}
+
+// AirLowering captures all auxillary state required in the process of lowering
+// modules from MIR to AIR.  This state is because, as part of the lowering
+// process, we may introduce some number of additional modules (e.g. for
+// managing type proofs).
+type AirLowering struct {
+	config OptimisationConfig
+	// Modules we are lowering from
+	mirModules []Module
+	// Modules we are lowering to
+	airModules []air.Module
+}
+
+// NewAirLowering constructs an initial state for lowering a given MIR schema.
+func NewAirLowering(mirSchema Schema) AirLowering {
+	var (
+		mirModules = mirSchema.RawModules()
+		airModules = make([]air.Module, mirSchema.Width())
+	)
+	// Initialise AIR modules
+	for i, m := range mirModules {
+		airModules[i] = schema.NewTable[air.Constraint](m.Name(), nil, nil)
+	}
+	//
+	return AirLowering{
+		DEFAULT_OPTIMISATION_LEVEL,
+		mirModules,
+		airModules,
+	}
+}
+
+// ConfigureOptimisation configures the amount of optimisation to apply during
+// the lowering process.
+func (p *AirLowering) ConfigureOptimisation(config OptimisationConfig) {
+	p.config = config
+}
+
+func (p *AirLowering) Lower() air.Schema {
+	// Initialise modules
+	for i := range p.mirModules {
+		p.LowerModule(uint(i))
+	}
 	// // Add data columns.
 	// for _, c := range p.inputs {
 	// 	col := c.(DataColumn)
@@ -49,9 +93,21 @@ func LowerToAir(schema *Schema, cfg OptimisationConfig) air.Schema {
 	// for _, assertion := range p.assertions {
 	// 	airSchema.AddPropertyAssertion(assertion.Handle, assertion.Context, assertion.Property)
 	// }
-	// // Done
-	// return airSchema
-	panic("todo")
+	// Done
+	return schema.NewUniformSchema(p.airModules)
+}
+
+// LowerModule lowers the given MIR module into the correspondind AIR module.
+// This includes all registers, constraints and assignments.
+func (p *AirLowering) LowerModule(index uint) {
+	var (
+		mirModule = p.mirModules[index]
+		airModule = &p.airModules[index]
+	)
+	// Initialise registers in AIR module
+	for _, c := range mirModule.Columns() {
+		airModule.New(c)
+	}
 }
 
 // // Lower an assignment to the AIR level.

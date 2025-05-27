@@ -20,4 +20,6 @@ type Constraint interface {
 	Air()
 }
 
-type Schema = schema.Schema[Constraint]
+type Module = schema.Table[Constraint]
+
+type Schema = schema.UniformSchema[Module]

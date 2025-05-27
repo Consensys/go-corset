@@ -16,7 +16,6 @@ import (
 	"math"
 
 	"github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/util/collection/iter"
 )
 
 // Register defines the notion of a register within a function.
@@ -97,7 +96,7 @@ func (p *Function[T]) Column(i uint) Register {
 }
 
 // Column returns the ith register used in this function.
-func (p *Function[T]) Columns() iter.Iterator[Register] {
+func (p *Function[T]) Columns() []Register {
 	panic("todo")
 }
 

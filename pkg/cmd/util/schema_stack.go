@@ -125,8 +125,8 @@ func (p *SchemaStack) Schemas() []schema.AnySchema {
 // ReadConstraintFiles reads one or more constraints files into this stack.
 func (p *SchemaStack) Read(filenames ...string) {
 	var (
-		asmSchema  asm.MixedMacroSchema
-		uasmSchema asm.MixedMicroSchema
+		asmSchema  asm.MixedMacroProgram
+		uasmSchema asm.MixedMicroProgram
 		mirSchema  mir.Schema
 		airSchema  air.Schema
 		errors     []source.SyntaxError
@@ -135,11 +135,11 @@ func (p *SchemaStack) Read(filenames ...string) {
 	// Read out the mixed macro schema
 	asmSchema = p.BinaryFile().Schema
 	// Lower to mixed micro schema
-	uasmSchema = asm.Lower(p.asmConfig, asmSchema)
+	uasmSchema = asm.LowerMixedMacroProgram(p.asmConfig.Vectorize, asmSchema)
 	// Lower to MIR
-	mirSchema = asm.Lower2Circuit(uasmSchema)
+	mirSchema = asm.LowerMixedMicroProgram(uasmSchema)
 	// Lower to AIR
-	airSchema = mir.LowerToAir(&mirSchema, p.mirConfig)
+	airSchema = mir.LowerToAir(mirSchema, p.mirConfig)
 	// Check for lowering errors
 	if len(errors) > 0 {
 		// Report errors

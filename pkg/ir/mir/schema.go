@@ -43,7 +43,8 @@ type Constraint = schema.Constraint
 
 type Module = schema.Table[Constraint]
 
-type Schema = schema.Schema[Constraint]
+// An MIR schema is a uniform schema consisting of MIR modules only.
+type Schema = schema.UniformSchema[Module]
 
 // SubstituteConstants substitutes the value of matching labelled constants for
 // all expressions used within the schema.

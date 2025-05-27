@@ -13,24 +13,27 @@
 package air
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir"
 )
 
+// Expr captures the notion of an expression" at the AIR level.  This is really
+// just for convenience more than anything.
+type Expr = ir.Expr[Term]
+
 // Term represents the fundamental for arithmetic expressions in the AIR
-// representation.
+// representation.  This should only support addition, subtraction and
+// multiplication of constants and column accesses.  No other terms are
+// permitted at this, the lowest, layer of the stack.
 type Term interface {
 	ir.Term[Term]
 	// Air marks terms which are valid for the AIR representation.
 	Air()
 }
 
-type Expr = ir.Expr[Term]
-
-// Add represents the addition of zero or more expressions.
+// Add represents the addition of zero or more AIR expressions.
 type Add = ir.Add[Term]
 
-// Constant represents a constant value within an expression.
+// Constant represents a constant value within AIR an expression.
 type Constant = ir.Constant[Term]
 
 // ColumnAccess represents reading the value held at a given column in the
@@ -43,40 +46,3 @@ type Mul = ir.Mul[Term]
 
 // Sub represents the subtraction over zero or more expressions.
 type Sub = ir.Sub[Term]
-
-// NewColumnAccess constructs an AIR expression representing the value of a given
-// column on the current row.
-func NewColumnAccess(column uint, shift int) Expr {
-	term := &ColumnAccess{Column: column, Shift: shift}
-	return Expr{Term: term}
-}
-
-// NewConst construct an AIR expression representing a given constant.
-func NewConst(val fr.Element) Expr {
-	term := &Constant{Value: val}
-	return Expr{Term: term}
-}
-
-// NewConst64 construct an AIR expression representing a given constant from a
-// uint64.
-func NewConst64(val uint64) Expr {
-	element := fr.NewElement(val)
-	term := &Constant{Value: element}
-	return Expr{Term: term}
-}
-
-// Sum zero or more expressions together.
-func Sum[T ir.Term[T]](exprs ...Expr) Expr {
-	panic("todo")
-}
-
-// Product returns the product of zero or more multiplications.
-func Product[T ir.Term[T]](exprs ...Expr) Expr {
-	panic("todo")
-}
-
-// Subtract returns the subtraction of the subsequent expressions from the
-// first.
-func Subtract[T ir.Term[T]](exprs ...Expr) Expr {
-	panic("todo")
-}
