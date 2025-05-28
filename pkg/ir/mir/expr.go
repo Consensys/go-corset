@@ -13,6 +13,8 @@
 package mir
 
 import (
+	"encoding/gob"
+
 	"github.com/consensys/go-corset/pkg/ir"
 )
 
@@ -55,3 +57,16 @@ type Sub = ir.Sub[Term]
 
 // VOID represents the empty expression.
 var VOID Expr
+
+func init() {
+	gob.Register(Term(&Add{}))
+	gob.Register(Term(&Mul{}))
+	gob.Register(Term(&Sub{}))
+	gob.Register(Term(&Cast{}))
+	gob.Register(Term(&Exp{}))
+	gob.Register(Term(&ir.IfZero[Term]{}))
+	gob.Register(Term(&Constant{}))
+	gob.Register(Term(&ir.LabelledConst[Term]{}))
+	gob.Register(Term(&Norm{}))
+	gob.Register(Term(&RegisterAccess{}))
+}
