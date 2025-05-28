@@ -58,7 +58,7 @@ func (p UniformSchema[M]) Expand(trace.Trace) (trace.Trace, []error) {
 	panic("todo")
 }
 
-// Access a given module in this schema.
+// Module provides access to a given module in this schema.
 func (p UniformSchema[M]) Module(module uint) Module {
 	return p.modules[module]
 }
@@ -75,7 +75,7 @@ func (p UniformSchema[M]) RawModules() []M {
 	return p.modules
 }
 
-// Returns the number of modules in this schema.
+// Width returns the number of modules in this schema.
 func (p UniformSchema[M]) Width() uint {
 	return uint(len(p.modules))
 }

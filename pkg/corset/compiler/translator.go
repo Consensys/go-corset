@@ -23,7 +23,6 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
-	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
 
@@ -53,7 +52,7 @@ func TranslateCircuit[M schema.Module](
 		return schema.MixedSchema[M, mir.Module]{}, errs
 	}
 	// Finally, construct the mixed schema
-	return schema.NewMixedSchema(externs, t.schema.Modules()), nil
+	return schema.NewMixedSchema(externs, t.schema.Build()), nil
 }
 
 // Translator packages up information necessary for translating a circuit into
@@ -270,51 +269,53 @@ func (t *translator) translateDefComputed(decl *ast.DefComputed, module *ModuleB
 
 // Translate a "defconstraint" declaration.
 func (t *translator) translateDefConstraint(decl *ast.DefConstraint, module *ModuleBuilder) []SyntaxError {
-	// // Translate constraint body
-	// constraint, errors := t.translateExpressionInModule(decl.Constraint, module, 0)
-	// // Translate (optional) guard
-	// guard, guard_errors := t.translateOptionalExpressionInModule(decl.Guard, module, 0)
-	// // Translate (optional) perspective selector
-	// selector, selector_errors := t.translateSelectorInModule(decl.Perspective, module)
-	// // Combine errors
-	// errors = append(errors, guard_errors...)
-	// errors = append(errors, selector_errors...)
-	// // Apply guard
-	// if constraint == mir.VOID {
-	// 	// NOTE: in this case, the constraint itself has been translated as nil.
-	// 	// This means there is no constraint (e.g. its a debug constraint, but
-	// 	// debug mode is not enabled).
-	// 	return errors
-	// }
-	// // Apply guard (if applicable)
-	// if guard != mir.VOID {
-	// 	guard = mir.Equals(guard, mir.NewConst64(0))
-	// 	constraint = mir.IfElse(guard, mir.VOID, constraint)
-	// }
-	// // Apply perspective selector (if applicable)
-	// if selector != mir.VOID {
-	// 	selector = mir.Equals(selector, mir.NewConst64(0))
-	// 	constraint = mir.IfElse(selector, mir.VOID, constraint)
-	// }
-	// //
-	// if len(errors) == 0 {
-	// 	context := constraint.Context(t.schema)
-	// 	// Add translated constraint
-	// 	t.schema.AddVanishingConstraint(decl.Handle, context, decl.Domain, constraint)
-	// }
-	// // Done
-	// return errors
-	panic("got here")
+	// Translate expr body
+	expr, errors := t.translateLogical(decl.Constraint, module, 0)
+	// Translate (optional) guard
+	guard, guard_errors := t.translateOptionalLogical(decl.Guard, module, 0)
+	// Translate (optional) perspective selector
+	selector, selector_errors := t.translateSelectorInModule(decl.Perspective, module)
+	// Combine errors
+	errors = append(errors, guard_errors...)
+	errors = append(errors, selector_errors...)
+	// Apply guard
+	if expr == mir.BOTTOM {
+		// NOTE: in this case, the constraint itself has been translated as nil.
+		// This means there is no constraint (e.g. its a debug constraint, but
+		// debug mode is not enabled).
+		return errors
+	}
+	// Apply guard (if applicable)
+	if guard != mir.BOTTOM {
+		// guard = ir.Equals[mir.Logical, mir.Term](guard, ir.Const64[mir.Term](0))
+		// expr = ir.IfElse(guard, mir.VOID, expr)
+		panic("todo")
+	}
+	// Apply perspective selector (if applicable)
+	if selector != mir.VOID {
+		// selector = mir.Equals(selector, ir.Const64[mir.Term](0))
+		// expr = ir.IfElse(selector, mir.VOID, expr)
+		panic("todo")
+	}
+	//
+	if len(errors) == 0 {
+		// FIXME: this could be more efficient!!
+		context := t.env.ContextOf(decl.Constraint.Context())
+		// Add translated constraint
+		module.AddConstraint(constraint.NewVanishingConstraint(decl.Handle, context, decl.Domain, expr))
+	}
+	// Done
+	return errors
 }
 
 // Translate the selector for the perspective of a defconstraint.  Observe that
 // a defconstraint may not be part of a perspective and, hence, would have no
 // selector.
 func (t *translator) translateSelectorInModule(perspective *ast.PerspectiveName,
-	module util.Path) (mir.Expr, []SyntaxError) {
+	module *ModuleBuilder) (mir.Expr, []SyntaxError) {
 	//
 	if perspective != nil {
-		return t.translateExpressionInModule(perspective.InnerBinding().Selector, module, 0)
+		return t.translateExpression(perspective.InnerBinding().Selector, module, 0)
 	}
 	//
 	return mir.VOID, nil
@@ -486,20 +487,7 @@ func (t *translator) translateDefSorted(decl *ast.DefSorted, module *ModuleBuild
 // Translate an optional expression in a given context.  That is an expression
 // which maybe nil (i.e. doesn't exist).  In such case, nil is returned (i.e.
 // without any errors).
-func (t *translator) translateOptionalExpressionInModule(expr ast.Expr, module util.Path,
-	shift int) (mir.Expr, []SyntaxError) {
-	//
-	if expr != nil {
-		return t.translateExpressionInModule(expr, module, shift)
-	}
-
-	return mir.VOID, nil
-}
-
-// Translate an optional expression in a given context.  That is an expression
-// which maybe nil (i.e. doesn't exist).  In such case, nil is returned (i.e.
-// without any errors).
-func (t *translator) translateUnitExpressionsInModule(exprs []ast.Expr, module util.Path,
+func (t *translator) translateUnitExpressions(exprs []ast.Expr, module *ModuleBuilder,
 	shift int) ([]mir.Expr, []SyntaxError) {
 	//
 	errors := []SyntaxError{}
@@ -508,7 +496,7 @@ func (t *translator) translateUnitExpressionsInModule(exprs []ast.Expr, module u
 	for i, e := range exprs {
 		if e != nil {
 			var errs []SyntaxError
-			expr, errs := t.translateExpressionInModule(e, module, shift)
+			expr, errs := t.translateExpression(e, module, shift)
 			errors = append(errors, errs...)
 			hirExprs[i] = expr
 		}
@@ -518,7 +506,7 @@ func (t *translator) translateUnitExpressionsInModule(exprs []ast.Expr, module u
 }
 
 // Translate a sequence of zero or more expressions enclosed in a given module.
-func (t *translator) translateExpressionsInModule(module util.Path, shift int,
+func (t *translator) translateExpressions(module *ModuleBuilder, shift int,
 	exprs ...ast.Expr) ([]mir.Expr, []SyntaxError) {
 	//
 	errors := []SyntaxError{}
@@ -527,7 +515,7 @@ func (t *translator) translateExpressionsInModule(module util.Path, shift int,
 	for i, e := range exprs {
 		if e != nil {
 			var errs []SyntaxError
-			hirExprs[i], errs = t.translateExpressionInModule(e, module, shift)
+			hirExprs[i], errs = t.translateExpression(e, module, shift)
 			errors = append(errors, errs...)
 		} else {
 			// Strictly speaking, this assignment is unnecessary.  However, the
@@ -542,7 +530,7 @@ func (t *translator) translateExpressionsInModule(module util.Path, shift int,
 // Translate an expression situated in a given context.  The context is
 // necessary to resolve unqualified names (e.g. for register access, function
 // invocations, etc).
-func (t *translator) translateExpressionInModule(expr ast.Expr, module util.Path, shift int) (mir.Expr, []SyntaxError) {
+func (t *translator) translateExpression(expr ast.Expr, module *ModuleBuilder, shift int) (mir.Expr, []SyntaxError) {
 	switch e := expr.(type) {
 	case *ast.ArrayAccess:
 		// Lookup underlying register info
@@ -550,10 +538,10 @@ func (t *translator) translateExpressionInModule(expr ast.Expr, module util.Path
 		// Done
 		return ir.NewRegisterAccess[mir.Term](registerId, shift), errors
 	case *ast.Add:
-		args, errs := t.translateExpressionsInModule(module, shift, e.Args...)
+		args, errs := t.translateExpressions(module, shift, e.Args...)
 		return ir.Sum(args...), errs
 	case *ast.Cast:
-		arg, errs := t.translateExpressionInModule(e.Arg, module, shift)
+		arg, errs := t.translateExpression(e.Arg, module, shift)
 		//
 		if !e.Unsafe {
 			// safe casts are compiled out since they have already been checked
@@ -575,22 +563,22 @@ func (t *translator) translateExpressionInModule(expr ast.Expr, module util.Path
 		//
 		return ir.Const[mir.Term](val), nil
 	case *ast.Exp:
-		return t.translateExpInModule(e, module, shift)
+		return t.translateExp(e, module, shift)
 	case *ast.If:
-		return t.translateIfInModule(e, module, shift)
+		return t.translateIf(e, module, shift)
 	case *ast.Mul:
-		args, errs := t.translateExpressionsInModule(module, shift, e.Args...)
+		args, errs := t.translateExpressions(module, shift, e.Args...)
 		return ir.Product(args...), errs
 	case *ast.Normalise:
-		arg, errs := t.translateExpressionInModule(e.Arg, module, shift)
+		arg, errs := t.translateExpression(e.Arg, module, shift)
 		return ir.Normalise(arg), errs
 	case *ast.Sub:
-		args, errs := t.translateExpressionsInModule(module, shift, e.Args...)
+		args, errs := t.translateExpressions(module, shift, e.Args...)
 		return ir.Subtract(args...), errs
 	case *ast.Shift:
-		return t.translateShiftInModule(e, module, shift)
+		return t.translateShift(e, module, shift)
 	case *ast.VariableAccess:
-		return t.translateVariableAccessInModule(e, shift)
+		return t.translateVariableAccess(e, shift)
 	default:
 		typeStr := reflect.TypeOf(expr).String()
 		msg := fmt.Sprintf("unknown expression encountered during translation (%s)", typeStr)
@@ -599,8 +587,8 @@ func (t *translator) translateExpressionInModule(expr ast.Expr, module util.Path
 	}
 }
 
-func (t *translator) translateExpInModule(expr *ast.Exp, module util.Path, shift int) (mir.Expr, []SyntaxError) {
-	arg, errs := t.translateExpressionInModule(expr.Arg, module, shift)
+func (t *translator) translateExp(expr *ast.Exp, module *ModuleBuilder, shift int) (mir.Expr, []SyntaxError) {
+	arg, errs := t.translateExpression(expr.Arg, module, shift)
 	pow := expr.Pow.AsConstant()
 	// Identity constant for pow
 	if pow == nil {
@@ -616,9 +604,9 @@ func (t *translator) translateExpInModule(expr *ast.Exp, module util.Path, shift
 	return mir.VOID, errs
 }
 
-func (t *translator) translateIfInModule(expr *ast.If, module util.Path, shift int) (mir.Expr, []SyntaxError) {
+func (t *translator) translateIf(expr *ast.If, module *ModuleBuilder, shift int) (mir.Expr, []SyntaxError) {
 	// fall-back translation condition
-	args, errs := t.translateExpressionsInModule(module, shift, expr.Condition, expr.TrueBranch, expr.FalseBranch)
+	args, errs := t.translateExpressions(module, shift, expr.Condition, expr.TrueBranch, expr.FalseBranch)
 	//
 	if len(errs) > 0 {
 		return mir.VOID, errs
@@ -631,7 +619,7 @@ func (t *translator) translateIfInModule(expr *ast.If, module util.Path, shift i
 	return ir.IfElse(args[0], args[1], args[2]), nil
 }
 
-func (t *translator) translateShiftInModule(expr *ast.Shift, module util.Path, shift int) (mir.Expr, []SyntaxError) {
+func (t *translator) translateShift(expr *ast.Shift, mod *ModuleBuilder, shift int) (mir.Expr, []SyntaxError) {
 	constant := expr.Shift.AsConstant()
 	// Determine the shift constant
 	if constant == nil {
@@ -640,10 +628,10 @@ func (t *translator) translateShiftInModule(expr *ast.Shift, module util.Path, s
 		return mir.VOID, t.srcmap.SyntaxErrors(expr.Shift, "constant shift too large")
 	}
 	// Now translate target expression with updated shift.
-	return t.translateExpressionInModule(expr.Arg, module, shift+int(constant.Int64()))
+	return t.translateExpression(expr.Arg, mod, shift+int(constant.Int64()))
 }
 
-func (t *translator) translateVariableAccessInModule(expr *ast.VariableAccess, shift int) (mir.Expr, []SyntaxError) {
+func (t *translator) translateVariableAccess(expr *ast.VariableAccess, shift int) (mir.Expr, []SyntaxError) {
 	if binding, ok := expr.Binding().(*ast.ColumnBinding); ok {
 		// Lookup register binding
 		register_id := t.env.RegisterOf(binding.AbsolutePath())
@@ -667,7 +655,7 @@ func (t *translator) translateVariableAccessInModule(expr *ast.VariableAccess, s
 }
 
 // Translate a sequence of zero or more logical expressions enclosed in a given module.
-func (t *translator) translateLogicalExpressionsInModule(module util.Path, shift int,
+func (t *translator) translateLogicals(module *ModuleBuilder, shift int,
 	exprs ...ast.Expr) ([]mir.Logical, []SyntaxError) {
 	//
 	errors := []SyntaxError{}
@@ -675,7 +663,7 @@ func (t *translator) translateLogicalExpressionsInModule(module util.Path, shift
 	// Iterate each expression in turn
 	for i, e := range exprs {
 		var errs []SyntaxError
-		logicals[i], errs = t.translateLogicalExpressionInModule(e, module, shift)
+		logicals[i], errs = t.translateLogical(e, module, shift)
 		errors = append(errors, errs...)
 	}
 	//
@@ -685,10 +673,10 @@ func (t *translator) translateLogicalExpressionsInModule(module util.Path, shift
 // Translate an expression situated in a given context.  The context is
 // necessary to resolve unqualified names (e.g. for register access, function
 // invocations, etc).
-func (t *translator) translateLogicalExpressionInModule(expr ast.Expr, module util.Path, shift int) (mir.Logical, []SyntaxError) {
+func (t *translator) translateLogical(expr ast.Expr, mod *ModuleBuilder, shift int) (mir.Logical, []SyntaxError) {
 	switch e := expr.(type) {
 	case *ast.Connective:
-		args, errs := t.translateLogicalExpressionsInModule(module, shift, e.Args...)
+		args, errs := t.translateLogicals(mod, shift, e.Args...)
 		//
 		if e.Sign {
 			return ir.Disjunction(args...), errs
@@ -696,8 +684,8 @@ func (t *translator) translateLogicalExpressionInModule(expr ast.Expr, module ut
 		//
 		return ir.Conjunction(args...), errs
 	case *ast.Equation:
-		lhs, errs1 := t.translateExpressionInModule(e.Lhs, module, shift)
-		rhs, errs2 := t.translateExpressionInModule(e.Rhs, module, shift)
+		lhs, errs1 := t.translateExpression(e.Lhs, mod, shift)
+		rhs, errs2 := t.translateExpression(e.Rhs, mod, shift)
 		errs := append(errs1, errs2...)
 		//
 		if len(errs) > 0 {
@@ -721,7 +709,7 @@ func (t *translator) translateLogicalExpressionInModule(expr ast.Expr, module ut
 			panic("unreachable")
 		}
 	case *ast.List:
-		args, errs := t.translateLogicalExpressionsInModule(module, shift, e.Args...)
+		args, errs := t.translateLogicals(mod, shift, e.Args...)
 		// Sanity check void
 		if len(args) == 0 {
 			return mir.BOTTOM, errs
@@ -729,14 +717,27 @@ func (t *translator) translateLogicalExpressionInModule(expr ast.Expr, module ut
 		//
 		return ir.Conjunction(args...), errs
 	case *ast.Not:
-		arg, errs := t.translateLogicalExpressionInModule(e.Arg, module, shift)
-		return ir.Negate[mir.LogicalTerm](arg), errs
+		arg, errs := t.translateLogical(e.Arg, mod, shift)
+		return ir.Negate(arg), errs
 	default:
 		typeStr := reflect.TypeOf(expr).String()
 		msg := fmt.Sprintf("unknown expression encountered during translation (%s)", typeStr)
 		//
 		return mir.BOTTOM, t.srcmap.SyntaxErrors(expr, msg)
 	}
+}
+
+// Translate an optional expression in a given context.  That is an expression
+// which maybe nil (i.e. doesn't exist).  In such case, nil is returned (i.e.
+// without any errors).
+func (t *translator) translateOptionalLogical(expr ast.Expr, module *ModuleBuilder,
+	shift int) (mir.Logical, []SyntaxError) {
+	//
+	if expr != nil {
+		return t.translateLogical(expr, module, shift)
+	}
+
+	return mir.BOTTOM, nil
 }
 
 // Determine the underlying register for a symbol which represents a register access.

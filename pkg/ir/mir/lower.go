@@ -28,7 +28,7 @@ func LowerToAir(schema Schema, config OptimisationConfig) air.Schema {
 	return lowering.Lower()
 }
 
-// AirLowering captures all auxillary state required in the process of lowering
+// AirLowering captures all auxiliary state required in the process of lowering
 // modules from MIR to AIR.  This state is because, as part of the lowering
 // process, we may introduce some number of additional modules (e.g. for
 // managing type proofs).
@@ -64,6 +64,8 @@ func (p *AirLowering) ConfigureOptimisation(config OptimisationConfig) {
 	p.config = config
 }
 
+// Lower the MIR schema provide when this lowering instance was created into an
+// equivalent AIR schema.
 func (p *AirLowering) Lower() air.Schema {
 	// Initialise modules
 	for i := range p.mirModules {
@@ -206,7 +208,7 @@ func (p *AirLowering) LowerModule(index uint) {
 // // expression is encountered, we must generate a computed column to hold the
 // // value of that expression, along with appropriate constraints to enforce the
 // // expected value.
-// func lowerLookupConstraintToAir(c LookupConstraint, mirSchema *Schema, airSchema *air.Schema, cfg OptimisationConfig) {
+// func lowerLookupConstraintToAir(c LookupConstraint, mirSchema *Schema,airSchema *air.Schema,cfg OptimisationConfig) {
 // 	targets := make([]uint, len(c.Targets))
 // 	sources := make([]uint, len(c.Sources))
 // 	//
@@ -227,7 +229,7 @@ func (p *AirLowering) LowerModule(index uint) {
 // // Lower a sorted constraint to the AIR level.  The challenge here is that there
 // // is not concept of sorting constraints at the AIR level.  Instead, we have to
 // // generate the necessary machinery to enforce the sorting constraint.
-// func lowerSortedConstraintToAir(c SortedConstraint, mirSchema *Schema, airSchema *air.Schema, cfg OptimisationConfig) {
+// func lowerSortedConstraintToAir(c SortedConstraint, mirSchema *Schema,airSchema *air.Schema,cfg OptimisationConfig) {
 // 	sources := make([]uint, len(c.Sources))
 // 	//
 // 	for i := 0; i < len(sources); i++ {
@@ -456,7 +458,7 @@ func (p *AirLowering) LowerModule(index uint) {
 // // LowerTo lowers an exponent expression to the AIR level by lowering the
 // // argument, and then constructing a multiplication.  This is because the AIR
 // // level does not support an explicit exponent operator.
-// func lowerExpTo(ctx trace.Context, e *Exp, mirSchema *Schema, airSchema *air.Schema, cfg OptimisationConfig) air.Expr {
+// func lowerExpTo(ctx trace.Context, e *Exp, mirSchema *Schema,airSchema *air.Schema,cfg OptimisationConfig) air.Expr {
 // 	// Lower the expression being raised
 // 	le := lowerTermToInner(ctx, e.Arg, mirSchema, airSchema, cfg)
 // 	// Multiply it out k times

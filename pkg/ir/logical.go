@@ -20,12 +20,12 @@ import (
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
-// Conjunct builds the logical conjunction (i.e. and) for a given set of constraints.
+// Conjunction builds the logical conjunction (i.e. and) for a given set of constraints.
 func Conjunction[T LogicalTerm[T]](terms ...Logical[T]) Logical[T] {
 	panic("todo")
 }
 
-// Disjunct creates a constraint representing the disjunction of a given set of
+// Disjunction creates a constraint representing the disjunction of a given set of
 // constraints.
 func Disjunction[T LogicalTerm[T]](terms ...Logical[T]) Logical[T] {
 	panic("todo")
@@ -109,6 +109,10 @@ func NotEquals[S LogicalTerm[S], T Term[T]](lhs Expr[T], rhs Expr[T]) Logical[S]
 
 // ============================================================================
 
+// Logical encapsulates the notion of a "logical expression".  That is something
+// which can be tested for truthhood or falsehood.  Logical expressions may use
+// arithmetic terms internally (e.g. an equation may compare two arithmetic
+// terms), but it is expected to only produce "true" or "false".
 type Logical[T LogicalTerm[T]] struct {
 	Term T
 }
@@ -137,6 +141,7 @@ func (e Logical[T]) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[tr
 	return e.Term.RequiredCells(row, tr)
 }
 
+// TestAt implementation for the Testable interface.
 func (e Logical[T]) TestAt(k int, tr trace.Module) (bool, uint, error) {
 	return e.Term.TestAt(k, tr)
 }

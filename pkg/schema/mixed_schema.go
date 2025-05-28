@@ -60,6 +60,10 @@ type MixedSchema[M1 Module, M2 Module] struct {
 
 var _ Schema[Constraint] = MixedSchema[Module, Module]{}
 
+// NewMixedSchema constructs a new schema composed of two distinct sets of
+// modules, referred to as the "left" and the "right".  Those on the left are
+// allocated lower module indices, whilst the indices of those on the right
+// begin immediately following the left.
 func NewMixedSchema[M1 Module, M2 Module](leftModules []M1, rightModules []M2) MixedSchema[M1, M2] {
 	return MixedSchema[M1, M2]{leftModules, rightModules}
 }
@@ -94,11 +98,12 @@ func (p MixedSchema[M1, M2]) Expand(trace.Trace) (trace.Trace, []error) {
 	panic("todo")
 }
 
-// Access a given module in this schema.
+// Module returns a given module in this schema.
 func (p MixedSchema[M1, M2]) Module(module uint) Module {
 	var (
 		n = uint(len(p.left))
 	)
+	//
 	if module < n {
 		return p.left[module]
 	}
@@ -129,7 +134,7 @@ func (p MixedSchema[M1, M2]) RightModules() []M2 {
 	return p.right
 }
 
-// Returns the number of modules in this schema.
+// Width returns the number of modules in this schema.
 func (p MixedSchema[M1, M2]) Width() uint {
 	return uint(len(p.left) + len(p.right))
 }

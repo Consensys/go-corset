@@ -134,6 +134,7 @@ func initialiseTrace(schema AnySchema, cols []trace.RawColumn) (trace.Trace, []e
 			errs []error
 			name = schema.Module(i).Name()
 		)
+
 		modules[i], errs = fillTraceModule(i, name, columns[i])
 		errors = append(errors, errs...)
 	}
@@ -157,7 +158,9 @@ func initialiseModuleMap(schema AnySchema) map[string]uint {
 	return modmap
 }
 
-func splitTraceColumns(schema AnySchema, modmap map[string]uint, cols []trace.RawColumn) ([][]trace.RawColumn, []error) {
+func splitTraceColumns(schema AnySchema, modmap map[string]uint,
+	cols []trace.RawColumn) ([][]trace.RawColumn, []error) {
+	//
 	var (
 		// Errs contains the set of filling errors which are accumulated
 		errs []error
@@ -204,9 +207,11 @@ func initialiseColumnMap(schema AnySchema) (map[columnKey]columnId, [][]trace.Ra
 			col := m.Register(j)
 			key := columnKey{m.Name(), col.Name}
 			id := columnId{i, j}
+			//
 			if _, ok := colmap[key]; ok {
 				panic(fmt.Sprintf("duplicate column '%s' in schema", trace.QualifiedColumnName(m.Name(), col.Name)))
 			}
+			//
 			colmap[key] = id
 			columns[i] = trace.RawColumn{Module: m.Name(), Name: col.Name, Data: nil}
 		}
@@ -228,12 +233,14 @@ func fillTraceModule(mid uint, name string, rawColumns []trace.RawColumn) (trace
 		ith := rawColumns[i]
 		ctx := trace.NewContext(mid, uint(i))
 		data := ith.Data
+		//
 		if data == nil {
 			err := fmt.Errorf("missing input column '%s.%s' in trace", ith.Name, ith.Name)
 			errors = append(errors, err)
 			// Fill with a column of height zero.
 			data = field.NewFrArray(0, 256)
 		}
+		//
 		traceColumns[i] = trace.NewArrayColumn(ctx, ith.Name, data, zero)
 	}
 	//

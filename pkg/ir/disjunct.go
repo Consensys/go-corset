@@ -16,11 +16,13 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 )
 
-// Disjunct represents a logical disjunction
+// Disjunct erpresents the logical OR of zero or more terms.  Observe that if
+// there are no terms, then this is equivalent to logical falsehood.
 type Disjunct[T LogicalTerm[T]] struct {
 	disjuncts []T
 }
 
+// TestAt implementation for Testable interface.
 func (p *Disjunct[T]) TestAt(k int, tr trace.Module) (bool, error) {
 	//
 	for _, disjunct := range p.disjuncts {

@@ -76,8 +76,8 @@ func CompileSourceFiles[M schema.Module](config CompilationConfig, srcfiles []*s
 // really helper function for e.g. the testing environment.   This process can
 // fail if the source file is mal-formed, or contains syntax errors or other
 // forms of error (e.g. type errors).
-func CompileSourceFile[M schema.Module](config CompilationConfig, srcfile *source.File) (schema.MixedSchema[M, mir.Module],
-	SourceMap, []SyntaxError) {
+func CompileSourceFile[M schema.Module](config CompilationConfig,
+	srcfile *source.File) (schema.MixedSchema[M, mir.Module], SourceMap, []SyntaxError) {
 	//
 	return CompileSourceFiles[M](config, []*source.File{srcfile})
 }

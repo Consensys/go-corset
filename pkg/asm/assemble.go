@@ -141,6 +141,7 @@ func LowerMixedMicroProgram(p MixedMicroProgram) schema.UniformSchema[mir.Module
 	for i, m := range p.RightModules() {
 		modules[i+n] = m
 	}
+	//
 	return schema.NewUniformSchema(modules)
 }
 

@@ -42,10 +42,10 @@ type VanishingConstraint = Air[constraint.VanishingConstraint[ir.Expr[Term]]]
 // Helpers
 // ============================================================================
 
-// AirConstraint limits the permitted set of underlying constraints.  This
+// ConstraintBound limits the permitted set of underlying constraints.  This
 // should never change, unless the underlying prover changes in some way to
 // offer different or more fundamental primitives.
-type AirConstraint interface {
+type ConstraintBound interface {
 	schema.Constraint
 
 	constraint.LookupConstraint[*ir.RegisterAccess[Term]] |
@@ -58,12 +58,12 @@ type AirConstraint interface {
 // level.  Since this is the fundamental level, only certain constraint forms
 // are permitted.  As such, we want to try and ensure that arbitrary constraints
 // are not found at the Air level.
-type Air[C AirConstraint] struct {
+type Air[C ConstraintBound] struct {
 	constraint C
 }
 
 // NewConstraint constructs a new Air constraint.
-func NewConstraint[C AirConstraint](constraint C) Air[C] {
+func NewConstraint[C ConstraintBound](constraint C) Air[C] {
 	return Air[C]{constraint}
 }
 
@@ -79,11 +79,11 @@ func (p *Air[C]) Accepts(trace trace.Trace) (bit.Set, schema.Failure) {
 	return p.constraint.Accepts(trace)
 }
 
-// Determine the well-definedness bounds for this constraint in both the
+// Bounds determines the well-definedness bounds for this constraint in both the
 // negative (left) or positive (right) directions.  For example, consider an
 // expression such as "(shift X -1)".  This is technically undefined for the
-// first row of any trace and, by association, any constraint evaluating
-// this expression on that first row is also undefined (and hence must pass)
+// first row of any trace and, by association, any constraint evaluating this
+// expression on that first row is also undefined (and hence must pass)
 func (p *Air[C]) Bounds(module uint) util.Bounds {
 	return p.constraint.Bounds(module)
 }

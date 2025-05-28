@@ -148,7 +148,9 @@ func (p VanishingConstraint[T]) Accepts(tr trace.Trace) (bit.Set, schema.Failure
 
 // HoldsGlobally checks whether a given expression vanishes (i.e. evaluates to
 // zero) for all rows of a trace.  If not, report an appropriate error.
-func HoldsGlobally[T ir.Testable](handle string, ctx trace.Context, constraint T, module trace.Module) (bit.Set, schema.Failure) {
+func HoldsGlobally[T ir.Testable](handle string, ctx trace.Context, constraint T,
+	module trace.Module) (bit.Set, schema.Failure) {
+	//
 	var (
 		coverage bit.Set
 		// Determine height of enclosing module
@@ -209,8 +211,6 @@ func (p VanishingConstraint[T]) Lisp(schema schema.AnySchema) sexp.SExp {
 		//
 		multiplier = p.Context.LengthMultiplier()
 	}
-	// Add case
-	name = fmt.Sprintf("%s", name)
 	// Handle attributes
 	if p.Domain.HasValue() {
 		switch p.Domain.Unwrap() {

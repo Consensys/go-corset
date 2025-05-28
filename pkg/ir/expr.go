@@ -44,8 +44,11 @@ func Const[T Term[T]](val fr.Element) Expr[T] {
 // Const64 construct an AIR expression representing a given constant from a
 // uint64.
 func Const64[T Term[T]](val uint64) Expr[T] {
-	element := fr.NewElement(val)
-	var term Term[T] = &Constant[T]{Value: element}
+	var (
+		element         = fr.NewElement(val)
+		term    Term[T] = &Constant[T]{Value: element}
+	)
+	//
 	return Expr[T]{term.(T)}
 }
 
@@ -70,7 +73,7 @@ func IfElse[T Term[T]](condition Expr[T], trueBranch Expr[T], falseBranch Expr[T
 	return Expr[T]{term.(T)}
 }
 
-// LabelledConst construct an expression representing a constant with a given
+// LabelledConstant construct an expression representing a constant with a given
 // label.
 func LabelledConstant[T Term[T]](label string, value fr.Element) Expr[T] {
 	var term Term[T] = &LabelledConst[T]{Label: label, Value: value}
@@ -102,6 +105,9 @@ func Sum[T Term[T]](exprs ...Expr[T]) Expr[T] {
 
 // ============================================================================
 
+// Expr encapsulates the notion of an "arithmetic expression".  That is
+// something which is evaluated to a given value using some combination of
+// arithmetic operations.
 type Expr[T Term[T]] struct {
 	// Term to be evaluated, etc.
 	Term T

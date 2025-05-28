@@ -64,7 +64,7 @@ func (p *flattenIterator[S, T]) Next() T {
 //
 //nolint:revive
 func (p *flattenIterator[S, T]) Append(iter Iterator[T]) Iterator[T] {
-	return NewAppendIterator[T](p, iter)
+	return NewAppendIterator(p, iter)
 }
 
 // Clone creates a copy of this iterator at the given cursor position.

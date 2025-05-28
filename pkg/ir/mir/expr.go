@@ -22,6 +22,8 @@ type Term interface {
 	ir.Term[Term]
 }
 
+// Expr captures the notion of an expression" at the MIR level.  This is really
+// just for convenience more than anything.
 type Expr = ir.Expr[Term]
 
 // Add represents the addition of zero or more expressions.
@@ -51,5 +53,5 @@ type Norm = ir.Norm[Term]
 // Sub represents the subtraction over zero or more expressions.
 type Sub = ir.Sub[Term]
 
-// Void represents the empty expression.
+// VOID represents the empty expression.
 var VOID Expr

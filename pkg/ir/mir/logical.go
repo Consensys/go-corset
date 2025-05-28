@@ -14,11 +14,15 @@ package mir
 
 import "github.com/consensys/go-corset/pkg/ir"
 
+// LogicalTerm represents the fundamental for logical expressions in the MIR
+// representation.
 type LogicalTerm interface {
 	ir.LogicalTerm[LogicalTerm]
 }
 
+// Logical captures the notion of a logical expression at the MIR level.  This
+// is really just for convenience more than anything.
 type Logical = ir.Logical[LogicalTerm]
 
-// Void represents the empty logical expression.
+// BOTTOM represents the empty or unused logical expression.
 var BOTTOM Logical

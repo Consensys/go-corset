@@ -53,7 +53,7 @@ func printExternalisedModuleConstants(indent uint, mod corset.SourceModule) {
 			printIndent(indent)
 			//
 			if c.Bitwidth != math.MaxUint {
-				fmt.Printf("%s (%s): u%d\n", c.Name, c.Bitwidth, c.Value.String())
+				fmt.Printf("%s (%s): u%d\n", c.Name, c.Value.String(), c.Bitwidth)
 			} else {
 				fmt.Printf("%s: %s\n", c.Name, c.Value.String())
 			}

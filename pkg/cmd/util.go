@@ -144,7 +144,7 @@ func GetIntArray(cmd *cobra.Command, flag string) []int {
 // 	}
 // }
 
-// func readCoverageReport(filename string, binfile *binfile.BinaryFile, config mir.OptimisationConfig) [3]sc.CoverageMap {
+//func readCoverageReport(filename string,binfile *binfile.BinaryFile,config mir.OptimisationConfig) [3]sc.CoverageMap {
 // 	var (
 // 		report map[string]map[string][]uint
 // 		air    sc.CoverageMap

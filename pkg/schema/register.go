@@ -47,18 +47,26 @@ type Register struct {
 	Width uint
 }
 
+// NewRegister constructs a new register of a given kind (i.e. input, output or
+// computed) with the given name and bitwidth.
 func NewRegister(kind uint8, name string, bitwidth uint) Register {
 	return Register{kind, name, bitwidth}
 }
 
+// NewInputRegister constructs a new input register with the given name and
+// bitwidth.
 func NewInputRegister(name string, bitwidth uint) Register {
 	return Register{INPUT_REGISTER, name, bitwidth}
 }
 
+// NewOutputRegister constructs a new output register with the given name and
+// bitwidth.
 func NewOutputRegister(name string, bitwidth uint) Register {
 	return Register{OUTPUT_REGISTER, name, bitwidth}
 }
 
+// NewComputedRegister constructs a new computed register with the given name and
+// bitwidth.
 func NewComputedRegister(name string, bitwidth uint) Register {
 	return Register{COMPUTED_REGISTER, name, bitwidth}
 }
@@ -103,7 +111,7 @@ var one = *big.NewInt(1)
 // QualifiedName returns the fully qualified name of this register
 func (p Register) QualifiedName(mod Module) string {
 	if mod.Name() != "" {
-		return fmt.Sprintf("%s:%s", mod.Name, p.Name)
+		return fmt.Sprintf("%s:%s", mod.Name(), p.Name)
 	}
 	//
 	return p.Name

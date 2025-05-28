@@ -34,16 +34,20 @@ type RangeConstraint = *constraint.RangeConstraint[Expr]
 // level.
 type SortedConstraint = *constraint.SortedConstraint[Expr]
 
-// PropertyAssertion captures the notion of an arbitrary property which should
-// hold for all acceptable traces.  However, such a property is not enforced by
-// the prover.
+// Assertion captures the notion of an arbitrary property which should hold for
+// all acceptable traces.  However, such a property is not enforced by the
+// prover.
 type Assertion = *constraint.Assertion[Logical]
 
+// Constraint captures the notion of an arithmetic constraint at the MIR level.
 type Constraint = schema.Constraint
 
+// Module captures the essence of a module at the MIR level.  Specifically, it
+// is limited to only those constraint forms permitted at the MIR level.
 type Module = schema.Table[Constraint]
 
-// An MIR schema is a uniform schema consisting of MIR modules only.
+// Schema captures the notion of an MIR schema which is uniform and consists of
+// MIR modules only.
 type Schema = schema.UniformSchema[Module]
 
 // SubstituteConstants substitutes the value of matching labelled constants for

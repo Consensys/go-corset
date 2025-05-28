@@ -31,11 +31,10 @@ func PrintSchemas(stack cmd_util.SchemaStack, textwidth uint) {
 
 // Print out all declarations included in a given
 func printSchema(schema schema.AnySchema, width uint) {
-	//
+	// Print out each module, one by one.
 	for i := schema.Modules(); i.HasNext(); {
 		printModule(i.Next(), schema, width)
 	}
-	//
 }
 
 func printModule(module schema.Module, schema schema.AnySchema, width uint) {

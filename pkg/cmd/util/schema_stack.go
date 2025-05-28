@@ -35,17 +35,19 @@ import (
 )
 
 const (
-	// Macro assembly layer represents the most high-level layer in the stack.
+	// MACRO_ASM_LAYER represents the macro assembly layer which is most
+	// high-level layer in the stack.
 	MACRO_ASM_LAYER = 0
-	// The micro assembly layer represents the vectorised and field specific
-	// assembly program.
+	// MICRO_ASM_LAYER represents the micro assembly layer which is typically
+	// vectorised and field specific.
 	MICRO_ASM_LAYER = 1
-	// Mid-level Intermediate Representation (MIR) is a true collection of
-	// constraints and assignments.  However, it retains a more high-level
-	// perspective.
+	// MIR_LAYER represents Mid-level Intermediate Representation (MIR) which is
+	// a true collection of constraints and assignments.  However, it retains a
+	// more high-level perspective.
 	MIR_LAYER = 2
-	// Arithmetic Intermediate Representation (AIR) is the bottom layer in the
-	// system, and is the representation passed to the prover.
+	// AIR_LAYER represents the Arithmetic Intermediate Representation (AIR)
+	// which is the bottom layer in the system, and is the representation passed
+	// to the prover.
 	AIR_LAYER = 3
 )
 
@@ -122,15 +124,15 @@ func (p *SchemaStack) Schemas() []schema.AnySchema {
 	return p.schemas
 }
 
-// ReadConstraintFiles reads one or more constraints files into this stack.
+// Read reads one or more constraints files into this stack.
 func (p *SchemaStack) Read(filenames ...string) {
 	var (
 		asmSchema  asm.MixedMacroProgram
 		uasmSchema asm.MixedMicroProgram
 		mirSchema  mir.Schema
 		airSchema  air.Schema
-		errors     []source.SyntaxError
 	)
+	//
 	p.binfile = ReadConstraintFiles(p.corsetConfig, p.asmConfig, filenames)
 	// Read out the mixed macro schema
 	asmSchema = p.BinaryFile().Schema
@@ -140,25 +142,19 @@ func (p *SchemaStack) Read(filenames ...string) {
 	mirSchema = asm.LowerMixedMicroProgram(uasmSchema)
 	// Lower to AIR
 	airSchema = mir.LowerToAir(mirSchema, p.mirConfig)
-	// Check for lowering errors
-	if len(errors) > 0 {
-		// Report errors
-		for _, err := range errors {
-			printSyntaxError(&err)
-		}
-		// Fail
-		os.Exit(4)
-	}
-	//
+	// Include macro assembly layer (if requested)
 	if p.layers.Contains(MACRO_ASM_LAYER) {
 		p.schemas = append(p.schemas, asmSchema)
 	}
+	// Include micro assembly layer (if requested)
 	if p.layers.Contains(MICRO_ASM_LAYER) {
 		p.schemas = append(p.schemas, uasmSchema)
 	}
+	// Include Mid-level IR layer (if requested)
 	if p.layers.Contains(MIR_LAYER) {
 		p.schemas = append(p.schemas, mirSchema)
 	}
+	// Include Arithmetic-level IR layer (if requested)
 	if p.layers.Contains(AIR_LAYER) {
 		p.schemas = append(p.schemas, schema.Any(airSchema))
 	}

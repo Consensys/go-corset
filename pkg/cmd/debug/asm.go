@@ -32,9 +32,9 @@ func PrintAssemblyProgram(micro bool, cfg asm.LoweringConfig, program asm.MacroP
 		// //
 		// printAssemblyFunctions(uprogram)
 		panic("todo")
-	} else {
-		printAssemblyFunctions(program)
 	}
+	//
+	printAssemblyFunctions(program)
 }
 
 func printAssemblyFunctions[T io.Instruction[T]](program io.Program[T]) {

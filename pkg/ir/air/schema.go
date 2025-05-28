@@ -14,12 +14,18 @@ package air
 
 import "github.com/consensys/go-corset/pkg/schema"
 
+// Constraint captures the essence of a constraint at the AIR level.
 type Constraint interface {
 	schema.Constraint
 	// Air marks the constraints as been valid for the AIR representation.
 	Air()
 }
 
+// Module captures the essence of a module at the AIR level.  Specifically, it
+// is limited to only those constraint forms permitted at the AIR level.
 type Module = schema.Table[Constraint]
 
+// Schema captures the essence of an arithmetisation at the AIR level.
+// Specifically, it is limited to only those constraint forms permitted at the
+// AIR level.
 type Schema = schema.UniformSchema[Module]

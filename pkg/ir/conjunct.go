@@ -16,12 +16,14 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 )
 
-// Constraint represents a formula in conjunctive normal form.
+// Conjunct erpresents the logical AND of zero or more terms.  Observe that if
+// there are no terms, then this is equivalent to logical truth.
 type Conjunct[T LogicalTerm[T]] struct {
 	// Terms here are disjuncted to formulate the final logical result.
 	conjuncts []T
 }
 
+// TestAt implementation for Testable interface.
 func (p *Conjunct[T]) TestAt(k int, tr trace.Module) (bool, error) {
 	//
 	for _, disjunct := range p.conjuncts {

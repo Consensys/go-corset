@@ -105,7 +105,7 @@ func (p Table[C]) Constraints() iter.Iterator[Constraint] {
 	return iter.NewCastIterator[C, Constraint](arrIter)
 }
 
-// Module name
+// Name returns the module name.
 func (p Table[C]) Name() string {
 	return p.name
 }
@@ -121,7 +121,7 @@ func (p Table[C]) Registers() []Register {
 	return p.registers
 }
 
-// Returns the number of registers in this Table.
+// Width returns the number of registers in this Table.
 func (p Table[C]) Width() uint {
 	return uint(len(p.registers))
 }

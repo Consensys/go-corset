@@ -18,11 +18,9 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 )
 
-type RegisterId struct {
-	Module   uint
-	Register uint
-}
-
+// SchemaBuilder is a mechanism for constructing mixed schemas which attempts to
+// simplify the problem of mapping source-level names to e.g. module-specific
+// register indexes.
 type SchemaBuilder[C schema.Constraint, T Term[T]] struct {
 	// Modmap maps modules to registers
 	modmap map[string]uint
@@ -34,6 +32,8 @@ type SchemaBuilder[C schema.Constraint, T Term[T]] struct {
 	modules []ModuleBuilder[C, T]
 }
 
+// NewSchemaBuilder constructs a new schema builder with a given number of
+// externally defined modules.  Such modules are allocated module indices first.
 func NewSchemaBuilder[C schema.Constraint, T Term[T]](externs ...schema.Module) SchemaBuilder[C, T] {
 	modmap := make(map[string]uint, 0)
 	// Initialise module map
@@ -64,6 +64,7 @@ func (p *SchemaBuilder[C, T]) NewModule(name string) uint {
 	return mid
 }
 
+// Module returns the builder for the given module based on its index.
 func (p *SchemaBuilder[C, T]) Module(mid uint) *ModuleBuilder[C, T] {
 	var n uint = uint(len(p.externs))
 	// Sanity check
@@ -74,20 +75,26 @@ func (p *SchemaBuilder[C, T]) Module(mid uint) *ModuleBuilder[C, T] {
 	return &p.modules[mid-n]
 }
 
+// ModuleOf returns the builder for the given module based on its name.
 func (p *SchemaBuilder[C, T]) ModuleOf(name string) *ModuleBuilder[C, T] {
 	return p.Module(p.modmap[name])
 }
 
-func (p *SchemaBuilder[C, T]) Modules() []schema.Table[C] {
+// Build returns an array of tables constructed by this builder.
+func (p *SchemaBuilder[C, T]) Build() []schema.Table[C] {
 	modules := make([]schema.Table[C], len(p.modules))
 	//
 	for i, m := range p.modules {
-		modules[i] = m.build()
+		modules[i] = m.buildTable()
 	}
 	//
 	return modules
 }
 
+// ModuleBuilder provides a mechanism to ease the construction of modules for
+// use in schemas.  For example, it maintains a mapping from register names to
+// their relevant indices.  It also provides a mechanism for constructing a
+// register access based on the register name, etc.
 type ModuleBuilder[C schema.Constraint, T Term[T]] struct {
 	// Name of the module being constructed
 	name string
@@ -126,11 +133,12 @@ func (p *ModuleBuilder[C, T]) NewRegister(register schema.Register) uint {
 	return id
 }
 
+// AddConstraint adds a new constraint to this module.
 func (p *ModuleBuilder[C, T]) AddConstraint(constraint C) {
-	panic("todo")
+	p.constraints = append(p.constraints, constraint)
 }
 
 // Build constructs a table module from this module builder.
-func (p *ModuleBuilder[C, T]) build() schema.Table[C] {
+func (p *ModuleBuilder[C, T]) buildTable() schema.Table[C] {
 	return schema.NewTable(p.name, p.registers, p.constraints)
 }

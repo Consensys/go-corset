@@ -49,6 +49,7 @@ func (p *Equation[T]) Bounds() util.Bounds {
 	panic("todo")
 }
 
+// TestAt implementation for Testable interface.
 func (p *Equation[T]) TestAt(k int, tr trace.Module) (bool, uint, error) {
 	lhs, err1 := p.Lhs.EvalAt(k, tr)
 	rhs, err2 := p.Rhs.EvalAt(k, tr)
@@ -81,14 +82,14 @@ func (p *Equation[T]) TestAt(k int, tr trace.Module) (bool, uint, error) {
 
 // Lisp returns a lisp representation of this equation, which is useful for
 // debugging.
-func (e Equation[T]) Lisp(module schema.Module) sexp.SExp {
+func (p Equation[T]) Lisp(module schema.Module) sexp.SExp {
 	var (
 		symbol string
-		l      = e.Lhs.Lisp(module)
-		r      = e.Rhs.Lisp(module)
+		l      = p.Lhs.Lisp(module)
+		r      = p.Rhs.Lisp(module)
 	)
 	//
-	switch e.Kind {
+	switch p.Kind {
 	case EQUALS:
 		symbol = "=="
 	case NOT_EQUALS:
@@ -120,15 +121,15 @@ func (p *Equation[T]) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[
 }
 
 // Simplify this equation as much as reasonably possible.
-func (e Equation[T]) Simplify() Equation[T] {
+func (p Equation[T]) Simplify() Equation[T] {
 	panic("todo")
 }
 
 // Negate a given equation
-func (e Equation[T]) Negate() Equation[T] {
+func (p Equation[T]) Negate() Equation[T] {
 	var kind uint8
 	//
-	switch e.Kind {
+	switch p.Kind {
 	case EQUALS:
 		kind = NOT_EQUALS
 	case NOT_EQUALS:
@@ -143,16 +144,16 @@ func (e Equation[T]) Negate() Equation[T] {
 		kind = LESS_THAN_EQUALS
 	}
 	//
-	return Equation[T]{kind, e.Lhs, e.Rhs}
+	return Equation[T]{kind, p.Lhs, p.Rhs}
 }
 
 // Is determines whether or not this equation is known to evaluate to true or
 // false.  For example, "0 == 0" evaluates to true, whilst "0 != 0" evaluates to
 // false.
-func (e Equation[T]) Is(val bool) bool {
+func (p Equation[T]) Is(val bool) bool {
 	// Attempt to disprove non-equality
-	lc, l_ok := e.Lhs.(*Constant[T])
-	rc, r_ok := e.Rhs.(*Constant[T])
+	lc, l_ok := p.Lhs.(*Constant[T])
+	rc, r_ok := p.Rhs.(*Constant[T])
 	//
 	if l_ok && r_ok {
 		var (
@@ -160,7 +161,7 @@ func (e Equation[T]) Is(val bool) bool {
 			sign bool
 		)
 		//
-		switch e.Kind {
+		switch p.Kind {
 		case EQUALS:
 			sign = (cmp == 0)
 		case NOT_EQUALS:

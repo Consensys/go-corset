@@ -47,6 +47,13 @@ type Expander[M any, C any] func(Schema[C], trace.Trace) trace.Trace
 
 // ============================================================================
 
+// Schema provides a fundamental interface which attempts to capture the essence
+// of an arithmetisation.  For simplicity, a schema consists entirely of one or
+// more modules, where each module comprises some number of registers,
+// constraints and assignments.  Registers can be loosely thought of as columns
+// in the final trace, whilst constraints are properties which should hold for
+// any acceptable trace.  Finally, assignments represent arbitrary computations
+// which "assign" values to registers during "trace expansion".
 type Schema[C any] interface {
 	// Assertions returns an iterator over the property assertions of this
 	// schema.  These are properties which should hold true for any valid trace
