@@ -29,7 +29,12 @@ import (
 	"github.com/consensys/go-corset/pkg/util/source"
 )
 
+// SchemaBuilder is used within this translator for building the final mixed MIR
+// schema.
 type SchemaBuilder = ir.SchemaBuilder[mir.Constraint, mir.Term]
+
+// ModuleBuilder is used within this translator for building the various modules
+// which are contained within the mixed MIR schema.
 type ModuleBuilder = ir.ModuleBuilder[mir.Constraint, mir.Term]
 
 // TranslateCircuit translates the components of a Corset circuit and add them
@@ -47,9 +52,7 @@ func TranslateCircuit[M schema.Module](
 	builder := ir.NewSchemaBuilder[mir.Constraint, mir.Term]()
 	t := translator{env, srcmap, builder}
 	// Allocate all modules into schema
-	if errs := t.translateModules(circuit); len(errs) > 0 {
-		return schema.MixedSchema[M, mir.Module]{}, errs
-	}
+	t.translateModules(circuit)
 	// Translate everything else
 	if errs := t.translateDeclarations(circuit); len(errs) > 0 {
 		return schema.MixedSchema[M, mir.Module]{}, errs
@@ -72,10 +75,7 @@ type translator struct {
 	schema SchemaBuilder
 }
 
-func (t *translator) translateModules(circuit *ast.Circuit) []source.SyntaxError {
-	var (
-		errors []source.SyntaxError
-	)
+func (t *translator) translateModules(circuit *ast.Circuit) {
 	// Add root module
 	t.translateModule("")
 	// Add nested modules
@@ -87,8 +87,6 @@ func (t *translator) translateModules(circuit *ast.Circuit) []source.SyntaxError
 		//
 		t.translateModule(m.Name)
 	}
-	//
-	return errors
 }
 
 func (t *translator) translateModule(name string) {

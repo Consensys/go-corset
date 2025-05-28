@@ -46,7 +46,12 @@ type Equation[T Term[T]] struct {
 
 // Bounds implementation for Boundable interface.
 func (p *Equation[T]) Bounds() util.Bounds {
-	panic("todo")
+	l := p.Lhs.Bounds()
+	r := p.Rhs.Bounds()
+	//
+	l.Union(&r)
+	//
+	return l
 }
 
 // TestAt implementation for Testable interface.

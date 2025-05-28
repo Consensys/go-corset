@@ -109,9 +109,12 @@ func (tb TraceBuilder) Build(cols []trace.RawColumn) (trace.Trace, []error) {
 	if len(errors) > 0 {
 		// Critical failure
 		return nil, errors
-	} else if tb.expand {
-		tr, errors = tb.schema.Expand(tr)
 	}
+	// FIXME: this is where we need to apply trace expansion.
+	//
+	// else if tb.expand {
+	//
+	// }
 	// Padding
 	if tb.padding > 0 {
 		padTraceColumns(tr, tb.padding)
@@ -216,7 +219,7 @@ func initialiseColumnMap(schema AnySchema) (map[columnKey]columnId, [][]trace.Ra
 			columns[i] = trace.RawColumn{Module: m.Name(), Name: col.Name, Data: nil}
 		}
 		// Initialise empty columns for this module.
-		modules = append(modules, columns)
+		modules[i] = columns
 	}
 	// Done
 	return colmap, modules
@@ -231,7 +234,7 @@ func fillTraceModule(mid uint, name string, rawColumns []trace.RawColumn) (trace
 	//
 	for i := range traceColumns {
 		ith := rawColumns[i]
-		ctx := trace.NewContext(mid, uint(i))
+		ctx := trace.NewContext(mid, 1)
 		data := ith.Data
 		//
 		if data == nil {

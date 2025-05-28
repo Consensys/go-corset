@@ -50,6 +50,13 @@ func NewFunction[T any](name string, registers []Register, code []T) Function[T]
 	return Function[T]{name, registers, code}
 }
 
+// Assignments returns an iterator over the assignments of this schema.
+// These are the computations used to assign values to all computed columns
+// in this module.
+func (p *Function[T]) Assignments() iter.Iterator[schema.Assignment] {
+	panic("todo")
+}
+
 // CodeAt returns the ith instruction making up the body of this function.
 func (p *Function[T]) CodeAt(i uint) T {
 	return p.code[i]

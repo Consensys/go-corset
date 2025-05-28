@@ -48,7 +48,7 @@ func NewAirLowering(mirSchema Schema) AirLowering {
 	)
 	// Initialise AIR modules
 	for i, m := range mirModules {
-		airModules[i] = schema.NewTable[air.Constraint](m.Name(), nil, nil)
+		airModules[i] = schema.NewTable[air.Constraint](m.Name())
 	}
 	//
 	return AirLowering{
@@ -107,9 +107,7 @@ func (p *AirLowering) LowerModule(index uint) {
 		airModule = &p.airModules[index]
 	)
 	// Initialise registers in AIR module
-	for _, c := range mirModule.Registers() {
-		airModule.NewRegister(c)
-	}
+	airModule.AddRegisters(mirModule.Registers()...)
 }
 
 // // Lower an assignment to the AIR level.

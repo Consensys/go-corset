@@ -1429,13 +1429,12 @@ func CheckTraces(t *testing.T, test string, maxPadding uint, cfg TestConfig, tra
 
 func checkTrace[C sc.Constraint](t *testing.T, inputs []trace.RawColumn, id traceId, schema sc.Schema[C]) {
 	// Construct the trace
-	/* tr, errs := sc.NewTraceBuilder(schema).
-	Expand(id.expand).
-	Validate(id.validate).
-	Padding(id.padding).
-	Parallel(true).
-	Build(inputs) */
-	tr, errs := schema.Expand(nil)
+	tr, errs := sc.NewTraceBuilder(schema).
+		Expand(id.expand).
+		Validate(id.validate).
+		Padding(id.padding).
+		//Parallel(true).
+		Build(inputs)
 	// Sanity check construction
 	if len(errs) > 0 {
 		t.Errorf("Trace expansion failed (%s, %s, line %d with padding %d): %s",

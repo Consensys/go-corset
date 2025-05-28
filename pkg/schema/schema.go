@@ -53,9 +53,6 @@ type Schema[C any] interface {
 	// Constraints returns an iterator over all constraints defined in this
 	// schema.
 	Constraints() iter.Iterator[C]
-	// Expand a given trace according to this schema by determining appropriate
-	// values for all computed columns within the schema.
-	Expand(trace.Trace) (trace.Trace, []error)
 	// Access a given module in this schema.
 	Module(module uint) Module
 	// Modules returns an iterator over the declared set of modules within this

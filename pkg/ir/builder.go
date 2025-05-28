@@ -163,5 +163,9 @@ func (p *ModuleBuilder[C, T]) AddConstraint(constraint C) {
 
 // Build constructs a table module from this module builder.
 func (p *ModuleBuilder[C, T]) buildTable() schema.Table[C] {
-	return schema.NewTable(p.name, p.registers, p.constraints)
+	table := schema.NewTable[C](p.name)
+	table.AddRegisters(p.registers...)
+	table.AddConstraints(p.constraints...)
+	//
+	return table
 }

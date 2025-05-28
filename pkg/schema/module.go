@@ -17,6 +17,10 @@ import "github.com/consensys/go-corset/pkg/util/collection/iter"
 // Module represents a "table" within a schema which contains zero or more rows
 // for a given set of registers.
 type Module interface {
+	// Assignments returns an iterator over the assignments of this schema.
+	// These are the computations used to assign values to all computed columns
+	// in this module.
+	Assignments() iter.Iterator[Assignment]
 	// Constraints provides access to those constraints associated with this
 	// module.
 	Constraints() iter.Iterator[Constraint]
@@ -91,11 +95,18 @@ type Table[C Constraint] struct {
 	name        string
 	registers   []Register
 	constraints []C
+	assignments []Assignment
 }
 
 // NewTable constructs a table module with the given registers and constraints.
-func NewTable[C Constraint](name string, registers []Register, constraints []C) Table[C] {
-	return Table[C]{name, registers, constraints}
+func NewTable[C Constraint](name string) Table[C] {
+	return Table[C]{name, nil, nil, nil}
+}
+
+// Assignments provides access to those assignments defined as part of this
+// table.
+func (p Table[C]) Assignments() iter.Iterator[Assignment] {
+	return iter.NewArrayIterator(p.assignments)
 }
 
 // Constraints provides access to those constraints associated with this
@@ -126,12 +137,21 @@ func (p Table[C]) Width() uint {
 	return uint(len(p.registers))
 }
 
-// NewRegister creates a new register within this table.
-func (p *Table[C]) NewRegister(register Register) uint {
-	// Determine register id
-	rid := uint(len(p.registers))
-	// Add register
-	p.registers = append(p.registers, register)
-	// Done
-	return rid
+// Mutators
+// ----------------------------------------------------------------------------
+
+// AddAssignments adds a new assignments to this table.
+func (p *Table[C]) AddAssignments(assignments ...Assignment) {
+	p.assignments = append(p.assignments, assignments...)
+}
+
+// AddConstraints adds new constraints to this table.
+func (p *Table[C]) AddConstraints(constraints ...C) {
+	p.constraints = append(p.constraints, constraints...)
+}
+
+// AddRegisters adds new registers to this table.
+func (p *Table[C]) AddRegisters(registers ...Register) {
+	// Add registers
+	p.registers = append(p.registers, registers...)
 }
