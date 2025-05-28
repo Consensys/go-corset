@@ -92,10 +92,10 @@ type FieldAgnosticModule[T any] interface {
 // X'1, Y'0. Y'1 (in that order).  Hence, predicting the new register indices is
 // relatively straightforward.
 type Table[C Constraint] struct {
-	name        string
-	registers   []Register
-	constraints []C
-	assignments []Assignment
+	TableName        string
+	TableRegisters   []Register
+	TableConstraints []C
+	TableAssignments []Assignment
 }
 
 // NewTable constructs a table module with the given registers and constraints.
@@ -106,35 +106,35 @@ func NewTable[C Constraint](name string) Table[C] {
 // Assignments provides access to those assignments defined as part of this
 // table.
 func (p Table[C]) Assignments() iter.Iterator[Assignment] {
-	return iter.NewArrayIterator(p.assignments)
+	return iter.NewArrayIterator(p.TableAssignments)
 }
 
 // Constraints provides access to those constraints associated with this
 // module.
 func (p Table[C]) Constraints() iter.Iterator[Constraint] {
-	arrIter := iter.NewArrayIterator(p.constraints)
+	arrIter := iter.NewArrayIterator(p.TableConstraints)
 	return iter.NewCastIterator[C, Constraint](arrIter)
 }
 
 // Name returns the module name.
 func (p Table[C]) Name() string {
-	return p.name
+	return p.TableName
 }
 
 // Register returns the given register in this table.
 func (p Table[C]) Register(index uint) Register {
-	return p.registers[index]
+	return p.TableRegisters[index]
 }
 
 // Registers returns an iterator over the underlying registers of this schema.
 // Specifically, the index of a register in this array is its register index.
 func (p Table[C]) Registers() []Register {
-	return p.registers
+	return p.TableRegisters
 }
 
 // Width returns the number of registers in this Table.
 func (p Table[C]) Width() uint {
-	return uint(len(p.registers))
+	return uint(len(p.TableRegisters))
 }
 
 // Mutators
@@ -142,16 +142,16 @@ func (p Table[C]) Width() uint {
 
 // AddAssignments adds a new assignments to this table.
 func (p *Table[C]) AddAssignments(assignments ...Assignment) {
-	p.assignments = append(p.assignments, assignments...)
+	p.TableAssignments = append(p.TableAssignments, assignments...)
 }
 
 // AddConstraints adds new constraints to this table.
 func (p *Table[C]) AddConstraints(constraints ...C) {
-	p.constraints = append(p.constraints, constraints...)
+	p.TableConstraints = append(p.TableConstraints, constraints...)
 }
 
 // AddRegisters adds new registers to this table.
 func (p *Table[C]) AddRegisters(registers ...Register) {
 	// Add registers
-	p.registers = append(p.registers, registers...)
+	p.TableRegisters = append(p.TableRegisters, registers...)
 }

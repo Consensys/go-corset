@@ -13,14 +13,13 @@
 package schema
 
 import (
-	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 )
 
 // UniformSchema represents the simplest kind of schema which contains only
 // modules of the same kind (e.g. all MIR modules).
 type UniformSchema[M Module] struct {
-	modules []M
+	RawModules []M
 }
 
 // Sanity check
@@ -49,35 +48,24 @@ func (p UniformSchema[M]) Consistent() error {
 // Constraints returns an iterator over all constraints defined in this
 // schema.
 func (p UniformSchema[M]) Constraints() iter.Iterator[Constraint] {
-	return constraintsOf(p.modules)
-}
-
-// Expand a given trace according to this schema by determining appropriate
-// values for all computed columns within the schema.
-func (p UniformSchema[M]) Expand(trace.Trace) (trace.Trace, []error) {
-	panic("todo")
+	return constraintsOf(p.RawModules)
 }
 
 // Module provides access to a given module in this schema.
 func (p UniformSchema[M]) Module(module uint) Module {
-	return p.modules[module]
+	return p.RawModules[module]
 }
 
 // Modules returns an iterator over the declared set of modules within this
 // schema.
 func (p UniformSchema[M]) Modules() iter.Iterator[Module] {
-	arrayIter := iter.NewArrayIterator(p.modules)
+	arrayIter := iter.NewArrayIterator(p.RawModules)
 	return iter.NewCastIterator[M, Module](arrayIter)
-}
-
-// RawModules returns access to the underlying array of modules in this schema.
-func (p UniformSchema[M]) RawModules() []M {
-	return p.modules
 }
 
 // Width returns the number of modules in this schema.
 func (p UniformSchema[M]) Width() uint {
-	return uint(len(p.modules))
+	return uint(len(p.RawModules))
 }
 
 // Extract an iterator over all the constraints in a given array using a

@@ -123,7 +123,7 @@ func (tb TraceBuilder) Build(cols []trace.RawColumn) (trace.Trace, []error) {
 	return tr, errors
 }
 
-func initialiseTrace(schema AnySchema, cols []trace.RawColumn) (trace.Trace, []error) {
+func initialiseTrace(schema AnySchema, cols []trace.RawColumn) (*trace.ArrayTrace, []error) {
 	var (
 		// Initialise modules
 		modmap  = initialiseModuleMap(schema)
@@ -253,11 +253,10 @@ func fillTraceModule(mid uint, name string, rawColumns []trace.RawColumn) (trace
 // PadColumns pads every column in a given trace with a given amount of (front)
 // padding. Observe that this applies on top of any spillage and/or defensive
 // padding already applied.
-func padTraceColumns(tr trace.Trace, padding uint) trace.Trace {
-	// n := tr.Modules().Count()
-	// // Iterate over modules
-	// for i := uint(0); i < n; i++ {
-	// 	tr.Pad(i, padding, 0)
-	// }
-	panic("todo")
+func padTraceColumns(tr *trace.ArrayTrace, padding uint) {
+	n := tr.Modules().Count()
+	// Iterate over modules
+	for i := uint(0); i < n; i++ {
+		tr.Pad(i, padding, 0)
+	}
 }

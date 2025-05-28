@@ -13,6 +13,8 @@
 package mir
 
 import (
+	"encoding/gob"
+
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
@@ -54,4 +56,12 @@ type Schema = schema.UniformSchema[Module]
 // all expressions used within the schema.
 func SubstituteConstants[M schema.Module](schema schema.MixedSchema[M, Module], mapping map[string]fr.Element) {
 	panic("todo")
+}
+
+func init() {
+	gob.Register(schema.Constraint(&constraint.VanishingConstraint[Logical]{}))
+	gob.Register(schema.Constraint(&constraint.RangeConstraint[Expr]{}))
+	gob.Register(schema.Constraint(&constraint.PermutationConstraint{}))
+	gob.Register(schema.Constraint(&constraint.LookupConstraint[Expr]{}))
+	gob.Register(schema.Constraint(&constraint.SortedConstraint[Expr]{}))
 }
