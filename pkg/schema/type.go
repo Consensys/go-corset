@@ -20,6 +20,9 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
 
+// fieldElementBitWidth represents the maximum bit width for field elements (254 bits)
+const fieldElementBitWidth = 254
+
 // Type represents a _column type_ which restricts the set of values a column
 // can take on.  For example, a column might be restricted to holding only byte
 // values (i.e. in the range 0..255).
@@ -177,13 +180,19 @@ func (p *FieldType) AsField() *FieldType {
 // ByteWidth returns the number of bytes required represent any element of this
 // type.
 func (p *FieldType) ByteWidth() uint {
-	return 32
+	return 32 // 254 bits rounded up to nearest byte
 }
 
-// BitWidth returns the bitwidth of this type.  For example, the
-// bitwidth of the type u8 is 8.
+// BitWidth returns the bitwidth of this type (254 bits for BLS12-377 field elements)
 func (p *FieldType) BitWidth() uint {
-	return p.ByteWidth() * 8
+	return 254
+}
+
+// Accept determines whether a given value is an element of this type.
+// Always returns true since fr.Element values are already valid 254-bit field elements
+// reduced modulo the BLS12-377 scalar field order r.
+func (p *FieldType) Accept(val fr.Element) bool {
+	return true
 }
 
 // SubtypeOf checks whether this subtypes another
@@ -201,12 +210,6 @@ func (p *FieldType) Cmp(other Type) int {
 	}
 	// all field types equal
 	return 0
-}
-
-// Accept determines whether a given value is an element of this type.  In
-// fact, all field elements are members of this type.
-func (p *FieldType) Accept(val fr.Element) bool {
-	return true
 }
 
 func (p *FieldType) String() string {
