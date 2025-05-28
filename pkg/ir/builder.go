@@ -112,8 +112,26 @@ func NewModuleBuilder[C schema.Constraint, T Term[T]](name string) ModuleBuilder
 	return ModuleBuilder[C, T]{name, regmap, nil, nil}
 }
 
+// Name returns the name of the module being constructed.
+func (p *ModuleBuilder[C, T]) Name() string {
+	return p.name
+}
+
+// Register returns the register details given an appropriate register
+// identifier.
+func (p *ModuleBuilder[C, T]) Register(rid uint) schema.Register {
+	return p.registers[rid]
+}
+
+// Registers returns the set of declared registers in the module being
+// constructed.
+func (p *ModuleBuilder[C, T]) Registers() []schema.Register {
+	return p.registers
+}
+
 // RegisterAccessOf returns a register accessor for the register with the given name.
 func (p *ModuleBuilder[C, T]) RegisterAccessOf(name string, shift int) *RegisterAccess[T] {
+	// Lookup register associated with this name
 	rid := p.regmap[name]
 	//
 	return &RegisterAccess[T]{

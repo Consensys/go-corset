@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"slices"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/corset/ast"
@@ -76,7 +77,7 @@ func (t *translator) translateModules(circuit *ast.Circuit) []source.SyntaxError
 		errors []source.SyntaxError
 	)
 	// Add root module
-	t.schema.NewModule("")
+	t.translateModule("")
 	// Add nested modules
 	for _, m := range circuit.Modules {
 		// Translate module condition (if applicable)
@@ -84,26 +85,31 @@ func (t *translator) translateModules(circuit *ast.Circuit) []source.SyntaxError
 			panic("conditional modules not supported")
 		}
 		//
-		mid := t.schema.NewModule(m.Name)
-		info := t.env.Module(m.Name)
-		// Sanity check everything lines up.
-		if info.Id != mid {
-			// NOTE: this should fail now
-			panic(fmt.Sprintf("Invalid module identifier: %d vs %d", mid, info.Id))
-		}
-		// Allocate module registers
-		module := t.schema.Module(mid)
-		// Process each register in turn.
-		for _, regIndex := range t.env.RegistersOf(m.Name) {
-			regInfo := t.env.Register(regIndex)
-			// Declare corresponding register
-			module.NewRegister(schema.NewInputRegister(regInfo.Name(), regInfo.Bitwidth))
-			// Prove underlying types (as necessary)
-			t.translateTypeConstraints(*regInfo, module)
-		}
+		t.translateModule(m.Name)
 	}
 	//
 	return errors
+}
+
+func (t *translator) translateModule(name string) {
+	//
+	mid := t.schema.NewModule(name)
+	info := t.env.Module(name)
+	// Sanity check everything lines up.
+	if info.Id != mid {
+		// NOTE: this should fail now
+		panic(fmt.Sprintf("Invalid module identifier: %d vs %d", mid, info.Id))
+	}
+	// Allocate module registers
+	module := t.schema.Module(mid)
+	// Process each register in turn.
+	for _, regIndex := range t.env.RegistersOf(name) {
+		regInfo := t.env.Register(regIndex)
+		// Declare corresponding register
+		module.NewRegister(schema.NewInputRegister(regInfo.Name(), regInfo.Bitwidth))
+		// Prove underlying types (as necessary)
+		t.translateTypeConstraints(*regInfo, module)
+	}
 }
 
 // Translate any type constraints applicable for the given register.  Type
@@ -474,34 +480,34 @@ func (t *translator) translateDefProperty(decl *ast.DefProperty, module *ModuleB
 
 // Translate a "defsorted" declaration.
 func (t *translator) translateDefSorted(decl *ast.DefSorted, module *ModuleBuilder) []SyntaxError {
-	// var selector util.Option[mir.Expr]
-	// // Translate source expressions
-	// sources, errors := t.translateUnitExpressionsInModule(decl.Sources, module, 0)
-	// // Translate (optional) selector expression
-	// if decl.Selector.HasValue() {
-	// 	sel, errs := t.translateExpressionInModule(decl.Selector.Unwrap(), module, 0)
-	// 	selector = util.Some(sel)
-	// 	//
-	// 	errors = append(errors, errs...)
-	// }
-	// // Determine source context
-	// src_ctx, i := ast.ContextOfExpressions(decl.Sources...)
-	// // Sanity check
-	// if src_ctx.IsConflicted() {
-	// 	errors = append(errors, *t.srcmap.SyntaxError(decl.Sources[i], "conflicting context"))
-	// }
-	// // Create construct (assuming no errors thus far)
-	// if len(errors) == 0 {
-	// 	context := t.env.ContextOf(src_ctx)
-	// 	// Clone the signs
-	// 	signs := slices.Clone(decl.Signs)
-	// 	bitwidth := determineMaxBitwidth(t.schema, sources[:len(signs)])
-	// 	// Add translated constraint
-	// 	t.schema.AddSortedConstraint(decl.Handle, context, bitwidth, selector, sources, signs, decl.Strict)
-	// }
-	// // Done
-	// return errors
-	panic("todo")
+	var selector util.Option[mir.Expr]
+	// Translate source expressions
+	sources, errors := t.translateUnitExpressions(decl.Sources, module, 0)
+	// Translate (optional) selector expression
+	if decl.Selector.HasValue() {
+		sel, errs := t.translateExpression(decl.Selector.Unwrap(), module, 0)
+		selector = util.Some(sel)
+		//
+		errors = append(errors, errs...)
+	}
+	// Determine source context
+	src_ctx, i := ast.ContextOfExpressions(decl.Sources...)
+	// Sanity check
+	if src_ctx.IsConflicted() {
+		errors = append(errors, *t.srcmap.SyntaxError(decl.Sources[i], "conflicting context"))
+	}
+	// Create construct (assuming no errors thus far)
+	if len(errors) == 0 {
+		context := t.env.ContextOf(src_ctx)
+		// Clone the signs
+		signs := slices.Clone(decl.Signs)
+		bitwidth := determineMaxBitwidth(module, sources[:len(signs)])
+		// Add translated constraint
+		module.AddConstraint(
+			constraint.NewSortedConstraint(decl.Handle, context, bitwidth, selector, sources, signs, decl.Strict))
+	}
+	// Done
+	return errors
 }
 
 // Translate an optional expression in a given context.  That is an expression
@@ -820,4 +826,26 @@ func (t *translator) registerOf(path *util.Path, shift int) mir.Expr {
 	module := t.schema.Module(reg.Context.ModuleId)
 	//
 	return mir.Expr{Term: module.RegisterAccessOf(reg.Name(), shift)}
+}
+
+func determineMaxBitwidth(module *ModuleBuilder, sources []mir.Expr) uint {
+	// Sanity check bitwidth
+	bitwidth := uint(0)
+	//
+	for _, e := range sources {
+		// Determine bitwidth of nth term
+		switch e := e.Term.(type) {
+		case *ir.RegisterAccess[mir.Term]:
+			reg := module.Register(e.Register)
+			//
+			if reg.Width > bitwidth {
+				bitwidth = reg.Width
+			}
+		default:
+			// For now, we only supports simple column accesses.
+			panic("bitwidth calculation only supported for column accesses")
+		}
+	}
+	//
+	return bitwidth
 }
