@@ -226,11 +226,11 @@ func (p LookupConstraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
 		targets      = sexp.EmptyList()
 	)
 	// Iterate source expressions
-	for i := 0; i < len(p.Sources); i++ {
+	for i := range p.Sources {
 		sources.Append(p.Sources[i].Lisp(sourceModule))
 	}
 	// Iterate source expressions
-	for i := 0; i < len(p.Targets); i++ {
+	for i := range p.Targets {
 		targets.Append(p.Targets[i].Lisp(targetModule))
 	}
 	// Done

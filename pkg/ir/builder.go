@@ -113,8 +113,13 @@ func NewModuleBuilder[C schema.Constraint, T Term[T]](name string) ModuleBuilder
 }
 
 // RegisterAccessOf returns a register accessor for the register with the given name.
-func (p *ModuleBuilder[C, T]) RegisterAccessOf(name string) *RegisterAccess[T] {
-	panic("todo")
+func (p *ModuleBuilder[C, T]) RegisterAccessOf(name string, shift int) *RegisterAccess[T] {
+	rid := p.regmap[name]
+	//
+	return &RegisterAccess[T]{
+		Register: rid,
+		Shift:    shift,
+	}
 }
 
 // NewRegister declares a new register within the module being built.  This will

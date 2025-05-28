@@ -19,20 +19,7 @@ import (
 
 // Any converts a concrete schema into a generic view of the schema.
 func Any[C Constraint](schema Schema[C]) AnySchema {
-	// var (
-	// 	modules     []Module
-	// 	constraints []Constraint
-	// )
-	// //
-	// for _, m := range schema.modules {
-	// 	modules = append(modules, m)
-	// }
-	// for _, c := range schema.constraints {
-	// 	constraints = append(constraints, c)
-	// }
-	// //
-	// return AnySchema{modules, constraints, schema.expander}
-	panic("got here")
+	return schema.(Schema[Constraint])
 }
 
 // AnySchema captures a generic view of a schema, which is useful in situations

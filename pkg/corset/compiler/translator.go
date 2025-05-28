@@ -23,6 +23,8 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
+	"github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
 
@@ -148,7 +150,7 @@ func (t *translator) translateTypeConstraints(reg Register, mod *ModuleBuilder) 
 		// Add appropriate type constraint
 		constraint := constraint.NewRangeConstraint(reg.Name(),
 			reg.Context,
-			mod.RegisterAccessOf(reg.Name()),
+			mod.RegisterAccessOf(reg.Name(), 0),
 			reg.Bitwidth)
 		//
 		mod.AddConstraint(constraint)
@@ -322,52 +324,70 @@ func (t *translator) translateSelectorInModule(perspective *ast.PerspectiveName,
 }
 
 // Translate a "deflookup" declaration.
-//
-//nolint:staticcheck
 func (t *translator) translateDefLookup(decl *ast.DefLookup, module *ModuleBuilder) []SyntaxError {
-	// // Translate source expressions
-	// sources, src_errs := t.translateUnitExpressionsInModule(decl.Sources, module, 0)
-	// targets, tgt_errs := t.translateUnitExpressionsInModule(decl.Targets, module, 0)
-	// src_ctx, i := ast.ContextOfExpressions(decl.Sources...)
-	// dst_ctx, j := ast.ContextOfExpressions(decl.Targets...)
-	// // Combine errors
-	// errors := append(src_errs, tgt_errs...)
-	// // Check for conflicting contexts.  This can arise here, rather than in the
-	// // resolve, in some unusual situations (e.g. source expression is a function).
-	// if src_ctx.IsConflicted() {
-	// 	errors = append(errors, *t.srcmap.SyntaxError(decl.Sources[i], "conflicting context"))
-	// }
-	// //
-	// if dst_ctx.IsConflicted() {
-	// 	errors = append(errors, *t.srcmap.SyntaxError(decl.Targets[j], "conflicting context"))
-	// }
-	// //
-	// if len(errors) == 0 {
-	// 	// Add translated constraint
-	// 	module.AddConstraint(constraint.NewLookupConstraint(decl.Handle,
-	// 		t.env.ContextOf(src_ctx),
-	// 		t.env.ContextOf(dst_ctx),
-	// 		sources,
-	// 		targets))
-	// }
-	// // Done
-	// return errors
-	panic("todo")
+	var (
+		errors     []SyntaxError
+		srcContext trace.Context
+		dstContext trace.Context
+		sources    []mir.Expr
+		targets    []mir.Expr
+	)
+	// Determine source and target modules for this lookup.
+	srcAstContext, i := ast.ContextOfExpressions(decl.Sources...)
+	dstAstContext, j := ast.ContextOfExpressions(decl.Targets...)
+	// Translate source expressions whilst checking for a conflicting context.
+	// This can arise here, rather than in the resolve, in some unusual
+	// situations (e.g. source expression is a function).
+	if srcAstContext.IsConflicted() {
+		errors = append(errors, *t.srcmap.SyntaxError(decl.Sources[i], "conflicting context"))
+	} else {
+		var errs []SyntaxError
+		//
+		srcContext = t.env.ContextOf(srcAstContext)
+		srcModule := t.schema.Module(srcContext.ModuleId)
+		//
+		sources, errs = t.translateUnitExpressions(decl.Sources, srcModule, 0)
+		errors = append(errors, errs...)
+	}
+	// Translate target expressions whilst again checking for a conflicting
+	// context.
+	if dstAstContext.IsConflicted() {
+		errors = append(errors, *t.srcmap.SyntaxError(decl.Targets[j], "conflicting context"))
+	} else {
+		var errs []SyntaxError
+		//
+		dstContext = t.env.ContextOf(dstAstContext)
+		dstModule := t.schema.Module(dstContext.ModuleId)
+		//
+		targets, errs = t.translateUnitExpressions(decl.Sources, dstModule, 0)
+		errors = append(errors, errs...)
+	}
+	// Sanity check whether we can construct the constraint, or not.
+	if len(errors) == 0 {
+		// Add translated constraint
+		module.AddConstraint(constraint.NewLookupConstraint(decl.Handle,
+			srcContext,
+			dstContext,
+			sources,
+			targets))
+	}
+	// Done
+	return errors
 }
 
 // Translate a "definrange" declaration.
 func (t *translator) translateDefInRange(decl *ast.DefInRange, module *ModuleBuilder) []SyntaxError {
-	// // Translate constraint body
-	// expr, errors := t.translateExpressionInModule(decl.Expr, module, 0)
-	// //
-	// if len(errors) == 0 {
-	// 	context := expr.Context(t.schema)
-	// 	// Add translated constraint
-	// 	t.schema.Add(constraint.NewRangeConstraint("", 0, context, expr, decl.Bound))
-	// }
-	// // Done
-	// return errors
-	panic("todo")
+	// Translate constraint body
+	expr, errors := t.translateExpression(decl.Expr, module, 0)
+	//
+	if len(errors) == 0 {
+		// FIXME: this could be more efficient!!
+		context := t.env.ContextOf(decl.Expr.Context())
+		// Add translated constraint
+		module.AddConstraint(constraint.NewRangeConstraint("", context, expr, decl.Bitwidth))
+	}
+	// Done
+	return errors
 }
 
 // Translate a "definterleaved" declaration.
@@ -534,9 +554,7 @@ func (t *translator) translateExpression(expr ast.Expr, module *ModuleBuilder, s
 	switch e := expr.(type) {
 	case *ast.ArrayAccess:
 		// Lookup underlying register info
-		registerId, errors := t.registerOfRegisterAccess(e)
-		// Done
-		return ir.NewRegisterAccess[mir.Term](registerId, shift), errors
+		return t.registerOfRegisterAccess(e, shift)
 	case *ast.Add:
 		args, errs := t.translateExpressions(module, shift, e.Args...)
 		return ir.Sum(args...), errs
@@ -632,11 +650,8 @@ func (t *translator) translateShift(expr *ast.Shift, mod *ModuleBuilder, shift i
 }
 
 func (t *translator) translateVariableAccess(expr *ast.VariableAccess, shift int) (mir.Expr, []SyntaxError) {
-	if binding, ok := expr.Binding().(*ast.ColumnBinding); ok {
-		// Lookup register binding
-		register_id := t.env.RegisterOf(binding.AbsolutePath())
-		// Done
-		return ir.NewRegisterAccess[mir.Term](register_id, shift), nil
+	if _, ok := expr.Binding().(*ast.ColumnBinding); ok {
+		return t.registerOfVariableAccess(expr, shift)
 	} else if binding, ok := expr.Binding().(*ast.ConstantBinding); ok {
 		// Just fill in the constant.
 		var constant fr.Element
@@ -741,26 +756,26 @@ func (t *translator) translateOptionalLogical(expr ast.Expr, module *ModuleBuild
 }
 
 // Determine the underlying register for a symbol which represents a register access.
-func (t *translator) registerOfRegisterAccess(symbol ast.Symbol) (uint, []SyntaxError) {
+func (t *translator) registerOfRegisterAccess(symbol ast.Symbol, shift int) (mir.Expr, []SyntaxError) {
 	switch e := symbol.(type) {
 	case *ast.ArrayAccess:
-		return t.registerOfArrayAccess(e)
+		return t.registerOfArrayAccess(e, shift)
 	case *ast.VariableAccess:
-		return t.registerOfVariableAccess(e)
+		return t.registerOfVariableAccess(e, shift)
 	}
 	//
-	return math.MaxUint, t.srcmap.SyntaxErrors(symbol, "invalid register access")
+	return mir.VOID, t.srcmap.SyntaxErrors(symbol, "invalid register access")
 }
 
-func (t *translator) registerOfVariableAccess(expr *ast.VariableAccess) (uint, []SyntaxError) {
+func (t *translator) registerOfVariableAccess(expr *ast.VariableAccess, shift int) (mir.Expr, []SyntaxError) {
 	if binding, ok := expr.Binding().(*ast.ColumnBinding); ok {
 		// Lookup register binding
-		return t.env.RegisterOf(binding.AbsolutePath()), nil
+		return t.registerOf(binding.AbsolutePath(), shift), nil
 	}
 	//
-	return math.MaxUint, t.srcmap.SyntaxErrors(expr, "invalid register access")
+	return mir.VOID, t.srcmap.SyntaxErrors(expr, "invalid register access")
 }
-func (t *translator) registerOfArrayAccess(expr *ast.ArrayAccess) (uint, []SyntaxError) {
+func (t *translator) registerOfArrayAccess(expr *ast.ArrayAccess, shift int) (mir.Expr, []SyntaxError) {
 	var (
 		errors []SyntaxError
 		min    uint = 0
@@ -785,12 +800,24 @@ func (t *translator) registerOfArrayAccess(expr *ast.ArrayAccess) (uint, []Synta
 	}
 	// Error check
 	if len(errors) > 0 {
-		return math.MaxUint, errors
+		return mir.VOID, errors
 	}
 	// Construct real register name
 	path := &binding.Path
 	name := fmt.Sprintf("%s_%d", path.Tail(), index.Uint64())
 	path = path.Parent().Extend(name)
-	// Lookup underlying register info
-	return t.env.RegisterOf(path), errors
+	//
+	return t.registerOf(path, shift), errors
+}
+
+// Map registers to appropriate module register identifiers.
+func (t *translator) registerOf(path *util.Path, shift int) mir.Expr {
+	// Determine register id
+	rid := t.env.RegisterOf(path)
+	//
+	reg := t.env.Register(rid)
+	// Lookup corresponding module builder
+	module := t.schema.Module(reg.Context.ModuleId)
+	//
+	return mir.Expr{Term: module.RegisterAccessOf(reg.Name(), shift)}
 }
