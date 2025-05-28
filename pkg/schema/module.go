@@ -12,18 +12,20 @@
 // SPDX-License-Identifier: Apache-2.0
 package schema
 
+import "github.com/consensys/go-corset/pkg/util/collection/iter"
+
 // Module represents a "table" within a schema which contains zero or more rows
 // for a given set of registers.
 type Module interface {
+	// Constraints provides access to those constraints associated with this
+	// module.
+	Constraints() iter.Iterator[Constraint]
 	// Module name
 	Name() string
-
 	// Access a given register in this module.
 	Register(uint) Register
-
 	// Registers providers access to the underlying registers of this schema.
 	Registers() []Register
-
 	// Returns the number of registers in this module.
 	Width() uint
 }
@@ -91,9 +93,16 @@ type Table[C Constraint] struct {
 	constraints []C
 }
 
-// NewTable constructs an empty table module.
+// NewTable constructs a table module with the given registers and constraints.
 func NewTable[C Constraint](name string, registers []Register, constraints []C) Table[C] {
 	return Table[C]{name, registers, constraints}
+}
+
+// Constraints provides access to those constraints associated with this
+// module.
+func (p Table[C]) Constraints() iter.Iterator[Constraint] {
+	arrIter := iter.NewArrayIterator(p.constraints)
+	return iter.NewCastIterator[C, Constraint](arrIter)
 }
 
 // Module name
@@ -101,7 +110,7 @@ func (p Table[C]) Name() string {
 	return p.name
 }
 
-// Access a given register in this Table.
+// Register returns the given register in this table.
 func (p Table[C]) Register(index uint) Register {
 	return p.registers[index]
 }
@@ -109,7 +118,7 @@ func (p Table[C]) Register(index uint) Register {
 // Registers returns an iterator over the underlying registers of this schema.
 // Specifically, the index of a register in this array is its register index.
 func (p Table[C]) Registers() []Register {
-	panic("todo")
+	return p.registers
 }
 
 // Returns the number of registers in this Table.
@@ -117,6 +126,12 @@ func (p Table[C]) Width() uint {
 	return uint(len(p.registers))
 }
 
-func (p *Table[C]) New(register Register) uint {
-	panic("todo")
+// NewRegister creates a new register within this table.
+func (p *Table[C]) NewRegister(register Register) uint {
+	// Determine register id
+	rid := uint(len(p.registers))
+	// Add register
+	p.registers = append(p.registers, register)
+	// Done
+	return rid
 }

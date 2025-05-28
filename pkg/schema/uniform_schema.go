@@ -26,6 +26,7 @@ type UniformSchema[M Module] struct {
 // Sanity check
 var _ Schema[Constraint] = UniformSchema[Module]{}
 
+// NewUniformSchema constructs a new schema comprising the given modules.
 func NewUniformSchema[M Module](modules []M) UniformSchema[M] {
 	return UniformSchema[M]{modules}
 }
@@ -34,7 +35,7 @@ func NewUniformSchema[M Module](modules []M) UniformSchema[M] {
 // schema.  These are properties which should hold true for any valid trace
 // (though, of course, may not hold true for an invalid trace).
 func (p UniformSchema[M]) Assertions() iter.Iterator[Constraint] {
-	panic("todo")
+	return iter.NewArrayIterator[Constraint](nil)
 }
 
 // Consistent applies a number of internal consistency checks.  Whilst not
@@ -48,7 +49,7 @@ func (p UniformSchema[M]) Consistent() error {
 // Constraints returns an iterator over all constraints defined in this
 // schema.
 func (p UniformSchema[M]) Constraints() iter.Iterator[Constraint] {
-	panic("todo")
+	return constraintsOf(p.modules)
 }
 
 // Expand a given trace according to this schema by determining appropriate
@@ -77,4 +78,14 @@ func (p UniformSchema[M]) RawModules() []M {
 // Returns the number of modules in this schema.
 func (p UniformSchema[M]) Width() uint {
 	return uint(len(p.modules))
+}
+
+// Extract an iterator over all the constraints in a given array using a
+// projecting iterator.
+func constraintsOf[M Module](modules []M) iter.Iterator[Constraint] {
+	arrIter := iter.NewArrayIterator(modules)
+	//
+	return iter.NewFlattenIterator(arrIter, func(m M) iter.Iterator[Constraint] {
+		return m.Constraints()
+	})
 }

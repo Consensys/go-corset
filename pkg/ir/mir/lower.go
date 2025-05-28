@@ -106,7 +106,7 @@ func (p *AirLowering) LowerModule(index uint) {
 	)
 	// Initialise registers in AIR module
 	for _, c := range mirModule.Registers() {
-		airModule.New(c)
+		airModule.NewRegister(c)
 	}
 }
 

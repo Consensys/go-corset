@@ -68,7 +68,7 @@ func NewMixedSchema[M1 Module, M2 Module](leftModules []M1, rightModules []M2) M
 // schema.  These are properties which should hold true for any valid trace
 // (though, of course, may not hold true for an invalid trace).
 func (p MixedSchema[M1, M2]) Assertions() iter.Iterator[Constraint] {
-	panic("todo")
+	return iter.NewArrayIterator[Constraint](nil)
 }
 
 // Consistent applies a number of internal consistency checks.  Whilst not
@@ -82,7 +82,10 @@ func (p MixedSchema[M1, M2]) Consistent() error {
 // Constraints returns an iterator over all constraints defined in this
 // schema.
 func (p MixedSchema[M1, M2]) Constraints() iter.Iterator[Constraint] {
-	panic("todo")
+	leftIter := constraintsOf(p.left)
+	rightIter := constraintsOf(p.right)
+	//
+	return iter.NewAppendIterator(leftIter, rightIter)
 }
 
 // Expand a given trace according to this schema by determining appropriate

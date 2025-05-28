@@ -31,6 +31,14 @@ func PrintSchemas(stack cmd_util.SchemaStack, textwidth uint) {
 
 // Print out all declarations included in a given
 func printSchema(schema schema.AnySchema, width uint) {
+	//
+	for i := schema.Modules(); i.HasNext(); {
+		printModule(i.Next(), schema, width)
+	}
+	//
+}
+
+func printModule(module schema.Module, schema schema.AnySchema, width uint) {
 	formatter := sexp.NewFormatter(width)
 	formatter.Add(&sexp.SFormatter{Head: "if", Priority: 0})
 	formatter.Add(&sexp.SFormatter{Head: "ifnot", Priority: 0})
@@ -39,15 +47,27 @@ func printSchema(schema schema.AnySchema, width uint) {
 	formatter.Add(&sexp.LFormatter{Head: "∨", Priority: 1})
 	formatter.Add(&sexp.LFormatter{Head: "+", Priority: 2})
 	formatter.Add(&sexp.LFormatter{Head: "*", Priority: 3})
-	//
 
-	for i := schema.Constraints(); i.HasNext(); {
-		ith := i.Next()
-		text := formatter.Format(ith.Lisp(schema))
-		fmt.Println(text)
+	if module.Name() == "" {
+		fmt.Printf("(module)\n")
+	} else {
+		fmt.Printf("(module %s)\n", module.Name())
 	}
 
-	for i := schema.Assertions(); i.HasNext(); {
+	for _, r := range module.Registers() {
+		if r.IsInput() {
+			fmt.Printf("(input %s u%d)\n", r.Name, r.Width)
+		} else if r.IsOutput() {
+			fmt.Printf("(output %s u%d)\n", r.Name, r.Width)
+		} else if r.IsComputed() {
+			fmt.Printf("(computed %s u%d)\n", r.Name, r.Width)
+		} else {
+			// Fallback --- unsure what kind this is.
+			fmt.Printf("(column %s u%d)\n", r.Name, r.Width)
+		}
+	}
+
+	for i := module.Constraints(); i.HasNext(); {
 		ith := i.Next()
 		text := formatter.Format(ith.Lisp(schema))
 		fmt.Println(text)

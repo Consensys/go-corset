@@ -16,6 +16,7 @@ import (
 	"math"
 
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/util/collection/iter"
 )
 
 // Register defines the notion of a register within a function.
@@ -57,6 +58,12 @@ func (p *Function[T]) CodeAt(i uint) T {
 // Code returns the instructions making up the body of this function.
 func (p *Function[T]) Code() []T {
 	return p.code
+}
+
+// Constraints provides access to those constraints associated with this
+// function.
+func (p *Function[T]) Constraints() iter.Iterator[schema.Constraint] {
+	panic("todo")
 }
 
 // Inputs returns the set of input registers for this function.
