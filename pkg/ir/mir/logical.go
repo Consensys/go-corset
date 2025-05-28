@@ -12,7 +12,11 @@
 // SPDX-License-Identifier: Apache-2.0
 package mir
 
-import "github.com/consensys/go-corset/pkg/ir"
+import (
+	"encoding/gob"
+
+	"github.com/consensys/go-corset/pkg/ir"
+)
 
 // LogicalTerm represents the fundamental for logical expressions in the MIR
 // representation.
@@ -26,3 +30,7 @@ type Logical = ir.Logical[LogicalTerm]
 
 // BOTTOM represents the empty or unused logical expression.
 var BOTTOM Logical
+
+func init() {
+	gob.Register(LogicalTerm(&ir.Equation[Term]{}))
+}

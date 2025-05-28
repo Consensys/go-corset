@@ -13,6 +13,8 @@
 package constraint
 
 import (
+	"bytes"
+	"encoding/gob"
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/ir"
@@ -235,4 +237,56 @@ func (p VanishingConstraint[T]) Lisp(schema schema.AnySchema) sexp.SExp {
 
 func determineHandle(handle string, ctx trace.Context, trace trace.Trace) string {
 	return fmt.Sprintf("%s.%s", trace.Module(ctx.ModuleId).Name(), handle)
+}
+
+// ============================================================================
+// Encoding / Decoding
+// ============================================================================
+
+// GobEncode an option.  This allows it to be marshalled into a binary form.
+func (p VanishingConstraint[T]) GobEncode() (data []byte, err error) {
+	var buffer bytes.Buffer
+	gobEncoder := gob.NewEncoder(&buffer)
+	// Handle
+	if err := gobEncoder.Encode(p.Handle); err != nil {
+		return nil, err
+	}
+	// Context
+	if err := gobEncoder.Encode(p.Context); err != nil {
+		return nil, err
+	}
+	// Domain
+	if err := gobEncoder.Encode(&p.Domain); err != nil {
+		return nil, err
+	}
+	// Constraint
+	if err := gobEncoder.Encode(p.Constraint); err != nil {
+		return nil, err
+	}
+	// Done
+	return buffer.Bytes(), nil
+}
+
+// GobDecode a previously encoded option
+func (p *VanishingConstraint[T]) GobDecode(data []byte) error {
+	buffer := bytes.NewBuffer(data)
+	gobDecoder := gob.NewDecoder(buffer)
+	// Handle
+	if err := gobDecoder.Decode(&p.Handle); err != nil {
+		return err
+	}
+	// Context
+	if err := gobDecoder.Decode(&p.Context); err != nil {
+		return err
+	}
+	// Domain
+	if err := gobDecoder.Decode(&p.Domain); err != nil {
+		return err
+	}
+	// Constraint
+	if err := gobDecoder.Decode(&p.Constraint); err != nil {
+		return err
+	}
+	// Success!
+	return nil
 }

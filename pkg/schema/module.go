@@ -12,7 +12,12 @@
 // SPDX-License-Identifier: Apache-2.0
 package schema
 
-import "github.com/consensys/go-corset/pkg/util/collection/iter"
+import (
+	"bytes"
+	"encoding/gob"
+
+	"github.com/consensys/go-corset/pkg/util/collection/iter"
+)
 
 // Module represents a "table" within a schema which contains zero or more rows
 // for a given set of registers.
@@ -92,10 +97,10 @@ type FieldAgnosticModule[T any] interface {
 // X'1, Y'0. Y'1 (in that order).  Hence, predicting the new register indices is
 // relatively straightforward.
 type Table[C Constraint] struct {
-	TableName        string
-	TableRegisters   []Register
-	TableConstraints []C
-	TableAssignments []Assignment
+	name        string
+	registers   []Register
+	constraints []C
+	assignments []Assignment
 }
 
 // NewTable constructs a table module with the given registers and constraints.
@@ -106,52 +111,105 @@ func NewTable[C Constraint](name string) Table[C] {
 // Assignments provides access to those assignments defined as part of this
 // table.
 func (p Table[C]) Assignments() iter.Iterator[Assignment] {
-	return iter.NewArrayIterator(p.TableAssignments)
+	return iter.NewArrayIterator(p.assignments)
 }
 
 // Constraints provides access to those constraints associated with this
 // module.
 func (p Table[C]) Constraints() iter.Iterator[Constraint] {
-	arrIter := iter.NewArrayIterator(p.TableConstraints)
+	arrIter := iter.NewArrayIterator(p.constraints)
 	return iter.NewCastIterator[C, Constraint](arrIter)
 }
 
 // Name returns the module name.
 func (p Table[C]) Name() string {
-	return p.TableName
+	return p.name
 }
 
 // Register returns the given register in this table.
 func (p Table[C]) Register(index uint) Register {
-	return p.TableRegisters[index]
+	return p.registers[index]
 }
 
 // Registers returns an iterator over the underlying registers of this schema.
 // Specifically, the index of a register in this array is its register index.
 func (p Table[C]) Registers() []Register {
-	return p.TableRegisters
+	return p.registers
 }
 
 // Width returns the number of registers in this Table.
 func (p Table[C]) Width() uint {
-	return uint(len(p.TableRegisters))
+	return uint(len(p.registers))
 }
 
+// ============================================================================
 // Mutators
-// ----------------------------------------------------------------------------
+// ============================================================================
 
 // AddAssignments adds a new assignments to this table.
 func (p *Table[C]) AddAssignments(assignments ...Assignment) {
-	p.TableAssignments = append(p.TableAssignments, assignments...)
+	p.assignments = append(p.assignments, assignments...)
 }
 
 // AddConstraints adds new constraints to this table.
 func (p *Table[C]) AddConstraints(constraints ...C) {
-	p.TableConstraints = append(p.TableConstraints, constraints...)
+	p.constraints = append(p.constraints, constraints...)
 }
 
 // AddRegisters adds new registers to this table.
 func (p *Table[C]) AddRegisters(registers ...Register) {
 	// Add registers
-	p.TableRegisters = append(p.TableRegisters, registers...)
+	p.registers = append(p.registers, registers...)
+}
+
+// ============================================================================
+// Encoding / Decoding
+// ============================================================================
+
+// GobEncode an option.  This allows it to be marshalled into a binary form.
+func (p Table[M]) GobEncode() (data []byte, err error) {
+	var buffer bytes.Buffer
+	gobEncoder := gob.NewEncoder(&buffer)
+	// Name
+	if err := gobEncoder.Encode(p.name); err != nil {
+		return nil, err
+	}
+	// registers
+	if err := gobEncoder.Encode(p.registers); err != nil {
+		return nil, err
+	}
+	// constraints
+	if err := gobEncoder.Encode(p.constraints); err != nil {
+		return nil, err
+	}
+	// assignments
+	if err := gobEncoder.Encode(p.assignments); err != nil {
+		return nil, err
+	}
+	// Done
+	return buffer.Bytes(), nil
+}
+
+// GobDecode a previously encoded option
+func (p *Table[M]) GobDecode(data []byte) error {
+	buffer := bytes.NewBuffer(data)
+	gobDecoder := gob.NewDecoder(buffer)
+	// Name
+	if err := gobDecoder.Decode(&p.name); err != nil {
+		return err
+	}
+	// Registers
+	if err := gobDecoder.Decode(&p.registers); err != nil {
+		return err
+	}
+	// Constraints
+	if err := gobDecoder.Decode(&p.constraints); err != nil {
+		return err
+	}
+	// Assignments
+	if err := gobDecoder.Decode(&p.assignments); err != nil {
+		return err
+	}
+	// Success!
+	return nil
 }

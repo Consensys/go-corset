@@ -13,6 +13,8 @@
 package schema
 
 import (
+	"bytes"
+	"encoding/gob"
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/trace"
@@ -137,4 +139,40 @@ func (p MixedSchema[M1, M2]) RightModules() []M2 {
 // Width returns the number of modules in this schema.
 func (p MixedSchema[M1, M2]) Width() uint {
 	return uint(len(p.left) + len(p.right))
+}
+
+// ============================================================================
+// Encoding / Decoding
+// ============================================================================
+
+// GobEncode an option.  This allows it to be marshalled into a binary form.
+func (p MixedSchema[M1, M2]) GobEncode() (data []byte, err error) {
+	var buffer bytes.Buffer
+	gobEncoder := gob.NewEncoder(&buffer)
+	// Left modules
+	if err := gobEncoder.Encode(p.left); err != nil {
+		return nil, err
+	}
+	// Right modules
+	if err := gobEncoder.Encode(p.right); err != nil {
+		return nil, err
+	}
+	// Done
+	return buffer.Bytes(), nil
+}
+
+// GobDecode a previously encoded option
+func (p *MixedSchema[M1, M2]) GobDecode(data []byte) error {
+	buffer := bytes.NewBuffer(data)
+	gobDecoder := gob.NewDecoder(buffer)
+	// Left modules
+	if err := gobDecoder.Decode(&p.left); err != nil {
+		return err
+	}
+	// Right modules
+	if err := gobDecoder.Decode(&p.right); err != nil {
+		return err
+	}
+	// Success!
+	return nil
 }
