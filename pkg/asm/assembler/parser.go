@@ -173,7 +173,7 @@ func (p *Parser) parseArgsList(kind uint8) ([]io.Register, []source.SyntaxError)
 			return nil, errs
 		}
 		//
-		regs = append(regs, schema.NewColumn(kind, arg, width))
+		regs = append(regs, schema.NewRegister(kind, arg, width))
 	}
 	// Advance past "}"
 	p.match(RBRACE)

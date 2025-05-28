@@ -19,7 +19,7 @@ import (
 )
 
 // Register defines the notion of a register within a function.
-type Register = schema.Column
+type Register = schema.Register
 
 const (
 	// UNUSED_REGISTER provides a simple way to distinguish registers and
@@ -110,7 +110,7 @@ func (p *Function[T]) Width() uint {
 // into this function.
 func (p *Function[T]) AllocateRegister(kind uint8, name string, width uint) uint {
 	index := uint(len(p.registers))
-	p.registers = append(p.registers, schema.NewColumn(kind, name, width))
+	p.registers = append(p.registers, schema.NewRegister(kind, name, width))
 	// Done
 	return index
 }

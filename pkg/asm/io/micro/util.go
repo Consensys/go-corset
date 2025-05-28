@@ -196,7 +196,7 @@ func (p *RegisterSplittingEnvironment) AllocateCarryRegister(targetWidth uint, s
 	// Determine number of bits of overflow
 	overflowWidth := sourceWidth - targetWidth
 	// Construct register for holding overflow
-	overflowRegister := schema.NewComputedColumn(fmt.Sprintf("c$%d", overflowRegId), overflowWidth)
+	overflowRegister := schema.NewComputedRegister(fmt.Sprintf("c$%d", overflowRegId), overflowWidth)
 	// Allocate overflow register
 	p.regsAfter = append(p.regsAfter, overflowRegister)
 	//

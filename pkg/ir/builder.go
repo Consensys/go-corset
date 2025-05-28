@@ -94,7 +94,7 @@ type ModuleBuilder[C schema.Constraint, T Term[T]] struct {
 	// Maps register names (including aliases) to the register number.
 	regmap map[string]uint
 	// Registers declared for this module
-	registers []schema.Column
+	registers []schema.Register
 	// Constraints for this module
 	constraints []C
 }
@@ -105,23 +105,23 @@ func NewModuleBuilder[C schema.Constraint, T Term[T]](name string) ModuleBuilder
 	return ModuleBuilder[C, T]{name, regmap, nil, nil}
 }
 
-// ColumnAccessOf returns a column accessor for the column with the given name.
-func (p *ModuleBuilder[C, T]) ColumnAccessOf(name string) *ColumnAccess[T] {
+// RegisterAccessOf returns a register accessor for the register with the given name.
+func (p *ModuleBuilder[C, T]) RegisterAccessOf(name string) *RegisterAccess[T] {
 	panic("todo")
 }
 
-// NewColumn declares a new column within the module being built.  This will
-// panic if a column of the same name already exists.
-func (p *ModuleBuilder[C, T]) NewColumn(column schema.Column) uint {
+// NewRegister declares a new register within the module being built.  This will
+// panic if a register of the same name already exists.
+func (p *ModuleBuilder[C, T]) NewRegister(register schema.Register) uint {
 	// Determine identifier
 	id := uint(len(p.registers))
 	// Sanity check
-	if _, ok := p.regmap[column.Name]; ok {
-		panic(fmt.Sprintf("column \"%s\" already declared", column.Name))
+	if _, ok := p.regmap[register.Name]; ok {
+		panic(fmt.Sprintf("register \"%s\" already declared", register.Name))
 	}
 	//
-	p.registers = append(p.registers, column)
-	p.regmap[column.Name] = id
+	p.registers = append(p.registers, register)
+	p.regmap[register.Name] = id
 	//
 	return id
 }

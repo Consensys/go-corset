@@ -98,16 +98,16 @@ func (p *IfZero[T]) Lisp(module schema.Module) sexp.SExp {
 	})
 }
 
-// RequiredColumns implementation for Contextual interface.
-func (p *IfZero[T]) RequiredColumns() *set.SortedSet[uint] {
-	set := p.Condition.RequiredColumns()
+// RequiredRegisters implementation for Contextual interface.
+func (p *IfZero[T]) RequiredRegisters() *set.SortedSet[uint] {
+	set := p.Condition.RequiredRegisters()
 	// Include true branch (if applicable)
 	if p.TrueBranch != nil {
-		set.InsertSorted(p.TrueBranch.RequiredColumns())
+		set.InsertSorted(p.TrueBranch.RequiredRegisters())
 	}
 	// Include false branch (if applicable)
 	if p.FalseBranch != nil {
-		set.InsertSorted(p.FalseBranch.RequiredColumns())
+		set.InsertSorted(p.FalseBranch.RequiredRegisters())
 	}
 	// Done
 	return set

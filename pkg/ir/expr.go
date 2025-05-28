@@ -28,10 +28,10 @@ func CastOf[T Term[T]](arg Expr[T], bitwidth uint) Expr[T] {
 	return Expr[T]{term.(T)}
 }
 
-// NewColumnAccess constructs an AIR expression representing the value of a given
-// column on the current row.
-func NewColumnAccess[T Term[T]](column uint, shift int) Expr[T] {
-	var term Term[T] = &ColumnAccess[T]{Column: column, Shift: shift}
+// NewRegisterAccess constructs an AIR expression representing the value of a given
+// register on the current row.
+func NewRegisterAccess[T Term[T]](register uint, shift int) Expr[T] {
+	var term Term[T] = &RegisterAccess[T]{Register: register, Shift: shift}
 	return Expr[T]{term.(T)}
 }
 
@@ -124,11 +124,11 @@ func (e Expr[T]) Lisp(module schema.Module) sexp.SExp {
 	return e.Term.Lisp(module)
 }
 
-// RequiredColumns returns the set of columns on which this expression depends.
-// That is, columns whose values may be accessed when evaluating this
+// RequiredRegisters returns the set of registers on which this expression depends.
+// That is, registers whose values may be accessed when evaluating this
 // expression on a given trace.
-func (e Expr[T]) RequiredColumns() *set.SortedSet[uint] {
-	return e.Term.RequiredColumns()
+func (e Expr[T]) RequiredRegisters() *set.SortedSet[uint] {
+	return e.Term.RequiredRegisters()
 }
 
 // RequiredCells returns the set of trace cells on which this expression
@@ -138,14 +138,14 @@ func (e Expr[T]) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[trace
 	return e.Term.RequiredCells(row, tr)
 }
 
-// EvalAt evaluates a column access at a given row in a trace, which returns the
-// value at that row of the column in question or nil is that row is
+// EvalAt evaluates a register access at a given row in a trace, which returns the
+// value at that row of the register in question or nil is that row is
 // out-of-bounds.
 func (e Expr[T]) EvalAt(k int, tr trace.Module) (fr.Element, error) {
 	return e.Term.EvalAt(k, tr)
 }
 
-// Shift all column accesses within the expression by a given amount.
+// Shift all register accesses within the expression by a given amount.
 func (e Expr[T]) Shift(shift int) Expr[T] {
 	return Expr[T]{e.Term.ApplyShift(shift)}
 }
@@ -154,7 +154,7 @@ func (e Expr[T]) Shift(shift int) Expr[T] {
 // against zero. Observe that if this expression is *undefined* within this
 // context then it returns "nil".  An expression can be undefined for
 // several reasons: firstly, if it accesses a row which does not exist (e.g.
-// at index -1); secondly, if it accesses a column which does not exist.
+// at index -1); secondly, if it accesses a register which does not exist.
 func (e Expr[T]) TestAt(k int, tr trace.Module) (bool, uint, error) {
 	val, err := e.Term.EvalAt(k, tr)
 	//

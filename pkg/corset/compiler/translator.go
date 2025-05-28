@@ -60,7 +60,7 @@ func TranslateCircuit[M schema.Module](
 // the schema form required for the HIR level.
 type translator struct {
 	// Environment is needed for determining the identifiers for modules and
-	// columns.
+	// registers.
 	env Environment
 	// Source maps nodes in the circuit back to the spans in their original
 	// source files.  This is needed when reporting syntax errors to generate
@@ -90,13 +90,13 @@ func (t *translator) translateModules(circuit *ast.Circuit) []source.SyntaxError
 			// NOTE: this should fail now
 			panic(fmt.Sprintf("Invalid module identifier: %d vs %d", mid, info.Id))
 		}
-		// Allocate module columns
+		// Allocate module registers
 		module := t.schema.Module(mid)
 		// Process each register in turn.
 		for _, regIndex := range t.env.RegistersOf(m.Name) {
 			regInfo := t.env.Register(regIndex)
 			// Declare corresponding register
-			module.NewColumn(schema.NewInputColumn(regInfo.Name(), regInfo.Bitwidth))
+			module.NewRegister(schema.NewInputRegister(regInfo.Name(), regInfo.Bitwidth))
 			// Prove underlying types (as necessary)
 			t.translateTypeConstraints(*regInfo, module)
 		}
@@ -106,21 +106,21 @@ func (t *translator) translateModules(circuit *ast.Circuit) []source.SyntaxError
 }
 
 // Translate any type constraints applicable for the given register.  Type
-// constraints are determined by the source-level columns and, hence, there are
+// constraints are determined by the source-level registers and, hence, there are
 // several cases to consider:
 //
-// (1) none of the source-level columns allocated to this register was marked
+// (1) none of the source-level registers allocated to this register was marked
 // provable. Therefore, no need to do anything.
 //
-// (2) all source-level columns allocated to this register which are marked
+// (2) all source-level registers allocated to this register which are marked
 // provable have the same type which, furthermore, is the largest type of any
-// column allocated to this register.  In this case, we can use a single
-// (global) constraint for the entire column.
+// register allocated to this register.  In this case, we can use a single
+// (global) constraint for the entire register.
 //
-// (3) source-level columns allocated to this register which are marked provable
+// (3) source-level registers allocated to this register which are marked provable
 // have the same type, but this is not the largest of any allocated to this
 // register.  In fact, only binary@prove is supported here and we can assume
-// each column is allocated to a different perspective.
+// each register is allocated to a different perspective.
 //
 // Any other cases are considered to be erroneous register allocations, and will
 // lead to a panic.
@@ -136,7 +136,7 @@ func (t *translator) translateTypeConstraints(reg Register, mod *ModuleBuilder) 
 	// Apply provability (if it is required)
 	if required {
 		reg_width := reg.Bitwidth
-		// For now, enforce all source columns have matching bitwidth.
+		// For now, enforce all source registers have matching bitwidth.
 		for _, col := range reg.Sources {
 			// Determine bitwidth
 			col_width := col.Bitwidth
@@ -149,7 +149,7 @@ func (t *translator) translateTypeConstraints(reg Register, mod *ModuleBuilder) 
 		// Add appropriate type constraint
 		constraint := constraint.NewRangeConstraint(reg.Name(),
 			reg.Context,
-			mod.ColumnAccessOf(reg.Name()),
+			mod.RegisterAccessOf(reg.Name()),
 			reg.Bitwidth)
 		//
 		mod.AddConstraint(constraint)
@@ -212,7 +212,7 @@ func (t *translator) translateDeclaration(decl ast.Declaration, module *ModuleBu
 	case *ast.DefPermutation:
 		errors = t.translateDefPermutation(d, module)
 	case *ast.DefPerspective:
-		// As for defcolumns, nothing generated here.
+		// As for defregisters, nothing generated here.
 	case *ast.DefProperty:
 		errors = t.translateDefProperty(d, module)
 	case *ast.DefSorted:
@@ -233,20 +233,20 @@ func (t *translator) translateDefComputed(decl *ast.DefComputed, module *ModuleB
 	// 	firstCid uint
 	// )
 	// //
-	// targets := make([]sc.Column, len(decl.Targets))
+	// targets := make([]sc.Register, len(decl.Targets))
 	// sources := make([]uint, len(decl.Sources))
-	// // Identify source columns
+	// // Identify source registers
 	// for i := 0; i < len(decl.Sources); i++ {
-	// 	ith := decl.Sources[i].Binding().(*ast.ColumnBinding)
+	// 	ith := decl.Sources[i].Binding().(*ast.RegisterBinding)
 	// 	sources[i] = t.env.RegisterOf(&ith.Path)
 	// }
-	// // Identify target columns
+	// // Identify target registers
 	// for i := 0; i < len(decl.Targets); i++ {
 	// 	targetPath := module.Extend(decl.Targets[i].Name())
 	// 	targetId := t.env.RegisterOf(targetPath)
 	// 	target := t.env.Register(targetId)
-	// 	// Construct columns
-	// 	targets[i] = sc.NewColumn(target.Context, target.Name(), target.DataType)
+	// 	// Construct registers
+	// 	targets[i] = sc.NewRegister(target.Context, target.Name(), target.DataType)
 	// 	// Record first CID
 	// 	if i == 0 {
 	// 		firstCid = targetId
@@ -258,9 +258,9 @@ func (t *translator) translateDefComputed(decl *ast.DefComputed, module *ModuleB
 	// binding := decl.Function.Binding().(*NativeDefinition)
 	// // Add the assignment and check the first identifier.
 	// cid := t.schema.AddAssignment(assignment.NewComputation(context, binding.name, targets, sources))
-	// // Sanity check column identifiers align.
+	// // Sanity check register identifiers align.
 	// if cid != firstCid {
-	// 	err := fmt.Sprintf("inconsistent (computed) column identifier (%d v %d)", cid, firstCid)
+	// 	err := fmt.Sprintf("inconsistent (computed) register identifier (%d v %d)", cid, firstCid)
 	// 	errors = append(errors, *t.srcmap.SyntaxError(decl, err))
 	// }
 	// // Done
@@ -374,21 +374,21 @@ func (t *translator) translateDefInterleaved(decl *ast.DefInterleaved, module *M
 	// var errors []SyntaxError
 	// //
 	// sources := make([]uint, len(decl.Sources))
-	// // Lookup target column info
+	// // Lookup target register info
 	// targetPath := module.Extend(decl.Target.Name())
 	// targetId := t.env.RegisterOf(targetPath)
 	// target := t.env.Register(targetId)
-	// // Determine source column identifiers
+	// // Determine source register identifiers
 	// for i, source := range decl.Sources {
 	// 	var errs []SyntaxError
-	// 	sources[i], errs = t.registerOfColumnAccess(source)
+	// 	sources[i], errs = t.registerOfRegisterAccess(source)
 	// 	errors = append(errors, errs...)
 	// }
 	// // Register assignment
 	// cid := t.schema.AddAssignment(assignment.NewInterleaving(target.Context, target.Name(), sources, target.DataType))
-	// // Sanity check column identifiers align.
+	// // Sanity check register identifiers align.
 	// if cid != targetId {
-	// 	err := fmt.Sprintf("inconsitent (interleaved) column identifier (%d v %d)", cid, targetId)
+	// 	err := fmt.Sprintf("inconsitent (interleaved) register identifier (%d v %d)", cid, targetId)
 	// 	errors = append(errors, *t.srcmap.SyntaxError(decl, err))
 	// }
 	// // Done
@@ -404,16 +404,16 @@ func (t *translator) translateDefPermutation(decl *ast.DefPermutation, module *M
 	// 	firstCid uint
 	// )
 	// //
-	// targets := make([]sc.Column, len(decl.Sources))
+	// targets := make([]sc.Register, len(decl.Sources))
 	// sources := make([]uint, len(decl.Sources))
 	// //
 	// for i := 0; i < len(decl.Sources); i++ {
 	// 	targetPath := module.Extend(decl.Targets[i].Name())
 	// 	targetId := t.env.RegisterOf(targetPath)
 	// 	target := t.env.Register(targetId)
-	// 	// Construct columns
-	// 	targets[i] = sc.NewColumn(target.Context, target.Name(), target.DataType)
-	// 	sourceBinding := decl.Sources[i].Binding().(*ast.ColumnBinding)
+	// 	// Construct registers
+	// 	targets[i] = sc.NewRegister(target.Context, target.Name(), target.DataType)
+	// 	sourceBinding := decl.Sources[i].Binding().(*ast.RegisterBinding)
 	// 	sources[i] = t.env.RegisterOf(&sourceBinding.Path)
 	// 	// Record first CID
 	// 	if i == 0 {
@@ -426,9 +426,9 @@ func (t *translator) translateDefPermutation(decl *ast.DefPermutation, module *M
 	// signs := slices.Clone(decl.Signs)
 	// // Add the assignment and check the first identifier.
 	// cid := t.schema.AddAssignment(assignment.NewSortedPermutation(context, targets, signs, sources))
-	// // Sanity check column identifiers align.
+	// // Sanity check register identifiers align.
 	// if cid != firstCid {
-	// 	err := fmt.Sprintf("inconsistent (permuted) column identifier (%d v %d)", cid, firstCid)
+	// 	err := fmt.Sprintf("inconsistent (permuted) register identifier (%d v %d)", cid, firstCid)
 	// 	errors = append(errors, *t.srcmap.SyntaxError(decl, err))
 	// }
 	// // Done
@@ -540,15 +540,15 @@ func (t *translator) translateExpressionsInModule(module util.Path, shift int,
 }
 
 // Translate an expression situated in a given context.  The context is
-// necessary to resolve unqualified names (e.g. for column access, function
+// necessary to resolve unqualified names (e.g. for register access, function
 // invocations, etc).
 func (t *translator) translateExpressionInModule(expr ast.Expr, module util.Path, shift int) (mir.Expr, []SyntaxError) {
 	switch e := expr.(type) {
 	case *ast.ArrayAccess:
-		// Lookup underlying column info
-		registerId, errors := t.registerOfColumnAccess(e)
+		// Lookup underlying register info
+		registerId, errors := t.registerOfRegisterAccess(e)
 		// Done
-		return ir.NewColumnAccess[mir.Term](registerId, shift), errors
+		return ir.NewRegisterAccess[mir.Term](registerId, shift), errors
 	case *ast.Add:
 		args, errs := t.translateExpressionsInModule(module, shift, e.Args...)
 		return ir.Sum(args...), errs
@@ -645,10 +645,10 @@ func (t *translator) translateShiftInModule(expr *ast.Shift, module util.Path, s
 
 func (t *translator) translateVariableAccessInModule(expr *ast.VariableAccess, shift int) (mir.Expr, []SyntaxError) {
 	if binding, ok := expr.Binding().(*ast.ColumnBinding); ok {
-		// Lookup column binding
+		// Lookup register binding
 		register_id := t.env.RegisterOf(binding.AbsolutePath())
 		// Done
-		return ir.NewColumnAccess[mir.Term](register_id, shift), nil
+		return ir.NewRegisterAccess[mir.Term](register_id, shift), nil
 	} else if binding, ok := expr.Binding().(*ast.ConstantBinding); ok {
 		// Just fill in the constant.
 		var constant fr.Element
@@ -683,7 +683,7 @@ func (t *translator) translateLogicalExpressionsInModule(module util.Path, shift
 }
 
 // Translate an expression situated in a given context.  The context is
-// necessary to resolve unqualified names (e.g. for column access, function
+// necessary to resolve unqualified names (e.g. for register access, function
 // invocations, etc).
 func (t *translator) translateLogicalExpressionInModule(expr ast.Expr, module util.Path, shift int) (mir.Logical, []SyntaxError) {
 	switch e := expr.(type) {
@@ -739,8 +739,8 @@ func (t *translator) translateLogicalExpressionInModule(expr ast.Expr, module ut
 	}
 }
 
-// Determine the underlying register for a symbol which represents a column access.
-func (t *translator) registerOfColumnAccess(symbol ast.Symbol) (uint, []SyntaxError) {
+// Determine the underlying register for a symbol which represents a register access.
+func (t *translator) registerOfRegisterAccess(symbol ast.Symbol) (uint, []SyntaxError) {
 	switch e := symbol.(type) {
 	case *ast.ArrayAccess:
 		return t.registerOfArrayAccess(e)
@@ -748,16 +748,16 @@ func (t *translator) registerOfColumnAccess(symbol ast.Symbol) (uint, []SyntaxEr
 		return t.registerOfVariableAccess(e)
 	}
 	//
-	return math.MaxUint, t.srcmap.SyntaxErrors(symbol, "invalid column access")
+	return math.MaxUint, t.srcmap.SyntaxErrors(symbol, "invalid register access")
 }
 
 func (t *translator) registerOfVariableAccess(expr *ast.VariableAccess) (uint, []SyntaxError) {
 	if binding, ok := expr.Binding().(*ast.ColumnBinding); ok {
-		// Lookup column binding
+		// Lookup register binding
 		return t.env.RegisterOf(binding.AbsolutePath()), nil
 	}
 	//
-	return math.MaxUint, t.srcmap.SyntaxErrors(expr, "invalid column access")
+	return math.MaxUint, t.srcmap.SyntaxErrors(expr, "invalid register access")
 }
 func (t *translator) registerOfArrayAccess(expr *ast.ArrayAccess) (uint, []SyntaxError) {
 	var (
@@ -765,7 +765,7 @@ func (t *translator) registerOfArrayAccess(expr *ast.ArrayAccess) (uint, []Synta
 		min    uint = 0
 		max    uint = math.MaxUint
 	)
-	// Lookup the column
+	// Lookup the register
 	binding, ok := expr.Binding().(*ast.ColumnBinding)
 	// Did we find it?
 	if !ok {
@@ -786,10 +786,10 @@ func (t *translator) registerOfArrayAccess(expr *ast.ArrayAccess) (uint, []Synta
 	if len(errors) > 0 {
 		return math.MaxUint, errors
 	}
-	// Construct real column name
+	// Construct real register name
 	path := &binding.Path
 	name := fmt.Sprintf("%s_%d", path.Tail(), index.Uint64())
 	path = path.Parent().Extend(name)
-	// Lookup underlying column info
+	// Lookup underlying register info
 	return t.env.RegisterOf(path), errors
 }

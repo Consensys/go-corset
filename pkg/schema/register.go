@@ -31,37 +31,41 @@ const (
 	COMPUTED_REGISTER = uint8(1)
 )
 
-// Column represents a specific column in the schema that, ultimately, will
-// correspond 1:1 with a column in the trace.
-type Column struct {
+// Register represents a specific register in the schema that, eventually, will
+// be mapped to one (or more) columns in the trace.  Observe that multiple
+// registers can end up being mapped to the same column via "register
+// allocation".  Likewise, a single register can end up being mapped across
+// multiple columns as a result of subdivision to ensure field agnosticity.
+// Hence, why they are referred to as registers rather than columns --- they are
+// similar, but not identical, concepts.
+type Register struct {
 	// Kind of register (input / output)
 	Kind uint8
 	// Given name of this register.
 	Name string
 	// Width (in bits) of this register
 	Width uint
-	// Returns the Name of this column
 }
 
-func NewColumn(kind uint8, name string, bitwidth uint) Column {
-	return Column{kind, name, bitwidth}
+func NewRegister(kind uint8, name string, bitwidth uint) Register {
+	return Register{kind, name, bitwidth}
 }
 
-func NewInputColumn(name string, bitwidth uint) Column {
-	return Column{INPUT_REGISTER, name, bitwidth}
+func NewInputRegister(name string, bitwidth uint) Register {
+	return Register{INPUT_REGISTER, name, bitwidth}
 }
 
-func NewOutputColumn(name string, bitwidth uint) Column {
-	return Column{OUTPUT_REGISTER, name, bitwidth}
+func NewOutputRegister(name string, bitwidth uint) Register {
+	return Register{OUTPUT_REGISTER, name, bitwidth}
 }
 
-func NewComputedColumn(name string, bitwidth uint) Column {
-	return Column{COMPUTED_REGISTER, name, bitwidth}
+func NewComputedRegister(name string, bitwidth uint) Register {
+	return Register{COMPUTED_REGISTER, name, bitwidth}
 }
 
 // Bound returns the first value which cannot be represented by the given
 // bitwidth.  For example, the bound of an 8bit register is 256.
-func (p *Column) Bound() *big.Int {
+func (p *Register) Bound() *big.Int {
 	var (
 		bound = big.NewInt(2)
 		width = big.NewInt(int64(p.Width))
@@ -71,23 +75,23 @@ func (p *Column) Bound() *big.Int {
 }
 
 // IsInput determines whether or not this is an input register
-func (p *Column) IsInput() bool {
+func (p *Register) IsInput() bool {
 	return p.Kind == INPUT_REGISTER
 }
 
 // IsOutput determines whether or not this is an output register
-func (p *Column) IsOutput() bool {
+func (p *Register) IsOutput() bool {
 	return p.Kind == OUTPUT_REGISTER
 }
 
 // IsComputed determines whether or not this is a computed register
-func (p *Column) IsComputed() bool {
+func (p *Register) IsComputed() bool {
 	return p.Kind == COMPUTED_REGISTER
 }
 
 // MaxValue returns the largest value expressible in this register (i.e. Bound() -
 // 1).  For example, the max value of an 8bit register is 255.
-func (p *Column) MaxValue() *big.Int {
+func (p *Register) MaxValue() *big.Int {
 	max := p.Bound()
 	max.Sub(max, &one)
 	//
@@ -96,8 +100,8 @@ func (p *Column) MaxValue() *big.Int {
 
 var one = *big.NewInt(1)
 
-// QualifiedName returns the fully qualified name of this column
-func (p Column) QualifiedName(mod Module) string {
+// QualifiedName returns the fully qualified name of this register
+func (p Register) QualifiedName(mod Module) string {
 	if mod.Name() != "" {
 		return fmt.Sprintf("%s:%s", mod.Name, p.Name)
 	}
@@ -105,6 +109,6 @@ func (p Column) QualifiedName(mod Module) string {
 	return p.Name
 }
 
-func (p Column) String() string {
+func (p Register) String() string {
 	return fmt.Sprintf("%s:u%d", p.Name, p.Width)
 }

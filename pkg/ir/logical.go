@@ -123,11 +123,11 @@ func (e Logical[T]) Lisp(module schema.Module) sexp.SExp {
 	return e.Term.Lisp(module)
 }
 
-// RequiredColumns returns the set of columns on which this schema.Term depends.
-// That is, columns whose values may be accessed when evaluating this schema.Term
+// RequiredRegisters returns the set of registers on which this schema.Term depends.
+// That is, registers whose values may be accessed when evaluating this schema.Term
 // on a given trace.
-func (e Logical[T]) RequiredColumns() *set.SortedSet[uint] {
-	return e.Term.RequiredColumns()
+func (e Logical[T]) RequiredRegisters() *set.SortedSet[uint] {
+	return e.Term.RequiredRegisters()
 }
 
 // RequiredCells returns the set of trace cells on which this schema.Term depends.

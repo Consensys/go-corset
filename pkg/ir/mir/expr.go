@@ -33,10 +33,10 @@ type Cast = ir.Cast[Term]
 // Constant represents a constant value within an expression.
 type Constant = ir.Constant[Term]
 
-// ColumnAccess represents reading the value held at a given column in the
+// RegisterAccess represents reading the value held at a given column in the
 // tabular context.  Furthermore, the current row maybe shifted up (or down) by
 // a given amount.
-type ColumnAccess = ir.ColumnAccess[Term]
+type RegisterAccess = ir.RegisterAccess[Term]
 
 // Exp represents the a given value taken to a power.
 type Exp = ir.Exp[Term]

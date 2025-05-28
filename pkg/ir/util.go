@@ -45,9 +45,9 @@ func lispOfTerms[T Term[T]](module schema.Module, op string, exprs []T) sexp.SEx
 	return sexp.NewList(arr)
 }
 
-func requiredColumnsOfTerms[T Term[T]](args []T) *set.SortedSet[uint] {
+func requiredRegistersOfTerms[T Term[T]](args []T) *set.SortedSet[uint] {
 	return set.UnionSortedSets(args, func(term T) *set.SortedSet[uint] {
-		return term.RequiredColumns()
+		return term.RequiredRegisters()
 	})
 }
 

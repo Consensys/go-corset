@@ -25,7 +25,7 @@ import (
 // LookupConstraint captures the essence of a lookup constraint at the AIR
 // level.  At the AIR level, lookup constraints are only permitted between
 // columns (i.e. not arbitrary expressions).
-type LookupConstraint = Air[constraint.LookupConstraint[*ir.ColumnAccess[Term]]]
+type LookupConstraint = Air[constraint.LookupConstraint[*ir.RegisterAccess[Term]]]
 
 // PermutationConstraint captures the essence of a permutation constraint at the
 // AIR level. Specifically, it represents a constraint that one (or more)
@@ -33,7 +33,7 @@ type LookupConstraint = Air[constraint.LookupConstraint[*ir.ColumnAccess[Term]]]
 type PermutationConstraint = Air[constraint.PermutationConstraint]
 
 // RangeConstraint captures the essence of a range constraints at the AIR level.
-type RangeConstraint = Air[constraint.RangeConstraint[*ir.ColumnAccess[Term]]]
+type RangeConstraint = Air[constraint.RangeConstraint[*ir.RegisterAccess[Term]]]
 
 // VanishingConstraint captures the essence of a vanishing constraint at the AIR level.
 type VanishingConstraint = Air[constraint.VanishingConstraint[ir.Expr[Term]]]
@@ -48,9 +48,9 @@ type VanishingConstraint = Air[constraint.VanishingConstraint[ir.Expr[Term]]]
 type AirConstraint interface {
 	schema.Constraint
 
-	constraint.LookupConstraint[*ir.ColumnAccess[Term]] |
+	constraint.LookupConstraint[*ir.RegisterAccess[Term]] |
 		constraint.PermutationConstraint |
-		constraint.RangeConstraint[*ir.ColumnAccess[Term]] |
+		constraint.RangeConstraint[*ir.RegisterAccess[Term]] |
 		constraint.VanishingConstraint[ir.Expr[Term]]
 }
 

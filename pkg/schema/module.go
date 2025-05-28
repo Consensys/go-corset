@@ -13,18 +13,18 @@
 package schema
 
 // Module represents a "table" within a schema which contains zero or more rows
-// for a given set of columns.
+// for a given set of registers.
 type Module interface {
 	// Module name
 	Name() string
 
-	// Access a given column in this module.
-	Register(uint) Column
+	// Access a given register in this module.
+	Register(uint) Register
 
-	// Registers providers access to the underlying columns of this schema.
-	Registers() []Column
+	// Registers providers access to the underlying registers of this schema.
+	Registers() []Register
 
-	// Returns the number of columns in this module.
+	// Returns the number of registers in this module.
 	Width() uint
 }
 
@@ -87,12 +87,12 @@ type FieldAgnosticModule[T any] interface {
 // relatively straightforward.
 type Table[C Constraint] struct {
 	name        string
-	registers   []Column
+	registers   []Register
 	constraints []C
 }
 
 // NewTable constructs an empty table module.
-func NewTable[C Constraint](name string, registers []Column, constraints []C) Table[C] {
+func NewTable[C Constraint](name string, registers []Register, constraints []C) Table[C] {
 	return Table[C]{name, registers, constraints}
 }
 
@@ -101,22 +101,22 @@ func (p Table[C]) Name() string {
 	return p.name
 }
 
-// Access a given column in this Table.
-func (p Table[C]) Register(index uint) Column {
+// Access a given register in this Table.
+func (p Table[C]) Register(index uint) Register {
 	return p.registers[index]
 }
 
-// Columns returns an iterator over the underlying columns of this schema.
-// Specifically, the index of a column in this array is its column index.
-func (p Table[C]) Registers() []Column {
+// Registers returns an iterator over the underlying registers of this schema.
+// Specifically, the index of a register in this array is its register index.
+func (p Table[C]) Registers() []Register {
 	panic("todo")
 }
 
-// Returns the number of columns in this Table.
+// Returns the number of registers in this Table.
 func (p Table[C]) Width() uint {
 	return uint(len(p.registers))
 }
 
-func (p *Table[C]) New(column Column) uint {
+func (p *Table[C]) New(register Register) uint {
 	panic("todo")
 }

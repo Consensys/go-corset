@@ -24,28 +24,28 @@ import (
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
-// ColumnAccess represents reading the value held at a given column in the
+// RegisterAccess represents reading the value held at a given register in the
 // tabular context.  Furthermore, the current row maybe shifted up (or down) by
 // a given amount. Suppose we are evaluating a constraint on row k=5 which
-// contains the column accesses "STAMP(0)" and "CT(-1)".  Then, STAMP(0)
-// accesses the STAMP column at row 5, whilst CT(-1) accesses the CT column at
+// contains the register accesses "STAMP(0)" and "CT(-1)".  Then, STAMP(0)
+// accesses the STAMP register at row 5, whilst CT(-1) accesses the CT register at
 // row 4.
-type ColumnAccess[T Term[T]] struct {
-	Column uint
-	Shift  int
+type RegisterAccess[T Term[T]] struct {
+	Register uint
+	Shift    int
 }
 
 // Air indicates this term can be used at the AIR level.
-func (p *ColumnAccess[T]) Air() {}
+func (p *RegisterAccess[T]) Air() {}
 
 // ApplyShift implementation for Term interface.
-func (p *ColumnAccess[T]) ApplyShift(shift int) T {
-	//return &ColumnAccess[T]{Column: p.Column, Shift: p.Shift + shift}
+func (p *RegisterAccess[T]) ApplyShift(shift int) T {
+	//return &RegisterAccess[T]{Register: p.Register, Shift: p.Shift + shift}
 	panic("got here")
 }
 
 // Bounds implementation for Boundable interface.
-func (p *ColumnAccess[T]) Bounds() util.Bounds {
+func (p *RegisterAccess[T]) Bounds() util.Bounds {
 	if p.Shift >= 0 {
 		// Positive shift
 		return util.NewBounds(0, uint(p.Shift))
@@ -55,18 +55,18 @@ func (p *ColumnAccess[T]) Bounds() util.Bounds {
 }
 
 // EvalAt implementation for Evaluable interface.
-func (p *ColumnAccess[T]) EvalAt(k int, module trace.Module) (fr.Element, error) {
-	return module.Column(p.Column).Get(k + p.Shift), nil
+func (p *RegisterAccess[T]) EvalAt(k int, module trace.Module) (fr.Element, error) {
+	return module.Column(p.Register).Get(k + p.Shift), nil
 }
 
 // Lisp implementation for Lispifiable interface.
-func (p *ColumnAccess[T]) Lisp(module schema.Module) sexp.SExp {
+func (p *RegisterAccess[T]) Lisp(module schema.Module) sexp.SExp {
 	var name string
 	// Generate name, whilst allowing for schema to be nil.
 	if module != nil {
-		name = module.Register(p.Column).QualifiedName(module)
+		name = module.Register(p.Register).QualifiedName(module)
 	} else {
-		name = fmt.Sprintf("#%d", p.Column)
+		name = fmt.Sprintf("#%d", p.Register)
 	}
 	//
 	access := sexp.NewSymbol(name)
@@ -81,36 +81,36 @@ func (p *ColumnAccess[T]) Lisp(module schema.Module) sexp.SExp {
 	return sexp.NewList([]sexp.SExp{sexp.NewSymbol("shift"), access, shift})
 }
 
-// RequiredColumns implementation for Contextual interface.
-func (p *ColumnAccess[T]) RequiredColumns() *set.SortedSet[uint] {
+// RequiredRegisters implementation for Contextual interface.
+func (p *RegisterAccess[T]) RequiredRegisters() *set.SortedSet[uint] {
 	r := set.NewSortedSet[uint]()
-	r.Insert(p.Column)
+	r.Insert(p.Register)
 	// Done
 	return r
 }
 
 // RequiredCells implementation for Contextual interface
-func (p *ColumnAccess[T]) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
+func (p *RegisterAccess[T]) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
 	set := set.NewAnySortedSet[trace.CellRef]()
-	set.Insert(trace.NewCellRef(p.Column, row+p.Shift))
+	set.Insert(trace.NewCellRef(p.Register, row+p.Shift))
 	//
 	return set
 }
 
 // ShiftRange implementation for Term interface.
-func (p *ColumnAccess[T]) ShiftRange() (int, int) {
+func (p *RegisterAccess[T]) ShiftRange() (int, int) {
 	return p.Shift, p.Shift
 }
 
 // Simplify implementation for Term interface.
-func (p *ColumnAccess[T]) Simplify(casts bool) T {
+func (p *RegisterAccess[T]) Simplify(casts bool) T {
 	panic("todo")
 }
 
 // ValueRange implementation for Term interface.
-func (p *ColumnAccess[T]) ValueRange(module schema.Module) *util.Interval {
+func (p *RegisterAccess[T]) ValueRange(module schema.Module) *util.Interval {
 	bound := big.NewInt(2)
-	width := int64(module.Register(p.Column).Width)
+	width := int64(module.Register(p.Register).Width)
 	bound.Exp(bound, big.NewInt(width), nil)
 	// Subtract 1 because interval is inclusive.
 	bound.Sub(bound, big.NewInt(1))

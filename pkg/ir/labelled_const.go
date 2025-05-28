@@ -52,8 +52,8 @@ func (p *LabelledConst[T]) Lisp(module schema.Module) sexp.SExp {
 	return sexp.NewSymbol(p.Value.String())
 }
 
-// RequiredColumns implementation for Contextual interface.
-func (p *LabelledConst[T]) RequiredColumns() *set.SortedSet[uint] {
+// RequiredRegisters implementation for Contextual interface.
+func (p *LabelledConst[T]) RequiredRegisters() *set.SortedSet[uint] {
 	return set.NewSortedSet[uint]()
 }
 

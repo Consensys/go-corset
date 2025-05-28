@@ -26,10 +26,10 @@ import (
 // require a single context.  This interface is separated from Evaluable (and
 // Testable) because HIR expressions do not implement Evaluable.
 type Contextual interface {
-	// RequiredColumns returns the set of columns on which this term depends.
-	// That is, columns whose values may be accessed when evaluating this term
+	// RequiredRegisters returns the set of registers on which this term depends.
+	// That is, registers whose values may be accessed when evaluating this term
 	// on a given trace.
-	RequiredColumns() *set.SortedSet[uint]
+	RequiredRegisters() *set.SortedSet[uint]
 	// RequiredCells returns the set of trace cells on which evaluation of this
 	// constraint element depends.
 	RequiredCells(int, trace.Module) *set.AnySortedSet[trace.CellRef]
@@ -47,7 +47,7 @@ type Evaluable interface {
 	// context then it returns "nil".  An expression can be
 	// undefined for several reasons: firstly, if it accesses a
 	// row which does not exist (e.g. at index -1); secondly, if
-	// it accesses a column which does not exist.
+	// it accesses a register which does not exist.
 	EvalAt(int, trace.Module) (fr.Element, error)
 	// Lisp converts this schema element into a simple S-Expression, for example
 	// so it can be printed.
@@ -67,7 +67,7 @@ type Testable interface {
 	// against zero. Observe that if this expression is *undefined* within this
 	// context then it returns "nil".  An expression can be undefined for
 	// several reasons: firstly, if it accesses a row which does not exist (e.g.
-	// at index -1); secondly, if it accesses a column which does not exist.
+	// at index -1); secondly, if it accesses a register which does not exist.
 	TestAt(int, trace.Module) (bool, uint, error)
 	// Lisp converts this schema element into a simple S-Expression, for example
 	// so it can be printed.
@@ -96,8 +96,8 @@ type Term[T any] interface {
 	Simplify(casts bool) T
 
 	// ValueRange returns the interval of values that this term can evaluate to.
-	// For terms accessing columns, this is determined by the declared width of
-	// the column.
+	// For terms accessing registers, this is determined by the declared width of
+	// the register.
 	ValueRange(module schema.Module) *util.Interval
 }
 

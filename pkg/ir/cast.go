@@ -66,9 +66,9 @@ func (p *Cast[T]) Lisp(module schema.Module) sexp.SExp {
 	return sexp.NewList([]sexp.SExp{name, arg})
 }
 
-// RequiredColumns implementation for Contextual interface.
-func (p *Cast[T]) RequiredColumns() *set.SortedSet[uint] {
-	return p.Arg.RequiredColumns()
+// RequiredRegisters implementation for Contextual interface.
+func (p *Cast[T]) RequiredRegisters() *set.SortedSet[uint] {
+	return p.Arg.RequiredRegisters()
 }
 
 // RequiredCells implementation for Contextual interface

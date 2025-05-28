@@ -55,9 +55,9 @@ func (p *Sub[T]) Lisp(module schema.Module) sexp.SExp {
 	return lispOfTerms(module, "-", p.Args)
 }
 
-// RequiredColumns implementation for Contextual interface.
-func (p *Sub[T]) RequiredColumns() *set.SortedSet[uint] {
-	return requiredColumnsOfTerms(p.Args)
+// RequiredRegisters implementation for Contextual interface.
+func (p *Sub[T]) RequiredRegisters() *set.SortedSet[uint] {
+	return requiredRegistersOfTerms(p.Args)
 }
 
 // RequiredCells implementation for Contextual interface

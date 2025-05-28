@@ -109,8 +109,8 @@ func (e Equation[T]) Lisp(module schema.Module) sexp.SExp {
 		sexp.NewSymbol(symbol), l, r})
 }
 
-// RequiredColumns implementation for Contextual interface.
-func (p *Equation[T]) RequiredColumns() *set.SortedSet[uint] {
+// RequiredRegisters implementation for Contextual interface.
+func (p *Equation[T]) RequiredRegisters() *set.SortedSet[uint] {
 	panic("todo")
 }
 

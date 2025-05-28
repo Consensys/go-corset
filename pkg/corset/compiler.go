@@ -258,7 +258,7 @@ func compileSelector(env compiler.Environment, selector ast.Expr) *mir.Expr {
 			// Lookup column binding
 			register_id := env.RegisterOf(binding.AbsolutePath())
 			// Done
-			expr := ir.NewColumnAccess[mir.Term](register_id, 0)
+			expr := ir.NewRegisterAccess[mir.Term](register_id, 0)
 			//
 			return &expr
 		}
