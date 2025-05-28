@@ -80,7 +80,7 @@ type ArrayModule struct {
 	columns []ArrayColumn
 }
 
-// EmptyArrayModule constructs a module with the given name and an (as yet)
+// NewArrayModule constructs a module with the given name and an (as yet)
 // unspecified height.
 func NewArrayModule(name string, columns []ArrayColumn) ArrayModule {
 	var height uint = math.MaxUint

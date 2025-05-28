@@ -148,7 +148,7 @@ func (p *IntType) HasUnderlying() bool {
 	return p.values != nil
 }
 
-// Bitwidth attempts to determine an appropriate bitwidth for this type.
+// BitWidth attempts to determine an appropriate bitwidth for this type.
 func (p *IntType) BitWidth() uint {
 	width := p.values.BitWidth()
 	// Sanity check (for now)

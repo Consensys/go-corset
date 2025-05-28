@@ -24,9 +24,7 @@ type Program[T any] interface {
 // NewProgram constructs a new program using a given level of instruction.
 func NewProgram[T any](components ...*Function[T]) Program[T] {
 	fns := make([]*Function[T], len(components))
-	for i, f := range components {
-		fns[i] = f
-	}
+	copy(fns, components)
 
 	return &program[T]{fns}
 }

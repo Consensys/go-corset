@@ -101,6 +101,8 @@ type Term[T any] interface {
 	ValueRange(module schema.Module) *util.Interval
 }
 
+// LogicalTerm represents a term which can be tested for truth or falsehood.
+// For example, an equality comparing two arithmetic terms is a logical term.
 type LogicalTerm[T any] interface {
 	Contextual
 	Testable
