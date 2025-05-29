@@ -25,6 +25,13 @@ import (
 // or one (otherwise).
 type Norm[T Term[T]] struct{ Arg T }
 
+// Normalise normalises the result of evaluating a given expression to be
+// either 0 (if its value was 0) or 1 (otherwise).
+func Normalise[T Term[T]](arg T) T {
+	var term Term[T] = &Norm[T]{arg}
+	return term.(T)
+}
+
 // ApplyShift implementation for Term interface.
 func (p *Norm[T]) ApplyShift(int) T {
 	panic("todo")

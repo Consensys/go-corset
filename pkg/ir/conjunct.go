@@ -27,6 +27,11 @@ type Conjunct[T LogicalTerm[T]] struct {
 	Args []T
 }
 
+// Conjunction builds the logical conjunction (i.e. and) for a given set of constraints.
+func Conjunction[T LogicalTerm[T]](terms ...T) T {
+	panic("todo")
+}
+
 // Bounds implementation for Boundable interface.
 func (p *Conjunct[T]) Bounds() util.Bounds {
 	return util.BoundsForArray(p.Args)

@@ -29,6 +29,12 @@ type Exp[T Term[T]] struct {
 	Pow uint64
 }
 
+// Exponent constructs a new expression representing the given argument
+// raised to a given a given power.
+func Exponent[T Term[T]](arg T, pow uint64) T {
+	panic("todo")
+}
+
 // ApplyShift implementation for Term interface.
 func (p *Exp[T]) ApplyShift(int) T {
 	panic("todo")

@@ -248,7 +248,7 @@ func constructDisplayModifier(modifier string) uint {
 // This is really broken.  The problem is that we need to translate the selector
 // expression within the translator.  But, setting that all up is not
 // straightforward.  This should be done in the future!
-func compileSelector(env compiler.Environment, selector ast.Expr) *mir.Expr {
+func compileSelector(env compiler.Environment, selector ast.Expr) mir.Term {
 	if selector == nil {
 		return nil
 	}
@@ -260,7 +260,7 @@ func compileSelector(env compiler.Environment, selector ast.Expr) *mir.Expr {
 			// Done
 			expr := ir.NewRegisterAccess[mir.Term](register_id, 0)
 			//
-			return &expr
+			return expr
 		}
 	}
 	// FIXME: #630

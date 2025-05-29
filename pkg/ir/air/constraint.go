@@ -22,22 +22,6 @@ import (
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
-// LookupConstraint captures the essence of a lookup constraint at the AIR
-// level.  At the AIR level, lookup constraints are only permitted between
-// columns (i.e. not arbitrary expressions).
-type LookupConstraint = Air[constraint.LookupConstraint[*ir.RegisterAccess[Term]]]
-
-// PermutationConstraint captures the essence of a permutation constraint at the
-// AIR level. Specifically, it represents a constraint that one (or more)
-// columns are a permutation of another.
-type PermutationConstraint = Air[constraint.PermutationConstraint]
-
-// RangeConstraint captures the essence of a range constraints at the AIR level.
-type RangeConstraint = Air[constraint.RangeConstraint[*ir.RegisterAccess[Term]]]
-
-// VanishingConstraint captures the essence of a vanishing constraint at the AIR level.
-type VanishingConstraint = Air[constraint.VanishingConstraint[ir.Expr[Term]]]
-
 // ============================================================================
 // Helpers
 // ============================================================================
@@ -51,7 +35,7 @@ type ConstraintBound interface {
 	constraint.LookupConstraint[*ir.RegisterAccess[Term]] |
 		constraint.PermutationConstraint |
 		constraint.RangeConstraint[*ir.RegisterAccess[Term]] |
-		constraint.VanishingConstraint[ir.Expr[Term]]
+		constraint.VanishingConstraint[LogicalTerm]
 }
 
 // Air attempts to encapsulate the notion of a valid constraint at the AIR
@@ -69,7 +53,7 @@ func newAir[C ConstraintBound](constraint C) Air[C] {
 }
 
 // NewVanishingConstraint constructs a new AIR vanishing constraint
-func NewVanishingConstraint(handle string, ctx trace.Context, domain util.Option[int], term Expr) VanishingConstraint {
+func NewVanishingConstraint(handle string, ctx trace.Context, domain util.Option[int], term LogicalTerm) VanishingConstraint {
 	return newAir(constraint.NewVanishingConstraint(handle, ctx, domain, term))
 }
 
@@ -116,12 +100,3 @@ func (p Air[C]) Name() string {
 func (p Air[C]) Lisp(schema schema.AnySchema) sexp.SExp {
 	return p.constraint.Lisp(schema)
 }
-
-// ============================================================================
-
-// ============================================================================
-
-// Assertion captures the notion of an arbitrary property which should hold for
-// all acceptable traces.  However, such a property is not enforced by the
-// prover.
-type Assertion = *constraint.Assertion[ir.Testable]

@@ -24,6 +24,12 @@ import (
 // Mul represents the product over zero or more expressions.
 type Mul[T Term[T]] struct{ Args []T }
 
+// Product returns the product of zero or more multiplications.
+func Product[T Term[T]](exprs ...T) T {
+	var term Term[T] = &Mul[T]{exprs}
+	return term.(T)
+}
+
 // Air indicates this term can be used at the AIR level.
 func (p *Mul[T]) Air() {}
 

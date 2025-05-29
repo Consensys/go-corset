@@ -27,6 +27,23 @@ import (
 // Constant represents a constant value within an expression.
 type Constant[T Term[T]] struct{ Value fr.Element }
 
+// Const construct an AIR expression representing a given constant.
+func Const[T Term[T]](val fr.Element) T {
+	var term Term[T] = &Constant[T]{Value: val}
+	return term.(T)
+}
+
+// Const64 construct an AIR expression representing a given constant from a
+// uint64.
+func Const64[T Term[T]](val uint64) T {
+	var (
+		element         = fr.NewElement(val)
+		term    Term[T] = &Constant[T]{Value: element}
+	)
+	//
+	return term.(T)
+}
+
 // Air indicates this term can be used at the AIR level.
 func (p *Constant[T]) Air() {}
 

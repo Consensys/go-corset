@@ -24,6 +24,13 @@ import (
 // Sub represents the subtraction over zero or more expressions.
 type Sub[T Term[T]] struct{ Args []T }
 
+// Subtract returns the subtraction of the subsequent expressions from the
+// first.
+func Subtract[T Term[T]](exprs ...T) T {
+	var term Term[T] = &Sub[T]{exprs}
+	return term.(T)
+}
+
 // Air indicates this term can be used at the AIR level.
 func (p *Sub[T]) Air() {}
 

@@ -26,6 +26,12 @@ type Disjunct[T LogicalTerm[T]] struct {
 	Args []T
 }
 
+// Disjunction creates a constraint representing the disjunction of a given set of
+// constraints.
+func Disjunction[T LogicalTerm[T]](terms ...T) T {
+	panic("todo")
+}
+
 // Bounds implementation for Boundable interface.
 func (p *Disjunct[T]) Bounds() util.Bounds {
 	return util.BoundsForArray(p.Args)

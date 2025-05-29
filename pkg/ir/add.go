@@ -24,6 +24,12 @@ import (
 // Add represents the addition of zero or more expressions.
 type Add[T Term[T]] struct{ Args []T }
 
+// Sum zero or more expressions together.
+func Sum[T Term[T]](exprs ...T) T {
+	var term Term[T] = &Add[T]{exprs}
+	return term.(T)
+}
+
 // Air indicates this term can be used at the AIR level.
 func (p *Add[T]) Air() {}
 

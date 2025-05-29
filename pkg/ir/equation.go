@@ -44,6 +44,77 @@ type Equation[T Term[T]] struct {
 	Rhs  Term[T]
 }
 
+// Equals constructs an equation representing the equality of two expressions.
+func Equals[S LogicalTerm[S], T Term[T]](lhs T, rhs T) S {
+	var term LogicalTerm[S] = &Equation[T]{
+		Kind: EQUALS,
+		Lhs:  lhs,
+		Rhs:  rhs,
+	}
+	//
+	return term.(S)
+}
+
+// NotEquals constructs an equation representing the non-equality of two
+// expressions.
+func NotEquals[S LogicalTerm[S], T Term[T]](lhs T, rhs T) S {
+	var term LogicalTerm[S] = &Equation[T]{
+		Kind: NOT_EQUALS,
+		Lhs:  lhs,
+		Rhs:  rhs,
+	}
+	//
+	return term.(S)
+}
+
+// GreaterThan constructs an equation representing the inequality of two
+// expressions.
+func GreaterThan[S LogicalTerm[S], T Term[T]](lhs T, rhs T) S {
+	var term LogicalTerm[S] = &Equation[T]{
+		Kind: GREATER_THAN,
+		Lhs:  lhs,
+		Rhs:  rhs,
+	}
+	//
+	return term.(S)
+}
+
+// GreaterThanOrEquals constructs an equation representing the inequality of two
+// expressions.
+func GreaterThanOrEquals[S LogicalTerm[S], T Term[T]](lhs T, rhs T) S {
+	var term LogicalTerm[S] = &Equation[T]{
+		Kind: GREATER_THAN_EQUALS,
+		Lhs:  lhs,
+		Rhs:  rhs,
+	}
+	//
+	return term.(S)
+}
+
+// LessThan constructs an equation representing the inequality of two
+// expressions.
+func LessThan[S LogicalTerm[S], T Term[T]](lhs T, rhs T) S {
+	var term LogicalTerm[S] = &Equation[T]{
+		Kind: LESS_THAN,
+		Lhs:  lhs,
+		Rhs:  rhs,
+	}
+	//
+	return term.(S)
+}
+
+// LessThanOrEquals constructs an equation representing the inequality of two
+// expressions.
+func LessThanOrEquals[S LogicalTerm[S], T Term[T]](lhs T, rhs T) S {
+	var term LogicalTerm[S] = &Equation[T]{
+		Kind: LESS_THAN_EQUALS,
+		Lhs:  lhs,
+		Rhs:  rhs,
+	}
+	//
+	return term.(S)
+}
+
 // Bounds implementation for Boundable interface.
 func (p *Equation[T]) Bounds() util.Bounds {
 	l := p.Lhs.Bounds()
@@ -87,7 +158,7 @@ func (p *Equation[T]) TestAt(k int, tr trace.Module) (bool, uint, error) {
 
 // Lisp returns a lisp representation of this equation, which is useful for
 // debugging.
-func (p Equation[T]) Lisp(module schema.Module) sexp.SExp {
+func (p *Equation[T]) Lisp(module schema.Module) sexp.SExp {
 	var (
 		symbol string
 		l      = p.Lhs.Lisp(module)
@@ -126,12 +197,12 @@ func (p *Equation[T]) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[
 }
 
 // Simplify this equation as much as reasonably possible.
-func (p Equation[T]) Simplify() Equation[T] {
+func (p *Equation[T]) Simplify() Equation[T] {
 	panic("todo")
 }
 
 // Negate a given equation
-func (p Equation[T]) Negate() Equation[T] {
+func (p *Equation[T]) Negate() Equation[T] {
 	var kind uint8
 	//
 	switch p.Kind {
@@ -155,7 +226,7 @@ func (p Equation[T]) Negate() Equation[T] {
 // Is determines whether or not this equation is known to evaluate to true or
 // false.  For example, "0 == 0" evaluates to true, whilst "0 != 0" evaluates to
 // false.
-func (p Equation[T]) Is(val bool) bool {
+func (p *Equation[T]) Is(val bool) bool {
 	// Attempt to disprove non-equality
 	lc, l_ok := p.Lhs.(*Constant[T])
 	rc, r_ok := p.Rhs.(*Constant[T])

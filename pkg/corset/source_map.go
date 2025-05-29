@@ -73,7 +73,7 @@ type SourceModule struct {
 	Virtual bool
 	// Selector determines when this (sub)module is active.  Specifically, when
 	// it evaluates to a non-zero value the module is active.
-	Selector *mir.Expr
+	Selector mir.Term
 	// Submodules identifies any (virtual) submodules contained within this.
 	// Currently, perspectives are the only form of submodule currently
 	// supported.

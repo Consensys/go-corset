@@ -163,21 +163,20 @@ func (p *AirLowering) lowerConstraintToAir(c schema.Constraint, airModule *air.M
 // hold inverses, etc.
 func (p *AirLowering) lowerVanishingConstraintToAir(v VanishingConstraint, airModule *air.Module) {
 	//
-	air_exprs := p.lowerLogicalTo(v.Context, v.Constraint, airModule)
+	terms := p.lowerLogicalTo(v.Context, v.Constraint, airModule)
 	//
-	for i, air_expr := range air_exprs {
-		// Check whether this is a constant
-		constant := air_expr.AsConstant()
-		// Check for compile-time constants
-		if constant != nil && !constant.IsZero() {
-			panic(fmt.Sprintf("constraint %s cannot vanish!", v.Handle))
-		} else if constant == nil {
-			// Construct suitable handle to distinguish this case
-			handle := fmt.Sprintf("%s#%d", v.Handle, i)
-			// Add constraint
-			airModule.AddConstraints(
-				air.NewVanishingConstraint(handle, v.Context, v.Domain, air_expr))
-		}
+	for i, air_expr := range terms {
+		// // Check whether this is a constant
+		// constant := air_expr.AsConstant()
+		// // Check for compile-time constants
+		// if constant != nil && !constant.IsZero() {
+		// 	panic(fmt.Sprintf("constraint %s cannot vanish!", v.Handle))
+		// } else if constant == nil {
+		// Construct suitable handle to distinguish this case
+		handle := fmt.Sprintf("%s#%d", v.Handle, i)
+		// Add constraint
+		airModule.AddConstraints(
+			air.NewVanishingConstraint(handle, v.Context, v.Domain, air_expr))
 	}
 }
 
@@ -371,18 +370,14 @@ func (p *AirLowering) lowerRangeConstraintToAir(v RangeConstraint, airModule *ai
 // 	}
 // }
 
-func (p *AirLowering) lowerLogicalTo(ctx trace.Context, c Logical, airModule *air.Module) []air.Expr {
-	return p.lowerLogicalTermToInner(ctx, c.Term, airModule)
-}
-
-func (p *AirLowering) lowerLogicalTermToInner(ctx trace.Context, e LogicalTerm, airModule *air.Module) []air.Expr {
+func (p *AirLowering) lowerLogicalTo(ctx trace.Context, e LogicalTerm, airModule *air.Module) []air.LogicalTerm {
 	switch e := e.(type) {
 	case *Conjunct:
 		panic("got here")
 	case *Disjunct:
 		panic("got here")
 	case *Equation:
-		return p.lowerEquationTo(ctx, *e, airModule)
+		return []air.LogicalTerm{p.lowerEquationTo(ctx, *e, airModule)}
 	default:
 		name := reflect.TypeOf(e).Name()
 		panic(fmt.Sprintf("unknown MIR expression \"%s\"", name))
@@ -400,28 +395,24 @@ func (p *AirLowering) lowerLogicalTermToInner(ctx trace.Context, e LogicalTerm, 
 // 	return air.Product(air_terms...)
 // }
 
-func (p *AirLowering) lowerEquationTo(ctx trace.Context, e Equation, airModule *air.Module) []air.Expr {
-	var term Term
+func (p *AirLowering) lowerEquationTo(ctx trace.Context, e Equation, airModule *air.Module) air.LogicalTerm {
+	var (
+		lhs air.Term = p.lowerTermTo(ctx, e.Lhs, airModule)
+		rhs air.Term = p.lowerTermTo(ctx, e.Rhs, airModule)
+	)
 	//
 	switch e.Kind {
 	case ir.EQUALS:
-		// NOTE: the ordering of this subtraction can have certain impacts, such as
-		// aligning computed columns (or not).  Therefore, ideally, we'd take
-		// greater care at this point to chose the best way around.
-		term = &Sub{Args: []Term{e.Lhs, e.Rhs}}
+		return ir.Equals[LogicalTerm](lhs, rhs)
 	case ir.NOT_EQUALS:
 		// (1 - NORM(lhs - rhs))
 		/* term = &Norm{&Sub{[]Term{e.Lhs, e.Rhs}}}
 		term = &Sub{[]Term{ONE.term, term}} */
-		panic("todo")
+		panic("this does not make sense!!!")
 	case ir.GREATER_THAN, ir.GREATER_THAN_EQUALS, ir.LESS_THAN, ir.LESS_THAN_EQUALS:
 		panic("translation of inequalities not supported")
 	default:
 		panic("unknown equation")
-	}
-	//
-	return []air.Expr{
-		p.lowerTermTo(ctx, term, airModule),
 	}
 }
 
@@ -436,7 +427,7 @@ func (p *AirLowering) lowerEquationTo(ctx trace.Context, e Equation, airModule *
 // 	return lowerTermTo(ctx, e1.term, mirSchema, airSchema, cfg)
 // }
 
-func (p *AirLowering) lowerTermTo(ctx trace.Context, term Term, airModule *air.Module) air.Expr {
+func (p *AirLowering) lowerTermTo(ctx trace.Context, term Term, airModule *air.Module) air.Term {
 	// Optimise normalisations
 	fmt.Printf("APPLY ELIMINATE NORMALISATION\n")
 	// term = eliminateNormalisationInTerm(term, mirSchema, cfg)
@@ -449,7 +440,7 @@ func (p *AirLowering) lowerTermTo(ctx trace.Context, term Term, airModule *air.M
 
 // Inner form is used for recursive calls and does not repeat the constant
 // propagation phase.
-func (p *AirLowering) lowerTermToInner(ctx trace.Context, e Term, airModule *air.Module) air.Expr {
+func (p *AirLowering) lowerTermToInner(ctx trace.Context, e Term, airModule *air.Module) air.Term {
 	//
 	switch e := e.(type) {
 	case *Add:
@@ -487,8 +478,8 @@ func (p *AirLowering) lowerTermToInner(ctx trace.Context, e Term, airModule *air
 }
 
 // Lower a set of zero or more MIR expressions.
-func (p *AirLowering) lowerTerms(ctx trace.Context, exprs []Term, airModule *air.Module) []air.Expr {
-	nexprs := make([]air.Expr, len(exprs))
+func (p *AirLowering) lowerTerms(ctx trace.Context, exprs []Term, airModule *air.Module) []air.Term {
+	nexprs := make([]air.Term, len(exprs))
 
 	for i := range len(exprs) {
 		nexprs[i] = p.lowerTermToInner(ctx, exprs[i], airModule)

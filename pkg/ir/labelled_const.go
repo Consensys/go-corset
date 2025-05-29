@@ -32,6 +32,13 @@ type LabelledConst[T Term[T]] struct {
 	Value fr.Element
 }
 
+// LabelledConstant construct an expression representing a constant with a given
+// label.
+func LabelledConstant[T Term[T]](label string, value fr.Element) T {
+	var term Term[T] = &LabelledConst[T]{Label: label, Value: value}
+	return term.(T)
+}
+
 // ApplyShift implementation for Term interface.
 func (p *LabelledConst[T]) ApplyShift(int) T {
 	panic("todo")

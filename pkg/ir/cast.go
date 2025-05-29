@@ -30,6 +30,13 @@ type Cast[T Term[T]] struct {
 	BitWidth uint
 }
 
+// CastOf constructs a new expression which has been annotated by the user to be
+// within a given range.
+func CastOf[T Term[T]](arg T, bitwidth uint) T {
+	var term Term[T] = &Cast[T]{Arg: arg, BitWidth: bitwidth}
+	return term.(T)
+}
+
 // ApplyShift implementation for Term interface.
 func (p *Cast[T]) ApplyShift(int) T {
 	panic("todo")

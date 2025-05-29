@@ -32,6 +32,21 @@ type IfZero[T Term[T]] struct {
 	FalseBranch Term[T]
 }
 
+// If constructs a new conditional branch, where the true branch is taken when
+// the condition evaluates to zero.
+func If[T Term[T]](condition T, trueBranch T) T {
+	var term Term[T] = &IfZero[T]{condition, trueBranch, nil}
+	return term.(T)
+}
+
+// IfElse constructs a new conditional branch, where either the true branch or
+// the false branch can (optionally) be nil (but both cannot).  Note, the true
+// branch is taken when the condition evaluates to zero.
+func IfElse[T Term[T]](condition T, trueBranch T, falseBranch T) T {
+	var term Term[T] = &IfZero[T]{condition, trueBranch, falseBranch}
+	return term.(T)
+}
+
 // ApplyShift implementation for Term interface.
 func (p *IfZero[T]) ApplyShift(int) T {
 	panic("todo")
