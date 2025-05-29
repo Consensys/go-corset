@@ -18,6 +18,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/air"
+	air_gadgets "github.com/consensys/go-corset/pkg/ir/air/gadgets"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 )
@@ -40,7 +41,7 @@ func LowerToAir(schema Schema, config OptimisationConfig) air.Schema {
 type AirLowering struct {
 	config OptimisationConfig
 	// Modules we are lowering from
-	mirModules []Module
+	mirSchema Schema
 	// Modules we are lowering to
 	airModules []air.Module
 }
@@ -48,17 +49,16 @@ type AirLowering struct {
 // NewAirLowering constructs an initial state for lowering a given MIR schema.
 func NewAirLowering(mirSchema Schema) AirLowering {
 	var (
-		mirModules = mirSchema.RawModules()
 		airModules = make([]air.Module, mirSchema.Width())
 	)
 	// Initialise AIR modules
-	for i, m := range mirModules {
+	for i, m := range mirSchema.RawModules() {
 		airModules[i] = schema.NewTable[air.Constraint](m.Name())
 	}
 	//
 	return AirLowering{
 		DEFAULT_OPTIMISATION_LEVEL,
-		mirModules,
+		mirSchema,
 		airModules,
 	}
 }
@@ -73,7 +73,7 @@ func (p *AirLowering) ConfigureOptimisation(config OptimisationConfig) {
 // equivalent AIR schema.
 func (p *AirLowering) Lower() air.Schema {
 	// Initialise modules
-	for i := range p.mirModules {
+	for i := 0; i < int(p.mirSchema.Width()); i++ {
 		p.LowerModule(uint(i))
 	}
 	// // Add data columns.
@@ -192,16 +192,16 @@ func (p *AirLowering) lowerVanishingConstraintToAir(v VanishingConstraint, airMo
 // value of that expression, along with appropriate constraints to enforce the
 // expected value.
 func (p *AirLowering) lowerRangeConstraintToAir(v RangeConstraint, airModule *air.Module) {
-	bitwidth := v.Expr.ValueRange(module)
+	bitwidth := v.Expr.ValueRange(p.mirSchema)
 	// Lower target expression
 	target := p.lowerTermTo(v.Context, v.Expr, airModule)
 	// Expand target expression (if necessary)
-	column := air_gadgets.Expand(v.Context, bitwidth, target, airSchema)
+	column := air_gadgets.Expand(v.Context, bitwidth, target, airModule)
 	// Yes, a constraint is implied.  Now, decide whether to use a range
 	// constraint or just a vanishing constraint.
 	if v.Bitwidth == 1 {
 		// u1 => use vanishing constraint X * (X - 1)
-		air_gadgets.ApplyBinaryGadget(column, airSchema)
+		air_gadgets.ApplyBinaryGadget(column, airModule)
 	} else if v.Bitwidth < p.config.MaxRangeConstraint {
 		// u2..n use range constraints
 		airModule.AddConstraints(
