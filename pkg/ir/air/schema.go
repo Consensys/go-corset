@@ -46,6 +46,8 @@ type (
 	// representation.
 	LogicalTerm interface {
 		ir.LogicalTerm[LogicalTerm]
+		// Air marks terms which are valid for the AIR representation.
+		Air()
 	}
 )
 
@@ -91,7 +93,7 @@ type (
 	Conjunct = ir.Conjunct[LogicalTerm]
 	// Disjunct represents a logical conjunction at the AIR level.
 	Disjunct = ir.Disjunct[LogicalTerm]
-	// Equation captures the types of equalities and inequalities permitted at the
-	// AIR level.
-	Equation = ir.Equation[Term]
+	// Equal captures the notion of an equality at the AIR level which,
+	// practically speaking, reduces to a subtraction.
+	Equal = ir.Equal[Term]
 )

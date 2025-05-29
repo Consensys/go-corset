@@ -376,8 +376,10 @@ func (p *AirLowering) lowerLogicalTo(ctx trace.Context, e LogicalTerm, airModule
 		panic("got here")
 	case *Disjunct:
 		panic("got here")
-	case *Equation:
-		return []air.LogicalTerm{p.lowerEquationTo(ctx, *e, airModule)}
+	case *Equal:
+		return []air.LogicalTerm{p.lowerEqualTo(ctx, *e, airModule)}
+	case *NotEqual:
+		return []air.LogicalTerm{p.lowerNotEqualTo(ctx, *e, airModule)}
 	default:
 		name := reflect.TypeOf(e).Name()
 		panic(fmt.Sprintf("unknown MIR expression \"%s\"", name))
@@ -395,25 +397,22 @@ func (p *AirLowering) lowerLogicalTo(ctx trace.Context, e LogicalTerm, airModule
 // 	return air.Product(air_terms...)
 // }
 
-func (p *AirLowering) lowerEquationTo(ctx trace.Context, e Equation, airModule *air.Module) air.LogicalTerm {
+func (p *AirLowering) lowerEqualTo(ctx trace.Context, e Equal, airModule *air.Module) air.LogicalTerm {
 	var (
 		lhs air.Term = p.lowerTermTo(ctx, e.Lhs, airModule)
 		rhs air.Term = p.lowerTermTo(ctx, e.Rhs, airModule)
 	)
 	//
-	switch e.Kind {
-	case ir.EQUALS:
-		return ir.Equals[LogicalTerm](lhs, rhs)
-	case ir.NOT_EQUALS:
-		// (1 - NORM(lhs - rhs))
-		/* term = &Norm{&Sub{[]Term{e.Lhs, e.Rhs}}}
-		term = &Sub{[]Term{ONE.term, term}} */
-		panic("this does not make sense!!!")
-	case ir.GREATER_THAN, ir.GREATER_THAN_EQUALS, ir.LESS_THAN, ir.LESS_THAN_EQUALS:
-		panic("translation of inequalities not supported")
-	default:
-		panic("unknown equation")
-	}
+	return ir.Equals[air.LogicalTerm](lhs, rhs)
+}
+
+func (p *AirLowering) lowerNotEqualTo(ctx trace.Context, e NotEqual, airModule *air.Module) air.LogicalTerm {
+	// var (
+	// 	lhs air.Term = p.lowerTermTo(ctx, e.Lhs, airModule)
+	// 	rhs air.Term = p.lowerTermTo(ctx, e.Rhs, airModule)
+	// )
+	//
+	panic("how does this make sense?")
 }
 
 // // Lower an expression into the Arithmetic Intermediate Representation.

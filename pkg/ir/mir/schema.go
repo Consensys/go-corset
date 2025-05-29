@@ -99,9 +99,12 @@ type (
 	Conjunct = ir.Conjunct[LogicalTerm]
 	// Disjunct represents a logical conjunction at the MIR level.
 	Disjunct = ir.Disjunct[LogicalTerm]
-	// Equation captures the types of equalities and inequalities permitted at the
-	// MIR level.
-	Equation = ir.Equation[Term]
+	// Equal represents an equality comparator between two arithmetic terms
+	// at the MIR level.
+	Equal = ir.Equal[Term]
+	// NotEqual represents a non-equality comparator between two arithmetic terms
+	// at the MIR level.
+	NotEqual = ir.NotEqual[Term]
 )
 
 // SubstituteConstants substitutes the value of matching labelled constants for
@@ -130,5 +133,6 @@ func init() {
 	//
 	gob.Register(LogicalTerm(&Conjunct{}))
 	gob.Register(LogicalTerm(&Disjunct{}))
-	gob.Register(LogicalTerm(&Equation{}))
+	gob.Register(LogicalTerm(&Equal{}))
+	gob.Register(LogicalTerm(&NotEqual{}))
 }
