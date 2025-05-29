@@ -28,6 +28,8 @@ import (
 type AssertionFailure struct {
 	// Handle of the failing constraint
 	Handle string
+	//
+	Context trace.Context
 	// Constraint expression
 	Constraint ir.Testable
 	// Row on which the constraint failed
@@ -41,8 +43,9 @@ func (p *AssertionFailure) Message() string {
 }
 
 // RequiredCells identifies the cells required to evaluate the failing constraint at the failing row.
-func (p *AssertionFailure) RequiredCells(trace trace.Module) *set.AnySortedSet[trace.CellRef] {
-	return p.Constraint.RequiredCells(int(p.Row), trace)
+func (p *AssertionFailure) RequiredCells(tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
+	module := tr.Module(p.Context.ModuleId)
+	return p.Constraint.RequiredCells(int(p.Row), module)
 }
 
 func (p *AssertionFailure) String() string {
@@ -56,7 +59,7 @@ func (p *AssertionFailure) String() string {
 // That is, they should be implied by the actual constraints.  Thus, whilst the
 // prover cannot enforce such properties, external tools (such as for formal
 // verification) can attempt to ensure they do indeed always hold.
-type Assertion[T ir.Testable] struct {
+type Assertion struct {
 	// A unique identifier for this constraint.  This is primarily
 	// useful for debugging.
 	Handle string
@@ -68,19 +71,26 @@ type Assertion[T ir.Testable] struct {
 	// Observe that this can be any function which is computable
 	// on a given trace --- we are not restricted to expressions
 	// which can be arithmetised.
-	Property T
+	Property ir.Testable
 }
 
 // NewAssertion constructs a new property assertion!
-func NewAssertion[T ir.Testable](handle string, ctx trace.Context, property T) *Assertion[T] {
+func NewAssertion(handle string, ctx trace.Context, property ir.Testable) Assertion {
 	//
-	return &Assertion[T]{handle, ctx, property}
+	return Assertion{handle, ctx, property}
+}
+
+// Consistent applies a number of internal consistency checks.  Whilst not
+// strictly necessary, these can highlight otherwise hidden problems as an aid
+// to debugging.
+func (p Assertion) Consistent(schema schema.AnySchema) []error {
+	return checkConsistent(p.Context.ModuleId, schema, p.Property)
 }
 
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
-func (p *Assertion[T]) Name() (string, uint) {
-	return p.Handle, 0
+func (p Assertion) Name() string {
+	return p.Handle
 }
 
 // Contexts returns the evaluation contexts (i.e. enclosing module + length
@@ -88,13 +98,13 @@ func (p *Assertion[T]) Name() (string, uint) {
 // evaluation context, though some (e.g. lookups) have more.  Note that all
 // constraints have at least one context (which we can call the "primary"
 // context).
-func (p *Assertion[T]) Contexts() []trace.Context {
+func (p Assertion) Contexts() []trace.Context {
 	return []trace.Context{p.Context}
 }
 
 // Bounds is not required for a property assertion since these are not real
 // constraints.
-func (p *Assertion[T]) Bounds(module uint) util.Bounds {
+func (p Assertion) Bounds(module uint) util.Bounds {
 	return util.EMPTY_BOUND
 }
 
@@ -102,7 +112,7 @@ func (p *Assertion[T]) Bounds(module uint) util.Bounds {
 // of a table. If so, return nil otherwise return an error.
 //
 //nolint:revive
-func (p *Assertion[T]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
+func (p Assertion) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
 	var (
 		coverage bit.Set
 		module   trace.Module = tr.Module(p.Context.ModuleId)
@@ -114,9 +124,9 @@ func (p *Assertion[T]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
 		// Check whether property holds (or was undefined)
 		if ok, id, err := p.Property.TestAt(int(k), module); err != nil {
 			// Evaluation failure
-			return coverage, &schema.InternalFailure{Handle: p.Handle, Row: k, Error: err.Error()}
+			return coverage, &InternalFailure{Handle: p.Handle, Context: p.Context, Row: k, Error: err.Error()}
 		} else if !ok {
-			return coverage, &AssertionFailure{p.Handle, p.Property, k}
+			return coverage, &AssertionFailure{p.Handle, p.Context, p.Property, k}
 		} else {
 			// Update coverage
 			coverage.Insert(id)
@@ -129,7 +139,8 @@ func (p *Assertion[T]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
 // Lisp converts this constraint into an S-Expression.
 //
 //nolint:revive
-func (p *Assertion[T]) Lisp(module schema.Module) sexp.SExp {
+func (p Assertion) Lisp(schema schema.AnySchema) sexp.SExp {
+	var module = schema.Module(p.Context.ModuleId)
 	// Construct the list
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("assert"),

@@ -149,8 +149,9 @@ func (p *Compiler[M]) Compile() (schema.MixedSchema[M, mir.Module], SourceMap, [
 	// Sanity check for errors
 	if len(errs) > 0 {
 		return schema.MixedSchema[M, mir.Module]{}, SourceMap{}, errs
-	} else if err := mixedSchema.Consistent(); err != nil {
-		panic(err.Error())
+	} else if cerrs := mixedSchema.Consistent(); len(cerrs) > 0 {
+		// Should be unreachable.
+		panic(cerrs)
 	}
 	// Construct source map
 	source_map := constructSourceMap(scope, environment)

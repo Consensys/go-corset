@@ -68,6 +68,13 @@ func NewSortedConstraint[E ir.Evaluable](handle string, context trace.Context, b
 	return SortedConstraint[E]{handle, context, bitwidth, selector, sources, signs, strict}
 }
 
+// Consistent applies a number of internal consistency checks.  Whilst not
+// strictly necessary, these can highlight otherwise hidden problems as an aid
+// to debugging.
+func (p SortedConstraint[E]) Consistent(schema schema.AnySchema) []error {
+	panic("todo")
+}
+
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
 func (p SortedConstraint[E]) Name() string {
@@ -126,14 +133,14 @@ func (p SortedConstraint[E]) Accepts(trace trace.Trace) (bit.Set, schema.Failure
 				val, err := selector.EvalAt(int(k), module)
 				// Check whether active (or not)
 				if err != nil {
-					return coverage, &schema.InternalFailure{Handle: p.Handle, Row: k, Term: selector, Error: err.Error()}
+					return coverage, &InternalFailure{p.Handle, p.Context, k, selector, err.Error()}
 				} else if val.IsZero() {
 					continue
 				}
 			}
 			// Check sorting between rows k-1 and k
 			if ok, err := sorted(k-1, k, deltaBound, p.Sources, p.Signs, p.Strict, module); err != nil {
-				return coverage, &schema.InternalFailure{Handle: p.Handle, Row: k, Error: err.Error()}
+				return coverage, &InternalFailure{Handle: p.Handle, Context: p.Context, Row: k, Error: err.Error()}
 			} else if !ok {
 				return coverage, &SortedFailure{fmt.Sprintf("sorted constraint \"%s\" failed (rows %d ~ %d)", p.Handle, k-1, k)}
 			}

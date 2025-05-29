@@ -29,7 +29,13 @@ type Constraint struct {
 	constraint schema.Constraint
 }
 
-// NewVanishingConstraint constructs a new AIR vanishing constraint
+// NewAssertion constructs a new assertion
+func NewAssertion(handle string, ctx trace.Context, term LogicalTerm) Constraint {
+	//
+	return Constraint{constraint.NewAssertion(handle, ctx, term)}
+}
+
+// NewVanishingConstraint constructs a new vanishing constraint
 func NewVanishingConstraint(handle string, ctx trace.Context, domain util.Option[int],
 	term LogicalTerm) Constraint {
 	//
@@ -72,6 +78,13 @@ func (p Constraint) Accepts(trace trace.Trace) (bit.Set, schema.Failure) {
 // expression on that first row is also undefined (and hence must pass)
 func (p Constraint) Bounds(module uint) util.Bounds {
 	return p.constraint.Bounds(module)
+}
+
+// Consistent applies a number of internal consistency checks.  Whilst not
+// strictly necessary, these can highlight otherwise hidden problems as an aid
+// to debugging.
+func (p Constraint) Consistent(schema schema.AnySchema) []error {
+	return p.constraint.Consistent(schema)
 }
 
 // Contexts returns the evaluation contexts (i.e. enclosing module + length

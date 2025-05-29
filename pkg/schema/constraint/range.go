@@ -30,6 +30,8 @@ import (
 type RangeFailure struct {
 	// Handle of the failing constraint
 	Handle string
+	// Enclosing context
+	Context trace.Context
 	// Constraint expression
 	Expr ir.Evaluable
 	// Range restriction
@@ -49,7 +51,8 @@ func (p *RangeFailure) String() string {
 }
 
 // RequiredCells identifies the cells required to evaluate the failing constraint at the failing row.
-func (p *RangeFailure) RequiredCells(module trace.Module) *set.AnySortedSet[trace.CellRef] {
+func (p *RangeFailure) RequiredCells(tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
+	module := tr.Module(p.Context.ModuleId)
 	return p.Expr.RequiredCells(int(p.Row), module)
 }
 
@@ -75,6 +78,13 @@ type RangeConstraint[E ir.Evaluable] struct {
 func NewRangeConstraint[E ir.Evaluable](handle string, context trace.Context,
 	expr E, bitwidth uint) RangeConstraint[E] {
 	return RangeConstraint[E]{handle, context, expr, bitwidth}
+}
+
+// Consistent applies a number of internal consistency checks.  Whilst not
+// strictly necessary, these can highlight otherwise hidden problems as an aid
+// to debugging.
+func (p RangeConstraint[E]) Consistent(schema schema.AnySchema) []error {
+	return checkConsistent(p.Context.ModuleId, schema, p.Expr)
 }
 
 // Name returns a unique name for a given constraint.  This is useful
@@ -131,15 +141,12 @@ func (p RangeConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
 		kth, err := p.Expr.EvalAt(k, module)
 		// Perform the range check
 		if err != nil {
-			return coverage, &schema.InternalFailure{
-				Handle: p.Handle,
-				Row:    uint(k),
-				Term:   p.Expr,
-				Error:  err.Error(),
+			return coverage, &InternalFailure{
+				p.Handle, p.Context, uint(k), p.Expr, err.Error(),
 			}
 		} else if kth.Cmp(&frBound) >= 0 {
 			// Evaluation failure
-			return coverage, &RangeFailure{handle, p.Expr, p.Bitwidth, uint(k)}
+			return coverage, &RangeFailure{handle, p.Context, p.Expr, p.Bitwidth, uint(k)}
 		}
 	}
 	// All good

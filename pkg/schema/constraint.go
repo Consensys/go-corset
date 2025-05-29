@@ -32,6 +32,10 @@ type Constraint interface {
 	// first row of any trace and, by association, any constraint evaluating
 	// this expression on that first row is also undefined (and hence must pass)
 	Bounds(module uint) util.Bounds
+	// Consistent applies a number of internal consistency checks.  Whilst not
+	// strictly necessary, these can highlight otherwise hidden problems as an aid
+	// to debugging.
+	Consistent(Schema[Constraint]) []error
 	// Contexts returns the evaluation contexts (i.e. enclosing module + length
 	// multiplier) for this constraint.  Most constraints have only a single
 	// evaluation context, though some (e.g. lookups) have more.  Note that all

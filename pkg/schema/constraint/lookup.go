@@ -30,6 +30,8 @@ import (
 type LookupFailure struct {
 	// Handle of the failing constraint
 	Handle string
+	// Relevant context for source expressions.
+	Context trace.Context
 	// Source expressions which were missing
 	Sources []ir.Evaluable
 	// Row on which the constraint failed
@@ -46,11 +48,12 @@ func (p *LookupFailure) String() string {
 }
 
 // RequiredCells identifies the cells required to evaluate the failing constraint at the failing row.
-func (p *LookupFailure) RequiredCells(tr trace.Module) *set.AnySortedSet[trace.CellRef] {
+func (p *LookupFailure) RequiredCells(tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
+	module := tr.Module(p.Context.ModuleId)
 	res := set.NewAnySortedSet[trace.CellRef]()
 	//
 	for _, e := range p.Sources {
-		res.InsertSorted(e.RequiredCells(int(p.Row), tr))
+		res.InsertSorted(e.RequiredCells(int(p.Row), module))
 	}
 	//
 	return res
@@ -95,6 +98,25 @@ func NewLookupConstraint[E ir.Evaluable](handle string, source trace.Context,
 	}
 
 	return LookupConstraint[E]{handle, source, target, sources, targets}
+}
+
+// Consistent applies a number of internal consistency checks.  Whilst not
+// strictly necessary, these can highlight otherwise hidden problems as an aid
+// to debugging.
+func (p LookupConstraint[E]) Consistent(schema schema.AnySchema) []error {
+	var (
+		srcErrors = checkConsistent[E](p.SourceContext.ModuleId, schema, p.Sources...)
+		dstErrors = checkConsistent[E](p.TargetContext.ModuleId, schema, p.Targets...)
+		errors    = append(srcErrors, dstErrors...)
+	)
+	// Check consistent register widths
+	if len(p.Sources) != len(p.Targets) {
+		err := fmt.Errorf("inconsistent number of source / target registers (%d vs %d)", len(p.Sources), len(p.Targets))
+		errors = append(errors, err)
+	}
+	// TODO: check lookup widths (using range analysis?)
+	// Done
+	return errors
 }
 
 // Name returns a unique name for a given constraint.  This is useful
@@ -155,7 +177,7 @@ func (p LookupConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
 	)
 	// Add all target columns to the set
 	for i := 0; i < int(tgtHeight); i++ {
-		ith_bytes, err := evalExprsAsBytes(i, p.Targets, p.Handle, tgtModule)
+		ith_bytes, err := evalExprsAsBytes(i, p.Targets, p.Handle, p.TargetContext, tgtModule)
 		// error check
 		if err != nil {
 			return coverage, err
@@ -165,7 +187,7 @@ func (p LookupConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
 	}
 	// Check all source columns are contained
 	for i := 0; i < int(srcHeight); i++ {
-		ith_bytes, err := evalExprsAsBytes(i, p.Sources, p.Handle, srcModule)
+		ith_bytes, err := evalExprsAsBytes(i, p.Sources, p.Handle, p.SourceContext, srcModule)
 		// error check
 		if err != nil {
 			return coverage, err
@@ -179,6 +201,7 @@ func (p LookupConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
 			// Construct failures
 			return coverage, &LookupFailure{
 				p.Handle,
+				p.SourceContext,
 				sources,
 				uint(i),
 			}
@@ -188,7 +211,8 @@ func (p LookupConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
 	return coverage, nil
 }
 
-func evalExprsAsBytes[E ir.Evaluable](k int, sources []E, handle string, module trace.Module) ([]byte, schema.Failure) {
+func evalExprsAsBytes[E ir.Evaluable](k int, sources []E, handle string, ctx trace.Context,
+	module trace.Module) ([]byte, schema.Failure) {
 	// Each fr.Element is 4 x 64bit words.
 	bytes := make([]byte, 32*len(sources))
 	// Slice provides an access window for writing
@@ -198,8 +222,8 @@ func evalExprsAsBytes[E ir.Evaluable](k int, sources []E, handle string, module 
 		ith, err := sources[i].EvalAt(k, module)
 		// error check
 		if err != nil {
-			return nil, &schema.InternalFailure{
-				Handle: handle, Row: uint(i), Term: sources[i], Error: err.Error(),
+			return nil, &InternalFailure{
+				handle, ctx, uint(i), sources[i], err.Error(),
 			}
 		}
 		// Copy over each element

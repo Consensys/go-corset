@@ -34,8 +34,9 @@ func Product[T Term[T]](exprs ...T) T {
 func (p *Mul[T]) Air() {}
 
 // ApplyShift implementation for Term interface.
-func (p *Mul[T]) ApplyShift(int) T {
-	panic("todo")
+func (p *Mul[T]) ApplyShift(shift int) T {
+	var term Term[T] = &Mul[T]{applyShiftOfTerms(p.Args, shift)}
+	return term.(T)
 }
 
 // Bounds implementation for Boundable interface.

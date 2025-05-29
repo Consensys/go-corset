@@ -42,16 +42,19 @@ type Expander[M any, C any] func(Schema[C], trace.Trace) trace.Trace
 // any acceptable trace.  Finally, assignments represent arbitrary computations
 // which "assign" values to registers during "trace expansion".
 type Schema[C any] interface {
-	// Assertions returns an iterator over the property assertions of this
-	// schema.  These are properties which should hold true for any valid trace
-	// (though, of course, may not hold true for an invalid trace).
-	Assertions() iter.Iterator[C]
+	// Assignments returns an iterator over the assignments of this schema.
+	// That is, the set of computations used to determine values for all
+	// computed columns.
+	Assignments() iter.Iterator[Assignment]
 	// Consistent applies a number of internal consistency checks.  Whilst not
 	// strictly necessary, these can highlight otherwise hidden problems as an aid
 	// to debugging.
-	Consistent() error
+	Consistent() []error
 	// Constraints returns an iterator over all constraints defined in this
-	// schema.
+	// schema.  Observe that this does include assertions which, strictly
+	// speaking, are not constraints in the true sense.  That is, they are never
+	// compiled into vanishing polynomials but, instead, are used purely for
+	// debugging.
 	Constraints() iter.Iterator[C]
 	// Access a given module in this schema.
 	Module(module uint) Module
@@ -60,4 +63,11 @@ type Schema[C any] interface {
 	Modules() iter.Iterator[Module]
 	// Returns the number of modules in this schema.
 	Width() uint
+}
+
+// Failure embodies structured information about a failing constraint.
+// This includes the constraint itself, along with the row
+type Failure interface {
+	// Provides a suitable error message
+	Message() string
 }

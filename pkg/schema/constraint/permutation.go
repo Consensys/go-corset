@@ -62,6 +62,14 @@ func NewPermutationConstraint(handle string, context trace.Context, targets []ui
 	return PermutationConstraint{handle, context, targets, sources}
 }
 
+// Consistent applies a number of internal consistency checks.  Whilst not
+// strictly necessary, these can highlight otherwise hidden problems as an aid
+// to debugging.
+func (p PermutationConstraint) Consistent(schema schema.AnySchema) []error {
+	// TODO: check column access, and widths, etc.
+	return nil
+}
+
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
 func (p PermutationConstraint) Name() string {

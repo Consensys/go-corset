@@ -17,21 +17,30 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 )
 
-// Assignment represents a schema element which declares one or more columns
-// whose values are "assigned" from the results of a computation.  An assignment
-// is a column group which, additionally, can provide information about the
-// computation (e.g. which columns it depends upon, etc).
+// Assignment represents an arbitrary computation which determines the values
+// for one (or more) computed registers.  For any computed register, there
+// should only ever be one assignment.  Likewise, every computed register should
+// have an associated assignment.  A good example of an assignment is computed
+// the multiplicative inverse of a column in order to implement a non-zero
+// check.
 type Assignment interface {
 	util.Boundable
-
 	// ComputeColumns computes the values of columns defined by this assignment.
 	// In order for this computation to makes sense, all columns on which this
 	// assignment depends must exist (e.g. are either inputs or have been
 	// computed already).  Computed columns do not exist in the original trace,
 	// but are added during trace expansion to form the final trace.
-	ComputeColumns(tr.Trace) ([]tr.ArrayColumn, error)
-
+	Compute(tr.Trace, Schema[Constraint]) ([]tr.ArrayColumn, error)
+	// Consistent applies a number of internal consistency checks.  Whilst not
+	// strictly necessary, these can highlight otherwise hidden problems as an aid
+	// to debugging.
+	Consistent(Schema[Constraint]) []error
 	// Returns the set of columns that this assignment depends upon.  That can
 	// include both input columns, as well as other computed columns.
 	Dependencies() []uint
+	// Module returns the enclosing register for all columns computed by this
+	// assignment.
+	Module() uint
+	// Identifier registers assigned by this assignment.
+	Registers() []uint
 }

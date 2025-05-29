@@ -22,13 +22,17 @@ import (
 // Module represents a "table" within a schema which contains zero or more rows
 // for a given set of registers.
 type Module interface {
-	// Assignments returns an iterator over the assignments of this schema.
+	// Assignments returns an iterator over the assignments of this module.
 	// These are the computations used to assign values to all computed columns
 	// in this module.
 	Assignments() iter.Iterator[Assignment]
 	// Constraints provides access to those constraints associated with this
 	// module.
 	Constraints() iter.Iterator[Constraint]
+	// Consistent applies a number of internal consistency checks.  Whilst not
+	// strictly necessary, these can highlight otherwise hidden problems as an aid
+	// to debugging.
+	Consistent(Schema[Constraint]) []error
 	// Module name
 	Name() string
 	// Access a given register in this module.
@@ -119,6 +123,23 @@ func (p Table[C]) Assignments() iter.Iterator[Assignment] {
 func (p Table[C]) Constraints() iter.Iterator[Constraint] {
 	arrIter := iter.NewArrayIterator(p.constraints)
 	return iter.NewCastIterator[C, Constraint](arrIter)
+}
+
+// Consistent applies a number of internal consistency checks.  Whilst not
+// strictly necessary, these can highlight otherwise hidden problems as an aid
+// to debugging.
+func (p Table[C]) Consistent(schema Schema[Constraint]) []error {
+	var errors []error
+	// Check constraints
+	for _, c := range p.constraints {
+		errors = append(errors, c.Consistent(schema)...)
+	}
+	// Check assignments
+	for _, a := range p.assignments {
+		errors = append(errors, a.Consistent(schema)...)
+	}
+	// Done
+	return errors
 }
 
 // Name returns the module name.

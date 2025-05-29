@@ -181,10 +181,7 @@ func checkTrace[C sc.Constraint](t *testing.T, inputs []trace.RawColumn, id trac
 			id.ir, id.test, id.line, id.padding, errs)
 	} else {
 		// Check Constraints
-		errs1 := sc.Accepts(false, 100, schema, tr)
-		// Check assertions
-		errs2 := sc.Asserts(true, 100, schema, tr)
-		errs := append(errs1, errs2...)
+		errs := sc.Accepts(false, 100, schema, tr)
 		// Determine whether trace accepted or not.
 		accepted := len(errs) == 0
 		// Process what happened versus what was supposed to happen.

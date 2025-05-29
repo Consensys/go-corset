@@ -33,19 +33,24 @@ func NewUniformSchema[M Module](modules []M) UniformSchema[M] {
 	return UniformSchema[M]{modules}
 }
 
-// Assertions returns an iterator over the property assertions of this
-// schema.  These are properties which should hold true for any valid trace
-// (though, of course, may not hold true for an invalid trace).
-func (p UniformSchema[M]) Assertions() iter.Iterator[Constraint] {
-	return iter.NewArrayIterator[Constraint](nil)
+// Assignments returns an iterator over the assignments of this schema
+// These are the computations used to assign values to all computed columns
+// in this schema.
+func (p UniformSchema[M]) Assignments() iter.Iterator[Assignment] {
+	return assignmentsOf(p.modules)
 }
 
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p UniformSchema[M]) Consistent() error {
-	// TODO: implement safety checks
-	return nil
+func (p UniformSchema[M]) Consistent() []error {
+	var errors []error
+	// Check modules
+	for _, m := range p.modules {
+		errors = append(errors, m.Consistent(p)...)
+	}
+	// Done
+	return errors
 }
 
 // Constraints returns an iterator over all constraints defined in this
@@ -74,6 +79,16 @@ func (p UniformSchema[M]) RawModules() []M {
 // Width returns the number of modules in this schema.
 func (p UniformSchema[M]) Width() uint {
 	return uint(len(p.modules))
+}
+
+// Extract an iterator over all the constraints in a given array using a
+// projecting iterator.
+func assignmentsOf[M Module](modules []M) iter.Iterator[Assignment] {
+	arrIter := iter.NewArrayIterator(modules)
+	//
+	return iter.NewFlattenIterator(arrIter, func(m M) iter.Iterator[Assignment] {
+		return m.Assignments()
+	})
 }
 
 // Extract an iterator over all the constraints in a given array using a

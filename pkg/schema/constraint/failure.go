@@ -10,29 +10,25 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package schema
+package constraint
 
 import (
+	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 )
-
-// Failure embodies structured information about a failing constraint.
-// This includes the constraint itself, along with the row
-type Failure interface {
-	// Provides a suitable error message
-	Message() string
-}
 
 // InternalFailure is a generic mechanism for reporting failures, particularly
 // as arising from evaluation of a given expression.
 type InternalFailure struct {
 	// Handle of the failing constraint
 	Handle string
+	// Module in which constraint failed.
+	Context trace.Context
 	// Row on which the constraint failed
 	Row uint
 	// Cells involved (if any)
-	Term any //Contextual
+	Term ir.Contextual
 	// Error message
 	Error string
 }
@@ -43,11 +39,11 @@ func (p *InternalFailure) Message() string {
 }
 
 // RequiredCells identifies the cells required to evaluate the failing constraint at the failing row.
-func (p *InternalFailure) RequiredCells(trace trace.Trace) *set.AnySortedSet[trace.CellRef] {
-	// if p.Term != nil {
-	// 	return p.Term.RequiredCells(int(p.Row), trace)
-	// }
-	// // Empty set
-	// return set.NewAnySortedSet[tr.CellRef]()
-	panic("todo")
+func (p *InternalFailure) RequiredCells(tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
+	if p.Term != nil {
+		module := tr.Module(p.Context.ModuleId)
+		return p.Term.RequiredCells(int(p.Row), module)
+	}
+	// Empty set
+	return set.NewAnySortedSet[trace.CellRef]()
 }

@@ -70,19 +70,31 @@ func NewMixedSchema[M1 Module, M2 Module](leftModules []M1, rightModules []M2) M
 	return MixedSchema[M1, M2]{leftModules, rightModules}
 }
 
-// Assertions returns an iterator over the property assertions of this
-// schema.  These are properties which should hold true for any valid trace
-// (though, of course, may not hold true for an invalid trace).
-func (p MixedSchema[M1, M2]) Assertions() iter.Iterator[Constraint] {
-	return iter.NewArrayIterator[Constraint](nil)
+// Assignments returns an iterator over the assignments of this schema
+// These are the computations used to assign values to all computed columns
+// in this schema.
+func (p MixedSchema[M1, M2]) Assignments() iter.Iterator[Assignment] {
+	leftIter := assignmentsOf(p.left)
+	rightIter := assignmentsOf(p.right)
+	//
+	return iter.NewAppendIterator(leftIter, rightIter)
 }
 
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p MixedSchema[M1, M2]) Consistent() error {
-	// TODO: implement safety checks
-	return nil
+func (p MixedSchema[M1, M2]) Consistent() []error {
+	var errors []error
+	// Check left
+	for _, m := range p.left {
+		errors = append(errors, m.Consistent(p)...)
+	}
+	// Check right
+	for _, m := range p.right {
+		errors = append(errors, m.Consistent(p)...)
+	}
+	// Done
+	return errors
 }
 
 // Constraints returns an iterator over all constraints defined in this

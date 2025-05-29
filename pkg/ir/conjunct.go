@@ -29,7 +29,8 @@ type Conjunct[T LogicalTerm[T]] struct {
 
 // Conjunction builds the logical conjunction (i.e. and) for a given set of constraints.
 func Conjunction[T LogicalTerm[T]](terms ...T) T {
-	panic("todo")
+	var term LogicalTerm[T] = &Conjunct[T]{terms}
+	return term.(T)
 }
 
 // Bounds implementation for Boundable interface.
@@ -57,7 +58,7 @@ func (p *Conjunct[T]) TestAt(k int, tr trace.Module) (bool, uint, error) {
 // Lisp returns a lisp representation of this equation, which is useful for
 // debugging.
 func (p *Conjunct[T]) Lisp(module schema.Module) sexp.SExp {
-	panic("todo")
+	return lispOfLogicalTerms(module, "∧", p.Args)
 }
 
 // RequiredRegisters implementation for Contextual interface.

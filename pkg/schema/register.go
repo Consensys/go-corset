@@ -28,7 +28,7 @@ const (
 	OUTPUT_REGISTER = uint8(1)
 	// COMPUTED_REGISTER signals a register whose values are computed from one
 	// (or more) assignments during trace expansion.
-	COMPUTED_REGISTER = uint8(1)
+	COMPUTED_REGISTER = uint8(2)
 )
 
 // Register represents a specific register in the schema that, eventually, will
@@ -85,6 +85,11 @@ func (p *Register) Bound() *big.Int {
 // IsInput determines whether or not this is an input register
 func (p *Register) IsInput() bool {
 	return p.Kind == INPUT_REGISTER
+}
+
+// IsInputOutput determines whether or not this is an input or output register
+func (p *Register) IsInputOutput() bool {
+	return p.IsInput() || p.IsOutput()
 }
 
 // IsOutput determines whether or not this is an output register

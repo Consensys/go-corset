@@ -35,7 +35,7 @@ var compileCmd = &cobra.Command{
 		output := GetString(cmd, "output")
 		defines := GetStringArray(cmd, "define")
 		// Parse constraints
-		binfile := getSchemaStack(cmd).BinaryFile()
+		binfile := getSchemaStack(cmd, args...).BinaryFile()
 		// Write metadata
 		if err := binfile.Header.SetMetaData(buildMetadata(defines)); err != nil {
 			fmt.Printf("error writing metadata: %s\n", err.Error())

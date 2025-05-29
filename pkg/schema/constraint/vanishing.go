@@ -30,6 +30,8 @@ type VanishingFailure struct {
 	Handle string
 	// Constraint expression
 	Constraint ir.Testable
+	// Module where constraint failed
+	Context trace.Context
 	// Row on which the constraint failed
 	Row uint
 }
@@ -41,7 +43,8 @@ func (p *VanishingFailure) Message() string {
 }
 
 // RequiredCells identifies the cells required to evaluate the failing constraint at the failing row.
-func (p *VanishingFailure) RequiredCells(module trace.Module) *set.AnySortedSet[trace.CellRef] {
+func (p *VanishingFailure) RequiredCells(tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
+	module := tr.Module(p.Context.ModuleId)
 	return p.Constraint.RequiredCells(int(p.Row), module)
 }
 
@@ -75,6 +78,13 @@ type VanishingConstraint[T ir.Testable] struct {
 func NewVanishingConstraint[T ir.Testable](handle string, context trace.Context,
 	domain util.Option[int], constraint T) VanishingConstraint[T] {
 	return VanishingConstraint[T]{handle, context, domain, constraint}
+}
+
+// Consistent applies a number of internal consistency checks.  Whilst not
+// strictly necessary, these can highlight otherwise hidden problems as an aid
+// to debugging.
+func (p VanishingConstraint[E]) Consistent(schema schema.AnySchema) []error {
+	return checkConsistent(p.Context.ModuleId, schema, p.Constraint)
 }
 
 // Name returns a unique name for a given constraint.  This is useful
@@ -139,7 +149,7 @@ func (p VanishingConstraint[T]) Accepts(tr trace.Trace) (bit.Set, schema.Failure
 	//
 	var coverage bit.Set
 	// Check specific row
-	err, id := HoldsLocally(start, handle, p.Constraint, module)
+	err, id := HoldsLocally(start, handle, p.Constraint, p.Context, module)
 	//
 	coverage.Insert(id)
 	//
@@ -162,7 +172,7 @@ func HoldsGlobally[T ir.Testable](handle string, ctx trace.Context, constraint T
 	if bounds.End < height {
 		// Check all in-bounds values
 		for k := bounds.Start; k < (height - bounds.End); k++ {
-			err, id := HoldsLocally(k, handle, constraint, module)
+			err, id := HoldsLocally(k, handle, constraint, ctx, module)
 			if err != nil {
 				return coverage, err
 			}
@@ -176,14 +186,16 @@ func HoldsGlobally[T ir.Testable](handle string, ctx trace.Context, constraint T
 
 // HoldsLocally checks whether a given constraint holds (e.g. vanishes) on a
 // specific row of a trace. If not, report an appropriate error.
-func HoldsLocally[T ir.Testable](k uint, handle string, constraint T, tr trace.Module) (schema.Failure, uint) {
+func HoldsLocally[T ir.Testable](k uint, handle string, constraint T, ctx trace.Context,
+	tr trace.Module) (schema.Failure, uint) {
+	//
 	ok, id, err := constraint.TestAt(int(k), tr)
 	// Check for errors
 	if err != nil {
-		return &schema.InternalFailure{Handle: handle, Row: k, Term: constraint, Error: err.Error()}, id
+		return &InternalFailure{handle, ctx, k, constraint, err.Error()}, id
 	} else if !ok {
 		// Evaluation failure
-		return &VanishingFailure{handle, constraint, k}, id
+		return &VanishingFailure{handle, constraint, ctx, k}, id
 	}
 	// Success
 	return nil, id
@@ -233,6 +245,8 @@ func (p VanishingConstraint[T]) Lisp(schema schema.AnySchema) sexp.SExp {
 	})
 }
 
-func determineHandle(handle string, ctx trace.Context, trace trace.Trace) string {
-	return fmt.Sprintf("%s.%s", trace.Module(ctx.ModuleId).Name(), handle)
+func determineHandle(handle string, ctx trace.Context, tr trace.Trace) string {
+	modName := tr.Module(ctx.ModuleId).Name()
+	//
+	return trace.QualifiedColumnName(modName, handle)
 }

@@ -13,9 +13,14 @@
 package air
 
 import (
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
+	"github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
 // Following types capture top-level abstractions at the AIR level.
@@ -42,21 +47,23 @@ type (
 		// Air marks terms which are valid for the AIR representation.
 		Air()
 	}
-	// LogicalTerm represents the fundamental for logical expressions in the AIR
-	// representation.
-	LogicalTerm interface {
-		ir.LogicalTerm[LogicalTerm]
-		// Air marks terms which are valid for the AIR representation.
-		Air()
-	}
 )
+
+type (
+	// SchemaBuilder is used for building the AIR schemas
+	SchemaBuilder = ir.SchemaBuilder[Constraint, Term]
+	// ModuleBuilder is used for building various AIR modules.
+	ModuleBuilder = ir.ModuleBuilder[Constraint, Term]
+)
+
+var _ schema.Module = &ModuleBuilder{}
 
 // Following types capture permitted constraint forms at the AIR level.
 type (
 	// Assertion captures the notion of an arbitrary property which should hold for
 	// all acceptable traces.  However, such a property is not enforced by the
 	// prover.
-	Assertion = *constraint.Assertion[ir.Testable]
+	Assertion = Air[constraint.Assertion]
 	// LookupConstraint captures the essence of a lookup constraint at the AIR
 	// level.  At the AIR level, lookup constraints are only permitted between
 	// columns (i.e. not arbitrary expressions).
@@ -87,13 +94,42 @@ type (
 	Sub = ir.Sub[Term]
 )
 
-// Following types capture permitted logical forms at the AIR level.
-type (
-	// Conjunct represents a logical conjunction at the AIR level.
-	Conjunct = ir.Conjunct[LogicalTerm]
-	// Disjunct represents a logical conjunction at the AIR level.
-	Disjunct = ir.Disjunct[LogicalTerm]
-	// Equal captures the notion of an equality at the AIR level which,
-	// practically speaking, reduces to a subtraction.
-	Equal = ir.Equal[Term]
-)
+var zero fr.Element = fr.NewElement(0)
+
+// LogicalTerm provides a wrapper around a given term allowing to be "testable".
+// That is, it provides a default TestAt implementation.
+type LogicalTerm struct {
+	Term Term
+}
+
+// Bounds implementation for Boundable interface.
+func (p LogicalTerm) Bounds() util.Bounds {
+	return p.Term.Bounds()
+}
+
+// TestAt implementation for Testable interface.
+func (p LogicalTerm) TestAt(k int, tr trace.Module) (bool, uint, error) {
+	var val, err = p.Term.EvalAt(k, tr)
+	//
+	if err != nil {
+		return false, 0, err
+	}
+	//
+	return val.Cmp(&zero) == 0, 0, nil
+}
+
+// Lisp returns a lisp representation of this NotEqual, which is useful for
+// debugging.
+func (p LogicalTerm) Lisp(module schema.Module) sexp.SExp {
+	return p.Term.Lisp(module)
+}
+
+// RequiredRegisters implementation for Contextual interface.
+func (p LogicalTerm) RequiredRegisters() *set.SortedSet[uint] {
+	return p.Term.RequiredRegisters()
+}
+
+// RequiredCells implementation for Contextual interface
+func (p LogicalTerm) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
+	return p.Term.RequiredCells(row, tr)
+}

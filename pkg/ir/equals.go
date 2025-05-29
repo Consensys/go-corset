@@ -40,9 +40,6 @@ type Equal[T Term[T]] struct {
 	Rhs Term[T]
 }
 
-// Air indicates this term can be used at the AIR level.
-func (p *Equal[T]) Air() {}
-
 // Bounds implementation for Boundable interface.
 func (p *Equal[T]) Bounds() util.Bounds {
 	l := p.Lhs.Bounds()
@@ -83,12 +80,18 @@ func (p *Equal[T]) Lisp(module schema.Module) sexp.SExp {
 
 // RequiredRegisters implementation for Contextual interface.
 func (p *Equal[T]) RequiredRegisters() *set.SortedSet[uint] {
-	panic("todo")
+	set := p.Lhs.RequiredRegisters()
+	set.InsertSorted(p.Rhs.RequiredRegisters())
+	//
+	return set
 }
 
 // RequiredCells implementation for Contextual interface
 func (p *Equal[T]) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
-	panic("todo")
+	set := p.Lhs.RequiredCells(row, tr)
+	set.InsertSorted(p.Rhs.RequiredCells(row, tr))
+	//
+	return set
 }
 
 // Simplify this Equal as much as reasonably possible.

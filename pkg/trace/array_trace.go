@@ -40,6 +40,11 @@ func (p *ArrayTrace) Module(module uint) Module {
 	return p.modules[module]
 }
 
+// RawModule returns a specific module in this trace.
+func (p *ArrayTrace) RawModule(module uint) *ArrayModule {
+	return &p.modules[module]
+}
+
 // Modules returns an iterator over the modules in this trace.
 func (p *ArrayTrace) Modules() iter.Iterator[Module] {
 	arr := iter.NewArrayIterator(p.modules)
@@ -83,13 +88,20 @@ type ArrayModule struct {
 // NewArrayModule constructs a module with the given name and an (as yet)
 // unspecified height.
 func NewArrayModule(name string, columns []ArrayColumn) ArrayModule {
-	var height uint = math.MaxUint
+	var (
+		height uint = 0
+		first       = true
+	)
+
 	//
-	for i, c := range columns {
-		if i == 0 {
+	for _, c := range columns {
+		if first && c.data != nil {
 			height = c.Height()
-		} else if height != c.Height() {
-			panic("invalid column height")
+			first = false
+		} else if c.data != nil && height != c.Height() {
+			// NOTE: we ignore nil columns and assume they are computed columns
+			// which are yet to be filled.
+			panic(fmt.Sprintf("invalid column height (have %d, expected %d)", c.Height(), height))
 		}
 	}
 	//
@@ -117,6 +129,29 @@ func (p ArrayModule) Width() uint {
 	return uint(len(p.columns))
 }
 
+// FillColumn sets the data and padding for the given column.  This will panic
+// if the data is already set.
+func (p *ArrayModule) FillColumn(cid uint, data field.FrArray, padding fr.Element) {
+	// Find column to fill
+	col := &p.columns[cid]
+	// Determine appropriate length multiplier
+	multiplier := col.context.Multiplier
+	// Sanity check this column has not already been filled.
+	if data.Len()%multiplier != 0 {
+		colname := QualifiedColumnName(p.name, col.name)
+		panic(fmt.Sprintf("column %s has invalid length multiplier (%d indivisible by %d)",
+			colname, data.Len(), multiplier))
+	} else if p.height == math.MaxUint {
+		// Initialise column height
+		p.height = data.Len() / col.context.Multiplier
+	} else if data.Len() != p.Height() {
+		colname := QualifiedColumnName(p.name, col.name)
+		panic(fmt.Sprintf("column %s has invalid height (%d but expected %d)", colname, data.Len(), p.height*multiplier))
+	}
+	// Fill the column
+	col.fill(data, padding)
+}
+
 // Pad prepends (front) and appends (back) all columns in this module with a
 // given number of padding rows.
 func (p *ArrayModule) Pad(front uint, back uint) {
@@ -141,11 +176,15 @@ type ArrayColumn struct {
 	padding fr.Element
 }
 
-// NewArrayColumn constructs a  with the give name, data and padding.
+// NewArrayColumn constructs a with the give name, data and padding.  The given
+// data is permitted to be nil, and this is used to signal a computed column.
 func NewArrayColumn(context Context, name string, data field.FrArray,
 	padding fr.Element) ArrayColumn {
 	col := EmptyArrayColumn(context, name)
-	col.fill(data, padding)
+	// Data is permitted to be nil for computed columns.
+	if data != nil {
+		col.fill(data, padding)
+	}
 	//
 	return col
 }

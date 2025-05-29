@@ -45,6 +45,17 @@ func lispOfTerms[T Term[T]](module schema.Module, op string, exprs []T) sexp.SEx
 	return sexp.NewList(arr)
 }
 
+func lispOfLogicalTerms[T LogicalTerm[T]](module schema.Module, op string, exprs []T) sexp.SExp {
+	arr := make([]sexp.SExp, 1+len(exprs))
+	arr[0] = sexp.NewSymbol(op)
+	// Translate arguments
+	for i, e := range exprs {
+		arr[i+1] = e.Lisp(module)
+	}
+	// Done
+	return sexp.NewList(arr)
+}
+
 func requiredRegistersOfTerms[T Contextual](args []T) *set.SortedSet[uint] {
 	return set.UnionSortedSets(args, func(term T) *set.SortedSet[uint] {
 		return term.RequiredRegisters()
@@ -68,4 +79,14 @@ func shiftRangeOfTerms[T Term[T]](terms []T) (int, int) {
 	}
 	//
 	return minShift, maxShift
+}
+
+func applyShiftOfTerms[T Term[T]](terms []T, shift int) []T {
+	nterms := make([]T, len(terms))
+	//
+	for i := range terms {
+		nterms[i] = terms[i].ApplyShift(shift)
+	}
+	//
+	return nterms
 }

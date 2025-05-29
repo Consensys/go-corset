@@ -32,7 +32,8 @@ import (
 type ConstraintBound interface {
 	schema.Constraint
 
-	constraint.LookupConstraint[*ir.RegisterAccess[Term]] |
+	constraint.Assertion |
+		constraint.LookupConstraint[*ir.RegisterAccess[Term]] |
 		constraint.PermutationConstraint |
 		constraint.RangeConstraint[*ir.RegisterAccess[Term]] |
 		constraint.VanishingConstraint[LogicalTerm]
@@ -52,9 +53,28 @@ func newAir[C ConstraintBound](constraint C) Air[C] {
 	return Air[C]{constraint}
 }
 
+// NewAssertion constructs a new AIR assertion
+func NewAssertion(handle string, ctx trace.Context, term ir.Testable) Assertion {
+	//
+	return newAir(constraint.NewAssertion(handle, ctx, term))
+}
+
+// NewLookupConstraint constructs a new AIR lookup constraint
+func NewLookupConstraint(handle string, source trace.Context,
+	target trace.Context, sources []*ColumnAccess, targets []*ColumnAccess) LookupConstraint {
+	return newAir(constraint.NewLookupConstraint(handle, source, target, sources, targets))
+}
+
+// NewRangeConstraint constructs a new AIR range constraint
+func NewRangeConstraint(handle string, ctx trace.Context, expr ColumnAccess, bitwidth uint) RangeConstraint {
+	return newAir(constraint.NewRangeConstraint(handle, ctx, &expr, bitwidth))
+}
+
 // NewVanishingConstraint constructs a new AIR vanishing constraint
-func NewVanishingConstraint(handle string, ctx trace.Context, domain util.Option[int], term LogicalTerm) VanishingConstraint {
-	return newAir(constraint.NewVanishingConstraint(handle, ctx, domain, term))
+func NewVanishingConstraint(handle string, ctx trace.Context, domain util.Option[int],
+	term Term) VanishingConstraint {
+	//
+	return newAir(constraint.NewVanishingConstraint(handle, ctx, domain, LogicalTerm{term}))
 }
 
 // Air marks the constraint as being valid for the AIR representation.
@@ -76,6 +96,13 @@ func (p Air[C]) Accepts(trace trace.Trace) (bit.Set, schema.Failure) {
 // expression on that first row is also undefined (and hence must pass)
 func (p Air[C]) Bounds(module uint) util.Bounds {
 	return p.constraint.Bounds(module)
+}
+
+// Consistent applies a number of internal consistency checks.  Whilst not
+// strictly necessary, these can highlight otherwise hidden problems as an aid
+// to debugging.
+func (p Air[C]) Consistent(schema schema.AnySchema) []error {
+	return p.constraint.Consistent(schema)
 }
 
 // Contexts returns the evaluation contexts (i.e. enclosing module + length

@@ -46,7 +46,7 @@ type (
 	// Assertion captures the notion of an arbitrary property which should hold for
 	// all acceptable traces.  However, such a property is not enforced by the
 	// prover.
-	Assertion = constraint.Assertion[LogicalTerm]
+	Assertion = constraint.Assertion
 	// LookupConstraint captures the essence of a lookup constraint at the MIR
 	// level.
 	LookupConstraint = constraint.LookupConstraint[Term]
@@ -73,7 +73,7 @@ type (
 	// Constant represents a constant value within an expression.
 	Constant = ir.Constant[Term]
 	// IfZero represents a conditional branch at the MIR level.
-	IfZero = ir.IfZero[Term]
+	IfZero = ir.IfZero[LogicalTerm, Term]
 	// LabelledConst represents a labelled constant at the MIR level.
 	LabelledConst = ir.LabelledConst[Term]
 	// RegisterAccess represents reading the value held at a given column in the
@@ -100,6 +100,11 @@ type (
 	// Equal represents an equality comparator between two arithmetic terms
 	// at the MIR level.
 	Equal = ir.Equal[Term]
+	// Ite represents an If-Then-Else expression where either branch is optional
+	// (though we must have at least one).
+	Ite = ir.Ite[LogicalTerm]
+	// Negate represents a logical negation at the MIR level.
+	Negate = ir.Negate[LogicalTerm]
 	// NotEqual represents a non-equality comparator between two arithmetic terms
 	// at the MIR level.
 	NotEqual = ir.NotEqual[Term]

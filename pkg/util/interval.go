@@ -58,6 +58,7 @@ func (p *Interval) MaxValue() big.Int {
 func (p *Interval) BitWidth() uint {
 	// If range includes a negative number, then bitwidth is maximum possible.
 	if p.min.Cmp(big.NewInt(0)) < 0 {
+		// FIXME: this is not compatible with field agnosticity.
 		return 256
 	}
 	//
