@@ -13,28 +13,53 @@
 package ir
 
 import (
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
 // Disjunct erpresents the logical OR of zero or more terms.  Observe that if
 // there are no terms, then this is equivalent to logical falsehood.
 type Disjunct[T LogicalTerm[T]] struct {
-	disjuncts []T
+	Args []T
+}
+
+// Bounds implementation for Boundable interface.
+func (p *Disjunct[T]) Bounds() util.Bounds {
+	return util.BoundsForArray(p.Args)
 }
 
 // TestAt implementation for Testable interface.
-func (p *Disjunct[T]) TestAt(k int, tr trace.Module) (bool, error) {
+func (p *Disjunct[T]) TestAt(k int, tr trace.Module) (bool, uint, error) {
 	//
-	for _, disjunct := range p.disjuncts {
+	for _, disjunct := range p.Args {
 		val, _, err := disjunct.TestAt(k, tr)
 		//
 		if err != nil {
-			return val, err
+			return val, 0, err
 		} else if val {
 			// Success
-			return val, nil
+			return val, 0, nil
 		}
 	}
 	// Failure
-	return false, nil
+	return false, 0, nil
+}
+
+// Lisp returns a lisp representation of this equation, which is useful for
+// debugging.
+func (p *Disjunct[T]) Lisp(module schema.Module) sexp.SExp {
+	panic("todo")
+}
+
+// RequiredRegisters implementation for Contextual interface.
+func (p *Disjunct[T]) RequiredRegisters() *set.SortedSet[uint] {
+	return requiredRegistersOfTerms(p.Args)
+}
+
+// RequiredCells implementation for Contextual interface
+func (p *Disjunct[T]) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
+	return requiredCellsOfTerms(p.Args, row, tr)
 }

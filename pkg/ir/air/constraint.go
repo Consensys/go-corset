@@ -62,20 +62,26 @@ type Air[C ConstraintBound] struct {
 	constraint C
 }
 
-// NewConstraint constructs a new Air constraint.
-func NewConstraint[C ConstraintBound](constraint C) Air[C] {
+// newAir is a helper method for the various constraint constructors, basically
+// to avoid lots of generic types.
+func newAir[C ConstraintBound](constraint C) Air[C] {
 	return Air[C]{constraint}
 }
 
+// NewVanishingConstraint constructs a new AIR vanishing constraint
+func NewVanishingConstraint(handle string, ctx trace.Context, domain util.Option[int], term Expr) VanishingConstraint {
+	return newAir(constraint.NewVanishingConstraint(handle, ctx, domain, term))
+}
+
 // Air marks the constraint as being valid for the AIR representation.
-func (p *Air[C]) Air() {
+func (p Air[C]) Air() {
 	// nothing as just a marker.
 }
 
 // Accepts determines whether a given constraint accepts a given trace or
 // not.  If not, a failure is produced.  Otherwise, a bitset indicating
 // branch coverage is returned.
-func (p *Air[C]) Accepts(trace trace.Trace) (bit.Set, schema.Failure) {
+func (p Air[C]) Accepts(trace trace.Trace) (bit.Set, schema.Failure) {
 	return p.constraint.Accepts(trace)
 }
 
@@ -84,7 +90,7 @@ func (p *Air[C]) Accepts(trace trace.Trace) (bit.Set, schema.Failure) {
 // expression such as "(shift X -1)".  This is technically undefined for the
 // first row of any trace and, by association, any constraint evaluating this
 // expression on that first row is also undefined (and hence must pass)
-func (p *Air[C]) Bounds(module uint) util.Bounds {
+func (p Air[C]) Bounds(module uint) util.Bounds {
 	return p.constraint.Bounds(module)
 }
 
@@ -93,13 +99,13 @@ func (p *Air[C]) Bounds(module uint) util.Bounds {
 // evaluation context, though some (e.g. lookups) have more.  Note that all
 // constraints have at least one context (which we can call the "primary"
 // context).
-func (p *Air[C]) Contexts() []trace.Context {
+func (p Air[C]) Contexts() []trace.Context {
 	return p.constraint.Contexts()
 }
 
 // Name returns a unique name and case number for a given constraint.  This
 // is useful purely for identifying constraints in reports, etc.
-func (p *Air[C]) Name() string {
+func (p Air[C]) Name() string {
 	return p.constraint.Name()
 }
 
@@ -119,12 +125,3 @@ func (p Air[C]) Lisp(schema schema.AnySchema) sexp.SExp {
 // all acceptable traces.  However, such a property is not enforced by the
 // prover.
 type Assertion = *constraint.Assertion[ir.Testable]
-
-var _ schema.Constraint = &LookupConstraint{}
-var _ schema.Constraint = &VanishingConstraint{}
-var _ schema.Constraint = &RangeConstraint{}
-var _ schema.Constraint = &PermutationConstraint{}
-var _ Constraint = &LookupConstraint{}
-var _ Constraint = &VanishingConstraint{}
-var _ Constraint = &RangeConstraint{}
-var _ Constraint = &PermutationConstraint{}

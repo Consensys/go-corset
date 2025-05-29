@@ -24,36 +24,38 @@ type Term interface {
 	ir.Term[Term]
 }
 
-// Expr captures the notion of an expression" at the MIR level.  This is really
-// just for convenience more than anything.
-type Expr = ir.Expr[Term]
+type (
+	// Expr captures the notion of an expression" at the MIR level.  This is really
+	// just for convenience more than anything.
+	Expr = ir.Expr[Term]
+)
 
-// Add represents the addition of zero or more expressions.
-type Add = ir.Add[Term]
-
-// Cast attempts to narrow the width a given expression.
-type Cast = ir.Cast[Term]
-
-// Constant represents a constant value within an expression.
-type Constant = ir.Constant[Term]
-
-// RegisterAccess represents reading the value held at a given column in the
-// tabular context.  Furthermore, the current row maybe shifted up (or down) by
-// a given amount.
-type RegisterAccess = ir.RegisterAccess[Term]
-
-// Exp represents the a given value taken to a power.
-type Exp = ir.Exp[Term]
-
-// Mul represents the product over zero or more expressions.
-type Mul = ir.Mul[Term]
-
-// Norm reduces the value of an expression to either zero (if it was zero)
-// or one (otherwise).
-type Norm = ir.Norm[Term]
-
-// Sub represents the subtraction over zero or more expressions.
-type Sub = ir.Sub[Term]
+// Following types capture permitted expression forms at the MIR level.
+type (
+	// Add represents the addition of zero or more expressions.
+	Add = ir.Add[Term]
+	// Cast attempts to narrow the width a given expression.
+	Cast = ir.Cast[Term]
+	// Constant represents a constant value within an expression.
+	Constant = ir.Constant[Term]
+	// IfZero represents a conditional branch at the MIR level.
+	IfZero = ir.IfZero[Term]
+	// LabelledConst represents a labelled constant at the MIR level.
+	LabelledConst = ir.LabelledConst[Term]
+	// RegisterAccess represents reading the value held at a given column in the
+	// tabular context.  Furthermore, the current row maybe shifted up (or down) by
+	// a given amount.
+	RegisterAccess = ir.RegisterAccess[Term]
+	// Exp represents the a given value taken to a power.
+	Exp = ir.Exp[Term]
+	// Mul represents the product over zero or more expressions.
+	Mul = ir.Mul[Term]
+	// Norm reduces the value of an expression to either zero (if it was zero)
+	// or one (otherwise).
+	Norm = ir.Norm[Term]
+	// Sub represents the subtraction over zero or more expressions.
+	Sub = ir.Sub[Term]
+)
 
 // VOID represents the empty expression.
 var VOID Expr

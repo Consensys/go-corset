@@ -22,24 +22,24 @@ import (
 
 // LookupConstraint captures the essence of a lookup constraint at the MIR
 // level.
-type LookupConstraint = *constraint.LookupConstraint[Expr]
+type LookupConstraint = constraint.LookupConstraint[Expr]
 
 // VanishingConstraint captures the essence of a vanishing constraint at the MIR
 // level. A vanishing constraint is a row constraint which must evaluate to
 // zero.
-type VanishingConstraint = *constraint.VanishingConstraint[Logical]
+type VanishingConstraint = constraint.VanishingConstraint[Logical]
 
 // RangeConstraint captures the essence of a range constraints at the MIR level.
-type RangeConstraint = *constraint.RangeConstraint[Expr]
+type RangeConstraint = constraint.RangeConstraint[Expr]
 
 // SortedConstraint captures the essence of a sorted constraint at the MIR
 // level.
-type SortedConstraint = *constraint.SortedConstraint[Expr]
+type SortedConstraint = constraint.SortedConstraint[Expr]
 
 // Assertion captures the notion of an arbitrary property which should hold for
 // all acceptable traces.  However, such a property is not enforced by the
 // prover.
-type Assertion = *constraint.Assertion[Logical]
+type Assertion = constraint.Assertion[Logical]
 
 // Constraint captures the notion of an arithmetic constraint at the MIR level.
 type Constraint = schema.Constraint

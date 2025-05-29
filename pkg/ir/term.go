@@ -54,26 +54,6 @@ type Evaluable interface {
 	Lisp(schema.Module) sexp.SExp
 }
 
-// Testable captures the notion of a constraint which can be tested on a given
-// row of a given trace.  It is very similar to Evaluable, except that it only
-// indicates success or failure.  The reason for using this interface over
-// Evaluable is that, for historical reasons, constraints at the HIR cannot be
-// Evaluable (i.e. because they return multiple values, rather than a single
-// value).  However, constraints at the HIR level remain testable.
-type Testable interface {
-	util.Boundable
-	Contextual
-	// TestAt evaluates this expression in a given tabular context and checks it
-	// against zero. Observe that if this expression is *undefined* within this
-	// context then it returns "nil".  An expression can be undefined for
-	// several reasons: firstly, if it accesses a row which does not exist (e.g.
-	// at index -1); secondly, if it accesses a register which does not exist.
-	TestAt(int, trace.Module) (bool, uint, error)
-	// Lisp converts this schema element into a simple S-Expression, for example
-	// so it can be printed.
-	Lisp(schema.Module) sexp.SExp
-}
-
 // Term represents a component of an AIR expression.
 type Term[T any] interface {
 	Contextual
@@ -99,6 +79,26 @@ type Term[T any] interface {
 	// For terms accessing registers, this is determined by the declared width of
 	// the register.
 	ValueRange(module schema.Module) *util.Interval
+}
+
+// Testable captures the notion of a constraint which can be tested on a given
+// row of a given trace.  It is very similar to Evaluable, except that it only
+// indicates success or failure.  The reason for using this interface over
+// Evaluable is that, for historical reasons, constraints at the HIR cannot be
+// Evaluable (i.e. because they return multiple values, rather than a single
+// value).  However, constraints at the HIR level remain testable.
+type Testable interface {
+	util.Boundable
+	Contextual
+	// TestAt evaluates this expression in a given tabular context and checks it
+	// against zero. Observe that if this expression is *undefined* within this
+	// context then it returns "nil".  An expression can be undefined for
+	// several reasons: firstly, if it accesses a row which does not exist (e.g.
+	// at index -1); secondly, if it accesses a register which does not exist.
+	TestAt(int, trace.Module) (bool, uint, error)
+	// Lisp converts this schema element into a simple S-Expression, for example
+	// so it can be printed.
+	Lisp(schema.Module) sexp.SExp
 }
 
 // LogicalTerm represents a term which can be tested for truth or falsehood.

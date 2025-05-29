@@ -28,6 +28,16 @@ type LogicalTerm interface {
 // is really just for convenience more than anything.
 type Logical = ir.Logical[LogicalTerm]
 
+// Conjunct represents a logical conjunction at the MIR level.
+type Conjunct = ir.Conjunct[LogicalTerm]
+
+// Disjunct represents a logical conjunction at the MIR level.
+type Disjunct = ir.Disjunct[LogicalTerm]
+
+// Equation captures the types of equalities and inequalities permitted at the
+// MIR level.
+type Equation = ir.Equation[Term]
+
 // BOTTOM represents the empty or unused logical expression.
 var BOTTOM Logical
 

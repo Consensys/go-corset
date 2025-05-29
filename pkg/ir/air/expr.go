@@ -30,19 +30,18 @@ type Term interface {
 	Air()
 }
 
-// Add represents the addition of zero or more AIR expressions.
-type Add = ir.Add[Term]
-
-// Constant represents a constant value within AIR an expression.
-type Constant = ir.Constant[Term]
-
-// ColumnAccess represents reading the value held at a given column in the
-// tabular context.  Furthermore, the current row maybe shifted up (or down) by
-// a given amount.
-type ColumnAccess = ir.RegisterAccess[Term]
-
-// Mul represents the product over zero or more expressions.
-type Mul = ir.Mul[Term]
-
-// Sub represents the subtraction over zero or more expressions.
-type Sub = ir.Sub[Term]
+// Following types capture permitted expression forms at the AIR level.
+type (
+	// Add represents the addition of zero or more AIR expressio
+	Add = ir.Add[Term]
+	// Constant represents a constant value within AIR an expression.
+	Constant = ir.Constant[Term]
+	// ColumnAccess represents reading the value held at a given column in the
+	// tabular context.  Furthermore, the current row maybe shifted up (or down) by
+	// a given amount.
+	ColumnAccess = ir.RegisterAccess[Term]
+	// Mul represents the product over zero or more expressions.
+	Mul = ir.Mul[Term]
+	// Sub represents the subtraction over zero or more expressions.
+	Sub = ir.Sub[Term]
+)

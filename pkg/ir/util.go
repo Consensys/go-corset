@@ -45,13 +45,13 @@ func lispOfTerms[T Term[T]](module schema.Module, op string, exprs []T) sexp.SEx
 	return sexp.NewList(arr)
 }
 
-func requiredRegistersOfTerms[T Term[T]](args []T) *set.SortedSet[uint] {
+func requiredRegistersOfTerms[T Contextual](args []T) *set.SortedSet[uint] {
 	return set.UnionSortedSets(args, func(term T) *set.SortedSet[uint] {
 		return term.RequiredRegisters()
 	})
 }
 
-func requiredCellsOfTerms[T Term[T]](args []T, row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
+func requiredCellsOfTerms[T Contextual](args []T, row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
 	return set.UnionAnySortedSets(args, func(term T) *set.AnySortedSet[trace.CellRef] {
 		return term.RequiredCells(row, tr)
 	})

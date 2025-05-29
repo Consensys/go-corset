@@ -89,18 +89,21 @@ func Normalise[T Term[T]](arg Expr[T]) Expr[T] {
 
 // Product returns the product of zero or more multiplications.
 func Product[T Term[T]](exprs ...Expr[T]) Expr[T] {
-	panic("todo")
+	var term Term[T] = &Mul[T]{asTerms(exprs...)}
+	return Expr[T]{term.(T)}
 }
 
 // Subtract returns the subtraction of the subsequent expressions from the
 // first.
 func Subtract[T Term[T]](exprs ...Expr[T]) Expr[T] {
-	panic("todo")
+	var term Term[T] = &Sub[T]{asTerms(exprs...)}
+	return Expr[T]{term.(T)}
 }
 
 // Sum zero or more expressions together.
 func Sum[T Term[T]](exprs ...Expr[T]) Expr[T] {
-	panic("todo")
+	var term Term[T] = &Add[T]{asTerms(exprs...)}
+	return Expr[T]{term.(T)}
 }
 
 // ============================================================================
@@ -165,4 +168,14 @@ func (e Expr[T]) TestAt(k int, tr trace.Module) (bool, uint, error) {
 	val, err := e.Term.EvalAt(k, tr)
 	//
 	return val.IsZero(), 0, err
+}
+
+func asTerms[T Term[T]](exprs ...Expr[T]) []T {
+	terms := make([]T, len(exprs))
+	//
+	for i, e := range exprs {
+		terms[i] = e.Term
+	}
+	//
+	return terms
 }

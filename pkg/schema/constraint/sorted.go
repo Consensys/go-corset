@@ -70,7 +70,7 @@ func NewSortedConstraint[E ir.Evaluable](handle string, context trace.Context, b
 
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
-func (p *SortedConstraint[E]) Name() string {
+func (p SortedConstraint[E]) Name() string {
 	return p.Handle
 }
 
@@ -79,7 +79,7 @@ func (p *SortedConstraint[E]) Name() string {
 // evaluation context, though some (e.g. lookups) have more.  Note that all
 // constraints have at least one context (which we can call the "primary"
 // context).
-func (p *SortedConstraint[E]) Contexts() []trace.Context {
+func (p SortedConstraint[E]) Contexts() []trace.Context {
 	return []trace.Context{p.Context}
 }
 
@@ -88,7 +88,7 @@ func (p *SortedConstraint[E]) Contexts() []trace.Context {
 // expression such as "(shift X -1)".  This is technically undefined for the
 // first row of any trace and, by association, any constraint evaluating this
 // expression on that first row is also undefined (and hence must pass).
-func (p *SortedConstraint[E]) Bounds(module uint) util.Bounds {
+func (p SortedConstraint[E]) Bounds(module uint) util.Bounds {
 	var bound util.Bounds
 	//
 	if module == p.Context.Module() {
@@ -103,7 +103,7 @@ func (p *SortedConstraint[E]) Bounds(module uint) util.Bounds {
 
 // Accepts checks whether a Sorted holds between the source and
 // target columns.
-func (p *SortedConstraint[E]) Accepts(trace trace.Trace) (bit.Set, schema.Failure) {
+func (p SortedConstraint[E]) Accepts(trace trace.Trace) (bit.Set, schema.Failure) {
 	var (
 		coverage bit.Set
 		// Determine enclosing module
@@ -145,7 +145,7 @@ func (p *SortedConstraint[E]) Accepts(trace trace.Trace) (bit.Set, schema.Failur
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (p *SortedConstraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
+func (p SortedConstraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
 	var (
 		module  = schema.Module(p.Context.ModuleId)
 		kind    = "sorted"
@@ -186,7 +186,7 @@ func (p *SortedConstraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
 	}
 }
 
-func (p *SortedConstraint[E]) deltaBound() fr.Element {
+func (p SortedConstraint[E]) deltaBound() fr.Element {
 	var (
 		two   fr.Element = fr.NewElement(2)
 		bound fr.Element
