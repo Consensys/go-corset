@@ -151,8 +151,8 @@ func (p *AirLowering) lowerConstraintToAir(c Constraint, airModule *air.Module) 
 		p.lowerVanishingConstraintToAir(v, airModule)
 	} else if v, ok := c.constraint.(RangeConstraint); ok {
 		p.lowerRangeConstraintToAir(v, airModule)
-	} else if _, ok := c.constraint.(SortedConstraint); ok {
-		//lowerSortedConstraintToAir(v, mirSchema, airSchema, cfg)
+	} else if v, ok := c.constraint.(SortedConstraint); ok {
+		p.lowerSortedConstraintToAir(v, airModule)
 	} else {
 		// Should be unreachable as no other constraint types can be added to a
 		// schema.
@@ -192,32 +192,25 @@ func (p *AirLowering) lowerVanishingConstraintToAir(v VanishingConstraint, airMo
 // value of that expression, along with appropriate constraints to enforce the
 // expected value.
 func (p *AirLowering) lowerRangeConstraintToAir(v RangeConstraint, airModule *air.Module) {
-	// bitwidth := rangeOfTerm(v.Expr.term, mirSchema).BitWidth()
-	// // Lower target expression
-	// target := lowerExprTo(v.Context, v.Expr, mirSchema, airSchema, cfg)
-	// // Expand target expression (if necessary)
-	// column := air_gadgets.Expand(v.Context, bitwidth, target, airSchema)
-	// // Yes, a constraint is implied.  Now, decide whether to use a range
-	// // constraint or just a vanishing constraint.
-	// if v.BoundedAtMost(2) {
-	// 	// u1 => use vanishing constraint X * (X - 1)
-	// 	air_gadgets.ApplyBinaryGadget(column, airSchema)
-	// } else if v.BoundedAtMost(cfg.MaxRangeConstraint) {
-	// 	// u2..n use range constraints
-	// 	airSchema.AddRangeConstraint(column, v.Case, v.Bound)
-	// } else {
-	// 	// remainder use horizontal byte decompositions.
-	// 	var bi big.Int
-	// 	// Convert bound into big int
-	// 	elem := v.Bound
-	// 	elem.BigInt(&bi)
-	// 	// Subtract one here, so that e.g. a bound of 65536 reports a bitwidth
-	// 	// of 16, not 17.
-	// 	bi.Sub(&bi, big.NewInt(1))
-	// 	// Apply bitwidth gadget
-	// 	air_gadgets.ApplyBitwidthGadget(column, uint(bi.BitLen()), air.NewConst64(1), airSchema)
-	// }
-	panic("todo")
+	bitwidth := v.Expr.ValueRange(module)
+	// Lower target expression
+	target := p.lowerTermTo(v.Context, v.Expr, airModule)
+	// Expand target expression (if necessary)
+	column := air_gadgets.Expand(v.Context, bitwidth, target, airSchema)
+	// Yes, a constraint is implied.  Now, decide whether to use a range
+	// constraint or just a vanishing constraint.
+	if v.Bitwidth == 1 {
+		// u1 => use vanishing constraint X * (X - 1)
+		air_gadgets.ApplyBinaryGadget(column, airSchema)
+	} else if v.Bitwidth < p.config.MaxRangeConstraint {
+		// u2..n use range constraints
+		airModule.AddConstraints(
+			air.NewRangeConstraint("", v.Context, column, v.Bitwidth))
+	} else {
+		// Apply bitwidth gadget
+		//air_gadgets.ApplyBitwidthGadget(column, v.Bitwidth, air.NewConst64(1), airModule)
+		panic("todo")
+	}
 }
 
 // // Lower a lookup constraint to the AIR level.  The challenge here is that a
@@ -244,69 +237,70 @@ func (p *AirLowering) lowerRangeConstraintToAir(v RangeConstraint, airModule *ai
 // 	airSchema.AddLookupConstraint(c.Handle, c.SourceContext, c.TargetContext, sources, targets)
 // }
 
-// // Lower a sorted constraint to the AIR level.  The challenge here is that there
-// // is not concept of sorting constraints at the AIR level.  Instead, we have to
-// // generate the necessary machinery to enforce the sorting constraint.
-// func lowerSortedConstraintToAir(c SortedConstraint, mirSchema *Schema,airSchema *air.Schema,cfg OptimisationConfig) {
-// 	sources := make([]uint, len(c.Sources))
-// 	//
-// 	for i := 0; i < len(sources); i++ {
-// 		sourceBitwidth := rangeOfTerm(c.Sources[i].term, mirSchema).BitWidth()
-// 		// Lower source expression
-// 		source := lowerExprTo(c.Context, c.Sources[i], mirSchema, airSchema, cfg)
-// 		// Expand them
-// 		sources[i] = air_gadgets.Expand(c.Context, sourceBitwidth, source, airSchema)
-// 	}
-// 	// Determine number of ordered columns
-// 	numSignedCols := len(c.Signs)
-// 	// finally add the constraint
-// 	if numSignedCols == 1 {
-// 		// For a single column sort, its actually a bit easier because we don't
-// 		// need to implement a multiplexor (i.e. to determine which column is
-// 		// differs, etc).  Instead, we just need a delta column which ensures
-// 		// there is a non-negative difference between consecutive rows.  This
-// 		// also requires bitwidth constraints.
-// 		gadget := air_gadgets.NewColumnSortGadget(c.Handle, sources[0], c.BitWidth)
-// 		gadget.SetSign(c.Signs[0])
-// 		gadget.SetStrict(c.Strict)
-// 		// Add (optional) selector
-// 		if c.Selector.HasValue() {
-// 			selector := lowerExprTo(c.Context, c.Selector.Unwrap(), mirSchema, airSchema, cfg)
-// 			gadget.SetSelector(selector)
-// 		}
-// 		// Done!
-// 		gadget.Apply(airSchema)
-// 	} else {
-// 		// For a multi column sort, its a bit harder as we need additional
-// 		// logic to ensure the target columns are lexicographally sorted.
-// 		gadget := air_gadgets.NewLexicographicSortingGadget(c.Handle, sources, c.BitWidth)
-// 		gadget.SetSigns(c.Signs...)
-// 		gadget.SetStrict(c.Strict)
-// 		// Add (optional) selector
-// 		if c.Selector.HasValue() {
-// 			selector := lowerExprTo(c.Context, c.Selector.Unwrap(), mirSchema, airSchema, cfg)
-// 			gadget.SetSelector(selector)
-// 		}
-// 		// Done
-// 		gadget.Apply(airSchema)
-// 	}
-// 	// Sanity check bitwidth
-// 	bitwidth := uint(0)
+// Lower a sorted constraint to the AIR level.  The challenge here is that there
+// is not concept of sorting constraints at the AIR level.  Instead, we have to
+// generate the necessary machinery to enforce the sorting constraint.
+func (p *AirLowering) lowerSortedConstraintToAir(c SortedConstraint, airModule *air.Module) {
+	// sources := make([]uint, len(c.Sources))
+	// //
+	// for i := 0; i < len(sources); i++ {
+	// 	sourceBitwidth := rangeOfTerm(c.Sources[i].term, mirSchema).BitWidth()
+	// 	// Lower source expression
+	// 	source := lowerExprTo(c.Context, c.Sources[i], mirSchema, airSchema, cfg)
+	// 	// Expand them
+	// 	sources[i] = air_gadgets.Expand(c.Context, sourceBitwidth, source, airSchema)
+	// }
+	// // Determine number of ordered columns
+	// numSignedCols := len(c.Signs)
+	// // finally add the constraint
+	// if numSignedCols == 1 {
+	// 	// For a single column sort, its actually a bit easier because we don't
+	// 	// need to implement a multiplexor (i.e. to determine which column is
+	// 	// differs, etc).  Instead, we just need a delta column which ensures
+	// 	// there is a non-negative difference between consecutive rows.  This
+	// 	// also requires bitwidth constraints.
+	// 	gadget := air_gadgets.NewColumnSortGadget(c.Handle, sources[0], c.BitWidth)
+	// 	gadget.SetSign(c.Signs[0])
+	// 	gadget.SetStrict(c.Strict)
+	// 	// Add (optional) selector
+	// 	if c.Selector.HasValue() {
+	// 		selector := lowerExprTo(c.Context, c.Selector.Unwrap(), mirSchema, airSchema, cfg)
+	// 		gadget.SetSelector(selector)
+	// 	}
+	// 	// Done!
+	// 	gadget.Apply(airSchema)
+	// } else {
+	// 	// For a multi column sort, its a bit harder as we need additional
+	// 	// logic to ensure the target columns are lexicographally sorted.
+	// 	gadget := air_gadgets.NewLexicographicSortingGadget(c.Handle, sources, c.BitWidth)
+	// 	gadget.SetSigns(c.Signs...)
+	// 	gadget.SetStrict(c.Strict)
+	// 	// Add (optional) selector
+	// 	if c.Selector.HasValue() {
+	// 		selector := lowerExprTo(c.Context, c.Selector.Unwrap(), mirSchema, airSchema, cfg)
+	// 		gadget.SetSelector(selector)
+	// 	}
+	// 	// Done
+	// 	gadget.Apply(airSchema)
+	// }
+	// // Sanity check bitwidth
+	// bitwidth := uint(0)
 
-// 	for i := 0; i < numSignedCols; i++ {
-// 		// Extract bitwidth of ith column
-// 		ith := mirSchema.Columns().Nth(sources[i]).DataType.AsUint().BitWidth()
-// 		if ith > bitwidth {
-// 			bitwidth = ith
-// 		}
-// 	}
-// 	//
-// 	if bitwidth != c.BitWidth {
-// 		// Should be unreachable.
-// 		msg := fmt.Sprintf("incompatible bitwidths (%d vs %d)", bitwidth, c.BitWidth)
-// 		panic(msg)
-// 	}
-// }
+	// for i := 0; i < numSignedCols; i++ {
+	// 	// Extract bitwidth of ith column
+	// 	ith := mirSchema.Columns().Nth(sources[i]).DataType.AsUint().BitWidth()
+	// 	if ith > bitwidth {
+	// 		bitwidth = ith
+	// 	}
+	// }
+	// //
+	// if bitwidth != c.BitWidth {
+	// 	// Should be unreachable.
+	// 	msg := fmt.Sprintf("incompatible bitwidths (%d vs %d)", bitwidth, c.BitWidth)
+	// 	panic(msg)
+	// }
+	panic("todo")
+}
 
 // // Lower a permutation to the AIR level.  This has quite a few
 // // effects.  Firstly, permutation constraints are added for all of the
