@@ -77,6 +77,13 @@ func NewVanishingConstraint[T ir.Testable](handle string, context trace.Context,
 	return VanishingConstraint[T]{handle, context, domain, constraint}
 }
 
+// Consistent applies a number of internal consistency checks.  Whilst not
+// strictly necessary, these can highlight otherwise hidden problems as an aid
+// to debugging.
+func (p VanishingConstraint[E]) Consistent(schema schema.AnySchema) []error {
+	return checkConsistent(p.Context.ModuleId, schema, p.Constraint)
+}
+
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
 func (p VanishingConstraint[E]) Name() string {

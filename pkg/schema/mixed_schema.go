@@ -80,9 +80,18 @@ func (p MixedSchema[M1, M2]) Assertions() iter.Iterator[Constraint] {
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p MixedSchema[M1, M2]) Consistent() error {
-	// TODO: implement safety checks
-	return nil
+func (p MixedSchema[M1, M2]) Consistent() []error {
+	var errors []error
+	// Check left
+	for _, m := range p.left {
+		errors = append(errors, m.Consistent(p)...)
+	}
+	// Check right
+	for _, m := range p.right {
+		errors = append(errors, m.Consistent(p)...)
+	}
+	// Done
+	return errors
 }
 
 // Constraints returns an iterator over all constraints defined in this

@@ -49,7 +49,7 @@ type Schema[C any] interface {
 	// Consistent applies a number of internal consistency checks.  Whilst not
 	// strictly necessary, these can highlight otherwise hidden problems as an aid
 	// to debugging.
-	Consistent() error
+	Consistent() []error
 	// Constraints returns an iterator over all constraints defined in this
 	// schema.
 	Constraints() iter.Iterator[C]

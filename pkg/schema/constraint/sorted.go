@@ -68,6 +68,13 @@ func NewSortedConstraint[E ir.Evaluable](handle string, context trace.Context, b
 	return SortedConstraint[E]{handle, context, bitwidth, selector, sources, signs, strict}
 }
 
+// Consistent applies a number of internal consistency checks.  Whilst not
+// strictly necessary, these can highlight otherwise hidden problems as an aid
+// to debugging.
+func (p SortedConstraint[E]) Consistent(schema schema.AnySchema) []error {
+	panic("todo")
+}
+
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
 func (p SortedConstraint[E]) Name() string {

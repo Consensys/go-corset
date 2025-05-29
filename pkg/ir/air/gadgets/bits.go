@@ -19,26 +19,29 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/air"
+	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
 
 // ApplyBinaryGadget adds a binarity constraint for a given column in the schema
 // which enforces that all values in the given column are either 0 or 1. For a
 // column X, this corresponds to the vanishing constraint X * (X-1) == 0.
-func ApplyBinaryGadget(col uint, module *air.ModuleBuilder) {
-	// Identify target column
-	column := module.Register(col)
+func ApplyBinaryGadget(column uint, ctx trace.Context, module *air.ModuleBuilder) {
+	// Identify target register
+	register := module.Register(column)
 	// Determine column name
-	name := column.Name
+	name := register.Name
 	// Construct X
-	X := ir.NewRegisterAccess[air.Term](col, 0)
-	// Construct X-1
-	X_m1 := ir.Subtract(X, ir.Const64[air.Term](1))
-	// Construct X * (X-1)
-	X_X_m1 := ir.Product(X, X_m1)
+	X := ir.NewRegisterAccess[air.Term](column, 0)
+	// Construct X == 0
+	X_eq0 := ir.Equals[air.LogicalTerm](X, ir.Const64[air.Term](0))
+	// Construct X == 0
+	X_eq1 := ir.Equals[air.LogicalTerm](X, ir.Const64[air.Term](1))
+	// Construct (X==0) ∨ (X==1)
+	X_X_m1 := ir.Disjunction(X_eq0, X_eq1)
 	// Done!
 	module.AddConstraint(
-		air.NewVanishingConstraint(fmt.Sprintf("%s:u1", name), 0, column.Context, util.None[int](), X_X_m1))
+		air.NewVanishingConstraint(fmt.Sprintf("%s:u1", name), ctx, util.None[int](), X_X_m1))
 }
 
 // ApplyBitwidthGadget ensures all values in a given column fit within a given

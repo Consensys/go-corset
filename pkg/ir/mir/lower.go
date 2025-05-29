@@ -101,7 +101,7 @@ func (p *AirLowering) Lower() air.Schema {
 	// 	airSchema.AddPropertyAssertion(assertion.Handle, assertion.Context, assertion.Property)
 	// }
 	// Done
-	return schema.NewUniformSchema(p.airModules)
+	return schema.NewUniformSchema(p.airSchema.Build())
 }
 
 // LowerModule lowers the given MIR module into the correspondind AIR module.
@@ -112,7 +112,7 @@ func (p *AirLowering) LowerModule(index uint) {
 		airModule = p.airSchema.Module(index)
 	)
 	// Initialise registers in AIR module
-	airModule.AddRegisters(mirModule.Registers()...)
+	airModule.NewRegisters(mirModule.Registers()...)
 	// Lower constraints
 	for iter := mirModule.Constraints(); iter.HasNext(); {
 		// Following should always hold
@@ -150,7 +150,7 @@ func (p *AirLowering) lowerConstraintToAir(c Constraint, airModule *air.ModuleBu
 	} else if v, ok := c.constraint.(VanishingConstraint); ok {
 		p.lowerVanishingConstraintToAir(v, airModule)
 	} else if v, ok := c.constraint.(RangeConstraint); ok {
-		p.lowerRangeConstraintToAir(v, index, airModule)
+		p.lowerRangeConstraintToAir(v, airModule)
 	} else if v, ok := c.constraint.(SortedConstraint); ok {
 		p.lowerSortedConstraintToAir(v, airModule)
 	} else {
@@ -202,10 +202,10 @@ func (p *AirLowering) lowerRangeConstraintToAir(v RangeConstraint, airModule *ai
 	// constraint or just a vanishing constraint.
 	if v.Bitwidth == 1 {
 		// u1 => use vanishing constraint X * (X - 1)
-		air_gadgets.ApplyBinaryGadget(register, airModule)
+		air_gadgets.ApplyBinaryGadget(register, v.Context, airModule)
 	} else if v.Bitwidth < p.config.MaxRangeConstraint {
 		// u2..n use range constraints
-		column := ir.NewRegisterAccess[air.Term](register, 0)
+		column := ir.RawRegisterAccess[air.Term](register, 0)
 		//
 		airModule.AddConstraint(air.NewRangeConstraint("", v.Context, *column, v.Bitwidth))
 	} else {
@@ -452,8 +452,7 @@ func (p *AirLowering) lowerTermToInner(ctx trace.Context, e Term, airModule *air
 	case *RegisterAccess:
 		return ir.NewRegisterAccess[air.Term](e.Register, e.Shift)
 	case *Exp:
-		// 	return lowerExpTo(ctx, e, airModule)
-		panic("got here")
+		return p.lowerExpTo(ctx, e, airModule)
 	case *IfZero:
 		panic("got here")
 	case *LabelledConst:
@@ -462,8 +461,7 @@ func (p *AirLowering) lowerTermToInner(ctx trace.Context, e Term, airModule *air
 		args := p.lowerTerms(ctx, e.Args, airModule)
 		return ir.Product(args...)
 	case *Norm:
-		// 	return lowerNormTo(ctx, e, airModule)
-		panic("got here")
+		return p.lowerNormTo(ctx, e, airModule)
 	case *Sub:
 		args := p.lowerTerms(ctx, e.Args, airModule)
 		return ir.Subtract(args...)
@@ -484,45 +482,44 @@ func (p *AirLowering) lowerTerms(ctx trace.Context, exprs []Term, airModule *air
 	return nexprs
 }
 
-// // LowerTo lowers an exponent expression to the AIR level by lowering the
-// // argument, and then constructing a multiplication.  This is because the AIR
-// // level does not support an explicit exponent operator.
-// func lowerExpTo(ctx trace.Context, e *Exp, mirSchema *Schema,airSchema *air.Schema,cfg OptimisationConfig) air.Expr {
-// 	// Lower the expression being raised
-// 	le := lowerTermToInner(ctx, e.Arg, mirSchema, airSchema, cfg)
-// 	// Multiply it out k times
-// 	es := make([]air.Expr, e.Pow)
-// 	//
-// 	for i := uint64(0); i < e.Pow; i++ {
-// 		es[i] = le
-// 	}
-// 	// Done
-// 	return air.Product(es...)
-// }
+// LowerTo lowers an exponent expression to the AIR level by lowering the
+// argument, and then constructing a multiplication.  This is because the AIR
+// level does not support an explicit exponent operator.
+func (p *AirLowering) lowerExpTo(ctx trace.Context, e *Exp, airModule *air.ModuleBuilder) air.Term {
+	// Lower the expression being raised
+	le := p.lowerTermToInner(ctx, e.Arg, airModule)
+	// Multiply it out k times
+	es := make([]air.Term, e.Pow)
+	//
+	for i := uint64(0); i < e.Pow; i++ {
+		es[i] = le
+	}
+	// Done
+	return ir.Product(es...)
+}
 
-// func lowerNormTo(ctx trace.Context, e *Norm, mirSchema *Schema, airSchema *air.Schema,
-// 	cfg OptimisationConfig) air.Expr {
-// 	// Lower the expression being normalised
-// 	arg := lowerTermToInner(ctx, e.Arg, mirSchema, airSchema, cfg)
-// 	// Determine appropriate shift
-// 	shift := 0
-// 	// Apply shift normalisation (if enabled)
-// 	if cfg.ShiftNormalisation {
-// 		// Determine shift ranges
-// 		min, max := shiftRangeOfTerm(e.Arg)
-// 		// determine shift amount
-// 		if max < 0 {
-// 			shift = max
-// 		} else if min > 0 {
-// 			shift = min
-// 		}
-// 	}
-// 	// Construct an expression representing the normalised value of e.  That is,
-// 	// an expression which is 0 when e is 0, and 1 when e is non-zero.
-// 	norm := air_gadgets.Normalise(arg.Shift(-shift), airSchema)
-// 	//
-// 	return norm.Shift(shift)
-// }
+func (p *AirLowering) lowerNormTo(ctx trace.Context, e *Norm, airModule *air.ModuleBuilder) air.Term {
+	// Lower the expression being normalised
+	arg := p.lowerTermToInner(ctx, e.Arg, airModule)
+	// Determine appropriate shift
+	shift := 0
+	// Apply shift normalisation (if enabled)
+	if p.config.ShiftNormalisation {
+		// Determine shift ranges
+		min, max := e.Arg.ShiftRange()
+		// determine shift amount
+		if max < 0 {
+			shift = max
+		} else if min > 0 {
+			shift = min
+		}
+	}
+	// Construct an expression representing the normalised value of e.  That is,
+	// an expression which is 0 when e is 0, and 1 when e is non-zero.
+	norm := air_gadgets.Normalise(arg.ApplyShift(-shift), ctx, airModule)
+	//
+	return norm.ApplyShift(shift)
+}
 
 // // Construct a unique identifier for the given sort.  This should not conflict
 // // with the identifier for any other sort.

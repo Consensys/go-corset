@@ -74,6 +74,13 @@ func (p Constraint) Bounds(module uint) util.Bounds {
 	return p.constraint.Bounds(module)
 }
 
+// Consistent applies a number of internal consistency checks.  Whilst not
+// strictly necessary, these can highlight otherwise hidden problems as an aid
+// to debugging.
+func (p Constraint) Consistent(schema schema.AnySchema) []error {
+	return p.constraint.Consistent(schema)
+}
+
 // Contexts returns the evaluation contexts (i.e. enclosing module + length
 // multiplier) for this constraint.  Most constraints have only a single
 // evaluation context, though some (e.g. lookups) have more.  Note that all

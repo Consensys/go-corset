@@ -77,6 +77,13 @@ func NewRangeConstraint[E ir.Evaluable](handle string, context trace.Context,
 	return RangeConstraint[E]{handle, context, expr, bitwidth}
 }
 
+// Consistent applies a number of internal consistency checks.  Whilst not
+// strictly necessary, these can highlight otherwise hidden problems as an aid
+// to debugging.
+func (p RangeConstraint[E]) Consistent(schema schema.AnySchema) []error {
+	return checkConsistent(p.Context.ModuleId, schema, p.Expr)
+}
+
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
 func (p RangeConstraint[E]) Name() string {

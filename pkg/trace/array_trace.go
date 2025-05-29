@@ -89,7 +89,7 @@ func NewArrayModule(name string, columns []ArrayColumn) ArrayModule {
 		if i == 0 {
 			height = c.Height()
 		} else if height != c.Height() {
-			panic("invalid column height")
+			panic(fmt.Sprintf("invalid column height (have %d, expected %d)", c.Height(), height))
 		}
 	}
 	//

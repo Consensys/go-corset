@@ -105,12 +105,25 @@ type ModuleBuilder[C schema.Constraint, T Term[T]] struct {
 	registers []schema.Register
 	// Constraints for this module
 	constraints []C
+	// Assignments for computed registers
+	assignments []schema.Assignment
 }
 
 // NewModuleBuilder constructs a new builder for a module with the given name.
 func NewModuleBuilder[C schema.Constraint, T Term[T]](name string) ModuleBuilder[C, T] {
 	regmap := make(map[string]uint, 0)
-	return ModuleBuilder[C, T]{name, regmap, nil, nil}
+	return ModuleBuilder[C, T]{name, regmap, nil, nil, nil}
+}
+
+// AddAssignment adds a new assignment to this module.  Assignments are
+// responsible for computing the values of computed columns.
+func (p *ModuleBuilder[C, T]) AddAssignment(assignment schema.Assignment) {
+	p.assignments = append(p.assignments, assignment)
+}
+
+// AddConstraint adds a new constraint to this module.
+func (p *ModuleBuilder[C, T]) AddConstraint(constraint C) {
+	p.constraints = append(p.constraints, constraint)
 }
 
 // Assignments returns an iterator over the assignments of this schema.
@@ -118,6 +131,23 @@ func NewModuleBuilder[C schema.Constraint, T Term[T]](name string) ModuleBuilder
 // in this module.
 func (p *ModuleBuilder[C, T]) Assignments() iter.Iterator[schema.Assignment] {
 	panic("todo")
+}
+
+// Consistent applies a number of internal consistency checks.  Whilst not
+// strictly necessary, these can highlight otherwise hidden problems as an aid
+// to debugging.
+func (p *ModuleBuilder[C, T]) Consistent(schema schema.AnySchema) []error {
+	var errors []error
+	// Check constraints
+	for _, c := range p.constraints {
+		errors = append(errors, c.Consistent(schema)...)
+	}
+	// Check assignments
+	for _, a := range p.assignments {
+		errors = append(errors, a.Consistent(schema)...)
+	}
+	// Done
+	return errors
 }
 
 // Constraints provides access to those constraints associated with this
@@ -145,6 +175,30 @@ func (p *ModuleBuilder[C, T]) Name() string {
 	return p.name
 }
 
+// NewRegister declares a new register within the module being built.  This will
+// panic if a register of the same name already exists.
+func (p *ModuleBuilder[C, T]) NewRegister(register schema.Register) uint {
+	// Determine identifier
+	id := uint(len(p.registers))
+	// Sanity check
+	if _, ok := p.regmap[register.Name]; ok {
+		panic(fmt.Sprintf("register \"%s\" already declared", register.Name))
+	}
+	//
+	p.registers = append(p.registers, register)
+	p.regmap[register.Name] = id
+	//
+	return id
+}
+
+// NewRegisters declares zero or more new registers within the module being
+// built.  This will panic if a register of the same name already exists.
+func (p *ModuleBuilder[C, T]) NewRegisters(registers ...schema.Register) {
+	for _, r := range registers {
+		p.NewRegister(r)
+	}
+}
+
 // Register returns the register details given an appropriate register
 // identifier.
 func (p *ModuleBuilder[C, T]) Register(rid uint) schema.Register {
@@ -166,27 +220,6 @@ func (p *ModuleBuilder[C, T]) RegisterAccessOf(name string, shift int) *Register
 		Register: rid,
 		Shift:    shift,
 	}
-}
-
-// NewRegister declares a new register within the module being built.  This will
-// panic if a register of the same name already exists.
-func (p *ModuleBuilder[C, T]) NewRegister(register schema.Register) uint {
-	// Determine identifier
-	id := uint(len(p.registers))
-	// Sanity check
-	if _, ok := p.regmap[register.Name]; ok {
-		panic(fmt.Sprintf("register \"%s\" already declared", register.Name))
-	}
-	//
-	p.registers = append(p.registers, register)
-	p.regmap[register.Name] = id
-	//
-	return id
-}
-
-// AddConstraint adds a new constraint to this module.
-func (p *ModuleBuilder[C, T]) AddConstraint(constraint C) {
-	p.constraints = append(p.constraints, constraint)
 }
 
 // Build constructs a table module from this module builder.

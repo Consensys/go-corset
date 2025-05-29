@@ -73,6 +73,14 @@ func (p *Function[T]) Constraints() iter.Iterator[schema.Constraint] {
 	panic("todo")
 }
 
+// Consistent applies a number of internal consistency checks.  Whilst not
+// strictly necessary, these can highlight otherwise hidden problems as an aid
+// to debugging.
+func (p *Function[T]) Consistent(schema.Schema[schema.Constraint]) []error {
+	// TODO: add checks?
+	return nil
+}
+
 // Inputs returns the set of input registers for this function.
 func (p *Function[T]) Inputs() []Register {
 	var inputs []Register

@@ -35,8 +35,9 @@ func Subtract[T Term[T]](exprs ...T) T {
 func (p *Sub[T]) Air() {}
 
 // ApplyShift implementation for Term interface.
-func (p *Sub[T]) ApplyShift(int) T {
-	panic("todo")
+func (p *Sub[T]) ApplyShift(shift int) T {
+	var term Term[T] = &Sub[T]{applyShiftOfTerms(p.Args, shift)}
+	return term.(T)
 }
 
 // Bounds implementation for Boundable interface.

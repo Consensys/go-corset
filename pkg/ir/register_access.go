@@ -35,9 +35,16 @@ type RegisterAccess[T Term[T]] struct {
 	Shift    int
 }
 
-// NewRegisterAccess constructs an AIR expression representing the value of a given
+// NewRegisterAccess constructs an AIR expression representing the value of a
+// given register on the current row.
+func NewRegisterAccess[T Term[T]](register uint, shift int) T {
+	var term Term[T] = &RegisterAccess[T]{Register: register, Shift: shift}
+	return term.(T)
+}
+
+// RawRegisterAccess constructs an AIR expression representing the value of a given
 // register on the current row.
-func NewRegisterAccess[T Term[T]](register uint, shift int) *RegisterAccess[T] {
+func RawRegisterAccess[T Term[T]](register uint, shift int) *RegisterAccess[T] {
 	return &RegisterAccess[T]{Register: register, Shift: shift}
 }
 
@@ -46,8 +53,8 @@ func (p *RegisterAccess[T]) Air() {}
 
 // ApplyShift implementation for Term interface.
 func (p *RegisterAccess[T]) ApplyShift(shift int) T {
-	//return &RegisterAccess[T]{Register: p.Register, Shift: p.Shift + shift}
-	panic("got here")
+	var reg Term[T] = &RegisterAccess[T]{Register: p.Register, Shift: p.Shift + shift}
+	return reg.(T)
 }
 
 // Bounds implementation for Boundable interface.

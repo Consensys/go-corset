@@ -97,6 +97,25 @@ func NewLookupConstraint[E ir.Evaluable](handle string, source trace.Context,
 	return LookupConstraint[E]{handle, source, target, sources, targets}
 }
 
+// Consistent applies a number of internal consistency checks.  Whilst not
+// strictly necessary, these can highlight otherwise hidden problems as an aid
+// to debugging.
+func (p LookupConstraint[E]) Consistent(schema schema.AnySchema) []error {
+	var (
+		srcErrors = checkConsistent[E](p.SourceContext.ModuleId, schema, p.Sources...)
+		dstErrors = checkConsistent[E](p.TargetContext.ModuleId, schema, p.Targets...)
+		errors    = append(srcErrors, dstErrors...)
+	)
+	// Check consistent register widths
+	if len(p.Sources) != len(p.Targets) {
+		err := fmt.Errorf("inconsistent number of source / target registers (%d vs %d)", len(p.Sources), len(p.Targets))
+		errors = append(errors, err)
+	}
+	// TODO: check lookup widths (using range analysis?)
+	// Done
+	return errors
+}
+
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
 func (p LookupConstraint[E]) Name() string {

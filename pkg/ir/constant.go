@@ -49,7 +49,8 @@ func (p *Constant[T]) Air() {}
 
 // ApplyShift implementation for Term interface.
 func (p *Constant[T]) ApplyShift(int) T {
-	panic("todo")
+	var term Term[T] = p
+	return term.(T)
 }
 
 // Bounds implementation for Boundable interface.

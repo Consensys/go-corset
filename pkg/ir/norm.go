@@ -33,13 +33,14 @@ func Normalise[T Term[T]](arg T) T {
 }
 
 // ApplyShift implementation for Term interface.
-func (p *Norm[T]) ApplyShift(int) T {
-	panic("todo")
+func (p *Norm[T]) ApplyShift(shift int) T {
+	var term Term[T] = &Norm[T]{p.Arg.ApplyShift(shift)}
+	return term.(T)
 }
 
 // Bounds implementation for Boundable interface.
 func (p *Norm[T]) Bounds() util.Bounds {
-	panic("todo")
+	return p.Arg.Bounds()
 }
 
 // EvalAt implementation for Evaluable interface.

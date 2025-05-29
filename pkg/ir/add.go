@@ -35,8 +35,8 @@ func (p *Add[T]) Air() {}
 
 // ApplyShift implementation for Term interface.
 func (p *Add[T]) ApplyShift(shift int) T {
-	//return applyShiftTerms(p.Args, shift)
-	panic("todo")
+	var term Term[T] = &Add[T]{applyShiftOfTerms(p.Args, shift)}
+	return term.(T)
 }
 
 // Bounds implementation for Boundable interface.

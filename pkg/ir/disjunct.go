@@ -29,8 +29,12 @@ type Disjunct[T LogicalTerm[T]] struct {
 // Disjunction creates a constraint representing the disjunction of a given set of
 // constraints.
 func Disjunction[T LogicalTerm[T]](terms ...T) T {
-	panic("todo")
+	var term LogicalTerm[T] = &Disjunct[T]{terms}
+	return term.(T)
 }
+
+// Air indicates this term can be used at the AIR level.
+func (p *Disjunct[T]) Air() {}
 
 // Bounds implementation for Boundable interface.
 func (p *Disjunct[T]) Bounds() util.Bounds {
@@ -57,7 +61,7 @@ func (p *Disjunct[T]) TestAt(k int, tr trace.Module) (bool, uint, error) {
 // Lisp returns a lisp representation of this equation, which is useful for
 // debugging.
 func (p *Disjunct[T]) Lisp(module schema.Module) sexp.SExp {
-	panic("todo")
+	return lispOfLogicalTerms(module, "∨", p.Args)
 }
 
 // RequiredRegisters implementation for Contextual interface.

@@ -43,9 +43,14 @@ func (p UniformSchema[M]) Assertions() iter.Iterator[Constraint] {
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p UniformSchema[M]) Consistent() error {
-	// TODO: implement safety checks
-	return nil
+func (p UniformSchema[M]) Consistent() []error {
+	var errors []error
+	// Check modules
+	for _, m := range p.modules {
+		errors = append(errors, m.Consistent(p)...)
+	}
+	// Done
+	return errors
 }
 
 // Constraints returns an iterator over all constraints defined in this
