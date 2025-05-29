@@ -29,8 +29,6 @@ type (
 	// Schema captures the notion of an MIR schema which is uniform and consists of
 	// MIR modules only.
 	Schema = schema.UniformSchema[Module]
-	// Constraint captures the notion of an arithmetic constraint at the MIR level.
-	Constraint = schema.Constraint
 	// Term represents the fundamental for arithmetic expressions in the MIR
 	// representation.
 	Term interface {

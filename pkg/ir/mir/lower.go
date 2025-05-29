@@ -115,7 +115,10 @@ func (p *AirLowering) LowerModule(index uint) {
 	airModule.AddRegisters(mirModule.Registers()...)
 	// Lower constraints
 	for iter := mirModule.Constraints(); iter.HasNext(); {
-		p.lowerConstraintToAir(iter.Next(), airModule)
+		// Following should always hold
+		constraint := iter.Next().(Constraint)
+		//
+		p.lowerConstraintToAir(constraint, airModule)
 	}
 	// Lower assignments
 	// Assertions?
@@ -140,15 +143,15 @@ func (p *AirLowering) LowerModule(index uint) {
 // }
 
 // Lower a constraint to the AIR level.
-func (p *AirLowering) lowerConstraintToAir(c schema.Constraint, airModule *air.Module) {
+func (p *AirLowering) lowerConstraintToAir(c Constraint, airModule *air.Module) {
 	// Check what kind of constraint we have
-	if _, ok := c.(LookupConstraint); ok {
+	if _, ok := c.constraint.(LookupConstraint); ok {
 		//lowerLookupConstraintToAir(v, mirSchema, airSchema, cfg)
-	} else if v, ok := c.(VanishingConstraint); ok {
+	} else if v, ok := c.constraint.(VanishingConstraint); ok {
 		p.lowerVanishingConstraintToAir(v, airModule)
-	} else if v, ok := c.(RangeConstraint); ok {
+	} else if v, ok := c.constraint.(RangeConstraint); ok {
 		p.lowerRangeConstraintToAir(v, airModule)
-	} else if _, ok := c.(SortedConstraint); ok {
+	} else if _, ok := c.constraint.(SortedConstraint); ok {
 		//lowerSortedConstraintToAir(v, mirSchema, airSchema, cfg)
 	} else {
 		// Should be unreachable as no other constraint types can be added to a
@@ -163,7 +166,9 @@ func (p *AirLowering) lowerConstraintToAir(c schema.Constraint, airModule *air.M
 // hold inverses, etc.
 func (p *AirLowering) lowerVanishingConstraintToAir(v VanishingConstraint, airModule *air.Module) {
 	//
-	terms := p.lowerLogicalTo(v.Context, v.Constraint, airModule)
+	var (
+		terms = p.lowerLogicalTo(v.Context, v.Constraint, airModule)
+	)
 	//
 	for i, air_expr := range terms {
 		// // Check whether this is a constant
@@ -428,10 +433,8 @@ func (p *AirLowering) lowerNotEqualTo(ctx trace.Context, e NotEqual, airModule *
 
 func (p *AirLowering) lowerTermTo(ctx trace.Context, term Term, airModule *air.Module) air.Term {
 	// Optimise normalisations
-	fmt.Printf("APPLY ELIMINATE NORMALISATION\n")
 	// term = eliminateNormalisationInTerm(term, mirSchema, cfg)
 	// Apply constant propagation
-	fmt.Printf("APPLY CONSTANT PROPAGATION\n")
 	//term = constantPropagationForTerm(term, false, airSchema)
 	// Lower properly
 	return p.lowerTermToInner(ctx, term, airModule)
@@ -443,9 +446,8 @@ func (p *AirLowering) lowerTermToInner(ctx trace.Context, e Term, airModule *air
 	//
 	switch e := e.(type) {
 	case *Add:
-		// 	args := lowerTerms(ctx, e.Args, airModule)
-		// 	return ir.Sum(args...)
-		panic("got here")
+		args := p.lowerTerms(ctx, e.Args, airModule)
+		return ir.Sum(args...)
 	case *Cast:
 		// 	return lowerTermToInner(ctx, e.Arg, airModule)
 		panic("got here")
@@ -461,9 +463,8 @@ func (p *AirLowering) lowerTermToInner(ctx trace.Context, e Term, airModule *air
 	case *LabelledConst:
 		panic("got here")
 	case *Mul:
-		// 	args := lowerTerms(ctx, e.Args, airModule)
-		// 	return air.Product(args...)
-		panic("got here")
+		args := p.lowerTerms(ctx, e.Args, airModule)
+		return ir.Product(args...)
 	case *Norm:
 		// 	return lowerNormTo(ctx, e, airModule)
 		panic("got here")

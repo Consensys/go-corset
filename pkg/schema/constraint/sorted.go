@@ -63,9 +63,9 @@ type SortedConstraint[E ir.Evaluable] struct {
 
 // NewSortedConstraint creates a new Sorted
 func NewSortedConstraint[E ir.Evaluable](handle string, context trace.Context, bitwidth uint, selector util.Option[E],
-	sources []E, signs []bool, strict bool) *SortedConstraint[E] {
+	sources []E, signs []bool, strict bool) SortedConstraint[E] {
 	//
-	return &SortedConstraint[E]{handle, context, bitwidth, selector, sources, signs, strict}
+	return SortedConstraint[E]{handle, context, bitwidth, selector, sources, signs, strict}
 }
 
 // Name returns a unique name for a given constraint.  This is useful

@@ -23,7 +23,6 @@ import (
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/source"
@@ -152,7 +151,7 @@ func (t *translator) translateTypeConstraints(reg Register, mod *ModuleBuilder) 
 			}
 		}
 		// Add appropriate type constraint
-		constraint := constraint.NewRangeConstraint(reg.Name(),
+		constraint := mir.NewRangeConstraint(reg.Name(),
 			reg.Context,
 			mod.RegisterAccessOf(reg.Name(), 0),
 			reg.Bitwidth)
@@ -308,7 +307,7 @@ func (t *translator) translateDefConstraint(decl *ast.DefConstraint, module *Mod
 		// FIXME: this could be more efficient!!
 		context := t.env.ContextOf(decl.Constraint.Context())
 		// Add translated constraint
-		module.AddConstraint(constraint.NewVanishingConstraint(decl.Handle, context, decl.Domain, expr))
+		module.AddConstraint(mir.NewVanishingConstraint(decl.Handle, context, decl.Domain, expr))
 	}
 	// Done
 	return errors
@@ -369,7 +368,7 @@ func (t *translator) translateDefLookup(decl *ast.DefLookup, module *ModuleBuild
 	// Sanity check whether we can construct the constraint, or not.
 	if len(errors) == 0 {
 		// Add translated constraint
-		module.AddConstraint(constraint.NewLookupConstraint(decl.Handle,
+		module.AddConstraint(mir.NewLookupConstraint(decl.Handle,
 			srcContext,
 			dstContext,
 			sources,
@@ -388,7 +387,7 @@ func (t *translator) translateDefInRange(decl *ast.DefInRange, module *ModuleBui
 		// FIXME: this could be more efficient!!
 		context := t.env.ContextOf(decl.Expr.Context())
 		// Add translated constraint
-		module.AddConstraint(constraint.NewRangeConstraint("", context, expr, decl.Bitwidth))
+		module.AddConstraint(mir.NewRangeConstraint("", context, expr, decl.Bitwidth))
 	}
 	// Done
 	return errors
@@ -502,7 +501,7 @@ func (t *translator) translateDefSorted(decl *ast.DefSorted, module *ModuleBuild
 		bitwidth := determineMaxBitwidth(module, sources[:len(signs)])
 		// Add translated constraint
 		module.AddConstraint(
-			constraint.NewSortedConstraint(decl.Handle, context, bitwidth, selector, sources, signs, decl.Strict))
+			mir.NewSortedConstraint(decl.Handle, context, bitwidth, selector, sources, signs, decl.Strict))
 	}
 	// Done
 	return errors

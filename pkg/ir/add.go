@@ -43,8 +43,18 @@ func (p *Add[T]) ApplyShift(shift int) T {
 func (p *Add[T]) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
 
 // EvalAt implementation for Evaluable interface.
-func (p *Add[T]) EvalAt(int, trace.Module) (fr.Element, error) {
-	panic("todo")
+func (p *Add[T]) EvalAt(k int, tr trace.Module) (fr.Element, error) {
+	// Evaluate first argument
+	val, err := p.Args[0].EvalAt(k, tr)
+	// Continue evaluating the rest
+	for i := 1; err == nil && i < len(p.Args); i++ {
+		var ith fr.Element
+		// Evaluate ith argument
+		ith, err = p.Args[i].EvalAt(k, tr)
+		val.Add(&val, &ith)
+	}
+	// Done
+	return val, err
 }
 
 // Lisp implementation for Lispifiable interface.
