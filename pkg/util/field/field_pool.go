@@ -16,7 +16,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 )
 
 // FrPool captures a pool of field elements which are used to reduce unnecessary
