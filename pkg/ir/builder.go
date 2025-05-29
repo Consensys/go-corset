@@ -113,6 +113,11 @@ func NewModuleBuilder[C schema.Constraint, T Term[T]](name string) ModuleBuilder
 	return ModuleBuilder[C, T]{name, regmap, nil, nil}
 }
 
+// AddConstraint adds a new constraint to this module.
+func (p *ModuleBuilder[C, T]) AddConstraint(constraint C) {
+	p.constraints = append(p.constraints, constraint)
+}
+
 // Assignments returns an iterator over the assignments of this schema.
 // These are the computations used to assign values to all computed columns
 // in this module.
@@ -145,6 +150,30 @@ func (p *ModuleBuilder[C, T]) Name() string {
 	return p.name
 }
 
+// NewRegister declares a new register within the module being built.  This will
+// panic if a register of the same name already exists.
+func (p *ModuleBuilder[C, T]) NewRegister(register schema.Register) uint {
+	// Determine identifier
+	id := uint(len(p.registers))
+	// Sanity check
+	if _, ok := p.regmap[register.Name]; ok {
+		panic(fmt.Sprintf("register \"%s\" already declared", register.Name))
+	}
+	//
+	p.registers = append(p.registers, register)
+	p.regmap[register.Name] = id
+	//
+	return id
+}
+
+// NewRegister declares a new register within the module being built.  This will
+// panic if a register of the same name already exists.
+func (p *ModuleBuilder[C, T]) NewRegisters(registers ...schema.Register) {
+	for _, r := range registers {
+		p.NewRegister(r)
+	}
+}
+
 // Register returns the register details given an appropriate register
 // identifier.
 func (p *ModuleBuilder[C, T]) Register(rid uint) schema.Register {
@@ -166,27 +195,6 @@ func (p *ModuleBuilder[C, T]) RegisterAccessOf(name string, shift int) *Register
 		Register: rid,
 		Shift:    shift,
 	}
-}
-
-// NewRegister declares a new register within the module being built.  This will
-// panic if a register of the same name already exists.
-func (p *ModuleBuilder[C, T]) NewRegister(register schema.Register) uint {
-	// Determine identifier
-	id := uint(len(p.registers))
-	// Sanity check
-	if _, ok := p.regmap[register.Name]; ok {
-		panic(fmt.Sprintf("register \"%s\" already declared", register.Name))
-	}
-	//
-	p.registers = append(p.registers, register)
-	p.regmap[register.Name] = id
-	//
-	return id
-}
-
-// AddConstraint adds a new constraint to this module.
-func (p *ModuleBuilder[C, T]) AddConstraint(constraint C) {
-	p.constraints = append(p.constraints, constraint)
 }
 
 // Build constructs a table module from this module builder.

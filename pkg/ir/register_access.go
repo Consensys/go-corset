@@ -35,9 +35,16 @@ type RegisterAccess[T Term[T]] struct {
 	Shift    int
 }
 
-// NewRegisterAccess constructs an AIR expression representing the value of a given
+// RegisterAccess constructs an AIR expression representing the value of a given
 // register on the current row.
-func NewRegisterAccess[T Term[T]](register uint, shift int) *RegisterAccess[T] {
+func NewRegisterAccess[T Term[T]](register uint, shift int) T {
+	var term Term[T] = &RegisterAccess[T]{Register: register, Shift: shift}
+	return term.(T)
+}
+
+// RawRegisterAccess constructs an AIR expression representing the value of a given
+// register on the current row.
+func RawRegisterAccess[T Term[T]](register uint, shift int) *RegisterAccess[T] {
 	return &RegisterAccess[T]{Register: register, Shift: shift}
 }
 

@@ -101,7 +101,7 @@ func (p *AirLowering) Lower() air.Schema {
 	// 	airSchema.AddPropertyAssertion(assertion.Handle, assertion.Context, assertion.Property)
 	// }
 	// Done
-	return schema.NewUniformSchema(p.airModules)
+	return schema.NewUniformSchema(p.airSchema.Build())
 }
 
 // LowerModule lowers the given MIR module into the correspondind AIR module.
@@ -112,7 +112,7 @@ func (p *AirLowering) LowerModule(index uint) {
 		airModule = p.airSchema.Module(index)
 	)
 	// Initialise registers in AIR module
-	airModule.AddRegisters(mirModule.Registers()...)
+	airModule.NewRegisters(mirModule.Registers()...)
 	// Lower constraints
 	for iter := mirModule.Constraints(); iter.HasNext(); {
 		// Following should always hold
@@ -150,7 +150,7 @@ func (p *AirLowering) lowerConstraintToAir(c Constraint, airModule *air.ModuleBu
 	} else if v, ok := c.constraint.(VanishingConstraint); ok {
 		p.lowerVanishingConstraintToAir(v, airModule)
 	} else if v, ok := c.constraint.(RangeConstraint); ok {
-		p.lowerRangeConstraintToAir(v, index, airModule)
+		p.lowerRangeConstraintToAir(v, airModule)
 	} else if v, ok := c.constraint.(SortedConstraint); ok {
 		p.lowerSortedConstraintToAir(v, airModule)
 	} else {
@@ -202,10 +202,10 @@ func (p *AirLowering) lowerRangeConstraintToAir(v RangeConstraint, airModule *ai
 	// constraint or just a vanishing constraint.
 	if v.Bitwidth == 1 {
 		// u1 => use vanishing constraint X * (X - 1)
-		air_gadgets.ApplyBinaryGadget(register, airModule)
+		air_gadgets.ApplyBinaryGadget(register, v.Context, airModule)
 	} else if v.Bitwidth < p.config.MaxRangeConstraint {
 		// u2..n use range constraints
-		column := ir.NewRegisterAccess[air.Term](register, 0)
+		column := ir.RawRegisterAccess[air.Term](register, 0)
 		//
 		airModule.AddConstraint(air.NewRangeConstraint("", v.Context, *column, v.Bitwidth))
 	} else {

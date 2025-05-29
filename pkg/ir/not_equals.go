@@ -30,12 +30,19 @@ type NotEqual[T Term[T]] struct {
 
 // NotEquals constructs an NotEqual representing the NotEquality of two expressions.
 func NotEquals[S LogicalTerm[S], T Term[T]](lhs T, rhs T) S {
-	var term LogicalTerm[S] = &NotEqual[T]{
-		Lhs: lhs,
-		Rhs: rhs,
-	}
+	var (
+		term LogicalTerm[S] = &NotEqual[T]{
+			Lhs: lhs,
+			Rhs: rhs,
+		}
+		res, ok = term.(S)
+	)
 	//
-	return term.(S)
+	if ok {
+		return res
+	}
+	// Sanity check
+	panic("invalid logical AIR term")
 }
 
 // Bounds implementation for Boundable interface.

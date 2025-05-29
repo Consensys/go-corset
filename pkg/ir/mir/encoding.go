@@ -58,7 +58,7 @@ func encode_constraint(constraint schema.Constraint) ([]byte, error) {
 	case SortedConstraint:
 		panic("todo")
 	case RangeConstraint:
-		panic("todo")
+		return encode_range(c)
 	case VanishingConstraint:
 		return encode_vanishing(c)
 	default:
@@ -91,6 +91,31 @@ func encode_vanishing(c VanishingConstraint) ([]byte, error) {
 	return buffer.Bytes(), err
 }
 
+func encode_range(c RangeConstraint) ([]byte, error) {
+	var (
+		buffer     bytes.Buffer
+		gobEncoder = gob.NewEncoder(&buffer)
+	)
+	//
+	buffer.Write([]byte{rangeTag})
+	// Handle
+	if err := gobEncoder.Encode(c.Handle); err != nil {
+		return nil, err
+	}
+	// Context
+	if err := gobEncoder.Encode(c.Context); err != nil {
+		return nil, err
+	}
+	// Bitwidth
+	if err := gobEncoder.Encode(c.Bitwidth); err != nil {
+		return nil, err
+	}
+	// Expression
+	err := encode_term(c.Expr, &buffer)
+	// Done
+	return buffer.Bytes(), err
+}
+
 func decode_constraint(bytes []byte) (schema.Constraint, error) {
 	switch bytes[0] {
 	case lookupTag:
@@ -98,7 +123,7 @@ func decode_constraint(bytes []byte) (schema.Constraint, error) {
 	case permutationTag:
 		panic("todo")
 	case rangeTag:
-		panic("todo")
+		return decode_range(bytes[1:])
 	case sortedTag:
 		panic("todo")
 	case vanishingTag:
@@ -131,6 +156,31 @@ func decode_vanishing(data []byte) (schema.Constraint, error) {
 	vanishing.Constraint, err = decode_logical(buffer)
 	// Success!
 	return vanishing, err
+}
+
+func decode_range(data []byte) (schema.Constraint, error) {
+	var (
+		buffer     = bytes.NewBuffer(data)
+		gobDecoder = gob.NewDecoder(buffer)
+		constraint RangeConstraint
+		err        error
+	)
+	// Handle
+	if err = gobDecoder.Decode(&constraint.Handle); err != nil {
+		return constraint, err
+	}
+	// Context
+	if err = gobDecoder.Decode(&constraint.Context); err != nil {
+		return constraint, err
+	}
+	// Bitwidth
+	if err = gobDecoder.Decode(&constraint.Bitwidth); err != nil {
+		return constraint, err
+	}
+	//
+	constraint.Expr, err = decode_term(buffer)
+	// Success!
+	return constraint, err
 }
 
 // ============================================================================
