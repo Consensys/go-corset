@@ -37,9 +37,8 @@ type RegisterAccess[T Term[T]] struct {
 
 // NewRegisterAccess constructs an AIR expression representing the value of a given
 // register on the current row.
-func NewRegisterAccess[T Term[T]](register uint, shift int) T {
-	var term Term[T] = &RegisterAccess[T]{Register: register, Shift: shift}
-	return term.(T)
+func NewRegisterAccess[T Term[T]](register uint, shift int) *RegisterAccess[T] {
+	return &RegisterAccess[T]{Register: register, Shift: shift}
 }
 
 // Air indicates this term can be used at the AIR level.

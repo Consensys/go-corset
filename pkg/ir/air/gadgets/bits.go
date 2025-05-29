@@ -25,7 +25,7 @@ import (
 // ApplyBinaryGadget adds a binarity constraint for a given column in the schema
 // which enforces that all values in the given column are either 0 or 1. For a
 // column X, this corresponds to the vanishing constraint X * (X-1) == 0.
-func ApplyBinaryGadget(col uint, module *air.Module) {
+func ApplyBinaryGadget(col uint, module *air.ModuleBuilder) {
 	// Identify target column
 	column := module.Register(col)
 	// Determine column name

@@ -14,7 +14,6 @@ package gadgets
 
 import (
 	"github.com/consensys/go-corset/pkg/ir/air"
-	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 )
 
@@ -23,7 +22,7 @@ import (
 // arbitrary expression and returning its index.  However, this can be optimised
 // in the case the given expression is a direct column access by simply
 // returning the accessed column index.
-func Expand(ctx trace.Context, bitwidth uint, e air.Term, module *air.Module) uint {
+func Expand(ctx trace.Context, bitwidth uint, e air.Term, module *air.ModuleBuilder) uint {
 	if ctx.IsVoid() || ctx.IsConflicted() {
 		panic("conflicting (or void) context")
 	}
@@ -35,7 +34,7 @@ func Expand(ctx trace.Context, bitwidth uint, e air.Term, module *air.Module) ui
 	// Determine computed column name
 	name := e.Lisp(module).String(false)
 	// Look up column
-	index, ok := sc.ColumnIndexOf(module, ctx.Module(), name)
+	index, ok := module.HasRegister(name)
 	// Add new column (if it does not already exist)
 	if !ok {
 		// Add computed column

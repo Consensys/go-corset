@@ -16,6 +16,7 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/util/collection/iter"
 )
 
 // SchemaBuilder is a mechanism for constructing mixed schemas which attempts to
@@ -110,6 +111,33 @@ type ModuleBuilder[C schema.Constraint, T Term[T]] struct {
 func NewModuleBuilder[C schema.Constraint, T Term[T]](name string) ModuleBuilder[C, T] {
 	regmap := make(map[string]uint, 0)
 	return ModuleBuilder[C, T]{name, regmap, nil, nil}
+}
+
+// Assignments returns an iterator over the assignments of this schema.
+// These are the computations used to assign values to all computed columns
+// in this module.
+func (p *ModuleBuilder[C, T]) Assignments() iter.Iterator[schema.Assignment] {
+	panic("todo")
+}
+
+// Constraints provides access to those constraints associated with this
+// module.
+func (p *ModuleBuilder[C, T]) Constraints() iter.Iterator[schema.Constraint] {
+	panic("todo")
+}
+
+// Width returns the number of registers in this module.
+func (p *ModuleBuilder[C, T]) Width() uint {
+	panic("todo")
+}
+
+// HasRegister checks whether a register of the given name exists already and,
+// if so, returns its index.
+func (p *ModuleBuilder[C, T]) HasRegister(name string) (uint, bool) {
+	// Lookup register associated with this name
+	rid, ok := p.regmap[name]
+	//
+	return rid, ok
 }
 
 // Name returns the name of the module being constructed.

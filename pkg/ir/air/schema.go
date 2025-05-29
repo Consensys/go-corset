@@ -51,6 +51,15 @@ type (
 	}
 )
 
+type (
+	// SchemaBuilder is used for building the AIR schemas
+	SchemaBuilder = ir.SchemaBuilder[Constraint, Term]
+	// ModuleBuilder is used for building various AIR modules.
+	ModuleBuilder = ir.ModuleBuilder[Constraint, Term]
+)
+
+var _ schema.Module = &ModuleBuilder{}
+
 // Following types capture permitted constraint forms at the AIR level.
 type (
 	// Assertion captures the notion of an arbitrary property which should hold for
