@@ -4,21 +4,21 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestFieldTypeValidation(t *testing.T) {
 	field := &FieldType{}
 
-	// Test BitWidth returns 254
-	assert.Equal(t, uint(254), field.BitWidth(), "FieldType.BitWidth() should return 254")
+	// Test BitWidth returns fieldElementBitWidth
+	assert.Equal(t, uint(fieldElementBitWidth), field.BitWidth(), "FieldType.BitWidth() should return fieldElementBitWidth")
 
-	// Test ByteWidth returns 32 (ceiling of 254/8)
-	assert.Equal(t, uint(32), field.ByteWidth(), "FieldType.ByteWidth() should return 32")
+	// Test ByteWidth returns ceiling of fieldElementBitWidth/8
+	assert.Equal(t, uint((fieldElementBitWidth+7)/8), field.ByteWidth(), "FieldType.ByteWidth() should return ceiling of fieldElementBitWidth/8")
 
 	// Test Accept with various values
-	// Note: fr.Element automatically reduces values modulo r (the BLS12-377 scalar field order)
+	// Note: fr.Element automatically reduces values modulo r (the BN254 scalar field order)
 	// so all fr.Element values are valid field elements
 	tests := []struct {
 		name  string
@@ -26,15 +26,15 @@ func TestFieldTypeValidation(t *testing.T) {
 	}{
 		{
 			name:  "253 bit number",
-			value: new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 253), big.NewInt(1)),
+			value: new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), fieldElementBitWidth-1), big.NewInt(1)),
 		},
 		{
 			name:  "254 bit number",
-			value: new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 254), big.NewInt(1)),
+			value: new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), fieldElementBitWidth), big.NewInt(1)),
 		},
 		{
 			name:  "255 bit number (will be reduced mod r)",
-			value: new(big.Int).Lsh(big.NewInt(1), 254),
+			value: new(big.Int).Lsh(big.NewInt(1), fieldElementBitWidth),
 		},
 	}
 

@@ -17,7 +17,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 )
 
 // fieldElementBitWidth represents the maximum bit width for field elements (254 bits)
@@ -180,18 +180,18 @@ func (p *FieldType) AsField() *FieldType {
 // ByteWidth returns the number of bytes required represent any element of this
 // type.
 func (p *FieldType) ByteWidth() uint {
-	return 32 // 254 bits rounded up to nearest byte
+	return (fieldElementBitWidth + 7) / 8 // 254 bits rounded up to nearest byte
 }
 
-// BitWidth returns the bitwidth of this type (254 bits for BLS12-377 field elements)
+// BitWidth returns the bitwidth of this type (254 bits for BN254 field elements)
 func (p *FieldType) BitWidth() uint {
-	return 254
+	return fieldElementBitWidth
 }
 
 // Accept determines whether a given value is an element of this type.
 // Always returns true since fr.Element values are already valid 254-bit field elements
-// reduced modulo the BLS12-377 scalar field order r.
-func (p *FieldType) Accept(val fr.Element) bool {
+// reduced modulo the BN254 scalar field order r.
+func (p *FieldType) Accept(fr.Element) bool {
 	return true
 }
 
@@ -204,33 +204,14 @@ func (p *FieldType) SubtypeOf(other Type) bool {
 // the other; 0 if they are equal, a positive value if this type is "above" the
 // other.
 func (p *FieldType) Cmp(other Type) int {
-	if it := other.AsUint(); it != nil {
-		// all uints lower and field
+	if other.AsField() == nil {
 		return 1
 	}
-	// all field types equal
 	return 0
 }
 
 func (p *FieldType) String() string {
-	return "𝔽"
-}
-
-// Join computes the Least Upper Bound of two types.  For example, the lub of u16
-// and u128 is u128, etc.
-func Join(lhs Type, rhs Type) Type {
-	if lhs.AsField() != nil || rhs.AsField() != nil {
-		return &FieldType{}
-	}
-	//
-	uLhs := lhs.AsUint()
-	uRhs := rhs.AsUint()
-	//
-	if uLhs.NumOfBits >= uRhs.NumOfBits {
-		return uLhs
-	}
-	//
-	return uRhs
+	return "field"
 }
 
 // ============================================================================
@@ -238,6 +219,6 @@ func Join(lhs Type, rhs Type) Type {
 // ============================================================================
 
 func init() {
-	gob.Register(Type(&UintType{}))
-	gob.Register(Type(&FieldType{}))
+	gob.Register(&UintType{})
+	gob.Register(&FieldType{})
 }

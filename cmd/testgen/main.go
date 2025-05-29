@@ -18,7 +18,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
 	cmdutil "github.com/consensys/go-corset/pkg/cmd"
 	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/hir"
