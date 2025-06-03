@@ -203,7 +203,7 @@ func (p *AirLowering) lowerRangeConstraintToAir(v RangeConstraint, airModule *ai
 	if v.Bitwidth == 1 {
 		// u1 => use vanishing constraint X * (X - 1)
 		air_gadgets.ApplyBinaryGadget(register, v.Context, airModule)
-	} else if v.Bitwidth < p.config.MaxRangeConstraint {
+	} else if v.Bitwidth <= p.config.MaxRangeConstraint {
 		// u2..n use range constraints
 		column := ir.RawRegisterAccess[air.Term](register, 0)
 		//
@@ -456,7 +456,7 @@ func (p *AirLowering) lowerTermToInner(ctx trace.Context, e Term, airModule *air
 	case *IfZero:
 		panic("got here")
 	case *LabelledConst:
-		panic("got here")
+		return ir.Const[air.Term](e.Value)
 	case *Mul:
 		args := p.lowerTerms(ctx, e.Args, airModule)
 		return ir.Product(args...)

@@ -276,13 +276,6 @@ func (t *translator) translateDefComputed(decl *ast.DefComputed, module *ModuleB
 func (t *translator) translateDefConstraint(decl *ast.DefConstraint, module *ModuleBuilder) []SyntaxError {
 	// Translate expr body
 	expr, errors := t.translateLogical(decl.Constraint, module, 0)
-	// Translate (optional) guard
-	guard, guard_errors := t.translateOptionalLogical(decl.Guard, module, 0)
-	// Translate (optional) perspective selector
-	selector, selector_errors := t.translateSelectorInModule(decl.Perspective, module)
-	// Combine errors
-	errors = append(errors, guard_errors...)
-	errors = append(errors, selector_errors...)
 	// Apply guard
 	if expr == nil {
 		// NOTE: in this case, the constraint itself has been translated as nil.
@@ -291,16 +284,22 @@ func (t *translator) translateDefConstraint(decl *ast.DefConstraint, module *Mod
 		return errors
 	}
 	// Apply guard (if applicable)
-	if guard != nil {
-		// guard = ir.Equals[mir.LogicalTerm, mir.Term](guard, ir.Const64[mir.Term](0))
-		// expr = ir.IfElse(guard, nil, expr)
-		panic("todo")
+	if decl.Guard != nil {
+		// Translate (optional) guard
+		gexpr, guard_errors := t.translateOptionalExpression(decl.Guard, module, 0)
+		guard := ir.Equals[mir.LogicalTerm](gexpr, ir.Const64[mir.Term](0))
+		expr = ir.IfThenElse(guard, nil, expr)
+		// Combine errors
+		errors = append(errors, guard_errors...)
 	}
 	// Apply perspective selector (if applicable)
-	if selector != nil {
-		// selector = mir.Equals(selector, ir.Const64[mir.Term](0))
-		// expr = ir.IfElse(selector, nil, expr)
-		panic("todo")
+	if decl.Perspective != nil {
+		// Translate (optional) perspective selector
+		sexpr, selector_errors := t.translateSelectorInModule(decl.Perspective, module)
+		selector := ir.Equals[mir.LogicalTerm](sexpr, ir.Const64[mir.Term](0))
+		expr = ir.IfThenElse(selector, nil, expr)
+		// Combine errors
+		errors = append(errors, selector_errors...)
 	}
 	//
 	if len(errors) == 0 {
@@ -550,6 +549,19 @@ func (t *translator) translateExpressions(module *ModuleBuilder, shift int,
 	return nexprs, errors
 }
 
+// Translate an optional expression in a given context.  That is an expression
+// which maybe nil (i.e. doesn't exist).  In such case, nil is returned (i.e.
+// without any errors).
+func (t *translator) translateOptionalExpression(expr ast.Expr, module *ModuleBuilder,
+	shift int) (mir.Term, []SyntaxError) {
+	//
+	if expr != nil {
+		return t.translateExpression(expr, module, shift)
+	}
+
+	return nil, nil
+}
+
 // Translate an expression situated in a given context.  The context is
 // necessary to resolve unqualified names (e.g. for register access, function
 // invocations, etc).
@@ -602,7 +614,7 @@ func (t *translator) translateExpression(expr ast.Expr, module *ModuleBuilder, s
 		return t.translateVariableAccess(e, shift)
 	default:
 		typeStr := reflect.TypeOf(expr).String()
-		msg := fmt.Sprintf("unknown expression encountered during translation (%s)", typeStr)
+		msg := fmt.Sprintf("unknown arithmetic expression encountered during translation (%s)", typeStr)
 		//
 		return nil, t.srcmap.SyntaxErrors(expr, msg)
 	}
@@ -626,18 +638,22 @@ func (t *translator) translateExp(expr *ast.Exp, module *ModuleBuilder, shift in
 }
 
 func (t *translator) translateIf(expr *ast.If, module *ModuleBuilder, shift int) (mir.Term, []SyntaxError) {
-	// fall-back translation condition
-	args, errs := t.translateExpressions(module, shift, expr.Condition, expr.TrueBranch, expr.FalseBranch)
+	// Translate condition as a logical
+	cond, cond_errs := t.translateLogical(expr.Condition, module, shift)
+	// Translate optional true / false branches
+	args, arg_errs := t.translateExpressions(module, shift, expr.TrueBranch, expr.FalseBranch)
+	//
+	errs := append(cond_errs, arg_errs...)
 	//
 	if len(errs) > 0 {
 		return nil, errs
 	}
 	// Propagate emptiness (if applicable)
-	if args[1] == nil && args[2] == nil {
+	if args[0] == nil && args[1] == nil {
 		return nil, nil
 	}
 	// Construct appropriate if form
-	return ir.IfElse(args[0], args[1], args[2]), nil
+	return ir.IfElse(cond, args[0], args[1]), nil
 }
 
 func (t *translator) translateShift(expr *ast.Shift, mod *ModuleBuilder, shift int) (mir.Term, []SyntaxError) {
@@ -688,6 +704,19 @@ func (t *translator) translateLogicals(module *ModuleBuilder, shift int,
 	return logicals, errors
 }
 
+// Translate an optional expression in a given context.  That is an expression
+// which maybe nil (i.e. doesn't exist).  In such case, nil is returned (i.e.
+// without any errors).
+func (t *translator) translateOptionalLogical(expr ast.Expr, module *ModuleBuilder,
+	shift int) (mir.LogicalTerm, []SyntaxError) {
+	//
+	if expr != nil {
+		return t.translateLogical(expr, module, shift)
+	}
+
+	return nil, nil
+}
+
 // Translate an expression situated in a given context.  The context is
 // necessary to resolve unqualified names (e.g. for register access, function
 // invocations, etc).
@@ -720,6 +749,8 @@ func (t *translator) translateLogical(expr ast.Expr, mod *ModuleBuilder, shift i
 		default:
 			panic("unreachable")
 		}
+	case *ast.If:
+		return t.translateIte(e, mod, shift)
 	case *ast.List:
 		args, errs := t.translateLogicals(mod, shift, e.Args...)
 		// Sanity check void
@@ -733,23 +764,32 @@ func (t *translator) translateLogical(expr ast.Expr, mod *ModuleBuilder, shift i
 		return ir.Negate(arg), errs
 	default:
 		typeStr := reflect.TypeOf(expr).String()
-		msg := fmt.Sprintf("unknown expression encountered during translation (%s)", typeStr)
+		msg := fmt.Sprintf("unknown logical expression encountered during translation (%s)", typeStr)
 		//
 		return nil, t.srcmap.SyntaxErrors(expr, msg)
 	}
 }
 
-// Translate an optional expression in a given context.  That is an expression
-// which maybe nil (i.e. doesn't exist).  In such case, nil is returned (i.e.
-// without any errors).
-func (t *translator) translateOptionalLogical(expr ast.Expr, module *ModuleBuilder,
-	shift int) (mir.LogicalTerm, []SyntaxError) {
+func (t *translator) translateIte(expr *ast.If, module *ModuleBuilder, shift int) (mir.LogicalTerm, []SyntaxError) {
+	// Translate condition as a logical
+	cond, errs := t.translateLogical(expr.Condition, module, shift)
+	// Translate optional true / false branches
+	tbranch, t_errs := t.translateOptionalLogical(expr.TrueBranch, module, shift)
+	// Translate optional true / false branches
+	fbranch, f_errs := t.translateOptionalLogical(expr.FalseBranch, module, shift)
 	//
-	if expr != nil {
-		return t.translateLogical(expr, module, shift)
+	errs = append(errs, t_errs...)
+	errs = append(errs, f_errs...)
+	//
+	if len(errs) > 0 {
+		return nil, errs
 	}
-
-	return nil, nil
+	// Propagate emptiness (if applicable)
+	if tbranch == nil && fbranch == nil {
+		return nil, nil
+	}
+	// Construct appropriate if form
+	return ir.IfThenElse(cond, tbranch, fbranch), nil
 }
 
 // Determine the underlying register for a symbol which represents a register access.

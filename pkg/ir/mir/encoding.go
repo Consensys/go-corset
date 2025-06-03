@@ -62,7 +62,7 @@ func encode_constraint(constraint schema.Constraint) ([]byte, error) {
 	case VanishingConstraint:
 		return encode_vanishing(c)
 	default:
-		return nil, errors.New("unknown MIR constraint")
+		return nil, errors.New("unknown constraint")
 	}
 }
 
@@ -129,7 +129,7 @@ func decode_constraint(bytes []byte) (schema.Constraint, error) {
 	case vanishingTag:
 		return decode_vanishing(bytes[1:])
 	default:
-		return nil, fmt.Errorf("unknown MIR constraint (tag %d)", bytes[0])
+		return nil, fmt.Errorf("unknown constraint (tag %d)", bytes[0])
 	}
 }
 
@@ -194,7 +194,7 @@ func encode_logical(term LogicalTerm, buf *bytes.Buffer) error {
 	case *NotEqual:
 		return encode_terms(notEqualTag, buf, t.Lhs, t.Rhs)
 	default:
-		return errors.New("unknown MIR term encountered")
+		return errors.New("unknown term encountered")
 	}
 }
 
@@ -215,7 +215,7 @@ func decode_logical(buf *bytes.Buffer) (LogicalTerm, error) {
 	case notEqualTag:
 		return decode_terms(2, notEqualConstructor, buf)
 	default:
-		return nil, fmt.Errorf("unknown MIR constraint (tag %d)", tag)
+		return nil, fmt.Errorf("unknown constraint (tag %d)", tag)
 	}
 }
 
@@ -230,13 +230,13 @@ func encode_term(term Term, buf *bytes.Buffer) error {
 	case *Cast:
 		panic("todo")
 	case *Constant:
-		return encode_const(*t, buf)
+		return encode_constant(*t, buf)
 	case *Exp:
-		panic("todo")
+		return encode_exponent(*t, buf)
 	case *IfZero:
 		panic("todo")
 	case *LabelledConst:
-		panic("todo")
+		return encode_labelled_constant(*t, buf)
 	case *Mul:
 		return encode_nary_terms(mulTag, buf, t.Args...)
 	case *Norm:
@@ -246,7 +246,7 @@ func encode_term(term Term, buf *bytes.Buffer) error {
 	case *Sub:
 		return encode_nary_terms(subTag, buf, t.Args...)
 	default:
-		return errors.New("unknown MIR term encountered")
+		return errors.New("unknown term encountered")
 	}
 }
 
@@ -285,7 +285,7 @@ func encode_terms(tag byte, buf *bytes.Buffer, terms ...Term) error {
 	return nil
 }
 
-func encode_const(term Constant, buf *bytes.Buffer) error {
+func encode_constant(term Constant, buf *bytes.Buffer) error {
 	bytes := term.Value.Bytes()
 	// Write tag
 	if err := buf.WriteByte(constantTag); err != nil {
@@ -295,6 +295,45 @@ func encode_const(term Constant, buf *bytes.Buffer) error {
 	_, err := buf.Write(bytes[:])
 	//
 	return err
+}
+
+func encode_labelled_constant(term LabelledConst, buf *bytes.Buffer) error {
+	var (
+		str_bytes   = []byte(term.Label)
+		str_len     = uint16(len(str_bytes))
+		const_bytes = term.Value.Bytes()
+	)
+	// Write tag
+	if err := buf.WriteByte(labelledConstantTag); err != nil {
+		return err
+	}
+	// Write label length
+	if err := binary.Write(buf, binary.BigEndian, str_len); err != nil {
+		return err
+	}
+	// Write label contents
+	if n, err := buf.Write(str_bytes); err != nil {
+		return err
+	} else if n != len(str_bytes) {
+		return fmt.Errorf("failed encoding constant label (%d versus %d bytes)", n, len(str_bytes))
+	}
+	// Write value as 32bytes
+	_, err := buf.Write(const_bytes[:])
+	//
+	return err
+}
+
+func encode_exponent(term Exp, buf *bytes.Buffer) error {
+	// Write tag
+	if err := buf.WriteByte(expTag); err != nil {
+		return err
+	}
+	// Exponent
+	if err := binary.Write(buf, binary.BigEndian, term.Pow); err != nil {
+		return err
+	}
+	// term
+	return encode_term(term.Arg, buf)
 }
 
 func encode_reg_access(term RegisterAccess, buf *bytes.Buffer) error {
@@ -334,11 +373,11 @@ func decode_term(buf *bytes.Buffer) (Term, error) {
 	case constantTag:
 		return decode_constant(buf)
 	case expTag:
-		panic("todo")
+		return decode_exponent(buf)
 	case ifZeroTag:
 		panic("todo")
 	case labelledConstantTag:
-		panic("todo")
+		return decode_labelled_constant(buf)
 	case registerAccessTag:
 		return decode_register(buf)
 	case mulTag:
@@ -348,7 +387,7 @@ func decode_term(buf *bytes.Buffer) (Term, error) {
 	case subTag:
 		return decode_nary_terms(subConstructor, buf)
 	default:
-		return nil, fmt.Errorf("unknown MIR constraint (tag %d)", tag)
+		return nil, fmt.Errorf("unknown constraint (tag %d)", tag)
 	}
 }
 
@@ -393,12 +432,60 @@ func decode_constant(buf *bytes.Buffer) (Term, error) {
 	if n, err := buf.Read(bytes[:]); err != nil {
 		return nil, err
 	} else if n != 32 {
-		return nil, errors.New("failed decoding MIR constant")
+		return nil, errors.New("failed decoding constant")
 	}
 	//
 	element.SetBytes(bytes[:])
 	//
 	return ir.Const[Term](element), nil
+}
+
+func decode_labelled_constant(buf *bytes.Buffer) (Term, error) {
+	var (
+		str_bytes   []byte
+		str_len     uint16
+		const_bytes [32]byte
+		element     fr.Element
+	)
+	// Label length
+	if err := binary.Read(buf, binary.BigEndian, &str_len); err != nil {
+		return nil, err
+	}
+	// Label contents
+	str_bytes = make([]byte, str_len)
+	if n, err := buf.Read(str_bytes); err != nil {
+		return nil, err
+	} else if n != int(str_len) {
+		return nil, errors.New("failed decoding labelled constant")
+	}
+	// Constant
+	if n, err := buf.Read(const_bytes[:]); err != nil {
+		return nil, err
+	} else if n != 32 {
+		return nil, errors.New("failed decoding labelled constant")
+	}
+	//
+	element.SetBytes(const_bytes[:])
+	//
+	return ir.LabelledConstant[Term](string(str_bytes), element), nil
+}
+
+func decode_exponent(buf *bytes.Buffer) (Term, error) {
+	var (
+		exponent uint64
+		term     Term
+		err      error
+	)
+	// Exponent
+	if err := binary.Read(buf, binary.BigEndian, &exponent); err != nil {
+		return nil, err
+	}
+	// Term
+	if term, err = decode_term(buf); err != nil {
+		return term, err
+	}
+	// Done
+	return ir.Exponent(term, exponent), nil
 }
 
 func decode_register(buf *bytes.Buffer) (Term, error) {

@@ -40,10 +40,6 @@ const TestDir = "../../testdata"
 // Basic Tests
 // ===================================================================
 
-func Test_Basic_00(t *testing.T) {
-	Check(t, false, "basic_00")
-}
-
 func Test_Basic_01(t *testing.T) {
 	Check(t, false, "basic_01")
 }

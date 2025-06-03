@@ -32,17 +32,18 @@ type Exp[T Term[T]] struct {
 // Exponent constructs a new expression representing the given argument
 // raised to a given a given power.
 func Exponent[T Term[T]](arg T, pow uint64) T {
-	panic("todo")
+	var term Term[T] = &Exp[T]{arg, pow}
+	return term.(T)
 }
 
 // ApplyShift implementation for Term interface.
-func (p *Exp[T]) ApplyShift(int) T {
-	panic("todo")
+func (p *Exp[T]) ApplyShift(shift int) T {
+	return Exponent(p.Arg.ApplyShift(shift), p.Pow)
 }
 
 // Bounds implementation for Boundable interface.
 func (p *Exp[T]) Bounds() util.Bounds {
-	panic("todo")
+	return p.Arg.Bounds()
 }
 
 // EvalAt implementation for Evaluable interface.

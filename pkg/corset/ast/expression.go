@@ -600,7 +600,16 @@ func (e *If) AsConstant() *big.Int {
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
 func (e *If) Context() Context {
-	ctx, _ := ContextOfExpressions(e.Condition, e.TrueBranch, e.FalseBranch)
+	ctx := e.Condition.Context()
+	//
+	if e.TrueBranch != nil {
+		ctx.Join(e.TrueBranch.Context())
+	}
+	//
+	if e.FalseBranch != nil {
+		ctx.Join(e.FalseBranch.Context())
+	}
+	//
 	return ctx
 }
 

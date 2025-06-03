@@ -73,7 +73,7 @@ type (
 	// Constant represents a constant value within an expression.
 	Constant = ir.Constant[Term]
 	// IfZero represents a conditional branch at the MIR level.
-	IfZero = ir.IfZero[Term]
+	IfZero = ir.IfZero[LogicalTerm, Term]
 	// LabelledConst represents a labelled constant at the MIR level.
 	LabelledConst = ir.LabelledConst[Term]
 	// RegisterAccess represents reading the value held at a given column in the
