@@ -30,7 +30,7 @@ type Assignment interface {
 	// assignment depends must exist (e.g. are either inputs or have been
 	// computed already).  Computed columns do not exist in the original trace,
 	// but are added during trace expansion to form the final trace.
-	ComputeColumns(tr.Trace) ([]tr.ArrayColumn, error)
+	Compute(tr.Trace, Schema[Constraint]) ([]tr.ArrayColumn, error)
 	// Consistent applies a number of internal consistency checks.  Whilst not
 	// strictly necessary, these can highlight otherwise hidden problems as an aid
 	// to debugging.
@@ -38,4 +38,9 @@ type Assignment interface {
 	// Returns the set of columns that this assignment depends upon.  That can
 	// include both input columns, as well as other computed columns.
 	Dependencies() []uint
+	// Module returns the enclosing register for all columns computed by this
+	// assignment.
+	Module() uint
+	// Identifier registers assigned by this assignment.
+	Registers() []uint
 }

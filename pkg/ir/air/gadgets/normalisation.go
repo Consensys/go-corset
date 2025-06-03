@@ -59,7 +59,7 @@ func applyPseudoInverseGadget(e air.Term, ctx trace.Context, module *air.ModuleB
 		// Add computed register.
 		index = module.NewRegister(schema.NewComputedRegister(name, bitwidth))
 		// Add assignment
-		module.AddAssignment(assignment.NewComputedColumn(ctx, index, e))
+		module.AddAssignment(assignment.NewComputedRegister(ctx, index, e))
 		// Construct proof of 1/e
 		inv_e := ir.NewRegisterAccess[air.Term](index, 0)
 		// Construct e/e

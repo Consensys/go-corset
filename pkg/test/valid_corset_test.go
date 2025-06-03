@@ -1437,7 +1437,7 @@ func checkTrace[C sc.Constraint](t *testing.T, inputs []trace.RawColumn, id trac
 		Expand(id.expand).
 		Validate(id.validate).
 		Padding(id.padding).
-		//Parallel(true).
+		Parallel(false). // TODO: reenable parallelism
 		Build(inputs)
 	// Sanity check construction
 	if len(errs) > 0 {

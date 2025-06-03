@@ -22,7 +22,7 @@ import (
 // Module represents a "table" within a schema which contains zero or more rows
 // for a given set of registers.
 type Module interface {
-	// Assignments returns an iterator over the assignments of this schema.
+	// Assignments returns an iterator over the assignments of this module.
 	// These are the computations used to assign values to all computed columns
 	// in this module.
 	Assignments() iter.Iterator[Assignment]

@@ -46,6 +46,10 @@ type Schema[C any] interface {
 	// schema.  These are properties which should hold true for any valid trace
 	// (though, of course, may not hold true for an invalid trace).
 	Assertions() iter.Iterator[C]
+	// Assignments returns an iterator over the assignments of this schema.
+	// That is, the set of computations used to determine values for all
+	// computed columns.
+	Assignments() iter.Iterator[Assignment]
 	// Consistent applies a number of internal consistency checks.  Whilst not
 	// strictly necessary, these can highlight otherwise hidden problems as an aid
 	// to debugging.

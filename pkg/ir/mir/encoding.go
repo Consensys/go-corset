@@ -240,7 +240,7 @@ func encode_term(term Term, buf *bytes.Buffer) error {
 	case *Mul:
 		return encode_nary_terms(mulTag, buf, t.Args...)
 	case *Norm:
-		panic("todo")
+		return encode_terms(normTag, buf, t.Arg)
 	case *RegisterAccess:
 		return encode_reg_access(*t, buf)
 	case *Sub:
@@ -344,7 +344,7 @@ func decode_term(buf *bytes.Buffer) (Term, error) {
 	case mulTag:
 		return decode_nary_terms(mulConstructor, buf)
 	case normTag:
-		panic("todo")
+		return decode_terms(1, normConstructor, buf)
 	case subTag:
 		return decode_nary_terms(subConstructor, buf)
 	default:
@@ -440,4 +440,8 @@ func notEqualConstructor(terms []Term) LogicalTerm {
 
 func subConstructor(terms []Term) Term {
 	return ir.Subtract(terms...)
+}
+
+func normConstructor(terms []Term) Term {
+	return ir.Normalise(terms[0])
 }

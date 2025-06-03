@@ -227,6 +227,7 @@ func (p *ModuleBuilder[C, T]) buildTable() schema.Table[C] {
 	table := schema.NewTable[C](p.name)
 	table.AddRegisters(p.registers...)
 	table.AddConstraints(p.constraints...)
+	table.AddAssignments(p.assignments...)
 	//
 	return table
 }

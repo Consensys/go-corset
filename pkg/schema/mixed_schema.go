@@ -77,6 +77,16 @@ func (p MixedSchema[M1, M2]) Assertions() iter.Iterator[Constraint] {
 	return iter.NewArrayIterator[Constraint](nil)
 }
 
+// Assignments returns an iterator over the assignments of this schema
+// These are the computations used to assign values to all computed columns
+// in this schema.
+func (p MixedSchema[M1, M2]) Assignments() iter.Iterator[Assignment] {
+	leftIter := assignmentsOf(p.left)
+	rightIter := assignmentsOf(p.right)
+	//
+	return iter.NewAppendIterator(leftIter, rightIter)
+}
+
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
