@@ -494,17 +494,20 @@ func sequentialModuleValidation(scMod Module, trMod trace.Module) []error {
 // Validate that all elements of a given column fit within a given bitwidth.
 func validateColumnBitWidth(bitwidth uint, col trace.Column, mod Module) error {
 	var (
-		frBound fr.Element
 		biBound big.Int
 	)
 	// Compute 2^n
 	biBound.Exp(big.NewInt(2), big.NewInt(int64(bitwidth)), nil)
-	// Construct bound
-	frBound.SetBigInt(&biBound)
 	//
 	for j := 0; j < int(col.Data().Len()); j++ {
-		jth := col.Get(j)
-		if jth.Cmp(&frBound) >= 0 {
+		var (
+			bi  big.Int
+			jth = col.Get(j)
+		)
+		// Convert field element to bigint
+		jth.BigInt(&bi)
+		//
+		if bi.Cmp(&biBound) >= 0 {
 			qualColName := trace.QualifiedColumnName(mod.Name(), col.Name())
 			return fmt.Errorf("row %d of column %s is out-of-bounds (%s)", j, qualColName, jth.String())
 		}

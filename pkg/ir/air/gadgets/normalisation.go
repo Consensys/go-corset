@@ -55,11 +55,13 @@ func applyPseudoInverseGadget(e air.Term, ctx trace.Context, module *air.ModuleB
 	index, ok := module.HasRegister(name)
 	// Add new column (if it does not already exist)
 	if !ok {
-		bitwidth := e.ValueRange(module).BitWidth()
+		// FIXME: this hard-coded constant will need to be changed at some
+		// point to properly support field agnosticity.
+		var bitwidth uint = uint(fr.Modulus().BitLen())
 		// Add computed register.
 		index = module.NewRegister(schema.NewComputedRegister(name, bitwidth))
 		// Add assignment
-		module.AddAssignment(assignment.NewComputedRegister(ctx, index, e))
+		module.AddAssignment(assignment.NewComputedRegister(ctx, index, ie))
 		// Construct proof of 1/e
 		inv_e := ir.NewRegisterAccess[air.Term](index, 0)
 		// Construct e/e
