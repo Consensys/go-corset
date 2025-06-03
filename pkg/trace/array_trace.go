@@ -88,11 +88,16 @@ type ArrayModule struct {
 // NewArrayModule constructs a module with the given name and an (as yet)
 // unspecified height.
 func NewArrayModule(name string, columns []ArrayColumn) ArrayModule {
-	var height uint = math.MaxUint
+	var (
+		height uint = 0
+		first       = true
+	)
+
 	//
-	for i, c := range columns {
-		if i == 0 {
+	for _, c := range columns {
+		if first && c.data != nil {
 			height = c.Height()
+			first = false
 		} else if c.data != nil && height != c.Height() {
 			// NOTE: we ignore nil columns and assume they are computed columns
 			// which are yet to be filled.

@@ -28,6 +28,8 @@ import (
 type AssertionFailure struct {
 	// Handle of the failing constraint
 	Handle string
+	//
+	Context trace.Context
 	// Constraint expression
 	Constraint ir.Testable
 	// Row on which the constraint failed
@@ -41,8 +43,9 @@ func (p *AssertionFailure) Message() string {
 }
 
 // RequiredCells identifies the cells required to evaluate the failing constraint at the failing row.
-func (p *AssertionFailure) RequiredCells(trace trace.Module) *set.AnySortedSet[trace.CellRef] {
-	return p.Constraint.RequiredCells(int(p.Row), trace)
+func (p *AssertionFailure) RequiredCells(tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
+	module := tr.Module(p.Context.ModuleId)
+	return p.Constraint.RequiredCells(int(p.Row), module)
 }
 
 func (p *AssertionFailure) String() string {
@@ -114,9 +117,9 @@ func (p *Assertion[T]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
 		// Check whether property holds (or was undefined)
 		if ok, id, err := p.Property.TestAt(int(k), module); err != nil {
 			// Evaluation failure
-			return coverage, &schema.InternalFailure{Handle: p.Handle, Row: k, Error: err.Error()}
+			return coverage, &InternalFailure{Handle: p.Handle, Context: p.Context, Row: k, Error: err.Error()}
 		} else if !ok {
-			return coverage, &AssertionFailure{p.Handle, p.Property, k}
+			return coverage, &AssertionFailure{p.Handle, p.Context, p.Property, k}
 		} else {
 			// Update coverage
 			coverage.Insert(id)

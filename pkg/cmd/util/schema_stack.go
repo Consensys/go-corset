@@ -71,6 +71,8 @@ type SchemaStack struct {
 	binfile binfile.BinaryFile
 	// The various layers which are refined from the binfile.
 	schemas []schema.AnySchema
+	// Name of IR used for corresponding schema
+	names []string
 }
 
 // NewSchemaStack constructs a new, but empty stack of schemas.
@@ -124,6 +126,12 @@ func (p *SchemaStack) Schemas() []schema.AnySchema {
 	return p.schemas
 }
 
+// IrName returns a human-readable anacronym of the IR used to generate the
+// corresponding SCHEMA.
+func (p *SchemaStack) IrName(index uint) string {
+	return p.names[index]
+}
+
 // Read reads one or more constraints files into this stack.
 func (p *SchemaStack) Read(filenames ...string) {
 	var (
@@ -145,18 +153,22 @@ func (p *SchemaStack) Read(filenames ...string) {
 	// Include macro assembly layer (if requested)
 	if p.layers.Contains(MACRO_ASM_LAYER) {
 		p.schemas = append(p.schemas, asmSchema)
+		p.names = append(p.names, "ASM")
 	}
 	// Include micro assembly layer (if requested)
 	if p.layers.Contains(MICRO_ASM_LAYER) {
 		p.schemas = append(p.schemas, uasmSchema)
+		p.names = append(p.names, "µASM")
 	}
 	// Include Mid-level IR layer (if requested)
 	if p.layers.Contains(MIR_LAYER) {
 		p.schemas = append(p.schemas, mirSchema)
+		p.names = append(p.names, "MIR")
 	}
 	// Include Arithmetic-level IR layer (if requested)
 	if p.layers.Contains(AIR_LAYER) {
 		p.schemas = append(p.schemas, schema.Any(airSchema))
+		p.names = append(p.names, "AIR")
 	}
 	// Apply any user-specified values for externalised constants.
 	applyExternOverrides(p.externs, &p.binfile)

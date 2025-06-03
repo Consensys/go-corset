@@ -65,3 +65,10 @@ type Schema[C any] interface {
 	// Returns the number of modules in this schema.
 	Width() uint
 }
+
+// Failure embodies structured information about a failing constraint.
+// This includes the constraint itself, along with the row
+type Failure interface {
+	// Provides a suitable error message
+	Message() string
+}
