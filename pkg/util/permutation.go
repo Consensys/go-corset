@@ -17,7 +17,7 @@ import (
 
 	"slices"
 
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
 
 // ArePermutationOf checks whether or not a set of given destination columns are

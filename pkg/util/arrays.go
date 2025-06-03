@@ -19,7 +19,7 @@ import (
 	"math"
 	"slices"
 
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
 
 // Predicate abstracts the notion of a function which identifies something.

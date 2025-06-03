@@ -17,11 +17,21 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
 
 // fieldElementBitWidth represents the maximum bit width for field elements (254 bits)
 const fieldElementBitWidth = 254
+
+// maxFieldElement represents 2^254 - 1, the maximum value for a valid field element
+var maxFieldElement = func() fr.Element {
+	var max fr.Element
+	var maxInt big.Int
+	maxInt.Lsh(big.NewInt(1), fieldElementBitWidth)
+	maxInt.Sub(&maxInt, big.NewInt(1))
+	max.SetBigInt(&maxInt)
+	return max
+}()
 
 // Type represents a _column type_ which restricts the set of values a column
 // can take on.  For example, a column might be restricted to holding only byte
@@ -183,16 +193,16 @@ func (p *FieldType) ByteWidth() uint {
 	return (fieldElementBitWidth + 7) / 8 // 254 bits rounded up to nearest byte
 }
 
-// BitWidth returns the bitwidth of this type (254 bits for BN254 field elements)
+// BitWidth returns the bitwidth of this type (254 bits for field elements)
 func (p *FieldType) BitWidth() uint {
 	return fieldElementBitWidth
 }
 
 // Accept determines whether a given value is an element of this type.
-// Always returns true since fr.Element values are already valid 254-bit field elements
-// reduced modulo the BN254 scalar field order r.
-func (p *FieldType) Accept(fr.Element) bool {
-	return true
+// Validates that the value fits within 254 bits by comparing against maxFieldElement.
+// Note: This ensures values are within the required bit width, regardless of the field's modulus.
+func (p *FieldType) Accept(val fr.Element) bool {
+	return val.Cmp(&maxFieldElement) <= 0
 }
 
 // SubtypeOf checks whether this subtypes another

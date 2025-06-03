@@ -18,7 +18,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/consensys/gnark-crypto/ecc/bn254/fr"
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	cmdutil "github.com/consensys/go-corset/pkg/cmd"
 	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/hir"
@@ -571,7 +571,6 @@ func counterModel(first uint, last uint, schema sc.Schema, trace tr.Trace) bool 
 // Check a given element is the previous element plus one.
 func isIncremented(before fr.Element, after fr.Element) bool {
 	after.Sub(&after, &before)
-	//
 	return after.IsOne()
 }
 
@@ -580,34 +579,33 @@ func unchanged(i, j uint, columns ...field.FrArray) bool {
 	for _, col := range columns {
 		ith := col.Get(i)
 		jth := col.Get(j)
-		//
 		if ith.Cmp(&jth) != 0 {
 			return false
 		}
 	}
-	//
 	return true
 }
 
+// Add two elements together
 func add(items ...fr.Element) fr.Element {
 	var acc = fr.NewElement(0)
 	for _, item := range items {
 		acc.Add(&acc, &item)
 	}
-
 	return acc
 }
 
+// Subtract two elements
 func sub(lhs fr.Element, rhs fr.Element) fr.Element {
 	lhs.Sub(&lhs, &rhs)
 	return lhs
 }
 
+// Multiply elements together
 func mul(items ...fr.Element) fr.Element {
 	var acc = fr.NewElement(1)
 	for _, item := range items {
 		acc.Mul(&acc, &item)
 	}
-
 	return acc
 }
