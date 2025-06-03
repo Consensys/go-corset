@@ -379,6 +379,8 @@ func (p *AirLowering) lowerLogicalTo(ctx trace.Context, e LogicalTerm, airModule
 		panic("got here")
 	case *Equal:
 		return []air.LogicalTerm{p.lowerEqualTo(ctx, *e, airModule)}
+	case *Ite:
+		panic("got here")
 	case *NotEqual:
 		return []air.LogicalTerm{p.lowerNotEqualTo(ctx, *e, airModule)}
 	default:

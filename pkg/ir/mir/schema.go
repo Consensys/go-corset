@@ -100,6 +100,9 @@ type (
 	// Equal represents an equality comparator between two arithmetic terms
 	// at the MIR level.
 	Equal = ir.Equal[Term]
+	// Ite represents an If-Then-Else expression where either branch is optional
+	// (though we must have at least one).
+	Ite = ir.Ite[LogicalTerm]
 	// NotEqual represents a non-equality comparator between two arithmetic terms
 	// at the MIR level.
 	NotEqual = ir.NotEqual[Term]
