@@ -59,7 +59,7 @@ func (p *SchemaBuilder[C, T]) NewModule(name string) uint {
 		panic(fmt.Sprintf("module \"%s\" already declared", name))
 	}
 	//
-	p.modules = append(p.modules, NewModuleBuilder[C, T](name))
+	p.modules = append(p.modules, newModuleBuilder[C, T](name, mid))
 	p.modmap[name] = mid
 	//
 	return mid
@@ -99,6 +99,8 @@ func (p *SchemaBuilder[C, T]) Build() []schema.Table[C] {
 type ModuleBuilder[C schema.Constraint, T Term[T]] struct {
 	// Name of the module being constructed
 	name string
+	// Id of this module
+	moduleId uint
 	// Maps register names (including aliases) to the register number.
 	regmap map[string]uint
 	// Registers declared for this module
@@ -110,9 +112,9 @@ type ModuleBuilder[C schema.Constraint, T Term[T]] struct {
 }
 
 // NewModuleBuilder constructs a new builder for a module with the given name.
-func NewModuleBuilder[C schema.Constraint, T Term[T]](name string) ModuleBuilder[C, T] {
+func newModuleBuilder[C schema.Constraint, T Term[T]](name string, mid uint) ModuleBuilder[C, T] {
 	regmap := make(map[string]uint, 0)
-	return ModuleBuilder[C, T]{name, regmap, nil, nil, nil}
+	return ModuleBuilder[C, T]{name, mid, regmap, nil, nil, nil}
 }
 
 // AddAssignment adds a new assignment to this module.  Assignments are
@@ -156,9 +158,14 @@ func (p *ModuleBuilder[C, T]) Constraints() iter.Iterator[schema.Constraint] {
 	panic("todo")
 }
 
+// Id returns the module index of this module.
+func (p *ModuleBuilder[C, T]) Id() uint {
+	return p.moduleId
+}
+
 // Width returns the number of registers in this module.
 func (p *ModuleBuilder[C, T]) Width() uint {
-	panic("todo")
+	return uint(len(p.registers))
 }
 
 // HasRegister checks whether a register of the given name exists already and,

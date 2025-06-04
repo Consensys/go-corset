@@ -19,6 +19,8 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/air"
+	"github.com/consensys/go-corset/pkg/ir/assignment"
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
@@ -45,45 +47,84 @@ func ApplyBinaryGadget(column uint, ctx trace.Context, module *air.ModuleBuilder
 }
 
 // ApplyBitwidthGadget ensures all values in a given column fit within a given
-// number of bits.  This is implemented using a *byte decomposition* which adds
-// n columns and a vanishing constraint (where n*8 >= nbits).
-func ApplyBitwidthGadget(col uint, nbits uint, selector air.Term, schema *air.Schema) {
-	// var (
-	// 	// Determine ranges required for the give bitwidth
-	// 	ranges = splitColumnRanges(nbits)
-	// 	// Identify number of columns required.
-	// 	n = uint(len(ranges))
-	// )
-	// // Sanity check
-	// if nbits == 0 {
-	// 	panic("zero bitwidth constraint encountered")
-	// }
-	// // Identify target column
-	// column := schema.Columns().Nth(col)
-	// // Calculate how many bytes required.
-	// es := make([]air.Expr, n)
-	// name := column.Name
-	// coefficient := fr.NewElement(1)
-	// // Add decomposition assignment
-	// index := schema.AddAssignment(
-	// 	assignment.NewByteDecomposition(name, column.Context, col, nbits))
-	// // Construct Columns
-	// for i := uint(0); i < n; i++ {
-	// 	// Create Column + Constraint
-	// 	es[i] = air.NewColumnAccess(index+i, 0).Mul(air.NewConst(coefficient))
+// bitwidth.  This is implemented using a *byte decomposition* which adds n
+// columns and a vanishing constraint (where n*8 >= bitwidth).
+func ApplyBitwidthGadget(col uint, bitwidth uint, selector air.Term, module *air.ModuleBuilder) {
+	context := trace.NewContext(module.Id(), 1)
+	// Identify target register name
+	name := module.Register(col).Name
+	// Allocated computed byte registers in the given module, and add required
+	// range constraints.
+	byteRegisters := allocateByteRegisters(name, bitwidth, module)
+	// Build up the decomposition sum
+	sum := buildDecompositionTerm(bitwidth, byteRegisters)
+	// Construct X == (X:0 * 1) + ... + (X:n * 2^n)
+	X := ir.NewRegisterAccess[air.Term](col, 0)
+	//
+	eq := ir.Product(selector, ir.Subtract(X, sum))
+	// Construct column name
+	module.AddConstraint(
+		air.NewVanishingConstraint(fmt.Sprintf("%s:u%d", name, bitwidth), context, util.None[int](), eq))
+	// Add decomposition assignment
+	module.AddAssignment(
+		assignment.NewByteDecomposition(name, context, col, bitwidth, byteRegisters))
+}
 
-	// 	schema.AddRangeConstraint(index+i, 0, ranges[i])
-	// 	// Update coefficient
-	// 	coefficient.Mul(&coefficient, &ranges[i])
-	// }
-	// // Construct (X:0 * 1) + ... + (X:n * 2^n)
-	// sum := air.Sum(es...)
-	// // Construct X == (X:0 * 1) + ... + (X:n * 2^n)
-	// X := air.NewColumnAccess(col, 0)
-	// eq := selector.Mul(X.Equate(sum))
-	// // Construct column name
-	// schema.AddVanishingConstraint(fmt.Sprintf("%s:u%d", name, nbits), 0, column.Context, util.None[int](), eq)
-	panic("todo")
+// Allocate n byte registers, each of which requires a suitable range
+// constraint.
+func allocateByteRegisters(prefix string, bitwidth uint, module *air.ModuleBuilder) []uint {
+	var (
+		context = trace.NewContext(module.Id(), 1)
+		n       = bitwidth / 8
+	)
+	//
+	if bitwidth == 0 {
+		panic("zero byte decomposition encountered")
+	}
+	// Account for asymetric case
+	if bitwidth%8 != 0 {
+		n++
+	}
+	// Allocate target register ids
+	targets := make([]uint, n)
+	// Allocate byte registers
+	for i := uint(0); i < n; i++ {
+		name := fmt.Sprintf("%s:%d", prefix, i)
+		byteRegister := schema.NewComputedRegister(name, min(8, bitwidth))
+		// Allocate byte register
+		targets[i] = module.NewRegister(byteRegister)
+		// Add suitable range constraint
+		ith_access := ir.RawRegisterAccess[air.Term](targets[i], 0)
+		//
+		module.AddConstraint(
+			air.NewRangeConstraint(name, context, *ith_access, byteRegister.Width))
+		//
+		bitwidth -= 8
+	}
+	//
+	return targets
+}
+
+func buildDecompositionTerm(bitwidth uint, byteRegisters []uint) air.Term {
+	var (
+		// Determine ranges required for the give bitwidth
+		ranges = splitColumnRanges(bitwidth)
+		// Initialise array of terms
+		terms = make([]air.Term, len(byteRegisters))
+		// Initialise coefficient
+		coefficient = fr.NewElement(1)
+	)
+
+	// Construct Columns
+	for i, rid := range byteRegisters {
+		// Create Column + Constraint
+		reg := ir.NewRegisterAccess[air.Term](rid, 0)
+		terms[i] = ir.Product(reg, ir.Const[air.Term](coefficient))
+		// Update coefficient
+		coefficient.Mul(&coefficient, &ranges[i])
+	}
+	// Construct (X:0 * 1) + ... + (X:n * 2^n)
+	return ir.Sum(terms...)
 }
 
 func splitColumnRanges(nbits uint) []fr.Element {

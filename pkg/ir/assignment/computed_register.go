@@ -54,9 +54,9 @@ func (p *ComputedRegister) Bounds() util.Bounds {
 	return p.expr.Bounds()
 }
 
-// ComputeColumns computes the values of columns defined by this assignment.
-// Specifically, this creates a new column which contains the result of
-// evaluating a given expression on each row.
+// Compute the values of columns defined by this assignment. Specifically, this
+// creates a new column which contains the result of evaluating a given
+// expression on each row.
 func (p *ComputedRegister) Compute(tr trace.Trace, schema schema.AnySchema) ([]trace.ArrayColumn, error) {
 	var (
 		module   = tr.Module(p.module)

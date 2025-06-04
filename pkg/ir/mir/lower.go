@@ -194,8 +194,7 @@ func (p *AirLowering) lowerRangeConstraintToAir(v RangeConstraint, airModule *ai
 		airModule.AddConstraint(air.NewRangeConstraint("", v.Context, *column, v.Bitwidth))
 	} else {
 		// Apply bitwidth gadget
-		//air_gadgets.ApplyBitwidthGadget(column, v.Bitwidth, air.NewConst64(1), airModule)
-		panic("todo")
+		air_gadgets.ApplyBitwidthGadget(register, v.Bitwidth, ir.Const64[air.Term](1), airModule)
 	}
 }
 
