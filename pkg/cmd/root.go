@@ -85,6 +85,13 @@ func getSchemaStack(cmd *cobra.Command, filenames ...string) *cmd_util.SchemaSta
 		fmt.Printf("invalid optimisation level %d\n", optimisation)
 		os.Exit(2)
 	}
+	// Enable everything if nothing was specified
+	if !airEnable && !mirEnable && !uasmEnable && !asmEnable {
+		airEnable = true
+		mirEnable = true
+		uasmEnable = true
+		asmEnable = true
+	}
 	// Configure the stack
 	schemaStack.WithAssemblyConfig(asmConfig)
 	schemaStack.WithCorsetConfig(corsetConfig)

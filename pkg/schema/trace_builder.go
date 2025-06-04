@@ -482,15 +482,13 @@ func parallelTraceExpansion(batchsize uint, schema AnySchema, trace *tr.ArrayTra
 	batch := 0
 	// Construct a communication channel for errors.
 	ch := make(chan columnBatch, 1024)
-	// Determine number of input columns
-	ninputs := schema.InputColumns().Count()
 	// Determine number of columns to compute
 	ntodo := schema.Assignments().Count()
 	// Iterate until all columns completed.
 	for ntodo > 0 {
 		stats := util.NewPerfStats()
 		// Dispatch next batch of assignments.
-		n := dispatchReadyAssignments(batchsize, ninputs, schema, trace, ch)
+		n := dispatchReadyAssignments(batchsize, schema, trace, ch)
 		//
 		batches := make([]columnBatch, n)
 		// Collect all the results
@@ -505,7 +503,7 @@ func parallelTraceExpansion(batchsize uint, schema AnySchema, trace *tr.ArrayTra
 		// Once we get here, all go rountines are complete and we are sequential
 		// again.
 		for _, r := range batches {
-			fillComputedColumns(r.index, r.columns, trace)
+			fillComputedColumns(r.targets, r.module, r.columns, trace)
 			//
 			ntodo--
 		}
@@ -522,26 +520,31 @@ func parallelTraceExpansion(batchsize uint, schema AnySchema, trace *tr.ArrayTra
 // results being fed back into the shared channel.  This returns the number of
 // jobs which have been dispatched (i.e. so the caller knows how many results to
 // expect).
-func dispatchReadyAssignments(batchsize uint, ninputs uint, schema AnySchema,
+func dispatchReadyAssignments(batchsize uint, schema AnySchema,
 	trace *tr.ArrayTrace, ch chan columnBatch) uint {
 	count := uint(0)
 	//
-	for iter, cid := schema.Assignments(), ninputs; iter.HasNext() && count < batchsize; {
-		ith := iter.Next()
+	for iter := schema.Assignments(); iter.HasNext() && count < batchsize; {
+		var (
+			ith        = iter.Next()
+			ith_module = trace.RawModule(ith.Module())
+			// Access data for first regsiter in this assignment.  If this is
+			// nil it signals the register has not yet been filled yet (and,
+			// hence, this entire assignment).
+			ith_data = ith_module.Column(ith.Registers()[0]).Data()
+		)
 		// Check whether this assignment has already been computed and, if not,
 		// whether or not it is ready.
-		if trace.Column(cid).Data() == nil && isReady(ith, trace) {
+		if ith_data == nil && isReady(ith, ith_module) {
 			// Dispatch!
-			go func(index uint) {
-				cols, err := ith.ComputeColumns(trace)
+			go func(module uint, targets []uint) {
+				cols, err := ith.Compute(trace, schema)
 				// Send outcome back
-				ch <- columnBatch{index, cols, err}
-			}(cid)
+				ch <- columnBatch{module, targets, cols, err}
+			}(ith.Module(), ith.Registers())
 			// Increment dispatch count
 			count++
 		}
-		// Update the column identifier
-		cid += ith.Columns().Count()
 	}
 	// Done
 	return count
@@ -549,9 +552,9 @@ func dispatchReadyAssignments(batchsize uint, ninputs uint, schema AnySchema,
 
 // Check whether all dependencies for this assignment are available (that is,
 // have their data already).
-func isReady(assignment Assignment, trace *tr.ArrayTrace) bool {
+func isReady(assignment Assignment, module *tr.ArrayModule) bool {
 	for _, cid := range assignment.Dependencies() {
-		if trace.Column(cid).Data() == nil {
+		if module.Column(cid).Data() == nil {
 			return false
 		}
 	}
@@ -561,8 +564,10 @@ func isReady(assignment Assignment, trace *tr.ArrayTrace) bool {
 
 // Result from given computation.
 type columnBatch struct {
-	// The column index of the first computed column in this batch.
-	index uint
+	// Enclosing module for this batch
+	module uint
+	// Target registers for this batch
+	targets []uint
 	// The computed columns in this batch.
 	columns []trace.ArrayColumn
 	// An error (should one arise)
@@ -572,28 +577,32 @@ type columnBatch struct {
 // Validate that values held in trace columns match the expected type.  This is
 // really a sanity check that the trace is not malformed.
 func parallelTraceValidation(schema AnySchema, tr tr.Trace) []error {
-	var errors []error
-
-	schemaCols := schema.Columns()
-	// Start timer
-	stats := util.NewPerfStats()
-	// Construct a communication channel for errors.
-	c := make(chan error, 1024)
-	// Check each column in turn
-	for i := uint(0); i < tr.Width(); i++ {
-		// Extract ith column
-		col := tr.Column(i)
-		// Extract schema for ith column
-		scCol := schemaCols.Next()
-		// Determine enclosing module
-		mod := schema.Modules().Nth(scCol.Context.Module())
-		// Extract type for ith column
-		colType := scCol.DataType
-		// Check elements
-		go func() {
-			// Send outcome back
-			c <- validateColumnType(colType, col, mod)
-		}()
+	var (
+		errors []error
+		// Start timer
+		stats = util.NewPerfStats()
+		// Construct a communication channel for errors.
+		c = make(chan error, 1024)
+	)
+	// Check each module in turn
+	for mid := uint(0); mid < tr.Width(); mid++ {
+		var (
+			scMod = schema.Module(mid)
+			trMod = tr.Module(mid)
+		)
+		// Check each column within each module
+		for cid := uint(0); cid < trMod.Width(); cid++ {
+			// Extract ith column
+			var (
+				reg  Register     = scMod.Register(mid)
+				data trace.Column = trMod.Column(cid)
+			)
+			// Check elements
+			go func() {
+				// Send outcome back
+				c <- validateColumnBitWidth(reg.Width, data, scMod)
+			}()
+		}
 	}
 	// Collect up all the results
 	for i := uint(0); i < tr.Width(); i++ {
