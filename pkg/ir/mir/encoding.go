@@ -421,13 +421,13 @@ func encode_term(term Term, buf *bytes.Buffer) error {
 	case *Add:
 		return encode_tagged_nary_terms(addTag, buf, t.Args...)
 	case *Cast:
-		panic("todo")
+		return encode_cast(*t, buf)
 	case *Constant:
 		return encode_constant(*t, buf)
 	case *Exp:
 		return encode_exponent(*t, buf)
 	case *IfZero:
-		panic("todo")
+		return encode_ifZero(*t, buf)
 	case *LabelledConst:
 		return encode_labelled_constant(*t, buf)
 	case *Mul:
@@ -461,6 +461,19 @@ func encode_tagged_terms(tag byte, buf *bytes.Buffer, terms ...Term) error {
 	return encode_n(encode_term, buf, terms...)
 }
 
+func encode_cast(term Cast, buf *bytes.Buffer) error {
+	// Write tag
+	if err := buf.WriteByte(castTag); err != nil {
+		return err
+	}
+	// Bitwidth
+	if err := binary.Write(buf, binary.BigEndian, uint16(term.BitWidth)); err != nil {
+		return err
+	}
+	// term
+	return encode_term(term.Arg, buf)
+}
+
 func encode_constant(term Constant, buf *bytes.Buffer) error {
 	bytes := term.Value.Bytes()
 	// Write tag
@@ -471,6 +484,19 @@ func encode_constant(term Constant, buf *bytes.Buffer) error {
 	_, err := buf.Write(bytes[:])
 	//
 	return err
+}
+
+func encode_ifZero(term IfZero, buf *bytes.Buffer) error {
+	// Write tag
+	if err := buf.WriteByte(ifZeroTag); err != nil {
+		return err
+	}
+	// Write condition
+	if err := encode_logical(term.Condition, buf); err != nil {
+		return err
+	}
+	// Write true + false branches
+	return encode_n(encode_term, buf, term.TrueBranch, term.FalseBranch)
 }
 
 func encode_labelled_constant(term LabelledConst, buf *bytes.Buffer) error {
@@ -545,13 +571,13 @@ func decode_term(buf *bytes.Buffer) (Term, error) {
 	case addTag:
 		return decode_nary_terms(addConstructor, buf)
 	case castTag:
-		panic("todo")
+		return decode_cast(buf)
 	case constantTag:
 		return decode_constant(buf)
 	case expTag:
 		return decode_exponent(buf)
 	case ifZeroTag:
-		panic("todo")
+		return decode_ifzero(buf)
 	case labelledConstantTag:
 		return decode_labelled_constant(buf)
 	case registerAccessTag:
@@ -579,6 +605,24 @@ func decode_terms[S any](n uint, constructor func([]Term) S, buf *bytes.Buffer) 
 	return constructor(terms), err
 }
 
+func decode_cast(buf *bytes.Buffer) (Term, error) {
+	var (
+		bitwidth uint16
+		term     Term
+		err      error
+	)
+	// Exponent
+	if err := binary.Read(buf, binary.BigEndian, &bitwidth); err != nil {
+		return nil, err
+	}
+	// Term
+	if term, err = decode_term(buf); err != nil {
+		return term, err
+	}
+	// Done
+	return ir.CastOf(term, uint(bitwidth)), nil
+}
+
 func decode_constant(buf *bytes.Buffer) (Term, error) {
 	var (
 		bytes   [32]byte
@@ -594,6 +638,42 @@ func decode_constant(buf *bytes.Buffer) (Term, error) {
 	element.SetBytes(bytes[:])
 	//
 	return ir.Const[Term](element), nil
+}
+
+func decode_exponent(buf *bytes.Buffer) (Term, error) {
+	var (
+		exponent uint64
+		term     Term
+		err      error
+	)
+	// Exponent
+	if err := binary.Read(buf, binary.BigEndian, &exponent); err != nil {
+		return nil, err
+	}
+	// Term
+	if term, err = decode_term(buf); err != nil {
+		return term, err
+	}
+	// Done
+	return ir.Exponent(term, exponent), nil
+}
+
+func decode_ifzero(buf *bytes.Buffer) (Term, error) {
+	var (
+		condition LogicalTerm
+		branches  []Term
+		err       error
+	)
+	// Condition
+	if condition, err = decode_logical(buf); err != nil {
+		return &IfZero{}, err
+	}
+	// True / false branches
+	if branches, err = decode_n(2, decode_term, buf); err != nil {
+		return &IfZero{}, err
+	}
+	// Done
+	return ir.IfElse(condition, branches[0], branches[1]), nil
 }
 
 func decode_labelled_constant(buf *bytes.Buffer) (Term, error) {
@@ -624,24 +704,6 @@ func decode_labelled_constant(buf *bytes.Buffer) (Term, error) {
 	element.SetBytes(const_bytes[:])
 	//
 	return ir.LabelledConstant[Term](string(str_bytes), element), nil
-}
-
-func decode_exponent(buf *bytes.Buffer) (Term, error) {
-	var (
-		exponent uint64
-		term     Term
-		err      error
-	)
-	// Exponent
-	if err := binary.Read(buf, binary.BigEndian, &exponent); err != nil {
-		return nil, err
-	}
-	// Term
-	if term, err = decode_term(buf); err != nil {
-		return term, err
-	}
-	// Done
-	return ir.Exponent(term, exponent), nil
 }
 
 func decode_register(buf *bytes.Buffer) (Term, error) {

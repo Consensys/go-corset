@@ -27,8 +27,6 @@ import (
 // schema and set of input columns.  The goal is to encapsulate all of the logic
 // around building a trace.
 type TraceBuilder struct {
-	// Schema to be used when building the trace
-	schema AnySchema
 	// Indicates whether or not to perform defensive padding.  This is where
 	// padding rows are appended and/or prepended to ensure no constraint in the
 	// active region of the trace is clipped.  Whilst not strictly necessary,
@@ -75,75 +73,85 @@ type columnId struct {
 
 // NewTraceBuilder constructs a default trace builder.  The idea is that this
 // could then be customized as needed following the builder pattern.
-func NewTraceBuilder[C Constraint](schema Schema[C]) TraceBuilder {
-	return TraceBuilder{Any(schema), true, true, true, true, 0, true, math.MaxUint}
+func NewTraceBuilder() TraceBuilder {
+	return TraceBuilder{true, true, true, true, 0, true, math.MaxUint}
 }
 
-// Defensive updates a given builder configuration to apply defensive padding
+// WithDefensivePadding updates a given builder configuration to apply defensive padding
 // (or not).
-func (tb TraceBuilder) Defensive(flag bool) TraceBuilder {
+func (tb TraceBuilder) WithDefensivePadding(flag bool) TraceBuilder {
 	ntb := tb
 	ntb.defensive = flag
 	//
 	return ntb
 }
 
-// ExpansionChecks enables runtime safety checks on the expanded trace.
-func (tb TraceBuilder) ExpansionChecks(flag bool) TraceBuilder {
+// WithExpansionChecks enables runtime safety checks on the expanded trace.
+func (tb TraceBuilder) WithExpansionChecks(flag bool) TraceBuilder {
 	ntb := tb
 	ntb.checks = flag
 	//
 	return ntb
 }
 
-// Expand updates a given builder configuration to perform trace expansion (or
+// WithExpansion updates a given builder configuration to perform trace expansion (or
 // not).
-func (tb TraceBuilder) Expand(flag bool) TraceBuilder {
+func (tb TraceBuilder) WithExpansion(flag bool) TraceBuilder {
 	ntb := tb
 	ntb.expand = flag
 	//
 	return ntb
 }
 
-// Validate updates a given builder configuration to perform trace validation (or
+// WithValidation updates a given builder configuration to perform trace validation (or
 // not).
-func (tb TraceBuilder) Validate(flag bool) TraceBuilder {
+func (tb TraceBuilder) WithValidation(flag bool) TraceBuilder {
 	ntb := tb
 	ntb.validate = flag
 	//
 	return ntb
 }
 
-// Padding updates a given builder configuration to use a given amount of padding
-func (tb TraceBuilder) Padding(padding uint) TraceBuilder {
+// WithPadding updates a given builder configuration to use a given amount of padding
+func (tb TraceBuilder) WithPadding(padding uint) TraceBuilder {
 	ntb := tb
 	ntb.padding = padding
 	//
 	return ntb
 }
 
-// Parallel updates a given builder configuration to allow trace expansion to be
+// WithParallelism updates a given builder configuration to allow trace expansion to be
 // performed concurrently (or not).
-func (tb TraceBuilder) Parallel(flag bool) TraceBuilder {
+func (tb TraceBuilder) WithParallelism(flag bool) TraceBuilder {
 	ntb := tb
 	ntb.parallel = flag
 	//
 	return ntb
 }
 
-// BatchSize sets the maximum number of batches to run in parallel during trace
+// Parallelism checks whether parallelism is enabled for this builder.
+func (tb TraceBuilder) Parallelism() bool {
+	return tb.parallel
+}
+
+// WithBatchSize sets the maximum number of batches to run in parallel during trace
 // expansion.
-func (tb TraceBuilder) BatchSize(batchSize uint) TraceBuilder {
+func (tb TraceBuilder) WithBatchSize(batchSize uint) TraceBuilder {
 	ntb := tb
 	ntb.batchSize = batchSize
 	//
 	return ntb
 }
 
+// BatchSize returns the configure batch size for this builder.
+func (tb TraceBuilder) BatchSize() uint {
+	return tb.batchSize
+}
+
 // Build attempts to construct a trace for a given schema, producing errors if
 // there are inconsistencies (e.g. missing columns, duplicate columns, etc).
-func (tb TraceBuilder) Build(cols []trace.RawColumn) (trace.Trace, []error) {
-	tr, errors := initialiseTrace(tb.schema, cols)
+func (tb TraceBuilder) Build(schema AnySchema, cols []trace.RawColumn) (trace.Trace, []error) {
+	tr, errors := initialiseTrace(!tb.expand, schema, cols)
 	//
 	if len(errors) > 0 {
 		// Critical failure
@@ -152,32 +160,32 @@ func (tb TraceBuilder) Build(cols []trace.RawColumn) (trace.Trace, []error) {
 		// Save original line counts
 		moduleHeights := determineModuleHeights(tr)
 		// Apply spillage
-		applySpillageAndDefensivePadding(tb.defensive, tr, tb.schema)
+		applySpillageAndDefensivePadding(tb.defensive, tr, schema)
 		// Sanity checks
 		if tb.checks {
-			if err := checkModuleHeights(moduleHeights, tb.defensive, tr, tb.schema); err != nil {
+			if err := checkModuleHeights(moduleHeights, tb.defensive, tr, schema); err != nil {
 				return nil, append(errors, err)
 			}
 		}
 		// Expand trace
 		if tb.parallel {
 			// Run (parallel) trace expansion
-			if err := parallelTraceExpansion(tb.batchSize, tb.schema, tr); err != nil {
+			if err := parallelTraceExpansion(tb.batchSize, schema, tr); err != nil {
 				return nil, append(errors, err)
 			}
-		} else if err := sequentialTraceExpansion(tb.schema, tr); err != nil {
+		} else if err := sequentialTraceExpansion(schema, tr); err != nil {
 			// Expansion errors are fatal as well
 			return nil, append(errors, err)
 		}
 		// Validate expanded trace
 		if tb.validate && tb.parallel {
 			// Run (parallel) trace validation
-			if errs := parallelTraceValidation(tb.schema, tr); len(errs) > 0 {
+			if errs := parallelTraceValidation(schema, tr); len(errs) > 0 {
 				return nil, append(errors, errs...)
 			}
 		} else if tb.validate {
 			// Run (sequential) trace validation
-			if errs := sequentialTraceValidation(tb.schema, tr); len(errs) > 0 {
+			if errs := sequentialTraceValidation(schema, tr); len(errs) > 0 {
 				return nil, append(errors, errs...)
 			}
 		}
@@ -190,14 +198,14 @@ func (tb TraceBuilder) Build(cols []trace.RawColumn) (trace.Trace, []error) {
 	return tr, errors
 }
 
-func initialiseTrace(schema AnySchema, cols []trace.RawColumn) (*trace.ArrayTrace, []error) {
+func initialiseTrace(expanded bool, schema AnySchema, cols []trace.RawColumn) (*trace.ArrayTrace, []error) {
 	var (
 		// Initialise modules
 		modmap  = initialiseModuleMap(schema)
 		modules = make([]trace.ArrayModule, schema.Width())
 	)
 	//
-	columns, errors := splitTraceColumns(schema, modmap, cols)
+	columns, errors := splitTraceColumns(expanded, schema, modmap, cols)
 	//
 	for i := uint(0); i != schema.Width(); i++ {
 		var name = schema.Module(i).Name()
@@ -224,7 +232,7 @@ func initialiseModuleMap(schema AnySchema) map[string]uint {
 	return modmap
 }
 
-func splitTraceColumns(schema AnySchema, modmap map[string]uint,
+func splitTraceColumns(expanded bool, schema AnySchema, modmap map[string]uint,
 	cols []trace.RawColumn) ([][]trace.RawColumn, []error) {
 	//
 	var (
@@ -268,6 +276,8 @@ func splitTraceColumns(schema AnySchema, modmap map[string]uint,
 			//
 			if reg.IsInputOutput() && c.Data == nil {
 				errs = append(errs, fmt.Errorf("missing input/output column '%s' from trace", c.QualifiedName()))
+			} else if expanded && c.Data == nil {
+				errs = append(errs, fmt.Errorf("missing computed column '%s' from expanded trace", c.QualifiedName()))
 			}
 		}
 	}
@@ -482,15 +492,13 @@ func parallelTraceExpansion(batchsize uint, schema AnySchema, trace *tr.ArrayTra
 	batch := 0
 	// Construct a communication channel for errors.
 	ch := make(chan columnBatch, 1024)
-	// Determine number of input columns
-	ninputs := schema.InputColumns().Count()
 	// Determine number of columns to compute
 	ntodo := schema.Assignments().Count()
 	// Iterate until all columns completed.
 	for ntodo > 0 {
 		stats := util.NewPerfStats()
 		// Dispatch next batch of assignments.
-		n := dispatchReadyAssignments(batchsize, ninputs, schema, trace, ch)
+		n := dispatchReadyAssignments(batchsize, schema, trace, ch)
 		//
 		batches := make([]columnBatch, n)
 		// Collect all the results
@@ -505,7 +513,7 @@ func parallelTraceExpansion(batchsize uint, schema AnySchema, trace *tr.ArrayTra
 		// Once we get here, all go rountines are complete and we are sequential
 		// again.
 		for _, r := range batches {
-			fillComputedColumns(r.index, r.columns, trace)
+			fillComputedColumns(r.targets, r.module, r.columns, trace)
 			//
 			ntodo--
 		}
@@ -522,26 +530,31 @@ func parallelTraceExpansion(batchsize uint, schema AnySchema, trace *tr.ArrayTra
 // results being fed back into the shared channel.  This returns the number of
 // jobs which have been dispatched (i.e. so the caller knows how many results to
 // expect).
-func dispatchReadyAssignments(batchsize uint, ninputs uint, schema AnySchema,
+func dispatchReadyAssignments(batchsize uint, schema AnySchema,
 	trace *tr.ArrayTrace, ch chan columnBatch) uint {
 	count := uint(0)
 	//
-	for iter, cid := schema.Assignments(), ninputs; iter.HasNext() && count < batchsize; {
-		ith := iter.Next()
+	for iter := schema.Assignments(); iter.HasNext() && count < batchsize; {
+		var (
+			ith        = iter.Next()
+			ith_module = trace.RawModule(ith.Module())
+			// Access data for first regsiter in this assignment.  If this is
+			// nil it signals the register has not yet been filled yet (and,
+			// hence, this entire assignment).
+			ith_data = ith_module.Column(ith.Registers()[0]).Data()
+		)
 		// Check whether this assignment has already been computed and, if not,
 		// whether or not it is ready.
-		if trace.Column(cid).Data() == nil && isReady(ith, trace) {
+		if ith_data == nil && isReady(ith, ith_module) {
 			// Dispatch!
-			go func(index uint) {
-				cols, err := ith.ComputeColumns(trace)
+			go func(module uint, targets []uint) {
+				cols, err := ith.Compute(trace, schema)
 				// Send outcome back
-				ch <- columnBatch{index, cols, err}
-			}(cid)
+				ch <- columnBatch{module, targets, cols, err}
+			}(ith.Module(), ith.Registers())
 			// Increment dispatch count
 			count++
 		}
-		// Update the column identifier
-		cid += ith.Columns().Count()
 	}
 	// Done
 	return count
@@ -549,9 +562,9 @@ func dispatchReadyAssignments(batchsize uint, ninputs uint, schema AnySchema,
 
 // Check whether all dependencies for this assignment are available (that is,
 // have their data already).
-func isReady(assignment Assignment, trace *tr.ArrayTrace) bool {
+func isReady(assignment Assignment, module *tr.ArrayModule) bool {
 	for _, cid := range assignment.Dependencies() {
-		if trace.Column(cid).Data() == nil {
+		if module.Column(cid).Data() == nil {
 			return false
 		}
 	}
@@ -561,8 +574,10 @@ func isReady(assignment Assignment, trace *tr.ArrayTrace) bool {
 
 // Result from given computation.
 type columnBatch struct {
-	// The column index of the first computed column in this batch.
-	index uint
+	// Enclosing module for this batch
+	module uint
+	// Target registers for this batch
+	targets []uint
 	// The computed columns in this batch.
 	columns []trace.ArrayColumn
 	// An error (should one arise)
@@ -572,31 +587,34 @@ type columnBatch struct {
 // Validate that values held in trace columns match the expected type.  This is
 // really a sanity check that the trace is not malformed.
 func parallelTraceValidation(schema AnySchema, tr tr.Trace) []error {
-	var errors []error
-
-	schemaCols := schema.Columns()
-	// Start timer
-	stats := util.NewPerfStats()
-	// Construct a communication channel for errors.
-	c := make(chan error, 1024)
-	// Check each column in turn
-	for i := uint(0); i < tr.Width(); i++ {
-		// Extract ith column
-		col := tr.Column(i)
-		// Extract schema for ith column
-		scCol := schemaCols.Next()
-		// Determine enclosing module
-		mod := schema.Modules().Nth(scCol.Context.Module())
-		// Extract type for ith column
-		colType := scCol.DataType
-		// Check elements
-		go func() {
-			// Send outcome back
-			c <- validateColumnType(colType, col, mod)
-		}()
+	var (
+		errors []error
+		// Start timer
+		stats = util.NewPerfStats()
+		// Construct a communication channel for errors.
+		c = make(chan error, 1024)
+		// Number of columns to validate
+		ntodo = uint(0)
+	)
+	// Check each module in turn
+	for mid := uint(0); mid < tr.Width(); mid++ {
+		var (
+			scMod = schema.Module(mid)
+			trMod = tr.Module(mid)
+		)
+		// Check each column within each module
+		for cid := uint(0); cid < trMod.Width(); cid++ {
+			// Check elements
+			go func(reg Register, data trace.Column) {
+				// Send outcome back
+				c <- validateColumnBitWidth(reg.Width, data, scMod)
+			}(scMod.Register(cid), trMod.Column(cid))
+			//
+			ntodo++
+		}
 	}
 	// Collect up all the results
-	for i := uint(0); i < tr.Width(); i++ {
+	for i := uint(0); i < ntodo; i++ {
 		// Read from channel
 		if e := <-c; e != nil {
 			errors = append(errors, e)

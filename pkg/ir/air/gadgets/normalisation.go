@@ -45,6 +45,7 @@ func Normalise(e air.Term, ctx trace.Context, module *air.ModuleBuilder) air.Ter
 func applyPseudoInverseGadget(e air.Term, ctx trace.Context, module *air.ModuleBuilder) air.Term {
 	// Sanity check
 	if ctx.IsVoid() || ctx.IsConflicted() {
+		fmt.Printf("TERM: %s\n", e.Lisp(module).String(false))
 		panic("conflicting (or void) context")
 	}
 	// Construct inverse computation

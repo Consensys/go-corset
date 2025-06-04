@@ -44,6 +44,17 @@ func Const64[T Term[T]](val uint64) T {
 	return term.(T)
 }
 
+// IsConstant checks whether an artibrary term corresponds to a constant or not.
+func IsConstant[T Term[T]](term T) *fr.Element {
+	var tmp Term[T] = term
+	//
+	if c, ok := tmp.(*Constant[T]); ok {
+		return &c.Value
+	}
+	//
+	return nil
+}
+
 // Air indicates this term can be used at the AIR level.
 func (p *Constant[T]) Air() {}
 
@@ -85,7 +96,8 @@ func (p *Constant[T]) ShiftRange() (int, int) {
 
 // Simplify implementation for Term interface.
 func (p *Constant[T]) Simplify(casts bool) T {
-	panic("todo")
+	var tmp Term[T] = p
+	return tmp.(T)
 }
 
 // ValueRange implementation for Term interface.

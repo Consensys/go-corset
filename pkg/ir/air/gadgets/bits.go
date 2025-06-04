@@ -29,6 +29,9 @@ import (
 // which enforces that all values in the given column are either 0 or 1. For a
 // column X, this corresponds to the vanishing constraint X * (X-1) == 0.
 func ApplyBinaryGadget(column uint, ctx trace.Context, module *air.ModuleBuilder) {
+	if ctx.ModuleId != module.Id() {
+		panic("conflicting context")
+	}
 	// Identify target register
 	register := module.Register(column)
 	// Determine column name

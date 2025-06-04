@@ -78,7 +78,26 @@ func (p *Norm[T]) ShiftRange() (int, int) {
 
 // Simplify implementation for Term interface.
 func (p *Norm[T]) Simplify(casts bool) T {
-	panic("todo")
+	var (
+		arg  T       = p.Arg.Simplify(casts)
+		targ Term[T] = arg
+	)
+	//
+	if c, ok := targ.(*Constant[T]); ok {
+		var val fr.Element
+		// Clone value
+		val.Set(&c.Value)
+		// Normalise (in place)
+		if !val.IsZero() {
+			val.SetOne()
+		}
+		// Done
+		targ = &Constant[T]{val}
+	} else {
+		targ = &Norm[T]{arg}
+	}
+	//
+	return targ.(T)
 }
 
 // ValueRange implementation for Term interface.

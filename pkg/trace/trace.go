@@ -23,6 +23,9 @@ import (
 type Trace interface {
 	// Access a given module in this trace.
 	Module(uint) Module
+	// Determine whether this trace has a module with the given name and, if so,
+	// what its module index is.
+	HasModule(name string) (uint, bool)
 	// Returns the number of modules in this trace.
 	Width() uint
 	// Determine height of a given context

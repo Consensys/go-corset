@@ -76,7 +76,8 @@ func (p *LabelledConst[T]) ShiftRange() (int, int) {
 
 // Simplify implementation for Term interface.
 func (p *LabelledConst[T]) Simplify(casts bool) T {
-	panic("todo")
+	var tmp Term[T] = p
+	return tmp.(T)
 }
 
 // ValueRange implementation for Term interface.

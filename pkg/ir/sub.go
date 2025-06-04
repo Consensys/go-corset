@@ -27,7 +27,15 @@ type Sub[T Term[T]] struct{ Args []T }
 // Subtract returns the subtraction of the subsequent expressions from the
 // first.
 func Subtract[T Term[T]](exprs ...T) T {
+	// Sanity check
+	if len(exprs) == 0 {
+		panic("subtraction of zero expressions")
+	} else if len(exprs) == 1 {
+		return exprs[0]
+	}
+	//
 	var term Term[T] = &Sub[T]{exprs}
+	//
 	return term.(T)
 }
 
@@ -78,11 +86,6 @@ func (p *Sub[T]) ShiftRange() (int, int) {
 	return shiftRangeOfTerms(p.Args)
 }
 
-// Simplify implementation for Term interface.
-func (p *Sub[T]) Simplify(casts bool) T {
-	panic("todo")
-}
-
 // ValueRange implementation for Term interface.
 func (p *Sub[T]) ValueRange(module schema.Module) *util.Interval {
 	var res util.Interval
@@ -97,4 +100,62 @@ func (p *Sub[T]) ValueRange(module schema.Module) *util.Interval {
 	}
 	//
 	return &res
+}
+
+// Simplify implementation for Term interface.
+func (p *Sub[T]) Simplify(casts bool) T {
+	var (
+		targ  Term[T]
+		lhs   T       = p.Args[0].Simplify(casts)
+		lhs_t Term[T] = lhs
+		// Subtraction is harder to optimise for.  What we do is view "a - b - c" as
+		// "a - (b+c)", and optimise the right-hand side as though it were addition.
+		rhs   T       = simplifySum(p.Args[1:], casts)
+		rhs_t Term[T] = rhs
+	)
+	// Check what's left
+	lc, l_const := lhs_t.(*Constant[T])
+	rc, r_const := rhs_t.(*Constant[T])
+	ra, r_add := rhs_t.(*Add[T])
+	r_zero := isZero(rhs)
+	//
+	switch {
+	case r_zero:
+		// Right-hand side zero, nothing to subtract.
+		return lhs
+	case l_const && r_const:
+		// Both sides constant, result is constant.
+		c := lc.Value
+		c = *c.Sub(&c, &rc.Value)
+		//
+		targ = &Constant[T]{c}
+	case l_const && r_add:
+		nterms := util.Prepend(lhs, ra.Args)
+		// if rhs has constant, subtract it.
+		if rc, ok := findConstant(ra.Args); ok {
+			c := lc.Value
+			c = *c.Sub(&c, &rc)
+			nterms = mergeConstants(c, nterms)
+		}
+		//
+		targ = &Sub[T]{nterms}
+	case r_add:
+		// Default case, recombine.
+		targ = &Sub[T]{util.Prepend(lhs, ra.Args)}
+	default:
+		targ = &Sub[T]{[]T{lhs, rhs}}
+	}
+	//
+	return targ.(T)
+}
+
+func findConstant[T Term[T]](terms []T) (fr.Element, bool) {
+	for _, t := range terms {
+		var ith Term[T] = t
+		if c, ok := ith.(*Constant[T]); ok {
+			return c.Value, true
+		}
+	}
+	//
+	return frZERO, false
 }

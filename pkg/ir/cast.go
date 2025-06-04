@@ -38,13 +38,13 @@ func CastOf[T Term[T]](arg T, bitwidth uint) T {
 }
 
 // ApplyShift implementation for Term interface.
-func (p *Cast[T]) ApplyShift(int) T {
-	panic("todo")
+func (p *Cast[T]) ApplyShift(shift int) T {
+	return CastOf(p.Arg.ApplyShift(shift), p.BitWidth)
 }
 
 // Bounds implementation for Boundable interface.
 func (p *Cast[T]) Bounds() util.Bounds {
-	panic("todo")
+	return p.Arg.Bounds()
 }
 
 // EvalAt implementation for Evaluable interface.
@@ -104,7 +104,28 @@ func (p *Cast[T]) ShiftRange() (int, int) {
 
 // Simplify implementation for Term interface.
 func (p *Cast[T]) Simplify(casts bool) T {
-	panic("todo")
+	var bound fr.Element = fr.NewElement(2)
+	// Determine bound for static type check
+	util.Pow(&bound, uint64(p.BitWidth))
+	// Propagate constants in the argument
+
+	var (
+		arg  T       = p.Arg.Simplify(casts)
+		targ Term[T] = arg
+	)
+	//
+	if c, ok := targ.(*Constant[T]); ok && c.Value.Cmp(&bound) < 0 {
+		// Done
+		return arg
+	} else if ok {
+		// Type failure
+		panic(fmt.Sprintf("type cast failure (have %s with expected bitwidth %d)", c.Value.String(), p.BitWidth))
+	} else if casts {
+		targ = CastOf(arg, p.BitWidth)
+		arg = targ.(T)
+	}
+	// elide cast
+	return arg
 }
 
 // ValueRange implementation for Term interface.

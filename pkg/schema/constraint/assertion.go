@@ -59,7 +59,7 @@ func (p *AssertionFailure) String() string {
 // That is, they should be implied by the actual constraints.  Thus, whilst the
 // prover cannot enforce such properties, external tools (such as for formal
 // verification) can attempt to ensure they do indeed always hold.
-type Assertion struct {
+type Assertion[T ir.Testable] struct {
 	// A unique identifier for this constraint.  This is primarily
 	// useful for debugging.
 	Handle string
@@ -71,25 +71,25 @@ type Assertion struct {
 	// Observe that this can be any function which is computable
 	// on a given trace --- we are not restricted to expressions
 	// which can be arithmetised.
-	Property ir.Testable
+	Property T
 }
 
 // NewAssertion constructs a new property assertion!
-func NewAssertion(handle string, ctx trace.Context, property ir.Testable) Assertion {
+func NewAssertion[T ir.Testable](handle string, ctx trace.Context, property T) Assertion[T] {
 	//
-	return Assertion{handle, ctx, property}
+	return Assertion[T]{handle, ctx, property}
 }
 
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p Assertion) Consistent(schema schema.AnySchema) []error {
+func (p Assertion[T]) Consistent(schema schema.AnySchema) []error {
 	return checkConsistent(p.Context.ModuleId, schema, p.Property)
 }
 
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
-func (p Assertion) Name() string {
+func (p Assertion[T]) Name() string {
 	return p.Handle
 }
 
@@ -98,13 +98,13 @@ func (p Assertion) Name() string {
 // evaluation context, though some (e.g. lookups) have more.  Note that all
 // constraints have at least one context (which we can call the "primary"
 // context).
-func (p Assertion) Contexts() []trace.Context {
+func (p Assertion[T]) Contexts() []trace.Context {
 	return []trace.Context{p.Context}
 }
 
 // Bounds is not required for a property assertion since these are not real
 // constraints.
-func (p Assertion) Bounds(module uint) util.Bounds {
+func (p Assertion[T]) Bounds(module uint) util.Bounds {
 	return util.EMPTY_BOUND
 }
 
@@ -112,7 +112,7 @@ func (p Assertion) Bounds(module uint) util.Bounds {
 // of a table. If so, return nil otherwise return an error.
 //
 //nolint:revive
-func (p Assertion) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
+func (p Assertion[T]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
 	var (
 		coverage bit.Set
 		module   trace.Module = tr.Module(p.Context.ModuleId)
@@ -139,7 +139,7 @@ func (p Assertion) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
 // Lisp converts this constraint into an S-Expression.
 //
 //nolint:revive
-func (p Assertion) Lisp(schema schema.AnySchema) sexp.SExp {
+func (p Assertion[T]) Lisp(schema schema.AnySchema) sexp.SExp {
 	var module = schema.Module(p.Context.ModuleId)
 	// Construct the list
 	return sexp.NewList([]sexp.SExp{

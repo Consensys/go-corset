@@ -20,6 +20,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
 // ComputedRegister describes a column whose values are computed on-demand, rather
@@ -128,4 +129,20 @@ func (p *ComputedRegister) Module() uint {
 // Registers identifies registers assigned by this assignment.
 func (p *ComputedRegister) Registers() []uint {
 	return []uint{p.target}
+}
+
+// Lisp converts this constraint into an S-Expression.
+//
+//nolint:revive
+func (p *ComputedRegister) Lisp(schema schema.AnySchema) sexp.SExp {
+	var (
+		module = schema.Module(p.module)
+		target = module.Register(p.target)
+	)
+	//
+	return sexp.NewList(
+		[]sexp.SExp{sexp.NewSymbol("compute"),
+			sexp.NewSymbol(target.QualifiedName(module)),
+			p.expr.Lisp(module),
+		})
 }

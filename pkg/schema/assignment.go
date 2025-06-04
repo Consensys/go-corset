@@ -15,6 +15,7 @@ package schema
 import (
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
 // Assignment represents an arbitrary computation which determines the values
@@ -43,4 +44,7 @@ type Assignment interface {
 	Module() uint
 	// Identifier registers assigned by this assignment.
 	Registers() []uint
+	// Lisp converts this schema element into a simple S-Expression, for example
+	// so it can be printed.
+	Lisp(AnySchema) sexp.SExp
 }

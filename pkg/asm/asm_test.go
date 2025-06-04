@@ -171,10 +171,10 @@ func checkIrTraces(t *testing.T, test string, cfg TestConfig, traces []io.Trace[
 
 func checkTrace[C sc.Constraint](t *testing.T, inputs []trace.RawColumn, id traceId, schema sc.Schema[C]) {
 	// Construct the trace
-	tr, errs := sc.NewTraceBuilder(schema).
-		Padding(id.padding).
-		//Parallel(true).
-		Build(inputs)
+	tr, errs := sc.NewTraceBuilder().
+		WithPadding(id.padding).
+		WithParallelism(true).
+		Build(sc.Any(schema), inputs)
 	// Sanity check construction
 	if len(errs) > 0 {
 		t.Errorf("Trace expansion failed (%s, %s, line %d with padding %d): %s",

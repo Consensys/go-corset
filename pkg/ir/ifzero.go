@@ -21,15 +21,15 @@ import (
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
-// IfZero returns the (optional) true branch when the condition evaluates to zero, and
-// the (optional false branch otherwise.
+// IfZero returns the true branch when the condition evaluates to zero, and the
+// false branch otherwise.
 type IfZero[S LogicalTerm[S], T Term[T]] struct {
 	// Elements contained within this list.
 	Condition S
-	// True branch (optional).
-	TrueBranch Term[T]
-	// False branch (optional).
-	FalseBranch Term[T]
+	// True branch
+	TrueBranch T
+	// False branch
+	FalseBranch T
 }
 
 // IfElse constructs a new conditional with true and false branches.  Note, the
@@ -41,6 +41,7 @@ func IfElse[S LogicalTerm[S], T Term[T]](condition S, trueBranch T, falseBranch 
 
 // ApplyShift implementation for Term interface.
 func (p *IfZero[S, T]) ApplyShift(int) T {
+	// Need to add ApplyShift to LogicalTerm
 	panic("todo")
 }
 
@@ -48,16 +49,12 @@ func (p *IfZero[S, T]) ApplyShift(int) T {
 // direction (right).
 func (p *IfZero[S, T]) Bounds() util.Bounds {
 	c := p.Condition.Bounds()
-	// Get bounds for true branch (if applicable)
-	if p.TrueBranch != nil {
-		tbounds := p.TrueBranch.Bounds()
-		c.Union(&tbounds)
-	}
-	// Get bounds for false branch (if applicable)
-	if p.FalseBranch != nil {
-		fbounds := p.FalseBranch.Bounds()
-		c.Union(&fbounds)
-	}
+	// Get bounds for true branch
+	tbounds := p.TrueBranch.Bounds()
+	c.Union(&tbounds)
+	// Get bounds for false branch
+	fbounds := p.FalseBranch.Bounds()
+	c.Union(&fbounds)
 	// Done
 	return c
 }
@@ -69,13 +66,11 @@ func (p *IfZero[S, T]) EvalAt(k int, tr trace.Module) (fr.Element, error) {
 	//
 	if err != nil {
 		return fr.Element{}, err
-	} else if cond && p.TrueBranch != nil {
+	} else if cond {
 		return p.TrueBranch.EvalAt(k, tr)
-	} else if !cond && p.FalseBranch != nil {
-		return p.FalseBranch.EvalAt(k, tr)
 	}
 	//
-	return frZERO, nil
+	return p.FalseBranch.EvalAt(k, tr)
 }
 
 // Lisp implementation for Lispifiable interface.
@@ -83,20 +78,6 @@ func (p *IfZero[S, T]) Lisp(module schema.Module) sexp.SExp {
 	// Translate Condition
 	condition := p.Condition.Lisp(module)
 	// Dispatch on type
-	if p.FalseBranch == nil {
-		return sexp.NewList([]sexp.SExp{
-			sexp.NewSymbol("if"),
-			condition,
-			p.TrueBranch.Lisp(module),
-		})
-	} else if p.TrueBranch == nil {
-		return sexp.NewList([]sexp.SExp{
-			sexp.NewSymbol("ifnot"),
-			condition,
-			p.FalseBranch.Lisp(module),
-		})
-	}
-
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("if"),
 		condition,
@@ -108,14 +89,10 @@ func (p *IfZero[S, T]) Lisp(module schema.Module) sexp.SExp {
 // RequiredRegisters implementation for Contextual interface.
 func (p *IfZero[S, T]) RequiredRegisters() *set.SortedSet[uint] {
 	set := p.Condition.RequiredRegisters()
-	// Include true branch (if applicable)
-	if p.TrueBranch != nil {
-		set.InsertSorted(p.TrueBranch.RequiredRegisters())
-	}
-	// Include false branch (if applicable)
-	if p.FalseBranch != nil {
-		set.InsertSorted(p.FalseBranch.RequiredRegisters())
-	}
+	// Include true branch
+	set.InsertSorted(p.TrueBranch.RequiredRegisters())
+	// Include false branch
+	set.InsertSorted(p.FalseBranch.RequiredRegisters())
 	// Done
 	return set
 }
@@ -123,14 +100,10 @@ func (p *IfZero[S, T]) RequiredRegisters() *set.SortedSet[uint] {
 // RequiredCells implementation for Contextual interface
 func (p *IfZero[S, T]) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
 	set := p.Condition.RequiredCells(row, tr)
-	// Include true branch (if applicable)
-	if p.TrueBranch != nil {
-		set.InsertSorted(p.TrueBranch.RequiredCells(row, tr))
-	}
-	// Include false branch (if applicable)
-	if p.FalseBranch != nil {
-		set.InsertSorted(p.FalseBranch.RequiredCells(row, tr))
-	}
+	// Include true branch
+	set.InsertSorted(p.TrueBranch.RequiredCells(row, tr))
+	// Include false branch
+	set.InsertSorted(p.FalseBranch.RequiredCells(row, tr))
 	// Done
 	return set
 }
@@ -140,12 +113,28 @@ func (p *IfZero[S, T]) ShiftRange() (int, int) {
 	panic("todo")
 }
 
-// Simplify implementation for Term interface.
-func (p *IfZero[S, T]) Simplify(casts bool) T {
-	panic("todo")
-}
-
 // ValueRange implementation for Term interface.
 func (p *IfZero[S, T]) ValueRange(module schema.Module) *util.Interval {
 	panic("todo")
+}
+
+// Simplify implementation for Term interface.
+//
+// nolint
+func (p *IfZero[S, T]) Simplify(casts bool) T {
+	var (
+		cond        = p.Condition.Simplify(casts)
+		trueBranch  = p.TrueBranch.Simplify(casts)
+		falseBranch = p.FalseBranch.Simplify(casts)
+	)
+	// Handle reductive cases
+	if IsTrue(cond) {
+		return trueBranch
+	} else if IsFalse(cond) {
+		return falseBranch
+	}
+	// Done
+	var term Term[T] = &IfZero[S, T]{cond, trueBranch, falseBranch}
+	//
+	return term.(T)
 }

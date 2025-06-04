@@ -15,7 +15,6 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"math"
 	"os"
 
 	"github.com/consensys/go-corset/pkg/binfile"
@@ -59,22 +58,16 @@ var checkCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		//
-		cfg.defensive = GetFlag(cmd, "defensive")
-		cfg.validate = GetFlag(cmd, "validate")
-		cfg.expand = !GetFlag(cmd, "raw")
+		cfg.padding.Right = GetUint(cmd, "padding")
 		cfg.report = GetFlag(cmd, "report")
 		cfg.reportPadding = GetUint(cmd, "report-context")
 		cfg.reportCellWidth = GetUint(cmd, "report-cellwidth")
 		cfg.reportTitleWidth = GetUint(cmd, "report-titlewidth")
-		cfg.spillage = GetInt(cmd, "spillage")
-		cfg.padding.Right = GetUint(cmd, "padding")
-		cfg.parallel = !GetFlag(cmd, "sequential")
-		cfg.batchSize = GetUint(cmd, "batch")
 		cfg.ansiEscapes = GetFlag(cmd, "ansi-escapes")
-		// Read in constraint files
-		schemas := *getSchemaStack(cmd, args[1:]...)
 		// TODO: support true ranges
 		cfg.padding.Left = cfg.padding.Right
+		// Read in constraint files
+		schemas := *getSchemaStack(cmd, args[1:]...)
 		// enable / disable coverage
 		if covfile := GetString(cmd, "coverage"); covfile != "" {
 			cfg.coverage = util.Some(covfile)
@@ -91,24 +84,11 @@ var checkCmd = &cobra.Command{
 type checkConfig struct {
 	// Corset source mapping (maybe nil if non available).
 	corsetSourceMap *corset.SourceMap
-	// Determines whether or not to apply "defensive padding" to every module.
-	defensive bool
-	// Determines how much spillage to account for.  This gives the user the
-	// ability to override the inferred default.  A negative value indicates
-	// this default should be used.
-	spillage int
-	// Determines how much padding to use
-	padding util.Pair[uint, uint]
-	// Specifies whether or not to perform trace expansion.  Trace expansion is
-	// not required when a "raw" trace is given which already includes all
-	// implied columns.
-	expand bool
-	// Specifies whether or not to perform trace validation.  That is, to check
-	// all input values are within expected bounds.
-	validate bool
 	// Specifies whether to use coverage testing and, if so, where to write the
 	// coverage data.
 	coverage util.Option[string]
+	// Specifies the range of padding values to check
+	padding util.Pair[uint, uint]
 	// Specifies whether or not to report details of the failure (e.g. for
 	// debugging purposes).
 	report bool
@@ -119,10 +99,6 @@ type checkConfig struct {
 	reportCellWidth uint
 	// Specifies the width of a column title to show.
 	reportTitleWidth uint
-	// Perform trace expansion in parallel (or not)
-	parallel bool
-	// Size of constraint batches to execute in parallel
-	batchSize uint
 	// Enable ansi escape codes in reports
 	ansiEscapes bool
 }
@@ -200,7 +176,7 @@ func checkWithLegacyPipeline(cfg checkConfig, batched bool, tracefile string, sc
 	// Go!
 	for i, schema := range schemas.Schemas() {
 		ir := schemas.IrName(uint(i))
-		ok = checkTrace(ir, traces, schema, cfg) && ok
+		ok = checkTrace(ir, traces, schema, schemas.TraceBuilder(), cfg) && ok
 	}
 	//
 	if !ok {
@@ -209,19 +185,12 @@ func checkWithLegacyPipeline(cfg checkConfig, batched bool, tracefile string, sc
 }
 
 func checkTrace(ir string, traces [][]tr.RawColumn, schema sc.AnySchema,
-	cfg checkConfig) bool {
-	//
-	builder := sc.NewTraceBuilder(schema).
-		Validate(cfg.validate).
-		Defensive(cfg.defensive).
-		Expand(cfg.expand).
-		Parallel(cfg.parallel).
-		BatchSize(cfg.batchSize)
+	builder sc.TraceBuilder, cfg checkConfig) bool {
 	//
 	for _, cols := range traces {
 		for n := cfg.padding.Left; n <= cfg.padding.Right; n++ {
 			stats := util.NewPerfStats()
-			trace, errs := builder.Padding(n).Build(cols)
+			trace, errs := builder.WithPadding(n).Build(schema, cols)
 			// Log cost of expansion
 			stats.Log("Expanding trace columns")
 			// Report any errors
@@ -233,7 +202,7 @@ func checkTrace(ir string, traces [][]tr.RawColumn, schema sc.AnySchema,
 			//
 			stats = util.NewPerfStats()
 			// Check constraints
-			if errs := sc.Accepts(cfg.parallel, cfg.batchSize, schema, trace); len(errs) > 0 {
+			if errs := sc.Accepts(builder.Parallelism(), builder.BatchSize(), schema, trace); len(errs) > 0 {
 				reportFailures(ir, errs, trace, cfg)
 				return false
 			}
@@ -319,24 +288,10 @@ func init() {
 	checkCmd.Flags().Uint("report-context", 2, "specify number of rows to show eitherside of failure in report")
 	checkCmd.Flags().Uint("report-cellwidth", 32, "specify max number of bytes to show in a given cell in report")
 	checkCmd.Flags().Uint("report-titlewidth", 40, "specify maximum width of column titles in report")
-	checkCmd.Flags().Bool("raw", false, "assume input trace already expanded")
-	checkCmd.Flags().Bool("asm", false, "check at ASM level")
-	checkCmd.Flags().Bool("uasm", false, "check at µASM level")
-	checkCmd.Flags().Bool("hir", false, "check at HIR level")
-	checkCmd.Flags().Bool("mir", false, "check at MIR level")
-	checkCmd.Flags().Bool("air", false, "check at AIR level")
-	checkCmd.Flags().Bool("no-stdlib", false, "prevents the standard library from being included")
-	checkCmd.Flags().Bool("debug", false, "enable debugging constraints")
-	checkCmd.Flags().Bool("sequential", false, "perform sequential trace expansion")
-	checkCmd.Flags().Bool("defensive", true, "automatically apply defensive padding to every module")
-	checkCmd.Flags().Bool("validate", true, "apply trace validation")
+	//
 	checkCmd.Flags().String("coverage", "", "write JSON coverage data to file")
 	checkCmd.Flags().Uint("padding", 0, "specify amount of (front) padding to apply")
-	checkCmd.Flags().UintP("batch", "b", math.MaxUint, "specify batch size for constraint checking")
 	checkCmd.Flags().Bool("batched", false,
 		"specify trace file is batched (i.e. contains multiple traces, one for each line)")
-	checkCmd.Flags().Int("spillage", -1,
-		"specify amount of splillage to account for (where -1 indicates this should be inferred)")
 	checkCmd.Flags().Bool("ansi-escapes", true, "specify whether to allow ANSI escapes or not (e.g. for colour reports)")
-	checkCmd.Flags().StringArrayP("set", "S", []string{}, "set value of externalised constant.")
 }

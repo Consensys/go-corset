@@ -22,7 +22,7 @@ import (
 
 // Equals constructs an Equal representing the equality of two expressions.
 func Equals[S LogicalTerm[S], T Term[T]](lhs T, rhs T) S {
-	var term LogicalTerm[S] = &Equal[T]{
+	var term LogicalTerm[S] = &Equal[S, T]{
 		Lhs: lhs,
 		Rhs: rhs,
 	}
@@ -35,13 +35,13 @@ func Equals[S LogicalTerm[S], T Term[T]](lhs T, rhs T) S {
 // Equal represents an Equal between two terms (e.g. "X==Y", or "X!=Y+1",
 // etc).  Equals are either equalities (or negated equalities) or
 // inequalities.
-type Equal[T Term[T]] struct {
+type Equal[S LogicalTerm[S], T Term[T]] struct {
 	Lhs Term[T]
 	Rhs Term[T]
 }
 
 // Bounds implementation for Boundable interface.
-func (p *Equal[T]) Bounds() util.Bounds {
+func (p *Equal[S, T]) Bounds() util.Bounds {
 	l := p.Lhs.Bounds()
 	r := p.Rhs.Bounds()
 	//
@@ -51,7 +51,7 @@ func (p *Equal[T]) Bounds() util.Bounds {
 }
 
 // TestAt implementation for Testable interface.
-func (p *Equal[T]) TestAt(k int, tr trace.Module) (bool, uint, error) {
+func (p *Equal[S, T]) TestAt(k int, tr trace.Module) (bool, uint, error) {
 	lhs, err1 := p.Lhs.EvalAt(k, tr)
 	rhs, err2 := p.Rhs.EvalAt(k, tr)
 	// error check
@@ -68,7 +68,7 @@ func (p *Equal[T]) TestAt(k int, tr trace.Module) (bool, uint, error) {
 
 // Lisp returns a lisp representation of this Equal, which is useful for
 // debugging.
-func (p *Equal[T]) Lisp(module schema.Module) sexp.SExp {
+func (p *Equal[S, T]) Lisp(module schema.Module) sexp.SExp {
 	var (
 		l = p.Lhs.Lisp(module)
 		r = p.Rhs.Lisp(module)
@@ -79,7 +79,7 @@ func (p *Equal[T]) Lisp(module schema.Module) sexp.SExp {
 }
 
 // RequiredRegisters implementation for Contextual interface.
-func (p *Equal[T]) RequiredRegisters() *set.SortedSet[uint] {
+func (p *Equal[S, T]) RequiredRegisters() *set.SortedSet[uint] {
 	set := p.Lhs.RequiredRegisters()
 	set.InsertSorted(p.Rhs.RequiredRegisters())
 	//
@@ -87,14 +87,34 @@ func (p *Equal[T]) RequiredRegisters() *set.SortedSet[uint] {
 }
 
 // RequiredCells implementation for Contextual interface
-func (p *Equal[T]) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
+func (p *Equal[S, T]) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
 	set := p.Lhs.RequiredCells(row, tr)
 	set.InsertSorted(p.Rhs.RequiredCells(row, tr))
 	//
 	return set
 }
 
-// Simplify this Equal as much as reasonably possible.
-func (p *Equal[T]) Simplify() Equal[T] {
-	panic("todo")
+// Simplify this term as much as reasonably possible.
+// nolint
+func (p *Equal[S, T]) Simplify(casts bool) S {
+	var (
+		lhs = p.Lhs.Simplify(casts)
+		rhs = p.Rhs.Simplify(casts)
+	)
+	//
+	lc := IsConstant(lhs)
+	rc := IsConstant(rhs)
+	//
+	if lc != nil && rc != nil {
+		// Can simplify
+		if lc.Cmp(rc) == 0 {
+			return True[S]()
+		}
+		//
+		return False[S]()
+	}
+	// Cannot simplify
+	var tmp LogicalTerm[S] = &Equal[S, T]{lhs, rhs}
+	// Done
+	return tmp.(S)
 }

@@ -77,12 +77,10 @@ func init() {
 	rootCmd.AddCommand(debugCmd)
 	debugCmd.Flags().Bool("attributes", false, "Print attribute information")
 	debugCmd.Flags().Bool("constants", false, "Print information about externalised constants")
-	debugCmd.Flags().Bool("debug", false, "enable debugging constraints")
 	debugCmd.Flags().Bool("metadata", false, "Print embedded metadata")
 	debugCmd.Flags().Bool("stats", false, "Print summary information")
 	debugCmd.Flags().Bool("spillage", false, "Print spillage information")
 	debugCmd.Flags().Uint("textwidth", 130, "Set maximum textwidth to use")
-	debugCmd.Flags().StringArrayP("set", "S", []string{}, "set value of externalised constant.")
 }
 
 func printAttributes(schemas cmd_util.SchemaStack) {

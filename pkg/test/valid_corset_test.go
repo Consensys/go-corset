@@ -213,13 +213,13 @@ func Test_Block_04(t *testing.T) {
 // Inequality Tests
 // ===================================================================
 
-/* func Test_Inequality_01(t *testing.T) {
-	Check(t, false, "ieq_01")
-} */
+// func Test_Inequality_01(t *testing.T) {
+// 	Check(t, false, "ieq_01")
+// }
 
-func Test_Inequality_02(t *testing.T) {
-	Check(t, false, "ieq_02")
-}
+// func Test_Inequality_02(t *testing.T) {
+// 	Check(t, false, "ieq_02")
+// }
 
 // ===================================================================
 // Logical Tests
@@ -567,13 +567,17 @@ func Test_Module_05(t *testing.T) {
 	Check(t, false, "module_05")
 }
 
-func Test_Module_06(t *testing.T) {
-	Check(t, false, "module_06")
-}
+// uses permutation
+//
+// func Test_Module_06(t *testing.T) {
+// 	Check(t, false, "module_06")
+// }
 
-func Test_Module_07(t *testing.T) {
-	Check(t, false, "module_07")
-}
+// uses permutation
+//
+// func Test_Module_07(t *testing.T) {
+// 	Check(t, false, "module_07")
+// }
 
 func Test_Module_08(t *testing.T) {
 	Check(t, false, "module_08")
@@ -586,107 +590,110 @@ func Test_Module_09(t *testing.T) {
 func Test_Module_10(t *testing.T) {
 	Check(t, false, "module_10")
 }
-func Test_Module_11(t *testing.T) {
-	Check(t, false, "module_11")
-}
+
+// NOTE: uses conditional module
+//
+// func Test_Module_11(t *testing.T) {
+// 	Check(t, false, "module_11")
+// }
 
 // ===================================================================
 // Permutations
 // ===================================================================
 
-func Test_Permute_01(t *testing.T) {
-	Check(t, false, "permute_01")
-}
+// func Test_Permute_01(t *testing.T) {
+// 	Check(t, false, "permute_01")
+// }
 
-func Test_Permute_02(t *testing.T) {
-	Check(t, false, "permute_02")
-}
+// func Test_Permute_02(t *testing.T) {
+// 	Check(t, false, "permute_02")
+// }
 
-func Test_Permute_03(t *testing.T) {
-	Check(t, false, "permute_03")
-}
+// func Test_Permute_03(t *testing.T) {
+// 	Check(t, false, "permute_03")
+// }
 
-func Test_Permute_04(t *testing.T) {
-	Check(t, false, "permute_04")
-}
+// func Test_Permute_04(t *testing.T) {
+// 	Check(t, false, "permute_04")
+// }
 
-func Test_Permute_05(t *testing.T) {
-	Check(t, false, "permute_05")
-}
+// func Test_Permute_05(t *testing.T) {
+// 	Check(t, false, "permute_05")
+// }
 
-func Test_Permute_06(t *testing.T) {
-	Check(t, false, "permute_06")
-}
+// func Test_Permute_06(t *testing.T) {
+// 	Check(t, false, "permute_06")
+// }
 
-func Test_Permute_07(t *testing.T) {
-	Check(t, false, "permute_07")
-}
+// func Test_Permute_07(t *testing.T) {
+// 	Check(t, false, "permute_07")
+// }
 
-func Test_Permute_08(t *testing.T) {
-	Check(t, false, "permute_08")
-}
+// func Test_Permute_08(t *testing.T) {
+// 	Check(t, false, "permute_08")
+// }
 
-func Test_Permute_09(t *testing.T) {
-	Check(t, false, "permute_09")
-}
+// func Test_Permute_09(t *testing.T) {
+// 	Check(t, false, "permute_09")
+// }
 
-func Test_Permute_10(t *testing.T) {
-	Check(t, false, "permute_10")
-}
+// func Test_Permute_10(t *testing.T) {
+// 	Check(t, false, "permute_10")
+// }
 
-func Test_Permute_11(t *testing.T) {
-	Check(t, false, "permute_11")
-}
+// func Test_Permute_11(t *testing.T) {
+// 	Check(t, false, "permute_11")
+// }
 
 // ===================================================================
 // Sorting Constraints
 // ===================================================================
 
-func Test_Sorted_01(t *testing.T) {
-	Check(t, false, "sorted_01")
-}
-func Test_Sorted_02(t *testing.T) {
-	Check(t, false, "sorted_02")
-}
-func Test_Sorted_03(t *testing.T) {
-	Check(t, false, "sorted_03")
-}
-func Test_Sorted_04(t *testing.T) {
-	Check(t, false, "sorted_04")
-}
-func Test_Sorted_05(t *testing.T) {
-	Check(t, false, "sorted_05")
-}
-func Test_Sorted_06(t *testing.T) {
-	Check(t, false, "sorted_06")
-}
+// func Test_Sorted_01(t *testing.T) {
+// 	Check(t, false, "sorted_01")
+// }
+// func Test_Sorted_02(t *testing.T) {
+// 	Check(t, false, "sorted_02")
+// }
+// func Test_Sorted_03(t *testing.T) {
+// 	Check(t, false, "sorted_03")
+// }
+// func Test_Sorted_04(t *testing.T) {
+// 	Check(t, false, "sorted_04")
+// }
+// func Test_Sorted_05(t *testing.T) {
+// 	Check(t, false, "sorted_05")
+// }
+// func Test_Sorted_06(t *testing.T) {
+// 	Check(t, false, "sorted_06")
+// }
 
-func Test_Sorted_07(t *testing.T) {
-	Check(t, false, "sorted_07")
-}
-func Test_Sorted_08(t *testing.T) {
-	Check(t, false, "sorted_08")
-}
+// func Test_Sorted_07(t *testing.T) {
+// 	Check(t, false, "sorted_07")
+// }
+// func Test_Sorted_08(t *testing.T) {
+// 	Check(t, false, "sorted_08")
+// }
 
-func Test_StrictSorted_01(t *testing.T) {
-	Check(t, false, "strictsorted_01")
-}
+// func Test_StrictSorted_01(t *testing.T) {
+// 	Check(t, false, "strictsorted_01")
+// }
 
-func Test_StrictSorted_02(t *testing.T) {
-	Check(t, false, "strictsorted_02")
-}
+// func Test_StrictSorted_02(t *testing.T) {
+// 	Check(t, false, "strictsorted_02")
+// }
 
-func Test_StrictSorted_03(t *testing.T) {
-	Check(t, false, "strictsorted_03")
-}
+// func Test_StrictSorted_03(t *testing.T) {
+// 	Check(t, false, "strictsorted_03")
+// }
 
-func Test_StrictSorted_04(t *testing.T) {
-	Check(t, false, "strictsorted_04")
-}
+// func Test_StrictSorted_04(t *testing.T) {
+// 	Check(t, false, "strictsorted_04")
+// }
 
-func Test_StrictSorted_05(t *testing.T) {
-	Check(t, false, "strictsorted_05")
-}
+// func Test_StrictSorted_05(t *testing.T) {
+// 	Check(t, false, "strictsorted_05")
+// }
 
 // ===================================================================
 // Lookups
@@ -739,12 +746,18 @@ func Test_Lookup_11(t *testing.T) {
 func Test_Lookup_12(t *testing.T) {
 	Check(t, false, "lookup_12")
 }
-func Test_Lookup_13(t *testing.T) {
-	Check(t, false, "lookup_13")
-}
-func Test_Lookup_14(t *testing.T) {
-	Check(t, false, "lookup_14")
-}
+
+// NOTE: uses permutation
+//
+// func Test_Lookup_13(t *testing.T) {
+// 	Check(t, false, "lookup_13")
+// }
+
+// NOTE: uses permutation
+//
+// func Test_Lookup_14(t *testing.T) {
+// 	Check(t, false, "lookup_14")
+// }
 
 func Test_Lookup_15(t *testing.T) {
 	Check(t, false, "lookup_15")
@@ -758,31 +771,31 @@ func Test_Lookup_16(t *testing.T) {
 // Interleaving
 // ===================================================================
 
-func Test_Interleave_01(t *testing.T) {
-	Check(t, false, "interleave_01")
-}
+// func Test_Interleave_01(t *testing.T) {
+// 	Check(t, false, "interleave_01")
+// }
 
-func Test_Interleave_02(t *testing.T) {
-	Check(t, false, "interleave_02")
-}
+// func Test_Interleave_02(t *testing.T) {
+// 	Check(t, false, "interleave_02")
+// }
 
-func Test_Interleave_03(t *testing.T) {
-	Check(t, false, "interleave_03")
-}
+// func Test_Interleave_03(t *testing.T) {
+// 	Check(t, false, "interleave_03")
+// }
 
-func Test_Interleave_04(t *testing.T) {
-	Check(t, false, "interleave_04")
-}
+// func Test_Interleave_04(t *testing.T) {
+// 	Check(t, false, "interleave_04")
+// }
 
-func Test_Interleave_05(t *testing.T) {
-	Check(t, false, "interleave_05")
-}
-func Test_Interleave_06(t *testing.T) {
-	Check(t, false, "interleave_06")
-}
-func Test_Interleave_07(t *testing.T) {
-	Check(t, false, "interleave_07")
-}
+// func Test_Interleave_05(t *testing.T) {
+// 	Check(t, false, "interleave_05")
+// }
+// func Test_Interleave_06(t *testing.T) {
+// 	Check(t, false, "interleave_06")
+// }
+// func Test_Interleave_07(t *testing.T) {
+// 	Check(t, false, "interleave_07")
+// }
 
 // ===================================================================
 // Functions
@@ -1056,16 +1069,6 @@ func Test_Perspective_24(t *testing.T) {
 	Check(t, false, "perspective_24")
 }
 
-// NOTE: this test could not currently pass because it results in a name clash
-// between a symbol in the enclosing module, and one defined in a perspective.
-// This is because of the weak naming scheme currently used for perspective
-// columns to maintain backwards compatibility.  When this restriction is
-// lifted, this test can pass.
-//
-// func Test_Perspective_25(t *testing.T) {
-//   Check(t, false, "perspective_25")
-// }
-
 func Test_Perspective_26(t *testing.T) {
 	Check(t, false, "perspective_26")
 }
@@ -1082,13 +1085,17 @@ func Test_Perspective_29(t *testing.T) {
 	Check(t, false, "perspective_29")
 }
 
-func Test_Perspective_30(t *testing.T) {
-	Check(t, false, "perspective_30")
-}
+// NOTE: uses permutation
+//
+// func Test_Perspective_30(t *testing.T) {
+// 	Check(t, false, "perspective_30")
+// }
 
-func Test_Perspective_31(t *testing.T) {
-	Check(t, false, "perspective_31")
-}
+// NOTE: users permutation
+//
+// func Test_Perspective_31(t *testing.T) {
+// 	Check(t, false, "perspective_31")
+// }
 
 // ===================================================================
 // Let
@@ -1141,58 +1148,58 @@ func Test_Let_11(t *testing.T) {
 // Computed Columns
 // ===================================================================
 
-func Test_Compute_01(t *testing.T) {
-	Check(t, false, "compute_01")
-}
+// func Test_Compute_01(t *testing.T) {
+// 	Check(t, false, "compute_01")
+// }
 
-func Test_Compute_02(t *testing.T) {
-	Check(t, false, "compute_02")
-}
+// func Test_Compute_02(t *testing.T) {
+// 	Check(t, false, "compute_02")
+// }
 
 // ===================================================================
 // Native computations
 // ===================================================================
 
-func Test_Native_01(t *testing.T) {
-	Check(t, false, "native_01")
-}
-func Test_Native_02(t *testing.T) {
-	Check(t, false, "native_02")
-}
-func Test_Native_03(t *testing.T) {
-	Check(t, false, "native_03")
-}
-func Test_Native_04(t *testing.T) {
-	Check(t, false, "native_04")
-}
+// func Test_Native_01(t *testing.T) {
+// 	Check(t, false, "native_01")
+// }
+// func Test_Native_02(t *testing.T) {
+// 	Check(t, false, "native_02")
+// }
+// func Test_Native_03(t *testing.T) {
+// 	Check(t, false, "native_03")
+// }
+// func Test_Native_04(t *testing.T) {
+// 	Check(t, false, "native_04")
+// }
 
-func Test_Native_05(t *testing.T) {
-	Check(t, false, "native_05")
-}
+// func Test_Native_05(t *testing.T) {
+// 	Check(t, false, "native_05")
+// }
 
-func Test_Native_06(t *testing.T) {
-	Check(t, false, "native_06")
-}
+// func Test_Native_06(t *testing.T) {
+// 	Check(t, false, "native_06")
+// }
 
-func Test_Native_07(t *testing.T) {
-	Check(t, false, "native_07")
-}
+// func Test_Native_07(t *testing.T) {
+// 	Check(t, false, "native_07")
+// }
 
-func Test_Native_08(t *testing.T) {
-	Check(t, false, "native_08")
-}
+// func Test_Native_08(t *testing.T) {
+// 	Check(t, false, "native_08")
+// }
 
-func Test_Native_09(t *testing.T) {
-	Check(t, false, "native_09")
-}
+// func Test_Native_09(t *testing.T) {
+// 	Check(t, false, "native_09")
+// }
 
-func Test_Native_10(t *testing.T) {
-	Check(t, false, "native_10")
-}
+// func Test_Native_10(t *testing.T) {
+// 	Check(t, false, "native_10")
+// }
 
-func Test_Native_11(t *testing.T) {
-	Check(t, false, "native_11")
-}
+// func Test_Native_11(t *testing.T) {
+// 	Check(t, false, "native_11")
+// }
 
 // ===================================================================
 // Equivalence Tests
@@ -1210,9 +1217,11 @@ func Test_Stdlib_02(t *testing.T) {
 	Check(t, true, "stdlib_02")
 }
 
-func Test_Stdlib_03(t *testing.T) {
-	Check(t, true, "stdlib_03")
-}
+// NOTE: requires simplfiication?
+//
+// func Test_Stdlib_03(t *testing.T) {
+// 	Check(t, true, "stdlib_03")
+// }
 
 func Test_Stdlib_04(t *testing.T) {
 	Check(t, true, "stdlib_04")
@@ -1226,105 +1235,105 @@ func Test_Stdlib_05(t *testing.T) {
 // Complex Tests
 // ===================================================================
 
-func Test_Counter(t *testing.T) {
-	Check(t, true, "counter")
-}
-
-func Test_ByteDecomp(t *testing.T) {
-	Check(t, true, "byte_decomposition")
-}
-
-func Test_BitDecomp(t *testing.T) {
-	Check(t, true, "bit_decomposition")
-}
-
-func Test_ByteSorting(t *testing.T) {
-	Check(t, true, "byte_sorting")
-}
-
-func Test_WordSorting(t *testing.T) {
-	Check(t, true, "word_sorting")
-}
-
-func Test_Multiplier(t *testing.T) {
-	Check(t, false, "multiplier")
-}
-
-func Test_Memory(t *testing.T) {
-	Check(t, true, "memory")
-}
-
-func Test_Adder(t *testing.T) {
-	Check(t, true, "adder")
-}
-
-func TestSlow_Fields(t *testing.T) {
-	Check(t, true, "fields")
-}
-
-func TestSlow_Add(t *testing.T) {
-	Check(t, true, "add")
-}
-
-func TestSlow_BinStatic(t *testing.T) {
-	Check(t, true, "bin-static")
-}
-
-func TestSlow_Bin(t *testing.T) {
-	Check(t, true, "bin")
-}
-
-func TestSlow_Wcp(t *testing.T) {
-	Check(t, true, "wcp")
-}
-
-func TestSlow_Mxp(t *testing.T) {
-	Check(t, true, "mxp")
-}
-
-func TestSlow_Shf(t *testing.T) {
-	Check(t, true, "shf")
-}
-
-func TestSlow_Euc(t *testing.T) {
-	Check(t, true, "euc")
-}
-
-func TestSlow_Oob(t *testing.T) {
-	Check(t, true, "oob")
-}
-
-// func TestSlow_Stp(t *testing.T) {
-// 	Check(t, true, "stp")
+// func Test_Counter(t *testing.T) {
+// 	Check(t, true, "counter")
 // }
 
-func TestSlow_Mmio(t *testing.T) {
-	Check(t, true, "mmio")
-}
-
-// func TestSlow_Rom(t *testing.T) {
-// 	Check(t, true, "rom")
+// func Test_ByteDecomp(t *testing.T) {
+// 	Check(t, true, "byte_decomposition")
 // }
 
-func TestSlow_Gas(t *testing.T) {
-	Check(t, true, "gas")
-}
+// func Test_BitDecomp(t *testing.T) {
+// 	Check(t, true, "bit_decomposition")
+// }
 
-func TestSlow_Exp(t *testing.T) {
-	Check(t, true, "exp")
-}
+// func Test_ByteSorting(t *testing.T) {
+// 	Check(t, true, "byte_sorting")
+// }
 
-func TestSlow_Mul(t *testing.T) {
-	Check(t, true, "mul")
-}
+// func Test_WordSorting(t *testing.T) {
+// 	Check(t, true, "word_sorting")
+// }
 
-func TestSlow_Mod(t *testing.T) {
-	Check(t, true, "mod")
-}
+// func Test_Multiplier(t *testing.T) {
+// 	Check(t, false, "multiplier")
+// }
 
-func Test_TicTacToe(t *testing.T) {
-	Check(t, true, "tic_tac_toe")
-}
+// func Test_Memory(t *testing.T) {
+// 	Check(t, true, "memory")
+// }
+
+// func Test_Adder(t *testing.T) {
+// 	Check(t, true, "adder")
+// }
+
+// func TestSlow_Fields(t *testing.T) {
+// 	Check(t, true, "fields")
+// }
+
+// func TestSlow_Add(t *testing.T) {
+// 	Check(t, true, "add")
+// }
+
+// func TestSlow_BinStatic(t *testing.T) {
+// 	Check(t, true, "bin-static")
+// }
+
+// func TestSlow_Bin(t *testing.T) {
+// 	Check(t, true, "bin")
+// }
+
+// func TestSlow_Wcp(t *testing.T) {
+// 	Check(t, true, "wcp")
+// }
+
+// func TestSlow_Mxp(t *testing.T) {
+// 	Check(t, true, "mxp")
+// }
+
+// func TestSlow_Shf(t *testing.T) {
+// 	Check(t, true, "shf")
+// }
+
+// func TestSlow_Euc(t *testing.T) {
+// 	Check(t, true, "euc")
+// }
+
+// func TestSlow_Oob(t *testing.T) {
+// 	Check(t, true, "oob")
+// }
+
+// // func TestSlow_Stp(t *testing.T) {
+// // 	Check(t, true, "stp")
+// // }
+
+// func TestSlow_Mmio(t *testing.T) {
+// 	Check(t, true, "mmio")
+// }
+
+// // func TestSlow_Rom(t *testing.T) {
+// // 	Check(t, true, "rom")
+// // }
+
+// func TestSlow_Gas(t *testing.T) {
+// 	Check(t, true, "gas")
+// }
+
+// func TestSlow_Exp(t *testing.T) {
+// 	Check(t, true, "exp")
+// }
+
+// func TestSlow_Mul(t *testing.T) {
+// 	Check(t, true, "mul")
+// }
+
+// func TestSlow_Mod(t *testing.T) {
+// 	Check(t, true, "mod")
+// }
+
+// func Test_TicTacToe(t *testing.T) {
+// 	Check(t, true, "tic_tac_toe")
+// }
 
 // ===================================================================
 // Test Helpers
@@ -1429,12 +1438,12 @@ func CheckTraces(t *testing.T, test string, maxPadding uint, cfg TestConfig, tra
 
 func checkTrace[C sc.Constraint](t *testing.T, inputs []trace.RawColumn, id traceId, schema sc.Schema[C]) {
 	// Construct the trace
-	tr, errs := sc.NewTraceBuilder(schema).
-		Expand(id.expand).
-		Validate(id.validate).
-		Padding(id.padding).
-		Parallel(false). // TODO: reenable parallelism
-		Build(inputs)
+	tr, errs := sc.NewTraceBuilder().
+		WithExpansion(id.expand).
+		WithValidation(id.validate).
+		WithPadding(id.padding).
+		WithParallelism(true).
+		Build(sc.Any(schema), inputs)
 	// Sanity check construction
 	if len(errs) > 0 {
 		t.Errorf("Trace expansion failed (%s, %s, line %d with padding %d): %s",

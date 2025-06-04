@@ -25,9 +25,22 @@ import (
 type Add[T Term[T]] struct{ Args []T }
 
 // Sum zero or more expressions together.
-func Sum[T Term[T]](exprs ...T) T {
-	var term Term[T] = &Add[T]{exprs}
-	return term.(T)
+func Sum[T Term[T]](terms ...T) T {
+	// Flatten any nested sums
+	terms = util.Flatten(terms, flatternAdd)
+	// Remove any zeros
+	terms = util.RemoveMatching(terms, isZero)
+	// Final simplifications
+	switch len(terms) {
+	case 0:
+		return Const64[T](0)
+	case 1:
+		return terms[0]
+	default:
+		var term Term[T] = &Add[T]{terms}
+		//
+		return term.(T)
+	}
 }
 
 // Air indicates this term can be used at the AIR level.
@@ -79,7 +92,7 @@ func (p *Add[T]) ShiftRange() (int, int) {
 
 // Simplify implementation for Term interface.
 func (p *Add[T]) Simplify(casts bool) T {
-	panic("todo")
+	return simplifySum(p.Args, casts)
 }
 
 // ValueRange implementation for Term interface.
@@ -96,4 +109,35 @@ func (p *Add[T]) ValueRange(module schema.Module) *util.Interval {
 	}
 	//
 	return &res
+}
+
+func simplifySum[T Term[T]](args []T, casts bool) T {
+	var (
+		terms = simplifyTerms(args, addBinOp, frZERO, casts)
+		tmp   Term[T]
+	)
+	// Flatten any nested sums
+	terms = util.Flatten(terms, flatternAdd)
+	// Remove any zeros
+	terms = util.RemoveMatching(terms, isZero)
+	// Check anything left
+	switch len(terms) {
+	case 0:
+		tmp = &Constant[T]{frZERO}
+	case 1:
+		return terms[0]
+	default:
+		tmp = &Add[T]{terms}
+	}
+	// Done
+	return tmp.(T)
+}
+
+func flatternAdd[T Term[T]](term T) []T {
+	var e Term[T] = term
+	if t, ok := e.(*Add[T]); ok {
+		return t.Args
+	}
+	//
+	return nil
 }

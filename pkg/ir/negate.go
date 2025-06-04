@@ -35,7 +35,7 @@ func Negation[T LogicalTerm[T]](body T) T {
 // etc).  Negate are either Negateities (or negated Negateities) or
 // inNegateities.
 type Negate[T LogicalTerm[T]] struct {
-	Arg LogicalTerm[T]
+	Arg T
 }
 
 // Bounds implementation for Boundable interface.
@@ -70,6 +70,16 @@ func (p *Negate[T]) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[tr
 }
 
 // Simplify this Negate as much as reasonably possible.
-func (p *Negate[T]) Simplify() Negate[T] {
-	panic("todo")
+func (p *Negate[T]) Simplify(casts bool) T {
+	var term T = p.Arg.Simplify(casts)
+	//
+	switch {
+	case IsTrue(term):
+		return False[T]()
+	case IsFalse(term):
+		return True[T]()
+	default:
+		var tmp LogicalTerm[T] = &Negate[T]{term}
+		return tmp.(T)
+	}
 }

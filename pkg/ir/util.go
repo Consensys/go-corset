@@ -22,7 +22,32 @@ import (
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
-var frZERO fr.Element = fr.NewElement(0)
+var (
+	frZERO fr.Element = fr.NewElement(0)
+	frONE  fr.Element = fr.NewElement(1)
+)
+
+// Check whether a given term corresponds with the constant zero.
+func isZero[T Term[T]](term T) bool {
+	var t Term[T] = term
+	//
+	if t, ok := t.(*Constant[T]); ok {
+		return t.Value.IsZero()
+	}
+	//
+	return false
+}
+
+// Check whether a given term corresponds with the constant one.
+func isOne[T Term[T]](term T) bool {
+	var t Term[T] = term
+	//
+	if t, ok := t.(*Constant[T]); ok {
+		return t.Value.IsOne()
+	}
+	//
+	return false
+}
 
 func applyShiftTerms[T Term[T]](terms []T, shift int) []T {
 	nterms := make([]T, len(terms))
@@ -89,4 +114,80 @@ func applyShiftOfTerms[T Term[T]](terms []T, shift int) []T {
 	}
 	//
 	return nterms
+}
+
+type binop func(fr.Element, fr.Element) fr.Element
+
+// Simplify logical terms
+func simplifyLogicalTerms[T LogicalTerm[T]](terms []T, casts bool) []T {
+	var nterms = make([]T, len(terms))
+	//
+	for i, t := range terms {
+		nterms[i] = t.Simplify(casts)
+	}
+	//
+	return nterms
+}
+
+// General purpose constant propagation mechanism.  This reduces all terms to
+// constants (where possible) and combines terms according to a given
+// combinator.
+func simplifyTerms[T Term[T]](terms []T, fn binop, acc fr.Element, casts bool) []T {
+	// Count how many terms reduced to constants.
+	var (
+		count  = 0
+		nterms = make([]T, len(terms))
+		ith    Term[T]
+	)
+	// Propagate through all children
+	for i, e := range terms {
+		nterms[i] = e.Simplify(casts)
+		ith = nterms[i]
+		// Check for constant
+		c, ok := ith.(*Constant[T])
+		// Try to continue sum
+		if ok {
+			// Apply combinator
+			acc = fn(acc, c.Value)
+			// Increase count of constants
+			count++
+		}
+	}
+	// Merge all constants
+	return mergeConstants(acc, nterms)
+}
+
+// Replace all constants within a given sequence of expressions with a single
+// constant (whose value has been precomputed from those constants).  The new
+// value replaces the first constant in the list.
+func mergeConstants[T Term[T]](constant fr.Element, terms []T) []T {
+	var (
+		j     = 0
+		first = true
+	)
+	//
+	for i := range terms {
+		var tmp Term[T] = terms[i]
+		// Check for constant
+		if _, ok := tmp.(*Constant[T]); ok && first {
+			tmp = &Constant[T]{constant}
+			terms[j] = tmp.(T)
+			first = false
+			j++
+		} else if !ok {
+			// Retain non-constant expression
+			terms[j] = terms[i]
+			j++
+		}
+	}
+	// Return slice
+	return terms[0:j]
+}
+
+func addBinOp(lhs fr.Element, rhs fr.Element) fr.Element {
+	return *lhs.Add(&lhs, &rhs)
+}
+
+func mulBinOp(lhs fr.Element, rhs fr.Element) fr.Element {
+	return *lhs.Mul(&lhs, &rhs)
 }

@@ -26,6 +26,23 @@ type Disjunct[T LogicalTerm[T]] struct {
 	Args []T
 }
 
+// False constructs a logical falsehood
+func False[T LogicalTerm[T]]() T {
+	return Disjunction[T]()
+}
+
+// IsFalse Check whether a given term corresponds to logical falsehood which, in
+// this system, corresponds to an empty disjunct.
+func IsFalse[T LogicalTerm[T]](term T) bool {
+	var t LogicalTerm[T] = term
+	//
+	if t, ok := t.(*Disjunct[T]); ok {
+		return len(t.Args) == 0
+	}
+	//
+	return false
+}
+
 // Disjunction creates a constraint representing the disjunction of a given set of
 // constraints.
 func Disjunction[T LogicalTerm[T]](terms ...T) T {
@@ -58,6 +75,10 @@ func (p *Disjunct[T]) TestAt(k int, tr trace.Module) (bool, uint, error) {
 // Lisp returns a lisp representation of this equation, which is useful for
 // debugging.
 func (p *Disjunct[T]) Lisp(module schema.Module) sexp.SExp {
+	if len(p.Args) == 0 {
+		return sexp.NewSymbol("⊥")
+	}
+
 	return lispOfLogicalTerms(module, "∨", p.Args)
 }
 
@@ -69,4 +90,36 @@ func (p *Disjunct[T]) RequiredRegisters() *set.SortedSet[uint] {
 // RequiredCells implementation for Contextual interface
 func (p *Disjunct[T]) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
 	return requiredCellsOfTerms(p.Args, row, tr)
+}
+
+// Simplify this term as much as reasonably possible.
+func (p *Disjunct[T]) Simplify(casts bool) T {
+	// Simplify terms
+	terms := simplifyLogicalTerms(p.Args, casts)
+	// Flatten any nested disjuncts
+	terms = util.Flatten(terms, flatternDisjunct)
+	// True if contains True
+	if util.ContainsMatching(terms, IsTrue) {
+		return True[T]()
+	}
+	// Remove false values
+	terms = util.RemoveMatching(terms, IsFalse)
+	// Final checks
+	switch len(terms) {
+	case 0:
+		return False[T]()
+	case 1:
+		return terms[0]
+	default:
+		return Disjunction(terms...)
+	}
+}
+
+func flatternDisjunct[T LogicalTerm[T]](term T) []T {
+	var e LogicalTerm[T] = term
+	if t, ok := e.(*Disjunct[T]); ok {
+		return t.Args
+	}
+	//
+	return nil
 }

@@ -723,6 +723,15 @@ func (t *translator) translateOptionalLogical(expr ast.Expr, module *ModuleBuild
 // invocations, etc).
 func (t *translator) translateLogical(expr ast.Expr, mod *ModuleBuilder, shift int) (mir.LogicalTerm, []SyntaxError) {
 	switch e := expr.(type) {
+	case *ast.Cast:
+		if e.Type != ast.BOOL_TYPE {
+			// This should be unreachable, since type checking should have
+			// caught this already.  However, potentially, issues with the
+			// preprocessor could result in some weird scenario.
+			panic("malformed logical expression")
+		}
+		// Just ignore
+		return t.translateLogical(e.Arg, mod, shift)
 	case *ast.Connective:
 		args, errs := t.translateLogicals(mod, shift, e.Args...)
 		//

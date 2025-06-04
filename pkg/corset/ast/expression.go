@@ -134,7 +134,17 @@ func (e *ArrayAccess) Type() Type {
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
 func (e *ArrayAccess) Context() Context {
-	return e.Arg.Context()
+	// Check the expected options.
+	binding, ok := e.ArrayBinding.(*ColumnBinding)
+	// Sanity check
+	if ok {
+		context := binding.Context()
+		context = context.Join(e.Arg.Context())
+		//
+		return context
+	}
+	//
+	panic("invalid column access")
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
@@ -603,11 +613,11 @@ func (e *If) Context() Context {
 	ctx := e.Condition.Context()
 	//
 	if e.TrueBranch != nil {
-		ctx.Join(e.TrueBranch.Context())
+		ctx = ctx.Join(e.TrueBranch.Context())
 	}
 	//
 	if e.FalseBranch != nil {
-		ctx.Join(e.FalseBranch.Context())
+		ctx = ctx.Join(e.FalseBranch.Context())
 	}
 	//
 	return ctx

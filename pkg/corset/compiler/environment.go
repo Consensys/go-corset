@@ -139,6 +139,9 @@ func (p GlobalEnvironment) ColumnsOf(register uint) []string {
 
 // ContextOf constructs a trace context from a given corset context.
 func (p GlobalEnvironment) ContextOf(from ast.Context) tr.Context {
+	if from.IsVoid() {
+		return tr.VoidContext[uint]()
+	}
 	// Determine Module Identifier
 	mid := p.Module(from.Module()).Id
 	// Construct underlying context from this.

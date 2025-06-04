@@ -20,8 +20,9 @@ import (
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
-// IfThenElse returns the (optional) true branch when the condition evaluates to
-// zero, and the (optional false branch otherwise.
+// Ite represents an "If Then Else" expression which returns the (optional) true
+// branch when the condition evaluates to zero, and the (optional false branch
+// otherwise.
 type Ite[T LogicalTerm[T]] struct {
 	// Elements contained within this list.
 	Condition T
@@ -31,9 +32,9 @@ type Ite[T LogicalTerm[T]] struct {
 	FalseBranch LogicalTerm[T]
 }
 
-// IfElse constructs a new conditional branch, where either the true branch or
-// the false branch can (optionally) be nil (but both cannot).  Note, the true
-// branch is taken when the condition evaluates to zero.
+// IfThenElse constructs a new conditional branch, where either the true branch
+// or the false branch can (optionally) be nil (but both cannot).  Note, the
+// true branch is taken when the condition evaluates to zero.
 func IfThenElse[T LogicalTerm[T]](condition T, trueBranch T, falseBranch T) T {
 	var term LogicalTerm[T] = &Ite[T]{condition, trueBranch, falseBranch}
 	return term.(T)
@@ -57,7 +58,7 @@ func (p *Ite[T]) Bounds() util.Bounds {
 	return c
 }
 
-// EvalAt implementation for Evaluable interface.
+// TestAt implementation for Testable interface.
 func (p *Ite[T]) TestAt(k int, tr trace.Module) (bool, uint, error) {
 	// Evaluate condition
 	cond, branch, err := p.Condition.TestAt(k, tr)
@@ -129,4 +130,58 @@ func (p *Ite[T]) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[trace
 	}
 	// Done
 	return set
+}
+
+// Simplify this Negate as much as reasonably possible.  Overall, simplifying
+// ite is surprisingly tricky.  However, its useful to retain ite rathe the
+// compile it out completely as, in some cases, we can optimise things more
+// effectively.
+func (p *Ite[T]) Simplify(casts bool) T {
+	var (
+		cond        = p.Condition.Simplify(casts)
+		trueBranch  LogicalTerm[T]
+		falseBranch LogicalTerm[T]
+	)
+	// Handle reductive cases
+	if IsTrue(cond) {
+		if p.TrueBranch != nil {
+			return p.TrueBranch.Simplify(casts)
+		}
+		//
+		return True[T]()
+	} else if IsFalse(cond) {
+		if p.FalseBranch != nil {
+			return p.FalseBranch.Simplify(casts)
+		}
+		//
+		return True[T]()
+	}
+	// Simplify true branch (if applicable)
+	if p.TrueBranch != nil {
+		// If the branch logically true, then we can actually drop it
+		// altogether (i.e. !X || tt ==> tt)
+		if tb := p.TrueBranch.Simplify(casts); !IsTrue(tb) {
+			trueBranch = tb
+		}
+	}
+	// Simplify false branch (if applicable)
+	if p.FalseBranch != nil {
+		// If the branch logically true, then we can actually drop it
+		// altogether (i.e. !X || tt ==> tt)
+		if fb := p.FalseBranch.Simplify(casts); !IsTrue(fb) {
+			falseBranch = fb
+		}
+	}
+	// More simplification opportunities
+	if trueBranch == nil && falseBranch == nil {
+		return True[T]()
+	} else if trueBranch == nil && IsFalse(falseBranch.(T)) {
+		return cond
+	} else if falseBranch == nil && IsFalse(trueBranch.(T)) {
+		return Negation(cond).Simplify(casts)
+	}
+	// Finally, done.
+	var term LogicalTerm[T] = &Ite[T]{cond, trueBranch, falseBranch}
+	//
+	return term.(T)
 }

@@ -32,7 +32,7 @@ import (
 type ConstraintBound interface {
 	schema.Constraint
 
-	constraint.Assertion |
+	constraint.Assertion[ir.Testable] |
 		constraint.LookupConstraint[*ir.RegisterAccess[Term]] |
 		constraint.PermutationConstraint |
 		constraint.RangeConstraint[*ir.RegisterAccess[Term]] |
