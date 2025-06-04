@@ -494,8 +494,7 @@ func (p *AirLowering) lowerTermToInner(ctx trace.Context, e Term, airModule *air
 		args := p.lowerTerms(ctx, e.Args, airModule)
 		return ir.Sum(args...)
 	case *Cast:
-		// 	return lowerTermToInner(ctx, e.Arg, airModule)
-		panic("got here")
+		return p.lowerTermToInner(ctx, e.Arg, airModule)
 	case *Constant:
 		return ir.Const[air.Term](e.Value)
 	case *RegisterAccess:

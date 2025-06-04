@@ -600,16 +600,11 @@ func parallelTraceValidation(schema AnySchema, tr tr.Trace) []error {
 		)
 		// Check each column within each module
 		for cid := uint(0); cid < trMod.Width(); cid++ {
-			// Extract ith column
-			var (
-				reg  Register     = scMod.Register(mid)
-				data trace.Column = trMod.Column(cid)
-			)
 			// Check elements
-			go func() {
+			go func(reg Register, data trace.Column) {
 				// Send outcome back
 				c <- validateColumnBitWidth(reg.Width, data, scMod)
-			}()
+			}(scMod.Register(cid), trMod.Column(cid))
 		}
 	}
 	// Collect up all the results

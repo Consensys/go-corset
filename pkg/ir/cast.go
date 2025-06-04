@@ -38,13 +38,13 @@ func CastOf[T Term[T]](arg T, bitwidth uint) T {
 }
 
 // ApplyShift implementation for Term interface.
-func (p *Cast[T]) ApplyShift(int) T {
-	panic("todo")
+func (p *Cast[T]) ApplyShift(shift int) T {
+	return CastOf(p.Arg.ApplyShift(shift), p.BitWidth)
 }
 
 // Bounds implementation for Boundable interface.
 func (p *Cast[T]) Bounds() util.Bounds {
-	panic("todo")
+	return p.Arg.Bounds()
 }
 
 // EvalAt implementation for Evaluable interface.
