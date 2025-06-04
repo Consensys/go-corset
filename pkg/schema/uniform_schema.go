@@ -33,13 +33,6 @@ func NewUniformSchema[M Module](modules []M) UniformSchema[M] {
 	return UniformSchema[M]{modules}
 }
 
-// Assertions returns an iterator over the property assertions of this
-// schema.  These are properties which should hold true for any valid trace
-// (though, of course, may not hold true for an invalid trace).
-func (p UniformSchema[M]) Assertions() iter.Iterator[Constraint] {
-	return iter.NewArrayIterator[Constraint](nil)
-}
-
 // Assignments returns an iterator over the assignments of this schema
 // These are the computations used to assign values to all computed columns
 // in this schema.

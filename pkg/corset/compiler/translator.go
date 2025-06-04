@@ -461,17 +461,18 @@ func (t *translator) translateDefPermutation(decl *ast.DefPermutation, module *M
 
 // Translate a "defproperty" declaration.
 func (t *translator) translateDefProperty(decl *ast.DefProperty, module *ModuleBuilder) []SyntaxError {
-	// // Translate constraint body
-	// assertion, errors := t.translateExpressionInModule(decl.Assertion, module, 0)
-	// //
-	// if len(errors) == 0 {
-	// 	context := assertion.Context(t.schema)
-	// 	// Add translated constraint
-	// 	t.schema.AddPropertyAssertion(decl.Handle, context, assertion)
-	// }
-	// // Done
-	// return errors
-	panic("todo")
+	// Translate constraint body
+	assertion, errors := t.translateLogical(decl.Assertion, module, 0)
+	//
+	if len(errors) == 0 {
+		// FIXME: this could be more efficient!!
+		context := t.env.ContextOf(decl.Assertion.Context())
+		// Add translated constraint
+		module.AddConstraint(
+			mir.NewAssertion(decl.Handle, context, assertion))
+	}
+	// Done
+	return errors
 }
 
 // Translate a "defsorted" declaration.

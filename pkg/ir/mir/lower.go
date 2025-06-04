@@ -77,30 +77,6 @@ func (p *AirLowering) Lower() air.Schema {
 	for i := 0; i < int(p.mirSchema.Width()); i++ {
 		p.LowerModule(uint(i))
 	}
-	// // Add data columns.
-	// for _, c := range p.inputs {
-	// 	col := c.(DataColumn)
-	// 	airSchema.AddColumn(col.Context(), col.Name(), col.Type())
-	// }
-	// // Add Assignments. Again this has to be done first for things to work.
-	// // Essentially to reflect the fact that these columns have been added above
-	// // before others.  Realistically, the overall design of this process is a
-	// // bit broken right now.
-	// for _, assign := range p.assignments {
-	// 	airSchema.AddAssignment(assign)
-	// }
-	// // Now, lower assignments.
-	// for _, assign := range p.assignments {
-	// 	lowerAssignmentToAir(assign, p, airSchema)
-	// }
-	// // Lower vanishing constraints
-	// for _, c := range p.constraints {
-	// 	lowerConstraintToAir(c, p, airSchema, cfg)
-	// }
-	// // Add assertions (these do not need to be lowered)
-	// for _, assertion := range p.assertions {
-	// 	airSchema.AddPropertyAssertion(assertion.Handle, assertion.Context, assertion.Property)
-	// }
 	// Done
 	return schema.NewUniformSchema(p.airSchema.Build())
 }
@@ -122,7 +98,6 @@ func (p *AirLowering) LowerModule(index uint) {
 		p.lowerConstraintToAir(constraint, airModule)
 	}
 	// Lower assignments
-	// Assertions?
 	return
 }
 
@@ -146,19 +121,27 @@ func (p *AirLowering) LowerModule(index uint) {
 // Lower a constraint to the AIR level.
 func (p *AirLowering) lowerConstraintToAir(c Constraint, airModule *air.ModuleBuilder) {
 	// Check what kind of constraint we have
-	if v, ok := c.constraint.(LookupConstraint); ok {
+	switch v := c.constraint.(type) {
+	case Assertion:
+		p.lowerAssertionToAir(v, airModule)
+	case LookupConstraint:
 		p.lowerLookupConstraintToAir(v, airModule)
-	} else if v, ok := c.constraint.(VanishingConstraint); ok {
-		p.lowerVanishingConstraintToAir(v, airModule)
-	} else if v, ok := c.constraint.(RangeConstraint); ok {
+	case RangeConstraint:
 		p.lowerRangeConstraintToAir(v, airModule)
-	} else if v, ok := c.constraint.(SortedConstraint); ok {
+	case SortedConstraint:
 		p.lowerSortedConstraintToAir(v, airModule)
-	} else {
+	case VanishingConstraint:
+		p.lowerVanishingConstraintToAir(v, airModule)
+	default:
 		// Should be unreachable as no other constraint types can be added to a
 		// schema.
 		panic("unreachable")
 	}
+}
+
+// Lowering an assertion is straightforward since its not a true constraint.
+func (p *AirLowering) lowerAssertionToAir(v Assertion, airModule *air.ModuleBuilder) {
+	airModule.AddConstraint(air.NewAssertion(v.Handle, v.Context, v.Property))
 }
 
 // Lower a vanishing constraint to the AIR level.  This is relatively

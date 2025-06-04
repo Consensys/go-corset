@@ -26,6 +26,7 @@ import (
 
 const (
 	// Constraints
+	assertionTag   = byte(0)
 	lookupTag      = byte(1)
 	permutationTag = byte(2)
 	sortedTag      = byte(3)
@@ -55,6 +56,8 @@ const (
 
 func encode_constraint(constraint schema.Constraint) ([]byte, error) {
 	switch c := constraint.(type) {
+	case Assertion:
+		return encode_assertion(c)
 	case LookupConstraint:
 		return encode_lookup(c)
 	case PermutationConstraint:
@@ -68,6 +71,29 @@ func encode_constraint(constraint schema.Constraint) ([]byte, error) {
 	default:
 		return nil, errors.New("unknown constraint")
 	}
+}
+
+func encode_assertion(c Assertion) ([]byte, error) {
+	var (
+		buffer     bytes.Buffer
+		gobEncoder = gob.NewEncoder(&buffer)
+	)
+	// Tag
+	if _, err := buffer.Write([]byte{assertionTag}); err != nil {
+		return nil, err
+	}
+	// Handle
+	if err := gobEncoder.Encode(c.Handle); err != nil {
+		return nil, err
+	}
+	// Context
+	if err := gobEncoder.Encode(c.Context); err != nil {
+		return nil, err
+	}
+	// Constraint
+	err := encode_logical(c.Property, &buffer)
+	// Done
+	return buffer.Bytes(), err
 }
 
 func encode_lookup(c LookupConstraint) ([]byte, error) {
@@ -157,6 +183,8 @@ func encode_range(c RangeConstraint) ([]byte, error) {
 
 func decode_constraint(bytes []byte) (schema.Constraint, error) {
 	switch bytes[0] {
+	case assertionTag:
+		return decode_assertion(bytes[1:])
 	case lookupTag:
 		return decode_lookup(bytes[1:])
 	case permutationTag:
@@ -170,6 +198,27 @@ func decode_constraint(bytes []byte) (schema.Constraint, error) {
 	default:
 		return nil, fmt.Errorf("unknown constraint (tag %d)", bytes[0])
 	}
+}
+
+func decode_assertion(data []byte) (schema.Constraint, error) {
+	var (
+		buffer     = bytes.NewBuffer(data)
+		gobDecoder = gob.NewDecoder(buffer)
+		assertion  Assertion
+		err        error
+	)
+	// Handle
+	if err = gobDecoder.Decode(&assertion.Handle); err != nil {
+		return assertion, err
+	}
+	// Context
+	if err = gobDecoder.Decode(&assertion.Context); err != nil {
+		return assertion, err
+	}
+	//
+	assertion.Property, err = decode_logical(buffer)
+	// Success!
+	return assertion, err
 }
 
 func decode_lookup(data []byte) (schema.Constraint, error) {
@@ -203,31 +252,6 @@ func decode_lookup(data []byte) (schema.Constraint, error) {
 	return lookup, nil
 }
 
-func decode_vanishing(data []byte) (schema.Constraint, error) {
-	var (
-		buffer     = bytes.NewBuffer(data)
-		gobDecoder = gob.NewDecoder(buffer)
-		vanishing  VanishingConstraint
-		err        error
-	)
-	// Handle
-	if err = gobDecoder.Decode(&vanishing.Handle); err != nil {
-		return vanishing, err
-	}
-	// Context
-	if err = gobDecoder.Decode(&vanishing.Context); err != nil {
-		return vanishing, err
-	}
-	// Domain
-	if err = gobDecoder.Decode(&vanishing.Domain); err != nil {
-		return vanishing, err
-	}
-	//
-	vanishing.Constraint, err = decode_logical(buffer)
-	// Success!
-	return vanishing, err
-}
-
 func decode_range(data []byte) (schema.Constraint, error) {
 	var (
 		buffer     = bytes.NewBuffer(data)
@@ -251,6 +275,31 @@ func decode_range(data []byte) (schema.Constraint, error) {
 	constraint.Expr, err = decode_term(buffer)
 	// Success!
 	return constraint, err
+}
+
+func decode_vanishing(data []byte) (schema.Constraint, error) {
+	var (
+		buffer     = bytes.NewBuffer(data)
+		gobDecoder = gob.NewDecoder(buffer)
+		vanishing  VanishingConstraint
+		err        error
+	)
+	// Handle
+	if err = gobDecoder.Decode(&vanishing.Handle); err != nil {
+		return vanishing, err
+	}
+	// Context
+	if err = gobDecoder.Decode(&vanishing.Context); err != nil {
+		return vanishing, err
+	}
+	// Domain
+	if err = gobDecoder.Decode(&vanishing.Domain); err != nil {
+		return vanishing, err
+	}
+	//
+	vanishing.Constraint, err = decode_logical(buffer)
+	// Success!
+	return vanishing, err
 }
 
 // ============================================================================

@@ -29,7 +29,13 @@ type Constraint struct {
 	constraint schema.Constraint
 }
 
-// NewVanishingConstraint constructs a new AIR vanishing constraint
+// NewAssertion constructs a new assertion
+func NewAssertion(handle string, ctx trace.Context, term LogicalTerm) Constraint {
+	//
+	return Constraint{constraint.NewAssertion(handle, ctx, term)}
+}
+
+// NewVanishingConstraint constructs a new vanishing constraint
 func NewVanishingConstraint(handle string, ctx trace.Context, domain util.Option[int],
 	term LogicalTerm) Constraint {
 	//

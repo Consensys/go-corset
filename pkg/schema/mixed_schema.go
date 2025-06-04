@@ -70,13 +70,6 @@ func NewMixedSchema[M1 Module, M2 Module](leftModules []M1, rightModules []M2) M
 	return MixedSchema[M1, M2]{leftModules, rightModules}
 }
 
-// Assertions returns an iterator over the property assertions of this
-// schema.  These are properties which should hold true for any valid trace
-// (though, of course, may not hold true for an invalid trace).
-func (p MixedSchema[M1, M2]) Assertions() iter.Iterator[Constraint] {
-	return iter.NewArrayIterator[Constraint](nil)
-}
-
 // Assignments returns an iterator over the assignments of this schema
 // These are the computations used to assign values to all computed columns
 // in this schema.

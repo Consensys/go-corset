@@ -80,18 +80,11 @@ func defensivePadding(module uint, schema AnySchema) uint {
 // Accepts determines whether this schema will accept a given trace.  That is,
 // whether or not the given trace adheres to the schema constraints.  A trace
 // can fail to adhere to the schema for a variety of reasons, such as having a
-// constraint which does not hold.  Observe that this does not check assertions
-// within the schema hold.
+// constraint which does not hold.
 //
 //nolint:revive
 func Accepts[C Constraint](parallel bool, batchsize uint, schema Schema[C], trace tr.Trace) []Failure {
 	return accepts(parallel, batchsize, schema.Constraints(), trace, "Constraint")
-}
-
-// Asserts determines whether or not this schema will "assert" a given trace.
-// That is, whether or not the given trace adheres to the schema assertions.
-func Asserts[C Constraint](parallel bool, batchsize uint, schema Schema[C], trace tr.Trace) []Failure {
-	return accepts(parallel, batchsize, schema.Assertions(), trace, "Assertion")
 }
 
 //nolint:revive

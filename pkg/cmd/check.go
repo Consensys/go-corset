@@ -237,11 +237,6 @@ func checkTrace(ir string, traces [][]tr.RawColumn, schema sc.AnySchema,
 				reportFailures(ir, errs, trace, cfg)
 				return false
 			}
-			// Check assertions
-			if errs := sc.Asserts(cfg.parallel, cfg.batchSize, schema, trace); len(errs) > 0 {
-				reportFailures(ir, errs, trace, cfg)
-				return false
-			}
 
 			stats.Log("Checking constraints")
 		}

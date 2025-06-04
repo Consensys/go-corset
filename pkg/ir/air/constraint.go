@@ -32,7 +32,8 @@ import (
 type ConstraintBound interface {
 	schema.Constraint
 
-	constraint.LookupConstraint[*ir.RegisterAccess[Term]] |
+	constraint.Assertion |
+		constraint.LookupConstraint[*ir.RegisterAccess[Term]] |
 		constraint.PermutationConstraint |
 		constraint.RangeConstraint[*ir.RegisterAccess[Term]] |
 		constraint.VanishingConstraint[LogicalTerm]
@@ -50,6 +51,12 @@ type Air[C ConstraintBound] struct {
 // to avoid lots of generic types.
 func newAir[C ConstraintBound](constraint C) Air[C] {
 	return Air[C]{constraint}
+}
+
+// NewAssertion constructs a new AIR assertion
+func NewAssertion(handle string, ctx trace.Context, term ir.Testable) Assertion {
+	//
+	return newAir(constraint.NewAssertion(handle, ctx, term))
 }
 
 // NewLookupConstraint constructs a new AIR lookup constraint
