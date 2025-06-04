@@ -32,16 +32,8 @@ type IfZero[S LogicalTerm[S], T Term[T]] struct {
 	FalseBranch Term[T]
 }
 
-// If constructs a new conditional branch, where the true branch is taken when
-// the condition evaluates to zero.
-func If[S LogicalTerm[S], T Term[T]](condition S, trueBranch T) T {
-	var term Term[T] = &IfZero[S, T]{condition, trueBranch, nil}
-	return term.(T)
-}
-
-// IfElse constructs a new conditional branch, where either the true branch or
-// the false branch can (optionally) be nil (but both cannot).  Note, the true
-// branch is taken when the condition evaluates to zero.
+// IfElse constructs a new conditional with true and false branches.  Note, the
+// true branch is taken when the condition evaluates to zero.
 func IfElse[S LogicalTerm[S], T Term[T]](condition S, trueBranch T, falseBranch T) T {
 	var term Term[T] = &IfZero[S, T]{condition, trueBranch, falseBranch}
 	return term.(T)

@@ -33,9 +33,6 @@ func Disjunction[T LogicalTerm[T]](terms ...T) T {
 	return term.(T)
 }
 
-// Air indicates this term can be used at the AIR level.
-func (p *Disjunct[T]) Air() {}
-
 // Bounds implementation for Boundable interface.
 func (p *Disjunct[T]) Bounds() util.Bounds {
 	return util.BoundsForArray(p.Args)

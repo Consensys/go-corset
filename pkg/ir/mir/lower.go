@@ -21,6 +21,7 @@ import (
 	air_gadgets "github.com/consensys/go-corset/pkg/ir/air/gadgets"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // LowerToAir lowers (or refines) an MIR schema into an AIR schema.  That means
@@ -167,7 +168,7 @@ func (p *AirLowering) lowerConstraintToAir(c Constraint, airModule *air.ModuleBu
 func (p *AirLowering) lowerVanishingConstraintToAir(v VanishingConstraint, airModule *air.ModuleBuilder) {
 	//
 	var (
-		terms = p.lowerLogicalTo(v.Context, v.Constraint, airModule)
+		terms = p.lowerLogicalTo(true, v.Constraint, v.Context, airModule)
 	)
 	//
 	for i, air_expr := range terms {
@@ -371,51 +372,104 @@ func (p *AirLowering) lowerSortedConstraintToAir(c SortedConstraint, airModule *
 // 	}
 // }
 
-func (p *AirLowering) lowerLogicalTo(ctx trace.Context, e LogicalTerm, airModule *air.ModuleBuilder) []air.LogicalTerm {
+func (p *AirLowering) lowerLogicalsTo(sign bool, ctx trace.Context,
+	airModule *air.ModuleBuilder, terms ...LogicalTerm) [][]air.Term {
+	panic("todo")
+}
+
+func (p *AirLowering) lowerLogicalTo(sign bool, e LogicalTerm, ctx trace.Context,
+	airModule *air.ModuleBuilder) []air.Term {
+	//
 	switch e := e.(type) {
 	case *Conjunct:
-		panic("got here")
+		return p.lowerConjunctionTo(sign, e, ctx, airModule)
 	case *Disjunct:
-		panic("got here")
+		return p.lowerDisjunctionTo(sign, e, ctx, airModule)
 	case *Equal:
-		return []air.LogicalTerm{p.lowerEqualTo(ctx, *e, airModule)}
+		return p.lowerEqualityTo(sign, e.Lhs, e.Rhs, ctx, airModule)
 	case *Ite:
-		panic("got here")
+		return p.lowerIteTo(sign, e, ctx, airModule)
 	case *NotEqual:
-		return []air.LogicalTerm{p.lowerNotEqualTo(ctx, *e, airModule)}
+		return p.lowerEqualityTo(!sign, e.Lhs, e.Rhs, ctx, airModule)
 	default:
 		name := reflect.TypeOf(e).Name()
 		panic(fmt.Sprintf("unknown MIR expression \"%s\"", name))
 	}
 }
 
-// func lowerDisjunctTo(ctx trace.Context, c Disjunction, mirSchema *Schema, airSchema *air.Schema,
-// 	cfg OptimisationConfig) air.Expr {
-// 	air_terms := make([]air.Expr, len(c.atoms))
-// 	//
-// 	for i, t := range c.atoms {
-// 		air_terms[i] = lowerEquationTo(ctx, t, mirSchema, airSchema, cfg)
-// 	}
-// 	//
-// 	return air.Product(air_terms...)
-// }
-
-func (p *AirLowering) lowerEqualTo(ctx trace.Context, e Equal, airModule *air.ModuleBuilder) air.LogicalTerm {
-	var (
-		lhs air.Term = p.lowerTermTo(ctx, e.Lhs, airModule)
-		rhs air.Term = p.lowerTermTo(ctx, e.Rhs, airModule)
-	)
+func (p *AirLowering) lowerConjunctionTo(sign bool, e *Conjunct, ctx trace.Context,
+	airModule *air.ModuleBuilder) []air.Term {
+	var terms = p.lowerLogicalsTo(sign, ctx, airModule, e.Args...)
 	//
-	return ir.Equals[air.LogicalTerm](lhs, rhs)
+	if sign {
+		return conjunction(terms...)
+	}
+	//
+	return disjunction(terms...)
 }
 
-func (p *AirLowering) lowerNotEqualTo(ctx trace.Context, e NotEqual, airModule *air.ModuleBuilder) air.LogicalTerm {
-	// var (
-	// 	lhs air.Term = p.lowerTermTo(ctx, e.Lhs, airModule)
-	// 	rhs air.Term = p.lowerTermTo(ctx, e.Rhs, airModule)
-	// )
+func (p *AirLowering) lowerDisjunctionTo(sign bool, e *Disjunct, ctx trace.Context,
+	airModule *air.ModuleBuilder) []air.Term {
+	var terms = p.lowerLogicalsTo(sign, ctx, airModule, e.Args...)
 	//
-	panic("how does this make sense?")
+	if sign {
+		return disjunction(terms...)
+	}
+	//
+	return conjunction(terms...)
+}
+
+func (p *AirLowering) lowerEqualityTo(sign bool, left Term, right Term, ctx trace.Context,
+	airModule *air.ModuleBuilder) []air.Term {
+	//
+	var (
+		lhs air.Term = p.lowerTermTo(ctx, left, airModule)
+		rhs air.Term = p.lowerTermTo(ctx, right, airModule)
+		eq           = ir.Subtract(lhs, rhs)
+	)
+	//
+	if sign {
+		return []air.Term{eq}
+	}
+	//
+	one := ir.Const64[air.Term](1)
+	// construct norm(eq)
+	norm_eq := p.lowerNormToInner(eq, ctx, airModule)
+	// construct 1 - norm(eq)
+	return []air.Term{ir.Subtract(one, norm_eq)}
+}
+
+func (p *AirLowering) lowerIteTo(sign bool, e *Ite, ctx trace.Context, airModule *air.ModuleBuilder) []air.Term {
+	if sign {
+		return p.lowerPositiveIteTo(e, ctx, airModule)
+	}
+	//
+	return p.lowerNegativeIteTo(e, ctx, airModule)
+}
+
+func (p *AirLowering) lowerPositiveIteTo(e *Ite, ctx trace.Context, airModule *air.ModuleBuilder) []air.Term {
+	var (
+		terms          []air.Term
+		trueCondition  = p.lowerLogicalTo(true, e.Condition, ctx, airModule)
+		falseCondition = p.lowerLogicalTo(false, e.Condition, ctx, airModule)
+	)
+
+	//
+	if e.TrueBranch != nil {
+		trueBranch := p.lowerLogicalTo(true, e.TrueBranch, ctx, airModule)
+		terms = append(terms, disjunction(falseCondition, trueBranch)...)
+	}
+	//
+	if e.FalseBranch != nil {
+		falseBranch := p.lowerLogicalTo(true, e.FalseBranch, ctx, airModule)
+		terms = append(terms, disjunction(trueCondition, falseBranch)...)
+	}
+	//
+	return terms
+}
+
+func (p *AirLowering) lowerNegativeIteTo(e *Ite, ctx trace.Context, airModule *air.ModuleBuilder) []air.Term {
+	panic("todo")
 }
 
 // // Lower an expression into the Arithmetic Intermediate Representation.
@@ -456,7 +510,7 @@ func (p *AirLowering) lowerTermToInner(ctx trace.Context, e Term, airModule *air
 	case *Exp:
 		return p.lowerExpTo(ctx, e, airModule)
 	case *IfZero:
-		panic("got here")
+		return p.lowerIfZeroTo(ctx, e, airModule)
 	case *LabelledConst:
 		return ir.Const[air.Term](e.Value)
 	case *Mul:
@@ -500,15 +554,30 @@ func (p *AirLowering) lowerExpTo(ctx trace.Context, e *Exp, airModule *air.Modul
 	return ir.Product(es...)
 }
 
+func (p *AirLowering) lowerIfZeroTo(ctx trace.Context, e *IfZero, airModule *air.ModuleBuilder) air.Term {
+	// var (
+	// 	condition   = p.lowerLogicalTo(ctx, e.Condition, airModule)
+	// 	trueBranch  = p.lowerTermToInner(ctx, e.TrueBranch, airModule)
+	// 	falseBranch = p.lowerTermToInner(ctx, e.FalseBranch, airModule)
+	// )
+	// fb := ir.Product(condition, falseBranch)
+	panic("todo")
+}
+
 func (p *AirLowering) lowerNormTo(ctx trace.Context, e *Norm, airModule *air.ModuleBuilder) air.Term {
 	// Lower the expression being normalised
 	arg := p.lowerTermToInner(ctx, e.Arg, airModule)
+	//
+	return p.lowerNormToInner(arg, ctx, airModule)
+}
+
+func (p *AirLowering) lowerNormToInner(arg air.Term, ctx trace.Context, airModule *air.ModuleBuilder) air.Term {
 	// Determine appropriate shift
 	shift := 0
 	// Apply shift normalisation (if enabled)
 	if p.config.ShiftNormalisation {
 		// Determine shift ranges
-		min, max := e.Arg.ShiftRange()
+		min, max := arg.ShiftRange()
 		// determine shift amount
 		if max < 0 {
 			shift = max
@@ -544,3 +613,36 @@ func (p *AirLowering) lowerNormTo(ctx trace.Context, e *Norm, airModule *air.Mod
 // 	// Done
 // 	return id.String()
 // }
+
+// Construct the disjunction lhs v rhs, where both lhs and rhs can be
+// conjunctions of terms.
+func disjunction(terms ...[]air.Term) []air.Term {
+	if len(terms) == 1 {
+		return terms[0]
+	}
+	//
+	var (
+		nterms []air.Term
+		lhs    = terms[0]
+		rhs    = disjunction(terms[1:]...)
+	)
+	// FIXME: this is where things can get expensive!
+	for _, l := range lhs {
+		for _, r := range rhs {
+			disjunct := ir.Product(l, r)
+			nterms = append(nterms, disjunct)
+		}
+	}
+	//
+	return nterms
+}
+
+func conjunction(terms ...[]air.Term) []air.Term {
+	var nterms []air.Term
+	// Combine conjuncts
+	for _, ts := range terms {
+		nterms = util.AppendAll(nterms, ts...)
+	}
+	//
+	return nterms
+}

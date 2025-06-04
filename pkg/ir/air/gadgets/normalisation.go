@@ -67,11 +67,9 @@ func applyPseudoInverseGadget(e air.Term, ctx trace.Context, module *air.ModuleB
 		// Construct e/e
 		e_inv_e := ir.Product(e, inv_e)
 		// Construct 1 == e/e
-		one_e_e := ir.Equals[air.LogicalTerm](ir.Const64[air.Term](1), e_inv_e)
-		// Construct e == 0
-		e_zero := ir.Equals[air.LogicalTerm](e, ir.Const64[air.Term](0))
+		one_e_e := ir.Subtract(ir.Const64[air.Term](1), e_inv_e)
 		// Construct (e != 0) ==> (1 == e/e)
-		e_implies_one_e_e := ir.Disjunction(e_zero, one_e_e)
+		e_implies_one_e_e := ir.Product(e, one_e_e)
 		l_name := fmt.Sprintf("%s <=", name)
 		module.AddConstraint(air.NewVanishingConstraint(l_name, ctx, util.None[int](), e_implies_one_e_e))
 	}

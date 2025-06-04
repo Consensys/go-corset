@@ -36,6 +36,9 @@ const (
 	disjunctTag = byte(11)
 	equalTag    = byte(12)
 	notEqualTag = byte(13)
+	iteTagTF    = byte(14)
+	iteTagT     = byte(15)
+	iteTagF     = byte(16)
 	// Expressions
 	addTag              = byte(30)
 	castTag             = byte(31)
@@ -184,19 +187,58 @@ func decode_range(data []byte) (schema.Constraint, error) {
 }
 
 // ============================================================================
-// Logical Terms
+// Logical Terms (encoding)
 // ============================================================================
 
 func encode_logical(term LogicalTerm, buf *bytes.Buffer) error {
 	switch t := term.(type) {
+	case *Conjunct:
+		return encode_logicals(conjunctTag, buf, t.Args...)
+	case *Disjunct:
+		return encode_logicals(disjunctTag, buf, t.Args...)
 	case *Equal:
 		return encode_terms(equalTag, buf, t.Lhs, t.Rhs)
+	case *Ite:
+		return encode_ite(t, buf)
 	case *NotEqual:
 		return encode_terms(notEqualTag, buf, t.Lhs, t.Rhs)
+
 	default:
-		return errors.New("unknown term encountered")
+		return fmt.Errorf("unknown logical term encountered (%s)", term.Lisp(nil).String(false))
 	}
 }
+
+func encode_logicals(tag byte, buf *bytes.Buffer, terms ...LogicalTerm) error {
+	// Write tag
+	if err := buf.WriteByte(tag); err != nil {
+		return err
+	}
+	//
+	for _, t := range terms {
+		if err := encode_logical(t, buf); err != nil {
+			return err
+		}
+	}
+	//
+	return nil
+}
+
+func encode_ite(term *Ite, buf *bytes.Buffer) error {
+	switch {
+	case term.FalseBranch != nil && term.TrueBranch != nil:
+		return encode_logicals(iteTagTF, buf, term.Condition, term.TrueBranch, term.FalseBranch)
+	case term.FalseBranch == nil:
+		return encode_logicals(iteTagT, buf, term.Condition, term.TrueBranch)
+	case term.TrueBranch == nil:
+		return encode_logicals(iteTagF, buf, term.Condition, term.FalseBranch)
+	default:
+		panic("unreachable")
+	}
+}
+
+// ============================================================================
+// Logical Terms (decoding)
+// ============================================================================
 
 func decode_logical(buf *bytes.Buffer) (LogicalTerm, error) {
 	tag, err := buf.ReadByte()
@@ -207,15 +249,62 @@ func decode_logical(buf *bytes.Buffer) (LogicalTerm, error) {
 	//
 	switch tag {
 	case conjunctTag:
-		panic("todo")
+		return decode_nary_logicals(conjunctionConstructor, buf)
 	case disjunctTag:
-		panic("todo")
+		return decode_nary_logicals(disjunctionConstructor, buf)
 	case equalTag:
 		return decode_terms(2, equalConstructor, buf)
+	case iteTagTF, iteTagT, iteTagF:
+		return decode_ite(tag, buf)
 	case notEqualTag:
 		return decode_terms(2, notEqualConstructor, buf)
 	default:
 		return nil, fmt.Errorf("unknown constraint (tag %d)", tag)
+	}
+}
+
+// Decode a variable number of terms, as determined by the leading byte.
+func decode_nary_logicals(constructor func([]LogicalTerm) LogicalTerm, buf *bytes.Buffer) (LogicalTerm, error) {
+	var (
+		// NOTE: hard limit enforced here that we have at most 256 terms.
+		n, err = buf.ReadByte()
+	)
+	//
+	if err != nil {
+		return nil, err
+	}
+	//
+	return decode_logicals(uint(n), constructor, buf)
+}
+
+// Decode exactly n logicals terms
+func decode_logicals[S any](n uint, constructor func([]LogicalTerm) S, buf *bytes.Buffer) (S, error) {
+	var (
+		dummy S
+		terms = make([]LogicalTerm, n)
+		err   error
+	)
+	//
+	for i := range terms {
+		if terms[i], err = decode_logical(buf); err != nil {
+			return dummy, err
+		}
+	}
+	//
+	return constructor(terms), nil
+}
+
+func decode_ite(tag byte, buf *bytes.Buffer) (LogicalTerm, error) {
+	//
+	switch tag {
+	case iteTagTF:
+		return decode_logicals(3, iteTrueFalseConstructor, buf)
+	case iteTagT:
+		return decode_logicals(2, iteTrueConstructor, buf)
+	case iteTagF:
+		return decode_logicals(2, iteFalseConstructor, buf)
+	default:
+		panic("unreachable")
 	}
 }
 
@@ -246,7 +335,7 @@ func encode_term(term Term, buf *bytes.Buffer) error {
 	case *Sub:
 		return encode_nary_terms(subTag, buf, t.Args...)
 	default:
-		return errors.New("unknown term encountered")
+		return fmt.Errorf("unknown arithmetic term encountered (%s)", term.Lisp(nil).String(false))
 	}
 }
 
@@ -392,15 +481,14 @@ func decode_term(buf *bytes.Buffer) (Term, error) {
 }
 
 // Decode a variable number of terms, as determined by the leading byte.
-func decode_nary_terms[S any](constructor func([]Term) S, buf *bytes.Buffer) (S, error) {
+func decode_nary_terms(constructor func([]Term) Term, buf *bytes.Buffer) (Term, error) {
 	var (
-		dummy S
 		// NOTE: hard limit enforced here that we have at most 256 terms.
 		n, err = buf.ReadByte()
 	)
 	//
 	if err != nil {
-		return dummy, err
+		return nil, err
 	}
 	//
 	return decode_terms(uint(n), constructor, buf)
@@ -409,9 +497,9 @@ func decode_nary_terms[S any](constructor func([]Term) S, buf *bytes.Buffer) (S,
 // Decode exactly n terms
 func decode_terms[S any](n uint, constructor func([]Term) S, buf *bytes.Buffer) (S, error) {
 	var (
-		dummy S
 		terms = make([]Term, n)
 		err   error
+		dummy S
 	)
 	//
 	for i := range terms {
@@ -513,8 +601,28 @@ func addConstructor(terms []Term) Term {
 	return ir.Sum(terms...)
 }
 
+func conjunctionConstructor(terms []LogicalTerm) LogicalTerm {
+	return ir.Conjunction(terms...)
+}
+
+func disjunctionConstructor(terms []LogicalTerm) LogicalTerm {
+	return ir.Disjunction(terms...)
+}
+
 func equalConstructor(terms []Term) LogicalTerm {
 	return ir.Equals[LogicalTerm](terms[0], terms[1])
+}
+
+func iteTrueFalseConstructor(terms []LogicalTerm) LogicalTerm {
+	return ir.IfThenElse(terms[0], terms[1], terms[2])
+}
+
+func iteTrueConstructor(terms []LogicalTerm) LogicalTerm {
+	return ir.IfThenElse(terms[0], terms[1], nil)
+}
+
+func iteFalseConstructor(terms []LogicalTerm) LogicalTerm {
+	return ir.IfThenElse(terms[0], nil, terms[1])
 }
 
 func mulConstructor(terms []Term) Term {

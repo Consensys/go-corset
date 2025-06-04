@@ -34,11 +34,11 @@ func ApplyBinaryGadget(column uint, ctx trace.Context, module *air.ModuleBuilder
 	// Construct X
 	X := ir.NewRegisterAccess[air.Term](column, 0)
 	// Construct X == 0
-	X_eq0 := ir.Equals[air.LogicalTerm](X, ir.Const64[air.Term](0))
+	X_eq0 := ir.Subtract(X, ir.Const64[air.Term](0))
 	// Construct X == 0
-	X_eq1 := ir.Equals[air.LogicalTerm](X, ir.Const64[air.Term](1))
+	X_eq1 := ir.Subtract(X, ir.Const64[air.Term](1))
 	// Construct (X==0) ∨ (X==1)
-	X_X_m1 := ir.Disjunction(X_eq0, X_eq1)
+	X_X_m1 := ir.Product(X_eq0, X_eq1)
 	// Done!
 	module.AddConstraint(
 		air.NewVanishingConstraint(fmt.Sprintf("%s:u1", name), ctx, util.None[int](), X_X_m1))

@@ -40,9 +40,6 @@ type Equal[T Term[T]] struct {
 	Rhs Term[T]
 }
 
-// Air indicates this term can be used at the AIR level.
-func (p *Equal[T]) Air() {}
-
 // Bounds implementation for Boundable interface.
 func (p *Equal[T]) Bounds() util.Bounds {
 	l := p.Lhs.Bounds()

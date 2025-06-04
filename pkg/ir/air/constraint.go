@@ -54,9 +54,9 @@ func newAir[C ConstraintBound](constraint C) Air[C] {
 
 // NewVanishingConstraint constructs a new AIR vanishing constraint
 func NewVanishingConstraint(handle string, ctx trace.Context, domain util.Option[int],
-	term LogicalTerm) VanishingConstraint {
+	term Term) VanishingConstraint {
 	//
-	return newAir(constraint.NewVanishingConstraint(handle, ctx, domain, term))
+	return newAir(constraint.NewVanishingConstraint(handle, ctx, domain, LogicalTerm{term}))
 }
 
 // NewRangeConstraint constructs a new AIR range constraint

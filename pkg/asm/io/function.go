@@ -13,6 +13,8 @@
 package io
 
 import (
+	"bytes"
+	"encoding/gob"
 	"math"
 
 	"github.com/consensys/go-corset/pkg/schema"
@@ -135,4 +137,50 @@ func (p *Function[T]) AllocateRegister(kind uint8, name string, width uint) uint
 	p.registers = append(p.registers, schema.NewRegister(kind, name, width))
 	// Done
 	return index
+}
+
+// ============================================================================
+// Encoding / Decoding
+// ============================================================================
+
+// nolint
+func (p *Function[T]) GobEncode() ([]byte, error) {
+	var buffer bytes.Buffer
+	gobEncoder := gob.NewEncoder(&buffer)
+	//
+	if err := gobEncoder.Encode(p.name); err != nil {
+		return nil, err
+	}
+	//
+	if err := gobEncoder.Encode(p.registers); err != nil {
+		return nil, err
+	}
+	//
+	if err := gobEncoder.Encode(p.code); err != nil {
+		return nil, err
+	}
+	//
+	return buffer.Bytes(), nil
+}
+
+// nolint
+func (p *Function[T]) GobDecode(data []byte) error {
+	var (
+		buffer     = bytes.NewBuffer(data)
+		gobDecoder = gob.NewDecoder(buffer)
+	)
+	//
+	if err := gobDecoder.Decode(&p.name); err != nil {
+		return err
+	}
+	//
+	if err := gobDecoder.Decode(&p.registers); err != nil {
+		return err
+	}
+	//
+	if err := gobDecoder.Decode(&p.code); err != nil {
+		return err
+	}
+	//
+	return nil
 }
