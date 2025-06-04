@@ -781,8 +781,10 @@ func (r *resolver) finaliseArrayAccessInModule(scope LocalScope, expr *ast.Array
 	//
 	if !expr.IsResolved() && !scope.Bind(expr) {
 		errors = append(errors, *r.srcmap.SyntaxError(expr, "unknown array column"))
-	} else if _, ok := expr.Binding().(*ast.ColumnBinding); !ok {
+	} else if binding, ok := expr.Binding().(*ast.ColumnBinding); !ok {
 		errors = append(errors, *r.srcmap.SyntaxError(expr, "unknown array column"))
+	} else if !scope.FixContext(binding.Context()) {
+		return r.srcmap.SyntaxErrors(expr, "conflicting context")
 	}
 	// All good
 	return errors

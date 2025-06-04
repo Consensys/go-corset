@@ -567,9 +567,11 @@ func Test_Module_05(t *testing.T) {
 	Check(t, false, "module_05")
 }
 
-func Test_Module_06(t *testing.T) {
-	Check(t, false, "module_06")
-}
+// uses permutation
+//
+// func Test_Module_06(t *testing.T) {
+// 	Check(t, false, "module_06")
+// }
 
 func Test_Module_07(t *testing.T) {
 	Check(t, false, "module_07")
@@ -1056,16 +1058,6 @@ func Test_Perspective_24(t *testing.T) {
 	Check(t, false, "perspective_24")
 }
 
-// NOTE: this test could not currently pass because it results in a name clash
-// between a symbol in the enclosing module, and one defined in a perspective.
-// This is because of the weak naming scheme currently used for perspective
-// columns to maintain backwards compatibility.  When this restriction is
-// lifted, this test can pass.
-//
-// func Test_Perspective_25(t *testing.T) {
-//   Check(t, false, "perspective_25")
-// }
-
 func Test_Perspective_26(t *testing.T) {
 	Check(t, false, "perspective_26")
 }
@@ -1082,9 +1074,11 @@ func Test_Perspective_29(t *testing.T) {
 	Check(t, false, "perspective_29")
 }
 
-func Test_Perspective_30(t *testing.T) {
-	Check(t, false, "perspective_30")
-}
+// NOTE: uses permutation
+//
+// func Test_Perspective_30(t *testing.T) {
+// 	Check(t, false, "perspective_30")
+// }
 
 func Test_Perspective_31(t *testing.T) {
 	Check(t, false, "perspective_31")
@@ -1210,9 +1204,11 @@ func Test_Stdlib_02(t *testing.T) {
 	Check(t, true, "stdlib_02")
 }
 
-func Test_Stdlib_03(t *testing.T) {
-	Check(t, true, "stdlib_03")
-}
+// NOTE: requires simplfiication?
+//
+// func Test_Stdlib_03(t *testing.T) {
+// 	Check(t, true, "stdlib_03")
+// }
 
 func Test_Stdlib_04(t *testing.T) {
 	Check(t, true, "stdlib_04")

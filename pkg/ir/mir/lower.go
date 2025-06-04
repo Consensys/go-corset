@@ -205,18 +205,20 @@ func (p *AirLowering) lowerRangeConstraintToAir(v RangeConstraint, airModule *ai
 // value of that expression, along with appropriate constraints to enforce the
 // expected value.
 func (p *AirLowering) lowerLookupConstraintToAir(c LookupConstraint, airModule *air.ModuleBuilder) {
+	targetModule := p.airSchema.Module(c.TargetContext.ModuleId)
+	sourceModule := p.airSchema.Module(c.SourceContext.ModuleId)
 	targets := make([]*air.ColumnAccess, len(c.Targets))
 	sources := make([]*air.ColumnAccess, len(c.Sources))
 	//
 	for i := 0; i < len(targets); i++ {
-		targetBitwidth := c.Targets[i].ValueRange(airModule).BitWidth()
-		sourceBitwidth := c.Sources[i].ValueRange(airModule).BitWidth()
+		targetBitwidth := c.Targets[i].ValueRange(targetModule).BitWidth()
+		sourceBitwidth := c.Sources[i].ValueRange(sourceModule).BitWidth()
 		// Lower source and target expressions
-		target := p.lowerTermTo(c.TargetContext, c.Targets[i], airModule)
-		source := p.lowerTermTo(c.SourceContext, c.Sources[i], airModule)
+		target := p.lowerTermTo(c.TargetContext, c.Targets[i], targetModule)
+		source := p.lowerTermTo(c.SourceContext, c.Sources[i], sourceModule)
 		// Expand them
-		target_register := air_gadgets.Expand(c.TargetContext, targetBitwidth, target, airModule)
-		source_register := air_gadgets.Expand(c.SourceContext, sourceBitwidth, source, airModule)
+		target_register := air_gadgets.Expand(c.TargetContext, targetBitwidth, target, targetModule)
+		source_register := air_gadgets.Expand(c.SourceContext, sourceBitwidth, source, sourceModule)
 		//
 		targets[i] = ir.RawRegisterAccess[air.Term](target_register, 0)
 		sources[i] = ir.RawRegisterAccess[air.Term](source_register, 0)

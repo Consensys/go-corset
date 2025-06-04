@@ -26,7 +26,13 @@ type Mul[T Term[T]] struct{ Args []T }
 
 // Product returns the product of zero or more multiplications.
 func Product[T Term[T]](exprs ...T) T {
+	// Sanity check
+	if len(exprs) == 0 {
+		panic("product of zero expressions")
+	}
+	//
 	var term Term[T] = &Mul[T]{exprs}
+	//
 	return term.(T)
 }
 
