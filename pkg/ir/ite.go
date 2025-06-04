@@ -20,8 +20,9 @@ import (
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
-// IfThenElse returns the (optional) true branch when the condition evaluates to
-// zero, and the (optional false branch otherwise.
+// Ite represents an "If Then Else" expression which returns the (optional) true
+// branch when the condition evaluates to zero, and the (optional false branch
+// otherwise.
 type Ite[T LogicalTerm[T]] struct {
 	// Elements contained within this list.
 	Condition T
@@ -31,9 +32,9 @@ type Ite[T LogicalTerm[T]] struct {
 	FalseBranch LogicalTerm[T]
 }
 
-// IfElse constructs a new conditional branch, where either the true branch or
-// the false branch can (optionally) be nil (but both cannot).  Note, the true
-// branch is taken when the condition evaluates to zero.
+// IfThenElse constructs a new conditional branch, where either the true branch
+// or the false branch can (optionally) be nil (but both cannot).  Note, the
+// true branch is taken when the condition evaluates to zero.
 func IfThenElse[T LogicalTerm[T]](condition T, trueBranch T, falseBranch T) T {
 	var term LogicalTerm[T] = &Ite[T]{condition, trueBranch, falseBranch}
 	return term.(T)
@@ -57,7 +58,7 @@ func (p *Ite[T]) Bounds() util.Bounds {
 	return c
 }
 
-// EvalAt implementation for Evaluable interface.
+// TestAt implementation for Testable interface.
 func (p *Ite[T]) TestAt(k int, tr trace.Module) (bool, uint, error) {
 	// Evaluate condition
 	cond, branch, err := p.Condition.TestAt(k, tr)

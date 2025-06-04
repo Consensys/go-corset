@@ -65,9 +65,7 @@ func buildMetadata(items []string) typed.Map {
 //nolint:errcheck
 func init() {
 	rootCmd.AddCommand(compileCmd)
-	compileCmd.Flags().Bool("debug", false, "enable debugging constraints")
 	compileCmd.Flags().StringP("output", "o", "a.bin", "specify output file.")
 	compileCmd.Flags().StringArrayP("define", "D", []string{}, "define metadata attribute.")
-	compileCmd.Flags().StringArrayP("set", "S", []string{}, "set value of externalised constant.")
 	compileCmd.MarkFlagRequired("output")
 }

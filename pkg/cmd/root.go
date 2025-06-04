@@ -14,6 +14,7 @@ package cmd
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"runtime/debug"
 
@@ -21,6 +22,7 @@ import (
 	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
 	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/ir/mir"
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/spf13/cobra"
 )
 
@@ -71,6 +73,12 @@ func getSchemaStack(cmd *cobra.Command, filenames ...string) *cmd_util.SchemaSta
 		uasmEnable   = GetFlag(cmd, "uasm")
 		optimisation = GetUint(cmd, "opt")
 		externs      = GetStringArray(cmd, "set")
+		//
+		parallel  = !GetFlag(cmd, "sequential")
+		batchSize = GetUint(cmd, "batch")
+		defensive = GetFlag(cmd, "defensive")
+		expand    = !GetFlag(cmd, "raw")
+		validate  = GetFlag(cmd, "validate")
 	)
 	// Initial corset compilation configuration
 	corsetConfig.Stdlib = !GetFlag(cmd, "no-stdlib")
@@ -92,11 +100,19 @@ func getSchemaStack(cmd *cobra.Command, filenames ...string) *cmd_util.SchemaSta
 		uasmEnable = true
 		asmEnable = true
 	}
+	// Construct trace builder
+	builder := schema.NewTraceBuilder().
+		WithValidation(validate).
+		WithDefensivePadding(defensive).
+		WithExpansion(expand).
+		WithParallelism(parallel).
+		WithBatchSize(batchSize)
 	// Configure the stack
 	schemaStack.WithAssemblyConfig(asmConfig)
 	schemaStack.WithCorsetConfig(corsetConfig)
 	schemaStack.WithOptimisationConfig(mir.OPTIMISATION_LEVELS[optimisation])
 	schemaStack.WithConstantDefinitions(externs)
+	schemaStack.WithTraceBuilder(builder)
 	//
 	if asmEnable {
 		schemaStack.WithLayer(cmd_util.MACRO_ASM_LAYER)
@@ -123,6 +139,7 @@ func init() {
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	rootCmd.Flags().Bool("version", false, "Report version of this executable")
 	// Corset compilation config
+	rootCmd.PersistentFlags().Bool("debug", false, "enable debugging constraints")
 	rootCmd.PersistentFlags().Bool("legacy", true, "use legacy register allocator")
 	rootCmd.PersistentFlags().Bool("no-stdlib", false, "prevent standard library from being included")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "increase logging verbosity")
@@ -136,4 +153,12 @@ func init() {
 	rootCmd.PersistentFlags().Bool("asm", false, "include constraints at ASM level")
 	rootCmd.PersistentFlags().Bool("mir", false, "include constraints at MIR level")
 	rootCmd.PersistentFlags().Bool("uasm", false, "include constraints at micro ASM level")
+	// Trace expansion
+	rootCmd.PersistentFlags().Bool("raw", false, "assume input trace already expanded")
+	rootCmd.PersistentFlags().Bool("sequential", false, "perform sequential trace expansion")
+	rootCmd.PersistentFlags().Bool("defensive", true, "defensively pad modules")
+	rootCmd.PersistentFlags().Bool("validate", true, "apply trace validation")
+	rootCmd.PersistentFlags().UintP("batch", "b", math.MaxUint, "specify batch size for constraint checking")
+	// Misc
+	rootCmd.PersistentFlags().StringArrayP("set", "S", []string{}, "set value of externalised constant.")
 }

@@ -27,8 +27,6 @@ import (
 // schema and set of input columns.  The goal is to encapsulate all of the logic
 // around building a trace.
 type TraceBuilder struct {
-	// Schema to be used when building the trace
-	schema AnySchema
 	// Indicates whether or not to perform defensive padding.  This is where
 	// padding rows are appended and/or prepended to ensure no constraint in the
 	// active region of the trace is clipped.  Whilst not strictly necessary,
@@ -75,75 +73,85 @@ type columnId struct {
 
 // NewTraceBuilder constructs a default trace builder.  The idea is that this
 // could then be customized as needed following the builder pattern.
-func NewTraceBuilder[C Constraint](schema Schema[C]) TraceBuilder {
-	return TraceBuilder{Any(schema), true, true, true, true, 0, true, math.MaxUint}
+func NewTraceBuilder() TraceBuilder {
+	return TraceBuilder{true, true, true, true, 0, true, math.MaxUint}
 }
 
-// Defensive updates a given builder configuration to apply defensive padding
+// WithDefensivePadding updates a given builder configuration to apply defensive padding
 // (or not).
-func (tb TraceBuilder) Defensive(flag bool) TraceBuilder {
+func (tb TraceBuilder) WithDefensivePadding(flag bool) TraceBuilder {
 	ntb := tb
 	ntb.defensive = flag
 	//
 	return ntb
 }
 
-// ExpansionChecks enables runtime safety checks on the expanded trace.
-func (tb TraceBuilder) ExpansionChecks(flag bool) TraceBuilder {
+// WithExpansionChecks enables runtime safety checks on the expanded trace.
+func (tb TraceBuilder) WithExpansionChecks(flag bool) TraceBuilder {
 	ntb := tb
 	ntb.checks = flag
 	//
 	return ntb
 }
 
-// Expand updates a given builder configuration to perform trace expansion (or
+// WithExpansion updates a given builder configuration to perform trace expansion (or
 // not).
-func (tb TraceBuilder) Expand(flag bool) TraceBuilder {
+func (tb TraceBuilder) WithExpansion(flag bool) TraceBuilder {
 	ntb := tb
 	ntb.expand = flag
 	//
 	return ntb
 }
 
-// Validate updates a given builder configuration to perform trace validation (or
+// WithValidation updates a given builder configuration to perform trace validation (or
 // not).
-func (tb TraceBuilder) Validate(flag bool) TraceBuilder {
+func (tb TraceBuilder) WithValidation(flag bool) TraceBuilder {
 	ntb := tb
 	ntb.validate = flag
 	//
 	return ntb
 }
 
-// Padding updates a given builder configuration to use a given amount of padding
-func (tb TraceBuilder) Padding(padding uint) TraceBuilder {
+// WithPadding updates a given builder configuration to use a given amount of padding
+func (tb TraceBuilder) WithPadding(padding uint) TraceBuilder {
 	ntb := tb
 	ntb.padding = padding
 	//
 	return ntb
 }
 
-// Parallel updates a given builder configuration to allow trace expansion to be
+// WithParallelism updates a given builder configuration to allow trace expansion to be
 // performed concurrently (or not).
-func (tb TraceBuilder) Parallel(flag bool) TraceBuilder {
+func (tb TraceBuilder) WithParallelism(flag bool) TraceBuilder {
 	ntb := tb
 	ntb.parallel = flag
 	//
 	return ntb
 }
 
-// BatchSize sets the maximum number of batches to run in parallel during trace
+// Parallelism checks whether parallelism is enabled for this builder.
+func (tb TraceBuilder) Parallelism() bool {
+	return tb.parallel
+}
+
+// WithBatchSize sets the maximum number of batches to run in parallel during trace
 // expansion.
-func (tb TraceBuilder) BatchSize(batchSize uint) TraceBuilder {
+func (tb TraceBuilder) WithBatchSize(batchSize uint) TraceBuilder {
 	ntb := tb
 	ntb.batchSize = batchSize
 	//
 	return ntb
 }
 
+// BatchSize returns the configure batch size for this builder.
+func (tb TraceBuilder) BatchSize() uint {
+	return tb.batchSize
+}
+
 // Build attempts to construct a trace for a given schema, producing errors if
 // there are inconsistencies (e.g. missing columns, duplicate columns, etc).
-func (tb TraceBuilder) Build(cols []trace.RawColumn) (trace.Trace, []error) {
-	tr, errors := initialiseTrace(tb.schema, cols)
+func (tb TraceBuilder) Build(schema AnySchema, cols []trace.RawColumn) (trace.Trace, []error) {
+	tr, errors := initialiseTrace(schema, cols)
 	//
 	if len(errors) > 0 {
 		// Critical failure
@@ -152,32 +160,32 @@ func (tb TraceBuilder) Build(cols []trace.RawColumn) (trace.Trace, []error) {
 		// Save original line counts
 		moduleHeights := determineModuleHeights(tr)
 		// Apply spillage
-		applySpillageAndDefensivePadding(tb.defensive, tr, tb.schema)
+		applySpillageAndDefensivePadding(tb.defensive, tr, schema)
 		// Sanity checks
 		if tb.checks {
-			if err := checkModuleHeights(moduleHeights, tb.defensive, tr, tb.schema); err != nil {
+			if err := checkModuleHeights(moduleHeights, tb.defensive, tr, schema); err != nil {
 				return nil, append(errors, err)
 			}
 		}
 		// Expand trace
 		if tb.parallel {
 			// Run (parallel) trace expansion
-			if err := parallelTraceExpansion(tb.batchSize, tb.schema, tr); err != nil {
+			if err := parallelTraceExpansion(tb.batchSize, schema, tr); err != nil {
 				return nil, append(errors, err)
 			}
-		} else if err := sequentialTraceExpansion(tb.schema, tr); err != nil {
+		} else if err := sequentialTraceExpansion(schema, tr); err != nil {
 			// Expansion errors are fatal as well
 			return nil, append(errors, err)
 		}
 		// Validate expanded trace
 		if tb.validate && tb.parallel {
 			// Run (parallel) trace validation
-			if errs := parallelTraceValidation(tb.schema, tr); len(errs) > 0 {
+			if errs := parallelTraceValidation(schema, tr); len(errs) > 0 {
 				return nil, append(errors, errs...)
 			}
 		} else if tb.validate {
 			// Run (sequential) trace validation
-			if errs := sequentialTraceValidation(tb.schema, tr); len(errs) > 0 {
+			if errs := sequentialTraceValidation(schema, tr); len(errs) > 0 {
 				return nil, append(errors, errs...)
 			}
 		}

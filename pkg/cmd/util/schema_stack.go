@@ -63,6 +63,8 @@ type SchemaStack struct {
 	asmConfig asm.LoweringConfig
 	// Mir optimisation config options
 	mirConfig mir.OptimisationConfig
+	// Configuration for trace expansion
+	traceBuilder schema.TraceBuilder
 	// Externalised constant definitions
 	externs []string
 	// Layers identifies which layers are included in the stack.
@@ -115,15 +117,38 @@ func (p *SchemaStack) WithLayer(layer uint) *SchemaStack {
 	return p
 }
 
+// WithTraceBuilder determines the settings to use for trace expansion, such as
+// whether to use parallelisation, etc.
+func (p *SchemaStack) WithTraceBuilder(builder schema.TraceBuilder) *SchemaStack {
+	p.traceBuilder = builder
+	return p
+}
+
 // BinaryFile returns the binary file representing the top of this stack.
 func (p *SchemaStack) BinaryFile() *binfile.BinaryFile {
 	return &p.binfile
+}
+
+// HasUniqueSchema determines whether or not we have exactly one schema.
+func (p *SchemaStack) HasUniqueSchema() bool {
+	return len(p.schemas) == 1
 }
 
 // Schemas returns the stack of schemas according to the selected layers, where
 // higher-level layers come first.
 func (p *SchemaStack) Schemas() []schema.AnySchema {
 	return p.schemas
+}
+
+// TraceBuilder returns a configured trace builder.
+func (p *SchemaStack) TraceBuilder() schema.TraceBuilder {
+	return p.traceBuilder
+}
+
+// UniqueSchema returns the first schema on the stack which, when
+// HasUniqueSchema() holds, means the uniquely specified schema.
+func (p *SchemaStack) UniqueSchema() schema.AnySchema {
+	return p.schemas[0]
 }
 
 // IrName returns a human-readable anacronym of the IR used to generate the

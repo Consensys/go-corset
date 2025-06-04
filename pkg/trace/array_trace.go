@@ -35,6 +35,19 @@ func NewArrayTrace(modules []ArrayModule) *ArrayTrace {
 	return &ArrayTrace{modules}
 }
 
+// HasModule determines whether this trace has a module with the given name and,
+// if so, what its module index is.
+func (p *ArrayTrace) HasModule(module string) (uint, bool) {
+	// Linea scan through list of modules
+	for mid, mod := range p.modules {
+		if mod.name == module {
+			return uint(mid), true
+		}
+	}
+	//
+	return math.MaxUint, false
+}
+
 // Module returns a specific module in this trace.
 func (p *ArrayTrace) Module(module uint) Module {
 	return p.modules[module]
