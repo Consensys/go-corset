@@ -20,6 +20,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/trace"
 	tr "github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // TraceBuilder provides a mechanical means of constructing a trace from a given
@@ -160,11 +161,10 @@ func (tb TraceBuilder) Build(cols []trace.RawColumn) (trace.Trace, []error) {
 		}
 		// Expand trace
 		if tb.parallel {
-			// // Run (parallel) trace expansion
-			// if err := parallelTraceExpansion(tb.batchSize, tb.schema, tr); err != nil {
-			// 	return nil, append(errors, err)
-			// }
-			panic("todo")
+			// Run (parallel) trace expansion
+			if err := parallelTraceExpansion(tb.batchSize, tb.schema, tr); err != nil {
+				return nil, append(errors, err)
+			}
 		} else if err := sequentialTraceExpansion(tb.schema, tr); err != nil {
 			// Expansion errors are fatal as well
 			return nil, append(errors, err)
@@ -172,10 +172,9 @@ func (tb TraceBuilder) Build(cols []trace.RawColumn) (trace.Trace, []error) {
 		// Validate expanded trace
 		if tb.validate && tb.parallel {
 			// Run (parallel) trace validation
-			// if errs := parallelTraceValidation(tb.schema, tr); len(errs) > 0 {
-			// 	return nil, append(errors, errs...)
-			// }
-			panic("todo")
+			if errs := parallelTraceValidation(tb.schema, tr); len(errs) > 0 {
+				return nil, append(errors, errs...)
+			}
 		} else if tb.validate {
 			// Run (sequential) trace validation
 			if errs := sequentialTraceValidation(tb.schema, tr); len(errs) > 0 {
@@ -409,27 +408,6 @@ func sequentialTraceExpansion(schema AnySchema, trace *trace.ArrayTrace) error {
 	return nil
 }
 
-// Fill a set of columns with their computed results.  The column index is that
-// of the first column in the sequence, and subsequent columns are index
-// consecutively.
-func fillComputedColumns(cids []uint, mid uint, cols []tr.ArrayColumn, trace *tr.ArrayTrace) {
-	module := trace.RawModule(mid)
-	// Add all columns
-	for i, col := range cols {
-		dst := module.Column(cids[i])
-		// Sanity checks
-		if dst.Name() != col.Name() {
-			mod := trace.Module(col.Context().Module()).Name()
-			panic(fmt.Sprintf("misaligned computed column %s.%s during trace expansion", mod, col.Name()))
-		} else if dst.Data() != nil {
-			mod := trace.Module(col.Context().Module()).Name()
-			panic(fmt.Sprintf("computed column %s.%s already exists in trace", mod, col.Name()))
-		}
-		// Looks good
-		module.FillColumn(cids[i], col.Data(), col.Padding())
-	}
-}
-
 // Validate that values held in trace columns match the expected type.  This is
 // really a sanity check that the trace is not malformed.
 func sequentialTraceValidation(schema AnySchema, tr trace.Trace) []error {
@@ -489,6 +467,170 @@ func sequentialModuleValidation(scMod Module, trMod trace.Module) []error {
 	}
 	// Done
 	return errors
+}
+
+// ============================================================================
+// Parallel Expansion / Validation
+// ============================================================================
+
+// Perform trace expansion using concurrently executing jobs.  The chosen
+// algorithm operates in waves, rather than using an continuous approach.  This
+// is for two reasons: firstly, the latter would require locks that would slow
+// down evaluation performance; secondly, the vast majority of jobs are run in
+// the very first wave.
+func parallelTraceExpansion(batchsize uint, schema AnySchema, trace *tr.ArrayTrace) error {
+	batch := 0
+	// Construct a communication channel for errors.
+	ch := make(chan columnBatch, 1024)
+	// Determine number of input columns
+	ninputs := schema.InputColumns().Count()
+	// Determine number of columns to compute
+	ntodo := schema.Assignments().Count()
+	// Iterate until all columns completed.
+	for ntodo > 0 {
+		stats := util.NewPerfStats()
+		// Dispatch next batch of assignments.
+		n := dispatchReadyAssignments(batchsize, ninputs, schema, trace, ch)
+		//
+		batches := make([]columnBatch, n)
+		// Collect all the results
+		for i := uint(0); i < n; i++ {
+			batches[i] = <-ch
+			// Read from channel
+			if batches[i].err != nil {
+				// Fail immediately
+				return batches[i].err
+			}
+		}
+		// Once we get here, all go rountines are complete and we are sequential
+		// again.
+		for _, r := range batches {
+			fillComputedColumns(r.index, r.columns, trace)
+			//
+			ntodo--
+		}
+		// Log stats about this batch
+		stats.Log(fmt.Sprintf("Expansion batch %d (remaining %d)", batch, ntodo))
+		// Increment batch
+		batch++
+	}
+	// Done
+	return nil
+}
+
+// Find any assignments which are ready to compute, and dispatch them with
+// results being fed back into the shared channel.  This returns the number of
+// jobs which have been dispatched (i.e. so the caller knows how many results to
+// expect).
+func dispatchReadyAssignments(batchsize uint, ninputs uint, schema AnySchema,
+	trace *tr.ArrayTrace, ch chan columnBatch) uint {
+	count := uint(0)
+	//
+	for iter, cid := schema.Assignments(), ninputs; iter.HasNext() && count < batchsize; {
+		ith := iter.Next()
+		// Check whether this assignment has already been computed and, if not,
+		// whether or not it is ready.
+		if trace.Column(cid).Data() == nil && isReady(ith, trace) {
+			// Dispatch!
+			go func(index uint) {
+				cols, err := ith.ComputeColumns(trace)
+				// Send outcome back
+				ch <- columnBatch{index, cols, err}
+			}(cid)
+			// Increment dispatch count
+			count++
+		}
+		// Update the column identifier
+		cid += ith.Columns().Count()
+	}
+	// Done
+	return count
+}
+
+// Check whether all dependencies for this assignment are available (that is,
+// have their data already).
+func isReady(assignment Assignment, trace *tr.ArrayTrace) bool {
+	for _, cid := range assignment.Dependencies() {
+		if trace.Column(cid).Data() == nil {
+			return false
+		}
+	}
+	// Done
+	return true
+}
+
+// Result from given computation.
+type columnBatch struct {
+	// The column index of the first computed column in this batch.
+	index uint
+	// The computed columns in this batch.
+	columns []trace.ArrayColumn
+	// An error (should one arise)
+	err error
+}
+
+// Validate that values held in trace columns match the expected type.  This is
+// really a sanity check that the trace is not malformed.
+func parallelTraceValidation(schema AnySchema, tr tr.Trace) []error {
+	var errors []error
+
+	schemaCols := schema.Columns()
+	// Start timer
+	stats := util.NewPerfStats()
+	// Construct a communication channel for errors.
+	c := make(chan error, 1024)
+	// Check each column in turn
+	for i := uint(0); i < tr.Width(); i++ {
+		// Extract ith column
+		col := tr.Column(i)
+		// Extract schema for ith column
+		scCol := schemaCols.Next()
+		// Determine enclosing module
+		mod := schema.Modules().Nth(scCol.Context.Module())
+		// Extract type for ith column
+		colType := scCol.DataType
+		// Check elements
+		go func() {
+			// Send outcome back
+			c <- validateColumnType(colType, col, mod)
+		}()
+	}
+	// Collect up all the results
+	for i := uint(0); i < tr.Width(); i++ {
+		// Read from channel
+		if e := <-c; e != nil {
+			errors = append(errors, e)
+		}
+	}
+	// Log stats about this batch
+	stats.Log("Validating trace")
+	// Done
+	return errors
+}
+
+// ============================================================================
+// Helpers
+// ============================================================================
+
+// Fill a set of columns with their computed results.  The column index is that
+// of the first column in the sequence, and subsequent columns are index
+// consecutively.
+func fillComputedColumns(cids []uint, mid uint, cols []tr.ArrayColumn, trace *tr.ArrayTrace) {
+	module := trace.RawModule(mid)
+	// Add all columns
+	for i, col := range cols {
+		dst := module.Column(cids[i])
+		// Sanity checks
+		if dst.Name() != col.Name() {
+			mod := trace.Module(col.Context().Module()).Name()
+			panic(fmt.Sprintf("misaligned computed column %s.%s during trace expansion", mod, col.Name()))
+		} else if dst.Data() != nil {
+			mod := trace.Module(col.Context().Module()).Name()
+			panic(fmt.Sprintf("computed column %s.%s already exists in trace", mod, col.Name()))
+		}
+		// Looks good
+		module.FillColumn(cids[i], col.Data(), col.Padding())
+	}
 }
 
 // Validate that all elements of a given column fit within a given bitwidth.
