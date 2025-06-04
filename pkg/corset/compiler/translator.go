@@ -361,7 +361,7 @@ func (t *translator) translateDefLookup(decl *ast.DefLookup, module *ModuleBuild
 		dstContext = t.env.ContextOf(dstAstContext)
 		dstModule := t.schema.Module(dstContext.ModuleId)
 		//
-		targets, errs = t.translateUnitExpressions(decl.Sources, dstModule, 0)
+		targets, errs = t.translateUnitExpressions(decl.Targets, dstModule, 0)
 		errors = append(errors, errs...)
 	}
 	// Sanity check whether we can construct the constraint, or not.
@@ -761,7 +761,7 @@ func (t *translator) translateLogical(expr ast.Expr, mod *ModuleBuilder, shift i
 		return ir.Conjunction(args...), errs
 	case *ast.Not:
 		arg, errs := t.translateLogical(e.Arg, mod, shift)
-		return ir.Negate(arg), errs
+		return ir.Negation(arg), errs
 	default:
 		typeStr := reflect.TypeOf(expr).String()
 		msg := fmt.Sprintf("unknown logical expression encountered during translation (%s)", typeStr)

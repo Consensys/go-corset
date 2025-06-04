@@ -146,8 +146,8 @@ func (p *AirLowering) LowerModule(index uint) {
 // Lower a constraint to the AIR level.
 func (p *AirLowering) lowerConstraintToAir(c Constraint, airModule *air.ModuleBuilder) {
 	// Check what kind of constraint we have
-	if _, ok := c.constraint.(LookupConstraint); ok {
-		//lowerLookupConstraintToAir(v, mirSchema, airSchema, cfg)
+	if v, ok := c.constraint.(LookupConstraint); ok {
+		p.lowerLookupConstraintToAir(v, airModule)
 	} else if v, ok := c.constraint.(VanishingConstraint); ok {
 		p.lowerVanishingConstraintToAir(v, airModule)
 	} else if v, ok := c.constraint.(RangeConstraint); ok {
@@ -216,29 +216,32 @@ func (p *AirLowering) lowerRangeConstraintToAir(v RangeConstraint, airModule *ai
 	}
 }
 
-// // Lower a lookup constraint to the AIR level.  The challenge here is that a
-// // lookup constraint at the AIR level cannot use arbitrary expressions; rather,
-// // it can only access columns directly.  Therefore, whenever a general
-// // expression is encountered, we must generate a computed column to hold the
-// // value of that expression, along with appropriate constraints to enforce the
-// // expected value.
-// func lowerLookupConstraintToAir(c LookupConstraint, mirSchema *Schema,airSchema *air.Schema,cfg OptimisationConfig) {
-// 	targets := make([]uint, len(c.Targets))
-// 	sources := make([]uint, len(c.Sources))
-// 	//
-// 	for i := 0; i < len(targets); i++ {
-// 		targetBitwidth := rangeOfTerm(c.Targets[i].term, mirSchema).BitWidth()
-// 		sourceBitwidth := rangeOfTerm(c.Sources[i].term, mirSchema).BitWidth()
-// 		// Lower source and target expressions
-// 		target := lowerExprTo(c.TargetContext, c.Targets[i], mirSchema, airSchema, cfg)
-// 		source := lowerExprTo(c.SourceContext, c.Sources[i], mirSchema, airSchema, cfg)
-// 		// Expand them
-// 		targets[i] = air_gadgets.Expand(c.TargetContext, targetBitwidth, target, airSchema)
-// 		sources[i] = air_gadgets.Expand(c.SourceContext, sourceBitwidth, source, airSchema)
-// 	}
-// 	// finally add the constraint
-// 	airSchema.AddLookupConstraint(c.Handle, c.SourceContext, c.TargetContext, sources, targets)
-// }
+// Lower a lookup constraint to the AIR level.  The challenge here is that a
+// lookup constraint at the AIR level cannot use arbitrary expressions; rather,
+// it can only access columns directly.  Therefore, whenever a general
+// expression is encountered, we must generate a computed column to hold the
+// value of that expression, along with appropriate constraints to enforce the
+// expected value.
+func (p *AirLowering) lowerLookupConstraintToAir(c LookupConstraint, airModule *air.ModuleBuilder) {
+	targets := make([]*air.ColumnAccess, len(c.Targets))
+	sources := make([]*air.ColumnAccess, len(c.Sources))
+	//
+	for i := 0; i < len(targets); i++ {
+		targetBitwidth := c.Targets[i].ValueRange(airModule).BitWidth()
+		sourceBitwidth := c.Sources[i].ValueRange(airModule).BitWidth()
+		// Lower source and target expressions
+		target := p.lowerTermTo(c.TargetContext, c.Targets[i], airModule)
+		source := p.lowerTermTo(c.SourceContext, c.Sources[i], airModule)
+		// Expand them
+		target_register := air_gadgets.Expand(c.TargetContext, targetBitwidth, target, airModule)
+		source_register := air_gadgets.Expand(c.SourceContext, sourceBitwidth, source, airModule)
+		//
+		targets[i] = ir.RawRegisterAccess[air.Term](target_register, 0)
+		sources[i] = ir.RawRegisterAccess[air.Term](source_register, 0)
+	}
+	// finally add the constraint
+	airModule.AddConstraint(air.NewLookupConstraint(c.Handle, c.SourceContext, c.TargetContext, sources, targets))
+}
 
 // Lower a sorted constraint to the AIR level.  The challenge here is that there
 // is not concept of sorting constraints at the AIR level.  Instead, we have to
@@ -372,11 +375,6 @@ func (p *AirLowering) lowerSortedConstraintToAir(c SortedConstraint, airModule *
 // 	}
 // }
 
-func (p *AirLowering) lowerLogicalsTo(sign bool, ctx trace.Context,
-	airModule *air.ModuleBuilder, terms ...LogicalTerm) [][]air.Term {
-	panic("todo")
-}
-
 func (p *AirLowering) lowerLogicalTo(sign bool, e LogicalTerm, ctx trace.Context,
 	airModule *air.ModuleBuilder) []air.Term {
 	//
@@ -389,12 +387,25 @@ func (p *AirLowering) lowerLogicalTo(sign bool, e LogicalTerm, ctx trace.Context
 		return p.lowerEqualityTo(sign, e.Lhs, e.Rhs, ctx, airModule)
 	case *Ite:
 		return p.lowerIteTo(sign, e, ctx, airModule)
+	case *Negate:
+		return p.lowerLogicalTo(!sign, e.Arg, ctx, airModule)
 	case *NotEqual:
 		return p.lowerEqualityTo(!sign, e.Lhs, e.Rhs, ctx, airModule)
 	default:
 		name := reflect.TypeOf(e).Name()
 		panic(fmt.Sprintf("unknown MIR expression \"%s\"", name))
 	}
+}
+
+func (p *AirLowering) lowerLogicalsTo(sign bool, ctx trace.Context,
+	airModule *air.ModuleBuilder, terms ...LogicalTerm) [][]air.Term {
+	nexprs := make([][]air.Term, len(terms))
+
+	for i := range len(terms) {
+		nexprs[i] = p.lowerLogicalTo(sign, terms[i], ctx, airModule)
+	}
+
+	return nexprs
 }
 
 func (p *AirLowering) lowerConjunctionTo(sign bool, e *Conjunct, ctx trace.Context,

@@ -107,12 +107,3 @@ type LogicalTerm[T any] interface {
 	Contextual
 	Testable
 }
-
-// ============================================================================
-// Logical Constructors
-// ============================================================================
-
-// Negate constructs the logical negation of the given T.
-func Negate[T LogicalTerm[T]](expr T) T {
-	panic("todo")
-}

@@ -103,6 +103,8 @@ type (
 	// Ite represents an If-Then-Else expression where either branch is optional
 	// (though we must have at least one).
 	Ite = ir.Ite[LogicalTerm]
+	// Negate represents a logical negation at the MIR level.
+	Negate = ir.Negate[LogicalTerm]
 	// NotEqual represents a non-equality comparator between two arithmetic terms
 	// at the MIR level.
 	NotEqual = ir.NotEqual[Term]
