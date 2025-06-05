@@ -25,15 +25,35 @@ import (
 type Mul[T Term[T]] struct{ Args []T }
 
 // Product returns the product of zero or more multiplications.
-func Product[T Term[T]](exprs ...T) T {
-	// Sanity check
-	if len(exprs) == 0 {
-		panic("product of zero expressions")
+func Product[T Term[T]](terms ...T) T {
+	// flatten any nested products
+	terms = util.Flatten(terms, func(term T) []T {
+		var t Term[T] = term
+		if t, ok := t.(*Mul[T]); ok {
+			return t.Args
+		}
+		//
+		return nil
+	})
+	// Remove all multiplications by one
+	terms = util.RemoveMatching(terms, isOne)
+	// Check for zero
+	if util.ContainsMatching(terms, isZero) {
+		return Const64[T](0)
+	}
+	// Final optimisation
+	switch len(terms) {
+	case 0:
+		return Const64[T](1)
+	case 1:
+		return terms[0]
+	default:
+		var term Term[T] = &Mul[T]{terms}
+		//
+		return term.(T)
 	}
 	//
-	var term Term[T] = &Mul[T]{exprs}
-	//
-	return term.(T)
+
 }
 
 // Air indicates this term can be used at the AIR level.

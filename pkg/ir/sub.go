@@ -27,7 +27,15 @@ type Sub[T Term[T]] struct{ Args []T }
 // Subtract returns the subtraction of the subsequent expressions from the
 // first.
 func Subtract[T Term[T]](exprs ...T) T {
+	// Sanity check
+	if len(exprs) == 0 {
+		panic("subtraction of zero expressions")
+	} else if len(exprs) == 1 {
+		return exprs[0]
+	}
+	//
 	var term Term[T] = &Sub[T]{exprs}
+	//
 	return term.(T)
 }
 

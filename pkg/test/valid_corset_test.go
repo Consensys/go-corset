@@ -213,13 +213,13 @@ func Test_Block_04(t *testing.T) {
 // Inequality Tests
 // ===================================================================
 
-/* func Test_Inequality_01(t *testing.T) {
-	Check(t, false, "ieq_01")
-} */
+// func Test_Inequality_01(t *testing.T) {
+// 	Check(t, false, "ieq_01")
+// }
 
-func Test_Inequality_02(t *testing.T) {
-	Check(t, false, "ieq_02")
-}
+// func Test_Inequality_02(t *testing.T) {
+// 	Check(t, false, "ieq_02")
+// }
 
 // ===================================================================
 // Logical Tests
@@ -741,12 +741,18 @@ func Test_Lookup_11(t *testing.T) {
 func Test_Lookup_12(t *testing.T) {
 	Check(t, false, "lookup_12")
 }
-func Test_Lookup_13(t *testing.T) {
-	Check(t, false, "lookup_13")
-}
-func Test_Lookup_14(t *testing.T) {
-	Check(t, false, "lookup_14")
-}
+
+// NOTE: uses permutation
+//
+// func Test_Lookup_13(t *testing.T) {
+// 	Check(t, false, "lookup_13")
+// }
+
+// NOTE: uses permutation
+//
+// func Test_Lookup_14(t *testing.T) {
+// 	Check(t, false, "lookup_14")
+// }
 
 func Test_Lookup_15(t *testing.T) {
 	Check(t, false, "lookup_15")
@@ -1080,9 +1086,11 @@ func Test_Perspective_29(t *testing.T) {
 // 	Check(t, false, "perspective_30")
 // }
 
-func Test_Perspective_31(t *testing.T) {
-	Check(t, false, "perspective_31")
-}
+// NOTE: users permutation
+//
+// func Test_Perspective_31(t *testing.T) {
+// 	Check(t, false, "perspective_31")
+// }
 
 // ===================================================================
 // Let

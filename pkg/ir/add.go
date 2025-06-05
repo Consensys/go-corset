@@ -25,9 +25,29 @@ import (
 type Add[T Term[T]] struct{ Args []T }
 
 // Sum zero or more expressions together.
-func Sum[T Term[T]](exprs ...T) T {
-	var term Term[T] = &Add[T]{exprs}
-	return term.(T)
+func Sum[T Term[T]](terms ...T) T {
+	// Flatten any nested sums
+	terms = util.Flatten(terms, func(t T) []T {
+		var e Term[T] = t
+		if t, ok := e.(*Add[T]); ok {
+			return t.Args
+		}
+		//
+		return nil
+	})
+	// Remove any zeros
+	terms = util.RemoveMatching(terms, isZero)
+	// Final simplifications
+	switch len(terms) {
+	case 0:
+		return Const64[T](0)
+	case 1:
+		return terms[0]
+	default:
+		var term Term[T] = &Add[T]{terms}
+		//
+		return term.(T)
+	}
 }
 
 // Air indicates this term can be used at the AIR level.

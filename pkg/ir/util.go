@@ -24,6 +24,28 @@ import (
 
 var frZERO fr.Element = fr.NewElement(0)
 
+// Check whether a given term corresponds with the constant zero.
+func isZero[T Term[T]](term T) bool {
+	var t Term[T] = term
+	//
+	if t, ok := t.(*Constant[T]); ok {
+		return t.Value.IsZero()
+	}
+	//
+	return false
+}
+
+// Check whether a given term corresponds with the constant one.
+func isOne[T Term[T]](term T) bool {
+	var t Term[T] = term
+	//
+	if t, ok := t.(*Constant[T]); ok {
+		return t.Value.IsOne()
+	}
+	//
+	return false
+}
+
 func applyShiftTerms[T Term[T]](terms []T, shift int) []T {
 	nterms := make([]T, len(terms))
 	//
