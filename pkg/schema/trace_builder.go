@@ -103,6 +103,11 @@ func (tb TraceBuilder) WithExpansion(flag bool) TraceBuilder {
 	return ntb
 }
 
+// Expanding indicates whether or not this builder will expand the trace.
+func (tb TraceBuilder) Expanding() bool {
+	return tb.expand
+}
+
 // WithValidation updates a given builder configuration to perform trace validation (or
 // not).
 func (tb TraceBuilder) WithValidation(flag bool) TraceBuilder {

@@ -62,7 +62,7 @@ func Execute() {
 	}
 }
 
-func getSchemaStack(cmd *cobra.Command, filenames ...string) *cmd_util.SchemaStack {
+func getSchemaStack(cmd *cobra.Command, schemaRequired bool, filenames ...string) *cmd_util.SchemaStack {
 	var (
 		schemaStack  cmd_util.SchemaStack
 		corsetConfig corset.CompilationConfig
@@ -109,7 +109,6 @@ func getSchemaStack(cmd *cobra.Command, filenames ...string) *cmd_util.SchemaSta
 	schemaStack.WithCorsetConfig(corsetConfig)
 	schemaStack.WithOptimisationConfig(mir.OPTIMISATION_LEVELS[optimisation])
 	schemaStack.WithConstantDefinitions(externs)
-	schemaStack.WithTraceBuilder(builder)
 	//
 	if asmEnable {
 		schemaStack.WithLayer(cmd_util.MACRO_ASM_LAYER)
@@ -127,7 +126,14 @@ func getSchemaStack(cmd *cobra.Command, filenames ...string) *cmd_util.SchemaSta
 		schemaStack.WithLayer(cmd_util.AIR_LAYER)
 	}
 	// Read / compile given source files.
-	schemaStack.Read(filenames...)
+	if schemaRequired || len(filenames) > 0 {
+		schemaStack.Read(filenames...)
+	} else {
+		// In this situation, we cannot perform trace expansion.
+		builder = builder.WithExpansion(false)
+	}
+	// Configure builder
+	schemaStack.WithTraceBuilder(builder)
 	// Done
 	return &schemaStack
 }
