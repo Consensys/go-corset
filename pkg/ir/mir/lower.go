@@ -396,6 +396,8 @@ func (p *AirLowering) lowerLogicalTo(sign bool, e LogicalTerm, ctx trace.Context
 		return p.lowerLogicalTo(!sign, e.Arg, ctx, airModule)
 	case *NotEqual:
 		return p.lowerEqualityTo(!sign, e.Lhs, e.Rhs, ctx, airModule)
+	case *Inequality:
+		panic("inequalities cannot (currently) be lowered to AIR")
 	default:
 		name := reflect.TypeOf(e).Name()
 		panic(fmt.Sprintf("unknown MIR expression \"%s\"", name))

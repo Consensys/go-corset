@@ -754,8 +754,14 @@ func (t *translator) translateLogical(expr ast.Expr, mod *ModuleBuilder, shift i
 			return ir.Equals[mir.LogicalTerm](lhs, rhs), nil
 		case ast.NOT_EQUALS:
 			return ir.NotEquals[mir.LogicalTerm](lhs, rhs), nil
-		case ast.LESS_THAN, ast.LESS_THAN_EQUALS, ast.GREATER_THAN, ast.GREATER_THAN_EQUALS:
-			panic("inequality not currently supported")
+		case ast.LESS_THAN:
+			return ir.LessThan[mir.LogicalTerm](lhs, rhs), nil
+		case ast.LESS_THAN_EQUALS:
+			return ir.LessThanOrEquals[mir.LogicalTerm](lhs, rhs), nil
+		case ast.GREATER_THAN:
+			return ir.GreaterThan[mir.LogicalTerm](lhs, rhs), nil
+		case ast.GREATER_THAN_EQUALS:
+			return ir.GreaterThanOrEquals[mir.LogicalTerm](lhs, rhs), nil
 		default:
 			panic("unreachable")
 		}

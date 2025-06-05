@@ -1235,17 +1235,17 @@ func Test_Stdlib_05(t *testing.T) {
 // Complex Tests
 // ===================================================================
 
-// func Test_Counter(t *testing.T) {
-// 	Check(t, true, "counter")
-// }
+func Test_Counter(t *testing.T) {
+	Check(t, true, "counter")
+}
 
-// func Test_ByteDecomp(t *testing.T) {
-// 	Check(t, true, "byte_decomposition")
-// }
+func Test_ByteDecomp(t *testing.T) {
+	Check(t, true, "byte_decomposition")
+}
 
-// func Test_BitDecomp(t *testing.T) {
-// 	Check(t, true, "bit_decomposition")
-// }
+func Test_BitDecomp(t *testing.T) {
+	Check(t, true, "bit_decomposition")
+}
 
 // func Test_ByteSorting(t *testing.T) {
 // 	Check(t, true, "byte_sorting")
@@ -1255,57 +1255,57 @@ func Test_Stdlib_05(t *testing.T) {
 // 	Check(t, true, "word_sorting")
 // }
 
-// func Test_Multiplier(t *testing.T) {
-// 	Check(t, false, "multiplier")
-// }
+func Test_Multiplier(t *testing.T) {
+	Check(t, false, "multiplier")
+}
 
 // func Test_Memory(t *testing.T) {
 // 	Check(t, true, "memory")
 // }
 
-// func Test_Adder(t *testing.T) {
-// 	Check(t, true, "adder")
-// }
+func Test_Adder(t *testing.T) {
+	Check(t, true, "adder")
+}
 
-// func TestSlow_Fields(t *testing.T) {
-// 	Check(t, true, "fields")
-// }
+func TestSlow_Fields(t *testing.T) {
+	Check(t, true, "fields")
+}
 
-// func TestSlow_Add(t *testing.T) {
-// 	Check(t, true, "add")
-// }
+func TestSlow_Add(t *testing.T) {
+	Check(t, true, "add")
+}
 
-// func TestSlow_BinStatic(t *testing.T) {
-// 	Check(t, true, "bin-static")
-// }
+func TestSlow_BinStatic(t *testing.T) {
+	Check(t, true, "bin-static")
+}
 
-// func TestSlow_Bin(t *testing.T) {
-// 	Check(t, true, "bin")
-// }
+func TestSlow_Bin(t *testing.T) {
+	Check(t, true, "bin")
+}
 
-// func TestSlow_Wcp(t *testing.T) {
-// 	Check(t, true, "wcp")
-// }
+func TestSlow_Wcp(t *testing.T) {
+	Check(t, true, "wcp")
+}
 
 // func TestSlow_Mxp(t *testing.T) {
 // 	Check(t, true, "mxp")
 // }
 
-// func TestSlow_Shf(t *testing.T) {
-// 	Check(t, true, "shf")
-// }
+func TestSlow_Shf(t *testing.T) {
+	Check(t, true, "shf")
+}
 
-// func TestSlow_Euc(t *testing.T) {
-// 	Check(t, true, "euc")
-// }
+func TestSlow_Euc(t *testing.T) {
+	Check(t, true, "euc")
+}
 
-// func TestSlow_Oob(t *testing.T) {
-// 	Check(t, true, "oob")
-// }
+func TestSlow_Oob(t *testing.T) {
+	Check(t, true, "oob")
+}
 
-// // func TestSlow_Stp(t *testing.T) {
-// // 	Check(t, true, "stp")
-// // }
+func TestSlow_Stp(t *testing.T) {
+	Check(t, true, "stp")
+}
 
 // func TestSlow_Mmio(t *testing.T) {
 // 	Check(t, true, "mmio")
@@ -1315,22 +1315,24 @@ func Test_Stdlib_05(t *testing.T) {
 // // 	Check(t, true, "rom")
 // // }
 
-// func TestSlow_Gas(t *testing.T) {
-// 	Check(t, true, "gas")
-// }
+func TestSlow_Gas(t *testing.T) {
+	Check(t, true, "gas")
+}
 
-// func TestSlow_Exp(t *testing.T) {
-// 	Check(t, true, "exp")
-// }
+func TestSlow_Exp(t *testing.T) {
+	Check(t, true, "exp")
+}
 
-// func TestSlow_Mul(t *testing.T) {
-// 	Check(t, true, "mul")
-// }
+func TestSlow_Mul(t *testing.T) {
+	Check(t, true, "mul")
+}
 
-// func TestSlow_Mod(t *testing.T) {
-// 	Check(t, true, "mod")
-// }
+func TestSlow_Mod(t *testing.T) {
+	Check(t, true, "mod")
+}
 
+// NOTE: uses invalid range bound
+//
 // func Test_TicTacToe(t *testing.T) {
 // 	Check(t, true, "tic_tac_toe")
 // }

@@ -33,14 +33,16 @@ const (
 	rangeTag       = byte(4)
 	vanishingTag   = byte(5)
 	// Logicals
-	conjunctTag = byte(10)
-	disjunctTag = byte(11)
-	equalTag    = byte(12)
-	notEqualTag = byte(13)
-	negationTag = byte(14)
-	iteTagTF    = byte(15)
-	iteTagT     = byte(16)
-	iteTagF     = byte(17)
+	conjunctTag   = byte(10)
+	disjunctTag   = byte(11)
+	equalTag      = byte(12)
+	notEqualTag   = byte(13)
+	lessThanTag   = byte(14)
+	lessThanEqTag = byte(15)
+	negationTag   = byte(16)
+	iteTagTF      = byte(17)
+	iteTagT       = byte(18)
+	iteTagF       = byte(19)
 	// Expressions
 	addTag              = byte(30)
 	castTag             = byte(31)
@@ -320,7 +322,12 @@ func encode_logical(term LogicalTerm, buf *bytes.Buffer) error {
 		return encode_tagged_logicals(negationTag, buf, t.Arg)
 	case *NotEqual:
 		return encode_tagged_terms(notEqualTag, buf, t.Lhs, t.Rhs)
-
+	case *Inequality:
+		if t.Strict {
+			return encode_tagged_terms(lessThanTag, buf, t.Lhs, t.Rhs)
+		}
+		//
+		return encode_tagged_terms(lessThanEqTag, buf, t.Lhs, t.Rhs)
 	default:
 		return fmt.Errorf("unknown logical term encountered (%s)", term.Lisp(nil).String(false))
 	}
@@ -381,6 +388,10 @@ func decode_logical(buf *bytes.Buffer) (LogicalTerm, error) {
 		return decode_logicals(1, negationConstructor, buf)
 	case notEqualTag:
 		return decode_terms(2, notEqualConstructor, buf)
+	case lessThanTag:
+		return decode_terms(2, lessThanConstructor, buf)
+	case lessThanEqTag:
+		return decode_terms(2, lessThanOrEqualsConstructor, buf)
 	default:
 		return nil, fmt.Errorf("unknown constraint (tag %d)", tag)
 	}
@@ -818,6 +829,14 @@ func negationConstructor(terms []LogicalTerm) LogicalTerm {
 
 func notEqualConstructor(terms []Term) LogicalTerm {
 	return ir.NotEquals[LogicalTerm](terms[0], terms[1])
+}
+
+func lessThanConstructor(terms []Term) LogicalTerm {
+	return ir.LessThan[LogicalTerm](terms[0], terms[1])
+}
+
+func lessThanOrEqualsConstructor(terms []Term) LogicalTerm {
+	return ir.LessThanOrEquals[LogicalTerm](terms[0], terms[1])
 }
 
 func subConstructor(terms []Term) Term {
