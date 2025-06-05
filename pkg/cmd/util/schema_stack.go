@@ -151,6 +151,12 @@ func (p *SchemaStack) UniqueSchema() schema.AnySchema {
 	return p.schemas[0]
 }
 
+// LowestSchema returns the last (i.e. lowest) schema on the stack.
+func (p *SchemaStack) LowestSchema() schema.AnySchema {
+	n := len(p.schemas) - 1
+	return p.schemas[n]
+}
+
 // IrName returns a human-readable anacronym of the IR used to generate the
 // corresponding SCHEMA.
 func (p *SchemaStack) IrName(index uint) string {

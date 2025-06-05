@@ -54,9 +54,8 @@ var traceCmd = &cobra.Command{
 		filter := GetString(cmd, "filter")
 		output := GetString(cmd, "out")
 		metadata := GetFlag(cmd, "metadata")
-		//
 		// Read in constraint files
-		schemas := *getSchemaStack(cmd, false, args[1:]...)
+		schemas := *getSchemaStack(cmd, SCHEMA_OPTIONAL, args[1:]...)
 		builder := schemas.TraceBuilder()
 		// Parse trace file(s)
 		if batched {
