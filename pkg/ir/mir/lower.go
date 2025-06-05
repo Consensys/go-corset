@@ -429,7 +429,7 @@ func (p *AirLowering) lowerEqualityTo(sign bool, left Term, right Term, ctx trac
 	//
 	one := ir.Const64[air.Term](1)
 	// construct norm(eq)
-	norm_eq := p.lowerNormToInner(eq, ctx, airModule)
+	norm_eq := p.normalise(eq, ctx, airModule)
 	// construct 1 - norm(eq)
 	return []air.Term{ir.Subtract(one, norm_eq)}
 }
@@ -448,14 +448,27 @@ func (p *AirLowering) lowerPositiveIteTo(e *Ite, ctx trace.Context, airModule *a
 		trueCondition  = p.lowerLogicalTo(true, e.Condition, ctx, airModule)
 		falseCondition = p.lowerLogicalTo(false, e.Condition, ctx, airModule)
 	)
-
+	// NOTE: using extractNormalisedCondition could be useful in some cases?
 	//
-	if e.TrueBranch != nil {
+	if e.TrueBranch != nil && e.FalseBranch != nil {
+		trueBranch := p.lowerLogicalTo(true, e.TrueBranch, ctx, airModule)
+		falseBranch := p.lowerLogicalTo(true, e.FalseBranch, ctx, airModule)
+		// Check whether optimisation is possible
+		if len(trueCondition) == 1 && len(falseCondition) == 1 &&
+			len(falseBranch) == 1 && len(trueBranch) == 1 {
+			// Yes, its safe to apply.
+			fb := ir.Product(trueCondition[0], falseBranch[0])
+			tb := ir.Product(falseCondition[0], trueBranch[0])
+			//
+			return []air.Term{ir.Sum(tb, fb)}
+		}
+		// No, optimisation does not apply
+		terms = append(terms, disjunction(falseCondition, trueBranch)...)
+		terms = append(terms, disjunction(trueCondition, falseBranch)...)
+	} else if e.TrueBranch != nil {
 		trueBranch := p.lowerLogicalTo(true, e.TrueBranch, ctx, airModule)
 		terms = append(terms, disjunction(falseCondition, trueBranch)...)
-	}
-	//
-	if e.FalseBranch != nil {
+	} else if e.FalseBranch != nil {
 		falseBranch := p.lowerLogicalTo(true, e.FalseBranch, ctx, airModule)
 		terms = append(terms, disjunction(trueCondition, falseBranch)...)
 	}
@@ -464,6 +477,7 @@ func (p *AirLowering) lowerPositiveIteTo(e *Ite, ctx trace.Context, airModule *a
 }
 
 func (p *AirLowering) lowerNegativeIteTo(e *Ite, ctx trace.Context, airModule *air.ModuleBuilder) []air.Term {
+	// NOTE: using extractNormalisedCondition could be useful here.
 	panic("todo")
 }
 
@@ -549,23 +563,112 @@ func (p *AirLowering) lowerExpTo(ctx trace.Context, e *Exp, airModule *air.Modul
 }
 
 func (p *AirLowering) lowerIfZeroTo(ctx trace.Context, e *IfZero, airModule *air.ModuleBuilder) air.Term {
-	// var (
-	// 	condition   = p.lowerLogicalTo(ctx, e.Condition, airModule)
-	// 	trueBranch  = p.lowerTermToInner(ctx, e.TrueBranch, airModule)
-	// 	falseBranch = p.lowerTermToInner(ctx, e.FalseBranch, airModule)
-	// )
-	// fb := ir.Product(condition, falseBranch)
-	panic("todo")
+	var (
+		trueCondition  = p.extractNormalisedCondition(true, e.Condition, ctx, airModule)
+		falseCondition = p.extractNormalisedCondition(false, e.Condition, ctx, airModule)
+		trueBranch     = p.lowerTermToInner(ctx, e.TrueBranch, airModule)
+		falseBranch    = p.lowerTermToInner(ctx, e.FalseBranch, airModule)
+	)
+	//
+	fb := ir.Product(trueCondition, falseBranch)
+	tb := ir.Product(falseCondition, trueBranch)
+	//
+	return ir.Sum(tb, fb)
 }
 
 func (p *AirLowering) lowerNormTo(ctx trace.Context, e *Norm, airModule *air.ModuleBuilder) air.Term {
 	// Lower the expression being normalised
 	arg := p.lowerTermToInner(ctx, e.Arg, airModule)
 	//
-	return p.lowerNormToInner(arg, ctx, airModule)
+	return p.normalise(arg, ctx, airModule)
 }
 
-func (p *AirLowering) lowerNormToInner(arg air.Term, ctx trace.Context, airModule *air.ModuleBuilder) air.Term {
+// Extract condition whilst ensuring it always evaluates to either 0 or 1.  This
+// is useful for translating conditional terms.  For example, consider
+// translating this:
+//
+// > 16 - (if (X == 0) 5 4)
+//
+// We translate this roughly as follows:
+//
+// > 16 - (X!=0)*5 - (X==0)*4
+//
+// Where we know that either X==0 or X!=0 will evaluate to 0.  However, if e.g.
+// X==0 evaluates to 0 then we need X!=0 to evaluate to 1 (otherwise we've
+// changed the meaning of our expression).
+func (p *AirLowering) extractNormalisedCondition(sign bool, term LogicalTerm, ctx trace.Context,
+	airModule *air.ModuleBuilder) air.Term {
+	//
+	switch t := term.(type) {
+	case *Conjunct:
+		if sign {
+			return p.extractNormalisedConjunction(sign, t.Args, ctx, airModule)
+		}
+
+		return p.extractNormalisedDisjunction(sign, t.Args, ctx, airModule)
+	case *Disjunct:
+		if sign {
+			return p.extractNormalisedDisjunction(sign, t.Args, ctx, airModule)
+		}
+
+		return p.extractNormalisedConjunction(sign, t.Args, ctx, airModule)
+	case *Equal:
+		return p.extractNormalisedEquality(sign, t.Lhs, t.Rhs, ctx, airModule)
+	case *Ite:
+		panic("todo")
+	case *Negate:
+		return p.extractNormalisedCondition(!sign, t.Arg, ctx, airModule)
+	case *NotEqual:
+		return p.extractNormalisedEquality(!sign, t.Lhs, t.Rhs, ctx, airModule)
+	default:
+		name := reflect.TypeOf(t).Name()
+		panic(fmt.Sprintf("unknown MIR expression \"%s\"", name))
+	}
+}
+
+func (p *AirLowering) extractNormalisedConjunction(sign bool, terms []LogicalTerm, ctx trace.Context,
+	airModule *air.ModuleBuilder) air.Term {
+	//
+	args := p.extractNormalisedConditions(!sign, terms, ctx, airModule)
+	// P && Q ==> !(!P || Q!) ==> 1 - ~(!P || !Q)
+	return ir.Subtract(ir.Const64[air.Term](1),
+		p.normalise(ir.Product(args...), ctx, airModule))
+}
+
+func (p *AirLowering) extractNormalisedDisjunction(sign bool, terms []LogicalTerm, ctx trace.Context,
+	airModule *air.ModuleBuilder) air.Term {
+	//
+	ts := p.extractNormalisedConditions(sign, terms, ctx, airModule)
+	// Easy case
+	return ir.Product(ts...)
+}
+
+func (p *AirLowering) extractNormalisedEquality(sign bool, lhs Term, rhs Term, ctx trace.Context,
+	airModule *air.ModuleBuilder) air.Term {
+	l := p.lowerTermToInner(ctx, lhs, airModule)
+	r := p.lowerTermToInner(ctx, rhs, airModule)
+	t := p.normalise(ir.Subtract(l, r), ctx, airModule)
+	//
+	if sign {
+		return t
+	}
+	// Invert for not-equals
+	return ir.Subtract(ir.Const64[air.Term](1), t)
+}
+
+func (p *AirLowering) extractNormalisedConditions(sign bool, es []LogicalTerm, ctx trace.Context,
+	airModule *air.ModuleBuilder) []air.Term {
+	//
+	exprs := make([]air.Term, len(es))
+	//
+	for i, e := range es {
+		exprs[i] = p.extractNormalisedCondition(sign, e, ctx, airModule)
+	}
+	//
+	return exprs
+}
+
+func (p *AirLowering) normalise(arg air.Term, ctx trace.Context, airModule *air.ModuleBuilder) air.Term {
 	// Determine appropriate shift
 	shift := 0
 	// Apply shift normalisation (if enabled)
@@ -620,7 +723,8 @@ func disjunction(terms ...[]air.Term) []air.Term {
 		lhs    = terms[0]
 		rhs    = disjunction(terms[1:]...)
 	)
-	// FIXME: this is where things can get expensive!
+	// FIXME: this is where things can get expensive, and it would be useful to
+	// explore whether extractNormalisedCondition could help here.
 	for _, l := range lhs {
 		for _, r := range rhs {
 			disjunct := ir.Product(l, r)
@@ -632,6 +736,9 @@ func disjunction(terms ...[]air.Term) []air.Term {
 }
 
 func conjunction(terms ...[]air.Term) []air.Term {
+	// FIXME: can we do better here in cases where the terms being conjuncted
+	// can be safely summed?  This requires exploiting the ValueRange analysis
+	// on the terms and check whether their sum fits within the field element.
 	var nterms []air.Term
 	// Combine conjuncts
 	for _, ts := range terms {

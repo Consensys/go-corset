@@ -427,7 +427,7 @@ func encode_term(term Term, buf *bytes.Buffer) error {
 	case *Exp:
 		return encode_exponent(*t, buf)
 	case *IfZero:
-		panic("todo")
+		return encode_ifZero(*t, buf)
 	case *LabelledConst:
 		return encode_labelled_constant(*t, buf)
 	case *Mul:
@@ -484,6 +484,19 @@ func encode_constant(term Constant, buf *bytes.Buffer) error {
 	_, err := buf.Write(bytes[:])
 	//
 	return err
+}
+
+func encode_ifZero(term IfZero, buf *bytes.Buffer) error {
+	// Write tag
+	if err := buf.WriteByte(ifZeroTag); err != nil {
+		return err
+	}
+	// Write condition
+	if err := encode_logical(term.Condition, buf); err != nil {
+		return err
+	}
+	// Write true + false branches
+	return encode_n(encode_term, buf, term.TrueBranch, term.FalseBranch)
 }
 
 func encode_labelled_constant(term LabelledConst, buf *bytes.Buffer) error {
@@ -564,7 +577,7 @@ func decode_term(buf *bytes.Buffer) (Term, error) {
 	case expTag:
 		return decode_exponent(buf)
 	case ifZeroTag:
-		panic("todo")
+		return decode_ifzero(buf)
 	case labelledConstantTag:
 		return decode_labelled_constant(buf)
 	case registerAccessTag:
@@ -643,6 +656,24 @@ func decode_exponent(buf *bytes.Buffer) (Term, error) {
 	}
 	// Done
 	return ir.Exponent(term, exponent), nil
+}
+
+func decode_ifzero(buf *bytes.Buffer) (Term, error) {
+	var (
+		condition LogicalTerm
+		branches  []Term
+		err       error
+	)
+	// Condition
+	if condition, err = decode_logical(buf); err != nil {
+		return &IfZero{}, err
+	}
+	// True / false branches
+	if branches, err = decode_n(2, decode_term, buf); err != nil {
+		return &IfZero{}, err
+	}
+	// Done
+	return ir.IfElse(condition, branches[0], branches[1]), nil
 }
 
 func decode_labelled_constant(buf *bytes.Buffer) (Term, error) {

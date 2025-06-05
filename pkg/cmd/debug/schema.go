@@ -65,10 +65,24 @@ func printModule(module schema.Module, schema schema.AnySchema, width uint) {
 			fmt.Printf("(column %s u%d)\n", r.Name, r.Width)
 		}
 	}
-
+	//
 	for i := module.Constraints(); i.HasNext(); {
 		ith := i.Next()
+
+		fmt.Println()
+
 		text := formatter.Format(ith.Lisp(schema))
-		fmt.Println(text)
+		fmt.Print(text)
 	}
+	//
+	for i := module.Assignments(); i.HasNext(); {
+		ith := i.Next()
+
+		fmt.Println()
+
+		text := formatter.Format(ith.Lisp(schema))
+		fmt.Print(text)
+	}
+	//
+	fmt.Println()
 }
