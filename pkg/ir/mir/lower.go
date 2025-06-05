@@ -377,7 +377,7 @@ func (p *AirLowering) lowerAndSimplifyLogicalTo(term LogicalTerm, ctx trace.Cont
 	// Apply all reasonable simplifications
 	term = term.Simplify(false)
 	// Lower properly
-	return p.lowerLogicalTo(true, term, ctx, airModule)
+	return simplify(p.lowerLogicalTo(true, term, ctx, airModule))
 }
 
 func (p *AirLowering) lowerLogicalTo(sign bool, e LogicalTerm, ctx trace.Context,
@@ -465,12 +465,12 @@ func (p *AirLowering) lowerIteTo(sign bool, e *Ite, ctx trace.Context, airModule
 
 func (p *AirLowering) lowerPositiveIteTo(e *Ite, ctx trace.Context, airModule *air.ModuleBuilder) []air.Term {
 	var (
-		terms          []air.Term
-		trueCondition  = p.lowerLogicalTo(true, e.Condition, ctx, airModule)
-		falseCondition = p.lowerLogicalTo(false, e.Condition, ctx, airModule)
+		terms []air.Term
 	)
 	// NOTE: using extractNormalisedCondition could be useful here.
 	if e.TrueBranch != nil && e.FalseBranch != nil {
+		trueCondition := p.lowerLogicalTo(true, e.Condition, ctx, airModule)
+		falseCondition := p.lowerLogicalTo(false, e.Condition, ctx, airModule)
 		trueBranch := p.lowerLogicalTo(true, e.TrueBranch, ctx, airModule)
 		falseBranch := p.lowerLogicalTo(true, e.FalseBranch, ctx, airModule)
 		// Check whether optimisation is possible
@@ -486,9 +486,11 @@ func (p *AirLowering) lowerPositiveIteTo(e *Ite, ctx trace.Context, airModule *a
 		terms = append(terms, disjunction(falseCondition, trueBranch)...)
 		terms = append(terms, disjunction(trueCondition, falseBranch)...)
 	} else if e.TrueBranch != nil {
+		falseCondition := p.lowerLogicalTo(false, e.Condition, ctx, airModule)
 		trueBranch := p.lowerLogicalTo(true, e.TrueBranch, ctx, airModule)
 		terms = append(terms, disjunction(falseCondition, trueBranch)...)
 	} else if e.FalseBranch != nil {
+		trueCondition := p.lowerLogicalTo(true, e.Condition, ctx, airModule)
 		falseBranch := p.lowerLogicalTo(true, e.FalseBranch, ctx, airModule)
 		terms = append(terms, disjunction(trueCondition, falseBranch)...)
 	}
@@ -503,17 +505,17 @@ func (p *AirLowering) lowerPositiveIteTo(e *Ite, ctx trace.Context, airModule *a
 func (p *AirLowering) lowerNegativeIteTo(e *Ite, ctx trace.Context, airModule *air.ModuleBuilder) []air.Term {
 	// NOTE: using extractNormalisedCondition could be useful here.
 	var (
-		terms          [][]air.Term
-		trueCondition  = p.lowerLogicalTo(true, e.Condition, ctx, airModule)
-		falseCondition = p.lowerLogicalTo(false, e.Condition, ctx, airModule)
+		terms [][]air.Term
 	)
 	//
 	if e.TrueBranch != nil {
+		trueCondition := p.lowerLogicalTo(true, e.Condition, ctx, airModule)
 		notTrueBranch := p.lowerLogicalTo(false, e.TrueBranch, ctx, airModule)
 		terms = append(terms, conjunction(trueCondition, notTrueBranch))
 	}
 	//
 	if e.FalseBranch != nil {
+		falseCondition := p.lowerLogicalTo(false, e.Condition, ctx, airModule)
 		notFalseBranch := p.lowerLogicalTo(false, e.FalseBranch, ctx, airModule)
 		terms = append(terms, conjunction(falseCondition, notFalseBranch))
 	}
@@ -704,6 +706,17 @@ func (p *AirLowering) extractNormalisedConditions(sign bool, es []LogicalTerm, c
 }
 
 func (p *AirLowering) normalise(arg air.Term, ctx trace.Context, airModule *air.ModuleBuilder) air.Term {
+	bounds := arg.ValueRange(airModule)
+	// Check whether normalisation actually required.  For example, if the
+	// argument is just a binary column then a normalisation is not actually
+	// required.
+	if p.config.InverseEliminiationLevel > 0 && bounds.Within(util.NewInterval64(0, 1)) {
+		// arg ∈ {0,1} ==> normalised already :)
+		return arg
+	} else if p.config.InverseEliminiationLevel > 0 && bounds.Within(util.NewInterval64(-1, 1)) {
+		// arg ∈ {-1,0,1} ==> (arg*arg) ∈ {0,1}
+		return ir.Product(arg, arg)
+	}
 	// Determine appropriate shift
 	shift := 0
 	// Apply shift normalisation (if enabled)
@@ -717,11 +730,10 @@ func (p *AirLowering) normalise(arg air.Term, ctx trace.Context, airModule *air.
 			shift = min
 		}
 	}
-	// FIXME: we should be able to eliminate normalisations here in some cases.
-
 	// Construct an expression representing the normalised value of e.  That is,
 	// an expression which is 0 when e is 0, and 1 when e is non-zero.
-	norm := air_gadgets.Normalise(arg.ApplyShift(-shift), ctx, airModule)
+	arg = arg.ApplyShift(-shift).Simplify(false)
+	norm := air_gadgets.Normalise(arg, ctx, airModule)
 	//
 	return norm.ApplyShift(shift)
 }
@@ -747,6 +759,17 @@ func (p *AirLowering) normalise(arg air.Term, ctx trace.Context, airModule *air.
 // 	// Done
 // 	return id.String()
 // }
+
+// Simplify a bunch of logical terms
+func simplify(terms []air.Term) []air.Term {
+	var nterms []air.Term = make([]air.Term, len(terms))
+	//
+	for i, t := range terms {
+		nterms[i] = t.Simplify(false)
+	}
+	//
+	return nterms
+}
 
 // Construct the disjunction lhs v rhs, where both lhs and rhs can be
 // conjunctions of terms.

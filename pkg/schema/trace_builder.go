@@ -151,7 +151,7 @@ func (tb TraceBuilder) BatchSize() uint {
 // Build attempts to construct a trace for a given schema, producing errors if
 // there are inconsistencies (e.g. missing columns, duplicate columns, etc).
 func (tb TraceBuilder) Build(schema AnySchema, cols []trace.RawColumn) (trace.Trace, []error) {
-	tr, errors := initialiseTrace(schema, cols)
+	tr, errors := initialiseTrace(!tb.expand, schema, cols)
 	//
 	if len(errors) > 0 {
 		// Critical failure
@@ -198,14 +198,14 @@ func (tb TraceBuilder) Build(schema AnySchema, cols []trace.RawColumn) (trace.Tr
 	return tr, errors
 }
 
-func initialiseTrace(schema AnySchema, cols []trace.RawColumn) (*trace.ArrayTrace, []error) {
+func initialiseTrace(expanded bool, schema AnySchema, cols []trace.RawColumn) (*trace.ArrayTrace, []error) {
 	var (
 		// Initialise modules
 		modmap  = initialiseModuleMap(schema)
 		modules = make([]trace.ArrayModule, schema.Width())
 	)
 	//
-	columns, errors := splitTraceColumns(schema, modmap, cols)
+	columns, errors := splitTraceColumns(expanded, schema, modmap, cols)
 	//
 	for i := uint(0); i != schema.Width(); i++ {
 		var name = schema.Module(i).Name()
@@ -232,7 +232,7 @@ func initialiseModuleMap(schema AnySchema) map[string]uint {
 	return modmap
 }
 
-func splitTraceColumns(schema AnySchema, modmap map[string]uint,
+func splitTraceColumns(expanded bool, schema AnySchema, modmap map[string]uint,
 	cols []trace.RawColumn) ([][]trace.RawColumn, []error) {
 	//
 	var (
@@ -276,6 +276,8 @@ func splitTraceColumns(schema AnySchema, modmap map[string]uint,
 			//
 			if reg.IsInputOutput() && c.Data == nil {
 				errs = append(errs, fmt.Errorf("missing input/output column '%s' from trace", c.QualifiedName()))
+			} else if expanded && c.Data == nil {
+				errs = append(errs, fmt.Errorf("missing computed column '%s' from expanded trace", c.QualifiedName()))
 			}
 		}
 	}
