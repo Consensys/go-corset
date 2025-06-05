@@ -139,7 +139,7 @@ func (e *ArrayAccess) Context() Context {
 	// Sanity check
 	if ok {
 		context := binding.Context()
-		context.Join(e.Arg.Context())
+		context = context.Join(e.Arg.Context())
 		//
 		return context
 	}
@@ -613,11 +613,11 @@ func (e *If) Context() Context {
 	ctx := e.Condition.Context()
 	//
 	if e.TrueBranch != nil {
-		ctx.Join(e.TrueBranch.Context())
+		ctx = ctx.Join(e.TrueBranch.Context())
 	}
 	//
 	if e.FalseBranch != nil {
-		ctx.Join(e.FalseBranch.Context())
+		ctx = ctx.Join(e.FalseBranch.Context())
 	}
 	//
 	return ctx

@@ -751,7 +751,11 @@ func (p *AirLowering) normalise(arg air.Term, ctx trace.Context, airModule *air.
 // Construct the disjunction lhs v rhs, where both lhs and rhs can be
 // conjunctions of terms.
 func disjunction(terms ...[]air.Term) []air.Term {
-	if len(terms) == 1 {
+	// Base cases
+	switch len(terms) {
+	case 0:
+		return nil
+	case 1:
 		return terms[0]
 	}
 	//
