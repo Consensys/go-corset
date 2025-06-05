@@ -131,3 +131,38 @@ func (p *Ite[T]) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[trace
 	// Done
 	return set
 }
+
+// Simplify this Negate as much as reasonably possible.
+func (p *Ite[T]) Simplify(casts bool) T {
+	var (
+		cond        = p.Condition.Simplify(casts)
+		trueBranch  LogicalTerm[T]
+		falseBranch LogicalTerm[T]
+	)
+	// Handle reductive cases
+	if IsTrue(cond) {
+		if p.TrueBranch != nil {
+			return p.TrueBranch.Simplify(casts)
+		}
+		//
+		return True[T]()
+	} else if IsFalse(cond) {
+		if p.FalseBranch != nil {
+			return p.FalseBranch.Simplify(casts)
+		}
+		//
+		return True[T]()
+	}
+	// Simplify true branch (if applicable)
+	if p.TrueBranch != nil {
+		trueBranch = p.TrueBranch.Simplify(casts)
+	}
+	// Simplify false branch (if applicable)
+	if p.FalseBranch != nil {
+		falseBranch = p.FalseBranch.Simplify(casts)
+	}
+	// Done
+	var term LogicalTerm[T] = &Ite[T]{cond, trueBranch, falseBranch}
+	//
+	return term.(T)
+}

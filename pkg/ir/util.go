@@ -118,10 +118,21 @@ func applyShiftOfTerms[T Term[T]](terms []T, shift int) []T {
 
 type binop func(fr.Element, fr.Element) fr.Element
 
+// Simplify logical terms
+func simplifyLogicalTerms[T LogicalTerm[T]](terms []T, casts bool) []T {
+	var nterms = make([]T, len(terms))
+	//
+	for i, t := range terms {
+		nterms[i] = t.Simplify(casts)
+	}
+	//
+	return nterms
+}
+
 // General purpose constant propagation mechanism.  This reduces all terms to
 // constants (where possible) and combines terms according to a given
 // combinator.
-func constantPropagation[T Term[T]](terms []T, fn binop, acc fr.Element, casts bool) []T {
+func simplifyTerms[T Term[T]](terms []T, fn binop, acc fr.Element, casts bool) []T {
 	// Count how many terms reduced to constants.
 	var (
 		count  = 0

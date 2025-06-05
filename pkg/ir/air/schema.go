@@ -63,7 +63,7 @@ type (
 	// Assertion captures the notion of an arbitrary property which should hold for
 	// all acceptable traces.  However, such a property is not enforced by the
 	// prover.
-	Assertion = Air[constraint.Assertion]
+	Assertion = Air[constraint.Assertion[ir.Testable]]
 	// LookupConstraint captures the essence of a lookup constraint at the AIR
 	// level.  At the AIR level, lookup constraints are only permitted between
 	// columns (i.e. not arbitrary expressions).

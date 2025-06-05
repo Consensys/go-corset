@@ -164,7 +164,7 @@ func (p *AirLowering) lowerAssertionToAir(v Assertion, airModule *air.ModuleBuil
 func (p *AirLowering) lowerVanishingConstraintToAir(v VanishingConstraint, airModule *air.ModuleBuilder) {
 	//
 	var (
-		terms = p.lowerLogicalTo(true, v.Constraint, v.Context, airModule)
+		terms = p.lowerAndSimplifyLogicalTo(v.Constraint, v.Context, airModule)
 	)
 	//
 	for i, air_expr := range terms {
@@ -192,7 +192,7 @@ func (p *AirLowering) lowerRangeConstraintToAir(v RangeConstraint, airModule *ai
 	mirModule := p.mirSchema.Module(v.Context.ModuleId)
 	bitwidth := v.Expr.ValueRange(mirModule).BitWidth()
 	// Lower target expression
-	target := p.lowerTermTo(v.Context, v.Expr, airModule)
+	target := p.lowerAndSimplifyTermTo(v.Context, v.Expr, airModule)
 	// Expand target expression (if necessary)
 	register := air_gadgets.Expand(v.Context, bitwidth, target, airModule)
 	// Yes, a constraint is implied.  Now, decide whether to use a range
@@ -227,8 +227,8 @@ func (p *AirLowering) lowerLookupConstraintToAir(c LookupConstraint, airModule *
 		targetBitwidth := c.Targets[i].ValueRange(targetModule).BitWidth()
 		sourceBitwidth := c.Sources[i].ValueRange(sourceModule).BitWidth()
 		// Lower source and target expressions
-		target := p.lowerTermTo(c.TargetContext, c.Targets[i], targetModule)
-		source := p.lowerTermTo(c.SourceContext, c.Sources[i], sourceModule)
+		target := p.lowerAndSimplifyTermTo(c.TargetContext, c.Targets[i], targetModule)
+		source := p.lowerAndSimplifyTermTo(c.SourceContext, c.Sources[i], sourceModule)
 		// Expand them
 		target_register := air_gadgets.Expand(c.TargetContext, targetBitwidth, target, targetModule)
 		source_register := air_gadgets.Expand(c.SourceContext, sourceBitwidth, source, sourceModule)
@@ -371,6 +371,14 @@ func (p *AirLowering) lowerSortedConstraintToAir(c SortedConstraint, airModule *
 // 		gadget.Apply(airSchema)
 // 	}
 // }
+
+func (p *AirLowering) lowerAndSimplifyLogicalTo(term LogicalTerm, ctx trace.Context,
+	airModule *air.ModuleBuilder) []air.Term {
+	// Apply all reasonable simplifications
+	term = term.Simplify(false)
+	// Lower properly
+	return p.lowerLogicalTo(true, term, ctx, airModule)
+}
 
 func (p *AirLowering) lowerLogicalTo(sign bool, e LogicalTerm, ctx trace.Context,
 	airModule *air.ModuleBuilder) []air.Term {
@@ -519,25 +527,25 @@ func (p *AirLowering) lowerNegativeIteTo(e *Ite, ctx trace.Context, airModule *a
 // performs constant propagation to ensure lowering is as efficient as possible.
 // A module identifier is required to determine where any computed columns
 // should be located.
-func (p *AirLowering) lowerTermTo(ctx trace.Context, term Term, airModule *air.ModuleBuilder) air.Term {
+func (p *AirLowering) lowerAndSimplifyTermTo(ctx trace.Context, term Term, airModule *air.ModuleBuilder) air.Term {
 	// Optimise normalisations
 	term = eliminateNormalisationInTerm(term, airModule, p.config)
 	// Apply all reasonable simplifications
 	term = term.Simplify(false)
 	// Lower properly
-	return p.lowerTermToInner(ctx, term, airModule)
+	return p.lowerTermTo(ctx, term, airModule)
 }
 
 // Inner form is used for recursive calls and does not repeat the constant
 // propagation phase.
-func (p *AirLowering) lowerTermToInner(ctx trace.Context, e Term, airModule *air.ModuleBuilder) air.Term {
+func (p *AirLowering) lowerTermTo(ctx trace.Context, e Term, airModule *air.ModuleBuilder) air.Term {
 	//
 	switch e := e.(type) {
 	case *Add:
 		args := p.lowerTerms(ctx, e.Args, airModule)
 		return ir.Sum(args...)
 	case *Cast:
-		return p.lowerTermToInner(ctx, e.Arg, airModule)
+		return p.lowerTermTo(ctx, e.Arg, airModule)
 	case *Constant:
 		return ir.Const[air.Term](e.Value)
 	case *RegisterAccess:
@@ -567,7 +575,7 @@ func (p *AirLowering) lowerTerms(ctx trace.Context, exprs []Term, airModule *air
 	nexprs := make([]air.Term, len(exprs))
 
 	for i := range len(exprs) {
-		nexprs[i] = p.lowerTermToInner(ctx, exprs[i], airModule)
+		nexprs[i] = p.lowerTermTo(ctx, exprs[i], airModule)
 	}
 
 	return nexprs
@@ -578,7 +586,7 @@ func (p *AirLowering) lowerTerms(ctx trace.Context, exprs []Term, airModule *air
 // level does not support an explicit exponent operator.
 func (p *AirLowering) lowerExpTo(ctx trace.Context, e *Exp, airModule *air.ModuleBuilder) air.Term {
 	// Lower the expression being raised
-	le := p.lowerTermToInner(ctx, e.Arg, airModule)
+	le := p.lowerTermTo(ctx, e.Arg, airModule)
 	// Multiply it out k times
 	es := make([]air.Term, e.Pow)
 	//
@@ -593,8 +601,8 @@ func (p *AirLowering) lowerIfZeroTo(ctx trace.Context, e *IfZero, airModule *air
 	var (
 		trueCondition  = p.extractNormalisedCondition(true, e.Condition, ctx, airModule)
 		falseCondition = p.extractNormalisedCondition(false, e.Condition, ctx, airModule)
-		trueBranch     = p.lowerTermToInner(ctx, e.TrueBranch, airModule)
-		falseBranch    = p.lowerTermToInner(ctx, e.FalseBranch, airModule)
+		trueBranch     = p.lowerTermTo(ctx, e.TrueBranch, airModule)
+		falseBranch    = p.lowerTermTo(ctx, e.FalseBranch, airModule)
 	)
 	//
 	fb := ir.Product(trueCondition, falseBranch)
@@ -605,7 +613,7 @@ func (p *AirLowering) lowerIfZeroTo(ctx trace.Context, e *IfZero, airModule *air
 
 func (p *AirLowering) lowerNormTo(ctx trace.Context, e *Norm, airModule *air.ModuleBuilder) air.Term {
 	// Lower the expression being normalised
-	arg := p.lowerTermToInner(ctx, e.Arg, airModule)
+	arg := p.lowerTermTo(ctx, e.Arg, airModule)
 	//
 	return p.normalise(arg, ctx, airModule)
 }
@@ -672,8 +680,8 @@ func (p *AirLowering) extractNormalisedDisjunction(sign bool, terms []LogicalTer
 
 func (p *AirLowering) extractNormalisedEquality(sign bool, lhs Term, rhs Term, ctx trace.Context,
 	airModule *air.ModuleBuilder) air.Term {
-	l := p.lowerTermToInner(ctx, lhs, airModule)
-	r := p.lowerTermToInner(ctx, rhs, airModule)
+	l := p.lowerTermTo(ctx, lhs, airModule)
+	r := p.lowerTermTo(ctx, rhs, airModule)
 	t := p.normalise(ir.Subtract(l, r), ctx, airModule)
 	//
 	if sign {
@@ -709,6 +717,8 @@ func (p *AirLowering) normalise(arg air.Term, ctx trace.Context, airModule *air.
 			shift = min
 		}
 	}
+	// FIXME: we should be able to eliminate normalisations here in some cases.
+
 	// Construct an expression representing the normalised value of e.  That is,
 	// an expression which is 0 when e is 0, and 1 when e is non-zero.
 	norm := air_gadgets.Normalise(arg.ApplyShift(-shift), ctx, airModule)

@@ -46,7 +46,7 @@ type (
 	// Assertion captures the notion of an arbitrary property which should hold for
 	// all acceptable traces.  However, such a property is not enforced by the
 	// prover.
-	Assertion = constraint.Assertion
+	Assertion = constraint.Assertion[LogicalTerm]
 	// LookupConstraint captures the essence of a lookup constraint at the MIR
 	// level.
 	LookupConstraint = constraint.LookupConstraint[Term]
@@ -99,7 +99,7 @@ type (
 	Disjunct = ir.Disjunct[LogicalTerm]
 	// Equal represents an equality comparator between two arithmetic terms
 	// at the MIR level.
-	Equal = ir.Equal[Term]
+	Equal = ir.Equal[LogicalTerm, Term]
 	// Ite represents an If-Then-Else expression where either branch is optional
 	// (though we must have at least one).
 	Ite = ir.Ite[LogicalTerm]
@@ -107,7 +107,7 @@ type (
 	Negate = ir.Negate[LogicalTerm]
 	// NotEqual represents a non-equality comparator between two arithmetic terms
 	// at the MIR level.
-	NotEqual = ir.NotEqual[Term]
+	NotEqual = ir.NotEqual[LogicalTerm, Term]
 )
 
 // SubstituteConstants substitutes the value of matching labelled constants for

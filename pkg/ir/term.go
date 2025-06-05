@@ -106,4 +106,9 @@ type Testable interface {
 type LogicalTerm[T any] interface {
 	Contextual
 	Testable
+	// Simplify constant expressions down to single values.  For example, "(+ 1
+	// 2)" would be collapsed down to "3".  This is then progagated throughout
+	// an expression, so that e.g. "(+ X (+ 1 2))" becomes "(+ X 3)"", etc.
+	// There is also an option to retain casts, or not.
+	Simplify(casts bool) T
 }

@@ -113,12 +113,28 @@ func (p *IfZero[S, T]) ShiftRange() (int, int) {
 	panic("todo")
 }
 
-// Simplify implementation for Term interface.
-func (p *IfZero[S, T]) Simplify(casts bool) T {
-	panic("todo")
-}
-
 // ValueRange implementation for Term interface.
 func (p *IfZero[S, T]) ValueRange(module schema.Module) *util.Interval {
 	panic("todo")
+}
+
+// Simplify implementation for Term interface.
+//
+// nolint
+func (p *IfZero[S, T]) Simplify(casts bool) T {
+	var (
+		cond        = p.Condition.Simplify(casts)
+		trueBranch  = p.TrueBranch.Simplify(casts)
+		falseBranch = p.FalseBranch.Simplify(casts)
+	)
+	// Handle reductive cases
+	if IsTrue(cond) {
+		return trueBranch
+	} else if IsFalse(cond) {
+		return falseBranch
+	}
+	// Done
+	var term Term[T] = &IfZero[S, T]{cond, trueBranch, falseBranch}
+	//
+	return term.(T)
 }

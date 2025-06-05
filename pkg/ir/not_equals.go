@@ -23,7 +23,7 @@ import (
 // NotEqual represents an NotEqual between two terms (e.g. "X==Y", or "X!=Y+1",
 // etc).  NotEquals are either NotEqualities (or negated NotEqualities) or
 // inNotEqualities.
-type NotEqual[T Term[T]] struct {
+type NotEqual[S LogicalTerm[S], T Term[T]] struct {
 	Lhs Term[T]
 	Rhs Term[T]
 }
@@ -31,7 +31,7 @@ type NotEqual[T Term[T]] struct {
 // NotEquals constructs an NotEqual representing the NotEquality of two expressions.
 func NotEquals[S LogicalTerm[S], T Term[T]](lhs T, rhs T) S {
 	var (
-		term LogicalTerm[S] = &NotEqual[T]{
+		term LogicalTerm[S] = &NotEqual[S, T]{
 			Lhs: lhs,
 			Rhs: rhs,
 		}
@@ -46,7 +46,7 @@ func NotEquals[S LogicalTerm[S], T Term[T]](lhs T, rhs T) S {
 }
 
 // Bounds implementation for Boundable interface.
-func (p *NotEqual[T]) Bounds() util.Bounds {
+func (p *NotEqual[S, T]) Bounds() util.Bounds {
 	l := p.Lhs.Bounds()
 	r := p.Rhs.Bounds()
 	//
@@ -56,7 +56,7 @@ func (p *NotEqual[T]) Bounds() util.Bounds {
 }
 
 // TestAt implementation for Testable interface.
-func (p *NotEqual[T]) TestAt(k int, tr trace.Module) (bool, uint, error) {
+func (p *NotEqual[S, T]) TestAt(k int, tr trace.Module) (bool, uint, error) {
 	lhs, err1 := p.Lhs.EvalAt(k, tr)
 	rhs, err2 := p.Rhs.EvalAt(k, tr)
 	// error check
@@ -73,7 +73,7 @@ func (p *NotEqual[T]) TestAt(k int, tr trace.Module) (bool, uint, error) {
 
 // Lisp returns a lisp representation of this NotEqual, which is useful for
 // debugging.
-func (p *NotEqual[T]) Lisp(module schema.Module) sexp.SExp {
+func (p *NotEqual[S, T]) Lisp(module schema.Module) sexp.SExp {
 	var (
 		l = p.Lhs.Lisp(module)
 		r = p.Rhs.Lisp(module)
@@ -84,7 +84,7 @@ func (p *NotEqual[T]) Lisp(module schema.Module) sexp.SExp {
 }
 
 // RequiredRegisters implementation for Contextual interface.
-func (p *NotEqual[T]) RequiredRegisters() *set.SortedSet[uint] {
+func (p *NotEqual[S, T]) RequiredRegisters() *set.SortedSet[uint] {
 	set := p.Lhs.RequiredRegisters()
 	set.InsertSorted(p.Rhs.RequiredRegisters())
 	//
@@ -92,14 +92,35 @@ func (p *NotEqual[T]) RequiredRegisters() *set.SortedSet[uint] {
 }
 
 // RequiredCells implementation for Contextual interface
-func (p *NotEqual[T]) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
+func (p *NotEqual[S, T]) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
 	set := p.Lhs.RequiredCells(row, tr)
 	set.InsertSorted(p.Rhs.RequiredCells(row, tr))
 	//
 	return set
 }
 
-// Simplify this NotEqual as much as reasonably possible.
-func (p *NotEqual[T]) Simplify() NotEqual[T] {
-	panic("todo")
+// Simplify this term as much as reasonably possible.
+//
+// nolint
+func (p *NotEqual[S, T]) Simplify(casts bool) S {
+	var (
+		lhs = p.Lhs.Simplify(casts)
+		rhs = p.Rhs.Simplify(casts)
+	)
+	//
+	lc := IsConstant(lhs)
+	rc := IsConstant(rhs)
+	//
+	if lc != nil && rc != nil {
+		// Can simplify
+		if lc.Cmp(rc) == 0 {
+			return False[S]()
+		}
+		//
+		return True[S]()
+	}
+	// Cannot simplify
+	var tmp LogicalTerm[S] = &NotEqual[S, T]{lhs, rhs}
+	// Done
+	return tmp.(S)
 }

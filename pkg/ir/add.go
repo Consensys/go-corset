@@ -113,7 +113,7 @@ func (p *Add[T]) ValueRange(module schema.Module) *util.Interval {
 
 func simplifySum[T Term[T]](args []T, casts bool) T {
 	var (
-		terms = constantPropagation(args, addBinOp, frZERO, casts)
+		terms = simplifyTerms(args, addBinOp, frZERO, casts)
 		tmp   Term[T]
 	)
 	// Flatten any nested sums

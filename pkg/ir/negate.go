@@ -70,6 +70,6 @@ func (p *Negate[T]) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[tr
 }
 
 // Simplify this Negate as much as reasonably possible.
-func (p *Negate[T]) Simplify() Negate[T] {
+func (p *Negate[T]) Simplify(casts bool) T {
 	panic("todo")
 }

@@ -27,6 +27,23 @@ type Conjunct[T LogicalTerm[T]] struct {
 	Args []T
 }
 
+// True constructs a logical truth
+func True[T LogicalTerm[T]]() T {
+	return Conjunction[T]()
+}
+
+// IsTrue checks whether a given term corresponds to logical truth which, in
+// this system, corresponds to an empty conjunct.
+func IsTrue[T LogicalTerm[T]](term T) bool {
+	var t LogicalTerm[T] = term
+	//
+	if t, ok := t.(*Conjunct[T]); ok {
+		return len(t.Args) == 0
+	}
+	//
+	return false
+}
+
 // Conjunction builds the logical conjunction (i.e. and) for a given set of constraints.
 func Conjunction[T LogicalTerm[T]](terms ...T) T {
 	var term LogicalTerm[T] = &Conjunct[T]{terms}
@@ -69,4 +86,36 @@ func (p *Conjunct[T]) RequiredRegisters() *set.SortedSet[uint] {
 // RequiredCells implementation for Contextual interface
 func (p *Conjunct[T]) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
 	return requiredCellsOfTerms(p.Args, row, tr)
+}
+
+// Simplify this term as much as reasonably possible.
+func (p *Conjunct[T]) Simplify(casts bool) T {
+	// Simplify terms
+	terms := simplifyLogicalTerms(p.Args, casts)
+	// Flatten any nested conjuncts
+	terms = util.Flatten(terms, flatternConjunct)
+	// False if contains false
+	if util.ContainsMatching(terms, IsFalse) {
+		return False[T]()
+	}
+	// Remove true values
+	terms = util.RemoveMatching(terms, IsTrue)
+	// Final checks
+	switch len(terms) {
+	case 0:
+		return True[T]()
+	case 1:
+		return terms[0]
+	default:
+		return Conjunction(terms...)
+	}
+}
+
+func flatternConjunct[T LogicalTerm[T]](term T) []T {
+	var e LogicalTerm[T] = term
+	if t, ok := e.(*Conjunct[T]); ok {
+		return t.Args
+	}
+	//
+	return nil
 }

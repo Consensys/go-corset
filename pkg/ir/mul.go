@@ -103,7 +103,7 @@ func (p *Mul[T]) ShiftRange() (int, int) {
 // Simplify implementation for Term interface.
 func (p *Mul[T]) Simplify(casts bool) T {
 	var (
-		terms = constantPropagation(p.Args, mulBinOp, frONE, casts)
+		terms = simplifyTerms(p.Args, mulBinOp, frONE, casts)
 		targ  Term[T]
 	)
 	// Flatten any nested products
