@@ -81,7 +81,24 @@ func (p *Exp[T]) ShiftRange() (int, int) {
 
 // Simplify implementation for Term interface.
 func (p *Exp[T]) Simplify(casts bool) T {
-	panic("todo")
+	var (
+		arg  T       = p.Arg.Simplify(casts)
+		targ Term[T] = arg
+	)
+	//
+	if c, ok := targ.(*Constant[T]); ok {
+		var val fr.Element
+		// Clone value
+		val.Set(&c.Value)
+		// Compute exponent (in place)
+		util.Pow(&val, p.Pow)
+		// Done
+		targ = &Constant[T]{val}
+	} else {
+		targ = &Exp[T]{arg, p.Pow}
+	}
+	//
+	return targ.(T)
 }
 
 // ValueRange implementation for Term interface.

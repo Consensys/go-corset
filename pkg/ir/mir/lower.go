@@ -75,21 +75,34 @@ func (p *AirLowering) ConfigureOptimisation(config OptimisationConfig) {
 func (p *AirLowering) Lower() air.Schema {
 	// Initialise modules
 	for i := 0; i < int(p.mirSchema.Width()); i++ {
+		p.InitialiseModule(uint(i))
+	}
+	// Lower modules
+	for i := 0; i < int(p.mirSchema.Width()); i++ {
 		p.LowerModule(uint(i))
 	}
 	// Done
 	return schema.NewUniformSchema(p.airSchema.Build())
 }
 
-// LowerModule lowers the given MIR module into the correspondind AIR module.
-// This includes all registers, constraints and assignments.
-func (p *AirLowering) LowerModule(index uint) {
+// InitialiseModule simply initialises all registers within the module, but does
+// not lower any constraint or assignments.
+func (p *AirLowering) InitialiseModule(index uint) {
 	var (
 		mirModule = p.mirSchema.Module(index)
 		airModule = p.airSchema.Module(index)
 	)
 	// Initialise registers in AIR module
 	airModule.NewRegisters(mirModule.Registers()...)
+}
+
+// LowerModule lowers the given MIR module into the correspondind AIR module.
+// This includes all constraints and assignments.
+func (p *AirLowering) LowerModule(index uint) {
+	var (
+		mirModule = p.mirSchema.Module(index)
+		airModule = p.airSchema.Module(index)
+	)
 	// Lower constraints
 	for iter := mirModule.Constraints(); iter.HasNext(); {
 		// Following should always hold
@@ -448,8 +461,7 @@ func (p *AirLowering) lowerPositiveIteTo(e *Ite, ctx trace.Context, airModule *a
 		trueCondition  = p.lowerLogicalTo(true, e.Condition, ctx, airModule)
 		falseCondition = p.lowerLogicalTo(false, e.Condition, ctx, airModule)
 	)
-	// NOTE: using extractNormalisedCondition could be useful in some cases?
-	//
+	// NOTE: using extractNormalisedCondition could be useful here.
 	if e.TrueBranch != nil && e.FalseBranch != nil {
 		trueBranch := p.lowerLogicalTo(true, e.TrueBranch, ctx, airModule)
 		falseBranch := p.lowerLogicalTo(true, e.FalseBranch, ctx, airModule)
@@ -476,27 +488,42 @@ func (p *AirLowering) lowerPositiveIteTo(e *Ite, ctx trace.Context, airModule *a
 	return terms
 }
 
+// !ITE(A,B,C) => !((!A||B) && (A||C))
+//
+//	=> !(!A||B) || !(A||C)
+//	=> (A&&!B) || (!A&&!C)
 func (p *AirLowering) lowerNegativeIteTo(e *Ite, ctx trace.Context, airModule *air.ModuleBuilder) []air.Term {
 	// NOTE: using extractNormalisedCondition could be useful here.
-	panic("todo")
+	var (
+		terms          [][]air.Term
+		trueCondition  = p.lowerLogicalTo(true, e.Condition, ctx, airModule)
+		falseCondition = p.lowerLogicalTo(false, e.Condition, ctx, airModule)
+	)
+	//
+	if e.TrueBranch != nil {
+		notTrueBranch := p.lowerLogicalTo(false, e.TrueBranch, ctx, airModule)
+		terms = append(terms, conjunction(trueCondition, notTrueBranch))
+	}
+	//
+	if e.FalseBranch != nil {
+		notFalseBranch := p.lowerLogicalTo(false, e.FalseBranch, ctx, airModule)
+		terms = append(terms, conjunction(falseCondition, notFalseBranch))
+	}
+	//
+	return disjunction(terms...)
 }
 
-// // Lower an expression into the Arithmetic Intermediate Representation.
-// // Essentially, this means eliminating normalising expressions by introducing
-// // new columns into the given table (with appropriate constraints).  This first
-// // performs constant propagation to ensure lowering is as efficient as possible.
-// // A module identifier is required to determine where any computed columns
-// // should be located.
-// func lowerExprTo(ctx trace.Context, e1 Expr, mirSchema *Schema, airSchema *air.Schema,
-// 	cfg OptimisationConfig) air.Expr {
-// 	return lowerTermTo(ctx, e1.term, mirSchema, airSchema, cfg)
-// }
-
+// Lower an expression into the Arithmetic Intermediate Representation.
+// Essentially, this means eliminating normalising expressions by introducing
+// new columns into the given table (with appropriate constraints).  This first
+// performs constant propagation to ensure lowering is as efficient as possible.
+// A module identifier is required to determine where any computed columns
+// should be located.
 func (p *AirLowering) lowerTermTo(ctx trace.Context, term Term, airModule *air.ModuleBuilder) air.Term {
 	// Optimise normalisations
-	// term = eliminateNormalisationInTerm(term, mirSchema, cfg)
-	// Apply constant propagation
-	//term = constantPropagationForTerm(term, false, airSchema)
+	term = eliminateNormalisationInTerm(term, airModule, p.config)
+	// Apply all reasonable simplifications
+	term = term.Simplify(false)
 	// Lower properly
 	return p.lowerTermToInner(ctx, term, airModule)
 }

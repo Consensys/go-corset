@@ -27,14 +27,7 @@ type Add[T Term[T]] struct{ Args []T }
 // Sum zero or more expressions together.
 func Sum[T Term[T]](terms ...T) T {
 	// Flatten any nested sums
-	terms = util.Flatten(terms, func(t T) []T {
-		var e Term[T] = t
-		if t, ok := e.(*Add[T]); ok {
-			return t.Args
-		}
-		//
-		return nil
-	})
+	terms = util.Flatten(terms, flatternAdd)
 	// Remove any zeros
 	terms = util.RemoveMatching(terms, isZero)
 	// Final simplifications
@@ -99,7 +92,7 @@ func (p *Add[T]) ShiftRange() (int, int) {
 
 // Simplify implementation for Term interface.
 func (p *Add[T]) Simplify(casts bool) T {
-	panic("todo")
+	return simplifySum(p.Args, casts)
 }
 
 // ValueRange implementation for Term interface.
@@ -116,4 +109,35 @@ func (p *Add[T]) ValueRange(module schema.Module) *util.Interval {
 	}
 	//
 	return &res
+}
+
+func simplifySum[T Term[T]](args []T, casts bool) T {
+	var (
+		terms = constantPropagation(args, addBinOp, frZERO, casts)
+		tmp   Term[T]
+	)
+	// Flatten any nested sums
+	terms = util.Flatten(terms, flatternAdd)
+	// Remove any zeros
+	terms = util.RemoveMatching(terms, isZero)
+	// Check anything left
+	switch len(terms) {
+	case 0:
+		tmp = &Constant[T]{frZERO}
+	case 1:
+		return terms[0]
+	default:
+		tmp = &Add[T]{terms}
+	}
+	// Done
+	return tmp.(T)
+}
+
+func flatternAdd[T Term[T]](term T) []T {
+	var e Term[T] = term
+	if t, ok := e.(*Add[T]); ok {
+		return t.Args
+	}
+	//
+	return nil
 }

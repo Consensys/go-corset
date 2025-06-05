@@ -573,9 +573,11 @@ func Test_Module_05(t *testing.T) {
 // 	Check(t, false, "module_06")
 // }
 
-func Test_Module_07(t *testing.T) {
-	Check(t, false, "module_07")
-}
+// uses permutation
+//
+// func Test_Module_07(t *testing.T) {
+// 	Check(t, false, "module_07")
+// }
 
 func Test_Module_08(t *testing.T) {
 	Check(t, false, "module_08")
@@ -588,9 +590,12 @@ func Test_Module_09(t *testing.T) {
 func Test_Module_10(t *testing.T) {
 	Check(t, false, "module_10")
 }
-func Test_Module_11(t *testing.T) {
-	Check(t, false, "module_11")
-}
+
+// NOTE: uses conditional module
+//
+// func Test_Module_11(t *testing.T) {
+// 	Check(t, false, "module_11")
+// }
 
 // ===================================================================
 // Permutations

@@ -27,14 +27,7 @@ type Mul[T Term[T]] struct{ Args []T }
 // Product returns the product of zero or more multiplications.
 func Product[T Term[T]](terms ...T) T {
 	// flatten any nested products
-	terms = util.Flatten(terms, func(term T) []T {
-		var t Term[T] = term
-		if t, ok := t.(*Mul[T]); ok {
-			return t.Args
-		}
-		//
-		return nil
-	})
+	terms = util.Flatten(terms, flatternMul)
 	// Remove all multiplications by one
 	terms = util.RemoveMatching(terms, isOne)
 	// Check for zero
@@ -109,7 +102,32 @@ func (p *Mul[T]) ShiftRange() (int, int) {
 
 // Simplify implementation for Term interface.
 func (p *Mul[T]) Simplify(casts bool) T {
-	panic("todo")
+	var (
+		terms = constantPropagation(p.Args, mulBinOp, frONE, casts)
+		targ  Term[T]
+	)
+	// Flatten any nested products
+	terms = util.Flatten(terms, flatternMul)
+	// Check for zero
+	if util.ContainsMatching(terms, isZero) {
+		// Yes, is zero
+		targ = &Constant[T]{fr.NewElement(0)}
+	} else {
+		// Remove any ones
+		terms = util.RemoveMatching(terms, isOne)
+		// Check whats left
+		switch len(terms) {
+		case 0:
+			targ = &Constant[T]{frONE}
+		case 1:
+			return terms[0]
+		default:
+			// Done
+			targ = &Mul[T]{terms}
+		}
+	}
+	//
+	return targ.(T)
 }
 
 // ValueRange implementation for Term interface.
@@ -126,4 +144,13 @@ func (p *Mul[T]) ValueRange(module schema.Module) *util.Interval {
 	}
 	//
 	return &res
+}
+
+func flatternMul[T Term[T]](term T) []T {
+	var e Term[T] = term
+	if t, ok := e.(*Mul[T]); ok {
+		return t.Args
+	}
+	//
+	return nil
 }
