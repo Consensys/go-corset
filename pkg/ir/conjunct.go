@@ -75,6 +75,10 @@ func (p *Conjunct[T]) TestAt(k int, tr trace.Module) (bool, uint, error) {
 // Lisp returns a lisp representation of this equation, which is useful for
 // debugging.
 func (p *Conjunct[T]) Lisp(module schema.Module) sexp.SExp {
+	if len(p.Args) == 0 {
+		return sexp.NewSymbol("⊤")
+	}
+
 	return lispOfLogicalTerms(module, "∧", p.Args)
 }
 

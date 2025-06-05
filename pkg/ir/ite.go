@@ -132,7 +132,10 @@ func (p *Ite[T]) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[trace
 	return set
 }
 
-// Simplify this Negate as much as reasonably possible.
+// Simplify this Negate as much as reasonably possible.  Overall, simplifying
+// ite is surprisingly tricky.  However, its useful to retain ite rathe the
+// compile it out completely as, in some cases, we can optimise things more
+// effectively.
 func (p *Ite[T]) Simplify(casts bool) T {
 	var (
 		cond        = p.Condition.Simplify(casts)
@@ -155,13 +158,29 @@ func (p *Ite[T]) Simplify(casts bool) T {
 	}
 	// Simplify true branch (if applicable)
 	if p.TrueBranch != nil {
-		trueBranch = p.TrueBranch.Simplify(casts)
+		// If the branch logically true, then we can actually drop it
+		// altogether (i.e. !X || tt ==> tt)
+		if tb := p.TrueBranch.Simplify(casts); !IsTrue(tb) {
+			trueBranch = tb
+		}
 	}
 	// Simplify false branch (if applicable)
 	if p.FalseBranch != nil {
-		falseBranch = p.FalseBranch.Simplify(casts)
+		// If the branch logically true, then we can actually drop it
+		// altogether (i.e. !X || tt ==> tt)
+		if fb := p.FalseBranch.Simplify(casts); !IsTrue(fb) {
+			falseBranch = fb
+		}
 	}
-	// Done
+	// More simplification opportunities
+	if trueBranch == nil && falseBranch == nil {
+		return True[T]()
+	} else if trueBranch == nil && IsFalse(falseBranch.(T)) {
+		return cond
+	} else if falseBranch == nil && IsFalse(trueBranch.(T)) {
+		return Negation(cond).Simplify(casts)
+	}
+	// Finally, done.
 	var term LogicalTerm[T] = &Ite[T]{cond, trueBranch, falseBranch}
 	//
 	return term.(T)
