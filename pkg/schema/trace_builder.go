@@ -593,6 +593,8 @@ func parallelTraceValidation(schema AnySchema, tr tr.Trace) []error {
 		stats = util.NewPerfStats()
 		// Construct a communication channel for errors.
 		c = make(chan error, 1024)
+		// Number of columns to validate
+		ntodo = uint(0)
 	)
 	// Check each module in turn
 	for mid := uint(0); mid < tr.Width(); mid++ {
@@ -607,10 +609,12 @@ func parallelTraceValidation(schema AnySchema, tr tr.Trace) []error {
 				// Send outcome back
 				c <- validateColumnBitWidth(reg.Width, data, scMod)
 			}(scMod.Register(cid), trMod.Column(cid))
+			//
+			ntodo++
 		}
 	}
 	// Collect up all the results
-	for i := uint(0); i < tr.Width(); i++ {
+	for i := uint(0); i < ntodo; i++ {
 		// Read from channel
 		if e := <-c; e != nil {
 			errors = append(errors, e)
