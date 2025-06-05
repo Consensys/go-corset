@@ -70,7 +70,10 @@ func NewTraceWindow(cells CellRefSet, trace tr.Module, padding uint, srcmap *cor
 
 // Determine complete set of source columns.
 func determineSourceColumns(cells CellRefSet, trace tr.Module, srcmap *corset.SourceMap) []SourceColumn {
-	var ncolumns []SourceColumn
+	var (
+		ncolumns []SourceColumn
+		seen     bit.Set
+	)
 	//
 	if srcmap == nil {
 		// Fall back when corset source mapping unavailable.
@@ -82,8 +85,12 @@ func determineSourceColumns(cells CellRefSet, trace tr.Module, srcmap *corset.So
 	columns := inspector.ExtractSourceColumns(util.NewAbsolutePath(""), mod.Selector, mod.Columns, mod.Submodules)
 	//
 	for _, c := range cells.ToArray() {
-		column := determineSourceColumn(c, trace, columns)
-		ncolumns = append(ncolumns, column)
+		if !seen.Contains(c.Column) {
+			column := determineSourceColumn(c, trace, columns)
+			ncolumns = append(ncolumns, column)
+			// Don't include column more than once.
+			seen.Insert(c.Column)
+		}
 	}
 	//
 	return ncolumns

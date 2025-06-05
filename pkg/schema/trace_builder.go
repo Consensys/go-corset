@@ -103,6 +103,11 @@ func (tb TraceBuilder) WithExpansion(flag bool) TraceBuilder {
 	return ntb
 }
 
+// Expanding indicates whether or not this builder will expand the trace.
+func (tb TraceBuilder) Expanding() bool {
+	return tb.expand
+}
+
 // WithValidation updates a given builder configuration to perform trace validation (or
 // not).
 func (tb TraceBuilder) WithValidation(flag bool) TraceBuilder {
@@ -653,9 +658,7 @@ func fillComputedColumns(cids []uint, mid uint, cols []tr.ArrayColumn, trace *tr
 
 // Validate that all elements of a given column fit within a given bitwidth.
 func validateColumnBitWidth(bitwidth uint, col trace.Column, mod Module) error {
-	var (
-		biBound big.Int
-	)
+	var biBound big.Int
 	// Compute 2^n
 	biBound.Exp(big.NewInt(2), big.NewInt(int64(bitwidth)), nil)
 	//

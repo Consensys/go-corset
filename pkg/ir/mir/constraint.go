@@ -52,6 +52,12 @@ func NewLookupConstraint(handle string, source trace.Context,
 	return Constraint{constraint.NewLookupConstraint(handle, source, target, sources, targets)}
 }
 
+// NewPermutationConstraint creates a new permutation
+func NewPermutationConstraint(handle string, context trace.Context, targets []uint,
+	sources []uint) Constraint {
+	return Constraint{constraint.NewPermutationConstraint(handle, context, targets, sources)}
+}
+
 // NewRangeConstraint constructs a new Range constraint!
 func NewRangeConstraint(handle string, ctx trace.Context, expr Term, bitwidth uint) Constraint {
 	return Constraint{constraint.NewRangeConstraint(handle, ctx, expr, bitwidth)}

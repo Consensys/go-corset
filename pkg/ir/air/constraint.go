@@ -65,6 +65,12 @@ func NewLookupConstraint(handle string, source trace.Context,
 	return newAir(constraint.NewLookupConstraint(handle, source, target, sources, targets))
 }
 
+// NewPermutationConstraint creates a new permutation
+func NewPermutationConstraint(handle string, context trace.Context, targets []uint,
+	sources []uint) Constraint {
+	return newAir(constraint.NewPermutationConstraint(handle, context, targets, sources))
+}
+
 // NewRangeConstraint constructs a new AIR range constraint
 func NewRangeConstraint(handle string, ctx trace.Context, expr ColumnAccess, bitwidth uint) RangeConstraint {
 	return newAir(constraint.NewRangeConstraint(handle, ctx, &expr, bitwidth))

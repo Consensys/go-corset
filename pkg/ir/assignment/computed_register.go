@@ -65,8 +65,13 @@ func (p *ComputedRegister) Compute(tr trace.Trace, schema schema.AnySchema) ([]t
 	)
 	// Determine multiplied height
 	height := module.Height()
-	// Make space for computed data
-	data := field.NewFrArray(height, register.Width)
+	// FIXME: using an index array here ensures the underlying data is
+	// represented using a full field element, rather than e.g. some smaller
+	// number of bytes.  This is needed to handle reject tests which can produce
+	// values outside the range of the computed register, but which we still
+	// want to check are actually rejected (i.e. since they are simulating what
+	// an attacker might do).
+	data := field.NewFrIndexArray(height, register.Width)
 	// Expand the trace
 	for i := uint(0); i < data.Len(); i++ {
 		val, err := p.expr.EvalAt(int(i), module)
@@ -143,6 +148,7 @@ func (p *ComputedRegister) Lisp(schema schema.AnySchema) sexp.SExp {
 	return sexp.NewList(
 		[]sexp.SExp{sexp.NewSymbol("compute"),
 			sexp.NewSymbol(target.QualifiedName(module)),
+			sexp.NewSymbol(fmt.Sprintf("u%d", target.Width)),
 			p.expr.Lisp(module),
 		})
 }

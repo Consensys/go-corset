@@ -62,7 +62,18 @@ func Execute() {
 	}
 }
 
-func getSchemaStack(cmd *cobra.Command, filenames ...string) *cmd_util.SchemaStack {
+// SCHEMA_OPTIONAL indicates a schema is optional
+const SCHEMA_OPTIONAL = uint(0)
+
+// SCHEMA_DEFAULT_MIR indicates a schema must be indicated on the command line,
+// and that the default is for the stack to be lowered to the MIR level.
+const SCHEMA_DEFAULT_MIR = uint(1)
+
+// SCHEMA_DEFAULT_AIR indicates a schema must be indicated on the command line,
+// and that the default is for the stack to be lowered to the AIR level.
+const SCHEMA_DEFAULT_AIR = uint(2)
+
+func getSchemaStack(cmd *cobra.Command, mode uint, filenames ...string) *cmd_util.SchemaStack {
 	var (
 		schemaStack  cmd_util.SchemaStack
 		corsetConfig corset.CompilationConfig
@@ -95,7 +106,12 @@ func getSchemaStack(cmd *cobra.Command, filenames ...string) *cmd_util.SchemaSta
 	}
 	// If no IR was specified, set a default
 	if !airEnable && !mirEnable && !uasmEnable && !asmEnable {
-		airEnable = true
+		switch mode {
+		case SCHEMA_DEFAULT_MIR:
+			mirEnable = true
+		case SCHEMA_DEFAULT_AIR:
+			airEnable = true
+		}
 	}
 	// Construct trace builder
 	builder := schema.NewTraceBuilder().
@@ -109,7 +125,6 @@ func getSchemaStack(cmd *cobra.Command, filenames ...string) *cmd_util.SchemaSta
 	schemaStack.WithCorsetConfig(corsetConfig)
 	schemaStack.WithOptimisationConfig(mir.OPTIMISATION_LEVELS[optimisation])
 	schemaStack.WithConstantDefinitions(externs)
-	schemaStack.WithTraceBuilder(builder)
 	//
 	if asmEnable {
 		schemaStack.WithLayer(cmd_util.MACRO_ASM_LAYER)
@@ -127,7 +142,14 @@ func getSchemaStack(cmd *cobra.Command, filenames ...string) *cmd_util.SchemaSta
 		schemaStack.WithLayer(cmd_util.AIR_LAYER)
 	}
 	// Read / compile given source files.
-	schemaStack.Read(filenames...)
+	if mode != SCHEMA_OPTIONAL || len(filenames) > 0 {
+		schemaStack.Read(filenames...)
+	} else {
+		// In this situation, we cannot perform trace expansion.
+		builder = builder.WithExpansion(false)
+	}
+	// Configure builder
+	schemaStack.WithTraceBuilder(builder)
 	// Done
 	return &schemaStack
 }

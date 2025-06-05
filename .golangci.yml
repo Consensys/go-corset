@@ -49,8 +49,6 @@ linters:
           severity: warning
         - name: unreachable-code
           severity: warning
-        - name: confusing-naming
-          severity: warning
     staticcheck:
       checks:
         - all

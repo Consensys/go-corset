@@ -21,7 +21,6 @@ import (
 	"github.com/consensys/go-corset/pkg/cmd/check"
 	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
 	"github.com/consensys/go-corset/pkg/corset"
-	"github.com/consensys/go-corset/pkg/ir/mir"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -50,13 +49,8 @@ var checkCmd = &cobra.Command{
 		if GetFlag(cmd, "verbose") {
 			log.SetLevel(log.DebugLevel)
 		}
-		optimisation := GetUint(cmd, "opt")
+
 		batched := GetFlag(cmd, "batched")
-		//
-		if optimisation >= uint(len(mir.OPTIMISATION_LEVELS)) {
-			fmt.Printf("invalid optimisation level %d\n", optimisation)
-			os.Exit(1)
-		}
 		//
 		cfg.padding.Right = GetUint(cmd, "padding")
 		cfg.report = GetFlag(cmd, "report")
@@ -67,7 +61,7 @@ var checkCmd = &cobra.Command{
 		// TODO: support true ranges
 		cfg.padding.Left = cfg.padding.Right
 		// Read in constraint files
-		schemas := *getSchemaStack(cmd, args[1:]...)
+		schemas := *getSchemaStack(cmd, SCHEMA_DEFAULT_AIR, args[1:]...)
 		// enable / disable coverage
 		if covfile := GetString(cmd, "coverage"); covfile != "" {
 			cfg.coverage = util.Some(covfile)

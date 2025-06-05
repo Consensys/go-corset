@@ -37,7 +37,7 @@ var inspectCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		// Read in constraint files
-		schemas := *getSchemaStack(cmd, args[1:]...)
+		schemas := *getSchemaStack(cmd, SCHEMA_DEFAULT_MIR, args[1:]...)
 		//
 		stats := util.NewPerfStats()
 		// Parse constraints

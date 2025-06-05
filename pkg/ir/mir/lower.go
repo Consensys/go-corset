@@ -110,26 +110,12 @@ func (p *AirLowering) LowerModule(index uint) {
 		//
 		p.lowerConstraintToAir(constraint, airModule)
 	}
-	// Lower assignments
-	return
+	// Add assignments.  At this time, there is nothing to do in terms of
+	// lowering.
+	for iter := mirModule.Assignments(); iter.HasNext(); {
+		airModule.AddAssignment(iter.Next())
+	}
 }
-
-// // Lower an assignment to the AIR level.
-// func lowerAssignmentToAir(c sc.Assignment, mirSchema *Schema, airSchema *air.Schema) {
-// 	if v, ok := c.(Permutation); ok {
-// 		lowerPermutationToAir(v, mirSchema, airSchema)
-// 	} else if _, ok := c.(Interleaving); ok {
-// 		// Nothing to do for interleaving constraints, as they can be passed
-// 		// directly down to the AIR level
-// 		return
-// 	} else if _, ok := c.(Computation); ok {
-// 		// Nothing to do for computation, as they can be passed directly down to
-// 		// the AIR level
-// 		return
-// 	} else {
-// 		panic("unknown assignment")
-// 	}
-// }
 
 // Lower a constraint to the AIR level.
 func (p *AirLowering) lowerConstraintToAir(c Constraint, airModule *air.ModuleBuilder) {
@@ -139,6 +125,8 @@ func (p *AirLowering) lowerConstraintToAir(c Constraint, airModule *air.ModuleBu
 		p.lowerAssertionToAir(v, airModule)
 	case LookupConstraint:
 		p.lowerLookupConstraintToAir(v, airModule)
+	case PermutationConstraint:
+		p.lowerPermutationConstraintToAir(v, airModule)
 	case RangeConstraint:
 		p.lowerRangeConstraintToAir(v, airModule)
 	case SortedConstraint:
@@ -180,6 +168,14 @@ func (p *AirLowering) lowerVanishingConstraintToAir(v VanishingConstraint, airMo
 		airModule.AddConstraint(
 			air.NewVanishingConstraint(handle, v.Context, v.Domain, air_expr))
 	}
+}
+
+// Lower a permutation constraint to the AIR level.  This is trivial because
+// permutation constraints do not currently support complex forms.
+func (p *AirLowering) lowerPermutationConstraintToAir(v PermutationConstraint, airModule *air.ModuleBuilder) {
+	airModule.AddConstraint(
+		air.NewPermutationConstraint(v.Handle, v.Context, v.Targets, v.Sources),
+	)
 }
 
 // Lower a range constraint to the AIR level.  The challenge here is that a
@@ -244,133 +240,45 @@ func (p *AirLowering) lowerLookupConstraintToAir(c LookupConstraint, airModule *
 // is not concept of sorting constraints at the AIR level.  Instead, we have to
 // generate the necessary machinery to enforce the sorting constraint.
 func (p *AirLowering) lowerSortedConstraintToAir(c SortedConstraint, airModule *air.ModuleBuilder) {
-	// sources := make([]uint, len(c.Sources))
-	// //
-	// for i := 0; i < len(sources); i++ {
-	// 	sourceBitwidth := rangeOfTerm(c.Sources[i].term, mirSchema).BitWidth()
-	// 	// Lower source expression
-	// 	source := lowerExprTo(c.Context, c.Sources[i], mirSchema, airSchema, cfg)
-	// 	// Expand them
-	// 	sources[i] = air_gadgets.Expand(c.Context, sourceBitwidth, source, airSchema)
-	// }
-	// // Determine number of ordered columns
-	// numSignedCols := len(c.Signs)
-	// // finally add the constraint
-	// if numSignedCols == 1 {
-	// 	// For a single column sort, its actually a bit easier because we don't
-	// 	// need to implement a multiplexor (i.e. to determine which column is
-	// 	// differs, etc).  Instead, we just need a delta column which ensures
-	// 	// there is a non-negative difference between consecutive rows.  This
-	// 	// also requires bitwidth constraints.
-	// 	gadget := air_gadgets.NewColumnSortGadget(c.Handle, sources[0], c.BitWidth)
-	// 	gadget.SetSign(c.Signs[0])
-	// 	gadget.SetStrict(c.Strict)
-	// 	// Add (optional) selector
-	// 	if c.Selector.HasValue() {
-	// 		selector := lowerExprTo(c.Context, c.Selector.Unwrap(), mirSchema, airSchema, cfg)
-	// 		gadget.SetSelector(selector)
-	// 	}
-	// 	// Done!
-	// 	gadget.Apply(airSchema)
-	// } else {
-	// 	// For a multi column sort, its a bit harder as we need additional
-	// 	// logic to ensure the target columns are lexicographally sorted.
-	// 	gadget := air_gadgets.NewLexicographicSortingGadget(c.Handle, sources, c.BitWidth)
-	// 	gadget.SetSigns(c.Signs...)
-	// 	gadget.SetStrict(c.Strict)
-	// 	// Add (optional) selector
-	// 	if c.Selector.HasValue() {
-	// 		selector := lowerExprTo(c.Context, c.Selector.Unwrap(), mirSchema, airSchema, cfg)
-	// 		gadget.SetSelector(selector)
-	// 	}
-	// 	// Done
-	// 	gadget.Apply(airSchema)
-	// }
-	// // Sanity check bitwidth
-	// bitwidth := uint(0)
+	sources := make([]uint, len(c.Sources))
+	//
+	for i := 0; i < len(sources); i++ {
+		sourceBitwidth := c.Sources[i].ValueRange(airModule).BitWidth()
+		// Lower source expression
+		source := p.lowerTermTo(c.Context, c.Sources[i], airModule)
+		// Expand them
+		sources[i] = air_gadgets.Expand(c.Context, sourceBitwidth, source, airModule)
+	}
+	// Determine number of ordered columns
+	numSignedCols := len(c.Signs)
+	// finally add the sorting constraint
+	gadget := air_gadgets.NewLexicographicSortingGadget(c.Handle, sources, c.BitWidth)
+	gadget.SetSigns(c.Signs...)
+	gadget.SetStrict(c.Strict)
+	// Add (optional) selector
+	if c.Selector.HasValue() {
+		selector := p.lowerTermTo(c.Context, c.Selector.Unwrap(), airModule)
+		gadget.SetSelector(selector)
+	}
+	// Done
+	gadget.Apply(airModule)
+	// Sanity check bitwidth
+	bitwidth := uint(0)
 
-	// for i := 0; i < numSignedCols; i++ {
-	// 	// Extract bitwidth of ith column
-	// 	ith := mirSchema.Columns().Nth(sources[i]).DataType.AsUint().BitWidth()
-	// 	if ith > bitwidth {
-	// 		bitwidth = ith
-	// 	}
-	// }
-	// //
-	// if bitwidth != c.BitWidth {
-	// 	// Should be unreachable.
-	// 	msg := fmt.Sprintf("incompatible bitwidths (%d vs %d)", bitwidth, c.BitWidth)
-	// 	panic(msg)
-	// }
-	panic("todo")
+	for i := 0; i < numSignedCols; i++ {
+		// Extract bitwidth of ith column
+		ith := airModule.Register(sources[i]).Width
+		if ith > bitwidth {
+			bitwidth = ith
+		}
+	}
+	//
+	if bitwidth != c.BitWidth {
+		// Should be unreachable.
+		msg := fmt.Sprintf("incompatible bitwidths (%d vs %d)", bitwidth, c.BitWidth)
+		panic(msg)
+	}
 }
-
-// // Lower a permutation to the AIR level.  This has quite a few
-// // effects.  Firstly, permutation constraints are added for all of the
-// // new columns.  Secondly, sorting constraints (and their associated
-// // computed columns) must also be added.  Finally, a trace
-// // computation is required to ensure traces are correctly expanded to
-// // meet the requirements of a sorted permutation.
-// func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Schema) {
-// 	builder := strings.Builder{}
-// 	c_targets := c.Targets
-// 	targets := make([]uint, len(c_targets))
-// 	//
-// 	builder.WriteString("permutation")
-// 	// Add individual permutation constraints
-// 	for i := 0; i < len(c_targets); i++ {
-// 		var ok bool
-// 		// TODO: how best to avoid this lookup?
-// 		targets[i], ok = sc.ColumnIndexOf(airSchema, c.Module(), c_targets[i].Name)
-// 		//
-// 		if !ok {
-// 			panic("internal failure")
-// 		}
-// 		//
-// 		builder.WriteString(fmt.Sprintf(":%s", c_targets[i].Name))
-// 	}
-// 	//
-// 	airSchema.AddPermutationConstraint(builder.String(), c.Context(), targets, c.Sources)
-// 	// Determine number of ordered columns
-// 	numSignedCols := len(c.Signs)
-// 	// Add sorting constraints + computed columns as necessary.
-// 	if numSignedCols == 1 {
-// 		// For a single column sort, its actually a bit easier because we don't
-// 		// need to implement a multiplexor (i.e. to determine which column is
-// 		// differs, etc).  Instead, we just need a delta column which ensures
-// 		// there is a non-negative difference between consecutive rows.  This
-// 		// also requires bitwidth constraints.
-// 		bitwidth := mirSchema.Columns().Nth(c.Sources[0]).DataType.AsUint().BitWidth()
-// 		// Identify target column name
-// 		target := mirSchema.Columns().Nth(targets[0]).Name
-// 		// Add column sorting constraints
-// 		gadget := air_gadgets.NewColumnSortGadget(target, targets[0], bitwidth)
-// 		gadget.SetSign(c.Signs[0])
-// 		// Done!
-// 		gadget.Apply(airSchema)
-// 	} else {
-// 		// For a multi column sort, its a bit harder as we need additional
-// 		// logic to ensure the target columns are lexicographally sorted.
-// 		bitwidth := uint(0)
-
-// 		for i := 0; i < numSignedCols; i++ {
-// 			// Extract bitwidth of ith column
-// 			ith := mirSchema.Columns().Nth(c.Sources[i]).DataType.AsUint().BitWidth()
-// 			if ith > bitwidth {
-// 				bitwidth = ith
-// 			}
-// 		}
-// 		// Construct a unique prefix for this sort.
-// 		prefix := constructLexicographicSortingPrefix(targets, c.Signs, airSchema)
-// 		// Add lexicographically sorted constraints
-// 		// For a multi column sort, its a bit harder as we need additional
-// 		// logic to ensure the target columns are lexicographally sorted.
-// 		gadget := air_gadgets.NewLexicographicSortingGadget(prefix, targets, bitwidth)
-// 		gadget.SetSigns(c.Signs...)
-// 		// Done
-// 		gadget.Apply(airSchema)
-// 	}
-// }
 
 func (p *AirLowering) lowerAndSimplifyLogicalTo(term LogicalTerm, ctx trace.Context,
 	airModule *air.ModuleBuilder) []air.Term {
@@ -396,6 +304,8 @@ func (p *AirLowering) lowerLogicalTo(sign bool, e LogicalTerm, ctx trace.Context
 		return p.lowerLogicalTo(!sign, e.Arg, ctx, airModule)
 	case *NotEqual:
 		return p.lowerEqualityTo(!sign, e.Lhs, e.Rhs, ctx, airModule)
+	case *Inequality:
+		panic("inequalities cannot (currently) be lowered to AIR")
 	default:
 		name := reflect.TypeOf(e).Name()
 		panic(fmt.Sprintf("unknown MIR expression \"%s\"", name))
@@ -737,28 +647,6 @@ func (p *AirLowering) normalise(arg air.Term, ctx trace.Context, airModule *air.
 	//
 	return norm.ApplyShift(shift)
 }
-
-// // Construct a unique identifier for the given sort.  This should not conflict
-// // with the identifier for any other sort.
-// func constructLexicographicSortingPrefix(columns []uint, signs []bool, schema *air.Schema) string {
-// 	// Use string builder to try and make this vaguely efficient.
-// 	var id strings.Builder
-// 	// Concatenate column names with their signs.
-// 	for i := 0; i < len(columns); i++ {
-// 		ith := schema.Columns().Nth(columns[i])
-// 		id.WriteString(ith.Name)
-
-// 		if i >= len(signs) {
-
-// 		} else if signs[i] {
-// 			id.WriteString("+")
-// 		} else {
-// 			id.WriteString("-")
-// 		}
-// 	}
-// 	// Done
-// 	return id.String()
-// }
 
 // Simplify a bunch of logical terms
 func simplify(terms []air.Term) []air.Term {

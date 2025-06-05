@@ -22,25 +22,29 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 const (
 	// Constraints
-	assertionTag   = byte(0)
-	lookupTag      = byte(1)
-	permutationTag = byte(2)
-	sortedTag      = byte(3)
-	rangeTag       = byte(4)
-	vanishingTag   = byte(5)
+	assertionTag       = byte(0)
+	lookupTag          = byte(1)
+	permutationTag     = byte(2)
+	sortedTag          = byte(3)
+	sortedSelectionTag = byte(4)
+	rangeTag           = byte(5)
+	vanishingTag       = byte(6)
 	// Logicals
-	conjunctTag = byte(10)
-	disjunctTag = byte(11)
-	equalTag    = byte(12)
-	notEqualTag = byte(13)
-	negationTag = byte(14)
-	iteTagTF    = byte(15)
-	iteTagT     = byte(16)
-	iteTagF     = byte(17)
+	conjunctTag   = byte(10)
+	disjunctTag   = byte(11)
+	equalTag      = byte(12)
+	notEqualTag   = byte(13)
+	lessThanTag   = byte(14)
+	lessThanEqTag = byte(15)
+	negationTag   = byte(16)
+	iteTagTF      = byte(17)
+	iteTagT       = byte(18)
+	iteTagF       = byte(19)
 	// Expressions
 	addTag              = byte(30)
 	castTag             = byte(31)
@@ -61,9 +65,9 @@ func encode_constraint(constraint schema.Constraint) ([]byte, error) {
 	case LookupConstraint:
 		return encode_lookup(c)
 	case PermutationConstraint:
-		panic("todo")
+		return encode_permutation(c)
 	case SortedConstraint:
-		panic("todo")
+		return encode_sorted(c)
 	case RangeConstraint:
 		return encode_range(c)
 	case VanishingConstraint:
@@ -129,6 +133,84 @@ func encode_lookup(c LookupConstraint) ([]byte, error) {
 	return buffer.Bytes(), nil
 }
 
+func encode_permutation(c PermutationConstraint) ([]byte, error) {
+	var (
+		buffer     bytes.Buffer
+		gobEncoder = gob.NewEncoder(&buffer)
+	)
+	// Tag
+	if _, err := buffer.Write([]byte{permutationTag}); err != nil {
+		return nil, err
+	}
+	// Handle
+	if err := gobEncoder.Encode(c.Handle); err != nil {
+		return nil, err
+	}
+	// Column Context
+	if err := gobEncoder.Encode(c.Context); err != nil {
+		return nil, err
+	}
+	// Target terms
+	if err := gobEncoder.Encode(c.Targets); err != nil {
+		return nil, err
+	}
+	// Source terms
+	if err := gobEncoder.Encode(c.Sources); err != nil {
+		return nil, err
+	}
+	//
+	return buffer.Bytes(), nil
+}
+
+func encode_sorted(c SortedConstraint) ([]byte, error) {
+	var (
+		buffer     bytes.Buffer
+		gobEncoder = gob.NewEncoder(&buffer)
+		tag        byte
+	)
+	//
+	if c.Selector.HasValue() {
+		tag = sortedSelectionTag
+	} else {
+		tag = sortedTag
+	}
+	// Tag
+	if _, err := buffer.Write([]byte{tag}); err != nil {
+		return nil, err
+	}
+	// Handle
+	if err := gobEncoder.Encode(c.Handle); err != nil {
+		return nil, err
+	}
+	// Context
+	if err := gobEncoder.Encode(c.Context); err != nil {
+		return nil, err
+	}
+	// Bitwidth
+	if err := gobEncoder.Encode(c.BitWidth); err != nil {
+		return nil, err
+	}
+	// Signs
+	if err := gobEncoder.Encode(c.Signs); err != nil {
+		return nil, err
+	}
+	// Strict
+	if err := gobEncoder.Encode(c.Strict); err != nil {
+		return nil, err
+	}
+	// Optional Selector
+	if c.Selector.HasValue() {
+		// Constraint
+		if err := encode_term(c.Selector.Unwrap(), &buffer); err != nil {
+			return nil, err
+		}
+	}
+	// Sources
+	err := encode_nary(encode_term, &buffer, c.Sources)
+	//
+	return buffer.Bytes(), err
+}
+
 func encode_vanishing(c VanishingConstraint) ([]byte, error) {
 	var (
 		buffer     bytes.Buffer
@@ -188,11 +270,13 @@ func decode_constraint(bytes []byte) (schema.Constraint, error) {
 	case lookupTag:
 		return decode_lookup(bytes[1:])
 	case permutationTag:
-		panic("todo")
+		return decode_permutation(bytes[1:])
 	case rangeTag:
 		return decode_range(bytes[1:])
 	case sortedTag:
-		panic("todo")
+		return decode_sorted(false, bytes[1:])
+	case sortedSelectionTag:
+		return decode_sorted(true, bytes[1:])
 	case vanishingTag:
 		return decode_vanishing(bytes[1:])
 	default:
@@ -250,6 +334,76 @@ func decode_lookup(data []byte) (schema.Constraint, error) {
 	}
 	//
 	return lookup, nil
+}
+
+func decode_permutation(data []byte) (schema.Constraint, error) {
+	var (
+		buffer      = bytes.NewBuffer(data)
+		gobDecoder  = gob.NewDecoder(buffer)
+		permutation PermutationConstraint
+		err         error
+	)
+	// Handle
+	if err = gobDecoder.Decode(&permutation.Handle); err != nil {
+		return permutation, err
+	}
+	// Column Context
+	if err = gobDecoder.Decode(&permutation.Context); err != nil {
+		return permutation, err
+	}
+	// Target terms
+	if err = gobDecoder.Decode(&permutation.Targets); err != nil {
+		return permutation, err
+	}
+	// Source terms
+	if err = gobDecoder.Decode(&permutation.Sources); err != nil {
+		return permutation, err
+	}
+	//
+	return permutation, nil
+}
+
+func decode_sorted(selector bool, data []byte) (schema.Constraint, error) {
+	var (
+		buffer     = bytes.NewBuffer(data)
+		gobDecoder = gob.NewDecoder(buffer)
+		sorted     SortedConstraint
+		err        error
+	)
+	// Handle
+	if err = gobDecoder.Decode(&sorted.Handle); err != nil {
+		return nil, err
+	}
+	// Context
+	if err = gobDecoder.Decode(&sorted.Context); err != nil {
+		return nil, err
+	}
+	// Bitwidth
+	if err := gobDecoder.Decode(&sorted.BitWidth); err != nil {
+		return nil, err
+	}
+	// Signs
+	if err := gobDecoder.Decode(&sorted.Signs); err != nil {
+		return nil, err
+	}
+	// Strict
+	if err := gobDecoder.Decode(&sorted.Strict); err != nil {
+		return nil, err
+	}
+	// Optional Selector
+	if selector {
+		var term Term
+		//
+		if term, err = decode_term(buffer); err != nil {
+			return nil, err
+		}
+		//
+		sorted.Selector = util.Some(term)
+	}
+	// Sources
+	sorted.Sources, err = decode_nary(decode_term, buffer)
+	// Done
+	return sorted, err
 }
 
 func decode_range(data []byte) (schema.Constraint, error) {
@@ -320,7 +474,12 @@ func encode_logical(term LogicalTerm, buf *bytes.Buffer) error {
 		return encode_tagged_logicals(negationTag, buf, t.Arg)
 	case *NotEqual:
 		return encode_tagged_terms(notEqualTag, buf, t.Lhs, t.Rhs)
-
+	case *Inequality:
+		if t.Strict {
+			return encode_tagged_terms(lessThanTag, buf, t.Lhs, t.Rhs)
+		}
+		//
+		return encode_tagged_terms(lessThanEqTag, buf, t.Lhs, t.Rhs)
 	default:
 		return fmt.Errorf("unknown logical term encountered (%s)", term.Lisp(nil).String(false))
 	}
@@ -381,6 +540,10 @@ func decode_logical(buf *bytes.Buffer) (LogicalTerm, error) {
 		return decode_logicals(1, negationConstructor, buf)
 	case notEqualTag:
 		return decode_terms(2, notEqualConstructor, buf)
+	case lessThanTag:
+		return decode_terms(2, lessThanConstructor, buf)
+	case lessThanEqTag:
+		return decode_terms(2, lessThanOrEqualsConstructor, buf)
 	default:
 		return nil, fmt.Errorf("unknown constraint (tag %d)", tag)
 	}
@@ -818,6 +981,14 @@ func negationConstructor(terms []LogicalTerm) LogicalTerm {
 
 func notEqualConstructor(terms []Term) LogicalTerm {
 	return ir.NotEquals[LogicalTerm](terms[0], terms[1])
+}
+
+func lessThanConstructor(terms []Term) LogicalTerm {
+	return ir.LessThan[LogicalTerm](terms[0], terms[1])
+}
+
+func lessThanOrEqualsConstructor(terms []Term) LogicalTerm {
+	return ir.LessThanOrEquals[LogicalTerm](terms[0], terms[1])
 }
 
 func subConstructor(terms []Term) Term {
