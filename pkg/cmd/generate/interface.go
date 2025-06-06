@@ -24,7 +24,9 @@ import (
 
 // JavaTraceInterface generates a suitable interface capturing the given schema,
 // as outlined in the source map.
-func JavaTraceInterface(filename string, pkgname string, binfiles []binfile.BinaryFile) (string, error) {
+func JavaTraceInterface(filename string, pkgname string, super string, isRoot bool,
+	binfiles []binfile.BinaryFile) (string, error) {
+	//
 	var root corset.SourceModule
 	// Intersect roots to determine set of common functionality.
 	for i, bf := range binfiles {
@@ -38,10 +40,12 @@ func JavaTraceInterface(filename string, pkgname string, binfiles []binfile.Bina
 		}
 	}
 	// Finally, generate the interface
-	return generateInterface(filename, pkgname, root)
+	return generateInterface(filename, pkgname, super, isRoot, root)
 }
 
-func generateInterface(filename string, pkgname string, root corset.SourceModule) (string, error) {
+func generateInterface(filename string, pkgname string, super string, isRoot bool,
+	root corset.SourceModule) (string, error) {
+	//
 	var builder strings.Builder
 	// Extract base of filename
 	basename := filepath.Base(filename)
@@ -53,7 +57,7 @@ func generateInterface(filename string, pkgname string, root corset.SourceModule
 	classname := strings.TrimSuffix(basename, ".java")
 	// begin generation
 	generateInterfaceHeader(pkgname, &builder)
-	generateInterfaceContents(classname, root, indentBuilder{0, &builder})
+	generateInterfaceContents(classname, super, isRoot, root, indentBuilder{0, &builder})
 
 	return builder.String(), nil
 }
@@ -71,8 +75,17 @@ func generateInterfaceHeader(pkgname string, builder *strings.Builder) {
 	builder.WriteString(" */\n")
 }
 
-func generateInterfaceContents(className string, mod corset.SourceModule, builder indentBuilder) {
-	builder.WriteIndentedString("public interface ", className, " {\n")
+func generateInterfaceContents(className string, super string, isRoot bool, mod corset.SourceModule,
+	builder indentBuilder) {
+	//
+	builder.WriteIndentedString("public interface ", className)
+	//
+	if super != "" {
+		builder.WriteString(" extends ")
+		builder.WriteString(super)
+	}
+	//
+	builder.WriteString(" {\n")
 	//
 	generateInterfaceConstants(mod.Constants, builder.Indent())
 	generateInterfaceSubmoduleAccessors(mod.Submodules, builder.Indent())
@@ -82,20 +95,34 @@ func generateInterfaceContents(className string, mod corset.SourceModule, builde
 	// Generate any submodules
 	for _, submod := range mod.Submodules {
 		if !submod.Virtual {
-			generateInterfaceContents(toPascalCase(submod.Name), submod, builder.Indent())
+			subclass, subinterface := determineSubNames(submod.Name, super)
+			generateInterfaceContents(subclass, subinterface, false, submod, builder.Indent())
 		} else {
 			generateInterfaceColumnSetters(className, submod, builder.Indent())
 		}
 	}
 	//
 	if mod.Name == "" {
-		builder.WriteString(javaColumnHeader)
+		if isRoot {
+			builder.WriteString(javaColumnHeader)
+		}
+		//
 		builder.WriteString(javaAddMetadataSignature)
 		builder.WriteString(javaOpenSignature)
 	}
 	//
 	builder.WriteIndentedString("}\n")
 }
+
+func determineSubNames(modName, superName string) (string, string) {
+	modName = toPascalCase(modName)
+	if superName != "" {
+		superName = fmt.Sprintf("%s.%s", superName, modName)
+	}
+
+	return modName, superName
+}
+
 func generateInterfaceSubmoduleAccessors(submodules []corset.SourceModule, builder indentBuilder) {
 	first := true
 	//

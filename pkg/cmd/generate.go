@@ -48,6 +48,7 @@ var generateCmd = &cobra.Command{
 		filename := GetString(cmd, "output")
 		pkgname := GetString(cmd, "package")
 		extends := GetString(cmd, "extend")
+		root := GetFlag(cmd, "root")
 		//
 		if inteface := GetString(cmd, "interface"); inteface != "" {
 			genInterface = true
@@ -57,7 +58,7 @@ var generateCmd = &cobra.Command{
 		binfiles = readConstraintSets(corsetConfig, asmConfig, args)
 		//
 		if genInterface {
-			source, err = generate.JavaTraceInterface(filename, pkgname, binfiles)
+			source, err = generate.JavaTraceInterface(filename, pkgname, extends, root, binfiles)
 		} else {
 			for _, bf := range binfiles {
 				// NOTE: assume defensive padding is enabled.
@@ -109,6 +110,7 @@ func init() {
 	rootCmd.AddCommand(generateCmd)
 	generateCmd.Flags().StringP("output", "o", "Trace.java", "specify output file.")
 	generateCmd.Flags().StringP("interface", "i", "", "generate interface file.")
-	generateCmd.Flags().StringP("extend", "e", "Trace", "specify interface to extend or implement.")
+	generateCmd.Flags().StringP("extend", "e", "", "specify interface to extend or implement.")
 	generateCmd.Flags().StringP("package", "p", "", "specify Java package.")
+	generateCmd.Flags().Bool("root", false, "specify root class or interface.")
 }

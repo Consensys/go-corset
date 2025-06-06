@@ -126,8 +126,7 @@ func generateClassContents(className string, super string, mod corset.SourceModu
 	// Generate any submodules
 	for _, submod := range mod.Submodules {
 		if !submod.Virtual {
-			name := toPascalCase(submod.Name)
-			superSub := fmt.Sprintf("%s.%s", super, name)
+			name, superSub := determineSubNames(submod.Name, super)
 			generateClassContents(name, superSub, submod, metadata, spillage, hirSchema, visible, builder.Indent())
 		} else {
 			generateJavaModuleColumnSetters(className, submod, hirSchema, builder.Indent())
