@@ -22,16 +22,18 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 const (
 	// Constraints
-	assertionTag   = byte(0)
-	lookupTag      = byte(1)
-	permutationTag = byte(2)
-	sortedTag      = byte(3)
-	rangeTag       = byte(4)
-	vanishingTag   = byte(5)
+	assertionTag       = byte(0)
+	lookupTag          = byte(1)
+	permutationTag     = byte(2)
+	sortedTag          = byte(3)
+	sortedSelectionTag = byte(4)
+	rangeTag           = byte(5)
+	vanishingTag       = byte(6)
 	// Logicals
 	conjunctTag   = byte(10)
 	disjunctTag   = byte(11)
@@ -65,7 +67,7 @@ func encode_constraint(constraint schema.Constraint) ([]byte, error) {
 	case PermutationConstraint:
 		panic("todo")
 	case SortedConstraint:
-		panic("todo")
+		return encode_sorted(c)
 	case RangeConstraint:
 		return encode_range(c)
 	case VanishingConstraint:
@@ -131,6 +133,55 @@ func encode_lookup(c LookupConstraint) ([]byte, error) {
 	return buffer.Bytes(), nil
 }
 
+func encode_sorted(c SortedConstraint) ([]byte, error) {
+	var (
+		buffer     bytes.Buffer
+		gobEncoder = gob.NewEncoder(&buffer)
+		tag        byte
+	)
+	//
+	if c.Selector.HasValue() {
+		tag = sortedSelectionTag
+	} else {
+		tag = sortedTag
+	}
+	// Tag
+	if _, err := buffer.Write([]byte{tag}); err != nil {
+		return nil, err
+	}
+	// Handle
+	if err := gobEncoder.Encode(c.Handle); err != nil {
+		return nil, err
+	}
+	// Context
+	if err := gobEncoder.Encode(c.Context); err != nil {
+		return nil, err
+	}
+	// Bitwidth
+	if err := gobEncoder.Encode(c.BitWidth); err != nil {
+		return nil, err
+	}
+	// Signs
+	if err := gobEncoder.Encode(c.Signs); err != nil {
+		return nil, err
+	}
+	// Strict
+	if err := gobEncoder.Encode(c.Strict); err != nil {
+		return nil, err
+	}
+	// Optional Selector
+	if c.Selector.HasValue() {
+		// Constraint
+		if err := encode_term(c.Selector.Unwrap(), &buffer); err != nil {
+			return nil, err
+		}
+	}
+	// Sources
+	err := encode_nary(encode_term, &buffer, c.Sources)
+	//
+	return buffer.Bytes(), err
+}
+
 func encode_vanishing(c VanishingConstraint) ([]byte, error) {
 	var (
 		buffer     bytes.Buffer
@@ -194,7 +245,9 @@ func decode_constraint(bytes []byte) (schema.Constraint, error) {
 	case rangeTag:
 		return decode_range(bytes[1:])
 	case sortedTag:
-		panic("todo")
+		return decode_sorted(false, bytes[1:])
+	case sortedSelectionTag:
+		return decode_sorted(true, bytes[1:])
 	case vanishingTag:
 		return decode_vanishing(bytes[1:])
 	default:
@@ -252,6 +305,49 @@ func decode_lookup(data []byte) (schema.Constraint, error) {
 	}
 	//
 	return lookup, nil
+}
+
+func decode_sorted(selector bool, data []byte) (schema.Constraint, error) {
+	var (
+		buffer     = bytes.NewBuffer(data)
+		gobDecoder = gob.NewDecoder(buffer)
+		sorted     SortedConstraint
+		err        error
+	)
+	// Handle
+	if err = gobDecoder.Decode(&sorted.Handle); err != nil {
+		return nil, err
+	}
+	// Context
+	if err = gobDecoder.Decode(&sorted.Context); err != nil {
+		return nil, err
+	}
+	// Bitwidth
+	if err := gobDecoder.Decode(&sorted.BitWidth); err != nil {
+		return nil, err
+	}
+	// Signs
+	if err := gobDecoder.Decode(&sorted.Signs); err != nil {
+		return nil, err
+	}
+	// Strict
+	if err := gobDecoder.Decode(&sorted.Strict); err != nil {
+		return nil, err
+	}
+	// Optional Selector
+	if selector {
+		var term Term
+		//
+		if term, err = decode_term(buffer); err != nil {
+			return nil, err
+		}
+		//
+		sorted.Selector = util.Some(term)
+	}
+	// Sources
+	sorted.Sources, err = decode_nary(decode_term, buffer)
+	// Done
+	return sorted, err
 }
 
 func decode_range(data []byte) (schema.Constraint, error) {

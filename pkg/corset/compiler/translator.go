@@ -21,9 +21,11 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/ir/assignment"
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
+	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
@@ -101,9 +103,18 @@ func (t *translator) translateModule(name string) {
 	module := t.schema.Module(mid)
 	// Process each register in turn.
 	for _, regIndex := range t.env.RegistersOf(name) {
-		regInfo := t.env.Register(regIndex)
+		var (
+			regInfo = t.env.Register(regIndex)
+			reg     schema.Register
+		)
 		// Declare corresponding register
-		module.NewRegister(schema.NewInputRegister(regInfo.Name(), regInfo.Bitwidth))
+		if regInfo.IsInput() {
+			reg = schema.NewInputRegister(regInfo.Name(), regInfo.Bitwidth)
+		} else {
+			reg = schema.NewComputedRegister(regInfo.Name(), regInfo.Bitwidth)
+		}
+		//
+		module.NewRegister(reg)
 		// Prove underlying types (as necessary)
 		t.translateTypeConstraints(*regInfo, module)
 	}
@@ -162,10 +173,12 @@ func (t *translator) translateTypeConstraints(reg Register, mod *ModuleBuilder) 
 
 // Translate all assignment or constraint declarations in the circuit.
 func (t *translator) translateDeclarations(circuit *ast.Circuit) []SyntaxError {
-	errors := t.translateDeclarationsInModule("", circuit.Declarations)
+	rootPath := util.NewAbsolutePath()
+	errors := t.translateDeclarationsInModule(rootPath, circuit.Declarations)
 	// Translate each module
 	for _, m := range circuit.Modules {
-		errs := t.translateDeclarationsInModule(m.Name, m.Declarations)
+		modPath := rootPath.Extend(m.Name)
+		errs := t.translateDeclarationsInModule(*modPath, m.Declarations)
 		errors = append(errors, errs...)
 	}
 	// Done
@@ -174,14 +187,14 @@ func (t *translator) translateDeclarations(circuit *ast.Circuit) []SyntaxError {
 
 // Translate all assignment or constraint declarations in a given module within
 // the circuit.
-func (t *translator) translateDeclarationsInModule(module string, decls []ast.Declaration) []SyntaxError {
+func (t *translator) translateDeclarationsInModule(path util.Path, decls []ast.Declaration) []SyntaxError {
 	var (
 		errors []SyntaxError
-		mod    = t.schema.ModuleOf(module)
+		mod    = t.schema.ModuleOf(path.String())
 	)
 	//
 	for _, d := range decls {
-		errs := t.translateDeclaration(d, mod)
+		errs := t.translateDeclaration(d, path, mod)
 		errors = append(errors, errs...)
 	}
 	// Done
@@ -190,7 +203,7 @@ func (t *translator) translateDeclarationsInModule(module string, decls []ast.De
 
 // Translate an assignment or constraint declarartion which occurs within a
 // given module.
-func (t *translator) translateDeclaration(decl ast.Declaration, module *ModuleBuilder) []SyntaxError {
+func (t *translator) translateDeclaration(decl ast.Declaration, path util.Path, module *ModuleBuilder) []SyntaxError {
 	var errors []SyntaxError
 	//
 	switch d := decl.(type) {
@@ -214,7 +227,7 @@ func (t *translator) translateDeclaration(decl ast.Declaration, module *ModuleBu
 	case *ast.DefLookup:
 		errors = t.translateDefLookup(d, module)
 	case *ast.DefPermutation:
-		errors = t.translateDefPermutation(d, module)
+		t.translateDefPermutation(d, path, module)
 	case *ast.DefPerspective:
 		// As for defregisters, nothing generated here.
 	case *ast.DefProperty:
@@ -408,7 +421,7 @@ func (t *translator) translateDefInterleaved(decl *ast.DefInterleaved, module *M
 	// 	errors = append(errors, errs...)
 	// }
 	// // Register assignment
-	// cid := t.schema.AddAssignment(assignment.NewInterleaving(target.Context, target.Name(), sources, target.DataType))
+	// cid := module.AddAssignment(assignment.NewInterleaving(target.Context, target.Name(), sources, target.DataType))
 	// // Sanity check register identifiers align.
 	// if cid != targetId {
 	// 	err := fmt.Sprintf("inconsitent (interleaved) register identifier (%d v %d)", cid, targetId)
@@ -420,43 +433,30 @@ func (t *translator) translateDefInterleaved(decl *ast.DefInterleaved, module *M
 }
 
 // Translate a "defpermutation" declaration.
-func (t *translator) translateDefPermutation(decl *ast.DefPermutation, module *ModuleBuilder) []SyntaxError {
-	// var (
-	// 	errors   []SyntaxError
-	// 	context  tr.Context = tr.VoidContext[uint]()
-	// 	firstCid uint
-	// )
-	// //
-	// targets := make([]sc.Register, len(decl.Sources))
-	// sources := make([]uint, len(decl.Sources))
-	// //
-	// for i := 0; i < len(decl.Sources); i++ {
-	// 	targetPath := module.Extend(decl.Targets[i].Name())
-	// 	targetId := t.env.RegisterOf(targetPath)
-	// 	target := t.env.Register(targetId)
-	// 	// Construct registers
-	// 	targets[i] = sc.NewRegister(target.Context, target.Name(), target.DataType)
-	// 	sourceBinding := decl.Sources[i].Binding().(*ast.RegisterBinding)
-	// 	sources[i] = t.env.RegisterOf(&sourceBinding.Path)
-	// 	// Record first CID
-	// 	if i == 0 {
-	// 		firstCid = targetId
-	// 	}
-	// 	// Join contexts
-	// 	context = context.Join(target.Context)
-	// }
-	// // Clone the signs
-	// signs := slices.Clone(decl.Signs)
-	// // Add the assignment and check the first identifier.
-	// cid := t.schema.AddAssignment(assignment.NewSortedPermutation(context, targets, signs, sources))
-	// // Sanity check register identifiers align.
-	// if cid != firstCid {
-	// 	err := fmt.Sprintf("inconsistent (permuted) register identifier (%d v %d)", cid, firstCid)
-	// 	errors = append(errors, *t.srcmap.SyntaxError(decl, err))
-	// }
-	// // Done
-	// return errors
-	panic("todo")
+func (t *translator) translateDefPermutation(decl *ast.DefPermutation, path util.Path,
+	module *ModuleBuilder) {
+	//
+	var (
+		errors  []SyntaxError
+		context tr.Context = tr.VoidContext[uint]()
+	)
+	//
+	targets := make([]uint, len(decl.Sources))
+	sources := make([]uint, len(decl.Sources))
+	//
+	for i := 0; i < len(decl.Sources); i++ {
+		targetPath := path.Extend(decl.Targets[i].Name())
+		targets[i] = t.env.RegisterOf(targetPath)
+		target := t.env.Register(targets[i])
+		sourceBinding := decl.Sources[i].Binding().(*ast.ColumnBinding)
+		sources[i] = t.env.RegisterOf(&sourceBinding.Path)
+		// Join contexts
+		context = context.Join(target.Context)
+	}
+	// Clone the signs
+	signs := slices.Clone(decl.Signs)
+	// Add assignment for computing the permutation
+	module.AddAssignment(assignment.NewSortedPermutation(context, targets, signs, sources))
 }
 
 // Translate a "defproperty" declaration.

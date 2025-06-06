@@ -72,7 +72,8 @@ func NewSortedConstraint[E ir.Evaluable](handle string, context trace.Context, b
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
 func (p SortedConstraint[E]) Consistent(schema schema.AnySchema) []error {
-	panic("todo")
+	// TODO: add more useful checks
+	return nil
 }
 
 // Name returns a unique name for a given constraint.  This is useful
