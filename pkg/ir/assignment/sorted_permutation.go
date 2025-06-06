@@ -47,11 +47,6 @@ func NewSortedPermutation(context tr.Context, targets []uint, signs []bool, sour
 	return &SortedPermutation{context, targets, signs, sources}
 }
 
-// Module returns the module which encloses this sorted permutation.
-func (p *SortedPermutation) Module() uint {
-	return p.ColumnContext.Module()
-}
-
 // ============================================================================
 // Assignment Interface
 // ============================================================================
@@ -121,6 +116,11 @@ func (p *SortedPermutation) Consistent(schema sc.AnySchema) []error {
 	}
 	//
 	return errors
+}
+
+// Module returns the module which encloses this sorted permutation.
+func (p *SortedPermutation) Module() uint {
+	return p.ColumnContext.Module()
 }
 
 // Registers identifies registers assigned by this assignment.

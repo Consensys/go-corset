@@ -1136,58 +1136,58 @@ func Test_Let_11(t *testing.T) {
 // Computed Columns
 // ===================================================================
 
-// func Test_Compute_01(t *testing.T) {
-// 	Check(t, false, "compute_01")
-// }
+func Test_Compute_01(t *testing.T) {
+	Check(t, false, "compute_01")
+}
 
-// func Test_Compute_02(t *testing.T) {
-// 	Check(t, false, "compute_02")
-// }
+func Test_Compute_02(t *testing.T) {
+	Check(t, false, "compute_02")
+}
 
 // ===================================================================
 // Native computations
 // ===================================================================
 
-// func Test_Native_01(t *testing.T) {
-// 	Check(t, false, "native_01")
-// }
-// func Test_Native_02(t *testing.T) {
-// 	Check(t, false, "native_02")
-// }
-// func Test_Native_03(t *testing.T) {
-// 	Check(t, false, "native_03")
-// }
-// func Test_Native_04(t *testing.T) {
-// 	Check(t, false, "native_04")
-// }
+func Test_Native_01(t *testing.T) {
+	Check(t, false, "native_01")
+}
+func Test_Native_02(t *testing.T) {
+	Check(t, false, "native_02")
+}
+func Test_Native_03(t *testing.T) {
+	Check(t, false, "native_03")
+}
+func Test_Native_04(t *testing.T) {
+	Check(t, false, "native_04")
+}
 
-// func Test_Native_05(t *testing.T) {
-// 	Check(t, false, "native_05")
-// }
+func Test_Native_05(t *testing.T) {
+	Check(t, false, "native_05")
+}
 
-// func Test_Native_06(t *testing.T) {
-// 	Check(t, false, "native_06")
-// }
+func Test_Native_06(t *testing.T) {
+	Check(t, false, "native_06")
+}
 
-// func Test_Native_07(t *testing.T) {
-// 	Check(t, false, "native_07")
-// }
+func Test_Native_07(t *testing.T) {
+	Check(t, false, "native_07")
+}
 
-// func Test_Native_08(t *testing.T) {
-// 	Check(t, false, "native_08")
-// }
+func Test_Native_08(t *testing.T) {
+	Check(t, false, "native_08")
+}
 
-// func Test_Native_09(t *testing.T) {
-// 	Check(t, false, "native_09")
-// }
+func Test_Native_09(t *testing.T) {
+	Check(t, false, "native_09")
+}
 
-// func Test_Native_10(t *testing.T) {
-// 	Check(t, false, "native_10")
-// }
+func Test_Native_10(t *testing.T) {
+	Check(t, false, "native_10")
+}
 
-// func Test_Native_11(t *testing.T) {
-// 	Check(t, false, "native_11")
-// }
+func Test_Native_11(t *testing.T) {
+	Check(t, false, "native_11")
+}
 
 // ===================================================================
 // Standard Library Tests

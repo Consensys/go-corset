@@ -210,7 +210,7 @@ func (t *translator) translateDeclaration(decl ast.Declaration, path util.Path, 
 	case *ast.DefAliases:
 		// Not an assignment or a constraint, hence ignore.
 	case *ast.DefComputed:
-		errors = t.translateDefComputed(d, module)
+		t.translateDefComputed(d, path, module)
 	case *ast.DefColumns:
 		// Not an assignment or a constraint, hence ignore.
 	case *ast.DefConst:
@@ -243,46 +243,28 @@ func (t *translator) translateDeclaration(decl ast.Declaration, path util.Path, 
 }
 
 // Translate a "defcomputed" declaration.
-func (t *translator) translateDefComputed(decl *ast.DefComputed, module *ModuleBuilder) []SyntaxError {
-	// var (
-	// 	errors   []SyntaxError
-	// 	context  tr.Context = tr.VoidContext[uint]()
-	// 	firstCid uint
-	// )
-	// //
-	// targets := make([]sc.Register, len(decl.Targets))
-	// sources := make([]uint, len(decl.Sources))
-	// // Identify source registers
-	// for i := 0; i < len(decl.Sources); i++ {
-	// 	ith := decl.Sources[i].Binding().(*ast.RegisterBinding)
-	// 	sources[i] = t.env.RegisterOf(&ith.Path)
-	// }
-	// // Identify target registers
-	// for i := 0; i < len(decl.Targets); i++ {
-	// 	targetPath := module.Extend(decl.Targets[i].Name())
-	// 	targetId := t.env.RegisterOf(targetPath)
-	// 	target := t.env.Register(targetId)
-	// 	// Construct registers
-	// 	targets[i] = sc.NewRegister(target.Context, target.Name(), target.DataType)
-	// 	// Record first CID
-	// 	if i == 0 {
-	// 		firstCid = targetId
-	// 	}
-	// 	// Join contexts
-	// 	context = context.Join(target.Context)
-	// }
-	// // Extract the binding
-	// binding := decl.Function.Binding().(*NativeDefinition)
-	// // Add the assignment and check the first identifier.
-	// cid := t.schema.AddAssignment(assignment.NewComputation(context, binding.name, targets, sources))
-	// // Sanity check register identifiers align.
-	// if cid != firstCid {
-	// 	err := fmt.Sprintf("inconsistent (computed) register identifier (%d v %d)", cid, firstCid)
-	// 	errors = append(errors, *t.srcmap.SyntaxError(decl, err))
-	// }
-	// // Done
-	// return errors
-	panic("todo")
+func (t *translator) translateDefComputed(decl *ast.DefComputed, path util.Path, module *ModuleBuilder) {
+	var context tr.Context = tr.VoidContext[uint]()
+	//
+	targets := make([]uint, len(decl.Targets))
+	sources := make([]uint, len(decl.Sources))
+	// Identify source registers
+	for i := 0; i < len(decl.Sources); i++ {
+		ith := decl.Sources[i].Binding().(*ast.ColumnBinding)
+		sources[i] = t.env.RegisterOf(&ith.Path)
+	}
+	// Identify target registers
+	for i := 0; i < len(decl.Targets); i++ {
+		targetPath := path.Extend(decl.Targets[i].Name())
+		targets[i] = t.env.RegisterOf(targetPath)
+		target := t.env.Register(targets[i])
+		// Join contexts
+		context = context.Join(target.Context)
+	}
+	// Extract the binding
+	binding := decl.Function.Binding().(*NativeDefinition)
+	// Add the assignment and check the first identifier.
+	module.AddAssignment(assignment.NewComputation(context, binding.name, targets, sources))
 }
 
 // Translate a "defconstraint" declaration.
@@ -437,12 +419,10 @@ func (t *translator) translateDefPermutation(decl *ast.DefPermutation, path util
 	module *ModuleBuilder) {
 	//
 	var (
-		errors  []SyntaxError
 		context tr.Context = tr.VoidContext[uint]()
+		targets            = make([]uint, len(decl.Sources))
+		sources            = make([]uint, len(decl.Sources))
 	)
-	//
-	targets := make([]uint, len(decl.Sources))
-	sources := make([]uint, len(decl.Sources))
 	//
 	for i := 0; i < len(decl.Sources); i++ {
 		targetPath := path.Extend(decl.Targets[i].Name())

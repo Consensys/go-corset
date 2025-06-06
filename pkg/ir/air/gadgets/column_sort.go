@@ -104,15 +104,16 @@ func (p *ColumnSortGadget) Apply(module *air.ModuleBuilder) {
 	deltaIndex, ok := module.HasRegister(deltaName)
 	// Add new column (if it does not already exist)
 	if !ok {
+		//
 		Xcomp := ir.Product(p.selector, Xdiff)
 		// Add computed column
 		deltaIndex = module.NewRegister(sc.NewComputedRegister(deltaName, p.bitwidth))
 		// Add corresponding assignment
 		module.AddAssignment(
 			assignment.NewComputedRegister(context, deltaIndex, Xcomp))
+		// Add necessary bitwidth constraints
+		ApplyBitwidthGadget(deltaIndex, p.bitwidth, p.selector, module)
 	}
-	// Add necessary bitwidth constraints
-	ApplyBitwidthGadget(deltaIndex, p.bitwidth, p.selector, module)
 	// Configure constraint: Delta[k] = X[k] - X[k-1]
 	Dk := ir.NewRegisterAccess[air.Term](deltaIndex, 0)
 	// Apply selector

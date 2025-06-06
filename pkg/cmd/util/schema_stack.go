@@ -179,8 +179,6 @@ func (p *SchemaStack) Read(filenames ...string) {
 	uasmSchema = asm.LowerMixedMacroProgram(p.asmConfig.Vectorize, asmSchema)
 	// Lower to MIR
 	mirSchema = asm.LowerMixedMicroProgram(uasmSchema)
-	// Lower to AIR
-	airSchema = mir.LowerToAir(mirSchema, p.mirConfig)
 	// Include macro assembly layer (if requested)
 	if p.layers.Contains(MACRO_ASM_LAYER) {
 		p.schemas = append(p.schemas, asmSchema)
@@ -198,6 +196,9 @@ func (p *SchemaStack) Read(filenames ...string) {
 	}
 	// Include Arithmetic-level IR layer (if requested)
 	if p.layers.Contains(AIR_LAYER) {
+		// Lower to AIR
+		airSchema = mir.LowerToAir(mirSchema, p.mirConfig)
+		//
 		p.schemas = append(p.schemas, schema.Any(airSchema))
 		p.names = append(p.names, "AIR")
 	}
