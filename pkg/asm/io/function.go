@@ -56,7 +56,7 @@ func NewFunction[T any](name string, registers []Register, code []T) Function[T]
 // These are the computations used to assign values to all computed columns
 // in this module.
 func (p *Function[T]) Assignments() iter.Iterator[schema.Assignment] {
-	panic("todo")
+	return iter.NewArrayIterator[schema.Assignment](nil)
 }
 
 // CodeAt returns the ith instruction making up the body of this function.
@@ -72,7 +72,7 @@ func (p *Function[T]) Code() []T {
 // Constraints provides access to those constraints associated with this
 // function.
 func (p *Function[T]) Constraints() iter.Iterator[schema.Constraint] {
-	panic("todo")
+	return iter.NewArrayIterator[schema.Constraint](nil)
 }
 
 // Consistent applies a number of internal consistency checks.  Whilst not
@@ -132,7 +132,7 @@ func (p *Function[T]) Width() uint {
 
 // AllocateRegister allocates a new register of the given kind, name and width
 // into this function.
-func (p *Function[T]) AllocateRegister(kind uint8, name string, width uint) uint {
+func (p *Function[T]) AllocateRegister(kind schema.RegisterType, name string, width uint) uint {
 	index := uint(len(p.registers))
 	p.registers = append(p.registers, schema.NewRegister(kind, name, width))
 	// Done

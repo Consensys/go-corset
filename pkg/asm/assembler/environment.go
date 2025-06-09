@@ -86,7 +86,7 @@ func (p *Environment) DeclareLabel(name string, pc uint) {
 
 // DeclareRegister declares a new register with the given name and bitwidth.  If
 // a register with the same name already exists, this panics.
-func (p *Environment) DeclareRegister(kind uint8, name string, width uint) {
+func (p *Environment) DeclareRegister(kind schema.RegisterType, name string, width uint) {
 	if p.IsRegister(name) {
 		panic(fmt.Sprintf("register %s already declared", name))
 	}

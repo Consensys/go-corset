@@ -17,6 +17,7 @@ import (
 	"slices"
 
 	"github.com/consensys/go-corset/pkg/asm/assembler"
+	"github.com/consensys/go-corset/pkg/asm/compiler"
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/macro"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
@@ -129,30 +130,21 @@ func LowerMixedMacroProgram(vectorize bool, p MixedMacroProgram) MixedMicroProgr
 // functions) into MIR modules to ensure uniformity at the end.
 func LowerMixedMicroProgram(p MixedMicroProgram) schema.UniformSchema[mir.Module] {
 	var (
-		n                    = len(p.LeftModules())
-		modules []mir.Module = make([]mir.Module, p.Width())
-		program              = io.NewProgram(p.LeftModules()...)
+		n = len(p.LeftModules())
+		// Construct compiler
+		compiler = compiler.NewCompiler[uint, compiler.MirExpr, compiler.MirModule]()
+		modules  = make([]mir.Module, n)
 	)
-	// Lower assembly components
-	for i := range p.LeftModules() {
-		modules[i] = compileFunction(uint(i), program)
+	// Compiler assembly components into MIR
+	compiler.Compile(p.LeftModules()...)
+	// Copy over legacy components
+	for i, m := range compiler.Modules() {
+		modules[i] = m.Module.BuildTable()
 	}
-	// Copy of legacy components
-	for i, m := range p.RightModules() {
-		modules[i+n] = m
-	}
+	// Copy over legacy components
+	copy(modules[n:], p.RightModules())
 	//
 	return schema.NewUniformSchema(modules)
-}
-
-// ============================================================================
-// Helpers
-// ============================================================================
-
-// Compiler a given micro function into an MIR module.
-func compileFunction(index uint, program MicroProgram) mir.Module {
-	// For now.
-	panic("todo")
 }
 
 func lowerFunction(vectorize bool, f MacroFunction) MicroFunction {

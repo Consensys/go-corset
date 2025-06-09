@@ -27,7 +27,6 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/air"
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/source"
 
@@ -305,7 +304,6 @@ func CompileSourceFiles(config corset.CompilationConfig, asmConfig asm.LoweringC
 		schema   schema.MixedSchema[*asm.MacroFunction, mir.Module]
 		srcmap   corset.SourceMap
 		srcfiles = make([]*source.File, len(filenames))
-		externs  []*asm.MacroFunction
 	)
 	// Read each file
 	for i, n := range filenames {
@@ -320,22 +318,14 @@ func CompileSourceFiles(config corset.CompilationConfig, asmConfig asm.LoweringC
 		//
 		srcfiles[i] = source.NewSourceFile(n, bytes)
 	}
-	// Expand assembly programs
-	for i, n := range filenames {
-		if path.Ext(n) == ".zkasm" {
-			var program asm.MacroProgram
-			//
-			program, _, errors = asm.Assemble(*srcfiles[i])
-			externs = append(externs, program.Functions()...)
-			srcfiles[i] = nil
-		}
-	}
-	// Remove any nil source files
-	srcfiles = util.RemoveMatching(srcfiles, func(f *source.File) bool { return f == nil })
+	// Separate Corset from ASM files.
+	corsetFiles, asmFiles := splitSourceFiles(srcfiles)
+	// Compiler ASm files
+	macroProgram, _, errors := asm.Assemble(asmFiles...)
 	// Continue if no errors
 	if len(errors) == 0 {
 		// Parse and compile source files
-		schema, srcmap, errors = corset.CompileSourceFiles(config, srcfiles, externs...)
+		schema, srcmap, errors = corset.CompileSourceFiles(config, corsetFiles, macroProgram.Functions()...)
 		// Check for any errors
 		if len(errors) == 0 {
 			attributes := []binfile.Attribute{&srcmap}
@@ -350,6 +340,23 @@ func CompileSourceFiles(config corset.CompilationConfig, asmConfig asm.LoweringC
 	os.Exit(4)
 	// unreachable
 	return binfile.BinaryFile{}
+}
+
+func splitSourceFiles(srcfiles []*source.File) ([]*source.File, []source.File) {
+	var (
+		corsetFiles []*source.File
+		asmFiles    []source.File
+	)
+	// Expand assembly programs
+	for _, n := range srcfiles {
+		if path.Ext(n.Filename()) == ".zkasm" {
+			asmFiles = append(asmFiles, *n)
+		} else {
+			corsetFiles = append(corsetFiles, n)
+		}
+	}
+	//
+	return corsetFiles, asmFiles
 }
 
 // Look through the list of filenames and identify any which are directories.

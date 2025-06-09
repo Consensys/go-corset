@@ -147,7 +147,7 @@ func (p *Parser) parseFunction() (MacroFunction, []source.SyntaxError) {
 	return io.NewFunction(name, env.registers, code), nil
 }
 
-func (p *Parser) parseArgsList(kind uint8) ([]io.Register, []source.SyntaxError) {
+func (p *Parser) parseArgsList(kind schema.RegisterType) ([]io.Register, []source.SyntaxError) {
 	var (
 		arg   string
 		width uint

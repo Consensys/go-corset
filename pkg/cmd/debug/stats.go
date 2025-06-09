@@ -117,17 +117,31 @@ func constraintCounter(title string, includes func(schema.Constraint) bool) sche
 }
 
 func assignmentCounter(title string, types ...reflect.Type) schemaSummariser {
-	// return schemaSummariser{
-	// 	name: title,
-	// 	summary: func(schema sc.Schema) int {
-	// 		sum := 0
-	// 		for _, t := range types {
-	// 			sum += typeOfCounter(schema.Declarations(), t)
-	// 		}
-	// 		return sum
-	// 	},
-	// }
-	panic("todo")
+	return schemaSummariser{
+		name: title,
+		summary: func(schema sc.AnySchema) int {
+			sum := 0
+			for _, t := range types {
+				sum += typeOfCounter(schema, t)
+			}
+			return sum
+		},
+	}
+}
+
+func typeOfCounter(schema sc.AnySchema, dyntype reflect.Type) int {
+	count := 0
+
+	for m := range schema.Width() {
+		for iter := schema.Module(m).Assignments(); iter.HasNext(); {
+			ith := iter.Next()
+			if dyntype == reflect.TypeOf(ith) {
+				count++
+			}
+		}
+	}
+
+	return count
 }
 
 func columnCounter() schemaSummariser {

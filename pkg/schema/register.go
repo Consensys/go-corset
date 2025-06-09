@@ -13,22 +13,30 @@
 package schema
 
 import (
+	"bytes"
+	"encoding/gob"
 	"fmt"
 	"math/big"
 )
 
 // ============================================================================
 
-const (
+// RegisterType captures the type of a given register, such as whether it
+// represents an input column, and output column or a computed register, etc.
+type RegisterType struct {
+	kind uint8
+}
+
+var (
 	// INPUT_REGISTER signals a register used for holding the input values of a
 	// function.
-	INPUT_REGISTER = uint8(0)
+	INPUT_REGISTER = RegisterType{uint8(0)}
 	// OUTPUT_REGISTER signals a register used for holding the output values of
 	// a function.
-	OUTPUT_REGISTER = uint8(1)
+	OUTPUT_REGISTER = RegisterType{uint8(1)}
 	// COMPUTED_REGISTER signals a register whose values are computed from one
 	// (or more) assignments during trace expansion.
-	COMPUTED_REGISTER = uint8(2)
+	COMPUTED_REGISTER = RegisterType{uint8(2)}
 )
 
 // Register represents a specific register in the schema that, eventually, will
@@ -40,7 +48,7 @@ const (
 // similar, but not identical, concepts.
 type Register struct {
 	// Kind of register (input / output)
-	Kind uint8
+	Kind RegisterType
 	// Given name of this register.
 	Name string
 	// Width (in bits) of this register
@@ -49,7 +57,7 @@ type Register struct {
 
 // NewRegister constructs a new register of a given kind (i.e. input, output or
 // computed) with the given name and bitwidth.
-func NewRegister(kind uint8, name string, bitwidth uint) Register {
+func NewRegister(kind RegisterType, name string, bitwidth uint) Register {
 	return Register{kind, name, bitwidth}
 }
 
@@ -124,4 +132,32 @@ func (p Register) QualifiedName(mod Module) string {
 
 func (p Register) String() string {
 	return fmt.Sprintf("%s:u%d", p.Name, p.Width)
+}
+
+// ============================================================================
+// Encoding / Decoding
+// ============================================================================
+
+// GobEncode an option.  This allows it to be marshalled into a binary form.
+func (p RegisterType) GobEncode() (data []byte, err error) {
+	var buffer bytes.Buffer
+	gobEncoder := gob.NewEncoder(&buffer)
+	// Modules
+	if err := gobEncoder.Encode(&p.kind); err != nil {
+		return nil, err
+	}
+	// Done
+	return buffer.Bytes(), nil
+}
+
+// GobDecode a previously encoded option
+func (p *RegisterType) GobDecode(data []byte) error {
+	buffer := bytes.NewBuffer(data)
+	gobDecoder := gob.NewDecoder(buffer)
+	// Modules
+	if err := gobDecoder.Decode(&p.kind); err != nil {
+		return err
+	}
+	// Success!
+	return nil
 }

@@ -59,7 +59,7 @@ func (p *SchemaBuilder[C, T]) NewModule(name string) uint {
 		panic(fmt.Sprintf("module \"%s\" already declared", name))
 	}
 	//
-	p.modules = append(p.modules, newModuleBuilder[C, T](name, mid))
+	p.modules = append(p.modules, NewModuleBuilder[C, T](name, mid))
 	p.modmap[name] = mid
 	//
 	return mid
@@ -86,7 +86,7 @@ func (p *SchemaBuilder[C, T]) Build() []schema.Table[C] {
 	modules := make([]schema.Table[C], len(p.modules))
 	//
 	for i, m := range p.modules {
-		modules[i] = m.buildTable()
+		modules[i] = m.BuildTable()
 	}
 	//
 	return modules
@@ -112,7 +112,7 @@ type ModuleBuilder[C schema.Constraint, T Term[T]] struct {
 }
 
 // NewModuleBuilder constructs a new builder for a module with the given name.
-func newModuleBuilder[C schema.Constraint, T Term[T]](name string, mid uint) ModuleBuilder[C, T] {
+func NewModuleBuilder[C schema.Constraint, T Term[T]](name string, mid uint) ModuleBuilder[C, T] {
 	regmap := make(map[string]uint, 0)
 	return ModuleBuilder[C, T]{name, mid, regmap, nil, nil, nil}
 }
@@ -229,8 +229,8 @@ func (p *ModuleBuilder[C, T]) RegisterAccessOf(name string, shift int) *Register
 	}
 }
 
-// Build constructs a table module from this module builder.
-func (p *ModuleBuilder[C, T]) buildTable() schema.Table[C] {
+// BuildTable constructs a table module from this module builder.
+func (p *ModuleBuilder[C, T]) BuildTable() schema.Table[C] {
 	table := schema.NewTable[C](p.name)
 	table.AddRegisters(p.registers...)
 	table.AddConstraints(p.constraints...)
