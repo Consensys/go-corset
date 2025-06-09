@@ -252,13 +252,13 @@ func (t *translator) translateDefComputed(decl *ast.DefComputed, path util.Path,
 	// Identify source registers
 	for i := 0; i < len(decl.Sources); i++ {
 		ith := decl.Sources[i].Binding().(*ast.ColumnBinding)
-		sources[i] = t.env.RegisterOf(&ith.Path)
+		sources[i] = t.registerIndexOf(&ith.Path)
 	}
 	// Identify target registers
 	for i := 0; i < len(decl.Targets); i++ {
 		targetPath := path.Extend(decl.Targets[i].Name())
-		targets[i] = t.env.RegisterOf(targetPath)
-		target := t.env.Register(targets[i])
+		targets[i] = t.registerIndexOf(targetPath)
+		target := t.env.Register(t.env.RegisterOf(targetPath))
 		// Join contexts
 		context = context.Join(target.Context)
 	}
@@ -429,11 +429,12 @@ func (t *translator) translateDefPermutation(decl *ast.DefPermutation, path util
 	//
 	for i := 0; i < len(decl.Sources); i++ {
 		targetPath := path.Extend(decl.Targets[i].Name())
-		targets[i] = t.env.RegisterOf(targetPath)
-		targetTerms[i] = ir.NewRegisterAccess[mir.Term](targets[i], 0)
-		target := t.env.Register(targets[i])
+		targets[i] = t.registerIndexOf(targetPath)
+		targetTerms[i] = t.registerOf(targetPath, 0)
+		//
+		target := t.env.Register(t.env.RegisterOf(targetPath))
 		sourceBinding := decl.Sources[i].Binding().(*ast.ColumnBinding)
-		sources[i] = t.env.RegisterOf(&sourceBinding.Path)
+		sources[i] = t.registerIndexOf(&sourceBinding.Path)
 		// Join contexts
 		context = context.Join(target.Context)
 		// Construct handle
@@ -863,7 +864,7 @@ func (t *translator) registerOfArrayAccess(expr *ast.ArrayAccess, shift int) (mi
 	return t.registerOf(path, shift), errors
 }
 
-// Map registers to appropriate module register identifiers.
+// Map columns to appropriate module register identifiers.
 func (t *translator) registerOf(path *util.Path, shift int) mir.Term {
 	// Determine register id
 	rid := t.env.RegisterOf(path)
@@ -873,6 +874,22 @@ func (t *translator) registerOf(path *util.Path, shift int) mir.Term {
 	module := t.schema.Module(reg.Context.ModuleId)
 	//
 	return module.RegisterAccessOf(reg.Name(), shift)
+}
+
+// Map columns to appropriate module register identifiers.
+func (t *translator) registerIndexOf(path *util.Path) uint {
+	// Determine register id
+	rid := t.env.RegisterOf(path)
+	//
+	reg := t.env.Register(rid)
+	// Lookup corresponding module builder
+	module := t.schema.Module(reg.Context.ModuleId)
+	//
+	if rid, ok := module.HasRegister(reg.Name()); ok {
+		return rid
+	}
+	//
+	panic("unreachable")
 }
 
 func determineMaxBitwidth(module *ModuleBuilder, sources []mir.Term) uint {

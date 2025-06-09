@@ -171,7 +171,7 @@ func (p *SchemaStack) Read(filenames ...string) {
 		airSchema  air.Schema
 	)
 	//
-	p.binfile = ReadConstraintFiles(p.corsetConfig, p.asmConfig, filenames)
+	p.binfile = readConstraintFiles(p.corsetConfig, p.asmConfig, filenames)
 	// Read out the mixed macro schema
 	asmSchema = p.BinaryFile().Schema
 	// Lower to mixed micro schema
@@ -205,7 +205,7 @@ func (p *SchemaStack) Read(filenames ...string) {
 	applyExternOverrides(p.externs, &p.binfile)
 }
 
-// ReadConstraintFiles provides a generic interface for reading constraint files
+// readConstraintFiles provides a generic interface for reading constraint files
 // in one of two ways.  If a single file is provided with the "bin" extension
 // then this is treated as a binfile (e.g. zkevm.bin).  Otherwise, the files are
 // assumed to be source (i.e. lisp) files and are read in and then compiled into
@@ -213,7 +213,7 @@ func (p *SchemaStack) Read(filenames ...string) {
 // (or without) the standard library.  Generally speaking, you want to compile
 // with the standard library.  However, some internal tests are run without
 // including the standard library to minimise the surface area.
-func ReadConstraintFiles(config corset.CompilationConfig, lowering asm.LoweringConfig,
+func readConstraintFiles(config corset.CompilationConfig, lowering asm.LoweringConfig,
 	filenames []string) binfile.BinaryFile {
 	//
 	var err error
@@ -320,7 +320,7 @@ func CompileSourceFiles(config corset.CompilationConfig, asmConfig asm.LoweringC
 	}
 	// Separate Corset from ASM files.
 	corsetFiles, asmFiles := splitSourceFiles(srcfiles)
-	// Compiler ASm files
+	// Compile ASM files
 	macroProgram, _, errors := asm.Assemble(asmFiles...)
 	// Continue if no errors
 	if len(errors) == 0 {

@@ -61,7 +61,7 @@ func CompileSourceFiles[M schema.Module](config CompilationConfig, srcfiles []*s
 		return schema.MixedSchema[M, mir.Module]{}, SourceMap{}, errs
 	}
 	// Compile each module into the schema
-	comp := NewCompiler[M](circuit, srcmap, externs).SetDebug(config.Debug)
+	comp := NewCompiler(circuit, srcmap, externs).SetDebug(config.Debug)
 	// Configure register allocator (if requested)
 	if config.Legacy {
 		comp.SetAllocator(compiler.LegacyAllocator)

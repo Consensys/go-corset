@@ -133,7 +133,7 @@ func LowerMixedMicroProgram(p MixedMicroProgram) schema.UniformSchema[mir.Module
 		n = len(p.LeftModules())
 		// Construct compiler
 		compiler = compiler.NewCompiler[uint, compiler.MirExpr, compiler.MirModule]()
-		modules  = make([]mir.Module, n)
+		modules  = make([]mir.Module, p.Width())
 	)
 	// Compiler assembly components into MIR
 	compiler.Compile(p.LeftModules()...)
@@ -143,7 +143,7 @@ func LowerMixedMicroProgram(p MixedMicroProgram) schema.UniformSchema[mir.Module
 	}
 	// Copy over legacy components
 	copy(modules[n:], p.RightModules())
-	//
+	// Done
 	return schema.NewUniformSchema(modules)
 }
 
