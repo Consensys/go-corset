@@ -171,15 +171,15 @@ func lowerFunction(vectorize bool, f MacroFunction) MicroFunction {
 	return fn
 }
 
-// Impose requested bitwidth limits on registers and instructions, by splitting
-// registers as necessary.  For example, suppose the maximum register width is
-// set at 32bits.  Then, a 64bit register is split into two "limbs", each of
-// which is 32bits wide.  Obviously, any register whose width is less than
-// 32bits will not be split.  Instructions need to be split when the combined
-// width of their target registers exceeds the maximum field width.  In such
-// cases, carry flags are introduced to communicate overflow or underflow
-// between the split instructions.
-func splitRegisters(cfg LoweringConfig, f MicroFunction) MicroFunction {
+// SplitRegisters imposes requested bitwidth limits on registers and
+// instructions, by splitting registers as necessary.  For example, suppose the
+// maximum register width is set at 32bits.  Then, a 64bit register is split
+// into two "limbs", each of which is 32bits wide.  Obviously, any register
+// whose width is less than 32bits will not be split.  Instructions need to be
+// split when the combined width of their target registers exceeds the maximum
+// field width.  In such cases, carry flags are introduced to communicate
+// overflow or underflow between the split instructions.
+func SplitRegisters(cfg LoweringConfig, f MicroFunction) MicroFunction {
 	var (
 		env = micro.NewRegisterSplittingEnvironment(cfg.MaxRegisterWidth, f.Registers())
 		// Updated instruction sequence

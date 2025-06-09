@@ -169,6 +169,7 @@ func checkIrTraces(t *testing.T, test string, cfg TestConfig, traces []io.Trace[
 	panic("todo")
 }
 
+// nolint
 func checkTrace[C sc.Constraint](t *testing.T, inputs []trace.RawColumn, id traceId, schema sc.Schema[C]) {
 	// Construct the trace
 	tr, errs := sc.NewTraceBuilder().

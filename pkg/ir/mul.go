@@ -45,8 +45,6 @@ func Product[T Term[T]](terms ...T) T {
 		//
 		return term.(T)
 	}
-	//
-
 }
 
 // Air indicates this term can be used at the AIR level.

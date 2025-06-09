@@ -15,8 +15,10 @@ package debug
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
 	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
+	"github.com/consensys/go-corset/pkg/ir/assignment"
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/termio"
@@ -64,15 +66,15 @@ var schemaSummarisers []schemaSummariser = []schemaSummariser{
 	constraintCounter("Permutations", isPermutationConstraint),
 	constraintCounter("Range", isRangeConstraint),
 	// Assignments
-	// assignmentCounter("Decompositions", reflect.TypeOf((*assignment.ByteDecomposition)(nil))),
-	// assignmentCounter("Committed Columns", reflect.TypeOf((*assignment.DataColumn)(nil))),
-	// assignmentCounter("Computed Columns", computedColumns...),
-	// assignmentCounter("Computation Columns", reflect.TypeOf((*assignment.Computation)(nil))),
-	// assignmentCounter("Interleavings", reflect.TypeOf((*assignment.Interleaving)(nil))),
-	// assignmentCounter("Lexicographic Orderings", reflect.TypeOf((*assignment.LexicographicSort)(nil))),
-	// assignmentCounter("Sorted Permutations", reflect.TypeOf((*assignment.SortedPermutation)(nil))),
+	assignmentCounter("Decompositions", reflect.TypeOf((*assignment.ByteDecomposition)(nil))),
+	//assignmentCounter("Committed Columns", reflect.TypeOf((*assignment.DataColumn)(nil))),
+	assignmentCounter("Computed Columns", reflect.TypeOf((*assignment.ComputedRegister)(nil))),
+	assignmentCounter("Computation Columns", reflect.TypeOf((*assignment.Computation)(nil))),
+	//assignmentCounter("Interleavings", reflect.TypeOf((*assignment.Interleaving)(nil))),
+	assignmentCounter("Lexicographic Orderings", reflect.TypeOf((*assignment.LexicographicSort)(nil))),
+	assignmentCounter("Sorted Permutations", reflect.TypeOf((*assignment.SortedPermutation)(nil))),
 	// Columns
-	//columnCounter(),
+	columnCounter(),
 	columnWidthSummariser(1, 1),
 	columnWidthSummariser(2, 4),
 	columnWidthSummariser(5, 8),
@@ -84,19 +86,19 @@ var schemaSummarisers []schemaSummariser = []schemaSummariser{
 }
 
 func isVanishingConstraint(c schema.Constraint) bool {
-	panic("todo")
+	return strings.Contains(reflect.TypeOf(c).Name(), "VanishingConstraint")
 }
 
 func isLookupConstraint(c schema.Constraint) bool {
-	panic("todo")
+	return strings.Contains(reflect.TypeOf(c).Name(), "LookupConstraint")
 }
 
 func isPermutationConstraint(c schema.Constraint) bool {
-	panic("todo")
+	return strings.Contains(reflect.TypeOf(c).Name(), "PermutationConstraint")
 }
 
 func isRangeConstraint(c schema.Constraint) bool {
-	panic("todo")
+	return strings.Contains(reflect.TypeOf(c).Name(), "RangeConstraint")
 }
 
 func constraintCounter(title string, includes func(schema.Constraint) bool) schemaSummariser {
@@ -129,18 +131,16 @@ func assignmentCounter(title string, types ...reflect.Type) schemaSummariser {
 }
 
 func columnCounter() schemaSummariser {
-	// return schemaSummariser{
-	// 	name: "Columns (all)",
-	// 	summary: func(schema sc.Schema) int {
-	// 		count := 0
-	// 		for i := schema.Columns(); i.HasNext(); {
-	// 			i.Next()
-	// 			count++
-	// 		}
-	// 		return count
-	// 	},
-	// }
-	panic("todo")
+	return schemaSummariser{
+		name: "Columns (all)",
+		summary: func(schema sc.AnySchema) int {
+			count := 0
+			for m := range schema.Width() {
+				count += int(schema.Module(m).Width())
+			}
+			return count
+		},
+	}
 }
 
 func columnWidthSummariser(lowWidth uint, highWidth uint) schemaSummariser {

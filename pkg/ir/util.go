@@ -49,16 +49,6 @@ func isOne[T Term[T]](term T) bool {
 	return false
 }
 
-func applyShiftTerms[T Term[T]](terms []T, shift int) []T {
-	nterms := make([]T, len(terms))
-	//
-	for i := range terms {
-		nterms[i] = terms[i].ApplyShift(shift)
-	}
-	//
-	return nterms
-}
-
 func lispOfTerms[T Term[T]](module schema.Module, op string, exprs []T) sexp.SExp {
 	arr := make([]sexp.SExp, 1+len(exprs))
 	arr[0] = sexp.NewSymbol(op)

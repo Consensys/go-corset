@@ -61,8 +61,8 @@ func (p *Computation) Bounds() util.Bounds {
 	return util.EMPTY_BOUND
 }
 
-// ComputeColumns computes the values of columns defined by this assignment.
-// This requires copying the data in the source columns, and sorting that data
+// Compute computes the values of columns defined by this assignment. This
+// requires copying the data in the source columns, and sorting that data
 // according to the permutation criteria.
 func (p *Computation) Compute(trace tr.Trace, schema sc.AnySchema) ([]tr.ArrayColumn, error) {
 	var (
@@ -96,9 +96,9 @@ func (p *Computation) Dependencies() []uint {
 	return p.Sources
 }
 
-// CheckConsistency performs some simple checks that the given schema is
-// consistent.  This provides a double check of certain key properties, such as
-// that registers used for assignments are large enough, etc.
+// Consistent performs some simple checks that the given schema is consistent.
+// This provides a double check of certain key properties, such as that
+// registers used for assignments are large enough, etc.
 func (p *Computation) Consistent(schema sc.AnySchema) []error {
 	// NOTE: this is where we could (in principle) check the type of the
 	// function being defined to ensure it is, for example, typed correctly.
