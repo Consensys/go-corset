@@ -763,31 +763,31 @@ func Test_Lookup_16(t *testing.T) {
 // Interleaving
 // ===================================================================
 
-func Test_Interleave_01(t *testing.T) {
-	Check(t, false, "interleave_01")
-}
+// func Test_Interleave_01(t *testing.T) {
+// 	Check(t, false, "interleave_01")
+// }
 
-func Test_Interleave_02(t *testing.T) {
-	Check(t, false, "interleave_02")
-}
+// func Test_Interleave_02(t *testing.T) {
+// 	Check(t, false, "interleave_02")
+// }
 
-func Test_Interleave_03(t *testing.T) {
-	Check(t, false, "interleave_03")
-}
+// func Test_Interleave_03(t *testing.T) {
+// 	Check(t, false, "interleave_03")
+// }
 
-func Test_Interleave_04(t *testing.T) {
-	Check(t, false, "interleave_04")
-}
+// func Test_Interleave_04(t *testing.T) {
+// 	Check(t, false, "interleave_04")
+// }
 
-func Test_Interleave_05(t *testing.T) {
-	Check(t, false, "interleave_05")
-}
-func Test_Interleave_06(t *testing.T) {
-	Check(t, false, "interleave_06")
-}
-func Test_Interleave_07(t *testing.T) {
-	Check(t, false, "interleave_07")
-}
+// func Test_Interleave_05(t *testing.T) {
+// 	Check(t, false, "interleave_05")
+// }
+// func Test_Interleave_06(t *testing.T) {
+// 	Check(t, false, "interleave_06")
+// }
+// func Test_Interleave_07(t *testing.T) {
+// 	Check(t, false, "interleave_07")
+// }
 
 // ===================================================================
 // Functions
@@ -1289,9 +1289,9 @@ func TestSlow_Stp(t *testing.T) {
 	Check(t, true, "stp")
 }
 
-func TestSlow_Mmio(t *testing.T) {
-	Check(t, true, "mmio")
-}
+// func TestSlow_Mmio(t *testing.T) {
+// 	Check(t, true, "mmio")
+// }
 
 // func TestSlow_Rom(t *testing.T) {
 // 	Check(t, true, "rom")

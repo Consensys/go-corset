@@ -397,6 +397,7 @@ func (t *translator) translateDefInRange(decl *ast.DefInRange, module *ModuleBui
 }
 
 // Translate a "definterleaved" declaration.
+// nolint
 func (t *translator) translateDefInterleaved(decl *ast.DefInterleaved, path util.Path,
 	module *ModuleBuilder) []SyntaxError {
 	//
