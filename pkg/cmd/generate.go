@@ -60,7 +60,7 @@ var generateCmd = &cobra.Command{
 		//
 		if intrface != "" {
 			// Attempt to write java interface
-			source, err = generate.JavaTraceInterface(intrface, pkgname, "", true, binfiles)
+			source, err = generate.JavaTraceInterfaceUnion(intrface, pkgname, "", binfiles)
 			// check for errors
 			checkError(err)
 			// write out class file

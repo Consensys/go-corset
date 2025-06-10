@@ -22,9 +22,14 @@ import (
 	"github.com/consensys/go-corset/pkg/corset"
 )
 
-// JavaTraceInterface generates a suitable interface capturing the given schema,
+// JavaTraceInterfaceUnion generates a suitable interface capturing the given schema,
 // as outlined in the source map.
-func JavaTraceInterface(filename string, pkgname string, super string, isRoot bool,
+func JavaTraceInterfaceUnion(filename string, pkgname string, super string,
+	binfiles []binfile.BinaryFile) (string, error) {
+	return javaTraceInterface(filename, pkgname, super, true, binfiles)
+}
+
+func javaTraceInterface(filename string, pkgname string, super string, union bool,
 	binfiles []binfile.BinaryFile) (string, error) {
 	//
 	var root corset.SourceModule
@@ -35,12 +40,14 @@ func JavaTraceInterface(filename string, pkgname string, super string, isRoot bo
 		//
 		if i == 0 {
 			root = srcmap.Root
-		} else {
+		} else if union {
 			root = *unionModules(root, srcmap.Root)
+		} else {
+			root = *intersectModules(root, srcmap.Root)
 		}
 	}
 	// Finally, generate the interface
-	return generateInterface(filename, pkgname, super, isRoot, root)
+	return generateInterface(filename, pkgname, super, true, root)
 }
 
 func generateInterface(filename string, pkgname string, super string, isRoot bool,
