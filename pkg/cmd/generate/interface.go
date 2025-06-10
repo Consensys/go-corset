@@ -22,25 +22,32 @@ import (
 	"github.com/consensys/go-corset/pkg/corset"
 )
 
-// JavaTraceInterface generates a suitable interface capturing the given schema,
+// JavaTraceInterfaceUnion generates a suitable interface capturing the given schema,
 // as outlined in the source map.
-func JavaTraceInterface(filename string, pkgname string, super string, isRoot bool,
+func JavaTraceInterfaceUnion(filename string, pkgname string, super string,
+	binfiles []binfile.BinaryFile) (string, error) {
+	return javaTraceInterface(filename, pkgname, super, true, binfiles)
+}
+
+func javaTraceInterface(filename string, pkgname string, super string, union bool,
 	binfiles []binfile.BinaryFile) (string, error) {
 	//
 	var root corset.SourceModule
-	// Intersect roots to determine set of common functionality.
+	// Combine roots to determine set of common functionality.
 	for i, bf := range binfiles {
 		// Extract source map (which we assume is present)
 		srcmap, _ := binfile.GetAttribute[*corset.SourceMap](&bf)
 		//
 		if i == 0 {
 			root = srcmap.Root
+		} else if union {
+			root = *unionModules(root, srcmap.Root)
 		} else {
 			root = *intersectModules(root, srcmap.Root)
 		}
 	}
 	// Finally, generate the interface
-	return generateInterface(filename, pkgname, super, isRoot, root)
+	return generateInterface(filename, pkgname, super, true, root)
 }
 
 func generateInterface(filename string, pkgname string, super string, isRoot bool,
@@ -137,7 +144,8 @@ func generateInterfaceSubmoduleAccessors(submodules []corset.SourceModule, build
 				builder.WriteIndentedString("// Submodules\n")
 			}
 			// Yes, it is.
-			builder.WriteIndentedString("public ", className, " ", fieldName, "();\n")
+			builder.WriteIndentedString(
+				"default ", className, " ", fieldName, "() { throw new IllegalArgumentException(); }\n")
 			//
 			first = false
 		}
@@ -149,7 +157,7 @@ func generateInterfaceSubmoduleAccessors(submodules []corset.SourceModule, build
 }
 
 func generateInterfaceHeaders(builder indentBuilder) {
-	builder.WriteIndentedString("public List<ColumnHeader> headers(int length);\n")
+	builder.WriteIndentedString("List<ColumnHeader> headers(int length);\n")
 }
 
 func generateInterfaceConstants(constants []corset.SourceConstant, builder indentBuilder) {
@@ -170,10 +178,10 @@ func generateInterfaceConstants(constants []corset.SourceConstant, builder inden
 			constructor, javaType = inferJavaType(constant.Value)
 		}
 		//
-		builder.WriteIndentedString("public final ", javaType, " ", fieldName, " = ", constructor, ";\n")
+		builder.WriteIndentedString("final ", javaType, " ", fieldName, " = ", constructor, ";\n")
 	}
 	//
-	builder.WriteIndentedString("public int spillage();\n")
+	builder.WriteIndentedString("int spillage();\n")
 }
 
 func generateInterfaceColumnSetters(className string, mod corset.SourceModule,
@@ -199,15 +207,17 @@ func generateInterfaceColumnSetter(className string, methodName string, col cors
 	bitwidth := col.DataType.BitWidth()
 	typeStr := getJavaType(bitwidth)
 	//
-	builder.WriteIndentedString("public ", className, " ", methodName, "(final ", typeStr, " val);\n")
+	builder.WriteIndentedString("default ", className, " ", methodName,
+		"(final ", typeStr, " val) { throw new IllegalArgumentException(); }\n")
 	// Legacy case for bytes
 	if bitwidth == 8 {
-		builder.WriteIndentedString("public ", className, " ", methodName, "(final UnsignedByte val);\n")
+		builder.WriteIndentedString("default ", className, " ", methodName,
+			"(final UnsignedByte val) { throw new IllegalArgumentException(); }\n")
 	}
 }
 
 func generateInterfaceValidateRow(className string, builder indentBuilder) {
 	//
-	builder.WriteIndentedString("public ", className, " validateRow();\n")
-	builder.WriteIndentedString("public ", className, " fillAndValidateRow();\n")
+	builder.WriteIndentedString(className, " validateRow();\n")
+	builder.WriteIndentedString(className, " fillAndValidateRow();\n")
 }

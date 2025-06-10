@@ -14,6 +14,7 @@ package generate
 
 import (
 	"fmt"
+	"math"
 	"math/big"
 	"strings"
 	"unicode"
@@ -38,6 +39,17 @@ func getJavaType(bitwidth uint) string {
 		return "long"
 	default:
 		return "Bytes"
+	}
+}
+
+func normaliseBitwidth(bitwidth uint) uint {
+	switch {
+	case bitwidth == 1:
+		return 1
+	case bitwidth <= 63:
+		return 63
+	default:
+		return math.MaxUint
 	}
 }
 
