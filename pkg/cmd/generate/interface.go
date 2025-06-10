@@ -25,12 +25,12 @@ import (
 
 // JavaTraceInterfaceUnion generates a suitable interface capturing the given schema,
 // as outlined in the source map.
-func JavaTraceInterfaceUnion(filename string, pkgname string, super string,
+func JavaTraceInterfaceUnion(filename string, pkgname string,
 	binfiles []binfile.BinaryFile) (string, error) {
-	return javaTraceInterface(filename, pkgname, super, true, binfiles)
+	return javaTraceInterface(filename, pkgname, true, binfiles)
 }
 
-func javaTraceInterface(filename string, pkgname string, super string, union bool,
+func javaTraceInterface(filename string, pkgname string, union bool,
 	binfiles []binfile.BinaryFile) (string, error) {
 	//
 	var root corset.SourceModule
@@ -48,13 +48,16 @@ func javaTraceInterface(filename string, pkgname string, super string, union boo
 		}
 	}
 	// Finally, generate the interface
-	return generateInterface(filename, pkgname, super, true, root)
+	return generateInterface(filename, pkgname, root)
 }
 
 func generateInterface(filename string, pkgname string, root corset.SourceModule) (string, error) {
-	var builder strings.Builder
-	// Extract base of filename
-	basename := filepath.Base(filename)
+	//
+	var (
+		builder strings.Builder
+		// Extract base of filename
+		basename = filepath.Base(filename)
+	)
 	// Sanity check a request is made to generate a java source file.
 	if !strings.HasSuffix(basename, ".java") {
 		return "", errors.New("invalid Java classname")

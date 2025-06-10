@@ -61,7 +61,7 @@ var generateCmd = &cobra.Command{
 		//
 		if intrface != "" {
 			// Attempt to write java interface
-			source, err = generate.JavaTraceInterfaceUnion(intrface, pkgname, "", binfiles)
+			source, err = generate.JavaTraceInterfaceUnion(intrface, pkgname, binfiles)
 			// check for errors
 			checkError(err)
 			// write out class file
@@ -77,7 +77,7 @@ var generateCmd = &cobra.Command{
 				binf     = stack.BinaryFile()
 			)
 			// NOTE: assume defensive padding is enabled.
-			spillage := determineSpillage(stack.LowerstSchema(), true)
+			spillage := determineSpillage(stack.LowestSchema(), true)
 			// Generate appropriate Java source
 			source, err = generate.JavaTraceClass(filename, pkgname, super, spillage, binf)
 			// check for errors
