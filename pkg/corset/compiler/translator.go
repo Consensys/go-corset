@@ -114,6 +114,14 @@ func (t *translator) translateModule(name string) {
 		} else {
 			reg = schema.NewComputedRegister(regInfo.Name(), regInfo.Bitwidth)
 		}
+		// TODO: fix this
+		if regInfo.Context.LengthMultiplier() != 1 {
+			// At this point, we need to construct a new module for the given
+			// length multiplier.  An interesting question is how we then
+			// connect them together.  Potentially, the easiest solution is to
+			// this by name.
+			panic("missing support for interleavings")
+		}
 		//
 		module.NewRegister(reg)
 		// Prove underlying types (as necessary)
@@ -224,7 +232,7 @@ func (t *translator) translateDeclaration(decl ast.Declaration, path util.Path, 
 	case *ast.DefInRange:
 		errors = t.translateDefInRange(d, module)
 	case *ast.DefInterleaved:
-		errors = t.translateDefInterleaved(d, module)
+		errors = t.translateDefInterleaved(d, path, module)
 	case *ast.DefLookup:
 		errors = t.translateDefLookup(d, module)
 	case *ast.DefPermutation:
@@ -389,30 +397,30 @@ func (t *translator) translateDefInRange(decl *ast.DefInRange, module *ModuleBui
 }
 
 // Translate a "definterleaved" declaration.
-func (t *translator) translateDefInterleaved(decl *ast.DefInterleaved, module *ModuleBuilder) []SyntaxError {
-	// var errors []SyntaxError
-	// //
-	// sources := make([]uint, len(decl.Sources))
-	// // Lookup target register info
-	// targetPath := module.Extend(decl.Target.Name())
-	// targetId := t.env.RegisterOf(targetPath)
-	// target := t.env.Register(targetId)
-	// // Determine source register identifiers
-	// for i, source := range decl.Sources {
-	// 	var errs []SyntaxError
-	// 	sources[i], errs = t.registerOfRegisterAccess(source)
-	// 	errors = append(errors, errs...)
-	// }
-	// // Register assignment
-	// cid := module.AddAssignment(assignment.NewInterleaving(target.Context, target.Name(), sources, target.DataType))
-	// // Sanity check register identifiers align.
-	// if cid != targetId {
-	// 	err := fmt.Sprintf("inconsitent (interleaved) register identifier (%d v %d)", cid, targetId)
-	// 	errors = append(errors, *t.srcmap.SyntaxError(decl, err))
-	// }
-	// // Done
-	// return errors
-	panic("todo")
+func (t *translator) translateDefInterleaved(decl *ast.DefInterleaved, path util.Path,
+	module *ModuleBuilder) []SyntaxError {
+	//
+	var (
+		errors []SyntaxError
+		//
+		sources = make([]mir.Term, len(decl.Sources))
+		// Lookup target register info
+		//targetPath = path.Extend(decl.Target.Name())
+		//targetId = t.env.RegisterOf(targetPath)
+		//target = t.env.Register(targetId)
+	)
+	// Determine source register identifiers
+	for i, source := range decl.Sources {
+		var errs []SyntaxError
+		sources[i], errs = t.registerOfRegisterAccess(source, 0)
+		errors = append(errors, errs...)
+	}
+	// Register constraint
+	// Register assignment
+	//cid := module.AddAssignment(assignment.NewInterleaving(target.Context, target.Name(), sources, target.DataType))
+
+	// Done
+	return errors
 }
 
 // Translate a "defpermutation" declaration.
