@@ -20,6 +20,19 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
 
+// fieldElementBitWidth represents the maximum bit width for field elements (254 bits)
+const fieldElementBitWidth = 254
+
+// maxFieldElement represents 2^254 - 1, the maximum value for a valid field element
+var maxFieldElement = func() fr.Element {
+	var max fr.Element
+	var maxInt big.Int
+	maxInt.Lsh(big.NewInt(1), fieldElementBitWidth)
+	maxInt.Sub(&maxInt, big.NewInt(1))
+	max.SetBigInt(&maxInt)
+	return max
+}()
+
 // Type represents a _column type_ which restricts the set of values a column
 // can take on.  For example, a column might be restricted to holding only byte
 // values (i.e. in the range 0..255).
@@ -177,13 +190,19 @@ func (p *FieldType) AsField() *FieldType {
 // ByteWidth returns the number of bytes required represent any element of this
 // type.
 func (p *FieldType) ByteWidth() uint {
-	return 32
+	return (fieldElementBitWidth + 7) / 8 // 254 bits rounded up to nearest byte
 }
 
-// BitWidth returns the bitwidth of this type.  For example, the
-// bitwidth of the type u8 is 8.
+// BitWidth returns the bitwidth of this type (254 bits for field elements)
 func (p *FieldType) BitWidth() uint {
-	return p.ByteWidth() * 8
+	return fieldElementBitWidth
+}
+
+// Accept determines whether a given value is an element of this type.
+// Validates that the value fits within 254 bits by comparing against maxFieldElement.
+// Note: This ensures values are within the required bit width, regardless of the field's modulus.
+func (p *FieldType) Accept(val fr.Element) bool {
+	return val.Cmp(&maxFieldElement) <= 0
 }
 
 // SubtypeOf checks whether this subtypes another
@@ -195,39 +214,14 @@ func (p *FieldType) SubtypeOf(other Type) bool {
 // the other; 0 if they are equal, a positive value if this type is "above" the
 // other.
 func (p *FieldType) Cmp(other Type) int {
-	if it := other.AsUint(); it != nil {
-		// all uints lower and field
+	if other.AsField() == nil {
 		return 1
 	}
-	// all field types equal
 	return 0
 }
 
-// Accept determines whether a given value is an element of this type.  In
-// fact, all field elements are members of this type.
-func (p *FieldType) Accept(val fr.Element) bool {
-	return true
-}
-
 func (p *FieldType) String() string {
-	return "𝔽"
-}
-
-// Join computes the Least Upper Bound of two types.  For example, the lub of u16
-// and u128 is u128, etc.
-func Join(lhs Type, rhs Type) Type {
-	if lhs.AsField() != nil || rhs.AsField() != nil {
-		return &FieldType{}
-	}
-	//
-	uLhs := lhs.AsUint()
-	uRhs := rhs.AsUint()
-	//
-	if uLhs.NumOfBits >= uRhs.NumOfBits {
-		return uLhs
-	}
-	//
-	return uRhs
+	return "field"
 }
 
 // ============================================================================
@@ -235,6 +229,6 @@ func Join(lhs Type, rhs Type) Type {
 // ============================================================================
 
 func init() {
-	gob.Register(Type(&UintType{}))
-	gob.Register(Type(&FieldType{}))
+	gob.Register(&UintType{})
+	gob.Register(&FieldType{})
 }
