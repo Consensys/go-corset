@@ -15,8 +15,9 @@ package constraint
 import (
 	"fmt"
 
-	sc "github.com/consensys/go-corset/pkg/schema"
-	tr "github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -28,7 +29,9 @@ type VanishingFailure struct {
 	// Handle of the failing constraint
 	Handle string
 	// Constraint expression
-	Constraint sc.Testable
+	Constraint ir.Testable
+	// Module where constraint failed
+	Context trace.Context
 	// Row on which the constraint failed
 	Row uint
 }
@@ -40,8 +43,9 @@ func (p *VanishingFailure) Message() string {
 }
 
 // RequiredCells identifies the cells required to evaluate the failing constraint at the failing row.
-func (p *VanishingFailure) RequiredCells(trace tr.Trace) *set.AnySortedSet[tr.CellRef] {
-	return p.Constraint.RequiredCells(int(p.Row), trace)
+func (p *VanishingFailure) RequiredCells(tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
+	module := tr.Module(p.Context.ModuleId)
+	return p.Constraint.RequiredCells(int(p.Row), module)
 }
 
 func (p *VanishingFailure) String() string {
@@ -54,16 +58,13 @@ func (p *VanishingFailure) String() string {
 // ignored.  This is parameterised by the type of the constraint expression.
 // Thus, we can reuse this definition across the various intermediate
 // representations (e.g. Mid-Level IR, Arithmetic IR, etc).
-type VanishingConstraint[T sc.Testable] struct {
+type VanishingConstraint[T ir.Testable] struct {
 	// A unique identifier for this constraint.  This is primarily
 	// useful for debugging.
 	Handle string
-	// A further differentiator to manage distinct low-level constraints arising
-	// from high-level constraints.
-	Case uint
 	// Evaluation Context for this constraint which must match that of the
 	// constrained expression itself.
-	Context tr.Context
+	Context trace.Context
 	// Indicates (when empty) a global constraint that applies to all rows.
 	// Otherwise, indicates a local constraint which applies to the specific row
 	// given.
@@ -74,15 +75,22 @@ type VanishingConstraint[T sc.Testable] struct {
 }
 
 // NewVanishingConstraint constructs a new vanishing constraint!
-func NewVanishingConstraint[T sc.Testable](handle string, casenum uint, context tr.Context,
-	domain util.Option[int], constraint T) *VanishingConstraint[T] {
-	return &VanishingConstraint[T]{handle, casenum, context, domain, constraint}
+func NewVanishingConstraint[T ir.Testable](handle string, context trace.Context,
+	domain util.Option[int], constraint T) VanishingConstraint[T] {
+	return VanishingConstraint[T]{handle, context, domain, constraint}
+}
+
+// Consistent applies a number of internal consistency checks.  Whilst not
+// strictly necessary, these can highlight otherwise hidden problems as an aid
+// to debugging.
+func (p VanishingConstraint[E]) Consistent(schema schema.AnySchema) []error {
+	return checkConsistent(p.Context.ModuleId, schema, p.Constraint)
 }
 
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
-func (p *VanishingConstraint[E]) Name() (string, uint) {
-	return p.Handle, p.Case
+func (p VanishingConstraint[E]) Name() string {
+	return p.Handle
 }
 
 // Contexts returns the evaluation contexts (i.e. enclosing module + length
@@ -90,14 +98,8 @@ func (p *VanishingConstraint[E]) Name() (string, uint) {
 // evaluation context, though some (e.g. lookups) have more.  Note that all
 // constraints have at least one context (which we can call the "primary"
 // context).
-func (p *VanishingConstraint[E]) Contexts() []tr.Context {
-	return []tr.Context{p.Context}
-}
-
-// Branches returns the total number of logical branches this constraint can
-// take during evaluation.
-func (p *VanishingConstraint[E]) Branches() uint {
-	return p.Constraint.Branches()
+func (p VanishingConstraint[E]) Contexts() []trace.Context {
+	return []trace.Context{p.Context}
 }
 
 // Bounds determines the well-definedness bounds for this constraint for both
@@ -107,7 +109,7 @@ func (p *VanishingConstraint[E]) Branches() uint {
 // expression on that first row is also undefined (and hence must pass).
 //
 //nolint:revive
-func (p *VanishingConstraint[T]) Bounds(module uint) util.Bounds {
+func (p VanishingConstraint[T]) Bounds(module uint) util.Bounds {
 	if p.Context.Module() == module {
 		return p.Constraint.Bounds()
 	}
@@ -119,12 +121,17 @@ func (p *VanishingConstraint[T]) Bounds(module uint) util.Bounds {
 // of a table.  If so, return nil otherwise return an error.
 //
 //nolint:revive
-func (p *VanishingConstraint[T]) Accepts(tr tr.Trace) (bit.Set, sc.Failure) {
-	handle := determineHandle(p.Handle, p.Context, tr)
+func (p VanishingConstraint[T]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
+	var (
+		// Handle is used for error reporting.
+		handle = determineHandle(p.Handle, p.Context, tr)
+		// Determine enclosing module
+		module = tr.Module(p.Context.ModuleId)
+	)
 	//
 	if p.Domain.IsEmpty() {
 		// Global Constraint
-		return HoldsGlobally(handle, p.Context, p.Constraint, tr)
+		return HoldsGlobally(handle, p.Context, p.Constraint, module)
 	}
 	// Extract domain
 	domain := p.Domain.Unwrap()
@@ -142,7 +149,7 @@ func (p *VanishingConstraint[T]) Accepts(tr tr.Trace) (bit.Set, sc.Failure) {
 	//
 	var coverage bit.Set
 	// Check specific row
-	err, id := HoldsLocally(start, handle, p.Constraint, tr)
+	err, id := HoldsLocally(start, handle, p.Constraint, p.Context, module)
 	//
 	coverage.Insert(id)
 	//
@@ -151,17 +158,21 @@ func (p *VanishingConstraint[T]) Accepts(tr tr.Trace) (bit.Set, sc.Failure) {
 
 // HoldsGlobally checks whether a given expression vanishes (i.e. evaluates to
 // zero) for all rows of a trace.  If not, report an appropriate error.
-func HoldsGlobally[T sc.Testable](handle string, ctx tr.Context, constraint T, tr tr.Trace) (bit.Set, sc.Failure) {
-	var coverage bit.Set
-	// Determine height of enclosing module
-	height := tr.Height(ctx)
-	// Determine well-definedness bounds for this constraint
-	bounds := constraint.Bounds()
+func HoldsGlobally[T ir.Testable](handle string, ctx trace.Context, constraint T,
+	module trace.Module) (bit.Set, schema.Failure) {
+	//
+	var (
+		coverage bit.Set
+		// Determine height of enclosing module
+		height = module.Height() * ctx.Multiplier
+		// Determine well-definedness bounds for this constraint
+		bounds = constraint.Bounds()
+	)
 	// Sanity check enough rows
 	if bounds.End < height {
 		// Check all in-bounds values
 		for k := bounds.Start; k < (height - bounds.End); k++ {
-			err, id := HoldsLocally(k, handle, constraint, tr)
+			err, id := HoldsLocally(k, handle, constraint, ctx, module)
 			if err != nil {
 				return coverage, err
 			}
@@ -175,14 +186,16 @@ func HoldsGlobally[T sc.Testable](handle string, ctx tr.Context, constraint T, t
 
 // HoldsLocally checks whether a given constraint holds (e.g. vanishes) on a
 // specific row of a trace. If not, report an appropriate error.
-func HoldsLocally[T sc.Testable](k uint, handle string, constraint T, tr tr.Trace) (sc.Failure, uint) {
+func HoldsLocally[T ir.Testable](k uint, handle string, constraint T, ctx trace.Context,
+	tr trace.Module) (schema.Failure, uint) {
+	//
 	ok, id, err := constraint.TestAt(int(k), tr)
 	// Check for errors
 	if err != nil {
-		return &sc.InternalFailure{Handle: handle, Row: k, Term: constraint, Error: err.Error()}, id
+		return &InternalFailure{handle, ctx, k, constraint, err.Error()}, id
 	} else if !ok {
 		// Evaluation failure
-		return &VanishingFailure{handle, constraint, k}, id
+		return &VanishingFailure{handle, constraint, ctx, k}, id
 	}
 	// Success
 	return nil, id
@@ -191,8 +204,9 @@ func HoldsLocally[T sc.Testable](k uint, handle string, constraint T, tr tr.Trac
 // Lisp converts this constraint into an S-Expression.
 //
 //nolint:revive
-func (p *VanishingConstraint[T]) Lisp(schema sc.Schema) sexp.SExp {
+func (p VanishingConstraint[T]) Lisp(schema schema.AnySchema) sexp.SExp {
 	var (
+		module     = schema.Module(p.Context.ModuleId)
 		name       string
 		multiplier uint
 	)
@@ -201,16 +215,14 @@ func (p *VanishingConstraint[T]) Lisp(schema sc.Schema) sexp.SExp {
 		name = p.Handle
 		multiplier = 1
 	} else {
-		if module := schema.Modules().Nth(p.Context.Module()); module.Name != "" {
-			name = fmt.Sprintf("%s:%s", module.Name, p.Handle)
+		if module.Name() != "" {
+			name = fmt.Sprintf("%s:%s", module.Name(), p.Handle)
 		} else {
 			name = p.Handle
 		}
 		//
 		multiplier = p.Context.LengthMultiplier()
 	}
-	// Add case
-	name = fmt.Sprintf("%s#%d", name, p.Case)
 	// Handle attributes
 	if p.Domain.HasValue() {
 		switch p.Domain.Unwrap() {
@@ -229,10 +241,12 @@ func (p *VanishingConstraint[T]) Lisp(schema sc.Schema) sexp.SExp {
 		sexp.NewList([]sexp.SExp{
 			sexp.NewSymbol(name),
 			sexp.NewSymbol(fmt.Sprintf("x%d", multiplier))}),
-		p.Constraint.Lisp(schema),
+		p.Constraint.Lisp(module),
 	})
 }
 
-func determineHandle(handle string, ctx tr.Context, trace tr.Trace) string {
-	return fmt.Sprintf("%s.%s", trace.Modules().Nth(ctx.ModuleId).Name(), handle)
+func determineHandle(handle string, ctx trace.Context, tr trace.Trace) string {
+	modName := tr.Module(ctx.ModuleId).Name()
+	//
+	return trace.QualifiedColumnName(modName, handle)
 }

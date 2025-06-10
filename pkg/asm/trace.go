@@ -48,17 +48,18 @@ func LowerMicroTrace(p MicroTrace) []tr.RawColumn {
 // LowerMacroTrace this macro trace into a micro trace according to a given
 // lowering config.
 func LowerMacroTrace(cfg LoweringConfig, trace MacroTrace) MicroTrace {
-	var (
-		macroProgram   = trace.Program()
-		microProgram   = Lower(cfg, trace.Program())
-		microInstances = make([]io.FunctionInstance, len(trace.Instances()))
-	)
-	//
-	for i, inst := range trace.Instances() {
-		microInstances[i] = io.SplitInstance(cfg.MaxRegisterWidth, inst, macroProgram)
-	}
-	// Done
-	return io.NewTrace(microProgram, microInstances...)
+	// var (
+	// 	macroProgram   = trace.Program()
+	// 	microProgram   = Lower(cfg, trace.Program())
+	// 	microInstances = make([]io.FunctionInstance, len(trace.Instances()))
+	// )
+	// //
+	// for i, inst := range trace.Instances() {
+	// 	microInstances[i] = io.SplitInstance(cfg.MaxRegisterWidth, inst, macroProgram)
+	// }
+	// // Done
+	// return io.NewTrace(microProgram, microInstances...)
+	panic("todo")
 }
 
 // ============================================================================
@@ -85,7 +86,7 @@ func expandTrace[T io.Instruction[T]](trace io.Trace[T]) []tr.RawColumn {
 	//
 	for i, fn := range program.Functions() {
 		ith_traces := tracer.Traces(uint(i))
-		ith_columns := expandFunctionTrace(fn, ith_traces)
+		ith_columns := expandFunctionTrace(*fn, ith_traces)
 		columns = append(columns, ith_columns...)
 	}
 	//

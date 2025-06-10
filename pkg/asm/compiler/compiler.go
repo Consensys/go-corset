@@ -18,6 +18,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 )
@@ -47,11 +48,11 @@ type FunctionMapping[T any] struct {
 
 // ColumnsOf returns the underlying column identifiers for a given set of zero
 // or more registers.
-func (p *FunctionMapping[T]) ColumnsOf(registers ...uint) []T {
+func (p *FunctionMapping[T]) ColumnsOf(registers ...io.RegisterId) []T {
 	columns := make([]T, len(registers))
 	//
 	for i, r := range registers {
-		columns[i] = p.columns[r]
+		columns[i] = p.columns[r.Unwrap()]
 	}
 	//
 	return columns
@@ -103,16 +104,16 @@ func (p *Compiler[T, E, M]) Modules() []M {
 }
 
 // Compile a given set of micro functions
-func (p *Compiler[T, E, M]) Compile(fns ...MicroFunction) {
+func (p *Compiler[T, E, M]) Compile(fns ...*MicroFunction) {
 	p.modules = make([]M, len(fns))
 	p.buses = make([]FunctionMapping[T], len(fns))
 	// Initialise buses
 	for i, f := range fns {
-		p.initModule(uint(i), f)
+		p.initModule(uint(i), *f)
 	}
 	// Compiler functions
 	for _, fn := range fns {
-		p.compileFunction(fn)
+		p.compileFunction(*fn)
 	}
 }
 
@@ -147,7 +148,7 @@ func (p *Compiler[T, E, M]) initModule(busId uint, fn MicroFunction) {
 		bus    FunctionMapping[T]
 	)
 	// Initialise module correctly
-	module = module.Initialise(fn.Name())
+	module = module.Initialise(fn.Name(), busId)
 	p.modules[busId] = module
 	//
 	bus.name = fn.Name()
@@ -155,8 +156,7 @@ func (p *Compiler[T, E, M]) initModule(busId uint, fn MicroFunction) {
 	bus.columns = make([]T, len(fn.Registers()))
 	//
 	for i, reg := range fn.Registers() {
-		computed := !(reg.IsInput() || reg.IsOutput())
-		bus.columns[i] = module.NewColumn(reg.Name, reg.Width, computed)
+		bus.columns[i] = module.NewColumn(reg.Kind, reg.Name, reg.Width)
 	}
 	//
 	p.buses[busId] = bus
@@ -173,8 +173,8 @@ func (p *Compiler[T, E, M]) initFunctionFraming(busId uint, fn MicroFunction) (s
 		module = p.modules[busId]
 	)
 	// Allocate book keeping columns
-	stamp = module.NewColumn(STAMP_NAME, p.maxInstances, true)
-	pc = module.NewColumn(PC_NAME, pcWidth, true)
+	stamp = module.NewColumn(schema.COMPUTED_REGISTER, STAMP_NAME, p.maxInstances)
+	pc = module.NewColumn(schema.COMPUTED_REGISTER, PC_NAME, pcWidth)
 	//
 	stamp_i := Variable[T, E](stamp, 0)
 	stamp_im1 := Variable[T, E](stamp, -1)
@@ -229,7 +229,7 @@ func (p *Compiler[T, E, M]) initBuses(caller uint, fn MicroFunction) {
 			calleeLines[i] = Variable[T, E](r, 0)
 		}
 		// Add lookup constraint
-		module.NewLookup(name, callerLines, calleeLines)
+		module.NewLookup(name, callerLines, bus.BusId, calleeLines)
 	}
 }
 

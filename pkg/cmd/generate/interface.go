@@ -15,6 +15,7 @@ package generate
 import (
 	"errors"
 	"fmt"
+	"math"
 	"path/filepath"
 	"strings"
 
@@ -24,12 +25,12 @@ import (
 
 // JavaTraceInterfaceUnion generates a suitable interface capturing the given schema,
 // as outlined in the source map.
-func JavaTraceInterfaceUnion(filename string, pkgname string, super string,
+func JavaTraceInterfaceUnion(filename string, pkgname string,
 	binfiles []binfile.BinaryFile) (string, error) {
-	return javaTraceInterface(filename, pkgname, super, true, binfiles)
+	return javaTraceInterface(filename, pkgname, true, binfiles)
 }
 
-func javaTraceInterface(filename string, pkgname string, super string, union bool,
+func javaTraceInterface(filename string, pkgname string, union bool,
 	binfiles []binfile.BinaryFile) (string, error) {
 	//
 	var root corset.SourceModule
@@ -47,15 +48,16 @@ func javaTraceInterface(filename string, pkgname string, super string, union boo
 		}
 	}
 	// Finally, generate the interface
-	return generateInterface(filename, pkgname, super, true, root)
+	return generateInterface(filename, pkgname, root)
 }
 
-func generateInterface(filename string, pkgname string, super string, isRoot bool,
-	root corset.SourceModule) (string, error) {
+func generateInterface(filename string, pkgname string, root corset.SourceModule) (string, error) {
 	//
-	var builder strings.Builder
-	// Extract base of filename
-	basename := filepath.Base(filename)
+	var (
+		builder strings.Builder
+		// Extract base of filename
+		basename = filepath.Base(filename)
+	)
 	// Sanity check a request is made to generate a java source file.
 	if !strings.HasSuffix(basename, ".java") {
 		return "", errors.New("invalid Java classname")
@@ -64,7 +66,7 @@ func generateInterface(filename string, pkgname string, super string, isRoot boo
 	classname := strings.TrimSuffix(basename, ".java")
 	// begin generation
 	generateInterfaceHeader(pkgname, &builder)
-	generateInterfaceContents(classname, super, isRoot, root, indentBuilder{0, &builder})
+	generateInterfaceContents(classname, root, indentBuilder{0, &builder})
 
 	return builder.String(), nil
 }
@@ -82,17 +84,8 @@ func generateInterfaceHeader(pkgname string, builder *strings.Builder) {
 	builder.WriteString(" */\n")
 }
 
-func generateInterfaceContents(className string, super string, isRoot bool, mod corset.SourceModule,
-	builder indentBuilder) {
-	//
-	builder.WriteIndentedString("public interface ", className)
-	//
-	if super != "" {
-		builder.WriteString(" extends ")
-		builder.WriteString(super)
-	}
-	//
-	builder.WriteString(" {\n")
+func generateInterfaceContents(className string, mod corset.SourceModule, builder indentBuilder) {
+	builder.WriteIndentedString("public interface ", className, " {\n")
 	//
 	generateInterfaceConstants(mod.Constants, builder.Indent())
 	generateInterfaceSubmoduleAccessors(mod.Submodules, builder.Indent())
@@ -102,32 +95,19 @@ func generateInterfaceContents(className string, super string, isRoot bool, mod 
 	// Generate any submodules
 	for _, submod := range mod.Submodules {
 		if !submod.Virtual {
-			subclass, subinterface := determineSubNames(submod.Name, super)
-			generateInterfaceContents(subclass, subinterface, false, submod, builder.Indent())
+			generateInterfaceContents(toPascalCase(submod.Name), submod, builder.Indent())
 		} else {
 			generateInterfaceColumnSetters(className, submod, builder.Indent())
 		}
 	}
 	//
 	if mod.Name == "" {
-		if isRoot {
-			builder.WriteString(javaColumnHeader)
-		}
-		//
+		builder.WriteString(javaColumnHeader)
 		builder.WriteString(javaAddMetadataSignature)
 		builder.WriteString(javaOpenSignature)
 	}
 	//
 	builder.WriteIndentedString("}\n")
-}
-
-func determineSubNames(modName, superName string) (string, string) {
-	modName = toPascalCase(modName)
-	if superName != "" {
-		superName = fmt.Sprintf("%s.%s", superName, modName)
-	}
-
-	return modName, superName
 }
 
 func generateInterfaceSubmoduleAccessors(submodules []corset.SourceModule, builder indentBuilder) {
@@ -172,8 +152,8 @@ func generateInterfaceConstants(constants []corset.SourceConstant, builder inden
 			// TODO: for now, we always skip negative constants since it is
 			// entirely unclear how they should be interpreted.
 			continue
-		} else if constant.DataType != nil {
-			constructor, javaType = translateJavaType(constant.DataType, constant.Value)
+		} else if constant.Bitwidth != math.MaxUint {
+			constructor, javaType = translateJavaType(constant.Bitwidth, constant.Value)
 		} else {
 			constructor, javaType = inferJavaType(constant.Value)
 		}
@@ -204,13 +184,12 @@ func generateInterfaceColumnSetter(className string, methodName string, col cors
 	builder indentBuilder) {
 	//
 	methodName = toCamelCase(methodName)
-	bitwidth := col.DataType.BitWidth()
-	typeStr := getJavaType(bitwidth)
+	typeStr := getJavaType(col.Bitwidth)
 	//
 	builder.WriteIndentedString("default ", className, " ", methodName,
 		"(final ", typeStr, " val) { throw new IllegalArgumentException(); }\n")
 	// Legacy case for bytes
-	if bitwidth == 8 {
+	if col.Bitwidth == 8 {
 		builder.WriteIndentedString("default ", className, " ", methodName,
 			"(final UnsignedByte val) { throw new IllegalArgumentException(); }\n")
 	}

@@ -16,10 +16,9 @@ import (
 	"encoding/binary"
 	"fmt"
 
+	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
-	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
-	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
@@ -31,8 +30,10 @@ import (
 type LookupFailure struct {
 	// Handle of the failing constraint
 	Handle string
+	// Relevant context for source expressions.
+	Context trace.Context
 	// Source expressions which were missing
-	Sources []sc.Evaluable
+	Sources []ir.Evaluable
 	// Row on which the constraint failed
 	Row uint
 }
@@ -47,11 +48,12 @@ func (p *LookupFailure) String() string {
 }
 
 // RequiredCells identifies the cells required to evaluate the failing constraint at the failing row.
-func (p *LookupFailure) RequiredCells(trace tr.Trace) *set.AnySortedSet[tr.CellRef] {
-	res := set.NewAnySortedSet[tr.CellRef]()
+func (p *LookupFailure) RequiredCells(tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
+	module := tr.Module(p.Context.ModuleId)
+	res := set.NewAnySortedSet[trace.CellRef]()
 	//
 	for _, e := range p.Sources {
-		res.InsertSorted(e.RequiredCells(int(p.Row), trace))
+		res.InsertSorted(e.RequiredCells(int(p.Row), module))
 	}
 	//
 	return res
@@ -72,7 +74,7 @@ func (p *LookupFailure) RequiredCells(trace tr.Trace) *set.AnySortedSet[tr.CellR
 // pairs (and perhaps other constraints to ensure the required relationship) and
 // the source module is just checking that a given set of input/output pairs
 // makes sense.
-type LookupConstraint[E schema.Evaluable] struct {
+type LookupConstraint[E ir.Evaluable] struct {
 	// Handle returns the handle for this lookup constraint which is simply an
 	// identifier useful when debugging (i.e. to know which lookup failed, etc).
 	Handle string
@@ -89,19 +91,38 @@ type LookupConstraint[E schema.Evaluable] struct {
 }
 
 // NewLookupConstraint creates a new lookup constraint with a given handle.
-func NewLookupConstraint[E schema.Evaluable](handle string, source trace.Context,
-	target trace.Context, sources []E, targets []E) *LookupConstraint[E] {
+func NewLookupConstraint[E ir.Evaluable](handle string, source trace.Context,
+	target trace.Context, sources []E, targets []E) LookupConstraint[E] {
 	if len(targets) != len(sources) {
 		panic("differeng number of target / source lookup columns")
 	}
 
-	return &LookupConstraint[E]{handle, source, target, sources, targets}
+	return LookupConstraint[E]{handle, source, target, sources, targets}
+}
+
+// Consistent applies a number of internal consistency checks.  Whilst not
+// strictly necessary, these can highlight otherwise hidden problems as an aid
+// to debugging.
+func (p LookupConstraint[E]) Consistent(schema schema.AnySchema) []error {
+	var (
+		srcErrors = checkConsistent[E](p.SourceContext.ModuleId, schema, p.Sources...)
+		dstErrors = checkConsistent[E](p.TargetContext.ModuleId, schema, p.Targets...)
+		errors    = append(srcErrors, dstErrors...)
+	)
+	// Check consistent register widths
+	if len(p.Sources) != len(p.Targets) {
+		err := fmt.Errorf("inconsistent number of source / target registers (%d vs %d)", len(p.Sources), len(p.Targets))
+		errors = append(errors, err)
+	}
+	// TODO: check lookup widths (using range analysis?)
+	// Done
+	return errors
 }
 
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
-func (p *LookupConstraint[E]) Name() (string, uint) {
-	return p.Handle, 0
+func (p LookupConstraint[E]) Name() string {
+	return p.Handle
 }
 
 // Contexts returns the evaluation contexts (i.e. enclosing module + length
@@ -109,17 +130,9 @@ func (p *LookupConstraint[E]) Name() (string, uint) {
 // evaluation context, though some (e.g. lookups) have more.  Note that all
 // constraints have at least one context (which we can call the "primary"
 // context).
-func (p *LookupConstraint[E]) Contexts() []tr.Context {
+func (p LookupConstraint[E]) Contexts() []trace.Context {
 	// source context designated as primary.
-	return []tr.Context{p.SourceContext, p.TargetContext}
-}
-
-// Branches returns the total number of logical branches this constraint can
-// take during evaluation.
-func (p *LookupConstraint[E]) Branches() uint {
-	// NOTE: at the moment, we don't consider branches through lookups.  This is
-	// perhaps a degree of imprecision as some lookups have selectors.
-	return 1
+	return []trace.Context{p.SourceContext, p.TargetContext}
 }
 
 // Bounds determines the well-definedness bounds for this constraint for both
@@ -129,7 +142,7 @@ func (p *LookupConstraint[E]) Branches() uint {
 // expression on that first row is also undefined (and hence must pass).
 //
 //nolint:revive
-func (p *LookupConstraint[E]) Bounds(module uint) util.Bounds {
+func (p LookupConstraint[E]) Bounds(module uint) util.Bounds {
 	var bound util.Bounds
 	//
 	if module == p.SourceContext.Module() {
@@ -151,16 +164,20 @@ func (p *LookupConstraint[E]) Bounds(module uint) util.Bounds {
 // all rows of the source columns.
 //
 //nolint:revive
-func (p *LookupConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
-	var coverage bit.Set
-	// Determine height of enclosing module for source columns
-	src_height := tr.Height(p.SourceContext)
-	tgt_height := tr.Height(p.TargetContext)
-	//
-	rows := hash.NewSet[hash.BytesKey](tgt_height)
+func (p LookupConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
+	var (
+		coverage  bit.Set
+		srcModule = tr.Module(p.SourceContext.ModuleId)
+		tgtModule = tr.Module(p.TargetContext.ModuleId)
+		// Determine height of enclosing module for source columns
+		srcHeight = tr.Height(p.SourceContext)
+		tgtHeight = tr.Height(p.TargetContext)
+		//
+		rows = hash.NewSet[hash.BytesKey](tgtHeight)
+	)
 	// Add all target columns to the set
-	for i := 0; i < int(tgt_height); i++ {
-		ith_bytes, err := evalExprsAsBytes(i, p.Targets, p.Handle, tr)
+	for i := 0; i < int(tgtHeight); i++ {
+		ith_bytes, err := evalExprsAsBytes(i, p.Targets, p.Handle, p.TargetContext, tgtModule)
 		// error check
 		if err != nil {
 			return coverage, err
@@ -169,21 +186,22 @@ func (p *LookupConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) 
 		rows.Insert(hash.NewBytesKey(ith_bytes))
 	}
 	// Check all source columns are contained
-	for i := 0; i < int(src_height); i++ {
-		ith_bytes, err := evalExprsAsBytes(i, p.Sources, p.Handle, tr)
+	for i := 0; i < int(srcHeight); i++ {
+		ith_bytes, err := evalExprsAsBytes(i, p.Sources, p.Handle, p.SourceContext, srcModule)
 		// error check
 		if err != nil {
 			return coverage, err
 		}
 		// Check whether contained.
 		if !rows.Contains(hash.NewBytesKey(ith_bytes)) {
-			sources := make([]sc.Evaluable, len(p.Sources))
+			sources := make([]ir.Evaluable, len(p.Sources))
 			for i, e := range p.Sources {
 				sources[i] = e
 			}
 			// Construct failures
 			return coverage, &LookupFailure{
 				p.Handle,
+				p.SourceContext,
 				sources,
 				uint(i),
 			}
@@ -193,18 +211,19 @@ func (p *LookupConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) 
 	return coverage, nil
 }
 
-func evalExprsAsBytes[E schema.Evaluable](k int, sources []E, handle string, tr trace.Trace) ([]byte, schema.Failure) {
+func evalExprsAsBytes[E ir.Evaluable](k int, sources []E, handle string, ctx trace.Context,
+	module trace.Module) ([]byte, schema.Failure) {
 	// Each fr.Element is 4 x 64bit words.
 	bytes := make([]byte, 32*len(sources))
 	// Slice provides an access window for writing
 	slice := bytes
 	// Evaluate each expression in turn
 	for i := 0; i < len(sources); i++ {
-		ith, err := sources[i].EvalAt(k, tr)
+		ith, err := sources[i].EvalAt(k, module)
 		// error check
 		if err != nil {
-			return nil, &sc.InternalFailure{
-				Handle: handle, Row: uint(i), Term: sources[i], Error: err.Error(),
+			return nil, &InternalFailure{
+				handle, ctx, uint(i), sources[i], err.Error(),
 			}
 		}
 		// Copy over each element
@@ -223,16 +242,20 @@ func evalExprsAsBytes[E schema.Evaluable](k int, sources []E, handle string, tr 
 // so it can be printed.
 //
 //nolint:revive
-func (p *LookupConstraint[E]) Lisp(schema sc.Schema) sexp.SExp {
-	sources := sexp.EmptyList()
-	targets := sexp.EmptyList()
+func (p LookupConstraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
+	var (
+		sourceModule = schema.Module(p.SourceContext.ModuleId)
+		targetModule = schema.Module(p.TargetContext.ModuleId)
+		sources      = sexp.EmptyList()
+		targets      = sexp.EmptyList()
+	)
 	// Iterate source expressions
-	for i := 0; i < len(p.Sources); i++ {
-		sources.Append(p.Sources[i].Lisp(schema))
+	for i := range p.Sources {
+		sources.Append(p.Sources[i].Lisp(sourceModule))
 	}
 	// Iterate source expressions
-	for i := 0; i < len(p.Targets); i++ {
-		targets.Append(p.Targets[i].Lisp(schema))
+	for i := range p.Targets {
+		targets.Append(p.Targets[i].Lisp(targetModule))
 	}
 	// Done
 	return sexp.NewList([]sexp.SExp{

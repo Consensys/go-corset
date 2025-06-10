@@ -19,10 +19,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/consensys/go-corset/pkg/asm"
 	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/cmd/generate"
-	"github.com/consensys/go-corset/pkg/corset"
+	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
+	sc "github.com/consensys/go-corset/pkg/schema"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -33,25 +33,26 @@ var generateCmd = &cobra.Command{
 	Long:  `Generate suitable Java class(es) for integration with a Java-based tracer generator.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		var (
-			corsetConfig corset.CompilationConfig
-			source       string
-			err          error
-			binfiles     []binfile.BinaryFile
-			super        string
+			source   string
+			err      error
+			binfiles []binfile.BinaryFile
+			super    string
 		)
 		// Configure log level
 		if GetFlag(cmd, "verbose") {
 			log.SetLevel(log.DebugLevel)
 		}
 		//
-		corsetConfig.Stdlib = !GetFlag(cmd, "no-stdlib")
-		corsetConfig.Legacy = GetFlag(cmd, "legacy")
-		asmConfig := parseLoweringConfig(cmd)
 		outputs := GetStringArray(cmd, "output")
 		pkgname := GetString(cmd, "package")
 		intrface := GetString(cmd, "interface")
 		// Parse constraints
-		binfiles = readConstraintSets(corsetConfig, asmConfig, args)
+		files := splitConstraintSets(args)
+		schemas := make([]cmd_util.SchemaStack, len(files))
+		//
+		for i := range schemas {
+			schemas[i] = *getSchemaStack(cmd, SCHEMA_DEFAULT_AIR, files[i]...)
+		}
 		//
 		if len(outputs) < len(binfiles) {
 			fmt.Println("insufficient output Java files specified.")
@@ -60,7 +61,7 @@ var generateCmd = &cobra.Command{
 		//
 		if intrface != "" {
 			// Attempt to write java interface
-			source, err = generate.JavaTraceInterfaceUnion(intrface, pkgname, "", binfiles)
+			source, err = generate.JavaTraceInterfaceUnion(intrface, pkgname, binfiles)
 			// check for errors
 			checkError(err)
 			// write out class file
@@ -70,12 +71,15 @@ var generateCmd = &cobra.Command{
 			super = strings.TrimSuffix(filename, ".java")
 		}
 		//
-		for i, bf := range binfiles {
-			filename := outputs[i]
+		for i, stack := range schemas {
+			var (
+				filename = outputs[i]
+				binf     = stack.BinaryFile()
+			)
 			// NOTE: assume defensive padding is enabled.
-			spillage := determineConservativeSpillage(true, &bf.Schema)
+			spillage := determineSpillage(stack.LowestSchema(), true)
 			// Generate appropriate Java source
-			source, err = generate.JavaTraceClass(filename, pkgname, super, spillage, &bf)
+			source, err = generate.JavaTraceClass(filename, pkgname, super, spillage, binf)
 			// check for errors
 			checkError(err)
 			// write out class file
@@ -103,26 +107,35 @@ func writeJavaFile(filename, source string) {
 // to generate a single binary file from the lisp files.  In the second case,
 // well we just have multiple binary files.  If there's a mixture, it will abort
 // for now.
-func readConstraintSets(corsetCfg corset.CompilationConfig, asmCfg asm.LoweringConfig,
-	filenames []string) []binfile.BinaryFile {
-	var binfiles []binfile.BinaryFile = make([]binfile.BinaryFile, len(filenames))
+func splitConstraintSets(filenames []string) [][]string {
+	var (
+		binfiles [][]string
+		srcfiles []string
+	)
 	//
-	for i, f := range filenames {
+	for _, f := range filenames {
 		if path.Ext(f) == ".lisp" {
-			binf := ReadConstraintFiles(corsetCfg, asmCfg, filenames)
-			return []binfile.BinaryFile{*binf}
-		}
-		//
-		binfiles[i] = *ReadBinaryFile(f)
-		// Check we have source mapping info.
-		// Sanity check debug information is available.
-		if _, srcmap_ok := binfile.GetAttribute[*corset.SourceMap](&binfiles[i]); !srcmap_ok {
-			fmt.Printf("constraints file(s) \"%s\" missing source map", f)
-			os.Exit(1)
+			srcfiles = append(srcfiles, f)
+		} else {
+			binfiles = append(binfiles, []string{f})
 		}
 	}
 	//
-	return binfiles
+	return append(binfiles, srcfiles)
+}
+
+// Determine spillage required for a given schema and optimisation configuration
+// with (or without) defensive padding.
+func determineSpillage(schema sc.AnySchema, defensive bool) []uint {
+	nModules := schema.Width()
+	//
+	spillage := make([]uint, nModules)
+	// Iterate modules and print spillage
+	for mid := uint(0); mid < nModules; mid++ {
+		spillage[mid] = sc.RequiredPaddingRows(mid, defensive, schema)
+	}
+	//
+	return spillage
 }
 
 //nolint:errcheck

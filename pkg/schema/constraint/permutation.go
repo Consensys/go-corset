@@ -14,9 +14,10 @@ package constraint
 
 import (
 	"fmt"
+	"strings"
 
-	sc "github.com/consensys/go-corset/pkg/schema"
-	tr "github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -43,29 +44,37 @@ type PermutationConstraint struct {
 	Handle string
 	// Evaluation Context for this constraint which must match that of the
 	// source and target expressions.
-	Context tr.Context
+	Context trace.Context
 	// Targets returns the indices of the columns composing the "left" table of the
 	// permutation.
-	Targets []uint
+	Targets []schema.RegisterId
 	// Sources returns the indices of the columns composing the "right" table of the
 	// permutation.
-	Sources []uint
+	Sources []schema.RegisterId
 }
 
 // NewPermutationConstraint creates a new permutation
-func NewPermutationConstraint(handle string, context tr.Context, targets []uint,
-	sources []uint) *PermutationConstraint {
+func NewPermutationConstraint(handle string, context trace.Context, targets []schema.RegisterId,
+	sources []schema.RegisterId) PermutationConstraint {
 	if len(targets) != len(sources) {
 		panic("differeng number of target / source permutation columns")
 	}
 
-	return &PermutationConstraint{handle, context, targets, sources}
+	return PermutationConstraint{handle, context, targets, sources}
+}
+
+// Consistent applies a number of internal consistency checks.  Whilst not
+// strictly necessary, these can highlight otherwise hidden problems as an aid
+// to debugging.
+func (p PermutationConstraint) Consistent(schema schema.AnySchema) []error {
+	// TODO: check column access, and widths, etc.
+	return nil
 }
 
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
-func (p *PermutationConstraint) Name() (string, uint) {
-	return p.Handle, 0
+func (p PermutationConstraint) Name() string {
+	return p.Handle
 }
 
 // Contexts returns the evaluation contexts (i.e. enclosing module + length
@@ -73,14 +82,8 @@ func (p *PermutationConstraint) Name() (string, uint) {
 // evaluation context, though some (e.g. lookups) have more.  Note that all
 // constraints have at least one context (which we can call the "primary"
 // context).
-func (p *PermutationConstraint) Contexts() []tr.Context {
-	return []tr.Context{p.Context}
-}
-
-// Branches returns the total number of logical branches this constraint can
-// take during evaluation.
-func (p *PermutationConstraint) Branches() uint {
-	return 1
+func (p PermutationConstraint) Contexts() []trace.Context {
+	return []trace.Context{p.Context}
 }
 
 // Bounds determines the well-definedness bounds for this constraint for both
@@ -88,26 +91,30 @@ func (p *PermutationConstraint) Branches() uint {
 // expression such as "(shift X -1)".  This is technically undefined for the
 // first row of any trace and, by association, any constraint evaluating this
 // expression on that first row is also undefined (and hence must pass).
-func (p *PermutationConstraint) Bounds(module uint) util.Bounds {
+func (p PermutationConstraint) Bounds(module uint) util.Bounds {
 	return util.EMPTY_BOUND
 }
 
 // Accepts checks whether a permutation holds between the source and
 // target columns.
-func (p *PermutationConstraint) Accepts(trace tr.Trace) (bit.Set, sc.Failure) {
-	// Coverage currently always empty for permutation constraints.
-	var coverage bit.Set
+func (p PermutationConstraint) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
+	var (
+		// Coverage currently always empty for permutation constraints.
+		coverage bit.Set
+		// Determine enclosing module
+		module trace.Module = tr.Module(p.Context.ModuleId)
+	)
 	// Slice out data
-	src := sliceColumns(p.Sources, trace)
-	dst := sliceColumns(p.Targets, trace)
+	src := sliceColumns(p.Sources, module)
+	dst := sliceColumns(p.Targets, module)
 	// Sanity check whether column exists
 	if util.ArePermutationOf(dst, src) {
 		// Success
 		return coverage, nil
 	}
 	// Prepare suitable error message
-	src_names := tr.QualifiedColumnNamesToCommaSeparatedString(p.Sources, trace)
-	dst_names := tr.QualifiedColumnNamesToCommaSeparatedString(p.Targets, trace)
+	src_names := qualifiedColumnNamesToCommaSeparatedString(p.Sources, module)
+	dst_names := qualifiedColumnNamesToCommaSeparatedString(p.Targets, module)
 	//
 	msg := fmt.Sprintf("Target columns (%s) not permutation of source columns (%s)",
 		dst_names, src_names)
@@ -117,18 +124,21 @@ func (p *PermutationConstraint) Accepts(trace tr.Trace) (bit.Set, sc.Failure) {
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (p *PermutationConstraint) Lisp(schema sc.Schema) sexp.SExp {
-	targets := sexp.EmptyList()
-	sources := sexp.EmptyList()
+func (p PermutationConstraint) Lisp(schema schema.AnySchema) sexp.SExp {
+	var (
+		module  = schema.Module(p.Context.ModuleId)
+		targets = sexp.EmptyList()
+		sources = sexp.EmptyList()
+	)
 
 	for _, tid := range p.Targets {
-		target := schema.Columns().Nth(tid)
-		targets.Append(sexp.NewSymbol(target.QualifiedName(schema)))
+		target := module.Register(tid)
+		targets.Append(sexp.NewSymbol(target.QualifiedName(module)))
 	}
 
 	for _, sid := range p.Sources {
-		source := schema.Columns().Nth(sid)
-		sources.Append(sexp.NewSymbol(source.QualifiedName(schema)))
+		source := module.Register(sid)
+		sources.Append(sexp.NewSymbol(source.QualifiedName(module)))
 	}
 
 	return sexp.NewList([]sexp.SExp{
@@ -138,15 +148,31 @@ func (p *PermutationConstraint) Lisp(schema sc.Schema) sexp.SExp {
 	})
 }
 
-func sliceColumns(columns []uint, tr tr.Trace) []field.FrArray {
+func sliceColumns(columns []schema.RegisterId, tr trace.Module) []field.FrArray {
 	// Allocate return array
 	cols := make([]field.FrArray, len(columns))
 	// Slice out the data
 	for i, n := range columns {
-		nth := tr.Column(n)
+		nth := tr.Column(n.Unwrap())
 		// Copy over
 		cols[i] = nth.Data()
 	}
 	// Done
 	return cols
+}
+
+// QualifiedColumnNamesToCommaSeparatedString produces a suitable string for use
+// in error messages from a list of one or more column identifies.
+func qualifiedColumnNamesToCommaSeparatedString(columns []schema.RegisterId, module trace.Module) string {
+	var names strings.Builder
+
+	for i, c := range columns {
+		if i != 0 {
+			names.WriteString(",")
+		}
+
+		names.WriteString(module.Column(c.Unwrap()).Name())
+	}
+	// Done
+	return names.String()
 }

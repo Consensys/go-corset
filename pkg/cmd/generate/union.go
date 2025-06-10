@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/corset"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // Intersect two source modules, producing one source module which contains only
@@ -32,7 +33,7 @@ func unionModules(left corset.SourceModule, right corset.SourceModule) *corset.S
 		Name:       left.Name,
 		Synthetic:  false,
 		Virtual:    left.Virtual,
-		Selector:   nil,
+		Selector:   util.None[string](),
 		Submodules: unionSubmodules(left.Submodules, right.Submodules),
 		Columns:    unionColumns(left.Columns, right.Columns),
 		Constants:  unionConstants(left.Constants, right.Constants),
@@ -129,10 +130,7 @@ func unionColumn(left corset.SourceColumn, right corset.SourceColumn) *corset.So
 		panic("inconsistent column type")
 	}
 	//
-	lwidth := left.DataType.BitWidth()
-	rwidth := right.DataType.BitWidth()
-	//
-	if lwidth >= rwidth {
+	if left.Bitwidth >= right.Bitwidth {
 		return &left
 	}
 	//
@@ -179,8 +177,8 @@ func compareColumns(left corset.SourceColumn, right corset.SourceColumn) int {
 		return c
 	}
 	//
-	lwidth := normaliseBitwidth(left.DataType.BitWidth())
-	rwidth := normaliseBitwidth(right.DataType.BitWidth())
+	lwidth := normaliseBitwidth(left.Bitwidth)
+	rwidth := normaliseBitwidth(right.Bitwidth)
 	//
 	return int(lwidth) - int(rwidth)
 }

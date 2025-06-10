@@ -15,7 +15,6 @@ package trace
 import (
 	"fmt"
 	"math"
-	"strings"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
@@ -25,10 +24,6 @@ import (
 // ArrayTrace provides an implementation of Trace which stores columns as an
 // array.
 type ArrayTrace struct {
-	// Holds the complete set of columns in this trace.  The index of each
-	// column in this array uniquely identifies it, and is referred to as the
-	// "column index".
-	columns []ArrayColumn
 	// Holds the height of each module in this trace.  The index of each
 	// module in this array uniquely identifies it, and is referred to as the
 	// "module index".
@@ -36,18 +31,42 @@ type ArrayTrace struct {
 }
 
 // NewArrayTrace constructs a trace from a given set of indexed modules and columns.
-func NewArrayTrace(modules []ArrayModule, columns []ArrayColumn) *ArrayTrace {
-	return &ArrayTrace{columns, modules}
+func NewArrayTrace(modules []ArrayModule) *ArrayTrace {
+	return &ArrayTrace{modules}
+}
+
+// HasModule determines whether this trace has a module with the given name and,
+// if so, what its module index is.
+func (p *ArrayTrace) HasModule(module string) (uint, bool) {
+	// Linea scan through list of modules
+	for mid, mod := range p.modules {
+		if mod.name == module {
+			return uint(mid), true
+		}
+	}
+	//
+	return math.MaxUint, false
+}
+
+// Module returns a specific module in this trace.
+func (p *ArrayTrace) Module(module uint) Module {
+	return p.modules[module]
+}
+
+// RawModule returns a specific module in this trace.
+func (p *ArrayTrace) RawModule(module uint) *ArrayModule {
+	return &p.modules[module]
 }
 
 // Modules returns an iterator over the modules in this trace.
-func (p *ArrayTrace) Modules() iter.Iterator[ArrayModule] {
-	return iter.NewArrayIterator(p.modules)
+func (p *ArrayTrace) Modules() iter.Iterator[Module] {
+	arr := iter.NewArrayIterator(p.modules)
+	return iter.NewCastIterator[ArrayModule, Module](arr)
 }
 
 // Width returns number of columns in this trace.
 func (p *ArrayTrace) Width() uint {
-	return uint(len(p.columns))
+	return uint(len(p.modules))
 }
 
 // Height returns the height of a given context (i.e. module) in the trace.
@@ -55,92 +74,14 @@ func (p *ArrayTrace) Height(ctx Context) uint {
 	return p.modules[ctx.Module()].height * ctx.Multiplier
 }
 
-// Column returns a given column in this trace.
-func (p *ArrayTrace) Column(cid uint) Column {
-	return &p.columns[cid]
-}
-
-// FillColumn sets the data and padding for the given column.  This will panic
-// if the data is already set.
-func (p *ArrayTrace) FillColumn(cid uint, data field.FrArray, padding fr.Element) {
-	// Find column to fill
-	col := &p.columns[cid]
-	// Find enclosing module
-	mod := &p.modules[col.Context().Module()]
-	// Determine appropriate length multiplier
-	multiplier := col.context.Multiplier
-	// Sanity check this column has not already been filled.
-	if data.Len()%multiplier != 0 {
-		colname := QualifiedColumnName(mod.name, col.name)
-		panic(fmt.Sprintf("column %s has invalid length multiplier (%d indivisible by %d)",
-			colname, data.Len(), multiplier))
-	} else if mod.height == math.MaxUint {
-		// Initialise column height
-		mod.height = data.Len() / col.context.Multiplier
-	} else if data.Len() != p.Height(col.Context()) {
-		colname := QualifiedColumnName(mod.name, col.name)
-		panic(fmt.Sprintf("column %s has invalid height (%d but expected %d)", colname, data.Len(), mod.height*multiplier))
-	}
-	// Fill the column
-	col.fill(data, padding)
-}
-
 // Pad prepends (front) and appends (back) a given module with a given number of
 // padding rows.
 func (p *ArrayTrace) Pad(module uint, front uint, back uint) {
-	p.modules[module].height += front + back
-	// Padd each column contained within this module.
-	for i := 0; i < len(p.columns); i++ {
-		c := &p.columns[i]
-		if c.context.ModuleId == module {
-			c.pad(front, back)
-		}
-	}
+	p.modules[module].Pad(front, back)
 }
 
 func (p *ArrayTrace) String() string {
-	// Use string builder to try and make this vaguely efficient.
-	var id strings.Builder
-
-	id.WriteString("{")
-
-	for i := 0; i < len(p.columns); i++ {
-		ith := p.columns[i]
-
-		if i != 0 {
-			id.WriteString(",")
-		}
-
-		modName := p.modules[ith.Context().Module()].name
-		if modName != "" {
-			id.WriteString(modName)
-			id.WriteString(".")
-		}
-
-		id.WriteString(ith.Name())
-		// Sanity check whether filled or not.
-		if ith.Data() == nil {
-			id.WriteString("=⊥")
-		} else {
-			id.WriteString("={")
-			// Print out each element
-			for j := uint(0); j < ith.Height(); j++ {
-				jth := ith.Get(int(j))
-
-				if j != 0 {
-					id.WriteString(",")
-				}
-
-				id.WriteString(jth.String())
-			}
-
-			id.WriteString("}")
-		}
-	}
-
-	id.WriteString("}")
-	//
-	return id.String()
+	panic("todo")
 }
 
 // ----------------------------------------------------------------------------
@@ -151,12 +92,33 @@ type ArrayModule struct {
 	name string
 	// Holds the height of all columns within this module.
 	height uint
+	// Holds the complete set of columns in this trace.  The index of each
+	// column in this array uniquely identifies it, and is referred to as the
+	// "column index".
+	columns []ArrayColumn
 }
 
-// EmptyArrayModule constructs a module with the given name and an (as yet)
+// NewArrayModule constructs a module with the given name and an (as yet)
 // unspecified height.
-func EmptyArrayModule(name string) ArrayModule {
-	return ArrayModule{name, math.MaxUint}
+func NewArrayModule(name string, columns []ArrayColumn) ArrayModule {
+	var (
+		height uint = 0
+		first       = true
+	)
+
+	//
+	for _, c := range columns {
+		if first && c.data != nil {
+			height = c.Height()
+			first = false
+		} else if c.data != nil && height != c.Height() {
+			// NOTE: we ignore nil columns and assume they are computed columns
+			// which are yet to be filled.
+			panic(fmt.Sprintf("invalid column height (have %d, expected %d)", c.Height(), height))
+		}
+	}
+	//
+	return ArrayModule{name, height, columns}
 }
 
 // Name returns the name of this module.
@@ -164,10 +126,64 @@ func (p ArrayModule) Name() string {
 	return p.name
 }
 
+// Column returns a specific column within this trace module.
+func (p ArrayModule) Column(id uint) Column {
+	return &p.columns[id]
+}
+
+// ColumnOf returns a specific column within this trace module.
+func (p ArrayModule) ColumnOf(name string) Column {
+	for _, c := range p.columns {
+		if c.name == name {
+			return &c
+		}
+	}
+	//
+	panic(fmt.Sprintf("unknown column \"%s\"", name))
+}
+
 // Height returns the height of this module, meaning the number of assigned
 // rows.
 func (p ArrayModule) Height() uint {
 	return p.height
+}
+
+// Width returns the number of columns in this module.
+func (p ArrayModule) Width() uint {
+	return uint(len(p.columns))
+}
+
+// FillColumn sets the data and padding for the given column.  This will panic
+// if the data is already set.
+func (p *ArrayModule) FillColumn(cid uint, data field.FrArray, padding fr.Element) {
+	// Find column to fill
+	col := &p.columns[cid]
+	// Determine appropriate length multiplier
+	multiplier := col.context.Multiplier
+	// Sanity check this column has not already been filled.
+	if data.Len()%multiplier != 0 {
+		colname := QualifiedColumnName(p.name, col.name)
+		panic(fmt.Sprintf("column %s has invalid length multiplier (%d indivisible by %d)",
+			colname, data.Len(), multiplier))
+	} else if p.height == math.MaxUint {
+		// Initialise column height
+		p.height = data.Len() / col.context.Multiplier
+	} else if data.Len() != p.Height() {
+		colname := QualifiedColumnName(p.name, col.name)
+		panic(fmt.Sprintf("column %s has invalid height (%d but expected %d)", colname, data.Len(), p.height*multiplier))
+	}
+	// Fill the column
+	col.fill(data, padding)
+}
+
+// Pad prepends (front) and appends (back) all columns in this module with a
+// given number of padding rows.
+func (p *ArrayModule) Pad(front uint, back uint) {
+	p.height += front + back
+	// Padd each column contained within this module.
+	for i := 0; i < len(p.columns); i++ {
+		p.columns[i].pad(front, back)
+	}
 }
 
 // ----------------------------------------------------------------------------
@@ -184,11 +200,15 @@ type ArrayColumn struct {
 	padding fr.Element
 }
 
-// NewArrayColumn constructs a  with the give name, data and padding.
+// NewArrayColumn constructs a with the give name, data and padding.  The given
+// data is permitted to be nil, and this is used to signal a computed column.
 func NewArrayColumn(context Context, name string, data field.FrArray,
 	padding fr.Element) ArrayColumn {
 	col := EmptyArrayColumn(context, name)
-	col.fill(data, padding)
+	// Data is permitted to be nil for computed columns.
+	if data != nil {
+		col.fill(data, padding)
+	}
 	//
 	return col
 }

@@ -81,7 +81,7 @@ func NewStateTranslator[T any, E Expr[T, E], M Module[T, E, M]](mapping Translat
 	// Remove those which are actually modified
 	for _, code := range insn.Codes {
 		for _, reg := range code.RegistersWritten() {
-			constants.Remove(reg)
+			constants.Remove(reg.Unwrap())
 		}
 	}
 	//
@@ -128,15 +128,15 @@ func (p *StateTranslator[T, E, M]) Clone() StateTranslator[T, E, M] {
 // by a given microinstruction.  This activates forwarding for those registers
 // for all states after this, and returns suitable expressions for the
 // assignment.
-func (p *StateTranslator[T, E, M]) WriteRegisters(targets []uint) []E {
+func (p *StateTranslator[T, E, M]) WriteRegisters(targets []io.RegisterId) []E {
 	lhs := make([]E, len(targets))
 	// build up the lhs
 	for i, dst := range targets {
-		lhs[i] = Variable[T, E](p.mapping.Columns[dst], 0)
+		lhs[i] = Variable[T, E](p.mapping.Columns[dst.Unwrap()], 0)
 		// Activate forwarding for this register
-		p.forwarded.Insert(dst)
+		p.forwarded.Insert(dst.Unwrap())
 		// Mark register as having been written.
-		p.mutated.Insert(dst)
+		p.mutated.Insert(dst.Unwrap())
 	}
 	//
 	return lhs
@@ -146,22 +146,22 @@ func (p *StateTranslator[T, E, M]) WriteRegisters(targets []uint) []E {
 // written by a given microinstruction, and also shifts them (i.e. so they can
 // be combined in a sum).  This activates forwarding for those registers for all
 // states after this, and returns suitable expressions for the assignment.
-func (p *StateTranslator[T, E, M]) WriteAndShiftRegisters(targets []uint) []E {
+func (p *StateTranslator[T, E, M]) WriteAndShiftRegisters(targets []io.RegisterId) []E {
 	lhs := make([]E, len(targets))
 	offset := big.NewInt(1)
 	// build up the lhs
 	for i, dst := range targets {
-		lhs[i] = Variable[T, E](p.mapping.Columns[dst], 0)
+		lhs[i] = Variable[T, E](p.mapping.Columns[dst.Unwrap()], 0)
 		//
 		if i != 0 {
 			lhs[i] = BigNumber[T, E](offset).Multiply(lhs[i])
 		}
 		// left shift offset by given register width.
-		offset.Lsh(offset, p.mapping.Registers[dst].Width)
+		offset.Lsh(offset, p.mapping.Registers[dst.Unwrap()].Width)
 		// Activate forwarding for this register
-		p.forwarded.Insert(dst)
+		p.forwarded.Insert(dst.Unwrap())
 		// Mark register as having been written.
-		p.mutated.Insert(dst)
+		p.mutated.Insert(dst.Unwrap())
 	}
 	//
 	return lhs
@@ -169,13 +169,13 @@ func (p *StateTranslator[T, E, M]) WriteAndShiftRegisters(targets []uint) []E {
 
 // ReadRegister constructs a suitable accessor for referring to a given register.
 // This applies forwarding as appropriate.
-func (p *StateTranslator[T, E, M]) ReadRegister(reg uint) E {
-	rid := p.mapping.Columns[reg]
+func (p *StateTranslator[T, E, M]) ReadRegister(reg io.RegisterId) E {
+	rid := p.mapping.Columns[reg.Unwrap()]
 	//
-	if p.mapping.Registers[reg].IsInput() {
+	if p.mapping.Registers[reg.Unwrap()].IsInput() {
 		// Inputs don't need to refer back
 		return Variable[T, E](rid, 0)
-	} else if p.forwarded.Contains(reg) {
+	} else if p.forwarded.Contains(reg.Unwrap()) {
 		// Forwarded
 		return Variable[T, E](rid, 0)
 	}
@@ -185,7 +185,7 @@ func (p *StateTranslator[T, E, M]) ReadRegister(reg uint) E {
 
 // ReadRegisters constructs appropriate column accesses for a given set of
 // registers.  When appropriate, forwarding will be applied automatically.
-func (p *StateTranslator[T, E, M]) ReadRegisters(sources []uint) []E {
+func (p *StateTranslator[T, E, M]) ReadRegisters(sources []io.RegisterId) []E {
 	rhs := make([]E, len(sources))
 	// build up the lhs
 	for i, src := range sources {

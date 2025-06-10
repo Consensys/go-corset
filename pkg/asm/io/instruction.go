@@ -50,9 +50,9 @@ type Instruction[T any] interface {
 	// encountered).
 	Execute(state State) uint
 	// Registers returns the set of registers read this micro instruction.
-	RegistersRead() []uint
+	RegistersRead() []RegisterId
 	// Registers returns the set of registers written by this micro instruction.
-	RegistersWritten() []uint
+	RegistersWritten() []RegisterId
 	// Validate that this instruction is well-formed.  For example, that it is
 	// balanced, that there are no conflicting writes, that all temporaries have
 	// been allocated, etc.  The maximum bit capacity of the underlying field is

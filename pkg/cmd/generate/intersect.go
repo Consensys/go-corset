@@ -13,11 +13,11 @@
 package generate
 
 import (
-	"reflect"
 	"slices"
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/corset"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // Intersect two source modules, producing one source module which contains only
@@ -33,7 +33,7 @@ func intersectModules(left corset.SourceModule, right corset.SourceModule) *cors
 		Name:       left.Name,
 		Synthetic:  false,
 		Virtual:    left.Virtual,
-		Selector:   nil,
+		Selector:   util.None[string](),
 		Submodules: intersectSubmodules(left.Submodules, right.Submodules),
 		Columns:    intersectColumns(left.Columns, right.Columns),
 		Constants:  intersectConstants(left.Constants, right.Constants),
@@ -116,7 +116,7 @@ func intersectColumn(left corset.SourceColumn, right corset.SourceColumn) *corse
 		panic("unreachable")
 	} else if left.Multiplier != right.Multiplier {
 		return nil
-	} else if !reflect.DeepEqual(left.DataType, right.DataType) {
+	} else if left.Bitwidth != right.Bitwidth {
 		return nil
 	} else if left.Computed != right.Computed {
 		return nil
@@ -163,7 +163,7 @@ func intersectConstants(left []corset.SourceConstant, right []corset.SourceConst
 func intersectConstant(left corset.SourceConstant, right corset.SourceConstant) *corset.SourceConstant {
 	if left.Name != right.Name {
 		panic("unreachable")
-	} else if !reflect.DeepEqual(left.DataType, right.DataType) {
+	} else if left.Bitwidth != right.Bitwidth {
 		return nil
 	} else if left.Value.Cmp(&right.Value) != 0 {
 		return nil

@@ -38,9 +38,9 @@ import (
 // particular example, c represents a carry flag.
 type Add struct {
 	// Target registers for addition
-	Targets []uint
+	Targets []io.RegisterId
 	// Source register for addition
-	Sources []uint
+	Sources []io.RegisterId
 	// Constant value (if applicable)
 	Constant big.Int
 }
@@ -75,12 +75,12 @@ func (p *Add) Lower(pc uint) micro.Instruction {
 }
 
 // RegistersRead returns the set of registers read by this instruction.
-func (p *Add) RegistersRead() []uint {
+func (p *Add) RegistersRead() []io.RegisterId {
 	return p.Sources
 }
 
 // RegistersWritten returns the set of registers written by this instruction.
-func (p *Add) RegistersWritten() []uint {
+func (p *Add) RegistersWritten() []io.RegisterId {
 	return p.Targets
 }
 
@@ -105,11 +105,11 @@ func (p *Add) Validate(fieldWidth uint, fn io.Function[Instruction]) error {
 	return io.CheckTargetRegisters(p.Targets, regs)
 }
 
-func sumSourceBits(sources []uint, constant big.Int, regs []io.Register) uint {
+func sumSourceBits(sources []io.RegisterId, constant big.Int, regs []io.Register) uint {
 	var rhs big.Int
 	//
 	for _, target := range sources {
-		rhs.Add(&rhs, regs[target].MaxValue())
+		rhs.Add(&rhs, regs[target.Unwrap()].MaxValue())
 	}
 	// Include constant (if relevant)
 	rhs.Add(&rhs, &constant)
@@ -118,11 +118,11 @@ func sumSourceBits(sources []uint, constant big.Int, regs []io.Register) uint {
 }
 
 // Sum the total number of bits used by the given set of target registers.
-func sumTargetBits(targets []uint, regs []io.Register) uint {
+func sumTargetBits(targets []io.RegisterId, regs []io.Register) uint {
 	sum := uint(0)
 	//
 	for _, target := range targets {
-		sum += regs[target].Width
+		sum += regs[target.Unwrap()].Width
 	}
 	//
 	return sum

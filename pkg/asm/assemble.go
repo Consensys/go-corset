@@ -13,7 +13,6 @@
 package asm
 
 import (
-	"fmt"
 	"math"
 	"slices"
 
@@ -22,7 +21,8 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/macro"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
-	corset_ast "github.com/consensys/go-corset/pkg/corset/ast"
+	"github.com/consensys/go-corset/pkg/ir/mir"
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
@@ -45,6 +45,14 @@ type MacroProgram = io.Program[macro.Instruction]
 
 // MicroProgram represents a set of components at the micro level.
 type MicroProgram = io.Program[micro.Instruction]
+
+// MixedMacroProgram is a schema comprised of both macro assembly components and
+// MIR components (hence the term mixed).
+type MixedMacroProgram = schema.MixedSchema[*MacroFunction, mir.Module]
+
+// MixedMicroProgram is a schema comprised of both micro assembly components and
+// MIR components (hence the term mixed).
+type MixedMicroProgram = schema.MixedSchema[*MicroFunction, mir.Module]
 
 // Assemble takes a given set of assembly files, and parses them into a given
 // set of functions.  This includes performing various checks on the files, such
@@ -80,23 +88,6 @@ func Assemble(assembly ...source.File) (
 	return program, srcmaps, errors
 }
 
-// Compile2Circuit compiles a given assembly file into a corresponding set of
-// corset constraints.
-func Compile2Circuit(filename string, cfg LoweringConfig,
-	assembly ...source.File) (corset_ast.Circuit, []source.SyntaxError) {
-	var circuit corset_ast.Circuit
-	//
-	macroProgram, _, errs := Assemble(assembly...)
-	//
-	if len(errs) > 0 {
-		return circuit, errs
-	}
-	// Lower macro program into a binary program.
-	microProgram := Lower(cfg, macroProgram)
-	// Compile the circuit
-	return compiler.Compile2Circuit(microProgram.Functions()), nil
-}
-
 // LoweringConfig provides configuration options for configuring the lowering
 // process.
 type LoweringConfig struct {
@@ -114,40 +105,49 @@ type LoweringConfig struct {
 	Vectorize bool
 }
 
-// Lower a given macro program into a micro program which only uses registers of
-// a given width.  This is a relatively involved procress consisting of several
-// steps: firstly, all macro instructions are lowered to micro instructions;
-// secondly, vectorization is applied to the resulting microprogram; finally,
-// registers exceeding the target width (and instructions which use them) are
-// split accordingly.  The latter can introduce additional registers, for
-// example to hold carry values.
-func Lower(cfg LoweringConfig, p MacroProgram) MicroProgram {
-	functions := make([]MicroFunction, len(p.Functions()))
-	// Sanity checks
-	if cfg.MaxFieldWidth < cfg.MaxRegisterWidth {
-		panic(
-			fmt.Sprintf("field width (%dbits) smaller than register width (%dbits)", cfg.MaxFieldWidth, cfg.MaxRegisterWidth))
-	}
+// LowerMixedMacroProgram a mixed macro program (i.e. schema) into a mixed micro program, using
+// vectorisation if desired.  Specifically, any macro modules within the schema
+// are lowered into "micro" modules (i.e. those using only micro instructions).
+// This does not impact any externally defined (e.g. MIR) modules in the schema.
+func LowerMixedMacroProgram(vectorize bool, p MixedMacroProgram) MixedMicroProgram {
+	functions := make([]*MicroFunction, len(p.LeftModules()))
 	//
-	for i, f := range p.Functions() {
-		functions[i] = lowerFunction(cfg, f)
+	for i, f := range p.LeftModules() {
+		nf := lowerFunction(vectorize, *f)
+		functions[i] = &nf
 	}
-	//
+	// Construct program for validation
 	program := io.NewProgram(functions...)
 	// Validate generated program.  Whilst not strictly necessary, it is useful
-	// from a debugging perspective.  In particular, for catching situations
-	// where registers have not been split incorrectly, or the resulting
-	// assignments don't fit the underlying field.
-	assembler.ValidateMicro(cfg.MaxFieldWidth, program)
-	//
-	return program
+	// from a debugging perspective.
+	assembler.ValidateMicro(math.MaxUint, program)
+	// Construct mixed micro schema
+	return schema.NewMixedSchema(functions, p.RightModules())
 }
 
-// ============================================================================
-// Helpers
-// ============================================================================
+// LowerMixedMicroProgram lowers a mixed micro program into a unform schema of
+// MIR modules.  To do this, it translates all assembly components (e.g.
+// functions) into MIR modules to ensure uniformity at the end.
+func LowerMixedMicroProgram(p MixedMicroProgram) schema.UniformSchema[mir.Module] {
+	var (
+		n = len(p.LeftModules())
+		// Construct compiler
+		compiler = compiler.NewCompiler[schema.RegisterId, compiler.MirExpr, compiler.MirModule]()
+		modules  = make([]mir.Module, p.Width())
+	)
+	// Compiler assembly components into MIR
+	compiler.Compile(p.LeftModules()...)
+	// Copy over legacy components
+	for i, m := range compiler.Modules() {
+		modules[i] = m.Module.BuildTable()
+	}
+	// Copy over legacy components
+	copy(modules[n:], p.RightModules())
+	// Done
+	return schema.NewUniformSchema(modules)
+}
 
-func lowerFunction(cfg LoweringConfig, f MacroFunction) MicroFunction {
+func lowerFunction(vectorize bool, f MacroFunction) MicroFunction {
 	insns := make([]micro.Instruction, len(f.Code()))
 	// Lower macro instructions to micro instructions.
 	for pc, insn := range f.Code() {
@@ -155,25 +155,23 @@ func lowerFunction(cfg LoweringConfig, f MacroFunction) MicroFunction {
 	}
 	// Sanity checks (for now)
 	fn := io.NewFunction(f.Name(), f.Registers(), insns)
-	// Split registers as necessary to meet limits.
-	fn = splitRegisters(cfg, fn)
 	// Apply vectorisation (if enabled).
-	if cfg.Vectorize {
+	if vectorize {
 		fn = vectorizeFunction(fn)
 	}
 	//
 	return fn
 }
 
-// Impose requested bitwidth limits on registers and instructions, by splitting
-// registers as necessary.  For example, suppose the maximum register width is
-// set at 32bits.  Then, a 64bit register is split into two "limbs", each of
-// which is 32bits wide.  Obviously, any register whose width is less than
-// 32bits will not be split.  Instructions need to be split when the combined
-// width of their target registers exceeds the maximum field width.  In such
-// cases, carry flags are introduced to communicate overflow or underflow
-// between the split instructions.
-func splitRegisters(cfg LoweringConfig, f MicroFunction) MicroFunction {
+// SplitRegisters imposes requested bitwidth limits on registers and
+// instructions, by splitting registers as necessary.  For example, suppose the
+// maximum register width is set at 32bits.  Then, a 64bit register is split
+// into two "limbs", each of which is 32bits wide.  Obviously, any register
+// whose width is less than 32bits will not be split.  Instructions need to be
+// split when the combined width of their target registers exceeds the maximum
+// field width.  In such cases, carry flags are introduced to communicate
+// overflow or underflow between the split instructions.
+func SplitRegisters(cfg LoweringConfig, f MicroFunction) MicroFunction {
 	var (
 		env = micro.NewRegisterSplittingEnvironment(cfg.MaxRegisterWidth, f.Registers())
 		// Updated instruction sequence
@@ -243,7 +241,7 @@ func vectorizeInstruction(pc uint, insns []micro.Instruction) micro.Instruction 
 
 func conflictingInstructions(cc uint, codes []micro.Code, writes bit.Set, target uint, insn micro.Instruction) bool {
 	// set of written registers
-	var written []uint
+	var written []io.RegisterId
 	//
 	switch code := codes[cc].(type) {
 	case *micro.Add:
@@ -270,11 +268,11 @@ func conflictingInstructions(cc uint, codes []micro.Code, writes bit.Set, target
 	}
 	// Check conflicts, and update mutated registers
 	for _, r := range written {
-		if writes.Contains(r) {
+		if writes.Contains(r.Unwrap()) {
 			return true
 		}
 		//
-		writes.Insert(r)
+		writes.Insert(r.Unwrap())
 	}
 	// Proceed
 	return conflictingInstructions(cc+1, codes, writes, target, insn)

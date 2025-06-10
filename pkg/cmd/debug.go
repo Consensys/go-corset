@@ -16,10 +16,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/cmd/debug"
-	"github.com/consensys/go-corset/pkg/corset"
-	"github.com/consensys/go-corset/pkg/mir"
+	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -31,7 +29,6 @@ var debugCmd = &cobra.Command{
 	expansion in order to debug them.  Constraints can be given
 	either as lisp or bin files.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		var corsetConfig corset.CompilationConfig
 		//
 		if len(args) < 1 {
 			fmt.Println(cmd.UsageString())
@@ -41,114 +38,83 @@ var debugCmd = &cobra.Command{
 		if GetFlag(cmd, "verbose") {
 			log.SetLevel(log.DebugLevel)
 		}
-		optimisation := GetUint(cmd, "opt")
-		// Set optimisation level
-		if optimisation >= uint(len(mir.OPTIMISATION_LEVELS)) {
-			fmt.Printf("invalid optimisation level %d\n", optimisation)
-			os.Exit(2)
-		}
-		//
-		optConfig := mir.OPTIMISATION_LEVELS[optimisation]
-		hir := GetFlag(cmd, "hir")
-		mir := GetFlag(cmd, "mir")
-		air := GetFlag(cmd, "air")
-		masm := GetFlag(cmd, "asm")
-		uasm := GetFlag(cmd, "uasm")
 		stats := GetFlag(cmd, "stats")
 		attrs := GetFlag(cmd, "attributes")
 		metadata := GetFlag(cmd, "metadata")
 		constants := GetFlag(cmd, "constants")
-		externs := GetStringArray(cmd, "set")
 		spillage := GetFlag(cmd, "spillage")
-		corsetConfig.Stdlib = !GetFlag(cmd, "no-stdlib")
-		corsetConfig.Debug = GetFlag(cmd, "debug")
-		corsetConfig.Legacy = GetFlag(cmd, "legacy")
 		textWidth := GetUint(cmd, "textwidth")
-		asmConfig := parseLoweringConfig(cmd)
-		// Parse constraints
-		if masm || uasm {
-			// Read in the assembly program
-			program, _ := ReadAssemblyProgram(args...)
-			// Print it out
-			debug.PrintAssemblyProgram(uasm, asmConfig, program)
+		// Read in constraint files
+		schemas := *getSchemaStack(cmd, SCHEMA_DEFAULT_MIR, args...)
+		// Print constant info (if requested)
+		if constants {
+			debug.PrintExternalisedConstants(schemas)
+		}
+		// Print spillage info (if requested)
+		if spillage {
+			printSpillage(schemas, true)
+		}
+		// Print meta-data (if requested)
+		if metadata {
+			printBinaryFileHeader(schemas)
+		}
+		// Print stats (if requested)
+		if stats {
+			debug.PrintStats(schemas)
+		}
+		// Print embedded attributes (if requested
+		if attrs {
+			printAttributes(schemas)
 		}
 		//
-		if hir || mir || air {
-			binfile := ReadConstraintFiles(corsetConfig, asmConfig, args)
-			// Apply any user-specified values for externalised constants.
-			applyExternOverrides(externs, binfile)
-			// Print constant info (if requested)
-			if constants {
-				debug.PrintExternalisedConstants(binfile)
-			}
-			// Print spillage info (if requested)
-			if spillage {
-				printSpillage(binfile, true, optConfig)
-			}
-			// Print meta-data (if requested)
-			if metadata {
-				printBinaryFileHeader(&binfile.Header)
-			}
-			// Print stats (if requested)
-			if stats {
-				debug.PrintStats(&binfile.Schema, hir, mir, air, optConfig)
-			}
-			// Print embedded attributes (if requested
-			if attrs {
-				printAttributes(binfile.Attributes)
-			}
-			//
-			if !stats && !attrs {
-				debug.PrintSchemas(&binfile.Schema, hir, mir, air, optConfig, textWidth)
-			}
+		if !stats && !attrs {
+			debug.PrintSchemas(schemas, textWidth)
 		}
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(debugCmd)
-	debugCmd.Flags().Bool("air", false, "Print constraints at AIR level")
-	debugCmd.Flags().Bool("asm", false, "Print constraints at ASM level")
 	debugCmd.Flags().Bool("attributes", false, "Print attribute information")
 	debugCmd.Flags().Bool("constants", false, "Print information about externalised constants")
-	debugCmd.Flags().Bool("debug", false, "enable debugging constraints")
-	debugCmd.Flags().Bool("hir", false, "Print constraints at HIR level")
 	debugCmd.Flags().Bool("metadata", false, "Print embedded metadata")
-	debugCmd.Flags().Bool("mir", false, "Print constraints at MIR level")
 	debugCmd.Flags().Bool("stats", false, "Print summary information")
 	debugCmd.Flags().Bool("spillage", false, "Print spillage information")
 	debugCmd.Flags().Uint("textwidth", 130, "Set maximum textwidth to use")
-	debugCmd.Flags().StringArrayP("set", "S", []string{}, "set value of externalised constant.")
-	debugCmd.Flags().Bool("uasm", false, "Print constraints at micro ASM level")
 }
 
-func printAttributes(attrs []binfile.Attribute) {
-	for _, attr := range attrs {
+func printAttributes(schemas cmd_util.SchemaStack) {
+	binfile := schemas.BinaryFile()
+	// Print attributes
+	for _, attr := range binfile.Attributes {
 		fmt.Printf("attribute \"%s\":\n", attr.AttributeName())
 	}
 }
 
-func printSpillage(binf *binfile.BinaryFile, defensive bool, optConfig mir.OptimisationConfig) {
-	fmt.Println("Spillage:")
-	// Compute spillage for optimisation level
-	spillage := determineSpillage(&binf.Schema, defensive, optConfig)
-	// Define module ID
-	mid := uint(0)
-	// Iterate modules and print spillage
-	for i := uint(0); i < uint(len(spillage)); i++ {
-		name := binf.Schema.Modules().Nth(i).Name
-		//
-		if name == "" {
-			name = "<prelude>"
-		}
-		//
-		fmt.Printf("\t%s: %d\n", name, spillage[i])
-		//
-		mid++
-	}
+func printSpillage(schemas cmd_util.SchemaStack, defensive bool) {
+	// fmt.Println("Spillage:")
+	// // Compute spillage for optimisation level
+	// spillage := determineSpillage(&binf.Schema, defensive, optConfig)
+	// // Define module ID
+	// mid := uint(0)
+	// // Iterate modules and print spillage
+	// for i := uint(0); i < uint(len(spillage)); i++ {
+	// 	name := binf.Schema.Module(i).Name()
+	// 	//
+	// 	if name == "" {
+	// 		name = "<prelude>"
+	// 	}
+	// 	//
+	// 	fmt.Printf("\t%s: %d\n", name, spillage[i])
+	// 	//
+	// 	mid++
+	// }
+	panic("todo")
 }
 
-func printBinaryFileHeader(header *binfile.Header) {
+func printBinaryFileHeader(schemas cmd_util.SchemaStack) {
+	header := schemas.BinaryFile().Header
+	//
 	fmt.Printf("Format: %d.%d\n", header.MajorVersion, header.MinorVersion)
 	// Attempt to parse metadata
 	metadata, err := header.GetMetaData()

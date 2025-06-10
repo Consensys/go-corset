@@ -60,12 +60,12 @@ func (p *ModuleView) SetRow(row uint) uint {
 
 // SetActiveColumns sets the currently active set of columns.  This updates the
 // current column title width, as as well as the maximum width for every row.
-func (p *ModuleView) SetActiveColumns(trace tr.Trace, columns []SourceColumn) {
+func (p *ModuleView) SetActiveColumns(module tr.Module, columns []SourceColumn) {
 	p.columns = columns
 	// Recalculate maximum title width
 	p.colTitleWidth = p.recalculateColumnTitleWidth()
 	// Recalculate row widths
-	p.rowWidths = p.recalculateRowWidths(trace)
+	p.rowWidths = p.recalculateRowWidths(module)
 }
 
 // RowWidth returns the width of the largest element in a given row.  Observe
@@ -87,7 +87,7 @@ func (p *ModuleView) RowWidth(row uint) uint {
 // CellAt returns a textual representation of the data at a given column and row
 // in the module's view.  Observe that the first row and column typically show
 // titles.
-func (p *ModuleView) CellAt(trace tr.Trace, col, row uint) termio.FormattedText {
+func (p *ModuleView) CellAt(module tr.Module, col, row uint) termio.FormattedText {
 	if row == 0 && col == 0 {
 		return termio.NewText("")
 	}
@@ -112,11 +112,11 @@ func (p *ModuleView) CellAt(trace tr.Trace, col, row uint) termio.FormattedText 
 		return termio.NewText("")
 	}
 	// Determine value at given trace column / row
-	val := p.ValueAt(trace, trCol, trRow)
+	val := p.ValueAt(module, trCol, trRow)
 	// Generate textual representation of value, and clip accordingly.
 	str := clipValue(p.display(trCol, val), p.rowWidths[trRow])
 	//
-	if p.IsActive(trace, trCol, trRow) {
+	if p.IsActive(module, trCol, trRow) {
 		// Calculate appropriate colour for this cell.
 		return termio.NewFormattedText(str, cellColour(val))
 	} else {
@@ -125,27 +125,23 @@ func (p *ModuleView) CellAt(trace tr.Trace, col, row uint) termio.FormattedText 
 }
 
 // ValueAt extracts the data point at a given rol and column in the trace.
-func (p *ModuleView) ValueAt(trace tr.Trace, trCol, trRow uint) fr.Element {
+func (p *ModuleView) ValueAt(module tr.Module, trCol, trRow uint) fr.Element {
 	// Determine underlying register for the given column.
 	regId := p.columns[trCol].Register
 	// Extract cell value from register
-	return trace.Column(regId).Get(int(trRow))
+	return module.Column(regId).Get(int(trRow))
 }
 
 // IsActive determines whether a given cell is active, or not.  A cell can be
 // inactive, for example, if its part of a perspective which is not active.
-func (p *ModuleView) IsActive(trace tr.Trace, trCol, trRow uint) bool {
+func (p *ModuleView) IsActive(module tr.Module, trCol, trRow uint) bool {
 	selector := p.columns[trCol].Selector
 	//
-	if selector == nil {
+	if selector.IsEmpty() {
 		return true
 	}
-	//
-	val, err := selector.EvalAt(int(trRow), trace)
-	// error check
-	if err != nil {
-		panic(err.Error())
-	}
+	// Check selector value
+	val := module.ColumnOf(selector.Unwrap()).Get(int(trRow))
 	//
 	return !val.IsZero()
 }
@@ -189,9 +185,9 @@ func (p *ModuleView) recalculateColumnTitleWidth() uint {
 	return uint(maxWidth)
 }
 
-func (p *ModuleView) recalculateRowWidths(trace tr.Trace) []uint {
+func (p *ModuleView) recalculateRowWidths(module tr.Module) []uint {
 	// Determine how many rows we have
-	nrows := determineNumberOfRows(trace, p.columns)
+	nrows := module.Height()
 	//
 	widths := make([]uint, nrows)
 	//
@@ -199,7 +195,7 @@ func (p *ModuleView) recalculateRowWidths(trace tr.Trace) []uint {
 		maxWidth := uint(0)
 		//
 		for col := uint(0); col < uint(len(p.columns)); col++ {
-			val := p.ValueAt(trace, col, row)
+			val := p.ValueAt(module, col, row)
 			width := len(p.display(col, val))
 			maxWidth = max(maxWidth, uint(width))
 		}
@@ -260,20 +256,6 @@ func displayBytes(val fr.Element) string {
 	}
 	//
 	return builder.String()
-}
-
-// Determine the maximum number of rows whih can be displayed for a given set of
-// columns.  Observe that this is not fully determined by the module height,
-// since we have columns which may have length multipliers, etc.
-func determineNumberOfRows(trace tr.Trace, columns []SourceColumn) uint {
-	maxRows := uint(0)
-
-	for _, col := range columns {
-		nrows := trace.Column(col.Register).Data().Len()
-		maxRows = max(maxRows, nrows)
-	}
-	//
-	return maxRows
 }
 
 func clipValue(str string, maxWidth uint) string {

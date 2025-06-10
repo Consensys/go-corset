@@ -20,38 +20,12 @@ import (
 	"os"
 	"strings"
 
-	"github.com/consensys/go-corset/pkg/asm/compiler"
 	"github.com/consensys/go-corset/pkg/asm/io"
-	"github.com/consensys/go-corset/pkg/binfile"
-	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/util"
-	"github.com/consensys/go-corset/pkg/util/source"
 )
 
 type tracesMap map[string]traceMap
 type traceMap map[string][]big.Int
-
-// CompileBinary compiles a given microprogram directly into a binary file, and
-// panics if there any syntax errors arise.
-func CompileBinary(filename string, program MicroProgram) binfile.BinaryFile {
-	var corsetConfig corset.CompilationConfig
-	//
-	corsetConfig.Legacy = true
-	//
-	circuit := compiler.Compile2Circuit(program.Functions())
-	// Parse and compile source files
-	binFile, errors := corset.CompileSourceFiles(corsetConfig, nil, circuit.Modules...)
-	// Should not be any errors
-	if len(errors) > 0 {
-		for _, err := range errors {
-			printSyntaxError(&err)
-		}
-		//
-		panic("errors")
-	}
-	//
-	return *binFile
-}
 
 // ReadBatchedTraceFile reads a file containing zero or more traces expressed as JSON, where
 // each trace is on a separate line.
@@ -185,24 +159,4 @@ func readTraceInstances[T any](trace traceMap, fid uint, fn io.Function[T]) ([]i
 	}
 	//
 	return instances, nil
-}
-
-// Print a syntax error with appropriate highlighting.
-func printSyntaxError(err *source.SyntaxError) {
-	span := err.Span()
-	line := err.FirstEnclosingLine()
-	lineOffset := span.Start() - line.Start()
-	// Calculate length (ensures don't overflow line)
-	length := min(line.Length()-lineOffset, span.Length())
-	// Print error + line number
-	fmt.Printf("%s:%d:%d-%d %s\n", err.SourceFile().Filename(),
-		line.Number(), 1+lineOffset, 1+lineOffset+length, err.Message())
-	// Print separator line
-	fmt.Println()
-	// Print line
-	fmt.Println(line.String())
-	// Print indent (todo: account for tabs)
-	fmt.Print(strings.Repeat(" ", lineOffset))
-	// Print highlight
-	fmt.Println(strings.Repeat("^", length))
 }

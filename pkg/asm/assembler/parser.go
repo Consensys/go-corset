@@ -21,6 +21,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/macro"
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/util/source/lex"
@@ -109,7 +110,7 @@ func (p *Parser) parseFunction() (MacroFunction, []source.SyntaxError) {
 		return MacroFunction{}, errs
 	}
 	// Parse inputs
-	if inputs, errs = p.parseArgsList(io.INPUT_REGISTER); len(errs) > 0 {
+	if inputs, errs = p.parseArgsList(schema.INPUT_REGISTER); len(errs) > 0 {
 		return MacroFunction{}, errs
 	}
 	// Parse '->'
@@ -117,7 +118,7 @@ func (p *Parser) parseFunction() (MacroFunction, []source.SyntaxError) {
 		return MacroFunction{}, errs
 	}
 	// Parse outputs
-	if outputs, errs = p.parseArgsList(io.OUTPUT_REGISTER); len(errs) > 0 {
+	if outputs, errs = p.parseArgsList(schema.OUTPUT_REGISTER); len(errs) > 0 {
 		return MacroFunction{}, errs
 	}
 	// Initialise register list from inputs/outputs
@@ -146,7 +147,7 @@ func (p *Parser) parseFunction() (MacroFunction, []source.SyntaxError) {
 	return io.NewFunction(name, env.registers, code), nil
 }
 
-func (p *Parser) parseArgsList(kind uint8) ([]io.Register, []source.SyntaxError) {
+func (p *Parser) parseArgsList(kind schema.RegisterType) ([]io.Register, []source.SyntaxError) {
 	var (
 		arg   string
 		width uint
@@ -172,7 +173,7 @@ func (p *Parser) parseArgsList(kind uint8) ([]io.Register, []source.SyntaxError)
 			return nil, errs
 		}
 		//
-		regs = append(regs, io.NewRegister(kind, arg, width))
+		regs = append(regs, schema.NewRegister(kind, arg, width))
 	}
 	// Advance past "}"
 	p.match(RBRACE)
@@ -302,7 +303,7 @@ func (p *Parser) parseVar(env *Environment) []source.SyntaxError {
 	}
 	//
 	for _, name := range names {
-		env.DeclareRegister(io.TEMP_REGISTER, name, width)
+		env.DeclareRegister(schema.COMPUTED_REGISTER, name, width)
 	}
 	//
 	return nil
@@ -311,7 +312,7 @@ func (p *Parser) parseVar(env *Environment) []source.SyntaxError {
 func (p *Parser) parseIfGoto(env *Environment) (macro.Instruction, []source.SyntaxError) {
 	var (
 		errs     []source.SyntaxError
-		lhs, rhs uint
+		lhs, rhs io.RegisterId
 		constant big.Int
 		label    string
 		cond     uint8
@@ -348,8 +349,8 @@ func (p *Parser) parseIfGoto(env *Environment) (macro.Instruction, []source.Synt
 
 func (p *Parser) parseAssignment(env *Environment) (macro.Instruction, []source.SyntaxError) {
 	var (
-		lhs      []uint
-		rhs      []uint
+		lhs      []io.RegisterId
+		rhs      []io.RegisterId
 		constant big.Int
 		errs     []source.SyntaxError
 		kind     uint
@@ -388,7 +389,7 @@ func (p *Parser) parseAssignment(env *Environment) (macro.Instruction, []source.
 	}
 }
 
-func (p *Parser) parseAssignmentLhs(env *Environment) ([]uint, []source.SyntaxError) {
+func (p *Parser) parseAssignmentLhs(env *Environment) ([]io.RegisterId, []source.SyntaxError) {
 	lhs, errs := p.parseRegisterList(env)
 	// Reverse items so that least significant comes first.
 	lhs = util.Reverse(lhs)
@@ -396,12 +397,12 @@ func (p *Parser) parseAssignmentLhs(env *Environment) ([]uint, []source.SyntaxEr
 	return lhs, errs
 }
 
-func (p *Parser) parseAssignmentRhs(env *Environment) (uint, []uint, big.Int, []source.SyntaxError) {
+func (p *Parser) parseAssignmentRhs(env *Environment) (uint, []io.RegisterId, big.Int, []source.SyntaxError) {
 	var (
 		constant big.Int
-		rhs      []uint
+		rhs      []io.RegisterId
 		kind     uint = ADD
-		reg      uint
+		reg      io.RegisterId
 		errs     []source.SyntaxError
 	)
 	//
@@ -451,10 +452,10 @@ func (p *Parser) parseAssignmentOp() (lex.Token, bool) {
 	}
 }
 
-func (p *Parser) parseCallRhs(lhs []uint, env *Environment) (macro.Instruction, []source.SyntaxError) {
+func (p *Parser) parseCallRhs(lhs []io.RegisterId, env *Environment) (macro.Instruction, []source.SyntaxError) {
 	var (
 		errs []source.SyntaxError
-		rhs  []uint
+		rhs  []io.RegisterId
 		fn   string
 	)
 	//
@@ -474,11 +475,11 @@ func (p *Parser) parseCallRhs(lhs []uint, env *Environment) (macro.Instruction, 
 }
 
 // Parse sequence of one or more registers separated by a comma.
-func (p *Parser) parseRegisterList(env *Environment) ([]uint, []source.SyntaxError) {
+func (p *Parser) parseRegisterList(env *Environment) ([]io.RegisterId, []source.SyntaxError) {
 	var (
-		lhs  []uint = make([]uint, 1)
+		lhs  []io.RegisterId = make([]io.RegisterId, 1)
 		errs []source.SyntaxError
-		reg  uint
+		reg  io.RegisterId
 	)
 	// lhs always starts with a register
 	if lhs[0], errs = p.parseRegister(env); len(errs) > 0 {
@@ -496,9 +497,9 @@ func (p *Parser) parseRegisterList(env *Environment) ([]uint, []source.SyntaxErr
 	return lhs, nil
 }
 
-func (p *Parser) parseRegisterOrConstant(env *Environment) (uint, big.Int, []source.SyntaxError) {
+func (p *Parser) parseRegisterOrConstant(env *Environment) (io.RegisterId, big.Int, []source.SyntaxError) {
 	var (
-		reg      uint
+		reg      io.RegisterId
 		constant big.Int
 		errs     []source.SyntaxError
 	)
@@ -511,7 +512,7 @@ func (p *Parser) parseRegisterOrConstant(env *Environment) (uint, big.Int, []sou
 	case NUMBER:
 		p.match(NUMBER)
 		//
-		reg = io.UNUSED_REGISTER
+		reg = schema.NewUnusedRegisterId()
 		constant = p.number(lookahead)
 	default:
 		errs = p.syntaxErrors(lookahead, "expecting register or constant")
@@ -520,14 +521,14 @@ func (p *Parser) parseRegisterOrConstant(env *Environment) (uint, big.Int, []sou
 	return reg, constant, errs
 }
 
-func (p *Parser) parseRegister(env *Environment) (uint, []source.SyntaxError) {
+func (p *Parser) parseRegister(env *Environment) (io.RegisterId, []source.SyntaxError) {
 	lookahead := p.lookahead()
 	reg, errs := p.parseIdentifier()
 	//
 	if len(errs) > 0 {
-		return 0, errs
+		return io.RegisterId{}, errs
 	} else if !env.IsRegister(reg) {
-		return 0, p.syntaxErrors(lookahead, "unknown register")
+		return io.RegisterId{}, p.syntaxErrors(lookahead, "unknown register")
 	}
 	// Done
 	return env.LookupRegister(reg), nil

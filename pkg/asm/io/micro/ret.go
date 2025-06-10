@@ -37,12 +37,12 @@ func (p *Ret) MicroExecute(state io.State) (uint, uint) {
 }
 
 // RegistersRead returns the set of registers read by this instruction.
-func (p *Ret) RegistersRead() []uint {
+func (p *Ret) RegistersRead() []io.RegisterId {
 	return nil
 }
 
 // RegistersWritten returns the set of registers written by this instruction.
-func (p *Ret) RegistersWritten() []uint {
+func (p *Ret) RegistersWritten() []io.RegisterId {
 	return nil
 }
 

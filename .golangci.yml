@@ -17,6 +17,8 @@ linters:
   settings:
     errcheck:
       check-blank: true
+    lll:
+      line-length: 120
     revive:
       confidence: 0.8
       severity: warning
@@ -46,8 +48,6 @@ linters:
         - name: unnecessary-stmt
           severity: warning
         - name: unreachable-code
-          severity: warning
-        - name: confusing-naming
           severity: warning
     staticcheck:
       checks:

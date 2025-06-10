@@ -15,13 +15,13 @@ package compiler
 import (
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"sort"
 	"strconv"
 	"strings"
 	"unicode"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/source"
@@ -1231,21 +1231,46 @@ func (p *Parser) parseFunctionParameter(element sexp.SExp) (*ast.DefParameter, [
 
 // Parse a range declaration
 func (p *Parser) parseDefInRange(elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
-	var bound fr.Element
+	var (
+		bound int
+		err   error
+	)
 	// Translate expression
 	expr, errors := p.translator.Translate(elements[1])
 	// Check & parse bound
 	if elements[2].AsSymbol() == nil {
 		errors = append(errors, *p.translator.SyntaxError(elements[2], "malformed bound"))
-	} else if _, err := bound.SetString(elements[2].AsSymbol().Value); err != nil {
+	} else if bound, err = strconv.Atoi(elements[2].AsSymbol().Value); err != nil {
 		errors = append(errors, *p.translator.SyntaxError(elements[2], "malformed bound"))
 	}
 	// Error check
 	if len(errors) != 0 {
 		return nil, errors
 	}
-	// Done
-	return &ast.DefInRange{Expr: expr, Bound: bound}, nil
+	// Sanity check that the bound is actually a power of two.  Since range
+	// constraints are now compiled into table lookups, it is simpler to limit
+	// them accordingly.
+	if bitwidth := bitwidth(bound); bitwidth != math.MaxUint {
+		return &ast.DefInRange{Expr: expr, Bitwidth: bitwidth}, nil
+	}
+	//
+	return nil, p.translator.SyntaxErrors(elements[2], "bound not power of 2")
+}
+
+func bitwidth(bound int) uint {
+	// Determine actual bound
+	bitwidth := uint(1)
+	acc := 2
+	//
+	for ; acc < bound; acc = acc * 2 {
+		bitwidth++
+	}
+	// Check whethe it makes sense
+	if acc == bound {
+		return bitwidth
+	}
+	// invalid bound
+	return math.MaxUint
 }
 
 func (p *Parser) parseConstraintAttributes(module util.Path, attributes sexp.SExp) (domain util.Option[int],

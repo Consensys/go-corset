@@ -16,7 +16,6 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/corset/ast"
-	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
@@ -68,7 +67,7 @@ func (b BindingId) IsFunction() bool {
 // given module).
 type ModuleScope struct {
 	// Selector determining when this module is active.
-	selector ast.Expr
+	selector util.Option[string]
 	// Absolute path
 	path util.Path
 	// Map identifiers to indices within the bindings array.
@@ -84,9 +83,9 @@ type ModuleScope struct {
 }
 
 // NewModuleScope constructs an initially empty top-level scope.
-func NewModuleScope(selector ast.Expr) *ModuleScope {
+func NewModuleScope() *ModuleScope {
 	return &ModuleScope{
-		selector,
+		util.None[string](),
 		util.NewAbsolutePath(),
 		make(map[BindingId]uint),
 		nil,
@@ -112,7 +111,7 @@ func (p *ModuleScope) Name() string {
 
 // Virtual identifies whether or not this is a virtual module.
 func (p *ModuleScope) Virtual() bool {
-	return p.selector != nil
+	return p.selector.HasValue()
 }
 
 // IsLocal checks whether a given path is local to the enclosing module, or not.
@@ -130,10 +129,10 @@ func (p *ModuleScope) Children() []*ModuleScope {
 	return p.submodules
 }
 
-// Selector gets an HIR unit expression which evaluates to a non-zero value when
+// Selector gets an MIR unit expression which evaluates to a non-zero value when
 // this module is active.  This can be nil if there is no selector (i.e. this is
 // a non-virtual module).
-func (p *ModuleScope) Selector() ast.Expr {
+func (p *ModuleScope) Selector() util.Option[string] {
 	return p.selector
 }
 
@@ -173,7 +172,7 @@ func (p *ModuleScope) DestructuredConstants() []ast.ConstantBinding {
 // Owner returns the enclosing non-virtual module of this module.  Observe
 // that, if this is a non-virtual module, then it is returned.
 func (p *ModuleScope) Owner() *ModuleScope {
-	if p.selector == nil {
+	if p.selector.IsEmpty() {
 		return p
 	} else if p.parent != nil {
 		return p.parent.Owner()
@@ -188,7 +187,7 @@ func (p *ModuleScope) Owner() *ModuleScope {
 // indicated by a non-zero selector, which signals when the virtual module is
 // active.  This returns true if this succeeds, otherwise returns false (i.e. a
 // matching submodule already exists).
-func (p *ModuleScope) Declare(submodule string, selector ast.Expr) bool {
+func (p *ModuleScope) Declare(submodule string, selector util.Option[string]) bool {
 	if _, ok := p.submodmap[submodule]; ok {
 		return false
 	}
@@ -386,7 +385,7 @@ func (p *ModuleScope) destructureColumn(column *ast.ColumnBinding, ctx util.Path
 	datatype ast.Type) []RegisterSource {
 	// Check for base base
 	if int_t, ok := datatype.(*ast.IntType); ok {
-		return p.destructureAtomicColumn(column, ctx, path, int_t.AsUnderlying())
+		return p.destructureAtomicColumn(column, ctx, path, int_t.BitWidth())
 	} else if arraytype, ok := datatype.(*ast.ArrayType); ok {
 		// For now, assume must be an array
 		return p.destructureArrayColumn(column, ctx, path, arraytype)
@@ -412,13 +411,13 @@ func (p *ModuleScope) destructureArrayColumn(col *ast.ColumnBinding, ctx util.Pa
 
 // Destructure atomic column
 func (p *ModuleScope) destructureAtomicColumn(column *ast.ColumnBinding, ctx util.Path, path util.Path,
-	datatype sc.Type) []RegisterSource {
+	bitwidth uint) []RegisterSource {
 	// Construct register source.
 	source := RegisterSource{
 		ctx,
 		path,
 		column.Multiplier,
-		datatype,
+		bitwidth,
 		column.MustProve,
 		column.Computed,
 		column.Internal,

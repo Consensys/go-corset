@@ -81,13 +81,22 @@ type Mode interface {
 }
 
 // NewInspector constructs a new inspector on given terminal.
-func NewInspector(term *termio.Terminal, schema sc.Schema, trace tr.Trace, srcmap *corset.SourceMap) *Inspector {
+func NewInspector(term *termio.Terminal, schema sc.AnySchema, trace tr.Trace, srcmap *corset.SourceMap) *Inspector {
 	states := make([]ModuleState, 0)
 	//
 	for _, module := range srcmap.Flattern(concreteModules) {
 		// only consider modules which actually have columns.
 		if len(module.Columns) > 0 {
-			states = append(states, newModuleState(&module, trace, srcmap.Enumerations, true))
+			//
+			mid, ok := trace.HasModule(module.Name)
+			//
+			if !ok {
+				// This should be unreachable.
+				panic(fmt.Sprintf("unknown module \"%s\"", module.Name))
+			}
+			//
+			trModule := trace.Module(mid)
+			states = append(states, newModuleState(&module, trModule, srcmap.Enumerations, true))
 		}
 	}
 	//
@@ -198,7 +207,7 @@ func (p *Inspector) gotoRow(row uint) termio.FormattedText {
 func (p *Inspector) filterColumns(regex *regexp.Regexp) termio.FormattedText {
 	filter := p.CurrentModule().columnFilter
 	filter.Regex = regex
-	p.CurrentModule().applyColumnFilter(p.trace, filter, true)
+	p.CurrentModule().applyColumnFilter(filter, true)
 	// Success
 	return termio.NewText("")
 }
@@ -206,7 +215,7 @@ func (p *Inspector) filterColumns(regex *regexp.Regexp) termio.FormattedText {
 func (p *Inspector) clearColumnFilter() bool {
 	filter := p.CurrentModule().columnFilter
 	filter.Regex = nil
-	p.CurrentModule().applyColumnFilter(p.trace, filter, false)
+	p.CurrentModule().applyColumnFilter(filter, false)
 	// Success
 	return true
 }
@@ -230,14 +239,14 @@ func (p *Inspector) toggleColumnFilter() bool {
 		msg = "Showing non-computed columns only"
 	}
 	//
-	p.CurrentModule().applyColumnFilter(p.trace, filter, false)
+	p.CurrentModule().applyColumnFilter(filter, false)
 	p.SetStatus(termio.NewColouredText(msg, termio.TERM_GREEN))
 	// Success
 	return true
 }
 
 func (p *Inspector) matchQuery(query *Query) termio.FormattedText {
-	return p.CurrentModule().matchQuery(query, p.trace)
+	return p.CurrentModule().matchQuery(query)
 }
 
 // ==================================================================
@@ -261,7 +270,7 @@ func (p *Inspector) CellAt(col, row uint) termio.FormattedText {
 	state := &p.modules[module]
 	// Get cell out of module view, noting that we are deliberately swapping row
 	// and column.
-	return state.view.CellAt(p.trace, row, col)
+	return state.view.CellAt(state.module, row, col)
 }
 
 // Start provides a read / update / render loop.
@@ -326,7 +335,7 @@ func initInspectorWidgets(term *termio.Terminal, states []ModuleState) (tabs *wi
 func initInspectorTabs(states []ModuleState) *widget.Tabs {
 	var titles []string
 	for _, state := range states {
-		titles = append(titles, state.name)
+		titles = append(titles, state.module.Name())
 	}
 	//
 	return widget.NewTabs(titles...)

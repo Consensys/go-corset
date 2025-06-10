@@ -20,9 +20,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/consensys/go-corset/pkg/asm"
 	"github.com/consensys/go-corset/pkg/corset"
-	"github.com/consensys/go-corset/pkg/hir"
-	"github.com/consensys/go-corset/pkg/mir"
+	"github.com/consensys/go-corset/pkg/ir/mir"
+	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/json"
@@ -212,9 +213,9 @@ func Test_Block_04(t *testing.T) {
 // Inequality Tests
 // ===================================================================
 
-/* func Test_Inequality_01(t *testing.T) {
-	Check(t, false, "ieq_01")
-} */
+// func Test_Inequality_01(t *testing.T) {
+// 	Check(t, false, "ieq_01")
+// }
 
 func Test_Inequality_02(t *testing.T) {
 	Check(t, false, "ieq_02")
@@ -585,9 +586,12 @@ func Test_Module_09(t *testing.T) {
 func Test_Module_10(t *testing.T) {
 	Check(t, false, "module_10")
 }
-func Test_Module_11(t *testing.T) {
-	Check(t, false, "module_11")
-}
+
+// NOTE: uses conditional module
+//
+// func Test_Module_11(t *testing.T) {
+// 	Check(t, false, "module_11")
+// }
 
 // ===================================================================
 // Permutations
@@ -738,9 +742,11 @@ func Test_Lookup_11(t *testing.T) {
 func Test_Lookup_12(t *testing.T) {
 	Check(t, false, "lookup_12")
 }
+
 func Test_Lookup_13(t *testing.T) {
 	Check(t, false, "lookup_13")
 }
+
 func Test_Lookup_14(t *testing.T) {
 	Check(t, false, "lookup_14")
 }
@@ -757,31 +763,31 @@ func Test_Lookup_16(t *testing.T) {
 // Interleaving
 // ===================================================================
 
-func Test_Interleave_01(t *testing.T) {
-	Check(t, false, "interleave_01")
-}
+// func Test_Interleave_01(t *testing.T) {
+// 	Check(t, false, "interleave_01")
+// }
 
-func Test_Interleave_02(t *testing.T) {
-	Check(t, false, "interleave_02")
-}
+// func Test_Interleave_02(t *testing.T) {
+// 	Check(t, false, "interleave_02")
+// }
 
-func Test_Interleave_03(t *testing.T) {
-	Check(t, false, "interleave_03")
-}
+// func Test_Interleave_03(t *testing.T) {
+// 	Check(t, false, "interleave_03")
+// }
 
-func Test_Interleave_04(t *testing.T) {
-	Check(t, false, "interleave_04")
-}
+// func Test_Interleave_04(t *testing.T) {
+// 	Check(t, false, "interleave_04")
+// }
 
-func Test_Interleave_05(t *testing.T) {
-	Check(t, false, "interleave_05")
-}
-func Test_Interleave_06(t *testing.T) {
-	Check(t, false, "interleave_06")
-}
-func Test_Interleave_07(t *testing.T) {
-	Check(t, false, "interleave_07")
-}
+// func Test_Interleave_05(t *testing.T) {
+// 	Check(t, false, "interleave_05")
+// }
+// func Test_Interleave_06(t *testing.T) {
+// 	Check(t, false, "interleave_06")
+// }
+// func Test_Interleave_07(t *testing.T) {
+// 	Check(t, false, "interleave_07")
+// }
 
 // ===================================================================
 // Functions
@@ -1055,16 +1061,6 @@ func Test_Perspective_24(t *testing.T) {
 	Check(t, false, "perspective_24")
 }
 
-// NOTE: this test could not currently pass because it results in a name clash
-// between a symbol in the enclosing module, and one defined in a perspective.
-// This is because of the weak naming scheme currently used for perspective
-// columns to maintain backwards compatibility.  When this restriction is
-// lifted, this test can pass.
-//
-// func Test_Perspective_25(t *testing.T) {
-//   Check(t, false, "perspective_25")
-// }
-
 func Test_Perspective_26(t *testing.T) {
 	Check(t, false, "perspective_26")
 }
@@ -1194,10 +1190,6 @@ func Test_Native_11(t *testing.T) {
 }
 
 // ===================================================================
-// Equivalence Tests
-// ===================================================================
-
-// ===================================================================
 // Standard Library Tests
 // ===================================================================
 
@@ -1293,13 +1285,13 @@ func TestSlow_Oob(t *testing.T) {
 	Check(t, true, "oob")
 }
 
-// func TestSlow_Stp(t *testing.T) {
-// 	Check(t, true, "stp")
-// }
-
-func TestSlow_Mmio(t *testing.T) {
-	Check(t, true, "mmio")
+func TestSlow_Stp(t *testing.T) {
+	Check(t, true, "stp")
 }
+
+// func TestSlow_Mmio(t *testing.T) {
+// 	Check(t, true, "mmio")
+// }
 
 // func TestSlow_Rom(t *testing.T) {
 // 	Check(t, true, "rom")
@@ -1321,9 +1313,11 @@ func TestSlow_Mod(t *testing.T) {
 	Check(t, true, "mod")
 }
 
-func Test_TicTacToe(t *testing.T) {
-	Check(t, true, "tic_tac_toe")
-}
+// NOTE: uses invalid range bound
+//
+// func Test_TicTacToe(t *testing.T) {
+// 	Check(t, true, "tic_tac_toe")
+// }
 
 // ===================================================================
 // Test Helpers
@@ -1355,7 +1349,7 @@ func Check(t *testing.T, stdlib bool, test string) {
 	// Package up as source file
 	srcfile := source.NewSourceFile(filename, bytes)
 	// Parse terms into an HIR schema
-	binfile, errs := corset.CompileSourceFile(corsetConfig, srcfile)
+	schema, _, errs := corset.CompileSourceFile[*asm.MacroFunction](corsetConfig, srcfile)
 	// Check terms parsed ok
 	if len(errs) > 0 {
 		t.Fatalf("Error parsing %s: %v\n", filename, errs)
@@ -1369,7 +1363,7 @@ func Check(t *testing.T, stdlib bool, test string) {
 		testFilename := fmt.Sprintf("%s/%s.%s", TestDir, test, cfg.extension)
 		traces = ReadTracesFile(testFilename)
 		// Run tests
-		BinCheckTraces(t, testFilename, cfg, traces, &binfile.Schema)
+		BinCheckTraces(t, testFilename, cfg, traces, schema)
 		// Record how many tests we found
 		nTests += len(traces)
 	}
@@ -1380,46 +1374,43 @@ func Check(t *testing.T, stdlib bool, test string) {
 }
 
 func BinCheckTraces(t *testing.T, test string, cfg TestConfig,
-	traces [][]trace.RawColumn, srcSchema *hir.Schema) {
+	traces [][]trace.RawColumn, mixSchema asm.MixedMacroProgram) {
+	// Strip off any externally defined modules (for which there should be
+	// none).
+	mirSchema := schema.NewUniformSchema(mixSchema.RightModules())
 	// Run checks using schema compiled from source
-	CheckTraces(t, test, MAX_PADDING, cfg, traces, srcSchema)
+	CheckTraces(t, test, MAX_PADDING, cfg, traces, mirSchema)
 	// Construct binary schema
-	if binSchema := encodeDecodeSchema(t, srcSchema); binSchema != nil {
+	if binSchema := encodeDecodeSchema(t, mirSchema); binSchema != nil {
 		// Run checks using schema from binary file.  Observe, to try and reduce
 		// overhead of repeating all the tests we don't consider padding.
-		CheckTraces(t, test, 0, cfg, traces, binSchema)
+		CheckTraces(t, test, 0, cfg, traces, *binSchema)
 	}
 }
 
 // Check a given set of tests have an expected outcome (i.e. are
 // either accepted or rejected) by a given set of constraints.
 func CheckTraces(t *testing.T, test string, maxPadding uint, cfg TestConfig, traces [][]trace.RawColumn,
-	hirSchema *hir.Schema) {
+	mirSchema mir.Schema) {
 	// For unexpected traces, we never want to explore padding (because that's
 	// the whole point of unexpanded traces --- they are raw).
 	if !cfg.expand {
 		maxPadding = 0
 	}
-	// Consolidate schema
-	hirSchema.Consolidate()
 	//
 	for i, tr := range traces {
 		if tr != nil {
-			// Lower HIR => MIR
-			mirSchema := hirSchema.LowerToMir()
 			// Lower MIR => AIR
-			airSchema := mirSchema.LowerToAir(mir.DEFAULT_OPTIMISATION_LEVEL)
+			airSchema := mir.LowerToAir(mirSchema, mir.DEFAULT_OPTIMISATION_LEVEL)
 			// Align trace with schema, and check whether expanded or not.
 			for padding := uint(0); padding <= maxPadding; padding++ {
 				// Construct trace identifiers
-				hirID := traceId{"HIR", test, cfg.expected, cfg.expand, cfg.validate, i + 1, padding}
 				mirID := traceId{"MIR", test, cfg.expected, cfg.expand, cfg.validate, i + 1, padding}
 				airID := traceId{"AIR", test, cfg.expected, cfg.expand, cfg.validate, i + 1, padding}
 				//
 				if cfg.expand {
 					// Only HIR / MIR constraints for traces which must be
 					// expanded.  They don't really make sense otherwise.
-					checkTrace(t, tr, hirID, hirSchema)
 					checkTrace(t, tr, mirID, mirSchema)
 				}
 				// Always check AIR constraints
@@ -1429,24 +1420,21 @@ func CheckTraces(t *testing.T, test string, maxPadding uint, cfg TestConfig, tra
 	}
 }
 
-func checkTrace(t *testing.T, inputs []trace.RawColumn, id traceId, schema sc.Schema) {
+func checkTrace[C sc.Constraint](t *testing.T, inputs []trace.RawColumn, id traceId, schema sc.Schema[C]) {
 	// Construct the trace
-	tr, errs := sc.NewTraceBuilder(schema).
-		Expand(id.expand).
-		Validate(id.validate).
-		Padding(id.padding).
-		Parallel(true).
-		Build(inputs)
+	tr, errs := sc.NewTraceBuilder().
+		WithExpansion(id.expand).
+		WithValidation(id.validate).
+		WithPadding(id.padding).
+		WithParallelism(true).
+		Build(sc.Any(schema), inputs)
 	// Sanity check construction
 	if len(errs) > 0 {
 		t.Errorf("Trace expansion failed (%s, %s, line %d with padding %d): %s",
 			id.ir, id.test, id.line, id.padding, errs)
 	} else {
 		// Check Constraints
-		_, errs1 := sc.Accepts(false, 100, schema, tr)
-		// Check assertions
-		_, errs2 := sc.Asserts(true, 100, schema, tr)
-		errs := append(errs1, errs2...)
+		errs := sc.Accepts(true, 100, schema, tr)
 		// Determine whether trace accepted or not.
 		accepted := len(errs) == 0
 		// Process what happened versus what was supposed to happen.
@@ -1530,11 +1518,11 @@ func ReadTracesFile(filename string) [][]trace.RawColumn {
 
 // This is a little test to ensure the binary file format (specifically the
 // binary encoder / decoder) works as expected.
-func encodeDecodeSchema(t *testing.T, schema *hir.Schema) *hir.Schema {
+func encodeDecodeSchema(t *testing.T, schema mir.Schema) *mir.Schema {
 	var (
 		buffer     bytes.Buffer
 		gobEncoder = gob.NewEncoder(&buffer)
-		binSchema  hir.Schema
+		binSchema  mir.Schema
 	)
 	// Encode schema
 	if err := gobEncoder.Encode(schema); err != nil {

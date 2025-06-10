@@ -38,8 +38,8 @@ func Validate(fieldWidth uint, program MacroProgram, srcmaps source.Maps[any]) [
 	var errors []source.SyntaxError
 	//
 	for _, fn := range program.Functions() {
-		errors = append(errors, validateInstructions(fieldWidth, fn, srcmaps)...)
-		errors = append(errors, validateControlFlow(fn, srcmaps)...)
+		errors = append(errors, validateInstructions(fieldWidth, *fn, srcmaps)...)
+		errors = append(errors, validateControlFlow(*fn, srcmaps)...)
 	}
 	//
 	return errors
@@ -53,7 +53,7 @@ func ValidateMicro(fieldWidth uint, program MicroProgram) {
 	//
 	for _, fn := range program.Functions() {
 		// TODO: support control-flow checks as well.
-		validateInstructions(fieldWidth, fn, srcmap)
+		validateInstructions(fieldWidth, *fn, srcmap)
 	}
 }
 
@@ -166,16 +166,16 @@ func applyInstructionFlow(microinsn macro.Instruction, state bit.Set, fn MacroFu
 	var errors []source.SyntaxError
 	// Ensure every register read has been defined.
 	for _, r := range microinsn.RegistersRead() {
-		if state.Contains(r) {
+		if state.Contains(r.Unwrap()) {
 			msg := fmt.Sprintf("register %s possibly undefined", fn.Register(r).Name)
 			errors = append(errors, *srcmaps.SyntaxError(microinsn, msg))
 			// mark as defined to avoid follow on errors
-			state.Remove(r)
+			state.Remove(r.Unwrap())
 		}
 	}
 	// Mark all target registers as written.
 	for _, r := range microinsn.RegistersWritten() {
-		state.Remove(r)
+		state.Remove(r.Unwrap())
 	}
 	// Done
 	return state, errors

@@ -12,6 +12,30 @@
 // SPDX-License-Identifier: Apache-2.0
 package io
 
+import (
+	"bytes"
+	"encoding/gob"
+	"math"
+
+	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/util/collection/iter"
+)
+
+// Register defines the notion of a register within a function.
+type Register = schema.Register
+
+// RegisterId abstracts the notion of a register id.
+type RegisterId = schema.RegisterId
+
+const (
+	// UNUSED_REGISTER provides a simple way to distinguish registers and
+	// constants in certain instructions.
+	UNUSED_REGISTER = math.MaxUint
+)
+
+// Sanity check
+var _ schema.Module = &Function[uint]{}
+
 // Function defines a distinct functional entity within the system.  Functions
 // accepts zero or more inputs and produce zero or more outputs.  Functions
 // declare zero or more internal registers for use, and their interpretation is
@@ -31,6 +55,13 @@ func NewFunction[T any](name string, registers []Register, code []T) Function[T]
 	return Function[T]{name, registers, code}
 }
 
+// Assignments returns an iterator over the assignments of this schema.
+// These are the computations used to assign values to all computed columns
+// in this module.
+func (p *Function[T]) Assignments() iter.Iterator[schema.Assignment] {
+	return iter.NewArrayIterator[schema.Assignment](nil)
+}
+
 // CodeAt returns the ith instruction making up the body of this function.
 func (p *Function[T]) CodeAt(i uint) T {
 	return p.code[i]
@@ -39,6 +70,20 @@ func (p *Function[T]) CodeAt(i uint) T {
 // Code returns the instructions making up the body of this function.
 func (p *Function[T]) Code() []T {
 	return p.code
+}
+
+// Constraints provides access to those constraints associated with this
+// function.
+func (p *Function[T]) Constraints() iter.Iterator[schema.Constraint] {
+	return iter.NewArrayIterator[schema.Constraint](nil)
+}
+
+// Consistent applies a number of internal consistency checks.  Whilst not
+// strictly necessary, these can highlight otherwise hidden problems as an aid
+// to debugging.
+func (p *Function[T]) Consistent(schema.Schema[schema.Constraint]) []error {
+	// TODO: add checks?
+	return nil
 }
 
 // Inputs returns the set of input registers for this function.
@@ -73,8 +118,8 @@ func (p *Function[T]) Outputs() []Register {
 }
 
 // Register returns the ith register used in this function.
-func (p *Function[T]) Register(i uint) Register {
-	return p.registers[i]
+func (p *Function[T]) Register(id schema.RegisterId) Register {
+	return p.registers[id.Unwrap()]
 }
 
 // Registers returns the set of all registers used during execution of this
@@ -83,11 +128,62 @@ func (p *Function[T]) Registers() []Register {
 	return p.registers
 }
 
+// Width identifiers the number of registers in this function.
+func (p *Function[T]) Width() uint {
+	return uint(len(p.registers))
+}
+
 // AllocateRegister allocates a new register of the given kind, name and width
 // into this function.
-func (p *Function[T]) AllocateRegister(kind uint8, name string, width uint) uint {
+func (p *Function[T]) AllocateRegister(kind schema.RegisterType, name string, width uint) RegisterId {
 	index := uint(len(p.registers))
-	p.registers = append(p.registers, NewRegister(kind, name, width))
+	p.registers = append(p.registers, schema.NewRegister(kind, name, width))
 	// Done
-	return index
+	return schema.NewRegisterId(index)
+}
+
+// ============================================================================
+// Encoding / Decoding
+// ============================================================================
+
+// nolint
+func (p *Function[T]) GobEncode() ([]byte, error) {
+	var buffer bytes.Buffer
+	gobEncoder := gob.NewEncoder(&buffer)
+	//
+	if err := gobEncoder.Encode(p.name); err != nil {
+		return nil, err
+	}
+	//
+	if err := gobEncoder.Encode(p.registers); err != nil {
+		return nil, err
+	}
+	//
+	if err := gobEncoder.Encode(p.code); err != nil {
+		return nil, err
+	}
+	//
+	return buffer.Bytes(), nil
+}
+
+// nolint
+func (p *Function[T]) GobDecode(data []byte) error {
+	var (
+		buffer     = bytes.NewBuffer(data)
+		gobDecoder = gob.NewDecoder(buffer)
+	)
+	//
+	if err := gobDecoder.Decode(&p.name); err != nil {
+		return err
+	}
+	//
+	if err := gobDecoder.Decode(&p.registers); err != nil {
+		return err
+	}
+	//
+	if err := gobDecoder.Decode(&p.code); err != nil {
+		return err
+	}
+	//
+	return nil
 }

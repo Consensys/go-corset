@@ -15,6 +15,7 @@ package compiler
 import (
 	"math/big"
 
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
 )
 
@@ -22,11 +23,11 @@ import (
 // system.
 type Module[T any, E Expr[T, E], M any] interface {
 	// SetName sets the name of this module.
-	Initialise(name string) M
+	Initialise(name string, mid uint) M
 
 	// NewColumn constructs a new column of the given name and bitwidth within
 	// this module.
-	NewColumn(name string, bitwidth uint, internal bool) T
+	NewColumn(kind schema.RegisterType, name string, bitwidth uint) T
 
 	// NewConstraint constructs a new vanishing constraint with the given name
 	// within this module.  An optional "domain" can be given which determines
@@ -39,7 +40,7 @@ type Module[T any, E Expr[T, E], M any] interface {
 	NewConstraint(name string, domain util.Option[int], expr E)
 
 	// NewLookup constructs a new lookup constraint
-	NewLookup(name string, from []E, to []E)
+	NewLookup(name string, from []E, target uint, to []E)
 
 	// String returns an appropriately formatted representation of the module.
 	String() string

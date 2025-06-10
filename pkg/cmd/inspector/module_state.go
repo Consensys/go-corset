@@ -19,7 +19,6 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/corset"
-	"github.com/consensys/go-corset/pkg/hir"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/termio"
@@ -28,8 +27,8 @@ import (
 // ModuleState provides state regarding how to display the trace for a given
 // module, including related aspects like filter histories, etc.
 type ModuleState struct {
-	// Module name
-	name string
+	// Corresponding trace module
+	module tr.Module
 	// Identifies trace columns in this module.
 	columns []SourceColumn
 	// Active module view
@@ -53,7 +52,7 @@ type SourceColumn struct {
 	// Determines whether this is a Computed column.
 	Computed bool
 	// Selector determines when column active.
-	Selector *hir.Expr
+	Selector util.Option[string]
 	// Display modifier
 	Display uint
 	// Register to which this column is allocated
@@ -85,7 +84,7 @@ func (p *SourceColumnFilter) Match(col SourceColumn) bool {
 	return false
 }
 
-func newModuleState(module *corset.SourceModule, trace tr.Trace, enums []corset.Enumeration,
+func newModuleState(module *corset.SourceModule, trModule tr.Module, enums []corset.Enumeration,
 	recurse bool) ModuleState {
 	//
 	var (
@@ -97,7 +96,7 @@ func newModuleState(module *corset.SourceModule, trace tr.Trace, enums []corset.
 		submodules = module.Submodules
 	}
 	//
-	state.name = module.Name
+	state.module = trModule
 	// Include all columns initially
 	state.columnFilter.Computed = true
 	state.columnFilter.UserDefined = true
@@ -112,7 +111,7 @@ func newModuleState(module *corset.SourceModule, trace tr.Trace, enums []corset.
 	state.view.maxRowWidth = 16
 	state.view.enumerations = enums
 	// Finalise view
-	state.view.SetActiveColumns(trace, state.columns)
+	state.view.SetActiveColumns(trModule, state.columns)
 	//
 	return state
 }
@@ -139,7 +138,7 @@ func (p *ModuleState) setRowOffset(rowOffset uint) uint {
 
 // Apply a new column filter to the module view.  This determines which columns
 // are currently visible.
-func (p *ModuleState) applyColumnFilter(trace tr.Trace, filter SourceColumnFilter, history bool) {
+func (p *ModuleState) applyColumnFilter(filter SourceColumnFilter, history bool) {
 	filteredColumns := make([]SourceColumn, 0)
 	// Apply filter
 	for _, col := range p.columns {
@@ -149,7 +148,7 @@ func (p *ModuleState) applyColumnFilter(trace tr.Trace, filter SourceColumnFilte
 		}
 	}
 	// Update the view
-	p.view.SetActiveColumns(trace, filteredColumns)
+	p.view.SetActiveColumns(p.module, filteredColumns)
 	// Save active filter
 	p.columnFilter = filter
 	// Update selection and history
@@ -164,14 +163,14 @@ func (p *ModuleState) applyColumnFilter(trace tr.Trace, filter SourceColumnFilte
 
 // Evaluate a query on the current module using those values from the given
 // trace, looking for the first row where the query holds.
-func (p *ModuleState) matchQuery(query *Query, trace tr.Trace) termio.FormattedText {
+func (p *ModuleState) matchQuery(query *Query) termio.FormattedText {
 	// Always update history
 	p.scanHistory = history_append(p.scanHistory, query.String())
 	// Proceed
 	env := make(map[string]tr.Column)
 	// construct environment
 	for _, col := range p.columns {
-		env[col.Name] = trace.Column(col.Register)
+		env[col.Name] = p.module.Column(col.Register)
 	}
 	// evaluate forward
 	for i := uint(0); i < p.height(); i++ {
@@ -200,7 +199,7 @@ func history_append[T comparable](history []T, item T) []T {
 // based on the corset source mapping.  This is particularly useful when you
 // want to show the original name for a column (e.g. when its in a perspective),
 // rather than the raw register name.
-func ExtractSourceColumns(path util.Path, selector *hir.Expr, columns []corset.SourceColumn,
+func ExtractSourceColumns(path util.Path, selector util.Option[string], columns []corset.SourceColumn,
 	submodules []corset.SourceModule) []SourceColumn {
 	//
 	var srcColumns []SourceColumn

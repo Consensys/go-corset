@@ -17,7 +17,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/util/collection/typed"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -29,28 +28,19 @@ var compileCmd = &cobra.Command{
 	Long: `Compile a given set of constraint file(s) into a single binary package which can
 	 be subsequently used without requiring a full compilation step.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		var corsetConfig corset.CompilationConfig
 		// Configure log level
 		if GetFlag(cmd, "verbose") {
 			log.SetLevel(log.DebugLevel)
 		}
-		//
-		corsetConfig.Stdlib = !GetFlag(cmd, "no-stdlib")
-		corsetConfig.Debug = GetFlag(cmd, "debug")
-		corsetConfig.Legacy = GetFlag(cmd, "legacy")
 		output := GetString(cmd, "output")
 		defines := GetStringArray(cmd, "define")
-		externs := GetStringArray(cmd, "set")
-		asmConfig := parseLoweringConfig(cmd)
 		// Parse constraints
-		binfile := ReadConstraintFiles(corsetConfig, asmConfig, args)
+		binfile := getSchemaStack(cmd, SCHEMA_DEFAULT_MIR, args...).BinaryFile()
 		// Write metadata
 		if err := binfile.Header.SetMetaData(buildMetadata(defines)); err != nil {
 			fmt.Printf("error writing metadata: %s\n", err.Error())
 			os.Exit(1)
 		}
-		// Apply any user-specified values for externalised constants.
-		applyExternOverrides(externs, binfile)
 		// Serialise as a gob file.
 		WriteBinaryFile(binfile, output)
 	},
@@ -75,9 +65,7 @@ func buildMetadata(items []string) typed.Map {
 //nolint:errcheck
 func init() {
 	rootCmd.AddCommand(compileCmd)
-	compileCmd.Flags().Bool("debug", false, "enable debugging constraints")
 	compileCmd.Flags().StringP("output", "o", "a.bin", "specify output file.")
 	compileCmd.Flags().StringArrayP("define", "D", []string{}, "define metadata attribute.")
-	compileCmd.Flags().StringArrayP("set", "S", []string{}, "set value of externalised constant.")
 	compileCmd.MarkFlagRequired("output")
 }

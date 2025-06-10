@@ -15,32 +15,29 @@ package debug
 import (
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/hir"
-	"github.com/consensys/go-corset/pkg/mir"
+	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
 // PrintSchemas is responsible for printing out a human-readable description of
 // a given schema.
-func PrintSchemas(hirSchema *hir.Schema, hir bool, mir bool, air bool,
-	optConfig mir.OptimisationConfig, textwidth uint) {
+func PrintSchemas(stack cmd_util.SchemaStack, textwidth uint) {
 	//
-	if hir {
-		printSchema(hirSchema, textwidth)
-	}
-
-	if mir {
-		printSchema(hirSchema.LowerToMir(), textwidth)
-	}
-
-	if air {
-		printSchema(hirSchema.LowerToMir().LowerToAir(optConfig), textwidth)
+	for _, schema := range stack.Schemas() {
+		printSchema(schema, textwidth)
 	}
 }
 
 // Print out all declarations included in a given
-func printSchema(schema schema.Schema, width uint) {
+func printSchema(schema schema.AnySchema, width uint) {
+	// Print out each module, one by one.
+	for i := schema.Modules(); i.HasNext(); {
+		printModule(i.Next(), schema, width)
+	}
+}
+
+func printModule(module schema.Module, schema schema.AnySchema, width uint) {
 	formatter := sexp.NewFormatter(width)
 	formatter.Add(&sexp.SFormatter{Head: "if", Priority: 0})
 	formatter.Add(&sexp.SFormatter{Head: "ifnot", Priority: 0})
@@ -49,22 +46,43 @@ func printSchema(schema schema.Schema, width uint) {
 	formatter.Add(&sexp.LFormatter{Head: "∨", Priority: 1})
 	formatter.Add(&sexp.LFormatter{Head: "+", Priority: 2})
 	formatter.Add(&sexp.LFormatter{Head: "*", Priority: 3})
+
+	if module.Name() == "" {
+		fmt.Printf("(module)\n")
+	} else {
+		fmt.Printf("(module %s)\n", module.Name())
+	}
+
+	for _, r := range module.Registers() {
+		if r.IsInput() {
+			fmt.Printf("(input %s u%d)\n", r.Name, r.Width)
+		} else if r.IsOutput() {
+			fmt.Printf("(output %s u%d)\n", r.Name, r.Width)
+		} else if r.IsComputed() {
+			fmt.Printf("(computed %s u%d)\n", r.Name, r.Width)
+		} else {
+			// Fallback --- unsure what kind this is.
+			fmt.Printf("(column %s u%d)\n", r.Name, r.Width)
+		}
+	}
 	//
-	for i := schema.Declarations(); i.HasNext(); {
+	for i := module.Constraints(); i.HasNext(); {
 		ith := i.Next()
-		text := formatter.Format(ith.Lisp(schema))
-		fmt.Println(text)
-	}
 
-	for i := schema.Constraints(); i.HasNext(); {
-		ith := i.Next()
-		text := formatter.Format(ith.Lisp(schema))
-		fmt.Println(text)
-	}
+		fmt.Println()
 
-	for i := schema.Assertions(); i.HasNext(); {
-		ith := i.Next()
 		text := formatter.Format(ith.Lisp(schema))
-		fmt.Println(text)
+		fmt.Print(text)
 	}
+	//
+	for i := module.Assignments(); i.HasNext(); {
+		ith := i.Next()
+
+		fmt.Println()
+
+		text := formatter.Format(ith.Lisp(schema))
+		fmt.Print(text)
+	}
+	//
+	fmt.Println()
 }

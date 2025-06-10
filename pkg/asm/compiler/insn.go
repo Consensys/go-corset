@@ -128,7 +128,7 @@ func (p *StateTranslator[T, E, M]) translateSkip(cc uint, codes []micro.Code) E 
 		right E
 	)
 	//
-	if code.Right == io.UNUSED_REGISTER {
+	if !code.Right.IsUsed() {
 		right = BigNumber[T, E](&code.Constant)
 	} else {
 		right = p.ReadRegister(code.Right)
@@ -162,10 +162,10 @@ func (p *StateTranslator[T, E, M]) translateSub(cc uint, codes []micro.Code) E {
 func (p *StateTranslator[T, E, M]) rebalanceSub(lhs []E, rhs []E, regs []io.Register, code *micro.Sub) ([]E, []E) {
 	//
 	pivot := 0
-	width := int(regs[code.Sources[0]].Width)
+	width := int(regs[code.Sources[0].Unwrap()].Width)
 	//
 	for width > 0 {
-		reg := regs[code.Targets[pivot]]
+		reg := regs[code.Targets[pivot].Unwrap()]
 		//
 		pivot++
 		width -= int(reg.Width)

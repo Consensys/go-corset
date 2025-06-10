@@ -64,7 +64,7 @@ func (p *InOut) MicroExecute(state io.State) (uint, uint) {
 }
 
 // RegistersRead returns the set of registers read by this instruction.
-func (p *InOut) RegistersRead() []uint {
+func (p *InOut) RegistersRead() []io.RegisterId {
 	if p.input {
 		return p.bus.Address()
 	}
@@ -73,7 +73,7 @@ func (p *InOut) RegistersRead() []uint {
 }
 
 // RegistersWritten returns the set of registers written by this instruction.
-func (p *InOut) RegistersWritten() []uint {
+func (p *InOut) RegistersWritten() []io.RegisterId {
 	if p.input {
 		return p.bus.Data()
 	}
