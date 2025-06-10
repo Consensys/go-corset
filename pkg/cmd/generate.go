@@ -16,6 +16,8 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
+	"strings"
 
 	"github.com/consensys/go-corset/pkg/asm"
 	"github.com/consensys/go-corset/pkg/binfile"
@@ -32,10 +34,10 @@ var generateCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		var (
 			corsetConfig corset.CompilationConfig
-			genInterface bool
 			source       string
 			err          error
 			binfiles     []binfile.BinaryFile
+			super        string
 		)
 		// Configure log level
 		if GetFlag(cmd, "verbose") {
@@ -45,37 +47,55 @@ var generateCmd = &cobra.Command{
 		corsetConfig.Stdlib = !GetFlag(cmd, "no-stdlib")
 		corsetConfig.Legacy = GetFlag(cmd, "legacy")
 		asmConfig := parseLoweringConfig(cmd)
-		filename := GetString(cmd, "output")
+		outputs := GetStringArray(cmd, "output")
 		pkgname := GetString(cmd, "package")
-		extends := GetString(cmd, "extend")
-		root := GetFlag(cmd, "root")
-		//
-		if inteface := GetString(cmd, "interface"); inteface != "" {
-			genInterface = true
-			filename = inteface
-		}
+		intrface := GetString(cmd, "interface")
 		// Parse constraints
 		binfiles = readConstraintSets(corsetConfig, asmConfig, args)
 		//
-		if genInterface {
-			source, err = generate.JavaTraceInterface(filename, pkgname, extends, root, binfiles)
-		} else {
-			for _, bf := range binfiles {
-				// NOTE: assume defensive padding is enabled.
-				spillage := determineConservativeSpillage(true, &bf.Schema)
-				// Generate appropriate Java source
-				source, err = generate.JavaTraceClass(filename, pkgname, extends, spillage, &bf)
-			}
+		if len(outputs) < len(binfiles) {
+			fmt.Println("insufficient output Java files specified.")
+			os.Exit(2)
 		}
-		// check for errors / write out file.
-		if err != nil {
-			fmt.Println(err.Error())
-			os.Exit(1)
-		} else if err := os.WriteFile(filename, []byte(source), 0644); err != nil {
-			fmt.Println(err.Error())
-			os.Exit(1)
+		//
+		if intrface != "" {
+			// Attempt to write java interface
+			source, err = generate.JavaTraceInterface(intrface, pkgname, "", true, binfiles)
+			// check for errors
+			checkError(err)
+			// write out class file
+			writeJavaFile(intrface, source)
+			// Determine interface class name
+			filename := filepath.Base(intrface)
+			super = strings.TrimSuffix(filename, ".java")
+		}
+		//
+		for i, bf := range binfiles {
+			filename := outputs[i]
+			// NOTE: assume defensive padding is enabled.
+			spillage := determineConservativeSpillage(true, &bf.Schema)
+			// Generate appropriate Java source
+			source, err = generate.JavaTraceClass(filename, pkgname, super, spillage, &bf)
+			// check for errors
+			checkError(err)
+			// write out class file
+			writeJavaFile(filename, source)
 		}
 	},
+}
+
+func checkError(err error) {
+	if err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
+}
+
+func writeJavaFile(filename, source string) {
+	if err := os.WriteFile(filename, []byte(source), 0644); err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
 }
 
 // Attempt to figure out what the user intended from the given files.  Two easy
@@ -108,9 +128,7 @@ func readConstraintSets(corsetCfg corset.CompilationConfig, asmCfg asm.LoweringC
 //nolint:errcheck
 func init() {
 	rootCmd.AddCommand(generateCmd)
-	generateCmd.Flags().StringP("output", "o", "Trace.java", "specify output file.")
+	generateCmd.Flags().StringArrayP("output", "o", nil, "specify output file(s).")
 	generateCmd.Flags().StringP("interface", "i", "", "generate interface file.")
-	generateCmd.Flags().StringP("extend", "e", "", "specify interface to extend or implement.")
 	generateCmd.Flags().StringP("package", "p", "", "specify Java package.")
-	generateCmd.Flags().Bool("root", false, "specify root class or interface.")
 }
