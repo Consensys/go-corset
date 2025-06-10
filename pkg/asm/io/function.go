@@ -24,6 +24,9 @@ import (
 // Register defines the notion of a register within a function.
 type Register = schema.Register
 
+// RegisterId abstracts the notion of a register id.
+type RegisterId = schema.RegisterId
+
 const (
 	// UNUSED_REGISTER provides a simple way to distinguish registers and
 	// constants in certain instructions.
@@ -115,8 +118,8 @@ func (p *Function[T]) Outputs() []Register {
 }
 
 // Register returns the ith register used in this function.
-func (p *Function[T]) Register(i uint) Register {
-	return p.registers[i]
+func (p *Function[T]) Register(id schema.RegisterId) Register {
+	return p.registers[id.Unwrap()]
 }
 
 // Registers returns the set of all registers used during execution of this
@@ -132,11 +135,11 @@ func (p *Function[T]) Width() uint {
 
 // AllocateRegister allocates a new register of the given kind, name and width
 // into this function.
-func (p *Function[T]) AllocateRegister(kind schema.RegisterType, name string, width uint) uint {
+func (p *Function[T]) AllocateRegister(kind schema.RegisterType, name string, width uint) RegisterId {
 	index := uint(len(p.registers))
 	p.registers = append(p.registers, schema.NewRegister(kind, name, width))
 	// Done
-	return index
+	return schema.NewRegisterId(index)
 }
 
 // ============================================================================

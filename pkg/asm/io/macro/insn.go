@@ -56,7 +56,7 @@ type IoInstruction interface {
 	Link(bus io.Bus)
 }
 
-func assignmentToString(dsts []uint, srcs []uint, constant big.Int, fn io.Function[Instruction],
+func assignmentToString(dsts []io.RegisterId, srcs []io.RegisterId, constant big.Int, fn io.Function[Instruction],
 	c big.Int, op string) string {
 	//
 	var (
@@ -67,7 +67,9 @@ func assignmentToString(dsts []uint, srcs []uint, constant big.Int, fn io.Functi
 	builder.WriteString(io.RegistersReversedToString(dsts, regs))
 	builder.WriteString(" = ")
 	//
-	for i, r := range srcs {
+	for i, id := range srcs {
+		r := id.Unwrap()
+		//
 		if i != 0 {
 			builder.WriteString(op)
 		}

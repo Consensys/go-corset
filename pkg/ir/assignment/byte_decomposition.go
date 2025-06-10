@@ -33,14 +33,14 @@ type ByteDecomposition struct {
 	// Width of decomposition.
 	bitwidth uint
 	// The source register being decomposed
-	sourceRegister uint
+	sourceRegister sc.RegisterId
 	// Target registers holding the decomposition
-	targetRegisters []uint
+	targetRegisters []sc.RegisterId
 }
 
 // NewByteDecomposition creates a new sorted permutation
-func NewByteDecomposition(handle string, context trace.Context, sourceRegister uint,
-	bitwidth uint, byteRegisters []uint) *ByteDecomposition {
+func NewByteDecomposition(handle string, context trace.Context, sourceRegister sc.RegisterId,
+	bitwidth uint, byteRegisters []sc.RegisterId) *ByteDecomposition {
 	//
 	return &ByteDecomposition{handle, context, bitwidth, sourceRegister, byteRegisters}
 }
@@ -53,7 +53,7 @@ func (p *ByteDecomposition) Compute(tr trace.Trace, schema sc.AnySchema) ([]trac
 		trModule = tr.Module(p.context.ModuleId)
 		n        = len(p.targetRegisters)
 		// Identify source column
-		source = trModule.Column(p.sourceRegister)
+		source = trModule.Column(p.sourceRegister.Unwrap())
 		// Determine height of column
 		height = tr.Height(source.Context())
 		// Determine padding values
@@ -91,8 +91,8 @@ func (p *ByteDecomposition) Bounds() util.Bounds {
 
 // Dependencies returns the set of columns that this assignment depends upon.
 // That can include both input columns, as well as other computed columns.
-func (p *ByteDecomposition) Dependencies() []uint {
-	return []uint{p.sourceRegister}
+func (p *ByteDecomposition) Dependencies() []sc.RegisterId {
+	return []sc.RegisterId{p.sourceRegister}
 }
 
 // Consistent performs some simple checks that the given schema is consistent.
@@ -125,7 +125,7 @@ func (p *ByteDecomposition) Module() uint {
 }
 
 // Registers identifies registers assigned by this assignment.
-func (p *ByteDecomposition) Registers() []uint {
+func (p *ByteDecomposition) Registers() []sc.RegisterId {
 	return p.targetRegisters
 }
 

@@ -44,12 +44,12 @@ func (p *Goto) Lower(pc uint) micro.Instruction {
 }
 
 // RegistersRead returns the set of registers read by this instruction.
-func (p *Goto) RegistersRead() []uint {
+func (p *Goto) RegistersRead() []io.RegisterId {
 	return nil
 }
 
 // RegistersWritten returns the set of registers written by this instruction.
-func (p *Goto) RegistersWritten() []uint {
+func (p *Goto) RegistersWritten() []io.RegisterId {
 	return nil
 }
 

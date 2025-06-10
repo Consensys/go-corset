@@ -131,6 +131,17 @@ func (p ArrayModule) Column(id uint) Column {
 	return &p.columns[id]
 }
 
+// ColumnOf returns a specific column within this trace module.
+func (p ArrayModule) ColumnOf(name string) Column {
+	for _, c := range p.columns {
+		if c.name == name {
+			return &c
+		}
+	}
+	//
+	panic(fmt.Sprintf("unknown column \"%s\"", name))
+}
+
 // Height returns the height of this module, meaning the number of assigned
 // rows.
 func (p ArrayModule) Height() uint {

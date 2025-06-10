@@ -707,7 +707,7 @@ func encode_reg_access(term RegisterAccess, buf *bytes.Buffer) error {
 		return err
 	}
 	// Register Index
-	if err := binary.Write(buf, binary.BigEndian, uint16(term.Register)); err != nil {
+	if err := binary.Write(buf, binary.BigEndian, uint16(term.Register.Unwrap())); err != nil {
 		return err
 	}
 	// Shift
@@ -882,8 +882,10 @@ func decode_register(buf *bytes.Buffer) (Term, error) {
 	if err := binary.Read(buf, binary.BigEndian, &shift); err != nil {
 		return nil, err
 	}
+	// Construct raw register id
+	rid := schema.NewRegisterId(uint(index))
 	// Done
-	return ir.NewRegisterAccess[Term](uint(index), int(shift)), nil
+	return ir.NewRegisterAccess[Term](rid, int(shift)), nil
 }
 
 // ============================================================================

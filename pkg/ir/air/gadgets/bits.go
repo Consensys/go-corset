@@ -21,6 +21,7 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/air"
 	"github.com/consensys/go-corset/pkg/ir/assignment"
 	"github.com/consensys/go-corset/pkg/schema"
+	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
@@ -28,7 +29,7 @@ import (
 // ApplyBinaryGadget adds a binarity constraint for a given column in the schema
 // which enforces that all values in the given column are either 0 or 1. For a
 // column X, this corresponds to the vanishing constraint X * (X-1) == 0.
-func ApplyBinaryGadget(column uint, ctx trace.Context, module *air.ModuleBuilder) {
+func ApplyBinaryGadget(column schema.RegisterId, ctx trace.Context, module *air.ModuleBuilder) {
 	if ctx.ModuleId != module.Id() {
 		panic("conflicting context")
 	}
@@ -52,7 +53,7 @@ func ApplyBinaryGadget(column uint, ctx trace.Context, module *air.ModuleBuilder
 // ApplyBitwidthGadget ensures all values in a given column fit within a given
 // bitwidth.  This is implemented using a *byte decomposition* which adds n
 // columns and a vanishing constraint (where n*8 >= bitwidth).
-func ApplyBitwidthGadget(col uint, bitwidth uint, selector air.Term, module *air.ModuleBuilder) {
+func ApplyBitwidthGadget(col schema.RegisterId, bitwidth uint, selector air.Term, module *air.ModuleBuilder) {
 	context := trace.NewContext(module.Id(), 1)
 	// Identify target register name
 	name := module.Register(col).Name
@@ -75,7 +76,7 @@ func ApplyBitwidthGadget(col uint, bitwidth uint, selector air.Term, module *air
 
 // Allocate n byte registers, each of which requires a suitable range
 // constraint.
-func allocateByteRegisters(prefix string, bitwidth uint, module *air.ModuleBuilder) []uint {
+func allocateByteRegisters(prefix string, bitwidth uint, module *air.ModuleBuilder) []schema.RegisterId {
 	var (
 		context = trace.NewContext(module.Id(), 1)
 		n       = bitwidth / 8
@@ -89,7 +90,7 @@ func allocateByteRegisters(prefix string, bitwidth uint, module *air.ModuleBuild
 		n++
 	}
 	// Allocate target register ids
-	targets := make([]uint, n)
+	targets := make([]schema.RegisterId, n)
 	// Allocate byte registers
 	for i := uint(0); i < n; i++ {
 		name := fmt.Sprintf("%s:%d", prefix, i)
@@ -108,7 +109,7 @@ func allocateByteRegisters(prefix string, bitwidth uint, module *air.ModuleBuild
 	return targets
 }
 
-func buildDecompositionTerm(bitwidth uint, byteRegisters []uint) air.Term {
+func buildDecompositionTerm(bitwidth uint, byteRegisters []sc.RegisterId) air.Term {
 	var (
 		// Determine ranges required for the give bitwidth
 		ranges = splitColumnRanges(bitwidth)

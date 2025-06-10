@@ -42,7 +42,7 @@ func (p MirModule) Initialise(name string, mid uint) MirModule {
 
 // NewColumn constructs a new column of the given name and bitwidth within
 // this module.
-func (p MirModule) NewColumn(kind schema.RegisterType, name string, bitwidth uint) uint {
+func (p MirModule) NewColumn(kind schema.RegisterType, name string, bitwidth uint) schema.RegisterId {
 	return p.Module.NewRegister(schema.NewRegister(kind, name, bitwidth))
 }
 
@@ -141,7 +141,7 @@ func (p MirExpr) Or(exprs ...MirExpr) MirExpr {
 }
 
 // Variable constructs a variable with a given shift.
-func (p MirExpr) Variable(index uint, shift int) MirExpr {
+func (p MirExpr) Variable(index schema.RegisterId, shift int) MirExpr {
 	return MirExpr{ir.NewRegisterAccess[mir.Term](index, shift), nil}
 }
 

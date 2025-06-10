@@ -247,8 +247,8 @@ func (t *translator) translateDeclaration(decl ast.Declaration, path util.Path, 
 func (t *translator) translateDefComputed(decl *ast.DefComputed, path util.Path, module *ModuleBuilder) {
 	var context tr.Context = tr.VoidContext[uint]()
 	//
-	targets := make([]uint, len(decl.Targets))
-	sources := make([]uint, len(decl.Sources))
+	targets := make([]schema.RegisterId, len(decl.Targets))
+	sources := make([]schema.RegisterId, len(decl.Sources))
 	// Identify source registers
 	for i := 0; i < len(decl.Sources); i++ {
 		ith := decl.Sources[i].Binding().(*ast.ColumnBinding)
@@ -421,9 +421,9 @@ func (t *translator) translateDefPermutation(decl *ast.DefPermutation, path util
 	//
 	var (
 		context     tr.Context = tr.VoidContext[uint]()
-		targets                = make([]uint, len(decl.Sources))
+		targets                = make([]schema.RegisterId, len(decl.Sources))
 		targetTerms            = make([]mir.Term, len(decl.Sources))
-		sources                = make([]uint, len(decl.Sources))
+		sources                = make([]schema.RegisterId, len(decl.Sources))
 		handle      strings.Builder
 	)
 	//
@@ -877,7 +877,7 @@ func (t *translator) registerOf(path *util.Path, shift int) mir.Term {
 }
 
 // Map columns to appropriate module register identifiers.
-func (t *translator) registerIndexOf(path *util.Path) uint {
+func (t *translator) registerIndexOf(path *util.Path) schema.RegisterId {
 	// Determine register id
 	rid := t.env.RegisterOf(path)
 	//

@@ -17,6 +17,7 @@ import (
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/schema"
 )
 
 // Skip microcode performs a conditional skip over a given number of codes. The
@@ -25,7 +26,7 @@ import (
 // is indiciated when the right register is marked as UNUSED.
 type Skip struct {
 	// Left and right comparisons
-	Left, Right uint
+	Left, Right io.RegisterId
 	//
 	Constant big.Int
 	// Skip
@@ -56,7 +57,7 @@ func (p *Skip) MicroExecute(state io.State) (uint, uint) {
 		rhs *big.Int
 	)
 	//
-	if p.Right != io.UNUSED_REGISTER {
+	if p.Right.IsUsed() {
 		rhs = state.Load(p.Right)
 	} else {
 		rhs = &p.Constant
@@ -70,16 +71,16 @@ func (p *Skip) MicroExecute(state io.State) (uint, uint) {
 }
 
 // RegistersRead returns the set of registers read by this instruction.
-func (p *Skip) RegistersRead() []uint {
-	if p.Right != io.UNUSED_REGISTER {
-		return []uint{p.Left}
+func (p *Skip) RegistersRead() []io.RegisterId {
+	if p.Right.IsUsed() {
+		return []io.RegisterId{p.Left, p.Right}
 	}
 	//
-	return []uint{p.Left, p.Right}
+	return []io.RegisterId{p.Left}
 }
 
 // RegistersWritten returns the set of registers written by this instruction.
-func (p *Skip) RegistersWritten() []uint {
+func (p *Skip) RegistersWritten() []io.RegisterId {
 	return nil
 }
 
@@ -94,7 +95,7 @@ func (p *Skip) Split(env *RegisterSplittingEnvironment) []Code {
 		skip     = p.Skip + n - 1
 	)
 	//
-	if p.Right != io.UNUSED_REGISTER {
+	if p.Right.IsUsed() {
 		rhsLimbs := env.SplitTargetRegisters(p.Right)
 		for i := uint(0); i < n; i++ {
 			ncode := &Skip{lhsLimbs[i], rhsLimbs[i], p.Constant, skip - i}
@@ -103,7 +104,7 @@ func (p *Skip) Split(env *RegisterSplittingEnvironment) []Code {
 	} else {
 		constantLimbs := io.SplitConstant(n, env.maxWidth, p.Constant)
 		for i := uint(0); i < n; i++ {
-			ncode := &Skip{lhsLimbs[i], io.UNUSED_REGISTER, constantLimbs[i], skip - i}
+			ncode := &Skip{lhsLimbs[i], schema.NewUnusedRegisterId(), constantLimbs[i], skip - i}
 			ncodes = append(ncodes, ncode)
 		}
 	}
@@ -116,7 +117,7 @@ func (p *Skip) String(fn io.Function[Instruction]) string {
 		l = fn.Register(p.Left).Name
 	)
 	//
-	if p.Right != io.UNUSED_REGISTER {
+	if p.Right.IsUsed() {
 		return fmt.Sprintf("skip %s!=%s %d", l, fn.Register(p.Right).Name, p.Skip)
 	}
 	//
@@ -127,7 +128,7 @@ func (p *Skip) String(fn io.Function[Instruction]) string {
 func (p *Skip) Validate(fieldWidth uint, fn io.Function[Instruction]) error {
 	var lw = fn.Register(p.Left).Width
 	//
-	if p.Right != io.UNUSED_REGISTER {
+	if p.Right.IsUsed() {
 		rw := fn.Register(p.Right).Width
 		//
 		if lw != rw {

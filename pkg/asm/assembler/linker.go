@@ -116,8 +116,8 @@ func allocateBus(busId uint, localBuses map[uint]io.Bus, index uint, components 
 	return bus
 }
 
-func allocateIoRegisters(busName string, registers []io.Register, fn *MacroFunction) []uint {
-	var lines []uint
+func allocateIoRegisters(busName string, registers []io.Register, fn *MacroFunction) []io.RegisterId {
+	var lines []io.RegisterId
 	//
 	for _, reg := range registers {
 		var regName string

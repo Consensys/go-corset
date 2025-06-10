@@ -14,11 +14,11 @@ package micro
 
 import (
 	"fmt"
-	"math"
 	"math/big"
 	"slices"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/schema"
 )
 
 // Add represents a generic operation of the following form:
@@ -39,9 +39,9 @@ import (
 // particular example, c represents a carry flag.
 type Add struct {
 	// Target registers for addition
-	Targets []uint
+	Targets []io.RegisterId
 	// Source register for addition
-	Sources []uint
+	Sources []io.RegisterId
 	// Constant value (if applicable)
 	Constant big.Int
 }
@@ -78,12 +78,12 @@ func (p *Add) MicroExecute(state io.State) (uint, uint) {
 }
 
 // RegistersRead returns the set of registers read by this instruction.
-func (p *Add) RegistersRead() []uint {
+func (p *Add) RegistersRead() []io.RegisterId {
 	return p.Sources
 }
 
 // RegistersWritten returns the set of registers written by this instruction.
-func (p *Add) RegistersWritten() []uint {
+func (p *Add) RegistersWritten() []io.RegisterId {
 	return p.Targets
 }
 
@@ -121,21 +121,21 @@ func (p *Add) Split(env *RegisterSplittingEnvironment) []Code {
 	} else {
 		var (
 			ncodes        []Code
-			targetLimbs        = env.SplitTargetRegisters(p.Targets...)
-			sourcePackets      = env.SplitSourceRegisters(p.Sources...)
-			constantLimbs      = io.SplitConstant(uint(len(sourcePackets)), env.maxWidth, p.Constant)
-			carry         uint = math.MaxUint
+			targetLimbs                 = env.SplitTargetRegisters(p.Targets...)
+			sourcePackets               = env.SplitSourceRegisters(p.Sources...)
+			constantLimbs               = io.SplitConstant(uint(len(sourcePackets)), env.maxWidth, p.Constant)
+			carry         io.RegisterId = schema.NewUnusedRegisterId()
 		)
 		// Allocate all source packets
 		for i, pkt := range sourcePackets {
 			var (
-				targets     []uint
+				targets     []io.RegisterId
 				targetWidth uint
 			)
 			//
 			targetWidth, targets, targetLimbs = env.AllocateTargetLimbs(targetLimbs)
 			//
-			if i != 0 && carry != math.MaxUint {
+			if i != 0 && carry.IsUsed() {
 				// Include carry from previous round
 				pkt = append(pkt, carry)
 			}
@@ -144,7 +144,7 @@ func (p *Add) Split(env *RegisterSplittingEnvironment) []Code {
 				sourceWidth := sumSourceBits(p.Sources, constantLimbs[i], env.RegistersAfter())
 				carry = env.AllocateCarryRegister(targetWidth, sourceWidth)
 				//
-				if carry != math.MaxUint {
+				if carry.IsUsed() {
 					targets = append(targets, carry)
 				}
 			} else {
@@ -186,18 +186,18 @@ func (p *Add) splitAssignment(env *RegisterSplittingEnvironment) []Code {
 	)
 	//
 	for i, target := range targetLimbs {
-		code := &Add{Targets: []uint{target}, Sources: nil, Constant: constantLimbs[i]}
+		code := &Add{Targets: []io.RegisterId{target}, Sources: nil, Constant: constantLimbs[i]}
 		ncodes = append(ncodes, code)
 	}
 	//
 	return ncodes
 }
 
-func sumSourceBits(sources []uint, constant big.Int, regs []io.Register) uint {
+func sumSourceBits(sources []io.RegisterId, constant big.Int, regs []io.Register) uint {
 	var rhs big.Int
 	//
 	for _, target := range sources {
-		rhs.Add(&rhs, regs[target].MaxValue())
+		rhs.Add(&rhs, regs[target.Unwrap()].MaxValue())
 	}
 	// Include constant (if relevant)
 	rhs.Add(&rhs, &constant)
@@ -206,11 +206,11 @@ func sumSourceBits(sources []uint, constant big.Int, regs []io.Register) uint {
 }
 
 // Sum the total number of bits used by the given set of target registers.
-func sumTargetBits(targets []uint, regs []io.Register) uint {
+func sumTargetBits(targets []io.RegisterId, regs []io.Register) uint {
 	sum := uint(0)
 	//
 	for _, target := range targets {
-		sum += regs[target].Width
+		sum += regs[target.Unwrap()].Width
 	}
 	//
 	return sum

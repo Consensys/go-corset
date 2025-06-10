@@ -33,9 +33,9 @@ type LexicographicSort struct {
 	context tr.Context
 	// The target columns to be filled.  The first entry is for the delta
 	// column, and the remaining n entries are for the selector columns.
-	targets []uint
+	targets []sc.RegisterId
 	// Source columns being sorted
-	sources  []uint
+	sources  []sc.RegisterId
 	signs    []bool
 	bitwidth uint
 }
@@ -58,7 +58,7 @@ func LexicographicSortRegisters(n uint, prefix string, bitwidth uint) []sc.Regis
 
 // NewLexicographicSort constructs a new LexicographicSorting assignment.
 func NewLexicographicSort(context tr.Context,
-	targets []uint, signs []bool, sources []uint, bitwidth uint) *LexicographicSort {
+	targets []sc.RegisterId, signs []bool, sources []sc.RegisterId, bitwidth uint) *LexicographicSort {
 	//
 	return &LexicographicSort{context, targets, sources, signs, bitwidth}
 }
@@ -101,7 +101,7 @@ func (p *LexicographicSort) Compute(trace tr.Trace, schema sc.AnySchema) ([]tr.A
 		data := field.NewFrArray(nrows, 1)
 		cols[i+1] = tr.NewArrayColumn(p.context, target.Name, data, zero)
 		// Update bitwidth
-		source := trModule.Column(p.sources[i])
+		source := trModule.Column(p.sources[i].Unwrap())
 		bit_width = max(bit_width, source.Data().BitWidth())
 	}
 	// Configure data column
@@ -114,8 +114,8 @@ func (p *LexicographicSort) Compute(trace tr.Trace, schema sc.AnySchema) ([]tr.A
 		delta.Set(i, zero)
 		// Decide which row is the winner (if any)
 		for j := 0; j < nbits; j++ {
-			prev := trModule.Column(p.sources[j]).Get(int(i - 1))
-			curr := trModule.Column(p.sources[j]).Get(int(i))
+			prev := trModule.Column(p.sources[j].Unwrap()).Get(int(i - 1))
+			curr := trModule.Column(p.sources[j].Unwrap()).Get(int(i))
 
 			if !set && prev.Cmp(&curr) != 0 {
 				var diff fr.Element
@@ -151,7 +151,7 @@ func (p *LexicographicSort) Compute(trace tr.Trace, schema sc.AnySchema) ([]tr.A
 
 // Dependencies returns the set of columns that this assignment depends upon.
 // That can include both input columns, as well as other computed columns.
-func (p *LexicographicSort) Dependencies() []uint {
+func (p *LexicographicSort) Dependencies() []sc.RegisterId {
 	return p.sources
 }
 
@@ -193,7 +193,7 @@ func (p *LexicographicSort) Module() uint {
 }
 
 // Registers identifies registers assigned by this assignment.
-func (p *LexicographicSort) Registers() []uint {
+func (p *LexicographicSort) Registers() []sc.RegisterId {
 	return p.targets
 }
 

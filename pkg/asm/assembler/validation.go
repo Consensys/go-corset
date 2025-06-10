@@ -166,16 +166,16 @@ func applyInstructionFlow(microinsn macro.Instruction, state bit.Set, fn MacroFu
 	var errors []source.SyntaxError
 	// Ensure every register read has been defined.
 	for _, r := range microinsn.RegistersRead() {
-		if state.Contains(r) {
+		if state.Contains(r.Unwrap()) {
 			msg := fmt.Sprintf("register %s possibly undefined", fn.Register(r).Name)
 			errors = append(errors, *srcmaps.SyntaxError(microinsn, msg))
 			// mark as defined to avoid follow on errors
-			state.Remove(r)
+			state.Remove(r.Unwrap())
 		}
 	}
 	// Mark all target registers as written.
 	for _, r := range microinsn.RegistersWritten() {
-		state.Remove(r)
+		state.Remove(r.Unwrap())
 	}
 	// Done
 	return state, errors

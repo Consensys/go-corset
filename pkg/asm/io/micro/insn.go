@@ -42,9 +42,9 @@ type Code interface {
 	// function).
 	MicroExecute(state io.State) (skip uint, pc uint)
 	// Registers returns the set of registers read this micro instruction.
-	RegistersRead() []uint
+	RegistersRead() []io.RegisterId
 	// Registers returns the set of registers written by this micro instruction.
-	RegistersWritten() []uint
+	RegistersWritten() []io.RegisterId
 	// Produce a suitable string representation of this instruction.  This is
 	// primarily used for debugging.
 	String(io.Function[Instruction]) string
@@ -122,30 +122,46 @@ func (p Instruction) JumpTargets() []uint {
 }
 
 // Registers returns the set of registers read/written by this instruction.
-func (p Instruction) Registers() []uint {
+func (p Instruction) Registers() []io.RegisterId {
 	return append(p.RegistersRead(), p.RegistersWritten()...)
 }
 
 // RegistersRead returns the set of registers read by this instruction.
-func (p Instruction) RegistersRead() []uint {
-	var regs bit.Set
+func (p Instruction) RegistersRead() []io.RegisterId {
+	var (
+		regs bit.Set
+		read []io.RegisterId
+	)
 	//
 	for _, c := range p.Codes {
-		regs.InsertAll(c.RegistersRead()...)
+		for _, id := range c.RegistersRead() {
+			if regs.Contains(id.Unwrap()) {
+				regs.Insert(id.Unwrap())
+				read = append(read, id)
+			}
+		}
 	}
 	//
-	return regs.Iter().Collect()
+	return read
 }
 
 // RegistersWritten returns the set of registers written by this instruction.
-func (p Instruction) RegistersWritten() []uint {
-	var regs bit.Set
+func (p Instruction) RegistersWritten() []io.RegisterId {
+	var (
+		regs    bit.Set
+		written []io.RegisterId
+	)
 	//
 	for _, c := range p.Codes {
-		regs.InsertAll(c.RegistersWritten()...)
+		for _, id := range c.RegistersWritten() {
+			if regs.Contains(id.Unwrap()) {
+				regs.Insert(id.Unwrap())
+				written = append(written, id)
+			}
+		}
 	}
 	//
-	return regs.Iter().Collect()
+	return written
 }
 
 func (p Instruction) String(fn io.Function[Instruction]) string {
@@ -193,14 +209,14 @@ func validateWrites(cc uint, writes bit.Set, codes []Code, fn io.Function[Instru
 	default:
 		//
 		for _, dst := range code.RegistersWritten() {
-			if writes.Contains(dst) {
+			if writes.Contains(dst.Unwrap()) {
 				// Extract register name
 				name := fn.Register(dst).Name
 				//
 				return fmt.Errorf("conflicting write on register %s in %s", name, code.String(fn))
 			}
 			//
-			writes.Insert(dst)
+			writes.Insert(dst.Unwrap())
 		}
 	}
 	// Fall through to next micro-code

@@ -20,7 +20,6 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/corset/compiler"
-	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/source"
@@ -224,7 +223,7 @@ func constructSourceModule(scope *compiler.ModuleScope, env compiler.GlobalEnvir
 		Name:       scope.Name(),
 		Synthetic:  false,
 		Virtual:    scope.Virtual(),
-		Selector:   compileSelector(env, scope.Selector()),
+		Selector:   scope.Selector(),
 		Submodules: submodules,
 		Columns:    columns,
 		Constants:  constants,
@@ -244,28 +243,6 @@ func constructDisplayModifier(modifier string) uint {
 	}
 	// unknown, so default to hex
 	return DISPLAY_HEX
-}
-
-// This is really broken.  The problem is that we need to translate the selector
-// expression within the translator.  But, setting that all up is not
-// straightforward.  This should be done in the future!
-func compileSelector(env compiler.Environment, selector ast.Expr) mir.Term {
-	if selector == nil {
-		return nil
-	}
-	//
-	if e, ok := selector.(*ast.VariableAccess); ok {
-		if binding, ok := e.Binding().(*ast.ColumnBinding); ok {
-			// Lookup column binding
-			register_id := env.RegisterOf(binding.AbsolutePath())
-			// Done
-			expr := ir.NewRegisterAccess[mir.Term](register_id, 0)
-			//
-			return expr
-		}
-	}
-	// FIXME: #630
-	panic("unsupported selector")
 }
 
 // OPCODE_ENUMERATION provides a default enumeration for the existing ":opcode"

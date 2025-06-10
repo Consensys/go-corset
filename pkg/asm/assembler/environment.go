@@ -119,10 +119,10 @@ func (p *Environment) IsBoundLabel(name string) bool {
 }
 
 // LookupRegister looks up the index for a given register.
-func (p *Environment) LookupRegister(name string) uint {
+func (p *Environment) LookupRegister(name string) io.RegisterId {
 	for i, reg := range p.registers {
 		if reg.Name == name {
-			return uint(i)
+			return schema.NewRegisterId(uint(i))
 		}
 	}
 	//

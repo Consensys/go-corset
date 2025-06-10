@@ -38,9 +38,9 @@ import (
 // particular example, b represents a borrow flag.
 type Sub struct {
 	// Target registers for addition
-	Targets []uint
+	Targets []io.RegisterId
 	// Source register for addition
-	Sources []uint
+	Sources []io.RegisterId
 	// Constant value (if applicable)
 	Constant big.Int
 }
@@ -77,12 +77,12 @@ func (p *Sub) Lower(pc uint) micro.Instruction {
 }
 
 // RegistersRead returns the set of registers read by this instruction.
-func (p *Sub) RegistersRead() []uint {
+func (p *Sub) RegistersRead() []io.RegisterId {
 	return p.Sources
 }
 
 // RegistersWritten returns the set of registers written by this instruction.
-func (p *Sub) RegistersWritten() []uint {
+func (p *Sub) RegistersWritten() []io.RegisterId {
 	return p.Targets
 }
 
@@ -117,15 +117,15 @@ func (p *Sub) Validate(fieldWidth uint, fn io.Function[Instruction]) error {
 // The issue is that, for example, x cannot be split across both sides.  Thus,
 // we need x to align with y.  For a case like "c,y,x = a-b" then we need either
 // x to align with a, or y,x to align with a.
-func checkPivot(source uint, targets []uint, regs []io.Register) error {
+func checkPivot(source io.RegisterId, targets []io.RegisterId, regs []io.Register) error {
 	var (
-		rhs_width = regs[source].Width
+		rhs_width = regs[source.Unwrap()].Width
 		lhs_width = uint(0)
 		pivot     = 0
 	)
 	// Consume source bits
 	for lhs_width < rhs_width {
-		lhs_width += regs[targets[pivot]].Width
+		lhs_width += regs[targets[pivot].Unwrap()].Width
 		pivot = pivot + 1
 	}
 	// Check for alignment
@@ -137,11 +137,11 @@ func checkPivot(source uint, targets []uint, regs []io.Register) error {
 	return fmt.Errorf("incorrect alignment (%d bits versus %d bits)", lhs_width, rhs_width)
 }
 
-func subSourceBits(sources []uint, constant big.Int, regs []io.Register) uint {
-	var rhs big.Int = *regs[sources[0]].MaxValue()
+func subSourceBits(sources []io.RegisterId, constant big.Int, regs []io.Register) uint {
+	var rhs big.Int = *regs[sources[0].Unwrap()].MaxValue()
 	// Now, add negative components
 	for _, target := range sources[1:] {
-		rhs.Add(&rhs, regs[target].MaxValue())
+		rhs.Add(&rhs, regs[target.Unwrap()].MaxValue())
 	}
 	// Include constant (if relevant)
 	rhs.Add(&rhs, &constant)

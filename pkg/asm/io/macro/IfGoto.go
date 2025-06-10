@@ -43,7 +43,7 @@ type IfGoto struct {
 	// Cond indicates the condition
 	Cond uint8
 	// Left and right comparisons
-	Left, Right uint
+	Left, Right io.RegisterId
 	//
 	Constant big.Int
 	// Target identifies target PC
@@ -66,7 +66,7 @@ func (p *IfGoto) Execute(state io.State) uint {
 		taken bool
 	)
 	//
-	if p.Right != io.UNUSED_REGISTER {
+	if p.Right.IsUsed() {
 		rhs = state.Load(p.Right)
 	} else {
 		rhs = &p.Constant
@@ -122,16 +122,16 @@ func (p *IfGoto) Lower(pc uint) micro.Instruction {
 }
 
 // RegistersRead returns the set of registers read by this instruction.
-func (p *IfGoto) RegistersRead() []uint {
-	if p.Right != io.UNUSED_REGISTER {
-		return []uint{p.Left}
+func (p *IfGoto) RegistersRead() []io.RegisterId {
+	if p.Right.IsUsed() {
+		return []io.RegisterId{p.Left, p.Right}
 	}
 	//
-	return []uint{p.Left, p.Right}
+	return []io.RegisterId{p.Left}
 }
 
 // RegistersWritten returns the set of registers written by this instruction.
-func (p *IfGoto) RegistersWritten() []uint {
+func (p *IfGoto) RegistersWritten() []io.RegisterId {
 	return nil
 }
 
@@ -159,7 +159,7 @@ func (p *IfGoto) String(fn io.Function[Instruction]) string {
 		panic("unreachable")
 	}
 	//
-	if p.Right != io.UNUSED_REGISTER {
+	if p.Right.IsUsed() {
 		r = fn.Register(p.Right).Name
 	} else {
 		r = p.Constant.String()

@@ -18,7 +18,6 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/binfile"
-	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/util"
 )
 
@@ -73,7 +72,7 @@ type SourceModule struct {
 	Virtual bool
 	// Selector determines when this (sub)module is active.  Specifically, when
 	// it evaluates to a non-zero value the module is active.
-	Selector mir.Term
+	Selector util.Option[string]
 	// Submodules identifies any (virtual) submodules contained within this.
 	// Currently, perspectives are the only form of submodule currently
 	// supported.

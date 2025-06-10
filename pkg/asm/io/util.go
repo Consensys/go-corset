@@ -6,7 +6,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
-// an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIN, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
@@ -27,16 +27,16 @@ var zero big.Int = *big.NewInt(0)
 // being written.  Firstly, they cannot be input registers (as this are always
 // constant).  Secondly, we cannot write to the same register more than once
 // (i.e. a conflicting write).
-func CheckTargetRegisters(targets []uint, regs []Register) error {
-	for i := range targets {
+func CheckTargetRegisters(targets []RegisterId, regs []Register) error {
+	for i, id := range targets {
 		//
-		if regs[targets[i]].IsInput() {
-			return fmt.Errorf("cannot write input %s", regs[targets[i]].Name)
+		if regs[targets[i].Unwrap()].IsInput() {
+			return fmt.Errorf("cannot write input %s", regs[id.Unwrap()].Name)
 		}
 		//
 		for j := i + 1; j < len(targets); j++ {
 			if targets[i] == targets[j] {
-				return fmt.Errorf("conflicting write to %s", regs[targets[i]].Name)
+				return fmt.Errorf("conflicting write to %s", regs[id.Unwrap()].Name)
 			}
 		}
 	}
@@ -64,11 +64,11 @@ func NumberOfLimbs(maxWidth uint, regWidth uint) uint {
 // register in the given target registers.  For example, given registers r0 and
 // r1 of bitwidths 16bits and 8bits (respectively), then 2 is maximum number of
 // limbs for an 8bit maximum register width.
-func MaxNumberOfLimbs(maxWidth uint, regs []Register, targets []uint) uint {
+func MaxNumberOfLimbs(maxWidth uint, regs []Register, targets []RegisterId) uint {
 	var n = uint(0)
 	//
 	for _, target := range targets {
-		regWidth := regs[target].Width
+		regWidth := regs[target.Unwrap()].Width
 		n = max(n, NumberOfLimbs(maxWidth, regWidth))
 	}
 	//
@@ -148,7 +148,7 @@ func SplitConstant(nLimbs uint, maxWidth uint, constant big.Int) []big.Int {
 
 // RegistersToString returns a string representation for zero or more registers
 // separated by a comma.
-func RegistersToString(rids []uint, regs []Register) string {
+func RegistersToString(rids []RegisterId, regs []Register) string {
 	var builder strings.Builder
 	//
 	for i := 0; i < len(rids); i++ {
@@ -159,7 +159,7 @@ func RegistersToString(rids []uint, regs []Register) string {
 		}
 		//
 		if i < len(regs) {
-			builder.WriteString(regs[rid].Name)
+			builder.WriteString(regs[rid.Unwrap()].Name)
 		} else {
 			builder.WriteString(fmt.Sprintf("?%d", rid))
 		}
@@ -171,6 +171,6 @@ func RegistersToString(rids []uint, regs []Register) string {
 // RegistersReversedToString returns a string representation for zero or more
 // registers in reverse order, separated by a comma.  This is useful, for
 // example, when printing the left-hand side of an assignment.
-func RegistersReversedToString(rids []uint, regs []Register) string {
+func RegistersReversedToString(rids []RegisterId, regs []Register) string {
 	return RegistersToString(util.Reverse(rids), regs)
 }

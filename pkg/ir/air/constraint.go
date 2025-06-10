@@ -66,8 +66,8 @@ func NewLookupConstraint(handle string, source trace.Context,
 }
 
 // NewPermutationConstraint creates a new permutation
-func NewPermutationConstraint(handle string, context trace.Context, targets []uint,
-	sources []uint) Constraint {
+func NewPermutationConstraint(handle string, context trace.Context, targets []schema.RegisterId,
+	sources []schema.RegisterId) Constraint {
 	return newAir(constraint.NewPermutationConstraint(handle, context, targets, sources))
 }
 

@@ -36,7 +36,7 @@ type Module interface {
 	// Module name
 	Name() string
 	// Access a given register in this module.
-	Register(uint) Register
+	Register(RegisterId) Register
 	// Registers providers access to the underlying registers of this schema.
 	Registers() []Register
 	// Returns the number of registers in this module.
@@ -148,8 +148,8 @@ func (p Table[C]) Name() string {
 }
 
 // Register returns the given register in this table.
-func (p Table[C]) Register(index uint) Register {
-	return p.registers[index]
+func (p Table[C]) Register(id RegisterId) Register {
+	return p.registers[id.Unwrap()]
 }
 
 // Registers returns an iterator over the underlying registers of this schema.

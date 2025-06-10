@@ -31,20 +31,20 @@ import (
 // accesses the STAMP register at row 5, whilst CT(-1) accesses the CT register at
 // row 4.
 type RegisterAccess[T Term[T]] struct {
-	Register uint
+	Register schema.RegisterId
 	Shift    int
 }
 
 // NewRegisterAccess constructs an AIR expression representing the value of a
 // given register on the current row.
-func NewRegisterAccess[T Term[T]](register uint, shift int) T {
+func NewRegisterAccess[T Term[T]](register schema.RegisterId, shift int) T {
 	var term Term[T] = &RegisterAccess[T]{Register: register, Shift: shift}
 	return term.(T)
 }
 
 // RawRegisterAccess constructs an AIR expression representing the value of a given
 // register on the current row.
-func RawRegisterAccess[T Term[T]](register uint, shift int) *RegisterAccess[T] {
+func RawRegisterAccess[T Term[T]](register schema.RegisterId, shift int) *RegisterAccess[T] {
 	return &RegisterAccess[T]{Register: register, Shift: shift}
 }
 
@@ -69,7 +69,7 @@ func (p *RegisterAccess[T]) Bounds() util.Bounds {
 
 // EvalAt implementation for Evaluable interface.
 func (p *RegisterAccess[T]) EvalAt(k int, module trace.Module) (fr.Element, error) {
-	return module.Column(p.Register).Get(k + p.Shift), nil
+	return module.Column(p.Register.Unwrap()).Get(k + p.Shift), nil
 }
 
 // Lisp implementation for Lispifiable interface.
@@ -97,7 +97,7 @@ func (p *RegisterAccess[T]) Lisp(module schema.Module) sexp.SExp {
 // RequiredRegisters implementation for Contextual interface.
 func (p *RegisterAccess[T]) RequiredRegisters() *set.SortedSet[uint] {
 	r := set.NewSortedSet[uint]()
-	r.Insert(p.Register)
+	r.Insert(p.Register.Unwrap())
 	// Done
 	return r
 }
@@ -105,7 +105,7 @@ func (p *RegisterAccess[T]) RequiredRegisters() *set.SortedSet[uint] {
 // RequiredCells implementation for Contextual interface
 func (p *RegisterAccess[T]) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
 	set := set.NewAnySortedSet[trace.CellRef]()
-	set.Insert(trace.NewCellRef(p.Register, row+p.Shift))
+	set.Insert(trace.NewCellRef(p.Register.Unwrap(), row+p.Shift))
 	//
 	return set
 }

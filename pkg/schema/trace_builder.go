@@ -277,7 +277,8 @@ func splitTraceColumns(expanded bool, schema AnySchema, modmap map[string]uint,
 		mod := schema.Module(uint(i))
 		//
 		for j, c := range m {
-			reg := mod.Register(uint(j))
+			rid := NewRegisterId(uint(j))
+			reg := mod.Register(rid)
 			//
 			if reg.IsInputOutput() && c.Data == nil {
 				errs = append(errs, fmt.Errorf("missing input/output column '%s' from trace", c.QualifiedName()))
@@ -301,7 +302,8 @@ func initialiseColumnMap(schema AnySchema) (map[columnKey]columnId, [][]trace.Ra
 		columns := make([]trace.RawColumn, m.Width())
 		//
 		for j := uint(0); j != m.Width(); j++ {
-			col := m.Register(j)
+			rid := NewRegisterId(j)
+			col := m.Register(rid)
 			key := columnKey{m.Name(), col.Name}
 			id := columnId{i, j}
 			//
@@ -470,7 +472,8 @@ func sequentialModuleValidation(scMod Module, trMod trace.Module) []error {
 				errors = append(errors, err)
 			} else {
 				var (
-					reg  Register     = scMod.Register(i)
+					rid               = NewRegisterId(i)
+					reg  Register     = scMod.Register(rid)
 					data trace.Column = trMod.Column(i)
 				)
 				// Sanity check data has expected bitwidth
@@ -546,13 +549,13 @@ func dispatchReadyAssignments(batchsize uint, schema AnySchema,
 			// Access data for first regsiter in this assignment.  If this is
 			// nil it signals the register has not yet been filled yet (and,
 			// hence, this entire assignment).
-			ith_data = ith_module.Column(ith.Registers()[0]).Data()
+			ith_data = ith_module.Column(ith.Registers()[0].Unwrap()).Data()
 		)
 		// Check whether this assignment has already been computed and, if not,
 		// whether or not it is ready.
 		if ith_data == nil && isReady(ith, ith_module) {
 			// Dispatch!
-			go func(module uint, targets []uint) {
+			go func(module uint, targets []RegisterId) {
 				cols, err := ith.Compute(trace, schema)
 				// Send outcome back
 				ch <- columnBatch{module, targets, cols, err}
@@ -569,7 +572,7 @@ func dispatchReadyAssignments(batchsize uint, schema AnySchema,
 // have their data already).
 func isReady(assignment Assignment, module *tr.ArrayModule) bool {
 	for _, cid := range assignment.Dependencies() {
-		if module.Column(cid).Data() == nil {
+		if module.Column(cid.Unwrap()).Data() == nil {
 			return false
 		}
 	}
@@ -582,7 +585,7 @@ type columnBatch struct {
 	// Enclosing module for this batch
 	module uint
 	// Target registers for this batch
-	targets []uint
+	targets []RegisterId
 	// The computed columns in this batch.
 	columns []trace.ArrayColumn
 	// An error (should one arise)
@@ -608,12 +611,13 @@ func parallelTraceValidation(schema AnySchema, tr tr.Trace) []error {
 			trMod = tr.Module(mid)
 		)
 		// Check each column within each module
-		for cid := uint(0); cid < trMod.Width(); cid++ {
+		for i := uint(0); i < trMod.Width(); i++ {
+			rid := NewRegisterId(i)
 			// Check elements
 			go func(reg Register, data trace.Column) {
 				// Send outcome back
 				c <- validateColumnBitWidth(reg.Width, data, scMod)
-			}(scMod.Register(cid), trMod.Column(cid))
+			}(scMod.Register(rid), trMod.Column(i))
 			//
 			ntodo++
 		}
@@ -638,11 +642,11 @@ func parallelTraceValidation(schema AnySchema, tr tr.Trace) []error {
 // Fill a set of columns with their computed results.  The column index is that
 // of the first column in the sequence, and subsequent columns are index
 // consecutively.
-func fillComputedColumns(cids []uint, mid uint, cols []tr.ArrayColumn, trace *tr.ArrayTrace) {
+func fillComputedColumns(cids []RegisterId, mid uint, cols []tr.ArrayColumn, trace *tr.ArrayTrace) {
 	module := trace.RawModule(mid)
 	// Add all columns
 	for i, col := range cols {
-		dst := module.Column(cids[i])
+		dst := module.Column(cids[i].Unwrap())
 		// Sanity checks
 		if dst.Name() != col.Name() {
 			mod := trace.Module(col.Context().Module()).Name()
@@ -652,7 +656,7 @@ func fillComputedColumns(cids []uint, mid uint, cols []tr.ArrayColumn, trace *tr
 			panic(fmt.Sprintf("computed column %s.%s already exists in trace", mod, col.Name()))
 		}
 		// Looks good
-		module.FillColumn(cids[i], col.Data(), col.Padding())
+		module.FillColumn(cids[i].Unwrap(), col.Data(), col.Padding())
 	}
 }
 

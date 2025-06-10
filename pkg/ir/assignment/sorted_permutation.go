@@ -30,15 +30,17 @@ type SortedPermutation struct {
 	ColumnContext tr.Context
 	// Target columns declared by this sorted permutation (in the order
 	// of declaration).
-	Targets []uint
+	Targets []sc.RegisterId
 	// Signs determines the sorting direction for each target column.
 	Signs []bool
 	// Source columns which define the new (sorted) columns.
-	Sources []uint
+	Sources []sc.RegisterId
 }
 
 // NewSortedPermutation creates a new sorted permutation
-func NewSortedPermutation(context tr.Context, targets []uint, signs []bool, sources []uint) *SortedPermutation {
+func NewSortedPermutation(context tr.Context, targets []sc.RegisterId, signs []bool,
+	sources []sc.RegisterId) *SortedPermutation {
+	//
 	if len(targets) != len(sources) {
 		panic("target and source column have differing lengths!")
 	} else if len(signs) == 0 || len(signs) > len(targets) {
@@ -74,7 +76,7 @@ func (p *SortedPermutation) Compute(trace tr.Trace, schema sc.AnySchema) ([]tr.A
 	for i := range p.Sources {
 		src := p.Sources[i]
 		// Read column data
-		src_data := trModule.Column(src).Data()
+		src_data := trModule.Column(src.Unwrap()).Data()
 		// Clone it to initialise permutation.
 		data[i] = src_data.Clone()
 	}
@@ -85,7 +87,7 @@ func (p *SortedPermutation) Compute(trace tr.Trace, schema sc.AnySchema) ([]tr.A
 	//
 	for i := range p.Sources {
 		dstColName := scModule.Register(p.Targets[i]).Name
-		srcCol := trModule.Column(p.Sources[i])
+		srcCol := trModule.Column(p.Sources[i].Unwrap())
 		cols[i] = tr.NewArrayColumn(p.ColumnContext, dstColName, data[i], srcCol.Padding())
 	}
 	//
@@ -94,7 +96,7 @@ func (p *SortedPermutation) Compute(trace tr.Trace, schema sc.AnySchema) ([]tr.A
 
 // Dependencies returns the set of columns that this assignment depends upon.
 // That can include both input columns, as well as other computed columns.
-func (p *SortedPermutation) Dependencies() []uint {
+func (p *SortedPermutation) Dependencies() []sc.RegisterId {
 	return p.Sources
 }
 
@@ -127,7 +129,7 @@ func (p *SortedPermutation) Module() uint {
 }
 
 // Registers identifies registers assigned by this assignment.
-func (p *SortedPermutation) Registers() []uint {
+func (p *SortedPermutation) Registers() []sc.RegisterId {
 	return p.Targets
 }
 

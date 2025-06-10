@@ -48,11 +48,11 @@ type FunctionMapping[T any] struct {
 
 // ColumnsOf returns the underlying column identifiers for a given set of zero
 // or more registers.
-func (p *FunctionMapping[T]) ColumnsOf(registers ...uint) []T {
+func (p *FunctionMapping[T]) ColumnsOf(registers ...io.RegisterId) []T {
 	columns := make([]T, len(registers))
 	//
 	for i, r := range registers {
-		columns[i] = p.columns[r]
+		columns[i] = p.columns[r.Unwrap()]
 	}
 	//
 	return columns

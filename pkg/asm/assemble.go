@@ -132,7 +132,7 @@ func LowerMixedMicroProgram(p MixedMicroProgram) schema.UniformSchema[mir.Module
 	var (
 		n = len(p.LeftModules())
 		// Construct compiler
-		compiler = compiler.NewCompiler[uint, compiler.MirExpr, compiler.MirModule]()
+		compiler = compiler.NewCompiler[schema.RegisterId, compiler.MirExpr, compiler.MirModule]()
 		modules  = make([]mir.Module, p.Width())
 	)
 	// Compiler assembly components into MIR
@@ -241,7 +241,7 @@ func vectorizeInstruction(pc uint, insns []micro.Instruction) micro.Instruction 
 
 func conflictingInstructions(cc uint, codes []micro.Code, writes bit.Set, target uint, insn micro.Instruction) bool {
 	// set of written registers
-	var written []uint
+	var written []io.RegisterId
 	//
 	switch code := codes[cc].(type) {
 	case *micro.Add:
@@ -268,11 +268,11 @@ func conflictingInstructions(cc uint, codes []micro.Code, writes bit.Set, target
 	}
 	// Check conflicts, and update mutated registers
 	for _, r := range written {
-		if writes.Contains(r) {
+		if writes.Contains(r.Unwrap()) {
 			return true
 		}
 		//
-		writes.Insert(r)
+		writes.Insert(r.Unwrap())
 	}
 	// Proceed
 	return conflictingInstructions(cc+1, codes, writes, target, insn)

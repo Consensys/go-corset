@@ -38,9 +38,9 @@ import (
 // particular example, c represents a carry flag.
 type Mul struct {
 	// Target registers for addition
-	Targets []uint
+	Targets []io.RegisterId
 	// Source register for addition
-	Sources []uint
+	Sources []io.RegisterId
 	// Constant value (if applicable)
 	Constant big.Int
 }
@@ -77,12 +77,12 @@ func (p *Mul) Lower(pc uint) micro.Instruction {
 }
 
 // RegistersRead returns the set of registers read by this instruction.
-func (p *Mul) RegistersRead() []uint {
+func (p *Mul) RegistersRead() []io.RegisterId {
 	return p.Sources
 }
 
 // RegistersWritten returns the set of registers written by this instruction.
-func (p *Mul) RegistersWritten() []uint {
+func (p *Mul) RegistersWritten() []io.RegisterId {
 	return p.Targets
 }
 
@@ -107,13 +107,13 @@ func (p *Mul) Validate(fieldWidth uint, fn io.Function[Instruction]) error {
 	return io.CheckTargetRegisters(p.Targets, regs)
 }
 
-func mulSourceBits(sources []uint, constant big.Int, regs []io.Register) uint {
+func mulSourceBits(sources []io.RegisterId, constant big.Int, regs []io.Register) uint {
 	var rhs big.Int
 	//
 	rhs.Set(&one)
 	//
 	for _, target := range sources {
-		rhs.Mul(&rhs, regs[target].MaxValue())
+		rhs.Mul(&rhs, regs[target.Unwrap()].MaxValue())
 	}
 	// Include constant (if relevant)
 	rhs.Mul(&rhs, &constant)

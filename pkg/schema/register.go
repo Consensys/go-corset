@@ -16,10 +16,45 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
+	"math"
 	"math/big"
 )
 
 // ============================================================================
+
+// RegisterId captures the notion of a register index.  That is, for each
+// module, every register is allocated a given index starting from 0.  The
+// purpose of the wrapper is avoid confusion between uint values and things
+// which are expected to identify registers.
+type RegisterId struct {
+	index uint
+}
+
+// NewRegisterId constructs a new register ID from a given raw index.
+func NewRegisterId(index uint) RegisterId {
+	return RegisterId{index}
+}
+
+// NewUnusedRegisterId constructs something akin to a null reference.  This is
+// used in some situations where we may (or may not) want to refer to a specific
+// register.
+func NewUnusedRegisterId() RegisterId {
+	return RegisterId{math.MaxUint}
+}
+
+// Unwrap returns the underlying register index.
+func (p RegisterId) Unwrap() uint {
+	if p.index == math.MaxUint {
+		panic("attempt to unwrap unused register id")
+	}
+	//
+	return p.index
+}
+
+// IsUsed checks whether this corresponds to a valid register index.
+func (p RegisterId) IsUsed() bool {
+	return p.index != math.MaxUint
+}
 
 // RegisterType captures the type of a given register, such as whether it
 // represents an input column, and output column or a computed register, etc.
@@ -156,6 +191,30 @@ func (p *RegisterType) GobDecode(data []byte) error {
 	gobDecoder := gob.NewDecoder(buffer)
 	// Modules
 	if err := gobDecoder.Decode(&p.kind); err != nil {
+		return err
+	}
+	// Success!
+	return nil
+}
+
+// GobEncode an option.  This allows it to be marshalled into a binary form.
+func (p RegisterId) GobEncode() (data []byte, err error) {
+	var buffer bytes.Buffer
+	gobEncoder := gob.NewEncoder(&buffer)
+	// Modules
+	if err := gobEncoder.Encode(&p.index); err != nil {
+		return nil, err
+	}
+	// Done
+	return buffer.Bytes(), nil
+}
+
+// GobDecode a previously encoded option
+func (p *RegisterId) GobDecode(data []byte) error {
+	buffer := bytes.NewBuffer(data)
+	gobDecoder := gob.NewDecoder(buffer)
+	// Modules
+	if err := gobDecoder.Decode(&p.index); err != nil {
 		return err
 	}
 	// Success!

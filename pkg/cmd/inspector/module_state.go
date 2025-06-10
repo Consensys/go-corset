@@ -19,7 +19,6 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/corset"
-	"github.com/consensys/go-corset/pkg/ir/mir"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/termio"
@@ -53,7 +52,7 @@ type SourceColumn struct {
 	// Determines whether this is a Computed column.
 	Computed bool
 	// Selector determines when column active.
-	Selector mir.Term
+	Selector util.Option[string]
 	// Display modifier
 	Display uint
 	// Register to which this column is allocated
@@ -200,7 +199,7 @@ func history_append[T comparable](history []T, item T) []T {
 // based on the corset source mapping.  This is particularly useful when you
 // want to show the original name for a column (e.g. when its in a perspective),
 // rather than the raw register name.
-func ExtractSourceColumns(path util.Path, selector mir.Term, columns []corset.SourceColumn,
+func ExtractSourceColumns(path util.Path, selector util.Option[string], columns []corset.SourceColumn,
 	submodules []corset.SourceModule) []SourceColumn {
 	//
 	var srcColumns []SourceColumn

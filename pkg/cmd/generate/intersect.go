@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/corset"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // Intersect two source modules, producing one source module which contains only
@@ -32,7 +33,7 @@ func intersectModules(left corset.SourceModule, right corset.SourceModule) *cors
 		Name:       left.Name,
 		Synthetic:  false,
 		Virtual:    left.Virtual,
-		Selector:   nil,
+		Selector:   util.None[string](),
 		Submodules: intersectSubmodules(left.Submodules, right.Submodules),
 		Columns:    intersectColumns(left.Columns, right.Columns),
 		Constants:  intersectConstants(left.Constants, right.Constants),

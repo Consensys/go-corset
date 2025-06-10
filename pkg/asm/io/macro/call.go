@@ -29,13 +29,13 @@ type Call struct {
 	// Bus identifies the relevant bus for this instruction.
 	bus io.Bus
 	// Target registers for addition
-	Targets []uint
+	Targets []io.RegisterId
 	// Source registers (i.e. arguments) for call
-	Sources []uint
+	Sources []io.RegisterId
 }
 
 // NewCall constructs a new call instruction.
-func NewCall(bus io.Bus, targets []uint, sources []uint) *Call {
+func NewCall(bus io.Bus, targets []io.RegisterId, sources []io.RegisterId) *Call {
 	return &Call{bus, targets, sources}
 }
 
@@ -83,7 +83,7 @@ func (p *Call) Lower(pc uint) micro.Instruction {
 	)
 	// Write address lines
 	for i, input := range p.Sources {
-		insn := &micro.Add{Targets: []uint{address[i]}, Sources: []uint{input}}
+		insn := &micro.Add{Targets: []io.RegisterId{address[i]}, Sources: []io.RegisterId{input}}
 		code = append(code, insn)
 	}
 	// For read / write on bus
@@ -91,7 +91,7 @@ func (p *Call) Lower(pc uint) micro.Instruction {
 	//
 	// Read output lines
 	for i, output := range p.Targets {
-		insn := &micro.Add{Targets: []uint{output}, Sources: []uint{data[i]}}
+		insn := &micro.Add{Targets: []io.RegisterId{output}, Sources: []io.RegisterId{data[i]}}
 		code = append(code, insn)
 	}
 	// Append final branch
@@ -101,12 +101,12 @@ func (p *Call) Lower(pc uint) micro.Instruction {
 }
 
 // RegistersRead returns the set of registers read by this instruction.
-func (p *Call) RegistersRead() []uint {
+func (p *Call) RegistersRead() []io.RegisterId {
 	return p.Sources
 }
 
 // RegistersWritten returns the set of registers written by this instruction.
-func (p *Call) RegistersWritten() []uint {
+func (p *Call) RegistersWritten() []io.RegisterId {
 	return p.Targets
 }
 

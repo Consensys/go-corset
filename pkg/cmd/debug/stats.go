@@ -165,7 +165,7 @@ func columnWidthSummariser(lowWidth uint, highWidth uint) schemaSummariser {
 			for i := schema.Modules(); i.HasNext(); {
 				m := i.Next()
 				for c := uint(0); c < m.Width(); c++ {
-					ith := m.Register(c)
+					ith := m.Register(sc.NewRegisterId(c))
 					ithWidth := ith.Width
 					if ithWidth >= lowWidth && ithWidth <= highWidth {
 						count++

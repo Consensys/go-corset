@@ -33,7 +33,7 @@ type ComputedRegister struct {
 	// Module index for computed column
 	module uint
 	// Target index for computed column
-	target uint
+	target schema.RegisterId
 	// The computation which accepts a given trace and computes
 	// the value of this column at a given row.
 	expr ir.Evaluable
@@ -42,7 +42,7 @@ type ComputedRegister struct {
 // NewComputedRegister constructs a new computed column with a given name and
 // determining expression.  More specifically, that expression is used to
 // compute the values for this column during trace expansion.
-func NewComputedRegister(context trace.Context, column uint, expr ir.Evaluable) *ComputedRegister {
+func NewComputedRegister(context trace.Context, column schema.RegisterId, expr ir.Evaluable) *ComputedRegister {
 	return &ComputedRegister{context.ModuleId, column, expr}
 }
 
@@ -94,8 +94,17 @@ func (p *ComputedRegister) Compute(tr trace.Trace, schema schema.AnySchema) ([]t
 
 // Dependencies returns the set of columns that this assignment depends upon.
 // That can include both input columns, as well as other computed columns.
-func (p *ComputedRegister) Dependencies() []uint {
-	return *p.expr.RequiredRegisters()
+func (p *ComputedRegister) Dependencies() []schema.RegisterId {
+	var (
+		regs = p.expr.RequiredRegisters()
+		rids = make([]schema.RegisterId, regs.Iter().Count())
+	)
+	//
+	for i, iter := 0, regs.Iter(); iter.HasNext(); i++ {
+		rids[i] = schema.NewRegisterId(iter.Next())
+	}
+	//
+	return rids
 }
 
 // Consistent performs some simple checks that the given assignment is
@@ -110,7 +119,7 @@ func (p *ComputedRegister) Consistent(schema schema.AnySchema) []error {
 	// Check target register exists
 	var module = schema.Module(p.module)
 	//
-	if p.target >= module.Width() {
+	if p.target.Unwrap() >= module.Width() {
 		err := fmt.Errorf("invalid register in module %s (%d >= %d)", module.Name(), p.target, module.Width())
 		return []error{err}
 	}
@@ -132,8 +141,8 @@ func (p *ComputedRegister) Module() uint {
 }
 
 // Registers identifies registers assigned by this assignment.
-func (p *ComputedRegister) Registers() []uint {
-	return []uint{p.target}
+func (p *ComputedRegister) Registers() []schema.RegisterId {
+	return []schema.RegisterId{p.target}
 }
 
 // Lisp converts this constraint into an S-Expression.

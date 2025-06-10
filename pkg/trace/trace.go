@@ -41,6 +41,8 @@ type Module interface {
 	Name() string
 	// Access a given column in this module.
 	Column(uint) Column
+	// Access a given column by its name.
+	ColumnOf(string) Column
 	// Returns the number of columns in this module.
 	Width() uint
 	// Returns the height of this module.

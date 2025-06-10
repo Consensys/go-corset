@@ -37,12 +37,12 @@ func (p *Jmp) MicroExecute(state io.State) (uint, uint) {
 }
 
 // RegistersRead returns the set of registers read by this instruction.
-func (p *Jmp) RegistersRead() []uint {
+func (p *Jmp) RegistersRead() []io.RegisterId {
 	return nil
 }
 
 // RegistersWritten returns the set of registers written by this instruction.
-func (p *Jmp) RegistersWritten() []uint {
+func (p *Jmp) RegistersWritten() []io.RegisterId {
 	return nil
 }
 

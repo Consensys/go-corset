@@ -137,15 +137,11 @@ func (p *ModuleView) ValueAt(module tr.Module, trCol, trRow uint) fr.Element {
 func (p *ModuleView) IsActive(module tr.Module, trCol, trRow uint) bool {
 	selector := p.columns[trCol].Selector
 	//
-	if selector == nil {
+	if selector.IsEmpty() {
 		return true
 	}
-	//
-	val, err := selector.EvalAt(int(trRow), module)
-	// error check
-	if err != nil {
-		panic(err.Error())
-	}
+	// Check selector value
+	val := module.ColumnOf(selector.Unwrap()).Get(int(trRow))
 	//
 	return !val.IsZero()
 }

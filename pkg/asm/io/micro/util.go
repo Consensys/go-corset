@@ -12,7 +12,6 @@ package micro
 
 import (
 	"fmt"
-	"math"
 	"math/big"
 	"strings"
 
@@ -20,7 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 )
 
-func assignmentToString(dsts []uint, srcs []uint, constant big.Int, fn io.Function[Instruction],
+func assignmentToString(dsts []io.RegisterId, srcs []io.RegisterId, constant big.Int, fn io.Function[Instruction],
 	c big.Int, op string) string {
 	//
 	var (
@@ -31,7 +30,9 @@ func assignmentToString(dsts []uint, srcs []uint, constant big.Int, fn io.Functi
 	builder.WriteString(io.RegistersReversedToString(dsts, regs))
 	builder.WriteString(" = ")
 	//
-	for i, r := range srcs {
+	for i, rid := range srcs {
+		r := rid.Unwrap()
+		//
 		if i != 0 {
 			builder.WriteString(op)
 		}
@@ -111,17 +112,18 @@ func (p *RegisterSplittingEnvironment) RegistersAfter() []io.Register {
 // limbs.  For example, suppose r0 and r1 are source registers of bitwidth
 // (respectively) 16bits and 8bits.  Then, splitting for a maximum width of 8
 // yields 2 packets: {{r0'0,r1'0}, {r0'1}}
-func (p *RegisterSplittingEnvironment) SplitSourceRegisters(sources ...uint) [][]uint {
-	ntargets := make([][]uint, io.MaxNumberOfLimbs(p.maxWidth, p.regsBefore, sources))
+func (p *RegisterSplittingEnvironment) SplitSourceRegisters(sources ...io.RegisterId) [][]io.RegisterId {
+	ntargets := make([][]io.RegisterId, io.MaxNumberOfLimbs(p.maxWidth, p.regsBefore, sources))
 	//
 	for _, target := range sources {
-		ntarget := p.regMap[target]
-		reg := p.regsBefore[target]
+		ntarget := p.regMap[target.Unwrap()]
+		reg := p.regsBefore[target.Unwrap()]
 		// Determine split parameters
 		n := io.NumberOfLimbs(p.maxWidth, reg.Width)
 		// Split up n limbs
 		for j := uint(0); j != n; j++ {
-			ntargets[j] = append(ntargets[j], ntarget+j)
+			limbId := schema.NewRegisterId(ntarget + j)
+			ntargets[j] = append(ntargets[j], limbId)
 		}
 	}
 	//
@@ -139,16 +141,17 @@ func (p *RegisterSplittingEnvironment) SplitSourceRegisters(sources ...uint) [][
 // > b,x'1,x'0',y'1,y'0 = ...
 //
 // And this set of expanded target registers is returned.
-func (p *RegisterSplittingEnvironment) SplitTargetRegisters(targets ...uint) []uint {
-	var ntargets []uint
+func (p *RegisterSplittingEnvironment) SplitTargetRegisters(targets ...io.RegisterId) []io.RegisterId {
+	var ntargets []io.RegisterId
 	//
 	for _, target := range targets {
-		ntarget := p.regMap[target]
-		reg := p.regsBefore[target]
+		ntarget := p.regMap[target.Unwrap()]
+		reg := p.regsBefore[target.Unwrap()]
 		n := io.NumberOfLimbs(p.maxWidth, reg.Width)
 		// Split into n limbs
 		for j := uint(0); j != n; j++ {
-			ntargets = append(ntargets, ntarget+j)
+			limbId := schema.NewRegisterId(ntarget + j)
+			ntargets = append(ntargets, limbId)
 		}
 	}
 	//
@@ -157,17 +160,19 @@ func (p *RegisterSplittingEnvironment) SplitTargetRegisters(targets ...uint) []u
 
 // AllocateTargetLimbs allocates upto maxWidth bits from a given set of target
 // limbs.
-func (p *RegisterSplittingEnvironment) AllocateTargetLimbs(targetLimbs []uint) (uint, []uint, []uint) {
+func (p *RegisterSplittingEnvironment) AllocateTargetLimbs(targetLimbs []io.RegisterId) (uint,
+	[]io.RegisterId, []io.RegisterId) {
+	//
 	var (
 		width   = uint(0)
-		targets []uint
+		targets []io.RegisterId
 	)
 	// Allocate targets from first packet
 	for width < p.maxWidth && len(targetLimbs) > 0 {
 		target := targetLimbs[0]
 		targets = append(targets, target)
 		targetLimbs = targetLimbs[1:]
-		width = width + p.regsAfter[target].Width
+		width = width + p.regsAfter[target.Unwrap()].Width
 	}
 	// Sanity  check
 	if width > p.maxWidth {
@@ -180,7 +185,7 @@ func (p *RegisterSplittingEnvironment) AllocateTargetLimbs(targetLimbs []uint) (
 // AllocateCarryRegister allocates a carry flag to hold bits which "overflow" the
 // left-hand side of an assignment (i.e. where sourceWidth is greater than
 // targetWidth).
-func (p *RegisterSplittingEnvironment) AllocateCarryRegister(targetWidth uint, sourceWidth uint) uint {
+func (p *RegisterSplittingEnvironment) AllocateCarryRegister(targetWidth uint, sourceWidth uint) io.RegisterId {
 	var (
 		overflowRegId = uint(len(p.regsAfter))
 	)
@@ -191,7 +196,7 @@ func (p *RegisterSplittingEnvironment) AllocateCarryRegister(targetWidth uint, s
 	} else if targetWidth == sourceWidth {
 		// Indicates carry flag not required (e.g. because no carry in lower
 		// portion of addition).
-		return math.MaxUint
+		return schema.NewUnusedRegisterId()
 	}
 	// Determine number of bits of overflow
 	overflowWidth := sourceWidth - targetWidth
@@ -200,5 +205,5 @@ func (p *RegisterSplittingEnvironment) AllocateCarryRegister(targetWidth uint, s
 	// Allocate overflow register
 	p.regsAfter = append(p.regsAfter, overflowRegister)
 	//
-	return overflowRegId
+	return schema.NewRegisterId(overflowRegId)
 }

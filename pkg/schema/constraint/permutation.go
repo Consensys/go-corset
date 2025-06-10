@@ -14,6 +14,7 @@ package constraint
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -46,15 +47,15 @@ type PermutationConstraint struct {
 	Context trace.Context
 	// Targets returns the indices of the columns composing the "left" table of the
 	// permutation.
-	Targets []uint
+	Targets []schema.RegisterId
 	// Sources returns the indices of the columns composing the "right" table of the
 	// permutation.
-	Sources []uint
+	Sources []schema.RegisterId
 }
 
 // NewPermutationConstraint creates a new permutation
-func NewPermutationConstraint(handle string, context trace.Context, targets []uint,
-	sources []uint) PermutationConstraint {
+func NewPermutationConstraint(handle string, context trace.Context, targets []schema.RegisterId,
+	sources []schema.RegisterId) PermutationConstraint {
 	if len(targets) != len(sources) {
 		panic("differeng number of target / source permutation columns")
 	}
@@ -112,8 +113,8 @@ func (p PermutationConstraint) Accepts(tr trace.Trace) (bit.Set, schema.Failure)
 		return coverage, nil
 	}
 	// Prepare suitable error message
-	src_names := trace.QualifiedColumnNamesToCommaSeparatedString(p.Sources, module)
-	dst_names := trace.QualifiedColumnNamesToCommaSeparatedString(p.Targets, module)
+	src_names := qualifiedColumnNamesToCommaSeparatedString(p.Sources, module)
+	dst_names := qualifiedColumnNamesToCommaSeparatedString(p.Targets, module)
 	//
 	msg := fmt.Sprintf("Target columns (%s) not permutation of source columns (%s)",
 		dst_names, src_names)
@@ -147,15 +148,31 @@ func (p PermutationConstraint) Lisp(schema schema.AnySchema) sexp.SExp {
 	})
 }
 
-func sliceColumns(columns []uint, tr trace.Module) []field.FrArray {
+func sliceColumns(columns []schema.RegisterId, tr trace.Module) []field.FrArray {
 	// Allocate return array
 	cols := make([]field.FrArray, len(columns))
 	// Slice out the data
 	for i, n := range columns {
-		nth := tr.Column(n)
+		nth := tr.Column(n.Unwrap())
 		// Copy over
 		cols[i] = nth.Data()
 	}
 	// Done
 	return cols
+}
+
+// QualifiedColumnNamesToCommaSeparatedString produces a suitable string for use
+// in error messages from a list of one or more column identifies.
+func qualifiedColumnNamesToCommaSeparatedString(columns []schema.RegisterId, module trace.Module) string {
+	var names strings.Builder
+
+	for i, c := range columns {
+		if i != 0 {
+			names.WriteString(",")
+		}
+
+		names.WriteString(module.Column(c.Unwrap()).Name())
+	}
+	// Done
+	return names.String()
 }

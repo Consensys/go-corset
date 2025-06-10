@@ -38,12 +38,12 @@ type Assignment interface {
 	Consistent(Schema[Constraint]) []error
 	// Returns the set of columns that this assignment depends upon.  That can
 	// include both input columns, as well as other computed columns.
-	Dependencies() []uint
+	Dependencies() []RegisterId
 	// Module returns the enclosing register for all columns computed by this
 	// assignment.
 	Module() uint
 	// Identifier registers assigned by this assignment.
-	Registers() []uint
+	Registers() []RegisterId
 	// Lisp converts this schema element into a simple S-Expression, for example
 	// so it can be printed.
 	Lisp(AnySchema) sexp.SExp

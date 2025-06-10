@@ -14,7 +14,6 @@ package trace
 
 import (
 	"fmt"
-	"strings"
 )
 
 // MaxHeight determines the maximum height of any column in the trace.  This is
@@ -32,22 +31,6 @@ func MaxHeight(tr Trace) uint {
 	}
 	// Done
 	return h
-}
-
-// QualifiedColumnNamesToCommaSeparatedString produces a suitable string for use
-// in error messages from a list of one or more column identifies.
-func QualifiedColumnNamesToCommaSeparatedString(columns []uint, module Module) string {
-	var names strings.Builder
-
-	for i, c := range columns {
-		if i != 0 {
-			names.WriteString(",")
-		}
-
-		names.WriteString(module.Column(c).Name())
-	}
-	// Done
-	return names.String()
 }
 
 // QualifiedColumnName returns the fully qualified name of a given column.

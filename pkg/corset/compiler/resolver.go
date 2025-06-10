@@ -33,7 +33,7 @@ type DeclPredicate = util.Predicate[ast.Declaration]
 // etc.
 func ResolveCircuit(srcmap *source.Maps[ast.Node], circuit *ast.Circuit) (*ModuleScope, []SyntaxError) {
 	// Construct top-level scope
-	scope := NewModuleScope(nil)
+	scope := NewModuleScope()
 	// Define natives
 	for _, i := range NATIVES {
 		scope.Define(&i)
@@ -44,7 +44,7 @@ func ResolveCircuit(srcmap *source.Maps[ast.Node], circuit *ast.Circuit) (*Modul
 	}
 	// Register modules
 	for _, m := range circuit.Modules {
-		scope.Declare(m.Name, nil)
+		scope.Declare(m.Name, extractSelector(nil))
 	}
 	// Construct resolver
 	r := resolver{srcmap}
@@ -105,7 +105,7 @@ func (r *resolver) initialiseDeclarationsInModule(scope *ModuleScope, decls []as
 			// Attempt to declare the perspective.  Note, we don't need to check
 			// whether or not this succeeds here as, if it fails, this will be
 			// caught below.
-			scope.Declare(def.Name(), def.Selector)
+			scope.Declare(def.Name(), extractSelector(def.Selector))
 		}
 	}
 	// Second, initialise all symbol (e.g. column) definitions.
@@ -126,6 +126,21 @@ func (r *resolver) initialiseDeclarationsInModule(scope *ModuleScope, decls []as
 	}
 	//
 	return errors
+}
+
+// This is really broken.  The problem is that we need to translate the selector
+// expression within the translator.  But, setting that all up is not
+// straightforward.  This should be done in the future!
+func extractSelector(selector ast.Expr) util.Option[string] {
+	if selector == nil {
+		return util.None[string]()
+	}
+	//
+	if e, ok := selector.(*ast.VariableAccess); ok && e.Name.Depth() == 1 {
+		return util.Some[string](e.Name.String())
+	}
+	// FIXME: #630
+	panic("unsupported selector")
 }
 
 // Initialise all alias declarations in the given module scope.  This means

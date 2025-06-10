@@ -170,11 +170,11 @@ func (p *ModuleBuilder[C, T]) Width() uint {
 
 // HasRegister checks whether a register of the given name exists already and,
 // if so, returns its index.
-func (p *ModuleBuilder[C, T]) HasRegister(name string) (uint, bool) {
+func (p *ModuleBuilder[C, T]) HasRegister(name string) (schema.RegisterId, bool) {
 	// Lookup register associated with this name
 	rid, ok := p.regmap[name]
 	//
-	return rid, ok
+	return schema.NewRegisterId(rid), ok
 }
 
 // Name returns the name of the module being constructed.
@@ -184,7 +184,7 @@ func (p *ModuleBuilder[C, T]) Name() string {
 
 // NewRegister declares a new register within the module being built.  This will
 // panic if a register of the same name already exists.
-func (p *ModuleBuilder[C, T]) NewRegister(register schema.Register) uint {
+func (p *ModuleBuilder[C, T]) NewRegister(register schema.Register) schema.RegisterId {
 	// Determine identifier
 	id := uint(len(p.registers))
 	// Sanity check
@@ -195,7 +195,7 @@ func (p *ModuleBuilder[C, T]) NewRegister(register schema.Register) uint {
 	p.registers = append(p.registers, register)
 	p.regmap[register.Name] = id
 	//
-	return id
+	return schema.NewRegisterId(id)
 }
 
 // NewRegisters declares zero or more new registers within the module being
@@ -208,8 +208,8 @@ func (p *ModuleBuilder[C, T]) NewRegisters(registers ...schema.Register) {
 
 // Register returns the register details given an appropriate register
 // identifier.
-func (p *ModuleBuilder[C, T]) Register(rid uint) schema.Register {
-	return p.registers[rid]
+func (p *ModuleBuilder[C, T]) Register(rid schema.RegisterId) schema.Register {
+	return p.registers[rid.Unwrap()]
 }
 
 // Registers returns the set of declared registers in the module being
@@ -224,7 +224,7 @@ func (p *ModuleBuilder[C, T]) RegisterAccessOf(name string, shift int) *Register
 	rid := p.regmap[name]
 	//
 	return &RegisterAccess[T]{
-		Register: rid,
+		Register: schema.NewRegisterId(rid),
 		Shift:    shift,
 	}
 }

@@ -26,7 +26,7 @@ import (
 // arbitrary expression and returning its index.  However, this can be optimised
 // in the case the given expression is a direct column access by simply
 // returning the accessed column index.
-func Expand(ctx trace.Context, bitwidth uint, e air.Term, module *air.ModuleBuilder) uint {
+func Expand(ctx trace.Context, bitwidth uint, e air.Term, module *air.ModuleBuilder) schema.RegisterId {
 	if ctx.IsVoid() || ctx.IsConflicted() {
 		panic("conflicting (or void) context")
 	} else if ctx.ModuleId != module.Id() {

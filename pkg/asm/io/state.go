@@ -99,16 +99,16 @@ func (p *State) Outputs() []big.Int {
 }
 
 // Load value of a given register from this state.
-func (p *State) Load(reg uint) *big.Int {
-	return &p.State[reg]
+func (p *State) Load(reg RegisterId) *big.Int {
+	return &p.State[reg.Unwrap()]
 }
 
 // LoadN reads the values of zero or more registers from this state.
-func (p *State) LoadN(registers []uint) []big.Int {
+func (p *State) LoadN(registers []RegisterId) []big.Int {
 	values := make([]big.Int, len(registers))
 	//
 	for i, src := range registers {
-		values[i] = p.State[src]
+		values[i] = p.State[src.Unwrap()]
 	}
 	//
 	return values
@@ -134,10 +134,11 @@ func (p *State) Next() uint {
 // necessary.  The target registers are given with the least significant first.
 // For example, consider writing 01100010 to registers [R1, R2] of type u4.
 // Then, after the write, we have R1=0010 and R2=0110.
-func (p *State) Store(value big.Int, registers ...uint) {
+func (p *State) Store(value big.Int, registers ...RegisterId) {
 	var offset uint = 0
 	//
-	for _, reg := range registers {
+	for _, id := range registers {
+		reg := id.Unwrap()
 		width := p.Registers[reg].Width
 		p.State[reg] = ReadBitSlice(offset, width, value)
 		offset += width
@@ -146,9 +147,9 @@ func (p *State) Store(value big.Int, registers ...uint) {
 
 // StoreN writes a set of zero or more values to a corresponding set of
 // registers in this state.
-func (p *State) StoreN(registers []uint, values []big.Int) {
+func (p *State) StoreN(registers []RegisterId, values []big.Int) {
 	for i, dst := range registers {
-		p.State[dst] = values[i]
+		p.State[dst.Unwrap()] = values[i]
 	}
 }
 

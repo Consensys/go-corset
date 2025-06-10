@@ -240,7 +240,7 @@ func (p *AirLowering) lowerLookupConstraintToAir(c LookupConstraint, airModule *
 // is not concept of sorting constraints at the AIR level.  Instead, we have to
 // generate the necessary machinery to enforce the sorting constraint.
 func (p *AirLowering) lowerSortedConstraintToAir(c SortedConstraint, airModule *air.ModuleBuilder) {
-	sources := make([]uint, len(c.Sources))
+	sources := make([]schema.RegisterId, len(c.Sources))
 	//
 	for i := 0; i < len(sources); i++ {
 		sourceBitwidth := c.Sources[i].ValueRange(airModule).BitWidth()
