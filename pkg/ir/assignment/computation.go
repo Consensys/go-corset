@@ -30,23 +30,20 @@ import (
 // Computation currently describes a native computation which accepts a set of
 // input columns, and assigns a set of output columns.
 type Computation struct {
-	// Context where in which source and target columns exist.
-	ColumnContext sc.ModuleId
 	// Name of the function being invoked.
 	Function string
 	// Target columns declared by this sorted permutation (in the order
 	// of declaration).
-	Targets []sc.RegisterId
+	Targets []sc.RegisterRef
 	// Source columns which define the new (sorted) columns.
-	Sources []sc.RegisterId
+	Sources []sc.RegisterRef
 }
 
 // NewComputation defines a set of target columns which are assigned from a
 // given set of source columns using a function to multiplex input to output.
-func NewComputation(context sc.ModuleId, fn string, targets []sc.RegisterId,
-	sources []sc.RegisterId) *Computation {
+func NewComputation(fn string, context sc.ModuleId, targets []sc.RegisterId, sources []sc.RegisterId) *Computation {
 	//
-	return &Computation{context, fn, targets, sources}
+	return &Computation{fn, toRegisterRefs(context, targets), toRegisterRefs(context, sources)}
 }
 
 // ============================================================================
@@ -58,7 +55,7 @@ func NewComputation(context sc.ModuleId, fn string, targets []sc.RegisterId,
 // expression such as "(shift X -1)".  This is technically undefined for the
 // first row of any trace and, by association, any constraint evaluating this
 // expression on that first row is also undefined (and hence must pass).
-func (p *Computation) Bounds() util.Bounds {
+func (p *Computation) Bounds(mid sc.ModuleId) util.Bounds {
 	return util.EMPTY_BOUND
 }
 
@@ -67,29 +64,15 @@ func (p *Computation) Bounds() util.Bounds {
 // according to the permutation criteria.
 func (p *Computation) Compute(trace tr.Trace, schema sc.AnySchema) ([]tr.ArrayColumn, error) {
 	var (
-		scModule = schema.Module(p.ColumnContext)
-		trModule = trace.Module(p.ColumnContext)
-		fn       func([]field.FrArray) []field.FrArray
-		ok       bool
+		fn func([]field.FrArray) []field.FrArray
+		ok bool
 	)
-	// Proceed
-	sources := p.sourceColumns(trace)
-	targets := make([]tr.ArrayColumn, len(p.Targets))
 	// Sanity check
 	if fn, ok = NATIVES[p.Function]; !ok {
 		panic(fmt.Sprintf("unknown native function: %s", p.Function))
 	}
-	// Apply native function (or panic if none exists)
-	data := fn(sources)
-	// Physically construct target columns
-	for i, target := range p.Targets {
-		ith := scModule.Register(target)
-		dstColName := ith.Name
-		srcCol := trModule.Column(p.Sources[i].Unwrap())
-		targets[i] = tr.NewArrayColumn(dstColName, data[i], srcCol.Padding())
-	}
-	//
-	return targets, nil
+	// Go!
+	return computeNative(p.Sources, p.Targets, fn, trace, schema), nil
 }
 
 // Consistent performs some simple checks that the given schema is consistent.
@@ -101,33 +84,15 @@ func (p *Computation) Consistent(schema sc.AnySchema) []error {
 	return nil
 }
 
-// Module returns the module which encloses this sorted permutation.
-func (p *Computation) Module() sc.ModuleId {
-	return p.ColumnContext
-}
-
 // RegistersRead returns the set of columns that this assignment depends upon.
 // That can include both input columns, as well as other computed columns.
-func (p *Computation) RegistersRead() []sc.RegisterId {
+func (p *Computation) RegistersRead() []sc.RegisterRef {
 	return p.Sources
 }
 
 // RegistersWritten identifies registers assigned by this assignment.
-func (p *Computation) RegistersWritten() []sc.RegisterId {
+func (p *Computation) RegistersWritten() []sc.RegisterRef {
 	return p.Targets
-}
-
-func (p *Computation) sourceColumns(trace tr.Trace) []util.Array[fr.Element] {
-	var (
-		columns  = make([]util.Array[fr.Element], len(p.Sources))
-		trModule = trace.Module(p.ColumnContext)
-	)
-	//
-	for i, cid := range p.Sources {
-		columns[i] = trModule.Column(cid.Unwrap()).Data()
-	}
-	//
-	return columns
 }
 
 // ============================================================================
@@ -138,21 +103,22 @@ func (p *Computation) sourceColumns(trace tr.Trace) []util.Array[fr.Element] {
 // so it can be printed.
 func (p *Computation) Lisp(schema sc.AnySchema) sexp.SExp {
 	var (
-		module  = schema.Module(p.ColumnContext)
 		targets = sexp.EmptyList()
 		sources = sexp.EmptyList()
 	)
 
-	for i := 0; i != len(p.Targets); i++ {
-		ith := module.Register(p.Targets[i])
+	for _, ref := range p.Targets {
+		module := schema.Module(ref.Module())
+		ith := module.Register(ref.Register())
 		name := sexp.NewSymbol(ith.QualifiedName(module))
 		datatype := sexp.NewSymbol(fmt.Sprintf("u%d", ith.Width))
 		def := sexp.NewList([]sexp.SExp{name, datatype})
 		targets.Append(def)
 	}
 
-	for _, s := range p.Sources {
-		ith := module.Register(s)
+	for _, ref := range p.Sources {
+		module := schema.Module(ref.Module())
+		ith := module.Register(ref.Register())
 		ith_name := ith.QualifiedName(module)
 		sources.Append(sexp.NewSymbol(ith_name))
 	}
@@ -163,6 +129,26 @@ func (p *Computation) Lisp(schema sc.AnySchema) sexp.SExp {
 		sexp.NewSymbol(p.Function),
 		sources,
 	})
+}
+
+// ============================================================================
+// Native Generic Computation
+// ============================================================================
+
+type NativeComputation func([]field.FrArray) []field.FrArray
+
+func computeNative(sources []sc.RegisterRef, targets []sc.RegisterRef, fn NativeComputation, trace tr.Trace, schema sc.AnySchema) []tr.ArrayColumn {
+	// Read inputs
+	inputs := readRegisters(trace, sources...)
+	// Read inputs
+	for i, ref := range sources {
+		mid, rid := ref.Module(), ref.Register().Unwrap()
+		inputs[i] = trace.Module(mid).Column(rid).Data()
+	}
+	// Apply native function
+	data := fn(inputs)
+	// Write outputs
+	return writeRegisters(schema, targets, data)
 }
 
 // ============================================================================

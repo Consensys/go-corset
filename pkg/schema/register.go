@@ -20,6 +20,30 @@ import (
 	"math/big"
 )
 
+// RegisterRef abstracts a complete (i.e. global) register identifier.
+type RegisterRef struct {
+	// Module containing this register
+	mid ModuleId
+	// Register index within that module
+	rid RegisterId
+}
+
+// NewRegisterRef constructs a new register reference from the given module and
+// register identifiers.
+func NewRegisterRef(mid ModuleId, rid RegisterId) RegisterRef {
+	return RegisterRef{mid, rid}
+}
+
+// Module returns the module identifier of this register reference.
+func (p RegisterRef) Module() ModuleId {
+	return p.mid
+}
+
+// Register returns the register identifier of this register reference.
+func (p RegisterRef) Register() RegisterId {
+	return p.rid
+}
+
 // ============================================================================
 
 // RegisterId captures the notion of a register index.  That is, for each

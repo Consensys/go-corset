@@ -47,17 +47,14 @@ func requiredSpillage(module uint, schema AnySchema) uint {
 	for i := schema.Assignments(); i.HasNext(); {
 		// Get ith assignment
 		ith := i.Next()
-		//
-		if ith.Module() == module {
-			// NOTE: Spillage is only currently considered to be necessary at
-			// the front (i.e. start) of a trace.  This is because the prover
-			// always inserts padding at the front, never the back.  As such, it
-			// is the maximum positive shift which determines how much spillage
-			// is required for a comptuation.
-			mx = max(mx, ith.Bounds().End)
-		}
+		// NOTE: Spillage is only currently considered to be necessary at
+		// the front (i.e. start) of a trace.  This is because the prover
+		// always inserts padding at the front, never the back.  As such, it
+		// is the maximum positive shift which determines how much spillage
+		// is required for a comptuation.
+		mx = max(mx, ith.Bounds(module).End)
 	}
-
+	//
 	return mx
 }
 

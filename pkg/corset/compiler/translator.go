@@ -287,7 +287,7 @@ func (t *translator) translateDefComputed(decl *ast.DefComputed, path util.Path)
 	// Determine enclosing module
 	module := t.moduleOf(context)
 	// Add the assignment and check the first identifier.
-	module.AddAssignment(assignment.NewComputation(module.Id(), binding.name, targets, sources))
+	module.AddAssignment(assignment.NewComputation(binding.name, module.Id(), targets, sources))
 	//
 	return nil
 }

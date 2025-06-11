@@ -76,6 +76,11 @@ func (p UniformSchema[M]) RawModules() []M {
 	return p.modules
 }
 
+// Register returns the given register in this schema.
+func (p UniformSchema[M]) Register(ref RegisterRef) Register {
+	return p.Module(ref.Module()).Register(ref.Register())
+}
+
 // Width returns the number of modules in this schema.
 func (p UniformSchema[M]) Width() uint {
 	return uint(len(p.modules))

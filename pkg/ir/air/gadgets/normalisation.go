@@ -19,7 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/air"
 	"github.com/consensys/go-corset/pkg/ir/assignment"
-	"github.com/consensys/go-corset/pkg/schema"
+	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -55,9 +55,9 @@ func applyPseudoInverseGadget(e air.Term, module *air.ModuleBuilder) air.Term {
 		// point to properly support field agnosticity.
 		var bitwidth uint = uint(fr.Modulus().BitLen())
 		// Add computed register.
-		index = module.NewRegister(schema.NewComputedRegister(name, bitwidth))
+		index = module.NewRegister(sc.NewComputedRegister(name, bitwidth))
 		// Add assignment
-		module.AddAssignment(assignment.NewComputedRegister(module.Id(), index, ie))
+		module.AddAssignment(assignment.NewComputedRegister(sc.NewRegisterRef(module.Id(), index), ie))
 		// Construct proof of 1/e
 		inv_e := ir.NewRegisterAccess[air.Term](index, 0)
 		// Construct e/e
@@ -116,7 +116,7 @@ func (e *psuedoInverse) RequiredCells(row int, module trace.Module) *set.AnySort
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (e *psuedoInverse) Lisp(module schema.Module) sexp.SExp {
+func (e *psuedoInverse) Lisp(module sc.Module) sexp.SExp {
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("inv"),
 		e.Expr.Lisp(module),

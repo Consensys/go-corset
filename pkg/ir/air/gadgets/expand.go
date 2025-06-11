@@ -17,6 +17,7 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/air"
 	"github.com/consensys/go-corset/pkg/ir/assignment"
 	"github.com/consensys/go-corset/pkg/schema"
+	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
 )
 
@@ -39,7 +40,7 @@ func Expand(bitwidth uint, e air.Term, module *air.ModuleBuilder) schema.Registe
 	if !ok {
 		// Add computed column
 		index = module.NewRegister(schema.NewComputedRegister(name, bitwidth))
-		module.AddAssignment(assignment.NewComputedRegister(module.Id(), index, e))
+		module.AddAssignment(assignment.NewComputedRegister(sc.NewRegisterRef(module.Id(), index), e))
 		// Construct v == [e]
 		v := ir.NewRegisterAccess[air.Term](index, 0)
 		// v - e

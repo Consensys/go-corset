@@ -28,14 +28,11 @@ import (
 // columns.  Specifically, a delta column is required along with one selector
 // column (binary) for each source column.
 type LexicographicSort struct {
-	// Context in which source and target columns to be located.  All target and
-	// source columns should be contained within this.
-	context sc.ModuleId
 	// The target columns to be filled.  The first entry is for the delta
 	// column, and the remaining n entries are for the selector columns.
-	targets []sc.RegisterId
+	targets []sc.RegisterRef
 	// Source columns being sorted
-	sources  []sc.RegisterId
+	sources  []sc.RegisterRef
 	signs    []bool
 	bitwidth uint
 }
@@ -57,10 +54,10 @@ func LexicographicSortRegisters(n uint, prefix string, bitwidth uint) []sc.Regis
 }
 
 // NewLexicographicSort constructs a new LexicographicSorting assignment.
-func NewLexicographicSort(context sc.ModuleId,
-	targets []sc.RegisterId, signs []bool, sources []sc.RegisterId, bitwidth uint) *LexicographicSort {
+func NewLexicographicSort(targets []sc.RegisterRef, signs []bool, sources []sc.RegisterRef,
+	bitwidth uint) *LexicographicSort {
 	//
-	return &LexicographicSort{context, targets, sources, signs, bitwidth}
+	return &LexicographicSort{targets, sources, signs, bitwidth}
 }
 
 // ============================================================================
@@ -72,7 +69,7 @@ func NewLexicographicSort(context sc.ModuleId,
 // expression such as "(shift X -1)".  This is technically undefined for the
 // first row of any trace and, by association, any constraint evaluating this
 // expression on that first row is also undefined (and hence must pass).
-func (p *LexicographicSort) Bounds() util.Bounds {
+func (p *LexicographicSort) Bounds(mid sc.ModuleId) util.Bounds {
 	return util.EMPTY_BOUND
 }
 
@@ -81,72 +78,24 @@ func (p *LexicographicSort) Bounds() util.Bounds {
 // selectors.
 func (p *LexicographicSort) Compute(trace tr.Trace, schema sc.AnySchema) ([]tr.ArrayColumn, error) {
 	var (
-		scModule = schema.Module(p.context)
-		trModule = trace.Module(p.context)
-		zero     = fr.NewElement(0)
-		one      = fr.NewElement(1)
-		first    = scModule.Register(p.targets[0])
 		// Exact number of (signed) columns involved in the sort
 		nbits = len(p.signs)
-		// Determine how many rows to be constrained.
-		nrows = trace.Module(p.context).Height()
-		// Initialise new data columns
-		cols = make([]tr.ArrayColumn, nbits+1)
 		// Byte width records the largest width of any column.
 		bit_width = uint(0)
 	)
-	// Configure data columns
+	// Compute maximum bitwidth of all source columns, as this determines the
+	// width required for the delta column.
 	for i := 0; i < nbits; i++ {
-		target := scModule.Register(p.targets[1+i])
-		data := field.NewFrArray(nrows, 1)
-		cols[i+1] = tr.NewArrayColumn(target.Name, data, zero)
-		// Update bitwidth
-		source := trModule.Column(p.sources[i].Unwrap())
-		bit_width = max(bit_width, source.Data().BitWidth())
+		bit_width = max(bit_width, schema.Register(p.sources[i]).Width)
 	}
-	// Configure data column
-	delta := field.NewFrArray(nrows, bit_width)
-	cols[0] = tr.NewArrayColumn(first.Name, delta, zero)
+	// Read input columns
+	inputs := readRegisters(trace, p.sources...)
+	// Apply native function
+	data := lexicographicSortNativeFunction(bit_width, inputs, p.signs)
+	// Write out registers
+	outputs := writeRegisters(schema, p.targets, data)
 	//
-	for i := uint(0); i < nrows; i++ {
-		set := false
-		// Initialise delta to zero
-		delta.Set(i, zero)
-		// Decide which row is the winner (if any)
-		for j := 0; j < nbits; j++ {
-			prev := trModule.Column(p.sources[j].Unwrap()).Get(int(i - 1))
-			curr := trModule.Column(p.sources[j].Unwrap()).Get(int(i))
-
-			if !set && prev.Cmp(&curr) != 0 {
-				var diff fr.Element
-
-				cols[j+1].Data().Set(i, one)
-				// Compute curr - prev
-				if !p.signs[j] {
-					// Swap
-					prev, curr = curr, prev
-				}
-				// Sanity check whether computation is valid.  In cases where a
-				// selector is used, then negative (i.e. invalid) values can
-				// legitimately arise when the selector is not enabled.  In such
-				// cases, we just need any valid filler value.
-				if curr.Cmp(&prev) < 0 {
-					// Computation is invalid, so use filler of zero.
-					diff.Set(&zero)
-				} else {
-					diff.Sub(&curr, &prev)
-				}
-				//
-				delta.Set(i, diff)
-				//
-				set = true
-			} else {
-				cols[j+1].Data().Set(i, zero)
-			}
-		}
-	}
-	// Done.
-	return cols, nil
+	return outputs, nil
 }
 
 // Consistent performs some simple checks that the given schema is consistent.
@@ -156,13 +105,12 @@ func (p *LexicographicSort) Consistent(schema sc.AnySchema) []error {
 	var (
 		errors   []error
 		bitwidth = uint(0)
-		module   = schema.Module(p.context)
 	)
 	// Sanity check source types
 	for i := range p.sources {
-		source := module.Register(p.sources[i])
+		source := schema.Register(p.sources[i])
 		// i+1 because first target is selector
-		target := module.Register(p.targets[i+1])
+		target := schema.Register(p.targets[i+1])
 		// Sanit checkout
 		if source.Width != target.Width {
 			errors = append(errors,
@@ -181,19 +129,14 @@ func (p *LexicographicSort) Consistent(schema sc.AnySchema) []error {
 	return errors
 }
 
-// Module returns the module which encloses this sorted permutation.
-func (p *LexicographicSort) Module() sc.ModuleId {
-	return p.context
-}
-
 // RegistersRead returns the set of columns that this assignment depends upon.
 // That can include both input columns, as well as other computed columns.
-func (p *LexicographicSort) RegistersRead() []sc.RegisterId {
+func (p *LexicographicSort) RegistersRead() []sc.RegisterRef {
 	return p.sources
 }
 
 // RegistersWritten identifies registers assigned by this assignment.
-func (p *LexicographicSort) RegistersWritten() []sc.RegisterId {
+func (p *LexicographicSort) RegistersWritten() []sc.RegisterRef {
 	return p.targets
 }
 
@@ -205,20 +148,21 @@ func (p *LexicographicSort) RegistersWritten() []sc.RegisterId {
 // so it can be printed.
 func (p *LexicographicSort) Lisp(schema sc.AnySchema) sexp.SExp {
 	var (
-		module  = schema.Module(p.context)
 		targets = sexp.EmptyList()
 		sources = sexp.EmptyList()
 	)
 
 	for i := range p.targets {
-		ith := module.Register(p.targets[i])
-		ith_name := ith.QualifiedName(module)
+		ith := schema.Register(p.targets[i])
+		ith_module := schema.Module(p.targets[i].Module())
+		ith_name := ith.QualifiedName(ith_module)
 		targets.Append(sexp.NewSymbol(ith_name))
 	}
 
 	for i := range p.sources {
-		ith := module.Register(p.sources[i])
-		ith_name := ith.QualifiedName(module)
+		ith := schema.Register(p.sources[i])
+		ith_module := schema.Module(p.targets[i].Module())
+		ith_name := ith.QualifiedName(ith_module)
 		//
 		if i >= len(p.signs) {
 			// unsigned column
@@ -236,4 +180,75 @@ func (p *LexicographicSort) Lisp(schema sc.AnySchema) sexp.SExp {
 		targets,
 		sources,
 	})
+}
+
+// ============================================================================
+// Native Computation
+// ============================================================================
+
+func lexicographicSortNativeFunction(bitwidth uint, sources []field.FrArray, signs []bool) []field.FrArray {
+	var (
+		nrows = sources[0].Len()
+		// Number of bit columns required (one for each column being sorted).
+		nbits = len(signs)
+		// target[0] is for delta column, followed by one bit columns for each
+		// column being sorted.
+		targets = make([]field.FrArray, 1+nbits)
+		//
+		one = fr.One()
+	)
+	// Intialise delta column
+	//
+	// FIXME: using an index array here ensures the underlying data is
+	// represented using a full field element, rather than e.g. some smaller
+	// number of bytes.  This is needed to handle reject tests which can produce
+	// values outside the range of the computed register, but which we still
+	// want to check are actually rejected (i.e. since they are simulating what
+	// an attacker might do).
+	targets[0] = field.NewFrIndexArray(nrows, bitwidth)
+	// Initialise bit columns
+	for i := range signs {
+		// Construct a byte array for ith byte
+		targets[i+1] = field.NewFrArray(nrows, 1)
+	}
+	//
+	for i := uint(1); i < nrows; i++ {
+		set := false
+		// Initialise delta to zero
+		targets[0].Set(i, zero)
+		// Decide which row is the winner (if any)
+		for j := 0; j < nbits; j++ {
+			prev := sources[j].Get(i - 1)
+			curr := sources[j].Get(i)
+
+			if !set && prev.Cmp(&curr) != 0 {
+				var diff fr.Element
+
+				targets[j+1].Set(i, one)
+				// Compute curr - prev
+				if !signs[j] {
+					// Swap
+					prev, curr = curr, prev
+				}
+				// Sanity check whether computation is valid.  In cases where a
+				// selector is used, then negative (i.e. invalid) values can
+				// legitimately arise when the selector is not enabled.  In such
+				// cases, we just need any valid filler value.
+				if curr.Cmp(&prev) < 0 {
+					// Computation is invalid, so use filler of zero.
+					diff.Set(&zero)
+				} else {
+					diff.Sub(&curr, &prev)
+				}
+				//
+				targets[0].Set(i, diff)
+				//
+				set = true
+			} else {
+				targets[j+1].Set(i, zero)
+			}
+		}
+	}
+	//
+	return targets
 }

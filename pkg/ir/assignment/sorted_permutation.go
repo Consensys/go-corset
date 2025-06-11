@@ -26,15 +26,13 @@ import (
 // SortedPermutation declares one or more columns as sorted permutations of
 // existing columns.
 type SortedPermutation struct {
-	// Context where in which source and target columns are evaluated.
-	ColumnContext sc.ModuleId
 	// Target columns declared by this sorted permutation (in the order
 	// of declaration).
-	Targets []sc.RegisterId
+	Targets []sc.RegisterRef
 	// Signs determines the sorting direction for each target column.
 	Signs []bool
 	// Source columns which define the new (sorted) columns.
-	Sources []sc.RegisterId
+	Sources []sc.RegisterRef
 }
 
 // NewSortedPermutation creates a new sorted permutation
@@ -47,7 +45,7 @@ func NewSortedPermutation(context sc.ModuleId, targets []sc.RegisterId, signs []
 		panic("invalid sort directions")
 	}
 	//
-	return &SortedPermutation{context, targets, signs, sources}
+	return &SortedPermutation{toRegisterRefs(context, targets), signs, toRegisterRefs(context, sources)}
 }
 
 // ============================================================================
@@ -59,7 +57,7 @@ func NewSortedPermutation(context sc.ModuleId, targets []sc.RegisterId, signs []
 // expression such as "(shift X -1)".  This is technically undefined for the
 // first row of any trace and, by association, any constraint evaluating this
 // expression on that first row is also undefined (and hence must pass).
-func (p *SortedPermutation) Bounds() util.Bounds {
+func (p *SortedPermutation) Bounds(mid sc.ModuleId) util.Bounds {
 	return util.EMPTY_BOUND
 }
 
@@ -67,45 +65,25 @@ func (p *SortedPermutation) Bounds() util.Bounds {
 // requires copying the data in the source columns, and sorting that data
 // according to the permutation criteria.
 func (p *SortedPermutation) Compute(trace tr.Trace, schema sc.AnySchema) ([]tr.ArrayColumn, error) {
-	var ( // Calculate how many bytes required.
-		scModule = schema.Module(p.ColumnContext)
-		trModule = trace.Module(p.ColumnContext)
-		data     = make([]field.FrArray, len(p.Sources))
-	)
-	// Construct target columns
-	for i := range p.Sources {
-		src := p.Sources[i]
-		// Read column data
-		src_data := trModule.Column(src.Unwrap()).Data()
-		// Clone it to initialise permutation.
-		data[i] = src_data.Clone()
-	}
-	// Sort target columns
-	util.PermutationSort(data, p.Signs)
-	// Physically construct the columns
-	cols := make([]tr.ArrayColumn, len(p.Sources))
+	// Read inputs
+	sources := readRegisters(trace, p.Sources...)
+	// Apply native function
+	data := sortedPermutationNativeFunction(sources, p.Signs)
+	// Write outputs
+	targets := writeRegisters(schema, p.Targets, data)
 	//
-	for i := range p.Sources {
-		dstColName := scModule.Register(p.Targets[i]).Name
-		srcCol := trModule.Column(p.Sources[i].Unwrap())
-		cols[i] = tr.NewArrayColumn(dstColName, data[i], srcCol.Padding())
-	}
-	//
-	return cols, nil
+	return targets, nil
 }
 
 // Consistent performs some simple checks that the given schema is consistent.
 // This provides a double check of certain key properties, such as that
 // registers used for assignments are large enough, etc.
 func (p *SortedPermutation) Consistent(schema sc.AnySchema) []error {
-	var (
-		module = schema.Module(p.Module())
-		errors []error
-	)
+	var errors []error
 	// // Sanity check source types
 	for i := range p.Sources {
-		source := module.Register(p.Sources[i])
-		target := module.Register(p.Targets[i])
+		source := schema.Register(p.Sources[i])
+		target := schema.Register(p.Targets[i])
 		// Sanit checkout
 		if source.Width != target.Width {
 			err := fmt.Errorf("sorted permutation has inconsistent type for column %s => %s (was u%d, expected u%d)",
@@ -117,19 +95,14 @@ func (p *SortedPermutation) Consistent(schema sc.AnySchema) []error {
 	return errors
 }
 
-// Module returns the module which encloses this sorted permutation.
-func (p *SortedPermutation) Module() sc.ModuleId {
-	return p.ColumnContext
-}
-
 // RegistersRead returns the set of columns that this assignment depends upon.
 // That can include both input columns, as well as other computed columns.
-func (p *SortedPermutation) RegistersRead() []sc.RegisterId {
+func (p *SortedPermutation) RegistersRead() []sc.RegisterRef {
 	return p.Sources
 }
 
 // RegistersWritten identifies registers assigned by this assignment.
-func (p *SortedPermutation) RegistersWritten() []sc.RegisterId {
+func (p *SortedPermutation) RegistersWritten() []sc.RegisterRef {
 	return p.Targets
 }
 
@@ -141,22 +114,21 @@ func (p *SortedPermutation) RegistersWritten() []sc.RegisterId {
 // so it can be printed.
 func (p *SortedPermutation) Lisp(schema sc.AnySchema) sexp.SExp {
 	var (
-		module  = schema.Module(p.Module())
 		targets = sexp.EmptyList()
 		sources = sexp.EmptyList()
 	)
 
-	for _, target := range p.Targets {
-		ith := module.Register(target)
-		name := sexp.NewSymbol(ith.QualifiedName(module))
+	for _, t := range p.Targets {
+		ith := schema.Register(t)
+		name := sexp.NewSymbol(ith.QualifiedName(schema.Module(t.Module())))
 		datatype := sexp.NewSymbol(fmt.Sprintf("u%d", ith.Width))
 		def := sexp.NewList([]sexp.SExp{name, datatype})
 		targets.Append(def)
 	}
 
 	for i, s := range p.Sources {
-		ith := module.Register(s)
-		ith_name := ith.QualifiedName(module)
+		ith := schema.Register(s)
+		ith_name := ith.QualifiedName(schema.Module(s.Module()))
 		//
 		if i >= len(p.Signs) {
 
@@ -174,6 +146,30 @@ func (p *SortedPermutation) Lisp(schema sc.AnySchema) sexp.SExp {
 		targets,
 		sources,
 	})
+}
+
+// ============================================================================
+// Native Function
+// ============================================================================
+
+func sortedPermutationNativeFunction(sources []field.FrArray, signs []bool) []field.FrArray {
+	// Clone target columns first
+	targets := cloneNativeFunction(sources)
+	// Sort target columns (in place)
+	util.PermutationSort(targets, signs)
+	//
+	return targets
+}
+
+func cloneNativeFunction(sources []field.FrArray) []field.FrArray {
+	var targets = make([]field.FrArray, len(sources))
+	// Clone target columns
+	for i, src := range sources {
+		// Clone it to initialise permutation.
+		targets[i] = src.Clone()
+	}
+	//
+	return targets
 }
 
 // ============================================================================

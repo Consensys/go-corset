@@ -98,17 +98,24 @@ func (p *LexicographicSortingGadget) Apply(module *air.ModuleBuilder) {
 	// Add new column (if it does not already exist)
 	if !ok {
 		// Allocate registers
-		regs := assignment.LexicographicSortRegisters(uint(len(p.signs)), p.prefix, p.bitwidth)
-		targets := make([]sc.RegisterId, len(regs))
-		//
+		var (
+			regs    = assignment.LexicographicSortRegisters(uint(len(p.signs)), p.prefix, p.bitwidth)
+			sources = make([]sc.RegisterRef, len(p.columns))
+			targets = make([]sc.RegisterRef, len(regs))
+		)
+		// Construct source refs
+		for i, rid := range p.columns {
+			sources[i] = sc.NewRegisterRef(module.Id(), rid)
+		}
+		// Construct target refs
 		for i, r := range regs {
-			targets[i] = module.NewRegister(r)
+			targets[i] = sc.NewRegisterRef(module.Id(), module.NewRegister(r))
 		}
 		// Extract delta index
-		deltaIndex = targets[0]
+		deltaIndex = targets[0].Register()
 		//
 		module.AddAssignment(
-			assignment.NewLexicographicSort(module.Id(), targets, p.signs, p.columns, p.bitwidth))
+			assignment.NewLexicographicSort(targets, p.signs, sources, p.bitwidth))
 		// Construct selector bits.
 		p.addLexicographicSelectorBits(deltaIndex, module)
 		// Add necessary bitwidth constraints
