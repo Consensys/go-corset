@@ -17,6 +17,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
+	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -92,26 +93,11 @@ func (p *ComputedRegister) Compute(tr trace.Trace, schema schema.AnySchema) ([]t
 	return []trace.ArrayColumn{col}, err
 }
 
-// Dependencies returns the set of columns that this assignment depends upon.
-// That can include both input columns, as well as other computed columns.
-func (p *ComputedRegister) Dependencies() []schema.RegisterId {
-	var (
-		regs = p.expr.RequiredRegisters()
-		rids = make([]schema.RegisterId, regs.Iter().Count())
-	)
-	//
-	for i, iter := 0, regs.Iter(); iter.HasNext(); i++ {
-		rids[i] = schema.NewRegisterId(iter.Next())
-	}
-	//
-	return rids
-}
-
 // Consistent performs some simple checks that the given assignment is
 // consistent with its enclosing schema This provides a double check of certain
 // key properties, such as that registers used for assignments are valid,
 // etc.
-func (p *ComputedRegister) Consistent(schema schema.AnySchema) []error {
+func (p *ComputedRegister) Consistent(schema sc.AnySchema) []error {
 	// Check target module exists
 	if p.module >= schema.Width() {
 		return []error{fmt.Errorf("invalid module (%d >= %d)", p.module, schema.Width())}
@@ -136,19 +122,34 @@ func (p *ComputedRegister) Consistent(schema schema.AnySchema) []error {
 
 // Module returns the enclosing register for all columns computed by this
 // assignment.
-func (p *ComputedRegister) Module() uint {
+func (p *ComputedRegister) Module() sc.ModuleId {
 	return p.module
 }
 
-// Registers identifies registers assigned by this assignment.
-func (p *ComputedRegister) Registers() []schema.RegisterId {
+// RegistersRead returns the set of columns that this assignment depends upon.
+// That can include both input columns, as well as other computed columns.
+func (p *ComputedRegister) RegistersRead() []schema.RegisterId {
+	var (
+		regs = p.expr.RequiredRegisters()
+		rids = make([]schema.RegisterId, regs.Iter().Count())
+	)
+	//
+	for i, iter := 0, regs.Iter(); iter.HasNext(); i++ {
+		rids[i] = schema.NewRegisterId(iter.Next())
+	}
+	//
+	return rids
+}
+
+// RegistersWritten identifies registers assigned by this assignment.
+func (p *ComputedRegister) RegistersWritten() []sc.RegisterId {
 	return []schema.RegisterId{p.target}
 }
 
 // Lisp converts this constraint into an S-Expression.
 //
 //nolint:revive
-func (p *ComputedRegister) Lisp(schema schema.AnySchema) sexp.SExp {
+func (p *ComputedRegister) Lisp(schema sc.AnySchema) sexp.SExp {
 	var (
 		module = schema.Module(p.module)
 		target = module.Register(p.target)

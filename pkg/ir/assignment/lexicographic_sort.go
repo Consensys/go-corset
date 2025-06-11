@@ -149,12 +149,6 @@ func (p *LexicographicSort) Compute(trace tr.Trace, schema sc.AnySchema) ([]tr.A
 	return cols, nil
 }
 
-// Dependencies returns the set of columns that this assignment depends upon.
-// That can include both input columns, as well as other computed columns.
-func (p *LexicographicSort) Dependencies() []sc.RegisterId {
-	return p.sources
-}
-
 // Consistent performs some simple checks that the given schema is consistent.
 // This provides a double check of certain key properties, such as that
 // registers used for assignments are large enough, etc.
@@ -192,8 +186,14 @@ func (p *LexicographicSort) Module() sc.ModuleId {
 	return p.context
 }
 
-// Registers identifies registers assigned by this assignment.
-func (p *LexicographicSort) Registers() []sc.RegisterId {
+// RegistersRead returns the set of columns that this assignment depends upon.
+// That can include both input columns, as well as other computed columns.
+func (p *LexicographicSort) RegistersRead() []sc.RegisterId {
+	return p.sources
+}
+
+// RegistersWritten identifies registers assigned by this assignment.
+func (p *LexicographicSort) RegistersWritten() []sc.RegisterId {
 	return p.targets
 }
 

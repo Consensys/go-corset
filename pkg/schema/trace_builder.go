@@ -215,7 +215,7 @@ func initialiseTrace(expanded bool, schema AnySchema, cols []trace.RawColumn) (*
 	for i := uint(0); i != schema.Width(); i++ {
 		var name = schema.Module(i).Name()
 		//
-		modules[i] = fillTraceModule(i, name, columns[i])
+		modules[i] = fillTraceModule(name, columns[i])
 	}
 	// Done
 	return trace.NewArrayTrace(modules), errors
@@ -326,7 +326,7 @@ func initialiseColumnMap(schema AnySchema) (map[columnKey]columnId, [][]trace.Ra
 	return colmap, modules
 }
 
-func fillTraceModule(mid uint, name string, rawColumns []trace.RawColumn) trace.ArrayModule {
+func fillTraceModule(name string, rawColumns []trace.RawColumn) trace.ArrayModule {
 	var (
 		traceColumns = make([]trace.ArrayColumn, len(rawColumns))
 		zero         = fr.NewElement(0)
@@ -418,7 +418,7 @@ func sequentialTraceExpansion(schema AnySchema, trace *trace.ArrayTrace) error {
 			return err
 		}
 		// Fill all computed columns
-		fillComputedColumns(ith.Registers(), ith.Module(), cols, trace)
+		fillComputedColumns(ith.RegistersWritten(), ith.Module(), cols, trace)
 	}
 	// Done
 	return nil
@@ -548,7 +548,7 @@ func dispatchReadyAssignments(batchsize uint, schema AnySchema,
 			// Access data for first regsiter in this assignment.  If this is
 			// nil it signals the register has not yet been filled yet (and,
 			// hence, this entire assignment).
-			ith_data = ith_module.Column(ith.Registers()[0].Unwrap()).Data()
+			ith_data = ith_module.Column(ith.RegistersWritten()[0].Unwrap()).Data()
 		)
 		// Check whether this assignment has already been computed and, if not,
 		// whether or not it is ready.
@@ -558,7 +558,7 @@ func dispatchReadyAssignments(batchsize uint, schema AnySchema,
 				cols, err := ith.Compute(trace, schema)
 				// Send outcome back
 				ch <- columnBatch{module, targets, cols, err}
-			}(ith.Module(), ith.Registers())
+			}(ith.Module(), ith.RegistersWritten())
 			// Increment dispatch count
 			count++
 		}
@@ -570,7 +570,7 @@ func dispatchReadyAssignments(batchsize uint, schema AnySchema,
 // Check whether all dependencies for this assignment are available (that is,
 // have their data already).
 func isReady(assignment Assignment, module *tr.ArrayModule) bool {
-	for _, cid := range assignment.Dependencies() {
+	for _, cid := range assignment.RegistersRead() {
 		if module.Column(cid.Unwrap()).Data() == nil {
 			return false
 		}

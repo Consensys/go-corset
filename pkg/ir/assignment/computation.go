@@ -91,12 +91,6 @@ func (p *Computation) Compute(trace tr.Trace, schema sc.AnySchema) ([]tr.ArrayCo
 	return targets, nil
 }
 
-// Dependencies returns the set of columns that this assignment depends upon.
-// That can include both input columns, as well as other computed columns.
-func (p *Computation) Dependencies() []sc.RegisterId {
-	return p.Sources
-}
-
 // Consistent performs some simple checks that the given schema is consistent.
 // This provides a double check of certain key properties, such as that
 // registers used for assignments are large enough, etc.
@@ -111,8 +105,14 @@ func (p *Computation) Module() sc.ModuleId {
 	return p.ColumnContext
 }
 
-// Registers identifies registers assigned by this assignment.
-func (p *Computation) Registers() []sc.RegisterId {
+// RegistersRead returns the set of columns that this assignment depends upon.
+// That can include both input columns, as well as other computed columns.
+func (p *Computation) RegistersRead() []sc.RegisterId {
+	return p.Sources
+}
+
+// RegistersWritten identifies registers assigned by this assignment.
+func (p *Computation) RegistersWritten() []sc.RegisterId {
 	return p.Targets
 }
 

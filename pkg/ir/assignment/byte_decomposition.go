@@ -89,12 +89,6 @@ func (p *ByteDecomposition) Bounds() util.Bounds {
 	return util.EMPTY_BOUND
 }
 
-// Dependencies returns the set of columns that this assignment depends upon.
-// That can include both input columns, as well as other computed columns.
-func (p *ByteDecomposition) Dependencies() []sc.RegisterId {
-	return []sc.RegisterId{p.sourceRegister}
-}
-
 // Consistent performs some simple checks that the given schema is consistent.
 // This provides a double check of certain key properties, such as that
 // registers used for assignments are large enough, etc.
@@ -124,8 +118,14 @@ func (p *ByteDecomposition) Module() sc.ModuleId {
 	return p.context
 }
 
-// Registers identifies registers assigned by this assignment.
-func (p *ByteDecomposition) Registers() []sc.RegisterId {
+// RegistersRead returns the set of columns that this assignment depends upon.
+// That can include both input columns, as well as other computed columns.
+func (p *ByteDecomposition) RegistersRead() []sc.RegisterId {
+	return []sc.RegisterId{p.sourceRegister}
+}
+
+// RegistersWritten identifies registers assigned by this assignment.
+func (p *ByteDecomposition) RegistersWritten() []sc.RegisterId {
 	return p.targetRegisters
 }
 
