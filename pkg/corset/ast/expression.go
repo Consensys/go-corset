@@ -17,7 +17,6 @@ import (
 	"math/big"
 	"reflect"
 
-	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
@@ -44,7 +43,7 @@ type Expr interface {
 }
 
 // Context represents the evaluation context for a given expression.
-type Context = tr.RawContext[string]
+type Context = RawContext[string]
 
 // ============================================================================
 // Addition
@@ -275,7 +274,7 @@ func (e *Constant) AsConstant() *big.Int {
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
 func (e *Constant) Context() Context {
-	return tr.VoidContext[string]()
+	return VoidContext[string]()
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
@@ -1124,9 +1123,9 @@ func (e *VariableAccess) Context() Context {
 	if binding, ok := e.binding.(*ColumnBinding); ok {
 		return binding.Context()
 	} else if _, ok := e.Binding().(*ConstantBinding); ok {
-		return tr.VoidContext[string]()
+		return VoidContext[string]()
 	} else if _, ok := e.Binding().(*LocalVariableBinding); ok {
-		return tr.VoidContext[string]()
+		return VoidContext[string]()
 	}
 	//
 	panic("invalid column access")
@@ -1163,7 +1162,7 @@ func (e *VariableAccess) Type() Type {
 // there are expressions with different contexts then the conflicted context
 // will be returned.  Otherwise, the one consistent context will be returned.
 func ContextOfExpressions(exprs ...Expr) (Context, uint) {
-	context := tr.VoidContext[string]()
+	context := VoidContext[string]()
 	//
 	for i, e := range exprs {
 		context = context.Join(e.Context())

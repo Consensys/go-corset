@@ -28,8 +28,6 @@ type Trace interface {
 	HasModule(name string) (uint, bool)
 	// Returns the number of modules in this trace.
 	Width() uint
-	// Determine height of a given context
-	Height(Context) uint
 	// Returns an iterator over the contained modules
 	Modules() iter.Iterator[Module]
 }
@@ -51,8 +49,6 @@ type Module interface {
 
 // Column describes an individual column of data within a trace table.
 type Column interface {
-	// Evaluation context of this column
-	Context() Context
 	// Holds the name of this column
 	Name() string
 	// Get the value at a given row in this column.  If the row is

@@ -69,11 +69,6 @@ func (p *ArrayTrace) Width() uint {
 	return uint(len(p.modules))
 }
 
-// Height returns the height of a given context (i.e. module) in the trace.
-func (p *ArrayTrace) Height(ctx Context) uint {
-	return p.modules[ctx.Module()].height * ctx.Multiplier
-}
-
 // Pad prepends (front) and appends (back) a given module with a given number of
 // padding rows.
 func (p *ArrayTrace) Pad(module uint, front uint, back uint) {
@@ -208,11 +203,6 @@ func NewArrayColumn(name string, data field.FrArray,
 // EmptyArrayColumn constructs a  with the give name, data and padding.
 func EmptyArrayColumn(name string) ArrayColumn {
 	return ArrayColumn{name, nil, fr.NewElement(0)}
-}
-
-// Context returns the evaluation context this column provides.
-func (p *ArrayColumn) Context() Context {
-	panic("todo")
 }
 
 // Name returns the name of the given column.

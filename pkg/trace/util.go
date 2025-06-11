@@ -16,23 +16,6 @@ import (
 	"fmt"
 )
 
-// MaxHeight determines the maximum height of any column in the trace.  This is
-// useful in some scenarios for bounding the number of rows for any column.
-// This is done by computing the maximum height of any module.
-func MaxHeight(tr Trace) uint {
-	h := uint(0)
-	// Iterate over modules
-	for i := uint(0); i < tr.Width(); i++ {
-		m := tr.Module(i)
-		// Iterate over columns
-		for c := uint(0); c < m.Width(); c++ {
-			h = max(h, tr.Height(m.Column(c).Context()))
-		}
-	}
-	// Done
-	return h
-}
-
 // QualifiedColumnName returns the fully qualified name of a given column.
 func QualifiedColumnName(module string, column string) string {
 	if module == "" {

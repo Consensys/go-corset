@@ -648,10 +648,10 @@ func fillComputedColumns(cids []RegisterId, mid uint, cols []tr.ArrayColumn, tra
 		dst := module.Column(cids[i].Unwrap())
 		// Sanity checks
 		if dst.Name() != col.Name() {
-			mod := trace.Module(col.Context().Module()).Name()
+			mod := module.Name()
 			panic(fmt.Sprintf("misaligned computed column %s.%s during trace expansion", mod, col.Name()))
 		} else if dst.Data() != nil {
-			mod := trace.Module(col.Context().Module()).Name()
+			mod := module.Name()
 			panic(fmt.Sprintf("computed column %s.%s already exists in trace", mod, col.Name()))
 		}
 		// Looks good

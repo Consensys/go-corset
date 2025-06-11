@@ -80,7 +80,7 @@ func determineSourceColumns(cells CellRefSet, module tr.Module, srcmap *corset.S
 		return determineSourceColumnsFromTrace(cells, module)
 	}
 	//
-	mod := determineEnclosingModule(cells, module, srcmap.Root)
+	mod := determineEnclosingModule(module, srcmap.Root)
 	// Reuse existing functionality from inspector to determine set of all modules.
 	columns := inspector.ExtractSourceColumns(util.NewAbsolutePath(""), mod.Selector, mod.Columns, mod.Submodules)
 	//
@@ -132,20 +132,7 @@ func determineSourceColumnsFromTrace(cells CellRefSet, module tr.Module) []Sourc
 // no unique module we can refer to.  The purpose of identifying the enclosing
 // module is simply to improve the column names reported (i.e. in some cases we
 // can ommit the module itself from the name as this is just repeated).
-func determineEnclosingModule(cells CellRefSet, module tr.Module, root corset.SourceModule) corset.SourceModule {
-	var mid uint
-	//
-	for i, cell := range cells.ToArray() {
-		// Determine enclosing context of this cell.
-		ctx := module.Column(cell.Column).Context()
-		//
-		if i == 0 {
-			mid = ctx.ModuleId
-		} else if mid != ctx.ModuleId {
-			// no unique module, so fall back on root module.
-			return root
-		}
-	}
+func determineEnclosingModule(module tr.Module, root corset.SourceModule) corset.SourceModule {
 	// If we get here then we have a unique enclosing module.  There we just
 	// need to find the corresponding source module.
 	name := module.Name()

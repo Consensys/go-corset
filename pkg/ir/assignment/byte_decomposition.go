@@ -55,7 +55,7 @@ func (p *ByteDecomposition) Compute(tr trace.Trace, schema sc.AnySchema) ([]trac
 		// Identify source column
 		source = trModule.Column(p.sourceRegister.Unwrap())
 		// Determine height of column
-		height = tr.Height(source.Context())
+		height = trModule.Height()
 		// Determine padding values
 		padding = decomposeIntoBytes(source.Padding(), n)
 		// Construct byte column data

@@ -14,7 +14,6 @@ package compiler
 
 import (
 	"github.com/consensys/go-corset/pkg/corset/ast"
-	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
 
@@ -126,18 +125,6 @@ func (p GlobalEnvironment) ColumnsOf(register uint) []string {
 	return columns
 }
 
-// ContextOf constructs a trace context from a given corset context.
-func (p GlobalEnvironment) ContextOf(from ast.Context) tr.Context {
-	// if from.IsVoid() {
-	// 	return tr.VoidContext[uint]()
-	// }
-	// // Determine Module Identifier
-	// mid := p.ModuleOf(from.Module()).Id
-	// // Construct underlying context from this.
-	// return tr.NewContext(mid, from.LengthMultiplier())
-	panic("replace me!")
-}
-
 // ===========================================================================
 // Helpers
 // ===========================================================================
@@ -202,7 +189,7 @@ func (p *GlobalEnvironment) allocateRegister(source RegisterSource) {
 	regId := uint(len(p.registers))
 	// Allocate register
 	p.registers = append(p.registers, Register{
-		tr.NewContext(module, source.Multiplier),
+		ast.NewContext(module, source.Multiplier),
 		source.Bitwidth,
 		[]RegisterSource{source},
 		nil,
