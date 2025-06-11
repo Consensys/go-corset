@@ -14,6 +14,7 @@ package constraint
 
 import (
 	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 )
@@ -24,7 +25,7 @@ type InternalFailure struct {
 	// Handle of the failing constraint
 	Handle string
 	// Module in which constraint failed.
-	Context trace.Context
+	Context schema.ModuleId
 	// Row on which the constraint failed
 	Row uint
 	// Cells involved (if any)
@@ -41,7 +42,7 @@ func (p *InternalFailure) Message() string {
 // RequiredCells identifies the cells required to evaluate the failing constraint at the failing row.
 func (p *InternalFailure) RequiredCells(tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
 	if p.Term != nil {
-		module := tr.Module(p.Context.ModuleId)
+		module := tr.Module(p.Context)
 		return p.Term.RequiredCells(int(p.Row), module)
 	}
 	// Empty set

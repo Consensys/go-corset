@@ -145,9 +145,9 @@ func processConstraintBatch[C Constraint](logtitle string, batch uint, batchsize
 		go func() {
 			// Send outcome back
 			cov, err := ith.Accepts(trace)
-			ctx := ith.Contexts()[0]
+			context := ith.Contexts()[0]
 			name := ith.Name()
-			c <- batchOutcome{ctx.Module(), name, cov, err}
+			c <- batchOutcome{context, name, cov, err}
 		}()
 	}
 	//

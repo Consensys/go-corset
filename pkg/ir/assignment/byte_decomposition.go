@@ -29,7 +29,7 @@ type ByteDecomposition struct {
 	// Handle for identifying this assignment
 	handle string
 	// Context of enclosing module.
-	context trace.Context
+	context sc.ModuleId
 	// Width of decomposition.
 	bitwidth uint
 	// The source register being decomposed
@@ -39,7 +39,7 @@ type ByteDecomposition struct {
 }
 
 // NewByteDecomposition creates a new sorted permutation
-func NewByteDecomposition(handle string, context trace.Context, sourceRegister sc.RegisterId,
+func NewByteDecomposition(handle string, context sc.ModuleId, sourceRegister sc.RegisterId,
 	bitwidth uint, byteRegisters []sc.RegisterId) *ByteDecomposition {
 	//
 	return &ByteDecomposition{handle, context, bitwidth, sourceRegister, byteRegisters}
@@ -49,8 +49,8 @@ func NewByteDecomposition(handle string, context trace.Context, sourceRegister s
 // This requires computing the value of each byte column in the decomposition.
 func (p *ByteDecomposition) Compute(tr trace.Trace, schema sc.AnySchema) ([]trace.ArrayColumn, error) {
 	var ( // Calculate how many bytes required.
-		scModule = schema.Module(p.context.ModuleId)
-		trModule = tr.Module(p.context.ModuleId)
+		scModule = schema.Module(p.context)
+		trModule = tr.Module(p.context)
 		n        = len(p.targetRegisters)
 		// Identify source column
 		source = trModule.Column(p.sourceRegister.Unwrap())
@@ -67,7 +67,7 @@ func (p *ByteDecomposition) Compute(tr trace.Trace, schema sc.AnySchema) ([]trac
 		// Construct a byte array for ith byte
 		data := field.NewFrArray(height, 8)
 		// Construct a byte column for ith byte
-		cols[i] = trace.NewArrayColumn(source.Context(), ith.Name, data, padding[i])
+		cols[i] = trace.NewArrayColumn(ith.Name, data, padding[i])
 	}
 	// Decompose each row of each column
 	for i := uint(0); i < height; i = i + 1 {
@@ -120,8 +120,8 @@ func (p *ByteDecomposition) Consistent(schema sc.AnySchema) []error {
 
 // Module returns the enclosing register for all columns computed by this
 // assignment.
-func (p *ByteDecomposition) Module() uint {
-	return p.context.ModuleId
+func (p *ByteDecomposition) Module() sc.ModuleId {
+	return p.context
 }
 
 // Registers identifies registers assigned by this assignment.
@@ -157,7 +157,7 @@ func decomposeIntoBytes(val fr.Element, n int) []fr.Element {
 // so it can be printed.
 func (p *ByteDecomposition) Lisp(schema sc.AnySchema) sexp.SExp {
 	var (
-		module  = schema.Module(p.context.ModuleId)
+		module  = schema.Module(p.context)
 		source  = module.Register(p.sourceRegister)
 		targets = sexp.EmptyList()
 	)

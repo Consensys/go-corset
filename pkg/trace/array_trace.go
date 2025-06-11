@@ -158,19 +158,13 @@ func (p ArrayModule) Width() uint {
 func (p *ArrayModule) FillColumn(cid uint, data field.FrArray, padding fr.Element) {
 	// Find column to fill
 	col := &p.columns[cid]
-	// Determine appropriate length multiplier
-	multiplier := col.context.Multiplier
 	// Sanity check this column has not already been filled.
-	if data.Len()%multiplier != 0 {
-		colname := QualifiedColumnName(p.name, col.name)
-		panic(fmt.Sprintf("column %s has invalid length multiplier (%d indivisible by %d)",
-			colname, data.Len(), multiplier))
-	} else if p.height == math.MaxUint {
+	if p.height == math.MaxUint {
 		// Initialise column height
-		p.height = data.Len() / col.context.Multiplier
+		p.height = data.Len()
 	} else if data.Len() != p.Height() {
 		colname := QualifiedColumnName(p.name, col.name)
-		panic(fmt.Sprintf("column %s has invalid height (%d but expected %d)", colname, data.Len(), p.height*multiplier))
+		panic(fmt.Sprintf("column %s has invalid height (%d but expected %d)", colname, data.Len(), p.height))
 	}
 	// Fill the column
 	col.fill(data, padding)
@@ -190,8 +184,6 @@ func (p *ArrayModule) Pad(front uint, back uint) {
 
 // ArrayColumn describes an individual column of data within a trace table.
 type ArrayColumn struct {
-	// Evaluation context of this column
-	context Context
 	// Holds the name of this column
 	name string
 	// Holds the raw data making up this column
@@ -202,9 +194,9 @@ type ArrayColumn struct {
 
 // NewArrayColumn constructs a with the give name, data and padding.  The given
 // data is permitted to be nil, and this is used to signal a computed column.
-func NewArrayColumn(context Context, name string, data field.FrArray,
+func NewArrayColumn(name string, data field.FrArray,
 	padding fr.Element) ArrayColumn {
-	col := EmptyArrayColumn(context, name)
+	col := EmptyArrayColumn(name)
 	// Data is permitted to be nil for computed columns.
 	if data != nil {
 		col.fill(data, padding)
@@ -214,13 +206,13 @@ func NewArrayColumn(context Context, name string, data field.FrArray,
 }
 
 // EmptyArrayColumn constructs a  with the give name, data and padding.
-func EmptyArrayColumn(context Context, name string) ArrayColumn {
-	return ArrayColumn{context, name, nil, fr.NewElement(0)}
+func EmptyArrayColumn(name string) ArrayColumn {
+	return ArrayColumn{name, nil, fr.NewElement(0)}
 }
 
 // Context returns the evaluation context this column provides.
 func (p *ArrayColumn) Context() Context {
-	return p.context
+	panic("todo")
 }
 
 // Name returns the name of the given column.
@@ -259,8 +251,6 @@ func (p *ArrayColumn) fill(data field.FrArray, padding fr.Element) {
 	// Sanity check this column has not already been filled.
 	if p.data != nil {
 		panic(fmt.Sprintf("computed column %s has already been filled", p.name))
-	} else if data.Len()%p.context.LengthMultiplier() != 0 {
-		panic(fmt.Sprintf("computed column %s filling has invalid length multiplier", p.name))
 	}
 	// Fill the column
 	p.data = data
@@ -269,9 +259,6 @@ func (p *ArrayColumn) fill(data field.FrArray, padding fr.Element) {
 
 func (p *ArrayColumn) pad(front uint, back uint) {
 	if p.data != nil {
-		// Apply the length multiplier
-		front = front * p.context.LengthMultiplier()
-		back = back * p.context.LengthMultiplier()
 		// Pad front of array
 		p.data = p.data.Pad(front, back, p.padding)
 	}

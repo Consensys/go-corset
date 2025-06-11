@@ -54,30 +54,30 @@ func newAir[C ConstraintBound](constraint C) Air[C] {
 }
 
 // NewAssertion constructs a new AIR assertion
-func NewAssertion(handle string, ctx trace.Context, term ir.Testable) Assertion {
+func NewAssertion(handle string, ctx schema.ModuleId, term ir.Testable) Assertion {
 	//
 	return newAir(constraint.NewAssertion(handle, ctx, term))
 }
 
 // NewLookupConstraint constructs a new AIR lookup constraint
-func NewLookupConstraint(handle string, source trace.Context,
-	target trace.Context, sources []*ColumnAccess, targets []*ColumnAccess) LookupConstraint {
+func NewLookupConstraint(handle string, source schema.ModuleId,
+	target schema.ModuleId, sources []*ColumnAccess, targets []*ColumnAccess) LookupConstraint {
 	return newAir(constraint.NewLookupConstraint(handle, source, target, sources, targets))
 }
 
 // NewPermutationConstraint creates a new permutation
-func NewPermutationConstraint(handle string, context trace.Context, targets []schema.RegisterId,
+func NewPermutationConstraint(handle string, context schema.ModuleId, targets []schema.RegisterId,
 	sources []schema.RegisterId) Constraint {
 	return newAir(constraint.NewPermutationConstraint(handle, context, targets, sources))
 }
 
 // NewRangeConstraint constructs a new AIR range constraint
-func NewRangeConstraint(handle string, ctx trace.Context, expr ColumnAccess, bitwidth uint) RangeConstraint {
+func NewRangeConstraint(handle string, ctx schema.ModuleId, expr ColumnAccess, bitwidth uint) RangeConstraint {
 	return newAir(constraint.NewRangeConstraint(handle, ctx, &expr, bitwidth))
 }
 
 // NewVanishingConstraint constructs a new AIR vanishing constraint
-func NewVanishingConstraint(handle string, ctx trace.Context, domain util.Option[int],
+func NewVanishingConstraint(handle string, ctx schema.ModuleId, domain util.Option[int],
 	term Term) VanishingConstraint {
 	//
 	return newAir(constraint.NewVanishingConstraint(handle, ctx, domain, LogicalTerm{term}))
@@ -116,7 +116,7 @@ func (p Air[C]) Consistent(schema schema.AnySchema) []error {
 // evaluation context, though some (e.g. lookups) have more.  Note that all
 // constraints have at least one context (which we can call the "primary"
 // context).
-func (p Air[C]) Contexts() []trace.Context {
+func (p Air[C]) Contexts() []schema.ModuleId {
 	return p.constraint.Contexts()
 }
 

@@ -22,17 +22,13 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/assignment"
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
 
 // ApplyBinaryGadget adds a binarity constraint for a given column in the schema
 // which enforces that all values in the given column are either 0 or 1. For a
 // column X, this corresponds to the vanishing constraint X * (X-1) == 0.
-func ApplyBinaryGadget(column schema.RegisterId, ctx trace.Context, module *air.ModuleBuilder) {
-	if ctx.ModuleId != module.Id() {
-		panic("conflicting context")
-	}
+func ApplyBinaryGadget(column schema.RegisterId, module *air.ModuleBuilder) {
 	// Identify target register
 	register := module.Register(column)
 	// Determine column name
@@ -47,14 +43,13 @@ func ApplyBinaryGadget(column schema.RegisterId, ctx trace.Context, module *air.
 	X_X_m1 := ir.Product(X_eq0, X_eq1)
 	// Done!
 	module.AddConstraint(
-		air.NewVanishingConstraint(fmt.Sprintf("%s:u1", name), ctx, util.None[int](), X_X_m1))
+		air.NewVanishingConstraint(fmt.Sprintf("%s:u1", name), module.Id(), util.None[int](), X_X_m1))
 }
 
 // ApplyBitwidthGadget ensures all values in a given column fit within a given
 // bitwidth.  This is implemented using a *byte decomposition* which adds n
 // columns and a vanishing constraint (where n*8 >= bitwidth).
-func ApplyBitwidthGadget(col schema.RegisterId, bitwidth uint, selector air.Term, module *air.ModuleBuilder) {
-	context := trace.NewContext(module.Id(), 1)
+func ApplyBitwidthGadget(col sc.RegisterId, bitwidth uint, selector air.Term, module *air.ModuleBuilder) {
 	// Identify target register name
 	name := module.Register(col).Name
 	// Allocated computed byte registers in the given module, and add required
@@ -68,19 +63,16 @@ func ApplyBitwidthGadget(col schema.RegisterId, bitwidth uint, selector air.Term
 	eq := ir.Product(selector, ir.Subtract(X, sum))
 	// Construct column name
 	module.AddConstraint(
-		air.NewVanishingConstraint(fmt.Sprintf("%s:u%d", name, bitwidth), context, util.None[int](), eq))
+		air.NewVanishingConstraint(fmt.Sprintf("%s:u%d", name, bitwidth), module.Id(), util.None[int](), eq))
 	// Add decomposition assignment
 	module.AddAssignment(
-		assignment.NewByteDecomposition(name, context, col, bitwidth, byteRegisters))
+		assignment.NewByteDecomposition(name, module.Id(), col, bitwidth, byteRegisters))
 }
 
 // Allocate n byte registers, each of which requires a suitable range
 // constraint.
-func allocateByteRegisters(prefix string, bitwidth uint, module *air.ModuleBuilder) []schema.RegisterId {
-	var (
-		context = trace.NewContext(module.Id(), 1)
-		n       = bitwidth / 8
-	)
+func allocateByteRegisters(prefix string, bitwidth uint, module *air.ModuleBuilder) []sc.RegisterId {
+	var n = bitwidth / 8
 	//
 	if bitwidth == 0 {
 		panic("zero byte decomposition encountered")
@@ -101,7 +93,7 @@ func allocateByteRegisters(prefix string, bitwidth uint, module *air.ModuleBuild
 		ith_access := ir.RawRegisterAccess[air.Term](targets[i], 0)
 		//
 		module.AddConstraint(
-			air.NewRangeConstraint(name, context, *ith_access, byteRegister.Width))
+			air.NewRangeConstraint(name, module.Id(), *ith_access, byteRegister.Width))
 		//
 		bitwidth -= 8
 	}

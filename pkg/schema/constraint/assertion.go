@@ -29,7 +29,7 @@ type AssertionFailure struct {
 	// Handle of the failing constraint
 	Handle string
 	//
-	Context trace.Context
+	Context schema.ModuleId
 	// Constraint expression
 	Constraint ir.Testable
 	// Row on which the constraint failed
@@ -44,7 +44,7 @@ func (p *AssertionFailure) Message() string {
 
 // RequiredCells identifies the cells required to evaluate the failing constraint at the failing row.
 func (p *AssertionFailure) RequiredCells(tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
-	module := tr.Module(p.Context.ModuleId)
+	module := tr.Module(p.Context)
 	return p.Constraint.RequiredCells(int(p.Row), module)
 }
 
@@ -65,7 +65,7 @@ type Assertion[T ir.Testable] struct {
 	Handle string
 	// Enclosing module for this assertion.  This restricts the asserted
 	// property to access only columns from within this module.
-	Context trace.Context
+	Context schema.ModuleId
 	// The actual assertion itself, namely an expression which
 	// should hold (i.e. vanish) for every row of a trace.
 	// Observe that this can be any function which is computable
@@ -75,7 +75,7 @@ type Assertion[T ir.Testable] struct {
 }
 
 // NewAssertion constructs a new property assertion!
-func NewAssertion[T ir.Testable](handle string, ctx trace.Context, property T) Assertion[T] {
+func NewAssertion[T ir.Testable](handle string, ctx schema.ModuleId, property T) Assertion[T] {
 	//
 	return Assertion[T]{handle, ctx, property}
 }
@@ -84,7 +84,7 @@ func NewAssertion[T ir.Testable](handle string, ctx trace.Context, property T) A
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
 func (p Assertion[T]) Consistent(schema schema.AnySchema) []error {
-	return checkConsistent(p.Context.ModuleId, schema, p.Property)
+	return checkConsistent(p.Context, schema, p.Property)
 }
 
 // Name returns a unique name for a given constraint.  This is useful
@@ -98,8 +98,8 @@ func (p Assertion[T]) Name() string {
 // evaluation context, though some (e.g. lookups) have more.  Note that all
 // constraints have at least one context (which we can call the "primary"
 // context).
-func (p Assertion[T]) Contexts() []trace.Context {
-	return []trace.Context{p.Context}
+func (p Assertion[T]) Contexts() []schema.ModuleId {
+	return []schema.ModuleId{p.Context}
 }
 
 // Bounds is not required for a property assertion since these are not real
@@ -115,9 +115,9 @@ func (p Assertion[T]) Bounds(module uint) util.Bounds {
 func (p Assertion[T]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
 	var (
 		coverage bit.Set
-		module   trace.Module = tr.Module(p.Context.ModuleId)
+		module   trace.Module = tr.Module(p.Context)
 		// Determine height of enclosing module
-		height = tr.Height(p.Context)
+		height = tr.Module(p.Context).Height()
 	)
 	// Iterate every row in the module
 	for k := uint(0); k < height; k++ {
@@ -140,7 +140,7 @@ func (p Assertion[T]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
 //
 //nolint:revive
 func (p Assertion[T]) Lisp(schema schema.AnySchema) sexp.SExp {
-	var module = schema.Module(p.Context.ModuleId)
+	var module = schema.Module(p.Context)
 	// Construct the list
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("assert"),

@@ -334,9 +334,8 @@ func fillTraceModule(mid uint, name string, rawColumns []trace.RawColumn) trace.
 	//
 	for i := range traceColumns {
 		ith := rawColumns[i]
-		ctx := trace.NewContext(mid, 1)
 		//
-		traceColumns[i] = trace.NewArrayColumn(ctx, ith.Name, ith.Data, zero)
+		traceColumns[i] = trace.NewArrayColumn(ith.Name, ith.Data, zero)
 	}
 	//
 	return trace.NewArrayModule(name, traceColumns)

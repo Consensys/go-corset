@@ -19,6 +19,9 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 )
 
+// ModuleId abstracts the notion of a "module identifier"
+type ModuleId = uint
+
 // Module represents a "table" within a schema which contains zero or more rows
 // for a given set of registers.
 type Module interface {

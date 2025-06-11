@@ -41,7 +41,7 @@ type Assignment interface {
 	Dependencies() []RegisterId
 	// Module returns the enclosing register for all columns computed by this
 	// assignment.
-	Module() uint
+	Module() ModuleId
 	// Identifier registers assigned by this assignment.
 	Registers() []RegisterId
 	// Lisp converts this schema element into a simple S-Expression, for example

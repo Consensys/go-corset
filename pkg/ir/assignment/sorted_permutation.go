@@ -27,7 +27,7 @@ import (
 // existing columns.
 type SortedPermutation struct {
 	// Context where in which source and target columns are evaluated.
-	ColumnContext tr.Context
+	ColumnContext sc.ModuleId
 	// Target columns declared by this sorted permutation (in the order
 	// of declaration).
 	Targets []sc.RegisterId
@@ -38,7 +38,7 @@ type SortedPermutation struct {
 }
 
 // NewSortedPermutation creates a new sorted permutation
-func NewSortedPermutation(context tr.Context, targets []sc.RegisterId, signs []bool,
+func NewSortedPermutation(context sc.ModuleId, targets []sc.RegisterId, signs []bool,
 	sources []sc.RegisterId) *SortedPermutation {
 	//
 	if len(targets) != len(sources) {
@@ -68,8 +68,8 @@ func (p *SortedPermutation) Bounds() util.Bounds {
 // according to the permutation criteria.
 func (p *SortedPermutation) Compute(trace tr.Trace, schema sc.AnySchema) ([]tr.ArrayColumn, error) {
 	var ( // Calculate how many bytes required.
-		scModule = schema.Module(p.ColumnContext.ModuleId)
-		trModule = trace.Module(p.ColumnContext.ModuleId)
+		scModule = schema.Module(p.ColumnContext)
+		trModule = trace.Module(p.ColumnContext)
 		data     = make([]field.FrArray, len(p.Sources))
 	)
 	// Construct target columns
@@ -88,7 +88,7 @@ func (p *SortedPermutation) Compute(trace tr.Trace, schema sc.AnySchema) ([]tr.A
 	for i := range p.Sources {
 		dstColName := scModule.Register(p.Targets[i]).Name
 		srcCol := trModule.Column(p.Sources[i].Unwrap())
-		cols[i] = tr.NewArrayColumn(p.ColumnContext, dstColName, data[i], srcCol.Padding())
+		cols[i] = tr.NewArrayColumn(dstColName, data[i], srcCol.Padding())
 	}
 	//
 	return cols, nil
@@ -124,8 +124,8 @@ func (p *SortedPermutation) Consistent(schema sc.AnySchema) []error {
 }
 
 // Module returns the module which encloses this sorted permutation.
-func (p *SortedPermutation) Module() uint {
-	return p.ColumnContext.Module()
+func (p *SortedPermutation) Module() sc.ModuleId {
+	return p.ColumnContext
 }
 
 // Registers identifies registers assigned by this assignment.

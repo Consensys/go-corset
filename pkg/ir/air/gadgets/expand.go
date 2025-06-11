@@ -17,7 +17,6 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/air"
 	"github.com/consensys/go-corset/pkg/ir/assignment"
 	"github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
 
@@ -26,12 +25,7 @@ import (
 // arbitrary expression and returning its index.  However, this can be optimised
 // in the case the given expression is a direct column access by simply
 // returning the accessed column index.
-func Expand(ctx trace.Context, bitwidth uint, e air.Term, module *air.ModuleBuilder) schema.RegisterId {
-	if ctx.IsVoid() || ctx.IsConflicted() {
-		panic("conflicting (or void) context")
-	} else if ctx.ModuleId != module.Id() {
-		panic("conflicting context")
-	}
+func Expand(bitwidth uint, e air.Term, module *air.ModuleBuilder) schema.RegisterId {
 	// Check whether this is a straightforward register access.
 	if ca, ok := e.(*air.ColumnAccess); ok && ca.Shift == 0 {
 		// Optimisation possible
@@ -45,14 +39,14 @@ func Expand(ctx trace.Context, bitwidth uint, e air.Term, module *air.ModuleBuil
 	if !ok {
 		// Add computed column
 		index = module.NewRegister(schema.NewComputedRegister(name, bitwidth))
-		module.AddAssignment(assignment.NewComputedRegister(ctx, index, e))
+		module.AddAssignment(assignment.NewComputedRegister(module.Id(), index, e))
 		// Construct v == [e]
 		v := ir.NewRegisterAccess[air.Term](index, 0)
 		// v - e
 		eq_e_v := ir.Subtract(v, e)
 		// Ensure (v - e) == 0, where v is value of computed column.
 		module.AddConstraint(
-			air.NewVanishingConstraint(name, ctx, util.None[int](), eq_e_v))
+			air.NewVanishingConstraint(name, module.Id(), util.None[int](), eq_e_v))
 	}
 	//
 	return index

@@ -23,7 +23,7 @@ import (
 // simplify the problem of mapping source-level names to e.g. module-specific
 // register indexes.
 type SchemaBuilder[C schema.Constraint, T Term[T]] struct {
-	// Modmap maps modules to registers
+	// Modmap maps modules identifers to modules
 	modmap map[string]uint
 	// Externs represent modules which have already been constructed.  These
 	// will be given the lower module identifiers, since they are already
@@ -63,6 +63,15 @@ func (p *SchemaBuilder[C, T]) NewModule(name string) uint {
 	p.modmap[name] = mid
 	//
 	return mid
+}
+
+// HasModule checks whether a moduleregister of the given name exists already
+// and,if so, returns its index.
+func (p *SchemaBuilder[C, T]) HasModule(name string) (uint, bool) {
+	// Lookup module associated with this name
+	mid, ok := p.modmap[name]
+	// That's it.
+	return mid, ok
 }
 
 // Module returns the builder for the given module based on its index.

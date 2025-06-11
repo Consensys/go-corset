@@ -18,27 +18,14 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 )
 
-// ModuleInfo provides information about a module in the underlying HIR
-// constraint set.
-type ModuleInfo struct {
-	// Name of this module
-	Name string
-	// Module identifier
-	Id uint
-}
-
-// Context constructs a new context for this module assuming a given length
-// multiplier.
-func (p *ModuleInfo) Context(multiplier uint) tr.Context {
-	return tr.NewContext(p.Id, multiplier)
-}
-
 // Environment provides an interface into the global scope which can be used for
 // simply resolving column identifiers.
 type Environment interface {
+	// Register returns the name of the given module.
+	Module(index uint) string
 	// Module returns informartion about a given module, such as its module
 	// identifier.
-	Module(Module string) *ModuleInfo
+	ModuleOf(module string) uint
 	// Register returns information about a given register, based on its index
 	// (i.e. underlying HIR column identifier).
 	Register(index uint) *Register
@@ -49,17 +36,15 @@ type Environment interface {
 	// RegistersOf identifies the set of registers (i.e. underlying (HIR)
 	// columns) associated with a given module.
 	RegistersOf(module string) []uint
-	// Convert a context from the high-level form into the lower level form
-	// suitable for HIR.
-	ContextOf(from ast.Context) tr.Context
 }
 
 // GlobalEnvironment is a wrapper around a global scope.  The point, really, is
 // to signal the change between a global scope whose columns have yet to be
 // allocated, from an environment whose columns are allocated.
 type GlobalEnvironment struct {
-	// Info about modules
-	modules map[string]*ModuleInfo
+	modules []string
+	// Info about moduleMap
+	moduleMap map[string]uint
 	// Registers (i.e. HIR-level columns)
 	registers []Register
 	// Map source-level columns to registers
@@ -79,7 +64,7 @@ func NewGlobalEnvironment(root *ModuleScope, allocator func(RegisterAllocation))
 	// Construct top-level module list.
 	modules := root.Flattern()
 	// Initialise the environment
-	env := GlobalEnvironment{nil, nil, nil}
+	env := GlobalEnvironment{nil, nil, nil, nil}
 	env.initModules(modules)
 	env.initColumnsAndRegisters(modules)
 	// Apply register allocation.
@@ -90,8 +75,13 @@ func NewGlobalEnvironment(root *ModuleScope, allocator func(RegisterAllocation))
 
 // Module returns informartion about a given module, such as its module
 // identifier.
-func (p GlobalEnvironment) Module(module string) *ModuleInfo {
-	return p.modules[module]
+func (p GlobalEnvironment) Module(mid uint) string {
+	return p.modules[mid]
+}
+
+// ModuleOf returns the internal index of the given module.
+func (p GlobalEnvironment) ModuleOf(module string) uint {
+	return p.moduleMap[module]
 }
 
 // Register returns information about a given register, based on its index
@@ -111,11 +101,10 @@ func (p GlobalEnvironment) RegisterOf(column *util.Path) uint {
 // RegistersOf identifies the set of registers (i.e. underlying (HIR)
 // columns) associated with a given module.
 func (p GlobalEnvironment) RegistersOf(module string) []uint {
-	mid := p.modules[module].Id
 	regs := make([]uint, 0)
 	// Iterate all registers looking for those in the given module.
 	for i, reg := range p.registers {
-		if reg.Context.Module() == mid {
+		if reg.Context.Module() == module {
 			// match
 			regs = append(regs, uint(i))
 		}
@@ -139,13 +128,14 @@ func (p GlobalEnvironment) ColumnsOf(register uint) []string {
 
 // ContextOf constructs a trace context from a given corset context.
 func (p GlobalEnvironment) ContextOf(from ast.Context) tr.Context {
-	if from.IsVoid() {
-		return tr.VoidContext[uint]()
-	}
-	// Determine Module Identifier
-	mid := p.Module(from.Module()).Id
-	// Construct underlying context from this.
-	return tr.NewContext(mid, from.LengthMultiplier())
+	// if from.IsVoid() {
+	// 	return tr.VoidContext[uint]()
+	// }
+	// // Determine Module Identifier
+	// mid := p.ModuleOf(from.Module()).Id
+	// // Construct underlying context from this.
+	// return tr.NewContext(mid, from.LengthMultiplier())
+	panic("replace me!")
 }
 
 // ===========================================================================
@@ -156,14 +146,14 @@ func (p GlobalEnvironment) ContextOf(from ast.Context) tr.Context {
 // identifiers.  This has to match exactly how the translator does it, otherwise
 // there will be problems.
 func (p *GlobalEnvironment) initModules(modules []*ModuleScope) {
-	p.modules = make(map[string]*ModuleInfo)
-	moduleId := uint(0)
+	p.moduleMap = make(map[string]uint)
 	// Allocate submodules one-by-one
 	for _, m := range modules {
 		if !m.Virtual() {
 			name := m.path.String()
-			p.modules[name] = &ModuleInfo{name, moduleId}
-			moduleId++
+			mid := uint(len(p.modules))
+			p.modules = append(p.modules, name)
+			p.moduleMap[name] = mid
 		}
 	}
 }
@@ -209,11 +199,10 @@ func (p *GlobalEnvironment) initColumnsAndRegisters(modules []*ModuleScope) {
 func (p *GlobalEnvironment) allocateRegister(source RegisterSource) {
 	module := source.Context.String()
 	//
-	moduleId := p.modules[module].Id
 	regId := uint(len(p.registers))
 	// Allocate register
 	p.registers = append(p.registers, Register{
-		tr.NewContext(moduleId, source.Multiplier),
+		tr.NewContext(module, source.Multiplier),
 		source.Bitwidth,
 		[]RegisterSource{source},
 		nil,
@@ -225,7 +214,7 @@ func (p *GlobalEnvironment) allocateRegister(source RegisterSource) {
 // Apply the given register allocator to each module of this environment in turn.
 func (p *GlobalEnvironment) applyRegisterAllocation(allocator func(RegisterAllocation)) {
 	// Apply to each module in turn
-	for m := range p.modules {
+	for m := range p.moduleMap {
 		// Determine register subset for this module
 		view := p.RegistersOf(m)
 		// Apply allocation to this subset

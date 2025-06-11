@@ -30,7 +30,7 @@ import (
 type LexicographicSort struct {
 	// Context in which source and target columns to be located.  All target and
 	// source columns should be contained within this.
-	context tr.Context
+	context sc.ModuleId
 	// The target columns to be filled.  The first entry is for the delta
 	// column, and the remaining n entries are for the selector columns.
 	targets []sc.RegisterId
@@ -57,7 +57,7 @@ func LexicographicSortRegisters(n uint, prefix string, bitwidth uint) []sc.Regis
 }
 
 // NewLexicographicSort constructs a new LexicographicSorting assignment.
-func NewLexicographicSort(context tr.Context,
+func NewLexicographicSort(context sc.ModuleId,
 	targets []sc.RegisterId, signs []bool, sources []sc.RegisterId, bitwidth uint) *LexicographicSort {
 	//
 	return &LexicographicSort{context, targets, sources, signs, bitwidth}
@@ -81,15 +81,15 @@ func (p *LexicographicSort) Bounds() util.Bounds {
 // selectors.
 func (p *LexicographicSort) Compute(trace tr.Trace, schema sc.AnySchema) ([]tr.ArrayColumn, error) {
 	var (
-		scModule = schema.Module(p.context.ModuleId)
-		trModule = trace.Module(p.context.ModuleId)
+		scModule = schema.Module(p.context)
+		trModule = trace.Module(p.context)
 		zero     = fr.NewElement(0)
 		one      = fr.NewElement(1)
 		first    = scModule.Register(p.targets[0])
 		// Exact number of (signed) columns involved in the sort
 		nbits = len(p.signs)
 		// Determine how many rows to be constrained.
-		nrows = trace.Height(p.context)
+		nrows = trace.Module(p.context).Height()
 		// Initialise new data columns
 		cols = make([]tr.ArrayColumn, nbits+1)
 		// Byte width records the largest width of any column.
@@ -99,14 +99,14 @@ func (p *LexicographicSort) Compute(trace tr.Trace, schema sc.AnySchema) ([]tr.A
 	for i := 0; i < nbits; i++ {
 		target := scModule.Register(p.targets[1+i])
 		data := field.NewFrArray(nrows, 1)
-		cols[i+1] = tr.NewArrayColumn(p.context, target.Name, data, zero)
+		cols[i+1] = tr.NewArrayColumn(target.Name, data, zero)
 		// Update bitwidth
 		source := trModule.Column(p.sources[i].Unwrap())
 		bit_width = max(bit_width, source.Data().BitWidth())
 	}
 	// Configure data column
 	delta := field.NewFrArray(nrows, bit_width)
-	cols[0] = tr.NewArrayColumn(p.context, first.Name, delta, zero)
+	cols[0] = tr.NewArrayColumn(first.Name, delta, zero)
 	//
 	for i := uint(0); i < nrows; i++ {
 		set := false
@@ -162,7 +162,7 @@ func (p *LexicographicSort) Consistent(schema sc.AnySchema) []error {
 	var (
 		errors   []error
 		bitwidth = uint(0)
-		module   = schema.Module(p.context.ModuleId)
+		module   = schema.Module(p.context)
 	)
 	// Sanity check source types
 	for i := range p.sources {
@@ -188,8 +188,8 @@ func (p *LexicographicSort) Consistent(schema sc.AnySchema) []error {
 }
 
 // Module returns the module which encloses this sorted permutation.
-func (p *LexicographicSort) Module() uint {
-	return p.context.Module()
+func (p *LexicographicSort) Module() sc.ModuleId {
+	return p.context
 }
 
 // Registers identifies registers assigned by this assignment.
@@ -205,7 +205,7 @@ func (p *LexicographicSort) Registers() []sc.RegisterId {
 // so it can be printed.
 func (p *LexicographicSort) Lisp(schema sc.AnySchema) sexp.SExp {
 	var (
-		module  = schema.Module(p.context.ModuleId)
+		module  = schema.Module(p.context)
 		targets = sexp.EmptyList()
 		sources = sexp.EmptyList()
 	)

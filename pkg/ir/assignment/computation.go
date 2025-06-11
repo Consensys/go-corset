@@ -31,7 +31,7 @@ import (
 // input columns, and assigns a set of output columns.
 type Computation struct {
 	// Context where in which source and target columns exist.
-	ColumnContext tr.Context
+	ColumnContext sc.ModuleId
 	// Name of the function being invoked.
 	Name string
 	// Target columns declared by this sorted permutation (in the order
@@ -43,7 +43,7 @@ type Computation struct {
 
 // NewComputation defines a set of target columns which are assigned from a
 // given set of source columns using a function to multiplex input to output.
-func NewComputation(context tr.Context, functionName string, targets []sc.RegisterId,
+func NewComputation(context sc.ModuleId, functionName string, targets []sc.RegisterId,
 	sources []sc.RegisterId) *Computation {
 	//
 	return &Computation{context, functionName, targets, sources}
@@ -67,8 +67,8 @@ func (p *Computation) Bounds() util.Bounds {
 // according to the permutation criteria.
 func (p *Computation) Compute(trace tr.Trace, schema sc.AnySchema) ([]tr.ArrayColumn, error) {
 	var (
-		scModule = schema.Module(p.ColumnContext.ModuleId)
-		trModule = trace.Module(p.ColumnContext.ModuleId)
+		scModule = schema.Module(p.ColumnContext)
+		trModule = trace.Module(p.ColumnContext)
 		fn       NativeComputation
 		ok       bool
 	)
@@ -85,7 +85,7 @@ func (p *Computation) Compute(trace tr.Trace, schema sc.AnySchema) ([]tr.ArrayCo
 		ith := scModule.Register(target)
 		dstColName := ith.Name
 		srcCol := trModule.Column(p.Sources[i].Unwrap())
-		targets[i] = tr.NewArrayColumn(p.ColumnContext, dstColName, data[i], srcCol.Padding())
+		targets[i] = tr.NewArrayColumn(dstColName, data[i], srcCol.Padding())
 	}
 	//
 	return targets, nil
@@ -107,8 +107,8 @@ func (p *Computation) Consistent(schema sc.AnySchema) []error {
 }
 
 // Module returns the module which encloses this sorted permutation.
-func (p *Computation) Module() uint {
-	return p.ColumnContext.Module()
+func (p *Computation) Module() sc.ModuleId {
+	return p.ColumnContext
 }
 
 // Registers identifies registers assigned by this assignment.
@@ -124,7 +124,7 @@ func (p *Computation) Registers() []sc.RegisterId {
 // so it can be printed.
 func (p *Computation) Lisp(schema sc.AnySchema) sexp.SExp {
 	var (
-		module  = schema.Module(p.ColumnContext.ModuleId)
+		module  = schema.Module(p.ColumnContext)
 		targets = sexp.EmptyList()
 		sources = sexp.EmptyList()
 	)

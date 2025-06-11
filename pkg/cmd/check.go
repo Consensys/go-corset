@@ -229,23 +229,23 @@ func reportFailure(failure sc.Failure, trace tr.Trace, cfg checkConfig) {
 	if f, ok := failure.(*constraint.VanishingFailure); ok {
 		cells := f.RequiredCells(trace)
 		fmt.Printf("failing constraint %s:\n", f.Handle)
-		reportRelevantCells(cells, trace.Module(f.Context.ModuleId), cfg)
+		reportRelevantCells(cells, trace.Module(f.Context), cfg)
 	} else if f, ok := failure.(*constraint.RangeFailure); ok {
 		cells := f.RequiredCells(trace)
 		fmt.Printf("failing range constraint %s:\n", f.Handle)
-		reportRelevantCells(cells, trace.Module(f.Context.ModuleId), cfg)
+		reportRelevantCells(cells, trace.Module(f.Context), cfg)
 	} else if f, ok := failure.(*constraint.LookupFailure); ok {
 		cells := f.RequiredCells(trace)
 		fmt.Printf("failing lookup constraint %s:\n", f.Handle)
-		reportRelevantCells(cells, trace.Module(f.Context.ModuleId), cfg)
+		reportRelevantCells(cells, trace.Module(f.Context), cfg)
 	} else if f, ok := failure.(*constraint.AssertionFailure); ok {
 		cells := f.RequiredCells(trace)
 		fmt.Printf("failing assertion %s:\n", f.Handle)
-		reportRelevantCells(cells, trace.Module(f.Context.ModuleId), cfg)
+		reportRelevantCells(cells, trace.Module(f.Context), cfg)
 	} else if f, ok := failure.(*constraint.InternalFailure); ok {
 		cells := f.RequiredCells(trace)
 		fmt.Printf("%s in %s:\n", f.Error, f.Handle)
-		reportRelevantCells(cells, trace.Module(f.Context.ModuleId), cfg)
+		reportRelevantCells(cells, trace.Module(f.Context), cfg)
 	}
 }
 

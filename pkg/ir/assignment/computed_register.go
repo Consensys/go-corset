@@ -31,7 +31,7 @@ import (
 // the user is expanded by determining the value of all computed columns.
 type ComputedRegister struct {
 	// Module index for computed column
-	module uint
+	module schema.ModuleId
 	// Target index for computed column
 	target schema.RegisterId
 	// The computation which accepts a given trace and computes
@@ -42,8 +42,8 @@ type ComputedRegister struct {
 // NewComputedRegister constructs a new computed column with a given name and
 // determining expression.  More specifically, that expression is used to
 // compute the values for this column during trace expansion.
-func NewComputedRegister(context trace.Context, column schema.RegisterId, expr ir.Evaluable) *ComputedRegister {
-	return &ComputedRegister{context.ModuleId, column, expr}
+func NewComputedRegister(context schema.ModuleId, column schema.RegisterId, expr ir.Evaluable) *ComputedRegister {
+	return &ComputedRegister{context, column, expr}
 }
 
 // Bounds determines the well-definedness bounds for this assignment for both
@@ -87,7 +87,7 @@ func (p *ComputedRegister) Compute(tr trace.Trace, schema schema.AnySchema) ([]t
 	// the padding value for *this* column.
 	padding, err := p.expr.EvalAt(-1, module)
 	// Construct column
-	col := trace.NewArrayColumn(trace.NewContext(p.module, 1), register.Name, data, padding)
+	col := trace.NewArrayColumn(register.Name, data, padding)
 	// Done
 	return []trace.ArrayColumn{col}, err
 }
