@@ -33,7 +33,7 @@ type MirModule struct {
 
 // Initialise this module
 func (p MirModule) Initialise(name string, mid uint) MirModule {
-	builder := ir.NewModuleBuilder[mir.Constraint, mir.Term](name, mid)
+	builder := ir.NewModuleBuilder[mir.Constraint, mir.Term](name, mid, 1)
 	p.Module = &builder
 
 	return p
@@ -59,7 +59,7 @@ func (p MirModule) NewLookup(name string, from []MirExpr, target uint, to []MirE
 		targets = unwrapMirExprs(to...)
 	)
 
-	p.Module.AddConstraint(mir.NewLookupConstraint(name, p.Module.Id(), target, sources, targets))
+	p.Module.AddConstraint(mir.NewLookupConstraint(name, target, targets, p.Module.Id(), sources))
 }
 
 // String returns an appropriately formatted representation of the module.

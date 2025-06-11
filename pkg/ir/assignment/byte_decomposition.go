@@ -62,7 +62,7 @@ func (p *ByteDecomposition) Compute(tr trace.Trace, schema sc.AnySchema) ([]trac
 // expression such as "(shift X -1)".  This is technically undefined for the
 // first row of any trace and, by association, any constraint evaluating this
 // expression on that first row is also undefined (and hence must pass).
-func (p *ByteDecomposition) Bounds(module sc.ModuleId) util.Bounds {
+func (p *ByteDecomposition) Bounds(_ sc.ModuleId) util.Bounds {
 	return util.EMPTY_BOUND
 }
 

@@ -106,7 +106,7 @@ func (t *translator) translateModule(name string) {
 		// Check whether module created this already (or not)
 		if _, ok := t.schema.HasModule(moduleName); !ok {
 			// No, therefore create new module.
-			t.schema.NewModule(moduleName)
+			t.schema.NewModule(moduleName, regInfo.Context.LengthMultiplier())
 		}
 	}
 	// Translate all corset registers in this module into MIR registers across
@@ -263,18 +263,21 @@ func (t *translator) translateDeclaration(decl ast.Declaration, path util.Path) 
 func (t *translator) translateDefComputed(decl *ast.DefComputed, path util.Path) []SyntaxError {
 	var context ast.Context = ast.VoidContext[string]()
 	//
-	targets := make([]schema.RegisterId, len(decl.Targets))
-	sources := make([]schema.RegisterId, len(decl.Sources))
+	targets := make([]schema.RegisterRef, len(decl.Targets))
+	sources := make([]schema.RegisterRef, len(decl.Sources))
 	// Identify source registers
 	for i := 0; i < len(decl.Sources); i++ {
 		ith := decl.Sources[i].Binding().(*ast.ColumnBinding)
-		sources[i] = t.registerIndexOf(&ith.Path)
+		source := t.env.Register(t.env.RegisterOf(&ith.Path))
+		sources[i] = t.registerRefOf(&ith.Path)
+		// Join contexts
+		context = context.Join(source.Context)
 	}
 	// Identify target registers
 	for i := 0; i < len(decl.Targets); i++ {
 		targetPath := path.Extend(decl.Targets[i].Name())
-		targets[i] = t.registerIndexOf(targetPath)
 		target := t.env.Register(t.env.RegisterOf(targetPath))
+		targets[i] = t.registerRefOf(targetPath)
 		// Join contexts
 		context = context.Join(target.Context)
 	}
@@ -287,7 +290,7 @@ func (t *translator) translateDefComputed(decl *ast.DefComputed, path util.Path)
 	// Determine enclosing module
 	module := t.moduleOf(context)
 	// Add the assignment and check the first identifier.
-	module.AddAssignment(assignment.NewComputation(binding.name, module.Id(), targets, sources))
+	module.AddAssignment(assignment.NewComputation(binding.name, targets, sources))
 	//
 	return nil
 }
@@ -387,10 +390,8 @@ func (t *translator) translateDefLookup(decl *ast.DefLookup) []SyntaxError {
 	if len(errors) == 0 {
 		// Add translated constraint
 		srcModule.AddConstraint(mir.NewLookupConstraint(decl.Handle,
-			srcModule.Id(),
-			dstModule.Id(),
-			sources,
-			targets))
+			dstModule.Id(), targets,
+			srcModule.Id(), sources))
 	}
 	// Done
 	return errors
@@ -417,21 +418,45 @@ func (t *translator) translateDefInterleaved(decl *ast.DefInterleaved, path util
 	var (
 		errors []SyntaxError
 		//
-		sources = make([]mir.Term, len(decl.Sources))
+		sources = make([]schema.RegisterRef, len(decl.Sources))
+		targets = make([]schema.RegisterRef, 1)
+		//
+		sourceContext ast.Context
+		sourceTerms   = make([]mir.Term, len(decl.Sources))
 		// Lookup target register info
-		//targetPath = path.Extend(decl.Target.Name())
-		//targetId = t.env.RegisterOf(targetPath)
-		//target = t.env.Register(targetId)
+		targetPath = path.Extend(decl.Target.Name())
+		targetId   = t.env.RegisterOf(targetPath)
+		target     = t.env.Register(targetId)
 	)
-	// Determine source register identifiers
+	// Determine source context
+	for _, source := range decl.Sources {
+		sourceBinding := source.Binding().(*ast.ColumnBinding)
+		sourceContext = sourceContext.Join(sourceBinding.Context())
+	}
+	// Determine enclosing tgtModule
+	tgtModule := t.moduleOf(target.Context)
+	srcModule := t.moduleOf(sourceContext)
+	// Determine source register refs
 	for i, source := range decl.Sources {
-		var errs []SyntaxError
-		sources[i], errs = t.registerOfRegisterAccess(source, 0)
+		ith, errs := t.registerOfRegisterAccess(source, 0)
+		//
+		if len(errs) == 0 {
+			sources[i] = schema.NewRegisterRef(srcModule.Id(), ith.Register)
+			sourceTerms[i] = ith
+		}
+		//
 		errors = append(errors, errs...)
 	}
+	// Determine target register refs
+	targets[0] = schema.NewRegisterRef(tgtModule.Id(), t.registerIndexOf(targetPath))
+	targetTerm := t.registerOf(targetPath, 0)
 	// Register constraint
+	tgtModule.AddConstraint(
+		mir.NewInterleavingConstraint("", tgtModule.Id(), srcModule.Id(), targetTerm, sourceTerms),
+	)
 	// Register assignment
-	//cid := module.AddAssignment(assignment.NewInterleaving(target.Context, target.Name(), sources, target.DataType))
+	tgtModule.AddAssignment(
+		assignment.NewComputation("interleave", targets, sources))
 
 	// Done
 	return errors
@@ -837,7 +862,7 @@ func (t *translator) translateIte(expr *ast.If, module *ModuleBuilder, shift int
 }
 
 // Determine the underlying register for a symbol which represents a register access.
-func (t *translator) registerOfRegisterAccess(symbol ast.Symbol, shift int) (mir.Term, []SyntaxError) {
+func (t *translator) registerOfRegisterAccess(symbol ast.Symbol, shift int) (*mir.RegisterAccess, []SyntaxError) {
 	switch e := symbol.(type) {
 	case *ast.ArrayAccess:
 		return t.registerOfArrayAccess(e, shift)
@@ -848,7 +873,9 @@ func (t *translator) registerOfRegisterAccess(symbol ast.Symbol, shift int) (mir
 	return nil, t.srcmap.SyntaxErrors(symbol, "invalid register access")
 }
 
-func (t *translator) registerOfVariableAccess(expr *ast.VariableAccess, shift int) (mir.Term, []SyntaxError) {
+func (t *translator) registerOfVariableAccess(expr *ast.VariableAccess,
+	shift int) (*mir.RegisterAccess, []SyntaxError) {
+	//
 	if binding, ok := expr.Binding().(*ast.ColumnBinding); ok {
 		// Lookup register binding
 		return t.registerOf(binding.AbsolutePath(), shift), nil
@@ -856,7 +883,7 @@ func (t *translator) registerOfVariableAccess(expr *ast.VariableAccess, shift in
 	//
 	return nil, t.srcmap.SyntaxErrors(expr, "invalid register access")
 }
-func (t *translator) registerOfArrayAccess(expr *ast.ArrayAccess, shift int) (mir.Term, []SyntaxError) {
+func (t *translator) registerOfArrayAccess(expr *ast.ArrayAccess, shift int) (*mir.RegisterAccess, []SyntaxError) {
 	var (
 		errors []SyntaxError
 		min    uint = 0
@@ -867,9 +894,9 @@ func (t *translator) registerOfArrayAccess(expr *ast.ArrayAccess, shift int) (mi
 	// Did we find it?
 	if !ok {
 		errors = append(errors, *t.srcmap.SyntaxError(expr.Arg, "invalid array index encountered during translation"))
-	} else if arr_t, ok := binding.DataType.(*ast.ArrayType); ok {
-		min = arr_t.MinIndex()
-		max = arr_t.MaxIndex()
+	} else if arrType, ok := binding.DataType.(*ast.ArrayType); ok {
+		min = arrType.MinIndex()
+		max = arrType.MaxIndex()
 	}
 	// Array index should be statically known
 	index := expr.Arg.AsConstant()
@@ -914,7 +941,7 @@ func (t *translator) moduleOf(context ast.Context) *ModuleBuilder {
 }
 
 // Map columns to appropriate module register identifiers.
-func (t *translator) registerOf(path *util.Path, shift int) mir.Term {
+func (t *translator) registerOf(path *util.Path, shift int) *mir.RegisterAccess {
 	// Determine register id
 	rid := t.env.RegisterOf(path)
 	//
@@ -936,6 +963,21 @@ func (t *translator) registerIndexOf(path *util.Path) schema.RegisterId {
 	//
 	if rid, ok := module.HasRegister(reg.Name()); ok {
 		return rid
+	}
+	//
+	panic("unreachable")
+}
+
+func (t *translator) registerRefOf(path *util.Path) schema.RegisterRef {
+	// Determine register id
+	rid := t.env.RegisterOf(path)
+	//
+	reg := t.env.Register(rid)
+	// Lookup corresponding module builder
+	module := t.moduleOf(reg.Context)
+	//
+	if rid, ok := module.HasRegister(reg.Name()); ok {
+		return schema.NewRegisterRef(module.Id(), rid)
 	}
 	//
 	panic("unreachable")

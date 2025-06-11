@@ -42,14 +42,21 @@ func NewVanishingConstraint(handle string, ctx schema.ModuleId, domain util.Opti
 	return Constraint{constraint.NewVanishingConstraint(handle, ctx, domain, term)}
 }
 
+// NewInterleavingConstraint creates a new interleaving constraint with a given handle.
+func NewInterleavingConstraint(handle string, targetContext schema.ModuleId,
+	sourceContext schema.ModuleId, target Term, sources []Term) Constraint {
+	return Constraint{constraint.NewInterleavingConstraint(handle, targetContext, sourceContext, target, sources)}
+}
+
 // NewLookupConstraint creates a new lookup constraint with a given handle.
-func NewLookupConstraint(handle string, source schema.ModuleId,
-	target schema.ModuleId, sources []Term, targets []Term) Constraint {
+func NewLookupConstraint(handle string, targetContext schema.ModuleId, targets []Term,
+	sourceContext schema.ModuleId, sources []Term) Constraint {
+	//
 	if len(targets) != len(sources) {
-		panic("differeng number of target / source lookup columns")
+		panic("differeng number of targetContext / source lookup columns")
 	}
 
-	return Constraint{constraint.NewLookupConstraint(handle, source, target, sources, targets)}
+	return Constraint{constraint.NewLookupConstraint(handle, targetContext, targets, sourceContext, sources)}
 }
 
 // NewPermutationConstraint creates a new permutation

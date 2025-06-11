@@ -69,7 +69,7 @@ func NewLexicographicSort(targets []sc.RegisterRef, signs []bool, sources []sc.R
 // expression such as "(shift X -1)".  This is technically undefined for the
 // first row of any trace and, by association, any constraint evaluating this
 // expression on that first row is also undefined (and hence must pass).
-func (p *LexicographicSort) Bounds(mid sc.ModuleId) util.Bounds {
+func (p *LexicographicSort) Bounds(_ sc.ModuleId) util.Bounds {
 	return util.EMPTY_BOUND
 }
 

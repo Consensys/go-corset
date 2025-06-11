@@ -99,6 +99,13 @@ func (p *Function[T]) Inputs() []Register {
 	return inputs
 }
 
+// LengthMultiplier identifies the length multiplier for this module.  For every
+// trace, the height of the corresponding module must be a multiple of this.
+// This is used specifically to support interleaving constraints.
+func (p *Function[T]) LengthMultiplier() uint {
+	return 1
+}
+
 // Name returns the name of this function.
 func (p *Function[T]) Name() string {
 	return p.name

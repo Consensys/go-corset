@@ -33,9 +33,10 @@ type ConstraintBound interface {
 	schema.Constraint
 
 	constraint.Assertion[ir.Testable] |
-		constraint.LookupConstraint[*ir.RegisterAccess[Term]] |
+		constraint.InterleavingConstraint[*ColumnAccess] |
+		constraint.LookupConstraint[*ColumnAccess] |
 		constraint.PermutationConstraint |
-		constraint.RangeConstraint[*ir.RegisterAccess[Term]] |
+		constraint.RangeConstraint[*ColumnAccess] |
 		constraint.VanishingConstraint[LogicalTerm]
 }
 
@@ -59,10 +60,16 @@ func NewAssertion(handle string, ctx schema.ModuleId, term ir.Testable) Assertio
 	return newAir(constraint.NewAssertion(handle, ctx, term))
 }
 
+// NewInterleavingConstraint creates a new interleaving constraint with a given handle.
+func NewInterleavingConstraint(handle string, targetContext schema.ModuleId,
+	sourceContext schema.ModuleId, target ColumnAccess, sources []*ColumnAccess) Constraint {
+	return newAir(constraint.NewInterleavingConstraint(handle, targetContext, sourceContext, &target, sources))
+}
+
 // NewLookupConstraint constructs a new AIR lookup constraint
-func NewLookupConstraint(handle string, source schema.ModuleId,
-	target schema.ModuleId, sources []*ColumnAccess, targets []*ColumnAccess) LookupConstraint {
-	return newAir(constraint.NewLookupConstraint(handle, source, target, sources, targets))
+func NewLookupConstraint(handle string,
+	target schema.ModuleId, targets []*ColumnAccess, source schema.ModuleId, sources []*ColumnAccess) LookupConstraint {
+	return newAir(constraint.NewLookupConstraint(handle, target, targets, source, sources))
 }
 
 // NewPermutationConstraint creates a new permutation

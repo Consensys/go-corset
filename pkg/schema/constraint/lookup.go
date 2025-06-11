@@ -78,26 +78,31 @@ type LookupConstraint[E ir.Evaluable] struct {
 	// Handle returns the handle for this lookup constraint which is simply an
 	// identifier useful when debugging (i.e. to know which lookup failed, etc).
 	Handle string
-	// Context in which all source columns are evaluated.
-	SourceContext schema.ModuleId
 	// Context in which all target columns are evaluated.
 	TargetContext schema.ModuleId
-	// Sources returns the source expressions which are used to lookup into the
-	// target expressions.
-	Sources []E
 	// Targets returns the target expressions which are used to lookup into the
 	// target expressions.
 	Targets []E
+	// Context in which all source columns are evaluated.
+	SourceContext schema.ModuleId
+	// Sources returns the source expressions which are used to lookup into the
+	// target expressions.
+	Sources []E
 }
 
 // NewLookupConstraint creates a new lookup constraint with a given handle.
-func NewLookupConstraint[E ir.Evaluable](handle string, source schema.ModuleId,
-	target schema.ModuleId, sources []E, targets []E) LookupConstraint[E] {
+func NewLookupConstraint[E ir.Evaluable](handle string,
+	target schema.ModuleId, targets []E, source schema.ModuleId, sources []E) LookupConstraint[E] {
 	if len(targets) != len(sources) {
 		panic("differeng number of target / source lookup columns")
 	}
 
-	return LookupConstraint[E]{handle, source, target, sources, targets}
+	return LookupConstraint[E]{Handle: handle,
+		TargetContext: target,
+		Targets:       targets,
+		SourceContext: source,
+		Sources:       sources,
+	}
 }
 
 // Consistent applies a number of internal consistency checks.  Whilst not
@@ -254,7 +259,7 @@ func (p LookupConstraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
 	for i := range p.Sources {
 		sources.Append(p.Sources[i].Lisp(sourceModule))
 	}
-	// Iterate source expressions
+	// Iterate target expressions
 	for i := range p.Targets {
 		targets.Append(p.Targets[i].Lisp(targetModule))
 	}

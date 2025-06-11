@@ -57,7 +57,7 @@ func NewSortedPermutation(context sc.ModuleId, targets []sc.RegisterId, signs []
 // expression such as "(shift X -1)".  This is technically undefined for the
 // first row of any trace and, by association, any constraint evaluating this
 // expression on that first row is also undefined (and hence must pass).
-func (p *SortedPermutation) Bounds(mid sc.ModuleId) util.Bounds {
+func (p *SortedPermutation) Bounds(_ sc.ModuleId) util.Bounds {
 	return util.EMPTY_BOUND
 }
 

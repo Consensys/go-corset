@@ -41,9 +41,9 @@ type Computation struct {
 
 // NewComputation defines a set of target columns which are assigned from a
 // given set of source columns using a function to multiplex input to output.
-func NewComputation(fn string, context sc.ModuleId, targets []sc.RegisterId, sources []sc.RegisterId) *Computation {
+func NewComputation(fn string, targets []sc.RegisterRef, sources []sc.RegisterRef) *Computation {
 	//
-	return &Computation{fn, toRegisterRefs(context, targets), toRegisterRefs(context, sources)}
+	return &Computation{fn, targets, sources}
 }
 
 // ============================================================================
@@ -55,7 +55,7 @@ func NewComputation(fn string, context sc.ModuleId, targets []sc.RegisterId, sou
 // expression such as "(shift X -1)".  This is technically undefined for the
 // first row of any trace and, by association, any constraint evaluating this
 // expression on that first row is also undefined (and hence must pass).
-func (p *Computation) Bounds(mid sc.ModuleId) util.Bounds {
+func (p *Computation) Bounds(_ sc.ModuleId) util.Bounds {
 	return util.EMPTY_BOUND
 }
 

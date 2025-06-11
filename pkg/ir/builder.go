@@ -52,14 +52,14 @@ func NewSchemaBuilder[C schema.Constraint, T Term[T]](externs ...schema.Module) 
 
 // NewModule constructs a new, empty module and returns its unique module
 // identifier.
-func (p *SchemaBuilder[C, T]) NewModule(name string) uint {
+func (p *SchemaBuilder[C, T]) NewModule(name string, multiplier uint) uint {
 	var mid = uint(len(p.externs) + len(p.modules))
 	// Sanity check this module is not already declared
 	if _, ok := p.modmap[name]; ok {
 		panic(fmt.Sprintf("module \"%s\" already declared", name))
 	}
 	//
-	p.modules = append(p.modules, NewModuleBuilder[C, T](name, mid))
+	p.modules = append(p.modules, NewModuleBuilder[C, T](name, mid, multiplier))
 	p.modmap[name] = mid
 	//
 	return mid
@@ -109,7 +109,9 @@ type ModuleBuilder[C schema.Constraint, T Term[T]] struct {
 	// Name of the module being constructed
 	name string
 	// Id of this module
-	moduleId uint
+	moduleId schema.ModuleId
+	// Length multiplier for this module
+	multiplier uint
 	// Maps register names (including aliases) to the register number.
 	regmap map[string]uint
 	// Registers declared for this module
@@ -121,9 +123,11 @@ type ModuleBuilder[C schema.Constraint, T Term[T]] struct {
 }
 
 // NewModuleBuilder constructs a new builder for a module with the given name.
-func NewModuleBuilder[C schema.Constraint, T Term[T]](name string, mid uint) ModuleBuilder[C, T] {
+func NewModuleBuilder[C schema.Constraint, T Term[T]](name string, mid schema.ModuleId,
+	multiplier uint) ModuleBuilder[C, T] {
+	//
 	regmap := make(map[string]uint, 0)
-	return ModuleBuilder[C, T]{name, mid, regmap, nil, nil, nil}
+	return ModuleBuilder[C, T]{name, mid, multiplier, regmap, nil, nil, nil}
 }
 
 // AddAssignment adds a new assignment to this module.  Assignments are
@@ -170,6 +174,13 @@ func (p *ModuleBuilder[C, T]) Constraints() iter.Iterator[schema.Constraint] {
 // Id returns the module index of this module.
 func (p *ModuleBuilder[C, T]) Id() uint {
 	return p.moduleId
+}
+
+// LengthMultiplier identifies the length multiplier for this module.  For every
+// trace, the height of the corresponding module must be a multiple of this.
+// This is used specifically to support interleaving constraints.
+func (p *ModuleBuilder[C, T]) LengthMultiplier() uint {
+	return p.multiplier
 }
 
 // Width returns the number of registers in this module.
@@ -240,7 +251,7 @@ func (p *ModuleBuilder[C, T]) RegisterAccessOf(name string, shift int) *Register
 
 // BuildTable constructs a table module from this module builder.
 func (p *ModuleBuilder[C, T]) BuildTable() schema.Table[C] {
-	table := schema.NewTable[C](p.name)
+	table := schema.NewTable[C](p.name, p.multiplier)
 	table.AddRegisters(p.registers...)
 	table.AddConstraints(p.constraints...)
 	table.AddAssignments(p.assignments...)

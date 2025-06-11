@@ -21,6 +21,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/bit"
 )
 
 // TraceBuilder provides a mechanical means of constructing a trace from a given
@@ -197,7 +198,7 @@ func (tb TraceBuilder) Build(schema AnySchema, cols []trace.RawColumn) (trace.Tr
 	}
 	// Padding
 	if tb.padding > 0 {
-		padColumns(tr, tb.padding)
+		padColumns(tr, schema, tb.padding)
 	}
 	//
 	return tr, errors
@@ -213,9 +214,9 @@ func initialiseTrace(expanded bool, schema AnySchema, cols []trace.RawColumn) (*
 	columns, errors := splitTraceColumns(expanded, schema, modmap, cols)
 	//
 	for i := uint(0); i != schema.Width(); i++ {
-		var name = schema.Module(i).Name()
+		var mod = schema.Module(i)
 		//
-		modules[i] = fillTraceModule(name, columns[i])
+		modules[i] = fillTraceModule(mod.Name(), mod.LengthMultiplier(), columns[i])
 	}
 	// Done
 	return trace.NewArrayTrace(modules), errors
@@ -326,7 +327,7 @@ func initialiseColumnMap(schema AnySchema) (map[columnKey]columnId, [][]trace.Ra
 	return colmap, modules
 }
 
-func fillTraceModule(name string, rawColumns []trace.RawColumn) trace.ArrayModule {
+func fillTraceModule(name string, multiplier uint, rawColumns []trace.RawColumn) trace.ArrayModule {
 	var (
 		traceColumns = make([]trace.ArrayColumn, len(rawColumns))
 		zero         = fr.NewElement(0)
@@ -338,7 +339,7 @@ func fillTraceModule(name string, rawColumns []trace.RawColumn) trace.ArrayModul
 		traceColumns[i] = trace.NewArrayColumn(ith.Name, ith.Data, zero)
 	}
 	//
-	return trace.NewArrayModule(name, traceColumns)
+	return trace.NewArrayModule(name, multiplier, traceColumns)
 }
 
 // pad each module with its given level of spillage and (optionally) ensure a
@@ -391,11 +392,12 @@ func checkModuleHeights(original []uint, defensive bool, tr *trace.ArrayTrace, s
 // PadColumns pads every column in a given trace with a given amount of (front)
 // padding. Observe that this applies on top of any spillage and/or defensive
 // padding already applied.
-func padColumns(tr *trace.ArrayTrace, padding uint) {
+func padColumns(tr *trace.ArrayTrace, schema AnySchema, padding uint) {
 	n := tr.Modules().Count()
 	// Iterate over modules
 	for i := uint(0); i < n; i++ {
-		tr.Pad(i, padding, 0)
+		multiplier := schema.Module(i).LengthMultiplier()
+		tr.Pad(i, padding*multiplier, 0)
 	}
 }
 
@@ -645,6 +647,7 @@ func parallelTraceValidation(schema AnySchema, tr tr.Trace) []error {
 // of the first column in the sequence, and subsequent columns are index
 // consecutively.
 func fillComputedColumns(refs []RegisterRef, cols []tr.ArrayColumn, trace *tr.ArrayTrace) {
+	var resized bit.Set
 	// Add all columns
 	for i, col := range cols {
 		mid, rid := refs[i].Module(), refs[i].Register().Unwrap()
@@ -659,8 +662,17 @@ func fillComputedColumns(refs []RegisterRef, cols []tr.ArrayColumn, trace *tr.Ar
 			panic(fmt.Sprintf("computed column %s.%s already exists in trace", mod, col.Name()))
 		}
 		// Looks good
-		module.FillColumn(rid, col.Data(), col.Padding())
+		if module.FillColumn(rid, col.Data(), col.Padding()) {
+			// Register module as being resized.
+			resized.Insert(mid)
+		}
 	}
+	// Finalise resized modules
+	for iter := resized.Iter(); iter.HasNext(); {
+		module := trace.RawModule(iter.Next())
+		module.Resize()
+	}
+	//
 }
 
 // Validate that all elements of a given column fit within a given bitwidth.

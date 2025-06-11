@@ -53,7 +53,7 @@ func NewAirLowering(mirSchema Schema) AirLowering {
 	)
 	// Initialise AIR modules
 	for _, m := range mirSchema.RawModules() {
-		airSchema.NewModule(m.Name())
+		airSchema.NewModule(m.Name(), m.LengthMultiplier())
 	}
 	//
 	return AirLowering{
@@ -122,6 +122,8 @@ func (p *AirLowering) lowerConstraintToAir(c Constraint, airModule *air.ModuleBu
 	switch v := c.constraint.(type) {
 	case Assertion:
 		p.lowerAssertionToAir(v, airModule)
+	case InterleavingConstraint:
+		p.lowerInterleavingConstraintToAir(v, airModule)
 	case LookupConstraint:
 		p.lowerLookupConstraintToAir(v, airModule)
 	case PermutationConstraint:
@@ -206,33 +208,35 @@ func (p *AirLowering) lowerRangeConstraintToAir(v RangeConstraint, airModule *ai
 	}
 }
 
-// Lower a lookup constraint to the AIR level.  The challenge here is that a
-// lookup constraint at the AIR level cannot use arbitrary expressions; rather,
-// it can only access columns directly.  Therefore, whenever a general
+// Lower an interleaving constraint to the AIR level.  The challenge here is
+// that interleaving constraints at the AIR level cannot use arbitrary
+// expressions; rather, they can only access columns directly.  Therefore,
+// whenever a general expression is encountered, we must generate a computed
+// column to hold the value of that expression, along with appropriate
+// constraints to enforce the expected value.
+func (p *AirLowering) lowerInterleavingConstraintToAir(c InterleavingConstraint, airModule *air.ModuleBuilder) {
+	// Lower sources
+	sources := p.expandTerms(c.SourceContext, c.Sources...)
+	// Lower target
+	target := p.expandTerms(c.SourceContext, c.Target)[0]
+	// Add constraint
+	airModule.AddConstraint(
+		air.NewInterleavingConstraint(c.Handle, c.TargetContext, c.SourceContext, *target, sources))
+}
+
+// Lower a lookup constraint to the AIR level.  The challenge here is that
+// lookup constraints at the AIR level cannot use arbitrary expressions; rather,
+// they can only access columns directly.  Therefore, whenever a general
 // expression is encountered, we must generate a computed column to hold the
 // value of that expression, along with appropriate constraints to enforce the
 // expected value.
 func (p *AirLowering) lowerLookupConstraintToAir(c LookupConstraint, airModule *air.ModuleBuilder) {
-	targetModule := p.airSchema.Module(c.TargetContext)
-	sourceModule := p.airSchema.Module(c.SourceContext)
-	targets := make([]*air.ColumnAccess, len(c.Targets))
-	sources := make([]*air.ColumnAccess, len(c.Sources))
-	//
-	for i := 0; i < len(targets); i++ {
-		targetBitwidth := c.Targets[i].ValueRange(targetModule).BitWidth()
-		sourceBitwidth := c.Sources[i].ValueRange(sourceModule).BitWidth()
-		// Lower source and target expressions
-		target := p.lowerAndSimplifyTermTo(c.Targets[i], targetModule)
-		source := p.lowerAndSimplifyTermTo(c.Sources[i], sourceModule)
-		// Expand them
-		target_register := air_gadgets.Expand(targetBitwidth, target, targetModule)
-		source_register := air_gadgets.Expand(sourceBitwidth, source, sourceModule)
-		//
-		targets[i] = ir.RawRegisterAccess[air.Term](target_register, 0)
-		sources[i] = ir.RawRegisterAccess[air.Term](source_register, 0)
-	}
-	// finally add the constraint
-	airModule.AddConstraint(air.NewLookupConstraint(c.Handle, c.SourceContext, c.TargetContext, sources, targets))
+	// Lower sources
+	sources := p.expandTerms(c.SourceContext, c.Sources...)
+	// Lower targets
+	targets := p.expandTerms(c.TargetContext, c.Targets...)
+	// Add constraint
+	airModule.AddConstraint(air.NewLookupConstraint(c.Handle, c.TargetContext, targets, c.SourceContext, sources))
 }
 
 // Lower a sorted constraint to the AIR level.  The challenge here is that there
@@ -277,6 +281,26 @@ func (p *AirLowering) lowerSortedConstraintToAir(c SortedConstraint, airModule *
 		msg := fmt.Sprintf("incompatible bitwidths (%d vs %d)", bitwidth, c.BitWidth)
 		panic(msg)
 	}
+}
+
+// Lower a set of zero or more MIR expressions.
+func (p *AirLowering) expandTerms(context schema.ModuleId, terms ...Term) []*air.ColumnAccess {
+	var (
+		nterms    = make([]*air.ColumnAccess, len(terms))
+		airModule = p.airSchema.Module(context)
+	)
+	//
+	for i := 0; i < len(terms); i++ {
+		sourceBitwidth := terms[i].ValueRange(airModule).BitWidth()
+		// Lower source expressions
+		source := p.lowerAndSimplifyTermTo(terms[i], airModule)
+		// Expand them
+		source_register := air_gadgets.Expand(sourceBitwidth, source, airModule)
+		//
+		nterms[i] = ir.RawRegisterAccess[air.Term](source_register, 0)
+	}
+	//
+	return nterms
 }
 
 func (p *AirLowering) lowerAndSimplifyLogicalTo(term LogicalTerm,
