@@ -40,9 +40,14 @@ func IfElse[S LogicalTerm[S], T Term[T]](condition S, trueBranch T, falseBranch 
 }
 
 // ApplyShift implementation for Term interface.
-func (p *IfZero[S, T]) ApplyShift(int) T {
-	// Need to add ApplyShift to LogicalTerm
-	panic("todo")
+func (p *IfZero[S, T]) ApplyShift(shift int) T {
+	var (
+		c  = p.Condition.ApplyShift(shift)
+		tb = p.TrueBranch.ApplyShift(shift)
+		fb = p.FalseBranch.ApplyShift(shift)
+	)
+	//
+	return IfElse(c, tb, fb)
 }
 
 // Bounds returns max shift in either the negative (left) or positive
@@ -110,7 +115,11 @@ func (p *IfZero[S, T]) RequiredCells(row int, tr trace.Module) *set.AnySortedSet
 
 // ShiftRange implementation for Term interface.
 func (p *IfZero[S, T]) ShiftRange() (int, int) {
-	panic("todo")
+	cMin, cMax := p.Condition.ShiftRange()
+	tMin, tMax := p.TrueBranch.ShiftRange()
+	fMin, fMax := p.FalseBranch.ShiftRange()
+	//
+	return min(cMin, tMin, fMin), max(cMax, tMax, fMax)
 }
 
 // ValueRange implementation for Term interface.

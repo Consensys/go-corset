@@ -50,9 +50,19 @@ func Conjunction[T LogicalTerm[T]](terms ...T) T {
 	return term.(T)
 }
 
+// ApplyShift implementation for LogicalTerm interface.
+func (p *Conjunct[T]) ApplyShift(shift int) T {
+	return Conjunction(applyShiftOfTerms(p.Args, shift)...)
+}
+
 // Bounds implementation for Boundable interface.
 func (p *Conjunct[T]) Bounds() util.Bounds {
 	return util.BoundsForArray(p.Args)
+}
+
+// ShiftRange implementation for LogicalTerm interface.
+func (p *Conjunct[T]) ShiftRange() (int, int) {
+	return shiftRangeOfTerms(p.Args...)
 }
 
 // TestAt implementation for Testable interface.

@@ -40,6 +40,16 @@ type Equal[S LogicalTerm[S], T Term[T]] struct {
 	Rhs Term[T]
 }
 
+// ApplyShift implementation for LogicalTerm interface.
+func (p *Equal[S, T]) ApplyShift(shift int) S {
+	return Equals[S](p.Lhs.ApplyShift(shift), p.Rhs.ApplyShift(shift))
+}
+
+// ShiftRange implementation for LogicalTerm interface.
+func (p *Equal[S, T]) ShiftRange() (int, int) {
+	return shiftRangeOfTerms[T](p.Lhs.(T), p.Rhs.(T))
+}
+
 // Bounds implementation for Boundable interface.
 func (p *Equal[S, T]) Bounds() util.Bounds {
 	l := p.Lhs.Bounds()

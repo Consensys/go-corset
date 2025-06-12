@@ -40,6 +40,37 @@ func IfThenElse[T LogicalTerm[T]](condition T, trueBranch T, falseBranch T) T {
 	return term.(T)
 }
 
+// ApplyShift implementation for LogicalTerm interface.
+func (p *Ite[T]) ApplyShift(shift int) T {
+	var (
+		c  = p.Condition.ApplyShift(shift)
+		tb T
+		fb T
+	)
+	//
+	if p.TrueBranch != nil {
+		tb = p.TrueBranch.ApplyShift(shift)
+	}
+	//
+	if p.FalseBranch != nil {
+		fb = p.FalseBranch.ApplyShift(shift)
+	}
+	//
+	return IfThenElse(c, tb, fb)
+}
+
+// ShiftRange implementation for LogicalTerm interface.
+func (p *Ite[T]) ShiftRange() (int, int) {
+	switch {
+	case p.TrueBranch == nil:
+		return shiftRangeOfTerms(p.Condition, p.FalseBranch.(T))
+	case p.FalseBranch == nil:
+		return shiftRangeOfTerms(p.Condition, p.TrueBranch.(T))
+	default:
+		return shiftRangeOfTerms(p.Condition, p.TrueBranch.(T), p.FalseBranch.(T))
+	}
+}
+
 // Bounds returns max shift in either the negative (left) or positive
 // direction (right).
 func (p *Ite[T]) Bounds() util.Bounds {

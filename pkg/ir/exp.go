@@ -103,5 +103,8 @@ func (p *Exp[T]) Simplify(casts bool) T {
 
 // ValueRange implementation for Term interface.
 func (p *Exp[T]) ValueRange(module schema.Module) *util.Interval {
-	panic("todo")
+	bounds := p.Arg.ValueRange(module)
+	bounds.Exp(uint(p.Pow))
+	//
+	return bounds
 }

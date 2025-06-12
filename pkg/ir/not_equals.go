@@ -45,6 +45,16 @@ func NotEquals[S LogicalTerm[S], T Term[T]](lhs T, rhs T) S {
 	panic("invalid logical AIR term")
 }
 
+// ApplyShift implementation for LogicalTerm interface.
+func (p *NotEqual[S, T]) ApplyShift(shift int) S {
+	return NotEquals[S](p.Lhs.ApplyShift(shift), p.Rhs.ApplyShift(shift))
+}
+
+// ShiftRange implementation for LogicalTerm interface.
+func (p *NotEqual[S, T]) ShiftRange() (int, int) {
+	return shiftRangeOfTerms[T](p.Lhs.(T), p.Rhs.(T))
+}
+
 // Bounds implementation for Boundable interface.
 func (p *NotEqual[S, T]) Bounds() util.Bounds {
 	l := p.Lhs.Bounds()

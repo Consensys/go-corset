@@ -95,7 +95,7 @@ func (p *Mul[T]) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[trace
 
 // ShiftRange implementation for Term interface.
 func (p *Mul[T]) ShiftRange() (int, int) {
-	return shiftRangeOfTerms(p.Args)
+	return shiftRangeOfTerms(p.Args...)
 }
 
 // Simplify implementation for Term interface.

@@ -13,6 +13,8 @@
 package ir
 
 import (
+	"math/big"
+
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -34,8 +36,7 @@ func Normalise[T Term[T]](arg T) T {
 
 // ApplyShift implementation for Term interface.
 func (p *Norm[T]) ApplyShift(shift int) T {
-	var term Term[T] = &Norm[T]{p.Arg.ApplyShift(shift)}
-	return term.(T)
+	return Normalise(p.Arg.ApplyShift(shift))
 }
 
 // Bounds implementation for Boundable interface.
@@ -102,5 +103,5 @@ func (p *Norm[T]) Simplify(casts bool) T {
 
 // ValueRange implementation for Term interface.
 func (p *Norm[T]) ValueRange(module schema.Module) *util.Interval {
-	panic("todo")
+	return util.NewInterval(big.NewInt(0), big.NewInt(1))
 }

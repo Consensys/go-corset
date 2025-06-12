@@ -50,6 +50,16 @@ func Disjunction[T LogicalTerm[T]](terms ...T) T {
 	return term.(T)
 }
 
+// ApplyShift implementation for LogicalTerm interface.
+func (p *Disjunct[T]) ApplyShift(shift int) T {
+	return Disjunction(applyShiftOfTerms(p.Args, shift)...)
+}
+
+// ShiftRange implementation for LogicalTerm interface.
+func (p *Disjunct[T]) ShiftRange() (int, int) {
+	return shiftRangeOfTerms(p.Args...)
+}
+
 // Bounds implementation for Boundable interface.
 func (p *Disjunct[T]) Bounds() util.Bounds {
 	return util.BoundsForArray(p.Args)

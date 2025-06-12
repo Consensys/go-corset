@@ -38,6 +38,16 @@ type Negate[T LogicalTerm[T]] struct {
 	Arg T
 }
 
+// ApplyShift implementation for LogicalTerm interface.
+func (p *Negate[T]) ApplyShift(shift int) T {
+	return Negation(p.Arg.ApplyShift(shift))
+}
+
+// ShiftRange implementation for LogicalTerm interface.
+func (p *Negate[T]) ShiftRange() (int, int) {
+	return p.Arg.ShiftRange()
+}
+
 // Bounds implementation for Boundable interface.
 func (p *Negate[T]) Bounds() util.Bounds {
 	return p.Arg.Bounds()

@@ -79,6 +79,22 @@ type Inequality[S LogicalTerm[S], T Term[T]] struct {
 	Rhs Term[T]
 }
 
+// ApplyShift implementation for LogicalTerm interface.
+func (p *Inequality[S, T]) ApplyShift(shift int) S {
+	if p.Strict {
+		return LessThan[S](p.Lhs.ApplyShift(shift),
+			p.Rhs.ApplyShift(shift))
+	}
+	//
+	return LessThanOrEquals[S](p.Lhs.ApplyShift(shift),
+		p.Rhs.ApplyShift(shift))
+}
+
+// ShiftRange implementation for LogicalTerm interface.
+func (p *Inequality[S, T]) ShiftRange() (int, int) {
+	return shiftRangeOfTerms(p.Lhs.(T), p.Rhs.(T))
+}
+
 // Bounds implementation for Boundable interface.
 func (p *Inequality[S, T]) Bounds() util.Bounds {
 	l := p.Lhs.Bounds()

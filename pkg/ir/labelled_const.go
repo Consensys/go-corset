@@ -41,7 +41,8 @@ func LabelledConstant[T Term[T]](label string, value fr.Element) T {
 
 // ApplyShift implementation for Term interface.
 func (p *LabelledConst[T]) ApplyShift(int) T {
-	panic("todo")
+	var term Term[T] = p
+	return term.(T)
 }
 
 // Bounds implementation for Boundable interface.

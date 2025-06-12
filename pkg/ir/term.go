@@ -54,12 +54,9 @@ type Evaluable interface {
 	Lisp(schema.Module) sexp.SExp
 }
 
-// Term represents a component of an AIR expression.
-type Term[T any] interface {
-	Contextual
-	Evaluable
-	util.Boundable
-
+// Shiftable captures something which can contain row shifted accesses, and
+// where we want information or to manipulate those accesses.
+type Shiftable[T any] interface {
 	// ApplyShift applies a given shift to all variable accesses in a given term
 	// by a given amount. This can be used to normalise shifting in certain
 	// circumstances.
@@ -68,6 +65,14 @@ type Term[T any] interface {
 	// ShiftRange returns the minimum and maximum shift value used anywhere in
 	// the given term.
 	ShiftRange() (int, int)
+}
+
+// Term represents a component of an AIR expression.
+type Term[T any] interface {
+	Contextual
+	Shiftable[T]
+	Evaluable
+	util.Boundable
 
 	// Simplify constant expressions down to single values.  For example, "(+ 1
 	// 2)" would be collapsed down to "3".  This is then progagated throughout
@@ -90,6 +95,7 @@ type Term[T any] interface {
 type Testable interface {
 	util.Boundable
 	Contextual
+
 	// TestAt evaluates this expression in a given tabular context and checks it
 	// against zero. Observe that if this expression is *undefined* within this
 	// context then it returns "nil".  An expression can be undefined for
@@ -105,7 +111,9 @@ type Testable interface {
 // For example, an equality comparing two arithmetic terms is a logical term.
 type LogicalTerm[T any] interface {
 	Contextual
+	Shiftable[T]
 	Testable
+
 	// Simplify constant expressions down to single values.  For example, "(+ 1
 	// 2)" would be collapsed down to "3".  This is then progagated throughout
 	// an expression, so that e.g. "(+ X (+ 1 2))" becomes "(+ X 3)"", etc.
