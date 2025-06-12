@@ -95,6 +95,8 @@ func (t *translator) translateModules(circuit *ast.Circuit) {
 // Thus, in the presence of interleavings, a Corset module will map to more than
 // one MIR module.
 func (t *translator) translateModule(name string) {
+	// Always include module with base multiplier (even if empty).
+	t.schema.NewModule(name, 1)
 	// Initialise the corresponding family of MIR modules.
 	for _, regIndex := range t.env.RegistersOf(name) {
 		var (

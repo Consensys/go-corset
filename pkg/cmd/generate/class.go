@@ -101,7 +101,7 @@ func generateClassContents(className string, super string, mod corset.SourceModu
 	mid, ok := schema.Modules().Find(func(m sc.Module) bool { return m.Name() == mod.Name })
 	// Sanity check we found it
 	if !ok {
-		panic(fmt.Sprintf("unable to find module %s", mod.Name))
+		panic(fmt.Sprintf("unable to find module \"%s\"", mod.Name))
 	}
 	// Generate what we need
 	generateJavaClassHeader(mod.Name == "", className, super, builder)
