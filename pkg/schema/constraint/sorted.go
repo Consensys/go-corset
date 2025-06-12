@@ -45,7 +45,7 @@ type SortedConstraint[E ir.Evaluable] struct {
 	Handle string
 	// Evaluation Context for this constraint which must match that of the
 	// source expressions.
-	Context trace.Context
+	Context schema.ModuleId
 	// BitWidth of delta (i.e. maximum difference between columns)
 	BitWidth uint
 	// Optional selector expression which determines on which rows this
@@ -62,7 +62,7 @@ type SortedConstraint[E ir.Evaluable] struct {
 }
 
 // NewSortedConstraint creates a new Sorted
-func NewSortedConstraint[E ir.Evaluable](handle string, context trace.Context, bitwidth uint, selector util.Option[E],
+func NewSortedConstraint[E ir.Evaluable](handle string, context schema.ModuleId, bitwidth uint, selector util.Option[E],
 	sources []E, signs []bool, strict bool) SortedConstraint[E] {
 	//
 	return SortedConstraint[E]{handle, context, bitwidth, selector, sources, signs, strict}
@@ -87,8 +87,8 @@ func (p SortedConstraint[E]) Name() string {
 // evaluation context, though some (e.g. lookups) have more.  Note that all
 // constraints have at least one context (which we can call the "primary"
 // context).
-func (p SortedConstraint[E]) Contexts() []trace.Context {
-	return []trace.Context{p.Context}
+func (p SortedConstraint[E]) Contexts() []schema.ModuleId {
+	return []schema.ModuleId{p.Context}
 }
 
 // Bounds determines the well-definedness bounds for this constraint for both
@@ -99,7 +99,7 @@ func (p SortedConstraint[E]) Contexts() []trace.Context {
 func (p SortedConstraint[E]) Bounds(module uint) util.Bounds {
 	var bound util.Bounds
 	//
-	if module == p.Context.Module() {
+	if module == p.Context {
 		for _, e := range p.Sources {
 			eth := e.Bounds()
 			bound.Union(&eth)
@@ -115,11 +115,11 @@ func (p SortedConstraint[E]) Accepts(trace trace.Trace) (bit.Set, schema.Failure
 	var (
 		coverage bit.Set
 		// Determine enclosing module
-		module = trace.Module(p.Context.ModuleId)
+		module = trace.Module(p.Context)
 		//
-		height = trace.Height(p.Context)
+		height = trace.Module(p.Context).Height()
 		// Determine well-definedness bounds for this constraint
-		bounds = p.Bounds(p.Context.Module())
+		bounds = p.Bounds(p.Context)
 	)
 	// Sanity check enough rows
 	if bounds.End < height {
@@ -155,7 +155,7 @@ func (p SortedConstraint[E]) Accepts(trace trace.Trace) (bit.Set, schema.Failure
 // so it can be printed.
 func (p SortedConstraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
 	var (
-		module  = schema.Module(p.Context.ModuleId)
+		module  = schema.Module(p.Context)
 		kind    = "sorted"
 		sources = sexp.EmptyList()
 	)

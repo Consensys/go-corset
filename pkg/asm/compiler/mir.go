@@ -19,7 +19,6 @@ import (
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
 
@@ -34,7 +33,7 @@ type MirModule struct {
 
 // Initialise this module
 func (p MirModule) Initialise(name string, mid uint) MirModule {
-	builder := ir.NewModuleBuilder[mir.Constraint, mir.Term](name, mid)
+	builder := ir.NewModuleBuilder[mir.Constraint, mir.Term](name, mid, 1)
 	p.Module = &builder
 
 	return p
@@ -49,22 +48,18 @@ func (p MirModule) NewColumn(kind schema.RegisterType, name string, bitwidth uin
 // NewConstraint constructs a new vanishing constraint with the given name
 // within this module.
 func (p MirModule) NewConstraint(name string, domain util.Option[int], constraint MirExpr) {
-	context := trace.NewContext(p.Module.Id(), 1)
-	//
 	p.Module.AddConstraint(
-		mir.NewVanishingConstraint(name, context, domain, constraint.logical))
+		mir.NewVanishingConstraint(name, p.Module.Id(), domain, constraint.logical))
 }
 
 // NewLookup constructs a new lookup constraint
 func (p MirModule) NewLookup(name string, from []MirExpr, target uint, to []MirExpr) {
 	var (
-		sourceContext = trace.NewContext(p.Module.Id(), 1)
-		targetContext = trace.NewContext(target, 1)
-		sources       = unwrapMirExprs(from...)
-		targets       = unwrapMirExprs(to...)
+		sources = unwrapMirExprs(from...)
+		targets = unwrapMirExprs(to...)
 	)
 
-	p.Module.AddConstraint(mir.NewLookupConstraint(name, sourceContext, targetContext, sources, targets))
+	p.Module.AddConstraint(mir.NewLookupConstraint(name, target, targets, p.Module.Id(), sources))
 }
 
 // String returns an appropriately formatted representation of the module.

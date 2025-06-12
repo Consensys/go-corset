@@ -33,9 +33,10 @@ type ConstraintBound interface {
 	schema.Constraint
 
 	constraint.Assertion[ir.Testable] |
-		constraint.LookupConstraint[*ir.RegisterAccess[Term]] |
+		constraint.InterleavingConstraint[*ColumnAccess] |
+		constraint.LookupConstraint[*ColumnAccess] |
 		constraint.PermutationConstraint |
-		constraint.RangeConstraint[*ir.RegisterAccess[Term]] |
+		constraint.RangeConstraint[*ColumnAccess] |
 		constraint.VanishingConstraint[LogicalTerm]
 }
 
@@ -54,30 +55,36 @@ func newAir[C ConstraintBound](constraint C) Air[C] {
 }
 
 // NewAssertion constructs a new AIR assertion
-func NewAssertion(handle string, ctx trace.Context, term ir.Testable) Assertion {
+func NewAssertion(handle string, ctx schema.ModuleId, term ir.Testable) Assertion {
 	//
 	return newAir(constraint.NewAssertion(handle, ctx, term))
 }
 
+// NewInterleavingConstraint creates a new interleaving constraint with a given handle.
+func NewInterleavingConstraint(handle string, targetContext schema.ModuleId,
+	sourceContext schema.ModuleId, target ColumnAccess, sources []*ColumnAccess) Constraint {
+	return newAir(constraint.NewInterleavingConstraint(handle, targetContext, sourceContext, &target, sources))
+}
+
 // NewLookupConstraint constructs a new AIR lookup constraint
-func NewLookupConstraint(handle string, source trace.Context,
-	target trace.Context, sources []*ColumnAccess, targets []*ColumnAccess) LookupConstraint {
-	return newAir(constraint.NewLookupConstraint(handle, source, target, sources, targets))
+func NewLookupConstraint(handle string,
+	target schema.ModuleId, targets []*ColumnAccess, source schema.ModuleId, sources []*ColumnAccess) LookupConstraint {
+	return newAir(constraint.NewLookupConstraint(handle, target, targets, source, sources))
 }
 
 // NewPermutationConstraint creates a new permutation
-func NewPermutationConstraint(handle string, context trace.Context, targets []schema.RegisterId,
+func NewPermutationConstraint(handle string, context schema.ModuleId, targets []schema.RegisterId,
 	sources []schema.RegisterId) Constraint {
 	return newAir(constraint.NewPermutationConstraint(handle, context, targets, sources))
 }
 
 // NewRangeConstraint constructs a new AIR range constraint
-func NewRangeConstraint(handle string, ctx trace.Context, expr ColumnAccess, bitwidth uint) RangeConstraint {
+func NewRangeConstraint(handle string, ctx schema.ModuleId, expr ColumnAccess, bitwidth uint) RangeConstraint {
 	return newAir(constraint.NewRangeConstraint(handle, ctx, &expr, bitwidth))
 }
 
 // NewVanishingConstraint constructs a new AIR vanishing constraint
-func NewVanishingConstraint(handle string, ctx trace.Context, domain util.Option[int],
+func NewVanishingConstraint(handle string, ctx schema.ModuleId, domain util.Option[int],
 	term Term) VanishingConstraint {
 	//
 	return newAir(constraint.NewVanishingConstraint(handle, ctx, domain, LogicalTerm{term}))
@@ -116,7 +123,7 @@ func (p Air[C]) Consistent(schema schema.AnySchema) []error {
 // evaluation context, though some (e.g. lookups) have more.  Note that all
 // constraints have at least one context (which we can call the "primary"
 // context).
-func (p Air[C]) Contexts() []trace.Context {
+func (p Air[C]) Contexts() []schema.ModuleId {
 	return p.constraint.Contexts()
 }
 

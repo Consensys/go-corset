@@ -35,7 +35,7 @@ func ResolveCircuit(srcmap *source.Maps[ast.Node], circuit *ast.Circuit) (*Modul
 	// Construct top-level scope
 	scope := NewModuleScope()
 	// Define natives
-	for _, i := range NATIVES {
+	for _, i := range NATIVE_SIGNATURES {
 		scope.Define(&i)
 	}
 	// Define intrinsics

@@ -44,7 +44,7 @@ type PermutationConstraint struct {
 	Handle string
 	// Evaluation Context for this constraint which must match that of the
 	// source and target expressions.
-	Context trace.Context
+	Context schema.ModuleId
 	// Targets returns the indices of the columns composing the "left" table of the
 	// permutation.
 	Targets []schema.RegisterId
@@ -54,7 +54,7 @@ type PermutationConstraint struct {
 }
 
 // NewPermutationConstraint creates a new permutation
-func NewPermutationConstraint(handle string, context trace.Context, targets []schema.RegisterId,
+func NewPermutationConstraint(handle string, context schema.ModuleId, targets []schema.RegisterId,
 	sources []schema.RegisterId) PermutationConstraint {
 	if len(targets) != len(sources) {
 		panic("differeng number of target / source permutation columns")
@@ -82,8 +82,8 @@ func (p PermutationConstraint) Name() string {
 // evaluation context, though some (e.g. lookups) have more.  Note that all
 // constraints have at least one context (which we can call the "primary"
 // context).
-func (p PermutationConstraint) Contexts() []trace.Context {
-	return []trace.Context{p.Context}
+func (p PermutationConstraint) Contexts() []schema.ModuleId {
+	return []schema.ModuleId{p.Context}
 }
 
 // Bounds determines the well-definedness bounds for this constraint for both
@@ -102,7 +102,7 @@ func (p PermutationConstraint) Accepts(tr trace.Trace) (bit.Set, schema.Failure)
 		// Coverage currently always empty for permutation constraints.
 		coverage bit.Set
 		// Determine enclosing module
-		module trace.Module = tr.Module(p.Context.ModuleId)
+		module trace.Module = tr.Module(p.Context)
 	)
 	// Slice out data
 	src := sliceColumns(p.Sources, module)
@@ -126,7 +126,7 @@ func (p PermutationConstraint) Accepts(tr trace.Trace) (bit.Set, schema.Failure)
 // so it can be printed.
 func (p PermutationConstraint) Lisp(schema schema.AnySchema) sexp.SExp {
 	var (
-		module  = schema.Module(p.Context.ModuleId)
+		module  = schema.Module(p.Context)
 		targets = sexp.EmptyList()
 		sources = sexp.EmptyList()
 	)

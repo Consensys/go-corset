@@ -31,7 +31,7 @@ type RangeFailure struct {
 	// Handle of the failing constraint
 	Handle string
 	// Enclosing context
-	Context trace.Context
+	Context schema.ModuleId
 	// Constraint expression
 	Expr ir.Evaluable
 	// Range restriction
@@ -52,7 +52,7 @@ func (p *RangeFailure) String() string {
 
 // RequiredCells identifies the cells required to evaluate the failing constraint at the failing row.
 func (p *RangeFailure) RequiredCells(tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
-	module := tr.Module(p.Context.ModuleId)
+	module := tr.Module(p.Context)
 	return p.Expr.RequiredCells(int(p.Row), module)
 }
 
@@ -65,7 +65,7 @@ type RangeConstraint[E ir.Evaluable] struct {
 	Handle string
 	// Evaluation Context for this constraint which must match that of the
 	// constrained expression itself.
-	Context trace.Context
+	Context schema.ModuleId
 	// The expression whose values are being constrained to within the given
 	// bound.
 	Expr E
@@ -75,7 +75,7 @@ type RangeConstraint[E ir.Evaluable] struct {
 }
 
 // NewRangeConstraint constructs a new Range constraint!
-func NewRangeConstraint[E ir.Evaluable](handle string, context trace.Context,
+func NewRangeConstraint[E ir.Evaluable](handle string, context schema.ModuleId,
 	expr E, bitwidth uint) RangeConstraint[E] {
 	return RangeConstraint[E]{handle, context, expr, bitwidth}
 }
@@ -84,7 +84,7 @@ func NewRangeConstraint[E ir.Evaluable](handle string, context trace.Context,
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
 func (p RangeConstraint[E]) Consistent(schema schema.AnySchema) []error {
-	return checkConsistent(p.Context.ModuleId, schema, p.Expr)
+	return checkConsistent(p.Context, schema, p.Expr)
 }
 
 // Name returns a unique name for a given constraint.  This is useful
@@ -98,8 +98,8 @@ func (p RangeConstraint[E]) Name() string {
 // evaluation context, though some (e.g. lookups) have more.  Note that all
 // constraints have at least one context (which we can call the "primary"
 // context).
-func (p RangeConstraint[E]) Contexts() []trace.Context {
-	return []trace.Context{p.Context}
+func (p RangeConstraint[E]) Contexts() []schema.ModuleId {
+	return []schema.ModuleId{p.Context}
 }
 
 // Bounds determines the well-definedness bounds for this constraint for both
@@ -110,7 +110,7 @@ func (p RangeConstraint[E]) Contexts() []trace.Context {
 //
 //nolint:revive
 func (p RangeConstraint[E]) Bounds(module uint) util.Bounds {
-	if p.Context.Module() == module {
+	if p.Context == module {
 		return p.Expr.Bounds()
 	}
 	//
@@ -124,7 +124,7 @@ func (p RangeConstraint[E]) Bounds(module uint) util.Bounds {
 func (p RangeConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
 	var (
 		coverage bit.Set
-		module   = tr.Module(p.Context.ModuleId)
+		module   = tr.Module(p.Context)
 		handle   = determineHandle(p.Handle, p.Context, tr)
 		bound    = big.NewInt(2)
 		frBound  fr.Element
@@ -134,7 +134,7 @@ func (p RangeConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
 	// Construct bound
 	frBound.SetBigInt(bound)
 	// Determine height of enclosing module
-	height := tr.Height(p.Context)
+	height := tr.Module(p.Context).Height()
 	// Iterate every row
 	for k := 0; k < int(height); k++ {
 		// Get the value on the kth row
@@ -158,7 +158,7 @@ func (p RangeConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
 //
 //nolint:revive
 func (p RangeConstraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
-	module := schema.Module(p.Context.ModuleId)
+	module := schema.Module(p.Context)
 	//
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("range"),

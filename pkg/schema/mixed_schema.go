@@ -142,6 +142,11 @@ func (p MixedSchema[M1, M2]) LeftModules() []M1 {
 	return p.left
 }
 
+// Register returns the given register in this schema.
+func (p MixedSchema[M1, M2]) Register(ref RegisterRef) Register {
+	return p.Module(ref.Module()).Register(ref.Register())
+}
+
 // RightModules returns those modules which form the "right" part of this mixed
 // schema.
 func (p MixedSchema[M1, M2]) RightModules() []M2 {

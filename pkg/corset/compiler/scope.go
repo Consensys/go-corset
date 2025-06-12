@@ -16,7 +16,6 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/corset/ast"
-	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 )
 
@@ -457,7 +456,7 @@ type LocalScope struct {
 // also be "global" in the sense that accessing symbols from other modules is
 // permitted.
 func NewLocalScope(enclosing Scope, global bool, pure bool, constant bool) LocalScope {
-	context := tr.VoidContext[string]()
+	context := ast.VoidContext[string]()
 	locals := make(map[string]uint)
 	bindings := make([]*ast.LocalVariableBinding, 0)
 	//

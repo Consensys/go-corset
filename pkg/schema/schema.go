@@ -61,6 +61,8 @@ type Schema[C any] interface {
 	// Modules returns an iterator over the declared set of modules within this
 	// schema.
 	Modules() iter.Iterator[Module]
+	// Access a given register in this schema.
+	Register(RegisterRef) Register
 	// Returns the number of modules in this schema.
 	Width() uint
 }

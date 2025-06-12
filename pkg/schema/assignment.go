@@ -25,7 +25,13 @@ import (
 // the multiplicative inverse of a column in order to implement a non-zero
 // check.
 type Assignment interface {
-	util.Boundable
+	// For the given module, determine any well-definedness bounds implied by
+	// this assignment in  both the negative (left) or positive (right)
+	// directions.  For example, consider an expression such as "(shift X -1)".
+	// This is technically undefined for the first row of any trace and, by
+	// association, any assignment evaluating this expression on that first row
+	// is also undefined.
+	Bounds(ModuleId) util.Bounds
 	// ComputeColumns computes the values of columns defined by this assignment.
 	// In order for this computation to makes sense, all columns on which this
 	// assignment depends must exist (e.g. are either inputs or have been
@@ -38,12 +44,9 @@ type Assignment interface {
 	Consistent(Schema[Constraint]) []error
 	// Returns the set of columns that this assignment depends upon.  That can
 	// include both input columns, as well as other computed columns.
-	Dependencies() []RegisterId
-	// Module returns the enclosing register for all columns computed by this
-	// assignment.
-	Module() uint
+	RegistersRead() []RegisterRef
 	// Identifier registers assigned by this assignment.
-	Registers() []RegisterId
+	RegistersWritten() []RegisterRef
 	// Lisp converts this schema element into a simple S-Expression, for example
 	// so it can be printed.
 	Lisp(AnySchema) sexp.SExp

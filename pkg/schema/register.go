@@ -20,6 +20,30 @@ import (
 	"math/big"
 )
 
+// RegisterRef abstracts a complete (i.e. global) register identifier.
+type RegisterRef struct {
+	// Module containing this register
+	mid ModuleId
+	// Register index within that module
+	rid RegisterId
+}
+
+// NewRegisterRef constructs a new register reference from the given module and
+// register identifiers.
+func NewRegisterRef(mid ModuleId, rid RegisterId) RegisterRef {
+	return RegisterRef{mid, rid}
+}
+
+// Module returns the module identifier of this register reference.
+func (p RegisterRef) Module() ModuleId {
+	return p.mid
+}
+
+// Register returns the register identifier of this register reference.
+func (p RegisterRef) Register() RegisterId {
+	return p.rid
+}
+
 // ============================================================================
 
 // RegisterId captures the notion of a register index.  That is, for each
@@ -175,9 +199,11 @@ func (p Register) String() string {
 
 // GobEncode an option.  This allows it to be marshalled into a binary form.
 func (p RegisterType) GobEncode() (data []byte, err error) {
-	var buffer bytes.Buffer
-	gobEncoder := gob.NewEncoder(&buffer)
-	// Modules
+	var (
+		buffer     bytes.Buffer
+		gobEncoder = gob.NewEncoder(&buffer)
+	)
+	//
 	if err := gobEncoder.Encode(&p.kind); err != nil {
 		return nil, err
 	}
@@ -187,9 +213,11 @@ func (p RegisterType) GobEncode() (data []byte, err error) {
 
 // GobDecode a previously encoded option
 func (p *RegisterType) GobDecode(data []byte) error {
-	buffer := bytes.NewBuffer(data)
-	gobDecoder := gob.NewDecoder(buffer)
-	// Modules
+	var (
+		buffer     = bytes.NewBuffer(data)
+		gobDecoder = gob.NewDecoder(buffer)
+	)
+	//
 	if err := gobDecoder.Decode(&p.kind); err != nil {
 		return err
 	}
@@ -199,9 +227,11 @@ func (p *RegisterType) GobDecode(data []byte) error {
 
 // GobEncode an option.  This allows it to be marshalled into a binary form.
 func (p RegisterId) GobEncode() (data []byte, err error) {
-	var buffer bytes.Buffer
-	gobEncoder := gob.NewEncoder(&buffer)
-	// Modules
+	var (
+		buffer     bytes.Buffer
+		gobEncoder = gob.NewEncoder(&buffer)
+	)
+	//
 	if err := gobEncoder.Encode(&p.index); err != nil {
 		return nil, err
 	}
@@ -211,12 +241,54 @@ func (p RegisterId) GobEncode() (data []byte, err error) {
 
 // GobDecode a previously encoded option
 func (p *RegisterId) GobDecode(data []byte) error {
-	buffer := bytes.NewBuffer(data)
-	gobDecoder := gob.NewDecoder(buffer)
-	// Modules
+	var (
+		buffer     = bytes.NewBuffer(data)
+		gobDecoder = gob.NewDecoder(buffer)
+	)
+	//
 	if err := gobDecoder.Decode(&p.index); err != nil {
 		return err
 	}
+	// Success!
+	return nil
+}
+
+// GobEncode an option.  This allows it to be marshalled into a binary form.
+func (p RegisterRef) GobEncode() (data []byte, err error) {
+	var (
+		rid        = p.rid.Unwrap()
+		buffer     bytes.Buffer
+		gobEncoder = gob.NewEncoder(&buffer)
+	)
+	//
+	if err := gobEncoder.Encode(&p.mid); err != nil {
+		return nil, err
+	}
+	//
+	if err := gobEncoder.Encode(&rid); err != nil {
+		return nil, err
+	}
+	// Done
+	return buffer.Bytes(), nil
+}
+
+// GobDecode a previously encoded option
+func (p *RegisterRef) GobDecode(data []byte) error {
+	var (
+		rid        uint
+		buffer     = bytes.NewBuffer(data)
+		gobDecoder = gob.NewDecoder(buffer)
+	)
+	//
+	if err := gobDecoder.Decode(&p.mid); err != nil {
+		return err
+	}
+	//
+	if err := gobDecoder.Decode(&rid); err != nil {
+		return err
+	}
+	// Construct reg id
+	p.rid = NewRegisterId(rid)
 	// Success!
 	return nil
 }

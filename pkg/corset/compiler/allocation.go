@@ -18,7 +18,7 @@ import (
 	"slices"
 	"strings"
 
-	tr "github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -33,7 +33,7 @@ import (
 // different perspectives of the same module.
 type Register struct {
 	// Context (i.e. module + multiplier) of this register.
-	Context tr.Context
+	Context ast.Context
 	// Underlying width of this register.
 	Bitwidth uint
 	// Source columns of this register

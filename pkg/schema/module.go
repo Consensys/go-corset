@@ -19,6 +19,9 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 )
 
+// ModuleId abstracts the notion of a "module identifier"
+type ModuleId = uint
+
 // Module represents a "table" within a schema which contains zero or more rows
 // for a given set of registers.
 type Module interface {
@@ -33,6 +36,10 @@ type Module interface {
 	// strictly necessary, these can highlight otherwise hidden problems as an aid
 	// to debugging.
 	Consistent(Schema[Constraint]) []error
+	// Identifies the length multiplier for this module.  For every trace, the
+	// height of the corresponding module must be a multiple of this.  This is
+	// used specifically to support interleaving constraints.
+	LengthMultiplier() uint
 	// Module name
 	Name() string
 	// Access a given register in this module.
@@ -102,14 +109,15 @@ type FieldAgnosticModule[T any] interface {
 // relatively straightforward.
 type Table[C Constraint] struct {
 	name        string
+	multiplier  uint
 	registers   []Register
 	constraints []C
 	assignments []Assignment
 }
 
 // NewTable constructs a table module with the given registers and constraints.
-func NewTable[C Constraint](name string) Table[C] {
-	return Table[C]{name, nil, nil, nil}
+func NewTable[C Constraint](name string, multiplier uint) Table[C] {
+	return Table[C]{name, multiplier, nil, nil, nil}
 }
 
 // Assignments provides access to those assignments defined as part of this
@@ -145,6 +153,13 @@ func (p Table[C]) Consistent(schema Schema[Constraint]) []error {
 // Name returns the module name.
 func (p Table[C]) Name() string {
 	return p.name
+}
+
+// LengthMultiplier identifies the length multiplier for this module.  For every
+// trace, the height of the corresponding module must be a multiple of this.
+// This is used specifically to support interleaving constraints.
+func (p Table[C]) LengthMultiplier() uint {
+	return p.multiplier
 }
 
 // Register returns the given register in this table.
@@ -195,6 +210,10 @@ func (p Table[M]) GobEncode() (data []byte, err error) {
 	if err := gobEncoder.Encode(p.name); err != nil {
 		return nil, err
 	}
+	// Multiplier
+	if err := gobEncoder.Encode(p.multiplier); err != nil {
+		return nil, err
+	}
 	// registers
 	if err := gobEncoder.Encode(p.registers); err != nil {
 		return nil, err
@@ -217,6 +236,10 @@ func (p *Table[M]) GobDecode(data []byte) error {
 	gobDecoder := gob.NewDecoder(buffer)
 	// Name
 	if err := gobDecoder.Decode(&p.name); err != nil {
+		return err
+	}
+	// Multiplier
+	if err := gobDecoder.Decode(&p.multiplier); err != nil {
 		return err
 	}
 	// Registers

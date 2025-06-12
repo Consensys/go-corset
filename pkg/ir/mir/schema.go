@@ -47,6 +47,9 @@ type (
 	// all acceptable traces.  However, such a property is not enforced by the
 	// prover.
 	Assertion = constraint.Assertion[LogicalTerm]
+	// InterleavingConstraint captures the essence of an interleaving constraint
+	// at the MIR level.
+	InterleavingConstraint = constraint.InterleavingConstraint[Term]
 	// LookupConstraint captures the essence of a lookup constraint at the MIR
 	// level.
 	LookupConstraint = constraint.LookupConstraint[Term]

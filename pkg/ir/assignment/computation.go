@@ -30,23 +30,20 @@ import (
 // Computation currently describes a native computation which accepts a set of
 // input columns, and assigns a set of output columns.
 type Computation struct {
-	// Context where in which source and target columns exist.
-	ColumnContext tr.Context
 	// Name of the function being invoked.
-	Name string
+	Function string
 	// Target columns declared by this sorted permutation (in the order
 	// of declaration).
-	Targets []sc.RegisterId
+	Targets []sc.RegisterRef
 	// Source columns which define the new (sorted) columns.
-	Sources []sc.RegisterId
+	Sources []sc.RegisterRef
 }
 
 // NewComputation defines a set of target columns which are assigned from a
 // given set of source columns using a function to multiplex input to output.
-func NewComputation(context tr.Context, functionName string, targets []sc.RegisterId,
-	sources []sc.RegisterId) *Computation {
+func NewComputation(fn string, targets []sc.RegisterRef, sources []sc.RegisterRef) *Computation {
 	//
-	return &Computation{context, functionName, targets, sources}
+	return &Computation{fn, targets, sources}
 }
 
 // ============================================================================
@@ -58,7 +55,7 @@ func NewComputation(context tr.Context, functionName string, targets []sc.Regist
 // expression such as "(shift X -1)".  This is technically undefined for the
 // first row of any trace and, by association, any constraint evaluating this
 // expression on that first row is also undefined (and hence must pass).
-func (p *Computation) Bounds() util.Bounds {
+func (p *Computation) Bounds(_ sc.ModuleId) util.Bounds {
 	return util.EMPTY_BOUND
 }
 
@@ -67,52 +64,34 @@ func (p *Computation) Bounds() util.Bounds {
 // according to the permutation criteria.
 func (p *Computation) Compute(trace tr.Trace, schema sc.AnySchema) ([]tr.ArrayColumn, error) {
 	var (
-		scModule = schema.Module(p.ColumnContext.ModuleId)
-		trModule = trace.Module(p.ColumnContext.ModuleId)
-		fn       NativeComputation
-		ok       bool
+		fn func([]field.FrArray) []field.FrArray
+		ok bool
 	)
 	// Sanity check
-	if fn, ok = NATIVES[p.Name]; !ok {
-		panic(fmt.Sprintf("unknown native function: %s", p.Name))
+	if fn, ok = NATIVES[p.Function]; !ok {
+		panic(fmt.Sprintf("unknown native function: %s", p.Function))
 	}
-	// Proceed
-	targets := make([]tr.ArrayColumn, len(p.Targets))
-	// Apply native function (or panic if none exists)
-	data := fn.Function(trModule, p.Sources)
-	// Physically construct target columns
-	for i, target := range p.Targets {
-		ith := scModule.Register(target)
-		dstColName := ith.Name
-		srcCol := trModule.Column(p.Sources[i].Unwrap())
-		targets[i] = tr.NewArrayColumn(p.ColumnContext, dstColName, data[i], srcCol.Padding())
-	}
-	//
-	return targets, nil
-}
-
-// Dependencies returns the set of columns that this assignment depends upon.
-// That can include both input columns, as well as other computed columns.
-func (p *Computation) Dependencies() []sc.RegisterId {
-	return p.Sources
+	// Go!
+	return computeNative(p.Sources, p.Targets, fn, trace, schema), nil
 }
 
 // Consistent performs some simple checks that the given schema is consistent.
 // This provides a double check of certain key properties, such as that
 // registers used for assignments are large enough, etc.
-func (p *Computation) Consistent(schema sc.AnySchema) []error {
+func (p *Computation) Consistent(_ sc.AnySchema) []error {
 	// NOTE: this is where we could (in principle) check the type of the
 	// function being defined to ensure it is, for example, typed correctly.
 	return nil
 }
 
-// Module returns the module which encloses this sorted permutation.
-func (p *Computation) Module() uint {
-	return p.ColumnContext.Module()
+// RegistersRead returns the set of columns that this assignment depends upon.
+// That can include both input columns, as well as other computed columns.
+func (p *Computation) RegistersRead() []sc.RegisterRef {
+	return p.Sources
 }
 
-// Registers identifies registers assigned by this assignment.
-func (p *Computation) Registers() []sc.RegisterId {
+// RegistersWritten identifies registers assigned by this assignment.
+func (p *Computation) RegistersWritten() []sc.RegisterRef {
 	return p.Targets
 }
 
@@ -124,92 +103,137 @@ func (p *Computation) Registers() []sc.RegisterId {
 // so it can be printed.
 func (p *Computation) Lisp(schema sc.AnySchema) sexp.SExp {
 	var (
-		module  = schema.Module(p.ColumnContext.ModuleId)
 		targets = sexp.EmptyList()
 		sources = sexp.EmptyList()
 	)
 
-	for i := 0; i != len(p.Targets); i++ {
-		ith := module.Register(p.Targets[i])
+	for _, ref := range p.Targets {
+		module := schema.Module(ref.Module())
+		ith := module.Register(ref.Register())
 		name := sexp.NewSymbol(ith.QualifiedName(module))
 		datatype := sexp.NewSymbol(fmt.Sprintf("u%d", ith.Width))
 		def := sexp.NewList([]sexp.SExp{name, datatype})
 		targets.Append(def)
 	}
 
-	for _, s := range p.Sources {
-		ith := module.Register(s)
-		ith_name := ith.QualifiedName(module)
-		sources.Append(sexp.NewSymbol(ith_name))
+	for _, ref := range p.Sources {
+		module := schema.Module(ref.Module())
+		ith := module.Register(ref.Register())
+		ithName := ith.QualifiedName(module)
+		sources.Append(sexp.NewSymbol(ithName))
 	}
 
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("compute"),
 		targets,
-		sexp.NewSymbol(p.Name),
+		sexp.NewSymbol(p.Function),
 		sources,
 	})
+}
+
+// ============================================================================
+// Native Generic Computation
+// ============================================================================
+
+// NativeComputation defines the type of a native function for computing a given
+// set of output columns as a function of a given set of input columns.
+type NativeComputation func([]field.FrArray) []field.FrArray
+
+func computeNative(sources []sc.RegisterRef, targets []sc.RegisterRef, fn NativeComputation,
+	trace tr.Trace, schema sc.AnySchema) []tr.ArrayColumn {
+	// Read inputs
+	inputs := readRegisters(trace, sources...)
+	// Read inputs
+	for i, ref := range sources {
+		mid, rid := ref.Module(), ref.Register().Unwrap()
+		inputs[i] = trace.Module(mid).Column(rid).Data()
+	}
+	// Apply native function
+	data := fn(inputs)
+	// Write outputs
+	return writeRegisters(schema, targets, data)
 }
 
 // ============================================================================
 // Native Function Definitions
 // ============================================================================
 
-// NativeComputation embeds information about a support native computation.
-// This can be used, for example, to check that a native function is being
-// called correctly, etc.
-type NativeComputation struct {
-	// Function which will be applied to a given set of input columns, whilst
-	// writing to a given set of output columns.
-	Function func(tr.Module, []sc.RegisterId) []field.FrArray
-}
-
 // NATIVES map holds the supported set of native computations.
-var NATIVES map[string]NativeComputation = map[string]NativeComputation{
-	"id":                   {idNativeFunction},
-	"filter":               {filterNativeFunction},
-	"map-if":               {mapIfNativeFunction},
-	"fwd-changes-within":   {fwdChangesWithinNativeFunction},
-	"fwd-unchanged-within": {fwdUnchangedWithinNativeFunction},
-	"bwd-changes-within":   {bwdChangesWithinNativeFunction},
-	"fwd-fill-within":      {fwdFillWithinNativeFunction},
-	"bwd-fill-within":      {bwdFillWithinNativeFunction},
+var NATIVES = map[string]func([]field.FrArray) []field.FrArray{
+	"id":                   idNativeFunction,
+	"interleave":           interleaveNativeFunction,
+	"filter":               filterNativeFunction,
+	"map-if":               mapIfNativeFunction,
+	"fwd-changes-within":   fwdChangesWithinNativeFunction,
+	"fwd-unchanged-within": fwdUnchangedWithinNativeFunction,
+	"bwd-changes-within":   bwdChangesWithinNativeFunction,
+	"fwd-fill-within":      fwdFillWithinNativeFunction,
+	"bwd-fill-within":      bwdFillWithinNativeFunction,
 }
 
 // id assigns the target column with the corresponding value of the source
 // column
-func idNativeFunction(trace tr.Module, sources []sc.RegisterId) []field.FrArray {
+func idNativeFunction(sources []field.FrArray) []field.FrArray {
 	if len(sources) != 1 {
 		panic("incorrect number of arguments")
 	}
-	// Clone source column
-	data := trace.Column(sources[0].Unwrap()).Data().Clone()
+	// Clone source column (that's it)
+	return []field.FrArray{sources[0].Clone()}
+}
+
+// interleaving constructs a single interleaved column from a give set of source
+// columns.  The assumption is that the height of all columns is the same.
+func interleaveNativeFunction(sources []field.FrArray) []field.FrArray {
+	var (
+		height     = sources[0].Len()
+		bitwidth   = sources[0].BitWidth()
+		multiplier = uint(len(sources))
+	)
+	// Sanity check column heights
+	for _, src := range sources {
+		if src.Len() != height {
+			panic("inconsistent column height for interleaving")
+		} else if src.BitWidth() != bitwidth {
+			panic("inconsistent column bitwidth for interleaving")
+		}
+	}
+	// Construct interleaved column
+	target := field.NewFrArray(height*multiplier, bitwidth)
+	//
+	for i := range multiplier {
+		src := sources[i]
+		//
+		for j := range height {
+			row := (j * multiplier) + i
+			target.Set(row, src.Get(j))
+		}
+	}
 	// Done
-	return []field.FrArray{data}
+	return []field.FrArray{target}
 }
 
 // filter assigns the target column with the corresponding value of the source
 // column *when* a given selector column is non-zero.  Otherwise, the target
 // column remains zero at the given position.
-func filterNativeFunction(trace tr.Module, sources []sc.RegisterId) []field.FrArray {
+func filterNativeFunction(sources []field.FrArray) []field.FrArray {
 	if len(sources) != 2 {
 		panic("incorrect number of arguments")
 	}
 
 	var (
 		// Extract input column info
-		src_col = trace.Column(sources[0].Unwrap()).Data()
-		sel_col = trace.Column(sources[1].Unwrap()).Data()
+		srcCol = sources[0]
+		selCol = sources[1]
 		// Clone source column
-		data = field.NewFrArray(src_col.Len(), src_col.BitWidth())
+		data = field.NewFrArray(srcCol.Len(), srcCol.BitWidth())
 	)
 	//
 	for i := uint(0); i < data.Len(); i++ {
-		selector := sel_col.Get(i)
+		selector := selCol.Get(i)
 		// Check whether selctor non-zero
 		if !selector.IsZero() {
-			ith_value := src_col.Get(i)
-			data.Set(i, ith_value)
+			ithValue := srcCol.Get(i)
+			data.Set(i, ithValue)
 		}
 	}
 	// Done
@@ -217,7 +241,7 @@ func filterNativeFunction(trace tr.Module, sources []sc.RegisterId) []field.FrAr
 }
 
 // apply a key-value map conditionally.
-func mapIfNativeFunction(trace tr.Module, sources []sc.RegisterId) []field.FrArray {
+func mapIfNativeFunction(sources []field.FrArray) []field.FrArray {
 	n := len(sources) - 3
 	if n%2 != 0 {
 		panic(fmt.Sprintf("map-if expects 3 + 2*n columns (given %d)", len(sources)))
@@ -225,58 +249,58 @@ func mapIfNativeFunction(trace tr.Module, sources []sc.RegisterId) []field.FrArr
 	//
 	n = n / 2
 	// Setup what we need
-	source_selector := trace.Column(sources[1+n].Unwrap()).Data()
-	source_keys := make([]util.Array[fr.Element], n)
-	source_value := trace.Column(sources[2+n+n].Unwrap()).Data()
-	source_map := hash.NewMap[hash.BytesKey, fr.Element](source_value.Len())
-	target_selector := trace.Column(sources[0].Unwrap()).Data()
-	target_keys := make([]util.Array[fr.Element], n)
-	target_value := field.NewFrArray(target_selector.Len(), source_value.BitWidth())
+	sourceSelector := sources[1+n]
+	sourceKeys := make([]util.Array[fr.Element], n)
+	sourceValue := sources[2+n+n]
+	sourceMap := hash.NewMap[hash.BytesKey, fr.Element](sourceValue.Len())
+	targetSelector := sources[0]
+	targetKeys := make([]util.Array[fr.Element], n)
+	targetValue := field.NewFrArray(targetSelector.Len(), sourceValue.BitWidth())
 	// Initialise source / target keys
 	for i := 0; i < n; i++ {
-		target_keys[i] = trace.Column(sources[1+i].Unwrap()).Data()
-		source_keys[i] = trace.Column(sources[2+n+i].Unwrap()).Data()
+		targetKeys[i] = sources[1+i]
+		sourceKeys[i] = sources[2+n+i]
 	}
 	// Build source map
-	for i := uint(0); i < source_value.Len(); i++ {
-		ith_selector := source_selector.Get(i)
-		if !ith_selector.IsZero() {
-			ith_value := source_value.Get(i)
-			ith_key := extractIthKey(i, source_keys)
+	for i := uint(0); i < sourceValue.Len(); i++ {
+		ithSelector := sourceSelector.Get(i)
+		if !ithSelector.IsZero() {
+			ithValue := sourceValue.Get(i)
+			ithKey := extractIthKey(i, sourceKeys)
 			//
-			if val, ok := source_map.Get(ith_key); ok && val.Cmp(&ith_value) != 0 {
+			if val, ok := sourceMap.Get(ithKey); ok && val.Cmp(&ithValue) != 0 {
 				// Conflicting item already in map, so fail with useful error.
-				ith_row := extractIthColumns(i, source_keys)
-				lhs := fmt.Sprintf("%v=>%s", ith_row, ith_value.String())
-				rhs := fmt.Sprintf("%v=>%s", ith_row, val.String())
+				ithRow := extractIthColumns(i, sourceKeys)
+				lhs := fmt.Sprintf("%v=>%s", ithRow, ithValue.String())
+				rhs := fmt.Sprintf("%v=>%s", ithRow, val.String())
 				panic(fmt.Sprintf("conflicting values in source map (row %d): %s vs %s", i, lhs, rhs))
 			} else if !ok {
 				// Item not previously in map
-				source_map.Insert(ith_key, ith_value)
+				sourceMap.Insert(ithKey, ithValue)
 			}
 		}
 	}
 	// Construct target value column
-	for i := uint(0); i < target_value.Len(); i++ {
-		ith_selector := target_selector.Get(i)
-		if !ith_selector.IsZero() {
-			ith_key := extractIthKey(i, target_keys)
+	for i := uint(0); i < targetValue.Len(); i++ {
+		ithSelector := targetSelector.Get(i)
+		if !ithSelector.IsZero() {
+			ithKey := extractIthKey(i, targetKeys)
 			//nolint:revive
-			if val, ok := source_map.Get(ith_key); !ok {
+			if val, ok := sourceMap.Get(ithKey); !ok {
 				// Couldn't find key in source map, so fail with useful error.
-				ith_row := extractIthColumns(i, target_keys)
+				ith_row := extractIthColumns(i, targetKeys)
 				panic(fmt.Sprintf("target key (%v) missing from source map (row %d)", ith_row, i))
 			} else {
 				// Assign target value
-				target_value.Set(i, val)
+				targetValue.Set(i, val)
 			}
 		}
 	}
 	// Done
-	return []field.FrArray{target_value}
+	return []field.FrArray{targetValue}
 }
 
-func extractIthKey(index uint, cols []util.Array[fr.Element]) hash.BytesKey {
+func extractIthKey(index uint, cols []field.FrArray) hash.BytesKey {
 	// Each fr.Element is 4 x 64bit words.
 	bytes := make([]byte, 32*len(cols))
 	// Slice provides an access window for writing
@@ -297,31 +321,31 @@ func extractIthKey(index uint, cols []util.Array[fr.Element]) hash.BytesKey {
 }
 
 // determines changes of a given set of columns within a given region.
-func fwdChangesWithinNativeFunction(trace tr.Module, sources []sc.RegisterId) []field.FrArray {
+func fwdChangesWithinNativeFunction(sources []field.FrArray) []field.FrArray {
 	if len(sources) < 2 {
 		panic("incorrect number of arguments")
 	}
 	// Useful constant
 	one := fr.One()
 	// Extract input column info
-	selector_col := trace.Column(sources[0].Unwrap()).Data()
-	source_cols := make([]util.Array[fr.Element], len(sources)-1)
+	selectorCol := sources[0]
+	sourceCols := make([]util.Array[fr.Element], len(sources)-1)
 	//
 	for i := 1; i < len(sources); i++ {
-		source_cols[i-1] = trace.Column(sources[i].Unwrap()).Data()
+		sourceCols[i-1] = sources[i]
 	}
 	// Construct (binary) output column
-	data := field.NewFrArray(selector_col.Len(), 1)
+	data := field.NewFrArray(selectorCol.Len(), 1)
 	// Set current value
-	current := make([]fr.Element, len(source_cols))
+	current := make([]fr.Element, len(sourceCols))
 	started := false
 	//
-	for i := uint(0); i < selector_col.Len(); i++ {
-		ith_selector := selector_col.Get(i)
+	for i := uint(0); i < selectorCol.Len(); i++ {
+		ithSelector := selectorCol.Get(i)
 		// Check whether within region or not.
-		if !ith_selector.IsZero() {
+		if !ithSelector.IsZero() {
 			//
-			row := extractIthColumns(i, source_cols)
+			row := extractIthColumns(i, sourceCols)
 			// Trigger required?
 			if !started || !slices.Equal(current, row) {
 				started = true
@@ -335,7 +359,7 @@ func fwdChangesWithinNativeFunction(trace tr.Module, sources []sc.RegisterId) []
 	return []field.FrArray{data}
 }
 
-func fwdUnchangedWithinNativeFunction(trace tr.Module, sources []sc.RegisterId) []field.FrArray {
+func fwdUnchangedWithinNativeFunction(sources []field.FrArray) []field.FrArray {
 	if len(sources) < 2 {
 		panic("incorrect number of arguments")
 	}
@@ -343,24 +367,24 @@ func fwdUnchangedWithinNativeFunction(trace tr.Module, sources []sc.RegisterId) 
 	one := fr.One()
 	zero := fr.NewElement(0)
 	// Extract input column info
-	selector_col := trace.Column(sources[0].Unwrap()).Data()
-	source_cols := make([]util.Array[fr.Element], len(sources)-1)
+	selectorCol := sources[0]
+	sourceCols := make([]util.Array[fr.Element], len(sources)-1)
 	//
 	for i := 1; i < len(sources); i++ {
-		source_cols[i-1] = trace.Column(sources[i].Unwrap()).Data()
+		sourceCols[i-1] = sources[i]
 	}
 	// Construct (binary) output column
-	data := field.NewFrArray(selector_col.Len(), 1)
+	data := field.NewFrArray(selectorCol.Len(), 1)
 	// Set current value
-	current := make([]fr.Element, len(source_cols))
+	current := make([]fr.Element, len(sourceCols))
 	started := false
 	//
-	for i := uint(0); i < selector_col.Len(); i++ {
-		ith_selector := selector_col.Get(i)
+	for i := uint(0); i < selectorCol.Len(); i++ {
+		ithSelector := selectorCol.Get(i)
 		// Check whether within region or not.
-		if !ith_selector.IsZero() {
+		if !ithSelector.IsZero() {
 			//
-			row := extractIthColumns(i, source_cols)
+			row := extractIthColumns(i, sourceCols)
 			// Trigger required?
 			if !started || !slices.Equal(current, row) {
 				started = true
@@ -377,31 +401,31 @@ func fwdUnchangedWithinNativeFunction(trace tr.Module, sources []sc.RegisterId) 
 }
 
 // determines changes of a given set of columns within a given region.
-func bwdChangesWithinNativeFunction(trace tr.Module, sources []sc.RegisterId) []field.FrArray {
+func bwdChangesWithinNativeFunction(sources []field.FrArray) []field.FrArray {
 	if len(sources) < 2 {
 		panic("incorrect number of arguments")
 	}
 	// Useful constant
 	one := fr.One()
 	// Extract input column info
-	selector_col := trace.Column(sources[0].Unwrap()).Data()
-	source_cols := make([]util.Array[fr.Element], len(sources)-1)
+	selectorCol := sources[0]
+	sourceCols := make([]util.Array[fr.Element], len(sources)-1)
 	//
 	for i := 1; i < len(sources); i++ {
-		source_cols[i-1] = trace.Column(sources[i].Unwrap()).Data()
+		sourceCols[i-1] = sources[i]
 	}
 	// Construct (binary) output column
-	data := field.NewFrArray(selector_col.Len(), 1)
+	data := field.NewFrArray(selectorCol.Len(), 1)
 	// Set current value
-	current := make([]fr.Element, len(source_cols))
+	current := make([]fr.Element, len(sourceCols))
 	started := false
 	//
-	for i := selector_col.Len(); i > 0; i-- {
-		ith_selector := selector_col.Get(i - 1)
+	for i := selectorCol.Len(); i > 0; i-- {
+		ithSelector := selectorCol.Get(i - 1)
 		// Check whether within region or not.
-		if !ith_selector.IsZero() {
+		if !ithSelector.IsZero() {
 			//
-			row := extractIthColumns(i-1, source_cols)
+			row := extractIthColumns(i-1, sourceCols)
 			// Trigger required?
 			if !started || !slices.Equal(current, row) {
 				started = true
@@ -415,27 +439,27 @@ func bwdChangesWithinNativeFunction(trace tr.Module, sources []sc.RegisterId) []
 	return []field.FrArray{data}
 }
 
-func fwdFillWithinNativeFunction(trace tr.Module, sources []sc.RegisterId) []field.FrArray {
+func fwdFillWithinNativeFunction(sources []field.FrArray) []field.FrArray {
 	if len(sources) != 3 {
 		panic("incorrect number of arguments")
 	}
 	// Extract input column info
-	selector_col := trace.Column(sources[0].Unwrap()).Data()
-	first_col := trace.Column(sources[1].Unwrap()).Data()
-	source_col := trace.Column(sources[2].Unwrap()).Data()
+	selectorCol := sources[0]
+	firstCol := sources[1]
+	sourceCol := sources[2]
 	// Construct (binary) output column
-	data := field.NewFrArray(source_col.Len(), source_col.BitWidth())
+	data := field.NewFrArray(sourceCol.Len(), sourceCol.BitWidth())
 	// Set current value
 	current := fr.NewElement(0)
 	//
-	for i := uint(0); i < selector_col.Len(); i++ {
-		ith_selector := selector_col.Get(i)
+	for i := uint(0); i < selectorCol.Len(); i++ {
+		ithSelector := selectorCol.Get(i)
 		// Check whether within region or not.
-		if !ith_selector.IsZero() {
-			ith_first := first_col.Get(i)
+		if !ithSelector.IsZero() {
+			ithFirst := firstCol.Get(i)
 			//
-			if !ith_first.IsZero() {
-				current = source_col.Get(i)
+			if !ithFirst.IsZero() {
+				current = sourceCol.Get(i)
 			}
 			//
 			data.Set(i, current)
@@ -445,27 +469,27 @@ func fwdFillWithinNativeFunction(trace tr.Module, sources []sc.RegisterId) []fie
 	return []field.FrArray{data}
 }
 
-func bwdFillWithinNativeFunction(trace tr.Module, sources []sc.RegisterId) []field.FrArray {
+func bwdFillWithinNativeFunction(sources []field.FrArray) []field.FrArray {
 	if len(sources) != 3 {
 		panic("incorrect number of arguments")
 	}
 	// Extract input column info
-	selector_col := trace.Column(sources[0].Unwrap()).Data()
-	first_col := trace.Column(sources[1].Unwrap()).Data()
-	source_col := trace.Column(sources[2].Unwrap()).Data()
+	selectorCol := sources[0]
+	firstCol := sources[1]
+	sourceCol := sources[2]
 	// Construct (binary) output column
-	data := field.NewFrArray(source_col.Len(), source_col.BitWidth())
+	data := field.NewFrArray(sourceCol.Len(), sourceCol.BitWidth())
 	// Set current value
 	current := fr.NewElement(0)
 	//
-	for i := selector_col.Len(); i > 0; i-- {
-		ith_selector := selector_col.Get(i - 1)
+	for i := selectorCol.Len(); i > 0; i-- {
+		ithSelector := selectorCol.Get(i - 1)
 		// Check whether within region or not.
-		if !ith_selector.IsZero() {
-			ith_first := first_col.Get(i - 1)
+		if !ithSelector.IsZero() {
+			ithFirst := firstCol.Get(i - 1)
 			//
-			if !ith_first.IsZero() {
-				current = source_col.Get(i - 1)
+			if !ithFirst.IsZero() {
+				current = sourceCol.Get(i - 1)
 			}
 			//
 			data.Set(i-1, current)

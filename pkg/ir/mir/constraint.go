@@ -30,41 +30,48 @@ type Constraint struct {
 }
 
 // NewAssertion constructs a new assertion
-func NewAssertion(handle string, ctx trace.Context, term LogicalTerm) Constraint {
+func NewAssertion(handle string, ctx schema.ModuleId, term LogicalTerm) Constraint {
 	//
 	return Constraint{constraint.NewAssertion(handle, ctx, term)}
 }
 
 // NewVanishingConstraint constructs a new vanishing constraint
-func NewVanishingConstraint(handle string, ctx trace.Context, domain util.Option[int],
+func NewVanishingConstraint(handle string, ctx schema.ModuleId, domain util.Option[int],
 	term LogicalTerm) Constraint {
 	//
 	return Constraint{constraint.NewVanishingConstraint(handle, ctx, domain, term)}
 }
 
+// NewInterleavingConstraint creates a new interleaving constraint with a given handle.
+func NewInterleavingConstraint(handle string, targetContext schema.ModuleId,
+	sourceContext schema.ModuleId, target Term, sources []Term) Constraint {
+	return Constraint{constraint.NewInterleavingConstraint(handle, targetContext, sourceContext, target, sources)}
+}
+
 // NewLookupConstraint creates a new lookup constraint with a given handle.
-func NewLookupConstraint(handle string, source trace.Context,
-	target trace.Context, sources []Term, targets []Term) Constraint {
+func NewLookupConstraint(handle string, targetContext schema.ModuleId, targets []Term,
+	sourceContext schema.ModuleId, sources []Term) Constraint {
+	//
 	if len(targets) != len(sources) {
-		panic("differeng number of target / source lookup columns")
+		panic("differeng number of targetContext / source lookup columns")
 	}
 
-	return Constraint{constraint.NewLookupConstraint(handle, source, target, sources, targets)}
+	return Constraint{constraint.NewLookupConstraint(handle, targetContext, targets, sourceContext, sources)}
 }
 
 // NewPermutationConstraint creates a new permutation
-func NewPermutationConstraint(handle string, context trace.Context, targets []schema.RegisterId,
+func NewPermutationConstraint(handle string, context schema.ModuleId, targets []schema.RegisterId,
 	sources []schema.RegisterId) Constraint {
 	return Constraint{constraint.NewPermutationConstraint(handle, context, targets, sources)}
 }
 
 // NewRangeConstraint constructs a new Range constraint!
-func NewRangeConstraint(handle string, ctx trace.Context, expr Term, bitwidth uint) Constraint {
+func NewRangeConstraint(handle string, ctx schema.ModuleId, expr Term, bitwidth uint) Constraint {
 	return Constraint{constraint.NewRangeConstraint(handle, ctx, expr, bitwidth)}
 }
 
 // NewSortedConstraint creates a new Sorted
-func NewSortedConstraint(handle string, context trace.Context, bitwidth uint, selector util.Option[Term],
+func NewSortedConstraint(handle string, context schema.ModuleId, bitwidth uint, selector util.Option[Term],
 	sources []Term, signs []bool, strict bool) Constraint {
 	//
 	return Constraint{constraint.NewSortedConstraint(handle, context, bitwidth, selector, sources, signs, strict)}
@@ -98,7 +105,7 @@ func (p Constraint) Consistent(schema schema.AnySchema) []error {
 // evaluation context, though some (e.g. lookups) have more.  Note that all
 // constraints have at least one context (which we can call the "primary"
 // context).
-func (p Constraint) Contexts() []trace.Context {
+func (p Constraint) Contexts() []schema.ModuleId {
 	return p.constraint.Contexts()
 }
 

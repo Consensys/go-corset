@@ -19,7 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/air"
 	"github.com/consensys/go-corset/pkg/ir/assignment"
-	"github.com/consensys/go-corset/pkg/schema"
+	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -30,9 +30,9 @@ import (
 // That is, an expression which is 0 when e is 0, and 1 when e is non-zero.
 // This is done by introducing a computed column to hold the (pseudo)
 // mutliplicative inverse of e.
-func Normalise(e air.Term, ctx trace.Context, module *air.ModuleBuilder) air.Term {
+func Normalise(e air.Term, module *air.ModuleBuilder) air.Term {
 	// Construct pseudo multiplicative inverse of e.
-	ie := applyPseudoInverseGadget(e, ctx, module)
+	ie := applyPseudoInverseGadget(e, module)
 	// Return e * e⁻¹.
 	return ir.Product(e, ie)
 }
@@ -42,12 +42,7 @@ func Normalise(e air.Term, ctx trace.Context, module *air.ModuleBuilder) air.Ter
 // directly using arithmetic constraints, it is done by adding a new computed
 // column which holds the multiplicative inverse.  Constraints are also added to
 // ensure it really holds the inverted value.
-func applyPseudoInverseGadget(e air.Term, ctx trace.Context, module *air.ModuleBuilder) air.Term {
-	// Sanity check
-	if ctx.IsVoid() || ctx.IsConflicted() {
-		fmt.Printf("TERM: %s\n", e.Lisp(module).String(false))
-		panic("conflicting (or void) context")
-	}
+func applyPseudoInverseGadget(e air.Term, module *air.ModuleBuilder) air.Term {
 	// Construct inverse computation
 	ie := &psuedoInverse{Expr: e}
 	// Determine computed column name
@@ -60,9 +55,9 @@ func applyPseudoInverseGadget(e air.Term, ctx trace.Context, module *air.ModuleB
 		// point to properly support field agnosticity.
 		var bitwidth uint = uint(fr.Modulus().BitLen())
 		// Add computed register.
-		index = module.NewRegister(schema.NewComputedRegister(name, bitwidth))
+		index = module.NewRegister(sc.NewComputedRegister(name, bitwidth))
 		// Add assignment
-		module.AddAssignment(assignment.NewComputedRegister(ctx, index, ie))
+		module.AddAssignment(assignment.NewComputedRegister(sc.NewRegisterRef(module.Id(), index), ie))
 		// Construct proof of 1/e
 		inv_e := ir.NewRegisterAccess[air.Term](index, 0)
 		// Construct e/e
@@ -72,7 +67,7 @@ func applyPseudoInverseGadget(e air.Term, ctx trace.Context, module *air.ModuleB
 		// Construct (e != 0) ==> (1 == e/e)
 		e_implies_one_e_e := ir.Product(e, one_e_e)
 		l_name := fmt.Sprintf("%s <=", name)
-		module.AddConstraint(air.NewVanishingConstraint(l_name, ctx, util.None[int](), e_implies_one_e_e))
+		module.AddConstraint(air.NewVanishingConstraint(l_name, module.Id(), util.None[int](), e_implies_one_e_e))
 	}
 	// Done
 	return ir.NewRegisterAccess[air.Term](index, 0)
@@ -121,7 +116,7 @@ func (e *psuedoInverse) RequiredCells(row int, module trace.Module) *set.AnySort
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (e *psuedoInverse) Lisp(module schema.Module) sexp.SExp {
+func (e *psuedoInverse) Lisp(module sc.Module) sexp.SExp {
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("inv"),
 		e.Expr.Lisp(module),

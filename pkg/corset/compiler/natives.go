@@ -101,9 +101,9 @@ func (p *NativeDefinition) Signature() *ast.FunctionSignature {
 // Native Definitions
 // ============================================================================
 
-// NATIVES identifies all built-in native computations which can be used in
+// NATIVE_SIGNATURES identifies all built-in native computations which can be used in
 // defcomputed assignments.
-var NATIVES []NativeDefinition = []NativeDefinition{
+var NATIVE_SIGNATURES []NativeDefinition = []NativeDefinition{
 	// Simple identity function.
 	{"id", 1, nativeId},
 	// Filter based on second argument

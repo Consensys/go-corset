@@ -21,6 +21,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/bit"
 )
 
 // TraceBuilder provides a mechanical means of constructing a trace from a given
@@ -197,7 +198,7 @@ func (tb TraceBuilder) Build(schema AnySchema, cols []trace.RawColumn) (trace.Tr
 	}
 	// Padding
 	if tb.padding > 0 {
-		padColumns(tr, tb.padding)
+		padColumns(tr, schema, tb.padding)
 	}
 	//
 	return tr, errors
@@ -213,9 +214,9 @@ func initialiseTrace(expanded bool, schema AnySchema, cols []trace.RawColumn) (*
 	columns, errors := splitTraceColumns(expanded, schema, modmap, cols)
 	//
 	for i := uint(0); i != schema.Width(); i++ {
-		var name = schema.Module(i).Name()
+		var mod = schema.Module(i)
 		//
-		modules[i] = fillTraceModule(i, name, columns[i])
+		modules[i] = fillTraceModule(mod.Name(), mod.LengthMultiplier(), columns[i])
 	}
 	// Done
 	return trace.NewArrayTrace(modules), errors
@@ -326,7 +327,7 @@ func initialiseColumnMap(schema AnySchema) (map[columnKey]columnId, [][]trace.Ra
 	return colmap, modules
 }
 
-func fillTraceModule(mid uint, name string, rawColumns []trace.RawColumn) trace.ArrayModule {
+func fillTraceModule(name string, multiplier uint, rawColumns []trace.RawColumn) trace.ArrayModule {
 	var (
 		traceColumns = make([]trace.ArrayColumn, len(rawColumns))
 		zero         = fr.NewElement(0)
@@ -334,12 +335,11 @@ func fillTraceModule(mid uint, name string, rawColumns []trace.RawColumn) trace.
 	//
 	for i := range traceColumns {
 		ith := rawColumns[i]
-		ctx := trace.NewContext(mid, 1)
 		//
-		traceColumns[i] = trace.NewArrayColumn(ctx, ith.Name, ith.Data, zero)
+		traceColumns[i] = trace.NewArrayColumn(ith.Name, ith.Data, zero)
 	}
 	//
-	return trace.NewArrayModule(name, traceColumns)
+	return trace.NewArrayModule(name, multiplier, traceColumns)
 }
 
 // pad each module with its given level of spillage and (optionally) ensure a
@@ -392,11 +392,12 @@ func checkModuleHeights(original []uint, defensive bool, tr *trace.ArrayTrace, s
 // PadColumns pads every column in a given trace with a given amount of (front)
 // padding. Observe that this applies on top of any spillage and/or defensive
 // padding already applied.
-func padColumns(tr *trace.ArrayTrace, padding uint) {
+func padColumns(tr *trace.ArrayTrace, schema AnySchema, padding uint) {
 	n := tr.Modules().Count()
 	// Iterate over modules
 	for i := uint(0); i < n; i++ {
-		tr.Pad(i, padding, 0)
+		multiplier := schema.Module(i).LengthMultiplier()
+		tr.Pad(i, padding*multiplier, 0)
 	}
 }
 
@@ -419,7 +420,7 @@ func sequentialTraceExpansion(schema AnySchema, trace *trace.ArrayTrace) error {
 			return err
 		}
 		// Fill all computed columns
-		fillComputedColumns(ith.Registers(), ith.Module(), cols, trace)
+		fillComputedColumns(ith.RegistersWritten(), cols, trace)
 	}
 	// Done
 	return nil
@@ -521,7 +522,7 @@ func parallelTraceExpansion(batchsize uint, schema AnySchema, trace *tr.ArrayTra
 		// Once we get here, all go rountines are complete and we are sequential
 		// again.
 		for _, r := range batches {
-			fillComputedColumns(r.targets, r.module, r.columns, trace)
+			fillComputedColumns(r.targets, r.columns, trace)
 			//
 			ntodo--
 		}
@@ -544,22 +545,24 @@ func dispatchReadyAssignments(batchsize uint, schema AnySchema,
 	//
 	for iter := schema.Assignments(); iter.HasNext() && count < batchsize; {
 		var (
-			ith        = iter.Next()
-			ith_module = trace.RawModule(ith.Module())
+			ith = iter.Next()
+			// Identify first register written which is safe, as there must
+			// always be at least one register written.
+			first = ith.RegistersWritten()[0]
 			// Access data for first regsiter in this assignment.  If this is
 			// nil it signals the register has not yet been filled yet (and,
 			// hence, this entire assignment).
-			ith_data = ith_module.Column(ith.Registers()[0].Unwrap()).Data()
+			ith_data = trace.Module(first.Module()).Column(first.Register().Unwrap()).Data()
 		)
 		// Check whether this assignment has already been computed and, if not,
 		// whether or not it is ready.
-		if ith_data == nil && isReady(ith, ith_module) {
+		if ith_data == nil && isReady(ith, trace) {
 			// Dispatch!
-			go func(module uint, targets []RegisterId) {
+			go func(targets []RegisterRef) {
 				cols, err := ith.Compute(trace, schema)
 				// Send outcome back
-				ch <- columnBatch{module, targets, cols, err}
-			}(ith.Module(), ith.Registers())
+				ch <- columnBatch{targets, cols, err}
+			}(ith.RegistersWritten())
 			// Increment dispatch count
 			count++
 		}
@@ -570,9 +573,12 @@ func dispatchReadyAssignments(batchsize uint, schema AnySchema,
 
 // Check whether all dependencies for this assignment are available (that is,
 // have their data already).
-func isReady(assignment Assignment, module *tr.ArrayModule) bool {
-	for _, cid := range assignment.Dependencies() {
-		if module.Column(cid.Unwrap()).Data() == nil {
+func isReady(assignment Assignment, trace *tr.ArrayTrace) bool {
+	for _, ref := range assignment.RegistersRead() {
+		// Split out the register reference
+		mid, rid := ref.Module(), ref.Register().Unwrap()
+		//
+		if trace.Module(mid).Column(rid).Data() == nil {
 			return false
 		}
 	}
@@ -582,10 +588,8 @@ func isReady(assignment Assignment, module *tr.ArrayModule) bool {
 
 // Result from given computation.
 type columnBatch struct {
-	// Enclosing module for this batch
-	module uint
 	// Target registers for this batch
-	targets []RegisterId
+	targets []RegisterRef
 	// The computed columns in this batch.
 	columns []trace.ArrayColumn
 	// An error (should one arise)
@@ -642,21 +646,31 @@ func parallelTraceValidation(schema AnySchema, tr tr.Trace) []error {
 // Fill a set of columns with their computed results.  The column index is that
 // of the first column in the sequence, and subsequent columns are index
 // consecutively.
-func fillComputedColumns(cids []RegisterId, mid uint, cols []tr.ArrayColumn, trace *tr.ArrayTrace) {
-	module := trace.RawModule(mid)
+func fillComputedColumns(refs []RegisterRef, cols []tr.ArrayColumn, trace *tr.ArrayTrace) {
+	var resized bit.Set
 	// Add all columns
 	for i, col := range cols {
-		dst := module.Column(cids[i].Unwrap())
+		mid, rid := refs[i].Module(), refs[i].Register().Unwrap()
+		module := trace.RawModule(mid)
+		dst := module.Column(rid)
 		// Sanity checks
 		if dst.Name() != col.Name() {
-			mod := trace.Module(col.Context().Module()).Name()
+			mod := module.Name()
 			panic(fmt.Sprintf("misaligned computed column %s.%s during trace expansion", mod, col.Name()))
 		} else if dst.Data() != nil {
-			mod := trace.Module(col.Context().Module()).Name()
+			mod := module.Name()
 			panic(fmt.Sprintf("computed column %s.%s already exists in trace", mod, col.Name()))
 		}
 		// Looks good
-		module.FillColumn(cids[i].Unwrap(), col.Data(), col.Padding())
+		if module.FillColumn(rid, col.Data(), col.Padding()) {
+			// Register module as being resized.
+			resized.Insert(mid)
+		}
+	}
+	// Finalise resized modules
+	for iter := resized.Iter(); iter.HasNext(); {
+		module := trace.RawModule(iter.Next())
+		module.Resize()
 	}
 }
 

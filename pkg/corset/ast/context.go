@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package trace
+package ast
 
 import (
 	"fmt"
@@ -18,7 +18,7 @@ import (
 )
 
 // Context is an instance of RawContext where the module identifier is a uint.
-type Context = RawContext[uint]
+//type Context = RawContext[uint]
 
 // RawContext represents the evaluation context in which an expression can be
 // evaluated.  Firstly, every expression must have a single enclosing module

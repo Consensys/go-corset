@@ -25,14 +25,19 @@ import (
 // rows that will be added during trace expansion.  The exact value depends on
 // whether defensive padding is enabled or not.
 func RequiredPaddingRows(module uint, defensive bool, schema AnySchema) uint {
-	padding := requiredSpillage(module, schema)
+	var (
+		multiplier = schema.Module(module).LengthMultiplier()
+		padding    = requiredSpillage(module, schema)
+	)
 	//
 	if defensive {
 		// determine minimum levels of defensive padding required.
 		padding = max(padding, defensivePadding(module, schema))
 	}
-	//
-	return padding
+	// Technically, we could avoid multiplying by the multiplier here, but in
+	// practice it shouldn't matter.  That's because of the very limited ways in
+	// which interleaved columns are used in practice.
+	return padding * multiplier
 }
 
 // RequiredSpillage returns the minimum amount of spillage required for a given
@@ -47,17 +52,14 @@ func requiredSpillage(module uint, schema AnySchema) uint {
 	for i := schema.Assignments(); i.HasNext(); {
 		// Get ith assignment
 		ith := i.Next()
-		//
-		if ith.Module() == module {
-			// NOTE: Spillage is only currently considered to be necessary at
-			// the front (i.e. start) of a trace.  This is because the prover
-			// always inserts padding at the front, never the back.  As such, it
-			// is the maximum positive shift which determines how much spillage
-			// is required for a comptuation.
-			mx = max(mx, ith.Bounds().End)
-		}
+		// NOTE: Spillage is only currently considered to be necessary at
+		// the front (i.e. start) of a trace.  This is because the prover
+		// always inserts padding at the front, never the back.  As such, it
+		// is the maximum positive shift which determines how much spillage
+		// is required for a comptuation.
+		mx = max(mx, ith.Bounds(module).End)
 	}
-
+	//
 	return mx
 }
 
@@ -145,9 +147,9 @@ func processConstraintBatch[C Constraint](logtitle string, batch uint, batchsize
 		go func() {
 			// Send outcome back
 			cov, err := ith.Accepts(trace)
-			ctx := ith.Contexts()[0]
+			context := ith.Contexts()[0]
 			name := ith.Name()
-			c <- batchOutcome{ctx.Module(), name, cov, err}
+			c <- batchOutcome{context, name, cov, err}
 		}()
 	}
 	//

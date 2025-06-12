@@ -41,7 +41,7 @@ type Constraint interface {
 	// evaluation context, though some (e.g. lookups) have more.  Note that all
 	// constraints have at least one context (which we can call the "primary"
 	// context).
-	Contexts() []trace.Context
+	Contexts() []ModuleId
 	// Name returns a unique name for a given constraint.  This is useful purely
 	// for identifying constraints in reports, etc.
 	Name() string

@@ -15,7 +15,6 @@ package ast
 import (
 	"math"
 
-	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
@@ -145,7 +144,7 @@ func (p *ColumnBinding) Finalise(multiplier uint, datatype Type) {
 // Context returns the of this column.  That is, the module in which this colunm
 // was declared and also the length multiplier of that module it requires.
 func (p *ColumnBinding) Context() Context {
-	return tr.NewContext(p.context.String(), p.Multiplier)
+	return NewContext(p.context.String(), p.Multiplier)
 }
 
 // ============================================================================
@@ -188,7 +187,7 @@ func (p *ConstantBinding) Finalise() {
 // Context returns the of this constant, noting that constants (by definition)
 // do not have a context.
 func (p *ConstantBinding) Context() Context {
-	return tr.VoidContext[string]()
+	return VoidContext[string]()
 }
 
 // ============================================================================
