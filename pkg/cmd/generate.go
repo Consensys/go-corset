@@ -121,6 +121,10 @@ func splitConstraintSets(filenames []string) [][]string {
 		}
 	}
 	//
+	if len(srcfiles) == 0 {
+		return binfiles
+	}
+	//
 	return append(binfiles, srcfiles)
 }
 
