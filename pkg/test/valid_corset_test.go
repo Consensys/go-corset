@@ -272,6 +272,9 @@ func Test_Shift_07(t *testing.T) {
 func Test_Shift_08(t *testing.T) {
 	Check(t, false, "shift_08")
 }
+func Test_Shift_09(t *testing.T) {
+	Check(t, false, "shift_09")
+}
 
 // ===================================================================
 // Spillage Tests
