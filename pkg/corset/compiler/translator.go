@@ -831,6 +831,8 @@ func (t *translator) translateLogical(expr ast.Expr, mod *ModuleBuilder, shift i
 	case *ast.Not:
 		arg, errs := t.translateLogical(e.Arg, mod, shift)
 		return ir.Negation(arg), errs
+	case *ast.Shift:
+		return t.translateLogicalShift(e, mod, shift)
 	default:
 		typeStr := reflect.TypeOf(expr).String()
 		msg := fmt.Sprintf("unknown logical expression encountered during translation (%s)", typeStr)
@@ -859,6 +861,20 @@ func (t *translator) translateIte(expr *ast.If, module *ModuleBuilder, shift int
 	}
 	// Construct appropriate if form
 	return ir.IfThenElse(cond, truebranch, falsebranch), nil
+}
+
+func (t *translator) translateLogicalShift(expr *ast.Shift, mod *ModuleBuilder,
+	shift int) (mir.LogicalTerm, []SyntaxError) {
+	//
+	constant := expr.Shift.AsConstant()
+	// Determine the shift constant
+	if constant == nil {
+		return nil, t.srcmap.SyntaxErrors(expr.Shift, "expected constant shift")
+	} else if !constant.IsInt64() {
+		return nil, t.srcmap.SyntaxErrors(expr.Shift, "constant shift too large")
+	}
+	// Now translate target expression with updated shift.
+	return t.translateLogical(expr.Arg, mod, shift+int(constant.Int64()))
 }
 
 // Determine the underlying register for a symbol which represents a register access.
