@@ -19,7 +19,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/cmd/generate"
 	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
 	sc "github.com/consensys/go-corset/pkg/schema"
@@ -33,10 +32,9 @@ var generateCmd = &cobra.Command{
 	Long:  `Generate suitable Java class(es) for integration with a Java-based tracer generator.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		var (
-			source   string
-			err      error
-			binfiles []binfile.BinaryFile
-			super    string
+			source string
+			err    error
+			super  string
 		)
 		// Configure log level
 		if GetFlag(cmd, "verbose") {
@@ -54,14 +52,14 @@ var generateCmd = &cobra.Command{
 			schemas[i] = *getSchemaStack(cmd, SCHEMA_DEFAULT_AIR, files[i]...)
 		}
 		//
-		if len(outputs) < len(binfiles) {
+		if len(outputs) < len(schemas) {
 			fmt.Println("insufficient output Java files specified.")
 			os.Exit(2)
 		}
 		//
 		if intrface != "" {
 			// Attempt to write java interface
-			source, err = generate.JavaTraceInterfaceUnion(intrface, pkgname, binfiles)
+			source, err = generate.JavaTraceInterfaceUnion(intrface, pkgname, schemas)
 			// check for errors
 			checkError(err)
 			// write out class file

@@ -20,24 +20,23 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/binfile"
+	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
 	"github.com/consensys/go-corset/pkg/corset"
 )
 
 // JavaTraceInterfaceUnion generates a suitable interface capturing the given schema,
 // as outlined in the source map.
-func JavaTraceInterfaceUnion(filename string, pkgname string,
-	binfiles []binfile.BinaryFile) (string, error) {
-	return javaTraceInterface(filename, pkgname, true, binfiles)
+func JavaTraceInterfaceUnion(filename string, pkgname string, stacks []cmd_util.SchemaStack) (string, error) {
+	return javaTraceInterface(filename, pkgname, true, stacks)
 }
 
-func javaTraceInterface(filename string, pkgname string, union bool,
-	binfiles []binfile.BinaryFile) (string, error) {
+func javaTraceInterface(filename string, pkgname string, union bool, stacks []cmd_util.SchemaStack) (string, error) {
 	//
 	var root corset.SourceModule
 	// Combine roots to determine set of common functionality.
-	for i, bf := range binfiles {
+	for i, stack := range stacks {
 		// Extract source map (which we assume is present)
-		srcmap, _ := binfile.GetAttribute[*corset.SourceMap](&bf)
+		srcmap, _ := binfile.GetAttribute[*corset.SourceMap](stack.BinaryFile())
 		//
 		if i == 0 {
 			root = srcmap.Root
