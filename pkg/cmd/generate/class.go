@@ -452,6 +452,7 @@ func generateJavaModuleColumnSetter(className string, methodName string, col cor
 	methodName = toCamelCase(methodName)
 	bitwidth := col.Bitwidth
 	fieldName := toRegisterName(col.Register, getNthRegister(schema, col.Register).Name)
+	fmt.Printf("Register(%d) %s vs %s\n", col.Register, fieldName, col.Name)
 	//
 	indexStr := fmt.Sprintf("%d", col.Register) // BROKEN
 	typeStr := getJavaType(bitwidth)
