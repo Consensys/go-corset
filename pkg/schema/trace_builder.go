@@ -672,7 +672,6 @@ func fillComputedColumns(refs []RegisterRef, cols []tr.ArrayColumn, trace *tr.Ar
 		module := trace.RawModule(iter.Next())
 		module.Resize()
 	}
-	//
 }
 
 // Validate that all elements of a given column fit within a given bitwidth.

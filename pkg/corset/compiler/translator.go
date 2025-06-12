@@ -170,13 +170,13 @@ func (t *translator) translateTypeConstraints(reg Register, mod *ModuleBuilder) 
 	}
 	// Apply provability (if it is required)
 	if required {
-		reg_width := reg.Bitwidth
+		regWidth := reg.Bitwidth
 		// For now, enforce all source registers have matching bitwidth.
 		for _, col := range reg.Sources {
 			// Determine bitwidth
-			col_width := col.Bitwidth
+			colWidth := col.Bitwidth
 			// Sanity check (for now)
-			if col.MustProve && col_width != reg_width {
+			if col.MustProve && colWidth != regWidth {
 				// Currently, mixed-width proving types are not supported.
 				panic("cannot (currently) prove type of mixed-width register")
 			}
@@ -312,20 +312,20 @@ func (t *translator) translateDefConstraint(decl *ast.DefConstraint) []SyntaxErr
 	// Apply guard (if applicable)
 	if decl.Guard != nil {
 		// Translate (optional) guard
-		gexpr, guard_errors := t.translateOptionalExpression(decl.Guard, module, 0)
+		gexpr, guardErrors := t.translateOptionalExpression(decl.Guard, module, 0)
 		guard := ir.Equals[mir.LogicalTerm](gexpr, ir.Const64[mir.Term](0))
 		expr = ir.IfThenElse(guard, nil, expr)
 		// Combine errors
-		errors = append(errors, guard_errors...)
+		errors = append(errors, guardErrors...)
 	}
 	// Apply perspective selector (if applicable)
 	if decl.Perspective != nil {
 		// Translate (optional) perspective selector
-		sexpr, selector_errors := t.translateSelectorInModule(decl.Perspective, module)
+		sexpr, selectorErrors := t.translateSelectorInModule(decl.Perspective, module)
 		selector := ir.Equals[mir.LogicalTerm](sexpr, ir.Const64[mir.Term](0))
 		expr = ir.IfThenElse(selector, nil, expr)
 		// Combine errors
-		errors = append(errors, selector_errors...)
+		errors = append(errors, selectorErrors...)
 	}
 	// Sanity check
 	if len(errors) == 0 {
@@ -485,7 +485,7 @@ func (t *translator) translateDefPermutation(decl *ast.DefPermutation, path util
 		context = context.Join(target.Context)
 		// Construct handle
 		if i >= len(decl.Signs) {
-
+			// No nothing
 		} else if decl.Signs[i] {
 			handle.WriteString("+")
 		} else {
@@ -634,10 +634,10 @@ func (t *translator) translateExpression(expr ast.Expr, module *ModuleBuilder, s
 			// safe casts are compiled out since they have already been checked
 			// by the type checker.
 			return arg, errs
-		} else if int_t, ok := e.Type.(*ast.IntType); ok {
+		} else if intType, ok := e.Type.(*ast.IntType); ok {
 			// unsafe casts cannot be checked by the type checker, but can be
 			// exploited for the purposes of optimisation.
-			return ir.CastOf(arg, int_t.BitWidth()), errs
+			return ir.CastOf(arg, intType.BitWidth()), errs
 		}
 		// Should be unreachable.
 		msg := fmt.Sprintf("cannot translate cast (%s)", e.Type.String())
@@ -693,11 +693,11 @@ func (t *translator) translateExp(expr *ast.Exp, module *ModuleBuilder, shift in
 
 func (t *translator) translateIf(expr *ast.If, module *ModuleBuilder, shift int) (mir.Term, []SyntaxError) {
 	// Translate condition as a logical
-	cond, cond_errs := t.translateLogical(expr.Condition, module, shift)
+	cond, condErrs := t.translateLogical(expr.Condition, module, shift)
 	// Translate optional true / false branches
-	args, arg_errs := t.translateExpressions(module, shift, expr.TrueBranch, expr.FalseBranch)
+	args, argErrs := t.translateExpressions(module, shift, expr.TrueBranch, expr.FalseBranch)
 	//
-	errs := append(cond_errs, arg_errs...)
+	errs := append(condErrs, argErrs...)
 	//
 	if len(errs) > 0 {
 		return nil, errs
@@ -843,22 +843,22 @@ func (t *translator) translateIte(expr *ast.If, module *ModuleBuilder, shift int
 	// Translate condition as a logical
 	cond, errs := t.translateLogical(expr.Condition, module, shift)
 	// Translate optional true / false branches
-	tbranch, t_errs := t.translateOptionalLogical(expr.TrueBranch, module, shift)
+	truebranch, trueErrs := t.translateOptionalLogical(expr.TrueBranch, module, shift)
 	// Translate optional true / false branches
-	fbranch, f_errs := t.translateOptionalLogical(expr.FalseBranch, module, shift)
+	falsebranch, falseErrs := t.translateOptionalLogical(expr.FalseBranch, module, shift)
 	//
-	errs = append(errs, t_errs...)
-	errs = append(errs, f_errs...)
+	errs = append(errs, trueErrs...)
+	errs = append(errs, falseErrs...)
 	//
 	if len(errs) > 0 {
 		return nil, errs
 	}
 	// Propagate emptiness (if applicable)
-	if tbranch == nil && fbranch == nil {
+	if truebranch == nil && falsebranch == nil {
 		return nil, nil
 	}
 	// Construct appropriate if form
-	return ir.IfThenElse(cond, tbranch, fbranch), nil
+	return ir.IfThenElse(cond, truebranch, falsebranch), nil
 }
 
 // Determine the underlying register for a symbol which represents a register access.
@@ -883,6 +883,7 @@ func (t *translator) registerOfVariableAccess(expr *ast.VariableAccess,
 	//
 	return nil, t.srcmap.SyntaxErrors(expr, "invalid register access")
 }
+
 func (t *translator) registerOfArrayAccess(expr *ast.ArrayAccess, shift int) (*mir.RegisterAccess, []SyntaxError) {
 	var (
 		errors []SyntaxError
