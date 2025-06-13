@@ -56,7 +56,7 @@ func unionSubmodules(left []corset.SourceModule, right []corset.SourceModule) []
 		leftModule := left[l]
 		rightModule := right[r]
 		c := strings.Compare(leftModule.Name, rightModule.Name)
-
+		//
 		switch {
 		case c < 0:
 			// Only in left
@@ -76,6 +76,10 @@ func unionSubmodules(left []corset.SourceModule, right []corset.SourceModule) []
 			r++
 		}
 	}
+	// Including any remaining left modules
+	modules = append(modules, left[l:]...)
+	// Including any remaining right modules
+	modules = append(modules, right[r:]...)
 	//
 	return modules
 }
