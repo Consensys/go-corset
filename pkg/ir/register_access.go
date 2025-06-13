@@ -108,6 +108,7 @@ func (p *RegisterAccess[T]) RequiredCells(row int, mid trace.ModuleId) *set.AnyS
 		set = set.NewAnySortedSet[trace.CellRef]()
 		ref = trace.NewColumnRef(mid, p.Register)
 	)
+	//
 	set.Insert(trace.NewCellRef(ref, row+p.Shift))
 	//
 	return set

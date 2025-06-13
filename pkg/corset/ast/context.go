@@ -17,7 +17,7 @@ import (
 	"math"
 )
 
-// RawContext represents the evaluation context in which an expression can be
+// Context represents the evaluation context in which an expression can be
 // evaluated.  Firstly, every expression must have a single enclosing module
 // (i.e. all columns accessed by the expression are in that module); secondly,
 // the length multiplier for all columns accessed by the expression must be the

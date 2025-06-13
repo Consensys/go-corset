@@ -172,12 +172,16 @@ func includeStdlib(stdlib bool, srcfiles []*source.File) []*source.File {
 	return srcfiles
 }
 
-func constructSourceMap(schema schema.AnySchema, scope *compiler.ModuleScope, env compiler.GlobalEnvironment) *SourceMap {
+func constructSourceMap(schema schema.AnySchema, scope *compiler.ModuleScope,
+	env compiler.GlobalEnvironment) *SourceMap {
+	//
 	enumerations := []Enumeration{OPCODE_ENUMERATION}
 	return &SourceMap{constructSourceModule(schema, scope, env), enumerations}
 }
 
-func constructSourceModule(schema schema.AnySchema, scope *compiler.ModuleScope, env compiler.GlobalEnvironment) SourceModule {
+func constructSourceModule(schema schema.AnySchema, scope *compiler.ModuleScope,
+	env compiler.GlobalEnvironment) SourceModule {
+	//
 	var (
 		columns    []SourceColumn
 		submodules []SourceModule
