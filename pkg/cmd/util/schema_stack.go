@@ -172,6 +172,8 @@ func (p *SchemaStack) Read(filenames ...string) {
 	)
 	//
 	p.binfile = readConstraintFiles(p.corsetConfig, p.asmConfig, filenames)
+	// Apply any user-specified values for externalised constants.
+	applyExternOverrides(p.externs, &p.binfile)
 	// Read out the mixed macro schema
 	asmSchema = p.BinaryFile().Schema
 	// Lower to mixed micro schema
@@ -201,8 +203,6 @@ func (p *SchemaStack) Read(filenames ...string) {
 		p.schemas = append(p.schemas, schema.Any(airSchema))
 		p.names = append(p.names, "AIR")
 	}
-	// Apply any user-specified values for externalised constants.
-	applyExternOverrides(p.externs, &p.binfile)
 }
 
 // readConstraintFiles provides a generic interface for reading constraint files
