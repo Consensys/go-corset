@@ -15,6 +15,7 @@ package constraint
 import (
 	"fmt"
 
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -146,4 +147,9 @@ func (p Assertion[T]) Lisp(schema schema.AnySchema) sexp.SExp {
 		sexp.NewSymbol(p.Handle),
 		p.Property.Lisp(module),
 	})
+}
+
+// Substitute any matchined labelled constants within this constraint
+func (p Assertion[T]) Substitute(mapping map[string]fr.Element) {
+	p.Property.Substitute(mapping)
 }

@@ -128,6 +128,11 @@ func (p *Cast[T]) Simplify(casts bool) T {
 	return arg
 }
 
+// Substitute implementation for Substitutable interface.
+func (p *Cast[T]) Substitute(mapping map[string]fr.Element) {
+	p.Arg.Substitute(mapping)
+}
+
 // ValueRange implementation for Term interface.
 func (p *Cast[T]) ValueRange(module schema.Module) *util.Interval {
 	cast := p.Range()

@@ -81,6 +81,14 @@ func (p *LabelledConst[T]) Simplify(casts bool) T {
 	return tmp.(T)
 }
 
+// Substitute implementation for Substitutable interface.
+func (p *LabelledConst[T]) Substitute(mapping map[string]fr.Element) {
+	// Attempt to apply substitution
+	if nval, ok := mapping[p.Label]; ok {
+		p.Value = nval
+	}
+}
+
 // ValueRange implementation for Term interface.
 func (p *LabelledConst[T]) ValueRange(module schema.Module) *util.Interval {
 	var c big.Int

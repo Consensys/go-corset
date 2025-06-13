@@ -42,6 +42,7 @@ type Contextual interface {
 type Evaluable interface {
 	util.Boundable
 	Contextual
+	Substitutable
 	// EvalAt evaluates this expression in a given tabular context.
 	// Observe that if this expression is *undefined* within this
 	// context then it returns "nil".  An expression can be
@@ -52,6 +53,13 @@ type Evaluable interface {
 	// Lisp converts this schema element into a simple S-Expression, for example
 	// so it can be printed.
 	Lisp(schema.Module) sexp.SExp
+}
+
+// Substitutable captures the notion of a term which may contain labelled
+// constants that can be substituted.
+type Substitutable interface {
+	// Substitute any matchined labelled constants within this constraint
+	Substitute(map[string]fr.Element)
 }
 
 // Shiftable captures something which can contain row shifted accesses, and
@@ -73,6 +81,7 @@ type Term[T any] interface {
 	Shiftable[T]
 	Evaluable
 	util.Boundable
+	Substitutable
 
 	// Simplify constant expressions down to single values.  For example, "(+ 1
 	// 2)" would be collapsed down to "3".  This is then progagated throughout
@@ -95,7 +104,7 @@ type Term[T any] interface {
 type Testable interface {
 	util.Boundable
 	Contextual
-
+	Substitutable
 	// TestAt evaluates this expression in a given tabular context and checks it
 	// against zero. Observe that if this expression is *undefined* within this
 	// context then it returns "nil".  An expression can be undefined for

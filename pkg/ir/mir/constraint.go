@@ -13,6 +13,7 @@
 package mir
 
 import (
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -121,6 +122,11 @@ func (p Constraint) Name() string {
 //nolint:revive
 func (p Constraint) Lisp(schema schema.AnySchema) sexp.SExp {
 	return p.constraint.Lisp(schema)
+}
+
+// Substitute any matchined labelled constants within this constraint
+func (p Constraint) Substitute(mapping map[string]fr.Element) {
+	p.constraint.Substitute(mapping)
 }
 
 // ============================================================================

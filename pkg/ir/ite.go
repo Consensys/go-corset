@@ -13,6 +13,7 @@
 package ir
 
 import (
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -215,4 +216,17 @@ func (p *Ite[T]) Simplify(casts bool) T {
 	var term LogicalTerm[T] = &Ite[T]{cond, trueBranch, falseBranch}
 	//
 	return term.(T)
+}
+
+// Substitute implementation for Substitutable interface.
+func (p *Ite[T]) Substitute(mapping map[string]fr.Element) {
+	p.Condition.Substitute(mapping)
+	//
+	if p.FalseBranch != nil {
+		p.FalseBranch.Substitute(mapping)
+	}
+	//
+	if p.TrueBranch != nil {
+		p.TrueBranch.Substitute(mapping)
+	}
 }

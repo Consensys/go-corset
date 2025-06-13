@@ -165,3 +165,8 @@ func (p RangeConstraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
 		sexp.NewSymbol(fmt.Sprintf("u%d", p.Bitwidth)),
 	})
 }
+
+// Substitute any matchined labelled constants within this constraint
+func (p RangeConstraint[E]) Substitute(mapping map[string]fr.Element) {
+	p.Expr.Substitute(mapping)
+}

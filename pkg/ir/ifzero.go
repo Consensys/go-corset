@@ -127,6 +127,13 @@ func (p *IfZero[S, T]) ValueRange(module schema.Module) *util.Interval {
 	panic("todo")
 }
 
+// Substitute implementation for Substitutable interface.
+func (p *IfZero[S, T]) Substitute(mapping map[string]fr.Element) {
+	p.Condition.Substitute(mapping)
+	p.FalseBranch.Substitute(mapping)
+	p.TrueBranch.Substitute(mapping)
+}
+
 // Simplify implementation for Term interface.
 //
 // nolint

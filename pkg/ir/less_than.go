@@ -13,6 +13,7 @@
 package ir
 
 import (
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -186,4 +187,10 @@ func (p *Inequality[S, T]) Simplify(casts bool) S {
 	var tmp LogicalTerm[S] = &Inequality[S, T]{p.Strict, lhs, rhs}
 	// Done
 	return tmp.(S)
+}
+
+// Substitute implementation for Substitutable interface.
+func (p *Inequality[S, T]) Substitute(mapping map[string]fr.Element) {
+	p.Lhs.Substitute(mapping)
+	p.Rhs.Substitute(mapping)
 }

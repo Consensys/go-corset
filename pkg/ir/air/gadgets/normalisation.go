@@ -122,3 +122,8 @@ func (e *psuedoInverse) Lisp(module sc.Module) sexp.SExp {
 		e.Expr.Lisp(module),
 	})
 }
+
+// Substitute implementation for Substitutable interface.
+func (e *psuedoInverse) Substitute(mapping map[string]fr.Element) {
+	panic("unreachable")
+}

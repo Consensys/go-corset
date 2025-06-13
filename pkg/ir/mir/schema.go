@@ -119,7 +119,11 @@ type (
 // SubstituteConstants substitutes the value of matching labelled constants for
 // all expressions used within the schema.
 func SubstituteConstants[M schema.Module](schema schema.MixedSchema[M, Module], mapping map[string]fr.Element) {
-	panic("todo")
+	// Constraints
+	for iter := schema.Constraints(); iter.HasNext(); {
+		constraint := iter.Next()
+		constraint.Substitute(mapping)
+	}
 }
 
 func init() {

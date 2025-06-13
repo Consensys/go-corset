@@ -98,6 +98,11 @@ func (p *Mul[T]) ShiftRange() (int, int) {
 	return shiftRangeOfTerms(p.Args...)
 }
 
+// Substitute implementation for Substitutable interface.
+func (p *Mul[T]) Substitute(mapping map[string]fr.Element) {
+	substituteTerms(mapping, p.Args...)
+}
+
 // Simplify implementation for Term interface.
 func (p *Mul[T]) Simplify(casts bool) T {
 	var (

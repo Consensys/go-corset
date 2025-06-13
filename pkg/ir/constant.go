@@ -94,6 +94,11 @@ func (p *Constant[T]) ShiftRange() (int, int) {
 	return math.MaxInt, math.MinInt
 }
 
+// Substitute implementation for Substitutable interface.
+func (p *Constant[T]) Substitute(mapping map[string]fr.Element) {
+
+}
+
 // Simplify implementation for Term interface.
 func (p *Constant[T]) Simplify(casts bool) T {
 	var tmp Term[T] = p

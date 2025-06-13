@@ -101,6 +101,11 @@ func (p *Norm[T]) Simplify(casts bool) T {
 	return targ.(T)
 }
 
+// Substitute implementation for Substitutable interface.
+func (p *Norm[T]) Substitute(mapping map[string]fr.Element) {
+	p.Arg.Substitute(mapping)
+}
+
 // ValueRange implementation for Term interface.
 func (p *Norm[T]) ValueRange(module schema.Module) *util.Interval {
 	return util.NewInterval(big.NewInt(0), big.NewInt(1))

@@ -95,6 +95,11 @@ func (p *Add[T]) Simplify(casts bool) T {
 	return simplifySum(p.Args, casts)
 }
 
+// Substitute implementation for Substitutable interface.
+func (p *Add[T]) Substitute(mapping map[string]fr.Element) {
+	substituteTerms(mapping, p.Args...)
+}
+
 // ValueRange implementation for Term interface.
 func (p *Add[T]) ValueRange(module schema.Module) *util.Interval {
 	var res util.Interval

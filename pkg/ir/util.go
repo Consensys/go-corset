@@ -83,6 +83,13 @@ func requiredCellsOfTerms[T Contextual](args []T, row int, tr trace.ModuleId) *s
 	})
 }
 
+func substituteTerms[T Substitutable](mapping map[string]fr.Element, terms ...T) {
+	//
+	for _, term := range terms {
+		term.Substitute(mapping)
+	}
+}
+
 func shiftRangeOfTerms[T Shiftable[T]](terms ...T) (int, int) {
 	minShift := math.MaxInt
 	maxShift := math.MinInt

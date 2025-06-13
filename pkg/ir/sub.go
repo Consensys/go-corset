@@ -86,6 +86,11 @@ func (p *Sub[T]) ShiftRange() (int, int) {
 	return shiftRangeOfTerms(p.Args...)
 }
 
+// Substitute implementation for Substitutable interface.
+func (p *Sub[T]) Substitute(mapping map[string]fr.Element) {
+	substituteTerms(mapping, p.Args...)
+}
+
 // ValueRange implementation for Term interface.
 func (p *Sub[T]) ValueRange(module schema.Module) *util.Interval {
 	var res util.Interval

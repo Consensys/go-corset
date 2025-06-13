@@ -79,6 +79,11 @@ func (p *Exp[T]) ShiftRange() (int, int) {
 	return p.Arg.ShiftRange()
 }
 
+// Substitute implementation for Substitutable interface.
+func (p *Exp[T]) Substitute(mapping map[string]fr.Element) {
+	p.Arg.Substitute(mapping)
+}
+
 // Simplify implementation for Term interface.
 func (p *Exp[T]) Simplify(casts bool) T {
 	var (

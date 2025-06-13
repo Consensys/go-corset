@@ -124,6 +124,11 @@ func (p *RegisterAccess[T]) Simplify(casts bool) T {
 	return tmp.(T)
 }
 
+// Substitute implementation for Substitutable interface.
+func (p *RegisterAccess[T]) Substitute(mapping map[string]fr.Element) {
+
+}
+
 // ValueRange implementation for Term interface.
 func (p *RegisterAccess[T]) ValueRange(module schema.Module) *util.Interval {
 	bound := big.NewInt(2)

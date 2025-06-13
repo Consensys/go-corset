@@ -13,6 +13,7 @@
 package air
 
 import (
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
@@ -139,4 +140,11 @@ func (p Air[C]) Name() string {
 //nolint:revive
 func (p Air[C]) Lisp(schema schema.AnySchema) sexp.SExp {
 	return p.constraint.Lisp(schema)
+}
+
+// Substitute any matchined labelled constants within this constraint
+func (p Air[C]) Substitute(map[string]fr.Element) {
+	// This should never be called since AIR expressions cannot contain labelled
+	// constants.
+	panic("unreachable")
 }
