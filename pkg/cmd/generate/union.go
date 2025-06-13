@@ -75,6 +75,10 @@ func unionSubmodules(left []corset.SourceModule, right []corset.SourceModule) []
 			r++
 		}
 	}
+	// Append any remaining modules on the left
+	modules = append(modules, left[l:]...)
+	// Append any remaining modules on the right
+	modules = append(modules, right[r:]...)
 	//
 	return modules
 }
