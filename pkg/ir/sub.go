@@ -77,13 +77,18 @@ func (p *Sub[T]) RequiredRegisters() *set.SortedSet[uint] {
 }
 
 // RequiredCells implementation for Contextual interface
-func (p *Sub[T]) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
-	return requiredCellsOfTerms(p.Args, row, tr)
+func (p *Sub[T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
+	return requiredCellsOfTerms(p.Args, row, mid)
 }
 
 // ShiftRange implementation for Term interface.
 func (p *Sub[T]) ShiftRange() (int, int) {
-	return shiftRangeOfTerms(p.Args)
+	return shiftRangeOfTerms(p.Args...)
+}
+
+// Substitute implementation for Substitutable interface.
+func (p *Sub[T]) Substitute(mapping map[string]fr.Element) {
+	substituteTerms(mapping, p.Args...)
 }
 
 // ValueRange implementation for Term interface.

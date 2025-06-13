@@ -13,6 +13,7 @@
 package ir
 
 import (
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -79,6 +80,22 @@ type Inequality[S LogicalTerm[S], T Term[T]] struct {
 	Rhs Term[T]
 }
 
+// ApplyShift implementation for LogicalTerm interface.
+func (p *Inequality[S, T]) ApplyShift(shift int) S {
+	if p.Strict {
+		return LessThan[S](p.Lhs.ApplyShift(shift),
+			p.Rhs.ApplyShift(shift))
+	}
+	//
+	return LessThanOrEquals[S](p.Lhs.ApplyShift(shift),
+		p.Rhs.ApplyShift(shift))
+}
+
+// ShiftRange implementation for LogicalTerm interface.
+func (p *Inequality[S, T]) ShiftRange() (int, int) {
+	return shiftRangeOfTerms(p.Lhs.(T), p.Rhs.(T))
+}
+
 // Bounds implementation for Boundable interface.
 func (p *Inequality[S, T]) Bounds() util.Bounds {
 	l := p.Lhs.Bounds()
@@ -90,9 +107,9 @@ func (p *Inequality[S, T]) Bounds() util.Bounds {
 }
 
 // TestAt implementation for Testable interface.
-func (p *Inequality[S, T]) TestAt(k int, tr trace.Module) (bool, uint, error) {
-	lhs, err1 := p.Lhs.EvalAt(k, tr)
-	rhs, err2 := p.Rhs.EvalAt(k, tr)
+func (p *Inequality[S, T]) TestAt(k int, mid trace.Module) (bool, uint, error) {
+	lhs, err1 := p.Lhs.EvalAt(k, mid)
+	rhs, err2 := p.Rhs.EvalAt(k, mid)
 	// error check
 	if err1 != nil {
 		return false, 0, err1
@@ -137,7 +154,7 @@ func (p *Inequality[S, T]) RequiredRegisters() *set.SortedSet[uint] {
 }
 
 // RequiredCells implementation for Contextual interface
-func (p *Inequality[S, T]) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
+func (p *Inequality[S, T]) RequiredCells(row int, tr trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
 	set := p.Lhs.RequiredCells(row, tr)
 	set.InsertSorted(p.Rhs.RequiredCells(row, tr))
 	//
@@ -170,4 +187,10 @@ func (p *Inequality[S, T]) Simplify(casts bool) S {
 	var tmp LogicalTerm[S] = &Inequality[S, T]{p.Strict, lhs, rhs}
 	// Done
 	return tmp.(S)
+}
+
+// Substitute implementation for Substitutable interface.
+func (p *Inequality[S, T]) Substitute(mapping map[string]fr.Element) {
+	p.Lhs.Substitute(mapping)
+	p.Rhs.Substitute(mapping)
 }

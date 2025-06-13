@@ -13,6 +13,7 @@
 package ir
 
 import (
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -36,6 +37,16 @@ func Negation[T LogicalTerm[T]](body T) T {
 // inNegateities.
 type Negate[T LogicalTerm[T]] struct {
 	Arg T
+}
+
+// ApplyShift implementation for LogicalTerm interface.
+func (p *Negate[T]) ApplyShift(shift int) T {
+	return Negation(p.Arg.ApplyShift(shift))
+}
+
+// ShiftRange implementation for LogicalTerm interface.
+func (p *Negate[T]) ShiftRange() (int, int) {
+	return p.Arg.ShiftRange()
 }
 
 // Bounds implementation for Boundable interface.
@@ -65,8 +76,8 @@ func (p *Negate[T]) RequiredRegisters() *set.SortedSet[uint] {
 }
 
 // RequiredCells implementation for Contextual interface
-func (p *Negate[T]) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
-	return p.Arg.RequiredCells(row, tr)
+func (p *Negate[T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
+	return p.Arg.RequiredCells(row, mid)
 }
 
 // Simplify this Negate as much as reasonably possible.
@@ -82,4 +93,9 @@ func (p *Negate[T]) Simplify(casts bool) T {
 		var tmp LogicalTerm[T] = &Negate[T]{term}
 		return tmp.(T)
 	}
+}
+
+// Substitute implementation for Substitutable interface.
+func (p *Negate[T]) Substitute(mapping map[string]fr.Element) {
+	p.Arg.Substitute(mapping)
 }

@@ -41,7 +41,8 @@ func LabelledConstant[T Term[T]](label string, value fr.Element) T {
 
 // ApplyShift implementation for Term interface.
 func (p *LabelledConst[T]) ApplyShift(int) T {
-	panic("todo")
+	var term Term[T] = p
+	return term.(T)
 }
 
 // Bounds implementation for Boundable interface.
@@ -65,7 +66,7 @@ func (p *LabelledConst[T]) RequiredRegisters() *set.SortedSet[uint] {
 }
 
 // RequiredCells implementation for Contextual interface
-func (p *LabelledConst[T]) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
+func (p *LabelledConst[T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
 	return set.NewAnySortedSet[trace.CellRef]()
 }
 
@@ -78,6 +79,14 @@ func (p *LabelledConst[T]) ShiftRange() (int, int) {
 func (p *LabelledConst[T]) Simplify(casts bool) T {
 	var tmp Term[T] = p
 	return tmp.(T)
+}
+
+// Substitute implementation for Substitutable interface.
+func (p *LabelledConst[T]) Substitute(mapping map[string]fr.Element) {
+	// Attempt to apply substitution
+	if nval, ok := mapping[p.Label]; ok {
+		p.Value = nval
+	}
 }
 
 // ValueRange implementation for Term interface.

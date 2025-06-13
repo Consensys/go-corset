@@ -194,6 +194,17 @@ func (p SortedConstraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
 	}
 }
 
+// Substitute any matchined labelled constants within this constraint
+func (p SortedConstraint[E]) Substitute(mapping map[string]fr.Element) {
+	for _, s := range p.Sources {
+		s.Substitute(mapping)
+	}
+	//
+	if p.Selector.HasValue() {
+		p.Selector.Unwrap().Substitute(mapping)
+	}
+}
+
 func (p SortedConstraint[E]) deltaBound() fr.Element {
 	var (
 		two   fr.Element = fr.NewElement(2)

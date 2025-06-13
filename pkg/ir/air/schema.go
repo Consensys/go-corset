@@ -133,6 +133,11 @@ func (p LogicalTerm) RequiredRegisters() *set.SortedSet[uint] {
 }
 
 // RequiredCells implementation for Contextual interface
-func (p LogicalTerm) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
-	return p.Term.RequiredCells(row, tr)
+func (p LogicalTerm) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
+	return p.Term.RequiredCells(row, mid)
+}
+
+// Substitute implementation for Substitutable interface.
+func (p LogicalTerm) Substitute(mapping map[string]fr.Element) {
+	p.Term.Substitute(mapping)
 }

@@ -77,13 +77,20 @@ func requiredRegistersOfTerms[T Contextual](args []T) *set.SortedSet[uint] {
 	})
 }
 
-func requiredCellsOfTerms[T Contextual](args []T, row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
+func requiredCellsOfTerms[T Contextual](args []T, row int, tr trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
 	return set.UnionAnySortedSets(args, func(term T) *set.AnySortedSet[trace.CellRef] {
 		return term.RequiredCells(row, tr)
 	})
 }
 
-func shiftRangeOfTerms[T Term[T]](terms []T) (int, int) {
+func substituteTerms[T Substitutable](mapping map[string]fr.Element, terms ...T) {
+	//
+	for _, term := range terms {
+		term.Substitute(mapping)
+	}
+}
+
+func shiftRangeOfTerms[T Shiftable[T]](terms ...T) (int, int) {
 	minShift := math.MaxInt
 	maxShift := math.MinInt
 	//
@@ -96,7 +103,7 @@ func shiftRangeOfTerms[T Term[T]](terms []T) (int, int) {
 	return minShift, maxShift
 }
 
-func applyShiftOfTerms[T Term[T]](terms []T, shift int) []T {
+func applyShiftOfTerms[T Shiftable[T]](terms []T, shift int) []T {
 	nterms := make([]T, len(terms))
 	//
 	for i := range terms {

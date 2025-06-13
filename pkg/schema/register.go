@@ -16,68 +16,36 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
-	"math"
 	"math/big"
+
+	"github.com/consensys/go-corset/pkg/trace"
 )
-
-// RegisterRef abstracts a complete (i.e. global) register identifier.
-type RegisterRef struct {
-	// Module containing this register
-	mid ModuleId
-	// Register index within that module
-	rid RegisterId
-}
-
-// NewRegisterRef constructs a new register reference from the given module and
-// register identifiers.
-func NewRegisterRef(mid ModuleId, rid RegisterId) RegisterRef {
-	return RegisterRef{mid, rid}
-}
-
-// Module returns the module identifier of this register reference.
-func (p RegisterRef) Module() ModuleId {
-	return p.mid
-}
-
-// Register returns the register identifier of this register reference.
-func (p RegisterRef) Register() RegisterId {
-	return p.rid
-}
-
-// ============================================================================
 
 // RegisterId captures the notion of a register index.  That is, for each
 // module, every register is allocated a given index starting from 0.  The
 // purpose of the wrapper is avoid confusion between uint values and things
-// which are expected to identify registers.
-type RegisterId struct {
-	index uint
-}
+// which are expected to identify Columns.
+type RegisterId = trace.ColumnId
 
 // NewRegisterId constructs a new register ID from a given raw index.
 func NewRegisterId(index uint) RegisterId {
-	return RegisterId{index}
+	return trace.NewColumnId(index)
 }
 
 // NewUnusedRegisterId constructs something akin to a null reference.  This is
 // used in some situations where we may (or may not) want to refer to a specific
 // register.
 func NewUnusedRegisterId() RegisterId {
-	return RegisterId{math.MaxUint}
+	return trace.NewUnusedColumnId()
 }
 
-// Unwrap returns the underlying register index.
-func (p RegisterId) Unwrap() uint {
-	if p.index == math.MaxUint {
-		panic("attempt to unwrap unused register id")
-	}
-	//
-	return p.index
-}
+// RegisterRef abstracts a complete (i.e. global) register identifier.
+type RegisterRef = trace.ColumnRef
 
-// IsUsed checks whether this corresponds to a valid register index.
-func (p RegisterId) IsUsed() bool {
-	return p.index != math.MaxUint
+// NewRegisterRef constructs a new register reference from the given module and
+// register identifiers.
+func NewRegisterRef(mid ModuleId, rid RegisterId) RegisterRef {
+	return trace.NewColumnRef(mid, rid)
 }
 
 // RegisterType captures the type of a given register, such as whether it
@@ -221,74 +189,6 @@ func (p *RegisterType) GobDecode(data []byte) error {
 	if err := gobDecoder.Decode(&p.kind); err != nil {
 		return err
 	}
-	// Success!
-	return nil
-}
-
-// GobEncode an option.  This allows it to be marshalled into a binary form.
-func (p RegisterId) GobEncode() (data []byte, err error) {
-	var (
-		buffer     bytes.Buffer
-		gobEncoder = gob.NewEncoder(&buffer)
-	)
-	//
-	if err := gobEncoder.Encode(&p.index); err != nil {
-		return nil, err
-	}
-	// Done
-	return buffer.Bytes(), nil
-}
-
-// GobDecode a previously encoded option
-func (p *RegisterId) GobDecode(data []byte) error {
-	var (
-		buffer     = bytes.NewBuffer(data)
-		gobDecoder = gob.NewDecoder(buffer)
-	)
-	//
-	if err := gobDecoder.Decode(&p.index); err != nil {
-		return err
-	}
-	// Success!
-	return nil
-}
-
-// GobEncode an option.  This allows it to be marshalled into a binary form.
-func (p RegisterRef) GobEncode() (data []byte, err error) {
-	var (
-		rid        = p.rid.Unwrap()
-		buffer     bytes.Buffer
-		gobEncoder = gob.NewEncoder(&buffer)
-	)
-	//
-	if err := gobEncoder.Encode(&p.mid); err != nil {
-		return nil, err
-	}
-	//
-	if err := gobEncoder.Encode(&rid); err != nil {
-		return nil, err
-	}
-	// Done
-	return buffer.Bytes(), nil
-}
-
-// GobDecode a previously encoded option
-func (p *RegisterRef) GobDecode(data []byte) error {
-	var (
-		rid        uint
-		buffer     = bytes.NewBuffer(data)
-		gobDecoder = gob.NewDecoder(buffer)
-	)
-	//
-	if err := gobDecoder.Decode(&p.mid); err != nil {
-		return err
-	}
-	//
-	if err := gobDecoder.Decode(&rid); err != nil {
-		return err
-	}
-	// Construct reg id
-	p.rid = NewRegisterId(rid)
 	// Success!
 	return nil
 }

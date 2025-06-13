@@ -419,7 +419,6 @@ func (p *ModuleScope) destructureAtomicColumn(column *ast.ColumnBinding, ctx uti
 		bitwidth,
 		column.MustProve,
 		column.Computed,
-		column.Internal,
 		column.Display}
 	//
 	return []RegisterSource{source}
@@ -456,7 +455,7 @@ type LocalScope struct {
 // also be "global" in the sense that accessing symbols from other modules is
 // permitted.
 func NewLocalScope(enclosing Scope, global bool, pure bool, constant bool) LocalScope {
-	context := ast.VoidContext[string]()
+	context := ast.VoidContext()
 	locals := make(map[string]uint)
 	bindings := make([]*ast.LocalVariableBinding, 0)
 	//

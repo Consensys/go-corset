@@ -13,6 +13,7 @@
 package ir
 
 import (
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -48,6 +49,16 @@ func IsFalse[T LogicalTerm[T]](term T) bool {
 func Disjunction[T LogicalTerm[T]](terms ...T) T {
 	var term LogicalTerm[T] = &Disjunct[T]{terms}
 	return term.(T)
+}
+
+// ApplyShift implementation for LogicalTerm interface.
+func (p *Disjunct[T]) ApplyShift(shift int) T {
+	return Disjunction(applyShiftOfTerms(p.Args, shift)...)
+}
+
+// ShiftRange implementation for LogicalTerm interface.
+func (p *Disjunct[T]) ShiftRange() (int, int) {
+	return shiftRangeOfTerms(p.Args...)
 }
 
 // Bounds implementation for Boundable interface.
@@ -88,8 +99,8 @@ func (p *Disjunct[T]) RequiredRegisters() *set.SortedSet[uint] {
 }
 
 // RequiredCells implementation for Contextual interface
-func (p *Disjunct[T]) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
-	return requiredCellsOfTerms(p.Args, row, tr)
+func (p *Disjunct[T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
+	return requiredCellsOfTerms(p.Args, row, mid)
 }
 
 // Simplify this term as much as reasonably possible.
@@ -113,6 +124,11 @@ func (p *Disjunct[T]) Simplify(casts bool) T {
 	default:
 		return Disjunction(terms...)
 	}
+}
+
+// Substitute implementation for Substitutable interface.
+func (p *Disjunct[T]) Substitute(mapping map[string]fr.Element) {
+	substituteTerms(mapping, p.Args...)
 }
 
 func flatternDisjunct[T LogicalTerm[T]](term T) []T {

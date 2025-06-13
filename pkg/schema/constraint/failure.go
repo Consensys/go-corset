@@ -42,8 +42,7 @@ func (p *InternalFailure) Message() string {
 // RequiredCells identifies the cells required to evaluate the failing constraint at the failing row.
 func (p *InternalFailure) RequiredCells(tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
 	if p.Term != nil {
-		module := tr.Module(p.Context)
-		return p.Term.RequiredCells(int(p.Row), module)
+		return p.Term.RequiredCells(int(p.Row), p.Context)
 	}
 	// Empty set
 	return set.NewAnySortedSet[trace.CellRef]()

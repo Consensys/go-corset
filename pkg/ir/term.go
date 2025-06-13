@@ -32,7 +32,7 @@ type Contextual interface {
 	RequiredRegisters() *set.SortedSet[uint]
 	// RequiredCells returns the set of trace cells on which evaluation of this
 	// constraint element depends.
-	RequiredCells(int, trace.Module) *set.AnySortedSet[trace.CellRef]
+	RequiredCells(int, trace.ModuleId) *set.AnySortedSet[trace.CellRef]
 }
 
 // Evaluable captures something which can be evaluated on a given table row to
@@ -42,6 +42,7 @@ type Contextual interface {
 type Evaluable interface {
 	util.Boundable
 	Contextual
+	Substitutable
 	// EvalAt evaluates this expression in a given tabular context.
 	// Observe that if this expression is *undefined* within this
 	// context then it returns "nil".  An expression can be
@@ -54,12 +55,16 @@ type Evaluable interface {
 	Lisp(schema.Module) sexp.SExp
 }
 
-// Term represents a component of an AIR expression.
-type Term[T any] interface {
-	Contextual
-	Evaluable
-	util.Boundable
+// Substitutable captures the notion of a term which may contain labelled
+// constants that can be substituted.
+type Substitutable interface {
+	// Substitute any matchined labelled constants within this constraint
+	Substitute(map[string]fr.Element)
+}
 
+// Shiftable captures something which can contain row shifted accesses, and
+// where we want information or to manipulate those accesses.
+type Shiftable[T any] interface {
 	// ApplyShift applies a given shift to all variable accesses in a given term
 	// by a given amount. This can be used to normalise shifting in certain
 	// circumstances.
@@ -68,6 +73,15 @@ type Term[T any] interface {
 	// ShiftRange returns the minimum and maximum shift value used anywhere in
 	// the given term.
 	ShiftRange() (int, int)
+}
+
+// Term represents a component of an AIR expression.
+type Term[T any] interface {
+	Contextual
+	Shiftable[T]
+	Evaluable
+	util.Boundable
+	Substitutable
 
 	// Simplify constant expressions down to single values.  For example, "(+ 1
 	// 2)" would be collapsed down to "3".  This is then progagated throughout
@@ -90,6 +104,7 @@ type Term[T any] interface {
 type Testable interface {
 	util.Boundable
 	Contextual
+	Substitutable
 	// TestAt evaluates this expression in a given tabular context and checks it
 	// against zero. Observe that if this expression is *undefined* within this
 	// context then it returns "nil".  An expression can be undefined for
@@ -105,7 +120,9 @@ type Testable interface {
 // For example, an equality comparing two arithmetic terms is a logical term.
 type LogicalTerm[T any] interface {
 	Contextual
+	Shiftable[T]
 	Testable
+
 	// Simplify constant expressions down to single values.  For example, "(+ 1
 	// 2)" would be collapsed down to "3".  This is then progagated throughout
 	// an expression, so that e.g. "(+ X (+ 1 2))" becomes "(+ X 3)"", etc.

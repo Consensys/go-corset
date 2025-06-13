@@ -88,15 +88,12 @@ func NewInspector(term *termio.Terminal, schema sc.AnySchema, trace tr.Trace, sr
 		// only consider modules which actually have columns.
 		if len(module.Columns) > 0 {
 			//
-			mid, ok := trace.HasModule(module.Name)
-			//
-			if !ok {
+			if _, ok := trace.HasModule(module.Name); !ok {
 				// This should be unreachable.
 				panic(fmt.Sprintf("unknown module \"%s\"", module.Name))
 			}
 			//
-			trModule := trace.Module(mid)
-			states = append(states, newModuleState(&module, trModule, srcmap.Enumerations, true))
+			states = append(states, newModuleState(&module, trace, srcmap.Enumerations, true))
 		}
 	}
 	//
@@ -270,7 +267,7 @@ func (p *Inspector) CellAt(col, row uint) termio.FormattedText {
 	state := &p.modules[module]
 	// Get cell out of module view, noting that we are deliberately swapping row
 	// and column.
-	return state.view.CellAt(state.module, row, col)
+	return state.view.CellAt(state.trace, row, col)
 }
 
 // Start provides a read / update / render loop.
@@ -335,7 +332,7 @@ func initInspectorWidgets(term *termio.Terminal, states []ModuleState) (tabs *wi
 func initInspectorTabs(states []ModuleState) *widget.Tabs {
 	var titles []string
 	for _, state := range states {
-		titles = append(titles, state.module.Name())
+		titles = append(titles, state.name)
 	}
 	//
 	return widget.NewTabs(titles...)

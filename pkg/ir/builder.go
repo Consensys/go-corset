@@ -145,7 +145,7 @@ func (p *ModuleBuilder[C, T]) AddConstraint(constraint C) {
 // These are the computations used to assign values to all computed columns
 // in this module.
 func (p *ModuleBuilder[C, T]) Assignments() iter.Iterator[schema.Assignment] {
-	panic("todo")
+	return iter.NewArrayIterator(p.assignments)
 }
 
 // Consistent applies a number of internal consistency checks.  Whilst not
@@ -168,7 +168,8 @@ func (p *ModuleBuilder[C, T]) Consistent(schema schema.AnySchema) []error {
 // Constraints provides access to those constraints associated with this
 // module.
 func (p *ModuleBuilder[C, T]) Constraints() iter.Iterator[schema.Constraint] {
-	panic("todo")
+	i := iter.NewArrayIterator(p.constraints)
+	return iter.NewCastIterator[C, schema.Constraint](i)
 }
 
 // Id returns the module index of this module.

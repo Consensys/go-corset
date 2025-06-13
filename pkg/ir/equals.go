@@ -13,6 +13,7 @@
 package ir
 
 import (
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -38,6 +39,16 @@ func Equals[S LogicalTerm[S], T Term[T]](lhs T, rhs T) S {
 type Equal[S LogicalTerm[S], T Term[T]] struct {
 	Lhs Term[T]
 	Rhs Term[T]
+}
+
+// ApplyShift implementation for LogicalTerm interface.
+func (p *Equal[S, T]) ApplyShift(shift int) S {
+	return Equals[S](p.Lhs.ApplyShift(shift), p.Rhs.ApplyShift(shift))
+}
+
+// ShiftRange implementation for LogicalTerm interface.
+func (p *Equal[S, T]) ShiftRange() (int, int) {
+	return shiftRangeOfTerms[T](p.Lhs.(T), p.Rhs.(T))
 }
 
 // Bounds implementation for Boundable interface.
@@ -87,9 +98,9 @@ func (p *Equal[S, T]) RequiredRegisters() *set.SortedSet[uint] {
 }
 
 // RequiredCells implementation for Contextual interface
-func (p *Equal[S, T]) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
-	set := p.Lhs.RequiredCells(row, tr)
-	set.InsertSorted(p.Rhs.RequiredCells(row, tr))
+func (p *Equal[S, T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
+	set := p.Lhs.RequiredCells(row, mid)
+	set.InsertSorted(p.Rhs.RequiredCells(row, mid))
 	//
 	return set
 }
@@ -117,4 +128,10 @@ func (p *Equal[S, T]) Simplify(casts bool) S {
 	var tmp LogicalTerm[S] = &Equal[S, T]{lhs, rhs}
 	// Done
 	return tmp.(S)
+}
+
+// Substitute implementation for Substitutable interface.
+func (p *Equal[S, T]) Substitute(mapping map[string]fr.Element) {
+	p.Lhs.Substitute(mapping)
+	p.Rhs.Substitute(mapping)
 }

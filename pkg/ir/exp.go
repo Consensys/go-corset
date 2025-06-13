@@ -70,13 +70,18 @@ func (p *Exp[T]) RequiredRegisters() *set.SortedSet[uint] {
 }
 
 // RequiredCells implementation for Contextual interface
-func (p *Exp[T]) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
-	return p.Arg.RequiredCells(row, tr)
+func (p *Exp[T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
+	return p.Arg.RequiredCells(row, mid)
 }
 
 // ShiftRange implementation for Term interface.
 func (p *Exp[T]) ShiftRange() (int, int) {
 	return p.Arg.ShiftRange()
+}
+
+// Substitute implementation for Substitutable interface.
+func (p *Exp[T]) Substitute(mapping map[string]fr.Element) {
+	p.Arg.Substitute(mapping)
 }
 
 // Simplify implementation for Term interface.
@@ -103,5 +108,8 @@ func (p *Exp[T]) Simplify(casts bool) T {
 
 // ValueRange implementation for Term interface.
 func (p *Exp[T]) ValueRange(module schema.Module) *util.Interval {
-	panic("todo")
+	bounds := p.Arg.ValueRange(module)
+	bounds.Exp(uint(p.Pow))
+	//
+	return bounds
 }

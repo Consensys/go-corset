@@ -15,6 +15,7 @@ package constraint
 import (
 	"fmt"
 
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -44,8 +45,7 @@ func (p *VanishingFailure) Message() string {
 
 // RequiredCells identifies the cells required to evaluate the failing constraint at the failing row.
 func (p *VanishingFailure) RequiredCells(tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
-	module := tr.Module(p.Context)
-	return p.Constraint.RequiredCells(int(p.Row), module)
+	return p.Constraint.RequiredCells(int(p.Row), p.Context)
 }
 
 func (p *VanishingFailure) String() string {
@@ -234,6 +234,11 @@ func (p VanishingConstraint[T]) Lisp(schema schema.AnySchema) sexp.SExp {
 			sexp.NewSymbol(name)}),
 		p.Constraint.Lisp(module),
 	})
+}
+
+// Substitute any matchined labelled constants within this constraint
+func (p VanishingConstraint[T]) Substitute(mapping map[string]fr.Element) {
+	p.Constraint.Substitute(mapping)
 }
 
 func determineHandle(handle string, ctx schema.ModuleId, tr trace.Trace) string {

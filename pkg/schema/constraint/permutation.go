@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -146,6 +147,11 @@ func (p PermutationConstraint) Lisp(schema schema.AnySchema) sexp.SExp {
 		targets,
 		sources,
 	})
+}
+
+// Substitute any matchined labelled constants within this constraint
+func (p PermutationConstraint) Substitute(map[string]fr.Element) {
+	// nothing to do here
 }
 
 func sliceColumns(columns []schema.RegisterId, tr trace.Module) []field.FrArray {

@@ -51,25 +51,25 @@ type TraceWindow interface {
 // NewTraceWindow constructs a window into a trace which includes all of the
 // given cells, plus some amount of padding on either side (i.e. additional rows
 // before and after to help with context).
-func NewTraceWindow(cells CellRefSet, module tr.Module, padding uint, srcmap *corset.SourceMap) TraceWindow {
+func NewTraceWindow(cells CellRefSet, trace tr.Trace, padding uint, srcmap *corset.SourceMap) TraceWindow {
 	// Determine corset-level columns to show in this window.  Observe that
 	// registers do not directly correspond with columns at the corset level, as
 	// one register can represent multiple corset columns (e.g. in different
 	// perspectives).
-	columns := determineSourceColumns(cells, module, srcmap)
+	columns := determineSourceColumns(cells, trace, srcmap)
 	// Determine row bounds
-	start, end := determineWindowBounds(cells, module, padding)
+	start, end := determineWindowBounds(cells, trace, padding)
 	//
 	return &traceWindow{
 		rows:       determineWindowRows(start, end),
 		columns:    determineWindowColumns(columns),
-		data:       determineWindowData(start, end, columns, module),
-		highlights: determineWindowHighlights(start, end, cells, columns, module),
+		data:       determineWindowData(start, end, columns, trace),
+		highlights: determineWindowHighlights(start, end, cells, columns),
 	}
 }
 
 // Determine complete set of source columns.
-func determineSourceColumns(cells CellRefSet, module tr.Module, srcmap *corset.SourceMap) []SourceColumn {
+func determineSourceColumns(cells CellRefSet, trace tr.Trace, srcmap *corset.SourceMap) []SourceColumn {
 	var (
 		ncolumns []SourceColumn
 		seen     bit.Set
@@ -77,19 +77,20 @@ func determineSourceColumns(cells CellRefSet, module tr.Module, srcmap *corset.S
 	//
 	if srcmap == nil {
 		// Fall back when corset source mapping unavailable.
-		return determineSourceColumnsFromTrace(cells, module)
+		return determineSourceColumnsFromTrace(cells, trace)
 	}
 	//
-	mod := determineEnclosingModule(module, srcmap.Root)
+	mod := determineEnclosingModule(cells, trace, srcmap.Root)
 	// Reuse existing functionality from inspector to determine set of all modules.
 	columns := inspector.ExtractSourceColumns(util.NewAbsolutePath(""), mod.Selector, mod.Columns, mod.Submodules)
 	//
 	for _, c := range cells.ToArray() {
-		if !seen.Contains(c.Column) {
-			column := determineSourceColumn(c, module, columns)
+		index := c.Column.Index(trace.Width())
+		if !seen.Contains(index) {
+			column := determineSourceColumn(c, trace, columns)
 			ncolumns = append(ncolumns, column)
 			// Don't include column more than once.
-			seen.Insert(c.Column)
+			seen.Insert(index)
 		}
 	}
 	//
@@ -100,28 +101,34 @@ func determineSourceColumns(cells CellRefSet, module tr.Module, srcmap *corset.S
 // truth.  This means, for example, that perspectives are not properly accounted
 // for.  Likewise, any display information given on the original column
 // definition is ignored.
-func determineSourceColumnsFromTrace(cells CellRefSet, module tr.Module) []SourceColumn {
+func determineSourceColumnsFromTrace(cells CellRefSet, trace tr.Trace) []SourceColumn {
 	var (
 		columns   []SourceColumn
 		registers bit.Set
 	)
 	// Compute relevant registers
 	for iter := cells.Iter(); iter.HasNext(); {
-		registers.Insert(iter.Next().Column)
+		// Determine unique column index
+		index := iter.Next().Column.Index(trace.Width())
+		// Store it as seen.
+		registers.Insert(index)
 	}
 	// Include all relevant registers, using defaults as necessary to fill the
 	// missing gaps.
-	for i := uint(0); i != module.Width(); i++ {
-		if registers.Contains(i) {
-			column := module.Column(i)
-			columns = append(columns, SourceColumn{
-				Name:     column.Name(),
-				Computed: false,
-				Selector: util.None[string](),
-				Display:  corset.DISPLAY_HEX,
-				Register: i,
-			})
-		}
+	for iter := registers.Iter(); iter.HasNext(); {
+		cell := iter.Next()
+		// Reconstruct the column reference
+		cref := tr.NewIndexedColumnRef(cell, trace.Width())
+		// Extract column in question
+		column := trace.Column(cref)
+		// Append it
+		columns = append(columns, SourceColumn{
+			Name:     column.Name(),
+			Computed: false,
+			Selector: util.None[string](),
+			Display:  corset.DISPLAY_HEX,
+			Register: cref,
+		})
 	}
 	//
 	return columns
@@ -132,10 +139,21 @@ func determineSourceColumnsFromTrace(cells CellRefSet, module tr.Module) []Sourc
 // no unique module we can refer to.  The purpose of identifying the enclosing
 // module is simply to improve the column names reported (i.e. in some cases we
 // can ommit the module itself from the name as this is just repeated).
-func determineEnclosingModule(module tr.Module, root corset.SourceModule) corset.SourceModule {
-	// If we get here then we have a unique enclosing module.  There we just
-	// need to find the corresponding source module.
-	name := module.Name()
+func determineEnclosingModule(cells CellRefSet, trace tr.Trace, root corset.SourceModule) corset.SourceModule {
+	var name string
+	// Attempt to reconstruct the enclosing modules name.
+	for i, cr := range cells.ToArray() {
+		// Determine enclosing column
+		n := trace.Module(cr.Column.Module()).Name()
+		// Convert module name back to a context
+		context := corset.ContextOf(n)
+		//
+		if i == 0 {
+			name = context.ModuleId
+		} else if name != context.ModuleId {
+			panic(fmt.Sprintf("conflicting submodules (%s vs %s)", name, context.ModuleId))
+		}
+	}
 	//
 	if name == "" {
 		return root
@@ -147,15 +165,15 @@ func determineEnclosingModule(module tr.Module, root corset.SourceModule) corset
 }
 
 // Find the unique source column to which a given cell references.
-func determineSourceColumn(cell tr.CellRef, module tr.Module, columns []SourceColumn) SourceColumn {
+func determineSourceColumn(cell tr.CellRef, trace tr.Trace, columns []SourceColumn) SourceColumn {
 	for _, col := range columns {
-		if col.Register == cell.Column && isActiveColumn(cell.Row, col, module) {
+		if col.Register == cell.Column && isActiveColumn(cell.Row, col, trace) {
 			return col
 		}
 	}
 	// In theory, this should be unreachable.  In practice, it can be triggered.
 	// Therefore we use a suitable default instead.
-	column := module.Column(cell.Column)
+	column := trace.Column(cell.Column)
 	//
 	return SourceColumn{
 		Name:     column.Name(),
@@ -170,11 +188,12 @@ func determineSourceColumn(cell tr.CellRef, module tr.Module, columns []SourceCo
 // trace.  A column which has no selector is always active.  Otherwise, the
 // column is considered active if the given selector evaluates to a non-zero
 // value on the given row.
-func isActiveColumn(row int, col SourceColumn, module tr.Module) bool {
+func isActiveColumn(row int, col SourceColumn, trace tr.Trace) bool {
 	if col.Selector.IsEmpty() {
 		return true
 	}
-	//
+	// Lookup enclosing module
+	module := trace.Module(col.Register.Module())
 	// Check selector value
 	val := module.ColumnOf(col.Selector.Unwrap()).Get(row)
 	//
@@ -182,19 +201,21 @@ func isActiveColumn(row int, col SourceColumn, module tr.Module) bool {
 }
 
 // Determine which rows to include in the given window.
-func determineWindowBounds(cells CellRefSet, module tr.Module, padding uint) (uint, uint) {
+func determineWindowBounds(cells CellRefSet, trace tr.Trace, padding uint) (uint, uint) {
 	var (
-		start int = math.MaxInt
-		end   int = 0
+		start  int  = math.MaxInt
+		end    int  = 0
+		height uint = 0
 	)
 	// Determine all (input) cells involved in evaluating the given constraint
 	for _, c := range cells.ToArray() {
 		start = min(start, c.Row)
 		end = max(end, c.Row+1)
+		height = max(height, trace.Column(c.Column).Data().Len())
 	}
 	// apply padding
 	start = max(start-int(padding), 0)
-	end = min(end+int(padding), int(module.Height()))
+	end = min(end+int(padding), int(height))
 	//
 	return uint(start), uint(end)
 }
@@ -219,7 +240,7 @@ func determineWindowRows(start, end uint) []string {
 	return rows
 }
 
-func determineWindowData(start, end uint, columns []SourceColumn, trace tr.Module) [][]string {
+func determineWindowData(start, end uint, columns []SourceColumn, trace tr.Trace) [][]string {
 	var data = make([][]string, end-start)
 	//
 	for r := start; r < end; r++ {
@@ -238,10 +259,10 @@ func determineWindowData(start, end uint, columns []SourceColumn, trace tr.Modul
 	return data
 }
 
-func determineWindowHighlights(start, end uint, cells CellRefSet, columns []SourceColumn, trace tr.Module) [][]bool {
+func determineWindowHighlights(start, end uint, cells CellRefSet, columns []SourceColumn) [][]bool {
 	var (
 		highlights = make([][]bool, end-start)
-		mapping    = make([]uint, trace.Width())
+		mapping    = make(map[tr.ColumnRef]uint, 0)
 	)
 	// Initialise register mapping
 	for i, reg := range columns {

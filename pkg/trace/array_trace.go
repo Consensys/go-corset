@@ -35,6 +35,11 @@ func NewArrayTrace(modules []ArrayModule) *ArrayTrace {
 	return &ArrayTrace{modules}
 }
 
+// Column accesses a given column directly via a reference.
+func (p *ArrayTrace) Column(cref ColumnRef) Column {
+	return p.modules[cref.Module()].Column(cref.Column().index)
+}
+
 // HasModule determines whether this trace has a module with the given name and,
 // if so, what its module index is.
 func (p *ArrayTrace) HasModule(module string) (uint, bool) {

@@ -16,12 +16,15 @@ import (
 	_ "embed"
 	"fmt"
 	"math"
+	"strconv"
+	"strings"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/corset/compiler"
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
 
@@ -153,7 +156,7 @@ func (p *Compiler[M]) Compile() (schema.MixedSchema[M, mir.Module], SourceMap, [
 		panic(cerrs)
 	}
 	// Construct source map
-	source_map := constructSourceMap(scope, environment)
+	source_map := constructSourceMap(mixedSchema, scope, environment)
 	// Construct binary file
 	return mixedSchema, *source_map, errs
 }
@@ -169,12 +172,16 @@ func includeStdlib(stdlib bool, srcfiles []*source.File) []*source.File {
 	return srcfiles
 }
 
-func constructSourceMap(scope *compiler.ModuleScope, env compiler.GlobalEnvironment) *SourceMap {
+func constructSourceMap(schema schema.AnySchema, scope *compiler.ModuleScope,
+	env compiler.GlobalEnvironment) *SourceMap {
+	//
 	enumerations := []Enumeration{OPCODE_ENUMERATION}
-	return &SourceMap{constructSourceModule(scope, env), enumerations}
+	return &SourceMap{constructSourceModule(schema, scope, env), enumerations}
 }
 
-func constructSourceModule(scope *compiler.ModuleScope, env compiler.GlobalEnvironment) SourceModule {
+func constructSourceModule(schema schema.AnySchema, scope *compiler.ModuleScope,
+	env compiler.GlobalEnvironment) SourceModule {
+	//
 	var (
 		columns    []SourceColumn
 		submodules []SourceModule
@@ -183,7 +190,7 @@ func constructSourceModule(scope *compiler.ModuleScope, env compiler.GlobalEnvir
 	// Map source-level columns
 	for _, col := range scope.DestructuredColumns() {
 		// Determine register allocated to this (destructured) column.
-		regId := env.RegisterOf(&col.Name)
+		ref := determineRegisterRef(col.Name, schema, env)
 		// Determine (unqualified) column name
 		name := col.Name.Tail()
 		//
@@ -194,9 +201,8 @@ func constructSourceModule(scope *compiler.ModuleScope, env compiler.GlobalEnvir
 			col.Bitwidth,
 			col.MustProve,
 			col.Computed,
-			col.Internal,
 			display,
-			regId}
+			ref}
 		columns = append(columns, srcCol)
 	}
 	// Map source-level constants
@@ -216,7 +222,7 @@ func constructSourceModule(scope *compiler.ModuleScope, env compiler.GlobalEnvir
 	}
 	//
 	for _, child := range scope.Children() {
-		submodules = append(submodules, constructSourceModule(child, env))
+		submodules = append(submodules, constructSourceModule(schema, child, env))
 	}
 	//
 	return SourceModule{
@@ -228,6 +234,30 @@ func constructSourceModule(scope *compiler.ModuleScope, env compiler.GlobalEnvir
 		Columns:    columns,
 		Constants:  constants,
 	}
+}
+
+// Determine the reference reference in the schema which corresponds with a
+// given (Corset) path.
+func determineRegisterRef(path util.Path, sc schema.AnySchema, env compiler.GlobalEnvironment) schema.RegisterRef {
+	var (
+		mid schema.ModuleId
+		rid schema.RegisterId
+		ok  bool
+	)
+	// First, determine the corresponding Corset register associated with the
+	// given path.
+	reg := env.Register(env.RegisterOf(&path))
+	// Now, lookup the corresponding schema module.
+	if mid, ok = sc.HasModule(reg.Context.ModuleName()); !ok {
+		panic(fmt.Sprintf("unknown module \"%s\"", reg.Context.ModuleName()))
+	}
+	// Now, lookup the corresponding register.
+	if rid, ok = sc.Module(mid).HasRegister(reg.Name()); !ok {
+		// Should be unreachable
+		panic(fmt.Sprintf("unknown register \"%s\"", reg.Name()))
+	}
+	//
+	return schema.NewRegisterRef(mid, rid)
 }
 
 func constructDisplayModifier(modifier string) uint {
@@ -248,6 +278,30 @@ func constructDisplayModifier(modifier string) uint {
 // OPCODE_ENUMERATION provides a default enumeration for the existing ":opcode"
 // display modifier.
 var OPCODE_ENUMERATION map[fr.Element]string = map[fr.Element]string{}
+
+// ContextOf attempts to reconstruct an AST context from a given module name.
+// This is helpful if we want to know the "root" module for a given family of
+// related modules (i.e. modules from the same Corset module which have
+// different length multipliers).
+func ContextOf(name string) ast.Context {
+	var (
+		split      = strings.Split(name, "×")
+		multiplier = 1
+		err        error
+	)
+	//
+	if len(split) == 2 {
+		multiplier, err = strconv.Atoi(split[1])
+		//
+		if err != nil {
+			panic(fmt.Sprintf("invalid module name %s", name))
+		}
+	} else if len(split) != 1 {
+		panic(fmt.Sprintf("invalid module name %s", name))
+	}
+	//
+	return ast.NewContext(split[0], uint(multiplier))
+}
 
 func init() {
 	OPCODE_ENUMERATION[fr.NewElement(0)] = "STOP"

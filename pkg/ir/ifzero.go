@@ -40,9 +40,14 @@ func IfElse[S LogicalTerm[S], T Term[T]](condition S, trueBranch T, falseBranch 
 }
 
 // ApplyShift implementation for Term interface.
-func (p *IfZero[S, T]) ApplyShift(int) T {
-	// Need to add ApplyShift to LogicalTerm
-	panic("todo")
+func (p *IfZero[S, T]) ApplyShift(shift int) T {
+	var (
+		c  = p.Condition.ApplyShift(shift)
+		tb = p.TrueBranch.ApplyShift(shift)
+		fb = p.FalseBranch.ApplyShift(shift)
+	)
+	//
+	return IfElse(c, tb, fb)
 }
 
 // Bounds returns max shift in either the negative (left) or positive
@@ -98,24 +103,35 @@ func (p *IfZero[S, T]) RequiredRegisters() *set.SortedSet[uint] {
 }
 
 // RequiredCells implementation for Contextual interface
-func (p *IfZero[S, T]) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
-	set := p.Condition.RequiredCells(row, tr)
+func (p *IfZero[S, T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
+	set := p.Condition.RequiredCells(row, mid)
 	// Include true branch
-	set.InsertSorted(p.TrueBranch.RequiredCells(row, tr))
+	set.InsertSorted(p.TrueBranch.RequiredCells(row, mid))
 	// Include false branch
-	set.InsertSorted(p.FalseBranch.RequiredCells(row, tr))
+	set.InsertSorted(p.FalseBranch.RequiredCells(row, mid))
 	// Done
 	return set
 }
 
 // ShiftRange implementation for Term interface.
 func (p *IfZero[S, T]) ShiftRange() (int, int) {
-	panic("todo")
+	cMin, cMax := p.Condition.ShiftRange()
+	tMin, tMax := p.TrueBranch.ShiftRange()
+	fMin, fMax := p.FalseBranch.ShiftRange()
+	//
+	return min(cMin, tMin, fMin), max(cMax, tMax, fMax)
 }
 
 // ValueRange implementation for Term interface.
 func (p *IfZero[S, T]) ValueRange(module schema.Module) *util.Interval {
 	panic("todo")
+}
+
+// Substitute implementation for Substitutable interface.
+func (p *IfZero[S, T]) Substitute(mapping map[string]fr.Element) {
+	p.Condition.Substitute(mapping)
+	p.FalseBranch.Substitute(mapping)
+	p.TrueBranch.Substitute(mapping)
 }
 
 // Simplify implementation for Term interface.

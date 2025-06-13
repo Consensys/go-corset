@@ -13,6 +13,7 @@
 package ir
 
 import (
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -38,6 +39,37 @@ type Ite[T LogicalTerm[T]] struct {
 func IfThenElse[T LogicalTerm[T]](condition T, trueBranch T, falseBranch T) T {
 	var term LogicalTerm[T] = &Ite[T]{condition, trueBranch, falseBranch}
 	return term.(T)
+}
+
+// ApplyShift implementation for LogicalTerm interface.
+func (p *Ite[T]) ApplyShift(shift int) T {
+	var (
+		c  = p.Condition.ApplyShift(shift)
+		tb T
+		fb T
+	)
+	//
+	if p.TrueBranch != nil {
+		tb = p.TrueBranch.ApplyShift(shift)
+	}
+	//
+	if p.FalseBranch != nil {
+		fb = p.FalseBranch.ApplyShift(shift)
+	}
+	//
+	return IfThenElse(c, tb, fb)
+}
+
+// ShiftRange implementation for LogicalTerm interface.
+func (p *Ite[T]) ShiftRange() (int, int) {
+	switch {
+	case p.TrueBranch == nil:
+		return shiftRangeOfTerms(p.Condition, p.FalseBranch.(T))
+	case p.FalseBranch == nil:
+		return shiftRangeOfTerms(p.Condition, p.TrueBranch.(T))
+	default:
+		return shiftRangeOfTerms(p.Condition, p.TrueBranch.(T), p.FalseBranch.(T))
+	}
 }
 
 // Bounds returns max shift in either the negative (left) or positive
@@ -118,15 +150,15 @@ func (p *Ite[T]) RequiredRegisters() *set.SortedSet[uint] {
 }
 
 // RequiredCells implementation for Contextual interface
-func (p *Ite[T]) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
-	set := p.Condition.RequiredCells(row, tr)
+func (p *Ite[T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
+	set := p.Condition.RequiredCells(row, mid)
 	// Include true branch (if applicable)
 	if p.TrueBranch != nil {
-		set.InsertSorted(p.TrueBranch.RequiredCells(row, tr))
+		set.InsertSorted(p.TrueBranch.RequiredCells(row, mid))
 	}
 	// Include false branch (if applicable)
 	if p.FalseBranch != nil {
-		set.InsertSorted(p.FalseBranch.RequiredCells(row, tr))
+		set.InsertSorted(p.FalseBranch.RequiredCells(row, mid))
 	}
 	// Done
 	return set
@@ -184,4 +216,17 @@ func (p *Ite[T]) Simplify(casts bool) T {
 	var term LogicalTerm[T] = &Ite[T]{cond, trueBranch, falseBranch}
 	//
 	return term.(T)
+}
+
+// Substitute implementation for Substitutable interface.
+func (p *Ite[T]) Substitute(mapping map[string]fr.Element) {
+	p.Condition.Substitute(mapping)
+	//
+	if p.FalseBranch != nil {
+		p.FalseBranch.Substitute(mapping)
+	}
+	//
+	if p.TrueBranch != nil {
+		p.TrueBranch.Substitute(mapping)
+	}
 }

@@ -56,6 +56,9 @@ type Schema[C any] interface {
 	// compiled into vanishing polynomials but, instead, are used purely for
 	// debugging.
 	Constraints() iter.Iterator[C]
+	// HasModule checks whether a module with the given name exists and, if so,
+	// returns its module identifier.  Otherwise, it returns false.
+	HasModule(name string) (ModuleId, bool)
 	// Access a given module in this schema.
 	Module(module uint) Module
 	// Modules returns an iterator over the declared set of modules within this
