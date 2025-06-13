@@ -16,6 +16,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
+	"math"
 
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
@@ -110,6 +111,18 @@ func (p MixedSchema[M1, M2]) Constraints() iter.Iterator[Constraint] {
 // values for all computed columns within the schema.
 func (p MixedSchema[M1, M2]) Expand(trace.Trace) (trace.Trace, []error) {
 	panic("todo")
+}
+
+// HasModule checks whether a module with the given name exists and, if so,
+// returns its module identifier.  Otherwise, it returns false.
+func (p MixedSchema[M1, M2]) HasModule(name string) (ModuleId, bool) {
+	for i := range p.Width() {
+		if p.Module(i).Name() == name {
+			return i, true
+		}
+	}
+	// Fail
+	return math.MaxUint, false
 }
 
 // Module returns a given module in this schema.

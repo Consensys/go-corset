@@ -15,6 +15,7 @@ package schema
 import (
 	"bytes"
 	"encoding/gob"
+	"math"
 
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 )
@@ -57,6 +58,18 @@ func (p UniformSchema[M]) Consistent() []error {
 // schema.
 func (p UniformSchema[M]) Constraints() iter.Iterator[Constraint] {
 	return constraintsOf(p.modules)
+}
+
+// HasModule checks whether a module with the given name exists and, if so,
+// returns its module identifier.  Otherwise, it returns false.
+func (p UniformSchema[M]) HasModule(name string) (ModuleId, bool) {
+	for i := range p.Width() {
+		if p.Module(i).Name() == name {
+			return i, true
+		}
+	}
+	// Fail
+	return math.MaxUint, false
 }
 
 // Module provides access to a given module in this schema.

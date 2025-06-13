@@ -49,11 +49,10 @@ func (p *LookupFailure) String() string {
 
 // RequiredCells identifies the cells required to evaluate the failing constraint at the failing row.
 func (p *LookupFailure) RequiredCells(tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
-	module := tr.Module(p.Context)
 	res := set.NewAnySortedSet[trace.CellRef]()
 	//
 	for _, e := range p.Sources {
-		res.InsertSorted(e.RequiredCells(int(p.Row), module))
+		res.InsertSorted(e.RequiredCells(int(p.Row), p.Context))
 	}
 	//
 	return res

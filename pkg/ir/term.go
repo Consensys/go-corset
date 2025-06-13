@@ -32,7 +32,7 @@ type Contextual interface {
 	RequiredRegisters() *set.SortedSet[uint]
 	// RequiredCells returns the set of trace cells on which evaluation of this
 	// constraint element depends.
-	RequiredCells(int, trace.Module) *set.AnySortedSet[trace.CellRef]
+	RequiredCells(int, trace.ModuleId) *set.AnySortedSet[trace.CellRef]
 }
 
 // Evaluable captures something which can be evaluated on a given table row to

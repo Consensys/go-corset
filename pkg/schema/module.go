@@ -36,6 +36,9 @@ type Module interface {
 	// strictly necessary, these can highlight otherwise hidden problems as an aid
 	// to debugging.
 	Consistent(Schema[Constraint]) []error
+	// HasRegister checks whether a register with the given name exists and, if
+	// so, returns its register identifier.  Otherwise, it returns false.
+	HasRegister(name string) (RegisterId, bool)
 	// Identifies the length multiplier for this module.  For every trace, the
 	// height of the corresponding module must be a multiple of this.  This is
 	// used specifically to support interleaving constraints.
@@ -148,6 +151,18 @@ func (p Table[C]) Consistent(schema Schema[Constraint]) []error {
 	}
 	// Done
 	return errors
+}
+
+// HasRegister checks whether a register with the given name exists and, if
+// so, returns its register identifier.  Otherwise, it returns false.
+func (p Table[C]) HasRegister(name string) (RegisterId, bool) {
+	for i := range p.Width() {
+		if p.registers[i].Name == name {
+			return NewRegisterId(i), true
+		}
+	}
+	// Fail
+	return NewUnusedRegisterId(), false
 }
 
 // Name returns the module name.

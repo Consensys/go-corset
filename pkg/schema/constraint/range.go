@@ -52,8 +52,7 @@ func (p *RangeFailure) String() string {
 
 // RequiredCells identifies the cells required to evaluate the failing constraint at the failing row.
 func (p *RangeFailure) RequiredCells(tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
-	module := tr.Module(p.Context)
-	return p.Expr.RequiredCells(int(p.Row), module)
+	return p.Expr.RequiredCells(int(p.Row), p.Context)
 }
 
 // RangeConstraint restricts all values for a given expression to be within a

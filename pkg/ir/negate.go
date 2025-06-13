@@ -75,8 +75,8 @@ func (p *Negate[T]) RequiredRegisters() *set.SortedSet[uint] {
 }
 
 // RequiredCells implementation for Contextual interface
-func (p *Negate[T]) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
-	return p.Arg.RequiredCells(row, tr)
+func (p *Negate[T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
+	return p.Arg.RequiredCells(row, mid)
 }
 
 // Simplify this Negate as much as reasonably possible.

@@ -77,7 +77,7 @@ func requiredRegistersOfTerms[T Contextual](args []T) *set.SortedSet[uint] {
 	})
 }
 
-func requiredCellsOfTerms[T Contextual](args []T, row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
+func requiredCellsOfTerms[T Contextual](args []T, row int, tr trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
 	return set.UnionAnySortedSets(args, func(term T) *set.AnySortedSet[trace.CellRef] {
 		return term.RequiredCells(row, tr)
 	})

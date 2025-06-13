@@ -110,8 +110,8 @@ func (e *psuedoInverse) RequiredRegisters() *set.SortedSet[uint] {
 
 // RequiredCells returns the set of trace cells on which this term depends.
 // In this case, that is the empty set.
-func (e *psuedoInverse) RequiredCells(row int, module trace.Module) *set.AnySortedSet[trace.CellRef] {
-	return e.Expr.RequiredCells(row, module)
+func (e *psuedoInverse) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
+	return e.Expr.RequiredCells(row, mid)
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example

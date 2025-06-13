@@ -19,6 +19,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 )
 
@@ -55,39 +56,23 @@ func normaliseBitwidth(bitwidth uint) uint {
 	}
 }
 
-// Identify the nth register declared in this schema.
-func getNthRegister(schema sc.AnySchema, rid uint) sc.Register {
-	register := uint(0)
-	//
-	for mid := range schema.Width() {
-		for _, reg := range schema.Module(mid).Registers() {
-			// Check whether this is part of our module
-			if register == rid {
-				// Match
-				return reg
-			}
-
-			register++
-		}
-	}
-	// Should be unreachable.
-	panic(fmt.Sprintf("register index out-of-bounds (%d)", rid))
-}
-
 // Determine total number of registers, including those for computed columns, in
 // this schema.
-func getRegisterCount(schema sc.AnySchema) uint {
-	count := uint(0)
+func getMaxRegisterIndex(schema sc.AnySchema) uint {
+	mx := uint(0)
 	// Write register initialisers
 	for mid := range schema.Width() {
-		count += schema.Module(mid).Width()
+		mx = max(mx, schema.Module(mid).Width())
 	}
 	//
-	return count
+	return mx * schema.Width()
 }
 
-func toRegisterName(register uint, name string) string {
-	return fmt.Sprintf("r%d_%s", register, toCamelCase(name))
+func toRegisterName(register schema.RegisterRef, name string) string {
+	mid := register.Module()
+	rid := register.Register().Unwrap()
+	//
+	return fmt.Sprintf("r%d_%d_%s", mid, rid, toCamelCase(name))
 }
 
 // Capitalise each word

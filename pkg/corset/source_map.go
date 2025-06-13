@@ -18,7 +18,9 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/binfile"
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/bit"
 )
 
 // SourceMap is a binary file attribute which provides debugging
@@ -96,6 +98,14 @@ func (p *SourceModule) Submodule(name string) *SourceModule {
 	return nil
 }
 
+// Registers returns the set of underlying registers declared in this module.
+// This only makes sense for non-virtual modules, and essentially includes all
+// columns declare in this module or any of its virtual children.
+func (p *SourceModule) Registers(nModules uint) []SourceColumn {
+	var visited bit.Set
+	return determineRegisters(*p, nModules, &visited)
+}
+
 // Flattern modules in this tree either including (or excluding) virtual
 // modules.
 func (p *SourceModule) Flattern(predicate func(*SourceModule) bool) []SourceModule {
@@ -146,15 +156,14 @@ type SourceColumn struct {
 	MustProve bool
 	// Determines whether this is a Computed column.
 	Computed bool
-	// Determines whether this is considered to be an "internal" column.  This
-	// is a form of computed column which is filled externally (i.e. at the
-	// assembly level).
-	Internal bool
 	// Display modifier for column. Here 0-256 are reserved, and values >256 are
 	// entries in Enumerations map.  More specifically, 0=hex, 1=dec, 2=bytes.
 	Display uint
-	// Register at HIR level to which this column is mapped.
-	Register uint
+	// Register in the generate schema to which this Corset register is mapped.
+	// Observe that this has to be a reference, rather than just an ID.  This is
+	// because a column in a given corset module may map into a different module
+	// in the underlying schema (i.e. for interleavings).
+	Register schema.RegisterRef
 }
 
 // DISPLAY_HEX shows values in hex
@@ -182,6 +191,31 @@ type SourceConstant struct {
 	// Indicates whether this is an "externally visible" constant.  That is, one
 	// whose value can be changed after the fact.
 	Extern bool
+}
+
+// Identify all fundamental columns declared in this module.  The visited set is
+// used to ensure the final list contains each column only once.
+func determineRegisters(module SourceModule, width uint, visited *bit.Set) []SourceColumn {
+	var (
+		cols []SourceColumn
+	)
+	// Update visited set
+	for _, c := range module.Columns {
+		index := c.Register.Index(width)
+		if !visited.Contains(index) {
+			visited.Insert(index)
+			//
+			cols = append(cols, c)
+		}
+	}
+	// Explore all virtual submodules
+	for _, m := range module.Submodules {
+		if m.Virtual {
+			cols = append(cols, determineRegisters(m, width, visited)...)
+		}
+	}
+	// Done
+	return cols
 }
 
 func init() {

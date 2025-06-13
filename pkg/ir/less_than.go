@@ -106,9 +106,9 @@ func (p *Inequality[S, T]) Bounds() util.Bounds {
 }
 
 // TestAt implementation for Testable interface.
-func (p *Inequality[S, T]) TestAt(k int, tr trace.Module) (bool, uint, error) {
-	lhs, err1 := p.Lhs.EvalAt(k, tr)
-	rhs, err2 := p.Rhs.EvalAt(k, tr)
+func (p *Inequality[S, T]) TestAt(k int, mid trace.Module) (bool, uint, error) {
+	lhs, err1 := p.Lhs.EvalAt(k, mid)
+	rhs, err2 := p.Rhs.EvalAt(k, mid)
 	// error check
 	if err1 != nil {
 		return false, 0, err1
@@ -153,7 +153,7 @@ func (p *Inequality[S, T]) RequiredRegisters() *set.SortedSet[uint] {
 }
 
 // RequiredCells implementation for Contextual interface
-func (p *Inequality[S, T]) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
+func (p *Inequality[S, T]) RequiredCells(row int, tr trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
 	set := p.Lhs.RequiredCells(row, tr)
 	set.InsertSorted(p.Rhs.RequiredCells(row, tr))
 	//

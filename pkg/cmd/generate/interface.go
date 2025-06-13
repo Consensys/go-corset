@@ -169,7 +169,7 @@ func generateInterfaceColumnSetters(className string, mod corset.SourceModule,
 	for _, column := range mod.Columns {
 		var methodName string = column.Name
 		//
-		if !column.Computed && !column.Internal {
+		if !column.Computed {
 			if mod.Virtual {
 				methodName = toCamelCase(fmt.Sprintf("p_%s_%s", mod.Name, methodName))
 			}

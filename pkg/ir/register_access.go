@@ -103,9 +103,12 @@ func (p *RegisterAccess[T]) RequiredRegisters() *set.SortedSet[uint] {
 }
 
 // RequiredCells implementation for Contextual interface
-func (p *RegisterAccess[T]) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
-	set := set.NewAnySortedSet[trace.CellRef]()
-	set.Insert(trace.NewCellRef(p.Register.Unwrap(), row+p.Shift))
+func (p *RegisterAccess[T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
+	var (
+		set = set.NewAnySortedSet[trace.CellRef]()
+		ref = trace.NewColumnRef(mid, p.Register)
+	)
+	set.Insert(trace.NewCellRef(ref, row+p.Shift))
 	//
 	return set
 }

@@ -149,15 +149,15 @@ func (p *Ite[T]) RequiredRegisters() *set.SortedSet[uint] {
 }
 
 // RequiredCells implementation for Contextual interface
-func (p *Ite[T]) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
-	set := p.Condition.RequiredCells(row, tr)
+func (p *Ite[T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
+	set := p.Condition.RequiredCells(row, mid)
 	// Include true branch (if applicable)
 	if p.TrueBranch != nil {
-		set.InsertSorted(p.TrueBranch.RequiredCells(row, tr))
+		set.InsertSorted(p.TrueBranch.RequiredCells(row, mid))
 	}
 	// Include false branch (if applicable)
 	if p.FalseBranch != nil {
-		set.InsertSorted(p.FalseBranch.RequiredCells(row, tr))
+		set.InsertSorted(p.FalseBranch.RequiredCells(row, mid))
 	}
 	// Done
 	return set

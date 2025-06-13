@@ -42,9 +42,6 @@ type Expr interface {
 	Dependencies() []Symbol
 }
 
-// Context represents the evaluation context for a given expression.
-type Context = RawContext[string]
-
 // ============================================================================
 // Addition
 // ============================================================================
@@ -274,7 +271,7 @@ func (e *Constant) AsConstant() *big.Int {
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
 func (e *Constant) Context() Context {
-	return VoidContext[string]()
+	return VoidContext()
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
@@ -1123,9 +1120,9 @@ func (e *VariableAccess) Context() Context {
 	if binding, ok := e.binding.(*ColumnBinding); ok {
 		return binding.Context()
 	} else if _, ok := e.Binding().(*ConstantBinding); ok {
-		return VoidContext[string]()
+		return VoidContext()
 	} else if _, ok := e.Binding().(*LocalVariableBinding); ok {
-		return VoidContext[string]()
+		return VoidContext()
 	}
 	//
 	panic("invalid column access")
@@ -1162,7 +1159,7 @@ func (e *VariableAccess) Type() Type {
 // there are expressions with different contexts then the conflicted context
 // will be returned.  Otherwise, the one consistent context will be returned.
 func ContextOfExpressions(exprs ...Expr) (Context, uint) {
-	context := VoidContext[string]()
+	context := VoidContext()
 	//
 	for i, e := range exprs {
 		context = context.Join(e.Context())

@@ -51,14 +51,10 @@ func (p *InterleavingFailure) String() string {
 
 // RequiredCells identifies the cells required to evaluate the failing constraint at the failing row.
 func (p *InterleavingFailure) RequiredCells(tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
-	var (
-		srcModule = tr.Module(p.SourceContext)
-		tgtModule = tr.Module(p.TargetContext)
-		res       = set.NewAnySortedSet[trace.CellRef]()
-	)
+	var res = set.NewAnySortedSet[trace.CellRef]()
 	//
-	res.InsertSorted(p.Source.RequiredCells(int(p.Row), srcModule))
-	res.InsertSorted(p.Target.RequiredCells(int(p.Row), tgtModule))
+	res.InsertSorted(p.Source.RequiredCells(int(p.Row), p.SourceContext))
+	res.InsertSorted(p.Target.RequiredCells(int(p.Row), p.TargetContext))
 	//
 	return res
 }

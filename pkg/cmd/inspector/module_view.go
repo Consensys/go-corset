@@ -28,6 +28,8 @@ import (
 type ModuleView struct {
 	// Offsets into the module data.
 	row, col uint
+	// Maximum number of rows in any column
+	height uint
 	// Columns currently being shown in this view.  For example, only columns
 	// matching the currently active filter would be in this array.
 	columns []SourceColumn
@@ -60,12 +62,17 @@ func (p *ModuleView) SetRow(row uint) uint {
 
 // SetActiveColumns sets the currently active set of columns.  This updates the
 // current column title width, as as well as the maximum width for every row.
-func (p *ModuleView) SetActiveColumns(module tr.Module, columns []SourceColumn) {
+func (p *ModuleView) SetActiveColumns(trace tr.Trace, columns []SourceColumn) {
 	p.columns = columns
+	p.height = 0
+	// Recalculate module height
+	for _, c := range p.columns {
+		p.height = max(p.height, trace.Column(c.Register).Data().Len())
+	}
 	// Recalculate maximum title width
 	p.colTitleWidth = p.recalculateColumnTitleWidth()
 	// Recalculate row widths
-	p.rowWidths = p.recalculateRowWidths(module)
+	p.rowWidths = p.recalculateRowWidths(trace)
 }
 
 // RowWidth returns the width of the largest element in a given row.  Observe
@@ -87,7 +94,7 @@ func (p *ModuleView) RowWidth(row uint) uint {
 // CellAt returns a textual representation of the data at a given column and row
 // in the module's view.  Observe that the first row and column typically show
 // titles.
-func (p *ModuleView) CellAt(module tr.Module, col, row uint) termio.FormattedText {
+func (p *ModuleView) CellAt(trace tr.Trace, col, row uint) termio.FormattedText {
 	if row == 0 && col == 0 {
 		return termio.NewText("")
 	}
@@ -112,11 +119,11 @@ func (p *ModuleView) CellAt(module tr.Module, col, row uint) termio.FormattedTex
 		return termio.NewText("")
 	}
 	// Determine value at given trace column / row
-	val := p.ValueAt(module, trCol, trRow)
+	val := p.ValueAt(trace, trCol, trRow)
 	// Generate textual representation of value, and clip accordingly.
 	str := clipValue(p.display(trCol, val), p.rowWidths[trRow])
 	//
-	if p.IsActive(module, trCol, trRow) {
+	if p.IsActive(trace, trCol, trRow) {
 		// Calculate appropriate colour for this cell.
 		return termio.NewFormattedText(str, cellColour(val))
 	} else {
@@ -125,18 +132,21 @@ func (p *ModuleView) CellAt(module tr.Module, col, row uint) termio.FormattedTex
 }
 
 // ValueAt extracts the data point at a given rol and column in the trace.
-func (p *ModuleView) ValueAt(module tr.Module, trCol, trRow uint) fr.Element {
+func (p *ModuleView) ValueAt(trace tr.Trace, trCol, trRow uint) fr.Element {
 	// Determine underlying register for the given column.
-	regId := p.columns[trCol].Register
+	ref := p.columns[trCol].Register
 	// Extract cell value from register
-	return module.Column(regId).Get(int(trRow))
+	return trace.Column(ref).Get(int(trRow))
 }
 
 // IsActive determines whether a given cell is active, or not.  A cell can be
 // inactive, for example, if its part of a perspective which is not active.
-func (p *ModuleView) IsActive(module tr.Module, trCol, trRow uint) bool {
+func (p *ModuleView) IsActive(trace tr.Trace, trCol, trRow uint) bool {
+	// Determine enclosing module
+	module := trace.Module(p.columns[trCol].Register.Module())
+	// Extract relevant selector
 	selector := p.columns[trCol].Selector
-	//
+	// Santity check whether actually need to do anything
 	if selector.IsEmpty() {
 		return true
 	}
@@ -185,11 +195,8 @@ func (p *ModuleView) recalculateColumnTitleWidth() uint {
 	return uint(maxWidth)
 }
 
-func (p *ModuleView) recalculateRowWidths(module tr.Module) []uint {
-	// Determine how many rows we have
-	nrows := module.Height()
-	//
-	widths := make([]uint, nrows)
+func (p *ModuleView) recalculateRowWidths(module tr.Trace) []uint {
+	widths := make([]uint, p.height)
 	//
 	for row := uint(0); row < uint(len(widths)); row++ {
 		maxWidth := uint(0)

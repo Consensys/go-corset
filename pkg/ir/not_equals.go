@@ -102,9 +102,9 @@ func (p *NotEqual[S, T]) RequiredRegisters() *set.SortedSet[uint] {
 }
 
 // RequiredCells implementation for Contextual interface
-func (p *NotEqual[S, T]) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
-	set := p.Lhs.RequiredCells(row, tr)
-	set.InsertSorted(p.Rhs.RequiredCells(row, tr))
+func (p *NotEqual[S, T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
+	set := p.Lhs.RequiredCells(row, mid)
+	set.InsertSorted(p.Rhs.RequiredCells(row, mid))
 	//
 	return set
 }

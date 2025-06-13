@@ -66,7 +66,7 @@ func (p *LabelledConst[T]) RequiredRegisters() *set.SortedSet[uint] {
 }
 
 // RequiredCells implementation for Contextual interface
-func (p *LabelledConst[T]) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
+func (p *LabelledConst[T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
 	return set.NewAnySortedSet[trace.CellRef]()
 }
 

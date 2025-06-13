@@ -81,8 +81,8 @@ func (p *Add[T]) RequiredRegisters() *set.SortedSet[uint] {
 }
 
 // RequiredCells implementation for Contextual interface
-func (p *Add[T]) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
-	return requiredCellsOfTerms(p.Args, row, tr)
+func (p *Add[T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
+	return requiredCellsOfTerms(p.Args, row, mid)
 }
 
 // ShiftRange implementation for Term interface.

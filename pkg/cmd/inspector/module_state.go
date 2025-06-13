@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/corset"
+	"github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/termio"
@@ -27,8 +28,10 @@ import (
 // ModuleState provides state regarding how to display the trace for a given
 // module, including related aspects like filter histories, etc.
 type ModuleState struct {
-	// Corresponding trace module
-	module tr.Module
+	// Corresponding trace
+	trace tr.Trace
+	// Name of the source-level module
+	name string
 	// Identifies trace columns in this module.
 	columns []SourceColumn
 	// Active module view
@@ -56,7 +59,7 @@ type SourceColumn struct {
 	// Display modifier
 	Display uint
 	// Register to which this column is allocated
-	Register uint
+	Register schema.RegisterRef
 }
 
 // SourceColumnFilter packages up everything needed for filtering columns in a
@@ -84,7 +87,7 @@ func (p *SourceColumnFilter) Match(col SourceColumn) bool {
 	return false
 }
 
-func newModuleState(module *corset.SourceModule, trModule tr.Module, enums []corset.Enumeration,
+func newModuleState(module *corset.SourceModule, trace tr.Trace, enums []corset.Enumeration,
 	recurse bool) ModuleState {
 	//
 	var (
@@ -96,7 +99,7 @@ func newModuleState(module *corset.SourceModule, trModule tr.Module, enums []cor
 		submodules = module.Submodules
 	}
 	//
-	state.module = trModule
+	state.trace = trace
 	// Include all columns initially
 	state.columnFilter.Computed = true
 	state.columnFilter.UserDefined = true
@@ -111,7 +114,7 @@ func newModuleState(module *corset.SourceModule, trModule tr.Module, enums []cor
 	state.view.maxRowWidth = 16
 	state.view.enumerations = enums
 	// Finalise view
-	state.view.SetActiveColumns(trModule, state.columns)
+	state.view.SetActiveColumns(trace, state.columns)
 	//
 	return state
 }
@@ -148,7 +151,7 @@ func (p *ModuleState) applyColumnFilter(filter SourceColumnFilter, history bool)
 		}
 	}
 	// Update the view
-	p.view.SetActiveColumns(p.module, filteredColumns)
+	p.view.SetActiveColumns(p.trace, filteredColumns)
 	// Save active filter
 	p.columnFilter = filter
 	// Update selection and history
@@ -170,7 +173,7 @@ func (p *ModuleState) matchQuery(query *Query) termio.FormattedText {
 	env := make(map[string]tr.Column)
 	// construct environment
 	for _, col := range p.columns {
-		env[col.Name] = p.module.Column(col.Register)
+		env[col.Name] = p.trace.Column(col.Register)
 	}
 	// evaluate forward
 	for i := uint(0); i < p.height(); i++ {

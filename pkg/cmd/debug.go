@@ -163,10 +163,6 @@ func sourceColumnAttrs(col corset.SourceColumn) []string {
 		attrs = append(attrs, "computed")
 	}
 	//
-	if col.Internal {
-		attrs = append(attrs, "internal")
-	}
-	//
 	if col.MustProve {
 		attrs = append(attrs, "proved")
 	}

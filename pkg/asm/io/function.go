@@ -86,6 +86,18 @@ func (p *Function[T]) Consistent(schema.Schema[schema.Constraint]) []error {
 	return nil
 }
 
+// HasRegister checks whether a register with the given name exists and, if
+// so, returns its register identifier.  Otherwise, it returns false.
+func (p *Function[T]) HasRegister(name string) (RegisterId, bool) {
+	for i, r := range p.registers {
+		if r.Name == name {
+			return schema.NewRegisterId(uint(i)), true
+		}
+	}
+	// Failed
+	return schema.NewUnusedRegisterId(), false
+}
+
 // Inputs returns the set of input registers for this function.
 func (p *Function[T]) Inputs() []Register {
 	var inputs []Register

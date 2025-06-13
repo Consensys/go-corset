@@ -103,7 +103,7 @@ func (t *translator) translateModule(name string) {
 			// Identify register info
 			regInfo = t.env.Register(regIndex)
 			// Determine corresponding module name
-			moduleName = t.moduleNameOf(regInfo.Context)
+			moduleName = regInfo.Context.ModuleName()
 		)
 		// Check whether module created this already (or not)
 		if _, ok := t.schema.HasModule(moduleName); !ok {
@@ -125,7 +125,7 @@ func (t *translator) translateModuleRegisters(corsetRegisters []uint) {
 			// Identify register info
 			regInfo = t.env.Register(regIndex)
 			// Identify enclosing MIR module
-			module = t.schema.ModuleOf(t.moduleNameOf(regInfo.Context))
+			module = t.schema.ModuleOf(regInfo.Context.ModuleName())
 			//
 			reg schema.Register
 		)
@@ -263,7 +263,7 @@ func (t *translator) translateDeclaration(decl ast.Declaration, path util.Path) 
 
 // Translate a "defcomputed" declaration.
 func (t *translator) translateDefComputed(decl *ast.DefComputed, path util.Path) []SyntaxError {
-	var context ast.Context = ast.VoidContext[string]()
+	var context ast.Context = ast.VoidContext()
 	//
 	targets := make([]schema.RegisterRef, len(decl.Targets))
 	sources := make([]schema.RegisterRef, len(decl.Sources))
@@ -468,7 +468,7 @@ func (t *translator) translateDefInterleaved(decl *ast.DefInterleaved, path util
 func (t *translator) translateDefPermutation(decl *ast.DefPermutation, path util.Path) []SyntaxError {
 	//
 	var (
-		context     ast.Context = ast.VoidContext[string]()
+		context     ast.Context = ast.VoidContext()
 		targets                 = make([]schema.RegisterId, len(decl.Sources))
 		targetTerms             = make([]mir.Term, len(decl.Sources))
 		sources                 = make([]schema.RegisterId, len(decl.Sources))
@@ -938,15 +938,6 @@ func (t *translator) registerOfArrayAccess(expr *ast.ArrayAccess, shift int) (*m
 }
 
 // Determine the appropriate name for a given module based on a module context.
-func (t *translator) moduleNameOf(context ast.Context) string {
-	if context.LengthMultiplier() == 1 {
-		return context.Module()
-	}
-	//
-	return fmt.Sprintf("%s×%d", context.Module(), context.LengthMultiplier())
-}
-
-// Determine the appropriate name for a given module based on a module context.
 func (t *translator) moduleOf(context ast.Context) *ModuleBuilder {
 	if context.IsVoid() {
 		// NOTE: the intuition behing the choice to return nil here is allow for
@@ -956,7 +947,7 @@ func (t *translator) moduleOf(context ast.Context) *ModuleBuilder {
 		return nil
 	}
 	//
-	return t.schema.ModuleOf(t.moduleNameOf(context))
+	return t.schema.ModuleOf(context.ModuleName())
 }
 
 // Map columns to appropriate module register identifiers.

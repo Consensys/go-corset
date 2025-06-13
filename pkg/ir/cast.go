@@ -79,8 +79,8 @@ func (p *Cast[T]) RequiredRegisters() *set.SortedSet[uint] {
 }
 
 // RequiredCells implementation for Contextual interface
-func (p *Cast[T]) RequiredCells(row int, tr trace.Module) *set.AnySortedSet[trace.CellRef] {
-	return p.Arg.RequiredCells(row, tr)
+func (p *Cast[T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
+	return p.Arg.RequiredCells(row, mid)
 }
 
 // Range returns the range of values which this cast represents.

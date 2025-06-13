@@ -23,7 +23,6 @@ import (
 	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/corset"
 	sc "github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/typed"
 )
 
@@ -48,12 +47,10 @@ func JavaTraceClass(filename string, pkgname string, super string, spillage []ui
 	if err != nil {
 		return "", err
 	}
-	// determine all visible registers
-	visible := determineVisibleRegisters(srcmap.Root)
 	// begin generation
 	generateClassHeader(pkgname, metadata, &builder)
 	generateClassContents(classname, super, srcmap.Root, metadata, spillage,
-		&binf.Schema, visible, indentBuilder{0, &builder})
+		&binf.Schema, indentBuilder{0, &builder})
 	//
 	return builder.String(), nil
 }
@@ -96,7 +93,7 @@ func generateClassHeader(pkgname string, metadata typed.Map, builder *strings.Bu
 }
 
 func generateClassContents(className string, super string, mod corset.SourceModule, metadata typed.Map, spillage []uint,
-	schema sc.AnySchema, visible bit.Set, builder indentBuilder) {
+	schema sc.AnySchema, builder indentBuilder) {
 	// Attempt to find module
 	mid, ok := schema.Modules().Find(func(m sc.Module) bool { return m.Name() == mod.Name })
 	// Sanity check we found it
@@ -112,29 +109,29 @@ func generateClassContents(className string, super string, mod corset.SourceModu
 		generateJavaModuleMetadata(metadata, builder.Indent())
 	}
 	//
-	generateJavaModuleHeaders(mid, mod, schema, visible, builder.Indent())
+	generateJavaModuleHeaders(mod, schema, builder.Indent())
 	//
-	generateJavaModuleRegisterFields(mid, schema, visible, builder.Indent())
+	generateJavaModuleRegisterFields(mod, schema, builder.Indent())
 	generateJavaModuleHeader(builder.Indent())
 	generateJavaModuleConstructor(className, mod, builder.Indent())
-	generateJavaModuleOpen(mid, mod, schema, visible, builder.Indent())
+	generateJavaModuleOpen(mod, schema, builder.Indent())
 	generateJavaModuleColumnSetters(className, mod, schema, builder.Indent())
 	generateJavaModuleSize(builder.Indent())
-	generateJavaModuleValidateRow(className, mid, mod, schema, visible, builder.Indent())
-	generateJavaModuleFillAndValidateRow(className, mid, schema, visible, builder.Indent())
+	generateJavaModuleValidateRow(className, mod, schema, builder.Indent())
+	generateJavaModuleFillAndValidateRow(className, mod, schema, builder.Indent())
 	// Generate any submodules
 	for _, submod := range mod.Submodules {
 		if !submod.Virtual {
 			name := toPascalCase(submod.Name)
 			superSub := fmt.Sprintf("%s.%s", super, name)
-			generateClassContents(name, superSub, submod, metadata, spillage, schema, visible, builder.Indent())
+			generateClassContents(name, superSub, submod, metadata, spillage, schema, builder.Indent())
 		} else {
 			generateJavaModuleColumnSetters(className, submod, schema, builder.Indent())
 		}
 	}
 	//
 	if mod.Name == "" {
-		ninputs := getRegisterCount(schema)
+		ninputs := getMaxRegisterIndex(schema)
 		// Write out constructor function.
 		constructor := strings.ReplaceAll(javaTraceOpen, "{class}", className)
 		constructor = strings.ReplaceAll(constructor, "{ninputs}", fmt.Sprintf("%d", ninputs))
@@ -161,32 +158,27 @@ func generateJavaClassFooter(builder indentBuilder) {
 	builder.WriteIndentedString("}\n")
 }
 
-func generateJavaModuleHeaders(module uint, mod corset.SourceModule, schema sc.AnySchema,
-	visible bit.Set, builder indentBuilder) {
+func generateJavaModuleHeaders(mod corset.SourceModule, schema sc.AnySchema, builder indentBuilder) {
 	//
 	i1Builder := builder.Indent()
 	// Count of created registers
 	count := uint(0)
-	register := uint(0)
 	//
 	builder.WriteIndentedString("public List<ColumnHeader> headers(int length) {\n")
 	i1Builder.WriteIndentedString("List<ColumnHeader> headers = new ArrayList<>();\n")
 	//
 	// Write register initialisers
-	for mid := range schema.Width() {
-		for _, reg := range schema.Module(mid).Registers() {
-			// Check whether this is part of our module
-			if module == mid && reg.IsInputOutput() && visible.Contains(register) {
-				byteWidth := fmt.Sprintf("%d", byteWidth(reg.Width))
-				name := fmt.Sprintf("%s.%s", mod.Name, reg.Name)
-				regStr := fmt.Sprintf("%d", register)
-				i1Builder.WriteIndentedString(
-					"headers.add(new ColumnHeader(\"", name, "\",", regStr, ",", byteWidth, ",length));\n")
-				//
-				count++
-			}
+	for _, col := range mod.Registers(schema.Width()) {
+		reg := schema.Register(col.Register)
+		// Check whether this is part of our module
+		if reg.IsInputOutput() {
+			byteWidth := fmt.Sprintf("%d", byteWidth(reg.Width))
+			name := fmt.Sprintf("%s.%s", mod.Name, reg.Name)
+			regStr := fmt.Sprintf("%d", col.Register.Index(schema.Width()))
+			i1Builder.WriteIndentedString(
+				"headers.add(new ColumnHeader(\"", name, "\",", regStr, ",", byteWidth, ",length));\n")
 			//
-			register++
+			count++
 		}
 	}
 	//
@@ -271,38 +263,27 @@ func inferJavaType(value big.Int) (string, string) {
 	return constructor, javaType
 }
 
-func generateJavaModuleRegisterFields(module uint, schema sc.AnySchema, visible bit.Set,
-	builder indentBuilder) uint {
-	//
-	register := uint(0)
+func generateJavaModuleRegisterFields(module corset.SourceModule, schema sc.AnySchema, builder indentBuilder) {
 	// Count of created registers
 	count := uint(0)
 	// Write register initialisers
-	for mid := range schema.Width() {
-		for _, reg := range schema.Module(mid).Registers() {
-			// Check whether this is part of our module
-			if module == mid && reg.IsInputOutput() && visible.Contains(register) {
-				// Yes, include register
-				if count == 0 {
-					builder.WriteIndentedString("// Registers\n")
-				}
-				// Determine suitable name for field
-				fieldName := toRegisterName(register, reg.Name)
-				//
-				builder.WriteIndentedString("private MappedByteBuffer ", fieldName, ";\n")
-				// increase count
-				count++
+	for _, col := range module.Registers(schema.Width()) {
+		// Determine underlying register
+		reg := schema.Register(col.Register)
+		// Check whether this is part of our module
+		if reg.IsInputOutput() {
+			// Yes, include register
+			if count == 0 {
+				builder.WriteIndentedString(fmt.Sprintf("// Registers from %s\n", module.Name))
 			}
+			// Determine suitable name for field
+			fieldName := toRegisterName(col.Register, reg.Name)
 			//
-			register++
+			builder.WriteIndentedString("private MappedByteBuffer ", fieldName, ";\n")
+			// increase count
+			count++
 		}
 	}
-	//
-	if count > 0 {
-		builder.WriteString("\n")
-	}
-	//
-	return count
 }
 
 func generateJavaModuleSubmoduleFields(submodules []corset.SourceModule, builder indentBuilder) {
@@ -380,26 +361,21 @@ func generateJavaModuleConstructor(classname string, mod corset.SourceModule, bu
 	builder.WriteIndentedString("}\n\n")
 }
 
-func generateJavaModuleOpen(module uint, mod corset.SourceModule, schema sc.AnySchema, visible bit.Set,
-	builder indentBuilder) {
+func generateJavaModuleOpen(mod corset.SourceModule, schema sc.AnySchema, builder indentBuilder) {
 	//
-	register := uint(0)
 	innerBuilder := builder.Indent()
 	//
 	builder.WriteIndentedString("private void open(MappedByteBuffer[] registers) {\n")
 	innerBuilder.WriteIndentedString("// initialise register(s)\n")
 	// Write register initialisers
-	for mid := range schema.Width() {
-		for _, reg := range schema.Module(mid).Registers() {
-			// Check whether this is part of our module
-			if module == mid && reg.IsInputOutput() && visible.Contains(register) {
-				// Yes, it is.
-				fieldName := toRegisterName(register, reg.Name)
-				registerStr := fmt.Sprintf("%d", register)
-				innerBuilder.WriteIndentedString("this.", fieldName, " = registers[", registerStr, "];\n")
-			}
-
-			register++
+	for _, col := range mod.Registers(schema.Width()) {
+		reg := schema.Register(col.Register)
+		// Check whether this is part of our module
+		if reg.IsInputOutput() {
+			// Yes, it is.
+			fieldName := toRegisterName(col.Register, reg.Name)
+			registerStr := fmt.Sprintf("%d", col.Register.Index(schema.Width()))
+			innerBuilder.WriteIndentedString("this.", fieldName, " = registers[", registerStr, "];\n")
 		}
 	}
 	//
@@ -436,7 +412,7 @@ func generateJavaModuleColumnSetters(className string, mod corset.SourceModule, 
 	for _, column := range mod.Columns {
 		var methodName string = column.Name
 		//
-		if !column.Computed && !column.Internal {
+		if !column.Computed {
 			if mod.Virtual {
 				methodName = toCamelCase(fmt.Sprintf("p_%s_%s", mod.Name, methodName))
 			}
@@ -451,10 +427,9 @@ func generateJavaModuleColumnSetter(className string, methodName string, col cor
 	//
 	methodName = toCamelCase(methodName)
 	bitwidth := col.Bitwidth
-	fieldName := toRegisterName(col.Register, getNthRegister(schema, col.Register).Name)
-	fmt.Printf("Register(%d) %s vs %s\n", col.Register, fieldName, col.Name)
+	fieldName := toRegisterName(col.Register, schema.Register(col.Register).Name)
 	//
-	indexStr := fmt.Sprintf("%d", col.Register) // BROKEN
+	indexStr := fmt.Sprintf("%d", col.Register.Index(schema.Width()))
 	typeStr := getJavaType(bitwidth)
 	i1Builder := builder.Indent()
 	i2Builder := i1Builder.Indent()
@@ -530,28 +505,24 @@ func generateJavaModuleBytesPutter(columnName, fieldName string, bitwidth uint, 
 	builder.WriteIndentedString(fmt.Sprintf("for(int i=0; i<bs.size(); i++) { %s.put(bs.get(i)); }\n", fieldName))
 }
 
-func generateJavaModuleValidateRow(className string, module uint, mod corset.SourceModule, schema sc.AnySchema,
-	visible bit.Set, builder indentBuilder) {
+func generateJavaModuleValidateRow(className string, mod corset.SourceModule, schema sc.AnySchema,
+	builder indentBuilder) {
 	//
 	i1Builder := builder.Indent()
 	i2Builder := i1Builder.Indent()
-	register := uint(0)
 	//
 	builder.WriteIndentedString("public ", className, " validateRow() {\n")
 	// Write register initialisers
-	for mid := range schema.Width() {
-		for _, reg := range schema.Module(mid).Registers() {
-			// Check whether this is part of our module
-			if module == mid && reg.IsInputOutput() && visible.Contains(register) {
-				name := fmt.Sprintf("%s.%s", mod.Name, reg.Name)
-				regstr := fmt.Sprintf("%d", register)
-				// Yes, include register
-				i1Builder.WriteIndentedString("if(!filled.get(", regstr, ")) {\n")
-				i2Builder.WriteIndentedString("throw new IllegalStateException(\"", name, " has not been filled.\");\n")
-				i1Builder.WriteIndentedString("}\n")
-			}
-			//
-			register++
+	for _, col := range mod.Registers(schema.Width()) {
+		reg := schema.Register(col.Register)
+		// Check whether this is part of our module
+		if reg.IsInputOutput() {
+			name := fmt.Sprintf("%s.%s", mod.Name, reg.Name)
+			regstr := fmt.Sprintf("%d", col.Register.Index(schema.Width()))
+			// Yes, include register
+			i1Builder.WriteIndentedString("if(!filled.get(", regstr, ")) {\n")
+			i2Builder.WriteIndentedString("throw new IllegalStateException(\"", name, " has not been filled.\");\n")
+			i1Builder.WriteIndentedString("}\n")
 		}
 	}
 	//
@@ -561,29 +532,25 @@ func generateJavaModuleValidateRow(className string, module uint, mod corset.Sou
 	builder.WriteIndentedString("}\n\n")
 }
 
-func generateJavaModuleFillAndValidateRow(className string, module uint, schema sc.AnySchema,
-	visible bit.Set, builder indentBuilder) {
+func generateJavaModuleFillAndValidateRow(className string, mod corset.SourceModule, schema sc.AnySchema,
+	builder indentBuilder) {
 	//
 	i1Builder := builder.Indent()
 	i2Builder := i1Builder.Indent()
-	register := uint(0)
 	//
 	builder.WriteIndentedString("public ", className, " fillAndValidateRow() {\n")
 	//
-	for mid := range schema.Width() {
-		for _, reg := range schema.Module(mid).Registers() {
-			// Check whether this is part of our module
-			if module == mid && reg.IsInputOutput() && visible.Contains(register) {
-				name := toRegisterName(register, reg.Name)
-				regstr := fmt.Sprintf("%d", register)
-				byteWidth := fmt.Sprintf("%d", byteWidth(reg.Width))
-				// Yes, include register
-				i1Builder.WriteIndentedString("if(!filled.get(", regstr, ")) {\n")
-				i2Builder.WriteIndentedString(name, ".position(", name, ".position() + ", byteWidth, ");\n")
-				i1Builder.WriteIndentedString("}\n")
-			}
-			//
-			register++
+	for _, col := range mod.Registers(schema.Width()) {
+		reg := schema.Register(col.Register)
+		// Check whether this is part of our module
+		if reg.IsInputOutput() {
+			name := toRegisterName(col.Register, reg.Name)
+			regstr := fmt.Sprintf("%d", col.Register.Index(schema.Width()))
+			byteWidth := fmt.Sprintf("%d", byteWidth(reg.Width))
+			// Yes, include register
+			i1Builder.WriteIndentedString("if(!filled.get(", regstr, ")) {\n")
+			i2Builder.WriteIndentedString(name, ".position(", name, ".position() + ", byteWidth, ");\n")
+			i1Builder.WriteIndentedString("}\n")
 		}
 	}
 	//
@@ -591,21 +558,4 @@ func generateJavaModuleFillAndValidateRow(className string, module uint, schema 
 	i1Builder.WriteIndentedString("this.currentLine++;\n")
 	i1Builder.WriteIndentedString("return this;\n")
 	builder.WriteIndentedString("}\n\n")
-}
-
-func determineVisibleRegisters(mod corset.SourceModule) bit.Set {
-	var visible bit.Set
-	//
-	for _, col := range mod.Columns {
-		if !col.Internal {
-			visible.Insert(col.Register)
-		}
-	}
-	//
-	for _, m := range mod.Submodules {
-		vs := determineVisibleRegisters(m)
-		visible.Union(vs)
-	}
-	//
-	return visible
 }
