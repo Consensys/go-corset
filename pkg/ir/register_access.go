@@ -136,7 +136,7 @@ func (p *RegisterAccess[T]) ValueRange(module schema.Module) *util.Interval {
 	width := int64(module.Register(p.Register).Width)
 	bound.Exp(bound, big.NewInt(width), nil)
 	// Subtract 1 because interval is inclusive.
-	bound.Sub(bound, big.NewInt(1))
+	bound.Sub(bound, &biONE)
 	// Done
-	return util.NewInterval(big.NewInt(0), bound)
+	return util.NewInterval(&biZERO, bound)
 }

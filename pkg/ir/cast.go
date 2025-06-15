@@ -28,12 +28,17 @@ import (
 type Cast[T Term[T]] struct {
 	Arg      T
 	BitWidth uint
+	Bound    fr.Element
 }
 
 // CastOf constructs a new expression which has been annotated by the user to be
 // within a given range.
 func CastOf[T Term[T]](arg T, bitwidth uint) T {
-	var term Term[T] = &Cast[T]{Arg: arg, BitWidth: bitwidth}
+	bound := fr.NewElement(2)
+	util.Pow(&bound, uint64(bitwidth))
+	// Construct term
+	var term Term[T] = &Cast[T]{Arg: arg, BitWidth: bitwidth, Bound: bound}
+	// Done
 	return term.(T)
 }
 
@@ -49,15 +54,10 @@ func (p *Cast[T]) Bounds() util.Bounds {
 
 // EvalAt implementation for Evaluable interface.
 func (p *Cast[T]) EvalAt(k int, tr trace.Module) (fr.Element, error) {
-	var c big.Int
-	//
-	cast := p.Range()
 	// Check whether argument evaluates to zero or not.
 	val, err := p.Arg.EvalAt(k, tr)
-	// Extract big integer from field element
-	val.BigInt(&c)
 	// Dynamic cast check
-	if err == nil && !cast.Contains(&c) {
+	if err == nil && val.Cmp(&p.Bound) >= 0 {
 		// Construct error
 		err = fmt.Errorf("cast failure (value %s not a u%d)", val.String(), p.BitWidth)
 	}
@@ -85,16 +85,13 @@ func (p *Cast[T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[t
 
 // Range returns the range of values which this cast represents.
 func (p *Cast[T]) Range() *util.Interval {
-	var (
-		zero  = big.NewInt(0)
-		bound = big.NewInt(2)
-	)
+	var bound = big.NewInt(2)
 	// Determine bound for static type check
 	bound.Exp(bound, big.NewInt(int64(p.BitWidth)), nil)
 	// Subtract 1 because interval is inclusive.
-	bound.Sub(bound, big.NewInt(1))
+	bound.Sub(bound, &biONE)
 	// Determine casted interval
-	return util.NewInterval(zero, bound)
+	return util.NewInterval(&biZERO, bound)
 }
 
 // ShiftRange implementation for Term interface.
