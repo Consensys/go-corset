@@ -16,6 +16,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"runtime"
+	"runtime/pprof"
 
 	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/cmd/check"
@@ -49,7 +51,9 @@ var checkCmd = &cobra.Command{
 		if GetFlag(cmd, "verbose") {
 			log.SetLevel(log.DebugLevel)
 		}
-
+		// Configure CPU profiling (if requested)
+		startCpuProfiling(cmd)
+		//
 		batched := GetFlag(cmd, "batched")
 		//
 		cfg.padding.Right = GetUint(cmd, "padding")
@@ -70,7 +74,42 @@ var checkCmd = &cobra.Command{
 		tracefile := args[0]
 		//
 		checkWithLegacyPipeline(cfg, batched, tracefile, schemas)
+		// Write memory profiling (if requested)
+		writeMemProfile(cmd)
 	},
+}
+
+func startCpuProfiling(cmd *cobra.Command) {
+	if filename := GetString(cmd, "cpuprof"); filename != "" {
+		f, err := os.Create(filename)
+		if err != nil {
+			log.Fatal("could not create CPU profile: ", err)
+		}
+		// nolint
+		defer f.Close()
+		//
+		if err := pprof.StartCPUProfile(f); err != nil {
+			log.Fatal("could not start CPU profile: ", err)
+		}
+		//
+		defer pprof.StopCPUProfile()
+	}
+}
+
+func writeMemProfile(cmd *cobra.Command) {
+	if filename := GetString(cmd, "memprof"); filename != "" {
+		f, err := os.Create(filename)
+		if err != nil {
+			log.Fatal("could not create memory profile: ", err)
+		}
+		//nolint
+		defer f.Close()
+		runtime.GC()
+		//
+		if err := pprof.Lookup("allocs").WriteTo(f, 0); err != nil {
+			log.Fatal("could not write memory profile: ", err)
+		}
+	}
 }
 
 // check config encapsulates certain parameters to be used when
@@ -288,4 +327,7 @@ func init() {
 	checkCmd.Flags().Bool("batched", false,
 		"specify trace file is batched (i.e. contains multiple traces, one for each line)")
 	checkCmd.Flags().Bool("ansi-escapes", true, "specify whether to allow ANSI escapes or not (e.g. for colour reports)")
+	// profiling commands'
+	checkCmd.Flags().String("cpuprof", "", "write cpu profile to `file`")
+	checkCmd.Flags().String("memprof", "", "write memory profile to `file`")
 }
