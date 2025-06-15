@@ -17,6 +17,8 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"runtime"
+	"runtime/pprof"
 
 	"github.com/consensys/go-corset/pkg/asm"
 	"github.com/consensys/go-corset/pkg/asm/io"
@@ -53,6 +55,9 @@ var checkCmd = &cobra.Command{
 		if GetFlag(cmd, "verbose") {
 			log.SetLevel(log.DebugLevel)
 		}
+		// Configure CPU profiling (if requested)
+		startCpuProfiling(cmd)
+		//
 		optimisation := GetUint(cmd, "opt")
 		batched := GetFlag(cmd, "batched")
 		//
@@ -106,7 +111,42 @@ var checkCmd = &cobra.Command{
 		if cfg.air || cfg.mir || cfg.hir {
 			checkWithLegacyPipeline(cfg, batched, externs, tracefile, constraints)
 		}
+		// Write memory profiling (if requested)
+		writeMemProfile(cmd)
 	},
+}
+
+func startCpuProfiling(cmd *cobra.Command) {
+	if filename := GetString(cmd, "cpuprof"); filename != "" {
+		f, err := os.Create(filename)
+		if err != nil {
+			log.Fatal("could not create CPU profile: ", err)
+		}
+		// nolint
+		defer f.Close()
+		//
+		if err := pprof.StartCPUProfile(f); err != nil {
+			log.Fatal("could not start CPU profile: ", err)
+		}
+		//
+		defer pprof.StopCPUProfile()
+	}
+}
+
+func writeMemProfile(cmd *cobra.Command) {
+	if filename := GetString(cmd, "memprof"); filename != "" {
+		f, err := os.Create(filename)
+		if err != nil {
+			log.Fatal("could not create memory profile: ", err)
+		}
+		//nolint
+		defer f.Close()
+		runtime.GC()
+		//
+		if err := pprof.Lookup("allocs").WriteTo(f, 0); err != nil {
+			log.Fatal("could not write memory profile: ", err)
+		}
+	}
 }
 
 // check config encapsulates certain parameters to be used when
@@ -420,4 +460,7 @@ func init() {
 		"specify amount of splillage to account for (where -1 indicates this should be inferred)")
 	checkCmd.Flags().Bool("ansi-escapes", true, "specify whether to allow ANSI escapes or not (e.g. for colour reports)")
 	checkCmd.Flags().StringArrayP("set", "S", []string{}, "set value of externalised constant.")
+	// profiling commands'
+	checkCmd.Flags().String("cpuprof", "", "write cpu profile to `file`")
+	checkCmd.Flags().String("memprof", "", "write memory profile to `file`")
 }
