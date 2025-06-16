@@ -180,20 +180,25 @@ func (p LookupConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
 		tgtHeight = tr.Module(p.TargetContext).Height()
 		//
 		rows = hash.NewSet[hash.BytesKey](tgtHeight)
+		// Construct reusable buffer
+		buffer = make([]byte, 32*len(p.Sources))
 	)
 	// Add all target columns to the set
-	for i := 0; i < int(tgtHeight); i++ {
-		ith_bytes, err := evalExprsAsBytes(i, p.Targets, p.Handle, p.TargetContext, tgtModule)
+	for i := range tgtHeight {
+		ith_bytes, err := evalExprsAsBytes(int(i), p.Targets, p.Handle, p.TargetContext, tgtModule, buffer[:])
 		// error check
 		if err != nil {
 			return coverage, err
 		}
-
-		rows.Insert(hash.NewBytesKey(ith_bytes))
+		// Insert item, whilst checking whether the buffer was consumed or not.
+		if !rows.Insert(hash.NewBytesKey(ith_bytes)) {
+			// Yes, buffer consumed.  Therefore, construct a fresh buffer.
+			buffer = make([]byte, 32*len(p.Sources))
+		}
 	}
 	// Check all source columns are contained
-	for i := 0; i < int(srcHeight); i++ {
-		ith_bytes, err := evalExprsAsBytes(i, p.Sources, p.Handle, p.SourceContext, srcModule)
+	for i := range srcHeight {
+		ith_bytes, err := evalExprsAsBytes(int(i), p.Sources, p.Handle, p.SourceContext, srcModule, buffer[:])
 		// error check
 		if err != nil {
 			return coverage, err
@@ -206,10 +211,8 @@ func (p LookupConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
 			}
 			// Construct failures
 			return coverage, &LookupFailure{
-				p.Handle,
-				p.SourceContext,
-				sources,
-				uint(i),
+				p.Handle, p.SourceContext,
+				sources, i,
 			}
 		}
 	}
@@ -218,9 +221,7 @@ func (p LookupConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
 }
 
 func evalExprsAsBytes[E ir.Evaluable](k int, sources []E, handle string, ctx schema.ModuleId,
-	module trace.Module) ([]byte, schema.Failure) {
-	// Each fr.Element is 4 x 64bit words.
-	bytes := make([]byte, 32*len(sources))
+	module trace.Module, bytes []byte) ([]byte, schema.Failure) {
 	// Slice provides an access window for writing
 	slice := bytes
 	// Evaluate each expression in turn

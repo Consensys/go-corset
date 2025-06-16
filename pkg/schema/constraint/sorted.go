@@ -125,6 +125,10 @@ func (p SortedConstraint[E]) Accepts(trace trace.Trace) (bit.Set, schema.Failure
 	if bounds.End < height {
 		// Determine permitted range on delta value
 		deltaBound := p.deltaBound()
+		// Construct temporary buffers which are reused between evaluations to
+		// reduce memory pressure.
+		lhs := make([]fr.Element, len(p.Sources))
+		rhs := make([]fr.Element, len(p.Sources))
 		// Check all in-bounds values
 		for k := bounds.Start + 1; k < (height - bounds.End); k++ {
 			// Check selector
@@ -140,7 +144,7 @@ func (p SortedConstraint[E]) Accepts(trace trace.Trace) (bit.Set, schema.Failure
 				}
 			}
 			// Check sorting between rows k-1 and k
-			if ok, err := sorted(k-1, k, deltaBound, p.Sources, p.Signs, p.Strict, module); err != nil {
+			if ok, err := sorted(k-1, k, deltaBound, p.Sources, p.Signs, p.Strict, module, lhs, rhs); err != nil {
 				return coverage, &InternalFailure{Handle: p.Handle, Context: p.Context, Row: k, Error: err.Error()}
 			} else if !ok {
 				return coverage, &SortedFailure{fmt.Sprintf("sorted constraint \"%s\" failed (rows %d ~ %d)", p.Handle, k-1, k)}
@@ -217,19 +221,18 @@ func (p SortedConstraint[E]) deltaBound() fr.Element {
 }
 
 func sorted[E ir.Evaluable](first, second uint, bound fr.Element, sources []E, signs []bool, strict bool,
-	module trace.Module) (bool, error) {
+	module trace.Module, lhs []fr.Element, rhs []fr.Element) (bool, error) {
 	//
 	var (
-		delta    fr.Element
-		lhs, rhs []fr.Element
-		err      error
+		delta fr.Element
+		err   error
 	)
 	// Evaluate lhs
-	if lhs, err = evalExprsAt(first, sources, module); err != nil {
+	if err = evalExprsAt(first, sources, module, lhs); err != nil {
 		return false, err
 	}
 	// Evaluate rhs
-	if rhs, err = evalExprsAt(second, sources, module); err != nil {
+	if err = evalExprsAt(second, sources, module, rhs); err != nil {
 		return false, err
 	}
 	//
@@ -254,14 +257,12 @@ func sorted[E ir.Evaluable](first, second uint, bound fr.Element, sources []E, s
 	return !strict, nil
 }
 
-func evalExprsAt[E ir.Evaluable](k uint, sources []E, module trace.Module) ([]fr.Element, error) {
+func evalExprsAt[E ir.Evaluable](k uint, sources []E, module trace.Module, buffer []fr.Element) error {
 	var err error
-	//
-	values := make([]fr.Element, len(sources))
 	// Evaluate each expression in turn
 	for i := 0; err == nil && i < len(sources); i++ {
-		values[i], err = sources[i].EvalAt(int(k), module)
+		buffer[i], err = sources[i].EvalAt(int(k), module)
 	}
 	//
-	return values, err
+	return err
 }

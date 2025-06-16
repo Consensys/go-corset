@@ -15,7 +15,6 @@ package schema
 import (
 	"fmt"
 	"math"
-	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -676,19 +675,23 @@ func fillComputedColumns(refs []RegisterRef, cols []tr.ArrayColumn, trace *tr.Ar
 
 // Validate that all elements of a given column fit within a given bitwidth.
 func validateColumnBitWidth(bitwidth uint, col trace.Column, mod Module) error {
-	var biBound big.Int
+	// Sanity check bitwidth can be checked.
+	if bitwidth == math.MaxUint {
+		// This indicates a column which has no fixed bitwidth but, rather, uses
+		// the entire field element.  The only situation this arises in practice
+		// is for columns holding the multiplicative inverse of some other
+		// column.
+		return nil
+	}
+	//
+	var frBound fr.Element = fr.NewElement(2)
 	// Compute 2^n
-	biBound.Exp(big.NewInt(2), big.NewInt(int64(bitwidth)), nil)
+	util.Pow(&frBound, uint64(bitwidth))
 	//
 	for j := 0; j < int(col.Data().Len()); j++ {
-		var (
-			bi  big.Int
-			jth = col.Get(j)
-		)
-		// Convert field element to bigint
-		jth.BigInt(&bi)
+		var jth = col.Get(j)
 		//
-		if bi.Cmp(&biBound) >= 0 {
+		if jth.Cmp(&frBound) >= 0 {
 			qualColName := trace.QualifiedColumnName(mod.Name(), col.Name())
 			return fmt.Errorf("row %d of column %s is out-of-bounds (%s)", j, qualColName, jth.String())
 		}

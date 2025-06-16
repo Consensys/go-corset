@@ -14,6 +14,7 @@ package gadgets
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir"
@@ -51,9 +52,10 @@ func applyPseudoInverseGadget(e air.Term, module *air.ModuleBuilder) air.Term {
 	index, ok := module.HasRegister(name)
 	// Add new column (if it does not already exist)
 	if !ok {
-		// FIXME: this hard-coded constant will need to be changed at some
-		// point to properly support field agnosticity.
-		var bitwidth uint = uint(fr.Modulus().BitLen())
+		// FIXME: this hard-coded constant will need to be changed at some point
+		// to properly support field agnosticity.  Currently, this simply
+		// signals that the column has no bitwidth constraint.
+		var bitwidth uint = math.MaxUint
 		// Add computed register.
 		index = module.NewRegister(sc.NewComputedRegister(name, bitwidth))
 		// Add assignment

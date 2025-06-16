@@ -14,6 +14,7 @@ package ir
 
 import (
 	"fmt"
+	"math"
 	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
@@ -132,11 +133,24 @@ func (p *RegisterAccess[T]) Substitute(mapping map[string]fr.Element) {
 
 // ValueRange implementation for Term interface.
 func (p *RegisterAccess[T]) ValueRange(module schema.Module) *util.Interval {
-	bound := big.NewInt(2)
-	width := int64(module.Register(p.Register).Width)
-	bound.Exp(bound, big.NewInt(width), nil)
+	var (
+		bound = big.NewInt(2)
+		width = module.Register(p.Register).Width
+	)
+	// NOTE: the following is necessary because MaxUint is permitted as a signal
+	// that the given register has no fixed bitwidth.  Rather, it can consume
+	// all possible values of the underlying field element.
+	if width == math.MaxUint {
+		// FIXME: this is not really safe in a general context, how its fine
+		// since there are no optimisations which operate on 256bit ranges.  It
+		// would perhaps be better to return nil to indicate "infinity" or
+		// something similar.
+		width = 256
+	}
+	//
+	bound.Exp(bound, big.NewInt(int64(width)), nil)
 	// Subtract 1 because interval is inclusive.
-	bound.Sub(bound, big.NewInt(1))
+	bound.Sub(bound, &biONE)
 	// Done
-	return util.NewInterval(big.NewInt(0), bound)
+	return util.NewInterval(&biZERO, bound)
 }

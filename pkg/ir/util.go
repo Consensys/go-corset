@@ -14,6 +14,7 @@ package ir
 
 import (
 	"math"
+	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
@@ -23,6 +24,8 @@ import (
 )
 
 var (
+	biZERO big.Int    = *big.NewInt(0)
+	biONE  big.Int    = *big.NewInt(1)
 	frZERO fr.Element = fr.NewElement(0)
 	frONE  fr.Element = fr.NewElement(1)
 )

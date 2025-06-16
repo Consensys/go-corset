@@ -13,8 +13,6 @@
 package util
 
 import (
-	//"fmt"
-
 	"slices"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
@@ -32,31 +30,65 @@ func ArePermutationOf[T Array[fr.Element]](dst []T, src []T) bool {
 	if len(dst) != len(src) {
 		return false
 	}
-	// Determine geometry
-	ncols := len(dst)
+	//
 	nrows := dst[0].Len()
-	// Rotate input arrays
-	dstCopy := rotate(dst, ncols, nrows)
-	srcCopy := rotate(src, ncols, nrows)
-	// Sort rotated arrays
-	slices.SortFunc(dstCopy, permutationFunc)
-	slices.SortFunc(srcCopy, permutationFunc)
+	dstIndices := rangeOf(nrows)
+	srcIndices := rangeOf(nrows)
+	// Sort indexed arrays
+	slices.SortFunc(dstIndices, indexPermutationFunc(dst))
+	slices.SortFunc(srcIndices, indexPermutationFunc(src))
 	// Check rotated arrays match
-	return Equals2d(dstCopy, srcCopy)
+	return equalsPermutation(dstIndices, srcIndices, dst, src)
 }
 
-func permutationFunc(lhs []fr.Element, rhs []fr.Element) int {
-	for i := 0; i < len(lhs); i++ {
-		// Compare ith elements
-		c := lhs[i].Cmp(&rhs[i])
-		// Check whether same
-		if c != 0 {
-			// Positive
-			return c
+// Check whether two indexed arrays are equal.
+func equalsPermutation[T Array[fr.Element]](lIndices []uint, rIndices []uint, lhs []T, rhs []T) bool {
+	if len(lIndices) != len(rIndices) {
+		return false
+	} else if len(lhs) != len(rhs) {
+		return false
+	}
+	//
+	for i := range len(lhs) {
+		var (
+			lhs_i = lhs[i]
+			rhs_i = rhs[i]
+		)
+		// Check lengths match
+		if lhs_i.Len() != rhs_i.Len() {
+			return false
+		}
+		// // Check elements match
+		for j := uint(0); j < lhs_i.Len(); j++ {
+			l := lhs_i.Get(lIndices[j])
+			r := rhs_i.Get(rIndices[j])
+			//
+			if l.Cmp(&r) != 0 {
+				return false
+			}
 		}
 	}
-	// Identical
-	return 0
+	//
+	return true
+}
+
+func indexPermutationFunc[T Array[fr.Element]](elems []T) func(uint, uint) int {
+	return func(lhs uint, rhs uint) int {
+		//
+		for i := range len(elems) {
+			l := elems[i].Get(lhs)
+			r := elems[i].Get(rhs)
+			// Compare ith elements
+			c := l.Cmp(&r)
+			// Check whether same
+			if c != 0 {
+				// Positive
+				return c
+			}
+		}
+		// Identical
+		return 0
+	}
 }
 
 // PermutationSort sorts an array of columns in row-wise fashion.  For
@@ -149,4 +181,15 @@ func rotate[T Array[fr.Element]](src []T, ncols int, nrows uint) [][]fr.Element 
 	}
 	//
 	return dst
+}
+
+// Constuct an array of contiguous integers from 0..n.
+func rangeOf(n uint) []uint {
+	items := make([]uint, n)
+	//
+	for i := range n {
+		items[i] = i
+	}
+	//
+	return items
 }
