@@ -257,20 +257,6 @@ func ReadAssemblyProgram(filenames ...string) (asm.MacroProgram, source.Maps[any
 	return nil, srcmaps
 }
 
-// ReadAssemblyTrace reads a top-level trace file which consists only of function instances.
-func ReadAssemblyTrace(filename string, program asm.MacroProgram) asm.MacroTrace {
-	var (
-		trace asm.MacroTrace
-		err   error
-	)
-	// Now, attempt to parse constraint file
-	if trace, err = asm.ReadTraceFile(filename, program); err != nil {
-		panic(err)
-	}
-	//
-	return trace
-}
-
 // ReadBinaryFile reads a binfile which includes the metadata bytes, along with
 // the schema, and any included attributes.
 func ReadBinaryFile(filename string) binfile.BinaryFile {

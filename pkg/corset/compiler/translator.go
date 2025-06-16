@@ -49,7 +49,7 @@ func TranslateCircuit[M schema.Module](
 	circuit *ast.Circuit,
 	externs ...M) (schema.MixedSchema[M, mir.Module], []SyntaxError) {
 	//
-	builder := ir.NewSchemaBuilder[mir.Constraint, mir.Term]()
+	builder := ir.NewSchemaBuilder[mir.Constraint, mir.Term](externs...)
 	t := translator{env, srcmap, builder}
 	// Allocate all modules into schema
 	t.translateModules(circuit)

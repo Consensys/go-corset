@@ -16,6 +16,7 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/schema"
 )
 
 // InOut captures input / output instructions for reading / writing to a bus.
@@ -92,7 +93,7 @@ func (p *InOut) Split(env *RegisterSplittingEnvironment) []Code {
 	return []Code{&InOut{p.input, bus}}
 }
 
-func (p *InOut) String(fn io.Function[Instruction]) string {
+func (p *InOut) String(fn schema.Module) string {
 	if p.input {
 		return fmt.Sprintf("in %s", p.bus.Name)
 	}
@@ -101,6 +102,6 @@ func (p *InOut) String(fn io.Function[Instruction]) string {
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *InOut) Validate(fieldWidth uint, fn io.Function[Instruction]) error {
+func (p *InOut) Validate(fieldWidth uint, fn schema.Module) error {
 	return nil
 }

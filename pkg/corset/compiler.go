@@ -153,7 +153,11 @@ func (p *Compiler[M]) Compile() (schema.MixedSchema[M, mir.Module], SourceMap, [
 		return schema.MixedSchema[M, mir.Module]{}, SourceMap{}, errs
 	} else if cerrs := mixedSchema.Consistent(); len(cerrs) > 0 {
 		// Should be unreachable.
-		panic(cerrs)
+		for _, err := range cerrs {
+			fmt.Println(err.Error())
+		}
+		//
+		panic("inconsistent schema?")
 	}
 	// Construct source map
 	source_map := constructSourceMap(mixedSchema, scope, environment)

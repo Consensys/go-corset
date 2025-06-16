@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 )
 
@@ -47,7 +48,7 @@ type Code interface {
 	RegistersWritten() []io.RegisterId
 	// Produce a suitable string representation of this instruction.  This is
 	// primarily used for debugging.
-	String(io.Function[Instruction]) string
+	String(schema.Module) string
 	// Split this micro code using registers of arbirary width into one or more
 	// micro codes using registers of a fixed maximum width.
 	Split(env *RegisterSplittingEnvironment) []Code
@@ -56,7 +57,7 @@ type Code interface {
 	// been allocated, etc.  The maximum bit capacity of the underlying field is
 	// needed for this calculation, so as to allow an instruction to check it
 	// does not overflow the underlying field.
-	Validate(fieldWidth uint, fn io.Function[Instruction]) error
+	Validate(fieldWidth uint, fn schema.Module) error
 }
 
 // Instruction represents the composition of one or more micro instructions
@@ -164,7 +165,7 @@ func (p Instruction) RegistersWritten() []io.RegisterId {
 	return written
 }
 
-func (p Instruction) String(fn io.Function[Instruction]) string {
+func (p Instruction) String(fn schema.Module) string {
 	var builder strings.Builder
 	//
 	for i, code := range p.Codes {
@@ -181,7 +182,7 @@ func (p Instruction) String(fn io.Function[Instruction]) string {
 // Validate that this micro-instruction is well-formed.  For example, each
 // micro-instruction contained within must be well-formed, and the overall
 // requirements for a vector instruction must be met, etc.
-func (p Instruction) Validate(fieldWidth uint, fn io.Function[Instruction]) error {
+func (p Instruction) Validate(fieldWidth uint, fn schema.Module) error {
 	var written bit.Set
 	// Validate individual instructions
 	for _, r := range p.Codes {
@@ -197,7 +198,7 @@ func (p Instruction) Validate(fieldWidth uint, fn io.Function[Instruction]) erro
 	return validateWrites(0, written, p.Codes, fn)
 }
 
-func validateWrites(cc uint, writes bit.Set, codes []Code, fn io.Function[Instruction]) error {
+func validateWrites(cc uint, writes bit.Set, codes []Code, fn schema.Module) error {
 	//
 	switch code := codes[cc].(type) {
 	case *Ret, *Jmp:

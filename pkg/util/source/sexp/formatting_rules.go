@@ -45,7 +45,7 @@ type LFormatter struct {
 func (p *LFormatter) Split(list *List) ([]FormattingChunk, uint) {
 	if list.Len() == 0 {
 		return nil, 0
-	} else if sym, ok := list.Get(0).(*Symbol); ok && sym.String(false) != p.Head {
+	} else if sym, ok := list.Get(0).(*Symbol); ok && sym.String(true) != p.Head {
 		return nil, 0
 	}
 	//
@@ -90,7 +90,7 @@ type SFormatter struct {
 func (p *SFormatter) Split(list *List) ([]FormattingChunk, uint) {
 	if list.Len() == 0 {
 		return nil, 0
-	} else if sym, ok := list.Get(0).(*Symbol); ok && sym.String(false) != p.Head {
+	} else if sym, ok := list.Get(0).(*Symbol); ok && sym.String(true) != p.Head {
 		return nil, 0
 	}
 	//

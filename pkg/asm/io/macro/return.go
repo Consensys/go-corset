@@ -15,6 +15,7 @@ package macro
 import (
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
+	"github.com/consensys/go-corset/pkg/schema"
 )
 
 // Return signals a return from the enclosing function.
@@ -48,11 +49,11 @@ func (p *Return) RegistersWritten() []io.RegisterId {
 	return nil
 }
 
-func (p *Return) String(fn io.Function[Instruction]) string {
+func (p *Return) String(fn schema.Module) string {
 	return "return"
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Return) Validate(fieldWidth uint, fn io.Function[Instruction]) error {
+func (p *Return) Validate(fieldWidth uint, fn schema.Module) error {
 	return nil
 }

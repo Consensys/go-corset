@@ -18,6 +18,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
+	"github.com/consensys/go-corset/pkg/schema"
 )
 
 // Call represents a function call providing one or more arguments and accepting
@@ -110,7 +111,7 @@ func (p *Call) RegistersWritten() []io.RegisterId {
 	return p.Targets
 }
 
-func (p *Call) String(fn io.Function[Instruction]) string {
+func (p *Call) String(fn schema.Module) string {
 	var (
 		builder strings.Builder
 		regs    = fn.Registers()
@@ -125,7 +126,7 @@ func (p *Call) String(fn io.Function[Instruction]) string {
 }
 
 // Validate checks whether or not this instruction well-formed.
-func (p *Call) Validate(fieldWidth uint, fn io.Function[Instruction]) error {
+func (p *Call) Validate(fieldWidth uint, fn schema.Module) error {
 	// Check bus is assigned
 	if p.bus.IsUnlinked() {
 		return fmt.Errorf("unknown function")

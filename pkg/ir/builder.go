@@ -35,8 +35,11 @@ type SchemaBuilder[C schema.Constraint, T Term[T]] struct {
 
 // NewSchemaBuilder constructs a new schema builder with a given number of
 // externally defined modules.  Such modules are allocated module indices first.
-func NewSchemaBuilder[C schema.Constraint, T Term[T]](externs ...schema.Module) SchemaBuilder[C, T] {
-	modmap := make(map[string]uint, 0)
+func NewSchemaBuilder[C schema.Constraint, T Term[T], E schema.Module](externs ...E) SchemaBuilder[C, T] {
+	var (
+		modmap   = make(map[string]uint, 0)
+		nexterns = make([]schema.Module, len(externs))
+	)
 	// Initialise module map
 	for i, m := range externs {
 		// Quick sanity check
@@ -46,8 +49,12 @@ func NewSchemaBuilder[C schema.Constraint, T Term[T]](externs ...schema.Module) 
 		//
 		modmap[m.Name()] = uint(i)
 	}
+	// Convert externs
+	for i, m := range externs {
+		nexterns[i] = m
+	}
 	//
-	return SchemaBuilder[C, T]{modmap, externs, nil}
+	return SchemaBuilder[C, T]{modmap, nexterns, nil}
 }
 
 // NewModule constructs a new, empty module and returns its unique module

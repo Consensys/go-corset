@@ -17,6 +17,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
+	"github.com/consensys/go-corset/pkg/schema"
 )
 
 // Goto provides an unconditional branching instruction to a given instructon.
@@ -53,11 +54,11 @@ func (p *Goto) RegistersWritten() []io.RegisterId {
 	return nil
 }
 
-func (p *Goto) String(fn io.Function[Instruction]) string {
+func (p *Goto) String(fn schema.Module) string {
 	return fmt.Sprintf("goto %d", p.Target)
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Goto) Validate(fieldWidth uint, fn io.Function[Instruction]) error {
+func (p *Goto) Validate(fieldWidth uint, fn schema.Module) error {
 	return nil
 }
