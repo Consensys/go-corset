@@ -68,13 +68,12 @@ func printModule(module schema.Module, schema schema.AnySchema, width uint) {
 	formatter.Add(&sexp.LFormatter{Head: "*", Priority: 3})
 
 	if module.Name() == "" {
-		fmt.Printf("(module)")
+		fmt.Printf("(module)\n")
 	} else {
-		fmt.Printf("(module %s)", module.Name())
+		fmt.Printf("(module %s)\n", module.Name())
 	}
 
 	for _, r := range module.Registers() {
-		fmt.Println()
 		//
 		if r.IsInput() {
 			fmt.Printf("(input %s u%d)", r.Name, r.Width)
@@ -86,6 +85,8 @@ func printModule(module schema.Module, schema schema.AnySchema, width uint) {
 			// Fallback --- unsure what kind this is.
 			fmt.Printf("(column %s u%d)", r.Name, r.Width)
 		}
+		//
+		fmt.Println()
 	}
 	//
 	for i := module.Constraints(); i.HasNext(); {
@@ -99,8 +100,6 @@ func printModule(module schema.Module, schema schema.AnySchema, width uint) {
 		text := formatter.Format(ith.Lisp(schema))
 		fmt.Print(text)
 	}
-	//
-	fmt.Println()
 }
 
 // ==================================================================

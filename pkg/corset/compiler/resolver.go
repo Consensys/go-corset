@@ -18,6 +18,7 @@ import (
 	"reflect"
 
 	"github.com/consensys/go-corset/pkg/corset/ast"
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
@@ -31,7 +32,8 @@ type DeclPredicate = util.Predicate[ast.Declaration]
 // a symbol (e.g. a column) is referred to which doesn't exist.  Likewise, if
 // two modules or columns with identical names are declared in the same scope,
 // etc.
-func ResolveCircuit(srcmap *source.Maps[ast.Node], circuit *ast.Circuit) (*ModuleScope, []SyntaxError) {
+func ResolveCircuit[M schema.Module](srcmap *source.Maps[ast.Node], circuit *ast.Circuit,
+	externs ...M) (*ModuleScope, []SyntaxError) {
 	// Construct top-level scope
 	scope := NewModuleScope()
 	// Define natives
@@ -42,6 +44,8 @@ func ResolveCircuit(srcmap *source.Maps[ast.Node], circuit *ast.Circuit) (*Modul
 	for _, i := range INTRINSICS {
 		scope.Define(&i)
 	}
+	// Initialise externs
+	DeclareExterns(scope, externs...)
 	// Register modules
 	for _, m := range circuit.Modules {
 		scope.Declare(m.Name, extractSelector(nil))
@@ -137,7 +141,7 @@ func extractSelector(selector ast.Expr) util.Option[string] {
 	}
 	//
 	if e, ok := selector.(*ast.VariableAccess); ok && e.Name.Depth() == 1 {
-		return util.Some[string](e.Name.String())
+		return util.Some(e.Name.String())
 	}
 	// FIXME: #630
 	panic("unsupported selector")
