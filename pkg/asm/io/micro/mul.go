@@ -18,6 +18,7 @@ import (
 	"slices"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/schema"
 )
 
 // Mul represents a generic operation of the following form:
@@ -102,12 +103,12 @@ func (p *Mul) Split(env *RegisterSplittingEnvironment) []Code {
 	return []Code{p}
 }
 
-func (p *Mul) String(fn io.Function[Instruction]) string {
+func (p *Mul) String(fn schema.Module) string {
 	return assignmentToString(p.Targets, p.Sources, p.Constant, fn, one, " * ")
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Mul) Validate(fieldWidth uint, fn io.Function[Instruction]) error {
+func (p *Mul) Validate(fieldWidth uint, fn schema.Module) error {
 	var (
 		regs     = fn.Registers()
 		lhs_bits = sumTargetBits(p.Targets, regs)

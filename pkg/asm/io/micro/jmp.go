@@ -16,6 +16,7 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/schema"
 )
 
 // Jmp provides an unconditional branching instruction to a given instructon.
@@ -52,11 +53,11 @@ func (p *Jmp) Split(env *RegisterSplittingEnvironment) []Code {
 	return []Code{p}
 }
 
-func (p *Jmp) String(fn io.Function[Instruction]) string {
+func (p *Jmp) String(fn schema.Module) string {
 	return fmt.Sprintf("jmp %d", p.Target)
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Jmp) Validate(fieldWidth uint, fn io.Function[Instruction]) error {
+func (p *Jmp) Validate(fieldWidth uint, fn schema.Module) error {
 	return nil
 }

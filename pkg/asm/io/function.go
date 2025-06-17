@@ -16,6 +16,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"math"
+	"math/big"
 
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
@@ -33,14 +34,22 @@ const (
 	UNUSED_REGISTER = math.MaxUint
 )
 
-// Sanity check
-var _ schema.Module = &Function[uint]{}
+// FunctionInstance represents a specific instance of a function.  That is, a
+// mapping from input values to expected output values.
+type FunctionInstance struct {
+	// Identifies corresponding function.
+	Function uint
+	// Inputs identifies the input arguments
+	Inputs map[string]big.Int
+	// Outputs identifies the outputs
+	Outputs map[string]big.Int
+}
 
 // Function defines a distinct functional entity within the system.  Functions
 // accepts zero or more inputs and produce zero or more outputs.  Functions
 // declare zero or more internal registers for use, and their interpretation is
 // given by a sequence of zero or more instructions.
-type Function[T any] struct {
+type Function[T Instruction[T]] struct {
 	// Unique name of this function.
 	name string
 	// Registers describes zero or more registers of a given width.  Each
@@ -51,7 +60,7 @@ type Function[T any] struct {
 }
 
 // NewFunction constructs a new function with the given components.
-func NewFunction[T any](name string, registers []Register, code []T) Function[T] {
+func NewFunction[T Instruction[T]](name string, registers []Register, code []T) Function[T] {
 	return Function[T]{name, registers, code}
 }
 
@@ -75,7 +84,9 @@ func (p *Function[T]) Code() []T {
 // Constraints provides access to those constraints associated with this
 // function.
 func (p *Function[T]) Constraints() iter.Iterator[schema.Constraint] {
-	return iter.NewArrayIterator[schema.Constraint](nil)
+	var constraint Constraint[T] = Constraint[T]{p.name, p.registers, p.code}
+	//
+	return iter.NewUnitIterator[schema.Constraint](constraint)
 }
 
 // Consistent applies a number of internal consistency checks.  Whilst not

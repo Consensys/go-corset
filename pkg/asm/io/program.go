@@ -14,7 +14,7 @@ package io
 
 // Program represents a complete set of functions and related declarations
 // defining a program.
-type Program[T any] interface {
+type Program[T Instruction[T]] interface {
 	// Function returns the ith function in this program.
 	Function(uint) Function[T]
 	// Functions returns the set of functions defined in this program.
@@ -22,7 +22,7 @@ type Program[T any] interface {
 }
 
 // NewProgram constructs a new program using a given level of instruction.
-func NewProgram[T any](components ...*Function[T]) Program[T] {
+func NewProgram[T Instruction[T]](components ...*Function[T]) Program[T] {
 	fns := make([]*Function[T], len(components))
 	copy(fns, components)
 
@@ -34,7 +34,7 @@ func NewProgram[T any](components ...*Function[T]) Program[T] {
 // ============================================================================
 
 // Simple implementation of Program[T]
-type program[T any] struct {
+type program[T Instruction[T]] struct {
 	functions []*Function[T]
 }
 

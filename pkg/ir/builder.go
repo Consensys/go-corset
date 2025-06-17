@@ -35,8 +35,11 @@ type SchemaBuilder[C schema.Constraint, T Term[T]] struct {
 
 // NewSchemaBuilder constructs a new schema builder with a given number of
 // externally defined modules.  Such modules are allocated module indices first.
-func NewSchemaBuilder[C schema.Constraint, T Term[T]](externs ...schema.Module) SchemaBuilder[C, T] {
-	modmap := make(map[string]uint, 0)
+func NewSchemaBuilder[C schema.Constraint, T Term[T], E schema.Module](externs ...E) SchemaBuilder[C, T] {
+	var (
+		modmap   = make(map[string]uint, 0)
+		nexterns = make([]schema.Module, len(externs))
+	)
 	// Initialise module map
 	for i, m := range externs {
 		// Quick sanity check
@@ -46,8 +49,12 @@ func NewSchemaBuilder[C schema.Constraint, T Term[T]](externs ...schema.Module) 
 		//
 		modmap[m.Name()] = uint(i)
 	}
+	// Convert externs
+	for i, m := range externs {
+		nexterns[i] = m
+	}
 	//
-	return SchemaBuilder[C, T]{modmap, externs, nil}
+	return SchemaBuilder[C, T]{modmap, nexterns, nil}
 }
 
 // NewModule constructs a new, empty module and returns its unique module
@@ -79,7 +86,7 @@ func (p *SchemaBuilder[C, T]) Module(mid uint) *ModuleBuilder[C, T] {
 	var n uint = uint(len(p.externs))
 	// Sanity check
 	if mid < n {
-		panic("no builder for external module")
+		return NewExternModuleBuilder[C, T](mid, p.externs[mid])
 	}
 	//
 	return &p.modules[mid-n]
@@ -106,6 +113,7 @@ func (p *SchemaBuilder[C, T]) Build() []schema.Table[C] {
 // their relevant indices.  It also provides a mechanism for constructing a
 // register access based on the register name, etc.
 type ModuleBuilder[C schema.Constraint, T Term[T]] struct {
+	extern bool
 	// Name of the module being constructed
 	name string
 	// Id of this module
@@ -127,17 +135,38 @@ func NewModuleBuilder[C schema.Constraint, T Term[T]](name string, mid schema.Mo
 	multiplier uint) ModuleBuilder[C, T] {
 	//
 	regmap := make(map[string]uint, 0)
-	return ModuleBuilder[C, T]{name, mid, multiplier, regmap, nil, nil, nil}
+	return ModuleBuilder[C, T]{false, name, mid, multiplier, regmap, nil, nil, nil}
+}
+
+// NewExternModuleBuilder constructs a new builder suitable for external modules.
+func NewExternModuleBuilder[C schema.Constraint, T Term[T]](mid schema.ModuleId,
+	module schema.Module) *ModuleBuilder[C, T] {
+	//
+	regmap := make(map[string]uint, 0)
+	// Initialise register map
+	for i, r := range module.Registers() {
+		regmap[r.Name] = uint(i)
+	}
+	// Done
+	return &ModuleBuilder[C, T]{true, module.Name(), mid, 1, regmap, module.Registers(), nil, nil}
 }
 
 // AddAssignment adds a new assignment to this module.  Assignments are
 // responsible for computing the values of computed columns.
 func (p *ModuleBuilder[C, T]) AddAssignment(assignment schema.Assignment) {
+	if p.extern {
+		panic("cannot add assignment to external module")
+	}
+	//
 	p.assignments = append(p.assignments, assignment)
 }
 
 // AddConstraint adds a new constraint to this module.
 func (p *ModuleBuilder[C, T]) AddConstraint(constraint C) {
+	if p.extern {
+		panic("cannot add constraint to external module")
+	}
+	//
 	p.constraints = append(p.constraints, constraint)
 }
 
@@ -211,6 +240,8 @@ func (p *ModuleBuilder[C, T]) NewRegister(register schema.Register) schema.Regis
 	// Sanity check
 	if _, ok := p.regmap[register.Name]; ok {
 		panic(fmt.Sprintf("register \"%s\" already declared", register.Name))
+	} else if p.extern {
+		panic("cannot add register to external module")
 	}
 	//
 	p.registers = append(p.registers, register)
@@ -252,6 +283,10 @@ func (p *ModuleBuilder[C, T]) RegisterAccessOf(name string, shift int) *Register
 
 // BuildTable constructs a table module from this module builder.
 func (p *ModuleBuilder[C, T]) BuildTable() schema.Table[C] {
+	if p.extern {
+		panic("cannot build externally defined module")
+	}
+	//
 	table := schema.NewTable[C](p.name, p.multiplier)
 	table.AddRegisters(p.registers...)
 	table.AddConstraints(p.constraints...)

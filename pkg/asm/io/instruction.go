@@ -15,6 +15,8 @@ package io
 import (
 	"math"
 	"math/big"
+
+	"github.com/consensys/go-corset/pkg/schema"
 )
 
 // UNKNOWN_BUS signals a bus which is unknown.
@@ -58,10 +60,10 @@ type Instruction[T any] interface {
 	// been allocated, etc.  The maximum bit capacity of the underlying field is
 	// needed for this calculation, so as to allow an instruction to check it
 	// does not overflow the underlying field.
-	Validate(fieldWidth uint, fn Function[T]) error
+	Validate(fieldWidth uint, fn schema.Module) error
 	// Produce a suitable string representation of this instruction.  This is
 	// primarily used for debugging.
-	String(fn Function[T]) string
+	String(fn schema.Module) string
 }
 
 // InOutInstruction is simply a kind of instruction which performs some kind of I/O

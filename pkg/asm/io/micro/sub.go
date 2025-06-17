@@ -141,7 +141,7 @@ func (p *Sub) Split(env *RegisterSplittingEnvironment) []Code {
 	return ncodes
 }
 
-func (p *Sub) String(fn io.Function[Instruction]) string {
+func (p *Sub) String(fn schema.Module) string {
 	return assignmentToString(p.Targets, p.Sources, p.Constant, fn, zero, " - ")
 }
 
@@ -149,7 +149,7 @@ func (p *Sub) String(fn io.Function[Instruction]) string {
 // algorithm here may seem a little odd at first.  It counts the number of
 // *unique values* required to hold both the positive and negative components of
 // the right-hand side.  This gives the minimum bitwidth required.
-func (p *Sub) Validate(fieldWidth uint, fn io.Function[Instruction]) error {
+func (p *Sub) Validate(fieldWidth uint, fn schema.Module) error {
 	var (
 		regs     = fn.Registers()
 		lhs_bits = sumTargetBits(p.Targets, regs)

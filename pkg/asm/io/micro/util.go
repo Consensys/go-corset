@@ -19,7 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 )
 
-func assignmentToString(dsts []io.RegisterId, srcs []io.RegisterId, constant big.Int, fn io.Function[Instruction],
+func assignmentToString(dsts []io.RegisterId, srcs []io.RegisterId, constant big.Int, fn schema.Module,
 	c big.Int, op string) string {
 	//
 	var (

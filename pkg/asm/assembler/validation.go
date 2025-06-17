@@ -69,7 +69,7 @@ func validateInstructions[T io.Instruction[T]](fieldWidth uint, fn io.Function[T
 	var errors []source.SyntaxError
 
 	for _, insn := range fn.Code() {
-		err := insn.Validate(fieldWidth, fn)
+		err := insn.Validate(fieldWidth, &fn)
 		//
 		if err != nil {
 			if !srcmaps.Has(insn) {

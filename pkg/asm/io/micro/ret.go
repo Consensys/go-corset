@@ -14,6 +14,7 @@ package micro
 
 import (
 	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/schema"
 )
 
 // Ret signals a return from the enclosing function.
@@ -52,11 +53,11 @@ func (p *Ret) Split(env *RegisterSplittingEnvironment) []Code {
 	return []Code{p}
 }
 
-func (p *Ret) String(fn io.Function[Instruction]) string {
+func (p *Ret) String(fn schema.Module) string {
 	return "ret"
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Ret) Validate(fieldWidth uint, fn io.Function[Instruction]) error {
+func (p *Ret) Validate(fieldWidth uint, fn schema.Module) error {
 	return nil
 }

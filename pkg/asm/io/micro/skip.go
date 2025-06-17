@@ -112,7 +112,7 @@ func (p *Skip) Split(env *RegisterSplittingEnvironment) []Code {
 	return ncodes
 }
 
-func (p *Skip) String(fn io.Function[Instruction]) string {
+func (p *Skip) String(fn schema.Module) string {
 	var (
 		l = fn.Register(p.Left).Name
 	)
@@ -125,7 +125,7 @@ func (p *Skip) String(fn io.Function[Instruction]) string {
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Skip) Validate(fieldWidth uint, fn io.Function[Instruction]) error {
+func (p *Skip) Validate(fieldWidth uint, fn schema.Module) error {
 	var lw = fn.Register(p.Left).Width
 	//
 	if p.Right.IsUsed() {

@@ -19,6 +19,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
+	"github.com/consensys/go-corset/pkg/schema"
 )
 
 // Alias for big integer representation of 0.
@@ -56,7 +57,7 @@ type IoInstruction interface {
 	Link(bus io.Bus)
 }
 
-func assignmentToString(dsts []io.RegisterId, srcs []io.RegisterId, constant big.Int, fn io.Function[Instruction],
+func assignmentToString(dsts []io.RegisterId, srcs []io.RegisterId, constant big.Int, fn schema.Module,
 	c big.Int, op string) string {
 	//
 	var (

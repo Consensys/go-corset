@@ -18,6 +18,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
+	"github.com/consensys/go-corset/pkg/schema"
 )
 
 // Add represents a generic operation of the following form:
@@ -84,12 +85,12 @@ func (p *Add) RegistersWritten() []io.RegisterId {
 	return p.Targets
 }
 
-func (p *Add) String(fn io.Function[Instruction]) string {
+func (p *Add) String(fn schema.Module) string {
 	return assignmentToString(p.Targets, p.Sources, p.Constant, fn, zero, " + ")
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Add) Validate(fieldWidth uint, fn io.Function[Instruction]) error {
+func (p *Add) Validate(fieldWidth uint, fn schema.Module) error {
 	var (
 		regs     = fn.Registers()
 		lhs_bits = sumTargetBits(p.Targets, regs)
