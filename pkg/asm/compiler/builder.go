@@ -23,7 +23,7 @@ import (
 // system.
 type Module[T any, E Expr[T, E], M any] interface {
 	// SetName sets the name of this module.
-	Initialise(name string, mid uint) M
+	Initialise(fn MicroFunction, mid uint) M
 
 	// NewColumn constructs a new column of the given name and bitwidth within
 	// this module.

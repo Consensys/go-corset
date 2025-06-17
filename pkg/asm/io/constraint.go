@@ -32,7 +32,7 @@ func (p Constraint[T]) Accepts(trace.Trace) (bit.Set, sc.Failure) {
 
 // Bounds implementation for schema.Constraint interface.
 func (p Constraint[T]) Bounds(module uint) util.Bounds {
-	panic("todo")
+	return util.EMPTY_BOUND
 }
 
 // Consistent implementation for schema.Constraint interface.

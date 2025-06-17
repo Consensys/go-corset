@@ -32,11 +32,22 @@ type MirModule struct {
 }
 
 // Initialise this module
-func (p MirModule) Initialise(name string, mid uint) MirModule {
-	builder := ir.NewModuleBuilder[mir.Constraint, mir.Term](name, mid, 1)
+func (p MirModule) Initialise(fn MicroFunction, mid uint) MirModule {
+	builder := ir.NewModuleBuilder[mir.Constraint, mir.Term](fn.Name(), mid, 1)
+	// Add any assignments defined for this function.  Observe that, generally
+	// speaking, function's consist of exactly one assignment and this is what
+	// is being added here.
+	for iter := fn.Assignments(); iter.HasNext(); {
+		builder.AddAssignment(iter.Next())
+	}
 	p.Module = &builder
 
 	return p
+}
+
+// NewAssignment adds a new assignment to this module.
+func (p MirModule) NewAssignment(assignment schema.Assignment) {
+	p.Module.AddAssignment(assignment)
 }
 
 // NewColumn constructs a new column of the given name and bitwidth within

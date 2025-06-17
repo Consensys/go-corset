@@ -102,17 +102,20 @@ func (p *AirLowering) LowerModule(index uint) {
 		mirModule = p.mirSchema.Module(index)
 		airModule = p.airSchema.Module(index)
 	)
+	// Add assignments.  At this time, there is nothing to do in terms of
+	// lowering.  Observe that this must be done *before* lowering assignments
+	// to ensure a correct ordering.  For example, if a constraint refers to one
+	// of these assigned columns and generates a corresponding computed column
+	// (e.g. for the inverse).
+	for iter := mirModule.Assignments(); iter.HasNext(); {
+		airModule.AddAssignment(iter.Next())
+	}
 	// Lower constraints
 	for iter := mirModule.Constraints(); iter.HasNext(); {
 		// Following should always hold
 		constraint := iter.Next().(Constraint)
 		//
 		p.lowerConstraintToAir(constraint, airModule)
-	}
-	// Add assignments.  At this time, there is nothing to do in terms of
-	// lowering.
-	for iter := mirModule.Assignments(); iter.HasNext(); {
-		airModule.AddAssignment(iter.Next())
 	}
 }
 

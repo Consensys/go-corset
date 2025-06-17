@@ -148,7 +148,7 @@ func (p *Compiler[T, E, M]) initModule(busId uint, fn MicroFunction) {
 		bus    FunctionMapping[T]
 	)
 	// Initialise module correctly
-	module = module.Initialise(fn.Name(), busId)
+	module = module.Initialise(fn, busId)
 	p.modules[busId] = module
 	//
 	bus.name = fn.Name()

@@ -77,7 +77,8 @@ func (p *Parser) Parse() (AssemblyItem, []source.SyntaxError) {
 	}
 	// Continue going until all consumed
 	for p.lookahead().Kind != END_OF {
-		fn, errors = p.parseFunction()
+		id := uint(len(item.Components))
+		fn, errors = p.parseFunction(id)
 		//
 		if len(errors) > 0 {
 			return item, errors
@@ -91,7 +92,7 @@ func (p *Parser) Parse() (AssemblyItem, []source.SyntaxError) {
 	return item, nil
 }
 
-func (p *Parser) parseFunction() (MacroFunction, []source.SyntaxError) {
+func (p *Parser) parseFunction(id schema.ModuleId) (MacroFunction, []source.SyntaxError) {
 	var (
 		env             Environment
 		inst            macro.Instruction
@@ -144,7 +145,7 @@ func (p *Parser) parseFunction() (MacroFunction, []source.SyntaxError) {
 	// Finalise labels
 	env.BindLabels(code)
 	// Done
-	return io.NewFunction(name, env.registers, code), nil
+	return io.NewFunction(id, name, env.registers, code), nil
 }
 
 func (p *Parser) parseArgsList(kind schema.RegisterType) ([]io.Register, []source.SyntaxError) {

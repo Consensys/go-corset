@@ -497,16 +497,20 @@ func sequentialModuleValidation(scMod Module, trMod trace.Module) []error {
 // down evaluation performance; secondly, the vast majority of jobs are run in
 // the very first wave.
 func parallelTraceExpansion(batchsize uint, schema AnySchema, trace *tr.ArrayTrace) error {
-	batch := 0
-	// Construct a communication channel for errors.
-	ch := make(chan columnBatch, 1024)
-	// Determine number of columns to compute
-	ntodo := schema.Assignments().Count()
+	var (
+		batch = 0
+		// Construct a communication channel for errors.
+		ch = make(chan columnBatch, 1024)
+		// Determine number of columns to compute
+		ntodo = schema.Assignments().Count()
+		// Record of which assignents have been processed
+		done bit.Set
+	)
 	// Iterate until all columns completed.
 	for ntodo > 0 {
 		stats := util.NewPerfStats()
 		// Dispatch next batch of assignments.
-		n := dispatchReadyAssignments(batchsize, schema, trace, ch)
+		n := dispatchReadyAssignments(batchsize, &done, schema, trace, ch)
 		//
 		batches := make([]columnBatch, n)
 		// Collect all the results
@@ -538,24 +542,18 @@ func parallelTraceExpansion(batchsize uint, schema AnySchema, trace *tr.ArrayTra
 // results being fed back into the shared channel.  This returns the number of
 // jobs which have been dispatched (i.e. so the caller knows how many results to
 // expect).
-func dispatchReadyAssignments(batchsize uint, schema AnySchema,
+func dispatchReadyAssignments(batchsize uint, done *bit.Set, schema AnySchema,
 	trace *tr.ArrayTrace, ch chan columnBatch) uint {
-	count := uint(0)
+	var (
+		count = uint(0)
+		index = uint(0)
+	)
 	//
-	for iter := schema.Assignments(); iter.HasNext() && count < batchsize; {
-		var (
-			ith = iter.Next()
-			// Identify first register written which is safe, as there must
-			// always be at least one register written.
-			first = ith.RegistersWritten()[0]
-			// Access data for first regsiter in this assignment.  If this is
-			// nil it signals the register has not yet been filled yet (and,
-			// hence, this entire assignment).
-			ith_data = trace.Module(first.Module()).Column(first.Register().Unwrap()).Data()
-		)
+	for iter := schema.Assignments(); iter.HasNext() && count < batchsize; index++ {
+		var ith = iter.Next()
 		// Check whether this assignment has already been computed and, if not,
 		// whether or not it is ready.
-		if ith_data == nil && isReady(ith, trace) {
+		if !done.Contains(index) && isReady(ith, trace) {
 			// Dispatch!
 			go func(targets []RegisterRef) {
 				cols, err := ith.Compute(trace, schema)
@@ -564,6 +562,8 @@ func dispatchReadyAssignments(batchsize uint, schema AnySchema,
 			}(ith.RegistersWritten())
 			// Increment dispatch count
 			count++
+			// Prevent assignment from being computed again
+			done.Insert(index)
 		}
 	}
 	// Done
@@ -682,6 +682,8 @@ func validateColumnBitWidth(bitwidth uint, col trace.Column, mod Module) error {
 		// is for columns holding the multiplicative inverse of some other
 		// column.
 		return nil
+	} else if col.Data() == nil {
+		panic(fmt.Sprintf("column %s is unassigned", col.Name()))
 	}
 	//
 	var frBound fr.Element = fr.NewElement(2)
