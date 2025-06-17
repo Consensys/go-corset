@@ -15,6 +15,7 @@ package trace
 import (
 	"fmt"
 	"math"
+	"strings"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
@@ -81,7 +82,22 @@ func (p *ArrayTrace) Pad(module uint, front uint, back uint) {
 }
 
 func (p *ArrayTrace) String() string {
-	panic("todo")
+	// Use string builder to try and make this vaguely efficient.
+	var id strings.Builder
+
+	id.WriteString("{")
+	// Write each module in turn
+	for i, m := range p.modules {
+		if i != 0 {
+			id.WriteString(", ")
+		}
+		//
+		id.WriteString(m.String())
+	}
+	//
+	id.WriteString("}")
+	//
+	return id.String()
 }
 
 // ----------------------------------------------------------------------------
@@ -232,6 +248,30 @@ func (p *ArrayModule) Pad(front uint, back uint) {
 	}
 }
 
+func (p *ArrayModule) String() string {
+	var id strings.Builder
+	//
+	if p.name == "" {
+		id.WriteString("∅")
+	} else {
+		id.WriteString(p.name)
+	}
+
+	id.WriteString("={")
+	//
+	for i, c := range p.columns {
+		if i != 0 {
+			id.WriteString(", ")
+		}
+		//
+		id.WriteString(c.String())
+	}
+	//
+	id.WriteString("}")
+	// Done
+	return id.String()
+}
+
 // ----------------------------------------------------------------------------
 
 // ArrayColumn describes an individual column of data within a trace table.
@@ -294,11 +334,33 @@ func (p *ArrayColumn) Get(row int) fr.Element {
 	return p.data.Get(uint(row))
 }
 
-func (p *ArrayColumn) fill(data field.FrArray, padding fr.Element) {
-	// Sanity check this column has not already been filled.
-	if p.data != nil {
-		panic(fmt.Sprintf("computed column %s has already been filled", p.name))
+func (p *ArrayColumn) String() string {
+	var id strings.Builder
+	// Write column name
+	id.WriteString(p.name)
+	//
+	if p.data == nil {
+		id.WriteString("=⊥")
+	} else {
+		id.WriteString("={")
+		// Print out each element
+		for j := uint(0); j < p.Height(); j++ {
+			jth := p.Get(int(j))
+
+			if j != 0 {
+				id.WriteString(",")
+			}
+
+			id.WriteString(jth.String())
+		}
+		//
+		id.WriteString("}")
 	}
+	//
+	return id.String()
+}
+
+func (p *ArrayColumn) fill(data field.FrArray, padding fr.Element) {
 	// Fill the column
 	p.data = data
 	p.padding = padding

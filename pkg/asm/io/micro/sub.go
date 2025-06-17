@@ -74,7 +74,7 @@ func (p *Sub) MicroExecute(state io.State) (uint, uint) {
 	// Subtract constant
 	value.Sub(&value, &p.Constant)
 	// Write value
-	state.Store(value, p.Targets...)
+	state.StoreAcross(value, p.Targets...)
 	//
 	return 1, 0
 }

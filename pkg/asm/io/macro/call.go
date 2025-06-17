@@ -62,7 +62,7 @@ func (p *Call) Execute(state io.State) uint {
 	// Write back results
 	state.StoreN(p.Targets, values)
 	//
-	return state.Next()
+	return state.Pc() + 1
 }
 
 // Link links the bus.  Observe that this can only be called once on any

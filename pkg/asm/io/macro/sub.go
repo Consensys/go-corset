@@ -61,9 +61,9 @@ func (p *Sub) Execute(state io.State) uint {
 	// Subtract constant
 	value.Sub(&value, &p.Constant)
 	// Write value
-	state.Store(value, p.Targets...)
+	state.StoreAcross(value, p.Targets...)
 	//
-	return state.Next()
+	return state.Pc() + 1
 }
 
 // Lower this instruction into a exactly one more micro instruction.

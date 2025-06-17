@@ -61,9 +61,9 @@ func (p *Mul) Execute(state io.State) uint {
 	// Multiply constant
 	value.Mul(&value, &p.Constant)
 	// Write value
-	state.Store(value, p.Targets...)
+	state.StoreAcross(value, p.Targets...)
 	//
-	return state.Next()
+	return state.Pc() + 1
 }
 
 // Lower this instruction into a exactly one more micro instruction.

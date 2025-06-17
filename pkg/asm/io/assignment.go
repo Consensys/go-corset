@@ -13,9 +13,14 @@
 package io
 
 import (
+	"math/big"
+
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -30,7 +35,17 @@ func (p Assignment[T]) Bounds(module uint) util.Bounds {
 
 // Compute implementation for schema.Assignment interface.
 func (p Assignment[T]) Compute(trace tr.Trace, schema sc.AnySchema) ([]tr.ArrayColumn, error) {
-	panic("todo")
+	var (
+		trModule = trace.Module(p.id)
+		states   []State
+	)
+	//
+	for i := range trModule.Height() {
+		_, sts := p.trace(i, trModule, nil)
+		states = append(states, sts...)
+	}
+	//
+	return states2columns(trModule.Width(), p.registers, states), nil
 }
 
 // Consistent implementation for schema.Assignment interface.
@@ -73,4 +88,83 @@ func (p Assignment[T]) RegistersWritten() []sc.RegisterRef {
 	}
 	//
 	return regs
+}
+
+// Trace a given function with the given arguments in a given I/O environment to
+// produce a given set of output values, along with the complete set of internal
+// traces.
+func (p Assignment[T]) trace(row uint, trace tr.Module, iomap Map) ([]big.Int, []State) {
+	var (
+		code   = p.code
+		states []State
+		// Construct local state
+		state = p.initialState(row, trace, iomap)
+		// Program counter position
+		pc uint = 0
+	)
+	// Keep executing until we're done.
+	for pc != RETURN {
+		insn := code[pc]
+		// execute given instruction
+		pc = insn.Execute(state)
+		// record internal state
+		states = append(states, state.Clone())
+		// update state pc
+		state.Goto(pc)
+	}
+	// Done
+	return state.Outputs(), states
+}
+
+func (p Assignment[T]) initialState(row uint, trace tr.Module, io Map) State {
+	var (
+		state = make([]big.Int, len(p.registers))
+		index = 0
+	)
+	// Initialise arguments
+	for i, reg := range p.registers {
+		if reg.IsInput() {
+			var (
+				val = trace.Column(uint(i)).Data().Get(row)
+				ith big.Int
+			)
+			// Clone big int.
+			val.BigInt(&ith)
+			// NOTE: following safe because PC is always at index 0, and is a
+			// computed register.
+			state[i-1] = ith
+			index = index + 1
+		}
+	}
+	// Construct state
+	return State{0, state, p.registers, io}
+}
+
+// Convert a given set of states into a corresponding set of array columns.
+func states2columns(width uint, registers []Register, states []State) []tr.ArrayColumn {
+	var (
+		cols  = make([]tr.ArrayColumn, width)
+		zero  = fr.NewElement(0)
+		nrows = uint(len(states))
+	)
+	// Initialise register columns
+	for i, r := range registers {
+		arr := field.NewFrArray(nrows, r.Width)
+		cols[i] = tr.NewArrayColumn(r.Name, arr, zero)
+	}
+	// transcribe values
+	for row, st := range states {
+		for i := range registers {
+			var (
+				val fr.Element
+				rid = schema.NewRegisterId(uint(i))
+			)
+			//
+			val.SetBigInt(st.Load(rid))
+			//
+			cols[i].Data().Set(uint(row), val)
+		}
+	}
+	//
+	return cols
 }

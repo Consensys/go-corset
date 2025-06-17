@@ -648,22 +648,22 @@ func parallelTraceValidation(schema AnySchema, tr tr.Trace) []error {
 func fillComputedColumns(refs []RegisterRef, cols []tr.ArrayColumn, trace *tr.ArrayTrace) {
 	var resized bit.Set
 	// Add all columns
-	for i, col := range cols {
-		mid, rid := refs[i].Module(), refs[i].Register().Unwrap()
-		module := trace.RawModule(mid)
-		dst := module.Column(rid)
+	for _, ref := range refs {
+		var (
+			rid    = ref.Column().Unwrap()
+			module = trace.RawModule(ref.Module())
+			dst    = module.Column(rid)
+			col    = cols[rid]
+		)
 		// Sanity checks
 		if dst.Name() != col.Name() {
 			mod := module.Name()
 			panic(fmt.Sprintf("misaligned computed column %s.%s during trace expansion", mod, col.Name()))
-		} else if dst.Data() != nil {
-			mod := module.Name()
-			panic(fmt.Sprintf("computed column %s.%s already exists in trace", mod, col.Name()))
 		}
 		// Looks good
 		if module.FillColumn(rid, col.Data(), col.Padding()) {
 			// Register module as being resized.
-			resized.Insert(mid)
+			resized.Insert(ref.Module())
 		}
 	}
 	// Finalise resized modules

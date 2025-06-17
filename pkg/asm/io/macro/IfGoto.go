@@ -94,7 +94,7 @@ func (p *IfGoto) Execute(state io.State) uint {
 		return p.Target
 	}
 	//
-	return state.Next()
+	return state.Pc() + 1
 }
 
 // Lower this (macro) instruction into a sequence of one or more micro

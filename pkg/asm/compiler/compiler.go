@@ -14,7 +14,6 @@ package compiler
 
 import (
 	"fmt"
-	"math/big"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
@@ -165,16 +164,15 @@ func (p *Compiler[T, E, M]) initModule(busId uint, fn MicroFunction) {
 
 func (p *Compiler[T, E, M]) initFunctionFraming(busId uint, fn MicroFunction) (stamp T, pc T) {
 	var (
-		pcMax = uint64(len(fn.Code()) - 1)
-		// Determine max width of PC
-		pcWidth = uint(big.NewInt(int64(pcMax)).BitLen())
 		//
 		Bus    = p.buses[busId]
 		module = p.modules[busId]
 	)
 	// Allocate book keeping columns
 	stamp = module.NewColumn(schema.COMPUTED_REGISTER, STAMP_NAME, p.maxInstances)
-	pc = module.NewColumn(schema.COMPUTED_REGISTER, PC_NAME, pcWidth)
+	// PC is always first register, therefore no need to create a new column for
+	// it.
+	pc = Bus.columns[0]
 	//
 	stamp_i := Variable[T, E](stamp, 0)
 	stamp_im1 := Variable[T, E](stamp, -1)
