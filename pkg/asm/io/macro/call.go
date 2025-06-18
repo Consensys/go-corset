@@ -27,8 +27,8 @@ import (
 // providing an I/O communication channel to a given peripheral (in this case,
 // another function).
 type Call struct {
-	// Bus identifies the relevant bus for this instruction.
-	bus io.Bus
+	// Bus identifies the relevant IoBus for this instruction.
+	IoBus io.Bus
 	// Target registers for addition
 	Targets []io.RegisterId
 	// Source registers (i.e. arguments) for call
@@ -43,7 +43,7 @@ func NewCall(bus io.Bus, targets []io.RegisterId, sources []io.RegisterId) *Call
 // Bus returns information about the bus.  Observe that prior to Link being
 // called, this will return an unlinked bus.
 func (p *Call) Bus() io.Bus {
-	return p.bus
+	return p.IoBus
 }
 
 // Execute this instruction with the given local and global state.  The next
@@ -54,11 +54,11 @@ func (p *Call) Execute(state io.State) uint {
 	// Setup read address
 	address := state.LoadN(p.Sources)
 	// Set bus address lines
-	state.StoreN(p.bus.Address(), address)
+	state.StoreN(p.IoBus.Address(), address)
 	// Perform I/O read
-	state.In(p.bus)
+	state.In(p.IoBus)
 	// Load bus data lines
-	values := state.LoadN(p.bus.Data())
+	values := state.LoadN(p.IoBus.Data())
 	// Write back results
 	state.StoreN(p.Targets, values)
 	//
@@ -68,19 +68,19 @@ func (p *Call) Execute(state io.State) uint {
 // Link links the bus.  Observe that this can only be called once on any
 // given instruction.
 func (p *Call) Link(bus io.Bus) {
-	if !p.bus.IsUnlinked() {
+	if !p.IoBus.IsUnlinked() {
 		panic("bus already linked")
 	}
 	//
-	p.bus = bus
+	p.IoBus = bus
 }
 
 // Lower this instruction into a exactly one more micro instruction.
 func (p *Call) Lower(pc uint) micro.Instruction {
 	var (
 		code    []micro.Code
-		address = p.bus.Address()
-		data    = p.bus.Data()
+		address = p.IoBus.Address()
+		data    = p.IoBus.Data()
 	)
 	// Write address lines
 	for i, input := range p.Sources {
@@ -88,7 +88,7 @@ func (p *Call) Lower(pc uint) micro.Instruction {
 		code = append(code, insn)
 	}
 	// For read / write on bus
-	code = append(code, micro.NewIoRead(p.bus))
+	code = append(code, micro.NewIoRead(p.IoBus))
 	//
 	// Read output lines
 	for i, output := range p.Targets {
@@ -118,7 +118,7 @@ func (p *Call) String(fn schema.Module) string {
 	)
 	//
 	builder.WriteString(io.RegistersToString(p.Targets, regs))
-	builder.WriteString(fmt.Sprintf(" = %s(", p.bus.Name))
+	builder.WriteString(fmt.Sprintf(" = %s(", p.IoBus.Name))
 	builder.WriteString(io.RegistersToString(p.Sources, regs))
 	builder.WriteString(")")
 	//
@@ -128,12 +128,12 @@ func (p *Call) String(fn schema.Module) string {
 // Validate checks whether or not this instruction well-formed.
 func (p *Call) Validate(fieldWidth uint, fn schema.Module) error {
 	// Check bus is assigned
-	if p.bus.IsUnlinked() {
+	if p.IoBus.IsUnlinked() {
 		return fmt.Errorf("unknown function")
 	}
 	// Sanity check arguments and returns
-	busInputs := p.bus.Address()
-	busOutputs := p.bus.Data()
+	busInputs := p.IoBus.Address()
+	busOutputs := p.IoBus.Data()
 	//
 	if len(busInputs) != len(p.Sources) {
 		return fmt.Errorf("incorrect arguments (found %d expected %d)", len(p.Sources), len(busInputs))

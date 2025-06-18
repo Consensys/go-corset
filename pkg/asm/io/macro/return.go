@@ -20,9 +20,9 @@ import (
 
 // Return signals a return from the enclosing function.
 type Return struct {
-	// dummy is included to force Ret structs to be stored in the heap.
+	// dummy is included to force Return structs to be stored in the heap.
 	//nolint
-	dummy uint
+	Dummy uint
 }
 
 // Execute this instruction with the given local and global state.  The next

@@ -44,7 +44,8 @@ func (p *Jmp) RegistersRead() []io.RegisterId {
 
 // RegistersWritten returns the set of registers written by this instruction.
 func (p *Jmp) RegistersWritten() []io.RegisterId {
-	return nil
+	// Jumps "write" to the PC register.
+	return []io.RegisterId{schema.NewRegisterId(io.PC_INDEX)}
 }
 
 // Split this micro code using registers of arbirary width into one or more

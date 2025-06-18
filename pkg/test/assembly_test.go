@@ -14,6 +14,44 @@ package test
 
 import "testing"
 
-func Test_AsmCounter(t *testing.T) {
+// Recusion
+//
+// func Test_Asm_Byte(t *testing.T) {
+// 	Check(t, false, "asm/byte")
+// }
+
+func Test_Asm_Counter(t *testing.T) {
 	Check(t, false, "asm/counter")
 }
+
+// Crashes
+//
+// func Test_Asm_FastPow(t *testing.T) {
+// 	Check(t, false, "asm/fast_pow")
+// }
+
+func Test_Asm_Max(t *testing.T) {
+	Check(t, false, "asm/max")
+}
+
+// Recusion
+//
+// func Test_Asm_RecPow(t *testing.T) {
+// 	Check(t, false, "asm/rec_pow")
+// }
+
+// Recusion
+//
+// func Test_Asm_Shift(t *testing.T) {
+// 	Check(t, false, "asm/shift")
+// }
+
+func Test_Asm_SlowPow(t *testing.T) {
+	Check(t, false, "asm/slow_pow")
+}
+
+// Field Element Out-Of-Bounds
+//
+// func Test_Asm_Wcp(t *testing.T) {
+// 	Check(t, false, "asm/wcp")
+// }

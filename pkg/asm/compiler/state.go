@@ -40,9 +40,9 @@ type Translator[T any, E Expr[T, E], M Module[T, E, M]] struct {
 // Translate a micro-instruction at a given program counter position.
 func (p *Translator[T, E, M]) Translate(pc uint, insn micro.Instruction) {
 	var (
-		tr         = NewStateTranslator[T, E, M](*p, pc, insn)
+		tr         = NewStateTranslator(*p, pc, insn)
 		constraint = tr.translateCode(0, insn.Codes)
-		pcGuard    = tr.Pc(false).Equals(Number[T, E](pc))
+		pcGuard    = tr.ReadPc().Equals(Number[T, E](pc))
 		stampGuard = tr.Stamp(false).NotEquals(Number[T, E](0))
 		name       = fmt.Sprintf("pc%d", pc)
 	)
@@ -104,14 +104,18 @@ func (p *StateTranslator[T, E, M]) Stamp(next bool) E {
 	return Variable[T, E](p.mapping.Stamp, 0)
 }
 
-// Pc returns a column access for either the pc on this row, or the pc on the
-// next row.
-func (p *StateTranslator[T, E, M]) Pc(next bool) E {
-	if next {
-		return Variable[T, E](p.mapping.ProgramCounter, 1)
-	}
-	//
+// ReadPc returns a column access for current the pc value.
+func (p *StateTranslator[T, E, M]) ReadPc() E {
 	return Variable[T, E](p.mapping.ProgramCounter, 0)
+}
+
+// WritePc returns a column access for suitable for setting the next PC value.
+// This also marks the PC as mutated, meaning it will not be included in any
+// constancy calculations.
+func (p *StateTranslator[T, E, M]) WritePc() E {
+	// Mark register as having been written.
+	p.mutated.Insert(io.PC_INDEX)
+	return Variable[T, E](p.mapping.ProgramCounter, 1)
 }
 
 // Clone creates a fresh copy of this translator.
@@ -200,6 +204,7 @@ func (p *StateTranslator[T, E, M]) ReadRegisters(sources []io.RegisterId) []E {
 func (p *StateTranslator[T, E, M]) WithLocalConstancies(condition E) E {
 	// FIXME: following check is temporary hack
 	if p.pc > 0 {
+		//
 		for i, r := range p.mapping.Registers {
 			rid := p.mapping.Columns[i]
 			//
