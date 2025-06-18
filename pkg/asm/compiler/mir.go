@@ -126,7 +126,7 @@ func (p MirExpr) Multiply(exprs ...MirExpr) MirExpr {
 
 // NotEquals constructs a non-equality between two expressions.
 func (p MirExpr) NotEquals(rhs MirExpr) MirExpr {
-	logical := ir.Equals[mir.LogicalTerm](p.expr, rhs.expr)
+	logical := ir.NotEquals[mir.LogicalTerm](p.expr, rhs.expr)
 	return MirExpr{nil, logical}
 }
 
@@ -134,7 +134,7 @@ func (p MirExpr) NotEquals(rhs MirExpr) MirExpr {
 func (p MirExpr) BigInt(number big.Int) MirExpr {
 	var frNum fr.Element
 	//
-	frNum.BigInt(&number)
+	frNum.SetBigInt(&number)
 	//
 	return MirExpr{ir.Const[mir.Term](frNum), nil}
 }

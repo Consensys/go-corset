@@ -136,53 +136,6 @@ type checkConfig struct {
 	ansiEscapes bool
 }
 
-// func checkWithAsmPipeline(cfg checkConfig, tracefile string, asmfiles ...string) {
-// 	var (
-// 		ok              = true
-// 		macroProgram, _ = ReadAssemblyProgram(asmfiles...)
-// 		macroTrace      = ReadAssemblyTrace(tracefile, macroProgram)
-// 	)
-// 	//
-// 	if cfg.asm {
-// 		// Macro check
-// 		ok = checkProgram("ASM", macroTrace)
-// 	}
-// 	//
-// 	if cfg.uasm {
-// 		// Micro check
-// 		microTrace := asm.LowerMacroTrace(cfg.asmConfig, macroTrace)
-// 		ok = checkProgram("µASM", microTrace)
-// 	}
-// 	//
-// 	if !ok {
-// 		os.Exit(4)
-// 	}
-// }
-
-// func checkProgram[T io.Instruction[T]](ir string, trace io.Trace[T]) bool {
-// 	var ok = true
-// 	//
-// 	for _, instance := range trace.Instances() {
-// 		// Macro check
-// 		ok = checkFunctionInstance(ir, instance, trace.Program()) && ok
-// 	}
-// 	//
-// 	return ok
-// }
-
-// func checkFunctionInstance[T io.Instruction[T]](ir string, instance io.FunctionInstance, program io.Program[T]) bool{
-// 	// Macro check
-// 	if outcome, err := asm.CheckInstance(instance, program); outcome == math.MaxUint {
-// 		// Internal failure
-// 		panic(err)
-// 	} else if outcome != 0 {
-// 		fmt.Printf("trace rejected (%s): %s\n", ir, err)
-// 		return false
-// 	}
-// 	// success
-// 	return true
-// }
-
 // Check raw constraints using the legacy pipeline.
 func checkWithLegacyPipeline(cfg checkConfig, batched bool, tracefile string, schemas cmd_util.SchemaStack) {
 	var (

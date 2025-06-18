@@ -247,7 +247,7 @@ func splitTraceColumns(expanded bool, schema AnySchema, modmap map[string]uint,
 		seen map[columnKey]bool = make(map[columnKey]bool, 0)
 	)
 	//
-	colmap, modules := initialiseColumnMap(schema)
+	colmap, modules := initialiseColumnMap(expanded, schema)
 	// Assign data from each input column given
 	for _, c := range cols {
 		// Lookup the module
@@ -291,7 +291,7 @@ func splitTraceColumns(expanded bool, schema AnySchema, modmap map[string]uint,
 	return modules, errs
 }
 
-func initialiseColumnMap(schema AnySchema) (map[columnKey]columnId, [][]trace.RawColumn) {
+func initialiseColumnMap(expanded bool, schema AnySchema) (map[columnKey]columnId, [][]trace.RawColumn) {
 	var (
 		colmap  = make(map[columnKey]columnId, 100)
 		modules = make([][]trace.RawColumn, schema.Width())
@@ -302,22 +302,27 @@ func initialiseColumnMap(schema AnySchema) (map[columnKey]columnId, [][]trace.Ra
 		columns := make([]trace.RawColumn, m.Width())
 		//
 		for j := uint(0); j != m.Width(); j++ {
-			rid := NewRegisterId(j)
-			col := m.Register(rid)
-			key := columnKey{m.Name(), col.Name}
-			id := columnId{i, j}
+			var (
+				rid = NewRegisterId(j)
+				col = m.Register(rid)
+				key = columnKey{m.Name(), col.Name}
+				id  = columnId{i, j}
+			)
 			//
 			if _, ok := colmap[key]; ok {
 				panic(fmt.Sprintf("duplicate column '%s' in schema", trace.QualifiedColumnName(m.Name(), col.Name)))
 			}
-			//
-			colmap[key] = id
-			// Add dummy column for debugging purposes
+			// Add initially empty column
 			columns[j] = trace.RawColumn{
 				Module: m.Name(),
 				Name:   col.Name,
 				Data:   nil,
 			}
+			// Set column as expected if appropriate.
+			if expanded || col.IsInputOutput() {
+				colmap[key] = id
+			}
+
 		}
 		// Initialise empty columns for this module.
 		modules[i] = columns
@@ -648,17 +653,17 @@ func parallelTraceValidation(schema AnySchema, tr tr.Trace) []error {
 func fillComputedColumns(refs []RegisterRef, cols []tr.ArrayColumn, trace *tr.ArrayTrace) {
 	var resized bit.Set
 	// Add all columns
-	for _, ref := range refs {
+	for i, ref := range refs {
 		var (
 			rid    = ref.Column().Unwrap()
 			module = trace.RawModule(ref.Module())
 			dst    = module.Column(rid)
-			col    = cols[rid]
+			col    = cols[i]
 		)
 		// Sanity checks
 		if dst.Name() != col.Name() {
 			mod := module.Name()
-			panic(fmt.Sprintf("misaligned computed column %s.%s during trace expansion", mod, col.Name()))
+			panic(fmt.Sprintf("misaligned computed register %s.%s during trace expansion", mod, col.Name()))
 		}
 		// Looks good
 		if module.FillColumn(rid, col.Data(), col.Padding()) {

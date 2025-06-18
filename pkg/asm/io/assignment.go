@@ -57,7 +57,7 @@ func (p Assignment[T]) Consistent(sc.AnySchema) []error {
 func (p Assignment[T]) Lisp(schema sc.AnySchema) sexp.SExp {
 	//
 	return sexp.NewList([]sexp.SExp{
-		sexp.NewSymbol("function"),
+		sexp.NewSymbol("compute"),
 		sexp.NewSymbol(p.name),
 	})
 }

@@ -25,6 +25,9 @@ type Module[T any, E Expr[T, E], M any] interface {
 	// SetName sets the name of this module.
 	Initialise(fn MicroFunction, mid uint) M
 
+	// NewAssignment adds a new assignment to this module.
+	NewAssignment(assignment schema.Assignment)
+
 	// NewColumn constructs a new column of the given name and bitwidth within
 	// this module.
 	NewColumn(kind schema.RegisterType, name string, bitwidth uint) T

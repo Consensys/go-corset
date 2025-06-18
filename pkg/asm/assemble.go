@@ -137,7 +137,7 @@ func LowerMixedMicroProgram(p MixedMicroProgram) schema.UniformSchema[mir.Module
 	)
 	// Compiler assembly components into MIR
 	compiler.Compile(p.LeftModules()...)
-	// Copy over legacy components
+	// Copy over compiled components
 	for i, m := range compiler.Modules() {
 		modules[i] = m.Module.BuildTable()
 	}

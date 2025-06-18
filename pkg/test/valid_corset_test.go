@@ -13,22 +13,20 @@
 package test
 
 import (
-	"bytes"
-	"encoding/gob"
 	"fmt"
 	"os"
 	"strings"
 	"testing"
 
 	"github.com/consensys/go-corset/pkg/asm"
+	"github.com/consensys/go-corset/pkg/binfile"
+	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
 	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/ir/mir"
-	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/json"
 	"github.com/consensys/go-corset/pkg/util"
-	"github.com/consensys/go-corset/pkg/util/source"
 )
 
 // Determines the (relative) location of the test directory.  That is
@@ -1316,11 +1314,17 @@ func TestSlow_Mod(t *testing.T) {
 	Check(t, true, "mod")
 }
 
-// NOTE: uses invalid range bound
-//
-// func Test_TicTacToe(t *testing.T) {
-// 	Check(t, true, "tic_tac_toe")
-// }
+func Test_TicTacToe(t *testing.T) {
+	Check(t, true, "tic_tac_toe")
+}
+
+// ===================================================================
+// Assembly Tests
+// ===================================================================
+
+func Test_AsmCounter(t *testing.T) {
+	Check(t, false, "asm/counter")
+}
 
 // ===================================================================
 // Test Helpers
@@ -1335,28 +1339,12 @@ const MAX_PADDING uint = 7
 // to be rejected are rejected.
 func Check(t *testing.T, stdlib bool, test string) {
 	var (
-		corsetConfig corset.CompilationConfig
-		filename     = fmt.Sprintf("%s.lisp", test)
+		filenames = matchSourceFiles(test)
+		// Configure the stack
+		stack = getSchemaStack(stdlib, filenames...)
 	)
-	//
-	corsetConfig.Legacy = true
-	corsetConfig.Stdlib = stdlib
 	// Enable testing each trace in parallel
 	t.Parallel()
-	// Read constraints file
-	bytes, err := os.ReadFile(fmt.Sprintf("%s/%s", TestDir, filename))
-	// Check test file read ok
-	if err != nil {
-		t.Fatal(err)
-	}
-	// Package up as source file
-	srcfile := source.NewSourceFile(filename, bytes)
-	// Parse terms into an HIR schema
-	schema, _, errs := corset.CompileSourceFile[*asm.MacroFunction](corsetConfig, srcfile)
-	// Check terms parsed ok
-	if len(errs) > 0 {
-		t.Fatalf("Error parsing %s: %v\n", filename, errs)
-	}
 	// Record how many tests executed.
 	nTests := 0
 	// Iterate possible testfile extensions
@@ -1366,7 +1354,7 @@ func Check(t *testing.T, stdlib bool, test string) {
 		testFilename := fmt.Sprintf("%s/%s.%s", TestDir, test, cfg.extension)
 		traces = ReadTracesFile(testFilename)
 		// Run tests
-		BinCheckTraces(t, testFilename, cfg, traces, schema)
+		BinCheckTraces(t, testFilename, cfg, traces, stack)
 		// Record how many tests we found
 		nTests += len(traces)
 	}
@@ -1377,24 +1365,23 @@ func Check(t *testing.T, stdlib bool, test string) {
 }
 
 func BinCheckTraces(t *testing.T, test string, cfg TestConfig,
-	traces [][]trace.RawColumn, mixSchema asm.MixedMacroProgram) {
-	// Strip off any externally defined modules (for which there should be
-	// none).
-	mirSchema := schema.NewUniformSchema(mixSchema.RightModules())
+	traces [][]trace.RawColumn, stack cmd_util.SchemaStack) {
 	// Run checks using schema compiled from source
-	CheckTraces(t, test, MAX_PADDING, cfg, traces, mirSchema)
+	CheckTraces(t, test, MAX_PADDING, cfg, traces, stack)
 	// Construct binary schema
-	if binSchema := encodeDecodeSchema(t, mirSchema); binSchema != nil {
+	if binSchema := encodeDecodeSchema(t, *stack.BinaryFile()); binSchema != nil {
+		// Reset the stack for the new binary
+		stack.Apply(*binSchema)
 		// Run checks using schema from binary file.  Observe, to try and reduce
 		// overhead of repeating all the tests we don't consider padding.
-		CheckTraces(t, test, 0, cfg, traces, *binSchema)
+		CheckTraces(t, test, 0, cfg, traces, stack)
 	}
 }
 
 // Check a given set of tests have an expected outcome (i.e. are
 // either accepted or rejected) by a given set of constraints.
 func CheckTraces(t *testing.T, test string, maxPadding uint, cfg TestConfig, traces [][]trace.RawColumn,
-	mirSchema mir.Schema) {
+	stack cmd_util.SchemaStack) {
 	// For unexpected traces, we never want to explore padding (because that's
 	// the whole point of unexpanded traces --- they are raw).
 	if !cfg.expand {
@@ -1403,8 +1390,6 @@ func CheckTraces(t *testing.T, test string, maxPadding uint, cfg TestConfig, tra
 	//
 	for i, tr := range traces {
 		if tr != nil {
-			// Lower MIR => AIR
-			airSchema := mir.LowerToAir(mirSchema, mir.DEFAULT_OPTIMISATION_LEVEL)
 			// Align trace with schema, and check whether expanded or not.
 			for padding := uint(0); padding <= maxPadding; padding++ {
 				// Construct trace identifiers
@@ -1414,10 +1399,10 @@ func CheckTraces(t *testing.T, test string, maxPadding uint, cfg TestConfig, tra
 				if cfg.expand {
 					// Only HIR / MIR constraints for traces which must be
 					// expanded.  They don't really make sense otherwise.
-					checkTrace(t, tr, mirID, mirSchema)
+					checkTrace(t, tr, mirID, stack.SchemaOf("MIR"))
 				}
 				// Always check AIR constraints
-				checkTrace(t, tr, airID, airSchema)
+				checkTrace(t, tr, airID, stack.SchemaOf("AIR"))
 			}
 		}
 	}
@@ -1451,6 +1436,24 @@ func checkTrace[C sc.Constraint](t *testing.T, inputs []trace.RawColumn, id trac
 				id.ir, id.test, id.line, id.padding)
 		}
 	}
+}
+
+// SRC_EXTENSIONS identifies the set of currently recognised extensions for
+// constraint source files.
+var SRC_EXTENSIONS = []string{"lisp", "zkasm"}
+
+// This identifies matching source files.
+func matchSourceFiles(test string) []string {
+	var filenames []string
+	//
+	for _, ext := range SRC_EXTENSIONS {
+		filename := fmt.Sprintf("%s/%s.%s", TestDir, test, ext)
+		if _, err := os.Stat(filename); err == nil {
+			filenames = append(filenames, filename)
+		}
+	}
+	//
+	return filenames
 }
 
 // TestConfig provides a simple mechanism for searching for testfiles.
@@ -1506,7 +1509,9 @@ func ReadTracesFile(filename string) [][]trace.RawColumn {
 	for i, line := range lines {
 		// Parse input line as JSON
 		if line != "" && !strings.HasPrefix(line, ";;") {
+			// Read traces
 			tr, err := json.FromBytes([]byte(line))
+			//
 			if err != nil {
 				msg := fmt.Sprintf("%s:%d: %s", filename, i+1, err)
 				panic(msg)
@@ -1521,23 +1526,48 @@ func ReadTracesFile(filename string) [][]trace.RawColumn {
 
 // This is a little test to ensure the binary file format (specifically the
 // binary encoder / decoder) works as expected.
-func encodeDecodeSchema(t *testing.T, schema mir.Schema) *mir.Schema {
-	var (
-		buffer     bytes.Buffer
-		gobEncoder = gob.NewEncoder(&buffer)
-		binSchema  mir.Schema
-	)
+func encodeDecodeSchema(t *testing.T, binf binfile.BinaryFile) *binfile.BinaryFile {
+	var nbinf binfile.BinaryFile
+	// Turn the binary file into bytes
+	bytes, err := binf.MarshalBinary()
 	// Encode schema
-	if err := gobEncoder.Encode(schema); err != nil {
+	if err != nil {
 		t.Error(err)
 		return nil
 	}
 	// Decode schema
-	decoder := gob.NewDecoder(&buffer)
-	if err := decoder.Decode(&binSchema); err != nil {
+	if err := nbinf.UnmarshalBinary(bytes); err != nil {
 		t.Error(err)
 		return nil
 	}
 	//
-	return &binSchema
+	return &nbinf
+}
+
+func getSchemaStack(stdlib bool, filenames ...string) cmd_util.SchemaStack {
+	var (
+		stack        cmd_util.SchemaStack
+		corsetConfig corset.CompilationConfig
+		asmConfig    asm.LoweringConfig
+	)
+	// Configure corset for testing
+	corsetConfig.Legacy = true
+	corsetConfig.Stdlib = stdlib
+	// Configure asm for lowering
+	asmConfig.Vectorize = true
+	asmConfig.MaxFieldWidth = 252
+	asmConfig.MaxRegisterWidth = 128
+	//
+	stack.
+		WithCorsetConfig(corsetConfig).
+		WithAssemblyConfig(asmConfig).
+		WithOptimisationConfig(mir.DEFAULT_OPTIMISATION_LEVEL).
+		WithLayer(cmd_util.MACRO_ASM_LAYER).
+		WithLayer(cmd_util.MICRO_ASM_LAYER).
+		WithLayer(cmd_util.MIR_LAYER).
+		WithLayer(cmd_util.AIR_LAYER)
+	// Read in all specified constraint files.
+	stack.Read(filenames...)
+	//
+	return stack
 }
