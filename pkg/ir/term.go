@@ -18,6 +18,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -92,7 +93,7 @@ type Term[T any] interface {
 	// ValueRange returns the interval of values that this term can evaluate to.
 	// For terms accessing registers, this is determined by the declared width of
 	// the register.
-	ValueRange(module schema.Module) *util.Interval
+	ValueRange(module schema.Module) *math.Interval
 }
 
 // Testable captures the notion of a constraint which can be tested on a given

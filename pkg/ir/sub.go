@@ -17,7 +17,9 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -92,8 +94,8 @@ func (p *Sub[T]) Substitute(mapping map[string]fr.Element) {
 }
 
 // ValueRange implementation for Term interface.
-func (p *Sub[T]) ValueRange(module schema.Module) *util.Interval {
-	var res util.Interval
+func (p *Sub[T]) ValueRange(module schema.Module) *math.Interval {
+	var res math.Interval
 
 	for i, arg := range p.Args {
 		ith := arg.ValueRange(module)
@@ -135,7 +137,7 @@ func (p *Sub[T]) Simplify(casts bool) T {
 		//
 		targ = &Constant[T]{c}
 	case l_const && r_add:
-		nterms := util.Prepend(lhs, ra.Args)
+		nterms := array.Prepend(lhs, ra.Args)
 		// if rhs has constant, subtract it.
 		if rc, ok := findConstant(ra.Args); ok {
 			c := lc.Value
@@ -146,7 +148,7 @@ func (p *Sub[T]) Simplify(casts bool) T {
 		targ = &Sub[T]{nterms}
 	case r_add:
 		// Default case, recombine.
-		targ = &Sub[T]{util.Prepend(lhs, ra.Args)}
+		targ = &Sub[T]{array.Prepend(lhs, ra.Args)}
 	default:
 		targ = &Sub[T]{[]T{lhs, rhs}}
 	}

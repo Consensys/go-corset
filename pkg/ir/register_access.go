@@ -22,6 +22,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	util_math "github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -132,7 +133,7 @@ func (p *RegisterAccess[T]) Substitute(mapping map[string]fr.Element) {
 }
 
 // ValueRange implementation for Term interface.
-func (p *RegisterAccess[T]) ValueRange(module schema.Module) *util.Interval {
+func (p *RegisterAccess[T]) ValueRange(module schema.Module) *util_math.Interval {
 	var (
 		bound = big.NewInt(2)
 		width = module.Register(p.Register).Width
@@ -152,5 +153,5 @@ func (p *RegisterAccess[T]) ValueRange(module schema.Module) *util.Interval {
 	// Subtract 1 because interval is inclusive.
 	bound.Sub(bound, &biONE)
 	// Done
-	return util.NewInterval(&biZERO, bound)
+	return util_math.NewInterval(&biZERO, bound)
 }

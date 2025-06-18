@@ -12,9 +12,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package enum
 
-import (
-	"github.com/consensys/go-corset/pkg/util"
-)
+import "github.com/consensys/go-corset/pkg/util/collection/array"
 
 // Enumerator abstracts the process of iterating over a sequence of elements.
 type Enumerator[T any] interface {
@@ -36,7 +34,7 @@ type Enumerator[T any] interface {
 // other iterator implementations.
 //
 //nolint:revive
-func Find[T any, S Enumerator[T]](iter S, predicate util.Predicate[T]) (uint, bool) {
+func Find[T any, S Enumerator[T]](iter S, predicate array.Predicate[T]) (uint, bool) {
 	index := uint(0)
 
 	for iter.HasNext() {

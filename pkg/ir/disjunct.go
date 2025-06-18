@@ -17,6 +17,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
@@ -108,13 +109,13 @@ func (p *Disjunct[T]) Simplify(casts bool) T {
 	// Simplify terms
 	terms := simplifyLogicalTerms(p.Args, casts)
 	// Flatten any nested disjuncts
-	terms = util.Flatten(terms, flatternDisjunct)
+	terms = array.Flatten(terms, flatternDisjunct)
 	// True if contains True
-	if util.ContainsMatching(terms, IsTrue) {
+	if array.ContainsMatching(terms, IsTrue) {
 		return True[T]()
 	}
 	// Remove false values
-	terms = util.RemoveMatching(terms, IsFalse)
+	terms = array.RemoveMatching(terms, IsFalse)
 	// Final checks
 	switch len(terms) {
 	case 0:

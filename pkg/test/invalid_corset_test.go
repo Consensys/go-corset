@@ -34,227 +34,227 @@ const InvalidTestDir = "../../testdata"
 // ===================================================================
 
 func Test_Invalid_Basic_01(t *testing.T) {
-	CheckInvalid(t, "basic_invalid_01")
+	CheckInvalid(t, "invalid/basic_invalid_01")
 }
 
 func Test_Invalid_Basic_02(t *testing.T) {
-	CheckInvalid(t, "basic_invalid_02")
+	CheckInvalid(t, "invalid/basic_invalid_02")
 }
 
 func Test_Invalid_Basic_03(t *testing.T) {
-	CheckInvalid(t, "basic_invalid_03")
+	CheckInvalid(t, "invalid/basic_invalid_03")
 }
 
 func Test_Invalid_Basic_04(t *testing.T) {
-	CheckInvalid(t, "basic_invalid_04")
+	CheckInvalid(t, "invalid/basic_invalid_04")
 }
 
 func Test_Invalid_Basic_05(t *testing.T) {
-	CheckInvalid(t, "basic_invalid_05")
+	CheckInvalid(t, "invalid/basic_invalid_05")
 }
 
 func Test_Invalid_Basic_06(t *testing.T) {
-	CheckInvalid(t, "basic_invalid_06")
+	CheckInvalid(t, "invalid/basic_invalid_06")
 }
 
 func Test_Invalid_Basic_07(t *testing.T) {
-	CheckInvalid(t, "basic_invalid_07")
+	CheckInvalid(t, "invalid/basic_invalid_07")
 }
 
 func Test_Invalid_Basic_08(t *testing.T) {
-	CheckInvalid(t, "basic_invalid_08")
+	CheckInvalid(t, "invalid/basic_invalid_08")
 }
 
 func Test_Invalid_Basic_09(t *testing.T) {
-	CheckInvalid(t, "basic_invalid_09")
+	CheckInvalid(t, "invalid/basic_invalid_09")
 }
 
 func Test_Invalid_Basic_10(t *testing.T) {
-	CheckInvalid(t, "basic_invalid_10")
+	CheckInvalid(t, "invalid/basic_invalid_10")
 }
 
 func Test_Invalid_Basic_11(t *testing.T) {
-	CheckInvalid(t, "basic_invalid_11")
+	CheckInvalid(t, "invalid/basic_invalid_11")
 }
 
 func Test_Invalid_Basic_12(t *testing.T) {
-	CheckInvalid(t, "basic_invalid_12")
+	CheckInvalid(t, "invalid/basic_invalid_12")
 }
 
 func Test_Invalid_Basic_13(t *testing.T) {
-	CheckInvalid(t, "basic_invalid_13")
+	CheckInvalid(t, "invalid/basic_invalid_13")
 }
 
 func Test_Invalid_Basic_14(t *testing.T) {
-	CheckInvalid(t, "basic_invalid_14")
+	CheckInvalid(t, "invalid/basic_invalid_14")
 }
 
 func Test_Invalid_Basic_15(t *testing.T) {
-	CheckInvalid(t, "basic_invalid_15")
+	CheckInvalid(t, "invalid/basic_invalid_15")
 }
 
 func Test_Invalid_Logic_01(t *testing.T) {
-	CheckInvalid(t, "logic_invalid_01")
+	CheckInvalid(t, "invalid/logic_invalid_01")
 }
 
 func Test_Invalid_Logic_02(t *testing.T) {
-	CheckInvalid(t, "logic_invalid_02")
+	CheckInvalid(t, "invalid/logic_invalid_02")
 }
 
 func Test_Invalid_Logic_03(t *testing.T) {
-	CheckInvalid(t, "logic_invalid_03")
+	CheckInvalid(t, "invalid/logic_invalid_03")
 }
 
 // ===================================================================
 // Constant Tests
 // ===================================================================
 func Test_Invalid_Constant_01(t *testing.T) {
-	CheckInvalid(t, "constant_invalid_01")
+	CheckInvalid(t, "invalid/constant_invalid_01")
 }
 
 func Test_Invalid_Constant_02(t *testing.T) {
-	CheckInvalid(t, "constant_invalid_02")
+	CheckInvalid(t, "invalid/constant_invalid_02")
 }
 
 func Test_Invalid_Constant_03(t *testing.T) {
-	CheckInvalid(t, "constant_invalid_03")
+	CheckInvalid(t, "invalid/constant_invalid_03")
 }
 
 func Test_Invalid_Constant_04(t *testing.T) {
-	CheckInvalid(t, "constant_invalid_04")
+	CheckInvalid(t, "invalid/constant_invalid_04")
 }
 
 func Test_Invalid_Constant_05(t *testing.T) {
-	CheckInvalid(t, "constant_invalid_05")
+	CheckInvalid(t, "invalid/constant_invalid_05")
 }
 
 /* Recursive --- #406
   func Test_Invalid_Constant_06(t *testing.T) {
-	CheckInvalid(t, "constant_invalid_06")
+	CheckInvalid(t, "invalid/constant_invalid_06")
 } */
 
 /* Recursive --- #406
   func Test_Invalid_Constant_07(t *testing.T) {
-	CheckInvalid(t, "constant_invalid_07")
+	CheckInvalid(t, "invalid/constant_invalid_07")
 }
 */
 /* Recursive --- #406
   func Test_Invalid_Constant_08(t *testing.T) {
-	CheckInvalid(t, "constant_invalid_08")
+	CheckInvalid(t, "invalid/constant_invalid_08")
 } */
 
 func Test_Invalid_Constant_09(t *testing.T) {
-	CheckInvalid(t, "constant_invalid_09")
+	CheckInvalid(t, "invalid/constant_invalid_09")
 }
 
 func Test_Invalid_Constant_10(t *testing.T) {
-	CheckInvalid(t, "constant_invalid_10")
+	CheckInvalid(t, "invalid/constant_invalid_10")
 }
 
 func Test_Invalid_Constant_11(t *testing.T) {
-	CheckInvalid(t, "constant_invalid_11")
+	CheckInvalid(t, "invalid/constant_invalid_11")
 }
 
 func Test_Invalid_Constant_12(t *testing.T) {
-	CheckInvalid(t, "constant_invalid_12")
+	CheckInvalid(t, "invalid/constant_invalid_12")
 }
 
 func Test_Invalid_Constant_13(t *testing.T) {
-	CheckInvalid(t, "constant_invalid_13")
+	CheckInvalid(t, "invalid/constant_invalid_13")
 }
 
 func Test_Invalid_Constant_14(t *testing.T) {
-	CheckInvalid(t, "constant_invalid_14")
+	CheckInvalid(t, "invalid/constant_invalid_14")
 }
 
 func Test_Invalid_Constant_15(t *testing.T) {
-	CheckInvalid(t, "constant_invalid_15")
+	CheckInvalid(t, "invalid/constant_invalid_15")
 }
 
 func Test_Invalid_Constant_16(t *testing.T) {
-	CheckInvalid(t, "constant_invalid_16")
+	CheckInvalid(t, "invalid/constant_invalid_16")
 }
 
 func Test_Invalid_Constant_17(t *testing.T) {
-	CheckInvalid(t, "constant_invalid_17")
+	CheckInvalid(t, "invalid/constant_invalid_17")
 }
 
 func Test_Invalid_Constant_18(t *testing.T) {
-	CheckInvalid(t, "constant_invalid_18")
+	CheckInvalid(t, "invalid/constant_invalid_18")
 }
 
 func Test_Invalid_Constant_19(t *testing.T) {
-	CheckInvalid(t, "constant_invalid_19")
+	CheckInvalid(t, "invalid/constant_invalid_19")
 }
 
 func Test_Invalid_Constant_20(t *testing.T) {
-	CheckInvalid(t, "constant_invalid_20")
+	CheckInvalid(t, "invalid/constant_invalid_20")
 }
 
 func Test_Invalid_Constant_21(t *testing.T) {
-	CheckInvalid(t, "constant_invalid_21")
+	CheckInvalid(t, "invalid/constant_invalid_21")
 }
 
 func Test_Invalid_Constant_22(t *testing.T) {
-	CheckInvalid(t, "constant_invalid_22")
+	CheckInvalid(t, "invalid/constant_invalid_22")
 }
 
 func Test_Invalid_Constant_23(t *testing.T) {
-	CheckInvalid(t, "constant_invalid_23")
+	CheckInvalid(t, "invalid/constant_invalid_23")
 }
 
 func Test_Invalid_Constant_24(t *testing.T) {
-	CheckInvalid(t, "constant_invalid_24")
+	CheckInvalid(t, "invalid/constant_invalid_24")
 }
 
 func Test_Invalid_Constant_25(t *testing.T) {
-	CheckInvalid(t, "constant_invalid_25")
+	CheckInvalid(t, "invalid/constant_invalid_25")
 }
 
 func Test_Invalid_Constant_26(t *testing.T) {
-	CheckInvalid(t, "constant_invalid_26")
+	CheckInvalid(t, "invalid/constant_invalid_26")
 }
 
 // ===================================================================
 // Alias Tests
 // ===================================================================
 func Test_Invalid_Alias_01(t *testing.T) {
-	CheckInvalid(t, "alias_invalid_01")
+	CheckInvalid(t, "invalid/alias_invalid_01")
 }
 
 func Test_Invalid_Alias_02(t *testing.T) {
-	CheckInvalid(t, "alias_invalid_02")
+	CheckInvalid(t, "invalid/alias_invalid_02")
 }
 
 func Test_Invalid_Alias_03(t *testing.T) {
-	CheckInvalid(t, "alias_invalid_03")
+	CheckInvalid(t, "invalid/alias_invalid_03")
 }
 
 func Test_Invalid_Alias_04(t *testing.T) {
-	CheckInvalid(t, "alias_invalid_04")
+	CheckInvalid(t, "invalid/alias_invalid_04")
 }
 
 func Test_Invalid_Alias_05(t *testing.T) {
-	CheckInvalid(t, "alias_invalid_05")
+	CheckInvalid(t, "invalid/alias_invalid_05")
 }
 
 func Test_Invalid_Alias_06(t *testing.T) {
-	CheckInvalid(t, "alias_invalid_06")
+	CheckInvalid(t, "invalid/alias_invalid_06")
 }
 
 func Test_Invalid_Alias_07(t *testing.T) {
-	CheckInvalid(t, "alias_invalid_07")
+	CheckInvalid(t, "invalid/alias_invalid_07")
 }
 
 // ===================================================================
 // Property Tests
 // ===================================================================
 func Test_Invalid_Property_01(t *testing.T) {
-	CheckInvalid(t, "property_invalid_01")
+	CheckInvalid(t, "invalid/property_invalid_01")
 }
 
 func Test_Invalid_Property_02(t *testing.T) {
-	CheckInvalid(t, "property_invalid_02")
+	CheckInvalid(t, "invalid/property_invalid_02")
 }
 
 // ===================================================================
@@ -262,11 +262,11 @@ func Test_Invalid_Property_02(t *testing.T) {
 // ===================================================================
 
 func Test_Invalid_Shift_01(t *testing.T) {
-	CheckInvalid(t, "shift_invalid_01")
+	CheckInvalid(t, "invalid/shift_invalid_01")
 }
 
 func Test_Invalid_Shift_02(t *testing.T) {
-	CheckInvalid(t, "shift_invalid_02")
+	CheckInvalid(t, "invalid/shift_invalid_02")
 }
 
 // ===================================================================
@@ -274,7 +274,7 @@ func Test_Invalid_Shift_02(t *testing.T) {
 // ===================================================================
 
 func Test_Invalid_Norm_01(t *testing.T) {
-	CheckInvalid(t, "norm_invalid_01")
+	CheckInvalid(t, "invalid/norm_invalid_01")
 }
 
 // ===================================================================
@@ -282,15 +282,15 @@ func Test_Invalid_Norm_01(t *testing.T) {
 // ===================================================================
 
 func Test_Invalid_If_01(t *testing.T) {
-	CheckInvalid(t, "if_invalid_01")
+	CheckInvalid(t, "invalid/if_invalid_01")
 }
 
 func Test_Invalid_If_02(t *testing.T) {
-	CheckInvalid(t, "if_invalid_02")
+	CheckInvalid(t, "invalid/if_invalid_02")
 }
 
 func Test_Invalid_If_03(t *testing.T) {
-	CheckInvalid(t, "if_invalid_03")
+	CheckInvalid(t, "invalid/if_invalid_03")
 }
 
 // ===================================================================
@@ -298,59 +298,59 @@ func Test_Invalid_If_03(t *testing.T) {
 // ===================================================================
 
 func Test_Invalid_Type_01(t *testing.T) {
-	CheckInvalid(t, "type_invalid_01")
+	CheckInvalid(t, "invalid/type_invalid_01")
 }
 
 func Test_Invalid_Type_02(t *testing.T) {
-	CheckInvalid(t, "type_invalid_02")
+	CheckInvalid(t, "invalid/type_invalid_02")
 }
 
 func Test_Invalid_Type_03(t *testing.T) {
-	CheckInvalid(t, "type_invalid_03")
+	CheckInvalid(t, "invalid/type_invalid_03")
 }
 
 func Test_Invalid_Type_04(t *testing.T) {
-	CheckInvalid(t, "type_invalid_04")
+	CheckInvalid(t, "invalid/type_invalid_04")
 }
 
 func Test_Invalid_Type_05(t *testing.T) {
-	CheckInvalid(t, "type_invalid_05")
+	CheckInvalid(t, "invalid/type_invalid_05")
 }
 
 func Test_Invalid_Type_06(t *testing.T) {
-	CheckInvalid(t, "type_invalid_06")
+	CheckInvalid(t, "invalid/type_invalid_06")
 }
 
 func Test_Invalid_Type_07(t *testing.T) {
-	CheckInvalid(t, "type_invalid_07")
+	CheckInvalid(t, "invalid/type_invalid_07")
 }
 
 func Test_Invalid_Type_08(t *testing.T) {
-	CheckInvalid(t, "type_invalid_08")
+	CheckInvalid(t, "invalid/type_invalid_08")
 }
 
 func Test_Invalid_Type_09(t *testing.T) {
-	CheckInvalid(t, "type_invalid_09")
+	CheckInvalid(t, "invalid/type_invalid_09")
 }
 
 func Test_Invalid_Type_10(t *testing.T) {
-	CheckInvalid(t, "type_invalid_10")
+	CheckInvalid(t, "invalid/type_invalid_10")
 }
 
 func Test_Invalid_Type_11(t *testing.T) {
-	CheckInvalid(t, "type_invalid_11")
+	CheckInvalid(t, "invalid/type_invalid_11")
 }
 
 func Test_Invalid_Type_12(t *testing.T) {
-	CheckInvalid(t, "type_invalid_12")
+	CheckInvalid(t, "invalid/type_invalid_12")
 }
 
 func Test_Invalid_Type_13(t *testing.T) {
-	CheckInvalid(t, "type_invalid_13")
+	CheckInvalid(t, "invalid/type_invalid_13")
 }
 
 func Test_Invalid_Type_14(t *testing.T) {
-	CheckInvalid(t, "type_invalid_14")
+	CheckInvalid(t, "invalid/type_invalid_14")
 }
 
 // ===================================================================
@@ -358,19 +358,19 @@ func Test_Invalid_Type_14(t *testing.T) {
 // ===================================================================
 
 func Test_Invalid_Range_01(t *testing.T) {
-	CheckInvalid(t, "range_invalid_01")
+	CheckInvalid(t, "invalid/range_invalid_01")
 }
 
 func Test_Invalid_Range_02(t *testing.T) {
-	CheckInvalid(t, "range_invalid_02")
+	CheckInvalid(t, "invalid/range_invalid_02")
 }
 
 func Test_Invalid_Range_03(t *testing.T) {
-	CheckInvalid(t, "range_invalid_03")
+	CheckInvalid(t, "invalid/range_invalid_03")
 }
 
 func Test_Invalid_Range_04(t *testing.T) {
-	CheckInvalid(t, "range_invalid_04")
+	CheckInvalid(t, "invalid/range_invalid_04")
 }
 
 // ===================================================================
@@ -378,7 +378,7 @@ func Test_Invalid_Range_04(t *testing.T) {
 // ===================================================================
 
 func Test_Invalid_Module_01(t *testing.T) {
-	CheckInvalid(t, "module_invalid_01")
+	CheckInvalid(t, "invalid/module_invalid_01")
 }
 
 // ===================================================================
@@ -386,37 +386,37 @@ func Test_Invalid_Module_01(t *testing.T) {
 // ===================================================================
 
 func Test_Invalid_Permute_01(t *testing.T) {
-	CheckInvalid(t, "permute_invalid_01")
+	CheckInvalid(t, "invalid/permute_invalid_01")
 }
 
 func Test_Invalid_Permute_02(t *testing.T) {
-	CheckInvalid(t, "permute_invalid_02")
+	CheckInvalid(t, "invalid/permute_invalid_02")
 }
 
 func Test_Invalid_Permute_03(t *testing.T) {
-	CheckInvalid(t, "permute_invalid_03")
+	CheckInvalid(t, "invalid/permute_invalid_03")
 }
 
 func Test_Invalid_Permute_04(t *testing.T) {
-	CheckInvalid(t, "permute_invalid_04")
+	CheckInvalid(t, "invalid/permute_invalid_04")
 }
 
 /* func Test_Invalid_Permute_05(t *testing.T) {
-	CheckInvalid(t, "permute_invalid_05")
+	CheckInvalid(t, "invalid/permute_invalid_05")
 } */
 
 func Test_Invalid_Permute_07(t *testing.T) {
-	CheckInvalid(t, "permute_invalid_07")
+	CheckInvalid(t, "invalid/permute_invalid_07")
 }
 
 func Test_Invalid_Permute_08(t *testing.T) {
-	CheckInvalid(t, "permute_invalid_08")
+	CheckInvalid(t, "invalid/permute_invalid_08")
 }
 func Test_Invalid_Permute_09(t *testing.T) {
-	CheckInvalid(t, "permute_invalid_09")
+	CheckInvalid(t, "invalid/permute_invalid_09")
 }
 func Test_Invalid_Permute_10(t *testing.T) {
-	CheckInvalid(t, "permute_invalid_10")
+	CheckInvalid(t, "invalid/permute_invalid_10")
 }
 
 // ===================================================================
@@ -424,21 +424,21 @@ func Test_Invalid_Permute_10(t *testing.T) {
 // ===================================================================
 
 func Test_Invalid_Sorted_01(t *testing.T) {
-	CheckInvalid(t, "sorted_invalid_01")
+	CheckInvalid(t, "invalid/sorted_invalid_01")
 }
 
 func Test_Invalid_Sorted_02(t *testing.T) {
-	CheckInvalid(t, "sorted_invalid_02")
+	CheckInvalid(t, "invalid/sorted_invalid_02")
 }
 
 func Test_Invalid_Sorted_03(t *testing.T) {
-	CheckInvalid(t, "sorted_invalid_03")
+	CheckInvalid(t, "invalid/sorted_invalid_03")
 }
 func Test_Invalid_Sorted_04(t *testing.T) {
-	CheckInvalid(t, "sorted_invalid_04")
+	CheckInvalid(t, "invalid/sorted_invalid_04")
 }
 func Test_Invalid_Sorted_05(t *testing.T) {
-	CheckInvalid(t, "sorted_invalid_05")
+	CheckInvalid(t, "invalid/sorted_invalid_05")
 }
 
 // ===================================================================
@@ -446,38 +446,38 @@ func Test_Invalid_Sorted_05(t *testing.T) {
 // ===================================================================
 
 func Test_Invalid_Lookup_01(t *testing.T) {
-	CheckInvalid(t, "lookup_invalid_01")
+	CheckInvalid(t, "invalid/lookup_invalid_01")
 }
 
 func Test_Invalid_Lookup_02(t *testing.T) {
-	CheckInvalid(t, "lookup_invalid_02")
+	CheckInvalid(t, "invalid/lookup_invalid_02")
 }
 func Test_Invalid_Lookup_03(t *testing.T) {
-	CheckInvalid(t, "lookup_invalid_03")
+	CheckInvalid(t, "invalid/lookup_invalid_03")
 }
 
 func Test_Invalid_Lookup_04(t *testing.T) {
-	CheckInvalid(t, "lookup_invalid_04")
+	CheckInvalid(t, "invalid/lookup_invalid_04")
 }
 
 func Test_Invalid_Lookup_05(t *testing.T) {
-	CheckInvalid(t, "lookup_invalid_05")
+	CheckInvalid(t, "invalid/lookup_invalid_05")
 }
 func Test_Invalid_Lookup_06(t *testing.T) {
-	CheckInvalid(t, "lookup_invalid_06")
+	CheckInvalid(t, "invalid/lookup_invalid_06")
 }
 func Test_Invalid_Lookup_07(t *testing.T) {
-	CheckInvalid(t, "lookup_invalid_07")
+	CheckInvalid(t, "invalid/lookup_invalid_07")
 }
 func Test_Invalid_Lookup_08(t *testing.T) {
-	CheckInvalid(t, "lookup_invalid_08")
+	CheckInvalid(t, "invalid/lookup_invalid_08")
 }
 func Test_Invalid_Lookup_09(t *testing.T) {
-	CheckInvalid(t, "lookup_invalid_09")
+	CheckInvalid(t, "invalid/lookup_invalid_09")
 }
 
 func Test_Invalid_Lookup_10(t *testing.T) {
-	CheckInvalid(t, "lookup_invalid_10")
+	CheckInvalid(t, "invalid/lookup_invalid_10")
 }
 
 // ===================================================================
@@ -485,51 +485,51 @@ func Test_Invalid_Lookup_10(t *testing.T) {
 // ===================================================================
 
 func Test_Invalid_Interleave_01(t *testing.T) {
-	CheckInvalid(t, "interleave_invalid_01")
+	CheckInvalid(t, "invalid/interleave_invalid_01")
 }
 
 func Test_Invalid_Interleave_02(t *testing.T) {
-	CheckInvalid(t, "interleave_invalid_02")
+	CheckInvalid(t, "invalid/interleave_invalid_02")
 }
 
 func Test_Invalid_Interleave_03(t *testing.T) {
-	CheckInvalid(t, "interleave_invalid_03")
+	CheckInvalid(t, "invalid/interleave_invalid_03")
 }
 
 func Test_Invalid_Interleave_04(t *testing.T) {
-	CheckInvalid(t, "interleave_invalid_04")
+	CheckInvalid(t, "invalid/interleave_invalid_04")
 }
 
 func Test_Invalid_Interleave_05(t *testing.T) {
-	CheckInvalid(t, "interleave_invalid_05")
+	CheckInvalid(t, "invalid/interleave_invalid_05")
 }
 
 func Test_Invalid_Interleave_06(t *testing.T) {
-	CheckInvalid(t, "interleave_invalid_06")
+	CheckInvalid(t, "invalid/interleave_invalid_06")
 }
 
 func Test_Invalid_Interleave_07(t *testing.T) {
-	CheckInvalid(t, "interleave_invalid_07")
+	CheckInvalid(t, "invalid/interleave_invalid_07")
 }
 
 func Test_Invalid_Interleave_08(t *testing.T) {
-	CheckInvalid(t, "interleave_invalid_08")
+	CheckInvalid(t, "invalid/interleave_invalid_08")
 }
 
 func Test_Invalid_Interleave_09(t *testing.T) {
-	CheckInvalid(t, "interleave_invalid_09")
+	CheckInvalid(t, "invalid/interleave_invalid_09")
 }
 
 func Test_Invalid_Interleave_10(t *testing.T) {
-	CheckInvalid(t, "interleave_invalid_10")
+	CheckInvalid(t, "invalid/interleave_invalid_10")
 }
 
 func Test_Invalid_Interleave_11(t *testing.T) {
-	CheckInvalid(t, "interleave_invalid_11")
+	CheckInvalid(t, "invalid/interleave_invalid_11")
 }
 
 func Test_Invalid_Interleave_12(t *testing.T) {
-	CheckInvalid(t, "interleave_invalid_12")
+	CheckInvalid(t, "invalid/interleave_invalid_12")
 }
 
 // ===================================================================
@@ -537,19 +537,19 @@ func Test_Invalid_Interleave_12(t *testing.T) {
 // ===================================================================
 
 func Test_Invalid_Fun_01(t *testing.T) {
-	CheckInvalid(t, "fun_invalid_01")
+	CheckInvalid(t, "invalid/fun_invalid_01")
 }
 
 func Test_Invalid_Fun_02(t *testing.T) {
-	CheckInvalid(t, "fun_invalid_02")
+	CheckInvalid(t, "invalid/fun_invalid_02")
 }
 
 func Test_Invalid_Fun_03(t *testing.T) {
-	CheckInvalid(t, "fun_invalid_03")
+	CheckInvalid(t, "invalid/fun_invalid_03")
 }
 
 func Test_Invalid_Fun_04(t *testing.T) {
-	CheckInvalid(t, "fun_invalid_04")
+	CheckInvalid(t, "invalid/fun_invalid_04")
 }
 
 // ===================================================================
@@ -557,108 +557,108 @@ func Test_Invalid_Fun_04(t *testing.T) {
 // ===================================================================
 
 func Test_Invalid_PureFun_01(t *testing.T) {
-	CheckInvalid(t, "purefun_invalid_01")
+	CheckInvalid(t, "invalid/purefun_invalid_01")
 }
 
 func Test_Invalid_PureFun_02(t *testing.T) {
-	CheckInvalid(t, "purefun_invalid_02")
+	CheckInvalid(t, "invalid/purefun_invalid_02")
 }
 
 func Test_Invalid_PureFun_03(t *testing.T) {
-	CheckInvalid(t, "purefun_invalid_03")
+	CheckInvalid(t, "invalid/purefun_invalid_03")
 }
 
 func Test_Invalid_PureFun_04(t *testing.T) {
-	CheckInvalid(t, "purefun_invalid_04")
+	CheckInvalid(t, "invalid/purefun_invalid_04")
 }
 
 func Test_Invalid_PureFun_05(t *testing.T) {
-	CheckInvalid(t, "purefun_invalid_05")
+	CheckInvalid(t, "invalid/purefun_invalid_05")
 }
 
 /*
 	func Test_Invalid_PureFun_06(t *testing.T) {
-		CheckInvalid(t, "purefun_invalid_06")
+		CheckInvalid(t, "invalid/purefun_invalid_06")
 	}
 */
 
 func Test_Invalid_PureFun_07(t *testing.T) {
-	CheckInvalid(t, "purefun_invalid_07")
+	CheckInvalid(t, "invalid/purefun_invalid_07")
 }
 
 func Test_Invalid_PureFun_08(t *testing.T) {
 	// tricky one
-	CheckInvalid(t, "purefun_invalid_08")
+	CheckInvalid(t, "invalid/purefun_invalid_08")
 }
 
 func Test_Invalid_PureFun_09(t *testing.T) {
 	// tricky one
-	CheckInvalid(t, "purefun_invalid_09")
+	CheckInvalid(t, "invalid/purefun_invalid_09")
 }
 
 func Test_Invalid_PureFun_10(t *testing.T) {
-	CheckInvalid(t, "purefun_invalid_10")
+	CheckInvalid(t, "invalid/purefun_invalid_10")
 }
 
 func Test_Invalid_PureFun_11(t *testing.T) {
-	CheckInvalid(t, "purefun_invalid_11")
+	CheckInvalid(t, "invalid/purefun_invalid_11")
 }
 
 func Test_Invalid_PureFun_12(t *testing.T) {
-	CheckInvalid(t, "purefun_invalid_12")
+	CheckInvalid(t, "invalid/purefun_invalid_12")
 }
 
 func Test_Invalid_PureFun_13(t *testing.T) {
-	CheckInvalid(t, "purefun_invalid_13")
+	CheckInvalid(t, "invalid/purefun_invalid_13")
 }
 
 func Test_Invalid_PureFun_14(t *testing.T) {
-	CheckInvalid(t, "purefun_invalid_14")
+	CheckInvalid(t, "invalid/purefun_invalid_14")
 }
 func Test_Invalid_PureFun_15(t *testing.T) {
-	CheckInvalid(t, "purefun_invalid_15")
+	CheckInvalid(t, "invalid/purefun_invalid_15")
 }
 
 // ===================================================================
 // For Loops
 // ===================================================================
 func Test_Invalid_For_01(t *testing.T) {
-	CheckInvalid(t, "for_invalid_01")
+	CheckInvalid(t, "invalid/for_invalid_01")
 }
 
 func Test_Invalid_For_02(t *testing.T) {
-	CheckInvalid(t, "for_invalid_02")
+	CheckInvalid(t, "invalid/for_invalid_02")
 }
 
 func Test_Invalid_For_03(t *testing.T) {
-	CheckInvalid(t, "for_invalid_03")
+	CheckInvalid(t, "invalid/for_invalid_03")
 }
 
 // ===================================================================
 // Arrays
 // ===================================================================
 func Test_Invalid_Array_01(t *testing.T) {
-	CheckInvalid(t, "array_invalid_01")
+	CheckInvalid(t, "invalid/array_invalid_01")
 }
 
 func Test_Invalid_Array_02(t *testing.T) {
-	CheckInvalid(t, "array_invalid_02")
+	CheckInvalid(t, "invalid/array_invalid_02")
 }
 
 func Test_Invalid_Array_03(t *testing.T) {
-	CheckInvalid(t, "array_invalid_03")
+	CheckInvalid(t, "invalid/array_invalid_03")
 }
 
 func Test_Invalid_Array_04(t *testing.T) {
-	CheckInvalid(t, "array_invalid_04")
+	CheckInvalid(t, "invalid/array_invalid_04")
 }
 
 func Test_Invalid_Array_05(t *testing.T) {
-	CheckInvalid(t, "array_invalid_05")
+	CheckInvalid(t, "invalid/array_invalid_05")
 }
 
 func Test_Invalid_Array_06(t *testing.T) {
-	CheckInvalid(t, "array_invalid_06")
+	CheckInvalid(t, "invalid/array_invalid_06")
 }
 
 // ===================================================================
@@ -666,23 +666,23 @@ func Test_Invalid_Array_06(t *testing.T) {
 // ===================================================================
 
 func Test_Invalid_Reduce_01(t *testing.T) {
-	CheckInvalid(t, "reduce_invalid_01")
+	CheckInvalid(t, "invalid/reduce_invalid_01")
 }
 
 func Test_Invalid_Reduce_02(t *testing.T) {
-	CheckInvalid(t, "reduce_invalid_02")
+	CheckInvalid(t, "invalid/reduce_invalid_02")
 }
 
 func Test_Invalid_Reduce_03(t *testing.T) {
-	CheckInvalid(t, "reduce_invalid_03")
+	CheckInvalid(t, "invalid/reduce_invalid_03")
 }
 
 func Test_Invalid_Reduce_04(t *testing.T) {
-	CheckInvalid(t, "reduce_invalid_04")
+	CheckInvalid(t, "invalid/reduce_invalid_04")
 }
 
 func Test_Invalid_Reduce_05(t *testing.T) {
-	CheckInvalid(t, "reduce_invalid_05")
+	CheckInvalid(t, "invalid/reduce_invalid_05")
 }
 
 // ===================================================================
@@ -690,65 +690,65 @@ func Test_Invalid_Reduce_05(t *testing.T) {
 // ===================================================================
 
 func Test_Invalid_Debug_01(t *testing.T) {
-	CheckInvalid(t, "debug_invalid_01")
+	CheckInvalid(t, "invalid/debug_invalid_01")
 }
 
 func Test_Invalid_Debug_02(t *testing.T) {
-	CheckInvalid(t, "debug_invalid_02")
+	CheckInvalid(t, "invalid/debug_invalid_02")
 }
 
 // ===================================================================
 // Perspectives
 // ===================================================================
 func Test_Invalid_Perspective_01(t *testing.T) {
-	CheckInvalid(t, "perspective_invalid_01")
+	CheckInvalid(t, "invalid/perspective_invalid_01")
 }
 
 func Test_Invalid_Perspective_02(t *testing.T) {
-	CheckInvalid(t, "perspective_invalid_02")
+	CheckInvalid(t, "invalid/perspective_invalid_02")
 }
 
 func Test_Invalid_Perspective_03(t *testing.T) {
-	CheckInvalid(t, "perspective_invalid_03")
+	CheckInvalid(t, "invalid/perspective_invalid_03")
 }
 
 func Test_Invalid_Perspective_05(t *testing.T) {
-	CheckInvalid(t, "perspective_invalid_05")
+	CheckInvalid(t, "invalid/perspective_invalid_05")
 }
 
 func Test_Invalid_Perspective_06(t *testing.T) {
-	CheckInvalid(t, "perspective_invalid_06")
+	CheckInvalid(t, "invalid/perspective_invalid_06")
 }
 
 func Test_Invalid_Perspective_08(t *testing.T) {
-	CheckInvalid(t, "perspective_invalid_08")
+	CheckInvalid(t, "invalid/perspective_invalid_08")
 }
 
 // ===================================================================
 // Perspectives
 // ===================================================================
 func Test_Invalid_Let_01(t *testing.T) {
-	CheckInvalid(t, "let_invalid_01")
+	CheckInvalid(t, "invalid/let_invalid_01")
 }
 
 func Test_Invalid_Let_02(t *testing.T) {
-	CheckInvalid(t, "let_invalid_02")
+	CheckInvalid(t, "invalid/let_invalid_02")
 }
 func Test_Invalid_Let_03(t *testing.T) {
-	CheckInvalid(t, "let_invalid_03")
+	CheckInvalid(t, "invalid/let_invalid_03")
 }
 func Test_Invalid_Let_04(t *testing.T) {
-	CheckInvalid(t, "let_invalid_04")
+	CheckInvalid(t, "invalid/let_invalid_04")
 }
 func Test_Invalid_Let_05(t *testing.T) {
-	CheckInvalid(t, "let_invalid_05")
+	CheckInvalid(t, "invalid/let_invalid_05")
 }
 func Test_Invalid_Let_06(t *testing.T) {
-	CheckInvalid(t, "let_invalid_06")
+	CheckInvalid(t, "invalid/let_invalid_06")
 }
 
 func Test_Invalid_Let_07(t *testing.T) {
-	CheckInvalid(t, "let_invalid_07")
+	CheckInvalid(t, "invalid/let_invalid_07")
 }
 
 // ===================================================================
@@ -756,31 +756,31 @@ func Test_Invalid_Let_07(t *testing.T) {
 // ===================================================================
 
 func Test_Invalid_Compute_01(t *testing.T) {
-	CheckInvalid(t, "compute_invalid_01")
+	CheckInvalid(t, "invalid/compute_invalid_01")
 }
 
 func Test_Invalid_Compute_02(t *testing.T) {
-	CheckInvalid(t, "compute_invalid_02")
+	CheckInvalid(t, "invalid/compute_invalid_02")
 }
 
 func Test_Invalid_Compute_03(t *testing.T) {
-	CheckInvalid(t, "compute_invalid_03")
+	CheckInvalid(t, "invalid/compute_invalid_03")
 }
 
 func Test_Invalid_Compute_04(t *testing.T) {
-	CheckInvalid(t, "compute_invalid_04")
+	CheckInvalid(t, "invalid/compute_invalid_04")
 }
 
 func Test_Invalid_Compute_05(t *testing.T) {
-	CheckInvalid(t, "compute_invalid_05")
+	CheckInvalid(t, "invalid/compute_invalid_05")
 }
 
 func Test_Invalid_Compute_06(t *testing.T) {
-	CheckInvalid(t, "compute_invalid_06")
+	CheckInvalid(t, "invalid/compute_invalid_06")
 }
 
 func Test_Invalid_Compute_07(t *testing.T) {
-	CheckInvalid(t, "compute_invalid_07")
+	CheckInvalid(t, "invalid/compute_invalid_07")
 }
 
 // ===================================================================

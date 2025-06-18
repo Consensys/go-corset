@@ -13,7 +13,7 @@
 package iter
 
 import (
-	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/enum"
 )
 
@@ -37,7 +37,7 @@ type Iterator[T any] interface {
 
 	// Find returns the index of the first match for a given predicate, or
 	// return false if no match is found.  This will mutate the iterator.
-	Find(util.Predicate[T]) (uint, bool)
+	Find(array.Predicate[T]) (uint, bool)
 
 	// Count the number of items left.  Note, this does not modify the iterator.
 	Count() uint

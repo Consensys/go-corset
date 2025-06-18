@@ -21,6 +21,7 @@ import (
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
+	"github.com/consensys/go-corset/pkg/util/field"
 )
 
 // TraceBuilder provides a mechanical means of constructing a trace from a given
@@ -693,7 +694,7 @@ func validateColumnBitWidth(bitwidth uint, col trace.Column, mod Module) error {
 	//
 	var frBound fr.Element = fr.NewElement(2)
 	// Compute 2^n
-	util.Pow(&frBound, uint64(bitwidth))
+	field.Pow(&frBound, uint64(bitwidth))
 	//
 	for j := 0; j < int(col.Data().Len()); j++ {
 		var jth = col.Get(j)

@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package test
+package math
 
 import (
 	"math/big"
@@ -310,7 +310,7 @@ func checkRandomWalk(t *testing.T, n uint, m int) {
 
 func checkInterval(t *testing.T, ops []uint, sets [][]int) {
 	var (
-		r util.Interval
+		r Interval
 		s = []int{0}
 	)
 
@@ -338,7 +338,7 @@ func checkInterval(t *testing.T, ops []uint, sets [][]int) {
 	checkSubSet(t, &r, s)
 }
 
-func checkSubSet(t *testing.T, i *util.Interval, set []int) {
+func checkSubSet(t *testing.T, i *Interval, set []int) {
 	for _, item := range set {
 		ith := big.NewInt(int64(item))
 		if !i.Contains(ith) {
@@ -383,12 +383,12 @@ func mul(lhs []int, rhs []int) []int {
 	return res
 }
 
-func toInterval(items []int) *util.Interval {
-	var r util.Interval
+func toInterval(items []int) *Interval {
+	var r Interval
 	//
 	for i, item := range items {
 		iv := big.NewInt(int64(item))
-		ith := util.NewInterval(iv, iv)
+		ith := NewInterval(iv, iv)
 		//
 		if i == 0 {
 			r.Set(ith)

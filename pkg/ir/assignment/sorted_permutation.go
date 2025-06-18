@@ -156,7 +156,7 @@ func sortedPermutationNativeFunction(sources []field.FrArray, signs []bool) []fi
 	// Clone target columns first
 	targets := cloneNativeFunction(sources)
 	// Sort target columns (in place)
-	util.PermutationSort(targets, signs)
+	field.PermutationSort(targets, signs)
 	//
 	return targets
 }

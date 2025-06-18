@@ -17,7 +17,7 @@ import (
 	"reflect"
 
 	"github.com/consensys/go-corset/pkg/corset/ast"
-	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
 
@@ -498,7 +498,7 @@ func (p *typeChecker) typeCheckVariableInModule(expr *ast.VariableAccess) (ast.T
 // Calculate the actual return type for a given set of input values with the
 // given types.
 func typeOfSum(types ...ast.Type) ast.Type {
-	var values util.Interval
+	var values math.Interval
 	//
 	for i, t := range types {
 		if t == ast.INT_TYPE {
@@ -524,7 +524,7 @@ func typeOfSum(types ...ast.Type) ast.Type {
 // Calculate the actual return type for a given set of input values with the
 // given types.
 func typeOfSubtraction(types ...ast.Type) ast.Type {
-	var values util.Interval
+	var values math.Interval
 	//
 	for i, t := range types {
 		if t == ast.INT_TYPE {
@@ -550,7 +550,7 @@ func typeOfSubtraction(types ...ast.Type) ast.Type {
 // Calculate the actual return type for a given set of input values with the
 // given types.
 func typeOfProduct(types ...ast.Type) ast.Type {
-	var values util.Interval
+	var values math.Interval
 	//
 	for i, t := range types {
 		if t == ast.INT_TYPE {

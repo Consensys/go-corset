@@ -20,6 +20,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/field"
 )
 
@@ -51,7 +52,7 @@ func FromBytesLegacy(data []byte) ([]trace.RawColumn, error) {
 	}
 	// Determine byte slices
 	offset := uint(len(data) - buf.Len())
-	c := make(chan util.Pair[uint, util.Array[fr.Element]], ncols)
+	c := make(chan util.Pair[uint, array.Array[fr.Element]], ncols)
 	// Dispatch go-routines
 	for i := uint(0); i < uint(ncols); i++ {
 		ith := headers[i]
@@ -138,7 +139,7 @@ func readColumnData(header columnHeader, bytes []byte) field.FrArray {
 	return readArbitraryColumnData(data, header, bytes)
 }
 
-func readByteColumnData(data util.Array[fr.Element], header columnHeader, bytes []byte) field.FrArray {
+func readByteColumnData(data array.Array[fr.Element], header columnHeader, bytes []byte) field.FrArray {
 	for i := uint(0); i < header.length; i++ {
 		// Construct ith field element
 		data.Set(i, fr.NewElement(uint64(bytes[i])))
@@ -147,7 +148,7 @@ func readByteColumnData(data util.Array[fr.Element], header columnHeader, bytes 
 	return data
 }
 
-func readWordColumnData(data util.Array[fr.Element], header columnHeader, bytes []byte) field.FrArray {
+func readWordColumnData(data array.Array[fr.Element], header columnHeader, bytes []byte) field.FrArray {
 	offset := uint(0)
 	// Assign elements
 	for i := uint(0); i < header.length; i++ {
@@ -161,7 +162,7 @@ func readWordColumnData(data util.Array[fr.Element], header columnHeader, bytes 
 	return data
 }
 
-func readDWordColumnData(data util.Array[fr.Element], header columnHeader, bytes []byte) field.FrArray {
+func readDWordColumnData(data array.Array[fr.Element], header columnHeader, bytes []byte) field.FrArray {
 	offset := uint(0)
 	// Assign elements
 	for i := uint(0); i < header.length; i++ {
@@ -175,7 +176,7 @@ func readDWordColumnData(data util.Array[fr.Element], header columnHeader, bytes
 	return data
 }
 
-func readQWordColumnData(data util.Array[fr.Element], header columnHeader, bytes []byte) field.FrArray {
+func readQWordColumnData(data array.Array[fr.Element], header columnHeader, bytes []byte) field.FrArray {
 	offset := uint(0)
 	// Assign elements
 	for i := uint(0); i < header.length; i++ {
@@ -190,7 +191,7 @@ func readQWordColumnData(data util.Array[fr.Element], header columnHeader, bytes
 }
 
 // Read column data which is has arbitrary width
-func readArbitraryColumnData(data util.Array[fr.Element], header columnHeader, bytes []byte) field.FrArray {
+func readArbitraryColumnData(data array.Array[fr.Element], header columnHeader, bytes []byte) field.FrArray {
 	offset := uint(0)
 	// Assign elements
 	for i := uint(0); i < header.length; i++ {

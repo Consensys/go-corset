@@ -10,14 +10,13 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package test
+package field
 
 import (
 	"math/big"
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/util"
 )
 
 const POW_BASE_MAX uint = 65536
@@ -73,7 +72,7 @@ func PowCheck(t *testing.T, base uint, pow uint64) {
 	v1 := fr.NewElement(uint64(base))
 	v2 := fr.NewElement(uint64(base))
 	// V1 computed using our optimised method
-	util.Pow(&v1, pow)
+	Pow(&v1, pow)
 	// V2 computed using existing gnark function
 	v2.Exp(v2, k)
 	// Final sanity check

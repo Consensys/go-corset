@@ -18,6 +18,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -123,7 +124,7 @@ func (p *IfZero[S, T]) ShiftRange() (int, int) {
 }
 
 // ValueRange implementation for Term interface.
-func (p *IfZero[S, T]) ValueRange(module schema.Module) *util.Interval {
+func (p *IfZero[S, T]) ValueRange(module schema.Module) *math.Interval {
 	panic("todo")
 }
 

@@ -22,6 +22,7 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
@@ -250,11 +251,11 @@ func mapIfNativeFunction(sources []field.FrArray) []field.FrArray {
 	n = n / 2
 	// Setup what we need
 	sourceSelector := sources[1+n]
-	sourceKeys := make([]util.Array[fr.Element], n)
+	sourceKeys := make([]array.Array[fr.Element], n)
 	sourceValue := sources[2+n+n]
 	sourceMap := hash.NewMap[hash.BytesKey, fr.Element](sourceValue.Len())
 	targetSelector := sources[0]
-	targetKeys := make([]util.Array[fr.Element], n)
+	targetKeys := make([]array.Array[fr.Element], n)
 	targetValue := field.NewFrArray(targetSelector.Len(), sourceValue.BitWidth())
 	// Initialise source / target keys
 	for i := 0; i < n; i++ {
@@ -329,7 +330,7 @@ func fwdChangesWithinNativeFunction(sources []field.FrArray) []field.FrArray {
 	one := fr.One()
 	// Extract input column info
 	selectorCol := sources[0]
-	sourceCols := make([]util.Array[fr.Element], len(sources)-1)
+	sourceCols := make([]array.Array[fr.Element], len(sources)-1)
 	//
 	for i := 1; i < len(sources); i++ {
 		sourceCols[i-1] = sources[i]
@@ -368,7 +369,7 @@ func fwdUnchangedWithinNativeFunction(sources []field.FrArray) []field.FrArray {
 	zero := fr.NewElement(0)
 	// Extract input column info
 	selectorCol := sources[0]
-	sourceCols := make([]util.Array[fr.Element], len(sources)-1)
+	sourceCols := make([]array.Array[fr.Element], len(sources)-1)
 	//
 	for i := 1; i < len(sources); i++ {
 		sourceCols[i-1] = sources[i]
@@ -409,7 +410,7 @@ func bwdChangesWithinNativeFunction(sources []field.FrArray) []field.FrArray {
 	one := fr.One()
 	// Extract input column info
 	selectorCol := sources[0]
-	sourceCols := make([]util.Array[fr.Element], len(sources)-1)
+	sourceCols := make([]array.Array[fr.Element], len(sources)-1)
 	//
 	for i := 1; i < len(sources); i++ {
 		sourceCols[i-1] = sources[i]
@@ -499,7 +500,7 @@ func bwdFillWithinNativeFunction(sources []field.FrArray) []field.FrArray {
 	return []field.FrArray{data}
 }
 
-func extractIthColumns(index uint, cols []util.Array[fr.Element]) []fr.Element {
+func extractIthColumns(index uint, cols []array.Array[fr.Element]) []fr.Element {
 	row := make([]fr.Element, len(cols))
 	//
 	for i := range row {

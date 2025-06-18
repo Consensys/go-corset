@@ -18,7 +18,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/util/source/bexp"
 	"github.com/consensys/go-corset/pkg/util/termio"
@@ -158,13 +158,13 @@ func (p *InputMode[T]) KeyPressed(parent *Inspector, key uint16) bool {
 func (p *InputMode[T]) deleteCharacterAtCursor() {
 	if p.cursor > 0 {
 		p.cursor--
-		p.input = util.RemoveAt(p.input, p.cursor)
+		p.input = array.RemoveAt(p.input, p.cursor)
 	}
 }
 
 // Insert character at cursor position
 func (p *InputMode[T]) insertCharacterAtCursor(char byte) {
-	p.input = util.InsertAt(p.input, char, p.cursor)
+	p.input = array.InsertAt(p.input, char, p.cursor)
 	// advance cursor
 	p.cursor++
 }

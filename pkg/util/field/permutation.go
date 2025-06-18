@@ -10,12 +10,13 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package util
+package field
 
 import (
 	"slices"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 )
 
 // ArePermutationOf checks whether or not a set of given destination columns are
@@ -26,7 +27,7 @@ import (
 //
 // This function operators by cloning the arrays, sorting them and checking they
 // are the same.
-func ArePermutationOf[T Array[fr.Element]](dst []T, src []T) bool {
+func ArePermutationOf[T FrArray](dst []T, src []T) bool {
 	if len(dst) != len(src) {
 		return false
 	}
@@ -42,7 +43,7 @@ func ArePermutationOf[T Array[fr.Element]](dst []T, src []T) bool {
 }
 
 // Check whether two indexed arrays are equal.
-func equalsPermutation[T Array[fr.Element]](lIndices []uint, rIndices []uint, lhs []T, rhs []T) bool {
+func equalsPermutation[T FrArray](lIndices []uint, rIndices []uint, lhs []T, rhs []T) bool {
 	if len(lIndices) != len(rIndices) {
 		return false
 	} else if len(lhs) != len(rhs) {
@@ -72,7 +73,7 @@ func equalsPermutation[T Array[fr.Element]](lIndices []uint, rIndices []uint, lh
 	return true
 }
 
-func indexPermutationFunc[T Array[fr.Element]](elems []T) func(uint, uint) int {
+func indexPermutationFunc[T FrArray](elems []T) func(uint, uint) int {
 	return func(lhs uint, rhs uint) int {
 		//
 		for i := range len(elems) {
@@ -105,7 +106,7 @@ func indexPermutationFunc[T Array[fr.Element]](elems []T) func(uint, uint) int {
 // NOTE: the current implementation is not intended to be particularly
 // efficient.  In particular, would be better to do the sort directly
 // on the columns array without projecting into the row-wise form.
-func PermutationSort[T Array[fr.Element]](cols []T, signs []bool) {
+func PermutationSort[T FrArray](cols []T, signs []bool) {
 	n := cols[0].Len()
 	m := len(cols)
 	// Rotate input matrix
@@ -167,7 +168,7 @@ func permutationSortFunc(lhs []fr.Element, rhs []fr.Element, signs []bool) int {
 }
 
 // Clone and rotate a 2-dimensional array assuming a given geometry.
-func rotate[T Array[fr.Element]](src []T, ncols int, nrows uint) [][]fr.Element {
+func rotate[T array.Array[fr.Element]](src []T, ncols int, nrows uint) [][]fr.Element {
 	// Copy outer arrays
 	dst := make([][]fr.Element, nrows)
 	// Copy inner arrays

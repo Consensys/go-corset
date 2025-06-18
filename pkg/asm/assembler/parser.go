@@ -22,7 +22,7 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/macro"
 	"github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/util/source/lex"
 )
@@ -399,7 +399,7 @@ func (p *Parser) parseAssignment(env *Environment) (macro.Instruction, []source.
 func (p *Parser) parseAssignmentLhs(env *Environment) ([]io.RegisterId, []source.SyntaxError) {
 	lhs, errs := p.parseRegisterList(env)
 	// Reverse items so that least significant comes first.
-	lhs = util.Reverse(lhs)
+	lhs = array.Reverse(lhs)
 	//
 	return lhs, errs
 }

@@ -20,6 +20,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -107,6 +108,6 @@ func (p *Norm[T]) Substitute(mapping map[string]fr.Element) {
 }
 
 // ValueRange implementation for Term interface.
-func (p *Norm[T]) ValueRange(module schema.Module) *util.Interval {
-	return util.NewInterval(big.NewInt(0), big.NewInt(1))
+func (p *Norm[T]) ValueRange(module schema.Module) *math.Interval {
+	return math.NewInterval(big.NewInt(0), big.NewInt(1))
 }
