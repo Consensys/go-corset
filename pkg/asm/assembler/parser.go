@@ -124,7 +124,7 @@ func (p *Parser) parseFunction(id schema.ModuleId) (MacroFunction, []source.Synt
 	}
 	// Initialise first register as program counter, using default bitwidth
 	// which will be corrected later.
-	env.registers = append(env.registers, schema.NewComputedRegister("$pc", 0))
+	env.registers = append(env.registers, schema.NewComputedRegister(io.PC_NAME, 0))
 	// Update register list with inputs/outputs
 	env.registers = append(env.registers, inputs...)
 	env.registers = append(env.registers, outputs...)

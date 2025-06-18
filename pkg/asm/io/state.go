@@ -43,29 +43,38 @@ type State struct {
 	io Map
 }
 
+// EmptyState constructs an initially empty state at the given PC value.  One
+// can then set register values as needed via Store.
+func EmptyState(pc uint, registers []schema.Register, io Map) State {
+	var state = make([]big.Int, len(registers)-1)
+	// Construct state
+	return State{pc, state, registers, io}
+}
+
 // InitialState constructs a suitable initial state for executing a given
 // function with the given arguments.
 func InitialState[T Instruction[T]](arguments []big.Int, fn Function[T], io Map) State {
 	var (
-		state = make([]big.Int, len(fn.Registers()))
+		state = EmptyState(0, fn.registers, io)
 		index = 0
 	)
 	// Initialise arguments
 	for i, reg := range fn.Registers() {
 		if reg.IsInput() {
 			var (
+				rid = schema.NewRegisterId(uint(i))
 				val = arguments[index]
 				ith big.Int
 			)
 			// Clone big int
 			ith.Set(&val)
+			state.Store(rid, ith)
 			//
-			state[i] = ith
 			index = index + 1
 		}
 	}
 	// Construct state
-	return State{0, state, fn.Registers(), io}
+	return state
 }
 
 // Clone this state, producing a disjoint state.
@@ -153,9 +162,10 @@ func (p *State) Store(reg RegisterId, value big.Int) {
 		panic("write exceeds register width")
 	} else if index == 0 {
 		p.pc = uint(value.Uint64())
+	} else {
+		// Write to normal register
+		p.state[index-1] = value
 	}
-	// Write to normal register
-	p.state[index-1] = value
 }
 
 // StoreAcross a given value across a set of registers, splitting its bits as

@@ -22,6 +22,14 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 )
 
+const (
+	// PC_NAME gives the name used for the program counter in traces.
+	PC_NAME = "$pc"
+	// PC_INDEX gives the register index used for the program counter (which is
+	// currently always be 0).
+	PC_INDEX = uint(0)
+)
+
 // Register defines the notion of a register within a function.
 type Register = schema.Register
 
