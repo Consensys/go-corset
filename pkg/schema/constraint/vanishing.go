@@ -236,6 +236,11 @@ func (p VanishingConstraint[T]) Lisp(schema schema.AnySchema) sexp.SExp {
 	})
 }
 
+// Subdivide implementation for the FieldAgnosticConstraint interface.
+func (p VanishingConstraint[E]) Subdivide(bandwidth uint, maxRegisterWidth uint) VanishingConstraint[E] {
+	return p
+}
+
 // Substitute any matchined labelled constants within this constraint
 func (p VanishingConstraint[T]) Substitute(mapping map[string]fr.Element) {
 	p.Constraint.Substitute(mapping)

@@ -66,6 +66,14 @@ type Instruction[T any] interface {
 	String(fn schema.Module) string
 }
 
+// SplittableInstruction is an instruction which supports register splitting for
+// the purposes of ensuring field agnosticity.
+type SplittableInstruction[T any] interface {
+	Instruction[T]
+
+	SplitRegisters(SplittingEnvironment) T
+}
+
 // InOutInstruction is simply a kind of instruction which performs some kind of I/O
 // operation via a bus.
 type InOutInstruction interface {

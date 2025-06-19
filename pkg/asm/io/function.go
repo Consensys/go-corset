@@ -175,6 +175,11 @@ func (p *Function[T]) Registers() []Register {
 	return p.registers
 }
 
+// Subdivide implementation for the FieldAgnosticModule interface.
+func (p *Function[T]) Subdivide(bandwidth uint, maxRegisterWidth uint) *Function[T] {
+	return SplitRegisters(bandwidth, maxRegisterWidth, p)
+}
+
 // Width identifiers the number of registers in this function.
 func (p *Function[T]) Width() uint {
 	return uint(len(p.registers))

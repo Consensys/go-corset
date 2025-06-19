@@ -199,6 +199,8 @@ func (p *SchemaStack) Apply(binfile binfile.BinaryFile) {
 	asmSchema = p.BinaryFile().Schema
 	// Lower to mixed micro schema
 	uasmSchema = asm.LowerMixedMacroProgram(p.asmConfig.Vectorize, asmSchema)
+	// Apply register splitting for field agnosticity
+	uasmSchema = schema.Subdivide(p.asmConfig.MaxFieldWidth, p.asmConfig.MaxRegisterWidth, uasmSchema)
 	// Lower to MIR
 	mirSchema = asm.LowerMixedMicroProgram(uasmSchema)
 	// Include macro assembly layer (if requested)

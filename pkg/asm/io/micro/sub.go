@@ -18,6 +18,7 @@ import (
 	"slices"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/asm/io/agnosticity"
 	"github.com/consensys/go-corset/pkg/schema"
 )
 
@@ -94,7 +95,7 @@ func (p *Sub) RegistersWritten() []io.RegisterId {
 // represents the registers are they are for this code, whilst regsAfter
 // represent those for the resulting split codes.  The regMap provides a
 // mapping from registers in regsBefore to those in regsAfter.
-func (p *Sub) Split(env *RegisterSplittingEnvironment) []Code {
+func (p *Sub) Split(env io.SplittingEnvironment) []Code {
 	if len(p.Sources) == 0 {
 		// Actually just an assignment, so easy.
 		panic("todo")
@@ -104,7 +105,7 @@ func (p *Sub) Split(env *RegisterSplittingEnvironment) []Code {
 		ncodes        []Code
 		targetLimbs   = env.SplitTargetRegisters(p.Targets...)
 		sourcePackets = env.SplitSourceRegisters(p.Sources...)
-		constantLimbs = io.SplitConstant(uint(len(sourcePackets)), env.maxWidth, p.Constant)
+		constantLimbs = agnosticity.SplitConstant(uint(len(sourcePackets)), env.MaxWidth(), p.Constant)
 		carry         = schema.NewUnusedRegisterId()
 	)
 	// Allocate all source packets

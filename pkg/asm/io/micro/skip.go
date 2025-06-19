@@ -17,6 +17,7 @@ import (
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/asm/io/agnosticity"
 	"github.com/consensys/go-corset/pkg/schema"
 )
 
@@ -86,7 +87,7 @@ func (p *Skip) RegistersWritten() []io.RegisterId {
 
 // Split this micro code using registers of arbirary width into one or more
 // micro codes using registers of a fixed maximum width.
-func (p *Skip) Split(env *RegisterSplittingEnvironment) []Code {
+func (p *Skip) Split(env io.SplittingEnvironment) []Code {
 	// NOTE: we can assume left and right have matching bitwidths
 	var (
 		lhsLimbs = env.SplitTargetRegisters(p.Left)
@@ -102,7 +103,7 @@ func (p *Skip) Split(env *RegisterSplittingEnvironment) []Code {
 			ncodes = append(ncodes, ncode)
 		}
 	} else {
-		constantLimbs := io.SplitConstant(n, env.maxWidth, p.Constant)
+		constantLimbs := agnosticity.SplitConstant(n, env.MaxWidth(), p.Constant)
 		for i := uint(0); i < n; i++ {
 			ncode := &Skip{lhsLimbs[i], schema.NewUnusedRegisterId(), constantLimbs[i], skip - i}
 			ncodes = append(ncodes, ncode)
