@@ -321,7 +321,6 @@ func initialiseColumnMap(expanded bool, schema sc.AnySchema) (map[columnKey]colu
 			if expanded || col.IsInputOutput() {
 				colmap[key] = id
 			}
-
 		}
 		// Initialise empty columns for this module.
 		modules[i] = columns

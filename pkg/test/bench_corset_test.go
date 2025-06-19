@@ -37,7 +37,7 @@ func Test_WordSorting(t *testing.T) {
 }
 
 func Test_Multiplier(t *testing.T) {
-	Check(t, false, "multiplier")
+	Check(t, false, "bench/multiplier")
 }
 
 func Test_Memory(t *testing.T) {

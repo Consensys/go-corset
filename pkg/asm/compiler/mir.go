@@ -40,6 +40,7 @@ func (p MirModule) Initialise(fn MicroFunction, mid uint) MirModule {
 	for iter := fn.Assignments(); iter.HasNext(); {
 		builder.AddAssignment(iter.Next())
 	}
+	//
 	p.Module = &builder
 
 	return p
