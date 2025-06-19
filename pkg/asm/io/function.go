@@ -177,7 +177,7 @@ func (p *Function[T]) Registers() []Register {
 
 // Subdivide implementation for the FieldAgnosticModule interface.
 func (p *Function[T]) Subdivide(bandwidth uint, maxRegisterWidth uint) *Function[T] {
-	panic("todo")
+	return SplitRegisters(bandwidth, maxRegisterWidth, p)
 }
 
 // Width identifiers the number of registers in this function.

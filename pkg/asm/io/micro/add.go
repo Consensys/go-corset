@@ -18,6 +18,7 @@ import (
 	"slices"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/asm/io/agnosticity"
 	"github.com/consensys/go-corset/pkg/schema"
 )
 
@@ -113,7 +114,7 @@ func (p *Add) String(fn schema.Module) string {
 // > b,x1,x0 := 256*(y1+z1) + (y0+z0+1)
 //
 // Thus, y0+z0+1 define all of the bits for x0 and some of the bits for x1.
-func (p *Add) Split(env *RegisterSplittingEnvironment) []Code {
+func (p *Add) Split(env io.SplittingEnvironment) []Code {
 	//
 	if len(p.Sources) == 0 {
 		// Actually just an assignment, so easy.
@@ -123,7 +124,7 @@ func (p *Add) Split(env *RegisterSplittingEnvironment) []Code {
 			ncodes        []Code
 			targetLimbs                 = env.SplitTargetRegisters(p.Targets...)
 			sourcePackets               = env.SplitSourceRegisters(p.Sources...)
-			constantLimbs               = io.SplitConstant(uint(len(sourcePackets)), env.maxWidth, p.Constant)
+			constantLimbs               = agnosticity.SplitConstant(uint(len(sourcePackets)), env.MaxWidth(), p.Constant)
 			carry         io.RegisterId = schema.NewUnusedRegisterId()
 		)
 		// Allocate all source packets
@@ -178,11 +179,11 @@ func (p *Add) Validate(fieldWidth uint, fn schema.Module) error {
 	return io.CheckTargetRegisters(p.Targets, regs)
 }
 
-func (p *Add) splitAssignment(env *RegisterSplittingEnvironment) []Code {
+func (p *Add) splitAssignment(env io.SplittingEnvironment) []Code {
 	var (
 		ncodes        []Code
 		targetLimbs   = env.SplitTargetRegisters(p.Targets...)
-		constantLimbs = io.SplitConstant(uint(len(targetLimbs)), env.maxWidth, p.Constant)
+		constantLimbs = agnosticity.SplitConstant(uint(len(targetLimbs)), env.MaxWidth(), p.Constant)
 	)
 	//
 	for i, target := range targetLimbs {

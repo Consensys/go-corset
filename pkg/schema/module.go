@@ -156,18 +156,19 @@ func (p Table[C]) Subdivide(bandwidth uint, maxRegisterWidth uint) Table[C] {
 		if r.Width > maxRegisterWidth {
 			panic("maximum register width exceeded")
 		}
+		//
+		registers = append(registers, r)
 	}
 	// Subdivide assignments
-	/* for _, c := range p.assignments {
-		var a any = c
-		//nolint
-		if fc, ok := a.(FieldAgnostic); ok {
-			fc.Subdivide(bandwidth, maxRegisterWidth)
-		} else {
-			panic(fmt.Sprintf("non-field agnostic assignment (%s)", reflect.TypeOf(a).String()))
-		}
-	}
-	*/
+	// for _, c := range p.assignments {
+	// 	var a any = c
+	// 	//nolint
+	// 	if fc, ok := a.(FieldAgnostic[Assignment]); ok {
+	// 		assignments = append(assignments, fc.Subdivide(bandwidth, maxRegisterWidth))
+	// 	} else {
+	// 		panic(fmt.Sprintf("non-field agnostic assignment (%s)", reflect.TypeOf(a).String()))
+	// 	}
+	// }
 	// Subdivide constraints
 	for _, c := range p.constraints {
 		var a any = c
