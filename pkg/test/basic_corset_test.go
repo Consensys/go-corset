@@ -1177,21 +1177,21 @@ func Test_Native_11(t *testing.T) {
 // ===================================================================
 
 func Test_Stdlib_01(t *testing.T) {
-	Check(t, true, "stdlib_01")
+	Check(t, true, "basic/stdlib_01")
 }
 
 func Test_Stdlib_02(t *testing.T) {
-	Check(t, true, "stdlib_02")
+	Check(t, true, "basic/stdlib_02")
 }
 
 func Test_Stdlib_03(t *testing.T) {
-	Check(t, true, "stdlib_03")
+	Check(t, true, "basic/stdlib_03")
 }
 
 func Test_Stdlib_04(t *testing.T) {
-	Check(t, true, "stdlib_04")
+	Check(t, true, "basic/stdlib_04")
 }
 
 func Test_Stdlib_05(t *testing.T) {
-	Check(t, true, "stdlib_05")
+	Check(t, true, "basic/stdlib_05")
 }

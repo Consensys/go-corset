@@ -205,15 +205,19 @@ func (p *ArrayModule) FillColumn(cid uint, data field.FrArray, padding fr.Elemen
 // filling a column (as above).  This will panic if either: the module height
 // was not previously reset; or, if the column heights are inconsistent.
 func (p *ArrayModule) Resize() {
-	var nsize uint = math.MaxUint
+	var (
+		nsize uint = math.MaxUint
+		first bool = true
+	)
 	//
 	for i := 0; i != len(p.columns); i++ {
 		data := p.columns[i].Data()
 		//
 		if data == nil {
 			// skip
-		} else if i == 0 {
+		} else if first {
 			nsize = data.Len()
+			first = false
 		} else if nsize != data.Len() {
 			panic(fmt.Sprintf("incompatible column heights (%d vs %d)", nsize, data.Len()))
 		}

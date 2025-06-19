@@ -24,6 +24,7 @@ import (
 	"github.com/consensys/go-corset/pkg/asm"
 	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/corset"
+	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/air"
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
@@ -63,7 +64,7 @@ type SchemaStack struct {
 	// Mir optimisation config options
 	mirConfig mir.OptimisationConfig
 	// Configuration for trace expansion
-	traceBuilder schema.TraceBuilder
+	traceBuilder ir.TraceBuilder
 	// Externalised constant definitions
 	externs []string
 	// Layers identifies which layers are included in the stack.
@@ -118,7 +119,7 @@ func (p *SchemaStack) WithLayer(layer uint) *SchemaStack {
 
 // WithTraceBuilder determines the settings to use for trace expansion, such as
 // whether to use parallelisation, etc.
-func (p *SchemaStack) WithTraceBuilder(builder schema.TraceBuilder) *SchemaStack {
+func (p *SchemaStack) WithTraceBuilder(builder ir.TraceBuilder) *SchemaStack {
 	p.traceBuilder = builder
 	return p
 }
@@ -152,7 +153,7 @@ func (p *SchemaStack) SchemaOf(ir string) schema.AnySchema {
 }
 
 // TraceBuilder returns a configured trace builder.
-func (p *SchemaStack) TraceBuilder() schema.TraceBuilder {
+func (p *SchemaStack) TraceBuilder() ir.TraceBuilder {
 	return p.traceBuilder
 }
 

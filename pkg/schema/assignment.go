@@ -42,6 +42,12 @@ type Assignment interface {
 	// strictly necessary, these can highlight otherwise hidden problems as an aid
 	// to debugging.
 	Consistent(Schema[Constraint]) []error
+	// Identifier registers which are expanded by this assignment.  A register
+	// is expanded when its length maybe changed.  For example, when going from
+	// a trace which contains only rows of input/output values to a trace where
+	// each function instance can occupy more than one row.  Then the I/O
+	// columns are said to be "expanded".
+	RegistersExpanded() []RegisterRef
 	// Returns the set of columns that this assignment depends upon.  That can
 	// include both input columns, as well as other computed columns.
 	RegistersRead() []RegisterRef

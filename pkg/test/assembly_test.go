@@ -24,11 +24,9 @@ func Test_Asm_Counter(t *testing.T) {
 	Check(t, false, "asm/counter")
 }
 
-// Crashes
-//
-// func Test_Asm_FastPow(t *testing.T) {
-// 	Check(t, false, "asm/fast_pow")
-// }
+func Test_Asm_FastPow(t *testing.T) {
+	Check(t, false, "asm/fast_pow")
+}
 
 func Test_Asm_Max(t *testing.T) {
 	Check(t, false, "asm/max")

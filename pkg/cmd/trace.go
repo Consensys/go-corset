@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/go-corset/pkg/ir"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/lt"
@@ -129,7 +130,7 @@ func init() {
 	traceCmd.Flags().Bool("metadata", false, "Print embedded metadata")
 }
 
-func expandColumns(cols []trace.RawColumn, schema sc.AnySchema, builder sc.TraceBuilder) []trace.RawColumn {
+func expandColumns(cols []trace.RawColumn, schema sc.AnySchema, builder ir.TraceBuilder) []trace.RawColumn {
 	// Construct expanded tr
 	tr, errs := builder.Build(schema, cols)
 	// Handle errors

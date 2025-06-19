@@ -23,6 +23,7 @@ import (
 	"github.com/consensys/go-corset/pkg/cmd/check"
 	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
 	"github.com/consensys/go-corset/pkg/corset"
+	"github.com/consensys/go-corset/pkg/ir"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -171,7 +172,7 @@ func checkWithLegacyPipeline(cfg checkConfig, batched bool, tracefile string, sc
 }
 
 func checkTrace(ir string, traces [][]tr.RawColumn, schema sc.AnySchema,
-	builder sc.TraceBuilder, cfg checkConfig) bool {
+	builder ir.TraceBuilder, cfg checkConfig) bool {
 	//
 	for _, cols := range traces {
 		for n := cfg.padding.Left; n <= cfg.padding.Right; n++ {

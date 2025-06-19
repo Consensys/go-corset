@@ -89,6 +89,11 @@ func (p *ByteDecomposition) Consistent(schema sc.AnySchema) []error {
 	return errors
 }
 
+// RegistersExpanded identifies registers expanded by this assignment.
+func (p *ByteDecomposition) RegistersExpanded() []sc.RegisterRef {
+	return nil
+}
+
 // RegistersRead returns the set of columns that this assignment depends upon.
 // That can include both input columns, as well as other computed columns.
 func (p *ByteDecomposition) RegistersRead() []sc.RegisterRef {

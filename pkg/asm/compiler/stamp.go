@@ -76,6 +76,11 @@ func (p StampAssignment) Lisp(schema sc.AnySchema) sexp.SExp {
 	})
 }
 
+// RegistersExpanded identifies registers expanded by this assignment.
+func (p *StampAssignment) RegistersExpanded() []sc.RegisterRef {
+	return nil
+}
+
 // RegistersRead implementation for schema.Assignment interface.
 func (p StampAssignment) RegistersRead() []sc.RegisterRef {
 	rid := sc.NewRegisterId(io.PC_INDEX)

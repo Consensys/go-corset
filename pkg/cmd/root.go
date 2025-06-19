@@ -21,8 +21,8 @@ import (
 	"github.com/consensys/go-corset/pkg/asm"
 	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
 	"github.com/consensys/go-corset/pkg/corset"
+	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/mir"
-	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/spf13/cobra"
 )
 
@@ -114,7 +114,7 @@ func getSchemaStack(cmd *cobra.Command, mode uint, filenames ...string) *cmd_uti
 		}
 	}
 	// Construct trace builder
-	builder := schema.NewTraceBuilder().
+	builder := ir.NewTraceBuilder().
 		WithValidation(validate).
 		WithDefensivePadding(defensive).
 		WithExpansion(expand).

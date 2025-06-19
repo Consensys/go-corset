@@ -22,6 +22,7 @@ import (
 	"github.com/consensys/go-corset/pkg/binfile"
 	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
 	"github.com/consensys/go-corset/pkg/corset"
+	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -115,7 +116,7 @@ func checkTraces(t *testing.T, test string, maxPadding uint, cfg Config, traces 
 
 func checkTrace[C sc.Constraint](t *testing.T, inputs []trace.RawColumn, id traceId, schema sc.Schema[C]) {
 	// Construct the trace
-	tr, errs := sc.NewTraceBuilder().
+	tr, errs := ir.NewTraceBuilder().
 		WithExpansion(id.expand).
 		WithValidation(id.validate).
 		WithPadding(id.padding).

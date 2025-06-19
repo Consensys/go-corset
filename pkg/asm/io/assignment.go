@@ -62,6 +62,11 @@ func (p Assignment[T]) Lisp(schema sc.AnySchema) sexp.SExp {
 	})
 }
 
+// RegistersExpanded implementation for schema.Assignment interface.
+func (p Assignment[T]) RegistersExpanded() []sc.RegisterRef {
+	return p.RegistersRead()
+}
+
 // RegistersRead implementation for schema.Assignment interface.
 func (p Assignment[T]) RegistersRead() []sc.RegisterRef {
 	var regs []sc.RegisterRef

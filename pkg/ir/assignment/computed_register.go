@@ -14,6 +14,7 @@ package assignment
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
@@ -103,6 +104,11 @@ func (p *ComputedRegister) Consistent(schema sc.AnySchema) []error {
 	return nil
 }
 
+// RegistersExpanded identifies registers expanded by this assignment.
+func (p *ComputedRegister) RegistersExpanded() []sc.RegisterRef {
+	return nil
+}
+
 // RegistersRead returns the set of columns that this assignment depends upon.
 // That can include both input columns, as well as other computed columns.
 func (p *ComputedRegister) RegistersRead() []schema.RegisterRef {
@@ -130,14 +136,19 @@ func (p *ComputedRegister) RegistersWritten() []sc.RegisterRef {
 //nolint:revive
 func (p *ComputedRegister) Lisp(schema sc.AnySchema) sexp.SExp {
 	var (
-		module = schema.Module(p.target.Module())
-		target = module.Register(p.target.Register())
+		module          = schema.Module(p.target.Module())
+		target          = module.Register(p.target.Register())
+		datatype string = "𝔽"
 	)
+	//
+	if target.Width != math.MaxUint {
+		datatype = fmt.Sprintf("u%d", target.Width)
+	}
 	//
 	return sexp.NewList(
 		[]sexp.SExp{sexp.NewSymbol("compute"),
 			sexp.NewSymbol(target.QualifiedName(module)),
-			sexp.NewSymbol(fmt.Sprintf("u%d", target.Width)),
+			sexp.NewSymbol(datatype),
 			p.expr.Lisp(module),
 		})
 }
