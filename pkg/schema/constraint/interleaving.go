@@ -188,6 +188,11 @@ func (p InterleavingConstraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
 	})
 }
 
+// Subdivide implementation for the FieldAgnosticConstraint interface.
+func (p InterleavingConstraint[E]) Subdivide(bandwidth uint, maxRegisterWidth uint) InterleavingConstraint[E] {
+	return p
+}
+
 // Substitute any matchined labelled constants within this constraint
 func (p InterleavingConstraint[E]) Substitute(mapping map[string]fr.Element) {
 	for _, s := range p.Sources {
