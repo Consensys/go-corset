@@ -17,7 +17,7 @@ import (
 	"reflect"
 
 	"github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/math"
 )
 
 // OptimisationConfig provides a mechanism for controlling how optimisations are
@@ -104,10 +104,10 @@ func eliminateNormalisationInNorm(arg Term, module schema.Module, cfg Optimisati
 	// Check whether normalisation actually required.  For example, if the
 	// argument is just a binary column then a normalisation is not actually
 	// required.
-	if cfg.InverseEliminiationLevel > 0 && bounds.Within(util.NewInterval64(0, 1)) {
+	if cfg.InverseEliminiationLevel > 0 && bounds.Within(math.NewInterval64(0, 1)) {
 		// arg ∈ {0,1} ==> normalised already :)
 		return arg
-	} else if cfg.InverseEliminiationLevel > 0 && bounds.Within(util.NewInterval64(-1, 1)) {
+	} else if cfg.InverseEliminiationLevel > 0 && bounds.Within(math.NewInterval64(-1, 1)) {
 		// arg ∈ {-1,0,1} ==> (arg*arg) ∈ {0,1}
 		return &Mul{Args: []Term{arg, arg}}
 	}

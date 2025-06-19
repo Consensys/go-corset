@@ -72,7 +72,7 @@ func (p *Add) MicroExecute(state io.State) (uint, uint) {
 		value.Add(&value, state.Load(src))
 	}
 	// Write value
-	state.Store(value, p.Targets...)
+	state.StoreAcross(value, p.Targets...)
 	//
 	return 1, 0
 }

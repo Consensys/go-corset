@@ -94,18 +94,21 @@ func (p Instruction) Terminal() bool {
 // function has terminated (i.e. because a return instruction was
 // encountered).
 func (p Instruction) Execute(state io.State) uint {
-	var skip uint = 1
+	var (
+		skip uint = 1
+		pc   uint
+	)
 	//
 	for cc := uint(0); skip != 0; {
 		// Decode next micro-code
 		code := p.Codes[cc]
 		// Execut micro-code
-		skip, state.Pc = code.MicroExecute(state)
+		skip, pc = code.MicroExecute(state)
 		// Skip as requested
 		cc += skip
 	}
 	//
-	return state.Pc
+	return pc
 }
 
 // JumpTargets returns the set of all jump targets used within this instruction.

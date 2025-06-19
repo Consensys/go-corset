@@ -17,7 +17,7 @@ import (
 	"strings"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 )
 
 // FrIndexArray provides an "indexed" array of field elements.  This applies two
@@ -80,7 +80,7 @@ func (p *FrIndexArray) Set(index uint, element fr.Element) {
 }
 
 // Clone makes clones of this array producing an otherwise identical copy.
-func (p *FrIndexArray) Clone() util.Array[fr.Element] {
+func (p *FrIndexArray) Clone() array.Array[fr.Element] {
 	// Allocate sufficient memory
 	elements := make([]uint32, len(p.elements))
 	heap := make([]fr.Element, len(p.heap))
@@ -97,7 +97,7 @@ func (p *FrIndexArray) Clone() util.Array[fr.Element] {
 }
 
 // Slice out a subregion of this array.
-func (p *FrIndexArray) Slice(start uint, end uint) util.Array[fr.Element] {
+func (p *FrIndexArray) Slice(start uint, end uint) array.Array[fr.Element] {
 	// could be more efficient.
 	elements := make([]uint32, len(p.elements))
 	heap := make([]fr.Element, len(p.heap))
@@ -115,7 +115,7 @@ func (p *FrIndexArray) Slice(start uint, end uint) util.Array[fr.Element] {
 
 // Pad prepend array with n copies and append with m copies of the given padding
 // value.
-func (p *FrIndexArray) Pad(n uint, m uint, padding fr.Element) util.Array[fr.Element] {
+func (p *FrIndexArray) Pad(n uint, m uint, padding fr.Element) array.Array[fr.Element] {
 	l := uint(len(p.elements))
 	// Allocate sufficient memory
 	elements := make([]uint32, l+n+m)

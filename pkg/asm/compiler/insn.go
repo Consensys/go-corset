@@ -79,7 +79,7 @@ func (p *StateTranslator[T, E, M]) translateInOut(cc uint, codes []micro.Code) E
 func (p *StateTranslator[T, E, M]) translateJmp(cc uint, codes []micro.Code) E {
 	var (
 		code   = codes[cc].(*micro.Jmp)
-		pc_ip1 = p.Pc(true)
+		pc_ip1 = p.WritePc()
 		dst    = Number[T, E](code.Target)
 	)
 	// PC[i+1] = target

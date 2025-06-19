@@ -22,7 +22,7 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/macro"
 	"github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/util/source/lex"
 )
@@ -77,7 +77,8 @@ func (p *Parser) Parse() (AssemblyItem, []source.SyntaxError) {
 	}
 	// Continue going until all consumed
 	for p.lookahead().Kind != END_OF {
-		fn, errors = p.parseFunction()
+		id := uint(len(item.Components))
+		fn, errors = p.parseFunction(id)
 		//
 		if len(errors) > 0 {
 			return item, errors
@@ -91,7 +92,7 @@ func (p *Parser) Parse() (AssemblyItem, []source.SyntaxError) {
 	return item, nil
 }
 
-func (p *Parser) parseFunction() (MacroFunction, []source.SyntaxError) {
+func (p *Parser) parseFunction(id schema.ModuleId) (MacroFunction, []source.SyntaxError) {
 	var (
 		env             Environment
 		inst            macro.Instruction
@@ -121,8 +122,12 @@ func (p *Parser) parseFunction() (MacroFunction, []source.SyntaxError) {
 	if outputs, errs = p.parseArgsList(schema.OUTPUT_REGISTER); len(errs) > 0 {
 		return MacroFunction{}, errs
 	}
-	// Initialise register list from inputs/outputs
-	env.registers = append(inputs, outputs...)
+	// Initialise first register as program counter, using default bitwidth
+	// which will be corrected later.
+	env.registers = append(env.registers, schema.NewComputedRegister(io.PC_NAME, 0))
+	// Update register list with inputs/outputs
+	env.registers = append(env.registers, inputs...)
+	env.registers = append(env.registers, outputs...)
 	// Parse start of block
 	if _, errs = p.expect(LCURLY); len(errs) > 0 {
 		return MacroFunction{}, errs
@@ -141,10 +146,12 @@ func (p *Parser) parseFunction() (MacroFunction, []source.SyntaxError) {
 	}
 	// Advance past "}"
 	p.match(RCURLY)
+	// Correct program counter bitwidth
+	env.registers[0].Width = bitwidth(pc)
 	// Finalise labels
 	env.BindLabels(code)
 	// Done
-	return io.NewFunction(name, env.registers, code), nil
+	return io.NewFunction(id, name, env.registers, code), nil
 }
 
 func (p *Parser) parseArgsList(kind schema.RegisterType) ([]io.Register, []source.SyntaxError) {
@@ -392,7 +399,7 @@ func (p *Parser) parseAssignment(env *Environment) (macro.Instruction, []source.
 func (p *Parser) parseAssignmentLhs(env *Environment) ([]io.RegisterId, []source.SyntaxError) {
 	lhs, errs := p.parseRegisterList(env)
 	// Reverse items so that least significant comes first.
-	lhs = util.Reverse(lhs)
+	lhs = array.Reverse(lhs)
 	//
 	return lhs, errs
 }
@@ -670,4 +677,19 @@ func UnboundLabel(name string) Label {
 // BoundLabel constructs a label whose PC location is known.
 func BoundLabel(name string, pc uint) Label {
 	return Label{name, pc}
+}
+
+// Determine smallest bitwidth for a given bound.  Basically, the bound is
+// raised to the nearest power of 2.  For example, given 4 this should return
+// 2bits, whilst 5 should return 3bits, etc.
+func bitwidth(bound uint) uint {
+	// Determine actual bound
+	bitwidth := uint(1)
+	acc := uint(2)
+	//
+	for ; acc < bound; acc = acc * 2 {
+		bitwidth++
+	}
+	// Done
+	return bitwidth
 }

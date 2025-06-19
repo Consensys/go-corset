@@ -17,7 +17,7 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 )
 
 // Alias for big integer representation of 0.
@@ -172,5 +172,5 @@ func RegistersToString(rids []RegisterId, regs []Register) string {
 // registers in reverse order, separated by a comma.  This is useful, for
 // example, when printing the left-hand side of an assignment.
 func RegistersReversedToString(rids []RegisterId, regs []Register) string {
-	return RegistersToString(util.Reverse(rids), regs)
+	return RegistersToString(array.Reverse(rids), regs)
 }

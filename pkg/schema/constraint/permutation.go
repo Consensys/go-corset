@@ -109,7 +109,7 @@ func (p PermutationConstraint) Accepts(tr trace.Trace) (bit.Set, schema.Failure)
 	src := sliceColumns(p.Sources, module)
 	dst := sliceColumns(p.Targets, module)
 	// Sanity check whether column exists
-	if util.ArePermutationOf(dst, src) {
+	if field.ArePermutationOf(dst, src) {
 		// Success
 		return coverage, nil
 	}

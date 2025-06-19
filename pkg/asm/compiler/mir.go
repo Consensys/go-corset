@@ -32,11 +32,23 @@ type MirModule struct {
 }
 
 // Initialise this module
-func (p MirModule) Initialise(name string, mid uint) MirModule {
-	builder := ir.NewModuleBuilder[mir.Constraint, mir.Term](name, mid, 1)
+func (p MirModule) Initialise(fn MicroFunction, mid uint) MirModule {
+	builder := ir.NewModuleBuilder[mir.Constraint, mir.Term](fn.Name(), mid, 1)
+	// Add any assignments defined for this function.  Observe that, generally
+	// speaking, function's consist of exactly one assignment and this is what
+	// is being added here.
+	for iter := fn.Assignments(); iter.HasNext(); {
+		builder.AddAssignment(iter.Next())
+	}
+	//
 	p.Module = &builder
 
 	return p
+}
+
+// NewAssignment adds a new assignment to this module.
+func (p MirModule) NewAssignment(assignment schema.Assignment) {
+	p.Module.AddAssignment(assignment)
 }
 
 // NewColumn constructs a new column of the given name and bitwidth within
@@ -115,7 +127,7 @@ func (p MirExpr) Multiply(exprs ...MirExpr) MirExpr {
 
 // NotEquals constructs a non-equality between two expressions.
 func (p MirExpr) NotEquals(rhs MirExpr) MirExpr {
-	logical := ir.Equals[mir.LogicalTerm](p.expr, rhs.expr)
+	logical := ir.NotEquals[mir.LogicalTerm](p.expr, rhs.expr)
 	return MirExpr{nil, logical}
 }
 
@@ -123,7 +135,7 @@ func (p MirExpr) NotEquals(rhs MirExpr) MirExpr {
 func (p MirExpr) BigInt(number big.Int) MirExpr {
 	var frNum fr.Element
 	//
-	frNum.BigInt(&number)
+	frNum.SetBigInt(&number)
 	//
 	return MirExpr{ir.Const[mir.Term](frNum), nil}
 }

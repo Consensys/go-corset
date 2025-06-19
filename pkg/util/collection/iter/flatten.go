@@ -13,7 +13,7 @@
 package iter
 
 import (
-	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/enum"
 )
 
@@ -117,7 +117,7 @@ func (p *flattenIterator[S, T]) Count() uint {
 // return false if no match is found.
 //
 //nolint:revive
-func (p *flattenIterator[S, T]) Find(predicate util.Predicate[T]) (uint, bool) {
+func (p *flattenIterator[S, T]) Find(predicate array.Predicate[T]) (uint, bool) {
 	return enum.Find(p, predicate)
 }
 

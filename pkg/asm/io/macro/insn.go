@@ -13,6 +13,7 @@
 package macro
 
 import (
+	"encoding/gob"
 	"fmt"
 	"math/big"
 	"strings"
@@ -92,4 +93,14 @@ func assignmentToString(dsts []io.RegisterId, srcs []io.RegisterId, constant big
 	}
 	//
 	return builder.String()
+}
+
+func init() {
+	gob.Register(Instruction(&Add{}))
+	gob.Register(Instruction(&Call{}))
+	gob.Register(Instruction(&Goto{}))
+	gob.Register(Instruction(&IfGoto{}))
+	gob.Register(Instruction(&Mul{}))
+	gob.Register(Instruction(&Return{}))
+	gob.Register(Instruction(&Sub{}))
 }

@@ -137,7 +137,7 @@ func LowerMixedMicroProgram(p MixedMicroProgram) schema.UniformSchema[mir.Module
 	)
 	// Compiler assembly components into MIR
 	compiler.Compile(p.LeftModules()...)
-	// Copy over legacy components
+	// Copy over compiled components
 	for i, m := range compiler.Modules() {
 		modules[i] = m.Module.BuildTable()
 	}
@@ -154,7 +154,7 @@ func lowerFunction(vectorize bool, f MacroFunction) MicroFunction {
 		insns[pc] = insn.Lower(uint(pc))
 	}
 	// Sanity checks (for now)
-	fn := io.NewFunction(f.Name(), f.Registers(), insns)
+	fn := io.NewFunction(f.Id(), f.Name(), f.Registers(), insns)
 	// Apply vectorisation (if enabled).
 	if vectorize {
 		fn = vectorizeFunction(fn)
@@ -186,7 +186,7 @@ func SplitRegisters(cfg LoweringConfig, f MicroFunction) MicroFunction {
 		ninsns = append(ninsns, ninsn)
 	}
 	// Done
-	return io.NewFunction(f.Name(), env.RegistersAfter(), ninsns)
+	return io.NewFunction(f.Id(), f.Name(), env.RegistersAfter(), ninsns)
 }
 
 func splitMicroInstruction(insn micro.Instruction, env *micro.RegisterSplittingEnvironment) micro.Instruction {
@@ -214,7 +214,7 @@ func vectorizeFunction(f MicroFunction) MicroFunction {
 	// Remove all uncreachable instructions and compact remainder.
 	insns = pruneUnreachableInstructions(insns)
 	//
-	return io.NewFunction(f.Name(), f.Registers(), insns)
+	return io.NewFunction(f.Id(), f.Name(), f.Registers(), insns)
 }
 
 func vectorizeInstruction(pc uint, insns []micro.Instruction) micro.Instruction {

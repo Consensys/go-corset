@@ -20,6 +20,8 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -51,7 +53,7 @@ func (p *Exp[T]) EvalAt(k int, tr trace.Module) (fr.Element, error) {
 	// Check whether argument evaluates to zero or not.
 	val, err := p.Arg.EvalAt(k, tr)
 	// Compute exponent
-	util.Pow(&val, p.Pow)
+	field.Pow(&val, p.Pow)
 	// Done
 	return val, err
 }
@@ -96,7 +98,7 @@ func (p *Exp[T]) Simplify(casts bool) T {
 		// Clone value
 		val.Set(&c.Value)
 		// Compute exponent (in place)
-		util.Pow(&val, p.Pow)
+		field.Pow(&val, p.Pow)
 		// Done
 		targ = &Constant[T]{val}
 	} else {
@@ -107,7 +109,7 @@ func (p *Exp[T]) Simplify(casts bool) T {
 }
 
 // ValueRange implementation for Term interface.
-func (p *Exp[T]) ValueRange(module schema.Module) *util.Interval {
+func (p *Exp[T]) ValueRange(module schema.Module) *math.Interval {
 	bounds := p.Arg.ValueRange(module)
 	bounds.Exp(uint(p.Pow))
 	//

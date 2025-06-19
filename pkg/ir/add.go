@@ -17,7 +17,9 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -27,9 +29,9 @@ type Add[T Term[T]] struct{ Args []T }
 // Sum zero or more expressions together.
 func Sum[T Term[T]](terms ...T) T {
 	// Flatten any nested sums
-	terms = util.Flatten(terms, flatternAdd)
+	terms = array.Flatten(terms, flatternAdd)
 	// Remove any zeros
-	terms = util.RemoveMatching(terms, isZero)
+	terms = array.RemoveMatching(terms, isZero)
 	// Final simplifications
 	switch len(terms) {
 	case 0:
@@ -101,8 +103,8 @@ func (p *Add[T]) Substitute(mapping map[string]fr.Element) {
 }
 
 // ValueRange implementation for Term interface.
-func (p *Add[T]) ValueRange(module schema.Module) *util.Interval {
-	var res util.Interval
+func (p *Add[T]) ValueRange(module schema.Module) *math.Interval {
+	var res math.Interval
 
 	for i, arg := range p.Args {
 		ith := arg.ValueRange(module)
@@ -122,9 +124,9 @@ func simplifySum[T Term[T]](args []T, casts bool) T {
 		tmp   Term[T]
 	)
 	// Flatten any nested sums
-	terms = util.Flatten(terms, flatternAdd)
+	terms = array.Flatten(terms, flatternAdd)
 	// Remove any zeros
-	terms = util.RemoveMatching(terms, isZero)
+	terms = array.RemoveMatching(terms, isZero)
 	// Check anything left
 	switch len(terms) {
 	case 0:

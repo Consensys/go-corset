@@ -16,7 +16,7 @@ import (
 	"math/big"
 	"slices"
 
-	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/util/source/lex"
 )
@@ -39,7 +39,7 @@ func Parse[T Term[T]](input string, environment func(string) bool) (T, []source.
 		return empty, []source.SyntaxError{*err}
 	}
 	// Remove any whitespace
-	tokens = util.RemoveMatching(tokens, func(t lex.Token) bool { return t.Kind == WHITESPACE })
+	tokens = array.RemoveMatching(tokens, func(t lex.Token) bool { return t.Kind == WHITESPACE })
 	//
 	parser := &Parser[T]{environment, srcfile, tokens, 0}
 	// Parse term

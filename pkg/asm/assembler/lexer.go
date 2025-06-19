@@ -13,7 +13,7 @@
 package assembler
 
 import (
-	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/util/source/lex"
 )
@@ -160,9 +160,9 @@ func Lex(srcfile source.File) ([]lex.Token, []source.SyntaxError) {
 		return nil, []source.SyntaxError{*err}
 	}
 	// Remove any whitespace
-	tokens = util.RemoveMatching(tokens, func(t lex.Token) bool { return t.Kind == WHITESPACE })
+	tokens = array.RemoveMatching(tokens, func(t lex.Token) bool { return t.Kind == WHITESPACE })
 	// Remove any comments (for not)
-	tokens = util.RemoveMatching(tokens, func(t lex.Token) bool { return t.Kind == COMMENT })
+	tokens = array.RemoveMatching(tokens, func(t lex.Token) bool { return t.Kind == COMMENT })
 	// Done
 	return tokens, nil
 }

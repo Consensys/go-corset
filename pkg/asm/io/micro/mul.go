@@ -74,7 +74,7 @@ func (p *Mul) MicroExecute(state io.State) (uint, uint) {
 	// Multiply constant
 	value.Mul(&value, &p.Constant)
 	// Write value
-	state.Store(value, p.Targets...)
+	state.StoreAcross(value, p.Targets...)
 	//
 	return 1, 0
 }

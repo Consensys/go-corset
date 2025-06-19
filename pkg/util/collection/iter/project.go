@@ -12,7 +12,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package iter
 
-import "github.com/consensys/go-corset/pkg/util"
+import "github.com/consensys/go-corset/pkg/util/collection/array"
 
 type projectIterator[S, T any] struct {
 	iter       Iterator[S]
@@ -81,7 +81,7 @@ func (p *projectIterator[S, T]) Count() uint {
 // return false if no match is found.
 //
 //nolint:revive
-func (p *projectIterator[S, T]) Find(predicate util.Predicate[T]) (uint, bool) {
+func (p *projectIterator[S, T]) Find(predicate array.Predicate[T]) (uint, bool) {
 	return p.iter.Find(func(item S) bool {
 		return predicate(p.projection(item))
 	})

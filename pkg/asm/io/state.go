@@ -18,6 +18,8 @@ import (
 	"math/big"
 	"slices"
 	"strings"
+
+	"github.com/consensys/go-corset/pkg/schema"
 )
 
 // RETURN is used to signal that a given instruction returns from the enclosing
@@ -29,49 +31,65 @@ const RETURN uint = math.MaxUint
 // state.
 type State struct {
 	// Program Counter position.
-	Pc uint
-	// Values for each register in this state.
-	State []big.Int
+	pc uint
+	// Values for each register in this state excluding the program counter
+	// (since this is held above).  Thus, this array has one less item than
+	// registers.
+	state []big.Int
 	// Registers referenced in this state.  This is necessary to determine
 	// appropriate bitwidths for copying data, and also for debugging.
-	Registers []Register
+	registers []Register
 	// Io subsystem is necessary for enabling reads / writes from I/O buses.
-	Io Map
+	io Map
+}
+
+// EmptyState constructs an initially empty state at the given PC value.  One
+// can then set register values as needed via Store.
+func EmptyState(pc uint, registers []schema.Register, io Map) State {
+	var state = make([]big.Int, len(registers)-1)
+	// Construct state
+	return State{pc, state, registers, io}
 }
 
 // InitialState constructs a suitable initial state for executing a given
 // function with the given arguments.
 func InitialState[T Instruction[T]](arguments []big.Int, fn Function[T], io Map) State {
 	var (
-		state = make([]big.Int, len(fn.Registers()))
+		state = EmptyState(0, fn.registers, io)
 		index = 0
 	)
 	// Initialise arguments
 	for i, reg := range fn.Registers() {
 		if reg.IsInput() {
 			var (
+				rid = schema.NewRegisterId(uint(i))
 				val = arguments[index]
 				ith big.Int
 			)
 			// Clone big int
 			ith.Set(&val)
+			state.Store(rid, ith)
 			//
-			state[i] = ith
 			index = index + 1
 		}
 	}
 	// Construct state
-	return State{0, state, fn.Registers(), io}
+	return state
 }
 
 // Clone this state, producing a disjoint state.
 func (p *State) Clone() State {
 	return State{
-		p.Pc,
-		slices.Clone(p.State),
-		p.Registers,
-		p.Io,
+		p.pc,
+		slices.Clone(p.state),
+		p.registers,
+		p.io,
 	}
+}
+
+// Goto updates the program counter for this state to a given value.
+func (p *State) Goto(pc uint) {
+	p.pc = pc
 }
 
 // In performs an I/O read across a given bus.  More specifically, it reads the
@@ -79,7 +97,7 @@ func (p *State) Clone() State {
 func (p *State) In(bus Bus) {
 	var address = p.LoadN(bus.Address())
 	// Read value from I/O bus
-	values := p.Io.Read(bus.BusId, address)
+	values := p.io.Read(bus.BusId, address)
 	// Write them back
 	p.StoreN(bus.Data(), values)
 }
@@ -89,9 +107,9 @@ func (p *State) Outputs() []big.Int {
 	// Construct outputs
 	outputs := make([]big.Int, 0)
 	//
-	for i, reg := range p.Registers {
+	for i, reg := range p.registers {
 		if reg.IsOutput() {
-			outputs = append(outputs, p.State[i])
+			outputs = append(outputs, p.state[i])
 		}
 	}
 	//
@@ -100,7 +118,13 @@ func (p *State) Outputs() []big.Int {
 
 // Load value of a given register from this state.
 func (p *State) Load(reg RegisterId) *big.Int {
-	return &p.State[reg.Unwrap()]
+	index := reg.Unwrap()
+	//
+	if index == 0 {
+		return big.NewInt(int64(p.pc))
+	}
+	//
+	return &p.state[index-1]
 }
 
 // LoadN reads the values of zero or more registers from this state.
@@ -108,7 +132,7 @@ func (p *State) LoadN(registers []RegisterId) []big.Int {
 	values := make([]big.Int, len(registers))
 	//
 	for i, src := range registers {
-		values[i] = p.State[src.Unwrap()]
+		values[i] = *p.Load(src)
 	}
 	//
 	return values
@@ -122,25 +146,38 @@ func (p *State) Out(bus Bus) {
 		data    = p.LoadN(bus.Data())
 	)
 
-	p.Io.Write(bus.BusId, address, data)
+	p.io.Write(bus.BusId, address, data)
 }
 
-// Next returns the program counter for the following instruction.
-func (p *State) Next() uint {
-	return p.Pc + 1
+// Pc returns the current program counter position.
+func (p *State) Pc() uint {
+	return p.pc
 }
 
-// Store a given value across a set of registers, splitting its bits as
+// Store value to a given register from this state.
+func (p *State) Store(reg RegisterId, value big.Int) {
+	index := reg.Unwrap()
+	//
+	if value.BitLen() > int(p.registers[index].Width) {
+		panic("write exceeds register width")
+	} else if index == 0 {
+		p.pc = uint(value.Uint64())
+	} else {
+		// Write to normal register
+		p.state[index-1] = value
+	}
+}
+
+// StoreAcross a given value across a set of registers, splitting its bits as
 // necessary.  The target registers are given with the least significant first.
 // For example, consider writing 01100010 to registers [R1, R2] of type u4.
 // Then, after the write, we have R1=0010 and R2=0110.
-func (p *State) Store(value big.Int, registers ...RegisterId) {
+func (p *State) StoreAcross(value big.Int, registers ...RegisterId) {
 	var offset uint = 0
 	//
 	for _, id := range registers {
-		reg := id.Unwrap()
-		width := p.Registers[reg].Width
-		p.State[reg] = ReadBitSlice(offset, width, value)
+		width := p.registers[id.Unwrap()].Width
+		p.Store(id, ReadBitSlice(offset, width, value))
 		offset += width
 	}
 }
@@ -149,7 +186,7 @@ func (p *State) Store(value big.Int, registers ...RegisterId) {
 // registers in this state.
 func (p *State) StoreN(registers []RegisterId, values []big.Int) {
 	for i, dst := range registers {
-		p.State[dst.Unwrap()] = values[i]
+		p.Store(dst, values[i])
 	}
 }
 
@@ -160,17 +197,17 @@ func (p *State) String() string {
 	if p.Terminated() {
 		builder.WriteString("(pc=--) ")
 	} else {
-		pc := fmt.Sprintf("(pc=%02x) ", p.Pc)
+		pc := fmt.Sprintf("(pc=%02x) ", p.pc)
 		builder.WriteString(pc)
 	}
 	//
-	for i := 0; i != len(p.Registers); i++ {
+	for i := range p.registers {
 		if i != 0 {
 			builder.WriteString(", ")
 		}
 		//
-		val := p.State[i].Text(16)
-		reg := p.Registers[i].Name
+		val := p.Load(schema.NewRegisterId(uint(i))).Text(16)
+		reg := p.registers[i].Name
 		builder.WriteString(fmt.Sprintf("%s=0x%s", reg, val))
 	}
 	//
@@ -180,7 +217,7 @@ func (p *State) String() string {
 // Terminated determines whether this state represents a terminated function
 // execution.
 func (p *State) Terminated() bool {
-	return p.Pc == RETURN
+	return p.pc == RETURN
 }
 
 // ReadBitSlice reads a slice of bits starting at a given offset in a give

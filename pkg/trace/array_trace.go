@@ -15,6 +15,7 @@ package trace
 import (
 	"fmt"
 	"math"
+	"strings"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
@@ -81,7 +82,22 @@ func (p *ArrayTrace) Pad(module uint, front uint, back uint) {
 }
 
 func (p *ArrayTrace) String() string {
-	panic("todo")
+	// Use string builder to try and make this vaguely efficient.
+	var id strings.Builder
+
+	id.WriteString("{")
+	// Write each module in turn
+	for i, m := range p.modules {
+		if i != 0 {
+			id.WriteString(", ")
+		}
+		//
+		id.WriteString(m.String())
+	}
+	//
+	id.WriteString("}")
+	//
+	return id.String()
 }
 
 // ----------------------------------------------------------------------------
@@ -189,21 +205,19 @@ func (p *ArrayModule) FillColumn(cid uint, data field.FrArray, padding fr.Elemen
 // filling a column (as above).  This will panic if either: the module height
 // was not previously reset; or, if the column heights are inconsistent.
 func (p *ArrayModule) Resize() {
-	var nsize uint
-
-	if p.height != math.MaxUint {
-		panic("module already sized")
-	}
+	var (
+		nsize uint = math.MaxUint
+		first bool = true
+	)
 	//
 	for i := 0; i != len(p.columns); i++ {
 		data := p.columns[i].Data()
 		//
 		if data == nil {
-			// Cannot determine size at this point.
-			p.height = math.MaxUint
-			return
-		} else if i == 0 {
+			// skip
+		} else if first {
 			nsize = data.Len()
+			first = false
 		} else if nsize != data.Len() {
 			panic(fmt.Sprintf("incompatible column heights (%d vs %d)", nsize, data.Len()))
 		}
@@ -230,6 +244,30 @@ func (p *ArrayModule) Pad(front uint, back uint) {
 	for i := 0; i < len(p.columns); i++ {
 		p.columns[i].pad(front, back)
 	}
+}
+
+func (p *ArrayModule) String() string {
+	var id strings.Builder
+	//
+	if p.name == "" {
+		id.WriteString("∅")
+	} else {
+		id.WriteString(p.name)
+	}
+
+	id.WriteString("={")
+	//
+	for i, c := range p.columns {
+		if i != 0 {
+			id.WriteString(", ")
+		}
+		//
+		id.WriteString(c.String())
+	}
+	//
+	id.WriteString("}")
+	// Done
+	return id.String()
 }
 
 // ----------------------------------------------------------------------------
@@ -294,11 +332,33 @@ func (p *ArrayColumn) Get(row int) fr.Element {
 	return p.data.Get(uint(row))
 }
 
-func (p *ArrayColumn) fill(data field.FrArray, padding fr.Element) {
-	// Sanity check this column has not already been filled.
-	if p.data != nil {
-		panic(fmt.Sprintf("computed column %s has already been filled", p.name))
+func (p *ArrayColumn) String() string {
+	var id strings.Builder
+	// Write column name
+	id.WriteString(p.name)
+	//
+	if p.data == nil {
+		id.WriteString("=⊥")
+	} else {
+		id.WriteString("={")
+		// Print out each element
+		for j := uint(0); j < p.Height(); j++ {
+			jth := p.Get(int(j))
+
+			if j != 0 {
+				id.WriteString(",")
+			}
+
+			id.WriteString(jth.String())
+		}
+		//
+		id.WriteString("}")
 	}
+	//
+	return id.String()
+}
+
+func (p *ArrayColumn) fill(data field.FrArray, padding fr.Element) {
 	// Fill the column
 	p.data = data
 	p.padding = padding

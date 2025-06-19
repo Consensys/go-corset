@@ -95,6 +95,11 @@ func (p *SortedPermutation) Consistent(schema sc.AnySchema) []error {
 	return errors
 }
 
+// RegistersExpanded identifies registers expanded by this assignment.
+func (p *SortedPermutation) RegistersExpanded() []sc.RegisterRef {
+	return nil
+}
+
 // RegistersRead returns the set of columns that this assignment depends upon.
 // That can include both input columns, as well as other computed columns.
 func (p *SortedPermutation) RegistersRead() []sc.RegisterRef {
@@ -156,7 +161,7 @@ func sortedPermutationNativeFunction(sources []field.FrArray, signs []bool) []fi
 	// Clone target columns first
 	targets := cloneNativeFunction(sources)
 	// Sort target columns (in place)
-	util.PermutationSort(targets, signs)
+	field.PermutationSort(targets, signs)
 	//
 	return targets
 }

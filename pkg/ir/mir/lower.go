@@ -20,7 +20,8 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/air"
 	air_gadgets "github.com/consensys/go-corset/pkg/ir/air/gadgets"
 	"github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
+	"github.com/consensys/go-corset/pkg/util/math"
 )
 
 // LowerToAir lowers (or refines) an MIR schema into an AIR schema.  That means
@@ -102,17 +103,20 @@ func (p *AirLowering) LowerModule(index uint) {
 		mirModule = p.mirSchema.Module(index)
 		airModule = p.airSchema.Module(index)
 	)
+	// Add assignments.  At this time, there is nothing to do in terms of
+	// lowering.  Observe that this must be done *before* lowering assignments
+	// to ensure a correct ordering.  For example, if a constraint refers to one
+	// of these assigned columns and generates a corresponding computed column
+	// (e.g. for the inverse).
+	for iter := mirModule.Assignments(); iter.HasNext(); {
+		airModule.AddAssignment(iter.Next())
+	}
 	// Lower constraints
 	for iter := mirModule.Constraints(); iter.HasNext(); {
 		// Following should always hold
 		constraint := iter.Next().(Constraint)
 		//
 		p.lowerConstraintToAir(constraint, airModule)
-	}
-	// Add assignments.  At this time, there is nothing to do in terms of
-	// lowering.
-	for iter := mirModule.Assignments(); iter.HasNext(); {
-		airModule.AddAssignment(iter.Next())
 	}
 }
 
@@ -638,10 +642,10 @@ func (p *AirLowering) normalise(arg air.Term, airModule *air.ModuleBuilder) air.
 	// Check whether normalisation actually required.  For example, if the
 	// argument is just a binary column then a normalisation is not actually
 	// required.
-	if p.config.InverseEliminiationLevel > 0 && bounds.Within(util.NewInterval64(0, 1)) {
+	if p.config.InverseEliminiationLevel > 0 && bounds.Within(math.NewInterval64(0, 1)) {
 		// arg ∈ {0,1} ==> normalised already :)
 		return arg
-	} else if p.config.InverseEliminiationLevel > 0 && bounds.Within(util.NewInterval64(-1, 1)) {
+	} else if p.config.InverseEliminiationLevel > 0 && bounds.Within(math.NewInterval64(-1, 1)) {
 		// arg ∈ {-1,0,1} ==> (arg*arg) ∈ {0,1}
 		return ir.Product(arg, arg)
 	}
@@ -712,7 +716,7 @@ func conjunction(terms ...[]air.Term) []air.Term {
 	var nterms []air.Term
 	// Combine conjuncts
 	for _, ts := range terms {
-		nterms = util.AppendAll(nterms, ts...)
+		nterms = array.AppendAll(nterms, ts...)
 	}
 	//
 	return nterms

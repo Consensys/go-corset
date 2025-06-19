@@ -14,11 +14,11 @@ package compiler
 
 import (
 	"fmt"
-	"math/big"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/schema"
+	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 )
@@ -148,7 +148,7 @@ func (p *Compiler[T, E, M]) initModule(busId uint, fn MicroFunction) {
 		bus    FunctionMapping[T]
 	)
 	// Initialise module correctly
-	module = module.Initialise(fn.Name(), busId)
+	module = module.Initialise(fn, busId)
 	p.modules[busId] = module
 	//
 	bus.name = fn.Name()
@@ -165,16 +165,19 @@ func (p *Compiler[T, E, M]) initModule(busId uint, fn MicroFunction) {
 
 func (p *Compiler[T, E, M]) initFunctionFraming(busId uint, fn MicroFunction) (stamp T, pc T) {
 	var (
-		pcMax = uint64(len(fn.Code()) - 1)
-		// Determine max width of PC
-		pcWidth = uint(big.NewInt(int64(pcMax)).BitLen())
 		//
 		Bus    = p.buses[busId]
 		module = p.modules[busId]
 	)
 	// Allocate book keeping columns
 	stamp = module.NewColumn(schema.COMPUTED_REGISTER, STAMP_NAME, p.maxInstances)
-	pc = module.NewColumn(schema.COMPUTED_REGISTER, PC_NAME, pcWidth)
+	// FIXME: the following reliance on the length of registers is something of
+	// a kludge.
+	stampRef := sc.NewRegisterRef(busId, sc.NewRegisterId(uint(len(fn.Registers()))))
+	module.NewAssignment(&StampAssignment{stampRef})
+	// PC is always first register, therefore no need to create a new column for
+	// it.
+	pc = Bus.columns[0]
 	//
 	stamp_i := Variable[T, E](stamp, 0)
 	stamp_im1 := Variable[T, E](stamp, -1)
@@ -192,15 +195,19 @@ func (p *Compiler[T, E, M]) initFunctionFraming(busId uint, fn MicroFunction) (s
 	// stamp[i-1] != stamp[i] ==> pc[i] == 0
 	module.NewConstraint("reset", util.None[int](),
 		If(stamp_im1.NotEquals(stamp_i), pc_i.Equals(zero)))
-	// Add constancies for all input registers
-	for i, r := range fn.Registers() {
-		if r.IsInput() {
-			name := fmt.Sprintf("const_%s", r.Name)
-			reg_i := Variable[T, E](Bus.columns[i], 0)
-			reg_im1 := Variable[T, E](Bus.columns[i], -1)
-			//
-			module.NewConstraint(name, util.None[int](),
-				If(pc_i.NotEquals(zero), reg_im1.Equals(reg_i)))
+	// Add constancies for all input registers (if applicable)
+	if len(fn.Code()) > 1 {
+		// Constancies only required when there is more than one instruction
+		// since otherwise pc==0 always.
+		for i, r := range fn.Registers() {
+			if r.IsInput() {
+				name := fmt.Sprintf("const_%s", r.Name)
+				reg_i := Variable[T, E](Bus.columns[i], 0)
+				reg_im1 := Variable[T, E](Bus.columns[i], -1)
+				//
+				module.NewConstraint(name, util.None[int](),
+					If(pc_i.NotEquals(zero), reg_im1.Equals(reg_i)))
+			}
 		}
 	}
 	//

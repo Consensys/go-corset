@@ -20,12 +20,14 @@ import (
 	"strings"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/go-corset/pkg/ir"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/termio"
 	"github.com/spf13/cobra"
 )
@@ -128,7 +130,7 @@ func init() {
 	traceCmd.Flags().Bool("metadata", false, "Print embedded metadata")
 }
 
-func expandColumns(cols []trace.RawColumn, schema sc.AnySchema, builder sc.TraceBuilder) []trace.RawColumn {
+func expandColumns(cols []trace.RawColumn, schema sc.AnySchema, builder ir.TraceBuilder) []trace.RawColumn {
 	// Construct expanded tr
 	tr, errs := builder.Build(schema, cols)
 	// Handle errors
@@ -543,7 +545,7 @@ func uniqueElementsSummariser(col trace.RawColumn) string {
 	elems := hash.NewSet[hash.BytesKey](data.Len() / 2)
 	// Add all the elements
 	for i := uint(0); i < data.Len(); i++ {
-		bytes := util.FrElementToBytes(data.Get(i))
+		bytes := field.FrElementToBytes(data.Get(i))
 		elems.Insert(hash.NewBytesKey(bytes[:]))
 	}
 	// Done

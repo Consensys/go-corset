@@ -22,6 +22,14 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 )
 
+const (
+	// PC_NAME gives the name used for the program counter in traces.
+	PC_NAME = "$pc"
+	// PC_INDEX gives the register index used for the program counter (which is
+	// currently always be 0).
+	PC_INDEX = uint(0)
+)
+
 // Register defines the notion of a register within a function.
 type Register = schema.Register
 
@@ -50,6 +58,8 @@ type FunctionInstance struct {
 // declare zero or more internal registers for use, and their interpretation is
 // given by a sequence of zero or more instructions.
 type Function[T Instruction[T]] struct {
+	// unique module identifier
+	id schema.ModuleId
 	// Unique name of this function.
 	name string
 	// Registers describes zero or more registers of a given width.  Each
@@ -60,15 +70,17 @@ type Function[T Instruction[T]] struct {
 }
 
 // NewFunction constructs a new function with the given components.
-func NewFunction[T Instruction[T]](name string, registers []Register, code []T) Function[T] {
-	return Function[T]{name, registers, code}
+func NewFunction[T Instruction[T]](id schema.ModuleId, name string, registers []Register, code []T) Function[T] {
+	return Function[T]{id, name, registers, code}
 }
 
 // Assignments returns an iterator over the assignments of this schema.
 // These are the computations used to assign values to all computed columns
 // in this module.
 func (p *Function[T]) Assignments() iter.Iterator[schema.Assignment] {
-	return iter.NewArrayIterator[schema.Assignment](nil)
+	var assignment Assignment[T] = Assignment[T]{p.id, p.name, p.registers, p.code}
+	//
+	return iter.NewUnitIterator[schema.Assignment](assignment)
 }
 
 // CodeAt returns the ith instruction making up the body of this function.
@@ -84,7 +96,7 @@ func (p *Function[T]) Code() []T {
 // Constraints provides access to those constraints associated with this
 // function.
 func (p *Function[T]) Constraints() iter.Iterator[schema.Constraint] {
-	var constraint Constraint[T] = Constraint[T]{p.name, p.registers, p.code}
+	var constraint Constraint[T] = Constraint[T]{p.id, p.name, p.registers, p.code}
 	//
 	return iter.NewUnitIterator[schema.Constraint](constraint)
 }
@@ -95,6 +107,11 @@ func (p *Function[T]) Constraints() iter.Iterator[schema.Constraint] {
 func (p *Function[T]) Consistent(schema.Schema[schema.Constraint]) []error {
 	// TODO: add checks?
 	return nil
+}
+
+// Id returns the unique module identifier for this function.
+func (p *Function[T]) Id() schema.ModuleId {
+	return p.id
 }
 
 // HasRegister checks whether a register with the given name exists and, if

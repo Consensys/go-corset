@@ -17,7 +17,7 @@ import (
 	"strings"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 )
 
 // ----------------------------------------------------------------------------
@@ -67,7 +67,7 @@ func (p *FrPoolArray[K, P]) Set(index uint, element fr.Element) {
 
 // Clone makes clones of this array producing an otherwise identical copy.
 // nolint: revive
-func (p *FrPoolArray[K, P]) Clone() util.Array[fr.Element] {
+func (p *FrPoolArray[K, P]) Clone() array.Array[fr.Element] {
 	// Allocate sufficient memory
 	ndata := make([]K, len(p.elements))
 	// Copy over the data
@@ -77,13 +77,13 @@ func (p *FrPoolArray[K, P]) Clone() util.Array[fr.Element] {
 }
 
 // Slice out a subregion of this array.
-func (p *FrPoolArray[K, P]) Slice(start uint, end uint) util.Array[fr.Element] {
+func (p *FrPoolArray[K, P]) Slice(start uint, end uint) array.Array[fr.Element] {
 	return &FrPoolArray[K, P]{p.pool, p.elements[start:end], p.bitwidth}
 }
 
 // Pad prepend array with n copies and append with m copies of the given padding
 // value.
-func (p *FrPoolArray[K, P]) Pad(n uint, m uint, padding fr.Element) util.Array[fr.Element] {
+func (p *FrPoolArray[K, P]) Pad(n uint, m uint, padding fr.Element) array.Array[fr.Element] {
 	l := uint(len(p.elements))
 	// Ensure padding in pool
 	key := p.pool.Put(padding)

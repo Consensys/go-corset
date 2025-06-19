@@ -22,6 +22,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/termio"
 )
 
@@ -193,7 +194,7 @@ func (p *ModuleState) matchQuery(query *Query) termio.FormattedText {
 // to avoid duplicates in the history.
 func history_append[T comparable](history []T, item T) []T {
 	// Remove previous entry (if applicable)
-	history = util.RemoveMatching(history, func(ith T) bool { return ith == item })
+	history = array.RemoveMatching(history, func(ith T) bool { return ith == item })
 	// Add item to end
 	return append(history, item)
 }

@@ -21,6 +21,8 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -35,7 +37,7 @@ type Cast[T Term[T]] struct {
 // within a given range.
 func CastOf[T Term[T]](arg T, bitwidth uint) T {
 	bound := fr.NewElement(2)
-	util.Pow(&bound, uint64(bitwidth))
+	field.Pow(&bound, uint64(bitwidth))
 	// Construct term
 	var term Term[T] = &Cast[T]{Arg: arg, BitWidth: bitwidth, Bound: bound}
 	// Done
@@ -84,14 +86,14 @@ func (p *Cast[T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[t
 }
 
 // Range returns the range of values which this cast represents.
-func (p *Cast[T]) Range() *util.Interval {
+func (p *Cast[T]) Range() *math.Interval {
 	var bound = big.NewInt(2)
 	// Determine bound for static type check
 	bound.Exp(bound, big.NewInt(int64(p.BitWidth)), nil)
 	// Subtract 1 because interval is inclusive.
 	bound.Sub(bound, &biONE)
 	// Determine casted interval
-	return util.NewInterval(&biZERO, bound)
+	return math.NewInterval(&biZERO, bound)
 }
 
 // ShiftRange implementation for Term interface.
@@ -103,7 +105,7 @@ func (p *Cast[T]) ShiftRange() (int, int) {
 func (p *Cast[T]) Simplify(casts bool) T {
 	var bound fr.Element = fr.NewElement(2)
 	// Determine bound for static type check
-	util.Pow(&bound, uint64(p.BitWidth))
+	field.Pow(&bound, uint64(p.BitWidth))
 	// Propagate constants in the argument
 
 	var (
@@ -131,7 +133,7 @@ func (p *Cast[T]) Substitute(mapping map[string]fr.Element) {
 }
 
 // ValueRange implementation for Term interface.
-func (p *Cast[T]) ValueRange(module schema.Module) *util.Interval {
+func (p *Cast[T]) ValueRange(module schema.Module) *math.Interval {
 	cast := p.Range()
 	// Compute actual interval
 	res := p.Arg.ValueRange(module)

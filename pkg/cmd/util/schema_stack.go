@@ -24,6 +24,7 @@ import (
 	"github.com/consensys/go-corset/pkg/asm"
 	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/corset"
+	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/air"
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
@@ -63,7 +64,7 @@ type SchemaStack struct {
 	// Mir optimisation config options
 	mirConfig mir.OptimisationConfig
 	// Configuration for trace expansion
-	traceBuilder schema.TraceBuilder
+	traceBuilder ir.TraceBuilder
 	// Externalised constant definitions
 	externs []string
 	// Layers identifies which layers are included in the stack.
@@ -118,7 +119,7 @@ func (p *SchemaStack) WithLayer(layer uint) *SchemaStack {
 
 // WithTraceBuilder determines the settings to use for trace expansion, such as
 // whether to use parallelisation, etc.
-func (p *SchemaStack) WithTraceBuilder(builder schema.TraceBuilder) *SchemaStack {
+func (p *SchemaStack) WithTraceBuilder(builder ir.TraceBuilder) *SchemaStack {
 	p.traceBuilder = builder
 	return p
 }
@@ -139,8 +140,20 @@ func (p *SchemaStack) Schemas() []schema.AnySchema {
 	return p.schemas
 }
 
+// SchemaOf returns the schema associated with the given IR representation.  If
+// there is no match, this will panic.
+func (p *SchemaStack) SchemaOf(ir string) schema.AnySchema {
+	for i, n := range p.names {
+		if n == ir {
+			return p.schemas[i]
+		}
+	}
+	//
+	panic(fmt.Sprintf("schema for %s not found", ir))
+}
+
 // TraceBuilder returns a configured trace builder.
-func (p *SchemaStack) TraceBuilder() schema.TraceBuilder {
+func (p *SchemaStack) TraceBuilder() ir.TraceBuilder {
 	return p.traceBuilder
 }
 
@@ -164,14 +177,22 @@ func (p *SchemaStack) IrName(index uint) string {
 
 // Read reads one or more constraints files into this stack.
 func (p *SchemaStack) Read(filenames ...string) {
+	binfile := readConstraintFiles(p.corsetConfig, p.asmConfig, filenames)
+	//
+	p.Apply(binfile)
+}
+
+// Apply updates the binary for this stack and recalculates all requested
+// schemas.
+func (p *SchemaStack) Apply(binfile binfile.BinaryFile) {
 	var (
 		asmSchema  asm.MixedMacroProgram
 		uasmSchema asm.MixedMicroProgram
 		mirSchema  mir.Schema
 		airSchema  air.Schema
 	)
-	//
-	p.binfile = readConstraintFiles(p.corsetConfig, p.asmConfig, filenames)
+	// Set binary
+	p.binfile = binfile
 	// Apply any user-specified values for externalised constants.
 	applyExternOverrides(p.externs, &p.binfile)
 	// Read out the mixed macro schema

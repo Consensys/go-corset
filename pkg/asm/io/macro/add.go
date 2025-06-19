@@ -59,9 +59,9 @@ func (p *Add) Execute(state io.State) uint {
 		value.Add(&value, state.Load(src))
 	}
 	// Write value across targets
-	state.Store(value, p.Targets...)
+	state.StoreAcross(value, p.Targets...)
 	//
-	return state.Next()
+	return state.Pc() + 1
 }
 
 // Lower this instruction into a exactly one more micro instruction.

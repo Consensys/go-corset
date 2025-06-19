@@ -10,13 +10,11 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package test
+package array
 
 import (
 	"reflect"
 	"testing"
-
-	"github.com/consensys/go-corset/pkg/util"
 )
 
 func Test_RemoveMatching_01(t *testing.T) {
@@ -59,7 +57,7 @@ func Test_RemoveMatching_10(t *testing.T) {
 }
 
 func check_RemoveMatching(t *testing.T, original []int, item int, expected []int) {
-	actual := util.RemoveMatching(original, func(ith int) bool { return ith == item })
+	actual := RemoveMatching(original, func(ith int) bool { return ith == item })
 	if !reflect.DeepEqual(actual, expected) {
 		t.Errorf("removing %d from %v got %v", item, original, actual)
 	}
@@ -90,7 +88,7 @@ func Test_Reverse_05(t *testing.T) {
 }
 
 func check_Reverse(t *testing.T, original []int, expected []int) {
-	actual := util.Reverse(original)
+	actual := Reverse(original)
 	//
 	if !reflect.DeepEqual(actual, expected) {
 		t.Errorf("reversing %v gave %v", original, actual)

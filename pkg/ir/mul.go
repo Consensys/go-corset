@@ -17,7 +17,9 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -27,11 +29,11 @@ type Mul[T Term[T]] struct{ Args []T }
 // Product returns the product of zero or more multiplications.
 func Product[T Term[T]](terms ...T) T {
 	// flatten any nested products
-	terms = util.Flatten(terms, flatternMul)
+	terms = array.Flatten(terms, flatternMul)
 	// Remove all multiplications by one
-	terms = util.RemoveMatching(terms, isOne)
+	terms = array.RemoveMatching(terms, isOne)
 	// Check for zero
-	if util.ContainsMatching(terms, isZero) {
+	if array.ContainsMatching(terms, isZero) {
 		return Const64[T](0)
 	}
 	// Final optimisation
@@ -110,14 +112,14 @@ func (p *Mul[T]) Simplify(casts bool) T {
 		targ  Term[T]
 	)
 	// Flatten any nested products
-	terms = util.Flatten(terms, flatternMul)
+	terms = array.Flatten(terms, flatternMul)
 	// Check for zero
-	if util.ContainsMatching(terms, isZero) {
+	if array.ContainsMatching(terms, isZero) {
 		// Yes, is zero
 		targ = &Constant[T]{fr.NewElement(0)}
 	} else {
 		// Remove any ones
-		terms = util.RemoveMatching(terms, isOne)
+		terms = array.RemoveMatching(terms, isOne)
 		// Check whats left
 		switch len(terms) {
 		case 0:
@@ -134,8 +136,8 @@ func (p *Mul[T]) Simplify(casts bool) T {
 }
 
 // ValueRange implementation for Term interface.
-func (p *Mul[T]) ValueRange(module schema.Module) *util.Interval {
-	var res util.Interval
+func (p *Mul[T]) ValueRange(module schema.Module) *math.Interval {
+	var res math.Interval
 
 	for i, arg := range p.Args {
 		ith := arg.ValueRange(module)

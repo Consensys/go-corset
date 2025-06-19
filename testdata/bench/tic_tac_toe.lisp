@@ -195,17 +195,19 @@
 ;;;; Constraints
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; range check
-;; this constraint enforces that BOXES in the range [0, 1, 2]
-(definrange  [BOXES 1]   3)
-(definrange  [BOXES 2]   3)
-(definrange  [BOXES 3]   3)
-(definrange  [BOXES 4]   3)
-(definrange  [BOXES 5]   3)
-(definrange  [BOXES 6]   3)
-(definrange  [BOXES 7]   3)
-(definrange  [BOXES 8]   3)
-(definrange  [BOXES 9]   3)
+(defpurefun (inrange3 X)
+    (∨ (== X 0) (== X 1) (== X 2)))
+
+;; these constraints enforce BOXES are in [0, 1, 2]
+(defconstraint boxes1 () (inrange3 [BOXES 1]))
+(defconstraint boxes2 () (inrange3 [BOXES 2]))
+(defconstraint boxes3 () (inrange3 [BOXES 3]))
+(defconstraint boxes4 () (inrange3 [BOXES 4]))
+(defconstraint boxes5 () (inrange3 [BOXES 5]))
+(defconstraint boxes6 () (inrange3 [BOXES 6]))
+(defconstraint boxes7 () (inrange3 [BOXES 7]))
+(defconstraint boxes8 () (inrange3 [BOXES 8]))
+(defconstraint boxes9 () (inrange3 [BOXES 9]))
 
 ;; constaints for STAMP
 

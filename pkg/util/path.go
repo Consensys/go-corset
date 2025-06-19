@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 )
 
 // Path is a construct for describing paths through trees.  A path can be either
@@ -125,7 +127,7 @@ func (p *Path) PushRoot(tail string) *Path {
 		panic("cannot push root onto absolute path")
 	}
 	// Prepend root to segments
-	nsegments := Prepend(tail, p.segments)
+	nsegments := array.Prepend(tail, p.segments)
 	// Convert to absolute path
 	return &Path{true, nsegments}
 }
@@ -138,7 +140,7 @@ func (p *Path) Parent() *Path {
 
 // Extend returns this path extended with a new innermost segment.
 func (p *Path) Extend(tail string) *Path {
-	return &Path{p.absolute, Append(p.segments, tail)}
+	return &Path{p.absolute, array.Append(p.segments, tail)}
 }
 
 // String returns a string representation of this path.
