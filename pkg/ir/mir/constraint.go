@@ -124,6 +124,28 @@ func (p Constraint) Lisp(schema schema.AnySchema) sexp.SExp {
 	return p.constraint.Lisp(schema)
 }
 
+// Subdivide implementation for the FieldAgnosticModule interface.
+func (p Constraint) Subdivide(bandwidth uint, maxRegisterWidth uint) Constraint {
+	switch c := p.constraint.(type) {
+	case Assertion:
+		return Constraint{c.Subdivide(bandwidth, maxRegisterWidth)}
+	case InterleavingConstraint:
+		return Constraint{c.Subdivide(bandwidth, maxRegisterWidth)}
+	case LookupConstraint:
+		return Constraint{c.Subdivide(bandwidth, maxRegisterWidth)}
+	case PermutationConstraint:
+		return Constraint{c.Subdivide(bandwidth, maxRegisterWidth)}
+	case RangeConstraint:
+		return Constraint{c.Subdivide(bandwidth, maxRegisterWidth)}
+	case SortedConstraint:
+		return Constraint{c.Subdivide(bandwidth, maxRegisterWidth)}
+	case VanishingConstraint:
+		return Constraint{c.Subdivide(bandwidth, maxRegisterWidth)}
+	default:
+		panic("unreachable")
+	}
+}
+
 // Substitute any matchined labelled constants within this constraint
 func (p Constraint) Substitute(mapping map[string]fr.Element) {
 	p.constraint.Substitute(mapping)

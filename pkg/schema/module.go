@@ -15,6 +15,8 @@ package schema
 import (
 	"bytes"
 	"encoding/gob"
+	"fmt"
+	"reflect"
 
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 )
@@ -51,52 +53,6 @@ type Module interface {
 	Registers() []Register
 	// Returns the number of registers in this module.
 	Width() uint
-}
-
-// FieldAgnosticModule captures the notion of a module which is agnostic to the
-// underlying field being used.  More specificially, it is a module whose
-// registers (and constraints) can be subdivided as necessary to ensure a
-// maximum bandwidth requirement is met.  Here, bandwidth refers to the maximum
-// number of data bits which can be stored in the underlying field.  As a simple
-// example, the prime field F_7 has a bandwidth of 2bits.  To target a specific
-// prime field, two parameters are used: the maximum bandwidth (as determined by
-// the prime); the maximum register width (which should be smaller than the
-// bandwidth).  The maximum register width determines the maximum permitted
-// width of any register in the module.  Since every register value will be
-// stored as a field element, it follows that the maximum width cannot be
-// greater than the bandwidth.  However, in practice, we want it to be
-// marginally less than the bandwidth to ensure there is some capacity for
-// calculations involving registers.
-type FieldAgnosticModule[T any] interface {
-	Module
-	// Subdivide this module for a given bandwidth and maximum register width.
-	// This will split all registers wider than the maximum permitted width into
-	// two or more "limbs" (i.e. subregisters which do not exceeded the
-	// permitted width).  For example, consider a register "r" of width u32.
-	// Subdividing this register into registers of at most 8bits will result in
-	// four limbs: r'0, r'1, r'2 and r'3 where (by convention) r'0 is the least
-	// significant.
-	//
-	// As part of the subdivision process, constraints may also need to be
-	// divided when they exceed the maximum permitted bandwidth.  For example,
-	// consider a simple constraint such as "x = y + 1" using 16bit registers
-	// x,y.  Subdividing for a bandwidth of 10bits and a maximum register width
-	// of 8bits means splitting each register into two limbs, and transforming
-	// our constraint into:
-	//
-	// 256*x'1 + x'0 = 256*y'1 + y'0 + 1
-	//
-	// However, as it stands, this constraint exceeds our bandwidth requirement
-	// since it requires at least 17bits of information to safely evaluate each
-	// side.  Thus, the constraint itself must be subdivided into two parts:
-	//
-	// 256*c + x'0 = y'0 + 1  // lower
-	//
-	//         x'1 = y'1 + c  // upper
-	//
-	// Here, c is a 1bit register introduced as part of the transformation to
-	// act as a "carry" between the two constraints.
-	Subdivide(bandwidth uint, maxRegisterWidth uint) T
 }
 
 // ============================================================================
@@ -186,6 +142,45 @@ func (p Table[C]) Register(id RegisterId) Register {
 // Specifically, the index of a register in this array is its register index.
 func (p Table[C]) Registers() []Register {
 	return p.registers
+}
+
+// Subdivide implementation for the FieldAgnosticModule interface.
+func (p Table[C]) Subdivide(bandwidth uint, maxRegisterWidth uint) Table[C] {
+	var (
+		registers   []Register
+		constraints []C
+		assignments []Assignment
+	)
+	// Check registers
+	for _, r := range p.registers {
+		if r.Width > maxRegisterWidth {
+			panic(fmt.Sprintf("maximum register width exceeded (%d > %d)", r.Width, maxRegisterWidth))
+		}
+		//
+		registers = append(registers, r)
+	}
+	// Subdivide assignments
+	for _, c := range p.assignments {
+		var a any = c
+		//nolint
+		if fc, ok := a.(FieldAgnostic[Assignment]); ok {
+			assignments = append(assignments, fc.Subdivide(bandwidth, maxRegisterWidth))
+		} else {
+			panic(fmt.Sprintf("non-field agnostic assignment (%s)", reflect.TypeOf(a).String()))
+		}
+	}
+	// Subdivide constraints
+	for _, c := range p.constraints {
+		var a any = c
+		//nolint
+		if fc, ok := a.(FieldAgnostic[C]); ok {
+			constraints = append(constraints, fc.Subdivide(bandwidth, maxRegisterWidth))
+		} else {
+			panic(fmt.Sprintf("non-field agnostic constraint (%s)", reflect.TypeOf(a).String()))
+		}
+	}
+	//
+	return Table[C]{p.name, p.multiplier, registers, constraints, assignments}
 }
 
 // Width returns the number of registers in this Table.

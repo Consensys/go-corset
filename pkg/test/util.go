@@ -264,7 +264,7 @@ func getSchemaStack(stdlib bool, filenames ...string) cmd_util.SchemaStack {
 	// Configure asm for lowering
 	asmConfig.Vectorize = true
 	asmConfig.MaxFieldWidth = 252
-	asmConfig.MaxRegisterWidth = 128
+	asmConfig.MaxRegisterWidth = 160
 	//
 	stack.
 		WithCorsetConfig(corsetConfig).

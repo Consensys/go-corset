@@ -91,11 +91,11 @@ func (p *Mul) RegistersWritten() []io.RegisterId {
 
 // Split this micro code using registers of arbirary width into one or more
 // micro codes using registers of a fixed maximum width.
-func (p *Mul) Split(env *RegisterSplittingEnvironment) []Code {
+func (p *Mul) Split(env io.SplittingEnvironment) []Code {
 	regs := append(p.RegistersRead(), p.RegistersWritten()...)
 	// Temporary hack
 	for _, r := range regs {
-		if env.regsBefore[r.Unwrap()].Width >= env.maxWidth {
+		if env.RegistersBefore()[r.Unwrap()].Width >= env.MaxWidth() {
 			panic("splitting multiplication not supported")
 		}
 	}

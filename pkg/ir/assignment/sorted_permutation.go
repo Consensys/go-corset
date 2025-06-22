@@ -111,6 +111,11 @@ func (p *SortedPermutation) RegistersWritten() []sc.RegisterRef {
 	return p.Targets
 }
 
+// Subdivide implementation for the FieldAgnostic interface.
+func (p *SortedPermutation) Subdivide(bandwidth uint, maxRegisterWidth uint) sc.Assignment {
+	return p
+}
+
 // ============================================================================
 // Lispify Interface
 // ============================================================================

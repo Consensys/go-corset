@@ -163,44 +163,6 @@ func lowerFunction(vectorize bool, f MacroFunction) MicroFunction {
 	return fn
 }
 
-// SplitRegisters imposes requested bitwidth limits on registers and
-// instructions, by splitting registers as necessary.  For example, suppose the
-// maximum register width is set at 32bits.  Then, a 64bit register is split
-// into two "limbs", each of which is 32bits wide.  Obviously, any register
-// whose width is less than 32bits will not be split.  Instructions need to be
-// split when the combined width of their target registers exceeds the maximum
-// field width.  In such cases, carry flags are introduced to communicate
-// overflow or underflow between the split instructions.
-func SplitRegisters(cfg LoweringConfig, f MicroFunction) MicroFunction {
-	var (
-		env = micro.NewRegisterSplittingEnvironment(cfg.MaxRegisterWidth, f.Registers())
-		// Updated instruction sequence
-		ninsns []micro.Instruction
-		//
-		ninsn micro.Instruction
-	)
-	// Split instructions
-	for _, insn := range f.Code() {
-		ninsn = splitMicroInstruction(insn, env)
-		// Split instruction based on split registers
-		ninsns = append(ninsns, ninsn)
-	}
-	// Done
-	return io.NewFunction(f.Id(), f.Name(), env.RegistersAfter(), ninsns)
-}
-
-func splitMicroInstruction(insn micro.Instruction, env *micro.RegisterSplittingEnvironment) micro.Instruction {
-	//
-	var ncodes []micro.Code
-	//
-	for _, code := range insn.Codes {
-		split := code.Split(env)
-		ncodes = append(ncodes, split...)
-	}
-	//
-	return micro.Instruction{Codes: ncodes}
-}
-
 // Vectorize a given function by merging as many instructions together as
 // possible.  For example, consider two micro instructions "x = y" and "a = b".
 // Since this instructions do not conflict over any assigned register, they can
