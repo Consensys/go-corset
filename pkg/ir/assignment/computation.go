@@ -101,6 +101,11 @@ func (p *Computation) RegistersWritten() []sc.RegisterRef {
 	return p.Targets
 }
 
+// Subdivide implementation for the FieldAgnostic interface.
+func (p *Computation) Subdivide(bandwidth uint, maxRegisterWidth uint) sc.Assignment {
+	return p
+}
+
 // ============================================================================
 // Lispify Interface
 // ============================================================================
