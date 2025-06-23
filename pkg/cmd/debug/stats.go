@@ -66,11 +66,8 @@ var schemaSummarisers []schemaSummariser = []schemaSummariser{
 	constraintCounter("Permutations", isPermutationConstraint),
 	constraintCounter("Range", isRangeConstraint),
 	// Assignments
-	assignmentCounter("Decompositions", reflect.TypeOf((*assignment.ByteDecomposition)(nil))),
-	//assignmentCounter("Committed Columns", reflect.TypeOf((*assignment.DataColumn)(nil))),
 	assignmentCounter("Computed Columns", reflect.TypeOf((*assignment.ComputedRegister)(nil))),
 	assignmentCounter("Computation Columns", reflect.TypeOf((*assignment.Computation)(nil))),
-	//assignmentCounter("Interleavings", reflect.TypeOf((*assignment.Interleaving)(nil))),
 	assignmentCounter("Lexicographic Orderings", reflect.TypeOf((*assignment.LexicographicSort)(nil))),
 	assignmentCounter("Sorted Permutations", reflect.TypeOf((*assignment.SortedPermutation)(nil))),
 	// Columns

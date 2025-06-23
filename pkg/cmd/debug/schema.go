@@ -14,6 +14,7 @@ package debug
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/consensys/go-corset/pkg/asm"
 	"github.com/consensys/go-corset/pkg/asm/io"
@@ -80,7 +81,11 @@ func printModule(module schema.Module, schema schema.AnySchema, width uint) {
 		} else if r.IsOutput() {
 			fmt.Printf("(output %s u%d)", r.Name, r.Width)
 		} else if r.IsComputed() {
-			fmt.Printf("(computed %s u%d)", r.Name, r.Width)
+			if r.Width != math.MaxUint {
+				fmt.Printf("(computed %s u%d)", r.Name, r.Width)
+			} else {
+				fmt.Printf("(computed %s 𝔽)", r.Name)
+			}
 		} else {
 			// Fallback --- unsure what kind this is.
 			fmt.Printf("(column %s u%d)", r.Name, r.Width)

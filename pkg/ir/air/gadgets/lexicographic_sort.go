@@ -56,38 +56,62 @@ type LexicographicSortingGadget struct {
 	strict bool
 	// Constraint active when selector is non-zero.
 	selector air.Term
+	// Determines the largest bitwidth for which range constraints are
+	// translated into AIR range constraints, versus  using a horizontal
+	// bitwidth gadget.
+	maxRangeConstraint uint
+	// Enables the use of type proofs which exploit the
+	// limitless prover. Specifically, modules with a recursive structure are
+	// created specifically for the purpose of checking types.
+	limitless bool
 }
 
 // NewLexicographicSortingGadget constructs a default sorting gadget which can
 // then be configured.  The default gadget is non-strict and assumes all columns
 // are ascending.
-func NewLexicographicSortingGadget(prefix string, columns []sc.RegisterId, bitwidth uint) LexicographicSortingGadget {
+func NewLexicographicSortingGadget(prefix string, columns []sc.RegisterId, bitwidth uint) *LexicographicSortingGadget {
 	signs := make([]bool, len(columns))
 
 	for i := range signs {
 		signs[i] = true
 	}
 	//
-	return LexicographicSortingGadget{prefix, columns, signs, bitwidth, false, ir.Const64[air.Term](1)}
+	return &LexicographicSortingGadget{prefix, columns, signs, bitwidth, false, ir.Const64[air.Term](1), 8, false}
 }
 
-// SetSigns configures the directions for all columns being sorted.
-func (p *LexicographicSortingGadget) SetSigns(signs ...bool) {
+// WithSigns configures the directions for all columns being sorted.
+func (p *LexicographicSortingGadget) WithSigns(signs ...bool) *LexicographicSortingGadget {
 	if len(p.columns) < len(signs) {
 		panic("Inconsistent number of columns and signs for lexicographic sort.")
 	}
 
 	p.signs = signs
+	//
+	return p
 }
 
-// SetStrict configures strictness
-func (p *LexicographicSortingGadget) SetStrict(strict bool) {
+// WithStrictness configures strictness
+func (p *LexicographicSortingGadget) WithStrictness(strict bool) *LexicographicSortingGadget {
 	p.strict = strict
+	return p
 }
 
-// SetSelector sets the selector for this constraint.
-func (p *LexicographicSortingGadget) SetSelector(selector air.Term) {
+// WithSelector sets the selector for this constraint.
+func (p *LexicographicSortingGadget) WithSelector(selector air.Term) *LexicographicSortingGadget {
 	p.selector = selector
+	return p
+}
+
+// WithMaxRangeConstraint determines the cutoff for range cosntraints.
+func (p *LexicographicSortingGadget) WithMaxRangeConstraint(width uint) *LexicographicSortingGadget {
+	p.maxRangeConstraint = width
+	return p
+}
+
+// WithLimitless enables or disables use of limitless type proofs.
+func (p *LexicographicSortingGadget) WithLimitless(flag bool) *LexicographicSortingGadget {
+	p.limitless = flag
+	return p
 }
 
 // Apply this lexicographic sorting gadget to a given schema.
@@ -109,11 +133,11 @@ func (p *LexicographicSortingGadget) Apply(mid sc.ModuleId, schema *air.SchemaBu
 		)
 		// Construct source refs
 		for i, rid := range p.columns {
-			sources[i] = sc.NewRegisterRef(module.Id(), rid)
+			sources[i] = sc.NewRegisterRef(mid, rid)
 		}
 		// Construct target refs
 		for i, r := range regs {
-			targets[i] = sc.NewRegisterRef(module.Id(), module.NewRegister(r))
+			targets[i] = sc.NewRegisterRef(mid, module.NewRegister(r))
 		}
 		// Extract delta index
 		deltaIndex = targets[0].Register()
@@ -121,14 +145,19 @@ func (p *LexicographicSortingGadget) Apply(mid sc.ModuleId, schema *air.SchemaBu
 		module.AddAssignment(
 			assignment.NewLexicographicSort(targets, p.signs, sources, p.bitwidth))
 		// Construct selector bits.
-		p.addLexicographicSelectorBits(deltaIndex, module)
+		p.addLexicographicSelectorBits(deltaIndex, mid, schema)
 		// Add necessary bitwidth constraints.  Note, we don't need to consider
 		// the selector here since the delta column is unique to this
 		// constraint.  Furthermore, when the delta column is invalid (i.e. the
 		// original source constraints are not sorted correctly), then the
 		// assignment will assign zero (which is within bounds).
-		ref := sc.NewRegisterRef(module.Id(), deltaIndex)
-		ApplyBitwidthGadget(ref, p.bitwidth, schema)
+		ref := sc.NewRegisterRef(mid, deltaIndex)
+		// Constrict gadget
+		gadget := NewBitwidthGadget(schema).
+			WithLimitless(p.limitless).
+			WithMaxRangeConstraint(p.maxRangeConstraint)
+		// Apply bitwidth constraint
+		gadget.Constrain(ref, p.bitwidth)
 	}
 	// Construct delta terms
 	constraint := constructLexicographicDeltaConstraint(deltaIndex, p.columns, p.signs)
@@ -146,18 +175,21 @@ func (p *LexicographicSortingGadget) Apply(mid sc.ModuleId, schema *air.SchemaBu
 //
 // NOTE: this implementation differs from the original corset which used an
 // additional "Eq" bit to help ensure at most one selector bit was enabled.
-func (p *LexicographicSortingGadget) addLexicographicSelectorBits(deltaIndex sc.RegisterId, module *air.ModuleBuilder) {
+func (p *LexicographicSortingGadget) addLexicographicSelectorBits(deltaIndex sc.RegisterId, mid sc.ModuleId,
+	schema *air.SchemaBuilder) {
+	//
 	var (
-		one   = ir.Const64[air.Term](1)
-		ncols = uint(len(p.signs))
+		module = schema.Module(mid)
+		one    = ir.Const64[air.Term](1)
+		ncols  = uint(len(p.signs))
 		// Calculate column index of first selector bit
 		bitIndex = deltaIndex.Unwrap() + 1
 	)
 	// Add binary constraints for selector bits
 	for i := uint(0); i < ncols; i++ {
-		rid := sc.NewRegisterId(bitIndex + i)
+		ref := sc.NewRegisterRef(mid, sc.NewRegisterId(bitIndex+i))
 		// Add binarity constraints (i.e. to enfoce that this column is a bit).
-		ApplyBinaryGadget(rid, module)
+		NewBitwidthGadget(schema).Constrain(ref, 1)
 	}
 	// Apply constraints to ensure at most one is set.
 	terms := make([]air.Term, ncols)
