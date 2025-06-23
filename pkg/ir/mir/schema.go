@@ -25,7 +25,7 @@ import (
 type (
 	// Module captures the essence of a module at the MIR level.  Specifically, it
 	// is limited to only those constraint forms permitted at the MIR level.
-	Module = schema.Table[Constraint]
+	Module = *schema.Table[Constraint]
 	// Schema captures the notion of an MIR schema which is uniform and consists of
 	// MIR modules only.
 	Schema = schema.UniformSchema[Module]

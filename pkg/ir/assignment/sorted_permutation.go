@@ -66,11 +66,11 @@ func (p *SortedPermutation) Bounds(_ sc.ModuleId) util.Bounds {
 // according to the permutation criteria.
 func (p *SortedPermutation) Compute(trace tr.Trace, schema sc.AnySchema) ([]tr.ArrayColumn, error) {
 	// Read inputs
-	sources := readRegisters(trace, p.Sources...)
+	sources := ReadRegisters(trace, p.Sources...)
 	// Apply native function
 	data := sortedPermutationNativeFunction(sources, p.Signs)
 	// Write outputs
-	targets := writeRegisters(schema, p.Targets, data)
+	targets := WriteRegisters(schema, p.Targets, data)
 	//
 	return targets, nil
 }

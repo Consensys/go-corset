@@ -153,7 +153,7 @@ type NativeComputation func([]field.FrArray) []field.FrArray
 func computeNative(sources []sc.RegisterRef, targets []sc.RegisterRef, fn NativeComputation,
 	trace tr.Trace, schema sc.AnySchema) []tr.ArrayColumn {
 	// Read inputs
-	inputs := readRegisters(trace, sources...)
+	inputs := ReadRegisters(trace, sources...)
 	// Read inputs
 	for i, ref := range sources {
 		mid, rid := ref.Module(), ref.Register().Unwrap()
@@ -162,7 +162,7 @@ func computeNative(sources []sc.RegisterRef, targets []sc.RegisterRef, fn Native
 	// Apply native function
 	data := fn(inputs)
 	// Write outputs
-	return writeRegisters(schema, targets, data)
+	return WriteRegisters(schema, targets, data)
 }
 
 // ============================================================================
