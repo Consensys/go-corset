@@ -257,7 +257,7 @@ func (p *AirLowering) lowerSortedConstraintToAir(c SortedConstraint, airModule *
 		gadget.SetSelector(selector)
 	}
 	// Done
-	gadget.Apply(airModule)
+	gadget.Apply(airModule.Id(), &p.airSchema)
 	// Sanity check bitwidth
 	bitwidth := uint(0)
 

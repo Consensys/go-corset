@@ -91,10 +91,14 @@ func (p *LexicographicSortingGadget) SetSelector(selector air.Term) {
 }
 
 // Apply this lexicographic sorting gadget to a given schema.
-func (p *LexicographicSortingGadget) Apply(module *air.ModuleBuilder) {
-	deltaName := fmt.Sprintf("%s:delta", p.prefix)
-	// Look up register
-	deltaIndex, ok := module.HasRegister(deltaName)
+func (p *LexicographicSortingGadget) Apply(mid sc.ModuleId, schema *air.SchemaBuilder) {
+	var (
+		module = schema.Module(mid)
+		//
+		deltaName = fmt.Sprintf("%s:delta", p.prefix)
+		// Look up register
+		deltaIndex, ok = module.HasRegister(deltaName)
+	)
 	// Add new column (if it does not already exist)
 	if !ok {
 		// Allocate registers
@@ -118,9 +122,13 @@ func (p *LexicographicSortingGadget) Apply(module *air.ModuleBuilder) {
 			assignment.NewLexicographicSort(targets, p.signs, sources, p.bitwidth))
 		// Construct selector bits.
 		p.addLexicographicSelectorBits(deltaIndex, module)
-		// Add necessary bitwidth constraints
+		// Add necessary bitwidth constraints.  Note, we don't need to consider
+		// the selector here since the delta column is unique to this
+		// constraint.  Furthermore, when the delta column is invalid (i.e. the
+		// original source constraints are not sorted correctly), then the
+		// assignment will assign zero (which is within bounds).
 		ref := sc.NewRegisterRef(module.Id(), deltaIndex)
-		ApplyBitwidthGadgetWithSelector(ref, p.bitwidth, p.selector, module)
+		ApplyBitwidthGadget(ref, p.bitwidth, schema)
 	}
 	// Construct delta terms
 	constraint := constructLexicographicDeltaConstraint(deltaIndex, p.columns, p.signs)

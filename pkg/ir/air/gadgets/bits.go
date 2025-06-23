@@ -48,15 +48,6 @@ func ApplyBinaryGadget(column schema.RegisterId, module *air.ModuleBuilder) {
 		air.NewVanishingConstraint(fmt.Sprintf("%s:u1", name), module.Id(), util.None[int](), X_X_m1))
 }
 
-// ApplyBitwidthGadgetWithSelector ensures all values in a given column fit
-// within a given bitwidth when a given selector is non-zero.
-func ApplyBitwidthGadgetWithSelector(ref sc.RegisterRef, bitwidth uint, selector air.Term, schema *air.ModuleBuilder) {
-	// NOTE: one solution here is to set the delta to zero when the selector is
-	// zero.  That would mean we probably don't need to implement this method
-	// (as this seems a little awkward).
-	panic("todo")
-}
-
 // ApplyBitwidthGadget ensures all values in a given column fit within a given
 // bitwidth.  This is implemented using a combination of reference tables and
 // lookups.  Specifically, if the width is below 16bits, then a static reference
