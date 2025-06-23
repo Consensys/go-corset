@@ -166,7 +166,7 @@ func init() {
 	// Assembly lowering config
 	rootCmd.PersistentFlags().Bool("vectorize", true, "Apply instruction vectorization")
 	rootCmd.PersistentFlags().Uint("field-width", 252, "Maximum usable bitwidth of underlying field element")
-	rootCmd.PersistentFlags().Uint("register-width", 128, "Maximum bitwidth for registers")
+	rootCmd.PersistentFlags().Uint("register-width", 160, "Maximum bitwidth for registers")
 	// Schema stack
 	rootCmd.PersistentFlags().Bool("air", false, "include constraints at AIR level")
 	rootCmd.PersistentFlags().Bool("asm", false, "include constraints at ASM level")
