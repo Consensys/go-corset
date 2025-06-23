@@ -196,20 +196,9 @@ func (p *AirLowering) lowerRangeConstraintToAir(v RangeConstraint, airModule *ai
 	target := p.lowerAndSimplifyTermTo(v.Expr, airModule)
 	// Expand target expression (if necessary)
 	register := air_gadgets.Expand(bitwidth, target, airModule)
-	// Yes, a constraint is implied.  Now, decide whether to use a range
-	// constraint or just a vanishing constraint.
-	if v.Bitwidth == 1 {
-		// u1 => use vanishing constraint X * (X - 1)
-		air_gadgets.ApplyBinaryGadget(register, airModule)
-	} else if v.Bitwidth <= p.config.MaxRangeConstraint {
-		// u2..n use range constraints
-		column := ir.RawRegisterAccess[air.Term](register, 0)
-		//
-		airModule.AddConstraint(air.NewRangeConstraint("", v.Context, *column, v.Bitwidth))
-	} else {
-		// Apply bitwidth gadget
-		air_gadgets.ApplyBitwidthGadget(register, v.Bitwidth, ir.Const64[air.Term](1), airModule)
-	}
+	// Apply bitwidth gadget
+	ref := schema.NewRegisterRef(airModule.Id(), register)
+	air_gadgets.ApplyBitwidthGadget(ref, v.Bitwidth, &p.airSchema)
 }
 
 // Lower an interleaving constraint to the AIR level.  The challenge here is

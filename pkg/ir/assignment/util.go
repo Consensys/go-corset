@@ -19,8 +19,8 @@ import (
 	"github.com/consensys/go-corset/pkg/util/field"
 )
 
-// Read a given set of registers from a trace.
-func readRegisters(trace tr.Trace, regs ...sc.RegisterRef) []field.FrArray {
+// ReadRegisters a given set of registers from a trace.
+func ReadRegisters(trace tr.Trace, regs ...sc.RegisterRef) []field.FrArray {
 	var (
 		targets = make([]field.FrArray, len(regs))
 	)
@@ -35,8 +35,8 @@ func readRegisters(trace tr.Trace, regs ...sc.RegisterRef) []field.FrArray {
 
 var zero = fr.NewElement(0)
 
-// Read a given set of registers from a trace.
-func writeRegisters(schema sc.AnySchema, targets []sc.RegisterRef, data []field.FrArray) []tr.ArrayColumn {
+// WriteRegisters a given set of registers from a trace.
+func WriteRegisters(schema sc.AnySchema, targets []sc.RegisterRef, data []field.FrArray) []tr.ArrayColumn {
 	var (
 		columns = make([]tr.ArrayColumn, len(targets))
 	)

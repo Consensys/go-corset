@@ -89,11 +89,11 @@ func (p *LexicographicSort) Compute(trace tr.Trace, schema sc.AnySchema) ([]tr.A
 		bit_width = max(bit_width, schema.Register(p.sources[i]).Width)
 	}
 	// Read input columns
-	inputs := readRegisters(trace, p.sources...)
+	inputs := ReadRegisters(trace, p.sources...)
 	// Apply native function
 	data := lexicographicSortNativeFunction(bit_width, inputs, p.signs)
 	// Write out registers
-	outputs := writeRegisters(schema, p.targets, data)
+	outputs := WriteRegisters(schema, p.targets, data)
 	//
 	return outputs, nil
 }

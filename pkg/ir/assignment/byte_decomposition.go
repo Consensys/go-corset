@@ -48,11 +48,11 @@ func NewByteDecomposition(handle string, sourceRegister sc.RegisterRef,
 func (p *ByteDecomposition) Compute(tr trace.Trace, schema sc.AnySchema) ([]trace.ArrayColumn, error) {
 	var n = uint(len(p.targets))
 	// Read inputs
-	sources := readRegisters(tr, p.source)
+	sources := ReadRegisters(tr, p.source)
 	// Apply native function
 	data := byteDecompositionNativeFunction(n, sources)
 	// Write outputs
-	targets := writeRegisters(schema, p.targets, data)
+	targets := WriteRegisters(schema, p.targets, data)
 	//
 	return targets, nil
 }

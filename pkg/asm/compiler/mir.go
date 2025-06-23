@@ -41,7 +41,7 @@ func (p MirModule) Initialise(fn MicroFunction, mid uint) MirModule {
 		builder.AddAssignment(iter.Next())
 	}
 	//
-	p.Module = &builder
+	p.Module = builder
 
 	return p
 }

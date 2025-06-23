@@ -119,7 +119,8 @@ func (p *LexicographicSortingGadget) Apply(module *air.ModuleBuilder) {
 		// Construct selector bits.
 		p.addLexicographicSelectorBits(deltaIndex, module)
 		// Add necessary bitwidth constraints
-		ApplyBitwidthGadget(deltaIndex, p.bitwidth, p.selector, module)
+		ref := sc.NewRegisterRef(module.Id(), deltaIndex)
+		ApplyBitwidthGadgetWithSelector(ref, p.bitwidth, p.selector, module)
 	}
 	// Construct delta terms
 	constraint := constructLexicographicDeltaConstraint(deltaIndex, p.columns, p.signs)

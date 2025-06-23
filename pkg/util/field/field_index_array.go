@@ -48,9 +48,13 @@ func NewFrIndexArray(height uint, bitwidth uint) *FrIndexArray {
 	return &FrIndexArray{elements, heap, pool, bitwidth}
 }
 
-// Len returns the number of elements in this field array.
-func (p *FrIndexArray) Len() uint {
-	return uint(len(p.elements))
+// Append adds a new element to the end of this array
+func (p *FrIndexArray) Append(element fr.Element) {
+	n := uint(len(p.elements))
+	// Add new element
+	p.elements = append(p.elements, 0)
+	// Set value of that element
+	p.Set(n, element)
 }
 
 // BitWidth returns the width (in bits) of elements in this array.
@@ -61,6 +65,22 @@ func (p *FrIndexArray) BitWidth() uint {
 // Get returns the field element at the given index in this array.
 func (p *FrIndexArray) Get(index uint) fr.Element {
 	return p.heap[p.elements[index]]
+}
+
+// IndexOf determines the heap index of the given element (if it has been added
+// to the array previously); otherwise, it returns false.
+func (p *FrIndexArray) IndexOf(element fr.Element) (uint, bool) {
+	// Lookup element in pool
+	if offset, ok := p.pool[element]; ok {
+		return uint(offset), true
+	}
+	//
+	return 0, false
+}
+
+// Len returns the number of elements in this field array.
+func (p *FrIndexArray) Len() uint {
+	return uint(len(p.elements))
 }
 
 // Set sets the field element at the given index in this array, overwriting the

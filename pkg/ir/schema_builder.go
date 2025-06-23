@@ -30,7 +30,7 @@ type SchemaBuilder[C schema.Constraint, T Term[T]] struct {
 	// packaged and, hence, we must avoid breaking thein linkage.
 	externs []schema.Module
 	// Modules being constructed
-	modules []ModuleBuilder[C, T]
+	modules []*ModuleBuilder[C, T]
 }
 
 // NewSchemaBuilder constructs a new schema builder with a given number of
@@ -89,7 +89,7 @@ func (p *SchemaBuilder[C, T]) Module(mid uint) *ModuleBuilder[C, T] {
 		return NewExternModuleBuilder[C, T](mid, p.externs[mid])
 	}
 	//
-	return &p.modules[mid-n]
+	return p.modules[mid-n]
 }
 
 // ModuleOf returns the builder for the given module based on its name.
@@ -98,8 +98,8 @@ func (p *SchemaBuilder[C, T]) ModuleOf(name string) *ModuleBuilder[C, T] {
 }
 
 // Build returns an array of tables constructed by this builder.
-func (p *SchemaBuilder[C, T]) Build() []schema.Table[C] {
-	modules := make([]schema.Table[C], len(p.modules))
+func (p *SchemaBuilder[C, T]) Build() []*schema.Table[C] {
+	modules := make([]*schema.Table[C], len(p.modules))
 	//
 	for i, m := range p.modules {
 		modules[i] = m.BuildTable()
@@ -132,10 +132,10 @@ type ModuleBuilder[C schema.Constraint, T Term[T]] struct {
 
 // NewModuleBuilder constructs a new builder for a module with the given name.
 func NewModuleBuilder[C schema.Constraint, T Term[T]](name string, mid schema.ModuleId,
-	multiplier uint) ModuleBuilder[C, T] {
+	multiplier uint) *ModuleBuilder[C, T] {
 	//
 	regmap := make(map[string]uint, 0)
-	return ModuleBuilder[C, T]{false, name, mid, multiplier, regmap, nil, nil, nil}
+	return &ModuleBuilder[C, T]{false, name, mid, multiplier, regmap, nil, nil, nil}
 }
 
 // NewExternModuleBuilder constructs a new builder suitable for external modules.
@@ -282,7 +282,7 @@ func (p *ModuleBuilder[C, T]) RegisterAccessOf(name string, shift int) *Register
 }
 
 // BuildTable constructs a table module from this module builder.
-func (p *ModuleBuilder[C, T]) BuildTable() schema.Table[C] {
+func (p *ModuleBuilder[C, T]) BuildTable() *schema.Table[C] {
 	if p.extern {
 		panic("cannot build externally defined module")
 	}
