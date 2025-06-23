@@ -193,6 +193,9 @@ func (p *SchemaStack) Apply(binfile binfile.BinaryFile) {
 	)
 	// Set binary
 	p.binfile = binfile
+	// Reset schemas (in case set previously)
+	p.schemas = nil
+	p.names = nil
 	// Apply any user-specified values for externalised constants.
 	applyExternOverrides(p.externs, &p.binfile)
 	// Read out the mixed macro schema

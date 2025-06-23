@@ -73,20 +73,29 @@ func Check(t *testing.T, stdlib bool, test string) {
 func binCheckTraces(t *testing.T, test string, cfg Config,
 	traces [][]trace.RawColumn, stack cmd_util.SchemaStack) {
 	// Run checks using schema compiled from source
-	checkTraces(t, test, MAX_PADDING, cfg, traces, stack)
+	for opt := range len(mir.OPTIMISATION_LEVELS) {
+		// Set optimisation level
+		stack.WithOptimisationConfig(mir.OPTIMISATION_LEVELS[opt])
+		// Configure stack
+		stack.Apply(*stack.BinaryFile())
+		// Apply stack
+		checkTraces(t, test, MAX_PADDING, uint(opt), cfg, traces, stack)
+	}
 	// Construct binary schema
 	if binSchema := encodeDecodeSchema(t, *stack.BinaryFile()); binSchema != nil {
-		// Reset the stack for the new binary
+		// Set optimisation level
+		stack.WithOptimisationConfig(mir.OPTIMISATION_LEVELS[0])
+		// Reset the stack for given binary file
 		stack.Apply(*binSchema)
 		// Run checks using schema from binary file.  Observe, to try and reduce
 		// overhead of repeating all the tests we don't consider padding.
-		checkTraces(t, test, 0, cfg, traces, stack)
+		checkTraces(t, test, 0, 0, cfg, traces, stack)
 	}
 }
 
 // Check a given set of tests have an expected outcome (i.e. are
 // either accepted or rejected) by a given set of constraints.
-func checkTraces(t *testing.T, test string, maxPadding uint, cfg Config, traces [][]trace.RawColumn,
+func checkTraces(t *testing.T, test string, maxPadding uint, opt uint, cfg Config, traces [][]trace.RawColumn,
 	stack cmd_util.SchemaStack) {
 	// For unexpected traces, we never want to explore padding (because that's
 	// the whole point of unexpanded traces --- they are raw).
@@ -96,19 +105,18 @@ func checkTraces(t *testing.T, test string, maxPadding uint, cfg Config, traces 
 	//
 	for i, tr := range traces {
 		if tr != nil {
-			// Align trace with schema, and check whether expanded or not.
-			for padding := uint(0); padding <= maxPadding; padding++ {
-				// Construct trace identifiers
-				mirID := traceId{"MIR", test, cfg.expected, cfg.expand, cfg.validate, i + 1, padding}
-				airID := traceId{"AIR", test, cfg.expected, cfg.expand, cfg.validate, i + 1, padding}
-				//
-				if cfg.expand {
-					// Only HIR / MIR constraints for traces which must be
-					// expanded.  They don't really make sense otherwise.
-					checkTrace(t, tr, mirID, stack.SchemaOf("MIR"))
+			for _, ir := range []string{"MIR", "AIR"} {
+				// Align trace with schema, and check whether expanded or not.
+				for padding := uint(0); padding <= maxPadding; padding++ {
+					// Construct trace identifier
+					id := traceId{ir, test, cfg.expected, cfg.expand, cfg.validate, opt, i + 1, padding}
+					//
+					if cfg.expand || ir == "AIR" {
+						// Always check if expansion required, otherwise
+						// only check AIR constraints.
+						checkTrace(t, tr, id, stack.SchemaOf(ir))
+					}
 				}
-				// Always check AIR constraints
-				checkTrace(t, tr, airID, stack.SchemaOf("AIR"))
 			}
 		}
 	}
@@ -134,12 +142,12 @@ func checkTrace[C sc.Constraint](t *testing.T, inputs []trace.RawColumn, id trac
 		// Process what happened versus what was supposed to happen.
 		if !accepted && id.expected {
 			//table.PrintTrace(tr)
-			t.Errorf("Trace rejected incorrectly (%s, %s, line %d with padding %d): %s",
-				id.ir, id.test, id.line, id.padding, errs)
+			t.Errorf("Trace rejected incorrectly (%s [O%d], %s, line %d with padding %d): %s",
+				id.ir, id.optimisation, id.test, id.line, id.padding, errs)
 		} else if accepted && !id.expected {
 			//printTrace(tr)
-			t.Errorf("Trace accepted incorrectly (%s, %s, line %d with padding %d)",
-				id.ir, id.test, id.line, id.padding)
+			t.Errorf("Trace accepted incorrectly (%s [O%d], %s, line %d with padding %d)",
+				id.ir, id.optimisation, id.test, id.line, id.padding)
 		}
 	}
 }
@@ -201,6 +209,8 @@ type traceId struct {
 	expand bool
 	// Identifies whether this trace should be validate (or not).
 	validate bool
+	// Optimisation level
+	optimisation uint
 	// Identifies the line number within the test file that the failing trace
 	// original.
 	line int
@@ -269,7 +279,6 @@ func getSchemaStack(stdlib bool, filenames ...string) cmd_util.SchemaStack {
 	stack.
 		WithCorsetConfig(corsetConfig).
 		WithAssemblyConfig(asmConfig).
-		WithOptimisationConfig(mir.DEFAULT_OPTIMISATION_LEVEL).
 		WithLayer(cmd_util.MACRO_ASM_LAYER).
 		WithLayer(cmd_util.MICRO_ASM_LAYER).
 		WithLayer(cmd_util.MIR_LAYER).
