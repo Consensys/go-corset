@@ -103,7 +103,7 @@ func ParallelTraceExpansion(batchsize uint, schema sc.AnySchema, trace *tr.Array
 			fillComputedColumns(r.targets, r.columns, trace)
 		}
 		// Log stats about this batch
-		stats.Log(fmt.Sprintf("Expansion batch %d (remaining %d)", batch, expander.Count()))
+		stats.Log(fmt.Sprintf("Expansion batch %d (remaining %d)", batchNum, expander.Count()))
 		// Increment batch
 		batchNum++
 	}
