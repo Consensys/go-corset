@@ -456,7 +456,7 @@ func moduleBitwidthSummariser(columns []trace.RawColumn) string {
 	total := uint(0)
 	//
 	for _, c := range columns {
-		total += c.Data.BitWidth()
+		total += bitwidth(c.Data)
 	}
 	//
 	return fmt.Sprintf("%d", total)
@@ -466,7 +466,7 @@ func moduleBytesSummariser(columns []trace.RawColumn) string {
 	total := uint(0)
 	//
 	for _, c := range columns {
-		bitwidth := c.Data.BitWidth()
+		bitwidth := bitwidth(c.Data)
 		byteWidth := bitwidth / 8
 		// Determine proper bytewidth
 		if bitwidth%8 != 0 {
@@ -487,6 +487,14 @@ func moduleNonZeroCounter(columns []trace.RawColumn) string {
 	}
 	//
 	return fmt.Sprintf("%d", count)
+}
+
+func bitwidth(arr field.FrArray) uint {
+	if arr.BitWidth() == math.MaxUint {
+		return uint(fr.Modulus().BitLen())
+	}
+
+	return arr.BitWidth()
 }
 
 // ============================================================================
@@ -526,11 +534,11 @@ func columnCountSummariser(col trace.RawColumn) string {
 }
 
 func columnBitwidthSummariser(col trace.RawColumn) string {
-	return fmt.Sprintf("%d", col.Data.BitWidth())
+	return fmt.Sprintf("%d", bitwidth(col.Data))
 }
 
 func columnBytesSummariser(col trace.RawColumn) string {
-	bitwidth := col.Data.BitWidth()
+	bitwidth := bitwidth(col.Data)
 	byteWidth := bitwidth / 8
 	// Determine proper bytewidth
 	if bitwidth%8 != 0 {
@@ -663,7 +671,7 @@ func trWidthSummariser(lowWidth uint, highWidth uint) traceSummariser {
 		summary: func(tr []trace.RawColumn) string {
 			count := 0
 			for i := 0; i < len(tr); i++ {
-				ithWidth := tr[i].Data.BitWidth()
+				ithWidth := bitwidth(tr[i].Data)
 				if ithWidth >= lowWidth && ithWidth <= highWidth {
 					count++
 				}
