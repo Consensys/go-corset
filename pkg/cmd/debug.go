@@ -14,7 +14,6 @@ package cmd
 
 import (
 	"fmt"
-	"math"
 	"os"
 
 	"github.com/consensys/go-corset/pkg/cmd/debug"
@@ -92,91 +91,9 @@ func printAttributes(schemas cmd_util.SchemaStack) {
 		fmt.Printf("attribute \"%s\":\n", attr.AttributeName())
 		//
 		if attr.AttributeName() == "CorsetSourceMap" {
-			printSourceMap(attr.(*corset.SourceMap))
+			debug.PrintSourceMap(attr.(*corset.SourceMap))
 		}
 	}
-}
-
-func printSourceMap(srcmap *corset.SourceMap) {
-	printSourceMapModule(1, srcmap.Root)
-}
-
-func printSourceMapModule(indent uint, module corset.SourceModule) {
-	//
-	fmt.Println()
-	printIndent(indent)
-	//
-	if module.Virtual {
-		fmt.Printf("virtual ")
-	}
-	//
-	fmt.Printf("module \"%s\":\n", module.Name)
-	//
-	indent++
-	// Print constants
-	for _, c := range module.Constants {
-		printIndent(indent)
-		//
-		if c.Extern {
-			fmt.Printf("extern\t")
-		} else {
-			fmt.Printf("const\t")
-		}
-		//
-		if c.Bitwidth != math.MaxUint {
-			fmt.Printf("u%d ", c.Bitwidth)
-		}
-		//
-		fmt.Printf("%s = %s\n", c.Name, &c.Value)
-	}
-	// Print columns
-	for _, c := range module.Columns {
-		printIndent(indent)
-		fmt.Printf("u%d\t%s\t[", c.Bitwidth, c.Name)
-		//
-		for i, a := range sourceColumnAttrs(c) {
-			if i == 0 {
-				fmt.Print(a)
-			} else {
-				fmt.Printf(", %s", a)
-			}
-		}
-
-		fmt.Println("]")
-	}
-	// Print submodules
-	for _, m := range module.Submodules {
-		printSourceMapModule(indent, m)
-	}
-}
-
-func sourceColumnAttrs(col corset.SourceColumn) []string {
-	var attrs []string
-	//
-	attrs = append(attrs, fmt.Sprintf("r%d", col.Register))
-	//
-	if col.Multiplier != 1 {
-		attrs = append(attrs, fmt.Sprintf("×%d", col.Multiplier))
-	}
-	//
-	if col.Computed {
-		attrs = append(attrs, "computed")
-	}
-	//
-	if col.MustProve {
-		attrs = append(attrs, "proved")
-	}
-	//
-	switch col.Display {
-	case corset.DISPLAY_HEX:
-		attrs = append(attrs, "hex")
-	case corset.DISPLAY_DEC:
-		attrs = append(attrs, "dec")
-	case corset.DISPLAY_BYTES:
-		attrs = append(attrs, "bytes")
-	}
-	//
-	return attrs
 }
 
 func printSpillage(schemas cmd_util.SchemaStack, defensive bool) {
