@@ -73,23 +73,25 @@ func Check(t *testing.T, stdlib bool, test string) {
 func binCheckTraces(t *testing.T, test string, cfg Config,
 	traces [][]trace.RawColumn, stack cmd_util.SchemaStack) {
 	// Run checks using schema compiled from source
-	for opt := range len(mir.OPTIMISATION_LEVELS) {
+	for _, opt := range cfg.optlevels {
 		// Set optimisation level
 		stack.WithOptimisationConfig(mir.OPTIMISATION_LEVELS[opt])
 		// Configure stack
 		stack.Apply(*stack.BinaryFile())
 		// Apply stack
-		checkTraces(t, test, MAX_PADDING, uint(opt), cfg, traces, stack)
+		checkTraces(t, test, MAX_PADDING, opt, cfg, traces, stack)
 	}
 	// Construct binary schema
 	if binSchema := encodeDecodeSchema(t, *stack.BinaryFile()); binSchema != nil {
+		// Choose any valid optimisation level
+		opt := cfg.optlevels[0]
 		// Set optimisation level
-		stack.WithOptimisationConfig(mir.OPTIMISATION_LEVELS[0])
+		stack.WithOptimisationConfig(mir.OPTIMISATION_LEVELS[opt])
 		// Reset the stack for given binary file
 		stack.Apply(*binSchema)
 		// Run checks using schema from binary file.  Observe, to try and reduce
 		// overhead of repeating all the tests we don't consider padding.
-		checkTraces(t, test, 0, 0, cfg, traces, stack)
+		checkTraces(t, test, 0, opt, cfg, traces, stack)
 	}
 }
 
@@ -132,8 +134,8 @@ func checkTrace[C sc.Constraint](t *testing.T, inputs []trace.RawColumn, id trac
 		Build(sc.Any(schema), inputs)
 	// Sanity check construction
 	if len(errs) > 0 {
-		t.Errorf("Trace expansion failed (%s, %s, line %d with padding %d): %s",
-			id.ir, id.test, id.line, id.padding, errs)
+		t.Errorf("Trace expansion failed (%s [O%d], %s, line %d with padding %d): %s",
+			id.ir, id.optimisation, id.test, id.line, id.padding, errs)
 	} else {
 		// Check Constraints
 		errs := sc.Accepts(true, 100, schema, tr)
@@ -176,21 +178,27 @@ type Config struct {
 	expected  bool
 	expand    bool
 	validate  bool
+	optlevels []uint
 }
+
+var allOptLevels = []uint{0, 1}
+var defaultOptLevel = []uint{1}
 
 // TESTFILE_EXTENSIONS identifies the possible file extensions used for
 // different test inputs.
 var TESTFILE_EXTENSIONS []Config = []Config{
 	// should all pass
-	{"accepts", true, true, true},
-	{"accepts.bz2", true, true, true},
-	{"auto.accepts", true, true, true},
-	{"expanded.accepts", true, false, false},
+	{"accepts", true, true, true, allOptLevels},
+	{"accepts.bz2", true, true, true, allOptLevels},
+	{"auto.accepts", true, true, true, allOptLevels},
+	{"expanded.accepts", true, false, false, allOptLevels},
+	{"expanded.O1.accepts", true, false, false, defaultOptLevel},
 	// should all fail
-	{"rejects", false, true, false},
-	{"rejects.bz2", false, true, false},
-	{"auto.rejects", false, true, false},
-	{"expanded.rejects", false, false, false},
+	{"rejects", false, true, false, allOptLevels},
+	{"rejects.bz2", false, true, false, allOptLevels},
+	{"auto.rejects", false, true, false, allOptLevels},
+	{"expanded.rejects", false, false, false, allOptLevels},
+	{"expanded.O1.rejects", false, false, false, defaultOptLevel},
 }
 
 // A trace identifier uniquely identifies a specific trace within a given test.
