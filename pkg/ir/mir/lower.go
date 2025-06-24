@@ -190,15 +190,22 @@ func (p *AirLowering) lowerPermutationConstraintToAir(v PermutationConstraint, a
 // value of that expression, along with appropriate constraints to enforce the
 // expected value.
 func (p *AirLowering) lowerRangeConstraintToAir(v RangeConstraint, airModule *air.ModuleBuilder) {
-	mirModule := p.mirSchema.Module(v.Context)
-	bitwidth := v.Expr.ValueRange(mirModule).BitWidth()
+	var (
+		mirModule = p.mirSchema.Module(v.Context)
+		bitwidth  = v.Expr.ValueRange(mirModule).BitWidth()
+	)
 	// Lower target expression
 	target := p.lowerAndSimplifyTermTo(v.Expr, airModule)
 	// Expand target expression (if necessary)
 	register := air_gadgets.Expand(bitwidth, target, airModule)
 	// Apply bitwidth gadget
 	ref := schema.NewRegisterRef(airModule.Id(), register)
-	air_gadgets.ApplyBitwidthGadget(ref, v.Bitwidth, &p.airSchema)
+	// Constrict gadget
+	gadget := air_gadgets.NewBitwidthGadget(&p.airSchema).
+		WithLimitless(p.config.LimitlessTypeProofs).
+		WithMaxRangeConstraint(p.config.MaxRangeConstraint)
+	//
+	gadget.Constrain(ref, v.Bitwidth)
 }
 
 // Lower an interleaving constraint to the AIR level.  The challenge here is
@@ -248,13 +255,15 @@ func (p *AirLowering) lowerSortedConstraintToAir(c SortedConstraint, airModule *
 	// Determine number of ordered columns
 	numSignedCols := len(c.Signs)
 	// finally add the sorting constraint
-	gadget := air_gadgets.NewLexicographicSortingGadget(c.Handle, sources, c.BitWidth)
-	gadget.SetSigns(c.Signs...)
-	gadget.SetStrict(c.Strict)
+	gadget := air_gadgets.NewLexicographicSortingGadget(c.Handle, sources, c.BitWidth).
+		WithSigns(c.Signs...).
+		WithStrictness(c.Strict).
+		WithLimitless(p.config.LimitlessTypeProofs).
+		WithMaxRangeConstraint(p.config.MaxRangeConstraint)
 	// Add (optional) selector
 	if c.Selector.HasValue() {
 		selector := p.lowerTermTo(c.Selector.Unwrap(), airModule)
-		gadget.SetSelector(selector)
+		gadget.WithSelector(selector)
 	}
 	// Done
 	gadget.Apply(airModule.Id(), &p.airSchema)

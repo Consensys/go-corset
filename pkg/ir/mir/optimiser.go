@@ -37,6 +37,10 @@ type OptimisationConfig struct {
 	// ShiftNormalisation is an optimisation for inverse columns involving
 	// shifts.
 	ShiftNormalisation bool
+	// LimitlessTypeProofs enables the use of type proofs which exploit the
+	// limitless prover. Specifically, modules with a recursive structure are
+	// created specifically for the purpose of checking types.
+	LimitlessTypeProofs bool
 }
 
 // OPTIMISATION_LEVELS provides a set of precanned optimisation configurations.
@@ -45,9 +49,9 @@ type OptimisationConfig struct {
 // always improve performance).
 var OPTIMISATION_LEVELS = []OptimisationConfig{
 	// Level 0 == nothing enabled
-	{0, 8, false},
+	{0, 8, false, false},
 	// Level 1 == minimal optimisations applied.
-	{1, 8, true},
+	{1, 16, true, true},
 }
 
 // DEFAULT_OPTIMISATION_LEVEL provides a default level of optimisation which
