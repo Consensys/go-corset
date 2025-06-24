@@ -31,8 +31,12 @@ func Test_Asm_FastPow(t *testing.T) {
 func Test_Asm_Max(t *testing.T) {
 	Check(t, false, "asm/max")
 }
-func Test_Asm_Mixed(t *testing.T) {
-	Check(t, false, "asm/mixed")
+func Test_Asm_MixedSmall(t *testing.T) {
+	Check(t, false, "asm/mixed_small")
+}
+
+func Test_Asm_MixedLarge(t *testing.T) {
+	Check(t, false, "asm/mixed_large")
 }
 
 func Test_Asm_SlowPow(t *testing.T) {
