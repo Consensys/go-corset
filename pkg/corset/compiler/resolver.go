@@ -142,7 +142,7 @@ func extractSelector(selector ast.Expr) util.Option[string] {
 	}
 	//
 	if e, ok := selector.(*ast.VariableAccess); ok && e.Name.Depth() == 1 {
-		return util.Some(e.Name.String())
+		return util.Some(e.Name.Get(0))
 	}
 	// FIXME: #630
 	panic("unsupported selector")

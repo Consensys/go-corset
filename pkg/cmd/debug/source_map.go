@@ -34,7 +34,13 @@ func printSourceMapModule(indent uint, module corset.SourceModule) {
 		fmt.Printf("virtual ")
 	}
 	//
-	fmt.Printf("module \"%s\":\n", module.Name)
+	fmt.Printf("module \"%s\"", module.Name)
+	//
+	if module.Selector.HasValue() {
+		fmt.Printf(" when %s", module.Selector.Unwrap())
+	}
+	//
+	fmt.Println(":")
 	//
 	indent++
 	// Print constants
