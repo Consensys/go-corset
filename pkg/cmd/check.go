@@ -44,7 +44,7 @@ var checkCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		var cfg checkConfig
 
-		if len(args) != 2 {
+		if len(args) < 2 {
 			fmt.Println(cmd.UsageString())
 			os.Exit(1)
 		}
