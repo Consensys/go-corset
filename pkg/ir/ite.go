@@ -191,7 +191,7 @@ func (p *Ite[T]) Simplify(casts bool) T {
 	// Simplify true branch (if applicable)
 	if p.TrueBranch != nil {
 		// If the branch logically true, then we can actually drop it
-		// altogether (i.e. !X || tt ==> tt)
+		// altogether (i.e. X || tt ==> tt)
 		if tb := p.TrueBranch.Simplify(casts); !IsTrue(tb) {
 			trueBranch = tb
 		}
