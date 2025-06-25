@@ -109,7 +109,7 @@ func (p *Skip) Split(env io.SplittingEnvironment) []Code {
 			ncodes = append(ncodes, ncode)
 		}
 	}
-	//
+
 	return ncodes
 }
 

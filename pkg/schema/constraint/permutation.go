@@ -149,11 +149,6 @@ func (p PermutationConstraint) Lisp(schema schema.AnySchema) sexp.SExp {
 	})
 }
 
-// Subdivide implementation for the FieldAgnosticConstraint interface.
-func (p PermutationConstraint) Subdivide(bandwidth uint, maxRegisterWidth uint) PermutationConstraint {
-	return p
-}
-
 // Substitute any matchined labelled constants within this constraint
 func (p PermutationConstraint) Substitute(map[string]fr.Element) {
 	// nothing to do here

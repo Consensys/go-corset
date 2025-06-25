@@ -28,6 +28,7 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/air"
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/source"
 
@@ -203,7 +204,7 @@ func (p *SchemaStack) Apply(binfile binfile.BinaryFile) {
 	// Lower to mixed micro schema
 	uasmSchema = asm.LowerMixedMacroProgram(p.asmConfig.Vectorize, asmSchema)
 	// Apply register splitting for field agnosticity
-	uasmSchema = schema.Subdivide(p.asmConfig.MaxFieldWidth, p.asmConfig.MaxRegisterWidth, uasmSchema)
+	uasmSchema = agnostic.Subdivide(p.asmConfig.MaxFieldWidth, p.asmConfig.MaxRegisterWidth, uasmSchema)
 	// Lower to MIR
 	mirSchema = asm.LowerMixedMicroProgram(uasmSchema)
 	// Include macro assembly layer (if requested)

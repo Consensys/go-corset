@@ -149,11 +149,6 @@ func (p Assertion[T]) Lisp(schema schema.AnySchema) sexp.SExp {
 	})
 }
 
-// Subdivide implementation for the FieldAgnosticConstraint interface.
-func (p Assertion[T]) Subdivide(bandwidth uint, maxRegisterWidth uint) Assertion[T] {
-	return p
-}
-
 // Substitute any matchined labelled constants within this constraint
 func (p Assertion[T]) Substitute(mapping map[string]fr.Element) {
 	p.Property.Substitute(mapping)

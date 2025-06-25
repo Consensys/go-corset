@@ -12,6 +12,10 @@
 // SPDX-License-Identifier: Apache-2.0
 package schema
 
+// LimbId is just an alias for RegisterId, but it helps to clarify when we are
+// referring to a register after subdivision.
+type LimbId = RegisterId
+
 // FieldAgnostic captures the notion of an entity (e.g. module, constraint or
 // assignment) which is agnostic to the underlying field being used.  More
 // specificially, any registers used within (and constraints, etc) can be
@@ -53,19 +57,27 @@ type FieldAgnostic[T any] interface {
 	//
 	// Here, c is a 1bit register introduced as part of the transformation to
 	// act as a "carry" between the two constraints.
-	Subdivide(bandwidth uint, maxRegisterWidth uint) T
+	Subdivide(RegisterMappings) T
 }
 
-// FieldAgnosticModule captures the notion of a module which is agnostic to the
-// underlying field being used.
-type FieldAgnosticModule[M Module] interface {
-	Module
-	FieldAgnostic[M]
+// RegisterMappings provides a high-level mapping of all registers before and after
+// subdivision occurs.
+type RegisterMappings interface {
+	// BandWidth returns the maximum bandwidth available in the underlying
+	// field.  This cannot be smaller than the maximum register width.
+	BandWidth() uint
+	// Module returns register mapping information for the given module.
+	Module(ModuleId) RegisterMapping
+	// ModuleOf returns register mapping information for the given module.
+	ModuleOf(string) RegisterMapping
 }
 
-// FieldAgnosticAssignment captures the notion of an assignment which is
-// agnostic to the underlying field being used.
-type FieldAgnosticAssignment interface {
-	Constraint
-	FieldAgnostic[Assignment]
+// RegisterMapping provides a high-level mapping of all registers before and
+// after subdivision occurs in a given module.
+type RegisterMapping interface {
+	// Limbs returns the limbs into which a given register is divided.
+	Limbs(RegisterId) []LimbId
+	// Limbs returns information about a given limb (i.e. a register which
+	// exists after the split).
+	Limb(LimbId) Register
 }

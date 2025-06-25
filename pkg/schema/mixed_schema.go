@@ -15,41 +15,11 @@ package schema
 import (
 	"bytes"
 	"encoding/gob"
-	"fmt"
 	"math"
 
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 )
-
-// Subdivide a mixed schema of field agnostic modules according to the given
-// bandwidth and maximum register width requirements.  See discussion of
-// FieldAgnosticModule for more on this process.
-func Subdivide[M1 FieldAgnosticModule[M1], M2 FieldAgnosticModule[M2]](
-	bandwidth uint,
-	maxRegisterWidth uint,
-	schema MixedSchema[M1, M2]) MixedSchema[M1, M2] {
-	//
-	var (
-		left  []M1 = make([]M1, len(schema.left))
-		right []M2 = make([]M2, len(schema.right))
-	)
-	// Sanity checks
-	if bandwidth < maxRegisterWidth {
-		panic(
-			fmt.Sprintf("field width (%dbits) smaller than register width (%dbits)", bandwidth, maxRegisterWidth))
-	}
-	// Subdivide the left
-	for i, m := range schema.left {
-		left[i] = m.Subdivide(bandwidth, maxRegisterWidth)
-	}
-	// Subdivide the right
-	for i, m := range schema.right {
-		right[i] = m.Subdivide(bandwidth, maxRegisterWidth)
-	}
-	// Done
-	return MixedSchema[M1, M2]{left, right}
-}
 
 // MixedSchema represents a schema comprised of exactly two kinds of concrete
 // module.  This are split into those on the "left" (all of one kind) and those

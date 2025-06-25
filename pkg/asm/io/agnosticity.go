@@ -12,10 +12,13 @@
 // SPDX-License-Identifier: Apache-2.0
 package io
 
-import "github.com/consensys/go-corset/pkg/asm/io/agnosticity"
+import (
+	"github.com/consensys/go-corset/pkg/schema"
+)
 
 // SplittingEnvironment is used to assist with register splitting.
 type SplittingEnvironment interface {
+	schema.RegisterMapping
 	// MaxWidth returns the maximum permitted register width.
 	MaxWidth() uint
 	// AllocateCarryRegister allocates a carry flag to hold bits which "overflow" the
@@ -48,32 +51,6 @@ type SplittingEnvironment interface {
 	SplitTargetRegisters(targets ...RegisterId) []RegisterId
 }
 
-// SplitRegisters imposes requested bitwidth limits on registers and
-// instructions, by splitting registers as necessary.  For example, suppose the
-// maximum register width is set at 32bits.  Then, a 64bit register is split
-// into two "limbs", each of which is 32bits wide.  Obviously, any register
-// whose width is less than 32bits will not be split.  Instructions need to be
-// split when the combined width of their target registers exceeds the maximum
-// field width.  In such cases, carry flags are introduced to communicate
-// overflow or underflow between the split instructions.
-func SplitRegisters[T Instruction[T]](maxFieldWidth, maxRegisterWidth uint, f *Function[T]) *Function[T] {
-	var (
-		env = agnosticity.NewRegisterSplittingEnvironment(maxRegisterWidth, f.Registers())
-		// Updated instruction sequence
-		ninsns []T
-	)
-	// Split instructions
-	for _, insn := range f.Code() {
-		var ith Instruction[T] = insn
-		//nolint
-		if i, ok := ith.(SplittableInstruction[T]); ok {
-			ninsns = append(ninsns, i.SplitRegisters(env))
-		} else {
-			panic("non-field agnostic instruction encountered")
-		}
-	}
-	// Done
-	nf := NewFunction(f.Id(), f.Name(), env.RegistersAfter(), ninsns)
-	//
-	return &nf
+func NewSplittingEnvironment(mapping schema.RegisterMapping) SplittingEnvironment {
+	panic("todo")
 }
