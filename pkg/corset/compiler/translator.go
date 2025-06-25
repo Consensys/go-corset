@@ -668,6 +668,8 @@ func (t *translator) translateExpression(expr ast.Expr, module *ModuleBuilder, s
 		return t.translateShift(e, module, shift)
 	case *ast.VariableAccess:
 		return t.translateVariableAccess(e, shift)
+	case *ast.VectorAccess:
+		return t.translateVectorAccess(e, shift)
 	default:
 		typeStr := reflect.TypeOf(expr).String()
 		msg := fmt.Sprintf("unknown arithmetic expression encountered during translation (%s)", typeStr)
@@ -742,6 +744,34 @@ func (t *translator) translateVariableAccess(expr *ast.VariableAccess, shift int
 	}
 	// error
 	return nil, t.srcmap.SyntaxErrors(expr, "unbound variable")
+}
+
+func (t *translator) translateVectorAccess(expr *ast.VectorAccess, shift int) (mir.Term, []SyntaxError) {
+	var (
+		terms  []mir.Term
+		errors []SyntaxError
+		width  uint
+	)
+	// Determine complete width
+	for _, v := range expr.Vars {
+		width += v.Type().(*ast.IntType).BitWidth()
+	}
+	//
+	for _, v := range expr.Vars {
+		ith, errs := t.translateVariableAccess(v, shift)
+		//
+		errors = append(errors, errs...)
+		//
+		width -= v.Type().(*ast.IntType).BitWidth()
+		//
+		if width == 0 {
+			terms = append(terms, ith)
+		} else {
+			terms = append(terms, ir.Product(pow2(width), ith))
+		}
+	}
+	//
+	return ir.Sum(terms...), errors
 }
 
 // Translate a sequence of zero or more logical expressions enclosed in a given module.
@@ -1013,4 +1043,9 @@ func determineMaxBitwidth(module *ModuleBuilder, sources []mir.Term) uint {
 	}
 	//
 	return bitwidth
+}
+
+func pow2(width uint) mir.Term {
+	elem := fr.NewElement(2)
+	return ir.Exponent(ir.Const[mir.Term](elem), uint64(width))
 }

@@ -275,6 +275,7 @@ func (p LookupConstraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
 
 // Subdivide implementation for the FieldAgnosticConstraint interface.
 func (p LookupConstraint[E]) Subdivide(bandwidth uint, maxRegisterWidth uint) LookupConstraint[E] {
+	fmt.Printf("Failing to subdivide %d[%d]\n", maxRegisterWidth, bandwidth)
 	return p
 }
 

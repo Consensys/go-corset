@@ -213,21 +213,21 @@ func (p *preprocessor) preprocessOptionalExpressionInModule(expr ast.Expr) (ast.
 func (p *preprocessor) preprocessExpressionsInModule(exprs []ast.Expr) ([]ast.Expr, []SyntaxError) {
 	//
 	errors := []SyntaxError{}
-	hirExprs := make([]ast.Expr, len(exprs))
+	nexprs := make([]ast.Expr, len(exprs))
 	// Iterate each expression in turn
 	for i, e := range exprs {
 		if e != nil {
 			var errs []SyntaxError
-			hirExprs[i], errs = p.preprocessExpressionInModule(e)
+			nexprs[i], errs = p.preprocessExpressionInModule(e)
 			errors = append(errors, errs...)
 			// Check for non-voidability
-			if hirExprs[i] == nil {
+			if nexprs[i] == nil {
 				errors = append(errors, *p.srcmap.SyntaxError(e, "void expression not permitted here"))
 			}
 		}
 	}
 	//
-	return hirExprs, errors
+	return nexprs, errors
 }
 
 // preprocess a sequence of zero or more expressions enclosed in a given module.
@@ -348,6 +348,8 @@ func (p *preprocessor) preprocessExpressionInModule(expr ast.Expr) (ast.Expr, []
 		// Done
 		nexpr, errors = &ast.Shift{Arg: arg, Shift: shift}, append(errs1, errs2...)
 	case *ast.VariableAccess:
+		return e, nil
+	case *ast.VectorAccess:
 		return e, nil
 	default:
 		return nil, p.srcmap.SyntaxErrors(expr, "unknown expression encountered during preprocessing")

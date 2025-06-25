@@ -1608,18 +1608,27 @@ func constantParserRule(symbol string) (ast.Expr, bool, error) {
 }
 
 func varAccessParserRule(col string) (ast.Expr, bool, error) {
+	var vars []*ast.VariableAccess
 	// Sanity check what we have
 	if col[0] != '_' && !unicode.IsLetter(rune(col[0])) {
 		return nil, false, errors.New("malformed column access")
 	}
 	// Handle qualified accesses (where permitted)
 	// Attempt to split column name into module / column pair.
-	path, err := parseQualifiableName(col)
+	paths, err := parseQualifiableVector(col)
 	if err != nil {
 		return nil, true, err
 	}
 	//
-	return ast.NewVariableAccess(path, ast.NON_FUNCTION, nil), true, nil
+	for _, p := range paths {
+		vars = append(vars, ast.NewVariableAccess(p, ast.NON_FUNCTION, nil))
+	}
+	// Check for single access
+	if len(vars) == 1 {
+		return vars[0], true, nil
+	}
+	// Check for vector access
+	return &ast.VectorAccess{Vars: vars}, true, nil
 }
 
 func arrayAccessParserRule(name string, args []ast.Expr) (ast.Expr, error) {
@@ -1788,6 +1797,26 @@ func normParserRule(_ string, args []ast.Expr) (ast.Expr, error) {
 	}
 
 	return &ast.Normalise{Arg: args[0]}, nil
+}
+
+func parseQualifiableVector(qualVec string) (path []util.Path, err error) {
+	var (
+		paths []util.Path
+		// Look for module concatenation
+		split = strings.Split(qualVec, "::")
+	)
+	//
+	for _, ith := range split {
+		p, err := parseQualifiableName(ith)
+		// Sanity check for errors
+		if err != nil {
+			return nil, err
+		}
+		//
+		paths = append(paths, p)
+	}
+	//
+	return paths, nil
 }
 
 // Parse a name which can be (optionally) adorned with either a module or
