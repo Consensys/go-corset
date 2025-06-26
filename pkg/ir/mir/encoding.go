@@ -150,20 +150,12 @@ func encode_lookup(c LookupConstraint) ([]byte, error) {
 	if err := gobEncoder.Encode(c.Handle); err != nil {
 		return nil, err
 	}
-	// Target Context
-	if err := gobEncoder.Encode(c.TargetContext); err != nil {
-		return nil, err
-	}
 	// Target terms
-	if err := encode_nary(encode_term, &buffer, c.Targets); err != nil {
+	if err := encode_nary(encode_enclosed_terms, &buffer, c.Targets); err != nil {
 		return nil, err
 	}
-	// Source Context
-	if err := gobEncoder.Encode(c.SourceContext); err != nil {
-		return nil, err
-	}
-	// Source terms
-	if err := encode_nary(encode_term, &buffer, c.Sources); err != nil {
+	// Sources
+	if err := encode_enclosed_terms(c.Sources, &buffer); err != nil {
 		return nil, err
 	}
 	//
@@ -300,6 +292,18 @@ func encode_range(c RangeConstraint) ([]byte, error) {
 	return buffer.Bytes(), err
 }
 
+func encode_enclosed_terms(terms ir.Enclosed[[]Term], buffer *bytes.Buffer) error {
+	var (
+		gobEncoder = gob.NewEncoder(buffer)
+	)
+	// Source Context
+	if err := gobEncoder.Encode(terms.Module); err != nil {
+		return err
+	}
+	// Source terms
+	return encode_nary(encode_term, buffer, terms.Item)
+}
+
 func decode_constraint(bytes []byte) (schema.Constraint, error) {
 	switch bytes[0] {
 	case assertionTag:
@@ -386,20 +390,12 @@ func decode_lookup(data []byte) (schema.Constraint, error) {
 	if err = gobDecoder.Decode(&lookup.Handle); err != nil {
 		return lookup, err
 	}
-	// Target Context
-	if err = gobDecoder.Decode(&lookup.TargetContext); err != nil {
-		return lookup, err
-	}
 	// Targets
-	if lookup.Targets, err = decode_nary(decode_term, buffer); err != nil {
-		return lookup, err
-	}
-	// Source Context
-	if err = gobDecoder.Decode(&lookup.SourceContext); err != nil {
+	if lookup.Targets, err = decode_nary(decode_enclosed_terms, buffer); err != nil {
 		return lookup, err
 	}
 	// Sources
-	if lookup.Sources, err = decode_nary(decode_term, buffer); err != nil {
+	if lookup.Sources, err = decode_enclosed_terms(buffer); err != nil {
 		return lookup, err
 	}
 	//
@@ -524,6 +520,24 @@ func decode_vanishing(data []byte) (schema.Constraint, error) {
 	vanishing.Constraint, err = decode_logical(buffer)
 	// Success!
 	return vanishing, err
+}
+
+func decode_enclosed_terms(buf *bytes.Buffer) (ir.Enclosed[[]Term], error) {
+	var (
+		gobDecoder = gob.NewDecoder(buf)
+		terms      ir.Enclosed[[]Term]
+		err        error
+	)
+	// Context
+	if err = gobDecoder.Decode(&terms.Module); err != nil {
+		return terms, err
+	}
+	// Contents
+	if terms.Item, err = decode_nary(decode_term, buf); err != nil {
+		return terms, err
+	}
+	//
+	return terms, nil
 }
 
 // ============================================================================

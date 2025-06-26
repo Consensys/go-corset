@@ -791,13 +791,19 @@ type DefLookup struct {
 	Sources []Expr
 	// Target expressions for lookup (i.e. these values must contain all of the
 	// source values, but may contain more).
-	Targets []Expr
+	Targets [][]Expr
 	// Indicates whether or not target and source expressions have been resolved.
 	finalised bool
 }
 
 // NewDefLookup creates a new (unfinalised) lookup constraint.
-func NewDefLookup(handle string, sources []Expr, targets []Expr) *DefLookup {
+func NewDefLookup(handle string, sources []Expr, targets [][]Expr) *DefLookup {
+	for _, t := range targets {
+		if len(sources) != len(t) {
+			panic(fmt.Sprintf("mismatched lookup columns (%d v %d)", len(sources), len(t)))
+		}
+	}
+	//
 	return &DefLookup{handle, sources, targets, false}
 }
 
@@ -809,10 +815,12 @@ func (p *DefLookup) Definitions() iter.Iterator[SymbolDefinition] {
 
 // Dependencies needed to signal declaration.
 func (p *DefLookup) Dependencies() iter.Iterator[Symbol] {
-	sourceDeps := DependenciesOfExpressions(p.Sources)
-	targetDeps := DependenciesOfExpressions(p.Targets)
+	deps := DependenciesOfExpressions(p.Sources)
+	for _, targets := range p.Targets {
+		deps = append(deps, DependenciesOfExpressions(targets)...)
+	}
 	// Combine deps
-	return iter.NewArrayIterator(append(sourceDeps, targetDeps...))
+	return iter.NewArrayIterator(deps)
 }
 
 // Defines checks whether this declaration defines the given symbol.  The symbol
@@ -844,8 +852,14 @@ func (p *DefLookup) Lisp() sexp.SExp {
 	targets := make([]sexp.SExp, len(p.Targets))
 	sources := make([]sexp.SExp, len(p.Sources))
 	// Targets
-	for i, t := range p.Targets {
-		targets[i] = t.Lisp()
+	for i, target := range p.Targets {
+		ith := make([]sexp.SExp, len(target))
+		//
+		for j, t := range target {
+			ith[j] = t.Lisp()
+		}
+		//
+		targets[i] = sexp.NewList(ith)
 	}
 	// Sources
 	for i, t := range p.Sources {

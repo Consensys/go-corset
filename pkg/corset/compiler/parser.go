@@ -785,45 +785,15 @@ func (p *Parser) parseDefInterleavedSourceArray(source *sexp.Array) (ast.TypedSy
 
 // Parse a lookup declaration
 func (p *Parser) parseDefLookup(elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
-	var (
-		errors  []SyntaxError
-		sources []ast.Expr
-		targets []ast.Expr
-	)
 	// Extract items
 	handle := elements[1]
-	sexpTargets := elements[2].AsList()
-	sexpSources := elements[3].AsList()
+	sources, srcErrors := p.parseDefLookupSources("source", elements[3])
+	targets, tgtErrors := p.parseDefLookupTargets(len(sources), elements[2].AsList())
+	// Combine any and all errors
+	errors := append(srcErrors, tgtErrors...)
 	// Check Handle
 	if !isIdentifier(handle) {
 		errors = append(errors, *p.translator.SyntaxError(elements[1], "malformed handle"))
-	}
-	// Check target expressions
-	if sexpTargets == nil {
-		errors = append(errors, *p.translator.SyntaxError(elements[2], "malformed target columns"))
-	}
-	// Check source Expressions
-	if sexpSources == nil {
-		errors = append(errors, *p.translator.SyntaxError(elements[3], "malformed source columns"))
-	}
-	// Sanity check number of columns matches
-	if sexpTargets != nil && sexpSources != nil {
-		if sexpTargets.Len() != sexpSources.Len() {
-			errors = append(errors, *p.translator.SyntaxError(elements[3], "incorrect number of columns"))
-		} else {
-			sources = make([]ast.Expr, sexpSources.Len())
-			targets = make([]ast.Expr, sexpTargets.Len())
-			// Translate source & target expressions
-			for i := 0; i < sexpTargets.Len(); i++ {
-				var errs []SyntaxError
-				// Translate source expressions
-				sources[i], errs = p.translator.Translate(sexpSources.Get(i))
-				errors = append(errors, errs...)
-				// Translate target expressions
-				targets[i], errs = p.translator.Translate(sexpTargets.Get(i))
-				errors = append(errors, errs...)
-			}
-		}
 	}
 	// Error check
 	if len(errors) != 0 {
@@ -831,6 +801,83 @@ func (p *Parser) parseDefLookup(elements []sexp.SExp) (ast.Declaration, []Syntax
 	}
 	// Done
 	return ast.NewDefLookup(handle.AsSymbol().Value, sources, targets), nil
+}
+
+func (p *Parser) parseDefLookupTargets(nSources int, element sexp.SExp) ([][]ast.Expr, []SyntaxError) {
+	var (
+		sexpTargets = p.parseDefLookupNormaliseTargets(element)
+		targets     = make([][]ast.Expr, len(sexpTargets))
+		errors      []SyntaxError
+	)
+	// Check target expressions
+	if sexpTargets == nil {
+		return nil, p.translator.SyntaxErrors(element, "malformed target columns")
+	}
+	// Translate all target expressions
+	for i, ith := range sexpTargets {
+		// Sanity check length
+		if ith.Len() != nSources {
+			return nil, p.translator.SyntaxErrors(ith, "incorrect number of columns")
+		} else {
+			ith_targets, errs := p.parseDefLookupSources("target", ith)
+			errors = append(errors, errs...)
+			targets[i] = ith_targets
+		}
+	}
+	//
+	return targets, errors
+}
+
+func (p *Parser) parseDefLookupNormaliseTargets(element sexp.SExp) []*sexp.List {
+	var sexpTargets = element.AsList()
+	// Check target expressions
+	if sexpTargets != nil && sexpTargets.Len() > 0 {
+		// Normalise fragmented targets
+		if sexpTargets.Get(0).AsList() == nil {
+			// Legacy
+			return []*sexp.List{sexpTargets}
+		}
+		// Fragment case
+		var targets = make([]*sexp.List, sexpTargets.Len())
+		//
+		for i := range len(targets) {
+			targets[i] = sexpTargets.Get(i).AsList()
+			// Sanity check
+			if targets[i] == nil {
+				return nil
+			}
+		}
+		//
+		return targets
+	}
+	//
+	return nil
+}
+
+func (p *Parser) parseDefLookupSources(handle string, element sexp.SExp) ([]ast.Expr, []SyntaxError) {
+	var (
+		sexpSources = element.AsList()
+		errors      []SyntaxError
+		sources     []ast.Expr
+	)
+	// Check source Expressions
+	if sexpSources == nil {
+		msg := fmt.Sprintf("malformed %s columns", handle)
+		return nil, p.translator.SyntaxErrors(element, msg)
+	}
+	//
+	if len(errors) == 0 {
+		sources = make([]ast.Expr, sexpSources.Len())
+		//
+		for i := 0; i != sexpSources.Len(); i++ {
+			var errs []SyntaxError
+			// Translate source expressions
+			sources[i], errs = p.translator.Translate(sexpSources.Get(i))
+			errors = append(errors, errs...)
+		}
+	}
+	//
+	return sources, errors
 }
 
 // Parse a permutation declaration

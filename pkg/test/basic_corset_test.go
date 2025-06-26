@@ -749,6 +749,26 @@ func Test_Lookup_16(t *testing.T) {
 	Check(t, false, "basic/lookup_16")
 }
 
+func Test_Lookup_17(t *testing.T) {
+	Check(t, false, "basic/lookup_17")
+}
+
+func Test_Lookup_18(t *testing.T) {
+	Check(t, false, "basic/lookup_18")
+}
+
+func Test_Lookup_19(t *testing.T) {
+	Check(t, false, "basic/lookup_19")
+}
+
+func Test_Lookup_20(t *testing.T) {
+	Check(t, false, "basic/lookup_20")
+}
+
+func Test_Lookup_21(t *testing.T) {
+	Check(t, false, "basic/lookup_21")
+}
+
 // ===================================================================
 // Interleaving
 // ===================================================================

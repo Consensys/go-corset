@@ -65,13 +65,14 @@ func (p MirModule) NewConstraint(name string, domain util.Option[int], constrain
 }
 
 // NewLookup constructs a new lookup constraint
-func (p MirModule) NewLookup(name string, from []MirExpr, target uint, to []MirExpr) {
+func (p MirModule) NewLookup(name string, from []MirExpr, targetMid uint, to []MirExpr) {
 	var (
-		sources = unwrapMirExprs(from...)
-		targets = unwrapMirExprs(to...)
+		source = ir.Enclose(p.Module.Id(), unwrapMirExprs(from...))
+		target = ir.Enclose(targetMid, unwrapMirExprs(to...))
 	)
-
-	p.Module.AddConstraint(mir.NewLookupConstraint(name, target, targets, p.Module.Id(), sources))
+	//
+	targets := []ir.Enclosed[[]mir.Term]{target}
+	p.Module.AddConstraint(mir.NewLookupConstraint(name, targets, source))
 }
 
 // String returns an appropriately formatted representation of the module.

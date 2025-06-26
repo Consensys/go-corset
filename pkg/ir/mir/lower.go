@@ -233,12 +233,15 @@ func (p *AirLowering) lowerInterleavingConstraintToAir(c InterleavingConstraint,
 // value of that expression, along with appropriate constraints to enforce the
 // expected value.
 func (p *AirLowering) lowerLookupConstraintToAir(c LookupConstraint, airModule *air.ModuleBuilder) {
+	targets := make([]ir.Enclosed[[]*air.ColumnAccess], len(c.Targets))
 	// Lower sources
-	sources := p.expandTerms(c.SourceContext, c.Sources...)
+	sources := p.expandEnclosedTerms(c.Sources)
 	// Lower targets
-	targets := p.expandTerms(c.TargetContext, c.Targets...)
+	for i, ith := range c.Targets {
+		targets[i] = p.expandEnclosedTerms(ith)
+	}
 	// Add constraint
-	airModule.AddConstraint(air.NewLookupConstraint(c.Handle, c.TargetContext, targets, c.SourceContext, sources))
+	airModule.AddConstraint(air.NewLookupConstraint(c.Handle, targets, sources))
 }
 
 // Lower a sorted constraint to the AIR level.  The challenge here is that there
@@ -285,6 +288,11 @@ func (p *AirLowering) lowerSortedConstraintToAir(c SortedConstraint, airModule *
 		msg := fmt.Sprintf("incompatible bitwidths (%d vs %d)", bitwidth, c.BitWidth)
 		panic(msg)
 	}
+}
+
+func (p *AirLowering) expandEnclosedTerms(terms ir.Enclosed[[]Term]) ir.Enclosed[[]*air.ColumnAccess] {
+	accesses := p.expandTerms(terms.Module, terms.Item...)
+	return ir.Enclose(terms.Module, accesses)
 }
 
 // Lower a set of zero or more MIR expressions.

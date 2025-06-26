@@ -356,13 +356,11 @@ func (t *translator) translateDefLookup(decl *ast.DefLookup) []SyntaxError {
 	var (
 		errors    []SyntaxError
 		srcModule *ModuleBuilder
-		dstModule *ModuleBuilder
 		sources   []mir.Term
-		targets   []mir.Term
+		targets   []ir.Enclosed[[]mir.Term]
 	)
-	// Determine source and target modules for this lookup.
+	// Determine source  module for this lookup.
 	srcContext, i := ast.ContextOfExpressions(decl.Sources...)
-	dstContext, j := ast.ContextOfExpressions(decl.Targets...)
 	// Translate source expressions whilst checking for a conflicting context.
 	// This can arise here, rather than in the resolve, in some unusual
 	// situations (e.g. source expression is a function).
@@ -376,24 +374,30 @@ func (t *translator) translateDefLookup(decl *ast.DefLookup) []SyntaxError {
 		sources, errs = t.translateUnitExpressions(decl.Sources, srcModule, 0)
 		errors = append(errors, errs...)
 	}
-	// Translate target expressions whilst again checking for a conflicting
-	// context.
-	if dstContext.IsConflicted() {
-		errors = append(errors, *t.srcmap.SyntaxError(decl.Targets[j], "conflicting context"))
-	} else {
-		var errs []SyntaxError
-		//
-		dstModule = t.moduleOf(dstContext)
-		//
-		targets, errs = t.translateUnitExpressions(decl.Targets, dstModule, 0)
-		errors = append(errors, errs...)
+	//
+	for _, ith := range decl.Targets {
+		var (
+			dstModule *ModuleBuilder
+			// Determine context of ith set of targets
+			dstContext, j = ast.ContextOfExpressions(ith...)
+		)
+		// Translate target expressions whilst again checking for a conflicting
+		// context.
+		if dstContext.IsConflicted() {
+			errors = append(errors, *t.srcmap.SyntaxError(ith[j], "conflicting context"))
+		} else {
+			dstModule = t.moduleOf(dstContext)
+			//
+			ith_targets, errs := t.translateUnitExpressions(ith, dstModule, 0)
+			targets = append(targets, ir.Enclose(dstModule.Id(), ith_targets))
+			errors = append(errors, errs...)
+		}
 	}
 	// Sanity check whether we can construct the constraint, or not.
 	if len(errors) == 0 {
 		// Add translated constraint
 		srcModule.AddConstraint(mir.NewLookupConstraint(decl.Handle,
-			dstModule.Id(), targets,
-			srcModule.Id(), sources))
+			targets, ir.Enclose(srcModule.Id(), sources)))
 	}
 	// Done
 	return errors

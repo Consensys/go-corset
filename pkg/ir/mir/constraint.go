@@ -14,6 +14,7 @@ package mir
 
 import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -50,14 +51,8 @@ func NewInterleavingConstraint(handle string, targetContext schema.ModuleId,
 }
 
 // NewLookupConstraint creates a new lookup constraint with a given handle.
-func NewLookupConstraint(handle string, targetContext schema.ModuleId, targets []Term,
-	sourceContext schema.ModuleId, sources []Term) Constraint {
-	//
-	if len(targets) != len(sources) {
-		panic("differeng number of targetContext / source lookup columns")
-	}
-
-	return Constraint{constraint.NewLookupConstraint(handle, targetContext, targets, sourceContext, sources)}
+func NewLookupConstraint(handle string, targets []ir.Enclosed[[]Term], sources ir.Enclosed[[]Term]) Constraint {
+	return Constraint{constraint.NewLookupConstraint(handle, targets, sources)}
 }
 
 // NewPermutationConstraint creates a new permutation
