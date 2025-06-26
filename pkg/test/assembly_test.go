@@ -50,6 +50,10 @@ func Test_Asm_SlowPow(t *testing.T) {
 	Check(t, false, "asm/slow_pow")
 }
 
+func Test_Asm_SimpleOnCurve(t *testing.T) {
+	Check(t, false, "asm/simple_on_curve")
+}
+
 // Recusion
 //
 // func Test_Asm_RecPow(t *testing.T) {
