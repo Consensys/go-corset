@@ -1,0 +1,20 @@
+;; simple_on_curve function tells you if point (x,y) is on curve y³ = x² + 2x + 15
+
+fn simple_on_curve(x u16, y u16) -> (RESULT u1) {
+
+   var y_square u16
+   var x_cube u16
+   var affine_value u16
+
+affine_value = x_cube + 2 * x + 15
+
+if y_square==affine_value goto exit_1
+goto exit_0
+exit_0:
+   RESULT = 0
+   return
+exit_1:
+   RESULT = 1
+   return
+
+}
