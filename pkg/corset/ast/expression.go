@@ -1043,7 +1043,8 @@ func (e *Shift) Dependencies() []Symbol {
 }
 
 // ============================================================================
-// VariableAccess// ============================================================================
+// VariableAccess
+// ============================================================================
 
 // VariableAccess represents reading the value of a given local variable (such
 // as a function parameter).
@@ -1150,6 +1151,52 @@ func (e *VariableAccess) Type() Type {
 }
 
 // ============================================================================
+// VectorAccess
+// ============================================================================
+
+// VectorAccess represents a vector of variables being accessed.  For example,
+// consider the vector X::Y where each variable is 16bits.  Then the resulting
+// "vector variable" is 32bits, and corresponds to (X*65536) + Y.  The main
+// purpose of VectorAccesses is to smooth the progress of migrating to a
+// field-agnostic code base.  We might imagine that this will be deprecated
+// eventually.
+type VectorAccess struct {
+	Vars []*VariableAccess
+}
+
+// AsConstant attempts to evaluate this expression as a constant (signed) value.
+// If this expression is not constant, then nil is returned.
+func (e *VectorAccess) AsConstant() *big.Int {
+	// not a constant
+	return nil
+}
+
+// Context returns the context for this expression.  Observe that the
+// expression must have been resolved for this to be defined (i.e. it may
+// panic if it has not been resolved yet).
+func (e *VectorAccess) Context() Context {
+	ctx, _ := ContextOfExpressions(e.Vars...)
+	return ctx
+}
+
+// Lisp converts this schema element into a simple S-Expression, for example
+// so it can be printed.
+func (e *VectorAccess) Lisp() sexp.SExp {
+	return ListOfExpressions(sexp.NewSymbol("+"), e.Vars)
+}
+
+// Dependencies needed to signal declaration.
+func (e *VectorAccess) Dependencies() []Symbol {
+	var deps []Symbol
+	//
+	for _, e := range e.Vars {
+		deps = append(deps, e.Dependencies()...)
+	}
+	//
+	return deps
+}
+
+// ============================================================================
 // Helpers
 // ============================================================================
 
@@ -1158,7 +1205,7 @@ func (e *VariableAccess) Type() Type {
 // they are all constants) then the void context is returned.  Likewise, if
 // there are expressions with different contexts then the conflicted context
 // will be returned.  Otherwise, the one consistent context will be returned.
-func ContextOfExpressions(exprs ...Expr) (Context, uint) {
+func ContextOfExpressions[E Expr](exprs ...E) (Context, uint) {
 	context := VoidContext()
 	//
 	for i, e := range exprs {
@@ -1264,6 +1311,8 @@ func Substitute(expr Expr, mapping map[uint]Expr, srcmap *source.Maps[Node]) Exp
 				expr = e2
 			}
 		}
+	case *VectorAccess:
+		panic("todo")
 	default:
 		panic(fmt.Sprintf("unknown expression (%s)", reflect.TypeOf(expr)))
 	}
@@ -1341,6 +1390,8 @@ func ShallowCopy(expr Expr) Expr {
 		return &Shift{e.Arg, e.Shift}
 	case *VariableAccess:
 		return &VariableAccess{e.Name, e.FnArity, e.binding}
+	case *VectorAccess:
+		return &VectorAccess{e.Vars}
 	default:
 		panic(fmt.Sprintf("unknown expression (%s)", reflect.TypeOf(expr)))
 	}
@@ -1362,7 +1413,7 @@ func DependenciesOfExpressions(exprs []Expr) []Symbol {
 
 // ListOfExpressions converts an array of one or more expressions into a list of
 // corresponding lisp expressions.
-func ListOfExpressions(head sexp.SExp, exprs []Expr) *sexp.List {
+func ListOfExpressions[E Expr](head sexp.SExp, exprs []E) *sexp.List {
 	lisps := make([]sexp.SExp, len(exprs)+1)
 	// Assign head
 	lisps[0] = head

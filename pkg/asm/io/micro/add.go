@@ -18,8 +18,8 @@ import (
 	"slices"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
-	"github.com/consensys/go-corset/pkg/asm/io/agnosticity"
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/agnostic"
 )
 
 // Add represents a generic operation of the following form:
@@ -120,45 +120,46 @@ func (p *Add) Split(env io.SplittingEnvironment) []Code {
 		// Actually just an assignment, so easy.
 		return p.splitAssignment(env)
 	} else {
-		var (
-			ncodes        []Code
-			targetLimbs                 = env.SplitTargetRegisters(p.Targets...)
-			sourcePackets               = env.SplitSourceRegisters(p.Sources...)
-			constantLimbs               = agnosticity.SplitConstant(uint(len(sourcePackets)), env.MaxWidth(), p.Constant)
-			carry         io.RegisterId = schema.NewUnusedRegisterId()
-		)
-		// Allocate all source packets
-		for i, pkt := range sourcePackets {
-			var (
-				targets     []io.RegisterId
-				targetWidth uint
-			)
-			//
-			targetWidth, targets, targetLimbs = env.AllocateTargetLimbs(targetLimbs)
-			//
-			if i != 0 && carry.IsUsed() {
-				// Include carry from previous round
-				pkt = append(pkt, carry)
-			}
-			// Allocate carry flag (if applicable).
-			if i+1 != len(sourcePackets) {
-				sourceWidth := sumSourceBits(p.Sources, constantLimbs[i], env.RegistersAfter())
-				carry = env.AllocateCarryRegister(targetWidth, sourceWidth)
-				//
-				if carry.IsUsed() {
-					targets = append(targets, carry)
-				}
-			} else {
-				// Allocate all outstanding limbs for final packet.
-				targets = append(targets, targetLimbs...)
-			}
-			// Construct split micro code
-			code := &Add{targets, pkt, constantLimbs[i]}
-			// Done
-			ncodes = append(ncodes, code)
-		}
-		//
-		return ncodes
+		// var (
+		// 	ncodes        []Code
+		// 	targetLimbs                 = env.SplitTargetRegisters(p.Targets...)
+		// 	sourcePackets               = env.SplitSourceRegisters(p.Sources...)
+		// 	constantLimbs               = agnosticity.SplitConstant(uint(len(sourcePackets)), env.MaxWidth(), p.Constant)
+		// 	carry         io.RegisterId = schema.NewUnusedRegisterId()
+		// )
+		// // Allocate all source packets
+		// for i, pkt := range sourcePackets {
+		// 	var (
+		// 		targets     []io.RegisterId
+		// 		targetWidth uint
+		// 	)
+		// 	//
+		// 	targetWidth, targets, targetLimbs = env.AllocateTargetLimbs(targetLimbs)
+		// 	//
+		// 	if i != 0 && carry.IsUsed() {
+		// 		// Include carry from previous round
+		// 		pkt = append(pkt, carry)
+		// 	}
+		// 	// Allocate carry flag (if applicable).
+		// 	if i+1 != len(sourcePackets) {
+		// 		sourceWidth := sumSourceBits(p.Sources, constantLimbs[i], env.RegistersAfter())
+		// 		carry = env.AllocateCarryRegister(targetWidth, sourceWidth)
+		// 		//
+		// 		if carry.IsUsed() {
+		// 			targets = append(targets, carry)
+		// 		}
+		// 	} else {
+		// 		// Allocate all outstanding limbs for final packet.
+		// 		targets = append(targets, targetLimbs...)
+		// 	}
+		// 	// Construct split micro code
+		// 	code := &Add{targets, pkt, constantLimbs[i]}
+		// 	// Done
+		// 	ncodes = append(ncodes, code)
+		// }
+		// //
+		// return ncodes
+		return []Code{p}
 	}
 }
 
@@ -181,9 +182,13 @@ func (p *Add) Validate(fieldWidth uint, fn schema.Module) error {
 
 func (p *Add) splitAssignment(env io.SplittingEnvironment) []Code {
 	var (
-		ncodes        []Code
-		targetLimbs   = env.SplitTargetRegisters(p.Targets...)
-		constantLimbs = agnosticity.SplitConstant(uint(len(targetLimbs)), env.MaxWidth(), p.Constant)
+		ncodes []Code
+		// map target registers into corresponding limbs
+		targetLimbs = agnostic.ApplyMapping(env, p.Targets)
+		// extract width of each limb
+		targetLimbWidths = agnostic.LimbWidths(env, targetLimbs)
+		// split constant according to given limb widths
+		constantLimbs = agnostic.SplitConstant(p.Constant, targetLimbWidths...)
 	)
 	//
 	for i, target := range targetLimbs {

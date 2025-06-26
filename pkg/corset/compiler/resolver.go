@@ -785,6 +785,14 @@ func (r *resolver) finaliseExpressionInModule(scope LocalScope, expr ast.Expr) [
 		return r.finaliseExpressionsInModule(scope, v.Args)
 	case *ast.VariableAccess:
 		return r.finaliseVariableInModule(scope, v)
+	case *ast.VectorAccess:
+		var errs []SyntaxError
+		//
+		for _, w := range v.Vars {
+			errs = append(errs, r.finaliseVariableInModule(scope, w)...)
+		}
+		//
+		return errs
 	default:
 		typeStr := reflect.TypeOf(expr).String()
 		msg := fmt.Sprintf("unknown expression encountered during resolution (%s)", typeStr)

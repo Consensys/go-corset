@@ -16,6 +16,7 @@ import (
 	"encoding/gob"
 	"fmt"
 
+	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -112,7 +113,7 @@ func (p *SortedPermutation) RegistersWritten() []sc.RegisterRef {
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func (p *SortedPermutation) Subdivide(bandwidth uint, maxRegisterWidth uint) sc.Assignment {
+func (p *SortedPermutation) Subdivide(mapping schema.RegisterMappings) sc.Assignment {
 	return p
 }
 

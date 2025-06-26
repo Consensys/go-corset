@@ -95,7 +95,7 @@ func (p *Mul) Split(env io.SplittingEnvironment) []Code {
 	regs := append(p.RegistersRead(), p.RegistersWritten()...)
 	// Temporary hack
 	for _, r := range regs {
-		if env.RegistersBefore()[r.Unwrap()].Width >= env.MaxWidth() {
+		if len(env.LimbIds(r)) > 1 {
 			panic("splitting multiplication not supported")
 		}
 	}

@@ -70,7 +70,7 @@ func (p *RegisterAccess[T]) Bounds() util.Bounds {
 }
 
 // EvalAt implementation for Evaluable interface.
-func (p *RegisterAccess[T]) EvalAt(k int, module trace.Module) (fr.Element, error) {
+func (p *RegisterAccess[T]) EvalAt(k int, module trace.Module, _ schema.Module) (fr.Element, error) {
 	return module.Column(p.Register.Unwrap()).Get(k + p.Shift), nil
 }
 
@@ -134,10 +134,7 @@ func (p *RegisterAccess[T]) Substitute(mapping map[string]fr.Element) {
 
 // ValueRange implementation for Term interface.
 func (p *RegisterAccess[T]) ValueRange(module schema.Module) *util_math.Interval {
-	var (
-		bound = big.NewInt(2)
-		width = module.Register(p.Register).Width
-	)
+	var width = module.Register(p.Register).Width
 	// NOTE: the following is necessary because MaxUint is permitted as a signal
 	// that the given register has no fixed bitwidth.  Rather, it can consume
 	// all possible values of the underlying field element.
@@ -149,7 +146,13 @@ func (p *RegisterAccess[T]) ValueRange(module schema.Module) *util_math.Interval
 		width = 256
 	}
 	//
-	bound.Exp(bound, big.NewInt(int64(width)), nil)
+	return valueRangeOfBits(width)
+}
+
+func valueRangeOfBits(bitwidth uint) *util_math.Interval {
+	var bound = big.NewInt(2)
+	//
+	bound.Exp(bound, big.NewInt(int64(bitwidth)), nil)
 	// Subtract 1 because interval is inclusive.
 	bound.Sub(bound, &biONE)
 	// Done

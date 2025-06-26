@@ -14,6 +14,7 @@ package agnosticity
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/consensys/go-corset/pkg/schema"
 )
@@ -142,22 +143,21 @@ func (p *RegisterSplittingEnvironment) AllocateTargetLimbs(targetLimbs []Registe
 	[]RegisterId, []RegisterId) {
 	//
 	var (
-		width   = uint(0)
-		targets []RegisterId
+		width  = uint(0)
+		n      = 0
+		target = targetLimbs[n].Unwrap()
 	)
-	// Allocate targets from first packet
-	for width < p.maxWidth && len(targetLimbs) > 0 {
-		target := targetLimbs[0]
-		targets = append(targets, target)
-		targetLimbs = targetLimbs[1:]
-		width = width + p.regsAfter[target.Unwrap()].Width
-	}
-	// Sanity  check
-	if width > p.maxWidth {
-		panic("mis-aligned target registers")
+	// Determine how many limbs to use
+	for n < len(targetLimbs) && width+p.regsAfter[target].Width < p.maxWidth {
+		width = width + p.regsAfter[target].Width
+		n++
+		//
+		if n < len(targetLimbs) {
+			target = targetLimbs[n].Unwrap()
+		}
 	}
 	//
-	return width, targets, targetLimbs
+	return width, slices.Clone(targetLimbs[:n]), targetLimbs[n:]
 }
 
 // AllocateCarryRegister allocates a carry flag to hold bits which "overflow" the

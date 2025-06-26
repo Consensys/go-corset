@@ -63,6 +63,8 @@ func SplitRegister(maxWidth uint, r Register) []Register {
 		width  = r.Width
 	)
 	//
+	maxWidth = determineLimbWidth(nlimbs, width)
+	//
 	for i := uint(0); i < nlimbs; i++ {
 		ith_name := fmt.Sprintf("%s'%d", r.Name, i)
 		ith_width := min(maxWidth, width)
@@ -120,4 +122,20 @@ func SplitConstant(nLimbs uint, maxWidth uint, constant big.Int) []big.Int {
 	}
 	//
 	return limbs
+}
+
+func determineLimbWidth(nlimbs uint, width uint) uint {
+	return bound(width / nlimbs)
+}
+
+func bound(width uint) uint {
+	var (
+		acc = uint(1)
+	)
+	// Find nearest power of 2 (upper bound)
+	for ; acc < width; acc = acc * 2 {
+
+	}
+	//
+	return acc
 }

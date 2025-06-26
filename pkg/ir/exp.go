@@ -49,9 +49,9 @@ func (p *Exp[T]) Bounds() util.Bounds {
 }
 
 // EvalAt implementation for Evaluable interface.
-func (p *Exp[T]) EvalAt(k int, tr trace.Module) (fr.Element, error) {
+func (p *Exp[T]) EvalAt(k int, tr trace.Module, sc schema.Module) (fr.Element, error) {
 	// Check whether argument evaluates to zero or not.
-	val, err := p.Arg.EvalAt(k, tr)
+	val, err := p.Arg.EvalAt(k, tr, sc)
 	// Compute exponent
 	field.Pow(&val, p.Pow)
 	// Done

@@ -66,17 +66,17 @@ func (p *IfZero[S, T]) Bounds() util.Bounds {
 }
 
 // EvalAt implementation for Evaluable interface.
-func (p *IfZero[S, T]) EvalAt(k int, tr trace.Module) (fr.Element, error) {
+func (p *IfZero[S, T]) EvalAt(k int, tr trace.Module, sc schema.Module) (fr.Element, error) {
 	// Evaluate condition
-	cond, _, err := p.Condition.TestAt(k, tr)
+	cond, _, err := p.Condition.TestAt(k, tr, sc)
 	//
 	if err != nil {
 		return fr.Element{}, err
 	} else if cond {
-		return p.TrueBranch.EvalAt(k, tr)
+		return p.TrueBranch.EvalAt(k, tr, sc)
 	}
 	//
-	return p.FalseBranch.EvalAt(k, tr)
+	return p.FalseBranch.EvalAt(k, tr, sc)
 }
 
 // Lisp implementation for Lispifiable interface.

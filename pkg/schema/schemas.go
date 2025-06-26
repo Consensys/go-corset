@@ -86,27 +86,27 @@ func defensivePadding(module uint, schema AnySchema) uint {
 //
 //nolint:revive
 func Accepts[C Constraint](parallel bool, batchsize uint, schema Schema[C], trace tr.Trace) []Failure {
-	return accepts(parallel, batchsize, schema.Constraints(), trace, "Constraint")
+	return accepts(parallel, batchsize, schema.Constraints(), trace, schema, "Constraint")
 }
 
 //nolint:revive
-func accepts[C Constraint](parallel bool, batchsize uint, iter iter.Iterator[C], trace tr.Trace,
+func accepts[C Constraint](parallel bool, batchsize uint, iter iter.Iterator[C], trace tr.Trace, schema Schema[C],
 	kind string) []Failure {
 	//
 	if parallel {
-		return parallelAccepts(batchsize, iter, trace, kind)
+		return parallelAccepts(batchsize, iter, trace, schema, kind)
 	}
 	// sequential
-	return sequentialAccepts(iter, trace)
+	return sequentialAccepts(iter, trace, schema)
 }
 
-func sequentialAccepts[C Constraint](iter iter.Iterator[C], trace tr.Trace) []Failure {
+func sequentialAccepts[C Constraint](iter iter.Iterator[C], trace tr.Trace, schema Schema[C]) []Failure {
 	errors := make([]Failure, 0)
 	//
 	for iter.HasNext() {
 		ith := iter.Next()
 		//
-		_, err := ith.Accepts(trace)
+		_, err := ith.Accepts(trace, Any(schema))
 		if err != nil {
 			errors = append(errors, err)
 		}
@@ -115,7 +115,7 @@ func sequentialAccepts[C Constraint](iter iter.Iterator[C], trace tr.Trace) []Fa
 	return errors
 }
 
-func parallelAccepts[C Constraint](batchsize uint, iter iter.Iterator[C], trace tr.Trace,
+func parallelAccepts[C Constraint](batchsize uint, iter iter.Iterator[C], trace tr.Trace, schema Schema[C],
 	kind string) []Failure {
 	//
 	errors := make([]Failure, 0)
@@ -123,7 +123,7 @@ func parallelAccepts[C Constraint](batchsize uint, iter iter.Iterator[C], trace 
 	batch := uint(0)
 	// Process constraints in batches
 	for iter.HasNext() {
-		errs := processConstraintBatch(kind, batch, batchsize, iter, trace)
+		errs := processConstraintBatch(kind, batch, batchsize, iter, trace, schema)
 		errors = append(errors, errs...)
 		// Increment batch number
 		batch++
@@ -134,7 +134,7 @@ func parallelAccepts[C Constraint](batchsize uint, iter iter.Iterator[C], trace 
 
 // Process a given set of constraints in a single batch whilst recording all constraint failures.
 func processConstraintBatch[C Constraint](logtitle string, batch uint, batchsize uint, iter iter.Iterator[C],
-	trace tr.Trace) []Failure {
+	trace tr.Trace, schema Schema[C]) []Failure {
 	n := uint(0)
 	c := make(chan batchOutcome, 1024)
 	errors := make([]Failure, 0)
@@ -146,7 +146,7 @@ func processConstraintBatch[C Constraint](logtitle string, batch uint, batchsize
 		// Launch checker for constraint
 		go func() {
 			// Send outcome back
-			cov, err := ith.Accepts(trace)
+			cov, err := ith.Accepts(trace, Any(schema))
 			context := ith.Contexts()[0]
 			name := ith.Name()
 			c <- batchOutcome{context, name, cov, err}

@@ -65,6 +65,7 @@ func (p *ComputedRegister) Bounds(mid sc.ModuleId) util.Bounds {
 func (p *ComputedRegister) Compute(tr trace.Trace, schema schema.AnySchema) ([]trace.ArrayColumn, error) {
 	var (
 		trModule = tr.Module(p.target.Module())
+		scModule = schema.Module(p.target.Module())
 		register = schema.Register(p.target)
 	)
 	// Determine multiplied height
@@ -78,7 +79,7 @@ func (p *ComputedRegister) Compute(tr trace.Trace, schema schema.AnySchema) ([]t
 	data := field.NewFrIndexArray(height, register.Width)
 	// Expand the trace
 	for i := uint(0); i < data.Len(); i++ {
-		val, err := p.expr.EvalAt(int(i), trModule)
+		val, err := p.expr.EvalAt(int(i), trModule, scModule)
 		// error check
 		if err != nil {
 			return nil, err
@@ -89,7 +90,7 @@ func (p *ComputedRegister) Compute(tr trace.Trace, schema schema.AnySchema) ([]t
 	// Determine padding value.  A negative row index is used here to ensure
 	// that all columns return their padding value which is then used to compute
 	// the padding value for *this* column.
-	padding, err := p.expr.EvalAt(-1, trModule)
+	padding, err := p.expr.EvalAt(-1, trModule, scModule)
 	// Construct column
 	col := trace.NewArrayColumn(register.Name, data, padding)
 	// Done

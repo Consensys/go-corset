@@ -120,10 +120,11 @@ func (p RangeConstraint[E]) Bounds(module uint) util.Bounds {
 // nil otherwise return an error.
 //
 //nolint:revive
-func (p RangeConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
+func (p RangeConstraint[E]) Accepts(tr trace.Trace, sc schema.AnySchema) (bit.Set, schema.Failure) {
 	var (
 		coverage bit.Set
-		module   = tr.Module(p.Context)
+		trModule = tr.Module(p.Context)
+		scModule = sc.Module(p.Context)
 		handle   = determineHandle(p.Handle, p.Context, tr)
 		bound    = big.NewInt(2)
 		frBound  fr.Element
@@ -137,7 +138,7 @@ func (p RangeConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
 	// Iterate every row
 	for k := 0; k < int(height); k++ {
 		// Get the value on the kth row
-		kth, err := p.Expr.EvalAt(k, module)
+		kth, err := p.Expr.EvalAt(k, trModule, scModule)
 		// Perform the range check
 		if err != nil {
 			return coverage, &InternalFailure{
@@ -164,11 +165,6 @@ func (p RangeConstraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
 		p.Expr.Lisp(module),
 		sexp.NewSymbol(fmt.Sprintf("u%d", p.Bitwidth)),
 	})
-}
-
-// Subdivide implementation for the FieldAgnosticConstraint interface.
-func (p RangeConstraint[E]) Subdivide(bandwidth uint, maxRegisterWidth uint) RangeConstraint[E] {
-	return p
 }
 
 // Substitute any matchined labelled constants within this constraint

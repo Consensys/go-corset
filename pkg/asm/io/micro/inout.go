@@ -17,6 +17,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/agnostic"
 )
 
 // InOut captures input / output instructions for reading / writing to a bus.
@@ -86,8 +87,8 @@ func (p *InOut) RegistersWritten() []io.RegisterId {
 // micro codes using registers of a fixed maximum width.
 func (p *InOut) Split(env io.SplittingEnvironment) []Code {
 	// Split bus
-	address := env.SplitTargetRegisters(p.bus.Address()...)
-	data := env.SplitTargetRegisters(p.bus.Data()...)
+	address := agnostic.ApplyMapping(env, p.bus.Address())
+	data := agnostic.ApplyMapping(env, p.bus.Data())
 	bus := io.NewBus(p.bus.Name, p.bus.BusId, address, data)
 	// Done
 	return []Code{&InOut{p.input, bus}}

@@ -20,6 +20,7 @@ import (
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/air"
 	"github.com/consensys/go-corset/pkg/ir/assignment"
+	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -83,11 +84,11 @@ type psuedoInverse struct {
 
 // EvalAt computes the multiplicative inverse of a given expression at a given
 // row in the table.
-func (e *psuedoInverse) EvalAt(k int, tbl trace.Module) (fr.Element, error) {
+func (e *psuedoInverse) EvalAt(k int, tr trace.Module, sc schema.Module) (fr.Element, error) {
 	var inv fr.Element
 	// Convert expression into something which can be evaluated, then evaluate
 	// it.
-	val, err := e.Expr.EvalAt(k, tbl)
+	val, err := e.Expr.EvalAt(k, tr, sc)
 	// Go syntax huh?
 	inv.Inverse(&val)
 	// Done

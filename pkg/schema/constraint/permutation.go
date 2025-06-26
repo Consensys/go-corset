@@ -98,7 +98,7 @@ func (p PermutationConstraint) Bounds(module uint) util.Bounds {
 
 // Accepts checks whether a permutation holds between the source and
 // target columns.
-func (p PermutationConstraint) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
+func (p PermutationConstraint) Accepts(tr trace.Trace, _ schema.AnySchema) (bit.Set, schema.Failure) {
 	var (
 		// Coverage currently always empty for permutation constraints.
 		coverage bit.Set
@@ -147,11 +147,6 @@ func (p PermutationConstraint) Lisp(schema schema.AnySchema) sexp.SExp {
 		targets,
 		sources,
 	})
-}
-
-// Subdivide implementation for the FieldAgnosticConstraint interface.
-func (p PermutationConstraint) Subdivide(bandwidth uint, maxRegisterWidth uint) PermutationConstraint {
-	return p
 }
 
 // Substitute any matchined labelled constants within this constraint

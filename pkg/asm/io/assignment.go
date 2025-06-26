@@ -41,7 +41,7 @@ func (p Assignment[T]) Compute(trace tr.Trace, schema sc.AnySchema) ([]tr.ArrayC
 	)
 	//
 	for i := range trModule.Height() {
-		_, sts := p.trace(i, trModule, nil)
+		sts := p.trace(i, trModule, nil)
 		states = append(states, sts...)
 	}
 	//
@@ -98,7 +98,7 @@ func (p Assignment[T]) RegistersWritten() []sc.RegisterRef {
 // Trace a given function with the given arguments in a given I/O environment to
 // produce a given set of output values, along with the complete set of internal
 // traces.
-func (p Assignment[T]) trace(row uint, trace tr.Module, iomap Map) ([]big.Int, []State) {
+func (p Assignment[T]) trace(row uint, trace tr.Module, iomap Map) []State {
 	var (
 		code   = p.code
 		states []State
@@ -113,12 +113,12 @@ func (p Assignment[T]) trace(row uint, trace tr.Module, iomap Map) ([]big.Int, [
 		// execute given instruction
 		pc = insn.Execute(state)
 		// record internal state
-		states = append(states, state.Clone())
+		states = append(states, finaliseState(row, pc == RETURN, state, trace))
 		// update state pc
 		state.Goto(pc)
 	}
 	// Done
-	return state.Outputs(), states
+	return states
 }
 
 func (p Assignment[T]) initialState(row uint, trace tr.Module, io Map) State {
@@ -143,6 +143,33 @@ func (p Assignment[T]) initialState(row uint, trace tr.Module, io Map) State {
 	}
 	// Construct state
 	return State{0, state, p.registers, io}
+}
+
+// Finalising a given state does two things: firstly, it clones the state;
+// secondly, if the state has terminated, it makes sure the outputs match the
+// original trace.
+func finaliseState(row uint, terminated bool, state State, trace tr.Module) State {
+	// Clone state
+	var nstate = state.Clone()
+	// Now, ensure output registers retain their original values.
+	if terminated {
+		for i, reg := range state.registers {
+			if reg.IsOutput() {
+				var (
+					val = trace.Column(uint(i)).Data().Get(row)
+					rid = sc.NewRegisterId(uint(i))
+					ith big.Int
+				)
+				// Clone big int.
+				val.BigInt(&ith)
+				// NOTE: following safe because PC is always at index 0, and is a
+				// computed register.
+				nstate.Store(rid, ith)
+			}
+		}
+	}
+	//
+	return nstate
 }
 
 // Convert a given set of states into a corresponding set of array columns.

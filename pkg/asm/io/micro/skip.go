@@ -17,8 +17,8 @@ import (
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
-	"github.com/consensys/go-corset/pkg/asm/io/agnosticity"
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/agnostic"
 )
 
 // Skip microcode performs a conditional skip over a given number of codes. The
@@ -90,26 +90,29 @@ func (p *Skip) RegistersWritten() []io.RegisterId {
 func (p *Skip) Split(env io.SplittingEnvironment) []Code {
 	// NOTE: we can assume left and right have matching bitwidths
 	var (
-		lhsLimbs = env.SplitTargetRegisters(p.Left)
+		lhsLimbs = env.LimbIds(p.Left)
 		ncodes   []Code
 		n        = uint(len(lhsLimbs))
 		skip     = p.Skip + n - 1
 	)
 	//
 	if p.Right.IsUsed() {
-		rhsLimbs := env.SplitTargetRegisters(p.Right)
-		for i := uint(0); i < n; i++ {
+		rhsLimbs := env.LimbIds(p.Right)
+		//
+		for i := range n {
 			ncode := &Skip{lhsLimbs[i], rhsLimbs[i], p.Constant, skip - i}
 			ncodes = append(ncodes, ncode)
 		}
 	} else {
-		constantLimbs := agnosticity.SplitConstant(n, env.MaxWidth(), p.Constant)
-		for i := uint(0); i < n; i++ {
+		lhsLimbWidths := agnostic.LimbWidths(env, lhsLimbs)
+		constantLimbs := agnostic.SplitConstant(p.Constant, lhsLimbWidths...)
+		//
+		for i := range n {
 			ncode := &Skip{lhsLimbs[i], schema.NewUnusedRegisterId(), constantLimbs[i], skip - i}
 			ncodes = append(ncodes, ncode)
 		}
 	}
-	//
+
 	return ncodes
 }
 

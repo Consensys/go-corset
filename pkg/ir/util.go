@@ -52,7 +52,7 @@ func isOne[T Term[T]](term T) bool {
 	return false
 }
 
-func lispOfTerms[T Term[T]](module schema.Module, op string, exprs []T) sexp.SExp {
+func lispOfTerms[E any, T Term[E]](module schema.Module, op string, exprs []T) sexp.SExp {
 	arr := make([]sexp.SExp, 1+len(exprs))
 	arr[0] = sexp.NewSymbol(op)
 	// Translate arguments
@@ -93,7 +93,7 @@ func substituteTerms[T Substitutable](mapping map[string]fr.Element, terms ...T)
 	}
 }
 
-func shiftRangeOfTerms[T Shiftable[T]](terms ...T) (int, int) {
+func shiftRangeOfTerms[E any, T Shiftable[E]](terms ...T) (int, int) {
 	minShift := math.MaxInt
 	maxShift := math.MinInt
 	//

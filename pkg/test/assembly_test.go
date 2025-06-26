@@ -12,7 +12,9 @@
 // SPDX-License-Identifier: Apache-2.0
 package test
 
-import "testing"
+import (
+	"testing"
+)
 
 // Recusion
 //
@@ -32,6 +34,22 @@ func Test_Asm_Max(t *testing.T) {
 	Check(t, false, "asm/max")
 }
 
+// func Test_Asm_Max256(t *testing.T) {
+// 	Check(t, false, "asm/max256")
+// }
+
+func Test_Asm_MixedSmall(t *testing.T) {
+	Check(t, false, "asm/mixed_small")
+}
+
+// func Test_Asm_MixedLarge(t *testing.T) {
+// 	Check(t, false, "asm/mixed_large")
+// }
+
+func Test_Asm_SlowPow(t *testing.T) {
+	Check(t, false, "asm/slow_pow")
+}
+
 // Recusion
 //
 // func Test_Asm_RecPow(t *testing.T) {
@@ -43,10 +61,6 @@ func Test_Asm_Max(t *testing.T) {
 // func Test_Asm_Shift(t *testing.T) {
 // 	Check(t, false, "asm/shift")
 // }
-
-func Test_Asm_SlowPow(t *testing.T) {
-	Check(t, false, "asm/slow_pow")
-}
 
 // Field Element Out-Of-Bounds
 //

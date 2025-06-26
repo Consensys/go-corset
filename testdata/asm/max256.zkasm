@@ -1,0 +1,11 @@
+fn max(arg1 u256, arg2 u256) -> (res u256) {
+   var b u1
+   var tmp u256
+   b,tmp = arg1 - arg2
+   if b!=0 goto exit1
+   res = arg1
+   return
+exit1:
+   res = arg2
+   return
+}

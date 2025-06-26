@@ -176,8 +176,35 @@ func (p *Function[T]) Registers() []Register {
 }
 
 // Subdivide implementation for the FieldAgnosticModule interface.
-func (p *Function[T]) Subdivide(bandwidth uint, maxRegisterWidth uint) *Function[T] {
-	return SplitRegisters(bandwidth, maxRegisterWidth, p)
+func (p *Function[T]) Subdivide(mapping schema.RegisterMappings) *Function[T] {
+	var (
+		registers []schema.Register
+		// Determine mapping information for this function.
+		modmap = NewSplittingEnvironment(mapping.ModuleOf(p.name))
+		// Updated instruction sequence
+		ninsns []T
+	)
+	// Append mapping registers
+	for i := range p.registers {
+		rid := schema.NewRegisterId(uint(i))
+		for _, limb := range modmap.LimbIds(rid) {
+			registers = append(registers, modmap.Limb(limb))
+		}
+	}
+	// Split instructions
+	for _, insn := range p.Code() {
+		var ith Instruction[T] = insn
+		//nolint
+		if i, ok := ith.(SplittableInstruction[T]); ok {
+			ninsns = append(ninsns, i.SplitRegisters(modmap))
+		} else {
+			panic("non-field agnostic instruction encountered")
+		}
+	}
+	// Done
+	nf := NewFunction(p.Id(), p.Name(), registers, ninsns)
+	//
+	return &nf
 }
 
 // Width identifiers the number of registers in this function.

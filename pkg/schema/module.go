@@ -55,6 +55,13 @@ type Module interface {
 	Width() uint
 }
 
+// FieldAgnosticModule captures the notion of a module which is agnostic to the
+// underlying field being used.
+type FieldAgnosticModule[M Module] interface {
+	Module
+	FieldAgnostic[M]
+}
+
 // ============================================================================
 //
 // ============================================================================
@@ -145,26 +152,27 @@ func (p *Table[C]) Registers() []Register {
 }
 
 // Subdivide implementation for the FieldAgnosticModule interface.
-func (p *Table[C]) Subdivide(bandwidth uint, maxRegisterWidth uint) *Table[C] {
+func (p *Table[C]) Subdivide(mapping RegisterMappings) *Table[C] {
 	var (
+		modmap      = mapping.ModuleOf(p.name)
 		registers   []Register
 		constraints []C
 		assignments []Assignment
 	)
-	// Check registers
-	for _, r := range p.registers {
-		if r.Width > maxRegisterWidth {
-			panic(fmt.Sprintf("maximum register width exceeded (%d > %d)", r.Width, maxRegisterWidth))
-		}
+	// Append mapping registers
+	for i := range p.registers {
+		rid := NewRegisterId(uint(i))
 		//
-		registers = append(registers, r)
+		for _, limb := range modmap.LimbIds(rid) {
+			registers = append(registers, modmap.Limb(limb))
+		}
 	}
 	// Subdivide assignments
 	for _, c := range p.assignments {
 		var a any = c
 		//nolint
 		if fc, ok := a.(FieldAgnostic[Assignment]); ok {
-			assignments = append(assignments, fc.Subdivide(bandwidth, maxRegisterWidth))
+			assignments = append(assignments, fc.Subdivide(mapping))
 		} else {
 			panic(fmt.Sprintf("non-field agnostic assignment (%s)", reflect.TypeOf(a).String()))
 		}
@@ -174,7 +182,7 @@ func (p *Table[C]) Subdivide(bandwidth uint, maxRegisterWidth uint) *Table[C] {
 		var a any = c
 		//nolint
 		if fc, ok := a.(FieldAgnostic[C]); ok {
-			constraints = append(constraints, fc.Subdivide(bandwidth, maxRegisterWidth))
+			constraints = append(constraints, fc.Subdivide(mapping))
 		} else {
 			panic(fmt.Sprintf("non-field agnostic constraint (%s)", reflect.TypeOf(a).String()))
 		}

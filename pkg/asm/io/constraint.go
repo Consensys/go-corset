@@ -57,7 +57,7 @@ func (p *ConstraintFailure) String() string {
 type Constraint[T Instruction[T]] Function[T]
 
 // Accepts implementation for schema.Constraint interface.
-func (p Constraint[T]) Accepts(trace tr.Trace) (bit.Set, sc.Failure) {
+func (p Constraint[T]) Accepts(trace tr.Trace, _ sc.AnySchema) (bit.Set, sc.Failure) {
 	// Extract relevant part of the trace
 	var (
 		coverage bit.Set
@@ -73,12 +73,14 @@ func (p Constraint[T]) Accepts(trace tr.Trace) (bit.Set, sc.Failure) {
 			// Reset to function start
 			state.Goto(0)
 		}
+		// Execute instruction
+		pc := p.code[state.Pc()].Execute(state)
 		// Sanity check state
 		if err := checkState(int(i), state, p.id, trModule); err != nil {
 			return coverage, err
 		}
 		// Execute instruction
-		state.Goto(p.code[state.Pc()].Execute(state))
+		state.Goto(pc)
 	}
 	// Sanity check frame is complete.
 	if !state.Terminated() {

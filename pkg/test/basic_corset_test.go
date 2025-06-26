@@ -63,6 +63,9 @@ func Test_Basic_10(t *testing.T) {
 func Test_Basic_11(t *testing.T) {
 	Check(t, false, "basic/basic_11")
 }
+func Test_Basic_12(t *testing.T) {
+	Check(t, false, "basic/basic_12")
+}
 
 // ===================================================================
 // Constants Tests
@@ -1174,6 +1177,21 @@ func Test_Native_10(t *testing.T) {
 
 func Test_Native_11(t *testing.T) {
 	Check(t, false, "basic/native_11")
+}
+
+// ===================================================================
+// Field Agnostisticy Tests
+// ===================================================================
+
+// Fails because need to split the constaint!  In fact, the split in this case
+// is quite easy because its an aligned equality.
+//
+//  func Test_Agnostic_01(t *testing.T) {
+//      Check(t, false, "basic/agnostic_01")
+//  }
+
+func Test_Agnostic_02(t *testing.T) {
+	Check(t, false, "basic/agnostic_02")
 }
 
 // ===================================================================

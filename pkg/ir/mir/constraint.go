@@ -81,8 +81,8 @@ func NewSortedConstraint(handle string, context schema.ModuleId, bitwidth uint, 
 // Accepts determines whether a given constraint accepts a given trace or
 // not.  If not, a failure is produced.  Otherwise, a bitset indicating
 // branch coverage is returned.
-func (p Constraint) Accepts(trace trace.Trace) (bit.Set, schema.Failure) {
-	return p.constraint.Accepts(trace)
+func (p Constraint) Accepts(trace trace.Trace, schema schema.AnySchema) (bit.Set, schema.Failure) {
+	return p.constraint.Accepts(trace, schema)
 }
 
 // Bounds determines the well-definedness bounds for this constraint in both the
@@ -125,25 +125,30 @@ func (p Constraint) Lisp(schema schema.AnySchema) sexp.SExp {
 }
 
 // Subdivide implementation for the FieldAgnosticModule interface.
-func (p Constraint) Subdivide(bandwidth uint, maxRegisterWidth uint) Constraint {
+func (p Constraint) Subdivide(mapping schema.RegisterMappings) Constraint {
+	var constraint schema.Constraint
+	//
 	switch c := p.constraint.(type) {
 	case Assertion:
-		return Constraint{c.Subdivide(bandwidth, maxRegisterWidth)}
+		constraint = subdivideAssertion(c, mapping)
 	case InterleavingConstraint:
-		return Constraint{c.Subdivide(bandwidth, maxRegisterWidth)}
+		constraint = subdivideInterleaving(c, mapping)
 	case LookupConstraint:
-		return Constraint{c.Subdivide(bandwidth, maxRegisterWidth)}
+		constraint = subdivideLookup(c, mapping)
 	case PermutationConstraint:
-		return Constraint{c.Subdivide(bandwidth, maxRegisterWidth)}
+		constraint = subdividePermutation(c, mapping)
 	case RangeConstraint:
-		return Constraint{c.Subdivide(bandwidth, maxRegisterWidth)}
+		constraint = subdivideRange(c, mapping)
 	case SortedConstraint:
-		return Constraint{c.Subdivide(bandwidth, maxRegisterWidth)}
+		constraint = subdivideSorted(c, mapping)
 	case VanishingConstraint:
-		return Constraint{c.Subdivide(bandwidth, maxRegisterWidth)}
+		modmap := mapping.Module(c.Context)
+		constraint = subdivideVanishing(c, modmap)
 	default:
 		panic("unreachable")
 	}
+	//
+	return Constraint{constraint}
 }
 
 // Substitute any matchined labelled constants within this constraint
