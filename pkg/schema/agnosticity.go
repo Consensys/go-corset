@@ -12,6 +12,10 @@
 // SPDX-License-Identifier: Apache-2.0
 package schema
 
+// Limb is just an alias for Register, but it helps to clarify when we are
+// referring to a register after subdivision.
+type Limb = Register
+
 // LimbId is just an alias for RegisterId, but it helps to clarify when we are
 // referring to a register after subdivision.
 type LimbId = RegisterId
@@ -75,9 +79,9 @@ type RegisterMappings interface {
 // RegisterMapping provides a high-level mapping of all registers before and
 // after subdivision occurs in a given module.
 type RegisterMapping interface {
-	// Limbs returns the limbs into which a given register is divided.
-	Limbs(RegisterId) []LimbId
+	// Limbs identifies the limbs into which a given register is divided.
+	LimbIds(RegisterId) []LimbId
 	// Limbs returns information about a given limb (i.e. a register which
 	// exists after the split).
-	Limb(LimbId) Register
+	Limb(LimbId) Limb
 }

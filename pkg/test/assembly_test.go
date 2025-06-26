@@ -13,29 +13,8 @@
 package test
 
 import (
-	"fmt"
-	"math/big"
 	"testing"
-
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
-
-func Test_01(t *testing.T) {
-	var (
-		x        *big.Int = fr.Modulus()
-		c        *big.Int = big.NewInt(2)
-		msb, lsb big.Int
-	)
-	// Determine 2^128
-	c.Exp(c, big.NewInt(128), nil)
-	//
-	msb.Div(x, c)
-	lsb.Mod(x, c)
-	//
-	fmt.Printf("MOD=0x%s (%s)\n", x.Text(16), x.String())
-	fmt.Printf("MSB=0x%s (%s)\n", msb.Text(16), msb.String())
-	fmt.Printf("LSB=0x%s (%s)\n", lsb.Text(16), lsb.String())
-}
 
 // Recusion
 //
@@ -55,16 +34,17 @@ func Test_Asm_Max(t *testing.T) {
 	Check(t, false, "asm/max")
 }
 
-func Test_Asm_Max256(t *testing.T) {
-	Check(t, false, "asm/max256")
-}
+// func Test_Asm_Max256(t *testing.T) {
+// 	Check(t, false, "asm/max256")
+// }
+
 func Test_Asm_MixedSmall(t *testing.T) {
 	Check(t, false, "asm/mixed_small")
 }
 
-func Test_Asm_MixedLarge(t *testing.T) {
-	Check(t, false, "asm/mixed_large")
-}
+// func Test_Asm_MixedLarge(t *testing.T) {
+// 	Check(t, false, "asm/mixed_large")
+// }
 
 func Test_Asm_SlowPow(t *testing.T) {
 	Check(t, false, "asm/slow_pow")

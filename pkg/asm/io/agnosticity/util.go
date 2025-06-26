@@ -63,7 +63,7 @@ func SplitRegister(maxWidth uint, r Register) []Register {
 		width  = r.Width
 	)
 	//
-	maxWidth = DetermineLimbWidth(nlimbs, width, maxWidth)
+	maxWidth = determineLimbWidth(nlimbs, width)
 	//
 	for i := uint(0); i < nlimbs; i++ {
 		ith_name := fmt.Sprintf("%s'%d", r.Name, i)
@@ -124,7 +124,7 @@ func SplitConstant(nLimbs uint, maxWidth uint, constant big.Int) []big.Int {
 	return limbs
 }
 
-func DetermineLimbWidth(nlimbs uint, width uint, maxWidth uint) uint {
+func determineLimbWidth(nlimbs uint, width uint) uint {
 	return bound(width / nlimbs)
 }
 

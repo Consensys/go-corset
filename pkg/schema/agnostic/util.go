@@ -12,75 +12,44 @@
 // SPDX-License-Identifier: Apache-2.0
 package agnostic
 
-import (
-	"fmt"
+import sc "github.com/consensys/go-corset/pkg/schema"
 
-	sc "github.com/consensys/go-corset/pkg/schema"
-)
-
-// NumberOfLimbs determines the number of register limbs required for a given
-// bitwidth. For example, a 64bit register splits into two limbs for a maximum
-// register width of 32bits. Observe that an e.g. 60bit register also splits
-// into two limbs here as well, where the most significant limb is 28bits wide
-// and the least significant is 32bits width.
-func NumberOfLimbs(maxRegisterWidth uint, registerWidth uint) uint {
-	n := registerWidth / maxRegisterWidth
-	m := registerWidth % maxRegisterWidth
-	// Check for uneven split
-	if m != 0 {
-		return n + 1
-	}
+// ApplyMapping applies a given mapping to a set of registers producing a
+// corresponding set of limbs.  In essence, each register is convert to its
+// limbs in turn, and these are all appended together in order of ococurence.
+func ApplyMapping(mapping sc.RegisterMapping, rids []sc.RegisterId) []sc.LimbId {
+	var limbs []sc.LimbId
 	//
-	return n
-}
-
-// DetermineLimbWidth returns the "common" limb width when splitting a given
-// register for a given maximum width.  Assume a given register splits into n
-// limbs.  Assuming n > 1, then n-1 of these will have the same "common" width.
-// The remaining limb is referred to as the residue, and may have a different
-// width (usually smaller, but this is not a requirement).
-func DetermineLimbWidth(maxRegisterWidth uint, registerWidth uint) uint {
-	var (
-		// Determine how many limbs required
-		n = NumberOfLimbs(maxRegisterWidth, registerWidth)
-		// Determine average limb width
-		width = registerWidth / n
-		//
-		acc = uint(1)
-	)
-	// Now, round up our average limb width to the nearest power of two.  This
-	// is because we "prefer" widths to be powers of two.
-	for ; acc < width; acc = acc * 2 {
-	}
-	//
-	return acc
-}
-
-// SplitIntoLimbs splits a register into a number of limbs with the given maximum
-// bitwidth.  For the resulting array, the least significant register is first.
-// Since registers are always split to the maximum width as much as possible, it
-// is only the most significant register which may (in some cases) have fewer
-// bits than the maximum allowed.
-func SplitIntoLimbs(maxWidth uint, r sc.Register) []sc.Register {
-	var (
-		nlimbs = NumberOfLimbs(maxWidth, r.Width)
-		limbs  = make([]sc.Register, nlimbs)
-		width  = r.Width
-	)
-	// Special case when register doesn't require splitting.  This is useful
-	// because we want to retain the original register name exactly.
-	if nlimbs == 1 {
-		return []sc.Register{r}
-	}
-	//
-	maxWidth = DetermineLimbWidth(maxWidth, width)
-	//
-	for i := uint(0); i < nlimbs; i++ {
-		ith_name := fmt.Sprintf("%s'%d", r.Name, i)
-		ith_width := min(maxWidth, width)
-		limbs[i] = sc.Register{Name: ith_name, Kind: r.Kind, Width: ith_width}
-		width -= maxWidth
+	for _, rid := range rids {
+		limbs = append(limbs, mapping.LimbIds(rid)...)
 	}
 	//
 	return limbs
+}
+
+// LimbsOf returns those limbs corresponding to a given set of identifiers.
+func LimbsOf(mapping sc.RegisterMapping, lids []sc.LimbId) []sc.Limb {
+	var (
+		limbs []sc.Limb = make([]sc.Limb, len(lids))
+	)
+	//
+	for i, lid := range lids {
+		limbs[i] = mapping.Limb(lid)
+	}
+	//
+	return limbs
+}
+
+// LimbWidths returns the limb widths corresponding to a given set of
+// identifiers.
+func LimbWidths(mapping sc.RegisterMapping, lids []sc.LimbId) []uint {
+	var (
+		widths []uint = make([]uint, len(lids))
+	)
+	//
+	for i, lid := range lids {
+		widths[i] = mapping.Limb(lid).Width
+	}
+	//
+	return widths
 }

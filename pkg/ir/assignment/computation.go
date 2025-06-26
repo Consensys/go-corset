@@ -19,6 +19,7 @@ import (
 	"slices"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -102,7 +103,7 @@ func (p *Computation) RegistersWritten() []sc.RegisterRef {
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func (p *Computation) Subdivide(bandwidth uint, maxRegisterWidth uint) sc.Assignment {
+func (p *Computation) Subdivide(mapping schema.RegisterMappings) sc.Assignment {
 	return p
 }
 

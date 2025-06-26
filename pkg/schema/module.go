@@ -163,7 +163,7 @@ func (p *Table[C]) Subdivide(mapping RegisterMappings) *Table[C] {
 	for i := range p.registers {
 		rid := NewRegisterId(uint(i))
 		//
-		for _, limb := range modmap.Limbs(rid) {
+		for _, limb := range modmap.LimbIds(rid) {
 			registers = append(registers, modmap.Limb(limb))
 		}
 	}

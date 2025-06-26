@@ -93,6 +93,8 @@ func splitLogicalTerm(term LogicalTerm, mapping schema.RegisterMapping) LogicalT
 		falseBranch := splitOptionalLogicalTerm(t.FalseBranch, mapping)
 		//
 		return ir.IfThenElse(condition, trueBranch, falseBranch)
+	case *Negate:
+		return ir.Negation(splitLogicalTerm(t.Arg, mapping))
 	case *NotEqual:
 		return ir.NotEquals[LogicalTerm](splitTerm(t.Lhs, mapping), splitTerm(t.Rhs, mapping))
 	case *Inequality:
@@ -170,7 +172,7 @@ func splitTerms(terms []Term, mapping schema.RegisterMapping) []Term {
 func splitRegisterAccess(term *RegisterAccess, mapping schema.RegisterMapping) Term {
 	var (
 		// Determine limbs for this register
-		limbs = mapping.Limbs(term.Register)
+		limbs = mapping.LimbIds(term.Register)
 		// Construct appropriate terms
 		terms = make([]*RegisterAccess, len(limbs))
 	)
@@ -191,7 +193,7 @@ func splitVectorAccess(term *VectorAccess, mapping schema.RegisterMapping) Term 
 	var terms []*RegisterAccess
 	//
 	for _, v := range term.Vars {
-		for _, limb := range mapping.Limbs(v.Register) {
+		for _, limb := range mapping.LimbIds(v.Register) {
 			term := &ir.RegisterAccess[Term]{Register: limb, Shift: v.Shift}
 			terms = append(terms, term)
 		}

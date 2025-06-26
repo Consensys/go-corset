@@ -187,7 +187,7 @@ func (p *Function[T]) Subdivide(mapping schema.RegisterMappings) *Function[T] {
 	// Append mapping registers
 	for i := range p.registers {
 		rid := schema.NewRegisterId(uint(i))
-		for _, limb := range modmap.Limbs(rid) {
+		for _, limb := range modmap.LimbIds(rid) {
 			registers = append(registers, modmap.Limb(limb))
 		}
 	}

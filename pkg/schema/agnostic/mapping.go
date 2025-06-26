@@ -148,11 +148,11 @@ func newRegisterMapping(maxRegWidth uint, module sc.Module) registerMapping {
 }
 
 // Limbs implementation for the schema.RegisterMapping interface
-func (p registerMapping) Limbs(reg sc.RegisterId) []sc.LimbId {
+func (p registerMapping) LimbIds(reg sc.RegisterId) []sc.LimbId {
 	return p.mapping[reg.Unwrap()]
 }
 
 // Limb implementation for the schema.RegisterMapping interface
-func (p registerMapping) Limb(reg sc.LimbId) sc.Register {
+func (p registerMapping) Limb(reg sc.LimbId) sc.Limb {
 	return p.limbs[reg.Unwrap()]
 }
