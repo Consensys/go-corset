@@ -26,7 +26,7 @@ type Constraint interface {
 	// Accepts determines whether a given constraint accepts a given trace or
 	// not.  If not, a failure is produced.  Otherwise, a bitset indicating
 	// branch coverage is returned.
-	Accepts(trace.Trace) (bit.Set, Failure)
+	Accepts(trace.Trace, AnySchema) (bit.Set, Failure)
 	// Determine the well-definedness bounds for this constraint in both the
 	// negative (left) or positive (right) directions.  For example, consider an
 	// expression such as "(shift X -1)".  This is technically undefined for the

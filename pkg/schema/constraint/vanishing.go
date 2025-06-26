@@ -121,17 +121,18 @@ func (p VanishingConstraint[T]) Bounds(module uint) util.Bounds {
 // of a table.  If so, return nil otherwise return an error.
 //
 //nolint:revive
-func (p VanishingConstraint[T]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
+func (p VanishingConstraint[T]) Accepts(tr trace.Trace, sc schema.AnySchema) (bit.Set, schema.Failure) {
 	var (
 		// Handle is used for error reporting.
 		handle = determineHandle(p.Handle, p.Context, tr)
 		// Determine enclosing module
-		module = tr.Module(p.Context)
+		trModule = tr.Module(p.Context)
+		scModule = sc.Module(p.Context)
 	)
 	//
 	if p.Domain.IsEmpty() {
 		// Global Constraint
-		return HoldsGlobally(handle, p.Context, p.Constraint, module)
+		return HoldsGlobally(handle, p.Context, p.Constraint, trModule, scModule)
 	}
 	// Extract domain
 	domain := p.Domain.Unwrap()
@@ -149,7 +150,7 @@ func (p VanishingConstraint[T]) Accepts(tr trace.Trace) (bit.Set, schema.Failure
 	//
 	var coverage bit.Set
 	// Check specific row
-	err, id := HoldsLocally(start, handle, p.Constraint, p.Context, module)
+	err, id := HoldsLocally(start, handle, p.Constraint, p.Context, trModule, scModule)
 	//
 	coverage.Insert(id)
 	//
@@ -159,12 +160,12 @@ func (p VanishingConstraint[T]) Accepts(tr trace.Trace) (bit.Set, schema.Failure
 // HoldsGlobally checks whether a given expression vanishes (i.e. evaluates to
 // zero) for all rows of a trace.  If not, report an appropriate error.
 func HoldsGlobally[T ir.Testable](handle string, ctx schema.ModuleId, constraint T,
-	module trace.Module) (bit.Set, schema.Failure) {
+	trMod trace.Module, scMod schema.Module) (bit.Set, schema.Failure) {
 	//
 	var (
 		coverage bit.Set
 		// Determine height of enclosing module
-		height = module.Height()
+		height = trMod.Height()
 		// Determine well-definedness bounds for this constraint
 		bounds = constraint.Bounds()
 	)
@@ -172,7 +173,7 @@ func HoldsGlobally[T ir.Testable](handle string, ctx schema.ModuleId, constraint
 	if bounds.End < height {
 		// Check all in-bounds values
 		for k := bounds.Start; k < (height - bounds.End); k++ {
-			err, id := HoldsLocally(k, handle, constraint, ctx, module)
+			err, id := HoldsLocally(k, handle, constraint, ctx, trMod, scMod)
 			if err != nil {
 				return coverage, err
 			}
@@ -187,9 +188,9 @@ func HoldsGlobally[T ir.Testable](handle string, ctx schema.ModuleId, constraint
 // HoldsLocally checks whether a given constraint holds (e.g. vanishes) on a
 // specific row of a trace. If not, report an appropriate error.
 func HoldsLocally[T ir.Testable](k uint, handle string, constraint T, ctx schema.ModuleId,
-	tr trace.Module) (schema.Failure, uint) {
+	trMod trace.Module, scMod schema.Module) (schema.Failure, uint) {
 	//
-	ok, id, err := constraint.TestAt(int(k), tr)
+	ok, id, err := constraint.TestAt(int(k), trMod, scMod)
 	// Check for errors
 	if err != nil {
 		return &InternalFailure{handle, ctx, k, constraint, err.Error()}, id

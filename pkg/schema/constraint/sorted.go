@@ -111,13 +111,14 @@ func (p SortedConstraint[E]) Bounds(module uint) util.Bounds {
 
 // Accepts checks whether a Sorted holds between the source and
 // target columns.
-func (p SortedConstraint[E]) Accepts(trace trace.Trace) (bit.Set, schema.Failure) {
+func (p SortedConstraint[E]) Accepts(tr trace.Trace, sc schema.AnySchema) (bit.Set, schema.Failure) {
 	var (
 		coverage bit.Set
 		// Determine enclosing module
-		module = trace.Module(p.Context)
+		trModule = tr.Module(p.Context)
+		scModule = sc.Module(p.Context)
 		//
-		height = trace.Module(p.Context).Height()
+		height = trModule.Height()
 		// Determine well-definedness bounds for this constraint
 		bounds = p.Bounds(p.Context)
 	)
@@ -135,7 +136,7 @@ func (p SortedConstraint[E]) Accepts(trace trace.Trace) (bit.Set, schema.Failure
 			if p.Selector.HasValue() {
 				selector := p.Selector.Unwrap()
 				// Evaluate selector expression
-				val, err := selector.EvalAt(int(k), module)
+				val, err := selector.EvalAt(int(k), trModule, scModule)
 				// Check whether active (or not)
 				if err != nil {
 					return coverage, &InternalFailure{p.Handle, p.Context, k, selector, err.Error()}
@@ -144,7 +145,7 @@ func (p SortedConstraint[E]) Accepts(trace trace.Trace) (bit.Set, schema.Failure
 				}
 			}
 			// Check sorting between rows k-1 and k
-			if ok, err := sorted(k-1, k, deltaBound, p.Sources, p.Signs, p.Strict, module, lhs, rhs); err != nil {
+			if ok, err := sorted(k-1, k, deltaBound, p.Sources, p.Signs, p.Strict, trModule, scModule, lhs, rhs); err != nil {
 				return coverage, &InternalFailure{Handle: p.Handle, Context: p.Context, Row: k, Error: err.Error()}
 			} else if !ok {
 				return coverage, &SortedFailure{fmt.Sprintf("sorted constraint \"%s\" failed (rows %d ~ %d)", p.Handle, k-1, k)}
@@ -221,18 +222,18 @@ func (p SortedConstraint[E]) deltaBound() fr.Element {
 }
 
 func sorted[E ir.Evaluable](first, second uint, bound fr.Element, sources []E, signs []bool, strict bool,
-	module trace.Module, lhs []fr.Element, rhs []fr.Element) (bool, error) {
+	trMod trace.Module, scMod schema.Module, lhs []fr.Element, rhs []fr.Element) (bool, error) {
 	//
 	var (
 		delta fr.Element
 		err   error
 	)
 	// Evaluate lhs
-	if err = evalExprsAt(first, sources, module, lhs); err != nil {
+	if err = evalExprsAt(first, sources, trMod, scMod, lhs); err != nil {
 		return false, err
 	}
 	// Evaluate rhs
-	if err = evalExprsAt(second, sources, module, rhs); err != nil {
+	if err = evalExprsAt(second, sources, trMod, scMod, rhs); err != nil {
 		return false, err
 	}
 	//
@@ -257,11 +258,13 @@ func sorted[E ir.Evaluable](first, second uint, bound fr.Element, sources []E, s
 	return !strict, nil
 }
 
-func evalExprsAt[E ir.Evaluable](k uint, sources []E, module trace.Module, buffer []fr.Element) error {
+func evalExprsAt[E ir.Evaluable](k uint, sources []E, trMod trace.Module, scMod schema.Module,
+	buffer []fr.Element) error {
+	//
 	var err error
 	// Evaluate each expression in turn
 	for i := 0; err == nil && i < len(sources); i++ {
-		buffer[i], err = sources[i].EvalAt(int(k), module)
+		buffer[i], err = sources[i].EvalAt(int(k), trMod, scMod)
 	}
 	//
 	return err

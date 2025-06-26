@@ -57,7 +57,7 @@ func (p *ConstraintFailure) String() string {
 type Constraint[T Instruction[T]] Function[T]
 
 // Accepts implementation for schema.Constraint interface.
-func (p Constraint[T]) Accepts(trace tr.Trace) (bit.Set, sc.Failure) {
+func (p Constraint[T]) Accepts(trace tr.Trace, _ sc.AnySchema) (bit.Set, sc.Failure) {
 	// Extract relevant part of the trace
 	var (
 		coverage bit.Set

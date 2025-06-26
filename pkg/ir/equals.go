@@ -62,9 +62,9 @@ func (p *Equal[S, T]) Bounds() util.Bounds {
 }
 
 // TestAt implementation for Testable interface.
-func (p *Equal[S, T]) TestAt(k int, tr trace.Module) (bool, uint, error) {
-	lhs, err1 := p.Lhs.EvalAt(k, tr)
-	rhs, err2 := p.Rhs.EvalAt(k, tr)
+func (p *Equal[S, T]) TestAt(k int, tr trace.Module, sc schema.Module) (bool, uint, error) {
+	lhs, err1 := p.Lhs.EvalAt(k, tr, sc)
+	rhs, err2 := p.Rhs.EvalAt(k, tr, sc)
 	// error check
 	if err1 != nil {
 		return false, 0, err1

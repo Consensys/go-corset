@@ -112,17 +112,18 @@ func (p Assertion[T]) Bounds(module uint) util.Bounds {
 // of a table. If so, return nil otherwise return an error.
 //
 //nolint:revive
-func (p Assertion[T]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
+func (p Assertion[T]) Accepts(tr trace.Trace, sc schema.AnySchema) (bit.Set, schema.Failure) {
 	var (
 		coverage bit.Set
-		module   trace.Module = tr.Module(p.Context)
+		trModule trace.Module  = tr.Module(p.Context)
+		scModule schema.Module = sc.Module(p.Context)
 		// Determine height of enclosing module
 		height = tr.Module(p.Context).Height()
 	)
 	// Iterate every row in the module
 	for k := uint(0); k < height; k++ {
 		// Check whether property holds (or was undefined)
-		if ok, id, err := p.Property.TestAt(int(k), module); err != nil {
+		if ok, id, err := p.Property.TestAt(int(k), trModule, scModule); err != nil {
 			// Evaluation failure
 			return coverage, &InternalFailure{Handle: p.Handle, Context: p.Context, Row: k, Error: err.Error()}
 		} else if !ok {

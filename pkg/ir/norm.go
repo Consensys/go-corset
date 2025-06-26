@@ -46,9 +46,9 @@ func (p *Norm[T]) Bounds() util.Bounds {
 }
 
 // EvalAt implementation for Evaluable interface.
-func (p *Norm[T]) EvalAt(k int, tr trace.Module) (fr.Element, error) {
+func (p *Norm[T]) EvalAt(k int, tr trace.Module, sc schema.Module) (fr.Element, error) {
 	// Check whether argument evaluates to zero or not.
-	val, err := p.Arg.EvalAt(k, tr)
+	val, err := p.Arg.EvalAt(k, tr, sc)
 	// Normalise value (if necessary)
 	if !val.IsZero() {
 		val.SetOne()

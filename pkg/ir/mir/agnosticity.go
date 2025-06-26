@@ -13,7 +13,6 @@
 package mir
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
@@ -32,9 +31,24 @@ func subdivideInterleaving(c InterleavingConstraint, _ schema.RegisterMappings) 
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideLookup(c LookupConstraint, _ schema.RegisterMappings) LookupConstraint {
-	// TODO: implement this
-	return c
+func subdivideLookup(c LookupConstraint, mappings schema.RegisterMappings) LookupConstraint {
+	var (
+		srcmap  = mappings.Module(c.SourceContext)
+		tgtmap  = mappings.Module(c.TargetContext)
+		sources = splitTerms(c.Sources, srcmap)
+		targets = splitTerms(c.Targets, tgtmap)
+	)
+	// FIXME: this is not really safe in the general case.  For example, this
+	// could result in a mismatched number of columns.  Furthermore, its
+	// possible these columns are incorrectly aligned, etc.
+	sources = flattenVectors(sources)
+	targets = flattenVectors(targets)
+	// Sanity check for now
+	if len(sources) != len(targets) {
+		panic("misaligned lookup")
+	}
+	//
+	return constraint.NewLookupConstraint(c.Handle, c.TargetContext, targets, c.SourceContext, sources)
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
@@ -136,6 +150,8 @@ func splitTerm(term Term, mapping schema.RegisterMapping) Term {
 		return ir.Normalise(splitTerm(t.Arg, mapping))
 	case *Sub:
 		return ir.Subtract(splitTerms(t.Args, mapping)...)
+	case *VectorAccess:
+		return splitVectorAccess(t, mapping)
 	default:
 		panic("unreachable")
 	}
@@ -156,9 +172,7 @@ func splitRegisterAccess(term *RegisterAccess, mapping schema.RegisterMapping) T
 		// Determine limbs for this register
 		limbs = mapping.Limbs(term.Register)
 		// Construct appropriate terms
-		terms = make([]Term, len(limbs))
-		//
-		width = uint(0)
+		terms = make([]*RegisterAccess, len(limbs))
 	)
 	// Check whether anything to do?
 	if len(limbs) == 1 {
@@ -167,20 +181,37 @@ func splitRegisterAccess(term *RegisterAccess, mapping schema.RegisterMapping) T
 	}
 	//
 	for i, limb := range limbs {
-		ith := mapping.Limb(limb)
-		terms[i] = ir.NewRegisterAccess[Term](limb, term.Shift)
-		// Apply bitshift as needed
-		if width != 0 {
-			terms[i] = ir.Product(pow2(width), terms[i])
-		}
-		//
-		width = width + ith.Width
+		terms[i] = &ir.RegisterAccess[Term]{Register: limb, Shift: term.Shift}
 	}
 	//
-	return ir.Sum(terms...)
+	return ir.NewVectorAccess(terms)
 }
 
-func pow2(width uint) Term {
-	elem := fr.NewElement(2)
-	return ir.Exponent(ir.Const[Term](elem), uint64(width))
+func splitVectorAccess(term *VectorAccess, mapping schema.RegisterMapping) Term {
+	var terms []*RegisterAccess
+	//
+	for _, v := range term.Vars {
+		for _, limb := range mapping.Limbs(v.Register) {
+			term := &ir.RegisterAccess[Term]{Register: limb, Shift: v.Shift}
+			terms = append(terms, term)
+		}
+	}
+	//
+	return ir.NewVectorAccess(terms)
+}
+
+func flattenVectors(terms []Term) []Term {
+	var nterms []Term
+	//
+	for _, t := range terms {
+		if va, ok := t.(*VectorAccess); ok {
+			for _, v := range va.Vars {
+				nterms = append(nterms, v)
+			}
+		} else {
+			nterms = append(nterms, t)
+		}
+	}
+	//
+	return nterms
 }

@@ -170,11 +170,13 @@ func (p LookupConstraint[E]) Bounds(module uint) util.Bounds {
 // all rows of the source columns.
 //
 //nolint:revive
-func (p LookupConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
+func (p LookupConstraint[E]) Accepts(tr trace.Trace, sc schema.AnySchema) (bit.Set, schema.Failure) {
 	var (
-		coverage  bit.Set
-		srcModule = tr.Module(p.SourceContext)
-		tgtModule = tr.Module(p.TargetContext)
+		coverage bit.Set
+		srcTrMod = tr.Module(p.SourceContext)
+		tgtTrMod = tr.Module(p.TargetContext)
+		srcScMod = sc.Module(p.SourceContext)
+		tgtScMod = sc.Module(p.TargetContext)
 		// Determine height of enclosing module for source columns
 		srcHeight = tr.Module(p.SourceContext).Height()
 		tgtHeight = tr.Module(p.TargetContext).Height()
@@ -185,7 +187,7 @@ func (p LookupConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
 	)
 	// Add all target columns to the set
 	for i := range tgtHeight {
-		ith_bytes, err := evalExprsAsBytes(int(i), p.Targets, p.Handle, p.TargetContext, tgtModule, buffer[:])
+		ith_bytes, err := evalExprsAsBytes(int(i), p.Targets, p.Handle, p.TargetContext, tgtTrMod, tgtScMod, buffer[:])
 		// error check
 		if err != nil {
 			return coverage, err
@@ -198,7 +200,7 @@ func (p LookupConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
 	}
 	// Check all source columns are contained
 	for i := range srcHeight {
-		ith_bytes, err := evalExprsAsBytes(int(i), p.Sources, p.Handle, p.SourceContext, srcModule, buffer[:])
+		ith_bytes, err := evalExprsAsBytes(int(i), p.Sources, p.Handle, p.SourceContext, srcTrMod, srcScMod, buffer[:])
 		// error check
 		if err != nil {
 			return coverage, err
@@ -221,12 +223,12 @@ func (p LookupConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
 }
 
 func evalExprsAsBytes[E ir.Evaluable](k int, sources []E, handle string, ctx schema.ModuleId,
-	module trace.Module, bytes []byte) ([]byte, schema.Failure) {
+	trModule trace.Module, scModule schema.Module, bytes []byte) ([]byte, schema.Failure) {
 	// Slice provides an access window for writing
 	slice := bytes
 	// Evaluate each expression in turn
 	for i := 0; i < len(sources); i++ {
-		ith, err := sources[i].EvalAt(k, module)
+		ith, err := sources[i].EvalAt(k, trModule, scModule)
 		// error check
 		if err != nil {
 			return nil, &InternalFailure{

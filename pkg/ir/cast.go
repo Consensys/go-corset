@@ -55,9 +55,9 @@ func (p *Cast[T]) Bounds() util.Bounds {
 }
 
 // EvalAt implementation for Evaluable interface.
-func (p *Cast[T]) EvalAt(k int, tr trace.Module) (fr.Element, error) {
+func (p *Cast[T]) EvalAt(k int, tr trace.Module, sc schema.Module) (fr.Element, error) {
 	// Check whether argument evaluates to zero or not.
-	val, err := p.Arg.EvalAt(k, tr)
+	val, err := p.Arg.EvalAt(k, tr, sc)
 	// Dynamic cast check
 	if err == nil && val.Cmp(&p.Bound) >= 0 {
 		// Construct error

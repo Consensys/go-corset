@@ -84,6 +84,8 @@ func eliminateNormalisationInTerm(term Term, module schema.Module,
 	case *Sub:
 		args := eliminateNormalisationInTerms(term.Args, module, cfg)
 		return &Sub{Args: args}
+	case *VectorAccess:
+		return term
 	default:
 		name := reflect.TypeOf(term).Name()
 		panic(fmt.Sprintf("unknown MIR expression \"%s\"", name))

@@ -16,11 +16,13 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/air"
 	air_gadgets "github.com/consensys/go-corset/pkg/ir/air/gadgets"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/math"
 )
 
@@ -496,6 +498,8 @@ func (p *AirLowering) lowerTermTo(e Term, airModule *air.ModuleBuilder) air.Term
 	case *Sub:
 		args := p.lowerTerms(e.Args, airModule)
 		return ir.Subtract(args...)
+	case *VectorAccess:
+		return p.lowerVectorAccess(e, airModule)
 	default:
 		name := reflect.TypeOf(e).Name()
 		panic(fmt.Sprintf("unknown MIR expression \"%s\"", name))
@@ -548,6 +552,34 @@ func (p *AirLowering) lowerNormTo(e *Norm, airModule *air.ModuleBuilder) air.Ter
 	arg := p.lowerTermTo(e.Arg, airModule)
 	//
 	return p.normalise(arg, airModule)
+}
+
+func (p *AirLowering) lowerVectorAccess(e *VectorAccess, airModule *air.ModuleBuilder) air.Term {
+	var (
+		terms []air.Term = make([]air.Term, len(e.Vars))
+		shift            = uint(0)
+	)
+	//
+	for i, v := range e.Vars {
+		ith := ir.NewRegisterAccess[air.Term](v.Register, v.Shift)
+		// Apply shift
+		terms[i] = ir.Product(shiftTerm(ith, shift))
+		//
+		shift = shift + airModule.Register(v.Register).Width
+	}
+	//
+	return ir.Sum(terms...)
+}
+
+func shiftTerm(term air.Term, width uint) air.Term {
+	if width == 0 {
+		return term
+	}
+	//
+	elem := fr.NewElement(2)
+	field.Pow(&elem, uint64(width))
+	//
+	return ir.Product(ir.Const[air.Term](elem), term)
 }
 
 // Extract condition whilst ensuring it always evaluates to either 0 or 1.  This

@@ -81,8 +81,8 @@ func NewSortedConstraint(handle string, context schema.ModuleId, bitwidth uint, 
 // Accepts determines whether a given constraint accepts a given trace or
 // not.  If not, a failure is produced.  Otherwise, a bitset indicating
 // branch coverage is returned.
-func (p Constraint) Accepts(trace trace.Trace) (bit.Set, schema.Failure) {
-	return p.constraint.Accepts(trace)
+func (p Constraint) Accepts(trace trace.Trace, schema schema.AnySchema) (bit.Set, schema.Failure) {
+	return p.constraint.Accepts(trace, schema)
 }
 
 // Bounds determines the well-definedness bounds for this constraint in both the

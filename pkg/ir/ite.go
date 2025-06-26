@@ -91,16 +91,16 @@ func (p *Ite[T]) Bounds() util.Bounds {
 }
 
 // TestAt implementation for Testable interface.
-func (p *Ite[T]) TestAt(k int, tr trace.Module) (bool, uint, error) {
+func (p *Ite[T]) TestAt(k int, tr trace.Module, sc schema.Module) (bool, uint, error) {
 	// Evaluate condition
-	cond, branch, err := p.Condition.TestAt(k, tr)
+	cond, branch, err := p.Condition.TestAt(k, tr, sc)
 	//
 	if err != nil {
 		return cond, branch, err
 	} else if cond && p.TrueBranch != nil {
-		return p.TrueBranch.TestAt(k, tr)
+		return p.TrueBranch.TestAt(k, tr, sc)
 	} else if !cond && p.FalseBranch != nil {
-		return p.FalseBranch.TestAt(k, tr)
+		return p.FalseBranch.TestAt(k, tr, sc)
 	}
 	//
 	return true, 0, nil

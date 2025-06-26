@@ -55,8 +55,8 @@ func (p *Negate[T]) Bounds() util.Bounds {
 }
 
 // TestAt implementation for Testable interface.
-func (p *Negate[T]) TestAt(k int, tr trace.Module) (bool, uint, error) {
-	val, branch, err := p.Arg.TestAt(k, tr)
+func (p *Negate[T]) TestAt(k int, tr trace.Module, sc schema.Module) (bool, uint, error) {
+	val, branch, err := p.Arg.TestAt(k, tr, sc)
 	//
 	return !val, branch, err
 }

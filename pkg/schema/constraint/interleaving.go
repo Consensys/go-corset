@@ -116,11 +116,13 @@ func (p InterleavingConstraint[E]) Bounds(module uint) util.Bounds {
 
 // Accepts checks whether a Interleave holds between the source and
 // target columns.
-func (p InterleavingConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
+func (p InterleavingConstraint[E]) Accepts(tr trace.Trace, sc schema.AnySchema) (bit.Set, schema.Failure) {
 	var (
-		coverage  bit.Set
-		srcModule = tr.Module(p.SourceContext)
-		tgtModule = tr.Module(p.TargetContext)
+		coverage bit.Set
+		srcTrMod = tr.Module(p.SourceContext)
+		tgtTrMod = tr.Module(p.TargetContext)
+		srcScMod = sc.Module(p.SourceContext)
+		tgtScMod = sc.Module(p.TargetContext)
 		// Determine height of enclosing module for source columns
 		tgtHeight = tr.Module(p.TargetContext).Height()
 		//
@@ -129,9 +131,9 @@ func (p InterleavingConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Fail
 	//
 	for row := range int(tgtHeight) {
 		// Evaluate target on target row
-		t, t_err := p.Target.EvalAt(row, tgtModule)
+		t, t_err := p.Target.EvalAt(row, tgtTrMod, tgtScMod)
 		// Evaluate next source on kth row
-		s, s_err := p.Sources[row%n].EvalAt(row/n, srcModule)
+		s, s_err := p.Sources[row%n].EvalAt(row/n, srcTrMod, srcScMod)
 		// Checks
 		if t_err != nil {
 			return coverage, &InternalFailure{

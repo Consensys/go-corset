@@ -748,30 +748,25 @@ func (t *translator) translateVariableAccess(expr *ast.VariableAccess, shift int
 
 func (t *translator) translateVectorAccess(expr *ast.VectorAccess, shift int) (mir.Term, []SyntaxError) {
 	var (
-		terms  []mir.Term
+		limbs  []*mir.RegisterAccess = make([]*mir.RegisterAccess, len(expr.Vars))
 		errors []SyntaxError
-		width  uint
 	)
-	// Determine complete width
-	for _, v := range expr.Vars {
-		width += v.Type().(*ast.IntType).BitWidth()
-	}
 	//
-	for _, v := range expr.Vars {
-		ith, errs := t.translateVariableAccess(v, shift)
+	for i, v := range expr.Vars {
+		var (
+			ith, errs = t.translateVariableAccess(v, shift)
+		)
+		// Sanity check it was a real register access
+		if ra, ok := ith.(*mir.RegisterAccess); ok {
+			limbs[i] = ra
+		} else if len(errs) == 0 {
+			errors = append(errors, *t.srcmap.SyntaxError(v, "invalid register access"))
+		}
 		//
 		errors = append(errors, errs...)
-		//
-		width -= v.Type().(*ast.IntType).BitWidth()
-		//
-		if width == 0 {
-			terms = append(terms, ith)
-		} else {
-			terms = append(terms, ir.Product(pow2(width), ith))
-		}
 	}
 	//
-	return ir.Sum(terms...), errors
+	return ir.NewVectorAccess(limbs), errors
 }
 
 // Translate a sequence of zero or more logical expressions enclosed in a given module.
@@ -1043,9 +1038,4 @@ func determineMaxBitwidth(module *ModuleBuilder, sources []mir.Term) uint {
 	}
 	//
 	return bitwidth
-}
-
-func pow2(width uint) mir.Term {
-	elem := fr.NewElement(2)
-	return ir.Exponent(ir.Const[mir.Term](elem), uint64(width))
 }

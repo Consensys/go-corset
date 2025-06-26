@@ -92,6 +92,8 @@ type (
 	Norm = ir.Norm[Term]
 	// Sub represents the subtraction over zero or more expressions.
 	Sub = ir.Sub[Term]
+	// VectorAccess represents a compound variable
+	VectorAccess = ir.VectorAccess[Term]
 )
 
 // Following types capture permitted logical forms at the MIR level.

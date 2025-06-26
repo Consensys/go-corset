@@ -57,6 +57,7 @@ const (
 	mulTag              = byte(37)
 	normTag             = byte(38)
 	subTag              = byte(39)
+	vectorAccessTag     = byte(40)
 )
 
 func encode_constraint(constraint schema.Constraint) ([]byte, error) {
@@ -670,6 +671,8 @@ func encode_term(term Term, buf *bytes.Buffer) error {
 		return encode_reg_access(*t, buf)
 	case *Sub:
 		return encode_tagged_nary_terms(subTag, buf, t.Args...)
+	case *VectorAccess:
+		return encode_vec_access(*t, buf)
 	default:
 		return fmt.Errorf("unknown arithmetic term encountered (%s)", term.Lisp(nil).String(false))
 	}
@@ -775,6 +778,20 @@ func encode_reg_access(term RegisterAccess, buf *bytes.Buffer) error {
 	if err := buf.WriteByte(registerAccessTag); err != nil {
 		return err
 	}
+	//
+	return encode_raw_access(&term, buf)
+}
+
+func encode_vec_access(term VectorAccess, buf *bytes.Buffer) error {
+	// Write tag
+	if err := buf.WriteByte(vectorAccessTag); err != nil {
+		return err
+	}
+	//
+	return encode_nary(encode_raw_access, buf, term.Vars)
+}
+
+func encode_raw_access(term *RegisterAccess, buf *bytes.Buffer) error {
 	// Register Index
 	if err := binary.Write(buf, binary.BigEndian, uint16(term.Register.Unwrap())); err != nil {
 		return err
@@ -813,13 +830,15 @@ func decode_term(buf *bytes.Buffer) (Term, error) {
 	case labelledConstantTag:
 		return decode_labelled_constant(buf)
 	case registerAccessTag:
-		return decode_register(buf)
+		return decode_reg_access(buf)
 	case mulTag:
 		return decode_nary_terms(mulConstructor, buf)
 	case normTag:
 		return decode_terms(1, normConstructor, buf)
 	case subTag:
 		return decode_nary_terms(subConstructor, buf)
+	case vectorAccessTag:
+		return decode_vec_access(buf)
 	default:
 		return nil, fmt.Errorf("unknown constraint (tag %d)", tag)
 	}
@@ -938,7 +957,7 @@ func decode_labelled_constant(buf *bytes.Buffer) (Term, error) {
 	return ir.LabelledConstant[Term](string(str_bytes), element), nil
 }
 
-func decode_register(buf *bytes.Buffer) (Term, error) {
+func decode_reg_access(buf *bytes.Buffer) (*RegisterAccess, error) {
 	var (
 		index uint16
 		shift int16
@@ -954,7 +973,13 @@ func decode_register(buf *bytes.Buffer) (Term, error) {
 	// Construct raw register id
 	rid := schema.NewRegisterId(uint(index))
 	// Done
-	return ir.NewRegisterAccess[Term](rid, int(shift)), nil
+	return &ir.RegisterAccess[Term]{Register: rid, Shift: int(shift)}, nil
+}
+
+func decode_vec_access(buf *bytes.Buffer) (Term, error) {
+	vars, err := decode_nary(decode_reg_access, buf)
+	//
+	return &ir.VectorAccess[Term]{Vars: vars}, err
 }
 
 // ============================================================================

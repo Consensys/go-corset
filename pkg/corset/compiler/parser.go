@@ -24,6 +24,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
@@ -1627,6 +1628,8 @@ func varAccessParserRule(col string) (ast.Expr, bool, error) {
 	if len(vars) == 1 {
 		return vars[0], true, nil
 	}
+	// Reverse order so least signigicant first
+	vars = array.Reverse(vars)
 	// Check for vector access
 	return &ast.VectorAccess{Vars: vars}, true, nil
 }

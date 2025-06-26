@@ -50,7 +50,7 @@ type Evaluable interface {
 	// undefined for several reasons: firstly, if it accesses a
 	// row which does not exist (e.g. at index -1); secondly, if
 	// it accesses a register which does not exist.
-	EvalAt(int, trace.Module) (fr.Element, error)
+	EvalAt(int, trace.Module, schema.Module) (fr.Element, error)
 	// Lisp converts this schema element into a simple S-Expression, for example
 	// so it can be printed.
 	Lisp(schema.Module) sexp.SExp
@@ -111,7 +111,7 @@ type Testable interface {
 	// context then it returns "nil".  An expression can be undefined for
 	// several reasons: firstly, if it accesses a row which does not exist (e.g.
 	// at index -1); secondly, if it accesses a register which does not exist.
-	TestAt(int, trace.Module) (bool, uint, error)
+	TestAt(int, trace.Module, schema.Module) (bool, uint, error)
 	// Lisp converts this schema element into a simple S-Expression, for example
 	// so it can be printed.
 	Lisp(schema.Module) sexp.SExp
