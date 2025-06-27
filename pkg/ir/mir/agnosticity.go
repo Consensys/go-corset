@@ -203,18 +203,18 @@ func splitVectorAccess(term *VectorAccess, mapping schema.RegisterMapping) Term 
 	return ir.NewVectorAccess(terms)
 }
 
-func flattenVectors(terms []Term) []Term {
-	var nterms []Term
-	//
-	for _, t := range terms {
-		if va, ok := t.(*VectorAccess); ok {
-			for _, v := range va.Vars {
-				nterms = append(nterms, v)
-			}
-		} else {
-			nterms = append(nterms, t)
-		}
-	}
-	//
-	return nterms
-}
+// func flattenVectors(terms []Term) []Term {
+// 	var nterms []Term
+// 	//
+// 	for _, t := range terms {
+// 		if va, ok := t.(*VectorAccess); ok {
+// 			for _, v := range va.Vars {
+// 				nterms = append(nterms, v)
+// 			}
+// 		} else {
+// 			nterms = append(nterms, t)
+// 		}
+// 	}
+// 	//
+// 	return nterms
+// }

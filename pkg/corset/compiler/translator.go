@@ -26,6 +26,7 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
 
@@ -360,14 +361,14 @@ func (t *translator) translateDefLookup(decl *ast.DefLookup) []SyntaxError {
 		targets []ir.Enclosed[[]mir.Term]
 	)
 	// Translate sources
-	for _, ith := range decl.Targets {
-		ith_targets, _, errs := t.translateDefLookupSources(ith)
+	for i, ith := range decl.Targets {
+		ith_targets, _, errs := t.translateDefLookupSources(decl.TargetSelectors[i], ith)
 		targets = append(targets, ith_targets)
 		errors = append(errors, errs...)
 	}
 	// Translate targets
 	for i, ith := range decl.Sources {
-		ith_sources, ctx, errs := t.translateDefLookupSources(ith)
+		ith_sources, ctx, errs := t.translateDefLookupSources(decl.SourceSelectors[i], ith)
 		sources = append(sources, ith_sources)
 		errors = append(errors, errs...)
 		//
@@ -385,11 +386,14 @@ func (t *translator) translateDefLookup(decl *ast.DefLookup) []SyntaxError {
 	return errors
 }
 
-func (t *translator) translateDefLookupSources(
+func (t *translator) translateDefLookupSources(selector ast.Expr,
 	sources []ast.Expr) (ir.Enclosed[[]mir.Term], ast.Context, []SyntaxError) {
-	//
 	// Determine context of ith set of targets
 	context, j := ast.ContextOfExpressions(sources...)
+	// Include selector (when present)
+	if selector != nil {
+		context = context.Join(selector.Context())
+	}
 	// Translate target expressions whilst again checking for a conflicting
 	// context.
 	if context.IsConflicted() {
@@ -398,9 +402,18 @@ func (t *translator) translateDefLookupSources(
 	// Determine enclosing module
 	module := t.moduleOf(context)
 	// Translate source expressions
-	terms, errs := t.translateUnitExpressions(sources, module, 0)
+	terms, errors := t.translateUnitExpressions(sources, module, 0)
+	// handle selector
+	if selector != nil {
+		s, errs := t.translateExpression(selector, module, 0)
+		errors = append(errors, errs...)
+		terms = array.Prepend(s, terms)
+	} else {
+		// Selector is 1
+		terms = array.Prepend(ir.Const64[mir.Term](1), terms)
+	}
 	// Return enclosed terms
-	return ir.Enclose(module.Id(), terms), context, errs
+	return ir.Enclose(module.Id(), terms), context, errors
 }
 
 // Translate a "definrange" declaration.

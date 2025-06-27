@@ -786,9 +786,13 @@ type DefLookup struct {
 	// Unique handle given to this constraint.  This is primarily useful for
 	// debugging (i.e. so we know which constaint failed, etc).
 	Handle string
+	// Source selector expressions (nil entries mean no selector for corresponding source).
+	SourceSelectors []Expr
 	// Source expressions for lookup (i.e. these values must all be contained
 	// within the targets).
 	Sources [][]Expr
+	// Target selector expressions (nil entries mean no selector for corresponding source).
+	TargetSelectors []Expr
 	// Target expressions for lookup (i.e. these values must contain all of the
 	// source values, but may contain more).
 	Targets [][]Expr
@@ -797,8 +801,10 @@ type DefLookup struct {
 }
 
 // NewDefLookup creates a new (unfinalised) lookup constraint.
-func NewDefLookup(handle string, sources [][]Expr, targets [][]Expr) *DefLookup {
-	return &DefLookup{handle, sources, targets, false}
+func NewDefLookup(handle string, sourceSelectors []Expr, sources [][]Expr,
+	targetSelectors []Expr, targets [][]Expr) *DefLookup {
+	//
+	return &DefLookup{handle, sourceSelectors, sources, targetSelectors, targets, false}
 }
 
 // Definitions returns the set of symbols defined by this declaration.  Observe
@@ -811,10 +817,23 @@ func (p *DefLookup) Definitions() iter.Iterator[SymbolDefinition] {
 func (p *DefLookup) Dependencies() iter.Iterator[Symbol] {
 	var deps []Symbol
 	//
-	for _, sources := range p.Sources {
+	for i, sources := range p.Sources {
+		ith_selector := p.SourceSelectors[i]
+		//
+		if ith_selector != nil {
+			deps = append(deps, ith_selector.Dependencies()...)
+		}
+		//
 		deps = append(deps, DependenciesOfExpressions(sources)...)
 	}
-	for _, targets := range p.Targets {
+	//
+	for i, targets := range p.Targets {
+		ith_selector := p.TargetSelectors[i]
+		//
+		if ith_selector != nil {
+			deps = append(deps, ith_selector.Dependencies()...)
+		}
+		//
 		deps = append(deps, DependenciesOfExpressions(targets)...)
 	}
 	// Combine deps
@@ -848,7 +867,9 @@ func (p *DefLookup) Finalise() {
 // for debugging purposes.
 func (p *DefLookup) Lisp() sexp.SExp {
 	targets := make([]sexp.SExp, len(p.Targets))
+	targetSelectors := make([]sexp.SExp, len(p.Targets))
 	sources := make([]sexp.SExp, len(p.Sources))
+	sourceSelectors := make([]sexp.SExp, len(p.Targets))
 	// Targets
 	for i, target := range p.Targets {
 		ith := make([]sexp.SExp, len(target))
@@ -858,6 +879,12 @@ func (p *DefLookup) Lisp() sexp.SExp {
 		}
 		//
 		targets[i] = sexp.NewList(ith)
+		//
+		if p.TargetSelectors[i] != nil {
+			targetSelectors[i] = p.TargetSelectors[i].Lisp()
+		} else {
+			targetSelectors[i] = sexp.NewSymbol("_")
+		}
 	}
 	// Targets
 	for i, source := range p.Sources {
@@ -868,12 +895,20 @@ func (p *DefLookup) Lisp() sexp.SExp {
 		}
 		//
 		sources[i] = sexp.NewList(ith)
+		//
+		if p.SourceSelectors[i] != nil {
+			sourceSelectors[i] = p.SourceSelectors[i].Lisp()
+		} else {
+			sourceSelectors[i] = sexp.NewSymbol("_")
+		}
 	}
 	//
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("deflookup"),
 		sexp.NewSymbol(p.Handle),
+		sexp.NewList(targetSelectors),
 		sexp.NewList(targets),
+		sexp.NewList(sourceSelectors),
 		sexp.NewList(sources),
 	})
 }

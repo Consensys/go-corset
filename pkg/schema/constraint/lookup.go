@@ -79,10 +79,12 @@ type LookupConstraint[E ir.Evaluable] struct {
 	// identifier useful when debugging (i.e. to know which lookup failed, etc).
 	Handle string
 	// Targets returns the target expressions which are used to lookup into the
-	// target expressions.
+	// target expressions.  NOTE: the first element here is *always* the target
+	// selector.
 	Targets []ir.Enclosed[[]E]
 	// Sources returns the source expressions which are used to lookup into the
-	// target expressions.
+	// target expressions.  NOTE: the first element here is *always* the source
+	// selector.
 	Sources []ir.Enclosed[[]E]
 }
 
@@ -182,7 +184,7 @@ func (p LookupConstraint[E]) Accepts(tr trace.Trace, sc schema.AnySchema) (bit.S
 	var (
 		coverage bit.Set
 		// Determine width (in columns) of this lookup
-		width int = len(p.Sources[0].Item)
+		width int = len(p.Sources[0].Item) - 1
 		//
 		rows = hash.NewSet[hash.BytesKey](128)
 		// Construct reusable buffer
@@ -200,11 +202,12 @@ func (p LookupConstraint[E]) Accepts(tr trace.Trace, sc schema.AnySchema) (bit.S
 			// error check
 			if err != nil {
 				return coverage, err
-			}
-			// Insert item, whilst checking whether the buffer was consumed or not.
-			if !rows.Insert(hash.NewBytesKey(ith_bytes)) {
-				// Yes, buffer consumed.  Therefore, construct a fresh buffer.
-				buffer = make([]byte, 32*width)
+			} else if ith_bytes != nil {
+				// Insert item, whilst checking whether the buffer was consumed or not.
+				if !rows.Insert(hash.NewBytesKey(ith_bytes)) {
+					// Yes, buffer consumed.  Therefore, construct a fresh buffer.
+					buffer = make([]byte, 32*width)
+				}
 			}
 		}
 	}
@@ -222,9 +225,9 @@ func (p LookupConstraint[E]) Accepts(tr trace.Trace, sc schema.AnySchema) (bit.S
 				return coverage, err
 			}
 			// Check whether contained.
-			if !rows.Contains(hash.NewBytesKey(ith_bytes)) {
+			if ith_bytes != nil && !rows.Contains(hash.NewBytesKey(ith_bytes)) {
 				sources := make([]ir.Evaluable, width)
-				for i, e := range ith.Item {
+				for i, e := range ith.Item[1:] {
 					sources[i] = e
 				}
 				// Construct failures
@@ -246,7 +249,8 @@ func evalExprsAsBytes[E ir.Evaluable](k int, terms ir.Enclosed[[]E], handle stri
 		//
 		sources = terms.Item
 	)
-	// Evaluate each expression in turn
+	// Evaluate each expression in turn (remembering that the first element is
+	// the selector)
 	for i := 0; i < len(sources); i++ {
 		ith, err := sources[i].EvalAt(k, trModule, scModule)
 		// error check
@@ -254,14 +258,22 @@ func evalExprsAsBytes[E ir.Evaluable](k int, terms ir.Enclosed[[]E], handle stri
 			return nil, &InternalFailure{
 				handle, terms.Module, uint(i), sources[i], err.Error(),
 			}
+		} else if i == 0 {
+			// Selector determines whether or not this row is enabled.  If the
+			// selector is 0 then this row is not enabled.
+			if ith.Cmp(&frZero) == 0 {
+				// Row is not enabled to ignore
+				return nil, nil
+			}
+		} else {
+			// Copy over each element
+			binary.BigEndian.PutUint64(slice, ith[0])
+			binary.BigEndian.PutUint64(slice[8:], ith[1])
+			binary.BigEndian.PutUint64(slice[16:], ith[2])
+			binary.BigEndian.PutUint64(slice[24:], ith[3])
+			// Move slice over
+			slice = slice[32:]
 		}
-		// Copy over each element
-		binary.BigEndian.PutUint64(slice, ith[0])
-		binary.BigEndian.PutUint64(slice[8:], ith[1])
-		binary.BigEndian.PutUint64(slice[16:], ith[2])
-		binary.BigEndian.PutUint64(slice[24:], ith[3])
-		// Move slice over
-		slice = slice[32:]
 	}
 	// Done
 	return bytes, nil
@@ -283,13 +295,12 @@ func (p LookupConstraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
 			module = schema.Module(ith.Module)
 		)
 		//
-		for i := range ith.Item {
-			source.Append(ith.Item[i].Lisp(module))
+		for _, item := range ith.Item {
+			source.Append(item.Lisp(module))
 		}
 		//
 		sources.Append(source)
 	}
-
 	// Iterate target expressions
 	for _, ith := range p.Targets {
 		var (
@@ -297,8 +308,8 @@ func (p LookupConstraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
 			module = schema.Module(ith.Module)
 		)
 		//
-		for i := range ith.Item {
-			target.Append(ith.Item[i].Lisp(module))
+		for _, item := range ith.Item {
+			target.Append(item.Lisp(module))
 		}
 		//
 		targets.Append(target)

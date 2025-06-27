@@ -15,9 +15,12 @@ package constraint
 import (
 	"fmt"
 
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
 )
+
+var frZero = fr.NewElement(0)
 
 // A simple consistency check for terms in a given module.  Specifically, to
 // check that: (1) the module exists; (2) all used registers existing with then
