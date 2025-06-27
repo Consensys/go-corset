@@ -75,6 +75,11 @@ func (p *Constant[T]) EvalAt(k int, _ trace.Module, _ schema.Module) (fr.Element
 	return p.Value, nil
 }
 
+// IsDefined implementation for Evaluable interface.
+func (p *Constant[T]) IsDefined() bool {
+	return true
+}
+
 // Lisp implementation for Lispifiable interface.
 func (p *Constant[T]) Lisp(module schema.Module) sexp.SExp {
 	return sexp.NewSymbol(p.Value.String())

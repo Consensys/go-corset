@@ -74,6 +74,13 @@ func (p *VectorAccess[T]) EvalAt(k int, tr trace.Module, sc schema.Module) (fr.E
 	return val, err
 }
 
+// IsDefined implementation for Evaluable interface.
+func (p *VectorAccess[T]) IsDefined() bool {
+	// NOTE: this is technically safe given the limited way that IsDefined is
+	// used for lookup selectors.
+	return true
+}
+
 // Lisp implementation for Lispifiable interface.
 func (p *VectorAccess[T]) Lisp(module schema.Module) sexp.SExp {
 	return lispOfTerms(module, "::", p.Vars)

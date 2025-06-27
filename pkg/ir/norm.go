@@ -57,6 +57,13 @@ func (p *Norm[T]) EvalAt(k int, tr trace.Module, sc schema.Module) (fr.Element, 
 	return val, err
 }
 
+// IsDefined implementation for Evaluable interface.
+func (p *Norm[T]) IsDefined() bool {
+	// NOTE: this is technically safe given the limited way that IsDefined is
+	// used for lookup selectors.
+	return true
+}
+
 // Lisp implementation for Lispifiable interface.
 func (p *Norm[T]) Lisp(module schema.Module) sexp.SExp {
 	arg := p.Arg.Lisp(module)

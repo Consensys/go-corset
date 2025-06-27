@@ -49,11 +49,13 @@ func (p *LookupFailure) String() string {
 }
 
 // RequiredCells identifies the cells required to evaluate the failing constraint at the failing row.
-func (p *LookupFailure) RequiredCells(tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
+func (p *LookupFailure) RequiredCells(_ trace.Trace) *set.AnySortedSet[trace.CellRef] {
 	res := set.NewAnySortedSet[trace.CellRef]()
 	//
-	for _, e := range p.Sources {
-		res.InsertSorted(e.RequiredCells(int(p.Row), p.Context))
+	for i, e := range p.Sources {
+		if i != 0 || e.IsDefined() {
+			res.InsertSorted(e.RequiredCells(int(p.Row), p.Context))
+		}
 	}
 	//
 	return res
@@ -116,7 +118,7 @@ func NewLookupConstraint[E ir.Evaluable](handle string, targets []ir.Enclosed[[]
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p LookupConstraint[E]) Consistent(schema schema.AnySchema) []error {
+func (p LookupConstraint[E]) Consistent(_ schema.AnySchema) []error {
 	return nil
 }
 
@@ -157,18 +159,22 @@ func (p LookupConstraint[E]) Bounds(module uint) util.Bounds {
 	// sources
 	for _, ith := range p.Sources {
 		if module == ith.Module {
-			for _, e := range ith.Item {
-				eth := e.Bounds()
-				bound.Union(&eth)
+			for i, e := range ith.Item {
+				if i != 0 || e.IsDefined() {
+					eth := e.Bounds()
+					bound.Union(&eth)
+				}
 			}
 		}
 	}
 	// targets
 	for _, ith := range p.Targets {
 		if module == ith.Module {
-			for _, e := range ith.Item {
-				eth := e.Bounds()
-				bound.Union(&eth)
+			for i, e := range ith.Item {
+				if i != 0 || e.IsDefined() {
+					eth := e.Bounds()
+					bound.Union(&eth)
+				}
 			}
 		}
 	}
@@ -195,10 +201,11 @@ func (p LookupConstraint[E]) Accepts(tr trace.Trace, sc schema.AnySchema) (bit.S
 		var (
 			tgtTrMod = tr.Module(ith.Module)
 			tgtScMod = sc.Module(ith.Module)
+			selector = ith.Item[0].IsDefined()
 		)
 		// Add each row in the target module
 		for i := range tgtTrMod.Height() {
-			ith_bytes, err := evalExprsAsBytes(int(i), ith, p.Handle, tgtTrMod, tgtScMod, buffer[:])
+			ith_bytes, err := evalExprsAsBytes(int(i), selector, ith, p.Handle, tgtTrMod, tgtScMod, buffer[:])
 			// error check
 			if err != nil {
 				return coverage, err
@@ -216,10 +223,11 @@ func (p LookupConstraint[E]) Accepts(tr trace.Trace, sc schema.AnySchema) (bit.S
 		var (
 			srcTrMod = tr.Module(ith.Module)
 			srcScMod = sc.Module(ith.Module)
+			selector = ith.Item[0].IsDefined()
 		)
 		//
 		for i := range srcTrMod.Height() {
-			ith_bytes, err := evalExprsAsBytes(int(i), ith, p.Handle, srcTrMod, srcScMod, buffer[:])
+			ith_bytes, err := evalExprsAsBytes(int(i), selector, ith, p.Handle, srcTrMod, srcScMod, buffer[:])
 			// error check
 			if err != nil {
 				return coverage, err
@@ -241,17 +249,24 @@ func (p LookupConstraint[E]) Accepts(tr trace.Trace, sc schema.AnySchema) (bit.S
 	return coverage, nil
 }
 
-func evalExprsAsBytes[E ir.Evaluable](k int, terms ir.Enclosed[[]E], handle string,
+func evalExprsAsBytes[E ir.Evaluable](k int, selector bool, terms ir.Enclosed[[]E], handle string,
 	trModule trace.Module, scModule schema.Module, bytes []byte) ([]byte, schema.Failure) {
 	var (
 		// Slice provides an access window for writing
 		slice = bytes
 		//
 		sources = terms.Item
+		i       = 0
 	)
+	// Check whether selector is defined.  If no selector exists, then it will
+	// not be defined.
+	if !selector {
+		// If no selector, then skip that column.
+		i = 1
+	}
 	// Evaluate each expression in turn (remembering that the first element is
 	// the selector)
-	for i := 0; i < len(sources); i++ {
+	for ; i < len(sources); i++ {
 		ith, err := sources[i].EvalAt(k, trModule, scModule)
 		// error check
 		if err != nil {
@@ -295,8 +310,12 @@ func (p LookupConstraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
 			module = schema.Module(ith.Module)
 		)
 		//
-		for _, item := range ith.Item {
-			source.Append(item.Lisp(module))
+		for i, item := range ith.Item {
+			if i == 0 && !item.IsDefined() {
+				source.Append(sexp.NewSymbol("_"))
+			} else {
+				source.Append(item.Lisp(module))
+			}
 		}
 		//
 		sources.Append(source)
@@ -308,8 +327,12 @@ func (p LookupConstraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
 			module = schema.Module(ith.Module)
 		)
 		//
-		for _, item := range ith.Item {
-			target.Append(item.Lisp(module))
+		for i, item := range ith.Item {
+			if i == 0 && !item.IsDefined() {
+				target.Append(sexp.NewSymbol("_"))
+			} else {
+				target.Append(item.Lisp(module))
+			}
 		}
 		//
 		targets.Append(target)

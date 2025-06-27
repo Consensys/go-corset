@@ -409,8 +409,9 @@ func (t *translator) translateDefLookupSources(selector ast.Expr,
 		errors = append(errors, errs...)
 		terms = array.Prepend(s, terms)
 	} else {
-		// Selector is 1
-		terms = array.Prepend(ir.Const64[mir.Term](1), terms)
+		// Selector is unused
+		s := ir.NewRegisterAccess[mir.Term](schema.NewUnusedRegisterId(), 0)
+		terms = array.Prepend(s, terms)
 	}
 	// Return enclosed terms
 	return ir.Enclose(module.Id(), terms), context, errors

@@ -67,6 +67,8 @@ type Evaluable interface {
 	// Lisp converts this schema element into a simple S-Expression, for example
 	// so it can be printed.
 	Lisp(schema.Module) sexp.SExp
+	// IsDefined checks whether a given evaluable expression is defined, or not.
+	IsDefined() bool
 }
 
 // Substitutable captures the notion of a term which may contain labelled

@@ -79,6 +79,13 @@ func (p *IfZero[S, T]) EvalAt(k int, tr trace.Module, sc schema.Module) (fr.Elem
 	return p.FalseBranch.EvalAt(k, tr, sc)
 }
 
+// IsDefined implementation for Evaluable interface.
+func (p *IfZero[S, T]) IsDefined() bool {
+	// NOTE: this is technically safe given the limited way that IsDefined is
+	// used for lookup selectors.
+	return true
+}
+
 // Lisp implementation for Lispifiable interface.
 func (p *IfZero[S, T]) Lisp(module schema.Module) sexp.SExp {
 	// Translate Condition

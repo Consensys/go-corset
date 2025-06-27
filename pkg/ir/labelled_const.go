@@ -56,6 +56,13 @@ func (p *LabelledConst[T]) EvalAt(k int, _ trace.Module, _ schema.Module) (fr.El
 	return p.Value, nil
 }
 
+// IsDefined implementation for Evaluable interface.
+func (p *LabelledConst[T]) IsDefined() bool {
+	// NOTE: this is technically safe given the limited way that IsDefined is
+	// used for lookup selectors.
+	return true
+}
+
 // Lisp implementation for Lispifiable interface.
 func (p *LabelledConst[T]) Lisp(module schema.Module) sexp.SExp {
 	return sexp.NewSymbol(p.Value.String())

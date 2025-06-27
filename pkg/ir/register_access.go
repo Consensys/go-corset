@@ -74,6 +74,11 @@ func (p *RegisterAccess[T]) EvalAt(k int, module trace.Module, _ schema.Module) 
 	return module.Column(p.Register.Unwrap()).Get(k + p.Shift), nil
 }
 
+// IsDefined implementation for Evaluable interface.
+func (p *RegisterAccess[T]) IsDefined() bool {
+	return p.Register.IsUsed()
+}
+
 // Lisp implementation for Lispifiable interface.
 func (p *RegisterAccess[T]) Lisp(module schema.Module) sexp.SExp {
 	var name string
