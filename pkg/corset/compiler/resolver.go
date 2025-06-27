@@ -662,13 +662,17 @@ func (r *resolver) finaliseDefFunInModule(enclosing Scope, decl *ast.DefFun) []S
 
 // Resolve those variables appearing in the body of this lookup constraint.
 func (r *resolver) finaliseDefLookupInModule(enclosing Scope, decl *ast.DefLookup) []SyntaxError {
-	var sourceScope = NewLocalScope(enclosing, true, false, false)
+	var errors []SyntaxError
 	// Resolve source expressions
-	errors := r.finaliseExpressionsInModule(sourceScope, decl.Sources)
+	for i := range decl.Sources {
+		var scope = NewLocalScope(enclosing, true, false, false)
+		errs := r.finaliseExpressionsInModule(scope, decl.Sources[i])
+		errors = append(errors, errs...)
+	}
 	// Resolve all target expressions
 	for i := range decl.Targets {
-		var targetScope = NewLocalScope(enclosing, true, false, false)
-		errs := r.finaliseExpressionsInModule(targetScope, decl.Targets[i])
+		var scope = NewLocalScope(enclosing, true, false, false)
+		errs := r.finaliseExpressionsInModule(scope, decl.Targets[i])
 		errors = append(errors, errs...)
 	}
 	//

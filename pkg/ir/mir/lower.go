@@ -233,9 +233,14 @@ func (p *AirLowering) lowerInterleavingConstraintToAir(c InterleavingConstraint,
 // value of that expression, along with appropriate constraints to enforce the
 // expected value.
 func (p *AirLowering) lowerLookupConstraintToAir(c LookupConstraint, airModule *air.ModuleBuilder) {
-	targets := make([]ir.Enclosed[[]*air.ColumnAccess], len(c.Targets))
+	var (
+		sources = make([]ir.Enclosed[[]*air.ColumnAccess], len(c.Sources))
+		targets = make([]ir.Enclosed[[]*air.ColumnAccess], len(c.Targets))
+	)
 	// Lower sources
-	sources := p.expandEnclosedTerms(c.Sources)
+	for i, ith := range c.Sources {
+		sources[i] = p.expandEnclosedTerms(ith)
+	}
 	// Lower targets
 	for i, ith := range c.Targets {
 		targets[i] = p.expandEnclosedTerms(ith)

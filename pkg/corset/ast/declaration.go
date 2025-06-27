@@ -788,7 +788,7 @@ type DefLookup struct {
 	Handle string
 	// Source expressions for lookup (i.e. these values must all be contained
 	// within the targets).
-	Sources []Expr
+	Sources [][]Expr
 	// Target expressions for lookup (i.e. these values must contain all of the
 	// source values, but may contain more).
 	Targets [][]Expr
@@ -797,13 +797,7 @@ type DefLookup struct {
 }
 
 // NewDefLookup creates a new (unfinalised) lookup constraint.
-func NewDefLookup(handle string, sources []Expr, targets [][]Expr) *DefLookup {
-	for _, t := range targets {
-		if len(sources) != len(t) {
-			panic(fmt.Sprintf("mismatched lookup columns (%d v %d)", len(sources), len(t)))
-		}
-	}
-	//
+func NewDefLookup(handle string, sources [][]Expr, targets [][]Expr) *DefLookup {
 	return &DefLookup{handle, sources, targets, false}
 }
 
@@ -815,7 +809,11 @@ func (p *DefLookup) Definitions() iter.Iterator[SymbolDefinition] {
 
 // Dependencies needed to signal declaration.
 func (p *DefLookup) Dependencies() iter.Iterator[Symbol] {
-	deps := DependenciesOfExpressions(p.Sources)
+	var deps []Symbol
+	//
+	for _, sources := range p.Sources {
+		deps = append(deps, DependenciesOfExpressions(sources)...)
+	}
 	for _, targets := range p.Targets {
 		deps = append(deps, DependenciesOfExpressions(targets)...)
 	}
@@ -861,9 +859,15 @@ func (p *DefLookup) Lisp() sexp.SExp {
 		//
 		targets[i] = sexp.NewList(ith)
 	}
-	// Sources
-	for i, t := range p.Sources {
-		sources[i] = t.Lisp()
+	// Targets
+	for i, source := range p.Sources {
+		ith := make([]sexp.SExp, len(source))
+		//
+		for j, t := range source {
+			ith[j] = t.Lisp()
+		}
+		//
+		sources[i] = sexp.NewList(ith)
 	}
 	//
 	return sexp.NewList([]sexp.SExp{

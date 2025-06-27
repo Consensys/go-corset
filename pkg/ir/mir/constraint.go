@@ -51,7 +51,7 @@ func NewInterleavingConstraint(handle string, targetContext schema.ModuleId,
 }
 
 // NewLookupConstraint creates a new lookup constraint with a given handle.
-func NewLookupConstraint(handle string, targets []ir.Enclosed[[]Term], sources ir.Enclosed[[]Term]) Constraint {
+func NewLookupConstraint(handle string, targets []ir.Enclosed[[]Term], sources []ir.Enclosed[[]Term]) Constraint {
 	return Constraint{constraint.NewLookupConstraint(handle, targets, sources)}
 }
 

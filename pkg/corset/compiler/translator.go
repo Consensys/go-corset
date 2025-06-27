@@ -354,53 +354,53 @@ func (t *translator) translateSelectorInModule(perspective *ast.PerspectiveName,
 // Translate a "deflookup" declaration.
 func (t *translator) translateDefLookup(decl *ast.DefLookup) []SyntaxError {
 	var (
-		errors    []SyntaxError
-		srcModule *ModuleBuilder
-		sources   []mir.Term
-		targets   []ir.Enclosed[[]mir.Term]
+		errors  []SyntaxError
+		context ast.Context
+		sources []ir.Enclosed[[]mir.Term]
+		targets []ir.Enclosed[[]mir.Term]
 	)
-	// Determine source  module for this lookup.
-	srcContext, i := ast.ContextOfExpressions(decl.Sources...)
-	// Translate source expressions whilst checking for a conflicting context.
-	// This can arise here, rather than in the resolve, in some unusual
-	// situations (e.g. source expression is a function).
-	if srcContext.IsConflicted() {
-		errors = append(errors, *t.srcmap.SyntaxError(decl.Sources[i], "conflicting context"))
-	} else {
-		var errs []SyntaxError
-		//
-		srcModule = t.moduleOf(srcContext)
-		//
-		sources, errs = t.translateUnitExpressions(decl.Sources, srcModule, 0)
+	// Translate sources
+	for _, ith := range decl.Targets {
+		ith_targets, _, errs := t.translateDefLookupSources(ith)
+		targets = append(targets, ith_targets)
 		errors = append(errors, errs...)
 	}
-	//
-	for _, ith := range decl.Targets {
-		var (
-			dstModule *ModuleBuilder
-			// Determine context of ith set of targets
-			dstContext, j = ast.ContextOfExpressions(ith...)
-		)
-		// Translate target expressions whilst again checking for a conflicting
-		// context.
-		if dstContext.IsConflicted() {
-			errors = append(errors, *t.srcmap.SyntaxError(ith[j], "conflicting context"))
-		} else {
-			dstModule = t.moduleOf(dstContext)
-			//
-			ith_targets, errs := t.translateUnitExpressions(ith, dstModule, 0)
-			targets = append(targets, ir.Enclose(dstModule.Id(), ith_targets))
-			errors = append(errors, errs...)
+	// Translate targets
+	for i, ith := range decl.Sources {
+		ith_sources, ctx, errs := t.translateDefLookupSources(ith)
+		sources = append(sources, ith_sources)
+		errors = append(errors, errs...)
+		//
+		if i == 0 {
+			context = ctx
 		}
 	}
 	// Sanity check whether we can construct the constraint, or not.
 	if len(errors) == 0 {
+		module := t.moduleOf(context)
 		// Add translated constraint
-		srcModule.AddConstraint(mir.NewLookupConstraint(decl.Handle,
-			targets, ir.Enclose(srcModule.Id(), sources)))
+		module.AddConstraint(mir.NewLookupConstraint(decl.Handle, targets, sources))
 	}
 	// Done
 	return errors
+}
+
+func (t *translator) translateDefLookupSources(
+	sources []ast.Expr) (ir.Enclosed[[]mir.Term], ast.Context, []SyntaxError) {
+	//
+	// Determine context of ith set of targets
+	context, j := ast.ContextOfExpressions(sources...)
+	// Translate target expressions whilst again checking for a conflicting
+	// context.
+	if context.IsConflicted() {
+		return ir.Enclosed[[]mir.Term]{}, context, t.srcmap.SyntaxErrors(sources[j], "conflicting context")
+	}
+	// Determine enclosing module
+	module := t.moduleOf(context)
+	// Translate source expressions
+	terms, errs := t.translateUnitExpressions(sources, module, 0)
+	// Return enclosed terms
+	return ir.Enclose(module.Id(), terms), context, errs
 }
 
 // Translate a "definrange" declaration.

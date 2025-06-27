@@ -83,16 +83,25 @@ type LookupConstraint[E ir.Evaluable] struct {
 	Targets []ir.Enclosed[[]E]
 	// Sources returns the source expressions which are used to lookup into the
 	// target expressions.
-	Sources ir.Enclosed[[]E]
+	Sources []ir.Enclosed[[]E]
 }
 
 // NewLookupConstraint creates a new lookup constraint with a given handle.
 func NewLookupConstraint[E ir.Evaluable](handle string, targets []ir.Enclosed[[]E],
-	sources ir.Enclosed[[]E]) LookupConstraint[E] {
-	//
+	sources []ir.Enclosed[[]E]) LookupConstraint[E] {
+	var width int
+	// Check sources
+	for i, ith := range sources {
+		if i != 0 && len(ith.Item) != width {
+			panic("inconsistent width of source lookup columns")
+		}
+
+		width = len(ith.Item)
+	}
+	// Check targets
 	for _, ith := range targets {
-		if len(ith.Item) != len(sources.Item) {
-			panic("differeng number of target / source lookup columns")
+		if len(ith.Item) != width {
+			panic("inconsistent width of target lookup columns")
 		}
 	}
 
@@ -122,13 +131,15 @@ func (p LookupConstraint[E]) Name() string {
 // context).
 func (p LookupConstraint[E]) Contexts() []schema.ModuleId {
 	var contexts []schema.ModuleId
-	// source context designated as primary.
-	contexts = append(contexts, p.Sources.Module)
-	// target context(s) designated as secondary
+	// source contexts
+	for _, source := range p.Sources {
+		contexts = append(contexts, source.Module)
+	}
+	// target contexts
 	for _, target := range p.Targets {
 		contexts = append(contexts, target.Module)
 	}
-
+	//
 	return contexts
 }
 
@@ -141,19 +152,21 @@ func (p LookupConstraint[E]) Contexts() []schema.ModuleId {
 //nolint:revive
 func (p LookupConstraint[E]) Bounds(module uint) util.Bounds {
 	var bound util.Bounds
-	//
-	if module == p.Sources.Module {
-		for _, e := range p.Sources.Item {
-			eth := e.Bounds()
-			bound.Union(&eth)
+	// sources
+	for _, ith := range p.Sources {
+		if module == ith.Module {
+			for _, e := range ith.Item {
+				eth := e.Bounds()
+				bound.Union(&eth)
+			}
 		}
-	} else {
-		for _, ith := range p.Targets {
-			if module == ith.Module {
-				for _, e := range ith.Item {
-					eth := e.Bounds()
-					bound.Union(&eth)
-				}
+	}
+	// targets
+	for _, ith := range p.Targets {
+		if module == ith.Module {
+			for _, e := range ith.Item {
+				eth := e.Bounds()
+				bound.Union(&eth)
 			}
 		}
 	}
@@ -168,12 +181,12 @@ func (p LookupConstraint[E]) Bounds(module uint) util.Bounds {
 func (p LookupConstraint[E]) Accepts(tr trace.Trace, sc schema.AnySchema) (bit.Set, schema.Failure) {
 	var (
 		coverage bit.Set
-		srcTrMod = tr.Module(p.Sources.Module)
-		srcScMod = sc.Module(p.Sources.Module)
+		// Determine width (in columns) of this lookup
+		width int = len(p.Sources[0].Item)
 		//
-		rows = hash.NewSet[hash.BytesKey](srcTrMod.Height())
+		rows = hash.NewSet[hash.BytesKey](128)
 		// Construct reusable buffer
-		buffer = make([]byte, 32*len(p.Sources.Item))
+		buffer = make([]byte, 32*width)
 	)
 	// Add all target columns to the set
 	for _, ith := range p.Targets {
@@ -191,27 +204,33 @@ func (p LookupConstraint[E]) Accepts(tr trace.Trace, sc schema.AnySchema) (bit.S
 			// Insert item, whilst checking whether the buffer was consumed or not.
 			if !rows.Insert(hash.NewBytesKey(ith_bytes)) {
 				// Yes, buffer consumed.  Therefore, construct a fresh buffer.
-				buffer = make([]byte, 32*len(p.Sources.Item))
+				buffer = make([]byte, 32*width)
 			}
 		}
 	}
 	// Check all source columns are contained
-	for i := range srcTrMod.Height() {
-		ith_bytes, err := evalExprsAsBytes(int(i), p.Sources, p.Handle, srcTrMod, srcScMod, buffer[:])
-		// error check
-		if err != nil {
-			return coverage, err
-		}
-		// Check whether contained.
-		if !rows.Contains(hash.NewBytesKey(ith_bytes)) {
-			sources := make([]ir.Evaluable, len(p.Sources.Item))
-			for i, e := range p.Sources.Item {
-				sources[i] = e
+	for _, ith := range p.Sources {
+		var (
+			srcTrMod = tr.Module(ith.Module)
+			srcScMod = sc.Module(ith.Module)
+		)
+		//
+		for i := range srcTrMod.Height() {
+			ith_bytes, err := evalExprsAsBytes(int(i), ith, p.Handle, srcTrMod, srcScMod, buffer[:])
+			// error check
+			if err != nil {
+				return coverage, err
 			}
-			// Construct failures
-			return coverage, &LookupFailure{
-				p.Handle, p.Sources.Module,
-				sources, i,
+			// Check whether contained.
+			if !rows.Contains(hash.NewBytesKey(ith_bytes)) {
+				sources := make([]ir.Evaluable, width)
+				for i, e := range ith.Item {
+					sources[i] = e
+				}
+				// Construct failures
+				return coverage, &LookupFailure{
+					p.Handle, ith.Module, sources, i,
+				}
 			}
 		}
 	}
@@ -254,23 +273,32 @@ func evalExprsAsBytes[E ir.Evaluable](k int, terms ir.Enclosed[[]E], handle stri
 //nolint:revive
 func (p LookupConstraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
 	var (
-		sourceModule = schema.Module(p.Sources.Module)
-		sources      = sexp.EmptyList()
-		targets      = sexp.EmptyList()
+		sources = sexp.EmptyList()
+		targets = sexp.EmptyList()
 	)
 	// Iterate source expressions
-	for i := range p.Sources.Item {
-		sources.Append(p.Sources.Item[i].Lisp(sourceModule))
-	}
-	// Iterate target expressions
-	for _, ith := range p.Targets {
+	for _, ith := range p.Sources {
 		var (
-			target       = sexp.EmptyList()
-			targetModule = schema.Module(ith.Module)
+			source = sexp.EmptyList()
+			module = schema.Module(ith.Module)
 		)
 		//
 		for i := range ith.Item {
-			target.Append(ith.Item[i].Lisp(targetModule))
+			source.Append(ith.Item[i].Lisp(module))
+		}
+		//
+		sources.Append(source)
+	}
+
+	// Iterate target expressions
+	for _, ith := range p.Targets {
+		var (
+			target = sexp.EmptyList()
+			module = schema.Module(ith.Module)
+		)
+		//
+		for i := range ith.Item {
+			target.Append(ith.Item[i].Lisp(module))
 		}
 		//
 		targets.Append(target)
@@ -286,10 +314,13 @@ func (p LookupConstraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
 
 // Substitute any matchined labelled constants within this constraint
 func (p LookupConstraint[E]) Substitute(mapping map[string]fr.Element) {
-	for _, s := range p.Sources.Item {
-		s.Substitute(mapping)
+	// Sources
+	for _, ith := range p.Sources {
+		for _, s := range ith.Item {
+			s.Substitute(mapping)
+		}
 	}
-	//
+	// Targets
 	for _, ith := range p.Targets {
 		for _, s := range ith.Item {
 			s.Substitute(mapping)

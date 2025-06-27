@@ -69,7 +69,7 @@ func NewInterleavingConstraint(handle string, targetContext schema.ModuleId,
 
 // NewLookupConstraint constructs a new AIR lookup constraint
 func NewLookupConstraint(handle string, targets []ir.Enclosed[[]*ColumnAccess],
-	sources ir.Enclosed[[]*ColumnAccess]) LookupConstraint {
+	sources []ir.Enclosed[[]*ColumnAccess]) LookupConstraint {
 	//
 	return newAir(constraint.NewLookupConstraint(handle, targets, sources))
 }

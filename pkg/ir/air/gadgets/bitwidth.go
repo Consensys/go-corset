@@ -169,9 +169,9 @@ func (p *BitwidthGadget) applyRecursiveBitwidthGadget(ref sc.RegisterRef, bitwid
 	targetAccesses := []*air.ColumnAccess{ir.RawRegisterAccess[air.Term](sc.NewRegisterId(0), 0)}
 	//
 	targets := []ir.Enclosed[[]*air.ColumnAccess]{ir.Enclose(mid, targetAccesses)}
+	sources := []ir.Enclosed[[]*air.ColumnAccess]{ir.Enclose(module.Id(), sourceAccesses)}
 	//
-	module.AddConstraint(
-		air.NewLookupConstraint(lookupHandle, targets, ir.Enclose(module.Id(), sourceAccesses)))
+	module.AddConstraint(air.NewLookupConstraint(lookupHandle, targets, sources))
 	// Add column to assignment so its proof is included
 	typeModule := p.schema.Module(mid)
 	//

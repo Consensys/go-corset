@@ -72,7 +72,8 @@ func (p MirModule) NewLookup(name string, from []MirExpr, targetMid uint, to []M
 	)
 	//
 	targets := []ir.Enclosed[[]mir.Term]{target}
-	p.Module.AddConstraint(mir.NewLookupConstraint(name, targets, source))
+	sources := []ir.Enclosed[[]mir.Term]{source}
+	p.Module.AddConstraint(mir.NewLookupConstraint(name, targets, sources))
 }
 
 // String returns an appropriately formatted representation of the module.

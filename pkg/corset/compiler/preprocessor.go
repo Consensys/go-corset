@@ -150,7 +150,10 @@ func (p *preprocessor) preprocessDefLookup(decl *ast.DefLookup) []SyntaxError {
 		errs   []SyntaxError
 	)
 	// preprocess source expressions
-	decl.Sources, errors = p.preprocessExpressionsInModule(decl.Sources)
+	for i := range decl.Sources {
+		decl.Sources[i], errs = p.preprocessExpressionsInModule(decl.Sources[i])
+		errors = append(errors, errs...)
+	}
 	// preprocess all target expressions
 	for i := range decl.Targets {
 		decl.Targets[i], errs = p.preprocessExpressionsInModule(decl.Targets[i])

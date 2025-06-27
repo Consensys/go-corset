@@ -155,7 +155,7 @@ func encode_lookup(c LookupConstraint) ([]byte, error) {
 		return nil, err
 	}
 	// Sources
-	if err := encode_enclosed_terms(c.Sources, &buffer); err != nil {
+	if err := encode_nary(encode_enclosed_terms, &buffer, c.Sources); err != nil {
 		return nil, err
 	}
 	//
@@ -395,7 +395,7 @@ func decode_lookup(data []byte) (schema.Constraint, error) {
 		return lookup, err
 	}
 	// Sources
-	if lookup.Sources, err = decode_enclosed_terms(buffer); err != nil {
+	if lookup.Sources, err = decode_nary(decode_enclosed_terms, buffer); err != nil {
 		return lookup, err
 	}
 	//
