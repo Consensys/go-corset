@@ -85,12 +85,14 @@ func (p *Expander) Next(n uint) []sc.Assignment {
 	// Go through each assignment in turn, pulling out those which are ready.
 	// To avoid too much copying, assignments are removed from the worklist by
 	// swapping them to the back.
-	for i := 0; i < m; {
+	for i := 0; i < m && n > 0; {
 		if p.isReady(i) {
 			// Add to batch
 			batch = append(batch, p.worklist[i])
 			// Decrease remaining assignments
 			m--
+			// Decrease remaining requested
+			n--
 			// Swap to back
 			p.worklist[i] = p.worklist[m]
 		} else {

@@ -89,7 +89,7 @@ func ParallelTraceExpansion(batchsize uint, schema sc.AnySchema, trace *tr.Array
 		//
 		batches := make([]columnBatch, len(batch))
 		// Collect all the results
-		for i := 0; i < len(batch); i++ {
+		for i := range len(batch) {
 			batches[i] = <-ch
 			// Read from channel
 			if batches[i].err != nil {
