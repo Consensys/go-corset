@@ -163,13 +163,23 @@ func (p *BitwidthGadget) applyRecursiveBitwidthGadget(ref sc.RegisterRef, bitwid
 		mid = p.constructTypeProof(proofHandle, bitwidth)
 	}
 	// Add lookup constraint for register into proof
-	sources := []*air.ColumnAccess{ir.RawRegisterAccess[air.Term](ref.Register(), 0)}
+	sourceAccesses := []*air.ColumnAccess{
+		// Source Selector (unused)
+		ir.RawRegisterAccess[air.Term](sc.NewUnusedRegisterId(), 0),
+		// Source Value
+		ir.RawRegisterAccess[air.Term](ref.Register(), 0)}
 	// NOTE: 0th column always assumed to hold full value, with others
 	// representing limbs, etc.
-	targets := []*air.ColumnAccess{ir.RawRegisterAccess[air.Term](sc.NewRegisterId(0), 0)}
+	targetAccesses := []*air.ColumnAccess{
+		// Target Selector (unused)
+		ir.RawRegisterAccess[air.Term](sc.NewUnusedRegisterId(), 0),
+		// Target Value
+		ir.RawRegisterAccess[air.Term](sc.NewRegisterId(0), 0)}
 	//
-	module.AddConstraint(
-		air.NewLookupConstraint(lookupHandle, mid, targets, module.Id(), sources))
+	targets := []ir.Enclosed[[]*air.ColumnAccess]{ir.Enclose(mid, targetAccesses)}
+	sources := []ir.Enclosed[[]*air.ColumnAccess]{ir.Enclose(module.Id(), sourceAccesses)}
+	//
+	module.AddConstraint(air.NewLookupConstraint(lookupHandle, targets, sources))
 	// Add column to assignment so its proof is included
 	typeModule := p.schema.Module(mid)
 	//

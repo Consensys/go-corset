@@ -160,11 +160,19 @@ func (p *typeChecker) typeCheckDefFunInModule(decl *ast.DefFun) []SyntaxError {
 //
 //nolint:staticcheck
 func (p *typeChecker) typeCheckDefLookup(decl *ast.DefLookup) []SyntaxError {
+	var errors []SyntaxError
 	// typeCheck source expressions
-	_, source_errs := p.typeCheckExpressionsInModule(ast.INT_TYPE, decl.Sources, true)
-	_, target_errs := p.typeCheckExpressionsInModule(ast.INT_TYPE, decl.Targets, true)
+	for i := range decl.Sources {
+		_, errs := p.typeCheckExpressionsInModule(ast.INT_TYPE, decl.Sources[i], true)
+		errors = append(errors, errs...)
+	}
+	// typeCheck all target expressions
+	for i := range decl.Targets {
+		_, errs := p.typeCheckExpressionsInModule(ast.INT_TYPE, decl.Targets[i], true)
+		errors = append(errors, errs...)
+	}
 	// Combine errors
-	return append(source_errs, target_errs...)
+	return errors
 }
 
 // typeCheck a "definrange" declaration.

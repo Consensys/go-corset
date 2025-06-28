@@ -146,14 +146,31 @@ func (p *preprocessor) preprocessDefFun(decl *ast.DefFun) []SyntaxError {
 //nolint:staticcheck
 func (p *preprocessor) preprocessDefLookup(decl *ast.DefLookup) []SyntaxError {
 	var (
-		source_errs []SyntaxError
-		target_errs []SyntaxError
+		errors       []SyntaxError
+		errs1, errs2 []SyntaxError
 	)
 	// preprocess source expressions
-	decl.Sources, source_errs = p.preprocessExpressionsInModule(decl.Sources)
-	decl.Targets, target_errs = p.preprocessExpressionsInModule(decl.Targets)
+	for i := range decl.Sources {
+		if decl.SourceSelectors[i] != nil {
+			decl.SourceSelectors[i], errs1 = p.preprocessExpressionInModule(decl.SourceSelectors[i])
+			errors = append(errors, errs1...)
+		}
+
+		decl.Sources[i], errs2 = p.preprocessExpressionsInModule(decl.Sources[i])
+		errors = append(errors, errs2...)
+	}
+	// preprocess all target expressions
+	for i := range decl.Targets {
+		if decl.TargetSelectors[i] != nil {
+			decl.TargetSelectors[i], errs1 = p.preprocessExpressionInModule(decl.TargetSelectors[i])
+			errors = append(errors, errs1...)
+		}
+
+		decl.Targets[i], errs2 = p.preprocessExpressionsInModule(decl.Targets[i])
+		errors = append(errors, errs2...)
+	}
 	// Combine errors
-	return append(source_errs, target_errs...)
+	return errors
 }
 
 // preprocess a "definrange" declaration.

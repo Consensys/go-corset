@@ -26,6 +26,7 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
 
@@ -354,49 +355,66 @@ func (t *translator) translateSelectorInModule(perspective *ast.PerspectiveName,
 // Translate a "deflookup" declaration.
 func (t *translator) translateDefLookup(decl *ast.DefLookup) []SyntaxError {
 	var (
-		errors    []SyntaxError
-		srcModule *ModuleBuilder
-		dstModule *ModuleBuilder
-		sources   []mir.Term
-		targets   []mir.Term
+		errors  []SyntaxError
+		context ast.Context
+		sources []ir.Enclosed[[]mir.Term]
+		targets []ir.Enclosed[[]mir.Term]
 	)
-	// Determine source and target modules for this lookup.
-	srcContext, i := ast.ContextOfExpressions(decl.Sources...)
-	dstContext, j := ast.ContextOfExpressions(decl.Targets...)
-	// Translate source expressions whilst checking for a conflicting context.
-	// This can arise here, rather than in the resolve, in some unusual
-	// situations (e.g. source expression is a function).
-	if srcContext.IsConflicted() {
-		errors = append(errors, *t.srcmap.SyntaxError(decl.Sources[i], "conflicting context"))
-	} else {
-		var errs []SyntaxError
-		//
-		srcModule = t.moduleOf(srcContext)
-		//
-		sources, errs = t.translateUnitExpressions(decl.Sources, srcModule, 0)
+	// Translate sources
+	for i, ith := range decl.Targets {
+		ith_targets, _, errs := t.translateDefLookupSources(decl.TargetSelectors[i], ith)
+		targets = append(targets, ith_targets)
 		errors = append(errors, errs...)
 	}
-	// Translate target expressions whilst again checking for a conflicting
-	// context.
-	if dstContext.IsConflicted() {
-		errors = append(errors, *t.srcmap.SyntaxError(decl.Targets[j], "conflicting context"))
-	} else {
-		var errs []SyntaxError
-		//
-		dstModule = t.moduleOf(dstContext)
-		//
-		targets, errs = t.translateUnitExpressions(decl.Targets, dstModule, 0)
+	// Translate targets
+	for i, ith := range decl.Sources {
+		ith_sources, ctx, errs := t.translateDefLookupSources(decl.SourceSelectors[i], ith)
+		sources = append(sources, ith_sources)
 		errors = append(errors, errs...)
+		//
+		if i == 0 {
+			context = ctx
+		}
 	}
 	// Sanity check whether we can construct the constraint, or not.
 	if len(errors) == 0 {
+		module := t.moduleOf(context)
 		// Add translated constraint
-		srcModule.AddConstraint(mir.NewLookupConstraint(decl.Handle,
-			dstModule.Id(), targets,
-			srcModule.Id(), sources))
+		module.AddConstraint(mir.NewLookupConstraint(decl.Handle, targets, sources))
 	}
 	// Done
 	return errors
+}
+
+func (t *translator) translateDefLookupSources(selector ast.Expr,
+	sources []ast.Expr) (ir.Enclosed[[]mir.Term], ast.Context, []SyntaxError) {
+	// Determine context of ith set of targets
+	context, j := ast.ContextOfExpressions(sources...)
+	// Include selector (when present)
+	if selector != nil {
+		context = context.Join(selector.Context())
+	}
+	// Translate target expressions whilst again checking for a conflicting
+	// context.
+	if context.IsConflicted() {
+		return ir.Enclosed[[]mir.Term]{}, context, t.srcmap.SyntaxErrors(sources[j], "conflicting context")
+	}
+	// Determine enclosing module
+	module := t.moduleOf(context)
+	// Translate source expressions
+	terms, errors := t.translateUnitExpressions(sources, module, 0)
+	// handle selector
+	if selector != nil {
+		s, errs := t.translateExpression(selector, module, 0)
+		errors = append(errors, errs...)
+		terms = array.Prepend(s, terms)
+	} else {
+		// Selector is unused
+		s := ir.NewRegisterAccess[mir.Term](schema.NewUnusedRegisterId(), 0)
+		terms = array.Prepend(s, terms)
+	}
+	// Return enclosed terms
+	return ir.Enclose(module.Id(), terms), context, errors
 }
 
 // Translate a "definrange" declaration.

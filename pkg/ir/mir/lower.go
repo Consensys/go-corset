@@ -233,12 +233,20 @@ func (p *AirLowering) lowerInterleavingConstraintToAir(c InterleavingConstraint,
 // value of that expression, along with appropriate constraints to enforce the
 // expected value.
 func (p *AirLowering) lowerLookupConstraintToAir(c LookupConstraint, airModule *air.ModuleBuilder) {
+	var (
+		sources = make([]ir.Enclosed[[]*air.ColumnAccess], len(c.Sources))
+		targets = make([]ir.Enclosed[[]*air.ColumnAccess], len(c.Targets))
+	)
 	// Lower sources
-	sources := p.expandTerms(c.SourceContext, c.Sources...)
+	for i, ith := range c.Sources {
+		sources[i] = p.expandEnclosedLookupTerms(ith)
+	}
 	// Lower targets
-	targets := p.expandTerms(c.TargetContext, c.Targets...)
+	for i, ith := range c.Targets {
+		targets[i] = p.expandEnclosedLookupTerms(ith)
+	}
 	// Add constraint
-	airModule.AddConstraint(air.NewLookupConstraint(c.Handle, c.TargetContext, targets, c.SourceContext, sources))
+	airModule.AddConstraint(air.NewLookupConstraint(c.Handle, targets, sources))
 }
 
 // Lower a sorted constraint to the AIR level.  The challenge here is that there
@@ -287,19 +295,37 @@ func (p *AirLowering) lowerSortedConstraintToAir(c SortedConstraint, airModule *
 	}
 }
 
-// Lower a set of zero or more MIR expressions.
+func (p *AirLowering) expandEnclosedLookupTerms(terms ir.Enclosed[[]Term]) ir.Enclosed[[]*air.ColumnAccess] {
+	accesses := p.expandTermsInner(terms.Module, true, terms.Item...)
+	return ir.Enclose(terms.Module, accesses)
+}
+
 func (p *AirLowering) expandTerms(context schema.ModuleId, terms ...Term) []*air.ColumnAccess {
+	return p.expandTermsInner(context, false, terms...)
+}
+
+// Lower a set of zero or more MIR expressions.
+func (p *AirLowering) expandTermsInner(context schema.ModuleId, lookup bool, terms ...Term) []*air.ColumnAccess {
 	var (
 		nterms    = make([]*air.ColumnAccess, len(terms))
 		airModule = p.airSchema.Module(context)
 	)
 	//
-	for i := 0; i < len(terms); i++ {
-		sourceBitwidth := terms[i].ValueRange(airModule).BitWidth()
-		// Lower source expressions
-		source := p.lowerAndSimplifyTermTo(terms[i], airModule)
-		// Expand them
-		source_register := air_gadgets.Expand(sourceBitwidth, source, airModule)
+	for i, ith := range terms {
+		var source_register schema.RegisterId
+		//
+		if lookup && i == 0 && !ith.IsDefined() {
+			// NOTE: this is a special case for lookups to handle the absence of
+			// a selector.  What we are doing here is communicating that no
+			// selector exists.
+			source_register = schema.NewUnusedRegisterId()
+		} else {
+			sourceBitwidth := ith.ValueRange(airModule).BitWidth()
+			// Lower source expressions
+			source := p.lowerAndSimplifyTermTo(ith, airModule)
+			// Expand them
+			source_register = air_gadgets.Expand(sourceBitwidth, source, airModule)
+		}
 		//
 		nterms[i] = ir.RawRegisterAccess[air.Term](source_register, 0)
 	}

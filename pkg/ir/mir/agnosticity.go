@@ -32,23 +32,24 @@ func subdivideInterleaving(c InterleavingConstraint, _ schema.RegisterMappings) 
 
 // Subdivide implementation for the FieldAgnostic interface.
 func subdivideLookup(c LookupConstraint, mappings schema.RegisterMappings) LookupConstraint {
-	var (
-		srcmap  = mappings.Module(c.SourceContext)
-		tgtmap  = mappings.Module(c.TargetContext)
-		sources = splitTerms(c.Sources, srcmap)
-		targets = splitTerms(c.Targets, tgtmap)
-	)
-	// FIXME: this is not really safe in the general case.  For example, this
-	// could result in a mismatched number of columns.  Furthermore, its
-	// possible these columns are incorrectly aligned, etc.
-	sources = flattenVectors(sources)
-	targets = flattenVectors(targets)
-	// Sanity check for now
-	if len(sources) != len(targets) {
-		panic("misaligned lookup")
-	}
-	//
-	return constraint.NewLookupConstraint(c.Handle, c.TargetContext, targets, c.SourceContext, sources)
+	// var (
+	// 	srcmap  = mappings.Module(c.SourceContext)
+	// 	tgtmap  = mappings.Module(c.TargetContext)
+	// 	sources = splitTerms(c.Sources, srcmap)
+	// 	targets = splitTerms(c.Targets, tgtmap)
+	// )
+	// // FIXME: this is not really safe in the general case.  For example, this
+	// // could result in a mismatched number of columns.  Furthermore, its
+	// // possible these columns are incorrectly aligned, etc.
+	// sources = flattenVectors(sources)
+	// targets = flattenVectors(targets)
+	// // Sanity check for now
+	// if len(sources) != len(targets) {
+	// 	panic("misaligned lookup")
+	// }
+	// //
+	// return constraint.NewLookupConstraint(c.Handle, c.TargetContext, targets, c.SourceContext, sources)
+	return c
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
@@ -202,18 +203,18 @@ func splitVectorAccess(term *VectorAccess, mapping schema.RegisterMapping) Term 
 	return ir.NewVectorAccess(terms)
 }
 
-func flattenVectors(terms []Term) []Term {
-	var nterms []Term
-	//
-	for _, t := range terms {
-		if va, ok := t.(*VectorAccess); ok {
-			for _, v := range va.Vars {
-				nterms = append(nterms, v)
-			}
-		} else {
-			nterms = append(nterms, t)
-		}
-	}
-	//
-	return nterms
-}
+// func flattenVectors(terms []Term) []Term {
+// 	var nterms []Term
+// 	//
+// 	for _, t := range terms {
+// 		if va, ok := t.(*VectorAccess); ok {
+// 			for _, v := range va.Vars {
+// 				nterms = append(nterms, v)
+// 			}
+// 		} else {
+// 			nterms = append(nterms, t)
+// 		}
+// 	}
+// 	//
+// 	return nterms
+// }

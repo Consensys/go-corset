@@ -20,6 +20,7 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 )
 
 // ModuleBuilder is used within this translator for building the various modules
@@ -65,13 +66,19 @@ func (p MirModule) NewConstraint(name string, domain util.Option[int], constrain
 }
 
 // NewLookup constructs a new lookup constraint
-func (p MirModule) NewLookup(name string, from []MirExpr, target uint, to []MirExpr) {
+func (p MirModule) NewLookup(name string, from []MirExpr, targetMid uint, to []MirExpr) {
 	var (
 		sources = unwrapMirExprs(from...)
 		targets = unwrapMirExprs(to...)
+		unused  = ir.NewRegisterAccess[mir.Term](schema.NewUnusedRegisterId(), 0)
 	)
-
-	p.Module.AddConstraint(mir.NewLookupConstraint(name, target, targets, p.Module.Id(), sources))
+	// Preprend (unused) selectors.  Eventually, we will most likely want to support selectors.
+	sources = array.Prepend(unused, sources)
+	targets = array.Prepend(unused, targets)
+	//
+	target := []ir.Enclosed[[]mir.Term]{ir.Enclose(p.Module.Id(), targets)}
+	source := []ir.Enclosed[[]mir.Term]{ir.Enclose(targetMid, sources)}
+	p.Module.AddConstraint(mir.NewLookupConstraint(name, target, source))
 }
 
 // String returns an appropriately formatted representation of the module.

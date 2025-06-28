@@ -662,16 +662,21 @@ func (r *resolver) finaliseDefFunInModule(enclosing Scope, decl *ast.DefFun) []S
 
 // Resolve those variables appearing in the body of this lookup constraint.
 func (r *resolver) finaliseDefLookupInModule(enclosing Scope, decl *ast.DefLookup) []SyntaxError {
-	var (
-		sourceScope = NewLocalScope(enclosing, true, false, false)
-		targetScope = NewLocalScope(enclosing, true, false, false)
-	)
+	var errors []SyntaxError
 	// Resolve source expressions
-	source_errors := r.finaliseExpressionsInModule(sourceScope, decl.Sources)
-	// Resolve target expressions
-	target_errors := r.finaliseExpressionsInModule(targetScope, decl.Targets)
+	for i := range decl.Sources {
+		var scope = NewLocalScope(enclosing, true, false, false)
+		errs := r.finaliseExpressionsInModule(scope, decl.Sources[i])
+		errors = append(errors, errs...)
+	}
+	// Resolve all target expressions
+	for i := range decl.Targets {
+		var scope = NewLocalScope(enclosing, true, false, false)
+		errs := r.finaliseExpressionsInModule(scope, decl.Targets[i])
+		errors = append(errors, errs...)
+	}
 	//
-	return append(source_errors, target_errors...)
+	return errors
 }
 
 // Resolve those variables appearing in the body of this property assertion.

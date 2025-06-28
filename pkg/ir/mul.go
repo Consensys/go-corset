@@ -80,6 +80,13 @@ func (p *Mul[T]) EvalAt(k int, tr trace.Module, sc schema.Module) (fr.Element, e
 	return val, err
 }
 
+// IsDefined implementation for Evaluable interface.
+func (p *Mul[T]) IsDefined() bool {
+	// NOTE: this is technically safe given the limited way that IsDefined is
+	// used for lookup selectors.
+	return true
+}
+
 // Lisp implementation for Lispifiable interface.
 func (p *Mul[T]) Lisp(module schema.Module) sexp.SExp {
 	return lispOfTerms(module, "*", p.Args)

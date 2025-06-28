@@ -68,9 +68,10 @@ func NewInterleavingConstraint(handle string, targetContext schema.ModuleId,
 }
 
 // NewLookupConstraint constructs a new AIR lookup constraint
-func NewLookupConstraint(handle string,
-	target schema.ModuleId, targets []*ColumnAccess, source schema.ModuleId, sources []*ColumnAccess) LookupConstraint {
-	return newAir(constraint.NewLookupConstraint(handle, target, targets, source, sources))
+func NewLookupConstraint(handle string, targets []ir.Enclosed[[]*ColumnAccess],
+	sources []ir.Enclosed[[]*ColumnAccess]) LookupConstraint {
+	//
+	return newAir(constraint.NewLookupConstraint(handle, targets, sources))
 }
 
 // NewPermutationConstraint creates a new permutation

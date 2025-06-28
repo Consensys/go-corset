@@ -117,6 +117,13 @@ func (e *psuedoInverse) RequiredCells(row int, mid trace.ModuleId) *set.AnySorte
 	return e.Expr.RequiredCells(row, mid)
 }
 
+// IsDefined implementation for Evaluable interface.
+func (e *psuedoInverse) IsDefined() bool {
+	// NOTE: this is technically safe given the limited way that IsDefined is
+	// used for lookup selectors.
+	return true
+}
+
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
 func (e *psuedoInverse) Lisp(module sc.Module) sexp.SExp {
