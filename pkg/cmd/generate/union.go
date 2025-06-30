@@ -120,6 +120,10 @@ func unionColumns(left []corset.SourceColumn, right []corset.SourceColumn) []cor
 			r++
 		}
 	}
+	// Including any remaining left columns
+	columns = append(columns, left[l:]...)
+	// Including any remaining right columns
+	columns = append(columns, right[r:]...)
 	//
 	return columns
 }
