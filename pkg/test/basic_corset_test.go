@@ -1212,23 +1212,6 @@ func Test_Native_11(t *testing.T) {
 }
 
 // ===================================================================
-// Field Agnostisticy Tests
-// ===================================================================
-
-// Fails because need to split the constaint!  In fact, the split in this case
-// is quite easy because its an aligned equality.
-//
-//  func Test_Agnostic_01(t *testing.T) {
-//      Check(t, false, "basic/agnostic_01")
-//  }
-
-// Fails because need to update lookup division.
-//
-// func Test_Agnostic_02(t *testing.T) {
-// 	Check(t, false, "basic/agnostic_02")
-// }
-
-// ===================================================================
 // Standard Library Tests
 // ===================================================================
 
