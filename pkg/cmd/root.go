@@ -14,7 +14,6 @@ package cmd
 
 import (
 	"fmt"
-	"math"
 	"os"
 	"runtime/debug"
 
@@ -177,7 +176,7 @@ func init() {
 	rootCmd.PersistentFlags().Bool("sequential", false, "perform sequential trace expansion")
 	rootCmd.PersistentFlags().Bool("defensive", true, "defensively pad modules")
 	rootCmd.PersistentFlags().Bool("validate", true, "apply trace validation")
-	rootCmd.PersistentFlags().UintP("batch", "b", math.MaxUint, "specify batch size for constraint checking")
+	rootCmd.PersistentFlags().UintP("batch", "b", 1024, "specify batch size for constraint checking")
 	// Misc
 	rootCmd.PersistentFlags().StringArrayP("set", "S", []string{}, "set value of externalised constant.")
 }

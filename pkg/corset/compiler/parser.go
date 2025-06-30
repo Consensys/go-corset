@@ -823,7 +823,6 @@ func (p *Parser) parseDefConditionalLookup(elements []sexp.SExp) (ast.Declaratio
 		handle                         = elements[1]
 		targets, sources               []ast.Expr
 		targetSelector, sourceSelector ast.Expr
-		hasTargetSelector              = elements[2].AsList() == nil
 		errs1, errs2, errs3, errs4     []SyntaxError
 	)
 	//
@@ -832,12 +831,8 @@ func (p *Parser) parseDefConditionalLookup(elements []sexp.SExp) (ast.Declaratio
 		targets, errs2 = p.parseDefLookupSources("target", elements[3])
 		sourceSelector, errs3 = p.translator.Translate(elements[4])
 		sources, errs4 = p.parseDefLookupSources("source", elements[5])
-	} else if hasTargetSelector {
-		targetSelector, errs1 = p.translator.Translate(elements[2])
-		targets, errs2 = p.parseDefLookupSources("target", elements[3])
-		sources, errs3 = p.parseDefLookupSources("source", elements[4])
 	} else {
-		// Must have source selector
+		// Assume source selector
 		targets, errs1 = p.parseDefLookupSources("target", elements[2])
 		sourceSelector, errs2 = p.translator.Translate(elements[3])
 		sources, errs3 = p.parseDefLookupSources("source", elements[4])

@@ -166,7 +166,7 @@ func (p *LexicographicSort) Lisp(schema sc.AnySchema) sexp.SExp {
 
 	for i := range p.sources {
 		ith := schema.Register(p.sources[i])
-		ith_module := schema.Module(p.targets[i].Module())
+		ith_module := schema.Module(p.sources[i].Module())
 		ith_name := ith.QualifiedName(ith_module)
 		//
 		if i >= len(p.signs) {
