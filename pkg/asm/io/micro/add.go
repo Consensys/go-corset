@@ -120,46 +120,31 @@ func (p *Add) Split(env io.SplittingEnvironment) []Code {
 		// Actually just an assignment, so easy.
 		return p.splitAssignment(env)
 	} else {
-		// var (
-		// 	ncodes        []Code
-		// 	targetLimbs                 = env.SplitTargetRegisters(p.Targets...)
-		// 	sourcePackets               = env.SplitSourceRegisters(p.Sources...)
-		// 	constantLimbs               = agnosticity.SplitConstant(uint(len(sourcePackets)), env.MaxWidth(), p.Constant)
-		// 	carry         io.RegisterId = schema.NewUnusedRegisterId()
-		// )
-		// // Allocate all source packets
-		// for i, pkt := range sourcePackets {
-		// 	var (
-		// 		targets     []io.RegisterId
-		// 		targetWidth uint
-		// 	)
-		// 	//
-		// 	targetWidth, targets, targetLimbs = env.AllocateTargetLimbs(targetLimbs)
-		// 	//
-		// 	if i != 0 && carry.IsUsed() {
-		// 		// Include carry from previous round
-		// 		pkt = append(pkt, carry)
-		// 	}
-		// 	// Allocate carry flag (if applicable).
-		// 	if i+1 != len(sourcePackets) {
-		// 		sourceWidth := sumSourceBits(p.Sources, constantLimbs[i], env.RegistersAfter())
-		// 		carry = env.AllocateCarryRegister(targetWidth, sourceWidth)
-		// 		//
-		// 		if carry.IsUsed() {
-		// 			targets = append(targets, carry)
-		// 		}
-		// 	} else {
-		// 		// Allocate all outstanding limbs for final packet.
-		// 		targets = append(targets, targetLimbs...)
-		// 	}
-		// 	// Construct split micro code
-		// 	code := &Add{targets, pkt, constantLimbs[i]}
-		// 	// Done
-		// 	ncodes = append(ncodes, code)
-		// }
-		// //
-		// return ncodes
-		return []Code{p}
+		var (
+			ncodes []Code
+			// map target registers into corresponding limbs
+			targetLimbs = agnostic.ApplyMapping(env, p.Targets)
+			// construct polynomial from right-hand side
+			sourcePoly = p.toPolynomial(env)
+			// packetize the right-hand side
+			sourcePackets = agnostic.Packetize(sourcePoly, env.BandWidth())
+			// temporary variable for signalling carry flag required
+			//carry io.RegisterId = schema.NewUnusedRegisterId()
+		)
+		// Allocate all source packets
+		for i, pkt := range sourcePackets {
+			var targets []io.RegisterId
+			//
+			_, targets, targetLimbs = agnostic.SplitLimbs(env, targetLimbs, env.BandWidth())
+			// Allocate all outstanding limbs for final packet.
+			targets = append(targets, targetLimbs...)
+			// Construct split micro code
+			code := &Add{targets, pkt, constantLimbs[i]}
+			// Done
+			ncodes = append(ncodes, code)
+		}
+		//
+		return ncodes
 	}
 }
 
@@ -197,6 +182,21 @@ func (p *Add) splitAssignment(env io.SplittingEnvironment) []Code {
 	}
 	//
 	return ncodes
+}
+
+// Convert this micro instruction into a polynomial.  This should eventually be
+// deprecated when micro instructions are generalised.
+func (p *Add) toPolynomial(env io.SplittingEnvironment) agnostic.Polynomial {
+	var (
+		// map target registers into corresponding limbs
+		targetLimbs = agnostic.ApplyMapping(env, p.Targets)
+		// extract width of each limb
+		targetLimbWidths = agnostic.LimbWidths(env, targetLimbs)
+		// split constant according to given limb widths
+		constantLimbs = agnostic.SplitConstant(p.Constant, targetLimbWidths...)
+	)
+	//
+	panic("todo")
 }
 
 func sumSourceBits(sources []io.RegisterId, constant big.Int, regs []io.Register) uint {

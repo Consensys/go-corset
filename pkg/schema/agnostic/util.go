@@ -53,3 +53,11 @@ func LimbWidths(mapping sc.RegisterMapping, lids []sc.LimbId) []uint {
 	//
 	return widths
 }
+
+// SplitLimbs splits off the first n limbs whose combined bitwidth does not
+// exceed the given bitwidth.  It returns these limbs as the "head", along with
+// the remainder as the "tail".  For reference, this also returns the combined
+// width of the head.
+func SplitLimbs(mapping sc.RegisterMapping, lids []sc.LimbId, bitwidth uint) (width uint, head []sc.LimbId, tail []sc.LimbId) {
+	panic("todo")
+}

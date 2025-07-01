@@ -180,7 +180,7 @@ func (p *Function[T]) Subdivide(mapping schema.RegisterMappings) *Function[T] {
 	var (
 		registers []schema.Register
 		// Determine mapping information for this function.
-		modmap = NewSplittingEnvironment(mapping.ModuleOf(p.name))
+		modmap = NewSplittingEnvironment(mapping.ModuleOf(p.name), mapping.BandWidth())
 		// Updated instruction sequence
 		ninsns []T
 	)
