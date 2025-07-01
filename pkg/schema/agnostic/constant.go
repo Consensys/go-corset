@@ -16,7 +16,10 @@ import (
 	"math/big"
 )
 
-var zero big.Int
+var (
+	zero big.Int
+	one  big.Int
+)
 
 // SplitConstant splits a given constant into a number of "limbs". For example,
 // consider splitting the constant 0x7b2d into 8bit limbs.  Then, this function
@@ -50,4 +53,5 @@ func SplitConstant(constant big.Int, limbWidths ...uint) []big.Int {
 
 func init() {
 	zero = *big.NewInt(0)
+	one = *big.NewInt(1)
 }

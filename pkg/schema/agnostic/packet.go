@@ -12,15 +12,6 @@
 // SPDX-License-Identifier: Apache-2.0
 package agnostic
 
-import (
-	"github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/util/poly"
-)
-
-// Polynomial defines the type of polynomials over which packets (and register
-// splitting in general) operate.
-type Polynomial *poly.ArrayPoly[schema.RegisterId]
-
 // Packetize takes a given polynomial and breaks it into a sequence of one or
 // more packets, each of which occupies at most a given number of bits.
 // Furthermore, returned packets are sorted according to their starting bit.

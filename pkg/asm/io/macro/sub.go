@@ -68,13 +68,14 @@ func (p *Sub) Execute(state io.State) uint {
 
 // Lower this instruction into a exactly one more micro instruction.
 func (p *Sub) Lower(pc uint) micro.Instruction {
-	code := &micro.Sub{
-		Targets:  p.Targets,
-		Sources:  p.Sources,
-		Constant: p.Constant,
-	}
-	// Lowering here produces an instruction containing a single microcode.
-	return micro.NewInstruction(code, &micro.Jmp{Target: pc + 1})
+	// code := &micro.Sub{
+	// 	Targets:  p.Targets,
+	// 	Sources:  p.Sources,
+	// 	Constant: p.Constant,
+	// }
+	// // Lowering here produces an instruction containing a single microcode.
+	// return micro.NewInstruction(code, &micro.Jmp{Target: pc + 1})
+	panic("todo")
 }
 
 // RegistersRead returns the set of registers read by this instruction.

@@ -32,5 +32,5 @@ type SplittingEnvironment interface {
 
 // NewSplittingEnvironment constructs a new splitting environment.
 func NewSplittingEnvironment(mapping schema.RegisterMapping, bandwidth uint) SplittingEnvironment {
-	return mapping
+	panic("todo")
 }

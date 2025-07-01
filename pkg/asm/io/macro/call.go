@@ -19,6 +19,8 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/agnostic"
+	"github.com/consensys/go-corset/pkg/util/poly"
 )
 
 // Call represents a function call providing one or more arguments and accepting
@@ -84,7 +86,10 @@ func (p *Call) Lower(pc uint) micro.Instruction {
 	)
 	// Write address lines
 	for i, input := range p.Sources {
-		insn := &micro.Add{Targets: []io.RegisterId{address[i]}, Sources: []io.RegisterId{input}}
+		var source agnostic.Polynomial
+
+		source.Set(poly.NewMonomial[io.RegisterId](one, input))
+		insn := &micro.Assign{Targets: []io.RegisterId{address[i]}, Source: source}
 		code = append(code, insn)
 	}
 	// For read / write on bus
@@ -92,7 +97,10 @@ func (p *Call) Lower(pc uint) micro.Instruction {
 	//
 	// Read output lines
 	for i, output := range p.Targets {
-		insn := &micro.Add{Targets: []io.RegisterId{output}, Sources: []io.RegisterId{data[i]}}
+		var source agnostic.Polynomial
+
+		source.Set(poly.NewMonomial[io.RegisterId](one, data[i]))
+		insn := &micro.Assign{Targets: []io.RegisterId{output}, Source: source}
 		code = append(code, insn)
 	}
 	// Append final branch
