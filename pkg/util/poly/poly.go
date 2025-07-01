@@ -13,6 +13,7 @@
 package poly
 
 import (
+	"bytes"
 	"math/big"
 )
 
@@ -47,9 +48,6 @@ type Polynomial[S comparable, T Term[S, T], P any] interface {
 	// Multiply this polynomial by another polynomial, such that this polynomial
 	// is updated in place.
 	Mul(P) P
-
-	// Simple string representation
-	String() string
 }
 
 // Eval evaluates a given polynomial with a given environment (i.e. mapping of variables to values)
@@ -78,4 +76,50 @@ func evalTerm[S comparable, T Term[S, T]](term T, env map[S]big.Int) *big.Int {
 	}
 	//
 	return &acc
+}
+
+// String constructs a suitable string representation for a given polynomial
+// assuming an environment which maps identifiers to strings.
+func String[S comparable, T Term[S, T], P Polynomial[S, T, P]](poly P, env func(S) string) string {
+	var buf bytes.Buffer
+	//
+	for i := range poly.Len() {
+		ith := poly.Term(i)
+		coeff := ith.Coefficient()
+		//
+		if i != 0 {
+			buf.WriteString("+")
+		}
+		// Various cases to improve readability
+		if ith.Len() == 0 {
+			buf.WriteString(coeff.String())
+		} else if coeff.Cmp(big.NewInt(1)) != 0 {
+			buf.WriteString("(")
+			buf.WriteString(coeff.String())
+			//
+			for j := range ith.Len() {
+				buf.WriteString("*")
+				//
+				buf.WriteString(env(ith.Nth(j)))
+			}
+			//
+			buf.WriteString(")")
+		} else if ith.Len() == 1 {
+			buf.WriteString(env(ith.Nth(0)))
+		} else {
+			buf.WriteString("(")
+			//
+			for j := range ith.Len() {
+				if j != 0 {
+					buf.WriteString("*")
+				}
+				//
+				buf.WriteString(env(ith.Nth(j)))
+			}
+			//
+			buf.WriteString(")")
+		}
+	}
+	//
+	return buf.String()
 }

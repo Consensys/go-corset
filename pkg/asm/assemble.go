@@ -206,7 +206,7 @@ func conflictingInstructions(cc uint, codes []micro.Code, writes bit.Set, target
 	var written []io.RegisterId
 	//
 	switch code := codes[cc].(type) {
-	case *micro.Add:
+	case *micro.Assign:
 		written = code.RegistersWritten()
 	case *micro.Jmp:
 		if code.Target == target {
@@ -215,16 +215,12 @@ func conflictingInstructions(cc uint, codes []micro.Code, writes bit.Set, target
 		}
 		//
 		return false
-	case *micro.Mul:
-		written = code.RegistersWritten()
 	case *micro.Skip:
 		// Check target location
 		if conflictingInstructions(cc+1+code.Skip, codes, writes.Clone(), target, insn) {
 			return true
 		}
 		// Fall through
-	case *micro.Sub:
-		written = code.RegistersWritten()
 	case *micro.Ret:
 		return false
 	}

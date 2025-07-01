@@ -13,53 +13,38 @@
 package compiler
 
 import (
-	"math/big"
-	"slices"
-
-	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
+	"github.com/consensys/go-corset/pkg/schema/agnostic"
 )
-
-var zero = *big.NewInt(0)
-
-var one = *big.NewInt(1)
 
 func (p *StateTranslator[T, E, M]) translateCode(cc uint, codes []micro.Code) E {
 	switch codes[cc].(type) {
-	case *micro.Add:
-		return p.translateAdd(cc, codes)
+	case *micro.Assign:
+		return p.translateAssign(cc, codes)
 	case *micro.InOut:
 		return p.translateInOut(cc, codes)
 	case *micro.Jmp:
 		return p.translateJmp(cc, codes)
-	case *micro.Mul:
-		return p.translateMul(cc, codes)
 	case *micro.Ret:
 		return p.translateRet()
 	case *micro.Skip:
 		return p.translateSkip(cc, codes)
-	case *micro.Sub:
-		return p.translateSub(cc, codes)
 	default:
 		panic("unreachable")
 	}
 }
 
 // Translate this instruction into low-level constraints.
-func (p *StateTranslator[T, E, M]) translateAdd(cc uint, codes []micro.Code) E {
+func (p *StateTranslator[T, E, M]) translateAssign(cc uint, codes []micro.Code) E {
 	var (
-		code = codes[cc].(*micro.Add)
+		code = codes[cc].(*micro.Assign)
 		// build rhs
-		rhs = p.ReadRegisters(code.Sources)
+		rhs = p.translatePolynomial(code.Source)
 		// build lhs (must be after rhs)
 		lhs = p.WriteAndShiftRegisters(code.Targets)
 	)
-	// include constant if this makes sense
-	if code.Constant.Cmp(&zero) != 0 {
-		rhs = append(rhs, BigNumber[T, E](&code.Constant))
-	}
 	// Construct equation
-	eqn := Sum(lhs).Equals(Sum(rhs))
+	eqn := Sum(lhs).Equals(rhs)
 	// Continue
 	return eqn.And(p.translateCode(cc+1, codes))
 }
@@ -86,24 +71,6 @@ func (p *StateTranslator[T, E, M]) translateJmp(cc uint, codes []micro.Code) E {
 	eqn := pc_ip1.Equals(dst)
 	//
 	return p.WithLocalConstancies(eqn)
-}
-
-func (p *StateTranslator[T, E, M]) translateMul(cc uint, codes []micro.Code) E {
-	var (
-		code = codes[cc].(*micro.Mul)
-		// build rhs
-		rhs = p.ReadRegisters(code.Sources)
-		// build lhs (must be after rhs)
-		lhs = p.WriteAndShiftRegisters(code.Targets)
-	)
-	// include constant if this makes sense
-	if code.Constant.Cmp(&one) != 0 {
-		rhs = append(rhs, BigNumber[T, E](&code.Constant))
-	}
-	// Construct equation
-	eqn := Sum(lhs).Equals(Product(rhs))
-	// Continue
-	return eqn.And(p.translateCode(cc+1, codes))
 }
 
 func (p *StateTranslator[T, E, M]) translateRet() E {
@@ -137,50 +104,65 @@ func (p *StateTranslator[T, E, M]) translateSkip(cc uint, codes []micro.Code) E 
 	return IfElse(left.Equals(right), lhs, rhs)
 }
 
-func (p *StateTranslator[T, E, M]) translateSub(cc uint, codes []micro.Code) E {
+// // Consider an assignment b, X := Y - 1.  This should be translated into the
+// // constraint: X + 1 == Y - 256.b (assuming b is u1, and X/Y are u8).
+// func (p *StateTranslator[T, E, M]) rebalanceSub(lhs []E, rhs []E, regs []io.Register, code *micro.Sub) ([]E, []E) {
+// 	//
+// 	pivot := 0
+// 	width := int(regs[code.Sources[0].Unwrap()].Width)
+// 	//
+// 	for width > 0 {
+// 		reg := regs[code.Targets[pivot].Unwrap()]
+// 		//
+// 		pivot++
+// 		width -= int(reg.Width)
+// 	}
+// 	// Sanity check
+// 	if width < 0 {
+// 		// Should be caught earlier, hence unreachable.
+// 		panic("failed rebalancing subtraction")
+// 	}
+// 	//
+// 	nlhs := slices.Clone(lhs[:pivot])
+// 	nrhs := []E{rhs[0]}
+// 	// rebalance
+// 	nlhs = append(nlhs, rhs[1:]...)
+// 	nrhs = append(nrhs, lhs[pivot:]...)
+// 	// done
+// 	return nlhs, nrhs
+// }
+
+// Translate polynomial (c0*x0$0*...*xn$0) + ... + (cm*x0$m*...*xn$m) where cX
+// are constant coefficients.
+func (p *StateTranslator[T, E, M]) translatePolynomial(poly agnostic.Polynomial) E {
 	var (
-		code = codes[cc].(*micro.Sub)
-		// build rhs
-		rhs = p.ReadRegisters(code.Sources)
-		// build lhs (must be after rhs)
-		lhs = p.WriteAndShiftRegisters(code.Targets)
+		terms []E = make([]E, poly.Len())
 	)
-	// include constant if this makes sense
-	if code.Constant.Cmp(&zero) != 0 {
-		rhs = append(rhs, BigNumber[T, E](&code.Constant))
+	//
+	for i := range poly.Len() {
+		terms[i] = p.translateMonomial(poly.Term(i))
 	}
-	// Rebalance the subtraction
-	lhs, rhs = p.rebalanceSub(lhs, rhs, p.mapping.Registers, code)
-	// construct (balanced) equation
-	eqn := Sum(lhs).Equals(Sum(rhs))
-	// continue
-	return eqn.And(p.translateCode(cc+1, codes))
+	// Optimisation
+	if len(terms) == 1 {
+		return terms[0]
+	}
+	// Normal case
+	return Sum(terms)
 }
 
-// Consider an assignment b, X := Y - 1.  This should be translated into the
-// constraint: X + 1 == Y - 256.b (assuming b is u1, and X/Y are u8).
-func (p *StateTranslator[T, E, M]) rebalanceSub(lhs []E, rhs []E, regs []io.Register, code *micro.Sub) ([]E, []E) {
+// Translate a monomial of the form c*x0*...*xn where c is a constant coefficient.
+func (p *StateTranslator[T, E, M]) translateMonomial(mono agnostic.Monomial) E {
+	var (
+		n         = mono.Len()
+		coeff     = mono.Coefficient()
+		terms []E = make([]E, n+1)
+	)
 	//
-	pivot := 0
-	width := int(regs[code.Sources[0].Unwrap()].Width)
-	//
-	for width > 0 {
-		reg := regs[code.Targets[pivot].Unwrap()]
-		//
-		pivot++
-		width -= int(reg.Width)
+	for i := range mono.Len() {
+		terms[i] = p.ReadRegister(mono.Nth(i))
 	}
-	// Sanity check
-	if width < 0 {
-		// Should be caught earlier, hence unreachable.
-		panic("failed rebalancing subtraction")
-	}
+	// Optimise for case where coeff == 1?
+	terms[n] = BigNumber[T, E](&coeff)
 	//
-	nlhs := slices.Clone(lhs[:pivot])
-	nrhs := []E{rhs[0]}
-	// rebalance
-	nlhs = append(nlhs, rhs[1:]...)
-	nrhs = append(nrhs, lhs[pivot:]...)
-	// done
-	return nlhs, nrhs
+	return Product(terms)
 }
