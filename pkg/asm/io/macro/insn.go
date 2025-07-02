@@ -29,6 +29,9 @@ var zero big.Int = *big.NewInt(0)
 // Alias for big integer representation of 1.
 var one big.Int = *big.NewInt(1)
 
+// Alias for big integer representation of -1.
+var minusOne big.Int = *big.NewInt(-1)
+
 // Register is an alias for insn.Register
 type Register = io.Register
 

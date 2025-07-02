@@ -116,16 +116,17 @@ func (p *Assign) String(fn schema.Module) string {
 //
 // Thus, y0+z0+1 define all of the bits for x0 and some of the bits for x1.
 func (p *Assign) Split(env io.SplittingEnvironment) []Code {
-	var source = agnostic.SplitPolynomial(p.Source, env)
-	// var (
-	// 	ncodes []Code
-	// 	// map target registers into corresponding limbs
-	// 	targetLimbs = agnostic.ApplyMapping(env, p.Targets)
-	// 	// packetize the right-hand side
-	// 	sourcePackets = agnostic.Packetize(p.Source, env.BandWidth())
-	// 	// temporary variable for signalling carry flag required
-	// 	//carry io.RegisterId = schema.NewUnusedRegisterId()
-	// )
+	var (
+		//ncodes []Code
+		// map source registers into corresponding limbs
+		source = agnostic.SplitPolynomial(p.Source, env)
+		// map target registers into corresponding limbs
+		targets = agnostic.ApplyMapping(env, p.Targets)
+		// packetize the right-hand side
+		//sourcePackets = agnostic.Packetize(p.Source, env.BandWidth())
+		// temporary variable for signalling carry flag required
+		//carry io.RegisterId = schema.NewUnusedRegisterId()
+	)
 	// // Allocate all source packets
 	// for _, pkt := range sourcePackets {
 	// 	var targets []io.RegisterId
@@ -140,7 +141,7 @@ func (p *Assign) Split(env io.SplittingEnvironment) []Code {
 	// }
 	// //
 	// return ncodes
-	return []Code{&Assign{p.Targets, source}}
+	return []Code{&Assign{targets, source}}
 }
 
 // Validate checks whether or not this instruction is correctly balanced.

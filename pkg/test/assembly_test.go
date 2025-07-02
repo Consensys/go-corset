@@ -34,9 +34,9 @@ func Test_Asm_Max(t *testing.T) {
 	Check(t, false, "asm/max")
 }
 
-// func Test_Asm_Max256(t *testing.T) {
-// 	Check(t, false, "asm/max256")
-// }
+func Test_Asm_Max256(t *testing.T) {
+	Check(t, false, "asm/max256")
+}
 
 func Test_Asm_MixedSmall(t *testing.T) {
 	Check(t, false, "asm/mixed_small")

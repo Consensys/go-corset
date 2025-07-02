@@ -32,7 +32,7 @@ func SplitPolynomial(p Polynomial, env schema.RegisterMapping) Polynomial {
 	var npoly Polynomial
 	//
 	for i := range p.Len() {
-		ith := splitMonomial(p.Term(i), env)
+		ith := SplitMonomial(p.Term(i), env)
 		//
 		if i == 0 {
 			npoly = ith
@@ -44,8 +44,61 @@ func SplitPolynomial(p Polynomial, env schema.RegisterMapping) Polynomial {
 	return npoly
 }
 
-func splitMonomial(p Monomial, env schema.RegisterMapping) Polynomial {
-	panic("todo")
+// SplitMonomial splits a given monomial (e.g. 2*x*y) according to a given
+// register-to-limb mapping.  For example, suppose x is u16 and maps to x'0 and
+// x'1 (both u8), whilst y maps to itself.  Then, the resulting polynomial is:
+//
+// 2*(x'0 + 256*x'1)*y --> (2*x'0*y) + (512*x'1*y)
+//
+// Of course, things get more involved when more than one register is being
+// split, but the basic idea above applies.
+func SplitMonomial(p Monomial, env schema.RegisterMapping) Polynomial {
+	var res Polynomial
+	// FIXME: what to do with the coefficient?  This is a problem because its
+	// not clear how we should split this.  Presumably it should be split
+	// according to the maximum register width.
+	res = res.Set(poly.NewMonomial[schema.RegisterId](p.Coefficient()))
+	//
+	for i := range p.Len() {
+		// Determine limbs corresponding to the given constraint.
+		limbs := env.LimbIds(p.Nth(i))
+		// Construct polynomial representing limbs
+		ith := LimbPolynomial(limbs, env)
+		//
+		res = res.Mul(ith)
+	}
+	//
+	return res
+}
+
+// LimbPolynomial constructs a polynomial from the given limbs which represents
+// the value of the original register.  For example, suppose x is a u16 register
+// which splits into two u8 limbs x'0 and x'1.  Then, the constructed "limb
+// polynomial" is simply x'0 + 256*x'1 (recall that x'0 is the last significant
+// limb).
+func LimbPolynomial(limbs []schema.RegisterId, env schema.RegisterMapping) Polynomial {
+	var (
+		res Polynomial
+		// Offset is used to determine the coefficient for the next limb.
+		offset big.Int = *big.NewInt(1)
+		//
+		terms = make([]Monomial, len(limbs))
+	)
+	//
+	for i, rid := range limbs {
+		var (
+			coeff big.Int
+			reg   = env.Limb(rid)
+		)
+		// Clone coefficient
+		coeff.Set(&offset)
+		// Construct term
+		terms[i] = poly.NewMonomial(coeff, rid)
+		// Shift offset up
+		offset.Lsh(&offset, reg.Width)
+	}
+	// Done
+	return res.Set(terms...)
 }
 
 // BitwidthOfPolynomial determines the minimum number of bits required to store
