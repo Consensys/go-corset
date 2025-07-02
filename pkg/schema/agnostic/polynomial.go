@@ -27,6 +27,27 @@ type Polynomial = *poly.ArrayPoly[schema.RegisterId]
 // Monomial defines the type of monomials contained within a given polynomial.
 type Monomial = poly.Monomial[schema.RegisterId]
 
+// SplitPolynomial splits
+func SplitPolynomial(p Polynomial, env schema.RegisterMapping) Polynomial {
+	var npoly Polynomial
+	//
+	for i := range p.Len() {
+		ith := splitMonomial(p.Term(i), env)
+		//
+		if i == 0 {
+			npoly = ith
+		} else {
+			npoly = npoly.Add(ith)
+		}
+	}
+	//
+	return npoly
+}
+
+func splitMonomial(p Monomial, env schema.RegisterMapping) Polynomial {
+	panic("todo")
+}
+
 // BitwidthOfPolynomial determines the minimum number of bits required to store
 // all possible evaluations of this polynomial.  Observe that, in the case of
 // negative values, this must include the sign bit as well.  For example, a

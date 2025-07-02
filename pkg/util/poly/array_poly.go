@@ -13,8 +13,6 @@
 package poly
 
 import (
-	"bytes"
-	"fmt"
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/util/collection/array"
@@ -22,7 +20,8 @@ import (
 
 // ArrayPoly is the simpliest (and least efficient) polynomial implementation.
 // It provides a reference against which other (more efficient) implementations
-// can be compared.
+// can be compared.  Observe that an unitialised ArrayPoly variable corresponds
+// with zero.
 type ArrayPoly[S comparable] struct {
 	terms []Monomial[S]
 }
@@ -145,46 +144,4 @@ func (p *ArrayPoly[S]) SubTerm(other Monomial[S]) {
 	// Append negation to end
 	// Sort?
 	p.terms = append(p.terms, other.Neg())
-}
-
-func (p *ArrayPoly[S]) String() string {
-	var buf bytes.Buffer
-	//
-	for i := 0; i < len(p.terms); i++ {
-		ith := p.terms[i]
-		coeff := ith.Coefficient()
-		//
-		if i != 0 {
-			buf.WriteString("+")
-		}
-		// Various cases to improve readability
-		if ith.Len() == 0 {
-			buf.WriteString(coeff.String())
-		} else if coeff.Cmp(big.NewInt(1)) != 0 {
-			buf.WriteString("(")
-			buf.WriteString(coeff.String())
-			//
-			for j := uint(0); j < ith.Len(); j++ {
-				buf.WriteString(fmt.Sprintf("*%v", ith.Nth(j)))
-			}
-			//
-			buf.WriteString(")")
-		} else if ith.Len() == 1 {
-			buf.WriteString(fmt.Sprintf("%v", ith.Nth(0)))
-		} else {
-			buf.WriteString("(")
-			//
-			for j := uint(0); j < ith.Len(); j++ {
-				if i == 0 {
-					buf.WriteString("*")
-				}
-				//
-				buf.WriteString(fmt.Sprintf("%v", ith.Nth(j)))
-			}
-			//
-			buf.WriteString(")")
-		}
-	}
-	//
-	return buf.String()
 }

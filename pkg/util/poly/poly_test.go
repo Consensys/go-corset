@@ -55,7 +55,6 @@ func check(t *testing.T, input string, points [][]uint) {
 	if p, errs := parse(input); len(errs) != 0 {
 		t.Error(errs)
 	} else {
-		fmt.Printf("POLY=%s\n", p)
 		// Evaluate the polynomial at the given points, recalling that the first
 		// point is always the outcome.
 		for _, pnt := range points {

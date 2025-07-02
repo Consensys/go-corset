@@ -13,14 +13,9 @@
 package compiler
 
 import (
-	"math/big"
-
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
+	"github.com/consensys/go-corset/pkg/schema/agnostic"
 )
-
-var zero = *big.NewInt(0)
-
-var one = *big.NewInt(1)
 
 func (p *StateTranslator[T, E, M]) translateCode(cc uint, codes []micro.Code) E {
 	switch codes[cc].(type) {
@@ -41,22 +36,17 @@ func (p *StateTranslator[T, E, M]) translateCode(cc uint, codes []micro.Code) E 
 
 // Translate this instruction into low-level constraints.
 func (p *StateTranslator[T, E, M]) translateAssign(cc uint, codes []micro.Code) E {
-	// var (
-	// 	code = codes[cc].(*micro.Add)
-	// 	// build rhs
-	// 	rhs = p.ReadRegisters(code.Sources)
-	// 	// build lhs (must be after rhs)
-	// 	lhs = p.WriteAndShiftRegisters(code.Targets)
-	// )
-	// // include constant if this makes sense
-	// if code.Constant.Cmp(&zero) != 0 {
-	// 	rhs = append(rhs, BigNumber[T, E](&code.Constant))
-	// }
-	// // Construct equation
-	// eqn := Sum(lhs).Equals(Sum(rhs))
-	// // Continue
-	// return eqn.And(p.translateCode(cc+1, codes))]
-	panic("todo")
+	var (
+		code = codes[cc].(*micro.Assign)
+		// build rhs
+		rhs = p.translatePolynomial(code.Source)
+		// build lhs (must be after rhs)
+		lhs = p.WriteAndShiftRegisters(code.Targets)
+	)
+	// Construct equation
+	eqn := Sum(lhs).Equals(rhs)
+	// Continue
+	return eqn.And(p.translateCode(cc+1, codes))
 }
 
 func (p *StateTranslator[T, E, M]) translateInOut(cc uint, codes []micro.Code) E {
@@ -141,3 +131,38 @@ func (p *StateTranslator[T, E, M]) translateSkip(cc uint, codes []micro.Code) E 
 // 	// done
 // 	return nlhs, nrhs
 // }
+
+// Translate polynomial (c0*x0$0*...*xn$0) + ... + (cm*x0$m*...*xn$m) where cX
+// are constant coefficients.
+func (p *StateTranslator[T, E, M]) translatePolynomial(poly agnostic.Polynomial) E {
+	var (
+		terms []E = make([]E, poly.Len())
+	)
+	//
+	for i := range poly.Len() {
+		terms[i] = p.translateMonomial(poly.Term(i))
+	}
+	// Optimisation
+	if len(terms) == 1 {
+		return terms[0]
+	}
+	// Normal case
+	return Sum(terms)
+}
+
+// Translate a monomial of the form c*x0*...*xn where c is a constant coefficient.
+func (p *StateTranslator[T, E, M]) translateMonomial(mono agnostic.Monomial) E {
+	var (
+		n         = mono.Len()
+		coeff     = mono.Coefficient()
+		terms []E = make([]E, n+1)
+	)
+	//
+	for i := range mono.Len() {
+		terms[i] = p.ReadRegister(mono.Nth(i))
+	}
+	// Optimise for case where coeff == 1?
+	terms[n] = BigNumber[T, E](&coeff)
+	//
+	return Product(terms)
+}

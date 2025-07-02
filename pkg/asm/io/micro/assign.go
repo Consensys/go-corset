@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"math/big"
 	"slices"
+	"strings"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/schema"
@@ -83,8 +84,18 @@ func (p *Assign) RegistersWritten() []io.RegisterId {
 }
 
 func (p *Assign) String(fn schema.Module) string {
-	//return assignmentToString(p.Targets, p.Sources, p.Constant, fn, zero, " + ")
-	panic("todo")
+	var (
+		builder strings.Builder
+		regs    = fn.Registers()
+	)
+	//
+	builder.WriteString(io.RegistersReversedToString(p.Targets, regs))
+	builder.WriteString(" = ")
+	builder.WriteString(poly.String(p.Source, func(rid io.RegisterId) string {
+		return regs[rid.Unwrap()].Name
+	}))
+	//
+	return builder.String()
 }
 
 // Split this micro code using registers of arbirary width into one or more
@@ -105,29 +116,31 @@ func (p *Assign) String(fn schema.Module) string {
 //
 // Thus, y0+z0+1 define all of the bits for x0 and some of the bits for x1.
 func (p *Assign) Split(env io.SplittingEnvironment) []Code {
-	var (
-		ncodes []Code
-		// map target registers into corresponding limbs
-		targetLimbs = agnostic.ApplyMapping(env, p.Targets)
-		// packetize the right-hand side
-		sourcePackets = agnostic.Packetize(p.Source, env.BandWidth())
-		// temporary variable for signalling carry flag required
-		//carry io.RegisterId = schema.NewUnusedRegisterId()
-	)
-	// Allocate all source packets
-	for _, pkt := range sourcePackets {
-		var targets []io.RegisterId
-		//
-		_, targets, targetLimbs = agnostic.SplitLimbs(env, targetLimbs, env.BandWidth())
-		// Allocate all outstanding limbs for final packet.
-		targets = append(targets, targetLimbs...)
-		// Construct split micro code
-		code := &Assign{targets, pkt.Contents}
-		// Done
-		ncodes = append(ncodes, code)
-	}
-	//
-	return ncodes
+	var source = agnostic.SplitPolynomial(p.Source, env)
+	// var (
+	// 	ncodes []Code
+	// 	// map target registers into corresponding limbs
+	// 	targetLimbs = agnostic.ApplyMapping(env, p.Targets)
+	// 	// packetize the right-hand side
+	// 	sourcePackets = agnostic.Packetize(p.Source, env.BandWidth())
+	// 	// temporary variable for signalling carry flag required
+	// 	//carry io.RegisterId = schema.NewUnusedRegisterId()
+	// )
+	// // Allocate all source packets
+	// for _, pkt := range sourcePackets {
+	// 	var targets []io.RegisterId
+	// 	//
+	// 	_, targets, targetLimbs = agnostic.SplitLimbs(env, targetLimbs, env.BandWidth())
+	// 	// Allocate all outstanding limbs for final packet.
+	// 	targets = append(targets, targetLimbs...)
+	// 	// Construct split micro code
+	// 	code := &Assign{targets, pkt.Contents}
+	// 	// Done
+	// 	ncodes = append(ncodes, code)
+	// }
+	// //
+	// return ncodes
+	return []Code{&Assign{p.Targets, source}}
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
