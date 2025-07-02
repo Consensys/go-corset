@@ -27,12 +27,15 @@ type Polynomial = *poly.ArrayPoly[schema.RegisterId]
 // Monomial defines the type of monomials contained within a given polynomial.
 type Monomial = poly.Monomial[schema.RegisterId]
 
-// SplitPolynomial splits
+// SplitPolynomial splits the registers in a given polynomial into their limbs,
+// producing an equivalent (but not necessarily identical) polynomial.  For
+// example, suppose that X and Y split into limbs X'1, X'0 and Y'1, Y'0.  Then
+// the polynomial 2*X + Y splits into 512*X'1 + 2*X'0 + 256*Y'1 + Y'0.
 func SplitPolynomial(p Polynomial, env schema.RegisterMapping) Polynomial {
 	var npoly Polynomial
 	//
 	for i := range p.Len() {
-		ith := splitMonomial(p.Term(i), env)
+		ith := SplitMonomial(p.Term(i), env)
 		//
 		if i == 0 {
 			npoly = ith
@@ -44,11 +47,64 @@ func SplitPolynomial(p Polynomial, env schema.RegisterMapping) Polynomial {
 	return npoly
 }
 
-func splitMonomial(p Monomial, env schema.RegisterMapping) Polynomial {
-	panic("todo")
+// SplitMonomial splits a given monomial (e.g. 2*x*y) according to a given
+// register-to-limb mapping.  For example, suppose x is u16 and maps to x'0 and
+// x'1 (both u8), whilst y maps to itself.  Then, the resulting polynomial is:
+//
+// 2*(x'0 + 256*x'1)*y --> (2*x'0*y) + (512*x'1*y)
+//
+// Of course, things get more involved when more than one register is being
+// split, but the basic idea above applies.
+func SplitMonomial(p Monomial, env schema.RegisterMapping) Polynomial {
+	var res Polynomial
+	// FIXME: what to do with the coefficient?  This is a problem because its
+	// not clear how we should split this.  Presumably it should be split
+	// according to the maximum register width.
+	res = res.Set(poly.NewMonomial[schema.RegisterId](p.Coefficient()))
+	//
+	for i := range p.Len() {
+		// Determine limbs corresponding to the given constraint.
+		limbs := env.LimbIds(p.Nth(i))
+		// Construct polynomial representing limbs
+		ith := LimbPolynomial(limbs, env)
+		//
+		res = res.Mul(ith)
+	}
+	//
+	return res
 }
 
-// BitwidthOfPolynomial determines the minimum number of bits required to store
+// LimbPolynomial constructs a polynomial from the given limbs which represents
+// the value of the original register.  For example, suppose x is a u16 register
+// which splits into two u8 limbs x'0 and x'1.  Then, the constructed "limb
+// polynomial" is simply x'0 + 256*x'1 (recall that x'0 is the last significant
+// limb).
+func LimbPolynomial(limbs []schema.RegisterId, env schema.RegisterMapping) Polynomial {
+	var (
+		res Polynomial
+		// Offset is used to determine the coefficient for the next limb.
+		offset big.Int = *big.NewInt(1)
+		//
+		terms = make([]Monomial, len(limbs))
+	)
+	//
+	for i, rid := range limbs {
+		var (
+			coeff big.Int
+			reg   = env.Limb(rid)
+		)
+		// Clone coefficient
+		coeff.Set(&offset)
+		// Construct term
+		terms[i] = poly.NewMonomial(coeff, rid)
+		// Shift offset up
+		offset.Lsh(&offset, reg.Width)
+	}
+	// Done
+	return res.Set(terms...)
+}
+
+// WidthOfPolynomial determines the minimum number of bits required to store
 // all possible evaluations of this polynomial.  Observe that, in the case of
 // negative values, this must include the sign bit as well.  For example, a
 // polynomial contained within the range 0..255 has a width of 8 bits. Likewise,
@@ -62,7 +118,7 @@ func splitMonomial(p Monomial, env schema.RegisterMapping) Polynomial {
 // smallest enclosing integer range.  From this is then determines the required
 // widths of the negative and positive components, before combining them to give
 // the result.
-func BitwidthOfPolynomial(source Polynomial, regs []schema.Register) uint {
+func WidthOfPolynomial(source Polynomial, regs []schema.Register) uint {
 	var (
 		intRange  = IntegerRangeOfPolynomial(source, regs)
 		lower     = intRange.MinValue()
@@ -78,6 +134,10 @@ func BitwidthOfPolynomial(source Polynomial, regs []schema.Register) uint {
 	}
 	// No sign bit required.
 	return upperBits
+}
+
+func WidthOfMonomial(source Monomial, regs []schema.Register) uint {
+	panic("todo")
 }
 
 // IntegerRangeOfPolynomial determines the smallest integer range in which all

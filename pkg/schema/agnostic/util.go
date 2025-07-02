@@ -39,25 +39,3 @@ func LimbsOf(mapping sc.RegisterMapping, lids []sc.LimbId) []sc.Limb {
 	//
 	return limbs
 }
-
-// LimbWidths returns the limb widths corresponding to a given set of
-// identifiers.
-func LimbWidths(mapping sc.RegisterMapping, lids []sc.LimbId) []uint {
-	var (
-		widths []uint = make([]uint, len(lids))
-	)
-	//
-	for i, lid := range lids {
-		widths[i] = mapping.Limb(lid).Width
-	}
-	//
-	return widths
-}
-
-// SplitLimbs splits off the first n limbs whose combined bitwidth does not
-// exceed the given bitwidth.  It returns these limbs as the "head", along with
-// the remainder as the "tail".  For reference, this also returns the combined
-// width of the head.
-func SplitLimbs(mapping sc.RegisterMapping, lids []sc.LimbId, bitwidth uint) (width uint, head []sc.LimbId, tail []sc.LimbId) {
-	panic("todo")
-}

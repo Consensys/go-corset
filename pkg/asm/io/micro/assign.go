@@ -41,7 +41,7 @@ import (
 // with the most significant (i.e. 16th) bit written to c.  Thus, in this
 // particular example, c represents a carry flag.
 type Assign struct {
-	// Target registers for addition
+	// Target registers for addition where the least significant come first.
 	Targets []io.RegisterId
 	// Source register for addition
 	Source agnostic.Polynomial
@@ -116,31 +116,24 @@ func (p *Assign) String(fn schema.Module) string {
 //
 // Thus, y0+z0+1 define all of the bits for x0 and some of the bits for x1.
 func (p *Assign) Split(env io.SplittingEnvironment) []Code {
-	var source = agnostic.SplitPolynomial(p.Source, env)
-	// var (
-	// 	ncodes []Code
-	// 	// map target registers into corresponding limbs
-	// 	targetLimbs = agnostic.ApplyMapping(env, p.Targets)
-	// 	// packetize the right-hand side
-	// 	sourcePackets = agnostic.Packetize(p.Source, env.BandWidth())
-	// 	// temporary variable for signalling carry flag required
-	// 	//carry io.RegisterId = schema.NewUnusedRegisterId()
-	// )
-	// // Allocate all source packets
-	// for _, pkt := range sourcePackets {
-	// 	var targets []io.RegisterId
-	// 	//
-	// 	_, targets, targetLimbs = agnostic.SplitLimbs(env, targetLimbs, env.BandWidth())
-	// 	// Allocate all outstanding limbs for final packet.
-	// 	targets = append(targets, targetLimbs...)
-	// 	// Construct split micro code
-	// 	code := &Assign{targets, pkt.Contents}
-	// 	// Done
-	// 	ncodes = append(ncodes, code)
-	// }
-	// //
-	// return ncodes
-	return []Code{&Assign{p.Targets, source}}
+	var (
+		// map target registers into corresponding limbs
+		lhs = agnostic.ApplyMapping(env, p.Targets)
+		// map lhs registers into corresponding limbs
+		rhs = agnostic.SplitPolynomial(p.Source, env)
+		// construct initial assignment
+		assignment = agnostic.NewAssignment(lhs, rhs)
+		// split into smaller assignments as needed
+		assignments = assignment.Split(env.BandWidth(), env)
+		// codes to be filled out
+		codes = make([]Code, len(assignments))
+	)
+	// Convert agnostic assignments back into micro assignments
+	for i, a := range assignments {
+		codes[i] = &Assign{a.LeftHandSide, a.RightHandSide}
+	}
+	// Done
+	return codes
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
@@ -150,7 +143,7 @@ func (p *Assign) Validate(fieldWidth uint, fn schema.Module) error {
 		// Determine number of bits required to hold the left-hand side.
 		lhs_bits = sumTargetBits(p.Targets, regs)
 		// Determine number of bits  required to hold the right-hand side.
-		rhs_bits = agnostic.BitwidthOfPolynomial(p.Source, regs)
+		rhs_bits = agnostic.WidthOfPolynomial(p.Source, regs)
 	)
 	// check
 	if lhs_bits < rhs_bits {

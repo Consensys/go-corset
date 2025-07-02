@@ -80,8 +80,13 @@ type RegisterMappings interface {
 // after subdivision occurs in a given module.
 type RegisterMapping interface {
 	// Limbs identifies the limbs into which a given register is divided.
+	// Observe that limbs are ordered by their position in the original
+	// register.  In particular, the first limb (i.e. at index 0) is always
+	// least significant limb, and the last always most significant.
 	LimbIds(RegisterId) []LimbId
 	// Limbs returns information about a given limb (i.e. a register which
 	// exists after the split).
 	Limb(LimbId) Limb
+	// Limbs returns all limbs in the mapping.
+	Limbs() []Limb
 }

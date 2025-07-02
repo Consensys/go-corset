@@ -156,3 +156,8 @@ func (p registerMapping) LimbIds(reg sc.RegisterId) []sc.LimbId {
 func (p registerMapping) Limb(reg sc.LimbId) sc.Limb {
 	return p.limbs[reg.Unwrap()]
 }
+
+// Limbs implementation for the schema.RegisterMapping interface
+func (p registerMapping) Limbs() []sc.Limb {
+	return p.limbs
+}
