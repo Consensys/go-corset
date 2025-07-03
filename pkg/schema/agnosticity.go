@@ -87,4 +87,6 @@ type RegisterMapping interface {
 	// Limbs returns information about a given limb (i.e. a register which
 	// exists after the split).
 	Limb(LimbId) Limb
+	// Limbs returns all limbs in the mapping.
+	Limbs() []Limb
 }

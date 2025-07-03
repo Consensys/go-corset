@@ -104,7 +104,7 @@ func (p *Skip) Split(env io.SplittingEnvironment) []Code {
 			ncodes = append(ncodes, ncode)
 		}
 	} else {
-		lhsLimbWidths := agnostic.LimbWidths(env, lhsLimbs)
+		lhsLimbWidths := agnostic.WidthsOfLimbs(env, lhsLimbs)
 		constantLimbs := agnostic.SplitConstant(p.Constant, lhsLimbWidths...)
 		//
 		for i := range n {

@@ -34,12 +34,12 @@ func NumberOfLimbs(maxRegisterWidth uint, registerWidth uint) uint {
 	return n
 }
 
-// DetermineLimbWidth returns the "common" limb width when splitting a given
+// CommonLimbWidth returns the "common" limb width when splitting a given
 // register for a given maximum width.  Assume a given register splits into n
 // limbs.  Assuming n > 1, then n-1 of these will have the same "common" width.
 // The remaining limb is referred to as the residue, and may have a different
 // width (usually smaller, but this is not a requirement).
-func DetermineLimbWidth(maxRegisterWidth uint, registerWidth uint) uint {
+func CommonLimbWidth(maxRegisterWidth uint, registerWidth uint) uint {
 	var (
 		// Determine how many limbs required
 		n = NumberOfLimbs(maxRegisterWidth, registerWidth)
@@ -54,6 +54,35 @@ func DetermineLimbWidth(maxRegisterWidth uint, registerWidth uint) uint {
 	}
 	//
 	return acc
+}
+
+// WidthsOfLimbs returns the limb bitwidths corresponding to a given set of
+// identifiers.
+func WidthsOfLimbs(mapping sc.RegisterMapping, lids []sc.LimbId) []uint {
+	var (
+		widths []uint = make([]uint, len(lids))
+	)
+	//
+	for i, lid := range lids {
+		widths[i] = mapping.Limb(lid).Width
+	}
+	//
+	return widths
+}
+
+// CombinedWidthOfLimbs returns the combined bitwidth of all limbs.  For example,
+// suppose we have three limbs: x:u8, y:u8, z:u11.  Then the combined width is
+// 8+8+11=27.
+func CombinedWidthOfLimbs(mapping sc.RegisterMapping, limbs ...sc.LimbId) uint {
+	var (
+		width uint
+	)
+	//
+	for _, lid := range limbs {
+		width += mapping.Limb(lid).Width
+	}
+	//
+	return width
 }
 
 // SplitIntoLimbs splits a register into a number of limbs with the given maximum
@@ -73,7 +102,7 @@ func SplitIntoLimbs(maxWidth uint, r sc.Register) []sc.Register {
 		return []sc.Register{r}
 	}
 	//
-	maxWidth = DetermineLimbWidth(maxWidth, width)
+	maxWidth = CommonLimbWidth(maxWidth, width)
 	//
 	for i := uint(0); i < nlimbs; i++ {
 		ith_name := fmt.Sprintf("%s'%d", r.Name, i)

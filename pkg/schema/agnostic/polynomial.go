@@ -27,7 +27,10 @@ type Polynomial = *poly.ArrayPoly[schema.RegisterId]
 // Monomial defines the type of monomials contained within a given polynomial.
 type Monomial = poly.Monomial[schema.RegisterId]
 
-// SplitPolynomial splits
+// SplitPolynomial splits the registers in a given polynomial into their limbs,
+// producing an equivalent (but not necessarily identical) polynomial.  For
+// example, suppose that X and Y split into limbs X'1, X'0 and Y'1, Y'0.  Then
+// the polynomial 2*X + Y splits into 512*X'1 + 2*X'0 + 256*Y'1 + Y'0.
 func SplitPolynomial(p Polynomial, env schema.RegisterMapping) Polynomial {
 	var npoly Polynomial
 	//
@@ -101,7 +104,7 @@ func LimbPolynomial(limbs []schema.RegisterId, env schema.RegisterMapping) Polyn
 	return res.Set(terms...)
 }
 
-// BitwidthOfPolynomial determines the minimum number of bits required to store
+// WidthOfPolynomial determines the minimum number of bits required to store
 // all possible evaluations of this polynomial.  Observe that, in the case of
 // negative values, this must include the sign bit as well.  For example, a
 // polynomial contained within the range 0..255 has a width of 8 bits. Likewise,
@@ -115,7 +118,7 @@ func LimbPolynomial(limbs []schema.RegisterId, env schema.RegisterMapping) Polyn
 // smallest enclosing integer range.  From this is then determines the required
 // widths of the negative and positive components, before combining them to give
 // the result.
-func BitwidthOfPolynomial(source Polynomial, regs []schema.Register) uint {
+func WidthOfPolynomial(source Polynomial, regs []schema.Register) uint {
 	var (
 		intRange  = IntegerRangeOfPolynomial(source, regs)
 		lower     = intRange.MinValue()
@@ -131,6 +134,10 @@ func BitwidthOfPolynomial(source Polynomial, regs []schema.Register) uint {
 	}
 	// No sign bit required.
 	return upperBits
+}
+
+func WidthOfMonomial(source Monomial, regs []schema.Register) uint {
+	panic("todo")
 }
 
 // IntegerRangeOfPolynomial determines the smallest integer range in which all
@@ -177,4 +184,38 @@ func IntegerRangeOfRegister(rid schema.RegisterId, regs []schema.Register) *math
 	val.Exp(val, big.NewInt(int64(width)), nil)
 	// Subtract one since the interval is inclusive.
 	return math.NewInterval(&zero, val.Sub(val, &one))
+}
+
+// EffectiveRangeOfMonomial determines the smallest integer range in
+// which all evaluations of the monomial lie except zero (as this is considered
+// an ineffective evalutation).  For example, consider the monomial "3*X*Y"
+// where X and are 8bit and 16bit registers respectively. Then, the smallest
+// enclosing effective range is 3 .. 3*255*65535.
+func EffectiveRangeOfMonomial(mono Monomial, regs []schema.Register) *math.Interval {
+	var (
+		coeff    = mono.Coefficient()
+		intRange = math.NewInterval(&coeff, &coeff)
+	)
+	//
+	for i := range mono.Len() {
+		intRange.Mul(EffectiveRangeOfRegister(mono.Nth(i), regs))
+	}
+	//
+	return intRange
+}
+
+// EffectiveRangeOfRegister determines the smallest integer range enclosing all
+// possible values for a given register except zero (which, again, is considered
+// ineffective here).  For example, a register of width 16 has an effective
+// integer range of 1..65535 (inclusive).
+func EffectiveRangeOfRegister(rid schema.RegisterId, regs []schema.Register) *math.Interval {
+	var (
+		val   = big.NewInt(2)
+		width = regs[rid.Unwrap()].Width
+	)
+	// NOTE: following is safe since the width of any registers must sure be
+	// less than 65536 bits :)
+	val.Exp(val, big.NewInt(int64(width)), nil)
+	// Subtract one since the interval is inclusive.
+	return math.NewInterval(&one, val.Sub(val, &one))
 }

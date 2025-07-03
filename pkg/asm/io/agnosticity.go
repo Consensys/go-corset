@@ -54,3 +54,8 @@ func (p SplittingEnvironment) LimbIds(reg schema.RegisterId) []schema.LimbId {
 func (p SplittingEnvironment) Limb(reg schema.LimbId) schema.Limb {
 	return p.mapping.Limb(reg)
 }
+
+// Limbs implementation for the schema.RegisterMapping interface.
+func (p SplittingEnvironment) Limbs() []schema.Limb {
+	return p.mapping.Limbs()
+}
