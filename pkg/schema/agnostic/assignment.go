@@ -13,6 +13,7 @@
 package agnostic
 
 import (
+	"fmt"
 	"math/big"
 
 	sc "github.com/consensys/go-corset/pkg/schema"
@@ -48,6 +49,21 @@ func (p *Assignment) Width(env sc.RegisterMapping) uint {
 	)
 	//
 	return max(lhs, rhs)
+}
+
+func (p *Assignment) OverHang(env sc.RegisterMapping) uint {
+	var (
+		// Determine lhs width
+		lhs = CombinedWidthOfLimbs(env, p.LeftHandSide...)
+		// Determine rhs width
+		rhs = WidthOfPolynomial(p.RightHandSide, env.Limbs())
+	)
+	//
+	if rhs > lhs {
+		return rhs - lhs
+	}
+	// no overhang
+	return 0
 }
 
 // Split an assignment according to a given field bandwidth.  This creates one
@@ -132,6 +148,8 @@ func (p *Assignment) innerSplit(bandwidth uint, env sc.RegisterMapping) []Assign
 	// Merge to exploit available bandwidth.
 	assignments = coalesceAssignments(assignments, bandwidth, env)
 	// Add carry registers as needed
+	assignments = addCarryRegisters(assignments, env)
+	// Done
 	return assignments
 }
 
@@ -263,7 +281,7 @@ func coalesceAssignments(assignments []Assignment, bandwidth uint, env sc.Regist
 			nWidth uint = width + a.Width(env)
 			group  []Assignment
 		)
-		// TODO: sort out carry registers
+		//
 		if nWidth > bandwidth || isLast {
 			// extract next group to coalesce, paying attention to whether or
 			// not this is the last group.
@@ -284,6 +302,25 @@ func coalesceAssignments(assignments []Assignment, bandwidth uint, env sc.Regist
 	return coalesced
 }
 
+// Coalesce a group of assignments together.  This is mostly straightforward,
+// but care must be taken to account for the bit offset of each assignment being
+// coalesced.  For example, consider coelescing these two assignments:
+//
+//	x'1 := 1 + y'1 ; x'0 := y'0
+//
+// The obvious (but incorrect) coalescing would be:
+//
+//	x'1, x'0 := 1 + y'1 + y'0
+//
+// Clearly, this is incorrect because y'1 is now overlapping with x'0 when
+// previously it overlapped with x'1.  Likewise, 1 is overlapping with x'0 not
+// x'1.  The correct coalescing (assuming u8 limbs) is:
+//
+//	x'1, x'0 := 256 + 2^8*y'1 + y'0
+//
+// The key difference is that an "offset" factor has been applied to the
+// monomial previously assigned to x'1.  The offset factor (in this case) is
+// determined by the width of x'0.
 func coalesce(assignments []Assignment, env sc.RegisterMapping) Assignment {
 	var (
 		offset uint
@@ -307,6 +344,65 @@ func coalesce(assignments []Assignment, env sc.RegisterMapping) Assignment {
 	}
 	// Done
 	return NewAssignment(lhs, rhs)
+}
+
+// AddCarryRegisters connects "overflowing" assignments together through
+// so-called carry registers.  Such registesr are inspired by  the carry bits
+// typically found in FLAGS' registers of CPU architectures.  One obvious
+// difference, however, is that they are not necessarily bits --- rather they
+// can be arbitrarily wide.
+//
+// An assignment is said to overflowing when its right-hand side produces more
+// bits of information that its left-hand side consumes.  For example, this
+// assignment:
+//
+//	b, x'1, x'0 := 2^8*y'1 + y'0 + 1
+//
+// is split into two assignments as follows (assuming u8 limbs for x,y and u1
+// for b):
+//
+//	b, x'1 := y'1 ; x'0 := y'0 + 1
+//
+// Here, the assignment to x'0 is said to be overflowing because we have 9bits
+// of information on the right-hand side going into only 8bits on the left-hand
+// side.  As such, a u1 carry register (in this case) must be added to balance
+// the assignment which, in turn, must also be propagated up as follows:
+//
+//	b, x'1 := y'1 + c ; c, x'0 := y'0 + 1
+//
+// Observe that, whilst a 1bit carry was used in this case, the width of the
+// carry register is determined by the "overhang" --- that is, the difference
+// between the width of the right-hand side and the left-hand side.
+//
+// NOTE: to be clear, when the left-hand side is wider than the right-hand side,
+// no carry is required.
+func addCarryRegisters(assignments []Assignment, env sc.RegisterMapping) []Assignment {
+	var (
+		// new assignments being constructed
+		nassignments = make([]Assignment, len(assignments))
+		// carry being propagated up
+		carry Polynomial
+	)
+	//
+	for i, a := range assignments {
+		// Propagate carry forward
+		if carry != nil {
+			rhs := a.RightHandSide
+			rhs = rhs.Add(carry)
+			a = NewAssignment(a.LeftHandSide, rhs)
+		}
+		// Check overhang
+		if overhang := a.OverHang(env); overhang != 0 {
+			panic(fmt.Sprintf("TODO: overhang of %d bit(s) detected", overhang))
+		} else {
+			// no overhang, means nothing to carry forward.
+			carry = nil
+		}
+		//
+		nassignments[i] = a
+	}
+	//
+	return nassignments
 }
 
 // DividingMonomial divides a given monomial m by some value n.  The division
