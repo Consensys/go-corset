@@ -185,37 +185,3 @@ func IntegerRangeOfRegister(rid schema.RegisterId, regs []schema.Register) *math
 	// Subtract one since the interval is inclusive.
 	return math.NewInterval(&zero, val.Sub(val, &one))
 }
-
-// EffectiveRangeOfMonomial determines the smallest integer range in
-// which all evaluations of the monomial lie except zero (as this is considered
-// an ineffective evalutation).  For example, consider the monomial "3*X*Y"
-// where X and are 8bit and 16bit registers respectively. Then, the smallest
-// enclosing effective range is 3 .. 3*255*65535.
-func EffectiveRangeOfMonomial(mono Monomial, regs []schema.Register) *math.Interval {
-	var (
-		coeff    = mono.Coefficient()
-		intRange = math.NewInterval(&coeff, &coeff)
-	)
-	//
-	for i := range mono.Len() {
-		intRange.Mul(EffectiveRangeOfRegister(mono.Nth(i), regs))
-	}
-	//
-	return intRange
-}
-
-// EffectiveRangeOfRegister determines the smallest integer range enclosing all
-// possible values for a given register except zero (which, again, is considered
-// ineffective here).  For example, a register of width 16 has an effective
-// integer range of 1..65535 (inclusive).
-func EffectiveRangeOfRegister(rid schema.RegisterId, regs []schema.Register) *math.Interval {
-	var (
-		val   = big.NewInt(2)
-		width = regs[rid.Unwrap()].Width
-	)
-	// NOTE: following is safe since the width of any registers must sure be
-	// less than 65536 bits :)
-	val.Exp(val, big.NewInt(int64(width)), nil)
-	// Subtract one since the interval is inclusive.
-	return math.NewInterval(&one, val.Sub(val, &one))
-}

@@ -26,9 +26,30 @@ func NewMonomial[S comparable](coefficient big.Int, vars ...S) Monomial[S] {
 	return Monomial[S]{coefficient, vars}
 }
 
+// Clone an array term
+func (p *Monomial[S]) Clone() Monomial[S] {
+	var (
+		val   big.Int
+		nvars = make([]S, len(p.vars))
+	)
+	// Copy variables
+	copy(nvars, p.vars)
+	// Copy coefficient
+	val.Set(&p.coefficient)
+	//
+	return Monomial[S]{val, nvars}
+}
+
 // Coefficient returns the coefficient of this term.
 func (p Monomial[S]) Coefficient() big.Int {
 	return p.coefficient
+}
+
+// IsZero checks whether or not this monomial is zero.  Or, put another way,
+// whether or not the coefficient of this monomial is zero.
+func (p Monomial[S]) IsZero() bool {
+	c := p.coefficient
+	return c.BitLen() == 0
 }
 
 // Len returns the number of variables in this polynomial term.
@@ -78,16 +99,7 @@ func (p Monomial[S]) Matches(other Monomial[S]) bool {
 	return true
 }
 
-// Clone an array term
-func (p *Monomial[S]) Clone() Monomial[S] {
-	var (
-		val   big.Int
-		nvars = make([]S, len(p.vars))
-	)
-	// Copy variables
-	copy(nvars, p.vars)
-	// Copy coefficient
-	val.Set(&p.coefficient)
-	//
-	return Monomial[S]{val, nvars}
+// Vars retursnt the variables of this monomial as an array.
+func (p Monomial[S]) Vars() []S {
+	return p.vars
 }

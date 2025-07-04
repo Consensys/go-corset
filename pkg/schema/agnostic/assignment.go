@@ -13,8 +13,11 @@
 package agnostic
 
 import (
+	"math/big"
+
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/collection/stack"
+	"github.com/consensys/go-corset/pkg/util/poly"
 )
 
 // Assignment provides a generic notion of an assignment from an arbitrary
@@ -110,7 +113,7 @@ func (p *Assignment) Split(bandwidth uint, env sc.RegisterMapping) []Assignment 
 		// further splitting required?
 		if next.Width(env) > bandwidth {
 			// yes
-			worklist.PushAll(next.InnerSplit(bandwidth, env))
+			worklist.PushAll(next.innerSplit(bandwidth, env))
 		} else {
 			// no
 			completed = append(completed, next)
@@ -120,113 +123,170 @@ func (p *Assignment) Split(bandwidth uint, env sc.RegisterMapping) []Assignment 
 	return completed
 }
 
-// InnerSplit performs one split of the given assignment according to the given
+// innerSplit performs one split of the given assignment according to the given
 // bandwidth, but does not guarantee that the resulting assignments fit within
 // the given bandwidth.  Rather, the resulting assignments may themselves need
 // to be split further.
-func (p *Assignment) InnerSplit(bandwidth uint, env sc.RegisterMapping) []Assignment {
-	var (
-		worklist = NewWidthList(p.LeftHandSide, p.RightHandSide, env)
-		//
-		assignments []Assignment
-	)
-	//
-	for !worklist.IsEmpty() {
-		// FIXME: this is broken because it cannot allocate carry flags.
-		next := worklist.Next(bandwidth)
-		//
-		assignments = append(assignments, next)
-	}
-	//
+func (p *Assignment) innerSplit(bandwidth uint, env sc.RegisterMapping) []Assignment {
+	var assignments []Assignment = p.initialiseSplit(env)
+	// Merge to exploit available bandwidth.
+	assignments = coalesceAssignments(assignments, bandwidth, env)
+	// Add carry registers as needed
 	return assignments
 }
 
-// WidthList is a form of worklist designed for managing the width-oriented
-// algorithm needed here.
-type WidthList struct {
-	// Left-hand side working set
-	lhs []sc.RegisterId
-	// Right-hand side working set
-	rhs []Packet
-	// Current widths of the lhs / rhs
-	lhsWidth, rhsWidth uint
-	// Current bit offset position
-	offset uint
-	// Next assignment being constructed
-	next Assignment
-	//
-	env sc.RegisterMapping
-}
-
-// NewWidthList constructs a new width list.
-func NewWidthList(lhs []sc.RegisterId, rhs Polynomial, env sc.RegisterMapping) WidthList {
-	return WidthList{
-		lhs,
-		Packetize(rhs),
-		0, 0, 0,
-		Assignment{},
-		env,
+// InitialiseSplit constructs an initial set of assignments with one for each
+// target register.  Here, each assignment includes all monomials from the
+// right-hand side whose coefficient begins within the range of the
+// corresponding target register.  For example, consider the following
+// assignment:
+//
+// b, y'1, y'0 = 2^8*x'1 + x'0 + 1
+//
+// would be initialised as follows:
+//
+// y'0 := x'0 + 1 ; y'1 := x'1 ; b := 0
+//
+// Observe that b has no initial assignment.  This is because, in the end, it
+// will form part of the previous assignment (i.e. after grouping).
+//
+// One mildly complicating factor is that of "dividing monomials".  Consider our
+// example, above where the term 2^8*x'1 becomes just x'1.  This makes sense as,
+// in the final assignment "y'1 := x'1", we know that y'1 start at bit offset 8.
+// Thus, we can see that "y'1 := 2^8*x'1" doesn't make sense.  Thus, to
+// determine the right coefficients, a division process is employed.  Since
+// division may not be exact, remainders are left to be processed again and a
+// worklist is used to manage those bits that still need processing.
+func (p *Assignment) initialiseSplit(env sc.RegisterMapping) []Assignment {
+	var (
+		// Final list of assignments to be constructed
+		monomials = make([][]Monomial, len(p.LeftHandSide))
+		// Worklist contains list of monomials being processed.
+		worklist stack.Stack[Monomial]
+		// Assignments to be constructed
+		assignments = make([]Assignment, len(p.LeftHandSide))
+	)
+	// Initialise worklist from source polynomial
+	for j := range p.RightHandSide.Len() {
+		worklist.Push(p.RightHandSide.Term(j))
 	}
-}
-
-// IsEmpty checks whether or not the width list is empty.
-func (p *WidthList) IsEmpty() bool {
-	// Sanity check.  In theory, this should be unreachable.  In practice, ...
-	if len(p.lhs) != len(p.rhs) {
-		if len(p.lhs) == 0 || len(p.rhs) == 0 {
-			panic("inconsistent widthlist")
+	// Continue processing monomials until no more remain.
+	for !worklist.IsEmpty() {
+		// Extract next item to process
+		next := worklist.Pop()
+		// Identify target register
+		i, offset := identifyEnclosingRegister(p.LeftHandSide, next.Coefficient(), env)
+		// Divide monomial by bit offset
+		next, rest := divideMonomial(next, offset)
+		// Check wether division was exact
+		if !rest.IsZero() {
+			// No, therefore some remainder must still be processed
+			worklist.Push(rest)
+		}
+		//
+		monomials[i] = append(monomials[i], next)
+	}
+	// Finally construct assignments
+	for i, lid := range p.LeftHandSide {
+		var tmp Polynomial
+		// Construct ith assignment
+		assignments[i] = Assignment{
+			// left-hand side
+			[]sc.RegisterId{lid},
+			// right-hand side
+			tmp.Set(monomials[i]...),
 		}
 	}
+	// Done
+	return assignments
+}
+
+// Identify enclosing register determines the index into the given regs array of
+// the register whose bitrange encloses the given value.  This also returns the
+// starting (bit) offset of this register.
+func identifyEnclosingRegister(regs []sc.RegisterId, value big.Int, env sc.RegisterMapping) (uint, uint) {
+	var bitOffset uint
 	//
-	return len(p.lhs) == 0
+	for i, lid := range regs {
+		var limb = env.Limb(lid)
+		// Value contained by this register?
+		if withinBitRange(value, bitOffset, bitOffset+limb.Width) {
+			// Yes!
+			return uint(i), bitOffset
+		}
+		// Shift offset along
+		bitOffset += limb.Width
+	}
+	// It should not be possible to get here if the original assignments were
+	// well-formed.
+	panic("unreachable")
 }
 
-// AdvanceLeft advances the left-hand side bit offset.
-func (p *WidthList) AdvanceLeft() {
-	//return offset + p.env.Limb(p.lhs[i]).Width
-	panic("todo")
+// CoalesceAssignments attempts to merge consecutive assignments to exploit the
+// available bandwidth as much as possible.  For example, consider the example
+// initial splitting obtained above:
+//
+// [y'0 := x'0 + 1]^9 ; [y'1 := x'1]^8 ; [b := 0]^1
+//
+// Here, the width of each assignment is given as a superscript.  Roughly
+// speaking, any two assignments can be safely merged when the combined width
+// remains within the target bandwidth.  For our example, we merge the last two
+// assignments as follows:
+//
+// [y'0 := x'0 + 1]^9 ; [b, y'1 := x'1]^9
+//
+// This is permitted because the combined assignment still meets the necessary
+// bandwidth requirements.
+//
+// The process of combining assignments is not as simple as outlined above. This
+// is due to the need for carry registers which, at this point, have not yet
+// been added.  When a carry register is required, the effective width of an
+// assignment may increase.  To manage this, the given algorithm allocates carry
+// registers as it proceeds, thereby allowing for accurate width calculations.
+//
+// NOTE: this implementation does not attempt to find an optimal allocation of
+// assignments (as this may indeed be a hard computational problem).  Instead,
+// assignments are merged greedily starting from the least significant position.
+func coalesceAssignments(assignments []Assignment, bandwidth uint, env sc.RegisterMapping) []Assignment {
+	// TODO: implement algorithm
+	return assignments
 }
 
-// AdvanceRight advances the right-hand side bit offset.
-func (p *WidthList) AdvanceRight() {
-	// FIXME: add width somehow
-	// FIXME: normalise contents somehow?
-	p.next.RightHandSide.Add(p.rhs[0].Contents)
-	panic("todo")
+// DividingMonomial divides a given monomial m by some value n.  The division
+// maybe exact, in which case the remainder will be zero.  For example, dividing
+// 7x by 3 gives 2x (val) + x (rem).
+func divideMonomial(m Monomial, n uint) (val Monomial, rem Monomial) {
+	var (
+		coeff     = m.Coefficient()
+		nb        = big.NewInt(2)
+		quotient  big.Int
+		remainder big.Int
+	)
+	// sanity check division by zero!
+	if n == 0 {
+		return m, rem
+	}
+	// Determine 2^n
+	nb.Exp(nb, big.NewInt(int64(n)), nil)
+	// Determine quotient and remainder
+	quotient.Div(&coeff, nb)
+	remainder.Mod(&coeff, nb)
+	// Done
+	return poly.NewMonomial(quotient, m.Vars()...),
+		poly.NewMonomial(remainder, m.Vars()...)
 }
 
-// Next returns the next assignment matching the given bitwidth requirement.
-func (p *WidthList) Next(bandwidth uint) Assignment {
-	// // Reset for next assignment
-	// p.next = Assignment{}
-	// p.lhsWidth = 0
-	// p.rhsWidth = 0
-	// //
-	// for p.lhsWidth < bandwidth && p.rhsWidth < bandwidth {
-	// 	if lBitOffset < rBitOffset {
-	// 		// advance left
-	// 		p.AdvanceLeft()
-	// 	} else if lBitOffset > rBitOffset {
-	// 		// advance right
-	// 		p.AdvanceRight()
-	// 	} else {
-	// 		// advance both
-	// 		p.AdvanceLeft()
-	// 		p.AdvanceRight()
-	// 	}
-	// }
-	// // Update offset position
-	// p.offset += p.rhsWidth
-	// // FIXME: carry flags!
-	// return p.next
-	// NOTE: we need to allocate packets upto the bandwidth.  Then, allocate
-	// registers accordingly.  Every register allocated has to be completely
-	// defined by the given packets, and cannot overlap a subsequent packet. Any
-	// discrepancy between registers and packets can be handled with carry
-	// registers.
+// withinBitRange checks whether a given integer value it contained within a
+// given bit range [s,e).  For example, 123 is contained within the range 0..8,
+// but 256 is not.
+func withinBitRange(val big.Int, start, end uint) bool {
+	var (
+		s = big.NewInt(2)
+		e = big.NewInt(2)
+	)
 	//
-	// SO: any register within the current packet frontier is automatically
-	// allocated.  Hence, we advance the frontier whilst there is at least one
-	// register which can be allocated as a result.
-	panic("todo")
+	s.Exp(s, big.NewInt(int64(start)), nil)
+	e.Exp(e, big.NewInt(int64(end)), nil)
+	// Check interval
+	return val.Cmp(s) >= 0 && val.Cmp(e) < 0
 }
