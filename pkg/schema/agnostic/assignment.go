@@ -218,7 +218,7 @@ func identifyEnclosingRegister(regs []sc.RegisterId, value big.Int, env sc.Regis
 		bitOffset += limb.Width
 	}
 	// It should not be possible to get here if the original assignments were
-	// well-formed.
+	// well-formed.  Right?
 	panic("unreachable")
 }
 
@@ -248,8 +248,62 @@ func identifyEnclosingRegister(regs []sc.RegisterId, value big.Int, env sc.Regis
 // assignments (as this may indeed be a hard computational problem).  Instead,
 // assignments are merged greedily starting from the least significant position.
 func coalesceAssignments(assignments []Assignment, bandwidth uint, env sc.RegisterMapping) []Assignment {
-	// TODO: implement algorithm
-	return assignments
+	var (
+		// Set of coalesced assignments
+		coalesced []Assignment
+		// Starting index of current sequence
+		start uint
+		// Width of current sequence being coalesced
+		width uint
+	)
+	//
+	for i, a := range assignments {
+		var (
+			isLast      = i+1 == len(assignments)
+			nWidth uint = width + a.Width(env)
+			group  []Assignment
+		)
+		// TODO: sort out carry registers
+		if nWidth > bandwidth || isLast {
+			// extract next group to coalesce, paying attention to whether or
+			// not this is the last group.
+			if isLast {
+				group = assignments[start:]
+			} else {
+				group = assignments[start:i]
+			}
+			// append coalesced group
+			coalesced = append(coalesced, coalesce(group, env))
+			// reset for next group
+			start, width = uint(i), 0
+		} else {
+			width = nWidth
+		}
+	}
+	//
+	return coalesced
+}
+
+func coalesce(assignments []Assignment, env sc.RegisterMapping) Assignment {
+	var (
+		offset uint
+		lhs    []sc.RegisterId
+		rhs    Polynomial
+	)
+	//
+	for i, ith := range assignments {
+		lhs = append(lhs, ith.LeftHandSide...)
+		// FIXME: apply offset factor
+		if i == 0 {
+			rhs = ith.RightHandSide.Clone()
+		} else {
+			rhs = rhs.Add(ith.RightHandSide)
+		}
+		// Update bit offset
+		offset += CombinedWidthOfLimbs(env, ith.LeftHandSide...)
+	}
+	// Done
+	return NewAssignment(lhs, rhs)
 }
 
 // DividingMonomial divides a given monomial m by some value n.  The division
