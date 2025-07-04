@@ -292,14 +292,17 @@ func coalesce(assignments []Assignment, env sc.RegisterMapping) Assignment {
 	)
 	//
 	for i, ith := range assignments {
+		// update left-hand side
 		lhs = append(lhs, ith.LeftHandSide...)
-		// FIXME: apply offset factor
+		// update right-hand side
 		if i == 0 {
 			rhs = ith.RightHandSide.Clone()
 		} else {
-			rhs = rhs.Add(ith.RightHandSide)
+			var tmp = ith.RightHandSide
+			// apply offset factor
+			rhs = rhs.Add(tmp.MulScalar(pow2(offset)))
 		}
-		// Update bit offset
+		// update bit offset
 		offset += CombinedWidthOfLimbs(env, ith.LeftHandSide...)
 	}
 	// Done
@@ -312,7 +315,7 @@ func coalesce(assignments []Assignment, env sc.RegisterMapping) Assignment {
 func divideMonomial(m Monomial, n uint) (val Monomial, rem Monomial) {
 	var (
 		coeff     = m.Coefficient()
-		nb        = big.NewInt(2)
+		nPow2     = pow2(n)
 		quotient  big.Int
 		remainder big.Int
 	)
@@ -320,11 +323,9 @@ func divideMonomial(m Monomial, n uint) (val Monomial, rem Monomial) {
 	if n == 0 {
 		return m, rem
 	}
-	// Determine 2^n
-	nb.Exp(nb, big.NewInt(int64(n)), nil)
 	// Determine quotient and remainder
-	quotient.Div(&coeff, nb)
-	remainder.Mod(&coeff, nb)
+	quotient.Div(&coeff, nPow2)
+	remainder.Mod(&coeff, nPow2)
 	// Done
 	return poly.NewMonomial(quotient, m.Vars()...),
 		poly.NewMonomial(remainder, m.Vars()...)
@@ -343,4 +344,13 @@ func withinBitRange(val big.Int, start, end uint) bool {
 	e.Exp(e, big.NewInt(int64(end)), nil)
 	// Check interval
 	return val.Cmp(s) >= 0 && val.Cmp(e) < 0
+}
+
+// compute 2^n
+func pow2(n uint) *big.Int {
+	var m = big.NewInt(2)
+	//
+	m.Exp(m, big.NewInt(int64(n)), nil)
+	//
+	return m
 }
