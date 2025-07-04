@@ -115,7 +115,7 @@ func (p *Assign) String(fn schema.Module) string {
 // > b,x1,x0 := 256*(y1+z1) + (y0+z0+1)
 //
 // Thus, y0+z0+1 define all of the bits for x0 and some of the bits for x1.
-func (p *Assign) Split(env io.SplittingEnvironment) []Code {
+func (p *Assign) Split(env schema.RegisterAllocator) []Code {
 	var (
 		// map target registers into corresponding limbs
 		lhs = agnostic.ApplyMapping(env, p.Targets)

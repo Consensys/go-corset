@@ -83,6 +83,15 @@ func (p Monomial[S]) Mul(other Monomial[S]) Monomial[S] {
 	return res
 }
 
+// MulScalar multiplies this monomial by scalar.
+func (p Monomial[S]) MulScalar(scalar *big.Int) Monomial[S] {
+	var res = p.Clone()
+	// Multiply coefficients
+	res.coefficient.Mul(&res.coefficient, scalar)
+	// Done
+	return res
+}
+
 // Matches determines whether or not the variables of this term match those
 // of the other.
 func (p Monomial[S]) Matches(other Monomial[S]) bool {

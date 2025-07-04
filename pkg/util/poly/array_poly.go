@@ -103,6 +103,17 @@ func (p *ArrayPoly[S]) Mul(other *ArrayPoly[S]) *ArrayPoly[S] {
 	return &res
 }
 
+// MulScalar multiplies this polynomial by scalar.
+func (p *ArrayPoly[S]) MulScalar(scalar *big.Int) *ArrayPoly[S] {
+	var res ArrayPoly[S]
+	//
+	for _, ith := range p.terms {
+		res.AddTerm(ith.MulScalar(scalar))
+	}
+	//
+	return &res
+}
+
 // AddTerm adds a single term into this polynomial.
 func (p *ArrayPoly[S]) AddTerm(other Monomial[S]) {
 	var zero = big.NewInt(0)

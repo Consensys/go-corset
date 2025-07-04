@@ -85,7 +85,7 @@ func (p *InOut) RegistersWritten() []io.RegisterId {
 
 // Split this micro code using registers of arbirary width into one or more
 // micro codes using registers of a fixed maximum width.
-func (p *InOut) Split(env io.SplittingEnvironment) []Code {
+func (p *InOut) Split(env schema.RegisterAllocator) []Code {
 	// Split bus
 	address := agnostic.ApplyMapping(env, p.bus.Address())
 	data := agnostic.ApplyMapping(env, p.bus.Data())

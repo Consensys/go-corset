@@ -51,7 +51,7 @@ type Code interface {
 	String(schema.Module) string
 	// Split this micro code using registers of arbirary width into one or more
 	// micro codes using registers of a fixed maximum width.
-	Split(env io.SplittingEnvironment) []Code
+	Split(env schema.RegisterAllocator) []Code
 	// Validate that this instruction is well-formed.  For example, that it is
 	// balanced, that there are no conflicting writes, that all temporaries have
 	// been allocated, etc.  The maximum bit capacity of the underlying field is
@@ -169,7 +169,7 @@ func (p Instruction) RegistersWritten() []io.RegisterId {
 }
 
 // SplitRegisters implementation for the SplittableInstruction interface
-func (p Instruction) SplitRegisters(env io.SplittingEnvironment) Instruction {
+func (p Instruction) SplitRegisters(env schema.RegisterAllocator) Instruction {
 	//
 	var ncodes []Code
 	//
