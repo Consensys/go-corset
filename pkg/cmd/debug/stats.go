@@ -15,10 +15,11 @@ package debug
 import (
 	"fmt"
 	"reflect"
-	"strings"
 
 	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
+	"github.com/consensys/go-corset/pkg/ir/air"
 	"github.com/consensys/go-corset/pkg/ir/assignment"
+	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/termio"
@@ -61,7 +62,8 @@ type schemaSummariser struct {
 
 var schemaSummarisers []schemaSummariser = []schemaSummariser{
 	// Constraints
-	constraintCounter("Constraints", isVanishingConstraint),
+	constraintCounter("Constraints", func(schema.Constraint) bool { return true }),
+	constraintCounter("Vanishing", isVanishingConstraint),
 	constraintCounter("Lookups", isLookupConstraint),
 	constraintCounter("Permutations", isPermutationConstraint),
 	constraintCounter("Range", isRangeConstraint),
@@ -83,19 +85,51 @@ var schemaSummarisers []schemaSummariser = []schemaSummariser{
 }
 
 func isVanishingConstraint(c schema.Constraint) bool {
-	return strings.Contains(reflect.TypeOf(c).Name(), "VanishingConstraint")
+	switch c := c.(type) {
+	case air.VanishingConstraint:
+		return true
+	case mir.Constraint:
+		_, ok := c.Unwrap().(mir.VanishingConstraint)
+		return ok
+	}
+	//
+	return false
 }
 
 func isLookupConstraint(c schema.Constraint) bool {
-	return strings.Contains(reflect.TypeOf(c).Name(), "LookupConstraint")
+	switch c := c.(type) {
+	case air.LookupConstraint:
+		return true
+	case mir.Constraint:
+		_, ok := c.Unwrap().(mir.LookupConstraint)
+		return ok
+	}
+	//
+	return false
 }
 
 func isPermutationConstraint(c schema.Constraint) bool {
-	return strings.Contains(reflect.TypeOf(c).Name(), "PermutationConstraint")
+	switch c := c.(type) {
+	case air.PermutationConstraint:
+		return true
+	case mir.Constraint:
+		_, ok := c.Unwrap().(mir.PermutationConstraint)
+		return ok
+	}
+	//
+	return false
 }
 
 func isRangeConstraint(c schema.Constraint) bool {
-	return strings.Contains(reflect.TypeOf(c).Name(), "RangeConstraint")
+	switch c := c.(type) {
+	case air.RangeConstraint:
+		return true
+	case mir.Constraint:
+		_, ok := c.Unwrap().(mir.RangeConstraint)
+		return ok
+	}
+	//
+	return false
 }
 
 func constraintCounter(title string, includes func(schema.Constraint) bool) schemaSummariser {
