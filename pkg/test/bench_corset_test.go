@@ -14,104 +14,106 @@ package test
 
 import (
 	"testing"
+
+	test_util "github.com/consensys/go-corset/pkg/test/util"
 )
 
 func Test_Counter(t *testing.T) {
-	Check(t, true, "bench/counter")
+	test_util.Check(t, true, "bench/counter")
 }
 
 func Test_ByteDecomp(t *testing.T) {
-	Check(t, true, "bench/byte_decomposition")
+	test_util.Check(t, true, "bench/byte_decomposition")
 }
 
 func Test_BitDecomp(t *testing.T) {
-	Check(t, true, "bench/bit_decomposition")
+	test_util.Check(t, true, "bench/bit_decomposition")
 }
 
 func Test_ByteSorting(t *testing.T) {
-	Check(t, true, "bench/byte_sorting")
+	test_util.Check(t, true, "bench/byte_sorting")
 }
 
 func Test_WordSorting(t *testing.T) {
-	Check(t, true, "bench/word_sorting")
+	test_util.Check(t, true, "bench/word_sorting")
 }
 
 func Test_Multiplier(t *testing.T) {
-	Check(t, false, "bench/multiplier")
+	test_util.Check(t, false, "bench/multiplier")
 }
 
 func Test_Memory(t *testing.T) {
-	Check(t, true, "bench/memory")
+	test_util.Check(t, true, "bench/memory")
 }
 
 func Test_Adder(t *testing.T) {
-	Check(t, true, "bench/adder")
+	test_util.Check(t, true, "bench/adder")
 }
 
 func TestSlow_Fields(t *testing.T) {
-	Check(t, true, "bench/fields")
+	test_util.Check(t, true, "bench/fields")
 }
 
 func TestSlow_Add(t *testing.T) {
-	Check(t, true, "bench/add")
+	test_util.Check(t, true, "bench/add")
 }
 
 func TestSlow_BinStatic(t *testing.T) {
-	Check(t, true, "bench/bin-static")
+	test_util.Check(t, true, "bench/bin-static")
 }
 
 func TestSlow_Bin(t *testing.T) {
-	Check(t, true, "bench/bin")
+	test_util.Check(t, true, "bench/bin")
 }
 
 func TestSlow_Wcp(t *testing.T) {
-	Check(t, true, "bench/wcp")
+	test_util.Check(t, true, "bench/wcp")
 }
 
 func TestSlow_Mxp(t *testing.T) {
-	Check(t, true, "bench/mxp")
+	test_util.Check(t, true, "bench/mxp")
 }
 
 func TestSlow_Shf(t *testing.T) {
-	Check(t, true, "bench/shf")
+	test_util.Check(t, true, "bench/shf")
 }
 
 func TestSlow_Euc(t *testing.T) {
-	Check(t, true, "bench/euc")
+	test_util.Check(t, true, "bench/euc")
 }
 
 func TestSlow_Oob(t *testing.T) {
-	Check(t, true, "bench/oob")
+	test_util.Check(t, true, "bench/oob")
 }
 
 func TestSlow_Stp(t *testing.T) {
-	Check(t, true, "bench/stp")
+	test_util.Check(t, true, "bench/stp")
 }
 
 func TestSlow_Mmio(t *testing.T) {
-	Check(t, true, "bench/mmio")
+	test_util.Check(t, true, "bench/mmio")
 }
 
 // func TestSlow_Rom(t *testing.T) {
-// 	Check(t, true, "bench/rom")
+// 	test_util.Check(t, true, "bench/rom")
 // }
 
 func TestSlow_Gas(t *testing.T) {
-	Check(t, true, "bench/gas")
+	test_util.Check(t, true, "bench/gas")
 }
 
 func TestSlow_Exp(t *testing.T) {
-	Check(t, true, "bench/exp")
+	test_util.Check(t, true, "bench/exp")
 }
 
 func TestSlow_Mul(t *testing.T) {
-	Check(t, true, "bench/mul")
+	test_util.Check(t, true, "bench/mul")
 }
 
 func TestSlow_Mod(t *testing.T) {
-	Check(t, true, "bench/mod")
+	test_util.Check(t, true, "bench/mod")
 }
 
 func Test_TicTacToe(t *testing.T) {
-	Check(t, true, "bench/tic_tac_toe")
+	test_util.Check(t, true, "bench/tic_tac_toe")
 }
