@@ -25,7 +25,7 @@ import (
 // }
 
 func Test_Asm_ParseNonDecimal(t *testing.T) {
-	Check(t, false, "asm/parse_nondecimal")
+	test_util.Check(t, false, "asm/parse_nondecimal")
 }
 
 func Test_Asm_Counter(t *testing.T) {
