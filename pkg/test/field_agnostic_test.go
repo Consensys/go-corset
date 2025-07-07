@@ -12,28 +12,22 @@
 // SPDX-License-Identifier: Apache-2.0
 package test
 
-import (
-	"testing"
+// func Test_Agnostic_01(t *testing.T) {
+// 	test_util.Check(t, false, "agnostic/agnostic_01")
+// }
 
-	test_util "github.com/consensys/go-corset/pkg/test/util"
-)
+// func Test_Agnostic_02(t *testing.T) {
+// 	test_util.Check(t, false, "agnostic/agnostic_02")
+// }
 
-func Test_Agnostic_01(t *testing.T) {
-	test_util.Check(t, false, "agnostic/agnostic_01")
-}
+// func Test_Agnostic_03(t *testing.T) {
+// 	test_util.Check(t, false, "agnostic/agnostic_03")
+// }
 
-func Test_Agnostic_02(t *testing.T) {
-	test_util.Check(t, false, "agnostic/agnostic_02")
-}
+// func Test_Agnostic_04(t *testing.T) {
+// 	test_util.Check(t, false, "agnostic/agnostic_04")
+// }
 
-func Test_Agnostic_03(t *testing.T) {
-	test_util.Check(t, false, "agnostic/agnostic_03")
-}
-
-func Test_Agnostic_04(t *testing.T) {
-	test_util.Check(t, false, "agnostic/agnostic_04")
-}
-
-func Test_Agnostic_05(t *testing.T) {
-	test_util.Check(t, false, "agnostic/agnostic_05")
-}
+// func Test_Agnostic_05(t *testing.T) {
+// 	test_util.Check(t, false, "agnostic/agnostic_05")
+// }

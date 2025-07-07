@@ -14,6 +14,8 @@ package poly
 
 import "math/big"
 
+var zero big.Int
+
 // Monomial represents a monomial within an array polynomial.
 type Monomial[S comparable] struct {
 	coefficient big.Int
@@ -50,6 +52,21 @@ func (p Monomial[S]) Coefficient() big.Int {
 func (p Monomial[S]) IsZero() bool {
 	c := p.coefficient
 	return c.BitLen() == 0
+}
+
+// IsNegative checks whether or not the coefficient for this monomial is
+// negative.
+func (p Monomial[S]) IsNegative() bool {
+	c := p.coefficient
+	return c.Cmp(&zero) < 0
+}
+
+// Negate the coefficient of this monomial
+func (p Monomial[S]) Negate() Monomial[S] {
+	c := p.Clone()
+	c.coefficient.Neg(&c.coefficient)
+	//
+	return c
 }
 
 // Len returns the number of variables in this polynomial term.

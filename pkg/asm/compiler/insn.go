@@ -39,12 +39,19 @@ func (p *StateTranslator[T, E, M]) translateAssign(cc uint, codes []micro.Code) 
 	var (
 		code = codes[cc].(*micro.Assign)
 		// build rhs
-		rhs = p.translatePolynomial(code.Source)
+		rhs, neg = p.translatePolynomial(code.Source)
 		// build lhs (must be after rhs)
 		lhs = p.WriteAndShiftRegisters(code.Targets)
+		// equation
+		eqn E
 	)
 	// Construct equation
-	eqn := Sum(lhs).Equals(rhs)
+	if len(neg) != 0 {
+		// Signed case, so rebalance
+		lhs, rhs = p.rebalanceAssign(lhs, rhs, neg)
+	}
+	//
+	eqn = Sum(lhs).Equals(Sum(rhs))
 	// Continue
 	return eqn.And(p.translateCode(cc+1, codes))
 }
@@ -104,50 +111,44 @@ func (p *StateTranslator[T, E, M]) translateSkip(cc uint, codes []micro.Code) E 
 	return IfElse(left.Equals(right), lhs, rhs)
 }
 
-// // Consider an assignment b, X := Y - 1.  This should be translated into the
-// // constraint: X + 1 == Y - 256.b (assuming b is u1, and X/Y are u8).
-// func (p *StateTranslator[T, E, M]) rebalanceSub(lhs []E, rhs []E, regs []io.Register, code *micro.Sub) ([]E, []E) {
-// 	//
-// 	pivot := 0
-// 	width := int(regs[code.Sources[0].Unwrap()].Width)
-// 	//
-// 	for width > 0 {
-// 		reg := regs[code.Targets[pivot].Unwrap()]
-// 		//
-// 		pivot++
-// 		width -= int(reg.Width)
-// 	}
-// 	// Sanity check
-// 	if width < 0 {
-// 		// Should be caught earlier, hence unreachable.
-// 		panic("failed rebalancing subtraction")
-// 	}
-// 	//
-// 	nlhs := slices.Clone(lhs[:pivot])
-// 	nrhs := []E{rhs[0]}
-// 	// rebalance
-// 	nlhs = append(nlhs, rhs[1:]...)
-// 	nrhs = append(nrhs, lhs[pivot:]...)
-// 	// done
-// 	return nlhs, nrhs
-// }
+// Consider an assignment b, X := Y - 1.  This should be translated into the
+// constraint: X + 1 == Y + 256.b (assuming b is u1, and X/Y are u8).
+func (p *StateTranslator[T, E, M]) rebalanceAssign(lhs []E, rhs []E, neg []E) ([]E, []E) {
+	var (
+		n = len(lhs) - 1
+		// Extract sign bit
+		sign = lhs[n]
+	)
+	// Remove sign bit
+	lhs = lhs[:n]
+	// rebalance lhs and rhs
+	lhs = append(lhs, neg...)
+	rhs = append(rhs, sign)
+	// Done
+	return lhs, rhs
+}
 
 // Translate polynomial (c0*x0$0*...*xn$0) + ... + (cm*x0$m*...*xn$m) where cX
-// are constant coefficients.
-func (p *StateTranslator[T, E, M]) translatePolynomial(poly agnostic.Polynomial) E {
+// are constant coefficients.  This generates a positive term and a (potentiall
+// nil) negative term.
+func (p *StateTranslator[T, E, M]) translatePolynomial(poly agnostic.Polynomial) (pos []E, neg []E) {
 	var (
-		terms []E = make([]E, poly.Len())
+		posTerms []E
+		negTerms []E
 	)
 	//
 	for i := range poly.Len() {
-		terms[i] = p.translateMonomial(poly.Term(i))
+		ith := poly.Term(i)
+		//
+		if ith.IsNegative() {
+			ith = ith.Negate()
+			negTerms = append(negTerms, p.translateMonomial(ith))
+		} else {
+			posTerms = append(posTerms, p.translateMonomial(ith))
+		}
 	}
-	// Optimisation
-	if len(terms) == 1 {
-		return terms[0]
-	}
-	// Normal case
-	return Sum(terms)
+	// Done
+	return posTerms, negTerms
 }
 
 // Translate a monomial of the form c*x0*...*xn where c is a constant coefficient.
