@@ -14,62 +14,67 @@ package test
 
 import (
 	"testing"
+
+	test_util "github.com/consensys/go-corset/pkg/test/util"
 )
 
 // Recusion
 //
 // func Test_Asm_Byte(t *testing.T) {
-// 	Check(t, false, "asm/byte")
+// 	test_util.Check(t, false, "asm/byte")
 // }
 
 func Test_Asm_Counter(t *testing.T) {
-	Check(t, false, "asm/counter")
+	test_util.Check(t, false, "asm/counter")
 }
 
+//	func Test_Asm_Counter256(t *testing.T) {
+//		test_util.Check(t, false, "asm/counter256")
+//	}
 func Test_Asm_FastPow(t *testing.T) {
-	Check(t, false, "asm/fast_pow")
+	test_util.Check(t, false, "asm/fast_pow")
 }
 
 func Test_Asm_Max(t *testing.T) {
-	Check(t, false, "asm/max")
+	test_util.Check(t, false, "asm/max")
 }
 
 // func Test_Asm_Max256(t *testing.T) {
-// 	Check(t, false, "asm/max256")
+// 	test_util.Check(t, false, "asm/max256")
 // }
 
 func Test_Asm_MixedSmall(t *testing.T) {
-	Check(t, false, "asm/mixed_small")
+	test_util.Check(t, false, "asm/mixed_small")
 }
 
 // func Test_Asm_MixedLarge(t *testing.T) {
-// 	Check(t, false, "asm/mixed_large")
+// 	test_util.Check(t, false, "asm/mixed_large")
 // }
 
 func Test_Asm_SlowPow(t *testing.T) {
-	Check(t, false, "asm/slow_pow")
+	test_util.Check(t, false, "asm/slow_pow")
 }
 
 func Test_Asm_SimpleOnCurve(t *testing.T) {
 	// Check(t, false, "asm/simple_on_curve")
 	// To be replaced once splitting algorithm is available
-	Check(t, false, "asm/simple_on_curve_u16")
+	test_util.Check(t, false, "asm/simple_on_curve_u16")
 }
 
 // Recusion
 //
 // func Test_Asm_RecPow(t *testing.T) {
-// 	Check(t, false, "asm/rec_pow")
+// 	test_util.Check(t, false, "asm/rec_pow")
 // }
 
 // Recusion
 //
 // func Test_Asm_Shift(t *testing.T) {
-// 	Check(t, false, "asm/shift")
+// 	test_util.Check(t, false, "asm/shift")
 // }
 
 // Field Element Out-Of-Bounds
 //
 // func Test_Asm_Wcp(t *testing.T) {
-// 	Check(t, false, "asm/wcp")
+// 	test_util.Check(t, false, "asm/wcp")
 // }

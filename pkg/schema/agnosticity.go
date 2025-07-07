@@ -12,6 +12,11 @@
 // SPDX-License-Identifier: Apache-2.0
 package schema
 
+import (
+	"fmt"
+	"slices"
+)
+
 // Limb is just an alias for Register, but it helps to clarify when we are
 // referring to a register after subdivision.
 type Limb = Register
@@ -79,9 +84,76 @@ type RegisterMappings interface {
 // RegisterMapping provides a high-level mapping of all registers before and
 // after subdivision occurs in a given module.
 type RegisterMapping interface {
+	// BandWidth returns the maximum bandwidth available in the underlying
+	// field.  This cannot be smaller than the maximum register width.
+	BandWidth() uint
 	// Limbs identifies the limbs into which a given register is divided.
+	// Observe that limbs are ordered by their position in the original
+	// register.  In particular, the first limb (i.e. at index 0) is always
+	// least significant limb, and the last always most significant.
 	LimbIds(RegisterId) []LimbId
 	// Limbs returns information about a given limb (i.e. a register which
 	// exists after the split).
 	Limb(LimbId) Limb
+	// Limbs returns all limbs in the mapping.
+	Limbs() []Limb
+}
+
+// RegisterAllocator extends a register mapping with the ability to allocate new
+// registers as necessary.  This is useful, for example,  in the context of
+// register splitting for introducing new carry registers.
+type RegisterAllocator interface {
+	RegisterMapping
+	// AllocateCarry a fresh register of the given width within the target module.
+	// This is presumed to be a computed register, and automatically assigned a
+	// unique name.
+	AllocateCarry(width uint) RegisterId
+}
+
+// ============================================================================
+
+type registerAllocator struct {
+	mapping RegisterMapping
+	limbs   []Register
+}
+
+// NewAllocator converts a mapping into a full allocator simply by wrapping the
+// two fields.
+func NewAllocator(mapping RegisterMapping) RegisterAllocator {
+	limbs := slices.Clone(mapping.Limbs())
+	return &registerAllocator{mapping, limbs}
+}
+
+// AllocateCarry implementation for the schema.RegisterAllocator interface
+func (p *registerAllocator) AllocateCarry(width uint) RegisterId {
+	var (
+		// Determine index for new register
+		index = uint(len(p.limbs))
+		// Determine unique name for new register
+		name = fmt.Sprintf("c$%d", index)
+	)
+	// Allocate a new computed register.
+	p.limbs = append(p.limbs, NewComputedRegister(name, width))
+	//
+	return NewRegisterId(index)
+}
+
+// BandWidth implementation for schema.RegisterMapping interface
+func (p *registerAllocator) BandWidth() uint {
+	return p.mapping.BandWidth()
+}
+
+// Limbs implementation for the schema.RegisterMapping interface
+func (p *registerAllocator) LimbIds(reg RegisterId) []LimbId {
+	return p.mapping.LimbIds(reg)
+}
+
+// Limb implementation for the schema.RegisterMapping interface
+func (p *registerAllocator) Limb(reg LimbId) Limb {
+	return p.limbs[reg.Unwrap()]
+}
+
+// Limbs implementation for the schema.RegisterMapping interface
+func (p *registerAllocator) Limbs() []Limb {
+	return p.limbs
 }

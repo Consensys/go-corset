@@ -64,7 +64,7 @@ func newRegisterMappings(maxFieldWidth, maxRegWidth uint, schema sc.AnySchema) s
 	}
 	//
 	for i := range schema.Width() {
-		regmap := newRegisterMapping(maxRegWidth, schema.Module(i))
+		regmap := newRegisterMapping(maxFieldWidth, maxRegWidth, schema.Module(i))
 		mappings = append(mappings, regmap)
 	}
 	//
@@ -105,7 +105,8 @@ func (p registerMappings) ModuleOf(name string) sc.RegisterMapping {
 // if the original register was computed, then the limbs should be also, etc.
 type registerMapping struct {
 	// Name of the module to which this mapping corresponds
-	name string
+	name      string
+	bandwidth uint
 	// Set of registers in the original schema (i.e. as they were before the
 	// split)
 	registers []sc.Register
@@ -117,7 +118,7 @@ type registerMapping struct {
 
 // newRegisterMapping constructs an appropriate register map for a given module
 // and parameter combination.
-func newRegisterMapping(maxRegWidth uint, module sc.Module) registerMapping {
+func newRegisterMapping(maxFieldWidth, maxRegWidth uint, module sc.Module) registerMapping {
 	var (
 		regs    = module.Registers()
 		limbs   []sc.Register
@@ -141,10 +142,16 @@ func newRegisterMapping(maxRegWidth uint, module sc.Module) registerMapping {
 	// Done
 	return registerMapping{
 		module.Name(),
+		maxFieldWidth,
 		regs,
 		limbs,
 		mapping,
 	}
+}
+
+// BandWidth implementation for schema.RegisterMappings interface
+func (p registerMapping) BandWidth() uint {
+	return p.bandwidth
 }
 
 // Limbs implementation for the schema.RegisterMapping interface
@@ -155,4 +162,9 @@ func (p registerMapping) LimbIds(reg sc.RegisterId) []sc.LimbId {
 // Limb implementation for the schema.RegisterMapping interface
 func (p registerMapping) Limb(reg sc.LimbId) sc.Limb {
 	return p.limbs[reg.Unwrap()]
+}
+
+// Limbs implementation for the schema.RegisterMapping interface
+func (p registerMapping) Limbs() []sc.Limb {
+	return p.limbs
 }

@@ -19,6 +19,8 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/agnostic"
+	"github.com/consensys/go-corset/pkg/util/poly"
 )
 
 // Sub represents a generic operation of the following form:
@@ -68,10 +70,31 @@ func (p *Sub) Execute(state io.State) uint {
 
 // Lower this instruction into a exactly one more micro instruction.
 func (p *Sub) Lower(pc uint) micro.Instruction {
-	code := &micro.Sub{
-		Targets:  p.Targets,
-		Sources:  p.Sources,
-		Constant: p.Constant,
+	var (
+		source    agnostic.Polynomial
+		monomials []agnostic.Monomial = make([]agnostic.Monomial, len(p.Sources)+1)
+		constant  big.Int
+	)
+	// Include source terms
+	for i, src := range p.Sources {
+		//
+		if i == 0 {
+			monomials[i] = poly.NewMonomial(one, src)
+		} else {
+			monomials[i] = poly.NewMonomial(minusOne, src)
+		}
+	}
+	// Construct negative constant
+	constant.Set(&p.Constant)
+	constant.Mul(&constant, &minusOne)
+	// Include source constant
+	monomials[len(p.Sources)] = poly.NewMonomial[io.RegisterId](constant)
+	// Construct source polynomial
+	source = source.Set(monomials...)
+	//
+	code := &micro.Assign{
+		Targets: p.Targets,
+		Source:  source,
 	}
 	// Lowering here produces an instruction containing a single microcode.
 	return micro.NewInstruction(code, &micro.Jmp{Target: pc + 1})
