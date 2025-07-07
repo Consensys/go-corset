@@ -71,7 +71,7 @@ type Instruction[T any] interface {
 type SplittableInstruction[T any] interface {
 	Instruction[T]
 
-	SplitRegisters(SplittingEnvironment) T
+	SplitRegisters(schema.RegisterAllocator) T
 }
 
 // InOutInstruction is simply a kind of instruction which performs some kind of I/O

@@ -39,17 +39,3 @@ func LimbsOf(mapping sc.RegisterMapping, lids []sc.LimbId) []sc.Limb {
 	//
 	return limbs
 }
-
-// LimbWidths returns the limb widths corresponding to a given set of
-// identifiers.
-func LimbWidths(mapping sc.RegisterMapping, lids []sc.LimbId) []uint {
-	var (
-		widths []uint = make([]uint, len(lids))
-	)
-	//
-	for i, lid := range lids {
-		widths[i] = mapping.Limb(lid).Width
-	}
-	//
-	return widths
-}

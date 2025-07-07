@@ -87,7 +87,7 @@ func (p *Skip) RegistersWritten() []io.RegisterId {
 
 // Split this micro code using registers of arbirary width into one or more
 // micro codes using registers of a fixed maximum width.
-func (p *Skip) Split(env io.SplittingEnvironment) []Code {
+func (p *Skip) Split(env schema.RegisterAllocator) []Code {
 	// NOTE: we can assume left and right have matching bitwidths
 	var (
 		lhsLimbs = env.LimbIds(p.Left)
@@ -104,7 +104,7 @@ func (p *Skip) Split(env io.SplittingEnvironment) []Code {
 			ncodes = append(ncodes, ncode)
 		}
 	} else {
-		lhsLimbWidths := agnostic.LimbWidths(env, lhsLimbs)
+		lhsLimbWidths := agnostic.WidthsOfLimbs(env, lhsLimbs)
 		constantLimbs := agnostic.SplitConstant(p.Constant, lhsLimbWidths...)
 		//
 		for i := range n {

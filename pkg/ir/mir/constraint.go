@@ -151,6 +151,11 @@ func (p Constraint) Substitute(mapping map[string]fr.Element) {
 	p.constraint.Substitute(mapping)
 }
 
+// Unwrap provides access to the underlying constraint.
+func (p Constraint) Unwrap() schema.Constraint {
+	return p.constraint
+}
+
 // ============================================================================
 // Encoding / Decoding
 // ============================================================================

@@ -18,7 +18,7 @@ import (
 	"math"
 	"math/big"
 
-	"github.com/consensys/go-corset/pkg/schema"
+	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 )
 
@@ -31,10 +31,10 @@ const (
 )
 
 // Register defines the notion of a register within a function.
-type Register = schema.Register
+type Register = sc.Register
 
 // RegisterId abstracts the notion of a register id.
-type RegisterId = schema.RegisterId
+type RegisterId = sc.RegisterId
 
 const (
 	// UNUSED_REGISTER provides a simple way to distinguish registers and
@@ -59,7 +59,7 @@ type FunctionInstance struct {
 // given by a sequence of zero or more instructions.
 type Function[T Instruction[T]] struct {
 	// unique module identifier
-	id schema.ModuleId
+	id sc.ModuleId
 	// Unique name of this function.
 	name string
 	// Registers describes zero or more registers of a given width.  Each
@@ -70,17 +70,17 @@ type Function[T Instruction[T]] struct {
 }
 
 // NewFunction constructs a new function with the given components.
-func NewFunction[T Instruction[T]](id schema.ModuleId, name string, registers []Register, code []T) Function[T] {
+func NewFunction[T Instruction[T]](id sc.ModuleId, name string, registers []Register, code []T) Function[T] {
 	return Function[T]{id, name, registers, code}
 }
 
 // Assignments returns an iterator over the assignments of this schema.
 // These are the computations used to assign values to all computed columns
 // in this module.
-func (p *Function[T]) Assignments() iter.Iterator[schema.Assignment] {
+func (p *Function[T]) Assignments() iter.Iterator[sc.Assignment] {
 	var assignment Assignment[T] = Assignment[T]{p.id, p.name, p.registers, p.code}
 	//
-	return iter.NewUnitIterator[schema.Assignment](assignment)
+	return iter.NewUnitIterator[sc.Assignment](assignment)
 }
 
 // CodeAt returns the ith instruction making up the body of this function.
@@ -95,22 +95,22 @@ func (p *Function[T]) Code() []T {
 
 // Constraints provides access to those constraints associated with this
 // function.
-func (p *Function[T]) Constraints() iter.Iterator[schema.Constraint] {
+func (p *Function[T]) Constraints() iter.Iterator[sc.Constraint] {
 	var constraint Constraint[T] = Constraint[T]{p.id, p.name, p.registers, p.code}
 	//
-	return iter.NewUnitIterator[schema.Constraint](constraint)
+	return iter.NewUnitIterator[sc.Constraint](constraint)
 }
 
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p *Function[T]) Consistent(schema.Schema[schema.Constraint]) []error {
+func (p *Function[T]) Consistent(sc.Schema[sc.Constraint]) []error {
 	// TODO: add checks?
 	return nil
 }
 
 // Id returns the unique module identifier for this function.
-func (p *Function[T]) Id() schema.ModuleId {
+func (p *Function[T]) Id() sc.ModuleId {
 	return p.id
 }
 
@@ -119,11 +119,11 @@ func (p *Function[T]) Id() schema.ModuleId {
 func (p *Function[T]) HasRegister(name string) (RegisterId, bool) {
 	for i, r := range p.registers {
 		if r.Name == name {
-			return schema.NewRegisterId(uint(i)), true
+			return sc.NewRegisterId(uint(i)), true
 		}
 	}
 	// Failed
-	return schema.NewUnusedRegisterId(), false
+	return sc.NewUnusedRegisterId(), false
 }
 
 // Inputs returns the set of input registers for this function.
@@ -165,7 +165,7 @@ func (p *Function[T]) Outputs() []Register {
 }
 
 // Register returns the ith register used in this function.
-func (p *Function[T]) Register(id schema.RegisterId) Register {
+func (p *Function[T]) Register(id sc.RegisterId) Register {
 	return p.registers[id.Unwrap()]
 }
 
@@ -176,33 +176,25 @@ func (p *Function[T]) Registers() []Register {
 }
 
 // Subdivide implementation for the FieldAgnosticModule interface.
-func (p *Function[T]) Subdivide(mapping schema.RegisterMappings) *Function[T] {
+func (p *Function[T]) Subdivide(mapping sc.RegisterMappings) *Function[T] {
 	var (
-		registers []schema.Register
-		// Determine mapping information for this function.
-		modmap = NewSplittingEnvironment(mapping.ModuleOf(p.name))
+		// Construct suitable splitting environment
+		env = sc.NewAllocator(mapping.ModuleOf(p.name))
 		// Updated instruction sequence
 		ninsns []T
 	)
-	// Append mapping registers
-	for i := range p.registers {
-		rid := schema.NewRegisterId(uint(i))
-		for _, limb := range modmap.LimbIds(rid) {
-			registers = append(registers, modmap.Limb(limb))
-		}
-	}
 	// Split instructions
 	for _, insn := range p.Code() {
 		var ith Instruction[T] = insn
 		//nolint
 		if i, ok := ith.(SplittableInstruction[T]); ok {
-			ninsns = append(ninsns, i.SplitRegisters(modmap))
+			ninsns = append(ninsns, i.SplitRegisters(env))
 		} else {
 			panic("non-field agnostic instruction encountered")
 		}
 	}
 	// Done
-	nf := NewFunction(p.Id(), p.Name(), registers, ninsns)
+	nf := NewFunction(p.Id(), p.Name(), env.Limbs(), ninsns)
 	//
 	return &nf
 }
@@ -214,11 +206,11 @@ func (p *Function[T]) Width() uint {
 
 // AllocateRegister allocates a new register of the given kind, name and width
 // into this function.
-func (p *Function[T]) AllocateRegister(kind schema.RegisterType, name string, width uint) RegisterId {
+func (p *Function[T]) AllocateRegister(kind sc.RegisterType, name string, width uint) RegisterId {
 	index := uint(len(p.registers))
-	p.registers = append(p.registers, schema.NewRegister(kind, name, width))
+	p.registers = append(p.registers, sc.NewRegister(kind, name, width))
 	// Done
-	return schema.NewRegisterId(index)
+	return sc.NewRegisterId(index)
 }
 
 // ============================================================================

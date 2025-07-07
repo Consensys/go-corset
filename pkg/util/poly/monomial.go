@@ -14,6 +14,8 @@ package poly
 
 import "math/big"
 
+var zero big.Int
+
 // Monomial represents a monomial within an array polynomial.
 type Monomial[S comparable] struct {
 	coefficient big.Int
@@ -26,9 +28,45 @@ func NewMonomial[S comparable](coefficient big.Int, vars ...S) Monomial[S] {
 	return Monomial[S]{coefficient, vars}
 }
 
+// Clone an array term
+func (p *Monomial[S]) Clone() Monomial[S] {
+	var (
+		val   big.Int
+		nvars = make([]S, len(p.vars))
+	)
+	// Copy variables
+	copy(nvars, p.vars)
+	// Copy coefficient
+	val.Set(&p.coefficient)
+	//
+	return Monomial[S]{val, nvars}
+}
+
 // Coefficient returns the coefficient of this term.
 func (p Monomial[S]) Coefficient() big.Int {
 	return p.coefficient
+}
+
+// IsZero checks whether or not this monomial is zero.  Or, put another way,
+// whether or not the coefficient of this monomial is zero.
+func (p Monomial[S]) IsZero() bool {
+	c := p.coefficient
+	return c.BitLen() == 0
+}
+
+// IsNegative checks whether or not the coefficient for this monomial is
+// negative.
+func (p Monomial[S]) IsNegative() bool {
+	c := p.coefficient
+	return c.Cmp(&zero) < 0
+}
+
+// Negate the coefficient of this monomial
+func (p Monomial[S]) Negate() Monomial[S] {
+	c := p.Clone()
+	c.coefficient.Neg(&c.coefficient)
+	//
+	return c
 }
 
 // Len returns the number of variables in this polynomial term.
@@ -62,6 +100,15 @@ func (p Monomial[S]) Mul(other Monomial[S]) Monomial[S] {
 	return res
 }
 
+// MulScalar multiplies this monomial by scalar.
+func (p Monomial[S]) MulScalar(scalar *big.Int) Monomial[S] {
+	var res = p.Clone()
+	// Multiply coefficients
+	res.coefficient.Mul(&res.coefficient, scalar)
+	// Done
+	return res
+}
+
 // Matches determines whether or not the variables of this term match those
 // of the other.
 func (p Monomial[S]) Matches(other Monomial[S]) bool {
@@ -78,16 +125,7 @@ func (p Monomial[S]) Matches(other Monomial[S]) bool {
 	return true
 }
 
-// Clone an array term
-func (p *Monomial[S]) Clone() Monomial[S] {
-	var (
-		val   big.Int
-		nvars = make([]S, len(p.vars))
-	)
-	// Copy variables
-	copy(nvars, p.vars)
-	// Copy coefficient
-	val.Set(&p.coefficient)
-	//
-	return Monomial[S]{val, nvars}
+// Vars retursnt the variables of this monomial as an array.
+func (p Monomial[S]) Vars() []S {
+	return p.vars
 }
