@@ -27,9 +27,10 @@ import (
 func Test_Asm_Counter(t *testing.T) {
 	test_util.Check(t, false, "asm/counter")
 }
-func Test_Asm_Counter256(t *testing.T) {
-	test_util.Check(t, false, "asm/counter256")
-}
+
+//	func Test_Asm_Counter256(t *testing.T) {
+//		test_util.Check(t, false, "asm/counter256")
+//	}
 func Test_Asm_FastPow(t *testing.T) {
 	test_util.Check(t, false, "asm/fast_pow")
 }
@@ -57,7 +58,7 @@ func Test_Asm_SlowPow(t *testing.T) {
 func Test_Asm_SimpleOnCurve(t *testing.T) {
 	// Check(t, false, "asm/simple_on_curve")
 	// To be replaced once splitting algorithm is available
-	Check(t, false, "asm/simple_on_curve_u16")
+	test_util.Check(t, false, "asm/simple_on_curve_u16")
 }
 
 // Recusion

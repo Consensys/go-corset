@@ -252,8 +252,6 @@ func (p *Assignment) initialiseSplit(env sc.RegisterMapping) []Assignment {
 func identifyEnclosingRegister(regs []sc.RegisterId, value big.Int, env sc.RegisterMapping) (uint, uint) {
 	var bitOffset uint
 	//
-	fmt.Printf("Looking for %s\n", value.String())
-	//
 	for i, lid := range regs {
 		var limb = env.Limb(lid)
 		// Value contained by this register?

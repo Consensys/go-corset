@@ -12,19 +12,12 @@ package micro
 
 import (
 	"fmt"
-	"math/big"
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 )
-
-// Alias for big integer representation of 0.
-var zero big.Int = *big.NewInt(0)
-
-// Alias for big integer representation of 1.
-var one big.Int = *big.NewInt(1)
 
 // Code provides an abstract notion of an atomic "machine operation", where a
 // single instruction is comprised of multiple such microcodes.  To ensure
@@ -139,7 +132,7 @@ func (p Instruction) RegistersRead() []io.RegisterId {
 	//
 	for _, c := range p.Codes {
 		for _, id := range c.RegistersRead() {
-			if regs.Contains(id.Unwrap()) {
+			if !regs.Contains(id.Unwrap()) {
 				regs.Insert(id.Unwrap())
 				read = append(read, id)
 			}
@@ -158,7 +151,7 @@ func (p Instruction) RegistersWritten() []io.RegisterId {
 	//
 	for _, c := range p.Codes {
 		for _, id := range c.RegistersWritten() {
-			if regs.Contains(id.Unwrap()) {
+			if !regs.Contains(id.Unwrap()) {
 				regs.Insert(id.Unwrap())
 				written = append(written, id)
 			}

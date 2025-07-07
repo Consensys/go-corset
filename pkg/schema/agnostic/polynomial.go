@@ -136,10 +136,6 @@ func WidthOfPolynomial(source Polynomial, regs []schema.Register) uint {
 	return upperBits
 }
 
-func WidthOfMonomial(source Monomial, regs []schema.Register) uint {
-	panic("todo")
-}
-
 // IntegerRangeOfPolynomial determines the smallest integer range in which all
 // evaluations of this polynomial lie.  For example, consider "2*X + 1" where X
 // is an 8bit register.  Then, the smallest integer range which includes this
