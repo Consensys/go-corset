@@ -13,6 +13,7 @@
 package macro
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -129,36 +130,28 @@ func (p *Sub) Validate(fieldWidth uint, fn schema.Module) error {
 		return fmt.Errorf("bit overflow (%d bits into %d bits)", rhs_bits, lhs_bits)
 	} else if rhs_bits > fieldWidth {
 		return fmt.Errorf("field overflow (%d bits into %d bit field)", rhs_bits, fieldWidth)
-	} else if err := checkPivot(p.Sources[0], p.Targets, regs); err != nil {
+	} else if err := checkSignBit(p.Targets, regs); err != nil {
 		return err
 	}
 	// Finally, ensure unique targets
 	return io.CheckTargetRegisters(p.Targets, regs)
 }
 
-// the pivot check is necessary to ensure we can properly rebalance a
-// subtraction.  Consider "c,x = y-z" which is rebalanced to "x+z = y+256*c".
-// The issue is that, for example, x cannot be split across both sides.  Thus,
-// we need x to align with y.  For a case like "c,y,x = a-b" then we need either
-// x to align with a, or y,x to align with a.
-func checkPivot(source io.RegisterId, targets []io.RegisterId, regs []io.Register) error {
-	var (
-		rhs_width = regs[source.Unwrap()].Width
-		lhs_width = uint(0)
-		pivot     = 0
-	)
-	// Consume source bits
-	for lhs_width < rhs_width {
-		lhs_width += regs[targets[pivot].Unwrap()].Width
-		pivot = pivot + 1
+// the sign bit check is necessary to ensure there is always exactly one sign bit.
+func checkSignBit(targets []io.RegisterId, regs []io.Register) error {
+	var n = len(targets) - 1
+	// Sanity check targets
+	if n < 0 {
+		return errors.New("malformed assignment")
 	}
-	// Check for alignment
-	if lhs_width == rhs_width {
-		// Yes, aligned.
+	// Determine width of sign bit
+	signBitWidth := regs[targets[n].Unwrap()].Width
+	// Check it is a single bit
+	if signBitWidth == 1 {
 		return nil
 	}
 	// Problem, no alignment.
-	return fmt.Errorf("incorrect alignment (%d bits versus %d bits)", lhs_width, rhs_width)
+	return fmt.Errorf("missing sign bit (found u%d most significant bits)", signBitWidth)
 }
 
 func subSourceBits(sources []io.RegisterId, constant big.Int, regs []io.Register) uint {
