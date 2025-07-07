@@ -17,6 +17,7 @@ import (
 	"testing"
 
 	"github.com/consensys/go-corset/pkg/util/source"
+	"github.com/stretchr/testify/require"
 )
 
 func TestLexer_00(t *testing.T) {
@@ -148,4 +149,15 @@ func checkLexer(t *testing.T, input string, remainder uint, expected ...Token) {
 		n := len(items) - int(lexer.Remaining())
 		t.Errorf("unmatched items: %v", items[n:])
 	}
+}
+
+func TestLexerSequence(t *testing.T) {
+	rule := Sequence(
+		Unit('a'),
+		Unit('b'),
+		Unit('c'),
+	)
+	require.Equal(t, uint(0), rule([]int32{'a', 'c', 'c'})) // non-final rule cannot be left unmatched.
+	require.Equal(t, uint(2), rule([]int32{'a', 'b', 'b'})) // final rule is allowed to have no match, though
+	// this flexibility is only desirable when the final rule is a [Many].
 }
