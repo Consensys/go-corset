@@ -16,8 +16,8 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/consensys/go-corset/pkg/util/assert"
 	"github.com/consensys/go-corset/pkg/util/source"
-	"github.com/stretchr/testify/require"
 )
 
 func TestLexer_00(t *testing.T) {
@@ -157,6 +157,6 @@ func TestLexerSequence(t *testing.T) {
 		Unit('b'),
 		Unit('c'),
 	)
-	require.Equal(t, uint(0), rule([]int32{'a', 'c', 'c'})) // non-final rule cannot be left unmatched.
-	require.Equal(t, uint(2), rule([]int32{'a', 'b', 'b'})) // final rule is allowed to have no match.
+	assert.Equal(t, 0, rule([]int32{'a', 'c', 'c'})) // non-final rule cannot be left unmatched.
+	assert.Equal(t, 2, rule([]int32{'a', 'b', 'b'})) // final rule is allowed to have no match.
 }
