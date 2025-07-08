@@ -1,0 +1,5 @@
+fn parse_nondecimal() -> (hex u16, binary u16) {
+    hex = 0x1a
+    binary = 0b1001_0110
+    return
+}
