@@ -20,9 +20,16 @@ import (
 
 // Recusion
 //
-// func Test_Asm_Byte(t *testing.T) {
-// 	test_util.Check(t, false, "asm/byte")
-// }
+//	func Test_Asm_Byte(t *testing.T) {
+//		test_util.Check(t, false, "asm/byte")
+//	}
+func Test_Asm_Dec4(t *testing.T) {
+	test_util.Check(t, false, "asm/dec4")
+}
+
+func Test_Asm_ParseNonDecimal(t *testing.T) {
+	test_util.Check(t, false, "asm/parse_nondecimal")
+}
 
 func Test_Asm_ParseNonDecimal(t *testing.T) {
 	test_util.Check(t, false, "asm/parse_nondecimal")

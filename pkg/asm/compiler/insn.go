@@ -14,6 +14,7 @@ package compiler
 
 import (
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
 )
 
@@ -39,16 +40,18 @@ func (p *StateTranslator[T, E, M]) translateAssign(cc uint, codes []micro.Code) 
 	var (
 		code = codes[cc].(*micro.Assign)
 		// build rhs
-		rhs, neg = p.translatePolynomial(code.Source)
+		rhs, signed = p.translatePolynomial(code.Source)
 		// build lhs (must be after rhs)
 		lhs = p.WriteAndShiftRegisters(code.Targets)
 		// equation
 		eqn E
 	)
 	// Construct equation
-	if len(neg) != 0 {
+	if signed && !hasSignBit(code.Targets, p.mapping.Registers) {
+		panic("malformed (signed) assignment")
+	} else if signed {
 		// Signed case, so rebalance
-		lhs, rhs = p.rebalanceAssign(lhs, rhs, neg)
+		lhs, rhs = p.rebalanceAssign(lhs, rhs)
 	}
 	//
 	eqn = Sum(lhs).Equals(Sum(rhs))
@@ -113,7 +116,7 @@ func (p *StateTranslator[T, E, M]) translateSkip(cc uint, codes []micro.Code) E 
 
 // Consider an assignment b, X := Y - 1.  This should be translated into the
 // constraint: X + 1 == Y + 256.b (assuming b is u1, and X/Y are u8).
-func (p *StateTranslator[T, E, M]) rebalanceAssign(lhs []E, rhs []E, neg []E) ([]E, []E) {
+func (p *StateTranslator[T, E, M]) rebalanceAssign(lhs []E, rhs []E) ([]E, []E) {
 	var (
 		n = len(lhs) - 1
 		// Extract sign bit
@@ -121,34 +124,28 @@ func (p *StateTranslator[T, E, M]) rebalanceAssign(lhs []E, rhs []E, neg []E) ([
 	)
 	// Remove sign bit
 	lhs = lhs[:n]
-	// rebalance lhs and rhs
-	lhs = append(lhs, neg...)
+	// Move sign bit onto rhs
 	rhs = append(rhs, sign)
 	// Done
 	return lhs, rhs
 }
 
 // Translate polynomial (c0*x0$0*...*xn$0) + ... + (cm*x0$m*...*xn$m) where cX
-// are constant coefficients.  This generates a positive term and a (potentiall
-// nil) negative term.
-func (p *StateTranslator[T, E, M]) translatePolynomial(poly agnostic.Polynomial) (pos []E, neg []E) {
+// are constant coefficients.  This generates a given translation of terms,
+// along with an indication as to whether this is signed or not.
+func (p *StateTranslator[T, E, M]) translatePolynomial(poly agnostic.Polynomial) (pos []E, signed bool) {
 	var (
-		posTerms []E
-		negTerms []E
+		terms []E
 	)
 	//
 	for i := range poly.Len() {
 		ith := poly.Term(i)
 		//
-		if ith.IsNegative() {
-			ith = ith.Negate()
-			negTerms = append(negTerms, p.translateMonomial(ith))
-		} else {
-			posTerms = append(posTerms, p.translateMonomial(ith))
-		}
+		signed = signed || ith.IsNegative()
+		terms = append(terms, p.translateMonomial(ith))
 	}
 	// Done
-	return posTerms, negTerms
+	return terms, signed
 }
 
 // Translate a monomial of the form c*x0*...*xn where c is a constant coefficient.
@@ -166,4 +163,17 @@ func (p *StateTranslator[T, E, M]) translateMonomial(mono agnostic.Monomial) E {
 	terms[n] = BigNumber[T, E](&coeff)
 	//
 	return Product(terms)
+}
+
+func hasSignBit(targets []schema.RegisterId, regs []schema.Register) bool {
+	var (
+		n = len(targets) - 1
+	)
+	//
+	if n < 0 {
+		// This should be unreachable in practice.
+		return false
+	}
+	// Look for single sign bit
+	return regs[targets[n].Unwrap()].Width == 1
 }
