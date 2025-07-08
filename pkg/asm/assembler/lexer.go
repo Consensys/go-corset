@@ -91,7 +91,38 @@ const MUL uint = 22
 var whitespace lex.Scanner[rune] = lex.Many(lex.Or(lex.Unit(' '), lex.Unit('\t'), lex.Unit('\n')))
 
 // Rule for describing numbers
-var number lex.Scanner[rune] = lex.Many(lex.Within('0', '9'))
+// A number is either a hexadecimal, binary, or decimal one.
+// Allowing (and ignoring) '_' in the middle of a number for readability.
+var (
+	binaryStart = lex.And(lex.String("0b"), lex.Within('0', '1'))
+	binaryRest  = lex.Or(
+		lex.Within('0', '1'),
+		lex.Unit('_'),
+	)
+
+	decimalStart = lex.Within('0', '9')
+	decimalRest  = lex.Or(
+		lex.Within('0', '9'),
+		lex.Unit('_'),
+	)
+
+	hexDigit = lex.Or(
+		lex.Within('0', '9'),
+		lex.Within('A', 'F'),
+		lex.Within('a', 'f'),
+	)
+	hexStart = lex.And(lex.String("0x"), hexDigit)
+	hexRest  = lex.Or(
+		hexDigit,
+		lex.Unit('_'),
+	)
+
+	number = lex.Or(
+		lex.Sequence(binaryStart, lex.Many(binaryRest)),
+		lex.Sequence(hexStart, lex.Many(hexRest)),
+		lex.Sequence(decimalStart, lex.Many(decimalRest)),
+	)
+)
 
 var identifierStart lex.Scanner[rune] = lex.Or(
 	lex.Unit('_'),

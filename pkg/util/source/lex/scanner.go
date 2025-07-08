@@ -74,6 +74,24 @@ func Unit[T comparable](chars ...T) Scanner[T] {
 	}
 }
 
+// String expects a given string s.
+// It is equivalent to [Unit](s[0], s[1], ...)
+func String(s string) Scanner[int32] {
+	return func(items []int32) uint {
+		if len(items) < len(s) {
+			return 0
+		}
+
+		for i := range s {
+			if int32(s[i]) != items[i] {
+				return 0
+			}
+		}
+
+		return uint(len(s))
+	}
+}
+
 // Within accepts any character within a given range.
 func Within[T cmp.Ordered](lowest T, highest T) Scanner[T] {
 	return func(items []T) uint {
@@ -85,7 +103,7 @@ func Within[T cmp.Ordered](lowest T, highest T) Scanner[T] {
 	}
 }
 
-// Many matches one or more of a given item.
+// Many matches zero or more of a given item.
 func Many[T any](acceptor Scanner[T]) Scanner[T] {
 	return func(items []T) uint {
 		index := uint(0)
@@ -128,5 +146,32 @@ func Eof[T any]() Scanner[T] {
 		}
 		//
 		return 0
+	}
+}
+
+// Sequence matches all the scanners in order.
+// Each scanner consumes the input right after the previous one ends.
+// Only the final scanner is allowed a match length of 0.
+func Sequence[T comparable](scanners ...Scanner[T]) Scanner[T] {
+	return func(items []T) uint {
+		n, i := uint(0), 0
+		for i = range scanners {
+			if n == uint(len(items)) {
+				break
+			}
+
+			m := scanners[i](items[n:])
+			if m == 0 {
+				break
+			}
+
+			n += m
+		}
+
+		if i < len(scanners)-1 { // if we ended prematurely
+			return 0
+		}
+
+		return n
 	}
 }

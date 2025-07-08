@@ -16,6 +16,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/consensys/go-corset/pkg/util/assert"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
 
@@ -148,4 +149,14 @@ func checkLexer(t *testing.T, input string, remainder uint, expected ...Token) {
 		n := len(items) - int(lexer.Remaining())
 		t.Errorf("unmatched items: %v", items[n:])
 	}
+}
+
+func TestLexerSequence(t *testing.T) {
+	rule := Sequence(
+		Unit('a'),
+		Unit('b'),
+		Unit('c'),
+	)
+	assert.Equal(t, 0, rule([]int32{'a', 'c', 'c'})) // non-final rule cannot be left unmatched.
+	assert.Equal(t, 2, rule([]int32{'a', 'b', 'b'})) // final rule is allowed to have no match.
 }
