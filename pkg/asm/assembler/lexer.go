@@ -94,7 +94,7 @@ var whitespace lex.Scanner[rune] = lex.Many(lex.Or(lex.Unit(' '), lex.Unit('\t')
 // A number is either a hexadecimal, binary, or decimal one.
 // Allowing (and ignoring) '_' in the middle of a number for readability.
 var (
-	binaryStart = lex.And(lex.String("0b"), lex.Within('0', '1'))
+	binaryStart = lex.Sequence(lex.String("0b"), lex.Within('0', '1'))
 	binaryRest  = lex.Or(
 		lex.Within('0', '1'),
 		lex.Unit('_'),
@@ -111,16 +111,16 @@ var (
 		lex.Within('A', 'F'),
 		lex.Within('a', 'f'),
 	)
-	hexStart = lex.And(lex.String("0x"), hexDigit)
+	hexStart = lex.Sequence(lex.String("0x"), hexDigit)
 	hexRest  = lex.Or(
 		hexDigit,
 		lex.Unit('_'),
 	)
 
 	number = lex.Or(
-		lex.Sequence(binaryStart, lex.Many(binaryRest)),
-		lex.Sequence(hexStart, lex.Many(hexRest)),
-		lex.Sequence(decimalStart, lex.Many(decimalRest)),
+		lex.SequenceNullableLast(binaryStart, lex.Many(binaryRest)),
+		lex.SequenceNullableLast(hexStart, lex.Many(hexRest)),
+		lex.SequenceNullableLast(decimalStart, lex.Many(decimalRest)),
 	)
 )
 

@@ -149,10 +149,10 @@ func Eof[T any]() Scanner[T] {
 	}
 }
 
-// Sequence matches all the scanners in order.
+// SequenceNullableLast matches all the scanners in order.
 // Each scanner consumes the input right after the previous one ends.
 // Only the final scanner is allowed a match length of 0.
-func Sequence[T comparable](scanners ...Scanner[T]) Scanner[T] {
+func SequenceNullableLast[T comparable](scanners ...Scanner[T]) Scanner[T] {
 	return func(items []T) uint {
 		n, i := uint(0), 0
 		for i = range scanners {
@@ -170,6 +170,28 @@ func Sequence[T comparable](scanners ...Scanner[T]) Scanner[T] {
 
 		if i < len(scanners)-1 { // if we ended prematurely
 			return 0
+		}
+
+		return n
+	}
+}
+
+// Sequence matches all the scanners in order.
+// Each scanner consumes the input right after the previous one ends.
+func Sequence[T comparable](scanners ...Scanner[T]) Scanner[T] {
+	return func(items []T) uint {
+		n := uint(0)
+		for _, scanner := range scanners {
+			if n == uint(len(items)) {
+				return 0
+			}
+
+			m := scanner(items[n:])
+			if m == 0 {
+				return 0
+			}
+
+			n += m
 		}
 
 		return n

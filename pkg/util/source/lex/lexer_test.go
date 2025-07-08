@@ -152,7 +152,7 @@ func checkLexer(t *testing.T, input string, remainder uint, expected ...Token) {
 }
 
 func TestLexerSequence(t *testing.T) {
-	rule := Sequence(
+	rule := SequenceNullableLast(
 		Unit('a'),
 		Unit('b'),
 		Unit('c'),
