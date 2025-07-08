@@ -48,7 +48,7 @@ func (p *StateTranslator[T, E, M]) translateAssign(cc uint, codes []micro.Code) 
 	)
 	// Construct equation
 	if signed && !hasSignBit(code.Targets, p.mapping.Registers) {
-		panic("malformed (signed) assignment")
+		panic("assignment missing sign bit")
 	} else if signed {
 		// Signed case, so rebalance
 		lhs, rhs = p.rebalanceAssign(lhs, rhs)

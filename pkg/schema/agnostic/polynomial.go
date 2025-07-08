@@ -118,7 +118,7 @@ func LimbPolynomial(limbs []schema.RegisterId, env schema.RegisterMapping) Polyn
 // smallest enclosing integer range.  From this is then determines the required
 // widths of the negative and positive components, before combining them to give
 // the result.
-func WidthOfPolynomial(source Polynomial, regs []schema.Register) uint {
+func WidthOfPolynomial(source Polynomial, regs []schema.Register) (bitwidth uint, signed bool) {
 	var (
 		intRange  = IntegerRangeOfPolynomial(source, regs)
 		lower     = intRange.MinValue()
@@ -130,10 +130,26 @@ func WidthOfPolynomial(source Polynomial, regs []schema.Register) uint {
 	if lower.Cmp(&zero) < 0 {
 		// Yes, we have negative values.  This mandates the need for an
 		// additional signbit.
-		return max(lowerBits+1, upperBits)
+		return max(lowerBits+1, upperBits), true
 	}
 	// No sign bit required.
-	return upperBits
+	return upperBits, false
+}
+
+// SplitWidthOfPolynomial resturns the number of bits required for all positive
+// values, along with the number of bits required for all negative values.
+// Observe that, unlike WidthOfPolynomial, this does not account for an
+// additional sign bit.
+func SplitWidthOfPolynomial(source Polynomial, regs []schema.Register) (poswidth uint, negwidth uint) {
+	var (
+		intRange  = IntegerRangeOfPolynomial(source, regs)
+		lower     = intRange.MinValue()
+		upper     = intRange.MaxValue()
+		lowerBits = uint(lower.BitLen())
+		upperBits = uint(upper.BitLen())
+	)
+	//
+	return upperBits, lowerBits
 }
 
 // IntegerRangeOfPolynomial determines the smallest integer range in which all
