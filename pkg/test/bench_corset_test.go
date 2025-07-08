@@ -30,6 +30,10 @@ func Test_BitDecomp(t *testing.T) {
 	test_util.Check(t, true, "bench/bit_decomposition")
 }
 
+func Test_BitShift(t *testing.T) {
+	test_util.Check(t, true, "bench/bit_shift")
+}
+
 func Test_ByteSorting(t *testing.T) {
 	test_util.Check(t, true, "bench/byte_sorting")
 }
