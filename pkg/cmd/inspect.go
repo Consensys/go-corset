@@ -31,25 +31,25 @@ var inspectCmd = &cobra.Command{
 	Short: "Inspect a trace file",
 	Long:  `Inspect a trace file using an interactive (terminal-based) environment`,
 	Run: func(cmd *cobra.Command, args []string) {
-		var corsetConfig corset.CompilationConfig
 		//
 		if len(args) != 2 {
 			fmt.Println(cmd.UsageString())
 			os.Exit(1)
 		}
-		defensive := GetFlag(cmd, "defensive")
-		//
-		corsetConfig.Stdlib = !GetFlag(cmd, "no-stdlib")
-		corsetConfig.Legacy = GetFlag(cmd, "legacy")
+		// Read in constraint files
+		schemas := *getSchemaStack(cmd, SCHEMA_DEFAULT_MIR, args[1:]...)
 		//
 		stats := util.NewPerfStats()
 		// Parse constraints
-		binf := ReadConstraintFiles(corsetConfig, args[1:])
+		binf := schemas.BinaryFile()
 		// Sanity check debug information is available.
 		srcmap, srcmap_ok := binfile.GetAttribute[*corset.SourceMap](binf)
 		//
 		if !srcmap_ok {
 			fmt.Printf("binary file \"%s\" missing source map", args[1])
+		} else if !schemas.HasUniqueSchema() {
+			fmt.Println("must specify exactly one of --air/mir/uasm/asm")
+			os.Exit(2)
 		}
 		//
 		stats.Log("Reading constraints file")
@@ -57,10 +57,8 @@ var inspectCmd = &cobra.Command{
 		tracefile := ReadTraceFile(args[0])
 		//
 		stats.Log("Reading trace file")
-		//
-		builder := sc.NewTraceBuilder(&binf.Schema).Expand(true).Defensive(defensive).Parallel(true)
-		//
-		trace, errors := builder.Build(tracefile.Columns)
+		// Build the trace
+		trace, errors := schemas.TraceBuilder().Build(schemas.UniqueSchema(), tracefile.Columns)
 		//
 		if len(errors) == 0 {
 			// Run the inspector.
@@ -77,7 +75,7 @@ var inspectCmd = &cobra.Command{
 }
 
 // Inspect a given trace using a given schema.
-func inspect(schema sc.Schema, srcmap *corset.SourceMap, trace tr.Trace) []error {
+func inspect(schema sc.AnySchema, srcmap *corset.SourceMap, trace tr.Trace) []error {
 	// Construct inspector window
 	inspector := construct(schema, trace, srcmap)
 	// Render inspector
@@ -88,19 +86,21 @@ func inspect(schema sc.Schema, srcmap *corset.SourceMap, trace tr.Trace) []error
 	return inspector.Start()
 }
 
-func construct(schema sc.Schema, trace tr.Trace, srcmap *corset.SourceMap) *inspector.Inspector {
+func construct(schema sc.AnySchema, trace tr.Trace, srcmap *corset.SourceMap) *inspector.Inspector {
 	term, err := termio.NewTerminal()
 	// Check whether successful
-	if err != nil {
-		fmt.Println(error.Error(err))
-		os.Exit(1)
+	if err == nil {
+		// Construct inspector state
+		return inspector.NewInspector(term, schema, trace, srcmap)
 	}
-	// Construct inspector state
-	return inspector.NewInspector(term, schema, trace, srcmap)
+
+	fmt.Println(error.Error(err))
+	os.Exit(1)
+	// Unreachable
+	return nil
 }
 
 //nolint:errcheck
 func init() {
 	rootCmd.AddCommand(inspectCmd)
-	inspectCmd.Flags().Bool("defensive", true, "enable / disable defensive padding")
 }

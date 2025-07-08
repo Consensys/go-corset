@@ -18,12 +18,14 @@ import (
 	"reflect"
 
 	"github.com/consensys/go-corset/pkg/corset/ast"
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
 
 // DeclPredicate is a shorthand notation.
-type DeclPredicate = util.Predicate[ast.Declaration]
+type DeclPredicate = array.Predicate[ast.Declaration]
 
 // ResolveCircuit resolves all symbols declared and used within a circuit,
 // producing an environment which can subsequently be used to look up the
@@ -31,20 +33,23 @@ type DeclPredicate = util.Predicate[ast.Declaration]
 // a symbol (e.g. a column) is referred to which doesn't exist.  Likewise, if
 // two modules or columns with identical names are declared in the same scope,
 // etc.
-func ResolveCircuit(srcmap *source.Maps[ast.Node], circuit *ast.Circuit) (*ModuleScope, []SyntaxError) {
+func ResolveCircuit[M schema.Module](srcmap *source.Maps[ast.Node], circuit *ast.Circuit,
+	externs ...M) (*ModuleScope, []SyntaxError) {
 	// Construct top-level scope
-	scope := NewModuleScope(nil)
+	scope := NewModuleScope()
 	// Define natives
-	for _, i := range NATIVES {
+	for _, i := range NATIVE_SIGNATURES {
 		scope.Define(&i)
 	}
 	// Define intrinsics
 	for _, i := range INTRINSICS {
 		scope.Define(&i)
 	}
+	// Initialise externs
+	DeclareExterns(scope, externs...)
 	// Register modules
 	for _, m := range circuit.Modules {
-		scope.Declare(m.Name, nil)
+		scope.Declare(m.Name, extractSelector(nil))
 	}
 	// Construct resolver
 	r := resolver{srcmap}
@@ -105,7 +110,7 @@ func (r *resolver) initialiseDeclarationsInModule(scope *ModuleScope, decls []as
 			// Attempt to declare the perspective.  Note, we don't need to check
 			// whether or not this succeeds here as, if it fails, this will be
 			// caught below.
-			scope.Declare(def.Name(), def.Selector)
+			scope.Declare(def.Name(), extractSelector(def.Selector))
 		}
 	}
 	// Second, initialise all symbol (e.g. column) definitions.
@@ -126,6 +131,21 @@ func (r *resolver) initialiseDeclarationsInModule(scope *ModuleScope, decls []as
 	}
 	//
 	return errors
+}
+
+// This is really broken.  The problem is that we need to translate the selector
+// expression within the translator.  But, setting that all up is not
+// straightforward.  This should be done in the future!
+func extractSelector(selector ast.Expr) util.Option[string] {
+	if selector == nil {
+		return util.None[string]()
+	}
+	//
+	if e, ok := selector.(*ast.VariableAccess); ok && e.Name.Depth() == 1 {
+		return util.Some(e.Name.Get(0))
+	}
+	// FIXME: #630
+	panic("unsupported selector")
 }
 
 // Initialise all alias declarations in the given module scope.  This means
@@ -206,6 +226,11 @@ func (r *resolver) resolveConstraints(scope *ModuleScope, circuit *ast.Circuit) 
 	errs := r.finaliseDeclarationsInModule(scope, circuit.Declarations, isNotAssigmentDeclaration)
 	//
 	for _, m := range circuit.Modules {
+		if m.Condition != nil {
+			// Finalise module conditions
+			cerrs := r.finaliseExpressionInModule(NewLocalScope(scope, false, true, false), m.Condition)
+			errs = append(errs, cerrs...)
+		}
 		// Process all declarations in the module
 		merrs := r.finaliseDeclarationsInModule(scope.Enter(m.Name), m.Declarations, isNotAssigmentDeclaration)
 		// Package up all errors
@@ -637,16 +662,21 @@ func (r *resolver) finaliseDefFunInModule(enclosing Scope, decl *ast.DefFun) []S
 
 // Resolve those variables appearing in the body of this lookup constraint.
 func (r *resolver) finaliseDefLookupInModule(enclosing Scope, decl *ast.DefLookup) []SyntaxError {
-	var (
-		sourceScope = NewLocalScope(enclosing, true, false, false)
-		targetScope = NewLocalScope(enclosing, true, false, false)
-	)
+	var errors []SyntaxError
 	// Resolve source expressions
-	source_errors := r.finaliseExpressionsInModule(sourceScope, decl.Sources)
-	// Resolve target expressions
-	target_errors := r.finaliseExpressionsInModule(targetScope, decl.Targets)
+	for i := range decl.Sources {
+		var scope = NewLocalScope(enclosing, true, false, false)
+		errs := r.finaliseExpressionsInModule(scope, decl.Sources[i])
+		errors = append(errors, errs...)
+	}
+	// Resolve all target expressions
+	for i := range decl.Targets {
+		var scope = NewLocalScope(enclosing, true, false, false)
+		errs := r.finaliseExpressionsInModule(scope, decl.Targets[i])
+		errors = append(errors, errs...)
+	}
 	//
-	return append(source_errors, target_errors...)
+	return errors
 }
 
 // Resolve those variables appearing in the body of this property assertion.
@@ -760,6 +790,14 @@ func (r *resolver) finaliseExpressionInModule(scope LocalScope, expr ast.Expr) [
 		return r.finaliseExpressionsInModule(scope, v.Args)
 	case *ast.VariableAccess:
 		return r.finaliseVariableInModule(scope, v)
+	case *ast.VectorAccess:
+		var errs []SyntaxError
+		//
+		for _, w := range v.Vars {
+			errs = append(errs, r.finaliseVariableInModule(scope, w)...)
+		}
+		//
+		return errs
 	default:
 		typeStr := reflect.TypeOf(expr).String()
 		msg := fmt.Sprintf("unknown expression encountered during resolution (%s)", typeStr)
@@ -776,8 +814,10 @@ func (r *resolver) finaliseArrayAccessInModule(scope LocalScope, expr *ast.Array
 	//
 	if !expr.IsResolved() && !scope.Bind(expr) {
 		errors = append(errors, *r.srcmap.SyntaxError(expr, "unknown array column"))
-	} else if _, ok := expr.Binding().(*ast.ColumnBinding); !ok {
+	} else if binding, ok := expr.Binding().(*ast.ColumnBinding); !ok {
 		errors = append(errors, *r.srcmap.SyntaxError(expr, "unknown array column"))
+	} else if !scope.FixContext(binding.Context()) {
+		return r.srcmap.SyntaxErrors(expr, "conflicting context")
 	}
 	// All good
 	return errors
@@ -852,7 +892,7 @@ func (r *resolver) finaliseReduceInModule(scope LocalScope, expr *ast.Reduce) []
 // permitted in a global context.
 func (r *resolver) finaliseVariableInModule(scope LocalScope, expr *ast.VariableAccess) []SyntaxError {
 	// Check whether this is a qualified access, or not.
-	if !scope.IsGlobal() && expr.Path().IsAbsolute() {
+	if !scope.IsGlobal() && expr.Path().IsAbsolute() && !scope.IsLocal(*expr.Path()) {
 		return r.srcmap.SyntaxErrors(expr, "qualified access not permitted here")
 	}
 	// Symbol should be resolved at this point, but we'd better sanity check this.

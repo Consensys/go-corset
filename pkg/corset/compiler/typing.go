@@ -17,7 +17,7 @@ import (
 	"reflect"
 
 	"github.com/consensys/go-corset/pkg/corset/ast"
-	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
 
@@ -160,11 +160,19 @@ func (p *typeChecker) typeCheckDefFunInModule(decl *ast.DefFun) []SyntaxError {
 //
 //nolint:staticcheck
 func (p *typeChecker) typeCheckDefLookup(decl *ast.DefLookup) []SyntaxError {
+	var errors []SyntaxError
 	// typeCheck source expressions
-	_, source_errs := p.typeCheckExpressionsInModule(ast.INT_TYPE, decl.Sources, true)
-	_, target_errs := p.typeCheckExpressionsInModule(ast.INT_TYPE, decl.Targets, true)
+	for i := range decl.Sources {
+		_, errs := p.typeCheckExpressionsInModule(ast.INT_TYPE, decl.Sources[i], true)
+		errors = append(errors, errs...)
+	}
+	// typeCheck all target expressions
+	for i := range decl.Targets {
+		_, errs := p.typeCheckExpressionsInModule(ast.INT_TYPE, decl.Targets[i], true)
+		errors = append(errors, errs...)
+	}
 	// Combine errors
-	return append(source_errs, target_errs...)
+	return errors
 }
 
 // typeCheck a "definrange" declaration.
@@ -326,6 +334,13 @@ func (p *typeChecker) typeCheckExpressionInModule(expected ast.Type, expr ast.Ex
 		result = typeOfSubtraction(types...)
 	case *ast.VariableAccess:
 		result, errors = p.typeCheckVariableInModule(e)
+	case *ast.VectorAccess:
+		for _, w := range e.Vars {
+			_, errs := p.typeCheckExpressionInModule(ast.INT_TYPE, w, functional)
+			errors = append(errors, errs...)
+		}
+		//
+		result = ast.INT_TYPE
 	default:
 		msg := fmt.Sprintf("unknown expression encountered during typing (%s)", reflect.TypeOf(expr).String())
 		return nil, p.srcmap.SyntaxErrors(expr, msg)
@@ -498,7 +513,7 @@ func (p *typeChecker) typeCheckVariableInModule(expr *ast.VariableAccess) (ast.T
 // Calculate the actual return type for a given set of input values with the
 // given types.
 func typeOfSum(types ...ast.Type) ast.Type {
-	var values util.Interval
+	var values math.Interval
 	//
 	for i, t := range types {
 		if t == ast.INT_TYPE {
@@ -524,7 +539,7 @@ func typeOfSum(types ...ast.Type) ast.Type {
 // Calculate the actual return type for a given set of input values with the
 // given types.
 func typeOfSubtraction(types ...ast.Type) ast.Type {
-	var values util.Interval
+	var values math.Interval
 	//
 	for i, t := range types {
 		if t == ast.INT_TYPE {
@@ -550,7 +565,7 @@ func typeOfSubtraction(types ...ast.Type) ast.Type {
 // Calculate the actual return type for a given set of input values with the
 // given types.
 func typeOfProduct(types ...ast.Type) ast.Type {
-	var values util.Interval
+	var values math.Interval
 	//
 	for i, t := range types {
 		if t == ast.INT_TYPE {

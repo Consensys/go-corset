@@ -15,15 +15,16 @@ package compiler
 import (
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"sort"
 	"strconv"
 	"strings"
 	"unicode"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
@@ -46,8 +47,6 @@ func ParseSourceFiles(files []*source.File) (ast.Circuit, *source.Maps[ast.Node]
 	var errors []SyntaxError
 	// Construct an initially empty source map
 	srcmaps := source.NewSourceMaps[ast.Node]()
-	// num_errs counts the number of errors reported
-	var num_errs uint
 	// Contents map holds the combined fragments of each module.
 	contents := make(map[string]ast.Module, 0)
 	// Names identifies the names of each unique module.
@@ -57,7 +56,6 @@ func ParseSourceFiles(files []*source.File) (ast.Circuit, *source.Maps[ast.Node]
 		c, srcmap, errs := ParseSourceFile(file)
 		// Handle errors
 		if len(errs) > 0 {
-			num_errs += uint(len(errs))
 			// Report any errors encountered
 			errors = append(errors, errs...)
 		} else {
@@ -73,6 +71,14 @@ func ParseSourceFiles(files []*source.File) (ast.Circuit, *source.Maps[ast.Node]
 				names = append(names, m.Name)
 			} else {
 				om.Declarations = append(om.Declarations, m.Declarations...)
+				//
+				if om.Condition == nil {
+					om.Condition = m.Condition
+				} else if m.Condition != nil {
+					// Sanity check
+					errors = append(errors, *srcmaps.SyntaxError(m.Condition, "conflicting module conditions"))
+				}
+				//
 				contents[m.Name] = om
 			}
 		}
@@ -88,7 +94,7 @@ func ParseSourceFiles(files []*source.File) (ast.Circuit, *source.Maps[ast.Node]
 		circuit.Modules[i] = contents[n]
 	}
 	// Done
-	if num_errs > 0 {
+	if len(errors) > 0 {
 		return circuit, srcmaps, errors
 	}
 	// no errors
@@ -121,11 +127,12 @@ func ParseSourceFile(srcfile *source.File) (ast.Circuit, *source.Map[ast.Node], 
 	// Continue parsing string until nothing remains.
 	for len(terms) != 0 {
 		var (
-			name  string
-			decls []ast.Declaration
+			name      string
+			decls     []ast.Declaration
+			condition ast.Expr
 		)
 		// Extract module name
-		if name, errors = p.parseModuleStart(terms[0]); len(errors) > 0 {
+		if name, condition, errors = p.parseModuleStart(terms[0]); len(errors) > 0 {
 			return circuit, nil, errors
 		}
 		// Parse module contents
@@ -133,7 +140,11 @@ func ParseSourceFile(srcfile *source.File) (ast.Circuit, *source.Map[ast.Node], 
 		if decls, terms, errors = p.parseModuleContents(path, terms[1:]); len(errors) > 0 {
 			return circuit, nil, errors
 		} else if len(decls) != 0 {
-			circuit.Modules = append(circuit.Modules, ast.Module{Name: name, Declarations: decls})
+			circuit.Modules = append(circuit.Modules, ast.Module{
+				Name:         name,
+				Declarations: decls,
+				Condition:    condition,
+			})
 		}
 	}
 	// Done
@@ -242,22 +253,32 @@ func (p *Parser) parseModuleContents(path util.Path, terms []sexp.SExp) ([]ast.D
 
 // Parse a module declaration of the form "(module m1)" which indicates the
 // start of module m1.
-func (p *Parser) parseModuleStart(s sexp.SExp) (string, []SyntaxError) {
+func (p *Parser) parseModuleStart(s sexp.SExp) (string, ast.Expr, []SyntaxError) {
+	var (
+		condition ast.Expr
+		name      string
+		errors    []SyntaxError
+	)
+
 	l, ok := s.(*sexp.List)
 	// Check for error
 	if !ok {
 		err := p.translator.SyntaxError(s, "unexpected or malformed declaration")
-		return "", []SyntaxError{*err}
+		return "", nil, []SyntaxError{*err}
 	}
 	// Sanity check declaration
-	if len(l.Elements) > 2 {
+	if len(l.Elements) != 2 && len(l.Elements) != 3 {
 		err := p.translator.SyntaxError(l, "malformed module declaration")
-		return "", []SyntaxError{*err}
+		return "", nil, []SyntaxError{*err}
 	}
 	// Extract column name
-	name := l.Elements[1].AsSymbol().Value
+	name = l.Elements[1].AsSymbol().Value
 	//
-	return name, nil
+	if len(l.Elements) == 3 {
+		condition, errors = p.translator.Translate(l.Elements[2])
+	}
+	//
+	return name, condition, errors
 }
 
 func (p *Parser) parseDeclaration(module util.Path, s *sexp.List) (ast.Declaration, []SyntaxError) {
@@ -286,6 +307,10 @@ func (p *Parser) parseDeclaration(module util.Path, s *sexp.List) (ast.Declarati
 		decl, errors = p.parseDefInterleaved(module, s.Elements)
 	} else if s.Len() == 4 && s.MatchSymbols(1, "deflookup") {
 		decl, errors = p.parseDefLookup(s.Elements)
+	} else if (s.Len() == 5 || s.Len() == 6) && s.MatchSymbols(1, "defclookup") {
+		decl, errors = p.parseDefConditionalLookup(s.Elements)
+	} else if s.Len() == 4 && s.MatchSymbols(1, "defmlookup") {
+		decl, errors = p.parseDefMultiLookup(s.Elements)
 	} else if s.Len() == 3 && s.MatchSymbols(2, "defpermutation") {
 		decl, errors = p.parseDefPermutation(module, s.Elements)
 	} else if s.Len() == 4 && s.MatchSymbols(2, "defperspective") {
@@ -758,58 +783,168 @@ func (p *Parser) parseDefInterleavedSourceArray(source *sexp.Array) (ast.TypedSy
 		return arrAccess, nil
 	}
 	//
-	//
 	return nil, errors
 }
 
 // Parse a lookup declaration
 func (p *Parser) parseDefLookup(elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
-	var (
-		errors  []SyntaxError
-		sources []ast.Expr
-		targets []ast.Expr
-	)
 	// Extract items
 	handle := elements[1]
-	sexpTargets := elements[2].AsList()
-	sexpSources := elements[3].AsList()
+	targets, tgtErrors := p.parseDefLookupSources("target", elements[2])
+	sources, srcErrors := p.parseDefLookupSources("source", elements[3])
+	// Combine any and all errors
+	errors := append(srcErrors, tgtErrors...)
 	// Check Handle
 	if !isIdentifier(handle) {
 		errors = append(errors, *p.translator.SyntaxError(elements[1], "malformed handle"))
 	}
-	// Check target expressions
-	if sexpTargets == nil {
-		errors = append(errors, *p.translator.SyntaxError(elements[2], "malformed target columns"))
+	// Sanity check length of sources / targets
+	if len(sources) != len(targets) {
+		msg := fmt.Sprintf("differing number of source and target columns (%d v %d)", len(sources), len(targets))
+		errors = append(errors, *p.translator.SyntaxError(elements[3], msg))
 	}
-	// Check source Expressions
-	if sexpSources == nil {
-		errors = append(errors, *p.translator.SyntaxError(elements[3], "malformed source columns"))
+	// Error check
+	if len(errors) != 0 {
+		return nil, errors
 	}
-	// Sanity check number of columns matches
-	if sexpTargets != nil && sexpSources != nil {
-		if sexpTargets.Len() != sexpSources.Len() {
-			errors = append(errors, *p.translator.SyntaxError(elements[3], "incorrect number of columns"))
-		} else {
-			sources = make([]ast.Expr, sexpSources.Len())
-			targets = make([]ast.Expr, sexpTargets.Len())
-			// Translate source & target expressions
-			for i := 0; i < sexpTargets.Len(); i++ {
-				var errs []SyntaxError
-				// Translate source expressions
-				sources[i], errs = p.translator.Translate(sexpSources.Get(i))
-				errors = append(errors, errs...)
-				// Translate target expressions
-				targets[i], errs = p.translator.Translate(sexpTargets.Get(i))
-				errors = append(errors, errs...)
-			}
-		}
+	//
+	targetSelectors := make([]ast.Expr, len(targets))
+	sourceSelectors := make([]ast.Expr, len(sources))
+	// Done
+	return ast.NewDefLookup(handle.AsSymbol().Value,
+		sourceSelectors, [][]ast.Expr{sources},
+		targetSelectors, [][]ast.Expr{targets}), nil
+}
+
+// Parse a conditional lookup declaration
+func (p *Parser) parseDefConditionalLookup(elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
+	// Extract items
+	var (
+		handle                         = elements[1]
+		targets, sources               []ast.Expr
+		targetSelector, sourceSelector ast.Expr
+		errs1, errs2, errs3, errs4     []SyntaxError
+	)
+	//
+	if len(elements) == 6 {
+		targetSelector, errs1 = p.translator.Translate(elements[2])
+		targets, errs2 = p.parseDefLookupSources("target", elements[3])
+		sourceSelector, errs3 = p.translator.Translate(elements[4])
+		sources, errs4 = p.parseDefLookupSources("source", elements[5])
+	} else {
+		// Assume source selector
+		targets, errs1 = p.parseDefLookupSources("target", elements[2])
+		sourceSelector, errs2 = p.translator.Translate(elements[3])
+		sources, errs3 = p.parseDefLookupSources("source", elements[4])
+	}
+	//
+	errors := append(errs1, errs2...)
+	errors = append(errors, errs3...)
+	errors = append(errors, errs4...)
+	// Combine any and all errors
+	// Check Handle
+	if !isIdentifier(handle) {
+		errors = append(errors, *p.translator.SyntaxError(elements[1], "malformed handle"))
+	}
+	// Sanity check length of sources / targets
+	if len(sources) != len(targets) {
+		msg := fmt.Sprintf("differing number of source and target columns (%d v %d)", len(sources), len(targets))
+		errors = append(errors, *p.translator.SyntaxError(elements[3], msg))
 	}
 	// Error check
 	if len(errors) != 0 {
 		return nil, errors
 	}
 	// Done
-	return ast.NewDefLookup(handle.AsSymbol().Value, sources, targets), nil
+	return ast.NewDefLookup(handle.AsSymbol().Value,
+		[]ast.Expr{sourceSelector},
+		[][]ast.Expr{sources},
+		[]ast.Expr{targetSelector},
+		[][]ast.Expr{targets}), nil
+}
+
+func (p *Parser) parseDefMultiLookup(elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
+	// Extract items
+	handle := elements[1]
+	m, targets, tgtErrors := p.parseDefLookupMultiSources("target", elements[2])
+	n, sources, srcErrors := p.parseDefLookupMultiSources("source", elements[3])
+	// Combine any and all errors
+	errors := append(srcErrors, tgtErrors...)
+	// Check Handle
+	if !isIdentifier(handle) {
+		errors = append(errors, *p.translator.SyntaxError(elements[1], "malformed handle"))
+	}
+	// Sanity check length of sources / targets
+	if n != m {
+		msg := fmt.Sprintf("differing number of source and target columns (%d v %d)", n, m)
+		errors = append(errors, *p.translator.SyntaxError(elements[3], msg))
+	}
+	// Error check
+	if len(errors) != 0 {
+		return nil, errors
+	}
+	//
+	targetSelectors := make([]ast.Expr, len(targets))
+	sourceSelectors := make([]ast.Expr, len(sources))
+	// Done
+	return ast.NewDefLookup(handle.AsSymbol().Value, sourceSelectors, sources, targetSelectors, targets), nil
+}
+
+func (p *Parser) parseDefLookupMultiSources(handle string, element sexp.SExp) (int, [][]ast.Expr, []SyntaxError) {
+	var (
+		sexpTargets = element.AsList()
+		errors      []SyntaxError
+		width       int
+	)
+	// Check target expressions
+	if sexpTargets == nil {
+		return width, nil, p.translator.SyntaxErrors(element, "malformed target columns")
+	}
+	//
+	targets := make([][]ast.Expr, sexpTargets.Len())
+	// Translate all target expressions
+	for i := range sexpTargets.Len() {
+		ith := sexpTargets.Get(i).AsList()
+		// Sanity check length
+		if ith == nil {
+			errors = append(errors, *p.translator.SyntaxError(ith, "malformed columns"))
+		} else if i != 0 && ith.Len() != width {
+			errors = append(errors, *p.translator.SyntaxError(ith, "incorrect number of columns"))
+		} else {
+			ith_targets, errs := p.parseDefLookupSources(handle, ith)
+			errors = append(errors, errs...)
+			targets[i] = ith_targets
+			width = ith.Len()
+		}
+	}
+	//
+	return width, targets, errors
+}
+
+func (p *Parser) parseDefLookupSources(handle string, element sexp.SExp) ([]ast.Expr, []SyntaxError) {
+	var (
+		sexpSources = element.AsList()
+		errors      []SyntaxError
+		sources     []ast.Expr
+	)
+	// Check source Expressions
+	if sexpSources == nil {
+		msg := fmt.Sprintf("malformed %s columns", handle)
+		return nil, p.translator.SyntaxErrors(element, msg)
+	}
+	//
+	if len(errors) == 0 {
+		sources = make([]ast.Expr, sexpSources.Len())
+		//
+		for i := 0; i != sexpSources.Len(); i++ {
+			var errs []SyntaxError
+			// Translate source expressions
+			sources[i], errs = p.translator.Translate(sexpSources.Get(i))
+			errors = append(errors, errs...)
+		}
+	}
+	//
+	return sources, errors
 }
 
 // Parse a permutation declaration
@@ -1211,21 +1346,46 @@ func (p *Parser) parseFunctionParameter(element sexp.SExp) (*ast.DefParameter, [
 
 // Parse a range declaration
 func (p *Parser) parseDefInRange(elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
-	var bound fr.Element
+	var (
+		bound int
+		err   error
+	)
 	// Translate expression
 	expr, errors := p.translator.Translate(elements[1])
 	// Check & parse bound
 	if elements[2].AsSymbol() == nil {
 		errors = append(errors, *p.translator.SyntaxError(elements[2], "malformed bound"))
-	} else if _, err := bound.SetString(elements[2].AsSymbol().Value); err != nil {
+	} else if bound, err = strconv.Atoi(elements[2].AsSymbol().Value); err != nil {
 		errors = append(errors, *p.translator.SyntaxError(elements[2], "malformed bound"))
 	}
 	// Error check
 	if len(errors) != 0 {
 		return nil, errors
 	}
-	// Done
-	return &ast.DefInRange{Expr: expr, Bound: bound}, nil
+	// Sanity check that the bound is actually a power of two.  Since range
+	// constraints are now compiled into table lookups, it is simpler to limit
+	// them accordingly.
+	if bitwidth := bitwidth(bound); bitwidth != math.MaxUint {
+		return &ast.DefInRange{Expr: expr, Bitwidth: bitwidth}, nil
+	}
+	//
+	return nil, p.translator.SyntaxErrors(elements[2], "bound not power of 2")
+}
+
+func bitwidth(bound int) uint {
+	// Determine actual bound
+	bitwidth := uint(1)
+	acc := 2
+	//
+	for ; acc < bound; acc = acc * 2 {
+		bitwidth++
+	}
+	// Check whethe it makes sense
+	if acc == bound {
+		return bitwidth
+	}
+	// invalid bound
+	return math.MaxUint
 }
 
 func (p *Parser) parseConstraintAttributes(module util.Path, attributes sexp.SExp) (domain util.Option[int],
@@ -1283,7 +1443,7 @@ func parseSymbolName[T ast.Binding](p *Parser, symbol sexp.SExp, module util.Pat
 	}
 	// Extract
 	path := module.Extend(symbol.AsSymbol().Value)
-	name := ast.NewBoundName[T](*path, arity, binding)
+	name := ast.NewBoundName(*path, arity, binding)
 	// Update source mapping
 	p.mapSourceNode(symbol, name)
 	// Construct
@@ -1341,7 +1501,7 @@ func (p *Parser) parseType(term sexp.SExp) (ast.Type, bool, *SyntaxError) {
 	default:
 		// Handle generic types like i16, i128, etc.
 		str := parts[0]
-		if !strings.HasPrefix(str, ":i") {
+		if !strings.HasPrefix(str, ":i") && !strings.HasPrefix(str, ":u") {
 			return nil, false, p.translator.SyntaxError(symbol, "unknown type")
 		}
 		// Parse bitwidth
@@ -1563,18 +1723,29 @@ func constantParserRule(symbol string) (ast.Expr, bool, error) {
 }
 
 func varAccessParserRule(col string) (ast.Expr, bool, error) {
+	var vars []*ast.VariableAccess
 	// Sanity check what we have
 	if col[0] != '_' && !unicode.IsLetter(rune(col[0])) {
 		return nil, false, errors.New("malformed column access")
 	}
 	// Handle qualified accesses (where permitted)
 	// Attempt to split column name into module / column pair.
-	path, err := parseQualifiableName(col)
+	paths, err := parseQualifiableVector(col)
 	if err != nil {
 		return nil, true, err
 	}
 	//
-	return ast.NewVariableAccess(path, ast.NON_FUNCTION, nil), true, nil
+	for _, p := range paths {
+		vars = append(vars, ast.NewVariableAccess(p, ast.NON_FUNCTION, nil))
+	}
+	// Check for single access
+	if len(vars) == 1 {
+		return vars[0], true, nil
+	}
+	// Reverse order so least signigicant first
+	vars = array.Reverse(vars)
+	// Check for vector access
+	return &ast.VectorAccess{Vars: vars}, true, nil
 }
 
 func arrayAccessParserRule(name string, args []ast.Expr) (ast.Expr, error) {
@@ -1745,6 +1916,26 @@ func normParserRule(_ string, args []ast.Expr) (ast.Expr, error) {
 	return &ast.Normalise{Arg: args[0]}, nil
 }
 
+func parseQualifiableVector(qualVec string) (path []util.Path, err error) {
+	var (
+		paths []util.Path
+		// Look for module concatenation
+		split = strings.Split(qualVec, "::")
+	)
+	//
+	for _, ith := range split {
+		p, err := parseQualifiableName(ith)
+		// Sanity check for errors
+		if err != nil {
+			return nil, err
+		}
+		//
+		paths = append(paths, p)
+	}
+	//
+	return paths, nil
+}
+
 // Parse a name which can be (optionally) adorned with either a module or
 // perspective qualifier, or both.
 func parseQualifiableName(qualName string) (path util.Path, err error) {
@@ -1829,7 +2020,7 @@ func isFunIdentifier(sexp sexp.SExp) bool {
 }
 
 func isIdentifierStart(c rune) bool {
-	return unicode.IsLetter(c) || c == '_' || c == '\''
+	return unicode.IsLetter(c) || c == '_' || c == '\'' || c == '$'
 }
 
 func isIdentifierMiddle(c rune) bool {

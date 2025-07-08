@@ -17,7 +17,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/enum"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 )
@@ -229,7 +229,7 @@ func (p *iterator) Count() uint {
 // return false if no match is found.
 //
 //nolint:revive
-func (p *iterator) Find(predicate util.Predicate[uint]) (uint, bool) {
+func (p *iterator) Find(predicate array.Predicate[uint]) (uint, bool) {
 	return enum.Find(p, predicate)
 }
 

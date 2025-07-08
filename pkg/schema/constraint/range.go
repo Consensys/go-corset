@@ -14,12 +14,12 @@ package constraint
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
-	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
-	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -30,10 +30,12 @@ import (
 type RangeFailure struct {
 	// Handle of the failing constraint
 	Handle string
+	// Enclosing context
+	Context schema.ModuleId
 	// Constraint expression
-	Expr sc.Evaluable
+	Expr ir.Evaluable
 	// Range restriction
-	Bound fr.Element
+	Bitwidth uint
 	// Row on which the constraint failed
 	Row uint
 }
@@ -41,7 +43,7 @@ type RangeFailure struct {
 // Message provides a suitable error message
 func (p *RangeFailure) Message() string {
 	// Construct useful error message
-	return fmt.Sprintf("range \"%s\" < %s does not hold (row %d)", p.Handle, p.Bound.String(), p.Row)
+	return fmt.Sprintf("range \"%s\" is u%d does not hold (row %d)", p.Handle, p.Bitwidth, p.Row)
 }
 
 func (p *RangeFailure) String() string {
@@ -49,43 +51,45 @@ func (p *RangeFailure) String() string {
 }
 
 // RequiredCells identifies the cells required to evaluate the failing constraint at the failing row.
-func (p *RangeFailure) RequiredCells(trace tr.Trace) *set.AnySortedSet[tr.CellRef] {
-	return p.Expr.RequiredCells(int(p.Row), trace)
+func (p *RangeFailure) RequiredCells(tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
+	return p.Expr.RequiredCells(int(p.Row), p.Context)
 }
 
 // RangeConstraint restricts all values for a given expression to be within a
 // range [0..n) for some bound n.  Any bound is supported, and the system will
 // choose the best underlying implementation as needed.
-type RangeConstraint[E sc.Evaluable] struct {
+type RangeConstraint[E ir.Evaluable] struct {
 	// A unique identifier for this constraint.  This is primarily useful for
 	// debugging.
 	Handle string
-	// A further differentiator to manage distinct low-level constraints arising
-	// from high-level constraints.
-	Case uint
 	// Evaluation Context for this constraint which must match that of the
 	// constrained expression itself.
-	Context trace.Context
+	Context schema.ModuleId
 	// The expression whose values are being constrained to within the given
 	// bound.
 	Expr E
-	// The upper Bound for this constraint.  Specifically, every evaluation of
-	// the expression should produce a value strictly below this Bound.  NOTE:
-	// an fr.Element is used here to store the Bound simply to make the
-	// necessary comparison against table data more direct.
-	Bound fr.Element
+	// The number of bits permitted for all values matching this constraint.
+	// For example, with a bitwidth of 8, the maximum permitted value is 255.
+	Bitwidth uint
 }
 
 // NewRangeConstraint constructs a new Range constraint!
-func NewRangeConstraint[E sc.Evaluable](handle string, casenum uint, context trace.Context,
-	expr E, bound fr.Element) *RangeConstraint[E] {
-	return &RangeConstraint[E]{handle, casenum, context, expr, bound}
+func NewRangeConstraint[E ir.Evaluable](handle string, context schema.ModuleId,
+	expr E, bitwidth uint) RangeConstraint[E] {
+	return RangeConstraint[E]{handle, context, expr, bitwidth}
+}
+
+// Consistent applies a number of internal consistency checks.  Whilst not
+// strictly necessary, these can highlight otherwise hidden problems as an aid
+// to debugging.
+func (p RangeConstraint[E]) Consistent(schema schema.AnySchema) []error {
+	return checkConsistent(p.Context, schema, p.Expr)
 }
 
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
-func (p *RangeConstraint[E]) Name() (string, uint) {
-	return p.Handle, p.Case
+func (p RangeConstraint[E]) Name() string {
+	return p.Handle
 }
 
 // Contexts returns the evaluation contexts (i.e. enclosing module + length
@@ -93,20 +97,8 @@ func (p *RangeConstraint[E]) Name() (string, uint) {
 // evaluation context, though some (e.g. lookups) have more.  Note that all
 // constraints have at least one context (which we can call the "primary"
 // context).
-func (p *RangeConstraint[E]) Contexts() []tr.Context {
-	return []tr.Context{p.Context}
-}
-
-// Branches returns the total number of logical branches this constraint can
-// take during evaluation.
-func (p *RangeConstraint[E]) Branches() uint {
-	return p.Expr.Branches()
-}
-
-// BoundedAtMost determines whether the bound for this constraint is at most a given bound.
-func (p *RangeConstraint[E]) BoundedAtMost(bound uint) bool {
-	var n fr.Element = fr.NewElement(uint64(bound))
-	return p.Bound.Cmp(&n) <= 0
+func (p RangeConstraint[E]) Contexts() []schema.ModuleId {
+	return []schema.ModuleId{p.Context}
 }
 
 // Bounds determines the well-definedness bounds for this constraint for both
@@ -116,8 +108,8 @@ func (p *RangeConstraint[E]) BoundedAtMost(bound uint) bool {
 // expression on that first row is also undefined (and hence must pass).
 //
 //nolint:revive
-func (p *RangeConstraint[E]) Bounds(module uint) util.Bounds {
-	if p.Context.Module() == module {
+func (p RangeConstraint[E]) Bounds(module uint) util.Bounds {
+	if p.Context == module {
 		return p.Expr.Bounds()
 	}
 	//
@@ -128,25 +120,33 @@ func (p *RangeConstraint[E]) Bounds(module uint) util.Bounds {
 // nil otherwise return an error.
 //
 //nolint:revive
-func (p *RangeConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
-	var coverage bit.Set
+func (p RangeConstraint[E]) Accepts(tr trace.Trace, sc schema.AnySchema) (bit.Set, schema.Failure) {
+	var (
+		coverage bit.Set
+		trModule = tr.Module(p.Context)
+		scModule = sc.Module(p.Context)
+		handle   = determineHandle(p.Handle, p.Context, tr)
+		bound    = big.NewInt(2)
+		frBound  fr.Element
+	)
+	// Compute 2^n
+	bound.Exp(bound, big.NewInt(int64(p.Bitwidth)), nil)
+	// Construct bound
+	frBound.SetBigInt(bound)
 	// Determine height of enclosing module
-	height := tr.Height(p.Context)
+	height := tr.Module(p.Context).Height()
 	// Iterate every row
 	for k := 0; k < int(height); k++ {
 		// Get the value on the kth row
-		kth, err := p.Expr.EvalAt(k, tr)
+		kth, err := p.Expr.EvalAt(k, trModule, scModule)
 		// Perform the range check
 		if err != nil {
-			return coverage, &sc.InternalFailure{
-				Handle: p.Handle,
-				Row:    uint(k),
-				Term:   p.Expr,
-				Error:  err.Error(),
+			return coverage, &InternalFailure{
+				p.Handle, p.Context, uint(k), p.Expr, err.Error(),
 			}
-		} else if kth.Cmp(&p.Bound) >= 0 {
+		} else if kth.Cmp(&frBound) >= 0 {
 			// Evaluation failure
-			return coverage, &RangeFailure{p.Handle, p.Expr, p.Bound, uint(k)}
+			return coverage, &RangeFailure{handle, p.Context, p.Expr, p.Bitwidth, uint(k)}
 		}
 	}
 	// All good
@@ -157,11 +157,17 @@ func (p *RangeConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
 // it can be printed.
 //
 //nolint:revive
-func (p *RangeConstraint[E]) Lisp(schema sc.Schema) sexp.SExp {
+func (p RangeConstraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
+	module := schema.Module(p.Context)
 	//
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("range"),
-		p.Expr.Lisp(schema),
-		sexp.NewSymbol(p.Bound.String()),
+		p.Expr.Lisp(module),
+		sexp.NewSymbol(fmt.Sprintf("u%d", p.Bitwidth)),
 	})
+}
+
+// Substitute any matchined labelled constants within this constraint
+func (p RangeConstraint[E]) Substitute(mapping map[string]fr.Element) {
+	p.Expr.Substitute(mapping)
 }

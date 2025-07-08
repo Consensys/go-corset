@@ -56,7 +56,7 @@ func NewTraceFile(metadata []byte, columns []trace.RawColumn) *TraceFile {
 func IsTraceFile(data []byte) bool {
 	var (
 		zktracer [8]byte
-		buffer   *bytes.Buffer = bytes.NewBuffer(data)
+		buffer   = bytes.NewBuffer(data)
 	)
 	//
 	if _, err := buffer.Read(zktracer[:]); err != nil {

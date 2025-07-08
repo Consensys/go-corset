@@ -16,8 +16,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/math"
 )
 
 // Type embodies a richer notion of type found at the Corset level, compared
@@ -83,11 +82,6 @@ func (p *AnyType) HasUnderlying() bool {
 	return false
 }
 
-// AsUnderlying converts this integer type into an underlying type.
-func (p *AnyType) AsUnderlying() schema.Type {
-	panic("cannot convert any type")
-}
-
 // Width returns the number of underlying columns represented by this column.
 // For example, an array of size n will expand into n underlying columns.
 func (p *AnyType) Width() uint {
@@ -128,7 +122,7 @@ var INT_TYPE = &IntType{nil}
 
 // IntType represents a set of signed integer values.
 type IntType struct {
-	values *util.Interval
+	values *math.Interval
 }
 
 // NewUintType constructs a native uint type of the given width which,
@@ -139,13 +133,13 @@ func NewUintType(nbits uint) Type {
 	// Subtract 1 because interval is inclusive.
 	bound.Sub(bound, big.NewInt(1))
 	//
-	return &IntType{util.NewInterval(big.NewInt(0), bound)}
+	return &IntType{math.NewInterval(big.NewInt(0), bound)}
 }
 
 // NewIntType constructs a new integer type containing all values between the
 // lower and upper bounds (inclusive).
 func NewIntType(lower *big.Int, upper *big.Int) *IntType {
-	return &IntType{util.NewInterval(lower, upper)}
+	return &IntType{math.NewInterval(lower, upper)}
 }
 
 // HasUnderlying determines whether or not this type has an underlying
@@ -154,15 +148,15 @@ func (p *IntType) HasUnderlying() bool {
 	return p.values != nil
 }
 
-// AsUnderlying converts this integer type into an underlying type.
-func (p *IntType) AsUnderlying() schema.Type {
+// BitWidth attempts to determine an appropriate bitwidth for this type.
+func (p *IntType) BitWidth() uint {
 	width := p.values.BitWidth()
 	// Sanity check (for now)
 	if p.values.Contains(big.NewInt(-1)) {
 		panic("cannot convert signed integer type")
 	}
 	//
-	return schema.NewUintType(width)
+	return width
 }
 
 // Width returns the number of underlying columns represented by this column.
@@ -173,7 +167,7 @@ func (p *IntType) Width() uint {
 
 // Values returns the interval of integers contained within this type
 // represents.
-func (p *IntType) Values() util.Interval {
+func (p *IntType) Values() math.Interval {
 	return *p.values
 }
 
@@ -183,7 +177,7 @@ func (p *IntType) Values() util.Interval {
 // is returned.
 func (p *IntType) LeastUpperBound(other Type) Type {
 	if o, ok := other.(*IntType); ok {
-		var values util.Interval
+		var values math.Interval
 		//
 		switch {
 		case p.values == nil && o.values == nil:

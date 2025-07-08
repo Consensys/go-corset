@@ -28,6 +28,8 @@ import (
 type ModuleView struct {
 	// Offsets into the module data.
 	row, col uint
+	// Maximum number of rows in any column
+	height uint
 	// Columns currently being shown in this view.  For example, only columns
 	// matching the currently active filter would be in this array.
 	columns []SourceColumn
@@ -62,6 +64,11 @@ func (p *ModuleView) SetRow(row uint) uint {
 // current column title width, as as well as the maximum width for every row.
 func (p *ModuleView) SetActiveColumns(trace tr.Trace, columns []SourceColumn) {
 	p.columns = columns
+	p.height = 0
+	// Recalculate module height
+	for _, c := range p.columns {
+		p.height = max(p.height, trace.Column(c.Register).Data().Len())
+	}
 	// Recalculate maximum title width
 	p.colTitleWidth = p.recalculateColumnTitleWidth()
 	// Recalculate row widths
@@ -98,6 +105,10 @@ func (p *ModuleView) CellAt(trace tr.Trace, col, row uint) termio.FormattedText 
 	if row == 0 && trCol < uint(len(p.columns)) {
 		// Column title
 		name := p.columns[trCol].Name
+		if p.columns[trCol].Computed {
+			return termio.NewColouredText(name, termio.TERM_GREEN)
+		}
+		//
 		return termio.NewColouredText(name, termio.TERM_BLUE)
 	} else if col == 0 {
 		// Row title
@@ -123,25 +134,24 @@ func (p *ModuleView) CellAt(trace tr.Trace, col, row uint) termio.FormattedText 
 // ValueAt extracts the data point at a given rol and column in the trace.
 func (p *ModuleView) ValueAt(trace tr.Trace, trCol, trRow uint) fr.Element {
 	// Determine underlying register for the given column.
-	regId := p.columns[trCol].Register
+	ref := p.columns[trCol].Register
 	// Extract cell value from register
-	return trace.Column(regId).Get(int(trRow))
+	return trace.Column(ref).Get(int(trRow))
 }
 
 // IsActive determines whether a given cell is active, or not.  A cell can be
 // inactive, for example, if its part of a perspective which is not active.
 func (p *ModuleView) IsActive(trace tr.Trace, trCol, trRow uint) bool {
+	// Determine enclosing module
+	module := trace.Module(p.columns[trCol].Register.Module())
+	// Extract relevant selector
 	selector := p.columns[trCol].Selector
-	//
-	if selector == nil {
+	// Santity check whether actually need to do anything
+	if selector.IsEmpty() {
 		return true
 	}
-	//
-	val, err := selector.EvalAt(int(trRow), trace)
-	// error check
-	if err != nil {
-		panic(err.Error())
-	}
+	// Check selector value
+	val := module.ColumnOf(selector.Unwrap()).Get(int(trRow))
 	//
 	return !val.IsZero()
 }
@@ -185,17 +195,14 @@ func (p *ModuleView) recalculateColumnTitleWidth() uint {
 	return uint(maxWidth)
 }
 
-func (p *ModuleView) recalculateRowWidths(trace tr.Trace) []uint {
-	// Determine how many rows we have
-	nrows := determineNumberOfRows(trace, p.columns)
-	//
-	widths := make([]uint, nrows)
+func (p *ModuleView) recalculateRowWidths(module tr.Trace) []uint {
+	widths := make([]uint, p.height)
 	//
 	for row := uint(0); row < uint(len(widths)); row++ {
 		maxWidth := uint(0)
 		//
 		for col := uint(0); col < uint(len(p.columns)); col++ {
-			val := p.ValueAt(trace, col, row)
+			val := p.ValueAt(module, col, row)
 			width := len(p.display(col, val))
 			maxWidth = max(maxWidth, uint(width))
 		}
@@ -256,20 +263,6 @@ func displayBytes(val fr.Element) string {
 	}
 	//
 	return builder.String()
-}
-
-// Determine the maximum number of rows whih can be displayed for a given set of
-// columns.  Observe that this is not fully determined by the module height,
-// since we have columns which may have length multipliers, etc.
-func determineNumberOfRows(trace tr.Trace, columns []SourceColumn) uint {
-	maxRows := uint(0)
-
-	for _, col := range columns {
-		nrows := trace.Column(col.Register).Data().Len()
-		maxRows = max(maxRows, nrows)
-	}
-	//
-	return maxRows
 }
 
 func clipValue(str string, maxWidth uint) string {

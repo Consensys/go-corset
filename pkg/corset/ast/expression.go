@@ -17,7 +17,6 @@ import (
 	"math/big"
 	"reflect"
 
-	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
@@ -42,9 +41,6 @@ type Expr interface {
 	// Return set of columns on which this declaration depends.
 	Dependencies() []Symbol
 }
-
-// Context represents the evaluation context for a given expression.
-type Context = tr.RawContext[string]
 
 // ============================================================================
 // Addition
@@ -134,7 +130,17 @@ func (e *ArrayAccess) Type() Type {
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
 func (e *ArrayAccess) Context() Context {
-	return e.Arg.Context()
+	// Check the expected options.
+	binding, ok := e.ArrayBinding.(*ColumnBinding)
+	// Sanity check
+	if ok {
+		context := binding.Context()
+		context = context.Join(e.Arg.Context())
+		//
+		return context
+	}
+	//
+	panic("invalid column access")
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
@@ -265,7 +271,7 @@ func (e *Constant) AsConstant() *big.Int {
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
 func (e *Constant) Context() Context {
-	return tr.VoidContext[string]()
+	return VoidContext()
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
@@ -600,7 +606,16 @@ func (e *If) AsConstant() *big.Int {
 // expression must have been resolved for this to be defined (i.e. it may
 // panic if it has not been resolved yet).
 func (e *If) Context() Context {
-	ctx, _ := ContextOfExpressions(e.Condition, e.TrueBranch, e.FalseBranch)
+	ctx := e.Condition.Context()
+	//
+	if e.TrueBranch != nil {
+		ctx = ctx.Join(e.TrueBranch.Context())
+	}
+	//
+	if e.FalseBranch != nil {
+		ctx = ctx.Join(e.FalseBranch.Context())
+	}
+	//
 	return ctx
 }
 
@@ -617,6 +632,7 @@ func (e *If) Lisp() sexp.SExp {
 	//
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("if"),
+		e.Condition.Lisp(),
 		e.TrueBranch.Lisp()})
 }
 
@@ -1027,7 +1043,8 @@ func (e *Shift) Dependencies() []Symbol {
 }
 
 // ============================================================================
-// VariableAccess// ============================================================================
+// VariableAccess
+// ============================================================================
 
 // VariableAccess represents reading the value of a given local variable (such
 // as a function parameter).
@@ -1104,9 +1121,9 @@ func (e *VariableAccess) Context() Context {
 	if binding, ok := e.binding.(*ColumnBinding); ok {
 		return binding.Context()
 	} else if _, ok := e.Binding().(*ConstantBinding); ok {
-		return tr.VoidContext[string]()
+		return VoidContext()
 	} else if _, ok := e.Binding().(*LocalVariableBinding); ok {
-		return tr.VoidContext[string]()
+		return VoidContext()
 	}
 	//
 	panic("invalid column access")
@@ -1134,6 +1151,52 @@ func (e *VariableAccess) Type() Type {
 }
 
 // ============================================================================
+// VectorAccess
+// ============================================================================
+
+// VectorAccess represents a vector of variables being accessed.  For example,
+// consider the vector X::Y where each variable is 16bits.  Then the resulting
+// "vector variable" is 32bits, and corresponds to (X*65536) + Y.  The main
+// purpose of VectorAccesses is to smooth the progress of migrating to a
+// field-agnostic code base.  We might imagine that this will be deprecated
+// eventually.
+type VectorAccess struct {
+	Vars []*VariableAccess
+}
+
+// AsConstant attempts to evaluate this expression as a constant (signed) value.
+// If this expression is not constant, then nil is returned.
+func (e *VectorAccess) AsConstant() *big.Int {
+	// not a constant
+	return nil
+}
+
+// Context returns the context for this expression.  Observe that the
+// expression must have been resolved for this to be defined (i.e. it may
+// panic if it has not been resolved yet).
+func (e *VectorAccess) Context() Context {
+	ctx, _ := ContextOfExpressions(e.Vars...)
+	return ctx
+}
+
+// Lisp converts this schema element into a simple S-Expression, for example
+// so it can be printed.
+func (e *VectorAccess) Lisp() sexp.SExp {
+	return ListOfExpressions(sexp.NewSymbol("+"), e.Vars)
+}
+
+// Dependencies needed to signal declaration.
+func (e *VectorAccess) Dependencies() []Symbol {
+	var deps []Symbol
+	//
+	for _, e := range e.Vars {
+		deps = append(deps, e.Dependencies()...)
+	}
+	//
+	return deps
+}
+
+// ============================================================================
 // Helpers
 // ============================================================================
 
@@ -1142,8 +1205,8 @@ func (e *VariableAccess) Type() Type {
 // they are all constants) then the void context is returned.  Likewise, if
 // there are expressions with different contexts then the conflicted context
 // will be returned.  Otherwise, the one consistent context will be returned.
-func ContextOfExpressions(exprs ...Expr) (Context, uint) {
-	context := tr.VoidContext[string]()
+func ContextOfExpressions[E Expr](exprs ...E) (Context, uint) {
+	context := VoidContext()
 	//
 	for i, e := range exprs {
 		context = context.Join(e.Context())
@@ -1248,6 +1311,8 @@ func Substitute(expr Expr, mapping map[uint]Expr, srcmap *source.Maps[Node]) Exp
 				expr = e2
 			}
 		}
+	case *VectorAccess:
+		panic("todo")
 	default:
 		panic(fmt.Sprintf("unknown expression (%s)", reflect.TypeOf(expr)))
 	}
@@ -1325,6 +1390,8 @@ func ShallowCopy(expr Expr) Expr {
 		return &Shift{e.Arg, e.Shift}
 	case *VariableAccess:
 		return &VariableAccess{e.Name, e.FnArity, e.binding}
+	case *VectorAccess:
+		return &VectorAccess{e.Vars}
 	default:
 		panic(fmt.Sprintf("unknown expression (%s)", reflect.TypeOf(expr)))
 	}
@@ -1346,7 +1413,7 @@ func DependenciesOfExpressions(exprs []Expr) []Symbol {
 
 // ListOfExpressions converts an array of one or more expressions into a list of
 // corresponding lisp expressions.
-func ListOfExpressions(head sexp.SExp, exprs []Expr) *sexp.List {
+func ListOfExpressions[E Expr](head sexp.SExp, exprs []E) *sexp.List {
 	lisps := make([]sexp.SExp, len(exprs)+1)
 	// Assign head
 	lisps[0] = head

@@ -29,6 +29,45 @@ import (
 // [0], "Y": [1]} is a trace containing one row of data each for two columns "X"
 // and "Y".
 func FromBytes(bytes []byte) ([]trace.RawColumn, error) {
+	var (
+		rawData map[string]map[string][]big.Int
+		cols    []trace.RawColumn
+	)
+	// Attempt to unmarshall
+	jsonErr := json.Unmarshal(bytes, &rawData)
+	if jsonErr != nil {
+		// Failed, so try and fall back on the legacy format.
+		return FromBytesLegacy(bytes)
+	}
+	//
+	for mod, modData := range rawData {
+		for name, rawInts := range modData {
+			col, bitwidth, error := splitColumnBitwidth(name)
+			// error check
+			if error != nil {
+				return nil, error
+			}
+			// Manage negative numbers
+			normaliseBigInts(rawInts)
+			// Validate data array
+			if row := validateBigInts(bitwidth, rawInts); row != math.MaxUint {
+				return nil, fmt.Errorf("column %s out-of-bounds (row %d, value %s)",
+					name, row, rawInts[row].String())
+			}
+			// Construct data array
+			data := field.FrArrayFromBigInts(bitwidth, rawInts)
+			// Construct column
+			cols = append(cols, trace.RawColumn{Module: mod, Name: col, Data: data})
+		}
+	}
+	//
+	return cols, nil
+}
+
+// FromBytesLegacy parses a trace expressed in JSON notation.  For example, {"X":
+// [0], "Y": [1]} is a trace containing one row of data each for two columns "X"
+// and "Y".
+func FromBytesLegacy(bytes []byte) ([]trace.RawColumn, error) {
 	var rawData map[string][]big.Int
 	// Unmarshall
 	jsonErr := json.Unmarshal(bytes, &rawData)
@@ -87,7 +126,7 @@ func splitColumnBitwidth(name string) (string, uint, error) {
 	var (
 		err      error
 		bitwidth uint64
-		bits     []string = strings.Split(name, "@")
+		bits     = strings.Split(name, "@")
 	)
 	//
 	if len(bits) == 1 {

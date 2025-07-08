@@ -19,7 +19,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/hir"
+	"github.com/consensys/go-corset/pkg/asm"
 	"github.com/consensys/go-corset/pkg/util/collection/typed"
 )
 
@@ -34,17 +34,17 @@ type BinaryFile struct {
 	// Attributes for the binary file.  These hold, for example, information for
 	// debugging, etc.
 	Attributes []Attribute
-	// The HIR Schema itself.
-	Schema hir.Schema
+	// The mixed assembly schema.
+	Schema asm.MixedMacroProgram
 }
 
 // NewBinaryFile constructs a new binary file with the default header for the
 // currently supported version.
-func NewBinaryFile(metadata []byte, attributes []Attribute, schema *hir.Schema) *BinaryFile {
+func NewBinaryFile(metadata []byte, attributes []Attribute, schema asm.MixedMacroProgram) *BinaryFile {
 	return &BinaryFile{
 		Header{ZKBINARY, BINFILE_MAJOR_VERSION, BINFILE_MINOR_VERSION, metadata},
 		attributes,
-		*schema,
+		schema,
 	}
 }
 
@@ -200,12 +200,12 @@ func (p *Header) IsCompatible() bool {
 // matter what version, we should always have the ZKBINARY identifier first,
 // followed by a GOB encoding of the header.  What follows after that, however,
 // is determined by the major version.
-const BINFILE_MAJOR_VERSION uint16 = 3
+const BINFILE_MAJOR_VERSION uint16 = 5
 
 // BINFILE_MINOR_VERSION gives the minor version of the binary file format.  The
 // expected interpretation is that older versions are compatible with newer
 // ones, but not vice-versa.
-const BINFILE_MINOR_VERSION uint16 = 4
+const BINFILE_MINOR_VERSION uint16 = 0
 
 // ZKBINARY is used as the file identifier for binary file types.  This just
 // helps us identify actual binary files from corrupted files.

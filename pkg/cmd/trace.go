@@ -20,14 +20,14 @@ import (
 	"strings"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/corset"
-	"github.com/consensys/go-corset/pkg/mir"
+	"github.com/consensys/go-corset/pkg/ir"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/termio"
 	"github.com/spf13/cobra"
 )
@@ -41,30 +41,12 @@ var traceCmd = &cobra.Command{
 	or filtering out modules, or listing columns, etc.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		var (
-			traces       [][]trace.RawColumn
-			corsetConfig corset.CompilationConfig
+			traces [][]trace.RawColumn
 		)
-		//
-		expand := GetFlag(cmd, "expand")
-		// Sanity check
-		if (expand && len(args) != 2) || (!expand && len(args) != 1) {
-			fmt.Println(cmd.UsageString())
-			os.Exit(1)
-		}
-		//
-		optimisation := GetUint(cmd, "opt")
-		// Set optimisation level
-		if optimisation >= uint(len(mir.OPTIMISATION_LEVELS)) {
-			fmt.Printf("invalid optimisation level %d\n", optimisation)
-			os.Exit(2)
-		}
-		//
-		optConfig := mir.OPTIMISATION_LEVELS[optimisation]
 		// Parse trace
 		columns := GetFlag(cmd, "columns")
+		batched := GetFlag(cmd, "batched")
 		modules := GetFlag(cmd, "modules")
-		defensive := GetFlag(cmd, "defensive")
-		validate := GetFlag(cmd, "validate")
 		stats := GetFlag(cmd, "stats")
 		includes := GetStringArray(cmd, "include")
 		print := GetFlag(cmd, "print")
@@ -73,14 +55,10 @@ var traceCmd = &cobra.Command{
 		max_width := GetUint(cmd, "max-width")
 		filter := GetString(cmd, "filter")
 		output := GetString(cmd, "out")
-		air := GetFlag(cmd, "air")
-		mir := GetFlag(cmd, "mir")
-		hir := GetFlag(cmd, "hir")
-		batched := GetFlag(cmd, "batched")
 		metadata := GetFlag(cmd, "metadata")
-		//
-		corsetConfig.Stdlib = !GetFlag(cmd, "no-stdlib")
-		corsetConfig.Legacy = GetFlag(cmd, "legacy")
+		// Read in constraint files
+		schemas := *getSchemaStack(cmd, SCHEMA_OPTIONAL, args[1:]...)
+		builder := schemas.TraceBuilder()
 		// Parse trace file(s)
 		if batched {
 			// batched mode
@@ -95,17 +73,14 @@ var traceCmd = &cobra.Command{
 			}
 		}
 		//
-		if expand && !air && !mir && !hir {
-			fmt.Println("must specify --hir/mir/air for trace expansion")
+		if builder.Expanding() && !schemas.HasUniqueSchema() {
+			fmt.Println("must specify one of --asm/uasm/mir/air")
 			os.Exit(2)
-		} else if expand {
-			level := determineAbstractionLevel(air, mir, hir)
+		} else if builder.Expanding() {
+			// Expand all the traces
 			for i, cols := range traces {
-				traces[i] = expandWithConstraints(level, cols, corsetConfig, validate, defensive, args[1:], optConfig)
+				traces[i] = expandColumns(cols, schemas.UniqueSchema(), builder)
 			}
-		} else if defensive {
-			fmt.Println("cannot apply defensive padding without trace expansion")
-			os.Exit(2)
 		}
 		// Now manipulate traces
 		for i := range traces {
@@ -145,69 +120,20 @@ func init() {
 		fmt.Sprintf("specify information to include in column listing: %s", summariserOptions()))
 	traceCmd.Flags().Bool("stats", false, "show overall stats for the trace file")
 	traceCmd.Flags().BoolP("print", "p", false, "print entire trace file")
-	traceCmd.Flags().BoolP("expand", "e", false, "perform trace expansion (schema required)")
-	traceCmd.Flags().Bool("defensive", false, "perform defensive padding (schema required)")
-	traceCmd.Flags().Bool("validate", true, "apply trace validation")
 	traceCmd.Flags().Uint("start", 0, "filter out rows below this")
 	traceCmd.Flags().Uint("end", math.MaxUint, "filter out this and all following rows")
 	traceCmd.Flags().Uint("max-width", 32, "specify maximum display width for a column")
 	traceCmd.Flags().StringP("out", "o", "", "Specify output file to write trace")
 	traceCmd.Flags().StringP("filter", "f", "", "Filter columns matching regex")
-	traceCmd.Flags().Bool("hir", false, "expand to HIR level")
-	traceCmd.Flags().Bool("mir", false, "expand to MIR level")
-	traceCmd.Flags().Bool("air", false, "expand to AIR level")
 	traceCmd.Flags().Bool("batched", false,
 		"specify trace file is batched (i.e. contains multiple traces, one for each line)")
 	traceCmd.Flags().Bool("metadata", false, "Print embedded metadata")
 }
 
-const air_LEVEL = 0
-const mir_LEVEL = 1
-const hir_LEVEL = 2
-
-func determineAbstractionLevel(air, mir, hir bool) int {
-	switch {
-	case air && !mir && !hir:
-		return air_LEVEL
-	case !air && mir && !hir:
-		return mir_LEVEL
-	case !air && !mir && hir:
-		return hir_LEVEL
-	case !air && !mir && !hir:
-		fmt.Println("must specify target level (hir/mir/air) for trace expansion")
-	default:
-		fmt.Println("conflicting target level (hir/mir/air) for trace expansion")
-	}
-	//nolint:revive
-	os.Exit(2)
-	panic("unreachable")
-}
-
-func expandWithConstraints(level int, cols []trace.RawColumn, corsetConfig corset.CompilationConfig, validate bool,
-	defensive bool, filenames []string, optConfig mir.OptimisationConfig) []trace.RawColumn {
-	//
-	var schema sc.Schema
-	//
-	binfile := ReadConstraintFiles(corsetConfig, filenames)
-	//
-	switch level {
-	case hir_LEVEL:
-		schema = &binfile.Schema
-	case mir_LEVEL:
-		schema = binfile.Schema.LowerToMir()
-	case air_LEVEL:
-		schema = binfile.Schema.LowerToMir().LowerToAir(optConfig)
-	default:
-		panic("unreachable")
-	}
-	// Done
-	return expandColumns(cols, schema, validate, defensive)
-}
-
-func expandColumns(cols []trace.RawColumn, schema sc.Schema, validate bool, defensive bool) []trace.RawColumn {
-	builder := sc.NewTraceBuilder(schema).Expand(true).Validate(validate).Defensive(defensive)
-	tr, errs := builder.Build(cols)
-	//
+func expandColumns(cols []trace.RawColumn, schema sc.AnySchema, builder ir.TraceBuilder) []trace.RawColumn {
+	// Construct expanded tr
+	tr, errs := builder.Build(schema, cols)
+	// Handle errors
 	if len(errs) > 0 {
 		for _, err := range errs {
 			fmt.Println(err)
@@ -216,16 +142,18 @@ func expandColumns(cols []trace.RawColumn, schema sc.Schema, validate bool, defe
 		os.Exit(1)
 	}
 	// Convert back to raw column array
-	rcols := make([]trace.RawColumn, tr.Width())
+	var rcols []trace.RawColumn
 	//
-	for i := range rcols {
-		ith := tr.Column(uint(i))
-		module := tr.Modules().Nth(ith.Context().Module())
-		//
-		rcols[i] = trace.RawColumn{
-			Module: module.Name(),
-			Name:   ith.Name(),
-			Data:   ith.Data(),
+	for mid := range tr.Width() {
+		module := tr.Module(mid)
+		for cid := range module.Width() {
+			ith := module.Column(cid)
+			//
+			rcols = append(rcols, trace.RawColumn{
+				Module: module.Name(),
+				Name:   ith.Name(),
+				Data:   ith.Data(),
+			})
 		}
 	}
 	//
@@ -528,7 +456,7 @@ func moduleBitwidthSummariser(columns []trace.RawColumn) string {
 	total := uint(0)
 	//
 	for _, c := range columns {
-		total += c.Data.BitWidth()
+		total += bitwidth(c.Data)
 	}
 	//
 	return fmt.Sprintf("%d", total)
@@ -538,7 +466,7 @@ func moduleBytesSummariser(columns []trace.RawColumn) string {
 	total := uint(0)
 	//
 	for _, c := range columns {
-		bitwidth := c.Data.BitWidth()
+		bitwidth := bitwidth(c.Data)
 		byteWidth := bitwidth / 8
 		// Determine proper bytewidth
 		if bitwidth%8 != 0 {
@@ -559,6 +487,14 @@ func moduleNonZeroCounter(columns []trace.RawColumn) string {
 	}
 	//
 	return fmt.Sprintf("%d", count)
+}
+
+func bitwidth(arr field.FrArray) uint {
+	if arr.BitWidth() == math.MaxUint {
+		return uint(fr.Modulus().BitLen())
+	}
+
+	return arr.BitWidth()
 }
 
 // ============================================================================
@@ -598,11 +534,11 @@ func columnCountSummariser(col trace.RawColumn) string {
 }
 
 func columnBitwidthSummariser(col trace.RawColumn) string {
-	return fmt.Sprintf("%d", col.Data.BitWidth())
+	return fmt.Sprintf("%d", bitwidth(col.Data))
 }
 
 func columnBytesSummariser(col trace.RawColumn) string {
-	bitwidth := col.Data.BitWidth()
+	bitwidth := bitwidth(col.Data)
 	byteWidth := bitwidth / 8
 	// Determine proper bytewidth
 	if bitwidth%8 != 0 {
@@ -617,7 +553,7 @@ func uniqueElementsSummariser(col trace.RawColumn) string {
 	elems := hash.NewSet[hash.BytesKey](data.Len() / 2)
 	// Add all the elements
 	for i := uint(0); i < data.Len(); i++ {
-		bytes := util.FrElementToBytes(data.Get(i))
+		bytes := field.FrElementToBytes(data.Get(i))
 		elems.Insert(hash.NewBytesKey(bytes[:]))
 	}
 	// Done
@@ -735,7 +671,7 @@ func trWidthSummariser(lowWidth uint, highWidth uint) traceSummariser {
 		summary: func(tr []trace.RawColumn) string {
 			count := 0
 			for i := 0; i < len(tr); i++ {
-				ithWidth := tr[i].Data.BitWidth()
+				ithWidth := bitwidth(tr[i].Data)
 				if ithWidth >= lowWidth && ithWidth <= highWidth {
 					count++
 				}

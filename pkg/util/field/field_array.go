@@ -18,24 +18,24 @@ import (
 	"strings"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 )
 
 // FrArray represents an array of field elements.
-type FrArray = util.Array[fr.Element]
+type FrArray = array.Array[fr.Element]
 
 // NewFrArray creates a new FrArray dynamically based on the given width.
 func NewFrArray(height uint, bitWidth uint) FrArray {
 	switch {
 	case bitWidth <= 1:
-		var pool FrBitPool = NewFrBitPool()
-		return NewFrPoolArray[bool](height, bitWidth, pool)
+		var pool = NewFrBitPool()
+		return NewFrPoolArray(height, bitWidth, pool)
 	case bitWidth <= 8:
-		var pool FrIndexPool[uint8] = NewFrIndexPool[uint8]()
-		return NewFrPoolArray[uint8](height, bitWidth, pool)
+		var pool = NewFrIndexPool[uint8]()
+		return NewFrPoolArray(height, bitWidth, pool)
 	case bitWidth <= 16:
-		var pool FrIndexPool[uint16] = NewFrIndexPool[uint16]()
-		return NewFrPoolArray[uint16](height, bitWidth, pool)
+		var pool = NewFrIndexPool[uint16]()
+		return NewFrPoolArray(height, bitWidth, pool)
 	default:
 		return NewFrIndexArray(height, bitWidth)
 	}
@@ -99,7 +99,7 @@ func (p *FrElementArray) Set(index uint, element fr.Element) {
 }
 
 // Clone makes clones of this array producing an otherwise identical copy.
-func (p *FrElementArray) Clone() util.Array[fr.Element] {
+func (p *FrElementArray) Clone() array.Array[fr.Element] {
 	// Allocate sufficient memory
 	ndata := make([]fr.Element, uint(len(p.elements)))
 	// Copy over the data
@@ -109,13 +109,13 @@ func (p *FrElementArray) Clone() util.Array[fr.Element] {
 }
 
 // Slice out a subregion of this array.
-func (p *FrElementArray) Slice(start uint, end uint) util.Array[fr.Element] {
+func (p *FrElementArray) Slice(start uint, end uint) array.Array[fr.Element] {
 	return &FrElementArray{p.elements[start:end], p.bitwidth}
 }
 
 // Pad prepend array with n copies and append with m copies of the given padding
 // value.
-func (p *FrElementArray) Pad(n uint, m uint, padding fr.Element) util.Array[fr.Element] {
+func (p *FrElementArray) Pad(n uint, m uint, padding fr.Element) array.Array[fr.Element] {
 	l := uint(len(p.elements))
 	// Allocate sufficient memory
 	ndata := make([]fr.Element, l+n+m)

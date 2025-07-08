@@ -1,0 +1,2 @@
+;; (see #955) {"simple_on_curve": { "x": [1], "y": [1], "RESULT": [1] }}
+{"simple_on_curve": { "x": [1,1], "y": [1,0], "RESULT": [1,1] }}

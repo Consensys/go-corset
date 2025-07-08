@@ -15,13 +15,16 @@ package corset
 import (
 	_ "embed"
 	"fmt"
+	"math"
+	"strconv"
+	"strings"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/corset/compiler"
-	"github.com/consensys/go-corset/pkg/hir"
-	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/ir/mir"
+	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
 
@@ -49,17 +52,18 @@ type CompilationConfig struct {
 // CompileSourceFiles compiles one or more source files into a schema.  This
 // process can fail if the source files are mal-formed, or contain syntax errors
 // or other forms of error (e.g. type errors).
-func CompileSourceFiles(config CompilationConfig, srcfiles []*source.File) (*binfile.BinaryFile, []SyntaxError) {
+func CompileSourceFiles[M schema.Module](config CompilationConfig, srcfiles []*source.File,
+	externs ...M) (schema.MixedSchema[M, mir.Module], SourceMap, []SyntaxError) {
 	// Include the standard library (if requested)
 	srcfiles = includeStdlib(config.Stdlib, srcfiles)
 	// Parse all source files (inc stdblib if applicable).
 	circuit, srcmap, errs := compiler.ParseSourceFiles(srcfiles)
 	// Check for parsing errors
 	if errs != nil {
-		return nil, errs
+		return schema.MixedSchema[M, mir.Module]{}, SourceMap{}, errs
 	}
 	// Compile each module into the schema
-	comp := NewCompiler(circuit, srcmap).SetDebug(config.Debug)
+	comp := NewCompiler(circuit, srcmap, externs).SetDebug(config.Debug)
 	// Configure register allocator (if requested)
 	if config.Legacy {
 		comp.SetAllocator(compiler.LegacyAllocator)
@@ -74,24 +78,22 @@ func CompileSourceFiles(config CompilationConfig, srcfiles []*source.File) (*bin
 // really helper function for e.g. the testing environment.   This process can
 // fail if the source file is mal-formed, or contains syntax errors or other
 // forms of error (e.g. type errors).
-func CompileSourceFile(config CompilationConfig, srcfile *source.File) (*binfile.BinaryFile, []SyntaxError) {
-	schema, errs := CompileSourceFiles(config, []*source.File{srcfile})
-	// Check for errors
-	if errs != nil {
-		return nil, errs
-	}
+func CompileSourceFile[M schema.Module](config CompilationConfig,
+	srcfile *source.File) (schema.MixedSchema[M, mir.Module], SourceMap, []SyntaxError) {
 	//
-	return schema, nil
+	return CompileSourceFiles[M](config, []*source.File{srcfile})
 }
 
 // Compiler packages up everything needed to compile a given set of module
 // definitions down into an HIR schema.  Observe that the compiler may fail if
 // the modules definitions are malformed in some way (e.g. fail type checking).
-type Compiler struct {
+type Compiler[M schema.Module] struct {
 	// The register allocation algorithm to be used by this compiler.
 	allocator func(compiler.RegisterAllocation)
 	// A high-level definition of a Corset circuit.
 	circuit ast.Circuit
+	// Externally defined modules
+	externs []M
 	// Determines whether debug
 	debug bool
 	// Determines whether to apply sanity checks
@@ -103,19 +105,19 @@ type Compiler struct {
 }
 
 // NewCompiler constructs a new compiler for a given set of modules.
-func NewCompiler(circuit ast.Circuit, srcmaps *source.Maps[ast.Node]) *Compiler {
-	return &Compiler{compiler.DEFAULT_ALLOCATOR, circuit, false, true, srcmaps}
+func NewCompiler[M schema.Module](circuit ast.Circuit, srcmaps *source.Maps[ast.Node], externs []M) *Compiler[M] {
+	return &Compiler[M]{compiler.DEFAULT_ALLOCATOR, circuit, externs, false, true, srcmaps}
 }
 
 // SetDebug enables or disables debug mode.  In debug mode, debug constraints
 // will be compiled in.
-func (p *Compiler) SetDebug(flag bool) *Compiler {
+func (p *Compiler[M]) SetDebug(flag bool) *Compiler[M] {
 	p.debug = flag
 	return p
 }
 
 // SetAllocator overides the default register allocator.
-func (p *Compiler) SetAllocator(allocator func(compiler.RegisterAllocation)) *Compiler {
+func (p *Compiler[M]) SetAllocator(allocator func(compiler.RegisterAllocation)) *Compiler[M] {
 	p.allocator = allocator
 	return p
 }
@@ -125,39 +127,42 @@ func (p *Compiler) SetAllocator(allocator func(compiler.RegisterAllocation)) *Co
 // ways if the given modules are malformed in some way.  For example, if some
 // expression refers to a non-existent module or column, or is not well-typed,
 // etc.
-func (p *Compiler) Compile() (*binfile.BinaryFile, []SyntaxError) {
+func (p *Compiler[M]) Compile() (schema.MixedSchema[M, mir.Module], SourceMap, []SyntaxError) {
 	var (
 		scope  *compiler.ModuleScope
 		errors []SyntaxError
 	)
 	// Resolve variables (via nested scopes)
-	scope, errors = compiler.ResolveCircuit(p.srcmap, &p.circuit)
+	scope, errors = compiler.ResolveCircuit(p.srcmap, &p.circuit, p.externs...)
 	// Type check circuit.
 	errors = append(errors, compiler.TypeCheckCircuit(p.srcmap, &p.circuit)...)
 	// Catch errors
 	if len(errors) > 0 {
-		return nil, errors
+		return schema.MixedSchema[M, mir.Module]{}, SourceMap{}, errors
 	}
 	// Preprocess circuit to remove invocations, reductions, etc.
 	if errors = compiler.PreprocessCircuit(p.debug, p.srcmap, &p.circuit); len(errors) > 0 {
-		return nil, errors
+		return schema.MixedSchema[M, mir.Module]{}, SourceMap{}, errors
 	}
 	// Convert global scope into an environment by allocating all columns.
 	environment := compiler.NewGlobalEnvironment(scope, p.allocator)
 	// Translate everything and add it to the schema.
-	schema, errs := compiler.TranslateCircuit(environment, p.srcmap, &p.circuit)
+	mixedSchema, errs := compiler.TranslateCircuit(environment, p.srcmap, &p.circuit, p.externs...)
 	// Sanity check for errors
 	if len(errs) > 0 {
-		return nil, errs
-	} else if err := schema.CheckConsistency(); err != nil {
-		panic(err.Error())
+		return schema.MixedSchema[M, mir.Module]{}, SourceMap{}, errs
+	} else if cerrs := mixedSchema.Consistent(); len(cerrs) > 0 {
+		// Should be unreachable.
+		for _, err := range cerrs {
+			fmt.Println(err.Error())
+		}
+		//
+		panic("inconsistent schema?")
 	}
 	// Construct source map
-	source_map := constructSourceMap(scope, environment)
-	// Extract key attributes (for debugging purposes)
-	attributes := []binfile.Attribute{source_map}
+	source_map := constructSourceMap(mixedSchema, scope, environment)
 	// Construct binary file
-	return binfile.NewBinaryFile(nil, attributes, schema), errs
+	return mixedSchema, *source_map, errs
 }
 
 func includeStdlib(stdlib bool, srcfiles []*source.File) []*source.File {
@@ -171,12 +176,16 @@ func includeStdlib(stdlib bool, srcfiles []*source.File) []*source.File {
 	return srcfiles
 }
 
-func constructSourceMap(scope *compiler.ModuleScope, env compiler.GlobalEnvironment) *SourceMap {
+func constructSourceMap(schema schema.AnySchema, scope *compiler.ModuleScope,
+	env compiler.GlobalEnvironment) *SourceMap {
+	//
 	enumerations := []Enumeration{OPCODE_ENUMERATION}
-	return &SourceMap{constructSourceModule(scope, env), enumerations}
+	return &SourceMap{constructSourceModule(schema, scope, env), enumerations}
 }
 
-func constructSourceModule(scope *compiler.ModuleScope, env compiler.GlobalEnvironment) SourceModule {
+func constructSourceModule(schema schema.AnySchema, scope *compiler.ModuleScope,
+	env compiler.GlobalEnvironment) SourceModule {
+	//
 	var (
 		columns    []SourceColumn
 		submodules []SourceModule
@@ -185,44 +194,74 @@ func constructSourceModule(scope *compiler.ModuleScope, env compiler.GlobalEnvir
 	// Map source-level columns
 	for _, col := range scope.DestructuredColumns() {
 		// Determine register allocated to this (destructured) column.
-		regId := env.RegisterOf(&col.Name)
+		ref := determineRegisterRef(col.Name, schema, env)
 		// Determine (unqualified) column name
 		name := col.Name.Tail()
 		//
 		display := constructDisplayModifier(col.Display)
 		// Translate register source into source column
-		srcCol := SourceColumn{name, col.Multiplier, col.DataType, col.MustProve, col.Computed, display, regId}
+		srcCol := SourceColumn{name,
+			col.Multiplier,
+			col.Bitwidth,
+			col.MustProve,
+			col.Computed,
+			display,
+			ref}
 		columns = append(columns, srcCol)
 	}
 	// Map source-level constants
 	for _, binding := range scope.DestructuredConstants() {
-		var datatype sc.Type
+		var bitwidth uint = math.MaxUint
 		// Convert data type
 		if dt, ok := binding.DataType.(*ast.IntType); ok {
-			datatype = dt.AsUnderlying()
+			bitwidth = dt.BitWidth()
 		}
 		//
 		constants = append(constants, SourceConstant{
 			binding.Path.Tail(),
 			*binding.Value.AsConstant(),
-			datatype,
+			bitwidth,
 			binding.Extern,
 		})
 	}
 	//
 	for _, child := range scope.Children() {
-		submodules = append(submodules, constructSourceModule(child, env))
+		submodules = append(submodules, constructSourceModule(schema, child, env))
 	}
 	//
 	return SourceModule{
 		Name:       scope.Name(),
 		Synthetic:  false,
 		Virtual:    scope.Virtual(),
-		Selector:   compileSelector(env, scope.Selector()),
+		Selector:   scope.Selector(),
 		Submodules: submodules,
 		Columns:    columns,
 		Constants:  constants,
 	}
+}
+
+// Determine the reference reference in the schema which corresponds with a
+// given (Corset) path.
+func determineRegisterRef(path util.Path, sc schema.AnySchema, env compiler.GlobalEnvironment) schema.RegisterRef {
+	var (
+		mid schema.ModuleId
+		rid schema.RegisterId
+		ok  bool
+	)
+	// First, determine the corresponding Corset register associated with the
+	// given path.
+	reg := env.Register(env.RegisterOf(&path))
+	// Now, lookup the corresponding schema module.
+	if mid, ok = sc.HasModule(reg.Context.ModuleName()); !ok {
+		panic(fmt.Sprintf("unknown module \"%s\"", reg.Context.ModuleName()))
+	}
+	// Now, lookup the corresponding register.
+	if rid, ok = sc.Module(mid).HasRegister(reg.Name()); !ok {
+		// Should be unreachable
+		panic(fmt.Sprintf("unknown register \"%s\"", reg.Name()))
+	}
+	//
+	return schema.NewRegisterRef(mid, rid)
 }
 
 func constructDisplayModifier(modifier string) uint {
@@ -240,31 +279,33 @@ func constructDisplayModifier(modifier string) uint {
 	return DISPLAY_HEX
 }
 
-// This is really broken.  The problem is that we need to translate the selector
-// expression within the translator.  But, setting that all up is not
-// straightforward.  This should be done in the future!
-func compileSelector(env compiler.Environment, selector ast.Expr) *hir.Expr {
-	if selector == nil {
-		return nil
-	}
-	//
-	if e, ok := selector.(*ast.VariableAccess); ok {
-		if binding, ok := e.Binding().(*ast.ColumnBinding); ok {
-			// Lookup column binding
-			register_id := env.RegisterOf(binding.AbsolutePath())
-			// Done
-			expr := hir.NewColumnAccess(register_id, 0)
-			//
-			return &expr
-		}
-	}
-	// FIXME: #630
-	panic("unsupported selector")
-}
-
 // OPCODE_ENUMERATION provides a default enumeration for the existing ":opcode"
 // display modifier.
 var OPCODE_ENUMERATION map[fr.Element]string = map[fr.Element]string{}
+
+// ContextOf attempts to reconstruct an AST context from a given module name.
+// This is helpful if we want to know the "root" module for a given family of
+// related modules (i.e. modules from the same Corset module which have
+// different length multipliers).
+func ContextOf(name string) ast.Context {
+	var (
+		split      = strings.Split(name, "×")
+		multiplier = 1
+		err        error
+	)
+	//
+	if len(split) == 2 {
+		multiplier, err = strconv.Atoi(split[1])
+		//
+		if err != nil {
+			panic(fmt.Sprintf("invalid module name %s", name))
+		}
+	} else if len(split) != 1 {
+		panic(fmt.Sprintf("invalid module name %s", name))
+	}
+	//
+	return ast.NewContext(split[0], uint(multiplier))
+}
 
 func init() {
 	OPCODE_ENUMERATION[fr.NewElement(0)] = "STOP"

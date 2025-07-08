@@ -19,16 +19,19 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/corset"
-	"github.com/consensys/go-corset/pkg/hir"
+	"github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/termio"
 )
 
 // ModuleState provides state regarding how to display the trace for a given
 // module, including related aspects like filter histories, etc.
 type ModuleState struct {
-	// Module name
+	// Corresponding trace
+	trace tr.Trace
+	// Name of the source-level module
 	name string
 	// Identifies trace columns in this module.
 	columns []SourceColumn
@@ -37,8 +40,8 @@ type ModuleState struct {
 	// History for goto row commands
 	targetRowHistory []string
 	// Active column filter
-	columnFilter string
-	// Set of column filters used.
+	columnFilter SourceColumnFilter
+	// Set of column filters used (regexes only).
 	columnFilterHistory []string
 	// Histor for scan commands
 	scanHistory []string
@@ -50,12 +53,39 @@ type ModuleState struct {
 type SourceColumn struct {
 	// Column name
 	Name string
+	// Determines whether this is a Computed column.
+	Computed bool
 	// Selector determines when column active.
-	Selector *hir.Expr
+	Selector util.Option[string]
 	// Display modifier
 	Display uint
 	// Register to which this column is allocated
-	Register uint
+	Register schema.RegisterRef
+}
+
+// SourceColumnFilter packages up everything needed for filtering columns in a
+// given module.
+type SourceColumnFilter struct {
+	// Regex filters columns based on whether their name matches the regex or
+	// not.
+	Regex *regexp.Regexp
+	// Computed filters columns based on whether they are computed.
+	Computed bool
+	// UserDefined filters columns based on whether they are non-computed columns.
+	UserDefined bool
+}
+
+// Match this filter against a given column.
+func (p *SourceColumnFilter) Match(col SourceColumn) bool {
+	if p.Regex == nil || p.Regex.MatchString(col.Name) {
+		if p.Computed && col.Computed {
+			return true
+		} else if p.UserDefined && !col.Computed {
+			return true
+		}
+	}
+	// failed
+	return false
 }
 
 func newModuleState(module *corset.SourceModule, trace tr.Trace, enums []corset.Enumeration,
@@ -70,9 +100,12 @@ func newModuleState(module *corset.SourceModule, trace tr.Trace, enums []corset.
 		submodules = module.Submodules
 	}
 	//
-	state.name = module.Name
+	state.trace = trace
+	// Include all columns initially
+	state.columnFilter.Computed = true
+	state.columnFilter.UserDefined = true
 	// Extract source columns from module tree
-	state.columns = extractSourceColumns(util.NewAbsolutePath(""), module.Selector, module.Columns, submodules)
+	state.columns = ExtractSourceColumns(util.NewAbsolutePath(""), module.Selector, module.Columns, submodules)
 	// Sort all column names so that, for example, columns in the same
 	// perspective are grouped together.
 	slices.SortFunc(state.columns, func(l SourceColumn, r SourceColumn) int {
@@ -109,35 +142,39 @@ func (p *ModuleState) setRowOffset(rowOffset uint) uint {
 
 // Apply a new column filter to the module view.  This determines which columns
 // are currently visible.
-func (p *ModuleState) applyColumnFilter(trace tr.Trace, regex *regexp.Regexp, history bool) {
+func (p *ModuleState) applyColumnFilter(filter SourceColumnFilter, history bool) {
 	filteredColumns := make([]SourceColumn, 0)
 	// Apply filter
 	for _, col := range p.columns {
 		// Check whether it matches the regex or not.
-		if name := col.Name; regex.MatchString(name) {
+		if filter.Match(col) {
 			filteredColumns = append(filteredColumns, col)
 		}
 	}
 	// Update the view
-	p.view.SetActiveColumns(trace, filteredColumns)
+	p.view.SetActiveColumns(p.trace, filteredColumns)
+	// Save active filter
+	p.columnFilter = filter
 	// Update selection and history
-	p.columnFilter = regex.String()
-	//
-	if history {
-		p.columnFilterHistory = history_append(p.columnFilterHistory, regex.String())
+	if filter.Regex != nil {
+		//
+		if history {
+			regex_string := filter.Regex.String()
+			p.columnFilterHistory = history_append(p.columnFilterHistory, regex_string)
+		}
 	}
 }
 
 // Evaluate a query on the current module using those values from the given
 // trace, looking for the first row where the query holds.
-func (p *ModuleState) matchQuery(query *Query, trace tr.Trace) termio.FormattedText {
+func (p *ModuleState) matchQuery(query *Query) termio.FormattedText {
 	// Always update history
 	p.scanHistory = history_append(p.scanHistory, query.String())
 	// Proceed
 	env := make(map[string]tr.Column)
 	// construct environment
 	for _, col := range p.columns {
-		env[col.Name] = trace.Column(col.Register)
+		env[col.Name] = p.trace.Column(col.Register)
 	}
 	// evaluate forward
 	for i := uint(0); i < p.height(); i++ {
@@ -157,25 +194,29 @@ func (p *ModuleState) matchQuery(query *Query, trace tr.Trace) termio.FormattedT
 // to avoid duplicates in the history.
 func history_append[T comparable](history []T, item T) []T {
 	// Remove previous entry (if applicable)
-	history = util.RemoveMatching(history, func(ith T) bool { return ith == item })
+	history = array.RemoveMatching(history, func(ith T) bool { return ith == item })
 	// Add item to end
 	return append(history, item)
 }
 
-func extractSourceColumns(path util.Path, selector *hir.Expr, columns []corset.SourceColumn,
+// ExtractSourceColumns extracts source column descriptions for a given module
+// based on the corset source mapping.  This is particularly useful when you
+// want to show the original name for a column (e.g. when its in a perspective),
+// rather than the raw register name.
+func ExtractSourceColumns(path util.Path, selector util.Option[string], columns []corset.SourceColumn,
 	submodules []corset.SourceModule) []SourceColumn {
 	//
 	var srcColumns []SourceColumn
 	//
 	for _, col := range columns {
 		name := path.Extend(col.Name).String()[1:]
-		srcCol := SourceColumn{name, selector, col.Display, col.Register}
+		srcCol := SourceColumn{name, col.Computed, selector, col.Display, col.Register}
 		srcColumns = append(srcColumns, srcCol)
 	}
 	//
 	for _, submod := range submodules {
 		subpath := path.Extend(submod.Name)
-		subSrcColumns := extractSourceColumns(*subpath, submod.Selector, submod.Columns, submod.Submodules)
+		subSrcColumns := ExtractSourceColumns(*subpath, submod.Selector, submod.Columns, submod.Submodules)
 		srcColumns = append(srcColumns, subSrcColumns...)
 	}
 	//

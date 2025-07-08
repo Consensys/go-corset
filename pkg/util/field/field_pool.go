@@ -87,7 +87,7 @@ func (p FrIndexPool[K]) Put(element fr.Element) K {
 	val := element.Uint64()
 	// Sanity checks
 	if !element.IsUint64() || val >= 65536 {
-		panic(fmt.Sprintf("invalid field element for bit pool (%d)", val))
+		panic(fmt.Sprintf("invalid field element for index pool (%d)", val))
 	}
 
 	return K(val)
