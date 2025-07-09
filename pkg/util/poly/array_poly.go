@@ -79,6 +79,15 @@ func (p *ArrayPoly[S]) Add(other *ArrayPoly[S]) *ArrayPoly[S] {
 	return res
 }
 
+// AddScalar adds a signed scalar value to this polynomial
+func (p *ArrayPoly[S]) AddScalar(scalar *big.Int) *ArrayPoly[S] {
+	var res = p.Clone()
+	//
+	res.AddTerm(NewMonomial[S](*scalar))
+	//
+	return res
+}
+
 // Sub another polynomial from this polynomil
 func (p *ArrayPoly[S]) Sub(other *ArrayPoly[S]) *ArrayPoly[S] {
 	var res = p.Clone()

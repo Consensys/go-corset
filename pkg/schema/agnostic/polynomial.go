@@ -123,11 +123,14 @@ func WidthOfPolynomial(source Polynomial, regs []schema.Register) (bitwidth uint
 		intRange  = IntegerRangeOfPolynomial(source, regs)
 		lower     = intRange.MinValue()
 		upper     = intRange.MaxValue()
-		lowerBits = uint(lower.BitLen())
 		upperBits = uint(upper.BitLen())
 	)
 	// Check whether negative range in play.
 	if lower.Cmp(&zero) < 0 {
+		// NOTE: this accounts for the fact that, on the negative side, we get
+		// an extra value.  For example, with signed 8bit values the range is
+		// -128 upto 127.
+		lowerBits := uint(lower.Add(&lower, &one).BitLen())
 		// Yes, we have negative values.  This mandates the need for an
 		// additional signbit.
 		return max(lowerBits+1, upperBits), true

@@ -35,6 +35,11 @@ type Assignment struct {
 // NewAssignment constructs a new assignment with a given Left-Hand Side (LHS)
 // and Right-Hand Side (RHS).
 func NewAssignment(lhs []sc.RegisterId, rhs Polynomial) Assignment {
+	// Sanity check
+	if rhs == nil {
+		panic("malformed assignment")
+	}
+	//
 	return Assignment{lhs, rhs}
 }
 
@@ -150,7 +155,8 @@ func (p *Assignment) resolveUnsignedUnderflow(underflow uint, env sc.RegisterAll
 		// Allocate new register to get an Id
 		borrowRegId := env.AllocateCarry("b", underflow)
 		// Construct carry to be propagated forward
-		borrow = borrow.Set(poly.NewMonomial(minusOne, borrowRegId))
+		borrow = borrow.Set(poly.NewMonomial(minusTwo, signedRegId),
+			poly.NewMonomial(one, signedRegId, borrowRegId))
 		// Update left-hand side to include carry
 		lhs = array.Append(lhs, borrowRegId)
 	}
@@ -544,4 +550,19 @@ func pow2(n uint) *big.Int {
 	m.Exp(m, big.NewInt(int64(n)), nil)
 	//
 	return m
+}
+
+// nolint
+func debugWorklist(worklist stack.Stack[Assignment], env sc.RegisterAllocator) {
+	for i := range worklist.Len() {
+		ith := worklist.Peek(i)
+
+		if i != 0 {
+			fmt.Printf(" | ")
+		}
+
+		fmt.Printf("%s", ith.String(env))
+	}
+	//
+	fmt.Println()
 }

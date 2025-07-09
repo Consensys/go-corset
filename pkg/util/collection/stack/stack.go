@@ -36,7 +36,7 @@ func (p *Stack[T]) Len() uint {
 func (p *Stack[T]) Peek(offset uint) T {
 	var n = len(p.items) - int(offset) - 1
 	//
-	if n >= len(p.items) {
+	if n < 0 {
 		panic("peek out-of-bounds")
 	}
 	// Get last item

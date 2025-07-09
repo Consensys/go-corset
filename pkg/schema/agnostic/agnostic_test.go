@@ -23,6 +23,7 @@ import (
 
 var xRegId = schema.NewRegisterId(0)
 var yRegId = schema.NewRegisterId(1)
+var zRegId = schema.NewRegisterId(2)
 
 func x(coeff int64) Polynomial {
 	return Var(xRegId, coeff)
@@ -30,6 +31,10 @@ func x(coeff int64) Polynomial {
 
 func y(coeff int64) Polynomial {
 	return Var(yRegId, coeff)
+}
+
+func z(coeff int64) Polynomial {
+	return Var(zRegId, coeff)
 }
 
 // Var constructs a polynomial representing a given variable multiplied by a
@@ -72,6 +77,14 @@ func Test_Poly_05(t *testing.T) {
 func Test_Poly_06(t *testing.T) {
 	// x-y where x:u16, y:u8 requires 16 bits
 	check(t, 16, x(1).Sub(y(1)), 16, 8)
+}
+func Test_Poly_07(t *testing.T) {
+	// -2x + xy
+	check(t, 4, x(-2).Add(y(-2).Add(y(1).Mul(z(1)))), 2, 1, 1)
+}
+func Test_Poly_08(t *testing.T) {
+	// -2x - 1 -2y + yz
+	check(t, 5, x(-2).AddScalar(&minusOne).Add(y(-2).Add(y(1).Mul(z(1)))), 2, 1, 1)
 }
 
 func check(t *testing.T, bitwidth uint, p Polynomial, widths ...uint) {
