@@ -1,6 +1,6 @@
 module github.com/consensys/go-corset
 
-go 1.23
+go 1.24
 
 toolchain go1.24.4
 

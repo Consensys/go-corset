@@ -177,15 +177,15 @@ func (p *SchemaStack) IrName(index uint) string {
 }
 
 // Read reads one or more constraints files into this stack.
-func (p *SchemaStack) Read(filenames ...string) {
+func (p *SchemaStack) Read(filenames ...string) schema.RegisterMappings {
 	binfile := readConstraintFiles(p.corsetConfig, p.asmConfig, filenames)
 	//
-	p.Apply(binfile)
+	return p.Apply(binfile)
 }
 
 // Apply updates the binary for this stack and recalculates all requested
 // schemas.
-func (p *SchemaStack) Apply(binfile binfile.BinaryFile) {
+func (p *SchemaStack) Apply(binfile binfile.BinaryFile) schema.RegisterMappings {
 	var (
 		asmSchema  asm.MixedMacroProgram
 		uasmSchema asm.MixedMicroProgram
@@ -204,7 +204,7 @@ func (p *SchemaStack) Apply(binfile binfile.BinaryFile) {
 	// Lower to mixed micro schema
 	uasmSchema = asm.LowerMixedMacroProgram(p.asmConfig.Vectorize, asmSchema)
 	// Apply register splitting for field agnosticity
-	uasmSchema = agnostic.Subdivide(p.asmConfig.MaxFieldWidth, p.asmConfig.MaxRegisterWidth, uasmSchema)
+	uasmSchema, mappings := agnostic.Subdivide(p.asmConfig.MaxFieldWidth, p.asmConfig.MaxRegisterWidth, uasmSchema)
 	// Lower to MIR
 	mirSchema = asm.LowerMixedMicroProgram(uasmSchema)
 	// Include macro assembly layer (if requested)
@@ -230,6 +230,8 @@ func (p *SchemaStack) Apply(binfile binfile.BinaryFile) {
 		p.schemas = append(p.schemas, schema.Any(airSchema))
 		p.names = append(p.names, "AIR")
 	}
+	//
+	return mappings
 }
 
 // readConstraintFiles provides a generic interface for reading constraint files

@@ -22,7 +22,7 @@ import (
 // bandwidth and maximum register width requirements.  See discussion of
 // FieldAgnosticModule for more on this process.
 func Subdivide[M1 sc.FieldAgnosticModule[M1], M2 sc.FieldAgnosticModule[M2]](
-	maxFieldWidth, maxRegWidth uint, schema sc.MixedSchema[M1, M2]) sc.MixedSchema[M1, M2] {
+	maxFieldWidth, maxRegWidth uint, schema sc.MixedSchema[M1, M2]) (sc.MixedSchema[M1, M2], sc.RegisterMappings) {
 	//
 	var (
 		left    []M1 = make([]M1, len(schema.LeftModules()))
@@ -38,7 +38,7 @@ func Subdivide[M1 sc.FieldAgnosticModule[M1], M2 sc.FieldAgnosticModule[M2]](
 		right[i] = m.Subdivide(mapping)
 	}
 	// Done
-	return sc.NewMixedSchema(left, right)
+	return sc.NewMixedSchema(left, right), mapping
 }
 
 // ============================================================================
@@ -167,4 +167,15 @@ func (p registerMapping) Limb(reg sc.LimbId) sc.Limb {
 // Limbs implementation for the schema.RegisterMapping interface
 func (p registerMapping) Limbs() []sc.Limb {
 	return p.limbs
+}
+
+// RegisterOf determines a register's ID based on its name.
+func (p registerMapping) RegisterOf(name string) sc.RegisterId {
+	for i, reg := range p.registers {
+		if reg.Name == name {
+			return sc.NewRegisterId(uint(i))
+		}
+	}
+	//
+	panic(fmt.Sprintf("unknown register \"%s\"", name))
 }

@@ -840,7 +840,7 @@ func CheckInvalid(t *testing.T, test string) {
 		}
 		//
 		if error {
-			t.Fatalf(msg)
+			t.Fatal(msg)
 		}
 	}
 }

@@ -25,6 +25,7 @@ import (
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/json"
 	"github.com/consensys/go-corset/pkg/util"
@@ -42,15 +43,33 @@ const MAX_PADDING uint = 7
 
 // Check that all traces which we expect to be accepted are accepted by a given
 // set of constraints, and all traces that we expect to be rejected are
-// rejected.
-func Check(t *testing.T, stdlib bool, test string) {
+// rejected.  A default field is used for these tests (BLS12_377)
+func Check(t *testing.T, stdlib bool, test string, fields ...agnostic.FieldConfig) {
+	CheckWithFields(t, stdlib, test, agnostic.BLS12_377)
+}
+
+// CheckWithFields checks that all traces which we expect to be accepted are
+// accepted by a given set of constraints, and all traces that we expect to be
+// rejected are rejected.  All fields provided are tested against.
+func CheckWithFields(t *testing.T, stdlib bool, test string, fields ...agnostic.FieldConfig) {
+	// Sanity check
+	if len(fields) == 0 {
+		panic("no field configurations")
+	}
+	// Enable testing each trace in parallel
+	t.Parallel()
+	//
+	for _, field := range fields {
+		checkWithField(t, stdlib, test, field)
+	}
+}
+
+func checkWithField(t *testing.T, stdlib bool, test string, field agnostic.FieldConfig) {
 	var (
 		filenames = matchSourceFiles(test)
 		// Configure the stack
-		stack = getSchemaStack(stdlib, filenames...)
+		stack, mapping = getSchemaStack(stdlib, field, filenames...)
 	)
-	// Enable testing each trace in parallel
-	t.Parallel()
 	// Record how many tests executed.
 	nTests := 0
 	// Iterate possible testfile extensions
@@ -58,7 +77,10 @@ func Check(t *testing.T, stdlib bool, test string) {
 		var traces [][]trace.RawColumn
 		// Construct test filename
 		testFilename := fmt.Sprintf("%s/%s.%s", TestDir, test, cfg.extension)
+		// Read traces from file
 		traces = ReadTracesFile(testFilename)
+		// Split traces according to field
+		SplitTraces(traces, mapping)
 		// Run tests
 		binCheckTraces(t, testFilename, cfg, traces, stack)
 		// Record how many tests we found
@@ -226,6 +248,14 @@ type traceId struct {
 	padding uint
 }
 
+// SplitTraces splits a given set of traces according to a given field
+// configuration.
+func SplitTraces(traces [][]trace.RawColumn, mappings sc.RegisterMappings) {
+	for i := range traces {
+		traces[i] = agnostic.SplitRawColumns(traces[i], mappings)
+	}
+}
+
 // ReadTracesFile reads a file containing zero or more traces expressed as JSON, where
 // each trace is on a separate line.
 func ReadTracesFile(filename string) [][]trace.RawColumn {
@@ -270,7 +300,9 @@ func encodeDecodeSchema(t *testing.T, binf binfile.BinaryFile) *binfile.BinaryFi
 	return &nbinf
 }
 
-func getSchemaStack(stdlib bool, filenames ...string) cmd_util.SchemaStack {
+func getSchemaStack(stdlib bool, field agnostic.FieldConfig, filenames ...string) (cmd_util.SchemaStack,
+	sc.RegisterMappings) {
+	//
 	var (
 		stack        cmd_util.SchemaStack
 		corsetConfig corset.CompilationConfig
@@ -281,8 +313,8 @@ func getSchemaStack(stdlib bool, filenames ...string) cmd_util.SchemaStack {
 	corsetConfig.Stdlib = stdlib
 	// Configure asm for lowering
 	asmConfig.Vectorize = true
-	asmConfig.MaxFieldWidth = 252
-	asmConfig.MaxRegisterWidth = 160
+	asmConfig.MaxFieldWidth = field.FieldBandWidth
+	asmConfig.MaxRegisterWidth = field.RegisterWidth
 	//
 	stack.
 		WithCorsetConfig(corsetConfig).
@@ -292,7 +324,7 @@ func getSchemaStack(stdlib bool, filenames ...string) cmd_util.SchemaStack {
 		WithLayer(cmd_util.MIR_LAYER).
 		WithLayer(cmd_util.AIR_LAYER)
 	// Read in all specified constraint files.
-	stack.Read(filenames...)
+	mapping := stack.Read(filenames...)
 	//
-	return stack
+	return stack, mapping
 }

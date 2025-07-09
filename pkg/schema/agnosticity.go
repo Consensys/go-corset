@@ -97,6 +97,8 @@ type RegisterMapping interface {
 	Limb(LimbId) Limb
 	// Limbs returns all limbs in the mapping.
 	Limbs() []Limb
+	// RegisterOf determines a register's ID based on its name.
+	RegisterOf(string) RegisterId
 }
 
 // RegisterAllocator extends a register mapping with the ability to allocate new
@@ -156,4 +158,9 @@ func (p *registerAllocator) Limb(reg LimbId) Limb {
 // Limbs implementation for the schema.RegisterMapping interface
 func (p *registerAllocator) Limbs() []Limb {
 	return p.limbs
+}
+
+// RegisterOf implementation for the schema.RegisterMapping interface
+func (p *registerAllocator) RegisterOf(name string) RegisterId {
+	return p.mapping.RegisterOf(name)
 }
