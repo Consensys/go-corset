@@ -19,6 +19,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir/builder"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/trace"
 )
 
@@ -57,6 +58,9 @@ type TraceBuilder struct {
 	parallel bool
 	// Specify the maximum size of any dispatched batch.
 	batchSize uint
+	// Mapping specifies whether or not columns in the trace need to be split to
+	// match the given field configuration.
+	mapping sc.RegisterMappings
 }
 
 // A column key is used as a key for the column map
@@ -73,7 +77,7 @@ type columnId struct {
 // NewTraceBuilder constructs a default trace builder.  The idea is that this
 // could then be customized as needed following the builder pattern.
 func NewTraceBuilder() TraceBuilder {
-	return TraceBuilder{true, true, true, true, 0, true, math.MaxUint}
+	return TraceBuilder{true, true, true, true, 0, true, math.MaxUint, nil}
 }
 
 // WithDefensivePadding updates a given builder configuration to apply defensive padding
@@ -105,6 +109,15 @@ func (tb TraceBuilder) WithExpansion(flag bool) TraceBuilder {
 // Expanding indicates whether or not this builder will expand the trace.
 func (tb TraceBuilder) Expanding() bool {
 	return tb.expand
+}
+
+// WithRegisterMapping updates a given builder configuration to split the trace
+// according to a given mapping of registers.
+func (tb TraceBuilder) WithRegisterMapping(mapping sc.RegisterMappings) TraceBuilder {
+	ntb := tb
+	ntb.mapping = mapping
+	//
+	return ntb
 }
 
 // WithValidation updates a given builder configuration to perform trace validation (or
@@ -155,6 +168,11 @@ func (tb TraceBuilder) BatchSize() uint {
 // Build attempts to construct a trace for a given schema, producing errors if
 // there are inconsistencies (e.g. missing columns, duplicate columns, etc).
 func (tb TraceBuilder) Build(schema sc.AnySchema, cols []trace.RawColumn) (trace.Trace, []error) {
+	// Split raw columns according to the mapping (if applicable)
+	if tb.mapping != nil {
+		cols = agnostic.SplitRawColumns(cols, tb.mapping)
+	}
+	// Initialise the actual trace object
 	tr, errors := initialiseTrace(!tb.expand, schema, cols)
 	//
 	if len(errors) > 0 {

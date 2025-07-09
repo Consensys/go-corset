@@ -22,6 +22,7 @@ import (
 	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/mir"
+	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/spf13/cobra"
 )
 
@@ -77,6 +78,7 @@ func getSchemaStack(cmd *cobra.Command, mode uint, filenames ...string) *cmd_uti
 		schemaStack  cmd_util.SchemaStack
 		corsetConfig corset.CompilationConfig
 		asmConfig    asm.LoweringConfig
+		field        = GetString(cmd, "field")
 		mirEnable    = GetFlag(cmd, "mir")
 		airEnable    = GetFlag(cmd, "air")
 		asmEnable    = GetFlag(cmd, "asm")
@@ -90,14 +92,30 @@ func getSchemaStack(cmd *cobra.Command, mode uint, filenames ...string) *cmd_uti
 		expand    = !GetFlag(cmd, "raw")
 		validate  = GetFlag(cmd, "validate")
 	)
+	// Field configuration
+	fieldConfig := agnostic.GetFieldConfig(field)
+	// Sanity check
+	if fieldConfig == nil {
+		fmt.Printf("unknown prime field \"%s\"\n", field)
+		os.Exit(3)
+	}
 	// Initial corset compilation configuration
 	corsetConfig.Stdlib = !GetFlag(cmd, "no-stdlib")
 	corsetConfig.Debug = GetFlag(cmd, "debug")
 	corsetConfig.Legacy = GetFlag(cmd, "legacy")
 	// Assembly lowering config
 	asmConfig.Vectorize = GetFlag(cmd, "vectorize")
-	asmConfig.MaxFieldWidth = GetUint(cmd, "field-width")
-	asmConfig.MaxRegisterWidth = GetUint(cmd, "register-width")
+	asmConfig.MaxFieldWidth = fieldConfig.FieldBandWidth
+	asmConfig.MaxRegisterWidth = fieldConfig.RegisterWidth
+	//
+	// Apply field overrides
+	if cmd.Flags().Lookup("field-width").Changed {
+		asmConfig.MaxFieldWidth = GetUint(cmd, "field-width")
+	}
+
+	if cmd.Flags().Lookup("register-width").Changed {
+		asmConfig.MaxRegisterWidth = GetUint(cmd, "register-width")
+	}
 	// Sanity check MIR optimisation level
 	if optimisation >= uint(len(mir.OPTIMISATION_LEVELS)) {
 		fmt.Printf("invalid optimisation level %d\n", optimisation)
@@ -142,7 +160,8 @@ func getSchemaStack(cmd *cobra.Command, mode uint, filenames ...string) *cmd_uti
 	}
 	// Read / compile given source files.
 	if mode != SCHEMA_OPTIONAL || len(filenames) > 0 {
-		schemaStack.Read(filenames...)
+		mapping := schemaStack.Read(filenames...)
+		builder = builder.WithRegisterMapping(mapping)
 	} else {
 		// In this situation, we cannot perform trace expansion.
 		builder = builder.WithExpansion(false)
@@ -164,8 +183,9 @@ func init() {
 	rootCmd.PersistentFlags().UintP("opt", "O", 1, "set optimisation level")
 	// Assembly lowering config
 	rootCmd.PersistentFlags().Bool("vectorize", true, "Apply instruction vectorization")
-	rootCmd.PersistentFlags().Uint("field-width", 252, "Maximum usable bitwidth of underlying field element")
-	rootCmd.PersistentFlags().Uint("register-width", 160, "Maximum bitwidth for registers")
+	rootCmd.PersistentFlags().String("field", "BLS12_377", "prime field to use throughout")
+	rootCmd.PersistentFlags().Uint("field-width", 252, "maximum usable bitwidth of underlying field element")
+	rootCmd.PersistentFlags().Uint("register-width", 160, "maximum bitwidth for registers")
 	// Schema stack
 	rootCmd.PersistentFlags().Bool("air", false, "include constraints at AIR level")
 	rootCmd.PersistentFlags().Bool("asm", false, "include constraints at ASM level")
