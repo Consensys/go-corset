@@ -32,15 +32,15 @@ func (p *Stack[T]) Len() uint {
 	return uint(len(p.items))
 }
 
-// Peek at the last item on the stack
-func (p *Stack[T]) Peek() T {
-	var n = len(p.items)
+// Peek at nth item from top of stack.
+func (p *Stack[T]) Peek(offset uint) T {
+	var n = len(p.items) - int(offset) - 1
 	//
-	if n == 0 {
-		panic("cannot pop from empty stack")
+	if n < 0 {
+		panic("peek out-of-bounds")
 	}
 	// Get last item
-	return p.items[n-1]
+	return p.items[n]
 }
 
 // Push a new item onto the stack
@@ -51,6 +51,16 @@ func (p *Stack[T]) Push(item T) {
 // PushAll pushes zero or more items onto the stack
 func (p *Stack[T]) PushAll(item []T) {
 	p.items = append(p.items, item...)
+}
+
+// PushReversed pushes zero or more items in reverse order the stack
+func (p *Stack[T]) PushReversed(items []T) {
+	var n = len(items) - 1
+	//
+	for i := range len(items) {
+		ith := items[n-i]
+		p.items = append(p.items, ith)
+	}
 }
 
 // Pop the last item off the stack

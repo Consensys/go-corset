@@ -107,7 +107,7 @@ type RegisterAllocator interface {
 	// AllocateCarry a fresh register of the given width within the target module.
 	// This is presumed to be a computed register, and automatically assigned a
 	// unique name.
-	AllocateCarry(width uint) RegisterId
+	AllocateCarry(prefix string, width uint) RegisterId
 }
 
 // ============================================================================
@@ -125,12 +125,12 @@ func NewAllocator(mapping RegisterMapping) RegisterAllocator {
 }
 
 // AllocateCarry implementation for the schema.RegisterAllocator interface
-func (p *registerAllocator) AllocateCarry(width uint) RegisterId {
+func (p *registerAllocator) AllocateCarry(prefix string, width uint) RegisterId {
 	var (
 		// Determine index for new register
 		index = uint(len(p.limbs))
 		// Determine unique name for new register
-		name = fmt.Sprintf("c$%d", index)
+		name = fmt.Sprintf("%s$%d", prefix, index)
 	)
 	// Allocate a new computed register.
 	p.limbs = append(p.limbs, NewComputedRegister(name, width))
