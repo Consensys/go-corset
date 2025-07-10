@@ -20,7 +20,6 @@ var (
 	zero     big.Int
 	one      big.Int
 	minusOne big.Int
-	minusTwo big.Int
 )
 
 // SplitConstant splits a given constant into a number of "limbs". For example,
@@ -57,5 +56,4 @@ func init() {
 	zero = *big.NewInt(0)
 	one = *big.NewInt(1)
 	minusOne = *big.NewInt(-1)
-	minusTwo = *big.NewInt(-2)
 }

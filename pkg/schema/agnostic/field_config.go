@@ -12,16 +12,20 @@
 // SPDX-License-Identifier: Apache-2.0
 package agnostic
 
+// GF_251 is teany tiny prime field used exclusively for testing.
+var GF_251 = FieldConfig{"GF_251", 7, 4}
+
+// GF_8209 is small prime field used exclusively for testing.
+var GF_8209 = FieldConfig{"GF_8209", 13, 8}
+
 // BLS12_377 is the defacto default field at this time.
 var BLS12_377 = FieldConfig{"BLS12_377", 252, 160}
 
-// GF_8209 is small prime field used primarily for testing.
-var GF_8209 = FieldConfig{"GF_8209", 13, 8}
-
 // FIELD_CONFIGS determines the set of supported fields.
 var FIELD_CONFIGS = []FieldConfig{
-	BLS12_377,
+	GF_251,
 	GF_8209,
+	BLS12_377,
 }
 
 // FieldConfig provides a simple mechanism for configuring the field agnosticity
