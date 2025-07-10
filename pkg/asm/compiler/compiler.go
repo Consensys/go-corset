@@ -120,6 +120,15 @@ func (p *Compiler[T, E, M]) Compile(fns ...*MicroFunction) {
 // Compile a function with the given name, registers and micro-instructions into
 // constraints.
 func (p *Compiler[T, E, M]) compileFunction(fn MicroFunction) {
+	//
+	fmt.Printf("Compiling function %s:", fn.Name())
+
+	for i, r := range fn.Registers() {
+		fmt.Printf(" %d:%s", i, r.Name)
+	}
+
+	fmt.Println()
+	//
 	busId := p.busMap[fn.Name()]
 	// Setup framing columns / constraints
 	stamp, pc := p.initFunctionFraming(busId, fn)

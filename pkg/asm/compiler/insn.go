@@ -13,9 +13,14 @@
 package compiler
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/schema"
+	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
+	"github.com/consensys/go-corset/pkg/util/poly"
 )
 
 func (p *StateTranslator[T, E, M]) translateCode(cc uint, codes []micro.Code) E {
@@ -48,7 +53,8 @@ func (p *StateTranslator[T, E, M]) translateAssign(cc uint, codes []micro.Code) 
 	)
 	// Construct equation
 	if signed && !hasSignBit(code.Targets, p.mapping.Registers) {
-		panic("assignment missing sign bit")
+		str := assignToString(p.mapping.Registers, code.Targets, code.Source)
+		panic(fmt.Sprintf("assignment missing sign bit (%s)", str))
 	} else if signed {
 		// Signed case, so rebalance
 		lhs, rhs = p.rebalanceAssign(lhs, rhs)
@@ -176,4 +182,26 @@ func hasSignBit(targets []schema.RegisterId, regs []schema.Register) bool {
 	}
 	// Look for single sign bit
 	return regs[targets[n].Unwrap()].Width == 1
+}
+
+// useful for debugging
+//
+// nolint
+func assignToString(registers []schema.Register, lhs []schema.RegisterId, rhs agnostic.Polynomial) string {
+	var builder strings.Builder
+	//
+	for i, ith := range lhs {
+		if i != 0 {
+			builder.WriteString(",")
+		}
+		builder.WriteString(registers[ith.Unwrap()].Name)
+	}
+	//
+	builder.WriteString(" := ")
+	//
+	builder.WriteString(poly.String(rhs, func(id sc.RegisterId) string {
+		return registers[id.Unwrap()+1].Name
+	}))
+	//
+	return builder.String()
 }
