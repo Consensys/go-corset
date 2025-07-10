@@ -12,22 +12,25 @@
 // SPDX-License-Identifier: Apache-2.0
 package enum
 
-import "math/rand/v2"
+import (
+	"math/rand/v2"
+	"slices"
+)
 
-// Sample constructs a sampling enumerator from a given enumerator.
+// ExhaustiveSample constructs a sampling enumerator from a given enumerator.
 // Specifically, the sampling enumerator samples exactly n items from the given
 // enumerator (assuming it held at least n items).  Otherwise, if n is larger or
 // equal to the number of elements in the original numerator it simply returns
 // that.
-func Sample[T any](n uint, enum Enumerator[T]) Enumerator[T] {
+func ExhaustiveSample[T any](n uint, enum Enumerator[T]) Enumerator[T] {
 	if n >= enum.Count() {
 		return enum
 	}
 	//
-	return &samplingEnumerator[T]{n, enum}
+	return &exhaustiveSamplingEnumerator[T]{n, enum}
 }
 
-type samplingEnumerator[T any] struct {
+type exhaustiveSamplingEnumerator[T any] struct {
 	// Number of items left to sample
 	count uint
 	//
@@ -37,30 +40,68 @@ type samplingEnumerator[T any] struct {
 // HasNext checks whether or not there are any items remaining to visit.
 //
 //nolint:revive
-func (p *samplingEnumerator[E]) HasNext() bool {
+func (p *exhaustiveSamplingEnumerator[E]) HasNext() bool {
 	return p.count > 0
 }
 
 // Count returns the number of items left in this enumeration.
 //
 //nolint:revive
-func (p *samplingEnumerator[E]) Count() uint {
+func (p *exhaustiveSamplingEnumerator[E]) Count() uint {
 	return p.count
 }
 
 // Nth returns the nth item in this iterator.  This will mutate the iterator.
-func (p *samplingEnumerator[E]) Nth(n uint) E {
+func (p *exhaustiveSamplingEnumerator[E]) Nth(n uint) E {
 	return Nth(p, n)
 }
 
 // Next returns the next item, and advance the iterator.
 //
 //nolint:revive
-func (p *samplingEnumerator[E]) Next() E {
-	// Determine gap to next item
-	gap := rand.UintN(p.enum.Count() - p.count)
-	// Decrement for item returned
-	p.count--
+func (p *exhaustiveSamplingEnumerator[E]) Next() E {
+	for p.enum.HasNext() {
+		n := p.enum.Next()
+		//
+		if choose(p.count, p.enum.Count()+1) {
+			p.count--
+			return n
+		}
+	}
 	//
-	return p.enum.Nth(gap)
+	panic("unreachable")
+}
+
+// choosing n from m items
+func choose(n, m uint) bool {
+	return rand.UintN(m) < n
+}
+
+// FastSample does as it says on the tin.  Its fast, but not super precise.  For
+// example, duplicates are possible.
+func FastSample[T any](n uint, enum Enumerator[T]) Enumerator[T] {
+	//
+	var (
+		count       = enum.Count()
+		indices     = make([]uint, n)
+		samples []T = make([]T, n)
+		last    uint
+	)
+	//
+	if n >= count {
+		return enum
+	}
+	//
+	for i := range n {
+		indices[i] = rand.UintN(count)
+	}
+	// Sort selected indices
+	slices.Sort(indices)
+	//
+	for i, v := range indices {
+		samples[i] = enum.Nth(v - last)
+		last = v
+	}
+	//
+	return Finite(samples...)
 }

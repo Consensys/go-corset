@@ -12,6 +12,8 @@
 // SPDX-License-Identifier: Apache-2.0
 package math
 
+import "math/big"
+
 // PowUint64 raises a given base raised to a given power.
 func PowUint64(base uint64, exp uint64) uint64 {
 	result := uint64(1)
@@ -31,4 +33,19 @@ func PowUint64(base uint64, exp uint64) uint64 {
 	}
 
 	return result
+}
+
+// Pow2 computes two reaised to a given power (i.e. 2^n)
+func Pow2(n uint) *big.Int {
+	var m = big.NewInt(2)
+	//
+	m.Exp(m, big.NewInt(int64(n)), nil)
+	//
+	return m
+}
+
+// NegPow2 computes minus two reaised to a given power (i.e. -2^n)
+func NegPow2(n uint) *big.Int {
+	val := Pow2(n)
+	return val.Neg(val)
 }

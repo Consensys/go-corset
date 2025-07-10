@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/schema"
+	util_math "github.com/consensys/go-corset/pkg/util/math"
 )
 
 // RETURN is used to signal that a given instruction returns from the enclosing
@@ -173,11 +174,25 @@ func (p *State) Store(reg RegisterId, value big.Int) {
 // For example, consider writing 01100010 to registers [R1, R2] of type u4.
 // Then, after the write, we have R1=0010 and R2=0110.
 func (p *State) StoreAcross(value big.Int, registers ...RegisterId) {
-	var offset uint = 0
+	var (
+		offset uint    = 0
+		val    big.Int = value
+		sign           = val.Sign() >= 0
+	)
+	// Check for negative values
+	if !sign {
+		val = big.Int{}
+		// Clone value before mutating it
+		val.Set(&value)
+		//
+		width := schema.WidthOfRegisters(p.registers, registers)
+		// Normalise negative value
+		val.Add(&val, util_math.Pow2(width))
+	}
 	//
 	for _, id := range registers {
 		width := p.registers[id.Unwrap()].Width
-		p.Store(id, ReadBitSlice(offset, width, value))
+		p.Store(id, ReadBitSlice(offset, width, val, sign))
 		offset += width
 	}
 }
@@ -223,14 +238,29 @@ func (p *State) Terminated() bool {
 // ReadBitSlice reads a slice of bits starting at a given offset in a give
 // value.  For example, consider the value is 10111000 and we have offset=1 and
 // width=4, then the result is 1100.
-func ReadBitSlice(offset uint, width uint, value big.Int) big.Int {
-	var slice big.Int
-	//
-	for i := 0; uint(i) < width; i++ {
+func ReadBitSlice(offset uint, width uint, value big.Int, sign bool) big.Int {
+	var (
+		slice big.Int
+		bit   uint
+		n     = int(offset + width)
+		m     = value.BitLen()
+		i     = int(offset)
+		j     = 0
+	)
+	// Read bits upto end
+	for ; i < min(n, m); i, j = i+1, j+1 {
 		// Read appropriate bit
-		bit := value.Bit(i + int(offset))
+		bit = value.Bit(i)
 		// set appropriate bit
-		slice.SetBit(&slice, i, bit)
+		slice.SetBit(&slice, j, bit)
+	}
+	// Sign extend (negative values)
+	if !sign {
+		// Negative value
+		for ; i < n; i, j = i+1, j+1 {
+			// set appropriate bit
+			slice.SetBit(&slice, j, 1)
+		}
 	}
 	//
 	return slice

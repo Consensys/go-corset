@@ -12,7 +12,13 @@
 // SPDX-License-Identifier: Apache-2.0
 package agnostic
 
-import sc "github.com/consensys/go-corset/pkg/schema"
+import (
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/util/collection/bit"
+	"github.com/consensys/go-corset/pkg/util/field"
+)
 
 // ApplyMapping applies a given mapping to a set of registers producing a
 // corresponding set of limbs.  In essence, each register is convert to its
@@ -38,4 +44,85 @@ func LimbsOf(mapping sc.RegisterMapping, lids []sc.LimbId) []sc.Limb {
 	}
 	//
 	return limbs
+}
+
+// SplitRawColumns splits a given set of trace columns using the given register mapping.
+func SplitRawColumns(columns []trace.RawColumn, mapping sc.RegisterMappings) []trace.RawColumn {
+	var splitColumns []trace.RawColumn
+	//
+	for _, ith := range columns {
+		split := SplitRawColumn(ith, mapping)
+		splitColumns = append(splitColumns, split...)
+	}
+	//
+	return splitColumns
+}
+
+// SplitRawColumn splits a given raw column using the given register mapping.
+func SplitRawColumn(column trace.RawColumn, mapping sc.RegisterMappings) []trace.RawColumn {
+	var (
+		height = column.Data.Len()
+		// Access mapping for enclosing module
+		modmap = mapping.ModuleOf(column.Module)
+		// Determine register id for this column
+		reg = modmap.RegisterOf(column.Name)
+		// Determine limbs of this register
+		limbIds = modmap.LimbIds(reg)
+	)
+	// Check whether any work actually required
+	if len(limbIds) == 1 {
+		// No, this register was not split into any limbs.  Therefore, no need
+		// to split the column into any limbs.
+		return []trace.RawColumn{column}
+	}
+	// Yes, must split this column into two or more limbs.
+	columns := make([]trace.RawColumn, len(limbIds))
+	// Determine limbs of this register
+	limbs := LimbsOf(modmap, limbIds)
+	// Construct empty arrays for the given limbs
+	for i, limb := range limbs {
+		ith := field.NewFrArray(height, limb.Width)
+		columns[i] = trace.RawColumn{Module: column.Module, Name: limb.Name, Data: ith}
+	}
+	// Determine limb widths of this register (for constant splitting)
+	limbWidths := WidthsOfLimbs(modmap, modmap.LimbIds(reg))
+	// Deconstruct all data
+	for i := range height {
+		// Extract ith data
+		ith := column.Data.Get(i)
+		// Assign split components
+		for j, v := range splitFieldElement(ith, limbWidths) {
+			columns[j].Data.Set(i, v)
+		}
+	}
+	// Done
+	return columns
+}
+
+// split a given field element into a given set of limbs, where the least
+// significant comes first.  NOTE: this is really a temporary function which
+// should be eliminated when RawColumn is moved away from fr.Element.
+func splitFieldElement(val fr.Element, widths []uint) []fr.Element {
+	var (
+		bytes    = val.Bytes()
+		bits     = bit.NewReader(bytes[:])
+		buf      [32]byte
+		elements = make([]fr.Element, len(widths))
+	)
+	// Convert to little endian
+	for i := range 16 {
+		ith := bytes[i]
+		bytes[i] = bytes[31-i]
+		bytes[31-i] = ith
+	}
+	//
+	for i, w := range widths {
+		var ith fr.Element
+		// Read bits
+		n := bits.ReadInto(w, buf[:])
+		ith.SetBytes(buf[:n])
+		elements[i] = ith
+	}
+	//
+	return elements
 }

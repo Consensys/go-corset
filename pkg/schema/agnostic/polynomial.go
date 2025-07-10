@@ -118,7 +118,32 @@ func LimbPolynomial(limbs []schema.RegisterId, env schema.RegisterMapping) Polyn
 // smallest enclosing integer range.  From this is then determines the required
 // widths of the negative and positive components, before combining them to give
 // the result.
-func WidthOfPolynomial(source Polynomial, regs []schema.Register) uint {
+func WidthOfPolynomial(source Polynomial, regs []schema.Register) (bitwidth uint, signed bool) {
+	var (
+		intRange  = IntegerRangeOfPolynomial(source, regs)
+		lower     = intRange.MinValue()
+		upper     = intRange.MaxValue()
+		upperBits = uint(upper.BitLen())
+	)
+	// Check whether negative range in play.
+	if lower.Cmp(&zero) < 0 {
+		// NOTE: this accounts for the fact that, on the negative side, we get
+		// an extra value.  For example, with signed 8bit values the range is
+		// -128 upto 127.
+		lowerBits := uint(lower.Add(&lower, &one).BitLen())
+		// Yes, we have negative values.  This mandates the need for an
+		// additional signbit.
+		return max(lowerBits+1, upperBits), true
+	}
+	// No sign bit required.
+	return upperBits, false
+}
+
+// SplitWidthOfPolynomial resturns the number of bits required for all positive
+// values, along with the number of bits required for all negative values.
+// Observe that, unlike WidthOfPolynomial, this does not account for an
+// additional sign bit.
+func SplitWidthOfPolynomial(source Polynomial, regs []schema.Register) (poswidth uint, negwidth uint) {
 	var (
 		intRange  = IntegerRangeOfPolynomial(source, regs)
 		lower     = intRange.MinValue()
@@ -126,14 +151,8 @@ func WidthOfPolynomial(source Polynomial, regs []schema.Register) uint {
 		lowerBits = uint(lower.BitLen())
 		upperBits = uint(upper.BitLen())
 	)
-	// Check whether negative range in play.
-	if lower.Cmp(&zero) < 0 {
-		// Yes, we have negative values.  This mandates the need for an
-		// additional signbit.
-		return max(lowerBits+1, upperBits)
-	}
-	// No sign bit required.
-	return upperBits
+	//
+	return upperBits, lowerBits
 }
 
 // IntegerRangeOfPolynomial determines the smallest integer range in which all
