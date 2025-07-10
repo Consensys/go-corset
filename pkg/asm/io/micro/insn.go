@@ -161,14 +161,32 @@ func (p Instruction) RegistersWritten() []io.RegisterId {
 	return written
 }
 
-// SplitRegisters implementation for the SplittableInstruction interface
+// SplitRegisters implementation for the SplittableInstruction interface.  A key
+// challenge for this method is the correct handling of skip instructions.
+// Specifically, the targets for a skip change as the number of instructions
+// increase.
 func (p Instruction) SplitRegisters(env schema.RegisterAllocator) Instruction {
-	//
-	var ncodes []Code
-	//
-	for _, code := range p.Codes {
-		split := code.Split(env)
-		ncodes = append(ncodes, split...)
+	var (
+		ncodes  []Code
+		packets [][]Code = make([][]Code, len(p.Codes))
+		mapping []uint   = make([]uint, len(p.Codes))
+		index   uint
+	)
+	// Split micro-codes whilst retaining original indices.
+	for i, code := range p.Codes {
+		packets[i] = code.Split(env)
+	}
+	// Construct mapping
+	for i := range mapping {
+		mapping[i] = index
+		index += uint(len(packets[i]))
+	}
+	// Finalise skip targets
+	for i, packet := range packets {
+		for j, c := range packet {
+			c = retargetInsn(uint(i), uint(j), uint(len(packet)), c, mapping)
+			ncodes = append(ncodes, c)
+		}
 	}
 	//
 	return Instruction{Codes: ncodes}
@@ -231,4 +249,28 @@ func validateWrites(cc uint, writes bit.Set, codes []Code, fn schema.Module) err
 	}
 	// Fall through to next micro-code
 	return validateWrites(cc+1, writes, codes, fn)
+}
+
+func retargetInsn(oldIndex uint, pktIndex, pktSize uint, code Code, mapping []uint) Code {
+	var (
+		newIndex     = mapping[oldIndex] + pktIndex
+		leftInPacket = pktSize - pktIndex - 1
+	)
+	// First, check whether this is a skip instruction (or not) since only skip
+	// instructions need to be retargeted.
+	skip, ok := code.(*Skip)
+	//
+	if !ok {
+		return code
+	}
+	// Determine true skip target
+	target := oldIndex + 1 + (skip.Skip - leftInPacket)
+	// Determine new location of skip target
+	nTarget := mapping[target]
+	//
+	return &Skip{Left: skip.Left,
+		Right:    skip.Right,
+		Constant: skip.Constant,
+		Skip:     nTarget - newIndex - 1,
+	}
 }
