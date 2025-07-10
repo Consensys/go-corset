@@ -79,8 +79,11 @@ func checkWithField(t *testing.T, stdlib bool, test string, field agnostic.Field
 		testFilename := fmt.Sprintf("%s/%s.%s", TestDir, test, cfg.extension)
 		// Read traces from file
 		traces = ReadTracesFile(testFilename)
-		// Split traces according to field
-		SplitTraces(traces, mapping)
+		// Split traces (if not already expanded)
+		if cfg.expand {
+			// Split traces according to field
+			SplitTraces(traces, mapping)
+		}
 		// Run tests
 		binCheckTraces(t, testFilename, cfg, traces, stack)
 		// Record how many tests we found
