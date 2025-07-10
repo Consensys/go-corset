@@ -194,7 +194,7 @@ func assignToString(registers []schema.Register, lhs []schema.RegisterId, rhs ag
 		if i != 0 {
 			builder.WriteString(",")
 		}
-		builder.WriteString(registers[ith.Unwrap()].Name)
+		builder.WriteString(registers[ith.Unwrap()+1].Name)
 	}
 	//
 	builder.WriteString(" := ")
