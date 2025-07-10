@@ -22,6 +22,11 @@ func NewStack[T any]() *Stack[T] {
 	return &Stack[T]{}
 }
 
+// AsArray returns the contents of this stack as an array
+func (p *Stack[T]) AsArray() []T {
+	return p.items
+}
+
 // IsEmpty checks whether or not there are still items on the stack
 func (p *Stack[T]) IsEmpty() bool {
 	return p.Len() == 0
