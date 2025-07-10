@@ -20,6 +20,7 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/stack"
+	"github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/poly"
 )
 
@@ -155,7 +156,7 @@ func (p *Assignment) resolveUnsignedUnderflow(underflow uint, env sc.RegisterAll
 		// Allocate new register to get an Id
 		borrowRegId := env.AllocateCarry("b", underflow)
 		// Construct carry to be propagated forward
-		borrow = borrow.Set(poly.NewMonomial(minusTwo, signedRegId),
+		borrow = borrow.Set(poly.NewMonomial(*math.NegPow2(underflow), signedRegId),
 			poly.NewMonomial(one, signedRegId, borrowRegId))
 		// Update left-hand side to include carry
 		lhs = array.Append(lhs, borrowRegId)
@@ -491,7 +492,7 @@ func coalesce(assignments []Assignment, carry Polynomial, env sc.RegisterAllocat
 		} else {
 			var tmp = ith.RightHandSide
 			// apply offset factor
-			rhs = rhs.Add(tmp.MulScalar(pow2(offset)))
+			rhs = rhs.Add(tmp.MulScalar(math.Pow2(offset)))
 		}
 		// update bit offset
 		offset += CombinedWidthOfLimbs(env, ith.LeftHandSide...)
@@ -508,7 +509,7 @@ func coalesce(assignments []Assignment, carry Polynomial, env sc.RegisterAllocat
 func divideMonomial(m Monomial, n uint) (val Monomial, rem Monomial) {
 	var (
 		coeff     = m.Coefficient()
-		nPow2     = pow2(n)
+		nPow2     = math.Pow2(n)
 		quotient  big.Int
 		remainder big.Int
 	)
@@ -541,15 +542,6 @@ func withinBitRange(val big.Int, start, end uint) bool {
 	e.Exp(e, big.NewInt(int64(end)), nil)
 	// Check interval
 	return val.CmpAbs(s) >= 0 && val.CmpAbs(e) < 0
-}
-
-// compute 2^n
-func pow2(n uint) *big.Int {
-	var m = big.NewInt(2)
-	//
-	m.Exp(m, big.NewInt(int64(n)), nil)
-	//
-	return m
 }
 
 // nolint
