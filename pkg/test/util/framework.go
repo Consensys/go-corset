@@ -44,7 +44,7 @@ const MAX_PADDING uint = 7
 // Check that all traces which we expect to be accepted are accepted by a given
 // set of constraints, and all traces that we expect to be rejected are
 // rejected.  A default field is used for these tests (BLS12_377)
-func Check(t *testing.T, stdlib bool, test string, fields ...agnostic.FieldConfig) {
+func Check(t *testing.T, stdlib bool, test string) {
 	CheckWithFields(t, stdlib, test, agnostic.BLS12_377)
 }
 
