@@ -15,6 +15,7 @@ package test
 import (
 	"testing"
 
+	ag "github.com/consensys/go-corset/pkg/schema/agnostic"
 	test_util "github.com/consensys/go-corset/pkg/test/util"
 )
 
@@ -24,7 +25,7 @@ import (
 //		test_util.Check(t, false, "asm/byte")
 //	}
 func Test_Asm_Dec4(t *testing.T) {
-	test_util.Check(t, false, "asm/dec4")
+	test_util.CheckWithFields(t, false, "asm/dec4", ag.BLS12_377, ag.GF_8209)
 }
 
 func Test_Asm_ParseNonDecimal(t *testing.T) {

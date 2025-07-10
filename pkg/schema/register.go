@@ -165,6 +165,25 @@ func (p Register) String() string {
 // Encoding / Decoding
 // ============================================================================
 
+// WidthOfRegisters returns the combined bitwidth of the given
+// registers.  For example, suppose we have three registers: x:u8, y:u8, z:u11.
+// Then the combined width is 8+8+11=27.
+func WidthOfRegisters(regs []Register, rids []RegisterId) uint {
+	var (
+		width uint
+	)
+	//
+	for _, rid := range rids {
+		width += regs[rid.Unwrap()].Width
+	}
+	//
+	return width
+}
+
+// ============================================================================
+// Encoding / Decoding
+// ============================================================================
+
 // GobEncode an option.  This allows it to be marshalled into a binary form.
 func (p RegisterType) GobEncode() (data []byte, err error) {
 	var (

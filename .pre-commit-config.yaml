@@ -13,7 +13,7 @@ repos:
       - id: go-test-mod
         args: [ --run=Test_Basic ]
   - repo: https://github.com/golangci/golangci-lint
-    rev: v2.1.6
+    rev: v2.2.1
     hooks:
       - id: golangci-lint
   - repo: https://github.com/executablebooks/mdformat
