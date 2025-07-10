@@ -44,7 +44,7 @@ func Test_Asm_FastPow(t *testing.T) {
 }
 
 func Test_Asm_Max(t *testing.T) {
-	test_util.Check(t, false, "asm/max")
+	test_util.CheckWithFields(t, false, "asm/max", ag.BLS12_377, ag.GF_8209)
 }
 
 // func Test_Asm_Max256(t *testing.T) {
