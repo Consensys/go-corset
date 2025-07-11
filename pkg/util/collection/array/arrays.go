@@ -279,6 +279,20 @@ func Reverse[T any](items []T) []T {
 	return nitems
 }
 
+// ReverseInPlace reversees the items in an array in place.
+func ReverseInPlace[T any](items []T) {
+	var (
+		j     = len(items) - 1
+		pivot = len(items) >> 1
+	)
+	// Perform the reverse
+	for i := 0; i < pivot; i, j = i+1, j-1 {
+		ith := items[i]
+		items[i] = items[j]
+		items[j] = ith
+	}
+}
+
 // Flatten flattens items from an array which expand into arrays of terms.
 func Flatten[T any](items []T, fn func(T) []T) []T {
 	for _, t := range items {

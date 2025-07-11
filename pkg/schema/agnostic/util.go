@@ -16,6 +16,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/field"
 )
@@ -109,18 +110,19 @@ func splitFieldElement(val fr.Element, widths []uint) []fr.Element {
 		buf      [32]byte
 		elements = make([]fr.Element, len(widths))
 	)
-	// Convert to little endian
-	for i := range 16 {
-		ith := bytes[i]
-		bytes[i] = bytes[31-i]
-		bytes[31-i] = ith
-	}
+	// Reverse bytes of field element into little endian format.  This is
+	// necessary because the bit reader reads according to a little endian
+	// layout.
+	array.ReverseInPlace(bytes[:])
 	//
 	for i, w := range widths {
 		var ith fr.Element
 		// Read bits
-		n := bits.ReadInto(w, buf[:])
-		ith.SetBytes(buf[:n])
+		m := bits.ReadInto(w, buf[:])
+		// Sort back into big endian layout!
+		array.ReverseInPlace(buf[:m])
+		// Done
+		ith.SetBytes(buf[:m])
 		elements[i] = ith
 	}
 	//
