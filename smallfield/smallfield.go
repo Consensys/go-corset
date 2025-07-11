@@ -3,6 +3,7 @@ package smallfield
 import (
 	"cmp"
 	"math/big"
+	"math/bits"
 )
 
 // Element of a prime order field, represented in Montgomery form to speed up multiplications.
@@ -14,8 +15,8 @@ type Field struct {
 	negModulusInvModR uint32
 }
 
-// NewField of the given order.
-func NewField(modulus uint32) Field {
+// New field of the given order.
+func New(modulus uint32) Field {
 	if modulus >= 1<<31 {
 		panic("modulus too large") // need at least one bit of "slack"
 	}
@@ -26,40 +27,25 @@ func NewField(modulus uint32) Field {
 	return Field{modulus: modulus, negModulusInvModR: uint32(1<<32 - m.Uint64())}
 }
 
-// Add x0 + x1 + xRest[0] + xRest[1] + ...
-func (f Field) Add(x0, x1 Element, xRest ...Element) Element {
-	res := Element{x0[0] + x1[0]}
-	if res[0] >= f.modulus {
-		res[0] -= f.modulus
+// Add x0 + x1
+func (f Field) Add(x0, x1 Element) Element {
+	res := x0[0] + x1[0]
+
+	if reduced, borrow := bits.Sub32(res, f.modulus, 0); borrow == 0 {
+		res = reduced
 	}
 
-	for _, e := range xRest {
-		res[0] += e[0]
-		if res[0] >= f.modulus {
-			res[0] -= f.modulus
-		}
-	}
-
-	return res
+	return Element{res}
 }
 
-// Sub x0 - x1 - xRest[0] - xRest[1] - ...
-func (f Field) Sub(x0, x1 Element, xRest ...Element) Element {
-	const negMask uint32 = 1 << 31
-
-	res := Element{x0[0] - x1[0]}
-	if res[0]&negMask != 0 {
-		res[0] += f.modulus
+// Sub x0 - x1
+func (f Field) Sub(x0, x1 Element) Element {
+	res, borrow := bits.Sub32(x0[0], x1[0], 0)
+	if borrow != 0 {
+		res += f.modulus
 	}
 
-	for _, e := range xRest {
-		res[0] -= e[0]
-		if res[0]&negMask != 0 {
-			res[0] += f.modulus
-		}
-	}
-
-	return res
+	return Element{res}
 }
 
 // montgomeryReduce x -> x.R⁻¹ (mod m)
@@ -83,18 +69,9 @@ func (f Field) ToUint32(x Element) uint32 {
 	return f.montgomeryReduce(uint64(x[0]))[0]
 }
 
-func (f Field) mul(a, b Element) Element {
-	return f.montgomeryReduce(uint64(a[0]) * uint64(b[0]))
-}
-
-// Mul x0 * x1 * xRest[0] * xRest[1] * ...
-func (f Field) Mul(x0, x1 Element, xRest ...Element) Element {
-	res := f.mul(x0, x1)
-	for _, e := range xRest {
-		res = f.mul(res, e)
-	}
-
-	return res
+// Mul x0 * x1
+func (f Field) Mul(x0, x1 Element) Element {
+	return f.montgomeryReduce(uint64(x0[0]) * uint64(x1[0]))
 }
 
 // NewElement returns an element of the field f corresponding to the natural number x.
@@ -105,4 +82,83 @@ func (f Field) NewElement(x uint32) Element {
 // Cmp compares the numerical values of x0 and x1.
 func (f Field) Cmp(x0, x1 Element) int {
 	return cmp.Compare(f.ToUint32(x0), f.ToUint32(x1))
+}
+
+// Double x -> 2x
+func (f Field) Double(x Element) Element {
+	return f.Add(x, x)
+}
+
+// rSq returns R² (mod m), NOT IN MONTGOMERY FORM.
+func (f Field) rSq() Element {
+	// TODO decide whether or not to precompute this.
+	// If we do inversions only rarely and in batched,
+	// it may be worth it to absorb the penalty and keep
+	// the entire field object fitting on one 64 bit word.
+	// the largest exponent for 2 for which Montgomery reduction works.
+	exponent := uint64(63 - bits.LeadingZeros32(f.modulus))
+
+	x := Element{uint32((1 << exponent) % uint64(f.modulus))}
+	for exponent < 64 {
+		x = f.Double(x)
+		exponent++
+	}
+
+	return x
+}
+
+// Half x -> x/2 (mod m).
+func (f Field) Half(x Element) Element {
+	if x[0]%2 == 0 {
+		return Element{x[0] / 2}
+	} else {
+		return Element{(x[0] + f.modulus) / 2} // the modulus is less than 2³¹ so this is safe.
+	}
+}
+
+// Inverse x -> x⁻¹ (mod m) or 0 if x = 0
+func (f Field) Inverse(x Element) Element {
+	// Since x actually contains x.R, we have to multiply the result by R² to get x⁻¹R⁻¹R² = x⁻¹R.
+	return f.inverse(x, f.rSq())
+}
+
+// inverse x -> bias.x⁻¹ (mod m) in non-Montgomery form.
+func (f Field) inverse(x, bias Element) Element {
+	// Algorithm 16 in "Efficient Software-Implementation of Finite Fields with Applications to Cryptography"
+	if x[0] == 0 {
+		return Element{0}
+	}
+
+	u := x[0]
+	v := f.modulus
+
+	var c Element
+
+	b := bias
+
+	for (u != 1) && (v != 1) {
+		for u%2 == 0 {
+			u /= 2
+			b = f.Half(b)
+		}
+
+		for v%2 == 0 {
+			v /= 2
+			c = f.Half(c)
+		}
+
+		if diff, borrow := bits.Sub32(u, v, 0); borrow == 0 {
+			u = diff
+			b = f.Sub(b, c)
+		} else {
+			v -= u
+			c = f.Sub(c, b)
+		}
+	}
+
+	if u == 1 {
+		return b
+	} else {
+		return c
+	}
 }
