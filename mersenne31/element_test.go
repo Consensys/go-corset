@@ -1,0 +1,92 @@
+package mersenne31
+
+import (
+	"math/big"
+	"math/rand/v2"
+	"testing"
+
+	"github.com/consensys/go-corset/pkg/util/assert"
+)
+
+func TestField_Mul(t *testing.T) {
+	var i, j, m big.Int
+
+	m.SetUint64(uint64(modulus))
+
+	for range 10000 {
+		a := rand.Uint32N(modulus)
+		b := rand.Uint32N(modulus)
+
+		i.SetUint64(uint64(a)).
+			Mul(&i, j.SetUint64(uint64(b))).
+			Lsh(&i, 32).
+			Mod(&i, &m)
+
+		x := NewElement(a)
+		y := NewElement(b)
+
+		x = x.Mul(y)
+
+		assert.Equal(t, i.Uint64(), x[0])
+	}
+}
+
+func TestField_Inverse(t *testing.T) {
+	var i, m big.Int
+
+	m.SetUint64(uint64(modulus))
+
+	for range 1000000 {
+		a := rand.Uint32N(modulus)
+
+		i.SetUint64(uint64(a)).
+			ModInverse(&i, &m).
+			Lsh(&i, 32). // Montgomery form
+			Mod(&i, &m)
+
+		x := NewElement(a)
+		x = x.Inverse()
+
+		assert.Equal(t, i.Uint64(), x[0], "inverse of %d", a)
+	}
+}
+
+func TestField_Halve(t *testing.T) {
+	var i, j, m big.Int
+
+	m.SetUint64(uint64(modulus))
+
+	for range 1000000 {
+		a := rand.Uint32N(modulus)
+		x := NewElement(a)
+		x = x.Half()
+
+		i.SetUint64(uint64(x[0])).Add(&i, &i).Mod(&i, &m) // (a/2) as computed, multiplied by 2
+		j.SetUint64(uint64(a)).Lsh(&j, 32).Mod(&j, &m)    // Montgomery representation of a
+
+		assert.Equal(t, j.Uint64(), i.Uint64(), "halving of %d", a)
+	}
+}
+
+func TestField_Sub(t *testing.T) {
+	var i, j, m big.Int
+
+	m.SetUint64(uint64(modulus))
+
+	for range 100000 {
+		a := rand.Uint32N(modulus)
+		b := rand.Uint32N(modulus)
+
+		i.SetUint64(uint64(a)).
+			Sub(&i, j.SetUint64(uint64(b))).
+			Lsh(&i, 32).
+			Mod(&i, &m)
+
+		x := NewElement(a)
+		y := NewElement(b)
+
+		x = x.Sub(y)
+
+		assert.Equal(t, i.Uint64(), x[0])
+	}
+}
