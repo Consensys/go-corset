@@ -14,6 +14,7 @@ package util
 
 import (
 	"bufio"
+	"bytes"
 	"compress/bzip2"
 	"errors"
 	"io"
@@ -61,26 +62,20 @@ func ReadInputFile(filename string) []string {
 
 // Read a single line
 func readLine(reader *bufio.Reader) *string {
-	var (
-		bytes []byte
-		bit   []byte
-		err   error
-	)
-	//
+	var buffer bytes.Buffer
 	cont := true
-	//
+	
 	for cont {
-		bit, cont, err = reader.ReadLine()
+		bit, cont, err := reader.ReadLine()
 		if err == io.EOF {
 			return nil
 		} else if err != nil {
 			panic(err)
 		}
-
-		bytes = append(bytes, bit...)
+		
+		buffer.Write(bit)
 	}
-	// Convert to string
-	str := string(bytes)
-	// Done
+	
+	str := buffer.String()
 	return &str
 }
