@@ -69,13 +69,13 @@ func Test_Asm_SimpleOnCurve(t *testing.T) {
 	test_util.Check(t, false, "asm/simple_on_curve_u16")
 }
 
-// Recusion
+// Recursion
 //
 // func Test_Asm_RecPow(t *testing.T) {
 // 	test_util.Check(t, false, "asm/rec_pow")
 // }
 
-// Recusion
+// Recursion
 //
 // func Test_Asm_Shift(t *testing.T) {
 // 	test_util.Check(t, false, "asm/shift")
