@@ -25,31 +25,32 @@ import (
 //		test_util.Check(t, false, "asm/byte")
 //	}
 func Test_Asm_Dec4(t *testing.T) {
-	test_util.CheckWithFields(t, false, "asm/dec4", ag.BLS12_377, ag.GF_8209)
+	test_util.CheckWithFields(t, false, "asm/dec4", ag.BLS12_377, ag.GF_8209, ag.GF_251)
 }
 
 func Test_Asm_ParseNonDecimal(t *testing.T) {
-	test_util.Check(t, false, "asm/parse_nondecimal")
+	test_util.CheckWithFields(t, false, "asm/parse_nondecimal", ag.BLS12_377, ag.GF_8209, ag.GF_251)
 }
 
 func Test_Asm_Counter(t *testing.T) {
-	test_util.Check(t, false, "asm/counter")
+	test_util.CheckWithFields(t, false, "asm/counter", ag.BLS12_377, ag.GF_8209, ag.GF_251)
 }
 
-//	func Test_Asm_Counter256(t *testing.T) {
-//		test_util.Check(t, false, "asm/counter256")
-//	}
+// func Test_Asm_Counter256(t *testing.T) {
+// 	test_util.Check(t, false, "asm/counter256")
+// }
+
 func Test_Asm_FastPow(t *testing.T) {
 	test_util.Check(t, false, "asm/fast_pow")
 }
 
 func Test_Asm_Max(t *testing.T) {
-	test_util.Check(t, false, "asm/max")
+	test_util.CheckWithFields(t, false, "asm/max", ag.BLS12_377, ag.GF_8209, ag.GF_251)
 }
 
-// func Test_Asm_Max256(t *testing.T) {
-// 	test_util.Check(t, false, "asm/max256")
-// }
+func Test_Asm_Max256(t *testing.T) {
+	test_util.CheckWithFields(t, false, "asm/max256", ag.BLS12_377, ag.GF_8209, ag.GF_251)
+}
 
 func Test_Asm_MixedSmall(t *testing.T) {
 	test_util.Check(t, false, "asm/mixed_small")

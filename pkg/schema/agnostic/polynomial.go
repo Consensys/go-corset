@@ -133,7 +133,7 @@ func WidthOfPolynomial(source Polynomial, regs []schema.Register) (bitwidth uint
 		lowerBits := uint(lower.Add(&lower, &one).BitLen())
 		// Yes, we have negative values.  This mandates the need for an
 		// additional signbit.
-		return max(lowerBits+1, upperBits), true
+		return max(lowerBits+1, upperBits+1), true
 	}
 	// No sign bit required.
 	return upperBits, false
@@ -148,7 +148,6 @@ func SplitWidthOfPolynomial(source Polynomial, regs []schema.Register) (poswidth
 		intRange  = IntegerRangeOfPolynomial(source, regs)
 		lower     = intRange.MinValue()
 		upper     = intRange.MaxValue()
-		lowerBits = uint(lower.BitLen())
 		upperBits = uint(upper.BitLen())
 	)
 	// Check whether negative range in play.
@@ -156,13 +155,13 @@ func SplitWidthOfPolynomial(source Polynomial, regs []schema.Register) (poswidth
 		// NOTE: this accounts for the fact that, on the negative side, we get
 		// an extra value.  For example, with signed 8bit values the range is
 		// -128 upto 127.
-		lowerBits = uint(lower.Add(&lower, &one).BitLen())
+		lowerBits := uint(lower.Add(&lower, &one).BitLen())
 		// Yes, we have negative values.  This mandates the need for an
 		// additional signbit.
-		lowerBits++
+		return upperBits, lowerBits
 	}
 	//
-	return upperBits, lowerBits
+	return upperBits, 0
 }
 
 // IntegerRangeOfPolynomial determines the smallest integer range in which all

@@ -75,8 +75,8 @@ func Test_Poly_05(t *testing.T) {
 	check(t, 9, x(1).Sub(y(1)), 8, 8)
 }
 func Test_Poly_06(t *testing.T) {
-	// x-y where x:u16, y:u8 requires 16 bits
-	check(t, 16, x(1).Sub(y(1)), 16, 8)
+	// x-y where x:u16, y:u8 requires 17 bits
+	check(t, 17, x(1).Sub(y(1)), 16, 8)
 }
 func Test_Poly_07(t *testing.T) {
 	// -2x + xy

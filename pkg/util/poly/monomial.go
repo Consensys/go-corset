@@ -47,6 +47,24 @@ func (p Monomial[S]) Coefficient() big.Int {
 	return p.coefficient
 }
 
+// Equal performs structural equality between two mononomials.  That is, they
+// are consider the same provide they have identical structure.
+func (p *Monomial[S]) Equal(other Monomial[S]) bool {
+	if len(p.vars) != len(other.vars) {
+		return false
+	} else if p.coefficient.Cmp(&other.coefficient) != 0 {
+		return false
+	}
+	//
+	for i := range p.vars {
+		if p.vars[i] != other.vars[i] {
+			return false
+		}
+	}
+	//
+	return true
+}
+
 // IsZero checks whether or not this monomial is zero.  Or, put another way,
 // whether or not the coefficient of this monomial is zero.
 func (p Monomial[S]) IsZero() bool {

@@ -57,6 +57,35 @@ func (p *ArrayPoly[S]) Clone() *ArrayPoly[S] {
 	return &ArrayPoly[S]{nterms}
 }
 
+// Equal performs structural equality between two polynomials.  That is, they
+// are consider the same provide they have identical structure.
+func (p *ArrayPoly[S]) Equal(other *ArrayPoly[S]) bool {
+	if len(p.terms) != len(other.terms) {
+		return false
+	}
+	//
+	for i := range len(p.terms) {
+		if !p.terms[i].Equal(other.terms[i]) {
+			return false
+		}
+	}
+	//
+	return true
+}
+
+// Signed determines whether or not this polynomial can evaluate to both
+// positive and negative values.  Currently, this is defined simply as whether
+// or not a contained monomial has a negative coefficient.
+func (p *ArrayPoly[S]) Signed() bool {
+	for i := range len(p.terms) {
+		if p.terms[i].IsNegative() {
+			return true
+		}
+	}
+	//
+	return false
+}
+
 // IsZero returns an indication as to whether this polynomial is equivalent
 // to zero (or not).  This is a three valued logic system which can return
 // either "yes", "no" or "maybe" where: (i) "yes" means the polynomial

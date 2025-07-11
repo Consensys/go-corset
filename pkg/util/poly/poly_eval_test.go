@@ -24,27 +24,27 @@ import (
 
 type Poly = *ArrayPoly[string]
 
-func Test_Poly_01(t *testing.T) {
+func Test_PolyEval_01(t *testing.T) {
 	points := [][]uint{{123, 0}, {123, 1}}
 	check(t, "123", points)
 }
 
-func Test_Poly_02(t *testing.T) {
+func Test_PolyEval_02(t *testing.T) {
 	points := [][]uint{{0, 0}, {1, 1}}
 	check(t, "a", points)
 }
 
-func Test_Poly_03(t *testing.T) {
+func Test_PolyEval_03(t *testing.T) {
 	points := [][]uint{{1, 0}, {2, 1}, {3, 2}}
 	check(t, "(+ a 1)", points)
 }
 
-func Test_Poly_04(t *testing.T) {
+func Test_PolyEval_04(t *testing.T) {
 	points := [][]uint{{0, 1}, {1, 2}, {2, 3}}
 	check(t, "(- a 1)", points)
 }
 
-func Test_Poly_05(t *testing.T) {
+func Test_PolyEval_05(t *testing.T) {
 	points := [][]uint{{2, 1}, {4, 2}, {6, 3}}
 	check(t, "(* a 2)", points)
 }

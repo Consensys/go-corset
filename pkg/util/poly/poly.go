@@ -83,6 +83,10 @@ func evalTerm[S comparable, T Term[S, T]](term T, env map[S]big.Int) *big.Int {
 func String[S comparable, T Term[S, T], P Polynomial[S, T, P]](poly P, env func(S) string) string {
 	var buf bytes.Buffer
 	//
+	if poly.Len() == 0 {
+		return "0"
+	}
+	//
 	for i := range poly.Len() {
 		ith := poly.Term(i)
 		coeff := ith.Coefficient()
