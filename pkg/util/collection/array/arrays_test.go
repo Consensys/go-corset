@@ -89,8 +89,14 @@ func Test_Reverse_05(t *testing.T) {
 
 func check_Reverse(t *testing.T, original []int, expected []int) {
 	actual := Reverse(original)
-	//
+	// Check functional reversal
 	if !reflect.DeepEqual(actual, expected) {
 		t.Errorf("reversing %v gave %v", original, actual)
+	}
+	// Check in place reversal
+	ReverseInPlace(original)
+	//
+	if !reflect.DeepEqual(original, expected) {
+		t.Errorf("reversing (in place) %v gave %v", original, expected)
 	}
 }
