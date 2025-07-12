@@ -19,6 +19,7 @@ package gf251
 import (
 	"cmp"
 	"math/bits"
+	"strconv"
 )
 
 // Element of a prime order field, represented in Montgomery form to speed up multiplications.
@@ -64,6 +65,11 @@ func montgomeryReduce(x uint64) Element {
 	}
 
 	return res
+}
+
+// AddUint32 x + y
+func (x Element) AddUint32(y uint32) Element {
+	return x.Add(NewElement(y))
 }
 
 // ToUint32 returns the numerical (non-Montgomery)
@@ -140,4 +146,14 @@ func (x Element) Inverse() Element {
 	} else {
 		return c
 	}
+}
+
+// String returns the value of x based 10.
+func (x Element) String() string {
+	return strconv.FormatUint(uint64(x.ToUint32()), 10)
+}
+
+// Text returns the value of x in the given base.
+func (x Element) Text(base int) string {
+	return strconv.FormatUint(uint64(x.ToUint32()), base)
 }
