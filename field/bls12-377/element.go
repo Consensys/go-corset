@@ -24,7 +24,8 @@ func (x Element) Sub(y Element) Element {
 
 // AddUint32 x + y. It's the canonical way to create new elements.
 func (x Element) AddUint32(y uint32) Element {
-	return Element{new(fr.Element).SetUint64(uint64(y))}
+	res := fr.NewElement(uint64(y))
+	return Element{res.Add(x.Element, &res)}
 }
 
 // ToUint32 returns the numerical value of x.
