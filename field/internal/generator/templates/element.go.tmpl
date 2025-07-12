@@ -1,4 +1,3 @@
-package mersenne31
 
 import (
 	"cmp"
@@ -10,9 +9,9 @@ type Element [1]uint32 // defined as an array to prevent mistaken use of arithme
 
 const (
 	r                 = 1 << 32 // register size
-	modulus           = 1<<31 - 1
-	rSq               = 4 // r² (mod m)
-	negModulusInvModR = 2147483649
+	modulus           = {{ .Modulus }}
+	rSq               = {{ .RSq }} // r² (mod m)
+	negModulusInvModR = {{ .NegModulusInvModR }} // -modulus⁻¹ (mod r), used for Montgomery reduction
 )
 
 // Add x + y
