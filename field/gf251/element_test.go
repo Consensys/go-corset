@@ -27,7 +27,7 @@ import (
 func TestMul(t *testing.T) {
 	var i, j, m big.Int
 
-	m.SetUint64(uint64(modulus))
+	m.SetUint64(modulus)
 
 	for range 10000 {
 		a := rand.Uint32N(modulus)
@@ -50,10 +50,10 @@ func TestMul(t *testing.T) {
 func TestInverse(t *testing.T) {
 	var i, m big.Int
 
-	m.SetUint64(uint64(modulus))
+	m.SetUint64(modulus)
 
 	for range 1000000 {
-		a := rand.Uint32N(modulus)
+		a := rand.Uint32N(modulus-1) + 1 // avoid 0.
 
 		i.SetUint64(uint64(a)).
 			ModInverse(&i, &m).
@@ -70,7 +70,7 @@ func TestInverse(t *testing.T) {
 func TestHalve(t *testing.T) {
 	var i, j, m big.Int
 
-	m.SetUint64(uint64(modulus))
+	m.SetUint64(modulus)
 
 	for range 1000000 {
 		a := rand.Uint32N(modulus)
@@ -87,7 +87,7 @@ func TestHalve(t *testing.T) {
 func TestSub(t *testing.T) {
 	var i, j, m big.Int
 
-	m.SetUint64(uint64(modulus))
+	m.SetUint64(modulus)
 
 	for range 100000 {
 		a := rand.Uint32N(modulus)
@@ -105,4 +105,16 @@ func TestSub(t *testing.T) {
 
 		assert.Equal(t, i.Uint64(), x[0])
 	}
+}
+
+func TestMontgomery(t *testing.T) {
+	m := big.NewInt(modulus)
+	i := big.NewInt(1 << 32)
+	i.Mod(i, m)
+
+	x := NewElement(1)
+	assert.Equal(t, i.Uint64(), x[0])
+
+	x = montgomeryReduce(uint64(x[0]))
+	assert.Equal(t, 1, x[0])
 }

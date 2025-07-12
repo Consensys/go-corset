@@ -29,7 +29,7 @@ const (
 	r                 = 1 << 32 // register size
 	modulus           = 251
 	rSq               = 69         // r² (mod m)
-	negModulusInvModR = 4294967045 // -modulus⁻¹ (mod r), used for Montgomery reduction
+	negModulusInvModR = 1711142349 // -modulus⁻¹ (mod r), used for Montgomery reduction
 )
 
 // Add x + y
@@ -58,13 +58,14 @@ func montgomeryReduce(x uint64) Element {
 	// textbook Montgomery reduction
 	m := (x * uint64(negModulusInvModR)) % r // m = x * (-modulus⁻¹) (mod r)
 
-	res := Element{uint32((x + m*modulus) / r)}
+	res := uint32((x + m*modulus) / r)
 
-	if res[0] >= modulus {
-		res[0] -= modulus
+	diff, borrow := bits.Sub32(res, modulus, 0)
+	if borrow == 0 {
+		res = diff
 	}
 
-	return res
+	return Element{res}
 }
 
 // AddUint32 x + y

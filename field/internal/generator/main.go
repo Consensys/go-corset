@@ -90,7 +90,7 @@ func (f fieldSpecs) config() (*fieldConfig, error) {
 	specs.RSq = uint32(x.Uint64())
 
 	x.ModInverse(m, r)
-	specs.NegModulusInvModR = uint32(R - m.Uint64())
+	specs.NegModulusInvModR = uint32(R - x.Uint64())
 
 	return &specs, nil
 }
