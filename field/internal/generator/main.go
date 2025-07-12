@@ -19,6 +19,9 @@ func main() {
 
 	specs := []fieldSpecs{
 		{Name: "mersenne31", Modulus: 1<<31 - 1},
+		{Name: "gf251", Modulus: 251},
+		{Name: "gf8209", Modulus: 8209},
+		{Name: "koalabear", Modulus: 1<<31 - 1<<24 + 1},
 	}
 
 	for _, spec := range specs {
