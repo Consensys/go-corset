@@ -20,7 +20,7 @@ import (
 )
 
 // ToJsonString converts a trace into a JSON string.
-func ToJsonString(columns []trace.RawColumn) string {
+func ToJsonString(columns []trace.RawFrColumn) string {
 	var builder strings.Builder
 	//
 	builder.WriteString("{")

@@ -83,7 +83,6 @@ func Test_Asm_SimpleOnCurve(t *testing.T) {
 // }
 
 // Field Element Out-Of-Bounds
-//
-// func Test_Asm_Wcp(t *testing.T) {
-// 	test_util.Check(t, false, "asm/wcp")
-// }
+func Test_Asm_Wcp(t *testing.T) {
+	test_util.Check(t, false, "asm/wcp")
+}

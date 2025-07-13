@@ -107,7 +107,7 @@ func GetIntArray(cmd *cobra.Command, flag string) []int {
 	return r
 }
 
-func writeBatchedTracesFile(filename string, traces ...[]trace.RawColumn) {
+func writeBatchedTracesFile(filename string, traces ...[]trace.RawFrColumn) {
 	var buf bytes.Buffer
 	// Check file extension
 	if len(traces) == 1 {
@@ -163,7 +163,7 @@ func writeTraceFile(filename string, tracefile *lt.TraceFile) {
 // into an array of raw columns.  The determination of what kind of trace file
 // (i.e. binary or json) is based on the extension.
 func ReadTraceFile(filename string) *lt.TraceFile {
-	var columns []trace.RawColumn
+	var columns []trace.RawFrColumn
 	// Read data file
 	bytes, err := os.ReadFile(filename)
 	// Check success
@@ -207,9 +207,9 @@ func ReadTraceFile(filename string) *lt.TraceFile {
 
 // ReadBatchedTraceFile reads a file containing zero or more traces expressed as
 // JSON, where each trace is on a separate line.
-func ReadBatchedTraceFile(filename string) [][]trace.RawColumn {
+func ReadBatchedTraceFile(filename string) [][]trace.RawFrColumn {
 	lines := util.ReadInputFile(filename)
-	traces := make([][]trace.RawColumn, 0)
+	traces := make([][]trace.RawFrColumn, 0)
 	// Read constraints line by line
 	for i, line := range lines {
 		// Parse input line as JSON
@@ -248,7 +248,7 @@ func WriteBinaryFile(binfile *binfile.BinaryFile, filename string) {
 	}
 }
 
-func maxHeightColumns(cols []trace.RawColumn) uint {
+func maxHeightColumns(cols []trace.RawFrColumn) uint {
 	h := uint(0)
 	// Iterate over modules
 	for _, col := range cols {

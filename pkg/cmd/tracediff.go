@@ -54,7 +54,7 @@ var traceDiffCmd = &cobra.Command{
 	},
 }
 
-func extractColumnNames(columns []trace.RawColumn) set.SortedSet[string] {
+func extractColumnNames(columns []trace.RawFrColumn) set.SortedSet[string] {
 	var names set.SortedSet[string]
 	//
 	for _, c := range columns {
@@ -72,8 +72,8 @@ func reportExtraColumns(name string, columns []string, common set.SortedSet[stri
 	}
 }
 
-func filterCommonColumns(columns []trace.RawColumn, common set.SortedSet[string]) []trace.RawColumn {
-	var ncolumns []trace.RawColumn
+func filterCommonColumns(columns []trace.RawFrColumn, common set.SortedSet[string]) []trace.RawFrColumn {
+	var ncolumns []trace.RawFrColumn
 	//
 	for _, c := range columns {
 		if common.Contains(c.QualifiedName()) {
@@ -84,7 +84,7 @@ func filterCommonColumns(columns []trace.RawColumn, common set.SortedSet[string]
 	return ncolumns
 }
 
-func parallelDiff(columns1 []trace.RawColumn, columns2 []trace.RawColumn) []error {
+func parallelDiff(columns1 []trace.RawFrColumn, columns2 []trace.RawFrColumn) []error {
 	errors := make([]error, 0)
 	ncols := len(columns1)
 	// Look through all STAMP columns searching for 0s at the end.
@@ -106,7 +106,7 @@ func parallelDiff(columns1 []trace.RawColumn, columns2 []trace.RawColumn) []erro
 	return errors
 }
 
-func diffColumns(index int, columns1 []trace.RawColumn, columns2 []trace.RawColumn) []error {
+func diffColumns(index int, columns1 []trace.RawFrColumn, columns2 []trace.RawFrColumn) []error {
 	errors := make([]error, 0)
 	name := columns1[index].QualifiedName()
 	data1 := columns1[index].Data
@@ -174,7 +174,7 @@ func summarise(data field.FrArray) map[fr.Element]uint {
 	return summary
 }
 
-func findColumn(name string, columns []trace.RawColumn) *trace.RawColumn {
+func findColumn(name string, columns []trace.RawFrColumn) *trace.RawFrColumn {
 	for _, c := range columns {
 		if c.QualifiedName() == name {
 			return &c

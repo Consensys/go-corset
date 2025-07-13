@@ -167,7 +167,7 @@ func (tb TraceBuilder) BatchSize() uint {
 
 // Build attempts to construct a trace for a given schema, producing errors if
 // there are inconsistencies (e.g. missing columns, duplicate columns, etc).
-func (tb TraceBuilder) Build(schema sc.AnySchema, cols []trace.RawColumn) (trace.Trace, []error) {
+func (tb TraceBuilder) Build(schema sc.AnySchema, cols []trace.RawFrColumn) (trace.Trace, []error) {
 	// Split raw columns according to the mapping (if applicable)
 	if tb.mapping != nil {
 		cols = agnostic.SplitRawColumns(cols, tb.mapping)
@@ -220,7 +220,7 @@ func (tb TraceBuilder) Build(schema sc.AnySchema, cols []trace.RawColumn) (trace
 	return tr, errors
 }
 
-func initialiseTrace(expanded bool, schema sc.AnySchema, cols []trace.RawColumn) (*trace.ArrayTrace, []error) {
+func initialiseTrace(expanded bool, schema sc.AnySchema, cols []trace.RawFrColumn) (*trace.ArrayTrace, []error) {
 	var (
 		// Initialise modules
 		modmap  = initialiseModuleMap(schema)
@@ -255,7 +255,7 @@ func initialiseModuleMap(schema sc.AnySchema) map[string]uint {
 }
 
 func splitTraceColumns(expanded bool, schema sc.AnySchema, modmap map[string]uint,
-	cols []trace.RawColumn) ([][]trace.RawColumn, []error) {
+	cols []trace.RawFrColumn) ([][]trace.RawFrColumn, []error) {
 	//
 	var (
 		// Errs contains the set of filling errors which are accumulated
@@ -281,7 +281,7 @@ func splitTraceColumns(expanded bool, schema sc.AnySchema, modmap map[string]uin
 				errs = append(errs, fmt.Errorf("duplicate column '%s' in trace", c.QualifiedName()))
 			} else {
 				seen[key] = true
-				modules[cid.module][cid.column] = trace.RawColumn{
+				modules[cid.module][cid.column] = trace.RawFrColumn{
 					Module: c.Module,
 					Name:   c.Name,
 					Data:   c.Data.Clone(),
@@ -308,15 +308,15 @@ func splitTraceColumns(expanded bool, schema sc.AnySchema, modmap map[string]uin
 	return modules, errs
 }
 
-func initialiseColumnMap(expanded bool, schema sc.AnySchema) (map[columnKey]columnId, [][]trace.RawColumn) {
+func initialiseColumnMap(expanded bool, schema sc.AnySchema) (map[columnKey]columnId, [][]trace.RawFrColumn) {
 	var (
 		colmap  = make(map[columnKey]columnId, 100)
-		modules = make([][]trace.RawColumn, schema.Width())
+		modules = make([][]trace.RawFrColumn, schema.Width())
 	)
 	// Initialise modules
 	for i := uint(0); i != schema.Width(); i++ {
 		m := schema.Module(i)
-		columns := make([]trace.RawColumn, m.Width())
+		columns := make([]trace.RawFrColumn, m.Width())
 		//
 		for j := uint(0); j != m.Width(); j++ {
 			var (
@@ -330,7 +330,7 @@ func initialiseColumnMap(expanded bool, schema sc.AnySchema) (map[columnKey]colu
 				panic(fmt.Sprintf("duplicate column '%s' in schema", trace.QualifiedColumnName(m.Name(), col.Name)))
 			}
 			// Add initially empty column
-			columns[j] = trace.RawColumn{
+			columns[j] = trace.RawFrColumn{
 				Module: m.Name(),
 				Name:   col.Name,
 				Data:   nil,
@@ -347,7 +347,7 @@ func initialiseColumnMap(expanded bool, schema sc.AnySchema) (map[columnKey]colu
 	return colmap, modules
 }
 
-func fillTraceModule(name string, multiplier uint, rawColumns []trace.RawColumn) trace.ArrayModule {
+func fillTraceModule(name string, multiplier uint, rawColumns []trace.RawFrColumn) trace.ArrayModule {
 	var (
 		traceColumns = make([]trace.ArrayColumn, len(rawColumns))
 		zero         = fr.NewElement(0)

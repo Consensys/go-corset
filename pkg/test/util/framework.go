@@ -74,7 +74,7 @@ func checkWithField(t *testing.T, stdlib bool, test string, field agnostic.Field
 	nTests := 0
 	// Iterate possible testfile extensions
 	for _, cfg := range TESTFILE_EXTENSIONS {
-		var traces [][]trace.RawColumn
+		var traces [][]trace.RawFrColumn
 		// Construct test filename
 		testFilename := fmt.Sprintf("%s/%s.%s", TestDir, test, cfg.extension)
 		// Read traces from file
@@ -96,7 +96,7 @@ func checkWithField(t *testing.T, stdlib bool, test string, field agnostic.Field
 }
 
 func binCheckTraces(t *testing.T, test string, cfg Config,
-	traces [][]trace.RawColumn, stack cmd_util.SchemaStack) {
+	traces [][]trace.RawFrColumn, stack cmd_util.SchemaStack) {
 	// Run checks using schema compiled from source
 	for _, opt := range cfg.optlevels {
 		// Set optimisation level
@@ -122,7 +122,7 @@ func binCheckTraces(t *testing.T, test string, cfg Config,
 
 // Check a given set of tests have an expected outcome (i.e. are
 // either accepted or rejected) by a given set of constraints.
-func checkTraces(t *testing.T, test string, maxPadding uint, opt uint, cfg Config, traces [][]trace.RawColumn,
+func checkTraces(t *testing.T, test string, maxPadding uint, opt uint, cfg Config, traces [][]trace.RawFrColumn,
 	stack cmd_util.SchemaStack) {
 	// For unexpected traces, we never want to explore padding (because that's
 	// the whole point of unexpanded traces --- they are raw).
@@ -149,7 +149,7 @@ func checkTraces(t *testing.T, test string, maxPadding uint, opt uint, cfg Confi
 	}
 }
 
-func checkTrace[C sc.Constraint](t *testing.T, inputs []trace.RawColumn, id traceId, schema sc.Schema[C]) {
+func checkTrace[C sc.Constraint](t *testing.T, inputs []trace.RawFrColumn, id traceId, schema sc.Schema[C]) {
 	// Construct the trace
 	tr, errs := ir.NewTraceBuilder().
 		WithExpansion(id.expand).
@@ -253,7 +253,7 @@ type traceId struct {
 
 // SplitTraces splits a given set of traces according to a given field
 // configuration.
-func SplitTraces(traces [][]trace.RawColumn, mappings sc.RegisterMappings) {
+func SplitTraces(traces [][]trace.RawFrColumn, mappings sc.RegisterMappings) {
 	for i := range traces {
 		traces[i] = agnostic.SplitRawColumns(traces[i], mappings)
 	}
@@ -261,9 +261,9 @@ func SplitTraces(traces [][]trace.RawColumn, mappings sc.RegisterMappings) {
 
 // ReadTracesFile reads a file containing zero or more traces expressed as JSON, where
 // each trace is on a separate line.
-func ReadTracesFile(filename string) [][]trace.RawColumn {
+func ReadTracesFile(filename string) [][]trace.RawFrColumn {
 	lines := util.ReadInputFile(filename)
-	traces := make([][]trace.RawColumn, len(lines))
+	traces := make([][]trace.RawFrColumn, len(lines))
 	// Read constraints line by line
 	for i, line := range lines {
 		// Parse input line as JSON

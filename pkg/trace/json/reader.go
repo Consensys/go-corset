@@ -28,10 +28,10 @@ import (
 // FromBytes parses a trace expressed in JSON notation.  For example, {"X":
 // [0], "Y": [1]} is a trace containing one row of data each for two columns "X"
 // and "Y".
-func FromBytes(bytes []byte) ([]trace.RawColumn, error) {
+func FromBytes(bytes []byte) ([]trace.RawFrColumn, error) {
 	var (
 		rawData map[string]map[string][]big.Int
-		cols    []trace.RawColumn
+		cols    []trace.RawFrColumn
 	)
 	// Attempt to unmarshall
 	jsonErr := json.Unmarshal(bytes, &rawData)
@@ -57,7 +57,7 @@ func FromBytes(bytes []byte) ([]trace.RawColumn, error) {
 			// Construct data array
 			data := field.FrArrayFromBigInts(bitwidth, rawInts)
 			// Construct column
-			cols = append(cols, trace.RawColumn{Module: mod, Name: col, Data: data})
+			cols = append(cols, trace.RawFrColumn{Module: mod, Name: col, Data: data})
 		}
 	}
 	//
@@ -67,7 +67,7 @@ func FromBytes(bytes []byte) ([]trace.RawColumn, error) {
 // FromBytesLegacy parses a trace expressed in JSON notation.  For example, {"X":
 // [0], "Y": [1]} is a trace containing one row of data each for two columns "X"
 // and "Y".
-func FromBytesLegacy(bytes []byte) ([]trace.RawColumn, error) {
+func FromBytesLegacy(bytes []byte) ([]trace.RawFrColumn, error) {
 	var rawData map[string][]big.Int
 	// Unmarshall
 	jsonErr := json.Unmarshal(bytes, &rawData)
@@ -75,7 +75,7 @@ func FromBytesLegacy(bytes []byte) ([]trace.RawColumn, error) {
 		return nil, jsonErr
 	}
 	// Construct column data
-	cols := make([]trace.RawColumn, len(rawData))
+	cols := make([]trace.RawFrColumn, len(rawData))
 	index := 0
 	//
 	for name, rawInts := range rawData {
@@ -95,7 +95,7 @@ func FromBytesLegacy(bytes []byte) ([]trace.RawColumn, error) {
 		// Construct data array
 		data := field.FrArrayFromBigInts(bitwidth, rawInts)
 		// Construct column
-		cols[index] = trace.RawColumn{Module: mod, Name: col, Data: data}
+		cols[index] = trace.RawFrColumn{Module: mod, Name: col, Data: data}
 		//
 		index++
 	}

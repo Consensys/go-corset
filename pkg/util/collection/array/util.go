@@ -15,39 +15,9 @@ package array
 import (
 	"cmp"
 	"fmt"
-	"io"
 	"math"
 	"slices"
-
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
-
-// Predicate abstracts the notion of a function which identifies something.
-type Predicate[T any] func(T) bool
-
-// Array provides a generice interface to an array of elements.  Typically, we
-// are interested in arrays of field elements here.
-type Array[T comparable] interface {
-	// Returns the number of elements in this array.
-	Len() uint
-	// Get returns the element at the given index in this array.
-	Get(uint) T
-	// Set the element at the given index in this array, overwriting the
-	// original value.
-	Set(uint, T)
-	// Clone makes clones of this array producing an otherwise identical copy.
-	Clone() Array[T]
-	// Slice out a subregion of this array.
-	Slice(uint, uint) Array[T]
-	// Return the number of bits required to store an element of this array.
-	BitWidth() uint
-	// Insert n copies of T at start of the array and m copies at the back
-	// producing an updated array.
-	Pad(uint, uint, T) Array[T]
-	// Write out the contents of this array, assuming a minimal unit of 1 byte
-	// per element.
-	Write(w io.Writer) error
-}
 
 // Prepend creates a new slice containing the result of prepending the given
 // item onto the end of the given slice.  Observe that, unlike the built-in
@@ -316,84 +286,4 @@ func forceFlatten[T any](items []T, fn func(T) []T) []T {
 	}
 	// no change
 	return nitems
-}
-
-// Equals2d returns true if two 2D arrays are equal.
-func Equals2d(lhs [][]fr.Element, rhs [][]fr.Element) bool {
-	if len(lhs) != len(rhs) {
-		return false
-	}
-
-	for i := 0; i < len(lhs); i++ {
-		lhs_i := lhs[i]
-		rhs_i := rhs[i]
-		// Check lengths match
-		if len(lhs_i) != len(rhs_i) {
-			return false
-		}
-		// Check elements match
-		for j := 0; j < len(lhs_i); j++ {
-			if lhs_i[j].Cmp(&rhs_i[j]) != 0 {
-				return false
-			}
-		}
-	}
-	//
-	return true
-}
-
-// FlatArrayIndexOf_2 returns the ith element of the flattened form of a 2d
-// array. Consider the array "[[0,7],[4]]".  Then its flattened form is
-// "[0,7,4]" and, for example, the element at index 1 is "7".
-func FlatArrayIndexOf_2[A any, B any](index int, as []A, bs []B) any {
-	if index < len(as) {
-		return as[index]
-	}
-	// Otherwise bs
-	return bs[index-len(as)]
-}
-
-// FlatArrayIndexOf_3 returns the ith element of the flattened form of a 2d
-// array. Consider the array "[[0,7],[4]]".  Then its flattened form is
-// "[0,7,4]" and, for example, the element at index 1 is "7".
-func FlatArrayIndexOf_3[A any, B any, C any](index int, as []A, bs []B, cs []C) any {
-	if index < len(as) {
-		return as[index]
-	}
-
-	return FlatArrayIndexOf_2(index-len(as), bs, cs)
-}
-
-// FlatArrayIndexOf_4 returns the ith element of the flattened form of a 2d
-// array. Consider the array "[[0,7],[4]]".  Then its flattened form is
-// "[0,7,4]" and, for example, the element at index 1 is "7".
-func FlatArrayIndexOf_4[A any, B any, C any, D any](index int, as []A, bs []B, cs []C, ds []D) any {
-	if index < len(as) {
-		return as[index]
-	}
-
-	return FlatArrayIndexOf_3(index-len(as), bs, cs, ds)
-}
-
-// FlatArrayIndexOf_5 returns the ith element of the flattened form of a 2d
-// array. Consider the array "[[0,7],[4]]".  Then its flattened form is
-// "[0,7,4]" and, for example, the element at index 1 is "7".
-func FlatArrayIndexOf_5[A any, B any, C any, D any, E any](index int, as []A, bs []B, cs []C, ds []D, es []E) any {
-	if index < len(as) {
-		return as[index]
-	}
-
-	return FlatArrayIndexOf_4(index-len(as), bs, cs, ds, es)
-}
-
-// FlatArrayIndexOf_6 returns the ith element of the flattened form of a 2d
-// array. Consider the array "[[0,7],[4]]".  Then its flattened form is
-// "[0,7,4]" and, for example, the element at index 1 is "7".
-func FlatArrayIndexOf_6[A any, B any, C any, D any, E any, F any](index int, as []A, bs []B, cs []C, ds []D, es []E,
-	fs []F) any {
-	if index < len(as) {
-		return as[index]
-	}
-
-	return FlatArrayIndexOf_5(index-len(as), bs, cs, ds, es, fs)
 }

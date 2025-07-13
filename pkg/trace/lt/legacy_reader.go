@@ -28,7 +28,7 @@ import (
 // file into an columns, or produces an error if the original file was malformed
 // in some way.   The input represents the original legacy format of trace files
 // (i.e. without any additional header information prepended, etc).
-func FromBytesLegacy(data []byte) ([]trace.RawColumn, error) {
+func FromBytesLegacy(data []byte) ([]trace.RawFrColumn, error) {
 	// Construct new bytes.Reader
 	buf := bytes.NewReader(data)
 	// Read Number of BytesColumns
@@ -38,7 +38,7 @@ func FromBytesLegacy(data []byte) ([]trace.RawColumn, error) {
 	}
 	// Construct empty environment
 	headers := make([]columnHeader, ncols)
-	columns := make([]trace.RawColumn, ncols)
+	columns := make([]trace.RawFrColumn, ncols)
 	// Read column headers
 	for i := uint32(0); i < ncols; i++ {
 		header, err := readColumnHeader(buf)
@@ -75,7 +75,7 @@ func FromBytesLegacy(data []byte) ([]trace.RawColumn, error) {
 		// Split qualified column name
 		mod, col := splitQualifiedColumnName(headers[res.Left].name)
 		// Construct appropriate slice
-		columns[res.Left] = trace.RawColumn{Module: mod, Name: col, Data: res.Right}
+		columns[res.Left] = trace.RawFrColumn{Module: mod, Name: col, Data: res.Right}
 	}
 	// Done
 	return columns, nil

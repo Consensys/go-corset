@@ -140,7 +140,7 @@ type checkConfig struct {
 // Check raw constraints using the legacy pipeline.
 func checkWithLegacyPipeline(cfg checkConfig, batched bool, tracefile string, schemas cmd_util.SchemaStack) {
 	var (
-		traces [][]trace.RawColumn
+		traces [][]trace.RawFrColumn
 		ok     bool = true
 	)
 	//
@@ -156,7 +156,7 @@ func checkWithLegacyPipeline(cfg checkConfig, batched bool, tracefile string, sc
 	} else {
 		// unbatched (i.e. normal) mode
 		tracefile := ReadTraceFile(tracefile)
-		traces = [][]trace.RawColumn{tracefile.Columns}
+		traces = [][]trace.RawFrColumn{tracefile.Columns}
 	}
 	//
 	stats.Log("Reading trace file")
@@ -171,7 +171,7 @@ func checkWithLegacyPipeline(cfg checkConfig, batched bool, tracefile string, sc
 	}
 }
 
-func checkTrace(ir string, traces [][]tr.RawColumn, schema sc.AnySchema,
+func checkTrace(ir string, traces [][]tr.RawFrColumn, schema sc.AnySchema,
 	builder ir.TraceBuilder, cfg checkConfig) bool {
 	//
 	for _, cols := range traces {

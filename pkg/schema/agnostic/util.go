@@ -48,8 +48,8 @@ func LimbsOf(mapping sc.RegisterMapping, lids []sc.LimbId) []sc.Limb {
 }
 
 // SplitRawColumns splits a given set of trace columns using the given register mapping.
-func SplitRawColumns(columns []trace.RawColumn, mapping sc.RegisterMappings) []trace.RawColumn {
-	var splitColumns []trace.RawColumn
+func SplitRawColumns(columns []trace.RawFrColumn, mapping sc.RegisterMappings) []trace.RawFrColumn {
+	var splitColumns []trace.RawFrColumn
 	//
 	for _, ith := range columns {
 		split := SplitRawColumn(ith, mapping)
@@ -60,7 +60,7 @@ func SplitRawColumns(columns []trace.RawColumn, mapping sc.RegisterMappings) []t
 }
 
 // SplitRawColumn splits a given raw column using the given register mapping.
-func SplitRawColumn(column trace.RawColumn, mapping sc.RegisterMappings) []trace.RawColumn {
+func SplitRawColumn(column trace.RawFrColumn, mapping sc.RegisterMappings) []trace.RawFrColumn {
 	var (
 		height = column.Data.Len()
 		// Access mapping for enclosing module
@@ -74,16 +74,16 @@ func SplitRawColumn(column trace.RawColumn, mapping sc.RegisterMappings) []trace
 	if len(limbIds) == 1 {
 		// No, this register was not split into any limbs.  Therefore, no need
 		// to split the column into any limbs.
-		return []trace.RawColumn{column}
+		return []trace.RawFrColumn{column}
 	}
 	// Yes, must split this column into two or more limbs.
-	columns := make([]trace.RawColumn, len(limbIds))
+	columns := make([]trace.RawFrColumn, len(limbIds))
 	// Determine limbs of this register
 	limbs := LimbsOf(modmap, limbIds)
 	// Construct empty arrays for the given limbs
 	for i, limb := range limbs {
 		ith := field.NewFrArray(height, limb.Width)
-		columns[i] = trace.RawColumn{Module: column.Module, Name: limb.Name, Data: ith}
+		columns[i] = trace.RawFrColumn{Module: column.Module, Name: limb.Name, Data: ith}
 	}
 	// Determine limb widths of this register (for constant splitting)
 	limbWidths := WidthsOfLimbs(modmap, modmap.LimbIds(reg))
