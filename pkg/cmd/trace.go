@@ -25,6 +25,8 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
+	"github.com/consensys/go-corset/pkg/util/collection/bytes"
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -41,7 +43,7 @@ var traceCmd = &cobra.Command{
 	or filtering out modules, or listing columns, etc.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		var (
-			traces [][]trace.RawFrColumn
+			traces [][]trace.BigEndianColumn
 		)
 		// Parse trace
 		columns := GetFlag(cmd, "columns")
@@ -66,7 +68,7 @@ var traceCmd = &cobra.Command{
 		} else {
 			// unbatched (i.e. normal) mode
 			tracefile := ReadTraceFile(args[0])
-			traces = [][]trace.RawFrColumn{tracefile.Columns}
+			traces = [][]trace.BigEndianColumn{tracefile.Columns}
 			// Print meta-data (if requested)
 			if metadata {
 				printTraceFileHeader(&tracefile.Header)
@@ -130,7 +132,7 @@ func init() {
 	traceCmd.Flags().Bool("metadata", false, "Print embedded metadata")
 }
 
-func expandColumns(cols []trace.RawFrColumn, schema sc.AnySchema, builder ir.TraceBuilder) []trace.RawFrColumn {
+func expandColumns(cols []trace.BigEndianColumn, schema sc.AnySchema, builder ir.TraceBuilder) []trace.BigEndianColumn {
 	// Construct expanded tr
 	tr, errs := builder.Build(schema, cols)
 	// Handle errors
@@ -142,17 +144,17 @@ func expandColumns(cols []trace.RawFrColumn, schema sc.AnySchema, builder ir.Tra
 		os.Exit(1)
 	}
 	// Convert back to raw column array
-	var rcols []trace.RawFrColumn
+	var rcols []trace.BigEndianColumn
 	//
 	for mid := range tr.Width() {
 		module := tr.Module(mid)
 		for cid := range module.Width() {
 			ith := module.Column(cid)
 			//
-			rcols = append(rcols, trace.RawFrColumn{
+			rcols = append(rcols, trace.BigEndianColumn{
 				Module: module.Name(),
 				Name:   ith.Name(),
-				Data:   ith.Data(),
+				Data:   field.ToBigEndianByteArray(ith.Data()),
 			})
 		}
 	}
@@ -162,14 +164,14 @@ func expandColumns(cols []trace.RawFrColumn, schema sc.AnySchema, builder ir.Tra
 
 // Construct a new trace containing only those columns from the original who
 // name begins with the given prefix.
-func filterColumns(cols []trace.RawFrColumn, regex string) []trace.RawFrColumn {
+func filterColumns(cols []trace.BigEndianColumn, regex string) []trace.BigEndianColumn {
 	r, err := regexp.Compile(regex)
 	// Check for error
 	if err != nil {
 		panic(err)
 	}
 	//
-	ncols := make([]trace.RawFrColumn, 0)
+	ncols := make([]trace.BigEndianColumn, 0)
 	// Now create the columns.
 	for i := 0; i < len(cols); i++ {
 		name := trace.QualifiedColumnName(cols[i].Module, cols[i].Name)
@@ -183,13 +185,13 @@ func filterColumns(cols []trace.RawFrColumn, regex string) []trace.RawFrColumn {
 
 // Construct a new trace where all columns are sliced to a given region.  In
 // some cases, that might mean the column becomes entirely empty.
-func sliceColumns(cols []trace.RawFrColumn, start uint, end uint) {
+func sliceColumns(cols []trace.BigEndianColumn, start uint, end uint) {
 	// Now slice them columns.
 	for i := 0; i < len(cols); i++ {
 		ith := cols[i]
 		s := min(start, ith.Data.Len())
 		e := min(end, ith.Data.Len())
-		cols[i] = trace.RawFrColumn{
+		cols[i] = trace.BigEndianColumn{
 			Module: ith.Module,
 			Name:   ith.Name,
 			Data:   ith.Data.Slice(s, e),
@@ -212,7 +214,7 @@ func printTraceFileHeader(header *lt.Header) {
 	}
 }
 
-func printTrace(start uint, max_width uint, cols []trace.RawFrColumn) {
+func printTrace(start uint, max_width uint, cols []trace.BigEndianColumn) {
 	n := uint(len(cols))
 	height := maxHeightColumns(cols)
 	tbl := termio.NewTablePrinter(1+height, 1+n)
@@ -227,8 +229,7 @@ func printTrace(start uint, max_width uint, cols []trace.RawFrColumn) {
 
 		for j := uint(0); j < ith.Len(); j++ {
 			jth := ith.Get(j)
-
-			tbl.Set(j+1, i+1, termio.NewText(jth.Text(16)))
+			tbl.Set(j+1, i+1, termio.NewText(jth.String()))
 		}
 	}
 	//
@@ -236,7 +237,7 @@ func printTrace(start uint, max_width uint, cols []trace.RawFrColumn) {
 	tbl.Print(true)
 }
 
-func listModules(max_width uint, tr []trace.RawFrColumn) {
+func listModules(max_width uint, tr []trace.BigEndianColumn) {
 	// Organise traces by their module ID
 	traces, modules := organiseTracesByModule(tr)
 	//
@@ -266,7 +267,7 @@ func listModules(max_width uint, tr []trace.RawFrColumn) {
 	tbl.Print(true)
 }
 
-func listColumns(max_width uint, tr []trace.RawFrColumn, includes []string) {
+func listColumns(max_width uint, tr []trace.BigEndianColumn, includes []string) {
 	summarisers := selectColumnSummarisers(includes)
 	m := 1 + uint(len(summarisers))
 	n := uint(len(tr))
@@ -356,7 +357,7 @@ func flattenIncludes(includes []string) []string {
 	return includes
 }
 
-func summariseColumn(column trace.RawFrColumn, summarisers []ColumnSummariser) []termio.FormattedText {
+func summariseColumn(column trace.BigEndianColumn, summarisers []ColumnSummariser) []termio.FormattedText {
 	m := 1 + uint(len(summarisers))
 	//
 	row := make([]termio.FormattedText, m)
@@ -369,7 +370,7 @@ func summariseColumn(column trace.RawFrColumn, summarisers []ColumnSummariser) [
 	return row
 }
 
-func summaryStats(tr []trace.RawFrColumn) {
+func summaryStats(tr []trace.BigEndianColumn) {
 	m := uint(len(trSummarisers))
 	tbl := termio.NewTablePrinter(2, m)
 	// Go!
@@ -383,9 +384,9 @@ func summaryStats(tr []trace.RawFrColumn) {
 	tbl.Print(true)
 }
 
-func organiseTracesByModule(columns []trace.RawFrColumn) (map[string][]trace.RawFrColumn, []string) {
+func organiseTracesByModule(columns []trace.BigEndianColumn) (map[string][]trace.BigEndianColumn, []string) {
 	keys := set.NewSortedSet[string]()
-	mapping := make(map[string][]trace.RawFrColumn)
+	mapping := make(map[string][]trace.BigEndianColumn)
 	//
 	for _, col := range columns {
 		mod := col.Module
@@ -408,7 +409,7 @@ func organiseTracesByModule(columns []trace.RawFrColumn) (map[string][]trace.Raw
 type ModuleSummariser struct {
 	name        string
 	description string
-	summary     func([]trace.RawFrColumn) string
+	summary     func([]trace.BigEndianColumn) string
 }
 
 var moduleSumarisers = []ModuleSummariser{
@@ -420,7 +421,7 @@ var moduleSumarisers = []ModuleSummariser{
 	{"bytes", "total number of bytes traced for module", moduleBytesSummariser},
 }
 
-func moduleCountSummariser(columns []trace.RawFrColumn) string {
+func moduleCountSummariser(columns []trace.BigEndianColumn) string {
 	count := 0
 
 	for _, col := range columns {
@@ -430,11 +431,11 @@ func moduleCountSummariser(columns []trace.RawFrColumn) string {
 	return fmt.Sprintf("%d", count)
 }
 
-func moduleColumnSummariser(columns []trace.RawFrColumn) string {
+func moduleColumnSummariser(columns []trace.BigEndianColumn) string {
 	return fmt.Sprintf("%d", len(columns))
 }
 
-func moduleLineSummariser(columns []trace.RawFrColumn) string {
+func moduleLineSummariser(columns []trace.BigEndianColumn) string {
 	var lines uint
 
 	if len(columns) == 0 {
@@ -452,7 +453,7 @@ func moduleLineSummariser(columns []trace.RawFrColumn) string {
 	return fmt.Sprintf("%d", lines)
 }
 
-func moduleBitwidthSummariser(columns []trace.RawFrColumn) string {
+func moduleBitwidthSummariser(columns []trace.BigEndianColumn) string {
 	total := uint(0)
 	//
 	for _, c := range columns {
@@ -462,7 +463,7 @@ func moduleBitwidthSummariser(columns []trace.RawFrColumn) string {
 	return fmt.Sprintf("%d", total)
 }
 
-func moduleBytesSummariser(columns []trace.RawFrColumn) string {
+func moduleBytesSummariser(columns []trace.BigEndianColumn) string {
 	total := uint(0)
 	//
 	for _, c := range columns {
@@ -479,7 +480,7 @@ func moduleBytesSummariser(columns []trace.RawFrColumn) string {
 	return fmt.Sprintf("%d", total)
 }
 
-func moduleNonZeroCounter(columns []trace.RawFrColumn) string {
+func moduleNonZeroCounter(columns []trace.BigEndianColumn) string {
 	count := uint(0)
 
 	for _, col := range columns {
@@ -489,7 +490,7 @@ func moduleNonZeroCounter(columns []trace.RawFrColumn) string {
 	return fmt.Sprintf("%d", count)
 }
 
-func bitwidth(arr field.FrArray) uint {
+func bitwidth[T any](arr array.Array[T]) uint {
 	if arr.BitWidth() == math.MaxUint {
 		return uint(fr.Modulus().BitLen())
 	}
@@ -506,7 +507,7 @@ func bitwidth(arr field.FrArray) uint {
 type ColumnSummariser struct {
 	name        string
 	description string
-	summary     func(trace.RawFrColumn) string
+	summary     func(trace.BigEndianColumn) string
 }
 
 var columnSummarisers = []ColumnSummariser{
@@ -529,15 +530,15 @@ func summariserOptions() string {
 	return summarisers
 }
 
-func columnCountSummariser(col trace.RawFrColumn) string {
+func columnCountSummariser(col trace.BigEndianColumn) string {
 	return fmt.Sprintf("%d", col.Data.Len())
 }
 
-func columnBitwidthSummariser(col trace.RawFrColumn) string {
+func columnBitwidthSummariser(col trace.BigEndianColumn) string {
 	return fmt.Sprintf("%d", bitwidth(col.Data))
 }
 
-func columnBytesSummariser(col trace.RawFrColumn) string {
+func columnBytesSummariser(col trace.BigEndianColumn) string {
 	bitwidth := bitwidth(col.Data)
 	byteWidth := bitwidth / 8
 	// Determine proper bytewidth
@@ -548,31 +549,31 @@ func columnBytesSummariser(col trace.RawFrColumn) string {
 	return fmt.Sprintf("%d", col.Data.Len()*byteWidth)
 }
 
-func uniqueElementsSummariser(col trace.RawFrColumn) string {
+func uniqueElementsSummariser(col trace.BigEndianColumn) string {
 	data := col.Data
 	elems := hash.NewSet[hash.BytesKey](data.Len() / 2)
 	// Add all the elements
 	for i := uint(0); i < data.Len(); i++ {
-		bytes := field.FrElementToBytes(data.Get(i))
-		elems.Insert(hash.NewBytesKey(bytes[:]))
+		bytes := data.Get(i).Bytes()
+		elems.Insert(hash.NewBytesKey(bytes))
 	}
 	// Done
 	return fmt.Sprintf("%d", elems.Size())
 }
 
-func entropySummariser(col trace.RawFrColumn) string {
+func entropySummariser(col trace.BigEndianColumn) string {
 	data := col.Data
 	entropy := 0.0
 	//
 	if data.Len() > 0 {
 		var (
-			last  fr.Element = data.Get(0)
-			count            = 1
+			last  bytes.BigEndian = data.Get(0)
+			count                 = 1
 		)
 		// Count all rows whose value differs from previous row.
 		for i := uint(1); i < data.Len(); i++ {
 			ith := data.Get(i)
-			if last.Cmp(&ith) != 0 {
+			if last.Cmp(ith) != 0 {
 				count++
 			}
 			//
@@ -585,22 +586,21 @@ func entropySummariser(col trace.RawFrColumn) string {
 	return fmt.Sprintf("%2.1f%%", entropy)
 }
 
-func nonZeroCounter(col trace.RawFrColumn) string {
+func nonZeroCounter(col trace.BigEndianColumn) string {
 	return fmt.Sprintf("%d", nonZeroCount(col))
 }
 
-func nonZeroCount(col trace.RawFrColumn) uint {
+func nonZeroCount(col trace.BigEndianColumn) uint {
 	var (
 		count = uint(0)
-		zero  = fr.NewElement(0)
 		data  = col.Data
 	)
 	//
 	if data.Len() > 0 {
 		// Count all rows which have same value as previous row.
 		for i := uint(1); i < data.Len(); i++ {
-			ith := data.Get(i)
-			if ith.Cmp(&zero) != 0 {
+			ith := data.Get(i).AsBigInt()
+			if ith.Sign() != 0 {
 				count++
 			}
 		}
@@ -615,7 +615,7 @@ func nonZeroCount(col trace.RawFrColumn) uint {
 
 type traceSummariser struct {
 	name    string
-	summary func([]trace.RawFrColumn) string
+	summary func([]trace.BigEndianColumn) string
 }
 
 var trSummarisers []traceSummariser = []traceSummariser{
@@ -628,7 +628,7 @@ var trSummarisers []traceSummariser = []traceSummariser{
 	trWidthSummariser(129, 256),
 }
 
-func trRawCellCount(cols []trace.RawFrColumn) uint {
+func trRawCellCount(cols []trace.BigEndianColumn) uint {
 	total := uint(0)
 	//
 	for _, col := range cols {
@@ -638,7 +638,7 @@ func trRawCellCount(cols []trace.RawFrColumn) uint {
 	return total
 }
 
-func trRawCellCountSummariser(cols []trace.RawFrColumn) string {
+func trRawCellCountSummariser(cols []trace.BigEndianColumn) string {
 	total := trRawCellCount(cols)
 	return fmt.Sprintf("%d", total)
 }
@@ -647,7 +647,7 @@ const one_K = 1000
 const one_M = one_K * one_K
 const one_G = one_M * one_M
 
-func trCellCountSummariser(cols []trace.RawFrColumn) string {
+func trCellCountSummariser(cols []trace.BigEndianColumn) string {
 	total := trRawCellCount(cols)
 	//
 	switch {
@@ -668,7 +668,7 @@ func trCellCountSummariser(cols []trace.RawFrColumn) string {
 func trWidthSummariser(lowWidth uint, highWidth uint) traceSummariser {
 	return traceSummariser{
 		name: fmt.Sprintf("Columns (%d..%d bits)", lowWidth, highWidth),
-		summary: func(tr []trace.RawFrColumn) string {
+		summary: func(tr []trace.BigEndianColumn) string {
 			count := 0
 			for i := 0; i < len(tr); i++ {
 				ithWidth := bitwidth(tr[i].Data)

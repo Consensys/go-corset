@@ -17,18 +17,20 @@ import (
 	"encoding/binary"
 	"strings"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
-	"github.com/consensys/go-corset/pkg/util/field"
+	util_bytes "github.com/consensys/go-corset/pkg/util/collection/bytes"
 )
+
+// BigEndianByteArray is a convenient alias
+type BigEndianByteArray = array.Array[util_bytes.BigEndian]
 
 // FromBytesLegacy parses a byte array representing a given (legacy) LT trace
 // file into an columns, or produces an error if the original file was malformed
 // in some way.   The input represents the original legacy format of trace files
 // (i.e. without any additional header information prepended, etc).
-func FromBytesLegacy(data []byte) ([]trace.RawFrColumn, error) {
+func FromBytesLegacy(data []byte) ([]trace.BigEndianColumn, error) {
 	// Construct new bytes.Reader
 	buf := bytes.NewReader(data)
 	// Read Number of BytesColumns
@@ -38,7 +40,7 @@ func FromBytesLegacy(data []byte) ([]trace.RawFrColumn, error) {
 	}
 	// Construct empty environment
 	headers := make([]columnHeader, ncols)
-	columns := make([]trace.RawFrColumn, ncols)
+	columns := make([]trace.BigEndianColumn, ncols)
 	// Read column headers
 	for i := uint32(0); i < ncols; i++ {
 		header, err := readColumnHeader(buf)
@@ -52,7 +54,7 @@ func FromBytesLegacy(data []byte) ([]trace.RawFrColumn, error) {
 	}
 	// Determine byte slices
 	offset := uint(len(data) - buf.Len())
-	c := make(chan util.Pair[uint, array.Array[fr.Element]], ncols)
+	c := make(chan util.Pair[uint, BigEndianByteArray], ncols)
 	// Dispatch go-routines
 	for i := uint(0); i < uint(ncols); i++ {
 		ith := headers[i]
@@ -75,7 +77,7 @@ func FromBytesLegacy(data []byte) ([]trace.RawFrColumn, error) {
 		// Split qualified column name
 		mod, col := splitQualifiedColumnName(headers[res.Left].name)
 		// Construct appropriate slice
-		columns[res.Left] = trace.RawFrColumn{Module: mod, Name: col, Data: res.Right}
+		columns[res.Left] = trace.BigEndianColumn{Module: mod, Name: col, Data: res.Right}
 	}
 	// Done
 	return columns, nil
@@ -121,9 +123,9 @@ func readColumnHeader(buf *bytes.Reader) (columnHeader, error) {
 	return header, nil
 }
 
-func readColumnData(header columnHeader, bytes []byte) field.FrArray {
+func readColumnData(header columnHeader, bytes []byte) BigEndianByteArray {
 	// Construct array
-	data := field.NewFrArray(header.length, header.width*8)
+	data := array.NewArray[util_bytes.BigEndian](header.length, header.width*8)
 	// Handle special cases
 	switch header.width {
 	case 1:
@@ -139,22 +141,21 @@ func readColumnData(header columnHeader, bytes []byte) field.FrArray {
 	return readArbitraryColumnData(data, header, bytes)
 }
 
-func readByteColumnData(data array.Array[fr.Element], header columnHeader, bytes []byte) field.FrArray {
+func readByteColumnData(data BigEndianByteArray, header columnHeader, bytes []byte) BigEndianByteArray {
 	for i := uint(0); i < header.length; i++ {
 		// Construct ith field element
-		data.Set(i, fr.NewElement(uint64(bytes[i])))
+		data.Set(i, util_bytes.NewBigEndian(bytes[i:i+1]))
 	}
 	// Done
 	return data
 }
 
-func readWordColumnData(data array.Array[fr.Element], header columnHeader, bytes []byte) field.FrArray {
+func readWordColumnData(data BigEndianByteArray, header columnHeader, bytes []byte) BigEndianByteArray {
 	offset := uint(0)
 	// Assign elements
 	for i := uint(0); i < header.length; i++ {
-		ith := binary.BigEndian.Uint16(bytes[offset : offset+2])
-		// Construct ith field element
-		data.Set(i, fr.NewElement(uint64(ith)))
+		// Construct ith element
+		data.Set(i, util_bytes.NewBigEndian(bytes[offset:offset+2]))
 		// Move offset to next element
 		offset += 2
 	}
@@ -162,13 +163,12 @@ func readWordColumnData(data array.Array[fr.Element], header columnHeader, bytes
 	return data
 }
 
-func readDWordColumnData(data array.Array[fr.Element], header columnHeader, bytes []byte) field.FrArray {
+func readDWordColumnData(data BigEndianByteArray, header columnHeader, bytes []byte) BigEndianByteArray {
 	offset := uint(0)
 	// Assign elements
 	for i := uint(0); i < header.length; i++ {
-		ith := binary.BigEndian.Uint32(bytes[offset : offset+4])
-		// Construct ith field element
-		data.Set(i, fr.NewElement(uint64(ith)))
+		// Construct ith element
+		data.Set(i, util_bytes.NewBigEndian(bytes[offset:offset+4]))
 		// Move offset to next element
 		offset += 4
 	}
@@ -176,13 +176,12 @@ func readDWordColumnData(data array.Array[fr.Element], header columnHeader, byte
 	return data
 }
 
-func readQWordColumnData(data array.Array[fr.Element], header columnHeader, bytes []byte) field.FrArray {
+func readQWordColumnData(data BigEndianByteArray, header columnHeader, bytes []byte) BigEndianByteArray {
 	offset := uint(0)
 	// Assign elements
 	for i := uint(0); i < header.length; i++ {
-		ith := binary.BigEndian.Uint64(bytes[offset : offset+8])
-		// Construct ith field element
-		data.Set(i, fr.NewElement(ith))
+		// Construct ith element
+		data.Set(i, util_bytes.NewBigEndian(bytes[offset:offset+8]))
 		// Move offset to next element
 		offset += 8
 	}
@@ -191,17 +190,14 @@ func readQWordColumnData(data array.Array[fr.Element], header columnHeader, byte
 }
 
 // Read column data which is has arbitrary width
-func readArbitraryColumnData(data array.Array[fr.Element], header columnHeader, bytes []byte) field.FrArray {
+func readArbitraryColumnData(data BigEndianByteArray, header columnHeader, bytes []byte) BigEndianByteArray {
 	offset := uint(0)
 	// Assign elements
 	for i := uint(0); i < header.length; i++ {
-		var ith fr.Element
 		// Calculate position of next element
 		next := offset + header.width
-		// Initialise element
-		ith.SetBytes(bytes[offset:next])
-		// Construct ith field element
-		data.Set(i, ith)
+		// Construct ith element
+		data.Set(i, util_bytes.NewBigEndian(bytes[offset:next]))
 		// Move offset to next element
 		offset = next
 	}

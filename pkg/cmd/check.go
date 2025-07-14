@@ -29,6 +29,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/bytes"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -140,7 +141,7 @@ type checkConfig struct {
 // Check raw constraints using the legacy pipeline.
 func checkWithLegacyPipeline(cfg checkConfig, batched bool, tracefile string, schemas cmd_util.SchemaStack) {
 	var (
-		traces [][]trace.RawFrColumn
+		traces [][]trace.BigEndianColumn
 		ok     bool = true
 	)
 	//
@@ -156,7 +157,7 @@ func checkWithLegacyPipeline(cfg checkConfig, batched bool, tracefile string, sc
 	} else {
 		// unbatched (i.e. normal) mode
 		tracefile := ReadTraceFile(tracefile)
-		traces = [][]trace.RawFrColumn{tracefile.Columns}
+		traces = [][]trace.BigEndianColumn{tracefile.Columns}
 	}
 	//
 	stats.Log("Reading trace file")
@@ -171,7 +172,7 @@ func checkWithLegacyPipeline(cfg checkConfig, batched bool, tracefile string, sc
 	}
 }
 
-func checkTrace(ir string, traces [][]tr.RawFrColumn, schema sc.AnySchema,
+func checkTrace(ir string, traces [][]tr.RawColumn[bytes.BigEndian], schema sc.AnySchema,
 	builder ir.TraceBuilder, cfg checkConfig) bool {
 	//
 	for _, cols := range traces {

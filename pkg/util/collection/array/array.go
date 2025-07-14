@@ -42,6 +42,11 @@ type Array[T any] interface {
 	Pad(uint, uint, T) Array[T]
 }
 
+// NewArray creates a new FrArray dynamically based on the given width.
+func NewArray[T any](height uint, bitWidth uint) Array[T] {
+	return NewRawArray[T](height, bitWidth)
+}
+
 // ----------------------------------------------------------------------------
 
 // Raw implements an array of elements simply using an underlying array.
@@ -52,8 +57,8 @@ type Raw[T any] struct {
 	bitwidth uint
 }
 
-// NewElementArray constructs a new field array with a given capacity.
-func NewElementArray[T any](height uint, bitwidth uint) *Raw[T] {
+// NewRawArray constructs a new field array with a given capacity.
+func NewRawArray[T any](height uint, bitwidth uint) *Raw[T] {
 	elements := make([]T, height)
 	return &Raw[T]{elements, bitwidth}
 }

@@ -107,7 +107,7 @@ func GetIntArray(cmd *cobra.Command, flag string) []int {
 	return r
 }
 
-func writeBatchedTracesFile(filename string, traces ...[]trace.RawFrColumn) {
+func writeBatchedTracesFile(filename string, traces ...[]trace.BigEndianColumn) {
 	var buf bytes.Buffer
 	// Check file extension
 	if len(traces) == 1 {
@@ -163,9 +163,9 @@ func writeTraceFile(filename string, tracefile *lt.TraceFile) {
 // into an array of raw columns.  The determination of what kind of trace file
 // (i.e. binary or json) is based on the extension.
 func ReadTraceFile(filename string) *lt.TraceFile {
-	var columns []trace.RawFrColumn
+	var columns []trace.BigEndianColumn
 	// Read data file
-	bytes, err := os.ReadFile(filename)
+	data, err := os.ReadFile(filename)
 	// Check success
 	if err == nil {
 		// Check file extension
@@ -173,15 +173,15 @@ func ReadTraceFile(filename string) *lt.TraceFile {
 		//
 		switch ext {
 		case ".json":
-			columns, err = json.FromBytes(bytes)
+			columns, err = json.FromBytes(data)
 			if err == nil {
 				return lt.NewTraceFile(nil, columns)
 			}
 		case ".lt":
 			// Check for legacy format
-			if !lt.IsTraceFile(bytes) {
+			if !lt.IsTraceFile(data) {
 				// legacy format
-				columns, err = lt.FromBytesLegacy(bytes)
+				columns, err = lt.FromBytesLegacy(data)
 				if err == nil {
 					return lt.NewTraceFile(nil, columns)
 				}
@@ -189,7 +189,7 @@ func ReadTraceFile(filename string) *lt.TraceFile {
 				// versioned format
 				var tracefile lt.TraceFile
 				//
-				if err = tracefile.UnmarshalBinary(bytes); err == nil {
+				if err = tracefile.UnmarshalBinary(data); err == nil {
 					return &tracefile
 				}
 			}
@@ -207,9 +207,9 @@ func ReadTraceFile(filename string) *lt.TraceFile {
 
 // ReadBatchedTraceFile reads a file containing zero or more traces expressed as
 // JSON, where each trace is on a separate line.
-func ReadBatchedTraceFile(filename string) [][]trace.RawFrColumn {
+func ReadBatchedTraceFile(filename string) [][]trace.BigEndianColumn {
 	lines := util.ReadInputFile(filename)
-	traces := make([][]trace.RawFrColumn, 0)
+	traces := make([][]trace.BigEndianColumn, 0)
 	// Read constraints line by line
 	for i, line := range lines {
 		// Parse input line as JSON
@@ -248,7 +248,7 @@ func WriteBinaryFile(binfile *binfile.BinaryFile, filename string) {
 	}
 }
 
-func maxHeightColumns(cols []trace.RawFrColumn) uint {
+func maxHeightColumns[T any](cols []trace.RawColumn[T]) uint {
 	h := uint(0)
 	// Iterate over modules
 	for _, col := range cols {

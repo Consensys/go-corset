@@ -16,7 +16,31 @@ import (
 	"encoding/binary"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
+	"github.com/consensys/go-corset/pkg/util/collection/bytes"
 )
+
+// ToBigEndianByteArray converts an array of field elements into an array of
+// byte chunks in big endian form.
+func ToBigEndianByteArray(arr FrArray) bytes.BigEndianArray {
+	var barr = array.NewArray[bytes.BigEndian](arr.Len(), arr.BitWidth())
+	//
+	for i := range arr.Len() {
+		var (
+			ith       = arr.Get(i)
+			ith_bytes = ith.Bytes()
+			trimmed   = ith_bytes[:]
+		)
+		// Since ith_bytes is [32]byte, its useful to trim the bytes here.
+		for len(trimmed) > 0 && trimmed[0] == 0 {
+			trimmed = trimmed[1:]
+		}
+		//
+		barr.Set(i, bytes.NewBigEndian(trimmed))
+	}
+	//
+	return barr
+}
 
 // Pow takes a given value to the power n.
 func Pow(val *fr.Element, n uint64) {

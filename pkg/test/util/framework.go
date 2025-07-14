@@ -68,22 +68,17 @@ func checkWithField(t *testing.T, stdlib bool, test string, field agnostic.Field
 	var (
 		filenames = matchSourceFiles(test)
 		// Configure the stack
-		stack, mapping = getSchemaStack(stdlib, field, filenames...)
+		stack = getSchemaStack(stdlib, field, filenames...)
 	)
 	// Record how many tests executed.
 	nTests := 0
 	// Iterate possible testfile extensions
 	for _, cfg := range TESTFILE_EXTENSIONS {
-		var traces [][]trace.RawFrColumn
+		var traces [][]trace.BigEndianColumn
 		// Construct test filename
 		testFilename := fmt.Sprintf("%s/%s.%s", TestDir, test, cfg.extension)
 		// Read traces from file
 		traces = ReadTracesFile(testFilename)
-		// Split traces (if not already expanded)
-		if cfg.expand {
-			// Split traces according to field
-			SplitTraces(traces, mapping)
-		}
 		// Run tests
 		binCheckTraces(t, testFilename, cfg, traces, stack)
 		// Record how many tests we found
@@ -96,7 +91,7 @@ func checkWithField(t *testing.T, stdlib bool, test string, field agnostic.Field
 }
 
 func binCheckTraces(t *testing.T, test string, cfg Config,
-	traces [][]trace.RawFrColumn, stack cmd_util.SchemaStack) {
+	traces [][]trace.BigEndianColumn, stack cmd_util.SchemaStack) {
 	// Run checks using schema compiled from source
 	for _, opt := range cfg.optlevels {
 		// Set optimisation level
@@ -122,8 +117,8 @@ func binCheckTraces(t *testing.T, test string, cfg Config,
 
 // Check a given set of tests have an expected outcome (i.e. are
 // either accepted or rejected) by a given set of constraints.
-func checkTraces(t *testing.T, test string, maxPadding uint, opt uint, cfg Config, traces [][]trace.RawFrColumn,
-	stack cmd_util.SchemaStack) {
+func checkTraces(t *testing.T, test string, maxPadding uint, opt uint, cfg Config,
+	traces [][]trace.BigEndianColumn, stack cmd_util.SchemaStack) {
 	// For unexpected traces, we never want to explore padding (because that's
 	// the whole point of unexpanded traces --- they are raw).
 	if !cfg.expand {
@@ -141,7 +136,7 @@ func checkTraces(t *testing.T, test string, maxPadding uint, opt uint, cfg Confi
 					if cfg.expand || ir == "AIR" {
 						// Always check if expansion required, otherwise
 						// only check AIR constraints.
-						checkTrace(t, tr, id, stack.SchemaOf(ir))
+						checkTrace(t, tr, id, stack.SchemaOf(ir), stack.RegisterMapping())
 					}
 				}
 			}
@@ -149,13 +144,16 @@ func checkTraces(t *testing.T, test string, maxPadding uint, opt uint, cfg Confi
 	}
 }
 
-func checkTrace[C sc.Constraint](t *testing.T, inputs []trace.RawFrColumn, id traceId, schema sc.Schema[C]) {
+func checkTrace[C sc.Constraint](t *testing.T, inputs []trace.BigEndianColumn, id traceId,
+	schema sc.Schema[C], mapping sc.RegisterMappings) {
+	//
 	// Construct the trace
 	tr, errs := ir.NewTraceBuilder().
 		WithExpansion(id.expand).
 		WithValidation(id.validate).
 		WithPadding(id.padding).
 		WithParallelism(true).
+		WithRegisterMapping(mapping).
 		Build(sc.Any(schema), inputs)
 	// Sanity check construction
 	if len(errs) > 0 {
@@ -251,19 +249,11 @@ type traceId struct {
 	padding uint
 }
 
-// SplitTraces splits a given set of traces according to a given field
-// configuration.
-func SplitTraces(traces [][]trace.RawFrColumn, mappings sc.RegisterMappings) {
-	for i := range traces {
-		traces[i] = agnostic.SplitRawColumns(traces[i], mappings)
-	}
-}
-
 // ReadTracesFile reads a file containing zero or more traces expressed as JSON, where
 // each trace is on a separate line.
-func ReadTracesFile(filename string) [][]trace.RawFrColumn {
+func ReadTracesFile(filename string) [][]trace.BigEndianColumn {
 	lines := util.ReadInputFile(filename)
-	traces := make([][]trace.RawFrColumn, len(lines))
+	traces := make([][]trace.BigEndianColumn, len(lines))
 	// Read constraints line by line
 	for i, line := range lines {
 		// Parse input line as JSON
@@ -303,8 +293,7 @@ func encodeDecodeSchema(t *testing.T, binf binfile.BinaryFile) *binfile.BinaryFi
 	return &nbinf
 }
 
-func getSchemaStack(stdlib bool, field agnostic.FieldConfig, filenames ...string) (cmd_util.SchemaStack,
-	sc.RegisterMappings) {
+func getSchemaStack(stdlib bool, field agnostic.FieldConfig, filenames ...string) cmd_util.SchemaStack {
 	//
 	var (
 		stack        cmd_util.SchemaStack
@@ -327,7 +316,7 @@ func getSchemaStack(stdlib bool, field agnostic.FieldConfig, filenames ...string
 		WithLayer(cmd_util.MIR_LAYER).
 		WithLayer(cmd_util.AIR_LAYER)
 	// Read in all specified constraint files.
-	mapping := stack.Read(filenames...)
+	stack.Read(filenames...)
 	//
-	return stack, mapping
+	return stack
 }

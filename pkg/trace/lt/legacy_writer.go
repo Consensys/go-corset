@@ -19,13 +19,14 @@ import (
 	"log"
 
 	"github.com/consensys/go-corset/pkg/trace"
-	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
+	util_bytes "github.com/consensys/go-corset/pkg/util/collection/bytes"
 )
 
 // ToBytesLegacy writes a given trace file as an array of (legacy) bytes.  The
 // output represents the legacy format if the bytes are used "as is" without any
 // additional header information being preprended.
-func ToBytesLegacy(columns []trace.RawFrColumn) ([]byte, error) {
+func ToBytesLegacy(columns []trace.BigEndianColumn) ([]byte, error) {
 	buf, err := ToBytesBuffer(columns)
 	if err != nil {
 		return nil, err
@@ -35,7 +36,7 @@ func ToBytesLegacy(columns []trace.RawFrColumn) ([]byte, error) {
 }
 
 // ToBytesBuffer writes a given trace file into a byte buffer.
-func ToBytesBuffer(columns []trace.RawFrColumn) (*bytes.Buffer, error) {
+func ToBytesBuffer(columns []trace.BigEndianColumn) (*bytes.Buffer, error) {
 	var buf bytes.Buffer
 	if err := WriteBytes(columns, &buf); err != nil {
 		return nil, err
@@ -45,7 +46,7 @@ func ToBytesBuffer(columns []trace.RawFrColumn) (*bytes.Buffer, error) {
 }
 
 // WriteBytes a given trace file to an io.Writer.
-func WriteBytes(columns []trace.RawFrColumn, buf io.Writer) error {
+func WriteBytes(columns []trace.BigEndianColumn, buf io.Writer) error {
 	ncols := len(columns)
 	// Write column count
 	if err := binary.Write(buf, binary.BigEndian, uint32(ncols)); err != nil {
@@ -93,7 +94,7 @@ func WriteBytes(columns []trace.RawFrColumn, buf io.Writer) error {
 	return nil
 }
 
-func writeArrayBytes(w io.Writer, data field.FrArray) error {
+func writeArrayBytes(w io.Writer, data array.Array[util_bytes.BigEndian]) error {
 	for i := range data.Len() {
 		ith := data.Get(i)
 		// Read exactly 32 bytes

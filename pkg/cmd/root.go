@@ -160,8 +160,7 @@ func getSchemaStack(cmd *cobra.Command, mode uint, filenames ...string) *cmd_uti
 	}
 	// Read / compile given source files.
 	if mode != SCHEMA_OPTIONAL || len(filenames) > 0 {
-		mapping := schemaStack.Read(filenames...)
-		builder = builder.WithRegisterMapping(mapping)
+		schemaStack.Read(filenames...)
 	} else {
 		// In this situation, we cannot perform trace expansion.
 		builder = builder.WithExpansion(false)

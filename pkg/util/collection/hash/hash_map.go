@@ -15,6 +15,9 @@ package hash
 import (
 	"fmt"
 	"strings"
+
+	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/iter"
 )
 
 // Map defines a generic set implementation backed by a map.  This is a true
@@ -53,6 +56,12 @@ func (p *Map[K, V]) MaxBucket() uint {
 	}
 
 	return m
+}
+
+// KeyValues returns the set of all key-value pairs stored in this hash map.
+// Observe that the order in which elements are seen is unspecified.
+func (p *Map[K, V]) KeyValues() iter.Iterator[util.Pair[K, V]] {
+	panic("todo")
 }
 
 // Insert a new item into this map, returning true if it was already contained
