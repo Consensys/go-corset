@@ -12,10 +12,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package bit
 
-import "fmt"
-
 func bitCopy(src []byte, srcOffset uint, dst []byte, dstOffset uint, nbits uint) {
-	fmt.Printf("BIT COPY: %d => %d (%d bits)\n", srcOffset, dstOffset, nbits)
 	// TODO: this could be significantly optimised.
 	for i := range nbits {
 		ith := readBit(src, srcOffset+i)

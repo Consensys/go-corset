@@ -19,6 +19,27 @@ import (
 	"slices"
 )
 
+// FrontPad pads an array upto a given length n with a given item.
+func FrontPad[T any](slice []T, n uint, item T) []T {
+	//
+	if uint(len(slice)) < n {
+		var (
+			nslice = make([]T, n)
+			delta  = n - uint(len(slice))
+		)
+		//
+		copy(nslice[delta:], slice)
+		// Pad out remainder
+		for i := uint(0); i < delta; i++ {
+			nslice[i] = item
+		}
+		//
+		slice = nslice
+	}
+	//
+	return slice
+}
+
 // Prepend creates a new slice containing the result of prepending the given
 // item onto the end of the given slice.  Observe that, unlike the built-in
 // append() function, this will never modify the given slice.

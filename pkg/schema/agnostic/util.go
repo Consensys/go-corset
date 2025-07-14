@@ -13,11 +13,10 @@
 package agnostic
 
 import (
-	"fmt"
-
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/bytes"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -135,16 +134,18 @@ func SplitRawColumn(column trace.RawColumn[bytes.BigEndian], mapping sc.Register
 func splitFieldElement(val bytes.BigEndian, widths []uint) []fr.Element {
 	var (
 		bitwidth = sum(widths...)
-		bytes    = val.Bytes()
+		// Determine bytewidth
+		bytewidth = byteWidth(bitwidth)
+		// Extract bytes whilst ensure they match given width
+		bytes = array.FrontPad(val.Bytes(), bytewidth, 0)
+		//
 		bits     = bit.NewMostSignificantReader(bytes[:])
 		buf      [32]byte
 		elements = make([]fr.Element, len(widths))
 	)
-	// Sanity check (for now)
-	if val.BitWidth() != bitwidth {
-		panic(fmt.Sprintf("Have %d bits, but expected %d.", val.BitWidth(), bitwidth))
-	}
-	//
+	// discard any leading bits
+	_ = bits.ReadInto(bytewidth*8-bitwidth, buf[:])
+	// read actual bits
 	for i, w := range widths {
 		var ith fr.Element
 		// Read bits
@@ -165,4 +166,14 @@ func sum(vals ...uint) uint {
 	}
 	//
 	return val
+}
+
+func byteWidth(bitwidth uint) uint {
+	bytewidth := bitwidth / 8
+	//
+	if bitwidth%8 != 0 {
+		bytewidth++
+	}
+	//
+	return bytewidth
 }

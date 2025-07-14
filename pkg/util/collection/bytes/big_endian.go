@@ -75,5 +75,9 @@ func (p BigEndian) Bytes() []byte {
 }
 
 func (p BigEndian) String() string {
+	if len(p.bytes) == 0 {
+		return "0"
+	}
+	//
 	return hex.EncodeToString(p.bytes)
 }

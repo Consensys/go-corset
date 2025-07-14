@@ -177,6 +177,7 @@ func checkTrace(ir string, traces [][]tr.RawColumn[bytes.BigEndian], schema sc.A
 	//
 	for _, cols := range traces {
 		for n := cfg.padding.Left; n <= cfg.padding.Right; n++ {
+			//
 			stats := util.NewPerfStats()
 			trace, errs := builder.WithPadding(n).Build(schema, cols)
 			// Log cost of expansion
