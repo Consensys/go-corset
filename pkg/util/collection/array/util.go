@@ -20,6 +20,7 @@ import (
 )
 
 // FrontPad pads an array upto a given length n with a given item.
+// Specifically, new items are inserted at the front of the array.
 func FrontPad[T any](slice []T, n uint, item T) []T {
 	//
 	if uint(len(slice)) < n {

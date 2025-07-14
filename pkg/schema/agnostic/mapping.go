@@ -22,12 +22,12 @@ import (
 // bandwidth and maximum register width requirements.  See discussion of
 // FieldAgnosticModule for more on this process.
 func Subdivide[M1 sc.FieldAgnosticModule[M1], M2 sc.FieldAgnosticModule[M2]](
-	maxFieldWidth, maxRegWidth uint, schema sc.MixedSchema[M1, M2]) (sc.MixedSchema[M1, M2], sc.RegisterMappings) {
+	field sc.FieldConfig, schema sc.MixedSchema[M1, M2]) (sc.MixedSchema[M1, M2], sc.RegisterMappings) {
 	//
 	var (
 		left    []M1 = make([]M1, len(schema.LeftModules()))
 		right   []M2 = make([]M2, len(schema.RightModules()))
-		mapping      = newRegisterMappings(maxFieldWidth, maxRegWidth, schema)
+		mapping      = newRegisterMappings(field, schema)
 	)
 	// Subdivide the left
 	for i, m := range schema.LeftModules() {
@@ -48,32 +48,27 @@ func Subdivide[M1 sc.FieldAgnosticModule[M1], M2 sc.FieldAgnosticModule[M2]](
 // RegisterMappings provides a straightforward implementation of the
 // schema.RegisterMappings interface.
 type registerMappings struct {
-	bandwidth uint
-	modules   []registerMapping
+	field   sc.FieldConfig
+	modules []registerMapping
 }
 
 // newRegisterMappings constructs a new schema mapping for a given schema and
 // parameter combination.  This determines, amongst other things,  the
 // composition of limbs for all registers in the schema.
-func newRegisterMappings(maxFieldWidth, maxRegWidth uint, schema sc.AnySchema) sc.RegisterMappings {
+func newRegisterMappings(field sc.FieldConfig, schema sc.AnySchema) sc.RegisterMappings {
 	var mappings []registerMapping
-	// Sanity checks
-	if maxFieldWidth < maxRegWidth {
-		panic(
-			fmt.Sprintf("field width (%dbits) smaller than register width (%dbits)", maxFieldWidth, maxRegWidth))
-	}
 	//
 	for i := range schema.Width() {
-		regmap := newRegisterMapping(maxFieldWidth, maxRegWidth, schema.Module(i))
+		regmap := newRegisterMapping(field, schema.Module(i))
 		mappings = append(mappings, regmap)
 	}
 	//
-	return registerMappings{maxFieldWidth, mappings}
+	return registerMappings{field, mappings}
 }
 
-// BandWidth implementation for schema.RegisterMappings interface
-func (p registerMappings) BandWidth() uint {
-	return p.bandwidth
+// Field implementation for schema.RegisterMappings interface
+func (p registerMappings) Field() sc.FieldConfig {
+	return p.field
 }
 
 // Module implementation for schema.RegisterMappings interface
@@ -105,8 +100,9 @@ func (p registerMappings) ModuleOf(name string) sc.RegisterMapping {
 // if the original register was computed, then the limbs should be also, etc.
 type registerMapping struct {
 	// Name of the module to which this mapping corresponds
-	name      string
-	bandwidth uint
+	name string
+	// Field configuration in play
+	field sc.FieldConfig
 	// Set of registers in the original schema (i.e. as they were before the
 	// split)
 	registers []sc.Register
@@ -118,7 +114,7 @@ type registerMapping struct {
 
 // newRegisterMapping constructs an appropriate register map for a given module
 // and parameter combination.
-func newRegisterMapping(maxFieldWidth, maxRegWidth uint, module sc.Module) registerMapping {
+func newRegisterMapping(field sc.FieldConfig, module sc.Module) registerMapping {
 	var (
 		regs    = module.Registers()
 		limbs   []sc.Register
@@ -127,7 +123,7 @@ func newRegisterMapping(maxFieldWidth, maxRegWidth uint, module sc.Module) regis
 	)
 	// Split up limbs
 	for i, r := range regs {
-		ls := SplitIntoLimbs(maxRegWidth, r)
+		ls := SplitIntoLimbs(field.RegisterWidth, r)
 		limbs = append(limbs, ls...)
 		// build mapping
 		m := make([]sc.RegisterId, len(ls))
@@ -142,16 +138,16 @@ func newRegisterMapping(maxFieldWidth, maxRegWidth uint, module sc.Module) regis
 	// Done
 	return registerMapping{
 		module.Name(),
-		maxFieldWidth,
+		field,
 		regs,
 		limbs,
 		mapping,
 	}
 }
 
-// BandWidth implementation for schema.RegisterMappings interface
-func (p registerMapping) BandWidth() uint {
-	return p.bandwidth
+// Field implementation for schema.RegisterMappings interface
+func (p registerMapping) Field() sc.FieldConfig {
+	return p.field
 }
 
 // Limbs implementation for the schema.RegisterMapping interface

@@ -24,8 +24,8 @@ import (
 	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/mir"
+	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/json"
 	"github.com/consensys/go-corset/pkg/util"
@@ -45,13 +45,13 @@ const MAX_PADDING uint = 7
 // set of constraints, and all traces that we expect to be rejected are
 // rejected.  A default field is used for these tests (BLS12_377)
 func Check(t *testing.T, stdlib bool, test string) {
-	CheckWithFields(t, stdlib, test, agnostic.BLS12_377)
+	CheckWithFields(t, stdlib, test, schema.BLS12_377)
 }
 
 // CheckWithFields checks that all traces which we expect to be accepted are
 // accepted by a given set of constraints, and all traces that we expect to be
 // rejected are rejected.  All fields provided are tested against.
-func CheckWithFields(t *testing.T, stdlib bool, test string, fields ...agnostic.FieldConfig) {
+func CheckWithFields(t *testing.T, stdlib bool, test string, fields ...schema.FieldConfig) {
 	// Sanity check
 	if len(fields) == 0 {
 		panic("no field configurations")
@@ -64,7 +64,7 @@ func CheckWithFields(t *testing.T, stdlib bool, test string, fields ...agnostic.
 	}
 }
 
-func checkWithField(t *testing.T, stdlib bool, test string, field agnostic.FieldConfig) {
+func checkWithField(t *testing.T, stdlib bool, test string, field schema.FieldConfig) {
 	var (
 		filenames = matchSourceFiles(test)
 		// Configure the stack
@@ -157,8 +157,8 @@ func checkTrace[C sc.Constraint](t *testing.T, inputs []trace.BigEndianColumn, i
 		Build(sc.Any(schema), inputs)
 	// Sanity check construction
 	if len(errs) > 0 {
-		t.Errorf("Trace expansion failed (%s [O%d], %s, line %d with padding %d): %s",
-			id.ir, id.optimisation, id.test, id.line, id.padding, errs)
+		t.Errorf("Trace expansion failed (%s [O%d, %s], %s, line %d with padding %d): %s",
+			id.ir, id.optimisation, mapping.Field().Name, id.test, id.line, id.padding, errs)
 	} else {
 		// Check Constraints
 		errs := sc.Accepts(true, 100, schema, tr)
@@ -167,12 +167,12 @@ func checkTrace[C sc.Constraint](t *testing.T, inputs []trace.BigEndianColumn, i
 		// Process what happened versus what was supposed to happen.
 		if !accepted && id.expected {
 			//table.PrintTrace(tr)
-			t.Errorf("Trace rejected incorrectly (%s [O%d], %s, line %d with padding %d): %s",
-				id.ir, id.optimisation, id.test, id.line, id.padding, errs)
+			t.Errorf("Trace rejected incorrectly (%s [O%d, %s], %s, line %d with padding %d): %s",
+				id.ir, id.optimisation, mapping.Field().Name, id.test, id.line, id.padding, errs)
 		} else if accepted && !id.expected {
 			//printTrace(tr)
-			t.Errorf("Trace accepted incorrectly (%s [O%d], %s, line %d with padding %d)",
-				id.ir, id.optimisation, id.test, id.line, id.padding)
+			t.Errorf("Trace accepted incorrectly (%s [O%d, %s], %s, line %d with padding %d)",
+				id.ir, id.optimisation, mapping.Field().Name, id.test, id.line, id.padding)
 		}
 	}
 }
@@ -293,7 +293,7 @@ func encodeDecodeSchema(t *testing.T, binf binfile.BinaryFile) *binfile.BinaryFi
 	return &nbinf
 }
 
-func getSchemaStack(stdlib bool, field agnostic.FieldConfig, filenames ...string) cmd_util.SchemaStack {
+func getSchemaStack(stdlib bool, field schema.FieldConfig, filenames ...string) cmd_util.SchemaStack {
 	//
 	var (
 		stack        cmd_util.SchemaStack
@@ -305,8 +305,7 @@ func getSchemaStack(stdlib bool, field agnostic.FieldConfig, filenames ...string
 	corsetConfig.Stdlib = stdlib
 	// Configure asm for lowering
 	asmConfig.Vectorize = true
-	asmConfig.MaxFieldWidth = field.FieldBandWidth
-	asmConfig.MaxRegisterWidth = field.RegisterWidth
+	asmConfig.Field = field
 	//
 	stack.
 		WithCorsetConfig(corsetConfig).

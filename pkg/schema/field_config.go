@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package agnostic
+package schema
 
 // GF_251 is teany tiny prime field used exclusively for testing.
 var GF_251 = FieldConfig{"GF_251", 7, 4}

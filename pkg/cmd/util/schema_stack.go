@@ -137,6 +137,11 @@ func (p *SchemaStack) BinaryFile() *binfile.BinaryFile {
 	return &p.binfile
 }
 
+// Field returns the field configuration used within this schema stack.
+func (p *SchemaStack) Field() schema.FieldConfig {
+	return p.asmConfig.Field
+}
+
 // HasUniqueSchema determines whether or not we have exactly one schema.
 func (p *SchemaStack) HasUniqueSchema() bool {
 	return len(p.schemas) == 1
@@ -217,7 +222,7 @@ func (p *SchemaStack) Apply(binfile binfile.BinaryFile) {
 	// Lower to mixed micro schema
 	uasmSchema = asm.LowerMixedMacroProgram(p.asmConfig.Vectorize, asmSchema)
 	// Apply register splitting for field agnosticity
-	uasmSchema, mapping := agnostic.Subdivide(p.asmConfig.MaxFieldWidth, p.asmConfig.MaxRegisterWidth, uasmSchema)
+	uasmSchema, mapping := agnostic.Subdivide(p.asmConfig.Field, uasmSchema)
 	// Record mapping
 	p.mapping = mapping
 	// Lower to MIR
