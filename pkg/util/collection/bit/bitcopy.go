@@ -12,11 +12,26 @@
 // SPDX-License-Identifier: Apache-2.0
 package bit
 
-func bitCopy(src []byte, srcOffset uint, dst []byte, dstOffset uint, nbits uint) {
-	// TODO: this could be significantly optimised.
+// Copy copies n bits starting a given bit offset from a given byte array
+// source into a given destination.
+func Copy(src []byte, offset uint, dst []byte, nbits uint) {
+	// Check for aligned read
+	if offset%8 == 0 {
+		var (
+			byteOffset = offset / 8
+			nBytes     = nbits / 8
+		)
+		// Copy bytes
+		copy(dst, src[byteOffset:byteOffset+nBytes])
+		// Calculate residue
+		nbits = nbits % 8
+		offset += nBytes * 8
+		dst = dst[nBytes:]
+	}
+	// Continue with any remaining
 	for i := range nbits {
-		ith := readBit(src, srcOffset+i)
-		writeBit(ith, dst, dstOffset+i)
+		ith := readBit(src, offset+i)
+		writeBit(ith, dst, i)
 	}
 }
 

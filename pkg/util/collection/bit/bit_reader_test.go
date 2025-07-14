@@ -64,7 +64,7 @@ func Test_LsReader_Unaligned_01(t *testing.T) {
 
 func checkLsReader(t *testing.T, offset uint, nbits uint, src []byte, expected []byte) {
 	var (
-		reader = NewLeastSignificantReader(src)
+		reader = NewReader(src)
 		buf    = make([]byte, len(src))
 	)
 	// Set junk in buf.  This is useful to check that the final byte is cleared

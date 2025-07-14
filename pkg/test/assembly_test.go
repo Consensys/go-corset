@@ -36,16 +36,22 @@ func Test_Asm_Counter(t *testing.T) {
 	test_util.CheckWithFields(t, false, "asm/counter", sc.BLS12_377, sc.GF_8209, sc.GF_251)
 }
 
-// func Test_Asm_Counter256(t *testing.T) {
-// 	test_util.Check(t, false, "asm/counter256")
-// }
+func Test_Asm_Counter256(t *testing.T) {
+	test_util.CheckWithFields(t, false, "asm/counter256", sc.BLS12_377, sc.GF_8209, sc.GF_251)
+}
 
 func Test_Asm_FastPow(t *testing.T) {
 	test_util.Check(t, false, "asm/fast_pow")
 }
+func Test_Asm_Max14(t *testing.T) {
+	test_util.CheckWithFields(t, false, "asm/max14", sc.BLS12_377, sc.GF_8209, sc.GF_251)
+}
+func Test_Asm_Max15(t *testing.T) {
+	test_util.CheckWithFields(t, false, "asm/max15", sc.BLS12_377, sc.GF_8209, sc.GF_251)
+}
 
-func Test_Asm_Max(t *testing.T) {
-	test_util.CheckWithFields(t, false, "asm/max", sc.BLS12_377, sc.GF_8209, sc.GF_251)
+func Test_Asm_Max16(t *testing.T) {
+	test_util.CheckWithFields(t, false, "asm/max16", sc.BLS12_377, sc.GF_8209, sc.GF_251)
 }
 
 func Test_Asm_Max256(t *testing.T) {
@@ -84,5 +90,5 @@ func Test_Asm_SimpleOnCurve(t *testing.T) {
 
 // Field Element Out-Of-Bounds
 func Test_Asm_Wcp(t *testing.T) {
-	test_util.Check(t, false, "asm/wcp")
+	test_util.CheckWithFields(t, false, "asm/wcp", sc.BLS12_377, sc.GF_8209)
 }

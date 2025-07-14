@@ -13,6 +13,9 @@
 package agnostic
 
 import (
+	"fmt"
+	"slices"
+
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -25,7 +28,7 @@ import (
 // ApplyMapping applies a given mapping to a set of registers producing a
 // corresponding set of limbs.  In essence, each register is convert to its
 // limbs in turn, and these are all appended together in order of ococurence.
-func ApplyMapping(mapping sc.RegisterMapping, rids []sc.RegisterId) []sc.LimbId {
+func ApplyMapping(mapping sc.ModuleRegisterMap, rids []sc.RegisterId) []sc.LimbId {
 	var limbs []sc.LimbId
 	//
 	for _, rid := range rids {
@@ -36,7 +39,7 @@ func ApplyMapping(mapping sc.RegisterMapping, rids []sc.RegisterId) []sc.LimbId 
 }
 
 // LimbsOf returns those limbs corresponding to a given set of identifiers.
-func LimbsOf(mapping sc.RegisterMapping, lids []sc.LimbId) []sc.Limb {
+func LimbsOf(mapping sc.ModuleRegisterMap, lids []sc.LimbId) []sc.Limb {
 	var (
 		limbs []sc.Limb = make([]sc.Limb, len(lids))
 	)
@@ -76,7 +79,7 @@ func LowerRawColumn(column trace.RawColumn[bytes.BigEndian]) trace.RawColumn[fr.
 }
 
 // SplitRawColumns splits a given set of trace columns using the given register mapping.
-func SplitRawColumns(columns []trace.RawColumn[bytes.BigEndian], mapping sc.RegisterMappings) []trace.RawFrColumn {
+func SplitRawColumns(columns []trace.RawColumn[bytes.BigEndian], mapping sc.RegisterMap) []trace.RawFrColumn {
 	var splitColumns []trace.RawFrColumn
 	//
 	for _, ith := range columns {
@@ -88,7 +91,7 @@ func SplitRawColumns(columns []trace.RawColumn[bytes.BigEndian], mapping sc.Regi
 }
 
 // SplitRawColumn splits a given raw column using the given register mapping.
-func SplitRawColumn(column trace.RawColumn[bytes.BigEndian], mapping sc.RegisterMappings) []trace.RawFrColumn {
+func SplitRawColumn(column trace.RawColumn[bytes.BigEndian], mapping sc.RegisterMap) []trace.RawFrColumn {
 	var (
 		height = column.Data.Len()
 		// Access mapping for enclosing module
@@ -133,29 +136,48 @@ func SplitRawColumn(column trace.RawColumn[bytes.BigEndian], mapping sc.Register
 // should be eliminated when RawColumn is moved away from fr.Element.
 func splitFieldElement(val bytes.BigEndian, widths []uint) []fr.Element {
 	var (
+		n = len(widths)
+		//
 		bitwidth = sum(widths...)
 		// Determine bytewidth
 		bytewidth = byteWidth(bitwidth)
-		// Extract bytes whilst ensure they match given width
-		bytes = array.FrontPad(val.Bytes(), bytewidth, 0)
+		// Extract bytes whilst ensuring they are in little endian form, and
+		// that they match the expected bitwidth.
+		bytes = reverseAndPad(val.Bytes(), bytewidth)
 		//
-		bits     = bit.NewMostSignificantReader(bytes[:])
+		bits     = bit.NewReader(bytes[:])
 		buf      [32]byte
-		elements = make([]fr.Element, len(widths))
+		elements = make([]fr.Element, n)
 	)
-	// discard any leading bits
-	_ = bits.ReadInto(bytewidth*8-bitwidth, buf[:])
 	// read actual bits
 	for i, w := range widths {
 		var ith fr.Element
 		// Read bits
 		m := bits.ReadInto(w, buf[:])
+		// Convert back to big endian
+		array.ReverseInPlace(buf[:m])
 		// Done
 		ith.SetBytes(buf[:m])
 		elements[i] = ith
 	}
 	//
 	return elements
+}
+
+func reverseAndPad(bytes []byte, n uint) []byte {
+	// Make sure bytes is both padded and cloned.
+	switch {
+	case n > uint(len(bytes)):
+		bytes = array.FrontPad(bytes, n, 0)
+	case n == uint(len(bytes)):
+		bytes = slices.Clone(bytes)
+	case n < uint(len(bytes)):
+		panic(fmt.Sprintf("have %d bytes, expected at most %d", len(bytes), n))
+	}
+	// In place reversal
+	array.ReverseInPlace(bytes)
+	//
+	return bytes
 }
 
 func sum(vals ...uint) uint {

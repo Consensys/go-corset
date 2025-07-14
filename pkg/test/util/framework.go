@@ -52,35 +52,30 @@ func Check(t *testing.T, stdlib bool, test string) {
 // accepted by a given set of constraints, and all traces that we expect to be
 // rejected are rejected.  All fields provided are tested against.
 func CheckWithFields(t *testing.T, stdlib bool, test string, fields ...schema.FieldConfig) {
+	var (
+		filenames = matchSourceFiles(test)
+		// Configure the stack
+		stacks = getSchemaStacks(stdlib, fields, filenames...)
+	)
 	// Sanity check
 	if len(fields) == 0 {
 		panic("no field configurations")
 	}
 	// Enable testing each trace in parallel
 	t.Parallel()
-	//
-	for _, field := range fields {
-		checkWithField(t, stdlib, test, field)
-	}
-}
-
-func checkWithField(t *testing.T, stdlib bool, test string, field schema.FieldConfig) {
-	var (
-		filenames = matchSourceFiles(test)
-		// Configure the stack
-		stack = getSchemaStack(stdlib, field, filenames...)
-	)
 	// Record how many tests executed.
 	nTests := 0
 	// Iterate possible testfile extensions
 	for _, cfg := range TESTFILE_EXTENSIONS {
-		var traces [][]trace.BigEndianColumn
+		var (
+			traces [][]trace.BigEndianColumn
+		)
 		// Construct test filename
 		testFilename := fmt.Sprintf("%s/%s.%s", TestDir, test, cfg.extension)
 		// Read traces from file
 		traces = ReadTracesFile(testFilename)
 		// Run tests
-		binCheckTraces(t, testFilename, cfg, traces, stack)
+		fullCheckTraces(t, testFilename, cfg, traces, stacks)
 		// Record how many tests we found
 		nTests += len(traces)
 	}
@@ -90,7 +85,20 @@ func checkWithField(t *testing.T, stdlib bool, test string, field schema.FieldCo
 	}
 }
 
-func binCheckTraces(t *testing.T, test string, cfg Config,
+func fullCheckTraces(t *testing.T, test string, cfg Config,
+	traces [][]trace.BigEndianColumn, stacks []cmd_util.SchemaStack) {
+	// Identify primary stack
+	var primary = stacks[0]
+	// Run checks using schema compiled from source
+	checkCompilerOptimisations(t, test, cfg, traces, primary)
+	// Construct binary schema using primary stack
+	checkBinaryEncoding(t, test, cfg, traces, primary)
+	// Perform checks with different fields
+	checkFields(t, test, cfg, traces, stacks)
+}
+
+// Sanity check same outcome for all optimisation levels
+func checkCompilerOptimisations(t *testing.T, test string, cfg Config,
 	traces [][]trace.BigEndianColumn, stack cmd_util.SchemaStack) {
 	// Run checks using schema compiled from source
 	for _, opt := range cfg.optlevels {
@@ -101,7 +109,12 @@ func binCheckTraces(t *testing.T, test string, cfg Config,
 		// Apply stack
 		checkTraces(t, test, MAX_PADDING, opt, cfg, traces, stack)
 	}
-	// Construct binary schema
+}
+
+// Check the binary encoding / decoding.
+func checkBinaryEncoding(t *testing.T, test string, cfg Config,
+	traces [][]trace.BigEndianColumn, stack cmd_util.SchemaStack) {
+	// Construct binary schema using primary stack
 	if binSchema := encodeDecodeSchema(t, *stack.BinaryFile()); binSchema != nil {
 		// Choose any valid optimisation level
 		opt := cfg.optlevels[0]
@@ -112,6 +125,26 @@ func binCheckTraces(t *testing.T, test string, cfg Config,
 		// Run checks using schema from binary file.  Observe, to try and reduce
 		// overhead of repeating all the tests we don't consider padding.
 		checkTraces(t, test, 0, opt, cfg, traces, stack)
+	}
+}
+
+// Run default optimisation over all fields, and check padding for the primary
+// stack only.
+func checkFields(t *testing.T, test string, cfg Config,
+	traces [][]trace.BigEndianColumn, stacks []cmd_util.SchemaStack) {
+	// Now, perform full check
+	for i, stack := range stacks {
+		var maxPadding = MAX_PADDING
+		// Only check padding on primary stack
+		if i != 0 {
+			maxPadding = 0
+		}
+		// Set default optimisation level
+		stack.WithOptimisationConfig(mir.DEFAULT_OPTIMISATION_LEVEL)
+		// Configure stack
+		stack.Apply(*stack.BinaryFile())
+		// Apply stack
+		checkTraces(t, test, maxPadding, mir.DEFAULT_OPTIMISATION_INDEX, cfg, traces, stack)
 	}
 }
 
@@ -145,7 +178,7 @@ func checkTraces(t *testing.T, test string, maxPadding uint, opt uint, cfg Confi
 }
 
 func checkTrace[C sc.Constraint](t *testing.T, inputs []trace.BigEndianColumn, id traceId,
-	schema sc.Schema[C], mapping sc.RegisterMappings) {
+	schema sc.Schema[C], mapping sc.RegisterMap) {
 	//
 	// Construct the trace
 	tr, errs := ir.NewTraceBuilder().
@@ -291,6 +324,18 @@ func encodeDecodeSchema(t *testing.T, binf binfile.BinaryFile) *binfile.BinaryFi
 	}
 	//
 	return &nbinf
+}
+
+func getSchemaStacks(stdlib bool, fields []schema.FieldConfig, filenames ...string) []cmd_util.SchemaStack {
+	var (
+		stacks = make([]cmd_util.SchemaStack, len(fields))
+	)
+	//
+	for i, f := range fields {
+		stacks[i] = getSchemaStack(stdlib, f, filenames...)
+	}
+	//
+	return stacks
 }
 
 func getSchemaStack(stdlib bool, field schema.FieldConfig, filenames ...string) cmd_util.SchemaStack {

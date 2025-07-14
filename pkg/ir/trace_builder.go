@@ -61,7 +61,7 @@ type TraceBuilder struct {
 	batchSize uint
 	// Mapping specifies whether or not columns in the trace need to be split to
 	// match the given field configuration.
-	mapping sc.RegisterMappings
+	mapping sc.RegisterMap
 }
 
 // A column key is used as a key for the column map
@@ -114,7 +114,7 @@ func (tb TraceBuilder) Expanding() bool {
 
 // WithRegisterMapping updates a given builder configuration to split the trace
 // according to a given mapping of registers.
-func (tb TraceBuilder) WithRegisterMapping(mapping sc.RegisterMappings) TraceBuilder {
+func (tb TraceBuilder) WithRegisterMapping(mapping sc.RegisterMap) TraceBuilder {
 	ntb := tb
 	ntb.mapping = mapping
 	//
