@@ -23,9 +23,6 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/word"
 )
 
-// BigEndianByteArray is a convenient alias
-type BigEndianByteArray = array.MutArray[word.BigEndian]
-
 // FromBytesLegacy parses a byte array representing a given (legacy) LT trace
 // file into an columns, or produces an error if the original file was malformed
 // in some way.   The input represents the original legacy format of trace files
@@ -54,7 +51,7 @@ func FromBytesLegacy(data []byte) ([]trace.BigEndianColumn, error) {
 	}
 	// Determine byte slices
 	offset := uint(len(data) - buf.Len())
-	c := make(chan util.Pair[uint, BigEndianByteArray], ncols)
+	c := make(chan util.Pair[uint, array.Array[word.BigEndian]], ncols)
 	// Dispatch go-routines
 	for i := uint(0); i < uint(ncols); i++ {
 		ith := headers[i]
@@ -123,86 +120,98 @@ func readColumnHeader(buf *bytes.Reader) (columnHeader, error) {
 	return header, nil
 }
 
-func readColumnData(header columnHeader, bytes []byte) BigEndianByteArray {
-	// Construct array
-	data := word.NewArray[word.BigEndian](header.length, header.width*8)
+func readColumnData(header columnHeader, bytes []byte) array.Array[word.BigEndian] {
 	// Handle special cases
 	switch header.width {
 	case 1:
-		return readByteColumnData(data, header, bytes)
+		return readByteColumnData(header, bytes)
 	case 2:
-		return readWordColumnData(data, header, bytes)
+		return readWordColumnData(header, bytes)
 	case 4:
-		return readDWordColumnData(data, header, bytes)
+		return readDWordColumnData(header, bytes)
 	case 8:
-		return readQWordColumnData(data, header, bytes)
+		return readQWordColumnData(header, bytes)
 	}
 	// General case
-	return readArbitraryColumnData(data, header, bytes)
+	return readArbitraryColumnData(header, bytes)
 }
 
-func readByteColumnData(data BigEndianByteArray, header columnHeader, bytes []byte) BigEndianByteArray {
+func readByteColumnData(header columnHeader, bytes []byte) array.Array[word.BigEndian] {
+	builder := word.NewArray[word.BigEndian](header.length, header.width*8)
+	//
 	for i := uint(0); i < header.length; i++ {
 		// Construct ith field element
-		data.Set(i, word.NewBigEndian(bytes[i:i+1]))
+		builder.Set(i, word.NewBigEndian(bytes[i:i+1]))
 	}
 	// Done
-	return data
+	return builder.Build()
 }
 
-func readWordColumnData(data BigEndianByteArray, header columnHeader, bytes []byte) BigEndianByteArray {
-	offset := uint(0)
+func readWordColumnData(header columnHeader, bytes []byte) array.Array[word.BigEndian] {
+	var (
+		builder = word.NewArray[word.BigEndian](header.length, header.width*8)
+		offset  = uint(0)
+	)
 	// Assign elements
 	for i := uint(0); i < header.length; i++ {
 		// Construct ith element
-		data.Set(i, word.NewBigEndian(bytes[offset:offset+2]))
+		builder.Set(i, word.NewBigEndian(bytes[offset:offset+2]))
 		// Move offset to next element
 		offset += 2
 	}
 	// Done
-	return data
+	return builder.Build()
 }
 
-func readDWordColumnData(data BigEndianByteArray, header columnHeader, bytes []byte) BigEndianByteArray {
-	offset := uint(0)
+func readDWordColumnData(header columnHeader, bytes []byte) array.Array[word.BigEndian] {
+	var (
+		builder = word.NewArray[word.BigEndian](header.length, header.width*8)
+		offset  = uint(0)
+	)
 	// Assign elements
 	for i := uint(0); i < header.length; i++ {
 		// Construct ith element
-		data.Set(i, word.NewBigEndian(bytes[offset:offset+4]))
+		builder.Set(i, word.NewBigEndian(bytes[offset:offset+4]))
 		// Move offset to next element
 		offset += 4
 	}
 	// Done
-	return data
+	return builder.Build()
 }
 
-func readQWordColumnData(data BigEndianByteArray, header columnHeader, bytes []byte) BigEndianByteArray {
-	offset := uint(0)
+func readQWordColumnData(header columnHeader, bytes []byte) array.Array[word.BigEndian] {
+	var (
+		builder = word.NewArray[word.BigEndian](header.length, header.width*8)
+		offset  = uint(0)
+	)
 	// Assign elements
 	for i := uint(0); i < header.length; i++ {
 		// Construct ith element
-		data.Set(i, word.NewBigEndian(bytes[offset:offset+8]))
+		builder.Set(i, word.NewBigEndian(bytes[offset:offset+8]))
 		// Move offset to next element
 		offset += 8
 	}
 	// Done
-	return data
+	return builder.Build()
 }
 
 // Read column data which is has arbitrary width
-func readArbitraryColumnData(data BigEndianByteArray, header columnHeader, bytes []byte) BigEndianByteArray {
-	offset := uint(0)
+func readArbitraryColumnData(header columnHeader, bytes []byte) array.Array[word.BigEndian] {
+	var (
+		builder = word.NewArray[word.BigEndian](header.length, header.width*8)
+		offset  = uint(0)
+	)
 	// Assign elements
 	for i := uint(0); i < header.length; i++ {
 		// Calculate position of next element
 		next := offset + header.width
 		// Construct ith element
-		data.Set(i, word.NewBigEndian(bytes[offset:next]))
+		builder.Set(i, word.NewBigEndian(bytes[offset:next]))
 		// Move offset to next element
 		offset = next
 	}
 	// Done
-	return data
+	return builder.Build()
 }
 
 // SplitQualifiedColumnName splits a qualified column name into its module and

@@ -117,7 +117,7 @@ func (p *FrIndexArray) Clone() array.MutArray[fr.Element] {
 }
 
 // Slice out a subregion of this array.
-func (p *FrIndexArray) Slice(start uint, end uint) array.MutArray[fr.Element] {
+func (p *FrIndexArray) Slice(start uint, end uint) array.Array[fr.Element] {
 	// could be more efficient.
 	elements := make([]uint32, len(p.elements))
 	heap := make([]fr.Element, len(p.heap))

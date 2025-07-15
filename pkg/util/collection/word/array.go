@@ -18,6 +18,9 @@ import (
 
 // Word abstracts a sequence of n bits.
 type Word[T any] interface {
+	// Get the bit at a given bit offset in this word, where offsets always
+	// start with the least-significant bit.
+	Bit(uint) bool
 	// Return bitwidth of this word
 	BitWidth() uint
 	// Write contents of this word into given byte array.
@@ -27,13 +30,13 @@ type Word[T any] interface {
 }
 
 // NewArray constructs a new word array with a given capacity.
-func NewArray[T Word[T]](height uint, bitwidth uint) array.MutArray[T] {
+func NewArray[T Word[T]](height uint, bitwidth uint) array.Builder[T] {
 	switch {
 	case bitwidth == 1:
-		panic("implement bit array")
+		return NewBitArray[T](height)
 	case bitwidth < 64:
 		return NewStaticArray[T](height, bitwidth)
 	default:
-		return NewIndexArray[T](height, bitwidth)
+		return NewIndexArrayBuilder[T](height, bitwidth)
 	}
 }

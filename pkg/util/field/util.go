@@ -22,8 +22,8 @@ import (
 
 // ToBigEndianByteArray converts an array of field elements into an array of
 // byte chunks in big endian form.
-func ToBigEndianByteArray(arr FrArray) array.MutArray[word.BigEndian] {
-	var barr = word.NewArray[word.BigEndian](arr.Len(), arr.BitWidth())
+func ToBigEndianByteArray(arr FrArray) array.Array[word.BigEndian] {
+	var builder = word.NewArray[word.BigEndian](arr.Len(), arr.BitWidth())
 	//
 	for i := range arr.Len() {
 		var (
@@ -31,15 +31,11 @@ func ToBigEndianByteArray(arr FrArray) array.MutArray[word.BigEndian] {
 			ith_bytes = ith.Bytes()
 			trimmed   = ith_bytes[:]
 		)
-		// Since ith_bytes is [32]byte, its useful to trim the bytes here.
-		for len(trimmed) > 0 && trimmed[0] == 0 {
-			trimmed = trimmed[1:]
-		}
 		//
-		barr.Set(i, word.NewBigEndian(trimmed))
+		builder.Set(i, word.NewBigEndian(trimmed))
 	}
 	//
-	return barr
+	return builder.Build()
 }
 
 // Pow takes a given value to the power n.

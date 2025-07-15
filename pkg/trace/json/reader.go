@@ -99,18 +99,18 @@ func FromBytesLegacy(data []byte) ([]trace.BigEndianColumn, error) {
 	return cols, nil
 }
 
-func newArrayFromBigInts(bitwidth uint, data []big.Int) array.MutArray[word.BigEndian] {
+func newArrayFromBigInts(bitwidth uint, data []big.Int) array.Array[word.BigEndian] {
 	var (
-		n   = uint(len(data))
-		arr = word.NewArray[word.BigEndian](n, bitwidth)
+		n       = uint(len(data))
+		builder = word.NewArray[word.BigEndian](n, bitwidth)
 	)
 	//
 	for i := range n {
 		ithBytes := data[i].Bytes()
-		arr.Set(i, word.NewBigEndian(ithBytes))
+		builder.Set(i, word.NewBigEndian(ithBytes))
 	}
 	//
-	return arr
+	return builder.Build()
 }
 
 // SplitQualifiedColumnName splits a qualified column name into its module and

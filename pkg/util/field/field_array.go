@@ -109,7 +109,7 @@ func (p *FrElementArray) Clone() array.MutArray[fr.Element] {
 }
 
 // Slice out a subregion of this array.
-func (p *FrElementArray) Slice(start uint, end uint) array.MutArray[fr.Element] {
+func (p *FrElementArray) Slice(start uint, end uint) array.Array[fr.Element] {
 	return &FrElementArray{p.elements[start:end], p.bitwidth}
 }
 

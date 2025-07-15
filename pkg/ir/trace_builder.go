@@ -273,26 +273,22 @@ func splitTraceColumns(expanded bool, schema sc.AnySchema, modmap map[string]uin
 	//
 	colmap, modules := initialiseColumnMap(expanded, schema)
 	// Assign data from each input column given
-	for _, c := range cols {
+	for _, col := range cols {
 		// Lookup the module
-		if _, ok := modmap[c.Module]; !ok {
-			errs = append(errs, fmt.Errorf("unknown module '%s' in trace", c.Module))
+		if _, ok := modmap[col.Module]; !ok {
+			errs = append(errs, fmt.Errorf("unknown module '%s' in trace", col.Module))
 		} else {
-			key := columnKey{c.Module, c.Name}
+			key := columnKey{col.Module, col.Name}
 			// Determine enclosiong module height
 			cid, ok := colmap[key]
 			// More sanity checks
 			if !ok {
-				errs = append(errs, fmt.Errorf("unknown column '%s' in trace", c.QualifiedName()))
+				errs = append(errs, fmt.Errorf("unknown column '%s' in trace", col.QualifiedName()))
 			} else if _, ok := seen[key]; ok {
-				errs = append(errs, fmt.Errorf("duplicate column '%s' in trace", c.QualifiedName()))
+				errs = append(errs, fmt.Errorf("duplicate column '%s' in trace", col.QualifiedName()))
 			} else {
 				seen[key] = true
-				modules[cid.module][cid.column] = trace.RawFrColumn{
-					Module: c.Module,
-					Name:   c.Name,
-					Data:   c.Data.Clone(),
-				}
+				modules[cid.module][cid.column] = col
 			}
 		}
 	}
@@ -361,10 +357,16 @@ func fillTraceModule(name string, multiplier uint, rawColumns []trace.RawFrColum
 	)
 	//
 	for i := range traceColumns {
-		ith := rawColumns[i]
-		// NOTE: the following case is used whilst we transition away from using
-		// MutArray in columns.  For now it is necessary only to bridge the gap.
-		data := ith.Data.(field.FrArray)
+		var (
+			ith  = rawColumns[i]
+			data field.FrArray
+		)
+		//
+		if ith.Data != nil {
+			// NOTE: the following case is used whilst we transition away from using
+			// MutArray in columns.  For now it is necessary only to bridge the gap.
+			data = ith.Data.(field.FrArray)
+		}
 		//
 		traceColumns[i] = trace.NewArrayColumn(ith.Name, data, zero)
 	}

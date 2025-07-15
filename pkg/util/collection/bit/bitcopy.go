@@ -30,12 +30,14 @@ func Copy(src []byte, offset uint, dst []byte, nbits uint) {
 	}
 	// Continue with any remaining
 	for i := range nbits {
-		ith := readBit(src, offset+i)
-		writeBit(ith, dst, i)
+		ith := Read(src, offset+i)
+		Write(ith, dst, i)
 	}
 }
 
-func readBit(src []byte, bitoffset uint) bool {
+// Read reads the bit at a given bit offset out of an array of bytes arranged in
+// little endian format.
+func Read(src []byte, bitoffset uint) bool {
 	var (
 		byte = bitoffset / 8
 		bit  = bitoffset % 8
@@ -45,7 +47,9 @@ func readBit(src []byte, bitoffset uint) bool {
 	return src[byte]&mask != 0
 }
 
-func writeBit(val bool, src []byte, bitoffset uint) {
+// Write writes a bit to a given bit offset in an array of bytes arranged in
+// little endian format.
+func Write(val bool, src []byte, bitoffset uint) {
 	var (
 		byte = bitoffset / 8
 		bit  = bitoffset % 8
@@ -59,4 +63,17 @@ func writeBit(val bool, src []byte, bitoffset uint) {
 		// Clear bit
 		src[byte] = src[byte] & ^mask
 	}
+}
+
+// ReadBigEndian reads the bit at a given bit offset out of an array of bytes
+// arranged in big endian format.
+func ReadBigEndian(src []byte, bitoffset uint) bool {
+	var (
+		n    = uint(len(src))
+		byte = bitoffset / 8
+		bit  = bitoffset % 8
+		mask = uint8(1) << bit
+	)
+	//
+	return src[n-byte-1]&mask != 0
 }

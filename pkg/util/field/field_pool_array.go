@@ -77,7 +77,7 @@ func (p *FrPoolArray[K, P]) Clone() array.MutArray[fr.Element] {
 }
 
 // Slice out a subregion of this array.
-func (p *FrPoolArray[K, P]) Slice(start uint, end uint) array.MutArray[fr.Element] {
+func (p *FrPoolArray[K, P]) Slice(start uint, end uint) array.Array[fr.Element] {
 	return &FrPoolArray[K, P]{p.pool, p.elements[start:end], p.bitwidth}
 }
 

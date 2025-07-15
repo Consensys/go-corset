@@ -19,6 +19,10 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 )
 
+// =================================================================================
+// Implementation
+// =================================================================================
+
 // StaticArray implements an array of elements simply using an underlying array.
 type StaticArray[T Word[T]] struct {
 	// The data stored in this column (as bytes).
@@ -48,6 +52,12 @@ func (p *StaticArray[T]) Len() uint {
 // BitWidth returns the width (in bits) of elements in this array.
 func (p *StaticArray[T]) BitWidth() uint {
 	return p.bitwidth
+}
+
+// Build implementation for the array.Builder interface.  This simply means that
+// a static array is its own builder.
+func (p *StaticArray[T]) Build() array.Array[T] {
+	return p
 }
 
 // Get returns the field element at the given index in this array.
@@ -87,7 +97,7 @@ func (p *StaticArray[T]) Clone() array.MutArray[T] {
 }
 
 // Slice out a subregion of this array.
-func (p *StaticArray[T]) Slice(start uint, end uint) array.MutArray[T] {
+func (p *StaticArray[T]) Slice(start uint, end uint) array.Array[T] {
 	panic("todo")
 }
 

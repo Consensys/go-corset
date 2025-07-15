@@ -19,6 +19,13 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 )
 
+// NewIndexArrayBuilder constructs a new builder for an indexed array.
+func NewIndexArrayBuilder[T Word[T]](height uint, bitwidth uint) array.Builder[T] {
+	panic("got here")
+}
+
+// =================================================================================
+
 type indexEntry struct {
 	offset uint32
 	length uint32
@@ -68,25 +75,8 @@ func (p *IndexArray[T]) Get(index uint) T {
 	return item.Set(bytes)
 }
 
-// Set sets the field element at the given index in this array, overwriting the
-// original value.
-func (p *IndexArray[T]) Set(index uint, word T) {
-	panic("todo")
-}
-
-// Clone makes clones of this array producing an otherwise identical copy.
-func (p *IndexArray[T]) Clone() array.MutArray[T] {
-	panic("todo")
-}
-
 // Slice out a subregion of this array.
 func (p *IndexArray[T]) Slice(start uint, end uint) array.MutArray[T] {
-	panic("todo")
-}
-
-// Pad prepend array with n copies and append with m copies of the given padding
-// value.
-func (p *IndexArray[T]) Pad(n uint, m uint, padding T) array.MutArray[T] {
 	panic("todo")
 }
 

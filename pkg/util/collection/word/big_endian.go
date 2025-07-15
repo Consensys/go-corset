@@ -18,6 +18,7 @@ import (
 	"hash/fnv"
 	"math/big"
 
+	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
 )
 
@@ -32,6 +33,11 @@ var _ hash.Hasher[BigEndian] = BigEndian{}
 
 // NewBigEndian constructs a new big endian byte array.
 func NewBigEndian(bytes []byte) BigEndian {
+	// trim any leading zeros to ensure words are in a canonical form.
+	for len(bytes) > 0 && bytes[0] == 0 {
+		bytes = bytes[1:]
+	}
+	// done
 	return BigEndian{bytes}
 }
 
@@ -39,6 +45,19 @@ func NewBigEndian(bytes []byte) BigEndian {
 func (p BigEndian) AsBigInt() big.Int {
 	var val big.Int
 	return *val.SetBytes(p.bytes)
+}
+
+// Bit returnsthe bit at a given offset in this word, where offsets always start
+// with the least-significant.
+func (p BigEndian) Bit(offset uint) bool {
+	var bitwidth = p.BitWidth()
+	// If offset is past the end of the available bits, then it must have been
+	// in the trimmed region and, therefore, was 0.
+	if offset < bitwidth {
+		return bit.ReadBigEndian(p.bytes, offset)
+	}
+	//
+	return false
 }
 
 // BitWidth returns the actual bitwidth of this big endian.
