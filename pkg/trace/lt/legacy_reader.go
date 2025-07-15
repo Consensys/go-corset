@@ -125,7 +125,7 @@ func readColumnHeader(buf *bytes.Reader) (columnHeader, error) {
 
 func readColumnData(header columnHeader, bytes []byte) BigEndianByteArray {
 	// Construct array
-	data := array.NewArray[word.BigEndian](header.length, header.width*8)
+	data := word.NewArray[word.BigEndian](header.length, header.width*8)
 	// Handle special cases
 	switch header.width {
 	case 1:

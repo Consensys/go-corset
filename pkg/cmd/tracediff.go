@@ -7,6 +7,7 @@ import (
 	"sort"
 
 	"github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/util/collection/word"
@@ -165,7 +166,7 @@ func identify_vals(lhs hash.Map[word.BigEndian, uint], rhs hash.Map[word.BigEndi
 	return vals
 }
 
-func summarise(data word.BigEndianArray) hash.Map[word.BigEndian, uint] {
+func summarise(data array.Array[word.BigEndian]) hash.Map[word.BigEndian, uint] {
 	summary := *hash.NewMap[word.BigEndian, uint](data.Len())
 	//
 	for i := uint(0); i < data.Len(); i++ {

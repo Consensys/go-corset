@@ -148,7 +148,7 @@ func splitFieldElement(val word.BigEndian, widths []uint) []fr.Element {
 		//
 		bitwidth = sum(widths...)
 		// Determine bytewidth
-		bytewidth = byteWidth(bitwidth)
+		bytewidth = word.ByteWidth(bitwidth)
 		// Extract bytes whilst ensuring they are in little endian form, and
 		// that they match the expected bitwidth.
 		bytes = reverseAndPad(val.Bytes(), bytewidth)
@@ -196,14 +196,4 @@ func sum(vals ...uint) uint {
 	}
 	//
 	return val
-}
-
-func byteWidth(bitwidth uint) uint {
-	bytewidth := bitwidth / 8
-	//
-	if bitwidth%8 != 0 {
-		bytewidth++
-	}
-	//
-	return bytewidth
 }

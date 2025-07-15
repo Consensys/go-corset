@@ -17,13 +17,13 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
-	bytes "github.com/consensys/go-corset/pkg/util/collection/word"
+	"github.com/consensys/go-corset/pkg/util/collection/word"
 )
 
 // ToBigEndianByteArray converts an array of field elements into an array of
 // byte chunks in big endian form.
-func ToBigEndianByteArray(arr FrArray) bytes.BigEndianArray {
-	var barr = array.NewArray[bytes.BigEndian](arr.Len(), arr.BitWidth())
+func ToBigEndianByteArray(arr FrArray) array.Array[word.BigEndian] {
+	var barr = word.NewArray[word.BigEndian](arr.Len(), arr.BitWidth())
 	//
 	for i := range arr.Len() {
 		var (
@@ -36,7 +36,7 @@ func ToBigEndianByteArray(arr FrArray) bytes.BigEndianArray {
 			trimmed = trimmed[1:]
 		}
 		//
-		barr.Set(i, bytes.NewBigEndian(trimmed))
+		barr.Set(i, word.NewBigEndian(trimmed))
 	}
 	//
 	return barr
