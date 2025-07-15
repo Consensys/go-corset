@@ -22,16 +22,22 @@ type Array[T any] interface {
 	Len() uint
 	// Get returns the element at the given index in this array.
 	Get(uint) T
+	// Clone makes clones of this array producing an otherwise identical copy.
+	Clone() MutArray[T]
+	// Slice out a subregion of this array.
+	Slice(uint, uint) MutArray[T]
+	// Return the number of bits required to store an element of this array.
+	BitWidth() uint
+}
+
+// MutArray provides a generice interface to an array of elements.  Typically, we
+// are interested in arrays of field elements here.
+type MutArray[T any] interface {
+	Array[T]
 	// Set the element at the given index in this array, overwriting the
 	// original value.
 	Set(uint, T)
-	// Clone makes clones of this array producing an otherwise identical copy.
-	Clone() Array[T]
-	// Slice out a subregion of this array.
-	Slice(uint, uint) Array[T]
-	// Return the number of bits required to store an element of this array.
-	BitWidth() uint
 	// Insert n copies of T at start of the array and m copies at the back
 	// producing an updated array.
-	Pad(uint, uint, T) Array[T]
+	Pad(uint, uint, T) MutArray[T]
 }

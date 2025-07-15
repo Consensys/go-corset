@@ -24,7 +24,7 @@ import (
 )
 
 // BigEndianByteArray is a convenient alias
-type BigEndianByteArray = array.Array[word.BigEndian]
+type BigEndianByteArray = array.MutArray[word.BigEndian]
 
 // FromBytesLegacy parses a byte array representing a given (legacy) LT trace
 // file into an columns, or produces an error if the original file was malformed

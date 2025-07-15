@@ -27,13 +27,13 @@ type Word[T any] interface {
 }
 
 // NewArray constructs a new word array with a given capacity.
-func NewArray[T Word[T]](height uint, bitwidth uint) array.Array[T] {
+func NewArray[T Word[T]](height uint, bitwidth uint) array.MutArray[T] {
 	switch {
 	case bitwidth == 1:
 		panic("implement bit array")
 	case bitwidth < 64:
 		return NewStaticArray[T](height, bitwidth)
 	default:
-		panic("implement indexed array")
+		return NewIndexArray[T](height, bitwidth)
 	}
 }

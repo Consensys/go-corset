@@ -22,6 +22,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/word"
+	"github.com/consensys/go-corset/pkg/util/field"
 )
 
 // TraceBuilder provides a mechanical means of constructing a trace from a given
@@ -361,8 +362,11 @@ func fillTraceModule(name string, multiplier uint, rawColumns []trace.RawFrColum
 	//
 	for i := range traceColumns {
 		ith := rawColumns[i]
+		// NOTE: the following case is used whilst we transition away from using
+		// MutArray in columns.  For now it is necessary only to bridge the gap.
+		data := ith.Data.(field.FrArray)
 		//
-		traceColumns[i] = trace.NewArrayColumn(ith.Name, ith.Data, zero)
+		traceColumns[i] = trace.NewArrayColumn(ith.Name, data, zero)
 	}
 	//
 	return trace.NewArrayModule(name, multiplier, traceColumns)

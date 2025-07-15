@@ -115,25 +115,33 @@ func SplitRawColumn(column trace.RawColumn[word.BigEndian], mapping sc.RegisterM
 		// to split the column into any limbs.
 		return []trace.RawColumn[fr.Element]{LowerRawColumn(column)}
 	}
-	// Yes, must split this column into two or more limbs.
-	columns := make([]trace.RawFrColumn, len(limbIds))
+	// Yes, must split into two or more limbs of given widths.
+	limbWidths := WidthsOfLimbs(modmap, modmap.LimbIds(reg))
 	// Determine limbs of this register
 	limbs := LimbsOf(modmap, limbIds)
-	// Construct empty arrays for the given limbs
+	// Construct temporary place holder for new array data.
+	arrays := make([]field.FrArray, len(limbIds))
+	//
 	for i, limb := range limbs {
-		ith := field.NewFrArray(height, limb.Width)
-		columns[i] = trace.RawFrColumn{Module: column.Module, Name: limb.Name, Data: ith}
+		arrays[i] = field.NewFrArray(height, limb.Width)
 	}
-	// Determine limb widths of this register (for constant splitting)
-	limbWidths := WidthsOfLimbs(modmap, modmap.LimbIds(reg))
 	// Deconstruct all data
 	for i := range height {
 		// Extract ith data
 		ith := column.Data.Get(i)
 		// Assign split components
 		for j, v := range splitFieldElement(ith, limbWidths) {
-			columns[j].Data.Set(i, v)
+			arrays[j].Set(i, v)
 		}
+	}
+	// Construct final columns
+	columns := make([]trace.RawFrColumn, len(limbIds))
+	// Construct final columns
+	for i, limb := range limbs {
+		columns[i] = trace.RawFrColumn{
+			Module: column.Module,
+			Name:   limb.Name,
+			Data:   arrays[i]}
 	}
 	// Done
 	return columns

@@ -75,18 +75,18 @@ func (p *IndexArray[T]) Set(index uint, word T) {
 }
 
 // Clone makes clones of this array producing an otherwise identical copy.
-func (p *IndexArray[T]) Clone() array.Array[T] {
+func (p *IndexArray[T]) Clone() array.MutArray[T] {
 	panic("todo")
 }
 
 // Slice out a subregion of this array.
-func (p *IndexArray[T]) Slice(start uint, end uint) array.Array[T] {
+func (p *IndexArray[T]) Slice(start uint, end uint) array.MutArray[T] {
 	panic("todo")
 }
 
 // Pad prepend array with n copies and append with m copies of the given padding
 // value.
-func (p *IndexArray[T]) Pad(n uint, m uint, padding T) array.Array[T] {
+func (p *IndexArray[T]) Pad(n uint, m uint, padding T) array.MutArray[T] {
 	panic("todo")
 }
 

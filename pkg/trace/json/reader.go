@@ -99,7 +99,7 @@ func FromBytesLegacy(data []byte) ([]trace.BigEndianColumn, error) {
 	return cols, nil
 }
 
-func newArrayFromBigInts(bitwidth uint, data []big.Int) array.Array[word.BigEndian] {
+func newArrayFromBigInts(bitwidth uint, data []big.Int) array.MutArray[word.BigEndian] {
 	var (
 		n   = uint(len(data))
 		arr = word.NewArray[word.BigEndian](n, bitwidth)

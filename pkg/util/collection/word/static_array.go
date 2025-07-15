@@ -77,7 +77,7 @@ func (p *StaticArray[T]) Set(index uint, word T) {
 }
 
 // Clone makes clones of this array producing an otherwise identical copy.
-func (p *StaticArray[T]) Clone() array.Array[T] {
+func (p *StaticArray[T]) Clone() array.MutArray[T] {
 	// Allocate sufficient memory
 	ndata := make([]byte, uint(len(p.data)))
 	// Copy over the data
@@ -87,13 +87,13 @@ func (p *StaticArray[T]) Clone() array.Array[T] {
 }
 
 // Slice out a subregion of this array.
-func (p *StaticArray[T]) Slice(start uint, end uint) array.Array[T] {
+func (p *StaticArray[T]) Slice(start uint, end uint) array.MutArray[T] {
 	panic("todo")
 }
 
 // Pad prepend array with n copies and append with m copies of the given padding
 // value.
-func (p *StaticArray[T]) Pad(n uint, m uint, padding T) array.Array[T] {
+func (p *StaticArray[T]) Pad(n uint, m uint, padding T) array.MutArray[T] {
 	var (
 		q StaticArray[T]
 		// Determine new length

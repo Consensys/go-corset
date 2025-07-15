@@ -22,7 +22,7 @@ import (
 
 // ToBigEndianByteArray converts an array of field elements into an array of
 // byte chunks in big endian form.
-func ToBigEndianByteArray(arr FrArray) array.Array[word.BigEndian] {
+func ToBigEndianByteArray(arr FrArray) array.MutArray[word.BigEndian] {
 	var barr = word.NewArray[word.BigEndian](arr.Len(), arr.BitWidth())
 	//
 	for i := range arr.Len() {
