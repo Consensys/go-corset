@@ -7,9 +7,9 @@ import (
 	"sort"
 
 	"github.com/consensys/go-corset/pkg/trace"
-	"github.com/consensys/go-corset/pkg/util/collection/bytes"
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/collection/word"
 	"github.com/spf13/cobra"
 )
 
@@ -134,9 +134,9 @@ func diffColumns(index int, columns1 []trace.BigEndianColumn, columns2 []trace.B
 	return errors
 }
 
-func identify_vals(lhs hash.Map[bytes.BigEndian, uint], rhs hash.Map[bytes.BigEndian, uint]) []bytes.BigEndian {
-	seen := hash.NewSet[bytes.BigEndian](0)
-	vals := make([]bytes.BigEndian, 0)
+func identify_vals(lhs hash.Map[word.BigEndian, uint], rhs hash.Map[word.BigEndian, uint]) []word.BigEndian {
+	seen := hash.NewSet[word.BigEndian](0)
+	vals := make([]word.BigEndian, 0)
 	// lhs
 	for iter := lhs.KeyValues(); iter.HasNext(); {
 		ith := iter.Next()
@@ -165,8 +165,8 @@ func identify_vals(lhs hash.Map[bytes.BigEndian, uint], rhs hash.Map[bytes.BigEn
 	return vals
 }
 
-func summarise(data bytes.BigEndianArray) hash.Map[bytes.BigEndian, uint] {
-	summary := *hash.NewMap[bytes.BigEndian, uint](data.Len())
+func summarise(data word.BigEndianArray) hash.Map[word.BigEndian, uint] {
+	summary := *hash.NewMap[word.BigEndian, uint](data.Len())
 	//
 	for i := uint(0); i < data.Len(); i++ {
 		ith := data.Get(i)

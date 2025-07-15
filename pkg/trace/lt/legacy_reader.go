@@ -20,11 +20,11 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
-	util_bytes "github.com/consensys/go-corset/pkg/util/collection/bytes"
+	"github.com/consensys/go-corset/pkg/util/collection/word"
 )
 
 // BigEndianByteArray is a convenient alias
-type BigEndianByteArray = array.Array[util_bytes.BigEndian]
+type BigEndianByteArray = array.Array[word.BigEndian]
 
 // FromBytesLegacy parses a byte array representing a given (legacy) LT trace
 // file into an columns, or produces an error if the original file was malformed
@@ -125,7 +125,7 @@ func readColumnHeader(buf *bytes.Reader) (columnHeader, error) {
 
 func readColumnData(header columnHeader, bytes []byte) BigEndianByteArray {
 	// Construct array
-	data := array.NewArray[util_bytes.BigEndian](header.length, header.width*8)
+	data := array.NewArray[word.BigEndian](header.length, header.width*8)
 	// Handle special cases
 	switch header.width {
 	case 1:
@@ -144,7 +144,7 @@ func readColumnData(header columnHeader, bytes []byte) BigEndianByteArray {
 func readByteColumnData(data BigEndianByteArray, header columnHeader, bytes []byte) BigEndianByteArray {
 	for i := uint(0); i < header.length; i++ {
 		// Construct ith field element
-		data.Set(i, util_bytes.NewBigEndian(bytes[i:i+1]))
+		data.Set(i, word.NewBigEndian(bytes[i:i+1]))
 	}
 	// Done
 	return data
@@ -155,7 +155,7 @@ func readWordColumnData(data BigEndianByteArray, header columnHeader, bytes []by
 	// Assign elements
 	for i := uint(0); i < header.length; i++ {
 		// Construct ith element
-		data.Set(i, util_bytes.NewBigEndian(bytes[offset:offset+2]))
+		data.Set(i, word.NewBigEndian(bytes[offset:offset+2]))
 		// Move offset to next element
 		offset += 2
 	}
@@ -168,7 +168,7 @@ func readDWordColumnData(data BigEndianByteArray, header columnHeader, bytes []b
 	// Assign elements
 	for i := uint(0); i < header.length; i++ {
 		// Construct ith element
-		data.Set(i, util_bytes.NewBigEndian(bytes[offset:offset+4]))
+		data.Set(i, word.NewBigEndian(bytes[offset:offset+4]))
 		// Move offset to next element
 		offset += 4
 	}
@@ -181,7 +181,7 @@ func readQWordColumnData(data BigEndianByteArray, header columnHeader, bytes []b
 	// Assign elements
 	for i := uint(0); i < header.length; i++ {
 		// Construct ith element
-		data.Set(i, util_bytes.NewBigEndian(bytes[offset:offset+8]))
+		data.Set(i, word.NewBigEndian(bytes[offset:offset+8]))
 		// Move offset to next element
 		offset += 8
 	}
@@ -197,7 +197,7 @@ func readArbitraryColumnData(data BigEndianByteArray, header columnHeader, bytes
 		// Calculate position of next element
 		next := offset + header.width
 		// Construct ith element
-		data.Set(i, util_bytes.NewBigEndian(bytes[offset:next]))
+		data.Set(i, word.NewBigEndian(bytes[offset:next]))
 		// Move offset to next element
 		offset = next
 	}

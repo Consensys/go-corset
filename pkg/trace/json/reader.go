@@ -22,11 +22,11 @@ import (
 
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
-	"github.com/consensys/go-corset/pkg/util/collection/bytes"
+	"github.com/consensys/go-corset/pkg/util/collection/word"
 )
 
 // BigEndianByteArray is a convenient alias
-type BigEndianByteArray = array.Array[bytes.BigEndian]
+type BigEndianByteArray = array.Array[word.BigEndian]
 
 // FromBytes parses a trace expressed in JSON notation.  For example, {"X":
 // [0], "Y": [1]} is a trace containing one row of data each for two columns "X"
@@ -105,12 +105,12 @@ func FromBytesLegacy(data []byte) ([]trace.BigEndianColumn, error) {
 func newArrayFromBigInts(bitwidth uint, data []big.Int) BigEndianByteArray {
 	var (
 		n   = uint(len(data))
-		arr = array.NewArray[bytes.BigEndian](n, bitwidth)
+		arr = array.NewArray[word.BigEndian](n, bitwidth)
 	)
 	//
 	for i := range n {
 		ithBytes := data[i].Bytes()
-		arr.Set(i, bytes.NewBigEndian(ithBytes))
+		arr.Set(i, word.NewBigEndian(ithBytes))
 	}
 	//
 	return arr

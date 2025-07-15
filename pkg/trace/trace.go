@@ -15,8 +15,8 @@ package trace
 import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
-	"github.com/consensys/go-corset/pkg/util/collection/bytes"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
+	"github.com/consensys/go-corset/pkg/util/collection/word"
 	"github.com/consensys/go-corset/pkg/util/field"
 )
 
@@ -71,7 +71,7 @@ type RawFrColumn = RawColumn[fr.Element]
 
 // BigEndianColumn captures the notion of a raw column holding the bytes of an
 // unsigned integer in big endian form.
-type BigEndianColumn = RawColumn[bytes.BigEndian]
+type BigEndianColumn = RawColumn[word.BigEndian]
 
 // RawColumn represents a raw column of data which has not (yet) been indexed as
 // part of a trace, etc.  Raw columns are typically read directly from trace

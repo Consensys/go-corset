@@ -21,7 +21,8 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
-	"github.com/consensys/go-corset/pkg/util/collection/bytes"
+	"github.com/consensys/go-corset/pkg/util/collection/word"
+
 	"github.com/consensys/go-corset/pkg/util/field"
 )
 
@@ -52,7 +53,7 @@ func LimbsOf(mapping sc.ModuleRegisterMap, lids []sc.LimbId) []sc.Limb {
 }
 
 // LowerRawColumns lowers a given set of raw columns into a given field implementation.
-func LowerRawColumns(columns []trace.RawColumn[bytes.BigEndian]) []trace.RawColumn[fr.Element] {
+func LowerRawColumns(columns []trace.RawColumn[word.BigEndian]) []trace.RawColumn[fr.Element] {
 	var loweredColumns []trace.RawFrColumn
 	//
 	for _, ith := range columns {
@@ -64,7 +65,7 @@ func LowerRawColumns(columns []trace.RawColumn[bytes.BigEndian]) []trace.RawColu
 }
 
 // LowerRawColumn lowers a given raw column into a given field implementation.
-func LowerRawColumn(column trace.RawColumn[bytes.BigEndian]) trace.RawColumn[fr.Element] {
+func LowerRawColumn(column trace.RawColumn[word.BigEndian]) trace.RawColumn[fr.Element] {
 	var (
 		data  = column.Data
 		ndata = field.NewFrArray(data.Len(), data.BitWidth())
@@ -86,7 +87,7 @@ func LowerRawColumn(column trace.RawColumn[bytes.BigEndian]) trace.RawColumn[fr.
 }
 
 // SplitRawColumns splits a given set of trace columns using the given register mapping.
-func SplitRawColumns(columns []trace.RawColumn[bytes.BigEndian], mapping sc.RegisterMap) []trace.RawFrColumn {
+func SplitRawColumns(columns []trace.RawColumn[word.BigEndian], mapping sc.RegisterMap) []trace.RawFrColumn {
 	var splitColumns []trace.RawFrColumn
 	//
 	for _, ith := range columns {
@@ -98,7 +99,7 @@ func SplitRawColumns(columns []trace.RawColumn[bytes.BigEndian], mapping sc.Regi
 }
 
 // SplitRawColumn splits a given raw column using the given register mapping.
-func SplitRawColumn(column trace.RawColumn[bytes.BigEndian], mapping sc.RegisterMap) []trace.RawFrColumn {
+func SplitRawColumn(column trace.RawColumn[word.BigEndian], mapping sc.RegisterMap) []trace.RawFrColumn {
 	var (
 		height = column.Data.Len()
 		// Access mapping for enclosing module
@@ -141,7 +142,7 @@ func SplitRawColumn(column trace.RawColumn[bytes.BigEndian], mapping sc.Register
 // split a given field element into a given set of limbs, where the least
 // significant comes first.  NOTE: this is really a temporary function which
 // should be eliminated when RawColumn is moved away from fr.Element.
-func splitFieldElement(val bytes.BigEndian, widths []uint) []fr.Element {
+func splitFieldElement(val word.BigEndian, widths []uint) []fr.Element {
 	var (
 		n = len(widths)
 		//

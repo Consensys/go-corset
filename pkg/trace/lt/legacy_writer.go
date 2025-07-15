@@ -20,7 +20,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
-	util_bytes "github.com/consensys/go-corset/pkg/util/collection/bytes"
+	"github.com/consensys/go-corset/pkg/util/collection/word"
 )
 
 // ToBytesLegacy writes a given trace file as an array of (legacy) bytes.  The
@@ -94,7 +94,7 @@ func WriteBytes(columns []trace.BigEndianColumn, buf io.Writer) error {
 	return nil
 }
 
-func writeArrayBytes(w io.Writer, data array.Array[util_bytes.BigEndian]) error {
+func writeArrayBytes(w io.Writer, data array.Array[word.BigEndian]) error {
 	for i := range data.Len() {
 		ith := data.Get(i)
 		// Read exactly 32 bytes

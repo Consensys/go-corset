@@ -26,9 +26,9 @@ import (
 	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
-	"github.com/consensys/go-corset/pkg/util/collection/bytes"
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/collection/word"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/termio"
 	"github.com/spf13/cobra"
@@ -567,8 +567,8 @@ func entropySummariser(col trace.BigEndianColumn) string {
 	//
 	if data.Len() > 0 {
 		var (
-			last  bytes.BigEndian = data.Get(0)
-			count                 = 1
+			last  word.BigEndian = data.Get(0)
+			count                = 1
 		)
 		// Count all rows whose value differs from previous row.
 		for i := uint(1); i < data.Len(); i++ {

@@ -14,7 +14,6 @@ package array
 
 import (
 	"fmt"
-	"io"
 	"strings"
 )
 
@@ -117,12 +116,6 @@ func (p *Raw[T]) Pad(n uint, m uint, padding T) Array[T] {
 	}
 	// Copy over
 	return &Raw[T]{ndata, p.bitwidth}
-}
-
-// Write the raw bytes of this column to a given writer, returning an error
-// if this failed (for some reason).
-func (p *Raw[T]) Write(w io.Writer) error {
-	panic("TODO")
 }
 
 func (p *Raw[T]) String() string {

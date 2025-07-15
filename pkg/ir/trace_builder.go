@@ -21,7 +21,7 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/trace"
-	"github.com/consensys/go-corset/pkg/util/collection/bytes"
+	"github.com/consensys/go-corset/pkg/util/collection/word"
 )
 
 // TraceBuilder provides a mechanical means of constructing a trace from a given
@@ -168,7 +168,7 @@ func (tb TraceBuilder) BatchSize() uint {
 
 // Build attempts to construct a trace for a given schema, producing errors if
 // there are inconsistencies (e.g. missing columns, duplicate columns, etc).
-func (tb TraceBuilder) Build(schema sc.AnySchema, rawCols []trace.RawColumn[bytes.BigEndian]) (trace.Trace, []error) {
+func (tb TraceBuilder) Build(schema sc.AnySchema, rawCols []trace.RawColumn[word.BigEndian]) (trace.Trace, []error) {
 	var cols []trace.RawColumn[fr.Element]
 	// Split raw columns according to the mapping (if applicable).  Note that
 	// expansion being disabled implies the trace is already split

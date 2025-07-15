@@ -17,7 +17,7 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
-	"github.com/consensys/go-corset/pkg/util/collection/bytes"
+	bytes "github.com/consensys/go-corset/pkg/util/collection/word"
 )
 
 // ToBigEndianByteArray converts an array of field elements into an array of

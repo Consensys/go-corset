@@ -29,8 +29,8 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
-	"github.com/consensys/go-corset/pkg/util/collection/bytes"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/collection/word"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -172,7 +172,7 @@ func checkWithLegacyPipeline(cfg checkConfig, batched bool, tracefile string, sc
 	}
 }
 
-func checkTrace(ir string, traces [][]tr.RawColumn[bytes.BigEndian], schema sc.AnySchema,
+func checkTrace(ir string, traces [][]tr.RawColumn[word.BigEndian], schema sc.AnySchema,
 	builder ir.TraceBuilder, cfg checkConfig) bool {
 	//
 	for _, cols := range traces {
