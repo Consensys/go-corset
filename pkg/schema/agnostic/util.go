@@ -53,7 +53,14 @@ func LimbsOf(mapping sc.ModuleRegisterMap, lids []sc.LimbId) []sc.Limb {
 
 // LowerRawColumns lowers a given set of raw columns into a given field implementation.
 func LowerRawColumns(columns []trace.RawColumn[bytes.BigEndian]) []trace.RawColumn[fr.Element] {
-	panic("todo")
+	var loweredColumns []trace.RawFrColumn
+	//
+	for _, ith := range columns {
+		lowered := LowerRawColumn(ith)
+		loweredColumns = append(loweredColumns, lowered)
+	}
+	//
+	return loweredColumns
 }
 
 // LowerRawColumn lowers a given raw column into a given field implementation.

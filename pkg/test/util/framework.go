@@ -67,9 +67,7 @@ func CheckWithFields(t *testing.T, stdlib bool, test string, fields ...schema.Fi
 	nTests := 0
 	// Iterate possible testfile extensions
 	for _, cfg := range TESTFILE_EXTENSIONS {
-		var (
-			traces [][]trace.BigEndianColumn
-		)
+		var traces [][]trace.BigEndianColumn
 		// Construct test filename
 		testFilename := fmt.Sprintf("%s/%s.%s", TestDir, test, cfg.extension)
 		// Read traces from file
@@ -139,12 +137,15 @@ func checkFields(t *testing.T, test string, cfg Config,
 		if i != 0 {
 			maxPadding = 0
 		}
-		// Set default optimisation level
-		stack.WithOptimisationConfig(mir.DEFAULT_OPTIMISATION_LEVEL)
-		// Configure stack
-		stack.Apply(*stack.BinaryFile())
-		// Apply stack
-		checkTraces(t, test, maxPadding, mir.DEFAULT_OPTIMISATION_INDEX, cfg, traces, stack)
+		//
+		if cfg.field == "" || cfg.field == stack.Field().Name {
+			// Set default optimisation level
+			stack.WithOptimisationConfig(mir.DEFAULT_OPTIMISATION_LEVEL)
+			// Configure stack
+			stack.Apply(*stack.BinaryFile())
+			// Apply stack
+			checkTraces(t, test, maxPadding, mir.DEFAULT_OPTIMISATION_INDEX, cfg, traces, stack)
+		}
 	}
 }
 
@@ -179,7 +180,6 @@ func checkTraces(t *testing.T, test string, maxPadding uint, opt uint, cfg Confi
 
 func checkTrace[C sc.Constraint](t *testing.T, inputs []trace.BigEndianColumn, id traceId,
 	schema sc.Schema[C], mapping sc.RegisterMap) {
-	//
 	// Construct the trace
 	tr, errs := ir.NewTraceBuilder().
 		WithExpansion(id.expand).
@@ -234,6 +234,7 @@ type Config struct {
 	expected  bool
 	expand    bool
 	validate  bool
+	field     string
 	optlevels []uint
 }
 
@@ -244,17 +245,18 @@ var defaultOptLevel = []uint{1}
 // different test inputs.
 var TESTFILE_EXTENSIONS []Config = []Config{
 	// should all pass
-	{"accepts", true, true, true, allOptLevels},
-	{"accepts.bz2", true, true, true, allOptLevels},
-	{"auto.accepts", true, true, true, allOptLevels},
-	{"expanded.accepts", true, false, false, allOptLevels},
-	{"expanded.O1.accepts", true, false, false, defaultOptLevel},
+	{"accepts", true, true, true, "", allOptLevels},
+	{"accepts.bz2", true, true, true, "", allOptLevels},
+	{"auto.accepts", true, true, true, "", allOptLevels},
+	{"expanded.accepts", true, false, false, "BLS12_377", allOptLevels},
+	{"expanded.O1.accepts", true, false, false, "BLS12_377", defaultOptLevel},
 	// should all fail
-	{"rejects", false, true, false, allOptLevels},
-	{"rejects.bz2", false, true, false, allOptLevels},
-	{"auto.rejects", false, true, false, allOptLevels},
-	{"expanded.rejects", false, false, false, allOptLevels},
-	{"expanded.O1.rejects", false, false, false, defaultOptLevel},
+	{"rejects", false, true, false, "", allOptLevels},
+	{"rejects.bz2", false, true, false, "", allOptLevels},
+	{"auto.rejects", false, true, false, "", allOptLevels},
+	{"bls12_377.rejects", false, true, false, "BLS12_377", allOptLevels},
+	{"expanded.rejects", false, false, false, "BLS12_377", allOptLevels},
+	{"expanded.O1.rejects", false, false, false, "BLS12_377", defaultOptLevel},
 }
 
 // A trace identifier uniquely identifies a specific trace within a given test.

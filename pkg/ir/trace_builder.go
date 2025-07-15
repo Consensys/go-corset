@@ -170,8 +170,10 @@ func (tb TraceBuilder) BatchSize() uint {
 // there are inconsistencies (e.g. missing columns, duplicate columns, etc).
 func (tb TraceBuilder) Build(schema sc.AnySchema, rawCols []trace.RawColumn[bytes.BigEndian]) (trace.Trace, []error) {
 	var cols []trace.RawColumn[fr.Element]
-	// Split raw columns according to the mapping (if applicable)
-	if tb.mapping != nil {
+	// Split raw columns according to the mapping (if applicable).  Note that
+	// expansion being disabled implies the trace is already split
+	// appropriately.
+	if tb.mapping != nil && tb.expand {
 		cols = agnostic.SplitRawColumns(rawCols, tb.mapping)
 	} else {
 		cols = agnostic.LowerRawColumns(rawCols)
