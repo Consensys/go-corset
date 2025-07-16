@@ -30,6 +30,7 @@ const (
 	modulus           = 2147483647
 	rSq               = 4          // r² (mod m)
 	negModulusInvModR = 2147483649 // -modulus⁻¹ (mod r), used for Montgomery reduction
+	nbBytes           = 4
 )
 
 // Add x + y
@@ -157,4 +158,26 @@ func (x Element) String() string {
 // Text returns the value of x in the given base.
 func (x Element) Text(base int) string {
 	return strconv.FormatUint(uint64(x.ToUint32()), base)
+}
+
+// Bytes returns the big-endian encoded value of the Element, possibly with leading zeros.
+func (x Element) Bytes() []byte {
+	res := make([]byte, nbBytes)
+	v := x.ToUint32()
+	for i := range nbBytes {
+		res[i] = byte(v >> ((nbBytes - 1 - i) * 8))
+	}
+	return res
+}
+
+// AddBytes adds the Element to the given big-endian value. It expects exactly 4  input bytes.
+func (x Element) AddBytes(b []byte) Element {
+	if len(b) != nbBytes {
+		panic("AddBytes expects 4 bytes")
+	}
+	var v uint32
+	for i := range nbBytes {
+		v |= uint32(b[i]) << ((nbBytes - 1 - i) * 8)
+	}
+	return x.Add(NewElement(v))
 }

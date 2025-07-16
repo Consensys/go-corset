@@ -13,6 +13,8 @@ type Element[Operand any] interface {
 	Double() Operand            // Double 2x
 	Half() Operand              // Half x/2
 	Inverse() Operand           // Inverse x⁻¹, or 0 if x = 0.
+	Bytes() []byte              // Bytes returns the big-endian encoded Element, possibly with leading zeros.
+	AddBytes([]byte) Operand    // AddBytes adds Element to the given big-endian value, with a strict length requirement.
 	fmt.Stringer
 	Text(base int) string // Text returns the numerical value of x in the given base.
 }

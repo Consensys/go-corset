@@ -69,3 +69,21 @@ func (x Element) Half() Element {
 func (x Element) Inverse() Element {
 	return Element{new(fr.Element).Inverse(x.Element)}
 }
+
+// Bytes returns the big-endian encoded value of the Element, possibly with leading zeros.
+func (x Element) Bytes() []byte {
+	return x.Marshal()
+}
+
+// AddBytes adds the Element to the given big-endian value. It expects exactly 32 bytes.
+func (x Element) AddBytes(b []byte) Element {
+	if len(b) != fr.Bytes {
+		panic(fmt.Errorf("expecting exactly %d bytes", fr.Bytes))
+	}
+
+	var res fr.Element
+
+	res.Unmarshal(b)
+
+	return Element{&res}
+}

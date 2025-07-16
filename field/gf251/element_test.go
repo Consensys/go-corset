@@ -118,3 +118,19 @@ func TestMontgomery(t *testing.T) {
 	x = montgomeryReduce(uint64(x[0]))
 	assert.Equal(t, 1, x[0])
 }
+
+func TestByteConversion(t *testing.T) {
+	var i big.Int
+	for range 1000000 {
+		a := rand.Uint32N(modulus)
+		expectedB := i.SetUint64(uint64(a)).Bytes()
+		expectedB = append(make([]byte, nbBytes-len(expectedB)), expectedB...) // pad to 4 bytes
+
+		// bytes to element
+		x := Element{}.AddBytes(expectedB)
+		assert.Equal(t, NewElement(a), x)
+
+		// element to bytes
+		assert.Equal(t, expectedB, x.Bytes())
+	}
+}
