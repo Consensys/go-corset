@@ -108,11 +108,11 @@ func (p *StaticArray[T]) Pad(n uint, m uint, padding T) array.MutArray[T] {
 	// Copy over existing bytes
 	copy(q.data[n*p.bytewidth:], p.data)
 	// Front padding!
-	for i := uint(0); i < n; i++ {
+	for i := range n {
 		q.Set(i, padding)
 	}
 	// Back padding!
-	for i := n + l; i < n+l+m; i++ {
+	for i := n + p.Len(); i < l; i++ {
 		q.Set(i, padding)
 	}
 	// Done
