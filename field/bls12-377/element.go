@@ -85,5 +85,5 @@ func (x Element) AddBytes(b []byte) Element {
 
 	res.Unmarshal(b)
 
-	return Element{&res}
+	return Element{res.Add(x.Element, &res)}
 }
