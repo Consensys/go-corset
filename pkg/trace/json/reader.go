@@ -104,7 +104,9 @@ func FromBytesLegacy(data []byte) ([]trace.BigEndianColumn, error) {
 	return cols, nil
 }
 
-func newArrayFromBigInts[P word.Pool[uint, word.BigEndian]](bitwidth uint, data []big.Int, pool P) array.Array[word.BigEndian] {
+func newArrayFromBigInts[P word.Pool[uint, word.BigEndian]](bitwidth uint, data []big.Int,
+	pool P) array.Array[word.BigEndian] {
+	//
 	var (
 		n       = uint(len(data))
 		builder = word.NewArray[word.BigEndian](n, bitwidth, pool)

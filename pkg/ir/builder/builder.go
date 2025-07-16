@@ -49,7 +49,9 @@ func TraceExpansion(parallel bool, batchsize uint, schema sc.AnySchema, trace *t
 
 // SplitRawColumns splits the given columns according to a given register
 // mapping or, otherwise, simply lowers them.
-func SplitRawColumns(rawCols []trace.RawColumn[word.BigEndian], expand bool, mapping schema.RegisterMap) []trace.RawFrColumn {
+func SplitRawColumns(rawCols []trace.RawColumn[word.BigEndian], expand bool,
+	mapping schema.RegisterMap) []trace.RawFrColumn {
+	//
 	var (
 		stats = util.NewPerfStats()
 		cols  []trace.RawFrColumn
