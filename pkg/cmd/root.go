@@ -22,7 +22,7 @@ import (
 	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/mir"
-	"github.com/consensys/go-corset/pkg/schema/agnostic"
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/spf13/cobra"
 )
 
@@ -93,11 +93,19 @@ func getSchemaStack(cmd *cobra.Command, mode uint, filenames ...string) *cmd_uti
 		validate  = GetFlag(cmd, "validate")
 	)
 	// Field configuration
-	fieldConfig := agnostic.GetFieldConfig(field)
+	fieldConfig := schema.GetFieldConfig(field)
 	// Sanity check
 	if fieldConfig == nil {
 		fmt.Printf("unknown prime field \"%s\"\n", field)
 		os.Exit(3)
+	}
+	// Apply field overrides
+	if cmd.Flags().Lookup("field-width").Changed {
+		fieldConfig.FieldBandWidth = GetUint(cmd, "field-width")
+	}
+
+	if cmd.Flags().Lookup("register-width").Changed {
+		fieldConfig.RegisterWidth = GetUint(cmd, "register-width")
 	}
 	// Initial corset compilation configuration
 	corsetConfig.Stdlib = !GetFlag(cmd, "no-stdlib")
@@ -105,17 +113,8 @@ func getSchemaStack(cmd *cobra.Command, mode uint, filenames ...string) *cmd_uti
 	corsetConfig.Legacy = GetFlag(cmd, "legacy")
 	// Assembly lowering config
 	asmConfig.Vectorize = GetFlag(cmd, "vectorize")
-	asmConfig.MaxFieldWidth = fieldConfig.FieldBandWidth
-	asmConfig.MaxRegisterWidth = fieldConfig.RegisterWidth
+	asmConfig.Field = *fieldConfig
 	//
-	// Apply field overrides
-	if cmd.Flags().Lookup("field-width").Changed {
-		asmConfig.MaxFieldWidth = GetUint(cmd, "field-width")
-	}
-
-	if cmd.Flags().Lookup("register-width").Changed {
-		asmConfig.MaxRegisterWidth = GetUint(cmd, "register-width")
-	}
 	// Sanity check MIR optimisation level
 	if optimisation >= uint(len(mir.OPTIMISATION_LEVELS)) {
 		fmt.Printf("invalid optimisation level %d\n", optimisation)
@@ -160,8 +159,7 @@ func getSchemaStack(cmd *cobra.Command, mode uint, filenames ...string) *cmd_uti
 	}
 	// Read / compile given source files.
 	if mode != SCHEMA_OPTIONAL || len(filenames) > 0 {
-		mapping := schemaStack.Read(filenames...)
-		builder = builder.WithRegisterMapping(mapping)
+		schemaStack.Read(filenames...)
 	} else {
 		// In this situation, we cannot perform trace expansion.
 		builder = builder.WithExpansion(false)

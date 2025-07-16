@@ -54,9 +54,13 @@ var OPTIMISATION_LEVELS = []OptimisationConfig{
 	{1, 16, true, true},
 }
 
+// DEFAULT_OPTIMISATION_INDEX gives the index of the default optimisation level
+// in OPTIMISATION_LEVELS.
+var DEFAULT_OPTIMISATION_INDEX = uint(1)
+
 // DEFAULT_OPTIMISATION_LEVEL provides a default level of optimisation which
 // should be used in most cases.
-var DEFAULT_OPTIMISATION_LEVEL = OPTIMISATION_LEVELS[1]
+var DEFAULT_OPTIMISATION_LEVEL = OPTIMISATION_LEVELS[DEFAULT_OPTIMISATION_INDEX]
 
 // attempt to eliminate normalisations by undertaking a range analysis on their
 // arguments to see whether they have sufficiently small ranges.

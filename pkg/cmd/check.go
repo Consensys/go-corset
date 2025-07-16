@@ -30,6 +30,7 @@ import (
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/collection/word"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -140,7 +141,7 @@ type checkConfig struct {
 // Check raw constraints using the legacy pipeline.
 func checkWithLegacyPipeline(cfg checkConfig, batched bool, tracefile string, schemas cmd_util.SchemaStack) {
 	var (
-		traces [][]trace.RawColumn
+		traces [][]trace.BigEndianColumn
 		ok     bool = true
 	)
 	//
@@ -156,7 +157,7 @@ func checkWithLegacyPipeline(cfg checkConfig, batched bool, tracefile string, sc
 	} else {
 		// unbatched (i.e. normal) mode
 		tracefile := ReadTraceFile(tracefile)
-		traces = [][]trace.RawColumn{tracefile.Columns}
+		traces = [][]trace.BigEndianColumn{tracefile.Columns}
 	}
 	//
 	stats.Log("Reading trace file")
@@ -171,11 +172,12 @@ func checkWithLegacyPipeline(cfg checkConfig, batched bool, tracefile string, sc
 	}
 }
 
-func checkTrace(ir string, traces [][]tr.RawColumn, schema sc.AnySchema,
+func checkTrace(ir string, traces [][]tr.RawColumn[word.BigEndian], schema sc.AnySchema,
 	builder ir.TraceBuilder, cfg checkConfig) bool {
 	//
 	for _, cols := range traces {
 		for n := cfg.padding.Left; n <= cfg.padding.Right; n++ {
+			//
 			stats := util.NewPerfStats()
 			trace, errs := builder.WithPadding(n).Build(schema, cols)
 			// Log cost of expansion

@@ -24,8 +24,8 @@ import (
 	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/mir"
+	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/json"
 	"github.com/consensys/go-corset/pkg/util"
@@ -45,47 +45,35 @@ const MAX_PADDING uint = 7
 // set of constraints, and all traces that we expect to be rejected are
 // rejected.  A default field is used for these tests (BLS12_377)
 func Check(t *testing.T, stdlib bool, test string) {
-	CheckWithFields(t, stdlib, test, agnostic.BLS12_377)
+	CheckWithFields(t, stdlib, test, schema.BLS12_377)
 }
 
 // CheckWithFields checks that all traces which we expect to be accepted are
 // accepted by a given set of constraints, and all traces that we expect to be
 // rejected are rejected.  All fields provided are tested against.
-func CheckWithFields(t *testing.T, stdlib bool, test string, fields ...agnostic.FieldConfig) {
+func CheckWithFields(t *testing.T, stdlib bool, test string, fields ...schema.FieldConfig) {
+	var (
+		filenames = matchSourceFiles(test)
+		// Configure the stack
+		stacks = getSchemaStacks(stdlib, fields, filenames...)
+	)
 	// Sanity check
 	if len(fields) == 0 {
 		panic("no field configurations")
 	}
 	// Enable testing each trace in parallel
 	t.Parallel()
-	//
-	for _, field := range fields {
-		checkWithField(t, stdlib, test, field)
-	}
-}
-
-func checkWithField(t *testing.T, stdlib bool, test string, field agnostic.FieldConfig) {
-	var (
-		filenames = matchSourceFiles(test)
-		// Configure the stack
-		stack, mapping = getSchemaStack(stdlib, field, filenames...)
-	)
 	// Record how many tests executed.
 	nTests := 0
 	// Iterate possible testfile extensions
 	for _, cfg := range TESTFILE_EXTENSIONS {
-		var traces [][]trace.RawColumn
+		var traces [][]trace.BigEndianColumn
 		// Construct test filename
 		testFilename := fmt.Sprintf("%s/%s.%s", TestDir, test, cfg.extension)
 		// Read traces from file
 		traces = ReadTracesFile(testFilename)
-		// Split traces (if not already expanded)
-		if cfg.expand {
-			// Split traces according to field
-			SplitTraces(traces, mapping)
-		}
 		// Run tests
-		binCheckTraces(t, testFilename, cfg, traces, stack)
+		fullCheckTraces(t, testFilename, cfg, traces, stacks)
 		// Record how many tests we found
 		nTests += len(traces)
 	}
@@ -95,8 +83,21 @@ func checkWithField(t *testing.T, stdlib bool, test string, field agnostic.Field
 	}
 }
 
-func binCheckTraces(t *testing.T, test string, cfg Config,
-	traces [][]trace.RawColumn, stack cmd_util.SchemaStack) {
+func fullCheckTraces(t *testing.T, test string, cfg Config,
+	traces [][]trace.BigEndianColumn, stacks []cmd_util.SchemaStack) {
+	// Identify primary stack
+	var primary = stacks[0]
+	// Run checks using schema compiled from source
+	checkCompilerOptimisations(t, test, cfg, traces, primary)
+	// Construct binary schema using primary stack
+	checkBinaryEncoding(t, test, cfg, traces, primary)
+	// Perform checks with different fields
+	checkFields(t, test, cfg, traces, stacks)
+}
+
+// Sanity check same outcome for all optimisation levels
+func checkCompilerOptimisations(t *testing.T, test string, cfg Config,
+	traces [][]trace.BigEndianColumn, stack cmd_util.SchemaStack) {
 	// Run checks using schema compiled from source
 	for _, opt := range cfg.optlevels {
 		// Set optimisation level
@@ -106,7 +107,12 @@ func binCheckTraces(t *testing.T, test string, cfg Config,
 		// Apply stack
 		checkTraces(t, test, MAX_PADDING, opt, cfg, traces, stack)
 	}
-	// Construct binary schema
+}
+
+// Check the binary encoding / decoding.
+func checkBinaryEncoding(t *testing.T, test string, cfg Config,
+	traces [][]trace.BigEndianColumn, stack cmd_util.SchemaStack) {
+	// Construct binary schema using primary stack
 	if binSchema := encodeDecodeSchema(t, *stack.BinaryFile()); binSchema != nil {
 		// Choose any valid optimisation level
 		opt := cfg.optlevels[0]
@@ -120,10 +126,33 @@ func binCheckTraces(t *testing.T, test string, cfg Config,
 	}
 }
 
+// Run default optimisation over all fields, and check padding for the primary
+// stack only.
+func checkFields(t *testing.T, test string, cfg Config,
+	traces [][]trace.BigEndianColumn, stacks []cmd_util.SchemaStack) {
+	// Now, perform full check
+	for i, stack := range stacks {
+		var maxPadding = MAX_PADDING
+		// Only check padding on primary stack
+		if i != 0 {
+			maxPadding = 0
+		}
+		//
+		if cfg.field == "" || cfg.field == stack.Field().Name {
+			// Set default optimisation level
+			stack.WithOptimisationConfig(mir.DEFAULT_OPTIMISATION_LEVEL)
+			// Configure stack
+			stack.Apply(*stack.BinaryFile())
+			// Apply stack
+			checkTraces(t, test, maxPadding, mir.DEFAULT_OPTIMISATION_INDEX, cfg, traces, stack)
+		}
+	}
+}
+
 // Check a given set of tests have an expected outcome (i.e. are
 // either accepted or rejected) by a given set of constraints.
-func checkTraces(t *testing.T, test string, maxPadding uint, opt uint, cfg Config, traces [][]trace.RawColumn,
-	stack cmd_util.SchemaStack) {
+func checkTraces(t *testing.T, test string, maxPadding uint, opt uint, cfg Config,
+	traces [][]trace.BigEndianColumn, stack cmd_util.SchemaStack) {
 	// For unexpected traces, we never want to explore padding (because that's
 	// the whole point of unexpanded traces --- they are raw).
 	if !cfg.expand {
@@ -141,7 +170,7 @@ func checkTraces(t *testing.T, test string, maxPadding uint, opt uint, cfg Confi
 					if cfg.expand || ir == "AIR" {
 						// Always check if expansion required, otherwise
 						// only check AIR constraints.
-						checkTrace(t, tr, id, stack.SchemaOf(ir))
+						checkTrace(t, tr, id, stack.SchemaOf(ir), stack.RegisterMapping())
 					}
 				}
 			}
@@ -149,18 +178,20 @@ func checkTraces(t *testing.T, test string, maxPadding uint, opt uint, cfg Confi
 	}
 }
 
-func checkTrace[C sc.Constraint](t *testing.T, inputs []trace.RawColumn, id traceId, schema sc.Schema[C]) {
+func checkTrace[C sc.Constraint](t *testing.T, inputs []trace.BigEndianColumn, id traceId,
+	schema sc.Schema[C], mapping sc.RegisterMap) {
 	// Construct the trace
 	tr, errs := ir.NewTraceBuilder().
 		WithExpansion(id.expand).
 		WithValidation(id.validate).
 		WithPadding(id.padding).
 		WithParallelism(true).
+		WithRegisterMapping(mapping).
 		Build(sc.Any(schema), inputs)
 	// Sanity check construction
 	if len(errs) > 0 {
-		t.Errorf("Trace expansion failed (%s [O%d], %s, line %d with padding %d): %s",
-			id.ir, id.optimisation, id.test, id.line, id.padding, errs)
+		t.Errorf("Trace expansion failed (%s [O%d, %s], %s, line %d with padding %d): %s",
+			id.ir, id.optimisation, mapping.Field().Name, id.test, id.line, id.padding, errs)
 	} else {
 		// Check Constraints
 		errs := sc.Accepts(true, 100, schema, tr)
@@ -169,12 +200,12 @@ func checkTrace[C sc.Constraint](t *testing.T, inputs []trace.RawColumn, id trac
 		// Process what happened versus what was supposed to happen.
 		if !accepted && id.expected {
 			//table.PrintTrace(tr)
-			t.Errorf("Trace rejected incorrectly (%s [O%d], %s, line %d with padding %d): %s",
-				id.ir, id.optimisation, id.test, id.line, id.padding, errs)
+			t.Errorf("Trace rejected incorrectly (%s [O%d, %s], %s, line %d with padding %d): %s",
+				id.ir, id.optimisation, mapping.Field().Name, id.test, id.line, id.padding, errs)
 		} else if accepted && !id.expected {
 			//printTrace(tr)
-			t.Errorf("Trace accepted incorrectly (%s [O%d], %s, line %d with padding %d)",
-				id.ir, id.optimisation, id.test, id.line, id.padding)
+			t.Errorf("Trace accepted incorrectly (%s [O%d, %s], %s, line %d with padding %d)",
+				id.ir, id.optimisation, mapping.Field().Name, id.test, id.line, id.padding)
 		}
 	}
 }
@@ -203,6 +234,7 @@ type Config struct {
 	expected  bool
 	expand    bool
 	validate  bool
+	field     string
 	optlevels []uint
 }
 
@@ -213,17 +245,18 @@ var defaultOptLevel = []uint{1}
 // different test inputs.
 var TESTFILE_EXTENSIONS []Config = []Config{
 	// should all pass
-	{"accepts", true, true, true, allOptLevels},
-	{"accepts.bz2", true, true, true, allOptLevels},
-	{"auto.accepts", true, true, true, allOptLevels},
-	{"expanded.accepts", true, false, false, allOptLevels},
-	{"expanded.O1.accepts", true, false, false, defaultOptLevel},
+	{"accepts", true, true, true, "", allOptLevels},
+	{"accepts.bz2", true, true, true, "", allOptLevels},
+	{"auto.accepts", true, true, true, "", allOptLevels},
+	{"expanded.accepts", true, false, false, "BLS12_377", allOptLevels},
+	{"expanded.O1.accepts", true, false, false, "BLS12_377", defaultOptLevel},
 	// should all fail
-	{"rejects", false, true, false, allOptLevels},
-	{"rejects.bz2", false, true, false, allOptLevels},
-	{"auto.rejects", false, true, false, allOptLevels},
-	{"expanded.rejects", false, false, false, allOptLevels},
-	{"expanded.O1.rejects", false, false, false, defaultOptLevel},
+	{"rejects", false, true, false, "", allOptLevels},
+	{"rejects.bz2", false, true, false, "", allOptLevels},
+	{"auto.rejects", false, true, false, "", allOptLevels},
+	{"bls12_377.rejects", false, true, false, "BLS12_377", allOptLevels},
+	{"expanded.rejects", false, false, false, "BLS12_377", allOptLevels},
+	{"expanded.O1.rejects", false, false, false, "BLS12_377", defaultOptLevel},
 }
 
 // A trace identifier uniquely identifies a specific trace within a given test.
@@ -251,19 +284,11 @@ type traceId struct {
 	padding uint
 }
 
-// SplitTraces splits a given set of traces according to a given field
-// configuration.
-func SplitTraces(traces [][]trace.RawColumn, mappings sc.RegisterMappings) {
-	for i := range traces {
-		traces[i] = agnostic.SplitRawColumns(traces[i], mappings)
-	}
-}
-
 // ReadTracesFile reads a file containing zero or more traces expressed as JSON, where
 // each trace is on a separate line.
-func ReadTracesFile(filename string) [][]trace.RawColumn {
+func ReadTracesFile(filename string) [][]trace.BigEndianColumn {
 	lines := util.ReadInputFile(filename)
-	traces := make([][]trace.RawColumn, len(lines))
+	traces := make([][]trace.BigEndianColumn, len(lines))
 	// Read constraints line by line
 	for i, line := range lines {
 		// Parse input line as JSON
@@ -303,8 +328,19 @@ func encodeDecodeSchema(t *testing.T, binf binfile.BinaryFile) *binfile.BinaryFi
 	return &nbinf
 }
 
-func getSchemaStack(stdlib bool, field agnostic.FieldConfig, filenames ...string) (cmd_util.SchemaStack,
-	sc.RegisterMappings) {
+func getSchemaStacks(stdlib bool, fields []schema.FieldConfig, filenames ...string) []cmd_util.SchemaStack {
+	var (
+		stacks = make([]cmd_util.SchemaStack, len(fields))
+	)
+	//
+	for i, f := range fields {
+		stacks[i] = getSchemaStack(stdlib, f, filenames...)
+	}
+	//
+	return stacks
+}
+
+func getSchemaStack(stdlib bool, field schema.FieldConfig, filenames ...string) cmd_util.SchemaStack {
 	//
 	var (
 		stack        cmd_util.SchemaStack
@@ -316,8 +352,7 @@ func getSchemaStack(stdlib bool, field agnostic.FieldConfig, filenames ...string
 	corsetConfig.Stdlib = stdlib
 	// Configure asm for lowering
 	asmConfig.Vectorize = true
-	asmConfig.MaxFieldWidth = field.FieldBandWidth
-	asmConfig.MaxRegisterWidth = field.RegisterWidth
+	asmConfig.Field = field
 	//
 	stack.
 		WithCorsetConfig(corsetConfig).
@@ -327,7 +362,7 @@ func getSchemaStack(stdlib bool, field agnostic.FieldConfig, filenames ...string
 		WithLayer(cmd_util.MIR_LAYER).
 		WithLayer(cmd_util.AIR_LAYER)
 	// Read in all specified constraint files.
-	mapping := stack.Read(filenames...)
+	stack.Read(filenames...)
 	//
-	return stack, mapping
+	return stack
 }
