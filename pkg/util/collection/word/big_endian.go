@@ -33,12 +33,7 @@ var _ hash.Hasher[BigEndian] = BigEndian{}
 
 // NewBigEndian constructs a new big endian byte array.
 func NewBigEndian(bytes []byte) BigEndian {
-	// trim any leading zeros to ensure words are in a canonical form.
-	for len(bytes) > 0 && bytes[0] == 0 {
-		bytes = bytes[1:]
-	}
-	// done
-	return BigEndian{bytes}
+	return BigEndian{trim(bytes)}
 }
 
 // AsBigInt returns a freshly allocated big integer from the given bytes.
@@ -104,7 +99,7 @@ func (p BigEndian) Put(bytes []byte) {
 
 // Set implementation for Word interface.
 func (p BigEndian) Set(bytes []byte) BigEndian {
-	return BigEndian{bytes}
+	return BigEndian{trim(bytes)}
 }
 
 // Bytes returns a direct access to the underlying byte array in big endian
@@ -119,4 +114,13 @@ func (p BigEndian) String() string {
 	}
 	//
 	return hex.EncodeToString(p.bytes)
+}
+
+func trim(bytes []byte) []byte {
+	// trim any leading zeros to ensure words are in a canonical form.
+	for len(bytes) > 0 && bytes[0] == 0 {
+		bytes = bytes[1:]
+	}
+	//
+	return bytes
 }

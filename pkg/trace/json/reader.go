@@ -32,7 +32,6 @@ func FromBytes(data []byte) ([]trace.BigEndianColumn, error) {
 	var (
 		rawData map[string]map[string][]big.Int
 		cols    []trace.BigEndianColumn
-		pool    = word.NewHeapPool[word.BigEndian]()
 	)
 	// Attempt to unmarshall
 	jsonErr := json.Unmarshal(data, &rawData)
@@ -40,6 +39,8 @@ func FromBytes(data []byte) ([]trace.BigEndianColumn, error) {
 		// Failed, so try and fall back on the legacy format.
 		return FromBytesLegacy(data)
 	}
+	// Intialise pool
+	pool := word.NewHeapPool[word.BigEndian]()
 	//
 	for mod, modData := range rawData {
 		for name, rawInts := range modData {

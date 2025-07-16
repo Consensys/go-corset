@@ -14,10 +14,12 @@ package word
 
 import (
 	"github.com/consensys/go-corset/pkg/util/collection/array"
+	"github.com/consensys/go-corset/pkg/util/collection/hash"
 )
 
 // Word abstracts a sequence of n bits.
 type Word[T any] interface {
+	hash.Hasher[T]
 	// Get the bit at a given bit offset in this word, where offsets always
 	// start with the least-significant bit.
 	Bit(uint) bool
