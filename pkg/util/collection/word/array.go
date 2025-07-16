@@ -30,13 +30,13 @@ type Word[T any] interface {
 }
 
 // NewArray constructs a new word array with a given capacity.
-func NewArray[T Word[T]](height uint, bitwidth uint) array.Builder[T] {
+func NewArray[T Word[T], P Pool[uint, T]](height uint, bitwidth uint, pool P) array.Builder[T] {
 	switch {
 	case bitwidth == 1:
 		return NewBitArray[T](height)
 	case bitwidth < 64:
 		return NewStaticArray[T](height, bitwidth)
 	default:
-		return NewIndexArrayBuilder[T](height, bitwidth)
+		return NewIndexArray[T, P](height, bitwidth, pool)
 	}
 }

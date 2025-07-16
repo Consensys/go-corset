@@ -19,68 +19,68 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 )
 
-// NewIndexArrayBuilder constructs a new builder for an indexed array.
-func NewIndexArrayBuilder[T Word[T]](height uint, bitwidth uint) array.Builder[T] {
-	panic("got here")
-}
-
-// =================================================================================
-
-type indexEntry struct {
-	offset uint32
-	length uint32
-}
-
 // IndexArray implements an array of elements simply using an underlying array.
-type IndexArray[T Word[T]] struct {
-	// heap of bytes
-	heap []byte
-	// indices into heap
-	index []indexEntry
+type IndexArray[T Word[T], P Pool[uint, T]] struct {
+	// pool of values
+	pool P
+	// indices into pool
+	index []uint
 	// Bitwidth of words in this array
 	bitwidth uint
-	// Number of bytes required to hold a word
-	bytewidth uint
 }
 
-// NewIndexArray constructs a new word array with a given capacity.
-func NewIndexArray[T Word[T]](height uint, bitwidth uint) *IndexArray[T] {
+// NewIndexArray constructs a new indexed array.
+func NewIndexArray[T Word[T], P Pool[uint, T]](height uint, bitwidth uint, pool P) *IndexArray[T, P] {
 	var (
-		bytewidth = ByteWidth(bitwidth)
-		heap      = []byte{}
-		index     = make([]indexEntry, height)
+		undefined      T
+		undefinedIndex = pool.Put(undefined)
+		index          = make([]uint, height)
 	)
 	//
-	return &IndexArray[T]{heap, index, bitwidth, bytewidth}
+	for i := range height {
+		index[i] = undefinedIndex
+	}
+	//
+	return &IndexArray[T, P]{pool, index, bitwidth}
+}
+
+// Build implementation for the array.Builder interface.  This simply means that
+// a index array is its own builder.
+func (p *IndexArray[T, P]) Build() array.Array[T] {
+	return p
 }
 
 // Len returns the number of elements in this word array.
-func (p *IndexArray[T]) Len() uint {
+func (p *IndexArray[T, P]) Len() uint {
 	return uint(len(p.index))
 }
 
 // BitWidth returns the width (in bits) of elements in this array.
-func (p *IndexArray[T]) BitWidth() uint {
+func (p *IndexArray[T, P]) BitWidth() uint {
 	return p.bitwidth
 }
 
 // Get returns the field element at the given index in this array.
-func (p *IndexArray[T]) Get(index uint) T {
-	var (
-		item  T
-		entry = p.index[index]
-		bytes = p.heap[entry.offset : entry.offset+entry.length]
-	)
-	//
-	return item.Set(bytes)
+func (p *IndexArray[T, P]) Get(index uint) T {
+	return p.pool.Get(p.index[index])
+}
+
+// Set sets the field element at the given index in this array, overwriting the
+// original value.
+func (p *IndexArray[T, P]) Set(index uint, word T) {
+	p.index[index] = p.pool.Put(word)
 }
 
 // Slice out a subregion of this array.
-func (p *IndexArray[T]) Slice(start uint, end uint) array.MutArray[T] {
-	panic("todo")
+func (p *IndexArray[T, P]) Slice(start uint, end uint) array.Array[T] {
+	return &IndexArray[T, P]{
+		p.pool,
+		p.index[start:end],
+		p.bitwidth,
+	}
 }
 
-func (p *IndexArray[T]) String() string {
+func (p *IndexArray[T, P]) String() string {
 	var sb strings.Builder
 
 	sb.WriteString("[")

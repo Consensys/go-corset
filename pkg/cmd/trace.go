@@ -144,7 +144,13 @@ func expandColumns(cols []trace.BigEndianColumn, schema sc.AnySchema, builder ir
 		os.Exit(1)
 	}
 	// Convert back to raw column array
-	var rcols []trace.BigEndianColumn
+	var (
+		rcols []trace.BigEndianColumn
+		// NOTE: we could probably do better here, since a pool must already
+		// have been created when the original trace was read.  We just need
+		// some way to access it.
+		pool = word.NewHeapPool[word.BigEndian]()
+	)
 	//
 	for mid := range tr.Width() {
 		module := tr.Module(mid)
@@ -154,7 +160,7 @@ func expandColumns(cols []trace.BigEndianColumn, schema sc.AnySchema, builder ir
 			rcols = append(rcols, trace.BigEndianColumn{
 				Module: module.Name(),
 				Name:   ith.Name(),
-				Data:   field.ToBigEndianByteArray(ith.Data()),
+				Data:   field.ToBigEndianByteArray(ith.Data(), pool),
 			})
 		}
 	}

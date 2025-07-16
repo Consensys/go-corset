@@ -23,13 +23,20 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/word"
 )
 
+// WordPool provides a usefuil alias
+type WordPool = word.Pool[uint, word.BigEndian]
+
 // FromBytesLegacy parses a byte array representing a given (legacy) LT trace
 // file into an columns, or produces an error if the original file was malformed
 // in some way.   The input represents the original legacy format of trace files
 // (i.e. without any additional header information prepended, etc).
 func FromBytesLegacy(data []byte) ([]trace.BigEndianColumn, error) {
-	// Construct new bytes.Reader
-	buf := bytes.NewReader(data)
+	var (
+		// Construct new bytes.Reader
+		buf = bytes.NewReader(data)
+		// Construct pool for all words contained herein
+		pool = word.NewHeapPool[word.BigEndian]()
+	)
 	// Read Number of BytesColumns
 	var ncols uint32
 	if err := binary.Read(buf, binary.BigEndian, &ncols); err != nil {
@@ -60,7 +67,7 @@ func FromBytesLegacy(data []byte) ([]trace.BigEndianColumn, error) {
 		// Dispatch go-routine
 		go func(i uint, offset uint) {
 			// Read column data
-			elements := readColumnData(ith, data[offset:offset+nbytes])
+			elements := readColumnData(ith, data[offset:offset+nbytes], pool)
 			// Package result
 			c <- util.NewPair(i, elements)
 		}(i, offset)
@@ -120,24 +127,24 @@ func readColumnHeader(buf *bytes.Reader) (columnHeader, error) {
 	return header, nil
 }
 
-func readColumnData(header columnHeader, bytes []byte) array.Array[word.BigEndian] {
+func readColumnData(header columnHeader, bytes []byte, pool WordPool) array.Array[word.BigEndian] {
 	// Handle special cases
 	switch header.width {
 	case 1:
-		return readByteColumnData(header, bytes)
+		return readByteColumnData(header, bytes, pool)
 	case 2:
-		return readWordColumnData(header, bytes)
+		return readWordColumnData(header, bytes, pool)
 	case 4:
-		return readDWordColumnData(header, bytes)
+		return readDWordColumnData(header, bytes, pool)
 	case 8:
-		return readQWordColumnData(header, bytes)
+		return readQWordColumnData(header, bytes, pool)
 	}
 	// General case
-	return readArbitraryColumnData(header, bytes)
+	return readArbitraryColumnData(header, bytes, pool)
 }
 
-func readByteColumnData(header columnHeader, bytes []byte) array.Array[word.BigEndian] {
-	builder := word.NewArray[word.BigEndian](header.length, header.width*8)
+func readByteColumnData(header columnHeader, bytes []byte, pool WordPool) array.Array[word.BigEndian] {
+	builder := word.NewArray(header.length, header.width*8, pool)
 	//
 	for i := uint(0); i < header.length; i++ {
 		// Construct ith field element
@@ -147,9 +154,9 @@ func readByteColumnData(header columnHeader, bytes []byte) array.Array[word.BigE
 	return builder.Build()
 }
 
-func readWordColumnData(header columnHeader, bytes []byte) array.Array[word.BigEndian] {
+func readWordColumnData(header columnHeader, bytes []byte, pool WordPool) array.Array[word.BigEndian] {
 	var (
-		builder = word.NewArray[word.BigEndian](header.length, header.width*8)
+		builder = word.NewArray(header.length, header.width*8, pool)
 		offset  = uint(0)
 	)
 	// Assign elements
@@ -163,9 +170,9 @@ func readWordColumnData(header columnHeader, bytes []byte) array.Array[word.BigE
 	return builder.Build()
 }
 
-func readDWordColumnData(header columnHeader, bytes []byte) array.Array[word.BigEndian] {
+func readDWordColumnData(header columnHeader, bytes []byte, pool WordPool) array.Array[word.BigEndian] {
 	var (
-		builder = word.NewArray[word.BigEndian](header.length, header.width*8)
+		builder = word.NewArray(header.length, header.width*8, pool)
 		offset  = uint(0)
 	)
 	// Assign elements
@@ -179,9 +186,9 @@ func readDWordColumnData(header columnHeader, bytes []byte) array.Array[word.Big
 	return builder.Build()
 }
 
-func readQWordColumnData(header columnHeader, bytes []byte) array.Array[word.BigEndian] {
+func readQWordColumnData(header columnHeader, bytes []byte, pool WordPool) array.Array[word.BigEndian] {
 	var (
-		builder = word.NewArray[word.BigEndian](header.length, header.width*8)
+		builder = word.NewArray(header.length, header.width*8, pool)
 		offset  = uint(0)
 	)
 	// Assign elements
@@ -196,9 +203,9 @@ func readQWordColumnData(header columnHeader, bytes []byte) array.Array[word.Big
 }
 
 // Read column data which is has arbitrary width
-func readArbitraryColumnData(header columnHeader, bytes []byte) array.Array[word.BigEndian] {
+func readArbitraryColumnData(header columnHeader, bytes []byte, pool WordPool) array.Array[word.BigEndian] {
 	var (
-		builder = word.NewArray[word.BigEndian](header.length, header.width*8)
+		builder = word.NewArray(header.length, header.width*8, pool)
 		offset  = uint(0)
 	)
 	// Assign elements

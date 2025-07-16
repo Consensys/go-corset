@@ -19,10 +19,6 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 )
 
-// =================================================================================
-// Implementation
-// =================================================================================
-
 // StaticArray implements an array of elements simply using an underlying array.
 type StaticArray[T Word[T]] struct {
 	// The data stored in this column (as bytes).

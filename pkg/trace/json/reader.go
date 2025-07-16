@@ -32,6 +32,7 @@ func FromBytes(data []byte) ([]trace.BigEndianColumn, error) {
 	var (
 		rawData map[string]map[string][]big.Int
 		cols    []trace.BigEndianColumn
+		pool    = word.NewHeapPool[word.BigEndian]()
 	)
 	// Attempt to unmarshall
 	jsonErr := json.Unmarshal(data, &rawData)
@@ -53,7 +54,7 @@ func FromBytes(data []byte) ([]trace.BigEndianColumn, error) {
 					name, row, rawInts[row].String())
 			}
 			// Construct data array
-			data := newArrayFromBigInts(bitwidth, rawInts)
+			data := newArrayFromBigInts(bitwidth, rawInts, pool)
 			// Construct column
 			cols = append(cols, trace.BigEndianColumn{Module: mod, Name: col, Data: data})
 		}
@@ -66,7 +67,10 @@ func FromBytes(data []byte) ([]trace.BigEndianColumn, error) {
 // [0], "Y": [1]} is a trace containing one row of data each for two columns "X"
 // and "Y".
 func FromBytesLegacy(data []byte) ([]trace.BigEndianColumn, error) {
-	var rawData map[string][]big.Int
+	var (
+		rawData map[string][]big.Int
+		pool    = word.NewHeapPool[word.BigEndian]()
+	)
 	// Unmarshall
 	jsonErr := json.Unmarshal(data, &rawData)
 	if jsonErr != nil {
@@ -89,7 +93,7 @@ func FromBytesLegacy(data []byte) ([]trace.BigEndianColumn, error) {
 				name, row, rawInts[row].String())
 		}
 		// Construct data array
-		data := newArrayFromBigInts(bitwidth, rawInts)
+		data := newArrayFromBigInts(bitwidth, rawInts, pool)
 		// Construct column
 		cols[index] = trace.BigEndianColumn{Module: mod, Name: col, Data: data}
 		//
@@ -99,10 +103,10 @@ func FromBytesLegacy(data []byte) ([]trace.BigEndianColumn, error) {
 	return cols, nil
 }
 
-func newArrayFromBigInts(bitwidth uint, data []big.Int) array.Array[word.BigEndian] {
+func newArrayFromBigInts[P word.Pool[uint, word.BigEndian]](bitwidth uint, data []big.Int, pool P) array.Array[word.BigEndian] {
 	var (
 		n       = uint(len(data))
-		builder = word.NewArray[word.BigEndian](n, bitwidth)
+		builder = word.NewArray[word.BigEndian](n, bitwidth, pool)
 	)
 	//
 	for i := range n {
