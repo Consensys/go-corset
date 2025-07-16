@@ -28,3 +28,8 @@ func NewPairRef[S any, T any](left S, right T) *Pair[S, T] {
 	var p = NewPair(left, right)
 	return &p
 }
+
+// Split returns both the left and right elements of this pair.
+func (p *Pair[S, T]) Split() (S, T) {
+	return p.Left, p.Right
+}

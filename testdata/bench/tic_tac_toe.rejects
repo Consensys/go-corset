@@ -14,7 +14,7 @@
 ;; range check
 ;; range "BOXES_6" < 3 does not hold
 ;; range "BOXES_7" < 3 does not hold
-{"STAMP": [1,1,1, 1,1,1], "BOXES_1": [1,1,1, 1,1,1], "BOXES_2": [0,2,2, 2,2,2], "BOXES_3": [0,0,1 ,1,1,1], "BOXES_4": [0,0,0, 2,2,2], "BOXES_5": [0,0,0, 0,1,1], "BOXES_6": [0,0,0, 0,0,-1], "BOXES_7": [0,0,0, 0,0,3], "BOXES_8": [0,0,0, 0,0,0], "BOXES_9": [0,0,0, 0,0,0]}
+{"STAMP": [1,1,1, 1,1,1], "BOXES_1": [1,1,1, 1,1,1], "BOXES_2": [0,2,2, 2,2,2], "BOXES_3": [0,0,1 ,1,1,1], "BOXES_4": [0,0,0, 2,2,2], "BOXES_5": [0,0,0, 0,1,1], "BOXES_6": [0,0,0, 0,0,10], "BOXES_7": [0,0,0, 0,0,3], "BOXES_8": [0,0,0, 0,0,0], "BOXES_9": [0,0,0, 0,0,0]}
 
 ;; game continues after player 1 won
 ;; constraint "game-stops-after-win-or-draw" does not hold

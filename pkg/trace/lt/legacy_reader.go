@@ -17,20 +17,26 @@ import (
 	"encoding/binary"
 	"strings"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
-	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/collection/word"
 )
+
+// WordPool provides a usefuil alias
+type WordPool = word.Pool[uint, word.BigEndian]
 
 // FromBytesLegacy parses a byte array representing a given (legacy) LT trace
 // file into an columns, or produces an error if the original file was malformed
 // in some way.   The input represents the original legacy format of trace files
 // (i.e. without any additional header information prepended, etc).
-func FromBytesLegacy(data []byte) ([]trace.RawColumn, error) {
-	// Construct new bytes.Reader
-	buf := bytes.NewReader(data)
+func FromBytesLegacy(data []byte) ([]trace.BigEndianColumn, error) {
+	var (
+		// Construct new bytes.Reader
+		buf = bytes.NewReader(data)
+		// Construct pool for all words contained herein
+		pool = word.NewHeapPool[word.BigEndian]()
+	)
 	// Read Number of BytesColumns
 	var ncols uint32
 	if err := binary.Read(buf, binary.BigEndian, &ncols); err != nil {
@@ -38,7 +44,7 @@ func FromBytesLegacy(data []byte) ([]trace.RawColumn, error) {
 	}
 	// Construct empty environment
 	headers := make([]columnHeader, ncols)
-	columns := make([]trace.RawColumn, ncols)
+	columns := make([]trace.BigEndianColumn, ncols)
 	// Read column headers
 	for i := uint32(0); i < ncols; i++ {
 		header, err := readColumnHeader(buf)
@@ -52,7 +58,7 @@ func FromBytesLegacy(data []byte) ([]trace.RawColumn, error) {
 	}
 	// Determine byte slices
 	offset := uint(len(data) - buf.Len())
-	c := make(chan util.Pair[uint, array.Array[fr.Element]], ncols)
+	c := make(chan util.Pair[uint, array.Array[word.BigEndian]], ncols)
 	// Dispatch go-routines
 	for i := uint(0); i < uint(ncols); i++ {
 		ith := headers[i]
@@ -61,7 +67,7 @@ func FromBytesLegacy(data []byte) ([]trace.RawColumn, error) {
 		// Dispatch go-routine
 		go func(i uint, offset uint) {
 			// Read column data
-			elements := readColumnData(ith, data[offset:offset+nbytes])
+			elements := readColumnData(ith, data[offset:offset+nbytes], pool)
 			// Package result
 			c <- util.NewPair(i, elements)
 		}(i, offset)
@@ -75,7 +81,7 @@ func FromBytesLegacy(data []byte) ([]trace.RawColumn, error) {
 		// Split qualified column name
 		mod, col := splitQualifiedColumnName(headers[res.Left].name)
 		// Construct appropriate slice
-		columns[res.Left] = trace.RawColumn{Module: mod, Name: col, Data: res.Right}
+		columns[res.Left] = trace.BigEndianColumn{Module: mod, Name: col, Data: res.Right}
 	}
 	// Done
 	return columns, nil
@@ -121,92 +127,98 @@ func readColumnHeader(buf *bytes.Reader) (columnHeader, error) {
 	return header, nil
 }
 
-func readColumnData(header columnHeader, bytes []byte) field.FrArray {
-	// Construct array
-	data := field.NewFrArray(header.length, header.width*8)
+func readColumnData(header columnHeader, bytes []byte, pool WordPool) array.Array[word.BigEndian] {
 	// Handle special cases
 	switch header.width {
 	case 1:
-		return readByteColumnData(data, header, bytes)
+		return readByteColumnData(header, bytes, pool)
 	case 2:
-		return readWordColumnData(data, header, bytes)
+		return readWordColumnData(header, bytes, pool)
 	case 4:
-		return readDWordColumnData(data, header, bytes)
+		return readDWordColumnData(header, bytes, pool)
 	case 8:
-		return readQWordColumnData(data, header, bytes)
+		return readQWordColumnData(header, bytes, pool)
 	}
 	// General case
-	return readArbitraryColumnData(data, header, bytes)
+	return readArbitraryColumnData(header, bytes, pool)
 }
 
-func readByteColumnData(data array.Array[fr.Element], header columnHeader, bytes []byte) field.FrArray {
+func readByteColumnData(header columnHeader, bytes []byte, pool WordPool) array.Array[word.BigEndian] {
+	builder := word.NewArray(header.length, header.width*8, pool)
+	//
 	for i := uint(0); i < header.length; i++ {
 		// Construct ith field element
-		data.Set(i, fr.NewElement(uint64(bytes[i])))
+		builder.Set(i, word.NewBigEndian(bytes[i:i+1]))
 	}
 	// Done
-	return data
+	return builder.Build()
 }
 
-func readWordColumnData(data array.Array[fr.Element], header columnHeader, bytes []byte) field.FrArray {
-	offset := uint(0)
+func readWordColumnData(header columnHeader, bytes []byte, pool WordPool) array.Array[word.BigEndian] {
+	var (
+		builder = word.NewArray(header.length, header.width*8, pool)
+		offset  = uint(0)
+	)
 	// Assign elements
 	for i := uint(0); i < header.length; i++ {
-		ith := binary.BigEndian.Uint16(bytes[offset : offset+2])
-		// Construct ith field element
-		data.Set(i, fr.NewElement(uint64(ith)))
+		// Construct ith element
+		builder.Set(i, word.NewBigEndian(bytes[offset:offset+2]))
 		// Move offset to next element
 		offset += 2
 	}
 	// Done
-	return data
+	return builder.Build()
 }
 
-func readDWordColumnData(data array.Array[fr.Element], header columnHeader, bytes []byte) field.FrArray {
-	offset := uint(0)
+func readDWordColumnData(header columnHeader, bytes []byte, pool WordPool) array.Array[word.BigEndian] {
+	var (
+		builder = word.NewArray(header.length, header.width*8, pool)
+		offset  = uint(0)
+	)
 	// Assign elements
 	for i := uint(0); i < header.length; i++ {
-		ith := binary.BigEndian.Uint32(bytes[offset : offset+4])
-		// Construct ith field element
-		data.Set(i, fr.NewElement(uint64(ith)))
+		// Construct ith element
+		builder.Set(i, word.NewBigEndian(bytes[offset:offset+4]))
 		// Move offset to next element
 		offset += 4
 	}
 	// Done
-	return data
+	return builder.Build()
 }
 
-func readQWordColumnData(data array.Array[fr.Element], header columnHeader, bytes []byte) field.FrArray {
-	offset := uint(0)
+func readQWordColumnData(header columnHeader, bytes []byte, pool WordPool) array.Array[word.BigEndian] {
+	var (
+		builder = word.NewArray(header.length, header.width*8, pool)
+		offset  = uint(0)
+	)
 	// Assign elements
 	for i := uint(0); i < header.length; i++ {
-		ith := binary.BigEndian.Uint64(bytes[offset : offset+8])
-		// Construct ith field element
-		data.Set(i, fr.NewElement(ith))
+		// Construct ith element
+		builder.Set(i, word.NewBigEndian(bytes[offset:offset+8]))
 		// Move offset to next element
 		offset += 8
 	}
 	// Done
-	return data
+	return builder.Build()
 }
 
 // Read column data which is has arbitrary width
-func readArbitraryColumnData(data array.Array[fr.Element], header columnHeader, bytes []byte) field.FrArray {
-	offset := uint(0)
+func readArbitraryColumnData(header columnHeader, bytes []byte, pool WordPool) array.Array[word.BigEndian] {
+	var (
+		builder = word.NewArray(header.length, header.width*8, pool)
+		offset  = uint(0)
+	)
 	// Assign elements
 	for i := uint(0); i < header.length; i++ {
-		var ith fr.Element
 		// Calculate position of next element
 		next := offset + header.width
-		// Initialise element
-		ith.SetBytes(bytes[offset:next])
-		// Construct ith field element
-		data.Set(i, ith)
+		// Construct ith element
+		builder.Set(i, word.NewBigEndian(bytes[offset:next]))
 		// Move offset to next element
 		offset = next
 	}
 	// Done
-	return data
+	return builder.Build()
 }
 
 // SplitQualifiedColumnName splits a qualified column name into its module and

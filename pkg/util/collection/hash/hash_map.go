@@ -15,6 +15,11 @@ package hash
 import (
 	"fmt"
 	"strings"
+
+	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
+	"github.com/consensys/go-corset/pkg/util/collection/enum"
+	"github.com/consensys/go-corset/pkg/util/collection/iter"
 )
 
 // Map defines a generic set implementation backed by a map.  This is a true
@@ -53,6 +58,18 @@ func (p *Map[K, V]) MaxBucket() uint {
 	}
 
 	return m
+}
+
+// KeyValues returns the set of all key-value pairs stored in this hash map.
+// Observe that the order in which elements are seen is unspecified.
+func (p *Map[K, V]) KeyValues() iter.Iterator[util.Pair[K, V]] {
+	var buckets []hashMapBucket[K, V]
+	//
+	for _, bucket := range p.buckets {
+		buckets = append(buckets, bucket)
+	}
+	//
+	return newBucketIterator(buckets)
 }
 
 // Insert a new item into this map, returning true if it was already contained
@@ -188,4 +205,75 @@ func (b *hashMapBucket[K, V]) get(key K) (V, bool) {
 	}
 
 	return empty, false
+}
+
+// ============================================================================
+// Bucket Iterator
+// ============================================================================
+
+type hashBucketIterator[K Hasher[K], V any] struct {
+	buckets []hashMapBucket[K, V]
+	index   uint
+}
+
+func newBucketIterator[K Hasher[K], V any](buckets []hashMapBucket[K, V]) *hashBucketIterator[K, V] {
+	buckets = skipEmptyBuckets(buckets)
+	return &hashBucketIterator[K, V]{buckets, 0}
+}
+
+func (p *hashBucketIterator[K, V]) HasNext() bool {
+	// Skip over any empty buckets
+	p.buckets = skipEmptyBuckets(p.buckets)
+	//
+	return len(p.buckets) > 0
+}
+
+func (p *hashBucketIterator[K, V]) Next() util.Pair[K, V] {
+	var (
+		key   = p.buckets[0].keys[p.index]
+		value = p.buckets[0].values[p.index]
+	)
+	// Increment index within bucket
+	p.index++
+	// Check whether reached end of current bucket
+	if p.index >= p.buckets[0].size() {
+		// Move to next bucket
+		p.index = 0
+		p.buckets = p.buckets[1:]
+	}
+	//
+	return util.NewPair(key, value)
+}
+
+func (p *hashBucketIterator[K, V]) Nth(n uint) util.Pair[K, V] {
+	return enum.Nth(p, n)
+}
+
+func (p *hashBucketIterator[K, V]) Append(i iter.Iterator[util.Pair[K, V]]) iter.Iterator[util.Pair[K, V]] {
+	return iter.NewAppendIterator(p, i)
+}
+
+func (p *hashBucketIterator[K, V]) Clone() iter.Iterator[util.Pair[K, V]] {
+	return &hashBucketIterator[K, V]{p.buckets, p.index}
+}
+
+func (p *hashBucketIterator[K, V]) Collect() []util.Pair[K, V] {
+	return enum.Collect(p)
+}
+
+func (p *hashBucketIterator[K, V]) Find(f array.Predicate[util.Pair[K, V]]) (uint, bool) {
+	return enum.Find(p, f)
+}
+
+func (p *hashBucketIterator[K, V]) Count() uint {
+	return enum.Count(p)
+}
+
+func skipEmptyBuckets[K Hasher[K], V any](buckets []hashMapBucket[K, V]) []hashMapBucket[K, V] {
+	// Skip over any empty buckets
+	for len(buckets) > 0 && buckets[0].size() == 0 {
+		buckets = buckets[1:]
+	}
+	//
+	return buckets
 }

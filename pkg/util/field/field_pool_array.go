@@ -67,7 +67,7 @@ func (p *FrPoolArray[K, P]) Set(index uint, element fr.Element) {
 
 // Clone makes clones of this array producing an otherwise identical copy.
 // nolint: revive
-func (p *FrPoolArray[K, P]) Clone() array.Array[fr.Element] {
+func (p *FrPoolArray[K, P]) Clone() array.MutArray[fr.Element] {
 	// Allocate sufficient memory
 	ndata := make([]K, len(p.elements))
 	// Copy over the data
@@ -83,7 +83,7 @@ func (p *FrPoolArray[K, P]) Slice(start uint, end uint) array.Array[fr.Element] 
 
 // Pad prepend array with n copies and append with m copies of the given padding
 // value.
-func (p *FrPoolArray[K, P]) Pad(n uint, m uint, padding fr.Element) array.Array[fr.Element] {
+func (p *FrPoolArray[K, P]) Pad(n uint, m uint, padding fr.Element) array.MutArray[fr.Element] {
 	l := uint(len(p.elements))
 	// Ensure padding in pool
 	key := p.pool.Put(padding)

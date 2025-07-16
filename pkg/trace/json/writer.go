@@ -20,7 +20,7 @@ import (
 )
 
 // ToJsonString converts a trace into a JSON string.
-func ToJsonString(columns []trace.RawColumn) string {
+func ToJsonString(columns []trace.BigEndianColumn) string {
 	var builder strings.Builder
 	//
 	builder.WriteString("{")
@@ -47,7 +47,7 @@ func ToJsonString(columns []trace.RawColumn) string {
 
 		data := ith.Data
 
-		for j := uint(0); j < data.Len(); j++ {
+		for j := range data.Len() {
 			if j != 0 {
 				builder.WriteString(", ")
 			}
