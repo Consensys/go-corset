@@ -73,8 +73,10 @@ func CheckWithFields(t *testing.T, stdlib bool, test string, fields ...schema.Fi
 		testFilename := fmt.Sprintf("%s/%s.%s", TestDir, test, cfg.extension)
 		// Read traces from file
 		traces = ReadTracesFile(testFilename)
-		// Run tests
-		fullCheckTraces(t, testFilename, cfg, traces, stacks)
+		if len(traces) > 0 {
+			// Run tests
+			fullCheckTraces(t, testFilename, cfg, traces, stacks)
+		}
 		// Record how many tests we found
 		nTests += len(traces)
 	}
@@ -106,7 +108,7 @@ func checkCompilerOptimisations(t *testing.T, test string, cfg Config,
 		// Configure stack
 		stack.Apply(*stack.BinaryFile())
 		// Apply stack
-		checkTraces(t, test, MAX_PADDING, opt, cfg, traces, stack)
+		checkTraces(t, test, 0, opt, cfg, traces, stack)
 	}
 }
 

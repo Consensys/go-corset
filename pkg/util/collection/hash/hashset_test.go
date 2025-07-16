@@ -60,6 +60,8 @@ func TestSlow_HashSet_09(t *testing.T) {
 // ===================================================================
 
 func check_HashSet(t *testing.T, items []uint) {
+	t.Parallel()
+	//
 	set := NewSet[testKey](0)
 	dups := uint(0)
 	// Insert items
