@@ -74,10 +74,6 @@ func (p *StaticArray[T]) Set(index uint, word T) {
 		offset = index * p.bytewidth
 		bytes  = p.data[offset : offset+p.bytewidth]
 	)
-	//
-	if word.BitWidth() > p.bitwidth {
-		panic(fmt.Sprintf("cannot put %dbit word into %dbit array", word.BitWidth(), p.bitwidth))
-	}
 	// Copy over
 	word.Put(bytes)
 }
