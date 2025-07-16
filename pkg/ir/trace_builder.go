@@ -19,7 +19,6 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir/builder"
 	sc "github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/word"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -170,15 +169,8 @@ func (tb TraceBuilder) BatchSize() uint {
 // Build attempts to construct a trace for a given schema, producing errors if
 // there are inconsistencies (e.g. missing columns, duplicate columns, etc).
 func (tb TraceBuilder) Build(schema sc.AnySchema, rawCols []trace.RawColumn[word.BigEndian]) (trace.Trace, []error) {
-	var cols []trace.RawColumn[fr.Element]
-	// Split raw columns according to the mapping (if applicable).  Note that
-	// expansion being disabled implies the trace is already split
-	// appropriately.
-	if tb.mapping != nil && tb.expand {
-		cols = agnostic.SplitRawColumns(rawCols, tb.mapping)
-	} else {
-		cols = agnostic.LowerRawColumns(rawCols)
-	}
+	// Split raw columns
+	cols := builder.SplitRawColumns(rawCols, tb.expand, tb.mapping)
 	// Initialise the actual trace object
 	tr, errors := initialiseTrace(!tb.expand, schema, cols)
 	//
@@ -197,24 +189,13 @@ func (tb TraceBuilder) Build(schema sc.AnySchema, rawCols []trace.RawColumn[word
 			}
 		}
 		// Expand trace
-		if tb.parallel {
-			// Run (parallel) trace expansion
-			if err := builder.ParallelTraceExpansion(tb.batchSize, schema, tr); err != nil {
-				return nil, append(errors, err)
-			}
-		} else if err := builder.SequentialTraceExpansion(schema, tr); err != nil {
-			// Expansion errors are fatal as well
+		if err := builder.TraceExpansion(tb.parallel, tb.batchSize, schema, tr); err != nil {
 			return nil, append(errors, err)
 		}
 		// Validate expanded trace
-		if tb.validate && tb.parallel {
+		if tb.validate {
 			// Run (parallel) trace validation
-			if errs := builder.ParallelTraceValidation(schema, tr); len(errs) > 0 {
-				return nil, append(errors, errs...)
-			}
-		} else if tb.validate {
-			// Run (sequential) trace validation
-			if errs := builder.SequentialTraceValidation(schema, tr); len(errs) > 0 {
+			if errs := builder.TraceValidation(tb.parallel, schema, tr); len(errs) > 0 {
 				return nil, append(errors, errs...)
 			}
 		}

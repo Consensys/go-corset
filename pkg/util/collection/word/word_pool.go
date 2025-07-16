@@ -13,7 +13,6 @@
 package word
 
 import (
-	"fmt"
 	"math"
 	"sync"
 )
@@ -181,8 +180,6 @@ func (p *HeapPool[T]) rehash() {
 		oldBuckets = p.buckets
 		n          = uint64(len(oldBuckets) * 3)
 	)
-	//
-	fmt.Printf("Rehasing to %d buckets\n", n)
 	// Double number of buckets
 	p.buckets = make([][]uint, n)
 	// Rehash!
