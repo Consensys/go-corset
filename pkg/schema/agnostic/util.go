@@ -13,18 +13,23 @@
 package agnostic
 
 import (
+	"fmt"
+	"slices"
+
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
+	"github.com/consensys/go-corset/pkg/util/collection/word"
+
 	"github.com/consensys/go-corset/pkg/util/field"
 )
 
 // ApplyMapping applies a given mapping to a set of registers producing a
 // corresponding set of limbs.  In essence, each register is convert to its
 // limbs in turn, and these are all appended together in order of ococurence.
-func ApplyMapping(mapping sc.RegisterMapping, rids []sc.RegisterId) []sc.LimbId {
+func ApplyMapping(mapping sc.ModuleRegisterMap, rids []sc.RegisterId) []sc.LimbId {
 	var limbs []sc.LimbId
 	//
 	for _, rid := range rids {
@@ -35,7 +40,7 @@ func ApplyMapping(mapping sc.RegisterMapping, rids []sc.RegisterId) []sc.LimbId 
 }
 
 // LimbsOf returns those limbs corresponding to a given set of identifiers.
-func LimbsOf(mapping sc.RegisterMapping, lids []sc.LimbId) []sc.Limb {
+func LimbsOf(mapping sc.ModuleRegisterMap, lids []sc.LimbId) []sc.Limb {
 	var (
 		limbs []sc.Limb = make([]sc.Limb, len(lids))
 	)
@@ -47,9 +52,43 @@ func LimbsOf(mapping sc.RegisterMapping, lids []sc.LimbId) []sc.Limb {
 	return limbs
 }
 
+// LowerRawColumns lowers a given set of raw columns into a given field implementation.
+func LowerRawColumns(columns []trace.RawColumn[word.BigEndian]) []trace.RawColumn[fr.Element] {
+	var loweredColumns []trace.RawFrColumn
+	//
+	for _, ith := range columns {
+		lowered := LowerRawColumn(ith)
+		loweredColumns = append(loweredColumns, lowered)
+	}
+	//
+	return loweredColumns
+}
+
+// LowerRawColumn lowers a given raw column into a given field implementation.
+func LowerRawColumn(column trace.RawColumn[word.BigEndian]) trace.RawColumn[fr.Element] {
+	var (
+		data  = column.Data
+		ndata = field.NewFrArray(data.Len(), data.BitWidth())
+	)
+	//
+	for i := range data.Len() {
+		var val fr.Element
+		// Initial field element from big endian bytes.
+		val.SetBytes(data.Get(i).Bytes())
+		//
+		ndata.Set(i, val)
+	}
+	//
+	return trace.RawColumn[fr.Element]{
+		Module: column.Module,
+		Name:   column.Name,
+		Data:   ndata,
+	}
+}
+
 // SplitRawColumns splits a given set of trace columns using the given register mapping.
-func SplitRawColumns(columns []trace.RawColumn, mapping sc.RegisterMappings) []trace.RawColumn {
-	var splitColumns []trace.RawColumn
+func SplitRawColumns(columns []trace.RawColumn[word.BigEndian], mapping sc.RegisterMap) []trace.RawFrColumn {
+	var splitColumns []trace.RawFrColumn
 	//
 	for _, ith := range columns {
 		split := SplitRawColumn(ith, mapping)
@@ -60,7 +99,7 @@ func SplitRawColumns(columns []trace.RawColumn, mapping sc.RegisterMappings) []t
 }
 
 // SplitRawColumn splits a given raw column using the given register mapping.
-func SplitRawColumn(column trace.RawColumn, mapping sc.RegisterMappings) []trace.RawColumn {
+func SplitRawColumn(column trace.RawColumn[word.BigEndian], mapping sc.RegisterMap) []trace.RawFrColumn {
 	var (
 		height = column.Data.Len()
 		// Access mapping for enclosing module
@@ -74,27 +113,35 @@ func SplitRawColumn(column trace.RawColumn, mapping sc.RegisterMappings) []trace
 	if len(limbIds) == 1 {
 		// No, this register was not split into any limbs.  Therefore, no need
 		// to split the column into any limbs.
-		return []trace.RawColumn{column}
+		return []trace.RawColumn[fr.Element]{LowerRawColumn(column)}
 	}
-	// Yes, must split this column into two or more limbs.
-	columns := make([]trace.RawColumn, len(limbIds))
+	// Yes, must split into two or more limbs of given widths.
+	limbWidths := WidthsOfLimbs(modmap, modmap.LimbIds(reg))
 	// Determine limbs of this register
 	limbs := LimbsOf(modmap, limbIds)
-	// Construct empty arrays for the given limbs
+	// Construct temporary place holder for new array data.
+	arrays := make([]field.FrArray, len(limbIds))
+	//
 	for i, limb := range limbs {
-		ith := field.NewFrArray(height, limb.Width)
-		columns[i] = trace.RawColumn{Module: column.Module, Name: limb.Name, Data: ith}
+		arrays[i] = field.NewFrArray(height, limb.Width)
 	}
-	// Determine limb widths of this register (for constant splitting)
-	limbWidths := WidthsOfLimbs(modmap, modmap.LimbIds(reg))
 	// Deconstruct all data
 	for i := range height {
 		// Extract ith data
 		ith := column.Data.Get(i)
 		// Assign split components
 		for j, v := range splitFieldElement(ith, limbWidths) {
-			columns[j].Data.Set(i, v)
+			arrays[j].Set(i, v)
 		}
+	}
+	// Construct final columns
+	columns := make([]trace.RawFrColumn, len(limbIds))
+	// Construct final columns
+	for i, limb := range limbs {
+		columns[i] = trace.RawFrColumn{
+			Module: column.Module,
+			Name:   limb.Name,
+			Data:   arrays[i]}
 	}
 	// Done
 	return columns
@@ -103,23 +150,27 @@ func SplitRawColumn(column trace.RawColumn, mapping sc.RegisterMappings) []trace
 // split a given field element into a given set of limbs, where the least
 // significant comes first.  NOTE: this is really a temporary function which
 // should be eliminated when RawColumn is moved away from fr.Element.
-func splitFieldElement(val fr.Element, widths []uint) []fr.Element {
+func splitFieldElement(val word.BigEndian, widths []uint) []fr.Element {
 	var (
-		bytes    = val.Bytes()
+		n = len(widths)
+		//
+		bitwidth = sum(widths...)
+		// Determine bytewidth
+		bytewidth = word.ByteWidth(bitwidth)
+		// Extract bytes whilst ensuring they are in little endian form, and
+		// that they match the expected bitwidth.
+		bytes = reverseAndPad(val.Bytes(), bytewidth)
+		//
 		bits     = bit.NewReader(bytes[:])
 		buf      [32]byte
-		elements = make([]fr.Element, len(widths))
+		elements = make([]fr.Element, n)
 	)
-	// Reverse bytes of field element into little endian format.  This is
-	// necessary because the bit reader reads according to a little endian
-	// layout.
-	array.ReverseInPlace(bytes[:])
-	//
+	// read actual bits
 	for i, w := range widths {
 		var ith fr.Element
 		// Read bits
 		m := bits.ReadInto(w, buf[:])
-		// Sort back into big endian layout!
+		// Convert back to big endian
 		array.ReverseInPlace(buf[:m])
 		// Done
 		ith.SetBytes(buf[:m])
@@ -127,4 +178,30 @@ func splitFieldElement(val fr.Element, widths []uint) []fr.Element {
 	}
 	//
 	return elements
+}
+
+func reverseAndPad(bytes []byte, n uint) []byte {
+	// Make sure bytes is both padded and cloned.
+	switch {
+	case n > uint(len(bytes)):
+		bytes = array.FrontPad(bytes, n, 0)
+	case n == uint(len(bytes)):
+		bytes = slices.Clone(bytes)
+	case n < uint(len(bytes)):
+		panic(fmt.Sprintf("have %d bytes, expected at most %d", len(bytes), n))
+	}
+	// In place reversal
+	array.ReverseInPlace(bytes)
+	//
+	return bytes
+}
+
+func sum(vals ...uint) uint {
+	val := uint(0)
+	//
+	for _, v := range vals {
+		val += v
+	}
+	//
+	return val
 }

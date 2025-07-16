@@ -91,13 +91,10 @@ func Assemble(assembly ...source.File) (
 // LoweringConfig provides configuration options for configuring the lowering
 // process.
 type LoweringConfig struct {
-	// Maximum number of bits the underlying field can hold.  This restricts the
-	// combined bitwidth permitted for the target registers of an instruction.
-	MaxFieldWidth uint
-	// Maximum bitwidth permitted for registers.  This cannot be larger than the
-	// maximum field width and, ideally, is somewhat smaller to accommodate
-	// additions, etc.
-	MaxRegisterWidth uint
+	// Field determines necessary parameters for the underlying field.  This
+	// includes: the maximum field bandwidth, which is number of bits the
+	// underlying field can hold; and, the maximum register width.
+	Field schema.FieldConfig
 	// Vectorize determines whether or not to enable vectorisation.  More
 	// specifically, vectorisation attempts to combine multiple machine
 	// instructions together into batches which can be "executed" concurrently,

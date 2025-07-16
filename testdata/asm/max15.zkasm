@@ -1,0 +1,11 @@
+fn max(x u15, y u15) -> (z u15) {
+   var b u1
+   var tmp u15
+   b,tmp = x - y
+   if b!=0 goto exit1
+   z = x
+   return
+exit1:
+   z = y
+   return
+}

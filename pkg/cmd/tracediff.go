@@ -6,10 +6,11 @@ import (
 	"slices"
 	"sort"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
+	"github.com/consensys/go-corset/pkg/util/collection/hash"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
-	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/collection/word"
 	"github.com/spf13/cobra"
 )
 
@@ -54,7 +55,7 @@ var traceDiffCmd = &cobra.Command{
 	},
 }
 
-func extractColumnNames(columns []trace.RawColumn) set.SortedSet[string] {
+func extractColumnNames(columns []trace.BigEndianColumn) set.SortedSet[string] {
 	var names set.SortedSet[string]
 	//
 	for _, c := range columns {
@@ -72,8 +73,8 @@ func reportExtraColumns(name string, columns []string, common set.SortedSet[stri
 	}
 }
 
-func filterCommonColumns(columns []trace.RawColumn, common set.SortedSet[string]) []trace.RawColumn {
-	var ncolumns []trace.RawColumn
+func filterCommonColumns(columns []trace.BigEndianColumn, common set.SortedSet[string]) []trace.BigEndianColumn {
+	var ncolumns []trace.BigEndianColumn
 	//
 	for _, c := range columns {
 		if common.Contains(c.QualifiedName()) {
@@ -84,7 +85,7 @@ func filterCommonColumns(columns []trace.RawColumn, common set.SortedSet[string]
 	return ncolumns
 }
 
-func parallelDiff(columns1 []trace.RawColumn, columns2 []trace.RawColumn) []error {
+func parallelDiff(columns1 []trace.BigEndianColumn, columns2 []trace.BigEndianColumn) []error {
 	errors := make([]error, 0)
 	ncols := len(columns1)
 	// Look through all STAMP columns searching for 0s at the end.
@@ -106,7 +107,7 @@ func parallelDiff(columns1 []trace.RawColumn, columns2 []trace.RawColumn) []erro
 	return errors
 }
 
-func diffColumns(index int, columns1 []trace.RawColumn, columns2 []trace.RawColumn) []error {
+func diffColumns(index int, columns1 []trace.BigEndianColumn, columns2 []trace.BigEndianColumn) []error {
 	errors := make([]error, 0)
 	name := columns1[index].QualifiedName()
 	data1 := columns1[index].Data
@@ -122,8 +123,8 @@ func diffColumns(index int, columns1 []trace.RawColumn, columns2 []trace.RawColu
 	vals := identify_vals(set1, set2)
 	// Print differences
 	for _, val := range vals {
-		count1, ok1 := set1[val]
-		count2, ok2 := set2[val]
+		count1, ok1 := set1.Get(val)
+		count2, ok2 := set2.Get(val)
 		//
 		if ok1 != ok2 || count1 != count2 {
 			err := fmt.Errorf("column %s, element %s occurs %d or %d times", name, val.String(), count1, count2)
@@ -134,47 +135,53 @@ func diffColumns(index int, columns1 []trace.RawColumn, columns2 []trace.RawColu
 	return errors
 }
 
-func identify_vals(lhs map[fr.Element]uint, rhs map[fr.Element]uint) []fr.Element {
-	seen := make(map[fr.Element]bool)
-	vals := make([]fr.Element, 0)
+func identify_vals(lhs hash.Map[word.BigEndian, uint], rhs hash.Map[word.BigEndian, uint]) []word.BigEndian {
+	seen := hash.NewSet[word.BigEndian](0)
+	vals := make([]word.BigEndian, 0)
 	// lhs
-	for val, count := range lhs {
-		if c, ok := seen[val]; (!ok || !c) && count > 0 {
+	for iter := lhs.KeyValues(); iter.HasNext(); {
+		ith := iter.Next()
+		val, count := ith.Split()
+		//
+		if !seen.Contains(val) && count > 0 {
 			vals = append(vals, val)
-			seen[val] = true
+			seen.Insert(val)
 		}
 	}
 	// rhs
-	for val, count := range rhs {
-		if c, ok := seen[val]; (!ok || !c) && count > 0 {
+	for iter := rhs.KeyValues(); iter.HasNext(); {
+		ith := iter.Next()
+		val, count := ith.Split()
+		//
+		if !seen.Contains(val) && count > 0 {
 			vals = append(vals, val)
-			seen[val] = true
+			seen.Insert(val)
 		}
 	}
 	// Sort items so the output is easier to understand
 	sort.Slice(vals, func(i, j int) bool {
-		return vals[i].Cmp(&vals[j]) < 0
+		return vals[i].Cmp(vals[j]) < 0
 	})
 	//
 	return vals
 }
 
-func summarise(data field.FrArray) map[fr.Element]uint {
-	summary := make(map[fr.Element]uint)
+func summarise(data array.Array[word.BigEndian]) hash.Map[word.BigEndian, uint] {
+	summary := *hash.NewMap[word.BigEndian, uint](data.Len())
 	//
 	for i := uint(0); i < data.Len(); i++ {
 		ith := data.Get(i)
-		if v, ok := summary[ith]; ok {
-			summary[ith] = v + 1
+		if v, ok := summary.Get(ith); ok {
+			summary.Insert(ith, v+1)
 		} else {
-			summary[ith] = 1
+			summary.Insert(ith, 1)
 		}
 	}
 	//
 	return summary
 }
 
-func findColumn(name string, columns []trace.RawColumn) *trace.RawColumn {
+func findColumn(name string, columns []trace.BigEndianColumn) *trace.BigEndianColumn {
 	for _, c := range columns {
 		if c.QualifiedName() == name {
 			return &c

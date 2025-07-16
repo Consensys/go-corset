@@ -19,19 +19,19 @@ import (
 )
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideAssertion(c Assertion, _ schema.RegisterMappings) Assertion {
+func subdivideAssertion(c Assertion, _ schema.RegisterMap) Assertion {
 	// TODO: implement this
 	return c
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideInterleaving(c InterleavingConstraint, _ schema.RegisterMappings) InterleavingConstraint {
+func subdivideInterleaving(c InterleavingConstraint, _ schema.RegisterMap) InterleavingConstraint {
 	// TODO: implement this
 	return c
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideLookup(c LookupConstraint, mappings schema.RegisterMappings) LookupConstraint {
+func subdivideLookup(c LookupConstraint, mappings schema.RegisterMap) LookupConstraint {
 	// var (
 	// 	srcmap  = mappings.Module(c.SourceContext)
 	// 	tgtmap  = mappings.Module(c.TargetContext)
@@ -53,25 +53,25 @@ func subdivideLookup(c LookupConstraint, mappings schema.RegisterMappings) Looku
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdividePermutation(c PermutationConstraint, _ schema.RegisterMappings) PermutationConstraint {
+func subdividePermutation(c PermutationConstraint, _ schema.RegisterMap) PermutationConstraint {
 	// TODO: implement this
 	return c
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideRange(c RangeConstraint, _ schema.RegisterMappings) RangeConstraint {
+func subdivideRange(c RangeConstraint, _ schema.RegisterMap) RangeConstraint {
 	// TODO: implement this
 	return c
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideSorted(c SortedConstraint, _ schema.RegisterMappings) SortedConstraint {
+func subdivideSorted(c SortedConstraint, _ schema.RegisterMap) SortedConstraint {
 	// TODO: implement this
 	return c
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideVanishing(p VanishingConstraint, mapping schema.RegisterMapping) VanishingConstraint {
+func subdivideVanishing(p VanishingConstraint, mapping schema.ModuleRegisterMap) VanishingConstraint {
 	// Split all registers occurring in the logical term.
 	c := splitLogicalTerm(p.Constraint, mapping)
 	// FIXME: this is an insufficient solution because it does not address the
@@ -80,7 +80,7 @@ func subdivideVanishing(p VanishingConstraint, mapping schema.RegisterMapping) V
 	return constraint.NewVanishingConstraint(p.Handle, p.Context, p.Domain, c)
 }
 
-func splitLogicalTerm(term LogicalTerm, mapping schema.RegisterMapping) LogicalTerm {
+func splitLogicalTerm(term LogicalTerm, mapping schema.ModuleRegisterMap) LogicalTerm {
 	switch t := term.(type) {
 	case *Conjunct:
 		return ir.Conjunction(splitLogicalTerms(t.Args, mapping)...)
@@ -109,7 +109,7 @@ func splitLogicalTerm(term LogicalTerm, mapping schema.RegisterMapping) LogicalT
 	}
 }
 
-func splitOptionalLogicalTerm(term LogicalTerm, mapping schema.RegisterMapping) LogicalTerm {
+func splitOptionalLogicalTerm(term LogicalTerm, mapping schema.ModuleRegisterMap) LogicalTerm {
 	if term == nil {
 		return nil
 	}
@@ -117,7 +117,7 @@ func splitOptionalLogicalTerm(term LogicalTerm, mapping schema.RegisterMapping) 
 	return splitLogicalTerm(term, mapping)
 }
 
-func splitLogicalTerms(terms []LogicalTerm, mapping schema.RegisterMapping) []LogicalTerm {
+func splitLogicalTerms(terms []LogicalTerm, mapping schema.ModuleRegisterMap) []LogicalTerm {
 	var nterms = make([]LogicalTerm, len(terms))
 	//
 	for i := range len(terms) {
@@ -127,7 +127,7 @@ func splitLogicalTerms(terms []LogicalTerm, mapping schema.RegisterMapping) []Lo
 	return nterms
 }
 
-func splitTerm(term Term, mapping schema.RegisterMapping) Term {
+func splitTerm(term Term, mapping schema.ModuleRegisterMap) Term {
 	switch t := term.(type) {
 	case *Add:
 		return ir.Sum(splitTerms(t.Args, mapping)...)
@@ -160,7 +160,7 @@ func splitTerm(term Term, mapping schema.RegisterMapping) Term {
 	}
 }
 
-func splitTerms(terms []Term, mapping schema.RegisterMapping) []Term {
+func splitTerms(terms []Term, mapping schema.ModuleRegisterMap) []Term {
 	var nterms []Term = make([]Term, len(terms))
 	//
 	for i := range len(terms) {
@@ -170,7 +170,7 @@ func splitTerms(terms []Term, mapping schema.RegisterMapping) []Term {
 	return nterms
 }
 
-func splitRegisterAccess(term *RegisterAccess, mapping schema.RegisterMapping) Term {
+func splitRegisterAccess(term *RegisterAccess, mapping schema.ModuleRegisterMap) Term {
 	var (
 		// Determine limbs for this register
 		limbs = mapping.LimbIds(term.Register)
@@ -190,7 +190,7 @@ func splitRegisterAccess(term *RegisterAccess, mapping schema.RegisterMapping) T
 	return ir.NewVectorAccess(terms)
 }
 
-func splitVectorAccess(term *VectorAccess, mapping schema.RegisterMapping) Term {
+func splitVectorAccess(term *VectorAccess, mapping schema.ModuleRegisterMap) Term {
 	var terms []*RegisterAccess
 	//
 	for _, v := range term.Vars {

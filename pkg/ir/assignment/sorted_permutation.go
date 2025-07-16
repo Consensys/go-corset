@@ -113,7 +113,7 @@ func (p *SortedPermutation) RegistersWritten() []sc.RegisterRef {
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func (p *SortedPermutation) Subdivide(mapping schema.RegisterMappings) sc.Assignment {
+func (p *SortedPermutation) Subdivide(mapping schema.RegisterMap) sc.Assignment {
 	return p
 }
 
