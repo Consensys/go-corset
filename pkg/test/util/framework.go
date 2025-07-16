@@ -52,6 +52,9 @@ func Check(t *testing.T, stdlib bool, test string) {
 // accepted by a given set of constraints, and all traces that we expect to be
 // rejected are rejected.  All fields provided are tested against.
 func CheckWithFields(t *testing.T, stdlib bool, test string, fields ...schema.FieldConfig) {
+	// Enable testing each trace in parallel
+	t.Parallel()
+	//
 	var (
 		filenames = matchSourceFiles(test)
 		// Configure the stack
@@ -61,8 +64,6 @@ func CheckWithFields(t *testing.T, stdlib bool, test string, fields ...schema.Fi
 	if len(fields) == 0 {
 		panic("no field configurations")
 	}
-	// Enable testing each trace in parallel
-	t.Parallel()
 	// Record how many tests executed.
 	nTests := 0
 	// Iterate possible testfile extensions

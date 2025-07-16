@@ -791,11 +791,11 @@ func Test_Invalid_Compute_07(t *testing.T) {
 // nolint
 func CheckInvalid(t *testing.T, test string) {
 	var corsetConfig corset.CompilationConfig
+	// Enable testing each trace in parallel
+	t.Parallel()
 	//
 	corsetConfig.Legacy = true
 	filename := fmt.Sprintf("%s/%s.lisp", InvalidTestDir, test)
-	// Enable testing each trace in parallel
-	t.Parallel()
 	// Read constraints file
 	bytes, err := os.ReadFile(filename)
 	// Check test file read ok
