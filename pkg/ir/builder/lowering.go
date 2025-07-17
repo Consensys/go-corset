@@ -16,8 +16,8 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
-	"github.com/consensys/go-corset/pkg/util/collection/word"
 	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // TraceLowering simply converts columns from their current big endian word
@@ -52,12 +52,32 @@ func sequentialTraceLowering(columns []trace.RawColumn[word.BigEndian]) []trace.
 	return loweredColumns
 }
 
-func parallelTraceLowering(rawCols []trace.RawColumn[word.BigEndian]) []trace.RawFrColumn {
-	panic("got here")
+func parallelTraceLowering(columns []trace.RawColumn[word.BigEndian]) []trace.RawFrColumn {
+	var (
+		loweredColumns []trace.RawFrColumn = make([]trace.RawFrColumn, len(columns))
+		// Construct a communication channel split columns.
+		c = make(chan util.Pair[int, trace.RawFrColumn], 1024)
+	)
+	// Split column concurrently
+	for i, ith := range columns {
+		go func(column trace.BigEndianColumn) {
+			// Send outcome back
+			c <- util.NewPair(i, lowerRawColumn(column))
+		}(ith)
+	}
+	// Collect results
+	for range len(columns) {
+		// Read from channel
+		res := <-c
+		// Assign split
+		loweredColumns[res.Left] = res.Right
+	}
+	// Done
+	return loweredColumns
 }
 
 // lowerRawColumn lowers a given raw column into a given field implementation.
-func lowerRawColumn(column trace.RawColumn[word.BigEndian]) trace.RawColumn[fr.Element] {
+func lowerRawColumn(column trace.RawColumn[word.BigEndian]) trace.RawFrColumn {
 	var (
 		data  = column.Data
 		ndata = field.NewFrArray(data.Len(), data.BitWidth())

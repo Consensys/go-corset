@@ -23,8 +23,8 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
-	"github.com/consensys/go-corset/pkg/util/collection/word"
 	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // TraceSplitting splits a given set of raw columns according to a given

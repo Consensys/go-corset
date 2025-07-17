@@ -173,7 +173,10 @@ func checkTraces(t *testing.T, test string, maxPadding uint, opt uint, cfg Confi
 					if cfg.expand || ir == "AIR" {
 						// Always check if expansion required, otherwise
 						// only check AIR constraints.
-						checkTrace(t, tr, id, stack.SchemaOf(ir), stack.RegisterMapping())
+						t.Run(id.test, func(t *testing.T) {
+							t.Parallel()
+							checkTrace(t, tr, id, stack.SchemaOf(ir), stack.RegisterMapping())
+						})
 					}
 				}
 			}

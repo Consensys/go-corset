@@ -30,7 +30,7 @@ import (
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
-	"github.com/consensys/go-corset/pkg/util/collection/word"
+	"github.com/consensys/go-corset/pkg/util/word"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
