@@ -31,25 +31,22 @@ func subdivideInterleaving(c InterleavingConstraint, _ schema.RegisterMap) Inter
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideLookup(c LookupConstraint, mappings schema.RegisterMap) LookupConstraint {
-	// var (
-	// 	srcmap  = mappings.Module(c.SourceContext)
-	// 	tgtmap  = mappings.Module(c.TargetContext)
-	// 	sources = splitTerms(c.Sources, srcmap)
-	// 	targets = splitTerms(c.Targets, tgtmap)
-	// )
-	// // FIXME: this is not really safe in the general case.  For example, this
-	// // could result in a mismatched number of columns.  Furthermore, its
-	// // possible these columns are incorrectly aligned, etc.
-	// sources = flattenVectors(sources)
-	// targets = flattenVectors(targets)
-	// // Sanity check for now
-	// if len(sources) != len(targets) {
-	// 	panic("misaligned lookup")
-	// }
-	// //
-	// return constraint.NewLookupConstraint(c.Handle, c.TargetContext, targets, c.SourceContext, sources)
-	return c
+func subdivideLookup(c LookupConstraint, mapping schema.RegisterMap) LookupConstraint {
+	var (
+		sources = splitEnclosedTerms(c.Sources, mapping)
+		targets = splitEnclosedTerms(c.Targets, mapping)
+	)
+	// FIXME: this is not really safe in the general case.  For example, this
+	// could result in a mismatched number of columns.  Furthermore, its
+	// possible these columns are incorrectly aligned, etc.
+	targets = flattenEnclosedVectors(targets)
+	sources = flattenEnclosedVectors(sources)
+	// Sanity check for now
+	if len(sources) != len(targets) {
+		panic("misaligned lookup")
+	}
+	//
+	return constraint.NewLookupConstraint(c.Handle, targets, sources)
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
@@ -109,6 +106,21 @@ func splitLogicalTerm(term LogicalTerm, mapping schema.ModuleRegisterMap) Logica
 	}
 }
 
+func splitEnclosedTerms(vectors []ir.Enclosed[[]Term], mapping schema.RegisterMap) []ir.Enclosed[[]Term] {
+	var nterms = make([]ir.Enclosed[[]Term], len(vectors))
+	//
+	for i, vector := range vectors {
+		var (
+			modmap = mapping.Module(vector.Module)
+			terms  = splitTerms(vector.Item, modmap)
+		)
+		//
+		nterms[i] = ir.Enclose(vector.Module, terms)
+	}
+	//
+	return nterms
+}
+
 func splitOptionalLogicalTerm(term LogicalTerm, mapping schema.ModuleRegisterMap) LogicalTerm {
 	if term == nil {
 		return nil
@@ -144,7 +156,14 @@ func splitTerm(term Term, mapping schema.ModuleRegisterMap) Term {
 	case *LabelledConst:
 		return t
 	case *RegisterAccess:
-		return splitRegisterAccess(t, mapping)
+		if t.Register.IsUsed() {
+			return splitRegisterAccess(t, mapping)
+		}
+		// NOTE: this indicates an unused register access.  Currently, this can
+		// only occur for the selector column of a lookup.  This behaviour maybe
+		// deprecated in the future, and that would make this check
+		// unnecessary.
+		return t
 	case *Exp:
 		return ir.Exponent(splitTerm(t.Arg, mapping), t.Pow)
 	case *Mul:
@@ -203,18 +222,32 @@ func splitVectorAccess(term *VectorAccess, mapping schema.ModuleRegisterMap) Ter
 	return ir.NewVectorAccess(terms)
 }
 
-// func flattenVectors(terms []Term) []Term {
-// 	var nterms []Term
-// 	//
-// 	for _, t := range terms {
-// 		if va, ok := t.(*VectorAccess); ok {
-// 			for _, v := range va.Vars {
-// 				nterms = append(nterms, v)
-// 			}
-// 		} else {
-// 			nterms = append(nterms, t)
-// 		}
-// 	}
-// 	//
-// 	return nterms
-// }
+func flattenEnclosedVectors(vectors []ir.Enclosed[[]Term]) []ir.Enclosed[[]Term] {
+	var nterms = make([]ir.Enclosed[[]Term], len(vectors))
+	//
+	for i, vector := range vectors {
+		var (
+			terms = flattenTerms(vector.Item)
+		)
+		//
+		nterms[i] = ir.Enclose(vector.Module, terms)
+	}
+	//
+	return nterms
+}
+
+func flattenTerms(terms []Term) []Term {
+	var nterms []Term
+	//
+	for _, t := range terms {
+		if va, ok := t.(*VectorAccess); ok {
+			for _, v := range va.Vars {
+				nterms = append(nterms, v)
+			}
+		} else {
+			nterms = append(nterms, t)
+		}
+	}
+	//
+	return nterms
+}
