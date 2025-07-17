@@ -103,18 +103,23 @@ func checkCompilerOptimisations(t *testing.T, test string, cfg Config,
 	traces [][]trace.BigEndianColumn, stack cmd_util.SchemaStack) {
 	// Run checks using schema compiled from source
 	for _, opt := range cfg.optlevels {
-		// Set optimisation level
-		stack.WithOptimisationConfig(mir.OPTIMISATION_LEVELS[opt])
-		// Configure stack
-		stack.Apply(*stack.BinaryFile())
-		// Apply stack
-		checkTraces(t, test, 0, opt, cfg, traces, stack)
+		// Only check optimisation levels other than the default.
+		if opt != mir.DEFAULT_OPTIMISATION_INDEX {
+			// Set optimisation level
+			stack.WithOptimisationConfig(mir.OPTIMISATION_LEVELS[opt])
+			// Configure stack
+			stack.Apply(*stack.BinaryFile())
+			// Apply stack
+			checkTraces(t, test, 0, opt, cfg, traces, stack)
+		}
 	}
 }
 
 // Check the binary encoding / decoding.
 func checkBinaryEncoding(t *testing.T, test string, cfg Config,
 	traces [][]trace.BigEndianColumn, stack cmd_util.SchemaStack) {
+	//
+	name := fmt.Sprintf("%s:bin", test)
 	// Construct binary schema using primary stack
 	if binSchema := encodeDecodeSchema(t, *stack.BinaryFile()); binSchema != nil {
 		// Choose any valid optimisation level
@@ -125,7 +130,7 @@ func checkBinaryEncoding(t *testing.T, test string, cfg Config,
 		stack.Apply(*binSchema)
 		// Run checks using schema from binary file.  Observe, to try and reduce
 		// overhead of repeating all the tests we don't consider padding.
-		checkTraces(t, test, 0, opt, cfg, traces, stack)
+		checkTraces(t, name, 0, opt, cfg, traces, stack)
 	}
 }
 
@@ -168,12 +173,13 @@ func checkTraces(t *testing.T, test string, maxPadding uint, opt uint, cfg Confi
 				// Align trace with schema, and check whether expanded or not.
 				for padding := uint(0); padding <= maxPadding; padding++ {
 					// Construct trace identifier
-					id := traceId{ir, test, cfg.expected, cfg.expand, cfg.validate, opt, i + 1, padding}
+					id := traceId{stack.RegisterMapping().Field().Name, ir, test,
+						cfg.expected, cfg.expand, cfg.validate, opt, i + 1, padding}
 					//
 					if cfg.expand || ir == "AIR" {
 						// Always check if expansion required, otherwise
 						// only check AIR constraints.
-						t.Run(id.test, func(t *testing.T) {
+						t.Run(id.String(), func(t *testing.T) {
 							t.Parallel()
 							checkTrace(t, tr, id, stack.SchemaOf(ir), stack.RegisterMapping())
 						})
@@ -197,8 +203,7 @@ func checkTrace[C sc.Constraint](t *testing.T, inputs []trace.BigEndianColumn, i
 		Build(sc.Any(schema), inputs)
 	// Sanity check construction
 	if len(errs) > 0 {
-		t.Errorf("Trace expansion failed (%s [O%d, %s], %s, line %d with padding %d): %s",
-			id.ir, id.optimisation, mapping.Field().Name, id.test, id.line, id.padding, errs)
+		t.Errorf("Trace expansion failed (%s): %s", id.String(), errs)
 	} else {
 		// Check Constraints
 		errs := sc.Accepts(true, 100, schema, tr)
@@ -207,12 +212,10 @@ func checkTrace[C sc.Constraint](t *testing.T, inputs []trace.BigEndianColumn, i
 		// Process what happened versus what was supposed to happen.
 		if !accepted && id.expected {
 			//table.PrintTrace(tr)
-			t.Errorf("Trace rejected incorrectly (%s [O%d, %s], %s, line %d with padding %d): %s",
-				id.ir, id.optimisation, mapping.Field().Name, id.test, id.line, id.padding, errs)
+			t.Errorf("Trace rejected incorrectly (%s): %s", id.String(), errs)
 		} else if accepted && !id.expected {
 			//printTrace(tr)
-			t.Errorf("Trace accepted incorrectly (%s [O%d, %s], %s, line %d with padding %d)",
-				id.ir, id.optimisation, mapping.Field().Name, id.test, id.line, id.padding)
+			t.Errorf("Trace accepted incorrectly (%s)", id.String())
 		}
 	}
 }
@@ -270,6 +273,8 @@ var TESTFILE_EXTENSIONS []Config = []Config{
 // This is used to provide debug information about a trace failure.
 // Specifically, so the user knows which line in which file caused the problem.
 type traceId struct {
+	// Identifies the prime field used
+	field string
 	// Identifies the Intermediate Representation tested against.
 	ir string
 	// Identifies the test name.  From this, the test filename can be determined
@@ -289,6 +294,11 @@ type traceId struct {
 	line int
 	// Identifies how much padding has been added to the expanded trace.
 	padding uint
+}
+
+func (p *traceId) String() string {
+	return fmt.Sprintf("[%s;%s;O%d], %s, line %d with padding %d", p.field, p.ir,
+		p.optimisation, p.test, p.line, p.padding)
 }
 
 // ReadTracesFile reads a file containing zero or more traces expressed as JSON, where

@@ -24,7 +24,7 @@ lint:
 .PHONY: test
 test:
 	@echo ">>> Running All Tests..."
-	go test -cpu=16 --timeout 0 ./...
+	go test --timeout 0 ./...
 
 .PHONY: test-no-cache
 test-no-cache:
