@@ -124,7 +124,7 @@ func TestByteConversion(t *testing.T) {
 	for range 1000000 {
 		a := rand.Uint32N(modulus)
 		expectedB := i.SetUint64(uint64(a)).Bytes()
-		expectedB = append(make([]byte, 4-len(expectedB)), expectedB...) // pad to 4 bytes
+		expectedB = append(make([]byte, nbBytes-len(expectedB)), expectedB...) // pad to nbBytes
 
 		// bytes to element
 		x := Element{}.AddBytes(expectedB)
