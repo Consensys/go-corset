@@ -68,10 +68,10 @@ func parallelTraceSplitting(columns []trace.BigEndianColumn, mapping schema.Regi
 	)
 	// Split column concurrently
 	for i, ith := range columns {
-		go func(column trace.BigEndianColumn, mapping schema.RegisterMap) {
+		go func(index int, column trace.BigEndianColumn, mapping schema.RegisterMap) {
 			// Send outcome back
-			c <- util.NewPair(i, splitRawColumn(column, mapping))
-		}(ith, mapping)
+			c <- util.NewPair(index, splitRawColumn(column, mapping))
+		}(i, ith, mapping)
 	}
 	// Collect results
 	for range len(splits) {

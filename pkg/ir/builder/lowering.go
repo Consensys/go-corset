@@ -60,10 +60,10 @@ func parallelTraceLowering(columns []trace.RawColumn[word.BigEndian]) []trace.Ra
 	)
 	// Split column concurrently
 	for i, ith := range columns {
-		go func(column trace.BigEndianColumn) {
+		go func(index int, column trace.BigEndianColumn) {
 			// Send outcome back
-			c <- util.NewPair(i, lowerRawColumn(column))
-		}(ith)
+			c <- util.NewPair(index, lowerRawColumn(column))
+		}(i, ith)
 	}
 	// Collect results
 	for range len(columns) {
