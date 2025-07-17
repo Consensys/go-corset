@@ -136,7 +136,7 @@ func parallelAccepts[C Constraint](batchsize uint, iter iter.Iterator[C], trace 
 func processConstraintBatch[C Constraint](logtitle string, batch uint, batchsize uint, iter iter.Iterator[C],
 	trace tr.Trace, schema Schema[C]) []Failure {
 	n := uint(0)
-	c := make(chan batchOutcome, 1024)
+	c := make(chan batchOutcome, batchsize)
 	errors := make([]Failure, 0)
 	stats := util.NewPerfStats()
 	// Launch at most 100 go-routines.

@@ -77,25 +77,25 @@ func SequentialTraceValidation(schema sc.AnySchema, tr trace.Trace) []error {
 // ParallelTraceValidation validates that values held in trace columns match the
 // expected type.  This is really a sanity check that the trace is not
 // malformed.
-func ParallelTraceValidation(schema sc.AnySchema, tr tr.Trace) []error {
+func ParallelTraceValidation(schema sc.AnySchema, trace tr.Trace) []error {
 	var (
 		errors []error
 		// Construct a communication channel for errors.
-		c = make(chan error, 1024)
+		c = make(chan error, tr.NumberOfColumns(trace))
 		// Number of columns to validate
 		ntodo = uint(0)
 	)
 	// Check each module in turn
-	for mid := uint(0); mid < tr.Width(); mid++ {
+	for mid := uint(0); mid < trace.Width(); mid++ {
 		var (
 			scMod = schema.Module(mid)
-			trMod = tr.Module(mid)
+			trMod = trace.Module(mid)
 		)
 		// Check each column within each module
 		for i := uint(0); i < trMod.Width(); i++ {
 			rid := sc.NewRegisterId(i)
 			// Check elements
-			go func(reg sc.Register, data trace.Column) {
+			go func(reg sc.Register, data tr.Column) {
 				// Send outcome back
 				c <- validateColumnBitWidth(reg.Width, data, scMod)
 			}(scMod.Register(rid), trMod.Column(i))

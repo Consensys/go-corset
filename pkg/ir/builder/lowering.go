@@ -56,7 +56,7 @@ func parallelTraceLowering(columns []trace.RawColumn[word.BigEndian]) []trace.Ra
 	var (
 		loweredColumns []trace.RawFrColumn = make([]trace.RawFrColumn, len(columns))
 		// Construct a communication channel split columns.
-		c = make(chan util.Pair[int, trace.RawFrColumn], 1024)
+		c = make(chan util.Pair[int, trace.RawFrColumn], len(columns))
 	)
 	// Split column concurrently
 	for i, ith := range columns {

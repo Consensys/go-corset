@@ -77,7 +77,7 @@ func ParallelTraceExpansion(batchsize uint, schema sc.AnySchema, trace *tr.Array
 	var (
 		batchNum = 0
 		// Construct a communication channel for errors.
-		ch = make(chan columnBatch, 1024)
+		ch = make(chan columnBatch, batchsize)
 		//
 		expander = NewExpander(schema.Width(), schema.Assignments())
 	)

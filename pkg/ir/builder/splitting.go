@@ -62,7 +62,7 @@ func parallelTraceSplitting(columns []trace.BigEndianColumn, mapping schema.Regi
 	var (
 		splits [][]trace.RawFrColumn = make([][]trace.RawFrColumn, len(columns))
 		// Construct a communication channel split columns.
-		c = make(chan util.Pair[int, []trace.RawFrColumn], 1024)
+		c = make(chan util.Pair[int, []trace.RawFrColumn], len(columns))
 		//
 		total int
 	)

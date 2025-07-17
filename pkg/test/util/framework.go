@@ -193,6 +193,7 @@ func checkTrace[C sc.Constraint](t *testing.T, inputs []trace.BigEndianColumn, i
 		WithPadding(id.padding).
 		WithParallelism(true).
 		WithRegisterMapping(mapping).
+		WithBatchSize(1024).
 		Build(sc.Any(schema), inputs)
 	// Sanity check construction
 	if len(errs) > 0 {
