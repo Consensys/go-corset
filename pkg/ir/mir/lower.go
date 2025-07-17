@@ -202,7 +202,7 @@ func (p *AirLowering) lowerRangeConstraintToAir(v RangeConstraint, airModule *ai
 	register := air_gadgets.Expand(bitwidth, target, airModule)
 	// Apply bitwidth gadget
 	ref := schema.NewRegisterRef(airModule.Id(), register)
-	// Constrict gadget
+	// Construct gadget
 	gadget := air_gadgets.NewBitwidthGadget(&p.airSchema).
 		WithLimitless(p.config.LimitlessTypeProofs).
 		WithMaxRangeConstraint(p.config.MaxRangeConstraint)

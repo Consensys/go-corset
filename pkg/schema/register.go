@@ -21,6 +21,18 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 )
 
+// RegisterMap provides a generic interface for entities which hold information
+// about registers.
+type RegisterMap interface {
+	// HasRegister checks whether a register with the given name exists and, if
+	// so, returns its register identifier.  Otherwise, it returns false.
+	HasRegister(name string) (RegisterId, bool)
+	// Access a given register in this module.
+	Register(RegisterId) Register
+	// Registers providers access to the underlying registers of this map.
+	Registers() []Register
+}
+
 // RegisterId captures the notion of a register index.  That is, for each
 // module, every register is allocated a given index starting from 0.  The
 // purpose of the wrapper is avoid confusion between uint values and things

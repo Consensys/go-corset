@@ -30,7 +30,7 @@ import (
 // TraceSplitting splits a given set of raw columns according to a given
 // register mapping or, otherwise, simply lowers them.
 func TraceSplitting(parallel bool, rawCols []trace.BigEndianColumn,
-	mapping schema.RegisterMap) []trace.RawFrColumn {
+	mapping schema.GlobalLimbMap) []trace.RawFrColumn {
 	var (
 		stats = util.NewPerfStats()
 		cols  []trace.RawFrColumn
@@ -47,7 +47,7 @@ func TraceSplitting(parallel bool, rawCols []trace.BigEndianColumn,
 	return cols
 }
 
-func sequentialTraceSplitting(columns []trace.BigEndianColumn, mapping schema.RegisterMap) []trace.RawFrColumn {
+func sequentialTraceSplitting(columns []trace.BigEndianColumn, mapping schema.GlobalLimbMap) []trace.RawFrColumn {
 	var splitColumns []trace.RawFrColumn
 	//
 	for _, ith := range columns {
@@ -58,7 +58,7 @@ func sequentialTraceSplitting(columns []trace.BigEndianColumn, mapping schema.Re
 	return splitColumns
 }
 
-func parallelTraceSplitting(columns []trace.BigEndianColumn, mapping schema.RegisterMap) []trace.RawFrColumn {
+func parallelTraceSplitting(columns []trace.BigEndianColumn, mapping schema.GlobalLimbMap) []trace.RawFrColumn {
 	var (
 		splits [][]trace.RawFrColumn = make([][]trace.RawFrColumn, len(columns))
 		// Construct a communication channel split columns.
@@ -68,7 +68,7 @@ func parallelTraceSplitting(columns []trace.BigEndianColumn, mapping schema.Regi
 	)
 	// Split column concurrently
 	for i, ith := range columns {
-		go func(index int, column trace.BigEndianColumn, mapping schema.RegisterMap) {
+		go func(index int, column trace.BigEndianColumn, mapping schema.GlobalLimbMap) {
 			// Send outcome back
 			c <- util.NewPair(index, splitRawColumn(column, mapping))
 		}(i, ith, mapping)
@@ -103,7 +103,7 @@ func flatten(total int, splits [][]trace.RawFrColumn) []trace.RawFrColumn {
 }
 
 // SplitRawColumn splits a given raw column using the given register mapping.
-func splitRawColumn(column trace.RawColumn[word.BigEndian], mapping schema.RegisterMap) []trace.RawFrColumn {
+func splitRawColumn(column trace.RawColumn[word.BigEndian], mapping schema.GlobalLimbMap) []trace.RawFrColumn {
 	var (
 		height = column.Data.Len()
 		// Access mapping for enclosing module

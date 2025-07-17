@@ -27,6 +27,7 @@ type ModuleId = uint
 // Module represents a "table" within a schema which contains zero or more rows
 // for a given set of registers.
 type Module interface {
+	RegisterMap
 	// Assignments returns an iterator over the assignments of this module.
 	// These are the computations used to assign values to all computed columns
 	// in this module.
@@ -38,19 +39,12 @@ type Module interface {
 	// strictly necessary, these can highlight otherwise hidden problems as an aid
 	// to debugging.
 	Consistent(Schema[Constraint]) []error
-	// HasRegister checks whether a register with the given name exists and, if
-	// so, returns its register identifier.  Otherwise, it returns false.
-	HasRegister(name string) (RegisterId, bool)
 	// Identifies the length multiplier for this module.  For every trace, the
 	// height of the corresponding module must be a multiple of this.  This is
 	// used specifically to support interleaving constraints.
 	LengthMultiplier() uint
 	// Module name
 	Name() string
-	// Access a given register in this module.
-	Register(RegisterId) Register
-	// Registers providers access to the underlying registers of this schema.
-	Registers() []Register
 	// Returns the number of registers in this module.
 	Width() uint
 }
@@ -152,7 +146,7 @@ func (p *Table[C]) Registers() []Register {
 }
 
 // Subdivide implementation for the FieldAgnosticModule interface.
-func (p *Table[C]) Subdivide(mapping RegisterMap) *Table[C] {
+func (p *Table[C]) Subdivide(mapping GlobalLimbMap) *Table[C] {
 	var (
 		modmap      = mapping.ModuleOf(p.name)
 		registers   []Register

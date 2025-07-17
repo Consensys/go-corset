@@ -22,7 +22,7 @@ import (
 // bandwidth and maximum register width requirements.  See discussion of
 // FieldAgnosticModule for more on this process.
 func Subdivide[M1 sc.FieldAgnosticModule[M1], M2 sc.FieldAgnosticModule[M2]](
-	field sc.FieldConfig, schema sc.MixedSchema[M1, M2]) (sc.MixedSchema[M1, M2], sc.RegisterMap) {
+	field sc.FieldConfig, schema sc.MixedSchema[M1, M2]) (sc.MixedSchema[M1, M2], sc.GlobalLimbMap) {
 	//
 	var (
 		left    []M1 = make([]M1, len(schema.LeftModules()))
@@ -55,7 +55,7 @@ type registerMappings struct {
 // newRegisterMappings constructs a new schema mapping for a given schema and
 // parameter combination.  This determines, amongst other things,  the
 // composition of limbs for all registers in the schema.
-func newRegisterMappings(field sc.FieldConfig, schema sc.AnySchema) sc.RegisterMap {
+func newRegisterMappings(field sc.FieldConfig, schema sc.AnySchema) sc.GlobalLimbMap {
 	var mappings []registerMapping
 	//
 	for i := range schema.Width() {
@@ -72,12 +72,12 @@ func (p registerMappings) Field() sc.FieldConfig {
 }
 
 // Module implementation for schema.RegisterMappings interface
-func (p registerMappings) Module(mid sc.ModuleId) sc.ModuleRegisterMap {
+func (p registerMappings) Module(mid sc.ModuleId) sc.RegisterLimbsMap {
 	return p.modules[mid]
 }
 
 // ModuleOf implementation for schema.RegisterMappings interface
-func (p registerMappings) ModuleOf(name string) sc.ModuleRegisterMap {
+func (p registerMappings) ModuleOf(name string) sc.RegisterLimbsMap {
 	for _, m := range p.modules {
 		if m.name == name {
 			return m
