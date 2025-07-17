@@ -24,3 +24,15 @@ func QualifiedColumnName(module string, column string) string {
 
 	return fmt.Sprintf("%s.%s", module, column)
 }
+
+// NumberOfColumns returns the total number of all columns in the given trace.
+func NumberOfColumns(tr Trace) uint {
+	var count = uint(0)
+	//
+	for i := range tr.Width() {
+		ith := tr.Module(i)
+		count += ith.Width()
+	}
+	//
+	return count
+}

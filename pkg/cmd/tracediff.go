@@ -10,7 +10,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
-	"github.com/consensys/go-corset/pkg/util/collection/word"
+	"github.com/consensys/go-corset/pkg/util/word"
 	"github.com/spf13/cobra"
 )
 

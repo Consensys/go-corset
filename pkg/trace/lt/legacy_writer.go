@@ -20,7 +20,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
-	"github.com/consensys/go-corset/pkg/util/collection/word"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // ToBytesLegacy writes a given trace file as an array of (legacy) bytes.  The

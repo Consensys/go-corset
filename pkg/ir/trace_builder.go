@@ -20,7 +20,6 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/builder"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
-	"github.com/consensys/go-corset/pkg/util/collection/word"
 	"github.com/consensys/go-corset/pkg/util/field"
 )
 
@@ -168,9 +167,17 @@ func (tb TraceBuilder) BatchSize() uint {
 
 // Build attempts to construct a trace for a given schema, producing errors if
 // there are inconsistencies (e.g. missing columns, duplicate columns, etc).
-func (tb TraceBuilder) Build(schema sc.AnySchema, rawCols []trace.RawColumn[word.BigEndian]) (trace.Trace, []error) {
-	// Split raw columns
-	cols := builder.SplitRawColumns(rawCols, tb.expand, tb.mapping)
+func (tb TraceBuilder) Build(schema sc.AnySchema, rawCols []trace.BigEndianColumn) (trace.Trace, []error) {
+	var cols []trace.RawFrColumn
+	// If expansion is enabled, then we must split the trace according to the
+	// given mapping; otherwise, we simply lower the trace as is.
+	if tb.mapping != nil && tb.expand {
+		// Split raw columns
+		cols = builder.TraceSplitting(tb.parallel, rawCols, tb.mapping)
+	} else {
+		// Lower raw columns
+		cols = builder.TraceLowering(tb.parallel, rawCols)
+	}
 	// Initialise the actual trace object
 	tr, errors := initialiseTrace(!tb.expand, schema, cols)
 	//
