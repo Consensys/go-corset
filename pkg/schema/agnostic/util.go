@@ -19,7 +19,7 @@ import (
 // ApplyMapping applies a given mapping to a set of registers producing a
 // corresponding set of limbs.  In essence, each register is convert to its
 // limbs in turn, and these are all appended together in order of ococurence.
-func ApplyMapping(mapping sc.ModuleRegisterMap, rids []sc.RegisterId) []sc.LimbId {
+func ApplyMapping(mapping sc.RegisterLimbsMap, rids []sc.RegisterId) []sc.LimbId {
 	var limbs []sc.LimbId
 	//
 	for _, rid := range rids {
@@ -30,7 +30,7 @@ func ApplyMapping(mapping sc.ModuleRegisterMap, rids []sc.RegisterId) []sc.LimbI
 }
 
 // LimbsOf returns those limbs corresponding to a given set of identifiers.
-func LimbsOf(mapping sc.ModuleRegisterMap, lids []sc.LimbId) []sc.Limb {
+func LimbsOf(mapping sc.RegisterLimbsMap, lids []sc.LimbId) []sc.Limb {
 	var (
 		limbs []sc.Limb = make([]sc.Limb, len(lids))
 	)

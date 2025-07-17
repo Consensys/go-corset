@@ -19,56 +19,37 @@ import (
 )
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideAssertion(c Assertion, _ schema.RegisterMap) Assertion {
+func subdivideAssertion(c Assertion, _ schema.GlobalLimbMap) Assertion {
 	// TODO: implement this
 	return c
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideInterleaving(c InterleavingConstraint, _ schema.RegisterMap) InterleavingConstraint {
+func subdivideInterleaving(c InterleavingConstraint, _ schema.GlobalLimbMap) InterleavingConstraint {
 	// TODO: implement this
 	return c
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideLookup(c LookupConstraint, mapping schema.RegisterMap) LookupConstraint {
-	var (
-		sources = splitEnclosedTerms(c.Sources, mapping)
-		targets = splitEnclosedTerms(c.Targets, mapping)
-	)
-	// FIXME: this is not really safe in the general case.  For example, this
-	// could result in a mismatched number of columns.  Furthermore, its
-	// possible these columns are incorrectly aligned, etc.
-	targets = flattenEnclosedVectors(targets)
-	sources = flattenEnclosedVectors(sources)
-	// Sanity check for now
-	// if len(sources) != len(targets) {
-	// 	panic("misaligned lookup")
-	// }
-	//
-	return constraint.NewLookupConstraint(c.Handle, targets, sources)
-}
-
-// Subdivide implementation for the FieldAgnostic interface.
-func subdividePermutation(c PermutationConstraint, _ schema.RegisterMap) PermutationConstraint {
+func subdividePermutation(c PermutationConstraint, _ schema.GlobalLimbMap) PermutationConstraint {
 	// TODO: implement this
 	return c
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideRange(c RangeConstraint, _ schema.RegisterMap) RangeConstraint {
+func subdivideRange(c RangeConstraint, _ schema.GlobalLimbMap) RangeConstraint {
 	// TODO: implement this
 	return c
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideSorted(c SortedConstraint, _ schema.RegisterMap) SortedConstraint {
+func subdivideSorted(c SortedConstraint, _ schema.GlobalLimbMap) SortedConstraint {
 	// TODO: implement this
 	return c
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideVanishing(p VanishingConstraint, mapping schema.ModuleRegisterMap) VanishingConstraint {
+func subdivideVanishing(p VanishingConstraint, mapping schema.RegisterLimbsMap) VanishingConstraint {
 	// Split all registers occurring in the logical term.
 	c := splitLogicalTerm(p.Constraint, mapping)
 	// FIXME: this is an insufficient solution because it does not address the
@@ -77,7 +58,7 @@ func subdivideVanishing(p VanishingConstraint, mapping schema.ModuleRegisterMap)
 	return constraint.NewVanishingConstraint(p.Handle, p.Context, p.Domain, c)
 }
 
-func splitLogicalTerm(term LogicalTerm, mapping schema.ModuleRegisterMap) LogicalTerm {
+func splitLogicalTerm(term LogicalTerm, mapping schema.RegisterLimbsMap) LogicalTerm {
 	switch t := term.(type) {
 	case *Conjunct:
 		return ir.Conjunction(splitLogicalTerms(t.Args, mapping)...)
@@ -106,22 +87,7 @@ func splitLogicalTerm(term LogicalTerm, mapping schema.ModuleRegisterMap) Logica
 	}
 }
 
-func splitEnclosedTerms(vectors []ir.Enclosed[[]Term], mapping schema.RegisterMap) []ir.Enclosed[[]Term] {
-	var nterms = make([]ir.Enclosed[[]Term], len(vectors))
-	//
-	for i, vector := range vectors {
-		var (
-			modmap = mapping.Module(vector.Module)
-			terms  = splitTerms(vector.Item, modmap)
-		)
-		//
-		nterms[i] = ir.Enclose(vector.Module, terms)
-	}
-	//
-	return nterms
-}
-
-func splitOptionalLogicalTerm(term LogicalTerm, mapping schema.ModuleRegisterMap) LogicalTerm {
+func splitOptionalLogicalTerm(term LogicalTerm, mapping schema.RegisterLimbsMap) LogicalTerm {
 	if term == nil {
 		return nil
 	}
@@ -129,7 +95,7 @@ func splitOptionalLogicalTerm(term LogicalTerm, mapping schema.ModuleRegisterMap
 	return splitLogicalTerm(term, mapping)
 }
 
-func splitLogicalTerms(terms []LogicalTerm, mapping schema.ModuleRegisterMap) []LogicalTerm {
+func splitLogicalTerms(terms []LogicalTerm, mapping schema.RegisterLimbsMap) []LogicalTerm {
 	var nterms = make([]LogicalTerm, len(terms))
 	//
 	for i := range len(terms) {
@@ -139,7 +105,7 @@ func splitLogicalTerms(terms []LogicalTerm, mapping schema.ModuleRegisterMap) []
 	return nterms
 }
 
-func splitTerm(term Term, mapping schema.ModuleRegisterMap) Term {
+func splitTerm(term Term, mapping schema.RegisterLimbsMap) Term {
 	switch t := term.(type) {
 	case *Add:
 		return ir.Sum(splitTerms(t.Args, mapping)...)
@@ -179,7 +145,7 @@ func splitTerm(term Term, mapping schema.ModuleRegisterMap) Term {
 	}
 }
 
-func splitTerms(terms []Term, mapping schema.ModuleRegisterMap) []Term {
+func splitTerms(terms []Term, mapping schema.RegisterLimbsMap) []Term {
 	var nterms []Term = make([]Term, len(terms))
 	//
 	for i := range len(terms) {
@@ -189,7 +155,7 @@ func splitTerms(terms []Term, mapping schema.ModuleRegisterMap) []Term {
 	return nterms
 }
 
-func splitRegisterAccess(term *RegisterAccess, mapping schema.ModuleRegisterMap) Term {
+func splitRegisterAccess(term *RegisterAccess, mapping schema.RegisterLimbsMap) Term {
 	var (
 		// Determine limbs for this register
 		limbs = mapping.LimbIds(term.Register)
@@ -209,7 +175,7 @@ func splitRegisterAccess(term *RegisterAccess, mapping schema.ModuleRegisterMap)
 	return ir.NewVectorAccess(terms)
 }
 
-func splitVectorAccess(term *VectorAccess, mapping schema.ModuleRegisterMap) Term {
+func splitVectorAccess(term *VectorAccess, mapping schema.RegisterLimbsMap) Term {
 	var terms []*RegisterAccess
 	//
 	for _, v := range term.Vars {
@@ -220,34 +186,4 @@ func splitVectorAccess(term *VectorAccess, mapping schema.ModuleRegisterMap) Ter
 	}
 	//
 	return ir.NewVectorAccess(terms)
-}
-
-func flattenEnclosedVectors(vectors []ir.Enclosed[[]Term]) []ir.Enclosed[[]Term] {
-	var nterms = make([]ir.Enclosed[[]Term], len(vectors))
-	//
-	for i, vector := range vectors {
-		var (
-			terms = flattenTerms(vector.Item)
-		)
-		//
-		nterms[i] = ir.Enclose(vector.Module, terms)
-	}
-	//
-	return nterms
-}
-
-func flattenTerms(terms []Term) []Term {
-	var nterms []Term
-	//
-	for _, t := range terms {
-		if va, ok := t.(*VectorAccess); ok {
-			for _, v := range va.Vars {
-				nterms = append(nterms, v)
-			}
-		} else {
-			nterms = append(nterms, t)
-		}
-	}
-	//
-	return nterms
 }

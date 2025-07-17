@@ -66,26 +66,26 @@ type FieldAgnostic[T any] interface {
 	//
 	// Here, c is a 1bit register introduced as part of the transformation to
 	// act as a "carry" between the two constraints.
-	Subdivide(RegisterMap) T
+	Subdivide(GlobalLimbMap) T
 }
 
-// RegisterMap provides a high-level mapping of all registers before and after
-// subdivision occurs.
-type RegisterMap interface {
+// GlobalLimbMap provides a high-level mapping of all registers across all
+// modules before and after subdivision occurs.
+type GlobalLimbMap interface {
 	// Field returns the underlying field configuration used for this mapping.
 	// This includes the field bandwidth (i.e. number of bits available in
 	// underlying field) and the maximum register width (i.e. width at which
 	// registers are capped).
 	Field() FieldConfig
 	// Module returns register mapping information for the given module.
-	Module(ModuleId) ModuleRegisterMap
+	Module(ModuleId) RegisterLimbsMap
 	// ModuleOf returns register mapping information for the given module.
-	ModuleOf(string) ModuleRegisterMap
+	ModuleOf(string) RegisterLimbsMap
 }
 
-// ModuleRegisterMap provides a high-level mapping of all registers before and
-// after subdivision occurs in a given module.
-type ModuleRegisterMap interface {
+// RegisterLimbsMap provides a high-level mapping of all registers before and after
+// subdivision occurs within a given module.
+type RegisterLimbsMap interface {
 	// Field returns the underlying field configuration used for this mapping.
 	// This includes the field bandwidth (i.e. number of bits available in
 	// underlying field) and the maximum register width (i.e. width at which
@@ -109,7 +109,7 @@ type ModuleRegisterMap interface {
 // registers as necessary.  This is useful, for example,  in the context of
 // register splitting for introducing new carry registers.
 type RegisterAllocator interface {
-	ModuleRegisterMap
+	RegisterLimbsMap
 	// AllocateCarry a fresh register of the given width within the target module.
 	// This is presumed to be a computed register, and automatically assigned a
 	// unique name.
@@ -119,13 +119,13 @@ type RegisterAllocator interface {
 // ============================================================================
 
 type registerAllocator struct {
-	mapping ModuleRegisterMap
+	mapping RegisterLimbsMap
 	limbs   []Register
 }
 
 // NewAllocator converts a mapping into a full allocator simply by wrapping the
 // two fields.
-func NewAllocator(mapping ModuleRegisterMap) RegisterAllocator {
+func NewAllocator(mapping RegisterLimbsMap) RegisterAllocator {
 	limbs := slices.Clone(mapping.Limbs())
 	return &registerAllocator{mapping, limbs}
 }
