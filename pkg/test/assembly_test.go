@@ -62,9 +62,9 @@ func Test_Asm_MixedSmall(t *testing.T) {
 	test_util.Check(t, false, "asm/mixed_small")
 }
 
-// func Test_Asm_MixedLarge(t *testing.T) {
-// 	test_util.Check(t, false, "asm/mixed_large")
-// }
+func Test_Asm_MixedLarge(t *testing.T) {
+	test_util.Check(t, false, "asm/mixed_large")
+}
 
 func Test_Asm_SlowPow(t *testing.T) {
 	test_util.Check(t, false, "asm/slow_pow")

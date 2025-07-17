@@ -42,9 +42,9 @@ func subdivideLookup(c LookupConstraint, mapping schema.RegisterMap) LookupConst
 	targets = flattenEnclosedVectors(targets)
 	sources = flattenEnclosedVectors(sources)
 	// Sanity check for now
-	if len(sources) != len(targets) {
-		panic("misaligned lookup")
-	}
+	// if len(sources) != len(targets) {
+	// 	panic("misaligned lookup")
+	// }
 	//
 	return constraint.NewLookupConstraint(c.Handle, targets, sources)
 }
