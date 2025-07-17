@@ -23,13 +23,8 @@ lint:
 
 .PHONY: test
 test:
-	@echo ">>> Running Unit Tests..."
-	go test --timeout 0 -v ./...
-
-.PHONY: qtest
-qtest:
-	@echo ">>> Running (Quick) Tests..."
-	go test -v -race --run Test_ ./...
+	@echo ">>> Running All Tests..."
+	go test -cpu=1 --timeout 0 ./...
 
 .PHONY: test-no-cache
 test-no-cache:

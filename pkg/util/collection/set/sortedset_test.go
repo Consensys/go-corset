@@ -13,6 +13,7 @@
 package set
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/consensys/go-corset/pkg/util"
@@ -25,9 +26,11 @@ func Test_SortedSet_00(t *testing.T) {
 
 func Test_SortedSet_01(t *testing.T) {
 	// Really hammer it.
-	for i := 0; i < 10000; i++ {
-		check_SortedSet_Insert(t, 10, 32)
-		check_SortedSet_InsertSorted(t, 10, 32)
+	for i := 0; i < 100000; i++ {
+		t.Run(fmt.Sprintf("i=%d", i), func(t *testing.T) {
+			check_SortedSet_Insert(t, 10, 32)
+			check_SortedSet_InsertSorted(t, 10, 32)
+		})
 	}
 }
 
@@ -71,6 +74,9 @@ func array_contains(items []uint, element uint) bool {
 }
 
 func check_SortedSet_Insert(t *testing.T, n uint, m uint) {
+	//
+	t.Parallel()
+	//
 	items := util.GenerateRandomUints(n, m)
 	aset := toSortedSet(items)
 	anyset := toAnySortedSet(items)
