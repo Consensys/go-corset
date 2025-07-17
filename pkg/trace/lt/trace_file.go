@@ -69,7 +69,7 @@ func IsTraceFile(data []byte) bool {
 // MarshalBinary converts the TraceFile into a sequence of bytes.
 func (p *TraceFile) MarshalBinary() ([]byte, error) {
 	var buffer bytes.Buffer
-	// Marshal header
+	// Bytes header
 	headerBytes, err := p.Header.MarshalBinary()
 	// Error check
 	if err != nil {
@@ -77,7 +77,7 @@ func (p *TraceFile) MarshalBinary() ([]byte, error) {
 	}
 	// Encode header
 	buffer.Write(headerBytes)
-	// Marshal column data
+	// Bytes column data
 	columnBytes, err := ToBytesLegacy(p.Columns)
 	// Error check
 	if err != nil {

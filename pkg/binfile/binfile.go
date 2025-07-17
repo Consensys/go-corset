@@ -232,7 +232,7 @@ func (p *BinaryFile) MarshalBinary() ([]byte, error) {
 		buffer     bytes.Buffer
 		gobEncoder *gob.Encoder = gob.NewEncoder(&buffer)
 	)
-	// Marshal header
+	// Bytes header
 	headerBytes, err := p.Header.MarshalBinary()
 	//
 	if err != nil {
