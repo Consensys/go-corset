@@ -96,8 +96,6 @@ func CountUnique[T cmp.Ordered](items []T) uint {
 	// First sort them
 	slices.Sort(items)
 	//
-	fmt.Printf("got %v\n", items)
-	//
 	count := uint(0)
 	//
 	for i, v := range items {
