@@ -123,8 +123,8 @@ func (p LogicalTerm) TestAt(k int, tr trace.Module, sc schema.Module) (bool, uin
 
 // Lisp returns a lisp representation of this NotEqual, which is useful for
 // debugging.
-func (p LogicalTerm) Lisp(module schema.Module) sexp.SExp {
-	return p.Term.Lisp(module)
+func (p LogicalTerm) Lisp(mapping schema.RegisterMap) sexp.SExp {
+	return p.Term.Lisp(mapping)
 }
 
 // RequiredRegisters implementation for Contextual interface.

@@ -80,8 +80,8 @@ func (p *Add[T]) IsDefined() bool {
 }
 
 // Lisp implementation for Lispifiable interface.
-func (p *Add[T]) Lisp(module schema.Module) sexp.SExp {
-	return lispOfTerms(module, "+", p.Args)
+func (p *Add[T]) Lisp(mapping schema.RegisterMap) sexp.SExp {
+	return lispOfTerms(mapping, "+", p.Args)
 }
 
 // RequiredRegisters implementation for Contextual interface.
@@ -110,11 +110,11 @@ func (p *Add[T]) Substitute(mapping map[string]fr.Element) {
 }
 
 // ValueRange implementation for Term interface.
-func (p *Add[T]) ValueRange(module schema.Module) *math.Interval {
+func (p *Add[T]) ValueRange(mapping schema.RegisterMap) *math.Interval {
 	var res math.Interval
 
 	for i, arg := range p.Args {
-		ith := arg.ValueRange(module)
+		ith := arg.ValueRange(mapping)
 		if i == 0 {
 			res.Set(ith)
 		} else {

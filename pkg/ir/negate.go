@@ -63,8 +63,8 @@ func (p *Negate[T]) TestAt(k int, tr trace.Module, sc schema.Module) (bool, uint
 
 // Lisp returns a lisp representation of this Negate, which is useful for
 // debugging.
-func (p *Negate[T]) Lisp(module schema.Module) sexp.SExp {
-	var l = p.Arg.Lisp(module)
+func (p *Negate[T]) Lisp(mapping schema.RegisterMap) sexp.SExp {
+	var l = p.Arg.Lisp(mapping)
 	//
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("¬"), l})
