@@ -168,12 +168,17 @@ func (tb TraceBuilder) BatchSize() uint {
 // Build attempts to construct a trace for a given schema, producing errors if
 // there are inconsistencies (e.g. missing columns, duplicate columns, etc).
 func (tb TraceBuilder) Build(schema sc.AnySchema, rawCols []trace.BigEndianColumn) (trace.Trace, []error) {
-	var cols []trace.RawFrColumn
+	var (
+		cols   []trace.RawFrColumn
+		errors []error
+	)
 	// If expansion is enabled, then we must split the trace according to the
 	// given mapping; otherwise, we simply lower the trace as is.
 	if tb.mapping != nil && tb.expand {
-		// Split raw columns
-		cols = builder.TraceSplitting(tb.parallel, rawCols, tb.mapping)
+		// Split raw columns, and handle any errors arising.
+		if cols, errors = builder.TraceSplitting(tb.parallel, rawCols, tb.mapping); len(errors) > 0 {
+			return nil, errors
+		}
 	} else {
 		// Lower raw columns
 		cols = builder.TraceLowering(tb.parallel, rawCols)

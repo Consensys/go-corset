@@ -30,47 +30,55 @@ import (
 // TraceSplitting splits a given set of raw columns according to a given
 // register mapping or, otherwise, simply lowers them.
 func TraceSplitting(parallel bool, rawCols []trace.BigEndianColumn,
-	mapping schema.GlobalLimbMap) []trace.RawFrColumn {
+	mapping schema.GlobalLimbMap) ([]trace.RawFrColumn, []error) {
 	var (
 		stats = util.NewPerfStats()
 		cols  []trace.RawFrColumn
+		err   []error
 	)
 	//
 	if parallel {
-		cols = parallelTraceSplitting(rawCols, mapping)
+		cols, err = parallelTraceSplitting(rawCols, mapping)
 	} else {
-		cols = sequentialTraceSplitting(rawCols, mapping)
+		cols, err = sequentialTraceSplitting(rawCols, mapping)
 	}
 	//
 	stats.Log("Trace splitting")
 	//
-	return cols
+	return cols, err
 }
 
-func sequentialTraceSplitting(columns []trace.BigEndianColumn, mapping schema.GlobalLimbMap) []trace.RawFrColumn {
-	var splitColumns []trace.RawFrColumn
+func sequentialTraceSplitting(cols []trace.BigEndianColumn, gmap schema.GlobalLimbMap) ([]trace.RawFrColumn, []error) {
+	var (
+		splitColumns []trace.RawFrColumn
+		errors       []error
+	)
 	//
-	for _, ith := range columns {
-		split := splitRawColumn(ith, mapping)
+	for _, ith := range cols {
+		split, errs := splitRawColumn(ith, gmap)
 		splitColumns = append(splitColumns, split...)
+		errors = append(errors, errs...)
 	}
 	//
-	return splitColumns
+	return splitColumns, errors
 }
 
-func parallelTraceSplitting(columns []trace.BigEndianColumn, mapping schema.GlobalLimbMap) []trace.RawFrColumn {
+func parallelTraceSplitting(cols []trace.BigEndianColumn, mapping schema.GlobalLimbMap) ([]trace.RawFrColumn, []error) {
 	var (
-		splits [][]trace.RawFrColumn = make([][]trace.RawFrColumn, len(columns))
+		splits [][]trace.RawFrColumn = make([][]trace.RawFrColumn, len(cols))
 		// Construct a communication channel split columns.
-		c = make(chan util.Pair[int, []trace.RawFrColumn], len(columns))
+		c = make(chan splitResult, len(cols))
+		//
+		errors []error
 		//
 		total int
 	)
 	// Split column concurrently
-	for i, ith := range columns {
+	for i, ith := range cols {
 		go func(index int, column trace.BigEndianColumn, mapping schema.GlobalLimbMap) {
 			// Send outcome back
-			c <- util.NewPair(index, splitRawColumn(column, mapping))
+			data, errors := splitRawColumn(column, mapping)
+			c <- splitResult{index, data, errors}
 		}(i, ith, mapping)
 	}
 	// Collect results
@@ -78,12 +86,13 @@ func parallelTraceSplitting(columns []trace.BigEndianColumn, mapping schema.Glob
 		// Read from channel
 		res := <-c
 		// Assign split
-		splits[res.Left] = res.Right
+		splits[res.id] = res.data
 		//
-		total += len(res.Right)
+		total += len(res.data)
+		errors = append(errors, res.errors...)
 	}
 	// Flatten split
-	return flatten(total, splits)
+	return flatten(total, splits), errors
 }
 
 func flatten(total int, splits [][]trace.RawFrColumn) []trace.RawFrColumn {
@@ -103,21 +112,26 @@ func flatten(total int, splits [][]trace.RawFrColumn) []trace.RawFrColumn {
 }
 
 // SplitRawColumn splits a given raw column using the given register mapping.
-func splitRawColumn(column trace.RawColumn[word.BigEndian], mapping schema.GlobalLimbMap) []trace.RawFrColumn {
+func splitRawColumn(col trace.RawColumn[word.BigEndian], mapping schema.GlobalLimbMap) ([]trace.RawFrColumn, []error) {
 	var (
-		height = column.Data.Len()
+		height = col.Data.Len()
 		// Access mapping for enclosing module
-		modmap = mapping.ModuleOf(column.Module)
-		// Determine register id for this column (we can assume it exists)
-		reg, _ = modmap.HasRegister(column.Name)
-		// Determine limbs of this register
-		limbIds = modmap.LimbIds(reg)
+		modmap = mapping.ModuleOf(col.Module)
+		//
+		reg, regExists = modmap.HasRegister(col.Name)
 	)
-	// Check whether any work actually required
+	// Check whether register is known
+	if !regExists {
+		// Unknown register --- this is an error
+		return nil, []error{fmt.Errorf("unknown register \"%s\"", col.Name)}
+	}
+	// Determine register id for this column (we can assume it exists)
+	limbIds := modmap.LimbIds(reg)
+	//
 	if len(limbIds) == 1 {
 		// No, this register was not split into any limbs.  Therefore, no need
 		// to split the column into any limbs.
-		return []trace.RawColumn[fr.Element]{lowerRawColumn(column)}
+		return []trace.RawColumn[fr.Element]{lowerRawColumn(col)}, nil
 	}
 	// Yes, must split into two or more limbs of given widths.
 	limbWidths := agnostic.WidthsOfLimbs(modmap, modmap.LimbIds(reg))
@@ -132,7 +146,7 @@ func splitRawColumn(column trace.RawColumn[word.BigEndian], mapping schema.Globa
 	// Deconstruct all data
 	for i := range height {
 		// Extract ith data
-		ith := column.Data.Get(i)
+		ith := col.Data.Get(i)
 		// Assign split components
 		for j, v := range splitFieldElement(ith, limbWidths) {
 			arrays[j].Set(i, v)
@@ -143,12 +157,12 @@ func splitRawColumn(column trace.RawColumn[word.BigEndian], mapping schema.Globa
 	// Construct final columns
 	for i, limb := range limbs {
 		columns[i] = trace.RawFrColumn{
-			Module: column.Module,
+			Module: col.Module,
 			Name:   limb.Name,
 			Data:   arrays[i]}
 	}
 	// Done
-	return columns
+	return columns, nil
 }
 
 // split a given field element into a given set of limbs, where the least
@@ -208,4 +222,11 @@ func sum(vals ...uint) uint {
 	}
 	//
 	return val
+}
+
+// SplitResult is returned by worker threads during parallel trace splitting.
+type splitResult struct {
+	id     int
+	data   []trace.RawFrColumn
+	errors []error
 }
