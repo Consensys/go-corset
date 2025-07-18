@@ -13,28 +13,122 @@
 package mir
 
 import (
+	"fmt"
+
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
 )
 
+type LookupGeometry struct {
+	// Dimensions determines the number of required columns for each lookup
+	// pairing.
+	dimensions []uint
+	// Widths determines the bitwidth required for each lookup pairing.
+	bitwidths []uint
+}
+
+// NewLookupGeometry constructs a new geometry for a lookup with n pairings.
+func NewLookupGeometry(n uint) LookupGeometry {
+	return LookupGeometry{
+		make([]uint, n), make([]uint, n),
+	}
+}
+
+func (p *LookupGeometry) applyBitwidths(source ir.Enclosed[[]Term], mapping schema.GlobalLimbMap) {
+	var (
+		terms  = source.Item
+		modmap = mapping.Module(source.Module)
+	)
+	// Sanity check
+	if len(terms) != len(p.dimensions) {
+		// Unreachable, as should be caught earlier in the pipeline.
+		panic("misaligned lookup")
+	}
+	//
+	for i, ith := range terms {
+		if i != 0 || ith.IsDefined() {
+			// FIXME: the bitwidth calculation here is incorrect when negative
+			// values are encountered.
+			bitwidth := ith.ValueRange(modmap).BitWidth()
+			//
+			p.bitwidths[i] = max(p.bitwidths[i], bitwidth)
+		}
+	}
+}
+
+func (p *LookupGeometry) applyDimensions(source ir.Enclosed[[][]Term], mapping schema.GlobalLimbMap) {
+	var terms = source.Item
+	// Sanity check
+	if len(terms) != len(p.dimensions) {
+		// Unreachable, as should be caught earlier in the pipeline.
+		panic("misaligned lookup")
+	}
+	//
+	for i, ith := range terms {
+		p.dimensions[i] = max(p.dimensions[i], uint(len(ith)))
+	}
+}
+
+func (p *LookupGeometry) check(handle string, vector ir.Enclosed[[]Term], mapping schema.GlobalLimbMap) {
+	var (
+		terms  = vector.Item
+		modmap = mapping.Module(vector.Module)
+	)
+	//
+	for i, ith := range terms {
+		if i != 0 || ith.IsDefined() {
+			// FIXME: the bitwidth calculation here is incorrect when negative
+			// values are encountered.
+			bitwidth := ith.ValueRange(modmap).BitWidth()
+			//
+			if bitwidth != 0 && bitwidth != p.bitwidths[i] {
+				lisp := ith.Lisp(modmap).String(false)
+				fmt.Printf("************ Lookup %s.%s mismatch for %s (was %dbits but expecting %dbits)\n",
+					modmap.Name(), handle, lisp, bitwidth, p.bitwidths[i])
+			}
+		}
+	}
+}
+
 // Subdivide implementation for the FieldAgnostic interface.
 func subdivideLookup(c LookupConstraint, mapping schema.GlobalLimbMap) LookupConstraint {
 	var (
+		geometry = NewLookupGeometry(uint(len(c.Sources[0].Item)))
 		// Split all registers in the source vectors
 		sources = splitEnclosedTerms(c.Sources, mapping)
 		// Split all registers in the target vectors
 		targets = splitEnclosedTerms(c.Targets, mapping)
 	)
+	// Sources first
+	for _, source := range c.Sources {
+		geometry.applyBitwidths(source, mapping)
+	}
+	// Targets second
+	for _, target := range c.Targets {
+		geometry.applyBitwidths(target, mapping)
+	}
+	// Sanity checks
+	for _, vector := range c.Targets {
+		geometry.check(c.Handle, vector, mapping)
+	}
+
+	for _, vector := range c.Sources {
+		geometry.check(c.Handle, vector, mapping)
+	}
 	// FIXME: this is not really safe in the general case.  For example, this
 	// could result in a mismatched number of columns.  Furthermore, its
 	// possible these columns are incorrectly aligned, etc.
 	rawTargets := flattenEnclosedVectors(targets)
 	rawSources := flattenEnclosedVectors(sources)
-	// Determine overall geometry for this lookup.  If this cannot be done,
-	// it will panic.  The assumption is that such an error would already be
-	// caught earlier in the pipeline.
-	geometry := determineLookupGeometry(rawSources, rawTargets)
+	// Sources first
+	for _, source := range rawSources {
+		geometry.applyDimensions(source, mapping)
+	}
+	// Targets second
+	for _, target := range rawTargets {
+		geometry.applyDimensions(target, mapping)
+	}
 	//
 	targets = padEnclosedVectors(rawTargets, geometry)
 	sources = padEnclosedVectors(rawSources, geometry)
@@ -48,31 +142,20 @@ func subdivideLookup(c LookupConstraint, mapping schema.GlobalLimbMap) LookupCon
 // (respectively), whilst A nd B split into 3 and 2 columns (respectively).
 // Then, the geometry of the lookup is [3,2], as we need three columns in the
 // subdivided lookup to represent the column in the original lookup, and so on.
-func determineLookupGeometry(sources []ir.Enclosed[[][]Term], targets []ir.Enclosed[[][]Term]) []uint {
-	var geometry []uint = make([]uint, len(sources[0].Item))
+func determineLookupGeometry(sources []ir.Enclosed[[][]Term],
+	targets []ir.Enclosed[[][]Term], mapping schema.GlobalLimbMap) LookupGeometry {
+	//
+	var geometry = NewLookupGeometry(uint(len(sources[0].Item)))
 	// Sources first
 	for _, source := range sources {
-		updateLookupGeometry(source, geometry)
+		geometry.applyDimensions(source, mapping)
 	}
 	// Targets second
 	for _, target := range targets {
-		updateLookupGeometry(target, geometry)
+		geometry.applyDimensions(target, mapping)
 	}
 	// Done
 	return geometry
-}
-
-func updateLookupGeometry(source ir.Enclosed[[][]Term], geometry []uint) {
-	var terms = source.Item
-	// Sanity check
-	if len(terms) != len(geometry) {
-		// Unreachable, as should be caught earlier in the pipeline.
-		panic("misaligned lookup")
-	}
-	//
-	for i, t := range terms {
-		geometry[i] = max(geometry[i], uint(len(t)))
-	}
 }
 
 func splitEnclosedTerms(vectors []ir.Enclosed[[]Term], mapping schema.GlobalLimbMap) []ir.Enclosed[[]Term] {
@@ -118,7 +201,7 @@ func flattenTerms(terms []Term) [][]Term {
 	return nterms
 }
 
-func padEnclosedVectors(vectors []ir.Enclosed[[][]Term], geometry []uint) []ir.Enclosed[[]Term] {
+func padEnclosedVectors(vectors []ir.Enclosed[[][]Term], geometry LookupGeometry) []ir.Enclosed[[]Term] {
 	var nterms []ir.Enclosed[[]Term] = make([]ir.Enclosed[[]Term], len(vectors))
 	//
 	for i, vector := range vectors {
@@ -129,11 +212,11 @@ func padEnclosedVectors(vectors []ir.Enclosed[[][]Term], geometry []uint) []ir.E
 	return nterms
 }
 
-func padTerms(terms [][]Term, geometry []uint) []Term {
+func padTerms(terms [][]Term, geometry LookupGeometry) []Term {
 	var nterms []Term
 
 	for i, ith := range terms {
-		nterms = append(nterms, padTerm(ith, geometry[i])...)
+		nterms = append(nterms, padTerm(ith, geometry.dimensions[i])...)
 	}
 
 	return nterms
