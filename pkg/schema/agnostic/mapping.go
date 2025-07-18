@@ -14,6 +14,7 @@ package agnostic
 
 import (
 	"fmt"
+	"strings"
 
 	sc "github.com/consensys/go-corset/pkg/schema"
 )
@@ -22,7 +23,7 @@ import (
 // bandwidth and maximum register width requirements.  See discussion of
 // FieldAgnosticModule for more on this process.
 func Subdivide[M1 sc.FieldAgnosticModule[M1], M2 sc.FieldAgnosticModule[M2]](
-	field sc.FieldConfig, schema sc.MixedSchema[M1, M2]) (sc.MixedSchema[M1, M2], sc.GlobalLimbMap) {
+	field sc.FieldConfig, schema sc.MixedSchema[M1, M2]) (sc.MixedSchema[M1, M2], sc.LimbsMap) {
 	//
 	var (
 		left    []M1 = make([]M1, len(schema.LeftModules()))
@@ -42,42 +43,42 @@ func Subdivide[M1 sc.FieldAgnosticModule[M1], M2 sc.FieldAgnosticModule[M2]](
 }
 
 // ============================================================================
-// SchemaMapping
+// LimbMap
 // ============================================================================
 
-// RegisterMappings provides a straightforward implementation of the
-// schema.RegisterMappings interface.
-type registerMappings struct {
+// limbsMap provides a straightforward implementation of the schema.LimbMap
+// interface.
+type limbsMap struct {
 	field   sc.FieldConfig
-	modules []registerMapping
+	modules []registerLimbsMap
 }
 
 // newRegisterMappings constructs a new schema mapping for a given schema and
 // parameter combination.  This determines, amongst other things,  the
 // composition of limbs for all registers in the schema.
-func newRegisterMappings(field sc.FieldConfig, schema sc.AnySchema) sc.GlobalLimbMap {
-	var mappings []registerMapping
+func newRegisterMappings(field sc.FieldConfig, schema sc.AnySchema) sc.LimbsMap {
+	var mappings []registerLimbsMap
 	//
 	for i := range schema.Width() {
 		regmap := newRegisterMapping(field, schema.Module(i))
 		mappings = append(mappings, regmap)
 	}
 	//
-	return registerMappings{field, mappings}
+	return limbsMap{field, mappings}
 }
 
-// Field implementation for schema.RegisterMappings interface
-func (p registerMappings) Field() sc.FieldConfig {
+// Field implementation for schema.LimbMap interface
+func (p limbsMap) Field() sc.FieldConfig {
 	return p.field
 }
 
 // Module implementation for schema.RegisterMappings interface
-func (p registerMappings) Module(mid sc.ModuleId) sc.RegisterLimbsMap {
+func (p limbsMap) Module(mid sc.ModuleId) sc.RegisterLimbsMap {
 	return p.modules[mid]
 }
 
 // ModuleOf implementation for schema.RegisterMappings interface
-func (p registerMappings) ModuleOf(name string) sc.RegisterLimbsMap {
+func (p limbsMap) ModuleOf(name string) sc.RegisterLimbsMap {
 	for _, m := range p.modules {
 		if m.name == name {
 			return m
@@ -87,18 +88,38 @@ func (p registerMappings) ModuleOf(name string) sc.RegisterLimbsMap {
 	panic(fmt.Sprintf("unknown module \"%s\"", name))
 }
 
+func (p limbsMap) String() string {
+	var builder strings.Builder
+	//
+	builder.WriteString("[")
+	builder.WriteString(p.field.Name)
+	builder.WriteString(":")
+	//
+	for i, m := range p.modules {
+		if i != 0 {
+			builder.WriteString(";")
+		}
+		//
+		builder.WriteString(m.String())
+	}
+
+	builder.WriteString("]")
+
+	return builder.String()
+}
+
 // ============================================================================
-// RegisterMapping
+// RegisterLimbMap
 // ============================================================================
 
-// RegisterMapping provides a mapping from registers from the original schema to
+// registerLimbsMap provides a mapping from registers from the original schema to
 // registers (referred to as limbs) in the split schema.   In some cases, there
 // may be only one limb matching the original register above exactly (i.e. when
 // the register width was already below the cutoff); in other cases, there can
 // be many limbs for a single register above.  It should always be the case that
 // the total width of limbs matches that of the original register.  Furthermore,
 // if the original register was computed, then the limbs should be also, etc.
-type registerMapping struct {
+type registerLimbsMap struct {
 	// Name of the module to which this mapping corresponds
 	name string
 	// Field configuration in play
@@ -114,7 +135,7 @@ type registerMapping struct {
 
 // newRegisterMapping constructs an appropriate register map for a given module
 // and parameter combination.
-func newRegisterMapping(field sc.FieldConfig, module sc.Module) registerMapping {
+func newRegisterMapping(field sc.FieldConfig, module sc.Module) registerLimbsMap {
 	var (
 		regs    = module.Registers()
 		limbs   []sc.Register
@@ -136,7 +157,7 @@ func newRegisterMapping(field sc.FieldConfig, module sc.Module) registerMapping 
 		mapping[i] = m
 	}
 	// Done
-	return registerMapping{
+	return registerLimbsMap{
 		module.Name(),
 		field,
 		regs,
@@ -146,32 +167,39 @@ func newRegisterMapping(field sc.FieldConfig, module sc.Module) registerMapping 
 }
 
 // Field implementation for schema.RegisterMappings interface
-func (p registerMapping) Field() sc.FieldConfig {
+func (p registerLimbsMap) Field() sc.FieldConfig {
 	return p.field
 }
 
 // Limbs implementation for the schema.RegisterMapping interface
-func (p registerMapping) LimbIds(reg sc.RegisterId) []sc.LimbId {
+func (p registerLimbsMap) LimbIds(reg sc.RegisterId) []sc.LimbId {
 	return p.mapping[reg.Unwrap()]
 }
 
 // Limb implementation for the schema.RegisterMapping interface
-func (p registerMapping) Limb(reg sc.LimbId) sc.Limb {
+func (p registerLimbsMap) Limb(reg sc.LimbId) sc.Limb {
 	return p.limbs[reg.Unwrap()]
 }
 
 // Limbs implementation for the schema.RegisterMapping interface
-func (p registerMapping) Limbs() []sc.Limb {
+func (p registerLimbsMap) Limbs() []sc.Limb {
 	return p.limbs
 }
 
+// LimbsMap implementation for the schema.RegisterMapping interface
+func (p registerLimbsMap) LimbsMap() sc.RegisterMap {
+	return registerLimbsMap{
+		p.name, p.field, p.limbs, nil, nil,
+	}
+}
+
 // Name implementation for schema.RegisterMapping interface
-func (p registerMapping) Name() string {
+func (p registerLimbsMap) Name() string {
 	return p.name
 }
 
 // RegisterOf determines a register's ID based on its name.
-func (p registerMapping) RegisterOf(name string) sc.RegisterId {
+func (p registerLimbsMap) RegisterOf(name string) sc.RegisterId {
 	for i, reg := range p.registers {
 		if reg.Name == name {
 			return sc.NewRegisterId(uint(i))
@@ -182,7 +210,7 @@ func (p registerMapping) RegisterOf(name string) sc.RegisterId {
 }
 
 // HasRegister implementation for RegisterMap interface.
-func (p registerMapping) HasRegister(name string) (sc.RegisterId, bool) {
+func (p registerLimbsMap) HasRegister(name string) (sc.RegisterId, bool) {
 	for i, reg := range p.registers {
 		if reg.Name == name {
 			return sc.NewRegisterId(uint(i)), true
@@ -193,11 +221,45 @@ func (p registerMapping) HasRegister(name string) (sc.RegisterId, bool) {
 }
 
 // Register implementation for RegisterMap interface.
-func (p registerMapping) Register(rid sc.RegisterId) sc.Register {
+func (p registerLimbsMap) Register(rid sc.RegisterId) sc.Register {
 	return p.registers[rid.Unwrap()]
 }
 
 // Registers implementation for RegisterMap interface.
-func (p registerMapping) Registers() []sc.Register {
+func (p registerLimbsMap) Registers() []sc.Register {
 	return p.registers
+}
+
+func (p registerLimbsMap) String() string {
+	var builder strings.Builder
+	//
+	builder.WriteString("{")
+	builder.WriteString(p.name)
+	builder.WriteString(":")
+	//
+	for i, r := range p.registers {
+		if i != 0 {
+			builder.WriteString(",")
+		}
+		//
+		builder.WriteString(r.Name)
+		builder.WriteString("=>")
+		//
+		mapping := p.mapping[i]
+		//
+		for j := len(mapping); j > 0; {
+			if j != len(mapping) {
+				builder.WriteString("::")
+			}
+			//
+			j = j - 1
+			jth := mapping[j].Unwrap()
+			//
+			builder.WriteString(p.limbs[jth].Name)
+		}
+	}
+	//
+	builder.WriteString("}")
+	//
+	return builder.String()
 }

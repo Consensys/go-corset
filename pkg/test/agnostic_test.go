@@ -15,6 +15,7 @@ package test
 import (
 	"testing"
 
+	sc "github.com/consensys/go-corset/pkg/schema"
 	test_util "github.com/consensys/go-corset/pkg/test/util"
 )
 
@@ -27,13 +28,29 @@ import (
 // }
 
 func Test_AgnosticLookup_01(t *testing.T) {
-	test_util.Check(t, false, "agnostic/lookup_01")
+	test_util.CheckWithFields(t, false, "agnostic/lookup_01", sc.BLS12_377, sc.GF_8209, sc.GF_251)
 }
 
 func Test_AgnosticLookup_02(t *testing.T) {
-	test_util.Check(t, false, "agnostic/lookup_02")
+	test_util.CheckWithFields(t, false, "agnostic/lookup_02", sc.BLS12_377, sc.GF_8209, sc.GF_251)
 }
 
-// func Test_AgnosticLookup_03(t *testing.T) {
-// 	test_util.Check(t, false, "agnostic/lookup_03")
-// }
+func Test_AgnosticLookup_03(t *testing.T) {
+	// NOTE: BLS12_377 generates an irregular lookup (which, at the time of
+	// writing, are not supported).
+	test_util.CheckWithFields(t, false, "agnostic/lookup_03", sc.GF_8209, sc.GF_251)
+}
+
+func Test_AgnosticLookup_04(t *testing.T) {
+	test_util.CheckWithFields(t, false, "agnostic/lookup_04", sc.BLS12_377, sc.GF_8209, sc.GF_251)
+}
+
+func Test_AgnosticLookup_05(t *testing.T) {
+	test_util.CheckWithFields(t, false, "agnostic/lookup_05", sc.BLS12_377, sc.GF_8209, sc.GF_251)
+}
+func Test_AgnosticLookup_06(t *testing.T) {
+	test_util.CheckWithFields(t, false, "agnostic/lookup_06", sc.BLS12_377, sc.GF_8209, sc.GF_251)
+}
+func Test_AgnosticLookup_07(t *testing.T) {
+	test_util.CheckWithFields(t, false, "agnostic/lookup_07", sc.BLS12_377, sc.GF_8209, sc.GF_251)
+}

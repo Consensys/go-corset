@@ -30,7 +30,7 @@ import (
 // TraceSplitting splits a given set of raw columns according to a given
 // register mapping or, otherwise, simply lowers them.
 func TraceSplitting(parallel bool, rawCols []trace.BigEndianColumn,
-	mapping schema.GlobalLimbMap) ([]trace.RawFrColumn, []error) {
+	mapping schema.LimbsMap) ([]trace.RawFrColumn, []error) {
 	var (
 		stats = util.NewPerfStats()
 		cols  []trace.RawFrColumn
@@ -48,7 +48,7 @@ func TraceSplitting(parallel bool, rawCols []trace.BigEndianColumn,
 	return cols, err
 }
 
-func sequentialTraceSplitting(cols []trace.BigEndianColumn, gmap schema.GlobalLimbMap) ([]trace.RawFrColumn, []error) {
+func sequentialTraceSplitting(cols []trace.BigEndianColumn, gmap schema.LimbsMap) ([]trace.RawFrColumn, []error) {
 	var (
 		splitColumns []trace.RawFrColumn
 		errors       []error
@@ -63,7 +63,7 @@ func sequentialTraceSplitting(cols []trace.BigEndianColumn, gmap schema.GlobalLi
 	return splitColumns, errors
 }
 
-func parallelTraceSplitting(cols []trace.BigEndianColumn, mapping schema.GlobalLimbMap) ([]trace.RawFrColumn, []error) {
+func parallelTraceSplitting(cols []trace.BigEndianColumn, mapping schema.LimbsMap) ([]trace.RawFrColumn, []error) {
 	var (
 		splits [][]trace.RawFrColumn = make([][]trace.RawFrColumn, len(cols))
 		// Construct a communication channel split columns.
@@ -75,7 +75,7 @@ func parallelTraceSplitting(cols []trace.BigEndianColumn, mapping schema.GlobalL
 	)
 	// Split column concurrently
 	for i, ith := range cols {
-		go func(index int, column trace.BigEndianColumn, mapping schema.GlobalLimbMap) {
+		go func(index int, column trace.BigEndianColumn, mapping schema.LimbsMap) {
 			// Send outcome back
 			data, errors := splitRawColumn(column, mapping)
 			c <- splitResult{index, data, errors}
@@ -112,7 +112,7 @@ func flatten(total int, splits [][]trace.RawFrColumn) []trace.RawFrColumn {
 }
 
 // SplitRawColumn splits a given raw column using the given register mapping.
-func splitRawColumn(col trace.RawColumn[word.BigEndian], mapping schema.GlobalLimbMap) ([]trace.RawFrColumn, []error) {
+func splitRawColumn(col trace.RawColumn[word.BigEndian], mapping schema.LimbsMap) ([]trace.RawFrColumn, []error) {
 	var (
 		height = col.Data.Len()
 		// Access mapping for enclosing module
@@ -203,10 +203,8 @@ func reverseAndPad(bytes []byte, n uint) []byte {
 	switch {
 	case n > uint(len(bytes)):
 		bytes = array.FrontPad(bytes, n, 0)
-	case n == uint(len(bytes)):
+	default:
 		bytes = slices.Clone(bytes)
-	case n < uint(len(bytes)):
-		panic(fmt.Sprintf("have %d bytes, expected at most %d", len(bytes), n))
 	}
 	// In place reversal
 	array.ReverseInPlace(bytes)

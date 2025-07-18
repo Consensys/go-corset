@@ -113,3 +113,20 @@ func SplitIntoLimbs(maxWidth uint, r sc.Register) []sc.Register {
 	//
 	return limbs
 }
+
+// LimbWidths determines the limb widths for any register of the given size.
+func LimbWidths(maxWidth, regWidth uint) []uint {
+	var (
+		nlimbs     = NumberOfLimbs(maxWidth, regWidth)
+		limbWidths = make([]uint, nlimbs)
+	)
+	//
+	maxWidth = CommonLimbWidth(maxWidth, regWidth)
+	//
+	for i := uint(0); i < nlimbs; i++ {
+		limbWidths[i] = min(maxWidth, regWidth)
+		regWidth -= maxWidth
+	}
+	//
+	return limbWidths
+}

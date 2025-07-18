@@ -21,6 +21,20 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 )
 
+// ModuleMap provides a mapping from module identifiers (or names) to register
+// maps.
+type ModuleMap[T RegisterMap] interface {
+	// Field returns the underlying field configuration used for this mapping.
+	// This includes the field bandwidth (i.e. number of bits available in
+	// underlying field) and the maximum register width (i.e. width at which
+	// registers are capped).
+	Field() FieldConfig
+	// Module returns register mapping information for the given module.
+	Module(ModuleId) T
+	// ModuleOf returns register mapping information for the given module.
+	ModuleOf(string) T
+}
+
 // ModuleId abstracts the notion of a "module identifier"
 type ModuleId = uint
 
@@ -146,7 +160,7 @@ func (p *Table[C]) Registers() []Register {
 }
 
 // Subdivide implementation for the FieldAgnosticModule interface.
-func (p *Table[C]) Subdivide(mapping GlobalLimbMap) *Table[C] {
+func (p *Table[C]) Subdivide(mapping LimbsMap) *Table[C] {
 	var (
 		modmap      = mapping.ModuleOf(p.name)
 		registers   []Register

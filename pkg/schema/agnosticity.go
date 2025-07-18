@@ -66,22 +66,12 @@ type FieldAgnostic[T any] interface {
 	//
 	// Here, c is a 1bit register introduced as part of the transformation to
 	// act as a "carry" between the two constraints.
-	Subdivide(GlobalLimbMap) T
+	Subdivide(LimbsMap) T
 }
 
-// GlobalLimbMap provides a high-level mapping of all registers across all
+// LimbsMap provides a high-level mapping of all registers across all
 // modules before and after subdivision occurs.
-type GlobalLimbMap interface {
-	// Field returns the underlying field configuration used for this mapping.
-	// This includes the field bandwidth (i.e. number of bits available in
-	// underlying field) and the maximum register width (i.e. width at which
-	// registers are capped).
-	Field() FieldConfig
-	// Module returns register mapping information for the given module.
-	Module(ModuleId) RegisterLimbsMap
-	// ModuleOf returns register mapping information for the given module.
-	ModuleOf(string) RegisterLimbsMap
-}
+type LimbsMap = ModuleMap[RegisterLimbsMap]
 
 // RegisterLimbsMap provides a high-level mapping of all registers before and
 // after subdivision occurs within a given module.  That is, it maps a given
@@ -103,6 +93,10 @@ type RegisterLimbsMap interface {
 	Limb(LimbId) Limb
 	// Limbs returns all limbs in the mapping.
 	Limbs() []Limb
+	// LimbsMap returns a register map for the limbs themselves.  This is useful
+	// where we need a register map over the limbs, rather than the original
+	// registers.
+	LimbsMap() RegisterMap
 }
 
 // RegisterAllocator extends a register mapping with the ability to allocate new
@@ -162,6 +156,11 @@ func (p *registerAllocator) Limb(reg LimbId) Limb {
 // Limbs implementation for the RegisterMapping interface
 func (p *registerAllocator) Limbs() []Limb {
 	return p.limbs
+}
+
+// LimbsMap implementation for the RegisterMapping interface
+func (p *registerAllocator) LimbsMap() RegisterMap {
+	return p.mapping.LimbsMap()
 }
 
 // Name implementation for RegisterMapping interface

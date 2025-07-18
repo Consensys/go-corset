@@ -19,31 +19,31 @@ import (
 )
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideAssertion(c Assertion, _ schema.GlobalLimbMap) Assertion {
+func subdivideAssertion(c Assertion, _ schema.LimbsMap) Assertion {
 	// TODO: implement this
 	return c
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideInterleaving(c InterleavingConstraint, _ schema.GlobalLimbMap) InterleavingConstraint {
+func subdivideInterleaving(c InterleavingConstraint, _ schema.LimbsMap) InterleavingConstraint {
 	// TODO: implement this
 	return c
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdividePermutation(c PermutationConstraint, _ schema.GlobalLimbMap) PermutationConstraint {
+func subdividePermutation(c PermutationConstraint, _ schema.LimbsMap) PermutationConstraint {
 	// TODO: implement this
 	return c
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideRange(c RangeConstraint, _ schema.GlobalLimbMap) RangeConstraint {
+func subdivideRange(c RangeConstraint, _ schema.LimbsMap) RangeConstraint {
 	// TODO: implement this
 	return c
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideSorted(c SortedConstraint, _ schema.GlobalLimbMap) SortedConstraint {
+func subdivideSorted(c SortedConstraint, _ schema.LimbsMap) SortedConstraint {
 	// TODO: implement this
 	return c
 }
@@ -162,11 +162,6 @@ func splitRegisterAccess(term *RegisterAccess, mapping schema.RegisterLimbsMap) 
 		// Construct appropriate terms
 		terms = make([]*RegisterAccess, len(limbs))
 	)
-	// Check whether anything to do?
-	if len(limbs) == 1 {
-		// Nope
-		return term
-	}
 	//
 	for i, limb := range limbs {
 		terms[i] = &ir.RegisterAccess[Term]{Register: limb, Shift: term.Shift}

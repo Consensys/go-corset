@@ -19,6 +19,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
@@ -59,6 +60,45 @@ func (p *LookupFailure) RequiredCells(_ trace.Trace) *set.AnySortedSet[trace.Cel
 	}
 	//
 	return res
+}
+
+// LookupGeometry defines the "geometry" of a lookup.  That is the maximum
+// bitwidth for each source-target pairing in the lookup.  For example, consider
+// a lookup where (X Y) looksup into (A B).  Suppose X is 16bit and Y is 32bit,
+// whilst A is 64bit and B is 8bit. Then, the geometry of the lookup is [16,32].
+type LookupGeometry struct {
+	config schema.FieldConfig
+	// bitwidth for each source/target pairing
+	geometry []uint
+}
+
+// NewLookupGeometry returns the calculated "geometry" for this lookup.  That
+// is, for each source/target pair, the maximum bitwidth of any source or target
+// value.
+func NewLookupGeometry[E ir.Evaluable, T schema.RegisterMap](c LookupConstraint[E],
+	mapping schema.ModuleMap[T]) LookupGeometry {
+	//
+	var geometry []uint = make([]uint, len(c.Sources[0].Item))
+	// Include sources
+	for _, source := range c.Sources {
+		updateGeometry(geometry, source, mapping)
+	}
+	// Include targets
+	for _, target := range c.Targets {
+		updateGeometry(geometry, target, mapping)
+	}
+	//
+	return LookupGeometry{mapping.Field(), geometry}
+}
+
+// LimbWidths returns the bitwidths for the required limbs for a given
+// source/target pairing in the lookup.
+func (p *LookupGeometry) LimbWidths(i uint) []uint {
+	if p.geometry[i] == 0 {
+		return nil
+	}
+	//
+	return agnostic.LimbWidths(p.config.RegisterWidth, p.geometry[i])
 }
 
 // LookupConstraint (sometimes also called an inclusion constraint) constrains
@@ -358,6 +398,30 @@ func (p LookupConstraint[E]) Substitute(mapping map[string]fr.Element) {
 	for _, ith := range p.Targets {
 		for _, s := range ith.Item {
 			s.Substitute(mapping)
+		}
+	}
+}
+
+func updateGeometry[E ir.Evaluable, T schema.RegisterMap](geometry []uint, source ir.Enclosed[[]E],
+	mapping schema.ModuleMap[T]) {
+	//
+	var (
+		terms  = source.Item
+		modmap = mapping.Module(source.Module)
+	)
+	// Sanity check
+	if len(terms) != len(geometry) {
+		// Unreachable, as should be caught earlier in the pipeline.
+		panic("misaligned lookup")
+	}
+	//
+	for i, ith := range terms {
+		// Since first column is always the selector column, it may not be
+		// defined.
+		if i != 0 || ith.IsDefined() {
+			bitwidth := ith.ValueRange(modmap).BitWidth()
+			//
+			geometry[i] = max(geometry[i], bitwidth)
 		}
 	}
 }

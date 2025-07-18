@@ -176,7 +176,7 @@ func (p *Function[T]) Registers() []Register {
 }
 
 // Subdivide implementation for the FieldAgnosticModule interface.
-func (p *Function[T]) Subdivide(mapping sc.GlobalLimbMap) *Function[T] {
+func (p *Function[T]) Subdivide(mapping sc.LimbsMap) *Function[T] {
 	var (
 		// Construct suitable splitting environment
 		env = sc.NewAllocator(mapping.ModuleOf(p.name))

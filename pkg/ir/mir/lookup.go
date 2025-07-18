@@ -13,69 +13,44 @@
 package mir
 
 import (
+	"fmt"
+
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
 )
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideLookup(c LookupConstraint, mapping schema.GlobalLimbMap) LookupConstraint {
+func subdivideLookup(c LookupConstraint, mapping schema.LimbsMap) LookupConstraint {
 	var (
+		// Determine overall geometry for this lookup.
+		geometry = constraint.NewLookupGeometry(c, mapping)
 		// Split all registers in the source vectors
-		sources = splitEnclosedTerms(c.Sources, mapping)
+		sources = mapLookupVectors(c.Sources, mapping)
 		// Split all registers in the target vectors
-		targets = splitEnclosedTerms(c.Targets, mapping)
+		targets = mapLookupVectors(c.Targets, mapping)
 	)
-	// FIXME: this is not really safe in the general case.  For example, this
-	// could result in a mismatched number of columns.  Furthermore, its
-	// possible these columns are incorrectly aligned, etc.
-	rawTargets := flattenEnclosedVectors(targets)
-	rawSources := flattenEnclosedVectors(sources)
-	// Determine overall geometry for this lookup.  If this cannot be done,
-	// it will panic.  The assumption is that such an error would already be
-	// caught earlier in the pipeline.
-	geometry := determineLookupGeometry(rawSources, rawTargets)
 	//
-	targets = padEnclosedVectors(rawTargets, geometry)
-	sources = padEnclosedVectors(rawSources, geometry)
+	rawTargets := splitLookupVectors(targets)
+	rawSources := splitLookupVectors(sources)
+	//
+	alignLookupVectors(rawTargets, geometry, mapping)
+	alignLookupVectors(rawSources, geometry, mapping)
+	//
+	targets = padLookupVectors(rawTargets, geometry)
+	sources = padLookupVectors(rawSources, geometry)
 	//
 	return constraint.NewLookupConstraint(c.Handle, targets, sources)
 }
 
-// The "geometry" of a lookup is the maximum width (in columns) of each
-// source-target pairing in the lookup.  For example, consider a lookup where (X
-// Y) looksup into (A B).  Suppose X and Y split into 1 and 2 columns
-// (respectively), whilst A nd B split into 3 and 2 columns (respectively).
-// Then, the geometry of the lookup is [3,2], as we need three columns in the
-// subdivided lookup to represent the column in the original lookup, and so on.
-func determineLookupGeometry(sources []ir.Enclosed[[][]Term], targets []ir.Enclosed[[][]Term]) []uint {
-	var geometry []uint = make([]uint, len(sources[0].Item))
-	// Sources first
-	for _, source := range sources {
-		updateLookupGeometry(source, geometry)
-	}
-	// Targets second
-	for _, target := range targets {
-		updateLookupGeometry(target, geometry)
-	}
-	// Done
-	return geometry
-}
-
-func updateLookupGeometry(source ir.Enclosed[[][]Term], geometry []uint) {
-	var terms = source.Item
-	// Sanity check
-	if len(terms) != len(geometry) {
-		// Unreachable, as should be caught earlier in the pipeline.
-		panic("misaligned lookup")
-	}
-	//
-	for i, t := range terms {
-		geometry[i] = max(geometry[i], uint(len(t)))
-	}
-}
-
-func splitEnclosedTerms(vectors []ir.Enclosed[[]Term], mapping schema.GlobalLimbMap) []ir.Enclosed[[]Term] {
+// Mapping lookup vectors essentially means applying the limb mapping to all
+// registers used within the lookup vector.  For example, consider a simple
+// lookup like "lookup (X) (Y)" where X=>X'1::X'0 and Y=>Y.  Then, after
+// mapping, we have "lookup (X'1::X'0) (Y)".  Observe that mapping does not
+// create more source/target pairings.  Rather, it splits registers within the
+// existing pairings only.  Later stages will subdivide and pad the
+// source/target pairings as necessary.
+func mapLookupVectors(vectors []ir.Enclosed[[]Term], mapping schema.LimbsMap) []ir.Enclosed[[]Term] {
 	var nterms = make([]ir.Enclosed[[]Term], len(vectors))
 	//
 	for i, vector := range vectors {
@@ -90,11 +65,11 @@ func splitEnclosedTerms(vectors []ir.Enclosed[[]Term], mapping schema.GlobalLimb
 	return nterms
 }
 
-func flattenEnclosedVectors(vectors []ir.Enclosed[[]Term]) []ir.Enclosed[[][]Term] {
+func splitLookupVectors(vectors []ir.Enclosed[[]Term]) []ir.Enclosed[[][]Term] {
 	var nterms = make([]ir.Enclosed[[][]Term], len(vectors))
 	//
 	for i, vector := range vectors {
-		var terms = flattenTerms(vector.Item)
+		var terms = splitLookupVector(vector.Item)
 		//
 		nterms[i] = ir.Enclose(vector.Module, terms)
 	}
@@ -102,7 +77,7 @@ func flattenEnclosedVectors(vectors []ir.Enclosed[[]Term]) []ir.Enclosed[[][]Ter
 	return nterms
 }
 
-func flattenTerms(terms []Term) [][]Term {
+func splitLookupVector(terms []Term) [][]Term {
 	var nterms [][]Term = make([][]Term, len(terms))
 	//
 	for i, t := range terms {
@@ -118,7 +93,45 @@ func flattenTerms(terms []Term) [][]Term {
 	return nterms
 }
 
-func padEnclosedVectors(vectors []ir.Enclosed[[][]Term], geometry []uint) []ir.Enclosed[[]Term] {
+func alignLookupVectors(vectors []ir.Enclosed[[][]Term], geometry constraint.LookupGeometry,
+	mapping schema.LimbsMap) {
+	//
+	for _, vector := range vectors {
+		alignLookupVector(vector, geometry, mapping)
+	}
+}
+
+func alignLookupVector(vector ir.Enclosed[[][]Term], geometry constraint.LookupGeometry, mapping schema.LimbsMap) {
+	var modmap = mapping.Module(vector.Module)
+	//
+	for i, limbs := range vector.Item {
+		// FIXME: somewhere we should check that the selector fits into a single
+		// column!
+		alignLookupLimbs(i == 0, limbs, geometry.LimbWidths(uint(i)), modmap)
+	}
+}
+
+func alignLookupLimbs(selector bool, limbs []Term, geometry []uint, mapping schema.RegisterLimbsMap) {
+	var (
+		n       = len(geometry) - 1
+		m       = len(limbs) - 1
+		limbMap = mapping.LimbsMap()
+	)
+	// For now, this is just a check that we have proper alignment.
+	for i, limb := range limbs {
+		if !selector || limb.IsDefined() {
+			bitwidth := limb.ValueRange(limbMap).BitWidth()
+			// Sanity check for irregular lookups
+			if i != n && bitwidth > geometry[i] {
+				panic(fmt.Sprintf("irregular lookup detected (u%d v u%d)", bitwidth, geometry[i]))
+			} else if i != m && bitwidth != geometry[i] {
+				panic(fmt.Sprintf("irregular lookup detected (u%d v u%d)", bitwidth, geometry[i]))
+			}
+		}
+	}
+}
+
+func padLookupVectors(vectors []ir.Enclosed[[][]Term], geometry constraint.LookupGeometry) []ir.Enclosed[[]Term] {
 	var nterms []ir.Enclosed[[]Term] = make([]ir.Enclosed[[]Term], len(vectors))
 	//
 	for i, vector := range vectors {
@@ -129,18 +142,19 @@ func padEnclosedVectors(vectors []ir.Enclosed[[][]Term], geometry []uint) []ir.E
 	return nterms
 }
 
-func padTerms(terms [][]Term, geometry []uint) []Term {
+func padTerms(terms [][]Term, geometry constraint.LookupGeometry) []Term {
 	var nterms []Term
 
 	for i, ith := range terms {
-		nterms = append(nterms, padTerm(ith, geometry[i])...)
+		n := len(geometry.LimbWidths(uint(i)))
+		nterms = append(nterms, padTerm(ith, n)...)
 	}
 
 	return nterms
 }
 
-func padTerm(terms []Term, geometry uint) []Term {
-	for uint(len(terms)) < geometry {
+func padTerm(terms []Term, geometry int) []Term {
+	for len(terms) < geometry {
 		// Pad out with zeros
 		terms = append(terms, ir.Const64[Term](0))
 	}
