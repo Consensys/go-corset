@@ -18,22 +18,22 @@ import (
 	test_util "github.com/consensys/go-corset/pkg/test/util"
 )
 
-// func Test_Agnostic_01(t *testing.T) {
-// 	test_util.Check(t, false, "agnostic/agnostic_01")
+// func Test_AgnosticVanish_01(t *testing.T) {
+// 	test_util.Check(t, false, "agnostic/vanish_01")
 // }
 
-func Test_Agnostic_02(t *testing.T) {
-	test_util.Check(t, false, "agnostic/agnostic_02")
+// func Test_Vanish_02(t *testing.T) {
+// 	test_util.Check(t, false, "agnostic/vanish_02")
+// }
+
+func Test_AgnosticLookup_01(t *testing.T) {
+	test_util.Check(t, false, "agnostic/lookup_01")
 }
 
-// func Test_Agnostic_03(t *testing.T) {
-// 	test_util.Check(t, false, "agnostic/agnostic_03")
-// }
+func Test_AgnosticLookup_02(t *testing.T) {
+	test_util.Check(t, false, "agnostic/lookup_02")
+}
 
-// func Test_Agnostic_04(t *testing.T) {
-// 	test_util.Check(t, false, "agnostic/agnostic_04")
-// }
-
-// func Test_Agnostic_05(t *testing.T) {
-// 	test_util.Check(t, false, "agnostic/agnostic_05")
+// func Test_AgnosticLookup_03(t *testing.T) {
+// 	test_util.Check(t, false, "agnostic/lookup_03")
 // }
