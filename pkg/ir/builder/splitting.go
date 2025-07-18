@@ -108,8 +108,8 @@ func splitRawColumn(column trace.RawColumn[word.BigEndian], mapping schema.Globa
 		height = column.Data.Len()
 		// Access mapping for enclosing module
 		modmap = mapping.ModuleOf(column.Module)
-		// Determine register id for this column
-		reg = modmap.RegisterOf(column.Name)
+		// Determine register id for this column (we can assume it exists)
+		reg, _ = modmap.HasRegister(column.Name)
 		// Determine limbs of this register
 		limbIds = modmap.LimbIds(reg)
 	)

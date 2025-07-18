@@ -87,15 +87,15 @@ func (p *IfZero[S, T]) IsDefined() bool {
 }
 
 // Lisp implementation for Lispifiable interface.
-func (p *IfZero[S, T]) Lisp(module schema.Module) sexp.SExp {
+func (p *IfZero[S, T]) Lisp(mapping schema.RegisterMap) sexp.SExp {
 	// Translate Condition
-	condition := p.Condition.Lisp(module)
+	condition := p.Condition.Lisp(mapping)
 	// Dispatch on type
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("if"),
 		condition,
-		p.TrueBranch.Lisp(module),
-		p.FalseBranch.Lisp(module),
+		p.TrueBranch.Lisp(mapping),
+		p.FalseBranch.Lisp(mapping),
 	})
 }
 
@@ -131,7 +131,7 @@ func (p *IfZero[S, T]) ShiftRange() (int, int) {
 }
 
 // ValueRange implementation for Term interface.
-func (p *IfZero[S, T]) ValueRange(module schema.Module) *math.Interval {
+func (p *IfZero[S, T]) ValueRange(_ schema.RegisterMap) *math.Interval {
 	panic("todo")
 }
 

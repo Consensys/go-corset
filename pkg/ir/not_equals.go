@@ -84,10 +84,10 @@ func (p *NotEqual[S, T]) TestAt(k int, tr trace.Module, sc schema.Module) (bool,
 
 // Lisp returns a lisp representation of this NotEqual, which is useful for
 // debugging.
-func (p *NotEqual[S, T]) Lisp(module schema.Module) sexp.SExp {
+func (p *NotEqual[S, T]) Lisp(mapping schema.RegisterMap) sexp.SExp {
 	var (
-		l = p.Lhs.Lisp(module)
-		r = p.Rhs.Lisp(module)
+		l = p.Lhs.Lisp(mapping)
+		r = p.Rhs.Lisp(mapping)
 	)
 	//
 	return sexp.NewList([]sexp.SExp{

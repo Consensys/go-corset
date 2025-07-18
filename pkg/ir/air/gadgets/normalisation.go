@@ -126,10 +126,10 @@ func (e *psuedoInverse) IsDefined() bool {
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (e *psuedoInverse) Lisp(module sc.Module) sexp.SExp {
+func (e *psuedoInverse) Lisp(mapping sc.RegisterMap) sexp.SExp {
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("inv"),
-		e.Expr.Lisp(module),
+		e.Expr.Lisp(mapping),
 	})
 }
 

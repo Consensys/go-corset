@@ -80,11 +80,11 @@ func (p *RegisterAccess[T]) IsDefined() bool {
 }
 
 // Lisp implementation for Lispifiable interface.
-func (p *RegisterAccess[T]) Lisp(module schema.Module) sexp.SExp {
+func (p *RegisterAccess[T]) Lisp(mapping schema.RegisterMap) sexp.SExp {
 	var name string
 	// Generate name, whilst allowing for schema to be nil.
-	if module != nil {
-		name = module.Register(p.Register).QualifiedName(module)
+	if mapping != nil {
+		name = mapping.Register(p.Register).QualifiedName(mapping)
 	} else {
 		name = fmt.Sprintf("#%d", p.Register)
 	}
@@ -138,8 +138,8 @@ func (p *RegisterAccess[T]) Substitute(mapping map[string]fr.Element) {
 }
 
 // ValueRange implementation for Term interface.
-func (p *RegisterAccess[T]) ValueRange(module schema.Module) *util_math.Interval {
-	var width = module.Register(p.Register).Width
+func (p *RegisterAccess[T]) ValueRange(mapping schema.RegisterMap) *util_math.Interval {
+	var width = mapping.Register(p.Register).Width
 	// NOTE: the following is necessary because MaxUint is permitted as a signal
 	// that the given register has no fixed bitwidth.  Rather, it can consume
 	// all possible values of the underlying field element.

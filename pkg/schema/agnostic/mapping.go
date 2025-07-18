@@ -165,6 +165,11 @@ func (p registerMapping) Limbs() []sc.Limb {
 	return p.limbs
 }
 
+// Name implementation for schema.RegisterMapping interface
+func (p registerMapping) Name() string {
+	return p.name
+}
+
 // RegisterOf determines a register's ID based on its name.
 func (p registerMapping) RegisterOf(name string) sc.RegisterId {
 	for i, reg := range p.registers {
@@ -174,4 +179,25 @@ func (p registerMapping) RegisterOf(name string) sc.RegisterId {
 	}
 	//
 	panic(fmt.Sprintf("unknown register \"%s\"", name))
+}
+
+// HasRegister implementation for RegisterMap interface.
+func (p registerMapping) HasRegister(name string) (sc.RegisterId, bool) {
+	for i, reg := range p.registers {
+		if reg.Name == name {
+			return sc.NewRegisterId(uint(i)), true
+		}
+	}
+	//
+	return sc.NewUnusedRegisterId(), false
+}
+
+// Register implementation for RegisterMap interface.
+func (p registerMapping) Register(rid sc.RegisterId) sc.Register {
+	return p.registers[rid.Unwrap()]
+}
+
+// Registers implementation for RegisterMap interface.
+func (p registerMapping) Registers() []sc.Register {
+	return p.registers
 }

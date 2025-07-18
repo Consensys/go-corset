@@ -83,9 +83,11 @@ type GlobalLimbMap interface {
 	ModuleOf(string) RegisterLimbsMap
 }
 
-// RegisterLimbsMap provides a high-level mapping of all registers before and after
-// subdivision occurs within a given module.
+// RegisterLimbsMap provides a high-level mapping of all registers before and
+// after subdivision occurs within a given module.  That is, it maps a given
+// register to those limbs into which it was subdivided.
 type RegisterLimbsMap interface {
+	RegisterMap
 	// Field returns the underlying field configuration used for this mapping.
 	// This includes the field bandwidth (i.e. number of bits available in
 	// underlying field) and the maximum register width (i.e. width at which
@@ -101,8 +103,6 @@ type RegisterLimbsMap interface {
 	Limb(LimbId) Limb
 	// Limbs returns all limbs in the mapping.
 	Limbs() []Limb
-	// RegisterOf determines a register's ID based on its name.
-	RegisterOf(string) RegisterId
 }
 
 // RegisterAllocator extends a register mapping with the ability to allocate new
@@ -130,7 +130,7 @@ func NewAllocator(mapping RegisterLimbsMap) RegisterAllocator {
 	return &registerAllocator{mapping, limbs}
 }
 
-// AllocateCarry implementation for the schema.RegisterAllocator interface
+// AllocateCarry implementation for the RegisterAllocator interface
 func (p *registerAllocator) AllocateCarry(prefix string, width uint) RegisterId {
 	var (
 		// Determine index for new register
@@ -144,27 +144,42 @@ func (p *registerAllocator) AllocateCarry(prefix string, width uint) RegisterId 
 	return NewRegisterId(index)
 }
 
-// BandWidth implementation for schema.RegisterMapping interface
+// BandWidth implementation for RegisterMapping interface
 func (p *registerAllocator) Field() FieldConfig {
 	return p.mapping.Field()
 }
 
-// Limbs implementation for the schema.RegisterMapping interface
+// Limbs implementation for the RegisterMapping interface
 func (p *registerAllocator) LimbIds(reg RegisterId) []LimbId {
 	return p.mapping.LimbIds(reg)
 }
 
-// Limb implementation for the schema.RegisterMapping interface
+// Limb implementation for the RegisterMapping interface
 func (p *registerAllocator) Limb(reg LimbId) Limb {
 	return p.limbs[reg.Unwrap()]
 }
 
-// Limbs implementation for the schema.RegisterMapping interface
+// Limbs implementation for the RegisterMapping interface
 func (p *registerAllocator) Limbs() []Limb {
 	return p.limbs
 }
 
-// RegisterOf implementation for the schema.RegisterMapping interface
-func (p *registerAllocator) RegisterOf(name string) RegisterId {
-	return p.mapping.RegisterOf(name)
+// Name implementation for RegisterMapping interface
+func (p *registerAllocator) Name() string {
+	return p.mapping.Name()
+}
+
+// HasRegister implementation for RegisterMap interface.
+func (p *registerAllocator) HasRegister(name string) (RegisterId, bool) {
+	return p.mapping.HasRegister(name)
+}
+
+// Register implementation for RegisterMap interface.
+func (p *registerAllocator) Register(rid RegisterId) Register {
+	return p.mapping.Register(rid)
+}
+
+// Registers implementation for RegisterMap interface.
+func (p *registerAllocator) Registers() []Register {
+	return p.mapping.Registers()
 }
