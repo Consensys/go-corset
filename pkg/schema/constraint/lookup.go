@@ -97,7 +97,7 @@ func NewLookupConstraint[E ir.Evaluable](handle string, targets []ir.Enclosed[[]
 	// Check sources
 	for i, ith := range sources {
 		if i != 0 && len(ith.Item) != width {
-			panic("inconsistent width of source lookup columns")
+			panic("inconsistent number of source lookup columns")
 		}
 
 		width = len(ith.Item)
@@ -105,7 +105,7 @@ func NewLookupConstraint[E ir.Evaluable](handle string, targets []ir.Enclosed[[]
 	// Check targets
 	for _, ith := range targets {
 		if len(ith.Item) != width {
-			panic("inconsistent width of target lookup columns")
+			panic("inconsistent number of target lookup columns")
 		}
 	}
 

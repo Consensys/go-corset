@@ -24,6 +24,9 @@ import (
 // RegisterMap provides a generic interface for entities which hold information
 // about registers.
 type RegisterMap interface {
+	// Name returns the name given to the enclosing entity (i.e. module or
+	// function).
+	Name() string
 	// HasRegister checks whether a register with the given name exists and, if
 	// so, returns its register identifier.  Otherwise, it returns false.
 	HasRegister(name string) (RegisterId, bool)
@@ -161,7 +164,7 @@ func (p *Register) MaxValue() *big.Int {
 var one = *big.NewInt(1)
 
 // QualifiedName returns the fully qualified name of this register
-func (p Register) QualifiedName(mod Module) string {
+func (p Register) QualifiedName(mod RegisterMap) string {
 	if mod.Name() != "" {
 		return fmt.Sprintf("%s:%s", mod.Name(), p.Name)
 	}

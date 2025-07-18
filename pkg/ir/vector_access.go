@@ -82,8 +82,8 @@ func (p *VectorAccess[T]) IsDefined() bool {
 }
 
 // Lisp implementation for Lispifiable interface.
-func (p *VectorAccess[T]) Lisp(module schema.Module) sexp.SExp {
-	return lispOfTerms(module, "::", p.Vars)
+func (p *VectorAccess[T]) Lisp(mapping schema.RegisterMap) sexp.SExp {
+	return lispOfTerms(mapping, "::", p.Vars)
 }
 
 // RequiredRegisters implementation for Contextual interface.
@@ -113,11 +113,11 @@ func (p *VectorAccess[T]) Substitute(mapping map[string]fr.Element) {
 }
 
 // ValueRange implementation for Term interface.
-func (p *VectorAccess[T]) ValueRange(module schema.Module) *math.Interval {
+func (p *VectorAccess[T]) ValueRange(mapping schema.RegisterMap) *math.Interval {
 	var width = uint(0)
 	// Determine total bitwidth of the vector
 	for _, arg := range p.Vars {
-		ith_width := module.Register(arg.Register).Width
+		ith_width := mapping.Register(arg.Register).Width
 		width += ith_width
 	}
 	//

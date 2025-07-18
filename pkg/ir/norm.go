@@ -65,8 +65,8 @@ func (p *Norm[T]) IsDefined() bool {
 }
 
 // Lisp implementation for Lispifiable interface.
-func (p *Norm[T]) Lisp(module schema.Module) sexp.SExp {
-	arg := p.Arg.Lisp(module)
+func (p *Norm[T]) Lisp(mapping schema.RegisterMap) sexp.SExp {
+	arg := p.Arg.Lisp(mapping)
 	return sexp.NewList([]sexp.SExp{sexp.NewSymbol("~"), arg})
 }
 
@@ -115,6 +115,6 @@ func (p *Norm[T]) Substitute(mapping map[string]fr.Element) {
 }
 
 // ValueRange implementation for Term interface.
-func (p *Norm[T]) ValueRange(module schema.Module) *math.Interval {
+func (p *Norm[T]) ValueRange(mapping schema.RegisterMap) *math.Interval {
 	return math.NewInterval(big.NewInt(0), big.NewInt(1))
 }

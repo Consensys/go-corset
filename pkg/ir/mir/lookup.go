@@ -21,10 +21,6 @@ import (
 // Subdivide implementation for the FieldAgnostic interface.
 func subdivideLookup(c LookupConstraint, mapping schema.GlobalLimbMap) LookupConstraint {
 	var (
-		// Determine overall geometry for this lookup.  If this cannot be done,
-		// it will panic.  The assumption is that such an error would already be
-		// caught earlier in the pipeline.
-		geometry = determineLookupGeometry(c.Sources, c.Targets, mapping)
 		// Split all registers in the source vectors
 		sources = splitEnclosedTerms(c.Sources, mapping)
 		// Split all registers in the target vectors
@@ -33,51 +29,50 @@ func subdivideLookup(c LookupConstraint, mapping schema.GlobalLimbMap) LookupCon
 	// FIXME: this is not really safe in the general case.  For example, this
 	// could result in a mismatched number of columns.  Furthermore, its
 	// possible these columns are incorrectly aligned, etc.
-	targets = flattenEnclosedVectors(targets, geometry)
-	sources = flattenEnclosedVectors(sources, geometry)
+	rawTargets := flattenEnclosedVectors(targets)
+	rawSources := flattenEnclosedVectors(sources)
+	// Determine overall geometry for this lookup.  If this cannot be done,
+	// it will panic.  The assumption is that such an error would already be
+	// caught earlier in the pipeline.
+	geometry := determineLookupGeometry(rawSources, rawTargets)
+	//
+	targets = padEnclosedVectors(rawTargets, geometry)
+	sources = padEnclosedVectors(rawSources, geometry)
 	//
 	return constraint.NewLookupConstraint(c.Handle, targets, sources)
 }
 
-// The "geometry" of a lookup is the maximum width of each source-target pairing
-// in the lookup.  For example, consider a lookup where (X Y) looksup into (A
-// B).  Then, the geometry is (xA yB), where xA is the max width of X and A,
-// whilst yB is the max width of Y and B.  We must be able to determine a fixed
-// geometry, otherwise we cannot proceed to safely split the lookup.
-func determineLookupGeometry(sources []ir.Enclosed[[]Term], targets []ir.Enclosed[[]Term], mapping schema.GlobalLimbMap) []uint {
+// The "geometry" of a lookup is the maximum width (in columns) of each
+// source-target pairing in the lookup.  For example, consider a lookup where (X
+// Y) looksup into (A B).  Suppose X and Y split into 1 and 2 columns
+// (respectively), whilst A nd B split into 3 and 2 columns (respectively).
+// Then, the geometry of the lookup is [3,2], as we need three columns in the
+// subdivided lookup to represent the column in the original lookup, and so on.
+func determineLookupGeometry(sources []ir.Enclosed[[][]Term], targets []ir.Enclosed[[][]Term]) []uint {
 	var geometry []uint = make([]uint, len(sources[0].Item))
 	// Sources first
 	for _, source := range sources {
-		updateLookupGeometry(source, geometry, mapping)
+		updateLookupGeometry(source, geometry)
 	}
 	// Targets second
 	for _, target := range targets {
-		updateLookupGeometry(target, geometry, mapping)
+		updateLookupGeometry(target, geometry)
 	}
 	// Done
 	return geometry
 }
 
-func updateLookupGeometry(source ir.Enclosed[[]Term], geometry []uint, mapping schema.GlobalLimbMap) {
-	// var (
-	// 	mod   = mapping.Module(source.Module)
-	// 	terms = source.Item
-	// )
-	// // Sanity check
-	// if len(terms) != len(geometry) {
-	// 	// Unreachable, as should be caught earlier in the pipeline.
-	// 	panic("misaligned lookup")
-	// }
-	// //
-	// for i, t := range terms {
-	// 	// FIXME: this is currently completely
-	// 	bitwidth := t.ValueRange(mod).BitWidth()
-	// 	geometry[i] = max(geometry[i], bitwidth)
-	// 	// Sanity check
-	// 	if bitwidth == math.MaxUint {
-	// 		panic(fmt.Sprintf("unknown bitwidth for term \"%s\"", t.Lisp(mod)))
-	// 	}
-	// }
+func updateLookupGeometry(source ir.Enclosed[[][]Term], geometry []uint) {
+	var terms = source.Item
+	// Sanity check
+	if len(terms) != len(geometry) {
+		// Unreachable, as should be caught earlier in the pipeline.
+		panic("misaligned lookup")
+	}
+	//
+	for i, t := range terms {
+		geometry[i] = max(geometry[i], uint(len(t)))
+	}
 }
 
 func splitEnclosedTerms(vectors []ir.Enclosed[[]Term], mapping schema.GlobalLimbMap) []ir.Enclosed[[]Term] {
@@ -95,13 +90,11 @@ func splitEnclosedTerms(vectors []ir.Enclosed[[]Term], mapping schema.GlobalLimb
 	return nterms
 }
 
-func flattenEnclosedVectors(vectors []ir.Enclosed[[]Term], geometry []uint) []ir.Enclosed[[]Term] {
-	var nterms = make([]ir.Enclosed[[]Term], len(vectors))
+func flattenEnclosedVectors(vectors []ir.Enclosed[[]Term]) []ir.Enclosed[[][]Term] {
+	var nterms = make([]ir.Enclosed[[][]Term], len(vectors))
 	//
 	for i, vector := range vectors {
-		var (
-			terms = flattenTerms(vector.Item)
-		)
+		var terms = flattenTerms(vector.Item)
 		//
 		nterms[i] = ir.Enclose(vector.Module, terms)
 	}
@@ -109,18 +102,48 @@ func flattenEnclosedVectors(vectors []ir.Enclosed[[]Term], geometry []uint) []ir
 	return nterms
 }
 
-func flattenTerms(terms []Term) []Term {
-	var nterms []Term
+func flattenTerms(terms []Term) [][]Term {
+	var nterms [][]Term = make([][]Term, len(terms))
 	//
-	for _, t := range terms {
+	for i, t := range terms {
 		if va, ok := t.(*VectorAccess); ok {
 			for _, v := range va.Vars {
-				nterms = append(nterms, v)
+				nterms[i] = append(nterms[i], v)
 			}
 		} else {
-			nterms = append(nterms, t)
+			nterms[i] = append(nterms[i], t)
 		}
 	}
 	//
 	return nterms
+}
+
+func padEnclosedVectors(vectors []ir.Enclosed[[][]Term], geometry []uint) []ir.Enclosed[[]Term] {
+	var nterms []ir.Enclosed[[]Term] = make([]ir.Enclosed[[]Term], len(vectors))
+	//
+	for i, vector := range vectors {
+		ith := padTerms(vector.Item, geometry)
+		nterms[i] = ir.Enclose(vector.Module, ith)
+	}
+	//
+	return nterms
+}
+
+func padTerms(terms [][]Term, geometry []uint) []Term {
+	var nterms []Term
+
+	for i, ith := range terms {
+		nterms = append(nterms, padTerm(ith, geometry[i])...)
+	}
+
+	return nterms
+}
+
+func padTerm(terms []Term, geometry uint) []Term {
+	for uint(len(terms)) < geometry {
+		// Pad out with zeros
+		terms = append(terms, ir.Const64[Term](0))
+	}
+	//
+	return terms
 }

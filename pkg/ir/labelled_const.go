@@ -64,7 +64,7 @@ func (p *LabelledConst[T]) IsDefined() bool {
 }
 
 // Lisp implementation for Lispifiable interface.
-func (p *LabelledConst[T]) Lisp(module schema.Module) sexp.SExp {
+func (p *LabelledConst[T]) Lisp(_ schema.RegisterMap) sexp.SExp {
 	return sexp.NewSymbol(p.Value.String())
 }
 
@@ -98,7 +98,7 @@ func (p *LabelledConst[T]) Substitute(mapping map[string]fr.Element) {
 }
 
 // ValueRange implementation for Term interface.
-func (p *LabelledConst[T]) ValueRange(module schema.Module) *util_math.Interval {
+func (p *LabelledConst[T]) ValueRange(_ schema.RegisterMap) *util_math.Interval {
 	var c big.Int
 	// Extract big integer from field element
 	p.Value.BigInt(&c)
