@@ -30,8 +30,11 @@
 ;; !-suffix denotes loobean algebra (i.e. 0 == true)
 ;; ~-prefix denotes normalized-functions (i.e. output is 0/1)
 (defpurefun (and a b) (* a b))
+(defpurefun ((and! :𝔽@loob) (a :𝔽@loob) (b :𝔽@loob)) (if a b 1))
+(defpurefun ((not! :𝔽@loob) (x :𝔽@loob)) (if x 1 0))
 (defpurefun ((or! :𝔽@loob) (a :𝔽@loob) (b :𝔽@loob)) (* a b))
 (defpurefun ((or! :𝔽@loob) (a :𝔽@loob) (b :𝔽@loob) (c :𝔽@loob)) (* a b c))
+(defpurefun ((or! :𝔽@loob) (a :𝔽@loob) (b :𝔽@loob) (c :𝔽@loob) (d :𝔽@loob)) (* a b c d))
 (defpurefun ((not :binary@bool :force) (x :binary)) (- 1 x))
 
 (defpurefun ((eq! :𝔽@loob) x y) (- x y))
@@ -90,6 +93,7 @@
 (defpurefun (if-eq x val then) (if (eq! x val) then))
 (defpurefun (if-eq-else x val then else) (if (eq! x val) then else))
 (defpurefun (if-not-eq A B then) (if (neq A B) then))
+(defpurefun (if-not-eq A B then else) (if (neq A B) then else))
 
 ;; counter constancy constraint
 (defpurefun ((counter-constancy :𝔽@loob) ct X)
