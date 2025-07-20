@@ -789,18 +789,22 @@ func (p *Parser) parseDefConditionalLookup(elements []sexp.SExp) (ast.Declaratio
 	// Extract items
 	var (
 		handle                         = elements[1]
+		targetsSExp                    sexp.SExp
 		targets, sources               []ast.Expr
 		targetSelector, sourceSelector ast.Expr
 		errs1, errs2, errs3, errs4     []SyntaxError
 	)
 	//
 	if len(elements) == 6 {
+		// Target selector only
+		targetsSExp = elements[3]
 		targetSelector, errs1 = p.translator.Translate(elements[2])
 		targets, errs2 = p.parseDefLookupSources("target", elements[3])
 		sourceSelector, errs3 = p.translator.Translate(elements[4])
 		sources, errs4 = p.parseDefLookupSources("source", elements[5])
 	} else {
-		// Assume source selector
+		// Source and target selector
+		targetsSExp = elements[2]
 		targets, errs1 = p.parseDefLookupSources("target", elements[2])
 		sourceSelector, errs2 = p.translator.Translate(elements[3])
 		sources, errs3 = p.parseDefLookupSources("source", elements[4])
@@ -817,7 +821,7 @@ func (p *Parser) parseDefConditionalLookup(elements []sexp.SExp) (ast.Declaratio
 	// Sanity check length of sources / targets
 	if len(sources) != len(targets) {
 		msg := fmt.Sprintf("differing number of source and target columns (%d v %d)", len(sources), len(targets))
-		errors = append(errors, *p.translator.SyntaxError(elements[3], msg))
+		errors = append(errors, *p.translator.SyntaxError(targetsSExp, msg))
 	}
 	// Error check
 	if len(errors) != 0 {
