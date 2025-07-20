@@ -804,7 +804,7 @@ const javaTraceOf string = `
       // Initialise buffers
       MappedByteBuffer[] buffers = initialiseByteBuffers(file,columnHeaders,headerSize);
       // Done
-      return new Trace(buffers);
+      return new {}(buffers);
    }
 
   /**
