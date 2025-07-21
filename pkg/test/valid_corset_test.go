@@ -84,6 +84,14 @@ func Test_Basic_11(t *testing.T) {
 }
 
 // ===================================================================
+// Logical Tests
+// ===================================================================
+
+func Test_Logic_01(t *testing.T) {
+	Check(t, true, "logic_01")
+}
+
+// ===================================================================
 // Constants Tests
 // ===================================================================
 func Test_Constant_01(t *testing.T) {
@@ -749,6 +757,20 @@ func Test_Lookup_16(t *testing.T) {
 	Check(t, false, "lookup_16")
 }
 
+// conditional lookups
+
+func Test_Lookup_22(t *testing.T) {
+	Check(t, false, "lookup_22")
+}
+
+func Test_Lookup_23(t *testing.T) {
+	Check(t, false, "lookup_23")
+}
+
+func Test_Lookup_24(t *testing.T) {
+	Check(t, false, "lookup_24")
+}
+
 // ===================================================================
 // Interleaving
 // ===================================================================
@@ -1279,10 +1301,6 @@ func TestSlow_Mmio(t *testing.T) {
 
 func TestSlow_Rom(t *testing.T) {
 	Check(t, true, "rom")
-}
-
-func TestSlow_Mmu(t *testing.T) {
-	Check(t, true, "mmu")
 }
 
 func TestSlow_Gas(t *testing.T) {

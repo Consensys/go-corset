@@ -30,14 +30,13 @@
 ;; !-suffix denotes loobean algebra (i.e. 0 == true)
 ;; ~-prefix denotes normalized-functions (i.e. output is 0/1)
 (defpurefun (and a b) (* a b))
+(defpurefun ((and! :𝔽@loob) (a :𝔽@loob) (b :𝔽@loob)) (if a b 1))
+(defpurefun ((not! :𝔽@loob) (x :𝔽@loob)) (if x 1 0))
 (defpurefun ((or! :𝔽@loob) (a :𝔽@loob) (b :𝔽@loob)) (* a b))
 (defpurefun ((or! :𝔽@loob) (a :𝔽@loob) (b :𝔽@loob) (c :𝔽@loob)) (* a b c))
-(defpurefun ((not :binary@bool :force) (x :binary)) (- 1 x))
-
+(defpurefun ((or! :𝔽@loob) (a :𝔽@loob) (b :𝔽@loob) (c :𝔽@loob) (d :𝔽@loob)) (* a b c d))
 (defpurefun ((eq! :𝔽@loob) x y) (- x y))
-(defpurefun ((neq! :binary@loob :force) x y) (not (~ (eq! x y))))
-
-(defpurefun ((eq :binary@bool :force) x y) (- 1 (~ (eq! x y))))
+(defpurefun ((neq! :binary@loob :force) x y) (- 1 (~ (eq! x y))))
 (defpurefun ((neq :𝔽@bool) x y) (- x y))
 
 ;; Boolean functions
@@ -55,41 +54,24 @@
 (defpurefun (did-dec! e0 offset) (eq!  e0 (- (prev e0) offset)))
 (defpurefun (will-inc! e0 offset) (will-eq! e0 (+ e0 offset)))
 (defpurefun (will-dec! e0 offset) (eq! (next e0) (- e0 offset)))
-
-(defpurefun (did-inc e0 offset) (eq e0 (+ (prev e0) offset)))
-(defpurefun (did-dec e0 offset) (eq  e0 (- (prev e0) offset)))
-(defpurefun (will-inc e0 offset) (will-eq e0 (+ e0 offset)))
-(defpurefun (will-dec e0 offset) (eq (next e0) (- e0 offset)))
-
 ;; Ensure that e0 remained (resp. will be) constant
 ;; with regards to the previous (resp. next) row.
 (defpurefun (remained-constant! e0) (eq! e0 (prev e0)))
 (defpurefun (will-remain-constant! e0) (will-eq! e0 e0))
-
-(defpurefun (remained-constant e0) (eq e0 (prev e0)))
-(defpurefun (will-remain-constant e0) (will-eq e0 e0))
-
 ;; Ensure (in loobean logic) that e0 has changed (resp. will change) its value
 ;; with regards to the previous (resp. next) row.
 (defpurefun (did-change! e0) (neq! e0 (prev e0)))
 (defpurefun (will-change! e0) (neq! e0 (next e0)))
-
-(defpurefun (did-change e0) (neq e0 (prev e0)))
-(defpurefun (will-change e0) (neq e0 (next e0)))
-
 ;; Ensure (in loobean logic) that e0 was (resp. will be) equal to e1 in the
 ;; previous (resp. next) row.
 (defpurefun (was-eq! e0 e1) (eq! (prev e0) e1))
 (defpurefun (will-eq! e0 e1) (eq! (next e0) e1))
-
-(defpurefun (was-eq e0 e1) (eq (prev e0) e1))
-(defpurefun (will-eq e0 e1) (eq (next e0) e1))
-
 ;; Helpers
 (defpurefun ((vanishes! :𝔽@loob :force) e0) e0)
 (defpurefun (if-eq x val then) (if (eq! x val) then))
 (defpurefun (if-eq-else x val then else) (if (eq! x val) then else))
 (defpurefun (if-not-eq A B then) (if (neq A B) then))
+(defpurefun (if-not-eq A B then else) (if (neq A B) then else))
 
 ;; counter constancy constraint
 (defpurefun ((counter-constancy :𝔽@loob) ct X)
