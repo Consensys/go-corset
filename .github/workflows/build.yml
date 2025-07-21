@@ -2,7 +2,7 @@ name: build
 
 on:
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "v1.0-line" ]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
