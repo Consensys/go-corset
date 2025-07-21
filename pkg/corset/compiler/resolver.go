@@ -646,16 +646,27 @@ func (r *resolver) finaliseDefFunInModule(enclosing Scope, decl *ast.DefFun) []S
 
 // Resolve those variables appearing in the body of this lookup constraint.
 func (r *resolver) finaliseDefLookupInModule(enclosing Scope, decl *ast.DefLookup) []SyntaxError {
-	var (
-		sourceScope = NewLocalScope(enclosing, true, false, false)
-		targetScope = NewLocalScope(enclosing, true, false, false)
-	)
 	// Resolve source expressions
-	source_errors := r.finaliseExpressionsInModule(sourceScope, decl.Sources)
+	sourceErrors := r.finaliseLookupVectorInModule(enclosing, decl.Source)
 	// Resolve target expressions
-	target_errors := r.finaliseExpressionsInModule(targetScope, decl.Targets)
+	targetErrors := r.finaliseLookupVectorInModule(enclosing, decl.Target)
 	//
-	return append(source_errors, target_errors...)
+	return append(sourceErrors, targetErrors...)
+}
+
+func (r *resolver) finaliseLookupVectorInModule(enclosing Scope, vec ast.LookupVector) []SyntaxError {
+	var (
+		selectorErrs []SyntaxError
+		scope        = NewLocalScope(enclosing, true, false, false)
+	)
+	// Resolve selector (if applicable)
+	if vec.Selector != nil {
+		selectorErrs = r.finaliseExpressionInModule(scope, vec.Selector)
+	}
+	// Resolve terms
+	sourceErrs := r.finaliseExpressionsInModule(scope, vec.Terms)
+	//
+	return append(selectorErrs, sourceErrs...)
 }
 
 // Resolve those variables appearing in the body of this property assertion.

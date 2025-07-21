@@ -344,31 +344,54 @@ func (t *translator) translateSelectorInModule(perspective *ast.PerspectiveName,
 //nolint:staticcheck
 func (t *translator) translateDefLookup(decl *ast.DefLookup, module util.Path) []SyntaxError {
 	// Translate source expressions
-	sources, src_errs := t.translateUnitExpressionsInModule(decl.Sources, module, 0)
-	targets, tgt_errs := t.translateUnitExpressionsInModule(decl.Targets, module, 0)
-	src_ctx, i := ast.ContextOfExpressions(decl.Sources...)
-	dst_ctx, j := ast.ContextOfExpressions(decl.Targets...)
+	source, srcErrs := t.translateLookupVector(decl.Source, module)
+	target, tgtErrs := t.translateLookupVector(decl.Target, module)
 	// Combine errors
-	errors := append(src_errs, tgt_errs...)
-	// Check for conflicting contexts.  This can arise here, rather than in the
-	// resolve, in some unusual situations (e.g. source expression is a function).
-	if src_ctx.IsConflicted() {
-		errors = append(errors, *t.srcmap.SyntaxError(decl.Sources[i], "conflicting context"))
-	}
-	//
-	if dst_ctx.IsConflicted() {
-		errors = append(errors, *t.srcmap.SyntaxError(decl.Targets[j], "conflicting context"))
-	}
+	errors := append(srcErrs, tgtErrs...)
 	//
 	if len(errors) == 0 {
-		// Construct source / target vectors
-		source := constraint.NewLookupVector(t.env.ContextOf(src_ctx), sources)
-		target := constraint.NewLookupVector(t.env.ContextOf(dst_ctx), targets)
 		// Add translated constraint
 		t.schema.AddLookupConstraint(decl.Handle, source, target)
 	}
 	// Done
 	return errors
+}
+
+func (t *translator) translateLookupVector(vec ast.LookupVector, module util.Path) (hir.LookupVector, []SyntaxError) {
+	var (
+		selector     hir.Expr = hir.VOID
+		selectorErrs []SyntaxError
+		context      = tr.VoidContext[string]()
+	)
+	// Translate selector (if applicable)
+	if vec.Selector != nil {
+		selector, selectorErrs = t.translateExpressionInModule(vec.Selector, module, 0)
+		context = context.Join(vec.Selector.Context())
+	}
+	// Translate source expressions
+	terms, termErrs := t.translateUnitExpressionsInModule(vec.Terms, module, 0)
+	termContext, i := ast.ContextOfExpressions(vec.Terms...)
+	context = context.Join(termContext)
+	// Combine errors
+	errors := append(selectorErrs, termErrs...)
+	// Check for conflicting contexts.  This can arise here, rather than in the
+	// resolve, in some unusual situations (e.g. source expression is a function).
+	if termContext.IsConflicted() {
+		errors = append(errors, *t.srcmap.SyntaxError(vec.Terms[i], "conflicting context"))
+	} else if context.IsConflicted() {
+		errors = append(errors, *t.srcmap.SyntaxError(vec.Selector, "conflicting context"))
+	}
+	// TODO: handle selectors
+	if selector != hir.VOID {
+		panic("must handle selector")
+	}
+	// Check whether we encountered any errors as, for example, we cannot
+	// determine the context it is is conflicted.
+	if len(errors) == 0 {
+		return constraint.NewLookupVector(t.env.ContextOf(context), terms), errors
+	}
+	//
+	return hir.LookupVector{}, errors
 }
 
 // Translate a "definrange" declaration.

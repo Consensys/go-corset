@@ -774,6 +774,61 @@ func (p *DefInterleaved) Lisp() sexp.SExp {
 // deflookup
 // ============================================================================
 
+// LookupVector encapsulates one side of a lookup (either source or target).  A
+// lookup vector may have an optional selector which, when set, means the
+// corresponding row forms part of the lookup.
+type LookupVector struct {
+	// Selector expression (which may be nil if none was provided).
+	Selector Expr
+	// Terms of the vector
+	Terms []Expr
+}
+
+// Dependencies identifies symbols used within this vector.
+func (p *LookupVector) Dependencies() []Symbol {
+	deps := DependenciesOfExpressions(p.Terms)
+	//
+	if p.Selector != nil {
+		deps = append(deps, p.Selector.Dependencies()...)
+	}
+	//
+	return deps
+}
+
+// Len returns the number of terms in this lookup vector.
+func (p *LookupVector) Len() uint {
+	return uint(len(p.Terms))
+}
+
+// MultiplyOutSelector eliminates the selector by "multiplying it out" over the
+// terms.
+func (p *LookupVector) MultiplyOutSelector() {
+	if p.Selector != nil {
+		for i := range len(p.Terms) {
+			p.Terms[i] = &Mul{Args: []Expr{p.Selector, p.Terms[i]}}
+		}
+		// Once multiplied out, the selector is eliminated.
+		p.Selector = nil
+	}
+}
+
+// Lisp returns a lisp representation of the lookup vector
+func (p *LookupVector) Lisp() sexp.SExp {
+	terms := make([]sexp.SExp, 1+len(p.Terms))
+	// Selector
+	if p.Selector != nil {
+		terms[0] = p.Selector.Lisp()
+	} else {
+		terms[0] = sexp.NewSymbol("_")
+	}
+	// Terms
+	for i, t := range p.Terms {
+		terms[i+1] = t.Lisp()
+	}
+	//
+	return sexp.NewList(terms)
+}
+
 // DefLookup represents a lookup constraint between a set N of source
 // expressions and a set of N target expressions.  The source expressions must
 // have a single context (i.e. all be in the same module) and likewise for the
@@ -792,17 +847,17 @@ type DefLookup struct {
 	Handle string
 	// Source expressions for lookup (i.e. these values must all be contained
 	// within the targets).
-	Sources []Expr
+	Source LookupVector
 	// Target expressions for lookup (i.e. these values must contain all of the
 	// source values, but may contain more).
-	Targets []Expr
+	Target LookupVector
 	// Indicates whether or not target and source expressions have been resolved.
 	finalised bool
 }
 
 // NewDefLookup creates a new (unfinalised) lookup constraint.
-func NewDefLookup(handle string, sources []Expr, targets []Expr) *DefLookup {
-	return &DefLookup{handle, sources, targets, false}
+func NewDefLookup(handle string, source LookupVector, target LookupVector) *DefLookup {
+	return &DefLookup{handle, source, target, false}
 }
 
 // Definitions returns the set of symbols defined by this declaration.  Observe
@@ -813,8 +868,8 @@ func (p *DefLookup) Definitions() iter.Iterator[SymbolDefinition] {
 
 // Dependencies needed to signal declaration.
 func (p *DefLookup) Dependencies() iter.Iterator[Symbol] {
-	sourceDeps := DependenciesOfExpressions(p.Sources)
-	targetDeps := DependenciesOfExpressions(p.Targets)
+	sourceDeps := p.Source.Dependencies()
+	targetDeps := p.Target.Dependencies()
 	// Combine deps
 	return iter.NewArrayIterator(append(sourceDeps, targetDeps...))
 }
@@ -845,22 +900,11 @@ func (p *DefLookup) Finalise() {
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
 func (p *DefLookup) Lisp() sexp.SExp {
-	targets := make([]sexp.SExp, len(p.Targets))
-	sources := make([]sexp.SExp, len(p.Sources))
-	// Targets
-	for i, t := range p.Targets {
-		targets[i] = t.Lisp()
-	}
-	// Sources
-	for i, t := range p.Sources {
-		sources[i] = t.Lisp()
-	}
-	//
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("deflookup"),
 		sexp.NewSymbol(p.Handle),
-		sexp.NewList(targets),
-		sexp.NewList(sources),
+		p.Target.Lisp(),
+		p.Source.Lisp(),
 	})
 }
 

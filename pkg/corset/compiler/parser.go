@@ -764,8 +764,8 @@ func (p *Parser) parseDefInterleavedSourceArray(source *sexp.Array) (ast.TypedSy
 func (p *Parser) parseDefLookup(elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
 	// Extract items
 	handle := elements[1]
-	targets, tgtErrors := p.parseDefLookupSources("target", elements[2])
-	sources, srcErrors := p.parseDefLookupSources("source", elements[3])
+	target, tgtErrors := p.parseDefLookupVector("target", nil, elements[2])
+	source, srcErrors := p.parseDefLookupVector("source", nil, elements[3])
 	// Combine any and all errors
 	errors := append(srcErrors, tgtErrors...)
 	// Check Handle
@@ -773,8 +773,8 @@ func (p *Parser) parseDefLookup(elements []sexp.SExp) (ast.Declaration, []Syntax
 		errors = append(errors, *p.translator.SyntaxError(elements[1], "malformed handle"))
 	}
 	// Sanity check length of sources / targets
-	if len(sources) != len(targets) {
-		msg := fmt.Sprintf("differing number of source and target columns (%d v %d)", len(sources), len(targets))
+	if source.Len() != target.Len() {
+		msg := fmt.Sprintf("differing number of source and target columns (%d v %d)", source.Len(), target.Len())
 		errors = append(errors, *p.translator.SyntaxError(elements[3], msg))
 	}
 	// Error check
@@ -782,91 +782,83 @@ func (p *Parser) parseDefLookup(elements []sexp.SExp) (ast.Declaration, []Syntax
 		return nil, errors
 	}
 	// Done
-	return ast.NewDefLookup(handle.AsSymbol().Value, sources, targets), nil
+	return ast.NewDefLookup(handle.AsSymbol().Value, source, target), nil
 }
 
 func (p *Parser) parseDefConditionalLookup(elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
 	// Extract items
 	var (
-		handle                         = elements[1]
-		targetsSExp                    sexp.SExp
-		targets, sources               []ast.Expr
-		targetSelector, sourceSelector ast.Expr
-		errs1, errs2, errs3, errs4     []SyntaxError
+		handle         = elements[1]
+		targetsSExp    sexp.SExp
+		target, source ast.LookupVector
+		errs1, errs2   []SyntaxError
 	)
 	//
 	if len(elements) == 6 {
 		// Source and target selector
 		targetsSExp = elements[3]
-		targetSelector, errs1 = p.translator.Translate(elements[2])
-		targets, errs2 = p.parseDefLookupSources("target", elements[3])
-		sourceSelector, errs3 = p.translator.Translate(elements[4])
-		sources, errs4 = p.parseDefLookupSources("source", elements[5])
+		target, errs1 = p.parseDefLookupVector("target", elements[2], elements[3])
+		source, errs2 = p.parseDefLookupVector("source", elements[4], elements[5])
 	} else {
 		// Source selector only
 		targetsSExp = elements[2]
-		targets, errs1 = p.parseDefLookupSources("target", elements[2])
-		sourceSelector, errs2 = p.translator.Translate(elements[3])
-		sources, errs3 = p.parseDefLookupSources("source", elements[4])
+		target, errs1 = p.parseDefLookupVector("target", nil, elements[2])
+		source, errs2 = p.parseDefLookupVector("source", elements[3], elements[4])
 	}
-	//
+	// Combine errors
 	errors := append(errs1, errs2...)
-	errors = append(errors, errs3...)
-	errors = append(errors, errs4...)
 	// Combine any and all errors
 	// Check Handle
 	if !isIdentifier(handle) {
 		errors = append(errors, *p.translator.SyntaxError(elements[1], "malformed handle"))
 	}
 	// Sanity check length of sources / targets
-	if len(sources) != len(targets) {
-		msg := fmt.Sprintf("differing number of source and target columns (%d v %d)", len(sources), len(targets))
+	if source.Len() != target.Len() {
+		msg := fmt.Sprintf("differing number of source and target columns (%d v %d)", source.Len(), target.Len())
 		errors = append(errors, *p.translator.SyntaxError(targetsSExp, msg))
 	}
 	// Error check
 	if len(errors) != 0 {
 		return nil, errors
 	}
-	// Multiply out targets
-	if targetSelector != nil {
-		for i := 0; i != len(targets); i++ {
-			targets[i] = &ast.Mul{Args: []ast.Expr{targetSelector, targets[i]}}
-		}
-	}
-	// Multiply out sources
-	if sourceSelector != nil {
-		for i := 0; i != len(sources); i++ {
-			sources[i] = &ast.Mul{Args: []ast.Expr{sourceSelector, sources[i]}}
-		}
-	}
+	// Multiply out selectors
+	target.MultiplyOutSelector()
+	source.MultiplyOutSelector()
 	// Done
-	return ast.NewDefLookup(handle.AsSymbol().Value, sources, targets), nil
+	return ast.NewDefLookup(handle.AsSymbol().Value, source, target), nil
 }
 
-func (p *Parser) parseDefLookupSources(handle string, element sexp.SExp) ([]ast.Expr, []SyntaxError) {
+func (p *Parser) parseDefLookupVector(handle string, sexpSelector sexp.SExp,
+	element sexp.SExp) (ast.LookupVector, []SyntaxError) {
+	//
 	var (
-		sexpSources = element.AsList()
-		errors      []SyntaxError
-		sources     []ast.Expr
+		sexpTerms = element.AsList()
+		errors    []SyntaxError
+		terms     []ast.Expr
+		selector  ast.Expr
 	)
 	// Check source Expressions
-	if sexpSources == nil {
+	if sexpTerms == nil {
 		msg := fmt.Sprintf("malformed %s columns", handle)
-		return nil, p.translator.SyntaxErrors(element, msg)
+		return ast.LookupVector{}, p.translator.SyntaxErrors(element, msg)
 	}
-	//
+	// parse selector (if applicable)
+	if sexpSelector != nil {
+		selector, errors = p.translator.Translate(sexpSelector)
+	}
+	// Parse terms
 	if len(errors) == 0 {
-		sources = make([]ast.Expr, sexpSources.Len())
+		terms = make([]ast.Expr, sexpTerms.Len())
 		//
-		for i := 0; i != sexpSources.Len(); i++ {
+		for i := 0; i != sexpTerms.Len(); i++ {
 			var errs []SyntaxError
 			// Translate source expressions
-			sources[i], errs = p.translator.Translate(sexpSources.Get(i))
+			terms[i], errs = p.translator.Translate(sexpTerms.Get(i))
 			errors = append(errors, errs...)
 		}
 	}
-	//
-	return sources, errors
+	// Done
+	return ast.LookupVector{Selector: selector, Terms: terms}, errors
 }
 
 // Parse a permutation declaration

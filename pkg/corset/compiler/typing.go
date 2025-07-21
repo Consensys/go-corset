@@ -159,11 +159,23 @@ func (p *typeChecker) typeCheckDefFunInModule(decl *ast.DefFun) []SyntaxError {
 //
 //nolint:staticcheck
 func (p *typeChecker) typeCheckDefLookup(decl *ast.DefLookup) []SyntaxError {
-	// typeCheck source expressions
-	_, source_errs := p.typeCheckExpressionsInModule(decl.Sources)
-	_, target_errs := p.typeCheckExpressionsInModule(decl.Targets)
+	// typeCheck source / target expressions
+	source_errs := p.typeCheckLookupVector(decl.Source)
+	target_errs := p.typeCheckLookupVector(decl.Target)
 	// Combine errors
 	return append(source_errs, target_errs...)
+}
+
+func (p *typeChecker) typeCheckLookupVector(vec ast.LookupVector) []SyntaxError {
+	var selectorErrs []SyntaxError
+	// type check selector (if applicable)
+	if vec.Selector != nil {
+		_, selectorErrs = p.typeCheckExpressionInModule(vec.Selector)
+	}
+	// type check terms
+	_, termErrs := p.typeCheckExpressionsInModule(vec.Terms)
+	// done
+	return append(selectorErrs, termErrs...)
 }
 
 // typeCheck a "definrange" declaration.
