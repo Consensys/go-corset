@@ -73,8 +73,6 @@
 (defpurefun ((will-eq! :bool) (e0 :int) (e1 :int)) (== (next e0) e1))
 ;; Ensure e1 will not equal value of e0 in next row.
 (defpurefun ((will-neq! :bool) (e0 :int) (e1 :int)) (!= (next e0) e1))
-;; SHOULD BE DEPRECATED
-(defpurefun ((remained-constant :int) (e0 :int)) (- e0 (prev e0)))
 ;; =============================================================================
 ;; Helpers
 ;; =============================================================================
