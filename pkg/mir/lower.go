@@ -21,6 +21,7 @@ import (
 	"github.com/consensys/go-corset/pkg/air"
 	air_gadgets "github.com/consensys/go-corset/pkg/air/gadgets"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/trace"
 )
 
@@ -155,21 +156,30 @@ func lowerRangeConstraintToAir(v RangeConstraint, mirSchema *Schema, airSchema *
 // value of that expression, along with appropriate constraints to enforce the
 // expected value.
 func lowerLookupConstraintToAir(c LookupConstraint, mirSchema *Schema, airSchema *air.Schema, cfg OptimisationConfig) {
-	targets := make([]uint, len(c.Targets))
-	sources := make([]uint, len(c.Sources))
+	var (
+		source = lowerLookupVectorToAir(c.Source, mirSchema, airSchema, cfg)
+		target = lowerLookupVectorToAir(c.Target, mirSchema, airSchema, cfg)
+	)
 	//
-	for i := 0; i < len(targets); i++ {
-		targetBitwidth := rangeOfTerm(c.Targets[i].term, mirSchema).BitWidth()
-		sourceBitwidth := rangeOfTerm(c.Sources[i].term, mirSchema).BitWidth()
+	airSchema.AddLookupConstraint(c.Handle, source, target)
+}
+
+func lowerLookupVectorToAir(c LookupVector, mirSchema *Schema, airSchema *air.Schema,
+	cfg OptimisationConfig) air.LookupVector {
+	//
+	terms := make([]*air.ColumnAccess, c.Len())
+	//
+	for i := range c.Len() {
+		bitwidth := rangeOfTerm(c.Ith(i).term, mirSchema).BitWidth()
 		// Lower source and target expressions
-		target := lowerExprTo(c.TargetContext, c.Targets[i], mirSchema, airSchema, cfg)
-		source := lowerExprTo(c.SourceContext, c.Sources[i], mirSchema, airSchema, cfg)
+		term := lowerExprTo(c.Context(), c.Ith(i), mirSchema, airSchema, cfg)
+		// Expand expression into a column identifier
+		cid := air_gadgets.Expand(c.Context(), bitwidth, term, airSchema)
 		// Expand them
-		targets[i] = air_gadgets.Expand(c.TargetContext, targetBitwidth, target, airSchema)
-		sources[i] = air_gadgets.Expand(c.SourceContext, sourceBitwidth, source, airSchema)
+		terms[i] = &air.ColumnAccess{Column: cid, Shift: 0}
 	}
-	// finally add the constraint
-	airSchema.AddLookupConstraint(c.Handle, c.SourceContext, c.TargetContext, sources, targets)
+	// finally construct lowered vector
+	return constraint.NewLookupVector(c.Context(), terms)
 }
 
 // Lower a sorted constraint to the AIR level.  The challenge here is that there

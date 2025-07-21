@@ -33,6 +33,10 @@ type DataColumn = *assignment.DataColumn
 // columns (i.e. not arbitrary expressions).
 type LookupConstraint = *constraint.LookupConstraint[*ColumnAccess]
 
+// LookupVector captures the essence of either the source or target for a
+// lookup.
+type LookupVector = constraint.LookupVector[*ColumnAccess]
+
 // VanishingConstraint captures the essence of a vanishing constraint at the AIR level.
 type VanishingConstraint = *constraint.VanishingConstraint[Expr]
 
@@ -124,24 +128,12 @@ func (p *Schema) AddAssignment(c sc.Assignment) uint {
 }
 
 // AddLookupConstraint appends a new lookup constraint.
-func (p *Schema) AddLookupConstraint(handle string, source trace.Context,
-	target trace.Context, sources []uint, targets []uint) {
-	if len(targets) != len(sources) {
+func (p *Schema) AddLookupConstraint(handle string, source LookupVector, target LookupVector) {
+	if target.Len() != source.Len() {
 		panic("differeng number of target / source lookup columns")
 	}
-	// TODO: sanity source columns are in the same module, and likewise target
-	// columns (though they don't have to be in the same column together).
-	from := make([]*ColumnAccess, len(sources))
-	into := make([]*ColumnAccess, len(targets))
-	// Construct column accesses from column indices.
-	for i := 0; i < len(from); i++ {
-		from[i] = &ColumnAccess{Column: sources[i], Shift: 0}
-		into[i] = &ColumnAccess{Column: targets[i], Shift: 0}
-	}
-	// Construct lookup constraint
-	var lookup LookupConstraint = constraint.NewLookupConstraint(handle, source, target, from, into)
-	// Add
-	p.constraints = append(p.constraints, lookup)
+	// Add lookup constraint
+	p.constraints = append(p.constraints, constraint.NewLookupConstraint(handle, source, target))
 }
 
 // AddPermutationConstraint appends a new permutation constraint which

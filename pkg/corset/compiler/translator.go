@@ -22,6 +22,7 @@ import (
 	"github.com/consensys/go-corset/pkg/hir"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/assignment"
+	"github.com/consensys/go-corset/pkg/schema/constraint"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/source"
@@ -360,8 +361,11 @@ func (t *translator) translateDefLookup(decl *ast.DefLookup, module util.Path) [
 	}
 	//
 	if len(errors) == 0 {
+		// Construct source / target vectors
+		source := constraint.NewLookupVector(t.env.ContextOf(src_ctx), sources)
+		target := constraint.NewLookupVector(t.env.ContextOf(dst_ctx), targets)
 		// Add translated constraint
-		t.schema.AddLookupConstraint(decl.Handle, t.env.ContextOf(src_ctx), t.env.ContextOf(dst_ctx), sources, targets)
+		t.schema.AddLookupConstraint(decl.Handle, source, target)
 	}
 	// Done
 	return errors

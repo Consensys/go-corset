@@ -17,6 +17,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/hir"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/util"
 )
 
@@ -92,8 +93,11 @@ func (e jsonConstraint) addToSchema(colmap map[uint]uint, schema *hir.Schema) {
 		}
 		// Normalise handle
 		handle := asHandle(e.Lookup.Handle)
+		// Construct source / target vectors
+		source := constraint.NewLookupVector(sourceCtx, sources)
+		target := constraint.NewLookupVector(targetCtx, targets)
 		// Add constraint
-		schema.AddLookupConstraint(handle.column, sourceCtx, targetCtx, sources, targets)
+		schema.AddLookupConstraint(handle.column, source, target)
 	} else if e.InRange != nil {
 		// Translate the vanishing expression
 		expr := e.InRange.Expr.ToHir(colmap, schema)

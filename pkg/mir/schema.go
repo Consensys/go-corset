@@ -31,6 +31,10 @@ type DataColumn = *assignment.DataColumn
 // level.
 type LookupConstraint = *constraint.LookupConstraint[Expr]
 
+// LookupVector captures the essence of either the source or target for a
+// lookup.
+type LookupVector = constraint.LookupVector[Expr]
+
 // VanishingConstraint captures the essence of a vanishing constraint at the MIR
 // level. A vanishing constraint is a row constraint which must evaluate to
 // zero.
@@ -125,15 +129,14 @@ func (p *Schema) AddAssignment(c schema.Assignment) uint {
 }
 
 // AddLookupConstraint appends a new lookup constraint.
-func (p *Schema) AddLookupConstraint(handle string, source trace.Context, target trace.Context,
-	sources []Expr, targets []Expr) {
-	if len(targets) != len(sources) {
+func (p *Schema) AddLookupConstraint(handle string, source LookupVector, target LookupVector) {
+	if target.Len() != source.Len() {
 		panic("differeng number of target / source lookup columns")
 	}
 	// TODO: sanity source columns are in the same module, and likewise target
 	// columns (though they don't have to be in the same column together).
 	p.constraints = append(p.constraints,
-		constraint.NewLookupConstraint(handle, source, target, sources, targets))
+		constraint.NewLookupConstraint(handle, source, target))
 }
 
 // AddVanishingConstraint appends a new vanishing constraint.

@@ -40,6 +40,10 @@ type VanishingConstraint = *constraint.VanishingConstraint[ZeroArrayTest]
 // certain expression forms cannot be permitted (e.g. the use of lists).
 type LookupConstraint = *constraint.LookupConstraint[UnitExpr]
 
+// LookupVector captures the essence of either the source or target for a
+// lookup.
+type LookupVector = constraint.LookupVector[UnitExpr]
+
 // RangeConstraint captures the essence of a range constraints at the HIR level.
 type RangeConstraint = *constraint.RangeConstraint[MaxExpr]
 
@@ -126,9 +130,8 @@ func (p *Schema) AddAssignment(c sc.Assignment) uint {
 }
 
 // AddLookupConstraint appends a new lookup constraint.
-func (p *Schema) AddLookupConstraint(handle string, source trace.Context, target trace.Context,
-	sources []UnitExpr, targets []UnitExpr) {
-	if len(targets) != len(sources) {
+func (p *Schema) AddLookupConstraint(handle string, source LookupVector, target LookupVector) {
+	if target.Len() != source.Len() {
 		panic("differeng number of target / source lookup columns")
 	}
 	// TODO: sanity source columns are in the source module, and likewise target
@@ -136,7 +139,7 @@ func (p *Schema) AddLookupConstraint(handle string, source trace.Context, target
 
 	// Finally add constraint
 	p.constraints = append(p.constraints,
-		constraint.NewLookupConstraint(handle, source, target, sources, targets))
+		constraint.NewLookupConstraint(handle, source, target))
 }
 
 // AddVanishingConstraint appends a new vanishing constraint.

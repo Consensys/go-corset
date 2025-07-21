@@ -18,6 +18,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/mir"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/util"
 )
 
@@ -81,15 +82,22 @@ func lowerConstraintToMir(c sc.Constraint, mirSchema *mir.Schema, hirSchema *Sch
 }
 
 func lowerLookupConstraint(c LookupConstraint, mirSchema *mir.Schema, hirSchema *Schema) {
-	from := make([]mir.Expr, len(c.Sources))
-	into := make([]mir.Expr, len(c.Targets))
+	var (
+		source = lowerLookupVector(c.Source, mirSchema, hirSchema)
+		target = lowerLookupVector(c.Target, mirSchema, hirSchema)
+	)
+	//
+	mirSchema.AddLookupConstraint(c.Handle, source, target)
+}
+
+func lowerLookupVector(c LookupVector, mirSchema *mir.Schema, hirSchema *Schema) mir.LookupVector {
+	var terms = make([]mir.Expr, c.Len())
 	// Convert general expressions into unit expressions.
-	for i := 0; i < len(from); i++ {
-		from[i] = lowerUnitTo(c.Sources[i], mirSchema, hirSchema)
-		into[i] = lowerUnitTo(c.Targets[i], mirSchema, hirSchema)
+	for i := range c.Len() {
+		terms[i] = lowerUnitTo(c.Ith(i), mirSchema, hirSchema)
 	}
 	//
-	mirSchema.AddLookupConstraint(c.Handle, c.SourceContext, c.TargetContext, from, into)
+	return constraint.NewLookupVector(c.Context(), terms)
 }
 
 func lowerSortedConstraint(c SortedConstraint, mirSchema *mir.Schema, hirSchema *Schema) {

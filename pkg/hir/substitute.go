@@ -24,11 +24,11 @@ func substituteConstraint(mapping map[string]fr.Element, constraint sc.Constrain
 	switch e := constraint.(type) {
 	case LookupConstraint:
 		// Substitute through source expressions
-		for _, source := range e.Sources {
+		for _, source := range e.Source.Terms {
 			substituteExpression(mapping, source.Expr)
 		}
 		// Substitute through target expressions
-		for _, target := range e.Targets {
+		for _, target := range e.Target.Terms {
 			substituteExpression(mapping, target.Expr)
 		}
 	case RangeConstraint:
