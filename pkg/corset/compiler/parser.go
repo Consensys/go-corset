@@ -796,14 +796,14 @@ func (p *Parser) parseDefConditionalLookup(elements []sexp.SExp) (ast.Declaratio
 	)
 	//
 	if len(elements) == 6 {
-		// Target selector only
+		// Source and target selector
 		targetsSExp = elements[3]
 		targetSelector, errs1 = p.translator.Translate(elements[2])
 		targets, errs2 = p.parseDefLookupSources("target", elements[3])
 		sourceSelector, errs3 = p.translator.Translate(elements[4])
 		sources, errs4 = p.parseDefLookupSources("source", elements[5])
 	} else {
-		// Source and target selector
+		// Source selector only
 		targetsSExp = elements[2]
 		targets, errs1 = p.parseDefLookupSources("target", elements[2])
 		sourceSelector, errs2 = p.translator.Translate(elements[3])
