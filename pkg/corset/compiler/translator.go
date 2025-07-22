@@ -359,13 +359,13 @@ func (t *translator) translateDefLookup(decl *ast.DefLookup, module util.Path) [
 
 func (t *translator) translateLookupVector(vec ast.LookupVector, module util.Path) (hir.LookupVector, []SyntaxError) {
 	var (
-		selector     hir.Expr = hir.VOID
+		selector     hir.UnitExpr
 		selectorErrs []SyntaxError
 		context      = tr.VoidContext[string]()
 	)
 	// Translate selector (if applicable)
 	if vec.Selector != nil {
-		selector, selectorErrs = t.translateExpressionInModule(vec.Selector, module, 0)
+		selector, selectorErrs = t.translateUnitExpressionInModule(vec.Selector, module, 0)
 		context = context.Join(vec.Selector.Context())
 	}
 	// Translate source expressions
@@ -381,14 +381,12 @@ func (t *translator) translateLookupVector(vec ast.LookupVector, module util.Pat
 	} else if context.IsConflicted() {
 		errors = append(errors, *t.srcmap.SyntaxError(vec.Selector, "conflicting context"))
 	}
-	// TODO: handle selectors
-	if selector != hir.VOID {
-		panic("must handle selector")
-	}
 	// Check whether we encountered any errors as, for example, we cannot
 	// determine the context it is is conflicted.
-	if len(errors) == 0 {
-		return constraint.NewLookupVector(t.env.ContextOf(context), terms), errors
+	if len(errors) == 0 && vec.Selector != nil {
+		return constraint.FilteredLookupVector(t.env.ContextOf(context), selector, terms), errors
+	} else if len(errors) == 0 {
+		return constraint.UnfilteredLookupVector(t.env.ContextOf(context), terms), errors
 	}
 	//
 	return hir.LookupVector{}, errors
@@ -572,6 +570,11 @@ func (t *translator) translateExpressionsInModule(exprs []ast.Expr, module util.
 	}
 	//
 	return hirExprs, errors
+}
+
+func (t *translator) translateUnitExpressionInModule(expr ast.Expr, module util.Path, shift int) (hir.UnitExpr, []SyntaxError) {
+	e, errors := t.translateExpressionInModule(expr, module, shift)
+	return hir.NewUnitExpr(e), errors
 }
 
 // Translate an expression situated in a given context.  The context is

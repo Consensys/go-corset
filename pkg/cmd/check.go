@@ -79,6 +79,10 @@ var checkCmd = &cobra.Command{
 		cfg.batchSize = GetUint(cmd, "batch")
 		cfg.ansiEscapes = GetFlag(cmd, "ansi-escapes")
 		cfg.optimisation = mir.OPTIMISATION_LEVELS[optimisation]
+		// override for legacy lookups
+		if cmd.Flags().Lookup("legacy-lookups").Changed {
+			cfg.optimisation.LegacyLookups = GetFlag(cmd, "legacy-lookups")
+		}
 		externs := GetStringArray(cmd, "set")
 		// TODO: support true ranges
 		cfg.padding.Left = cfg.padding.Right

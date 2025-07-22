@@ -800,18 +800,6 @@ func (p *LookupVector) Len() uint {
 	return uint(len(p.Terms))
 }
 
-// MultiplyOutSelector eliminates the selector by "multiplying it out" over the
-// terms.
-func (p *LookupVector) MultiplyOutSelector() {
-	if p.Selector != nil {
-		for i := range len(p.Terms) {
-			p.Terms[i] = &Mul{Args: []Expr{p.Selector, p.Terms[i]}}
-		}
-		// Once multiplied out, the selector is eliminated.
-		p.Selector = nil
-	}
-}
-
 // Lisp returns a lisp representation of the lookup vector
 func (p *LookupVector) Lisp() sexp.SExp {
 	terms := make([]sexp.SExp, 1+len(p.Terms))

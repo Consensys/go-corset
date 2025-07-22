@@ -96,8 +96,13 @@ func lowerLookupVector(c LookupVector, mirSchema *mir.Schema, hirSchema *Schema)
 	for i := range c.Len() {
 		terms[i] = lowerUnitTo(c.Ith(i), mirSchema, hirSchema)
 	}
-	//
-	return constraint.NewLookupVector(c.Context(), terms)
+	// Convert selector (if applicable)
+	if c.HasSelector() {
+		selector := lowerUnitTo(c.Selector.Unwrap(), mirSchema, hirSchema)
+		return constraint.FilteredLookupVector(c.Context(), selector, terms)
+	}
+	// No selector
+	return constraint.UnfilteredLookupVector(c.Context(), terms)
 }
 
 func lowerSortedConstraint(c SortedConstraint, mirSchema *mir.Schema, hirSchema *Schema) {

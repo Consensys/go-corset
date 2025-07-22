@@ -62,14 +62,26 @@ func (p *LookupFailure) RequiredCells(trace tr.Trace) *set.AnySortedSet[tr.CellR
 type LookupVector[E schema.Evaluable] struct {
 	// Context in which all terms are evaluated.
 	TermContext trace.Context
+	// Selector for this vector (optional)
+	Selector util.Option[E]
 	// Terms making up this vector.
 	Terms []E
 }
 
-// NewLookupVector constructs a new column vector in a given context.
-func NewLookupVector[E schema.Evaluable](context trace.Context, terms []E) LookupVector[E] {
+// UnfilteredLookupVector constructs a new vector in a given context which has no selector.
+func UnfilteredLookupVector[E schema.Evaluable](context trace.Context, terms []E) LookupVector[E] {
 	return LookupVector[E]{
 		context,
+		util.None[E](),
+		terms,
+	}
+}
+
+// FilteredLookupVector constructs a new vector in a given context which has a selector.
+func FilteredLookupVector[E schema.Evaluable](context trace.Context, selector E, terms []E) LookupVector[E] {
+	return LookupVector[E]{
+		context,
+		util.Some(selector),
 		terms,
 	}
 }
@@ -80,6 +92,12 @@ func (p *LookupVector[E]) Context() trace.Context {
 	return p.TermContext
 }
 
+// HasSelector determines whether or not this lookup vector has a selector or
+// not.
+func (p *LookupVector[E]) HasSelector() bool {
+	return p.Selector.HasValue()
+}
+
 // Ith returns the ith term in this vector.
 func (p *LookupVector[E]) Ith(index uint) E {
 	return p.Terms[index]
@@ -88,6 +106,22 @@ func (p *LookupVector[E]) Ith(index uint) E {
 // Len returns the number of items in this lookup vector.
 func (p *LookupVector[E]) Len() uint {
 	return uint(len(p.Terms))
+}
+
+func (p *LookupVector[E]) Lisp(schema sc.Schema) sexp.SExp {
+	terms := sexp.EmptyList()
+	//
+	if p.HasSelector() {
+		terms.Append(p.Selector.Unwrap().Lisp(schema))
+	} else {
+		terms.Append(sexp.NewSymbol("_"))
+	}
+	// Iterate source expressions
+	for i := range p.Len() {
+		terms.Append(p.Ith(i).Lisp(schema))
+	}
+	// Done
+	return terms
 }
 
 // LookupConstraint (sometimes also called an inclusion constraint) constrains
@@ -228,22 +262,11 @@ func (p *LookupConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) 
 //
 //nolint:revive
 func (p *LookupConstraint[E]) Lisp(schema sc.Schema) sexp.SExp {
-	sources := sexp.EmptyList()
-	targets := sexp.EmptyList()
-	// Iterate source expressions
-	for i := range p.Source.Len() {
-		sources.Append(p.Source.Ith(i).Lisp(schema))
-	}
-	// Iterate source expressions
-	for i := range p.Target.Len() {
-		targets.Append(p.Target.Ith(i).Lisp(schema))
-	}
-	// Done
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("lookup"),
 		sexp.NewSymbol(p.Handle),
-		targets,
-		sources,
+		p.Target.Lisp(schema),
+		p.Source.Lisp(schema),
 	})
 }
 

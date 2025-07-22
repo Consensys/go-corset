@@ -821,10 +821,7 @@ func (p *Parser) parseDefConditionalLookup(elements []sexp.SExp) (ast.Declaratio
 	if len(errors) != 0 {
 		return nil, errors
 	}
-	// Multiply out selectors
-	target.MultiplyOutSelector()
-	source.MultiplyOutSelector()
-	// Done
+	// Compile to proper conditional lookups.
 	return ast.NewDefLookup(handle.AsSymbol().Value, source, target), nil
 }
 

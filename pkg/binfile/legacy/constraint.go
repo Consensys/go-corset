@@ -94,8 +94,8 @@ func (e jsonConstraint) addToSchema(colmap map[uint]uint, schema *hir.Schema) {
 		// Normalise handle
 		handle := asHandle(e.Lookup.Handle)
 		// Construct source / target vectors
-		source := constraint.NewLookupVector(sourceCtx, sources)
-		target := constraint.NewLookupVector(targetCtx, targets)
+		source := constraint.UnfilteredLookupVector(sourceCtx, sources)
+		target := constraint.UnfilteredLookupVector(targetCtx, targets)
 		// Add constraint
 		schema.AddLookupConstraint(handle.column, source, target)
 	} else if e.InRange != nil {
