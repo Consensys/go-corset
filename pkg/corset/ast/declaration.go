@@ -329,71 +329,6 @@ func (e *DefColumn) Lisp() sexp.SExp {
 }
 
 // ============================================================================
-// defcomputedcolumn
-// ============================================================================
-
-// DefComputed is an assignment which computes the values for one column based (currently) on a chosen internal function.
-type DefComputedColumn struct {
-	// Column being assigned by this computation.
-	Target []*DefColumn //TODO: hum, but target is only one column ?
-	// The formula to get the target column from the source columns.
-	Computation Expr
-}
-
-// Definitions returns the set of symbols defined by this declaration.  Observe
-// that these may not yet have been finalised.
-func (p *DefComputedColumn) Definitions() iter.Iterator[SymbolDefinition] {
-	iterator := iter.NewArrayIterator(p.Target)
-	return iter.NewCastIterator[*DefColumn, SymbolDefinition](iterator)
-}
-
-// Dependencies needed to signal declaration.
-func (p *DefComputedColumn) Dependencies() iter.Iterator[Symbol] {
-	var deps []Symbol
-	// Extract bodies dependencies
-	deps = append(deps, p.Computation.Dependencies()...)
-	// Done
-	return iter.NewArrayIterator[Symbol](deps)
-}
-
-// Defines checks whether this declaration defines the given symbol.  The symbol
-// in question needs to have been resolved already for this to make sense.
-func (p *DefComputedColumn) Defines(symbol Symbol) bool {
-	return true
-}
-
-// IsFinalised checks whether this declaration has already been finalised.  If
-// so, then we don't need to finalise it again.
-func (p *DefComputedColumn) IsFinalised() bool {
-	for _, col := range p.Target {
-		if !col.binding.IsFinalised() {
-			return false
-		}
-	}
-	// Done
-	return true
-}
-
-// IsAssignment checks whether this declaration is an assignment or not.
-func (p *DefComputedColumn) IsAssignment() bool {
-	return true
-}
-
-// Lisp converts this node into its lisp representation.  This is primarily used
-// for debugging purposes.
-func (p *DefComputedColumn) Lisp() sexp.SExp {
-	modifiers := sexp.EmptyList()
-	// target
-	modifiers.Append(sexp.NewSymbol(p.Target[len(p.Target)-1].Name()))
-
-	//
-	return sexp.NewList([]sexp.SExp{
-		sexp.NewSymbol("defcomputedcolumn"),
-		modifiers,
-		p.Computation.Lisp()})
-}
-
-// ============================================================================
 // defcompute
 // ============================================================================
 
@@ -1492,4 +1427,69 @@ func (p *DefSorted) Lisp() sexp.SExp {
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("defsorted"),
 		sexp.NewList(sources)})
+}
+
+// ============================================================================
+// defcomputedcolumn
+// ============================================================================
+
+// DefComputed is an assignment which computes the values for one column based on a chosen internal function.
+type DefComputedColumn struct {
+	// Column being assigned by this computation.
+	Target []*DefColumn //TODO: hum, but target is only one column ?
+	// The formula to get the target column from the source columns.
+	Computation Expr
+}
+
+// Definitions returns the set of symbols defined by this declaration.  Observe
+// that these may not yet have been finalised.
+func (p *DefComputedColumn) Definitions() iter.Iterator[SymbolDefinition] {
+	iterator := iter.NewArrayIterator(p.Target)
+	return iter.NewCastIterator[*DefColumn, SymbolDefinition](iterator)
+}
+
+// Dependencies needed to signal declaration.
+func (p *DefComputedColumn) Dependencies() iter.Iterator[Symbol] {
+	var deps []Symbol
+	// Extract bodies dependencies
+	deps = append(deps, p.Computation.Dependencies()...)
+	// Done
+	return iter.NewArrayIterator[Symbol](deps)
+}
+
+// Defines checks whether this declaration defines the given symbol.  The symbol
+// in question needs to have been resolved already for this to make sense.
+func (p *DefComputedColumn) Defines(symbol Symbol) bool {
+	return true
+}
+
+// IsFinalised checks whether this declaration has already been finalised.  If
+// so, then we don't need to finalise it again.
+func (p *DefComputedColumn) IsFinalised() bool {
+	for _, col := range p.Target {
+		if !col.binding.IsFinalised() {
+			return false
+		}
+	}
+	// Done
+	return true
+}
+
+// IsAssignment checks whether this declaration is an assignment or not.
+func (p *DefComputedColumn) IsAssignment() bool {
+	return true
+}
+
+// Lisp converts this node into its lisp representation.  This is primarily used
+// for debugging purposes.
+func (p *DefComputedColumn) Lisp() sexp.SExp {
+	modifiers := sexp.EmptyList()
+	// target
+	modifiers.Append(sexp.NewSymbol(p.Target[len(p.Target)-1].Name()))
+
+	//
+	return sexp.NewList([]sexp.SExp{
+		sexp.NewSymbol("defcomputedcolumn"),
+		modifiers,
+		p.Computation.Lisp()})
 }
