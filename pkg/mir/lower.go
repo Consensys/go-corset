@@ -21,7 +21,9 @@ import (
 	"github.com/consensys/go-corset/pkg/air"
 	air_gadgets "github.com/consensys/go-corset/pkg/air/gadgets"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/trace"
+	tr "github.com/consensys/go-corset/pkg/trace"
 )
 
 // LowerToAir lowers (or refines) an MIR table into an AIR schema.  That means
@@ -155,21 +157,70 @@ func lowerRangeConstraintToAir(v RangeConstraint, mirSchema *Schema, airSchema *
 // value of that expression, along with appropriate constraints to enforce the
 // expected value.
 func lowerLookupConstraintToAir(c LookupConstraint, mirSchema *Schema, airSchema *air.Schema, cfg OptimisationConfig) {
-	targets := make([]uint, len(c.Targets))
-	sources := make([]uint, len(c.Sources))
+	var (
+		source = lowerLookupVector(c.Source, mirSchema, airSchema, cfg)
+		target = lowerLookupVector(c.Target, mirSchema, airSchema, cfg)
+	)
 	//
-	for i := 0; i < len(targets); i++ {
-		targetBitwidth := rangeOfTerm(c.Targets[i].term, mirSchema).BitWidth()
-		sourceBitwidth := rangeOfTerm(c.Sources[i].term, mirSchema).BitWidth()
-		// Lower source and target expressions
-		target := lowerExprTo(c.TargetContext, c.Targets[i], mirSchema, airSchema, cfg)
-		source := lowerExprTo(c.SourceContext, c.Sources[i], mirSchema, airSchema, cfg)
-		// Expand them
-		targets[i] = air_gadgets.Expand(c.TargetContext, targetBitwidth, target, airSchema)
-		sources[i] = air_gadgets.Expand(c.SourceContext, sourceBitwidth, source, airSchema)
+	airSchema.AddLookupConstraint(c.Handle, source, target)
+}
+
+func lowerLookupVector(c LookupVector, mirSchema *Schema, airSchema *air.Schema,
+	cfg OptimisationConfig) air.LookupVector {
+	// Make decision on whether to use legacy translation or optimal translation
+	if cfg.LegacyLookups {
+		return lowerLegacyLookupVector(c, mirSchema, airSchema, cfg)
 	}
-	// finally add the constraint
-	airSchema.AddLookupConstraint(c.Handle, c.SourceContext, c.TargetContext, sources, targets)
+	// Optimial
+	return lowerConditionalLookupVector(c, mirSchema, airSchema, cfg)
+}
+
+func lowerConditionalLookupVector(c LookupVector, mirSchema *Schema, airSchema *air.Schema,
+	cfg OptimisationConfig) air.LookupVector {
+	//
+	var terms = make([]*air.ColumnAccess, c.Len())
+	// lower terms
+	for i := range c.Len() {
+		terms[i] = lowerLookupTerm(c.Context(), c.Ith(i), mirSchema, airSchema, cfg)
+	}
+	// lower selector (if applicable)
+	if c.HasSelector() {
+		selector := lowerLookupTerm(c.Context(), c.Selector.Unwrap(), mirSchema, airSchema, cfg)
+		// Optimal translation
+		return constraint.FilteredLookupVector(c.Context(), selector, terms)
+	}
+	// no selector
+	return constraint.UnfilteredLookupVector(c.Context(), terms)
+}
+
+func lowerLegacyLookupVector(c LookupVector, mirSchema *Schema, airSchema *air.Schema,
+	cfg OptimisationConfig) air.LookupVector {
+	//
+	var terms = make([]*air.ColumnAccess, c.Len())
+	// lower terms
+	for i := range c.Len() {
+		ith := c.Ith(i)
+		// Multiply out selector (if applicable)
+		if c.HasSelector() {
+			ith = Product(c.Selector.Unwrap(), ith)
+		}
+		//
+		terms[i] = lowerLookupTerm(c.Context(), ith, mirSchema, airSchema, cfg)
+	}
+	// no selector
+	return constraint.UnfilteredLookupVector(c.Context(), terms)
+}
+
+func lowerLookupTerm(context tr.Context, expr Expr, mirSchema *Schema, airSchema *air.Schema,
+	cfg OptimisationConfig) *air.ColumnAccess {
+	// Determine bitwidth
+	bitwidth := rangeOfTerm(expr.term, mirSchema).BitWidth()
+	// Lower selector expression
+	term := lowerExprTo(context, expr, mirSchema, airSchema, cfg)
+	// Expand expression into a column identifier
+	cid := air_gadgets.Expand(context, bitwidth, term, airSchema)
+	//
+	return &air.ColumnAccess{Column: cid, Shift: 0}
 }
 
 // Lower a sorted constraint to the AIR level.  The challenge here is that there

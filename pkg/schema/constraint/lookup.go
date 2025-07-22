@@ -57,6 +57,96 @@ func (p *LookupFailure) RequiredCells(trace tr.Trace) *set.AnySortedSet[tr.CellR
 	return res
 }
 
+// LookupVector encapsulates all columns on one side of a lookup (i.e. it
+// represents all source columns or all target columns).
+type LookupVector[E schema.Evaluable] struct {
+	// Context in which all terms are evaluated.
+	TermContext trace.Context
+	// Selector for this vector (optional)
+	Selector util.Option[E]
+	// Terms making up this vector.
+	Terms []E
+}
+
+// UnfilteredLookupVector constructs a new vector in a given context which has no selector.
+func UnfilteredLookupVector[E schema.Evaluable](context trace.Context, terms []E) LookupVector[E] {
+	return LookupVector[E]{
+		context,
+		util.None[E](),
+		terms,
+	}
+}
+
+// FilteredLookupVector constructs a new vector in a given context which has a selector.
+func FilteredLookupVector[E schema.Evaluable](context trace.Context, selector E, terms []E) LookupVector[E] {
+	return LookupVector[E]{
+		context,
+		util.Some(selector),
+		terms,
+	}
+}
+
+// Bounds determines the well-definedness bounds for all terms within this vector.
+//
+//nolint:revive
+func (p *LookupVector[E]) Bounds(module uint) util.Bounds {
+	var bound util.Bounds
+	//
+	if module == p.Context().Module() {
+		// Include bounds for selector (if applicable)
+		if p.HasSelector() {
+			sel := p.Selector.Unwrap().Bounds()
+			bound.Union(&sel)
+		}
+		// Include bounds for all terms
+		for _, e := range p.Terms {
+			eth := e.Bounds()
+			bound.Union(&eth)
+		}
+	}
+	//
+	return bound
+}
+
+// Context returns the conterxt in which all terms of this vector must be
+// evaluated.
+func (p *LookupVector[E]) Context() trace.Context {
+	return p.TermContext
+}
+
+// HasSelector determines whether or not this lookup vector has a selector or
+// not.
+func (p *LookupVector[E]) HasSelector() bool {
+	return p.Selector.HasValue()
+}
+
+// Ith returns the ith term in this vector.
+func (p *LookupVector[E]) Ith(index uint) E {
+	return p.Terms[index]
+}
+
+// Len returns the number of items in this lookup vector.
+func (p *LookupVector[E]) Len() uint {
+	return uint(len(p.Terms))
+}
+
+// Lisp returns a textual representation of this vector.
+func (p *LookupVector[E]) Lisp(schema sc.Schema) sexp.SExp {
+	terms := sexp.EmptyList()
+	//
+	if p.HasSelector() {
+		terms.Append(p.Selector.Unwrap().Lisp(schema))
+	} else {
+		terms.Append(sexp.NewSymbol("_"))
+	}
+	// Iterate source expressions
+	for i := range p.Len() {
+		terms.Append(p.Ith(i).Lisp(schema))
+	}
+	// Done
+	return terms
+}
+
 // LookupConstraint (sometimes also called an inclusion constraint) constrains
 // two sets of columns (potentially in different modules). Specifically, every
 // row in the source columns must match a row in the target columns (but not
@@ -76,26 +166,23 @@ type LookupConstraint[E schema.Evaluable] struct {
 	// Handle returns the handle for this lookup constraint which is simply an
 	// identifier useful when debugging (i.e. to know which lookup failed, etc).
 	Handle string
-	// Context in which all source columns are evaluated.
-	SourceContext trace.Context
-	// Context in which all target columns are evaluated.
-	TargetContext trace.Context
-	// Sources returns the source expressions which are used to lookup into the
+	// Source encapsulates the source expressions which are used to lookup into
+	// the target expressions.
+	Source LookupVector[E]
+	// Target encapsulates the target expressions which are used to lookup into the
 	// target expressions.
-	Sources []E
-	// Targets returns the target expressions which are used to lookup into the
-	// target expressions.
-	Targets []E
+	Target LookupVector[E]
 }
 
 // NewLookupConstraint creates a new lookup constraint with a given handle.
-func NewLookupConstraint[E schema.Evaluable](handle string, source trace.Context,
-	target trace.Context, sources []E, targets []E) *LookupConstraint[E] {
-	if len(targets) != len(sources) {
+func NewLookupConstraint[E schema.Evaluable](handle string, source LookupVector[E],
+	target LookupVector[E]) *LookupConstraint[E] {
+	//
+	if target.Len() != source.Len() {
 		panic("differeng number of target / source lookup columns")
 	}
 
-	return &LookupConstraint[E]{handle, source, target, sources, targets}
+	return &LookupConstraint[E]{handle, source, target}
 }
 
 // Name returns a unique name for a given constraint.  This is useful
@@ -111,7 +198,7 @@ func (p *LookupConstraint[E]) Name() (string, uint) {
 // context).
 func (p *LookupConstraint[E]) Contexts() []tr.Context {
 	// source context designated as primary.
-	return []tr.Context{p.SourceContext, p.TargetContext}
+	return []tr.Context{p.Source.Context(), p.Target.Context()}
 }
 
 // Branches returns the total number of logical branches this constraint can
@@ -130,19 +217,14 @@ func (p *LookupConstraint[E]) Branches() uint {
 //
 //nolint:revive
 func (p *LookupConstraint[E]) Bounds(module uint) util.Bounds {
-	var bound util.Bounds
+	var (
+		bound  util.Bounds
+		source = p.Source.Bounds(module)
+		target = p.Target.Bounds(module)
+	)
 	//
-	if module == p.SourceContext.Module() {
-		for _, e := range p.Sources {
-			eth := e.Bounds()
-			bound.Union(&eth)
-		}
-	} else if module == p.TargetContext.Module() {
-		for _, e := range p.Targets {
-			eth := e.Bounds()
-			bound.Union(&eth)
-		}
-	}
+	bound.Union(&source)
+	bound.Union(&target)
 	//
 	return bound
 }
@@ -152,45 +234,128 @@ func (p *LookupConstraint[E]) Bounds(module uint) util.Bounds {
 //
 //nolint:revive
 func (p *LookupConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
-	var coverage bit.Set
-	// Determine height of enclosing module for source columns
-	src_height := tr.Height(p.SourceContext)
-	tgt_height := tr.Height(p.TargetContext)
-	//
-	rows := hash.NewSet[hash.BytesKey](tgt_height)
-	// Add all target columns to the set
-	for i := 0; i < int(tgt_height); i++ {
-		ith_bytes, err := evalExprsAsBytes(i, p.Targets, p.Handle, tr)
-		// error check
-		if err != nil {
-			return coverage, err
-		}
+	var (
+		coverage bit.Set
 
-		rows.Insert(hash.NewBytesKey(ith_bytes))
+		rows *hash.Set[hash.BytesKey]
+		err  schema.Failure
+	)
+	// Add all target columns to the set
+	if rows, err = p.evalTargetVector(tr); err != nil {
+		return coverage, err
 	}
-	// Check all source columns are contained
-	for i := 0; i < int(src_height); i++ {
-		ith_bytes, err := evalExprsAsBytes(i, p.Sources, p.Handle, tr)
-		// error check
-		if err != nil {
-			return coverage, err
+	// Check all source rows
+	err = p.checkSourceVector(rows, tr)
+	// Success
+	return coverage, err
+}
+
+// Lisp converts this schema element into a simple S-Expression, for example
+// so it can be printed.
+//
+//nolint:revive
+func (p *LookupConstraint[E]) Lisp(schema sc.Schema) sexp.SExp {
+	return sexp.NewList([]sexp.SExp{
+		sexp.NewSymbol("lookup"),
+		sexp.NewSymbol(p.Handle),
+		p.Target.Lisp(schema),
+		p.Source.Lisp(schema),
+	})
+}
+
+func (p *LookupConstraint[E]) evalTargetVector(tr trace.Trace) (*hash.Set[hash.BytesKey], schema.Failure) {
+	var (
+		height = tr.Height(p.Target.Context())
+		rows   = hash.NewSet[hash.BytesKey](height)
+		bytes  []byte
+		err    schema.Failure
+	)
+	// Choose optimised loop
+	if p.Target.HasSelector() {
+		selector := p.Target.Selector.Unwrap()
+		// filtered
+		for i := range int(height) {
+			if yes, err := selected(i, selector, p.Handle, tr); err != nil {
+				return nil, err
+			} else if yes {
+				if bytes, err = evalExprsAsBytes(i, p.Target.Terms, p.Handle, tr); err != nil {
+					return nil, err
+				}
+				//
+				rows.Insert(hash.NewBytesKey(bytes))
+			}
 		}
-		// Check whether contained.
-		if !rows.Contains(hash.NewBytesKey(ith_bytes)) {
-			sources := make([]sc.Evaluable, len(p.Sources))
-			for i, e := range p.Sources {
-				sources[i] = e
+	} else {
+		// unfiltered
+		for i := range int(height) {
+			if bytes, err = evalExprsAsBytes(i, p.Target.Terms, p.Handle, tr); err != nil {
+				return nil, err
 			}
-			// Construct failures
-			return coverage, &LookupFailure{
-				p.Handle,
-				sources,
-				uint(i),
-			}
+			//
+			rows.Insert(hash.NewBytesKey(bytes))
 		}
 	}
 	//
-	return coverage, nil
+	return rows, nil
+}
+
+func (p *LookupConstraint[E]) checkSourceVector(rows *hash.Set[hash.BytesKey], tr trace.Trace) schema.Failure {
+	// Determine height of enclosing module for source columns
+	var height = int(tr.Height(p.Source.Context()))
+	// Choose optimised loop
+	if p.Source.HasSelector() {
+		selector := p.Source.Selector.Unwrap()
+		// filtered
+		for i := range height {
+			if yes, err := selected(i, selector, p.Handle, tr); err != nil {
+				return err
+			} else if yes {
+				if err := p.checkSourceRow(i, rows, tr); err != nil {
+					return err
+				}
+			}
+		}
+	} else {
+		// unfiltered
+		for i := range height {
+			if err := p.checkSourceRow(i, rows, tr); err != nil {
+				return err
+			}
+		}
+	}
+	// success
+	return nil
+}
+
+func (p *LookupConstraint[E]) checkSourceRow(row int, rows *hash.Set[hash.BytesKey], tr trace.Trace) schema.Failure {
+	ith_bytes, err := evalExprsAsBytes(row, p.Source.Terms, p.Handle, tr)
+	// error check
+	if err != nil {
+		return err
+	}
+	// Check whether contained.
+	if !rows.Contains(hash.NewBytesKey(ith_bytes)) {
+		sources := make([]sc.Evaluable, len(p.Source.Terms))
+		for i, e := range p.Source.Terms {
+			sources[i] = e
+		}
+		// Construct failures
+		return &LookupFailure{p.Handle, sources, uint(row)}
+	}
+	// success
+	return nil
+}
+
+func selected[E schema.Evaluable](k int, selector E, handle string, tr trace.Trace) (bool, schema.Failure) {
+	ith, err := selector.EvalAt(k, tr)
+	//
+	if err != nil {
+		return false, &sc.InternalFailure{
+			Handle: handle, Row: uint(k), Term: selector, Error: err.Error(),
+		}
+	}
+	// Selected when non-zero
+	return !ith.IsZero(), nil
 }
 
 func evalExprsAsBytes[E schema.Evaluable](k int, sources []E, handle string, tr trace.Trace) ([]byte, schema.Failure) {
@@ -217,28 +382,4 @@ func evalExprsAsBytes[E schema.Evaluable](k int, sources []E, handle string, tr 
 	}
 	// Done
 	return bytes, nil
-}
-
-// Lisp converts this schema element into a simple S-Expression, for example
-// so it can be printed.
-//
-//nolint:revive
-func (p *LookupConstraint[E]) Lisp(schema sc.Schema) sexp.SExp {
-	sources := sexp.EmptyList()
-	targets := sexp.EmptyList()
-	// Iterate source expressions
-	for i := 0; i < len(p.Sources); i++ {
-		sources.Append(p.Sources[i].Lisp(schema))
-	}
-	// Iterate source expressions
-	for i := 0; i < len(p.Targets); i++ {
-		targets.Append(p.Targets[i].Lisp(schema))
-	}
-	// Done
-	return sexp.NewList([]sexp.SExp{
-		sexp.NewSymbol("lookup"),
-		sexp.NewSymbol(p.Handle),
-		targets,
-		sources,
-	})
 }

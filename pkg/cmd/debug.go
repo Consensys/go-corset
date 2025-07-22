@@ -69,6 +69,10 @@ var debugCmd = &cobra.Command{
 		corsetConfig.Debug = GetFlag(cmd, "debug")
 		corsetConfig.Legacy = GetFlag(cmd, "legacy")
 		corsetConfig.Strict = GetFlag(cmd, "strict")
+		// override for legacy lookups
+		if cmd.Flags().Lookup("legacy-lookups").Changed {
+			optConfig.LegacyLookups = GetFlag(cmd, "legacy-lookups")
+		}
 		// Parse constraints
 		binfile := ReadConstraintFiles(corsetConfig, args)
 		// Apply any user-specified values for externalised constants.

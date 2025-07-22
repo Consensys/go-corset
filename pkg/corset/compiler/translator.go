@@ -22,6 +22,7 @@ import (
 	"github.com/consensys/go-corset/pkg/hir"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/assignment"
+	"github.com/consensys/go-corset/pkg/schema/constraint"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/source"
@@ -343,28 +344,52 @@ func (t *translator) translateSelectorInModule(perspective *ast.PerspectiveName,
 //nolint:staticcheck
 func (t *translator) translateDefLookup(decl *ast.DefLookup, module util.Path) []SyntaxError {
 	// Translate source expressions
-	sources, src_errs := t.translateUnitExpressionsInModule(decl.Sources, module, 0)
-	targets, tgt_errs := t.translateUnitExpressionsInModule(decl.Targets, module, 0)
-	src_ctx, i := ast.ContextOfExpressions(decl.Sources...)
-	dst_ctx, j := ast.ContextOfExpressions(decl.Targets...)
+	source, srcErrs := t.translateLookupVector(decl.Source, module)
+	target, tgtErrs := t.translateLookupVector(decl.Target, module)
 	// Combine errors
-	errors := append(src_errs, tgt_errs...)
-	// Check for conflicting contexts.  This can arise here, rather than in the
-	// resolve, in some unusual situations (e.g. source expression is a function).
-	if src_ctx.IsConflicted() {
-		errors = append(errors, *t.srcmap.SyntaxError(decl.Sources[i], "conflicting context"))
-	}
-	//
-	if dst_ctx.IsConflicted() {
-		errors = append(errors, *t.srcmap.SyntaxError(decl.Targets[j], "conflicting context"))
-	}
+	errors := append(srcErrs, tgtErrs...)
 	//
 	if len(errors) == 0 {
 		// Add translated constraint
-		t.schema.AddLookupConstraint(decl.Handle, t.env.ContextOf(src_ctx), t.env.ContextOf(dst_ctx), sources, targets)
+		t.schema.AddLookupConstraint(decl.Handle, source, target)
 	}
 	// Done
 	return errors
+}
+
+func (t *translator) translateLookupVector(vec ast.LookupVector, module util.Path) (hir.LookupVector, []SyntaxError) {
+	var (
+		selector     hir.UnitExpr
+		selectorErrs []SyntaxError
+		context      = tr.VoidContext[string]()
+	)
+	// Translate selector (if applicable)
+	if vec.Selector != nil {
+		selector, selectorErrs = t.translateUnitExpressionInModule(vec.Selector, module, 0)
+		context = context.Join(vec.Selector.Context())
+	}
+	// Translate source expressions
+	terms, termErrs := t.translateUnitExpressionsInModule(vec.Terms, module, 0)
+	termContext, i := ast.ContextOfExpressions(vec.Terms...)
+	context = context.Join(termContext)
+	// Combine errors
+	errors := append(selectorErrs, termErrs...)
+	// Check for conflicting contexts.  This can arise here, rather than in the
+	// resolve, in some unusual situations (e.g. source expression is a function).
+	if termContext.IsConflicted() {
+		errors = append(errors, *t.srcmap.SyntaxError(vec.Terms[i], "conflicting context"))
+	} else if context.IsConflicted() {
+		errors = append(errors, *t.srcmap.SyntaxError(vec.Selector, "conflicting context"))
+	}
+	// Check whether we encountered any errors as, for example, we cannot
+	// determine the context it is is conflicted.
+	if len(errors) == 0 && vec.Selector != nil {
+		return constraint.FilteredLookupVector(t.env.ContextOf(context), selector, terms), errors
+	} else if len(errors) == 0 {
+		return constraint.UnfilteredLookupVector(t.env.ContextOf(context), terms), errors
+	}
+	//
+	return hir.LookupVector{}, errors
 }
 
 // Translate a "definrange" declaration.
@@ -545,6 +570,15 @@ func (t *translator) translateExpressionsInModule(exprs []ast.Expr, module util.
 	}
 	//
 	return hirExprs, errors
+}
+
+// Translate a unit expression in a given context.
+func (t *translator) translateUnitExpressionInModule(expr ast.Expr, module util.Path,
+	shift int) (hir.UnitExpr, []SyntaxError) {
+	//
+	e, errors := t.translateExpressionInModule(expr, module, shift)
+	//
+	return hir.NewUnitExpr(e), errors
 }
 
 // Translate an expression situated in a given context.  The context is

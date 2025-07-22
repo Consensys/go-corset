@@ -81,6 +81,10 @@ var traceCmd = &cobra.Command{
 		//
 		corsetConfig.Stdlib = !GetFlag(cmd, "no-stdlib")
 		corsetConfig.Legacy = GetFlag(cmd, "legacy")
+		// override for legacy lookups
+		if cmd.Flags().Lookup("legacy-lookups").Changed {
+			optConfig.LegacyLookups = GetFlag(cmd, "legacy-lookups")
+		}
 		// Parse trace file(s)
 		if batched {
 			// batched mode

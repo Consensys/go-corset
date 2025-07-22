@@ -132,15 +132,23 @@ func (p *preprocessor) preprocessDefConstraint(decl *ast.DefConstraint) []Syntax
 //
 //nolint:staticcheck
 func (p *preprocessor) preprocessDefLookup(decl *ast.DefLookup) []SyntaxError {
-	var (
-		source_errs []SyntaxError
-		target_errs []SyntaxError
-	)
-	// preprocess source expressions
-	decl.Sources, source_errs = p.preprocessExpressionsInModule(decl.Sources)
-	decl.Targets, target_errs = p.preprocessExpressionsInModule(decl.Targets)
+	// preprocess source / target expressions
+	sourceErrs := p.preprocessDefLookupVector(&decl.Source)
+	targetErrs := p.preprocessDefLookupVector(&decl.Target)
 	// Combine errors
-	return append(source_errs, target_errs...)
+	return append(sourceErrs, targetErrs...)
+}
+
+func (p *preprocessor) preprocessDefLookupVector(vec *ast.LookupVector) []SyntaxError {
+	var selErrs, termErrs []SyntaxError
+	// preprocess selector  (if appliacable)
+	if vec.Selector != nil {
+		vec.Selector, selErrs = p.preprocessExpressionInModule(vec.Selector)
+	}
+	// preprocess terms
+	vec.Terms, termErrs = p.preprocessExpressionsInModule(vec.Terms)
+	// Combine errors
+	return append(selErrs, termErrs...)
 }
 
 // preprocess a "definrange" declaration.

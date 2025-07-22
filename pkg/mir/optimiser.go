@@ -37,6 +37,10 @@ type OptimisationConfig struct {
 	// ShiftNormalisation is an optimisation for inverse columns involving
 	// shifts.
 	ShiftNormalisation bool
+	// LegacyLookups indicates conditional lookups should be "compiled out" into
+	// legacy lookups.  This eliminates any potential benefit from conditional
+	// lookups, but is closer to the original formulation.
+	LegacyLookups bool
 }
 
 // OPTIMISATION_LEVELS provides a set of precanned optimisation configurations.
@@ -45,9 +49,9 @@ type OptimisationConfig struct {
 // always improve performance).
 var OPTIMISATION_LEVELS = []OptimisationConfig{
 	// Level 0 == nothing enabled
-	{0, 256, false},
+	{0, 256, false, true},
 	// Level 1 == minimal optimisations applied.
-	{1, 256, true},
+	{1, 256, true, false},
 }
 
 // DEFAULT_OPTIMISATION_LEVEL provides a default level of optimisation which
