@@ -1402,23 +1402,27 @@ func CheckTraces(t *testing.T, test string, maxPadding uint, cfg TestConfig, tra
 			mirSchema := hirSchema.LowerToMir()
 			// Consider all optimisation levels
 			for _, opt := range mir.OPTIMISATION_LEVELS {
-				// Lower MIR => AIR
-				airSchema := mirSchema.LowerToAir(opt)
-				// Align trace with schema, and check whether expanded or not.
-				for padding := uint(0); padding <= maxPadding; padding++ {
-					// Construct trace identifiers
-					hirID := traceId{"HIR", test, cfg.expected, cfg.expand, cfg.validate, i + 1, padding}
-					mirID := traceId{"MIR", test, cfg.expected, cfg.expand, cfg.validate, i + 1, padding}
-					airID := traceId{"AIR", test, cfg.expected, cfg.expand, cfg.validate, i + 1, padding}
-					//
-					if cfg.expand {
-						// Only HIR / MIR constraints for traces which must be
-						// expanded.  They don't really make sense otherwise.
-						checkTrace(t, tr, hirID, hirSchema)
-						checkTrace(t, tr, mirID, mirSchema)
+				// Sanity check applying optimisation makes sense for this
+				// trace.
+				if cfg.expand || opt == mir.DEFAULT_OPTIMISATION_LEVEL {
+					// Lower MIR => AIR
+					airSchema := mirSchema.LowerToAir(opt)
+					// Align trace with schema, and check whether expanded or not.
+					for padding := uint(0); padding <= maxPadding; padding++ {
+						// Construct trace identifiers
+						hirID := traceId{"HIR", test, cfg.expected, cfg.expand, cfg.validate, i + 1, padding}
+						mirID := traceId{"MIR", test, cfg.expected, cfg.expand, cfg.validate, i + 1, padding}
+						airID := traceId{"AIR", test, cfg.expected, cfg.expand, cfg.validate, i + 1, padding}
+						//
+						if cfg.expand {
+							// Only HIR / MIR constraints for traces which must be
+							// expanded.  They don't really make sense otherwise.
+							checkTrace(t, tr, hirID, hirSchema)
+							checkTrace(t, tr, mirID, mirSchema)
+						}
+						// Always check AIR constraints
+						checkTrace(t, tr, airID, airSchema)
 					}
-					// Always check AIR constraints
-					checkTrace(t, tr, airID, airSchema)
 				}
 			}
 		}
