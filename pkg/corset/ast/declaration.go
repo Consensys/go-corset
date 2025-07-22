@@ -103,7 +103,7 @@ func (p *DefAliases) Definitions() iter.Iterator[SymbolDefinition] {
 // Defines checks whether this declaration defines the given symbol.  The symbol
 // in question needs to have been resolved already for this to make sense.
 func (p *DefAliases) Defines(symbol Symbol) bool {
-	// fine beause defaliases gets special treatement.
+	// fine because defaliases gets special treatment.
 	return false
 }
 
@@ -329,6 +329,71 @@ func (e *DefColumn) Lisp() sexp.SExp {
 }
 
 // ============================================================================
+// defcomputedcolumn
+// ============================================================================
+
+// DefComputed is an assignment which computes the values for one column based (currently) on a chosen internal function.
+type DefComputedColumn struct {
+	// Column being assigned by this computation.
+	Target []*DefColumn //TODO: hum, but target is only one column ?
+	// The formula to get the target column from the source columns.
+	Computation Expr
+}
+
+// Definitions returns the set of symbols defined by this declaration.  Observe
+// that these may not yet have been finalised.
+func (p *DefComputedColumn) Definitions() iter.Iterator[SymbolDefinition] {
+	iterator := iter.NewArrayIterator(p.Target)
+	return iter.NewCastIterator[*DefColumn, SymbolDefinition](iterator)
+}
+
+// Dependencies needed to signal declaration.
+func (p *DefComputedColumn) Dependencies() iter.Iterator[Symbol] {
+	var deps []Symbol
+	// Extract bodies dependencies
+	deps = append(deps, p.Computation.Dependencies()...)
+	// Done
+	return iter.NewArrayIterator[Symbol](deps)
+}
+
+// Defines checks whether this declaration defines the given symbol.  The symbol
+// in question needs to have been resolved already for this to make sense.
+func (p *DefComputedColumn) Defines(symbol Symbol) bool {
+	return true
+}
+
+// IsFinalised checks whether this declaration has already been finalised.  If
+// so, then we don't need to finalise it again.
+func (p *DefComputedColumn) IsFinalised() bool {
+	for _, col := range p.Target {
+		if !col.binding.IsFinalised() {
+			return false
+		}
+	}
+	// Done
+	return true
+}
+
+// IsAssignment checks whether this declaration is an assignment or not.
+func (p *DefComputedColumn) IsAssignment() bool {
+	return true
+}
+
+// Lisp converts this node into its lisp representation.  This is primarily used
+// for debugging purposes.
+func (p *DefComputedColumn) Lisp() sexp.SExp {
+	modifiers := sexp.EmptyList()
+	// target
+	modifiers.Append(sexp.NewSymbol(p.Target[len(p.Target)-1].Name()))
+
+	//
+	return sexp.NewList([]sexp.SExp{
+		sexp.NewSymbol("defcomputedcolumn"),
+		modifiers,
+		p.Computation.Lisp()})
+}
+
+// ============================================================================
 // defcompute
 // ============================================================================
 
@@ -543,7 +608,7 @@ func (e *DefConstUnit) Lisp() sexp.SExp {
 // columns accessed by the constraint have the same length multiplier.
 type DefConstraint struct {
 	// Unique handle given to this constraint.  This is primarily useful for
-	// debugging (i.e. so we know which constaint failed, etc).
+	// debugging (i.e. so we know which constraint failed, etc).
 	Handle string
 	// Domain of this constraint which, if empty, indicates a global constraint.
 	// Otherwise, a given value indicates a single row on which this constraint
@@ -552,7 +617,7 @@ type DefConstraint struct {
 	Domain util.Option[int]
 	// A selector which determines for which rows this constraint is active.
 	// Specifically, when the expression evaluates to a non-zero value then the
-	// constraint is active; otherwiser, its inactive. Nil is permitted to
+	// constraint is active; otherwise, its inactive. Nil is permitted to
 	// indicate no guard is present.
 	Guard Expr
 	// Perspective identifies the perspective to which this constraint is
@@ -706,7 +771,7 @@ func (p *DefInRange) Lisp() sexp.SExp {
 // ============================================================================
 
 // DefInterleaved generates a new column by interleaving two or more existing
-// colummns.  For example, say Z interleaves X and Y (in that order) and we have
+// columns.  For example, say Z interleaves X and Y (in that order) and we have
 // a trace X=[1,2], Y=[3,4].  Then, the interleaved column Z has the values
 // Z=[1,3,2,4].  All columns must be defined within the same context.  Finally,
 // the type of the interleaved column is the widest type of any source columns.

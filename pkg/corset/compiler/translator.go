@@ -254,6 +254,8 @@ func (t *translator) translateDeclaration(decl ast.Declaration, path util.Path) 
 		errors = t.translateDefProperty(d)
 	case *ast.DefSorted:
 		errors = t.translateDefSorted(d)
+	case *ast.DefComputedColumn:
+		// TODO
 	default:
 		// Error handling
 		panic("unknown declaration")
