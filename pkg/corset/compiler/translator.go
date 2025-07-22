@@ -164,8 +164,8 @@ func (t *translator) translateTypeConstraints(regIndex uint) {
 			}
 		}
 		// Add appropriate type constraint
-		bound := regInfo.DataType.AsUint().Bound()
-		t.schema.AddRangeConstraint(regInfo.Name(), regInfo.Context, hir.NewColumnAccess(regIndex, 0), bound)
+		t.schema.AddRangeConstraint(regInfo.Name(), regInfo.Context,
+			hir.NewColumnAccess(regIndex, 0), reg_width)
 	}
 }
 
@@ -400,7 +400,7 @@ func (t *translator) translateDefInRange(decl *ast.DefInRange, module util.Path)
 	if len(errors) == 0 {
 		context := expr.Context(t.schema)
 		// Add translated constraint
-		t.schema.AddRangeConstraint("", context, expr, decl.Bound)
+		t.schema.AddRangeConstraint("", context, expr, decl.Bitwidth)
 	}
 	// Done
 	return errors

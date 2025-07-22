@@ -45,6 +45,14 @@ type ColumnSortGadget struct {
 	strict bool
 	// Constraint active when selector is non-zero.
 	selector air.Expr
+	// Determines the largest bitwidth for which range constraints are
+	// translated into AIR range constraints, versus  using a horizontal
+	// bitwidth gadget.
+	maxRangeConstraint uint
+	// Enables the use of type proofs which exploit the
+	// limitless prover. Specifically, modules with a recursive structure are
+	// created specifically for the purpose of checking types.
+	limitless bool
 }
 
 // NewColumnSortGadget constructs a new column sort gadget which can then be
@@ -57,6 +65,8 @@ func NewColumnSortGadget(prefix string, column uint, bitwidth uint) ColumnSortGa
 		bitwidth,
 		false,
 		air.NewConst64(1),
+		8,
+		false,
 	}
 }
 
@@ -73,6 +83,16 @@ func (p *ColumnSortGadget) SetStrict(strict bool) {
 // SetSelector sets the selector for this constraint.
 func (p *ColumnSortGadget) SetSelector(selector air.Expr) {
 	p.selector = selector
+}
+
+// SetMaxRangeConstraint determines the cutoff for range cosntraints.
+func (p *ColumnSortGadget) SetMaxRangeConstraint(width uint) {
+	p.maxRangeConstraint = width
+}
+
+// SetLimitless enables or disables use of limitless type proofs.
+func (p *ColumnSortGadget) SetLimitless(flag bool) {
+	p.limitless = flag
 }
 
 // Apply a given ColumnSortGadget to a given schema.
@@ -103,8 +123,16 @@ func (p *ColumnSortGadget) Apply(schema *air.Schema) {
 		deltaIndex = schema.AddAssignment(
 			assignment.NewComputedColumn(column.Context, deltaName, &sc.FieldType{}, Xdiff))
 	}
-	// Add necessary bitwidth constraints
-	ApplyBitwidthGadget(deltaIndex, p.bitwidth, p.selector, schema)
+	// Add necessary bitwidth constraints.  Note, we don't need to consider
+	// the selector here since the delta column is unique to this
+	// constraint.  Furthermore, when the delta column is invalid (i.e. the
+	// original source constraints are not sorted correctly), then the
+	// assignment will assign zero (which is within bounds).
+	gadget := NewBitwidthGadget(schema).
+		WithLimitless(p.limitless).
+		WithMaxRangeConstraint(p.maxRangeConstraint)
+	// Apply bitwidth constraint
+	gadget.Constrain(deltaIndex, p.bitwidth)
 	// Configure constraint: Delta[k] = X[k] - X[k-1]
 	Dk := air.NewColumnAccess(deltaIndex, 0)
 	// Apply selecto

@@ -14,6 +14,7 @@ package constraint
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
@@ -33,7 +34,7 @@ type RangeFailure struct {
 	// Constraint expression
 	Expr sc.Evaluable
 	// Range restriction
-	Bound fr.Element
+	Bitwidth uint
 	// Row on which the constraint failed
 	Row uint
 }
@@ -41,7 +42,7 @@ type RangeFailure struct {
 // Message provides a suitable error message
 func (p *RangeFailure) Message() string {
 	// Construct useful error message
-	return fmt.Sprintf("range \"%s\" < %s does not hold (row %d)", p.Handle, p.Bound.String(), p.Row)
+	return fmt.Sprintf("range \"%s\" is u%d does not hold (row %d)", p.Handle, p.Bitwidth, p.Row)
 }
 
 func (p *RangeFailure) String() string {
@@ -69,17 +70,15 @@ type RangeConstraint[E sc.Evaluable] struct {
 	// The expression whose values are being constrained to within the given
 	// bound.
 	Expr E
-	// The upper Bound for this constraint.  Specifically, every evaluation of
-	// the expression should produce a value strictly below this Bound.  NOTE:
-	// an fr.Element is used here to store the Bound simply to make the
-	// necessary comparison against table data more direct.
-	Bound fr.Element
+	// The number of bits permitted for all values matching this constraint.
+	// For example, with a bitwidth of 8, the maximum permitted value is 255.
+	Bitwidth uint
 }
 
 // NewRangeConstraint constructs a new Range constraint!
 func NewRangeConstraint[E sc.Evaluable](handle string, casenum uint, context trace.Context,
-	expr E, bound fr.Element) *RangeConstraint[E] {
-	return &RangeConstraint[E]{handle, casenum, context, expr, bound}
+	expr E, bitwidth uint) *RangeConstraint[E] {
+	return &RangeConstraint[E]{handle, casenum, context, expr, bitwidth}
 }
 
 // Name returns a unique name for a given constraint.  This is useful
@@ -103,12 +102,6 @@ func (p *RangeConstraint[E]) Branches() uint {
 	return p.Expr.Branches()
 }
 
-// BoundedAtMost determines whether the bound for this constraint is at most a given bound.
-func (p *RangeConstraint[E]) BoundedAtMost(bound uint) bool {
-	var n fr.Element = fr.NewElement(uint64(bound))
-	return p.Bound.Cmp(&n) <= 0
-}
-
 // Bounds determines the well-definedness bounds for this constraint for both
 // the negative (left) or positive (right) directions.  For example, consider an
 // expression such as "(shift X -1)".  This is technically undefined for the
@@ -129,7 +122,15 @@ func (p *RangeConstraint[E]) Bounds(module uint) util.Bounds {
 //
 //nolint:revive
 func (p *RangeConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
-	var coverage bit.Set
+	var (
+		coverage bit.Set
+		bound    = big.NewInt(2)
+		frBound  fr.Element
+	)
+	// Compute 2^n
+	bound.Exp(bound, big.NewInt(int64(p.Bitwidth)), nil)
+	// Construct bound
+	frBound.SetBigInt(bound)
 	// Determine height of enclosing module
 	height := tr.Height(p.Context)
 	// Iterate every row
@@ -144,9 +145,9 @@ func (p *RangeConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
 				Term:   p.Expr,
 				Error:  err.Error(),
 			}
-		} else if kth.Cmp(&p.Bound) >= 0 {
+		} else if kth.Cmp(&frBound) >= 0 {
 			// Evaluation failure
-			return coverage, &RangeFailure{p.Handle, p.Expr, p.Bound, uint(k)}
+			return coverage, &RangeFailure{p.Handle, p.Expr, p.Bitwidth, uint(k)}
 		}
 	}
 	// All good
@@ -162,6 +163,6 @@ func (p *RangeConstraint[E]) Lisp(schema sc.Schema) sexp.SExp {
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("range"),
 		p.Expr.Lisp(schema),
-		sexp.NewSymbol(p.Bound.String()),
+		sexp.NewSymbol(fmt.Sprintf("u%d", p.Bitwidth)),
 	})
 }

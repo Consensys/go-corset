@@ -41,6 +41,10 @@ type OptimisationConfig struct {
 	// legacy lookups.  This eliminates any potential benefit from conditional
 	// lookups, but is closer to the original formulation.
 	LegacyLookups bool
+	// LimitlessTypeProofs enables the use of type proofs which exploit the
+	// limitless prover. Specifically, modules with a recursive structure are
+	// created specifically for the purpose of checking types.
+	LimitlessTypeProofs bool
 }
 
 // OPTIMISATION_LEVELS provides a set of precanned optimisation configurations.
@@ -49,9 +53,9 @@ type OptimisationConfig struct {
 // always improve performance).
 var OPTIMISATION_LEVELS = []OptimisationConfig{
 	// Level 0 == nothing enabled
-	{0, 256, false, true},
+	{0, 256, false, true, false},
 	// Level 1 == minimal optimisations applied.
-	{1, 256, true, false},
+	{1, 65536, true, false, true},
 }
 
 // DEFAULT_OPTIMISATION_LEVEL provides a default level of optimisation which

@@ -15,8 +15,6 @@ package air
 import (
 	"fmt"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/assignment"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
@@ -161,10 +159,11 @@ func (p *Schema) AddVanishingConstraint(handle string, num uint, context trace.C
 }
 
 // AddRangeConstraint appends a new range constraint.
-func (p *Schema) AddRangeConstraint(column uint, casenum uint, bound fr.Element) {
+func (p *Schema) AddRangeConstraint(column uint, casenum uint, bitwidth uint) {
 	col := p.Columns().Nth(column)
 	handle := col.QualifiedName(p)
-	tc := constraint.NewRangeConstraint(handle, casenum, col.Context, &ColumnAccess{Column: column, Shift: 0}, bound)
+	tc := constraint.NewRangeConstraint(handle, casenum, col.Context,
+		&ColumnAccess{Column: column, Shift: 0}, bitwidth)
 	p.constraints = append(p.constraints, tc)
 }
 

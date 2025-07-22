@@ -104,10 +104,10 @@ func (e jsonConstraint) addToSchema(colmap map[uint]uint, schema *hir.Schema) {
 		// Determine enclosing module
 		ctx := expr.Context(schema)
 		// Convert bound into max
-		bound := e.InRange.Max.ToField()
+		bound := e.InRange.Max.ToBigInt().BitLen()
 		handle := expr.Lisp(schema).String(true)
 		// Construct the vanishing constraint
-		schema.AddRangeConstraint(handle, ctx, expr, bound)
+		schema.AddRangeConstraint(handle, ctx, expr, uint(bound))
 	} else if e.Permutation == nil {
 		// Catch all
 		panic("Unknown JSON constraint encountered")

@@ -14,7 +14,6 @@ package mir
 
 import (
 	"fmt"
-	"math/big"
 	"reflect"
 	"strings"
 
@@ -130,24 +129,12 @@ func lowerRangeConstraintToAir(v RangeConstraint, mirSchema *Schema, airSchema *
 	column := air_gadgets.Expand(v.Context, bitwidth, target, airSchema)
 	// Yes, a constraint is implied.  Now, decide whether to use a range
 	// constraint or just a vanishing constraint.
-	if v.BoundedAtMost(2) {
-		// u1 => use vanishing constraint X * (X - 1)
-		air_gadgets.ApplyBinaryGadget(column, airSchema)
-	} else if v.BoundedAtMost(cfg.MaxRangeConstraint) {
-		// u2..n use range constraints
-		airSchema.AddRangeConstraint(column, v.Case, v.Bound)
-	} else {
-		// remainder use horizontal byte decompositions.
-		var bi big.Int
-		// Convert bound into big int
-		elem := v.Bound
-		elem.BigInt(&bi)
-		// Subtract one here, so that e.g. a bound of 65536 reports a bitwidth
-		// of 16, not 17.
-		bi.Sub(&bi, big.NewInt(1))
-		// Apply bitwidth gadget
-		air_gadgets.ApplyBitwidthGadget(column, uint(bi.BitLen()), air.NewConst64(1), airSchema)
-	}
+	// Constrict gadget
+	gadget := air_gadgets.NewBitwidthGadget(airSchema).
+		WithLimitless(cfg.LimitlessTypeProofs).
+		WithMaxRangeConstraint(cfg.MaxRangeConstraint)
+	//
+	gadget.Constrain(column, v.Bitwidth)
 }
 
 // Lower a lookup constraint to the AIR level.  The challenge here is that a
@@ -261,6 +248,8 @@ func lowerSortedConstraintToAir(c SortedConstraint, mirSchema *Schema, airSchema
 		gadget := air_gadgets.NewLexicographicSortingGadget(c.Handle, sources, c.BitWidth)
 		gadget.SetSigns(c.Signs...)
 		gadget.SetStrict(c.Strict)
+		gadget.SetMaxRangeConstraint(cfg.MaxRangeConstraint)
+		gadget.SetLimitless(cfg.LimitlessTypeProofs)
 		// Add (optional) selector
 		if c.Selector.HasValue() {
 			selector := lowerExprTo(c.Context, c.Selector.Unwrap(), mirSchema, airSchema, cfg)

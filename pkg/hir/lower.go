@@ -70,7 +70,7 @@ func lowerConstraintToMir(c sc.Constraint, mirSchema *mir.Schema, hirSchema *Sch
 		mir_exprs := lowerTo(v.Expr.Expr, mirSchema, hirSchema)
 		// Add individual constraints arising
 		for i, mir_expr := range mir_exprs {
-			mirSchema.AddRangeConstraint(v.Handle, uint(i), v.Context, mir_expr, v.Bound)
+			mirSchema.AddRangeConstraint(v.Handle, uint(i), v.Context, mir_expr, v.Bitwidth)
 		}
 	} else if v, ok := c.(SortedConstraint); ok {
 		lowerSortedConstraint(v, mirSchema, hirSchema)

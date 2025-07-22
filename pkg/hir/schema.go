@@ -153,10 +153,11 @@ func (p *Schema) AddVanishingConstraint(handle string, context trace.Context, do
 }
 
 // AddRangeConstraint appends a new range constraint with a raw bound.
-func (p *Schema) AddRangeConstraint(handle string, context trace.Context, expr Expr, bound fr.Element) {
+func (p *Schema) AddRangeConstraint(handle string, context trace.Context, expr Expr, bitwidth uint) {
 	// Check whether is a field type, as these can actually be ignored.
 	maxExpr := MaxExpr{expr}
-	p.constraints = append(p.constraints, constraint.NewRangeConstraint[MaxExpr](handle, 0, context, maxExpr, bound))
+	p.constraints = append(p.constraints,
+		constraint.NewRangeConstraint[MaxExpr](handle, 0, context, maxExpr, bitwidth))
 }
 
 // AddSortedConstraint appends a new sorted constraint.

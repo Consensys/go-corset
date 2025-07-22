@@ -15,7 +15,6 @@ package mir
 import (
 	"fmt"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/assignment"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
@@ -152,8 +151,9 @@ func (p *Schema) AddVanishingConstraint(handle string, num uint, context trace.C
 }
 
 // AddRangeConstraint appends a new range constraint.
-func (p *Schema) AddRangeConstraint(handle string, casenum uint, context trace.Context, expr Expr, bound fr.Element) {
-	p.constraints = append(p.constraints, constraint.NewRangeConstraint(handle, casenum, context, expr, bound))
+func (p *Schema) AddRangeConstraint(handle string, casenum uint, context trace.Context, expr Expr, bitwidth uint) {
+	p.constraints = append(p.constraints,
+		constraint.NewRangeConstraint(handle, casenum, context, expr, bitwidth))
 }
 
 // AddSortedConstraint appends a new sorted constraint.
