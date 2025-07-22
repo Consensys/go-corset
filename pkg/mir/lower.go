@@ -181,15 +181,11 @@ func lowerConditionalLookupVector(c LookupVector, mirSchema *Schema, airSchema *
 	var terms = make([]*air.ColumnAccess, c.Len())
 	// lower terms
 	for i := range c.Len() {
-		terms[i], _ = lowerLookupTerm(c.Context(), c.Ith(i), mirSchema, airSchema, cfg)
+		terms[i] = lowerLookupTerm(c.Context(), c.Ith(i), mirSchema, airSchema, cfg)
 	}
 	// lower selector (if applicable)
 	if c.HasSelector() {
-		selector, bitwidth := lowerLookupTerm(c.Context(), c.Selector.Unwrap(), mirSchema, airSchema, cfg)
-		// Simple sanity check for now
-		if bitwidth != 1 {
-			panic(fmt.Sprintf("selector has %d bits", bitwidth))
-		}
+		selector := lowerLookupTerm(c.Context(), c.Selector.Unwrap(), mirSchema, airSchema, cfg)
 		// Optimal translation
 		return constraint.FilteredLookupVector(c.Context(), selector, terms)
 	}
@@ -209,14 +205,14 @@ func lowerLegacyLookupVector(c LookupVector, mirSchema *Schema, airSchema *air.S
 			ith = Product(c.Selector.Unwrap(), ith)
 		}
 		//
-		terms[i], _ = lowerLookupTerm(c.Context(), ith, mirSchema, airSchema, cfg)
+		terms[i] = lowerLookupTerm(c.Context(), ith, mirSchema, airSchema, cfg)
 	}
 	// no selector
 	return constraint.UnfilteredLookupVector(c.Context(), terms)
 }
 
 func lowerLookupTerm(context tr.Context, expr Expr, mirSchema *Schema, airSchema *air.Schema,
-	cfg OptimisationConfig) (*air.ColumnAccess, uint) {
+	cfg OptimisationConfig) *air.ColumnAccess {
 	// Determine bitwidth
 	bitwidth := rangeOfTerm(expr.term, mirSchema).BitWidth()
 	// Lower selector expression
@@ -224,7 +220,7 @@ func lowerLookupTerm(context tr.Context, expr Expr, mirSchema *Schema, airSchema
 	// Expand expression into a column identifier
 	cid := air_gadgets.Expand(context, bitwidth, term, airSchema)
 	//
-	return &air.ColumnAccess{Column: cid, Shift: 0}, bitwidth
+	return &air.ColumnAccess{Column: cid, Shift: 0}
 }
 
 // Lower a sorted constraint to the AIR level.  The challenge here is that there
