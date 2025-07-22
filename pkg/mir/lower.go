@@ -165,7 +165,8 @@ func lowerLookupConstraintToAir(c LookupConstraint, mirSchema *Schema, airSchema
 	airSchema.AddLookupConstraint(c.Handle, source, target)
 }
 
-func lowerLookupVector(c LookupVector, mirSchema *Schema, airSchema *air.Schema, cfg OptimisationConfig) air.LookupVector {
+func lowerLookupVector(c LookupVector, mirSchema *Schema, airSchema *air.Schema,
+	cfg OptimisationConfig) air.LookupVector {
 	// Make decision on whether to use legacy translation or optimal translation
 	if cfg.LegacyLookups {
 		return lowerLegacyLookupVector(c, mirSchema, airSchema, cfg)
@@ -174,7 +175,9 @@ func lowerLookupVector(c LookupVector, mirSchema *Schema, airSchema *air.Schema,
 	return lowerConditionalLookupVector(c, mirSchema, airSchema, cfg)
 }
 
-func lowerConditionalLookupVector(c LookupVector, mirSchema *Schema, airSchema *air.Schema, cfg OptimisationConfig) air.LookupVector {
+func lowerConditionalLookupVector(c LookupVector, mirSchema *Schema, airSchema *air.Schema,
+	cfg OptimisationConfig) air.LookupVector {
+	//
 	var terms = make([]*air.ColumnAccess, c.Len())
 	// lower terms
 	for i := range c.Len() {

@@ -572,8 +572,12 @@ func (t *translator) translateExpressionsInModule(exprs []ast.Expr, module util.
 	return hirExprs, errors
 }
 
-func (t *translator) translateUnitExpressionInModule(expr ast.Expr, module util.Path, shift int) (hir.UnitExpr, []SyntaxError) {
+// Translate a unit expression in a given context.
+func (t *translator) translateUnitExpressionInModule(expr ast.Expr, module util.Path,
+	shift int) (hir.UnitExpr, []SyntaxError) {
+	//
 	e, errors := t.translateExpressionInModule(expr, module, shift)
+	//
 	return hir.NewUnitExpr(e), errors
 }
 

@@ -108,6 +108,7 @@ func (p *LookupVector[E]) Len() uint {
 	return uint(len(p.Terms))
 }
 
+// Lisp returns a textual representation of this vector.
 func (p *LookupVector[E]) Lisp(schema sc.Schema) sexp.SExp {
 	terms := sexp.EmptyList()
 	//
@@ -216,45 +217,20 @@ func (p *LookupConstraint[E]) Bounds(module uint) util.Bounds {
 //
 //nolint:revive
 func (p *LookupConstraint[E]) Accepts(tr trace.Trace) (bit.Set, schema.Failure) {
-	var coverage bit.Set
-	// Determine height of enclosing module for source columns
-	src_height := tr.Height(p.Source.Context())
-	tgt_height := tr.Height(p.Target.Context())
-	//
-	rows := hash.NewSet[hash.BytesKey](tgt_height)
-	// Add all target columns to the set
-	for i := 0; i < int(tgt_height); i++ {
-		ith_bytes, err := evalExprsAsBytes(i, p.Target.Terms, p.Handle, tr)
-		// error check
-		if err != nil {
-			return coverage, err
-		}
+	var (
+		coverage bit.Set
 
-		rows.Insert(hash.NewBytesKey(ith_bytes))
+		rows *hash.Set[hash.BytesKey]
+		err  schema.Failure
+	)
+	// Add all target columns to the set
+	if rows, err = p.evalTargetVector(tr); err != nil {
+		return coverage, err
 	}
-	// Check all source columns are contained
-	for i := 0; i < int(src_height); i++ {
-		ith_bytes, err := evalExprsAsBytes(i, p.Source.Terms, p.Handle, tr)
-		// error check
-		if err != nil {
-			return coverage, err
-		}
-		// Check whether contained.
-		if !rows.Contains(hash.NewBytesKey(ith_bytes)) {
-			sources := make([]sc.Evaluable, len(p.Source.Terms))
-			for i, e := range p.Source.Terms {
-				sources[i] = e
-			}
-			// Construct failures
-			return coverage, &LookupFailure{
-				p.Handle,
-				sources,
-				uint(i),
-			}
-		}
-	}
-	//
-	return coverage, nil
+	// Check all source rows
+	err = p.checkSourceVector(rows, tr)
+	// Success
+	return coverage, err
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
@@ -268,6 +244,101 @@ func (p *LookupConstraint[E]) Lisp(schema sc.Schema) sexp.SExp {
 		p.Target.Lisp(schema),
 		p.Source.Lisp(schema),
 	})
+}
+
+func (p *LookupConstraint[E]) evalTargetVector(tr trace.Trace) (*hash.Set[hash.BytesKey], schema.Failure) {
+	var (
+		height = tr.Height(p.Target.Context())
+		rows   = hash.NewSet[hash.BytesKey](height)
+		bytes  []byte
+		err    schema.Failure
+	)
+	// Choose optimised loop
+	if p.Target.HasSelector() {
+		selector := p.Target.Selector.Unwrap()
+		// filtered
+		for i := range int(height) {
+			if yes, err := selected(i, selector, p.Handle, tr); err != nil {
+				return nil, err
+			} else if yes {
+				if bytes, err = evalExprsAsBytes(i, p.Target.Terms, p.Handle, tr); err != nil {
+					return nil, err
+				}
+				//
+				rows.Insert(hash.NewBytesKey(bytes))
+			}
+		}
+	} else {
+		// unfiltered
+		for i := range int(height) {
+			if bytes, err = evalExprsAsBytes(i, p.Target.Terms, p.Handle, tr); err != nil {
+				return nil, err
+			}
+			//
+			rows.Insert(hash.NewBytesKey(bytes))
+		}
+	}
+	//
+	return rows, nil
+}
+
+func (p *LookupConstraint[E]) checkSourceVector(rows *hash.Set[hash.BytesKey], tr trace.Trace) schema.Failure {
+	// Determine height of enclosing module for source columns
+	var height = int(tr.Height(p.Source.Context()))
+	// Choose optimised loop
+	if p.Source.HasSelector() {
+		selector := p.Source.Selector.Unwrap()
+		// filtered
+		for i := range height {
+			if yes, err := selected(i, selector, p.Handle, tr); err != nil {
+				return err
+			} else if yes {
+				if err := p.checkSourceRow(i, rows, tr); err != nil {
+					return err
+				}
+			}
+		}
+	} else {
+		// unfiltered
+		for i := range height {
+			if err := p.checkSourceRow(i, rows, tr); err != nil {
+				return err
+			}
+		}
+	}
+	// success
+	return nil
+}
+
+func (p *LookupConstraint[E]) checkSourceRow(row int, rows *hash.Set[hash.BytesKey], tr trace.Trace) schema.Failure {
+	ith_bytes, err := evalExprsAsBytes(row, p.Source.Terms, p.Handle, tr)
+	// error check
+	if err != nil {
+		return err
+	}
+	// Check whether contained.
+	if !rows.Contains(hash.NewBytesKey(ith_bytes)) {
+		sources := make([]sc.Evaluable, len(p.Source.Terms))
+		for i, e := range p.Source.Terms {
+			sources[i] = e
+		}
+		// Construct failures
+		return &LookupFailure{p.Handle, sources, uint(row)}
+	}
+	// success
+	return nil
+}
+
+func selected[E schema.Evaluable](k int, selector E, handle string, tr trace.Trace) (bool, schema.Failure) {
+	ith, err := selector.EvalAt(k, tr)
+	//
+	if err != nil {
+		return false, &sc.InternalFailure{
+			Handle: handle, Row: uint(k), Term: selector, Error: err.Error(),
+		}
+	}
+	// Selected when non-zero
+	return !ith.IsZero(), nil
 }
 
 func evalExprsAsBytes[E schema.Evaluable](k int, sources []E, handle string, tr trace.Trace) ([]byte, schema.Failure) {

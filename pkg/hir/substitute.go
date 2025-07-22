@@ -24,13 +24,9 @@ func substituteConstraint(mapping map[string]fr.Element, constraint sc.Constrain
 	switch e := constraint.(type) {
 	case LookupConstraint:
 		// Substitute through source expressions
-		for _, source := range e.Source.Terms {
-			substituteExpression(mapping, source.Expr)
-		}
+		substituteLookupVector(mapping, e.Source)
 		// Substitute through target expressions
-		for _, target := range e.Target.Terms {
-			substituteExpression(mapping, target.Expr)
-		}
+		substituteLookupVector(mapping, e.Target)
 	case RangeConstraint:
 		substituteExpression(mapping, e.Expr.Expr)
 	case SortedConstraint:
@@ -46,6 +42,17 @@ func substituteConstraint(mapping map[string]fr.Element, constraint sc.Constrain
 	default:
 		name := reflect.TypeOf(e)
 		panic(fmt.Sprintf("unknown HIR constraint \"%s\"", name.String()))
+	}
+}
+
+func substituteLookupVector(mapping map[string]fr.Element, v LookupVector) {
+	// Subsitute through selector (if applicable)
+	if v.HasSelector() {
+		substituteExpression(mapping, v.Selector.Unwrap().Expr)
+	}
+	// Substitute through terms
+	for _, ith := range v.Terms {
+		substituteExpression(mapping, ith.Expr)
 	}
 }
 
