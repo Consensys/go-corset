@@ -86,6 +86,28 @@ func FilteredLookupVector[E schema.Evaluable](context trace.Context, selector E,
 	}
 }
 
+// Bounds determines the well-definedness bounds for all terms within this vector.
+//
+//nolint:revive
+func (p *LookupVector[E]) Bounds(module uint) util.Bounds {
+	var bound util.Bounds
+	//
+	if module == p.Context().Module() {
+		// Include bounds for selector (if applicable)
+		if p.HasSelector() {
+			sel := p.Selector.Unwrap().Bounds()
+			bound.Union(&sel)
+		}
+		// Include bounds for all terms
+		for _, e := range p.Terms {
+			eth := e.Bounds()
+			bound.Union(&eth)
+		}
+	}
+	//
+	return bound
+}
+
 // Context returns the conterxt in which all terms of this vector must be
 // evaluated.
 func (p *LookupVector[E]) Context() trace.Context {
@@ -195,19 +217,14 @@ func (p *LookupConstraint[E]) Branches() uint {
 //
 //nolint:revive
 func (p *LookupConstraint[E]) Bounds(module uint) util.Bounds {
-	var bound util.Bounds
+	var (
+		bound  util.Bounds
+		source = p.Source.Bounds(module)
+		target = p.Target.Bounds(module)
+	)
 	//
-	if module == p.Source.Context().Module() {
-		for _, e := range p.Source.Terms {
-			eth := e.Bounds()
-			bound.Union(&eth)
-		}
-	} else if module == p.Target.Context().Module() {
-		for _, e := range p.Target.Terms {
-			eth := e.Bounds()
-			bound.Union(&eth)
-		}
-	}
+	bound.Union(&source)
+	bound.Union(&target)
 	//
 	return bound
 }
