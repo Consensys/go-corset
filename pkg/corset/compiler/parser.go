@@ -593,11 +593,11 @@ func (p *Parser) parseDefComputed(module util.Path, elements []sexp.SExp) (ast.D
 	return &ast.DefComputed{Targets: targets, Function: sources[0], Sources: sources[1:]}, nil
 }
 
-// Parse a defcomputed declaration
+// Parse a defcomputedcolumn declaration
 func (p *Parser) parseDefComputedColumn(module util.Path, elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
 	var (
 		errors      []SyntaxError
-		sexpTargets *sexp.List = elements[0].AsList()
+		sexpTargets *sexp.List = elements[1].AsList()
 		target      []*ast.DefColumn
 	)
 	// Sanity checks
@@ -616,7 +616,7 @@ func (p *Parser) parseDefComputedColumn(module util.Path, elements []sexp.SExp) 
 	}
 
 	// Translate expression
-	expr, exprErrors := p.translator.Translate(elements[3])
+	expr, exprErrors := p.translator.Translate(elements[2])
 	errors = append(errors, exprErrors...)
 
 	//
