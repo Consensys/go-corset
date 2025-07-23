@@ -321,6 +321,8 @@ func (p *Parser) parseDeclaration(module util.Path, s *sexp.List) (ast.Declarati
 		decl, errors = p.parseDefSorted(false, s.Elements)
 	} else if 3 <= s.Len() && s.Len() <= 4 && s.MatchSymbols(2, "defstrictsorted") {
 		decl, errors = p.parseDefSorted(true, s.Elements)
+	} else if s.Len() == 3 && s.MatchSymbols(1, "defcomputedcolumn") {
+		decl, errors = p.parseDefComputedColumn(module, s.Elements)
 	} else {
 		errors = p.translator.SyntaxErrors(s, "malformed declaration")
 	}
@@ -589,6 +591,40 @@ func (p *Parser) parseDefComputed(module util.Path, elements []sexp.SExp) (ast.D
 	}
 	//
 	return &ast.DefComputed{Targets: targets, Function: sources[0], Sources: sources[1:]}, nil
+}
+
+// Parse a defcomputed declaration
+func (p *Parser) parseDefComputedColumn(module util.Path, elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
+	var (
+		errors      []SyntaxError
+		sexpTargets *sexp.List = elements[0].AsList()
+		target      []*ast.DefColumn
+	)
+	// Sanity checks
+	if sexpTargets == nil || sexpTargets.Len() == 0 {
+		errors = append(errors, *p.translator.SyntaxError(elements[1], "malformed target columns"))
+	} else {
+		target = make([]*ast.DefColumn, sexpTargets.Len())
+		//
+		for i := 0; i < sexpTargets.Len(); i++ {
+			var targetError *SyntaxError
+			// Parse target declaration
+			if target[i], targetError = p.parseColumnDeclaration(module, module, true, sexpTargets.Get(i)); targetError != nil {
+				errors = append(errors, *targetError)
+			}
+		}
+	}
+
+	// Translate expression
+	expr, exprErrors := p.translator.Translate(elements[3])
+	errors = append(errors, exprErrors...)
+
+	//
+	if len(errors) > 0 {
+		return nil, errors
+	}
+	//
+	return &ast.DefComputedColumn{Target: target, Computation: expr}, nil
 }
 
 // Parse a constant declaration

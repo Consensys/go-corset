@@ -784,7 +784,7 @@ func (p *DefInterleaved) Lisp() sexp.SExp {
 // is not relevant.
 type DefLookup struct {
 	// Unique handle given to this constraint.  This is primarily useful for
-	// debugging (i.e. so we know which constaint failed, etc).
+	// debugging (i.e. so we know which constraint failed, etc).
 	Handle string
 	// Source selector expressions (nil entries mean no selector for corresponding source).
 	SourceSelectors []Expr
@@ -1347,7 +1347,7 @@ func (p *DefParameter) Lisp() sexp.SExp {
 // increasing or decreasing.
 type DefSorted struct {
 	// Unique handle given to this constraint.  This is primarily useful for
-	// debugging (i.e. so we know which constaint failed, etc).
+	// debugging (i.e. so we know which constraint failed, etc).
 	Handle string
 	// Optional selector expression which determines when a sorted constraint is active.
 	Selector util.Option[Expr]

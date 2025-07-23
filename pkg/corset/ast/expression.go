@@ -1348,7 +1348,7 @@ func SubstituteOptional(expr Expr, mapping map[uint]Expr, srcmap *source.Maps[No
 
 // ShallowCopy creates a copy of the expression itself, but not those
 // expressions it contains (if any).  This is useful in e.g. situations where we
-// want to assocate different souce file information with a specific expression.
+// want to associate different source file information with a specific expression.
 func ShallowCopy(expr Expr) Expr {
 	//
 	switch e := expr.(type) {

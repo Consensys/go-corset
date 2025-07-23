@@ -263,8 +263,11 @@ func (t *translator) translateDeclaration(decl ast.Declaration, path util.Path) 
 	return errors
 }
 
+// Translate a "defcomputedcolumn" declaration.
 func (t *translator) translateDefComputedColumn(d *ast.DefComputedColumn) []SyntaxError {
-	panic("unimplemented")
+	// Determine enclosing module
+	module := t.moduleOf(d.Computation.Context())
+	return nil
 }
 
 // Translate a "defcomputed" declaration.
@@ -988,7 +991,7 @@ func (t *translator) registerOfArrayAccess(expr *ast.ArrayAccess, shift int) (*m
 // Determine the appropriate name for a given module based on a module context.
 func (t *translator) moduleOf(context ast.Context) *ModuleBuilder {
 	if context.IsVoid() {
-		// NOTE: the intuition behing the choice to return nil here is allow for
+		// NOTE: the intuition behind the choice to return nil here is allow for
 		// situations where there is no context (e.g. constant expressions,
 		// etc).  As such, return nil is safe as, for such expressions, the
 		// module should never be accessed during their translation.
