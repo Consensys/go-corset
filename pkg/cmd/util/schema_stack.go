@@ -74,6 +74,8 @@ type SchemaStack struct {
 	binfile binfile.BinaryFile
 	// The various layers which are refined from the binfile.
 	schemas []schema.AnySchema
+	// Register mapping used
+	mapping schema.RegisterMap
 	// Name of IR used for corresponding schema
 	names []string
 }
@@ -122,12 +124,22 @@ func (p *SchemaStack) WithLayer(layer uint) *SchemaStack {
 // whether to use parallelisation, etc.
 func (p *SchemaStack) WithTraceBuilder(builder ir.TraceBuilder) *SchemaStack {
 	p.traceBuilder = builder
+	// Apply register mapping
+	if p.mapping != nil {
+		p.traceBuilder = builder.WithRegisterMapping(p.mapping)
+	}
+	//
 	return p
 }
 
 // BinaryFile returns the binary file representing the top of this stack.
 func (p *SchemaStack) BinaryFile() *binfile.BinaryFile {
 	return &p.binfile
+}
+
+// Field returns the field configuration used within this schema stack.
+func (p *SchemaStack) Field() schema.FieldConfig {
+	return p.asmConfig.Field
 }
 
 // HasUniqueSchema determines whether or not we have exactly one schema.
@@ -170,6 +182,12 @@ func (p *SchemaStack) LowestSchema() schema.AnySchema {
 	return p.schemas[n]
 }
 
+// RegisterMapping returns the register mapping used to split registers
+// according to the given field configuration.
+func (p *SchemaStack) RegisterMapping() schema.RegisterMap {
+	return p.mapping
+}
+
 // IrName returns a human-readable anacronym of the IR used to generate the
 // corresponding SCHEMA.
 func (p *SchemaStack) IrName(index uint) string {
@@ -177,15 +195,15 @@ func (p *SchemaStack) IrName(index uint) string {
 }
 
 // Read reads one or more constraints files into this stack.
-func (p *SchemaStack) Read(filenames ...string) schema.RegisterMappings {
+func (p *SchemaStack) Read(filenames ...string) {
 	binfile := readConstraintFiles(p.corsetConfig, p.asmConfig, filenames)
 	//
-	return p.Apply(binfile)
+	p.Apply(binfile)
 }
 
 // Apply updates the binary for this stack and recalculates all requested
 // schemas.
-func (p *SchemaStack) Apply(binfile binfile.BinaryFile) schema.RegisterMappings {
+func (p *SchemaStack) Apply(binfile binfile.BinaryFile) {
 	var (
 		asmSchema  asm.MixedMacroProgram
 		uasmSchema asm.MixedMicroProgram
@@ -204,7 +222,9 @@ func (p *SchemaStack) Apply(binfile binfile.BinaryFile) schema.RegisterMappings 
 	// Lower to mixed micro schema
 	uasmSchema = asm.LowerMixedMacroProgram(p.asmConfig.Vectorize, asmSchema)
 	// Apply register splitting for field agnosticity
-	uasmSchema, mappings := agnostic.Subdivide(p.asmConfig.MaxFieldWidth, p.asmConfig.MaxRegisterWidth, uasmSchema)
+	uasmSchema, mapping := agnostic.Subdivide(p.asmConfig.Field, uasmSchema)
+	// Record mapping
+	p.mapping = mapping
 	// Lower to MIR
 	mirSchema = asm.LowerMixedMicroProgram(uasmSchema)
 	// Include macro assembly layer (if requested)
@@ -230,8 +250,6 @@ func (p *SchemaStack) Apply(binfile binfile.BinaryFile) schema.RegisterMappings 
 		p.schemas = append(p.schemas, schema.Any(airSchema))
 		p.names = append(p.names, "AIR")
 	}
-	//
-	return mappings
 }
 
 // readConstraintFiles provides a generic interface for reading constraint files

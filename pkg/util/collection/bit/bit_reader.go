@@ -12,7 +12,18 @@
 // SPDX-License-Identifier: Apache-2.0
 package bit
 
-// Reader provides a mechanism for reading bits from a given array of bytes.
+// Reader provides a mechanism for reading bits from a given array of bytes,
+// where the least significant bits are read first.  For example, consider
+// sequence of bytes [0x9f,0x05] can be views as the following bit sequence:
+//
+// | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 || 8 | 9 | A | B | C | D | E | F |
+// +===+===+===+===+===+===+===+===++===+===+===+===+===+===+===+===+
+// | 1 | 1 | 1 | 1 | 1 | 0 | 0 | 1 || 1 | 0 | 1 | 0 | 0 | 0 | 0 | 0 |
+// |   |   |   |   |
+// | 1 | 1 | 1 | 1 | 1 | 0 | 0 |
+//
+// The above illustrates the outcome from reading 7 bits.  In such
+// case, the value 0b0011111 is written into the target buffer.
 type Reader struct {
 	bitoffset uint
 	bytes     []byte
@@ -23,94 +34,20 @@ func NewReader(bytes []byte) Reader {
 	return Reader{0, bytes}
 }
 
-// ReadInto reads n bits from the underlying array into a given target array,
-// returning the total number of bytes affected.
+// ReadInto reads the n least significant bits from the underlying array into a
+// given target array, returning the total number of bytes affected.
 func (p *Reader) ReadInto(nbits uint, buf []byte) uint {
-	var (
-		aligned_offset = p.bitoffset%8 == 0
-		aligned_count  = nbits%8 == 0
-	)
-	// Sanity check for fast cases
-	if aligned_offset && aligned_count {
-		return p.fullyAlignedRead(nbits/8, buf)
-	} else if aligned_offset {
-		return p.partiallyAlignedRead(nbits, buf)
-	}
-	// unaligned read
-	n := bitcopy(p.bytes, p.bitoffset, buf, nbits)
-	//
-	p.bitoffset += nbits
-	//
-	return n
-}
-
-func (p *Reader) fullyAlignedRead(nbytes uint, buf []byte) uint {
-	var (
-		start = p.bitoffset / 8
-		end   = start + nbytes
-	)
-	// Copy over bytes
-	copy(buf, p.bytes[start:end])
-	// Update the offset
-	p.bitoffset += nbytes * 8
-	// Done
-	return nbytes
-}
-
-func (p *Reader) partiallyAlignedRead(nbits uint, buf []byte) uint {
-	var (
-		nbytes   = nbits / 8
-		bitsLeft = nbits % 8
-	)
-	// Initial (fast) read
-	p.fullyAlignedRead(nbytes, buf)
-	// Final (tidy up) read
-	bitcopy(p.bytes, p.bitoffset, buf[nbytes:], bitsLeft)
-	// Update offset
-	p.bitoffset += bitsLeft
-	//
-	return nbytes + 1
-}
-
-func bitcopy(src []byte, srcOffset uint, dst []byte, nbits uint) uint {
 	var nread = nbits / 8
 	// Determine how many bytes affected.
 	if nbits%8 != 0 {
 		// Clear final byte
-		dst[nread] = 0
+		buf[nread] = 0
 		nread++
 	}
 	//
-	for i := range nbits {
-		ith := readBit(src, srcOffset+i)
-		writeBit(ith, dst, i)
-	}
+	Copy(p.bytes, p.bitoffset, buf, nbits)
+	//
+	p.bitoffset += nbits
 	//
 	return nread
-}
-
-func readBit(src []byte, bitoffset uint) bool {
-	var (
-		byte = bitoffset / 8
-		bit  = bitoffset % 8
-		mask = uint8(1) << bit
-	)
-	//
-	return src[byte]&mask != 0
-}
-
-func writeBit(val bool, src []byte, bitoffset uint) {
-	var (
-		byte = bitoffset / 8
-		bit  = bitoffset % 8
-		mask = uint8(1) << bit
-	)
-	//
-	if val {
-		// set bit
-		src[byte] = src[byte] | mask
-	} else {
-		// Clear bit
-		src[byte] = src[byte] & ^mask
-	}
 }

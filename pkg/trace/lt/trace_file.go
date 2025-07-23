@@ -39,12 +39,12 @@ type TraceFile struct {
 	// Header for the binary file
 	Header Header
 	// Column data
-	Columns []trace.RawColumn
+	Columns []trace.BigEndianColumn
 }
 
 // NewTraceFile constructs a new trace file with the default header for the
 // currently supported version.
-func NewTraceFile(metadata []byte, columns []trace.RawColumn) *TraceFile {
+func NewTraceFile(metadata []byte, columns []trace.BigEndianColumn) *TraceFile {
 	return &TraceFile{
 		Header{ZKTRACER, LT_MAJOR_VERSION, LT_MINOR_VERSION, metadata},
 		columns,
@@ -69,7 +69,7 @@ func IsTraceFile(data []byte) bool {
 // MarshalBinary converts the TraceFile into a sequence of bytes.
 func (p *TraceFile) MarshalBinary() ([]byte, error) {
 	var buffer bytes.Buffer
-	// Marshal header
+	// Bytes header
 	headerBytes, err := p.Header.MarshalBinary()
 	// Error check
 	if err != nil {
@@ -77,7 +77,7 @@ func (p *TraceFile) MarshalBinary() ([]byte, error) {
 	}
 	// Encode header
 	buffer.Write(headerBytes)
-	// Marshal column data
+	// Bytes column data
 	columnBytes, err := ToBytesLegacy(p.Columns)
 	// Error check
 	if err != nil {

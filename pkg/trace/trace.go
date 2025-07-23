@@ -14,8 +14,10 @@ package trace
 
 import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // Trace describes a set of named columns.  Columns are not required to have the
@@ -64,19 +66,26 @@ type Column interface {
 	Padding() fr.Element
 }
 
+// RawFrColumn is a temporary alias which should be deprecated shortly.
+type RawFrColumn = RawColumn[fr.Element]
+
+// BigEndianColumn captures the notion of a raw column holding the bytes of an
+// unsigned integer in big endian form.
+type BigEndianColumn = RawColumn[word.BigEndian]
+
 // RawColumn represents a raw column of data which has not (yet) been indexed as
 // part of a trace, etc.  Raw columns are typically read directly from trace
 // files, and subsequently indexed into a trace during the expansion process.
-type RawColumn struct {
+type RawColumn[T any] struct {
 	// Name of the enclosing module
 	Module string
 	// Name of the column
 	Name string
 	// Data held in the column
-	Data field.FrArray
+	Data array.Array[T]
 }
 
 // QualifiedName returns the fully qualified name of this column.
-func (p *RawColumn) QualifiedName() string {
+func (p *RawColumn[T]) QualifiedName() string {
 	return QualifiedColumnName(p.Module, p.Name)
 }

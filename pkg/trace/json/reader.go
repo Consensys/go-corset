@@ -20,25 +20,27 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/trace"
-	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // FromBytes parses a trace expressed in JSON notation.  For example, {"X":
 // [0], "Y": [1]} is a trace containing one row of data each for two columns "X"
 // and "Y".
-func FromBytes(bytes []byte) ([]trace.RawColumn, error) {
+func FromBytes(data []byte) ([]trace.BigEndianColumn, error) {
 	var (
 		rawData map[string]map[string][]big.Int
-		cols    []trace.RawColumn
+		cols    []trace.BigEndianColumn
 	)
 	// Attempt to unmarshall
-	jsonErr := json.Unmarshal(bytes, &rawData)
+	jsonErr := json.Unmarshal(data, &rawData)
 	if jsonErr != nil {
 		// Failed, so try and fall back on the legacy format.
-		return FromBytesLegacy(bytes)
+		return FromBytesLegacy(data)
 	}
+	// Intialise pool
+	pool := word.NewHeapPool[word.BigEndian]()
 	//
 	for mod, modData := range rawData {
 		for name, rawInts := range modData {
@@ -47,17 +49,15 @@ func FromBytes(bytes []byte) ([]trace.RawColumn, error) {
 			if error != nil {
 				return nil, error
 			}
-			// Manage negative numbers
-			normaliseBigInts(rawInts)
 			// Validate data array
 			if row := validateBigInts(bitwidth, rawInts); row != math.MaxUint {
 				return nil, fmt.Errorf("column %s out-of-bounds (row %d, value %s)",
 					name, row, rawInts[row].String())
 			}
 			// Construct data array
-			data := field.FrArrayFromBigInts(bitwidth, rawInts)
+			data := newArrayFromBigInts(bitwidth, rawInts, pool)
 			// Construct column
-			cols = append(cols, trace.RawColumn{Module: mod, Name: col, Data: data})
+			cols = append(cols, trace.BigEndianColumn{Module: mod, Name: col, Data: data})
 		}
 	}
 	//
@@ -67,15 +67,18 @@ func FromBytes(bytes []byte) ([]trace.RawColumn, error) {
 // FromBytesLegacy parses a trace expressed in JSON notation.  For example, {"X":
 // [0], "Y": [1]} is a trace containing one row of data each for two columns "X"
 // and "Y".
-func FromBytesLegacy(bytes []byte) ([]trace.RawColumn, error) {
-	var rawData map[string][]big.Int
+func FromBytesLegacy(data []byte) ([]trace.BigEndianColumn, error) {
+	var (
+		rawData map[string][]big.Int
+		pool    = word.NewHeapPool[word.BigEndian]()
+	)
 	// Unmarshall
-	jsonErr := json.Unmarshal(bytes, &rawData)
+	jsonErr := json.Unmarshal(data, &rawData)
 	if jsonErr != nil {
 		return nil, jsonErr
 	}
 	// Construct column data
-	cols := make([]trace.RawColumn, len(rawData))
+	cols := make([]trace.BigEndianColumn, len(rawData))
 	index := 0
 	//
 	for name, rawInts := range rawData {
@@ -85,22 +88,36 @@ func FromBytesLegacy(bytes []byte) ([]trace.RawColumn, error) {
 		if error != nil {
 			return nil, error
 		}
-		// Manage negative numbers
-		normaliseBigInts(rawInts)
 		// Validate data array
 		if row := validateBigInts(bitwidth, rawInts); row != math.MaxUint {
 			return nil, fmt.Errorf("column %s out-of-bounds (row %d, value %s)",
 				name, row, rawInts[row].String())
 		}
 		// Construct data array
-		data := field.FrArrayFromBigInts(bitwidth, rawInts)
+		data := newArrayFromBigInts(bitwidth, rawInts, pool)
 		// Construct column
-		cols[index] = trace.RawColumn{Module: mod, Name: col, Data: data}
+		cols[index] = trace.BigEndianColumn{Module: mod, Name: col, Data: data}
 		//
 		index++
 	}
 	// Done.
 	return cols, nil
+}
+
+func newArrayFromBigInts[P word.Pool[uint, word.BigEndian]](bitwidth uint, data []big.Int,
+	pool P) array.Array[word.BigEndian] {
+	//
+	var (
+		n       = uint(len(data))
+		builder = word.NewArray[word.BigEndian](n, bitwidth, pool)
+	)
+	//
+	for i := range n {
+		ithBytes := data[i].Bytes()
+		builder.Set(i, word.NewBigEndian(ithBytes))
+	}
+	//
+	return builder.Build()
 }
 
 // SplitQualifiedColumnName splits a qualified column name into its module and
@@ -160,17 +177,4 @@ func validateBigInts(bitwidth uint, data []big.Int) uint {
 	}
 	//
 	return math.MaxUint
-}
-
-func normaliseBigInts(data []big.Int) {
-	var (
-		zero    = big.NewInt(0)
-		modulus = fr.Modulus()
-	)
-	//
-	for i, val := range data {
-		if val.Cmp(zero) < 0 {
-			data[i].Add(modulus, &data[i])
-		}
-	}
 }

@@ -168,7 +168,7 @@ func permutationSortFunc(lhs []fr.Element, rhs []fr.Element, signs []bool) int {
 }
 
 // Clone and rotate a 2-dimensional array assuming a given geometry.
-func rotate[T array.Array[fr.Element]](src []T, ncols int, nrows uint) [][]fr.Element {
+func rotate[T array.MutArray[fr.Element]](src []T, ncols int, nrows uint) [][]fr.Element {
 	// Copy outer arrays
 	dst := make([][]fr.Element, nrows)
 	// Copy inner arrays

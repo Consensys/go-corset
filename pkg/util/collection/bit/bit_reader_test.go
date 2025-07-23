@@ -19,50 +19,50 @@ import (
 
 // Fully aligned reads
 
-func Test_BitReader_Aligned_00(t *testing.T) {
-	checkBitReader(t, 0, 8, []byte{159, 0}, []byte{159})
+func Test_LsReader_Aligned_00(t *testing.T) {
+	checkLsReader(t, 0, 8, []byte{159, 0}, []byte{159})
 }
 
-func Test_BitReader_Aligned_01(t *testing.T) {
-	checkBitReader(t, 8, 8, []byte{223, 159, 0}, []byte{159})
+func Test_LsReader_Aligned_01(t *testing.T) {
+	checkLsReader(t, 8, 8, []byte{223, 159, 0}, []byte{159})
 }
 
-func Test_BitReader_Aligned_02(t *testing.T) {
-	checkBitReader(t, 8, 16, []byte{223, 159, 123, 0, 0}, []byte{159, 123})
+func Test_LsReader_Aligned_02(t *testing.T) {
+	checkLsReader(t, 8, 16, []byte{223, 159, 123, 0, 0}, []byte{159, 123})
 }
-func Test_BitReader_Aligned_03(t *testing.T) {
-	checkBitReader(t, 16, 16, []byte{1, 223, 159, 123, 0, 0}, []byte{159, 123})
+func Test_LsReader_Aligned_03(t *testing.T) {
+	checkLsReader(t, 16, 16, []byte{1, 223, 159, 123, 0, 0}, []byte{159, 123})
 }
 
 // Partially aligned reads
-func Test_BitReader_Partial_00(t *testing.T) {
-	checkBitReader(t, 0, 7, []byte{159, 0}, []byte{31})
+func Test_LsReader_Partial_00(t *testing.T) {
+	checkLsReader(t, 0, 7, []byte{159, 0}, []byte{31})
 }
-func Test_BitReader_Partial_01(t *testing.T) {
-	checkBitReader(t, 0, 13, []byte{159, 99, 0}, []byte{159, 3})
-}
-
-func Test_BitReader_Partial_02(t *testing.T) {
-	checkBitReader(t, 8, 7, []byte{223, 159, 0}, []byte{31})
-}
-func Test_BitReader_Partial_03(t *testing.T) {
-	checkBitReader(t, 8, 13, []byte{223, 159, 99, 0}, []byte{159, 3})
+func Test_LsReader_Partial_01(t *testing.T) {
+	checkLsReader(t, 0, 13, []byte{159, 99, 0}, []byte{159, 3})
 }
 
-func Test_BitReader_Partial_04(t *testing.T) {
-	checkBitReader(t, 8, 19, []byte{223, 159, 89, 99, 0}, []byte{159, 89, 3})
+func Test_LsReader_Partial_02(t *testing.T) {
+	checkLsReader(t, 8, 7, []byte{223, 159, 0}, []byte{31})
+}
+func Test_LsReader_Partial_03(t *testing.T) {
+	checkLsReader(t, 8, 13, []byte{223, 159, 99, 0}, []byte{159, 3})
+}
+
+func Test_LsReader_Partial_04(t *testing.T) {
+	checkLsReader(t, 8, 19, []byte{223, 159, 89, 99, 0}, []byte{159, 89, 3})
 }
 
 // Fully unaligned aligned reads
-func Test_BitReader_Unaligned_00(t *testing.T) {
-	checkBitReader(t, 1, 7, []byte{159, 0}, []byte{79})
+func Test_LsReader_Unaligned_00(t *testing.T) {
+	checkLsReader(t, 1, 7, []byte{159, 0}, []byte{79})
 }
 
-func Test_BitReader_Unaligned_01(t *testing.T) {
-	checkBitReader(t, 3, 19, []byte{159, 99, 35, 0}, []byte{115, 108, 4})
+func Test_LsReader_Unaligned_01(t *testing.T) {
+	checkLsReader(t, 3, 19, []byte{159, 99, 35, 0}, []byte{115, 108, 4})
 }
 
-func checkBitReader(t *testing.T, offset uint, nbits uint, src []byte, expected []byte) {
+func checkLsReader(t *testing.T, offset uint, nbits uint, src []byte, expected []byte) {
 	var (
 		reader = NewReader(src)
 		buf    = make([]byte, len(src))

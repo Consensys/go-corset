@@ -22,7 +22,7 @@ import (
 )
 
 // FrArray represents an array of field elements.
-type FrArray = array.Array[fr.Element]
+type FrArray = array.MutArray[fr.Element]
 
 // NewFrArray creates a new FrArray dynamically based on the given width.
 func NewFrArray(height uint, bitWidth uint) FrArray {
@@ -99,7 +99,7 @@ func (p *FrElementArray) Set(index uint, element fr.Element) {
 }
 
 // Clone makes clones of this array producing an otherwise identical copy.
-func (p *FrElementArray) Clone() array.Array[fr.Element] {
+func (p *FrElementArray) Clone() array.MutArray[fr.Element] {
 	// Allocate sufficient memory
 	ndata := make([]fr.Element, uint(len(p.elements)))
 	// Copy over the data
@@ -115,7 +115,7 @@ func (p *FrElementArray) Slice(start uint, end uint) array.Array[fr.Element] {
 
 // Pad prepend array with n copies and append with m copies of the given padding
 // value.
-func (p *FrElementArray) Pad(n uint, m uint, padding fr.Element) array.Array[fr.Element] {
+func (p *FrElementArray) Pad(n uint, m uint, padding fr.Element) array.MutArray[fr.Element] {
 	l := uint(len(p.elements))
 	// Allocate sufficient memory
 	ndata := make([]fr.Element, l+n+m)

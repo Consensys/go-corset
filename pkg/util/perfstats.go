@@ -13,6 +13,7 @@
 package util
 
 import (
+	"fmt"
 	"runtime"
 	"time"
 
@@ -42,6 +43,11 @@ func NewPerfStats() *PerfStats {
 
 // Log logs the difference between the state now and as it was when the PerfStats object was created.
 func (p *PerfStats) Log(prefix string) {
+	log.Debugf("%s took %s", prefix, p.String())
+}
+
+// String provides a string representation of the usage thus far.
+func (p *PerfStats) String() string {
 	var m runtime.MemStats
 
 	runtime.ReadMemStats(&m)
@@ -49,5 +55,5 @@ func (p *PerfStats) Log(prefix string) {
 	gcs := m.NumGC - p.startGc
 	exectime := time.Since(p.startTime).Seconds()
 
-	log.Debugf("%s took %0.2fs using %v Gb (%v GC events) [%v Gb]", prefix, exectime, alloc, gcs, m.Alloc/1024/1024/1024)
+	return fmt.Sprintf("%0.2fs using %v Gb (%v GC events) [%v Gb]", exectime, alloc, gcs, m.Alloc/1024/1024/1024)
 }

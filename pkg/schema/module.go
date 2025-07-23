@@ -152,7 +152,7 @@ func (p *Table[C]) Registers() []Register {
 }
 
 // Subdivide implementation for the FieldAgnosticModule interface.
-func (p *Table[C]) Subdivide(mapping RegisterMappings) *Table[C] {
+func (p *Table[C]) Subdivide(mapping RegisterMap) *Table[C] {
 	var (
 		modmap      = mapping.ModuleOf(p.name)
 		registers   []Register

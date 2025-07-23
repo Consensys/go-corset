@@ -18,7 +18,7 @@ func Equal(t *testing.T, expected, actual any, msg ...any) {
 		t.Errorf(msg[0].(string), msg[1:]...)
 	}
 
-	t.Fail()
+	t.FailNow()
 }
 
 // intEqual returns whether expected and actual are both integers and whether they are equal
