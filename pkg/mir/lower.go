@@ -48,7 +48,7 @@ func (p *Schema) LowerToAir(cfg OptimisationConfig) *air.Schema {
 	}
 	// Now, lower assignments.
 	for _, assign := range p.assignments {
-		lowerAssignmentToAir(assign, p, airSchema)
+		lowerAssignmentToAir(assign, p, airSchema, cfg)
 	}
 	// Lower vanishing constraints
 	for _, c := range p.constraints {
@@ -63,9 +63,9 @@ func (p *Schema) LowerToAir(cfg OptimisationConfig) *air.Schema {
 }
 
 // Lower an assignment to the AIR level.
-func lowerAssignmentToAir(c sc.Assignment, mirSchema *Schema, airSchema *air.Schema) {
+func lowerAssignmentToAir(c sc.Assignment, mirSchema *Schema, airSchema *air.Schema, cfg OptimisationConfig) {
 	if v, ok := c.(Permutation); ok {
-		lowerPermutationToAir(v, mirSchema, airSchema)
+		lowerPermutationToAir(v, mirSchema, airSchema, cfg)
 	} else if _, ok := c.(Interleaving); ok {
 		// Nothing to do for interleaving constraints, as they can be passed
 		// directly down to the AIR level
@@ -225,39 +225,20 @@ func lowerSortedConstraintToAir(c SortedConstraint, mirSchema *Schema, airSchema
 	}
 	// Determine number of ordered columns
 	numSignedCols := len(c.Signs)
-	// finally add the constraint
-	if numSignedCols == 1 {
-		// For a single column sort, its actually a bit easier because we don't
-		// need to implement a multiplexor (i.e. to determine which column is
-		// differs, etc).  Instead, we just need a delta column which ensures
-		// there is a non-negative difference between consecutive rows.  This
-		// also requires bitwidth constraints.
-		gadget := air_gadgets.NewColumnSortGadget(c.Handle, sources[0], c.BitWidth)
-		gadget.SetSign(c.Signs[0])
-		gadget.SetStrict(c.Strict)
-		// Add (optional) selector
-		if c.Selector.HasValue() {
-			selector := lowerExprTo(c.Context, c.Selector.Unwrap(), mirSchema, airSchema, cfg)
-			gadget.SetSelector(selector)
-		}
-		// Done!
-		gadget.Apply(airSchema)
-	} else {
-		// For a multi column sort, its a bit harder as we need additional
-		// logic to ensure the target columns are lexicographally sorted.
-		gadget := air_gadgets.NewLexicographicSortingGadget(c.Handle, sources, c.BitWidth)
-		gadget.SetSigns(c.Signs...)
-		gadget.SetStrict(c.Strict)
-		gadget.SetMaxRangeConstraint(cfg.MaxRangeConstraint)
-		gadget.SetLegacyTypeProofs(cfg.LegacyTypeProofs)
-		// Add (optional) selector
-		if c.Selector.HasValue() {
-			selector := lowerExprTo(c.Context, c.Selector.Unwrap(), mirSchema, airSchema, cfg)
-			gadget.SetSelector(selector)
-		}
-		// Done
-		gadget.Apply(airSchema)
+	// For a multi column sort, its a bit harder as we need additional
+	// logic to ensure the target columns are lexicographally sorted.
+	gadget := air_gadgets.NewLexicographicSortingGadget(c.Handle, sources, c.BitWidth)
+	gadget.SetSigns(c.Signs...)
+	gadget.SetStrict(c.Strict)
+	gadget.SetMaxRangeConstraint(cfg.MaxRangeConstraint)
+	gadget.SetLegacyTypeProofs(cfg.LegacyTypeProofs)
+	// Add (optional) selector
+	if c.Selector.HasValue() {
+		selector := lowerExprTo(c.Context, c.Selector.Unwrap(), mirSchema, airSchema, cfg)
+		gadget.SetSelector(selector)
 	}
+	// Done
+	gadget.Apply(airSchema)
 	// Sanity check bitwidth
 	bitwidth := uint(0)
 
@@ -282,7 +263,7 @@ func lowerSortedConstraintToAir(c SortedConstraint, mirSchema *Schema, airSchema
 // computed columns) must also be added.  Finally, a trace
 // computation is required to ensure traces are correctly expanded to
 // meet the requirements of a sorted permutation.
-func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Schema) {
+func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Schema, cfg OptimisationConfig) {
 	builder := strings.Builder{}
 	c_targets := c.Targets
 	targets := make([]uint, len(c_targets))
@@ -305,42 +286,26 @@ func lowerPermutationToAir(c Permutation, mirSchema *Schema, airSchema *air.Sche
 	// Determine number of ordered columns
 	numSignedCols := len(c.Signs)
 	// Add sorting constraints + computed columns as necessary.
-	if numSignedCols == 1 {
-		// For a single column sort, its actually a bit easier because we don't
-		// need to implement a multiplexor (i.e. to determine which column is
-		// differs, etc).  Instead, we just need a delta column which ensures
-		// there is a non-negative difference between consecutive rows.  This
-		// also requires bitwidth constraints.
-		bitwidth := mirSchema.Columns().Nth(c.Sources[0]).DataType.AsUint().BitWidth()
-		// Identify target column name
-		target := mirSchema.Columns().Nth(targets[0]).Name
-		// Add column sorting constraints
-		gadget := air_gadgets.NewColumnSortGadget(target, targets[0], bitwidth)
-		gadget.SetSign(c.Signs[0])
-		// Done!
-		gadget.Apply(airSchema)
-	} else {
-		// For a multi column sort, its a bit harder as we need additional
-		// logic to ensure the target columns are lexicographally sorted.
-		bitwidth := uint(0)
+	// For a multi column sort, its a bit harder as we need additional
+	// logic to ensure the target columns are lexicographally sorted.
+	bitwidth := uint(0)
 
-		for i := 0; i < numSignedCols; i++ {
-			// Extract bitwidth of ith column
-			ith := mirSchema.Columns().Nth(c.Sources[i]).DataType.AsUint().BitWidth()
-			if ith > bitwidth {
-				bitwidth = ith
-			}
+	for i := 0; i < numSignedCols; i++ {
+		// Extract bitwidth of ith column
+		ith := mirSchema.Columns().Nth(c.Sources[i]).DataType.AsUint().BitWidth()
+		if ith > bitwidth {
+			bitwidth = ith
 		}
-		// Construct a unique prefix for this sort.
-		prefix := constructLexicographicSortingPrefix(targets, c.Signs, airSchema)
-		// Add lexicographically sorted constraints
-		// For a multi column sort, its a bit harder as we need additional
-		// logic to ensure the target columns are lexicographally sorted.
-		gadget := air_gadgets.NewLexicographicSortingGadget(prefix, targets, bitwidth)
-		gadget.SetSigns(c.Signs...)
-		// Done
-		gadget.Apply(airSchema)
 	}
+	// Construct a unique prefix for this sort.
+	prefix := constructLexicographicSortingPrefix(targets, c.Signs, airSchema)
+	// Add lexicographically sorted constraints
+	gadget := air_gadgets.NewLexicographicSortingGadget(prefix, targets, bitwidth)
+	gadget.SetSigns(c.Signs...)
+	gadget.SetMaxRangeConstraint(cfg.MaxRangeConstraint)
+	gadget.SetLegacyTypeProofs(cfg.LegacyTypeProofs)
+	// Done
+	gadget.Apply(airSchema)
 }
 
 func lowerConstraintTo(ctx trace.Context, c Constraint, mirSchema *Schema, airSchema *air.Schema,
