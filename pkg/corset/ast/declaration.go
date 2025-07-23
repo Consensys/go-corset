@@ -1483,13 +1483,14 @@ func (p *DefComputedColumn) IsAssignment() bool {
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
 func (p *DefComputedColumn) Lisp() sexp.SExp {
-	modifiers := sexp.EmptyList()
-	// target
-	modifiers.Append(sexp.NewSymbol(p.Target[len(p.Target)-1].Name()))
-
+	// targets
+	targets := make([]sexp.SExp, len(p.Target))
+	for i, t := range p.Target {
+		targets[i] = t.Lisp()
+	}
 	//
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("defcomputedcolumn"),
-		modifiers,
+		sexp.NewList(targets),
 		p.Computation.Lisp()})
 }
