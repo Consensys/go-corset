@@ -48,6 +48,9 @@ func Test_BitCopy_08(t *testing.T) {
 }
 
 func checkBitCopy(t *testing.T, srcOffset uint, nbits uint, src []byte, expected []byte) {
+	//
+	t.Parallel()
+	//
 	var (
 		buf = make([]byte, len(src))
 		n   = nbits / 8

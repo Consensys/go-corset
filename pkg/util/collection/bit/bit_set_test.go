@@ -25,8 +25,10 @@ func Test_BitSet_00(t *testing.T) {
 
 func Test_BitSet_01(t *testing.T) {
 	// Really hammer it.
-	for i := 0; i < 10000; i++ {
-		check_BitSet_Insert(t, 10, 128)
+	for i := 0; i < 100000; i++ {
+		t.Run(fmt.Sprintf("i=%d", i), func(t *testing.T) {
+			check_BitSet_Insert(t, 10, 128)
+		})
 	}
 }
 
@@ -84,6 +86,8 @@ func countUniqueItems(items []uint) uint {
 
 func check_BitSet_Insert(t *testing.T, n uint, m uint) {
 	var iset Set
+	//
+	t.Parallel()
 	//
 	items := util.GenerateRandomUints(n, m)
 	count := countUniqueItems(items)

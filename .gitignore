@@ -7,34 +7,16 @@
 *.dll
 *.so
 *.dylib
-
-# Test binary, built with `go test -c`
 *.test
-
-# Output of the go coverage tool, specifically when used with LiteIDE
 *.out
-
-# Dependency directories (remove the comment below to include it)
-# vendor/
-
-# Go workspace file
-go.work
-
-# Emacs
 *~
-
-# Binary directory
-bin
-
-# Dependency directories (remove the comment below to include it)
-# vendor/
-
-# GoLand metadata
+go.work
 *.iml
 .idea
-
+.vscode
 .env
 
 # go-corset specific
+bin
 *.lt
 *.bin

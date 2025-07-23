@@ -28,9 +28,10 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
-	"github.com/consensys/go-corset/pkg/util/collection/word"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/termio"
+	"github.com/consensys/go-corset/pkg/util/word"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -42,9 +43,11 @@ var traceCmd = &cobra.Command{
 	it from one format (e.g. lt) to another (e.g. json),
 	or filtering out modules, or listing columns, etc.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		var (
-			traces [][]trace.BigEndianColumn
-		)
+		var traces [][]trace.BigEndianColumn
+		// Configure log level
+		if GetFlag(cmd, "verbose") {
+			log.SetLevel(log.DebugLevel)
+		}
 		// Parse trace
 		columns := GetFlag(cmd, "columns")
 		batched := GetFlag(cmd, "batched")

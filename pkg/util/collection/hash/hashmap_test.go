@@ -58,6 +58,8 @@ func TestSlow_HashMap_09(t *testing.T) {
 // ===================================================================
 
 func check_HashMap(t *testing.T, items []uint) {
+	t.Parallel()
+	//
 	gmap := initGoMap(items)
 	hmap := NewMap[testKey, uint](0)
 	// Insert items

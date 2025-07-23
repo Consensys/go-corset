@@ -19,50 +19,53 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/bit"
 )
 
-// ParallelTraceValidation validates that values held in trace columns match the
-// expected type.  This is really a sanity check that the trace is not
-// malformed.
-func ParallelTraceValidation(schema sc.AnySchema, tr tr.Trace) []error {
+// TraceExpansion expands a given trace according to a given schema. More
+// specifically, that means computing the actual values for any assignments.
+// This is done using a straightforward sequential algorithm.
+func TraceExpansion(parallel bool, batchsize uint, schema sc.AnySchema, trace *tr.ArrayTrace) error {
 	var (
-		errors []error
+		err error
 		// Start timer
 		stats = util.NewPerfStats()
-		// Construct a communication channel for errors.
-		c = make(chan error, 1024)
-		// Number of columns to validate
-		ntodo = uint(0)
 	)
-	// Check each module in turn
-	for mid := uint(0); mid < tr.Width(); mid++ {
-		var (
-			scMod = schema.Module(mid)
-			trMod = tr.Module(mid)
-		)
-		// Check each column within each module
-		for i := uint(0); i < trMod.Width(); i++ {
-			rid := sc.NewRegisterId(i)
-			// Check elements
-			go func(reg sc.Register, data trace.Column) {
-				// Send outcome back
-				c <- validateColumnBitWidth(reg.Width, data, scMod)
-			}(scMod.Register(rid), trMod.Column(i))
-			//
-			ntodo++
-		}
+	//
+	if parallel {
+		// Run (parallel) trace expansion
+		err = ParallelTraceExpansion(batchsize, schema, trace)
+	} else {
+		err = SequentialTraceExpansion(schema, trace)
 	}
-	// Collect up all the results
-	for i := uint(0); i < ntodo; i++ {
-		// Read from channel
-		if e := <-c; e != nil {
-			errors = append(errors, e)
+	// Log stats
+	stats.Log("Trace expansion")
+	//
+	return err
+}
+
+// SequentialTraceExpansion expands a given trace according to a given schema.
+// More specifically, that means computing the actual values for any
+// assignments.  This is done using a straightforward sequential algorithm.
+func SequentialTraceExpansion(schema sc.AnySchema, trace *trace.ArrayTrace) error {
+	var (
+		err      error
+		expander = NewExpander(schema.Width(), schema.Assignments())
+	)
+	// Compute each assignment in turn
+	for !expander.Done() {
+		var cols []tr.ArrayColumn
+		// Get next assignment
+		ith := expander.Next(1)[0]
+		// Compute ith assignment(s)
+		if cols, err = ith.Compute(trace, schema); err != nil {
+			return err
 		}
+		// Fill all computed columns
+		fillComputedColumns(ith.RegistersWritten(), cols, trace)
 	}
-	// Log stats about this batch
-	stats.Log("Validating trace")
 	// Done
-	return errors
+	return nil
 }
 
 // ParallelTraceExpansion performs trace expansion using concurrently executing
@@ -74,7 +77,7 @@ func ParallelTraceExpansion(batchsize uint, schema sc.AnySchema, trace *tr.Array
 	var (
 		batchNum = 0
 		// Construct a communication channel for errors.
-		ch = make(chan columnBatch, 1024)
+		ch = make(chan columnBatch, batchsize)
 		//
 		expander = NewExpander(schema.Width(), schema.Assignments())
 	)
@@ -122,6 +125,37 @@ func dispatchReadyAssignments(batch []sc.Assignment, schema sc.AnySchema, trace 
 			// Send outcome back
 			ch <- columnBatch{targets, cols, err}
 		}(ith.RegistersWritten())
+	}
+}
+
+// Fill a set of columns with their computed results.  The column index is that
+// of the first column in the sequence, and subsequent columns are index
+// consecutively.
+func fillComputedColumns(refs []sc.RegisterRef, cols []tr.ArrayColumn, trace *tr.ArrayTrace) {
+	var resized bit.Set
+	// Add all columns
+	for i, ref := range refs {
+		var (
+			rid    = ref.Column().Unwrap()
+			module = trace.RawModule(ref.Module())
+			dst    = module.Column(rid)
+			col    = cols[i]
+		)
+		// Sanity checks
+		if dst.Name() != col.Name() {
+			mod := module.Name()
+			panic(fmt.Sprintf("misaligned computed register %s.%s during trace expansion", mod, col.Name()))
+		}
+		// Looks good
+		if module.FillColumn(rid, col.Data(), col.Padding()) {
+			// Register module as being resized.
+			resized.Insert(ref.Module())
+		}
+	}
+	// Finalise resized modules
+	for iter := resized.Iter(); iter.HasNext(); {
+		module := trace.RawModule(iter.Next())
+		module.Resize()
 	}
 }
 

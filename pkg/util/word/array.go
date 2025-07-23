@@ -34,6 +34,8 @@ type Word[T any] interface {
 // NewArray constructs a new word array with a given capacity.
 func NewArray[T Word[T], P Pool[uint, T]](height uint, bitwidth uint, pool P) array.Builder[T] {
 	switch {
+	case bitwidth == 0:
+		return NewZeroArray[T](height)
 	case bitwidth == 1:
 		return NewBitArray[T](height)
 	case bitwidth < 64:
