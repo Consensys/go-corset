@@ -190,7 +190,7 @@ func allocateRegisters(cs *constraintSet, schema *hir.Schema) map[uint]uint {
 			cid := schema.AddDataColumn(ctx, handle.column, col_type)
 			// Check whether a type constraint required or not.
 			if c.MustProve && col_type.AsUint() != nil {
-				bound := col_type.AsUint().Bound()
+				bound := col_type.AsUint().BitWidth()
 				schema.AddRangeConstraint(c.Handle, ctx, hir.NewColumnAccess(cid, 0), bound)
 			}
 		}

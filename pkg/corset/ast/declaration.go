@@ -15,7 +15,6 @@ package ast
 import (
 	"fmt"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
@@ -653,11 +652,8 @@ type DefInRange struct {
 	// The expression whose values are being constrained to within the given
 	// bound.
 	Expr Expr
-	// The upper bound for this constraint.  Specifically, every evaluation of
-	// the expression should produce a value strictly below this bound.  NOTE:
-	// an fr.Element is used here to store the bound simply to make the
-	// necessary comparison against table data more direct.
-	Bound fr.Element
+	// Bitwidth determines the bitwidth that this range constraint is enforcing.
+	Bitwidth uint
 	// Indicates whether or not the expression has been resolved.
 	finalised bool
 }
@@ -701,7 +697,7 @@ func (p *DefInRange) Lisp() sexp.SExp {
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("definrange"),
 		p.Expr.Lisp(),
-		sexp.NewSymbol(p.Bound.String()),
+		sexp.NewSymbol(fmt.Sprintf("u%d", p.Bitwidth)),
 	})
 }
 

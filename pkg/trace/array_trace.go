@@ -88,12 +88,17 @@ func (p *ArrayTrace) FillColumn(cid uint, data field.FrArray, padding fr.Element
 // Pad prepends (front) and appends (back) a given module with a given number of
 // padding rows.
 func (p *ArrayTrace) Pad(module uint, front uint, back uint) {
-	p.modules[module].height += front + back
-	// Padd each column contained within this module.
-	for i := 0; i < len(p.columns); i++ {
-		c := &p.columns[i]
-		if c.context.ModuleId == module {
-			c.pad(front, back)
+	// NOTE: we do not pad modules that are entirely computed.  This is fine
+	// because, if they want padding, they can provide it themselves.
+	if p.modules[module].height != math.MaxUint {
+		// padding is safe
+		p.modules[module].height += front + back
+		// Padd each column contained within this module.
+		for i := 0; i < len(p.columns); i++ {
+			c := &p.columns[i]
+			if c.context.ModuleId == module {
+				c.pad(front, back)
+			}
 		}
 	}
 }

@@ -132,13 +132,22 @@ func (p *LexicographicSort) ComputeColumns(trace tr.Trace) ([]tr.ArrayColumn, er
 
 				cols[j+1].Data().Set(i, one)
 				// Compute curr - prev
-				if p.signs[j] {
-					diff.Set(&curr)
-					delta.Set(i, *diff.Sub(&diff, &prev))
-				} else {
-					diff.Set(&prev)
-					delta.Set(i, *diff.Sub(&diff, &curr))
+				if !p.signs[j] {
+					// Swap
+					prev, curr = curr, prev
 				}
+				// Sanity check whether computation is valid.  In cases where a
+				// selector is used, then negative (i.e. invalid) values can
+				// legitimately arise when the selector is not enabled.  In such
+				// cases, we just need any valid filler value.
+				if curr.Cmp(&prev) < 0 {
+					// Computation is invalid, so use filler of zero.
+					diff.Set(&zero)
+				} else {
+					diff.Sub(&curr, &prev)
+				}
+				//
+				delta.Set(i, diff)
 
 				set = true
 			} else {

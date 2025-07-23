@@ -94,8 +94,8 @@ func (e jsonConstraint) addToSchema(colmap map[uint]uint, schema *hir.Schema) {
 		// Normalise handle
 		handle := asHandle(e.Lookup.Handle)
 		// Construct source / target vectors
-		source := constraint.UnfilteredLookupVector(sourceCtx, sources)
-		target := constraint.UnfilteredLookupVector(targetCtx, targets)
+		source := constraint.UnfilteredLookupVector(sourceCtx, sources...)
+		target := constraint.UnfilteredLookupVector(targetCtx, targets...)
 		// Add constraint
 		schema.AddLookupConstraint(handle.column, source, target)
 	} else if e.InRange != nil {
@@ -104,10 +104,10 @@ func (e jsonConstraint) addToSchema(colmap map[uint]uint, schema *hir.Schema) {
 		// Determine enclosing module
 		ctx := expr.Context(schema)
 		// Convert bound into max
-		bound := e.InRange.Max.ToField()
+		bound := e.InRange.Max.ToBigInt().BitLen()
 		handle := expr.Lisp(schema).String(true)
 		// Construct the vanishing constraint
-		schema.AddRangeConstraint(handle, ctx, expr, bound)
+		schema.AddRangeConstraint(handle, ctx, expr, uint(bound))
 	} else if e.Permutation == nil {
 		// Catch all
 		panic("Unknown JSON constraint encountered")

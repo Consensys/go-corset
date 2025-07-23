@@ -56,6 +56,14 @@ type LexicographicSortingGadget struct {
 	strict bool
 	// Constraint active when selector is non-zero.
 	selector air.Expr
+	// Determines the largest bitwidth for which range constraints are
+	// translated into AIR range constraints, versus  using a horizontal
+	// bitwidth gadget.
+	maxRangeConstraint uint
+	// Disables the use of type proofs which exploit the limitless prover.
+	// Specifically, modules with a recursive structure are created specifically
+	// for the purpose of checking types.
+	legacyTypeProofs bool
 }
 
 // NewLexicographicSortingGadget constructs a default sorting gadget which can
@@ -68,7 +76,8 @@ func NewLexicographicSortingGadget(prefix string, columns []uint, bitwidth uint)
 		signs[i] = true
 	}
 	//
-	return LexicographicSortingGadget{prefix, columns, signs, bitwidth, false, air.NewConst64(1)}
+	return LexicographicSortingGadget{
+		prefix, columns, signs, bitwidth, false, air.NewConst64(1), 8, false}
 }
 
 // SetSigns configures the directions for all columns being sorted.
@@ -90,6 +99,16 @@ func (p *LexicographicSortingGadget) SetSelector(selector air.Expr) {
 	p.selector = selector
 }
 
+// SetMaxRangeConstraint determines the cutoff for range cosntraints.
+func (p *LexicographicSortingGadget) SetMaxRangeConstraint(width uint) {
+	p.maxRangeConstraint = width
+}
+
+// SetLegacyTypeProofs enables or disables use of limitless type proofs.
+func (p *LexicographicSortingGadget) SetLegacyTypeProofs(flag bool) {
+	p.legacyTypeProofs = flag
+}
+
 // Apply this lexicographic sorting gadget to a given schema.
 func (p *LexicographicSortingGadget) Apply(schema *air.Schema) {
 	// Check preconditions
@@ -107,8 +126,16 @@ func (p *LexicographicSortingGadget) Apply(schema *air.Schema) {
 	// Add delta constraint
 	deltaName := fmt.Sprintf("%s:delta", p.prefix)
 	schema.AddVanishingConstraint(deltaName, 0, ctx, util.None[int](), constraint)
-	// Add necessary bitwidth constraints
-	ApplyBitwidthGadget(deltaIndex, p.bitwidth, p.selector, schema)
+	// Add necessary bitwidth constraints.  Note, we don't need to consider
+	// the selector here since the delta column is unique to this
+	// constraint.  Furthermore, when the delta column is invalid (i.e. the
+	// original source constraints are not sorted correctly), then the
+	// assignment will assign zero (which is within bounds).
+	gadget := NewBitwidthGadget(schema).
+		WithLegacyTypeProofs(p.legacyTypeProofs).
+		WithMaxRangeConstraint(p.maxRangeConstraint)
+	// Apply bitwidth constraint
+	gadget.Constrain(deltaIndex, p.bitwidth)
 }
 
 // Add lexicographic selector bits, including the necessary constraints.  Each
@@ -126,7 +153,7 @@ func (p *LexicographicSortingGadget) addLexicographicSelectorBits(context trace.
 	// Add binary constraints for selector bits
 	for i := uint(0); i < ncols; i++ {
 		// Add binarity constraints (i.e. to enfoce that this column is a bit).
-		ApplyBinaryGadget(bitIndex+i, schema)
+		NewBitwidthGadget(schema).Constrain(bitIndex+i, 1)
 	}
 	// Apply constraints to ensure at most one is set.
 	terms := make([]air.Expr, ncols)
