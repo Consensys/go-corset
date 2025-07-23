@@ -131,7 +131,7 @@ func lowerRangeConstraintToAir(v RangeConstraint, mirSchema *Schema, airSchema *
 	// constraint or just a vanishing constraint.
 	// Constrict gadget
 	gadget := air_gadgets.NewBitwidthGadget(airSchema).
-		WithLimitless(cfg.LimitlessTypeProofs).
+		WithLegacyTypeProofs(cfg.LegacyTypeProofs).
 		WithMaxRangeConstraint(cfg.MaxRangeConstraint)
 	//
 	gadget.Constrain(column, v.Bitwidth)
@@ -174,10 +174,10 @@ func lowerConditionalLookupVector(c LookupVector, mirSchema *Schema, airSchema *
 	if c.HasSelector() {
 		selector := lowerLookupTerm(c.Context(), c.Selector.Unwrap(), mirSchema, airSchema, cfg)
 		// Optimal translation
-		return constraint.FilteredLookupVector(c.Context(), selector, terms)
+		return constraint.FilteredLookupVector(c.Context(), selector, terms...)
 	}
 	// no selector
-	return constraint.UnfilteredLookupVector(c.Context(), terms)
+	return constraint.UnfilteredLookupVector(c.Context(), terms...)
 }
 
 func lowerLegacyLookupVector(c LookupVector, mirSchema *Schema, airSchema *air.Schema,
@@ -195,7 +195,7 @@ func lowerLegacyLookupVector(c LookupVector, mirSchema *Schema, airSchema *air.S
 		terms[i] = lowerLookupTerm(c.Context(), ith, mirSchema, airSchema, cfg)
 	}
 	// no selector
-	return constraint.UnfilteredLookupVector(c.Context(), terms)
+	return constraint.UnfilteredLookupVector(c.Context(), terms...)
 }
 
 func lowerLookupTerm(context tr.Context, expr Expr, mirSchema *Schema, airSchema *air.Schema,
@@ -249,7 +249,7 @@ func lowerSortedConstraintToAir(c SortedConstraint, mirSchema *Schema, airSchema
 		gadget.SetSigns(c.Signs...)
 		gadget.SetStrict(c.Strict)
 		gadget.SetMaxRangeConstraint(cfg.MaxRangeConstraint)
-		gadget.SetLimitless(cfg.LimitlessTypeProofs)
+		gadget.SetLegacyTypeProofs(cfg.LegacyTypeProofs)
 		// Add (optional) selector
 		if c.Selector.HasValue() {
 			selector := lowerExprTo(c.Context, c.Selector.Unwrap(), mirSchema, airSchema, cfg)

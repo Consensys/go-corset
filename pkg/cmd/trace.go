@@ -85,6 +85,10 @@ var traceCmd = &cobra.Command{
 		if cmd.Flags().Lookup("legacy-lookups").Changed {
 			optConfig.LegacyLookups = GetFlag(cmd, "legacy-lookups")
 		}
+		// override for legacy type proofs
+		if cmd.Flags().Lookup("legacy-types").Changed {
+			optConfig.LegacyTypeProofs = GetFlag(cmd, "legacy-types")
+		}
 		// Parse trace file(s)
 		if batched {
 			// batched mode

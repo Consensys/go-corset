@@ -18,9 +18,15 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/air"
+	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/assignment"
+	"github.com/consensys/go-corset/pkg/schema/constraint"
+	"github.com/consensys/go-corset/pkg/trace"
+	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/iter"
 	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
 // BitwidthGadget is a general-purpose mechanism for enforcing type constraints
@@ -32,10 +38,10 @@ type BitwidthGadget struct {
 	// translated into AIR range constraints, versus  using a horizontal
 	// bitwidth gadget.
 	maxRangeConstraint uint
-	// Enables the use of type proofs which exploit the
-	// limitless prover. Specifically, modules with a recursive structure are
-	// created specifically for the purpose of checking types.
-	limitless bool
+	// Disables the use of type proofs which exploit the limitless prover.
+	// Specifically, modules with a recursive structure are created specifically
+	// for the purpose of checking types.
+	legacy bool
 	// Schema into which constraints are placed.
 	schema *air.Schema
 }
@@ -44,7 +50,7 @@ type BitwidthGadget struct {
 func NewBitwidthGadget(schema *air.Schema) *BitwidthGadget {
 	return &BitwidthGadget{
 		maxRangeConstraint: 8,
-		limitless:          false,
+		legacy:             false,
 		schema:             schema,
 	}
 }
@@ -56,8 +62,8 @@ func (p *BitwidthGadget) WithMaxRangeConstraint(width uint) *BitwidthGadget {
 }
 
 // WithLimitless enables or disables use of limitless type proofs.
-func (p *BitwidthGadget) WithLimitless(flag bool) *BitwidthGadget {
-	p.limitless = flag
+func (p *BitwidthGadget) WithLegacyTypeProofs(flag bool) *BitwidthGadget {
+	p.legacy = flag
 	return p
 }
 
@@ -73,12 +79,12 @@ func (p *BitwidthGadget) Constrain(col uint, bitwidth uint) {
 		p.schema.AddRangeConstraint(col, 0, bitwidth)
 		// Done
 		return
-	case p.limitless:
-		p.applyRecursiveBitwidthGadget(col, bitwidth)
-	default:
+	case p.legacy:
 		// NOTE: this should be deprecated once the limitless prover is well
 		// established.
 		p.applyHorizontalBitwidthGadget(col, bitwidth)
+	default:
+		p.applyRecursiveBitwidthGadget(col, bitwidth)
 	}
 }
 
@@ -153,7 +159,208 @@ func (p *BitwidthGadget) applyHorizontalBitwidthGadget(col uint, bitwidth uint) 
 // which divides each value into two smaller values.  This procedure is then
 // recursively applied to those columns, etc.
 func (p *BitwidthGadget) applyRecursiveBitwidthGadget(col uint, bitwidth uint) {
-	panic("todo")
+	var (
+		column       = p.schema.Columns().Nth(col)
+		proofHandle  = fmt.Sprintf(":u%d", bitwidth)
+		lookupHandle = fmt.Sprintf("%s:u%d", column.Name, bitwidth)
+	)
+	// Recursive case.
+	mid, ok := p.schema.Modules().Find(func(m sc.Module) bool {
+		return m.Name == proofHandle
+	})
+	//
+	if !ok {
+		// Construct proof module where first column is the target, etc.
+		mid = p.constructTypeProof(proofHandle, bitwidth)
+	}
+	// Identify the target column of proof module
+	vid := p.findTargetColumn(mid)
+	// Configure source vector
+	source := constraint.UnfilteredLookupVector(column.Context, &air.ColumnAccess{Column: col, Shift: 0})
+	// Configure target vector
+	target := constraint.UnfilteredLookupVector(tr.NewContext(mid, 1), &air.ColumnAccess{Column: vid, Shift: 0})
+	// Add lookup constraint
+	p.schema.AddLookupConstraint(lookupHandle, source, target)
+	// Add column to assignment so its proof is included
+	p.schema.Assignments().Find(func(a sc.Assignment) bool {
+		// Check whether the matching type decomposition
+		if proof, ok := a.(*typeDecomposition); ok && proof.Bitwidth() == bitwidth {
+			// match
+			proof.AddSource(col)
+			// terminate search
+			return true
+		}
+		//
+		return false
+	})
+}
+
+func (p *BitwidthGadget) constructTypeProof(handle string, bitwidth uint) uint {
+	var (
+		// Create new module for this type proof
+		mid = p.schema.AddModule(handle)
+		//
+		ctx = tr.NewContext(mid, 1)
+		// Determine limb widths.
+		loWidth, hiWidth = determineLimbSplit(bitwidth)
+	)
+	// Add (initially empty) assignment
+	vid := p.schema.AddAssignment(newTypeDecomposition(ctx, loWidth, hiWidth))
+	vidLo := vid + 1
+	vidHi := vid + 2
+	// Compute 2^loWidth to use as coefficient
+	coeff := fr.NewElement(2)
+	util.Pow(&coeff, uint64(loWidth))
+	// Ensure lo/hi are decomposition of original
+	p.schema.AddVanishingConstraint("decomposition", 0, ctx, util.None[int](),
+		air.Subtract(
+			air.NewColumnAccess(vid, 0),
+			air.Sum(
+				air.NewColumnAccess(vidLo, 0),
+				air.Product(air.NewConst(coeff), air.NewColumnAccess(vidHi, 0)),
+			),
+		))
+	// Recursively prove lo/hi columns
+	p.Constrain(vidLo, loWidth)
+	p.Constrain(vidHi, hiWidth)
+	//dev Done
+	return mid
+}
+
+// Determine the index of the target column for the given type proof.  That is,
+// the column which holds the values being range checked.
+func (p *BitwidthGadget) findTargetColumn(mid uint) uint {
+	// Determining the first column index of an assignment is pretty easy.  We
+	// just look for the first occuring column whose context matches the target
+	// module.
+	cid, ok := p.schema.Columns().Find(func(m sc.Column) bool {
+		return m.Context.ModuleId == mid
+	})
+	// Sanity check
+	if !ok {
+		mod := p.schema.Modules().Nth(mid)
+		panic(fmt.Sprintf("missing target column for type proof %s", mod.Name))
+	}
+	// Done!
+	return cid
+}
+
+// ============================================================================
+// Type Decomposition Assignment
+// ============================================================================
+
+type typeDecomposition struct {
+	// Limb widths of decomposition.
+	loWidth, hiWidth uint
+	// Source registers being decomposed which represent the set of all the
+	// columns in the entire system being proved to have the given bitwidth.
+	sources []uint
+	// Target registers for decomposition.  There are always exactly three
+	// registers, where the first holds the original value, followed by the
+	// least significant (lo) limb and, finally, the most significant (hi) limb.
+	targets []sc.Column
+}
+
+func newTypeDecomposition(context trace.Context, loWidth, hiWidth uint) *typeDecomposition {
+	return &typeDecomposition{
+		loWidth, hiWidth,
+		nil, // initially empty set of source columns
+		[]sc.Column{
+			sc.NewColumn(context, "V", sc.NewUintType(loWidth+hiWidth)),
+			sc.NewColumn(context, "V'0", sc.NewUintType(loWidth)),
+			sc.NewColumn(context, "V'1", sc.NewUintType(hiWidth)),
+		},
+	}
+}
+
+// AddSource adds a new source column to this decomposition.
+func (p *typeDecomposition) AddSource(source uint) {
+	p.sources = append(p.sources, source)
+}
+
+// Bitwidth returns the bitwidth being enforced by this type decompsition.
+func (p *typeDecomposition) Bitwidth() uint {
+	return p.loWidth + p.hiWidth
+}
+
+// Context returns the evaluation context for this declaration.
+func (p *typeDecomposition) Context() trace.Context {
+	return p.targets[0].Context
+}
+
+// Columns returns the columns declared by this byte decomposition (in the order
+// of declaration).
+func (p *typeDecomposition) Columns() iter.Iterator[sc.Column] {
+	return iter.NewArrayIterator(p.targets)
+}
+
+// IsComputed Determines whether or not this declaration is computed.
+func (p *typeDecomposition) IsComputed() bool {
+	return true
+}
+
+// Compute computes the values of columns defined by this assignment.
+// This requires computing the value of each byte column in the decomposition.
+func (p *typeDecomposition) ComputeColumns(tr trace.Trace) ([]trace.ArrayColumn, error) {
+	// Read all input columns
+	sources := readSources(tr, p.sources...)
+	// Combine all sources to eliminate duplicates
+	combined := combineSources(p.loWidth+p.hiWidth, sources)
+	// Generate decomposition
+	data := computeDecomposition(p.loWidth, p.hiWidth, combined)
+	//
+	return writeTargets(p.targets, data), nil
+}
+
+// Bounds determines the well-definedness bounds for this assignment for both
+// the negative (left) or positive (right) directions.  For example, consider an
+// expression such as "(shift X -1)".  This is technically undefined for the
+// first row of any trace and, by association, any constraint evaluating this
+// expression on that first row is also undefined (and hence must pass).
+func (p *typeDecomposition) Bounds() util.Bounds {
+	return util.EMPTY_BOUND
+}
+
+// CheckConsistency performs some simple checks that the given schema is consistent.
+// This provides a double check of certain key properties, such as that
+// registers used for assignments are large enough, etc.
+func (p *typeDecomposition) CheckConsistency(schema sc.Schema) error {
+	return nil
+}
+
+// RegistersRead returns the set of columns that this assignment depends upon.
+// That can include both input columns, as well as other computed columns.
+func (p *typeDecomposition) Dependencies() []uint {
+	return p.sources
+}
+
+// Lisp converts this schema element into a simple S-Expression, for example
+// so it can be printed.
+func (p *typeDecomposition) Lisp(schema sc.Schema) sexp.SExp {
+	var (
+		targets = sexp.EmptyList()
+		sources = sexp.EmptyList()
+	)
+	//
+	for _, t := range p.targets {
+		targets.Append(sexp.NewList([]sexp.SExp{
+			// name
+			sexp.NewSymbol(t.QualifiedName(schema)),
+			// type
+			sexp.NewSymbol(t.DataType.String()),
+		}))
+	}
+	//
+	for _, s := range p.sources {
+		ithName := sc.QualifiedName(schema, s)
+		sources.Append(sexp.NewSymbol(ithName))
+	}
+	//
+	return sexp.NewList([]sexp.SExp{
+		sexp.NewSymbol("decompose"),
+		targets,
+		sources,
+	})
 }
 
 // ============================================================================
@@ -184,6 +391,31 @@ func determineLimbSplit(bitwidth uint) (uint, uint) {
 	}
 	//
 	return loMaxWidth, bitwidth - loMaxWidth
+}
+
+func readSources(trace tr.Trace, sources ...uint) []field.FrArray {
+	var (
+		targets = make([]field.FrArray, len(sources))
+	)
+	// Read registers
+	for i, col := range sources {
+		targets[i] = trace.Column(col).Data()
+	}
+	//
+	return targets
+}
+
+func writeTargets(targets []sc.Column, data []field.FrArray) []tr.ArrayColumn {
+	var (
+		padding = fr.NewElement(0)
+		columns = make([]tr.ArrayColumn, len(targets))
+	)
+	// Write outputs
+	for i, target := range targets {
+		columns[i] = tr.NewArrayColumn(target.Context, target.Name, data[i], padding)
+	}
+	//
+	return columns
 }
 
 // Combine all values from the given source registers into a single array of

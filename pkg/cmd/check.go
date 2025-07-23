@@ -83,6 +83,10 @@ var checkCmd = &cobra.Command{
 		if cmd.Flags().Lookup("legacy-lookups").Changed {
 			cfg.optimisation.LegacyLookups = GetFlag(cmd, "legacy-lookups")
 		}
+		// override for legacy type proofs
+		if cmd.Flags().Lookup("legacy-types").Changed {
+			cfg.optimisation.LegacyTypeProofs = GetFlag(cmd, "legacy-types")
+		}
 		externs := GetStringArray(cmd, "set")
 		// TODO: support true ranges
 		cfg.padding.Left = cfg.padding.Right

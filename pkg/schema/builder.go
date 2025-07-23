@@ -348,7 +348,7 @@ func checkModuleHeights(original []uint, defensive bool, tr *trace.ArrayTrace, s
 		spillage := RequiredPaddingRows(mid, defensive, schema)
 		expected := original[mid] + spillage
 		// Perform the check
-		if expected != expanded[mid] {
+		if original[mid] != math.MaxUint && expected != expanded[mid] {
 			name := schema.Modules().Nth(mid).Name
 			return fmt.Errorf(
 				"inconsistent expanded trace height for %s (was %d but expected %d)", name, expanded[mid], expected)

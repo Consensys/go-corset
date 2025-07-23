@@ -384,9 +384,9 @@ func (t *translator) translateLookupVector(vec ast.LookupVector, module util.Pat
 	// Check whether we encountered any errors as, for example, we cannot
 	// determine the context it is is conflicted.
 	if len(errors) == 0 && vec.Selector != nil {
-		return constraint.FilteredLookupVector(t.env.ContextOf(context), selector, terms), errors
+		return constraint.FilteredLookupVector(t.env.ContextOf(context), selector, terms...), errors
 	} else if len(errors) == 0 {
-		return constraint.UnfilteredLookupVector(t.env.ContextOf(context), terms), errors
+		return constraint.UnfilteredLookupVector(t.env.ContextOf(context), terms...), errors
 	}
 	//
 	return hir.LookupVector{}, errors

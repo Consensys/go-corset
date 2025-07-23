@@ -30,8 +30,8 @@ type OptimisationConfig struct {
 	// the level indicates the range cardinality.  For example, level 2 means
 	// any range of cardinality 2 is eliminated (e.g. {1,2}, {5,6}, etc).
 	InverseEliminiationLevel uint
-	// MaxRangeConstraint determines an upper bound on which MIR range
-	// constraints are translated in AIR range constraints, versus using a
+	// MaxRangeConstraint determines the largest bitwidth for which range
+	// constraints are translated into AIR range constraints, versus  using a
 	// horizontal bitwidth gadget.
 	MaxRangeConstraint uint
 	// ShiftNormalisation is an optimisation for inverse columns involving
@@ -41,10 +41,10 @@ type OptimisationConfig struct {
 	// legacy lookups.  This eliminates any potential benefit from conditional
 	// lookups, but is closer to the original formulation.
 	LegacyLookups bool
-	// LimitlessTypeProofs enables the use of type proofs which exploit the
+	// LegacyTypeProofs disables the use of type proofs which exploit the
 	// limitless prover. Specifically, modules with a recursive structure are
 	// created specifically for the purpose of checking types.
-	LimitlessTypeProofs bool
+	LegacyTypeProofs bool
 }
 
 // OPTIMISATION_LEVELS provides a set of precanned optimisation configurations.
@@ -53,9 +53,9 @@ type OptimisationConfig struct {
 // always improve performance).
 var OPTIMISATION_LEVELS = []OptimisationConfig{
 	// Level 0 == nothing enabled
-	{0, 256, false, true, false},
+	{0, 8, false, true, true},
 	// Level 1 == minimal optimisations applied.
-	{1, 65536, true, false, true},
+	{1, 16, true, false, false},
 }
 
 // DEFAULT_OPTIMISATION_LEVEL provides a default level of optimisation which

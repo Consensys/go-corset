@@ -69,7 +69,7 @@ type LookupVector[E schema.Evaluable] struct {
 }
 
 // UnfilteredLookupVector constructs a new vector in a given context which has no selector.
-func UnfilteredLookupVector[E schema.Evaluable](context trace.Context, terms []E) LookupVector[E] {
+func UnfilteredLookupVector[E schema.Evaluable](context trace.Context, terms ...E) LookupVector[E] {
 	return LookupVector[E]{
 		context,
 		util.None[E](),
@@ -78,7 +78,7 @@ func UnfilteredLookupVector[E schema.Evaluable](context trace.Context, terms []E
 }
 
 // FilteredLookupVector constructs a new vector in a given context which has a selector.
-func FilteredLookupVector[E schema.Evaluable](context trace.Context, selector E, terms []E) LookupVector[E] {
+func FilteredLookupVector[E schema.Evaluable](context trace.Context, selector E, terms ...E) LookupVector[E] {
 	return LookupVector[E]{
 		context,
 		util.Some(selector),

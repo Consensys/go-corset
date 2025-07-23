@@ -73,6 +73,10 @@ var debugCmd = &cobra.Command{
 		if cmd.Flags().Lookup("legacy-lookups").Changed {
 			optConfig.LegacyLookups = GetFlag(cmd, "legacy-lookups")
 		}
+		// override for legacy type proofs
+		if cmd.Flags().Lookup("legacy-types").Changed {
+			optConfig.LegacyTypeProofs = GetFlag(cmd, "legacy-types")
+		}
 		// Parse constraints
 		binfile := ReadConstraintFiles(corsetConfig, args)
 		// Apply any user-specified values for externalised constants.
