@@ -130,6 +130,10 @@ func determineConservativeSpillage(defensive bool, hirSchema *hir.Schema) []uint
 		if i == 0 {
 			spillage = ith
 		} else {
+			// Expand to account for additional modules.
+			for len(spillage) < len(ith) {
+				spillage = append(spillage, 0)
+			}
 			// Conservative include all spillage
 			for j := range ith {
 				spillage[j] = max(spillage[j], ith[j])
