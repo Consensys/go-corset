@@ -90,7 +90,7 @@ func (p *ColumnSortGadget) SetMaxRangeConstraint(width uint) {
 	p.maxRangeConstraint = width
 }
 
-// SetLimitless enables or disables use of limitless type proofs.
+// SetLegacyTypeProofs enables or disables use of limitless type proofs.
 func (p *ColumnSortGadget) SetLegacyTypeProofs(flag bool) {
 	p.legacyTypeProofs = flag
 }

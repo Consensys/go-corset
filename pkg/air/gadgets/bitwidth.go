@@ -61,7 +61,7 @@ func (p *BitwidthGadget) WithMaxRangeConstraint(width uint) *BitwidthGadget {
 	return p
 }
 
-// WithLimitless enables or disables use of limitless type proofs.
+// WithLegacyTypeProofs disables (or enables) use of limitless type proofs.
 func (p *BitwidthGadget) WithLegacyTypeProofs(flag bool) *BitwidthGadget {
 	p.legacy = flag
 	return p
@@ -231,7 +231,7 @@ func (p *BitwidthGadget) constructTypeProof(handle string, bitwidth uint) uint {
 // the column which holds the values being range checked.
 func (p *BitwidthGadget) findTargetColumn(mid uint) uint {
 	// Determining the first column index of an assignment is pretty easy.  We
-	// just look for the first occuring column whose context matches the target
+	// just look for the first occurring column whose context matches the target
 	// module.
 	cid, ok := p.schema.Columns().Find(func(m sc.Column) bool {
 		return m.Context.ModuleId == mid

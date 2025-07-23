@@ -104,7 +104,7 @@ func (p *LexicographicSortingGadget) SetMaxRangeConstraint(width uint) {
 	p.maxRangeConstraint = width
 }
 
-// SetLimitless enables or disables use of limitless type proofs.
+// SetLegacyTypeProofs enables or disables use of limitless type proofs.
 func (p *LexicographicSortingGadget) SetLegacyTypeProofs(flag bool) {
 	p.legacyTypeProofs = flag
 }
