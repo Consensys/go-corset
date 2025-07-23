@@ -221,8 +221,7 @@ func (t *translator) translateDeclarationsInModule(path util.Path, decls []ast.D
 	return errors
 }
 
-// Translate an assignment or constraint declarartion which occurs within a
-// given module.
+// Translate an assignment or constraint declaration which occurs within a given module.
 func (t *translator) translateDeclaration(decl ast.Declaration, path util.Path) []SyntaxError {
 	var errors []SyntaxError
 	//
@@ -255,13 +254,17 @@ func (t *translator) translateDeclaration(decl ast.Declaration, path util.Path) 
 	case *ast.DefSorted:
 		errors = t.translateDefSorted(d)
 	case *ast.DefComputedColumn:
-		// TODO
+		errors = t.translateDefComputedColumn(d)
 	default:
 		// Error handling
 		panic("unknown declaration")
 	}
 	//
 	return errors
+}
+
+func (t *translator) translateDefComputedColumn(d *ast.DefComputedColumn) []SyntaxError {
+	panic("unimplemented")
 }
 
 // Translate a "defcomputed" declaration.
