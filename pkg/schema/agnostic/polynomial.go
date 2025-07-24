@@ -121,8 +121,8 @@ func LimbPolynomial(limbs []schema.RegisterId, env schema.RegisterLimbsMap) Poly
 func WidthOfPolynomial(source Polynomial, regs []schema.Register) (bitwidth uint, signed bool) {
 	var (
 		intRange  = IntegerRangeOfPolynomial(source, regs)
-		lower     = intRange.MinValue()
-		upper     = intRange.MaxValue()
+		lower     = intRange.MinIntValue()
+		upper     = intRange.MaxIntValue()
 		upperBits = uint(upper.BitLen())
 	)
 	// Check whether negative range in play.
@@ -146,8 +146,8 @@ func WidthOfPolynomial(source Polynomial, regs []schema.Register) (bitwidth uint
 func SplitWidthOfPolynomial(source Polynomial, regs []schema.Register) (poswidth uint, negwidth uint) {
 	var (
 		intRange  = IntegerRangeOfPolynomial(source, regs)
-		lower     = intRange.MinValue()
-		upper     = intRange.MaxValue()
+		lower     = intRange.MinIntValue()
+		upper     = intRange.MaxIntValue()
 		upperBits = uint(upper.BitLen())
 	)
 	// Check whether negative range in play.
@@ -182,10 +182,10 @@ func IntegerRangeOfPolynomial(poly Polynomial, regs []schema.Register) math.Inte
 // evaluations of the monomial lie.  For example, consider the monomial "3*X*Y"
 // where X and are 8bit and 16bit registers respectively.  Then, the smallest
 // enclosing integer range is 0 .. 3*255*65535.
-func IntegerRangeOfMonomial(mono Monomial, regs []schema.Register) *math.Interval {
+func IntegerRangeOfMonomial(mono Monomial, regs []schema.Register) math.Interval {
 	var (
 		coeff    = mono.Coefficient()
-		intRange = math.NewInterval(&coeff, &coeff)
+		intRange = math.NewInterval(coeff, coeff)
 	)
 	//
 	for i := range mono.Len() {
@@ -198,7 +198,7 @@ func IntegerRangeOfMonomial(mono Monomial, regs []schema.Register) *math.Interva
 // IntegerRangeOfRegister determines the smallest integer range enclosing all possible
 // values for a given register.  For example, a register of width 16 has an
 // integer range of 0..65535 (inclusive).
-func IntegerRangeOfRegister(rid schema.RegisterId, regs []schema.Register) *math.Interval {
+func IntegerRangeOfRegister(rid schema.RegisterId, regs []schema.Register) math.Interval {
 	var (
 		val   = big.NewInt(2)
 		width = regs[rid.Unwrap()].Width
@@ -207,5 +207,5 @@ func IntegerRangeOfRegister(rid schema.RegisterId, regs []schema.Register) *math
 	// less than 65536 bits :)
 	val.Exp(val, big.NewInt(int64(width)), nil)
 	// Subtract one since the interval is inclusive.
-	return math.NewInterval(&zero, val.Sub(val, &one))
+	return math.NewInterval(zero, *val.Sub(val, &one))
 }

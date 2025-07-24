@@ -113,7 +113,7 @@ func (p *VectorAccess[T]) Substitute(mapping map[string]fr.Element) {
 }
 
 // ValueRange implementation for Term interface.
-func (p *VectorAccess[T]) ValueRange(mapping schema.RegisterMap) *math.Interval {
+func (p *VectorAccess[T]) ValueRange(mapping schema.RegisterMap) math.Interval {
 	var width = uint(0)
 	// Determine total bitwidth of the vector
 	for _, arg := range p.Vars {

@@ -118,11 +118,11 @@ func (p *AnyType) String() string {
 // INT_TYPE represents the infinite integer range.  This cannot be translated
 // into a concrete type at the lower level, and therefore can only be used
 // internally (e.g. for type checking).
-var INT_TYPE = &IntType{nil}
+var INT_TYPE = &IntType{math.INFINITY}
 
 // IntType represents a set of signed integer values.
 type IntType struct {
-	values *math.Interval
+	values math.Interval
 }
 
 // NewUintType constructs a native uint type of the given width which,
@@ -133,19 +133,19 @@ func NewUintType(nbits uint) Type {
 	// Subtract 1 because interval is inclusive.
 	bound.Sub(bound, big.NewInt(1))
 	//
-	return &IntType{math.NewInterval(big.NewInt(0), bound)}
+	return &IntType{math.NewInterval(*big.NewInt(0), *bound)}
 }
 
 // NewIntType constructs a new integer type containing all values between the
 // lower and upper bounds (inclusive).
-func NewIntType(lower *big.Int, upper *big.Int) *IntType {
-	return &IntType{math.NewInterval(lower, upper)}
+func NewIntType(values math.Interval) *IntType {
+	return &IntType{values}
 }
 
 // HasUnderlying determines whether or not this type has an underlying
 // representation, or not.
 func (p *IntType) HasUnderlying() bool {
-	return p.values != nil
+	return !p.values.IsInfinite()
 }
 
 // BitWidth attempts to determine an appropriate bitwidth for this type.
@@ -168,7 +168,7 @@ func (p *IntType) Width() uint {
 // Values returns the interval of integers contained within this type
 // represents.
 func (p *IntType) Values() math.Interval {
-	return *p.values
+	return p.values
 }
 
 // LeastUpperBound computes the least upper bound of this type and another. This
@@ -177,21 +177,9 @@ func (p *IntType) Values() math.Interval {
 // is returned.
 func (p *IntType) LeastUpperBound(other Type) Type {
 	if o, ok := other.(*IntType); ok {
-		var values math.Interval
+		values := p.values.Union(o.values)
 		//
-		switch {
-		case p.values == nil && o.values == nil:
-			return &IntType{nil}
-		case o.values == nil:
-			values.Set(p.values)
-		case p.values == nil:
-			values.Set(o.values)
-		default:
-			values.Set(p.values)
-			values.Insert(o.values)
-		}
-		//
-		return &IntType{&values}
+		return &IntType{values}
 	} else if _, ok := other.(*AnyType); ok {
 		return p
 	}
@@ -202,16 +190,7 @@ func (p *IntType) LeastUpperBound(other Type) Type {
 // SubtypeOf determines whether or not this type is a subtype of another.
 func (p *IntType) SubtypeOf(other Type) bool {
 	if o, ok := other.(*IntType); ok {
-		switch {
-		case p.values == nil && o.values == nil:
-			return true
-		case o.values == nil:
-			return true
-		case p.values == nil:
-			return false
-		default:
-			return p.values.Within(o.values)
-		}
+		return p.values.Within(o.values)
 	} else if _, ok := other.(*AnyType); ok {
 		return true
 	}
@@ -220,7 +199,7 @@ func (p *IntType) SubtypeOf(other Type) bool {
 }
 
 func (p *IntType) String() string {
-	if p.values != nil {
+	if p.values.IsFinite() {
 		width, signed := p.values.BitWidth()
 		//
 		if signed {

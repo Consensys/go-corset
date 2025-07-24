@@ -14,6 +14,7 @@ package mir
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
@@ -23,7 +24,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/field"
-	"github.com/consensys/go-corset/pkg/util/math"
+	util_math "github.com/consensys/go-corset/pkg/util/math"
 )
 
 // LowerToAir lowers (or refines) an MIR schema into an AIR schema.  That means
@@ -194,11 +195,14 @@ func (p *AirLowering) lowerPermutationConstraintToAir(v PermutationConstraint, a
 func (p *AirLowering) lowerRangeConstraintToAir(v RangeConstraint, airModule *air.ModuleBuilder) {
 	var (
 		mirModule        = p.mirSchema.Module(v.Context)
-		bitwidth, signed = v.Expr.ValueRange(mirModule).BitWidth()
+		valRange         = v.Expr.ValueRange(mirModule)
+		bitwidth, signed = valRange.BitWidth()
 	)
-	// Sanity check
+	// Sanity check bitwidth result
 	if signed {
-		panic(fmt.Sprintf("signed expansion encountered (%s)", v.Expr.Lisp(airModule).String(true)))
+		// We can't determine a suitable bitwidth, so it should be the maximum
+		// value for the underlying field.
+		bitwidth = math.MaxUint
 	}
 	// Lower target expression
 	target := p.lowerAndSimplifyTermTo(v.Expr, airModule)
@@ -262,7 +266,8 @@ func (p *AirLowering) lowerSortedConstraintToAir(c SortedConstraint, airModule *
 	for i := 0; i < len(sources); i++ {
 		var (
 			ith                    = c.Sources[i]
-			sourceBitwidth, signed = ith.ValueRange(airModule).BitWidth()
+			ithRange               = ith.ValueRange(airModule)
+			sourceBitwidth, signed = ithRange.BitWidth()
 		)
 		// Sanity check
 		if signed {
@@ -331,7 +336,8 @@ func (p *AirLowering) expandTermsInner(context schema.ModuleId, lookup bool, ter
 			// selector exists.
 			source_register = schema.NewUnusedRegisterId()
 		} else {
-			sourceBitwidth, signed := ith.ValueRange(airModule).BitWidth()
+			sourceRange := ith.ValueRange(airModule)
+			sourceBitwidth, signed := sourceRange.BitWidth()
 			//
 			if signed {
 				panic(fmt.Sprintf("signed expansion encountered (%s)", ith.Lisp(airModule).String(true)))
@@ -713,10 +719,10 @@ func (p *AirLowering) normalise(arg air.Term, airModule *air.ModuleBuilder) air.
 	// Check whether normalisation actually required.  For example, if the
 	// argument is just a binary column then a normalisation is not actually
 	// required.
-	if p.config.InverseEliminiationLevel > 0 && bounds.Within(math.NewInterval64(0, 1)) {
+	if p.config.InverseEliminiationLevel > 0 && bounds.Within(util_math.NewInterval64(0, 1)) {
 		// arg ∈ {0,1} ==> normalised already :)
 		return arg
-	} else if p.config.InverseEliminiationLevel > 0 && bounds.Within(math.NewInterval64(-1, 1)) {
+	} else if p.config.InverseEliminiationLevel > 0 && bounds.Within(util_math.NewInterval64(-1, 1)) {
 		// arg ∈ {-1,0,1} ==> (arg*arg) ∈ {0,1}
 		return ir.Product(arg, arg)
 	}

@@ -21,6 +21,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
+	util_math "github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
 
@@ -485,7 +486,7 @@ func (r *resolver) finaliseDefConstInModule(enclosing Scope, decl *ast.DefConst)
 			// Check it is indeed constant!
 			if constant := c.ConstBinding.Value.AsConstant(); constant != nil {
 				datatype := c.ConstBinding.DataType
-				result := ast.NewIntType(constant, constant)
+				result := ast.NewIntType(util_math.NewInterval(*constant, *constant))
 				// Sanity check explicit type (if given)
 				if datatype != nil && !result.SubtypeOf(datatype) {
 					// error, constant value outside bounds of given type!

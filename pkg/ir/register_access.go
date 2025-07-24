@@ -138,7 +138,7 @@ func (p *RegisterAccess[T]) Substitute(mapping map[string]fr.Element) {
 }
 
 // ValueRange implementation for Term interface.
-func (p *RegisterAccess[T]) ValueRange(mapping schema.RegisterMap) *util_math.Interval {
+func (p *RegisterAccess[T]) ValueRange(mapping schema.RegisterMap) util_math.Interval {
 	var width = mapping.Register(p.Register).Width
 	// NOTE: the following is necessary because MaxUint is permitted as a signal
 	// that the given register has no fixed bitwidth.  Rather, it can consume
@@ -150,12 +150,12 @@ func (p *RegisterAccess[T]) ValueRange(mapping schema.RegisterMap) *util_math.In
 	return valueRangeOfBits(width)
 }
 
-func valueRangeOfBits(bitwidth uint) *util_math.Interval {
+func valueRangeOfBits(bitwidth uint) util_math.Interval {
 	var bound = big.NewInt(2)
 	//
 	bound.Exp(bound, big.NewInt(int64(bitwidth)), nil)
 	// Subtract 1 because interval is inclusive.
 	bound.Sub(bound, &biONE)
 	// Done
-	return util_math.NewInterval(&biZERO, bound)
+	return util_math.NewInterval(biZERO, *bound)
 }

@@ -419,7 +419,8 @@ func updateGeometry[E ir.Evaluable, T schema.RegisterMap](geometry []uint, sourc
 		// Since first column is always the selector column, it may not be
 		// defined.
 		if i != 0 || ith.IsDefined() {
-			bitwidth, signed := ith.ValueRange(regmap).BitWidth()
+			ithRange := ith.ValueRange(regmap)
+			bitwidth, signed := ithRange.BitWidth()
 			// Sanity check
 			if signed {
 				panic(fmt.Sprintf("signed lookup encountered (%s)", ith.Lisp(regmap).String(true)))

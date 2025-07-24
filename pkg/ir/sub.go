@@ -101,7 +101,7 @@ func (p *Sub[T]) Substitute(mapping map[string]fr.Element) {
 }
 
 // ValueRange implementation for Term interface.
-func (p *Sub[T]) ValueRange(mapping schema.RegisterMap) *math.Interval {
+func (p *Sub[T]) ValueRange(mapping schema.RegisterMap) math.Interval {
 	var res math.Interval
 
 	for i, arg := range p.Args {
@@ -113,7 +113,7 @@ func (p *Sub[T]) ValueRange(mapping schema.RegisterMap) *math.Interval {
 		}
 	}
 	//
-	return &res
+	return res
 }
 
 // Simplify implementation for Term interface.

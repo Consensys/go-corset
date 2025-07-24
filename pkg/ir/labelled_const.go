@@ -98,10 +98,10 @@ func (p *LabelledConst[T]) Substitute(mapping map[string]fr.Element) {
 }
 
 // ValueRange implementation for Term interface.
-func (p *LabelledConst[T]) ValueRange(_ schema.RegisterMap) *util_math.Interval {
+func (p *LabelledConst[T]) ValueRange(_ schema.RegisterMap) util_math.Interval {
 	var c big.Int
 	// Extract big integer from field element
 	p.Value.BigInt(&c)
 	// Return as interval
-	return util_math.NewInterval(&c, &c)
+	return util_math.NewInterval(c, c)
 }

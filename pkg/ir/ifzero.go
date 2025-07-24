@@ -131,7 +131,7 @@ func (p *IfZero[S, T]) ShiftRange() (int, int) {
 }
 
 // ValueRange implementation for Term interface.
-func (p *IfZero[S, T]) ValueRange(_ schema.RegisterMap) *math.Interval {
+func (p *IfZero[S, T]) ValueRange(_ schema.RegisterMap) math.Interval {
 	panic("todo")
 }
 

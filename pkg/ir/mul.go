@@ -143,7 +143,7 @@ func (p *Mul[T]) Simplify(casts bool) T {
 }
 
 // ValueRange implementation for Term interface.
-func (p *Mul[T]) ValueRange(mapping schema.RegisterMap) *math.Interval {
+func (p *Mul[T]) ValueRange(mapping schema.RegisterMap) math.Interval {
 	var res math.Interval
 
 	for i, arg := range p.Args {
@@ -155,7 +155,7 @@ func (p *Mul[T]) ValueRange(mapping schema.RegisterMap) *math.Interval {
 		}
 	}
 	//
-	return &res
+	return res
 }
 
 func flatternMul[T Term[T]](term T) []T {

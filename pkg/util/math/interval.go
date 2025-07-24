@@ -18,49 +18,76 @@ import (
 )
 
 // INFINITY represents the interval which encloses all other intervals.
-var INFINITY *Interval = nil
+var INFINITY Interval = Interval{NegInfinity, PosInfinity}
 
 // Interval provides a discrete range of integers, such as 0..1, 1..18, etc.  An
 // interval can be used to approximate the possible values that a given
-// expression could evaluate to.
+// expression could evaluate to.  An interval can additionally represent three
+// different forms of infinity: negative infinity, positive infinity and plain
+// infinity.  The latter contains both negative and positive infinities.  For
+// more information on this system, see the following paper:
+//
+// Integer Range Analysis for Whiley on Embedded Systems, David J. Pearce.  In
+// Proceedings of the IEEE/IFIP Workshop on Software Technologies for Future
+// Embedded and Ubiquitous Systems (SEUS), pages 26--33, 2015.
 type Interval struct {
-	min big.Int
-	max big.Int
+	min InfInt
+	max InfInt
 }
 
 // NewInterval creates an interval representing a given range.
-func NewInterval(lower *big.Int, upper *big.Int) *Interval {
+func NewInterval(lower big.Int, upper big.Int) Interval {
 	var (
-		min big.Int
-		max big.Int
+		min InfInt
+		max InfInt
 	)
+	// sanity check
+	if lower.Cmp(&upper) > 0 {
+		panic("invalid interval")
+	}
 	//
-	min.Set(lower)
-	max.Set(upper)
+	min.SetInt(lower)
+	max.SetInt(upper)
 	//
-	return &Interval{min, max}
+	return Interval{min, max}
 }
 
 // NewInterval64 creates an interval representing a given range.
-func NewInterval64(lower int64, upper int64) *Interval {
-	return NewInterval(big.NewInt(lower), big.NewInt(upper))
+func NewInterval64(lower int64, upper int64) Interval {
+	return NewInterval(*big.NewInt(lower), *big.NewInt(upper))
 }
 
-// IsInfinite checks whether or not this interval is infinity.
+// IsFinite determines whether or not this interval represents an a finite value
+// (i.e. not an infinity).
+func (p *Interval) IsFinite() bool {
+	return p.min.IsNotAnInfinity() && p.max.IsNotAnInfinity()
+}
+
+// IsInfinite determines whether or not this interval represents an infinity.
 func (p *Interval) IsInfinite() bool {
-	return p == nil
+	return !p.IsFinite()
 }
 
-// MinValue returns the minimum value that this interval includes.  Note: this
-// method will panic if called with the infinite interval.
-func (p *Interval) MinValue() big.Int {
+// MinValue returns the minimum value that this interval includes.
+func (p *Interval) MinValue() InfInt {
 	return p.min
 }
 
-// MaxValue returns the maximum value that this interval includes.  Note: this
-// method will panic if called with the infinite interval.
-func (p *Interval) MaxValue() big.Int {
+// MinIntValue returns the minimum value that this interval includes.  Note this
+// will panic if the interval is infinite.
+func (p *Interval) MinIntValue() big.Int {
+	return p.min.IntVal()
+}
+
+// MaxValue returns the maximum value that this interval includes.
+func (p *Interval) MaxValue() InfInt {
 	return p.max
+}
+
+// MaxIntValue returns the maximum value that this interval includes.  Note this
+// will panic if the interval is infinite.
+func (p *Interval) MaxIntValue() big.Int {
+	return p.max.IntVal()
 }
 
 // BitWidth returns the minimum number of bits required to store all elements in
@@ -69,117 +96,96 @@ func (p *Interval) MaxValue() big.Int {
 // of either the positive or negative sides.  Note: this method will panic if
 // called with the infinite interval.
 func (p *Interval) BitWidth() (width uint, signed bool) {
+	if p.IsInfinite() {
+		panic("cannot determine bitwidth of infinite interval")
+	}
+	//
+	pMin := p.min.IntVal()
+	pMax := p.max.IntVal()
 	// Determine whether signed or not
-	signed = p.min.Sign() < 0
+	signed = pMin.Sign() < 0
 	// Done
-	return uint(max(p.min.BitLen(), p.max.BitLen())), signed
+	return uint(max(pMin.BitLen(), pMax.BitLen())), signed
 }
 
 // Set assigns a given value to this interval.  Note: this method will panic if
 // called with the infinite interval.
-func (p *Interval) Set(val *Interval) {
-	p.min.Set(&val.min)
-	p.max.Set(&val.max)
-}
-
-// Size returns the number of elements contained within this interval.  Note:
-// this method will panic if called with the infinite interval.
-func (p *Interval) Size() big.Int {
-	var diff big.Int
-	//
-	diff.Set(&p.max)
-	diff.Sub(&diff, &p.min)
-	diff.Add(&diff, big.NewInt(1))
-	//
-	return diff
+func (p *Interval) Set(val Interval) {
+	p.min.Set(val.min)
+	p.max.Set(val.max)
 }
 
 // Contains checks whether a given value is contained with this interval
-func (p *Interval) Contains(val *big.Int) bool {
-	if p.IsInfinite() {
-		return true
-	}
-	//
-	return p.min.Cmp(val) <= 0 && p.max.Cmp(val) >= 0
+func (p *Interval) Contains(val big.Int) bool {
+	return p.min.CmpInt(val) <= 0 && p.max.CmpInt(val) >= 0
 }
 
 // Within checks whether this interval is contained within the given bounds.
-func (p *Interval) Within(other *Interval) bool {
-	if p.IsInfinite() {
-		return false
-	}
-	//
-	return p.min.Cmp(&other.min) >= 0 && p.max.Cmp(&other.max) <= 0
+func (p *Interval) Within(val Interval) bool {
+	return p.min.Cmp(val.min) >= 0 && p.max.Cmp(val.max) <= 0
 }
 
 // Insert a given value into this interval
-func (p *Interval) Insert(val *Interval) {
-	if !p.IsInfinite() {
-		// Check lower bound
-		if p.min.Cmp(&val.min) > 0 {
-			p.min.Set(&val.min)
-		}
-		// Check upper bound
-		if p.max.Cmp(&val.max) < 0 {
-			p.max.Set(&val.max)
-		}
-	}
+func (p *Interval) Insert(val Interval) {
+	// Lower bound
+	p.min = p.min.Min(val.min)
+	// Upper bound
+	p.max = p.max.Max(val.max)
 }
 
 // Add two intervals together
-func (p *Interval) Add(q *Interval) {
-	// Infinity check
-	if !p.IsInfinite() {
-		p.min.Add(&p.min, &q.min)
-		p.max.Add(&p.max, &q.max)
-	}
+func (p *Interval) Add(q Interval) {
+	// lower bound
+	p.min = p.min.Add(q.min)
+	// upper bound
+	p.max = p.max.Add(q.max)
+	// normalise bounds
+	p.normalise()
 }
 
 // Sub subtracts another interval from this.
-func (p *Interval) Sub(q *Interval) {
-	// Infinity check
-	if !p.IsInfinite() {
-		p.min.Sub(&p.min, &q.max)
-		p.max.Sub(&p.max, &q.min)
-	}
+func (p *Interval) Sub(q Interval) {
+	// lower bound
+	p.min = p.min.Sub(q.max)
+	// upper bound
+	p.max = p.max.Sub(q.min)
+	// normalise bounds
+	p.normalise()
 }
 
 // Mul multiplies this interval by another.
-func (p *Interval) Mul(q *Interval) {
-	var (
-		x1 big.Int
-		x2 big.Int
-		x3 big.Int
-		x4 big.Int
-	)
-	// Infinity check
-	if !p.IsInfinite() {
-		//
-		x1.Mul(&p.min, &q.min)
-		x2.Mul(&p.min, &q.max)
-		x3.Mul(&p.max, &q.min)
-		x4.Mul(&p.max, &q.max)
-		// Compute min / max
-		min := bigMin(bigMin(x1, x2), bigMin(x3, x4))
-		max := bigMax(bigMax(x1, x2), bigMax(x3, x4))
-		//
-		p.min.Set(&min)
-		p.max.Set(&max)
-	}
+func (p *Interval) Mul(q Interval) {
+	x1 := p.min.Mul(q.min)
+	x2 := p.min.Mul(q.max)
+	x3 := p.max.Mul(q.min)
+	x4 := p.max.Mul(q.max)
+	//
+	x1_m_x2 := x1.Min(x2)
+	x3_m_x4 := x3.Min(x4)
+	x1_x_x2 := x1.Max(x2)
+	x3_x_x4 := x3.Max(x4)
+	// Compute min / max
+	min := x1_m_x2.Min(x3_m_x4)
+	max := x1_x_x2.Max(x3_x_x4)
+	//
+	p.min.Set(min)
+	p.max.Set(max)
+}
+
+// Union returns the set union of two intervals.
+func (p *Interval) Union(other Interval) Interval {
+	return Interval{p.min.Min(other.min), p.max.Max(other.max)}
 }
 
 // Exp raises this interval to a fix exponent.
 func (p *Interval) Exp(pow uint) {
 	var val Interval
-	// Infinity check
-	if !p.IsInfinite() {
-		// Clone p
-		val.Set(p)
-		// This can be computed more efficiently perhaps by using a recursive
-		// decomposition, 2^n = 2^n/2 * 2^n/2.
-		for i := uint(1); i < pow; i++ {
-			p.Mul(&val)
-		}
+	// Clone p
+	val.Set(*p)
+	// This can be computed more efficiently perhaps by using a recursive
+	// decomposition, 2^n = 2^n/2 * 2^n/2.
+	for i := uint(1); i < pow; i++ {
+		p.Mul(val)
 	}
 }
 
@@ -187,18 +193,12 @@ func (p *Interval) String() string {
 	return fmt.Sprintf("(%s..%s)", p.min.String(), p.max.String())
 }
 
-func bigMin(x1 big.Int, x2 big.Int) big.Int {
-	if x1.Cmp(&x2) < 0 {
-		return x1
+func (p *Interval) normalise() {
+	if p.min.sign == infinity {
+		p.min = NegInfinity
 	}
-
-	return x2
-}
-
-func bigMax(x1 big.Int, x2 big.Int) big.Int {
-	if x1.Cmp(&x2) >= 0 {
-		return x1
+	// normalise upper bound
+	if p.max.sign == infinity {
+		p.max = PosInfinity
 	}
-
-	return x2
 }

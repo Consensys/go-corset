@@ -140,7 +140,7 @@ func (e *psuedoInverse) Substitute(mapping map[string]fr.Element) {
 }
 
 // ValueRange implementation for Term interface.
-func (e *psuedoInverse) ValueRange(mapping schema.RegisterMap) *util_math.Interval {
+func (e *psuedoInverse) ValueRange(mapping schema.RegisterMap) util_math.Interval {
 	// This could be managed by having a mechanism for representing infinity
 	// (e.g. nil). For now, this is never actually used, so we can just ignore
 	// it.

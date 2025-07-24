@@ -110,7 +110,7 @@ func (p *Add[T]) Substitute(mapping map[string]fr.Element) {
 }
 
 // ValueRange implementation for Term interface.
-func (p *Add[T]) ValueRange(mapping schema.RegisterMap) *math.Interval {
+func (p *Add[T]) ValueRange(mapping schema.RegisterMap) math.Interval {
 	var res math.Interval
 
 	for i, arg := range p.Args {
@@ -122,7 +122,7 @@ func (p *Add[T]) ValueRange(mapping schema.RegisterMap) *math.Interval {
 		}
 	}
 	//
-	return &res
+	return res
 }
 
 func simplifySum[T Term[T]](args []T, casts bool) T {

@@ -115,6 +115,6 @@ func (p *Norm[T]) Substitute(mapping map[string]fr.Element) {
 }
 
 // ValueRange implementation for Term interface.
-func (p *Norm[T]) ValueRange(mapping schema.RegisterMap) *math.Interval {
-	return math.NewInterval(big.NewInt(0), big.NewInt(1))
+func (p *Norm[T]) ValueRange(mapping schema.RegisterMap) math.Interval {
+	return math.NewInterval(*big.NewInt(0), *big.NewInt(1))
 }
