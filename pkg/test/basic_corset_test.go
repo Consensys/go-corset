@@ -1160,20 +1160,24 @@ func Test_Let_11(t *testing.T) {
 // Computed Columns
 // ===================================================================
 
-func Test_DefComputedColumn_01(t *testing.T) {
-	test_util.Check(t, false, "basic/computedcolumn_01")
+func Test_Compute_01(t *testing.T) {
+	test_util.Check(t, false, "basic/compute_01")
 }
 
-func Test_DefComputedColumn_02(t *testing.T) {
-	test_util.Check(t, false, "basic/computedcolumn_02")
+func Test_Compute_02(t *testing.T) {
+	test_util.Check(t, false, "basic/compute_02")
 }
 
 // ===================================================================
 // defcomputedcolumn
 // ===================================================================
 
-func Test_Compute_01(t *testing.T) {
-	test_util.Check(t, false, "basic/compute_01")
+func Test_DefComputedColumn_01(t *testing.T) {
+	test_util.Check(t, false, "basic/computedcolumn_01")
+}
+
+func Test_DefComputedColumn_02(t *testing.T) {
+	test_util.Check(t, false, "basic/computedcolumn_02")
 }
 
 // ===================================================================
