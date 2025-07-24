@@ -1,0 +1,65 @@
+;; GF251 curve
+fn add(x u256, y u256) -> (RESULT u256) {
+
+   var c0, c1  u1
+   var res u256
+   var red u256
+
+   c0, res = x + y
+   c1, red = res - 251
+   if c1==0 goto exit_1
+   goto exit_0
+exit_0:
+   RESULT = res
+   return
+exit_1:
+   RESULT = red
+   return
+
+}
+
+fn reduction(z u64) -> (RESULT u32) {
+
+   ;; constants recap
+   ;; R = 4294967296
+   ;; modulus = 251
+   ;; R² = 69
+   ;; ninv mod m 1711142349
+
+   var ninv_mod_m u64
+   var modulus u64
+
+   var m u64
+   var tmp_m u64
+   var int_res u64
+   var tmp_int_res u64
+   var res u32
+   var tmp_res u32
+   var red u32
+   var c0 u1
+
+   ninv_mod_m = 1711142349
+   modulus = 251
+
+   tmp_m, m = z * ninv_mod_m
+   tmp_int_res, int_res = z + m * modulus
+   tmp_res, res = int_res >> 1
+   c0, red = res - 251
+   if c0==0 goto exit_1
+   goto exit_0
+exit_0:
+   RESULT = res
+   return
+exit_1:
+   RESULT = red
+   return
+
+}
+
+fn mul(x u32, y u32) -> (RESULT u32) {
+
+    var z u64
+    z = x * y
+    return reduction(z)
+
+}

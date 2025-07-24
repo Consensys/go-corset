@@ -90,3 +90,7 @@ func Test_Asm_SimpleOnCurve(t *testing.T) {
 func Test_Asm_RecPow(t *testing.T) {
 	test_util.CheckWithFields(t, false, "asm/unit/rec_pow", ASM_MAX_PADDING, sc.BLS12_377)
 }
+
+func Test_Asm_Gf251(t *testing.T) {
+	test_util.Check(t, false, "asm/gf251")
+}
