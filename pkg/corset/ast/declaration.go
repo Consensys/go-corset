@@ -1460,7 +1460,7 @@ func (p *DefComputedColumn) Dependencies() iter.Iterator[Symbol] {
 // Defines checks whether this declaration defines the given symbol.  The symbol
 // in question needs to have been resolved already for this to make sense.
 func (p *DefComputedColumn) Defines(symbol Symbol) bool {
-	return true
+	return true //TODO as in defcomput
 }
 
 // IsFinalised checks whether this declaration has already been finalised.  If
