@@ -604,15 +604,15 @@ func (p *Parser) parseDefComputedColumn(module util.Path, elements []sexp.SExp) 
 	if sexpTargets == nil || sexpTargets.Len() != 1 {
 		errors = append(errors, *p.translator.SyntaxError(elements[1], "malformed target columns"))
 	} else {
-			var targetError *SyntaxError
-			// Parse target declaration
-			if target, targetError = p.parseColumnDeclaration(module, module, true, sexpTargets.Get(1)); targetError != nil {
-				errors = append(errors, *targetError)
-			}
+		var targetError *SyntaxError
+		// Parse target declaration
+		if target, targetError = p.parseColumnDeclaration(module, module, true, sexpTargets.Get(0)); targetError != nil {
+			errors = append(errors, *targetError)
 		}
+	}
 
 	// Translate expression
-	expr, exprErrors := p.translator.Translate(elements[2])
+	expr, exprErrors := p.translator.Translate(elements[1])
 	errors = append(errors, exprErrors...)
 
 	//

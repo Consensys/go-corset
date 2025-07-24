@@ -4,4 +4,4 @@
 
 (defcomputedcolumn (Y) (+ X 1))
 
-(defconstraint c () eq! Y (+ X 1))
+(defconstraint c () (eq! Y (+ X 1)))
