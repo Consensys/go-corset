@@ -1436,7 +1436,7 @@ func (p *DefSorted) Lisp() sexp.SExp {
 // DefComputed is an assignment which computes the values for one column based on a chosen internal function.
 type DefComputedColumn struct {
 	// Column being assigned by this computation.
-	Target []*DefColumn //TODO: hum, but target is only one column ?
+	Target *DefColumn
 	// The formula to get the target column from the source columns.
 	Computation Expr
 }
@@ -1444,7 +1444,7 @@ type DefComputedColumn struct {
 // Definitions returns the set of symbols defined by this declaration.  Observe
 // that these may not yet have been finalised.
 func (p *DefComputedColumn) Definitions() iter.Iterator[SymbolDefinition] {
-	iterator := iter.NewArrayIterator(p.Target)
+	iterator := iter.NewArrayIterator([]*DefColumn{p.Target})
 	return iter.NewCastIterator[*DefColumn, SymbolDefinition](iterator)
 }
 
@@ -1460,19 +1460,13 @@ func (p *DefComputedColumn) Dependencies() iter.Iterator[Symbol] {
 // Defines checks whether this declaration defines the given symbol.  The symbol
 // in question needs to have been resolved already for this to make sense.
 func (p *DefComputedColumn) Defines(symbol Symbol) bool {
-	return true //TODO as in defcomput
+	return &p.Target.binding == symbol.Binding()
 }
 
 // IsFinalised checks whether this declaration has already been finalised.  If
 // so, then we don't need to finalise it again.
 func (p *DefComputedColumn) IsFinalised() bool {
-	for _, col := range p.Target {
-		if !col.binding.IsFinalised() {
-			return false
-		}
-	}
-	// Done
-	return true
+	return p.Target.binding.IsFinalised()
 }
 
 // IsAssignment checks whether this declaration is an assignment or not.
@@ -1483,14 +1477,8 @@ func (p *DefComputedColumn) IsAssignment() bool {
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
 func (p *DefComputedColumn) Lisp() sexp.SExp {
-	// targets
-	targets := make([]sexp.SExp, len(p.Target))
-	for i, t := range p.Target {
-		targets[i] = t.Lisp()
-	}
-	//
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("defcomputedcolumn"),
-		sexp.NewList(targets),
+		sexp.NewList(p.Target.Lisp().AsArray().Elements),
 		p.Computation.Lisp()})
 }

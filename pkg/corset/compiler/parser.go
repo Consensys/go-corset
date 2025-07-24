@@ -598,22 +598,18 @@ func (p *Parser) parseDefComputedColumn(module util.Path, elements []sexp.SExp) 
 	var (
 		errors      []SyntaxError
 		sexpTargets *sexp.List = elements[1].AsList()
-		target      []*ast.DefColumn
+		target      *ast.DefColumn
 	)
 	// Sanity checks
-	if sexpTargets == nil || sexpTargets.Len() == 0 {
+	if sexpTargets == nil || sexpTargets.Len() != 1 {
 		errors = append(errors, *p.translator.SyntaxError(elements[1], "malformed target columns"))
 	} else {
-		target = make([]*ast.DefColumn, sexpTargets.Len())
-		//
-		for i := 0; i < sexpTargets.Len(); i++ {
 			var targetError *SyntaxError
 			// Parse target declaration
-			if target[i], targetError = p.parseColumnDeclaration(module, module, true, sexpTargets.Get(i)); targetError != nil {
+			if target, targetError = p.parseColumnDeclaration(module, module, true, sexpTargets.Get(1)); targetError != nil {
 				errors = append(errors, *targetError)
 			}
 		}
-	}
 
 	// Translate expression
 	expr, exprErrors := p.translator.Translate(elements[2])
