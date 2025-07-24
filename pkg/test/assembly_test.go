@@ -114,6 +114,12 @@ func Test_Asm_Gf251(t *testing.T) {
 	test_util.Check(t, false, "asm/gf251")
 }
 
+func Test_Asm_Bitshift(t *testing.T) {
+	// Check(t, false, "asm/simple_on_curve")
+	// To be replaced once splitting algorithm is available
+	test_util.Check(t, false, "asm/bitshift")
+}
+
 // Recusion
 //
 // func Test_Asm_RecPow(t *testing.T) {
