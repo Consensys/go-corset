@@ -265,9 +265,9 @@ func (t *translator) translateDeclaration(decl ast.Declaration, path util.Path) 
 
 // Translate a "defcomputedcolumn" declaration.
 func (t *translator) translateDefComputedColumn(d *ast.DefComputedColumn) []SyntaxError {
-	// Determine enclosing module
+	// var column, expr schema.RegisterRef ir.Evaluable
 	module := t.moduleOf(d.Computation.Context())
-	module.AddAssignment(assignment.NewComputeColumn(d.Target, d.Computation))
+	module.AddAssignment(assignment.NewComputedRegister(d.Target, d.Computation))
 	return nil
 }
 
