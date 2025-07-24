@@ -407,7 +407,7 @@ func updateGeometry[E ir.Evaluable, T schema.RegisterMap](geometry []uint, sourc
 	//
 	var (
 		terms  = source.Item
-		modmap = mapping.Module(source.Module)
+		regmap = mapping.Module(source.Module)
 	)
 	// Sanity check
 	if len(terms) != len(geometry) {
@@ -419,7 +419,11 @@ func updateGeometry[E ir.Evaluable, T schema.RegisterMap](geometry []uint, sourc
 		// Since first column is always the selector column, it may not be
 		// defined.
 		if i != 0 || ith.IsDefined() {
-			bitwidth := ith.ValueRange(modmap).BitWidth()
+			bitwidth, signed := ith.ValueRange(regmap).BitWidth()
+			// Sanity check
+			if signed {
+				panic(fmt.Sprintf("signed lookup encountered (%s)", ith.Lisp(regmap).String(true)))
+			}
 			//
 			geometry[i] = max(geometry[i], bitwidth)
 		}

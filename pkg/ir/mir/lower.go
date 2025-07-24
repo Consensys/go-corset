@@ -193,9 +193,13 @@ func (p *AirLowering) lowerPermutationConstraintToAir(v PermutationConstraint, a
 // expected value.
 func (p *AirLowering) lowerRangeConstraintToAir(v RangeConstraint, airModule *air.ModuleBuilder) {
 	var (
-		mirModule = p.mirSchema.Module(v.Context)
-		bitwidth  = v.Expr.ValueRange(mirModule).BitWidth()
+		mirModule        = p.mirSchema.Module(v.Context)
+		bitwidth, signed = v.Expr.ValueRange(mirModule).BitWidth()
 	)
+	// Sanity check
+	if signed {
+		panic(fmt.Sprintf("signed expansion encountered (%s)", v.Expr.Lisp(airModule).String(true)))
+	}
 	// Lower target expression
 	target := p.lowerAndSimplifyTermTo(v.Expr, airModule)
 	// Expand target expression (if necessary)
@@ -256,7 +260,14 @@ func (p *AirLowering) lowerSortedConstraintToAir(c SortedConstraint, airModule *
 	sources := make([]schema.RegisterId, len(c.Sources))
 	//
 	for i := 0; i < len(sources); i++ {
-		sourceBitwidth := c.Sources[i].ValueRange(airModule).BitWidth()
+		var (
+			ith                    = c.Sources[i]
+			sourceBitwidth, signed = ith.ValueRange(airModule).BitWidth()
+		)
+		// Sanity check
+		if signed {
+			panic(fmt.Sprintf("signed expansion encountered (%s)", ith.Lisp(airModule).String(true)))
+		}
 		// Lower source expression
 		source := p.lowerTermTo(c.Sources[i], airModule)
 		// Expand them
@@ -320,7 +331,11 @@ func (p *AirLowering) expandTermsInner(context schema.ModuleId, lookup bool, ter
 			// selector exists.
 			source_register = schema.NewUnusedRegisterId()
 		} else {
-			sourceBitwidth := ith.ValueRange(airModule).BitWidth()
+			sourceBitwidth, signed := ith.ValueRange(airModule).BitWidth()
+			//
+			if signed {
+				panic(fmt.Sprintf("signed expansion encountered (%s)", ith.Lisp(airModule).String(true)))
+			}
 			// Lower source expressions
 			source := p.lowerAndSimplifyTermTo(ith, airModule)
 			// Expand them

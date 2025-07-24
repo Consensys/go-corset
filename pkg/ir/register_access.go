@@ -144,11 +144,7 @@ func (p *RegisterAccess[T]) ValueRange(mapping schema.RegisterMap) *util_math.In
 	// that the given register has no fixed bitwidth.  Rather, it can consume
 	// all possible values of the underlying field element.
 	if width == math.MaxUint {
-		// FIXME: this is not really safe in a general context, how its fine
-		// since there are no optimisations which operate on 256bit ranges.  It
-		// would perhaps be better to return nil to indicate "infinity" or
-		// something similar.
-		width = 256
+		return util_math.INFINITY
 	}
 	//
 	return valueRangeOfBits(width)

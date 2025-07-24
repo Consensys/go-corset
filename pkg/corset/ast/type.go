@@ -150,9 +150,9 @@ func (p *IntType) HasUnderlying() bool {
 
 // BitWidth attempts to determine an appropriate bitwidth for this type.
 func (p *IntType) BitWidth() uint {
-	width := p.values.BitWidth()
+	width, signed := p.values.BitWidth()
 	// Sanity check (for now)
-	if p.values.Contains(big.NewInt(-1)) {
+	if signed {
 		panic("cannot convert signed integer type")
 	}
 	//
@@ -221,8 +221,9 @@ func (p *IntType) SubtypeOf(other Type) bool {
 
 func (p *IntType) String() string {
 	if p.values != nil {
-		width := p.values.BitWidth()
-		if p.values.Contains(big.NewInt(-1)) {
+		width, signed := p.values.BitWidth()
+		//
+		if signed {
 			return fmt.Sprintf("i%d", width)
 		}
 		//

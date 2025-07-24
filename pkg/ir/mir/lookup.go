@@ -120,9 +120,11 @@ func alignLookupLimbs(selector bool, limbs []Term, geometry []uint, mapping sche
 	// For now, this is just a check that we have proper alignment.
 	for i, limb := range limbs {
 		if !selector || limb.IsDefined() {
-			bitwidth := limb.ValueRange(limbMap).BitWidth()
+			bitwidth, signed := limb.ValueRange(limbMap).BitWidth()
 			// Sanity check for irregular lookups
-			if i != n && bitwidth > geometry[i] {
+			if signed {
+				panic(fmt.Sprintf("signed lookup encountered (%s)", limb.Lisp(limbMap).String(true)))
+			} else if i != n && bitwidth > geometry[i] {
 				panic(fmt.Sprintf("irregular lookup detected (u%d v u%d)", bitwidth, geometry[i]))
 			} else if i != m && bitwidth != geometry[i] {
 				panic(fmt.Sprintf("irregular lookup detected (u%d v u%d)", bitwidth, geometry[i]))
