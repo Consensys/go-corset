@@ -52,23 +52,23 @@ func isOne[T Term[T]](term T) bool {
 	return false
 }
 
-func lispOfTerms[E any, T Term[E]](module schema.Module, op string, exprs []T) sexp.SExp {
+func lispOfTerms[E any, T Term[E]](mapping schema.RegisterMap, op string, exprs []T) sexp.SExp {
 	arr := make([]sexp.SExp, 1+len(exprs))
 	arr[0] = sexp.NewSymbol(op)
 	// Translate arguments
 	for i, e := range exprs {
-		arr[i+1] = e.Lisp(module)
+		arr[i+1] = e.Lisp(mapping)
 	}
 	// Done
 	return sexp.NewList(arr)
 }
 
-func lispOfLogicalTerms[T LogicalTerm[T]](module schema.Module, op string, exprs []T) sexp.SExp {
+func lispOfLogicalTerms[T LogicalTerm[T]](mapping schema.RegisterMap, op string, exprs []T) sexp.SExp {
 	arr := make([]sexp.SExp, 1+len(exprs))
 	arr[0] = sexp.NewSymbol(op)
 	// Translate arguments
 	for i, e := range exprs {
-		arr[i+1] = e.Lisp(module)
+		arr[i+1] = e.Lisp(mapping)
 	}
 	// Done
 	return sexp.NewList(arr)

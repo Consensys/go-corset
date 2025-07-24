@@ -66,8 +66,8 @@ func (p *Exp[T]) IsDefined() bool {
 }
 
 // Lisp implementation for Lispifiable interface.
-func (p *Exp[T]) Lisp(module schema.Module) sexp.SExp {
-	arg := p.Arg.Lisp(module)
+func (p *Exp[T]) Lisp(mapping schema.RegisterMap) sexp.SExp {
+	arg := p.Arg.Lisp(mapping)
 	pow := sexp.NewSymbol(fmt.Sprintf("%d", p.Pow))
 
 	return sexp.NewList([]sexp.SExp{sexp.NewSymbol("^"), arg, pow})
@@ -116,8 +116,8 @@ func (p *Exp[T]) Simplify(casts bool) T {
 }
 
 // ValueRange implementation for Term interface.
-func (p *Exp[T]) ValueRange(module schema.Module) *math.Interval {
-	bounds := p.Arg.ValueRange(module)
+func (p *Exp[T]) ValueRange(mapping schema.RegisterMap) math.Interval {
+	bounds := p.Arg.ValueRange(mapping)
 	bounds.Exp(uint(p.Pow))
 	//
 	return bounds

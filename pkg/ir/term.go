@@ -66,9 +66,13 @@ type Evaluable interface {
 	EvalAt(int, trace.Module, schema.Module) (fr.Element, error)
 	// Lisp converts this schema element into a simple S-Expression, for example
 	// so it can be printed.
-	Lisp(schema.Module) sexp.SExp
+	Lisp(schema.RegisterMap) sexp.SExp
 	// IsDefined checks whether a given evaluable expression is defined, or not.
 	IsDefined() bool
+	// ValueRange returns the interval of values that this term can evaluate to.
+	// For terms accessing registers, this is determined by the declared width of
+	// the register.
+	ValueRange(mapping schema.RegisterMap) math.Interval
 }
 
 // Substitutable captures the notion of a term which may contain labelled
@@ -104,11 +108,6 @@ type Term[T any] interface {
 	// an expression, so that e.g. "(+ X (+ 1 2))" becomes "(+ X 3)"", etc.
 	// There is also an option to retain casts, or not.
 	Simplify(casts bool) T
-
-	// ValueRange returns the interval of values that this term can evaluate to.
-	// For terms accessing registers, this is determined by the declared width of
-	// the register.
-	ValueRange(module schema.Module) *math.Interval
 }
 
 // Testable captures the notion of a constraint which can be tested on a given
@@ -129,7 +128,7 @@ type Testable interface {
 	TestAt(int, trace.Module, schema.Module) (bool, uint, error)
 	// Lisp converts this schema element into a simple S-Expression, for example
 	// so it can be printed.
-	Lisp(schema.Module) sexp.SExp
+	Lisp(schema.RegisterMap) sexp.SExp
 }
 
 // LogicalTerm represents a term which can be tested for truth or falsehood.
