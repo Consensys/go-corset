@@ -38,7 +38,7 @@ func TypeCheckCircuit(srcmap *source.Maps[ast.Node],
 	return p.typeCheckDeclarations(circuit)
 }
 
-// typeCheckor performs typeChecking prior to final translation. Specifically,
+// typeChecker performs typeChecking prior to final translation. Specifically,
 // it expands all invocations, reductions and for loops.  Thus, final
 // translation is greatly simplified after this step.
 type typeChecker struct {
@@ -73,7 +73,7 @@ func (p *typeChecker) typeCheckDeclarationsInModule(decls []ast.Declaration) []S
 	return errors
 }
 
-// typeCheck an assignment or constraint declarartion which occurs within a
+// typeCheck an assignment or constraint declaration which occurs within a
 // given module.
 func (p *typeChecker) typeCheckDeclaration(decl ast.Declaration) []SyntaxError {
 	var errors []SyntaxError

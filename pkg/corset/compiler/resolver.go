@@ -29,7 +29,7 @@ type DeclPredicate = array.Predicate[ast.Declaration]
 
 // ResolveCircuit resolves all symbols declared and used within a circuit,
 // producing an environment which can subsequently be used to look up the
-// relevant module or column identifiers.  This process can fail, of course, it
+// relevant module or column identifiers.  This process can fail, of course, if
 // a symbol (e.g. a column) is referred to which doesn't exist.  Likewise, if
 // two modules or columns with identical names are declared in the same scope,
 // etc.

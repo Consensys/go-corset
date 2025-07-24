@@ -267,6 +267,7 @@ func (t *translator) translateDeclaration(decl ast.Declaration, path util.Path) 
 func (t *translator) translateDefComputedColumn(d *ast.DefComputedColumn) []SyntaxError {
 	// Determine enclosing module
 	module := t.moduleOf(d.Computation.Context())
+	module.AddAssignment(assignment.NewComputeColumn(d.Target, d.Computation))
 	return nil
 }
 
