@@ -254,7 +254,7 @@ func (t *translator) translateDeclaration(decl ast.Declaration, path util.Path) 
 	case *ast.DefSorted:
 		errors = t.translateDefSorted(d)
 	case *ast.DefComputedColumn:
-		errors = t.translateDefComputedColumn(d)
+		errors = t.translateDefComputedColumn(d, path)
 	default:
 		// Error handling
 		panic("unknown declaration")
@@ -264,10 +264,20 @@ func (t *translator) translateDeclaration(decl ast.Declaration, path util.Path) 
 }
 
 // Translate a "defcomputedcolumn" declaration.
-func (t *translator) translateDefComputedColumn(d *ast.DefComputedColumn) []SyntaxError {
-	// var column, expr schema.RegisterRef ir.Evaluable
+func (t *translator) translateDefComputedColumn(d *ast.DefComputedColumn, path util.Path) []SyntaxError {
 	module := t.moduleOf(d.Computation.Context())
-	module.AddAssignment(assignment.NewComputedRegister(d.Target, d.Computation))
+
+	targetPath := path.Extend(d.Target.Name())
+	target := schema.NewRegisterRef(module.Id(), t.registerIndexOf(targetPath))
+
+	computation, errors := t.translateExpression(d.Computation, module, 0)
+
+	if len(errors) != 0 {
+		return errors
+	}
+
+	// Done
+	module.AddAssignment(assignment.NewComputedRegister(target, computation))
 	return nil
 }
 
