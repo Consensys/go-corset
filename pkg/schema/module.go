@@ -21,12 +21,27 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 )
 
+// ModuleMap provides a mapping from module identifiers (or names) to register
+// maps.
+type ModuleMap[T RegisterMap] interface {
+	// Field returns the underlying field configuration used for this mapping.
+	// This includes the field bandwidth (i.e. number of bits available in
+	// underlying field) and the maximum register width (i.e. width at which
+	// registers are capped).
+	Field() FieldConfig
+	// Module returns register mapping information for the given module.
+	Module(ModuleId) T
+	// ModuleOf returns register mapping information for the given module.
+	ModuleOf(string) T
+}
+
 // ModuleId abstracts the notion of a "module identifier"
 type ModuleId = uint
 
 // Module represents a "table" within a schema which contains zero or more rows
 // for a given set of registers.
 type Module interface {
+	RegisterMap
 	// Assignments returns an iterator over the assignments of this module.
 	// These are the computations used to assign values to all computed columns
 	// in this module.
@@ -38,19 +53,12 @@ type Module interface {
 	// strictly necessary, these can highlight otherwise hidden problems as an aid
 	// to debugging.
 	Consistent(Schema[Constraint]) []error
-	// HasRegister checks whether a register with the given name exists and, if
-	// so, returns its register identifier.  Otherwise, it returns false.
-	HasRegister(name string) (RegisterId, bool)
 	// Identifies the length multiplier for this module.  For every trace, the
 	// height of the corresponding module must be a multiple of this.  This is
 	// used specifically to support interleaving constraints.
 	LengthMultiplier() uint
 	// Module name
 	Name() string
-	// Access a given register in this module.
-	Register(RegisterId) Register
-	// Registers providers access to the underlying registers of this schema.
-	Registers() []Register
 	// Returns the number of registers in this module.
 	Width() uint
 }
@@ -152,7 +160,7 @@ func (p *Table[C]) Registers() []Register {
 }
 
 // Subdivide implementation for the FieldAgnosticModule interface.
-func (p *Table[C]) Subdivide(mapping RegisterMap) *Table[C] {
+func (p *Table[C]) Subdivide(mapping LimbsMap) *Table[C] {
 	var (
 		modmap      = mapping.ModuleOf(p.name)
 		registers   []Register

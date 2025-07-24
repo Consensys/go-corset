@@ -81,7 +81,7 @@ func (p *Constant[T]) IsDefined() bool {
 }
 
 // Lisp implementation for Lispifiable interface.
-func (p *Constant[T]) Lisp(module schema.Module) sexp.SExp {
+func (p *Constant[T]) Lisp(mapping schema.RegisterMap) sexp.SExp {
 	return sexp.NewSymbol(p.Value.String())
 }
 
@@ -112,10 +112,10 @@ func (p *Constant[T]) Simplify(casts bool) T {
 }
 
 // ValueRange implementation for Term interface.
-func (p *Constant[T]) ValueRange(module schema.Module) *util_math.Interval {
+func (p *Constant[T]) ValueRange(_ schema.RegisterMap) util_math.Interval {
 	var c big.Int
 	// Extract big integer from field element
 	p.Value.BigInt(&c)
 	// Return as interval
-	return util_math.NewInterval(&c, &c)
+	return util_math.NewInterval(c, c)
 }

@@ -341,7 +341,7 @@ func checkInterval(t *testing.T, ops []uint, sets [][]int) {
 func checkSubSet(t *testing.T, i *Interval, set []int) {
 	for _, item := range set {
 		ith := big.NewInt(int64(item))
-		if !i.Contains(ith) {
+		if !i.Contains(*ith) {
 			t.Errorf("value %d not contained in %s", item, i.String())
 		}
 	}
@@ -383,12 +383,12 @@ func mul(lhs []int, rhs []int) []int {
 	return res
 }
 
-func toInterval(items []int) *Interval {
+func toInterval(items []int) Interval {
 	var r Interval
 	//
 	for i, item := range items {
 		iv := big.NewInt(int64(item))
-		ith := NewInterval(iv, iv)
+		ith := NewInterval(*iv, *iv)
 		//
 		if i == 0 {
 			r.Set(ith)
@@ -397,5 +397,5 @@ func toInterval(items []int) *Interval {
 		}
 	}
 	//
-	return &r
+	return r
 }
