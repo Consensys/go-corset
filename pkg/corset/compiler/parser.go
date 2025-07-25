@@ -435,7 +435,7 @@ func (p *Parser) parseColumnDeclaration(context util.Path, path util.Path, compu
 		multiplier = 0
 		datatype = ast.INT_TYPE
 	} else if computed {
-		return nil, p.translator.SyntaxError(e, "computed columns cannot be typed")
+		//return nil, p.translator.SyntaxError(e, "computed columns cannot be typed")
 	} else if !datatype.HasUnderlying() {
 		return nil, p.translator.SyntaxError(e, "invalid column type")
 	}
@@ -596,23 +596,17 @@ func (p *Parser) parseDefComputed(module util.Path, elements []sexp.SExp) (ast.D
 // Parse a defcomputedcolumn declaration
 func (p *Parser) parseDefComputedColumn(module util.Path, elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
 	var (
-		errors      []SyntaxError
-		sexpTargets *sexp.List = elements[1].AsList()
-		target      *ast.DefColumn
+		errors []SyntaxError
+		target *ast.DefColumn
 	)
 	// Sanity checks
-	if sexpTargets == nil || sexpTargets.Len() != 1 {
-		errors = append(errors, *p.translator.SyntaxError(elements[1], "malformed target columns"))
-	} else {
-		var targetError *SyntaxError
-		// Parse target declaration
-		if target, targetError = p.parseColumnDeclaration(module, module, true, sexpTargets.Get(0)); targetError != nil {
-			errors = append(errors, *targetError)
-		}
+	var targetError *SyntaxError
+	// Parse target declaration
+	if target, targetError = p.parseColumnDeclaration(module, module, true, elements[1]); targetError != nil {
+		errors = append(errors, *targetError)
 	}
-
 	// Translate expression
-	expr, exprErrors := p.translator.Translate(elements[1])
+	expr, exprErrors := p.translator.Translate(elements[2])
 	errors = append(errors, exprErrors...)
 
 	//
