@@ -784,6 +784,30 @@ func Test_Invalid_Compute_07(t *testing.T) {
 }
 
 // ===================================================================
+// defcomputedcolumn
+// ===================================================================
+
+func Test_Invalid_DefComputeColum_01(t *testing.T) {
+	CheckInvalid(t, "invalid/compute_column_invalid_01")
+}
+
+func Test_Invalid_DefComputeColum_02(t *testing.T) {
+	CheckInvalid(t, "invalid/compute_column_invalid_02")
+}
+
+func Test_Invalid_DefComputeColum_03(t *testing.T) {
+	CheckInvalid(t, "invalid/compute_column_invalid_03")
+}
+
+func Test_Invalid_DefComputeColum_04(t *testing.T) {
+	CheckInvalid(t, "invalid/compute_column_invalid_04")
+}
+
+func Test_Invalid_DefComputeColum_05(t *testing.T) {
+	CheckInvalid(t, "invalid/compute_column_invalid_05")
+}
+
+// ===================================================================
 // Test Helpers
 // ===================================================================
 
@@ -855,7 +879,7 @@ type SyntaxError struct {
 }
 
 func extractExpectedErrors(bytes []byte) ([]SyntaxError, []int) {
-	// Calcuate the character offset of each line
+	// Calculate the character offset of each line
 	offsets, lines := splitFileLines(bytes)
 	// Now construct errors
 	errors := make([]SyntaxError, 0)
@@ -878,7 +902,7 @@ func extractExpectedErrors(bytes []byte) ([]SyntaxError, []int) {
 // otherwise error messages tend to have the wrong column numbers, etc.
 func splitFileLines(bytes []byte) ([]int, []string) {
 	contents := []rune(string(bytes))
-	// Calcuate the character offset of each line
+	// Calculate the character offset of each line
 	offsets := make([]int, 1)
 	lines := make([]string, 0)
 	start := 0

@@ -132,6 +132,11 @@ func (p *ComputedRegister) RegistersWritten() []sc.RegisterRef {
 	return []schema.RegisterRef{p.target}
 }
 
+// Subdivide implementation for the FieldAgnostic interface.
+func (p *ComputedRegister) Subdivide(mapping schema.LimbsMap) sc.Assignment {
+	return p
+}
+
 // Lisp converts this constraint into an S-Expression.
 //
 //nolint:revive

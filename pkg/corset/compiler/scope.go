@@ -337,7 +337,7 @@ func (p *ModuleScope) Define(symbol ast.SymbolDefinition) bool {
 	// Sanity checks
 	if !symbol.Path().IsAbsolute() {
 		// Definitely should be unreachable.
-		panic("symbole definition cannot have relative path!")
+		panic("symbol definition cannot have relative path!")
 	} else if !p.path.PrefixOf(*symbol.Path()) {
 		// Should be unreachable.
 		err := fmt.Sprintf("invalid symbol definition (%s not prefix of %s)", p.path.String(), symbol.Path().String())

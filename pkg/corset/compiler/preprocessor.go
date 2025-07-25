@@ -68,7 +68,7 @@ func (p *preprocessor) preprocessDeclarationsInModule(decls []ast.Declaration) [
 	return errors
 }
 
-// preprocess an assignment or constraint declarartion which occurs within a
+// preprocess an assignment or constraint declaration which occurs within a
 // given module.
 func (p *preprocessor) preprocessDeclaration(decl ast.Declaration) []SyntaxError {
 	var errors []SyntaxError
@@ -100,6 +100,8 @@ func (p *preprocessor) preprocessDeclaration(decl ast.Declaration) []SyntaxError
 		errors = p.preprocessDefProperty(d)
 	case *ast.DefSorted:
 		errors = p.preprocessDefSorted(d)
+	case *ast.DefComputedColumn:
+		errors = p.preprocessDefComputedColumn(d)
 	default:
 		// Error handling
 		panic("unknown declaration")
@@ -126,6 +128,13 @@ func (p *preprocessor) preprocessDefConstraint(decl *ast.DefConstraint) []Syntax
 	}
 	// Combine errors
 	return append(constraint_errors, guard_errors...)
+}
+
+// preprocess a "defcomputedcolumn" declaration.
+func (p *preprocessor) preprocessDefComputedColumn(decl *ast.DefComputedColumn) []SyntaxError {
+	// preprocess computation body
+	_, computation_errors := p.preprocessExpressionInModule(decl.Computation)
+	return computation_errors
 }
 
 // preprocess a "deflookup" declaration.

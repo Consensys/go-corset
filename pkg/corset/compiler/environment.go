@@ -22,7 +22,7 @@ import (
 type Environment interface {
 	// Register returns the name of the given module.
 	Module(index uint) string
-	// Module returns informartion about a given module, such as its module
+	// Module returns information about a given module, such as its module
 	// identifier.
 	ModuleOf(module string) uint
 	// Register returns information about a given register, based on its index
@@ -72,7 +72,7 @@ func NewGlobalEnvironment(root *ModuleScope, allocator func(RegisterAllocation))
 	return env
 }
 
-// Module returns informartion about a given module, such as its module
+// Module returns information about a given module, such as its module
 // identifier.
 func (p GlobalEnvironment) Module(mid uint) string {
 	return p.modules[mid]
