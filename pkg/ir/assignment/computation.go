@@ -103,7 +103,7 @@ func (p *Computation) RegistersWritten() []sc.RegisterRef {
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func (p *Computation) Subdivide(mapping schema.RegisterMap) sc.Assignment {
+func (p *Computation) Subdivide(mapping schema.LimbsMap) sc.Assignment {
 	return p
 }
 

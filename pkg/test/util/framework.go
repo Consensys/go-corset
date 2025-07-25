@@ -191,7 +191,7 @@ func checkTraces(t *testing.T, test string, maxPadding uint, opt uint, cfg Confi
 }
 
 func checkTrace[C sc.Constraint](t *testing.T, inputs []trace.BigEndianColumn, id traceId,
-	schema sc.Schema[C], mapping sc.RegisterMap) {
+	schema sc.Schema[C], mapping sc.LimbsMap) {
 	// Construct the trace
 	tr, errs := ir.NewTraceBuilder().
 		WithExpansion(id.expand).

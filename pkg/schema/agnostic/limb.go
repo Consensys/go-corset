@@ -58,7 +58,7 @@ func CommonLimbWidth(maxRegisterWidth uint, registerWidth uint) uint {
 
 // WidthsOfLimbs returns the limb bitwidths corresponding to a given set of
 // identifiers.
-func WidthsOfLimbs(mapping sc.ModuleRegisterMap, lids []sc.LimbId) []uint {
+func WidthsOfLimbs(mapping sc.RegisterLimbsMap, lids []sc.LimbId) []uint {
 	var (
 		widths []uint = make([]uint, len(lids))
 	)
@@ -73,7 +73,7 @@ func WidthsOfLimbs(mapping sc.ModuleRegisterMap, lids []sc.LimbId) []uint {
 // CombinedWidthOfLimbs returns the combined bitwidth of all limbs.  For example,
 // suppose we have three limbs: x:u8, y:u8, z:u11.  Then the combined width is
 // 8+8+11=27.
-func CombinedWidthOfLimbs(mapping sc.ModuleRegisterMap, limbs ...sc.LimbId) uint {
+func CombinedWidthOfLimbs(mapping sc.RegisterLimbsMap, limbs ...sc.LimbId) uint {
 	var (
 		width uint
 	)
@@ -112,4 +112,21 @@ func SplitIntoLimbs(maxWidth uint, r sc.Register) []sc.Register {
 	}
 	//
 	return limbs
+}
+
+// LimbWidths determines the limb widths for any register of the given size.
+func LimbWidths(maxWidth, regWidth uint) []uint {
+	var (
+		nlimbs     = NumberOfLimbs(maxWidth, regWidth)
+		limbWidths = make([]uint, nlimbs)
+	)
+	//
+	maxWidth = CommonLimbWidth(maxWidth, regWidth)
+	//
+	for i := uint(0); i < nlimbs; i++ {
+		limbWidths[i] = min(maxWidth, regWidth)
+		regWidth -= maxWidth
+	}
+	//
+	return limbWidths
 }

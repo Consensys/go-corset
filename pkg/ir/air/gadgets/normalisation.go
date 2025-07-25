@@ -25,6 +25,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	util_math "github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -126,14 +127,22 @@ func (e *psuedoInverse) IsDefined() bool {
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (e *psuedoInverse) Lisp(module sc.Module) sexp.SExp {
+func (e *psuedoInverse) Lisp(mapping sc.RegisterMap) sexp.SExp {
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("inv"),
-		e.Expr.Lisp(module),
+		e.Expr.Lisp(mapping),
 	})
 }
 
 // Substitute implementation for Substitutable interface.
 func (e *psuedoInverse) Substitute(mapping map[string]fr.Element) {
+	panic("unreachable")
+}
+
+// ValueRange implementation for Term interface.
+func (e *psuedoInverse) ValueRange(mapping schema.RegisterMap) util_math.Interval {
+	// This could be managed by having a mechanism for representing infinity
+	// (e.g. nil). For now, this is never actually used, so we can just ignore
+	// it.
 	panic("unreachable")
 }

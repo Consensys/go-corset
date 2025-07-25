@@ -75,7 +75,7 @@ type SchemaStack struct {
 	// The various layers which are refined from the binfile.
 	schemas []schema.AnySchema
 	// Register mapping used
-	mapping schema.RegisterMap
+	mapping schema.LimbsMap
 	// Name of IR used for corresponding schema
 	names []string
 }
@@ -184,7 +184,7 @@ func (p *SchemaStack) LowestSchema() schema.AnySchema {
 
 // RegisterMapping returns the register mapping used to split registers
 // according to the given field configuration.
-func (p *SchemaStack) RegisterMapping() schema.RegisterMap {
+func (p *SchemaStack) RegisterMapping() schema.LimbsMap {
 	return p.mapping
 }
 

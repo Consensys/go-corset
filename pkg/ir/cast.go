@@ -75,8 +75,8 @@ func (p *Cast[T]) IsDefined() bool {
 }
 
 // Lisp implementation for Lispifiable interface.
-func (p *Cast[T]) Lisp(module schema.Module) sexp.SExp {
-	arg := p.Arg.Lisp(module)
+func (p *Cast[T]) Lisp(mapping schema.RegisterMap) sexp.SExp {
+	arg := p.Arg.Lisp(mapping)
 	name := sexp.NewSymbol(fmt.Sprintf(":u%d", p.BitWidth))
 
 	return sexp.NewList([]sexp.SExp{name, arg})
@@ -93,14 +93,14 @@ func (p *Cast[T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[t
 }
 
 // Range returns the range of values which this cast represents.
-func (p *Cast[T]) Range() *math.Interval {
+func (p *Cast[T]) Range() math.Interval {
 	var bound = big.NewInt(2)
 	// Determine bound for static type check
 	bound.Exp(bound, big.NewInt(int64(p.BitWidth)), nil)
 	// Subtract 1 because interval is inclusive.
 	bound.Sub(bound, &biONE)
 	// Determine casted interval
-	return math.NewInterval(&biZERO, bound)
+	return math.NewInterval(biZERO, *bound)
 }
 
 // ShiftRange implementation for Term interface.
@@ -140,10 +140,10 @@ func (p *Cast[T]) Substitute(mapping map[string]fr.Element) {
 }
 
 // ValueRange implementation for Term interface.
-func (p *Cast[T]) ValueRange(module schema.Module) *math.Interval {
+func (p *Cast[T]) ValueRange(mapping schema.RegisterMap) math.Interval {
 	cast := p.Range()
 	// Compute actual interval
-	res := p.Arg.ValueRange(module)
+	res := p.Arg.ValueRange(mapping)
 	// Check whether is within (or not)
 	if res.Within(cast) {
 		return res

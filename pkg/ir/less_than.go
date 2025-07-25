@@ -128,10 +128,10 @@ func (p *Inequality[S, T]) TestAt(k int, tr trace.Module, sc schema.Module) (boo
 
 // Lisp returns a lisp representation of this Inequality, which is useful for
 // debugging.
-func (p *Inequality[S, T]) Lisp(module schema.Module) sexp.SExp {
+func (p *Inequality[S, T]) Lisp(mapping schema.RegisterMap) sexp.SExp {
 	var (
-		l      = p.Lhs.Lisp(module)
-		r      = p.Rhs.Lisp(module)
+		l      = p.Lhs.Lisp(mapping)
+		r      = p.Rhs.Lisp(mapping)
 		symbol string
 	)
 	//

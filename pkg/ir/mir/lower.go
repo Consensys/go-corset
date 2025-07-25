@@ -14,6 +14,7 @@ package mir
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
@@ -23,7 +24,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/field"
-	"github.com/consensys/go-corset/pkg/util/math"
+	util_math "github.com/consensys/go-corset/pkg/util/math"
 )
 
 // LowerToAir lowers (or refines) an MIR schema into an AIR schema.  That means
@@ -193,16 +194,23 @@ func (p *AirLowering) lowerPermutationConstraintToAir(v PermutationConstraint, a
 // expected value.
 func (p *AirLowering) lowerRangeConstraintToAir(v RangeConstraint, airModule *air.ModuleBuilder) {
 	var (
-		mirModule = p.mirSchema.Module(v.Context)
-		bitwidth  = v.Expr.ValueRange(mirModule).BitWidth()
+		mirModule        = p.mirSchema.Module(v.Context)
+		valRange         = v.Expr.ValueRange(mirModule)
+		bitwidth, signed = valRange.BitWidth()
 	)
+	// Sanity check bitwidth result
+	if signed {
+		// We can't determine a suitable bitwidth, so it should be the maximum
+		// value for the underlying field.
+		bitwidth = math.MaxUint
+	}
 	// Lower target expression
 	target := p.lowerAndSimplifyTermTo(v.Expr, airModule)
 	// Expand target expression (if necessary)
 	register := air_gadgets.Expand(bitwidth, target, airModule)
 	// Apply bitwidth gadget
 	ref := schema.NewRegisterRef(airModule.Id(), register)
-	// Constrict gadget
+	// Construct gadget
 	gadget := air_gadgets.NewBitwidthGadget(&p.airSchema).
 		WithLimitless(p.config.LimitlessTypeProofs).
 		WithMaxRangeConstraint(p.config.MaxRangeConstraint)
@@ -256,7 +264,15 @@ func (p *AirLowering) lowerSortedConstraintToAir(c SortedConstraint, airModule *
 	sources := make([]schema.RegisterId, len(c.Sources))
 	//
 	for i := 0; i < len(sources); i++ {
-		sourceBitwidth := c.Sources[i].ValueRange(airModule).BitWidth()
+		var (
+			ith                    = c.Sources[i]
+			ithRange               = ith.ValueRange(airModule)
+			sourceBitwidth, signed = ithRange.BitWidth()
+		)
+		// Sanity check
+		if signed {
+			panic(fmt.Sprintf("signed expansion encountered (%s)", ith.Lisp(airModule).String(true)))
+		}
 		// Lower source expression
 		source := p.lowerTermTo(c.Sources[i], airModule)
 		// Expand them
@@ -320,7 +336,12 @@ func (p *AirLowering) expandTermsInner(context schema.ModuleId, lookup bool, ter
 			// selector exists.
 			source_register = schema.NewUnusedRegisterId()
 		} else {
-			sourceBitwidth := ith.ValueRange(airModule).BitWidth()
+			sourceRange := ith.ValueRange(airModule)
+			sourceBitwidth, signed := sourceRange.BitWidth()
+			//
+			if signed {
+				panic(fmt.Sprintf("signed expansion encountered (%s)", ith.Lisp(airModule).String(true)))
+			}
 			// Lower source expressions
 			source := p.lowerAndSimplifyTermTo(ith, airModule)
 			// Expand them
@@ -698,10 +719,10 @@ func (p *AirLowering) normalise(arg air.Term, airModule *air.ModuleBuilder) air.
 	// Check whether normalisation actually required.  For example, if the
 	// argument is just a binary column then a normalisation is not actually
 	// required.
-	if p.config.InverseEliminiationLevel > 0 && bounds.Within(math.NewInterval64(0, 1)) {
+	if p.config.InverseEliminiationLevel > 0 && bounds.Within(util_math.NewInterval64(0, 1)) {
 		// arg ∈ {0,1} ==> normalised already :)
 		return arg
-	} else if p.config.InverseEliminiationLevel > 0 && bounds.Within(math.NewInterval64(-1, 1)) {
+	} else if p.config.InverseEliminiationLevel > 0 && bounds.Within(util_math.NewInterval64(-1, 1)) {
 		// arg ∈ {-1,0,1} ==> (arg*arg) ∈ {0,1}
 		return ir.Product(arg, arg)
 	}

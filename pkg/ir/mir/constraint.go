@@ -120,7 +120,7 @@ func (p Constraint) Lisp(schema schema.AnySchema) sexp.SExp {
 }
 
 // Subdivide implementation for the FieldAgnosticModule interface.
-func (p Constraint) Subdivide(mapping schema.RegisterMap) Constraint {
+func (p Constraint) Subdivide(mapping schema.LimbsMap) Constraint {
 	var constraint schema.Constraint
 	//
 	switch c := p.constraint.(type) {

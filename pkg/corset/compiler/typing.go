@@ -283,7 +283,7 @@ func (p *typeChecker) typeCheckExpressionInModule(expected ast.Type, expr ast.Ex
 		_, errors = p.typeCheckExpressionsInModule(ast.BOOL_TYPE, e.Args, true)
 		result = ast.BOOL_TYPE
 	case *ast.Constant:
-		result = ast.NewIntType(&e.Val, &e.Val)
+		result = ast.NewIntType(math.NewInterval(e.Val, e.Val))
 	case *ast.Debug:
 		result, errors = p.typeCheckExpressionInModule(expected, e.Arg, functional)
 	case *ast.Equation:
@@ -524,16 +524,13 @@ func typeOfSum(types ...ast.Type) ast.Type {
 		vals := it.Values()
 		//
 		if i == 0 {
-			values.Set(&vals)
+			values.Set(vals)
 		} else {
-			values.Add(&vals)
+			values.Add(vals)
 		}
 	}
 	//
-	min := values.MinValue()
-	max := values.MaxValue()
-	//
-	return ast.NewIntType(&min, &max)
+	return ast.NewIntType(values)
 }
 
 // Calculate the actual return type for a given set of input values with the
@@ -550,16 +547,13 @@ func typeOfSubtraction(types ...ast.Type) ast.Type {
 		vals := it.Values()
 		//
 		if i == 0 {
-			values.Set(&vals)
+			values.Set(vals)
 		} else {
-			values.Sub(&vals)
+			values.Sub(vals)
 		}
 	}
 	//
-	min := values.MinValue()
-	max := values.MaxValue()
-	//
-	return ast.NewIntType(&min, &max)
+	return ast.NewIntType(values)
 }
 
 // Calculate the actual return type for a given set of input values with the
@@ -576,14 +570,11 @@ func typeOfProduct(types ...ast.Type) ast.Type {
 		vals := it.Values()
 		//
 		if i == 0 {
-			values.Set(&vals)
+			values.Set(vals)
 		} else {
-			values.Mul(&vals)
+			values.Mul(vals)
 		}
 	}
 	//
-	min := values.MinValue()
-	max := values.MaxValue()
-	//
-	return ast.NewIntType(&min, &max)
+	return ast.NewIntType(values)
 }

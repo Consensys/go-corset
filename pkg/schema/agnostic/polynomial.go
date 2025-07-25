@@ -31,7 +31,7 @@ type Monomial = poly.Monomial[schema.RegisterId]
 // producing an equivalent (but not necessarily identical) polynomial.  For
 // example, suppose that X and Y split into limbs X'1, X'0 and Y'1, Y'0.  Then
 // the polynomial 2*X + Y splits into 512*X'1 + 2*X'0 + 256*Y'1 + Y'0.
-func SplitPolynomial(p Polynomial, env schema.ModuleRegisterMap) Polynomial {
+func SplitPolynomial(p Polynomial, env schema.RegisterLimbsMap) Polynomial {
 	var npoly Polynomial
 	//
 	for i := range p.Len() {
@@ -55,7 +55,7 @@ func SplitPolynomial(p Polynomial, env schema.ModuleRegisterMap) Polynomial {
 //
 // Of course, things get more involved when more than one register is being
 // split, but the basic idea above applies.
-func SplitMonomial(p Monomial, env schema.ModuleRegisterMap) Polynomial {
+func SplitMonomial(p Monomial, env schema.RegisterLimbsMap) Polynomial {
 	var res Polynomial
 	// FIXME: what to do with the coefficient?  This is a problem because its
 	// not clear how we should split this.  Presumably it should be split
@@ -79,7 +79,7 @@ func SplitMonomial(p Monomial, env schema.ModuleRegisterMap) Polynomial {
 // which splits into two u8 limbs x'0 and x'1.  Then, the constructed "limb
 // polynomial" is simply x'0 + 256*x'1 (recall that x'0 is the last significant
 // limb).
-func LimbPolynomial(limbs []schema.RegisterId, env schema.ModuleRegisterMap) Polynomial {
+func LimbPolynomial(limbs []schema.RegisterId, env schema.RegisterLimbsMap) Polynomial {
 	var (
 		res Polynomial
 		// Offset is used to determine the coefficient for the next limb.
@@ -121,8 +121,8 @@ func LimbPolynomial(limbs []schema.RegisterId, env schema.ModuleRegisterMap) Pol
 func WidthOfPolynomial(source Polynomial, regs []schema.Register) (bitwidth uint, signed bool) {
 	var (
 		intRange  = IntegerRangeOfPolynomial(source, regs)
-		lower     = intRange.MinValue()
-		upper     = intRange.MaxValue()
+		lower     = intRange.MinIntValue()
+		upper     = intRange.MaxIntValue()
 		upperBits = uint(upper.BitLen())
 	)
 	// Check whether negative range in play.
@@ -146,8 +146,8 @@ func WidthOfPolynomial(source Polynomial, regs []schema.Register) (bitwidth uint
 func SplitWidthOfPolynomial(source Polynomial, regs []schema.Register) (poswidth uint, negwidth uint) {
 	var (
 		intRange  = IntegerRangeOfPolynomial(source, regs)
-		lower     = intRange.MinValue()
-		upper     = intRange.MaxValue()
+		lower     = intRange.MinIntValue()
+		upper     = intRange.MaxIntValue()
 		upperBits = uint(upper.BitLen())
 	)
 	// Check whether negative range in play.
@@ -182,10 +182,10 @@ func IntegerRangeOfPolynomial(poly Polynomial, regs []schema.Register) math.Inte
 // evaluations of the monomial lie.  For example, consider the monomial "3*X*Y"
 // where X and are 8bit and 16bit registers respectively.  Then, the smallest
 // enclosing integer range is 0 .. 3*255*65535.
-func IntegerRangeOfMonomial(mono Monomial, regs []schema.Register) *math.Interval {
+func IntegerRangeOfMonomial(mono Monomial, regs []schema.Register) math.Interval {
 	var (
 		coeff    = mono.Coefficient()
-		intRange = math.NewInterval(&coeff, &coeff)
+		intRange = math.NewInterval(coeff, coeff)
 	)
 	//
 	for i := range mono.Len() {
@@ -198,7 +198,7 @@ func IntegerRangeOfMonomial(mono Monomial, regs []schema.Register) *math.Interva
 // IntegerRangeOfRegister determines the smallest integer range enclosing all possible
 // values for a given register.  For example, a register of width 16 has an
 // integer range of 0..65535 (inclusive).
-func IntegerRangeOfRegister(rid schema.RegisterId, regs []schema.Register) *math.Interval {
+func IntegerRangeOfRegister(rid schema.RegisterId, regs []schema.Register) math.Interval {
 	var (
 		val   = big.NewInt(2)
 		width = regs[rid.Unwrap()].Width
@@ -207,5 +207,5 @@ func IntegerRangeOfRegister(rid schema.RegisterId, regs []schema.Register) *math
 	// less than 65536 bits :)
 	val.Exp(val, big.NewInt(int64(width)), nil)
 	// Subtract one since the interval is inclusive.
-	return math.NewInterval(&zero, val.Sub(val, &one))
+	return math.NewInterval(zero, *val.Sub(val, &one))
 }
