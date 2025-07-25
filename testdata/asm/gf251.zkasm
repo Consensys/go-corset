@@ -31,12 +31,12 @@ fn reduction(z u64) -> (RESULT u32) {
    var z_mod_R u32
    var tmp_z_mod_R u32
 
-   var m u64
-   var m_times_n_div_R u64
-   var z_div_R u64
+   var m u32
+   var tmp_m u32
+   var m_times_n_div_R u32
+   var z_div_R u32
    var discard_bit_shift u32
-   var res u64
-   var res_div_R u32
+   var res u32
    var red u32
    var c0, c1, c2 u1
 
@@ -48,8 +48,8 @@ fn reduction(z u64) -> (RESULT u32) {
    tmp_z_mod_R, z_mod_R = z
 
    ;; find m
-   ;; m is u64
-   m = z_mod_R * ninv_mod_R
+   ;; compute mod R by masking
+   tmp_m, m = z_mod_R * ninv_mod_R
 
    ;; limb 1 of result
    ;; z / R
@@ -62,14 +62,11 @@ fn reduction(z u64) -> (RESULT u32) {
    ;; compute the result of the reduction limb1 + limb2
    c2, res = z_div_R + m_times_n_div_R
 
-   ;; divide by R to have final result
-   res_div_R, discard_bit_shift = res
-
-   c0, red = res_div_R - n
+   c0, red = res - n
    if c0==0 goto exit_1
    goto exit_0
 exit_0:
-   RESULT = res_div_R
+   RESULT = res
    return
 exit_1:
    RESULT = red
