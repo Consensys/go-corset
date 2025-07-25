@@ -1439,6 +1439,8 @@ type DefComputedColumn struct {
 	Target *DefColumn
 	// The formula to get the target column from the source columns.
 	Computation Expr
+	// Indicates the computation has been resolved
+	Finalised bool
 }
 
 // Definitions returns the set of symbols defined by this declaration.  Observe
@@ -1466,7 +1468,13 @@ func (p *DefComputedColumn) Defines(symbol Symbol) bool {
 // IsFinalised checks whether this declaration has already been finalised.  If
 // so, then we don't need to finalise it again.
 func (p *DefComputedColumn) IsFinalised() bool {
-	return p.Target.binding.IsFinalised()
+	return p.Finalised && p.Target.binding.IsFinalised()
+}
+
+// Finalise this computed column, which means the target binding and the
+// comptuation itself have been finalised.
+func (p *DefComputedColumn) Finalise() {
+	p.Finalised = true
 }
 
 // IsAssignment checks whether this declaration is an assignment or not.

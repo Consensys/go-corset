@@ -540,9 +540,12 @@ func (r *resolver) finaliseDefConstraintInModule(enclosing *ModuleScope, decl *a
 func (r *resolver) finaliseDefComputedColumnInModule(enclosing *ModuleScope, decl *ast.DefComputedColumn) []SyntaxError {
 	// Construct scope in which to resolve constraint
 	scope := NewLocalScope(enclosing, false, false, false)
-
 	// Resolve computation body
 	computation_errors := r.finaliseExpressionInModule(scope, decl.Computation)
+	//
+	if len(computation_errors) == 0 {
+		decl.Finalise()
+	}
 	// Done
 	return computation_errors
 }
@@ -561,6 +564,7 @@ func (r *resolver) finaliseDefInterleavedInModule(decl *ast.DefInterleaved) []Sy
 		// Errors discovered
 		errors []SyntaxError
 	)
+
 	// Determine type and length multiplier
 	for _, source := range decl.Sources {
 		// Lookup binding of column being interleaved.
