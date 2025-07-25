@@ -26,6 +26,9 @@ import (
 	"github.com/consensys/go-corset/pkg/ir"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
+	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
+	"github.com/consensys/go-corset/pkg/schema/constraint/ranged"
+	"github.com/consensys/go-corset/pkg/schema/constraint/vanishing"
 	"github.com/consensys/go-corset/pkg/trace"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -221,15 +224,15 @@ func reportFailures(ir string, failures []sc.Failure, trace tr.Trace, cfg checkC
 
 // Print a human-readable report detailing the given failure
 func reportFailure(failure sc.Failure, trace tr.Trace, cfg checkConfig) {
-	if f, ok := failure.(*constraint.VanishingFailure); ok {
+	if f, ok := failure.(*vanishing.Failure); ok {
 		cells := f.RequiredCells(trace)
 		fmt.Printf("failing constraint %s:\n", f.Handle)
 		reportRelevantCells(cells, trace, cfg)
-	} else if f, ok := failure.(*constraint.RangeFailure); ok {
+	} else if f, ok := failure.(*ranged.Failure); ok {
 		cells := f.RequiredCells(trace)
 		fmt.Printf("failing range constraint %s:\n", f.Handle)
 		reportRelevantCells(cells, trace, cfg)
-	} else if f, ok := failure.(*constraint.LookupFailure); ok {
+	} else if f, ok := failure.(*lookup.Failure); ok {
 		cells := f.RequiredCells(trace)
 		fmt.Printf("failing lookup constraint %s:\n", f.Handle)
 		reportRelevantCells(cells, trace, cfg)

@@ -17,6 +17,11 @@ import (
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
+	"github.com/consensys/go-corset/pkg/schema/constraint/interleaving"
+	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
+	"github.com/consensys/go-corset/pkg/schema/constraint/permutation"
+	"github.com/consensys/go-corset/pkg/schema/constraint/ranged"
+	"github.com/consensys/go-corset/pkg/schema/constraint/vanishing"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
@@ -34,11 +39,11 @@ type ConstraintBound interface {
 	schema.Constraint
 
 	constraint.Assertion[ir.Testable] |
-		constraint.InterleavingConstraint[*ColumnAccess] |
-		constraint.LookupConstraint[*ColumnAccess] |
-		constraint.PermutationConstraint |
-		constraint.RangeConstraint[*ColumnAccess] |
-		constraint.VanishingConstraint[LogicalTerm]
+		interleaving.Constraint[*ColumnAccess] |
+		lookup.Constraint[*ColumnAccess] |
+		permutation.Constraint |
+		ranged.Constraint[*ColumnAccess] |
+		vanishing.Constraint[LogicalTerm]
 }
 
 // Air attempts to encapsulate the notion of a valid constraint at the AIR
@@ -64,32 +69,32 @@ func NewAssertion(handle string, ctx schema.ModuleId, term ir.Testable) Assertio
 // NewInterleavingConstraint creates a new interleaving constraint with a given handle.
 func NewInterleavingConstraint(handle string, targetContext schema.ModuleId,
 	sourceContext schema.ModuleId, target ColumnAccess, sources []*ColumnAccess) Constraint {
-	return newAir(constraint.NewInterleavingConstraint(handle, targetContext, sourceContext, &target, sources))
+	return newAir(interleaving.NewConstraint(handle, targetContext, sourceContext, &target, sources))
 }
 
 // NewLookupConstraint constructs a new AIR lookup constraint
 func NewLookupConstraint(handle string, targets []ir.Enclosed[[]*ColumnAccess],
 	sources []ir.Enclosed[[]*ColumnAccess]) LookupConstraint {
 	//
-	return newAir(constraint.NewLookupConstraint(handle, targets, sources))
+	return newAir(lookup.NewConstraint(handle, targets, sources))
 }
 
 // NewPermutationConstraint creates a new permutation
 func NewPermutationConstraint(handle string, context schema.ModuleId, targets []schema.RegisterId,
 	sources []schema.RegisterId) Constraint {
-	return newAir(constraint.NewPermutationConstraint(handle, context, targets, sources))
+	return newAir(permutation.NewPermutationConstraint(handle, context, targets, sources))
 }
 
 // NewRangeConstraint constructs a new AIR range constraint
 func NewRangeConstraint(handle string, ctx schema.ModuleId, expr ColumnAccess, bitwidth uint) RangeConstraint {
-	return newAir(constraint.NewRangeConstraint(handle, ctx, &expr, bitwidth))
+	return newAir(ranged.NewRangeConstraint(handle, ctx, &expr, bitwidth))
 }
 
 // NewVanishingConstraint constructs a new AIR vanishing constraint
 func NewVanishingConstraint(handle string, ctx schema.ModuleId, domain util.Option[int],
 	term Term) VanishingConstraint {
 	//
-	return newAir(constraint.NewVanishingConstraint(handle, ctx, domain, LogicalTerm{term}))
+	return newAir(vanishing.NewConstraint(handle, ctx, domain, LogicalTerm{term}))
 }
 
 // Air marks the constraint as being valid for the AIR representation.

@@ -19,6 +19,12 @@ import (
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
+	"github.com/consensys/go-corset/pkg/schema/constraint/interleaving"
+	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
+	"github.com/consensys/go-corset/pkg/schema/constraint/permutation"
+	"github.com/consensys/go-corset/pkg/schema/constraint/ranged"
+	"github.com/consensys/go-corset/pkg/schema/constraint/sorted"
+	"github.com/consensys/go-corset/pkg/schema/constraint/vanishing"
 )
 
 // Following types capture top-level abstractions at the MIR level.
@@ -49,22 +55,22 @@ type (
 	Assertion = constraint.Assertion[LogicalTerm]
 	// InterleavingConstraint captures the essence of an interleaving constraint
 	// at the MIR level.
-	InterleavingConstraint = constraint.InterleavingConstraint[Term]
+	InterleavingConstraint = interleaving.Constraint[Term]
 	// LookupConstraint captures the essence of a lookup constraint at the MIR
 	// level.
-	LookupConstraint = constraint.LookupConstraint[Term]
+	LookupConstraint = lookup.Constraint[Term]
 	// PermutationConstraint captures the essence of a permutation constraint at the
 	// MIR level.
-	PermutationConstraint = constraint.PermutationConstraint
+	PermutationConstraint = permutation.Constraint
 	// RangeConstraint captures the essence of a range constraints at the MIR level.
-	RangeConstraint = constraint.RangeConstraint[Term]
+	RangeConstraint = ranged.Constraint[Term]
 	// SortedConstraint captures the essence of a sorted constraint at the MIR
 	// level.
-	SortedConstraint = constraint.SortedConstraint[Term]
+	SortedConstraint = sorted.Constraint[Term]
 	// VanishingConstraint captures the essence of a vanishing constraint at the MIR
 	// level. A vanishing constraint is a row constraint which must evaluate to
 	// zero.
-	VanishingConstraint = constraint.VanishingConstraint[LogicalTerm]
+	VanishingConstraint = vanishing.Constraint[LogicalTerm]
 )
 
 // Following types capture permitted expression forms at the MIR level.

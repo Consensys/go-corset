@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package constraint
+package lookup
 
 import (
 	"encoding/binary"
@@ -19,89 +19,17 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/schema/agnostic"
+	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
-	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
-// LookupFailure provides structural information about a failing lookup constraint.
-type LookupFailure struct {
-	// Handle of the failing constraint
-	Handle string
-	// Relevant context for source expressions.
-	Context schema.ModuleId
-	// Source expressions which were missing
-	Sources []ir.Evaluable
-	// Row on which the constraint failed
-	Row uint
-}
+var frZero = fr.NewElement(0)
 
-// Message provides a suitable error message
-func (p *LookupFailure) Message() string {
-	return fmt.Sprintf("lookup \"%s\" failed (row %d)", p.Handle, p.Row)
-}
-
-func (p *LookupFailure) String() string {
-	return p.Message()
-}
-
-// RequiredCells identifies the cells required to evaluate the failing constraint at the failing row.
-func (p *LookupFailure) RequiredCells(_ trace.Trace) *set.AnySortedSet[trace.CellRef] {
-	res := set.NewAnySortedSet[trace.CellRef]()
-	//
-	for i, e := range p.Sources {
-		if i != 0 || e.IsDefined() {
-			res.InsertSorted(e.RequiredCells(int(p.Row), p.Context))
-		}
-	}
-	//
-	return res
-}
-
-// LookupGeometry defines the "geometry" of a lookup.  That is the maximum
-// bitwidth for each source-target pairing in the lookup.  For example, consider
-// a lookup where (X Y) looksup into (A B).  Suppose X is 16bit and Y is 32bit,
-// whilst A is 64bit and B is 8bit. Then, the geometry of the lookup is [16,32].
-type LookupGeometry struct {
-	config schema.FieldConfig
-	// bitwidth for each source/target pairing
-	geometry []uint
-}
-
-// NewLookupGeometry returns the calculated "geometry" for this lookup.  That
-// is, for each source/target pair, the maximum bitwidth of any source or target
-// value.
-func NewLookupGeometry[E ir.Evaluable, T schema.RegisterMap](c LookupConstraint[E],
-	mapping schema.ModuleMap[T]) LookupGeometry {
-	//
-	var geometry []uint = make([]uint, len(c.Sources[0].Item))
-	// Include sources
-	for _, source := range c.Sources {
-		updateGeometry(geometry, source, mapping)
-	}
-	// Include targets
-	for _, target := range c.Targets {
-		updateGeometry(geometry, target, mapping)
-	}
-	//
-	return LookupGeometry{mapping.Field(), geometry}
-}
-
-// LimbWidths returns the bitwidths for the required limbs for a given
-// source/target pairing in the lookup.
-func (p *LookupGeometry) LimbWidths(i uint) []uint {
-	if p.geometry[i] == 0 {
-		return nil
-	}
-	//
-	return agnostic.LimbWidths(p.config.RegisterWidth, p.geometry[i])
-}
-
-// LookupConstraint (sometimes also called an inclusion constraint) constrains
+// Constraint (sometimes also called an inclusion constraint) constrains
 // two sets of columns (potentially in different modules). Specifically, every
 // row in the source columns must match a row in the target columns (but not
 // vice-versa).  As such, the number of source columns must be the same as the
@@ -116,7 +44,7 @@ func (p *LookupGeometry) LimbWidths(i uint) []uint {
 // pairs (and perhaps other constraints to ensure the required relationship) and
 // the source module is just checking that a given set of input/output pairs
 // makes sense.
-type LookupConstraint[E ir.Evaluable] struct {
+type Constraint[E ir.Evaluable] struct {
 	// Handle returns the handle for this lookup constraint which is simply an
 	// identifier useful when debugging (i.e. to know which lookup failed, etc).
 	Handle string
@@ -130,9 +58,9 @@ type LookupConstraint[E ir.Evaluable] struct {
 	Sources []ir.Enclosed[[]E]
 }
 
-// NewLookupConstraint creates a new lookup constraint with a given handle.
-func NewLookupConstraint[E ir.Evaluable](handle string, targets []ir.Enclosed[[]E],
-	sources []ir.Enclosed[[]E]) LookupConstraint[E] {
+// NewConstraint creates a new lookup constraint with a given handle.
+func NewConstraint[E ir.Evaluable](handle string, targets []ir.Enclosed[[]E],
+	sources []ir.Enclosed[[]E]) Constraint[E] {
 	var width int
 	// Check sources
 	for i, ith := range sources {
@@ -149,7 +77,7 @@ func NewLookupConstraint[E ir.Evaluable](handle string, targets []ir.Enclosed[[]
 		}
 	}
 
-	return LookupConstraint[E]{Handle: handle,
+	return Constraint[E]{Handle: handle,
 		Targets: targets,
 		Sources: sources,
 	}
@@ -158,13 +86,13 @@ func NewLookupConstraint[E ir.Evaluable](handle string, targets []ir.Enclosed[[]
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p LookupConstraint[E]) Consistent(_ schema.AnySchema) []error {
+func (p Constraint[E]) Consistent(_ schema.AnySchema) []error {
 	return nil
 }
 
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
-func (p LookupConstraint[E]) Name() string {
+func (p Constraint[E]) Name() string {
 	return p.Handle
 }
 
@@ -173,7 +101,7 @@ func (p LookupConstraint[E]) Name() string {
 // evaluation context, though some (e.g. lookups) have more.  Note that all
 // constraints have at least one context (which we can call the "primary"
 // context).
-func (p LookupConstraint[E]) Contexts() []schema.ModuleId {
+func (p Constraint[E]) Contexts() []schema.ModuleId {
 	var contexts []schema.ModuleId
 	// source contexts
 	for _, source := range p.Sources {
@@ -194,7 +122,7 @@ func (p LookupConstraint[E]) Contexts() []schema.ModuleId {
 // expression on that first row is also undefined (and hence must pass).
 //
 //nolint:revive
-func (p LookupConstraint[E]) Bounds(module uint) util.Bounds {
+func (p Constraint[E]) Bounds(module uint) util.Bounds {
 	var bound util.Bounds
 	// sources
 	for _, ith := range p.Sources {
@@ -226,7 +154,7 @@ func (p LookupConstraint[E]) Bounds(module uint) util.Bounds {
 // all rows of the source columns.
 //
 //nolint:revive
-func (p LookupConstraint[E]) Accepts(tr trace.Trace, sc schema.AnySchema) (bit.Set, schema.Failure) {
+func (p Constraint[E]) Accepts(tr trace.Trace, sc schema.AnySchema) (bit.Set, schema.Failure) {
 	var (
 		coverage bit.Set
 		// Determine width (in columns) of this lookup
@@ -279,7 +207,7 @@ func (p LookupConstraint[E]) Accepts(tr trace.Trace, sc schema.AnySchema) (bit.S
 					sources[i] = e
 				}
 				// Construct failures
-				return coverage, &LookupFailure{
+				return coverage, &Failure{
 					p.Handle, ith.Module, sources, i,
 				}
 			}
@@ -310,8 +238,12 @@ func evalExprsAsBytes[E ir.Evaluable](k int, selector bool, terms ir.Enclosed[[]
 		ith, err := sources[i].EvalAt(k, trModule, scModule)
 		// error check
 		if err != nil {
-			return nil, &InternalFailure{
-				handle, terms.Module, uint(i), sources[i], err.Error(),
+			return nil, &constraint.InternalFailure{
+				Handle:  handle,
+				Context: terms.Module,
+				Row:     uint(i),
+				Term:    sources[i],
+				Error:   err.Error(),
 			}
 		} else if i == 0 {
 			// Selector determines whether or not this row is enabled.  If the
@@ -338,7 +270,7 @@ func evalExprsAsBytes[E ir.Evaluable](k int, selector bool, terms ir.Enclosed[[]
 // so it can be printed.
 //
 //nolint:revive
-func (p LookupConstraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
+func (p Constraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
 	var (
 		sources = sexp.EmptyList()
 		targets = sexp.EmptyList()
@@ -387,7 +319,7 @@ func (p LookupConstraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
 }
 
 // Substitute any matchined labelled constants within this constraint
-func (p LookupConstraint[E]) Substitute(mapping map[string]fr.Element) {
+func (p Constraint[E]) Substitute(mapping map[string]fr.Element) {
 	// Sources
 	for _, ith := range p.Sources {
 		for _, s := range ith.Item {

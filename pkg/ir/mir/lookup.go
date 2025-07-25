@@ -17,14 +17,14 @@ import (
 
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/schema/constraint"
+	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
 )
 
 // Subdivide implementation for the FieldAgnostic interface.
 func subdivideLookup(c LookupConstraint, mapping schema.LimbsMap) LookupConstraint {
 	var (
 		// Determine overall geometry for this lookup.
-		geometry = constraint.NewLookupGeometry(c, mapping)
+		geometry = lookup.NewGeometry(c, mapping)
 		// Split all registers in the source vectors
 		sources = mapLookupVectors(c.Sources, mapping)
 		// Split all registers in the target vectors
@@ -40,7 +40,7 @@ func subdivideLookup(c LookupConstraint, mapping schema.LimbsMap) LookupConstrai
 	targets = padLookupVectors(rawTargets, geometry)
 	sources = padLookupVectors(rawSources, geometry)
 	//
-	return constraint.NewLookupConstraint(c.Handle, targets, sources)
+	return lookup.NewConstraint(c.Handle, targets, sources)
 }
 
 // Mapping lookup vectors essentially means applying the limb mapping to all
@@ -93,7 +93,7 @@ func splitLookupVector(terms []Term) [][]Term {
 	return nterms
 }
 
-func alignLookupVectors(vectors []ir.Enclosed[[][]Term], geometry constraint.LookupGeometry,
+func alignLookupVectors(vectors []ir.Enclosed[[][]Term], geometry lookup.Geometry,
 	mapping schema.LimbsMap) {
 	//
 	for _, vector := range vectors {
@@ -101,7 +101,7 @@ func alignLookupVectors(vectors []ir.Enclosed[[][]Term], geometry constraint.Loo
 	}
 }
 
-func alignLookupVector(vector ir.Enclosed[[][]Term], geometry constraint.LookupGeometry, mapping schema.LimbsMap) {
+func alignLookupVector(vector ir.Enclosed[[][]Term], geometry lookup.Geometry, mapping schema.LimbsMap) {
 	var modmap = mapping.Module(vector.Module)
 	//
 	for i, limbs := range vector.Item {
@@ -136,7 +136,7 @@ func alignLookupLimbs(selector bool, limbs []Term, geometry []uint, mapping sche
 	}
 }
 
-func padLookupVectors(vectors []ir.Enclosed[[][]Term], geometry constraint.LookupGeometry) []ir.Enclosed[[]Term] {
+func padLookupVectors(vectors []ir.Enclosed[[][]Term], geometry lookup.Geometry) []ir.Enclosed[[]Term] {
 	var nterms []ir.Enclosed[[]Term] = make([]ir.Enclosed[[]Term], len(vectors))
 	//
 	for i, vector := range vectors {
@@ -147,7 +147,7 @@ func padLookupVectors(vectors []ir.Enclosed[[][]Term], geometry constraint.Looku
 	return nterms
 }
 
-func padTerms(terms [][]Term, geometry constraint.LookupGeometry) []Term {
+func padTerms(terms [][]Term, geometry lookup.Geometry) []Term {
 	var nterms []Term
 
 	for i, ith := range terms {

@@ -15,7 +15,7 @@ package mir
 import (
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/schema/constraint"
+	"github.com/consensys/go-corset/pkg/schema/constraint/vanishing"
 )
 
 // Subdivide implementation for the FieldAgnostic interface.
@@ -55,7 +55,7 @@ func subdivideVanishing(p VanishingConstraint, mapping schema.RegisterLimbsMap) 
 	// FIXME: this is an insufficient solution because it does not address the
 	// potential issues around bandwidth.  Specifically, where additional carry
 	// lines are needed, etc.
-	return constraint.NewVanishingConstraint(p.Handle, p.Context, p.Domain, c)
+	return vanishing.NewConstraint(p.Handle, p.Context, p.Domain, c)
 }
 
 func splitLogicalTerm(term LogicalTerm, mapping schema.RegisterLimbsMap) LogicalTerm {
