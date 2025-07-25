@@ -1433,7 +1433,7 @@ func (p *DefSorted) Lisp() sexp.SExp {
 // defcomputedcolumn
 // ============================================================================
 
-// DefComputed is an assignment which computes the values for one column based on a chosen internal function.
+// DefComputedColumn is an assignment which computes the values for one column based on a chosen internal function.
 type DefComputedColumn struct {
 	// Column being assigned by this computation.
 	Target *DefColumn
