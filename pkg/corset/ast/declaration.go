@@ -1180,7 +1180,7 @@ func (p *DefProperty) Lisp() sexp.SExp {
 }
 
 // ============================================================================
-// depurefun & defun
+// defpurefun & defun
 // ============================================================================
 
 // DefFun represents defines a (possibly pure) "function" (which, in actuality,

@@ -421,6 +421,8 @@ func (r *resolver) finaliseDeclaration(scope *ModuleScope, decl ast.Declaration)
 		return r.finaliseDefPropertyInModule(scope, d)
 	case *ast.DefSorted:
 		return r.finaliseDefSortedInModule(scope, d)
+	case *ast.DefComputedColumn:
+		return r.finaliseDefComputedColumnInModule(scope, d)
 	}
 	//
 	return nil
@@ -530,6 +532,19 @@ func (r *resolver) finaliseDefConstraintInModule(enclosing *ModuleScope, decl *a
 	}
 	// Done
 	return append(guard_errors, constraint_errors...)
+}
+
+// Finalise a vanishing constraint declaration after all symbols have been
+// resolved. This involves: (a) checking the context is valid; (b) checking the
+// expressions are well-typed.
+func (r *resolver) finaliseDefComputedColumnInModule(enclosing *ModuleScope, decl *ast.DefComputedColumn) []SyntaxError {
+	// Construct scope in which to resolve constraint
+	scope := NewLocalScope(enclosing, false, false, false)
+
+	// Resolve computation body
+	computation_errors := r.finaliseExpressionInModule(scope, decl.Computation)
+	// Done
+	return computation_errors
 }
 
 // Finalise an interleaving assignment.  Since the assignment would already been

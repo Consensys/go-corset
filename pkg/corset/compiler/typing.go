@@ -32,7 +32,7 @@ type SyntaxError = source.SyntaxError
 // arising from the possibility of overloading function calls, etc.
 func TypeCheckCircuit(srcmap *source.Maps[ast.Node],
 	circuit *ast.Circuit) []SyntaxError {
-	// Construct fresh typeCheckor
+	// Construct fresh typeChecker
 	p := typeChecker{srcmap}
 	// typeCheck all declarations
 	return p.typeCheckDeclarations(circuit)
@@ -105,6 +105,8 @@ func (p *typeChecker) typeCheckDeclaration(decl ast.Declaration) []SyntaxError {
 		errors = p.typeCheckDefProperty(d)
 	case *ast.DefSorted:
 		errors = p.typeCheckDefSorted(d)
+	case *ast.DefComputedColumn:
+		errors = p.typeCheckDefComputedColumn(d)
 	default:
 		// Error handling
 		panic("unknown declaration")
@@ -130,7 +132,7 @@ func (p *typeChecker) typeCheckDefConstInModule(decl *ast.DefConst) []SyntaxErro
 // typeCheck a "defconstraint" declaration.
 func (p *typeChecker) typeCheckDefConstraint(decl *ast.DefConstraint) []SyntaxError {
 	// FIXME: eventually, the guard should be a BOOLEAN_TYPE in order to
-	// force a suitable interpetation.
+	// force a suitable interpretation.
 	//
 	// typeCheck (optional) guard
 	_, guard_errors := p.typeCheckOptionalExpressionInModule(ast.INT_TYPE, decl.Guard, true)
@@ -138,6 +140,14 @@ func (p *typeChecker) typeCheckDefConstraint(decl *ast.DefConstraint) []SyntaxEr
 	_, constraint_errors := p.typeCheckExpressionInModule(ast.BOOL_TYPE, decl.Constraint, false)
 	// Combine errors
 	return append(constraint_errors, guard_errors...)
+}
+
+// typeCheck a "defconstraint" declaration.
+func (p *typeChecker) typeCheckDefComputedColumn(decl *ast.DefComputedColumn) []SyntaxError {
+	// typeCheck expression body
+	_, expr_errors := p.typeCheckExpressionInModule(ast.INT_TYPE, decl.Computation, false)
+	// Combine errors
+	return expr_errors
 }
 
 // ast.Type check the body of a function.
@@ -186,7 +196,7 @@ func (p *typeChecker) typeCheckDefInRange(decl *ast.DefInRange) []SyntaxError {
 // typeCheck a "defperspective" declaration.
 func (p *typeChecker) typeCheckDefPerspective(decl *ast.DefPerspective) []SyntaxError {
 	// FIXME: eventually, the selector should be a BOOLEAN_TYPE in order to
-	// force a suitable interpetation.
+	// force a suitable interpretation.
 	//
 	// typeCheck selector expression
 	_, errors := p.typeCheckExpressionInModule(ast.INT_TYPE, decl.Selector, true)

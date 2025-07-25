@@ -83,7 +83,7 @@ func ParseSourceFiles(files []*source.File) (ast.Circuit, *source.Maps[ast.Node]
 			}
 		}
 	}
-	// Bring all fragmenmts together
+	// Bring all fragments together
 	circuit.Modules = make([]ast.Module, len(names))
 	// Sort module names to ensure that compilation is always deterministic.
 	sort.Strings(names)
@@ -203,7 +203,7 @@ func NewParser(srcfile *source.File, srcmap *source.Map[sexp.SExp]) *Parser {
 	return parser
 }
 
-// NodeMap extract the node map constructec by this parser.  A key task here is
+// NodeMap extract the node map constructed by this parser.  A key task here is
 // to copy all mappings from the expression translator, which maintains its own
 // map.
 func (p *Parser) NodeMap() *source.Map[ast.Node] {
