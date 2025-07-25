@@ -19,49 +19,66 @@ exit_1:
 }
 
 fn reduction(z u64) -> (RESULT u32) {
-
    ;; constants recap
-   ;; R = 4294967296
-   ;; modulus = 251
+   ;; R = 4294967296 = 2^32
+   ;; n = 251
    ;; R² = 69
-   ;; ninv mod m 1711142349
+   ;; ninv mod R 1711142349
 
-   var ninv_mod_m u64
-   var modulus u64
+   var n u32
+   var ninv_mod_R u32
+
+   var z_mod_R u32
+   var tmp_z_mod_R u32
 
    var m u64
-   var tmp_m u64
-   var int1_res u64
-   var tmp_int1_res u64
-   var int2_res u64
-   var res u32
-   var tmp_res u32
+   var m_times_n_div_R u64
+   var z_div_R u64
+   var discard_bit_shift u32
+   var res u64
+   var res_div_R u32
    var red u32
-   var c0, c1 u1
+   var c0, c1, c2 u1
 
-   ninv_mod_m = 1711142349
-   modulus = 251
+   ninv_mod_R = 1711142349
+   n = 251
 
-   tmp_m, m = z * ninv_mod_m
-   tmp_int1_res, int1_res = m * modulus
-   c1, int2_res = z + int1_res
-   tmp_res, res = int2_res >> 1
-   c0, red = res - 251
+   ;; z is a u64
+   ;; compute z mod R by masking
+   tmp_z_mod_R, z_mod_R = z
+
+   ;; find m
+   ;; m is u64
+   m = z_mod_R * ninv_mod_R
+
+   ;; limb 1 of final result
+   ;; z / R
+   z_div_R, discard_bit_shift = z
+
+   ;; limb 2 of final result
+   ;; ( m * n ) / R
+   m_times_n_div_R, discard_bit_shift = m * n
+
+   ;; compute the result of the reduction
+   c2, res = z_div_R + m_times_n_div_R
+
+   ;; divide by R to have final result
+   res_div_R, discard_bit_shift = res
+   
+   c0, red = res_div_R - n
    if c0==0 goto exit_1
    goto exit_0
 exit_0:
-   RESULT = res
+   RESULT = res_div_R
    return
 exit_1:
    RESULT = red
    return
-
 }
 
 fn mul(x u32, y u32) -> (RESULT u32) {
-
     var z u64
     z = x * y
-    return reduction(z)
-
+    RESULT = reduction(z)
+    return
 }
