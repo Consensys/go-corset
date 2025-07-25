@@ -803,6 +803,10 @@ func Test_Invalid_DefComputeColum_04(t *testing.T) {
 	CheckInvalid(t, "invalid/compute_column_invalid_04")
 }
 
+func Test_Invalid_DefComputeColum_05(t *testing.T) {
+	CheckInvalid(t, "invalid/compute_column_invalid_05")
+}
+
 // ===================================================================
 // Test Helpers
 // ===================================================================

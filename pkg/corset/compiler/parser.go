@@ -599,12 +599,20 @@ func (p *Parser) parseDefComputedColumn(module util.Path, elements []sexp.SExp) 
 		errors []SyntaxError
 		target *ast.DefColumn
 	)
-	// Sanity checks
-	var targetError *SyntaxError
+
 	// Parse target declaration
-	if target, targetError = p.parseColumnDeclaration(module, module, true, elements[1]); targetError != nil {
+	columnDeclaration := elements[1].AsList()
+	if columnDeclaration == nil {
+		err := *p.translator.SyntaxError(elements[1], "computed column is not of the right format")
+		errors = append(errors, err)
+	}
+	if len(errors) != 0 {
+		return nil, errors
+	}
+	if _, targetError := p.parseColumnDeclaration(module, module, true, columnDeclaration); targetError != nil {
 		errors = append(errors, *targetError)
 	}
+
 	// Translate expression
 	expr, exprErrors := p.translator.Translate(elements[2])
 	errors = append(errors, exprErrors...)

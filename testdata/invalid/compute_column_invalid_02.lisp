@@ -1,3 +1,3 @@
-;;error:3:14-15:malformed target columns
+;;error:3:23-24:unknown type
 (defcolumns (X :i16))
 (defcomputedcolumn (Y Z) (+ X 1))

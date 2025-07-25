@@ -2,6 +2,6 @@
 
 (defcolumns (X :i16))
 
-(defcomputedcolumn (Y) (+ X 1))
+(defcomputedcolumn (Y :i24) (+ X 1))
 
 (defconstraint c () (eq! Y X ))

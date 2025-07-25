@@ -1,4 +1,4 @@
-;;error:3:14-15:malformed target columns
+;;error:4:20-28:symbol Y already declared
 (defcolumns (X :i16))
 (defcolumns (Y :i24))
-(defcomputedcolumn (Y) (+ X 1))
+(defcomputedcolumn (Y :i24) (+ X 1))
