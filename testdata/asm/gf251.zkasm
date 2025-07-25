@@ -51,20 +51,20 @@ fn reduction(z u64) -> (RESULT u32) {
    ;; m is u64
    m = z_mod_R * ninv_mod_R
 
-   ;; limb 1 of final result
+   ;; limb 1 of result
    ;; z / R
    z_div_R, discard_bit_shift = z
 
-   ;; limb 2 of final result
+   ;; limb 2 of result
    ;; ( m * n ) / R
    m_times_n_div_R, discard_bit_shift = m * n
 
-   ;; compute the result of the reduction
+   ;; compute the result of the reduction limb1 + limb2
    c2, res = z_div_R + m_times_n_div_R
 
    ;; divide by R to have final result
    res_div_R, discard_bit_shift = res
-   
+
    c0, red = res_div_R - n
    if c0==0 goto exit_1
    goto exit_0
