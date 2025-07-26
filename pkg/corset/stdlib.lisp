@@ -107,7 +107,7 @@
                             (if (== CT 0)
                                 (vanishes! X)
                               (if (== CT C)
-                                  (did-inc! X 1)
+                                  (== X 1)
                                 (remained-constant! X))))))
 
 ;; stamp constancy imposes that the column C may only
