@@ -1,4 +1,8 @@
 ;; GF251 curve
+;; Add on u256
+;; Mul on u32 and u8 available to be able to test all cases
+;; Mul on u256 coming next
+
 fn add(x u256, y u256) -> (RESULT u256) {
 
    var c0, c1  u1
@@ -18,12 +22,14 @@ exit_1:
 
 }
 
+;; u32 version of mul and reduction
+
 fn reduction(z u64) -> (RESULT u32) {
    ;; constants recap
    ;; R = 4294967296 = 2^32
    ;; n = 251
    ;; R² = 69
-   ;; ninv mod R 1711142349
+   ;; ninv mod R = 1711142349
 
    var n u32
    var ninv_mod_R u32
@@ -77,5 +83,69 @@ fn mul(x u32, y u32) -> (RESULT u32) {
     var z u64
     z = x * y
     RESULT = reduction(z)
+    return
+}
+
+;; u8 version of mul and reduction to be able to test all cases
+
+fn reduction_u8(z u16) -> (RESULT u8) {
+   ;; constants recap
+   ;; R = 256 = 2^8
+   ;; n = 251
+   ;; ninv mod R = 205
+
+   var n u8
+   var ninv_mod_R u8
+
+   var z_mod_R u8
+   var tmp_z_mod_R u8
+
+   var m u8
+   var tmp_m u8
+   var m_times_n_div_R u8
+   var z_div_R u8
+   var discard_bit_shift u8
+   var res u8
+   var red u8
+   var c0, c1, c2 u1
+
+   ninv_mod_R = 205
+   n = 251
+
+   ;; z is a u16
+   ;; compute z mod R by masking
+   tmp_z_mod_R, z_mod_R = z
+
+   ;; find m
+   ;; compute mod R by masking
+   tmp_m, m = z_mod_R * ninv_mod_R
+
+   ;; limb 1 of result
+   ;; z / R
+   z_div_R, discard_bit_shift = z
+
+   ;; limb 2 of result
+   ;; ( m * n ) / R
+   m_times_n_div_R, discard_bit_shift = m * n
+
+   ;; compute the result of the reduction limb1 + limb2
+   c2, res = z_div_R + m_times_n_div_R
+
+   c0, red = res - n
+   if c0==0 goto exit_1
+   goto exit_0
+exit_0:
+   RESULT = res
+   return
+exit_1:
+   RESULT = red
+   return
+}
+
+
+fn mul_u8(x u8, y u8) -> (RESULT u8) {
+    var z u16
+    z = x * y
+    RESULT = reduction_u8(z)
     return
 }
