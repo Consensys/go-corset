@@ -87,7 +87,7 @@ func True(t *testing.T, condition bool, msg ...any) {
 	t.Errorf("condition is false")
 
 	if len(msg) != 0 {
-		t.Errorf(msg[0].(string), msg[1:])
+		t.Errorf(msg[0].(string), msg[1:]...)
 	}
 
 	t.FailNow()
@@ -102,7 +102,7 @@ func False(t *testing.T, condition bool, msg ...any) {
 	t.Errorf("condition is true")
 
 	if len(msg) != 0 {
-		t.Errorf(msg[0].(string), msg[1:])
+		t.Errorf(msg[0].(string), msg[1:]...)
 	}
 
 	t.FailNow()
