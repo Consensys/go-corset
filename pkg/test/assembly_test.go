@@ -19,6 +19,10 @@ import (
 	test_util "github.com/consensys/go-corset/pkg/test/util"
 )
 
+func Test_Asm_Add(t *testing.T) {
+	test_util.Check(t, false, "asm/add")
+}
+
 // Recusion
 //
 //	func Test_Asm_Byte(t *testing.T) {

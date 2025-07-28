@@ -10,60 +10,23 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package constraint
+package interleaving
 
 import (
-	"fmt"
-
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
-	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
-// InterleavingFailure provides structural information about a failing lookup constraint.
-type InterleavingFailure struct {
-	// Handle of the failing constraint
-	Handle string
-	// Relevant context for target expressions.
-	TargetContext schema.ModuleId
-	// Target expression involved
-	Target ir.Evaluable
-	// Relevant context for source expressions.
-	SourceContext schema.ModuleId
-	// Source expression which were missing
-	Source ir.Evaluable
-	// Target row on which constraint
-	Row uint
-}
-
-// Message provides a suitable error message
-func (p *InterleavingFailure) Message() string {
-	return fmt.Sprintf("interleaving \"%s\" failed (row %d)", p.Handle, p.Row)
-}
-
-func (p *InterleavingFailure) String() string {
-	return p.Message()
-}
-
-// RequiredCells identifies the cells required to evaluate the failing constraint at the failing row.
-func (p *InterleavingFailure) RequiredCells(tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
-	var res = set.NewAnySortedSet[trace.CellRef]()
-	//
-	res.InsertSorted(p.Source.RequiredCells(int(p.Row), p.SourceContext))
-	res.InsertSorted(p.Target.RequiredCells(int(p.Row), p.TargetContext))
-	//
-	return res
-}
-
-// InterleavingConstraint declares a constraint that one expression represents the
+// Constraint declares a constraint that one expression represents the
 // interleaving of one or more expressions.  For example, suppose X=[1,2] and
 // Y=[3,4].  Then Z=[1,3,2,4] is the interleaving of X and Y.
-type InterleavingConstraint[E ir.Evaluable] struct {
+type Constraint[E ir.Evaluable] struct {
 	Handle string
 	// Context in which all target columns are evaluated.
 	TargetContext schema.ModuleId
@@ -75,24 +38,24 @@ type InterleavingConstraint[E ir.Evaluable] struct {
 	Sources []E
 }
 
-// NewInterleavingConstraint creates a new Interleave
-func NewInterleavingConstraint[E ir.Evaluable](handle string, targetContext schema.ModuleId,
-	sourceContext schema.ModuleId, target E, sources []E) InterleavingConstraint[E] {
+// NewConstraint creates a new Interleave
+func NewConstraint[E ir.Evaluable](handle string, targetContext schema.ModuleId,
+	sourceContext schema.ModuleId, target E, sources []E) Constraint[E] {
 	//
-	return InterleavingConstraint[E]{handle, targetContext, sourceContext, target, sources}
+	return Constraint[E]{handle, targetContext, sourceContext, target, sources}
 }
 
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p InterleavingConstraint[E]) Consistent(schema schema.AnySchema) []error {
+func (p Constraint[E]) Consistent(schema schema.AnySchema) []error {
 	// TODO: check column access, and widths, etc.
 	return nil
 }
 
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
-func (p InterleavingConstraint[E]) Name() string {
+func (p Constraint[E]) Name() string {
 	return p.Handle
 }
 
@@ -101,7 +64,7 @@ func (p InterleavingConstraint[E]) Name() string {
 // evaluation context, though some (e.g. lookups) have more.  Note that all
 // constraints have at least one context (which we can call the "primary"
 // context).
-func (p InterleavingConstraint[E]) Contexts() []schema.ModuleId {
+func (p Constraint[E]) Contexts() []schema.ModuleId {
 	return []schema.ModuleId{p.TargetContext, p.SourceContext}
 }
 
@@ -110,13 +73,13 @@ func (p InterleavingConstraint[E]) Contexts() []schema.ModuleId {
 // expression such as "(shift X -1)".  This is technically undefined for the
 // first row of any trace and, by association, any constraint evaluating this
 // expression on that first row is also undefined (and hence must pass).
-func (p InterleavingConstraint[E]) Bounds(module uint) util.Bounds {
+func (p Constraint[E]) Bounds(module uint) util.Bounds {
 	return util.EMPTY_BOUND
 }
 
 // Accepts checks whether a Interleave holds between the source and
 // target columns.
-func (p InterleavingConstraint[E]) Accepts(tr trace.Trace, sc schema.AnySchema) (bit.Set, schema.Failure) {
+func (p Constraint[E]) Accepts(tr trace.Trace, sc schema.AnySchema) (bit.Set, schema.Failure) {
 	var (
 		coverage bit.Set
 		srcTrMod = tr.Module(p.SourceContext)
@@ -136,16 +99,24 @@ func (p InterleavingConstraint[E]) Accepts(tr trace.Trace, sc schema.AnySchema) 
 		s, s_err := p.Sources[row%n].EvalAt(row/n, srcTrMod, srcScMod)
 		// Checks
 		if t_err != nil {
-			return coverage, &InternalFailure{
-				p.Handle, p.TargetContext, uint(row), p.Target, t_err.Error(),
+			return coverage, &constraint.InternalFailure{
+				Handle:  p.Handle,
+				Context: p.TargetContext,
+				Row:     uint(row),
+				Term:    p.Target,
+				Error:   t_err.Error(),
 			}
 		} else if s_err != nil {
-			return coverage, &InternalFailure{
-				p.Handle, p.SourceContext, uint(row / n), p.Sources[row%n], s_err.Error(),
+			return coverage, &constraint.InternalFailure{
+				Handle:  p.Handle,
+				Context: p.SourceContext,
+				Row:     uint(row / n),
+				Term:    p.Sources[row%n],
+				Error:   s_err.Error(),
 			}
 		} else if t.Cmp(&s) != 0 {
 			// Evaluation failure
-			return coverage, &InterleavingFailure{
+			return coverage, &Failure{
 				p.Handle,
 				p.TargetContext,
 				p.Target,
@@ -161,7 +132,7 @@ func (p InterleavingConstraint[E]) Accepts(tr trace.Trace, sc schema.AnySchema) 
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (p InterleavingConstraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
+func (p Constraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
 	var (
 		sourceModule = schema.Module(p.SourceContext)
 		targetModule = schema.Module(p.TargetContext)
@@ -191,7 +162,7 @@ func (p InterleavingConstraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
 }
 
 // Substitute any matchined labelled constants within this constraint
-func (p InterleavingConstraint[E]) Substitute(mapping map[string]fr.Element) {
+func (p Constraint[E]) Substitute(mapping map[string]fr.Element) {
 	for _, s := range p.Sources {
 		s.Substitute(mapping)
 	}

@@ -22,6 +22,8 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/air"
 	air_gadgets "github.com/consensys/go-corset/pkg/ir/air/gadgets"
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
+	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/field"
 	util_math "github.com/consensys/go-corset/pkg/util/math"
@@ -242,19 +244,33 @@ func (p *AirLowering) lowerInterleavingConstraintToAir(c InterleavingConstraint,
 // expected value.
 func (p *AirLowering) lowerLookupConstraintToAir(c LookupConstraint, airModule *air.ModuleBuilder) {
 	var (
-		sources = make([]ir.Enclosed[[]*air.ColumnAccess], len(c.Sources))
-		targets = make([]ir.Enclosed[[]*air.ColumnAccess], len(c.Targets))
+		sources = make([]lookup.Vector[*air.ColumnAccess], len(c.Sources))
+		targets = make([]lookup.Vector[*air.ColumnAccess], len(c.Targets))
 	)
 	// Lower sources
 	for i, ith := range c.Sources {
-		sources[i] = p.expandEnclosedLookupTerms(ith)
+		sources[i] = p.expandLookupVectorToAir(ith)
 	}
 	// Lower targets
 	for i, ith := range c.Targets {
-		targets[i] = p.expandEnclosedLookupTerms(ith)
+		targets[i] = p.expandLookupVectorToAir(ith)
 	}
 	// Add constraint
 	airModule.AddConstraint(air.NewLookupConstraint(c.Handle, targets, sources))
+}
+
+func (p *AirLowering) expandLookupVectorToAir(vector lookup.Vector[Term]) lookup.Vector[*air.ColumnAccess] {
+	var (
+		terms    = p.expandTerms(vector.Module, vector.Terms...)
+		selector util.Option[*air.ColumnAccess]
+	)
+	//
+	if vector.HasSelector() {
+		sel := p.expandTerm(vector.Module, vector.Selector.Unwrap())
+		selector = util.Some(sel)
+	}
+	//
+	return lookup.NewVector(vector.Module, selector, terms...)
 }
 
 // Lower a sorted constraint to the AIR level.  The challenge here is that there
@@ -311,47 +327,35 @@ func (p *AirLowering) lowerSortedConstraintToAir(c SortedConstraint, airModule *
 	}
 }
 
-func (p *AirLowering) expandEnclosedLookupTerms(terms ir.Enclosed[[]Term]) ir.Enclosed[[]*air.ColumnAccess] {
-	accesses := p.expandTermsInner(terms.Module, true, terms.Item...)
-	return ir.Enclose(terms.Module, accesses)
-}
-
 func (p *AirLowering) expandTerms(context schema.ModuleId, terms ...Term) []*air.ColumnAccess {
-	return p.expandTermsInner(context, false, terms...)
-}
-
-// Lower a set of zero or more MIR expressions.
-func (p *AirLowering) expandTermsInner(context schema.ModuleId, lookup bool, terms ...Term) []*air.ColumnAccess {
-	var (
-		nterms    = make([]*air.ColumnAccess, len(terms))
-		airModule = p.airSchema.Module(context)
-	)
+	var nterms = make([]*air.ColumnAccess, len(terms))
 	//
 	for i, ith := range terms {
-		var source_register schema.RegisterId
-		//
-		if lookup && i == 0 && !ith.IsDefined() {
-			// NOTE: this is a special case for lookups to handle the absence of
-			// a selector.  What we are doing here is communicating that no
-			// selector exists.
-			source_register = schema.NewUnusedRegisterId()
-		} else {
-			sourceRange := ith.ValueRange(airModule)
-			sourceBitwidth, signed := sourceRange.BitWidth()
-			//
-			if signed {
-				panic(fmt.Sprintf("signed expansion encountered (%s)", ith.Lisp(airModule).String(true)))
-			}
-			// Lower source expressions
-			source := p.lowerAndSimplifyTermTo(ith, airModule)
-			// Expand them
-			source_register = air_gadgets.Expand(sourceBitwidth, source, airModule)
-		}
-		//
-		nterms[i] = ir.RawRegisterAccess[air.Term](source_register, 0)
+		nterms[i] = p.expandTerm(context, ith)
 	}
 	//
 	return nterms
+}
+
+func (p *AirLowering) expandTerm(context schema.ModuleId, term Term) *air.ColumnAccess {
+	var (
+		airModule = p.airSchema.Module(context)
+	)
+	//
+	var source_register schema.RegisterId
+	//
+	sourceRange := term.ValueRange(airModule)
+	sourceBitwidth, signed := sourceRange.BitWidth()
+	//
+	if signed {
+		panic(fmt.Sprintf("signed expansion encountered (%s)", term.Lisp(airModule).String(true)))
+	}
+	// Lower source expressions
+	source := p.lowerAndSimplifyTermTo(term, airModule)
+	// Expand them
+	source_register = air_gadgets.Expand(sourceBitwidth, source, airModule)
+	//
+	return ir.RawRegisterAccess[air.Term](source_register, 0)
 }
 
 func (p *AirLowering) lowerAndSimplifyLogicalTo(term LogicalTerm,

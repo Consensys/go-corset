@@ -22,19 +22,6 @@ import (
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
-// Enclosed represents anything which, ultimately, must be associated with a
-// module (for example a term).  Furthermore, it indicates the given item has
-// been associated with the given module.
-type Enclosed[T any] struct {
-	Module schema.ModuleId
-	Item   T
-}
-
-// Enclose a given item in a given module.
-func Enclose[T any](mid schema.ModuleId, item T) Enclosed[T] {
-	return Enclosed[T]{mid, item}
-}
-
 // Contextual captures something which requires an evaluation context (i.e. a
 // single enclosing module) in order to make sense.  For example, expressions
 // require a single context.  This interface is separated from Evaluable (and
@@ -67,8 +54,6 @@ type Evaluable interface {
 	// Lisp converts this schema element into a simple S-Expression, for example
 	// so it can be printed.
 	Lisp(schema.RegisterMap) sexp.SExp
-	// IsDefined checks whether a given evaluable expression is defined, or not.
-	IsDefined() bool
 	// ValueRange returns the interval of values that this term can evaluate to.
 	// For terms accessing registers, this is determined by the declared width of
 	// the register.

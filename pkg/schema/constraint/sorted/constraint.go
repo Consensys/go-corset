@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package constraint
+package sorted
 
 import (
 	"fmt"
@@ -19,29 +19,16 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
-// SortedFailure provides structural information about a failing Sorted constraint.
-type SortedFailure struct {
-	Msg string
-}
-
-// Message provides a suitable error message
-func (p *SortedFailure) Message() string {
-	return p.Msg
-}
-
-func (p *SortedFailure) String() string {
-	return p.Msg
-}
-
-// SortedConstraint declares a constraint that one (or more) columns are
+// Constraint declares a constraint that one (or more) columns are
 // lexicographically sorted.
-type SortedConstraint[E ir.Evaluable] struct {
+type Constraint[E ir.Evaluable] struct {
 	Handle string
 	// Evaluation Context for this constraint which must match that of the
 	// source expressions.
@@ -63,22 +50,22 @@ type SortedConstraint[E ir.Evaluable] struct {
 
 // NewSortedConstraint creates a new Sorted
 func NewSortedConstraint[E ir.Evaluable](handle string, context schema.ModuleId, bitwidth uint, selector util.Option[E],
-	sources []E, signs []bool, strict bool) SortedConstraint[E] {
+	sources []E, signs []bool, strict bool) Constraint[E] {
 	//
-	return SortedConstraint[E]{handle, context, bitwidth, selector, sources, signs, strict}
+	return Constraint[E]{handle, context, bitwidth, selector, sources, signs, strict}
 }
 
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p SortedConstraint[E]) Consistent(schema schema.AnySchema) []error {
+func (p Constraint[E]) Consistent(schema schema.AnySchema) []error {
 	// TODO: add more useful checks
 	return nil
 }
 
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
-func (p SortedConstraint[E]) Name() string {
+func (p Constraint[E]) Name() string {
 	return p.Handle
 }
 
@@ -87,7 +74,7 @@ func (p SortedConstraint[E]) Name() string {
 // evaluation context, though some (e.g. lookups) have more.  Note that all
 // constraints have at least one context (which we can call the "primary"
 // context).
-func (p SortedConstraint[E]) Contexts() []schema.ModuleId {
+func (p Constraint[E]) Contexts() []schema.ModuleId {
 	return []schema.ModuleId{p.Context}
 }
 
@@ -96,7 +83,7 @@ func (p SortedConstraint[E]) Contexts() []schema.ModuleId {
 // expression such as "(shift X -1)".  This is technically undefined for the
 // first row of any trace and, by association, any constraint evaluating this
 // expression on that first row is also undefined (and hence must pass).
-func (p SortedConstraint[E]) Bounds(module uint) util.Bounds {
+func (p Constraint[E]) Bounds(module uint) util.Bounds {
 	var bound util.Bounds
 	//
 	if module == p.Context {
@@ -111,7 +98,7 @@ func (p SortedConstraint[E]) Bounds(module uint) util.Bounds {
 
 // Accepts checks whether a Sorted holds between the source and
 // target columns.
-func (p SortedConstraint[E]) Accepts(tr trace.Trace, sc schema.AnySchema) (bit.Set, schema.Failure) {
+func (p Constraint[E]) Accepts(tr trace.Trace, sc schema.AnySchema) (bit.Set, schema.Failure) {
 	var (
 		coverage bit.Set
 		// Determine enclosing module
@@ -139,16 +126,21 @@ func (p SortedConstraint[E]) Accepts(tr trace.Trace, sc schema.AnySchema) (bit.S
 				val, err := selector.EvalAt(int(k), trModule, scModule)
 				// Check whether active (or not)
 				if err != nil {
-					return coverage, &InternalFailure{p.Handle, p.Context, k, selector, err.Error()}
+					return coverage, &constraint.InternalFailure{
+						Handle:  p.Handle,
+						Context: p.Context,
+						Row:     k,
+						Term:    selector,
+						Error:   err.Error()}
 				} else if val.IsZero() {
 					continue
 				}
 			}
 			// Check sorting between rows k-1 and k
 			if ok, err := sorted(k-1, k, deltaBound, p.Sources, p.Signs, p.Strict, trModule, scModule, lhs, rhs); err != nil {
-				return coverage, &InternalFailure{Handle: p.Handle, Context: p.Context, Row: k, Error: err.Error()}
+				return coverage, &constraint.InternalFailure{Handle: p.Handle, Context: p.Context, Row: k, Error: err.Error()}
 			} else if !ok {
-				return coverage, &SortedFailure{fmt.Sprintf("sorted constraint \"%s\" failed (rows %d ~ %d)", p.Handle, k-1, k)}
+				return coverage, &Failure{fmt.Sprintf("sorted constraint \"%s\" failed (rows %d ~ %d)", p.Handle, k-1, k)}
 			}
 		}
 	}
@@ -158,7 +150,7 @@ func (p SortedConstraint[E]) Accepts(tr trace.Trace, sc schema.AnySchema) (bit.S
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (p SortedConstraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
+func (p Constraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
 	var (
 		module  = schema.Module(p.Context)
 		kind    = "sorted"
@@ -200,7 +192,7 @@ func (p SortedConstraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
 }
 
 // Substitute any matchined labelled constants within this constraint
-func (p SortedConstraint[E]) Substitute(mapping map[string]fr.Element) {
+func (p Constraint[E]) Substitute(mapping map[string]fr.Element) {
 	for _, s := range p.Sources {
 		s.Substitute(mapping)
 	}
@@ -210,7 +202,7 @@ func (p SortedConstraint[E]) Substitute(mapping map[string]fr.Element) {
 	}
 }
 
-func (p SortedConstraint[E]) deltaBound() fr.Element {
+func (p Constraint[E]) deltaBound() fr.Element {
 	var (
 		two   fr.Element = fr.NewElement(2)
 		bound fr.Element
