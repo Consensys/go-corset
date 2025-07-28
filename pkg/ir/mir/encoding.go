@@ -22,19 +22,20 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
 	"github.com/consensys/go-corset/pkg/util"
 )
 
 const (
 	// Constraints
-	assertionTag       = byte(0)
-	interleavingTag    = byte(1)
-	lookupTag          = byte(2)
-	permutationTag     = byte(3)
-	rangeTag           = byte(4)
-	sortedTag          = byte(5)
-	sortedSelectionTag = byte(6)
-	vanishingTag       = byte(7)
+	assertionTag        = byte(0)
+	interleavingTag     = byte(1)
+	lookupTag           = byte(2)
+	permutationTag      = byte(3)
+	rangeTag            = byte(4)
+	sortedUnfilteredTag = byte(5)
+	sortedFilteredTag   = byte(6)
+	vanishingTag        = byte(7)
 	// Logicals
 	conjunctTag   = byte(10)
 	disjunctTag   = byte(11)
@@ -53,13 +54,11 @@ const (
 	ifZeroTag           = byte(33)
 	labelledConstantTag = byte(34)
 	registerAccessTag   = byte(35)
-	// NOTE: unused registers only required for optional lookup selectors.
-	unusedRegisterAccessTag = byte(36)
-	expTag                  = byte(37)
-	mulTag                  = byte(38)
-	normTag                 = byte(39)
-	subTag                  = byte(40)
-	vectorAccessTag         = byte(41)
+	expTag              = byte(36)
+	mulTag              = byte(37)
+	normTag             = byte(38)
+	subTag              = byte(39)
+	vectorAccessTag     = byte(40)
 )
 
 func encode_constraint(constraint schema.Constraint) ([]byte, error) {
@@ -153,15 +152,38 @@ func encode_lookup(c LookupConstraint) ([]byte, error) {
 		return nil, err
 	}
 	// Target terms
-	if err := encode_nary(encode_enclosed_terms, &buffer, c.Targets); err != nil {
+	if err := encode_nary(encode_lookup_vector, &buffer, c.Targets); err != nil {
 		return nil, err
 	}
 	// Sources
-	if err := encode_nary(encode_enclosed_terms, &buffer, c.Sources); err != nil {
+	if err := encode_nary(encode_lookup_vector, &buffer, c.Sources); err != nil {
 		return nil, err
 	}
 	//
 	return buffer.Bytes(), nil
+}
+
+func encode_lookup_vector(vector lookup.Vector[Term], buffer *bytes.Buffer) error {
+	var (
+		gobEncoder = gob.NewEncoder(buffer)
+		selector   = vector.HasSelector()
+	)
+	// Source Context
+	if err := gobEncoder.Encode(vector.Module); err != nil {
+		return err
+	}
+	// HasSelector flag
+	if err := gobEncoder.Encode(selector); err != nil {
+		return err
+	}
+	// Selector itself (if applicable)
+	if selector {
+		if err := encode_term(vector.Selector.Unwrap(), buffer); err != nil {
+			return err
+		}
+	}
+	// Source terms
+	return encode_nary(encode_term, buffer, vector.Terms)
 }
 
 func encode_permutation(c PermutationConstraint) ([]byte, error) {
@@ -201,9 +223,9 @@ func encode_sorted(c SortedConstraint) ([]byte, error) {
 	)
 	//
 	if c.Selector.HasValue() {
-		tag = sortedSelectionTag
+		tag = sortedFilteredTag
 	} else {
-		tag = sortedTag
+		tag = sortedUnfilteredTag
 	}
 	// Tag
 	if _, err := buffer.Write([]byte{tag}); err != nil {
@@ -294,18 +316,6 @@ func encode_range(c RangeConstraint) ([]byte, error) {
 	return buffer.Bytes(), err
 }
 
-func encode_enclosed_terms(terms ir.Enclosed[[]Term], buffer *bytes.Buffer) error {
-	var (
-		gobEncoder = gob.NewEncoder(buffer)
-	)
-	// Source Context
-	if err := gobEncoder.Encode(terms.Module); err != nil {
-		return err
-	}
-	// Source terms
-	return encode_nary(encode_term, buffer, terms.Item)
-}
-
 func decode_constraint(bytes []byte) (schema.Constraint, error) {
 	switch bytes[0] {
 	case assertionTag:
@@ -318,9 +328,9 @@ func decode_constraint(bytes []byte) (schema.Constraint, error) {
 		return decode_permutation(bytes[1:])
 	case rangeTag:
 		return decode_range(bytes[1:])
-	case sortedTag:
+	case sortedUnfilteredTag:
 		return decode_sorted(false, bytes[1:])
-	case sortedSelectionTag:
+	case sortedFilteredTag:
 		return decode_sorted(true, bytes[1:])
 	case vanishingTag:
 		return decode_vanishing(bytes[1:])
@@ -393,15 +403,47 @@ func decode_lookup(data []byte) (schema.Constraint, error) {
 		return lookup, err
 	}
 	// Targets
-	if lookup.Targets, err = decode_nary(decode_enclosed_terms, buffer); err != nil {
+	if lookup.Targets, err = decode_nary(decode_lookup_vector, buffer); err != nil {
 		return lookup, err
 	}
 	// Sources
-	if lookup.Sources, err = decode_nary(decode_enclosed_terms, buffer); err != nil {
+	if lookup.Sources, err = decode_nary(decode_lookup_vector, buffer); err != nil {
 		return lookup, err
 	}
 	//
 	return lookup, nil
+}
+
+func decode_lookup_vector(buf *bytes.Buffer) (lookup.Vector[Term], error) {
+	var (
+		gobDecoder  = gob.NewDecoder(buf)
+		vector      lookup.Vector[Term]
+		hasSelector bool
+		selector    Term
+		err         error
+	)
+	// Context
+	if err = gobDecoder.Decode(&vector.Module); err != nil {
+		return vector, err
+	}
+	// HasSelector
+	if err = gobDecoder.Decode(&hasSelector); err != nil {
+		return vector, err
+	}
+	// Selector (if applicable)
+	if hasSelector {
+		if selector, err = decode_term(buf); err != nil {
+			return vector, err
+		}
+		// Wrap selector
+		vector.Selector = util.Some(selector)
+	}
+	// Contents
+	if vector.Terms, err = decode_nary(decode_term, buf); err != nil {
+		return vector, err
+	}
+	// Done
+	return vector, nil
 }
 
 func decode_permutation(data []byte) (schema.Constraint, error) {
@@ -522,24 +564,6 @@ func decode_vanishing(data []byte) (schema.Constraint, error) {
 	vanishing.Constraint, err = decode_logical(buffer)
 	// Success!
 	return vanishing, err
-}
-
-func decode_enclosed_terms(buf *bytes.Buffer) (ir.Enclosed[[]Term], error) {
-	var (
-		gobDecoder = gob.NewDecoder(buf)
-		terms      ir.Enclosed[[]Term]
-		err        error
-	)
-	// Context
-	if err = gobDecoder.Decode(&terms.Module); err != nil {
-		return terms, err
-	}
-	// Contents
-	if terms.Item, err = decode_nary(decode_term, buf); err != nil {
-		return terms, err
-	}
-	//
-	return terms, nil
 }
 
 // ============================================================================
@@ -791,9 +815,7 @@ func encode_exponent(term Exp, buf *bytes.Buffer) error {
 
 func encode_reg_access(term RegisterAccess, buf *bytes.Buffer) error {
 	// Write (appropriate) tag
-	if !term.Register.IsUsed() {
-		return buf.WriteByte(unusedRegisterAccessTag)
-	} else if err := buf.WriteByte(registerAccessTag); err != nil {
+	if err := buf.WriteByte(registerAccessTag); err != nil {
 		return err
 	}
 	//
@@ -849,9 +871,6 @@ func decode_term(buf *bytes.Buffer) (Term, error) {
 		return decode_labelled_constant(buf)
 	case registerAccessTag:
 		return decode_reg_access(buf)
-	case unusedRegisterAccessTag:
-		rid := schema.NewUnusedRegisterId()
-		return ir.NewRegisterAccess[Term](rid, 0), nil
 	case mulTag:
 		return decode_nary_terms(mulConstructor, buf)
 	case normTag:

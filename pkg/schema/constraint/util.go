@@ -15,17 +15,15 @@ package constraint
 import (
 	"fmt"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/trace"
 )
 
-var frZero = fr.NewElement(0)
-
-// A simple consistency check for terms in a given module.  Specifically, to
-// check that: (1) the module exists; (2) all used registers existing with then
-// given module.
-func checkConsistent[E ir.Contextual](module uint, schema schema.AnySchema, terms ...E) []error {
+// CheckConsistent performs a simple consistency check for terms in a given
+// module.  Specifically, to check that: (1) the module exists; (2) all used
+// registers existing with then given module.
+func CheckConsistent[E ir.Contextual](module uint, schema schema.AnySchema, terms ...E) []error {
 	var errs []error
 	// Sanity check module
 	if module >= schema.Width() {
@@ -47,4 +45,12 @@ func checkConsistent[E ir.Contextual](module uint, schema schema.AnySchema, term
 	}
 	//
 	return errs
+}
+
+// DetermineHandle is a very simple helper which determines a suitable qualified
+// name for the given constraint handle.
+func DetermineHandle(handle string, ctx schema.ModuleId, tr trace.Trace) string {
+	modName := tr.Module(ctx).Name()
+	//
+	return trace.QualifiedColumnName(modName, handle)
 }

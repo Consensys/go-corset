@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package constraint
+package permutation
 
 import (
 	"fmt"
@@ -25,23 +25,9 @@ import (
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
-// PermutationFailure provides structural information about a failing permutation constraint.
-type PermutationFailure struct {
-	Msg string
-}
-
-// Message provides a suitable error message
-func (p *PermutationFailure) Message() string {
-	return p.Msg
-}
-
-func (p *PermutationFailure) String() string {
-	return p.Msg
-}
-
-// PermutationConstraint declares a constraint that one (or more) columns are a permutation
+// Constraint declares a constraint that one (or more) columns are a permutation
 // of another.
-type PermutationConstraint struct {
+type Constraint struct {
 	Handle string
 	// Evaluation Context for this constraint which must match that of the
 	// source and target expressions.
@@ -56,25 +42,25 @@ type PermutationConstraint struct {
 
 // NewPermutationConstraint creates a new permutation
 func NewPermutationConstraint(handle string, context schema.ModuleId, targets []schema.RegisterId,
-	sources []schema.RegisterId) PermutationConstraint {
+	sources []schema.RegisterId) Constraint {
 	if len(targets) != len(sources) {
 		panic("differeng number of target / source permutation columns")
 	}
 
-	return PermutationConstraint{handle, context, targets, sources}
+	return Constraint{handle, context, targets, sources}
 }
 
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p PermutationConstraint) Consistent(schema schema.AnySchema) []error {
+func (p Constraint) Consistent(schema schema.AnySchema) []error {
 	// TODO: check column access, and widths, etc.
 	return nil
 }
 
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
-func (p PermutationConstraint) Name() string {
+func (p Constraint) Name() string {
 	return p.Handle
 }
 
@@ -83,7 +69,7 @@ func (p PermutationConstraint) Name() string {
 // evaluation context, though some (e.g. lookups) have more.  Note that all
 // constraints have at least one context (which we can call the "primary"
 // context).
-func (p PermutationConstraint) Contexts() []schema.ModuleId {
+func (p Constraint) Contexts() []schema.ModuleId {
 	return []schema.ModuleId{p.Context}
 }
 
@@ -92,13 +78,13 @@ func (p PermutationConstraint) Contexts() []schema.ModuleId {
 // expression such as "(shift X -1)".  This is technically undefined for the
 // first row of any trace and, by association, any constraint evaluating this
 // expression on that first row is also undefined (and hence must pass).
-func (p PermutationConstraint) Bounds(module uint) util.Bounds {
+func (p Constraint) Bounds(module uint) util.Bounds {
 	return util.EMPTY_BOUND
 }
 
 // Accepts checks whether a permutation holds between the source and
 // target columns.
-func (p PermutationConstraint) Accepts(tr trace.Trace, _ schema.AnySchema) (bit.Set, schema.Failure) {
+func (p Constraint) Accepts(tr trace.Trace, _ schema.AnySchema) (bit.Set, schema.Failure) {
 	var (
 		// Coverage currently always empty for permutation constraints.
 		coverage bit.Set
@@ -120,12 +106,12 @@ func (p PermutationConstraint) Accepts(tr trace.Trace, _ schema.AnySchema) (bit.
 	msg := fmt.Sprintf("Target columns (%s) not permutation of source columns (%s)",
 		dst_names, src_names)
 	// Done
-	return coverage, &PermutationFailure{msg}
+	return coverage, &Failure{msg}
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (p PermutationConstraint) Lisp(schema schema.AnySchema) sexp.SExp {
+func (p Constraint) Lisp(schema schema.AnySchema) sexp.SExp {
 	var (
 		module  = schema.Module(p.Context)
 		targets = sexp.EmptyList()
@@ -150,7 +136,7 @@ func (p PermutationConstraint) Lisp(schema schema.AnySchema) sexp.SExp {
 }
 
 // Substitute any matchined labelled constants within this constraint
-func (p PermutationConstraint) Substitute(map[string]fr.Element) {
+func (p Constraint) Substitute(map[string]fr.Element) {
 	// nothing to do here
 }
 

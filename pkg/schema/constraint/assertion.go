@@ -84,7 +84,7 @@ func NewAssertion[T ir.Testable](handle string, ctx schema.ModuleId, property T)
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
 func (p Assertion[T]) Consistent(schema schema.AnySchema) []error {
-	return checkConsistent(p.Context, schema, p.Property)
+	return CheckConsistent(p.Context, schema, p.Property)
 }
 
 // Name returns a unique name for a given constraint.  This is useful

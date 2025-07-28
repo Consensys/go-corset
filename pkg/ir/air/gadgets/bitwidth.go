@@ -22,6 +22,7 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/assignment"
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -164,20 +165,16 @@ func (p *BitwidthGadget) applyRecursiveBitwidthGadget(ref sc.RegisterRef, bitwid
 	}
 	// Add lookup constraint for register into proof
 	sourceAccesses := []*air.ColumnAccess{
-		// Source Selector (unused)
-		ir.RawRegisterAccess[air.Term](sc.NewUnusedRegisterId(), 0),
 		// Source Value
 		ir.RawRegisterAccess[air.Term](ref.Register(), 0)}
 	// NOTE: 0th column always assumed to hold full value, with others
 	// representing limbs, etc.
 	targetAccesses := []*air.ColumnAccess{
-		// Target Selector (unused)
-		ir.RawRegisterAccess[air.Term](sc.NewUnusedRegisterId(), 0),
 		// Target Value
 		ir.RawRegisterAccess[air.Term](sc.NewRegisterId(0), 0)}
 	//
-	targets := []ir.Enclosed[[]*air.ColumnAccess]{ir.Enclose(mid, targetAccesses)}
-	sources := []ir.Enclosed[[]*air.ColumnAccess]{ir.Enclose(module.Id(), sourceAccesses)}
+	targets := []lookup.Vector[*air.ColumnAccess]{lookup.UnfilteredVector(mid, targetAccesses...)}
+	sources := []lookup.Vector[*air.ColumnAccess]{lookup.UnfilteredVector(module.Id(), sourceAccesses...)}
 	//
 	module.AddConstraint(air.NewLookupConstraint(lookupHandle, targets, sources))
 	// Add column to assignment so its proof is included

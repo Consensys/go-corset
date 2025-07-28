@@ -200,7 +200,7 @@ func (p *Header) IsCompatible() bool {
 // matter what version, we should always have the ZKBINARY identifier first,
 // followed by a GOB encoding of the header.  What follows after that, however,
 // is determined by the major version.
-const BINFILE_MAJOR_VERSION uint16 = 5
+const BINFILE_MAJOR_VERSION uint16 = 6
 
 // BINFILE_MINOR_VERSION gives the minor version of the binary file format.  The
 // expected interpretation is that older versions are compatible with newer
