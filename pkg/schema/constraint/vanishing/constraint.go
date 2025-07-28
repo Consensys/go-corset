@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package constraint
+package vanishing
 
 import (
 	"fmt"
@@ -18,47 +18,20 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
-	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
-// VanishingFailure provides structural information about a failing vanishing constraint.
-type VanishingFailure struct {
-	// Handle of the failing constraint
-	Handle string
-	// Constraint expression
-	Constraint ir.Testable
-	// Module where constraint failed
-	Context schema.ModuleId
-	// Row on which the constraint failed
-	Row uint
-}
-
-// Message provides a suitable error message
-func (p *VanishingFailure) Message() string {
-	// Construct useful error message
-	return fmt.Sprintf("constraint \"%s\" does not hold (row %d)", p.Handle, p.Row)
-}
-
-// RequiredCells identifies the cells required to evaluate the failing constraint at the failing row.
-func (p *VanishingFailure) RequiredCells(tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
-	return p.Constraint.RequiredCells(int(p.Row), p.Context)
-}
-
-func (p *VanishingFailure) String() string {
-	return p.Message()
-}
-
-// VanishingConstraint specifies a constraint which should hold on every row of the
+// Constraint specifies a constraint which should hold on every row of the
 // table.  The only exception is when the constraint is undefined (e.g. because
 // it references a non-existent table cell).  In such case, the constraint is
 // ignored.  This is parameterised by the type of the constraint expression.
 // Thus, we can reuse this definition across the various intermediate
 // representations (e.g. Mid-Level IR, Arithmetic IR, etc).
-type VanishingConstraint[T ir.Testable] struct {
+type Constraint[T ir.Testable] struct {
 	// A unique identifier for this constraint.  This is primarily
 	// useful for debugging.
 	Handle string
@@ -74,22 +47,22 @@ type VanishingConstraint[T ir.Testable] struct {
 	Constraint T
 }
 
-// NewVanishingConstraint constructs a new vanishing constraint!
-func NewVanishingConstraint[T ir.Testable](handle string, context schema.ModuleId,
-	domain util.Option[int], constraint T) VanishingConstraint[T] {
-	return VanishingConstraint[T]{handle, context, domain, constraint}
+// NewConstraint constructs a new vanishing constraint!
+func NewConstraint[T ir.Testable](handle string, context schema.ModuleId,
+	domain util.Option[int], constraint T) Constraint[T] {
+	return Constraint[T]{handle, context, domain, constraint}
 }
 
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p VanishingConstraint[E]) Consistent(schema schema.AnySchema) []error {
-	return checkConsistent(p.Context, schema, p.Constraint)
+func (p Constraint[E]) Consistent(schema schema.AnySchema) []error {
+	return constraint.CheckConsistent(p.Context, schema, p.Constraint)
 }
 
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
-func (p VanishingConstraint[E]) Name() string {
+func (p Constraint[E]) Name() string {
 	return p.Handle
 }
 
@@ -98,7 +71,7 @@ func (p VanishingConstraint[E]) Name() string {
 // evaluation context, though some (e.g. lookups) have more.  Note that all
 // constraints have at least one context (which we can call the "primary"
 // context).
-func (p VanishingConstraint[E]) Contexts() []schema.ModuleId {
+func (p Constraint[E]) Contexts() []schema.ModuleId {
 	return []schema.ModuleId{p.Context}
 }
 
@@ -109,7 +82,7 @@ func (p VanishingConstraint[E]) Contexts() []schema.ModuleId {
 // expression on that first row is also undefined (and hence must pass).
 //
 //nolint:revive
-func (p VanishingConstraint[T]) Bounds(module uint) util.Bounds {
+func (p Constraint[T]) Bounds(module uint) util.Bounds {
 	if p.Context == module {
 		return p.Constraint.Bounds()
 	}
@@ -121,10 +94,10 @@ func (p VanishingConstraint[T]) Bounds(module uint) util.Bounds {
 // of a table.  If so, return nil otherwise return an error.
 //
 //nolint:revive
-func (p VanishingConstraint[T]) Accepts(tr trace.Trace, sc schema.AnySchema) (bit.Set, schema.Failure) {
+func (p Constraint[T]) Accepts(tr trace.Trace, sc schema.AnySchema) (bit.Set, schema.Failure) {
 	var (
 		// Handle is used for error reporting.
-		handle = determineHandle(p.Handle, p.Context, tr)
+		handle = constraint.DetermineHandle(p.Handle, p.Context, tr)
 		// Determine enclosing module
 		trModule = tr.Module(p.Context)
 		scModule = sc.Module(p.Context)
@@ -187,16 +160,21 @@ func HoldsGlobally[T ir.Testable](handle string, ctx schema.ModuleId, constraint
 
 // HoldsLocally checks whether a given constraint holds (e.g. vanishes) on a
 // specific row of a trace. If not, report an appropriate error.
-func HoldsLocally[T ir.Testable](k uint, handle string, constraint T, ctx schema.ModuleId,
+func HoldsLocally[T ir.Testable](k uint, handle string, term T, ctx schema.ModuleId,
 	trMod trace.Module, scMod schema.Module) (schema.Failure, uint) {
 	//
-	ok, id, err := constraint.TestAt(int(k), trMod, scMod)
+	ok, id, err := term.TestAt(int(k), trMod, scMod)
 	// Check for errors
 	if err != nil {
-		return &InternalFailure{handle, ctx, k, constraint, err.Error()}, id
+		return &constraint.InternalFailure{
+			Handle:  handle,
+			Context: ctx,
+			Row:     k,
+			Term:    term,
+			Error:   err.Error()}, id
 	} else if !ok {
 		// Evaluation failure
-		return &VanishingFailure{handle, constraint, ctx, k}, id
+		return &Failure{handle, term, ctx, k}, id
 	}
 	// Success
 	return nil, id
@@ -205,7 +183,7 @@ func HoldsLocally[T ir.Testable](k uint, handle string, constraint T, ctx schema
 // Lisp converts this constraint into an S-Expression.
 //
 //nolint:revive
-func (p VanishingConstraint[T]) Lisp(schema schema.AnySchema) sexp.SExp {
+func (p Constraint[T]) Lisp(schema schema.AnySchema) sexp.SExp {
 	var (
 		module = schema.Module(p.Context)
 		name   string
@@ -238,12 +216,6 @@ func (p VanishingConstraint[T]) Lisp(schema schema.AnySchema) sexp.SExp {
 }
 
 // Substitute any matchined labelled constants within this constraint
-func (p VanishingConstraint[T]) Substitute(mapping map[string]fr.Element) {
+func (p Constraint[T]) Substitute(mapping map[string]fr.Element) {
 	p.Constraint.Substitute(mapping)
-}
-
-func determineHandle(handle string, ctx schema.ModuleId, tr trace.Trace) string {
-	modName := tr.Module(ctx).Name()
-	//
-	return trace.QualifiedColumnName(modName, handle)
 }

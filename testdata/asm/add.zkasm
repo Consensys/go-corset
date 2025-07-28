@@ -1,0 +1,15 @@
+fn add(inst u8, arg1 u256, arg2 u256) -> (res u256) {
+  var c u1
+  ;;
+  if inst == 0x01 goto insn_add
+  if inst == 0x03 goto insn_sub
+  ;; FIXME: support fail
+  res = 0
+  return
+insn_add:
+  c, res = arg1 + arg2
+  return
+insn_sub:
+  c, res = arg1 - arg2
+  return
+}

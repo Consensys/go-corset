@@ -17,6 +17,11 @@ import (
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
+	"github.com/consensys/go-corset/pkg/schema/constraint/interleaving"
+	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
+	"github.com/consensys/go-corset/pkg/schema/constraint/permutation"
+	"github.com/consensys/go-corset/pkg/schema/constraint/ranged"
+	"github.com/consensys/go-corset/pkg/schema/constraint/vanishing"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -66,19 +71,19 @@ type (
 	Assertion = Air[constraint.Assertion[ir.Testable]]
 	// InterleavingConstraint captures the essence of an interleaving constraint
 	// at the MIR level.
-	InterleavingConstraint = constraint.InterleavingConstraint[*ColumnAccess]
+	InterleavingConstraint = Air[interleaving.Constraint[*ColumnAccess]]
 	// LookupConstraint captures the essence of a lookup constraint at the AIR
 	// level.  At the AIR level, lookup constraints are only permitted between
 	// columns (i.e. not arbitrary expressions).
-	LookupConstraint = Air[constraint.LookupConstraint[*ColumnAccess]]
+	LookupConstraint = Air[lookup.Constraint[*ColumnAccess]]
 	// PermutationConstraint captures the essence of a permutation constraint at the
 	// AIR level. Specifically, it represents a constraint that one (or more)
 	// columns are a permutation of another.
-	PermutationConstraint = Air[constraint.PermutationConstraint]
+	PermutationConstraint = Air[permutation.Constraint]
 	// RangeConstraint captures the essence of a range constraints at the AIR level.
-	RangeConstraint = Air[constraint.RangeConstraint[*ColumnAccess]]
+	RangeConstraint = Air[ranged.Constraint[*ColumnAccess]]
 	// VanishingConstraint captures the essence of a vanishing constraint at the AIR level.
-	VanishingConstraint = Air[constraint.VanishingConstraint[LogicalTerm]]
+	VanishingConstraint = Air[vanishing.Constraint[LogicalTerm]]
 )
 
 // Following types capture permitted expression forms at the AIR level.

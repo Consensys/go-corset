@@ -14,6 +14,7 @@ package schema
 
 import (
 	"fmt"
+	"runtime"
 
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -145,10 +146,29 @@ func processConstraintBatch[C Constraint](logtitle string, batch uint, batchsize
 		ith := iter.Next()
 		// Launch checker for constraint
 		go func() {
-			// Send outcome back
+			var (
+				context = ith.Contexts()[0]
+				name    = ith.Name()
+				cov     bit.Set
+			)
+			// Setup panic intercept
+			defer func() {
+				var (
+					err = recover()
+					buf = make([]byte, 2048)
+				)
+				//
+				//if msg, ok := err.(string); ok {
+				if err != nil {
+					n := runtime.Stack(buf, false)
+					c <- batchOutcome{context, name, cov, &panicFailure{
+						fmt.Sprintf("%v", err), buf[:n],
+					}}
+				}
+			}()
+			// Check and send outcome back
 			cov, err := ith.Accepts(trace, Any(schema))
-			context := ith.Contexts()[0]
-			name := ith.Name()
+			//
 			c <- batchOutcome{context, name, cov, err}
 		}()
 	}
@@ -171,4 +191,17 @@ type batchOutcome struct {
 	handle string
 	data   bit.Set
 	error  Failure
+}
+
+type panicFailure struct {
+	message    string
+	stackTrace []byte
+}
+
+func (p *panicFailure) Message() string {
+	return p.String()
+}
+
+func (p *panicFailure) String() string {
+	return fmt.Sprintf("%s\n\n%s", p.message, string(p.stackTrace))
 }

@@ -14,9 +14,14 @@ package mir
 
 import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
+	"github.com/consensys/go-corset/pkg/schema/constraint/interleaving"
+	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
+	"github.com/consensys/go-corset/pkg/schema/constraint/permutation"
+	"github.com/consensys/go-corset/pkg/schema/constraint/ranged"
+	"github.com/consensys/go-corset/pkg/schema/constraint/sorted"
+	"github.com/consensys/go-corset/pkg/schema/constraint/vanishing"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
@@ -41,36 +46,36 @@ func NewAssertion(handle string, ctx schema.ModuleId, term LogicalTerm) Constrai
 func NewVanishingConstraint(handle string, ctx schema.ModuleId, domain util.Option[int],
 	term LogicalTerm) Constraint {
 	//
-	return Constraint{constraint.NewVanishingConstraint(handle, ctx, domain, term)}
+	return Constraint{vanishing.NewConstraint(handle, ctx, domain, term)}
 }
 
 // NewInterleavingConstraint creates a new interleaving constraint with a given handle.
 func NewInterleavingConstraint(handle string, targetContext schema.ModuleId,
 	sourceContext schema.ModuleId, target Term, sources []Term) Constraint {
-	return Constraint{constraint.NewInterleavingConstraint(handle, targetContext, sourceContext, target, sources)}
+	return Constraint{interleaving.NewConstraint(handle, targetContext, sourceContext, target, sources)}
 }
 
 // NewLookupConstraint creates a new lookup constraint with a given handle.
-func NewLookupConstraint(handle string, targets []ir.Enclosed[[]Term], sources []ir.Enclosed[[]Term]) Constraint {
-	return Constraint{constraint.NewLookupConstraint(handle, targets, sources)}
+func NewLookupConstraint(handle string, targets []lookup.Vector[Term], sources []lookup.Vector[Term]) Constraint {
+	return Constraint{lookup.NewConstraint(handle, targets, sources)}
 }
 
 // NewPermutationConstraint creates a new permutation
 func NewPermutationConstraint(handle string, context schema.ModuleId, targets []schema.RegisterId,
 	sources []schema.RegisterId) Constraint {
-	return Constraint{constraint.NewPermutationConstraint(handle, context, targets, sources)}
+	return Constraint{permutation.NewPermutationConstraint(handle, context, targets, sources)}
 }
 
 // NewRangeConstraint constructs a new Range constraint!
 func NewRangeConstraint(handle string, ctx schema.ModuleId, expr Term, bitwidth uint) Constraint {
-	return Constraint{constraint.NewRangeConstraint(handle, ctx, expr, bitwidth)}
+	return Constraint{ranged.NewRangeConstraint(handle, ctx, expr, bitwidth)}
 }
 
 // NewSortedConstraint creates a new Sorted
 func NewSortedConstraint(handle string, context schema.ModuleId, bitwidth uint, selector util.Option[Term],
 	sources []Term, signs []bool, strict bool) Constraint {
 	//
-	return Constraint{constraint.NewSortedConstraint(handle, context, bitwidth, selector, sources, signs, strict)}
+	return Constraint{sorted.NewSortedConstraint(handle, context, bitwidth, selector, sources, signs, strict)}
 }
 
 // Accepts determines whether a given constraint accepts a given trace or
