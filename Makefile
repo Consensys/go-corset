@@ -31,7 +31,7 @@ corset-test:
 	@echo ">>> Running Corset Tests..."
 	go test --timeout 0 -run "Test_Agnostic|Test_Corset|Test_Invalid" ./...
 
-corset-bench-test:
+corset-bench:
 	@echo ">>> Running Corset Benchmark Tests..."
 	go test --timeout 0 -run "Test_Bench" ./...
 

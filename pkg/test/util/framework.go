@@ -190,7 +190,7 @@ func checkTraces(t *testing.T, test string, maxPadding uint, opt uint, cfg Confi
 // BATCH_SIZE is used to restrict parallelism during trace expansion and
 // constraint checking.  The issue is that this interferes with running tests in
 // parallel since we have concurrency on top of concurrency.
-const BATCH_SIZE = 10
+const BATCH_SIZE = 1
 
 func checkTrace[C sc.Constraint](t *testing.T, inputs []trace.BigEndianColumn, id traceId,
 	schema sc.Schema[C], mapping sc.LimbsMap) {
