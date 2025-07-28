@@ -389,7 +389,10 @@ func (t *translator) translateDefLookup(decl *ast.DefLookup) []SyntaxError {
 func (t *translator) translateDefLookupSources(selector ast.Expr,
 	sources []ast.Expr) (lookup.Vector[mir.Term], ast.Context, []SyntaxError) {
 	// Determine context of ith set of targets
-	context, j := ast.ContextOfExpressions(sources...)
+	var (
+		context, j = ast.ContextOfExpressions(sources...)
+		vector     lookup.Vector[mir.Term]
+	)
 	// Include selector (when present)
 	if selector != nil {
 		context = context.Join(selector.Context())
@@ -408,10 +411,51 @@ func (t *translator) translateDefLookupSources(selector ast.Expr,
 		s, errs := t.translateExpression(selector, module, 0)
 		errors = append(errors, errs...)
 
-		return lookup.FilteredVector(module.Id(), s, terms...), context, errors
+		vector = lookup.FilteredVector(module.Id(), s, terms...)
+	} else {
+		vector = lookup.UnfilteredVector(module.Id(), terms...)
 	}
+	// Sanity check vector
+	errors = append(errors, t.checkLookupVector(vector, selector, sources)...)
 	//
-	return lookup.UnfilteredVector(module.Id(), terms...), context, errors
+	return vector, context, errors
+}
+
+func (t *translator) checkLookupVector(vector lookup.Vector[mir.Term], selector ast.Expr,
+	terms []ast.Expr) []SyntaxError {
+	//
+	var (
+		modmap = t.schema.Module(vector.Module)
+		errors []SyntaxError
+	)
+	// Look for any negative terms
+	for i, ith := range vector.Terms {
+		// Determine value range of ith term
+		valrange := ith.ValueRange(modmap)
+		// Determine bitwidth for that range
+		_, signed := valrange.BitWidth()
+		// Sanity check signed lookups
+		if signed {
+			errors = append(errors, *t.srcmap.SyntaxError(terms[i], "signed term encountered"))
+		}
+	}
+	// Check selector is binary
+	if vector.HasSelector() {
+		// Determine value range of ith term
+		valrange := vector.Selector.Unwrap().ValueRange(modmap)
+		// Determine bitwidth for that range
+		bitwidth, signed := valrange.BitWidth()
+		// Check for signed selector
+		if signed {
+			errors = append(errors, *t.srcmap.SyntaxError(selector, "signed selector encountered"))
+		}
+		// Check for non-binary selector
+		if bitwidth > 1 {
+			errors = append(errors, *t.srcmap.SyntaxError(selector, "non-binary selector encountered"))
+		}
+	}
+	// Done
+	return errors
 }
 
 // Translate a "definrange" declaration.
