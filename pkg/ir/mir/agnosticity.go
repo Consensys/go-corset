@@ -122,14 +122,7 @@ func splitTerm(term Term, mapping schema.RegisterLimbsMap) Term {
 	case *LabelledConst:
 		return t
 	case *RegisterAccess:
-		if t.Register.IsUsed() {
-			return splitRegisterAccess(t, mapping)
-		}
-		// NOTE: this indicates an unused register access.  Currently, this can
-		// only occur for the selector column of a lookup.  This behaviour maybe
-		// deprecated in the future, and that would make this check
-		// unnecessary.
-		return t
+		return splitRegisterAccess(t, mapping)
 	case *Exp:
 		return ir.Exponent(splitTerm(t.Arg, mapping), t.Pow)
 	case *Mul:
@@ -165,6 +158,12 @@ func splitRegisterAccess(term *RegisterAccess, mapping schema.RegisterLimbsMap) 
 	//
 	for i, limb := range limbs {
 		terms[i] = &ir.RegisterAccess[Term]{Register: limb, Shift: term.Shift}
+	}
+	// Check whether vector required, or not
+	if len(limbs) == 1 {
+		// NOTE: we cannot return the original term directly, as its index may
+		// differ under the limb mapping.
+		return terms[0]
 	}
 	//
 	return ir.NewVectorAccess(terms)

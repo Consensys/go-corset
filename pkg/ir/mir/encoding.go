@@ -54,13 +54,11 @@ const (
 	ifZeroTag           = byte(33)
 	labelledConstantTag = byte(34)
 	registerAccessTag   = byte(35)
-	// NOTE: unused registers only required for optional lookup selectors.
-	unusedRegisterAccessTag = byte(36)
-	expTag                  = byte(37)
-	mulTag                  = byte(38)
-	normTag                 = byte(39)
-	subTag                  = byte(40)
-	vectorAccessTag         = byte(41)
+	expTag              = byte(36)
+	mulTag              = byte(37)
+	normTag             = byte(38)
+	subTag              = byte(39)
+	vectorAccessTag     = byte(40)
 )
 
 func encode_constraint(constraint schema.Constraint) ([]byte, error) {
@@ -817,9 +815,7 @@ func encode_exponent(term Exp, buf *bytes.Buffer) error {
 
 func encode_reg_access(term RegisterAccess, buf *bytes.Buffer) error {
 	// Write (appropriate) tag
-	if !term.Register.IsUsed() {
-		return buf.WriteByte(unusedRegisterAccessTag)
-	} else if err := buf.WriteByte(registerAccessTag); err != nil {
+	if err := buf.WriteByte(registerAccessTag); err != nil {
 		return err
 	}
 	//
@@ -875,9 +871,6 @@ func decode_term(buf *bytes.Buffer) (Term, error) {
 		return decode_labelled_constant(buf)
 	case registerAccessTag:
 		return decode_reg_access(buf)
-	case unusedRegisterAccessTag:
-		rid := schema.NewUnusedRegisterId()
-		return ir.NewRegisterAccess[Term](rid, 0), nil
 	case mulTag:
 		return decode_nary_terms(mulConstructor, buf)
 	case normTag:

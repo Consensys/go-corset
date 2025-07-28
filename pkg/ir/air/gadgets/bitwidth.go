@@ -165,15 +165,11 @@ func (p *BitwidthGadget) applyRecursiveBitwidthGadget(ref sc.RegisterRef, bitwid
 	}
 	// Add lookup constraint for register into proof
 	sourceAccesses := []*air.ColumnAccess{
-		// Source Selector (unused)
-		ir.RawRegisterAccess[air.Term](sc.NewUnusedRegisterId(), 0),
 		// Source Value
 		ir.RawRegisterAccess[air.Term](ref.Register(), 0)}
 	// NOTE: 0th column always assumed to hold full value, with others
 	// representing limbs, etc.
 	targetAccesses := []*air.ColumnAccess{
-		// Target Selector (unused)
-		ir.RawRegisterAccess[air.Term](sc.NewUnusedRegisterId(), 0),
 		// Target Value
 		ir.RawRegisterAccess[air.Term](sc.NewRegisterId(0), 0)}
 	//
