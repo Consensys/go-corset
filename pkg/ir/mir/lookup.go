@@ -199,7 +199,7 @@ func padLookupLimbs(terms [][]Term, geometry lookup.Geometry) []Term {
 		// Append available terms
 		nterms = append(nterms, ith...)
 		// Pad out with zeros to match geometry
-		for m := n - len(nterms); m > 0; m-- {
+		for m := n - len(ith); m > 0; m-- {
 			nterms = append(nterms, ir.Const64[Term](0))
 		}
 	}

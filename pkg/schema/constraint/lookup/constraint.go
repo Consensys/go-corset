@@ -337,7 +337,7 @@ func evalExprsAsBytes[E ir.Evaluable](k int, vec Vector[E], handle string, trMod
 			return &constraint.InternalFailure{
 				Handle:  handle,
 				Context: vec.Module,
-				Row:     i,
+				Row:     uint(k),
 				Term:    vec.Ith(i),
 				Error:   err.Error(),
 			}
