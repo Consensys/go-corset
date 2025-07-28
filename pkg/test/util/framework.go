@@ -197,7 +197,9 @@ func checkTrace[C sc.Constraint](t *testing.T, inputs []trace.BigEndianColumn, i
 		WithExpansion(id.expand).
 		WithValidation(id.validate).
 		WithPadding(id.padding).
-		WithParallelism(true).
+		// NOTE: disabling parallelism is generally better for performance
+		// when testing.
+		WithParallelism(false).
 		WithRegisterMapping(mapping).
 		WithBatchSize(1024).
 		Build(sc.Any(schema), inputs)
@@ -205,8 +207,9 @@ func checkTrace[C sc.Constraint](t *testing.T, inputs []trace.BigEndianColumn, i
 	if len(errs) > 0 {
 		t.Errorf("Trace expansion failed (%s): %s", id.String(), errs)
 	} else {
-		// Check Constraints
-		errs := sc.Accepts(true, 100, schema, tr)
+		// Check Constraints.  Again, disabling parallelism is generally better
+		// for performance when testing.
+		errs := sc.Accepts(false, 100, schema, tr)
 		// Determine whether trace accepted or not.
 		accepted := len(errs) == 0
 		// Process what happened versus what was supposed to happen.
