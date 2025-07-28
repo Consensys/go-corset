@@ -31,12 +31,12 @@ corset-test:
 	@echo ">>> Running Corset Tests..."
 	go test --timeout 0 -v -run "Test_Agnostic|Test_Corset|Test_Invalid" ./...
 
-corset-test:
+corset-bench-test:
 	@echo ">>> Running Corset Benchmark Tests..."
 	go test --timeout 0 -v -run "Test_Bench" ./...
 
 unit-test:
-	@echo ">>> Running All Tests..."
+	@echo ">>> Running Unit Tests..."
 	go test --timeout 0 -v -skip "Test_Asm|Test_Agnostic|Test_Bench|Test_Corset|Test_Invalid" ./...
 
 build:
