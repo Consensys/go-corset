@@ -13,6 +13,7 @@
 package assignment
 
 import (
+	"encoding/gob"
 	"fmt"
 	"math"
 
@@ -33,10 +34,10 @@ import (
 // the user is expanded by determining the value of all computed columns.
 type ComputedRegister struct {
 	// Target index for computed column
-	target schema.RegisterRef
+	Target schema.RegisterRef
 	// The computation which accepts a given trace and computes
 	// the value of this column at a given row.
-	expr ir.Evaluable
+	Expr ir.Evaluable
 }
 
 // NewComputedRegister constructs a new computed column with a given name and
@@ -52,8 +53,8 @@ func NewComputedRegister(column schema.RegisterRef, expr ir.Evaluable) *Computed
 // first row of any trace and, by association, any constraint evaluating this
 // expression on that first row is also undefined (and hence must pass).
 func (p *ComputedRegister) Bounds(mid sc.ModuleId) util.Bounds {
-	if mid == p.target.Module() {
-		return p.expr.Bounds()
+	if mid == p.Target.Module() {
+		return p.Expr.Bounds()
 	}
 	// Not relevant
 	return util.EMPTY_BOUND
@@ -64,9 +65,9 @@ func (p *ComputedRegister) Bounds(mid sc.ModuleId) util.Bounds {
 // expression on each row.
 func (p *ComputedRegister) Compute(tr trace.Trace, schema schema.AnySchema) ([]trace.ArrayColumn, error) {
 	var (
-		trModule = tr.Module(p.target.Module())
-		scModule = schema.Module(p.target.Module())
-		register = schema.Register(p.target)
+		trModule = tr.Module(p.Target.Module())
+		scModule = schema.Module(p.Target.Module())
+		register = schema.Register(p.Target)
 	)
 	// Determine multiplied height
 	height := trModule.Height()
@@ -79,7 +80,7 @@ func (p *ComputedRegister) Compute(tr trace.Trace, schema schema.AnySchema) ([]t
 	data := field.NewFrIndexArray(height, register.Width)
 	// Expand the trace
 	for i := uint(0); i < data.Len(); i++ {
-		val, err := p.expr.EvalAt(int(i), trModule, scModule)
+		val, err := p.Expr.EvalAt(int(i), trModule, scModule)
 		// error check
 		if err != nil {
 			return nil, err
@@ -90,7 +91,7 @@ func (p *ComputedRegister) Compute(tr trace.Trace, schema schema.AnySchema) ([]t
 	// Determine padding value.  A negative row index is used here to ensure
 	// that all columns return their padding value which is then used to compute
 	// the padding value for *this* column.
-	padding, err := p.expr.EvalAt(-1, trModule, scModule)
+	padding, err := p.Expr.EvalAt(-1, trModule, scModule)
 	// Construct column
 	col := trace.NewArrayColumn(register.Name, data, padding)
 	// Done
@@ -114,8 +115,8 @@ func (p *ComputedRegister) RegistersExpanded() []sc.RegisterRef {
 // That can include both input columns, as well as other computed columns.
 func (p *ComputedRegister) RegistersRead() []schema.RegisterRef {
 	var (
-		module = p.target.Module()
-		regs   = p.expr.RequiredRegisters()
+		module = p.Target.Module()
+		regs   = p.Expr.RequiredRegisters()
 		rids   = make([]schema.RegisterRef, regs.Iter().Count())
 	)
 	//
@@ -129,7 +130,7 @@ func (p *ComputedRegister) RegistersRead() []schema.RegisterRef {
 
 // RegistersWritten identifies registers assigned by this assignment.
 func (p *ComputedRegister) RegistersWritten() []sc.RegisterRef {
-	return []schema.RegisterRef{p.target}
+	return []schema.RegisterRef{p.Target}
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
@@ -142,8 +143,8 @@ func (p *ComputedRegister) Subdivide(mapping schema.LimbsMap) sc.Assignment {
 //nolint:revive
 func (p *ComputedRegister) Lisp(schema sc.AnySchema) sexp.SExp {
 	var (
-		module          = schema.Module(p.target.Module())
-		target          = module.Register(p.target.Register())
+		module          = schema.Module(p.Target.Module())
+		target          = module.Register(p.Target.Register())
 		datatype string = "𝔽"
 	)
 	//
@@ -155,6 +156,10 @@ func (p *ComputedRegister) Lisp(schema sc.AnySchema) sexp.SExp {
 		[]sexp.SExp{sexp.NewSymbol("compute"),
 			sexp.NewSymbol(target.QualifiedName(module)),
 			sexp.NewSymbol(datatype),
-			p.expr.Lisp(module),
+			p.Expr.Lisp(module),
 		})
+}
+
+func init() {
+	gob.Register(sc.Assignment(&ComputedRegister{}))
 }

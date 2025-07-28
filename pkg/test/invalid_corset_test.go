@@ -787,23 +787,23 @@ func Test_Invalid_Compute_07(t *testing.T) {
 // defcomputedcolumn
 // ===================================================================
 
-func Test_Invalid_DefComputeColum_01(t *testing.T) {
+func Test_Invalid_ComputedColumn_01(t *testing.T) {
 	CheckInvalid(t, "invalid/compute_column_invalid_01")
 }
 
-func Test_Invalid_DefComputeColum_02(t *testing.T) {
+func Test_Invalid_ComputedColumn_02(t *testing.T) {
 	CheckInvalid(t, "invalid/compute_column_invalid_02")
 }
 
-func Test_Invalid_DefComputeColum_03(t *testing.T) {
+func Test_Invalid_ComputedColumn_03(t *testing.T) {
 	CheckInvalid(t, "invalid/compute_column_invalid_03")
 }
 
-func Test_Invalid_DefComputeColum_04(t *testing.T) {
+func Test_Invalid_ComputedColumn_04(t *testing.T) {
 	CheckInvalid(t, "invalid/compute_column_invalid_04")
 }
 
-func Test_Invalid_DefComputeColum_05(t *testing.T) {
+func Test_Invalid_ComputedColumn_05(t *testing.T) {
 	CheckInvalid(t, "invalid/compute_column_invalid_05")
 }
 

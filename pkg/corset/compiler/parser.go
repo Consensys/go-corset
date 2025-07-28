@@ -596,8 +596,9 @@ func (p *Parser) parseDefComputed(module util.Path, elements []sexp.SExp) (ast.D
 // Parse a defcomputedcolumn declaration
 func (p *Parser) parseDefComputedColumn(module util.Path, elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
 	var (
-		errors []SyntaxError
-		target *ast.DefColumn
+		errors      []SyntaxError
+		target      *ast.DefColumn
+		targetError *SyntaxError
 	)
 
 	// Parse target declaration
@@ -606,13 +607,12 @@ func (p *Parser) parseDefComputedColumn(module util.Path, elements []sexp.SExp) 
 		err := *p.translator.SyntaxError(elements[1], "computed column is not of the right format")
 		errors = append(errors, err)
 	}
+	//
 	if len(errors) != 0 {
 		return nil, errors
-	}
-	if _, targetError := p.parseColumnDeclaration(module, module, true, columnDeclaration); targetError != nil {
+	} else if target, targetError = p.parseColumnDeclaration(module, module, true, columnDeclaration); targetError != nil {
 		errors = append(errors, *targetError)
 	}
-
 	// Translate expression
 	expr, exprErrors := p.translator.Translate(elements[2])
 	errors = append(errors, exprErrors...)
