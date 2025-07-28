@@ -119,18 +119,23 @@ func (p Assertion[T]) Accepts(tr trace.Trace, sc schema.AnySchema) (bit.Set, sch
 		scModule schema.Module = sc.Module(p.Context)
 		// Determine height of enclosing module
 		height = tr.Module(p.Context).Height()
+		// Determine well-definedness bounds for this constraint
+		bounds = p.Property.Bounds()
 	)
-	// Iterate every row in the module
-	for k := uint(0); k < height; k++ {
-		// Check whether property holds (or was undefined)
-		if ok, id, err := p.Property.TestAt(int(k), trModule, scModule); err != nil {
-			// Evaluation failure
-			return coverage, &InternalFailure{Handle: p.Handle, Context: p.Context, Row: k, Error: err.Error()}
-		} else if !ok {
-			return coverage, &AssertionFailure{p.Handle, p.Context, p.Property, k}
-		} else {
-			// Update coverage
-			coverage.Insert(id)
+	// Sanity check enough rows
+	if bounds.End < height {
+		// Check all in-bounds values
+		for k := bounds.Start; k < (height - bounds.End); k++ {
+			// Check whether property holds (or was undefined)
+			if ok, id, err := p.Property.TestAt(int(k), trModule, scModule); err != nil {
+				// Evaluation failure
+				return coverage, &InternalFailure{Handle: p.Handle, Context: p.Context, Row: k, Error: err.Error()}
+			} else if !ok {
+				return coverage, &AssertionFailure{p.Handle, p.Context, p.Property, k}
+			} else {
+				// Update coverage
+				coverage.Insert(id)
+			}
 		}
 	}
 	// All good
