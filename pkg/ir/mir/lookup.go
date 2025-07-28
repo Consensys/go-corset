@@ -89,7 +89,7 @@ func splitLookupVector(geometry lookup.Geometry, vector lookup.Vector[Term],
 	// Initial split
 	for i, t := range vector.Terms {
 		// Determine value range of ith term
-		valrange := t.ValueRange(modmap)
+		valrange := t.ValueRange(modmap.LimbsMap())
 		// Determine bitwidth for that range
 		bitwidth, signed := valrange.BitWidth()
 		// Sanity check signed lookups
@@ -199,7 +199,7 @@ func padLookupLimbs(terms [][]Term, geometry lookup.Geometry) []Term {
 		// Append available terms
 		nterms = append(nterms, ith...)
 		// Pad out with zeros to match geometry
-		for len(terms) < n {
+		for m := n - len(nterms); m > 0; m-- {
 			nterms = append(nterms, ir.Const64[Term](0))
 		}
 	}

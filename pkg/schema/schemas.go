@@ -158,9 +158,11 @@ func processConstraintBatch[C Constraint](logtitle string, batch uint, batchsize
 					buf = make([]byte, 2048)
 				)
 				//
-				if msg, ok := err.(string); ok {
+				if err != nil {
 					n := runtime.Stack(buf, false)
-					c <- batchOutcome{context, name, cov, &panicFailure{msg, buf[:n]}}
+					c <- batchOutcome{context, name, cov, &panicFailure{
+						fmt.Sprintf("%v", err), buf[:n],
+					}}
 				}
 			}()
 			// Check and send outcome back
