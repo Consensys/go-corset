@@ -275,9 +275,9 @@ func (t *translator) translateDefComputedColumn(d *ast.DefComputedColumn, path u
 	if len(errors) != 0 {
 		return errors
 	}
-
-	// Done
+	// Add assignment and constraint
 	module.AddAssignment(assignment.NewComputedRegister(target, computation))
+	// Done
 	return nil
 }
 

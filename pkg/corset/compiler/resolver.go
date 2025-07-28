@@ -537,7 +537,8 @@ func (r *resolver) finaliseDefConstraintInModule(enclosing *ModuleScope, decl *a
 // Finalise a vanishing constraint declaration after all symbols have been
 // resolved. This involves: (a) checking the context is valid; (b) checking the
 // expressions are well-typed.
-func (r *resolver) finaliseDefComputedColumnInModule(enclosing *ModuleScope, decl *ast.DefComputedColumn) []SyntaxError {
+func (r *resolver) finaliseDefComputedColumnInModule(enclosing *ModuleScope,
+	decl *ast.DefComputedColumn) []SyntaxError {
 	// Construct scope in which to resolve constraint
 	scope := NewLocalScope(enclosing, false, false, false)
 	// Resolve computation body
