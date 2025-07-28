@@ -116,7 +116,7 @@ func (p *Compiler[M]) SetDebug(flag bool) *Compiler[M] {
 	return p
 }
 
-// SetAllocator overides the default register allocator.
+// SetAllocator overrides the default register allocator.
 func (p *Compiler[M]) SetAllocator(allocator func(compiler.RegisterAllocation)) *Compiler[M] {
 	p.allocator = allocator
 	return p

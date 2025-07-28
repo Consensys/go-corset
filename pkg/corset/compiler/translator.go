@@ -275,10 +275,16 @@ func (t *translator) translateDefComputedColumn(d *ast.DefComputedColumn, path u
 	if len(errors) != 0 {
 		return errors
 	}
-	// Add assignment and constraint
+	// Add assignment
 	module.AddAssignment(assignment.NewComputedRegister(target, computation))
+
+	// Add constraint (defconstraint target == computation)
+	handle := "defcomputedcolumn-generated-constraint-for-module-" + module.Name() + "-column-" + d.Target.Name()
+	c := ast.NewDefConstraint(handle, util.Some(0), nil, nil, d.Computation) //TODO: should be target == computation ...
+	constraintsErrors := t.translateDefConstraint(c)
+
 	// Done
-	return nil
+	return constraintsErrors
 }
 
 // Translate a "defcomputed" declaration.
