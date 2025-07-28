@@ -134,3 +134,18 @@ func TestByteConversion(t *testing.T) {
 		assert.Equal(t, expectedB, x.Bytes())
 	}
 }
+
+func TestZeroOne(t *testing.T) {
+	zero := NewElement(0)
+	one := NewElement(1)
+
+	assert.True(t, zero.IsZero())
+	assert.False(t, one.IsZero())
+	assert.False(t, zero.IsOne())
+	assert.True(t, one.IsOne())
+
+	assert.Equal(t, zero, zero.Add(zero))
+	assert.Equal(t, one, zero.Add(one))
+	assert.Equal(t, one, one.Mul(one))
+	assert.Equal(t, zero, one.Mul(zero))
+}

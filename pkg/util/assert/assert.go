@@ -77,3 +77,33 @@ func asInt64(x any) (int64, bool) {
 
 	return 0, false
 }
+
+// True errors if condition is false.
+func True(t *testing.T, condition bool, msg ...any) {
+	if condition {
+		return
+	}
+
+	t.Errorf("condition is false")
+
+	if len(msg) != 0 {
+		t.Errorf(msg[0].(string), msg[1:])
+	}
+
+	t.FailNow()
+}
+
+// False errors if condition is true.
+func False(t *testing.T, condition bool, msg ...any) {
+	if !condition {
+		return
+	}
+
+	t.Errorf("condition is true")
+
+	if len(msg) != 0 {
+		t.Errorf(msg[0].(string), msg[1:])
+	}
+
+	t.FailNow()
+}

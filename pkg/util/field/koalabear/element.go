@@ -28,7 +28,8 @@ type Element [1]uint32 // defined as an array to prevent mistaken use of arithme
 const (
 	r                 = 1 << 32 // register size
 	modulus           = 2130706433
-	rSq               = 402124772  // r² (mod m)
+	rModM             = 33554430
+	rSqModM           = 402124772  // r² (mod m)
 	negModulusInvModR = 2130706431 // -modulus⁻¹ (mod r), used for Montgomery reduction
 	nbBytes           = 4
 )
@@ -87,7 +88,7 @@ func (x Element) Mul(y Element) Element {
 
 // NewElement returns an element of the field f corresponding to the natural number x.
 func NewElement(x uint32) Element {
-	return Element{uint32(uint64(x) << 32 % modulus)}
+	return Element{x}.Mul(Element{rSqModM})
 }
 
 // Cmp compares the numerical values of x and y.
@@ -121,7 +122,7 @@ func (x Element) Inverse() Element {
 
 	var c Element
 	// Since x actually contains x.R, we have to multiply the result by R² to get x⁻¹R⁻¹R² = x⁻¹R.
-	b := Element{rSq}
+	b := Element{rSqModM}
 
 	for (u != 1) && (v != 1) {
 		for u%2 == 0 {
@@ -180,4 +181,12 @@ func (x Element) AddBytes(b []byte) Element {
 		v |= uint32(b[i]) << ((nbBytes - 1 - i) * 8)
 	}
 	return x.Add(NewElement(v))
+}
+
+func (x Element) IsZero() bool {
+	return x[0] == 0
+}
+
+func (x Element) IsOne() bool {
+	return x[0] == rModM
 }
