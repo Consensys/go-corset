@@ -53,7 +53,7 @@ func mapLookupVectors(vectors []lookup.Vector[Term], mapping schema.LimbsMap) []
 			terms  = splitTerms(vector.Terms, modmap)
 		)
 		// TODO: what about the selector itself?
-		nterms[i] = lookup.NewLookupVector(vector.Module, vector.Selector, terms...)
+		nterms[i] = lookup.NewVector(vector.Module, vector.Selector, terms...)
 	}
 	//
 	return nterms
@@ -120,7 +120,7 @@ func splitLookupVector(geometry lookup.Geometry, vector lookup.Vector[Term],
 	// Padding
 	nlimbs := padLookupLimbs(limbs, geometry)
 	// Done
-	return lookup.NewLookupVector(vector.Module, vector.Selector, nlimbs...)
+	return lookup.NewVector(vector.Module, vector.Selector, nlimbs...)
 }
 
 // Alignment is related to the potential for so-called "irregular lookups".

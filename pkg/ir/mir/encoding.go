@@ -28,14 +28,14 @@ import (
 
 const (
 	// Constraints
-	assertionTag       = byte(0)
-	interleavingTag    = byte(1)
-	lookupTag          = byte(2)
-	permutationTag     = byte(3)
-	rangeTag           = byte(4)
-	sortedTag          = byte(5)
-	sortedSelectionTag = byte(6)
-	vanishingTag       = byte(7)
+	assertionTag        = byte(0)
+	interleavingTag     = byte(1)
+	lookupTag           = byte(2)
+	permutationTag      = byte(3)
+	rangeTag            = byte(4)
+	sortedUnfilteredTag = byte(5)
+	sortedFilteredTag   = byte(6)
+	vanishingTag        = byte(7)
 	// Logicals
 	conjunctTag   = byte(10)
 	disjunctTag   = byte(11)
@@ -165,20 +165,27 @@ func encode_lookup(c LookupConstraint) ([]byte, error) {
 	return buffer.Bytes(), nil
 }
 
-func encode_lookup_vector(terms lookup.Vector[Term], buffer *bytes.Buffer) error {
+func encode_lookup_vector(vector lookup.Vector[Term], buffer *bytes.Buffer) error {
 	var (
 		gobEncoder = gob.NewEncoder(buffer)
+		selector   = vector.HasSelector()
 	)
 	// Source Context
-	if err := gobEncoder.Encode(terms.Module); err != nil {
+	if err := gobEncoder.Encode(vector.Module); err != nil {
 		return err
 	}
-	//
-	if terms.HasSelector() {
-		panic("todo")
+	// HasSelector flag
+	if err := gobEncoder.Encode(selector); err != nil {
+		return err
+	}
+	// Selector itself (if applicable)
+	if selector {
+		if err := encode_term(vector.Selector.Unwrap(), buffer); err != nil {
+			return err
+		}
 	}
 	// Source terms
-	return encode_nary(encode_term, buffer, terms.Terms)
+	return encode_nary(encode_term, buffer, vector.Terms)
 }
 
 func encode_permutation(c PermutationConstraint) ([]byte, error) {
@@ -218,9 +225,9 @@ func encode_sorted(c SortedConstraint) ([]byte, error) {
 	)
 	//
 	if c.Selector.HasValue() {
-		tag = sortedSelectionTag
+		tag = sortedFilteredTag
 	} else {
-		tag = sortedTag
+		tag = sortedUnfilteredTag
 	}
 	// Tag
 	if _, err := buffer.Write([]byte{tag}); err != nil {
@@ -323,9 +330,9 @@ func decode_constraint(bytes []byte) (schema.Constraint, error) {
 		return decode_permutation(bytes[1:])
 	case rangeTag:
 		return decode_range(bytes[1:])
-	case sortedTag:
+	case sortedUnfilteredTag:
 		return decode_sorted(false, bytes[1:])
-	case sortedSelectionTag:
+	case sortedFilteredTag:
 		return decode_sorted(true, bytes[1:])
 	case vanishingTag:
 		return decode_vanishing(bytes[1:])
@@ -411,21 +418,34 @@ func decode_lookup(data []byte) (schema.Constraint, error) {
 
 func decode_lookup_vector(buf *bytes.Buffer) (lookup.Vector[Term], error) {
 	var (
-		gobDecoder = gob.NewDecoder(buf)
-		terms      lookup.Vector[Term]
-		err        error
+		gobDecoder  = gob.NewDecoder(buf)
+		vector      lookup.Vector[Term]
+		hasSelector bool
+		selector    Term
+		err         error
 	)
 	// Context
-	if err = gobDecoder.Decode(&terms.Module); err != nil {
-		return terms, err
+	if err = gobDecoder.Decode(&vector.Module); err != nil {
+		return vector, err
+	}
+	// HasSelector
+	if err = gobDecoder.Decode(&hasSelector); err != nil {
+		return vector, err
+	}
+	// Selector (if applicable)
+	if hasSelector {
+		if selector, err = decode_term(buf); err != nil {
+			return vector, err
+		}
+		// Wrap selector
+		vector.Selector = util.Some(selector)
 	}
 	// Contents
-	if terms.Terms, err = decode_nary(decode_term, buf); err != nil {
-		return terms, err
+	if vector.Terms, err = decode_nary(decode_term, buf); err != nil {
+		return vector, err
 	}
-	//
-	//return terms, nil
-	panic("todo: handle selectors")
+	// Done
+	return vector, nil
 }
 
 func decode_permutation(data []byte) (schema.Constraint, error) {

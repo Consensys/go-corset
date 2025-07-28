@@ -408,10 +408,10 @@ func (t *translator) translateDefLookupSources(selector ast.Expr,
 		s, errs := t.translateExpression(selector, module, 0)
 		errors = append(errors, errs...)
 
-		return lookup.FilteredLookupVector(module.Id(), s, terms...), context, errors
+		return lookup.FilteredVector(module.Id(), s, terms...), context, errors
 	}
 	//
-	return lookup.UnfilteredLookupVector(module.Id(), terms...), context, errors
+	return lookup.UnfilteredVector(module.Id(), terms...), context, errors
 }
 
 // Translate a "definrange" declaration.

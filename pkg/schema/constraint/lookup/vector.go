@@ -31,17 +31,17 @@ type Vector[E ir.Evaluable] struct {
 	Terms []E
 }
 
-// NewLookupVector constructs a new vector in a given context with an optional selector.
-func NewLookupVector[E ir.Evaluable](mid schema.ModuleId, selector util.Option[E], terms ...E) Vector[E] {
+// NewVector constructs a new vector in a given context with an optional selector.
+func NewVector[E ir.Evaluable](mid schema.ModuleId, selector util.Option[E], terms ...E) Vector[E] {
 	if selector.HasValue() {
-		return FilteredLookupVector(mid, selector.Unwrap(), terms...)
+		return FilteredVector(mid, selector.Unwrap(), terms...)
 	}
 	//
-	return UnfilteredLookupVector(mid, terms...)
+	return UnfilteredVector(mid, terms...)
 }
 
-// UnfilteredLookupVector constructs a new vector in a given context which has no selector.
-func UnfilteredLookupVector[E ir.Evaluable](mid schema.ModuleId, terms ...E) Vector[E] {
+// UnfilteredVector constructs a new vector in a given context which has no selector.
+func UnfilteredVector[E ir.Evaluable](mid schema.ModuleId, terms ...E) Vector[E] {
 	return Vector[E]{
 		mid,
 		util.None[E](),
@@ -49,8 +49,8 @@ func UnfilteredLookupVector[E ir.Evaluable](mid schema.ModuleId, terms ...E) Vec
 	}
 }
 
-// FilteredLookupVector constructs a new vector in a given context which has a selector.
-func FilteredLookupVector[E ir.Evaluable](mid schema.ModuleId, selector E, terms ...E) Vector[E] {
+// FilteredVector constructs a new vector in a given context which has a selector.
+func FilteredVector[E ir.Evaluable](mid schema.ModuleId, selector E, terms ...E) Vector[E] {
 	return Vector[E]{
 		mid,
 		util.Some(selector),

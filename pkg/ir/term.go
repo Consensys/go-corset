@@ -54,8 +54,6 @@ type Evaluable interface {
 	// Lisp converts this schema element into a simple S-Expression, for example
 	// so it can be printed.
 	Lisp(schema.RegisterMap) sexp.SExp
-	// IsDefined checks whether a given evaluable expression is defined, or not.
-	IsDefined() bool
 	// ValueRange returns the interval of values that this term can evaluate to.
 	// For terms accessing registers, this is determined by the declared width of
 	// the register.

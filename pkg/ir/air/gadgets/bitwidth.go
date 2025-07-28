@@ -177,8 +177,8 @@ func (p *BitwidthGadget) applyRecursiveBitwidthGadget(ref sc.RegisterRef, bitwid
 		// Target Value
 		ir.RawRegisterAccess[air.Term](sc.NewRegisterId(0), 0)}
 	//
-	targets := []lookup.Vector[*air.ColumnAccess]{lookup.UnfilteredLookupVector(mid, targetAccesses...)}
-	sources := []lookup.Vector[*air.ColumnAccess]{lookup.UnfilteredLookupVector(module.Id(), sourceAccesses...)}
+	targets := []lookup.Vector[*air.ColumnAccess]{lookup.UnfilteredVector(mid, targetAccesses...)}
+	sources := []lookup.Vector[*air.ColumnAccess]{lookup.UnfilteredVector(module.Id(), sourceAccesses...)}
 	//
 	module.AddConstraint(air.NewLookupConstraint(lookupHandle, targets, sources))
 	// Add column to assignment so its proof is included

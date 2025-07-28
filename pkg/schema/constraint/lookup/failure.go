@@ -45,11 +45,9 @@ func (p *Failure) String() string {
 // RequiredCells identifies the cells required to evaluate the failing constraint at the failing row.
 func (p *Failure) RequiredCells(_ trace.Trace) *set.AnySortedSet[trace.CellRef] {
 	res := set.NewAnySortedSet[trace.CellRef]()
-	//
-	for i, e := range p.Sources {
-		if i != 0 || e.IsDefined() {
-			res.InsertSorted(e.RequiredCells(int(p.Row), p.Context))
-		}
+	// Handle terms
+	for _, e := range p.Sources {
+		res.InsertSorted(e.RequiredCells(int(p.Row), p.Context))
 	}
 	//
 	return res
