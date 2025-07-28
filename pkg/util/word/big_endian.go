@@ -14,7 +14,6 @@ package word
 
 import (
 	"bytes"
-	"encoding/hex"
 	"hash/fnv"
 	"math/big"
 
@@ -109,11 +108,9 @@ func (p BigEndian) Bytes() []byte {
 }
 
 func (p BigEndian) String() string {
-	if len(p.bytes) == 0 {
-		return "0"
-	}
+	bi := p.AsBigInt()
 	//
-	return hex.EncodeToString(p.bytes)
+	return bi.String()
 }
 
 func trim(bytes []byte) []byte {
