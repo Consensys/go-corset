@@ -222,6 +222,10 @@ func Test_Property_01(t *testing.T) {
 	test_util.Check(t, false, "basic/property_01")
 }
 
+func Test_Property_02(t *testing.T) {
+	test_util.Check(t, false, "basic/property_02")
+}
+
 // ===================================================================
 // Shift Tests
 // ===================================================================
