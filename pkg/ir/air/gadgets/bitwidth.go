@@ -22,6 +22,7 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/assignment"
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -176,8 +177,8 @@ func (p *BitwidthGadget) applyRecursiveBitwidthGadget(ref sc.RegisterRef, bitwid
 		// Target Value
 		ir.RawRegisterAccess[air.Term](sc.NewRegisterId(0), 0)}
 	//
-	targets := []ir.Enclosed[[]*air.ColumnAccess]{ir.Enclose(mid, targetAccesses)}
-	sources := []ir.Enclosed[[]*air.ColumnAccess]{ir.Enclose(module.Id(), sourceAccesses)}
+	targets := []lookup.Vector[*air.ColumnAccess]{lookup.UnfilteredLookupVector(mid, targetAccesses...)}
+	sources := []lookup.Vector[*air.ColumnAccess]{lookup.UnfilteredLookupVector(module.Id(), sourceAccesses...)}
 	//
 	module.AddConstraint(air.NewLookupConstraint(lookupHandle, targets, sources))
 	// Add column to assignment so its proof is included

@@ -13,6 +13,8 @@
 package lookup
 
 import (
+	"fmt"
+
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
@@ -34,7 +36,7 @@ type Geometry struct {
 func NewGeometry[E ir.Evaluable, T schema.RegisterMap](c Constraint[E],
 	mapping schema.ModuleMap[T]) Geometry {
 	//
-	var geometry []uint = make([]uint, len(c.Sources[0].Item))
+	var geometry []uint = make([]uint, c.Sources[0].Len())
 	// Include sources
 	for _, source := range c.Sources {
 		updateGeometry(geometry, source, mapping)
@@ -47,6 +49,16 @@ func NewGeometry[E ir.Evaluable, T schema.RegisterMap](c Constraint[E],
 	return Geometry{mapping.Field(), geometry}
 }
 
+// BandWidth returns maximum field bandwidth available in the field.
+func (p *Geometry) BandWidth() uint {
+	return p.config.FieldBandWidth
+}
+
+// RegisterWidth returns maximum permitted register width for the field.
+func (p *Geometry) RegisterWidth() uint {
+	return p.config.RegisterWidth
+}
+
 // LimbWidths returns the bitwidths for the required limbs for a given
 // source/target pairing in the lookup.
 func (p *Geometry) LimbWidths(i uint) []uint {
@@ -55,4 +67,28 @@ func (p *Geometry) LimbWidths(i uint) []uint {
 	}
 	//
 	return agnostic.LimbWidths(p.config.RegisterWidth, p.geometry[i])
+}
+
+func updateGeometry[E ir.Evaluable, T schema.RegisterMap](geometry []uint, source Vector[E],
+	mapping schema.ModuleMap[T]) {
+	//
+	var (
+		regmap = mapping.Module(source.Module)
+	)
+	// Sanity check
+	if source.Len() != uint(len(geometry)) {
+		// Unreachable, as should be caught earlier in the pipeline.
+		panic("misaligned lookup")
+	}
+	//
+	for i, ith := range source.Terms {
+		ithRange := ith.ValueRange(regmap)
+		bitwidth, signed := ithRange.BitWidth()
+		// Sanity check
+		if signed {
+			panic(fmt.Sprintf("signed lookup encountered (%s)", ith.Lisp(regmap).String(true)))
+		}
+		//
+		geometry[i] = max(geometry[i], bitwidth)
+	}
 }

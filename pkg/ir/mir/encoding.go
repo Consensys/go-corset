@@ -22,6 +22,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
 	"github.com/consensys/go-corset/pkg/util"
 )
 
@@ -153,15 +154,31 @@ func encode_lookup(c LookupConstraint) ([]byte, error) {
 		return nil, err
 	}
 	// Target terms
-	if err := encode_nary(encode_enclosed_terms, &buffer, c.Targets); err != nil {
+	if err := encode_nary(encode_lookup_vector, &buffer, c.Targets); err != nil {
 		return nil, err
 	}
 	// Sources
-	if err := encode_nary(encode_enclosed_terms, &buffer, c.Sources); err != nil {
+	if err := encode_nary(encode_lookup_vector, &buffer, c.Sources); err != nil {
 		return nil, err
 	}
 	//
 	return buffer.Bytes(), nil
+}
+
+func encode_lookup_vector(terms lookup.Vector[Term], buffer *bytes.Buffer) error {
+	var (
+		gobEncoder = gob.NewEncoder(buffer)
+	)
+	// Source Context
+	if err := gobEncoder.Encode(terms.Module); err != nil {
+		return err
+	}
+	//
+	if terms.HasSelector() {
+		panic("todo")
+	}
+	// Source terms
+	return encode_nary(encode_term, buffer, terms.Terms)
 }
 
 func encode_permutation(c PermutationConstraint) ([]byte, error) {
@@ -294,18 +311,6 @@ func encode_range(c RangeConstraint) ([]byte, error) {
 	return buffer.Bytes(), err
 }
 
-func encode_enclosed_terms(terms ir.Enclosed[[]Term], buffer *bytes.Buffer) error {
-	var (
-		gobEncoder = gob.NewEncoder(buffer)
-	)
-	// Source Context
-	if err := gobEncoder.Encode(terms.Module); err != nil {
-		return err
-	}
-	// Source terms
-	return encode_nary(encode_term, buffer, terms.Item)
-}
-
 func decode_constraint(bytes []byte) (schema.Constraint, error) {
 	switch bytes[0] {
 	case assertionTag:
@@ -393,15 +398,34 @@ func decode_lookup(data []byte) (schema.Constraint, error) {
 		return lookup, err
 	}
 	// Targets
-	if lookup.Targets, err = decode_nary(decode_enclosed_terms, buffer); err != nil {
+	if lookup.Targets, err = decode_nary(decode_lookup_vector, buffer); err != nil {
 		return lookup, err
 	}
 	// Sources
-	if lookup.Sources, err = decode_nary(decode_enclosed_terms, buffer); err != nil {
+	if lookup.Sources, err = decode_nary(decode_lookup_vector, buffer); err != nil {
 		return lookup, err
 	}
 	//
 	return lookup, nil
+}
+
+func decode_lookup_vector(buf *bytes.Buffer) (lookup.Vector[Term], error) {
+	var (
+		gobDecoder = gob.NewDecoder(buf)
+		terms      lookup.Vector[Term]
+		err        error
+	)
+	// Context
+	if err = gobDecoder.Decode(&terms.Module); err != nil {
+		return terms, err
+	}
+	// Contents
+	if terms.Terms, err = decode_nary(decode_term, buf); err != nil {
+		return terms, err
+	}
+	//
+	//return terms, nil
+	panic("todo: handle selectors")
 }
 
 func decode_permutation(data []byte) (schema.Constraint, error) {
@@ -522,24 +546,6 @@ func decode_vanishing(data []byte) (schema.Constraint, error) {
 	vanishing.Constraint, err = decode_logical(buffer)
 	// Success!
 	return vanishing, err
-}
-
-func decode_enclosed_terms(buf *bytes.Buffer) (ir.Enclosed[[]Term], error) {
-	var (
-		gobDecoder = gob.NewDecoder(buf)
-		terms      ir.Enclosed[[]Term]
-		err        error
-	)
-	// Context
-	if err = gobDecoder.Decode(&terms.Module); err != nil {
-		return terms, err
-	}
-	// Contents
-	if terms.Item, err = decode_nary(decode_term, buf); err != nil {
-		return terms, err
-	}
-	//
-	return terms, nil
 }
 
 // ============================================================================

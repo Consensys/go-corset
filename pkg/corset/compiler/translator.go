@@ -25,8 +25,8 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/assignment"
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
 	"github.com/consensys/go-corset/pkg/util"
-	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
 
@@ -357,8 +357,8 @@ func (t *translator) translateDefLookup(decl *ast.DefLookup) []SyntaxError {
 	var (
 		errors  []SyntaxError
 		context ast.Context
-		sources []ir.Enclosed[[]mir.Term]
-		targets []ir.Enclosed[[]mir.Term]
+		sources []lookup.Vector[mir.Term]
+		targets []lookup.Vector[mir.Term]
 	)
 	// Translate sources
 	for i, ith := range decl.Targets {
@@ -387,7 +387,7 @@ func (t *translator) translateDefLookup(decl *ast.DefLookup) []SyntaxError {
 }
 
 func (t *translator) translateDefLookupSources(selector ast.Expr,
-	sources []ast.Expr) (ir.Enclosed[[]mir.Term], ast.Context, []SyntaxError) {
+	sources []ast.Expr) (lookup.Vector[mir.Term], ast.Context, []SyntaxError) {
 	// Determine context of ith set of targets
 	context, j := ast.ContextOfExpressions(sources...)
 	// Include selector (when present)
@@ -397,7 +397,7 @@ func (t *translator) translateDefLookupSources(selector ast.Expr,
 	// Translate target expressions whilst again checking for a conflicting
 	// context.
 	if context.IsConflicted() {
-		return ir.Enclosed[[]mir.Term]{}, context, t.srcmap.SyntaxErrors(sources[j], "conflicting context")
+		return lookup.Vector[mir.Term]{}, context, t.srcmap.SyntaxErrors(sources[j], "conflicting context")
 	}
 	// Determine enclosing module
 	module := t.moduleOf(context)
@@ -407,14 +407,11 @@ func (t *translator) translateDefLookupSources(selector ast.Expr,
 	if selector != nil {
 		s, errs := t.translateExpression(selector, module, 0)
 		errors = append(errors, errs...)
-		terms = array.Prepend(s, terms)
-	} else {
-		// Selector is unused
-		s := ir.NewRegisterAccess[mir.Term](schema.NewUnusedRegisterId(), 0)
-		terms = array.Prepend(s, terms)
+
+		return lookup.FilteredLookupVector(module.Id(), s, terms...), context, errors
 	}
-	// Return enclosed terms
-	return ir.Enclose(module.Id(), terms), context, errors
+	//
+	return lookup.UnfilteredLookupVector(module.Id(), terms...), context, errors
 }
 
 // Translate a "definrange" declaration.

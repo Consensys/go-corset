@@ -19,6 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 )
@@ -75,9 +76,9 @@ func (p MirModule) NewLookup(name string, from []MirExpr, targetMid uint, to []M
 	// Preprend (unused) selectors.  Eventually, we will most likely want to support selectors.
 	sources = array.Prepend(unused, sources)
 	targets = array.Prepend(unused, targets)
-	//
-	target := []ir.Enclosed[[]mir.Term]{ir.Enclose(p.Module.Id(), targets)}
-	source := []ir.Enclosed[[]mir.Term]{ir.Enclose(targetMid, sources)}
+	// FIXME: exploit conditional lookups
+	target := []lookup.Vector[mir.Term]{lookup.UnfilteredLookupVector(p.Module.Id(), targets...)}
+	source := []lookup.Vector[mir.Term]{lookup.UnfilteredLookupVector(targetMid, sources...)}
 	p.Module.AddConstraint(mir.NewLookupConstraint(name, target, source))
 }
 

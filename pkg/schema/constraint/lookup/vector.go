@@ -13,6 +13,7 @@
 package lookup
 
 import (
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
@@ -28,6 +29,15 @@ type Vector[E ir.Evaluable] struct {
 	Selector util.Option[E]
 	// Terms making up this vector.
 	Terms []E
+}
+
+// NewLookupVector constructs a new vector in a given context with an optional selector.
+func NewLookupVector[E ir.Evaluable](mid schema.ModuleId, selector util.Option[E], terms ...E) Vector[E] {
+	if selector.HasValue() {
+		return FilteredLookupVector(mid, selector.Unwrap(), terms...)
+	}
+	//
+	return UnfilteredLookupVector(mid, terms...)
 }
 
 // UnfilteredLookupVector constructs a new vector in a given context which has no selector.
@@ -87,24 +97,39 @@ func (p *Vector[E]) Ith(index uint) E {
 	return p.Terms[index]
 }
 
-// Len returns the number of items in this lookup vector.
+// Len returns the number of items in this lookup vector.  Note this doesn't
+// include the selector (since this is optional anyway).
 func (p *Vector[E]) Len() uint {
 	return uint(len(p.Terms))
 }
 
 // Lisp returns a textual representation of this vector.
-func (p *Vector[E]) Lisp(schema schema.RegisterMap) sexp.SExp {
-	terms := sexp.EmptyList()
+func (p *Vector[E]) Lisp(schema schema.AnySchema) sexp.SExp {
+	var (
+		module = schema.Module(p.Module)
+		terms  = sexp.EmptyList()
+	)
 	//
 	if p.HasSelector() {
-		terms.Append(p.Selector.Unwrap().Lisp(schema))
+		terms.Append(p.Selector.Unwrap().Lisp(module))
 	} else {
 		terms.Append(sexp.NewSymbol("_"))
 	}
 	// Iterate source expressions
 	for i := range p.Len() {
-		terms.Append(p.Ith(i).Lisp(schema))
+		terms.Append(p.Ith(i).Lisp(module))
 	}
 	// Done
 	return terms
+}
+
+// Substitute any matchined labelled constants within this vector
+func (p *Vector[E]) Substitute(mapping map[string]fr.Element) {
+	for _, ith := range p.Terms {
+		ith.Substitute(mapping)
+	}
+	// Substitute through selector (if applicable)
+	if p.HasSelector() {
+		p.Selector.Unwrap().Substitute(mapping)
+	}
 }

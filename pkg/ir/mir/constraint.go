@@ -14,7 +14,6 @@ package mir
 
 import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/schema/constraint/interleaving"
@@ -57,7 +56,7 @@ func NewInterleavingConstraint(handle string, targetContext schema.ModuleId,
 }
 
 // NewLookupConstraint creates a new lookup constraint with a given handle.
-func NewLookupConstraint(handle string, targets []ir.Enclosed[[]Term], sources []ir.Enclosed[[]Term]) Constraint {
+func NewLookupConstraint(handle string, targets []lookup.Vector[Term], sources []lookup.Vector[Term]) Constraint {
 	return Constraint{lookup.NewConstraint(handle, targets, sources)}
 }
 

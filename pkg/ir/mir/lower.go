@@ -22,6 +22,7 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/air"
 	air_gadgets "github.com/consensys/go-corset/pkg/ir/air/gadgets"
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/field"
 	util_math "github.com/consensys/go-corset/pkg/util/math"
@@ -242,19 +243,25 @@ func (p *AirLowering) lowerInterleavingConstraintToAir(c InterleavingConstraint,
 // expected value.
 func (p *AirLowering) lowerLookupConstraintToAir(c LookupConstraint, airModule *air.ModuleBuilder) {
 	var (
-		sources = make([]ir.Enclosed[[]*air.ColumnAccess], len(c.Sources))
-		targets = make([]ir.Enclosed[[]*air.ColumnAccess], len(c.Targets))
+		sources = make([]lookup.Vector[*air.ColumnAccess], len(c.Sources))
+		targets = make([]lookup.Vector[*air.ColumnAccess], len(c.Targets))
 	)
 	// Lower sources
 	for i, ith := range c.Sources {
-		sources[i] = p.expandEnclosedLookupTerms(ith)
+		sources[i] = p.expandLookupVectorToAir(ith)
 	}
 	// Lower targets
 	for i, ith := range c.Targets {
-		targets[i] = p.expandEnclosedLookupTerms(ith)
+		targets[i] = p.expandLookupVectorToAir(ith)
 	}
 	// Add constraint
 	airModule.AddConstraint(air.NewLookupConstraint(c.Handle, targets, sources))
+}
+
+func (p *AirLowering) expandLookupVectorToAir(terms lookup.Vector[Term]) lookup.Vector[*air.ColumnAccess] {
+	// accesses := p.expandTermsInner(terms.Module, true, terms.Item...)
+	// return ir.Enclose(terms.Module, accesses)
+	panic("todo")
 }
 
 // Lower a sorted constraint to the AIR level.  The challenge here is that there
@@ -309,11 +316,6 @@ func (p *AirLowering) lowerSortedConstraintToAir(c SortedConstraint, airModule *
 		msg := fmt.Sprintf("incompatible bitwidths (%d vs %d)", bitwidth, c.BitWidth)
 		panic(msg)
 	}
-}
-
-func (p *AirLowering) expandEnclosedLookupTerms(terms ir.Enclosed[[]Term]) ir.Enclosed[[]*air.ColumnAccess] {
-	accesses := p.expandTermsInner(terms.Module, true, terms.Item...)
-	return ir.Enclose(terms.Module, accesses)
 }
 
 func (p *AirLowering) expandTerms(context schema.ModuleId, terms ...Term) []*air.ColumnAccess {
