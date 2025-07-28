@@ -187,6 +187,11 @@ func checkTraces(t *testing.T, test string, maxPadding uint, opt uint, cfg Confi
 	}
 }
 
+// BATCH_SIZE is used to restrict parallelism during trace expansion and
+// constraint checking.  The issue is that this interferes with running tests in
+// parallel since we have concurrency on top of concurrency.
+const BATCH_SIZE = 10
+
 func checkTrace[C sc.Constraint](t *testing.T, inputs []trace.BigEndianColumn, id traceId,
 	schema sc.Schema[C], mapping sc.LimbsMap) {
 	// Construct the trace
@@ -196,14 +201,14 @@ func checkTrace[C sc.Constraint](t *testing.T, inputs []trace.BigEndianColumn, i
 		WithPadding(id.padding).
 		WithParallelism(true).
 		WithRegisterMapping(mapping).
-		WithBatchSize(1024).
+		WithBatchSize(BATCH_SIZE).
 		Build(sc.Any(schema), inputs)
 	// Sanity check construction
 	if len(errs) > 0 {
 		t.Errorf("Trace expansion failed (%s): %s", id.String(), errs)
 	} else {
 		// Check Constraints
-		errs := sc.Accepts(true, 100, schema, tr)
+		errs := sc.Accepts(true, BATCH_SIZE, schema, tr)
 		// Determine whether trace accepted or not.
 		accepted := len(errs) == 0
 		// Process what happened versus what was supposed to happen.
