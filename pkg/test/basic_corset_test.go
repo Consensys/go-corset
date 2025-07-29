@@ -68,6 +68,9 @@ func Test_Corset_Basic_11(t *testing.T) {
 func Test_Corset_Basic_12(t *testing.T) {
 	test_util.Check(t, false, "basic/basic_12")
 }
+func Test_Corset_Basic_13(t *testing.T) {
+	test_util.Check(t, false, "basic/basic_13")
+}
 
 // ===================================================================
 // Constants Tests

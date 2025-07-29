@@ -54,3 +54,6 @@ func Test_Agnostic_Lookup_06(t *testing.T) {
 func Test_Agnostic_Lookup_07(t *testing.T) {
 	test_util.CheckWithFields(t, false, "agnostic/lookup_07", sc.BLS12_377, sc.GF_8209, sc.GF_251)
 }
+func Test_Agnostic_Lookup_08(t *testing.T) {
+	test_util.CheckWithFields(t, false, "agnostic/lookup_08", sc.BLS12_377, sc.GF_8209, sc.GF_251)
+}

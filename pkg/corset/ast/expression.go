@@ -214,6 +214,46 @@ func (e *Cast) Dependencies() []Symbol {
 }
 
 // ============================================================================
+// Concat
+// ============================================================================
+
+// Concat represents a bitwise concatenation of expressions. For example,
+// consider the concatenation (:: X Y) where each variable is 16bits.  Then the
+// resulting concatenation is 32bits, and corresponds to (X*65536) + Y. The main
+// purpose of concetenations is to smooth the progress of migrating to a
+// field-agnostic code base.  We might imagine that this will be deprecated
+// eventually.
+type Concat struct {
+	Args []Expr
+}
+
+// AsConstant attempts to evaluate this expression as a constant (signed) value.
+// If this expression is not constant, then nil is returned.
+func (e *Concat) AsConstant() *big.Int {
+	// not a constant
+	return nil
+}
+
+// Context returns the context for this expression.  Observe that the
+// expression must have been resolved for this to be defined (i.e. it may
+// panic if it has not been resolved yet).
+func (e *Concat) Context() Context {
+	ctx, _ := ContextOfExpressions(e.Args...)
+	return ctx
+}
+
+// Lisp converts this schema element into a simple S-Expression, for example
+// so it can be printed.
+func (e *Concat) Lisp() sexp.SExp {
+	return ListOfExpressions(sexp.NewSymbol("::"), e.Args)
+}
+
+// Dependencies needed to signal declaration.
+func (e *Concat) Dependencies() []Symbol {
+	return DependenciesOfExpressions(e.Args)
+}
+
+// ============================================================================
 // Connective
 // ============================================================================
 
@@ -1151,52 +1191,6 @@ func (e *VariableAccess) Type() Type {
 }
 
 // ============================================================================
-// VectorAccess
-// ============================================================================
-
-// VectorAccess represents a vector of variables being accessed.  For example,
-// consider the vector X::Y where each variable is 16bits.  Then the resulting
-// "vector variable" is 32bits, and corresponds to (X*65536) + Y.  The main
-// purpose of VectorAccesses is to smooth the progress of migrating to a
-// field-agnostic code base.  We might imagine that this will be deprecated
-// eventually.
-type VectorAccess struct {
-	Vars []*VariableAccess
-}
-
-// AsConstant attempts to evaluate this expression as a constant (signed) value.
-// If this expression is not constant, then nil is returned.
-func (e *VectorAccess) AsConstant() *big.Int {
-	// not a constant
-	return nil
-}
-
-// Context returns the context for this expression.  Observe that the
-// expression must have been resolved for this to be defined (i.e. it may
-// panic if it has not been resolved yet).
-func (e *VectorAccess) Context() Context {
-	ctx, _ := ContextOfExpressions(e.Vars...)
-	return ctx
-}
-
-// Lisp converts this schema element into a simple S-Expression, for example
-// so it can be printed.
-func (e *VectorAccess) Lisp() sexp.SExp {
-	return ListOfExpressions(sexp.NewSymbol("+"), e.Vars)
-}
-
-// Dependencies needed to signal declaration.
-func (e *VectorAccess) Dependencies() []Symbol {
-	var deps []Symbol
-	//
-	for _, e := range e.Vars {
-		deps = append(deps, e.Dependencies()...)
-	}
-	//
-	return deps
-}
-
-// ============================================================================
 // Helpers
 // ============================================================================
 
@@ -1311,8 +1305,9 @@ func Substitute(expr Expr, mapping map[uint]Expr, srcmap *source.Maps[Node]) Exp
 				expr = e2
 			}
 		}
-	case *VectorAccess:
-		panic("todo")
+	case *Concat:
+		args := SubstituteAll(e.Args, mapping, srcmap)
+		nexpr = &Concat{args}
 	default:
 		panic(fmt.Sprintf("unknown expression (%s)", reflect.TypeOf(expr)))
 	}
@@ -1390,8 +1385,8 @@ func ShallowCopy(expr Expr) Expr {
 		return &Shift{e.Arg, e.Shift}
 	case *VariableAccess:
 		return &VariableAccess{e.Name, e.FnArity, e.binding}
-	case *VectorAccess:
-		return &VectorAccess{e.Vars}
+	case *Concat:
+		return &Concat{e.Args}
 	default:
 		panic(fmt.Sprintf("unknown expression (%s)", reflect.TypeOf(expr)))
 	}

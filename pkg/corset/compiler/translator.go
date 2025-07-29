@@ -756,14 +756,37 @@ func (t *translator) translateExpression(expr ast.Expr, module *ModuleBuilder, s
 		return t.translateShift(e, module, shift)
 	case *ast.VariableAccess:
 		return t.translateVariableAccess(e, shift)
-	case *ast.VectorAccess:
-		return t.translateVectorAccess(e, shift)
+	case *ast.Concat:
+		return t.translateConcat(e, module, shift)
 	default:
 		typeStr := reflect.TypeOf(expr).String()
 		msg := fmt.Sprintf("unknown arithmetic expression encountered during translation (%s)", typeStr)
 		//
 		return nil, t.srcmap.SyntaxErrors(expr, msg)
 	}
+}
+
+func (t *translator) translateConcat(expr *ast.Concat, mod *ModuleBuilder, shift int) (mir.Term, []SyntaxError) {
+	var (
+		limbs  []*mir.RegisterAccess = make([]*mir.RegisterAccess, len(expr.Args))
+		errors []SyntaxError
+	)
+	//
+	for i, v := range expr.Args {
+		var (
+			ith, errs = t.translateExpression(v, mod, shift)
+		)
+		// Sanity check it was a real register access
+		if ra, ok := ith.(*mir.RegisterAccess); ok {
+			limbs[i] = ra
+		} else if len(errs) == 0 {
+			errors = append(errors, *t.srcmap.SyntaxError(v, "invalid register access"))
+		}
+		//
+		errors = append(errors, errs...)
+	}
+	//
+	return ir.NewVectorAccess(limbs), errors
 }
 
 func (t *translator) translateExp(expr *ast.Exp, module *ModuleBuilder, shift int) (mir.Term, []SyntaxError) {
@@ -832,29 +855,6 @@ func (t *translator) translateVariableAccess(expr *ast.VariableAccess, shift int
 	}
 	// error
 	return nil, t.srcmap.SyntaxErrors(expr, "unbound variable")
-}
-
-func (t *translator) translateVectorAccess(expr *ast.VectorAccess, shift int) (mir.Term, []SyntaxError) {
-	var (
-		limbs  []*mir.RegisterAccess = make([]*mir.RegisterAccess, len(expr.Vars))
-		errors []SyntaxError
-	)
-	//
-	for i, v := range expr.Vars {
-		var (
-			ith, errs = t.translateVariableAccess(v, shift)
-		)
-		// Sanity check it was a real register access
-		if ra, ok := ith.(*mir.RegisterAccess); ok {
-			limbs[i] = ra
-		} else if len(errs) == 0 {
-			errors = append(errors, *t.srcmap.SyntaxError(v, "invalid register access"))
-		}
-		//
-		errors = append(errors, errs...)
-	}
-	//
-	return ir.NewVectorAccess(limbs), errors
 }
 
 // Translate a sequence of zero or more logical expressions enclosed in a given module.
