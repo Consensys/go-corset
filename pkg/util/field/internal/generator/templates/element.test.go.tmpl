@@ -20,8 +20,8 @@ func TestMul(t *testing.T) {
 			Lsh(&i, 32).
 			Mod(&i, &m)
 
-		x := NewElement(a)
-		y := NewElement(b)
+		x := New(a)
+		y := New(b)
 
 		x = x.Mul(y)
 
@@ -42,7 +42,7 @@ func TestInverse(t *testing.T) {
 			Lsh(&i, 32). // Montgomery form
 			Mod(&i, &m)
 
-		x := NewElement(a)
+		x := New(a)
 		x = x.Inverse()
 
 		assert.Equal(t, i.Uint64(), x[0], "inverse of %d", a)
@@ -56,7 +56,7 @@ func TestHalve(t *testing.T) {
 
 	for range 1000000 {
 		a := rand.Uint32N(modulus)
-		x := NewElement(a)
+		x := New(a)
 		x = x.Half()
 
 		i.SetUint64(uint64(x[0])).Add(&i, &i).Mod(&i, &m) // (a/2) as computed, multiplied by 2
@@ -80,8 +80,8 @@ func TestSub(t *testing.T) {
 			Lsh(&i, 32).
 			Mod(&i, &m)
 
-		x := NewElement(a)
-		y := NewElement(b)
+		x := New(a)
+		y := New(b)
 
 		x = x.Sub(y)
 
@@ -94,7 +94,7 @@ func TestMontgomery(t *testing.T) {
 	i := big.NewInt(1 << 32)
 	i.Mod(i, m)
 
-	x := NewElement(1)
+	x := New(1)
 	assert.Equal(t, i.Uint64(), x[0])
 
 	x = montgomeryReduce(uint64(x[0]))
@@ -110,9 +110,24 @@ func TestByteConversion(t *testing.T) {
 
 		// bytes to element
 		x := Element{}.AddBytes(expectedB)
-		assert.Equal(t, NewElement(a), x)
+		assert.Equal(t, New(a), x)
 
 		// element to bytes
 		assert.Equal(t, expectedB, x.Bytes())
 	}
+}
+
+func TestZeroOne(t *testing.T) {
+	zero := New(0)
+	one := New(1)
+
+	assert.True(t, zero.IsZero())
+	assert.False(t, one.IsZero())
+	assert.False(t, zero.IsOne())
+	assert.True(t, one.IsOne())
+
+	assert.Equal(t, zero, zero.Add(zero))
+	assert.Equal(t, one,  zero.Add(one))
+	assert.Equal(t, one,  one.Mul(one))
+	assert.Equal(t, zero, one.Mul(zero))
 }

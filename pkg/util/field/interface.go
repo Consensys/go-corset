@@ -17,4 +17,6 @@ type Element[Operand any] interface {
 	AddBytes([]byte) Operand    // AddBytes adds Element to the given big-endian value, with a strict length requirement.
 	fmt.Stringer
 	Text(base int) string // Text returns the numerical value of x in the given base.
+	IsZero() bool
+	IsOne() bool
 }

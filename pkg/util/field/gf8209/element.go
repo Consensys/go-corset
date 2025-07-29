@@ -28,7 +28,8 @@ type Element [1]uint32 // defined as an array to prevent mistaken use of arithme
 const (
 	r                 = 1 << 32 // register size
 	modulus           = 8209
-	rSq               = 150        // r² (mod m)
+	rModM             = 2078
+	rSqModM           = 150        // r² (mod m)
 	negModulusInvModR = 1667968783 // -modulus⁻¹ (mod r), used for Montgomery reduction
 	nbBytes           = 2
 )
@@ -71,7 +72,7 @@ func montgomeryReduce(x uint64) Element {
 
 // AddUint32 x + y
 func (x Element) AddUint32(y uint32) Element {
-	return x.Add(NewElement(y))
+	return x.Add(New(y))
 }
 
 // ToUint32 returns the numerical (non-Montgomery)
@@ -85,9 +86,9 @@ func (x Element) Mul(y Element) Element {
 	return montgomeryReduce(uint64(x[0]) * uint64(y[0]))
 }
 
-// NewElement returns an element of the field f corresponding to the natural number x.
-func NewElement(x uint32) Element {
-	return Element{uint32(uint64(x) << 32 % modulus)}
+// New returns an element of the field f corresponding to the natural number x.
+func New(x uint32) Element {
+	return Element{x}.Mul(Element{rSqModM})
 }
 
 // Cmp compares the numerical values of x and y.
@@ -121,7 +122,7 @@ func (x Element) Inverse() Element {
 
 	var c Element
 	// Since x actually contains x.R, we have to multiply the result by R² to get x⁻¹R⁻¹R² = x⁻¹R.
-	b := Element{rSq}
+	b := Element{rSqModM}
 
 	for (u != 1) && (v != 1) {
 		for u%2 == 0 {
@@ -179,5 +180,13 @@ func (x Element) AddBytes(b []byte) Element {
 	for i := range nbBytes {
 		v |= uint32(b[i]) << ((nbBytes - 1 - i) * 8)
 	}
-	return x.Add(NewElement(v))
+	return x.Add(New(v))
+}
+
+func (x Element) IsZero() bool {
+	return x[0] == 0
+}
+
+func (x Element) IsOne() bool {
+	return x[0] == rModM
 }

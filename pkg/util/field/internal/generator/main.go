@@ -63,7 +63,8 @@ type fieldSpecs struct {
 
 type fieldConfig struct {
 	fieldSpecs
-	RSq               uint32
+	RSqModM           uint32
+	RModM             uint32
 	NegModulusInvModR uint32
 }
 
@@ -83,11 +84,13 @@ func (f fieldSpecs) config() (*fieldConfig, error) {
 
 	var x big.Int
 
-	x.Mod(r, m).
-		Mul(&x, &x).
+	x.Mod(r, m)
+	specs.RModM = uint32(x.Uint64())
+
+	x.Mul(&x, &x).
 		Mod(&x, m)
 
-	specs.RSq = uint32(x.Uint64())
+	specs.RSqModM = uint32(x.Uint64())
 
 	x.ModInverse(m, r)
 	specs.NegModulusInvModR = uint32(R - x.Uint64())
