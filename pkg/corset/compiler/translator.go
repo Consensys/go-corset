@@ -26,7 +26,6 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
-	"github.com/consensys/go-corset/pkg/schema/constraint/vanishing"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
@@ -278,20 +277,15 @@ func (t *translator) translateDefComputedColumn(d *ast.DefComputedColumn, path u
 	}
 	// Add assignment
 	module.AddAssignment(assignment.NewComputedRegister(target, computation))
-
 	// Add constraint (defconstraint target == computation)
-	// handle := "defcomputedcolumn-generated-constraint-for-module-" + module.Name() + "-column-" + d.Target.Name()
-	// c := ast.NewDefConstraint(handle, util.Some(0), nil, nil, d.Computation) //TODO: should be target == computation ...
-	// constraintsErrors := t.translateDefConstraint(c)
-
-	module.AddConstraint(vanishing.NewConstraint(
+	module.AddConstraint(mir.NewVanishingConstraint(
 		d.Target.Name(), module.Id(),
 		// no domain, since this is a global constraint (i.e. applies to all
 		// rows).
 		util.None[int](),
+		//
 		ir.Equals[mir.LogicalTerm](ir.NewRegisterAccess[mir.Term](target.Register(), 0), computation),
 	))
-
 	// Done
 	return nil
 }
