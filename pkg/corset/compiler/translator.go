@@ -221,8 +221,7 @@ func (t *translator) translateDeclarationsInModule(path util.Path, decls []ast.D
 	return errors
 }
 
-// Translate an assignment or constraint declarartion which occurs within a
-// given module.
+// Translate an assignment or constraint declaration which occurs within a given module.
 func (t *translator) translateDeclaration(decl ast.Declaration, path util.Path) []SyntaxError {
 	var errors []SyntaxError
 	//
@@ -254,12 +253,41 @@ func (t *translator) translateDeclaration(decl ast.Declaration, path util.Path) 
 		errors = t.translateDefProperty(d)
 	case *ast.DefSorted:
 		errors = t.translateDefSorted(d)
+	case *ast.DefComputedColumn:
+		errors = t.translateDefComputedColumn(d, path)
 	default:
 		// Error handling
 		panic("unknown declaration")
 	}
 	//
 	return errors
+}
+
+// Translate a "defcomputedcolumn" declaration.
+func (t *translator) translateDefComputedColumn(d *ast.DefComputedColumn, path util.Path) []SyntaxError {
+	module := t.moduleOf(d.Computation.Context())
+
+	targetPath := path.Extend(d.Target.Name())
+	target := schema.NewRegisterRef(module.Id(), t.registerIndexOf(targetPath))
+
+	computation, errors := t.translateExpression(d.Computation, module, 0)
+
+	if len(errors) != 0 {
+		return errors
+	}
+	// Add assignment
+	module.AddAssignment(assignment.NewComputedRegister(target, computation))
+	// Add constraint (defconstraint target == computation)
+	module.AddConstraint(mir.NewVanishingConstraint(
+		d.Target.Name(), module.Id(),
+		// no domain, since this is a global constraint (i.e. applies to all
+		// rows).
+		util.None[int](),
+		//
+		ir.Equals[mir.LogicalTerm](ir.NewRegisterAccess[mir.Term](target.Register(), 0), computation),
+	))
+	// Done
+	return nil
 }
 
 // Translate a "defcomputed" declaration.
@@ -416,7 +444,11 @@ func (t *translator) translateDefLookupSources(selector ast.Expr,
 		vector = lookup.UnfilteredVector(module.Id(), terms...)
 	}
 	// Sanity check vector
-	errors = append(errors, t.checkLookupVector(vector, selector, sources)...)
+	if len(errors) == 0 {
+		// NOTE: don't check vector if other errors, since we could have nil
+		// entries in the vector, etc.
+		errors = append(errors, t.checkLookupVector(vector, selector, sources)...)
+	}
 	//
 	return vector, context, errors
 }
@@ -727,14 +759,37 @@ func (t *translator) translateExpression(expr ast.Expr, module *ModuleBuilder, s
 		return t.translateShift(e, module, shift)
 	case *ast.VariableAccess:
 		return t.translateVariableAccess(e, shift)
-	case *ast.VectorAccess:
-		return t.translateVectorAccess(e, shift)
+	case *ast.Concat:
+		return t.translateConcat(e, module, shift)
 	default:
 		typeStr := reflect.TypeOf(expr).String()
 		msg := fmt.Sprintf("unknown arithmetic expression encountered during translation (%s)", typeStr)
 		//
 		return nil, t.srcmap.SyntaxErrors(expr, msg)
 	}
+}
+
+func (t *translator) translateConcat(expr *ast.Concat, mod *ModuleBuilder, shift int) (mir.Term, []SyntaxError) {
+	var (
+		limbs  []*mir.RegisterAccess = make([]*mir.RegisterAccess, len(expr.Args))
+		errors []SyntaxError
+	)
+	//
+	for i, v := range expr.Args {
+		var (
+			ith, errs = t.translateExpression(v, mod, shift)
+		)
+		// Sanity check it was a real register access
+		if ra, ok := ith.(*mir.RegisterAccess); ok {
+			limbs[i] = ra
+		} else if len(errs) == 0 {
+			errors = append(errors, *t.srcmap.SyntaxError(v, "invalid register access"))
+		}
+		//
+		errors = append(errors, errs...)
+	}
+	//
+	return ir.NewVectorAccess(limbs), errors
 }
 
 func (t *translator) translateExp(expr *ast.Exp, module *ModuleBuilder, shift int) (mir.Term, []SyntaxError) {
@@ -803,29 +858,6 @@ func (t *translator) translateVariableAccess(expr *ast.VariableAccess, shift int
 	}
 	// error
 	return nil, t.srcmap.SyntaxErrors(expr, "unbound variable")
-}
-
-func (t *translator) translateVectorAccess(expr *ast.VectorAccess, shift int) (mir.Term, []SyntaxError) {
-	var (
-		limbs  []*mir.RegisterAccess = make([]*mir.RegisterAccess, len(expr.Vars))
-		errors []SyntaxError
-	)
-	//
-	for i, v := range expr.Vars {
-		var (
-			ith, errs = t.translateVariableAccess(v, shift)
-		)
-		// Sanity check it was a real register access
-		if ra, ok := ith.(*mir.RegisterAccess); ok {
-			limbs[i] = ra
-		} else if len(errs) == 0 {
-			errors = append(errors, *t.srcmap.SyntaxError(v, "invalid register access"))
-		}
-		//
-		errors = append(errors, errs...)
-	}
-	//
-	return ir.NewVectorAccess(limbs), errors
 }
 
 // Translate a sequence of zero or more logical expressions enclosed in a given module.
@@ -1024,7 +1056,7 @@ func (t *translator) registerOfArrayAccess(expr *ast.ArrayAccess, shift int) (*m
 // Determine the appropriate name for a given module based on a module context.
 func (t *translator) moduleOf(context ast.Context) *ModuleBuilder {
 	if context.IsVoid() {
-		// NOTE: the intuition behing the choice to return nil here is allow for
+		// NOTE: the intuition behind the choice to return nil here is allow for
 		// situations where there is no context (e.g. constant expressions,
 		// etc).  As such, return nil is safe as, for such expressions, the
 		// module should never be accessed during their translation.

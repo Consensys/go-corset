@@ -83,7 +83,7 @@ func ParseSourceFiles(files []*source.File) (ast.Circuit, *source.Maps[ast.Node]
 			}
 		}
 	}
-	// Bring all fragmenmts together
+	// Bring all fragments together
 	circuit.Modules = make([]ast.Module, len(names))
 	// Sort module names to ensure that compilation is always deterministic.
 	sort.Strings(names)
@@ -190,6 +190,7 @@ func NewParser(srcfile *source.File, srcmap *source.Map[sexp.SExp]) *Parser {
 	p.AddRecursiveListRule("<=", eqParserRule)
 	p.AddRecursiveListRule(">", eqParserRule)
 	p.AddRecursiveListRule(">=", eqParserRule)
+	p.AddRecursiveListRule("::", concatParserRule)
 	p.AddRecursiveListRule("begin", beginParserRule)
 	p.AddRecursiveListRule("debug", debugParserRule)
 	p.AddListRule("for", forParserRule(parser))
@@ -203,7 +204,7 @@ func NewParser(srcfile *source.File, srcmap *source.Map[sexp.SExp]) *Parser {
 	return parser
 }
 
-// NodeMap extract the node map constructec by this parser.  A key task here is
+// NodeMap extract the node map constructed by this parser.  A key task here is
 // to copy all mappings from the expression translator, which maintains its own
 // map.
 func (p *Parser) NodeMap() *source.Map[ast.Node] {
@@ -321,6 +322,8 @@ func (p *Parser) parseDeclaration(module util.Path, s *sexp.List) (ast.Declarati
 		decl, errors = p.parseDefSorted(false, s.Elements)
 	} else if 3 <= s.Len() && s.Len() <= 4 && s.MatchSymbols(2, "defstrictsorted") {
 		decl, errors = p.parseDefSorted(true, s.Elements)
+	} else if s.Len() == 3 && s.MatchSymbols(1, "defcomputedcolumn") {
+		decl, errors = p.parseDefComputedColumn(module, s.Elements)
 	} else {
 		errors = p.translator.SyntaxErrors(s, "malformed declaration")
 	}
@@ -432,8 +435,6 @@ func (p *Parser) parseColumnDeclaration(context util.Path, path util.Path, compu
 		// this needs to be subsequently determined from context.
 		multiplier = 0
 		datatype = ast.INT_TYPE
-	} else if computed {
-		return nil, p.translator.SyntaxError(e, "computed columns cannot be typed")
 	} else if !datatype.HasUnderlying() {
 		return nil, p.translator.SyntaxError(e, "invalid column type")
 	}
@@ -589,6 +590,38 @@ func (p *Parser) parseDefComputed(module util.Path, elements []sexp.SExp) (ast.D
 	}
 	//
 	return &ast.DefComputed{Targets: targets, Function: sources[0], Sources: sources[1:]}, nil
+}
+
+// Parse a defcomputedcolumn declaration
+func (p *Parser) parseDefComputedColumn(module util.Path, elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
+	var (
+		errors      []SyntaxError
+		target      *ast.DefColumn
+		targetError *SyntaxError
+	)
+
+	// Parse target declaration
+	columnDeclaration := elements[1].AsList()
+	if columnDeclaration == nil {
+		err := *p.translator.SyntaxError(elements[1], "computed column is not of the right format")
+		errors = append(errors, err)
+	}
+	//
+	if len(errors) != 0 {
+		return nil, errors
+	} else if target, targetError = p.parseColumnDeclaration(module, module, true, columnDeclaration); targetError != nil {
+		errors = append(errors, *targetError)
+	}
+	// Translate expression
+	expr, exprErrors := p.translator.Translate(elements[2])
+	errors = append(errors, exprErrors...)
+
+	//
+	if len(errors) > 0 {
+		return nil, errors
+	}
+	//
+	return &ast.DefComputedColumn{Target: target, Computation: expr}, nil
 }
 
 // Parse a constant declaration
@@ -1723,29 +1756,19 @@ func constantParserRule(symbol string) (ast.Expr, bool, error) {
 }
 
 func varAccessParserRule(col string) (ast.Expr, bool, error) {
-	var vars []*ast.VariableAccess
 	// Sanity check what we have
 	if col[0] != '_' && !unicode.IsLetter(rune(col[0])) {
 		return nil, false, errors.New("malformed column access")
 	}
 	// Handle qualified accesses (where permitted)
 	// Attempt to split column name into module / column pair.
-	paths, err := parseQualifiableVector(col)
+	path, err := parseQualifiableName(col)
+	// Sanity check for errors
 	if err != nil {
 		return nil, true, err
 	}
 	//
-	for _, p := range paths {
-		vars = append(vars, ast.NewVariableAccess(p, ast.NON_FUNCTION, nil))
-	}
-	// Check for single access
-	if len(vars) == 1 {
-		return vars[0], true, nil
-	}
-	// Reverse order so least signigicant first
-	vars = array.Reverse(vars)
-	// Check for vector access
-	return &ast.VectorAccess{Vars: vars}, true, nil
+	return ast.NewVariableAccess(path, ast.NON_FUNCTION, nil), true, nil
 }
 
 func arrayAccessParserRule(name string, args []ast.Expr) (ast.Expr, error) {
@@ -1764,6 +1787,14 @@ func arrayAccessParserRule(name string, args []ast.Expr) (ast.Expr, error) {
 
 func addParserRule(_ string, args []ast.Expr) (ast.Expr, error) {
 	return &ast.Add{Args: args}, nil
+}
+
+func concatParserRule(_ string, args []ast.Expr) (ast.Expr, error) {
+	// Reverse the order as we want most significant to be highest in the actual
+	// array.
+	array.ReverseInPlace(args)
+	//
+	return &ast.Concat{Args: args}, nil
 }
 
 func subParserRule(_ string, args []ast.Expr) (ast.Expr, error) {
@@ -1914,26 +1945,6 @@ func normParserRule(_ string, args []ast.Expr) (ast.Expr, error) {
 	}
 
 	return &ast.Normalise{Arg: args[0]}, nil
-}
-
-func parseQualifiableVector(qualVec string) (path []util.Path, err error) {
-	var (
-		paths []util.Path
-		// Look for module concatenation
-		split = strings.Split(qualVec, "::")
-	)
-	//
-	for _, ith := range split {
-		p, err := parseQualifiableName(ith)
-		// Sanity check for errors
-		if err != nil {
-			return nil, err
-		}
-		//
-		paths = append(paths, p)
-	}
-	//
-	return paths, nil
 }
 
 // Parse a name which can be (optionally) adorned with either a module or
