@@ -435,8 +435,6 @@ func (p *Parser) parseColumnDeclaration(context util.Path, path util.Path, compu
 		// this needs to be subsequently determined from context.
 		multiplier = 0
 		datatype = ast.INT_TYPE
-	} else if computed {
-		//return nil, p.translator.SyntaxError(e, "computed columns cannot be typed")
 	} else if !datatype.HasUnderlying() {
 		return nil, p.translator.SyntaxError(e, "invalid column type")
 	}
