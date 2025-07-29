@@ -163,34 +163,37 @@ func checkTraces(t *testing.T, test string, maxPadding uint, opt uint, cfg Confi
 	if !cfg.expand {
 		maxPadding = 0
 	}
-	//
-	for i, tr := range traces {
-		if tr != nil {
+	// Run through all configurations.
+	for padding := uint(0); padding <= maxPadding; padding++ {
+		// Fork trace
+		t.Run(test, func(t *testing.T) {
+			// Enable parallel testing
+			t.Parallel()
+			//
 			for _, ir := range []string{"MIR", "AIR"} {
-				// Align trace with schema, and check whether expanded or not.
-				for padding := uint(0); padding <= maxPadding; padding++ {
-					// Construct trace identifier
-					id := traceId{stack.RegisterMapping().Field().Name, ir, test,
-						cfg.expected, cfg.expand, cfg.validate, opt, i + 1, padding}
+				for i, tr := range traces {
+					// Only enable parallel expansion/checking for one trace.  This is
+					// because parallel expansion/checking slows testing down overall.
+					// However, we still want to test the pipeline (i.e. since that is used
+					// in production); therefore, we just restrict how much its used.
+					var parallel = (i == 0)
 					//
-					if cfg.expand || ir == "AIR" {
-						// Always check if expansion required, otherwise
-						// only check AIR constraints.
-						t.Run(id.String(), func(t *testing.T) {
-							t.Parallel()
+					if tr != nil {
+						// Construct trace identifier
+						id := traceId{stack.RegisterMapping().Field().Name, ir, test,
+							cfg.expected, cfg.expand, cfg.validate, opt, parallel, i + 1, padding}
+						//
+						if cfg.expand || ir == "AIR" {
+							// Always check if expansion required, otherwise
+							// only check AIR constraints.
 							checkTrace(t, tr, id, stack.SchemaOf(ir), stack.RegisterMapping())
-						})
+						}
 					}
 				}
 			}
-		}
+		})
 	}
 }
-
-// BATCH_SIZE is used to restrict parallelism during trace expansion and
-// constraint checking.  The issue is that this interferes with running tests in
-// parallel since we have concurrency on top of concurrency.
-const BATCH_SIZE = 1
 
 func checkTrace[C sc.Constraint](t *testing.T, inputs []trace.BigEndianColumn, id traceId,
 	schema sc.Schema[C], mapping sc.LimbsMap) {
@@ -199,16 +202,16 @@ func checkTrace[C sc.Constraint](t *testing.T, inputs []trace.BigEndianColumn, i
 		WithExpansion(id.expand).
 		WithValidation(id.validate).
 		WithPadding(id.padding).
-		WithParallelism(true).
+		WithParallelism(id.parallel).
 		WithRegisterMapping(mapping).
-		WithBatchSize(BATCH_SIZE).
+		WithBatchSize(128).
 		Build(sc.Any(schema), inputs)
 	// Sanity check construction
 	if len(errs) > 0 {
 		t.Errorf("Trace expansion failed (%s): %s", id.String(), errs)
 	} else {
 		// Check Constraints
-		errs := sc.Accepts(true, BATCH_SIZE, schema, tr)
+		errs := sc.Accepts(id.parallel, 128, schema, tr)
 		// Determine whether trace accepted or not.
 		accepted := len(errs) == 0
 		// Process what happened versus what was supposed to happen.
@@ -291,6 +294,8 @@ type traceId struct {
 	validate bool
 	// Optimisation level
 	optimisation uint
+	// Enable parallel expansion / checking
+	parallel bool
 	// Identifies the line number within the test file that the failing trace
 	// original.
 	line int
