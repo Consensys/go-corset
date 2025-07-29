@@ -334,12 +334,8 @@ func (p *typeChecker) typeCheckExpressionInModule(expected ast.Type, expr ast.Ex
 		result = typeOfSubtraction(types...)
 	case *ast.VariableAccess:
 		result, errors = p.typeCheckVariableInModule(e)
-	case *ast.VectorAccess:
-		for _, w := range e.Vars {
-			_, errs := p.typeCheckExpressionInModule(ast.INT_TYPE, w, functional)
-			errors = append(errors, errs...)
-		}
-		//
+	case *ast.Concat:
+		_, errors = p.typeCheckExpressionsInModule(ast.INT_TYPE, e.Args, true)
 		result = ast.INT_TYPE
 	default:
 		msg := fmt.Sprintf("unknown expression encountered during typing (%s)", reflect.TypeOf(expr).String())

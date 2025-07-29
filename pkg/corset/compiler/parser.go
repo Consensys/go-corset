@@ -190,6 +190,7 @@ func NewParser(srcfile *source.File, srcmap *source.Map[sexp.SExp]) *Parser {
 	p.AddRecursiveListRule("<=", eqParserRule)
 	p.AddRecursiveListRule(">", eqParserRule)
 	p.AddRecursiveListRule(">=", eqParserRule)
+	p.AddRecursiveListRule("::", concatParserRule)
 	p.AddRecursiveListRule("begin", beginParserRule)
 	p.AddRecursiveListRule("debug", debugParserRule)
 	p.AddListRule("for", forParserRule(parser))
@@ -1723,29 +1724,19 @@ func constantParserRule(symbol string) (ast.Expr, bool, error) {
 }
 
 func varAccessParserRule(col string) (ast.Expr, bool, error) {
-	var vars []*ast.VariableAccess
 	// Sanity check what we have
 	if col[0] != '_' && !unicode.IsLetter(rune(col[0])) {
 		return nil, false, errors.New("malformed column access")
 	}
 	// Handle qualified accesses (where permitted)
 	// Attempt to split column name into module / column pair.
-	paths, err := parseQualifiableVector(col)
+	path, err := parseQualifiableName(col)
+	// Sanity check for errors
 	if err != nil {
 		return nil, true, err
 	}
 	//
-	for _, p := range paths {
-		vars = append(vars, ast.NewVariableAccess(p, ast.NON_FUNCTION, nil))
-	}
-	// Check for single access
-	if len(vars) == 1 {
-		return vars[0], true, nil
-	}
-	// Reverse order so least signigicant first
-	vars = array.Reverse(vars)
-	// Check for vector access
-	return &ast.VectorAccess{Vars: vars}, true, nil
+	return ast.NewVariableAccess(path, ast.NON_FUNCTION, nil), true, nil
 }
 
 func arrayAccessParserRule(name string, args []ast.Expr) (ast.Expr, error) {
@@ -1764,6 +1755,14 @@ func arrayAccessParserRule(name string, args []ast.Expr) (ast.Expr, error) {
 
 func addParserRule(_ string, args []ast.Expr) (ast.Expr, error) {
 	return &ast.Add{Args: args}, nil
+}
+
+func concatParserRule(_ string, args []ast.Expr) (ast.Expr, error) {
+	// Reverse the order as we want most significant to be highest in the actual
+	// array.
+	array.ReverseInPlace(args)
+	//
+	return &ast.Concat{Args: args}, nil
 }
 
 func subParserRule(_ string, args []ast.Expr) (ast.Expr, error) {
@@ -1914,26 +1913,6 @@ func normParserRule(_ string, args []ast.Expr) (ast.Expr, error) {
 	}
 
 	return &ast.Normalise{Arg: args[0]}, nil
-}
-
-func parseQualifiableVector(qualVec string) (path []util.Path, err error) {
-	var (
-		paths []util.Path
-		// Look for module concatenation
-		split = strings.Split(qualVec, "::")
-	)
-	//
-	for _, ith := range split {
-		p, err := parseQualifiableName(ith)
-		// Sanity check for errors
-		if err != nil {
-			return nil, err
-		}
-		//
-		paths = append(paths, p)
-	}
-	//
-	return paths, nil
 }
 
 // Parse a name which can be (optionally) adorned with either a module or
