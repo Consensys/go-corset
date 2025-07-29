@@ -23,6 +23,7 @@ import (
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
+	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
 	"github.com/consensys/go-corset/pkg/util/termio"
 )
 
@@ -30,7 +31,7 @@ import (
 // module, including related aspects like filter histories, etc.
 type ModuleState struct {
 	// Corresponding trace
-	trace tr.Trace
+	trace tr.Trace[bls12_377.Element]
 	// Name of the source-level module
 	name string
 	// Identifies trace columns in this module.
@@ -88,7 +89,7 @@ func (p *SourceColumnFilter) Match(col SourceColumn) bool {
 	return false
 }
 
-func newModuleState(module *corset.SourceModule, trace tr.Trace, enums []corset.Enumeration,
+func newModuleState(module *corset.SourceModule, trace tr.Trace[bls12_377.Element], enums []corset.Enumeration,
 	recurse bool) ModuleState {
 	//
 	var (

@@ -15,6 +15,7 @@ package schema
 import (
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
+	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
 )
 
 // Any converts a concrete schema into a generic view of the schema.
@@ -30,7 +31,7 @@ type AnySchema = Schema[Constraint]
 
 // Expander functions are responsible for "filling" traces according to a given
 // schema.  More specifically, the determine values for all computed columns.
-type Expander[M any, C any] func(Schema[C], trace.Trace) trace.Trace
+type Expander[M any, C any] func(Schema[C], trace.Trace[bls12_377.Element]) trace.Trace[bls12_377.Element]
 
 // ============================================================================
 

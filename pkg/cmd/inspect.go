@@ -22,6 +22,7 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
 	"github.com/consensys/go-corset/pkg/util/termio"
 	"github.com/spf13/cobra"
 )
@@ -75,7 +76,7 @@ var inspectCmd = &cobra.Command{
 }
 
 // Inspect a given trace using a given schema.
-func inspect(schema sc.AnySchema, srcmap *corset.SourceMap, trace tr.Trace) []error {
+func inspect(schema sc.AnySchema, srcmap *corset.SourceMap, trace tr.Trace[bls12_377.Element]) []error {
 	// Construct inspector window
 	inspector := construct(schema, trace, srcmap)
 	// Render inspector
@@ -86,7 +87,7 @@ func inspect(schema sc.AnySchema, srcmap *corset.SourceMap, trace tr.Trace) []er
 	return inspector.Start()
 }
 
-func construct(schema sc.AnySchema, trace tr.Trace, srcmap *corset.SourceMap) *inspector.Inspector {
+func construct(schema sc.AnySchema, trace tr.Trace[bls12_377.Element], srcmap *corset.SourceMap) *inspector.Inspector {
 	term, err := termio.NewTerminal()
 	// Check whether successful
 	if err == nil {

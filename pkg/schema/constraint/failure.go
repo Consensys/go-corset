@@ -17,6 +17,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
 )
 
 // InternalFailure is a generic mechanism for reporting failures, particularly
@@ -40,7 +41,7 @@ func (p *InternalFailure) Message() string {
 }
 
 // RequiredCells identifies the cells required to evaluate the failing constraint at the failing row.
-func (p *InternalFailure) RequiredCells(tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
+func (p *InternalFailure) RequiredCells(tr trace.Trace[bls12_377.Element]) *set.AnySortedSet[trace.CellRef] {
 	if p.Term != nil {
 		return p.Term.RequiredCells(int(p.Row), p.Context)
 	}

@@ -23,6 +23,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
+	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -139,7 +140,7 @@ func (p Constraint[E]) Bounds(module uint) util.Bounds {
 // all rows of the source columns.
 //
 //nolint:revive
-func (p Constraint[E]) Accepts(tr trace.Trace, sc schema.AnySchema) (bit.Set, schema.Failure) {
+func (p Constraint[E]) Accepts(tr trace.Trace[bls12_377.Element], sc schema.AnySchema) (bit.Set, schema.Failure) {
 	var (
 		coverage bit.Set
 		// Determine width (in columns) of this lookup
@@ -162,7 +163,7 @@ func (p Constraint[E]) Accepts(tr trace.Trace, sc schema.AnySchema) (bit.Set, sc
 	return coverage, nil
 }
 
-func (p *Constraint[E]) insertTargetVectors(tr trace.Trace, sc schema.AnySchema,
+func (p *Constraint[E]) insertTargetVectors(tr trace.Trace[bls12_377.Element], sc schema.AnySchema,
 	bytes []byte) (*hash.Set[hash.BytesKey], schema.Failure) {
 	//
 	var (
@@ -196,8 +197,12 @@ func (p *Constraint[E]) insertTargetVectors(tr trace.Trace, sc schema.AnySchema,
 	return rows, nil
 }
 
-func (p *Constraint[E]) checkSourceVectors(rows *hash.Set[hash.BytesKey], tr trace.Trace, sc schema.AnySchema,
-	bytes []byte) schema.Failure {
+func (p *Constraint[E]) checkSourceVectors(
+	rows *hash.Set[hash.BytesKey],
+	tr trace.Trace[bls12_377.Element],
+	sc schema.AnySchema,
+	bytes []byte,
+) schema.Failure {
 	// Choose optimised loop
 	for _, source := range p.Sources {
 		var (

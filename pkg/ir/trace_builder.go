@@ -21,6 +21,7 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/field"
+	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
 )
 
 // TraceBuilder provides a mechanical means of constructing a trace from a given
@@ -167,7 +168,10 @@ func (tb TraceBuilder) BatchSize() uint {
 
 // Build attempts to construct a trace for a given schema, producing errors if
 // there are inconsistencies (e.g. missing columns, duplicate columns, etc).
-func (tb TraceBuilder) Build(schema sc.AnySchema, rawCols []trace.BigEndianColumn) (trace.Trace, []error) {
+func (tb TraceBuilder) Build(
+	schema sc.AnySchema,
+	rawCols []trace.BigEndianColumn,
+) (trace.Trace[bls12_377.Element], []error) {
 	var (
 		cols   []trace.RawFrColumn
 		errors []error

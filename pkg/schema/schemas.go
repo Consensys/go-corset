@@ -20,6 +20,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
+	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
 )
 
 // RequiredPaddingRows determines the number of additional (spillage / padding)
@@ -86,13 +87,24 @@ func defensivePadding(module uint, schema AnySchema) uint {
 // constraint which does not hold.
 //
 //nolint:revive
-func Accepts[C Constraint](parallel bool, batchsize uint, schema Schema[C], trace tr.Trace) []Failure {
+func Accepts[C Constraint](
+	parallel bool,
+	batchsize uint,
+	schema Schema[C],
+	trace tr.Trace[bls12_377.Element],
+) []Failure {
 	return accepts(parallel, batchsize, schema.Constraints(), trace, schema, "Constraint")
 }
 
 //nolint:revive
-func accepts[C Constraint](parallel bool, batchsize uint, iter iter.Iterator[C], trace tr.Trace, schema Schema[C],
-	kind string) []Failure {
+func accepts[C Constraint](
+	parallel bool,
+	batchsize uint,
+	iter iter.Iterator[C],
+	trace tr.Trace[bls12_377.Element],
+	schema Schema[C],
+	kind string,
+) []Failure {
 	//
 	if parallel {
 		return parallelAccepts(batchsize, iter, trace, schema, kind)
@@ -101,7 +113,11 @@ func accepts[C Constraint](parallel bool, batchsize uint, iter iter.Iterator[C],
 	return sequentialAccepts(iter, trace, schema)
 }
 
-func sequentialAccepts[C Constraint](iter iter.Iterator[C], trace tr.Trace, schema Schema[C]) []Failure {
+func sequentialAccepts[C Constraint](
+	iter iter.Iterator[C],
+	trace tr.Trace[bls12_377.Element],
+	schema Schema[C],
+) []Failure {
 	errors := make([]Failure, 0)
 	//
 	for iter.HasNext() {
@@ -116,8 +132,13 @@ func sequentialAccepts[C Constraint](iter iter.Iterator[C], trace tr.Trace, sche
 	return errors
 }
 
-func parallelAccepts[C Constraint](batchsize uint, iter iter.Iterator[C], trace tr.Trace, schema Schema[C],
-	kind string) []Failure {
+func parallelAccepts[C Constraint](
+	batchsize uint,
+	iter iter.Iterator[C],
+	trace tr.Trace[bls12_377.Element],
+	schema Schema[C],
+	kind string,
+) []Failure {
 	//
 	errors := make([]Failure, 0)
 	// Initialise batch number (for debugging purposes)
@@ -135,7 +156,7 @@ func parallelAccepts[C Constraint](batchsize uint, iter iter.Iterator[C], trace 
 
 // Process a given set of constraints in a single batch whilst recording all constraint failures.
 func processConstraintBatch[C Constraint](logtitle string, batch uint, batchsize uint, iter iter.Iterator[C],
-	trace tr.Trace, schema Schema[C]) []Failure {
+	trace tr.Trace[bls12_377.Element], schema Schema[C]) []Failure {
 	n := uint(0)
 	c := make(chan batchOutcome, batchsize)
 	errors := make([]Failure, 0)

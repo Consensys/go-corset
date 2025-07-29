@@ -23,6 +23,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/field"
+	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -63,7 +64,10 @@ func (p *ComputedRegister) Bounds(mid sc.ModuleId) util.Bounds {
 // Compute the values of columns defined by this assignment. Specifically, this
 // creates a new column which contains the result of evaluating a given
 // expression on each row.
-func (p *ComputedRegister) Compute(tr trace.Trace, schema schema.AnySchema) ([]trace.ArrayColumn, error) {
+func (p *ComputedRegister) Compute(
+	tr trace.Trace[bls12_377.Element],
+	schema schema.AnySchema,
+) ([]trace.ArrayColumn, error) {
 	var (
 		trModule = tr.Module(p.Target.Module())
 		scModule = schema.Module(p.Target.Module())

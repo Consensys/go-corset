@@ -22,6 +22,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
 )
 
 // CellRefSet defines a type for sets of cell references.
@@ -51,7 +52,12 @@ type TraceWindow interface {
 // NewTraceWindow constructs a window into a trace which includes all of the
 // given cells, plus some amount of padding on either side (i.e. additional rows
 // before and after to help with context).
-func NewTraceWindow(cells CellRefSet, trace tr.Trace, padding uint, srcmap *corset.SourceMap) TraceWindow {
+func NewTraceWindow(
+	cells CellRefSet,
+	trace tr.Trace[bls12_377.Element],
+	padding uint,
+	srcmap *corset.SourceMap,
+) TraceWindow {
 	// Determine corset-level columns to show in this window.  Observe that
 	// registers do not directly correspond with columns at the corset level, as
 	// one register can represent multiple corset columns (e.g. in different
@@ -69,7 +75,11 @@ func NewTraceWindow(cells CellRefSet, trace tr.Trace, padding uint, srcmap *cors
 }
 
 // Determine complete set of source columns.
-func determineSourceColumns(cells CellRefSet, trace tr.Trace, srcmap *corset.SourceMap) []SourceColumn {
+func determineSourceColumns(
+	cells CellRefSet,
+	trace tr.Trace[bls12_377.Element],
+	srcmap *corset.SourceMap,
+) []SourceColumn {
 	var (
 		ncolumns []SourceColumn
 		seen     bit.Set
@@ -101,7 +111,7 @@ func determineSourceColumns(cells CellRefSet, trace tr.Trace, srcmap *corset.Sou
 // truth.  This means, for example, that perspectives are not properly accounted
 // for.  Likewise, any display information given on the original column
 // definition is ignored.
-func determineSourceColumnsFromTrace(cells CellRefSet, trace tr.Trace) []SourceColumn {
+func determineSourceColumnsFromTrace(cells CellRefSet, trace tr.Trace[bls12_377.Element]) []SourceColumn {
 	var (
 		columns   []SourceColumn
 		registers bit.Set
@@ -139,7 +149,11 @@ func determineSourceColumnsFromTrace(cells CellRefSet, trace tr.Trace) []SourceC
 // no unique module we can refer to.  The purpose of identifying the enclosing
 // module is simply to improve the column names reported (i.e. in some cases we
 // can ommit the module itself from the name as this is just repeated).
-func determineEnclosingModule(cells CellRefSet, trace tr.Trace, root corset.SourceModule) corset.SourceModule {
+func determineEnclosingModule(
+	cells CellRefSet,
+	trace tr.Trace[bls12_377.Element],
+	root corset.SourceModule,
+) corset.SourceModule {
 	var name string
 	// Attempt to reconstruct the enclosing modules name.
 	for i, cr := range cells.ToArray() {
@@ -165,7 +179,7 @@ func determineEnclosingModule(cells CellRefSet, trace tr.Trace, root corset.Sour
 }
 
 // Find the unique source column to which a given cell references.
-func determineSourceColumn(cell tr.CellRef, trace tr.Trace, columns []SourceColumn) SourceColumn {
+func determineSourceColumn(cell tr.CellRef, trace tr.Trace[bls12_377.Element], columns []SourceColumn) SourceColumn {
 	for _, col := range columns {
 		if col.Register == cell.Column && isActiveColumn(cell.Row, col, trace) {
 			return col
@@ -188,7 +202,7 @@ func determineSourceColumn(cell tr.CellRef, trace tr.Trace, columns []SourceColu
 // trace.  A column which has no selector is always active.  Otherwise, the
 // column is considered active if the given selector evaluates to a non-zero
 // value on the given row.
-func isActiveColumn(row int, col SourceColumn, trace tr.Trace) bool {
+func isActiveColumn(row int, col SourceColumn, trace tr.Trace[bls12_377.Element]) bool {
 	if col.Selector.IsEmpty() {
 		return true
 	}
@@ -201,7 +215,7 @@ func isActiveColumn(row int, col SourceColumn, trace tr.Trace) bool {
 }
 
 // Determine which rows to include in the given window.
-func determineWindowBounds(cells CellRefSet, trace tr.Trace, padding uint) (uint, uint) {
+func determineWindowBounds(cells CellRefSet, trace tr.Trace[bls12_377.Element], padding uint) (uint, uint) {
 	var (
 		start  int  = math.MaxInt
 		end    int  = 0
@@ -240,7 +254,7 @@ func determineWindowRows(start, end uint) []string {
 	return rows
 }
 
-func determineWindowData(start, end uint, columns []SourceColumn, trace tr.Trace) [][]string {
+func determineWindowData(start, end uint, columns []SourceColumn, trace tr.Trace[bls12_377.Element]) [][]string {
 	var data = make([][]string, end-start)
 	//
 	for r := start; r < end; r++ {

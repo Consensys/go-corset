@@ -22,6 +22,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/field"
+	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -84,7 +85,7 @@ func (p Constraint) Bounds(module uint) util.Bounds {
 
 // Accepts checks whether a permutation holds between the source and
 // target columns.
-func (p Constraint) Accepts(tr trace.Trace, _ schema.AnySchema) (bit.Set, schema.Failure) {
+func (p Constraint) Accepts(tr trace.Trace[bls12_377.Element], _ schema.AnySchema) (bit.Set, schema.Failure) {
 	var (
 		// Coverage currently always empty for permutation constraints.
 		coverage bit.Set
