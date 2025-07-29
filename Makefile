@@ -29,7 +29,7 @@ asm-test:
 
 corset-test:
 	@echo ">>> Running Corset Tests..."
-	go test --timeout 0 -run "Test_Agnostic|Test_Corset|Test_Invalid" ./...
+	go test --timeout 0 -run "Test_Agnostic|Test_Valid|Test_Invalid" ./...
 
 corset-bench:
 	@echo ">>> Running Corset Benchmark Tests..."
@@ -37,7 +37,7 @@ corset-bench:
 
 unit-test:
 	@echo ">>> Running Unit Tests..."
-	go test --timeout 0 -skip "Test_Asm|Test_Agnostic|Test_Bench|Test_Corset|Test_Invalid" ./...
+	go test --timeout 0 -skip "Test_Asm|Test_Agnostic|Test_Bench|Test_Valid|Test_Invalid" ./...
 
 build:
 	@echo ">>> Building ${PROJECT_NAME}... ${GOCORSET_VERSION}"
