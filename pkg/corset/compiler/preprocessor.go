@@ -376,7 +376,8 @@ func (p *preprocessor) preprocessExpressionInModule(expr ast.Expr) (ast.Expr, []
 	case *ast.VariableAccess:
 		return e, nil
 	case *ast.Concat:
-		return e, nil
+		args, errs := p.preprocessExpressionsInModule(e.Args)
+		nexpr, errors = &ast.Concat{Args: args}, errs
 	default:
 		return nil, p.srcmap.SyntaxErrors(expr, "unknown expression encountered during preprocessing")
 	}
