@@ -1176,6 +1176,18 @@ func Test_Corset_Compute_02(t *testing.T) {
 }
 
 // ===================================================================
+// defcomputedcolumn
+// ===================================================================
+
+func Test_DefComputedColumn_01(t *testing.T) {
+	test_util.Check(t, false, "basic/computedcolumn_01")
+}
+
+func Test_DefComputedColumn_02(t *testing.T) {
+	test_util.Check(t, false, "basic/computedcolumn_02")
+}
+
+// ===================================================================
 // Native computations
 // ===================================================================
 

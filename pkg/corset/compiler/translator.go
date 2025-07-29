@@ -221,8 +221,7 @@ func (t *translator) translateDeclarationsInModule(path util.Path, decls []ast.D
 	return errors
 }
 
-// Translate an assignment or constraint declarartion which occurs within a
-// given module.
+// Translate an assignment or constraint declaration which occurs within a given module.
 func (t *translator) translateDeclaration(decl ast.Declaration, path util.Path) []SyntaxError {
 	var errors []SyntaxError
 	//
@@ -254,12 +253,41 @@ func (t *translator) translateDeclaration(decl ast.Declaration, path util.Path) 
 		errors = t.translateDefProperty(d)
 	case *ast.DefSorted:
 		errors = t.translateDefSorted(d)
+	case *ast.DefComputedColumn:
+		errors = t.translateDefComputedColumn(d, path)
 	default:
 		// Error handling
 		panic("unknown declaration")
 	}
 	//
 	return errors
+}
+
+// Translate a "defcomputedcolumn" declaration.
+func (t *translator) translateDefComputedColumn(d *ast.DefComputedColumn, path util.Path) []SyntaxError {
+	module := t.moduleOf(d.Computation.Context())
+
+	targetPath := path.Extend(d.Target.Name())
+	target := schema.NewRegisterRef(module.Id(), t.registerIndexOf(targetPath))
+
+	computation, errors := t.translateExpression(d.Computation, module, 0)
+
+	if len(errors) != 0 {
+		return errors
+	}
+	// Add assignment
+	module.AddAssignment(assignment.NewComputedRegister(target, computation))
+	// Add constraint (defconstraint target == computation)
+	module.AddConstraint(mir.NewVanishingConstraint(
+		d.Target.Name(), module.Id(),
+		// no domain, since this is a global constraint (i.e. applies to all
+		// rows).
+		util.None[int](),
+		//
+		ir.Equals[mir.LogicalTerm](ir.NewRegisterAccess[mir.Term](target.Register(), 0), computation),
+	))
+	// Done
+	return nil
 }
 
 // Translate a "defcomputed" declaration.
@@ -1028,7 +1056,7 @@ func (t *translator) registerOfArrayAccess(expr *ast.ArrayAccess, shift int) (*m
 // Determine the appropriate name for a given module based on a module context.
 func (t *translator) moduleOf(context ast.Context) *ModuleBuilder {
 	if context.IsVoid() {
-		// NOTE: the intuition behing the choice to return nil here is allow for
+		// NOTE: the intuition behind the choice to return nil here is allow for
 		// situations where there is no context (e.g. constant expressions,
 		// etc).  As such, return nil is safe as, for such expressions, the
 		// module should never be accessed during their translation.

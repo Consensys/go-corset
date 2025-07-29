@@ -30,7 +30,7 @@ type DeclPredicate = array.Predicate[ast.Declaration]
 
 // ResolveCircuit resolves all symbols declared and used within a circuit,
 // producing an environment which can subsequently be used to look up the
-// relevant module or column identifiers.  This process can fail, of course, it
+// relevant module or column identifiers.  This process can fail, of course, if
 // a symbol (e.g. a column) is referred to which doesn't exist.  Likewise, if
 // two modules or columns with identical names are declared in the same scope,
 // etc.
@@ -421,6 +421,8 @@ func (r *resolver) finaliseDeclaration(scope *ModuleScope, decl ast.Declaration)
 		return r.finaliseDefPropertyInModule(scope, d)
 	case *ast.DefSorted:
 		return r.finaliseDefSortedInModule(scope, d)
+	case *ast.DefComputedColumn:
+		return r.finaliseDefComputedColumnInModule(scope, d)
 	}
 	//
 	return nil
@@ -532,6 +534,23 @@ func (r *resolver) finaliseDefConstraintInModule(enclosing *ModuleScope, decl *a
 	return append(guard_errors, constraint_errors...)
 }
 
+// Finalise a vanishing constraint declaration after all symbols have been
+// resolved. This involves: (a) checking the context is valid; (b) checking the
+// expressions are well-typed.
+func (r *resolver) finaliseDefComputedColumnInModule(enclosing *ModuleScope,
+	decl *ast.DefComputedColumn) []SyntaxError {
+	// Construct scope in which to resolve constraint
+	scope := NewLocalScope(enclosing, false, false, false)
+	// Resolve computation body
+	computation_errors := r.finaliseExpressionInModule(scope, decl.Computation)
+	//
+	if len(computation_errors) == 0 {
+		decl.Finalise()
+	}
+	// Done
+	return computation_errors
+}
+
 // Finalise an interleaving assignment.  Since the assignment would already been
 // initialised, all we need to do is determine the appropriate type and length
 // multiplier for the interleaved column.  This can still result in an error,
@@ -546,6 +565,7 @@ func (r *resolver) finaliseDefInterleavedInModule(decl *ast.DefInterleaved) []Sy
 		// Errors discovered
 		errors []SyntaxError
 	)
+
 	// Determine type and length multiplier
 	for _, source := range decl.Sources {
 		// Lookup binding of column being interleaved.
