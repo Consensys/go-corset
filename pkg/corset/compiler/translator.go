@@ -416,7 +416,11 @@ func (t *translator) translateDefLookupSources(selector ast.Expr,
 		vector = lookup.UnfilteredVector(module.Id(), terms...)
 	}
 	// Sanity check vector
-	errors = append(errors, t.checkLookupVector(vector, selector, sources)...)
+	if len(errors) == 0 {
+		// NOTE: don't check vector if other errors, since we could have nil
+		// entries in the vector, etc.
+		errors = append(errors, t.checkLookupVector(vector, selector, sources)...)
+	}
 	//
 	return vector, context, errors
 }
