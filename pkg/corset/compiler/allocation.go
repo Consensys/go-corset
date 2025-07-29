@@ -100,7 +100,9 @@ func (r *Register) Name() string {
 		})
 		//
 		for i, source := range r.Sources {
-			names[i] = constructColumnName(source)
+			// FIXME: below is used instead of above in order to replicate the original
+			// Corset tool.  Eventually, this behaviour should be deprecated.
+			names[i] = source.Name.Tail()
 		}
 		// Construct register name from list of names
 		name := constructRegisterName(names)
@@ -108,15 +110,6 @@ func (r *Register) Name() string {
 	}
 	//
 	return *r.cached_name
-}
-
-// Construct a suitable column name from a given register source.  We need to
-// include the perspective name here in order to avoid name clashes between
-// columns with the same name defined in different columns.
-func constructColumnName(source RegisterSource) string {
-	name := fmt.Sprintf("%s%s", source.Perspective(), source.Name.Tail())
-	// Normalise name
-	return strings.ReplaceAll(name, "/", "")
 }
 
 // A simple algorithm for joining names together.
