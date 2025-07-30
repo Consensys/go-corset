@@ -113,13 +113,13 @@ func (p *Ite[T]) Lisp(mapping schema.RegisterMap) sexp.SExp {
 	// Dispatch on type
 	if p.FalseBranch == nil {
 		return sexp.NewList([]sexp.SExp{
-			sexp.NewSymbol("ite"),
+			sexp.NewSymbol("if"),
 			condition,
 			p.TrueBranch.Lisp(mapping),
 		})
 	} else if p.TrueBranch == nil {
 		return sexp.NewList([]sexp.SExp{
-			sexp.NewSymbol("ite"),
+			sexp.NewSymbol("if"),
 			condition,
 			sexp.NewSymbol("_"),
 			p.FalseBranch.Lisp(mapping),
@@ -127,7 +127,7 @@ func (p *Ite[T]) Lisp(mapping schema.RegisterMap) sexp.SExp {
 	}
 
 	return sexp.NewList([]sexp.SExp{
-		sexp.NewSymbol("ite"),
+		sexp.NewSymbol("if"),
 		condition,
 		p.TrueBranch.Lisp(mapping),
 		p.FalseBranch.Lisp(mapping),
