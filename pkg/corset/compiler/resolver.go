@@ -59,11 +59,7 @@ func ResolveCircuit[M schema.Module](srcmap *source.Maps[ast.Node], circuit *ast
 		return nil, errs
 	}
 	// Finalise all columns / declarations
-	if errs := r.resolveAssignments(scope, circuit); len(errs) > 0 {
-		return nil, errs
-	}
-	//
-	if errs := r.resolveConstraints(scope, circuit); len(errs) > 0 {
+	if errs := r.resolveDeclarations(scope, circuit); len(errs) > 0 {
 		return nil, errs
 	}
 	// Done
@@ -200,57 +196,26 @@ func (r *resolver) initialiseAliasesInModule(scope *ModuleScope, decls []ast.Dec
 	return errors
 }
 
-// Process all assignment column declarations.  These are more complex than for
-// input columns, since there can be dependencies between them.  Thus, we cannot
-// simply resolve them in one linear scan.
-func (r *resolver) resolveAssignments(scope *ModuleScope, circuit *ast.Circuit) []SyntaxError {
-	// Input columns must be allocated before assignemts, since the hir.Schema
-	// separates these out.
-	errs := r.finaliseDeclarationsInModule(scope, circuit.Declarations, isAssigmentDeclaration)
-	//
-	for _, m := range circuit.Modules {
-		// Process all declarations in the module
-		merrs := r.finaliseDeclarationsInModule(scope.Enter(m.Name), m.Declarations, isAssigmentDeclaration)
-		// Package up all errors
-		errs = append(errs, merrs...)
-	}
-	//
-	return errs
-}
-
-// Process all remaining declarations, such as constraint declarations.  These
-// are more complex than for input columns, since there can be dependencies
-// between them.  Thus, we cannot simply resolve them in one linear scan.
-func (r *resolver) resolveConstraints(scope *ModuleScope, circuit *ast.Circuit) []SyntaxError {
-	// Input columns must be allocated before assignemts, since the hir.Schema
-	// separates these out.
-	errs := r.finaliseDeclarationsInModule(scope, circuit.Declarations, isNotAssigmentDeclaration)
-	//
-	for _, m := range circuit.Modules {
-		if m.Condition != nil {
-			// Finalise module conditions
-			cerrs := r.finaliseExpressionInModule(NewLocalScope(scope, false, true, false), m.Condition)
-			errs = append(errs, cerrs...)
+// Process all assignment, constraint and other declarations.  These are more
+// complex than for input columns, since there can be dependencies between them.
+// Thus, we cannot simply resolve them in one linear scan.
+func (r *resolver) resolveDeclarations(scope *ModuleScope, circuit *ast.Circuit) []SyntaxError {
+	state := NewGlobalResolution(circuit, *r.srcmap)
+	// Continue iterating until nothing more can be done.  That way, we generate
+	// the maximum possible number of error messages to report.
+	for state.Continue() {
+		// Marked start of a new iteration
+		state.BeginIteration()
+		// Finalise root module first.
+		r.finaliseDeclarationsInModule(scope, circuit.Declarations, state.Enter(0))
+		// Finalise nested modules
+		for i, m := range circuit.Modules {
+			// Process all declarations in the module
+			r.finaliseDeclarationsInModule(scope.Enter(m.Name), m.Declarations, state.Enter(i+1))
 		}
-		// Process all declarations in the module
-		merrs := r.finaliseDeclarationsInModule(scope.Enter(m.Name), m.Declarations, isNotAssigmentDeclaration)
-		// Package up all errors
-		errs = append(errs, merrs...)
 	}
-	//
-	return errs
-}
-
-// Determines whether a given declaration is an "assignment" or not.
-// Specifically, an assignment is a declaration which defines one or more
-// computed (i.e. assigned) columns.
-func isAssigmentDeclaration(decl ast.Declaration) bool {
-	return decl.IsAssignment()
-}
-
-// Determines whether a given declaration is not an "assignment" (see above).
-func isNotAssigmentDeclaration(decl ast.Declaration) bool {
-	return !decl.IsAssignment()
+	// Return any errors arising
+	return state.Errors()
 }
 
 // Finalise a subset of declarations in a given module.  This requires an
@@ -259,73 +224,28 @@ func isNotAssigmentDeclaration(decl ast.Declaration) bool {
 // which depends upon an interleaved column.  Until the interleaved column is
 // finalised, its type won't be available and, hence, we cannot type the
 // function.
-func (r *resolver) finaliseDeclarationsInModule(scope *ModuleScope, decls []ast.Declaration,
-	includes DeclPredicate) []SyntaxError {
-	// Changed indicates whether or not a new assignment was finalised during a
-	// given iteration.  This is important to know since, if the assignment is
-	// not complete and we didn't finalise any more assignments --- then, we've
-	// reached a fixed point where the final assignment is incomplete (i.e.
-	// there is some error somewhere).
-	changed := true
-	// Complete tells us whether or not the assignment is complete.  The
-	// assignment is not complete if there it at least one declaration which is
-	// not yet finalised.
-	complete := false
-	// For an incomplete assignment, this identifies the last declaration that
-	// could not be finalised (i.e. as an example so we have at least one for
-	// error reporting).
-	var (
-		incomplete ast.Node = nil
-		counter    uint     = 32
-		errors     []SyntaxError
-		// Failed indicates declarations which are already considered to have
-		// failed.
-		failed = make([]bool, len(decls))
-	)
-	//
-	for changed && !complete && counter > 0 {
-		changed = false
-		complete = true
-		//
-		for i, decl := range decls {
-			// Check whether included and already finalised
-			if includes(decl) && !failed[i] && !decl.IsFinalised() {
-				// No, so attempt to finalise
-				ready, errs := r.declarationDependenciesAreFinalised(scope, decl)
-				// Check what we found
-				if errs != nil {
-					errors = append(errors, errs...)
-					failed[i] = true
-				} else if ready {
-					// Finalise declaration and handle errors
-					errs := r.finaliseDeclaration(scope, decl)
-					errors = append(errors, errs...)
-					// Record that a new assignment is available.
-					changed = changed || len(errs) == 0
-					failed[i] = (len(errs) != 0)
-				} else {
-					// ast.Declaration not ready yet
-					complete = false
-					incomplete = decl
+func (r *resolver) finaliseDeclarationsInModule(scope *ModuleScope, decls []ast.Declaration, state ModuleResolution) {
+	for i, decl := range decls {
+		// Check whether included and already finalised
+		if !state.AlreadyFailed(i) && !decl.IsFinalised() {
+			// No, so attempt to finalise
+			ready, errs := r.declarationDependenciesAreFinalised(scope, decl)
+			// Check what we found
+			if ready && len(errs) == 0 {
+				// Finalise declaration and handle errors
+				errs = r.finaliseDeclaration(scope, decl)
+				// Record that a new assignment is available.
+				if len(errs) == 0 {
+					// Mark this declaration as completed
+					state.Completed(i)
 				}
 			}
+			// If any errors arising, mark this declaration has having failed.
+			if errs != nil {
+				state.Failed(i, errs)
+			}
 		}
-		// Decrement counter
-		counter--
 	}
-	// Check whether we actually finished the allocation.
-	if len(errors) > 0 {
-		return errors
-	} else if counter == 0 {
-		err := r.srcmap.SyntaxError(incomplete, "unable to complete resolution")
-		return []SyntaxError{*err}
-	} else if !complete {
-		// No, we didn't.  So, something is wrong and we now have to figure out
-		// what exactly.
-		return r.determineFinalisationErrors(decls, includes)
-	}
-	// Done
-	return nil
 }
 
 // Check that a given set of symbols have been finalised.  This is important,
@@ -372,28 +292,6 @@ func (r *resolver) declarationDependenciesAreFinalised(scope *ModuleScope,
 	}
 	//
 	return finalised, errors
-}
-
-// For each included declaration, identify which dependencies are unresolved and
-// report specific errors for them.
-func (r *resolver) determineFinalisationErrors(decls []ast.Declaration, includes DeclPredicate) []SyntaxError {
-	var errors []SyntaxError
-	//
-	for _, decl := range decls {
-		// Look for an included, but unfinalised declaration
-		if includes(decl) && !decl.IsFinalised() {
-			for iter := decl.Dependencies(); iter.HasNext(); {
-				symbol := iter.Next()
-				// Check whether this dependency is a problem
-				if !symbol.Binding().IsFinalised() {
-					// Yes, so report error
-					errors = append(errors, *r.srcmap.SyntaxError(symbol, "unresolved symbol"))
-				}
-			}
-		}
-	}
-	//
-	return errors
 }
 
 // Finalise a declaration.
@@ -1005,4 +903,170 @@ func (r *resolver) constructUnknownSymbolError(symbol ast.Symbol, scope Scope) S
 	// Fall back on default.  We actually could do better here by trying to find
 	// the closest match.
 	return *r.srcmap.SyntaxError(symbol, "unknown symbol")
+}
+
+// GlobalResolution maintains detailed state about the ongoing attempt to
+// resolve all declarations in a given circuit.
+type GlobalResolution struct {
+	// Stash of declarations for error reporting purposes
+	decls [][]ast.Declaration
+	// Source map for error reporting
+	srcmap source.Maps[ast.Node]
+	// Failed indicates which declarations for each module have failed (if any).
+	// The purpose of this is to prevent attempts to refinalise a declaration,
+	// as this then leads to (potentially many) duplicate error messages.
+	failed [][]bool
+	// Completed indicates which declarations for each module have completed
+	// successfully.  The purpose of this is, in the event of a resolution
+	// failure, to be able to find examples to report errors on.
+	completed [][]bool
+	// Counts declarations remaining to be completed.  The purpose of this is to
+	// make it easy to tell when resolution is finished.
+	uncompleted uint
+	// Changed indicates whether or not any new declarations changed state (i.e.
+	// went from unresolved to resolved) within current iteration.
+	changed bool
+	// Number of iterations remaining before we give up.
+	count uint
+	// Accumulate errors
+	errors []SyntaxError
+}
+
+// NewGlobalResolution simply initialises an appropriate state object for the
+// given circuit.
+func NewGlobalResolution(circuit *ast.Circuit, srcmap source.Maps[ast.Node]) GlobalResolution {
+	var (
+		n = len(circuit.Modules) + 1
+		// Construct initial state
+		state = GlobalResolution{make([][]ast.Declaration, n), srcmap,
+			make([][]bool, n), make([][]bool, n),
+			0, true, 32, nil,
+		}
+	)
+	// Initialise root module
+	state.initialise(0, circuit.Declarations)
+	// Initialise submodules
+	for i, m := range circuit.Modules {
+		state.initialise(i+1, m.Declarations)
+	}
+	// Initialise other modules
+	return state
+}
+
+// BeginIteration signals that a new iteration is beginning.
+func (p *GlobalResolution) BeginIteration() {
+	p.changed = false
+	p.count--
+}
+
+// Continue determines whether or not to continue onto another iteration.
+func (p *GlobalResolution) Continue() bool {
+	if p.changed && p.count == 0 {
+		// Determine appropriate error
+		p.giveUp()
+	} else if !p.changed && p.uncompleted > 0 {
+		// Resolution didn't finish for some reason.  This should not happened
+		// in practice but, in reality, it can do.  For example, if there is a
+		// bug in the resolution process somewhere (which might e.g. arise when
+		// adding new declaration types).
+		p.internalFailure()
+	}
+	//
+	return p.changed && p.count > 0
+}
+
+// Errors simply returns any error messages arising.
+func (p *GlobalResolution) Errors() []SyntaxError {
+	return p.errors
+}
+
+// Enter returns the state for a given module.
+func (p *GlobalResolution) Enter(index int) ModuleResolution {
+	return ModuleResolution{index, p}
+}
+
+// GiveUp means we should not attempt any more iterations, as it seems like
+// resolution is stuck in an infinite loop.  In theory, such infinite loops
+// should not happen.  The goal of this is to ensure (in the unlikely event they
+// do happen) a graceful failure.
+func (p *GlobalResolution) giveUp() {
+	for i, cs := range p.completed {
+		for j, completed := range cs {
+			if !completed {
+				err := p.srcmap.SyntaxError(p.decls[i][j], "unable to complete resolution")
+				p.errors = append(p.errors, *err)
+
+				return
+			}
+		}
+	}
+}
+
+// InternalFailure arises when we stop making progress towards completing
+// resolution.  This should not happen in practice, but it could arise if there
+// is a bug somewhere in the resolution mechanism.  For example, when adding new
+// declaration types.  The goal is to report some kind error message, rather
+// than just nothing.
+func (p *GlobalResolution) internalFailure() {
+	for i, cs := range p.completed {
+		for j, completed := range cs {
+			decl := p.decls[i][j]
+			//
+			if !completed {
+				for iter := decl.Dependencies(); iter.HasNext(); {
+					symbol := iter.Next()
+					// Check whether this dependency is a problem
+					if !symbol.Binding().IsFinalised() {
+						// Yes, so report error
+						err := p.srcmap.SyntaxError(symbol, "unresolvable symbol")
+						p.errors = append(p.errors, *err)
+					}
+				}
+			}
+		}
+	}
+}
+
+func (p *GlobalResolution) initialise(index int, decls []ast.Declaration) {
+	p.decls[index] = decls
+	p.completed[index] = make([]bool, len(decls))
+	p.failed[index] = make([]bool, len(decls))
+	//
+	for i, d := range decls {
+		if d.IsFinalised() {
+			p.completed[index][i] = true
+		} else {
+			p.uncompleted++
+		}
+	}
+}
+
+// ModuleResolution provides a handy interface for resolving declarations within
+// a given module.  It is really just a wrapper around the global resolution
+// state.
+type ModuleResolution struct {
+	index int
+	state *GlobalResolution
+}
+
+// AlreadyFailed can be used to determine whether a given declaration within the
+// module already failed in a previous iteration.  This is useful to prevent
+// reattempts to resolve the declaration (which would lead to duplicate errors,
+// etc).
+func (p *ModuleResolution) AlreadyFailed(decl int) bool {
+	return p.state.failed[p.index][decl]
+}
+
+// Completed indicates a given declaration within the module has been resolved.
+func (p *ModuleResolution) Completed(decl int) {
+	p.state.completed[p.index][decl] = true
+	p.state.uncompleted--
+	p.state.changed = true
+}
+
+// Failed indicates a given declaration within the module has failed resolution
+// and generated one or more errors.
+func (p *ModuleResolution) Failed(decl int, errs []SyntaxError) {
+	p.state.failed[p.index][decl] = true
+	p.state.errors = append(p.state.errors, errs...)
 }
