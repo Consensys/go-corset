@@ -1295,7 +1295,7 @@ func (p *DefFun) IsFinalised() bool {
 
 // IsAssignment checks whether this declaration is an assignment or not.
 func (p *DefFun) IsAssignment() bool {
-	return false
+	return true
 }
 
 // Lisp converts this node into its lisp representation.  This is primarily used
@@ -1487,6 +1487,6 @@ func (p *DefComputedColumn) IsAssignment() bool {
 func (p *DefComputedColumn) Lisp() sexp.SExp {
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("defcomputedcolumn"),
-		sexp.NewList(p.Target.Lisp().AsArray().Elements),
+		p.Target.Lisp(),
 		p.Computation.Lisp()})
 }

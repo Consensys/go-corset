@@ -132,9 +132,11 @@ func (p *preprocessor) preprocessDefConstraint(decl *ast.DefConstraint) []Syntax
 
 // preprocess a "defcomputedcolumn" declaration.
 func (p *preprocessor) preprocessDefComputedColumn(decl *ast.DefComputedColumn) []SyntaxError {
+	var errors []SyntaxError
 	// preprocess computation body
-	_, computation_errors := p.preprocessExpressionInModule(decl.Computation)
-	return computation_errors
+	decl.Computation, errors = p.preprocessExpressionInModule(decl.Computation)
+	// done
+	return errors
 }
 
 // preprocess a "deflookup" declaration.
