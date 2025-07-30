@@ -469,7 +469,7 @@ func (p *DefConst) IsFinalised() bool {
 
 // IsAssignment checks whether this declaration is an assignment or not.
 func (p *DefConst) IsAssignment() bool {
-	return false
+	return true
 }
 
 // Lisp converts this node into its lisp representation.  This is primarily used
