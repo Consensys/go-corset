@@ -13,11 +13,13 @@
 package ir
 
 import (
+	"fmt"
 	"math"
 	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -82,6 +84,15 @@ func (p *Constant[T]) IsDefined() bool {
 
 // Lisp implementation for Lispifiable interface.
 func (p *Constant[T]) Lisp(mapping schema.RegisterMap) sexp.SExp {
+	var val big.Int
+	//
+	p.Value.BigInt(&val)
+	// Check if power of 2
+	if n, ok := agnostic.IsPowerOf2(val); ok && n > 8 {
+		// Not power of 2
+		return sexp.NewSymbol(fmt.Sprintf("2^%d", n))
+	}
+	//
 	return sexp.NewSymbol(p.Value.String())
 }
 

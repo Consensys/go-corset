@@ -19,7 +19,6 @@ import (
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
@@ -69,8 +68,10 @@ func (p MirModule) NewColumn(kind schema.RegisterType, name string, bitwidth uin
 // NewConstraint constructs a new vanishing constraint with the given name
 // within this module.
 func (p MirModule) NewConstraint(name string, domain util.Option[int], constraint MirExpr) {
+	e := constraint.logical.Simplify(false)
+	//
 	p.Module.AddConstraint(
-		mir.NewVanishingConstraint(name, p.Module.Id(), domain, constraint.logical))
+		mir.NewVanishingConstraint(name, p.Module.Id(), domain, e))
 }
 
 // NewLookup constructs a new lookup constraint
@@ -148,14 +149,6 @@ func (p MirExpr) NotEquals(rhs MirExpr) MirExpr {
 
 // BigInt constructs a constant expression from a big integer.
 func (p MirExpr) BigInt(number big.Int) MirExpr {
-	// Check if power of 2
-	if n, ok := agnostic.IsPowerOf2(number); ok && n > 8 {
-		// Not power of 2
-		base := ir.Const[mir.Term](fr.NewElement(2))
-		// Special case since constants which are powers of 2 come up a lot
-		// (especially when splitting).
-		return MirExpr{ir.Exponent(base, uint64(n)), nil}
-	}
 	// Not power of 2
 	var frNum fr.Element
 	//
@@ -212,7 +205,7 @@ func unwrapMirExprs(exprs ...MirExpr) []mir.Term {
 	cexprs := make([]mir.Term, len(exprs))
 	//
 	for i, e := range exprs {
-		cexprs[i] = e.expr
+		cexprs[i] = e.expr.Simplify(true)
 		//
 		if e.logical != nil {
 			panic("logical expression encountered")
