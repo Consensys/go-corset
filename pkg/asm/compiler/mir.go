@@ -19,6 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
@@ -147,6 +148,15 @@ func (p MirExpr) NotEquals(rhs MirExpr) MirExpr {
 
 // BigInt constructs a constant expression from a big integer.
 func (p MirExpr) BigInt(number big.Int) MirExpr {
+	// Check if power of 2
+	if n, ok := agnostic.IsPowerOf2(number); ok && n > 8 {
+		// Not power of 2
+		base := ir.Const[mir.Term](fr.NewElement(2))
+		// Special case since constants which are powers of 2 come up a lot
+		// (especially when splitting).
+		return MirExpr{ir.Exponent(base, uint64(n)), nil}
+	}
+	// Not power of 2
 	var frNum fr.Element
 	//
 	frNum.SetBigInt(&number)
