@@ -115,3 +115,6 @@
 (defpurefun (stamp-constancy (STAMP :int) (C :int))
             (if (will-remain-constant! STAMP)
                 (will-remain-constant! C)))
+
+(defpurefun (has-0-1-increments (STAMP :int)) (or!  (will-inc!  STAMP  0)
+                                                    (will-inc!  STAMP  1)))
