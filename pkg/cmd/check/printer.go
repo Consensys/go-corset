@@ -83,15 +83,20 @@ func (p *Printer) Print(trace TraceWindow) {
 			contents := trace.CellAt(col, row)
 			// Determine text of cell
 			highlight := trace.Highlighted(col, row)
-			//
+			// Prepend hex
 			if highlight && !p.ansiEscapes {
 				// In a non-ANSI environment, use a marker "*" to identify which cells were depended upon.
-				text = termio.NewText(fmt.Sprintf("*0x%s", contents))
-			} else if highlight {
-				hex := fmt.Sprintf("0x%s", contents)
-				text = termio.NewFormattedText(hex, highlightEscape)
+				contents = fmt.Sprintf("*0x%s", contents)
 			} else {
-				text = termio.NewText(fmt.Sprintf("0x%s", contents))
+				contents = fmt.Sprintf("0x%s", contents)
+			}
+			// Apply clipping
+			contents = clipValue(contents, p.maxCellWidth)
+			//
+			if highlight && p.ansiEscapes {
+				text = termio.NewFormattedText(contents, highlightEscape)
+			} else {
+				text = termio.NewText(contents)
 			}
 			//
 			tp.Set(1+row, col+1, text)
@@ -105,4 +110,18 @@ func (p *Printer) Print(trace TraceWindow) {
 	tp.SetMaxWidth(0, p.maxTitleWidth)
 	// Done
 	tp.Print(p.ansiEscapes)
+}
+
+func clipValue(str string, maxWidth uint) string {
+	runes := []rune(str)
+	//
+	if len(runes) > int(maxWidth) {
+		runes := runes[0:maxWidth]
+		runes[maxWidth-1] = '.'
+		runes[maxWidth-2] = '.'
+		// done
+		return string(runes)
+	}
+	// No clipping required
+	return str
 }
