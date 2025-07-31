@@ -113,3 +113,34 @@ func (p *SFormatter) Split(list *List) ([]FormattingChunk, uint) {
 	//
 	return chunks, 1
 }
+
+// IFormatter is your basic formatting rule.
+type IFormatter struct {
+	// Head symbol to match
+	Head string
+	// Priority to give for matching.
+	Priority uint
+}
+
+// Split a list using the LFormatter where the list matches.
+func (p *IFormatter) Split(list *List) ([]FormattingChunk, uint) {
+	if list.Len() == 0 {
+		return nil, 0
+	} else if sym, ok := list.Get(0).(*Symbol); ok && sym.String(true) != p.Head {
+		return nil, 0
+	}
+	//
+	var chunks []FormattingChunk
+	//
+	for i := 0; i < list.Len(); i++ {
+		var chunk FormattingChunk
+		//
+		chunk.Contents = list.Get(i)
+		chunk.Priority = p.Priority
+		chunk.Indent = 1
+		//
+		chunks = append(chunks, chunk)
+	}
+	//
+	return chunks, math.MaxUint
+}

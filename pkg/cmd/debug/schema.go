@@ -19,6 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/asm"
 	"github.com/consensys/go-corset/pkg/asm/io"
 	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
+	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
@@ -37,11 +38,17 @@ func printSchema(schema schema.AnySchema, width uint) {
 	first := true
 	// Print out each module, one by one.
 	for i := schema.Modules(); i.HasNext(); {
-		if !first {
+		ith := i.Next()
+		//
+		if isEmptyModule(ith) {
+			// Skip empty modules as they just clutter things up.  Typically,
+			// for example, the root module is empty.
+			continue
+		} else if !first {
 			fmt.Println()
 		}
 		//
-		switch ith := i.Next().(type) {
+		switch ith := ith.(type) {
 		case *asm.MacroFunction:
 			printAssemblyFunction(*ith)
 		case *asm.MicroFunction:
@@ -58,53 +65,94 @@ func printSchema(schema schema.AnySchema, width uint) {
 // Legacy module
 // ==================================================================
 
-func printModule(module schema.Module, schema schema.AnySchema, width uint) {
+func printModule(module schema.Module, sc schema.AnySchema, width uint) {
 	formatter := sexp.NewFormatter(width)
 	formatter.Add(&sexp.SFormatter{Head: "if", Priority: 0})
 	formatter.Add(&sexp.SFormatter{Head: "ifnot", Priority: 0})
-	formatter.Add(&sexp.LFormatter{Head: "begin", Priority: 1})
+	formatter.Add(&sexp.LFormatter{Head: "begin", Priority: 0})
 	formatter.Add(&sexp.LFormatter{Head: "∧", Priority: 1})
 	formatter.Add(&sexp.LFormatter{Head: "∨", Priority: 1})
-	formatter.Add(&sexp.LFormatter{Head: "+", Priority: 2})
-	formatter.Add(&sexp.LFormatter{Head: "*", Priority: 3})
+	formatter.Add(&sexp.IFormatter{Head: "==", Priority: 2})
+	formatter.Add(&sexp.IFormatter{Head: "!=", Priority: 2})
+	formatter.Add(&sexp.IFormatter{Head: "+", Priority: 3})
+	formatter.Add(&sexp.IFormatter{Head: "*", Priority: 4})
 
 	if module.Name() == "" {
-		fmt.Printf("(module)\n")
+		fmt.Println("(module)")
 	} else {
 		fmt.Printf("(module %s)\n", module.Name())
 	}
-
-	for _, r := range module.Registers() {
-		//
-		if r.IsInput() {
-			fmt.Printf("(input %s u%d)", r.Name, r.Width)
-		} else if r.IsOutput() {
-			fmt.Printf("(output %s u%d)", r.Name, r.Width)
-		} else if r.IsComputed() {
-			if r.Width != math.MaxUint {
-				fmt.Printf("(computed %s u%d)", r.Name, r.Width)
-			} else {
-				fmt.Printf("(computed %s 𝔽)", r.Name)
-			}
-		} else {
-			// Fallback --- unsure what kind this is.
-			fmt.Printf("(column %s u%d)", r.Name, r.Width)
-		}
-		//
-		fmt.Println()
-	}
 	//
-	for i := module.Constraints(); i.HasNext(); {
-		ith := i.Next()
-		text := formatter.Format(ith.Lisp(schema))
-		fmt.Print(text)
-	}
-	//
+	fmt.Println()
+	// Print inputs / outputs
+	printRegisters(module, "inputs", func(r schema.Register) bool { return r.IsInput() })
+	printRegisters(module, "outputs", func(r schema.Register) bool { return r.IsOutput() })
+	printRegisters(module, "computed", func(r schema.Register) bool { return r.IsComputed() })
+	// Print computations
 	for i := module.Assignments(); i.HasNext(); {
 		ith := i.Next()
-		text := formatter.Format(ith.Lisp(schema))
+		text := formatter.Format(ith.Lisp(sc))
 		fmt.Print(text)
 	}
+	// Print constraints
+	for i := module.Constraints(); i.HasNext(); {
+		ith := i.Next()
+		text := formatter.Format(ith.Lisp(sc))
+		//
+		if requiresSpacing(ith) {
+			fmt.Println()
+		}
+		//
+		fmt.Print(text)
+	}
+}
+
+func printRegisters(module schema.Module, prefix string, filter func(schema.Register) bool) {
+	if countRegisters(module, filter) != 0 {
+		//
+		fmt.Printf("(%s\n", prefix)
+		//
+		for _, r := range module.Registers() {
+			if filter(r) {
+				if r.Width != math.MaxUint {
+					fmt.Printf("   (%s u%d)\n", r.Name, r.Width)
+				} else {
+					fmt.Printf("   (%s 𝔽)\n", r.Name)
+				}
+			}
+		}
+		//
+		fmt.Println(")")
+		fmt.Println("")
+	}
+}
+
+func countRegisters(module schema.Module, filter func(schema.Register) bool) uint {
+	var count = uint(0)
+	//
+	for _, r := range module.Registers() {
+		if filter(r) {
+			count++
+		}
+	}
+	//
+	return count
+}
+
+func requiresSpacing(c schema.Constraint) bool {
+	if c, ok := c.(mir.Constraint); ok {
+		if _, ok := c.Unwrap().(mir.VanishingConstraint); ok {
+			return ok
+		}
+	}
+	//
+	return false
+}
+
+func isEmptyModule(module schema.Module) bool {
+	return len(module.Registers()) == 0 &&
+		module.Constraints().Count() == 0 &&
+		module.Assignments().Count() == 0
 }
 
 // ==================================================================
