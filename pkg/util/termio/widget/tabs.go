@@ -36,8 +36,12 @@ func (p *Tabs) Selected() uint {
 
 // Select sets the given selected tab.  If the index is greater than the
 // available tabs, then it automatically "wraps around".
-func (p *Tabs) Select(tab uint) {
-	p.selected = tab % uint(len(p.tabs))
+func (p *Tabs) Select(tab int) {
+	if tab < 0 {
+		tab += len(p.tabs)
+	}
+	//
+	p.selected = uint(tab % len(p.tabs))
 }
 
 // Render the tabs widget to a given canvas.
