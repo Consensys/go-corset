@@ -94,7 +94,7 @@ func splitLookupVector(geometry lookup.Geometry, vector lookup.Vector[Term],
 		bitwidth, signed := valrange.BitWidth()
 		// Sanity check signed lookups
 		if signed {
-			panic(fmt.Sprintf("signed lookup encountered (%s)", t.Lisp(modmap).String(true)))
+			panic(fmt.Sprintf("signed lookup encountered (%s)", t.Lisp(true, modmap).String(true)))
 		}
 		// Check whether value range exceeds available bandwidth
 		if bitwidth > geometry.BandWidth() {

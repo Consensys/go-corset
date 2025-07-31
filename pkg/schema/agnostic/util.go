@@ -13,6 +13,8 @@
 package agnostic
 
 import (
+	"math/big"
+
 	sc "github.com/consensys/go-corset/pkg/schema"
 )
 
@@ -40,4 +42,20 @@ func LimbsOf(mapping sc.RegisterLimbsMap, lids []sc.LimbId) []sc.Limb {
 	}
 	//
 	return limbs
+}
+
+// IsPowerOf2 checks whether a given big integer matches 2^n for some n and, if
+// so, n is returned.
+func IsPowerOf2(val big.Int) (n uint, ok bool) {
+	w := val.BitLen()
+	//
+	if w > 0 {
+		m := big.NewInt(2)
+		// compute 2^n-1
+		m.Exp(m, big.NewInt(int64(w-1)), nil)
+		// check for match
+		return uint(w - 1), val.Cmp(m) == 0
+	}
+	//
+	return 0, false
 }

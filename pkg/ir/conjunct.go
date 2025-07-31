@@ -86,12 +86,12 @@ func (p *Conjunct[T]) TestAt(k int, tr trace.Module, sc schema.Module) (bool, ui
 
 // Lisp returns a lisp representation of this equation, which is useful for
 // debugging.
-func (p *Conjunct[T]) Lisp(mapping schema.RegisterMap) sexp.SExp {
+func (p *Conjunct[T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
 	if len(p.Args) == 0 {
 		return sexp.NewSymbol("⊤")
 	}
 
-	return lispOfLogicalTerms(mapping, "∧", p.Args)
+	return lispOfLogicalTerms(global, mapping, "∧", p.Args)
 }
 
 // RequiredRegisters implementation for Contextual interface.

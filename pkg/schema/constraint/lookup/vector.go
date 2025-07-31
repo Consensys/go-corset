@@ -111,13 +111,13 @@ func (p *Vector[E]) Lisp(schema schema.AnySchema) sexp.SExp {
 	)
 	//
 	if p.HasSelector() {
-		terms.Append(p.Selector.Unwrap().Lisp(module))
+		terms.Append(p.Selector.Unwrap().Lisp(true, module))
 	} else {
 		terms.Append(sexp.NewSymbol("_"))
 	}
 	// Iterate source expressions
 	for i := range p.Len() {
-		terms.Append(p.Ith(i).Lisp(module))
+		terms.Append(p.Ith(i).Lisp(true, module))
 	}
 	// Done
 	return terms

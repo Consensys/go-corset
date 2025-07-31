@@ -68,8 +68,10 @@ func (p MirModule) NewColumn(kind schema.RegisterType, name string, bitwidth uin
 // NewConstraint constructs a new vanishing constraint with the given name
 // within this module.
 func (p MirModule) NewConstraint(name string, domain util.Option[int], constraint MirExpr) {
+	e := constraint.logical.Simplify(false)
+	//
 	p.Module.AddConstraint(
-		mir.NewVanishingConstraint(name, p.Module.Id(), domain, constraint.logical))
+		mir.NewVanishingConstraint(name, p.Module.Id(), domain, e))
 }
 
 // NewLookup constructs a new lookup constraint
@@ -147,6 +149,7 @@ func (p MirExpr) NotEquals(rhs MirExpr) MirExpr {
 
 // BigInt constructs a constant expression from a big integer.
 func (p MirExpr) BigInt(number big.Int) MirExpr {
+	// Not power of 2
 	var frNum fr.Element
 	//
 	frNum.SetBigInt(&number)
@@ -202,7 +205,7 @@ func unwrapMirExprs(exprs ...MirExpr) []mir.Term {
 	cexprs := make([]mir.Term, len(exprs))
 	//
 	for i, e := range exprs {
-		cexprs[i] = e.expr
+		cexprs[i] = e.expr.Simplify(true)
 		//
 		if e.logical != nil {
 			panic("logical expression encountered")

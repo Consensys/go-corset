@@ -75,8 +75,8 @@ func (p *Cast[T]) IsDefined() bool {
 }
 
 // Lisp implementation for Lispifiable interface.
-func (p *Cast[T]) Lisp(mapping schema.RegisterMap) sexp.SExp {
-	arg := p.Arg.Lisp(mapping)
+func (p *Cast[T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
+	arg := p.Arg.Lisp(global, mapping)
 	name := sexp.NewSymbol(fmt.Sprintf(":u%d", p.BitWidth))
 
 	return sexp.NewList([]sexp.SExp{name, arg})

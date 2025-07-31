@@ -591,7 +591,7 @@ func encode_logical(term LogicalTerm, buf *bytes.Buffer) error {
 		//
 		return encode_tagged_terms(lessThanEqTag, buf, t.Lhs, t.Rhs)
 	default:
-		return fmt.Errorf("unknown logical term encountered (%s)", term.Lisp(nil).String(false))
+		return fmt.Errorf("unknown logical term encountered (%s)", term.Lisp(false, nil).String(false))
 	}
 }
 
@@ -714,7 +714,7 @@ func encode_term(term Term, buf *bytes.Buffer) error {
 	case *VectorAccess:
 		return encode_vec_access(*t, buf)
 	default:
-		return fmt.Errorf("unknown arithmetic term encountered (%s)", term.Lisp(nil).String(false))
+		return fmt.Errorf("unknown arithmetic term encountered (%s)", term.Lisp(false, nil).String(false))
 	}
 }
 

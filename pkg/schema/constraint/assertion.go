@@ -152,7 +152,7 @@ func (p Assertion[T]) Lisp(schema schema.AnySchema) sexp.SExp {
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("assert"),
 		sexp.NewSymbol(p.Handle),
-		p.Property.Lisp(module),
+		p.Property.Lisp(false, module),
 	})
 }
 

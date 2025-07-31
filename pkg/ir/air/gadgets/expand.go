@@ -33,7 +33,7 @@ func Expand(bitwidth uint, e air.Term, module *air.ModuleBuilder) schema.Registe
 		return ca.Register
 	}
 	// Determine computed column name
-	name := e.Lisp(module).String(false)
+	name := e.Lisp(true, module).String(false)
 	// Look up column
 	index, ok := module.HasRegister(name)
 	// Add new column (if it does not already exist)

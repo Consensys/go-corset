@@ -49,7 +49,7 @@ func applyPseudoInverseGadget(e air.Term, module *air.ModuleBuilder) air.Term {
 	// Construct inverse computation
 	ie := &psuedoInverse{Expr: e}
 	// Determine computed column name
-	name := ie.Lisp(module).String(false)
+	name := ie.Lisp(true, module).String(false)
 	// Look up column
 	index, ok := module.HasRegister(name)
 	// Add new column (if it does not already exist)
@@ -127,10 +127,10 @@ func (e *psuedoInverse) IsDefined() bool {
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (e *psuedoInverse) Lisp(mapping sc.RegisterMap) sexp.SExp {
+func (e *psuedoInverse) Lisp(global bool, mapping sc.RegisterMap) sexp.SExp {
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("inv"),
-		e.Expr.Lisp(mapping),
+		e.Expr.Lisp(global, mapping),
 	})
 }
 

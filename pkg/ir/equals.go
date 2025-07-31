@@ -79,10 +79,10 @@ func (p *Equal[S, T]) TestAt(k int, tr trace.Module, sc schema.Module) (bool, ui
 
 // Lisp returns a lisp representation of this Equal, which is useful for
 // debugging.
-func (p *Equal[S, T]) Lisp(mapping schema.RegisterMap) sexp.SExp {
+func (p *Equal[S, T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
 	var (
-		l = p.Lhs.Lisp(mapping)
-		r = p.Rhs.Lisp(mapping)
+		l = p.Lhs.Lisp(global, mapping)
+		r = p.Rhs.Lisp(global, mapping)
 	)
 	//
 	return sexp.NewList([]sexp.SExp{

@@ -163,7 +163,7 @@ func (p Constraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
 	}
 	// Iterate source expressions
 	for i := 0; i < len(p.Sources); i++ {
-		ith := p.Sources[i].Lisp(module)
+		ith := p.Sources[i].Lisp(false, module)
 		//
 		if i >= len(p.Signs) {
 			//
@@ -186,7 +186,7 @@ func (p Constraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
 		return sexp.NewList([]sexp.SExp{
 			sexp.NewSymbol(kind),
 			sexp.NewSymbol(p.Handle),
-			p.Selector.Unwrap().Lisp(module),
+			p.Selector.Unwrap().Lisp(false, module),
 			sources,
 		})
 	}
