@@ -126,6 +126,14 @@ func (p *ModuleState) height() uint {
 	return uint(len(p.view.rowWidths))
 }
 
+func (p *ModuleState) cellWidth() uint {
+	return p.view.maxRowWidth
+}
+
+func (p *ModuleState) setCellWidth(width uint) {
+	p.view.SetMaxRowWidth(width, p.trace)
+}
+
 func (p *ModuleState) setColumnOffset(colOffset uint) {
 	p.view.SetColumn(colOffset)
 }

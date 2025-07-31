@@ -61,6 +61,14 @@ func (p *ModuleView) SetRow(row uint) uint {
 	return p.row
 }
 
+// SetMaxRowWidth sets the maximum display width of any row in the trace.  Cells
+// whose contents are wider than this will be clipped accordingly.
+func (p *ModuleView) SetMaxRowWidth(width uint, trace tr.Trace[bls12_377.Element]) {
+	p.maxRowWidth = width
+	// Action change
+	p.rowWidths = p.recalculateRowWidths(trace)
+}
+
 // SetActiveColumns sets the currently active set of columns.  This updates the
 // current column title width, as as well as the maximum width for every row.
 func (p *ModuleView) SetActiveColumns(trace tr.Trace[bls12_377.Element], columns []SourceColumn) {

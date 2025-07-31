@@ -187,7 +187,7 @@ func (p *Inspector) KeyPressed(key uint16) bool {
 // number of clock cycles.
 func (p *Inspector) SetStatus(msg termio.FormattedText) {
 	p.statusBar.Clear()
-	p.statusBar.Add(msg)
+	p.statusBar.AddLeft(msg)
 	p.statusClk = 5
 }
 
@@ -196,6 +196,22 @@ func (p *Inspector) currentView() *ModuleState {
 	module := p.tabs.Selected()
 	// Action change
 	return &p.modules[module]
+}
+
+// change cell width in current module
+func (p *Inspector) changeCellWidth(direction bool) {
+	// Action change
+	width := p.CurrentModule().cellWidth()
+	//
+	if direction {
+		width++
+	} else if width > 2 {
+		width--
+	}
+	//
+	p.CurrentModule().setCellWidth(width)
+	//
+	p.SetStatus(termio.NewColouredText(fmt.Sprintf("Call width now %d", width), termio.TERM_GREEN))
 }
 
 // Actions goto row mode

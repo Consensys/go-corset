@@ -26,19 +26,24 @@ type NavigationMode struct {
 // commands.
 func (p *NavigationMode) Activate(parent *Inspector) {
 	parent.cmdBar.Clear()
-	parent.cmdBar.Add(termio.NewColouredText("[g]", termio.TERM_YELLOW))
-	parent.cmdBar.Add(termio.NewText("oto :: "))
-	parent.cmdBar.Add(termio.NewColouredText("[f]", termio.TERM_YELLOW))
-	parent.cmdBar.Add(termio.NewText("ilter :: "))
-	parent.cmdBar.Add(termio.NewColouredText("[#]", termio.TERM_YELLOW))
-	parent.cmdBar.Add(termio.NewText("clear filter :: "))
-	parent.cmdBar.Add(termio.NewColouredText("[t]", termio.TERM_YELLOW))
-	parent.cmdBar.Add(termio.NewText("oggle computed :: "))
-	parent.cmdBar.Add(termio.NewColouredText("[s]", termio.TERM_YELLOW))
-	parent.cmdBar.Add(termio.NewText("scan :: "))
+	parent.cmdBar.AddLeft(termio.NewColouredText("[g]", termio.TERM_YELLOW))
+	parent.cmdBar.AddLeft(termio.NewText("oto :: "))
+	parent.cmdBar.AddLeft(termio.NewColouredText("[f]", termio.TERM_YELLOW))
+	parent.cmdBar.AddLeft(termio.NewText("ilter :: "))
+	parent.cmdBar.AddLeft(termio.NewColouredText("[#]", termio.TERM_YELLOW))
+	parent.cmdBar.AddLeft(termio.NewText("clear filter :: "))
+	parent.cmdBar.AddLeft(termio.NewColouredText("[t]", termio.TERM_YELLOW))
+	parent.cmdBar.AddLeft(termio.NewText("oggle computed :: "))
+	parent.cmdBar.AddLeft(termio.NewColouredText("[s]", termio.TERM_YELLOW))
+	parent.cmdBar.AddLeft(termio.NewText("scan :: "))
 	//p.cmdbar.Add(termio.NewFormattedText("[p]erspectives"))
-	parent.cmdBar.Add(termio.NewColouredText("[q]", termio.TERM_RED))
-	parent.cmdBar.Add(termio.NewText("uit"))
+	parent.cmdBar.AddLeft(termio.NewColouredText("[q]", termio.TERM_RED))
+	parent.cmdBar.AddLeft(termio.NewText("uit"))
+	parent.cmdBar.AddRight(termio.NewText(" "))
+	parent.cmdBar.AddRight(termio.NewColouredText("[-]", termio.TERM_YELLOW))
+	parent.cmdBar.AddRight(termio.NewText(" / "))
+	parent.cmdBar.AddRight(termio.NewColouredText("[+]", termio.TERM_YELLOW))
+	parent.cmdBar.AddRight(termio.NewText("cell width "))
 }
 
 // Clock navitation mode, which does nothing at this time.
@@ -90,6 +95,10 @@ func (p *NavigationMode) KeyPressed(parent *Inspector, key uint16) bool {
 		parent.EnterMode(p.scanInputMode(parent))
 	case '#':
 		parent.clearColumnFilter()
+	case '+':
+		parent.changeCellWidth(true)
+	case '-':
+		parent.changeCellWidth(false)
 	}
 	//
 	return false
