@@ -72,13 +72,6 @@ func ParseSourceFiles(files []*source.File) (ast.Circuit, *source.Maps[ast.Node]
 			} else {
 				om.Declarations = append(om.Declarations, m.Declarations...)
 				//
-				if om.Condition == nil {
-					om.Condition = m.Condition
-				} else if m.Condition != nil {
-					// Sanity check
-					errors = append(errors, *srcmaps.SyntaxError(m.Condition, "conflicting module conditions"))
-				}
-				//
 				contents[m.Name] = om
 			}
 		}
@@ -127,12 +120,11 @@ func ParseSourceFile(srcfile *source.File) (ast.Circuit, *source.Map[ast.Node], 
 	// Continue parsing string until nothing remains.
 	for len(terms) != 0 {
 		var (
-			name      string
-			decls     []ast.Declaration
-			condition ast.Expr
+			name  string
+			decls []ast.Declaration
 		)
 		// Extract module name
-		if name, condition, errors = p.parseModuleStart(terms[0]); len(errors) > 0 {
+		if name, errors = p.parseModuleStart(terms[0]); len(errors) > 0 {
 			return circuit, nil, errors
 		}
 		// Parse module contents
@@ -143,7 +135,6 @@ func ParseSourceFile(srcfile *source.File) (ast.Circuit, *source.Map[ast.Node], 
 			circuit.Modules = append(circuit.Modules, ast.Module{
 				Name:         name,
 				Declarations: decls,
-				Condition:    condition,
 			})
 		}
 	}
@@ -254,32 +245,27 @@ func (p *Parser) parseModuleContents(path util.Path, terms []sexp.SExp) ([]ast.D
 
 // Parse a module declaration of the form "(module m1)" which indicates the
 // start of module m1.
-func (p *Parser) parseModuleStart(s sexp.SExp) (string, ast.Expr, []SyntaxError) {
+func (p *Parser) parseModuleStart(s sexp.SExp) (string, []SyntaxError) {
 	var (
-		condition ast.Expr
-		name      string
-		errors    []SyntaxError
+		name   string
+		errors []SyntaxError
 	)
 
 	l, ok := s.(*sexp.List)
 	// Check for error
 	if !ok {
 		err := p.translator.SyntaxError(s, "unexpected or malformed declaration")
-		return "", nil, []SyntaxError{*err}
+		return "", []SyntaxError{*err}
 	}
 	// Sanity check declaration
-	if len(l.Elements) != 2 && len(l.Elements) != 3 {
+	if len(l.Elements) != 2 {
 		err := p.translator.SyntaxError(l, "malformed module declaration")
-		return "", nil, []SyntaxError{*err}
+		return "", []SyntaxError{*err}
 	}
 	// Extract column name
 	name = l.Elements[1].AsSymbol().Value
-	//
-	if len(l.Elements) == 3 {
-		condition, errors = p.translator.Translate(l.Elements[2])
-	}
-	//
-	return name, condition, errors
+	// Done
+	return name, errors
 }
 
 func (p *Parser) parseDeclaration(module util.Path, s *sexp.List) (ast.Declaration, []SyntaxError) {

@@ -33,9 +33,6 @@ type Circuit struct {
 type Module struct {
 	Name         string
 	Declarations []Declaration
-	// Condition determines when this module is enabled.  The condition must be
-	// a constant expression, as nothing else could be typed.
-	Condition Expr
 }
 
 // Add a new declaration into this module.

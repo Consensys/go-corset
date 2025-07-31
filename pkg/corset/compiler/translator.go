@@ -81,11 +81,6 @@ func (t *translator) translateModules(circuit *ast.Circuit) {
 	t.translateModule("")
 	// Add nested modules
 	for _, m := range circuit.Modules {
-		// Translate module condition (if applicable)
-		if m.Condition != nil {
-			panic("conditional modules not supported")
-		}
-		//
 		t.translateModule(m.Name)
 	}
 }
