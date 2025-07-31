@@ -990,13 +990,15 @@ func (p *GlobalResolution) Enter(index int) ModuleResolution {
 // should not happen.  The goal of this is to ensure (in the unlikely event they
 // do happen) a graceful failure.
 func (p *GlobalResolution) giveUp() {
-	for i, cs := range p.completed {
-		for j, completed := range cs {
-			if !completed {
-				err := p.srcmap.SyntaxError(p.decls[i][j], "unable to complete resolution")
-				p.errors = append(p.errors, *err)
+	if len(p.errors) == 0 {
+		for i, cs := range p.completed {
+			for j, completed := range cs {
+				if !completed {
+					err := p.srcmap.SyntaxError(p.decls[i][j], "unable to complete resolution")
+					p.errors = append(p.errors, *err)
 
-				return
+					return
+				}
 			}
 		}
 	}
@@ -1008,18 +1010,20 @@ func (p *GlobalResolution) giveUp() {
 // declaration types.  The goal is to report some kind error message, rather
 // than just nothing.
 func (p *GlobalResolution) internalFailure() {
-	for i, cs := range p.completed {
-		for j, completed := range cs {
-			decl := p.decls[i][j]
-			//
-			if !completed {
-				for iter := decl.Dependencies(); iter.HasNext(); {
-					symbol := iter.Next()
-					// Check whether this dependency is a problem
-					if !symbol.Binding().IsFinalised() {
-						// Yes, so report error
-						err := p.srcmap.SyntaxError(symbol, "unresolvable symbol")
-						p.errors = append(p.errors, *err)
+	if len(p.errors) == 0 {
+		for i, cs := range p.completed {
+			for j, completed := range cs {
+				decl := p.decls[i][j]
+				//
+				if !completed {
+					for iter := decl.Dependencies(); iter.HasNext(); {
+						symbol := iter.Next()
+						// Check whether this dependency is a problem
+						if symbol.Binding() != nil && !symbol.Binding().IsFinalised() {
+							// Yes, so report error
+							err := p.srcmap.SyntaxError(symbol, "unresolvable symbol")
+							p.errors = append(p.errors, *err)
+						}
 					}
 				}
 			}
