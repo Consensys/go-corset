@@ -848,6 +848,10 @@ func Test_Valid_Fun_06(t *testing.T) {
 	test_util.Check(t, false, "basic/fun_06")
 }
 
+func Test_Valid_Fun_07(t *testing.T) {
+	test_util.Check(t, false, "basic/fun_07")
+}
+
 // ===================================================================
 // Pure Functions
 // ===================================================================
@@ -886,6 +890,9 @@ func Test_Valid_PureFun_08(t *testing.T) {
 
 func Test_Valid_PureFun_09(t *testing.T) {
 	test_util.Check(t, false, "basic/purefun_09")
+}
+func Test_Valid_PureFun_10(t *testing.T) {
+	test_util.Check(t, false, "basic/purefun_10")
 }
 
 // ===================================================================
