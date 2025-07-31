@@ -20,6 +20,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
+	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -79,7 +80,7 @@ func (p Constraint[E]) Bounds(module uint) util.Bounds {
 
 // Accepts checks whether a Interleave holds between the source and
 // target columns.
-func (p Constraint[E]) Accepts(tr trace.Trace, sc schema.AnySchema) (bit.Set, schema.Failure) {
+func (p Constraint[E]) Accepts(tr trace.Trace[bls12_377.Element], sc schema.AnySchema) (bit.Set, schema.Failure) {
 	var (
 		coverage bit.Set
 		srcTrMod = tr.Module(p.SourceContext)

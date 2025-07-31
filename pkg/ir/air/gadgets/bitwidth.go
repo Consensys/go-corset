@@ -26,6 +26,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/field"
+	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -249,7 +250,10 @@ func (p *typeDecomposition) AddSource(source sc.RegisterRef) {
 
 // Compute computes the values of columns defined by this assignment.
 // This requires computing the value of each byte column in the decomposition.
-func (p *typeDecomposition) Compute(tr trace.Trace, schema sc.AnySchema) ([]trace.ArrayColumn, error) {
+func (p *typeDecomposition) Compute(
+	tr trace.Trace[bls12_377.Element],
+	schema sc.AnySchema,
+) ([]trace.ArrayColumn, error) {
 	// Read inputs
 	sources := assignment.ReadRegisters(tr, p.sources...)
 	// Combine all sources
@@ -344,7 +348,10 @@ type byteDecomposition struct {
 
 // Compute computes the values of columns defined by this assignment.
 // This requires computing the value of each byte column in the decomposition.
-func (p *byteDecomposition) Compute(tr trace.Trace, schema sc.AnySchema) ([]trace.ArrayColumn, error) {
+func (p *byteDecomposition) Compute(
+	tr trace.Trace[bls12_377.Element],
+	schema sc.AnySchema,
+) ([]trace.ArrayColumn, error) {
 	var n = uint(len(p.targets))
 	// Read inputs
 	sources := assignment.ReadRegisters(tr, p.source)

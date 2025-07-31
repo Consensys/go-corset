@@ -22,6 +22,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
+	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -94,7 +95,7 @@ func (p Constraint[T]) Bounds(module uint) util.Bounds {
 // of a table.  If so, return nil otherwise return an error.
 //
 //nolint:revive
-func (p Constraint[T]) Accepts(tr trace.Trace, sc schema.AnySchema) (bit.Set, schema.Failure) {
+func (p Constraint[T]) Accepts(tr trace.Trace[bls12_377.Element], sc schema.AnySchema) (bit.Set, schema.Failure) {
 	var (
 		// Handle is used for error reporting.
 		handle = constraint.DetermineHandle(p.Handle, p.Context, tr)

@@ -22,6 +22,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -44,7 +45,7 @@ func (p *AssertionFailure) Message() string {
 }
 
 // RequiredCells identifies the cells required to evaluate the failing constraint at the failing row.
-func (p *AssertionFailure) RequiredCells(tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
+func (p *AssertionFailure) RequiredCells(tr trace.Trace[bls12_377.Element]) *set.AnySortedSet[trace.CellRef] {
 	return p.Constraint.RequiredCells(int(p.Row), p.Context)
 }
 
@@ -112,7 +113,7 @@ func (p Assertion[T]) Bounds(module uint) util.Bounds {
 // of a table. If so, return nil otherwise return an error.
 //
 //nolint:revive
-func (p Assertion[T]) Accepts(tr trace.Trace, sc schema.AnySchema) (bit.Set, schema.Failure) {
+func (p Assertion[T]) Accepts(tr trace.Trace[bls12_377.Element], sc schema.AnySchema) (bit.Set, schema.Failure) {
 	var (
 		coverage bit.Set
 		trModule trace.Module  = tr.Module(p.Context)

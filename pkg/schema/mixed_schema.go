@@ -19,6 +19,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
+	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
 )
 
 // MixedSchema represents a schema comprised of exactly two kinds of concrete
@@ -79,7 +80,7 @@ func (p MixedSchema[M1, M2]) Constraints() iter.Iterator[Constraint] {
 
 // Expand a given trace according to this schema by determining appropriate
 // values for all computed columns within the schema.
-func (p MixedSchema[M1, M2]) Expand(trace.Trace) (trace.Trace, []error) {
+func (p MixedSchema[M1, M2]) Expand(trace.Trace[bls12_377.Element]) (trace.Trace[bls12_377.Element], []error) {
 	panic("todo")
 }
 

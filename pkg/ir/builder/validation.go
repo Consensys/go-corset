@@ -22,12 +22,13 @@ import (
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/field"
+	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
 )
 
 // TraceValidation validates that values held in trace columns match the
 // expected type.  This is really a sanity check that the trace is not
 // malformed.
-func TraceValidation(parallel bool, schema sc.AnySchema, tr tr.Trace) []error {
+func TraceValidation(parallel bool, schema sc.AnySchema, tr tr.Trace[bls12_377.Element]) []error {
 	var (
 		errors []error
 		// Start timer
@@ -50,7 +51,7 @@ func TraceValidation(parallel bool, schema sc.AnySchema, tr tr.Trace) []error {
 // SequentialTraceValidation validates that values held in trace columns match
 // the expected type.  This is really a sanity check that the trace is not
 // malformed.
-func SequentialTraceValidation(schema sc.AnySchema, tr trace.Trace) []error {
+func SequentialTraceValidation(schema sc.AnySchema, tr trace.Trace[bls12_377.Element]) []error {
 	var errors []error
 	//
 	for i := uint(0); i < max(schema.Width(), tr.Width()); i++ {
@@ -77,7 +78,7 @@ func SequentialTraceValidation(schema sc.AnySchema, tr trace.Trace) []error {
 // ParallelTraceValidation validates that values held in trace columns match the
 // expected type.  This is really a sanity check that the trace is not
 // malformed.
-func ParallelTraceValidation(schema sc.AnySchema, trace tr.Trace) []error {
+func ParallelTraceValidation(schema sc.AnySchema, trace tr.Trace[bls12_377.Element]) []error {
 	var (
 		errors []error
 		// Construct a communication channel for errors.

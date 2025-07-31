@@ -20,6 +20,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/corset"
 	tr "github.com/consensys/go-corset/pkg/trace"
+	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
 	"github.com/consensys/go-corset/pkg/util/termio"
 )
 
@@ -62,7 +63,7 @@ func (p *ModuleView) SetRow(row uint) uint {
 
 // SetActiveColumns sets the currently active set of columns.  This updates the
 // current column title width, as as well as the maximum width for every row.
-func (p *ModuleView) SetActiveColumns(trace tr.Trace, columns []SourceColumn) {
+func (p *ModuleView) SetActiveColumns(trace tr.Trace[bls12_377.Element], columns []SourceColumn) {
 	p.columns = columns
 	p.height = 0
 	// Recalculate module height
@@ -94,7 +95,7 @@ func (p *ModuleView) RowWidth(row uint) uint {
 // CellAt returns a textual representation of the data at a given column and row
 // in the module's view.  Observe that the first row and column typically show
 // titles.
-func (p *ModuleView) CellAt(trace tr.Trace, col, row uint) termio.FormattedText {
+func (p *ModuleView) CellAt(trace tr.Trace[bls12_377.Element], col, row uint) termio.FormattedText {
 	if row == 0 && col == 0 {
 		return termio.NewText("")
 	}
@@ -132,7 +133,7 @@ func (p *ModuleView) CellAt(trace tr.Trace, col, row uint) termio.FormattedText 
 }
 
 // ValueAt extracts the data point at a given rol and column in the trace.
-func (p *ModuleView) ValueAt(trace tr.Trace, trCol, trRow uint) fr.Element {
+func (p *ModuleView) ValueAt(trace tr.Trace[bls12_377.Element], trCol, trRow uint) fr.Element {
 	// Determine underlying register for the given column.
 	ref := p.columns[trCol].Register
 	// Extract cell value from register
@@ -141,7 +142,7 @@ func (p *ModuleView) ValueAt(trace tr.Trace, trCol, trRow uint) fr.Element {
 
 // IsActive determines whether a given cell is active, or not.  A cell can be
 // inactive, for example, if its part of a perspective which is not active.
-func (p *ModuleView) IsActive(trace tr.Trace, trCol, trRow uint) bool {
+func (p *ModuleView) IsActive(trace tr.Trace[bls12_377.Element], trCol, trRow uint) bool {
 	// Determine enclosing module
 	module := trace.Module(p.columns[trCol].Register.Module())
 	// Extract relevant selector
@@ -195,7 +196,7 @@ func (p *ModuleView) recalculateColumnTitleWidth() uint {
 	return uint(maxWidth)
 }
 
-func (p *ModuleView) recalculateRowWidths(module tr.Trace) []uint {
+func (p *ModuleView) recalculateRowWidths(module tr.Trace[bls12_377.Element]) []uint {
 	widths := make([]uint, p.height)
 	//
 	for row := uint(0); row < uint(len(widths)); row++ {

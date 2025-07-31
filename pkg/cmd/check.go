@@ -33,6 +33,7 @@ import (
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
 	"github.com/consensys/go-corset/pkg/util/word"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -207,7 +208,7 @@ func checkTrace(ir string, traces [][]tr.RawColumn[word.BigEndian], schema sc.An
 }
 
 // Report constraint failures, whilst providing contextual information (when requested).
-func reportFailures(ir string, failures []sc.Failure, trace tr.Trace, cfg checkConfig) {
+func reportFailures(ir string, failures []sc.Failure, trace tr.Trace[bls12_377.Element], cfg checkConfig) {
 	errs := make([]error, len(failures))
 	for i, f := range failures {
 		errs[i] = errors.New(f.Message())
@@ -223,7 +224,7 @@ func reportFailures(ir string, failures []sc.Failure, trace tr.Trace, cfg checkC
 }
 
 // Print a human-readable report detailing the given failure
-func reportFailure(failure sc.Failure, trace tr.Trace, cfg checkConfig) {
+func reportFailure(failure sc.Failure, trace tr.Trace[bls12_377.Element], cfg checkConfig) {
 	if f, ok := failure.(*vanishing.Failure); ok {
 		cells := f.RequiredCells(trace)
 		fmt.Printf("failing constraint %s:\n", f.Handle)
@@ -248,7 +249,7 @@ func reportFailure(failure sc.Failure, trace tr.Trace, cfg checkConfig) {
 }
 
 // Print a human-readable report detailing the given failure with a vanishing constraint.
-func reportRelevantCells(cells *set.AnySortedSet[tr.CellRef], trace tr.Trace, cfg checkConfig) {
+func reportRelevantCells(cells *set.AnySortedSet[tr.CellRef], trace tr.Trace[bls12_377.Element], cfg checkConfig) {
 	// Construct trace window
 	window := check.NewTraceWindow(cells, trace, cfg.reportPadding, cfg.corsetSourceMap)
 	// Construct & configure printer

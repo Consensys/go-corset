@@ -22,7 +22,7 @@ import (
 
 // Trace describes a set of named columns.  Columns are not required to have the
 // same height and can be either "data" columns or "computed" columns.
-type Trace interface {
+type Trace[F field.Element[F]] interface {
 	// Access a given column directly via a reference.
 	Column(ColumnRef) Column
 	// Access a given module in this trace.

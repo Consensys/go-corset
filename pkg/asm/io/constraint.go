@@ -24,6 +24,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -44,7 +45,7 @@ func (p *ConstraintFailure) Message() string {
 }
 
 // RequiredCells identifies the cells required to evaluate the failing constraint at the failing row.
-func (p *ConstraintFailure) RequiredCells(tr trace.Trace) *set.AnySortedSet[trace.CellRef] {
+func (p *ConstraintFailure) RequiredCells(tr trace.Trace[bls12_377.Element]) *set.AnySortedSet[trace.CellRef] {
 	return set.NewAnySortedSet[trace.CellRef]()
 }
 
@@ -57,7 +58,7 @@ func (p *ConstraintFailure) String() string {
 type Constraint[T Instruction[T]] Function[T]
 
 // Accepts implementation for schema.Constraint interface.
-func (p Constraint[T]) Accepts(trace tr.Trace, _ sc.AnySchema) (bit.Set, sc.Failure) {
+func (p Constraint[T]) Accepts(trace tr.Trace[bls12_377.Element], _ sc.AnySchema) (bit.Set, sc.Failure) {
 	// Extract relevant part of the trace
 	var (
 		coverage bit.Set

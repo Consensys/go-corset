@@ -21,6 +21,7 @@ import (
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/field"
+	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -65,7 +66,7 @@ func (p *SortedPermutation) Bounds(_ sc.ModuleId) util.Bounds {
 // Compute computes the values of columns defined by this assignment. This
 // requires copying the data in the source columns, and sorting that data
 // according to the permutation criteria.
-func (p *SortedPermutation) Compute(trace tr.Trace, schema sc.AnySchema) ([]tr.ArrayColumn, error) {
+func (p *SortedPermutation) Compute(trace tr.Trace[bls12_377.Element], schema sc.AnySchema) ([]tr.ArrayColumn, error) {
 	// Read inputs
 	sources := ReadRegisters(trace, p.Sources...)
 	// Apply native function

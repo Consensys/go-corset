@@ -17,10 +17,11 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/field"
+	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
 )
 
 // ReadRegisters a given set of registers from a trace.
-func ReadRegisters(trace tr.Trace, regs ...sc.RegisterRef) []field.FrArray {
+func ReadRegisters(trace tr.Trace[bls12_377.Element], regs ...sc.RegisterRef) []field.FrArray {
 	var (
 		targets = make([]field.FrArray, len(regs))
 	)

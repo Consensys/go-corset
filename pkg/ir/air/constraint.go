@@ -25,6 +25,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
+	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -105,7 +106,7 @@ func (p Air[C]) Air() {
 // Accepts determines whether a given constraint accepts a given trace or
 // not.  If not, a failure is produced.  Otherwise, a bitset indicating
 // branch coverage is returned.
-func (p Air[C]) Accepts(trace trace.Trace, schema schema.AnySchema) (bit.Set, schema.Failure) {
+func (p Air[C]) Accepts(trace trace.Trace[bls12_377.Element], schema schema.AnySchema) (bit.Set, schema.Failure) {
 	return p.constraint.Accepts(trace, schema)
 }
 

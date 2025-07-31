@@ -20,6 +20,7 @@ import (
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/field"
+	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -76,7 +77,7 @@ func (p *LexicographicSort) Bounds(_ sc.ModuleId) util.Bounds {
 // Compute computes the values of columns defined as needed to support the
 // LexicographicSortingGadget. That includes the delta column, and the bit
 // selectors.
-func (p *LexicographicSort) Compute(trace tr.Trace, schema sc.AnySchema) ([]tr.ArrayColumn, error) {
+func (p *LexicographicSort) Compute(trace tr.Trace[bls12_377.Element], schema sc.AnySchema) ([]tr.ArrayColumn, error) {
 	var (
 		// Exact number of (signed) columns involved in the sort
 		nbits = len(p.signs)

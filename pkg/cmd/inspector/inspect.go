@@ -20,6 +20,7 @@ import (
 	"github.com/consensys/go-corset/pkg/corset"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
+	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
 	"github.com/consensys/go-corset/pkg/util/termio"
 	"github.com/consensys/go-corset/pkg/util/termio/widget"
 )
@@ -50,7 +51,7 @@ type Inspector struct {
 	height uint
 	//
 	term  *termio.Terminal
-	trace tr.Trace
+	trace tr.Trace[bls12_377.Element]
 	// Module states
 	modules []ModuleState
 	// Widgets
@@ -81,7 +82,12 @@ type Mode interface {
 }
 
 // NewInspector constructs a new inspector on given terminal.
-func NewInspector(term *termio.Terminal, schema sc.AnySchema, trace tr.Trace, srcmap *corset.SourceMap) *Inspector {
+func NewInspector(
+	term *termio.Terminal,
+	schema sc.AnySchema,
+	trace tr.Trace[bls12_377.Element],
+	srcmap *corset.SourceMap,
+) *Inspector {
 	states := make([]ModuleState, 0)
 	//
 	for _, module := range srcmap.Flattern(concreteModules) {

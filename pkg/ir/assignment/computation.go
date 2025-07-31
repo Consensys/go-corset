@@ -26,6 +26,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
 	"github.com/consensys/go-corset/pkg/util/field"
+	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -64,7 +65,7 @@ func (p *Computation) Bounds(_ sc.ModuleId) util.Bounds {
 // Compute computes the values of columns defined by this assignment. This
 // requires copying the data in the source columns, and sorting that data
 // according to the permutation criteria.
-func (p *Computation) Compute(trace tr.Trace, schema sc.AnySchema) ([]tr.ArrayColumn, error) {
+func (p *Computation) Compute(trace tr.Trace[bls12_377.Element], schema sc.AnySchema) ([]tr.ArrayColumn, error) {
 	var (
 		fn func([]field.FrArray) []field.FrArray
 		ok bool
@@ -152,7 +153,7 @@ func (p *Computation) Lisp(schema sc.AnySchema) sexp.SExp {
 type NativeComputation func([]field.FrArray) []field.FrArray
 
 func computeNative(sources []sc.RegisterRef, targets []sc.RegisterRef, fn NativeComputation,
-	trace tr.Trace, schema sc.AnySchema) []tr.ArrayColumn {
+	trace tr.Trace[bls12_377.Element], schema sc.AnySchema) []tr.ArrayColumn {
 	// Read inputs
 	inputs := ReadRegisters(trace, sources...)
 	// Read inputs
