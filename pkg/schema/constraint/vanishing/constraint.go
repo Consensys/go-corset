@@ -212,7 +212,7 @@ func (p Constraint[T]) Lisp(schema schema.AnySchema) sexp.SExp {
 		sexp.NewSymbol("vanish"),
 		sexp.NewList([]sexp.SExp{
 			sexp.NewSymbol(name)}),
-		p.Constraint.Lisp(module),
+		p.Constraint.Lisp(false, module),
 	})
 }
 

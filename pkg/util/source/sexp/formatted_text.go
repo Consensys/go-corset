@@ -49,6 +49,17 @@ func (p *FormattedText) NewLine() {
 	p.lines = append(p.lines, builder.String())
 }
 
+// LineWidth returns the width of the current line.
+func (p *FormattedText) LineWidth() uint {
+	var n = len(p.lines)
+	//
+	if n == 0 {
+		return 0
+	}
+	// Width of last line
+	return uint(len(p.lines[n-1]))
+}
+
 // MaxWidth returns the maximum width of any line in this formatted text block.
 func (p *FormattedText) MaxWidth() uint {
 	width := 0

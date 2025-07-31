@@ -287,7 +287,7 @@ func (p *AirLowering) lowerSortedConstraintToAir(c SortedConstraint, airModule *
 		)
 		// Sanity check
 		if signed {
-			panic(fmt.Sprintf("signed expansion encountered (%s)", ith.Lisp(airModule).String(true)))
+			panic(fmt.Sprintf("signed expansion encountered (%s)", ith.Lisp(false, airModule).String(true)))
 		}
 		// Lower source expression
 		source := p.lowerTermTo(c.Sources[i], airModule)
@@ -348,7 +348,7 @@ func (p *AirLowering) expandTerm(context schema.ModuleId, term Term) *air.Column
 	sourceBitwidth, signed := sourceRange.BitWidth()
 	//
 	if signed {
-		panic(fmt.Sprintf("signed expansion encountered (%s)", term.Lisp(airModule).String(true)))
+		panic(fmt.Sprintf("signed expansion encountered (%s)", term.Lisp(false, airModule).String(true)))
 	}
 	// Lower source expressions
 	source := p.lowerAndSimplifyTermTo(term, airModule)

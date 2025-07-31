@@ -80,11 +80,13 @@ func (p *RegisterAccess[T]) IsDefined() bool {
 }
 
 // Lisp implementation for Lispifiable interface.
-func (p *RegisterAccess[T]) Lisp(mapping schema.RegisterMap) sexp.SExp {
+func (p *RegisterAccess[T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
 	var name string
 	// Generate name, whilst allowing for schema to be nil.
-	if mapping != nil {
+	if mapping != nil && global {
 		name = mapping.Register(p.Register).QualifiedName(mapping)
+	} else if mapping != nil {
+		name = mapping.Register(p.Register).Name
 	} else {
 		name = fmt.Sprintf("#%d", p.Register)
 	}

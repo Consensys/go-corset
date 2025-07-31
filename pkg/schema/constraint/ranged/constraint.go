@@ -138,7 +138,7 @@ func (p Constraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
 	//
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("range"),
-		p.Expr.Lisp(module),
+		p.Expr.Lisp(false, module),
 		sexp.NewSymbol(fmt.Sprintf("u%d", p.Bitwidth)),
 	})
 }

@@ -86,7 +86,7 @@ func updateGeometry[E ir.Evaluable, T schema.RegisterMap](geometry []uint, sourc
 		bitwidth, signed := ithRange.BitWidth()
 		// Sanity check
 		if signed {
-			panic(fmt.Sprintf("signed lookup encountered (%s)", ith.Lisp(regmap).String(true)))
+			panic(fmt.Sprintf("signed lookup encountered (%s)", ith.Lisp(true, regmap).String(true)))
 		}
 		//
 		geometry[i] = max(geometry[i], bitwidth)

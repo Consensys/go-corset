@@ -64,7 +64,7 @@ func (p *LabelledConst[T]) IsDefined() bool {
 }
 
 // Lisp implementation for Lispifiable interface.
-func (p *LabelledConst[T]) Lisp(_ schema.RegisterMap) sexp.SExp {
+func (p *LabelledConst[T]) Lisp(_ bool, _ schema.RegisterMap) sexp.SExp {
 	return sexp.NewSymbol(p.Value.String())
 }
 

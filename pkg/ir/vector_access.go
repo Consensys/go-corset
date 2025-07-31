@@ -82,8 +82,8 @@ func (p *VectorAccess[T]) IsDefined() bool {
 }
 
 // Lisp implementation for Lispifiable interface.
-func (p *VectorAccess[T]) Lisp(mapping schema.RegisterMap) sexp.SExp {
-	return lispOfTerms(mapping, "::", p.Vars)
+func (p *VectorAccess[T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
+	return lispOfTerms(global, mapping, "::", p.Vars)
 }
 
 // RequiredRegisters implementation for Contextual interface.

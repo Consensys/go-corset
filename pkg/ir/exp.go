@@ -66,8 +66,8 @@ func (p *Exp[T]) IsDefined() bool {
 }
 
 // Lisp implementation for Lispifiable interface.
-func (p *Exp[T]) Lisp(mapping schema.RegisterMap) sexp.SExp {
-	arg := p.Arg.Lisp(mapping)
+func (p *Exp[T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
+	arg := p.Arg.Lisp(global, mapping)
 	pow := sexp.NewSymbol(fmt.Sprintf("%d", p.Pow))
 
 	return sexp.NewList([]sexp.SExp{sexp.NewSymbol("^"), arg, pow})

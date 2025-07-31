@@ -53,7 +53,7 @@ type Evaluable interface {
 	EvalAt(int, trace.Module, schema.Module) (fr.Element, error)
 	// Lisp converts this schema element into a simple S-Expression, for example
 	// so it can be printed.
-	Lisp(schema.RegisterMap) sexp.SExp
+	Lisp(bool, schema.RegisterMap) sexp.SExp
 	// ValueRange returns the interval of values that this term can evaluate to.
 	// For terms accessing registers, this is determined by the declared width of
 	// the register.
@@ -113,7 +113,7 @@ type Testable interface {
 	TestAt(int, trace.Module, schema.Module) (bool, uint, error)
 	// Lisp converts this schema element into a simple S-Expression, for example
 	// so it can be printed.
-	Lisp(schema.RegisterMap) sexp.SExp
+	Lisp(bool, schema.RegisterMap) sexp.SExp
 }
 
 // LogicalTerm represents a term which can be tested for truth or falsehood.

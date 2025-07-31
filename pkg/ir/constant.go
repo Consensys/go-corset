@@ -83,7 +83,7 @@ func (p *Constant[T]) IsDefined() bool {
 }
 
 // Lisp implementation for Lispifiable interface.
-func (p *Constant[T]) Lisp(mapping schema.RegisterMap) sexp.SExp {
+func (p *Constant[T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
 	var val big.Int
 	//
 	p.Value.BigInt(&val)

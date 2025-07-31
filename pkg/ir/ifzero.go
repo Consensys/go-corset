@@ -87,15 +87,15 @@ func (p *IfZero[S, T]) IsDefined() bool {
 }
 
 // Lisp implementation for Lispifiable interface.
-func (p *IfZero[S, T]) Lisp(mapping schema.RegisterMap) sexp.SExp {
+func (p *IfZero[S, T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
 	// Translate Condition
-	condition := p.Condition.Lisp(mapping)
+	condition := p.Condition.Lisp(global, mapping)
 	// Dispatch on type
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("if"),
 		condition,
-		p.TrueBranch.Lisp(mapping),
-		p.FalseBranch.Lisp(mapping),
+		p.TrueBranch.Lisp(global, mapping),
+		p.FalseBranch.Lisp(global, mapping),
 	})
 }
 

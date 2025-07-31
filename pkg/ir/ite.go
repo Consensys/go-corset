@@ -107,30 +107,30 @@ func (p *Ite[T]) TestAt(k int, tr trace.Module, sc schema.Module) (bool, uint, e
 }
 
 // Lisp implementation for Lispifiable interface.
-func (p *Ite[T]) Lisp(mapping schema.RegisterMap) sexp.SExp {
+func (p *Ite[T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
 	// Translate Condition
-	condition := p.Condition.Lisp(mapping)
+	condition := p.Condition.Lisp(global, mapping)
 	// Dispatch on type
 	if p.FalseBranch == nil {
 		return sexp.NewList([]sexp.SExp{
 			sexp.NewSymbol("if"),
 			condition,
-			p.TrueBranch.Lisp(mapping),
+			p.TrueBranch.Lisp(global, mapping),
 		})
 	} else if p.TrueBranch == nil {
 		return sexp.NewList([]sexp.SExp{
 			sexp.NewSymbol("if"),
 			condition,
 			sexp.NewSymbol("_"),
-			p.FalseBranch.Lisp(mapping),
+			p.FalseBranch.Lisp(global, mapping),
 		})
 	}
 
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("if"),
 		condition,
-		p.TrueBranch.Lisp(mapping),
-		p.FalseBranch.Lisp(mapping),
+		p.TrueBranch.Lisp(global, mapping),
+		p.FalseBranch.Lisp(global, mapping),
 	})
 }
 

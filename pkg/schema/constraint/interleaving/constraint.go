@@ -141,10 +141,10 @@ func (p Constraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
 	)
 	// Iterate source expressions
 	for i := range p.Sources {
-		sources.Append(p.Sources[i].Lisp(sourceModule))
+		sources.Append(p.Sources[i].Lisp(false, sourceModule))
 	}
 	// Iterate target expression
-	target := p.Target.Lisp(targetModule)
+	target := p.Target.Lisp(false, targetModule)
 	// Done
 	if p.Handle == "" {
 		return sexp.NewList([]sexp.SExp{

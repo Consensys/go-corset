@@ -80,8 +80,8 @@ func (p *Add[T]) IsDefined() bool {
 }
 
 // Lisp implementation for Lispifiable interface.
-func (p *Add[T]) Lisp(mapping schema.RegisterMap) sexp.SExp {
-	return lispOfTerms(mapping, "+", p.Args)
+func (p *Add[T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
+	return lispOfTerms(global, mapping, "+", p.Args)
 }
 
 // RequiredRegisters implementation for Contextual interface.
