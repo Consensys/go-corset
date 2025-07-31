@@ -337,6 +337,7 @@ func initInspectorWidgets(term *termio.Terminal, states []ModuleState) (tabs *wi
 
 func initInspectorTabs(states []ModuleState) *widget.Tabs {
 	var titles []string
+
 	for _, state := range states {
 		titles = append(titles, state.name)
 	}

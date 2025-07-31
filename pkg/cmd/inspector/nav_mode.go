@@ -53,9 +53,9 @@ func (p *NavigationMode) KeyPressed(parent *Inspector, key uint16) bool {
 	//
 	switch key {
 	case termio.TAB:
-		parent.tabs.Select(module + 1)
+		parent.tabs.Select(int(module) + 1)
 	case termio.BACKTAB:
-		parent.tabs.Select(module - 1)
+		parent.tabs.Select(int(module) - 1)
 	case termio.CURSOR_UP:
 		col := parent.modules[module].view.col
 		parent.modules[module].setColumnOffset(col - 1)

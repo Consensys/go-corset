@@ -101,6 +101,7 @@ func newModuleState(module *corset.SourceModule, trace tr.Trace[bls12_377.Elemen
 		submodules = module.Submodules
 	}
 	//
+	state.name = module.Name
 	state.trace = trace
 	// Include all columns initially
 	state.columnFilter.Computed = true
