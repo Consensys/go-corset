@@ -78,19 +78,14 @@ func (p *StateTranslator[T, E, M]) translateInOut(cc uint, codes []micro.Code) E
 }
 
 func (p *StateTranslator[T, E, M]) translateJmp(cc uint, codes []micro.Code) E {
-	var (
-		code   = codes[cc].(*micro.Jmp)
-		pc_ip1 = p.WritePc()
-		dst    = Number[T, E](code.Target)
-	)
-	// PC[i+1] = target
-	eqn := pc_ip1.Equals(dst)
+	var code = codes[cc].(*micro.Jmp)
 	//
-	return p.WithLocalConstancies(eqn)
+	return p.Goto(code.Target)
 }
 
 func (p *StateTranslator[T, E, M]) translateRet() E {
 	return p.Terminate()
+
 }
 
 func (p *StateTranslator[T, E, M]) translateSkip(cc uint, codes []micro.Code) E {

@@ -65,6 +65,11 @@ func (p MirModule) NewColumn(kind schema.RegisterType, name string, bitwidth uin
 	return rid
 }
 
+// NewUnusedColumn constructs an empty (i.e. unused) column identifier.
+func (p MirModule) NewUnusedColumn() schema.RegisterId {
+	return schema.NewUnusedRegisterId()
+}
+
 // NewConstraint constructs a new vanishing constraint with the given name
 // within this module.
 func (p MirModule) NewConstraint(name string, domain util.Option[int], constraint MirExpr) {
@@ -117,6 +122,10 @@ func (p MirExpr) And(exprs ...MirExpr) MirExpr {
 
 // Equals constructs an equality between two expressions.
 func (p MirExpr) Equals(rhs MirExpr) MirExpr {
+	if p.expr == nil || rhs.expr == nil {
+		panic("invalid arguments")
+	}
+	//
 	logical := ir.Equals[mir.LogicalTerm](p.expr, rhs.expr)
 	return MirExpr{nil, logical}
 }
@@ -177,6 +186,16 @@ func (p MirExpr) Or(exprs ...MirExpr) MirExpr {
 // Variable constructs a variable with a given shift.
 func (p MirExpr) Variable(index schema.RegisterId, shift int) MirExpr {
 	return MirExpr{ir.NewRegisterAccess[mir.Term](index, shift), nil}
+}
+
+func (p MirExpr) String(func(schema.RegisterId) string) string {
+	if p.expr != nil {
+		return p.expr.Lisp(false, nil).String(false)
+	} else if p.logical != nil {
+		return p.logical.Lisp(false, nil).String(false)
+	} else {
+		return "nil"
+	}
 }
 
 func unwrapSplitMirExpr(head MirExpr, tail ...MirExpr) []mir.Term {

@@ -17,6 +17,9 @@ import (
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
+	"github.com/consensys/go-corset/pkg/schema"
+	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 )
 
@@ -152,6 +155,14 @@ func (p *Compiler[T, E, M]) initModule(busId uint, fn MicroFunction) {
 	bus.columns = make([]T, len(fn.Registers()))
 	//
 	for i, reg := range fn.Registers() {
+		// if i == 0 {
+		// 	// Program Counter is always at index 0.  For a one-line function,
+		// 	// the program counter is not used.
+		// 	bus.columns[i] = module.NewUnusedColumn()
+		// } else {
+		// 	bus.columns[i] = module.NewColumn(reg.Kind, reg.Name, reg.Width)
+		// }
+		//
 		bus.columns[i] = module.NewColumn(reg.Kind, reg.Name, reg.Width)
 	}
 	//
@@ -170,16 +181,20 @@ func (p *Compiler[T, E, M]) initFunctionFraming(busId uint, fn MicroFunction) Fr
 }
 
 func (p *Compiler[T, E, M]) initMultLineFunctionFraming(busId uint, fn MicroFunction) Framing[T, E] {
-	// // Allocate book keeping columns
-	// stamp = module.NewColumn(schema.COMPUTED_REGISTER, STAMP_NAME, p.maxInstances)
-	// // FIXME: the following reliance on the length of registers is something of
-	// // a kludge.
-	// stampRef := sc.NewRegisterRef(busId, sc.NewRegisterId(uint(len(fn.Registers()))))
-	// module.NewAssignment(&StampAssignment{stampRef})
-	// // PC is always first register, therefore no need to create a new column for
-	// // it.
-	// pc = Bus.columns[0]
-	// //
+	var (
+		Bus    = p.buses[busId]
+		module = p.modules[busId]
+		// allocate return line
+		ret = module.NewColumn(schema.COMPUTED_REGISTER, STAMP_NAME, 1)
+		// PC is always first register, therefore no need to create a new column for
+		// it.
+		pc = Bus.columns[0]
+	)
+	// FIXME: the following reliance on the length of registers is something of
+	// a kludge.
+	stampRef := sc.NewRegisterRef(busId, sc.NewRegisterId(uint(len(fn.Registers()))))
+	module.NewAssignment(&StampAssignment{stampRef})
+	//
 	// stamp_i := Variable[T, E](stamp, 0)
 	// stamp_im1 := Variable[T, E](stamp, -1)
 	// pc_i := Variable[T, E](pc, 0)
@@ -196,24 +211,37 @@ func (p *Compiler[T, E, M]) initMultLineFunctionFraming(busId uint, fn MicroFunc
 	// // stamp[i-1] != stamp[i] ==> pc[i] == 0
 	// module.NewConstraint("reset", util.None[int](),
 	// 	If(stamp_im1.NotEquals(stamp_i), pc_i.Equals(zero)))
-	// // Add constancies for all input registers (if applicable)
-	// if !fn.IsAtomic() {
-	// 	// Constancies only required when there is more than one instruction
-	// 	// since otherwise pc==0 always.
-	// 	for i, r := range fn.Registers() {
-	// 		if r.IsInput() {
-	// 			name := fmt.Sprintf("const_%s", r.Name)
-	// 			reg_i := Variable[T, E](Bus.columns[i], 0)
-	// 			reg_im1 := Variable[T, E](Bus.columns[i], -1)
-	// 			//
-	// 			module.NewConstraint(name, util.None[int](),
-	// 				If(pc_i.NotEquals(zero), reg_im1.Equals(reg_i)))
-	// 		}
-	// 	}
-	// }
-	// //
-	// return stamp, pc
-	panic("todo")
+
+	// Add constancies for all input registers (if applicable)
+	p.addInputConstancies(busId, fn)
+	//
+	return NewMultiLineFraming[T, E](pc, ret)
+}
+
+// Add input constancies for the given function.  That is, constraints which
+// ensure the inputs don't change within a given frame.  Observe that this only
+// applies for multi-line functions, as one-line functions don't have internal
+// states.
+func (p *Compiler[T, E, M]) addInputConstancies(busId uint, fn MicroFunction) {
+	var (
+		Bus    = p.buses[busId]
+		module = p.modules[busId]
+		pc     = Bus.columns[0]
+		pc_i   = Variable[T, E](pc, 0)
+		zero   = Number[T, E](0)
+	)
+	// Constancies only required when there is more than one instruction
+	// since otherwise pc==0 always.
+	for i, r := range fn.Registers() {
+		if r.IsInput() {
+			name := fmt.Sprintf("const_%s", r.Name)
+			reg_i := Variable[T, E](Bus.columns[i], 0)
+			reg_im1 := Variable[T, E](Bus.columns[i], -1)
+			//
+			module.NewConstraint(name, util.None[int](),
+				If(pc_i.NotEquals(zero), reg_im1.Equals(reg_i)))
+		}
+	}
 }
 
 // Initialise the buses linked in a given function.

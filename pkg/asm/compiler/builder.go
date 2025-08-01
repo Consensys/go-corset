@@ -32,6 +32,9 @@ type Module[T any, E Expr[T, E], M any] interface {
 	// this module.
 	NewColumn(kind schema.RegisterType, name string, bitwidth uint) T
 
+	// NewUnusedColumn constructs an empty (i.e. unused) column identifier.
+	NewUnusedColumn() T
+
 	// NewConstraint constructs a new vanishing constraint with the given name
 	// within this module.  An optional "domain" can be given which determines
 	// whether or not this is a "local" or "global" constraint.  Specifically, a
@@ -89,6 +92,9 @@ type Expr[T, E any] interface {
 
 	// Variable constructs a variable with a given shift.
 	Variable(name T, shift int) E
+
+	// String returns a suitable string representation
+	String(func(T) string) string
 }
 
 // BigNumber constructs a constant expression from a big integer.
