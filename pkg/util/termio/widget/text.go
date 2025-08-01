@@ -17,12 +17,13 @@ import "github.com/consensys/go-corset/pkg/util/termio"
 // TextLine displays a line of formatted text.
 type TextLine struct {
 	// Contents of this line
-	contents []termio.FormattedText
+	leftContents  []termio.FormattedText
+	rightContents []termio.FormattedText
 }
 
 // NewText constructs a new text widget which is initially empty.
 func NewText() *TextLine {
-	return &TextLine{nil}
+	return &TextLine{nil, nil}
 }
 
 // GetHeight of this widget, where MaxUint indicates widget expands to take as
@@ -33,20 +34,36 @@ func (p *TextLine) GetHeight() uint {
 
 // Clear contents of this text line.
 func (p *TextLine) Clear() {
-	p.contents = nil
+	p.leftContents = nil
+	p.rightContents = nil
 }
 
-// Add a new chunk of formatted text.
-func (p *TextLine) Add(txt termio.FormattedText) {
-	p.contents = append(p.contents, txt)
+// AddLeft adds a new left-aligned chunk of formatted text.
+func (p *TextLine) AddLeft(txt termio.FormattedText) {
+	p.leftContents = append(p.leftContents, txt)
+}
+
+// AddRight adds a new right-aligned chunk of formatted text.
+func (p *TextLine) AddRight(txt termio.FormattedText) {
+	p.rightContents = append(p.rightContents, txt)
 }
 
 // Render the tabs widget to a given canvas.
 func (p *TextLine) Render(canvas termio.Canvas) {
-	xpos := uint(0)
-
-	for _, txt := range p.contents {
+	var (
+		width, _ = canvas.GetDimensions()
+		xpos     = uint(0)
+	)
+	// Render left-aligned contents
+	for _, txt := range p.leftContents {
 		canvas.Write(xpos, 0, txt)
 		xpos += txt.Len() + 0
+	}
+	//
+	xpos = width
+	// Render right-aligned contents
+	for _, txt := range p.rightContents {
+		xpos -= txt.Len() + 0
+		canvas.Write(xpos, 0, txt)
 	}
 }

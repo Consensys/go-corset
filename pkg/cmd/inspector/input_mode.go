@@ -67,7 +67,7 @@ func newInputMode[T any](prompt termio.FormattedText, index uint, history []stri
 // commands.
 func (p *InputMode[T]) Activate(parent *Inspector) {
 	parent.cmdBar.Clear()
-	parent.cmdBar.Add(p.prompt)
+	parent.cmdBar.AddLeft(p.prompt)
 	// Add current filter
 	colour := termio.TERM_GREEN
 	invColour := termio.TERM_BLACK
@@ -85,13 +85,13 @@ func (p *InputMode[T]) Activate(parent *Inspector) {
 	// handle cursor
 	if p.cursor < uint(len(p.input)) {
 		// cursor behind text
-		parent.cmdBar.Add(termio.NewColouredText(input[:p.cursor], colour))
-		parent.cmdBar.Add(termio.NewFormattedText(input[p.cursor:p.cursor+1], escape))
-		parent.cmdBar.Add(termio.NewColouredText(input[p.cursor+1:], colour))
+		parent.cmdBar.AddLeft(termio.NewColouredText(input[:p.cursor], colour))
+		parent.cmdBar.AddLeft(termio.NewFormattedText(input[p.cursor:p.cursor+1], escape))
+		parent.cmdBar.AddLeft(termio.NewColouredText(input[p.cursor+1:], colour))
 	} else {
 		// cursor leading text
-		parent.cmdBar.Add(termio.NewColouredText(input, colour))
-		parent.cmdBar.Add(termio.NewFormattedText(" ", escape))
+		parent.cmdBar.AddLeft(termio.NewColouredText(input, colour))
+		parent.cmdBar.AddLeft(termio.NewFormattedText(" ", escape))
 	}
 }
 
