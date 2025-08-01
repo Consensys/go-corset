@@ -147,6 +147,16 @@ func (p MirExpr) NotEquals(rhs MirExpr) MirExpr {
 	return MirExpr{nil, logical}
 }
 
+// Bool constructs a truth or falsehood
+func (p MirExpr) Bool(val bool) MirExpr {
+	if val {
+		// empty conjunction is true
+		return MirExpr{nil, ir.Conjunction[mir.LogicalTerm]()}
+	}
+	// empty disjunction is false
+	return MirExpr{nil, ir.Disjunction[mir.LogicalTerm]()}
+}
+
 // BigInt constructs a constant expression from a big integer.
 func (p MirExpr) BigInt(number big.Int) MirExpr {
 	// Not power of 2

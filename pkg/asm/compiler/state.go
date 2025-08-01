@@ -27,10 +27,8 @@ import (
 type Translator[T any, E Expr[T, E], M Module[T, E, M]] struct {
 	// Enclosing module to which constraints are added.
 	Module M
-	// Column ID for STAMP HIR column.
-	Stamp T
-	// Column ID for PC HIR column.
-	ProgramCounter T
+	// Framining identifies any required control lines.
+	Framing Framing[T, E]
 	// Registers of the given machine
 	Registers []io.Register
 	// Mapping from registers to column IDs in the underlying constraint system.
@@ -42,14 +40,12 @@ func (p *Translator[T, E, M]) Translate(pc uint, insn micro.Instruction) {
 	var (
 		tr         = NewStateTranslator(*p, pc, insn)
 		constraint = tr.translateCode(0, insn.Codes)
-		pcGuard    = tr.ReadPc().Equals(Number[T, E](pc))
-		stampGuard = tr.Stamp(false).NotEquals(Number[T, E](0))
 		name       = fmt.Sprintf("pc%d", pc)
 	)
 	// Apply global constancies
 	constraint = tr.WithGlobalConstancies(constraint)
-	// Apply state guards
-	constraint = If(stampGuard.And(pcGuard), constraint)
+	// Apply framing guards (if applicable)
+	constraint = If(p.Framing.Guard(pc), constraint)
 	//
 	p.Module.NewConstraint(name, util.None[int](), constraint)
 }
@@ -94,19 +90,9 @@ func NewStateTranslator[T any, E Expr[T, E], M Module[T, E, M]](mapping Translat
 	}
 }
 
-// Stamp returns a column access for either the stamp on this row, or the stamp
-// on the next row.
-func (p *StateTranslator[T, E, M]) Stamp(next bool) E {
-	if next {
-		return Variable[T, E](p.mapping.Stamp, 1)
-	}
-	//
-	return Variable[T, E](p.mapping.Stamp, 0)
-}
-
-// ReadPc returns a column access for current the pc value.
-func (p *StateTranslator[T, E, M]) ReadPc() E {
-	return Variable[T, E](p.mapping.ProgramCounter, 0)
+// Terminate current frame, and setup for next frame.
+func (p *StateTranslator[T, E, M]) Terminate() E {
+	return p.WithLocalConstancies(p.mapping.Framing.Terminate())
 }
 
 // WritePc returns a column access for suitable for setting the next PC value.
@@ -115,7 +101,7 @@ func (p *StateTranslator[T, E, M]) ReadPc() E {
 func (p *StateTranslator[T, E, M]) WritePc() E {
 	// Mark register as having been written.
 	p.mutated.Insert(io.PC_INDEX)
-	return Variable[T, E](p.mapping.ProgramCounter, 1)
+	return Variable[T, E](p.mapping.Framing.ProgramCounter(), 1)
 }
 
 // Clone creates a fresh copy of this translator.
@@ -202,9 +188,7 @@ func (p *StateTranslator[T, E, M]) ReadRegisters(sources []io.RegisterId) []E {
 // WithLocalConstancies adds constancy constraints for all registers not
 // mutated by a given branch through an instruction.
 func (p *StateTranslator[T, E, M]) WithLocalConstancies(condition E) E {
-	// FIXME: following check is temporary hack
 	if p.pc > 0 {
-		//
 		for i, r := range p.mapping.Registers {
 			rid := p.mapping.Columns[i]
 			//
