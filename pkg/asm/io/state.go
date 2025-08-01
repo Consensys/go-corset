@@ -47,7 +47,7 @@ type State struct {
 // EmptyState constructs an initially empty state at the given PC value.  One
 // can then set register values as needed via Store.
 func EmptyState(pc uint, registers []schema.Register, io Map) State {
-	var state = make([]big.Int, len(registers)-1)
+	var state = make([]big.Int, len(registers))
 	// Construct state
 	return State{pc, state, registers, io}
 }
@@ -119,13 +119,7 @@ func (p *State) Outputs() []big.Int {
 
 // Load value of a given register from this state.
 func (p *State) Load(reg RegisterId) *big.Int {
-	index := reg.Unwrap()
-	//
-	if index == 0 {
-		return big.NewInt(int64(p.pc))
-	}
-	//
-	return &p.state[index-1]
+	return &p.state[reg.Unwrap()]
 }
 
 // LoadN reads the values of zero or more registers from this state.
@@ -161,12 +155,9 @@ func (p *State) Store(reg RegisterId, value big.Int) {
 	//
 	if value.BitLen() > int(p.registers[index].Width) {
 		panic("write exceeds register width")
-	} else if index == 0 {
-		p.pc = uint(value.Uint64())
-	} else {
-		// Write to normal register
-		p.state[index-1] = value
 	}
+	// Write to normal register
+	p.state[index] = value
 }
 
 // StoreAcross a given value across a set of registers, splitting its bits as

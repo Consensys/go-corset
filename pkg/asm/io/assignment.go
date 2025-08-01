@@ -136,9 +136,8 @@ func (p Assignment[T]) initialState(row uint, trace tr.Module, io Map) State {
 			)
 			// Clone big int.
 			val.BigInt(&ith)
-			// NOTE: following safe because PC is always at index 0, and is a
-			// computed register.
-			state[i-1] = ith
+			// Assign to ith register
+			state[i] = ith
 			index = index + 1
 		}
 	}
