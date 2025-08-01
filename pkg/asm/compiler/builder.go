@@ -60,6 +60,9 @@ type Expr[T, E any] interface {
 	// expressions.
 	And(...E) E
 
+	// Bool constructs a logical truth or falsehood
+	Bool(bool) E
+
 	// Equals constructs an equality between two expressions.
 	Equals(rhs E) E
 
@@ -131,6 +134,13 @@ func Product[T any, E Expr[T, E]](exprs []E) E {
 	}
 	//
 	return exprs[0].Multiply(exprs[1:]...)
+}
+
+// True constructs an expression which always holds.
+func True[T any, E Expr[T, E]]() E {
+	var empty E
+	//
+	return empty.Bool(true)
 }
 
 // Variable is just a convenient wrapper for creating abstract expressions

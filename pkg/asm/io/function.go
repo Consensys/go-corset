@@ -114,6 +114,14 @@ func (p *Function[T]) Id() sc.ModuleId {
 	return p.id
 }
 
+// IsAtomic determines whether or not this is a "one line function".  That is,
+// where every instance of this function occupies exactly one line in the
+// corresponding trace.  This is useful to know, as certain optimisations can be
+// applied for one line functions (e.g. no PC register is required).
+func (p *Function[T]) IsAtomic() bool {
+	return len(p.code) == 1
+}
+
 // HasRegister checks whether a register with the given name exists and, if
 // so, returns its register identifier.  Otherwise, it returns false.
 func (p *Function[T]) HasRegister(name string) (RegisterId, bool) {
