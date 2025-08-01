@@ -25,6 +25,8 @@ import (
 const (
 	// PC_NAME gives the name used for the program counter in traces.
 	PC_NAME = "$pc"
+	// RET_NAME gives the name used for the return line in traces.
+	RET_NAME = "$ret"
 	// PC_INDEX gives the register index used for the program counter (which is
 	// currently always be 0).
 	PC_INDEX = uint(0)

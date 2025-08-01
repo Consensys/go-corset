@@ -33,6 +33,8 @@ const RETURN uint = math.MaxUint
 type State struct {
 	// Program Counter position.
 	pc uint
+	// Terminate indicates this is a terminating state
+	terminal bool
 	// Values for each register in this state excluding the program counter
 	// (since this is held above).  Thus, this array has one less item than
 	// registers.
@@ -49,7 +51,7 @@ type State struct {
 func EmptyState(pc uint, registers []schema.Register, io Map) State {
 	var state = make([]big.Int, len(registers))
 	// Construct state
-	return State{pc, state, registers, io}
+	return State{pc, false, state, registers, io}
 }
 
 // InitialState constructs a suitable initial state for executing a given
@@ -82,10 +84,21 @@ func InitialState[T Instruction[T]](arguments []big.Int, fn Function[T], io Map)
 func (p *State) Clone() State {
 	return State{
 		p.pc,
+		p.terminal,
 		slices.Clone(p.state),
 		p.registers,
 		p.io,
 	}
+}
+
+// IsTerminal checks whether this is a terminating state, or not.
+func (p *State) IsTerminal() bool {
+	return p.terminal
+}
+
+// Terminate marks this state as being terminal.
+func (p *State) Terminate() {
+	p.terminal = true
 }
 
 // Goto updates the program counter for this state to a given value.
@@ -201,11 +214,12 @@ func (p *State) String() string {
 	var builder strings.Builder
 	//
 	if p.Terminated() {
-		builder.WriteString("(pc=--) ")
+		builder.WriteString("*")
 	} else {
-		pc := fmt.Sprintf("(pc=%02x) ", p.pc)
-		builder.WriteString(pc)
+		builder.WriteString(" ")
 	}
+	//
+	builder.WriteString(fmt.Sprintf(" (pc=%02x) ", p.pc))
 	//
 	for i := range p.registers {
 		if i != 0 {

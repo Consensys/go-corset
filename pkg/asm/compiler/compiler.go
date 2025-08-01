@@ -18,18 +18,9 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/schema"
-	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 )
-
-// STAMP_NAME determines the name used in the underlying constraint system for
-// stamp column.
-const STAMP_NAME = "$stamp"
-
-// PC_NAME determines the name used in the underlying constraint system for the
-// Program Counter (PC) column.
-const PC_NAME = "$pc"
 
 // MicroFunction is a function composed entirely of micro instructions.
 type MicroFunction = io.Function[micro.Instruction]
@@ -155,14 +146,6 @@ func (p *Compiler[T, E, M]) initModule(busId uint, fn MicroFunction) {
 	bus.columns = make([]T, len(fn.Registers()))
 	//
 	for i, reg := range fn.Registers() {
-		// if i == 0 {
-		// 	// Program Counter is always at index 0.  For a one-line function,
-		// 	// the program counter is not used.
-		// 	bus.columns[i] = module.NewUnusedColumn()
-		// } else {
-		// 	bus.columns[i] = module.NewColumn(reg.Kind, reg.Name, reg.Width)
-		// }
-		//
 		bus.columns[i] = module.NewColumn(reg.Kind, reg.Name, reg.Width)
 	}
 	//
@@ -182,18 +165,14 @@ func (p *Compiler[T, E, M]) initFunctionFraming(busId uint, fn MicroFunction) Fr
 
 func (p *Compiler[T, E, M]) initMultLineFunctionFraming(busId uint, fn MicroFunction) Framing[T, E] {
 	var (
-		Bus    = p.buses[busId]
 		module = p.modules[busId]
+		// determine suitable width of PC register
+		pcWidth = bit.Width(uint(len(fn.Code())))
+		// allocate PC register
+		pc = module.NewColumn(schema.COMPUTED_REGISTER, io.PC_NAME, pcWidth)
 		// allocate return line
-		ret = module.NewColumn(schema.COMPUTED_REGISTER, STAMP_NAME, 1)
-		// PC is always first register, therefore no need to create a new column for
-		// it.
-		pc = Bus.columns[0]
+		ret = module.NewColumn(schema.COMPUTED_REGISTER, io.RET_NAME, 1)
 	)
-	// FIXME: the following reliance on the length of registers is something of
-	// a kludge.
-	stampRef := sc.NewRegisterRef(busId, sc.NewRegisterId(uint(len(fn.Registers()))))
-	module.NewAssignment(&StampAssignment{stampRef})
 	//
 	// stamp_i := Variable[T, E](stamp, 0)
 	// stamp_im1 := Variable[T, E](stamp, -1)
