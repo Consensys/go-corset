@@ -122,9 +122,6 @@ func (p *Parser) parseFunction(id schema.ModuleId) (MacroFunction, []source.Synt
 	if outputs, errs = p.parseArgsList(schema.OUTPUT_REGISTER); len(errs) > 0 {
 		return MacroFunction{}, errs
 	}
-	// Initialise first register as program counter, using default bitwidth
-	// which will be corrected later.
-	env.registers = append(env.registers, schema.NewComputedRegister(io.PC_NAME, 0))
 	// Update register list with inputs/outputs
 	env.registers = append(env.registers, inputs...)
 	env.registers = append(env.registers, outputs...)
@@ -146,8 +143,6 @@ func (p *Parser) parseFunction(id schema.ModuleId) (MacroFunction, []source.Synt
 	}
 	// Advance past "}"
 	p.match(RCURLY)
-	// Correct program counter bitwidth
-	env.registers[0].Width = bitwidth(pc)
 	// Finalise labels
 	env.BindLabels(code)
 	// Done
