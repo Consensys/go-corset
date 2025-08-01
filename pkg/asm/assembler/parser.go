@@ -673,18 +673,3 @@ func UnboundLabel(name string) Label {
 func BoundLabel(name string, pc uint) Label {
 	return Label{name, pc}
 }
-
-// Determine smallest bitwidth for a given bound.  Basically, the bound is
-// raised to the nearest power of 2.  For example, given 4 this should return
-// 2bits, whilst 5 should return 3bits, etc.
-func bitwidth(bound uint) uint {
-	// Determine actual bound
-	bitwidth := uint(1)
-	acc := uint(2)
-	//
-	for ; acc < bound; acc = acc * 2 {
-		bitwidth++
-	}
-	// Done
-	return bitwidth
-}
