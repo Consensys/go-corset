@@ -17,18 +17,13 @@ package compiler
 // program counter, and various control lines to manage padding and non-terminal
 // states.
 type Framing[T any, E Expr[T, E]] interface {
-	// IsAtomic indicates a "one line function".  In such case, no framing is
-	// required.
-	IsAtomic() bool
 	// Guard provides a suitable guard for the instruction at a given PC offset.
 	// This is optional as some forms of framing don't require it.
 	Guard(pc uint) E
-	// Terminate provides a suitable transition to the next frame.
-	Terminate() E
-	// ProgramCounter returns the identifier for the PC register.  Observe, however,
-	// that this will not exist for atomic functions and, in such case, this will
-	// panic.
-	ProgramCounter() T
+	// Goto indicates the current instruction is jumping to the given PC value.
+	Goto(pc uint) E
+	// Return provides a suitable transition to the next frame.
+	Return() E
 }
 
 // NewAtomicFraming constructs a suitable framing for a one-line instruction.
@@ -37,8 +32,8 @@ func NewAtomicFraming[T any, E Expr[T, E]]() Framing[T, E] {
 }
 
 // NewMultiLineFraming constructs a suitable framing for a multi-line instruction.
-func NewMultiLineFraming[T any, E Expr[T, E]](pc T, terminal T, enable T) Framing[T, E] {
-	panic("got here")
+func NewMultiLineFraming[T any, E Expr[T, E]](pc T, ret T) Framing[T, E] {
+	return &MultiLineFraming[T, E]{pc, ret}
 }
 
 // ============================================================================
@@ -50,23 +45,18 @@ func NewMultiLineFraming[T any, E Expr[T, E]](pc T, terminal T, enable T) Framin
 type OneLineFraming[T any, E Expr[T, E]] struct {
 }
 
-// IsAtomic implementation for Framining interface.
-func (p *OneLineFraming[T, E]) IsAtomic() bool {
-	return true
+// Goto implementation for Framing interface.
+func (p *OneLineFraming[T, E]) Goto(pc uint) E {
+	panic("unreachable")
 }
 
-// ProgramCounter implementation for Framining interface.
-func (p *OneLineFraming[T, E]) ProgramCounter() T {
-	panic("atomic functions have no PC")
-}
-
-// Guard implementation for Framining interface.
+// Guard implementation for Framing interface.
 func (p *OneLineFraming[T, E]) Guard(pc uint) E {
 	return True[T, E]()
 }
 
-// Terminate implementation for Framining interface.
-func (p *OneLineFraming[T, E]) Terminate() E {
+// Return implementation for Framing interface.
+func (p *OneLineFraming[T, E]) Return() E {
 	return True[T, E]()
 }
 
@@ -76,32 +66,35 @@ func (p *OneLineFraming[T, E]) Terminate() E {
 
 // MultiLineFraming provides suitable control lines for multi-line functions.
 type MultiLineFraming[T any, E Expr[T, E]] struct {
+	// Program Counter indicates which instruction is being executed.
 	pc T
+	// Return indicates when an instruction returns from the current function.
+	// That is, the current frame is terminated.
+	ret T
 }
 
-// IsAtomic implementation for Framining interface.
-func (p *MultiLineFraming[T, E]) IsAtomic() bool {
-	return false
+// Goto implementation for Framing interface.
+func (p *MultiLineFraming[T, E]) Goto(pc uint) E {
+	// PC[i+1] = target
+	var (
+		zero   = Number[T, E](0)
+		pc_ip1 = Variable[T, E](p.pc, 1)
+		ret    = Variable[T, E](p.ret, 0)
+	)
+	// Next pc is target of this jump
+	eq := pc_ip1.Equals(Number[T, E](pc))
+	// Return flag cannot be set
+	return eq.And(ret.Equals(zero))
 }
 
-// ProgramCounter implementation for Framining interface.
-func (p *MultiLineFraming[T, E]) ProgramCounter() T {
-	return p.pc
-}
-
-// Guard implementation for Framining interface.
+// Guard implementation for Framing interface.
 func (p *MultiLineFraming[T, E]) Guard(pc uint) E {
 	return Variable[T, E](p.pc, 0).Equals(Number[T, E](pc))
 }
 
-// Terminate implementation for Framining interface.
-func (p *MultiLineFraming[T, E]) Terminate() E {
-	// var (
-	// 	stamp_i   = p.Stamp(false)
-	// 	stamp_ip1 = p.Stamp(true)
-	// 	one       = Number[T, E](1)
-	// )
-	// // STAMP[i]+1 == STAMP[i+1]
-	// eqn := one.Add(stamp_i).Equals(stamp_ip1)
-	panic("todo")
+// Return implementation for Framing interface.
+func (p *MultiLineFraming[T, E]) Return() E {
+	var one = Number[T, E](1)
+	// return line must be high; next PC must be zero.
+	return Variable[T, E](p.ret, 0).Equals(one)
 }

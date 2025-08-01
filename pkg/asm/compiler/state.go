@@ -92,16 +92,16 @@ func NewStateTranslator[T any, E Expr[T, E], M Module[T, E, M]](mapping Translat
 
 // Terminate current frame, and setup for next frame.
 func (p *StateTranslator[T, E, M]) Terminate() E {
-	return p.WithLocalConstancies(p.mapping.Framing.Terminate())
+	return p.WithLocalConstancies(p.mapping.Framing.Return())
 }
 
-// WritePc returns a column access for suitable for setting the next PC value.
-// This also marks the PC as mutated, meaning it will not be included in any
-// constancy calculations.
-func (p *StateTranslator[T, E, M]) WritePc() E {
+// Goto returns an expression suitable for ensuring that the given instruction
+// transitions to the state representing the given PC value.
+func (p *StateTranslator[T, E, M]) Goto(pc uint) E {
 	// Mark register as having been written.
 	p.mutated.Insert(io.PC_INDEX)
-	return Variable[T, E](p.mapping.Framing.ProgramCounter(), 1)
+	// Apply framing
+	return p.WithLocalConstancies(p.mapping.Framing.Goto(pc))
 }
 
 // Clone creates a fresh copy of this translator.
