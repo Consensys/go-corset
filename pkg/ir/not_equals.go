@@ -13,7 +13,6 @@
 package ir
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -120,10 +119,10 @@ func (p *NotEqual[F, S, T]) Simplify(casts bool) S {
 		rhs = p.Rhs.Simplify(casts)
 	)
 	//
-	lc := IsConstant[F](lhs)
-	rc := IsConstant[F](rhs)
+	lc, lok := IsConstant[F](lhs)
+	rc, rok := IsConstant[F](rhs)
 	//
-	if lc != nil && rc != nil {
+	if lok && rok {
 		// Can simplify
 		if lc.Cmp(rc) == 0 {
 			return False[F, S]()
@@ -138,7 +137,7 @@ func (p *NotEqual[F, S, T]) Simplify(casts bool) S {
 }
 
 // Substitute implementation for Substitutable interface.
-func (p *NotEqual[F, S, T]) Substitute(mapping map[string]fr.Element) {
+func (p *NotEqual[F, S, T]) Substitute(mapping map[string]F) {
 	p.Lhs.Substitute(mapping)
 	p.Rhs.Substitute(mapping)
 }

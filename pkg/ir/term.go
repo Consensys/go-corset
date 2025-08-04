@@ -13,7 +13,6 @@
 package ir
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -43,7 +42,7 @@ type Contextual interface {
 type Evaluable[F any] interface {
 	util.Boundable
 	Contextual
-	Substitutable
+	Substitutable[F]
 	// EvalAt evaluates this expression in a given tabular context.
 	// Observe that if this expression is *undefined* within this
 	// context then it returns "nil".  An expression can be
@@ -62,9 +61,9 @@ type Evaluable[F any] interface {
 
 // Substitutable captures the notion of a term which may contain labelled
 // constants that can be substituted.
-type Substitutable interface {
+type Substitutable[F any] interface {
 	// Substitute any matchined labelled constants within this constraint
-	Substitute(map[string]fr.Element)
+	Substitute(map[string]F)
 }
 
 // Shiftable captures something which can contain row shifted accesses, and
@@ -86,7 +85,7 @@ type Term[F any, T any] interface {
 	Shiftable[T]
 	Evaluable[F]
 	util.Boundable
-	Substitutable
+	Substitutable[F]
 
 	// Simplify constant expressions down to single values.  For example, "(+ 1
 	// 2)" would be collapsed down to "3".  This is then progagated throughout
@@ -104,7 +103,7 @@ type Term[F any, T any] interface {
 type Testable[F any] interface {
 	util.Boundable
 	Contextual
-	Substitutable
+	Substitutable[F]
 	// TestAt evaluates this expression in a given tabular context and checks it
 	// against zero. Observe that if this expression is *undefined* within this
 	// context then it returns "nil".  An expression can be undefined for

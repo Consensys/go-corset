@@ -14,6 +14,7 @@ package permutation
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
@@ -96,7 +97,7 @@ func (p Constraint) Accepts(tr trace.Trace[bls12_377.Element], _ schema.AnySchem
 	src := sliceColumns(p.Sources, module)
 	dst := sliceColumns(p.Targets, module)
 	// Sanity check whether column exists
-	if field.ArePermutationOf(dst, src) {
+	if arePermutationOf(dst, src) {
 		// Success
 		return coverage, nil
 	}
@@ -168,4 +169,77 @@ func qualifiedColumnNamesToCommaSeparatedString(columns []schema.RegisterId, mod
 	}
 	// Done
 	return names.String()
+}
+
+// ArePermutationOf checks whether or not a set of given destination columns are
+// a valid permutation of a given set of source columns.  The number of source
+// and target columns must match.  Likewise, they are expected to have the same
+// height. This function does not modify any columns (though it does allocate
+// intermediate arrays).
+//
+// This function operators by cloning the arrays, sorting them and checking they
+// are the same.
+func ArePermutationOf[T FrArray](dst []T, src []T) bool {
+	if len(dst) != len(src) {
+		return false
+	}
+	//
+	nrows := dst[0].Len()
+	dstIndices := rangeOf(nrows)
+	srcIndices := rangeOf(nrows)
+	// Sort indexed arrays
+	slices.SortFunc(dstIndices, indexPermutationFunc(dst))
+	slices.SortFunc(srcIndices, indexPermutationFunc(src))
+	// Check rotated arrays match
+	return equalsPermutation(dstIndices, srcIndices, dst, src)
+}
+
+// Check whether two indexed arrays are equal.
+func equalsPermutation[T FrArray](lIndices []uint, rIndices []uint, lhs []T, rhs []T) bool {
+	if len(lIndices) != len(rIndices) {
+		return false
+	} else if len(lhs) != len(rhs) {
+		return false
+	}
+	//
+	for i := range len(lhs) {
+		var (
+			lhs_i = lhs[i]
+			rhs_i = rhs[i]
+		)
+		// Check lengths match
+		if lhs_i.Len() != rhs_i.Len() {
+			return false
+		}
+		// // Check elements match
+		for j := uint(0); j < lhs_i.Len(); j++ {
+			l := lhs_i.Get(lIndices[j])
+			r := rhs_i.Get(rIndices[j])
+			//
+			if l.Cmp(&r) != 0 {
+				return false
+			}
+		}
+	}
+	//
+	return true
+}
+
+func indexPermutationFunc[T FrArray](elems []T) func(uint, uint) int {
+	return func(lhs uint, rhs uint) int {
+		//
+		for i := range len(elems) {
+			l := elems[i].Get(lhs)
+			r := elems[i].Get(rhs)
+			// Compare ith elements
+			c := l.Cmp(&r)
+			// Check whether same
+			if c != 0 {
+				// Positive
+				return c
+			}
+		}
+		// Identical
+		return 0
+	}
 }

@@ -17,7 +17,6 @@ import (
 	"math"
 	"math/big"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -136,7 +135,7 @@ func (p *RegisterAccess[F, T]) Simplify(casts bool) T {
 }
 
 // Substitute implementation for Substitutable interface.
-func (p *RegisterAccess[F, T]) Substitute(mapping map[string]fr.Element) {
+func (p *RegisterAccess[F, T]) Substitute(mapping map[string]F) {
 
 }
 

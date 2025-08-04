@@ -13,7 +13,6 @@
 package ir
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -113,7 +112,7 @@ func (p *Conjunct[F, T]) Simplify(casts bool) T {
 	terms = array.Flatten(terms, flatternConjunct[F, T])
 	// False if contains false
 	if array.ContainsMatching(terms, IsFalse) {
-		return False[T]()
+		return False[F, T]()
 	}
 	// Remove true values
 	terms = array.RemoveMatching(terms, IsTrue[F, T])
@@ -129,8 +128,8 @@ func (p *Conjunct[F, T]) Simplify(casts bool) T {
 }
 
 // Substitute implementation for Substitutable interface.
-func (p *Conjunct[F, T]) Substitute(mapping map[string]fr.Element) {
-	substituteTerms(mapping, p.Args...)
+func (p *Conjunct[F, T]) Substitute(mapping map[string]F) {
+	substituteTerms[F, T](mapping, p.Args...)
 }
 
 func flatternConjunct[F field.Element[F], T LogicalTerm[F, T]](term T) []T {

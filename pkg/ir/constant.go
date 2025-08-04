@@ -17,7 +17,6 @@ import (
 	"math"
 	"math/big"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -40,23 +39,26 @@ func Const[F field.Element[F], T Term[F, T]](val F) T {
 // Const64 construct an AIR expression representing a given constant from a
 // uint64.
 func Const64[F field.Element[F], T Term[F, T]](val uint64) T {
-	var (
-		element            = fr.NewElement(val)
-		term    Term[F, T] = &Constant[F, T]{Value: element}
-	)
+	var element F
+	//
+	element.Set64(val)
+	var term Term[F, T] = &Constant[F, T]{Value: element}
 	//
 	return term.(T)
 }
 
 // IsConstant checks whether an artibrary term corresponds to a constant or not.
-func IsConstant[F field.Element[F], T Term[F, T]](term T) *fr.Element {
-	var tmp Term[F, T] = term
+func IsConstant[F field.Element[F], T Term[F, T]](term T) (F, bool) {
+	var (
+		tmp   Term[F, T] = term
+		dummy F
+	)
 	//
 	if c, ok := tmp.(*Constant[F, T]); ok {
-		return &c.Value
+		return c.Value, true
 	}
 	//
-	return nil
+	return dummy, false
 }
 
 // Air indicates this term can be used at the AIR level.
@@ -78,16 +80,11 @@ func (p *Constant[F, T]) EvalAt(k int, _ trace.Module[F], _ schema.Module) (F, e
 	return p.Value, nil
 }
 
-// IsDefined implementation for Evaluable interface.
-func (p *Constant[F, T]) IsDefined() bool {
-	return true
-}
-
 // Lisp implementation for Lispifiable interface.
 func (p *Constant[F, T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
 	var val big.Int
 	//
-	p.Value.BigInt(&val)
+	val.SetBytes(p.Value.Bytes())
 	// Check if power of 2
 	if n, ok := agnostic.IsPowerOf2(val); ok && n > 8 {
 		// Not power of 2
@@ -113,7 +110,7 @@ func (p *Constant[F, T]) ShiftRange() (int, int) {
 }
 
 // Substitute implementation for Substitutable interface.
-func (p *Constant[F, T]) Substitute(mapping map[string]fr.Element) {
+func (p *Constant[F, T]) Substitute(mapping map[string]F) {
 
 }
 

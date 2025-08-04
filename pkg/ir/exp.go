@@ -15,7 +15,6 @@ package ir
 import (
 	"fmt"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -53,16 +52,9 @@ func (p *Exp[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module) (F, erro
 	// Check whether argument evaluates to zero or not.
 	val, err := p.Arg.EvalAt(k, tr, sc)
 	// Compute exponent
-	field.Pow(&val, p.Pow)
+	val = field.Pow(val, p.Pow)
 	// Done
 	return val, err
-}
-
-// IsDefined implementation for Evaluable interface.
-func (p *Exp[F, T]) IsDefined() bool {
-	// NOTE: this is technically safe given the limited way that IsDefined is
-	// used for lookup selectors.
-	return true
 }
 
 // Lisp implementation for Lispifiable interface.
@@ -89,7 +81,7 @@ func (p *Exp[F, T]) ShiftRange() (int, int) {
 }
 
 // Substitute implementation for Substitutable interface.
-func (p *Exp[F, T]) Substitute(mapping map[string]fr.Element) {
+func (p *Exp[F, T]) Substitute(mapping map[string]F) {
 	p.Arg.Substitute(mapping)
 }
 
@@ -101,11 +93,8 @@ func (p *Exp[F, T]) Simplify(casts bool) T {
 	)
 	//
 	if c, ok := targ.(*Constant[F, T]); ok {
-		var val fr.Element
-		// Clone value
-		val.Set(&c.Value)
 		// Compute exponent (in place)
-		field.Pow(&val, p.Pow)
+		val := field.Pow(c.Value, p.Pow)
 		// Done
 		targ = &Constant[F, T]{val}
 	} else {

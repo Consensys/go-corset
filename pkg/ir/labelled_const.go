@@ -16,7 +16,6 @@ import (
 	"math"
 	"math/big"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -57,13 +56,6 @@ func (p *LabelledConst[F, T]) EvalAt(k int, _ trace.Module[F], _ schema.Module) 
 	return p.Value, nil
 }
 
-// IsDefined implementation for Evaluable interface.
-func (p *LabelledConst[F, T]) IsDefined() bool {
-	// NOTE: this is technically safe given the limited way that IsDefined is
-	// used for lookup selectors.
-	return true
-}
-
 // Lisp implementation for Lispifiable interface.
 func (p *LabelledConst[F, T]) Lisp(_ bool, _ schema.RegisterMap) sexp.SExp {
 	return sexp.NewSymbol(p.Value.String())
@@ -91,7 +83,7 @@ func (p *LabelledConst[F, T]) Simplify(casts bool) T {
 }
 
 // Substitute implementation for Substitutable interface.
-func (p *LabelledConst[F, T]) Substitute(mapping map[string]fr.Element) {
+func (p *LabelledConst[F, T]) Substitute(mapping map[string]F) {
 	// Attempt to apply substitution
 	if nval, ok := mapping[p.Label]; ok {
 		p.Value = nval
@@ -102,7 +94,7 @@ func (p *LabelledConst[F, T]) Substitute(mapping map[string]fr.Element) {
 func (p *LabelledConst[F, T]) ValueRange(_ schema.RegisterMap) util_math.Interval {
 	var c big.Int
 	// Extract big integer from field element
-	p.Value.BigInt(&c)
+	c.SetBytes(p.Value.Bytes())
 	// Return as interval
 	return util_math.NewInterval(c, c)
 }

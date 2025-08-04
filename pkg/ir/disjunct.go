@@ -13,7 +13,6 @@
 package ir
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -129,7 +128,7 @@ func (p *Disjunct[F, T]) Simplify(casts bool) T {
 }
 
 // Substitute implementation for Substitutable interface.
-func (p *Disjunct[F, T]) Substitute(mapping map[string]fr.Element) {
+func (p *Disjunct[F, T]) Substitute(mapping map[string]F) {
 	substituteTerms(mapping, p.Args...)
 }
 

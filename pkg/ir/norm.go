@@ -15,7 +15,6 @@ package ir
 import (
 	"math/big"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -109,7 +108,7 @@ func (p *Norm[F, T]) Simplify(casts bool) T {
 }
 
 // Substitute implementation for Substitutable interface.
-func (p *Norm[F, T]) Substitute(mapping map[string]fr.Element) {
+func (p *Norm[F, T]) Substitute(mapping map[string]F) {
 	p.Arg.Substitute(mapping)
 }
 

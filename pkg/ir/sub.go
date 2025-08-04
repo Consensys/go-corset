@@ -13,7 +13,6 @@
 package ir
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -97,7 +96,7 @@ func (p *Sub[F, T]) ShiftRange() (int, int) {
 }
 
 // Substitute implementation for Substitutable interface.
-func (p *Sub[F, T]) Substitute(mapping map[string]fr.Element) {
+func (p *Sub[F, T]) Substitute(mapping map[string]F) {
 	substituteTerms(mapping, p.Args...)
 }
 
@@ -140,16 +139,14 @@ func (p *Sub[F, T]) Simplify(casts bool) T {
 		return lhs
 	case l_const && r_const:
 		// Both sides constant, result is constant.
-		c := lc.Value
-		c = c.Sub(&c, &rc.Value)
+		c := lc.Value.Sub(rc.Value)
 		//
 		targ = &Constant[F, T]{c}
 	case l_const && r_add:
 		nterms := array.Prepend(lhs, ra.Args)
 		// if rhs has constant, subtract it.
 		if rc, ok := findConstant(ra.Args); ok {
-			c := lc.Value
-			c = *c.Sub(&c, &rc)
+			c := lc.Value.Sub(rc)
 			nterms = mergeConstants[F](c, nterms)
 		}
 		//

@@ -13,7 +13,6 @@
 package ir
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -109,21 +108,21 @@ func (p *Mul[F, T]) ShiftRange() (int, int) {
 }
 
 // Substitute implementation for Substitutable interface.
-func (p *Mul[F, T]) Substitute(mapping map[string]fr.Element) {
+func (p *Mul[F, T]) Substitute(mapping map[string]F) {
 	substituteTerms(mapping, p.Args...)
 }
 
 // Simplify implementation for Term interface.
 func (p *Mul[F, T]) Simplify(casts bool) T {
 	var (
-		terms = simplifyTerms(p.Args, mulBinOp, frONE, casts)
-		targ  Term[F, T]
-		zero  F
-		one   F
+		zero F
+		one  F
+		targ Term[F, T]
 	)
 	//
-	zero.Set64(0)
 	one.Set64(1)
+	//
+	terms := simplifyTerms(p.Args, mulBinOp, one, casts)
 	// Flatten any nested products
 	terms = array.Flatten(terms, flatternMul[F])
 	// Check for zero

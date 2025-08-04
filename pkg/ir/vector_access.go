@@ -13,7 +13,6 @@
 package ir
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -108,7 +107,7 @@ func (p *VectorAccess[F, T]) Simplify(casts bool) T {
 }
 
 // Substitute implementation for Substitutable interface.
-func (p *VectorAccess[F, T]) Substitute(mapping map[string]fr.Element) {
+func (p *VectorAccess[F, T]) Substitute(mapping map[string]F) {
 	substituteTerms(mapping, p.Vars...)
 }
 
@@ -129,7 +128,7 @@ func shiftValue[F field.Element[F]](val F, width uint) F {
 	//
 	coeff.Set64(2)
 	// Determine 2^width
-	field.Pow(&coeff, uint64(width))
+	coeff = field.Pow(coeff, uint64(width))
 	// Determine val & 2^width
 	return val.Mul(coeff)
 }

@@ -15,11 +15,14 @@ package assignment
 import (
 	"encoding/gob"
 	"fmt"
+	"slices"
 
+	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/field"
 	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
@@ -168,7 +171,7 @@ func sortedPermutationNativeFunction(sources []field.FrArray, signs []bool) []fi
 	// Clone target columns first
 	targets := cloneNativeFunction(sources)
 	// Sort target columns (in place)
-	field.PermutationSort(targets, signs)
+	permutationSort(targets, signs)
 	//
 	return targets
 }
@@ -182,6 +185,84 @@ func cloneNativeFunction(sources []field.FrArray) []field.FrArray {
 	}
 	//
 	return targets
+}
+
+// PermutationSort sorts an array of columns in row-wise fashion.  For
+// example, suppose consider [ [0,4,3,3], [1,2,4,3] ].  We can imagine
+// that this is first transformed into an array of rows (i.e.
+// [[0,1],[4,2],[3,4],[3,3]]) and then sorted lexicographically (to
+// give [[0,1],[3,3],[3,4],[4,2]]).  This is then projected back into
+// the original column-wise formulation, to give: [[0,3,3,4],
+// [1,3,4,2]].
+//
+// A further complication is that the direction of sorting for each
+// columns is determined by its sign.
+//
+// NOTE: the current implementation is not intended to be particularly
+// efficient.  In particular, would be better to do the sort directly
+// on the columns array without projecting into the row-wise form.
+func permutationSort[T FrArray](cols []T, signs []bool) {
+	n := cols[0].Len()
+	m := len(cols)
+	// Rotate input matrix
+	rows := rotate(cols, m, n)
+	// Perform the permutation sort
+	slices.SortFunc(rows, func(l []fr.Element, r []fr.Element) int {
+		return permutationSortFunc(l, r, signs)
+	})
+	// Project back
+	for i := uint(0); i < n; i++ {
+		row := rows[i]
+		for j := 0; j < m; j++ {
+			cols[j].Set(i, row[j])
+		}
+	}
+}
+
+func permutationSortFunc(lhs []fr.Element, rhs []fr.Element, signs []bool) int {
+	for i := 0; i < len(signs); i++ {
+		// Compare ith elements
+		c := lhs[i].Cmp(&rhs[i])
+		// Check whether same
+		if c != 0 {
+			if signs[i] {
+				// Positive
+				return c
+			}
+			// Negative
+			return -c
+		}
+	}
+	// Identical
+	return 0
+}
+
+// Clone and rotate a 2-dimensional array assuming a given geometry.
+func rotate[T array.MutArray[fr.Element]](src []T, ncols int, nrows uint) [][]fr.Element {
+	// Copy outer arrays
+	dst := make([][]fr.Element, nrows)
+	// Copy inner arrays
+	for i := uint(0); i < nrows; i++ {
+		row := make([]fr.Element, ncols)
+		for j := 0; j < ncols; j++ {
+			row[j] = src[j].Get(i)
+		}
+
+		dst[i] = row
+	}
+	//
+	return dst
+}
+
+// Constuct an array of contiguous integers from 0..n.
+func rangeOf(n uint) []uint {
+	items := make([]uint, n)
+	//
+	for i := range n {
+		items[i] = i
+	}
+	//
+	return items
 }
 
 // ============================================================================
