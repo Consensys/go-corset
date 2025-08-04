@@ -52,7 +52,7 @@ func isOne[T Term[T]](term T) bool {
 	return false
 }
 
-func lispOfTerms[E any, T Term[E]](global bool, mapping schema.RegisterMap, op string, exprs []T) sexp.SExp {
+func lispOfTerms[F any, E any, T Term[F, E]](global bool, mapping schema.RegisterMap, op string, exprs []T) sexp.SExp {
 	arr := make([]sexp.SExp, 1+len(exprs))
 	arr[0] = sexp.NewSymbol(op)
 	// Translate arguments
@@ -63,7 +63,7 @@ func lispOfTerms[E any, T Term[E]](global bool, mapping schema.RegisterMap, op s
 	return sexp.NewList(arr)
 }
 
-func lispOfLogicalTerms[T LogicalTerm[T]](global bool, mapping schema.RegisterMap, op string, exprs []T) sexp.SExp {
+func lispOfLogicalTerms[F any, T LogicalTerm[F, T]](global bool, mapping schema.RegisterMap, op string, exprs []T) sexp.SExp {
 	arr := make([]sexp.SExp, 1+len(exprs))
 	arr[0] = sexp.NewSymbol(op)
 	// Translate arguments

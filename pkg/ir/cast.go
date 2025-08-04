@@ -27,7 +27,7 @@ import (
 )
 
 // Cast attempts to narrow the width a given expression.
-type Cast[F field.Element[F], T Term[T]] struct {
+type Cast[F field.Element[F], T Term[F, T]] struct {
 	Arg      T
 	BitWidth uint
 	Bound    fr.Element
@@ -35,11 +35,11 @@ type Cast[F field.Element[F], T Term[T]] struct {
 
 // CastOf constructs a new expression which has been annotated by the user to be
 // within a given range.
-func CastOf[F field.Element[F], T Term[T]](arg T, bitwidth uint) T {
+func CastOf[F field.Element[F], T Term[F, T]](arg T, bitwidth uint) T {
 	bound := fr.NewElement(2)
 	field.Pow(&bound, uint64(bitwidth))
 	// Construct term
-	var term Term[T] = &Cast[F, T]{Arg: arg, BitWidth: bitwidth, Bound: bound}
+	var term Term[F, T] = &Cast[F, T]{Arg: arg, BitWidth: bitwidth, Bound: bound}
 	// Done
 	return term.(T)
 }
@@ -55,7 +55,7 @@ func (p *Cast[F, T]) Bounds() util.Bounds {
 }
 
 // EvalAt implementation for Evaluable interface.
-func (p *Cast[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module) (fr.Element, error) {
+func (p *Cast[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module) (F, error) {
 	// Check whether argument evaluates to zero or not.
 	val, err := p.Arg.EvalAt(k, tr, sc)
 	// Dynamic cast check
@@ -116,8 +116,8 @@ func (p *Cast[F, T]) Simplify(casts bool) T {
 	// Propagate constants in the argument
 
 	var (
-		arg  T       = p.Arg.Simplify(casts)
-		targ Term[T] = arg
+		arg  T          = p.Arg.Simplify(casts)
+		targ Term[F, T] = arg
 	)
 	//
 	if c, ok := targ.(*Constant[F, T]); ok && c.Value.Cmp(&bound) < 0 {

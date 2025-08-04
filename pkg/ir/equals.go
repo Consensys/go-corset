@@ -23,7 +23,7 @@ import (
 )
 
 // Equals constructs an Equal representing the equality of two expressions.
-func Equals[F field.Element[F], S LogicalTerm[S], T Term[T]](lhs T, rhs T) S {
+func Equals[F field.Element[F], S LogicalTerm[S], T Term[F, T]](lhs T, rhs T) S {
 	var term LogicalTerm[S] = &Equal[F, S, T]{
 		Lhs: lhs,
 		Rhs: rhs,
@@ -37,9 +37,9 @@ func Equals[F field.Element[F], S LogicalTerm[S], T Term[T]](lhs T, rhs T) S {
 // Equal represents an Equal between two terms (e.g. "X==Y", or "X!=Y+1",
 // etc).  Equals are either equalities (or negated equalities) or
 // inequalities.
-type Equal[F field.Element[F], S LogicalTerm[S], T Term[T]] struct {
-	Lhs Term[T]
-	Rhs Term[T]
+type Equal[F field.Element[F], S LogicalTerm[S], T Term[F, T]] struct {
+	Lhs Term[F, T]
+	Rhs Term[F, T]
 }
 
 // ApplyShift implementation for LogicalTerm interface.

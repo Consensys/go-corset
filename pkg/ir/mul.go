@@ -25,10 +25,10 @@ import (
 )
 
 // Mul represents the product over zero or more expressions.
-type Mul[F field.Element[F], T Term[T]] struct{ Args []T }
+type Mul[F field.Element[F], T Term[F, T]] struct{ Args []T }
 
 // Product returns the product of zero or more multiplications.
-func Product[F field.Element[F], T Term[T]](terms ...T) T {
+func Product[F field.Element[F], T Term[F, T]](terms ...T) T {
 	// flatten any nested products
 	terms = array.Flatten(terms, flatternMul[F])
 	// Remove all multiplications by one
@@ -44,7 +44,7 @@ func Product[F field.Element[F], T Term[T]](terms ...T) T {
 	case 1:
 		return terms[0]
 	default:
-		var term Term[T] = &Mul[F, T]{terms}
+		var term Term[F, T] = &Mul[F, T]{terms}
 		//
 		return term.(T)
 	}
@@ -55,7 +55,7 @@ func (p *Mul[F, T]) Air() {}
 
 // ApplyShift implementation for Term interface.
 func (p *Mul[F, T]) ApplyShift(shift int) T {
-	var term Term[T] = &Mul[F, T]{applyShiftOfTerms(p.Args, shift)}
+	var term Term[F, T] = &Mul[F, T]{applyShiftOfTerms(p.Args, shift)}
 	return term.(T)
 }
 
@@ -63,19 +63,19 @@ func (p *Mul[F, T]) ApplyShift(shift int) T {
 func (p *Mul[F, T]) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
 
 // EvalAt implementation for Evaluable interface.
-func (p *Mul[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module) (fr.Element, error) {
+func (p *Mul[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module) (F, error) {
 	// Evaluate first argument
 	val, err := p.Args[0].EvalAt(k, tr, sc)
 	// Continue evaluating the rest
 	for i := 1; err == nil && i < len(p.Args); i++ {
-		var ith fr.Element
+		var ith F
 		// Can short-circuit evaluation?
 		if val.IsZero() {
 			return val, nil
 		}
 		// No
 		ith, err = p.Args[i].EvalAt(k, tr, sc)
-		val.Mul(&val, &ith)
+		val = val.Mul(ith)
 	}
 	// Done
 	return val, err
@@ -117,21 +117,26 @@ func (p *Mul[F, T]) Substitute(mapping map[string]fr.Element) {
 func (p *Mul[F, T]) Simplify(casts bool) T {
 	var (
 		terms = simplifyTerms(p.Args, mulBinOp, frONE, casts)
-		targ  Term[T]
+		targ  Term[F, T]
+		zero  F
+		one   F
 	)
+	//
+	zero.Set64(0)
+	one.Set64(1)
 	// Flatten any nested products
 	terms = array.Flatten(terms, flatternMul[F])
 	// Check for zero
 	if array.ContainsMatching(terms, isZero) {
 		// Yes, is zero
-		targ = &Constant[F, T]{fr.NewElement(0)}
+		targ = &Constant[F, T]{zero}
 	} else {
 		// Remove any ones
 		terms = array.RemoveMatching(terms, isOne)
 		// Check whats left
 		switch len(terms) {
 		case 0:
-			targ = &Constant[F, T]{frONE}
+			targ = &Constant[F, T]{one}
 		case 1:
 			return terms[0]
 		default:
@@ -159,8 +164,8 @@ func (p *Mul[F, T]) ValueRange(mapping schema.RegisterMap) math.Interval {
 	return res
 }
 
-func flatternMul[F field.Element[F], T Term[T]](term T) []T {
-	var e Term[T] = term
+func flatternMul[F field.Element[F], T Term[F, T]](term T) []T {
+	var e Term[F, T] = term
 	if t, ok := e.(*Mul[F, T]); ok {
 		return t.Args
 	}

@@ -29,28 +29,28 @@ import (
 )
 
 // Constant represents a constant value within an expression.
-type Constant[F field.Element[F], T Term[T]] struct{ Value F }
+type Constant[F field.Element[F], T Term[F, T]] struct{ Value F }
 
 // Const construct an AIR expression representing a given constant.
-func Const[F field.Element[F], T Term[T]](val F) T {
-	var term Term[T] = &Constant[F, T]{Value: val}
+func Const[F field.Element[F], T Term[F, T]](val F) T {
+	var term Term[F, T] = &Constant[F, T]{Value: val}
 	return term.(T)
 }
 
 // Const64 construct an AIR expression representing a given constant from a
 // uint64.
-func Const64[F field.Element[F], T Term[T]](val uint64) T {
+func Const64[F field.Element[F], T Term[F, T]](val uint64) T {
 	var (
-		element         = fr.NewElement(val)
-		term    Term[T] = &Constant[F, T]{Value: element}
+		element            = fr.NewElement(val)
+		term    Term[F, T] = &Constant[F, T]{Value: element}
 	)
 	//
 	return term.(T)
 }
 
 // IsConstant checks whether an artibrary term corresponds to a constant or not.
-func IsConstant[F field.Element[F], T Term[T]](term T) *fr.Element {
-	var tmp Term[T] = term
+func IsConstant[F field.Element[F], T Term[F, T]](term T) *fr.Element {
+	var tmp Term[F, T] = term
 	//
 	if c, ok := tmp.(*Constant[F, T]); ok {
 		return &c.Value
@@ -64,7 +64,7 @@ func (p *Constant[F, T]) Air() {}
 
 // ApplyShift implementation for Term interface.
 func (p *Constant[F, T]) ApplyShift(int) T {
-	var term Term[T] = p
+	var term Term[F, T] = p
 	return term.(T)
 }
 
@@ -74,7 +74,7 @@ func (p *Constant[F, T]) Bounds() util.Bounds {
 }
 
 // EvalAt implementation for Evaluable interface.
-func (p *Constant[F, T]) EvalAt(k int, _ trace.Module[F], _ schema.Module) (fr.Element, error) {
+func (p *Constant[F, T]) EvalAt(k int, _ trace.Module[F], _ schema.Module) (F, error) {
 	return p.Value, nil
 }
 
@@ -119,7 +119,7 @@ func (p *Constant[F, T]) Substitute(mapping map[string]fr.Element) {
 
 // Simplify implementation for Term interface.
 func (p *Constant[F, T]) Simplify(casts bool) T {
-	var tmp Term[T] = p
+	var tmp Term[F, T] = p
 	return tmp.(T)
 }
 

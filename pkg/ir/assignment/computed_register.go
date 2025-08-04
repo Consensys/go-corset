@@ -17,7 +17,6 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
@@ -41,7 +40,7 @@ type ComputedRegister[F field.Element[F]] struct {
 	Target schema.RegisterRef
 	// The computation which accepts a given trace and computes
 	// the value of this column at a given row.
-	Expr ir.Evaluable
+	Expr ir.Evaluable[F]
 	// Direction in which value is computed (true = forward, false = backward).
 	// More specifically, a forwards direction means the computation starts on
 	// the first row, whilst a backwards direction means it starts on the last.
@@ -51,7 +50,7 @@ type ComputedRegister[F field.Element[F]] struct {
 // NewComputedRegister constructs a new computed column with a given name and
 // determining expression.  More specifically, that expression is used to
 // compute the values for this column during trace expansion.
-func NewComputedRegister[F field.Element[F]](column schema.RegisterRef, expr ir.Evaluable, direction bool) *ComputedRegister[F] {
+func NewComputedRegister[F field.Element[F]](column schema.RegisterRef, expr ir.Evaluable[F], direction bool) *ComputedRegister[F] {
 	return &ComputedRegister[F]{column, expr, direction}
 }
 
@@ -197,7 +196,7 @@ func (p *ComputedRegister[F]) Lisp(schema sc.AnySchema) sexp.SExp {
 		})
 }
 
-func fwdComputation[F field.Element[F]](data *IndexArray[F], expr ir.Evaluable, trMod trace.Module[F], scMod schema.Module) error {
+func fwdComputation[F field.Element[F]](data *IndexArray[F], expr ir.Evaluable[F], trMod trace.Module[F], scMod schema.Module) error {
 	// Forwards computation
 	for i := uint(0); i < data.Len(); i++ {
 		val, err := expr.EvalAt(int(i), trMod, scMod)
@@ -212,7 +211,7 @@ func fwdComputation[F field.Element[F]](data *IndexArray[F], expr ir.Evaluable, 
 	return nil
 }
 
-func bwdComputation[F field.Element[F]](data *IndexArray[F], expr ir.Evaluable, trMod trace.Module[F], scMod schema.Module) error {
+func bwdComputation[F field.Element[F]](data *IndexArray[F], expr ir.Evaluable[F], trMod trace.Module[F], scMod schema.Module) error {
 	// Backwards computation
 	for i := data.Len(); i > 0; i-- {
 		val, err := expr.EvalAt(int(i-1), trMod, scMod)
@@ -279,22 +278,23 @@ func (p *recColumn[F]) Name() string {
 }
 
 // Get implementation for trace.Column interface.
-func (p *recColumn[F]) Get(row int) fr.Element {
+func (p *recColumn[F]) Get(row int) F {
 	if row < 0 || uint(row) >= p.data.Len() {
+		var zero F
 		// out-of-bounds access
-		return fr.NewElement(0)
+		return zero
 	}
 	//
 	return p.data.Get(uint(row))
 }
 
 // Data implementation for trace.Column interface.
-func (p *recColumn[F]) Data() field.FrArray {
+func (p *recColumn[F]) Data() array.Array[F] {
 	panic("unreachable")
 }
 
 // Padding implementation for trace.Column interface.
-func (p *recColumn[F]) Padding() fr.Element {
+func (p *recColumn[F]) Padding() F {
 	panic("unreachable")
 }
 

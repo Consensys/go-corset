@@ -23,8 +23,8 @@ import (
 )
 
 // Negation constructs a term representing the negation of a logical term.
-func Negation[F field.Element[F], T LogicalTerm[T]](body T) T {
-	var term LogicalTerm[T] = &Negate[F, T]{
+func Negation[F field.Element[F], T LogicalTerm[F, T]](body T) T {
+	var term LogicalTerm[F, T] = &Negate[F, T]{
 		Arg: body,
 	}
 	//
@@ -36,7 +36,7 @@ func Negation[F field.Element[F], T LogicalTerm[T]](body T) T {
 // Negate represents an Negate between two terms (e.g. "X==Y", or "X!=Y+1",
 // etc).  Negate are either Negateities (or negated Negateities) or
 // inNegateities.
-type Negate[F field.Element[F], T LogicalTerm[T]] struct {
+type Negate[F field.Element[F], T LogicalTerm[F, T]] struct {
 	Arg T
 }
 
@@ -91,7 +91,7 @@ func (p *Negate[F, T]) Simplify(casts bool) T {
 	case IsFalse[F](term):
 		return True[F, T]()
 	default:
-		var tmp LogicalTerm[T] = &Negate[F, T]{term}
+		var tmp LogicalTerm[F, T] = &Negate[F, T]{term}
 		return tmp.(T)
 	}
 }

@@ -26,15 +26,15 @@ import (
 )
 
 // Exp represents the a given value taken to a power.
-type Exp[F field.Element[F], T Term[T]] struct {
+type Exp[F field.Element[F], T Term[F, T]] struct {
 	Arg T
 	Pow uint64
 }
 
 // Exponent constructs a new expression representing the given argument
 // raised to a given a given power.
-func Exponent[F field.Element[F], T Term[T]](arg T, pow uint64) T {
-	var term Term[T] = &Exp[F, T]{arg, pow}
+func Exponent[F field.Element[F], T Term[F, T]](arg T, pow uint64) T {
+	var term Term[F, T] = &Exp[F, T]{arg, pow}
 	return term.(T)
 }
 
@@ -49,7 +49,7 @@ func (p *Exp[F, T]) Bounds() util.Bounds {
 }
 
 // EvalAt implementation for Evaluable interface.
-func (p *Exp[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module) (fr.Element, error) {
+func (p *Exp[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module) (F, error) {
 	// Check whether argument evaluates to zero or not.
 	val, err := p.Arg.EvalAt(k, tr, sc)
 	// Compute exponent
@@ -96,8 +96,8 @@ func (p *Exp[F, T]) Substitute(mapping map[string]fr.Element) {
 // Simplify implementation for Term interface.
 func (p *Exp[F, T]) Simplify(casts bool) T {
 	var (
-		arg  T       = p.Arg.Simplify(casts)
-		targ Term[T] = arg
+		arg  T          = p.Arg.Simplify(casts)
+		targ Term[F, T] = arg
 	)
 	//
 	if c, ok := targ.(*Constant[F, T]); ok {

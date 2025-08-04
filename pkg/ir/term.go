@@ -40,7 +40,7 @@ type Contextual interface {
 // produce an evaluation point.  For example, expressions in the
 // Mid-Level or Arithmetic-Level IR can all be evaluated at rows of a
 // table.
-type Evaluable interface {
+type Evaluable[F any] interface {
 	util.Boundable
 	Contextual
 	Substitutable
@@ -50,7 +50,7 @@ type Evaluable interface {
 	// undefined for several reasons: firstly, if it accesses a
 	// row which does not exist (e.g. at index -1); secondly, if
 	// it accesses a register which does not exist.
-	EvalAt(int, trace.Module, schema.Module) (fr.Element, error)
+	EvalAt(int, trace.Module[F], schema.Module) (F, error)
 	// Lisp converts this schema element into a simple S-Expression, for example
 	// so it can be printed.
 	Lisp(bool, schema.RegisterMap) sexp.SExp
@@ -81,10 +81,10 @@ type Shiftable[T any] interface {
 }
 
 // Term represents a component of an AIR expression.
-type Term[T any] interface {
+type Term[F any, T any] interface {
 	Contextual
 	Shiftable[T]
-	Evaluable
+	Evaluable[F]
 	util.Boundable
 	Substitutable
 
@@ -101,7 +101,7 @@ type Term[T any] interface {
 // Evaluable is that, for historical reasons, constraints at the HIR cannot be
 // Evaluable (i.e. because they return multiple values, rather than a single
 // value).  However, constraints at the HIR level remain testable.
-type Testable interface {
+type Testable[F any] interface {
 	util.Boundable
 	Contextual
 	Substitutable
@@ -110,7 +110,7 @@ type Testable interface {
 	// context then it returns "nil".  An expression can be undefined for
 	// several reasons: firstly, if it accesses a row which does not exist (e.g.
 	// at index -1); secondly, if it accesses a register which does not exist.
-	TestAt(int, trace.Module, schema.Module) (bool, uint, error)
+	TestAt(int, trace.Module[F], schema.Module) (bool, uint, error)
 	// Lisp converts this schema element into a simple S-Expression, for example
 	// so it can be printed.
 	Lisp(bool, schema.RegisterMap) sexp.SExp
@@ -118,10 +118,10 @@ type Testable interface {
 
 // LogicalTerm represents a term which can be tested for truth or falsehood.
 // For example, an equality comparing two arithmetic terms is a logical term.
-type LogicalTerm[T any] interface {
+type LogicalTerm[F any, T any] interface {
 	Contextual
 	Shiftable[T]
-	Testable
+	Testable[F]
 
 	// Simplify constant expressions down to single values.  For example, "(+ 1
 	// 2)" would be collapsed down to "3".  This is then progagated throughout
