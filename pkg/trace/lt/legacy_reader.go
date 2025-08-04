@@ -30,7 +30,7 @@ type WordPool = word.Pool[uint, word.BigEndian]
 // file into an columns, or produces an error if the original file was malformed
 // in some way.   The input represents the original legacy format of trace files
 // (i.e. without any additional header information prepended, etc).
-func FromBytesLegacy(data []byte) ([]trace.BigEndianColumn, error) {
+func FromBytesLegacy(data []byte) (WordPool, []trace.BigEndianColumn, error) {
 	var (
 		// Construct new bytes.Reader
 		buf = bytes.NewReader(data)
@@ -40,7 +40,7 @@ func FromBytesLegacy(data []byte) ([]trace.BigEndianColumn, error) {
 	// Read Number of BytesColumns
 	var ncols uint32
 	if err := binary.Read(buf, binary.BigEndian, &ncols); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	// Construct empty environment
 	headers := make([]columnHeader, ncols)
@@ -51,7 +51,7 @@ func FromBytesLegacy(data []byte) ([]trace.BigEndianColumn, error) {
 		// Read column
 		if err != nil {
 			// Handle error
-			return nil, err
+			return nil, nil, err
 		}
 		// Assign header
 		headers[i] = header
@@ -84,7 +84,7 @@ func FromBytesLegacy(data []byte) ([]trace.BigEndianColumn, error) {
 		columns[res.Left] = trace.BigEndianColumn{Module: mod, Name: col, Data: res.Right}
 	}
 	// Done
-	return columns, nil
+	return pool, columns, nil
 }
 
 type columnHeader struct {

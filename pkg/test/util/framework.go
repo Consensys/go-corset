@@ -318,7 +318,7 @@ func ReadTracesFile(filename string) [][]trace.BigEndianColumn {
 		// Parse input line as JSON
 		if line != "" && !strings.HasPrefix(line, ";;") {
 			// Read traces
-			tr, err := json.FromBytes([]byte(line))
+			_, tr, err := json.FromBytes([]byte(line))
 			//
 			if err != nil {
 				msg := fmt.Sprintf("%s:%d: %s", filename, i+1, err)
