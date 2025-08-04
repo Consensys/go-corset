@@ -26,8 +26,11 @@ type Word[T any] interface {
 	// Get the bit at a given bit offset in this word, where offsets always
 	// start with the least-significant bit.
 	Bit(uint) bool
-	// Return bitwidth of this word
-	BitWidth() uint
+	// Return minimal number of bytes required to store this word.  This can be
+	// defined as the length of bytes of this word, with all leading zero bytes
+	// removed.  For example, 0x1010 has a length of 2, 0x0010 has a length of 1
+	// whilst 0x0000 has a byte length of 0.
+	ByteWidth() uint
 	// Bytes returns the bytes of this word
 	Bytes() []byte
 	// Write contents of this word into given byte array.  If the given byte

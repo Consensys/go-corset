@@ -13,11 +13,10 @@
 package schema
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
-	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -51,5 +50,5 @@ type Constraint interface {
 	// so it can be printed.
 	Lisp(AnySchema) sexp.SExp
 	// Substitute any matchined labelled constants within this constraint
-	Substitute(map[string]fr.Element)
+	Substitute(map[string]bls12_377.Element)
 }

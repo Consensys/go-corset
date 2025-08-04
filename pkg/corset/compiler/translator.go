@@ -19,7 +19,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/assignment"
@@ -27,16 +26,18 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
 
 // SchemaBuilder is used within this translator for building the final mixed MIR
 // schema.
-type SchemaBuilder = ir.SchemaBuilder[mir.Constraint, mir.Term]
+type SchemaBuilder = ir.SchemaBuilder[bls12_377.Element, mir.Constraint, mir.Term]
 
 // ModuleBuilder is used within this translator for building the various modules
 // which are contained within the mixed MIR schema.
-type ModuleBuilder = ir.ModuleBuilder[mir.Constraint, mir.Term]
+type ModuleBuilder = ir.ModuleBuilder[bls12_377.Element, mir.Constraint, mir.Term]
 
 // TranslateCircuit translates the components of a Corset circuit and add them
 // to the schema.  By the time we get to this point, all malformed source files
@@ -50,7 +51,7 @@ func TranslateCircuit[M schema.Module](
 	circuit *ast.Circuit,
 	externs ...M) (schema.MixedSchema[M, mir.Module], []SyntaxError) {
 	//
-	builder := ir.NewSchemaBuilder[mir.Constraint, mir.Term](externs...)
+	builder := ir.NewSchemaBuilder[bls12_377.Element, mir.Constraint, mir.Term](externs...)
 	t := translator{env, srcmap, builder}
 	// Allocate all modules into schema
 	t.translateModules(circuit)
@@ -284,7 +285,7 @@ func (t *translator) translateDefComputedColumn(d *ast.DefComputedColumn, path u
 		// rows).
 		util.None[int](),
 		//
-		ir.Equals[mir.LogicalTerm](ir.NewRegisterAccess[mir.Term](target.Register(), 0), computation),
+		ir.Equals[bls12_377.Element, mir.LogicalTerm](ir.NewRegisterAccess[bls12_377.Element, mir.Term](target.Register(), 0), computation),
 	))
 	// Done
 	return nil
@@ -344,7 +345,7 @@ func (t *translator) translateDefConstraint(decl *ast.DefConstraint) []SyntaxErr
 	if decl.Guard != nil {
 		// Translate (optional) guard
 		gexpr, guardErrors := t.translateOptionalExpression(decl.Guard, module, 0)
-		guard := ir.Equals[mir.LogicalTerm](gexpr, ir.Const64[mir.Term](0))
+		guard := ir.Equals[bls12_377.Element, mir.LogicalTerm](gexpr, ir.Const64[bls12_377.Element, mir.Term](0))
 		expr = ir.IfThenElse(guard, nil, expr)
 		// Combine errors
 		errors = append(errors, guardErrors...)
@@ -353,7 +354,7 @@ func (t *translator) translateDefConstraint(decl *ast.DefConstraint) []SyntaxErr
 	if decl.Perspective != nil {
 		// Translate (optional) perspective selector
 		sexpr, selectorErrors := t.translateSelectorInModule(decl.Perspective, module)
-		selector := ir.Equals[mir.LogicalTerm](sexpr, ir.Const64[mir.Term](0))
+		selector := ir.Equals[bls12_377.Element, mir.LogicalTerm](sexpr, ir.Const64[bls12_377.Element, mir.Term](0))
 		expr = ir.IfThenElse(selector, nil, expr)
 		// Combine errors
 		errors = append(errors, selectorErrors...)
@@ -385,8 +386,8 @@ func (t *translator) translateDefLookup(decl *ast.DefLookup) []SyntaxError {
 	var (
 		errors  []SyntaxError
 		context ast.Context
-		sources []lookup.Vector[mir.Term]
-		targets []lookup.Vector[mir.Term]
+		sources []lookup.Vector[bls12_377.Element, mir.Term]
+		targets []lookup.Vector[bls12_377.Element, mir.Term]
 	)
 	// Translate sources
 	for i, ith := range decl.Targets {
@@ -415,11 +416,11 @@ func (t *translator) translateDefLookup(decl *ast.DefLookup) []SyntaxError {
 }
 
 func (t *translator) translateDefLookupSources(selector ast.Expr,
-	sources []ast.Expr) (lookup.Vector[mir.Term], ast.Context, []SyntaxError) {
+	sources []ast.Expr) (lookup.Vector[bls12_377.Element, mir.Term], ast.Context, []SyntaxError) {
 	// Determine context of ith set of targets
 	var (
 		context, j = ast.ContextOfExpressions(sources...)
-		vector     lookup.Vector[mir.Term]
+		vector     lookup.Vector[bls12_377.Element, mir.Term]
 	)
 	// Include selector (when present)
 	if selector != nil {
@@ -428,7 +429,7 @@ func (t *translator) translateDefLookupSources(selector ast.Expr,
 	// Translate target expressions whilst again checking for a conflicting
 	// context.
 	if context.IsConflicted() {
-		return lookup.Vector[mir.Term]{}, context, t.srcmap.SyntaxErrors(sources[j], "conflicting context")
+		return lookup.Vector[bls12_377.Element, mir.Term]{}, context, t.srcmap.SyntaxErrors(sources[j], "conflicting context")
 	}
 	// Determine enclosing module
 	module := t.moduleOf(context)
@@ -453,7 +454,7 @@ func (t *translator) translateDefLookupSources(selector ast.Expr,
 	return vector, context, errors
 }
 
-func (t *translator) checkLookupVector(vector lookup.Vector[mir.Term], selector ast.Expr,
+func (t *translator) checkLookupVector(vector lookup.Vector[bls12_377.Element, mir.Term], selector ast.Expr,
 	terms []ast.Expr) []SyntaxError {
 	//
 	var (
@@ -737,11 +738,10 @@ func (t *translator) translateExpression(expr ast.Expr, module *ModuleBuilder, s
 		//
 		return nil, t.srcmap.SyntaxErrors(expr, msg)
 	case *ast.Constant:
-		var val fr.Element
 		// Initialise field from bigint
-		val.SetBigInt(&e.Val)
+		val := field.BigInt[bls12_377.Element](e.Val)
 		//
-		return ir.Const[mir.Term](val), nil
+		return ir.Const[bls12_377.Element, mir.Term](val), nil
 	case *ast.Exp:
 		return t.translateExp(e, module, shift)
 	case *ast.If:
@@ -844,17 +844,15 @@ func (t *translator) translateVariableAccess(expr *ast.VariableAccess, shift int
 	if _, ok := expr.Binding().(*ast.ColumnBinding); ok {
 		return t.registerOfVariableAccess(expr, shift)
 	} else if binding, ok := expr.Binding().(*ast.ConstantBinding); ok {
-		// Just fill in the constant.
-		var constant fr.Element
 		// Initialise field from bigint
-		constant.SetBigInt(binding.Value.AsConstant())
+		constant := field.BigInt[bls12_377.Element](*binding.Value.AsConstant())
 		// Handle externalised constants slightly differently.
 		if binding.Extern {
 			//
-			return ir.LabelledConstant[mir.Term](binding.Path.String(), constant), nil
+			return ir.LabelledConstant[bls12_377.Element, mir.Term](binding.Path.String(), constant), nil
 		}
 		//
-		return ir.Const[mir.Term](constant), nil
+		return ir.Const[bls12_377.Element, mir.Term](constant), nil
 	}
 	// error
 	return nil, t.srcmap.SyntaxErrors(expr, "unbound variable")
@@ -922,17 +920,17 @@ func (t *translator) translateLogical(expr ast.Expr, mod *ModuleBuilder, shift i
 		//
 		switch e.Kind {
 		case ast.EQUALS:
-			return ir.Equals[mir.LogicalTerm](lhs, rhs), nil
+			return ir.Equals[bls12_377.Element, mir.LogicalTerm](lhs, rhs), nil
 		case ast.NOT_EQUALS:
-			return ir.NotEquals[mir.LogicalTerm](lhs, rhs), nil
+			return ir.NotEquals[bls12_377.Element, mir.LogicalTerm](lhs, rhs), nil
 		case ast.LESS_THAN:
-			return ir.LessThan[mir.LogicalTerm](lhs, rhs), nil
+			return ir.LessThan[bls12_377.Element, mir.LogicalTerm](lhs, rhs), nil
 		case ast.LESS_THAN_EQUALS:
-			return ir.LessThanOrEquals[mir.LogicalTerm](lhs, rhs), nil
+			return ir.LessThanOrEquals[bls12_377.Element, mir.LogicalTerm](lhs, rhs), nil
 		case ast.GREATER_THAN:
-			return ir.GreaterThan[mir.LogicalTerm](lhs, rhs), nil
+			return ir.GreaterThan[bls12_377.Element, mir.LogicalTerm](lhs, rhs), nil
 		case ast.GREATER_THAN_EQUALS:
-			return ir.GreaterThanOrEquals[mir.LogicalTerm](lhs, rhs), nil
+			return ir.GreaterThanOrEquals[bls12_377.Element, mir.LogicalTerm](lhs, rhs), nil
 		default:
 			panic("unreachable")
 		}
@@ -1116,7 +1114,7 @@ func determineMaxBitwidth(module *ModuleBuilder, sources []mir.Term) uint {
 	for _, e := range sources {
 		// Determine bitwidth of nth term
 		switch e := e.(type) {
-		case *ir.RegisterAccess[mir.Term]:
+		case *ir.RegisterAccess[bls12_377.Element, mir.Term]:
 			reg := module.Register(e.Register)
 			//
 			if reg.Width > bitwidth {

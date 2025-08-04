@@ -13,7 +13,6 @@
 package ir
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -25,20 +24,20 @@ import (
 
 // Conjunct erpresents the logical AND of zero or more terms.  Observe that if
 // there are no terms, then this is equivalent to logical truth.
-type Conjunct[F field.Element[F], T LogicalTerm[T]] struct {
+type Conjunct[F field.Element[F], T LogicalTerm[F, T]] struct {
 	// Terms here are disjuncted to formulate the final logical result.
 	Args []T
 }
 
 // True constructs a logical truth
-func True[F field.Element[F], T LogicalTerm[T]]() T {
+func True[F field.Element[F], T LogicalTerm[F, T]]() T {
 	return Conjunction[F, T]()
 }
 
 // IsTrue checks whether a given term corresponds to logical truth which, in
 // this system, corresponds to an empty conjunct.
-func IsTrue[F field.Element[F], T LogicalTerm[T]](term T) bool {
-	var t LogicalTerm[T] = term
+func IsTrue[F field.Element[F], T LogicalTerm[F, T]](term T) bool {
+	var t LogicalTerm[F, T] = term
 	//
 	if t, ok := t.(*Conjunct[F, T]); ok {
 		return len(t.Args) == 0
@@ -48,8 +47,8 @@ func IsTrue[F field.Element[F], T LogicalTerm[T]](term T) bool {
 }
 
 // Conjunction builds the logical conjunction (i.e. and) for a given set of constraints.
-func Conjunction[F field.Element[F], T LogicalTerm[T]](terms ...T) T {
-	var term LogicalTerm[T] = &Conjunct[F, T]{terms}
+func Conjunction[F field.Element[F], T LogicalTerm[F, T]](terms ...T) T {
+	var term LogicalTerm[F, T] = &Conjunct[F, T]{terms}
 	return term.(T)
 }
 
@@ -113,7 +112,7 @@ func (p *Conjunct[F, T]) Simplify(casts bool) T {
 	terms = array.Flatten(terms, flatternConjunct[F, T])
 	// False if contains false
 	if array.ContainsMatching(terms, IsFalse) {
-		return False[T]()
+		return False[F, T]()
 	}
 	// Remove true values
 	terms = array.RemoveMatching(terms, IsTrue[F, T])
@@ -129,12 +128,12 @@ func (p *Conjunct[F, T]) Simplify(casts bool) T {
 }
 
 // Substitute implementation for Substitutable interface.
-func (p *Conjunct[F, T]) Substitute(mapping map[string]fr.Element) {
-	substituteTerms(mapping, p.Args...)
+func (p *Conjunct[F, T]) Substitute(mapping map[string]F) {
+	substituteTerms[F, T](mapping, p.Args...)
 }
 
-func flatternConjunct[F field.Element[F], T LogicalTerm[T]](term T) []T {
-	var e LogicalTerm[T] = term
+func flatternConjunct[F field.Element[F], T LogicalTerm[F, T]](term T) []T {
+	var e LogicalTerm[F, T] = term
 	if t, ok := e.(*Conjunct[F, T]); ok {
 		return t.Args
 	}

@@ -13,7 +13,6 @@
 package ir
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -25,19 +24,19 @@ import (
 
 // Disjunct erpresents the logical OR of zero or more terms.  Observe that if
 // there are no terms, then this is equivalent to logical falsehood.
-type Disjunct[F field.Element[F], T LogicalTerm[T]] struct {
+type Disjunct[F field.Element[F], T LogicalTerm[F, T]] struct {
 	Args []T
 }
 
 // False constructs a logical falsehood
-func False[F field.Element[F], T LogicalTerm[T]]() T {
+func False[F field.Element[F], T LogicalTerm[F, T]]() T {
 	return Disjunction[F, T]()
 }
 
 // IsFalse Check whether a given term corresponds to logical falsehood which, in
 // this system, corresponds to an empty disjunct.
-func IsFalse[F field.Element[F], T LogicalTerm[T]](term T) bool {
-	var t LogicalTerm[T] = term
+func IsFalse[F field.Element[F], T LogicalTerm[F, T]](term T) bool {
+	var t LogicalTerm[F, T] = term
 	//
 	if t, ok := t.(*Disjunct[F, T]); ok {
 		return len(t.Args) == 0
@@ -48,8 +47,8 @@ func IsFalse[F field.Element[F], T LogicalTerm[T]](term T) bool {
 
 // Disjunction creates a constraint representing the disjunction of a given set of
 // constraints.
-func Disjunction[F field.Element[F], T LogicalTerm[T]](terms ...T) T {
-	var term LogicalTerm[T] = &Disjunct[F, T]{terms}
+func Disjunction[F field.Element[F], T LogicalTerm[F, T]](terms ...T) T {
+	var term LogicalTerm[F, T] = &Disjunct[F, T]{terms}
 	return term.(T)
 }
 
@@ -129,12 +128,12 @@ func (p *Disjunct[F, T]) Simplify(casts bool) T {
 }
 
 // Substitute implementation for Substitutable interface.
-func (p *Disjunct[F, T]) Substitute(mapping map[string]fr.Element) {
+func (p *Disjunct[F, T]) Substitute(mapping map[string]F) {
 	substituteTerms(mapping, p.Args...)
 }
 
-func flatternDisjunct[F field.Element[F], T LogicalTerm[T]](term T) []T {
-	var e LogicalTerm[T] = term
+func flatternDisjunct[F field.Element[F], T LogicalTerm[F, T]](term T) []T {
+	var e LogicalTerm[F, T] = term
 	if t, ok := e.(*Disjunct[F, T]); ok {
 		return t.Args
 	}

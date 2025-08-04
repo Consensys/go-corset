@@ -16,7 +16,6 @@ import (
 	"math"
 	"math/big"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -29,21 +28,21 @@ import (
 // LabelledConst represents a constant value which is labelled with a given
 // name.  The purpose of this is to allow labelled constants to be substituted
 // for different values when desired.
-type LabelledConst[F field.Element[F], T Term[T]] struct {
+type LabelledConst[F field.Element[F], T Term[F, T]] struct {
 	Label string
-	Value fr.Element
+	Value F
 }
 
 // LabelledConstant construct an expression representing a constant with a given
 // label.
-func LabelledConstant[F field.Element[F], T Term[T]](label string, value fr.Element) T {
-	var term Term[T] = &LabelledConst[F, T]{Label: label, Value: value}
+func LabelledConstant[F field.Element[F], T Term[F, T]](label string, value F) T {
+	var term Term[F, T] = &LabelledConst[F, T]{Label: label, Value: value}
 	return term.(T)
 }
 
 // ApplyShift implementation for Term interface.
 func (p *LabelledConst[F, T]) ApplyShift(int) T {
-	var term Term[T] = p
+	var term Term[F, T] = p
 	return term.(T)
 }
 
@@ -53,15 +52,8 @@ func (p *LabelledConst[F, T]) Bounds() util.Bounds {
 }
 
 // EvalAt implementation for Evaluable interface.
-func (p *LabelledConst[F, T]) EvalAt(k int, _ trace.Module[F], _ schema.Module) (fr.Element, error) {
+func (p *LabelledConst[F, T]) EvalAt(k int, _ trace.Module[F], _ schema.Module) (F, error) {
 	return p.Value, nil
-}
-
-// IsDefined implementation for Evaluable interface.
-func (p *LabelledConst[F, T]) IsDefined() bool {
-	// NOTE: this is technically safe given the limited way that IsDefined is
-	// used for lookup selectors.
-	return true
 }
 
 // Lisp implementation for Lispifiable interface.
@@ -86,12 +78,12 @@ func (p *LabelledConst[F, T]) ShiftRange() (int, int) {
 
 // Simplify implementation for Term interface.
 func (p *LabelledConst[F, T]) Simplify(casts bool) T {
-	var tmp Term[T] = p
+	var tmp Term[F, T] = p
 	return tmp.(T)
 }
 
 // Substitute implementation for Substitutable interface.
-func (p *LabelledConst[F, T]) Substitute(mapping map[string]fr.Element) {
+func (p *LabelledConst[F, T]) Substitute(mapping map[string]F) {
 	// Attempt to apply substitution
 	if nval, ok := mapping[p.Label]; ok {
 		p.Value = nval
@@ -102,7 +94,7 @@ func (p *LabelledConst[F, T]) Substitute(mapping map[string]fr.Element) {
 func (p *LabelledConst[F, T]) ValueRange(_ schema.RegisterMap) util_math.Interval {
 	var c big.Int
 	// Extract big integer from field element
-	p.Value.BigInt(&c)
+	c.SetBytes(p.Value.Bytes())
 	// Return as interval
 	return util_math.NewInterval(c, c)
 }

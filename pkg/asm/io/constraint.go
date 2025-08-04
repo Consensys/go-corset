@@ -16,7 +16,6 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -24,7 +23,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
-	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -122,12 +121,12 @@ func (p Constraint[T]) Lisp(schema sc.AnySchema) sexp.SExp {
 }
 
 // Substitute implementation for schema.Constraint interface.
-func (p Constraint[T]) Substitute(map[string]fr.Element) {
+func (p Constraint[T]) Substitute(map[string]bls12_377.Element) {
 	// Do nothing since assembly instructions do not (at the time of writing)
 	// employ labelled constants.
 }
 
-func extractState(row int, state State, trace tr.Module) State {
+func extractState(row int, state State, trace tr.Module[bls12_377.Element]) State {
 	//
 	for i := range state.registers {
 		var (
@@ -145,7 +144,7 @@ func extractState(row int, state State, trace tr.Module) State {
 	return state
 }
 
-func checkState(row int, state State, mid sc.ModuleId, trace tr.Module) sc.Failure {
+func checkState(row int, state State, mid sc.ModuleId, trace tr.Module[bls12_377.Element]) sc.Failure {
 	// Check each regsiter in turn
 	for i := range trace.Width() {
 		var (

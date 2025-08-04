@@ -13,7 +13,6 @@
 package ir
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -25,20 +24,20 @@ import (
 // Ite represents an "If Then Else" expression which returns the (optional) true
 // branch when the condition evaluates to zero, and the (optional false branch
 // otherwise.
-type Ite[F field.Element[F], T LogicalTerm[T]] struct {
+type Ite[F field.Element[F], T LogicalTerm[F, T]] struct {
 	// Elements contained within this list.
 	Condition T
 	// True branch (optional).
-	TrueBranch LogicalTerm[T]
+	TrueBranch LogicalTerm[F, T]
 	// False branch (optional).
-	FalseBranch LogicalTerm[T]
+	FalseBranch LogicalTerm[F, T]
 }
 
 // IfThenElse constructs a new conditional branch, where either the true branch
 // or the false branch can (optionally) be nil (but both cannot).  Note, the
 // true branch is taken when the condition evaluates to zero.
-func IfThenElse[F field.Element[F], T LogicalTerm[T]](condition T, trueBranch T, falseBranch T) T {
-	var term LogicalTerm[T] = &Ite[F, T]{condition, trueBranch, falseBranch}
+func IfThenElse[F field.Element[F], T LogicalTerm[F, T]](condition T, trueBranch T, falseBranch T) T {
+	var term LogicalTerm[F, T] = &Ite[F, T]{condition, trueBranch, falseBranch}
 	return term.(T)
 }
 
@@ -172,8 +171,8 @@ func (p *Ite[F, T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet
 func (p *Ite[F, T]) Simplify(casts bool) T {
 	var (
 		cond        = p.Condition.Simplify(casts)
-		trueBranch  LogicalTerm[T]
-		falseBranch LogicalTerm[T]
+		trueBranch  LogicalTerm[F, T]
+		falseBranch LogicalTerm[F, T]
 	)
 	// Handle reductive cases
 	if IsTrue[F](cond) {
@@ -214,13 +213,13 @@ func (p *Ite[F, T]) Simplify(casts bool) T {
 		return Negation(cond).Simplify(casts)
 	}
 	// Finally, done.
-	var term LogicalTerm[T] = &Ite[F, T]{cond, trueBranch, falseBranch}
+	var term LogicalTerm[F, T] = &Ite[F, T]{cond, trueBranch, falseBranch}
 	//
 	return term.(T)
 }
 
 // Substitute implementation for Substitutable interface.
-func (p *Ite[F, T]) Substitute(mapping map[string]fr.Element) {
+func (p *Ite[F, T]) Substitute(mapping map[string]F) {
 	p.Condition.Substitute(mapping)
 	//
 	if p.FalseBranch != nil {

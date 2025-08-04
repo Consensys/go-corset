@@ -13,7 +13,6 @@
 package ir
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -25,7 +24,7 @@ import (
 
 // IfZero returns the true branch when the condition evaluates to zero, and the
 // false branch otherwise.
-type IfZero[F field.Element[F], S LogicalTerm[S], T Term[T]] struct {
+type IfZero[F field.Element[F], S LogicalTerm[F, S], T Term[F, T]] struct {
 	// Elements contained within this list.
 	Condition S
 	// True branch
@@ -36,8 +35,8 @@ type IfZero[F field.Element[F], S LogicalTerm[S], T Term[T]] struct {
 
 // IfElse constructs a new conditional with true and false branches.  Note, the
 // true branch is taken when the condition evaluates to zero.
-func IfElse[F field.Element[F], S LogicalTerm[S], T Term[T]](condition S, trueBranch T, falseBranch T) T {
-	var term Term[T] = &IfZero[F, S, T]{condition, trueBranch, falseBranch}
+func IfElse[F field.Element[F], S LogicalTerm[F, S], T Term[F, T]](condition S, trueBranch T, falseBranch T) T {
+	var term Term[F, T] = &IfZero[F, S, T]{condition, trueBranch, falseBranch}
 	return term.(T)
 }
 
@@ -67,24 +66,18 @@ func (p *IfZero[F, S, T]) Bounds() util.Bounds {
 }
 
 // EvalAt implementation for Evaluable interface.
-func (p *IfZero[F, S, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module) (fr.Element, error) {
+func (p *IfZero[F, S, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module) (F, error) {
 	// Evaluate condition
 	cond, _, err := p.Condition.TestAt(k, tr, sc)
 	//
 	if err != nil {
-		return fr.Element{}, err
+		var dummy F
+		return dummy, err
 	} else if cond {
 		return p.TrueBranch.EvalAt(k, tr, sc)
 	}
 	//
 	return p.FalseBranch.EvalAt(k, tr, sc)
-}
-
-// IsDefined implementation for Evaluable interface.
-func (p *IfZero[F, S, T]) IsDefined() bool {
-	// NOTE: this is technically safe given the limited way that IsDefined is
-	// used for lookup selectors.
-	return true
 }
 
 // Lisp implementation for Lispifiable interface.
@@ -137,7 +130,7 @@ func (p *IfZero[F, S, T]) ValueRange(_ schema.RegisterMap) math.Interval {
 }
 
 // Substitute implementation for Substitutable interface.
-func (p *IfZero[F, S, T]) Substitute(mapping map[string]fr.Element) {
+func (p *IfZero[F, S, T]) Substitute(mapping map[string]F) {
 	p.Condition.Substitute(mapping)
 	p.FalseBranch.Substitute(mapping)
 	p.TrueBranch.Substitute(mapping)
@@ -159,7 +152,7 @@ func (p *IfZero[F, S, T]) Simplify(casts bool) T {
 		return falseBranch
 	}
 	// Done
-	var term Term[T] = &IfZero[F, S, T]{cond, trueBranch, falseBranch}
+	var term Term[F, T] = &IfZero[F, S, T]{cond, trueBranch, falseBranch}
 	//
 	return term.(T)
 }

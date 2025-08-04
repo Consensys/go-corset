@@ -17,7 +17,6 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
@@ -25,7 +24,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/field"
-	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
@@ -36,12 +35,12 @@ import (
 // expectation that this computation is acyclic.  Furthermore, computed columns
 // give rise to "trace expansion".  That is where the initial trace provided by
 // the user is expanded by determining the value of all computed columns.
-type ComputedRegister[F field.Element[F]] struct {
+type ComputedRegister struct {
 	// Target index for computed column
 	Target schema.RegisterRef
 	// The computation which accepts a given trace and computes
 	// the value of this column at a given row.
-	Expr ir.Evaluable
+	Expr ir.Evaluable[bls12_377.Element]
 	// Direction in which value is computed (true = forward, false = backward).
 	// More specifically, a forwards direction means the computation starts on
 	// the first row, whilst a backwards direction means it starts on the last.
@@ -51,8 +50,8 @@ type ComputedRegister[F field.Element[F]] struct {
 // NewComputedRegister constructs a new computed column with a given name and
 // determining expression.  More specifically, that expression is used to
 // compute the values for this column during trace expansion.
-func NewComputedRegister[F field.Element[F]](column schema.RegisterRef, expr ir.Evaluable, direction bool) *ComputedRegister[F] {
-	return &ComputedRegister[F]{column, expr, direction}
+func NewComputedRegister(column schema.RegisterRef, expr ir.Evaluable[bls12_377.Element], direction bool) *ComputedRegister {
+	return &ComputedRegister{column, expr, direction}
 }
 
 // Bounds determines the well-definedness bounds for this assignment for both
@@ -60,7 +59,7 @@ func NewComputedRegister[F field.Element[F]](column schema.RegisterRef, expr ir.
 // expression such as "(shift X -1)".  This is technically undefined for the
 // first row of any trace and, by association, any constraint evaluating this
 // expression on that first row is also undefined (and hence must pass).
-func (p *ComputedRegister[F]) Bounds(mid sc.ModuleId) util.Bounds {
+func (p *ComputedRegister) Bounds(mid sc.ModuleId) util.Bounds {
 	if mid == p.Target.Module() {
 		return p.Expr.Bounds()
 	}
@@ -71,11 +70,11 @@ func (p *ComputedRegister[F]) Bounds(mid sc.ModuleId) util.Bounds {
 // Compute the values of columns defined by this assignment. Specifically, this
 // creates a new column which contains the result of evaluating a given
 // expression on each row.
-func (p *ComputedRegister[F]) Compute(tr trace.Trace[F], schema schema.AnySchema) ([]trace.ArrayColumn[F], error) {
+func (p *ComputedRegister) Compute(tr trace.Trace[bls12_377.Element], schema schema.AnySchema) ([]trace.ArrayColumn[bls12_377.Element], error) {
 	var (
 		trModule = tr.Module(p.Target.Module())
 		scModule = schema.Module(p.Target.Module())
-		wrapper  = recModule[F]{p.Target.Column().Unwrap(), nil, trModule}
+		wrapper  = recModule[bls12_377.Element]{p.Target.Column().Unwrap(), nil, trModule}
 		register = schema.Register(p.Target)
 		err      error
 	)
@@ -110,20 +109,20 @@ func (p *ComputedRegister[F]) Compute(tr trace.Trace[F], schema schema.AnySchema
 	// Construct column
 	col := trace.NewArrayColumn(register.Name, wrapper.data, padding)
 	// Done
-	return []trace.ArrayColumn[F]{col}, err
+	return []trace.ArrayColumn[bls12_377.Element]{col}, err
 }
 
 // Consistent performs some simple checks that the given assignment is
 // consistent with its enclosing schema This provides a double check of certain
 // key properties, such as that registers used for assignments are valid,
 // etc.
-func (p *ComputedRegister[F]) Consistent(schema sc.AnySchema) []error {
+func (p *ComputedRegister) Consistent(schema sc.AnySchema) []error {
 	return nil
 }
 
 // IsRecursive checks whether or not this computation is recursive (i.e. the
 // target column is defined in terms of itself).
-func (p *ComputedRegister[F]) IsRecursive() bool {
+func (p *ComputedRegister) IsRecursive() bool {
 	var regs = p.Expr.RequiredRegisters()
 	// Walk through registers accessed by the computation and see whether target
 	// register is amongst them.
@@ -140,13 +139,13 @@ func (p *ComputedRegister[F]) IsRecursive() bool {
 }
 
 // RegistersExpanded identifies registers expanded by this assignment.
-func (p *ComputedRegister[F]) RegistersExpanded() []sc.RegisterRef {
+func (p *ComputedRegister) RegistersExpanded() []sc.RegisterRef {
 	return nil
 }
 
 // RegistersRead returns the set of columns that this assignment depends upon.
 // That can include both input columns, as well as other computed columns.
-func (p *ComputedRegister[F]) RegistersRead() []schema.RegisterRef {
+func (p *ComputedRegister) RegistersRead() []schema.RegisterRef {
 	var (
 		module = p.Target.Module()
 		regs   = p.Expr.RequiredRegisters()
@@ -165,19 +164,19 @@ func (p *ComputedRegister[F]) RegistersRead() []schema.RegisterRef {
 }
 
 // RegistersWritten identifies registers assigned by this assignment.
-func (p *ComputedRegister[F]) RegistersWritten() []sc.RegisterRef {
+func (p *ComputedRegister) RegistersWritten() []sc.RegisterRef {
 	return []schema.RegisterRef{p.Target}
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func (p *ComputedRegister[F]) Subdivide(mapping schema.LimbsMap) sc.Assignment {
+func (p *ComputedRegister) Subdivide(mapping schema.LimbsMap) sc.Assignment {
 	return p
 }
 
 // Lisp converts this constraint into an S-Expression.
 //
 //nolint:revive
-func (p *ComputedRegister[F]) Lisp(schema sc.AnySchema) sexp.SExp {
+func (p *ComputedRegister) Lisp(schema sc.AnySchema) sexp.SExp {
 	var (
 		module          = schema.Module(p.Target.Module())
 		target          = module.Register(p.Target.Register())
@@ -197,7 +196,8 @@ func (p *ComputedRegister[F]) Lisp(schema sc.AnySchema) sexp.SExp {
 		})
 }
 
-func fwdComputation[F field.Element[F]](data *IndexArray[F], expr ir.Evaluable, trMod trace.Module[F], scMod schema.Module) error {
+func fwdComputation[F field.Element[F]](data *word.IndexArray[F, word.Pool[uint, F]], expr ir.Evaluable[F],
+	trMod trace.Module[F], scMod schema.Module) error {
 	// Forwards computation
 	for i := uint(0); i < data.Len(); i++ {
 		val, err := expr.EvalAt(int(i), trMod, scMod)
@@ -212,7 +212,8 @@ func fwdComputation[F field.Element[F]](data *IndexArray[F], expr ir.Evaluable, 
 	return nil
 }
 
-func bwdComputation[F field.Element[F]](data *IndexArray[F], expr ir.Evaluable, trMod trace.Module[F], scMod schema.Module) error {
+func bwdComputation[F field.Element[F]](data *word.IndexArray[F, word.Pool[uint, F]], expr ir.Evaluable[F],
+	trMod trace.Module[F], scMod schema.Module) error {
 	// Backwards computation
 	for i := data.Len(); i > 0; i-- {
 		val, err := expr.EvalAt(int(i-1), trMod, scMod)
@@ -232,7 +233,7 @@ func bwdComputation[F field.Element[F]](data *IndexArray[F], expr ir.Evaluable, 
 // being generated.
 type recModule[F field.Element[F]] struct {
 	col      uint
-	data     *IndexArray[F]
+	data     *word.IndexArray[F, word.Pool[uint, F]]
 	trModule trace.Module[F]
 }
 
@@ -270,7 +271,7 @@ func (p *recModule[F]) Height() uint {
 // RecColumn is a wrapper which enables the array being computed to be accessed
 // during its own computation.
 type recColumn[F field.Element[F]] struct {
-	data *IndexArray[F]
+	data *word.IndexArray[F, word.Pool[uint, F]]
 }
 
 // Holds the name of this column
@@ -279,25 +280,26 @@ func (p *recColumn[F]) Name() string {
 }
 
 // Get implementation for trace.Column interface.
-func (p *recColumn[F]) Get(row int) fr.Element {
+func (p *recColumn[F]) Get(row int) F {
 	if row < 0 || uint(row) >= p.data.Len() {
+		var zero F
 		// out-of-bounds access
-		return fr.NewElement(0)
+		return zero
 	}
 	//
 	return p.data.Get(uint(row))
 }
 
 // Data implementation for trace.Column interface.
-func (p *recColumn[F]) Data() field.FrArray {
+func (p *recColumn[F]) Data() array.Array[F] {
 	panic("unreachable")
 }
 
 // Padding implementation for trace.Column interface.
-func (p *recColumn[F]) Padding() fr.Element {
+func (p *recColumn[F]) Padding() F {
 	panic("unreachable")
 }
 
 func init() {
-	gob.Register(sc.Assignment(&ComputedRegister[bls12_377.Element]{}))
+	gob.Register(sc.Assignment(&ComputedRegister{}))
 }

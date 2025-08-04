@@ -33,7 +33,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
-	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )

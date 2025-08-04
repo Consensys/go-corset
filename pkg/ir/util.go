@@ -16,25 +16,23 @@ import (
 	"math"
 	"math/big"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
 var (
-	biZERO big.Int    = *big.NewInt(0)
-	biONE  big.Int    = *big.NewInt(1)
-	frZERO fr.Element = fr.NewElement(0)
-	frONE  fr.Element = fr.NewElement(1)
+	biZERO big.Int = *big.NewInt(0)
+	biONE  big.Int = *big.NewInt(1)
 )
 
 // Check whether a given term corresponds with the constant zero.
-func isZero[T Term[T]](term T) bool {
-	var t Term[T] = term
+func isZero[F field.Element[F], T Term[F, T]](term T) bool {
+	var t Term[F, T] = term
 	//
-	if t, ok := t.(*Constant[T]); ok {
+	if t, ok := t.(*Constant[F, T]); ok {
 		return t.Value.IsZero()
 	}
 	//
@@ -42,17 +40,17 @@ func isZero[T Term[T]](term T) bool {
 }
 
 // Check whether a given term corresponds with the constant one.
-func isOne[T Term[T]](term T) bool {
-	var t Term[T] = term
+func isOne[F field.Element[F], T Term[F, T]](term T) bool {
+	var t Term[F, T] = term
 	//
-	if t, ok := t.(*Constant[T]); ok {
+	if t, ok := t.(*Constant[F, T]); ok {
 		return t.Value.IsOne()
 	}
 	//
 	return false
 }
 
-func lispOfTerms[E any, T Term[E]](global bool, mapping schema.RegisterMap, op string, exprs []T) sexp.SExp {
+func lispOfTerms[F any, E any, T Term[F, E]](global bool, mapping schema.RegisterMap, op string, exprs []T) sexp.SExp {
 	arr := make([]sexp.SExp, 1+len(exprs))
 	arr[0] = sexp.NewSymbol(op)
 	// Translate arguments
@@ -63,7 +61,7 @@ func lispOfTerms[E any, T Term[E]](global bool, mapping schema.RegisterMap, op s
 	return sexp.NewList(arr)
 }
 
-func lispOfLogicalTerms[T LogicalTerm[T]](global bool, mapping schema.RegisterMap, op string, exprs []T) sexp.SExp {
+func lispOfLogicalTerms[F any, T LogicalTerm[F, T]](global bool, mapping schema.RegisterMap, op string, exprs []T) sexp.SExp {
 	arr := make([]sexp.SExp, 1+len(exprs))
 	arr[0] = sexp.NewSymbol(op)
 	// Translate arguments
@@ -86,7 +84,7 @@ func requiredCellsOfTerms[T Contextual](args []T, row int, tr trace.ModuleId) *s
 	})
 }
 
-func substituteTerms[T Substitutable](mapping map[string]fr.Element, terms ...T) {
+func substituteTerms[F any, T Substitutable[F]](mapping map[string]F, terms ...T) {
 	//
 	for _, term := range terms {
 		term.Substitute(mapping)
@@ -116,10 +114,10 @@ func applyShiftOfTerms[T Shiftable[T]](terms []T, shift int) []T {
 	return nterms
 }
 
-type binop func(fr.Element, fr.Element) fr.Element
+type binop[F any] func(F, F) F
 
 // Simplify logical terms
-func simplifyLogicalTerms[T LogicalTerm[T]](terms []T, casts bool) []T {
+func simplifyLogicalTerms[F field.Element[F], T LogicalTerm[F, T]](terms []T, casts bool) []T {
 	var nterms = make([]T, len(terms))
 	//
 	for i, t := range terms {
@@ -132,19 +130,19 @@ func simplifyLogicalTerms[T LogicalTerm[T]](terms []T, casts bool) []T {
 // General purpose constant propagation mechanism.  This reduces all terms to
 // constants (where possible) and combines terms according to a given
 // combinator.
-func simplifyTerms[T Term[T]](terms []T, fn binop, acc fr.Element, casts bool) []T {
+func simplifyTerms[F field.Element[F], T Term[F, T]](terms []T, fn binop[F], acc F, casts bool) []T {
 	// Count how many terms reduced to constants.
 	var (
 		count  = 0
 		nterms = make([]T, len(terms))
-		ith    Term[T]
+		ith    Term[F, T]
 	)
 	// Propagate through all children
 	for i, e := range terms {
 		nterms[i] = e.Simplify(casts)
 		ith = nterms[i]
 		// Check for constant
-		c, ok := ith.(*Constant[T])
+		c, ok := ith.(*Constant[F, T])
 		// Try to continue sum
 		if ok {
 			// Apply combinator
@@ -160,17 +158,17 @@ func simplifyTerms[T Term[T]](terms []T, fn binop, acc fr.Element, casts bool) [
 // Replace all constants within a given sequence of expressions with a single
 // constant (whose value has been precomputed from those constants).  The new
 // value replaces the first constant in the list.
-func mergeConstants[T Term[T]](constant fr.Element, terms []T) []T {
+func mergeConstants[F field.Element[F], T Term[F, T]](constant F, terms []T) []T {
 	var (
 		j     = 0
 		first = true
 	)
 	//
 	for i := range terms {
-		var tmp Term[T] = terms[i]
+		var tmp Term[F, T] = terms[i]
 		// Check for constant
-		if _, ok := tmp.(*Constant[T]); ok && first {
-			tmp = &Constant[T]{constant}
+		if _, ok := tmp.(*Constant[F, T]); ok && first {
+			tmp = &Constant[F, T]{constant}
 			terms[j] = tmp.(T)
 			first = false
 			j++
@@ -184,10 +182,10 @@ func mergeConstants[T Term[T]](constant fr.Element, terms []T) []T {
 	return terms[0:j]
 }
 
-func addBinOp(lhs fr.Element, rhs fr.Element) fr.Element {
-	return *lhs.Add(&lhs, &rhs)
+func addBinOp[F field.Element[F]](lhs F, rhs F) F {
+	return lhs.Add(rhs)
 }
 
-func mulBinOp(lhs fr.Element, rhs fr.Element) fr.Element {
-	return *lhs.Mul(&lhs, &rhs)
+func mulBinOp[F field.Element[F]](lhs F, rhs F) F {
+	return lhs.Mul(rhs)
 }

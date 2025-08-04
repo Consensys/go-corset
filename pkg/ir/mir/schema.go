@@ -15,7 +15,6 @@ package mir
 import (
 	"encoding/gob"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
@@ -25,6 +24,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema/constraint/ranged"
 	"github.com/consensys/go-corset/pkg/schema/constraint/sorted"
 	"github.com/consensys/go-corset/pkg/schema/constraint/vanishing"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 )
 
 // Following types capture top-level abstractions at the MIR level.
@@ -38,12 +38,12 @@ type (
 	// Term represents the fundamental for arithmetic expressions in the MIR
 	// representation.
 	Term interface {
-		ir.Term[Term]
+		ir.Term[bls12_377.Element, Term]
 	}
 	// LogicalTerm represents the fundamental for logical expressions in the MIR
 	// representation.
 	LogicalTerm interface {
-		ir.LogicalTerm[LogicalTerm]
+		ir.LogicalTerm[bls12_377.Element, LogicalTerm]
 	}
 )
 
@@ -76,57 +76,57 @@ type (
 // Following types capture permitted expression forms at the MIR level.
 type (
 	// Add represents the addition of zero or more expressions.
-	Add = ir.Add[Term]
+	Add = ir.Add[bls12_377.Element, Term]
 	// Cast attempts to narrow the width a given expression.
-	Cast = ir.Cast[Term]
+	Cast = ir.Cast[bls12_377.Element, Term]
 	// Constant represents a constant value within an expression.
-	Constant = ir.Constant[Term]
+	Constant = ir.Constant[bls12_377.Element, Term]
 	// IfZero represents a conditional branch at the MIR level.
-	IfZero = ir.IfZero[LogicalTerm, Term]
+	IfZero = ir.IfZero[bls12_377.Element, LogicalTerm, Term]
 	// LabelledConst represents a labelled constant at the MIR level.
-	LabelledConst = ir.LabelledConst[Term]
+	LabelledConst = ir.LabelledConst[bls12_377.Element, Term]
 	// RegisterAccess represents reading the value held at a given column in the
 	// tabular context.  Furthermore, the current row maybe shifted up (or down) by
 	// a given amount.
-	RegisterAccess = ir.RegisterAccess[Term]
+	RegisterAccess = ir.RegisterAccess[bls12_377.Element, Term]
 	// Exp represents the a given value taken to a power.
-	Exp = ir.Exp[Term]
+	Exp = ir.Exp[bls12_377.Element, Term]
 	// Mul represents the product over zero or more expressions.
-	Mul = ir.Mul[Term]
+	Mul = ir.Mul[bls12_377.Element, Term]
 	// Norm reduces the value of an expression to either zero (if it was zero)
 	// or one (otherwise).
-	Norm = ir.Norm[Term]
+	Norm = ir.Norm[bls12_377.Element, Term]
 	// Sub represents the subtraction over zero or more expressions.
-	Sub = ir.Sub[Term]
+	Sub = ir.Sub[bls12_377.Element, Term]
 	// VectorAccess represents a compound variable
-	VectorAccess = ir.VectorAccess[Term]
+	VectorAccess = ir.VectorAccess[bls12_377.Element, Term]
 )
 
 // Following types capture permitted logical forms at the MIR level.
 type (
 	// Conjunct represents a logical conjunction at the MIR level.
-	Conjunct = ir.Conjunct[LogicalTerm]
+	Conjunct = ir.Conjunct[bls12_377.Element, LogicalTerm]
 	// Disjunct represents a logical conjunction at the MIR level.
-	Disjunct = ir.Disjunct[LogicalTerm]
+	Disjunct = ir.Disjunct[bls12_377.Element, LogicalTerm]
 	// Equal represents an equality comparator between two arithmetic terms
 	// at the MIR level.
-	Equal = ir.Equal[LogicalTerm, Term]
+	Equal = ir.Equal[bls12_377.Element, LogicalTerm, Term]
 	// Ite represents an If-Then-Else expression where either branch is optional
 	// (though we must have at least one).
-	Ite = ir.Ite[LogicalTerm]
+	Ite = ir.Ite[bls12_377.Element, LogicalTerm]
 	// Negate represents a logical negation at the MIR level.
-	Negate = ir.Negate[LogicalTerm]
+	Negate = ir.Negate[bls12_377.Element, LogicalTerm]
 	// NotEqual represents a non-equality comparator between two arithmetic terms
 	// at the MIR level.
-	NotEqual = ir.NotEqual[LogicalTerm, Term]
+	NotEqual = ir.NotEqual[bls12_377.Element, LogicalTerm, Term]
 	// Inequality an inequality comparator (e.g. X < Y or X <= Y) between two arithmetic terms
 	// at the MIR level.
-	Inequality = ir.Inequality[LogicalTerm, Term]
+	Inequality = ir.Inequality[bls12_377.Element, LogicalTerm, Term]
 )
 
 // SubstituteConstants substitutes the value of matching labelled constants for
 // all expressions used within the schema.
-func SubstituteConstants[M schema.Module](schema schema.MixedSchema[M, Module], mapping map[string]fr.Element) {
+func SubstituteConstants[M schema.Module](schema schema.MixedSchema[M, Module], mapping map[string]bls12_377.Element) {
 	// Constraints
 	for iter := schema.Constraints(); iter.HasNext(); {
 		constraint := iter.Next()

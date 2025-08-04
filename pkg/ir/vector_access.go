@@ -13,7 +13,6 @@
 package ir
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -26,11 +25,11 @@ import (
 // VectorAccess represents the bitwise concatenation of one or more registers.
 // Registers are organised in little endian form.  That is, the least
 // significant register comes first (i.e. has index 0 in the array).
-type VectorAccess[F field.Element[F], T Term[T]] struct{ Vars []*RegisterAccess[F, T] }
+type VectorAccess[F field.Element[F], T Term[F, T]] struct{ Vars []*RegisterAccess[F, T] }
 
 // NewVectorAccess constructs a new vector access for a given set of registers.
-func NewVectorAccess[F field.Element[F], T Term[T]](vars []*RegisterAccess[F, T]) T {
-	var term Term[T] = &VectorAccess[F, T]{vars}
+func NewVectorAccess[F field.Element[F], T Term[F, T]](vars []*RegisterAccess[F, T]) T {
+	var term Term[F, T] = &VectorAccess[F, T]{vars}
 	//
 	return term.(T)
 }
@@ -40,11 +39,11 @@ func (p *VectorAccess[F, T]) ApplyShift(shift int) T {
 	nterms := make([]*RegisterAccess[F, T], len(p.Vars))
 	//
 	for i := range p.Vars {
-		var ith Term[T] = p.Vars[i].ApplyShift(shift)
+		var ith Term[F, T] = p.Vars[i].ApplyShift(shift)
 		nterms[i] = ith.(*RegisterAccess[F, T])
 	}
 	//
-	var term Term[T] = &VectorAccess[F, T]{nterms}
+	var term Term[F, T] = &VectorAccess[F, T]{nterms}
 	//
 	return term.(T)
 }
@@ -53,20 +52,20 @@ func (p *VectorAccess[F, T]) ApplyShift(shift int) T {
 func (p *VectorAccess[F, T]) Bounds() util.Bounds { return util.BoundsForArray(p.Vars) }
 
 // EvalAt implementation for Evaluable interface.
-func (p *VectorAccess[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module) (fr.Element, error) {
+func (p *VectorAccess[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module) (F, error) {
 	var shift = sc.Register(p.Vars[0].Register).Width
 	// Evaluate first argument
 	val, err := p.Vars[0].EvalAt(k, tr, sc)
 	// Continue evaluating the rest
 	for i := 1; err == nil && i < len(p.Vars); i++ {
 		var (
-			ith       fr.Element
+			ith       F
 			ith_width = sc.Register(p.Vars[i].Register).Width
 		)
 		// Evaluate ith argument
 		ith, err = p.Vars[i].EvalAt(k, tr, sc)
 		//
-		val.Add(&val, shiftValue(ith, shift))
+		val = val.Add(shiftValue(ith, shift))
 		//
 		shift = shift + ith_width
 	}
@@ -103,12 +102,12 @@ func (p *VectorAccess[F, T]) ShiftRange() (int, int) {
 
 // Simplify implementation for Term interface.
 func (p *VectorAccess[F, T]) Simplify(casts bool) T {
-	var term Term[T] = p
+	var term Term[F, T] = p
 	return term.(T)
 }
 
 // Substitute implementation for Substitutable interface.
-func (p *VectorAccess[F, T]) Substitute(mapping map[string]fr.Element) {
+func (p *VectorAccess[F, T]) Substitute(mapping map[string]F) {
 	substituteTerms(mapping, p.Vars...)
 }
 
@@ -124,10 +123,9 @@ func (p *VectorAccess[F, T]) ValueRange(mapping schema.RegisterMap) math.Interva
 	return valueRangeOfBits(width)
 }
 
-func shiftValue(val fr.Element, width uint) *fr.Element {
-	var coeff = fr.NewElement(2)
+func shiftValue[F field.Element[F]](val F, width uint) F {
 	// Determine 2^width
-	field.Pow(&coeff, uint64(width))
-	// Determine val & 2^width
-	return val.Mul(&val, &coeff)
+	coeff := field.TwoPowN[F](width)
+	// Determine val * 2^width
+	return val.Mul(coeff)
 }

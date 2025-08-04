@@ -19,7 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
-	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 )
 
 // Failure provides structural information about a failing vanishing constraint.
@@ -27,7 +27,7 @@ type Failure struct {
 	// Handle of the failing constraint
 	Handle string
 	// Constraint expression
-	Constraint ir.Testable
+	Constraint ir.Testable[bls12_377.Element]
 	// Module where constraint failed
 	Context schema.ModuleId
 	// Row on which the constraint failed

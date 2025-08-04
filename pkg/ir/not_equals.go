@@ -13,7 +13,6 @@
 package ir
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -25,15 +24,15 @@ import (
 // NotEqual represents an NotEqual between two terms (e.g. "X==Y", or "X!=Y+1",
 // etc).  NotEquals are either NotEqualities (or negated NotEqualities) or
 // inNotEqualities.
-type NotEqual[F field.Element[F], S LogicalTerm[S], T Term[T]] struct {
-	Lhs Term[T]
-	Rhs Term[T]
+type NotEqual[F field.Element[F], S LogicalTerm[F, S], T Term[F, T]] struct {
+	Lhs Term[F, T]
+	Rhs Term[F, T]
 }
 
 // NotEquals constructs an NotEqual representing the NotEquality of two expressions.
-func NotEquals[F field.Element[F], S LogicalTerm[S], T Term[T]](lhs T, rhs T) S {
+func NotEquals[F field.Element[F], S LogicalTerm[F, S], T Term[F, T]](lhs T, rhs T) S {
 	var (
-		term LogicalTerm[S] = &NotEqual[F, S, T]{
+		term LogicalTerm[F, S] = &NotEqual[F, S, T]{
 			Lhs: lhs,
 			Rhs: rhs,
 		}
@@ -78,7 +77,7 @@ func (p *NotEqual[F, S, T]) TestAt(k int, tr trace.Module[F], sc schema.Module) 
 		return false, 0, err2
 	}
 	// perform comparison
-	c := lhs.Cmp(&rhs)
+	c := lhs.Cmp(rhs)
 	//
 	return c != 0, 0, nil
 }
@@ -120,10 +119,10 @@ func (p *NotEqual[F, S, T]) Simplify(casts bool) S {
 		rhs = p.Rhs.Simplify(casts)
 	)
 	//
-	lc := IsConstant[F](lhs)
-	rc := IsConstant[F](rhs)
+	lc, lok := IsConstant[F](lhs)
+	rc, rok := IsConstant[F](rhs)
 	//
-	if lc != nil && rc != nil {
+	if lok && rok {
 		// Can simplify
 		if lc.Cmp(rc) == 0 {
 			return False[F, S]()
@@ -132,13 +131,13 @@ func (p *NotEqual[F, S, T]) Simplify(casts bool) S {
 		return True[F, S]()
 	}
 	// Cannot simplify
-	var tmp LogicalTerm[S] = &NotEqual[F, S, T]{lhs, rhs}
+	var tmp LogicalTerm[F, S] = &NotEqual[F, S, T]{lhs, rhs}
 	// Done
 	return tmp.(S)
 }
 
 // Substitute implementation for Substitutable interface.
-func (p *NotEqual[F, S, T]) Substitute(mapping map[string]fr.Element) {
+func (p *NotEqual[F, S, T]) Substitute(mapping map[string]F) {
 	p.Lhs.Substitute(mapping)
 	p.Rhs.Substitute(mapping)
 }

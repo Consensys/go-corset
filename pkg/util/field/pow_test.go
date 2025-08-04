@@ -17,6 +17,7 @@ import (
 	"testing"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 )
 
 const POW_BASE_MAX uint = 65536
@@ -68,15 +69,19 @@ func PowCheckLoop(t *testing.T, first uint) {
 // Check pow computed correctly.  This is done by comparing against the existing
 // gnark function.
 func PowCheck(t *testing.T, base uint, pow uint64) {
-	k := big.NewInt(int64(pow))
-	v1 := fr.NewElement(uint64(base))
-	v2 := fr.NewElement(uint64(base))
-	// V1 computed using our optimised method
-	Pow(&v1, pow)
-	// V2 computed using existing gnark function
-	v2.Exp(v2, k)
+	var (
+		k        = big.NewInt(int64(pow))
+		actual   bls12_377.Element
+		expected = fr.NewElement(uint64(base))
+	)
+	// Initialise actual value
+	actual.SetUint64(uint64(base))
+	// Compute actual using our optimised method
+	actual = Pow(actual, pow)
+	// Compute expected using existing gnark function
+	expected.Exp(expected, k)
 	// Final sanity check
-	if v1.Cmp(&v2) != 0 {
-		t.Errorf("Pow(%d,%d)=%s (not %s)", base, pow, v1.String(), v2.String())
+	if actual.Element.Cmp(&expected) != 0 {
+		t.Errorf("Pow(%d,%d)=%s (not %s)", base, pow, actual.String(), expected.String())
 	}
 }

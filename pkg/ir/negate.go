@@ -13,7 +13,6 @@
 package ir
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -23,8 +22,8 @@ import (
 )
 
 // Negation constructs a term representing the negation of a logical term.
-func Negation[F field.Element[F], T LogicalTerm[T]](body T) T {
-	var term LogicalTerm[T] = &Negate[F, T]{
+func Negation[F field.Element[F], T LogicalTerm[F, T]](body T) T {
+	var term LogicalTerm[F, T] = &Negate[F, T]{
 		Arg: body,
 	}
 	//
@@ -36,7 +35,7 @@ func Negation[F field.Element[F], T LogicalTerm[T]](body T) T {
 // Negate represents an Negate between two terms (e.g. "X==Y", or "X!=Y+1",
 // etc).  Negate are either Negateities (or negated Negateities) or
 // inNegateities.
-type Negate[F field.Element[F], T LogicalTerm[T]] struct {
+type Negate[F field.Element[F], T LogicalTerm[F, T]] struct {
 	Arg T
 }
 
@@ -91,12 +90,12 @@ func (p *Negate[F, T]) Simplify(casts bool) T {
 	case IsFalse[F](term):
 		return True[F, T]()
 	default:
-		var tmp LogicalTerm[T] = &Negate[F, T]{term}
+		var tmp LogicalTerm[F, T] = &Negate[F, T]{term}
 		return tmp.(T)
 	}
 }
 
 // Substitute implementation for Substitutable interface.
-func (p *Negate[F, T]) Substitute(mapping map[string]fr.Element) {
+func (p *Negate[F, T]) Substitute(mapping map[string]F) {
 	p.Arg.Substitute(mapping)
 }

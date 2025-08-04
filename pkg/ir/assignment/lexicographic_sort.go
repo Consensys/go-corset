@@ -15,13 +15,14 @@ package assignment
 import (
 	"fmt"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/field"
-	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // LexicographicSort provides the necessary computation for filling out columns
@@ -77,7 +78,7 @@ func (p *LexicographicSort) Bounds(_ sc.ModuleId) util.Bounds {
 // Compute computes the values of columns defined as needed to support the
 // LexicographicSortingGadget. That includes the delta column, and the bit
 // selectors.
-func (p *LexicographicSort) Compute(trace tr.Trace[bls12_377.Element], schema sc.AnySchema) ([]tr.ArrayColumn, error) {
+func (p *LexicographicSort) Compute(trace tr.Trace[bls12_377.Element], schema sc.AnySchema) ([]tr.ArrayColumn[bls12_377.Element], error) {
 	var (
 		// Exact number of (signed) columns involved in the sort
 		nbits = len(p.signs)
@@ -92,7 +93,7 @@ func (p *LexicographicSort) Compute(trace tr.Trace[bls12_377.Element], schema sc
 	// Read input columns
 	inputs := ReadRegisters(trace, p.sources...)
 	// Apply native function
-	data := lexicographicSortNativeFunction(bit_width, inputs, p.signs)
+	data := lexSortNativeFunction(bit_width, inputs, p.signs, trace.Pool())
 	// Write out registers
 	outputs := WriteRegisters(schema, p.targets, data)
 	//
@@ -192,30 +193,29 @@ func (p *LexicographicSort) Lisp(schema sc.AnySchema) sexp.SExp {
 // Native Computation
 // ============================================================================
 
-func lexicographicSortNativeFunction(bitwidth uint, sources []field.FrArray, signs []bool) []field.FrArray {
+func lexSortNativeFunction[F field.Element[F]](bitwidth uint, sources []array.Array[F], signs []bool, pool word.Pool[uint, F]) []array.MutArray[F] {
 	var (
 		nrows = sources[0].Len()
 		// Number of bit columns required (one for each column being sorted).
 		nbits = len(signs)
 		// target[0] is for delta column, followed by one bit columns for each
 		// column being sorted.
-		targets = make([]field.FrArray, 1+nbits)
+		targets = make([]array.MutArray[F], 1+nbits)
 		//
-		one = fr.One()
+		zero F = field.Uint64[F](0)
+		one  F = field.Uint64[F](1)
 	)
-	// Intialise delta column
-	//
 	// FIXME: using an index array here ensures the underlying data is
 	// represented using a full field element, rather than e.g. some smaller
 	// number of bytes.  This is needed to handle reject tests which can produce
 	// values outside the range of the computed register, but which we still
 	// want to check are actually rejected (i.e. since they are simulating what
 	// an attacker might do).
-	targets[0] = field.NewFrIndexArray(nrows, bitwidth)
+	targets[0] = word.NewIndexArray(nrows, bitwidth, pool)
 	// Initialise bit columns
 	for i := range signs {
-		// Construct a byte array for ith byte
-		targets[i+1] = field.NewFrArray(nrows, 1)
+		// Construct a bit array for ith byte
+		targets[i+1] = word.NewBitArray[F](nrows)
 	}
 	//
 	for i := uint(1); i < nrows; i++ {
@@ -227,8 +227,8 @@ func lexicographicSortNativeFunction(bitwidth uint, sources []field.FrArray, sig
 			prev := sources[j].Get(i - 1)
 			curr := sources[j].Get(i)
 
-			if !set && prev.Cmp(&curr) != 0 {
-				var diff fr.Element
+			if !set && prev.Cmp(curr) != 0 {
+				var diff F
 
 				targets[j+1].Set(i, one)
 				// Compute curr - prev
@@ -240,11 +240,11 @@ func lexicographicSortNativeFunction(bitwidth uint, sources []field.FrArray, sig
 				// selector is used, then negative (i.e. invalid) values can
 				// legitimately arise when the selector is not enabled.  In such
 				// cases, we just need any valid filler value.
-				if curr.Cmp(&prev) < 0 {
+				if curr.Cmp(prev) < 0 {
 					// Computation is invalid, so use filler of zero.
-					diff.Set(&zero)
+					diff = zero
 				} else {
-					diff.Sub(&curr, &prev)
+					diff = curr.Sub(prev)
 				}
 				//
 				targets[0].Set(i, diff)

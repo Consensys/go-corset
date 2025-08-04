@@ -17,7 +17,6 @@ import (
 	"math"
 	"math/big"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -33,21 +32,21 @@ import (
 // contains the register accesses "STAMP(0)" and "CT(-1)".  Then, STAMP(0)
 // accesses the STAMP register at row 5, whilst CT(-1) accesses the CT register at
 // row 4.
-type RegisterAccess[F field.Element[F], T Term[T]] struct {
+type RegisterAccess[F field.Element[F], T Term[F, T]] struct {
 	Register schema.RegisterId
 	Shift    int
 }
 
 // NewRegisterAccess constructs an AIR expression representing the value of a
 // given register on the current row.
-func NewRegisterAccess[F field.Element[F], T Term[T]](register schema.RegisterId, shift int) T {
-	var term Term[T] = &RegisterAccess[F, T]{Register: register, Shift: shift}
+func NewRegisterAccess[F field.Element[F], T Term[F, T]](register schema.RegisterId, shift int) T {
+	var term Term[F, T] = &RegisterAccess[F, T]{Register: register, Shift: shift}
 	return term.(T)
 }
 
 // RawRegisterAccess constructs an AIR expression representing the value of a given
 // register on the current row.
-func RawRegisterAccess[F field.Element[F], T Term[T]](register schema.RegisterId, shift int) *RegisterAccess[F, T] {
+func RawRegisterAccess[F field.Element[F], T Term[F, T]](register schema.RegisterId, shift int) *RegisterAccess[F, T] {
 	return &RegisterAccess[F, T]{Register: register, Shift: shift}
 }
 
@@ -56,7 +55,7 @@ func (p *RegisterAccess[F, T]) Air() {}
 
 // ApplyShift implementation for Term interface.
 func (p *RegisterAccess[F, T]) ApplyShift(shift int) T {
-	var reg Term[T] = &RegisterAccess[F, T]{Register: p.Register, Shift: p.Shift + shift}
+	var reg Term[F, T] = &RegisterAccess[F, T]{Register: p.Register, Shift: p.Shift + shift}
 	return reg.(T)
 }
 
@@ -71,7 +70,7 @@ func (p *RegisterAccess[F, T]) Bounds() util.Bounds {
 }
 
 // EvalAt implementation for Evaluable interface.
-func (p *RegisterAccess[F, T]) EvalAt(k int, module trace.Module[F], _ schema.Module) (fr.Element, error) {
+func (p *RegisterAccess[F, T]) EvalAt(k int, module trace.Module[F], _ schema.Module) (F, error) {
 	return module.Column(p.Register.Unwrap()).Get(k + p.Shift), nil
 }
 
@@ -131,12 +130,12 @@ func (p *RegisterAccess[F, T]) ShiftRange() (int, int) {
 
 // Simplify implementation for Term interface.
 func (p *RegisterAccess[F, T]) Simplify(casts bool) T {
-	var tmp Term[T] = p
+	var tmp Term[F, T] = p
 	return tmp.(T)
 }
 
 // Substitute implementation for Substitutable interface.
-func (p *RegisterAccess[F, T]) Substitute(mapping map[string]fr.Element) {
+func (p *RegisterAccess[F, T]) Substitute(mapping map[string]F) {
 
 }
 

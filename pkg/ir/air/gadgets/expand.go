@@ -19,6 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 )
 
 // Expand converts an arbitrary expression into a specific column index.  In
@@ -42,7 +43,7 @@ func Expand(bitwidth uint, e air.Term, module *air.ModuleBuilder) schema.Registe
 		index = module.NewRegister(schema.NewComputedRegister(name, bitwidth))
 		module.AddAssignment(assignment.NewComputedRegister(sc.NewRegisterRef(module.Id(), index), e, true))
 		// Construct v == [e]
-		v := ir.NewRegisterAccess[air.Term](index, 0)
+		v := ir.NewRegisterAccess[bls12_377.Element, air.Term](index, 0)
 		// v - e
 		eq_e_v := ir.Subtract(v, e)
 		// Ensure (v - e) == 0, where v is value of computed column.

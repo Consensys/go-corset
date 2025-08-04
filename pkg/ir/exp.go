@@ -15,7 +15,6 @@ package ir
 import (
 	"fmt"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -26,15 +25,15 @@ import (
 )
 
 // Exp represents the a given value taken to a power.
-type Exp[F field.Element[F], T Term[T]] struct {
+type Exp[F field.Element[F], T Term[F, T]] struct {
 	Arg T
 	Pow uint64
 }
 
 // Exponent constructs a new expression representing the given argument
 // raised to a given a given power.
-func Exponent[F field.Element[F], T Term[T]](arg T, pow uint64) T {
-	var term Term[T] = &Exp[F, T]{arg, pow}
+func Exponent[F field.Element[F], T Term[F, T]](arg T, pow uint64) T {
+	var term Term[F, T] = &Exp[F, T]{arg, pow}
 	return term.(T)
 }
 
@@ -49,20 +48,13 @@ func (p *Exp[F, T]) Bounds() util.Bounds {
 }
 
 // EvalAt implementation for Evaluable interface.
-func (p *Exp[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module) (fr.Element, error) {
+func (p *Exp[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module) (F, error) {
 	// Check whether argument evaluates to zero or not.
 	val, err := p.Arg.EvalAt(k, tr, sc)
 	// Compute exponent
-	field.Pow(&val, p.Pow)
+	val = field.Pow(val, p.Pow)
 	// Done
 	return val, err
-}
-
-// IsDefined implementation for Evaluable interface.
-func (p *Exp[F, T]) IsDefined() bool {
-	// NOTE: this is technically safe given the limited way that IsDefined is
-	// used for lookup selectors.
-	return true
 }
 
 // Lisp implementation for Lispifiable interface.
@@ -89,23 +81,20 @@ func (p *Exp[F, T]) ShiftRange() (int, int) {
 }
 
 // Substitute implementation for Substitutable interface.
-func (p *Exp[F, T]) Substitute(mapping map[string]fr.Element) {
+func (p *Exp[F, T]) Substitute(mapping map[string]F) {
 	p.Arg.Substitute(mapping)
 }
 
 // Simplify implementation for Term interface.
 func (p *Exp[F, T]) Simplify(casts bool) T {
 	var (
-		arg  T       = p.Arg.Simplify(casts)
-		targ Term[T] = arg
+		arg  T          = p.Arg.Simplify(casts)
+		targ Term[F, T] = arg
 	)
 	//
 	if c, ok := targ.(*Constant[F, T]); ok {
-		var val fr.Element
-		// Clone value
-		val.Set(&c.Value)
 		// Compute exponent (in place)
-		field.Pow(&val, p.Pow)
+		val := field.Pow(c.Value, p.Pow)
 		// Done
 		targ = &Constant[F, T]{val}
 	} else {

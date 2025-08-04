@@ -13,7 +13,6 @@
 package ir
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -23,8 +22,8 @@ import (
 )
 
 // LessThan constructs an Inequality representing the X < Y.
-func LessThan[F field.Element[F], S LogicalTerm[S], T Term[T]](lhs T, rhs T) S {
-	var term LogicalTerm[S] = &Inequality[F, S, T]{
+func LessThan[F field.Element[F], S LogicalTerm[F, S], T Term[F, T]](lhs T, rhs T) S {
+	var term LogicalTerm[F, S] = &Inequality[F, S, T]{
 		Strict: true,
 		Lhs:    lhs,
 		Rhs:    rhs,
@@ -34,8 +33,8 @@ func LessThan[F field.Element[F], S LogicalTerm[S], T Term[T]](lhs T, rhs T) S {
 }
 
 // LessThanOrEquals constructs an Inequality representing the X <= Y.
-func LessThanOrEquals[F field.Element[F], S LogicalTerm[S], T Term[T]](lhs T, rhs T) S {
-	var term LogicalTerm[S] = &Inequality[F, S, T]{
+func LessThanOrEquals[F field.Element[F], S LogicalTerm[F, S], T Term[F, T]](lhs T, rhs T) S {
+	var term LogicalTerm[F, S] = &Inequality[F, S, T]{
 		Strict: false,
 		Lhs:    lhs,
 		Rhs:    rhs,
@@ -45,8 +44,8 @@ func LessThanOrEquals[F field.Element[F], S LogicalTerm[S], T Term[T]](lhs T, rh
 }
 
 // GreaterThan constructs an Inequality representing the X > Y.
-func GreaterThan[F field.Element[F], S LogicalTerm[S], T Term[T]](lhs T, rhs T) S {
-	var term LogicalTerm[S] = &Inequality[F, S, T]{
+func GreaterThan[F field.Element[F], S LogicalTerm[F, S], T Term[F, T]](lhs T, rhs T) S {
+	var term LogicalTerm[F, S] = &Inequality[F, S, T]{
 		Strict: true,
 		Lhs:    rhs,
 		Rhs:    lhs,
@@ -56,8 +55,8 @@ func GreaterThan[F field.Element[F], S LogicalTerm[S], T Term[T]](lhs T, rhs T) 
 }
 
 // GreaterThanOrEquals constructs an Inequality representing the X >= Y.
-func GreaterThanOrEquals[F field.Element[F], S LogicalTerm[S], T Term[T]](lhs T, rhs T) S {
-	var term LogicalTerm[S] = &Inequality[F, S, T]{
+func GreaterThanOrEquals[F field.Element[F], S LogicalTerm[F, S], T Term[F, T]](lhs T, rhs T) S {
+	var term LogicalTerm[F, S] = &Inequality[F, S, T]{
 		Strict: false,
 		Lhs:    rhs,
 		Rhs:    lhs,
@@ -71,14 +70,14 @@ func GreaterThanOrEquals[F field.Element[F], S LogicalTerm[S], T Term[T]](lhs T,
 // Inequality represents an inequality between two terms (e.g. "X<Y", or "X<=Y+1",
 // etc).  Inequalitys are either Inequalityities (or negated Inequalityities) or
 // inInequalityities.
-type Inequality[F field.Element[F], S LogicalTerm[S], T Term[T]] struct {
+type Inequality[F field.Element[F], S LogicalTerm[F, S], T Term[F, T]] struct {
 	// Strict indicates whether its strictly less-than, or whether its less-than
 	// or equals.
 	Strict bool
 	// Left hand side of the inequality
-	Lhs Term[T]
+	Lhs Term[F, T]
 	// Right hand side of the inequality
-	Rhs Term[T]
+	Rhs Term[F, T]
 }
 
 // ApplyShift implementation for LogicalTerm interface.
@@ -118,7 +117,7 @@ func (p *Inequality[F, S, T]) TestAt(k int, tr trace.Module[F], sc schema.Module
 		return false, 0, err2
 	}
 	// perform comparison
-	c := lhs.Cmp(&rhs)
+	c := lhs.Cmp(rhs)
 	//
 	if p.Strict {
 		return c < 0, 0, nil
@@ -170,10 +169,10 @@ func (p *Inequality[F, S, T]) Simplify(casts bool) S {
 		rhs = p.Rhs.Simplify(casts)
 	)
 	//
-	lc := IsConstant[F](lhs)
-	rc := IsConstant[F](rhs)
+	lc, lok := IsConstant[F](lhs)
+	rc, rok := IsConstant[F](rhs)
 	//
-	if lc != nil && rc != nil {
+	if lok && rok {
 		c := lc.Cmp(rc)
 		// Can simplify
 		if p.Strict && c < 0 {
@@ -185,13 +184,13 @@ func (p *Inequality[F, S, T]) Simplify(casts bool) S {
 		return False[F, S]()
 	}
 	// Cannot simplify
-	var tmp LogicalTerm[S] = &Inequality[F, S, T]{p.Strict, lhs, rhs}
+	var tmp LogicalTerm[F, S] = &Inequality[F, S, T]{p.Strict, lhs, rhs}
 	// Done
 	return tmp.(S)
 }
 
 // Substitute implementation for Substitutable interface.
-func (p *Inequality[F, S, T]) Substitute(mapping map[string]fr.Element) {
+func (p *Inequality[F, S, T]) Substitute(mapping map[string]F) {
 	p.Lhs.Substitute(mapping)
 	p.Rhs.Substitute(mapping)
 }

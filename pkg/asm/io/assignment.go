@@ -15,16 +15,19 @@ package io
 import (
 	"math/big"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/field"
-	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
+
+type WordPool = word.Pool[uint, bls12_377.Element]
 
 // Assignment represents a wrapper around an instruction in order for it to
 // conform to the schema.Assignment interface.
@@ -36,7 +39,7 @@ func (p Assignment[T]) Bounds(module uint) util.Bounds {
 }
 
 // Compute implementation for schema.Assignment interface.
-func (p Assignment[T]) Compute(trace tr.Trace[bls12_377.Element], schema sc.AnySchema) ([]tr.ArrayColumn, error) {
+func (p Assignment[T]) Compute(trace tr.Trace[bls12_377.Element], schema sc.AnySchema) ([]tr.ArrayColumn[bls12_377.Element], error) {
 	var (
 		trModule = trace.Module(p.id)
 		states   []State
@@ -47,7 +50,7 @@ func (p Assignment[T]) Compute(trace tr.Trace[bls12_377.Element], schema sc.AnyS
 		states = append(states, sts...)
 	}
 	//
-	return p.states2columns(trModule.Width(), states), nil
+	return p.states2columns(trModule.Width(), states, trace.Pool()), nil
 }
 
 // Consistent implementation for schema.Assignment interface.
@@ -107,7 +110,7 @@ func (p Assignment[T]) RegistersWritten() []sc.RegisterRef {
 // Trace a given function with the given arguments in a given I/O environment to
 // produce a given set of output values, along with the complete set of internal
 // traces.
-func (p Assignment[T]) trace(row uint, trace tr.Module, iomap Map) []State {
+func (p Assignment[T]) trace(row uint, trace tr.Module[bls12_377.Element], iomap Map) []State {
 	var (
 		code   = p.code
 		states []State
@@ -130,7 +133,7 @@ func (p Assignment[T]) trace(row uint, trace tr.Module, iomap Map) []State {
 	return states
 }
 
-func (p Assignment[T]) initialState(row uint, trace tr.Module, io Map) State {
+func (p Assignment[T]) initialState(row uint, trace tr.Module[bls12_377.Element], io Map) State {
 	var (
 		state = make([]big.Int, len(p.registers))
 		index = 0
@@ -154,44 +157,48 @@ func (p Assignment[T]) initialState(row uint, trace tr.Module, io Map) State {
 }
 
 // Convert a given set of states into a corresponding set of array columns.
-func (p Assignment[T]) states2columns(width uint, states []State) []tr.ArrayColumn {
+func (p Assignment[T]) states2columns(width uint, states []State, pool WordPool) []tr.ArrayColumn[bls12_377.Element] {
 	var (
-		cols      = make([]tr.ArrayColumn, width)
-		zero      = fr.NewElement(0)
+		arrs      = make([]array.Builder[bls12_377.Element], width)
+		cols      = make([]tr.ArrayColumn[bls12_377.Element], width)
+		zero      bls12_377.Element
 		nrows     = uint(len(states))
 		multiLine = len(p.code) > 1
 	)
 	// Initialise register columns
 	for i, r := range p.registers {
-		arr := field.NewFrArray(nrows, r.Width)
-		cols[i] = tr.NewArrayColumn(r.Name, arr, zero)
+		arrs[i] = word.NewArray(nrows, r.Width, pool)
+		//
+		cols[i] = tr.NewArrayColumn(r.Name, arrs[i].Build(), zero)
 	}
 	// Initialise control columns (if applicable)
 	// transcribe values
 	for row, st := range states {
 		for i := range p.registers {
 			var (
-				val fr.Element
+				val bls12_377.Element
 				rid = schema.NewRegisterId(uint(i))
 			)
 			//
 			val.SetBigInt(st.Load(rid))
 			//
-			cols[i].Data().Set(uint(row), val)
+			arrs[i].Set(uint(row), val)
 		}
 	}
 	// Set control registers for multi-line functions
 	if multiLine {
-		p.assignControlRegisters(cols, states)
+		pc, ret := p.assignControlRegisters(arrs, states, pool)
+		cols[pc] = tr.NewArrayColumn(PC_NAME, arrs[pc].Build(), zero)
+		cols[ret] = tr.NewArrayColumn(RET_NAME, arrs[ret].Build(), zero)
 	}
 	// Done
 	return cols
 }
 
-func (p Assignment[T]) assignControlRegisters(cols []tr.ArrayColumn, states []State) {
+func (p Assignment[T]) assignControlRegisters(cols []array.Builder[bls12_377.Element], states []State, pool WordPool) (uint, uint) {
 	var (
-		zero  = fr.NewElement(0)
-		one   = fr.NewElement(1)
+		zero  = field.Zero[bls12_377.Element]()
+		one   = field.One[bls12_377.Element]()
 		nrows = uint(len(states))
 		pc    = uint(len(p.registers))
 		ret   = pc + 1
@@ -199,25 +206,28 @@ func (p Assignment[T]) assignControlRegisters(cols []tr.ArrayColumn, states []St
 		pcWidth = bit.Width(uint(len(p.code) + 1))
 	)
 	// Initialise columns
-	cols[pc] = tr.NewArrayColumn(PC_NAME, field.NewFrArray(nrows, pcWidth), zero)
-	cols[ret] = tr.NewArrayColumn(RET_NAME, field.NewFrArray(nrows, 1), zero)
+	cols[pc] = word.NewArray(nrows, pcWidth, pool)
+	cols[ret] = word.NewArray(nrows, 1, pool)
 	// Assign values
 	for row, st := range states {
+		npc := field.Uint64[bls12_377.Element](uint64(st.Pc() + 1))
 		// NOTE: +1 because PC==0 reserved for padding.
-		cols[pc].Data().Set(uint(row), fr.NewElement(uint64(st.Pc()+1)))
+		cols[pc].Set(uint(row), npc)
 		// Check whether this is a terminating state, or not.
 		if st.IsTerminal() {
-			cols[ret].Data().Set(uint(row), one)
+			cols[ret].Set(uint(row), one)
 		} else {
-			cols[ret].Data().Set(uint(row), zero)
+			cols[ret].Set(uint(row), zero)
 		}
 	}
+	//
+	return pc, ret
 }
 
 // Finalising a given state does two things: firstly, it clones the state;
 // secondly, if the state has terminated, it makes sure the outputs match the
 // original trace.
-func finaliseState(row uint, terminated bool, state State, trace tr.Module) State {
+func finaliseState(row uint, terminated bool, state State, trace tr.Module[bls12_377.Element]) State {
 	// Clone state
 	var nstate = state.Clone()
 	// Now, ensure output registers retain their original values.

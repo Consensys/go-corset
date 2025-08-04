@@ -22,7 +22,7 @@ import (
 
 // ToBigEndianByteArray converts an array of field elements into an array of
 // byte chunks in big endian form.
-func ToBigEndianByteArray[P word.Pool[uint, word.BigEndian]](arr FrArray, pool P) array.Array[word.BigEndian] {
+func ToBigEndianByteArray[F Element[F], P word.Pool[uint, word.BigEndian]](arr array.Array[F], pool P) array.Array[word.BigEndian] {
 	var builder = word.NewArray(arr.Len(), arr.BitWidth(), pool)
 	//
 	for i := range arr.Len() {
@@ -39,25 +39,25 @@ func ToBigEndianByteArray[P word.Pool[uint, word.BigEndian]](arr FrArray, pool P
 }
 
 // Pow takes a given value to the power n.
-func Pow(val *fr.Element, n uint64) {
+func Pow[F Element[F]](val F, n uint64) F {
 	if n == 0 {
-		val.SetOne()
+		val = val.SetUint64(1)
 	} else if n > 1 {
 		m := n / 2
 		// Check for odd case
 		if n%2 == 1 {
-			var tmp fr.Element
-			// Clone value
-			tmp.Set(val)
-			Pow(val, m)
-			val.Square(val)
-			val.Mul(val, &tmp)
+			tmp := val
+			val = Pow(val, m)
+			val = val.Mul(val)
+			val = val.Mul(tmp)
 		} else {
 			// Even case is easy
-			Pow(val, m)
-			val.Square(val)
+			val = Pow(val, m)
+			val = val.Mul(val)
 		}
 	}
+	//
+	return val
 }
 
 // FrElementToBytes converts a given field element into a slice of 32 bytes.

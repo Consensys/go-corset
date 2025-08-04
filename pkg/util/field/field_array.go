@@ -16,7 +16,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
-	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
 
@@ -30,14 +30,16 @@ func BatchInvert[T Element[T]](s []T) {
 	if len(s) == 0 {
 		return
 	}
+	//
+	var (
+		zero = Zero[T]()
+		one  = One[T]()
+		// identifies entries which are zero
+		isZero = bit.NewSet(len(s))
 
-	var zero T
-	one := zero.AddUint32(1)
-
-	isZero := bit.NewSet(len(s))
-
-	m := make([]T, len(s)) // m[i] = s[i] * s[i+1] * ...
-
+		m = make([]T, len(s)) // m[i] = s[i] * s[i+1] * ...
+	)
+	//
 	isZero.Set(len(s)-1, s[len(s)-1].IsZero())
 
 	if isZero.Get(len(s) - 1) {

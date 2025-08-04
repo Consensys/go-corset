@@ -16,7 +16,6 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -27,19 +26,21 @@ import (
 )
 
 // Cast attempts to narrow the width a given expression.
-type Cast[F field.Element[F], T Term[T]] struct {
+type Cast[F field.Element[F], T Term[F, T]] struct {
 	Arg      T
 	BitWidth uint
-	Bound    fr.Element
+	Bound    F
 }
 
 // CastOf constructs a new expression which has been annotated by the user to be
 // within a given range.
-func CastOf[F field.Element[F], T Term[T]](arg T, bitwidth uint) T {
-	bound := fr.NewElement(2)
-	field.Pow(&bound, uint64(bitwidth))
-	// Construct term
-	var term Term[T] = &Cast[F, T]{Arg: arg, BitWidth: bitwidth, Bound: bound}
+func CastOf[F field.Element[F], T Term[F, T]](arg T, bitwidth uint) T {
+	var (
+		// Compute 2^bitwidth
+		bound F = field.TwoPowN[F](bitwidth)
+		// Construct term
+		term Term[F, T] = &Cast[F, T]{Arg: arg, BitWidth: bitwidth, Bound: bound}
+	)
 	// Done
 	return term.(T)
 }
@@ -55,23 +56,16 @@ func (p *Cast[F, T]) Bounds() util.Bounds {
 }
 
 // EvalAt implementation for Evaluable interface.
-func (p *Cast[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module) (fr.Element, error) {
+func (p *Cast[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module) (F, error) {
 	// Check whether argument evaluates to zero or not.
 	val, err := p.Arg.EvalAt(k, tr, sc)
 	// Dynamic cast check
-	if err == nil && val.Cmp(&p.Bound) >= 0 {
+	if err == nil && val.Cmp(p.Bound) >= 0 {
 		// Construct error
 		err = fmt.Errorf("cast failure (value %s not a u%d)", val.String(), p.BitWidth)
 	}
 	// All good
 	return val, err
-}
-
-// IsDefined implementation for Evaluable interface.
-func (p *Cast[F, T]) IsDefined() bool {
-	// NOTE: this is technically safe given the limited way that IsDefined is
-	// used for lookup selectors.
-	return true
 }
 
 // Lisp implementation for Lispifiable interface.
@@ -110,17 +104,12 @@ func (p *Cast[F, T]) ShiftRange() (int, int) {
 
 // Simplify implementation for Term interface.
 func (p *Cast[F, T]) Simplify(casts bool) T {
-	var bound fr.Element = fr.NewElement(2)
-	// Determine bound for static type check
-	field.Pow(&bound, uint64(p.BitWidth))
-	// Propagate constants in the argument
-
 	var (
-		arg  T       = p.Arg.Simplify(casts)
-		targ Term[T] = arg
+		arg  T          = p.Arg.Simplify(casts)
+		targ Term[F, T] = arg
 	)
 	//
-	if c, ok := targ.(*Constant[F, T]); ok && c.Value.Cmp(&bound) < 0 {
+	if c, ok := targ.(*Constant[F, T]); ok && c.Value.Cmp(p.Bound) < 0 {
 		// Done
 		return arg
 	} else if ok {
@@ -135,7 +124,7 @@ func (p *Cast[F, T]) Simplify(casts bool) T {
 }
 
 // Substitute implementation for Substitutable interface.
-func (p *Cast[F, T]) Substitute(mapping map[string]fr.Element) {
+func (p *Cast[F, T]) Substitute(mapping map[string]F) {
 	p.Arg.Substitute(mapping)
 }
 

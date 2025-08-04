@@ -16,12 +16,12 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir/builder"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/lt"
-	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
+	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
 
@@ -223,11 +223,13 @@ func (tb TraceBuilder) Build(schema sc.AnySchema, tf lt.TraceFile) (trace.Trace[
 	return tr, errors
 }
 
-func initialiseTrace(expanded bool, schema sc.AnySchema, pool word.Pool[uint, bls12_377.Element], cols []trace.RawColumn[bls12_377.Element]) (*trace.ArrayTrace, []error) {
+func initialiseTrace[F field.Element[F]](expanded bool, schema sc.AnySchema, pool word.Pool[uint, F],
+	cols []trace.RawColumn[F]) (*trace.ArrayTrace[F], []error) {
+	//
 	var (
 		// Initialise modules
 		modmap  = initialiseModuleMap(schema)
-		modules = make([]trace.ArrayModule, schema.Width())
+		modules = make([]trace.ArrayModule[F], schema.Width())
 	)
 	//
 	columns, errors := splitTraceColumns(expanded, schema, modmap, cols)
@@ -238,7 +240,7 @@ func initialiseTrace(expanded bool, schema sc.AnySchema, pool word.Pool[uint, bl
 		modules[i] = fillTraceModule(mod.Name(), mod.LengthMultiplier(), columns[i])
 	}
 	// Done
-	return trace.NewArrayTrace(modules), errors
+	return trace.NewArrayTrace(pool, modules), errors
 }
 
 func initialiseModuleMap(schema sc.AnySchema) map[string]uint {
@@ -346,10 +348,10 @@ func initialiseColumnMap[T word.Word[T]](expanded bool, schema sc.AnySchema) (ma
 	return colmap, modules
 }
 
-func fillTraceModule(name string, multiplier uint, rawColumns []trace.RawColumn[bls12_377.Element]) trace.ArrayModule {
+func fillTraceModule[F field.Element[F]](name string, multiplier uint, rawColumns []trace.RawColumn[F]) trace.ArrayModule[F] {
 	var (
-		traceColumns = make([]trace.ArrayColumn, len(rawColumns))
-		zero         = fr.NewElement(0)
+		traceColumns = make([]trace.ArrayColumn[F], len(rawColumns))
+		zero         F
 	)
 	//
 	for i := range traceColumns {
@@ -363,7 +365,7 @@ func fillTraceModule(name string, multiplier uint, rawColumns []trace.RawColumn[
 
 // pad each module with its given level of spillage and (optionally) ensure a
 // given level of defensive padding.
-func applySpillageAndDefensivePadding(defensive bool, tr *trace.ArrayTrace, schema sc.AnySchema) {
+func applySpillageAndDefensivePadding[F field.Element[F]](defensive bool, tr *trace.ArrayTrace[F], schema sc.AnySchema) {
 	n := tr.Modules().Count()
 	// Iterate over modules
 	for i := uint(0); i < n; i++ {
@@ -375,7 +377,7 @@ func applySpillageAndDefensivePadding(defensive bool, tr *trace.ArrayTrace, sche
 }
 
 // determineModuleHeights returns the height for each module in the trace.
-func determineModuleHeights(tr *trace.ArrayTrace) []uint {
+func determineModuleHeights[F field.Element[F]](tr *trace.ArrayTrace[F]) []uint {
 	n := tr.Modules().Count()
 	mid := 0
 	heights := make([]uint, n)
@@ -391,7 +393,7 @@ func determineModuleHeights(tr *trace.ArrayTrace) []uint {
 
 // checkModuleHeights checks the expanded heights match exactly what was
 // expected.
-func checkModuleHeights(original []uint, defensive bool, tr *trace.ArrayTrace, schema sc.AnySchema) error {
+func checkModuleHeights[F field.Element[F]](original []uint, defensive bool, tr *trace.ArrayTrace[F], schema sc.AnySchema) error {
 	expanded := determineModuleHeights(tr)
 	//
 	for mid := uint(0); mid < uint(len(expanded)); mid++ {
@@ -411,7 +413,7 @@ func checkModuleHeights(original []uint, defensive bool, tr *trace.ArrayTrace, s
 // PadColumns pads every column in a given trace with a given amount of (front)
 // padding. Observe that this applies on top of any spillage and/or defensive
 // padding already applied.
-func padColumns(tr *trace.ArrayTrace, schema sc.AnySchema, padding uint) {
+func padColumns[F field.Element[F]](tr *trace.ArrayTrace[F], schema sc.AnySchema, padding uint) {
 	n := tr.Modules().Count()
 	// Iterate over modules
 	for i := uint(0); i < n; i++ {

@@ -16,13 +16,12 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/field"
-	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 )
 
 // TraceValidation validates that values held in trace columns match the
@@ -163,15 +162,13 @@ func validateColumnBitWidth[F field.Element[F]](bitwidth uint, col tr.Column[F],
 	} else if col.Data() == nil {
 		panic(fmt.Sprintf("column %s is unassigned", col.Name()))
 	}
-	//
-	var frBound fr.Element = fr.NewElement(2)
-	// Compute 2^n
-	field.Pow(&frBound, uint64(bitwidth))
+	// Compute 2^bitwidth
+	var two_bw F = field.TwoPowN[F](bitwidth)
 	//
 	for j := 0; j < int(col.Data().Len()); j++ {
 		var jth = col.Get(j)
 		//
-		if jth.Cmp(&frBound) >= 0 {
+		if jth.Cmp(two_bw) >= 0 {
 			qualColName := trace.QualifiedColumnName(mod.Name(), col.Name())
 			return fmt.Errorf("row %d of column %s is out-of-bounds (%s)", j, qualColName, jth.String())
 		}

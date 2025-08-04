@@ -15,7 +15,6 @@ package ir
 import (
 	"math/big"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -27,12 +26,12 @@ import (
 
 // Norm reduces the value of an expression to either zero (if it was zero)
 // or one (otherwise).
-type Norm[F field.Element[F], T Term[T]] struct{ Arg T }
+type Norm[F field.Element[F], T Term[F, T]] struct{ Arg T }
 
 // Normalise normalises the result of evaluating a given expression to be
 // either 0 (if its value was 0) or 1 (otherwise).
-func Normalise[F field.Element[F], T Term[T]](arg T) T {
-	var term Term[T] = &Norm[F, T]{arg}
+func Normalise[F field.Element[F], T Term[F, T]](arg T) T {
+	var term Term[F, T] = &Norm[F, T]{arg}
 	return term.(T)
 }
 
@@ -47,12 +46,12 @@ func (p *Norm[F, T]) Bounds() util.Bounds {
 }
 
 // EvalAt implementation for Evaluable interface.
-func (p *Norm[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module) (fr.Element, error) {
+func (p *Norm[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module) (F, error) {
 	// Check whether argument evaluates to zero or not.
 	val, err := p.Arg.EvalAt(k, tr, sc)
 	// Normalise value (if necessary)
 	if !val.IsZero() {
-		val.SetOne()
+		val = field.One[F]()
 	}
 	// Done
 	return val, err
@@ -89,15 +88,15 @@ func (p *Norm[F, T]) ShiftRange() (int, int) {
 // Simplify implementation for Term interface.
 func (p *Norm[F, T]) Simplify(casts bool) T {
 	var (
-		arg  T       = p.Arg.Simplify(casts)
-		targ Term[T] = arg
+		arg  T          = p.Arg.Simplify(casts)
+		targ Term[F, T] = arg
 	)
 	//
 	if c, ok := targ.(*Constant[F, T]); ok {
 		val := c.Value
 		// Normalise (in place)
 		if !val.IsZero() {
-			val.SetOne()
+			val = field.One[F]()
 		}
 		// Done
 		targ = &Constant[F, T]{val}
@@ -109,7 +108,7 @@ func (p *Norm[F, T]) Simplify(casts bool) T {
 }
 
 // Substitute implementation for Substitutable interface.
-func (p *Norm[F, T]) Substitute(mapping map[string]fr.Element) {
+func (p *Norm[F, T]) Substitute(mapping map[string]F) {
 	p.Arg.Substitute(mapping)
 }
 

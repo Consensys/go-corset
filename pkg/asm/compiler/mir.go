@@ -15,18 +15,18 @@ package compiler
 import (
 	"math/big"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 )
 
 // ModuleBuilder is used within this translator for building the various modules
 // which are contained within the mixed MIR schema.
-type ModuleBuilder = ir.ModuleBuilder[mir.Constraint, mir.Term]
+type ModuleBuilder = ir.ModuleBuilder[bls12_377.Element, mir.Constraint, mir.Term]
 
 // MirModule provides a wrapper around a corset-level module declaration.
 type MirModule struct {
@@ -35,7 +35,7 @@ type MirModule struct {
 
 // Initialise this module
 func (p MirModule) Initialise(fn MicroFunction, mid uint) MirModule {
-	builder := ir.NewModuleBuilder[mir.Constraint, mir.Term](fn.Name(), mid,
+	builder := ir.NewModuleBuilder[bls12_377.Element, mir.Constraint, mir.Term](fn.Name(), mid,
 		fn.LengthMultiplier(), fn.AllowPadding())
 	// Add any assignments defined for this function.  Observe that, generally
 	// speaking, function's consist of exactly one assignment and this is what
@@ -61,7 +61,7 @@ func (p MirModule) NewColumn(kind schema.RegisterType, name string, bitwidth uin
 	rid := p.Module.NewRegister(schema.NewRegister(kind, name, bitwidth))
 	// Add corresponding range constraint to enforce bitwidth
 	p.Module.AddConstraint(
-		mir.NewRangeConstraint(name, p.Module.Id(), ir.NewRegisterAccess[mir.Term](rid, 0), bitwidth))
+		mir.NewRangeConstraint(name, p.Module.Id(), ir.NewRegisterAccess[bls12_377.Element, mir.Term](rid, 0), bitwidth))
 	// Done
 	return rid
 }
@@ -85,14 +85,14 @@ func (p MirModule) NewLookup(name string, from []MirExpr, targetMid uint, to []M
 	var (
 		sources = unwrapMirExprs(from...)
 		targets = unwrapMirExprs(to...)
-		unused  = ir.NewRegisterAccess[mir.Term](schema.NewUnusedRegisterId(), 0)
+		unused  = ir.NewRegisterAccess[bls12_377.Element, mir.Term](schema.NewUnusedRegisterId(), 0)
 	)
 	// Preprend (unused) selectors.  Eventually, we will most likely want to support selectors.
 	sources = array.Prepend(unused, sources)
 	targets = array.Prepend(unused, targets)
 	// FIXME: exploit conditional lookups
-	target := []lookup.Vector[mir.Term]{lookup.UnfilteredVector(p.Module.Id(), targets...)}
-	source := []lookup.Vector[mir.Term]{lookup.UnfilteredVector(targetMid, sources...)}
+	target := []lookup.Vector[bls12_377.Element, mir.Term]{lookup.UnfilteredVector(p.Module.Id(), targets...)}
+	source := []lookup.Vector[bls12_377.Element, mir.Term]{lookup.UnfilteredVector(targetMid, sources...)}
 	p.Module.AddConstraint(mir.NewLookupConstraint(name, target, source))
 }
 
@@ -127,7 +127,7 @@ func (p MirExpr) Equals(rhs MirExpr) MirExpr {
 		panic("invalid arguments")
 	}
 	//
-	logical := ir.Equals[mir.LogicalTerm](p.expr, rhs.expr)
+	logical := ir.Equals[bls12_377.Element, mir.LogicalTerm](p.expr, rhs.expr)
 	//
 	return MirExpr{nil, logical}
 }
@@ -154,7 +154,7 @@ func (p MirExpr) Multiply(exprs ...MirExpr) MirExpr {
 
 // NotEquals constructs a non-equality between two expressions.
 func (p MirExpr) NotEquals(rhs MirExpr) MirExpr {
-	logical := ir.NotEquals[mir.LogicalTerm](p.expr, rhs.expr)
+	logical := ir.NotEquals[bls12_377.Element, mir.LogicalTerm](p.expr, rhs.expr)
 	return MirExpr{nil, logical}
 }
 
@@ -162,20 +162,20 @@ func (p MirExpr) NotEquals(rhs MirExpr) MirExpr {
 func (p MirExpr) Bool(val bool) MirExpr {
 	if val {
 		// empty conjunction is true
-		return MirExpr{nil, ir.Conjunction[mir.LogicalTerm]()}
+		return MirExpr{nil, ir.Conjunction[bls12_377.Element, mir.LogicalTerm]()}
 	}
 	// empty disjunction is false
-	return MirExpr{nil, ir.Disjunction[mir.LogicalTerm]()}
+	return MirExpr{nil, ir.Disjunction[bls12_377.Element, mir.LogicalTerm]()}
 }
 
 // BigInt constructs a constant expression from a big integer.
 func (p MirExpr) BigInt(number big.Int) MirExpr {
 	// Not power of 2
-	var frNum fr.Element
+	var num bls12_377.Element
 	//
-	frNum.SetBigInt(&number)
+	num.Element.SetBigInt(&number)
 	//
-	return MirExpr{ir.Const[mir.Term](frNum), nil}
+	return MirExpr{ir.Const[bls12_377.Element, mir.Term](num), nil}
 }
 
 // Or constructs a disjunction between this expression and zero or more
@@ -187,7 +187,7 @@ func (p MirExpr) Or(exprs ...MirExpr) MirExpr {
 
 // Variable constructs a variable with a given shift.
 func (p MirExpr) Variable(index schema.RegisterId, shift int) MirExpr {
-	return MirExpr{ir.NewRegisterAccess[mir.Term](index, shift), nil}
+	return MirExpr{ir.NewRegisterAccess[bls12_377.Element, mir.Term](index, shift), nil}
 }
 
 func (p MirExpr) String(func(schema.RegisterId) string) string {

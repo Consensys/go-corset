@@ -83,6 +83,11 @@ func (p *ArrayTrace[T]) Pad(module uint, front uint, back uint) {
 	p.modules[module].Pad(front, back)
 }
 
+// Pool implementation for Trace interface.
+func (p *ArrayTrace[T]) Pool() word.Pool[uint, T] {
+	return p.pool
+}
+
 func (p *ArrayTrace[T]) String() string {
 	// Use string builder to try and make this vaguely efficient.
 	var id strings.Builder

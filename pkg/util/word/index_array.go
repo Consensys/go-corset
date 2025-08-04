@@ -44,6 +44,15 @@ func NewIndexArray[T Word[T], P Pool[uint, T]](height uint, bitwidth uint, pool 
 	return &IndexArray[T, P]{pool, index, bitwidth}
 }
 
+// Append adds a new element to the end of this array
+func (p *IndexArray[T, P]) Append(element T) {
+	n := uint(len(p.index))
+	// Add new element
+	p.index = append(p.index, 0)
+	// Set value of that element
+	p.Set(n, element)
+}
+
 // Build implementation for the array.Builder interface.  This simply means that
 // a index array is its own builder.
 func (p *IndexArray[T, P]) Build() array.Array[T] {

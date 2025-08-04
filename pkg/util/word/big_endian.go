@@ -44,7 +44,7 @@ func (p BigEndian) AsBigInt() big.Int {
 // Bit returnsthe bit at a given offset in this word, where offsets always start
 // with the least-significant.
 func (p BigEndian) Bit(offset uint) bool {
-	var bitwidth = p.BitWidth()
+	var bitwidth = p.ByteWidth() * 8
 	// If offset is past the end of the available bits, then it must have been
 	// in the trimmed region and, therefore, was 0.
 	if offset < bitwidth {
@@ -54,9 +54,9 @@ func (p BigEndian) Bit(offset uint) bool {
 	return false
 }
 
-// BitWidth returns the actual bitwidth of this big endian.
-func (p BigEndian) BitWidth() uint {
-	return uint(len(p.bytes)) * 8
+// ByteWidth implementation for the Word interface.
+func (p BigEndian) ByteWidth() uint {
+	return uint(len(p.bytes))
 }
 
 // Cmp implements a byte comparisong between two big endian instances.

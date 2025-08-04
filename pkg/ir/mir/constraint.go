@@ -13,7 +13,6 @@
 package mir
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/schema/constraint/interleaving"
@@ -25,7 +24,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
-	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -57,7 +56,7 @@ func NewInterleavingConstraint(handle string, targetContext schema.ModuleId,
 }
 
 // NewLookupConstraint creates a new lookup constraint with a given handle.
-func NewLookupConstraint(handle string, targets []lookup.Vector[Term], sources []lookup.Vector[Term]) Constraint {
+func NewLookupConstraint(handle string, targets []lookup.Vector[bls12_377.Element, Term], sources []lookup.Vector[bls12_377.Element, Term]) Constraint {
 	return Constraint{lookup.NewConstraint(handle, targets, sources)}
 }
 
@@ -153,7 +152,7 @@ func (p Constraint) Subdivide(mapping schema.LimbsMap) Constraint {
 }
 
 // Substitute any matchined labelled constants within this constraint
-func (p Constraint) Substitute(mapping map[string]fr.Element) {
+func (p Constraint) Substitute(mapping map[string]bls12_377.Element) {
 	p.constraint.Substitute(mapping)
 }
 

@@ -14,23 +14,22 @@ package ranged
 
 import (
 	"fmt"
-	"math/big"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
-	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
+	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
 // Constraint restricts all values for a given expression to be within a
 // range [0..n) for some bound n.  Any bound is supported, and the system will
 // choose the best underlying implementation as needed.
-type Constraint[E ir.Evaluable] struct {
+type Constraint[E ir.Evaluable[bls12_377.Element]] struct {
 	// A unique identifier for this constraint.  This is primarily useful for
 	// debugging.
 	Handle string
@@ -46,7 +45,7 @@ type Constraint[E ir.Evaluable] struct {
 }
 
 // NewRangeConstraint constructs a new Range constraint!
-func NewRangeConstraint[E ir.Evaluable](handle string, context schema.ModuleId,
+func NewRangeConstraint[E ir.Evaluable[bls12_377.Element]](handle string, context schema.ModuleId,
 	expr E, bitwidth uint) Constraint[E] {
 	return Constraint[E]{handle, context, expr, bitwidth}
 }
@@ -98,13 +97,10 @@ func (p Constraint[E]) Accepts(tr trace.Trace[bls12_377.Element], sc schema.AnyS
 		trModule = tr.Module(p.Context)
 		scModule = sc.Module(p.Context)
 		handle   = constraint.DetermineHandle(p.Handle, p.Context, tr)
-		bound    = big.NewInt(2)
-		frBound  fr.Element
+		bound    bls12_377.Element
 	)
 	// Compute 2^n
-	bound.Exp(bound, big.NewInt(int64(p.Bitwidth)), nil)
-	// Construct bound
-	frBound.SetBigInt(bound)
+	bound = field.TwoPowN[bls12_377.Element](p.Bitwidth)
 	// Determine height of enclosing module
 	height := tr.Module(p.Context).Height()
 	// Iterate every row
@@ -120,7 +116,7 @@ func (p Constraint[E]) Accepts(tr trace.Trace[bls12_377.Element], sc schema.AnyS
 				Term:    p.Expr,
 				Error:   err.Error(),
 			}
-		} else if kth.Cmp(&frBound) >= 0 {
+		} else if kth.Cmp(bound) >= 0 {
 			// Evaluation failure
 			return coverage, &Failure{handle, p.Context, p.Expr, p.Bitwidth, uint(k)}
 		}
@@ -144,6 +140,6 @@ func (p Constraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
 }
 
 // Substitute any matchined labelled constants within this constraint
-func (p Constraint[E]) Substitute(mapping map[string]fr.Element) {
+func (p Constraint[E]) Substitute(mapping map[string]bls12_377.Element) {
 	p.Expr.Substitute(mapping)
 }

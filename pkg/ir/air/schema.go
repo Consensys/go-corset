@@ -13,7 +13,6 @@
 package air
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
@@ -25,6 +24,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -48,7 +48,7 @@ type (
 	// multiplication of constants and column accesses.  No other terms are
 	// permitted at this, the lowest, layer of the stack.
 	Term interface {
-		ir.Term[Term]
+		ir.Term[bls12_377.Element, Term]
 		// Air marks terms which are valid for the AIR representation.
 		Air()
 	}
@@ -56,9 +56,9 @@ type (
 
 type (
 	// SchemaBuilder is used for building the AIR schemas
-	SchemaBuilder = ir.SchemaBuilder[Constraint, Term]
+	SchemaBuilder = ir.SchemaBuilder[bls12_377.Element, Constraint, Term]
 	// ModuleBuilder is used for building various AIR modules.
-	ModuleBuilder = ir.ModuleBuilder[Constraint, Term]
+	ModuleBuilder = ir.ModuleBuilder[bls12_377.Element, Constraint, Term]
 )
 
 var _ schema.Module = &ModuleBuilder{}
@@ -68,7 +68,7 @@ type (
 	// Assertion captures the notion of an arbitrary property which should hold for
 	// all acceptable traces.  However, such a property is not enforced by the
 	// prover.
-	Assertion = Air[constraint.Assertion[ir.Testable]]
+	Assertion = Air[constraint.Assertion[ir.Testable[bls12_377.Element]]]
 	// InterleavingConstraint captures the essence of an interleaving constraint
 	// at the MIR level.
 	InterleavingConstraint = Air[interleaving.Constraint[*ColumnAccess]]
@@ -89,20 +89,18 @@ type (
 // Following types capture permitted expression forms at the AIR level.
 type (
 	// Add represents the addition of zero or more AIR expressio
-	Add = ir.Add[Term]
+	Add = ir.Add[bls12_377.Element, Term]
 	// Constant represents a constant value within AIR an expression.
-	Constant = ir.Constant[Term]
+	Constant = ir.Constant[bls12_377.Element, Term]
 	// ColumnAccess represents reading the value held at a given column in the
 	// tabular context.  Furthermore, the current row maybe shifted up (or down) by
 	// a given amount.
-	ColumnAccess = ir.RegisterAccess[Term]
+	ColumnAccess = ir.RegisterAccess[bls12_377.Element, Term]
 	// Mul represents the product over zero or more expressions.
-	Mul = ir.Mul[Term]
+	Mul = ir.Mul[bls12_377.Element, Term]
 	// Sub represents the subtraction over zero or more expressions.
-	Sub = ir.Sub[Term]
+	Sub = ir.Sub[bls12_377.Element, Term]
 )
-
-var zero fr.Element = fr.NewElement(0)
 
 // LogicalTerm provides a wrapper around a given term allowing to be "testable".
 // That is, it provides a default TestAt implementation.
@@ -116,14 +114,17 @@ func (p LogicalTerm) Bounds() util.Bounds {
 }
 
 // TestAt implementation for Testable interface.
-func (p LogicalTerm) TestAt(k int, tr trace.Module, sc schema.Module) (bool, uint, error) {
-	var val, err = p.Term.EvalAt(k, tr, sc)
+func (p LogicalTerm) TestAt(k int, tr trace.Module[bls12_377.Element], sc schema.Module) (bool, uint, error) {
+	var (
+		val, err = p.Term.EvalAt(k, tr, sc)
+		zero     bls12_377.Element
+	)
 	//
 	if err != nil {
 		return false, 0, err
 	}
 	//
-	return val.Cmp(&zero) == 0, 0, nil
+	return val.Cmp(zero) == 0, 0, nil
 }
 
 // Lisp returns a lisp representation of this NotEqual, which is useful for
@@ -143,6 +144,6 @@ func (p LogicalTerm) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSe
 }
 
 // Substitute implementation for Substitutable interface.
-func (p LogicalTerm) Substitute(mapping map[string]fr.Element) {
+func (p LogicalTerm) Substitute(mapping map[string]bls12_377.Element) {
 	p.Term.Substitute(mapping)
 }

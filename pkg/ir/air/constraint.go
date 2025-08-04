@@ -13,7 +13,6 @@
 package air
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
@@ -25,7 +24,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
-	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -39,7 +38,7 @@ import (
 type ConstraintBound interface {
 	schema.Constraint
 
-	constraint.Assertion[ir.Testable] |
+	constraint.Assertion[ir.Testable[bls12_377.Element]] |
 		interleaving.Constraint[*ColumnAccess] |
 		lookup.Constraint[*ColumnAccess] |
 		permutation.Constraint |
@@ -62,7 +61,7 @@ func newAir[C ConstraintBound](constraint C) Air[C] {
 }
 
 // NewAssertion constructs a new AIR assertion
-func NewAssertion(handle string, ctx schema.ModuleId, term ir.Testable) Assertion {
+func NewAssertion(handle string, ctx schema.ModuleId, term ir.Testable[bls12_377.Element]) Assertion {
 	//
 	return newAir(constraint.NewAssertion(handle, ctx, term))
 }
@@ -74,8 +73,8 @@ func NewInterleavingConstraint(handle string, targetContext schema.ModuleId,
 }
 
 // NewLookupConstraint constructs a new AIR lookup constraint
-func NewLookupConstraint(handle string, targets []lookup.Vector[*ColumnAccess],
-	sources []lookup.Vector[*ColumnAccess]) LookupConstraint {
+func NewLookupConstraint(handle string, targets []lookup.Vector[bls12_377.Element, *ColumnAccess],
+	sources []lookup.Vector[bls12_377.Element, *ColumnAccess]) LookupConstraint {
 	//
 	return newAir(lookup.NewConstraint(handle, targets, sources))
 }
@@ -150,7 +149,7 @@ func (p Air[C]) Lisp(schema schema.AnySchema) sexp.SExp {
 }
 
 // Substitute any matchined labelled constants within this constraint
-func (p Air[C]) Substitute(map[string]fr.Element) {
+func (p Air[C]) Substitute(map[string]bls12_377.Element) {
 	// This should never be called since AIR expressions cannot contain labelled
 	// constants.
 	panic("unreachable")

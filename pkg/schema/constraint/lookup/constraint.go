@@ -15,7 +15,6 @@ package lookup
 import (
 	"encoding/binary"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
@@ -23,7 +22,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
-	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -42,23 +41,23 @@ import (
 // pairs (and perhaps other constraints to ensure the required relationship) and
 // the source module is just checking that a given set of input/output pairs
 // makes sense.
-type Constraint[E ir.Evaluable] struct {
+type Constraint[E ir.Evaluable[bls12_377.Element]] struct {
 	// Handle returns the handle for this lookup constraint which is simply an
 	// identifier useful when debugging (i.e. to know which lookup failed, etc).
 	Handle string
 	// Targets returns the target expressions which are used to lookup into the
 	// target expressions.  NOTE: the first element here is *always* the target
 	// selector.
-	Targets []Vector[E]
+	Targets []Vector[bls12_377.Element, E]
 	// Sources returns the source expressions which are used to lookup into the
 	// target expressions.  NOTE: the first element here is *always* the source
 	// selector.
-	Sources []Vector[E]
+	Sources []Vector[bls12_377.Element, E]
 }
 
 // NewConstraint creates a new lookup constraint with a given handle.
-func NewConstraint[E ir.Evaluable](handle string, targets []Vector[E],
-	sources []Vector[E]) Constraint[E] {
+func NewConstraint[E ir.Evaluable[bls12_377.Element]](handle string, targets []Vector[bls12_377.Element, E],
+	sources []Vector[bls12_377.Element, E]) Constraint[E] {
 	var width uint
 	// Check sources
 	for i, ith := range sources {
@@ -231,8 +230,8 @@ func (p *Constraint[E]) checkSourceVectors(
 	return nil
 }
 
-func insertFilteredTargetVector[E ir.Evaluable](k int, vec Vector[E], handle string, rows *hash.Set[hash.BytesKey],
-	trModule trace.Module, scModule schema.Module, bytes []byte) schema.Failure {
+func insertFilteredTargetVector[E ir.Evaluable[bls12_377.Element]](k int, vec Vector[bls12_377.Element, E], handle string, rows *hash.Set[hash.BytesKey],
+	trModule trace.Module[bls12_377.Element], scModule schema.Module, bytes []byte) schema.Failure {
 	// If no selector, then always selected
 	var selected bool = !vec.HasSelector()
 	//
@@ -263,8 +262,8 @@ func insertFilteredTargetVector[E ir.Evaluable](k int, vec Vector[E], handle str
 	return nil
 }
 
-func insertTargetVector[E ir.Evaluable](k int, vec Vector[E], handle string, rows *hash.Set[hash.BytesKey],
-	trModule trace.Module, scModule schema.Module, bytes []byte) schema.Failure {
+func insertTargetVector[E ir.Evaluable[bls12_377.Element]](k int, vec Vector[bls12_377.Element, E], handle string,
+	rows *hash.Set[hash.BytesKey], trModule trace.Module[bls12_377.Element], scModule schema.Module, bytes []byte) schema.Failure {
 	//
 	// Check each source is included
 	if err := evalExprsAsBytes(k, vec, handle, trModule, scModule, bytes); err != nil {
@@ -276,8 +275,8 @@ func insertTargetVector[E ir.Evaluable](k int, vec Vector[E], handle string, row
 	return nil
 }
 
-func checkFilteredSourceVector[E ir.Evaluable](k int, vec Vector[E], handle string, rows *hash.Set[hash.BytesKey],
-	trModule trace.Module, scModule schema.Module, bytes []byte) schema.Failure {
+func checkFilteredSourceVector[E ir.Evaluable[bls12_377.Element]](k int, vec Vector[bls12_377.Element, E], handle string, rows *hash.Set[hash.BytesKey],
+	trModule trace.Module[bls12_377.Element], scModule schema.Module, bytes []byte) schema.Failure {
 	// If no selector, then always selected
 	var selected bool = !vec.HasSelector()
 	//
@@ -308,15 +307,15 @@ func checkFilteredSourceVector[E ir.Evaluable](k int, vec Vector[E], handle stri
 	return nil
 }
 
-func checkSourceVector[E ir.Evaluable](k int, vec Vector[E], handle string, rows *hash.Set[hash.BytesKey],
-	trModule trace.Module, scModule schema.Module, bytes []byte) schema.Failure {
+func checkSourceVector[E ir.Evaluable[bls12_377.Element]](k int, vec Vector[bls12_377.Element, E], handle string, rows *hash.Set[hash.BytesKey],
+	trModule trace.Module[bls12_377.Element], scModule schema.Module, bytes []byte) schema.Failure {
 	// Check each source is included
 	if err := evalExprsAsBytes(k, vec, handle, trModule, scModule, bytes); err != nil {
 		return err
 	}
 	// Check whether contained.
 	if !rows.Contains(hash.NewBytesKey(bytes)) {
-		sources := make([]ir.Evaluable, vec.Len())
+		sources := make([]ir.Evaluable[bls12_377.Element], vec.Len())
 		for i, e := range vec.Terms {
 			sources[i] = e
 		}
@@ -327,7 +326,7 @@ func checkSourceVector[E ir.Evaluable](k int, vec Vector[E], handle string, rows
 	return nil
 }
 
-func evalExprsAsBytes[E ir.Evaluable](k int, vec Vector[E], handle string, trModule trace.Module,
+func evalExprsAsBytes[E ir.Evaluable[bls12_377.Element]](k int, vec Vector[bls12_377.Element, E], handle string, trModule trace.Module[bls12_377.Element],
 	scModule schema.Module, bytes []byte) schema.Failure {
 	var (
 		// Slice provides an access window for writing
@@ -348,10 +347,10 @@ func evalExprsAsBytes[E ir.Evaluable](k int, vec Vector[E], handle string, trMod
 			}
 		} else {
 			// Copy over each element
-			binary.BigEndian.PutUint64(slice, ith[0])
-			binary.BigEndian.PutUint64(slice[8:], ith[1])
-			binary.BigEndian.PutUint64(slice[16:], ith[2])
-			binary.BigEndian.PutUint64(slice[24:], ith[3])
+			binary.BigEndian.PutUint64(slice, ith.Element[0])
+			binary.BigEndian.PutUint64(slice[8:], ith.Element[1])
+			binary.BigEndian.PutUint64(slice[16:], ith.Element[2])
+			binary.BigEndian.PutUint64(slice[24:], ith.Element[3])
 			// Move slice over
 			slice = slice[32:]
 		}
@@ -387,7 +386,7 @@ func (p Constraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
 }
 
 // Substitute any matchined labelled constants within this constraint
-func (p Constraint[E]) Substitute(mapping map[string]fr.Element) {
+func (p Constraint[E]) Substitute(mapping map[string]bls12_377.Element) {
 	// Sources
 	for _, ith := range p.Sources {
 		ith.Substitute(mapping)

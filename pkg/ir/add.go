@@ -13,7 +13,6 @@
 package ir
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -25,10 +24,10 @@ import (
 )
 
 // Add represents the addition of zero or more expressions.
-type Add[F field.Element[F], T Term[T]] struct{ Args []T }
+type Add[F field.Element[F], T Term[F, T]] struct{ Args []T }
 
 // Sum zero or more expressions together.
-func Sum[F field.Element[F], T Term[T]](terms ...T) T {
+func Sum[F field.Element[F], T Term[F, T]](terms ...T) T {
 	// Flatten any nested sums
 	terms = array.Flatten(terms, flatternAdd[F, T])
 	// Remove any zeros
@@ -40,7 +39,7 @@ func Sum[F field.Element[F], T Term[T]](terms ...T) T {
 	case 1:
 		return terms[0]
 	default:
-		var term Term[T] = &Add[F, T]{terms}
+		var term Term[F, T] = &Add[F, T]{terms}
 		//
 		return term.(T)
 	}
@@ -51,7 +50,7 @@ func (p *Add[F, T]) Air() {}
 
 // ApplyShift implementation for Term interface.
 func (p *Add[F, T]) ApplyShift(shift int) T {
-	var term Term[T] = &Add[F, T]{applyShiftOfTerms(p.Args, shift)}
+	var term Term[F, T] = &Add[F, T]{applyShiftOfTerms(p.Args, shift)}
 	return term.(T)
 }
 
@@ -59,25 +58,18 @@ func (p *Add[F, T]) ApplyShift(shift int) T {
 func (p *Add[F, T]) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
 
 // EvalAt implementation for Evaluable interface.
-func (p *Add[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module) (fr.Element, error) {
+func (p *Add[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module) (F, error) {
 	// Evaluate first argument
 	val, err := p.Args[0].EvalAt(k, tr, sc)
 	// Continue evaluating the rest
 	for i := 1; err == nil && i < len(p.Args); i++ {
-		var ith fr.Element
+		var ith F
 		// Evaluate ith argument
 		ith, err = p.Args[i].EvalAt(k, tr, sc)
-		val.Add(&val, &ith)
+		val = val.Add(ith)
 	}
 	// Done
 	return val, err
-}
-
-// IsDefined implementation for Evaluable interface.
-func (p *Add[F, T]) IsDefined() bool {
-	// NOTE: this is technically safe given the limited way that IsDefined is
-	// used for lookup selectors.
-	return true
 }
 
 // Lisp implementation for Lispifiable interface.
@@ -106,7 +98,7 @@ func (p *Add[F, T]) Simplify(casts bool) T {
 }
 
 // Substitute implementation for Substitutable interface.
-func (p *Add[F, T]) Substitute(mapping map[string]fr.Element) {
+func (p *Add[F, T]) Substitute(mapping map[string]F) {
 	substituteTerms(mapping, p.Args...)
 }
 
@@ -126,10 +118,11 @@ func (p *Add[F, T]) ValueRange(mapping schema.RegisterMap) math.Interval {
 	return res
 }
 
-func simplifySum[F field.Element[F], T Term[T]](args []T, casts bool) T {
+func simplifySum[F field.Element[F], T Term[F, T]](args []T, casts bool) T {
 	var (
-		terms = simplifyTerms(args, addBinOp, frZERO, casts)
-		tmp   Term[T]
+		zero  F
+		terms = simplifyTerms(args, addBinOp, zero, casts)
+		tmp   Term[F, T]
 	)
 	// Flatten any nested sums
 	terms = array.Flatten(terms, flatternAdd[F, T])
@@ -138,7 +131,7 @@ func simplifySum[F field.Element[F], T Term[T]](args []T, casts bool) T {
 	// Check anything left
 	switch len(terms) {
 	case 0:
-		tmp = &Constant[F, T]{frZERO}
+		tmp = &Constant[F, T]{zero}
 	case 1:
 		return terms[0]
 	default:
@@ -148,8 +141,8 @@ func simplifySum[F field.Element[F], T Term[T]](args []T, casts bool) T {
 	return tmp.(T)
 }
 
-func flatternAdd[F field.Element[F], T Term[T]](term T) []T {
-	var e Term[T] = term
+func flatternAdd[F field.Element[F], T Term[F, T]](term T) []T {
+	var e Term[F, T] = term
 	if t, ok := e.(*Add[F, T]); ok {
 		return t.Args
 	}
