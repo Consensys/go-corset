@@ -246,7 +246,7 @@ type RegisterAllocation interface {
 
 // DEFAULT_ALLOCATOR determines the register allocation algorithm to use by
 // default.
-var DEFAULT_ALLOCATOR func(RegisterAllocation) = LegacyAllocator
+var DEFAULT_ALLOCATOR func(RegisterAllocation) = ImprovedAllocator
 
 // LegacyAllocator is the original register allocation algorithm used in Corset.
 // This is retained for backwards compatibility reasons, but should eventually

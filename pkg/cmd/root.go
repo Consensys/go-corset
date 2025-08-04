@@ -175,7 +175,7 @@ func init() {
 	rootCmd.Flags().Bool("version", false, "Report version of this executable")
 	// Corset compilation config
 	rootCmd.PersistentFlags().Bool("debug", false, "enable debugging constraints")
-	rootCmd.PersistentFlags().Bool("legacy", true, "use legacy register allocator")
+	rootCmd.PersistentFlags().Bool("legacy", false, "use legacy register allocator")
 	rootCmd.PersistentFlags().Bool("no-stdlib", false, "prevent standard library from being included")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "increase logging verbosity")
 	rootCmd.PersistentFlags().UintP("opt", "O", 1, "set optimisation level")
