@@ -43,7 +43,7 @@ var traceCmd = &cobra.Command{
 	it from one format (e.g. lt) to another (e.g. json),
 	or filtering out modules, or listing columns, etc.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		var traces [][]trace.BigEndianColumn
+		var traces []lt.TraceFile
 		// Configure log level
 		if GetFlag(cmd, "verbose") {
 			log.SetLevel(log.DebugLevel)
@@ -71,11 +71,10 @@ var traceCmd = &cobra.Command{
 			traces = ReadBatchedTraceFile(args[0])
 		} else {
 			// unbatched (i.e. normal) mode
-			tracefile := ReadTraceFile(args[0])
-			traces = [][]trace.BigEndianColumn{tracefile.Columns}
+			traces = []lt.TraceFile{ReadTraceFile(args[0])}
 			// Print meta-data (if requested)
 			if metadata {
-				printTraceFileHeader(&tracefile.Header)
+				printTraceFileHeader(&traces[0].Header)
 			}
 		}
 		//
@@ -137,9 +136,12 @@ func init() {
 	traceCmd.Flags().Bool("metadata", false, "Print embedded metadata")
 }
 
-func expandColumns(cols []trace.BigEndianColumn, schema sc.AnySchema, builder ir.TraceBuilder) []trace.BigEndianColumn {
-	// Construct expanded tr
-	tr, errs := builder.Build(schema, cols)
+func expandColumns(tf lt.TraceFile, schema sc.AnySchema, builder ir.TraceBuilder) lt.TraceFile {
+	var (
+		rcols []trace.BigEndianColumn
+		// Construct expanded tr
+		tr, errs = builder.Build(schema, tf)
+	)
 	// Handle errors
 	if len(errs) > 0 {
 		for _, err := range errs {
@@ -148,14 +150,6 @@ func expandColumns(cols []trace.BigEndianColumn, schema sc.AnySchema, builder ir
 		//
 		os.Exit(1)
 	}
-	// Convert back to raw column array
-	var (
-		rcols []trace.BigEndianColumn
-		// NOTE: we could probably do better here, since a pool must already
-		// have been created when the original trace was read.  We just need
-		// some way to access it.
-		pool = word.NewHeapPool[word.BigEndian]()
-	)
 	//
 	for mid := range tr.Width() {
 		module := tr.Module(mid)
@@ -165,18 +159,21 @@ func expandColumns(cols []trace.BigEndianColumn, schema sc.AnySchema, builder ir
 			rcols = append(rcols, trace.BigEndianColumn{
 				Module: module.Name(),
 				Name:   ith.Name(),
-				Data:   field.ToBigEndianByteArray(ith.Data(), pool),
+				Data:   field.ToBigEndianByteArray(ith.Data(), tf.Pool),
 			})
 		}
 	}
 	//
-	return rcols
+	return lt.NewTraceFile(tf.Header.MetaData, tf.Pool, rcols)
 }
 
 // Construct a new trace containing only those columns from the original who
 // name begins with the given prefix.
-func filterColumns(cols []trace.BigEndianColumn, regex string) []trace.BigEndianColumn {
-	r, err := regexp.Compile(regex)
+func filterColumns(tf lt.TraceFile, regex string) lt.TraceFile {
+	var (
+		r, err = regexp.Compile(regex)
+		cols   = tf.Columns
+	)
 	// Check for error
 	if err != nil {
 		panic(err)
@@ -191,12 +188,15 @@ func filterColumns(cols []trace.BigEndianColumn, regex string) []trace.BigEndian
 		}
 	}
 	// Done
-	return ncols
+	return lt.NewTraceFile(tf.Header.MetaData, tf.Pool, ncols)
 }
 
 // Construct a new trace where all columns are sliced to a given region.  In
 // some cases, that might mean the column becomes entirely empty.
-func sliceColumns(cols []trace.BigEndianColumn, start uint, end uint) {
+func sliceColumns(tf lt.TraceFile, start uint, end uint) {
+	var (
+		cols = tf.Columns
+	)
 	// Now slice them columns.
 	for i := 0; i < len(cols); i++ {
 		ith := cols[i]
@@ -225,10 +225,13 @@ func printTraceFileHeader(header *lt.Header) {
 	}
 }
 
-func printTrace(start uint, max_width uint, cols []trace.BigEndianColumn) {
-	n := uint(len(cols))
-	height := maxHeightColumns(cols)
-	tbl := termio.NewTablePrinter(1+height, 1+n)
+func printTrace(start uint, max_width uint, tf lt.TraceFile) {
+	var (
+		cols   = tf.Columns
+		n      = uint(len(cols))
+		height = maxHeightColumns(cols)
+		tbl    = termio.NewTablePrinter(1+height, 1+n)
+	)
 
 	for j := uint(0); j < height; j++ {
 		tbl.Set(j+1, 0, termio.NewText(fmt.Sprintf("#%d", j+start)))
@@ -248,15 +251,18 @@ func printTrace(start uint, max_width uint, cols []trace.BigEndianColumn) {
 	tbl.Print(true)
 }
 
-func listModules(max_width uint, tr []trace.BigEndianColumn) {
-	// Organise traces by their module ID
-	traces, modules := organiseTracesByModule(tr)
-	//
-	summarisers := moduleSumarisers
-	m := 1 + uint(len(summarisers))
-	n := uint(len(modules))
-	// Go!
-	tbl := termio.NewTablePrinter(m, n+1)
+func listModules(max_width uint, tf lt.TraceFile) {
+	var (
+		cols = tf.Columns
+		// Organise traces by their module ID
+		traces, modules = organiseTracesByModule(cols)
+		//
+		summarisers = moduleSumarisers
+		m           = 1 + uint(len(summarisers))
+		n           = uint(len(modules))
+		// Go!
+		tbl = termio.NewTablePrinter(m, n+1)
+	)
 	// Set column titles
 	for i := uint(0); i < uint(len(summarisers)); i++ {
 		tbl.Set(i+1, 0, termio.NewText(summarisers[i].name))
@@ -278,13 +284,16 @@ func listModules(max_width uint, tr []trace.BigEndianColumn) {
 	tbl.Print(true)
 }
 
-func listColumns(max_width uint, tr []trace.BigEndianColumn, includes []string) {
-	summarisers := selectColumnSummarisers(includes)
-	m := 1 + uint(len(summarisers))
-	n := uint(len(tr))
-	// Go!
-	tbl := termio.NewTablePrinter(m, n+1)
-	c := make(chan util.Pair[uint, []termio.FormattedText], n)
+func listColumns(max_width uint, tf lt.TraceFile, includes []string) {
+	var (
+		cols        = tf.Columns
+		summarisers = selectColumnSummarisers(includes)
+		m           = 1 + uint(len(summarisers))
+		n           = uint(len(cols))
+		// Go!
+		tbl = termio.NewTablePrinter(m, n+1)
+		c   = make(chan util.Pair[uint, []termio.FormattedText], n)
+	)
 	// Set titles
 	tbl.Set(0, 0, termio.NewText("Column"))
 
@@ -296,7 +305,7 @@ func listColumns(max_width uint, tr []trace.BigEndianColumn, includes []string) 
 		// Launch summarisers
 		go func(index uint) {
 			// Apply summarisers to column
-			row := summariseColumn(tr[index], summarisers)
+			row := summariseColumn(cols[index], summarisers)
 			// Package result
 			c <- util.NewPair(index, row)
 		}(i)
@@ -381,13 +390,13 @@ func summariseColumn(column trace.BigEndianColumn, summarisers []ColumnSummarise
 	return row
 }
 
-func summaryStats(tr []trace.BigEndianColumn) {
+func summaryStats(tf lt.TraceFile) {
 	m := uint(len(trSummarisers))
 	tbl := termio.NewTablePrinter(2, m)
 	// Go!
 	for i := uint(0); i < m; i++ {
 		ith := trSummarisers[i]
-		summary := ith.summary(tr)
+		summary := ith.summary(tf.Columns)
 		tbl.SetRow(i, termio.NewText(ith.name), termio.NewText(summary))
 	}
 	//

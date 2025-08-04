@@ -17,33 +17,35 @@ import (
 	"math"
 	"strings"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
-	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // ArrayTrace provides an implementation of Trace which stores columns as an
 // array.
-type ArrayTrace struct {
+type ArrayTrace[T word.Word[T]] struct {
+	// Internal memory pool
+	pool word.Pool[uint, T]
 	// Holds the height of each module in this trace.  The index of each
 	// module in this array uniquely identifies it, and is referred to as the
 	// "module index".
-	modules []ArrayModule
+	modules []ArrayModule[T]
 }
 
 // NewArrayTrace constructs a trace from a given set of indexed modules and columns.
-func NewArrayTrace(modules []ArrayModule) *ArrayTrace {
-	return &ArrayTrace{modules}
+func NewArrayTrace[T word.Word[T]](pool word.Pool[uint, T], modules []ArrayModule[T]) *ArrayTrace[T] {
+	return &ArrayTrace[T]{pool, modules}
 }
 
 // Column accesses a given column directly via a reference.
-func (p *ArrayTrace) Column(cref ColumnRef) Column {
+func (p *ArrayTrace[T]) Column(cref ColumnRef) Column[T] {
 	return p.modules[cref.Module()].Column(cref.Column().index)
 }
 
 // HasModule determines whether this trace has a module with the given name and,
 // if so, what its module index is.
-func (p *ArrayTrace) HasModule(module string) (uint, bool) {
+func (p *ArrayTrace[T]) HasModule(module string) (uint, bool) {
 	// Linea scan through list of modules
 	for mid, mod := range p.modules {
 		if mod.name == module {
@@ -55,33 +57,33 @@ func (p *ArrayTrace) HasModule(module string) (uint, bool) {
 }
 
 // Module returns a specific module in this trace.
-func (p *ArrayTrace) Module(module uint) Module {
+func (p *ArrayTrace[T]) Module(module uint) Module[T] {
 	return p.modules[module]
 }
 
 // RawModule returns a specific module in this trace.
-func (p *ArrayTrace) RawModule(module uint) *ArrayModule {
+func (p *ArrayTrace[T]) RawModule(module uint) *ArrayModule[T] {
 	return &p.modules[module]
 }
 
 // Modules returns an iterator over the modules in this trace.
-func (p *ArrayTrace) Modules() iter.Iterator[Module] {
+func (p *ArrayTrace[T]) Modules() iter.Iterator[Module[T]] {
 	arr := iter.NewArrayIterator(p.modules)
-	return iter.NewCastIterator[ArrayModule, Module](arr)
+	return iter.NewCastIterator[ArrayModule[T], Module[T]](arr)
 }
 
 // Width returns number of columns in this trace.
-func (p *ArrayTrace) Width() uint {
+func (p *ArrayTrace[T]) Width() uint {
 	return uint(len(p.modules))
 }
 
 // Pad prepends (front) and appends (back) a given module with a given number of
 // padding rows.
-func (p *ArrayTrace) Pad(module uint, front uint, back uint) {
+func (p *ArrayTrace[T]) Pad(module uint, front uint, back uint) {
 	p.modules[module].Pad(front, back)
 }
 
-func (p *ArrayTrace) String() string {
+func (p *ArrayTrace[T]) String() string {
 	// Use string builder to try and make this vaguely efficient.
 	var id strings.Builder
 
@@ -103,7 +105,7 @@ func (p *ArrayTrace) String() string {
 // ----------------------------------------------------------------------------
 
 // ArrayModule describes an individual module within a trace.
-type ArrayModule struct {
+type ArrayModule[T fmt.Stringer] struct {
 	// Holds the name of this module
 	name string
 	// Holds the height of all columns within this module.
@@ -116,12 +118,12 @@ type ArrayModule struct {
 	// Holds the complete set of columns in this trace.  The index of each
 	// column in this array uniquely identifies it, and is referred to as the
 	// "column index".
-	columns []ArrayColumn
+	columns []ArrayColumn[T]
 }
 
 // NewArrayModule constructs a module with the given name and an (as yet)
 // unspecified height.
-func NewArrayModule(name string, multiplier uint, columns []ArrayColumn) ArrayModule {
+func NewArrayModule[T word.Word[T]](name string, multiplier uint, columns []ArrayColumn[T]) ArrayModule[T] {
 	var (
 		height uint = 0
 		first       = true
@@ -144,21 +146,21 @@ func NewArrayModule(name string, multiplier uint, columns []ArrayColumn) ArrayMo
 		panic(fmt.Sprintf("invalid module height (have %d, expected multiple of %d)", height, multiplier))
 	}
 	//
-	return ArrayModule{name, height, multiplier, columns}
+	return ArrayModule[T]{name, height, multiplier, columns}
 }
 
 // Name returns the name of this module.
-func (p ArrayModule) Name() string {
+func (p ArrayModule[T]) Name() string {
 	return p.name
 }
 
 // Column returns a specific column within this trace module.
-func (p ArrayModule) Column(id uint) Column {
+func (p ArrayModule[T]) Column(id uint) Column[T] {
 	return &p.columns[id]
 }
 
 // ColumnOf returns a specific column within this trace module.
-func (p ArrayModule) ColumnOf(name string) Column {
+func (p ArrayModule[T]) ColumnOf(name string) Column[T] {
 	for _, c := range p.columns {
 		if c.name == name {
 			return &c
@@ -170,19 +172,19 @@ func (p ArrayModule) ColumnOf(name string) Column {
 
 // Height returns the height of this module, meaning the number of assigned
 // rows.
-func (p ArrayModule) Height() uint {
+func (p ArrayModule[T]) Height() uint {
 	return p.height
 }
 
 // Width returns the number of columns in this module.
-func (p ArrayModule) Width() uint {
+func (p ArrayModule[T]) Width() uint {
 	return uint(len(p.columns))
 }
 
 // FillColumn sets the data and padding for the given column.  This will panic
 // if the data is already set.  Also, if the module height is updated then this
 // returns true to signal a height recalculation is required.
-func (p *ArrayModule) FillColumn(cid uint, data field.FrArray, padding fr.Element) bool {
+func (p *ArrayModule[T]) FillColumn(cid uint, data array.Array[T], padding T) bool {
 	// Find column to fill
 	col := &p.columns[cid]
 	// Sanity check this column has not already been filled.
@@ -196,7 +198,8 @@ func (p *ArrayModule) FillColumn(cid uint, data field.FrArray, padding fr.Elemen
 		p.height = math.MaxUint
 	}
 	// Fill the column
-	col.fill(data, padding)
+	col.data = data
+	col.padding = padding
 	//
 	return p.height == math.MaxUint
 }
@@ -204,7 +207,7 @@ func (p *ArrayModule) FillColumn(cid uint, data field.FrArray, padding fr.Elemen
 // Resize the height of this module on the assumption it has been reset whilst
 // filling a column (as above).  This will panic if either: the module height
 // was not previously reset; or, if the column heights are inconsistent.
-func (p *ArrayModule) Resize() {
+func (p *ArrayModule[T]) Resize() {
 	var (
 		nsize uint = math.MaxUint
 		first bool = true
@@ -232,7 +235,7 @@ func (p *ArrayModule) Resize() {
 
 // Pad prepends (front) and appends (back) all columns in this module with a
 // given number of padding rows.
-func (p *ArrayModule) Pad(front uint, back uint) {
+func (p *ArrayModule[T]) Pad(front uint, back uint) {
 	if front%p.multiplier != 0 {
 		panic(fmt.Sprintf("invalid front padding (have %d, expected multiple of %d)", front, p.multiplier))
 	} else if back%p.multiplier != 0 {
@@ -246,7 +249,7 @@ func (p *ArrayModule) Pad(front uint, back uint) {
 	}
 }
 
-func (p *ArrayModule) String() string {
+func (p *ArrayModule[T]) String() string {
 	var id strings.Builder
 	//
 	if p.name == "" {
@@ -273,57 +276,45 @@ func (p *ArrayModule) String() string {
 // ----------------------------------------------------------------------------
 
 // ArrayColumn describes an individual column of data within a trace table.
-type ArrayColumn struct {
+type ArrayColumn[T fmt.Stringer] struct {
 	// Holds the name of this column
 	name string
 	// Holds the raw data making up this column
-	data field.FrArray
+	data array.Array[T]
 	// Value to be used when padding this column
-	padding fr.Element
+	padding T
 }
 
 // NewArrayColumn constructs a with the give name, data and padding.  The given
 // data is permitted to be nil, and this is used to signal a computed column.
-func NewArrayColumn(name string, data field.FrArray, padding fr.Element) ArrayColumn {
-	//
-	col := EmptyArrayColumn(name)
-	// Data is permitted to be nil for computed columns.
-	if data != nil {
-		col.fill(data, padding)
-	}
-	//
-	return col
-}
-
-// EmptyArrayColumn constructs a  with the give name, data and padding.
-func EmptyArrayColumn(name string) ArrayColumn {
-	return ArrayColumn{name, nil, fr.NewElement(0)}
+func NewArrayColumn[T fmt.Stringer](name string, data array.Array[T], padding T) ArrayColumn[T] {
+	return ArrayColumn[T]{name, data, padding}
 }
 
 // Name returns the name of the given column.
-func (p *ArrayColumn) Name() string {
+func (p *ArrayColumn[T]) Name() string {
 	return p.name
 }
 
 // Height determines the height of this column.
-func (p *ArrayColumn) Height() uint {
+func (p *ArrayColumn[T]) Height() uint {
 	return p.data.Len()
 }
 
 // Padding returns the value which will be used for padding this column.
-func (p *ArrayColumn) Padding() fr.Element {
+func (p *ArrayColumn[T]) Padding() T {
 	return p.padding
 }
 
 // Data provides access to the underlying data of this column
-func (p *ArrayColumn) Data() field.FrArray {
+func (p *ArrayColumn[T]) Data() array.Array[T] {
 	return p.data
 }
 
 // Get the value at a given row in this column.  If the row is
 // out-of-bounds, then the column's padding value is returned instead.
 // Thus, this function always succeeds.
-func (p *ArrayColumn) Get(row int) fr.Element {
+func (p *ArrayColumn[T]) Get(row int) T {
 	if row < 0 || uint(row) >= p.data.Len() {
 		// out-of-bounds access
 		return p.padding
@@ -332,7 +323,7 @@ func (p *ArrayColumn) Get(row int) fr.Element {
 	return p.data.Get(uint(row))
 }
 
-func (p *ArrayColumn) String() string {
+func (p *ArrayColumn[T]) String() string {
 	var id strings.Builder
 	// Write column name
 	id.WriteString(p.name)
@@ -358,15 +349,10 @@ func (p *ArrayColumn) String() string {
 	return id.String()
 }
 
-func (p *ArrayColumn) fill(data field.FrArray, padding fr.Element) {
-	// Fill the column
-	p.data = data
-	p.padding = padding
-}
-
-func (p *ArrayColumn) pad(front uint, back uint) {
-	if p.data != nil {
-		// Pad front of array
-		p.data = p.data.Pad(front, back, p.padding)
-	}
+func (p *ArrayColumn[T]) pad(front uint, back uint) {
+	// if p.data != nil {
+	// 	// Pad front of array
+	// 	p.data = p.data.Pad(front, back, p.padding)
+	// }
+	panic("todo")
 }

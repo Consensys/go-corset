@@ -11,30 +11,3 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 package trace
-
-import (
-	"fmt"
-
-	"github.com/consensys/go-corset/pkg/util/field"
-)
-
-// QualifiedColumnName returns the fully qualified name of a given column.
-func QualifiedColumnName(module string, column string) string {
-	if module == "" {
-		return column
-	}
-
-	return fmt.Sprintf("%s.%s", module, column)
-}
-
-// NumberOfColumns returns the total number of all columns in the given trace.
-func NumberOfColumns[F field.Element[F]](tr Trace[F]) uint {
-	var count = uint(0)
-	//
-	for i := range tr.Width() {
-		ith := tr.Module(i)
-		count += ith.Width()
-	}
-	//
-	return count
-}

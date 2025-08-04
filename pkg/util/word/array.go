@@ -13,20 +13,26 @@
 package word
 
 import (
+	"fmt"
+
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
 )
 
 // Word abstracts a sequence of n bits.
 type Word[T any] interface {
+	fmt.Stringer
 	hash.Hasher[T]
 	// Get the bit at a given bit offset in this word, where offsets always
 	// start with the least-significant bit.
 	Bit(uint) bool
 	// Return bitwidth of this word
 	BitWidth() uint
-	// Write contents of this word into given byte array.
-	Put([]byte)
+	// Bytes returns the bytes of this word
+	Bytes() []byte
+	// Write contents of this word into given byte array.  If the given byte
+	// array is not big enough, a new array is allocated and returned.
+	Put([]byte) []byte
 	// Initialise this word from a set of bytes.
 	Set([]byte) T
 }

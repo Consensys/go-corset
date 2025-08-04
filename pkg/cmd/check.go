@@ -29,12 +29,11 @@ import (
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
 	"github.com/consensys/go-corset/pkg/schema/constraint/ranged"
 	"github.com/consensys/go-corset/pkg/schema/constraint/vanishing"
-	"github.com/consensys/go-corset/pkg/trace"
 	tr "github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
-	"github.com/consensys/go-corset/pkg/util/word"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -145,7 +144,7 @@ type checkConfig struct {
 // Check raw constraints using the legacy pipeline.
 func checkWithLegacyPipeline(cfg checkConfig, batched bool, tracefile string, schemas cmd_util.SchemaStack) {
 	var (
-		traces [][]trace.BigEndianColumn
+		traces []lt.TraceFile
 		ok     bool = true
 	)
 	//
@@ -160,8 +159,7 @@ func checkWithLegacyPipeline(cfg checkConfig, batched bool, tracefile string, sc
 		traces = ReadBatchedTraceFile(tracefile)
 	} else {
 		// unbatched (i.e. normal) mode
-		tracefile := ReadTraceFile(tracefile)
-		traces = [][]trace.BigEndianColumn{tracefile.Columns}
+		traces = []lt.TraceFile{ReadTraceFile(tracefile)}
 	}
 	//
 	stats.Log("Reading trace file")
@@ -176,14 +174,14 @@ func checkWithLegacyPipeline(cfg checkConfig, batched bool, tracefile string, sc
 	}
 }
 
-func checkTrace(ir string, traces [][]tr.RawColumn[word.BigEndian], schema sc.AnySchema,
+func checkTrace(ir string, traces []lt.TraceFile, schema sc.AnySchema,
 	builder ir.TraceBuilder, cfg checkConfig) bool {
 	//
-	for _, cols := range traces {
+	for _, tf := range traces {
 		for n := cfg.padding.Left; n <= cfg.padding.Right; n++ {
 			//
 			stats := util.NewPerfStats()
-			trace, errs := builder.WithPadding(n).Build(schema, cols)
+			trace, errs := builder.WithPadding(n).Build(schema, tf)
 			// Log cost of expansion
 			stats.Log("Expanding trace columns")
 			// Report any errors

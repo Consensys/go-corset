@@ -24,27 +24,29 @@ import (
 // same height and can be either "data" columns or "computed" columns.
 type Trace[F field.Element[F]] interface {
 	// Access a given column directly via a reference.
-	Column(ColumnRef) Column
+	Column(ColumnRef) Column[F]
 	// Access a given module in this trace.
-	Module(ModuleId) Module
+	Module(ModuleId) Module[F]
 	// Determine whether this trace has a module with the given name and, if so,
 	// what its module index is.
 	HasModule(name string) (uint, bool)
 	// Returns the number of modules in this trace.
 	Width() uint
 	// Returns an iterator over the contained modules
-	Modules() iter.Iterator[Module]
+	Modules() iter.Iterator[Module[F]]
+	// Provides access to the internal memory pool
+	Pool() word.Pool[uint, F]
 }
 
 // Module describes a module within the trace.  Every module is composed of some
 // number of columns, and has a specific height.
-type Module interface {
+type Module[T any] interface {
 	// Module name
 	Name() string
 	// Access a given column in this module.
-	Column(uint) Column
+	Column(uint) Column[T]
 	// Access a given column by its name.
-	ColumnOf(string) Column
+	ColumnOf(string) Column[T]
 	// Returns the number of columns in this module.
 	Width() uint
 	// Returns the height of this module.
@@ -52,18 +54,18 @@ type Module interface {
 }
 
 // Column describes an individual column of data within a trace table.
-type Column interface {
+type Column[T any] interface {
 	// Holds the name of this column
 	Name() string
 	// Get the value at a given row in this column.  If the row is
 	// out-of-bounds, then the column's padding value is returned instead.
 	// Thus, this function always succeeds.
-	Get(row int) fr.Element
+	Get(row int) T
 	// Access the underlying data array for this column.  This is useful in
 	// situations where we want to clone the entire column, etc.
-	Data() field.FrArray
+	Data() array.Array[T]
 	// Value to be used when padding this column
-	Padding() fr.Element
+	Padding() T
 }
 
 // RawFrColumn is a temporary alias which should be deprecated shortly.

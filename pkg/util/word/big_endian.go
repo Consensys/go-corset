@@ -78,11 +78,15 @@ func (p BigEndian) Hash() uint64 {
 }
 
 // Put implementation for Word interface.
-func (p BigEndian) Put(bytes []byte) {
+func (p BigEndian) Put(bytes []byte) []byte {
 	var (
 		n = uint(len(bytes))
 		m = uint(len(p.bytes))
 	)
+	// Sanity check space
+	if len(bytes) < len(p.bytes) {
+		bytes = make([]byte, len(p.bytes))
+	}
 	//
 	for m > 0 {
 		m--
@@ -94,6 +98,8 @@ func (p BigEndian) Put(bytes []byte) {
 		n--
 		bytes[n] = 0
 	}
+	//
+	return bytes
 }
 
 // Set implementation for Word interface.

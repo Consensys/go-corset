@@ -26,6 +26,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/typed"
+	"github.com/consensys/go-corset/pkg/util/word"
 	"github.com/spf13/cobra"
 )
 
@@ -107,16 +108,16 @@ func GetIntArray(cmd *cobra.Command, flag string) []int {
 	return r
 }
 
-func writeBatchedTracesFile(filename string, traces ...[]trace.BigEndianColumn) {
+func writeBatchedTracesFile(filename string, traces ...lt.TraceFile) {
 	var buf bytes.Buffer
 	// Check file extension
 	if len(traces) == 1 {
-		writeTraceFile(filename, lt.NewTraceFile(nil, traces[0]))
+		writeTraceFile(filename, traces[0])
 		return
 	}
 	// Always write JSON in batched mode
 	for _, trace := range traces {
-		js := json.ToJsonString(trace)
+		js := json.ToJsonString(trace.Columns)
 		buf.WriteString(js)
 		buf.WriteString("\n")
 	}
@@ -129,7 +130,7 @@ func writeBatchedTracesFile(filename string, traces ...[]trace.BigEndianColumn) 
 }
 
 // Write a given trace file to disk
-func writeTraceFile(filename string, tracefile *lt.TraceFile) {
+func writeTraceFile(filename string, tracefile lt.TraceFile) {
 	var err error
 
 	var bytes []byte
@@ -162,8 +163,11 @@ func writeTraceFile(filename string, tracefile *lt.TraceFile) {
 // ReadTraceFile reads a trace file (either binary lt or json), and parses it
 // into an array of raw columns.  The determination of what kind of trace file
 // (i.e. binary or json) is based on the extension.
-func ReadTraceFile(filename string) *lt.TraceFile {
-	var columns []trace.BigEndianColumn
+func ReadTraceFile(filename string) lt.TraceFile {
+	var (
+		columns []trace.BigEndianColumn
+		pool    word.Pool[uint, word.BigEndian]
+	)
 	// Read data file
 	data, err := os.ReadFile(filename)
 	// Check success
@@ -173,24 +177,24 @@ func ReadTraceFile(filename string) *lt.TraceFile {
 		//
 		switch ext {
 		case ".json":
-			columns, err = json.FromBytes(data)
+			pool, columns, err = json.FromBytes(data)
 			if err == nil {
-				return lt.NewTraceFile(nil, columns)
+				return lt.NewTraceFile(nil, pool, columns)
 			}
 		case ".lt":
 			// Check for legacy format
 			if !lt.IsTraceFile(data) {
 				// legacy format
-				columns, err = lt.FromBytesLegacy(data)
+				pool, columns, err = lt.FromBytesLegacy(data)
 				if err == nil {
-					return lt.NewTraceFile(nil, columns)
+					return lt.NewTraceFile(nil, pool, columns)
 				}
 			} else {
 				// versioned format
 				var tracefile lt.TraceFile
 				//
 				if err = tracefile.UnmarshalBinary(data); err == nil {
-					return &tracefile
+					return tracefile
 				}
 			}
 			//
@@ -202,25 +206,25 @@ func ReadTraceFile(filename string) *lt.TraceFile {
 	fmt.Println(err)
 	os.Exit(2)
 	// unreachable
-	return nil
+	return lt.TraceFile{}
 }
 
 // ReadBatchedTraceFile reads a file containing zero or more traces expressed as
 // JSON, where each trace is on a separate line.
-func ReadBatchedTraceFile(filename string) [][]trace.BigEndianColumn {
+func ReadBatchedTraceFile(filename string) []lt.TraceFile {
 	lines := util.ReadInputFile(filename)
-	traces := make([][]trace.BigEndianColumn, 0)
+	traces := make([]lt.TraceFile, 0)
 	// Read constraints line by line
 	for i, line := range lines {
 		// Parse input line as JSON
 		if line != "" && !strings.HasPrefix(line, ";;") {
-			tr, err := json.FromBytes([]byte(line))
+			pool, cols, err := json.FromBytes([]byte(line))
 			if err != nil {
 				msg := fmt.Sprintf("%s:%d: %s", filename, i+1, err)
 				panic(msg)
 			}
 
-			traces = append(traces, tr)
+			traces = append(traces, lt.NewTraceFile(nil, pool, cols))
 		}
 	}
 

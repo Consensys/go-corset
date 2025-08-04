@@ -18,13 +18,14 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
 // IfZero returns the true branch when the condition evaluates to zero, and the
 // false branch otherwise.
-type IfZero[S LogicalTerm[S], T Term[T]] struct {
+type IfZero[F field.Element[F], S LogicalTerm[S], T Term[T]] struct {
 	// Elements contained within this list.
 	Condition S
 	// True branch
@@ -35,25 +36,25 @@ type IfZero[S LogicalTerm[S], T Term[T]] struct {
 
 // IfElse constructs a new conditional with true and false branches.  Note, the
 // true branch is taken when the condition evaluates to zero.
-func IfElse[S LogicalTerm[S], T Term[T]](condition S, trueBranch T, falseBranch T) T {
-	var term Term[T] = &IfZero[S, T]{condition, trueBranch, falseBranch}
+func IfElse[F field.Element[F], S LogicalTerm[S], T Term[T]](condition S, trueBranch T, falseBranch T) T {
+	var term Term[T] = &IfZero[F, S, T]{condition, trueBranch, falseBranch}
 	return term.(T)
 }
 
 // ApplyShift implementation for Term interface.
-func (p *IfZero[S, T]) ApplyShift(shift int) T {
+func (p *IfZero[F, S, T]) ApplyShift(shift int) T {
 	var (
 		c  = p.Condition.ApplyShift(shift)
 		tb = p.TrueBranch.ApplyShift(shift)
 		fb = p.FalseBranch.ApplyShift(shift)
 	)
 	//
-	return IfElse(c, tb, fb)
+	return IfElse[F](c, tb, fb)
 }
 
 // Bounds returns max shift in either the negative (left) or positive
 // direction (right).
-func (p *IfZero[S, T]) Bounds() util.Bounds {
+func (p *IfZero[F, S, T]) Bounds() util.Bounds {
 	c := p.Condition.Bounds()
 	// Get bounds for true branch
 	tbounds := p.TrueBranch.Bounds()
@@ -66,7 +67,7 @@ func (p *IfZero[S, T]) Bounds() util.Bounds {
 }
 
 // EvalAt implementation for Evaluable interface.
-func (p *IfZero[S, T]) EvalAt(k int, tr trace.Module, sc schema.Module) (fr.Element, error) {
+func (p *IfZero[F, S, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module) (fr.Element, error) {
 	// Evaluate condition
 	cond, _, err := p.Condition.TestAt(k, tr, sc)
 	//
@@ -80,14 +81,14 @@ func (p *IfZero[S, T]) EvalAt(k int, tr trace.Module, sc schema.Module) (fr.Elem
 }
 
 // IsDefined implementation for Evaluable interface.
-func (p *IfZero[S, T]) IsDefined() bool {
+func (p *IfZero[F, S, T]) IsDefined() bool {
 	// NOTE: this is technically safe given the limited way that IsDefined is
 	// used for lookup selectors.
 	return true
 }
 
 // Lisp implementation for Lispifiable interface.
-func (p *IfZero[S, T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
+func (p *IfZero[F, S, T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
 	// Translate Condition
 	condition := p.Condition.Lisp(global, mapping)
 	// Dispatch on type
@@ -100,7 +101,7 @@ func (p *IfZero[S, T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
 }
 
 // RequiredRegisters implementation for Contextual interface.
-func (p *IfZero[S, T]) RequiredRegisters() *set.SortedSet[uint] {
+func (p *IfZero[F, S, T]) RequiredRegisters() *set.SortedSet[uint] {
 	set := p.Condition.RequiredRegisters()
 	// Include true branch
 	set.InsertSorted(p.TrueBranch.RequiredRegisters())
@@ -111,7 +112,7 @@ func (p *IfZero[S, T]) RequiredRegisters() *set.SortedSet[uint] {
 }
 
 // RequiredCells implementation for Contextual interface
-func (p *IfZero[S, T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
+func (p *IfZero[F, S, T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
 	set := p.Condition.RequiredCells(row, mid)
 	// Include true branch
 	set.InsertSorted(p.TrueBranch.RequiredCells(row, mid))
@@ -122,7 +123,7 @@ func (p *IfZero[S, T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySorted
 }
 
 // ShiftRange implementation for Term interface.
-func (p *IfZero[S, T]) ShiftRange() (int, int) {
+func (p *IfZero[F, S, T]) ShiftRange() (int, int) {
 	cMin, cMax := p.Condition.ShiftRange()
 	tMin, tMax := p.TrueBranch.ShiftRange()
 	fMin, fMax := p.FalseBranch.ShiftRange()
@@ -131,12 +132,12 @@ func (p *IfZero[S, T]) ShiftRange() (int, int) {
 }
 
 // ValueRange implementation for Term interface.
-func (p *IfZero[S, T]) ValueRange(_ schema.RegisterMap) math.Interval {
+func (p *IfZero[F, S, T]) ValueRange(_ schema.RegisterMap) math.Interval {
 	panic("todo")
 }
 
 // Substitute implementation for Substitutable interface.
-func (p *IfZero[S, T]) Substitute(mapping map[string]fr.Element) {
+func (p *IfZero[F, S, T]) Substitute(mapping map[string]fr.Element) {
 	p.Condition.Substitute(mapping)
 	p.FalseBranch.Substitute(mapping)
 	p.TrueBranch.Substitute(mapping)
@@ -145,20 +146,20 @@ func (p *IfZero[S, T]) Substitute(mapping map[string]fr.Element) {
 // Simplify implementation for Term interface.
 //
 // nolint
-func (p *IfZero[S, T]) Simplify(casts bool) T {
+func (p *IfZero[F, S, T]) Simplify(casts bool) T {
 	var (
 		cond        = p.Condition.Simplify(casts)
 		trueBranch  = p.TrueBranch.Simplify(casts)
 		falseBranch = p.FalseBranch.Simplify(casts)
 	)
 	// Handle reductive cases
-	if IsTrue(cond) {
+	if IsTrue[F](cond) {
 		return trueBranch
-	} else if IsFalse(cond) {
+	} else if IsFalse[F](cond) {
 		return falseBranch
 	}
 	// Done
-	var term Term[T] = &IfZero[S, T]{cond, trueBranch, falseBranch}
+	var term Term[T] = &IfZero[F, S, T]{cond, trueBranch, falseBranch}
 	//
 	return term.(T)
 }
